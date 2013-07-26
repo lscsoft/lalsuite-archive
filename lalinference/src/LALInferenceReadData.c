@@ -2464,14 +2464,14 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform */
       REAL8TimeSeries       *signalvecREAL8=NULL;
       INT4              maxl=0;         /**< Maximum l of QNMs */
-      QNMTimeSeries *hmodes;        /**< List containing empty Quasi-Normal Modes  */
+      QNMTimeSeries *qnmodes;        /**< List containing empty Quasi-Normal Modes  */
       
-      // TODO: Get maxl or (l,m) pairs from commandLine
+      // TODO: Get maxl or (l,m) pairs from commandLine.
       maxl = 4;
-      XLALSimAddEmptyQNMode(hmodes, 2, 2);
-      XLALSimAddEmptyQNMode(hmodes, 2, 1);
-      XLALSimAddEmptyQNMode(hmodes, 3, 3);
-      XLALSimAddEmptyQNMode(hmodes, 4, 4);
+      XLALSimAddEmptyQNMode(qnmodes, 2, 2);
+      XLALSimAddEmptyQNMode(qnmodes, 2, 1);
+      XLALSimAddEmptyQNMode(qnmodes, 3, 3);
+      XLALSimAddEmptyQNMode(qnmodes, 4, 4);
       
       // TODO: Get the parameters from the right places (injEvent inspiral or ringdown table?)
       REAL8 m1 = injEvent->mass1;
@@ -2494,9 +2494,9 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       /* Print a line with information about approximant, QNM multipole order and spin order */
       fprintf(stdout,"Injection will run using Approximant %i (%s), QNM order %i, spin order %i, in the time domain.\n",approximant,XLALGetStringFromApproximant(approximant), maxl, (int) spinO);
       XLALSimRingdownChooseTDWaveform(&hplus, &hcross, phase, 1.0/InjSampleRate,
-                                      Mbh*LAL_MSUN_SI, eta, injEvent->distance*LAL_PC_SI * 1.0e6,
+                                      Mbh*LAL_MSUN_SI, spin, eta, injEvent->distance*LAL_PC_SI * 1.0e6,
                                       injEvent->inclination, waveFlags,
-                                      nonGRparams, maxl, hmodes, approximant);
+                                      nonGRparams, maxl, qnmodes, approximant);
       if(!hplus || !hcross) {
         fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to produce waveform.\n");
         exit(-1);

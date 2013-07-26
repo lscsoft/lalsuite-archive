@@ -1853,7 +1853,7 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
 
 {
   Approximant approximant = (Approximant) 0;
-  int qnmorder=-1;
+  UINT4 qnmorder=0;
   LALInferenceFrame frame=LALINFERENCE_FRAME_RADIATION;
   
   unsigned long	i;
@@ -1882,10 +1882,10 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
       XLAL_ERROR_VOID(XLAL_EDATA);
   }
   
-  if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_QNM_MAXL"))
-    qnmorder = *(INT4*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_QNM_MAXL"));
+  if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_QNM_ORDER"))
+    qnmorder = *(UINT4*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_QNM_ORDER"));
   else {
-    XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBlackHoleRingdown(): (INT4) \"LAL_QNM_MAXL\" parameter not provided!\n");
+    XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBlackHoleRingdown(): (INT4) \"LAL_QNM_ORDER\" parameter not provided!\n");
     XLAL_ERROR_VOID(XLAL_EDATA);
   }
 
@@ -1901,6 +1901,7 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
   
   if(LALInferenceCheckVariable(IFOdata->modelParams,"finalmass"))
   {
+	mass = *(REAL8 *)LALInferenceCheckVariable(IFOdata->modelParams,"finalmass");
     if (LALInferenceCheckVariable(IFOdata->modelParams,"asym_massratio")) 
     {
       REAL8 q = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"asym_massratio");
@@ -1917,11 +1918,11 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
       exit(0);
     }
   }
-  else if(LALInferenceCheckVariable(IFOdata->modelParams, "nospincomponents") && (m1_p=(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "mass1")) && (m2_p=(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "mass2")))
-  {
-    m1=*m1_p;
-    m2=*m2_p;
-    mass = XLALNonSpinBinaryFinalBHMass(eta, m1, m2)
+  else if(LALInferenceCheckVariable(IFOdata->modelParams, "nospincomponents") && LALInferenceGetVariable(IFOdata->modelParams, "mass1") && LALInferenceGetVariable(IFOdata->modelParams, "mass2"))
+  { 
+	m1 = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "mass1");
+	m2 = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "mass2");
+    mass = XLALNonSpinBinaryFinalBHMass(eta, m1, m2); 
   }
   else
   {
@@ -1930,6 +1931,8 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
   }
 
   phi		= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phase"); /* Start phase */
+  distance  = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "distance");
+  distance *= LAL_PC_SI*1.0e6;  /* Distance to source in meters */
   
   REAL8 spin = 0.0;  /* Spin of the final black hole */
   REAL8 a_spin1	= 0.0;  /* Spin magnitude of component mass1 */
@@ -1958,7 +1961,7 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
     spin2x = (a_spin2 * sin(theta_spin2) * cos(phi_spin2));
     spin2y = (a_spin2 * sin(theta_spin2) * sin(phi_spin2));
     spin2z = (a_spin2 * cos(theta_spin2));
-    
+        
   } else if(frame==LALINFERENCE_FRAME_SYSTEM) {
     REAL8 thetaJN = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "theta_JN");     /* zenith angle between J and N in radians */
     REAL8 phiJL = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phi_JL");     /* azimuthal angle of L_N on its cone about J radians */
@@ -1977,32 +1980,26 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
     }
   }
 
+  // TODO: see if the final spin/mass functions can be updated with more recent results
   /* Fill in final black hole spin magnitude */
-  if (LALInferenceCheckVariable(modelParams, "spin_from_components")){
-    spin = XLALNonSpinBinaryFinalBHSpin(eta);
-  }
-  else if(LALInferenceCheckVariable(IFOdata->modelParams, "spin")){
+  
+  if(LALInferenceCheckVariable(IFOdata->modelParams, "spin")){
     spin = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "spin");
   }
-  else
-  
-  
-  /*
-   else if (LALInferenceCheckVariable(modelParams, "spin_from_components")){
-   if ( spin1 != 0.0 && spin2 != 0.0 ) 
-   {
-   spin = XLALSpinBinaryFinalBHSpin(eta, m1, m2, spin1x, spin2x, spin1y, spin2y, spin1z, spin2z);
-   }
-   else {
-   spin = XLALNonSpinBinaryFinalBHSpin(eta);
-   }
-   } */
-  
+  else if (LALInferenceCheckVariable(modelParams, "spin_from_components") && (m1 > 0.0) && (m2 > 0.0)){
+    if ( fabs(spin1x) + fabs(spin1y) + fabs(spin1z) + fabs(spin2x) + fabs(spin2y) + fabs(spin2z) != 0.0) {
+      spin = XLALSpinBinaryFinalBHSpin(eta, m1, m2, spin1x, spin2x, spin1y, spin2y, spin1z, spin2z); /* Barausse & Rezzolla arxiv:0904.2577 */
+    }
+    else {
+      spin = XLALNonSpinBinaryFinalBHSpin(eta); /* Buonanno et al arxiv:0706.3732v3 */
+    }
+  }
   else {
     XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBlackHoleRingdown(): encountered undefined 'spin'.\n");
     XLAL_ERROR_VOID(XLAL_EFAULT);
     
   }
+
 
   LALSimInspiralTestGRParam *nonGRparams = NULL;
   if (LALInferenceCheckVariable(IFOdata->modelParams, "nonGR_QNM")){
@@ -2020,15 +2017,11 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
     
     deltaF = IFOdata->freqData->deltaF;
     
-    /*	XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, phi0,
-            deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
-            spin2x, spin2y, spin2z, f_min, f_max, distance, inclination,
-            lambda1, lambda2, waveFlags, nonGRparams, amporder, order,
-            approximant), errnum); */
-    XLAL_TRY(ret = XLALSimRingdownChooseFDWaveform(&hptilde, &hctilde, qnmodes, epoch, phi, deltaF,
-                                                 mass*LAL_MSUN_SI, spin, eta, spin1, spin2, distance,
+    //TODO: add spin parameter like effective spin or component spins or whatever is necessary
+    XLAL_TRY(ret = XLALSimRingdownChooseFDWaveform(&hptilde, &hctilde, phi, deltaF,
+                                                 mass*LAL_MSUN_SI, spin, eta, distance,
                                                  inclination, waveFlags, nonGRparams,
-                                                 approximant), errnum);
+                                                 qnmorder, qnmodes, approximant), errnum);
 
 	if (hptilde==NULL || hptilde->data==NULL || hptilde->data->data==NULL ) {
 	  XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'hptilde'.\n");
@@ -2076,11 +2069,11 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
 
   }
   else if (model_domain == LAL_SIM_DOMAIN_TIME){
-    
-    XLAL_TRY(ret=XLALSimRingdownChooseTDWaveform(&hplus, &hcross, qnmodes, epoch, phi, deltaT,
-                                                 mass*LAL_MSUN_SI, spin, eta, spin1, spin2, distance,
+    //TODO: add spin parameter like effective spin or component spins or whatever is necessary
+    XLAL_TRY(ret=XLALSimRingdownChooseTDWaveform(&hplus, &hcross, phi, deltaT,
+                                                 mass*LAL_MSUN_SI, spin, eta, distance,
                                                  inclination, waveFlags, nonGRparams,
-                                                 approximant), errnum);
+                                                 qnmorder, qnmodes, approximant), errnum);
     XLALSimInspiralDestroyWaveformFlags(waveFlags);
     XLALSimInspiralDestroyTestGRParam(nonGRparams);
     if (ret == XLAL_FAILURE || hplus == NULL || hcross == NULL)

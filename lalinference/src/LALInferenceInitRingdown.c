@@ -21,15 +21,10 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
                (--symMassRatio)                Jump in symmetric mass ratio eta, instead of q=m2/m1.\n\
                (--logdistance)                 Jump in log(distance) instead of distance.\n\
                (--system-frame                 Jump in spin parameters defined in the system coordinates, relative to total angular momentum\n\
-               (--template)                    Specify template [LAL,PhenSpin,LALGenerateInspiral,LALSim] (default LALSim).\n\
-               (--approx)                      Specify a template approximant and phase order to use.\n\
-                                               (default TaylorF2threePointFivePN). Available approximants:\n\
-                                               default modeldomain=\"time\": GeneratePPN, TaylorT1, TaylorT2, TaylorT3, TaylorT4, \n\
-                                                                           EOB, EOBNR, EOBNRv2, EOBNRv2HM, SEOBNRv1, SpinTaylor, \n\
-                                                                           SpinQuadTaylor, SpinTaylorFrameless, SpinTaylorT4, \n\
-                                                                           PhenSpinTaylorRD, NumRel.\n\
-                                               default modeldomain=\"frequency\": TaylorF1, TaylorF2, TaylorF2RedSpin, \n\
-                                                                                TaylorF2RedSpinTidal, IMRPhenomA, IMRPhenomB.\n\
+               (--approx)                      Specify a template approximant to use.\n\
+                                               (default RingdownTD). Available approximants:\n\
+                                               default modeldomain=\"time\": RingdownTD, RingdownLeaver, RingdownNumRel.\n\
+                                               default modeldomain=\"frequency\": RingdownFD.\n\
                (--fref fRef)                   Specify a reference frequency at which parameters are defined (default 0).\n\
                (--modeldomain)                 domain the waveform template will be computed in (\"time\" or \"frequency\").\n\
                \n\
@@ -39,9 +34,9 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
                (--trigtime time)               Trigger time to use.\n\
                (--time time)                   Waveform time (overrides random about trigtime).\n\
                (--mass mass)                   Trigger mass (total mass of the final black hole).\n\
+               (--a a_spin)                    Trigger a (dimensionless spin) to use.\n\
                (--eta eta)                     Trigger eta (symmetric mass ratio) to use.\n\
                (--q q)                         Trigger q (asymmetric mass ratio) to use.\n\
-               (--a a_spin)                    Trigger a (dimensionless spin) to use.\n\
                (--phi phase)                   Trigger phase to use.\n\
                (--iota inclination)            Trigger inclination to use.\n\
                (--dist dist)                   Trigger distance.\n\
