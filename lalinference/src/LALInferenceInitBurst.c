@@ -144,7 +144,7 @@ Parameter arguments:\n\
         else
         fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
         endtime_from_inj=XLALGPSGetREAL8(&(BinjTable->time_geocent_gps));
-        state->data->modelDomain=LAL_SIM_DOMAIN_TIME; // salvo
+        state->data->modelDomain=LAL_SIM_DOMAIN_TIME; // fixme
     }
     else{
 	ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
@@ -157,7 +157,7 @@ Parameter arguments:\n\
 	      i=0;
 	      while(i<event) {i++; inj_table=inj_table->next;} /* select event */
 	      endtime_from_inj=XLALGPSGetREAL8(&(inj_table->geocent_end_time));
-	      state->data->modelDomain=LAL_SIM_DOMAIN_TIME;
+	      state->data->modelDomain=LAL_SIM_DOMAIN_FREQUENCY; //fixme
 	    }
 	    else
 	    fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
