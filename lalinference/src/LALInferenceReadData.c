@@ -1313,8 +1313,8 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	//LALGenerateInspiral(&status,&InjectGW,injTable,&InjParams);
 	//if(status.statusCode!=0) {fprintf(stderr,"Error generating injection!\n"); REPORTSTATUS(&status); }
 	/* Check for frequency domain injection (TF2 only at present) */
-	if(IFOdata->modelDomain==LAL_SIM_DOMAIN_FREQUENCY )
-	{ printf("Injecting TaylorF2 in the frequency domain...\n");
+	if(strstr(injTable->waveform,"TaylorF2") || strstr(injTable->waveform,"IMRPhenomB")  )
+	{ printf("Injecting in the frequency domain...\n");
 	 InjectFD(IFOdata, injTable, commandLine);
 	 return;
 	}
