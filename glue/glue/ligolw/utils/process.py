@@ -47,6 +47,7 @@ try:
 	from lal import UTCToGPS as _UTCToGPS
 except ImportError:
 	# lal is optional
+	# FIXME:  make it not optional
 	from glue import gpstime
 	_UTCToGPS = lambda utc: int(gpstime.GpsSecondsFromPyUTC(time.mktime(utc)))
 
@@ -71,7 +72,7 @@ def get_username():
 	environment variable LOGNAME is tried, if that is not set the
 	environment variable USERNAME is tried, if that is not set the
 	password database is consulted (only on Unix systems, if the import
-	of the pwd module succedes), finally if that fails KeyError is
+	of the pwd module succeeds), finally if that fails KeyError is
 	raised.
 	"""
 	try:
