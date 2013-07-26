@@ -20,7 +20,6 @@ from glue.ligolw.utils import process
 from glue.ligolw.utils import segments as ligolw_segments
 
 from pylal import db_thinca_rings
-from pylal import llwapp
 from pylal import rate
 from pylal import SimInspiralUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS

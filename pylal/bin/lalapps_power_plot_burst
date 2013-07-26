@@ -40,7 +40,6 @@ from glue.ligolw import utils
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import date
 from pylal import git_version
-from pylal import llwapp
 from pylal import rate
 from pylal import SnglBurstUtils
 from pylal import viz
