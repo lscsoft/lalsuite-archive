@@ -170,7 +170,7 @@ def fromlalcache(cache, chname, start=-1, duration=1, datatype=-1,\
         cache.sort(key=lambda e: e.segment[0])
         cache = gluecache_to_FrCache(cache)
     elif isinstance(cache, str):
-        cache = lalframe.FrImportCache(cache)
+        cache = lal.CacheImport(cache)
 
     # open cache to stream
     stream = lalframe.FrCacheOpen(cache)
