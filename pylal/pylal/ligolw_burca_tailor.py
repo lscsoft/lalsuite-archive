@@ -24,6 +24,7 @@
 #
 
 
+import copy
 import itertools
 import math
 import numpy
@@ -148,6 +149,10 @@ def coinc_params(events, offsetvector):
 
 
 def delay_and_amplitude_correct(event, ra, dec):
+	# don't scramble the original triggers
+
+	event = copy.copy(event)
+
 	# retrieve station metadata
 
 	detector = inject.cached_detector[inject.prefix_to_name[event.ifo]]
