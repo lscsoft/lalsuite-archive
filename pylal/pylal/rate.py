@@ -1149,10 +1149,6 @@ def gaussian_window(*bins, **kwargs):
 		return window
 
 
-# compatibility stub.  FIXME:  remove
-gaussian_window2d = gaussian_window
-
-
 def tophat_window(bins):
 	"""
 	Generate a normalized (integral = 1) top-hat window in 1 dimension.
