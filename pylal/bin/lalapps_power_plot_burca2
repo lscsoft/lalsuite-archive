@@ -151,7 +151,7 @@ def add_to_dtplot(axes, red, black, blue, gmst, plottype = "LR"):
 
 
 #
-# distributions is a ligolw_burca_tailor.CoincParamsDistributions instance
+# distributions is a ligolw_burca_tailor.BurcaCoincParamsDistributions instance
 #
 
 
@@ -272,7 +272,7 @@ options, filenames = parse_command_line()
 filenames.sort()
 
 
-distributions = ligolw_burca_tailor.CoincParamsDistributions()
+distributions = ligolw_burca_tailor.BurcaCoincParamsDistributions()
 seglists = segments.segmentlistdict()
 for n, filename in enumerate(filenames):
 	if options.verbose:

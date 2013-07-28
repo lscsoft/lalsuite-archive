@@ -201,7 +201,7 @@ def dt_binning(instrument1, instrument2):
 
 class DistributionsStats(object):
 	"""
-	A class used to populate a CoincParamsDistribution instance with
+	A class used to populate a BurcaCoincParamsDistribution instance with
 	the data from the outputs of ligolw_burca and ligolw_binjfind.
 	"""
 
@@ -265,7 +265,7 @@ class DistributionsStats(object):
 	}
 
 	def __init__(self):
-		self.distributions = ligolw_burca_tailor.CoincParamsDistributions(**self.binnings)
+		self.distributions = ligolw_burca_tailor.BurcaCoincParamsDistributions(**self.binnings)
 
 	def add_noninjections(self, param_func, database, param_func_args = ()):
 		# iterate over burst<-->burst coincs

@@ -94,7 +94,7 @@ __date__ = git_version.date
 
 #
 # Class for computing foreground likelihoods from the measurements in a
-# CoincParamsDistributions instance.
+# BurcaCoincParamsDistributions instance.
 #
 
 

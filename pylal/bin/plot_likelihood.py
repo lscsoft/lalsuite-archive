@@ -290,7 +290,7 @@ InjectionCoincs = CoincInspiralUtils.coincInspiralTable(injectionTriggers, stati
 ###############################################################################
 
 
-distributions = ligolw_burca_tailor.CoincParamsDistributions(
+distributions = ligolw_burca_tailor.BurcaCoincParamsDistributions(
         H1_eff_snr = rate.NDBins((rate.LinearBins(0.0, 50.0, 1000),)),
         H2_eff_snr = rate.NDBins((rate.LinearBins(0.0, 50.0, 1000),)),
         L1_eff_snr = rate.NDBins((rate.LinearBins(0.0, 50.0, 1000),)),
