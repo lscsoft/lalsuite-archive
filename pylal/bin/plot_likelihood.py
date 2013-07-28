@@ -290,14 +290,24 @@ InjectionCoincs = CoincInspiralUtils.coincInspiralTable(injectionTriggers, stati
 ###############################################################################
 
 
-distributions = ligolw_burca_tailor.BurcaCoincParamsDistributions(
-        H1_eff_snr = rate.NDBins((rate.LinearBins(0.0, 50.0, 1000),)),
-        H2_eff_snr = rate.NDBins((rate.LinearBins(0.0, 50.0, 1000),)),
-        L1_eff_snr = rate.NDBins((rate.LinearBins(0.0, 50.0, 1000),)),
-        H1H2_eff_snr = rate.NDBins((rate.LinearBins(0.0, 50.0, 1000),)),
-        H1L1_eff_snr = rate.NDBins((rate.LinearBins(0.0, 50.0, 1000),)),
-        H2L1_eff_snr = rate.NDBins((rate.LinearBins(0.0, 50.0, 1000),))
-)
+class CoincParamsDistributions(ligolw_burca_tailor.BurcaCoincParamsDistributions):
+	binnings = {
+        	"H1_eff_snr": rate.NDBins((rate.LinearBins(0.0, 50.0, 1000),)),
+        	"H2_eff_snr": rate.NDBins((rate.LinearBins(0.0, 50.0, 1000),)),
+        	"L1_eff_snr": rate.NDBins((rate.LinearBins(0.0, 50.0, 1000),)),
+        	"H1H2_eff_snr": rate.NDBins((rate.LinearBins(0.0, 50.0, 1000),)),
+        	"H1L1_eff_snr": rate.NDBins((rate.LinearBins(0.0, 50.0, 1000),)),
+        	"H2L1_eff_snr": rate.NDBins((rate.LinearBins(0.0, 50.0, 1000),))
+	}
+	filters = {
+        	"H1_eff_snr": rate.gaussian_window(21),
+        	"H2_eff_snr": rate.gaussian_window(21),
+        	"L1_eff_snr": rate.gaussian_window(21),
+        	"H1H2_eff_snr": rate.gaussian_window(21),
+        	"H1L1_eff_snr": rate.gaussian_window(21),
+        	"H2L1_eff_snr": rate.gaussian_window(21)
+	}
+distributions = CoincParamsDistributions()
 
 timeslide = 0
 

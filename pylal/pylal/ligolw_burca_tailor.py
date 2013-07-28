@@ -69,122 +69,6 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 #
 # =============================================================================
 #
-#             Generating Coincidence Parameters from Burst Events
-#
-# =============================================================================
-#
-
-
-#
-# All sky version.
-#
-
-
-def coinc_params(events, offsetvector):
-	params = {}
-
-	if events:
-		# the "time" is the ms_snr squared weighted average of the
-		# peak times neglecting light-travel times.  because
-		# LIGOTimeGPS objects have overflow problems in this sort
-		# of a calculation, the first event's peak time is used as
-		# an epoch and the calculations are done w.r.t. that time.
-
-		# FIXME: this time is available as the peak_time in the
-		# multi_burst table, and it should be retrieved from that
-		# table instead of being recomputed
-
-		t = events[0].get_peak()
-		t += sum(float(event.get_peak() - t) * event.ms_snr**2.0 for event in events) / sum(event.ms_snr**2.0 for event in events)
-		gmst = date.XLALGreenwichMeanSiderealTime(t) % (2 * math.pi)
-
-	for event1, event2 in iterutils.choices(sorted(events, lambda a, b: cmp(a.ifo, b.ifo)), 2):
-		if event1.ifo == event2.ifo:
-			# a coincidence is parameterized only by
-			# inter-instrument deltas
-			continue
-
-		prefix = "%s_%s_" % (event1.ifo, event2.ifo)
-
-		# in each of the following, if the list of events contains
-		# more than one event from a given instrument, the smallest
-		# deltas are recorded
-
-		dt = float(event1.get_peak() + offsetvector[event1.ifo] - event2.get_peak() - offsetvector[event2.ifo])
-		name = "%sdt" % prefix
-		if name not in params or abs(params[name][0]) > abs(dt):
-			#params[name] = (dt,)
-			params[name] = (dt, gmst)
-
-		df = (event1.peak_frequency - event2.peak_frequency) / ((event1.peak_frequency + event2.peak_frequency) / 2)
-		name = "%sdf" % prefix
-		if name not in params or abs(params[name][0]) > abs(df):
-			#params[name] = (df,)
-			params[name] = (df, gmst)
-
-		dh = (event1.ms_hrss - event2.ms_hrss) / ((event1.ms_hrss + event2.ms_hrss) / 2)
-		name = "%sdh" % prefix
-		if name not in params or abs(params[name][0]) > abs(dh):
-			#params[name] = (dh,)
-			params[name] = (dh, gmst)
-
-		dband = (event1.ms_bandwidth - event2.ms_bandwidth) / ((event1.ms_bandwidth + event2.ms_bandwidth) / 2)
-		name = "%sdband" % prefix
-		if name not in params or abs(params[name][0]) > abs(dband):
-			#params[name] = (dband,)
-			params[name] = (dband, gmst)
-
-		ddur = (event1.ms_duration - event2.ms_duration) / ((event1.ms_duration + event2.ms_duration) / 2)
-		name = "%sddur" % prefix
-		if name not in params or abs(params[name][0]) > abs(ddur):
-			#params[name] = (ddur,)
-			params[name] = (ddur, gmst)
-
-	return params
-
-
-#
-# Galactic core version.
-#
-
-
-def delay_and_amplitude_correct(event, ra, dec):
-	# don't scramble the original triggers
-
-	event = copy.copy(event)
-
-	# retrieve station metadata
-
-	detector = inject.cached_detector[inject.prefix_to_name[event.ifo]]
-
-	# delay-correct the event to the geocentre
-
-	peak = event.get_peak()
-	delay = date.XLALTimeDelayFromEarthCenter(detector.location, ra, dec, peak)
-	event.set_peak(peak - delay)
-	event.set_start(event.get_start() - delay)
-	event.set_ms_start(event.get_ms_start() - delay)
-
-	# amplitude-correct the event using the polarization-averaged
-	# antenna response
-
-	fp, fc = inject.XLALComputeDetAMResponse(detector.response, ra, dec, 0, date.XLALGreenwichMeanSiderealTime(peak))
-	mean_response = math.sqrt(fp**2 + fc**2)
-	event.amplitude /= mean_response
-	event.ms_hrss /= mean_response
-
-	# done
-
-	return event
-
-
-def targeted_coinc_params(events, offsetvector, ra, dec):
-	return coinc_params((delay_and_amplitude_correct(event, ra, dec) for event in events), offsetvector)
-
-
-#
-# =============================================================================
-#
 #                                 Book-keeping
 #
 # =============================================================================
@@ -234,17 +118,20 @@ class CoincParamsFilterThread(threading.Thread):
 
 
 class CoincParamsDistributions(object):
-	# sub-classes must override
-	ligo_lw_name_suffix = u""
+	# sub-classes must override the following
+	ligo_lw_name_suffix = u"pylal_ligolw_burca_tailor_coincparamsdistributions"
+	binnings = {}
+	filters = {}
+	@staticmethod
+	def coinc_params(*args, **kwargs):
+		raise NotImplementedError("subclass must implement .coinc_params() method")
 
-	def __init__(self, **kwargs):
-		self.zero_lag_rates = {}
-		self.background_rates = {}
-		self.injection_rates = {}
-		for param, binning in kwargs.items():
-			self.zero_lag_rates[param] = rate.BinnedArray(binning)
-			self.background_rates[param] = rate.BinnedArray(binning)
-			self.injection_rates[param] = rate.BinnedArray(binning)
+	def __init__(self):
+		if not self.binnings:
+			raise NotImplementedError("subclass must provide dictionary of binnings")
+		self.zero_lag_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
+		self.background_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
+		self.injection_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
 
 	def __iadd__(self, other):
 		if type(other) != type(self):
@@ -299,8 +186,7 @@ class CoincParamsDistributions(object):
 				# param value out of range
 				pass
 
-	def finish(self, filters = {}, verbose = False):
-		default_filter = rate.gaussian_window(21)
+	def finish(self, verbose = False):
 		# normalizing each array so that its sum is 1 has the
 		# effect of making the integral of P(x) dx equal 1 after
 		# the array is transformed to an array of densities (which
@@ -310,7 +196,7 @@ class CoincParamsDistributions(object):
 		threads = []
 		for group, (name, binnedarray) in itertools.chain(zip(["zero lag"] * len(self.zero_lag_rates), self.zero_lag_rates.items()), zip(["background"] * len(self.background_rates), self.background_rates.items()), zip(["injections"] * len(self.injection_rates), self.injection_rates.items())):
 			n += 1
-			threads.append(CoincParamsFilterThread(binnedarray, filters.get(name, default_filter), verbose = verbose, name = "%d / %d: %s \"%s\"" % (n, N, group, name)))
+			threads.append(CoincParamsFilterThread(binnedarray, self.filters[name], verbose = verbose, name = "%d / %d: %s \"%s\"" % (n, N, group, name)))
 			threads[-1].start()
 		for thread in threads:
 			thread.join()
@@ -320,9 +206,6 @@ class CoincParamsDistributions(object):
 	def from_xml(cls, xml, name):
 		# create an instance
 		self = cls()
-
-		# safety check
-		assert self.ligo_lw_name_suffix
 
 		# initialize from XML contents
 		xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:%s" % (name, self.ligo_lw_name_suffix)]
@@ -337,9 +220,6 @@ class CoincParamsDistributions(object):
 		return self, process_id
 
 	def to_xml(self, process, name):
-		# safety check
-		assert self.ligo_lw_name_suffix
-
 		# serialize to XML
 		xml = ligolw.LIGO_LW({u"Name": u"%s:%s" % (name, self.ligo_lw_name_suffix)})
 		xml.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
@@ -355,12 +235,164 @@ class CoincParamsDistributions(object):
 
 
 #
-# Burca-specific sub-class
+# =============================================================================
+#
+#                      Excess Power Specific Sub-Classes
+#
+# =============================================================================
 #
 
 
+def dt_binning(instrument1, instrument2):
+	# FIXME:  hard-coded for directional search
+	#dt = 0.02 + inject.light_travel_time(instrument1, instrument2)
+	dt = 0.02
+	return rate.NDBins((rate.ATanBins(-dt, +dt, 12001), rate.LinearBins(0.0, 2 * math.pi, 61)))
+
+
 class BurcaCoincParamsDistributions(CoincParamsDistributions):
-	ligo_lw_name_suffix = u"pylal_ligolw_burca_tailor_coincparamsdistributions"
+	binnings = {
+		"H1_H2_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
+		"H1_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
+		"H2_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
+		"H1_H2_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
+		"H1_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
+		"H2_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
+		"H1_H2_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
+		"H1_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
+		"H2_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
+		"H1_H2_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
+		"H1_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
+		"H2_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
+		"H1_H2_dt": dt_binning("H1", "H2"),
+		"H1_L1_dt": dt_binning("H1", "L1"),
+		"H2_L1_dt": dt_binning("H2", "L1")
+	}
+
+	filters = {
+		"H1_H2_dband": rate.gaussian_window(11, 5),
+		"H1_L1_dband": rate.gaussian_window(11, 5),
+		"H2_L1_dband": rate.gaussian_window(11, 5),
+		"H1_H2_ddur": rate.gaussian_window(11, 5),
+		"H1_L1_ddur": rate.gaussian_window(11, 5),
+		"H2_L1_ddur": rate.gaussian_window(11, 5),
+		"H1_H2_df": rate.gaussian_window(11, 5),
+		"H1_L1_df": rate.gaussian_window(11, 5),
+		"H2_L1_df": rate.gaussian_window(11, 5),
+		"H1_H2_dh": rate.gaussian_window(11, 5),
+		"H1_L1_dh": rate.gaussian_window(11, 5),
+		"H2_L1_dh": rate.gaussian_window(11, 5),
+		"H1_H2_dt": rate.gaussian_window(11, 5),
+		"H1_L1_dt": rate.gaussian_window(11, 5),
+		"H2_L1_dt": rate.gaussian_window(11, 5)
+	}
+
+
+#
+# All sky version
+#
+
+
+class EPAllSkyCoincParamsDistributions(BurcaCoincParamsDistributions):
+	@staticmethod
+	def coinc_params(events, offsetvector):
+		params = {}
+
+		if events:
+			# the "time" is the ms_snr squared weighted average of the
+			# peak times neglecting light-travel times.  because
+			# LIGOTimeGPS objects have overflow problems in this sort
+			# of a calculation, the first event's peak time is used as
+			# an epoch and the calculations are done w.r.t. that time.
+
+			# FIXME: this time is available as the peak_time in the
+			# multi_burst table, and it should be retrieved from that
+			# table instead of being recomputed
+
+			t = events[0].get_peak()
+			t += sum(float(event.get_peak() - t) * event.ms_snr**2.0 for event in events) / sum(event.ms_snr**2.0 for event in events)
+			gmst = date.XLALGreenwichMeanSiderealTime(t) % (2 * math.pi)
+
+		for event1, event2 in iterutils.choices(sorted(events, lambda a, b: cmp(a.ifo, b.ifo)), 2):
+			if event1.ifo == event2.ifo:
+				# a coincidence is parameterized only by
+				# inter-instrument deltas
+				continue
+
+			prefix = "%s_%s_" % (event1.ifo, event2.ifo)
+
+			# in each of the following, if the list of events contains
+			# more than one event from a given instrument, the smallest
+			# deltas are recorded
+
+			dt = float(event1.get_peak() + offsetvector[event1.ifo] - event2.get_peak() - offsetvector[event2.ifo])
+			name = "%sdt" % prefix
+			if name not in params or abs(params[name][0]) > abs(dt):
+				#params[name] = (dt,)
+				params[name] = (dt, gmst)
+
+			df = (event1.peak_frequency - event2.peak_frequency) / ((event1.peak_frequency + event2.peak_frequency) / 2)
+			name = "%sdf" % prefix
+			if name not in params or abs(params[name][0]) > abs(df):
+				#params[name] = (df,)
+				params[name] = (df, gmst)
+
+			dh = (event1.ms_hrss - event2.ms_hrss) / ((event1.ms_hrss + event2.ms_hrss) / 2)
+			name = "%sdh" % prefix
+			if name not in params or abs(params[name][0]) > abs(dh):
+				#params[name] = (dh,)
+				params[name] = (dh, gmst)
+
+			dband = (event1.ms_bandwidth - event2.ms_bandwidth) / ((event1.ms_bandwidth + event2.ms_bandwidth) / 2)
+			name = "%sdband" % prefix
+			if name not in params or abs(params[name][0]) > abs(dband):
+				#params[name] = (dband,)
+				params[name] = (dband, gmst)
+
+			ddur = (event1.ms_duration - event2.ms_duration) / ((event1.ms_duration + event2.ms_duration) / 2)
+			name = "%sddur" % prefix
+			if name not in params or abs(params[name][0]) > abs(ddur):
+				#params[name] = (ddur,)
+				params[name] = (ddur, gmst)
+
+		return params
+
+
+#
+# Galactic core coinc params
+#
+
+
+def delay_and_amplitude_correct(event, ra, dec):
+	# retrieve station metadata
+
+	detector = inject.cached_detector[inject.prefix_to_name[event.ifo]]
+
+	# delay-correct the event to the geocentre
+
+	peak = event.get_peak()
+	delay = date.XLALTimeDelayFromEarthCenter(detector.location, ra, dec, peak)
+	event.set_peak(peak - delay)
+	event.set_start(event.get_start() - delay)
+	event.set_ms_start(event.get_ms_start() - delay)
+
+	# amplitude-correct the event using the polarization-averaged
+	# antenna response
+
+	fp, fc = inject.XLALComputeDetAMResponse(detector.response, ra, dec, 0, date.XLALGreenwichMeanSiderealTime(peak))
+	mean_response = math.sqrt(fp**2 + fc**2)
+	event.amplitude /= mean_response
+	event.ms_hrss /= mean_response
+
+	# done
+
+	return event
+
+
+class EPGalacticCoreCoincParamsDistributions(BurcaCoincParamsDistributions):
+	@staticmethod
+	def coinc_params(events, offsetvector, ra, dec):
+		return EPAllSkyCoincParamsDistributions.coinc_params((delay_and_amplitude_correct(copy.copy(event), ra, dec) for event in events), offsetvector)
 
 
 #
@@ -523,57 +555,14 @@ class Covariance(object):
 #
 
 
-def dt_binning(instrument1, instrument2):
-	# FIXME:  hard-coded for directional search
-	#dt = 0.02 + inject.light_travel_time(instrument1, instrument2)
-	dt = 0.02
-	return rate.NDBins((rate.ATanBins(-dt, +dt, 12001), rate.LinearBins(0.0, 2 * math.pi, 61)))
-
-
 class DistributionsStats(object):
 	"""
-	A class used to populate a BurcaCoincParamsDistribution instance with
+	A class used to populate a CoincParamsDistribution instance with
 	the data from the outputs of ligolw_burca and ligolw_binjfind.
 	"""
 
-	binnings = {
-		"H1_H2_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
-		"H1_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
-		"H2_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
-		"H1_H2_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
-		"H1_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
-		"H2_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
-		"H1_H2_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
-		"H1_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
-		"H2_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
-		"H1_H2_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
-		"H1_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
-		"H2_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
-		"H1_H2_dt": dt_binning("H1", "H2"),
-		"H1_L1_dt": dt_binning("H1", "L1"),
-		"H2_L1_dt": dt_binning("H2", "L1")
-	}
-
-	filters = {
-		"H1_H2_dband": rate.gaussian_window(11, 5),
-		"H1_L1_dband": rate.gaussian_window(11, 5),
-		"H2_L1_dband": rate.gaussian_window(11, 5),
-		"H1_H2_ddur": rate.gaussian_window(11, 5),
-		"H1_L1_ddur": rate.gaussian_window(11, 5),
-		"H2_L1_ddur": rate.gaussian_window(11, 5),
-		"H1_H2_df": rate.gaussian_window(11, 5),
-		"H1_L1_df": rate.gaussian_window(11, 5),
-		"H2_L1_df": rate.gaussian_window(11, 5),
-		"H1_H2_dh": rate.gaussian_window(11, 5),
-		"H1_L1_dh": rate.gaussian_window(11, 5),
-		"H2_L1_dh": rate.gaussian_window(11, 5),
-		"H1_H2_dt": rate.gaussian_window(11, 5),
-		"H1_L1_dt": rate.gaussian_window(11, 5),
-		"H2_L1_dt": rate.gaussian_window(11, 5)
-	}
-
-	def __init__(self):
-		self.distributions = BurcaCoincParamsDistributions(**self.binnings)
+	def __init__(self, distributions):
+		self.distributions = distributions
 
 	def add_noninjections(self, param_func, database, *args):
 		# iterate over burst<-->burst coincs
@@ -590,7 +579,7 @@ class DistributionsStats(object):
 			self.distributions.add_injection(param_func(events, offsetvector, *args))
 
 	def finish(self):
-		self.distributions.finish(filters = self.filters)
+		self.distributions.finish()
 
 
 #

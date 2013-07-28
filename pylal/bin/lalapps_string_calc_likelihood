@@ -114,7 +114,7 @@ if options.write_likelihood is not None:
 
 if options.verbose:
 	print >>sys.stderr, "computing event densities ..."
-coincparamsdistributions.finish(filters = stringutils.DistributionsStats.filters, verbose = options.verbose)
+coincparamsdistributions.finish(verbose = options.verbose)
 if options.write_filtered_likelihood is not None:
 	stringutils.write_likelihood_data(options.write_filtered_likelihood, coincparamsdistributions, likelihood_seglists, verbose = options.verbose)
 
@@ -164,7 +164,7 @@ for n, filename in enumerate(filenames):
 	# Run likelihood ratio calculation.
 	#
 
-	ligolw_burca2.ligolw_burca2(contents, likelihood_ratio, stringutils.coinc_params_func, verbose = options.verbose, params_func_extra_args = (triangulators,))
+	ligolw_burca2.ligolw_burca2(contents, likelihood_ratio, coincparamsdistributions.coinc_params, verbose = options.verbose, params_func_extra_args = (triangulators,))
 
 	#
 	# Clean up.

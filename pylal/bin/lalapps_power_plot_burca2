@@ -282,7 +282,7 @@ for n, filename in enumerate(filenames):
 	seglists |= s
 if options.verbose:
 	print >>sys.stderr, "applying filters ..."
-distributions.finish(filters = ligolw_burca_tailor.DistributionsStats.filters)
+distributions.finish()
 
 
 for gmst in numpy.arange(0.0, 2 * math.pi, 2 * math.pi / 10):

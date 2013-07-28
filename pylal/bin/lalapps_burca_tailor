@@ -44,8 +44,8 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import ligolw_burca_tailor
 from pylal import SnglBurstUtils
-from pylal import git_version
 from pylal.SimBurstUtils import MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD
+from pylal import git_version
 
 
 # content handler for distribution data
@@ -119,12 +119,12 @@ options, filenames = parse_command_line()
 
 
 #
-# Coinc params function
+# Coinc params
 #
 
 
-coinc_params_func = ligolw_burca_tailor.targeted_coinc_params
-coinc_params_func_extra_args = (MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD)
+distributions = ligolw_burca_tailor.EPGalacticCoreCoincParamsDistributions()
+segs = segments.segmentlistdict()
 
 
 #
@@ -132,28 +132,23 @@ coinc_params_func_extra_args = (MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD)
 #
 
 
-segs = segments.segmentlistdict()
-
 if options.add_from:
-	extra_data = ligolw_burca_tailor.BurcaCoincParamsDistributions()
 	for n, filename in enumerate(options.add_from):
 		if options.verbose:
 			print >>sys.stderr, "%d/%d: " % (n + 1, len(options.add_from)),
-		c, s = ligolw_burca_tailor.get_coincparamsdistributions(utils.load_filename(filename, verbose = options.verbose, contenthandler = StatsContentHandler), type(extra_data), u"ligolw_burca_tailor")
-		extra_data += c
+		c, s = ligolw_burca_tailor.get_coincparamsdistributions(utils.load_filename(filename, verbose = options.verbose, contenthandler = StatsContentHandler), type(distributions), u"ligolw_burca_tailor")
+		distributions += c
 		segs |= s
-else:
-	extra_data = None
 
 
 #
 # Construct a DistributionsStats instance to populate a
-# BurcaCoincParamsDistributions book-keeping object from the information in the
+# CoincParamsDistributions book-keeping object from the information in the
 # input files.
 #
 
 
-stats = ligolw_burca_tailor.DistributionsStats()
+stats = ligolw_burca_tailor.DistributionsStats(distributions)
 
 
 #
@@ -189,9 +184,9 @@ for n, filename in enumerate(filenames):
 	#
 
 	if database.sim_burst_table is None:
-		stats.add_noninjections(coinc_params_func, database, *coinc_params_func_extra_args)
+		stats.add_noninjections(distributions.coinc_params, database, *(MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD))
 	else:
-		stats.add_injections(coinc_params_func, database, *coinc_params_func_extra_args)
+		stats.add_injections(distributions.coinc_params, database, *(MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD))
 
 	#
 	# Clean up.
@@ -199,24 +194,6 @@ for n, filename in enumerate(filenames):
 
 	del database, connection
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
-
-
-#
-# Do we have any data?
-#
-
-
-if not filenames and extra_data is None:
-	if options.verbose:
-		print >>sys.stderr, "warning:  no input files!"
-	sys.exit()
-elif not filenames and extra_data is not None:
-	coinc_params_distributions = extra_data
-elif filenames and extra_data is None:
-	coinc_params_distributions = stats.distributions
-else:
-	coinc_params_distributions = stats.distributions
-	coinc_params_distributions += extra_data
 
 
 #
@@ -235,5 +212,5 @@ else:
 	filename = options.output
 
 
-xmldoc = ligolw_burca_tailor.gen_likelihood_control(coinc_params_distributions, segs)
+xmldoc = ligolw_burca_tailor.gen_likelihood_control(distributions, segs)
 utils.write_filename(xmldoc, filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))

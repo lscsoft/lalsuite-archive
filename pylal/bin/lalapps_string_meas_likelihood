@@ -162,8 +162,9 @@ options, filenames = parse_command_line()
 #
 
 
+distributions = stringutils.StringCoincParamsDistributions()
 segs = segments.segmentlistdict()
-stats = stringutils.DistributionsStats()
+stats = stringutils.DistributionsStats(distributions)
 
 
 #
@@ -209,9 +210,9 @@ for n, filename in enumerate(filenames):
 	#
 
 	if contents.sim_burst_table is None:
-		stats.add_noninjections(stringutils.coinc_params_func, contents, param_func_args = (triangulators,))
+		stats.add_noninjections(distributions.coinc_params, contents, param_func_args = (triangulators,))
 	else:
-		stats.add_injections(stringutils.coinc_params_func, contents, weight_func = get_injection_weight_func(contents, options.injection_reweight, options.injection_reweight_cutoff), param_func_args = (triangulators,))
+		stats.add_injections(distributions.coinc_params, contents, weight_func = get_injection_weight_func(contents, options.injection_reweight, options.injection_reweight_cutoff), param_func_args = (triangulators,))
 
 	#
 	# Clean up.
@@ -236,4 +237,4 @@ if options.T010150:
 else:
 	filename = options.output
 
-stringutils.write_likelihood_data(filename, stats.distributions, segs, verbose = options.verbose)
+stringutils.write_likelihood_data(filename, distributions, segs, verbose = options.verbose)

@@ -297,7 +297,7 @@ coincparamsdistributions, seglists = stringutils.load_likelihood_data(filenames,
 if options.verbose:
 	print >>sys.stderr, "computing event densities ..."
 if not options.no_filter:
-	coincparamsdistributions.finish(filters = stringutils.DistributionsStats.filters, verbose = options.verbose)
+	coincparamsdistributions.finish(verbose = options.verbose)
 
 for (background_name, background_binnedarray), (injections_name, injections_binnedarray), (zero_lag_name, zero_lag_binnedarray) in zip(sorted(coincparamsdistributions.background_rates.items()), sorted(coincparamsdistributions.injection_rates.items()), sorted(coincparamsdistributions.zero_lag_rates.items())):
 	assert injections_name == background_name
