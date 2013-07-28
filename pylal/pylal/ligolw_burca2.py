@@ -101,8 +101,8 @@ __date__ = git_version.date
 class Likelihood(object):
 	def __init__(self, coinc_param_distributions):
 		# check input
-		if set(coinc_param_distributions.background_rates.keys()) != set(coinc_param_distributions.injection_rates.keys()):
-			raise ValueError("distribution density name mismatch:  found background data with names %s and injection data with names %s" % (", ".join(sorted(coinc_param_distributions.background_rates.keys())), ", ".join(sorted(coinc_param_distributions.injection_rates.keys()))))
+		if set(coinc_param_distributions.background_rates) != set(coinc_param_distributions.injection_rates):
+			raise ValueError("distribution density name mismatch:  found background data with names %s and injection data with names %s" % (", ".join(sorted(coinc_param_distributions.background_rates)), ", ".join(sorted(coinc_param_distributions.injection_rates))))
 		for name, binnedarray in coinc_param_distributions.background_rates.items():
 			if len(binnedarray.array.shape) != len(coinc_param_distributions.injection_rates[name].array.shape):
 				raise ValueError("background data with name %s has shape %s but injection data has shape %s" % (name, str(binnedarray.array.shape), str(coinc_param_distributions.injection_rates[name].array.shape)))
