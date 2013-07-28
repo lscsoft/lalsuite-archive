@@ -194,6 +194,10 @@ def coinc_params_func(events, offsetvector, triangulators):
 #
 
 
+class StringCoincParamsDistributions(ligolw_burca_tailor.BurcaCoincParamsDistributions):
+	ligo_lw_name_suffix = u"pylal_ligolw_burca_tailor_coincparamsdistributions"
+
+
 def dt_binning(instrument1, instrument2):
 	dt = 0.005 + inject.light_travel_time(instrument1, instrument2)	# seconds
 	return rate.NDBins((rate.ATanBins(-dt, +dt, 801),))
@@ -201,7 +205,7 @@ def dt_binning(instrument1, instrument2):
 
 class DistributionsStats(object):
 	"""
-	A class used to populate a BurcaCoincParamsDistribution instance with
+	A class used to populate a StringCoincParamsDistributions instance with
 	the data from the outputs of ligolw_burca and ligolw_binjfind.
 	"""
 
@@ -265,7 +269,7 @@ class DistributionsStats(object):
 	}
 
 	def __init__(self):
-		self.distributions = ligolw_burca_tailor.BurcaCoincParamsDistributions(**self.binnings)
+		self.distributions = StringCoincParamsDistributions(**self.binnings)
 
 	def add_noninjections(self, param_func, database, param_func_args = ()):
 		# iterate over burst<-->burst coincs
@@ -359,7 +363,7 @@ class DistributionsStats(object):
 
 
 def load_likelihood_data(filenames, verbose = False):
-	return ligolw_burca_tailor.load_likelihood_data(filenames, ligolw_burca_tailor.BurcaCoincParamsDistributions, name = u"string_cusp_likelihood", verbose = verbose)
+	return ligolw_burca_tailor.load_likelihood_data(filenames, StringCoincParamsDistributions, name = u"string_cusp_likelihood", verbose = verbose)
 
 
 def write_likelihood_data(filename, coincparamsdistributions, seglists, verbose = False):
