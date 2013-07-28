@@ -359,7 +359,7 @@ class DistributionsStats(object):
 
 
 def load_likelihood_data(filenames, verbose = False):
-	return ligolw_burca_tailor.load_likelihood_data(filenames, name = u"string_cusp_likelihood", verbose = verbose)
+	return ligolw_burca_tailor.load_likelihood_data(filenames, ligolw_burca_tailor.BurcaCoincParamsDistributions, name = u"string_cusp_likelihood", verbose = verbose)
 
 
 def write_likelihood_data(filename, coincparamsdistributions, seglists, verbose = False):

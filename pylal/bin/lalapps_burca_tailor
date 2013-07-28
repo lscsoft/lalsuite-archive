@@ -139,7 +139,7 @@ if options.add_from:
 	for n, filename in enumerate(options.add_from):
 		if options.verbose:
 			print >>sys.stderr, "%d/%d: " % (n + 1, len(options.add_from)),
-		c, s = ligolw_burca_tailor.get_coincparamsdistributions(utils.load_filename(filename, verbose = options.verbose, contenthandler = StatsContentHandler), u"ligolw_burca_tailor")
+		c, s = ligolw_burca_tailor.get_coincparamsdistributions(utils.load_filename(filename, verbose = options.verbose, contenthandler = StatsContentHandler), type(extra_data), u"ligolw_burca_tailor")
 		extra_data += c
 		segs |= s
 else:

@@ -604,8 +604,8 @@ class DistributionsStats(object):
 #
 
 
-def get_coincparamsdistributions(xmldoc, name):
-	coincparamsdistributions, process_id = BurcaCoincParamsDistributions.from_xml(xmldoc, name)
+def get_coincparamsdistributions(xmldoc, cls, name):
+	coincparamsdistributions, process_id = cls.from_xml(xmldoc, name)
 	seglists = lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([process_id])).coalesce()
 	return coincparamsdistributions, seglists
 
@@ -644,16 +644,16 @@ lsctables.use_in(DefaultContentHandler)
 param.use_in(DefaultContentHandler)
 
 
-def load_likelihood_data(filenames, name, verbose = False, contenthandler = DefaultContentHandler):
+def load_likelihood_data(filenames, cls, name, verbose = False, contenthandler = DefaultContentHandler):
 	coincparamsdistributions = None
 	for n, filename in enumerate(filenames):
 		if verbose:
 			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 		xmldoc = utils.load_filename(filename, verbose = verbose, contenthandler = contenthandler)
 		if coincparamsdistributions is None:
-			coincparamsdistributions, seglists = get_coincparamsdistributions(xmldoc, name)
+			coincparamsdistributions, seglists = get_coincparamsdistributions(xmldoc, cls, name)
 		else:
-			a, b = get_coincparamsdistributions(xmldoc, name)
+			a, b = get_coincparamsdistributions(xmldoc, cls, name)
 			coincparamsdistributions += a
 			seglists |= b
 			del a, b
