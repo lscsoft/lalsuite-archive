@@ -1067,7 +1067,10 @@ class DataSummaryTab(SummaryTab):
                 for channel in channels]
         for i,channel in enumerate(channels):
             data[i].name = channel
-        plotdata.plottimeseries(data, outfile, **kwargs)
+        try:
+            plotdata.plottimeseries(data, outfile, **kwargs)
+        except ValueError as err:
+            warnings.warn("ValueError: %s" % err.message)
         if subplot:
             self.subplots.append((outfile, desc))
         else:
@@ -1192,16 +1195,20 @@ class DataSummaryTab(SummaryTab):
         @keyword **kwargs: other arguments to pass to
             plotdata.plotfrequencyseries
         """
-        if not channel:
-            channel = self.channels[0]
+        if channel:
+            channels = [channel]
+        else:
+            channels = self.channels
         desc = kwargs.pop("description", None)
-        serieslist = [self.spectrum[channel], self.minspectrum[channel],\
-                      self.maxspectrum[channel]]
-        if self.designspectrum.has_key(channel):
-            serieslist.append(self.designspectrum[channel])
-        if self.referencespectrum.has_key(channel):
-            serieslist.append(self.referencespectrum[channel])
-
+        serieslist = []
+        for channel in channels:
+            serieslist.extend([self.spectrum[channel],
+                               self.minspectrum[channel],\
+                               self.maxspectrum[channel]])
+            if self.designspectrum.has_key(channel):
+                serieslist.append(self.designspectrum[channel])
+            if self.referencespectrum.has_key(channel):
+                serieslist.append(self.referencespectrum[channel])
         if psd:
             for i,series in serieslist:
                 serieslist[i] = seriesutils.fromarray(series.data.data**2,\
