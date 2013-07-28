@@ -120,7 +120,7 @@ def dt_binning(instrument1, instrument2):
 	return rate.NDBins((rate.ATanBins(-dt, +dt, 801),))
 
 
-class StringCoincParamsDistributions(ligolw_burca_tailor.BurcaCoincParamsDistributions):
+class StringCoincParamsDistributions(snglcoinc.CoincParamsDistributions):
 	# FIXME:  switch to new default when possible
 	ligo_lw_name_suffix = u"pylal_ligolw_burca_tailor_coincparamsdistributions"
 
@@ -359,7 +359,7 @@ class DistributionsStats(object):
 
 
 def load_likelihood_data(filenames, verbose = False):
-	return ligolw_burca_tailor.load_likelihood_data(filenames, StringCoincParamsDistributions, name = u"string_cusp_likelihood", verbose = verbose)
+	return StringCoincParamsDistributions.from_filenames(filenames, name = u"string_cusp_likelihood", verbose = verbose)
 
 
 def write_likelihood_data(filename, coincparamsdistributions, seglists, verbose = False):

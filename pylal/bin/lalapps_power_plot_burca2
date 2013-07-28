@@ -260,7 +260,7 @@ options, filenames = parse_command_line()
 filenames.sort()
 
 
-distributions, seglists = ligolw_burca_tailor.load_likelihood_data(filenames, ligolw_burca_tailor.EPGalacticCoreCoincParamsDistributions, u"ligolw_burca_tailor", verbose = options.verbose)
+distributions, seglists = ligolw_burca_tailor.EPGalacticCoreCoincParamsDistributions.from_filenames(filenames, u"ligolw_burca_tailor", verbose = options.verbose)
 if options.verbose:
 	print >>sys.stderr, "applying filters ..."
 distributions.finish()

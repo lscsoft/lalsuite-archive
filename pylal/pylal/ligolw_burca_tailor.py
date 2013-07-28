@@ -25,19 +25,15 @@
 
 
 import copy
-import itertools
 import math
 import numpy
 from scipy.stats import stats
 import sys
-import threading
 
 
 from glue import iterutils
 from glue.ligolw import ligolw
 from glue.ligolw import ilwd
-from glue.ligolw import array
-from glue.ligolw import param
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
@@ -46,6 +42,7 @@ from pylal import date
 from pylal import git_version
 from pylal import inject
 from pylal import rate
+from pylal import snglcoinc
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
@@ -69,175 +66,7 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 #
 # =============================================================================
 #
-#                                 Book-keeping
-#
-# =============================================================================
-#
-
-
-#
-# threading.Thread sub-class for filtering parameter distributions
-#
-
-
-class CoincParamsFilterThread(threading.Thread):
-	# allow at most 5 threads
-	cpu = threading.Semaphore(5)
-	# allow at most one to write to stderr
-	stderr = threading.Semaphore(1)
-
-	def __init__(self, binnedarray, filter, verbose = False, name = None):
-		threading.Thread.__init__(self, name = name)
-		self.binnedarray = binnedarray
-		self.filter = filter
-		self.verbose = verbose
-
-	def run(self):
-		self.cpu.acquire()
-		if self.verbose:
-			self.stderr.acquire()
-			print >>sys.stderr, "\tstarting %s" % self.getName()
-			self.stderr.release()
-
-		self.binnedarray.array /= numpy.sum(self.binnedarray.array)
-		rate.to_moving_mean_density(self.binnedarray, self.filter)
-
-		# guard against round-off in FFT convolution
-		numpy.clip(self.binnedarray.array, 0, float("inf"), self.binnedarray.array)
-
-		if self.verbose:
-			self.stderr.acquire()
-			print >>sys.stderr, "\tcompleted %s" % self.getName()
-			self.stderr.release()
-		self.cpu.release()
-
-
-#
-# A class for measuring parameter distributions
-#
-
-
-class CoincParamsDistributions(object):
-	# sub-classes must override the following
-	ligo_lw_name_suffix = u"pylal_ligolw_burca_tailor_coincparamsdistributions"
-	binnings = {}
-	filters = {}
-	@staticmethod
-	def coinc_params(*args, **kwargs):
-		raise NotImplementedError("subclass must implement .coinc_params() method")
-
-	def __init__(self):
-		if not self.binnings:
-			raise NotImplementedError("subclass must provide dictionary of binnings")
-		self.zero_lag_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
-		self.background_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
-		self.injection_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
-
-	def __iadd__(self, other):
-		if type(other) != type(self):
-			raise TypeError, other
-		for param, rate in other.zero_lag_rates.items():
-			if param in self.zero_lag_rates:
-				self.zero_lag_rates[param] += rate
-			else:
-				self.zero_lag_rates[param] = rate
-		for param, rate in other.background_rates.items():
-			if param in self.background_rates:
-				self.background_rates[param] += rate
-			else:
-				self.background_rates[param] = rate
-		for param, rate in other.injection_rates.items():
-			if param in self.injection_rates:
-				self.injection_rates[param] += rate
-			else:
-				self.injection_rates[param] = rate
-		return self
-
-	@classmethod
-	def copy(cls, other):
-		new = cls(**dict((param, other.zero_lag_rates[param].bins) for param in other.zero_lag_rates))
-		new += other
-		return new
-
-	def add_zero_lag(self, param_dict, weight = 1.0):
-		for param, value in (param_dict or {}).items():
-			rate = self.zero_lag_rates[param]
-			try:
-				rate[value] += weight
-			except IndexError:
-				# param value out of range
-				pass
-
-	def add_background(self, param_dict, weight = 1.0):
-		for param, value in (param_dict or {}).items():
-			rate = self.background_rates[param]
-			try:
-				rate[value] += weight
-			except IndexError:
-				# param value out of range
-				pass
-
-	def add_injection(self, param_dict, weight = 1.0):
-		for param, value in (param_dict or {}).items():
-			rate = self.injection_rates[param]
-			try:
-				rate[value] += weight
-			except IndexError:
-				# param value out of range
-				pass
-
-	def finish(self, verbose = False):
-		# normalizing each array so that its sum is 1 has the
-		# effect of making the integral of P(x) dx equal 1 after
-		# the array is transformed to an array of densities (which
-		# is done by dividing each bin by dx).
-		N = len(self.zero_lag_rates) + len(self.background_rates) + len(self.injection_rates)
-		n = 0
-		threads = []
-		for group, (name, binnedarray) in itertools.chain(zip(["zero lag"] * len(self.zero_lag_rates), self.zero_lag_rates.items()), zip(["background"] * len(self.background_rates), self.background_rates.items()), zip(["injections"] * len(self.injection_rates), self.injection_rates.items())):
-			n += 1
-			threads.append(CoincParamsFilterThread(binnedarray, self.filters[name], verbose = verbose, name = "%d / %d: %s \"%s\"" % (n, N, group, name)))
-			threads[-1].start()
-		for thread in threads:
-			thread.join()
-		return self
-
-	@classmethod
-	def from_xml(cls, xml, name):
-		# create an instance
-		self = cls()
-
-		# initialize from XML contents
-		xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:%s" % (name, self.ligo_lw_name_suffix)]
-		process_id = param.get_pyvalue(xml, u"process_id")
-		names = [elem.getAttribute("Name").split(":")[1] for elem in xml.childNodes if elem.getAttribute("Name").startswith("background:")]
-		for name in names:
-			self.zero_lag_rates[str(name)] = rate.binned_array_from_xml(xml, "zero_lag:%s" % name)
-			self.background_rates[str(name)] = rate.binned_array_from_xml(xml, "background:%s" % name)
-			self.injection_rates[str(name)] = rate.binned_array_from_xml(xml, "injection:%s" % name)
-
-		# done
-		return self, process_id
-
-	def to_xml(self, process, name):
-		# serialize to XML
-		xml = ligolw.LIGO_LW({u"Name": u"%s:%s" % (name, self.ligo_lw_name_suffix)})
-		xml.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
-		for name, binnedarray in self.zero_lag_rates.items():
-			xml.appendChild(rate.binned_array_to_xml(binnedarray, u"zero_lag:%s" % name))
-		for name, binnedarray in self.background_rates.items():
-			xml.appendChild(rate.binned_array_to_xml(binnedarray, u"background:%s" % name))
-		for name, binnedarray in self.injection_rates.items():
-			xml.appendChild(rate.binned_array_to_xml(binnedarray, u"injection:%s" % name))
-
-		# done
-		return xml
-
-
-#
-# =============================================================================
-#
-#                      Excess Power Specific Sub-Classes
+#                Excess Power Specific Parameter Distributions
 #
 # =============================================================================
 #
@@ -250,7 +79,7 @@ def dt_binning(instrument1, instrument2):
 	return rate.NDBins((rate.ATanBins(-dt, +dt, 12001), rate.LinearBins(0.0, 2 * math.pi, 61)))
 
 
-class BurcaCoincParamsDistributions(CoincParamsDistributions):
+class BurcaCoincParamsDistributions(snglcoinc.CoincParamsDistributions):
 	binnings = {
 		"H1_H2_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
 		"H1_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 61))),
@@ -591,22 +420,6 @@ class DistributionsStats(object):
 #
 
 
-#
-# XML construction and parsing
-#
-
-
-def get_coincparamsdistributions(xmldoc, cls, name):
-	coincparamsdistributions, process_id = cls.from_xml(xmldoc, name)
-	seglists = lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([process_id])).coalesce()
-	return coincparamsdistributions, seglists
-
-
-#
-# Construct LIGO Light Weight likelihood distributions document
-#
-
-
 def gen_likelihood_control(coinc_params_distributions, seglists, name = u"ligolw_burca_tailor", comment = u""):
 	xmldoc = ligolw.Document()
 	node = xmldoc.appendChild(ligolw.LIGO_LW())
@@ -622,35 +435,6 @@ def gen_likelihood_control(coinc_params_distributions, seglists, name = u"ligolw
 	ligolw_process.set_process_end_time(process)
 
 	return xmldoc
-
-
-#
-# I/O
-#
-
-
-class DefaultContentHandler(ligolw.LIGOLWContentHandler):
-	pass
-array.use_in(DefaultContentHandler)
-lsctables.use_in(DefaultContentHandler)
-param.use_in(DefaultContentHandler)
-
-
-def load_likelihood_data(filenames, cls, name, verbose = False, contenthandler = DefaultContentHandler):
-	coincparamsdistributions = None
-	for n, filename in enumerate(filenames):
-		if verbose:
-			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-		xmldoc = utils.load_filename(filename, verbose = verbose, contenthandler = contenthandler)
-		if coincparamsdistributions is None:
-			coincparamsdistributions, seglists = get_coincparamsdistributions(xmldoc, cls, name)
-		else:
-			a, b = get_coincparamsdistributions(xmldoc, cls, name)
-			coincparamsdistributions += a
-			seglists |= b
-			del a, b
-		xmldoc.unlink()
-	return coincparamsdistributions, seglists
 
 
 #

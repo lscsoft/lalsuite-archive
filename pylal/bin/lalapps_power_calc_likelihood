@@ -36,8 +36,6 @@ except ImportError:
 
 
 from glue.lal import CacheEntry
-from glue.ligolw import lsctables
-from glue.ligolw import array
 from glue.ligolw import dbtables
 from pylal import git_version
 from pylal import ligolw_burca_tailor
@@ -45,13 +43,6 @@ from pylal import ligolw_burca2
 from pylal import SnglBurstUtils
 from pylal.SimBurstUtils import MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-
-
-# content handler for distribution data
-class StatsContentHandler(lsctables.ligolw.LIGOLWContentHandler):
-	pass
-lsctables.use_in(StatsContentHandler)
-array.use_in(StatsContentHandler)
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -128,9 +119,9 @@ options, filenames = parse_command_line()
 
 
 def load_likelihood_data(filenames, verbose = False):
-	coinc_params_distributions, ignored = ligolw_burca_tailor.load_likelihood_data(filenames, ligolw_burca_tailor.EPGalacticCoreCoincParamsDistributions, u"ligolw_burca_tailor", verbose = verbose, contenthandler = StatsContentHandler)
-	coinc_params_distributions.finish()
-	return coinc_params_distributions
+	distributions, ignored = ligolw_burca_tailor.EPGalacticCoreCoincParamsDistributions.from_filenames(filenames, u"ligolw_burca_tailor", verbose = verbose)
+	distributions.finish()
+	return distributions
 
 
 #

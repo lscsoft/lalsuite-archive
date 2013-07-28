@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2010  Kipp Cannon, Drew G. Keppel, Jolien Creighton
+# Copyright (C) 2006--2013  Kipp Cannon, Drew G. Keppel, Jolien Creighton
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -42,15 +42,21 @@ except ImportError:
 	speed_of_light = float(speed_of_light)
 import scipy.optimize
 import sys
+import threading
+import warnings
 
 
 from glue import iterutils
 from glue import offsetvector
 from glue import segmentsUtils
+from glue.ligolw import ligolw
+from glue.ligolw import array
+from glue.ligolw import param
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import git_version
 from pylal import inject
+from pylal import rate
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -285,7 +291,7 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	try:
 		threshold_data = thresholds[(eventlista.instrument, eventlistb.instrument)]
 	except KeyError, e:
-		raise KeyError, "no coincidence thresholds provided for instrument pair %s, %s" % e.args[0]
+		raise KeyError("no coincidence thresholds provided for instrument pair %s, %s" % e.args[0])
 	light_travel_time = inject.light_travel_time(eventlista.instrument, eventlistb.instrument)
 
 	# for each event in the shortest list
@@ -1408,3 +1414,322 @@ class TOATriangulator(object):
 
 		# done
 		return n, t0 + toa, chi2 / len(self.sigmas), dt
+
+
+#
+# =============================================================================
+#
+#                     Coincidence Parameter Distributions
+#
+# =============================================================================
+#
+
+
+#
+# threading.Thread sub-class for filtering parameter distributions
+#
+
+
+class CoincParamsFilterThread(threading.Thread):
+	"""
+	For internal use by the CoincParamsDistributions class.
+	"""
+	# allow at most 5 threads
+	cpu = threading.Semaphore(5)
+	# allow at most one to write to stderr
+	stderr = threading.Semaphore(1)
+
+	def __init__(self, binnedarray, filter, verbose = False, name = None):
+		threading.Thread.__init__(self, name = name)
+		self.binnedarray = binnedarray
+		self.filter = filter
+		self.verbose = verbose
+
+	def run(self):
+		with self.cpu:
+			if self.verbose:
+				with self.stderr:
+					print >>sys.stderr, "\tstarting %s" % self.getName()
+
+			# equivalent to filter_array() + .to_pdf().  why
+			# not do that?  I don't know.  I think we maybe
+			# should in case it makes a difference near the
+			# edges.  FIXME:  think about this
+			self.binnedarray.array /= self.binnedarray.array.sum()
+			rate.to_moving_mean_density(self.binnedarray, self.filter)
+
+			# guard against round-off in FFT convolution
+			numpy.clip(self.binnedarray.array, 0, float("inf"), self.binnedarray.array)
+
+			if self.verbose:
+				with self.stderr:
+					print >>sys.stderr, "\tcompleted %s" % self.getName()
+
+
+#
+# A class for measuring parameter distributions
+#
+
+
+class CoincParamsDistributions(object):
+	"""
+	A class for histograming the parameters of coincidences (or of
+	single events).  It is assumed there is a fixed, pre-determined,
+	set of parameters that one wishes to histogram, and that each
+	parameter has a name.  To use this, it must be sub-classed and the
+	derived class must provide dictionaries of binnings and smoothing
+	filters.  The binnings is a dictionary mapping parameter names to
+	rate.NDBins instances describing the binning to be used for each
+	paramter.  The filters is a dictionary mapping parameter names to
+	numpy.ndarray instances that will be used to smooth bin count data
+	in the histograms.  Subclasses must also provide a .coinc_params()
+	static method that will transform a list of single-instrument
+	events into a dictionary mapping paramter name to parameter value.
+
+	This class maintains three sets of histograms, one set for noise
+	(or "background") events, one set for signal (or "injection")
+	events and one set for observed (or "zero lag") events.  The bin
+	counts are floating point values (not integers).
+	"""
+	#
+	# sub-classes may override the following
+	#
+
+	ligo_lw_name_suffix = u"pylal_snglcoinc_coincparamsdistributions"
+
+	#
+	# Default content handler for loading CoincParamsDistributions
+	# objects from XML documents
+	#
+
+	class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
+		pass
+	array.use_in(LIGOLWContentHandler)
+	lsctables.use_in(LIGOLWContentHandler)
+	param.use_in(LIGOLWContentHandler)
+
+	#
+	# sub-classes must override the following
+	#
+
+	binnings = {}
+
+	filters = {}
+
+	@staticmethod
+	def coinc_params(*args, **kwargs):
+		"""
+		Given a sequence of single-instrument events (rows from an event
+		table) that form a coincidence, compute and return a
+		dictionary mapping parameter name to parameter values,
+		suitable for being passed to one of the .add_*() methods.
+		This function may return None.
+		"""
+		raise NotImplementedError("subclass must implement .coinc_params() method")
+
+	#
+	# begin implementation
+	#
+
+	def __init__(self):
+		if not self.binnings:
+			raise NotImplementedError("subclass must provide dictionary of binnings")
+		self.zero_lag_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
+		self.background_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
+		self.injection_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
+
+	def __iadd__(self, other):
+		if type(other) != type(self):
+			raise TypeError(other)
+		for param, rate in other.zero_lag_rates.items():
+			if param in self.zero_lag_rates:
+				self.zero_lag_rates[param] += rate
+			else:
+				self.zero_lag_rates[param] = rate
+		for param, rate in other.background_rates.items():
+			if param in self.background_rates:
+				self.background_rates[param] += rate
+			else:
+				self.background_rates[param] = rate
+		for param, rate in other.injection_rates.items():
+			if param in self.injection_rates:
+				self.injection_rates[param] += rate
+			else:
+				self.injection_rates[param] = rate
+		return self
+
+	@classmethod
+	def copy(cls, other):
+		# FIXME:  this should probably not be a class method, and
+		# look like
+		# def copy(self):
+		#	new = type(self)()
+		#	new += self
+		#	return new
+		new = cls()
+		new += other
+		return new
+
+	def add_zero_lag(self, param_dict, weight = 1.0):
+		"""
+		Increment a bin in one or more of the observed data (or
+		"zero lag") histograms by weight (default 1).  The names of
+		the histograms to increment, and the parameters identifying
+		the bin in each histogram, are given by the param_dict
+		dictionary.
+
+		The param_dict is allowed to be None.  Then this method is
+		a no-op.
+		"""
+		for param, value in (param_dict or {}).items():
+			try:
+				self.zero_lag_rates[param][value] += weight
+			except IndexError:
+				# param value out of range
+				pass
+
+	def add_background(self, param_dict, weight = 1.0):
+		"""
+		Increment a bin in one or more of the noise (or
+		"background") histograms by weight (default 1).  The names
+		of the histograms to increment, and the parameters
+		identifying the bin in each histogram, are given by the
+		param_dict dictionary.
+
+		The param_dict is allowed to be None.  Then this method is
+		a no-op.
+		"""
+		for param, value in (param_dict or {}).items():
+			try:
+				self.background_rates[param][value] += weight
+			except IndexError:
+				# param value out of range
+				pass
+
+	def add_injection(self, param_dict, weight = 1.0):
+		"""
+		Increment a bin in one or more of the signal (or
+		"injection") histograms by weight (default 1).  The names
+		of the histograms to increment, and the parameters
+		identifying the bin in each histogram, are given by the
+		param_dict dictionary.
+
+		The param_dict is allowed to be None.  Then this method is
+		a no-op.
+		"""
+		for param, value in (param_dict or {}).items():
+			try:
+				self.injection_rates[param][value] += weight
+			except IndexError:
+				# param value out of range
+				pass
+
+	def finish(self, verbose = False):
+		"""
+		Smooth all histograms using the corresponding kernels from
+		the filters dictionary, and normalize so their volume
+		integrals are all 1.  This has the effect of replacing the
+		histogram contents with discretely-sampled PDF data.
+
+		NOTE:  invoking this method more than once will result in
+		nonsensical data in the arrays.  No protection is afforded
+		to guard against attempts to do so.
+		"""
+		N = len(self.zero_lag_rates) + len(self.background_rates) + len(self.injection_rates)
+		threads = []
+		for n, (group, (name, binnedarray)) in enumerate(itertools.chain(zip(["zero lag"] * len(self.zero_lag_rates), self.zero_lag_rates.items()), zip(["background"] * len(self.background_rates), self.background_rates.items()), zip(["injections"] * len(self.injection_rates), self.injection_rates.items()))):
+			threads.append(CoincParamsFilterThread(binnedarray, self.filters[name], verbose = verbose, name = "%d / %d: %s \"%s\"" % (n + 1, N, group, name)))
+			threads[-1].start()
+		while threads:
+			threads.pop(0).join()
+		return self
+
+	@classmethod
+	def from_xml(cls, xml, name):
+		"""
+		In the XML document tree rooted at xml, search for the
+		serialized CoincParamsDistributions object named name, and
+		deserialize it.  The return value is a two-element tuple.
+		The first element is the deserialized
+		CoincParamsDistributions object, the second is the process
+		ID recorded when it was written to XML.
+		"""
+		# create an instance
+		self = cls()
+
+		# find the root element of the XML serialization
+		xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:%s" % (name, self.ligo_lw_name_suffix)]
+
+		# retrieve the process ID
+		process_id = param.get_pyvalue(xml, u"process_id")
+
+		# retrieve the paramter names
+		zl_names = [elem.getAttribute(u"Name").split(u":")[1] for elem in xml.childNodes if elem.getAttribute(u"Name").startswith(u"zero_lag:")]
+		if set(zl_names) != set(self.binnings):
+			warnings.warn("XML's zero lag binning parameter names do not match those for this class")
+		bg_names = [elem.getAttribute(u"Name").split(u":")[1] for elem in xml.childNodes if elem.getAttribute(u"Name").startswith(u"background:")]
+		if set(bg_names) != set(self.binnings):
+			warnings.warn("XML's background binning parameter names do not match those for this class")
+		in_names = [elem.getAttribute(u"Name").split(u":")[1] for elem in xml.childNodes if elem.getAttribute(u"Name").startswith(u"injection:")]
+		if set(in_names) != set(self.binnings):
+			warnings.warn("XML's injection binning parameter names do not match those for this class")
+
+		# reconstruct the BinnedArray objects
+		for name in zl_names:
+			self.zero_lag_rates[str(name)] = rate.binned_array_from_xml(xml, u"zero_lag:%s" % name)
+		for name in bg_names:
+			self.background_rates[str(name)] = rate.binned_array_from_xml(xml, u"background:%s" % name)
+		for name in in_names:
+			self.injection_rates[str(name)] = rate.binned_array_from_xml(xml, u"injection:%s" % name)
+
+		# done
+		return self, process_id
+
+	def to_xml(self, process, name):
+		"""
+		Serialize this CoincParamsDistributions object to an XML
+		fragment and return the root element of the resulting XML
+		tree.  The .process_id attribute of process will be
+		recorded in the serialized XML, and the object will be
+		given the name name.
+		"""
+		xml = ligolw.LIGO_LW({u"Name": u"%s:%s" % (name, self.ligo_lw_name_suffix)})
+		xml.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
+		for name, binnedarray in sorted(self.zero_lag_rates.items()):
+			xml.appendChild(rate.binned_array_to_xml(binnedarray, u"zero_lag:%s" % name))
+		for name, binnedarray in sorted(self.background_rates.items()):
+			xml.appendChild(rate.binned_array_to_xml(binnedarray, u"background:%s" % name))
+		for name, binnedarray in sorted(self.injection_rates.items()):
+			xml.appendChild(rate.binned_array_to_xml(binnedarray, u"injection:%s" % name))
+		return xml
+
+	@classmethod
+	def from_filenames(cls, filenames, name, verbose = False, contenthandler = None):
+		"""
+		Convenience function to deserialize
+		CoincParamsDistributions objects from a collection of XML
+		files and return their sum.  The return value is a
+		two-element tuple.  The first element is the deserialized
+		and summed CoincParamsDistributions object, the second is a
+		segmentlistdict indicating the interval of time spanned by
+		the out segments in the search_summary rows matching the
+		process IDs that were attached to the
+		CoincParamsDistributions objects in the XML.
+		"""
+		if contenthandler is None:
+			contenthandler = cls.LIGOLWContentHandler
+		self = None
+		for n, filename in enumerate(filenames):
+			if verbose:
+				print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+			xmldoc = utils.load_filename(filename, verbose = verbose, contenthandler = contenthandler)
+			if self is None:
+				self, process_id = cls.from_xml(xmldoc, name)
+				seglists = lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([process_id])).coalesce()
+			else:
+				c, process_id = cls.from_xml(xmldoc, name)
+				self += c
+				del c
+				seglists |= lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([process_id])).coalesce()
+			xmldoc.unlink()
+		return self, seglists

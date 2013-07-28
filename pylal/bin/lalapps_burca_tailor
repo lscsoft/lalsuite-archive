@@ -124,7 +124,7 @@ segs = segments.segmentlistdict()
 
 
 if options.add_from:
-	c, s = ligolw_burca_tailor.load_likelihood_data(options.add_from, type(distributions), u"ligolw_burca_tailor", verbose = options.verbose)
+	c, s = distributions.from_filenames(options.add_from, u"ligolw_burca_tailor", verbose = options.verbose)
 	distributions += c
 	segs |= s
 	del c
