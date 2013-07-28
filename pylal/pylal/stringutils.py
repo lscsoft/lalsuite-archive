@@ -326,14 +326,17 @@ class DistributionsStats(object):
 
 		# generate synthetic background coincs
 		for n, events in enumerate(coinc_generator):
+			# n = 1 on 2nd iteration, so placing this condition
+			# where it is in the loop causes the correct number
+			# of events to be added to the background
+			if n >= n_coincs:
+				break
 			# assign fake peak times
 			toas = toa_generator[frozenset(event.ifo for event in events)].next()
 			for event in events:
 				event.set_peak(toas[event.ifo])
 			# compute coincidence parameters
 			self.distributions.add_background(param_func(events, zero_lag_offset_vector, *param_func_args))
-			if n > n_coincs:
-				break
 
 		# restore original peak times
 		for event, peak_time in orig_peak_times.iteritems():
