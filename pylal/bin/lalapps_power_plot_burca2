@@ -39,21 +39,9 @@ from optparse import OptionParser
 import sys
 
 
-from glue import segments
-from glue.ligolw import ligolw
-from glue.ligolw import array
-from glue.ligolw import lsctables
-from glue.ligolw import utils
 from pylal import git_version
 from pylal import ligolw_burca_tailor
 from pylal import SnglBurstUtils
-
-
-class ContentHandler(ligolw.LIGOLWContentHandler):
-	pass
-
-array.use_in(ContentHandler)
-lsctables.use_in(ContentHandler)
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -272,14 +260,7 @@ options, filenames = parse_command_line()
 filenames.sort()
 
 
-distributions = ligolw_burca_tailor.BurcaCoincParamsDistributions()
-seglists = segments.segmentlistdict()
-for n, filename in enumerate(filenames):
-	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	c, s = ligolw_burca_tailor.get_coincparamsdistributions(utils.load_filename(filename, verbose = options.verbose, contenthandler = ContentHandler), type(distributions), u"ligolw_burca_tailor")
-	distributions += c
-	seglists |= s
+distributions, seglists = ligolw_burca_tailor.load_likelihood_data(filenames, ligolw_burca_tailor.EPGalacticCoreCoincParamsDistributions, u"ligolw_burca_tailor", verbose = options.verbose)
 if options.verbose:
 	print >>sys.stderr, "applying filters ..."
 distributions.finish()

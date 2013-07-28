@@ -38,21 +38,12 @@ import sys
 
 from glue import segments
 from glue.lal import CacheEntry
-from glue.ligolw import lsctables
-from glue.ligolw import array
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import ligolw_burca_tailor
 from pylal import SnglBurstUtils
 from pylal.SimBurstUtils import MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD
 from pylal import git_version
-
-
-# content handler for distribution data
-class StatsContentHandler(lsctables.ligolw.LIGOLWContentHandler):
-	pass
-lsctables.use_in(StatsContentHandler)
-array.use_in(StatsContentHandler)
 
 
 # characters allowed to appear in the description string
@@ -133,12 +124,11 @@ segs = segments.segmentlistdict()
 
 
 if options.add_from:
-	for n, filename in enumerate(options.add_from):
-		if options.verbose:
-			print >>sys.stderr, "%d/%d: " % (n + 1, len(options.add_from)),
-		c, s = ligolw_burca_tailor.get_coincparamsdistributions(utils.load_filename(filename, verbose = options.verbose, contenthandler = StatsContentHandler), type(distributions), u"ligolw_burca_tailor")
-		distributions += c
-		segs |= s
+	c, s = ligolw_burca_tailor.load_likelihood_data(options.add_from, type(distributions), u"ligolw_burca_tailor", verbose = options.verbose)
+	distributions += c
+	segs |= s
+	del c
+	del s
 
 
 #
