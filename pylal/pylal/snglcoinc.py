@@ -722,13 +722,14 @@ def slideless_coinc_generator_mu_tau(eventlists, segmentlists, delta_t):
 	windows between pairs of instruments.
 
 	eventlists is a dictionary mapping instrument name to a list of
-	"events" (arbitrary objects).  segmentlists is a
+	"events" (arbitrary objects, this class doesn't care, it just needs
+	to know how many there are).  segmentlists is a
 	glue.segments.segmentlistdict object describing the observation
 	segments for each of instruments.  delta_t is a time window in
 	seconds, the light travel time between instrument pairs is added to
 	this internally.
 
-	The return value is a tuple of dictionaries.  The first, "mu", maps
+	The return value is a pair of dictionaries.  The first, "mu", maps
 	instrument name to mean event rate in Hz.  The second, "tau", maps
 	pairs of instrument names (stored as frozensets) to the maximum
 	allowed time difference between events from those instruments in
@@ -744,7 +745,7 @@ def slideless_coinc_generator_plausible_toas(instruments, tau):
 	Construct and return a generator that yields dictionaries of random
 	event time-of-arrivals for the instruments in instruments such that
 	the time-of-arrivals are mutually coincident given the maximum
-	allowed inter-instrument \Delta ts given by tau.
+	allowed inter-instrument \Delta t's given by tau.
 
 	Example:
 
@@ -753,6 +754,12 @@ def slideless_coinc_generator_plausible_toas(instruments, tau):
 	>>> toas = slideless_coinc_generator_plausible_toas(instruments, tau)
 	>>> toas.next()
 	>>> toas.next()
+
+	NOTE:  the times are simply chosen uniformly within the intervals
+	permitted.  In searches, it is normal for signals to preferentially
+	match the filters being used to search for them at certain offsets
+	(an effect caused by ringing in the filter autocorrelation
+	function).  This effect is not simulated here.
 	"""
 	# this algorithm is documented in slideless_coinc_generator_rates()
 	instruments = tuple(instruments)
@@ -965,7 +972,7 @@ def slideless_coinc_generator(eventlists, mu_coinc, tau, timefunc, allow_zero_la
 	# generate random coincidences
 	#
 
-	while True:
+	while 1:	# 1 is immutable, so faster than True
 		# select an instrument combination
 		instruments = P[bisect.bisect_left(P, [random.uniform(0.0, 1.0)])][1]
 
@@ -988,10 +995,6 @@ def slideless_coinc_generator(eventlists, mu_coinc, tau, timefunc, allow_zero_la
 #                                Triangulation
 #
 # =============================================================================
-#
-
-
-#
 #
 
 
