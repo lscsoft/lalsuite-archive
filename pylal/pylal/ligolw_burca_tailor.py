@@ -187,11 +187,11 @@ def targeted_coinc_params(events, offsetvector, ra, dec):
 
 
 #
-# A class for measuring parameter distributions
+# threading.Thread sub-class for filtering parameter distributions
 #
 
 
-class FilterThread(threading.Thread):
+class CoincParamsFilterThread(threading.Thread):
 	# allow at most 5 threads
 	cpu = threading.Semaphore(5)
 	# allow at most one to write to stderr
@@ -218,6 +218,11 @@ class FilterThread(threading.Thread):
 			print >>sys.stderr, "\tcompleted %s" % self.getName()
 			self.stderr.release()
 		self.cpu.release()
+
+
+#
+# A class for measuring parameter distributions
+#
 
 
 class CoincParamsDistributions(object):
@@ -296,7 +301,7 @@ class CoincParamsDistributions(object):
 		threads = []
 		for group, (name, binnedarray) in itertools.chain(zip(["zero lag"] * len(self.zero_lag_rates), self.zero_lag_rates.items()), zip(["background"] * len(self.background_rates), self.background_rates.items()), zip(["injections"] * len(self.injection_rates), self.injection_rates.items())):
 			n += 1
-			threads.append(FilterThread(binnedarray, filters.get(name, default_filter), verbose = verbose, name = "%d / %d: %s \"%s\"" % (n, N, group, name)))
+			threads.append(CoincParamsFilterThread(binnedarray, filters.get(name, default_filter), verbose = verbose, name = "%d / %d: %s \"%s\"" % (n, N, group, name)))
 			threads[-1].start()
 		for thread in threads:
 			thread.join()
