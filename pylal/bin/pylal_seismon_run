@@ -9,10 +9,11 @@ import glue.GWDataFindClient, glue.segments, glue.segmentsUtils, glue.lal
 import pylal.dq.dqSegmentUtils
 import pylal.pylal_seismon_psd, pylal.pylal_seismon_html, pylal.pylal_seismon_omicron
 import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_eqmon_plot
+import nds2
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
-__date__ = "2012/8/26"
-__version__ = "0.1"
+__date__ = "2013/7/29"
+__version__ = "0.2"
 
 # =============================================================================
 #
@@ -35,7 +36,6 @@ def parse_commandline():
 
     parser.add_option("--gpsSpectraStart", help="GPS spectra Start Time.", type=int)
     parser.add_option("--gpsSpectraEnd", help="GPS spectra End Time.", type=int)
-
 
     parser.add_option("--segmentDatabase", help="Segment database", default="https://segdb2.ligo.caltech.edu")
     parser.add_option("--segmentFlag", help="Segment flag", default="H1:ODC-PSL_SUMMARY:1")
@@ -181,7 +181,6 @@ def frame_struct(params):
 
     if params["ifo"] == "XG":
         frameDir = "/archive/frames/MBH/"
-        frameDir = "/home/shivaraj/homestakefinal/"
         frameList = [os.path.join(root, name)
             for root, dirs, files in os.walk(frameDir)
             for name in files]
@@ -209,10 +208,13 @@ def frame_struct(params):
             datacache.append(cacheFile)
 
     else:
-        usends = 0
-        if usends:
-            ndsserver = cp.get("datafind", "nds-server")
-            ndsport = cp.getint("datafind", "nds-port")
+        if params["frameType"] == "nds":
+            conn = nds2.connection(params["ndsServer"])
+            #y = conn.find_channels('*',nds2.channel.CHANNEL_TYPE_RAW,\
+            #    nds2.channel.DATA_TYPE_FLOAT32, 128, 16384)
+
+            params["ndsConnection"] = conn
+
         else:
             connection = glue.GWDataFindClient.GWDataFindHTTPConnection()
             datacache = connection.find_frame_urls(params["ifo"][0], params["frameType"],
@@ -221,7 +223,7 @@ def frame_struct(params):
                                                    on_gaps="warn")
             connection.close()
 
-    params["frame"] = datacache
+            params["frame"] = datacache
 
     return params
 
