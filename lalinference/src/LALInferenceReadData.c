@@ -2464,18 +2464,24 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform */
       REAL8TimeSeries       *signalvecREAL8=NULL;
       INT4              maxl=0;         /**< Maximum l of QNMs */
-      QNMTimeSeries *qnmodes;        /**< List containing empty Quasi-Normal Modes  */
+      SphHarmTimeSeries *qnmodes;        /**< List containing empty Quasi-Normal Modes  */
       
       // TODO: Get maxl or (l,m) pairs from commandLine.
+
       maxl = 4;
-      XLALSimAddEmptyQNMode(qnmodes, 2, 2);
-      XLALSimAddEmptyQNMode(qnmodes, 2, 1);
-      XLALSimAddEmptyQNMode(qnmodes, 3, 3);
-      XLALSimAddEmptyQNMode(qnmodes, 4, 4);
+      
+      if (!qnmodes)
+      qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 2, 2);
+      qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 2, 1);
+      qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 3, 3);
+      qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 4, 4);
+      else maxl = XLALSphHarmTimeSeriesGetMaxL(qnmodes);
       
       // TODO: Get the parameters from the right places (injEvent inspiral or ringdown table?)
       REAL8 m1 = injEvent->mass1;
       REAL8 m2 = injEvent->mass2;
+      REAL8 Mbh = injEvent->mass;
+      REAL8 spin = injEvent->spin;
       REAL8 Mt = m1+m2;
       REAL8 eta = m1*m2/(Mt*Mt);
       REAL8 phase = injEvent->coa_phase;
@@ -2484,11 +2490,6 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       // REAL8 phase = injRDEvent->phi0;
       
       LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
-      LALSimInspiralSpinOrder spinO = -1;
-      if(LALInferenceGetProcParamVal(commandLine,"--inj-spinOrder")) {
-        spinO = atoi(LALInferenceGetProcParamVal(commandLine,"--inj-spinOrder")->value);
-        XLALSimInspiralSetSpinOrder(waveFlags, spinO);
-      }
       LALSimInspiralTestGRParam *nonGRparams = NULL;
       
       /* Print a line with information about approximant, QNM multipole order and spin order */
@@ -2531,7 +2532,7 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       
 
     XLALDestroyREAL4TimeSeries(injectionBuffer);
-    
+    XLALDestroySphHarmTimeSeries(qnmodes);
     injF=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("injF",
 										&thisData->timeData->epoch,
 										0.0,
