@@ -73,6 +73,7 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
                (--fixDec)                      Do not allow declination to vary.\n\
                (--fixPsi)                      Do not allow polarization to vary.\n\
                (--fixTime)                     Do not allow coalescence time to vary.\n\
+               (--fixSpin)                     Do not allow final BH spin (a) to vary.\n\
                (--pinparams)                   List of parameters to set to injected values [mchirp,asym_massratio,etc].\n";
 
 
@@ -104,7 +105,6 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   Approximant approx=NumApproximants;
   REAL8 fRef = 0.0;
   LALInferenceApplyTaper bookends = LALINFERENCE_TAPER_NONE;
-  LALInferenceFrame frame = LALINFERENCE_FRAME_RADIATION;
   UINT4 analytic=0;
   LALInferenceIFOData *dataPtr;
   LALSimulationDomain modelDomain;
@@ -185,7 +185,7 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
     char **strings=NULL;
     UINT4 N;
     LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
-    LALInferenceInjectionToVariables(injTable,&tempParams); // TODO: Adapt this to a SimRingdownTable
+    LALInferenceInjectionToVariables(injTable,&tempParams);
     LALInferenceVariableItem *node=NULL;
     while(N>0){
       N--;
@@ -489,12 +489,6 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   if(ppt){
     LALInferenceAddVariable(currentParams, "LALINFERENCE_TAPER",     &bookends,        LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
   }  
-  
-  ppt=LALInferenceGetProcParamVal(commandLine, "--system-frame");
-  if(ppt){
-    frame = LALINFERENCE_FRAME_SYSTEM;
-  }
-  LALInferenceAddVariable(currentParams, "LALINFERENCE_FRAME", &frame, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
 
 
   
@@ -954,6 +948,8 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   } else {
     LALInferenceRegisterUniformVariableREAL8(state, currentParams, "distance", start_dist, Dmin, Dmax, LALInferenceGetProcParamVal(commandLine,"--fixDist")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
   }
+
+  LALInferenceRegisterUniformVariableREAL8(state, currentParams, "spin", start_a_spin, amin, amax, LALInferenceGetProcParamVal(commandLine,"--fixSpin")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
   
   LALInferenceRegisterUniformVariableREAL8(state, currentParams, "rightascension", start_ra, raMin, raMax, LALInferenceGetProcParamVal(commandLine,"--fixRa")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_CIRCULAR);
   
@@ -961,16 +957,8 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   
   LALInferenceRegisterUniformVariableREAL8(state, currentParams, "polarisation", start_psi, psiMin, psiMax, LALInferenceGetProcParamVal(commandLine,"--fixPsi")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
   
-  if(frame==LALINFERENCE_FRAME_RADIATION){
-    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "inclination", start_iota, iotaMin, iotaMax, LALInferenceGetProcParamVal(commandLine,"--fixIota")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
-    
-  } else if(frame==LALINFERENCE_FRAME_SYSTEM){
-    
-    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "theta_JN", start_theta_JN, thetaJNmin, thetaJNmax, LALInferenceGetProcParamVal(commandLine,"--fixThetaJN")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
-    
-    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "phi_JL", start_phi_JL, phiJLmin, phiJLmax, LALInferenceGetProcParamVal(commandLine,"--fixPhiJL")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_CIRCULAR);
-    
-  }
+
+  LALInferenceRegisterUniformVariableREAL8(state, currentParams, "inclination", start_iota, iotaMin, iotaMax, LALInferenceGetProcParamVal(commandLine,"--fixIota")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
 
   /* Check for spin disabled */
   ppt=LALInferenceGetProcParamVal(commandLine, "--noSpin");
@@ -985,62 +973,4 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
      fprintf(stdout,"Templates will run using ringdown Approximant %i (%s) in the %s domain.\n",approx,XLALGetStringFromApproximant(approx),modelDomain==LAL_SIM_DOMAIN_TIME?"time":"frequency");
      fprintf(stdout,"---\t\t ---\n\n");
   return(currentParams);
-}
-
-
-/** Fill the variables passed in vars with the parameters of the injection passed in event
-    will over-write and destroy any existing parameters. Param vary type will be fixed */
-void LALInferenceRingdownInjectionToVariables(SimRingdownTable *theEventTable, LALInferenceVariables *vars)
-{
-    UINT4 spinCheck=0;
-    if(!vars) {
-	XLALPrintError("Encountered NULL variables pointer");
-   	XLAL_ERROR_VOID(XLAL_EINVAL);
-	}
-    /* Destroy existing parameters */
-    if(vars->head!=NULL) LALInferenceClearVariables(vars);
-
-    REAL8 a = theEventTable->spin;
-
-    /* Check for presence of spin in the injection */
-    if(a!=0.0) spinCheck=1;
-
-    REAL8 psi = theEventTable->polarization;
-    if (psi>=M_PI) psi -= M_PI;
-
-    REAL8 injGPSTime = XLALGPSGetREAL8(&(theEventTable->geocent_end_time));
-
-    REAL8 dist = theEventTable->distance;
-    REAL8 inclination = theEventTable->inclination;
-    REAL8 phase = theEventTable->coa_phase;
-    REAL8 dec = theEventTable->latitude;
-    REAL8 ra = theEventTable->longitude;
-    
-    Approximant injapprox = XLALGetApproximantFromString(theEventTable->waveform);
-    LALPNOrder order = XLALGetOrderFromString(theEventTable->waveform);
-    
-    REAL8 m1=theEventTable->mass1;
-    REAL8 m2=theEventTable->mass2;
-    REAL8 chirpmass = theEventTable->mchirp;
-    LALInferenceAddVariable(vars, "mass1", &m1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    LALInferenceAddVariable(vars, "mass2", &m2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    LALInferenceAddVariable(vars, "chirpmass", &chirpmass, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    LALInferenceAddVariable(vars, "asym_massratio", &q, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    LALInferenceAddVariable(vars, "time", &injGPSTime, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    LALInferenceAddVariable(vars, "distance", &dist, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    LALInferenceAddVariable(vars, "inclination", &inclination, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    LALInferenceAddVariable(vars, "polarisation", &(psi), LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    LALInferenceAddVariable(vars, "phase", &phase, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    LALInferenceAddVariable(vars, "declination", &dec, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    LALInferenceAddVariable(vars, "rightascension", &ra, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    LALInferenceAddVariable(vars, "LAL_APPROXIMANT", &injapprox, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
-    if(spinCheck){
-        LALInferenceAddVariable(vars, "a_spin1", &a_spin1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-        LALInferenceAddVariable(vars, "a_spin2", &a_spin2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-        LALInferenceAddVariable(vars, "theta_spin1", &theta_spin1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-        LALInferenceAddVariable(vars, "theta_spin2", &theta_spin2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-        LALInferenceAddVariable(vars, "phi_spin1", &phi_spin1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-        LALInferenceAddVariable(vars, "phi_spin2", &phi_spin2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    }
-
 }
