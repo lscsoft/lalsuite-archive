@@ -2356,21 +2356,261 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	UINT4 event=0;
 	UINT4 i=0,j=0;
     REAL8 responseScale=1.0;
-	//CoherentGW InjectGW;
-	//PPNParamStruc InjParams;
 	LIGOTimeGPS injstart;
 	REAL8 SNR=0,NetworkSNR=0;
 	DetectorResponse det;
 	memset(&injstart,0,sizeof(LIGOTimeGPS));
-	//memset(&InjParams,0,sizeof(PPNParamStruc));
 	COMPLEX16FrequencySeries *injF=NULL;
 	FILE *rawWaveform=NULL;
 	ProcessParamsTable *ppt=NULL;
-	REAL8 bufferLength = 2048.0; /* Default length of buffer for injections (seconds) */
+	REAL8 bufferLength = 100.0; /* Default length of buffer for ringdown injections (seconds) */
 	UINT4 bufferN=0;
 	LIGOTimeGPS bufferStart;
     
-    // Continue from here
+   	LALInferenceIFOData *thisData=IFOdata->next;
+    REAL8 minFlow=IFOdata->fLow;
+    REAL8 MindeltaT=IFOdata->timeData->deltaT;
+    REAL8 InjSampleRate=1.0/MindeltaT;
+ 	REAL4TimeSeries *injectionBuffer=NULL;
+    REAL8 padding=0.4; //default, set in LALInferenceReadData()
+
+
+	while(thisData){
+          minFlow   = minFlow>thisData->fLow ? thisData->fLow : minFlow;
+          MindeltaT = MindeltaT>thisData->timeData->deltaT ? thisData->timeData->deltaT : MindeltaT;
+          thisData  = thisData->next;
+	}
+	thisData=IFOdata;
+
+	if(!LALInferenceGetProcParamVal(commandLine,"--inj")) {fprintf(stdout,"No injection file specified, not injecting\n"); return;}
+	if(LALInferenceGetProcParamVal(commandLine,"--event")){
+    event= atoi(LALInferenceGetProcParamVal(commandLine,"--event")->value);
+    fprintf(stdout,"Injecting event %d\n",event);
+	}
+        if(LALInferenceGetProcParamVal(commandLine,"--snrpath")){
+                ppt = LALInferenceGetProcParamVal(commandLine,"--snrpath");
+		SNRpath = XLALCalloc(strlen(ppt->value)+1,sizeof(char));
+		memcpy(SNRpath,ppt->value,strlen(ppt->value)+1);
+        fprintf(stdout,"Writing SNRs in %s\n",SNRpath);
+
+	}
+	Ninj=SimInspiralTableFromLIGOLw(&injTable,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0); // FIXME: Should this change to RingdownTable???
+	REPORTSTATUS(&status);
+	printf("Ninj %d\n", Ninj);
+	if(Ninj<event) fprintf(stderr,"Error reading event %d from %s\n",event,LALInferenceGetProcParamVal(commandLine,"--inj")->value);
+	while(i<event) {i++; injTable = injTable->next;} /* Select event */
+	injEvent = injTable;
+	injEvent->next = NULL;
+	
+	Approximant injapprox;
+	injapprox = XLALGetApproximantFromString(injTable->waveform);
+        if( (int) injapprox == XLAL_FAILURE)
+          ABORTXLAL(&status);
+	printf("Injecting approximant %i: %s\n", injapprox, injTable->waveform);
+	REPORTSTATUS(&status);
+	
+	/* Check for frequency domain injection (TF2 only at present) */
+	if(strstr(injTable->waveform,"RingdownFD"))
+	{ printf("Injecting RingdownFD in the frequency domain...\n");
+	 InjectRingdownFD(IFOdata, injTable, commandLine);  //TODO: write injection for FD
+	 return;
+	}
+
+	/* Begin loop over interferometers */
+	while(thisData){
+		Approximant       approximant;        /* Get approximant value      */
+		approximant = XLALGetApproximantFromString(injEvent->waveform);
+		if( (int) approximant == XLAL_FAILURE)
+			ABORTXLAL(&status);
+
+		InjSampleRate=1.0/thisData->timeData->deltaT;
+		if(LALInferenceGetProcParamVal(commandLine,"--injectionsrate")) InjSampleRate=atof(LALInferenceGetProcParamVal(commandLine,"--injectionsrate")->value);
+		memset(&det,0,sizeof(det));
+		det.site=thisData->detector;
+		COMPLEX8FrequencySeries *resp = XLALCreateCOMPLEX8FrequencySeries("response",&thisData->timeData->epoch,
+																		  0.0,
+																		  thisData->freqData->deltaF,
+																		  &strainPerCount,
+																		  thisData->freqData->data->length);
+		
+		for(i=0;i<resp->data->length;i++) {resp->data->data[i] = 1.0;}
+		/* Originally created for injecting into DARM-ERR, so transfer function was needed.  
+		But since we are injecting into h(t), the transfer function from h(t) to h(t) is 1.*/
+
+		/* We need a long buffer to inject into so that FindChirpInjectSignals() works properly
+		 for low mass systems. Use 100 seconds here */
+		bufferN = (UINT4) (bufferLength*InjSampleRate);
+		memcpy(&bufferStart,&thisData->timeData->epoch,sizeof(LIGOTimeGPS));
+		XLALGPSAdd(&bufferStart,(REAL8) thisData->timeData->data->length * thisData->timeData->deltaT);
+		XLALGPSAdd(&bufferStart,-bufferLength);
+		injectionBuffer=(REAL4TimeSeries *)XLALCreateREAL4TimeSeries(thisData->detector->frDetector.prefix,
+																	 &bufferStart, 0.0, 1.0/InjSampleRate,
+																	 &lalADCCountUnit, bufferN);
+		REAL8TimeSeries *inj8Wave=(REAL8TimeSeries *)XLALCreateREAL8TimeSeries("injection8",
+                                                                           &thisData->timeData->epoch,
+                                                                           0.0,
+                                                                           thisData->timeData->deltaT,
+                                                                           &lalStrainUnit,
+                                                                           thisData->timeData->data->length);
+		if(!inj8Wave) XLAL_ERROR_VOID(XLAL_EFUNC);
+		/* This marks the sample in which the real segment starts, within the buffer */
+		for(i=0;i<injectionBuffer->data->length;i++) injectionBuffer->data->data[i]=0.0;
+		for(i=0;i<inj8Wave->data->length;i++) inj8Wave->data->data[i]=0.0;
+		INT4 realStartSample=(INT4)((thisData->timeData->epoch.gpsSeconds - injectionBuffer->epoch.gpsSeconds)/thisData->timeData->deltaT);
+		realStartSample+=(INT4)((thisData->timeData->epoch.gpsNanoSeconds - injectionBuffer->epoch.gpsNanoSeconds)*1e-9/thisData->timeData->deltaT);
+
+      printf("Using LALSimulation for injection\n");
+      REAL8TimeSeries *hplus=NULL;  /**< +-polarization waveform */
+      REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform */
+      REAL8TimeSeries       *signalvecREAL8=NULL;
+      INT4              maxl=0;         /**< Maximum l of QNMs */
+      QNMTimeSeries *qnmodes;        /**< List containing empty Quasi-Normal Modes  */
+      
+      // TODO: Get maxl or (l,m) pairs from commandLine.
+      maxl = 4;
+      XLALSimAddEmptyQNMode(qnmodes, 2, 2);
+      XLALSimAddEmptyQNMode(qnmodes, 2, 1);
+      XLALSimAddEmptyQNMode(qnmodes, 3, 3);
+      XLALSimAddEmptyQNMode(qnmodes, 4, 4);
+      
+      // TODO: Get the parameters from the right places (injEvent inspiral or ringdown table?)
+      REAL8 m1 = injEvent->mass1;
+      REAL8 m2 = injEvent->mass2;
+      REAL8 Mt = m1+m2;
+      REAL8 eta = m1*m2/(Mt*Mt);
+      REAL8 phase = injEvent->coa_phase;
+      // REAL8 Mbh = injRDEvent->mass;
+      // REAL8 eta = injRDEvent->eta;
+      // REAL8 phase = injRDEvent->phi0;
+      
+      LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
+      LALSimInspiralSpinOrder spinO = -1;
+      if(LALInferenceGetProcParamVal(commandLine,"--inj-spinOrder")) {
+        spinO = atoi(LALInferenceGetProcParamVal(commandLine,"--inj-spinOrder")->value);
+        XLALSimInspiralSetSpinOrder(waveFlags, spinO);
+      }
+      LALSimInspiralTestGRParam *nonGRparams = NULL;
+      
+      /* Print a line with information about approximant, QNM multipole order and spin order */
+      fprintf(stdout,"Injection will run using Approximant %i (%s), QNM order %i, spin order %i, in the time domain.\n",approximant,XLALGetStringFromApproximant(approximant), maxl, (int) spinO);
+      XLALSimRingdownChooseTDWaveform(&hplus, &hcross, phase, 1.0/InjSampleRate,
+                                      Mbh*LAL_MSUN_SI, spin, eta, injEvent->distance*LAL_PC_SI * 1.0e6,
+                                      injEvent->inclination, waveFlags,
+                                      nonGRparams, maxl, qnmodes, approximant);
+      if(!hplus || !hcross) {
+        fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to produce waveform.\n");
+        exit(-1);
+      }
+      XLALSimInspiralDestroyWaveformFlags(waveFlags);
+      XLALSimInspiralDestroyTestGRParam(nonGRparams);
+      XLALResampleREAL8TimeSeries(hplus,thisData->timeData->deltaT);
+      XLALResampleREAL8TimeSeries(hcross,thisData->timeData->deltaT);
+
+      // TODO: get start time from injection table (inspiral or ringdown?)
+      /* XLALSimRingdownChooseTDWaveform always starts the waveform at t=0 */
+      /* So we can adjust the epoch so that the start time is as desired */
+      XLALGPSAddGPS(&(hplus->epoch), &(injEvent->geocent_end_time));
+      XLALGPSAddGPS(&(hcross->epoch), &(injEvent->geocent_end_time));
+      
+      signalvecREAL8=XLALSimDetectorStrainREAL8TimeSeries(hplus, hcross, injEvent->longitude, injEvent->latitude, injEvent->polarization, det.site);
+      if (!signalvecREAL8) XLAL_ERROR_VOID(XLAL_EFUNC);
+      
+      for(i=0;i<signalvecREAL8->data->length;i++){
+        if(isnan(signalvecREAL8->data->data[i])) signalvecREAL8->data->data[i]=0.0;
+      }
+      
+      if(signalvecREAL8->data->length > thisData->timeData->data->length-(UINT4)ceil((2.0*padding+2.0)/thisData->timeData->deltaT)){
+        fprintf(stderr, "WARNING: waveform length = %u is longer than thisData->timeData->data->length = %d minus the window width = %d and the 2.0 seconds after tc (total of %d points available).\n", signalvecREAL8->data->length, thisData->timeData->data->length, (INT4)ceil((2.0*padding)/thisData->timeData->deltaT) , thisData->timeData->data->length-(INT4)ceil((2.0*padding+2.0)/thisData->timeData->deltaT));
+        fprintf(stderr, "The waveform injected is %f seconds long. Consider increasing the %f seconds segment length (--seglen) to be greater than %f. (in %s, line %d)\n",signalvecREAL8->data->length * thisData->timeData->deltaT , thisData->timeData->data->length * thisData->timeData->deltaT, signalvecREAL8->data->length * thisData->timeData->deltaT + 2.0*padding + 2.0, __FILE__, __LINE__);
+      }
+      
+      XLALSimAddInjectionREAL8TimeSeries(inj8Wave, signalvecREAL8, NULL);
+      
+      if ( hplus ) XLALDestroyREAL8TimeSeries(hplus);
+      if ( hcross ) XLALDestroyREAL8TimeSeries(hcross);
+      
+
+    XLALDestroyREAL4TimeSeries(injectionBuffer);
+    
+    injF=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("injF",
+										&thisData->timeData->epoch,
+										0.0,
+										thisData->freqData->deltaF,
+										&lalDimensionlessUnit,
+										thisData->freqData->data->length);
+    if(!injF) {
+      XLALPrintError("Unable to allocate memory for injection buffer\n");
+      XLAL_ERROR_VOID(XLAL_EFUNC);
+    }
+    /* Window the data */
+    REAL4 WinNorm = sqrt(thisData->window->sumofsquares/thisData->window->data->length);
+        for(j=0;j<inj8Wave->data->length;j++) inj8Wave->data->data[j]*=thisData->window->data->data[j]; /* /WinNorm; */ /* Window normalisation applied only in freq domain */
+    XLALREAL8TimeFreqFFT(injF,inj8Wave,thisData->timeToFreqFFTPlan);
+    /*for(j=0;j<injF->data->length;j++) printf("%lf\n",injF->data->data[j].re);*/
+    if(thisData->oneSidedNoisePowerSpectrum){
+	for(SNR=0.0,j=thisData->fLow/injF->deltaF;j<thisData->fHigh/injF->deltaF;j++){
+	  SNR += pow(creal(injF->data->data[j]), 2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
+	  SNR += pow(cimag(injF->data->data[j]), 2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
+	}
+        SNR*=4.0*injF->deltaF;
+    }
+    thisData->SNR=sqrt(SNR);
+    NetworkSNR+=SNR;
+
+    if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
+      PrintSNRsToFile(IFOdata , injTable);
+    }
+    /* Actually inject the waveform */
+    for(j=0;j<inj8Wave->data->length;j++) thisData->timeData->data->data[j]+=inj8Wave->data->data[j];
+      fprintf(stdout,"Injected SNR in detector %s = %g\n",thisData->name,thisData->SNR);
+      char filename[256];
+      sprintf(filename,"%s_timeInjection.dat",thisData->name);
+      FILE* file=fopen(filename, "w");
+      for(j=0;j<inj8Wave->data->length;j++){
+        fprintf(file, "%.6f\t%lg\n", XLALGPSGetREAL8(&thisData->timeData->epoch) + thisData->timeData->deltaT*j, inj8Wave->data->data[j]);
+      }
+      fclose(file);
+      sprintf(filename,"%s_freqInjection.dat",thisData->name);
+      file=fopen(filename, "w");
+      for(j=0;j<injF->data->length;j++){
+        thisData->freqData->data->data[j] += injF->data->data[j] / WinNorm;
+        fprintf(file, "%lg %lg %lg\n", thisData->freqData->deltaF*j, creal(injF->data->data[j]), cimag(injF->data->data[j]));
+      }
+      fclose(file);
+    
+      XLALDestroyREAL8TimeSeries(inj8Wave);
+      XLALDestroyCOMPLEX16FrequencySeries(injF);
+      thisData=thisData->next;
+    }
+    NetworkSNR=sqrt(NetworkSNR);
+    fprintf(stdout,"Network SNR of event %d = %g\n",event,NetworkSNR);
+	/* Continue from here! */
+	
+    /* Output waveform raw h-plus mode */
+    if( (ppt=LALInferenceGetProcParamVal(commandLine,"--rawwaveform")) )
+    {
+        rawWaveform=fopen(ppt->value,"w");
+        bufferN = (UINT4) (bufferLength/IFOdata->timeData->deltaT);
+        memcpy(&bufferStart,&IFOdata->timeData->epoch,sizeof(LIGOTimeGPS));
+        XLALGPSAdd(&bufferStart,(REAL8) IFOdata->timeData->data->length * IFOdata->timeData->deltaT);
+        XLALGPSAdd(&bufferStart,-bufferLength);
+        COMPLEX8FrequencySeries *resp = XLALCreateCOMPLEX8FrequencySeries("response",&IFOdata->timeData->epoch,0.0,IFOdata->freqData->deltaF,&strainPerCount,IFOdata->freqData->data->length);
+        if(!resp) XLAL_ERROR_VOID(XLAL_EFUNC);
+        injectionBuffer=(REAL4TimeSeries *)XLALCreateREAL4TimeSeries("None",&bufferStart, 0.0, IFOdata->timeData->deltaT,&lalADCCountUnit, bufferN);
+        if(!injectionBuffer) XLAL_ERROR_VOID(XLAL_EFUNC);
+        /* This marks the sample in which the real segment starts, within the buffer */
+        INT4 realStartSample=(INT4)((IFOdata->timeData->epoch.gpsSeconds - injectionBuffer->epoch.gpsSeconds)/IFOdata->timeData->deltaT);
+        realStartSample+=(INT4)((IFOdata->timeData->epoch.gpsNanoSeconds - injectionBuffer->epoch.gpsNanoSeconds)*1e-9/IFOdata->timeData->deltaT);
+        LALFindChirpInjectSignals(&status,injectionBuffer,injEvent,resp);
+        if(status.statusCode) REPORTSTATUS(&status);
+        XLALDestroyCOMPLEX8FrequencySeries(resp);
+        injectionBuffer=(REAL4TimeSeries *)XLALCutREAL4TimeSeries(injectionBuffer,realStartSample,IFOdata->timeData->data->length);
+        for(j=0;j<injectionBuffer->data->length;j++) fprintf(rawWaveform,"%.6f\t%g\n", XLALGPSGetREAL8(&IFOdata->timeData->epoch) + IFOdata->timeData->deltaT*j, injectionBuffer->data->data[j]);
+        fclose(rawWaveform);
+        XLALDestroyREAL4TimeSeries(injectionBuffer);
+    }
+    return;
+    
 }
 
 static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , SimInspiralTable *inj_table){

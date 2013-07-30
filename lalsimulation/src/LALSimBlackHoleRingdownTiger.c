@@ -14,7 +14,6 @@
 #include <lal/LALSimBlackHoleRingdownTiger.h>
 #define EPS LAL_REAL4_EPS
 #define TINY LAL_REAL8_MIN
-#define MAXITER 16384
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))

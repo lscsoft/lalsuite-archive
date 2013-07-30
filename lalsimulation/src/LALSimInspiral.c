@@ -624,7 +624,7 @@ int XLALSimInspiralPolarizationsFromSphHarmTimeSeries(
  * that \f$h(l,-m) = (-1)^l h(l,m)*\f$; see Eq. (78) ibid.
  */
 int XLALSimAddMode(
-		REAL8TimeSeries *hplus,      /**< +-polarization waveform */
+		    REAL8TimeSeries *hplus,      /**< +-polarization waveform */
 	       	REAL8TimeSeries *hcross,     /**< x-polarization waveform */
 	       	COMPLEX16TimeSeries *hmode,  /**< complex mode h(l,m) */
 	       	REAL8 theta,                 /**< polar angle (rad) */
@@ -2929,6 +2929,14 @@ int XLALGetApproximantFromString(const CHAR *inString)
   else if ( strstr(inString, "Eccentricity" ) )
   {
     return Eccentricity;
+  }
+  else if ( strstr(inString, "RingdownTD" ) )
+  {
+    return RingdownTD;
+  }
+  else if ( strstr(inString, "RingdownFD" ) )
+  {
+    return RingdownFD;
   }
   else
   {
