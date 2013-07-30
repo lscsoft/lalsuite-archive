@@ -115,8 +115,8 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   REAL8 mMin=2.0,mMax=30.0;
   REAL8 etaMin=0.0312;
   REAL8 etaMax=0.25;
-  REAL8 qMin=1.0/mMax; /* TODO: check what the lowest possible progenitor mass can be*/
-  REAL8 qMax=1.0;
+  REAL8 qMin=1.0;
+  REAL8 qMax=30.0;
   REAL8 iotaMin=0.0,iotaMax=LAL_PI;
   REAL8 psiMin=0.0,psiMax=LAL_PI;
   REAL8 decMin=-LAL_PI/2.0,decMax=LAL_PI/2.0;
@@ -131,34 +131,6 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
 
   UINT4 noSpin=0;
   memset(currentParams,0,sizeof(LALInferenceVariables));
-
-// TODO: Remove this?
-//   /* Over-ride prior bounds if analytic test */
-//   if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood"))
-//   {
-//     return(LALInferenceInitVariablesReviewEvidence(state));
-//   }
-//   else if (LALInferenceGetProcParamVal(commandLine, "--bimodalGaussianLikelihood"))
-//   {
-//     return(LALInferenceInitVariablesReviewEvidence_bimod(state));
-//   }
-//   else if (LALInferenceGetProcParamVal(commandLine, "--rosenbrockLikelihood"))
-//   {
-//     return(LALInferenceInitVariablesReviewEvidence_banana(state));
-//   }
-  
-
-// TODO: Remove this?
-//  if(LALInferenceGetProcParamVal(commandLine,"--skyLocPrior")){
-//    MTotMax=20.0;
-//    mMin=1.0;
-//    mMax=15.0;
-//    qMin=mMin/mMax;
-//    Dmin=10.0;
-//    Dmax=40.0;
-//    REAL8 densityVNR=1000.0;
-//    LALInferenceAddVariable(state->priorArgs,"densityVNR", &densityVNR , LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-//  }
 
   /* Read injection XML file for parameters if specified */
   ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
@@ -380,7 +352,6 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   REAL8 start_eta     =etaMin+gsl_rng_uniform(GSLrandom)*(etaMax-etaMin);
   REAL8 start_q       =qMin+gsl_rng_uniform(GSLrandom)*(qMax-qMin);
   REAL8 start_phase   =0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);
-  REAL8 start_dist    =8.07955+gsl_ran_gaussian(GSLrandom,1.1); /* TODO: Check if numbers are correct */
   REAL8 start_dist    =Dmin+gsl_rng_uniform(GSLrandom)*(Dmax-Dmin);
   REAL8 start_ra      =0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);
   REAL8 start_dec     =-LAL_PI/2.0+gsl_rng_uniform(GSLrandom)*(LAL_PI_2-(-LAL_PI_2));
@@ -392,9 +363,9 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   /* Read time parameter from injection file */
   if(injTable)
   {
-    starttime=XLALGPSGetREAL8(&(injTable->geocent_start_time));
+    starttime=XLALGPSGetREAL8(&(injTable->geocent_end_time));
+    // Ringdown start_time is inspiral end_time
     fprintf(stdout,"Using start time from injection file: %lf\n", starttime);
-    // TODO: Add geocent_start_time to injTable
   }
   /* Over-ride end time if specified */
   ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
@@ -932,7 +903,7 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
     LALInferenceRegisterUniformVariableREAL8(state, currentParams, "time", timeParam, timeMin, timeMax, LALINFERENCE_PARAM_LINEAR);
   }
 
-  if(!LALInferenceGetProcParamVal(commandLine,"--margphi")){
+  /*if(!LALInferenceGetProcParamVal(commandLine,"--margphi")){
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixPhi");
     if(ppt){
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "phase", start_phase, phiMin, phiMax, LALINFERENCE_PARAM_FIXED);
@@ -940,7 +911,7 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
     }else{
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "phase", start_phase, phiMin, phiMax, LALINFERENCE_PARAM_CIRCULAR);
     }
-  }
+  }*/
 
   /* Jump in log distance if requested, otherwise use distance */
   if(LALInferenceGetProcParamVal(commandLine,"--use-logdistance")){
@@ -961,9 +932,9 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   LALInferenceRegisterUniformVariableREAL8(state, currentParams, "inclination", start_iota, iotaMin, iotaMax, LALInferenceGetProcParamVal(commandLine,"--fixIota")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
 
   /* Check for spin disabled */
-  ppt=LALInferenceGetProcParamVal(commandLine, "--noSpin");
+  /*ppt=LALInferenceGetProcParamVal(commandLine, "--noSpin");
   if (!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--diable-spin");
-  if (ppt) noSpin=1 ;
+  if (ppt) noSpin=1 ;*/
 
   if (injTable)
      print_flags_orders_warning(injTable,commandLine); 
