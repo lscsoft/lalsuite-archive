@@ -43,7 +43,7 @@ static void print_flags_orders_warning(SimInspiralTable *injt, ProcessParamsTabl
 /* Defaults to using LALSimulation */
 void LALInferenceInitCBCTemplate(LALInferenceRunState *runState)
 {
-  char help[]="(--template [LAL,PhenSpin,LALGenerateInspiral,LALSim]\tSpecify template (default LAL)\n";
+  char help[]="(--template [LAL,PhenSpin,LALGenerateInspiral,LALSim,LALSimRingdown]\tSpecify template (default LAL)\n";
   ProcessParamsTable *ppt=NULL;
   ProcessParamsTable *commandLine=runState->commandLine;
   /* Print command line arguments if help requested */

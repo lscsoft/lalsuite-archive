@@ -63,7 +63,7 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
                ------------------------------------------------------------------------------------------------------------------\n\
                --- Fix Parameters -----------------------------------------------------------------------------------------------\n\
                ------------------------------------------------------------------------------------------------------------------\n\
-               (--fixMass)                     Do not allow chirpmass to vary.\n\
+               (--fixMass)                     Do not allow final BH to vary.\n\
                (--fixEta)                      Do not allow mass ratio to vary.\n\
                (--fixQ)                        Do not allow mass ratio to vary.\n\
                (--fixPhi)                      Do not allow phase to vary.\n\
@@ -893,6 +893,14 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
     }
   }
 
+  ppt = LALInferenceGetProcParamVal(commandLine, "--fixMass");
+  if (ppt) {
+	  LALInferenceRegisterUniformVariableREAL8(state, currentParams, "mass", start_mass, massMin, massMax, LALINFERENCE_PARAM_FIXED);
+	  if (lalDebugLevel>0) fprintf(stdout, "final black hole mass fixed and set to %f\n", start_mass);
+  } 
+  else {
+	  LALInferenceRegisterUniformVariableREAL8(state, currentParams, "mass", start_mass, massMin, massMax, LALINFERENCE_PARAM_LINEAR);
+  }
 
 
   ppt=LALInferenceGetProcParamVal(commandLine,"--fixTime");
@@ -903,7 +911,7 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
     LALInferenceRegisterUniformVariableREAL8(state, currentParams, "time", timeParam, timeMin, timeMax, LALINFERENCE_PARAM_LINEAR);
   }
 
-  /*if(!LALInferenceGetProcParamVal(commandLine,"--margphi")){
+  // if(!LALInferenceGetProcParamVal(commandLine,"--margphi")){
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixPhi");
     if(ppt){
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "phase", start_phase, phiMin, phiMax, LALINFERENCE_PARAM_FIXED);
@@ -911,7 +919,7 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
     }else{
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "phase", start_phase, phiMin, phiMax, LALINFERENCE_PARAM_CIRCULAR);
     }
-  }*/
+  // }
 
   /* Jump in log distance if requested, otherwise use distance */
   if(LALInferenceGetProcParamVal(commandLine,"--use-logdistance")){
