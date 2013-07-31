@@ -27,10 +27,8 @@
 
 
 from optparse import OptionParser
-import matplotlib
-matplotlib.use("Agg")
 from matplotlib import figure
-from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import sys
 
 from glue.ligolw import ligolw
@@ -115,7 +113,7 @@ lsctables.TimeSlideTable._end_of_columns = time_slide__end_of_columns
 class Plot(object):
 	def __init__(self, xmldoc, x_instrument, y_instrument, require_instruments = None):
 		self.fig = figure.Figure()
-		self.canvas = FigureCanvasAgg(self.fig)
+		self.canvas = FigureCanvas(self.fig)
 		self.axes = self.fig.gca()
 
 		self.axes.grid(True)
