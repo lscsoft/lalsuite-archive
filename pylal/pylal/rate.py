@@ -1149,10 +1149,6 @@ def gaussian_window(*bins, **kwargs):
 		return window
 
 
-# compatibility stub.  FIXME:  remove
-gaussian_window2d = gaussian_window
-
-
 def tophat_window(bins):
 	"""
 	Generate a normalized (integral = 1) top-hat window in 1 dimension.
@@ -1350,15 +1346,16 @@ def marginalize(pdf, dim):
 	"""
 	From a BinnedArray object containing probability density data (bins
 	whose volume integral is 1), return a new BinnedArray object
-	containing the probability density marginalizaed over dimension
+	containing the probability density marginalized over dimension
 	dim.
 	"""
 	dx = pdf.bins[dim].upper() - pdf.bins[dim].lower()
 	dx_shape = [1] * len(pdf.bins)
 	dx_shape[dim] = len(dx)
+	dx.shape = dx_shape
 
 	result = BinnedArray(NDBins(pdf.bins[:dim] + pdf.bins[dim+1:]))
-	result.array = (pdf.array * dx.reshape(dx_shape)).sum(axis = dim)
+	result.array = (pdf.array * dx).sum(axis = dim)
 
 	return result
 

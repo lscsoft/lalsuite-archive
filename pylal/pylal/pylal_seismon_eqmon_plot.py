@@ -73,6 +73,8 @@ def restimates(params,attributeDics,plotName):
         ifo = "VIRGO"
     elif params["ifo"] == "C1":
         ifo = "FortyMeter"
+    elif params["ifo"] == "XG":
+        ifo = "Homestake"
 
     gps = []
     magnitudes = []
@@ -101,6 +103,44 @@ def restimates(params,attributeDics,plotName):
     plt.savefig(plotName,dpi=200)
     plt.close('all')
 
+def earthquakes(data,plotName):
+
+    if len(data["earthquakes"]["tt"]) == 0:
+        return
+
+    timeStart = data["earthquakes"]["tt"][0]
+    t = data["earthquakes"]["tt"] - timeStart
+    t_earthquakes = t / 86400.0
+    amp = np.log10(data["earthquakes"]["data"])
+    indexes = np.isinf(amp)
+    amp[indexes] = -250
+    amp_earthquakes = amp
+
+    threshold = -8
+
+    plt.figure()
+    plt.plot(t_earthquakes,amp_earthquakes,'*',label="Predicted")
+    plt.plot(t_earthquakes,np.ones(t_earthquakes.shape)*threshold,label='Threshold')
+
+    for key in data["channels"].iterkeys():
+
+        t = data["channels"][key]["tt"] - timeStart
+        t = t / 86400.0
+
+        amp = np.log10(data["channels"][key]["data"])
+        indexes = np.isinf(amp)
+        amp[indexes] = -250
+        plt.plot(t,amp,'*',label=key)
+
+    plt.legend(loc=1,prop={'size':6})
+    plt.xlim([np.min(t_earthquakes),np.max(t_earthquakes)])
+    plt.ylim([-10,-2])
+    plt.xlabel('Time [Days] [%d]'%timeStart)
+    plt.ylabel('Mean ASD in 0.02-0.1 Hz Band [log10(m/s)]')
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
+
 def prediction(data,plotName):
 
     if len(data["prediction"]["tt"]) == 0:
@@ -109,7 +149,6 @@ def prediction(data,plotName):
     timeStart = data["prediction"]["tt"][0]
     t = data["prediction"]["tt"] - timeStart
     t_prediction = t / 86400.0
-
     amp = np.log10(data["prediction"]["data"])
     indexes = np.isinf(amp)
     amp[indexes] = -250
@@ -130,12 +169,6 @@ def prediction(data,plotName):
         indexes = np.isinf(amp)
         amp[indexes] = -250
         plt.plot(t,amp,'*',label=key)
-
-        amp_interp = np.interp(t_prediction,t,amp)
-        residual = np.absolute(amp_interp - amp_prediction)
-
-        residual_label = "%s residual"%key
-        #plt.plot(t_prediction,residual,'*',label=residual_label)
 
     plt.legend(loc=1,prop={'size':6})
     plt.xlim([np.min(t_prediction),np.max(t_prediction)])
@@ -454,6 +487,8 @@ def worldmap_plot(params,attributeDics,type,plotName):
         ifo = "VIRGO"
     elif params["ifo"] == "C1":
         ifo = "FortyMeter"
+    elif params["ifo"] == "XG":
+        ifo = "Homestake"
 
     plt.figure(figsize=(10,5))
     plt.axes([0,0,1,1])

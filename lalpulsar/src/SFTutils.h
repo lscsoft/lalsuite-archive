@@ -110,11 +110,12 @@ void XLALDestroySFT (SFTtype *sft);
 void XLALDestroySFTVector (SFTVector *vect);
 
 COMPLEX8Vector *XLALrefineCOMPLEX8Vector (const COMPLEX8Vector *in, UINT4 refineby, UINT4 Dterms);
-
-SFTVector* XLALExtractBandfromSFTs ( const SFTVector *sfts, REAL8 fMin, REAL8 fMax );
+SFTVector *XLALExtractBandFromSFTVector ( const SFTVector *inSFTs, REAL8 fMin, REAL8 Band );
+int XLALFindCoveringSFTBins ( UINT4 *firstBin, UINT4 *numBins, REAL8 fMinIn, REAL8 BandIn, REAL8 Tsft );
 
 LIGOTimeGPSVector *XLALCreateTimestampVector (UINT4 len);
-LIGOTimeGPSVector *XLALMakeTimestamps ( LIGOTimeGPS tStart, REAL8 duration, REAL8 tStep );
+LIGOTimeGPSVector *XLALMakeTimestamps ( LIGOTimeGPS tStart, REAL8 Tspan, REAL8 Tsft, REAL8 Toverlap );
+MultiLIGOTimeGPSVector *XLALMakeMultiTimestamps ( LIGOTimeGPS tStart, REAL8 Tspan, REAL8 Tsft, REAL8 Toverlap, UINT4 numDet );
 
 LIGOTimeGPSVector *XLALExtractTimestampsFromSFTs ( const SFTVector *sfts );
 MultiLIGOTimeGPSVector *XLALExtractMultiTimestampsFromSFTs ( const MultiSFTVector *multiSFTs );
@@ -129,6 +130,14 @@ CHAR *XLALGetChannelPrefix ( const CHAR *name );
 LALDetector *XLALGetSiteInfo ( const CHAR *name );
 
 LALSegList *XLALReadSegmentsFromFile ( const char *fname );
+
+// adding SFTs
+int XLALMultiSFTVectorAdd ( MultiSFTVector *a, const MultiSFTVector *b );
+int XLALSFTVectorAdd ( SFTVector *a, const SFTVector *b );
+int XLALSFTAdd ( SFTtype *a, const SFTtype *b );
+
+
+// destructors
 void XLALDestroyPSDVector ( PSDVector *vect );
 void XLALDestroyMultiSFTVector ( MultiSFTVector *multvect );
 void XLALDestroyMultiPSDVector ( MultiPSDVector *multvect );

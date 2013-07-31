@@ -5,14 +5,15 @@ from collections import namedtuple
 import numpy as np
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
-import glue.GWDataFindClient, glue.segments, glue.segmentsUtils
+import glue.GWDataFindClient, glue.segments, glue.segmentsUtils, glue.lal
 import pylal.dq.dqSegmentUtils
 import pylal.pylal_seismon_psd, pylal.pylal_seismon_html, pylal.pylal_seismon_omicron
 import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_eqmon_plot
+import nds2
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
-__date__ = "2012/8/26"
-__version__ = "0.1"
+__date__ = "2013/7/29"
+__version__ = "0.2"
 
 # =============================================================================
 #
@@ -36,7 +37,6 @@ def parse_commandline():
     parser.add_option("--gpsSpectraStart", help="GPS spectra Start Time.", type=int)
     parser.add_option("--gpsSpectraEnd", help="GPS spectra End Time.", type=int)
 
-
     parser.add_option("--segmentDatabase", help="Segment database", default="https://segdb2.ligo.caltech.edu")
     parser.add_option("--segmentFlag", help="Segment flag", default="H1:ODC-PSL_SUMMARY:1")
     parser.add_option("--segmentsTextFile", help="Segments text file.", default=None)
@@ -54,6 +54,8 @@ def parse_commandline():
     parser.add_option("--doHTML",  action="store_true", default=False)
     parser.add_option("--doSegmentsDatabase",  action="store_true", default=False)
     parser.add_option("--doSegmentsTextFile",  action="store_true", default=False)
+
+    parser.add_option("--doBokeh",  action="store_true", default=False)
 
     parser.add_option("-v", "--verbose", action="store_true", default=False,
                       help="Run verbosely. (Default: False)")
@@ -108,8 +110,15 @@ def params_struct(opts):
     params["doSegmentsDatabase"] = opts.doSegmentsDatabase
     params["doSegmentsTextFile"] = opts.doSegmentsTextFile
 
+    params["doBokeh"] = opts.doBokeh
+
     params["date"] = XLALGPSToUTC(LIGOTimeGPS(params["gpsStart"]))
     params["dateString"] = "%d-%d-%d %d:%d:%d"%(params["date"][0],params["date"][1],params["date"][2],params["date"][3],params["date"][4],params["date"][5])
+
+    if params["doEarthquakesAnalysis"]:
+       params["earthquakesMinMag"] = 5
+    else:
+       params["earthquakesMinMag"] = 0
 
     return params
 
@@ -171,14 +180,19 @@ def frame_struct(params):
     gpsEnd = params["gpsEnd"]
 
     if params["ifo"] == "XG":
-        frameDir = "/home/shivaraj/homestakefinal"
+        frameDir = "/archive/frames/MBH/"
         frameList = [os.path.join(root, name)
             for root, dirs, files in os.walk(frameDir)
             for name in files]
 
+        datacache = []
         for frame in frameList:
             thisFrame = frame.replace("file://localhost","")
             if thisFrame == "":
+                continue
+
+            thisFrameSplit = thisFrame.split(".")
+            if thisFrameSplit[-1] == "log":
                 continue
 
             thisFrameSplit = thisFrame.split("-")
@@ -190,14 +204,17 @@ def frame_struct(params):
             if gps > gpsEnd:
                 continue
 
-            cacheFile = CacheEntry("%s %s %d %d %s"%("XG","Homestake",gps,dur,frame))
+            cacheFile = glue.lal.CacheEntry("%s %s %d %d %s"%("XG","Homestake",gps,dur,frame))
             datacache.append(cacheFile)
 
     else:
-        usends = 0
-        if usends:
-            ndsserver = cp.get("datafind", "nds-server")
-            ndsport = cp.getint("datafind", "nds-port")
+        if params["frameType"] == "nds":
+            conn = nds2.connection(params["ndsServer"])
+            #y = conn.find_channels('*',nds2.channel.CHANNEL_TYPE_RAW,\
+            #    nds2.channel.DATA_TYPE_FLOAT32, 128, 16384)
+
+            params["ndsConnection"] = conn
+
         else:
             connection = glue.GWDataFindClient.GWDataFindHTTPConnection()
             datacache = connection.find_frame_urls(params["ifo"][0], params["frameType"],
@@ -206,7 +223,7 @@ def frame_struct(params):
                                                    on_gaps="warn")
             connection.close()
 
-    params["frame"] = datacache
+            params["frame"] = datacache
 
     return params
 
@@ -288,6 +305,15 @@ if params["doOmicron"]:
     print "Generating Omicron triggers"
     pylal.pylal_seismon_omicron.generate_triggers(params,channels)
 
+if params["doBokeh"]:
+
+    import pylal.pylal_seismon_bokeh
+
+    for channel in channels:
+        print "Generating bokeh page for %s"%channel.station
+        pylal.pylal_seismon_bokeh.channel_page(params,channel)
+    sys.exit()
+
 for channel in channels:
     print "Generating PSD for %s"%channel.station
     for segment in params["segments"]:
@@ -300,6 +326,10 @@ for channel in channels:
     if params["doOmicron"]:
         print "Plotting Omicron triggers for %s"%channel.station
         pylal.pylal_seismon_omicron.plot_triggers(params,channel)
+
+for segment in params["segments"]:
+    print "Running summary for Segment: %d-%d"%(segment[0],segment[1])
+    pylal.pylal_seismon_psd.channel_summary(params, channels, segment)
 
 if params["doHTML"]:
     htmlPage = pylal.pylal_seismon_html.summary_page(params,channels)

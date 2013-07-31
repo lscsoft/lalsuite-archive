@@ -261,7 +261,7 @@ class Summaries(object):
 				tablename += "-vs-".join(key[::-1])
 				if options.verbose:
 					print >>sys.stderr, "\tsmoothing %s ..." % tablename
-				rate.filter_binned_ratios(self.sngl_bins[ifo][key], rate.gaussian_window2d(self.sngl_bins[ifo][key].numerator.bins.shape[0]/window_length, self.sngl_bins[ifo][key].numerator.bins.shape[1]/window_length, sigma=2*window_length))
+				rate.filter_binned_ratios(self.sngl_bins[ifo][key], rate.gaussian_window(self.sngl_bins[ifo][key].numerator.bins.shape[0]/window_length, self.sngl_bins[ifo][key].numerator.bins.shape[1]/window_length, sigma=2*window_length))
 
 	def pdfify_binned_ratios(self):
 		#

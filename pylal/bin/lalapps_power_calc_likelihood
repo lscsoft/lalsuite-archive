@@ -137,7 +137,7 @@ coinc_params_func_extra_args = (MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD)
 
 
 def load_likelihood_data(filenames, verbose = False):
-	coinc_params_distributions = ligolw_burca_tailor.CoincParamsDistributions()
+	coinc_params_distributions = ligolw_burca_tailor.BurcaCoincParamsDistributions()
 	for filename in filenames:
 		c, ignored = ligolw_burca_tailor.get_coincparamsdistributions(utils.load_filename(filename, verbose = verbose, contenthandler = StatsContentHandler), u"ligolw_burca_tailor")
 		coinc_params_distributions += c

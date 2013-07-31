@@ -13,6 +13,71 @@ import scipy.spatial
 
 import pylal.pylal_seismon_eqmon_plot
 
+def read_eqmons(file):
+
+    attributeDics = []
+    tree = etree.parse(file)
+    baseroot = tree.getroot()       # get the document root
+    for root in baseroot.iterchildren():
+        attributeDic = {}
+        for element in root.iterchildren(): # now iter through it and print the text
+            if element.tag == "traveltimes":
+                attributeDic[element.tag] = {}
+                for subelement in element.iterchildren():
+                    attributeDic[element.tag][subelement.tag] = {}
+                    for subsubelement in subelement.iterchildren():
+                        textlist = subsubelement.text.replace("\n","").split(" ")
+                        floatlist = [float(x) for x in textlist]
+                        attributeDic[element.tag][subelement.tag][subsubelement.tag] = floatlist
+            else:
+                try:
+                    attributeDic[element.tag] = float(element.text)
+                except:
+                    attributeDic[element.tag] = element.text
+
+        magThreshold = 0
+        if not "Magnitude" in attributeDic or attributeDic["Magnitude"] < magThreshold:
+            return attributeDic
+
+        attributeDic["doPlots"] = 0
+        for ifoName, traveltimes in attributeDic["traveltimes"].items():
+            arrivalMin = min([max(traveltimes["Rtimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
+            arrivalMax = max([max(traveltimes["Rtimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
+            attributeDic["traveltimes"][ifoName]["arrivalMin"] = arrivalMin
+            attributeDic["traveltimes"][ifoName]["arrivalMax"] = arrivalMax
+            #if params["gps"] <= attributeDic["traveltimes"][ifoName]["arrivalMax"]:
+            #    attributeDic["doPlots"] = 1
+
+        attributeDics.append(attributeDic)
+    return attributeDics
+
+def write_info(file,attributeDics):
+
+    baseroot = etree.Element('eqmon')
+    for attributeDic in attributeDics:
+        root = etree.SubElement(baseroot,attributeDic["eventName"])
+        for key, value in attributeDic.items():
+            if not key == "traveltimes":
+                element = etree.SubElement(root,key)
+                element.text = str(value)
+        element = etree.SubElement(root,'traveltimes')
+        for key, value in attributeDic["traveltimes"].items():
+            subelement = etree.SubElement(element,key)
+            for category in value:
+                subsubelement = etree.SubElement(subelement,category)
+                subsubelement.text = write_array(value[category])
+
+    tree = etree.ElementTree(baseroot)
+    tree.write(file, pretty_print=True, xml_declaration=True)
+
+def write_array(array):
+
+    if isinstance(array, float):
+        text = str(array)
+    else:
+        text = ' '.join([str(x) for x in array])
+    return text
+
 def run_earthquakes(params):
 
     timeseriesDirectory = os.path.join(params["path"],"timeseries")
@@ -33,23 +98,24 @@ def run_earthquakes(params):
         ifo = "VIRGO"
     elif params["ifo"] == "C1":
         ifo = "FortyMeter"
-
-    if params["doEarthquakesAnalysis"]:
-       params["earthquakesMinMag"] = 5
-    else:
-       params["earthquakesMinMag"] = 0
+    elif params["ifo"] == "XG":
+        ifo = "Homestake"
 
     attributeDics = retrieve_earthquakes(params)
     attributeDics = sorted(attributeDics, key=itemgetter("Magnitude"), reverse=True)
 
     if params["doEarthquakesMonitor"]:
         earthquakesFile = os.path.join(earthquakesDirectory,"%d-%d.txt"%(params["gpsStart"],params["gpsEnd"]))
+        earthquakesXMLFile = os.path.join(earthquakesDirectory,"%d-%d.xml"%(params["gpsStart"],params["gpsEnd"]))
         timeseriesFile = os.path.join(timeseriesDirectory,"%d-%d.txt"%(params["gpsStart"],params["gpsEnd"]))
     else:
         earthquakesFile = os.path.join(earthquakesDirectory,"earthquakes.txt")
+        earthquakesXMLFile = os.path.join(earthquakesDirectory,"earthquakes.xml")
         timeseriesFile = os.path.join(timeseriesDirectory,"amp.txt")
  
     f = open(earthquakesFile,"w+")
+
+    threshold = 10**(-7)
 
     amp = 0
     segmentlist = glue.segments.segmentlist()
@@ -70,6 +136,9 @@ def run_earthquakes(params):
 
             f.write("%.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd,attributeDic["Latitude"],attributeDic["Longitude"]))
 
+        if traveltimes["Rfamp"][0] >= threshold:
+            print "%.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd,attributeDic["Latitude"],attributeDic["Longitude"])
+
         segmentlist.append(glue.segments.segment(gpsStart,gpsEnd))
 
     f.close()
@@ -77,6 +146,8 @@ def run_earthquakes(params):
     f = open(timeseriesFile,"w+")
     f.write("%e\n"%(amp))
     f.close()
+  
+    write_info(earthquakesXMLFile,attributeDics)
 
     if not params["doPlots"]:
         return segmentlist
@@ -144,6 +215,22 @@ def run_earthquakes(params):
     data["prediction"]["tt"] = np.array(ttStart)
     data["prediction"]["data"] = np.array(amp)
 
+    tt = []
+    amp = []
+
+    for attributeDic in attributeDics:
+
+        #attributeDic = calculate_traveltimes(attributeDic)
+
+        traveltimes = attributeDic["traveltimes"][ifo]
+
+        tt.append(max(traveltimes["Rtimes"]))
+        amp.append(traveltimes["Rfamp"][0])
+
+    data["earthquakes"] = {}
+    data["earthquakes"]["tt"] = np.array(tt)
+    data["earthquakes"]["data"] = np.array(amp)
+
     data["channels"] = {}
 
     # Break up entire frequency band into 6 segments
@@ -207,8 +294,8 @@ def run_earthquakes(params):
     pylal.pylal_seismon_eqmon_plot.prediction(data,plotName)
     plotName = os.path.join(plotsDirectory,"%d-%d-residual.png"%(params["gpsStart"],params["gpsEnd"]))
     pylal.pylal_seismon_eqmon_plot.residual(data,plotName)
-    print plotName
-    print penis
+    plotName = os.path.join(plotsDirectory,"%d-%d-earthquakes.png"%(params["gpsStart"],params["gpsEnd"]))
+    pylal.pylal_seismon_eqmon_plot.earthquakes(data,plotName)
 
     for attributeDic in attributeDics:
 
@@ -216,6 +303,9 @@ def run_earthquakes(params):
             continue
 
         traveltimes = attributeDic["traveltimes"][ifo]
+
+        if traveltimes["Rfamp"][0] <= threshold:
+            continue
 
         gpsStart = max(traveltimes["Rtimes"]) - 200
         gpsEnd = max(traveltimes["Rtimes"]) + 200
@@ -688,23 +778,6 @@ def GPSToUTCDateTime(gps):
     ttUTC = UTCDateTime(tt)
 
     return ttUTC    
-
-def attribute_array(attributeDics,type):
-
-    array = []
-    for attributeDic in attributeDics:
-        if len(type) == 1:
-            attribute = attributeDic[type[0]]
-        elif len(type) == 2:
-            attribute = attributeDic[type[0]][type[1]]
-        elif len(type) == 3:
-            attribute = attributeDic[type[0]][type[1]][type[2]]
-        elif len(type) == 4:
-            attribute = attributeDic[type[0]][type[1]][type[2]][type[3]]
-
-        array.append(attribute)
-
-    return array
 
 def eventDiff(attributeDics, magnitudeDiff, latitudeDiff, longitudeDiff):
 

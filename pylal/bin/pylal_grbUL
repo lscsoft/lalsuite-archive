@@ -405,7 +405,7 @@ for inj_L_by_m2, m2_D in \
 
 # smooth with Gaussian
 if opts.smoothing_radius is not None:
-    window_2d = rate.gaussian_window2d(opts.smoothing_radius,
+    window_2d = rate.gaussian_window(opts.smoothing_radius,
                                        opts.smoothing_radius)
     for count_by_L_D in count_by_L_m2_D.transpose((1, 0, 2)):
         rate.filter_array(count_by_L_D, window_2d)

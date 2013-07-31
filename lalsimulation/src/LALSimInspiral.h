@@ -66,6 +66,7 @@ typedef enum {
    SpinTaylorT2,	/**< Spinning case T2 models */
    SpinTaylorT3,	/**< Spinning case T3 models */
    SpinTaylorT4,	/**< Spinning case T4 models (lalsimulation's equivalent of SpinTaylorFrameless) */
+   SpinTaylorT5,       /**< Spinning case T5. Ref. Sec III of P. Ajith, Phys Rev D (2011)  */
    SpinTaylorF2,	/**< Spinning case F2 models (single spin only) */
    SpinTaylorFrameless,	/**< Spinning case PN models (replace SpinTaylor by removing the coordinate singularity) */
    SpinTaylor,		/**< Spinning case PN models (should replace SpinTaylorT3 in the future) */
@@ -177,7 +178,7 @@ void XLALDestroySphHarmTimeSeries( SphHarmTimeSeries* ts );
 UINT4 XLALSphHarmTimeSeriesGetMaxL( SphHarmTimeSeries* ts );
 
 #ifdef SWIG   // SWIG interface directives
-SWIGLAL(GET_OBJECT(COMPLEX16TimeSeries*, XLALSphHarmTimeSeriesGetMode));
+SWIGLAL(RETURNS_PROPERTY(COMPLEX16TimeSeries*, XLALSphHarmTimeSeriesGetMode));
 #endif
 
 /* 
@@ -214,7 +215,7 @@ void XLALDestroySphHarmFrequencySeries( SphHarmFrequencySeries* ts );
 UINT4 XLALSphHarmFrequencySeriesGetMaxL( SphHarmFrequencySeries* ts );
 
 #ifdef SWIG   // SWIG interface directives
-SWIGLAL(GET_OBJECT(COMPLEX16FrequencySeries*, XLALSphHarmFrequencySeriesGetMode));
+SWIGLAL(RETURNS_PROPERTY(COMPLEX16FrequencySeries*, XLALSphHarmFrequencySeriesGetMode));
 #endif
 
 /* 
@@ -1936,6 +1937,27 @@ int XLALSimInspiralSpinTaylorT4(
 	int phaseO,                     /**< twice PN phase order */
 	int amplitudeO                  /**< twice PN amplitude order */
 	);
+
+int XLALSimInspiralSpinTaylorT5 (
+        REAL8TimeSeries **hplus,        /**< +-polarization waveform */
+        REAL8TimeSeries **hcross,       /**< x-polarization waveform */
+        REAL8 phiRef,                   /**< orbital phase at reference pt. */
+        REAL8 deltaT,                   /**< sampling interval (s) */
+        REAL8 m1,                       /**< mass of companion 1 (kg) */
+        REAL8 m2,                       /**< mass of companion 2 (kg) */
+        REAL8 fStart,                   /**< start GW frequency (Hz) */
+        REAL8 r,                        /**< distance of source (m) */
+        REAL8 s1x,                      /**< initial value of S1x */
+        REAL8 s1y,                      /**< initial value of S1y */
+        REAL8 s1z,                      /**< initial value of S1z */
+        REAL8 s2x,                      /**< initial value of S2x */
+        REAL8 s2y,                      /**< initial value of S2y */
+        REAL8 s2z,                      /**< initial value of S2z */
+        REAL8 incAngle,                                 /**< inclination angle with J_ini */
+        int phaseO,                     /**< twice PN phase order */
+        int amplitudeO                  /**< twice PN amplitude order */
+        );
+
 
 int XLALSimInspiralSpinTaylorT2(
 	REAL8TimeSeries **hplus,        /**< +-polarization waveform */

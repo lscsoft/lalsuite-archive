@@ -94,15 +94,15 @@ __date__ = git_version.date
 
 #
 # Class for computing foreground likelihoods from the measurements in a
-# CoincParamsDistributions instance.
+# BurcaCoincParamsDistributions instance.
 #
 
 
 class Likelihood(object):
 	def __init__(self, coinc_param_distributions):
 		# check input
-		if set(coinc_param_distributions.background_rates.keys()) != set(coinc_param_distributions.injection_rates.keys()):
-			raise ValueError("distribution density name mismatch:  found background data with names %s and injection data with names %s" % (", ".join(sorted(coinc_param_distributions.background_rates.keys())), ", ".join(sorted(coinc_param_distributions.injection_rates.keys()))))
+		if set(coinc_param_distributions.background_rates) != set(coinc_param_distributions.injection_rates):
+			raise ValueError("distribution density name mismatch:  found background data with names %s and injection data with names %s" % (", ".join(sorted(coinc_param_distributions.background_rates)), ", ".join(sorted(coinc_param_distributions.injection_rates))))
 		for name, binnedarray in coinc_param_distributions.background_rates.items():
 			if len(binnedarray.array.shape) != len(coinc_param_distributions.injection_rates[name].array.shape):
 				raise ValueError("background data with name %s has shape %s but injection data has shape %s" % (name, str(binnedarray.array.shape), str(coinc_param_distributions.injection_rates[name].array.shape)))
@@ -119,7 +119,7 @@ class Likelihood(object):
 			return None, None
 		P_bak = 1.0
 		P_inj = 1.0
-		for name, value in sorted(params.items()):
+		for name, value in params.items():
 			P_bak *= float(self.background_rates[name](*value))
 			P_inj *= float(self.injection_rates[name](*value))
 		return P_bak, P_inj
@@ -198,6 +198,8 @@ class LikelihoodRatio(Likelihood):
 		try:
 			return  P_inj / P_bak
 		except ZeroDivisionError:
+			# P_bak == 0.0, P_inj != 0.0.  this is a
+			# "guaranteed detection", not a failure
 			return PosInf
 
 
