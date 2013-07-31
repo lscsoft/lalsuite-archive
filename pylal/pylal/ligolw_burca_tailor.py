@@ -547,21 +547,21 @@ class DistributionsStats(object):
 	}
 
 	filters = {
-		"H1_H2_dband": rate.gaussian_window2d(11, 5),
-		"H1_L1_dband": rate.gaussian_window2d(11, 5),
-		"H2_L1_dband": rate.gaussian_window2d(11, 5),
-		"H1_H2_ddur": rate.gaussian_window2d(11, 5),
-		"H1_L1_ddur": rate.gaussian_window2d(11, 5),
-		"H2_L1_ddur": rate.gaussian_window2d(11, 5),
-		"H1_H2_df": rate.gaussian_window2d(11, 5),
-		"H1_L1_df": rate.gaussian_window2d(11, 5),
-		"H2_L1_df": rate.gaussian_window2d(11, 5),
-		"H1_H2_dh": rate.gaussian_window2d(11, 5),
-		"H1_L1_dh": rate.gaussian_window2d(11, 5),
-		"H2_L1_dh": rate.gaussian_window2d(11, 5),
-		"H1_H2_dt": rate.gaussian_window2d(11, 5),
-		"H1_L1_dt": rate.gaussian_window2d(11, 5),
-		"H2_L1_dt": rate.gaussian_window2d(11, 5)
+		"H1_H2_dband": rate.gaussian_window(11, 5),
+		"H1_L1_dband": rate.gaussian_window(11, 5),
+		"H2_L1_dband": rate.gaussian_window(11, 5),
+		"H1_H2_ddur": rate.gaussian_window(11, 5),
+		"H1_L1_ddur": rate.gaussian_window(11, 5),
+		"H2_L1_ddur": rate.gaussian_window(11, 5),
+		"H1_H2_df": rate.gaussian_window(11, 5),
+		"H1_L1_df": rate.gaussian_window(11, 5),
+		"H2_L1_df": rate.gaussian_window(11, 5),
+		"H1_H2_dh": rate.gaussian_window(11, 5),
+		"H1_L1_dh": rate.gaussian_window(11, 5),
+		"H2_L1_dh": rate.gaussian_window(11, 5),
+		"H1_H2_dt": rate.gaussian_window(11, 5),
+		"H1_L1_dt": rate.gaussian_window(11, 5),
+		"H2_L1_dt": rate.gaussian_window(11, 5)
 	}
 
 	def __init__(self):

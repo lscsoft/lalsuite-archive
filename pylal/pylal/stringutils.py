@@ -237,10 +237,10 @@ class DistributionsStats(object):
 	}
 
 	filters = {
-		"H1_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
-		"H2_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
-		"L1_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
-		"V1_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
+		"H1_snr2_chi2": rate.gaussian_window(11, 11, sigma = 20),
+		"H2_snr2_chi2": rate.gaussian_window(11, 11, sigma = 20),
+		"L1_snr2_chi2": rate.gaussian_window(11, 11, sigma = 20),
+		"V1_snr2_chi2": rate.gaussian_window(11, 11, sigma = 20),
 		"H1_H2_dt": rate.gaussian_window(11, sigma = 20),
 		"H1_L1_dt": rate.gaussian_window(11, sigma = 20),
 		"H1_V1_dt": rate.gaussian_window(11, sigma = 20),
@@ -261,7 +261,7 @@ class DistributionsStats(object):
 		"L1_V1_df": rate.gaussian_window(11, sigma = 20),
 		# instrument group filter is a no-op, should produce a
 		# 1-bin top-hat window.
-		"instrumentgroup,rss_timing_residual": rate.gaussian_window2d(1e-100, 11, sigma = 20)
+		"instrumentgroup,rss_timing_residual": rate.gaussian_window(1e-100, 11, sigma = 20)
 	}
 
 	def __init__(self):
