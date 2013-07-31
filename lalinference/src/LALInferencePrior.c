@@ -590,7 +590,7 @@ LALInferenceVariableItem *item=params->head;
 			                  return -DBL_MAX;
 			               if(MTotMax < m1+m2)
 			                  return -DBL_MAX;              
-                            logPrior+= -((m1-1.4)/0.15)*((m1-1.4)/0.15)-((m2-1.4)/0.15)*((m2-1.4)/0.15);
+                            //logPrior+= -((m1-1.4)/0.15)*((m1-1.4)/0.15)-((m2-1.4)/0.15)*((m2-1.4)/0.15);
 			               if(LALInferenceCheckVariable(params,"logmc")) {
 			                    if(LALInferenceCheckVariable(params,"asym_massratio")) {
 			                      	logPrior+=log(m1*m1);
