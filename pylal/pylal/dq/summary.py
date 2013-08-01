@@ -525,8 +525,12 @@ class SectionSummaryTab(SummaryTab):
         # build ordered list of all tabs
         alltabs = []
         for tab in sectiontabs:
-            tab.children.sort(key=lambda t: re.search('(overview|summary)',
-                                                      t.name, re.I) and 1 or 2)
+            tab.children.sort(key=lambda t:
+                                  re.search('odc(.*)(overview|summary)',
+                                            t.name, re.I) and 3 or
+                                  re.search('odc', t.name, re.I) and 4 or
+                                  re.search('(overview|summary)', t.name, re.I)
+                                      and 2 or 1)
             alltabs.append(tab)
             if tab.name != "Summary":
                 alltabs.extend(tab.children)
@@ -896,7 +900,7 @@ class SegmentSummaryTab(SummaryTab):
 
         # subplots
         if len(self.subplots):
-            div(self.frame, (0, 4), "Subplots", display=False)
+            div(self.frame, (0, 4), "Subplots", display=True)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
@@ -1262,7 +1266,7 @@ class DataSummaryTab(SummaryTab):
 
         # subplots
         if len(self.subplots):
-            div(self.frame, (0, 4), "Subplots", display=False)
+            div(self.frame, (0, 4), "Subplots", display=True)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
@@ -1345,7 +1349,7 @@ class RangeSummaryTab(DataSummaryTab):
 
         # subplots
         if len(self.subplots):
-            div(self.frame, (0, 4), "Subplots", display=False)
+            div(self.frame, (0, 4), "Subplots", display=True)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
@@ -1619,7 +1623,7 @@ class TriggerSummaryTab(SummaryTab):
 
         # subplots
         if len(self.subplots):
-            div(self.frame, (0, 4), "Subplots", display=False)
+            div(self.frame, (0, 4), "Subplots", display=True)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
@@ -2045,7 +2049,7 @@ class StateVectorSummaryTab(SegmentSummaryTab):
 
         # subplots
         if len(self.subplots):
-            div(self.frame, (0, 4), "Subplots", display=False)
+            div(self.frame, (0, 4), "Subplots", display=True)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
