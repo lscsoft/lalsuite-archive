@@ -570,11 +570,7 @@ def PyLALConcatenateTimeSeries(*serieslist, **kwargs):
        tepoch = float(epoch) + (float(timeseries.epoch-epoch)//deltaT*deltaT)
        idx  = numpy.nonzero(tarray==tepoch)[0][0]
        idx2 = idx + timeseries.data.length
-       if idx2 >= series.data.length:
-           series.data.data[-idx2:] = timeseries.data.data
-       else:
-           series.data.data[idx:idx+timeseries.data.length] =\
-               timeseries.data.data
+       series.data.data[idx:idx2] = timeseries.data.data
        idx = idx2
 
     return series
@@ -1022,6 +1018,11 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                                                         end=seg[1],channel=channel,
                                                         columns=columns,
                                                         verbose=VERBOSE)
+                elif etg.lower() in ['excesspower', 'daily_ihope']:
+                    trigtable = triggers.from_files(segcache, etg,
+                                                    columns=columns,
+                                                    start=seg[0], end=seg[1],
+                                                    verbose=VERBOSE)
                 else:
                     trigtable = triggers.from_files(
                                     segcache, etg, columns=columns,
@@ -2043,7 +2044,7 @@ def archive_triggers(outdir, start, end, param_dict, clustered=False):
             except AttributeError:
                 warnings.warn("AttributeError caught when archiving triggers. "
                               "%s table for %s has type %s instead of "
-                              "ligolw.Table" % (etg, seg, type(event_table)))
+                              "ligolw.Table" % (etg, seg, type(trig_table)))
                 continue
             sid = ilwd.get_ilwdchar_class(table.StripTableName(
                                               seg_table.tableName),
@@ -2757,6 +2758,7 @@ def process_state_vector(tab, cp, cpsec, verbose=False, htmlonly=False,\
     @param htmlonly
         generate enough data for HTML only, default: False
     """
+    global G_SEGMENTS,G_SEGMENT_SUMMARY
     print_verbose("\n----------\nProcessing %s state vector for the %s "\
                   "state...\n" % (tab.name, tab.state.name),\
                   verbose=verbose, profile=False)
@@ -2804,6 +2806,10 @@ def process_state_vector(tab, cp, cpsec, verbose=False, htmlonly=False,\
             for bit in tab.bits:
                 flag = tab.bitmask[bit]
                 tab.add_segments(flag, state_segs[flag])
+                if (cp.has_option(cpsec, 'store-segments') and not
+                    G_SEGMENTS.has_key(flag)):
+                    G_SEGMENT_SUMMARY[flag] = SegmentList([tab.span])
+                    G_SEGMENTS[flag] = state_segs[flag]
 
         # restrict tab segments to available data
         if len(data):
@@ -2994,7 +3000,7 @@ def process_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
     if not htmlonly:
         # get trigfind args
         trigfind_args = dict()
-        etgsec = re_cchar.sub("-", tab.etg.lower())
+        etgsec = tab.etg.lower()
         for opt,val in cp.items(etgsec)+cp.items(cpsec):
             if opt.startswith("trigfind-"):
                 trigfind_args[opt[9:]] = val
@@ -3882,7 +3888,7 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
     if cp.has_option(cpsec, "use-archive") \
     and (cp.get(cpsec, "use-archive").lower() in ["", "true"]):
         for channel in channels:
-            if dataplot:
+            if dataplot or spectrogramplot or spectrumplot:
                 load_archive_data(cp, channel, tab.segments, mode=tab.mode,\
                                   verbose=verbose)
             if spectrogramplot or spectrumplot:
@@ -5288,7 +5294,8 @@ if __name__=="__main__":
     valid_systems = ["ASC", "CPU", "DAQ", "HPI", "IFO", "IOO", "IOP", "ISI",\
                      "LSC", "OMC", "PEM", "PSL", "SEI", "SUS", "SQZ", "IMC"]
     valid_parents = ["Summary", "Sensitivity", "Segments", "Triggers",\
-                     "Vetoes", "Analysis", "Seismic","Misc."] + valid_systems
+                     "Vetoes", "Analysis", "Seismic", "Environment",
+                     "Misc."] + valid_systems
     valid_parents = natsort(valid_parents)
 
     # generate section summaries for each valid parent
