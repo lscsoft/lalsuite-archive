@@ -319,13 +319,13 @@ class LogarithmicBins(Bins):
 		raise IndexError(x)
 
 	def lower(self):
-		return self.min * numpy.exp(self.delta * numpy.arange(len(self)))
+		return numpy.exp(numpy.linspace(math.log(self.min), math.log(self.max) - self.delta, len(self)))
 
 	def centres(self):
-		return self.min * numpy.exp(self.delta * (numpy.arange(len(self)) + 0.5))
+		return numpy.exp(numpy.linspace(math.log(self.min), math.log(self.max) - self.delta, len(self)) + self.delta / 2.)
 
 	def upper(self):
-		return self.min * numpy.exp(self.delta * (numpy.arange(len(self)) + 1))
+		return numpy.exp(numpy.linspace(math.log(self.min) + self.delta, math.log(self.max), len(self)))
 
 
 class LogarithmicPlusOverflowBins(Bins):
@@ -389,13 +389,13 @@ class LogarithmicPlusOverflowBins(Bins):
 		raise IndexError(x)
 
 	def lower(self):
-		return numpy.concatenate((numpy.array([0.]), self.min * numpy.exp(self.delta * numpy.arange(len(self) - 1))))
+		return numpy.concatenate((numpy.array([0.]), numpy.exp(numpy.linspace(math.log(self.min), math.log(self.max), len(self) - 1))))
 
 	def centres(self):
-		return numpy.concatenate((numpy.array([0.]), self.min * numpy.exp(self.delta * (numpy.arange(len(self) - 2) + 0.5)), numpy.array([PosInf])))
+		return numpy.concatenate((numpy.array([0.]), numpy.exp(numpy.linspace(math.log(self.min), math.log(self.max) - self.delta, len(self) - 2) + self.delta / 2.), numpy.array([PosInf])))
 
 	def upper(self):
-		return numpy.concatenate((self.min * numpy.exp(self.delta * numpy.arange(len(self) - 1)), numpy.array([PosInf])))
+		return numpy.concatenate((numpy.exp(numpy.linspace(math.log(self.min), math.log(self.max), len(self) - 1)), numpy.array([PosInf])))
 
 
 class ATanBins(Bins):
