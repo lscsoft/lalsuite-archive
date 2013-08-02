@@ -142,7 +142,7 @@ def dbinjfind( connection, simulation_table, recovery_table, match_criteria, rou
 def strlst_is_subset(stringA, stringB):
     return set(stringA.split(',')).issubset(set(stringB.split(',')))
 
-def write_coincidences(connection, map_label, process_id, verbose = False):
+def write_coincidences(connection, map_label, search, process_id, verbose = False):
     """
     Writes coincidences to coinc_event_map table.
     """
@@ -192,7 +192,7 @@ def write_coincidences(connection, map_label, process_id, verbose = False):
     sim_sngls = [(ilwd.ilwdchar(sim_id), ilwd.ilwdchar(eid)) for sim_id, eid in connection.cursor().execute( sqlquery ).fetchall()]
 
     # create a new coinc_def id for this map label, if it already doesn't exist
-    coinc_def_id = sqlutils.write_newstyle_coinc_def_entry( connection, map_label )
+    coinc_def_id = sqlutils.write_newstyle_coinc_def_entry( connection, map_label, search=search )
 
     # get the time_slide id
     # XXX: NOTE: We are assuming that all simulation entries have the same time_slide id

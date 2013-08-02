@@ -1865,8 +1865,11 @@ def write_newstyle_coinc_def_entry( connection, description, search = None, sear
     results = connection.cursor().execute( sqlquery, (description,) ).fetchall()
     if results == []:
         # none found, write new entry
-        this_id = get_next_id( connection, 'coinc_definer', 'coinc_def_id' )
         sqlquery = 'INSERT INTO coinc_definer (coinc_def_id, description, search, search_coinc_type) VALUES (?, ?, ?, ?)'
+        this_id = get_next_id( connection, 'coinc_definer', 'coinc_def_id' )
+        if not search_coinc_type:
+            # assign to the new coinc_definer row the largest+1 search_coinc_type INT
+            search_coinc_type = 1+connection.execute('SELECT MAX(search_coinc_type) FROM coinc_definer').fetchone()[0]
         connection.cursor().execute( sqlquery, (str(this_id), description, search, search_coinc_type) )
         connection.commit()
     else:
@@ -1993,6 +1996,7 @@ def simplify_coincdef_tbl(connection, verbose=False, debug=False):
                 JOIN coinc_definer AS new_cd_table ON (
                     new_cd_table.search == old_cd_table.search
                     AND new_cd_table.search_coinc_type == old_cd_table.search_coinc_type
+                    AND new_cd_table.description == old_cd_table.description
                 )
             GROUP BY old_cdid;
         
