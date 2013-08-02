@@ -664,6 +664,14 @@ if len(cachelist):
   command = "cat " + " ".join(cachelist) + " > " + cachefilename
   os.popen(command)
 
+# Ugly hack to satisfy bits of code that weren't updated
+# to use CAT1 on the same footing as the other CATs
+hipeAnalysisVetoNodeWithout1 = hipeAnalysisVetoNode.copy()
+del hipeAnalysisVetoNodeWithout1[1]
+hipeAnalysisNode=hipeAnalysisVetoNode[1]
+veto_categories_without1=list(veto_categories)
+if 1 in veto_categories:
+  veto_categories_without1.remove(1)
 
 ##############################################################################
 # Run lalapps_pipedown
@@ -713,11 +721,12 @@ if opts.run_plots:
         veto_categories, ifos)
 
   if opts.run_playground and opts.run_full_data:
-
+    cat1enabled= 1 in veto_cateories 
     # set up parents correctly
-    if opts.run_search: 
-      parentNodes = [hipePlayNode, hipeAnalysisNode]
+    if opts.run_search and cat1enabled: 
+      parentNodes = [hipePlayNode, hipeAnalysisVetoNode[1]]
     else: parentNodes = None
+
 
     if opts.run_data_quality and opts.run_playground:
       parentVetoNodes = [hipePlayVetoNode, hipeAnalysisVetoNode]
@@ -739,13 +748,13 @@ if opts.run_plots:
       if opts.run_search:
         parentNodes = [hipeAnalysisNode]
       if opts.run_data_quality:
-        parentVetoNodes = [hipeAnalysisVetoNode]
+        parentVetoNodes = [hipeAnalysisVetoNodeWithout1]
 
     # make the full data slide/zerolag plots
     print "Making full data zero lag plots."
     dag = inspiralutils.zeroSlidePlots(dag, "full_data_summary_plots", cp, \
           opts.log_path, "FULL_DATA", "FULL_DATA", "../" + cachefilename, \
-          opts.do_dag_categories, parentNodes, parentVetoNodes, veto_categories , ifos)
+          opts.do_dag_categories, parentNodes, parentVetoNodes, veto_categories_without1 , ifos)
 
 
   # Setting up plots for software injection run.
@@ -824,6 +833,7 @@ if opts.run_hardware_inj:
 
     if opts.run_full_data:
       for category in veto_categories:
+        if category == 1: continue
         parentNodes.append(hipeAnalysisVetoNode[category])
 
   HWinjNodes = inspiralutils.hwinj_page_setup(cp,ifos,veto_categories,hw_inj_dir)
