@@ -352,30 +352,6 @@ static int checkTidesZero(REAL8 lambda1, REAL8 lambda2)
 	XLAL_ERROR_NULL(XLAL_EINVAL);\
 	} while (0)
 
-/* 
- * Structure to carry a collection of spherical harmonic modes in COMPLEX16
- * time series. Contains convenience getter and setter functions, as well as
- * a convenience "maximum l mode" function. Implemented as a singly forward
- * linked list.
- */
-struct
-tagSphHarmTimeSeries
-{
-    COMPLEX16TimeSeries*            mode; /**< The sequences of sampled data. */
-    UINT4                           l; /**< Node mode l  */
-    INT4                            m; /**< Node submode m  */
-    struct tagSphHarmTimeSeries*    next; /**< next pointer */
-};
-
-struct
-tagSphHarmFrequencySeries
-{
-    COMPLEX16FrequencySeries*            mode; /**< The sequences of sampled data. */
-    UINT4                           l; /**< Node mode l  */
-    INT4                            m; /**< Node submode m  */
-    struct tagSphHarmFrequencySeries*    next; /**< next pointer */
-};
-
 /**
  * Prepend a node to a linked list of SphHarmTimeSeries, or create a new head
  */

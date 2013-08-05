@@ -74,3 +74,5 @@ int XLALSimBlackHoleRingdownModeTiger(
                                       REAL8 dfreq,        /**< relative shift in the real frequency parameter */
                                       REAL8 dtau          /**< relative shift in the damping time parameter */
                                       );
+
+#endif

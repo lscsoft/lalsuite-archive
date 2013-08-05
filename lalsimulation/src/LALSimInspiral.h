@@ -149,6 +149,31 @@ int XLALSimInspiralREAL8WaveTaper(
 		LALSimInspiralApplyTaper  bookends	/**< taper type enumerator */
 		);
 
+
+/* 
+ * Structure to carry a collection of spherical harmonic modes in COMPLEX16
+ * time series. Contains convenience getter and setter functions, as well as
+ * a convenience "maximum l mode" function. Implemented as a singly forward
+ * linked list.
+ */
+struct
+tagSphHarmTimeSeries
+{
+    COMPLEX16TimeSeries*            mode; /**< The sequences of sampled data. */
+    UINT4                           l; /**< Node mode l  */
+    INT4                            m; /**< Node submode m  */
+    struct tagSphHarmTimeSeries*    next; /**< next pointer */
+};
+
+struct
+tagSphHarmFrequencySeries
+{
+    COMPLEX16FrequencySeries*            mode; /**< The sequences of sampled data. */
+    UINT4                           l; /**< Node mode l  */
+    INT4                            m; /**< Node submode m  */
+    struct tagSphHarmFrequencySeries*    next; /**< next pointer */
+};
+
 /* 
  * Structure to carry a collection of spherical harmonic modes in COMPLEX16 
  * time series. Contains convenience getter and setter functions, as well as
