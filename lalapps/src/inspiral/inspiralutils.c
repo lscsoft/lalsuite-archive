@@ -1120,10 +1120,12 @@ REAL8 calculate_lalsim_snr(SimInspiralTable *inj, char *IFOname, REAL8FrequencyS
       break;
     case TaylorF1:
     case TaylorF2:
+	case TaylorF2Test:
     case TaylorF2RedSpin:
     case TaylorF2RedSpinTidal:
     case IMRPhenomA:
     case IMRPhenomB:
+	case PPE:
       modelDomain=LAL_SIM_DOMAIN_FREQUENCY;
       break;
     default:
