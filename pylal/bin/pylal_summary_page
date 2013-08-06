@@ -570,9 +570,12 @@ def PyLALConcatenateTimeSeries(*serieslist, **kwargs):
        tepoch = float(epoch) + (float(timeseries.epoch-epoch)//deltaT*deltaT)
        idx  = numpy.nonzero(tarray==tepoch)[0][0]
        idx2 = idx + timeseries.data.length
-       series.data.data[idx:idx2] = timeseries.data.data
+       try:
+           series.data.data[idx:idx2] = timeseries.data.data
+       except ValueError as e:
+           warnings.warn("Caught ValueError: %s" % e)
+           break
        idx = idx2
-
     return series
 
 def parse_data_config(cp, cpsec, channels, prefix=""):
