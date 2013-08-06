@@ -1909,7 +1909,12 @@ class LineHistogram(BasicPlot):
                 self.ax.fill_between(x, 1e-100, y, **plot_kwargs)
 
         if logx:
-            self.ax.set_xscale("log", nonposx='clip')
+            try:
+                self.ax.set_xscale("log", nonposx='clip')
+            except OverflowError:
+                self.ax.set_xlim(0.1, 1)
+                self.ax.set_xscale("log", nonposx='clip')
+
         if logy:
             try:
                 self.ax.set_yscale("log", nonposy='clip')
