@@ -55,6 +55,28 @@ def read_frames(start_time,end_time,channel,cache):
 
     return time,data
 
+def read_nds(start_time,end_time,channel,conn):
+
+    try:
+        buffers = conn.fetch(start_time, end_time,[channel.station])
+    except:
+        time = []
+        data = []
+        return time,data
+
+    data = buffers[0].data
+    data_start = buffers[0].gps_seconds + buffers[0].gps_nanoseconds
+    dt = 1.0 / buffers[0].channel.sample_rate 
+    time = data_start+dt*np.arange(len(data))
+    data = [e/channel.calibration for e in data]
+
+    indexes = np.where(np.isnan(data))[0]
+    meanSamples = np.mean(np.ma.masked_array(data,np.isnan(data)))
+    for index in indexes:
+        data[index] = meanSamples
+
+    return time,data
+
 def save_data(params,channel,gpsStart,gpsEnd,data):
 
     psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore
@@ -141,8 +163,11 @@ def mat(params, channel, segment):
 
     gpsStart = segment[0]
     gpsEnd = segment[1]
-    
-    time,data = read_frames(gpsStart,gpsEnd,channel,params["frame"])
+   
+    if params["frameType"] == "nds":
+        time,data = read_nds(gpsStart,gpsEnd,channel,params["ndsConnection"])
+    else:
+        time,data = read_frames(gpsStart,gpsEnd,channel,params["frame"])
 
     if len(time) == 0:
         print "No data available... continuing"
@@ -779,6 +804,8 @@ def channel_summary(params, channels, segment):
         psdLocation = os.path.join(psdLocation,str(params["fftDuration"]))
         psdFile = os.path.join(psdLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
 
+        if not os.path.isfile(psdFile):
+            continue
         data_out = np.loadtxt(psdFile)
         thisSpectra = data_out[:,1]
         thisFreq = data_out[:,0]

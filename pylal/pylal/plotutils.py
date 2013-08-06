@@ -245,6 +245,8 @@ def display_name(columnName):
 
     # parse words
     for i,w in enumerate(words):
+        if w.startswith('\\'):
+            pass
         wl = w.lower()
         # get miscellaneous definitions
         if wl in misc.keys():
@@ -443,7 +445,7 @@ def parse_plot_config(cp, section):
     pairlist = ['bins', 'color-bins']
     booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar-style',\
                 'greyscale', 'zero-indicator', 'normalized', 'fill',\
-                'calendar-time']
+                'calendar-time', 'bar']
     floats   = ['detchar-style-threshold']
     ints     = ['num-bins']
 
@@ -1899,6 +1901,8 @@ class LineHistogram(BasicPlot):
                 y = numpy.vstack((y, y)).reshape((-1,), order="F")
 
             # plot
+            if logy:
+                numpy.putmask(y, y==0, 1e-100)
             self.ax.plot(x, y, **plot_kwargs)
             if fill:
                 plot_kwargs.pop("label", None)
@@ -1907,7 +1911,11 @@ class LineHistogram(BasicPlot):
         if logx:
             self.ax.set_xscale("log", nonposx='clip')
         if logy:
-            self.ax.set_xscale("log", nonposy='clip')
+            try:
+                self.ax.set_yscale("log", nonposy='clip')
+            except OverflowError:
+                self.ax.set_ylim(0.1, 1)
+                self.ax.set_yscale("log", nonposy='clip')
 
         # add legend if there are any non-trivial labels
         self.add_legend_if_labels_exist(loc=loc, alpha=0.8)

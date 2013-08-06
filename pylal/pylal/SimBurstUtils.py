@@ -309,7 +309,7 @@ WHERE
 		# smooth the efficiency data.
 		print >>sys.stderr, "Sum of numerator bins before smoothing = %g" % self.efficiency.numerator.array.sum()
 		print >>sys.stderr, "Sum of denominator bins before smoothing = %g" % self.efficiency.denominator.array.sum()
-		rate.filter_binned_ratios(self.efficiency, rate.gaussian_window2d(self.window_size_x, self.window_size_y))
+		rate.filter_binned_ratios(self.efficiency, rate.gaussian_window(self.window_size_x, self.window_size_y))
 		print >>sys.stderr, "Sum of numerator bins after smoothing = %g" % self.efficiency.numerator.array.sum()
 		print >>sys.stderr, "Sum of denominator bins after smoothing = %g" % self.efficiency.denominator.array.sum()
 

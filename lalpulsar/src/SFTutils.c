@@ -20,6 +20,7 @@
 /*---------- INCLUDES ----------*/
 #include <stdarg.h>
 
+#include <gsl/gsl_math.h>
 #include <gsl/gsl_sort_double.h>
 
 #define LAL_USE_OLD_COMPLEX_STRUCTS
@@ -28,6 +29,8 @@
 #include <lal/FrequencySeries.h>
 #include <lal/NormalizeSFTRngMed.h>
 #include <lal/LISAspecifics.h>
+#include <lal/Date.h>
+#include <lal/Units.h>
 
 #include <lal/SFTutils.h>
 
@@ -40,6 +43,9 @@
 /*---------- internal types ----------*/
 
 /*---------- Global variables ----------*/
+static REAL8 fudge_up   = 1 + 10 * LAL_REAL8_EPS;	// about ~1 + 2e-15
+static REAL8 fudge_down = 1 - 10 * LAL_REAL8_EPS;	// about ~1 - 2e-15
+
 /* empty struct initializers */
 const PSDVector empty_PSDVector;
 const MultiPSDVector empty_MultiPSDVector;
@@ -52,80 +58,6 @@ const MultiNoiseWeights empty_MultiNoiseWeights;
 // ---------- obsolete LAL-API was moved into external file
 #include "SFTutils-LAL.c"
 // ------------------------------
-
-/** Extract a frequency band from an SFTVector, returning a new SFTvector
- * Note: fMin < 0 implies to start from lowest frequency bin,
- *       fMax < 0 implies to include up to highest frequency bin
- *
- * if fMin, fMax > 0, the corresponding frequency MUST be contained in the
- * input SFT, otherwise an error is returned.
- *
- * We guarantee that both fMin and fMax will be *contained* in the returned SFT,
- * which means the actual min(f) can be < fMin, and max(f) > fMax is possible.
- *
- */
-SFTVector *
-XLALExtractBandfromSFTs ( const SFTVector *sfts, REAL8 fMin, REAL8 fMax )
-{
-  REAL8 dFreq;
-  UINT4 iMin, iMax, i0, numSFTs, numBinsIn, numBinsOut, iSFT;
-  SFTVector *out;
-  REAL8 f0Out;
-  COMPLEX8Vector *sav;
-
-  if ( !sfts || !sfts->data || (sfts->length==0) || !sfts->data[0].data ) {
-    XLAL_ERROR_NULL( XLAL_EINVAL );
-  }
-
-  dFreq = sfts->data[0].deltaF;
-
-  i0 = floor ( sfts->data[0].f0 / dFreq + 0.5 );	/* round to nearest bin */
-  numBinsIn = sfts->data[0].data->length;
-
-  if ( fMin < 0 )
-    iMin = i0;
-  else
-    iMin = floor ( fMin / dFreq + 1e-6 );	/* round down */
-
-  if ( fMax < 0 )
-    iMax = i0 + numBinsIn - 1;
-  else
-    iMax = ceil ( fMax / dFreq - 1e-6 );	/* round up */
-
-  if ( iMax < iMin ) {
-    XLALPrintError ("Resulting SFT has no bins iMax (%d) < iMin (%d)!\n", iMax, iMin );
-    XLAL_ERROR_NULL( XLAL_EINVAL );
-  }
-
-  numSFTs = sfts->length;
-  f0Out = iMin * dFreq;
-  numBinsOut = iMax - iMin + 1;
-
-  if ( (out = XLALCreateSFTVector ( numSFTs, numBinsOut )) == NULL ) {
-    XLAL_ERROR_NULL( XLAL_ENOMEM );
-  }
-
-  /* now copy heads and all requested bins */
-  for ( iSFT = 0; iSFT < numSFTs; iSFT ++ )
-    {
-      /* first copy complete head (saving data-pointer first, which will be copied in the next step) */
-      sav = out->data[iSFT].data;
-      memcpy ( &(out->data[iSFT]), &(sfts->data[iSFT]), sizeof(sfts->data[0]) );
-      out->data[iSFT].data = sav;
-
-      /* fix new header information */
-      out->data[iSFT].f0 = f0Out;
-
-      /* copy data */
-      memcpy (out->data[iSFT].data->data, sfts->data[iSFT].data->data + iMin - i0, numBinsOut * sizeof (sfts->data[iSFT].data->data[0] ) );
-      out->data[iSFT].data->length = numBinsOut;
-
-    } /* for iSFT < numSFTs */
-
-  return ( out );
-
-} /* XLALExtractBandfromSFTs() */
-
 
 /** XLAL function to create one SFT-struct.
  *
@@ -348,45 +280,84 @@ XLALDestroyTimestampVector ( LIGOTimeGPSVector *vect)
 } /* XLALDestroyTimestampVector() */
 
 
-/** Given a start-time, duration and 'stepsize' tStep, returns a list of timestamps
- * covering this time-stretch.
+/** Given a start-time, Tspan, Tsft and Toverlap, returns a list of timestamps
+ *  covering this time-stretch (allowing for overlapping SFT timestamps).
  *
  * NOTE: boundary-handling: the returned list of timestamps are guaranteed to *cover* the
- * interval [tStart, tStart+duration], assuming a each timestamp covers a length of 'tStep'
- * This implies that the actual timestamps-coverage can extend up to 'tStep' beyond 'tStart+duration'.
+ * interval [tStart, tStart+duration), assuming a each timestamp covers a length of 'Tsft'
+ * This implies that the actual timestamps-coverage can extend up to 'Tsft' beyond 'tStart+duration'.
  */
 LIGOTimeGPSVector *
-XLALMakeTimestamps ( LIGOTimeGPS tStart,		/**< GPS start-time */
-                     REAL8 duration, 			/**< duration in seconds */
-                     REAL8 tStep			/**< length of one (SFT) timestretch in seconds */
+XLALMakeTimestamps ( LIGOTimeGPS tStart,	/**< GPS start-time */
+                     REAL8 Tspan, 		/**< total duration to cover, in seconds */
+                     REAL8 Tsft,		/**< Tsft: SFT length of each timestamp, in seconds */
+                     REAL8 Toverlap		/**< time to overlap successive SFTs by, in seconds */
                      )
 {
-  XLAL_CHECK_NULL ( tStep > 0, XLAL_EDOM, "Invalid non-positive input 'tStart = %g'\n", tStep );
-  XLAL_CHECK_NULL ( duration > 0, XLAL_EDOM, "Invalid non-positive input 'duration = %g'\n", duration );
+  XLAL_CHECK_NULL ( Tspan > 0, XLAL_EDOM );
+  XLAL_CHECK_NULL ( Tsft  > 0, XLAL_EDOM );
+  XLAL_CHECK_NULL ( Toverlap  >= 0, XLAL_EDOM );
+  XLAL_CHECK_NULL ( Toverlap < Tsft, XLAL_EDOM );	// we must actually advance
 
-  UINT4 numSFTs = ceil( duration / tStep );			/* >= 1 !*/
+  REAL8 Tstep = Tsft - Toverlap;	// guaranteed > 0
+  UINT4 numSFTsMax = ceil ( Tspan * fudge_down / Tstep );			/* >= 1 !*/
+  // now we might be covering the end-time several times, if using overlapping SFTs, so
+  // let's trim this back down so that end-time is covered exactly once
+  UINT4 numSFTs = numSFTsMax;
+  while ( (numSFTs >= 2) && ( (numSFTs - 1) * Tstep + Tsft > Tspan) ) {
+    numSFTs --;
+  }
 
-  LIGOTimeGPSVector *ts;
-  XLAL_CHECK_NULL ( (ts = XLALCreateTimestampVector ( numSFTs )) != NULL, XLAL_EFUNC );
+  LIGOTimeGPSVector *ret;
+  XLAL_CHECK_NULL ( (ret = XLALCreateTimestampVector ( numSFTs )) != NULL, XLAL_EFUNC );
 
-  ts->deltaT = tStep;
+  ret->deltaT = Tsft;
 
   LIGOTimeGPS tt = tStart;	/* initialize to start-time */
-  for (UINT4 i = 0; i < numSFTs; i++)
+  for ( UINT4 i = 0; i < numSFTs; i++ )
     {
-      ts->data[i] = tt;
+      ret->data[i] = tt;
       /* get next time-stamp */
       /* NOTE: we add the interval tStep successively (rounded correctly to ns each time!)
        * instead of using iSFT*Tsft, in order to avoid possible ns-rounding problems
        * with REAL8 intervals, which becomes critial from about 100days on...
        */
-      XLAL_CHECK_NULL ( XLALGPSAdd ( &tt, tStep ) != NULL, XLAL_EFUNC );
+      XLAL_CHECK_NULL ( XLALGPSAdd ( &tt, Tstep ) != NULL, XLAL_EFUNC );
 
     } /* for i < numSFTs */
 
-  return ts;
+  return ret;
 
 } /* XLALMakeTimestamps() */
+
+
+/**
+ * Same as XLALMakeTimestamps() just for several detectors,
+ * additionally specify the number of detectors.
+ */
+MultiLIGOTimeGPSVector *
+XLALMakeMultiTimestamps ( LIGOTimeGPS tStart,	/**< GPS start-time */
+                          REAL8 Tspan, 		/**< total duration to cover, in seconds */
+                          REAL8 Tsft,		/**< Tsft: SFT length of each timestamp, in seconds */
+                          REAL8 Toverlap,	/**< time to overlap successive SFTs by, in seconds */
+                          UINT4 numDet		/**< number of timestamps-vectors to generate */
+                          )
+{
+  XLAL_CHECK_NULL ( numDet >= 1, XLAL_EINVAL );
+
+  MultiLIGOTimeGPSVector *ret;
+  XLAL_CHECK_NULL ( ( ret = XLALCalloc ( 1, sizeof(*ret))) != NULL, XLAL_ENOMEM );
+  XLAL_CHECK_NULL ( ( ret->data = XLALCalloc ( numDet, sizeof(ret->data[0]) )) != NULL, XLAL_ENOMEM );
+  ret->length = numDet;
+
+  for ( UINT4 X=0; X < numDet; X ++ )
+    {
+      XLAL_CHECK_NULL ( (ret->data[X] = XLALMakeTimestamps ( tStart, Tspan, Tsft, Toverlap ) ) != NULL, XLAL_EFUNC );
+    } // for X < numDet
+
+  return ret;
+
+} /* XLALMakeMultiTimestamps() */
 
 
 /** Extract timstamps-vector from the given SFTVector
@@ -913,10 +884,224 @@ XLALReadSegmentsFromFile ( const char *fname	/**< name of file containing segmen
 
 } /* XLALReadSegmentsFromFile() */
 
-/* ============================================================
- * deprecated LAL interface API follow below
- * mostly these are now just LAL-wrappers to the corresponding
- * XLAL-inteface functions
- * ============================================================
+/** Return a vector of SFTs containing only the bins in [fMin, fMin+Band].
+ *
+ * Note: the output SFT is guaranteed to "cover" the input boundaries 'fMin'
+ * and 'fMin+Band', ie if necessary the output SFT contains one additional
+ * bin on either end of the interval.
+ *
+ * This uses the conventions in XLALFindCoveringSFTBins() to determine
+ * the 'effective' frequency-band to extract.
+ *
  */
+SFTVector *
+XLALExtractBandFromSFTVector ( const SFTVector *inSFTs, REAL8 fMin, REAL8 Band )
+{
+  XLAL_CHECK_NULL ( inSFTs != NULL, XLAL_EINVAL, "Invalid NULL input SFT vector 'inSFTs'\n");
+  XLAL_CHECK_NULL ( inSFTs->length > 0, XLAL_EINVAL, "Invalid zero-length input SFT vector 'inSFTs'\n");
+  XLAL_CHECK_NULL ( fMin >= 0, XLAL_EDOM, "Invalid negative frequency fMin = %g\n", fMin );
+  XLAL_CHECK_NULL ( Band > 0, XLAL_EDOM, "Invalid non-positive Band = %g\n", Band );
 
+  UINT4 numSFTs = inSFTs->length;
+
+  REAL8 df      = inSFTs->data[0].deltaF;
+  REAL8 Tsft    = 1.0 / df;
+
+  REAL8 fMinSFT    = inSFTs->data[0].f0;
+  UINT4 numBinsSFT = inSFTs->data[0].data->length;
+  REAL8 BandSFT    = df * numBinsSFT;
+  UINT4 firstBinSFT= round ( fMinSFT / df );	// round to closest bin
+  UINT4 lastBinSFT = firstBinSFT + ( numBinsSFT - 1 );
+
+  // find 'covering' SFT-band to extract
+  UINT4 firstBinExt, numBinsExt;
+  XLAL_CHECK_NULL ( XLALFindCoveringSFTBins ( &firstBinExt, &numBinsExt, fMin, Band, Tsft ) == XLAL_SUCCESS, XLAL_EFUNC );
+  UINT4 lastBinExt = firstBinExt + ( numBinsExt - 1 );
+
+  XLAL_CHECK_NULL ( firstBinExt >= firstBinSFT && (lastBinExt <= lastBinSFT), XLAL_EINVAL,
+                    "Requested frequency-bins [%f,%f]Hz = [%d, %d] not contained within SFT's [%f, %f]Hz = [%d,%d].\n",
+                    fMin, fMin + Band, firstBinExt, lastBinExt, fMinSFT, fMinSFT + BandSFT, firstBinSFT, lastBinSFT );
+
+  INT4 firstBinOffset = firstBinExt - firstBinSFT;
+
+  SFTVector *ret;
+  XLAL_CHECK_NULL ( (ret = XLALCreateSFTVector ( numSFTs, numBinsExt )) != NULL, XLAL_EFUNC );
+
+  for ( UINT4 i = 0; i < numSFTs; i ++ )
+    {
+      SFTtype *dest = &(ret->data[i]);
+      SFTtype *src =  &(inSFTs->data[i]);
+      COMPLEX8Vector *ptr = dest->data;
+
+      /* copy complete header first */
+      memcpy ( dest, src, sizeof(*dest) );
+      /* restore data-pointer */
+      dest->data = ptr;
+      /* set correct fMin */
+      dest->f0 = firstBinExt * df ;
+
+      /* copy the relevant part of the data */
+      memcpy ( dest->data->data, src->data->data + firstBinOffset, numBinsExt * sizeof( dest->data->data[0] ) );
+
+    } /* for i < numSFTs */
+
+  /* return final SFT-vector */
+  return ret;
+
+} /* XLALExtractBandFromSFTVector() */
+
+
+/**
+ * Adds SFT-data from MultiSFTvector 'b' to elements of MultiSFTVector 'a'
+ *
+ * NOTE: the inputs 'a' and 'b' must have consistent number of IFO, number of SFTs,
+ * IFO-names, start-frequency, frequency-spacing, timestamps, units and number of bins.
+ *
+ * The 'name' field of input/output SFTs in 'a' is not modified!
+ */
+int
+XLALMultiSFTVectorAdd ( MultiSFTVector *a,	/**< [in/out] MultiSFTVector to be added to */
+                        const MultiSFTVector *b	/**< [in] MultiSFTVector data to be added */
+                        )
+{
+  XLAL_CHECK ( a != NULL, XLAL_EINVAL );
+  XLAL_CHECK ( b != NULL, XLAL_EINVAL );
+
+  XLAL_CHECK ( a->length == b->length, XLAL_EINVAL );
+  UINT4 numIFOs = a->length;
+
+  for ( UINT4 X = 0; X < numIFOs; X ++ )
+    {
+      SFTVector *vect1 = a->data[X];
+      SFTVector *vect2 = b->data[X];
+
+      XLAL_CHECK ( XLALSFTVectorAdd ( vect1, vect2 ) == XLAL_SUCCESS, XLAL_EFUNC, "XLALSFTVectorAdd() failed for SFTVector %d out of %d\n", X+1, numIFOs );
+
+    } // for X < numIFOs
+
+  return XLAL_SUCCESS;
+
+} /* XLALMultiSFTVectorAdd() */
+
+
+/**
+ * Adds SFT-data from SFTvector 'b' to elements of SFTVector 'a'
+ *
+ * NOTE: the inputs 'a' and 'b' must have consistent number of SFTs, IFO-names,
+ * start-frequency, frequency-spacing, timestamps, units and number of bins.
+ *
+ * The 'name' field of input/output SFTs in 'a' is not modified!
+ */
+int
+XLALSFTVectorAdd ( SFTVector *a,	/**< [in/out] SFTVector to be added to */
+                   const SFTVector *b	/**< [in] SFTVector data to be added */
+                   )
+{
+  XLAL_CHECK ( a != NULL, XLAL_EINVAL );
+  XLAL_CHECK ( b != NULL, XLAL_EINVAL );
+
+  XLAL_CHECK ( a->length == b->length, XLAL_EINVAL );
+  UINT4 numSFTs = a->length;
+
+  for ( UINT4 k = 0; k < numSFTs; k ++ )
+    {
+      SFTtype *sft1 = &(a->data[k]);
+      SFTtype *sft2 = &(b->data[k]);
+
+      XLAL_CHECK ( XLALSFTAdd ( sft1, sft2 ) == XLAL_SUCCESS, XLAL_EFUNC, "XLALSFTAdd() failed for SFTs k = %d out of %d SFTs\n", k, numSFTs );
+
+    } // for k < numSFTs
+
+  return XLAL_SUCCESS;
+} /* XLALSFTVectorAdd() */
+
+
+/**
+ * Adds SFT-data from SFT 'b' to SFT 'a'
+ *
+ * NOTE: the inputs 'a' and 'b' must have consistent IFO-names,
+ * start-frequency, frequency-spacing, timestamps, units and number of bins.
+ *
+ * The 'name' field of input/output SFTs in 'a' is not modified!
+ */
+int
+XLALSFTAdd ( SFTtype *a,		/**< [in/out] SFT to be added to */
+             const SFTtype *b	/**< [in] SFT data to be added */
+             )
+{
+  XLAL_CHECK ( a != NULL, XLAL_EINVAL );
+  XLAL_CHECK ( b != NULL, XLAL_EINVAL );
+  XLAL_CHECK ( a->data != NULL, XLAL_EINVAL );
+  XLAL_CHECK ( b->data != NULL, XLAL_EINVAL );
+
+  XLAL_CHECK ( strncmp ( a->name, b->name, 2 ) == 0, XLAL_EINVAL, "SFT detectors differ '%c%c' != '%c%c'\n", a->name[0], a->name[1], b->name[0], b->name[1] );
+  XLAL_CHECK ( XLALGPSDiff ( &(a->epoch), &(b->epoch) ) == 0, XLAL_EINVAL, "SFT epochs differ %ld != %ld ns\n", XLALGPSToINT8NS ( &(a->epoch) ), XLALGPSToINT8NS ( &(b->epoch) ) );
+
+  REAL8 tol = 10 * LAL_REAL8_EPS;	// generously allow up to 10*eps tolerance
+  XLAL_CHECK ( gsl_fcmp ( a->f0, b->f0, tol ) == 0, XLAL_ETOL, "SFT frequencies relative deviation exceeds %g: %.16g != %.16g\n", tol, a->f0, b->f0 );
+  XLAL_CHECK ( gsl_fcmp ( a->deltaF, b->deltaF, tol ) == 0, XLAL_ETOL, "SFT frequency-steps relative deviation exceeds %g: %.16g != %.16g\n", tol, a->deltaF, b->deltaF );
+  XLAL_CHECK ( XLALUnitCompare ( &(a->sampleUnits), &(b->sampleUnits) ) == 0, XLAL_EINVAL, "SFT sample units differ\n" );
+  XLAL_CHECK ( a->data->length == b->data->length, XLAL_EINVAL, "SFT lengths differ: %d != %d\n", a->data->length, b->data->length );
+
+  UINT4 numBins = a->data->length;
+  for ( UINT4 k = 0; k < numBins; k ++ )
+    {
+      a->data->data[k].realf_FIXME += b->data->data[k].realf_FIXME;
+      a->data->data[k].imagf_FIXME += b->data->data[k].imagf_FIXME;
+    }
+
+  return XLAL_SUCCESS;
+
+} /* XLALSFTAdd() */
+
+/**
+ * Return the 'effective' frequency-band [fMinEff, fMaxEff] = [firstBin, lastBin] * 1/Tsft,
+ * with numBins = lastBin - firstBin + 1
+ * which is the smallest band of SFT-bins that fully covers a given band [fMin, fMin+Band]
+ *
+ * ==> calculate "effective" fMinEff by rounding down from fMin to closest (firstBin/Tsft)
+ * and rounds up in the same way to fMaxEff = (lastBin/Tsft).
+ *
+ * The 'fudge region' allowing for numerical noise is eps= 10*LAL_REAL8_EPS ~2e-15
+ * relative deviation: ie if the SFT contains a bin at 'fi', then we consider for example
+ * "fMin == fi" if  fabs(fi - fMin)/fi < eps.
+ */
+int
+XLALFindCoveringSFTBins ( UINT4 *firstBin,	///< [out] effective lower frequency-bin fMinEff = firstBin/Tsft
+                          UINT4 *numBins,	///< [out] effective Band of SFT-bins, such that BandEff = (numBins-1)/Tsft
+                          REAL8 fMinIn,		///< [in] input lower frequency
+                          REAL8 BandIn,		///< [in] input frequency band
+                          REAL8 Tsft		///< [in] SFT duration 'Tsft'
+                          )
+{
+  XLAL_CHECK ( firstBin != NULL, XLAL_EINVAL );
+  XLAL_CHECK ( numBins  != NULL, XLAL_EINVAL );
+  XLAL_CHECK ( fMinIn >= 0, XLAL_EDOM );
+  XLAL_CHECK ( BandIn >= 0, XLAL_EDOM );
+  XLAL_CHECK ( Tsft > 0, XLAL_EDOM );
+
+  volatile REAL8 dFreq = 1.0 / Tsft;
+  volatile REAL8 tmp;
+  // NOTE: don't "simplify" this: we try to make sure
+  // the result of this will be guaranteed to be IEEE-compliant,
+  // and identical to other locations, such as in SFT-IO
+
+  // ----- lower effective frequency
+  tmp = fMinIn / dFreq;
+  UINT4 imin = (UINT4) floor( tmp * fudge_up );	// round *down*, allowing for eps 'fudge'
+
+  // ----- upper effective frequency
+  REAL8 fMaxIn = fMinIn + BandIn;
+  tmp = fMaxIn / dFreq;
+  UINT4 imax = (UINT4) ceil ( tmp * fudge_down );  // round *up*, allowing for eps fudge
+
+  // ----- effective band
+  UINT4 num_bins = (UINT4) (imax - imin + 1);
+
+  // ----- return these
+  (*firstBin) = imin;
+  (*numBins)  = num_bins;
+
+  return XLAL_SUCCESS;
+
+} // XLALFindCoveringSFTBins()

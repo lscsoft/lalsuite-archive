@@ -1,4 +1,4 @@
-# Copyright (C) 2007-2010  Kipp Cannon
+# Copyright (C) 2007-2013  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -24,6 +24,7 @@
 #
 
 
+import copy
 import itertools
 import math
 import numpy
@@ -148,6 +149,10 @@ def coinc_params(events, offsetvector):
 
 
 def delay_and_amplitude_correct(event, ra, dec):
+	# don't scramble the original triggers
+
+	event = copy.copy(event)
+
 	# retrieve station metadata
 
 	detector = inject.cached_detector[inject.prefix_to_name[event.ifo]]
@@ -187,11 +192,11 @@ def targeted_coinc_params(events, offsetvector, ra, dec):
 
 
 #
-# A class for measuring parameter distributions
+# threading.Thread sub-class for filtering parameter distributions
 #
 
 
-class FilterThread(threading.Thread):
+class CoincParamsFilterThread(threading.Thread):
 	# allow at most 5 threads
 	cpu = threading.Semaphore(5)
 	# allow at most one to write to stderr
@@ -220,8 +225,14 @@ class FilterThread(threading.Thread):
 		self.cpu.release()
 
 
+#
+# A class for measuring parameter distributions
+#
+
+
 class CoincParamsDistributions(object):
-	ligo_lw_name_suffix = u"pylal_ligolw_burca_tailor_coincparamsdistributions"
+	# sub-classes must override
+	ligo_lw_name_suffix = u""
 
 	def __init__(self, **kwargs):
 		self.zero_lag_rates = {}
@@ -296,7 +307,7 @@ class CoincParamsDistributions(object):
 		threads = []
 		for group, (name, binnedarray) in itertools.chain(zip(["zero lag"] * len(self.zero_lag_rates), self.zero_lag_rates.items()), zip(["background"] * len(self.background_rates), self.background_rates.items()), zip(["injections"] * len(self.injection_rates), self.injection_rates.items())):
 			n += 1
-			threads.append(FilterThread(binnedarray, filters.get(name, default_filter), verbose = verbose, name = "%d / %d: %s \"%s\"" % (n, N, group, name)))
+			threads.append(CoincParamsFilterThread(binnedarray, filters.get(name, default_filter), verbose = verbose, name = "%d / %d: %s \"%s\"" % (n, N, group, name)))
 			threads[-1].start()
 		for thread in threads:
 			thread.join()
@@ -304,7 +315,13 @@ class CoincParamsDistributions(object):
 
 	@classmethod
 	def from_xml(cls, xml, name):
+		# create an instance
 		self = cls()
+
+		# safety check
+		assert self.ligo_lw_name_suffix
+
+		# initialize from XML contents
 		xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:%s" % (name, self.ligo_lw_name_suffix)]
 		process_id = param.get_pyvalue(xml, u"process_id")
 		names = [elem.getAttribute("Name").split(":")[1] for elem in xml.childNodes if elem.getAttribute("Name").startswith("background:")]
@@ -312,9 +329,15 @@ class CoincParamsDistributions(object):
 			self.zero_lag_rates[str(name)] = rate.binned_array_from_xml(xml, "zero_lag:%s" % name)
 			self.background_rates[str(name)] = rate.binned_array_from_xml(xml, "background:%s" % name)
 			self.injection_rates[str(name)] = rate.binned_array_from_xml(xml, "injection:%s" % name)
+
+		# done
 		return self, process_id
 
 	def to_xml(self, process, name):
+		# safety check
+		assert self.ligo_lw_name_suffix
+
+		# serialize to XML
 		xml = ligolw.LIGO_LW({u"Name": u"%s:%s" % (name, self.ligo_lw_name_suffix)})
 		xml.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
 		for name, binnedarray in self.zero_lag_rates.items():
@@ -323,7 +346,18 @@ class CoincParamsDistributions(object):
 			xml.appendChild(rate.binned_array_to_xml(binnedarray, u"background:%s" % name))
 		for name, binnedarray in self.injection_rates.items():
 			xml.appendChild(rate.binned_array_to_xml(binnedarray, u"injection:%s" % name))
+
+		# done
 		return xml
+
+
+#
+# Burca-specific sub-class
+#
+
+
+class BurcaCoincParamsDistributions(CoincParamsDistributions):
+	ligo_lw_name_suffix = u"pylal_ligolw_burca_tailor_coincparamsdistributions"
 
 
 #
@@ -495,7 +529,7 @@ def dt_binning(instrument1, instrument2):
 
 class DistributionsStats(object):
 	"""
-	A class used to populate a CoincParamsDistribution instance with
+	A class used to populate a BurcaCoincParamsDistribution instance with
 	the data from the outputs of ligolw_burca and ligolw_binjfind.
 	"""
 
@@ -518,25 +552,25 @@ class DistributionsStats(object):
 	}
 
 	filters = {
-		"H1_H2_dband": rate.gaussian_window2d(11, 5),
-		"H1_L1_dband": rate.gaussian_window2d(11, 5),
-		"H2_L1_dband": rate.gaussian_window2d(11, 5),
-		"H1_H2_ddur": rate.gaussian_window2d(11, 5),
-		"H1_L1_ddur": rate.gaussian_window2d(11, 5),
-		"H2_L1_ddur": rate.gaussian_window2d(11, 5),
-		"H1_H2_df": rate.gaussian_window2d(11, 5),
-		"H1_L1_df": rate.gaussian_window2d(11, 5),
-		"H2_L1_df": rate.gaussian_window2d(11, 5),
-		"H1_H2_dh": rate.gaussian_window2d(11, 5),
-		"H1_L1_dh": rate.gaussian_window2d(11, 5),
-		"H2_L1_dh": rate.gaussian_window2d(11, 5),
-		"H1_H2_dt": rate.gaussian_window2d(11, 5),
-		"H1_L1_dt": rate.gaussian_window2d(11, 5),
-		"H2_L1_dt": rate.gaussian_window2d(11, 5)
+		"H1_H2_dband": rate.gaussian_window(11, 5),
+		"H1_L1_dband": rate.gaussian_window(11, 5),
+		"H2_L1_dband": rate.gaussian_window(11, 5),
+		"H1_H2_ddur": rate.gaussian_window(11, 5),
+		"H1_L1_ddur": rate.gaussian_window(11, 5),
+		"H2_L1_ddur": rate.gaussian_window(11, 5),
+		"H1_H2_df": rate.gaussian_window(11, 5),
+		"H1_L1_df": rate.gaussian_window(11, 5),
+		"H2_L1_df": rate.gaussian_window(11, 5),
+		"H1_H2_dh": rate.gaussian_window(11, 5),
+		"H1_L1_dh": rate.gaussian_window(11, 5),
+		"H2_L1_dh": rate.gaussian_window(11, 5),
+		"H1_H2_dt": rate.gaussian_window(11, 5),
+		"H1_L1_dt": rate.gaussian_window(11, 5),
+		"H2_L1_dt": rate.gaussian_window(11, 5)
 	}
 
 	def __init__(self):
-		self.distributions = CoincParamsDistributions(**self.binnings)
+		self.distributions = BurcaCoincParamsDistributions(**self.binnings)
 
 	def add_noninjections(self, param_func, database, *args):
 		# iterate over burst<-->burst coincs
@@ -570,8 +604,8 @@ class DistributionsStats(object):
 #
 
 
-def get_coincparamsdistributions(xmldoc, name):
-	coincparamsdistributions, process_id = CoincParamsDistributions.from_xml(xmldoc, name)
+def get_coincparamsdistributions(xmldoc, cls, name):
+	coincparamsdistributions, process_id = cls.from_xml(xmldoc, name)
 	seglists = lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([process_id])).coalesce()
 	return coincparamsdistributions, seglists
 
@@ -610,16 +644,16 @@ lsctables.use_in(DefaultContentHandler)
 param.use_in(DefaultContentHandler)
 
 
-def load_likelihood_data(filenames, name, verbose = False, contenthandler = DefaultContentHandler):
+def load_likelihood_data(filenames, cls, name, verbose = False, contenthandler = DefaultContentHandler):
 	coincparamsdistributions = None
 	for n, filename in enumerate(filenames):
 		if verbose:
 			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 		xmldoc = utils.load_filename(filename, verbose = verbose, contenthandler = contenthandler)
 		if coincparamsdistributions is None:
-			coincparamsdistributions, seglists = get_coincparamsdistributions(xmldoc, name)
+			coincparamsdistributions, seglists = get_coincparamsdistributions(xmldoc, cls, name)
 		else:
-			a, b = get_coincparamsdistributions(xmldoc, name)
+			a, b = get_coincparamsdistributions(xmldoc, cls, name)
 			coincparamsdistributions += a
 			seglists |= b
 			del a, b

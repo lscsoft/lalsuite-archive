@@ -192,7 +192,7 @@ class Summaries(object):
 				tablename = "".join(key1) + "--" + "-".join(key2)
 				if options.verbose:
 					print >>sys.stderr, "\tsmoothing %s ..." % tablename
-				rate.filter_binned_ratios(self.sngl_bins[key1][key2], rate.gaussian_window2d(self.sngl_bins[key1][key2].numerator.bins.shape[0]/30, self.sngl_bins[key1][key2].numerator.bins.shape[1]/30, sigma=60))
+				rate.filter_binned_ratios(self.sngl_bins[key1][key2], rate.gaussian_window(self.sngl_bins[key1][key2].numerator.bins.shape[0]/30, self.sngl_bins[key1][key2].numerator.bins.shape[1]/30, sigma=60))
 				if options.verbose:
 					print >>sys.stderr, "\tconverting %s to pdf ..." % tablename
 				self.sngl_bins[key1][key2].to_pdf()

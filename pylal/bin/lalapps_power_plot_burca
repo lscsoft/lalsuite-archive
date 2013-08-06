@@ -162,7 +162,7 @@ WHERE
 			self.bins.incdenominator((offsets[self.x_instrument], offsets[self.y_instrument]), float(abs(self.seglists.intersection(self.seglists.keys()))))
 		self.bins.logregularize()
 		zvals = self.bins.ratio()
-		rate.filter_array(zvals, rate.gaussian_window2d(3, 3))
+		rate.filter_array(zvals, rate.gaussian_window(3, 3))
 		xcoords, ycoords = self.bins.centres()
 		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(zvals)))
 		for offsets in self.tisi_rows:
@@ -353,10 +353,10 @@ WHERE
 		xcoords, ycoords = self.background_bins.centres()
 
 		# prepare the data
-		rate.filter_array(self.foreground_bins.array, rate.gaussian_window2d(8, 8))
-		rate.filter_array(self.background_bins.array, rate.gaussian_window2d(8, 8))
-		rate.filter_array(self.coinc_injection_bins.array, rate.gaussian_window2d(8, 8))
-		rate.filter_array(self.incomplete_coinc_injection_bins.array, rate.gaussian_window2d(8, 8))
+		rate.filter_array(self.foreground_bins.array, rate.gaussian_window(8, 8))
+		rate.filter_array(self.background_bins.array, rate.gaussian_window(8, 8))
+		rate.filter_array(self.coinc_injection_bins.array, rate.gaussian_window(8, 8))
+		rate.filter_array(self.incomplete_coinc_injection_bins.array, rate.gaussian_window(8, 8))
 		self.foreground_bins.logregularize()
 		self.background_bins.logregularize()
 		self.coinc_injection_bins.logregularize()
@@ -490,10 +490,10 @@ WHERE
 		xcoords, ycoords = self.background_bins.centres()
 
 		# prepare the data
-		rate.filter_array(self.foreground_bins.array, rate.gaussian_window2d(8, 8))
-		rate.filter_array(self.background_bins.array, rate.gaussian_window2d(8, 8))
-		rate.filter_array(self.coinc_injection_bins.array, rate.gaussian_window2d(8, 8))
-		rate.filter_array(self.incomplete_coinc_injection_bins.array, rate.gaussian_window2d(8, 8))
+		rate.filter_array(self.foreground_bins.array, rate.gaussian_window(8, 8))
+		rate.filter_array(self.background_bins.array, rate.gaussian_window(8, 8))
+		rate.filter_array(self.coinc_injection_bins.array, rate.gaussian_window(8, 8))
+		rate.filter_array(self.incomplete_coinc_injection_bins.array, rate.gaussian_window(8, 8))
 		self.foreground_bins.logregularize()
 		self.background_bins.logregularize()
 		self.coinc_injection_bins.logregularize()
