@@ -772,7 +772,6 @@ def get_segments(cp, flag, segment_summary, cache=None, buffer_=0, query=True):
         new_segments = [sl.contract(buffer_) for sl in new_segments]
 
     # record these segments
-    out = []
     for f,new_segs,new_summ in zip(flags, new_segments, new_summary):
         if G_SEGMENTS.has_key(f):
             G_SEGMENT_SUMMARY[f] += new_summ
@@ -783,6 +782,8 @@ def get_segments(cp, flag, segment_summary, cache=None, buffer_=0, query=True):
         G_SEGMENT_SUMMARY[f].coalesce()
         G_SEGMENTS[f].coalesce()
 
+    out = []
+    for f in flags:
         # return the required segments
         out.append(segment_summary & G_SEGMENTS[f])
         if len(out):
@@ -1395,6 +1396,7 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
         cut = getattr(lal, "Cut%sTimeSeries" % TYPESTR)
     else:
         return []
+
     for seg in (segment_list & globsegs):
         for gseg in globsegs:
             # if global segment is exactly what we want
@@ -2620,7 +2622,7 @@ def process_segments(tab, cp, cpsec, verbose=False,
         for flag,label in zip(flags, labels):
             divs = re.findall("[&!]", flag)
             comp_flags = re.split("[&!]", flag)
-            comp_segs  = tab.segments
+            comp_segs = SegmentList(tab.segments)
             for i,comp_flag in enumerate(comp_flags):
                 seglist = get_segments(cp, comp_flag, tab.segments, query=False)
                 if len(divs) == 0:
