@@ -1,6 +1,5 @@
 /*
- *
- * Copyright (C) 2006  Kipp C. Cannon
+ * Copyright (C) 2006--2008,2010--2012  Kipp C. Cannon
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -40,6 +39,7 @@ typedef int Py_ssize_t;
 #define PY_SSIZE_T_MAX INT_MAX
 #define PY_SSIZE_T_MIN INT_MIN
 #endif
+
 
 /*
  * ============================================================================
