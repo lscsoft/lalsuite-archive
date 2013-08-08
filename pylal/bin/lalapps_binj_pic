@@ -35,13 +35,14 @@ from PIL import Image
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
-from glue.ligolw import ilwd
 from pylal import git_version
 from pylal.datatypes import SimBurst
 from pylal import lalburst
 
 
-lsctables.use_in(ligolw.LIGOLWContentHandler)
+class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
+	pass
+lsctables.use_in(LIGOLWContentHandler)
 
 
 class SimBurst(SimBurst):
@@ -121,9 +122,9 @@ if options.verbose:
 	print >>sys.stderr, "time-frequency tiles have %g degrees of freedom" % (2 * options.delta_t * options.delta_f)
 
 
-process_id = ilwd.ilwdchar("process:process_id:0")
+process_id = lsctables.ProcessID(0)
 
-time_slide_table = lsctables.table.get_table(utils.load_filename(options.time_slide_xml, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler), lsctables.TimeSlideTable.tableName)
+time_slide_table = lsctables.table.get_table(utils.load_filename(options.time_slide_xml, verbose = options.verbose, contenthandler = LIGOLWContentHandler), lsctables.TimeSlideTable.tableName)
 time_slide_id = time_slide_table[0].time_slide_id
 if options.verbose:
 	print >>sys.stderr, "associating injections with time slide ID %s" % time_slide_id
