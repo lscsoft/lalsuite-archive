@@ -25,15 +25,16 @@
 
 
 try:
-	from fpconst import PosInf, NegInf
+	from fpconst import NaN, PosInf
 except ImportError:
 	# fpconst is not part of the standard library and might not be
 	# available
+	NaN = float("nan")
 	PosInf = float("+inf")
-	NegInf = float("-inf")
 import math
 import sys
 import traceback
+import warnings
 
 
 from pylal import git_version
@@ -84,12 +85,12 @@ __date__ = git_version.date
 #     1 + (Lambda - 1) * P(coinc is g.w.)                 P(noise params)
 #
 # Differentiating w.r.t. Lambda shows the derivative is always positive, so
-# this is a monotonically increasing function of Lambda --> thresholding on
-# Lambda is equivalent to thresholding on P(coinc is a g.w. | its
-# parameters).  The limits:  Lambda=0 --> P(coinc is a g.w. | its
-# parameters)=0, Lambda=+inf --> P(coinc is a g.w. | its
-# parameters)=P(coinc is g.w.), Lambda=0/0 --> P(coinc is a g.w. | its
-# parameters)=0/0.  We interpret the last case to be 0.
+# thresholding on Lambda is equivalent to thresholding on P(coinc is a g.w.
+# | its parameters).  The limits:  Lambda=0 --> P(coinc is a g.w. | its
+# parameters)=0, Lambda=+inf --> P(coinc is a g.w. | its parameters)=1.  We
+# interpret Lambda=0/0 to mean P(coinc is a g.w. | its parameters)=0 since
+# although it can't be noise it's definitely not a g.w..  We do not protect
+# against NaNs in the Lambda = +inf/+inf case.
 
 
 class LikelihoodRatio(object):
@@ -137,18 +138,21 @@ class LikelihoodRatio(object):
 		if P_bak is None and P_inj is None:
 			return None
 		if P_bak == 0.0 and P_inj == 0.0:
-			# this can happen.  "correct" answer is 0, not NaN,
-			# because if a tuple of events has been found in a
-			# region of parameter space where the probability
-			# of an injection occuring is 0 then there is no
-			# way this is an injection.  there is also,
-			# aparently, no way it's a noise event, but that's
-			# irrelevant because we are supposed to be
-			# computing something that is a monotonically
-			# increasing function of the probability that an
-			# event tuple is a gravitational wave, which is 0
-			# in this part of the parameter space.
+			# "correct" answer is 0, not NaN, because if a
+			# tuple of events has been found in a region of
+			# parameter space where the probability of an
+			# injection occuring is 0 then there is no way this
+			# is an injection.  there is also, aparently, no
+			# way it's a noise event, but that's irrelevant
+			# because we are supposed to be computing something
+			# that is a monotonically increasing function of
+			# the probability that an event tuple is a
+			# gravitational wave, which is 0 in this part of
+			# the parameter space.
 			return 0.0
+		if math.isinf(P_bak) and math.isinf(P_inj):
+			warnings.warn("inf/inf encountered")
+			return NaN
 		try:
 			return  P_inj / P_bak
 		except ZeroDivisionError:
