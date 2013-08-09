@@ -1912,14 +1912,14 @@ class LineHistogram(BasicPlot):
             try:
                 self.ax.set_xscale("log", nonposx='clip')
             except OverflowError:
-                self.ax.set_xlim(0.1, 1)
+                self.ax._autoscaleXon = False
                 self.ax.set_xscale("log", nonposx='clip')
 
         if logy:
             try:
                 self.ax.set_yscale("log", nonposy='clip')
             except OverflowError:
-                self.ax.set_ylim(0.1, 1)
+                self.ax._autoscaleYon = False
                 self.ax.set_yscale("log", nonposy='clip')
 
         # add legend if there are any non-trivial labels
