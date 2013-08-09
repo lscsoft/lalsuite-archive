@@ -3188,6 +3188,8 @@ def process_auxiliary_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
     channels.sort()
     if tab.mainchannel:
         allchannels = [tab.mainchannel] + channels
+    else:
+        allchannels = channels
 
     # get coinc params
     if tab.mainchannel:
