@@ -38,6 +38,7 @@ liblalinference_la_SOURCES = \
 	LALInferenceTemplate.c \
 	LALInferenceProposal.c \
 	LALInferenceInitCBC.c \
+	LALInferenceInitRingdown.c \
 	LALInferenceVCSInfo.c \
 	LALInferenceRemoveLines.c \
 	$(BAYESTARSRC) \

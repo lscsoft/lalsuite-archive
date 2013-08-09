@@ -56,6 +56,13 @@ on a CBC signal. Reads the command line to get user-specified options
 LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state);
 
 /**
+Initialise state variables needed for LALInferenceNest or LALInferenceMCMC to run
+on a Ringdown signal. Reads the command line to get user-specified options
+*/
+LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *state);
+
+
+/**
 Initialise the template for a standard CBC signal
 */
 void LALInferenceInitCBCTemplate(LALInferenceRunState *runState);

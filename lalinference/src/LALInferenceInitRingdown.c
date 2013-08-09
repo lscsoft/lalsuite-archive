@@ -2,7 +2,23 @@
 /* Includes specification of prior ranges. Sets runState->currentParams and
  returns address of new LALInferenceVariables */
 
+#include <stdio.h>
+#include <lal/Date.h>
+#include <lal/GenerateInspiral.h>
+#include <lal/LALInference.h>
+#include <lal/FrequencySeries.h>
+#include <lal/Units.h>
+#include <lal/StringInput.h>
+#include <lal/LIGOLwXMLInspiralRead.h>
+#include <lal/TimeSeries.h>
+#include <lal/LALInferencePrior.h>
+#include <lal/LALInferenceTemplate.h>
+#include <lal/LALInferenceProposal.h>
+#include <lal/LALInferenceLikelihood.h>
+#include <lal/LALInferenceReadData.h>
 #include <lal/LALInferenceInit.h>
+
+
 
 LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *state)
 {
@@ -94,14 +110,14 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
 
   LALStatus status;
   memset(&status,0,sizeof(status));
-  int errnum;
+  // int errnum;
   SimInspiralTable *injTable=NULL;
   LALInferenceVariables *priorArgs=state->priorArgs;
   state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
   LALInferenceVariables *currentParams=state->currentParams;
   ProcessParamsTable *commandLine=state->commandLine;
   ProcessParamsTable *ppt=NULL;
-  ProcessParamsTable *ppt_order=NULL;
+  // ProcessParamsTable *ppt_order=NULL;
   Approximant approx=NumApproximants;
   REAL8 fRef = 0.0;
   LALInferenceApplyTaper bookends = LALINFERENCE_TAPER_NONE;
@@ -124,12 +140,10 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   REAL8 phiMin=0.0,phiMax=LAL_TWOPI;
   REAL8 amin=-1.0,amax=1.0;
   REAL8 dt=0.1;            /* Width of time prior */
-  REAL8 tmpMin,tmpMax;//,tmpVal;
   gsl_rng *GSLrandom=state->GSLrandom;
   REAL8 starttime=0.0, timeParam=0.0;
   REAL8 timeMin=starttime-dt,timeMax=starttime+dt;
 
-  UINT4 noSpin=0;
   memset(currentParams,0,sizeof(LALInferenceVariables));
 
   /* Read injection XML file for parameters if specified */
@@ -895,11 +909,11 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
 
   ppt = LALInferenceGetProcParamVal(commandLine, "--fixMass");
   if (ppt) {
-	  LALInferenceRegisterUniformVariableREAL8(state, currentParams, "mass", start_mass, massMin, massMax, LALINFERENCE_PARAM_FIXED);
+	  LALInferenceRegisterUniformVariableREAL8(state, currentParams, "mass", start_mass, mMin, mMax, LALINFERENCE_PARAM_FIXED);
 	  if (lalDebugLevel>0) fprintf(stdout, "final black hole mass fixed and set to %f\n", start_mass);
   } 
   else {
-	  LALInferenceRegisterUniformVariableREAL8(state, currentParams, "mass", start_mass, massMin, massMax, LALINFERENCE_PARAM_LINEAR);
+	  LALInferenceRegisterUniformVariableREAL8(state, currentParams, "mass", start_mass, mMin, mMax, LALINFERENCE_PARAM_LINEAR);
   }
 
 
@@ -939,14 +953,6 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
 
   LALInferenceRegisterUniformVariableREAL8(state, currentParams, "inclination", start_iota, iotaMin, iotaMax, LALInferenceGetProcParamVal(commandLine,"--fixIota")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
 
-  /* Check for spin disabled */
-  /*ppt=LALInferenceGetProcParamVal(commandLine, "--noSpin");
-  if (!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--diable-spin");
-  if (ppt) noSpin=1 ;*/
-
-  if (injTable)
-     print_flags_orders_warning(injTable,commandLine); 
-         
      /* Print info about orders and waveflags used for templates */
      fprintf(stdout,"\n\n---\t\t ---\n");
      fprintf(stdout,"Templates will run using ringdown Approximant %i (%s) in the %s domain.\n",approx,XLALGetStringFromApproximant(approx),modelDomain==LAL_SIM_DOMAIN_TIME?"time":"frequency");

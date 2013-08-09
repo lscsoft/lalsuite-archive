@@ -127,7 +127,7 @@ Initialisation arguments:\n\
 	if (irs->data != NULL) {
 		fprintf(stdout, " initialize(): successfully read data.\n");
 		
-		if (LALInferenceGetProcParamVal(procParams,"--ringdown")){  // TODO: Implement this function for injection!
+		if (LALInferenceGetProcParamVal(commandLine,"--ringdown")){  // TODO: Implement this function for injection!
 		    fprintf(stdout, " LALInferenceInjectRingdownSignal(): started.\n");
 		    LALInferenceInjectRingdownSignal(irs->data, commandLine);
 		    fprintf(stdout, " LALInferenceInjectRingdownSignal(): finished.\n");

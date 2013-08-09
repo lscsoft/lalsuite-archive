@@ -74,6 +74,7 @@
 #include <lal/LALInferenceLikelihood.h>
 #include <lal/LALInferenceTemplate.h>
 #include <lal/LALSimNoise.h>
+#include <lal/LALSimBlackHoleRingdownTiger.h>
 #include <LALInferenceRemoveLines.h>
 
 struct fvec {
@@ -2357,9 +2358,12 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	UINT4 i=0,j=0;
     REAL8 responseScale=1.0;
 	LIGOTimeGPS injstart;
+	LIGOTimeGPS t0;
 	REAL8 SNR=0,NetworkSNR=0;
 	DetectorResponse det;
 	memset(&injstart,0,sizeof(LIGOTimeGPS));
+	memset(&injstart,0,sizeof(LIGOTimeGPS));
+	memset(&t0,0,sizeof(LIGOTimeGPS));
 	COMPLEX16FrequencySeries *injF=NULL;
 	FILE *rawWaveform=NULL;
 	ProcessParamsTable *ppt=NULL;
@@ -2412,7 +2416,9 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	/* Check for frequency domain injection (TF2 only at present) */
 	if(strstr(injTable->waveform,"RingdownFD"))
 	{ printf("Injecting RingdownFD in the frequency domain...\n");
-	 InjectRingdownFD(IFOdata, injTable, commandLine);  //TODO: write injection for FD
+    XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBlackHoleRingdown(): FD waveform not implemented yet.\n");
+    XLAL_ERROR_VOID(XLAL_EFAILED);
+//	 InjectRingdownFD(IFOdata, injTable, commandLine);  //TODO: write injection for FD
 	 return;
 	}
 
@@ -2464,17 +2470,18 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform */
       REAL8TimeSeries       *signalvecREAL8=NULL;
       INT4              maxl=0;         /**< Maximum l of QNMs */
-      SphHarmTimeSeries *qnmodes;        /**< List containing empty Quasi-Normal Modes  */
+      SphHarmTimeSeries *qnmodes=NULL;        /**< List containing empty Quasi-Normal Modes  */
       
       // TODO: Get maxl or (l,m) pairs from commandLine.
 
       maxl = 4;
       
-      if (!qnmodes)
-      qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 2, 2);
-      qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 2, 1);
-      qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 3, 3);
-      qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 4, 4);
+      if (!qnmodes){
+        qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 2, 2);
+        qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 2, 1);
+        qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 3, 3);
+        qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 4, 4);
+      }
       else maxl = XLALSphHarmTimeSeriesGetMaxL(qnmodes);
       
       // TODO: Get the parameters from the right places (injEvent inspiral or ringdown table?)
@@ -2494,11 +2501,17 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       LALSimInspiralTestGRParam *nonGRparams = NULL;
       
       /* Print a line with information about approximant, QNM multipole order and spin order */
-      fprintf(stdout,"Injection will run using Approximant %i (%s), QNM order %i, spin order %i, in the time domain.\n",approximant,XLALGetStringFromApproximant(approximant), maxl, (int) spinO);
-      XLALSimRingdownChooseTDWaveform(&hplus, &hcross, phase, 1.0/InjSampleRate,
+      fprintf(stdout,"Injection will run using Approximant %i (%s), QNM order %i, in the time domain.\n",approximant,XLALGetStringFromApproximant(approximant), maxl);
+      /* XLALSimRingdownChooseTDWaveform(&hplus, &hcross, phase, 1.0/InjSampleRate,
                                       Mbh*LAL_MSUN_SI, spin, eta, injEvent->distance*LAL_PC_SI * 1.0e6,
                                       injEvent->inclination, waveFlags,
-                                      nonGRparams, maxl, qnmodes, approximant);
+                                      nonGRparams, maxl, qnmodes, approximant); */
+      REAL8 spin1[3] = {0.0};
+      REAL8 spin2[3] = {0.0};
+      spin1[1]*=Mt*responseScale;
+      XLALSimBlackHoleRingdownTiger(&hplus, &hcross, qnmodes, &t0, phase, 1.0/InjSampleRate, Mbh*LAL_MSUN_SI,
+                                    spin, eta, spin1, spin2, injEvent->distance*LAL_PC_SI * 1.0e6, 
+                                    injEvent->inclination, nonGRparams);
       if(!hplus || !hcross) {
         fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to produce waveform.\n");
         exit(-1);
