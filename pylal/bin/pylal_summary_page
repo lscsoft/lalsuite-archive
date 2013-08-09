@@ -1320,9 +1320,9 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
 
         # loop over segments
         for i,seg in enumerate(query_segments):
-            if not usends and frametype == "T" and abs(seg) < 1:
+            if not usends and frametype == ('T', 'H1_T') and abs(seg) < 1:
                 continue
-            elif not usends and frametype == "M" and abs(seg) < 60:
+            elif not usends and frametype in ('M', 'H1_M') and abs(seg) < 60:
                 continue
             # break data up into manageable chunks if using resampling.
             s = seg[0]
