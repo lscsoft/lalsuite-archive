@@ -1201,7 +1201,7 @@ def get_multi_triggers(cp, channels, etg, segment_list, cluster=False,
     out = []
     for channel in channels:
         out.append(get_triggers(cp, channel, etg, segment_list, cluster=cluster,
-                                minsnr=minsnr, format=format, query=query))
+                                minsnr=minsnr, query=query, **trigfind_args))
 
     return out
 
