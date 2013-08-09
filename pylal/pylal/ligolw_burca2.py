@@ -92,13 +92,12 @@ __date__ = git_version.date
 # parameters)=0/0.  We interpret the last case to be 0.
 
 
-#
-# Class for computing foreground likelihoods from the measurements in a
-# BurcaCoincParamsDistributions instance.
-#
-
-
-class Likelihood(object):
+class LikelihoodRatio(object):
+	"""
+	Class for computing signal hypothesis / noise hypothesis likelihood
+	ratios from the measurements in a
+	snglcoinc.CoincParamsDistributions instance.
+	"""
 	def __init__(self, coinc_param_distributions):
 		# check input
 		if set(coinc_param_distributions.background_rates) != set(coinc_param_distributions.injection_rates):
@@ -111,9 +110,6 @@ class Likelihood(object):
 		self.background_rates = dict((name, rate.InterpBinnedArray(binnedarray)) for name, binnedarray in coinc_param_distributions.background_rates.items())
 		self.injection_rates = dict((name, rate.InterpBinnedArray(binnedarray)) for name, binnedarray in coinc_param_distributions.injection_rates.items())
 
-	def set_P_gw(self, P):
-		self.P_gw = P
-
 	def P(self, params):
 		if params is None:
 			return None, None
@@ -123,48 +119,6 @@ class Likelihood(object):
 			P_bak *= float(self.background_rates[name](*value))
 			P_inj *= float(self.injection_rates[name](*value))
 		return P_bak, P_inj
-
-	def __call__(self, params):
-		"""
-		Compute the likelihood that the coincident n-tuple of
-		events is the result of a gravitational wave:  the
-		probability that the hypothesis "the events are a
-		gravitational wave" is correct, in the context of the
-		measured background and foreground distributions, and the
-		intrinsic rate of gravitational wave coincidences.  offsets
-		is a dictionary of instrument --> offset mappings to be
-		used to time shift the events before comparison.
-		"""
-		P_bak, P_inj = self.P(params)
-		if P_bak is None and P_inj is None:
-			return None
-		return (P_inj * self.P_gw) / (P_bak + (P_inj - P_bak) * self.P_gw)
-
-
-class Confidence(Likelihood):
-	def __call__(self, params):
-		"""
-		Compute the confidence that the list of events are the
-		result of a gravitational wave:  -ln[1 - P(gw)], where
-		P(gw) is the likelihood returned by the Likelihood class.
-		A set of events very much like gravitational waves will
-		have a likelihood of being a gravitational wave very close
-		to 1, so 1 - P is a small positive number, and so -ln of
-		that is a large positive number.
-		"""
-		P_bak, P_inj = self.P(params)
-		if P_bak is None and P_inj is None:
-			return None
-		return  math.log(P_bak + (P_inj - P_bak) * self.P_gw) - math.log(P_inj) - math.log(self.P_gw)
-
-
-class LikelihoodRatio(Likelihood):
-	def set_P_gw(self, P):
-		"""
-		Raises NotImplementedError.  The likelihood ratio is
-		computed without using this parameter.
-		"""
-		raise NotImplementedError
 
 	def __call__(self, params):
 		"""
