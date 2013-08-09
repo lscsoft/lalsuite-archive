@@ -41,6 +41,7 @@ from glue.lal import CacheEntry
 from pylal import git_version
 from pylal import ligolw_burca2
 from pylal import SnglBurstUtils
+from pylal import snglcoinc
 from pylal import stringutils
 
 
@@ -118,7 +119,7 @@ coincparamsdistributions.finish(verbose = options.verbose)
 if options.write_filtered_likelihood is not None:
 	stringutils.write_likelihood_data(options.write_filtered_likelihood, coincparamsdistributions, likelihood_seglists, verbose = options.verbose)
 
-likelihood_ratio = ligolw_burca2.LikelihoodRatio(coincparamsdistributions)
+likelihood_ratio = snglcoinc.LikelihoodRatio(coincparamsdistributions)
 
 
 #

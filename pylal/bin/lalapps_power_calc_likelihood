@@ -41,6 +41,7 @@ from pylal import git_version
 from pylal import ligolw_burca_tailor
 from pylal import ligolw_burca2
 from pylal import SnglBurstUtils
+from pylal import snglcoinc
 from pylal.SimBurstUtils import MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
@@ -159,7 +160,7 @@ for n, filename in enumerate(filenames):
 		likelihood_files = options.likelihood_data
 	if likelihood_files != cached_likelihood_files:
 		distributions = load_likelihood_data(likelihood_files, verbose = options.verbose)
-		likelihood_ratio = ligolw_burca2.LikelihoodRatio(distributions)
+		likelihood_ratio = snglcoinc.LikelihoodRatio(distributions)
 		cached_likelihood_files = likelihood_files
 
 
