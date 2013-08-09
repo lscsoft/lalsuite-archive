@@ -224,7 +224,7 @@ def display_name(columnName):
     acro    = ['snr', 'ra','dof', 'id', 'ms', 'far']
     # define greek letters
     greek   = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta',\
-               'theta', 'iota', 'kappa', 'lamda', 'mu', 'nu', 'xi', 'omicron',\
+               'theta', 'iota', 'kappa', 'lamda', 'mu', 'nu', 'xi',\
                'pi', 'rho', 'sigma', 'tau', 'upsilon', 'phi', 'chi', 'psi',\
                'omega']
     # define known units
