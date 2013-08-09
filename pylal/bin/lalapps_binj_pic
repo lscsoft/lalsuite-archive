@@ -35,6 +35,7 @@ from PIL import Image
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw.utils import process as ligolw_process
 import lalburst
 import lalmetaio
 import lalsimulation
@@ -90,20 +91,15 @@ def parse_command_line():
 		raise ValueError("--overlap-fraction must be in [0, 1)")
 	if options.delta_f * options.delta_t < 2 / math.pi:
 		raise ValueError("the product of --delta-t and --delta-f must be >= 2/pi")
-	options.gps_start_time = lsctables.LIGOTimeGPS(options.gps_start_time)
 	if options.time_slide_xml is None:
 		raise ValueError("missing required option time-slide-xml")
 
+	# for the process_params table
+	options.options_dict = dict(options.__dict__)
+
+	options.gps_start_time = lsctables.LIGOTimeGPS(options.gps_start_time)
+
 	return options, filenames
-
-
-#
-# =============================================================================
-#
-#                                Tile Amplitude
-#
-# =============================================================================
-#
 
 
 #
@@ -122,16 +118,15 @@ if options.verbose:
 	print >>sys.stderr, "time-frequency tiles have %g degrees of freedom" % (2 * options.delta_t * options.delta_f)
 
 
-process_id = lsctables.ProcessID(0)
-
-time_slide_table = lsctables.table.get_table(utils.load_filename(options.time_slide_xml, verbose = options.verbose, contenthandler = LIGOLWContentHandler), lsctables.TimeSlideTable.tableName)
-time_slide_id = time_slide_table[0].time_slide_id
-if options.verbose:
-	print >>sys.stderr, "associating injections with time slide ID %s" % time_slide_id
-
 xmldoc = ligolw.Document()
 xmldoc.appendChild(ligolw.LIGO_LW())
-xmldoc.childNodes[-1].appendChild(time_slide_table)
+process = ligolw_process.register_to_xmldoc(xmldoc, u"lalapps_binj_pic", options.options_dict, version = git_version.version)
+time_slide_table = xmldoc.childNodes[-1].appendChild(lsctables.table.get_table(utils.load_filename(options.time_slide_xml, verbose = options.verbose, contenthandler = LIGOLWContentHandler), lsctables.TimeSlideTable.tableName))
+time_slide_id = time_slide_table[0].time_slide_id
+if options.verbose:
+	print >>sys.stderr, "associating injections with time slide ID \"%s\":  %s" % (time_slide_id, time_slide_table.as_dict()[time_slide_id])
+for row in time_slide_table:
+	row.process_id = process.process_id
 sim_burst_tbl = xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.SimBurstTable, ["process_id", "simulation_id", "time_slide_id", "waveform", "waveform_number", "ra", "dec", "psi", "time_geocent_gps", "time_geocent_gps_ns", "duration", "frequency", "bandwidth", "egw_over_rsquared", "pol_ellipse_angle", "pol_ellipse_e"]))
 
 
@@ -150,7 +145,7 @@ for filename in filenames:
 		for j in xrange(height):
 			# new row
 			row = lsctables.SimBurst()
-			row.process_id = int(process_id)
+			row.process_id = int(process.process_id)
 			row.simulation_id = int(sim_burst_tbl.get_next_id())
 			row.time_slide_id = int(time_slide_id)
 
