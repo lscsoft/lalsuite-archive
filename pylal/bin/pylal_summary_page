@@ -5365,6 +5365,44 @@ if __name__=="__main__":
             section_summary[parent].add_child(metatab)
 
     #
+    # process state vectors
+    #
+
+    if opts.run_state_vector:
+        sections = natsort([s for s in cp.sections()\
+                            if s.startswith("statevector-")])
+        for cpsec in sections:
+            run_states = parse_tab_states(statelist, cp, cpsec)
+            parent = find_tab_parent(cp, cpsec, valid_parents, default="Segments")
+            name = cp.has_option(cpsec, "name") and cp.get(cpsec, "name")\
+                   or cpsec[9:]
+            metatab = summary.MetaStateTab(name)
+            metatab.span = (start_time, end_time)
+            metatab.parent = section_summary[parent]
+            for state in run_states:
+                if state in veto_def_table.keys():
+                    vetotable = veto_def_table[state]
+                else:
+                    vetotable = None
+                if not opts.html_only:
+                    get_state_segments(cp, state, vetotable, mode=mode)
+                tab = summary.StateVectorSummaryTab(metatab.name)
+                tab.span = span
+                tab.parent = metatab
+                tab.directory = metatab.directory
+                tab.state = state
+                tab.datadirectory = segdir
+                tab.segments = state.segments
+                tab.add_information(cp, cpsec)
+                process_state_vector(tab, cp, cpsec,\
+                                    verbose=verbose,\
+                                    htmlonly=opts.html_only,\
+                                    doplots=opts.run_plots,\
+                                    dosubplots=opts.run_sub_plots)
+                metatab.add_child(tab)
+            section_summary[parent].add_child(metatab)
+
+    #
     # process hveto
     #
     if opts.run_hveto:
@@ -5476,45 +5514,6 @@ if __name__=="__main__":
                                            verbose=verbose,\
                                            htmlonly=opts.html_only,\
                                            doplots=opts.run_plots)
-                metatab.add_child(tab)
-            section_summary[parent].add_child(metatab)
-
-
-    #
-    # process state vectors
-    #
-
-    if opts.run_state_vector:
-        sections = natsort([s for s in cp.sections()\
-                            if s.startswith("statevector-")])
-        for cpsec in sections:
-            run_states = parse_tab_states(statelist, cp, cpsec)
-            parent = find_tab_parent(cp, cpsec, valid_parents, default="Segments")
-            name = cp.has_option(cpsec, "name") and cp.get(cpsec, "name")\
-                   or cpsec[9:]
-            metatab = summary.MetaStateTab(name)
-            metatab.span = (start_time, end_time)
-            metatab.parent = section_summary[parent]
-            for state in run_states:
-                if state in veto_def_table.keys():
-                    vetotable = veto_def_table[state]
-                else:
-                    vetotable = None
-                if not opts.html_only:
-                    get_state_segments(cp, state, vetotable, mode=mode)
-                tab = summary.StateVectorSummaryTab(metatab.name)
-                tab.span = span
-                tab.parent = metatab
-                tab.directory = metatab.directory
-                tab.state = state
-                tab.datadirectory = segdir
-                tab.segments = state.segments
-                tab.add_information(cp, cpsec)
-                process_state_vector(tab, cp, cpsec,\
-                                    verbose=verbose,\
-                                    htmlonly=opts.html_only,\
-                                    doplots=opts.run_plots,\
-                                    dosubplots=opts.run_sub_plots)
                 metatab.add_child(tab)
             section_summary[parent].add_child(metatab)
 
