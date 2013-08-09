@@ -35,9 +35,10 @@ from PIL import Image
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+import lalburst
+import lalmetaio
+import lalsimulation
 from pylal import git_version
-from pylal.datatypes import SimBurst
-from pylal import lalburst
 
 
 class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
@@ -45,10 +46,9 @@ class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 lsctables.use_in(LIGOLWContentHandler)
 
 
-class SimBurst(SimBurst):
-	def set_time_geocent(self, gps):
-		self.time_geocent_gps, self.time_geocent_gps_ns = gps.seconds, gps.nanoseconds
-lsctables.SimBurst = lsctables.SimBurstTable.RowType = SimBurst
+# FIXME:  the lalmetaio.SimBurst type needs to be subclassed to get the ID
+# columns to behave like ilwd:char strings.
+lsctables.SimBurst = lsctables.SimBurstTable.RowType = lalmetaio.SimBurst
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -150,9 +150,9 @@ for filename in filenames:
 		for j in xrange(height):
 			# new row
 			row = lsctables.SimBurst()
-			row.process_id = process_id
-			row.simulation_id = sim_burst_tbl.get_next_id()
-			row.time_slide_id = time_slide_id
+			row.process_id = int(process_id)
+			row.simulation_id = int(sim_burst_tbl.get_next_id())
+			row.time_slide_id = int(time_slide_id)
 
 			# source orientation
 			row.ra = row.dec = row.psi = 0
@@ -164,7 +164,8 @@ for filename in filenames:
 
 			# time-frequency co-ordinates
 			row.frequency = options.f_low + j * options.delta_f * (1.0 - options.overlap_fraction)
-			row.set_time_geocent(options.gps_start_time + i * options.delta_t * (1.0 - options.overlap_fraction))
+			gps = options.gps_start_time + i * options.delta_t * (1.0 - options.overlap_fraction)
+			row.time_geocent_gps, row.time_geocent_gps_ns = gps.seconds, gps.nanoseconds
 			row.bandwidth = options.delta_f
 			row.duration = options.delta_t
 
@@ -177,7 +178,7 @@ for filename in filenames:
 			row.hrss = options.hrss_scale * img.getpixel((i, height - 1 - j)) / 255.0
 			if row.hrss != 0:
 				row.egw_over_rsquared = 1
-				row.egw_over_rsquared *= row.hrss / lalburst.XLALMeasureHrss(*lalburst.XLALGenerateSimBurst(row, 1.0 / 16384))
+				row.egw_over_rsquared *= row.hrss / lalsimulation.MeasureHrss(*lalburst.GenerateSimBurst(row, 1.0 / 16384))
 				sim_burst_tbl.append(row)
 			if options.verbose:
 				print >>sys.stderr, "generating sim_burst table ... %d injections\r" % len(sim_burst_tbl),
