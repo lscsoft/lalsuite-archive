@@ -67,7 +67,7 @@ import lalburst
 # import laldetchar
 import laldetchar
 from laldetchar import triggers
-from laldetchar.triggers import (omega, kw, daily_ihope, excesspower)
+from laldetchar.triggers import (omega, kw, daily_ihope, excesspower, trigfind)
 
 # import PyLAL modules
 from pylal import (git_version, seriesutils, plotutils, htmlutils,
@@ -956,31 +956,42 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                         etg))
             trigcache = trigcache.sieve(description=desc)
         elif etg.lower() != "hacr":
-            if etg.lower() == "dmtomega":
-                trigcache = omegautils.find_dmt_cache(span[0], span[1], ifo)
-            elif etg.lower() == "omega" or etg.lower() == "omegaspectrum":
-              # get omega online cache parameters defaults
-              cacheKwargs = dict()
-              if cp.has_option(etg.lower(),'duration'):
-                cacheKwargs['duration'] = float(cp.get(etg.lower(),'duration'))
-              if cp.has_option(etg.lower(),'overlap'):
-                cacheKwargs['overlap'] = float(cp.get("%s" % etg.lower(),'overlap'))
+            if etg.lower() in ['dmtomega', 'excesspower', 'omicron',
+                               'kw', 'kleinewelle']:
+                if etg.lower() in ['kw', 'kleinewelle']:
+                    kwargs = {'extension':trigfind_args.pop('format', 'xml')}
+                else:
+                    kwargs = {}
+                trigcache = trigfind.find_trigger_urls(channel, etg,
+                                                       span[0], span[1],
+                                                       **kwargs)
+            elif etg.lower() in ['omega', 'omegaspectrum']:
+                # get omega online cache parameters defaults
+                cachekwargs = dict()
+                if cp.has_option(etg.lower(), 'duration'):
+                    cachekwargs['duration'] = float(cp.get(etg.lower(),
+                                                           'duration'))
+                if cp.has_option(etg.lower(),'overlap'):
+                    cachekwargs['overlap'] = float(cp.get(etg.lower(),
+                                                          'overlap'))
 
-              # overrid defaulte settings with channel specific if provided
-              if cp.has_section('%s' %  channel):
-                if cp.has_option(channel,'duration'):
-                  cacheKwargs['duration'] = float(cp.get(channel,'duration'))
-                if cp.has_option(channel,'overlap'):
-                  cacheKwargs['overlap'] = float(cp.get(channel,'overlap'))
+                # overrid defaulte settings with channel specific if provided
+                if cp.has_section('%s' %  channel):
+                    if cp.has_option(channel,'duration'):
+                        cachekwargs['duration'] = float(cp.get(channel,
+                                                               'duration'))
+                    if cp.has_option(channel,'overlap'):
+                        cachekwargs['overlap'] = float(cp.get(channel,
+                                                              'overlap'))
               
-              # get cache
-              if etg.lower() == "omega":
-                  trigcache = omegautils.get_cache(span[0], span[1], ifo, channel, **cacheKwargs)
-              elif etg.lower() == "omegaspectrum":
-                  trigcache = omegautils.get_cache(span[0], span[1], ifo, channel, mask='SPECTRUM', **cacheKwargs)
-            elif etg.lower() in ["kw", "kleinewelle"]:
-                trigcache = kw.find_dmt_cache(span[0], span[1], ifo,
-                                              **trigfind_args)
+                # get cache
+                if etg.lower() == "omega":
+                    trigcache = omegautils.get_cache(span[0], span[1], ifo,
+                                                     channel, **cachekwargs)
+                elif etg.lower() == "omegaspectrum":
+                    trigcache = omegautils.get_cache(span[0], span[1], ifo,
+                                                     channel, mask='SPECTRUM',
+                                                     **cachekwargs)
             elif etg.lower() in ["daily_ihope", "dailyihope", "ihopedaily",
                                  "ihope_daily"]:
                 dicluster = (cp.has_option("daily_ihope", "clustering") and
@@ -988,10 +999,6 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                 trigcache = daily_ihope.find_daily_cache(
                                 span[0], span[1], ifo, clustering=dicluster,
                                 **trigfind_args)
-            elif re_etg_ep.search(etg):
-                trigcache = excesspower.find_online_cache(span[0], span[1],
-                                                          channel,
-                                                          **trigfind_args)
             else:
                 raise NotImplementedError("A default file finder for %s has"
                                           "not been written yet." % etg)
@@ -1023,7 +1030,7 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                                                         end=seg[1],channel=channel,
                                                         columns=columns,
                                                         verbose=VERBOSE)
-                elif etg.lower() in ['excesspower', 'daily_ihope']:
+                elif etg.lower() in ['excesspower', 'daily_ihope', 'omicron']:
                     trigtable = triggers.from_files(segcache, etg,
                                                     columns=columns,
                                                     start=seg[0], end=seg[1],
