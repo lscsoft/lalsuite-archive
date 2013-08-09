@@ -33,6 +33,8 @@
 #include <lal/LALSimIMR.h>
 #include <lal/LALSimInspiral.h>
 
+#include "/Users/pbgraff/skynet/trunk/SkyNet/source/sp/NNsimple.h"
+
 #ifndef _LALSIMIMREOBNRv2_H
 #define _LALSIMIMREOBNRv2_H
 
