@@ -363,12 +363,18 @@ def parse_tab_states(statelist, cp, sec):
     if len(runstates) == 0:
         runstates = ["all"]
     tabstatelist = list()
-    for state in statelist:
-        for i,runstate in enumerate(runstates):
+    for i,runstate in enumerate(runstates):
+        found = False
+        for state in statelist:
             if state.match(re_cchar.sub("_", runstate).lower()):
                 tabstatelist.append(state)
                 runstates.pop(i)
+                found = True
                 break
+        if not found:
+            raise ValueError("Run state '%s' not found in configuration"
+                             % state)
+
     return tabstatelist
 
 
