@@ -40,7 +40,7 @@
 #include <lal/SeqFactories.h>
 #include <lal/Date.h>
 #include <lal/RealFFT.h>
-#include <lal/FrameStream.h>
+#include <lal/LALFrStream.h>
 #include <lal/LALInspiral.h>
 #include <lal/FindChirpDatatypes.h>
 #include <lal/FindChirp.h>
@@ -139,6 +139,7 @@ struct coh_PTF_params {
   UINT4        analStartPoint;
   REAL8        analStartTime;
   UINT4        analEndPoint;
+  REAL8        analEndTime;
   UINT4        analStartPointBuf;
   UINT4        analEndPointBuf;
   UINT4        numAnalPoints;
@@ -146,11 +147,12 @@ struct coh_PTF_params {
   UINT4        numBufferPoints;
   REAL4        maxTempLength;
   UINT4        numOverlapSegments;
-  REAL4        dynRangeFac;
   REAL4        lowTemplateFrequency;
   REAL4        lowFilterFrequency;
   REAL4        highFilterFrequency;
   REAL4        highpassFrequency;
+  REAL8        dynRangeFac; /* How much data is scaled by */
+  REAL8        tempCorrFac; /* Correction scaling for template */
   Approximant  approximant;
   LALPNOrder   order;
   REAL4        invSpecLen;
@@ -191,6 +193,8 @@ struct coh_PTF_params {
   char         userTag[256];
   char         ifoTag[256];
   UINT4        slideSegments[LAL_NUM_IFO+1];
+  REAL4        shortSlideOffset;
+  UINT4        numShortSlides;
   UINT4        fftLevel;
   UINT4        simDataType;
   REAL4        clusterWindow;
@@ -221,6 +225,9 @@ struct coh_PTF_params {
   int          faceAwayAnalysis;
   int          dynTempLength;
   int          storeAmpParams;
+  int          analSegmentEnd;
+  int          doShortSlides;
+  int          writeSnglInspiralTable;
   /* write intermediate result flags */
   int          writeRawData;
   int          writeProcessedData;
@@ -269,6 +276,8 @@ typedef struct tagTimeSlideVectorList
 {
   REAL4       timeSlideVectors[LAL_NUM_IFO];
   INT8        timeSlideID;
+  UINT4        analStartPoint;
+  UINT4        analEndPoint;
 }
 TimeSlideVectorList;
 
@@ -286,7 +295,7 @@ Skyloopingtype;
 
 /* Function declarations for coh_PTF_inspiral */
 
-void coh_PTF_statistic(
+UINT4 coh_PTF_statistic(
     REAL4TimeSeries         *cohSNR,
     REAL8Array              *PTFM[LAL_NUM_IFO+1],
     COMPLEX8VectorSequence  *PTFqVec[LAL_NUM_IFO+1],
@@ -317,7 +326,14 @@ void coh_PTF_statistic(
     struct bankDataOverlaps **chisqSnglOverlapsP,
     REAL4 *frequencyRangesPlus[LAL_NUM_IFO+1],
     REAL4 *frequencyRangesCross[LAL_NUM_IFO+1],
-    struct timeval          startTime
+    REAL4                   **overlapCont,
+    REAL4                   **snglOverlapCont,
+    struct timeval          startTime,
+    UINT4                   segStartPoint,
+    UINT4                   segEndPoint,
+    UINT4                   **snglAcceptPoints,
+    UINT4                   *snglAcceptCount,
+    UINT4                   *acceptPointList
 );
 
 UINT8 coh_PTF_add_triggers(
@@ -325,6 +341,7 @@ UINT8 coh_PTF_add_triggers(
     MultiInspiralTable      **eventList,
     MultiInspiralTable      **thisEvent,
     REAL4TimeSeries         *cohSNR,
+    FindChirpTemplate       *fcTmplt,
     InspiralTemplate        PTFTemplate,
     UINT8                   eventId,
     UINT4                   spinTrigger,
@@ -340,8 +357,11 @@ UINT8 coh_PTF_add_triggers(
     REAL4                   rightAscension,
     REAL4                   declination,
     INT8                    slideId,
-    REAL4                   *timeOffsets
+    REAL4                   *timeOffsets,
+    UINT4                   *acceptPointList,
+    UINT4                   numAcceptPoints
 );
+
 void coh_PTF_cluster_triggers(
   struct coh_PTF_params   *params,
   MultiInspiralTable      **eventList,
@@ -353,6 +373,50 @@ UINT4 coh_PTF_accept_trig_check(
     MultiInspiralTable      **eventList,
     MultiInspiralTable      thisEvent
 );
+
+SnglInspiralTable* coh_PTF_create_sngl_event(
+    struct coh_PTF_params   *params,
+    REAL4TimeSeries         *cohSNR,
+    FindChirpTemplate       *fcTmplt,
+    InspiralTemplate        PTFTemplate,
+    UINT8                   *eventId,
+    REAL4TimeSeries         **pValues,
+    REAL4TimeSeries         **bankVeto,
+    REAL4TimeSeries         **autoVeto,
+    REAL4TimeSeries         **chiSquare,
+    REAL8Array              **PTFM,
+    UINT4                   currPos
+);
+
+UINT8 coh_PTF_add_sngl_triggers(
+    struct coh_PTF_params   *params,
+    SnglInspiralTable       **eventList,
+    SnglInspiralTable       **thisEvent,
+    REAL4TimeSeries         *cohSNR,
+    FindChirpTemplate       *fcTmplt,
+    InspiralTemplate        PTFTemplate,
+    UINT8                   eventId,
+    REAL4TimeSeries         **pValues,
+    REAL4TimeSeries         **bankVeto,
+    REAL4TimeSeries         **autoVeto,
+    REAL4TimeSeries         **chiSquare,
+    REAL8Array              **PTFM,
+    UINT4                   startPoint,
+    UINT4                   endPoint
+);
+
+UINT4 coh_PTF_accept_sngl_trig_check(
+    struct coh_PTF_params   *params,
+    SnglInspiralTable      **eventList,
+    SnglInspiralTable      thisEvent
+);
+
+void coh_PTF_cluster_sngl_triggers(
+    struct coh_PTF_params   *params,
+    SnglInspiralTable      **eventList,
+    SnglInspiralTable      **thisEvent
+);
+
 
 /* Function declarations for coh_PTF_spin_checker */
 
@@ -435,7 +499,12 @@ RingDataSegments *coh_PTF_get_segments(
 void coh_PTF_create_time_slide_table(
   struct coh_PTF_params   *params,
   INT8                    *slideIDList,
+  RingDataSegments        **segments,
   TimeSlide               **time_slide_headP,
+  TimeSlideSegmentMapTable **time_slide_map_headP,
+  SegmentTable            **segment_table_headP,
+  TimeSlideVectorList     **longTimeSlideListP,
+  TimeSlideVectorList     **shortTimeSlideListP,
   REAL4                   *timeSlideVectors,
   INT4                    numSegments
 );
@@ -501,18 +570,21 @@ void coh_PTF_calculate_single_detector_filters(
   REAL8Array                 **PTFM,
   COMPLEX8VectorSequence     **PTFqVec,
   REAL4TimeSeries            **snrComps,
+  UINT4                      **snglAcceptPoints,
+  UINT4                      *snglAcceptCount,
   RingDataSegments           **segments,
   COMPLEX8FFTPlan            *invPlan,
   UINT4                      spinTemplate,
   UINT4                      segNum
 );
 
-void coh_PTF_calculate_single_det_spin_snr(
+UINT4 coh_PTF_calculate_single_det_spin_snr(
   struct coh_PTF_params      *params,
   REAL8Array                 **PTFM,
   COMPLEX8VectorSequence     **PTFqVec,
   REAL4TimeSeries            **snrComps,
-  UINT4                      ifoNumber
+  UINT4                      ifoNumber,
+  UINT4                      *localAcceptPoints
 );
 
 REAL4 coh_PTF_get_spin_SNR(
@@ -521,9 +593,36 @@ REAL4 coh_PTF_get_spin_SNR(
   UINT4 vecLengthTwo
 );
 
-void coh_PTF_template_time_series_cluster(
+void coh_PTF_calculate_coherent_SNR(
+  struct coh_PTF_params      *params,
+  REAL4                      *snrData,
+  REAL4TimeSeries            **pValues,
+  REAL4TimeSeries            **snrComps,
+  INT4                       *timeOffsetPoints,
+  COMPLEX8VectorSequence     **PTFqVec,
+  REAL4                      *Fplus,
+  REAL4                      *Fcross,
+  gsl_matrix                 *eigenvecs,
+  gsl_vector                 *eigenvals,
+  UINT4                      segStartPoint,
+  UINT4                      segEndPoint,
+  UINT4                      vecLength,
+  UINT4                      vecLengthTwo,
+  UINT4                      spinTemplate,
+  UINT4                      **snglAcceptPoints,
+  UINT4                      *snglAcceptCount
+);
+
+UINT4 coh_PTF_template_time_series_cluster(
+  struct coh_PTF_params      *params,
   REAL4TimeSeries *cohSNR,
-  INT4 numPointCheck
+  UINT4 *acceptPoints,
+  INT4 *timeOffsetPoints,
+  INT4 numPointCheck,
+  UINT4 startPoint,
+  UINT4 endPoint,
+  UINT4 **snglAcceptPoints,
+  UINT4 *snglAcceptCount
 );
 
 UINT4 coh_PTF_test_veto_vals(
@@ -665,6 +764,7 @@ void coh_PTF_chi_square_coh_setup(
   REAL4                   **frequencyRangesCross,
   REAL4                   **powerBinsPlus,
   REAL4                   **powerBinsCross,
+  REAL4                   **overlapCont,
   struct bankDataOverlaps **chisqOverlapsP,
   FindChirpTemplate       *fcTmplt,
   REAL4FrequencySeries    **invspec,
@@ -685,6 +785,7 @@ void coh_PTF_chi_square_sngl_setup(
   REAL4                   **frequencyRangesCross,
   REAL4                   **powerBinsPlus,
   REAL4                   **powerBinsCross,
+  REAL4                   **overlapCont,
   struct bankDataOverlaps **chisqSnglOverlapsP,
   FindChirpTemplate       *fcTmplt,
   REAL4FrequencySeries    **invspec,
@@ -742,6 +843,7 @@ void coh_PTF_calculate_rotated_vectors(
 MultiInspiralTable* coh_PTF_create_multi_event(
     struct coh_PTF_params   *params,
     REAL4TimeSeries         *cohSNR,
+    FindChirpTemplate       *fcTmplt,
     InspiralTemplate        PTFTemplate,
     UINT8                   *eventId,
     UINT4                   spinTrigger,
@@ -772,6 +874,7 @@ void coh_PTF_cleanup(
     REAL4FrequencySeries    **invspec,
     RingDataSegments        **segments,
     MultiInspiralTable      *events,
+    SnglInspiralTable       *snglEvents,
     InspiralTemplate        *PTFbankhead,
     FindChirpTemplate       *fcTmplt,
     FindChirpTmpltParams    *fcTmpltParams,
@@ -780,15 +883,20 @@ void coh_PTF_cleanup(
     REAL8Array              **PTFN,
     COMPLEX8VectorSequence  **PTFqVec,
     REAL4                   *timeOffsets,
+    REAL4                   *slidTimeOffsets,
     REAL4                   *Fplus,
     REAL4                   *Fcross,
     REAL4                   *Fplustrig,
     REAL4                   *Fcrosstrig,
     CohPTFSkyPositions      *skyPoints,
     TimeSlide               *time_slide_head,
+    TimeSlideVectorList     *longTimeSlideList,
+    TimeSlideVectorList     *shortTimeSlideList,
     REAL4                   *timeSlideVectors,
     LALDetector             **detectors,
-    INT8                    *slideIDList
+    INT8                    *slideIDList,
+    TimeSlideSegmentMapTable *time_slide_map_head,
+    SegmentTable            *segment_table_head
 );
 
 REAL4FFTPlan *coh_PTF_get_fft_fwdplan( struct coh_PTF_params *params );
@@ -980,6 +1088,7 @@ void coh_PTF_calculate_standard_chisq_power_bins(
     REAL4 *frequencyRangesCross,
     REAL4 *powerBinsPlus,
     REAL4 *powerBinsCross,
+    REAL4 **overlapCont,
     gsl_matrix *eigenvecs,
     UINT4 detectorNum,
     UINT4 singlePolFlag
@@ -1032,12 +1141,15 @@ ProcessParamsTable * create_process_params(
 
 int coh_PTF_output_events_xml(
     char               *outputFile,
-    MultiInspiralTable *events,
+    MultiInspiralTable  *events,
+    SnglInspiralTable *snglEvents,
     SimInspiralTable *injections,
     ProcessParamsTable *processParamsTable,
     TimeSlide          *time_slide_head,
+    TimeSlideSegmentMapTable *time_slide_map_head,
+    SegmentTable       *segment_table_head,
     struct coh_PTF_params *params
-);
+    );
 
 int coh_PTF_output_tmpltbank(
     char               *outputFile,
@@ -1143,6 +1255,11 @@ void findInjectionSegment(
     struct coh_PTF_params *params
 );
 
+UINT4 coh_PTF_trig_time_check(
+    struct coh_PTF_params *params,
+    LIGOTimeGPS segStartTime,
+    LIGOTimeGPS segEndTime);
+
 UINT4 checkInjectionMchirp(
     struct coh_PTF_params *params,
     InspiralTemplate *tmplt,
@@ -1176,6 +1293,11 @@ void coh_PTF_set_null_input_COMPLEX8VectorSequence(
 
 void coh_PTF_set_null_input_REAL4(
   REAL4** array,
+  UINT4 length
+);
+
+void coh_PTF_set_null_input_UINT4(
+  UINT4** array,
   UINT4 length
 );
 

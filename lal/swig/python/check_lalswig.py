@@ -3,29 +3,33 @@
 
 import datetime
 import numpy
+expected_exception = False
 
 # check module load
 import lal
 from lal import cvar as lalcvar
-lalcvar.lalDebugLevel = 1
 print("passed module load")
 
 # check memory allocation
-lal.CheckMemoryLeaks()
-mem1 = lal.Detector()
-mem2 = lal.CreateCOMPLEX8Vector(5)
-mem3 = lal.CreateREAL8Vector(3)
-mem4 = lal.CreateREAL4TimeSeries("test", lal.LIGOTimeGPS(0), 100, 0.1, lalcvar.lalDimensionlessUnit, 10)
-print("*** below should be an error message from CheckMemoryLeaks() ***")
-try:
+if lal.cvar.swig_debug:
     lal.CheckMemoryLeaks()
-    raise Exception("expected exception")
-except:
-    pass
-print("*** above should be an error message from CheckMemoryLeaks() ***")
-del mem1, mem2, mem3, mem4
-lal.CheckMemoryLeaks()
-print("passed memory allocation")
+    mem1 = lal.Detector()
+    mem2 = lal.CreateCOMPLEX8Vector(5)
+    mem3 = lal.CreateREAL8Vector(3)
+    mem4 = lal.CreateREAL4TimeSeries("test", lal.LIGOTimeGPS(0), 100, 0.1, lalcvar.lalDimensionlessUnit, 10)
+    print("*** below should be an error message from CheckMemoryLeaks() ***")
+    try:
+        lal.CheckMemoryLeaks()
+        expected_exception = True
+    except:
+        pass
+    assert(not expected_exception)
+    print("*** above should be an error message from CheckMemoryLeaks() ***")
+    del mem1, mem2, mem3, mem4
+    lal.CheckMemoryLeaks()
+    print("passed memory allocation")
+else:
+    print("skipped memory allocation")
 
 # check string conversions
 strs = ["a", "bc", "def"]
@@ -35,7 +39,7 @@ assert((sv.data.astype(numpy.object) == strs).all())
 strs[0] = "ghijk"
 sv.data[0] = strs[0]
 strs.append("lmnopq")
-lal.AppendString2Vector(sv, strs[3])
+sv = lal.AppendString2Vector(sv, strs[3])
 assert(sv.length == 4)
 for i in range(0, 4):
     assert(sv.data[i] == strs[i])
@@ -45,11 +49,13 @@ print("passed string conversions")
 
 ## check static vector/matrix conversions
 lalcvar.lalswig_test_struct_vector[0] = lalcvar.lalswig_test_struct_const
+assert(lalcvar.lalswig_test_struct_vector[0].n == lalcvar.lalswig_test_struct_const.n)
 assert(lalcvar.lalswig_test_struct_vector[0].i == lalcvar.lalswig_test_struct_const.i)
 assert(lalcvar.lalswig_test_struct_vector[0].f == lalcvar.lalswig_test_struct_const.f)
 assert(lalcvar.lalswig_test_struct_vector[0].str == lalcvar.lalswig_test_struct_const.str)
 assert((lalcvar.lalswig_test_struct_vector[0].vec == lalcvar.lalswig_test_struct_const.vec).all())
 lalcvar.lalswig_test_struct_matrix[0, 0] = lalcvar.lalswig_test_struct_const
+assert(lalcvar.lalswig_test_struct_matrix[0, 0].n == lalcvar.lalswig_test_struct_const.n)
 assert(lalcvar.lalswig_test_struct_matrix[0, 0].i == lalcvar.lalswig_test_struct_const.i)
 assert(lalcvar.lalswig_test_struct_matrix[0, 0].f == lalcvar.lalswig_test_struct_const.f)
 assert(lalcvar.lalswig_test_struct_matrix[0, 0].str == lalcvar.lalswig_test_struct_const.str)
@@ -63,9 +69,10 @@ assert((sts.vec == [3, 2, 1]).all())
 sts.mat = [[4, 5, 6], (9, 8, 7)]
 try:
     sts.mat = [[1.1, 2.3, 4.5], [6.5, 4.3, 2.1]]
-    raise Exception("expected exception")
+    expected_exception = True
 except:
     pass
+assert(not expected_exception)
 assert((sts.mat == [[4, 5, 6], [9, 8, 7]]).all())
 for i in range(0, 3):
     sts.evec[i] = 2*i + 3
@@ -73,6 +80,7 @@ for i in range(0, 3):
 del sts
 assert(not lalcvar.lalswig_test_enum_vector.any())
 assert(not lalcvar.lalswig_test_enum_matrix.any())
+assert(len(lalcvar.lalswig_test_empty_INT4_vector) == 0)
 assert(not lalcvar.lalswig_test_INT4_vector.any())
 assert(not lalcvar.lalswig_test_INT4_matrix.any())
 assert(not lalcvar.lalswig_test_REAL8_vector.any())
@@ -91,9 +99,10 @@ assert((lalcvar.lalswig_test_INT4_matrix == [[1, 2, 4], [2, 4, 8]]).all())
 assert(lalcvar.lalswig_test_INT4_const_matrix[1, 2] == 8)
 try:
     lalcvar.lalswig_test_INT4_const_vector(20)
-    raise Exception("expected exception")
+    expected_exception = True
 except:
     pass
+assert(not expected_exception)
 lalcvar.lalswig_test_REAL8_vector[0] = 3.4
 assert(lalcvar.lalswig_test_REAL8_vector[0] == 3.4)
 lalcvar.lalswig_test_REAL8_matrix[0, 0] = 5.6
@@ -106,6 +115,10 @@ print("passed static vector/matrix conversions")
 
 # check dynamic vector/matrix conversions
 def check_dynamic_vector_matrix(iv, ivl, rv, rvl, cm, cms1, cms2):
+    expected_exception = False
+    iv.data = numpy.zeros(ivl, dtype=iv.data.dtype)
+    rv.data = numpy.zeros(rvl, dtype=rv.data.dtype)
+    cm.data = numpy.zeros((cms1, cms2), dtype=cm.data.dtype)
     assert(ivl == 5)
     iv.data = [1, 3, 2, 4, 3]
     assert((iv.data == [1, 3, 2, 4, 3]).all())
@@ -117,15 +130,17 @@ def check_dynamic_vector_matrix(iv, ivl, rv, rvl, cm, cms1, cms2):
     rv.data[rvl - 1] = 7.5
     assert(rv.data[rvl - 1] == 7.5)
     try:
-        rv.data_setel(rvl, 99.9)
-        raise Exception("expected exception")
+        rv.data[rvl] = 99.9
+        expected_exception = True
     except:
         pass
+    assert(not expected_exception)
     try:
         iv.data = rv.data
-        raise Exception("expected exception")
+        expected_exception = True
     except:
         pass
+    assert(not expected_exception)
     rv.data = iv.data
     assert((rv.data == iv.data).all())
     assert(cms1 == 4)
@@ -136,25 +151,19 @@ def check_dynamic_vector_matrix(iv, ivl, rv, rvl, cm, cms1, cms2):
     assert(cm.data[2, 3] == complex(0.5, 1.5))
     assert(cm.data[3, 2] == complex(0.75, 1.0))
     try:
-        iv.data_setel(0, cm.data_getel(2, 3))
-        raise Exception("expected exception")
-    except:
-        pass
-    try:
         iv.data[0] = cm.data[2, 3]
-        raise Exception("expected exception")
+        raise Exception("NumPy does not raise an exception when downcasting complex to integer values!")
+        expected_exception = True
     except:
         pass
-    try:
-        rv.data_setel(0, cm.data_getel(3, 2))
-        raise Exception("expected exception")
-    except:
-        pass
+    assert(not expected_exception)
     try:
         rv.data[0] = cm.data[3, 2]
-        raise Exception("expected exception")
+        raise Exception("NumPy does not raise an exception when downcasting complex to real values!")
+        expected_exception = True
     except:
         pass
+    assert(not expected_exception)
 # check LAL vector and matrix datatypes
 iv = lal.CreateINT4Vector(5)
 rv = lal.CreateREAL8Vector(5)
@@ -162,6 +171,13 @@ cm = lal.CreateCOMPLEX8VectorSequence(4, 6)
 check_dynamic_vector_matrix(iv, iv.length, rv, rv.length,
                             cm, cm.length, cm.vectorLength)
 del iv, rv, cm
+rv0 = lal.CreateREAL8Vector(0)
+assert(rv0.length == 0)
+assert(len(rv0.data) == 0)
+del rv0
+rv1 = lal.CreateREAL8Vector(1)
+rv1.data[0] = 1
+del rv1
 lal.CheckMemoryLeaks()
 print("passed dynamic vector/matrix conversions (LAL)")
 # check GSL vectors and matrices
@@ -171,7 +187,21 @@ cm = lal.gsl_matrix_complex_float(4, 6)
 check_dynamic_vector_matrix(iv, iv.size, rv, rv.size,
                             cm, cm.size1, cm.size2)
 del iv, rv, cm
+rv1 = lal.gsl_vector(1)
+rv1.data[0] = 1
+del rv1
 print("passed dynamic vector/matrix conversions (GSL)")
+
+## check dynamic array of pointers access
+ap = lal.lalswig_test_Create_arrayofptrs(3)
+assert(ap.length == 3)
+for i in range(0, ap.length):
+    assert(ap.data[i].length == 6)
+    for j in range(0, ap.data[i].length):
+        assert(ap.data[i].data[j] == 42*ap.length*i + j)
+del ap
+lal.CheckMemoryLeaks()
+print("passed dynamic array of pointers access")
 
 # check 'tm' struct conversions
 gps = 989168284
@@ -226,12 +256,27 @@ t1 += 812345667.75
 assert(str(t1) == "812345678.250000000")
 assert(LIGOTimeGPS(repr(t1)) == t1)
 assert(long(t1) == 812345678)
-assert(lal.GPSToINT8NS(t1) == 812345678250000000L)
+assert(t1.ns() == 812345678250000000L)
 assert(hash(t1) == 1049484238)
 t4struct = lal.lalswig_test_gps()
 t4struct.t = 1234.5
 assert(t4struct.t == 1234.5)
-del t0, t1, t2, t3, t4struct
+t5 = LIGOTimeGPS("1000")
+assert(t5 == 1000)
+try:
+    t5 = LIGOTimeGPS("abc1000")
+    expected_exception = True
+except:
+    pass
+assert(not expected_exception)
+try:
+    t5 = LIGOTimeGPS("1000abc")
+    expected_exception = True
+except:
+    pass
+assert(not expected_exception)
+assert(lal.lalswig_test_noptrgps(LIGOTimeGPS(1234.5)) == lal.lalswig_test_noptrgps(1234.5))
+del t0, t1, t2, t3, t4struct, t5
 lal.CheckMemoryLeaks()
 print("passed LIGOTimeGPS operations")
 

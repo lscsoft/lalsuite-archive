@@ -52,6 +52,7 @@ from scipy import special
 from scipy import signal
 from numpy import linspace
 import random
+import socket
 
 from matplotlib.ticker import FormatStrFormatter,ScalarFormatter,AutoMinorLocator
 
@@ -77,6 +78,15 @@ matplotlib.rcParams.update(
         'savefig.dpi': 120
         })
 
+try:
+  hostname_short=socket.gethostbyaddr(socket.gethostname())[0].split('.',1)[1]
+except:
+  hostname_short='Unknown'
+if hostname_short=='ligo.caltech.edu' or hostname_short=='cluster.ldas.cit': #The CIT cluster has troubles with the default 'cm' font. 'custom' has the least troubles, but does not include \odot
+  matplotlib.rcParams.update(
+                             {'mathtext.fontset' : "custom",
+                             'mathtext.fallback_to_cm' : True
+                             }) 
 
 try:
     from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
@@ -234,7 +244,13 @@ def plot_label(param):
       'v1_end_time':r'$t_\mathrm{V}$',
       'h1l1_delay':r'$\Delta t_\mathrm{HL}$',
       'h1v1_delay':r'$\Delta t_\mathrm{HV}$',
-      'l1v1_delay':r'$\Delta t_\mathrm{LV}$'}
+      'l1v1_delay':r'$\Delta t_\mathrm{LV}$',
+      'lambdat' : r'$\tilde{\Lambda}$',
+      'dlambdat': r'$\delta \tilde{\Lambda}$',
+      'lambda1' : r'$\lambda_1$',
+      'lambda2': r'$\lambda_2$',
+      'lam_tilde' : r'$\tilde{\Lambda}$',
+      'dlam_tilde': r'$\delta \tilde{\Lambda}$'}
 
   # Handle cases where multiple names have been used
   if param in m1_names:
@@ -2827,8 +2843,8 @@ def symm_tidal_params(lambda1,lambda2,eta):
     """
     Calculate best tidal parameters
     """
-    lam_tilde = (1./52.)*((1.+7.*eta-31.*eta*eta)*(lambda1+lambda2) + np.sqrt(1.-4.*eta)*(1.+9.*eta-11.*eta*eta)*(lambda1-lambda2))
-    dlam_tilde = (1.-4.*eta)*(1.-32132.*eta/2195.+43784.*eta*eta/2195.)*(lambda1+lambda2) + np.sqrt(1.-4.*eta)*(1.-36522.*eta/2195.+103658.*eta*eta/2195.-32084.*eta*eta*eta/2195.)*(lambda1-lambda2)
+    lam_tilde = (8./13.)*((1.+7.*eta-31.*eta*eta)*(lambda1+lambda2) + np.sqrt(1.-4.*eta)*(1.+9.*eta-11.*eta*eta)*(lambda1-lambda2))
+    dlam_tilde = (1./2.)*(np.sqrt(1.-4.*eta)*(1.-13272.*eta/1319.+8944.*eta*eta/1319.)*(lambda1+lambda2) + (1.-15910.*eta/1319.+32850.*eta*eta/1319.+3380.*eta*eta*eta/1319.)*(lambda1-lambda2))
     return lam_tilde, dlam_tilde
 
 def spin_angles(fref,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
@@ -2993,8 +3009,12 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
         x = np.linspace(xmin,xmax,2*len(bins))
         plt.plot(x, analyticPDF(x+offset), color='r', linewidth=2, linestyle='dashed')
         if analyticCDF:
-            D,p = stats.kstest(pos_samps.flatten(), analyticCDF)
-            plt.title("%s: ks p-value %.3f"%(param,p))
+            try:
+                D,p = stats.kstest(pos_samps.flatten()+offset, analyticCDF)
+                plt.title("%s: ks p-value %.3f"%(param,p))
+            except FloatingPointError:
+                print 'Underflow when calculating KS for %s, setting to 0'%(param)
+                p=0.0
 
     rbins=None
 
@@ -4432,9 +4452,9 @@ class PEOutputParser(object):
                                 # the input because we switched the
                                 # names above
                                 outfile.write(lineParams[header.index(label)])
-                                outfile.write(" ")
+                                outfile.write("\t")
                             outfile.write(f_ref)
-                            outfile.write(" ")
+                            outfile.write("\t")
                             outfile.write(str(i))
                             outfile.write("\n")
                         nRead=nRead+1

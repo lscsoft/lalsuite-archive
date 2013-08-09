@@ -100,7 +100,6 @@ static const LALStatus empty_status;
 static const AMCoeffsParams empty_AMCoeffsParams;
 static const AMCoeffs empty_AMCoeffs;
 
-extern int lalDebugLevel;
 
 /** Very simple test: pick random skyposition, compute a_i, b_i using
  *  once LALComputeAM() and once LALNewGetAMCoeffs(), and look at the errors
@@ -135,20 +134,18 @@ int main(int argc, char *argv[])
   BOOLEAN ignoreErrors = 0; /* Don't fail if tolerance exceeded */
   UINT4 numChecks = 1; /* Number of times to check */
 
-  char earthEphem[] = DATADIR "earth00-19-DE405.dat.gz";
-  char sunEphem[]   = DATADIR "sun00-19-DE405.dat.gz";
+  char earthEphem[] = TEST_DATA_DIR "earth00-19-DE405.dat.gz";
+  char sunEphem[]   = TEST_DATA_DIR "sun00-19-DE405.dat.gz";
 
   /* ----- old testing code to use 9 degree earth rotations ----- */
   /* startTime.gpsSeconds = 714275242;
   duration = 86164;
   Tsft = 2154.1; */
 
-  lalDebugLevel = 0;
 
   while ((opt = getopt( argc, argv, "n:qv:" )) != -1) {
     switch (opt) {
     case 'v': /* set lalDebugLevel */
-      lalDebugLevel = atoi( optarg );
       break;
     case 'q': /* don't fail if tolerance exceeded */
       ignoreErrors = 1;

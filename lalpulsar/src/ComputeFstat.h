@@ -74,7 +74,7 @@ extern "C" {
  * We also store the SSB reference-time tau0.
  */
 typedef struct tagSSBtimes {
-  LIGOTimeGPS refTime;
+  LIGOTimeGPS refTime;		/**< reference-time 'tau0' */
   REAL8Vector *DeltaT;		/**< Time-difference of SFT-alpha - tau0 in SSB-frame */
   REAL8Vector *Tdot;		/**< dT/dt : time-derivative of SSB-time wrt local time for SFT-alpha */
 } SSBtimes;
@@ -108,11 +108,10 @@ typedef struct tagMultiFstatAtomVector {
   FstatAtomVector **data;	/**< array of FstatAtom (pointers), one for each detector X */
 } MultiFstatAtomVector;
 
-#define CFS_MAX_IFOS 10
 /** Type containing F-statistic proper plus the two complex amplitudes Fa and Fb (for ML-estimators) */
 typedef struct tagFcomponents {
   REAL8 F;				/**< F-statistic value */
-  REAL8 FX[CFS_MAX_IFOS];		/**< vector of single-detector F-statistic values (array of fixed size) */
+  REAL8 FX[PULSAR_MAX_DETECTORS];		/**< vector of single-detector F-statistic values (array of fixed size) */
   UINT4 numDetectors;			/**< number of detectors = effective vector length. numDetectors=0 should make all code ignore the FX field. */
   LIGOTimeGPS refTime;			/**< 'internal' refTime used to compute the F-statistic: only relevant for phase of complex amplitudes {Fa,Fb} */
   COMPLEX16 Fa;				/**< complex amplitude Fa */
@@ -139,7 +138,7 @@ typedef struct tagComputeFParams {
   BOOLEAN useRAA;        /**< whether to use the frequency- and sky-position-dependent rigid adiabatic response tensor and not just the long-wavelength approximation */
   BOOLEAN bufferedRAA;	/**< approximate RAA by assuming constant response over (small) frequency band */
   ComputeFBuffer_RS *buffer; /**< buffer for storing pre-resampled timeseries (used for resampling implementation) */
-  EphemerisData *edat;   /**< ephemeris data for re-computing multidetector states */
+  const EphemerisData *edat;   /**< ephemeris data for re-computing multidetector states */
   BOOLEAN returnAtoms;	/**< whether or not to return the 'FstatAtoms' used to compute the F-statistic */
   BOOLEAN returnSingleF; /**< in multi-detector case, whether or not to also return the single-detector Fstats computed from the atoms */
 } ComputeFParams;
@@ -201,37 +200,14 @@ XLALComputeFaFbCmplx ( Fcomponents *FaFb,
 		       const CmplxAMCoeffs *amcoe,
 		       const ComputeFParams *params);
 
-void
-LALGetBinarytimes (LALStatus *,
-		   SSBtimes *tBinary,
-		   const SSBtimes *tSSB,
-		   const DetectorStateSeries *DetectorStates,
-		   const BinaryOrbitParams *binaryparams,
-		   LIGOTimeGPS refTime);
+int XLALAddBinaryTimes ( SSBtimes **tSSBOut, const SSBtimes *tSSBIn, const BinaryOrbitParams *binaryparams );
+int XLALAddMultiBinaryTimes ( MultiSSBtimes **multiSSBOut, const MultiSSBtimes *multiSSBIn, const BinaryOrbitParams *binaryparams );
+SSBtimes *XLALDuplicateSSBtimes ( const SSBtimes *tSSB );
+MultiSSBtimes *XLALDuplicateMultiSSBtimes ( const MultiSSBtimes *multiSSB );
 
-void
-LALGetMultiBinarytimes (LALStatus *status,
-			MultiSSBtimes **multiBinary,
-			const MultiSSBtimes *multiSSB,
-			const MultiDetectorStateSeries *multiDetStates,
-			const BinaryOrbitParams *binaryparams,
-			LIGOTimeGPS refTime);
+SSBtimes *XLALGetSSBtimes ( const DetectorStateSeries *DetectorStates, SkyPosition pos, LIGOTimeGPS refTime, SSBprecision precision );
+MultiSSBtimes *XLALGetMultiSSBtimes ( const MultiDetectorStateSeries *multiDetStates, SkyPosition skypos, LIGOTimeGPS refTime, SSBprecision precision);
 
-void
-LALGetSSBtimes (LALStatus *,
-		SSBtimes *tSSB,
-		const DetectorStateSeries *DetectorStates,
-		SkyPosition pos,
-		LIGOTimeGPS refTime,
-		SSBprecision precision);
-
-void
-LALGetMultiSSBtimes (LALStatus *,
-		     MultiSSBtimes **multiSSB,
-		     const MultiDetectorStateSeries *multiDetStates,
-		     SkyPosition pos,
-		     LIGOTimeGPS refTime,
-		     SSBprecision precision );
 
 void ComputeFStat ( LALStatus *, Fcomponents *Fstat,
 		    const PulsarDopplerParams *doppler,

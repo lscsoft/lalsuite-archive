@@ -387,7 +387,7 @@ def add_to_segment(xmldoc, proc_id, seg_def_id, sgmtlist):
     try:
         segtable = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
     except:
-        segtable = lsctables.New(lsctables.SegmentTable, columns = ["process_id", "segment_def_id", "segment_id", "start_time", "end_time"])
+        segtable = lsctables.New(lsctables.SegmentTable, columns = ["process_id", "segment_def_id", "segment_id", "start_time", "start_time_ns", "end_time", "end_time_ns"])
         xmldoc.childNodes[0].appendChild(segtable)
 
     for seg in sgmtlist:
@@ -396,7 +396,9 @@ def add_to_segment(xmldoc, proc_id, seg_def_id, sgmtlist):
         segment.segment_def_id = seg_def_id
         segment.segment_id     = segtable.get_next_id()
         segment.start_time     = seg[0]
+        segment.start_time_ns  = 0
         segment.end_time       = seg[1]
+        segment.end_time_ns    = 0
 
         segtable.append(segment)
 
@@ -405,7 +407,7 @@ def add_to_segment_summary(xmldoc, proc_id, seg_def_id, sgmtlist, comment=''):
     try:
         seg_sum_table = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
     except:
-        seg_sum_table = lsctables.New(lsctables.SegmentSumTable, columns = ["process_id", "segment_def_id", "segment_sum_id", "start_time", "end_time", "comment"])
+        seg_sum_table = lsctables.New(lsctables.SegmentSumTable, columns = ["process_id", "segment_def_id", "segment_sum_id", "start_time", "start_time_ns", "end_time", "end_time_ns", "comment"])
         xmldoc.childNodes[0].appendChild(seg_sum_table)
 
     for seg in sgmtlist:
@@ -414,7 +416,9 @@ def add_to_segment_summary(xmldoc, proc_id, seg_def_id, sgmtlist, comment=''):
         segment_sum.segment_def_id = seg_def_id
         segment_sum.segment_sum_id = seg_sum_table.get_next_id()
         segment_sum.start_time     = seg[0]
+        segment_sum.start_time_ns  = 0
         segment_sum.end_time       = seg[1]
+        segment_sum.end_time_ns    = 0
         segment_sum.comment        = comment
 
         seg_sum_table.append(segment_sum)

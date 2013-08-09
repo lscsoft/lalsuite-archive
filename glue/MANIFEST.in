@@ -25,3 +25,4 @@ include man/man1/*
 include etc/*
 include test/*
 include debian/*
+include debian/source/*

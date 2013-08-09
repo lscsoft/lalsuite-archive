@@ -92,7 +92,7 @@
 #include <lal/LALConstants.h>
 #include <lal/Units.h>
 #include <lal/ResampleTimeSeries.h>
-#include <lal/FrameStream.h>
+#include <lal/LALFrStream.h>
 #include <lal/AVFactories.h>
 #include <lal/LALStdio.h>
 #ifdef HAVE_UNISTD_H
@@ -105,7 +105,6 @@
 extern char *optarg;
 extern int   optind;
 
-int     lalDebugLevel = LALWARNING | LALINFO;
 int     verbose = 0;
 UINT4   numPoints = 1048576;
 UINT4   inRate    = 16384;
@@ -267,7 +266,6 @@ ParseOptions (int argc, char *argv[])
         break;
 
       case 'd': /* set debug level */
-        lalDebugLevel = atoi (optarg);
         break;
 
       case 'n': /* sets number of points */

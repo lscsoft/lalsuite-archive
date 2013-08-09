@@ -75,7 +75,7 @@
    \endcode
    Note: Above, the *signal* spindown parameters are scaled by the intrinsic frequency, while the
    *template* spindown parameters are not.  This is due to the difference in definitions between the
-   SimulateCoherentGW() package, which generates the signal, and this package.
+   PulsarSimulateCoherentGW() package, which generates the signal, and this package.
 
    </li><li> The next module in the test code, which is optionally executed with
    the '<tt>-n</tt>' switch, creates noise using LALs
@@ -89,7 +89,7 @@
 
    </li><li> The next module to be invoked creates a time series, according to
    the standard model for pulsars with spindown.  This is done by using the
-   <tt>LALGenerateTaylorCW()</tt> and <tt>LALSimulateCoherentGW()</tt> functions.  This time series
+   <tt>LALGenerateTaylorCW()</tt> and <tt>LALPulsarSimulateCoherentGW()</tt> functions.  This time series
    undergoes an FFT, and this transformed data then constitutes the SFT data to be
    input to the demodulation code.  The fake signal data is characterized
    by an intrinsic frequency at the beginning of the observation plus some
@@ -203,7 +203,7 @@
    LALCDestroyVector()
    LALDestroyRealFFTPlan()
    LALGenerateTaylorCW()
-   LALSimulateCoherentGW()
+   LALPulsarSimulateCoherentGW()
    LALComputeSky()
    LALFree()
    LALDemod()
@@ -254,9 +254,8 @@ static void times(REAL8 , INT4, LIGOTimeGPS *, INT4 );
 
 static void times2(REAL8 tSFT, INT4 howMany, LIGOTimeGPS **ts, INT4 **sftPerCoh, INT4 sw, INT4 mCohSFT);
 
-extern int lalDebugLevel;
 
-static CoherentGW emptySignal;
+static PulsarCoherentGW emptySignal;
 
 int main(int argc, char **argv)
 {
@@ -324,9 +323,9 @@ int main(int argc, char **argv)
   /*
    *  Variables for AM correction
    */
-  CoherentGW cgwOutput = emptySignal;
+  PulsarCoherentGW cgwOutput = emptySignal;
   TaylorCWParamStruc genTayParams;
-  DetectorResponse cwDetector;
+  PulsarDetectorResponse cwDetector;
   AMCoeffsParams *amParams;
   AMCoeffs amc;
   INT4 *sftPerCoh;
@@ -344,7 +343,6 @@ int main(int argc, char **argv)
 
   /***** END VARIABLE DECLARATION *****/
 
-  lalDebugLevel = 3;
 
   /***** PARSE COMMAND LINE OPTIONS *****/
   basicInputsFile=(char *)LALMalloc(50*sizeof(char));
@@ -622,7 +620,7 @@ int main(int argc, char **argv)
   genTayParams.deltaT = 100.0;
   /* Length should include fudge factor to allow for barycentring */
   genTayParams.length = (tObs+1200.0)/genTayParams.deltaT;
-  memset(&cwDetector, 0, sizeof(DetectorResponse));
+  memset(&cwDetector, 0, sizeof(PulsarDetectorResponse));
   /* The ephemerides */
   cwDetector.ephemerides = edat;
   /* Specifying the detector site (set above) */
@@ -661,7 +659,7 @@ int main(int argc, char **argv)
   /* again, the note about the barycentring */
   genTayParams.epoch.gpsSeconds = timeStamps[0].gpsSeconds - 600;
   genTayParams.epoch.gpsNanoSeconds = timeStamps[0].gpsNanoSeconds;
-  memset(&cgwOutput, 0, sizeof(CoherentGW));
+  memset(&cgwOutput, 0, sizeof(PulsarCoherentGW));
 
   /*
    *
@@ -723,7 +721,7 @@ int main(int argc, char **argv)
 	   *  OKAY, CONVERT SOURCE SIGNAL TO WHAT SOMEBODY SEES AT THE DETECTOR OUTPUT
 	   *
 	   */
-	  LALSimulateCoherentGW(&status, timeSeries, &cgwOutput, &cwDetector);
+	  LALPulsarSimulateCoherentGW(&status, timeSeries, &cgwOutput, &cwDetector);
 
 	  /* Write time series of correct size to temp Array, for FFT */
 	  for(i=0;i<len;i++)

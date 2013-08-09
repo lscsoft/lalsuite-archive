@@ -191,7 +191,7 @@ int main( int argc, char **argv )
           XLALTimeDelayFromEarthCenter(detLoc,params->rightAscension,
           params->declination,&segStartTime);
       XLALComputeDetAMResponse(&FplusTmp, &FcrossTmp,
-         detectors[ifoNumber]->response,params->rightAscension,
+         (const REAL4 (*)[3])detectors[ifoNumber]->response,params->rightAscension,
          params->declination,0.,XLALGreenwichMeanSiderealTime(&segStartTime));
       Fplus[j*LAL_NUM_IFO + ifoNumber] = (REAL4) FplusTmp;
       Fcross[j*LAL_NUM_IFO + ifoNumber] = (REAL4) FcrossTmp;
@@ -324,9 +324,9 @@ int main( int argc, char **argv )
 
   LALFree(timeSlideVectors);
   coh_PTF_cleanup(params,procpar,fwdplan,psdplan,revplan,invPlan,channel,
-      invspec,segments,eventList,PTFbankhead,fcTmplt,fcTmpltParams,
-      fcInitParams,PTFM,PTFN,PTFqVec,timeOffsets,Fplus,Fcross,NULL,NULL,NULL,
-      NULL,NULL,NULL,NULL);
+      invspec,segments,eventList,NULL,PTFbankhead,fcTmplt,fcTmpltParams,
+      fcInitParams,PTFM,PTFN,PTFqVec,timeOffsets,NULL,Fplus,Fcross,NULL,NULL,\
+      NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
   while ( PTFSpinTmpltHead )
   {
     PTFSpinTmplt = PTFSpinTmpltHead;

@@ -87,7 +87,6 @@ type-dependent format.
 #define STREAMINPUTTESTC_MSGEARG  "Error parsing arguments"
 #define STREAMINPUTTESTC_MSGEFILE "Could not open file"
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <stdlib.h>
 #include <ctype.h>
 #include <math.h>
@@ -99,8 +98,7 @@ type-dependent format.
 #include <lal/StreamInput.h>
 
 /* Default parameter settings. */
-extern int lalDebugLevel;
-#define INFILE DATADIR "StreamInput.data"
+#define INFILE TEST_DATA_DIR "StreamInput.data"
 
 /* Usage format string. */
 #define USAGE "Usage: %s [-o outfile] [-d debuglevel] [-t]\n"        \
@@ -198,13 +196,28 @@ do {                                                                 \
   }                                                                  \
 } while (0)
 
-#define GETCOMPLEXFORMAT                                             \
+#define GETCOMPLEX8FORMAT                                            \
 do {                                                                 \
   if ( fpOut ) {                                                     \
     UINT4 nTot = values->length*dim;                                 \
     BOOLEAN neg = 0;                                                 \
     for ( i = 0; i < nTot; i++ )                                     \
-      if ( values->data[i].re < 0.0 || values->data[i].im < 0.0 )    \
+      if ( crealf(values->data[i]) < 0.0 || cimagf(values->data[i]) < 0.0 ) \
+	neg = 1;                                                     \
+    if ( neg )                                                       \
+      sprintf( format, "%%10.3e" );                                  \
+    else                                                             \
+      sprintf( format, "%%9.3e" );                                   \
+  }                                                                  \
+} while (0)
+
+#define GETCOMPLEX16FORMAT                                           \
+do {                                                                 \
+  if ( fpOut ) {                                                     \
+    UINT4 nTot = values->length*dim;                                 \
+    BOOLEAN neg = 0;                                                 \
+    for ( i = 0; i < nTot; i++ )                                     \
+      if ( creal(values->data[i]) < 0.0 || cimag(values->data[i]) < 0.0 ) \
 	neg = 1;                                                     \
     if ( neg )                                                       \
       sprintf( format, "%%10.3e" );                                  \
@@ -258,17 +271,27 @@ do {                                                                 \
     }                                                                \
 } while (0)
 
-#define PRINTCOMPLEXSEQUENCE                                         \
+#define PRINTCOMPLEX8SEQUENCE                                        \
 do {                                                                 \
   if ( fpOut )                                                       \
     for ( i = 0; i < values->length; i++ ) {                         \
-      fprintf( fpOut, format, values->data[i].re );                  \
+      fprintf( fpOut, format, crealf(values->data[i]) );             \
       fprintf( fpOut, " " );                                         \
-      fprintf( fpOut, format, values->data[i].im );                  \
+      fprintf( fpOut, format, cimagf(values->data[i]) );             \
       fprintf( fpOut, "\n" );                                        \
     }                                                                \
 } while (0)
 
+#define PRINTCOMPLEX16SEQUENCE                                       \
+do {                                                                 \
+  if ( fpOut )                                                       \
+    for ( i = 0; i < values->length; i++ ) {                         \
+      fprintf( fpOut, format, creal(values->data[i]) );              \
+      fprintf( fpOut, " " );                                         \
+      fprintf( fpOut, format, cimag(values->data[i]) );              \
+      fprintf( fpOut, "\n" );                                        \
+    }                                                                \
+} while (0)
 
 /* A global pointer for debugging. */
 #ifndef NDEBUG
@@ -292,7 +315,6 @@ main(int argc, char **argv)
   FILE *fpOut = NULL;          /* output file pointer */
   clock_t start = 0, stop = 0; /* data input timestamps */
 
-  lalDebugLevel = 0;
 
   /* Parse argument list.  arg stores the current position. */
   arg = 1;
@@ -312,7 +334,6 @@ main(int argc, char **argv)
     else if ( !strcmp( argv[arg], "-d" ) ) {
       if ( argc > arg + 1 ) {
 	arg++;
-	lalDebugLevel = atoi( argv[arg++] );
       } else {
 	ERROR( STREAMINPUTTESTC_EARG, STREAMINPUTTESTC_MSGEARG, 0 );
         LALPrintError( USAGE, *argv );
@@ -545,16 +566,16 @@ main(int argc, char **argv)
       start = clock();
       SUB( LALCReadSequence( &stat, &values, fpIn ), &stat );
       stop = clock();
-      GETCOMPLEXFORMAT;
-      PRINTCOMPLEXSEQUENCE;
+      GETCOMPLEX8FORMAT;
+      PRINTCOMPLEX8SEQUENCE;
       SUB( LALCDestroyVector( &stat, &values ), &stat );
     } else if ( !strcmp( datatype, "z" ) ) {
       COMPLEX16Vector *values = NULL;
       start = clock();
       SUB( LALZReadSequence( &stat, &values, fpIn ), &stat );
       stop = clock();
-      GETCOMPLEXFORMAT;
-      PRINTCOMPLEXSEQUENCE;
+      GETCOMPLEX16FORMAT;
+      PRINTCOMPLEX16SEQUENCE;
       SUB( LALZDestroyVector( &stat, &values ), &stat );
     } else {
       ERROR( -1, "Internal consistency error!", 0 );

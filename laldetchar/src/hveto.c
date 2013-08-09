@@ -18,14 +18,8 @@
  */
 
 #include <lal/LALDetCharHveto.h>
+#include <lal/LALDetCharHvetoUtils.h>
 #include <lal/LIGOLwXML.h>
-
-static gint compare(gconstpointer a, gconstpointer b) {
-        const SnglBurst *_a = a;
-        const SnglBurst *_b = b;
-
-        return XLALCompareSnglBurstByPeakTimeAndSNR(&_a, &_b);
-}
 
 // Program level functions, mostly utility
 
@@ -53,7 +47,6 @@ void decode_rnd_str(char* winner_str, char* chan, double* wind, double* thresh);
 // Get a listing of the channels included
 GHashTable* get_channel_list( GSequence* triglist );
 
-extern int lalDebugLevel;
 
 //int main(int argc, char** argv){
 int main(int argc, char** argv){
@@ -67,20 +60,17 @@ int main(int argc, char** argv){
     * TODO: Since we mask triggers anyway, maybe the ignore list can be turned
     * into a safety study before the full algorithm kicks in.
     */
-	GSequence* ignorelist = g_sequence_new(free);
+	GSequence* ignorelist = g_sequence_new(XLALFree);
 	if( argc > 4 ){
 		get_ignore_list( argv[4], ignorelist );
 	}
 
-	//lalDebugLevel = 1 | 2 | 4 | 32;
-	lalDebugLevel = 0;
 
 	/*
 	 * Round parameters
 	 */
-	double sig_thresh = 3.0;
+	double sig_thresh = 15.0;
 	// TODO: Significance or SNR option
-	// Example 1
 	/*
 	 * Minimum threshold for the reference channel SNR and minimum threshold
 	 * for the auxilary channel SNR. Treated differently since the reference
@@ -89,19 +79,22 @@ int main(int argc, char** argv){
 	 * These thresholds are applied at the time the triggers are read, so no
 	 * triggers below these SNRs are even seen.
 	 */
+	// Example 2
+	double min_de_snr = 8, min_aux_snr = 10;
+	int nthresh = 7, nwinds = 5;
+	//int nthresh = 1, nwinds = 1;
+	double aux_snr_thresh[7] = {300.0, 100.0, 40.0, 20.0, 15.0, 12.0, 10.0};
+	//double aux_snr_thresh[7] = {10.0};
+	double twins[5] = {0.1, 0.2, 0.4, 0.8, 1.0};
+	//double twins[5] = {0.2};
+
+	// Example 1
+	/*
 	double min_de_snr = 30, min_aux_snr = 50;
 	int nthresh = 8;
 	double aux_snr_thresh[8] = {3200.0, 1600.0, 800.0, 600.0, 400.0, 200.0, 100.0, 50.0};
 	int nwinds = 5;
 	double twins[5] = {0.1, 0.2, 0.4, 0.8, 1.0};
-
-	// Example 2
-	//double min_de_snr = 8, min_aux_snr = 10;
-	/*
-	int nthresh = 7, nwinds = 5;
-	double aux_snr_thresh[7] = {300.0, 100.0, 40.0, 20.0, 15.0, 12.0, 10.0};
-	double twins[5] = {0.1, 0.2, 0.4, 0.8, 1.0};
-	//double twins[1] = {0.4};
 	*/
 
 	GSequence* trig_sequence = g_sequence_new((GDestroyNotify)XLALDestroySnglBurst);
@@ -138,7 +131,7 @@ int main(int argc, char** argv){
 
 	LALSegList live;
 	XLALSegListInit( &live );
-	double livetime = 100;
+	double livetime = 0;
 	if( argc > 3 ){
 		const char* livefname = argv[3];
 		printf( "Livetime filename: %s\n", livefname );
@@ -147,13 +140,18 @@ int main(int argc, char** argv){
 		for( i=0; i<live.length; i++ ){
 			LALSeg s = live.segs[i];
 			livetime += XLALGPSDiff( &s.end, &s.start );
+			printf( "Segment #%zu:\t(%d.%d %d.%d)\t%f\t%f\n",
+				i, s.start.gpsSeconds, s.start.gpsNanoSeconds, 
+				s.end.gpsSeconds, s.end.gpsNanoSeconds, 
+				XLALGPSDiff( &s.end, &s.start ), livetime );
 		}
+		printf( "Livetime: %f\n", livetime );
+
 		XLALSegListSort( &live );
-		printf( "len: %d\n", g_sequence_get_length( trig_sequence ) );
+		printf( "Before prune, length: %d\n", g_sequence_get_length( trig_sequence ) );
 		XLALDetCharPruneTrigs( trig_sequence, &live, min_de_snr, NULL );
-		printf( "len: %d\n", g_sequence_get_length( trig_sequence ) );
+		printf( "After prune, length: %d\n", g_sequence_get_length( trig_sequence ) );
 	}
-	printf( "Livetime: %f\n", livetime );
 
 	LALSegList vetoes;
 	XLALSegListInit( &vetoes );
@@ -174,6 +172,8 @@ int main(int argc, char** argv){
 
 	GList *channames = g_hash_table_get_keys( chancount );
 	size_t nchans = g_list_length( channames ) - 1;
+	nwinds--;
+	nthresh--;
 
 	/*
 	 * Veto round loop.
@@ -189,15 +189,13 @@ int main(int argc, char** argv){
 		// Clear the winners of the previous subrounds
 		// FIXME: Free memory?
 		g_hash_table_remove_all( subround_winners );
-		nwinds--;
-		nthresh--;
 
 		/*
 		 * FIXME: We can do this more efficiently by passing this to the scan
 		 * function, and only doing a single pass.
 		 */
 		char *winner = NULL;
-		double *sig = malloc(sizeof(double));
+		double *sig = XLALMalloc(sizeof(double));
 		int nw = nwinds, nt = nthresh;
 		for( nt=nthresh; nt >= 0; nt-- ){
 			min_aux_snr = aux_snr_thresh[nt];
@@ -206,7 +204,8 @@ int main(int argc, char** argv){
 			for( nw=nwinds; nw >= 0; nw-- ){
 				wind = twins[nw];
 				printf( "Window (#%d) %f\n", nw, wind );
-				winner = malloc( sizeof(char)*1024 );
+				winner = XLALMalloc( sizeof(char) );
+                                *winner = '\0';
 
 				GHashTableIter chanit;
 				g_hash_table_iter_init( &chanit, chanlist );
@@ -243,7 +242,6 @@ int main(int argc, char** argv){
 					print_hash_table( chanhist, outpath );
 				}
 
-				strcpy( winner, "" );
 				/* 
 				 * If there's no value for the target channel, there's no 
 				 * vetoes to do, move on.
@@ -254,13 +252,13 @@ int main(int argc, char** argv){
 					break;
 				} else if( g_hash_table_size(chanhist) == 0 ){
 					fprintf( stderr, "No coincidences with target channel.\n" );
-					free( winner );
+					XLALFree( winner );
 					continue;
 				} else {
-					rnd_sig = XLALDetCharVetoRound( winner, chancount, chanhist, refchan, t_ratio );
+					rnd_sig = XLALDetCharVetoRound( &winner, chancount, chanhist, refchan, t_ratio );
 				}
 
-				sig = malloc(sizeof(double));
+				sig = XLALMalloc(sizeof(double));
 				*sig = rnd_sig;
 				printf( "Sub-round winner, window %2.2f, thresh %f: %s sig %g\n",  wind, min_aux_snr, winner, *sig );
 				encode_rnd_str( winner, wind, min_aux_snr), 
@@ -303,7 +301,7 @@ int main(int argc, char** argv){
 			XLALGPSSetREAL8( &stop, wind/2.0 );
 			XLALSegSet( &veto, &start, &stop, 0 );
 			// Remove the triggers veoted from the main list
-			GSequence *vetoed_trigs = XLALDetCharRemoveTrigs( trig_sequence, veto, winner );
+			GSequence *vetoed_trigs = XLALDetCharRemoveTrigs( trig_sequence, veto, winner, min_aux_snr );
 			sprintf( outpath, "%s/round_%d_vetoed_triggers.xml", bdir, rnd );
 			// Write them for later use
 			if( g_sequence_get_length(vetoed_trigs) > 0 ){
@@ -332,6 +330,7 @@ int main(int argc, char** argv){
 			*/
 		}
 		rnd++;
+		//if( rnd == 3 ) break;
 	} while( rnd_sig > sig_thresh && (size_t)rnd < nchans );
 	printf( "Last round did not pass significance threshold or all channels have been vetoed. Ending run.\n" );
 
@@ -378,10 +377,12 @@ void populate_trig_sequence_from_file( GSequence* trig_sequence, const char* fna
 				break;
 			}
 		}
-		if( tbl->confidence > min_snr && !ignore ){
-			g_sequence_insert_sorted( trig_sequence, tbl, (GCompareDataFunc)compare, NULL );
+		if( tbl->snr >= min_snr && !ignore ){
+			//printf( "Adding event %p #%d, channel: %s\n", tbl, tbl->event_id, tbl->channel );
+			g_sequence_insert_sorted( trig_sequence, tbl, XLALGLibCompareSnglBurst, NULL );
 			tbl=tbl->next;
 		} else {
+			//printf( "Ignoring event %p #%d, channel: %s\n", tbl, tbl->event_id, tbl->channel );
 			if( !deleteme ){
 				begin = deleteme = tbl;
 			} else {
@@ -396,6 +397,7 @@ void populate_trig_sequence_from_file( GSequence* trig_sequence, const char* fna
 	//} // end pragma single
 	//} // end pragma parallel
 	printf( "Deleting %d unused events.\n", XLALSnglBurstTableLength(begin) );
+	deleteme->next = NULL; // Detach this from its sucessor in case that's used
 	deleteme = NULL;
 	XLALDestroySnglBurstTable(begin);
 	printf( "Done.\n" );
@@ -423,7 +425,7 @@ void populate_trig_sequence( GSequence* trig_sequence ){
 		t->event_id = i;
 		strcpy( t->channel, channel_list[rand()%6] );
 		strcpy( t->ifo, "H1" );
-		g_sequence_insert_sorted( trig_sequence, t, (GCompareDataFunc)compare, NULL );
+		g_sequence_insert_sorted( trig_sequence, t, XLALGLibCompareSnglBurst, NULL );
 		fprintf( stderr, "%d %s %d.%d\n", i, t->channel, t->peak_time.gpsSeconds, t->peak_time.gpsNanoSeconds );
 	}
 	fprintf( stderr, "\nCreated %d events\n", i );
@@ -439,9 +441,9 @@ void print_hash_table( GHashTable* tbl, const char* file ){
 	}
 	while( g_hash_table_iter_next( &iter, &key, &val ) ){
 		if( file ){
-			fprintf( outfile, "%s: %lu\n", (char *)key, *(size_t*)val );
+			fprintf( outfile, "%s: %zu\n", (char *)key, *(size_t*)val );
 		} else {
-			printf( "%s: %lu\n", (char *)key, *(size_t*)val );
+			printf( "%s: %zu\n", (char *)key, *(size_t*)val );
 		}
 	}
 	if( outfile ){
@@ -492,14 +494,14 @@ void get_ignore_list( const char* fname, GSequence* ignorel ){
 
 	int cnt = 0;
 	char* tmp;
-	tmp = malloc( sizeof(char)*512 );
+	tmp = XLALMalloc( sizeof(char)*512 );
 	FILE* lfile = fopen( fname, "r" );
 	while(!feof(lfile)){
 		cnt = fscanf( lfile, "%s", tmp );
 		if( cnt == EOF ) break;
 		g_sequence_append( ignorel, g_strdup(tmp) );
 	}
-	free(tmp);
+	XLALFree(tmp);
 	fclose(lfile);
 }
 
@@ -551,7 +553,7 @@ void write_triggers( GSequence* trig_sequence, const char* fname ){
 }
 
 void encode_rnd_str(char* winner, double wind, double thresh){
-	//winner = realloc( winner, sizeof(winner)+20*sizeof(char));
+	//winner = XLALRealloc( winner, sizeof(winner)+20*sizeof(char));
 	sprintf( winner, "%s %1.5f %4.2f", winner, wind, thresh );
 }
 void decode_rnd_str(char* winner_str, char* chan, double* wind, double* thresh){

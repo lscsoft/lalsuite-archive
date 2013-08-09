@@ -1,4 +1,4 @@
-AM_CPPFLAGS = -I$(top_builddir)/include -DPKGDATADIR='"$(pkgdatadir)"'
+AM_CPPFLAGS = -I$(top_builddir)/include -DPKG_DATA_DIR='"$(pkgdatadir)/"'
 LDADD = liblalsimulation.la
 
 NOISEPSDFILES = \
@@ -9,11 +9,19 @@ NOISEPSDFILES = \
 	LIGO-T0900288-v3-ZERO_DET_high_P.txt \
 	LIGO-T0900288-v3-ZERO_DET_low_P.txt
 
+EOSDATAFILES = \
+	LALSimNeutronStarEOS_AP4.dat \
+	LALSimNeutronStarEOS_FPS.dat \
+	LALSimNeutronStarEOS_SLY4.dat
+
 bin_PROGRAMS = \
 	lalsim-bh-qnmode \
 	lalsim-bh-ringdown \
 	lalsim-bh-sphwf \
 	lalsim-detector-noise \
+	lalsim-ns-eos-table \
+	lalsim-ns-mass-radius \
+	lalsim-ns-params \
 	lalsim-sgwb \
 	lalsim-unicorn
 
@@ -26,8 +34,11 @@ lalsimulationinclude_HEADERS = \
 	LALSimInspiralTestGRParams.h \
 	LALSimIMR.h \
 	LALSimInspiral.h \
+	LALSimInspiralWaveformCache.h \
 	LALSimulation.h \
+	LALSimNeutronStar.h \
 	LALSimNoise.h \
+	LALSimReadData.h \
 	LALSimSGWB.h \
 	LALSimulationConfig.h \
 	LALSimulationLibVCSInfo.h \
@@ -50,7 +61,9 @@ noinst_HEADERS = \
 	LALSimIMRSpinEOBAuxFuncs.c \
 	LALSimIMRSpinEOBFactorizedWaveform.c \
 	LALSimIMRSpinEOBFactorizedFlux.c \
-	LALSimIMREOBFactorizedFlux.c
+	LALSimIMREOBFactorizedFlux.c \
+	LALSimNeutronStarEOSPiecewisePolytrope.c \
+	LALSimNeutronStarEOSTabular.c
 
 lib_LTLIBRARIES = liblalsimulation.la
 liblalsimulation_la_SOURCES = \
@@ -62,6 +75,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimIMRPhenom.c \
 	LALSimIMRPhenomC.c \
 	LALSimIMRPSpinInspiralRD.c \
+	LALSimPhenSpinRingDown.c \
 	LALSimInspiralWaveformFlags.c \
 	LALSimInspiralTestGRParams.c \
 	LALSimInspiralPrecess.c \
@@ -78,12 +92,18 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralTaylorT2.c \
 	LALSimInspiralTaylorT3.c \
 	LALSimInspiralTaylorT4.c \
+        LALSimInspiralSpinTaylorT5.c \
 	LALSimInspiralTaylorLength.c \
+	LALSimInspiralWaveformCache.c \
 	LALSimInspiralWaveformTaper.c \
 	LALSimulation.c \
 	LALSimulationVCSInfo.c \
+	LALSimNeutronStarEOS.c \
+	LALSimNeutronStarFamily.c \
+	LALSimNeutronStarTOV.c \
 	LALSimNoisePSD.c \
 	LALSimNoise.c \
+	LALSimReadData.c \
 	LALSimSGWB.c \
 	LALSimSGWBORF.c \
 	LALSimUnicorn.c \
@@ -95,6 +115,9 @@ liblalsimulation_la_LDFLAGS = -version-info $(LIBVERSION)
 lalsim_bh_qnmode_SOURCES = bh_qnmode.c
 lalsim_bh_sphwf_SOURCES = bh_sphwf.c
 lalsim_bh_ringdown_SOURCES = bh_ringdown.c
+lalsim_ns_eos_table_SOURCES = ns-eos-table.c
+lalsim_ns_mass_radius_SOURCES = ns-mass-radius.c
+lalsim_ns_params_SOURCES = ns-params.c
 lalsim_sgwb_SOURCES = sgwb.c
 lalsim_unicorn_SOURCES = unicorn.c
 lalsim_detector_noise_SOURCES = detector_noise.c
@@ -104,7 +127,9 @@ MOSTLYCLEANFILES = \
 	lalsimulation-user-env.sh \
 	lalsimulation-user-env.csh
 
-pkgdata_DATA = $(NOISEPSDFILES)
+pkgdata_DATA = \
+	$(NOISEPSDFILES) \
+	$(EOSDATAFILES)
 
 sysconf_DATA = \
 	lalsimulation-user-env.sh \
@@ -122,15 +147,17 @@ lalsimulation-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
 	@echo "prepend PYTHONPATH $(pyexecdir)" >>$@
 	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
-	@printf "$(SWIG_USER_ENV)" >>$@
+	@echo "prepend OCTAVE_PATH $(octexecdir)" >>$@
 
 lalsimulation-user-env.csh lalsimulation-user-env.sh: lalsimulation-user-env.shell $(srcdir)/generate_user_env.awk
 	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
 
 EXTRA_DIST = \
+	config.h.in \
 	generate_user_env.awk \
 	LALSimulationConfig.h.in \
-	$(NOISEPSDFILES)
+	$(NOISEPSDFILES) \
+	$(EOSDATAFILES)
 
 if HAVE_GIT_REPO
 BUILT_SOURCES += LALSimulationVCSInfo.h
@@ -139,6 +166,8 @@ LALSimulationVCSInfo.h .PHONY : gen-LALSimulationVCSInfo.h
 gen-LALSimulationVCSInfo.h :
 	$(AM_V_at)$(GENERATE_VCS_INFO) LALSimulationVCSInfo.h $(srcdir)/LALSimulationVCSInfo.h.git
 endif
+
+DISTCLEANFILES = config.h
 
 @LAL_HEADER_LINK@
 

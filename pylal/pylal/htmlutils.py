@@ -90,7 +90,7 @@ def write_table(headers, data, classdict={}):
          for i in range(len(headers)):
             page.tr(class_=rclass)
             page.th(str(headers[i]), class_=hclass)
-            page.td(str(data[i]), class_=dclass)
+            page.td(str(data[i]), class_=classdict.get(str(data[i]),dclass))
             page.tr.close()
 
     # otherwise print "standard" table with single header row and multiple data
@@ -110,7 +110,7 @@ def write_table(headers, data, classdict={}):
         for row in data:
             page.tr(class_=rclass)
             for item in map(str, row):
-                page.td(item, class_=dclass)
+                page.td(item, class_=classdict.get(item,dclass))
 
     page.table.close()
 

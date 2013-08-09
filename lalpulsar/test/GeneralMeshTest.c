@@ -172,7 +172,6 @@ REAL4 dec_max;
 
 
 extern char *optarg;     /* option argument for getopt() */
-int  lalDebugLevel = 0;  /* default value */
 int  metric_code;        /* Which metric code to use: */
                          /* 1 = Ptolemetric */
                          /* 2 = CoherentMetric + DTBarycenter */
@@ -214,8 +213,8 @@ int main( int argc, char **argv )
   float a, b, c, d, e, f;         /* To specify center of search region */
   BOOLEAN rectangular;            /* is the search region rectangular? */
 
-  char earth[] = DATADIR "earth00-19-DE405.dat.gz";
-  char sun[]   = DATADIR "sun00-19-DE405.dat.gz";
+  char earth[] = TEST_DATA_DIR "earth00-19-DE405.dat.gz";
+  char sun[]   = TEST_DATA_DIR "sun00-19-DE405.dat.gz";
 
   /* Set default values. */
   metric_code = 1;
@@ -263,7 +262,6 @@ int main( int argc, char **argv )
       detector = atoi( optarg );
       break;
     case 'e':
-      lalDebugLevel = 1;
       break;
     case 'f':
       fMax = atof( optarg );

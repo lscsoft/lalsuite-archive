@@ -644,7 +644,7 @@ SphHarmTimeSeries *XLALSimInspiralTaylorT4PNModes(
 		int lmax                        /**< generate all modes with l <= lmax */
 		)
 {
-	SphHarmTimeSeries *hlm = NULL;
+	SphHarmTimeSeries *hlm=NULL;
 	/* The Schwarzschild ISCO frequency - for sanity checking fRef */
 	REAL8 fISCO = pow(LAL_C_SI,3) / (pow(6.,3./2.)*LAL_PI*(m1+m2)*LAL_G_SI);
 
@@ -684,7 +684,7 @@ SphHarmTimeSeries *XLALSimInspiralTaylorT4PNModes(
             if ( !hxx ){
                 XLAL_ERROR_NULL(XLAL_EFUNC);
             }
-            XLALSphHarmTimeSeriesAddMode(hlm, hxx, l, m);
+            hlm = XLALSphHarmTimeSeriesAddMode(hlm, hxx, l, m);
             XLALDestroyCOMPLEX16TimeSeries(hxx);
         }
     }
@@ -820,7 +820,6 @@ int XLALSimInspiralTaylorT4PNRestricted(
 #if 0
 #include <lal/PrintFTSeries.h>
 #include <lal/PrintFTSeries.h>
-extern int lalDebugLevel;
 int main(void)
 {
 	LIGOTimeGPS tc = { 888888888, 222222222 };
@@ -835,7 +834,6 @@ int main(void)
 	int O = -1;
 	REAL8TimeSeries *hplus;
 	REAL8TimeSeries *hcross;
-	lalDebugLevel = 7;
 	XLALSimInspiralTaylorT4PN(&hplus, &hcross, &tc, phic, deltaT, m1, m2, f_min, fRef, r, i, lambda1, lambda2, tideO, O);
 	LALDPrintTimeSeries(hplus, "hp.dat");
 	LALDPrintTimeSeries(hcross, "hc.dat");

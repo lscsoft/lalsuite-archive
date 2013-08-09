@@ -1,4 +1,3 @@
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include "coh_PTF.h"
 
 INT4 coh_PTF_data_condition(
@@ -33,7 +32,7 @@ INT4 coh_PTF_data_condition(
       channel[ifoNumber] = coh_PTF_get_data(params, params->channel[ifoNumber],
                                             params->dataCache[ifoNumber],
                                             ifoNumber);
-      coh_PTF_rescale_data(channel[ifoNumber], 1E20);
+      coh_PTF_rescale_data(channel[ifoNumber], params->dynRangeFac);
 
       /* compute the spectrum */
       invspec[ifoNumber] = coh_PTF_get_invspec(channel[ifoNumber], fwdplan,
@@ -412,6 +411,8 @@ RingDataSegments *coh_PTF_get_segments(
 
   if ( params->analyzeInjSegsOnly )
   {
+    /* NOTE: Using this flag will override anything given by the option
+     * --only-analyse-segments, do not try and use both together */ 
     /* Figure out which segments the injections are in. If an injection is
      * within 1s of a segment boundary, analyse both segments. */ 
     for ( i = 0 ; i < params->numOverlapSegments; i++)
@@ -488,13 +489,15 @@ RingDataSegments *coh_PTF_get_segments(
   /* if todo list is empty then do them all */
   if ( (! params->segmentsToDoList || ! strlen( params->segmentsToDoList )) && (! params->analyzeInjSegsOnly) )
   {
+    /* Not convinved the code ever goes here, because empty segmentsToDoList
+     * does not evaluate to false. The loop below still works though! */ 
     segments->numSgmnt = params->numOverlapSegments;
     segments->sgmnt = LALCalloc( segments->numSgmnt, sizeof(*segments->sgmnt) );
     for ( sgmnt = 0; sgmnt < params->numOverlapSegments; ++sgmnt )
     {
       slidSegNum = ( sgmnt + ( params->slideSegments[NumberIFO] ) ) % ( segments->numSgmnt );
       timeSlideVectors[NumberIFO*params->numOverlapSegments + sgmnt] = 
-          (sgmnt-slidSegNum)*params->segmentDuration;
+          ((INT4)slidSegNum-(INT4)sgmnt)*params->strideDuration;
       compute_data_segment( &segments->sgmnt[sgmnt], slidSegNum, channel,
           invspec, response, params->segmentDuration, params->strideDuration,
           fwdplan );
@@ -507,6 +510,7 @@ RingDataSegments *coh_PTF_get_segments(
     /* first count the number of segments to do */
     count = 0;
     for ( sgmnt = 0; sgmnt < params->numOverlapSegments; ++sgmnt )
+    {
       if ( params->analyzeInjSegsOnly )
       {
         if ( segListToDo[sgmnt] == 1)
@@ -521,6 +525,7 @@ RingDataSegments *coh_PTF_get_segments(
         else
           continue; /* skip this segment: it is not in todo list */
       }
+    }
 
     if ( ! count ) /* no segments to do */
     {
@@ -536,6 +541,7 @@ RingDataSegments *coh_PTF_get_segments(
     {
       if ( params->analyzeInjSegsOnly )
       {
+        /* NOTE: Time slide injection analysis is not currently possible */
         if ( segListToDo[sgmnt] == 1)
           compute_data_segment( &segments->sgmnt[count++], sgmnt, channel,
             invspec, response, params->segmentDuration, params->strideDuration,
@@ -544,10 +550,10 @@ RingDataSegments *coh_PTF_get_segments(
       else
       {
         if ( is_in_list( sgmnt, params->segmentsToDoList ) )
-      /* we are sliding the names of segments here */
+        /* we are sliding the names of segments here */
         {
-          slidSegNum = ( sgmnt + ( params->slideSegments[NumberIFO] ) ) % ( segments->numSgmnt );
-          timeSlideVectors[NumberIFO*params->numOverlapSegments + sgmnt] =
+          slidSegNum = ( sgmnt + ( params->slideSegments[NumberIFO] ) ) % ( params->numOverlapSegments );
+          timeSlideVectors[NumberIFO*params->numOverlapSegments + count] =
               ((INT4)slidSegNum-(INT4)sgmnt)*params->strideDuration;
           compute_data_segment( &segments->sgmnt[count++], slidSegNum, channel,
             invspec, response, params->segmentDuration, params->strideDuration,
@@ -570,32 +576,50 @@ RingDataSegments *coh_PTF_get_segments(
 void coh_PTF_create_time_slide_table(
   struct coh_PTF_params   *params,
   INT8                    *slideIDList,
+  RingDataSegments        **segments,
   TimeSlide               **time_slide_headP,
+  TimeSlideSegmentMapTable **time_slide_map_headP,
+  SegmentTable            **segment_table_headP,
+  TimeSlideVectorList     **longTimeSlideListP,
+  TimeSlideVectorList     **shortTimeSlideListP,
   REAL4                   *timeSlideVectors,
   INT4                    numSegments
 )
 {
-  TimeSlide *time_slide_head;
-  TimeSlideVectorList timeSlideList[numSegments];
+  TimeSlide *time_slide_head = NULL;
+  TimeSlide *curr_slide = NULL;
+  TimeSlideSegmentMapTable *time_slide_map_head = NULL;
+  TimeSlideSegmentMapTable *curr_time_slide_map = NULL;
+  SegmentTable *segment_table_head = NULL;
+  SegmentTable *curr_slide_segment = NULL;
+  TimeSlideVectorList *longTimeSlideList = LALCalloc(\
+      numSegments, sizeof(TimeSlideVectorList));
   CHAR ifoName[LIGOMETA_IFO_MAX];
-  UINT4 slideCount = 0;
+  UINT4 longSlideCount = 0;
+  UINT4 shortSlideCount = 0;
   INT4 i;
-  UINT4 ui,uj,ifoNumber;
+  UINT4 ui,uj,ifoNumber,ifoNum,lastStartPoint,wrapPoint,currId,ifoCount;
+  UINT4 slideSegmentCount;
+  REAL8 currBaseOffset,currBaseIfoOffset[LAL_NUM_IFO],wrapTime,currIfoOffset;
+  LIGOTimeGPS slideStartTime,slideEndTime;
 
+  /* First construct the list of long slides */
   for (i = 0 ; i < numSegments ; i++)
   {
     UINT4 slideDuplicate = 0;
-    if (slideCount)
+    if (longSlideCount)
     {
-      for (uj = 0; uj < slideCount; uj++)
+      for (uj = 0; uj < longSlideCount; uj++)
       {
         UINT4 slideChecking = 1;
+        /* Here we check if the time-slid segment i is the same slide as the
+         * timeSlideList[uj] */  
         for(ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
         {
           if (params->haveTrig[ifoNumber])
           {
             if (timeSlideVectors[ifoNumber*params->numOverlapSegments+i] != \
-                timeSlideList[uj].timeSlideVectors[ifoNumber])
+                longTimeSlideList[uj].timeSlideVectors[ifoNumber])
             {
               slideChecking = 0;
             }
@@ -604,7 +628,7 @@ void coh_PTF_create_time_slide_table(
         if (slideChecking)
         {
           slideDuplicate = 1;
-          slideIDList[i] = timeSlideList[uj].timeSlideID;
+          slideIDList[i] = longTimeSlideList[uj].timeSlideID;
         }
       }
     }
@@ -614,45 +638,230 @@ void coh_PTF_create_time_slide_table(
       {
         if (params->haveTrig[ifoNumber])
         {
-          timeSlideList[slideCount].timeSlideVectors[ifoNumber] = \
+          longTimeSlideList[longSlideCount].timeSlideVectors[ifoNumber] = 
               timeSlideVectors[ifoNumber*params->numOverlapSegments+i];
         }
       }
-      timeSlideList[slideCount].timeSlideID = slideCount;
-      slideIDList[i] = timeSlideList[slideCount].timeSlideID;
-      slideCount++;
+      longTimeSlideList[longSlideCount].timeSlideID = longSlideCount;
+      slideIDList[i] = longTimeSlideList[longSlideCount].timeSlideID;
+      longSlideCount++;
     }
   }
 
-  time_slide_head=NULL;
-  TimeSlide *curr_slide = NULL;
+  TimeSlideVectorList *shortTimeSlideList = LALCalloc(\
+      params->numShortSlides, sizeof(TimeSlideVectorList));
 
-  for (ui = 0 ; ui < slideCount; ui++)
+  /* Next construct the list of short time slides */
+  /* Always have a zero-lag short slide */
+  for(ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
   {
-    for(ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
+    if (params->haveTrig[ifoNumber])
     {
-      if (params->haveTrig[ifoNumber])
+      shortTimeSlideList[0].timeSlideVectors[ifoNumber] = 0.;
+    }
+  }
+  shortTimeSlideList[0].timeSlideID = 0;
+  shortTimeSlideList[0].analStartPoint = params->analStartPoint;
+  shortTimeSlideList[0].analEndPoint = params->analEndPoint;
+  shortSlideCount = 1;
+
+  if (params->doShortSlides)
+  {
+    currBaseOffset = params->shortSlideOffset;
+    while (1)
+    {
+      /* Calculate offsets for each detector */
+      ifoNum = 0;
+      for(ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
       {
-        if (! time_slide_head)
+        if (params->haveTrig[ifoNumber])
         {
-          time_slide_head=XLALCreateTimeSlide();
-          curr_slide= time_slide_head;
+          currBaseIfoOffset[ifoNumber] = currBaseOffset * ifoNum;
+          /* If the offset is bigger than the stride then this cannot be done*/
+          /* EDIT: We need to check that the offset is not bigger than the */
+          /* stride minus the BaseOffset, otherwise we can end up with short */
+          /* slides whose offsets are very similar to the long slides */
+          if (currBaseIfoOffset[ifoNumber] > \
+                  (params->strideDuration - params->shortSlideOffset) )
+          {
+            break;
+          }
+          ifoNum += 1;
+        }
+      }  
+      if (ifoNumber != LAL_NUM_IFO)
+      { /* If I did not finish the previous for loop due to break, break here*/
+        /* THIS IS THE ONLY PLACE THAT I MIGHT BREAK FROM THE WHILE LOOP */
+        break;
+      }
+
+      /* This avoids "WARNING: May be used unset" warning */
+      lastStartPoint = 0;
+      /* Now we need to consider the wrapping and set slides */
+      for (ui = 0; ui < ifoNum; ui++)
+      {
+        /* Begin by initializing the slide */
+        shortTimeSlideList[shortSlideCount].timeSlideID = shortSlideCount;
+
+        /* Next we populate the slide's start and end times */
+        /* We're actually going to loop backwards, so ui = 0 corresponds to the
+         * end of the segment where are slides will have wrapped */  
+        if (ui == 0)
+        {
+          /* If ui=0 we know the end point of slide will be analEndPoint */
+          shortTimeSlideList[shortSlideCount].analEndPoint = \
+               params->analEndPoint;
         }
         else
         {
-          curr_slide->next=XLALCreateTimeSlide();
-          curr_slide = curr_slide->next;
+          /* Otherwise end at where we started before */
+          shortTimeSlideList[shortSlideCount].analEndPoint = lastStartPoint;
+        } 
+        if (ui == ifoNum - 1)
+        {
+          /* If ui = ifoNum we have to start at analStartPoint */
+          shortTimeSlideList[shortSlideCount].analStartPoint = \
+              params->analStartPoint;
         }
-        curr_slide->time_slide_id = timeSlideList[ui].timeSlideID;
-        /* FIXME */
-        XLALReturnIFO(ifoName,ifoNumber);
-        strncpy(curr_slide->instrument,ifoName,sizeof(curr_slide->instrument)-1);
-        curr_slide->offset = timeSlideList[ui].timeSlideVectors[ifoNumber];
-        curr_slide->process_id=0;
+        else
+        {
+          /* Now the tricky one, we have to figure out where the next (previous
+           * as we're looping backwards) wrap point will be. */  
+          wrapTime = params->strideDuration - (ui + 1) * currBaseOffset;
+          wrapPoint = floor(wrapTime * params->sampleRate + 0.5);
+          /* Start point is then start point + wrap point */
+          shortTimeSlideList[shortSlideCount].analStartPoint = \
+              params->analStartPoint + wrapPoint;
+        }
+        lastStartPoint = shortTimeSlideList[shortSlideCount].analStartPoint;
+        /* Now we construct the wrapped offsets and store*/
+        ifoCount = 0;
+        for(ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
+        {
+          /* We are looping backwards so invert this */
+          if (params->haveTrig[ifoNumber])
+          {
+            currIfoOffset = currBaseIfoOffset[ifoNumber];
+            if (ifoCount > ui)
+            { /* Need to wrap */
+              currIfoOffset -= params->strideDuration;
+            }
+            shortTimeSlideList[shortSlideCount].timeSlideVectors[ifoNumber] = \
+                currIfoOffset;
+            ifoCount++;
+          }
+        }
+        shortSlideCount++;
+      } /* End loop over wrap points */
+      currBaseOffset += params->shortSlideOffset;
+    } /* End the while(1) loop over base offsets */
+  } /* End if do short slides */
+  sanity_check(shortSlideCount == params->numShortSlides);
+
+  /* Time slide table will contain every long+short slide combination */
+  for (ui = 0 ; ui < longSlideCount; ui++)
+  { /* Loop over long slides */
+    for (uj = 0 ; uj < shortSlideCount; uj++)
+    { /* Loop over short slides */
+      /* Construct the ID from the current long and short slide */
+      currId = longTimeSlideList[ui].timeSlideID*shortSlideCount;
+      currId += shortTimeSlideList[uj].timeSlideID;
+      /* Create an entry in the time_slide_map */
+      if (! time_slide_map_head)
+      {
+        time_slide_map_head=XLALCreateTimeSlideSegmentMapTableRow();
+        curr_time_slide_map = time_slide_map_head;
       }
+      else
+      {
+        curr_time_slide_map->next = XLALCreateTimeSlideSegmentMapTableRow();
+        curr_time_slide_map = curr_time_slide_map->next;
+      }
+      /* Set the ID in the time_slide_table */
+      curr_time_slide_map->time_slide_id = currId;
+      curr_time_slide_map->segment_def_id = currId;
+
+      for(ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
+      {
+        if (params->haveTrig[ifoNumber])
+        {
+          /* We need an entry for every ifo and every slide */
+          if (! time_slide_head)
+          { /* Create table if it doesn't exist */
+            time_slide_head=XLALCreateTimeSlide();
+            curr_slide= time_slide_head;
+          }
+          else
+          { /* Or setup the next entry in the linked list */
+            curr_slide->next=XLALCreateTimeSlide();
+            curr_slide = curr_slide->next;
+          }
+          /* Set the ID in the time_slide_table */
+          curr_slide->time_slide_id = currId;
+          /* Set the IFO  */
+          XLALReturnIFO(ifoName,ifoNumber);
+          strncpy(curr_slide->instrument,ifoName,\
+                  sizeof(curr_slide->instrument)-1);
+          /* Set the offset as the sum of the short and long offests */
+          curr_slide->offset = \
+              longTimeSlideList[ui].timeSlideVectors[ifoNumber];
+          curr_slide->offset += \
+              shortTimeSlideList[uj].timeSlideVectors[ifoNumber];
+          /* Process IDs will be 0 */
+          curr_slide->process_id=0;
+        }
+      } /* End ifo loop */
+    } /* End short slide loop */
+  } /* End long slide loop */
+
+  /* Now we construct the list of analysed segments for each time slide_id
+   * This will be a segment for *every* segment+short_slide combination */ 
+  slideSegmentCount = 0;
+  for (i = 0 ; i < numSegments ; i++)
+  { /* Loop over segments */
+    for (uj = 0 ; uj < shortSlideCount; uj++)
+    { /* Loop over short slides */
+      /* Contruct the ID form the current long+short slide */
+      currId = slideIDList[i]*shortSlideCount;
+      currId += shortTimeSlideList[uj].timeSlideID;
+      /* Construct the segment start and end times */
+      for (ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
+      {
+        if (params->haveTrig[ifoNumber])
+        {
+          slideStartTime = segments[ifoNumber]->sgmnt[i].epoch; 
+          slideEndTime = segments[ifoNumber]->sgmnt[i].epoch;
+        }
+      }
+      XLALGPSAdd(&slideStartTime, \
+          ((REAL8)shortTimeSlideList[uj].analStartPoint) / params->sampleRate );
+      XLALGPSAdd(&slideEndTime, \
+          ((REAL8)shortTimeSlideList[uj].analEndPoint) / params->sampleRate );
+      /* Add this to the segment table */
+      if (! segment_table_head)
+      { /* Create table if it doesn't exist */
+        segment_table_head=XLALCreateSegmentTableRow(NULL);
+        curr_slide_segment= segment_table_head;
+      }
+      else
+      { /* Or setup the next entry in the linked list */
+        curr_slide_segment->next=XLALCreateSegmentTableRow(NULL);
+        curr_slide_segment = curr_slide_segment->next;
+      }
+      curr_slide_segment->segment_id = slideSegmentCount;
+      curr_slide_segment->segment_def_id = currId;
+      curr_slide_segment->start_time = slideStartTime;
+      curr_slide_segment->end_time = slideEndTime;
+      curr_slide_segment->process_id = 0;
+      slideSegmentCount++;
     }
   }
+
   *time_slide_headP = time_slide_head;
+  *time_slide_map_headP = time_slide_map_head;
+  *segment_table_headP = segment_table_head;
+  *shortTimeSlideListP = shortTimeSlideList;
+  *longTimeSlideListP = longTimeSlideList;
 }
 
 void coh_PTF_calculate_det_stuff(
@@ -689,7 +898,7 @@ void coh_PTF_calculate_det_stuff(
                                      &(params->trigTime));
     /* calculate response functions for trigger */
     XLALComputeDetAMResponse(&FplusTmp, &FcrossTmp,
-                            detectors[ifoNumber]->response,
+                            (const REAL4 (*)[3])detectors[ifoNumber]->response,
                             skyPoints->data[skyPointNum].longitude,
                             skyPoints->data[skyPointNum].latitude, 0.,
                             XLALGreenwichMeanSiderealTime(&(params->trigTime)));
@@ -783,6 +992,7 @@ void coh_PTF_initialize_structures(
    * because of conditioning and the PSD.*/
   fcTmpltParams->invSpecTrunc = params->truncateDuration;
   fcTmpltParams->maxTempLength = params->maxTempLength;
+  fcTmpltParams->dynRange = params->dynRangeFac;
 
   for(ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
   {
@@ -1230,19 +1440,28 @@ void coh_PTF_calculate_single_detector_filters(
   REAL8Array                 **PTFM,
   COMPLEX8VectorSequence     **PTFqVec,
   REAL4TimeSeries            **snrComps,
+  UINT4                      **snglAcceptPoints,
+  UINT4                      *snglAcceptCount,
   RingDataSegments           **segments,
   COMPLEX8FFTPlan            *invPlan,
   UINT4                      spinTemplate,
   UINT4                      segNum
 )
 {
-  UINT4 ifoNumber,ui,uj;
+  UINT4 ifoNumber,ui,uj,localCount;
   REAL4 reSNRcomp,imSNRcomp;
+  REAL4 *localSNRData;
+  UINT4 *localAcceptPoints;
+
+  REAL4 acceptThresh = params->snglSNRThreshold;
 
   for(ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
   {
     if (params->haveTrig[ifoNumber])
     {
+      localCount = 0;
+      localSNRData = snrComps[ifoNumber]->data->data;
+      localAcceptPoints = snglAcceptPoints[ifoNumber];
       /* Zero the storage vectors for the PTF filters */
       if (params->approximant == FindChirpPTF)
       {
@@ -1266,35 +1485,41 @@ void coh_PTF_calculate_single_detector_filters(
       /* Here we calculate the single detector SNR */
       if (spinTemplate)
       {
-        coh_PTF_calculate_single_det_spin_snr(params,PTFM,PTFqVec,snrComps,\
-                                              ifoNumber);
+        localCount = coh_PTF_calculate_single_det_spin_snr(params,PTFM,PTFqVec,\
+                         snrComps,ifoNumber,localAcceptPoints);
       }
       else
       {
         for (ui = params->analStartPointBuf; ui < params->analEndPointBuf; ++ui)
         { /* Loop over time */
           uj = ui - params->analStartPointBuf;
-          reSNRcomp = PTFqVec[ifoNumber]->data[ui].re;
-          imSNRcomp = PTFqVec[ifoNumber]->data[ui].im;
-          snrComps[ifoNumber]->data->data[uj] =
-              sqrt((reSNRcomp*reSNRcomp + imSNRcomp*imSNRcomp)/
+          reSNRcomp = crealf(PTFqVec[ifoNumber]->data[ui]);
+          imSNRcomp = cimagf(PTFqVec[ifoNumber]->data[ui]);
+          localSNRData[uj] = sqrt((reSNRcomp*reSNRcomp + imSNRcomp*imSNRcomp)/
                    PTFM[ifoNumber]->data[0]);
+          if (localSNRData[uj] > acceptThresh)
+          {
+            localAcceptPoints[localCount] = uj;
+            localCount++;
+          }
         }
       }
+      snglAcceptCount[ifoNumber] = localCount;
       
     }
   }
 }
 
-void coh_PTF_calculate_single_det_spin_snr(
+UINT4 coh_PTF_calculate_single_det_spin_snr(
   struct coh_PTF_params      *params,
   REAL8Array                 **PTFM,
   COMPLEX8VectorSequence     **PTFqVec,
   REAL4TimeSeries            **snrComps,
-  UINT4                      ifoNumber
+  UINT4                      ifoNumber,
+  UINT4                      *localAcceptPoints
 )
 {
-  UINT4 ui,uj;
+  UINT4 ui,uj,uk,localCount;
   gsl_matrix *PTFmatrix;
   gsl_vector *eigenvalsSngl;
   gsl_matrix *eigenvecsSngl;
@@ -1305,6 +1530,7 @@ void coh_PTF_calculate_single_det_spin_snr(
   eigenvalsSngl = gsl_vector_alloc(5);
   snglv1p = LALCalloc(5 , sizeof(REAL4));
   snglv2p = LALCalloc(5 , sizeof(REAL4));
+  REAL4 acceptThresh = params->snglSNRThreshold;
 
   /* convert PTFM to gsl_matrix */
   PTFmatrix = gsl_matrix_alloc(5,5);
@@ -1320,8 +1546,10 @@ void coh_PTF_calculate_single_det_spin_snr(
   gsl_eigen_symmv(PTFmatrix, eigenvalsSngl, eigenvecsSngl,matTemp);
   gsl_eigen_symmv_free(matTemp);
   gsl_matrix_free(PTFmatrix);
+  localCount = 0;
   for (ui = params->analStartPointBuf; ui < params->analEndPointBuf; ++ui)
   {  /* loop over time */
+    uk = ui - params->analStartPointBuf;
     coh_PTF_calculate_rotated_vectors(params,PTFqVec,snglv1p,snglv2p,NULL,\
             NULL,NULL,eigenvecsSngl,eigenvalsSngl,\
             params->numTimePoints,ui,5,5,ifoNumber);
@@ -1338,9 +1566,17 @@ void coh_PTF_calculate_single_det_spin_snr(
         (v1_dot_u1 - v2_dot_u2) + 4 * v1_dot_u2 * v1_dot_u2));
     snrComps[ifoNumber]->data->data[ui-params->analStartPointBuf] =\
         sqrt(max_eigen);
+    if (snrComps[ifoNumber]->data->data[ui-params->analStartPointBuf] >\
+         acceptThresh)
+    {
+      localAcceptPoints[localCount] = uk;
+      localCount++;
+    }
+
   }
   LALFree(snglv1p);
   LALFree(snglv2p);
+  return localCount;
 }
 
 REAL4 coh_PTF_get_spin_SNR(
@@ -1433,13 +1669,13 @@ XXXXX
       {
         if (j < vecLength)
         {
-          v1[j] += Fplus[k] * PTFqVec[k]->data[j*numPoints+i+timeOffsetPoints[k]].re;
-          v2[j] += Fplus[k] * PTFqVec[k]->data[j*numPoints+i+timeOffsetPoints[k]].im;
+          v1[j] += Fplus[k] * crealf(PTFqVec[k]->data[j*numPoints+i+timeOffsetPoints[k]]);
+          v2[j] += Fplus[k] * cimagf(PTFqVec[k]->data[j*numPoints+i+timeOffsetPoints[k]]);
         }
         else
         {
-          v1[j] += Fcross[k] * PTFqVec[k]->data[(j-vecLength)*numPoints+i+timeOffsetPoints[k]].re;
-          v2[j] += Fcross[k] * PTFqVec[k]->data[(j-vecLength)*numPoints+i+timeOffsetPoints[k]].im;
+          v1[j] += Fcross[k] * crealf(PTFqVec[k]->data[(j-vecLength)*numPoints+i+timeOffsetPoints[k]]);
+          v2[j] += Fcross[k] * cimagf(PTFqVec[k]->data[(j-vecLength)*numPoints+i+timeOffsetPoints[k]]);
         }
       }
     }
@@ -1455,47 +1691,295 @@ XXXXX
 }
 */
 
-void coh_PTF_template_time_series_cluster(
-  REAL4TimeSeries *cohSNR,
-  INT4 numPointCheck
+void coh_PTF_calculate_coherent_SNR(
+  struct coh_PTF_params      *params,
+  REAL4                      *snrData,
+  REAL4TimeSeries            **pValues,
+  REAL4TimeSeries            **snrComps,
+  INT4                       *timeOffsetPoints,
+  COMPLEX8VectorSequence     **PTFqVec,
+  REAL4                      *Fplus,
+  REAL4                      *Fcross,
+  gsl_matrix                 *eigenvecs,
+  gsl_vector                 *eigenvals,
+  UINT4                      segStartPoint,
+  UINT4                      segEndPoint,
+  UINT4                      vecLength,
+  UINT4                      vecLengthTwo,
+  UINT4                      spinTemplate,
+  UINT4                      **snglAcceptPoints,
+  UINT4                      *snglAcceptCount
 )
 {
-  UINT4 ui,check;
-  UINT4 logicArray[cohSNR->data->length];
-  INT4 j,tempPoint;
-  INT4 dataLen = (INT4) cohSNR->data->length;
-  for (ui = 0; ui < cohSNR->data->length; ui++)
+  REAL4 snglSNRthresh = params->snglSNRThreshold;
+  REAL4 *v1p = LALCalloc(vecLengthTwo , sizeof(REAL4));
+  REAL4 *v2p = LALCalloc(vecLengthTwo , sizeof(REAL4));
+
+  UINT4 i,j,k,ifoNumber,ifoNumber2,currPointLoc,ifoNum1,ifoNum2;
+  UINT4 localCount,*localAcceptPoints,localOffset;
+  INT4 tOffset1,tOffset2;
+  REAL4 v1_dot_u1,v2_dot_u2,max_eigen,coincSNR;
+  REAL4 cohSNRThresholdSq = params->threshold * params->threshold;
+
+  /* If only two detectors & standard analysis identify the 2 detectors
+   * up front for speed
+   */
+  ifoNum1 = ifoNum2 = tOffset1 = tOffset2 = 0;
+  if (params->numIFO == 2 && (! params->singlePolFlag) &&\
+      (!params->faceOnStatistic) )
   {
-    logicArray[ui] = 0;
-    if (cohSNR->data->data[ui])
+    for (ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
     {
-      check = 1;
-      for (j = -numPointCheck; j < numPointCheck; j++)
+      if (params->haveTrig[ifoNumber])
       {
-        tempPoint = ui + j;
-        if (tempPoint < 0)
+        if (ifoNum1 == 0)
+          ifoNum1 = ifoNumber;
+        else if (ifoNum2 == 0)
+          ifoNum2 = ifoNumber;
+      }
+    }
+    tOffset1 = timeOffsetPoints[ifoNum1] - params->analStartPointBuf;
+    tOffset2 = timeOffsetPoints[ifoNum2] - params->analStartPointBuf;
+  }
+
+  for (ifoNumber2 = 0; ifoNumber2 < LAL_NUM_IFO; ifoNumber2++)
+  {
+    if (! params->haveTrig[ifoNumber2])
+    {
+      continue;
+    }
+    localCount = snglAcceptCount[ifoNumber2];
+    localAcceptPoints = snglAcceptPoints[ifoNumber2];
+    localOffset = params->analStartPointBuf-timeOffsetPoints[ifoNumber2];
+    for (k = 0; k < localCount; ++k)
+    {
+      i = localAcceptPoints[k] + localOffset;
+      currPointLoc = i-params->analStartPoint;
+      /* Continue if not in this analysis segment */
+      if ((i < segStartPoint) || (i > segEndPoint))
+      {
+        continue;
+      }
+
+      /* Don't bother calculating coherent SNR if all ifo's SNR is less than
+         some value */
+      for (ifoNumber = 0;ifoNumber < LAL_NUM_IFO; ifoNumber++)
+      {
+        if (params->haveTrig[ifoNumber])
         {
+          if (snrComps[ifoNumber]->data->
+                data[i-params->analStartPointBuf+timeOffsetPoints[ifoNumber]]
+                > snglSNRthresh)
+          {
+            break;
+          }
+        }
+      }
+      if (ifoNumber == LAL_NUM_IFO)
+      {
+        snrData[currPointLoc] = 0;
+        fprintf(stderr,"I shouldn't be here now!!\n");
+        continue;
+      }
+
+      if (params->numIFO == 2 && (! params->singlePolFlag) &&\
+          (!params->faceOnStatistic) )
+      { /*If only 2 detectors cohSNR = coincident SNR. SO just use that */
+        max_eigen = snrComps[ifoNum1]->data->data[i+tOffset1] *
+                            snrComps[ifoNum1]->data->data[i+tOffset1] +
+                            snrComps[ifoNum2]->data->data[i+tOffset2] *
+                            snrComps[ifoNum2]->data->data[i+tOffset2];
+        if (max_eigen < cohSNRThresholdSq)
+        {
+          snrData[currPointLoc] = 0;
           continue;
         }
-        if (tempPoint >= dataLen)
+        snrData[currPointLoc] = sqrt(max_eigen);
+      }
+      else
+      {
+        coincSNR = 0;
+        /* Calculate the coincident SNR at this time point*/
+        for (ifoNumber = 0;ifoNumber < LAL_NUM_IFO; ifoNumber++)
         {
+          if (params->haveTrig[ifoNumber])
+          {
+            coincSNR += snrComps[ifoNumber]->data->data[\
+                i - params->analStartPointBuf + timeOffsetPoints[ifoNumber]]
+                * snrComps[ifoNumber]->data->data[\
+                i - params->analStartPointBuf + timeOffsetPoints[ifoNumber]];
+          }
+        }
+        /* Do not need to calculate coherent SNR if coinc SNR < threshold */
+        /* NOTE: Cheaper to compare coincSNRSq than use pow(x,0.5) */
+        if (coincSNR < cohSNRThresholdSq)
+        {
+          snrData[currPointLoc] = 0;
           continue;
         }
-        if (cohSNR->data->data[tempPoint] > cohSNR->data->data[ui])
+
+        /* This function combines the various (Q_i | s) and rotates them into
+         * the orthonormal basis, using the eigen[vector,value]s.
+         */
+        coh_PTF_calculate_rotated_vectors(params,PTFqVec,v1p,v2p,Fplus,Fcross,
+          timeOffsetPoints,eigenvecs,eigenvals,
+          params->numTimePoints,i,vecLength,vecLengthTwo,LAL_NUM_IFO);
+
+        /* And SNR is calculated
+         * For non-spin+multi-site+coherent: 
+         *               v1p[0] * v1p[0] = (\bf{F}_+\bf{h}_0 | \bf{s})^2
+         *               v1p[1] * v1p[1] = (\bf{F}_x\bf{h}_0 | \bf{s})^2
+         *               v2p[0] * v2p[0] = (\bf{F}_+\bf{h}_{\pi/2} | \bf{s})^2
+         *               v2p[1] * v2p[1] = (\bf{F}_x\bf{h}_{\pi/2} | \bf{s})^2
+         * For non-spin+single-site/face-on there will only be two components
+         * in this calculation, but otherwise the same.
+         */
+        if (spinTemplate == 0)
         {
-          logicArray[ui] = 1;
-          break;
+          v1_dot_u1 = v2_dot_u2 = 0.0;
+          for (j = 0; j < vecLengthTwo; j++)
+          {
+            v1_dot_u1 += v1p[j] * v1p[j];
+            v2_dot_u2 += v2p[j] * v2p[j];
+          }
+          max_eigen = (v1_dot_u1 + v2_dot_u2);
+          if (max_eigen < cohSNRThresholdSq)
+          {
+            snrData[currPointLoc] = 0;
+            continue;
+          }
+          else
+          {
+            snrData[currPointLoc] = sqrt(max_eigen);
+            if (params->storeAmpParams)
+            {
+              for (j = 0 ; j < vecLengthTwo ; j++)
+              {
+                pValues[j]->data->data[currPointLoc] = v1p[j];
+                pValues[j+vecLengthTwo]->data->data[currPointLoc] = v2p[j];
+              }
+            }
+          }
+        }
+        else
+        { /* Spinning case follow PTF notation to get SNR */
+          snrData[i-params->analStartPoint] = \
+              coh_PTF_get_spin_SNR(v1p,v2p,vecLengthTwo);
+          if (params->storeAmpParams)
+          {
+            fprintf(stderr,"Spinning amplitude stuff is currently disabled\n");
+            /* coh_PTF_get_spin_amp_terms(.......) */
+          }
         }
       }
     }
   }
-  for (ui = 0; ui < cohSNR->data->length; ui++)
+}
+
+UINT4 coh_PTF_template_time_series_cluster(
+  struct coh_PTF_params      *params,
+  REAL4TimeSeries *cohSNR,
+  UINT4 *acceptPoints,
+  INT4 *timeOffsetPoints,
+  INT4 numPointCheck,
+  UINT4 startPoint,
+  UINT4 endPoint,
+  UINT4 **snglAcceptPoints,
+  UINT4 *snglAcceptCount
+)
+{
+  UINT4 ui,ifoNumber2,k,i;
+  UINT4 count = 0;
+  UINT4 logicArray[cohSNR->data->length];
+  INT4 j,tempPoint;
+  /* FIXME: Bizarrely, the mac clang compiler will "optimize away" this variable
+   * if I do not use the volatile keyword, which causes seg faults as it should
+   * not be "optimized away". Is this a bug in clang??? */
+  volatile INT4 localOffset;
+  UINT4 localCount,*localAcceptPoints;
+  /* Have to cast from UINT4 to INT4 to avoid warning */
+  INT4 startPointI = (INT4) startPoint;
+  INT4 endPointI = (INT4) endPoint;
+
+  REAL4 *snrData = cohSNR->data->data;
+
+  for (ifoNumber2 = 0; ifoNumber2 < LAL_NUM_IFO; ifoNumber2++)
   {
-    if (logicArray[ui])
+    if (! params->haveTrig[ifoNumber2])
     {
-      cohSNR->data->data[ui] = 0.;
+      continue;
+    }
+    localCount = snglAcceptCount[ifoNumber2];
+    localAcceptPoints = snglAcceptPoints[ifoNumber2];
+    localOffset = params->analStartPointBuf-timeOffsetPoints[ifoNumber2];
+    for (k = 0; k < localCount; ++k)
+    {
+      i = localAcceptPoints[k] + localOffset;
+      ui = i-params->analStartPoint;
+      /* Continue if not in this analysis segment */
+      if ((ui < startPoint) || (ui > endPoint))
+      {
+        continue;
+      }
+      logicArray[ui] = 1;
+      if (snrData[ui])
+      {
+        for (j = -numPointCheck; j < numPointCheck; j++)
+        {
+          tempPoint = ui + j;
+          if (tempPoint < startPointI)
+          {
+            continue;
+          }
+          if (tempPoint >= endPointI)
+          {
+            continue;
+          }
+          if (snrData[tempPoint] > snrData[ui])
+          {
+            logicArray[ui] = 0;
+            break;
+          }
+        }
+      }
     }
   }
+
+  for (ifoNumber2 = 0; ifoNumber2 < LAL_NUM_IFO; ifoNumber2++)
+  {
+    if (! params->haveTrig[ifoNumber2])
+    {
+      continue;
+    }
+    localCount = snglAcceptCount[ifoNumber2];
+    localAcceptPoints = snglAcceptPoints[ifoNumber2];
+    localOffset = params->analStartPointBuf-timeOffsetPoints[ifoNumber2];
+    for (k = 0; k < localCount; ++k)
+    {
+      i = localAcceptPoints[k] + localOffset;
+      ui = i-params->analStartPoint;
+      /* Continue if not in this analysis segment */
+      if ((ui < startPoint) || (ui > endPoint))
+      {
+        continue;
+      }
+
+      if (! logicArray[ui])
+      {
+        snrData[ui] = 0.;
+      }
+      else if (logicArray[ui] == 1)
+      {
+        if (snrData[ui])
+        {
+          acceptPoints[count] = ui;
+          count++;  
+          logicArray[ui] = 2;
+        }
+      }
+    }
+  }
+  return count;
 }
 
 UINT4 coh_PTF_test_veto_vals(
@@ -1660,8 +2144,8 @@ void coh_PTF_calculate_null_stream_snr(
   /* NOTE: This code could be optimized, but is rarely used so has not been */
   for (j = 0; j < vecLength; j++)
   {
-    v1N[j] = PTFqVec[LAL_NUM_IFO]->data[j*params->numTimePoints+vecLoc].re;
-    v2N[j] = PTFqVec[LAL_NUM_IFO]->data[j*params->numTimePoints+vecLoc].im;
+    v1N[j] = crealf(PTFqVec[LAL_NUM_IFO]->data[j*params->numTimePoints+vecLoc]);
+    v2N[j] = cimagf(PTFqVec[LAL_NUM_IFO]->data[j*params->numTimePoints+vecLoc]);
   }
 
   for (j = 0 ; j < vecLength ; j++)
@@ -1726,17 +2210,17 @@ void coh_PTF_calculate_trace_snr(
       {
         if (j < vecLength)
         {
-          v1[j] = Fplus[k] * PTFqVec[k]->data[\
-                         j*params->numTimePoints+vecLoc+timeOffsetPoints[k]].re;
-          v2[j] = Fplus[k] * PTFqVec[k]->data[\
-                         j*params->numTimePoints+vecLoc+timeOffsetPoints[k]].im;
+          v1[j] = Fplus[k] * crealf(PTFqVec[k]->data[\
+                         j*params->numTimePoints+vecLoc+timeOffsetPoints[k]]);
+          v2[j] = Fplus[k] * cimagf(PTFqVec[k]->data[\
+                         j*params->numTimePoints+vecLoc+timeOffsetPoints[k]]);
         }
         else
         {
-          v1[j] = Fcross[k] * PTFqVec[k]->data[ (j-vecLength) * \
-                           params->numTimePoints+vecLoc+timeOffsetPoints[k]].re;
-          v2[j] = Fcross[k] * PTFqVec[k]->data[ (j-vecLength) * \
-                           params->numTimePoints+vecLoc+timeOffsetPoints[k]].im;
+          v1[j] = Fcross[k] * crealf(PTFqVec[k]->data[ (j-vecLength) * \
+                           params->numTimePoints+vecLoc+timeOffsetPoints[k]]);
+          v2[j] = Fcross[k] * cimagf(PTFqVec[k]->data[ (j-vecLength) * \
+                           params->numTimePoints+vecLoc+timeOffsetPoints[k]]);
         }
       }
       for (j = 0 ; j < vecLengthTwo ; j++)
@@ -1936,17 +2420,17 @@ void coh_PTF_calculate_rotated_vectors(
             /* Currently non-spin only! */
             if (params->faceOnStatistic == 1)
             {
-              v1[j] += Fplus[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].re;
-              v1[j] += Fcross[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].im;
-              v2[j] += Fcross[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].re;
-              v2[j] -= Fplus[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].im;
+              v1[j] += Fplus[k] * crealf(PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]]);
+              v1[j] += Fcross[k] * cimagf(PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]]);
+              v2[j] += Fcross[k] * crealf(PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]]);
+              v2[j] -= Fplus[k] * cimagf(PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]]);
             }
             else if (params->faceOnStatistic == 2)
             {
-              v1[j] += Fplus[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].re;
-              v1[j] -= Fcross[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].im;
-              v2[j] += Fcross[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].re;
-              v2[j] += Fplus[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].im;
+              v1[j] += Fplus[k] * crealf(PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]]);
+              v1[j] -= Fcross[k] * cimagf(PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]]);
+              v2[j] += Fcross[k] * crealf(PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]]);
+              v2[j] += Fplus[k] * cimagf(PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]]);
             }
             else
             {
@@ -1955,21 +2439,21 @@ void coh_PTF_calculate_rotated_vectors(
           }
           else if (j < vecLength)
           {
-            v1[j] += Fplus[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].re;
-            v2[j] += Fplus[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].im;
+            v1[j] += Fplus[k] * crealf(PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]]);
+            v2[j] += Fplus[k] * cimagf(PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]]);
           }
           else
           {
-            v1[j] += Fcross[k] * PTFqVec[k]->data[(j-vecLength)*numPoints+position+timeOffsetPoints[k]].re;
-            v2[j] += Fcross[k] * PTFqVec[k]->data[(j-vecLength)*numPoints+position+timeOffsetPoints[k]].im;
+            v1[j] += Fcross[k] * crealf(PTFqVec[k]->data[(j-vecLength)*numPoints+position+timeOffsetPoints[k]]);
+            v2[j] += Fcross[k] * cimagf(PTFqVec[k]->data[(j-vecLength)*numPoints+position+timeOffsetPoints[k]]);
           }
         }
       }
     }
     else
     {
-      v1[j] += PTFqVec[detectorNum]->data[j*numPoints+position].re;
-      v2[j] += PTFqVec[detectorNum]->data[j*numPoints+position].im;
+      v1[j] += crealf(PTFqVec[detectorNum]->data[j*numPoints+position]);
+      v2[j] += cimagf(PTFqVec[detectorNum]->data[j*numPoints+position]);
     }
   }
 
@@ -1995,6 +2479,7 @@ void coh_PTF_calculate_rotated_vectors(
 MultiInspiralTable* coh_PTF_create_multi_event(
     struct coh_PTF_params   *params,
     REAL4TimeSeries         *cohSNR,
+    FindChirpTemplate       *fcTmplt,
     InspiralTemplate        PTFTemplate,
     UINT8                   *eventId,
     UINT4                   spinTrigger,
@@ -2183,45 +2668,48 @@ MultiInspiralTable* coh_PTF_create_multi_event(
    * first is some arbitrary amplitude. */
   if (gammaBeta[0])
   {
-    currEvent->g1quad.re = gammaBeta[0]->data->data[currPos];
-    currEvent->g1quad.im = gammaBeta[1]->data->data[currPos];
+    currEvent->g1quad = crectf( gammaBeta[0]->data->data[currPos], gammaBeta[1]->data->data[currPos] );
   }
+
+  REAL8 sigmasqCorrFac;
+  sigmasqCorrFac = ( (REAL8)fcTmplt->tmpltNorm);
+  sigmasqCorrFac *= ( (REAL8)params->tempCorrFac);
 
   if (snrComps[LAL_IFO_G1])
   {
     currEvent->snr_g = snrComps[LAL_IFO_G1]->data->
         data[currPos+params->numBufferPoints+timeOffsetPoints[LAL_IFO_G1]];
-    currEvent->sigmasq_g = PTFM[LAL_IFO_G1]->data[0];
+    currEvent->sigmasq_g = PTFM[LAL_IFO_G1]->data[0] * sigmasqCorrFac;
   }
   if (snrComps[LAL_IFO_H1])
   {
     currEvent->snr_h1 = snrComps[LAL_IFO_H1]->data->
         data[currPos+params->numBufferPoints+timeOffsetPoints[LAL_IFO_H1]];
-    currEvent->sigmasq_h1 = PTFM[LAL_IFO_H1]->data[0];
+    currEvent->sigmasq_h1 = PTFM[LAL_IFO_H1]->data[0] * sigmasqCorrFac;
   }
   if (snrComps[LAL_IFO_H2])
   {
     currEvent->snr_h2 = snrComps[LAL_IFO_H2]->data->
         data[currPos+params->numBufferPoints+timeOffsetPoints[LAL_IFO_H2]];
-    currEvent->sigmasq_h2 = PTFM[LAL_IFO_H2]->data[0];
+    currEvent->sigmasq_h2 = PTFM[LAL_IFO_H2]->data[0] * sigmasqCorrFac;
   }
   if (snrComps[LAL_IFO_L1])
   {
     currEvent->snr_l = snrComps[LAL_IFO_L1]->data->
         data[currPos+params->numBufferPoints+timeOffsetPoints[LAL_IFO_L1]];
-    currEvent->sigmasq_l = PTFM[LAL_IFO_L1]->data[0];
+    currEvent->sigmasq_l = PTFM[LAL_IFO_L1]->data[0] * sigmasqCorrFac;
   }
   if (snrComps[LAL_IFO_T1])
   {
     currEvent->snr_t = snrComps[LAL_IFO_T1]->data->
         data[currPos+params->numBufferPoints+timeOffsetPoints[LAL_IFO_T1]];
-    currEvent->sigmasq_t = PTFM[LAL_IFO_T1]->data[0];
+    currEvent->sigmasq_t = PTFM[LAL_IFO_T1]->data[0] * sigmasqCorrFac;
   }
   if (snrComps[LAL_IFO_V1])
   {
     currEvent->snr_v = snrComps[LAL_IFO_V1]->data->
         data[currPos+params->numBufferPoints+timeOffsetPoints[LAL_IFO_V1]];
-    currEvent->sigmasq_v = PTFM[LAL_IFO_V1]->data[0];
+    currEvent->sigmasq_v = PTFM[LAL_IFO_V1]->data[0] * sigmasqCorrFac;
   }
   if (spinTrigger == 1)
   {
@@ -2265,6 +2753,313 @@ MultiInspiralTable* coh_PTF_create_multi_event(
   return currEvent;
 }
 
+UINT8 coh_PTF_add_sngl_triggers(
+    struct coh_PTF_params   *params,
+    SnglInspiralTable       **eventList,
+    SnglInspiralTable       **thisEvent,
+    REAL4TimeSeries         *cohSNR,
+    FindChirpTemplate       *fcTmplt,
+    InspiralTemplate        PTFTemplate,
+    UINT8                   eventId,
+    REAL4TimeSeries         **pValues,
+    REAL4TimeSeries         **bankVeto,
+    REAL4TimeSeries         **autoVeto,
+    REAL4TimeSeries         **chiSquare,
+    REAL8Array              **PTFM,
+    UINT4                   startPoint,
+    UINT4                   endPoint
+)
+{
+  /* This function adds SnglInspiral events to the event list */
+  
+  UINT4 i;
+  SnglInspiralTable *lastEvent = *thisEvent;
+  SnglInspiralTable *currEvent = NULL;
+
+  for (i = startPoint ; i < endPoint ; i++)
+  {
+    if (cohSNR->data->data[i])
+    {
+      currEvent = coh_PTF_create_sngl_event(params,cohSNR,fcTmplt,PTFTemplate,\
+          &eventId,pValues,bankVeto,autoVeto,chiSquare,PTFM,i);
+
+      /* Check trigger against trig times */
+      if (coh_PTF_trig_time_check(params,currEvent->end_time,\
+                                         currEvent->end_time))
+      {
+        if (currEvent->event_id)
+        {
+          LALFree(currEvent->event_id);
+        }
+        LALFree(currEvent);
+        continue;
+      }
+      /* And add the trigger to the lists. IF it passes clustering! */
+      if (!*eventList)
+      {
+        *eventList = currEvent;
+        lastEvent = currEvent;
+      }
+      else
+      {
+        if (! params->clusterFlag)
+        {
+          lastEvent->next = currEvent;
+          lastEvent = currEvent;
+        }
+        else if (coh_PTF_accept_sngl_trig_check(params,eventList,*currEvent) )
+        {
+          lastEvent->next = currEvent;
+          lastEvent = currEvent;
+        }
+        else
+        {
+          if (currEvent->event_id)
+          {
+            LALFree(currEvent->event_id);
+          }
+          LALFree(currEvent);
+        }
+      }
+    }
+  }
+  *thisEvent = lastEvent;
+  return eventId;
+}
+
+SnglInspiralTable* coh_PTF_create_sngl_event(
+    struct coh_PTF_params   *params,
+    REAL4TimeSeries         *cohSNR,
+    FindChirpTemplate       *fcTmplt,
+    InspiralTemplate        PTFTemplate,
+    UINT8                   *eventId,
+    REAL4TimeSeries         **pValues,
+    REAL4TimeSeries         **bankVeto,
+    REAL4TimeSeries         **autoVeto,
+    REAL4TimeSeries         **chiSquare,
+    REAL8Array              **PTFM,
+    UINT4                   currPos
+)
+{
+  LIGOTimeGPS trigTime;
+  UINT4 numDOF = 2;
+  UINT4 ifoNumber;
+  CHAR searchName[LIGOMETA_SEARCH_MAX];
+
+  SnglInspiralTable *thisEvent;
+  thisEvent = (SnglInspiralTable *)
+      LALCalloc(1, sizeof(SnglInspiralTable));
+  thisEvent->event_id = (EventIDColumn *)
+      LALCalloc(1, sizeof(EventIDColumn));
+  thisEvent->event_id->id=*eventId;
+  (*eventId)++;
+  /* Set end times */
+  trigTime = cohSNR->epoch;
+  XLALGPSAdd(&trigTime,currPos*cohSNR->deltaT);
+  thisEvent->end_time = trigTime;
+  thisEvent->end_time_gmst = fmod(XLALGreenwichMeanSiderealTime(
+      &thisEvent->end_time), LAL_TWOPI) * 24.0 / LAL_TWOPI;     /* hours */
+
+  /* Set SNR, chisqs, sigmasq, eff_distance */
+  REAL8 sigmasqCorrFac;
+  sigmasqCorrFac = ( (REAL8)fcTmplt->tmpltNorm);
+  sigmasqCorrFac *= ( (REAL8)params->tempCorrFac);
+
+  thisEvent->snr = cohSNR->data->data[currPos];
+  for( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
+  {
+    if ( params->haveTrig[ifoNumber] )
+    {
+      thisEvent->chisq = chiSquare[ifoNumber]->data->data[currPos];
+      thisEvent->bank_chisq = bankVeto[ifoNumber]->data->data[currPos];
+      thisEvent->cont_chisq = autoVeto[ifoNumber]->data->data[currPos];
+      thisEvent->sigmasq = PTFM[ifoNumber]->data[0] * sigmasqCorrFac;
+    }
+  }
+  /* FIXME: Should be fixed so that this actually stores the DOF! */
+  thisEvent->chisq_dof = params->numChiSquareBins;
+  thisEvent->bank_chisq_dof = numDOF * params->BVsubBankSize;
+  thisEvent->cont_chisq_dof = numDOF * params->numAutoPoints;
+  thisEvent->eff_distance = sqrt( thisEvent->sigmasq ) / thisEvent->snr;
+  /* FIXME: What is this? What is it used for? */
+  thisEvent->event_duration = 0;
+  /* FIXME: What does coa_phase actually mean here? */
+  thisEvent->coa_phase = (REAL4)
+      atan2( pValues[0]->data->data[currPos], pValues[1]->data->data[currPos]); 
+
+  /* set the impulse time for the event FIXME:Check this! */
+  thisEvent->template_duration = (REAL8) PTFTemplate.tC;
+  
+  /* record the ifo name for the event */
+  snprintf(thisEvent->ifo, LIGOMETA_IFO_MAX, "%s", params->ifoName[0]);
+  /* Set the channel name */
+  for( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
+  {
+    if ( params->haveTrig[ifoNumber] )
+    {
+      strncpy( thisEvent->channel, (params->channel[ifoNumber]) + 3,
+      (LALNameLength - 3) * sizeof(CHAR) );
+    }
+  }
+  /* FIXME: NOt sure about this one either, inspiral just copies end_time */
+  thisEvent->impulse_time = thisEvent->end_time;
+
+  /* copy the template into the event */
+  thisEvent->mass1   = (REAL4) PTFTemplate.mass1;
+  thisEvent->mass2   = (REAL4) PTFTemplate.mass2;
+  thisEvent->mtotal  = (REAL4) PTFTemplate.totalMass;
+  thisEvent->mchirp  = (REAL4) PTFTemplate.chirpMass;
+  thisEvent->eta     = (REAL4) PTFTemplate.eta;
+  thisEvent->kappa   = (REAL4) PTFTemplate.kappa;
+  thisEvent->chi     = (REAL4) PTFTemplate.chi;
+  thisEvent->tau0    = (REAL4) PTFTemplate.t0;
+  thisEvent->tau2    = (REAL4) PTFTemplate.t2;
+  thisEvent->tau3    = (REAL4) PTFTemplate.t3;
+  thisEvent->tau4    = (REAL4) PTFTemplate.t4;
+  thisEvent->tau5    = (REAL4) PTFTemplate.t5;
+  thisEvent->ttotal  = (REAL4) PTFTemplate.tC;
+  thisEvent->f_final = (REAL4) PTFTemplate.fFinal;
+  thisEvent->spin1z  = (REAL4) PTFTemplate.spin1[2];
+  thisEvent->spin2z  = (REAL4) PTFTemplate.spin2[2];
+
+  /* We can now memcpy the 10 metric co-efficients */
+  memcpy (thisEvent->Gamma, PTFTemplate.Gamma, 10*sizeof(REAL4));
+
+  /* Store the approximant */
+  XLALInspiralGetApproximantString( searchName, LIGOMETA_SEARCH_MAX,
+                                    params->approximant, params->order );
+  memcpy( thisEvent->search, searchName,
+      LIGOMETA_SEARCH_MAX * sizeof(CHAR) );
+
+  return thisEvent;
+}
+
+UINT4 coh_PTF_accept_sngl_trig_check(
+    struct coh_PTF_params   *params,
+    SnglInspiralTable      **eventList,
+    SnglInspiralTable      thisEvent
+)
+{
+  SnglInspiralTable *currEvent = *eventList;
+  LIGOTimeGPS time1,time2;
+  UINT4 loudTrigBefore=0,loudTrigAfter=0;
+
+  currEvent = *eventList;
+
+  /* for each trigger, find out whether a louder trigger is within the
+ *    * clustering time */
+  time1.gpsSeconds=thisEvent.end_time.gpsSeconds;
+  time1.gpsNanoSeconds = thisEvent.end_time.gpsNanoSeconds;
+  while (currEvent)
+  {
+    time2.gpsSeconds=currEvent->end_time.gpsSeconds;
+    time2.gpsNanoSeconds=currEvent->end_time.gpsNanoSeconds;
+    if (fabs(XLALGPSDiff(&time1,&time2)) < params->clusterWindow)
+    {
+      if (thisEvent.snr < currEvent->snr\
+          && (thisEvent.event_id->id != currEvent->event_id->id))
+      {
+        if ( XLALGPSDiff(&time1,&time2) < 0 )
+          loudTrigBefore = 1;
+        else
+          loudTrigAfter = 1;
+        if (loudTrigBefore && loudTrigAfter)
+        {
+          return 0;
+        }
+      }
+    }
+    currEvent = currEvent->next;
+  }
+
+  return 1;
+}
+
+void coh_PTF_cluster_sngl_triggers(
+    struct coh_PTF_params   *params,
+    SnglInspiralTable      **eventList,
+    SnglInspiralTable      **thisEvent
+)
+{
+
+  SnglInspiralTable *currEvent = *eventList;
+  SnglInspiralTable *currEvent2 = NULL;
+  SnglInspiralTable *newEvent = NULL;
+  SnglInspiralTable *newEventHead = NULL;
+  UINT4 triggerNum = 0;
+  UINT4 lenTriggers = 0;
+  UINT4 numRemovedTriggers = 0;
+
+  /* find number of triggers */
+  while (currEvent)
+  {
+    lenTriggers+=1;
+    currEvent = currEvent->next;
+  }
+
+  currEvent = *eventList;
+  UINT4 rejectTriggers[lenTriggers];
+
+  /* for each trigger, find out whether a louder trigger is within the
+ *    * clustering time */
+  while (currEvent)
+  {
+    if (coh_PTF_accept_sngl_trig_check(params,eventList,*currEvent) )
+    {
+      rejectTriggers[triggerNum] = 0;
+      triggerNum += 1;
+    }
+    else
+    {
+      rejectTriggers[triggerNum] = 1;
+      triggerNum += 1;
+      numRemovedTriggers += 1;
+    }
+    currEvent = currEvent->next;
+  }
+
+  currEvent = *eventList;
+  triggerNum = 0;
+
+  /* construct new event table with triggers to keep */
+  while (currEvent)
+  {
+    if (! rejectTriggers[triggerNum])
+    {
+      if (! newEventHead)
+      {
+        newEventHead = currEvent;
+        newEvent = currEvent;
+      }
+      else
+      {
+        newEvent->next = currEvent;
+        newEvent = currEvent;
+      }
+      currEvent = currEvent->next;
+    }
+    else
+    {
+      if (currEvent->event_id)
+      {
+        LALFree(currEvent->event_id);
+      }
+      currEvent2 = currEvent->next;
+      LALFree(currEvent);
+      currEvent = currEvent2;
+    }
+    triggerNum+=1;
+  }
+
+  /* write new table over old one */
+  if (newEvent)
+  {
+    newEvent->next = NULL;
+    *eventList = newEventHead;
+    *thisEvent = newEvent;
+  }
+}
+
 void coh_PTF_cleanup(
     struct coh_PTF_params   *params,
     ProcessParamsTable      *procpar,
@@ -2276,6 +3071,7 @@ void coh_PTF_cleanup(
     REAL4FrequencySeries    **invspec,
     RingDataSegments        **segments,
     MultiInspiralTable      *events,
+    SnglInspiralTable       *snglEvents,
     InspiralTemplate        *PTFbankhead,
     FindChirpTemplate       *fcTmplt,
     FindChirpTmpltParams    *fcTmpltParams,
@@ -2284,15 +3080,20 @@ void coh_PTF_cleanup(
     REAL8Array              **PTFN,
     COMPLEX8VectorSequence  **PTFqVec,
     REAL4                   *timeOffsets,
+    REAL4                   *slidTimeOffsets,
     REAL4                   *Fplus,
     REAL4                   *Fcross,
     REAL4                   *Fplustrig,
     REAL4                   *Fcrosstrig,
     CohPTFSkyPositions      *skyPoints,
     TimeSlide               *time_slide_head,
+    TimeSlideVectorList     *longTimeSlideList,
+    TimeSlideVectorList     *shortTimeSlideList,
     REAL4                   *timeSlideVectors,
     LALDetector             **detectors,
-    INT8                    *slideIDList
+    INT8                    *slideIDList,
+    TimeSlideSegmentMapTable *time_slide_map_head,
+    SegmentTable            *segment_table_head
 )
 {
   if ( params->injectList )
@@ -2324,6 +3125,18 @@ void coh_PTF_cleanup(
     }
     LALFree( thisEvent );
   }
+  while ( snglEvents )
+  {
+    SnglInspiralTable *thisSnglEvent;
+    thisSnglEvent = snglEvents;
+    snglEvents = snglEvents->next;
+    if ( thisSnglEvent->event_id )
+    {
+      LALFree( thisSnglEvent->event_id );
+    }
+    LALFree( thisSnglEvent );
+  }
+
   while ( PTFbankhead )
   {
     InspiralTemplate *thisTmplt;
@@ -2408,6 +3221,8 @@ void coh_PTF_cleanup(
     LALFree( fcInitParams );
   if ( timeOffsets )
     LALFree( timeOffsets );
+  if ( slidTimeOffsets)
+    LALFree( slidTimeOffsets );
   if ( Fplus )
     LALFree( Fplus );
   if ( Fcross )
@@ -2425,6 +3240,14 @@ void coh_PTF_cleanup(
   }
   if (time_slide_head)
     XLALDestroyTimeSlideTable(time_slide_head);
+  if (time_slide_map_head)
+    XLALDestroyTimeSlideSegmentMapTable(time_slide_map_head);
+  if (segment_table_head)
+    XLALDestroySegmentTable(segment_table_head);
+  if (longTimeSlideList)
+    LALFree(longTimeSlideList);
+  if (shortTimeSlideList)
+    LALFree(shortTimeSlideList);
   if (timeSlideVectors)
     LALFree(timeSlideVectors);
 
@@ -3438,9 +4261,12 @@ void findInjectionSegment(
     struct coh_PTF_params *params
     )
 {
+    /* WARNING: THIS FUNCTION WILL NOT WORK WITH SHORT SLIDES. DO NOT ATTEMPT
+     * TO SLIDE INJECTION TRIGGERS WITHOUT FIXING THIS FUNCTION FIRST! */ 
+
     /* define variables */
     LIGOTimeGPS injTime, segmentStart, segmentEnd;
-    UINT4 injSamplePoint, injWindow;
+    UINT4 injSamplePoint, injWindow, tmpStart, tmpEnd;
     REAL8 injDiff;
     INT8 startDiff, endDiff;
     SimInspiralTable *thisInject = NULL;
@@ -3450,6 +4276,8 @@ void findInjectionSegment(
     segmentEnd   = *epoch;
     XLALGPSAdd(&segmentEnd, params->strideDuration);
     thisInject = params->injectList;
+
+    tmpStart = tmpEnd = 0;
 
     /* loop over injections */
     while (thisInject)
@@ -3462,11 +4290,11 @@ void findInjectionSegment(
         {
             verbose("Generating analysis segment for injection at %d.\n",
                     injTime.gpsSeconds);
-            if (*start)
+            if (tmpStart)
             {
                 verbose("warning: multiple injections in this segment.\n");
-                *start = params->analStartPoint;
-                *end = params->analEndPoint;
+                tmpStart = params->analStartPoint;
+                tmpEnd = params->analEndPoint;
             }
             else
             {
@@ -3476,17 +4304,47 @@ void findInjectionSegment(
                 injSamplePoint += params->analStartPoint;
                 injWindow = floor(params->injSearchWindow * params->sampleRate
                                   + 1);
-                *start = injSamplePoint - injWindow;
-                if (*start < params->analStartPoint)
-                    *start = params->analStartPoint;
-                *end = injSamplePoint + injWindow + 1;
-                if (*end > params->analEndPoint)
-                    *end = params->analEndPoint;
-                verbose("Found analysis segment at [%d,%d).\n", *start, *end);
+                tmpStart = injSamplePoint - injWindow;
+                if (tmpStart < params->analStartPoint)
+                    tmpStart = params->analStartPoint;
+                tmpEnd = injSamplePoint + injWindow + 1;
+                if (tmpEnd > params->analEndPoint)
+                    tmpEnd = params->analEndPoint;
+                verbose("Found analysis segment at [%d,%d).\n", tmpStart, tmpEnd);
             }
         }
         thisInject = thisInject->next;
     }
+    *start = tmpStart;
+    *end = tmpEnd;  
+}
+
+UINT4 coh_PTF_trig_time_check(
+    struct coh_PTF_params *params,
+    LIGOTimeGPS segStartTime,
+    LIGOTimeGPS segEndTime)
+{
+  INT8 currTimeNS;
+  /* Does the segment end before the trigStartTime */
+  if (params->trigStartTimeNS)
+  {
+    currTimeNS = segEndTime.gpsSeconds * 1E9 + segEndTime.gpsNanoSeconds;
+    if (params->trigStartTimeNS > currTimeNS)
+    {
+      return 1;
+    }
+  }
+  /* Does the segment start before the trigEndTime */
+  if (params->trigEndTimeNS)
+  {
+    currTimeNS = segStartTime.gpsSeconds * 1E9 + segStartTime.gpsNanoSeconds;
+    if (params->trigStartTimeNS > currTimeNS)
+    {
+      return 1;
+    }
+  }
+  /* Otherwise pass */
+  return 0;
 }
 
 UINT4 checkInjectionMchirp(
@@ -3617,6 +4475,18 @@ void coh_PTF_set_null_input_COMPLEX8VectorSequence(
 
 void coh_PTF_set_null_input_REAL4(
   REAL4** array,
+  UINT4 length
+)
+{
+  UINT4 i;
+  for (i = 0 ; i < length ; i++)
+  {
+    array[i] = NULL;
+  }
+}
+
+void coh_PTF_set_null_input_UINT4(
+  UINT4** array,
   UINT4 length
 )
 {

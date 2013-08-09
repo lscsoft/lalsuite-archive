@@ -81,7 +81,6 @@
 "  --injection-type TYPE    type of injection, must be one of \n"\
 "                           (strain, etmx, etmy)\n"\
 "  --seed           SEED    seed random number generator with SEED (1)\n"\
-"  --debug-level    LEVEL   set the LAL debug level to LEVEL\n"\
 "\n"
 
 /* global definitions */
@@ -339,8 +338,8 @@ static REAL4TimeSeries *injectWaveform(
       /* set the response function to unity */
       for ( k = 0; k < resp->data->length; ++k )
       {
-        resp->data->data[k].re = (REAL4) (1.0 /dynRange);
-        resp->data->data[k].im = 0.0;
+        resp->data->data[k].realf_FIXME = (REAL4) (1.0 /dynRange);
+        resp->data->data[k].imagf_FIXME = 0.0;
       }
       break;
 
@@ -351,8 +350,8 @@ static REAL4TimeSeries *injectWaveform(
         REAL8 sim_psd_freq = (REAL8) k * resp->deltaF;
         REAL8 sim_psd_value;
         LALLIGOIPsd( NULL, &sim_psd_value, sim_psd_freq );
-        resp->data->data[k].re = (REAL4) pow( sim_psd_value, 0.5 ) / dynRange;
-        resp->data->data[k].im = 0.0;
+        resp->data->data[k].realf_FIXME = (REAL4) pow( sim_psd_value, 0.5 ) / dynRange;
+        resp->data->data[k].imagf_FIXME = 0.0;
       }
       break;
 
@@ -389,8 +388,8 @@ static REAL4TimeSeries *injectWaveform(
   unity = XLALCreateCOMPLEX8Vector( resp->data->length );  
   for ( k = 0; k < unity->length; ++k ) 
   {
-    unity->data[k].re = 1.0;
-    unity->data[k].im = 0.0;
+    unity->data[k].realf_FIXME = 1.0;
+    unity->data[k].imagf_FIXME = 0.0;
   }
 
   XLALCCVectorDivide( detector.transfer->data, unity, resp->data );
@@ -466,7 +465,6 @@ int main( int argc, char *argv[] )
     {"gps-start-time",          required_argument, 0,                'a'},
     {"injection-type",          required_argument, 0,                't'},
     {"seed",                    required_argument, 0,                's'},
-    {"debug-level",             required_argument, 0,                'z'},
     {0, 0, 0, 0}
   };
   int c;
@@ -504,7 +502,6 @@ int main( int argc, char *argv[] )
 
   /* set up inital debugging values */
   lal_errhandler = LAL_ERR_EXIT;
-  set_debug_level( "33" );
 
 
   /* create the process and process params tables */
@@ -615,12 +612,6 @@ int main( int argc, char *argv[] )
             "Stephen Fairhurst\n");
         XLALOutputVersionString(stderr, 0);
         exit( 0 );
-        break;
-
-      case 'z':
-        set_debug_level( optarg );
-        next_process_param( long_options[option_index].name, "int", "%d",
-            optarg );
         break;
 
       case 'h':
@@ -815,9 +806,9 @@ int main( int argc, char *argv[] )
           REAL8 sim_psd_value;
           freq = fftData->deltaF * k;
           LALLIGOIPsd( NULL, &sim_psd_value, freq );
-          thisSnrsq += fftData->data->data[k].re * fftData->data->data[k].re /
+          thisSnrsq += crealf(fftData->data->data[k]) * crealf(fftData->data->data[k]) /
             sim_psd_value;
-          thisSnrsq += fftData->data->data[k].im * fftData->data->data[k].im /
+          thisSnrsq += cimagf(fftData->data->data[k]) * cimagf(fftData->data->data[k]) /
             sim_psd_value;
         }
         thisSnrsq *= 4*fftData->deltaF;

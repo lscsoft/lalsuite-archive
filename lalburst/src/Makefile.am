@@ -1,6 +1,7 @@
-AM_CPPFLAGS = -I$(top_builddir)/include
+AM_CPPFLAGS = -I$(top_builddir)/include -DPKG_DATA_DIR='"$(pkgdatadir)/"'
 
 lalburstincludedir = $(includedir)/lal
+
 lalburstinclude_HEADERS = \
 	CLR.h \
 	EPSearch.h \
@@ -69,14 +70,17 @@ lalburst-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
 	@echo "prepend PYTHONPATH $(pyexecdir)" >>$@
 	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
-	@printf "$(SWIG_USER_ENV)" >>$@
+	@echo "prepend OCTAVE_PATH $(octexecdir)" >>$@
 
 lalburst-user-env.csh lalburst-user-env.sh: lalburst-user-env.shell $(srcdir)/generate_user_env.awk
 	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
 
 EXTRA_DIST = \
 	LALBurstConfig.h.in \
+	config.h.in \
 	generate_user_env.awk
+
+DISTCLEANFILES = config.h
 
 if HAVE_GIT_REPO
 BUILT_SOURCES += LALBurstVCSInfo.h

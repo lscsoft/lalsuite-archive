@@ -33,7 +33,6 @@
          "thinca","process:process_id:0","--h2-mchirp-accuracy","float","0.01",
          "thinca","process:process_id:0","--data-type","string","all_data",
          "thinca","process:process_id:0","--l1-eta-accuracy","float","0.1",
-         "thinca","process:process_id:0","--debug-level","string","33",
          "thinca","process:process_id:0","--maximization-interval","int","10",
          "thinca","process:process_id:0","--gps-start-time","int","822746565",
          "thinca","process:process_id:0","--h1-mchirp-accuracy","float","0.01",

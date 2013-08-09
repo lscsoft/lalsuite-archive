@@ -6,7 +6,6 @@ import lal
 import lalframe
 from lalframe import cvar as lalframecvar
 from lal import cvar as lalcvar
-lalcvar.lalDebugLevel = 1
 print("passed module load")
 
 # check object parent tracking

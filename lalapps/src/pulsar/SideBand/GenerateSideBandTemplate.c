@@ -33,7 +33,6 @@
 #endif
 
 /* LAL-includes */
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/AVFactories.h>
 #include <lal/UserInput.h>
 
@@ -130,14 +129,12 @@ int main(int argc,char *argv[])
   REAL8 df;
   EmissionTime emit;
 
-  lalDebugLevel = 8;  
   vrbflg = 1;	/* verbose error-messages */
   
   /* set LAL error-handler */
   lal_errhandler = LAL_ERR_EXIT;
 
   /* register all user-variable */
-  LAL_CALL (LALGetDebugLevel(&status, argc, argv, 'v'), &status);
   LAL_CALL (initUserVars(&status), &status); 	
 
   /* do ALL cmdline and cfgfile handling */
@@ -320,8 +317,8 @@ int main(int argc,char *argv[])
   for (i=0;i<(INT4)Nbins;i++) {
     fprintf(fp,"%16.12f %6.9f %6.9f\n",
 	    TParams->freqsamples->data[i],
-	    Template->fourier->data[i].re,
-	    Template->fourier->data[i].im);
+	    creal(Template->fourier->data[i]),
+	    cimag(Template->fourier->data[i]));
   }
   fclose(fp);
     

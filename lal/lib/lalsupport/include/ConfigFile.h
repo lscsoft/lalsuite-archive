@@ -40,14 +40,16 @@ The general syntax is somewhat similar to the one provided by the
 perl-module <tt>ConfigParser</tt> (cf.
 http://www.python.org/doc/current/lib/module-ConfigParser.html)
 
-Comments are allowed using either '<tt>\#</tt>', '<tt>;</tt>' or <tt>\%</tt>.
+Comments are allowed using either '<tt>\#</tt>' or <tt>\%</tt>.
 You can also use line-continuation  using a '<tt>\\</tt>' at the end of the line.
-Also note that comment-signs '<tt>\#;\%</tt>' within double-quotes &quot;...&quot;
-are <em>not</em> treated as comment-characters.  The general syntax is best illustrated
+Also note that comment-signs '<tt>\#\%</tt>' within double-quotes &quot;...&quot;
+are <em>not</em> treated as comment-characters.
+Semi-colons <tt>;</tt> are ignored, but can be used to separate several assignments on the same line.
+The general syntax is best illustrated
 using a simple example:
 \code
 # comment line
-var1 = 1.0    ; you can also comment using semi-colons
+var1 = 1.0; var2 = 3.1;   ## several assignments on a line, separated by ';'
 somevar = some text.\
         You can also use\
         line-continuation
@@ -119,9 +121,7 @@ typedef enum {
 /** This structure defines a config-variable to be read in using the
  * general-purpose reading function LALReadConfigVariable(). */
 #ifdef SWIG /* SWIG interface directives */
-%warnfilter(SWIGWARN_TYPEMAP_CHARLEAK) tagLALConfigVar::secName;
-%warnfilter(SWIGWARN_TYPEMAP_CHARLEAK) tagLALConfigVar::varName;
-%warnfilter(SWIGWARN_TYPEMAP_CHARLEAK) tagLALConfigVar::fmt;
+SWIGLAL(IMMUTABLE_MEMBERS(tagLALConfigVar, secName, varName, fmt));
 #endif /* SWIG */
 typedef struct tagLALConfigVar {
   const CHAR *secName;          /**< Section name within which to find varName.  May be NULL */
@@ -132,7 +132,7 @@ typedef struct tagLALConfigVar {
 
 
 /** This structure is returned by LALParseDataFile() and holds the contents of an
- * ASCII data-file in a pre-parsed form, namely stripped from all comments ('\#', ';'),
+ * ASCII data-file in a pre-parsed form, namely stripped from all comments ('\#', '\%'),
  * spurious whitespaces, and separated into lines (taking into account line-continuation
  * by '\\' at the end of lines).
  * This is used as the input structure in the config-variable reading routines.
@@ -145,9 +145,12 @@ typedef struct tagLALParsedDataFile {
 
 /* Function prototypes */
 int XLALParseDataFile (LALParsedDataFile **cfgdata, const CHAR *fname);
+int XLALParseDataFileContent (LALParsedDataFile **cfgdata, const CHAR *string );
+
 void XLALDestroyParsedDataFile (LALParsedDataFile *cfgdata);
 
 int XLALConfigSectionExists(const LALParsedDataFile *, const CHAR *);
+LALStringVector *XLALListConfigFileSections ( const LALParsedDataFile *cfgdata );
 
 int
 XLALReadConfigBOOLVariable (BOOLEAN *varp,

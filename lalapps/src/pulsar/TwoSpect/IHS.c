@@ -418,11 +418,13 @@ void genIhsFar(ihsfarStruct *output, inputParamsStruct *params, INT4 rows, REAL4
       while (randval<=0.0 || randval>=2.0) randval = 1.0 + gsl_ran_gaussian(params->rng, 0.2);     //limit range of variation
 
       //scale the exponential noise
-      sseScaleREAL4Vector(noise, noise, randval);
-      if (xlalErrno!=0) {
-         fprintf(stderr, "%s: sseScaleREAL4Vector() failed.\n", __func__);
-         XLAL_ERROR_VOID(XLAL_EFUNC);
-      }
+      if (params->useSSE) {
+         sseScaleREAL4Vector(noise, noise, randval);
+         if (xlalErrno!=0) {
+           fprintf(stderr, "%s: sseScaleREAL4Vector() failed.\n", __func__);
+           XLAL_ERROR_VOID(XLAL_EFUNC);
+         }
+      } else for (jj=0; jj<(INT4)noise->length; jj++) noise->data[jj] *= randval;
 
       //Compute IHS value on exponential noise
       incHarmSumVector(ihsvector, noise, params->ihsfactor);
@@ -468,6 +470,10 @@ void sumIHSSequenceFAR(ihsfarStruct *outputfar, REAL4VectorSequence *ihsvectorse
 {
 
    INT4 ii, jj;
+
+   //The minimum and maximum index to search in the IHS vector
+   INT4 maxIndexForIHS = (INT4)ceil(fmin(params->Tobs/7200.0, params->Tobs/params->Pmin)) - 5;
+   INT4 minIndexForIHS = (INT4)floor(fmax(5.0, params->Tobs/params->Pmax)) - 5;
 
    //Allocate a vector sequence that holds the summed values of at least two nearest neighbor rows
    //On the first iteration this holds the nearest neighbor sums, but on subsequent iterations, this holds nearest 3 neighbors
@@ -522,7 +528,7 @@ void sumIHSSequenceFAR(ihsfarStruct *outputfar, REAL4VectorSequence *ihsvectorse
             excessabovenoise->data[jj] = ihsvectorsequence->data[ii*ihsvectorsequence->vectorLength + jj] - scaledExpectedIHSVectorValues->data[jj];
          }
       }
-      ihslocations->data[ii] = max_index(excessabovenoise) + 5;  //Find the location of the maximum IHS value
+      ihslocations->data[ii] = max_index_in_range(excessabovenoise, minIndexForIHS, maxIndexForIHS) + 5;  //Find the location of the maximum IHS value
       ihsvalues->data[ii] = ihsvectorsequence->data[ii*ihsvectorsequence->vectorLength + ihslocations->data[ii]-5];  //And get the value
       //fprintf(stderr, "%d %f\n", ihslocations->data[ii], ihsvalues->data[ii]);
    } /* for ii=0 --> ihsvalues->length */
@@ -593,6 +599,10 @@ void sumIHSSequenceFAR(ihsfarStruct *outputfar, REAL4VectorSequence *ihsvectorse
             
             //We also calculate the standard deviation
             outputfar->ihsdistSigma->data[ii-2] = calcStddev(sampledtempihsvals);
+            if (xlalErrno!=0) {
+               fprintf(stderr, "%s: calcStddev() failed.\n", __func__);
+               XLAL_ERROR_VOID(XLAL_EFUNC);
+            }
             
             //If the user has specified the IHS FAR == 1.0, then we don't need to compute the threshold (it is = 0.0)
             averageval = (REAL8)sampledtempihsvals->length;
@@ -633,6 +643,10 @@ void sumIHSSequenceFAR(ihsfarStruct *outputfar, REAL4VectorSequence *ihsvectorse
             
             //We also calculate the standard deviation
             outputfar->ihsdistSigma->data[ii-2] = calcStddev_ignoreZeros(sampledtempihsvals);
+            if (xlalErrno!=0) {
+               fprintf(stderr, "%s: calcStddev_ignoreZeros() failed.\n", __func__);
+               XLAL_ERROR_VOID(XLAL_EFUNC);
+            }
             
             //If the user has specified the IHS FAR == 1.0, then we don't need to compute the threshold (it is = 0.0)
             if (params->ihsfar != 1.0) {
@@ -670,6 +684,10 @@ void sumIHSSequenceFAR(ihsfarStruct *outputfar, REAL4VectorSequence *ihsvectorse
          //FOM part
          outputfar->ihsfomdistMean->data[ii-2] = calcMean(foms);
          outputfar->ihsfomdistSigma->data[ii-2] = calcStddev(foms);
+         if (xlalErrno!=0) {
+            fprintf(stderr, "%s: calcStddev() failed.\n", __func__);
+            XLAL_ERROR_VOID(XLAL_EFUNC);
+         }
          if (params->ihsfomfar!=1.0 && params->ihsfom==0.0) {
 	    //We need to find the smallest values
             REAL4Vector *smallestfomvals = XLALCreateREAL4Vector((INT4)round((ihsvalues->length-ii+1)*params->ihsfomfar)+1);
@@ -738,6 +756,10 @@ void sumIHSSequenceFAR(ihsfarStruct *outputfar, REAL4VectorSequence *ihsvectorse
             sampledtempihsvals = sampleREAL4VectorSequence_nozerosaccepted(tworows, ihsvectorsequence->length-(ii-1), 10000, params->rng);
             outputfar->ihsdistMean->data[ii-2] = calcMean(sampledtempihsvals);
             outputfar->ihsdistSigma->data[ii-2] = calcStddev(sampledtempihsvals);
+            if (xlalErrno!=0) {
+               fprintf(stderr, "%s: calcStddev() failed.\n", __func__);
+               XLAL_ERROR_VOID(XLAL_EFUNC);
+            }
             
             averageval = (REAL8)sampledtempihsvals->length;
             if (params->ihsfar != 1.0) {
@@ -769,6 +791,10 @@ void sumIHSSequenceFAR(ihsfarStruct *outputfar, REAL4VectorSequence *ihsvectorse
             memcpy(sampledtempihsvals->data, tworows->data, sizeof(REAL4)*sampledtempihsvals->length);
             outputfar->ihsdistMean->data[ii-2] = calcMean_ignoreZeros(sampledtempihsvals);
             outputfar->ihsdistSigma->data[ii-2] = calcStddev_ignoreZeros(sampledtempihsvals);
+            if (xlalErrno!=0) {
+               fprintf(stderr, "%s: calcStddev_ignoreZeros() failed.\n", __func__);
+               XLAL_ERROR_VOID(XLAL_EFUNC);
+            }
             
             if (params->ihsfar != 1.0) {
                for (jj=0; jj<(INT4)sampledtempihsvals->length; jj++) {
@@ -798,6 +824,10 @@ void sumIHSSequenceFAR(ihsfarStruct *outputfar, REAL4VectorSequence *ihsvectorse
          //FOM part
          outputfar->ihsfomdistMean->data[ii-2] = calcMean(foms);
          outputfar->ihsfomdistSigma->data[ii-2] = calcStddev(foms);
+         if (xlalErrno!=0) {
+            fprintf(stderr, "%s: calcStddev() failed.\n", __func__);
+            XLAL_ERROR_VOID(XLAL_EFUNC);
+         }
          if (params->ihsfomfar!=1.0 && params->ihsfom==0.0) {
             REAL4Vector *smallestfomvals = XLALCreateREAL4Vector((INT4)round((ihsvalues->length-ii+1)*params->ihsfomfar)+1);
             if (smallestfomvals==NULL) {
@@ -839,7 +869,7 @@ void sumIHSSequence(ihsMaximaStruct *output, ihsfarStruct *inputfar, REAL4Vector
 
    INT4 ii, jj, kk;
 
-   //Again, we start off by allocating a "towrows" vector sequence of IHS nearest neighbor sums
+   //Again, we start off by allocating a "tworows" vector sequence of IHS nearest neighbor sums
    REAL4VectorSequence *tworows = XLALCreateREAL4VectorSequence(ihsvectorsequence->length-1, ihsvectorsequence->vectorLength);
    if (tworows==NULL) {
       fprintf(stderr,"%s: XLALCreateREAL4VectorSequence(%d,%d) failed.\n", __func__, ihsvectorsequence->length-1, ihsvectorsequence->vectorLength);
@@ -870,7 +900,7 @@ void sumIHSSequence(ihsMaximaStruct *output, ihsfarStruct *inputfar, REAL4Vector
    }
    
    //The minimum and maximum index to search in the IHS vector
-   INT4 maxIndexForIHS = (INT4)ceil(fmin(2.0*params->Tobs/7200.0, 2.0*params->Tobs/params->Pmin)) - 5;
+   INT4 maxIndexForIHS = (INT4)ceil(fmin(params->Tobs/7200.0, params->Tobs/params->Pmin)) - 5;
    INT4 minIndexForIHS = (INT4)floor(fmax(5.0, params->Tobs/params->Pmax)) - 5;
    
    //Finding the maximum for each IHS vector and the location using SSE or not
@@ -1311,7 +1341,7 @@ void findIHScandidates(candidateVector *candlist, ihsfarStruct *ihsfarstruct, in
                      significance = log10(LAL_E)*ihsmaxima->maxima->data[locationinmaximastruct] - (totalnoise - 1.0)*log10(ihsmaxima->maxima->data[locationinmaximastruct]) + lgamma(totalnoise)/log(10.0);
                   } else significance = -log10(significance);
                   
-                  if ( significance > highestsignificance && (params->followUpOutsideULrange || (!params->followUpOutsideULrange && fsig>=params->ULfmin && fsig<=(params->ULfmin+params->ULfspan) && B>=params->ULmindf && B<=params->ULmaxdf)) ) {
+                  if ( significance > highestsignificance && (params->followUpOutsideULrange || (!params->followUpOutsideULrange && fsig>=params->ULfmin && fsig<(params->ULfmin+params->ULfspan) && B>=params->ULmindf && B<=params->ULmaxdf)) ) {
                      highestval = ihsmaxima->maxima->data[locationinmaximastruct]-totalnoise;
                      highestvalloc = locationinmaximastruct;
                      highestsignificance = significance;

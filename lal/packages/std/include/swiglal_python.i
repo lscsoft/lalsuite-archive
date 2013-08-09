@@ -34,11 +34,21 @@
   import_array();
 %}
 
-// Name of PyObject containing the SWIG wrapping of the 'this'
-// pointer, i.e. the struct whose members are being accessed.
+// Name of PyObject containing the SWIG wrapping of the struct whose members are being accessed.
 %header %{
-#define swiglal_self()    self
-#define swiglal_no_self() NULL
+#define swiglal_self()    (self)
+#define swiglal_no_self() (NULL)
+%}
+
+// Name of PyObject containing the SWIG wrapping of the first argument to a function.
+%header %{
+#define swiglal_1starg()  (obj0)
+%}
+
+// Append an argument to the output argument list of an Python SWIG-wrapped function, if the list is empty.
+%header %{
+#define swiglal_append_output_if_empty(v) \
+  if (resultobj == Py_None) resultobj = SWIG_Python_AppendOutput(resultobj, v)
 %}
 
 ////////// SWIG directives for operators //////////
@@ -106,32 +116,6 @@
 
 ////////// General fragments, typemaps, and macros //////////
 
-// Helper fragment and macro for typemap for functions which return 'int'.
-// Drops the first return value (which is the 'int') from the output argument
-// list if the argument list contains at least 2 items (the 'int' and some
-// other output argument).
-%fragment("swiglal_maybe_drop_first_retval", "header") {
-  SWIGINTERN PyObject* swiglal_maybe_drop_first_retval(PyObject* out) {
-    if (!PySequence_Check(out)) {
-      return out;
-    }
-    Py_ssize_t len = PySequence_Length(out);
-    if (len <= 1) {
-      return out;
-    }
-    PyObject* old = out;
-    if (len == 2) {
-      out = PySequence_GetItem(old, 1);
-    } else {
-      out = PySequence_GetSlice(old, 1, len);
-    }
-    Py_CLEAR(old);
-    return out;
-  }
-}
-#define %swiglal_maybe_drop_first_retval() \
-  resultobj = swiglal_maybe_drop_first_retval(resultobj)
-
 // SWIG conversion fragments and typemaps for GSL complex numbers.
 %swig_cplxflt_convn(gsl_complex_float, gsl_complex_float_rect, GSL_REAL, GSL_IMAG);
 %swig_cplxdbl_convn(gsl_complex, gsl_complex_rect, GSL_REAL, GSL_IMAG);
@@ -139,8 +123,8 @@
 %typemaps_primitive(%checkcode(CPLXDBL), gsl_complex);
 
 // SWIG conversion fragments and typemaps for LAL complex numbers.
-%swig_cplxflt_convn(COMPLEX8, CX8rect, CX8re, CX8im);
-%swig_cplxdbl_convn(COMPLEX16, CX16rect, CX16re, CX16im);
+%swig_cplxflt_convn(COMPLEX8, crectf, crealf, cimagf);
+%swig_cplxdbl_convn(COMPLEX16, crect, creal, cimag);
 %typemaps_primitive(%checkcode(CPLXFLT), COMPLEX8);
 %typemaps_primitive(%checkcode(CPLXDBL), COMPLEX16);
 
@@ -372,10 +356,12 @@
 // Fragment defining helper functions for the NumPy object-view array descriptors.
 %fragment("swiglal_py_array_objview", "header") {
 
-  // Struct which associates a SWIG type descriptor with a NumPy array descriptor.
+  // Struct which associates a SWIG type descriptor with two NumPy array descriptors,
+  // one for arrays of data blocks (_noptr), and one for arrays of pointers (_isptr).
   typedef struct {
     swig_type_info* tinfo;
-    PyArray_Descr* descr;
+    PyArray_Descr* descr_noptr;
+    PyArray_Descr* descr_isptr;
   } swiglal_py_array_type_pair;
 
   // Static array of SWIG type/NumPy array descriptor pairs. This array should
@@ -387,22 +373,24 @@
 
   // This function maps a SWIG type descriptor to a NumPy array descriptor,
   // or returns the first NULL element if a mapping doesn't exist yet.
-  SWIGINTERN PyArray_Descr* *swiglal_py_array_descr_from_tinfo(swig_type_info* tinfo) {
+  SWIGINTERN PyArray_Descr** swiglal_py_array_descr_from_tinfo(const bool isptr, swig_type_info* tinfo) {
     size_t i = 0;
     while (swiglal_py_array_types[i].tinfo != NULL && swiglal_py_array_types[i].tinfo != tinfo)
       ++i;
     if (swiglal_py_array_types[i].tinfo == NULL)
       swiglal_py_array_types[i].tinfo = tinfo;
-    return &swiglal_py_array_types[i].descr;
+    return isptr ? &swiglal_py_array_types[i].descr_isptr : &swiglal_py_array_types[i].descr_noptr;
   }
 
   // This function maps a NumPy array descriptor to a SWIG type descriptor,
   // or returns NULL element if a mapping doesn't exist.
-  SWIGINTERN swig_type_info* swiglal_py_array_tinfo_from_descr(PyArray_Descr* descr) {
+  SWIGINTERN void swiglal_py_array_tinfo_from_descr(bool *isptr, swig_type_info** tinfo, PyArray_Descr* descr) {
     size_t i = 0;
-    while (swiglal_py_array_types[i].descr != NULL && swiglal_py_array_types[i].descr != descr)
+    while ( ( swiglal_py_array_types[i].descr_noptr != NULL  || swiglal_py_array_types[i].descr_isptr != NULL  ) &&
+            ( swiglal_py_array_types[i].descr_noptr != descr && swiglal_py_array_types[i].descr_isptr != descr ) )
       ++i;
-    return swiglal_py_array_types[i].tinfo;
+    *isptr = (swiglal_py_array_types[i].descr_isptr == descr);
+    *tinfo = swiglal_py_array_types[i].tinfo;
   }
 
   // Array of NumPy types that a NumPy object-view array can be safely cast to.
@@ -471,7 +459,9 @@
     assert(nparr->descr != NULL);
 
     // Look up the SWIG type descriptor for this array.
-    swig_type_info* tinfo = swiglal_py_array_tinfo_from_descr(nparr->descr);
+    bool isptr;
+    swig_type_info* tinfo = NULL;
+    swiglal_py_array_tinfo_from_descr(&isptr, &tinfo, nparr->descr);
     assert(tinfo != NULL);
 
     // Get the Python object wrapping the C array element.
@@ -491,7 +481,9 @@
     assert(nparr->descr != NULL);
 
     // Look up the SWIG type descriptor for this array.
-    swig_type_info* tinfo = swiglal_py_array_tinfo_from_descr(nparr->descr);
+    bool isptr;
+    swig_type_info* tinfo = NULL;
+    swiglal_py_array_tinfo_from_descr(&isptr, &tinfo, nparr->descr);
     assert(tinfo != NULL);
 
     // Set the C array element to the supplied Python object.
@@ -580,10 +572,10 @@
   // This function returns the NumPy array descriptor appropriate for the
   // supplied SWIG type descriptor. If no array descriptor exists, it creates
   // one from the array descriptor for type ACFTYPE.
-  SWIGINTERN PyArray_Descr* swiglal_py_array_objview_##ACFTYPE##_descr(swig_type_info* tinfo, const int esize) {
+  SWIGINTERN PyArray_Descr* swiglal_py_array_objview_##ACFTYPE##_descr(const bool isptr, swig_type_info* tinfo, const int esize) {
 
     // Lookup existing NumPy array descriptor for SWIG type descriptor.
-    PyArray_Descr* *pdescr = swiglal_py_array_descr_from_tinfo(tinfo);
+    PyArray_Descr* *pdescr = swiglal_py_array_descr_from_tinfo(isptr, tinfo);
 
     // Create NumPy array descriptor if none yet exists.
     if (*pdescr == NULL) {
@@ -628,6 +620,7 @@
                                                        const size_t ndims,
                                                        const size_t dims[],
                                                        const size_t strides[],
+                                                       const bool isptr,
                                                        swig_type_info *tinfo,
                                                        const int tflags)
     {
@@ -699,6 +692,7 @@
                                                               const size_t ndims,
                                                               const size_t dims[],
                                                               const size_t strides[],
+                                                              const bool isptr,
                                                               swig_type_info *tinfo,
                                                               const int tflags)
     {
@@ -760,17 +754,13 @@
                                                               const size_t ndims,
                                                               const size_t dims[],
                                                               const size_t strides[],
+                                                              const bool isptr,
                                                               swig_type_info *tinfo,
                                                               const int tflags)
     {
       PyObject* nparr = NULL;
       npy_intp objdims[ndims];
       npy_intp objstrides[ndims];
-
-      // Check that C array is non-NULL.
-      if (ptr == NULL) {
-        goto fail;
-      }
 
       // Copy C array dimensions and strides.
       for (int i = 0; i < ndims; ++i) {
@@ -812,18 +802,18 @@
 %swiglal_py_array_objview(ACFTYPE, INFRAG, OUTFRAG, INCALL, OUTCALL);
 %swiglal_py_array_frags(ACFTYPE, INFRAG, OUTFRAG, INCALL, OUTCALL,
                         %swiglal_py_array_objview_frag(ACFTYPE),
-                        NPY_OBJECT, %arg(swiglal_py_array_objview_##ACFTYPE##_descr(tinfo, esize)));
+                        NPY_OBJECT, %arg(swiglal_py_array_objview_##ACFTYPE##_descr(isptr, tinfo, esize)));
 %enddef
 
 // Array conversion fragments for generic arrays, e.g. SWIG-wrapped types.
 %swiglal_py_array_objview_frags(SWIGTYPE, "swiglal_as_SWIGTYPE", "swiglal_from_SWIGTYPE",
-                                %arg(swiglal_as_SWIGTYPE(parent, objelem, elemptr, esize, tinfo, tflags)),
-                                %arg(swiglal_from_SWIGTYPE(parent, elemptr, tinfo, tflags)));
+                                %arg(swiglal_as_SWIGTYPE(parent, objelem, elemptr, esize, isptr, tinfo, tflags)),
+                                %arg(swiglal_from_SWIGTYPE(parent, elemptr, isptr, tinfo, tflags)));
 
 // Array conversion fragments for arrays of LAL strings.
-%swiglal_py_array_objview_frags(LALCHAR, "SWIG_AsNewLALCHARPtr", "SWIG_FromLALCHARPtr",
-                                %arg(SWIG_AsNewLALCHARPtr(objelem, %reinterpret_cast(elemptr, CHAR**))),
-                                %arg(SWIG_FromLALCHARPtr(*%reinterpret_cast(elemptr, CHAR**))));
+%swiglal_py_array_objview_frags(LALchar, "SWIG_AsNewLALcharPtr", "SWIG_FromLALcharPtr",
+                                %arg(SWIG_AsNewLALcharPtr(objelem, %reinterpret_cast(elemptr, char**))),
+                                %arg(SWIG_FromLALcharPtr(*%reinterpret_cast(elemptr, char**))));
 
 // Macro which generates array conversion function fragments to/from Python
 // arrays for real/fragment TYPEs which use SWIG_AsVal/From fragments.

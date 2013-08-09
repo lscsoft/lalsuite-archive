@@ -34,7 +34,7 @@ time1=time()
 parser=OptionParser(usage="%prog [options] [file ...]", description = description, version="Name: %%prog\n%s" % git_version.verbose_msg)
 parser.add_option("-a","--all-instruments", help = "the list of all instruments from which you want to study the double-coincident triggers. e.g. H1,H2,L1,V1")
 parser.add_option("-t","--output-tag", help = "tag to identify, for example, which category your zerolag average rank file is for")
-parser.add_option("-o","--dont-reset-likelihoods", default = False, action="store_false", help="provide this option if you want to reset all the likelihoods to 1 before updating this time")
+parser.add_option("-o","--dont-reset-likelihoods", default = False, action="store_false", help="provide this option if you don't want to reset all the likelihoods to 1 before updating this time")
 parser.add_option("-s","--tmp-space",help="necessary for sqlite calls, for example /usr1/khodge")
 (opts,inputfiles)=parser.parse_args()
 

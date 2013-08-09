@@ -212,7 +212,7 @@ class pylal_sdist(sdist.sdist):
 
 setup(
 	name = "pylal",
-	version = "0.3.0",
+	version = "0.4.0",
 	author = "Kipp Cannon and Nickolas Fotopoulos",
 	author_email = "lal-discuss@gravity.phys.uwm.edu",
 	description = "Python LIGO Algorithm Library",
@@ -271,15 +271,6 @@ setup(
 		Extension(
 			"pylal.xlal.datatypes.complex16timeseries",
 			["src/xlal/datatypes/complex16timeseries.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
-		),
-		Extension(
-			"pylal.xlal.datatypes.laldetector",
-			["src/xlal/datatypes/laldetector.c"],
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
@@ -413,15 +404,6 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
-			"pylal.xlal.inject",
-			["src/xlal/inject.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
-		),
-		Extension(
 			"pylal.xlal.lalburst",
 			["src/xlal/lalburst.c", "src/xlal/misc.c"],
 			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalsimulation_pkg_config.incdirs + lalburst_pkg_config.incdirs + [numpy_get_include(),"src/xlal"],
@@ -449,15 +431,6 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
-			"pylal.xlal.window",
-			["src/xlal/window.c", "src/xlal/misc.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
-		),
-		Extension(
 			"pylal._spawaveform",
 			["src/_spawaveform.c"],
 			include_dirs = lal_pkg_config.incdirs + lalinspiral_pkg_config.incdirs + [numpy_get_include()],
@@ -470,15 +443,6 @@ setup(
 			"pylal._bayespputils",
 			["src/bayespputils.c","src/burnin.c"],
 			include_dirs = [numpy_get_include(),'src/']
-		),
-		Extension(
-			"pylal.cs_gamma",
-			["src/cs_gamma.c"],
-			include_dirs = lalburst_pkg_config.incdirs + [numpy_get_include()],
-			libraries = lalburst_pkg_config.libs,
-			library_dirs = lalburst_pkg_config.libdirs,
-			runtime_library_dirs = lalburst_pkg_config.libdirs,
-			extra_compile_args = lalburst_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal._stats",
@@ -525,7 +489,6 @@ setup(
 		os.path.join("bin", "plotbank"),
 		os.path.join("bin", "plotchannel"),
 		os.path.join("bin", "plotcohsnr"),
-		os.path.join("bin", "plotcoincmissed"),
 		os.path.join("bin", "plotchiatimeseries"),
 		os.path.join("bin", "plotdetresponse"),
 		os.path.join("bin", "plotextrapolation"),
@@ -535,8 +498,6 @@ setup(
 		os.path.join("bin", "lalapps_compute_posterior"),
 		os.path.join("bin", "plotulvsmass"),
 		os.path.join("bin", "plotifar"),
-		os.path.join("bin", "plotinjnum"),
-		os.path.join("bin", "plotinspfound"),
 		os.path.join("bin", "plotinspiral"),
 		os.path.join("bin", "plotinspinj"),
 		os.path.join("bin", "plotinspmissed"),
@@ -565,6 +526,7 @@ setup(
 		os.path.join("bin", "pylal_exttrig_llsummary"),
 		os.path.join("bin", "pylal_exttrig_llbox"),
 		os.path.join("bin", "pylal_exttrig_llpage"),
+		os.path.join("bin", "pylal_make_imr_summary_page"),
 		os.path.join("bin", "pylal_recolor"),
 		os.path.join("bin", "pylal_relic"),
 		os.path.join("bin", "pylal_version"),
@@ -605,7 +567,6 @@ setup(
 		os.path.join("bin", "lalapps_stringfinal"),
 		os.path.join("bin", "lalapps_string_calc_likelihood"),
 		os.path.join("bin", "lalapps_string_contour_plotter"),
-		os.path.join("bin", "lalapps_string_cs_gamma"),
 		os.path.join("bin", "lalapps_string_meas_likelihood"),
 		os.path.join("bin", "lalapps_string_plot_binj"),
 		os.path.join("bin", "lalapps_string_plot_likelihood"),
@@ -682,7 +643,6 @@ setup(
 		os.path.join("bin", "ligolw_cbc_plotcumhist"),
 		os.path.join("bin", "pylal_imr_missed_found"),
 		os.path.join("bin", "pylal_imr_livetime"),
-		os.path.join("bin", "make_imr_summary_page"),
 		os.path.join("bin", "lalapps_cbc_compute_rs"),
 		os.path.join("bin", "lalapps_cbc_print_rs"),
 		os.path.join("bin", "ligolw_cbc_printsims"),
@@ -737,6 +697,7 @@ setup(
 		os.path.join("bin","cbcBayesConvergence.py"),
 		os.path.join("bin", "pylal_noise_budget"),
 		os.path.join("bin", "pylal_seismon_run"),
+                os.path.join("bin", "pylal_seismon_traveltimes"),
 		os.path.join("bin", "pylal_summary_page"),
 		os.path.join("bin", "pylal_plot_triggers"),
 		os.path.join("bin", "ligolw_miinjfind"),
@@ -748,7 +709,8 @@ setup(
 		os.path.join("bin", "pylal_write_coh_PTF_page"),
 		os.path.join("bin", "ligolw_dbinjfind"),
 		os.path.join("bin", "lalapps_cbc_plothzdist"),
-		os.path.join("bin", "pylal_plot_segments")
+		os.path.join("bin", "pylal_plot_segments"),
+		os.path.join("bin", "ligolw_fix_ids")
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

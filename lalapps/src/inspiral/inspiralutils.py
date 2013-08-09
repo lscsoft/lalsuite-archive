@@ -682,6 +682,13 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
     hipecp.set("pipeline", "user-tag",usertag)
 
   if injSeed:
+    # fail if the seed is not identical to its integer form
+    # to prevent later problems with inspinj
+    if not ( str(int(injSeed)) == injSeed ):
+      print >>sys.stderr, "Injection seed: " + injSeed + "\n"
+      print >>sys.stderr, "Error: the injection seed must be an integer without leading zeros! Exiting..."
+      sys.exit(1)
+
     # copy over the arguments from the relevant injection section
     for (name,value) in config.items(hipeDir):
       hipecp.set("inspinj",name,value)
@@ -1019,7 +1026,8 @@ def plot_setup(plotDir, config, logPath, stage, injectionSuffix,
 # Function to set up and run pipedown
 
 def pipedownSetup(dag,config,logPath,pipedownDir,\
-                  cacheFile,parentNodes,playgroundOnly):
+                  cacheFile,parentNodes,playgroundOnly, \
+                  optiontorunmvsc):
   """
   Set up and run pipedown
   dag      = the dag
@@ -1065,6 +1073,8 @@ def pipedownSetup(dag,config,logPath,pipedownDir,\
   pipeCommand += " --gps-start-time " + gpsStart
   pipeCommand += " --gps-end-time " + gpsEnd
   pipeCommand += " --ihope-cache " + cacheFile
+  if optiontorunmvsc:
+    pipeCommand += " --run-mvsc"
   if not playgroundOnly:
     pipeCommand += " --generate-all-data-plots"
     # Need to add playground command

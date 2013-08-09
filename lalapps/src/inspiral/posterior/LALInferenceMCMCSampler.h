@@ -46,3 +46,47 @@
 void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState);
 /** Implements one MCMC step forward, updating the sigma values for the jump proposals if required.*/
 void PTMCMCOneStep(LALInferenceRunState *runState);
+
+/* Phase of run */
+typedef enum {
+	ONLY_PT,          /** Run only parallel tempers. */
+	TEMP_PT,          /** In the parallel tempering phase of an annealed run */
+    ANNEALING,        /** In the annealing phase of an annealed run */
+	SINGLE_CHAIN,     /** In the single-chain sampling phase of an annealed run */
+    LADDER_UPDATE     /** Move all temperature chains to cold chains location (helpful for burnin) */
+} LALInferenceMCMCrunPhase;
+
+/* MPI communications */
+typedef enum {
+    PT_COM,          /** Parallel tempering communications */
+    LADDER_UPDATE_COM,    /** Update positions across the ladder */
+    RUN_PHASE_COM,   /** runPhase passing */
+    RUN_COMPLETE       /** Run complete */
+} LALInferenceMPIcomm;
+
+/* PT swap return values  */
+typedef enum {
+    NO_SWAP_PROPOSED, /** No proposal was made */
+    REJECTED_SWAP,    /** A jump was proposed, but not accepted */
+    ACCEPTED_SWAP     /** A jump was proposed and accepted */
+} LALInferenceMPIswapAcceptance;
+
+/* Standard parallel temperature swap proposal function */
+UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, INT4 i, FILE *swapfile);
+
+/* Metropolis-coupled MCMC swap proposal, when the likelihood is not identical between chains */
+UINT4 LALInferenceMCMCMCswap(LALInferenceRunState *runState, REAL8 *ladder, INT4 i, FILE *swapfile);
+
+/* Functions for controlling adaptation */
+void acknowledgePhase(LALInferenceRunState *runState);
+void LALInferenceAdaptation(LALInferenceRunState *runState, INT4 cycle);
+void LALInferenceAdaptationRestart(LALInferenceRunState *runState, INT4 cycle);
+void LALInferenceAdaptationEnvelope(LALInferenceRunState *runState, INT4 cycle);
+void LALInferenceFlushPTswap(void);
+void LALInferenceLadderUpdate(LALInferenceRunState *runState, INT4 sourceChainFlag, INT4 cycle);
+
+/* Data IO routines */
+FILE* LALInferencePrintPTMCMCHeader(LALInferenceRunState *runState);
+void LALInferencePrintPTMCMCHeaderFile(LALInferenceRunState *runState, FILE *file);
+void LALInferencePrintPTMCMCInjectionSample(LALInferenceRunState *runState);
+void LALInferenceDataDump(LALInferenceRunState *runState);

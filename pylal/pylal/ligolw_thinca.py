@@ -41,11 +41,6 @@ from pylal import snglcoinc
 from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.datatypes import snglinspiraltable
-try:
-	all
-except NameError:
-	# Python < 2.5.x
-	from glue.iterutils import all
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -111,26 +106,6 @@ class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
-
-
-#
-# =============================================================================
-#
-#              Teach pylal.inject About LHO Coherent Combinations
-#
-# =============================================================================
-#
-
-
-# FIXME:  this is a hack to allow inject.light_travel_time(), which is used
-# internally by snglcoinc.py, to work with the H1H2 coherent and null
-# detectors.  the use of light_travel_time() internally by snglcoinc.py
-# might be inappropriate and should be re-considered.  in the meantime,
-# this will get the sub-solar mass search working.
-
-
-from pylal import inject
-inject.prefix_to_name["H1H2"] = "LHO_4k"
 
 
 #

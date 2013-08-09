@@ -51,7 +51,6 @@ GeneratePPNAmpCorInspiralTest [-m m1 m2] [-r dist] [-i inc phii psi] [-f f_min f
 
 #define BUFFSIZE 1024     /* Number of timesteps buffered */
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <math.h>
 #include <stdlib.h>
 #include <lal/LALStdio.h>
@@ -69,7 +68,6 @@ GeneratePPNAmpCorInspiralTest [-m m1 m2] [-r dist] [-i inc phii psi] [-f f_min f
 #include <lal/Date.h>
 #include <lal/Units.h>
 #include <lal/TimeDelay.h>
-#include <lal/LALBarycenter.h>
 #include <lal/VectorOps.h>
 #include <lal/SkyCoordinates.h>
 
@@ -84,7 +82,6 @@ GeneratePPNAmpCorInspiralTest [-m m1 m2] [-r dist] [-i inc phii psi] [-f f_min f
 #include <lal/LALInspiral.h>
 
 /* Default parameter settings. */
-extern int lalDebugLevel;
 #define EPOCH (315187200000000000LL) /* about Jan. 1, 1990 */
 #define M1    (1.4)
 #define M2    (1.4)
@@ -230,7 +227,6 @@ main(int argc, char **argv)
   REAL8 t = 0.0; /* time */
   REAL8 f = 0.0;
 
-  lalDebugLevel = 1;
 
   /*******************************************************************
    * ARGUMENT PARSING (arg stores the current position)              *
@@ -342,7 +338,6 @@ main(int argc, char **argv)
     else if ( !strcmp( argv[arg], "-d" ) ) {
       if ( argc > arg + 1 ) {
 	arg++;
-	lalDebugLevel = atoi( argv[arg++] );
       }else{
 	ERROR( GENERATEPPNINSPIRALTESTC_EARG,
 	       GENERATEPPNINSPIRALTESTC_MSGEARG, 0 );
@@ -499,7 +494,7 @@ main(int argc, char **argv)
       fourier = fopen("fftout", "w");
 
     for(i = 0; i < waveform.h->data->length/ 2 + 1; i++, f+=Hf.deltaF)
-      fprintf(fourier," %f %1.6e %1.6e\n", f, Hf.data->data[i].re, Hf.data->data[i].im);
+      fprintf(fourier," %f %1.6e %1.6e\n", f, crealf(Hf.data->data[i]), cimagf(Hf.data->data[i]));
     fclose(fourier);
 
 		LALDestroyRealFFTPlan( &stat, &fwdRealPlan );

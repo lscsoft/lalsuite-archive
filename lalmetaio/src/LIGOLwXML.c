@@ -115,7 +115,6 @@ list of all the files which must be updated.
 
 */
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -775,18 +774,18 @@ LALWriteLIGOLwXMLTable (
               tablePtr.multiInspiralTable->null_stat_h1h2,
               tablePtr.multiInspiralTable->null_stat_degen,
               tablePtr.multiInspiralTable->event_id->id,
-              tablePtr.multiInspiralTable->h1quad.re,
-              tablePtr.multiInspiralTable->h1quad.im,
-              tablePtr.multiInspiralTable->h2quad.re,
-              tablePtr.multiInspiralTable->h2quad.im,
-              tablePtr.multiInspiralTable->l1quad.re,
-              tablePtr.multiInspiralTable->l1quad.im,
-              tablePtr.multiInspiralTable->g1quad.re,
-              tablePtr.multiInspiralTable->g1quad.im,
-              tablePtr.multiInspiralTable->t1quad.re,
-              tablePtr.multiInspiralTable->t1quad.im,
-              tablePtr.multiInspiralTable->v1quad.re,
-              tablePtr.multiInspiralTable->v1quad.im,
+              crealf(tablePtr.multiInspiralTable->h1quad),
+              cimagf(tablePtr.multiInspiralTable->h1quad),
+              crealf(tablePtr.multiInspiralTable->h2quad),
+              cimagf(tablePtr.multiInspiralTable->h2quad),
+              crealf(tablePtr.multiInspiralTable->l1quad),
+              cimagf(tablePtr.multiInspiralTable->l1quad),
+              crealf(tablePtr.multiInspiralTable->g1quad),
+              cimagf(tablePtr.multiInspiralTable->g1quad),
+              crealf(tablePtr.multiInspiralTable->t1quad),
+              cimagf(tablePtr.multiInspiralTable->t1quad),
+              crealf(tablePtr.multiInspiralTable->v1quad),
+              cimagf(tablePtr.multiInspiralTable->v1quad),
 	      tablePtr.multiInspiralTable->coh_snr_h1h2,
 	      tablePtr.multiInspiralTable->cohSnrSqLocal,
 	      tablePtr.multiInspiralTable->autoCorrCohSq,
@@ -1640,6 +1639,108 @@ int XLALWriteLIGOLwXMLTimeSlideTable(
 			time_slide->time_slide_id,
 			time_slide->instrument,
 			time_slide->offset
+		) < 0)
+			XLAL_ERROR(XLAL_EFUNC);
+		row_head = ",\n\t\t\t";
+	}
+
+	/* table footer */
+
+	if(fputs("\n\t\t</Stream>\n\t</Table>\n", xml->fp) < 0)
+		XLAL_ERROR(XLAL_EFUNC);
+
+	/* done */
+
+	return 0;
+}
+
+int XLALWriteLIGOLwXMLSegmentTable(
+	LIGOLwXMLStream *xml,
+	const SegmentTable *segment_table
+)
+{
+	const char *row_head = "\n\t\t\t";
+
+	if(xml->table != no_table) {
+		XLALPrintError("a table is still open");
+		XLAL_ERROR(XLAL_EFAILED);
+	}
+
+	/* table header */
+
+	XLALClearErrno();
+	fputs("\t<Table Name=\"segment:table\">\n", xml->fp);
+	fputs("\t\t<Column Name=\"segment:creator_db\" Type=\"int_4s\"/>\n", xml->fp);
+	fputs("\t\t<Column Name=\"segment:process_id\" Type=\"ilwd:char\"/>\n", xml->fp);
+	fputs("\t\t<Column Name=\"segment:segment_id\" Type=\"ilwd:char\"/>\n", xml->fp);
+	fputs("\t\t<Column Name=\"segment:start_time\" Type=\"int_4s\"/>\n", xml->fp);
+	fputs("\t\t<Column Name=\"segment:start_time_ns\" Type=\"int_4s\"/>\n", xml->fp);
+	fputs("\t\t<Column Name=\"segment:end_time\" Type=\"int_4s\"/>\n", xml->fp);
+	fputs("\t\t<Column Name=\"segment:end_time_ns\" Type=\"int_4s\"/>\n", xml->fp);
+	fputs("\t\t<Column Name=\"segment:segment_def_id\" Type=\"ilwd:char\"/>\n", xml->fp);
+	fputs("\t\t<Column Name=\"segment:segment_def_cdb\" Type=\"int_4s\"/>\n", xml->fp);
+	fputs("\t\t<Stream Name=\"segment:table\" Type=\"Local\" Delimiter=\",\">", xml->fp);
+	if(XLALGetBaseErrno())
+		XLAL_ERROR(XLAL_EFUNC);
+
+	/* rows */
+
+	for(; segment_table; segment_table = segment_table->next) {
+		if(fprintf(xml->fp, "%s%d,\"process:process_id:%ld\",\"segment:segment_id:%ld\",%d,%d,%d,%d,\"segment_def:segment_def_id:%ld\",%d",
+			row_head,
+			segment_table->creator_db,
+			segment_table->process_id,
+			segment_table->segment_id,
+			segment_table->start_time.gpsSeconds,
+			segment_table->start_time.gpsNanoSeconds,
+			segment_table->end_time.gpsSeconds,
+			segment_table->end_time.gpsNanoSeconds,
+			segment_table->segment_def_id,
+			segment_table->segment_def_cdb
+		) < 0)
+			XLAL_ERROR(XLAL_EFUNC);
+		row_head = ",\n\t\t\t";
+	}
+
+	/* table footer */
+
+	if(fputs("\n\t\t</Stream>\n\t</Table>\n", xml->fp) < 0)
+		XLAL_ERROR(XLAL_EFUNC);
+
+	/* done */
+
+	return 0;
+}
+
+int XLALWriteLIGOLwXMLTimeSlideSegmentMapTable(
+	LIGOLwXMLStream *xml,
+	const TimeSlideSegmentMapTable *time_slide_seg_map
+)
+{
+	const char *row_head = "\n\t\t\t";
+
+	if(xml->table != no_table) {
+		XLALPrintError("a table is still open");
+		XLAL_ERROR(XLAL_EFAILED);
+	}
+
+	/* table header */
+
+	XLALClearErrno();
+	fputs("\t<Table Name=\"time_slide_segment_map:table\">\n", xml->fp);
+	fputs("\t\t<Column Name=\"time_slide_segment_map:segment_def_id\" Type=\"ilwd:char\"/>\n", xml->fp);
+	fputs("\t\t<Column Name=\"time_slide_segment_map:time_slide_id\" Type=\"ilwd:char\"/>\n", xml->fp);
+        fputs("\t\t<Stream Name=\"time_slide_segment_map:table\" Type=\"Local\" Delimiter=\",\">", xml->fp);
+	if(XLALGetBaseErrno())
+		XLAL_ERROR(XLAL_EFUNC);
+
+	/* rows */
+
+	for(; time_slide_seg_map; time_slide_seg_map = time_slide_seg_map->next) {
+		if(fprintf(xml->fp, "%s\"segment_def:segment_def_id:%ld\",\"time_slide:time_slide_id:%ld\"",
+			row_head,
+			time_slide_seg_map->segment_def_id,
+			time_slide_seg_map->time_slide_id
 		) < 0)
 			XLAL_ERROR(XLAL_EFUNC);
 		row_head = ",\n\t\t\t";

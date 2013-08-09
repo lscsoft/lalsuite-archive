@@ -676,7 +676,7 @@ SimInspiralTable *XLALInspiralSiteTimeAndDist(
   scross = -2.0 * cosiota;
 
   /* calculate the detector response */
-  XLALComputeDetAMResponse(&fplus, &fcross, detector->response, inj->longitude,
+  XLALComputeDetAMResponse(&fplus, &fcross, (const REAL4(*)[3])detector->response, inj->longitude,
       inj->latitude, inj->polarization, inj->end_time_gmst);
 
   /* compute the effective distance */
@@ -756,10 +756,10 @@ COMPLEX8FrequencySeries *generateActuation(
   for ( k = 0; k < resp->data->length; k++ )
   {
     fNorm = k * resp->deltaF / pendF;
-    denom->data[k].re = ( 1 - fNorm * fNorm );
-    denom->data[k].im = - fNorm / pendQ;
-    num->data[k].re = -1.0 * ETMcal;
-    num->data[k].im = 0.0;
+    denom->data[k].realf_FIXME = ( 1 - fNorm * fNorm );
+    denom->data[k].imagf_FIXME = - fNorm / pendQ;
+    num->data[k].realf_FIXME = -1.0 * ETMcal;
+    num->data[k].imagf_FIXME = 0.0;
   }
 
   XLALCCVectorDivide( resp->data, num, denom);

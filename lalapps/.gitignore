@@ -58,6 +58,18 @@ src/frametools/lalapps_frread
 src/frametools/lalapps_frview
 src/hwinjection/lalapps_psinject
 src/hwinjection/online_psinject
+src/inspiral/bayestar/bayestar_aggregate_found_injections
+src/inspiral/bayestar/bayestar_lattice_tmpltbank
+src/inspiral/bayestar/bayestar_littlehope
+src/inspiral/bayestar/bayestar_localize_coincs
+src/inspiral/bayestar/bayestar_localize_gracedb
+src/inspiral/bayestar/bayestar_localize_lvalert
+src/inspiral/bayestar/bayestar_plot_allsky
+src/inspiral/bayestar/bayestar_plot_found_injections
+src/inspiral/bayestar/bayestar_prune_neighborhood_tmpltbank
+src/inspiral/bayestar/bayestar_realize_coincs
+src/inspiral/bayestar/bayestar_sim_to_tmpltbank
+src/inspiral/bayestar/python_config.sed
 src/inspiral/lalapps_bbhinj
 src/inspiral/lalapps_blindinj
 src/inspiral/lalapps_calcexpsnr
@@ -132,6 +144,7 @@ src/inspiral/posterior/lalapps_merge_nested_sampling_runs
 src/inspiral/posterior/lalapps_nest2pos
 src/inspiral/posterior/lalapps_nest_pipe
 src/inspiral/posterior/lalapps_vo_nest2pos
+src/inspiral/posterior/lalinference_bambi
 src/inspiral/posterior/lalinference_pipe
 src/inspiral/posterior/python_config.sed
 src/lalapps/LALAppsVCSInfo.h
@@ -184,7 +197,10 @@ src/pulsar/FDS_isolated/testFstat_v3-LFT.sft
 src/pulsar/FDS_isolated/testFstat_v3-timeseries.dat
 src/pulsar/GCT/lalapps_HierarchSearchGCT
 src/pulsar/GCT/testLineVeto
+src/pulsar/Injections/Tseries_v2_*.dat
+src/pulsar/Injections/debug_phi_v2.dat
 src/pulsar/Injections/lalapps_Makefakedata_v4
+src/pulsar/Injections/lalapps_Makefakedata_v5
 src/pulsar/Injections/lalapps_compareSFTs
 src/pulsar/Injections/lalapps_compareTS
 src/pulsar/Injections/lalapps_dumpSFT
@@ -232,6 +248,7 @@ src/pulsar/TDS_isolated/lalapps_pulsar_parameter_estimation_nested
 src/pulsar/TimingTests/lalapps_TEMPOcomparison
 src/pulsar/TwoSpect/lalapps_TwoSpect
 src/pulsar/crosscorr/lalapps_pulsar_crosscorr
+src/pulsar/crosscorr/lalapps_pulsar_crosscorr_v2
 src/pulsar/fscan/lalapps_spec_avg
 src/pulsar/hough/src/lalapps_DriveHoughMulti
 src/pulsar/hough/src/lalapps_DriveHough_v3
@@ -263,6 +280,7 @@ src/pulsar/lalapps_create_time_correction_ephemeris
 src/pulsar/lalapps_make_job_input_data
 src/pulsar/lalapps_make_sfts
 src/pulsar/lalapps_psd
+src/pulsar/lalapps_ssbtodetector
 src/pulsar/psd1.dat
 src/pulsar/templateBanks/Fmetric.dat
 src/pulsar/templateBanks/Fmetric_v2.dat

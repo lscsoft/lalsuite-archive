@@ -240,7 +240,8 @@ XLALSimInspiralChooseWaveformFromInspiralTemplate(
   REAL8 S2z = params->spin2[2];
   REAL8 f_min = params->fLower;
   REAL8 f_ref = 0.;
-  REAL8 r = params->distance; /* stored as Mpc in InspiralTemplate */
+  /* Value of 'distance' fed to lalsim is conventional to obtain a correct template norm */
+  REAL8 r = params->distance;
   REAL8 i = params->inclination;
   REAL8 lambda1 = 0.; /* FIXME:0 turns these terms off, these should be obtained by some other means */
   REAL8 lambda2 = 0.; /* FIXME:0 turns these terms off, these should be obtained by some other means */
@@ -304,11 +305,16 @@ LALInspiralWave(
          ABORT(status, LALINSPIRALH_EVECTOR, LALINSPIRALH_MSGEVECTOR);
       }
 
-      /* convert REAL8 hplus and hcross waveforms to REAL4 and store them in waveform->h->data */
+      /* initialize template vector to zero since hplus may be shorter */
+      memset(signalvec->data, 0.0, signalvec->length * sizeof(signalvec->data[0]));
+
+      /* convert REAL8 hplus waveform to REAL4 and store it in signalvec->data */
       for(idx = 0; idx < signalvec->length && idx < hplus->data->length ; idx++)
       {
           signalvec->data[idx] = (REAL4) hplus->data->data[idx];
       }
+
+      params->tC = - ( ((REAL8)hplus->epoch.gpsSeconds) + 1.e-9*((REAL8)hplus->epoch.gpsNanoSeconds) );
 
       /* free hplus and hcross */
       XLALDestroyREAL8TimeSeries(hplus);
@@ -382,9 +388,6 @@ LALInspiralWave(
            break;
       case PhenSpinTaylorRD:
            if (XLALPSpinInspiralRD(signalvec, params) == XLAL_FAILURE) ABORTXLAL(status);
-           break;
-      case PhenSpinTaylorRDF:
-           if (XLALPSpinInspiralRDFreqDom(signalvec, params) == XLAL_FAILURE) ABORTXLAL(status);
            break;
       case SpinQuadTaylor:
            if (XLALSQTPNWaveform(signalvec, params) == XLAL_FAILURE) ABORTXLAL(status);
@@ -461,12 +464,18 @@ LALInspiralWaveTemplates(
          ABORT(status, LALINSPIRALH_EVECTOR, LALINSPIRALH_MSGEVECTOR);
       }
 
-      /* convert REAL8 hplus and hcross waveforms to REAL4 and store them in waveform->h->data */
+      /* initialize template vectors to zero since hplus and hcross may be shorter */
+      memset(signalvec1->data, 0.0, signalvec1->length * sizeof(signalvec1->data[0]));
+      memset(signalvec2->data, 0.0, signalvec2->length * sizeof(signalvec2->data[0]));
+
+      /* convert REAL8 hplus and hcross waveforms to REAL4 and store them in signalvec[1,2]->data */
       for(idx = 0; idx < signalvec1->length; idx++)
       {
           signalvec1->data[idx] = (REAL4) hplus->data->data[idx];
           signalvec2->data[idx] = (REAL4) hcross->data->data[idx];
       }
+
+      params->tC = - ( ((REAL8)hplus->epoch.gpsSeconds) + 1.e-9*((REAL8)hplus->epoch.gpsNanoSeconds) );
 
       /* free hplus and hcross */
       XLALDestroyREAL8TimeSeries(hplus);
@@ -576,7 +585,7 @@ LALInspiralWaveForInjection(
       if ( waveform->h == NULL )
       {
          XLALDestroyREAL8TimeSeries(hplus);
-         XLALDestroyREAL8TimeSeries(hcross);   
+         XLALDestroyREAL8TimeSeries(hcross);
          ABORT(status, LALINSPIRALH_EMEM, LALINSPIRALH_MSGEMEM);
       }
       memset( waveform->h, 0, sizeof(REAL4TimeVectorSeries) );

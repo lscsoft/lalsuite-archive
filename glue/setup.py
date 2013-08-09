@@ -27,7 +27,7 @@ from distutils import log
 
 from misc import generate_vcs_info as gvcsi
 
-ver = "1.44.1"
+ver = "1.45.1"
 
 def remove_root(path,root):
   if root:
@@ -186,7 +186,7 @@ setup(
   description = "Grid LSC User Engine",
   url = "http://www.lsc-group.phys.uwm.edu/daswg/",
   license = 'See file LICENSE',
-  packages = [ 'glue', 'glue.ligolw', 'glue.ligolw.utils', 'glue.segmentdb', 'glue.nmi' ],
+  packages = [ 'glue', 'glue.ligolw', 'glue.ligolw.utils', 'glue.segmentdb', 'glue.nmi', 'glue.auth'],
   cmdclass = {
     'build_py' : glue_build_py,
     'install' : glue_install,

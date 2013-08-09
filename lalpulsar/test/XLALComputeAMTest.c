@@ -60,7 +60,6 @@ static const LALStatus empty_status;
 static const AMCoeffsParams empty_AMCoeffsParams;
 static const AMCoeffs empty_AMCoeffs;
 
-extern int lalDebugLevel;
 
 /* ----- internal prototypes ---------- */
 int XLALCompareMultiAMCoeffs ( MultiAMCoeffs *multiAM1, MultiAMCoeffs *multiAM2, REAL8 tolerance );
@@ -80,18 +79,16 @@ int main(int argc, char *argv[])
 
   REAL8 tolerance = 2e-6;	/* same algorithm, should be basically identical results */
 
-  char earthEphem[] = DATADIR "earth00-19-DE405.dat.gz";
-  char sunEphem[]   = DATADIR "sun00-19-DE405.dat.gz";
+  char earthEphem[] = TEST_DATA_DIR "earth00-19-DE405.dat.gz";
+  char sunEphem[]   = TEST_DATA_DIR "sun00-19-DE405.dat.gz";
 
   UINT4 numChecks = 1; /* Number of times to check */
 
   /* read user input */
-  lalDebugLevel = 0;
 
   while ((opt = getopt( argc, argv, "n:qv:" )) != -1) {
     switch (opt) {
     case 'v': /* set lalDebugLevel */
-      lalDebugLevel = atoi( optarg );
       break;
     case 'n': /* number of times to check */
       numChecks = atoi( optarg );
@@ -167,9 +164,7 @@ int main(int argc, char *argv[])
   }
   XLALDestroyMultiLALDetector ( multiDet );
   XLALDestroyMultiTimestamps ( multiTS );
-  XLALFree(edat->ephemE);
-  XLALFree(edat->ephemS);
-  XLALFree ( edat );
+  XLALDestroyEphemerisData ( edat );
 
   /* ========== MAIN LOOP: N-trials of comparisons XLAL <--> LAL multiAM functions ========== */
   while ( numChecks-- )

@@ -245,6 +245,8 @@ def display_name(columnName):
 
     # parse words
     for i,w in enumerate(words):
+        if w.startswith('\\'):
+            pass
         wl = w.lower()
         # get miscellaneous definitions
         if wl in misc.keys():
@@ -443,7 +445,7 @@ def parse_plot_config(cp, section):
     pairlist = ['bins', 'color-bins']
     booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar-style',\
                 'greyscale', 'zero-indicator', 'normalized', 'fill',\
-                'calendar-time']
+                'calendar-time', 'bar']
     floats   = ['detchar-style-threshold']
     ints     = ['num-bins']
 
@@ -1595,7 +1597,9 @@ class ScatterPlot(SimplePlot):
             itertools.izip(self.x_data_sets, self.y_data_sets, self.kwarg_sets,\
                            default_colors()):
             plot_kwargs.setdefault("c", color)
-            if len(x_vals):
+            if (len(x_vals) and
+                (isinstance(y_vals, numpy.ma.MaskedArray) and y_vals.count() or
+                 True)):
                 self.ax.scatter(x_vals, y_vals, **plot_kwargs)
             else:
                 plot_kwargs["visible"] = False
@@ -1846,6 +1850,9 @@ class LineHistogram(BasicPlot):
         else:
             min_stat, max_stat = determine_common_bin_limits(self.data_sets)
         if logx:
+            if min_stat == max_stat == 0:
+                min_stat = 1
+                max_stat = 10
             bins = numpy.logspace(numpy.log10(min_stat), numpy.log10(max_stat),\
                                   int(num_bins) + 1, endpoint=True)
         else:
@@ -1893,27 +1900,27 @@ class LineHistogram(BasicPlot):
                                                              order="F")
                 y = numpy.vstack((y, y)).reshape((-1,), order="F")
 
-            # mask zeros for logy
-            if logy:
-                if not ymin:
-                    ymin = y[y!=0].min()*0.9
-                else:
-                    ymin = min(ymin, y[y!=0].min()*0.9)
-                numpy.putmask(y, y==0, ymin*0.9)
-                #y = numpy.ma.masked_where(y==0, y, copy=False)
-
             # plot
+            if logy:
+                numpy.putmask(y, y==0, 1e-100)
             self.ax.plot(x, y, **plot_kwargs)
             if fill:
                 plot_kwargs.pop("label", None)
                 self.ax.fill_between(x, 1e-100, y, **plot_kwargs)
 
         if logx:
-            self.ax.set_xscale("log")
-            if ymin:
-                self.ax.set_ybound(lower=ymin)
+            try:
+                self.ax.set_xscale("log", nonposx='clip')
+            except OverflowError:
+                self.ax.set_xlim(0.1, 1)
+                self.ax.set_xscale("log", nonposx='clip')
+
         if logy:
-            self.ax.set_yscale("log")
+            try:
+                self.ax.set_yscale("log", nonposy='clip')
+            except OverflowError:
+                self.ax.set_ylim(0.1, 1)
+                self.ax.set_yscale("log", nonposy='clip')
 
         # add legend if there are any non-trivial labels
         self.add_legend_if_labels_exist(loc=loc, alpha=0.8)

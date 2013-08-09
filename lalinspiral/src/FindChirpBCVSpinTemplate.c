@@ -166,13 +166,11 @@ LALFindChirpBCVSpinTemplate (
   REAL8                 rootDenominator;
   REAL8                 denominator1;
   REAL8                 numerator1;
-  REAL4                 Twoby3           = 2.0/3.0;
   REAL8                 deltaTto2by3;
   REAL8                *A1Vec            = NULL;
   REAL8                *A2Vec            = NULL;
   REAL8                *A3Vec            = NULL;
   REAL4                 deltaT;
-  REAL4                 rLSOto3by2       = 0.0;
 
   INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
@@ -236,7 +234,7 @@ LALFindChirpBCVSpinTemplate (
 
   /* parameters */
   deltaT        = params->deltaT;
-  deltaTto2by3  = pow(deltaT, Twoby3);
+  deltaTto2by3  = pow(deltaT, (2./3.));
   deltaF        = 1.0 / ( (REAL4) params->deltaT * (REAL4) numPoints );
   x1            = pow( deltaF, -1.0/3.0 );
   fFinal        = tmplt->fFinal;
@@ -249,7 +247,7 @@ LALFindChirpBCVSpinTemplate (
 
   if (fFinal == 0.0)
   {
-        rLSOto3by2 = 14.69693846; /* 6 to 3by2) */
+        const REAL4 rLSOto3by2 = 14.69693846; /* 6 to 3by2) */
 
 	fFinal = (-psi00 * 16 * LAL_PI) / (psi15 * rLSOto3by2);
 
@@ -303,8 +301,8 @@ LALFindChirpBCVSpinTemplate (
       /* XXX The sign of this is different than the SP filtering
        * because the data is conjugated instead of the template in the
        * BCV code */
-      expPsi[k].im =   -sin(psi1);
-      expPsi[k].re =   cos(psi1);
+      expPsi[k].imagf_FIXME =   -sin(psi1);
+      expPsi[k].realf_FIXME =   cos(psi1);
 
     }
 
@@ -316,14 +314,14 @@ LALFindChirpBCVSpinTemplate (
 
   for ( k = kmin; k < kmax; ++k )
   {
-          I += ampBCVSpin1[k] * ampBCVSpin1[k] * wtilde[k].re ;
-          J += ampBCVSpin1[k] * ampBCVSpin1[k] * wtilde[k].re *
+          I += ampBCVSpin1[k] * ampBCVSpin1[k] * crealf(wtilde[k]) ;
+          J += ampBCVSpin1[k] * ampBCVSpin1[k] * crealf(wtilde[k]) *
                   cos(beta * ampBCVSpin2[k] * deltaTto2by3);
-          K += ampBCVSpin1[k] * ampBCVSpin1[k] * wtilde[k].re *
+          K += ampBCVSpin1[k] * ampBCVSpin1[k] * crealf(wtilde[k]) *
                   sin(beta * ampBCVSpin2[k] * deltaTto2by3);
-          L += ampBCVSpin1[k] * ampBCVSpin1[k] * wtilde[k].re *
+          L += ampBCVSpin1[k] * ampBCVSpin1[k] * crealf(wtilde[k]) *
                   sin(2 * beta * ampBCVSpin2[k] * deltaTto2by3);
-          M += ampBCVSpin1[k] * ampBCVSpin1[k] * wtilde[k].re *
+          M += ampBCVSpin1[k] * ampBCVSpin1[k] * crealf(wtilde[k]) *
                   cos(2 * beta * ampBCVSpin2[k] * deltaTto2by3);
   }
 

@@ -53,16 +53,6 @@
 #define CVS_DATE "$Date$"
 #define CVS_NAME_STRING "$Name$"
 
-UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, INT4 i, FILE *swapfile);
-UINT4 LALInferenceMCMCMCswap(LALInferenceRunState *runState, REAL8 *ladder, INT4 i, FILE *swapfile);
-void LALInferenceAdaptation(LALInferenceRunState *runState, INT4 cycle);
-void LALInferenceAdaptationRestart(LALInferenceRunState *runState, INT4 cycle);
-void LALInferenceAdaptationEnvelope(LALInferenceRunState *runState, INT4 cycle);
-FILE* LALInferencePrintPTMCMCHeader(LALInferenceRunState *runState);
-void LALInferencePrintPTMCMCHeaderFile(LALInferenceRunState *runState, FILE *file);
-void LALInferencePrintPTMCMCInjectionSample(LALInferenceRunState *runState);
-void LALInferenceDataDump(LALInferenceRunState *runState);
-
 const char *const parallelSwapProposalName = "ParallelSwap";
 
 static void
@@ -246,7 +236,6 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
   LALStatus status;
   memset(&status,0,sizeof(status));
   INT4 runComplete=0;
-  UINT4 swapReturn=0;
   INT4 acceptanceCount = 0;
   REAL8 nullLikelihood;
   REAL8 trigSNR = 0.0;
@@ -255,13 +244,13 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
   INT4 parameter=0;
   INT4 *intVec = NULL;
   INT4 annealStartIter = 0;
-  INT4 phaseAcknowledged = 0;
   INT4 iEffStart = 0;
   UINT4 hotChain = 0;                 // Affects proposal setup
   REAL8 temp = 1;
   REAL8 tempDelta = 0.0;
   MPI_Request MPIrequest;
 
+  LALInferenceMPIcomm swapReturn;
   LALInferenceVariables *propStats = runState->proposalStats; // Print proposal acceptance rates to file
   LALInferenceProposalStatistics *propStat;
   UINT4 (*parallelSwap)(LALInferenceRunState *, REAL8 *, INT4, FILE *);
@@ -281,12 +270,20 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
   //
   /* Command line flags (avoid repeated checks of runState->commandLine) */
   //
-  UINT4 runPhase = 0;    // Phase of run. (0=PT-only run, 1=temporary PT, 2=annealing, 3=single-chain sampling)
+  LALInferenceMCMCrunPhase runPhase = ONLY_PT;
   UINT4 annealingOn = 0; // Chains will be annealed
   if (LALInferenceGetProcParamVal(runState->commandLine, "--anneal")) {
     annealingOn = 1;
-    runPhase=1;
+    runPhase = TEMP_PT;
   }
+
+  LALInferenceMCMCrunPhase *runPhase_p = &runPhase;
+  LALInferenceAddVariable(runState->algorithmParams, "runPhase", &runPhase_p,  LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
+
+  /* Setup non-blocking recieve that will allow other chains to update the runPhase */
+  acknowledgePhase(runState);
+
+  LALInferenceMCMCrunPhase *phaseAcknowledged = *(LALInferenceMCMCrunPhase **) LALInferenceGetVariable(runState->algorithmParams, "acknowledgedRunPhase");
 
   UINT4 diffEvo = 1; // Differential evolution
   if (LALInferenceGetProcParamVal(runState->commandLine, "--noDifferentialEvolution") || LALInferenceGetProcParamVal(runState->commandLine, "--nodifferentialevolution")) {
@@ -295,7 +292,7 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
 
   UINT4 adapting = 0;
 
-  if (LALInferenceGetProcParamVal(runState->commandLine,"--flowSearch")) {
+  if (LALInferenceGetProcParamVal(runState->commandLine,"--varyFlow")) {
     /* Metropolis-coupled MCMC Swap (assumes likelihood function differs between chains).*/
     parallelSwap = &LALInferenceMCMCMCswap;
   } else {
@@ -360,9 +357,8 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
   ladderMin = *(REAL8*) LALInferenceGetVariable(runState->algorithmParams, "tempMin");   // Min temp in ladder
   ladderMax = *(REAL8*) LALInferenceGetVariable(runState->algorithmParams, "tempMax");   // Max temp in ladder
 
-  REAL8 tempMaxMin          = 10.0;             // Don't let tempMax go too low
-  REAL8 targetHotLike       = 15;               // Targeted max 'experienced' log(likelihood) of hottest chain
-  INT4 hotThreshold        = nChain/2-1;       // If MPIrank > hotThreshold, use different proposal set
+  REAL8 targetHotLike       = nPar/2.;          // Targeted max 'experienced' log(likelihood) of hottest chain
+  INT4 hotThreshold         = nChain/2-1;        // If MPIrank > hotThreshold, use different proposal set
 
   /*  If running hot chains for Thermodynamic Integration make all draw from prior */
   if(ladderMin>0.0) hotThreshold=-1;
@@ -375,14 +371,10 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
     trigSNR = *(REAL8*) LALInferenceGetVariable(runState->algorithmParams, "trigSNR");
     networkSNRsqrd = trigSNR * trigSNR;
     ladderMax = networkSNRsqrd/(2*targetHotLike);
-    if (ladderMax < tempMaxMin)
-      ladderMax = tempMaxMin;
     if(MPIrank==0)
       fprintf(stdout,"Trigger SNR of %f specified, setting tempMax to %f.\n", trigSNR, ladderMax);
   } else if (networkSNRsqrd > 0.0) {                                                  //injection, choose ladderMax to get targetHotLike
     ladderMax = networkSNRsqrd/(2*targetHotLike);
-    if (ladderMax < tempMaxMin)
-      ladderMax = tempMaxMin;
     if(MPIrank==0)
       fprintf(stdout,"Injecting SNR of %f, setting tempMax to %f.\n", sqrt(networkSNRsqrd), ladderMax);
   } else {                                                                            //If all else fails, use the default
@@ -524,12 +516,10 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
   char statfilename[256];
   char propstatfilename[256];
   char swapfilename[256];
-  if(MPIrank == 0){
-    if (tempVerbose) {
-      sprintf(swapfilename,"PTMCMC.tempswaps.%u",randomseed);
-      swapfile = fopen(swapfilename, "w");
-      fprintf(swapfile, "cycle\tlog(chain_swap)\ttemp_low\ttemp_high\n");  // Print header for temp stat file
-    }
+  if (tempVerbose && MPIrank > 0) {
+    sprintf(swapfilename,"PTMCMC.tempswaps.%u.%2.2d",randomseed,MPIrank);
+    swapfile = fopen(swapfilename, "w");
+    fprintf(swapfile, "cycle\tlog(chain_swap)\tlow_temp_likelihood\thigh_temp_likelihood\tswap_accepted\n");  // Print header for temp stat file
   }
 
   if (adaptationOn && adaptVerbose) {
@@ -598,20 +588,9 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
     }
   }
 
-
-  /* MPI tags used:
-   *   0: Parallel tempering communications
-   *   1: runPhase passing
-   *   2: runComplete flag
-   */
-
-  /* Setup non-blocking recieve that will update the runPhase when chain 0 does */
-  if (annealingOn && MPIrank!=0)
-    MPI_Irecv(&runPhase, 1, MPI_INT, 0, 1, MPI_COMM_WORLD, &MPIrequest);
-
   /* Setup non-blocking recieve that will succeed when chain 0 is complete. */
   if (MPIrank!=0)
-    MPI_Irecv(&runComplete, 1, MPI_INT, 0, 2, MPI_COMM_WORLD, &MPIrequest);
+    MPI_Irecv(&runComplete, 1, MPI_INT, 0, RUN_COMPLETE, MPI_COMM_WORLD, &MPIrequest);
 
   fflush(stdout);
   MPI_Barrier(MPI_COMM_WORLD);
@@ -622,13 +601,16 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
     /* Increment iteration counter */
     i++;
 
+    if (runPhase == LADDER_UPDATE)
+      LALInferenceLadderUpdate(runState, 0, i);
+
     LALInferenceSetVariable(runState->proposalArgs, "acceptanceCount", &(acceptanceCount));
 
     if (adaptationOn)
       LALInferenceAdaptation(runState, i);
 
     // Parallel tempering phase
-    if (runPhase < 2) {
+    if (runPhase == ONLY_PT || runPhase == TEMP_PT) {
 
       //ACL calculation during parallel tempering
       if (i % (100*Nskip) == 0 && MPIrank == 0) {
@@ -647,7 +629,7 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
             iEff = (i - iEffStart)/acl;
 
             /* Periodically recalculate ACL */
-            if (runPhase<2 && iEff > floor((REAL8)(aclCheckCounter*endOfPhase)/(REAL8)numACLchecks)) {
+            if (runPhase != SINGLE_CHAIN && iEff > floor((REAL8)(aclCheckCounter*endOfPhase)/(REAL8)numACLchecks)) {
               updateMaxAutoCorrLen(runState, i);
               acl = *(INT4*) LALInferenceGetVariable(runState->algorithmParams, "acl");
               iEff = (i - iEffStart)/acl;
@@ -659,14 +641,14 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
 
       if (MPIrank==0) {
         if (aclCheckCounter > numACLchecks) {
-          if (runPhase==0) {
+          if (runPhase==ONLY_PT) {
             fprintf(stdout,"Chain %i has %i effective samples. Stopping...\n", MPIrank, iEff);
             runComplete = 1;          // Sampling is done!
-          } else if (runPhase==1) {
+          } else if (runPhase==TEMP_PT) {
             /* Broadcast new run phase to other chains */
-            runPhase++;
+            runPhase=ANNEALING;
             for (c=1; c<nChain; c++) {
-              MPI_Send(&runPhase, 1, MPI_INT, c, 1, MPI_COMM_WORLD);
+              MPI_Send(&runPhase, 1, MPI_INT, c, RUN_PHASE_COM, MPI_COMM_WORLD);
             }
           }
         }
@@ -674,9 +656,9 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
     }
 
     // Annealing phase
-    if (runPhase==2) {
-      if (phaseAcknowledged!=2) {
-        phaseAcknowledged=2;
+    if (runPhase==ANNEALING) {
+      if (*phaseAcknowledged!=ANNEALING) {
+        acknowledgePhase(runState);
 
         /* Broadcast the cold chain ACL from parallel tempering */
         PTacl = acl;
@@ -711,16 +693,16 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
           LALInferenceSetVariable(runState->proposalArgs, "temperature", &(ladder[MPIrank]));
         }
       } else {
-        runPhase++;
-        phaseAcknowledged=runPhase;
+        runPhase = SINGLE_CHAIN;
+        *phaseAcknowledged=runPhase;
         if (MPIrank==0)
           printf(" Single-chain sampling starting at iteration %i.\n", i);
       }
-    } //if (runState==2)
+    } //if (runState==ANNEALING)
 
 
     //Post-annealing single-chain sampling
-    if (runPhase==3) {
+    if (runPhase==SINGLE_CHAIN) {
       adapting = *((INT4 *)LALInferenceGetVariable(runState->proposalArgs, "adapting"));
       adaptStart = *(INT4*) LALInferenceGetVariable(runState->proposalArgs, "adaptStart");
       iEffStart = adaptStart+adaptLength;
@@ -737,7 +719,7 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
           }
         }
       }
-    } //if (runPhase==3)
+    } //if (runPhase==SINGLE_CHAIN)
 
     runState->evolve(runState); //evolve the chain at temperature ladder[t]
     acceptanceCount = *(INT4*) LALInferenceGetVariable(runState->proposalArgs, "acceptanceCount");
@@ -811,15 +793,14 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
       }
     }
 
-    /* Excute swap proposal.
-     * Expected return codes: 0=no proposal; 1=proposed; 2=proposed & accepted */ 
-    if (runPhase < 2) {
+    /* Excute swap proposal. */
+    if (runPhase == ONLY_PT || runPhase == TEMP_PT) {
       swapReturn = parallelSwap(runState, ladder, i, swapfile); 
       if (propStats) {
-        if (swapReturn>0) {
+        if (swapReturn != NO_SWAP_PROPOSED) {
           propStat = ((LALInferenceProposalStatistics *)LALInferenceGetVariable(propStats, parallelSwapProposalName));
           propStat->proposed++;
-          if (swapReturn==2)
+          if (swapReturn == ACCEPTED_SWAP)
             propStat->accepted++;
         }
       }
@@ -827,14 +808,16 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
 
     if (MPIrank==0 && i > Niter)
       runComplete=1;
+
     if (MPIrank==0 && runComplete==1) {
       for (c=1; c<nChain; c++) {
-        MPI_Send(&runComplete, 1, MPI_INT, c, 2, MPI_COMM_WORLD);
+        MPI_Send(&runComplete, 1, MPI_INT, c, RUN_COMPLETE, MPI_COMM_WORLD);
       }
     }
   }// while (!runComplete)
   
-
+  /* Flush any remaining PT swap attempts before moving on */
+  LALInferenceFlushPTswap();
   MPI_Barrier(MPI_COMM_WORLD);
 
   fclose(chainoutput);
@@ -851,10 +834,30 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
     }
   }
 
-  free(ladder);
-  free(annealDecay);
+  XLALFree(ladder);
+  XLALFree(annealDecay);
 }
 
+void acknowledgePhase(LALInferenceRunState *runState)
+/* Handle MPI communications and runState params for a change in run phase */
+{
+  INT4 MPIrank;
+  MPI_Request MPIrequest;
+
+  LALInferenceMCMCrunPhase *runPhase = *(LALInferenceMCMCrunPhase **) LALInferenceGetVariable(runState->algorithmParams, "runPhase");
+  if (!LALInferenceCheckVariable(runState->algorithmParams, "acknowledgedRunPhase")) {
+    LALInferenceMCMCrunPhase acknowledgedRunPhase = *runPhase;
+    LALInferenceMCMCrunPhase *acknowledgedRunPhase_p = &acknowledgedRunPhase;
+    LALInferenceAddVariable(runState->algorithmParams, "acknowledgedRunPhase", &acknowledgedRunPhase_p,  LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
+  } else {
+    LALInferenceMCMCrunPhase *acknowledgedRunPhase = *(LALInferenceMCMCrunPhase **) LALInferenceGetVariable(runState->algorithmParams, "acknowledgedRunPhase");
+    *acknowledgedRunPhase = *runPhase;
+  }
+
+  MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
+  if (MPIrank!=0)
+    MPI_Irecv(runPhase, 1, MPI_INT, MPI_ANY_SOURCE, RUN_PHASE_COM, MPI_COMM_WORLD, &MPIrequest);
+}
 
 void PTMCMCOneStep(LALInferenceRunState *runState)
   // Metropolis-Hastings sampler.
@@ -949,99 +952,197 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, INT4 i, 
   REAL8 logChainSwap;
   INT4 readyToSwap = 0;
   UINT4 swapProposed=0;
-  UINT4 swapAccepted=0;
+  INT4 swapAccepted=0;
+  LALInferenceMPIcomm swapReturn;
 
   REAL8Vector * parameters = NULL;
   REAL8Vector * adjParameters = NULL;
-  adjParameters = XLALCreateREAL8Vector(nPar);
 
   /* If Tskip reached, then block until next chain in ladder is prepared to accept swap proposal */
   if (((i % Tskip) == 0) && MPIrank < nChain-1) {
     swapProposed = 1;
     /* Send current likelihood for swap proposal */
-    MPI_Send(&(runState->currentLikelihood), 1, MPI_DOUBLE, MPIrank+1, 0, MPI_COMM_WORLD);
+    MPI_Send(&(runState->currentLikelihood), 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD);
 
     /* Determine if swap was accepted */
-    MPI_Recv(&swapAccepted, 1, MPI_DOUBLE, MPIrank+1, 0, MPI_COMM_WORLD, &MPIstatus);
+    MPI_Recv(&swapAccepted, 1, MPI_INT, MPIrank+1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
 
     /* Perform Swap */
     if (swapAccepted) {
+      adjParameters = XLALCreateREAL8Vector(nPar);
+
       /* Set new likelihood */
-      MPI_Recv(&adjCurrentLikelihood, 1, MPI_DOUBLE, MPIrank+1, 0, MPI_COMM_WORLD, &MPIstatus);
+      MPI_Recv(&adjCurrentLikelihood, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
       runState->currentLikelihood = adjCurrentLikelihood;
 
       /* Exchange current prior values */
-      MPI_Send(&(runState->currentPrior), 1, MPI_DOUBLE, MPIrank+1, 0, MPI_COMM_WORLD);
+      MPI_Send(&(runState->currentPrior), 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD);
       MPI_Recv(&adjCurrentPrior, 1, MPI_DOUBLE, MPIrank+1, 0, MPI_COMM_WORLD, &MPIstatus);
       runState->currentPrior = adjCurrentPrior;
 
       /* Package and send parameters */
       parameters = LALInferenceCopyVariablesToArray(runState->currentParams);
-      MPI_Send(parameters->data, nPar, MPI_DOUBLE, MPIrank+1, 0, MPI_COMM_WORLD);
+      MPI_Send(parameters->data, nPar, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD);
 
       /* Recieve and unpack parameters */
-      MPI_Recv(adjParameters->data, nPar, MPI_DOUBLE, MPIrank+1, 0, MPI_COMM_WORLD, &MPIstatus);
+      MPI_Recv(adjParameters->data, nPar, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
       LALInferenceCopyArrayToVariables(adjParameters, runState->currentParams);
+
+      XLALDestroyREAL8Vector(parameters);
+      XLALDestroyREAL8Vector(adjParameters);
     }
   }
 
   /* Check if next lower temperature is ready to swap */
-  if (MPIrank > 0) {
-    MPI_Iprobe(MPIrank-1, 0, MPI_COMM_WORLD, &readyToSwap, &MPIstatus);
+  else if (MPIrank > 0) {
+    MPI_Iprobe(MPIrank-1, PT_COM, MPI_COMM_WORLD, &readyToSwap, &MPIstatus);
 
     /* Hotter chain decides acceptance */
     if (readyToSwap) {
       /* Receive adjacent likelilhood */
-      MPI_Recv(&adjCurrentLikelihood, 1, MPI_DOUBLE, MPIrank-1, 0, MPI_COMM_WORLD, &MPIstatus);
+      MPI_Recv(&adjCurrentLikelihood, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
 
       /* Determine if swap is accepted and tell the other chain */
       logChainSwap = (1.0/ladder[MPIrank-1]-1.0/ladder[MPIrank])*(runState->currentLikelihood-adjCurrentLikelihood);
       if ((logChainSwap > 0) || (log(gsl_rng_uniform(runState->GSLrandom)) < logChainSwap )) {
         swapAccepted = 1;
+      } else {
+        swapAccepted = 0;
       }
 
-      MPI_Send(&swapAccepted, 1, MPI_INT, MPIrank-1, 0, MPI_COMM_WORLD);
+      MPI_Send(&swapAccepted, 1, MPI_INT, MPIrank-1, PT_COM, MPI_COMM_WORLD);
+
+      /* Print to file if verbose is chosen */
+      if (swapfile != NULL) {
+        fprintf(swapfile,"%d\t%f\t%f\t%f\t%i\n",i,logChainSwap,adjCurrentLikelihood,runState->currentLikelihood,swapAccepted);
+        fflush(swapfile);
+      }
 
       /* Perform Swap */
       if (swapAccepted) {
+        adjParameters = XLALCreateREAL8Vector(nPar);
+
         /* Swap likelihoods */
-        MPI_Send(&(runState->currentLikelihood), 1, MPI_DOUBLE, MPIrank-1, 0, MPI_COMM_WORLD);
+        MPI_Send(&(runState->currentLikelihood), 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD);
         runState->currentLikelihood=adjCurrentLikelihood;
 
         /* Exchange current prior values */
-        MPI_Recv(&adjCurrentPrior, 1, MPI_DOUBLE, MPIrank-1, 0, MPI_COMM_WORLD, &MPIstatus);
-        MPI_Send(&(runState->currentPrior), 1, MPI_DOUBLE, MPIrank-1, 0, MPI_COMM_WORLD);
+        MPI_Recv(&adjCurrentPrior, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
+        MPI_Send(&(runState->currentPrior), 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD);
         runState->currentPrior = adjCurrentPrior;
 
         /* Package parameters */
         parameters = LALInferenceCopyVariablesToArray(runState->currentParams);
 
         /* Swap parameters */
-        MPI_Recv(adjParameters->data, nPar, MPI_DOUBLE, MPIrank-1, 0, MPI_COMM_WORLD, &MPIstatus);
-        MPI_Send(parameters->data, nPar, MPI_DOUBLE, MPIrank-1, 0, MPI_COMM_WORLD);
+        MPI_Recv(adjParameters->data, nPar, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
+        MPI_Send(parameters->data, nPar, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD);
 
         /* Unpack parameters */
         LALInferenceCopyArrayToVariables(adjParameters, runState->currentParams);
 
-        /* Print to file if verbose is chosen */
-        if (swapfile != NULL) {
-          fprintf(swapfile,"%d\t%f\t%f\t%f\n",i,logChainSwap,ladder[MPIrank-1],ladder[MPIrank]);
-          fflush(swapfile);
-        }
+        XLALDestroyREAL8Vector(parameters);
+        XLALDestroyREAL8Vector(adjParameters);
       }
     }
   }
 
   /* Return values for colder chain: 0=nothing happened; 1=swap proposed, not accepted; 2=swap proposed & accepted */
-  if (swapProposed && swapAccepted)
-    swapProposed++;
+  if (swapProposed) {
+      if (swapAccepted)
+          swapReturn = ACCEPTED_SWAP;
+      else
+          swapReturn = REJECTED_SWAP;
+  } else {
+      swapReturn = NO_SWAP_PROPOSED;
+  }
+  return swapReturn;
+}
 
-  return swapProposed;
+/* Utility function that checks if the next coldest chain is attempting a PT swap.  If so, it is rejected. */
+void LALInferenceFlushPTswap() {
+    INT4 MPIrank;
+    INT4 attemptingSwap=0;
+    INT4 swapRejection=0;
+    REAL8 dummyLikelihood;
+    MPI_Status MPIstatus;
+    MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
+
+    if (MPIrank==0) {
+        return;
+    } else {
+        MPI_Send(&swapRejection, 1, MPI_INT, MPIrank-1, PT_COM, MPI_COMM_WORLD);
+        MPI_Iprobe(MPIrank-1, PT_COM, MPI_COMM_WORLD, &attemptingSwap, &MPIstatus);
+        if (attemptingSwap) {
+          MPI_Recv(&dummyLikelihood, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
+          //MPI_Send(&swapRejection, 1, MPI_INT, MPIrank-1, PT_COM, MPI_COMM_WORLD);
+        }
+    }
+    return;
+}
+
+
+void LALInferenceLadderUpdate(LALInferenceRunState *runState, INT4 sourceChainFlag, INT4 cycle)
+{
+  INT4 MPIrank, chain;
+  INT4 readyToSend=0;
+  MPI_Status MPIstatus;
+  MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
+
+  INT4 nPar = LALInferenceGetVariableDimensionNonFixed(runState->currentParams);
+  INT4 nChain = *(INT4*) LALInferenceGetVariable(runState->algorithmParams, "nChain");
+  LALInferenceMCMCrunPhase *runPhase = *(LALInferenceMCMCrunPhase **) LALInferenceGetVariable(runState->algorithmParams, "runPhase");
+
+  REAL8Vector *params = NULL;
+
+  if (sourceChainFlag == 1) {
+    /* Inform hotter chains of ladder update */
+    *runPhase=LADDER_UPDATE;
+    for (chain=MPIrank+1; chain<nChain; chain++)
+      MPI_Send(runPhase, 1, MPI_INT, chain, RUN_PHASE_COM, MPI_COMM_WORLD);
+
+    /* Package and send current parameters */
+    params = LALInferenceCopyVariablesToArray(runState->currentParams);
+
+    /* Start from the top down since colder chains may still be getting PT swaps rejected */
+    for (chain=nChain-1; chain>MPIrank; chain--) {
+      MPI_Send(params->data, nPar, MPI_DOUBLE, chain, LADDER_UPDATE_COM, MPI_COMM_WORLD);
+    }
+
+  } else {
+    /* Flush out any lingering swap proposals from colder chains */
+    LALInferenceFlushPTswap();
+
+    params = XLALCreateREAL8Vector(nPar);
+
+    /* Wait until source chain is ready to send parameters */
+    while (!readyToSend) {
+      MPI_Iprobe(MPI_ANY_SOURCE, LADDER_UPDATE_COM, MPI_COMM_WORLD, &readyToSend, &MPIstatus);
+    }
+
+    /* Recieve new parameters and unpack into current params */
+    MPI_Recv(params->data, nPar, MPI_DOUBLE, MPIstatus.MPI_SOURCE, LADDER_UPDATE_COM, MPI_COMM_WORLD, &MPIstatus);
+
+    LALInferenceCopyArrayToVariables(params, runState->currentParams);
+
+    /* Update prior and likelihood */
+    runState->currentPrior = runState->prior(runState, runState->currentParams);
+    runState->currentLikelihood = runState->likelihood(runState->currentParams, runState->data, runState->templt);
+
+    /* Restart adaptation to tune for the current location */
+    LALInferenceAdaptationRestart(runState, cycle);
+  }
+
+  /* Reset runPhase to the last phase each chain was in */
+  LALInferenceMCMCrunPhase acknowledgedRunPhase = **(LALInferenceMCMCrunPhase **) LALInferenceGetVariable(runState->algorithmParams, "acknowledgedRunPhase");
+  *runPhase = acknowledgedRunPhase;
+  acknowledgePhase(runState);
+
+  XLALDestroyREAL8Vector(params);
 }
 
 UINT4 LALInferenceMCMCMCswap(LALInferenceRunState *runState, REAL8 *ladder, INT4 i, FILE *swapfile)
 {
-  REAL8 nullLikelihood = *(REAL8*) LALInferenceGetVariable(runState->proposalArgs, "nullLikelihood");
   INT4 MPIrank;
   MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
   MPI_Status MPIstatus;
@@ -1052,7 +1153,7 @@ UINT4 LALInferenceMCMCMCswap(LALInferenceRunState *runState, REAL8 *ladder, INT4
   REAL8 logChainSwap;
   INT4 readyToSwap = 0;
   UINT4 swapProposed=0;
-  UINT4 swapAccepted=0;
+  INT4 swapAccepted=0;
 
   REAL8 lowLikeLowParams = 0;
   REAL8 highLikeHighParams = 0;
@@ -1069,7 +1170,7 @@ UINT4 LALInferenceMCMCMCswap(LALInferenceRunState *runState, REAL8 *ladder, INT4
   if (((i % Tskip) == 0) && MPIrank < nChain-1) {
     swapProposed = 1;
     /* Send current likelihood for swap proposal */
-    MPI_Send(&(runState->currentLikelihood), 1, MPI_DOUBLE, MPIrank+1, 0, MPI_COMM_WORLD);
+    MPI_Send(&(runState->currentLikelihood), 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD);
 
     /* Fix fLow if it is being varied, to avoid swapping it */
     if(LALInferenceCheckVariable(runState->currentParams,"fLow")) {
@@ -1086,27 +1187,25 @@ UINT4 LALInferenceMCMCMCswap(LALInferenceRunState *runState, REAL8 *ladder, INT4
     /* Package, swap, and unpack parameters */
     adjParameters = XLALCreateREAL8Vector(nPar);
     parameters = LALInferenceCopyVariablesToArray(runState->currentParams);
-    MPI_Send(parameters->data, nPar, MPI_DOUBLE, MPIrank+1, 0, MPI_COMM_WORLD);
-    MPI_Recv(adjParameters->data, nPar, MPI_DOUBLE, MPIrank+1, 0, MPI_COMM_WORLD, &MPIstatus);
+    MPI_Send(parameters->data, nPar, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD);
+    MPI_Recv(adjParameters->data, nPar, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
     LALInferenceCopyArrayToVariables(adjParameters, adjCurrentParams);
+    XLALDestroyREAL8Vector(parameters);
+    XLALDestroyREAL8Vector(adjParameters);
 
     /* Calculate likelihood at adjacent parameters and send */
     lowLikeHighParams = runState->likelihood(adjCurrentParams, runState->data, runState->templt);
-    MPI_Send(&lowLikeHighParams, 1, MPI_DOUBLE, MPIrank+1, 0, MPI_COMM_WORLD);
+    MPI_Send(&lowLikeHighParams, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD);
 
     /* Determine if swap was accepted */
-    if(MPIrank==0){
-      REAL8 flow = *(REAL8*) LALInferenceGetVariable(runState->currentParams, "fLow");
-      fprintf(stdout,"%i:%f\n",MPIrank,flow);
-    }
-    MPI_Recv(&swapAccepted, 1, MPI_DOUBLE, MPIrank+1, 0, MPI_COMM_WORLD, &MPIstatus);
+    MPI_Recv(&swapAccepted, 1, MPI_INT, MPIrank+1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
 
     if (swapAccepted) {
       /* Set new likelihood */
       runState->currentLikelihood = lowLikeHighParams;
 
-      MPI_Send(&(runState->currentPrior), 1, MPI_DOUBLE, MPIrank+1, 0, MPI_COMM_WORLD);
-      MPI_Recv(&adjCurrentPrior, 1, MPI_DOUBLE, MPIrank+1, 0, MPI_COMM_WORLD, &MPIstatus);
+      MPI_Send(&(runState->currentPrior), 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD);
+      MPI_Recv(&adjCurrentPrior, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
       runState->currentPrior = adjCurrentPrior;
 
       /* Set new parameters */
@@ -1126,13 +1225,13 @@ UINT4 LALInferenceMCMCMCswap(LALInferenceRunState *runState, REAL8 *ladder, INT4
   }
 
   /* Check if next lower temperature is ready to swap */
-  if (MPIrank > 0) {
-    MPI_Iprobe(MPIrank-1, 0, MPI_COMM_WORLD, &readyToSwap, &MPIstatus);
+  else if (MPIrank > 0) {
+    MPI_Iprobe(MPIrank-1, PT_COM, MPI_COMM_WORLD, &readyToSwap, &MPIstatus);
 
     /* Hotter chain decides acceptance */
     if (readyToSwap) {
       /* Receive adjacent likelilhood */
-      MPI_Recv(&lowLikeLowParams, 1, MPI_DOUBLE, MPIrank-1, 0, MPI_COMM_WORLD, &MPIstatus);
+      MPI_Recv(&lowLikeLowParams, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
       highLikeHighParams = runState->currentLikelihood;
 
       /* Fix fLow if it is being varied, to avoid swapping it */
@@ -1150,48 +1249,45 @@ UINT4 LALInferenceMCMCMCswap(LALInferenceRunState *runState, REAL8 *ladder, INT4
       /* Package, swap, and unpack parameters */
       adjParameters = XLALCreateREAL8Vector(nPar);
       parameters = LALInferenceCopyVariablesToArray(runState->currentParams);
-      MPI_Recv(adjParameters->data, nPar, MPI_DOUBLE, MPIrank-1, 0, MPI_COMM_WORLD, &MPIstatus);
-      MPI_Send(parameters->data, nPar, MPI_DOUBLE, MPIrank-1, 0, MPI_COMM_WORLD);
+      MPI_Recv(adjParameters->data, nPar, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
+      MPI_Send(parameters->data, nPar, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD);
       LALInferenceCopyArrayToVariables(adjParameters, adjCurrentParams);
+      XLALDestroyREAL8Vector(parameters);
+      XLALDestroyREAL8Vector(adjParameters);
 
       /* Calculate likelihood at adjacent parameters */
       highLikeLowParams = runState->likelihood(adjCurrentParams, runState->data, runState->templt);
 
       /* Recieve likelihood from adjacent chain */
-      MPI_Recv(&lowLikeHighParams, 1, MPI_DOUBLE, MPIrank-1, 0, MPI_COMM_WORLD, &MPIstatus);
+      MPI_Recv(&lowLikeHighParams, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
 
       /* Propose swap */
-      if(MPIrank==1){
-        REAL8 flow = *(REAL8*) LALInferenceGetVariable(runState->currentParams, "fLow");
-        fprintf(stdout,"%i:%f\n",MPIrank,flow);
-        fprintf(stdout,"ll: %f\nlh: %f\nhl %f\nhh:%f\n",lowLikeLowParams-nullLikelihood,lowLikeHighParams-nullLikelihood,highLikeLowParams-nullLikelihood,highLikeHighParams-nullLikelihood);
-      }
       logChainSwap = (1./ladder[MPIrank-1])*(lowLikeHighParams-lowLikeLowParams)+(1./ladder[MPIrank])*(highLikeLowParams-highLikeHighParams);
 
       if ((logChainSwap > 0) || (log(gsl_rng_uniform(runState->GSLrandom)) < logChainSwap )) {
-        if(MPIrank==1) fprintf(stdout,"accepted\n\n");
         swapAccepted = 1;
-      } else 
-        if(MPIrank==1) fprintf(stdout,"rejected\n\n");
-      MPI_Send(&swapAccepted, 1, MPI_INT, MPIrank-1, 0, MPI_COMM_WORLD);
+      } else {
+        swapAccepted = 0;
+      }
+      MPI_Send(&swapAccepted, 1, MPI_INT, MPIrank-1, PT_COM, MPI_COMM_WORLD);
+
+      /* Print to file if verbose is chosen */
+      if (swapfile != NULL) {
+        fprintf(swapfile,"%d\t%f\t%f\t%f\t%i\n",i,logChainSwap,lowLikeLowParams,highLikeHighParams,swapAccepted);
+        fflush(swapfile);
+      }
 
       if (swapAccepted) {
         /* Swap likelihoods */
         runState->currentLikelihood = highLikeLowParams;
 
         /* Exchange current prior values (assumes prior functions are identical) */
-        MPI_Recv(&adjCurrentPrior, 1, MPI_DOUBLE, MPIrank-1, 0, MPI_COMM_WORLD, &MPIstatus);
-        MPI_Send(&(runState->currentPrior), 1, MPI_DOUBLE, MPIrank-1, 0, MPI_COMM_WORLD);
+        MPI_Recv(&adjCurrentPrior, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
+        MPI_Send(&(runState->currentPrior), 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD);
         runState->currentPrior = adjCurrentPrior;
 
         /* Set new parameters */
         LALInferenceCopyVariables(adjCurrentParams,runState->currentParams);
-
-        /* Print to file if verbose is chosen */
-        if (swapfile != NULL) {
-          fprintf(swapfile,"%d\t%f\t%f\t%f\n",i,logChainSwap,ladder[MPIrank-1],ladder[MPIrank]);
-          fflush(swapfile);
-        }
       }
 
       /* Unfix fLow if it was originally unfixed */
@@ -1257,9 +1353,14 @@ void LALInferenceAdaptation(LALInferenceRunState *runState, INT4 cycle)
 //-----------------------------------------
 void LALInferenceAdaptationRestart(LALInferenceRunState *runState, INT4 cycle)
 {
+  //LALInferenceMCMCrunPhase runPhase = **(LALInferenceMCMCrunPhase **) LALInferenceGetVariable(runState->algorithmParams, "runPhase");
   INT4 Niter = *(INT4*) LALInferenceGetVariable(runState->algorithmParams, "Niter");
+  //INT4 nChain = *(INT4*) LALInferenceGetVariable(runState->algorithmParams, "nChain");
   INT4 adapting=1;
   INT4 goodACL=0;
+
+  INT4 MPIrank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
 
   for(LALInferenceVariableItem *item=runState->currentParams->head;item;item=item->next){
     if (item->vary != LALINFERENCE_PARAM_FIXED) {
@@ -1275,6 +1376,10 @@ void LALInferenceAdaptationRestart(LALInferenceRunState *runState, INT4 cycle)
     }
   }
 
+  /* Move hotter chains to this location.  Stagger when chains can start peforming such an update. */
+  //if (runPhase != LADDER_UPDATE && MPIrank != nChain-1 && cycle > MPIrank*1000)
+  //    LALInferenceLadderUpdate(runState, 1, cycle);
+
   LALInferenceSetVariable(runState->proposalArgs, "adapting", &adapting);
   LALInferenceSetVariable(runState->proposalArgs, "adaptStart", &cycle);
   LALInferenceSetVariable(runState->proposalArgs, "logLAtAdaptStart", &(runState->currentLikelihood));
@@ -1282,7 +1387,6 @@ void LALInferenceAdaptationRestart(LALInferenceRunState *runState, INT4 cycle)
   LALInferenceSetVariable(runState->algorithmParams, "goodACL", &goodACL);
   LALInferenceAdaptationEnvelope(runState, cycle);
 }
-
 
 //-----------------------------------------
 // Adaptation envelope function:

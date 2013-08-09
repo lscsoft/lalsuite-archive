@@ -199,8 +199,6 @@ fabs()
 extern char *optarg;
 extern int   optind;
 
-extern int lalDebugLevel;
-/* int lalDebugLevel  = LALMSGLVL3; */
 BOOLEAN optVerbose = STOCHASTICOPTIMALFILTERTESTC_FALSE;
 BOOLEAN optHetero = STOCHASTICOPTIMALFILTERTESTC_FALSE;
 REAL8 optFRef      = 1.0;
@@ -256,7 +254,6 @@ int main(int argc, char *argv[])
 
   REAL4WithUnits           lambda;
 
-  lalDebugLevel = LALNDEBUG;
 
   ParseOptions (argc, argv);
 
@@ -870,10 +867,10 @@ int main(int argc, char *argv[])
   omegaGW.data->data[0] = 0;
   invNoise1.data->data[0] = 0;
   invNoise2.data->data[0] = 0;
-  hcInvNoise1.data->data[0].re = 0;
-  hcInvNoise1.data->data[0].im = 0;
-  hcInvNoise2.data->data[0].re = 0;
-  hcInvNoise2.data->data[0].im = 0;
+  hcInvNoise1.data->data[0].realf_FIXME = 0;
+  hcInvNoise1.data->data[0].imagf_FIXME = 0;
+  hcInvNoise2.data->data[0].realf_FIXME = 0;
+  hcInvNoise2.data->data[0].imagf_FIXME = 0;
 
   /** Test 1 **/
   for (i=1; i < STOCHASTICOPTIMALFILTERTESTC_LENGTH; i++)
@@ -884,10 +881,10 @@ int main(int argc, char *argv[])
     omegaGW.data->data[i] = 1;
     invNoise1.data->data[i] = 1;
     invNoise2.data->data[i] = 1;
-    hcInvNoise1.data->data[i].re = 1;
-    hcInvNoise1.data->data[i].im = 0;
-    hcInvNoise2.data->data[i].re = 1;
-    hcInvNoise2.data->data[i].im = 0;
+    hcInvNoise1.data->data[i].realf_FIXME = 1;
+    hcInvNoise1.data->data[i].imagf_FIXME = 0;
+    hcInvNoise2.data->data[i].realf_FIXME = 1;
+    hcInvNoise2.data->data[i].imagf_FIXME = 0;
   }
 
   /* fill normalization output */
@@ -1035,10 +1032,10 @@ int main(int argc, char *argv[])
   if (optVerbose)
   {
     printf("Q(0)=%g + %g i, should be 0\n",
-           optimal.data->data[0].re, optimal.data->data[0].im);
+           crealf(optimal.data->data[0]), cimagf(optimal.data->data[0]));
   }
-  if ( fabs(optimal.data->data[0].re) > STOCHASTICOPTIMALFILTERTESTC_TOL
-       || fabs(optimal.data->data[0].im)
+  if ( fabs(crealf(optimal.data->data[0])) > STOCHASTICOPTIMALFILTERTESTC_TOL
+       || fabs(cimagf(optimal.data->data[0]))
        > STOCHASTICOPTIMALFILTERTESTC_TOL )
   {
     printf("  FAIL: Valid data test #1\n");
@@ -1060,14 +1057,14 @@ int main(int argc, char *argv[])
     {
       printf("Q(%g Hz)/Re(Q(%g Hz))=%g + %g i, should be %g\n",
              f, STOCHASTICOPTIMALFILTERTESTC_DELTAF,
-             optimal.data->data[i].re/optimal.data->data[1].re,
-             optimal.data->data[i].im/optimal.data->data[1].re,
+             crealf(optimal.data->data[i])/crealf(optimal.data->data[1]),
+             cimagf(optimal.data->data[i])/crealf(optimal.data->data[1]),
              testNum);
     }
-    if (fabs(optimal.data->data[i].re/optimal.data->data[1].re
+    if (fabs(crealf(optimal.data->data[i])/crealf(optimal.data->data[1])
              - testNum)/testNum
         > STOCHASTICOPTIMALFILTERTESTC_TOL
-        || fabs(optimal.data->data[i].im/optimal.data->data[1].re)
+        || fabs(cimagf(optimal.data->data[i])/crealf(optimal.data->data[1]))
         > STOCHASTICOPTIMALFILTERTESTC_TOL)
     {
       printf("  FAIL: Valid data test #1\n");
@@ -1104,10 +1101,10 @@ int main(int argc, char *argv[])
     omegaGW.data->data[i] = pow(f,3);
     invNoise1.data->data[i] = 1;
     invNoise2.data->data[i] = 1;
-    hcInvNoise1.data->data[i].re = 1;
-    hcInvNoise1.data->data[i].im = 0;
-    hcInvNoise2.data->data[i].re = 1;
-    hcInvNoise2.data->data[i].im = 0;
+    hcInvNoise1.data->data[i].realf_FIXME = 1;
+    hcInvNoise1.data->data[i].imagf_FIXME = 0;
+    hcInvNoise2.data->data[i].realf_FIXME = 1;
+    hcInvNoise2.data->data[i].imagf_FIXME = 0;
   }
 
   /* fill normalization output */
@@ -1252,10 +1249,10 @@ int main(int argc, char *argv[])
   if (optVerbose)
   {
     printf("Q(0)=%g + %g i, should be 0\n",
-           optimal.data->data[0].re, optimal.data->data[0].im);
+           crealf(optimal.data->data[0]), cimagf(optimal.data->data[0]));
   }
-  if ( fabs(optimal.data->data[0].re) > STOCHASTICOPTIMALFILTERTESTC_TOL
-       || fabs(optimal.data->data[0].im)
+  if ( fabs(crealf(optimal.data->data[0])) > STOCHASTICOPTIMALFILTERTESTC_TOL
+       || fabs(cimagf(optimal.data->data[0]))
        > STOCHASTICOPTIMALFILTERTESTC_TOL )
   {
     printf("  FAIL: Valid data test #2\n");
@@ -1274,14 +1271,14 @@ int main(int argc, char *argv[])
     {
       printf("Q(%g Hz)/Re(Q(%g Hz))=%g + %g i, should be %g\n",
              f, STOCHASTICOPTIMALFILTERTESTC_DELTAF,
-             optimal.data->data[i].re/optimal.data->data[1].re,
-             optimal.data->data[i].im/optimal.data->data[1].re,
+             crealf(optimal.data->data[i])/crealf(optimal.data->data[1]),
+             cimagf(optimal.data->data[i])/crealf(optimal.data->data[1]),
              testNum);
     }
-    if (fabs(optimal.data->data[i].re/optimal.data->data[1].re
+    if (fabs(crealf(optimal.data->data[i])/crealf(optimal.data->data[1])
              - testNum)/testNum
         > STOCHASTICOPTIMALFILTERTESTC_TOL
-        || fabs(optimal.data->data[i].im/optimal.data->data[1].re)
+        || fabs(cimagf(optimal.data->data[i])/crealf(optimal.data->data[1]))
         > STOCHASTICOPTIMALFILTERTESTC_TOL)
     {
       printf("  FAIL: Valid data test #2\n");
@@ -1564,7 +1561,7 @@ static REAL8 mu(const REAL4FrequencySeries* omegaGW,
       f = i*deltaF;
       f3 = f*f*f;
       muval += (2.0  * constant * (omegaGW->data->data[i]) *
-            (overlap->data->data[i]) * (optimal->data->data[i].re))/f3;
+            (overlap->data->data[i]) * (crealf(optimal->data->data[i])))/f3;
     }
     return muval;
 }
@@ -1653,7 +1650,6 @@ ParseOptions (int argc, char *argv[])
         break;
 
       case 'd': /* set debug level */
-        lalDebugLevel = atoi (optarg);
         break;
 
       case 'v': /* optVerbose */

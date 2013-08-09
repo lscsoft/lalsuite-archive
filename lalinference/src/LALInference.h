@@ -173,6 +173,15 @@ char **LALInferenceGetHeaderLine(FILE *inp);
 /** Converts between internally used parameter names and those external (e.g. in SimInspiralTable?) */
 const char *LALInferenceTranslateInternalToExternalParamName(const char *inName);
 
+/** Converts between externally used parameter names and those internal */
+void LALInferenceTranslateExternalToInternalParamName(char *outName, const char *inName);
+
+/** Print the parameter names to a file as a tab-separated ASCII line
+ * \param out [in] pointer to output file
+ * \param params [in] LALInferenceVaraibles structure to print
+ */
+int LALInferenceFprintParameterHeaders(FILE *out, LALInferenceVariables *params);
+
 /** Print the parameters which do not vary to a file as a tab-separated ASCII line
  * \param out [in] pointer to output file
  * \param params [in] LALInferenceVaraibles structure to print
@@ -299,6 +308,13 @@ tagLALInferenceProposalStatistics
 typedef REAL8 (*LALInferencePriorFunction) (struct tagLALInferenceRunState *runState,
 	LALInferenceVariables *params);
 
+/** Type declaration for CubeToPrior function which converts parameters in unit hypercube
+  * to their corresponding physical values according to the prior.
+  * Can depend on \param runState ->priorArgs
+  */
+typedef UINT4 (*LALInferenceCubeToPriorFunction) (struct tagLALInferenceRunState *runState,
+  LALInferenceVariables *params, double *cube, void *context);
+
 //Likelihood calculator 
 //Should take care to perform expensive evaluation of h+ and hx 
 //only once if possible, unless necessary because different IFOs 
@@ -338,6 +354,7 @@ tagLALInferenceRunState
   LALInferenceAlgorithm              algorithm; /** The algorithm function */
   LALInferenceEvolveOneStepFunction  evolve; /** The algorithm's single iteration function */
   LALInferencePriorFunction          prior; /** The prior for the parameters */
+  LALInferenceCubeToPriorFunction    CubeToPrior; /** MultiNest prior for the parameters */
   LALInferenceLikelihoodFunction     likelihood; /** The likelihood function */
   LALInferenceProposalFunction       proposal; /** The proposal function */
   LALInferenceTemplateFunction       templt; /** The template generation function */
@@ -496,6 +513,9 @@ void LALInferenceMcQ2Masses(double mc, double q, double *m1, double *m2);
 /** Convert from q to eta (q = m2/m1, with m1 > m2). */
 void LALInferenceQ2Eta(double q, double *eta);
 
+/** Convert from lambdaT, dLambdaT, and eta to lambda1 and lambda2. */
+void LALInferenceLambdaTsEta2Lambdas(REAL8 lambdaT, REAL8 dLambdaT, REAL8 eta, REAL8 *lambda1, REAL8 *lambda2);
+
 /** The kD trees in LALInference are composed of cells.  Each cell
     represents a rectangular region in parameter space, defined by
     \f$\mathrm{lowerLeft} <= x <= \mathrm{upperRight}\f$.  It also
@@ -636,6 +656,23 @@ INT4 LALInferenceSanityCheck(LALInferenceRunState *state);
  */
 void LALInferenceDumpWaveforms(LALInferenceRunState *state, const char *basefilename);
 
+/** Write a LALInferenceVariables as binary to a given FILE pointer, returns the number
+ * of items written (should be the dimension of the variables) or -1 on error */
+int LALInferenceWriteVariablesBinary(FILE *file, LALInferenceVariables *vars);
+
+/** Read from the given FILE * a LALInferenceVariables, which was previously
+ * written with LALInferenceWriteVariablesBinary() Returns a new LALInferenceVariables */
+LALInferenceVariables *LALInferenceReadVariablesBinary(FILE *stream);
+
+/** Write an array N of LALInferenceVariables to the given FILE * using
+ * LALInferenceWriteVariablesBinary(). Returns the number written (should be ==N) */
+int LALInferenceWriteVariablesArrayBinary(FILE *file, LALInferenceVariables **vars, UINT4 N);
+
+/** Read N LALInferenceVariables from the binary FILE *file, previously written with
+ * LALInferenceWriteVariablesArrayBinary() returns the number read */
+int LALInferenceReadVariablesArrayBinary(FILE *file, LALInferenceVariables **vars, UINT4 N);
+
 /*@}*/
 
 #endif
+

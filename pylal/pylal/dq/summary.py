@@ -36,6 +36,7 @@ import numpy
 import copy
 import StringIO
 import lal
+import warnings
 
 from dateutil.relativedelta import relativedelta
 from matplotlib import use
@@ -111,6 +112,7 @@ class SummaryTab(object):
         kwargs.setdefault("parent", None)
         kwargs.setdefault("state", None)
         kwargs.setdefault("information", None)
+        kwargs.setdefault("skip_summary", False)
 
         # set all other values
         for key,val in kwargs.iteritems():
@@ -259,7 +261,8 @@ class SummaryTab(object):
         try:
             idx = names.index(name)
         except ValueError,e:
-            raise RunTimeError("Parent tab has no child named \"%s\"." % name)
+            raise RuntimeError("Parent tab has no child named \"%s\". Valid "
+                               "children are: %s." % (name, ", ".join(names)))
         else:
             return self.children[idx]
         
@@ -498,9 +501,8 @@ class SummaryTab(object):
         if cp.has_option(cpsec, "html-information"):
             self.information = cp.get(cpsec, "html-information")
         else:
-            sys.stderr.write("Warning. No HTML information found for %s. "\
-                             "Please add this.\n" % self.name)
-            sys.stderr.flush()
+            warnings.warn("No HTML information found for %s. "
+                          "Please add this." % self.name)
 
 
 class SectionSummaryTab(SummaryTab):
@@ -523,6 +525,12 @@ class SectionSummaryTab(SummaryTab):
         # build ordered list of all tabs
         alltabs = []
         for tab in sectiontabs:
+            tab.children.sort(key=lambda t:
+                                  re.search('odc(.*)(overview|summary)',
+                                            t.name, re.I) and 3 or
+                                  re.search('odc', t.name, re.I) and 4 or
+                                  re.search('(overview|summary)', t.name, re.I)
+                                      and 2 or 1)
             alltabs.append(tab)
             if tab.name != "Summary":
                 alltabs.extend(tab.children)
@@ -606,28 +614,30 @@ class SectionSummaryTab(SummaryTab):
         div(self.frame, 0, self.name)
         if self.name == "Summary":
             order = ["Sensitivity", "Triggers", "Segments"]
-            self.children.sort(key=lambda x: x.name in order\
-                                             and order.index(x.name)+1 or 1000)
+            self.children.sort(key=lambda x: x.parent.name in order\
+                                             and order.index(x.parent.name)+1 or 1000)
             children = []
             for tab in self.children:
                 children.extend(tab.children)
         else:
             children = self.children
         n = len(children) > 1 and 2 or 1
-        
+
         self.frame.table(style="table-layout: fixed; width: 100%;")
         for i,tab in enumerate(children):
+            if self.name == "Summary" and tab.skip_summary:
+                continue
             if i % n == 0:
                 self.frame.tr()
             self.frame.td()
-            if (self.name == "Summary" and 
-                    re.match("[A-Z]{3}\Z", tab.parent.name) and
-                    not tab.name.startswith(tab.parent.name)):
-                self.frame.h3("%s: %s" % (tab.parent.name, tab.name),
-                              class_="summary")
+            if (self.name == "Summary"):
+                parent = tab.parent.parent
+                self.frame.a(markup.oneliner.h2(parent.name, class_='summary'),
+                             href=parent.index, title=parent.name)
+                self.frame.a(href=parent.index, title=parent.name)
             else:
-                self.frame.h3(tab.name, class_="summary")
-            self.frame.a(href=tab.index, title=tab.name)
+                self.frame.a(href=tab.index, title=tab.name)
+                self.frame.h2(tab.name, class_="summary")
             self.frame.img(src=tab.plots[0][0], alt=tab.name, class_="full")
             self.frame.a.close()
             self.frame.td.close()
@@ -890,7 +900,7 @@ class SegmentSummaryTab(SummaryTab):
 
         # subplots
         if len(self.subplots):
-            div(self.frame, (0, 4), "Subplots", display=False)
+            div(self.frame, (0, 4), "Subplots", display=True)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
@@ -1061,7 +1071,10 @@ class DataSummaryTab(SummaryTab):
                 for channel in channels]
         for i,channel in enumerate(channels):
             data[i].name = channel
-        plotdata.plottimeseries(data, outfile, **kwargs)
+        try:
+            plotdata.plottimeseries(data, outfile, **kwargs)
+        except ValueError as err:
+            warnings.warn("ValueError: %s" % err.message)
         if subplot:
             self.subplots.append((outfile, desc))
         else:
@@ -1121,14 +1134,26 @@ class DataSummaryTab(SummaryTab):
  
         # get data
         if len(self.spectrogram[channel]):
-            data,epoch,deltaT,f0,deltaF = map(list,\
-                                              zip(*self.spectrogram[channel]))
+            data = []
+            epoch = []
+            deltaT = []
+            f0 = []
+            deltaF = []
+            f_array = self.spectrogram[channel][0]['f_array']
+            for i in range(len(self.spectrogram[channel])):
+                data.append(self.spectrogram[channel][i]['data'])
+                epoch.append(self.spectrogram[channel][i]['epoch'])
+                deltaT.append(self.spectrogram[channel][i]['deltaT'])
+                f0.append(self.spectrogram[channel][i]['f0'])
+                deltaF.append(self.spectrogram[channel][i]['deltaF'])
+
         else:
             data = []
             epoch = LIGOTimeGPS(self.start_time)
             deltaT = 1
             f0 = 0
             deltaF = 1
+            f_array = None
 
         # get ratio
         if ratio:
@@ -1152,7 +1177,7 @@ class DataSummaryTab(SummaryTab):
                 numpy.putmask(data[i].data, numpy.isnan(data[i].data), 1e100)
 
         plotdata.plotspectrogram(data, outfile, epoch=epoch, deltaT=deltaT,\
-                                 f0=f0, deltaF=deltaF, **kwargs)
+                                 f0=f0, deltaF=deltaF, ydata=f_array, **kwargs)
         if subplot:
             self.subplots.append((outfile, desc))
         else:
@@ -1174,19 +1199,23 @@ class DataSummaryTab(SummaryTab):
         @keyword **kwargs: other arguments to pass to
             plotdata.plotfrequencyseries
         """
-        if not channel:
-            channel = self.channels[0]
+        if channel:
+            channels = [channel]
+        else:
+            channels = self.channels
         desc = kwargs.pop("description", None)
-        serieslist = [self.spectrum[channel], self.minspectrum[channel],\
-                      self.maxspectrum[channel]]
-        if self.designspectrum.has_key(channel):
-            serieslist.append(self.designspectrum[channel])
-        if self.referencespectrum.has_key(channel):
-            serieslist.append(self.referencespectrum[channel])
+        serieslist = []
+        for channel in channels:
+            serieslist.extend([self.spectrum[channel],
+                               self.minspectrum[channel],\
+                               self.maxspectrum[channel]])
+            if self.designspectrum.has_key(channel):
+                serieslist.append(self.designspectrum[channel])
+            if self.referencespectrum.has_key(channel):
+                serieslist.append(self.referencespectrum[channel])
         if psd:
             for i,series in serieslist:
-                serieslist[i] =\
-                    seriesutils.fromarray(series.data.data**2,\
+                serieslist[i] = seriesutils.fromarray(series.data.data**2,\
                                           name=series.name, epoch=series.epoch,\
                                           deltaT=series.deltaF, f0=series.f0,\
                                           sampleUnits=series.sampleUnits,\
@@ -1219,7 +1248,7 @@ class DataSummaryTab(SummaryTab):
  
         # construct info table
         headers = ["Channel", "Sampling rate"]
-        data    = [[channel, self.sampling[channel]]\
+        data    = [[channel, channel in self.sampling and self.sampling[channel] or 'N/A']\
                    for channel in self.channels\
                    if not re.search("[-._](min|max)\Z", channel)]
         self.frame.add(htmlutils.write_table(headers, data, {"table":"full"})())
@@ -1237,7 +1266,7 @@ class DataSummaryTab(SummaryTab):
 
         # subplots
         if len(self.subplots):
-            div(self.frame, (0, 4), "Subplots", display=False)
+            div(self.frame, (0, 4), "Subplots", display=True)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
@@ -1272,6 +1301,21 @@ class RangeSummaryTab(DataSummaryTab):
     def add_source(self, sourcedict):
         self.sources.append(sourcedict)
         self.sources.sort(key=lambda s: (s["type"],s["name"]))
+
+    @property
+    def trigsegments(self):
+        """glue.segments.segmentlist describing the veto segments for
+        this Tab.
+        """
+        return self._trigsegments
+    @trigsegments.setter
+    def trigsegments(self, vetolist):
+        self._trigsegments =\
+            segments.segmentlist([segments.segment(map(float, s))\
+                                  for s in vetolist])
+    @trigsegments.deleter
+    def trigsegments(self):
+        del self._trigsegments
 
     def finalize(self):
         """
@@ -1320,7 +1364,7 @@ class RangeSummaryTab(DataSummaryTab):
 
         # subplots
         if len(self.subplots):
-            div(self.frame, (0, 4), "Subplots", display=False)
+            div(self.frame, (0, 4), "Subplots", display=True)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
@@ -1594,7 +1638,7 @@ class TriggerSummaryTab(SummaryTab):
 
         # subplots
         if len(self.subplots):
-            div(self.frame, (0, 4), "Subplots", display=False)
+            div(self.frame, (0, 4), "Subplots", display=True)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
@@ -1876,6 +1920,7 @@ class AuxTriggerSummaryTab(TriggerSummaryTab):
                       "Num. %s<br>coinc. with aux." % self.mainchannel,\
                       "Zero shift coinc. &sigma;"]
                 td = []
+                cellclasses = {"table":"full"}
                 for chan in self.channels:
                     if chan == self.mainchannel:
                         continue
@@ -1887,11 +1932,15 @@ class AuxTriggerSummaryTab(TriggerSummaryTab):
                         td[-1].extend(["-", "-"])
                     if (self.sigma.has_key(chan) and
                             self.sigma[chan].has_key(0.0)):
-                        td[-1].append("%.2f" % self.sigma[chan][0.0])
+                        sigmaStr = "%.2f" % self.sigma[chan][0.0]
+                        td[-1].append(sigmaStr)
+                        if self.sigma[chan][0.0] > 5:
+                            cellclasses[sigmaStr] = "red"
+                            cellclasses[chan] = "red"
                     else:
                         td[-1].append("-")
                 self.frame.add(htmlutils.write_table(th, td,
-                                                     {"table":"full"})())
+                                                     cellclasses)())
 
             self.frame.div.close()
 
@@ -2015,7 +2064,7 @@ class StateVectorSummaryTab(SegmentSummaryTab):
 
         # subplots
         if len(self.subplots):
-            div(self.frame, (0, 4), "Subplots", display=False)
+            div(self.frame, (0, 4), "Subplots", display=True)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")

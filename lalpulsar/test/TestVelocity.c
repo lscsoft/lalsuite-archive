@@ -91,7 +91,6 @@ LALCheckMemoryLeaks()
 
 /* Default parameters. */
 
-INT4 lalDebugLevel=7;
 
 /* #define T0SEC 714153733 */
 #define T0SEC 730000044
@@ -101,8 +100,8 @@ INT4 lalDebugLevel=7;
 
 /* Locations of the earth and sun ephemeris data */
 
-#define EARTHDATAFILE DATADIR  "earth00-19-DE405.dat.gz";
-#define SUNDATAFILE DATADIR    "sun00-19-DE405.dat.gz";
+#define EARTHDATAFILE TEST_DATA_DIR  "earth00-19-DE405.dat.gz";
+#define SUNDATAFILE TEST_DATA_DIR    "sun00-19-DE405.dat.gz";
 
 char EARTHDATA[] = EARTHDATAFILE;
 char SUNDATA[] = SUNDATAFILE;
@@ -180,7 +179,6 @@ int main(int argc, char *argv[]){
     if ( !strcmp( argv[arg], "-d" ) ) {
       if ( argc > arg + 1 ) {
         arg++;
-        lalDebugLevel = atoi( argv[arg++] );
       } else {
         ERROR( TESTVELOCITYC_EARG, TESTVELOCITYC_MSGEARG, 0 );
         XLALPrintError( USAGE, *argv );

@@ -17,7 +17,9 @@ You should have received a copy of the GNU General Public License along with
 this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-__version__ = '$Revision$'
+from glue import git_version
+__date__ = git_version.date
+__version__ = git_version.id
 
 import sys
 import os
@@ -256,8 +258,9 @@ def RFCproxyUsage():
     a RFC 3820 compliant proxy certificate.
     """
     msg = """\
-Could not find a RFC 3820 compliant proxy credential.
-Please run 'grid-proxy-init -rfc' and try again.
+Could not find a valid proxy credential.
+LIGO users, please run 'ligo-proxy-init' and try again.
+Others, please run 'grid-proxy-init' and try again.
 """
 
     print >>sys.stderr, msg

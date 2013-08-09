@@ -166,15 +166,10 @@ int main(int argc,char *argv[])
   ExRegion exr = empty_ExRegion;		/* initialise the exclusion region structure */
 	
 
-  lalDebugLevel = 0;				/* lalDebugLevel default */
   vrbflg = 1;					/* verbose error-messages */
 
 
   /* setup LAL debug level */
-  if (XLALGetDebugLevel(argc, argv, 'v')) {
-    LogPrintf(LOG_CRITICAL,"%s : XLALGetDebugLevel() failed with error = %d\n",fn,xlalErrno);
-    return XLAL_EFAULT;
-  }
   LogSetLevel(lalDebugLevel);
   LogPrintf(LOG_DEBUG,"Debug level set to %d \n", lalDebugLevel);
   
@@ -639,8 +634,8 @@ int ComputeCstat(VectorStruct *template, VectorStruct *Fstat, VectorStruct *Csta
 
   /* Perform convolution of fstat with template by multiplication in Fourier time domain */
   for (i=0;i<(N/2 +1); i++)	{
-    c_out->data[i].re = (f_out->data[i].re * t_out->data[i].re) - (f_out->data[i].im * t_out->data[i].im); /* real part of c_out */
-    c_out->data[i].im = (f_out->data[i].re * t_out->data[i].im) + (f_out->data[i].im * t_out->data[i].re); /* imaginary part of c_out */
+    c_out->data[i].real_FIXME = (creal(f_out->data[i]) * creal(t_out->data[i])) - (cimag(f_out->data[i]) * cimag(t_out->data[i])); /* real part of c_out */
+    c_out->data[i].imag_FIXME = (creal(f_out->data[i]) * cimag(t_out->data[i])) + (cimag(f_out->data[i]) * creal(t_out->data[i])); /* imaginary part of c_out */
    }
 
   /* Inverse FFT back to frequency domain to retrieve Cstat */

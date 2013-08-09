@@ -103,7 +103,7 @@ SFT files that are specified in the code.
 \heading{Uses}
 \code
 LALGenerateTaylorCW()
-LALSimulateCoherentGW()
+LALPulsarSimulateCoherentGW()
 LALMalloc()
 LALSCreateVector()
 LALSDestroyVector()
@@ -155,7 +155,7 @@ LALCheckMemoryLeaks()
 #include <lal/LALConstants.h>
 #include <lal/DetResponse.h>
 #include <lal/DetectorSite.h>
-#include <lal/SimulateCoherentGW.h>
+#include <lal/PulsarSimulateCoherentGW.h>
 #include <lal/GenerateTaylorCW.h>
 #include <lal/LALDatatypes.h>
 #include <lal/LALBarycenter.h>
@@ -271,8 +271,9 @@ REAL4TimeSeries *timeSeries = NULL;
 
 /* Signal parameters to generate signal at source */
 SpinOrbitCWParamStruc genTayParams;
-CoherentGW cgwOutput;
-DetectorResponse cwDetector;
+PulsarCoherentGW cgwOutput;
+PulsarDetectorResponse cwDetector;
+COMPLEX8FrequencySeries *transferFunction;
 
 /*This will hold the SFT*/
 COMPLEX8Vector *fvec = NULL;
@@ -291,7 +292,6 @@ REAL8 OrbitalEccentricity;
 REAL8 ArgPeriapse;
 REAL8 OrbitalPeriod;
 
-INT4 lalDebugLevel=3;
 
 /* Prototypes for the functions defined in this file */
 int read_file(LALStatus *, int argc, char *argv[]);
@@ -408,7 +408,7 @@ int main(int argc,char *argv[]) {
 
 
 
-  memset(&cgwOutput, 0, sizeof(CoherentGW));
+  memset(&cgwOutput, 0, sizeof(PulsarCoherentGW));
 
   /* complete filling-in the "input fields" of genTayparams */
   if (SetupSigGenParams())
@@ -437,7 +437,7 @@ int main(int argc,char *argv[]) {
     /* This matters a lot */
     timeSeries->epoch=timestamps[iSFT];
 
-    SUB( LALSimulateCoherentGW(&status, timeSeries, &cgwOutput, &cwDetector), &status);
+    SUB( LALPulsarSimulateCoherentGW(&status, timeSeries, &cgwOutput, &cwDetector), &status);
 
     /* lets calculate the power in the signal */
     /* if (compute_power()) */
@@ -536,8 +536,8 @@ int freemem(LALStatus* status){
   LALFree(edat);
 
   /* Clean up cwDetector */
-  LALCDestroyVector( status, &( cwDetector.transfer->data ) );
-  LALFree(cwDetector.transfer);
+  LALCDestroyVector( status, &( transferFunction->data ) );
+  LALFree(transferFunction);
 /*   LALFree( cwDetector.ephemerides->ephemE->pos ); */
 /*   LALFree( cwDetector.ephemerides->ephemS ); */
 /*   LALFree( cwDetector.ephemerides ); */
@@ -675,7 +675,7 @@ int prepare_baryinput(LALStatus* status){
 /* prepares cwDetector */
 int prepare_cwDetector(LALStatus* status){
 
-  memset(&cwDetector, 0, sizeof(DetectorResponse));
+  memset(&cwDetector, 0, sizeof(PulsarDetectorResponse));
   /* The ephemerides */
   cwDetector.ephemerides = edat;
   /* Specifying the detector site (set above) */
@@ -684,21 +684,23 @@ int prepare_cwDetector(LALStatus* status){
    * Note, this xfer function has only two points at it extends
    between 0 and 16384 Hz. The routine that will generate the signal as
    output from the detector on Earth will interpolate*/
-  cwDetector.transfer = (COMPLEX8FrequencySeries *)LALMalloc(sizeof(COMPLEX8FrequencySeries));
-  memset(cwDetector.transfer, 0, sizeof(COMPLEX8FrequencySeries));
+  transferFunction = (COMPLEX8FrequencySeries *)LALMalloc(sizeof(COMPLEX8FrequencySeries));
+  memset(transferFunction, 0, sizeof(COMPLEX8FrequencySeries));
   /* it does not change so just use first timestamp. Does not
    seem to matter whether SSBtimestamps or timestamps are used */
-  cwDetector.transfer->epoch = timestamps[0];
-  cwDetector.transfer->f0 = 0.0;
-  cwDetector.transfer->deltaF = 16384.0;
-  cwDetector.transfer->data = NULL;
-  LALCCreateVector(status, &(cwDetector.transfer->data), 2);
+  transferFunction->epoch = timestamps[0];
+  transferFunction->f0 = 0.0;
+  transferFunction->deltaF = 16384.0;
+  transferFunction->data = NULL;
+  LALCCreateVector(status, &(transferFunction->data), 2);
 
   /* unit response function */
-  cwDetector.transfer->data->data[0].re = 1.0;
-  cwDetector.transfer->data->data[1].re = 1.0;
-  cwDetector.transfer->data->data[0].im = 0.0;
-  cwDetector.transfer->data->data[1].im = 0.0;
+  transferFunction->data->data[0].realf_FIXME = 1.0;
+  transferFunction->data->data[1].realf_FIXME = 1.0;
+  transferFunction->data->data[0].imagf_FIXME = 0.0;
+  transferFunction->data->data[1].imagf_FIXME = 0.0;
+
+  cwDetector.transfer = transferFunction;
 
   /*  cwDetector.heterodyneEpoch=(LIGOTimeGPS *)LALMalloc(sizeof(LIGOTimeGPS)); */
   /* SSBtimestamps or not, without heterodyning it does not seem to make a difference*/
@@ -1009,8 +1011,8 @@ int read_noise(LALStatus* status, int iSFT) {
   norm=((REAL4)(fvec->length-1)*1.0/((REAL4)header.nsamples));
 
   for (i = 0; i < fvec->length; ++i) {
-    fvec->data[i].re += scale*fvecn->data[i].re*norm;
-    fvec->data[i].im += scale*fvecn->data[i].im*norm;
+    fvec->data[i].realf_FIXME += scale*crealf(fvecn->data[i])*norm;
+    fvec->data[i].imagf_FIXME += scale*cimagf(fvecn->data[i])*norm;
   }
 
   return 0;
@@ -1068,8 +1070,8 @@ int write_SFTS(int iSFT){
 
   for (i=0;i<fvec->length-1;i++){
 
-    rpw=fvec->data[i].re;
-    ipw=fvec->data[i].im;
+    rpw=crealf(fvec->data[i]);
+    ipw=cimagf(fvec->data[i]);
 
     errorcode=fwrite((void*)&rpw, sizeof(REAL4),1,fp);
     if (errorcode!=1){
