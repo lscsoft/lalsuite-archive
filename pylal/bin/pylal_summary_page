@@ -964,13 +964,9 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
         elif etg.lower() != "hacr":
             if etg.lower() in ['dmtomega', 'excesspower', 'omicron',
                                'kw', 'kleinewelle']:
-                if etg.lower() in ['kw', 'kleinewelle']:
-                    kwargs = {'extension':trigfind_args.pop('format', 'xml')}
-                else:
-                    kwargs = {}
                 trigcache = trigfind.find_trigger_urls(channel, etg,
                                                        span[0], span[1],
-                                                       **kwargs)
+                                                       **trigfind_args)
             elif etg.lower() in ['omega', 'omegaspectrum']:
                 # get omega online cache parameters defaults
                 cachekwargs = dict()
