@@ -297,7 +297,7 @@ def grab_segments(start, end, flag,\
     for segdef,segsum in zip(segdefs, segsums):
       try:
         fidx = flags.index(':'.join(map(str, segdef[:3])))
-      except IndexError:
+      except ValueError:
         fidx = flags.index(':'.join(segdef[:2]))
       segsummap[fidx].extend(segsum)
     if flag == flags[0]:

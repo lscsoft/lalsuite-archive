@@ -67,7 +67,7 @@ import lalburst
 # import laldetchar
 import laldetchar
 from laldetchar import triggers
-from laldetchar.triggers import (omega, kw, daily_ihope, excesspower)
+from laldetchar.triggers import (omega, kw, daily_ihope, excesspower, trigfind)
 
 # import PyLAL modules
 from pylal import (git_version, seriesutils, plotutils, htmlutils,
@@ -363,12 +363,18 @@ def parse_tab_states(statelist, cp, sec):
     if len(runstates) == 0:
         runstates = ["all"]
     tabstatelist = list()
-    for state in statelist:
-        for i,runstate in enumerate(runstates):
+    for i,runstate in enumerate(runstates):
+        found = False
+        for state in statelist:
             if state.match(re_cchar.sub("_", runstate).lower()):
                 tabstatelist.append(state)
                 runstates.pop(i)
+                found = True
                 break
+        if not found:
+            raise ValueError("Run state '%s' not found in configuration"
+                             % state)
+
     return tabstatelist
 
 
@@ -956,31 +962,42 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                         etg))
             trigcache = trigcache.sieve(description=desc)
         elif etg.lower() != "hacr":
-            if etg.lower() == "dmtomega":
-                trigcache = omegautils.find_dmt_cache(span[0], span[1], ifo)
-            elif etg.lower() == "omega" or etg.lower() == "omegaspectrum":
-              # get omega online cache parameters defaults
-              cacheKwargs = dict()
-              if cp.has_option(etg.lower(),'duration'):
-                cacheKwargs['duration'] = float(cp.get(etg.lower(),'duration'))
-              if cp.has_option(etg.lower(),'overlap'):
-                cacheKwargs['overlap'] = float(cp.get("%s" % etg.lower(),'overlap'))
+            if etg.lower() in ['dmtomega', 'excesspower', 'omicron',
+                               'kw', 'kleinewelle']:
+                if etg.lower() in ['kw', 'kleinewelle']:
+                    kwargs = {'extension':trigfind_args.pop('format', 'xml')}
+                else:
+                    kwargs = {}
+                trigcache = trigfind.find_trigger_urls(channel, etg,
+                                                       span[0], span[1],
+                                                       **kwargs)
+            elif etg.lower() in ['omega', 'omegaspectrum']:
+                # get omega online cache parameters defaults
+                cachekwargs = dict()
+                if cp.has_option(etg.lower(), 'duration'):
+                    cachekwargs['duration'] = float(cp.get(etg.lower(),
+                                                           'duration'))
+                if cp.has_option(etg.lower(),'overlap'):
+                    cachekwargs['overlap'] = float(cp.get(etg.lower(),
+                                                          'overlap'))
 
-              # overrid defaulte settings with channel specific if provided
-              if cp.has_section('%s' %  channel):
-                if cp.has_option(channel,'duration'):
-                  cacheKwargs['duration'] = float(cp.get(channel,'duration'))
-                if cp.has_option(channel,'overlap'):
-                  cacheKwargs['overlap'] = float(cp.get(channel,'overlap'))
+                # overrid defaulte settings with channel specific if provided
+                if cp.has_section('%s' %  channel):
+                    if cp.has_option(channel,'duration'):
+                        cachekwargs['duration'] = float(cp.get(channel,
+                                                               'duration'))
+                    if cp.has_option(channel,'overlap'):
+                        cachekwargs['overlap'] = float(cp.get(channel,
+                                                              'overlap'))
               
-              # get cache
-              if etg.lower() == "omega":
-                  trigcache = omegautils.get_cache(span[0], span[1], ifo, channel, **cacheKwargs)
-              elif etg.lower() == "omegaspectrum":
-                  trigcache = omegautils.get_cache(span[0], span[1], ifo, channel, mask='SPECTRUM', **cacheKwargs)
-            elif etg.lower() in ["kw", "kleinewelle"]:
-                trigcache = kw.find_dmt_cache(span[0], span[1], ifo,
-                                              **trigfind_args)
+                # get cache
+                if etg.lower() == "omega":
+                    trigcache = omegautils.get_cache(span[0], span[1], ifo,
+                                                     channel, **cachekwargs)
+                elif etg.lower() == "omegaspectrum":
+                    trigcache = omegautils.get_cache(span[0], span[1], ifo,
+                                                     channel, mask='SPECTRUM',
+                                                     **cachekwargs)
             elif etg.lower() in ["daily_ihope", "dailyihope", "ihopedaily",
                                  "ihope_daily"]:
                 dicluster = (cp.has_option("daily_ihope", "clustering") and
@@ -988,10 +1005,6 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                 trigcache = daily_ihope.find_daily_cache(
                                 span[0], span[1], ifo, clustering=dicluster,
                                 **trigfind_args)
-            elif re_etg_ep.search(etg):
-                trigcache = excesspower.find_online_cache(span[0], span[1],
-                                                          channel,
-                                                          **trigfind_args)
             else:
                 raise NotImplementedError("A default file finder for %s has"
                                           "not been written yet." % etg)
@@ -1023,7 +1036,7 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                                                         end=seg[1],channel=channel,
                                                         columns=columns,
                                                         verbose=VERBOSE)
-                elif etg.lower() in ['excesspower', 'daily_ihope']:
+                elif etg.lower() in ['excesspower', 'daily_ihope', 'omicron']:
                     trigtable = triggers.from_files(segcache, etg,
                                                     columns=columns,
                                                     start=seg[0], end=seg[1],
@@ -3175,6 +3188,8 @@ def process_auxiliary_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
     channels.sort()
     if tab.mainchannel:
         allchannels = [tab.mainchannel] + channels
+    else:
+        allchannels = channels
 
     # get coinc params
     if tab.mainchannel:
@@ -5350,6 +5365,44 @@ if __name__=="__main__":
             section_summary[parent].add_child(metatab)
 
     #
+    # process state vectors
+    #
+
+    if opts.run_state_vector:
+        sections = natsort([s for s in cp.sections()\
+                            if s.startswith("statevector-")])
+        for cpsec in sections:
+            run_states = parse_tab_states(statelist, cp, cpsec)
+            parent = find_tab_parent(cp, cpsec, valid_parents, default="Segments")
+            name = cp.has_option(cpsec, "name") and cp.get(cpsec, "name")\
+                   or cpsec[9:]
+            metatab = summary.MetaStateTab(name)
+            metatab.span = (start_time, end_time)
+            metatab.parent = section_summary[parent]
+            for state in run_states:
+                if state in veto_def_table.keys():
+                    vetotable = veto_def_table[state]
+                else:
+                    vetotable = None
+                if not opts.html_only:
+                    get_state_segments(cp, state, vetotable, mode=mode)
+                tab = summary.StateVectorSummaryTab(metatab.name)
+                tab.span = span
+                tab.parent = metatab
+                tab.directory = metatab.directory
+                tab.state = state
+                tab.datadirectory = segdir
+                tab.segments = state.segments
+                tab.add_information(cp, cpsec)
+                process_state_vector(tab, cp, cpsec,\
+                                    verbose=verbose,\
+                                    htmlonly=opts.html_only,\
+                                    doplots=opts.run_plots,\
+                                    dosubplots=opts.run_sub_plots)
+                metatab.add_child(tab)
+            section_summary[parent].add_child(metatab)
+
+    #
     # process hveto
     #
     if opts.run_hveto:
@@ -5461,45 +5514,6 @@ if __name__=="__main__":
                                            verbose=verbose,\
                                            htmlonly=opts.html_only,\
                                            doplots=opts.run_plots)
-                metatab.add_child(tab)
-            section_summary[parent].add_child(metatab)
-
-
-    #
-    # process state vectors
-    #
-
-    if opts.run_state_vector:
-        sections = natsort([s for s in cp.sections()\
-                            if s.startswith("statevector-")])
-        for cpsec in sections:
-            run_states = parse_tab_states(statelist, cp, cpsec)
-            parent = find_tab_parent(cp, cpsec, valid_parents, default="Segments")
-            name = cp.has_option(cpsec, "name") and cp.get(cpsec, "name")\
-                   or cpsec[9:]
-            metatab = summary.MetaStateTab(name)
-            metatab.span = (start_time, end_time)
-            metatab.parent = section_summary[parent]
-            for state in run_states:
-                if state in veto_def_table.keys():
-                    vetotable = veto_def_table[state]
-                else:
-                    vetotable = None
-                if not opts.html_only:
-                    get_state_segments(cp, state, vetotable, mode=mode)
-                tab = summary.StateVectorSummaryTab(metatab.name)
-                tab.span = span
-                tab.parent = metatab
-                tab.directory = metatab.directory
-                tab.state = state
-                tab.datadirectory = segdir
-                tab.segments = state.segments
-                tab.add_information(cp, cpsec)
-                process_state_vector(tab, cp, cpsec,\
-                                    verbose=verbose,\
-                                    htmlonly=opts.html_only,\
-                                    doplots=opts.run_plots,\
-                                    dosubplots=opts.run_sub_plots)
                 metatab.add_child(tab)
             section_summary[parent].add_child(metatab)
 
