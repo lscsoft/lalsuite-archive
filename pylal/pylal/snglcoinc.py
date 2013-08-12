@@ -1544,6 +1544,9 @@ class CoincParamsDistributions(object):
 		self.zero_lag_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
 		self.background_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
 		self.injection_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
+		self.zero_lag_rates_interp = {}
+		self.background_rates_interp = {}
+		self.injection_rates_interp = {}
 
 	def __iadd__(self, other):
 		if type(other) != type(self):
@@ -1573,6 +1576,7 @@ class CoincParamsDistributions(object):
 		#	new = type(self)()
 		#	new += self
 		#	return new
+		# FIXME:  this doesn't copy the PDF interpolators
 		new = cls()
 		new += other
 		return new
@@ -1642,14 +1646,31 @@ class CoincParamsDistributions(object):
 		nonsensical data in the arrays.  No protection is afforded
 		to guard against attempts to do so.
 		"""
+		#
+		# convert raw bin counts into normalized PDFs
+		#
+
 		N = len(self.zero_lag_rates) + len(self.background_rates) + len(self.injection_rates)
 		threads = []
-		for n, (group, (name, binnedarray)) in enumerate(itertools.chain(zip(["zero lag"] * len(self.zero_lag_rates), self.zero_lag_rates.items()), zip(["background"] * len(self.background_rates), self.background_rates.items()), zip(["injections"] * len(self.injection_rates), self.injection_rates.items()))):
+		for n, (group, (name, binnedarray)) in enumerate(itertools.chain(zip(itertools.repeat("zero lag"), self.zero_lag_rates.items()), zip(itertools.repeat("background"), self.background_rates.items()), zip(itertools.repeat("injections"), self.injection_rates.items()))):
 			threads.append(CoincParamsFilterThread(binnedarray, self.filters[name], verbose = verbose, name = "%d / %d: %s \"%s\"" % (n + 1, N, group, name)))
 			threads[-1].start()
 		while threads:
 			threads.pop(0).join()
-		return self
+
+		#
+		# construct interpolators from the discretely-sampled PDFs
+		#
+
+		self.zero_lag_rates_interp.clear()
+		for name, binnedarray in self.zero_lag_rates.items():
+			self.zero_lag_rates_interp[name] = rate.InterpBinnedArray(binnedarray)
+		self.background_rates_interp.clear()
+		for name, binnedarray in self.background_rates.items():
+			self.background_rates_interp[name] = rate.InterpBinnedArray(binnedarray)
+		self.injection_rates_interp.clear()
+		for name, binnedarray in self.injection_rates.items():
+			self.injection_rates_interp[name] = rate.InterpBinnedArray(binnedarray)
 
 	@classmethod
 	def from_xml(cls, xml, name):
@@ -1689,6 +1710,8 @@ class CoincParamsDistributions(object):
 		for name in in_names:
 			self.injection_rates[str(name)] = rate.binned_array_from_xml(xml, u"injection:%s" % name)
 
+		# FIXME:  this doesn't retrieve the interpolated PDFs
+
 		# done
 		return self, process_id
 
@@ -1708,6 +1731,7 @@ class CoincParamsDistributions(object):
 			xml.appendChild(rate.binned_array_to_xml(binnedarray, u"background:%s" % name))
 		for name, binnedarray in sorted(self.injection_rates.items()):
 			xml.appendChild(rate.binned_array_to_xml(binnedarray, u"injection:%s" % name))
+		# FIXME:  this doesn't save the interpolated PDFs
 		return xml
 
 	@classmethod
@@ -1800,8 +1824,8 @@ class LikelihoodRatio(object):
 				raise ValueError("background data with name %s has shape %s but injection data has shape %s" % (name, str(binnedarray.array.shape), str(coinc_param_distributions.injection_rates[name].array.shape)))
 
 		# construct interpolators from the distribution data
-		self.background_rates = dict((name, rate.InterpBinnedArray(binnedarray)) for name, binnedarray in coinc_param_distributions.background_rates.items())
-		self.injection_rates = dict((name, rate.InterpBinnedArray(binnedarray)) for name, binnedarray in coinc_param_distributions.injection_rates.items())
+		self.background_rates_interp = coinc_param_distributions.background_rates_interp
+		self.injection_rates_interp = coinc_param_distributions.injection_rates_interp
 
 	def P(self, params):
 		if params is None:
@@ -1809,8 +1833,8 @@ class LikelihoodRatio(object):
 		P_bak = 1.0
 		P_inj = 1.0
 		for name, value in params.items():
-			P_bak *= self.background_rates[name](*value)
-			P_inj *= self.injection_rates[name](*value)
+			P_bak *= self.background_rates_interp[name](*value)
+			P_inj *= self.injection_rates_interp[name](*value)
 		return P_bak, P_inj
 
 	def __call__(self, params):
