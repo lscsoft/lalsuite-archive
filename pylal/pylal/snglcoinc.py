@@ -32,11 +32,12 @@ Light Weight XML documents.
 
 import bisect
 try:
-	from fpconst import NaN, PosInf
+	from fpconst import NaN, NegInf, PosInf
 except ImportError:
 	# fpconst is not part of the standard library and might not be
 	# available
 	NaN = float("nan")
+	NegInf = float("-inf")
 	PosInf = float("+inf")
 import itertools
 import math
@@ -1665,6 +1666,90 @@ class CoincParamsDistributions(object):
 		for name, binnedarray in self.injection_rates.items():
 			self.injection_rates_interp[name] = rate.InterpBinnedArray(binnedarray)
 
+	def P_noise(self, params):
+		"""
+		From a parameter value dictionary as returned by
+		self.coinc_params(), compute and return the noise
+		probability density at that point in parameter space.  If
+		params is None, the return value is None.
+
+		The .finish() method must have been invoked before this
+		method does meaningful things.  No attempt is made to
+		ensure the .finish() method has been invoked nor, if it has
+		been invoked, that no manipulations have occured that might
+		require it to be re-invoked (e.g., the contents of the
+		parameter distributions have been modified and require
+		re-normalization).
+
+		This default implementation assumes the individual PDFs
+		containined in the noise dictionary are for
+		statistically-independent random variables, and computes
+		and returns their product.  Sub-classes that require more
+		sophisticated calculations can override this method.
+		"""
+		if params is None:
+			return None
+		P = 1.0
+		for name, value in params.items():
+			P *= self.background_rates_interp[name](*value)
+		return P
+
+	def lnP_noise(self, *args, **kwargs):
+		"""
+		Return ln(self.P_noise).
+		"""
+		P = self.P_noise(*args, **kwargs)
+		try:
+			return math.log(P)
+		except ValueError:
+			return NegInf
+		except TypeError:
+			if P is None:
+				return None
+			raise
+
+	def P_signal(self, params):
+		"""
+		From a parameter value dictionary as returned by
+		self.coinc_params(), compute and return the signal
+		probability density at that point in parameter space.  If
+		params is None, the return value is None.
+
+		The .finish() method must have been invoked before this
+		method does meaningful things.  No attempt is made to
+		ensure the .finish() method has been invoked nor, if it has
+		been invoked, that no manipulations have occured that might
+		require it to be re-invoked (e.g., the contents of the
+		parameter distributions have been modified and require
+		re-normalization).
+
+		This default implementation assumes the individual PDFs
+		containined in the signal dictionary are for
+		statistically-independent random variables, and computes
+		and returns their product.  Sub-classes that require more
+		sophisticated calculations can override this method.
+		"""
+		if params is None:
+			return None
+		P = 1.0
+		for name, value in params.items():
+			P *= self.injection_rates_interp[name](*value)
+		return P
+
+	def lnP_signal(self, *args, **kwargs):
+		"""
+		Return ln(self.P_signal).
+		"""
+		P = self.P_signal(*args, **kwargs)
+		try:
+			return math.log(P)
+		except ValueError:
+			return NegInf
+		except TypeError:
+			if P is None:
+				return None
+			raise
+
 	@classmethod
 	def from_xml(cls, xml, name):
 		"""
@@ -1809,28 +1894,10 @@ class LikelihoodRatio(object):
 	snglcoinc.CoincParamsDistributions instance.
 	"""
 	def __init__(self, coinc_param_distributions):
-		# check input
-		if set(coinc_param_distributions.background_rates) != set(coinc_param_distributions.injection_rates):
-			raise ValueError("distribution density name mismatch:  found background data with names %s and injection data with names %s" % (", ".join(sorted(coinc_param_distributions.background_rates)), ", ".join(sorted(coinc_param_distributions.injection_rates))))
-		for name, binnedarray in coinc_param_distributions.background_rates.items():
-			if len(binnedarray.array.shape) != len(coinc_param_distributions.injection_rates[name].array.shape):
-				raise ValueError("background data with name %s has shape %s but injection data has shape %s" % (name, str(binnedarray.array.shape), str(coinc_param_distributions.injection_rates[name].array.shape)))
+		self.P_noise = coinc_param_distributions.P_noise
+		self.P_signal = coinc_param_distributions.P_signal
 
-		# construct interpolators from the distribution data
-		self.background_rates_interp = coinc_param_distributions.background_rates_interp
-		self.injection_rates_interp = coinc_param_distributions.injection_rates_interp
-
-	def P(self, params):
-		if params is None:
-			return None, None
-		P_bak = 1.0
-		P_inj = 1.0
-		for name, value in params.items():
-			P_bak *= self.background_rates_interp[name](*value)
-			P_inj *= self.injection_rates_interp[name](*value)
-		return P_bak, P_inj
-
-	def __call__(self, params):
+	def __call__(self, *args, **kwargs):
 		"""
 		Compute the likelihood ratio for the hypothesis that the
 		list of events are the result of a gravitational wave.  The
@@ -1841,30 +1908,37 @@ class LikelihoodRatio(object):
 		"most like a gravitational wave" to "least like a
 		gravitational wave" can be performed by calculating the
 		likelihood ratios, which has the advantage of not requiring
-		a prior probability to be provided.
+		a prior probability to be provided (knowing how many
+		gravitational waves you've actually detected).
+
+		The arguments are passed verbatim to the .P_noise and
+		.P_signal() methods of the
+		snglcoinc.CoincParamsDistributions instance with which this
+		object is associated.
 		"""
-		P_bak, P_inj = self.P(params)
-		if P_bak is None and P_inj is None:
+		P_noise = self.P_noise(*args, **kwargs)
+		P_signal = self.P_signal(*args, **kwargs)
+		if P_noise is None and P_signal is None:
 			return None
-		if P_bak == 0.0 and P_inj == 0.0:
+		if P_noise == 0.0 and P_signal == 0.0:
 			# "correct" answer is 0, not NaN, because if a
 			# tuple of events has been found in a region of
 			# parameter space where the probability of an
 			# injection occuring is 0 then there is no way this
 			# is an injection.  there is also, aparently, no
-			# way it's a noise event, but that's irrelevant
-			# because we are supposed to be computing something
-			# that is a monotonically increasing function of
-			# the probability that an event tuple is a
-			# gravitational wave, which is 0 in this part of
-			# the parameter space.
+			# way it's a noise event, which is puzzling, but
+			# that's irrelevant because we are supposed to be
+			# computing something that is a monotonically
+			# increasing function of the probability that an
+			# event tuple is a gravitational wave, which is 0
+			# in this part of the parameter space.
 			return 0.0
-		if math.isinf(P_bak) and math.isinf(P_inj):
+		if math.isinf(P_noise) and math.isinf(P_signal):
 			warnings.warn("inf/inf encountered")
 			return NaN
 		try:
-			return  P_inj / P_bak
+			return  P_signal / P_noise
 		except ZeroDivisionError:
-			# P_bak == 0.0, P_inj != 0.0.  this is a
+			# P_noise == 0.0, P_signal != 0.0.  this is a
 			# "guaranteed detection", not a failure
 			return PosInf
