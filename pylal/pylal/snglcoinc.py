@@ -1568,17 +1568,10 @@ class CoincParamsDistributions(object):
 				self.injection_rates[param] = rate
 		return self
 
-	@classmethod
-	def copy(cls, other):
-		# FIXME:  this should probably not be a class method, and
-		# look like
-		# def copy(self):
-		#	new = type(self)()
-		#	new += self
-		#	return new
+	def copy(self):
 		# FIXME:  this doesn't copy the PDF interpolators
-		new = cls()
-		new += other
+		new = type(self)()
+		new += self
 		return new
 
 	def add_zero_lag(self, param_dict, weight = 1.0):
