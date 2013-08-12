@@ -964,13 +964,9 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
         elif etg.lower() != "hacr":
             if etg.lower() in ['dmtomega', 'excesspower', 'omicron',
                                'kw', 'kleinewelle']:
-                if etg.lower() in ['kw', 'kleinewelle']:
-                    kwargs = {'extension':trigfind_args.pop('format', 'xml')}
-                else:
-                    kwargs = {}
                 trigcache = trigfind.find_trigger_urls(channel, etg,
                                                        span[0], span[1],
-                                                       **kwargs)
+                                                       **trigfind_args)
             elif etg.lower() in ['omega', 'omegaspectrum']:
                 # get omega online cache parameters defaults
                 cachekwargs = dict()
@@ -1205,7 +1201,7 @@ def get_multi_triggers(cp, channels, etg, segment_list, cluster=False,
     out = []
     for channel in channels:
         out.append(get_triggers(cp, channel, etg, segment_list, cluster=cluster,
-                                minsnr=minsnr, format=format, query=query))
+                                minsnr=minsnr, query=query, **trigfind_args))
 
     return out
 
@@ -1324,9 +1320,9 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
 
         # loop over segments
         for i,seg in enumerate(query_segments):
-            if not usends and frametype == "T" and abs(seg) < 1:
+            if not usends and frametype == ('T', 'H1_T') and abs(seg) < 1:
                 continue
-            elif not usends and frametype == "M" and abs(seg) < 60:
+            elif not usends and frametype in ('M', 'H1_M') and abs(seg) < 60:
                 continue
             # break data up into manageable chunks if using resampling.
             s = seg[0]
