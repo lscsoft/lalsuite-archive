@@ -817,7 +817,7 @@ UNUSED static int  XLALSimIMREOBGetFactorizedWaveform(
   /* Calculate the Tail term */
   k  = m * Omega;
   hathatk = Hreal * k;
-  if ( fabs(hathatk) <= 0.18 ) {
+  if ( fabs(hathatk) <= 0.18*l ) {
     /* Use the polynomial fit to the Gamma function along with the identity for adding a positive integer within the argument */
     GammaFunctionPolyFit(l,hathatk,&(lnr1.val),&(arg1.val));
   } else {
@@ -1298,7 +1298,7 @@ UNUSED static int GetGammaFuncPolyFitCoeffs(INT4 l, REAL8 *rc, REAL8 *ic, INT4 *
 
 UNUSED static int GammaFunctionPolyFit(INT4 l, REAL8 hathatk, REAL8 *lnr, REAL8 *arg)
 {
-  REAL8 x=-2.0*hathatk,rc[30],ic[30],xn=1.;
+  REAL8 x=-2.0*hathatk,rc[30],ic[30],xn=1.,rsum=0.,isum=0.;
   COMPLEX16 sum=0.;
   INT4 i=0,n=-1;
 
@@ -1308,7 +1308,8 @@ UNUSED static int GammaFunctionPolyFit(INT4 l, REAL8 hathatk, REAL8 *lnr, REAL8 
   /* Perform interpolation of the Gamma(z) */
   for ( i=0; i<=n; i++)
   {
-    sum += rc[i]*xn + ic[i]*xn*I;
+    rsum += rc[i]*xn;
+    isum += ic[i]*xn*I;
     xn *= x;
   }
 
