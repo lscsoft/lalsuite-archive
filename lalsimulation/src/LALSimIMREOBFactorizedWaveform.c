@@ -1312,6 +1312,7 @@ UNUSED static int GammaFunctionPolyFit(INT4 l, REAL8 hathatk, REAL8 *lnr, REAL8 
     isum += ic[i]*xn*I;
     xn *= x;
   }
+  sum = rsum + isum*I;
 
   *lnr = log(cabs(sum));
   *arg = carg(sum);
