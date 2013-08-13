@@ -820,6 +820,9 @@ UNUSED static int  XLALSimIMREOBGetFactorizedWaveform(
   if ( fabs(hathatk) <= 0.18*l ) {
     /* Use the polynomial fit to the Gamma function along with the identity for adding a positive integer within the argument */
     GammaFunctionPolyFit(l,hathatk,&(lnr1.val),&(arg1.val));
+    //fprintf(stdout,"%d\t%lf\t%lf\t%lf\t",l,hathatk,lnr1.val,arg1.val);
+    //gsl_sf_lngamma_complex_e( l+1.0, -2.0*hathatk, &lnr1, &arg1 );
+    //fprintf(stdout,"%lf\t%lf\n",lnr1.val,arg1.val);
   } else {
     XLAL_CALLGSL( status = gsl_sf_lngamma_complex_e( l+1.0, -2.0*hathatk, &lnr1, &arg1 ) );
     if (status != GSL_SUCCESS)
@@ -1296,9 +1299,10 @@ UNUSED static int GetGammaFuncPolyFitCoeffs(INT4 l, REAL8 *rc, REAL8 *ic, INT4 *
   return 0;
 }
 
-UNUSED static int GammaFunctionPolyFit(INT4 l, REAL8 hathatk, REAL8 *lnr, REAL8 *arg)
+UNUSED static int GammaFunctionPolyFit(const INT4 l, const REAL8 hathatk, REAL8 *lnr, REAL8 *arg)
 {
-  REAL8 x=-2.0*hathatk,rc[30],ic[30],xn=1.,rsum=0.,isum=0.;
+  REAL8 x=-2.*hathatk,rc[30],ic[30];
+  REAL8 xn=1.;
   COMPLEX16 sum=0.;
   INT4 i=0,n=-1;
 
@@ -1308,12 +1312,10 @@ UNUSED static int GammaFunctionPolyFit(INT4 l, REAL8 hathatk, REAL8 *lnr, REAL8 
   /* Perform interpolation of the Gamma(z) */
   for ( i=0; i<=n; i++)
   {
-    rsum += rc[i]*xn;
-    isum += ic[i]*xn*I;
+    sum += rc[i]*xn + ic[i]*xn*I;
     xn *= x;
   }
-  sum = rsum + isum*I;
-
+  
   *lnr = log(cabs(sum));
   *arg = carg(sum);
 
