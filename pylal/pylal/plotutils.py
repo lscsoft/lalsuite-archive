@@ -446,7 +446,7 @@ def parse_plot_config(cp, section):
     booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar-style',\
                 'greyscale', 'zero-indicator', 'normalized', 'fill',\
                 'calendar-time', 'bar']
-    floats   = ['detchar-style-threshold']
+    floats   = ['detchar-style-threshold', 'dcthreshold']
     ints     = ['num-bins']
 
     # construct param dict
