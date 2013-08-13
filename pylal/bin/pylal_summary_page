@@ -3771,6 +3771,21 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             rounds[rnd].veto_file = fname
             rounds[rnd].veto_segments = vetosegs
 
+            # put segments into global holder for other parts of summary pages
+            hvetoflag='hveto'
+            if G_SEGMENTS.has_key(hvetoflag):
+                if abs(SegmentList([runseg]) & G_SEGMENT_SUMMARY[hvetoflag]) \
+                        != abs(SegmentList([runseg])) or \
+                        abs(SegmentList([runseg]) != abs(G_SEGMENT_SUMMARY[hvetoflag])):
+                    raise ValueError("Unconsistent processed time span for different rounds of hveto")
+                G_SEGMENTS[hvetoflag] += vetosegs
+            else:
+                G_SEGMENT_SUMMARY[hvetoflag] = SegmentList([runseg])
+                G_SEGMENTS[hvetoflag]  = vetosegs
+            G_SEGMENT_SUMMARY[hvetoflag].coalesce()
+            G_SEGMENTS[hvetoflag].coalesce()
+
+
             # Plots and the like
             chansig = defaultdict(dict)
 
@@ -3800,6 +3815,78 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                 break
             else:
                 rnd +=  1
+
+    #
+    # plot triggers
+    #
+    # get plot sections
+    plots = [p for p in cp.items(cpsec) if p[0].startswith("plot-")]
+
+    # if we got no plots, pick up the defaults
+    if len(plots) == 0:
+        plots = [("plot-time-frequency-snr", "0")]
+
+    # sort plots by their given order
+    plots.sort(key=lambda o: o[1].isdigit() and (int(o[1])+1) or 1000)
+
+    #
+    # process and plot auxiliary
+    #
+
+    sigmaplot = None
+    channelparams = parse_data_config(cp, cpsec, channels)
+    for chan, params in zip(channels, channelparams):
+        tab.auxplots[chan] = list()
+        for plot,_ in plots:
+            # format plot
+            plottag = re_cchar.sub("_", plot[5:].upper())
+            outfile = os.path.join(tab.directory, "%s-%s_%s_%s-%d-%d.png"\
+                                     % (tab.ifo,\
+                                         re_cchar.sub("_", chan[3:].upper()),\
+                                        tab.state.tag, plottag,\
+                                        tab.start_time, abs(tab.span)))
+            plotparams = parse_plot_section(cp, cpsec,\
+                                          plotutils.parse_plot_config(cp, plot))
+
+            # skip if htmlonly
+            if htmlonly or not doplots:
+                if re.search("slide", plot, re.I):
+                    sigmaplot = plot
+                tab.auxplots[chan].append((outfile,\
+                                           plotparams.pop("description", None)))
+                continue
+
+            # process data
+            if re.search("slide", plot, re.I):
+                # find significance of coincidences
+                tab.compute_coinc_significance(chan, dt=dt, shifts=shifts)
+                sigmaplot = plot
+            if re.search("coinc", plot, re.I):
+                # find coincs
+                tab.get_coincs(chan, tab.mainchannel, dt=dt)
+                tab.get_coincs(tab.mainchannel, chan, dt=dt)
+                print_verbose("(%d,%d) coincs in (%s,%s).\n"\
+                              % (tab.numcoincs[(chan, tab.mainchannel)],\
+                                 tab.numcoincs[(tab.mainchannel, chan)],\
+                                 chan, tab.mainchannel), verbose=verbose)
+            elif re.search("slide", plot, re.I):
+                # find significance of coincidences
+                tab.compute_coinc_significance(chan, dt=dt, shifts=shifts)
+                tab.plotsigma(outfile, chan, **plotparams)
+            elif re.search("coinc", plot, re.I):
+                tab.plotcoincs(outfile, chan, **plotparams)
+            elif re.search("hist", plot, re.I):
+                if len(tab.segments):
+                    plotparams.setdefault("normalize", tab.segments.extent())
+                tab.plothistogram(outfile, chan, **plotparams)
+            elif re.search("rate", plot, re.I):
+                tab.plotrate(outfile, channels=chan, **plotparams)
+            elif re.search("auto", plot, re.I):
+                tab.plotautocorrleation(outfile, channels=chan, **plotparams)
+            else:
+                tab.plottable(outfile, chan, **plotparams)
+        print_verbose("%d plots saved for %s.\n" % (len(plots), chan),\
+                      verbose=verbose)
 
     #
     # write results
