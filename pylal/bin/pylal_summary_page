@@ -714,6 +714,7 @@ def get_segments(cp, flag, segment_summary, cache=None, buffer_=0, query=True):
         flags = flag.split(',')
     else:
         flags = flag
+
     query_summary = (segment_summary -
                      reduce(operator.and_,
                             [G_SEGMENT_SUMMARY.get(f, SegmentList())
@@ -726,7 +727,6 @@ def get_segments(cp, flag, segment_summary, cache=None, buffer_=0, query=True):
     if query:
         query_summary &= SegmentList([Segment(query_summary[0][0],
                                               float(lal.GPSTimeNow()))])
-
     new_segments = []
     new_summary = []
     if query:
@@ -773,6 +773,7 @@ def get_segments(cp, flag, segment_summary, cache=None, buffer_=0, query=True):
         new_segments = [SegmentList()]*len(flags)
         new_summary = [G_SEGMENT_SUMMARY.get(f, SegmentList()) for f in flags]
 
+
     # apply buffer
     if buffer_:
         new_segments = [sl.contract(buffer_) for sl in new_segments]
@@ -792,7 +793,7 @@ def get_segments(cp, flag, segment_summary, cache=None, buffer_=0, query=True):
     for f in flags:
         # return the required segments
         out.append(segment_summary & G_SEGMENTS[f])
-        if len(out):
+        if len(out) and f != 'hveto':
             minlength = (cp.has_option("segfind", "minimum-segment-length") and
                          cp.getfloat("segfind", "minimum-segment-length") or 0)
             out[-1] = type(out[-1])([seg for seg in out[-1] if
@@ -3600,7 +3601,6 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
         trig_seq = None
         swigtriglist = []
         for chan,trigtable in zip(allchannels, trigtables):
-            print chan
             tab.add_triggers(chan, trigtable)
             # convert from glue SnglBurst to swig/lal SnglBurst
             for trig in trigtable:
@@ -3625,19 +3625,6 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
 
     print_verbose("All triggers loaded.\n", verbose=verbose)
 
-    #
-    # get plots
-    #
-
-    # get plot sections
-    plots = [p for p in cp.items(cpsec) if p[0].startswith("plot-")]
-
-    # if we got no plots, pick up the defaults
-    if len(plots) == 0:
-        plots = [("plot-time-frequency-snr", "0")]
-
-    # sort plots by their given order
-    plots.sort(key=lambda o: o[1].isdigit() and (int(o[1])+1) or 1000)
 
     #
     # process and plot auxiliary
@@ -3728,12 +3715,16 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             print "Calculating veto segments."
             # Remove vetoed winner triggers from livetime
             vetosegs = SegmentList([])
+            fvetosegs = SegmentList([])
             for trig in vetoed_trigs:
                     if trig.channel != winner: continue
                     #trig = lalburst_sb_to_glue_sb( trig )
                     vs = Segment( trig.get_peak() - wind_win/2.0, trig.get_peak() + wind_win/2.0 )
+                    fvs = Segment( float(trig.get_peak() - wind_win/2.0), float(trig.get_peak() + wind_win/2.0 ))
                     vetosegs.append( vs )
+                    fvetosegs.append(fvs)
             vetosegs.coalesce()
+            fvetosegs.coalesce()
 
             # Remove vetoed time from livetime
             deadt = float(abs(livesegs))
@@ -3785,22 +3776,21 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             rounds[rnd].deadtime = [deadtime[-1]]
             rounds[rnd].safter = [numpy.nan]
             rounds[rnd].veto_file = fname
-            rounds[rnd].veto_segments = vetosegs
+            rounds[rnd].veto_segments = fvetosegs
 
             # put segments into global holder for other parts of summary pages
             hvetoflag='hveto'
             if G_SEGMENTS.has_key(hvetoflag):
                 if abs(SegmentList([runseg]) & G_SEGMENT_SUMMARY[hvetoflag]) \
                         != abs(SegmentList([runseg])) or \
-                        abs(SegmentList([runseg]) != abs(G_SEGMENT_SUMMARY[hvetoflag])):
+                        abs(SegmentList([runseg])) != abs(G_SEGMENT_SUMMARY[hvetoflag]):
                     raise ValueError("Unconsistent processed time span for different rounds of hveto")
-                G_SEGMENTS[hvetoflag] += vetosegs
+                G_SEGMENTS[hvetoflag] += fvetosegs
             else:
                 G_SEGMENT_SUMMARY[hvetoflag] = SegmentList([runseg])
-                G_SEGMENTS[hvetoflag]  = vetosegs
+                G_SEGMENTS[hvetoflag]  = fvetosegs
             G_SEGMENT_SUMMARY[hvetoflag].coalesce()
             G_SEGMENTS[hvetoflag].coalesce()
-
 
             # Plots and the like
             chansig = defaultdict(dict)
@@ -3900,9 +3890,14 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             elif re.search("auto", plot, re.I):
                 tab.plotautocorrleation(outfile, channels=chan, **plotparams)
             else:
-                tab.plottable(outfile, chan, **plotparams)
+                tab.plottable(outfile, chan, **plotparams)        
         print_verbose("%d plots saved for %s.\n" % (len(plots), chan),\
                       verbose=verbose)
+
+    #
+    # make summary plot
+    #
+    tab.plots.append((tab.auxplots[channels[0]][0][0], None))
 
     #
     # write results
@@ -3958,7 +3953,7 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
     # skip adding to summary if requested
     if cp.has_option(cpsec, "skip-summary"):
         tab.skip_summary = cp.get(cpsec, "skip-summary")
-    print "skip-summary", tab.skip_summary
+
     #
     # setup
     #
@@ -5683,10 +5678,8 @@ if __name__=="__main__":
     #
     # process squeezing
     #
-    print "C", opts.run_squeezing
     if opts.run_squeezing:
         sections = natsort([s for s in cp.sections() if s.startswith("squeezing")])
-        print sections
         for cpsec in sections:
             run_states = parse_tab_states(statelist, cp, cpsec)
             parent = find_tab_parent(cp, cpsec, valid_parents,
