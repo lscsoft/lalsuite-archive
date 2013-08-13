@@ -1067,12 +1067,22 @@ class InterpBinnedArray(object):
 			z.fill(fill_value)
 			z[(slice(1, -1),) * len(binnedarray.array.shape)] = binnedarray.array
 
-		# if any co-ordinates are infinite, remove them
+		# if any co-ordinates are infinite, remove them.  also
+		# remove degenerate co-ordinates from ends
 		slices = []
 		for c in coords:
 			finite_indexes, = numpy.isfinite(c).nonzero()
 			assert len(finite_indexes) != 0
-			slices.append(slice(finite_indexes.min(), finite_indexes.max() + 1))
+
+			lo, hi = finite_indexes.min(), finite_indexes.max() + 1
+
+			while lo < hi and c[lo + 1] == c[lo]:
+				lo += 1
+			while lo < hi and c[hi - 1] == c[hi]:
+				hi -= 1
+			assert lo < hi
+
+			slices.append(slice(lo, hi))
 		coords = tuple(c[s] for c, s in zip(coords, slices))
 		z = z[slices]
 
