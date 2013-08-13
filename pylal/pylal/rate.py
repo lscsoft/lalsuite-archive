@@ -1074,7 +1074,7 @@ class InterpBinnedArray(object):
 			finite_indexes, = numpy.isfinite(c).nonzero()
 			assert len(finite_indexes) != 0
 
-			lo, hi = finite_indexes.min(), finite_indexes.max() + 1
+			lo, hi = finite_indexes.min(), finite_indexes.max()
 
 			while lo < hi and c[lo + 1] == c[lo]:
 				lo += 1
@@ -1082,7 +1082,7 @@ class InterpBinnedArray(object):
 				hi -= 1
 			assert lo < hi
 
-			slices.append(slice(lo, hi))
+			slices.append(slice(lo, hi + 1))
 		coords = tuple(c[s] for c, s in zip(coords, slices))
 		z = z[slices]
 
