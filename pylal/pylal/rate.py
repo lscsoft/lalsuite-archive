@@ -1079,9 +1079,11 @@ class InterpBinnedArray(object):
 		# build the interpolator from the co-ordinates and array
 		# data
 		if len(coords) == 1:
-			self.interp = interpolate.interp1d(coords[0], z, kind = "linear", bounds_error = False, fill_value = fill_value)
+			#self.interp = interpolate.interp1d(coords[0], z, kind = "linear", bounds_error = False, fill_value = fill_value)
+			self.interp = interpolate.UnivariateSpline(coords[0], z, k = 1)
 		elif len(coords) == 2:
-			self.interp = interpolate.interp2d(coords[0], coords[1], z, kind = "linear", bounds_error = False, fill_value = fill_value)
+			#self.interp = interpolate.interp2d(coords[0], coords[1], z, kind = "linear", bounds_error = False, fill_value = fill_value)
+			self.interp = interpolate.RectBivariateSpline(coords[0], coords[1], z, kx = 1, ky = 1)
 		else:
 			self.interp = interpolate.LinearNDInterpolator(list(itertools.product(*coords)), z.flat, fill_value = fill_value)
 
