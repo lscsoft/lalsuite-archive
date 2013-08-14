@@ -64,6 +64,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import git_version
 from pylal import inject
+from pylal import progress
 from pylal import rate
 
 
@@ -1444,34 +1445,34 @@ class CoincParamsFilterThread(threading.Thread):
 	"""
 	# allow at most 5 threads
 	cpu = threading.Semaphore(5)
-	# allow at most one to write to stderr
-	stderr = threading.Semaphore(1)
+	# allow at most one to update a progressbar
+	progresslock = threading.Lock()
 
-	def __init__(self, binnedarray, filter, verbose = False, name = None):
-		threading.Thread.__init__(self, name = name)
+	def __init__(self, binnedarray, kernel, progressbar = None):
+		super(CoincParamsFilterThread, self).__init__()
 		self.binnedarray = binnedarray
-		self.filter = filter
-		self.verbose = verbose
+		self.kernel = kernel
+		self.progressbar = progressbar
 
 	def run(self):
 		with self.cpu:
-			if self.verbose:
-				with self.stderr:
-					print >>sys.stderr, "\tstarting %s" % self.getName()
-
-			# equivalent to filter_array() + .to_pdf().  why
-			# not do that?  I don't know.  I think we maybe
-			# should in case it makes a difference near the
-			# edges.  FIXME:  think about this
-			self.binnedarray.array /= self.binnedarray.array.sum()
-			rate.to_moving_mean_density(self.binnedarray, self.filter)
-
-			# guard against round-off in FFT convolution
-			numpy.clip(self.binnedarray.array, 0, float("inf"), self.binnedarray.array)
-
-			if self.verbose:
-				with self.stderr:
-					print >>sys.stderr, "\tcompleted %s" % self.getName()
+			if self.kernel is not None:
+				# FIXME:  this algorithm should be implemented
+				# in a resuable function
+				result = numpy.zeros_like(self.binnedarray.array)
+				while self.binnedarray.array.any():
+					workspace = numpy.copy(self.binnedarray.array)
+					cutoff = abs(workspace[abs(workspace) > 0]).min() * 1e4
+					self.binnedarray.array[abs(self.binnedarray.array) <= cutoff] = 0.
+					workspace[abs(workspace) > cutoff] = 0.
+					rate.filter_array(workspace, self.kernel)
+					workspace[abs(workspace) < abs(workspace).max() * 1e-14] = 0.
+					result += workspace
+				self.binnedarray.array = result
+			self.binnedarray.to_pdf()
+		if self.progressbar is not None:
+			with self.progresslock:
+				self.progressbar.increment()
 
 
 #
@@ -1670,16 +1671,16 @@ class CoincParamsDistributions(object):
 				# param value out of range
 				pass
 
-	def finish(self, verbose = False):
+	def finish(self, verbose = False, filterthread = CoincParamsFilterThread):
 		"""
-		Smooth all histograms using the corresponding kernels from
-		the filters dictionary, and normalize so their volume
-		integrals are all 1.  This has the effect of replacing the
-		histogram contents with discretely-sampled PDF data.
-
-		NOTE:  invoking this method more than once will result in
-		nonsensical data in the arrays.  No protection is afforded
-		to guard against attempts to do so.
+		Populate the discrete PDF dictionaries from the contents of
+		the rates dictionaries, and then the PDF interpolator
+		dictionaries from the discrete PDFs.  The raw bin counts
+		from the rates dictionaries are copied verbatim, smoothed
+		using the dictionary of filters carried by this class
+		instance, and converted to normalized PDFs using the bin
+		volumes.  Finally the dictionary of PDF interpolators is
+		populated from the discretely sampled PDF data.
 		"""
 		#
 		# convert raw bin counts into normalized PDFs
@@ -1690,15 +1691,20 @@ class CoincParamsDistributions(object):
 		self.injection_pdf.clear()
 		N = len(self.zero_lag_rates) + len(self.background_rates) + len(self.injection_rates)
 		threads = []
-		for n, (key, (msg, rates_dict, pdf_dict)) in enumerate(itertools.chain(
+		progressbar = progress.ProgressBar(text = "Computing Parameter PDFs") if verbose else None
+		for key, (msg, rates_dict, pdf_dict) in itertools.chain(
 				zip(self.zero_lag_rates, itertools.repeat(("zero lag", self.zero_lag_rates, self.zero_lag_pdf))),
 				zip(self.background_rates, itertools.repeat(("background", self.background_rates, self.background_pdf))),
 				zip(self.injection_rates, itertools.repeat(("injections", self.injection_rates, self.injection_pdf)))
-		)):
+		):
 			assert numpy.isfinite(rates_dict[key].array).all() and (rates_dict[key].array >= 0).all(), "%s %s counts are not valid" % (key, msg)
 			pdf_dict[key] = rates_dict[key].copy()
-			threads.append(CoincParamsFilterThread(pdf_dict[key], self.filters[key], verbose = verbose, name = "%d / %d: %s \"%s\"" % (n + 1, N, msg, key)))
-			threads[-1].start()
+			threads.append(filterthread(pdf_dict[key], self.filters[key] if key in self.filters else None, progressbar = progressbar))
+		if verbose:
+			progressbar.max = len(threads)
+			progressbar.show()
+		for thread in threads:
+			thread.start()
 		while threads:
 			threads.pop(0).join()
 
