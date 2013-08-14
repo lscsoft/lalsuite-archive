@@ -47,7 +47,7 @@
 #define UNUSED
 #endif
 
-UNUSED static int GetGammaFuncPolyFitCoeffs(INT4 l, REAL8 *rc, REAL8 *ic, INT4 *n);
+//UNUSED static int GetGammaFuncPolyFitCoeffs(INT4 l, REAL8 *rc, REAL8 *ic, INT4 *n);
 UNUSED static int GammaFunctionPolyFit(INT4 l, REAL8 hathatk, REAL8 *lnr, REAL8 *arg);
 
 /**
@@ -1107,7 +1107,7 @@ UNUSED static int  XLALSimIMREOBGetFactorizedWaveform(
   return XLAL_SUCCESS;
 } 
 
-UNUSED static int GetGammaFuncPolyFitCoeffs(INT4 l, REAL8 *rc, REAL8 *ic, INT4 *n)
+/*UNUSED static int GetGammaFuncPolyFitCoeffs(INT4 l, REAL8 *rc, REAL8 *ic, INT4 *n)
 {
   switch (l)
   {
@@ -1297,19 +1297,47 @@ UNUSED static int GetGammaFuncPolyFitCoeffs(INT4 l, REAL8 *rc, REAL8 *ic, INT4 *
       break;
   }
   return 0;
-}
+}*/
 
 UNUSED static int GammaFunctionPolyFit(const INT4 l, const REAL8 hathatk, REAL8 *lnr, REAL8 *arg)
 {
-  REAL8 x=-2.*hathatk,rc[30],ic[30];
-  REAL8 xn=1.;
-  COMPLEX16 sum=0.;
-  INT4 i=0,n=-1;
+  REAL8 x=-2.*hathatk;
+  INT4 i=0;
 
-  /* Set the polynomial coefficients */
+  // Calculate prefactor from identity
+  COMPLEX16 z=x*I;
+  COMPLEX16 prefactor=1.;
+  for ( i=3; i<=l; i++ )
+    prefactor *= z + i;
+
+  // Compute z*(z+1)*(z+2)*Gamma(z)
+  REAL8 rc[]={0.223304531457440,-1.270096165801390,0.339231139551116,0.224703922373939,-0.068407343207079,-0.015283712038265,
+    0.005430994693244,0.000550634859578,-0.000244477005272,-0.000010309971253,0.000006269348002};
+  REAL8 ic[]={-1.331502690070749,0.377202604454254,0.602727717249911,-0.176796030291256,-0.062899831168545,0.020472802892044,
+    0.003124873789826,-0.001176591756692,-0.000086805977908,0.000035734820330,0.000000794008623};
+  REAL8 y=(hathatk-0.7225)/0.414681805725788;
+  REAL8 yn=1.;
+  COMPLEX16 gz=0.;
+  for ( i=0; i<=10; i++ )
+  {
+    gz += rc[i]*yn + I*ic[i]*yn;
+    yn *= y;
+  }
+
+  // multiply by prefactor
+  gz *= prefactor;
+
+  // compute final values needed
+  *lnr = log(cabs(gz));
+  *arg = carg(gz);
+
+  /* REAL8 rc[30],ic[30],xn=1.;
+  COMPLEX16 sum=0.;
+  INT4 n=-1;
+  // Set the polynomial coefficients
   GetGammaFuncPolyFitCoeffs(l,rc,ic,&n);
 
-  /* Perform interpolation of the Gamma(z) */
+  // Perform interpolation of the Gamma(z)
   for ( i=0; i<=n; i++)
   {
     sum += rc[i]*xn + ic[i]*xn*I;
@@ -1317,7 +1345,7 @@ UNUSED static int GammaFunctionPolyFit(const INT4 l, const REAL8 hathatk, REAL8 
   }
   
   *lnr = log(cabs(sum));
-  *arg = carg(sum);
+  *arg = carg(sum);*/
 
   return 0;
 }
