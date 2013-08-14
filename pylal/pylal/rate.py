@@ -900,6 +900,13 @@ class BinnedArray(object):
 			self[coords] += other[coords]
 		return self
 
+	def copy(self):
+		"""
+		Return a copy of the BinnedArray.  The .bins attribute is
+		shared with the original.
+		"""
+		return type(self)(self.bins, self.array.copy())
+
 	def centres(self):
 		"""
 		Return a tuple of arrays containing the bin centres for
