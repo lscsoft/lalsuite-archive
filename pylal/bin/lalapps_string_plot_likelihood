@@ -296,10 +296,13 @@ coincparamsdistributions, seglists = stringutils.load_likelihood_data(filenames,
 
 if options.verbose:
 	print >>sys.stderr, "computing event densities ..."
-if not options.no_filter:
+if options.no_filter:
+	source_dicts = (coincparamsdistributions.background_rates, coincparamsdistributions.injection_rates, coincparamsdistributions.zero_lag_rates)
+else:
 	coincparamsdistributions.finish(verbose = options.verbose)
+	source_dicts = (coincparamsdistributions.background_pdf, coincparamsdistributions.injection_pdf, coincparamsdistributions.zero_lag_pdf)
 
-for (background_name, background_binnedarray), (injections_name, injections_binnedarray), (zero_lag_name, zero_lag_binnedarray) in zip(sorted(coincparamsdistributions.background_rates.items()), sorted(coincparamsdistributions.injection_rates.items()), sorted(coincparamsdistributions.zero_lag_rates.items())):
+for (background_name, background_binnedarray), (injections_name, injections_binnedarray), (zero_lag_name, zero_lag_binnedarray) in zip(sorted(source_dicts[0].items()), sorted(source_dicts[1].items()), sorted(source_dicts[2].items())):
 	assert injections_name == background_name
 	assert zero_lag_name == background_name
 	name = background_name

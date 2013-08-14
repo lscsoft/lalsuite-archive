@@ -1545,32 +1545,73 @@ class CoincParamsDistributions(object):
 		self.zero_lag_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
 		self.background_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
 		self.injection_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
-		self.zero_lag_rates_interp = {}
-		self.background_rates_interp = {}
-		self.injection_rates_interp = {}
+		self.zero_lag_pdf = {}
+		self.background_pdf = {}
+		self.injection_pdf = {}
+		self.zero_lag_pdf_interp = {}
+		self.background_pdf_interp = {}
+		self.injection_pdf_interp = {}
+
+	def _rebuild_interpolators(self):
+		"""
+		Initialize the interp dictionaries from the discretely
+		sampled PDF data.  For internal use only.
+		"""
+		self.zero_lag_pdf_interp.clear()
+		self.background_pdf_interp.clear()
+		self.injection_pdf_interp.clear()
+		for key, binnedarray in self.zero_lag_pdf.items():
+			self.zero_lag_pdf_interp[key] = rate.InterpBinnedArray(binnedarray)
+		for key, binnedarray in self.background_pdf.items():
+			self.background_pdf_interp[key] = rate.InterpBinnedArray(binnedarray)
+		for key, binnedarray in self.injection_pdf.items():
+			self.injection_pdf_interp[key] = rate.InterpBinnedArray(binnedarray)
+
+	@staticmethod
+	def addbinnedarrays(rate_target_dict, rate_source_dict, pdf_target_dict, pdf_source_dict):
+		"""
+		For internal use.
+		"""
+		weight_target = {}
+		weight_source = {}
+		for name, binnedarray in rate_source_dict.items():
+			if name in rate_target_dict:
+				weight_target[name] = rate_target_dict[name].array.sum()
+				weight_source[name] = rate_source_dict[name].array.sum()
+				rate_target_dict[name] += binnedarray
+			else:
+				rate_target_dict[name] = binnedarray.copy()
+		for name, binnedarray in pdf_source_dict.items():
+			if name in pdf_target_dict:
+				binnedarray = binnedarray.copy()
+				binnedarray.array *= weight_source[name]
+				pdf_target_dict[name].array *= weight_target[name]
+				pdf_target_dict[name] += binnedarray
+				pdf_target_dict[name].array /= weight_source[name] + weight_target[name]
+			else:
+				pdf_target_dict[name] = binnedarray.copy()
 
 	def __iadd__(self, other):
 		if type(other) != type(self):
 			raise TypeError(other)
-		for param, rate in other.zero_lag_rates.items():
-			if param in self.zero_lag_rates:
-				self.zero_lag_rates[param] += rate
-			else:
-				self.zero_lag_rates[param] = rate
-		for param, rate in other.background_rates.items():
-			if param in self.background_rates:
-				self.background_rates[param] += rate
-			else:
-				self.background_rates[param] = rate
-		for param, rate in other.injection_rates.items():
-			if param in self.injection_rates:
-				self.injection_rates[param] += rate
-			else:
-				self.injection_rates[param] = rate
+
+		self.addbinnedarrays(self.zero_lag_rates, other.zero_lag_rates, self.zero_lag_pdf, other.zero_lag_pdf)
+		self.addbinnedarrays(self.background_rates, other.background_rates, self.background_pdf, other.background_pdf)
+		self.addbinnedarrays(self.injection_rates, other.injection_rates, self.injection_pdf, other.injection_pdf)
+
+		#
+		# rebuild interpolators
+		#
+
+		self._rebuild_interpolators()
+
+		#
+		# done
+		#
+
 		return self
 
 	def copy(self):
-		# FIXME:  this doesn't copy the PDF interpolators
 		new = type(self)()
 		new += self
 		return new
@@ -1644,27 +1685,28 @@ class CoincParamsDistributions(object):
 		# convert raw bin counts into normalized PDFs
 		#
 
+		self.zero_lag_pdf.clear()
+		self.background_pdf.clear()
+		self.injection_pdf.clear()
 		N = len(self.zero_lag_rates) + len(self.background_rates) + len(self.injection_rates)
 		threads = []
-		for n, (group, (name, binnedarray)) in enumerate(itertools.chain(zip(itertools.repeat("zero lag"), self.zero_lag_rates.items()), zip(itertools.repeat("background"), self.background_rates.items()), zip(itertools.repeat("injections"), self.injection_rates.items()))):
-			threads.append(CoincParamsFilterThread(binnedarray, self.filters[name], verbose = verbose, name = "%d / %d: %s \"%s\"" % (n + 1, N, group, name)))
+		for n, (key, (msg, rates_dict, pdf_dict)) in enumerate(itertools.chain(
+				zip(self.zero_lag_rates, itertools.repeat(("zero lag", self.zero_lag_rates, self.zero_lag_pdf))),
+				zip(self.background_rates, itertools.repeat(("background", self.background_rates, self.background_pdf))),
+				zip(self.injection_rates, itertools.repeat(("injections", self.injection_rates, self.injection_pdf)))
+		)):
+			assert numpy.isfinite(rates_dict[key].array).all() and (rates_dict[key].array >= 0).all(), "%s %s counts are not valid" % (key, msg)
+			pdf_dict[key] = rates_dict[key].copy()
+			threads.append(CoincParamsFilterThread(pdf_dict[key], self.filters[key], verbose = verbose, name = "%d / %d: %s \"%s\"" % (n + 1, N, msg, key)))
 			threads[-1].start()
 		while threads:
 			threads.pop(0).join()
 
 		#
-		# construct interpolators from the discretely-sampled PDFs
+		# rebuild interpolators
 		#
 
-		self.zero_lag_rates_interp.clear()
-		for name, binnedarray in self.zero_lag_rates.items():
-			self.zero_lag_rates_interp[name] = rate.InterpBinnedArray(binnedarray)
-		self.background_rates_interp.clear()
-		for name, binnedarray in self.background_rates.items():
-			self.background_rates_interp[name] = rate.InterpBinnedArray(binnedarray)
-		self.injection_rates_interp.clear()
-		for name, binnedarray in self.injection_rates.items():
-			self.injection_rates_interp[name] = rate.InterpBinnedArray(binnedarray)
+		self._rebuild_interpolators()
 
 	def P_noise(self, params):
 		"""
@@ -1691,7 +1733,7 @@ class CoincParamsDistributions(object):
 			return None
 		P = 1.0
 		for name, value in params.items():
-			P *= self.background_rates_interp[name](*value)
+			P *= self.background_pdf_interp[name](*value)
 		return P
 
 	def lnP_noise(self, *args, **kwargs):
@@ -1733,7 +1775,7 @@ class CoincParamsDistributions(object):
 			return None
 		P = 1.0
 		for name, value in params.items():
-			P *= self.injection_rates_interp[name](*value)
+			P *= self.injection_pdf_interp[name](*value)
 		return P
 
 	def lnP_signal(self, *args, **kwargs):
@@ -1769,28 +1811,27 @@ class CoincParamsDistributions(object):
 		# retrieve the process ID
 		process_id = param.get_pyvalue(xml, u"process_id")
 
-		# retrieve the paramter names
-		zl_names = [elem.getAttribute(u"Name").split(u":")[1] for elem in xml.childNodes if elem.getAttribute(u"Name").startswith(u"zero_lag:")]
-		if set(zl_names) != set(self.binnings):
-			warnings.warn("XML's zero lag binning parameter names do not match those for this class")
-		bg_names = [elem.getAttribute(u"Name").split(u":")[1] for elem in xml.childNodes if elem.getAttribute(u"Name").startswith(u"background:")]
-		if set(bg_names) != set(self.binnings):
-			warnings.warn("XML's background binning parameter names do not match those for this class")
-		in_names = [elem.getAttribute(u"Name").split(u":")[1] for elem in xml.childNodes if elem.getAttribute(u"Name").startswith(u"injection:")]
-		if set(in_names) != set(self.binnings):
-			warnings.warn("XML's injection binning parameter names do not match those for this class")
-
 		# reconstruct the BinnedArray objects
-		for name in zl_names:
-			self.zero_lag_rates[str(name)] = rate.binned_array_from_xml(xml, u"zero_lag:%s" % name)
-		for name in bg_names:
-			self.background_rates[str(name)] = rate.binned_array_from_xml(xml, u"background:%s" % name)
-		for name in in_names:
-			self.injection_rates[str(name)] = rate.binned_array_from_xml(xml, u"injection:%s" % name)
+		def reconstruct(xml, prefix, target_dict):
+			for name in [elem.getAttribute(u"Name").split(u":")[1] for elem in xml.childNodes if elem.getAttribute(u"Name").startswith(u"%s:" % prefix)]:
+				target_dict[str(name)] = rate.binned_array_from_xml(xml, u"%s:%s" % (prefix, name))
+		reconstruct(xml, u"zero_lag", self.zero_lag_rates)
+		reconstruct(xml, u"zero_lag_pdf", self.zero_lag_pdf)
+		reconstruct(xml, u"background", self.background_rates)
+		reconstruct(xml, u"background_pdf", self.background_pdf)
+		reconstruct(xml, u"injection", self.injection_rates)
+		reconstruct(xml, u"injection_pdf", self.injection_pdf)
 
-		# FIXME:  this doesn't retrieve the interpolated PDFs
+		#
+		# rebuild interpolators
+		#
 
+		self._rebuild_interpolators()
+
+		#
 		# done
+		#
+
 		return self, process_id
 
 	def to_xml(self, process, name):
@@ -1803,13 +1844,16 @@ class CoincParamsDistributions(object):
 		"""
 		xml = ligolw.LIGO_LW({u"Name": u"%s:%s" % (name, self.ligo_lw_name_suffix)})
 		xml.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
-		for name, binnedarray in sorted(self.zero_lag_rates.items()):
-			xml.appendChild(rate.binned_array_to_xml(binnedarray, u"zero_lag:%s" % name))
-		for name, binnedarray in sorted(self.background_rates.items()):
-			xml.appendChild(rate.binned_array_to_xml(binnedarray, u"background:%s" % name))
-		for name, binnedarray in sorted(self.injection_rates.items()):
-			xml.appendChild(rate.binned_array_to_xml(binnedarray, u"injection:%s" % name))
-		# FIXME:  this doesn't save the interpolated PDFs
+		def store(xml, prefix, source_dict):
+			for name, binnedarray in sorted(source_dict.items()):
+				xml.appendChild(rate.binned_array_to_xml(binnedarray, u"%s:%s" % (prefix, name)))
+		store(xml, u"zero_lag", self.zero_lag_rates)
+		store(xml, u"zero_lag_pdf", self.zero_lag_pdf)
+		store(xml, u"background", self.background_rates)
+		store(xml, u"background_pdf", self.background_pdf)
+		store(xml, u"injection", self.injection_rates)
+		store(xml, u"injection_pdf", self.injection_pdf)
+
 		return xml
 
 	@classmethod

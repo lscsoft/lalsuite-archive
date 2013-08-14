@@ -416,65 +416,65 @@ clf()
 ##########################################################################
 
 if opts.statistic == 'effective_snr' and opts.ifo == "H1":
-  x_inj = distributions.injection_rates["H1_eff_snr"].centres()[0]
-  y_inj = distributions.injection_rates["H1_eff_snr"].array
+  x_inj = distributions.injection_pdf["H1_eff_snr"].centres()[0]
+  y_inj = distributions.injection_pdf["H1_eff_snr"].array
 
 elif opts.statistic == 'effective_snr' and opts.ifo == "H2":
-  x_inj = distributions.injection_rates["H2_eff_snr"].centres()[0]
-  y_inj = distributions.injection_rates["H2_eff_snr"].array
+  x_inj = distributions.injection_pdf["H2_eff_snr"].centres()[0]
+  y_inj = distributions.injection_pdf["H2_eff_snr"].array
 
 elif  opts.statistic == 'effective_snr' and opts.ifo == "L1":
-  x_inj = distributions.injection_rates["L1_eff_snr"].centres()[0]
-  y_inj = distributions.injection_rates["L1_eff_snr"].array
+  x_inj = distributions.injection_pdf["L1_eff_snr"].centres()[0]
+  y_inj = distributions.injection_pdf["L1_eff_snr"].array
 
 #########################################################################
 
 if opts.statistic == 'effective_snr' and opts.ifo == "H1":
-  x_back = distributions.background_rates["H1_eff_snr"].centres()[0]
-  y_back = distributions.background_rates["H1_eff_snr"].array
+  x_back = distributions.background_pdf["H1_eff_snr"].centres()[0]
+  y_back = distributions.background_pdf["H1_eff_snr"].array
   print "y_back", y_back
 
 elif opts.statistic == 'effective_snr' and opts.ifo == "H2":
-  x_back = distributions.background_rates["H2_eff_snr"].centres()[0]
-  y_back = distributions.background_rates["H2_eff_snr"].array
+  x_back = distributions.background_pdf["H2_eff_snr"].centres()[0]
+  y_back = distributions.background_pdf["H2_eff_snr"].array
   
 
 elif opts.statistic == 'effective_snr' and opts.ifo == "L1":
-  x_back = distributions.background_rates["L1_eff_snr"].centres()[0]
-  y_back = distributions.background_rates["L1_eff_snr"].array
+  x_back = distributions.background_pdf["L1_eff_snr"].centres()[0]
+  y_back = distributions.background_pdf["L1_eff_snr"].array
 
 ########################################################################
 # For doubles in Triple times.
 ########################################################################
 
 if opts.statistic == 'effective_snr' and opts.coincs == "H1H2":
-  x_inj = distributions.injection_rates["H1H2_eff_snr"].centres()[0]
-  y_inj = distributions.injection_rates["H1H2_eff_snr"].array
+  x_inj = distributions.injection_pdf["H1H2_eff_snr"].centres()[0]
+  y_inj = distributions.injection_pdf["H1H2_eff_snr"].array
 
 elif opts.statistic == 'effective_snr' and opts.coincs == "H1L1":
-  x_inj = distributions.injection_rates["H1L1_eff_snr"].centres()[0]
-  y_inj = distributions.injection_rates["H1L1_eff_snr"].array
+  x_inj = distributions.injection_pdf["H1L1_eff_snr"].centres()[0]
+  y_inj = distributions.injection_pdf["H1L1_eff_snr"].array
 
 elif opts.statistic == 'effective_snr' and opts.coincs == "H2L1":
-  x_inj = distributions.injection_rates["H2L1_eff_snr"].centres()[0]
-  y_inj = distributions.injection_rates["H2L1_eff_snr"].array
+  x_inj = distributions.injection_pdf["H2L1_eff_snr"].centres()[0]
+  y_inj = distributions.injection_pdf["H2L1_eff_snr"].array
 
 ########################################################################
 # Adding time slides.
 ########################################################################
 
 if opts.statistic == 'effective_snr' and opts.coincs == "H1H2":
-  x_back = distributions.background_rates["H1H2_eff_snr"].centres()[0]
-  y_back = distributions.background_rates["H1H2_eff_snr"].array
+  x_back = distributions.background_pdf["H1H2_eff_snr"].centres()[0]
+  y_back = distributions.background_pdf["H1H2_eff_snr"].array
 
 elif opts.statistic == 'effective_snr' and opts.coincs == "H1L1":
-  x_back = distributions.background_rates["H1L1_eff_snr"].centres()[0]
-  y_back = distributions.background_rates["H1L1_eff_snr"].array
+  x_back = distributions.background_pdf["H1L1_eff_snr"].centres()[0]
+  y_back = distributions.background_pdf["H1L1_eff_snr"].array
 
   
 elif opts.statistic == 'effective_snr' and opts.coincs == "H2L1":
-  x_back = distributions.background_rates["H2L1_eff_snr"].centres()[0]
-  y_back = distributions.background_rates["H2L1_eff_snr"].array
+  x_back = distributions.background_pdf["H2L1_eff_snr"].centres()[0]
+  y_back = distributions.background_pdf["H2L1_eff_snr"].array
 
 ########################################################################
 # Plottings routines
