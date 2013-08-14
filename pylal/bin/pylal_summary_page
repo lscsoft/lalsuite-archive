@@ -524,8 +524,12 @@ def zpkresponse(zeros, poles, gain, f0=0, deltaF=1, length=100):
     """
     lti   = signal.lti(numpy.asarray(zeros), numpy.asarray(poles), gain)
     f     = (numpy.arange(length)*deltaF + f0)
-    fresp = map(lambda w: numpy.polyval(lti.num, w*1j)/\
-                          numpy.polyval(lti.den, w*1j), f)
+    try:
+        fresp = map(lambda w: numpy.polyval(lti.num, w*1j)/\
+                              numpy.polyval(lti.den, w*1j), f)
+    except TypeError:
+        fresp = map(lambda w: numpy.polyval(lti.num, w*1j)/\
+                              numpy.polyval([lti.den], w*1j), f)
     fresp = numpy.asarray(fresp)
     return abs(fresp)
 
@@ -2157,7 +2161,12 @@ def load_archive_data(cp, channel, seglist, mode=0, verbose=False):
         duration = float(abs(seg))
 
         # get data
-        with hdf5utils.h5py.File(f, "r") as h5file:
+        try:
+            h5file = hdf5utils.h5py.File(f, 'r')
+        except hdf5utils.h5py.h5e.LowLevelIOError as e:
+            warnings.warn('Caught exception: %s' % str(e))
+            pass
+        else:
             if HDF_DATA_GROUP in list(h5file)\
             and channel in list(h5file[HDF_DATA_GROUP]):
                 series = hdf5utils.readTimeSeries(h5file, channel,
@@ -4029,7 +4038,11 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
                                  resample=params["resample"],\
                                  fresponse=params["frequency-response"])
                 for spectrum in spectrumlist:
-                    spectrum.name = params["label"]
+                    try:
+                        spectrum.name = params["label"]
+                    except TypeError as e:
+                        warnings.warn("Cannot set spectrum name to '%s'"
+                                      % params['label'])
                 tab.add_median_spectrum(params["label"], spectrumlist[0])
                 tab.add_min_spectrum(params["label"], spectrumlist[1])
                 tab.add_max_spectrum(params["label"], spectrumlist[2])
