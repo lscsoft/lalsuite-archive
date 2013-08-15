@@ -3625,7 +3625,7 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                     for iF in range(len(freqbands)-1):
                         if trig.peak_frequency >= freqbands[iF] \
                                 and trig.peak_frequency < freqbands[iF+1]:
-                            freq_extension = '_%g-%gHz' % (freqbands[iF], freqbands[iF+1])
+                            freq_extension = ':%g-%gHz' % (freqbands[iF], freqbands[iF+1])
                     swigtrig.channel = trig.channel + freq_extension
                 else:
                     swigtrig.channel = trig.channel
@@ -3649,7 +3649,6 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
     sigdrop = None
     round_winner, efficiency, deadtime = [], [], []
     winner_docs = []
-    rounds = {}
 
     # Round loop
     while True:
@@ -3776,17 +3775,17 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             ligolw_utils.write_filename( xmldoc, fname, gz=True, verbose=verbose )
 
             # save round statistics
-            rounds[rnd] = HVetoRound()
-            rounds[rnd].channel = winner
-            rounds[rnd].etg = tab.etg
-            rounds[rnd].significance = sig
-            rounds[rnd].dt = wind_win
-            rounds[rnd].snr = snr_win
-            rounds[rnd].efficiency = [inc_eff]
-            rounds[rnd].deadtime = [deadtime[-1]]
-            rounds[rnd].safter = [numpy.nan]
-            rounds[rnd].veto_file = fname
-            rounds[rnd].veto_segments = fvetosegs
+            tab.rounds[rnd] = HVetoRound()
+            tab.rounds[rnd].channel = winner
+            tab.rounds[rnd].etg = tab.etg
+            tab.rounds[rnd].significance = sig
+            tab.rounds[rnd].dt = wind_win
+            tab.rounds[rnd].snr = snr_win
+            tab.rounds[rnd].efficiency = [inc_eff]
+            tab.rounds[rnd].deadtime = [deadtime[-1]]
+            tab.rounds[rnd].safter = [numpy.nan]
+            tab.rounds[rnd].veto_file = fname
+            tab.rounds[rnd].veto_segments = fvetosegs
 
             # put segments into global holder for other parts of summary pages
             hvetoflag='G1:HVETO:1'
@@ -3850,8 +3849,11 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
     #
 
     sigmaplot = None
-    channelparams = parse_data_config(cp, cpsec, channels)
-    for chan, params in zip(channels, channelparams):
+    plotchannels = []
+    for rnd in tab.rounds:
+        plotchannels.append(tab.rounds[rnd].channel)
+    channelparams = parse_data_config(cp, cpsec, plotchannels)
+    for chan, params in zip(plotchannels, channelparams):
         tab.auxplots[chan] = list()
         for plot,_ in plots:
             # format plot
@@ -3914,7 +3916,12 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
     #
 
     hveto_file = '%s/full_results.txt' % tab.directory
-    write_hveto_results(hveto_file, rounds)
+    write_hveto_results(hveto_file, tab.rounds)
+
+
+    if not htmlonly:
+        tab.finalize()
+        tab.frametohtml()
 
     return
 
@@ -5523,7 +5530,7 @@ if __name__=="__main__":
                     vetotable = None
                 if not opts.html_only:
                     get_state_segments(cp, state, vetotable, mode=mode)
-                tab = summary.AuxTriggerSummaryTab(metatab.name,\
+                tab = summary.HvetoSummaryTab(metatab.name,\
                                                    start_time=start_time,\
                                                    end_time=end_time,\
                                                    parent=metatab)
