@@ -575,7 +575,7 @@ def jsonread(event):
     attributeDic["eventID"] = event["properties"]["code"]
     attributeDic["eventName"] = event["properties"]["ids"].replace(",","")
     attributeDic["Magnitude"] = event["properties"]["mag"]
-    attributeDic["UTC"] = float(event["properties"]["time"])
+    attributeDic["UTC"] = float(event["properties"]["time"]) / 1000.0
     attributeDic["DataSource"] = event["properties"]["sources"].replace(",","")
     attributeDic["Version"] = 1.0
     attributeDic["Type"] = 1.0
