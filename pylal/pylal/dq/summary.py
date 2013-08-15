@@ -2073,13 +2073,14 @@ class HvetoSummaryTab(TriggerSummaryTab):
                 self.frame.img(src=self.plots[0][0], alt=self.plots[0][1],\
                                class_="full")
                 self.frame.a.close()
-            for i in sorted(self.rounds.keys()):  
-                # trig stats
-                th = ['Significance', 'T win.', 'SNR', 'Use %', 'Eff.', 'Deadtime',\
-                          'Eff./Deadtime','Safety', 'Segments' ]
+            # trig stats
+            th = ['Significance', 'T win.', 'SNR', 'Use %', 'Eff.', 'Deadtime',\
+                      'Eff./Deadtime','Safety', 'Segments' ]
+            td = []
+            cellclasses = {"table":"full"}
 
-                td = []
-                cellclasses = {"table":"full"}
+            # produce a row for each round
+            for i in sorted(self.rounds.keys()):  
                 # work the numbers
                 use = numpy.nan
                 eff = self.rounds[i].efficiency[0]
@@ -2095,7 +2096,7 @@ class HvetoSummaryTab(TriggerSummaryTab):
                 safe = 'N/A'
 
                 # add to table
-                td.extend([round(self.rounds[i].significance, 2), self.rounds[i].dt, self.rounds[i].snr,\
+                td.append([round(self.rounds[i].significance, 2), self.rounds[i].dt, self.rounds[i].snr,\
                       use, eff, dt, edr, safe,\
                       '<a href="%s" rel="external">link</a>' % self.rounds[i].veto_file])
 
