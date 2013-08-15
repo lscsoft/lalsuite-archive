@@ -3625,7 +3625,7 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                     for iF in range(len(freqbands)-1):
                         if trig.peak_frequency >= freqbands[iF] \
                                 and trig.peak_frequency < freqbands[iF+1]:
-                            freq_extension = ':%g-%gHz' % (freqbands[iF], freqbands[iF+1])
+                            freq_extension = '_%g-%gHz' % (freqbands[iF], freqbands[iF+1])
                     swigtrig.channel = trig.channel + freq_extension
                 else:
                     swigtrig.channel = trig.channel
@@ -3849,11 +3849,8 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
     #
 
     sigmaplot = None
-    plotchannels = []
-    for rnd in tab.rounds:
-        plotchannels.append(tab.rounds[rnd].channel)
-    channelparams = parse_data_config(cp, cpsec, plotchannels)
-    for chan, params in zip(plotchannels, channelparams):
+    channelparams = parse_data_config(cp, cpsec, channels)
+    for chan, params in zip(channels, channelparams):
         tab.auxplots[chan] = list()
         for plot,_ in plots:
             # format plot
