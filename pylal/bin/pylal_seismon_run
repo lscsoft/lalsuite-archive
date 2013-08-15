@@ -34,6 +34,8 @@ def parse_commandline():
     parser.add_option("-e", "--gpsEnd", help="GPS End Time.", default=1054029209,type=int)
     parser.add_option("-f", "--fftDuration", help="FFT duration.", default=64,type=int)
 
+    parser.add_option("-c", "--channel", help="Run on a specific channel.", default=None)
+
     parser.add_option("--gpsSpectraStart", help="GPS spectra Start Time.", type=int)
     parser.add_option("--gpsSpectraEnd", help="GPS spectra End Time.", type=int)
 
@@ -82,6 +84,7 @@ def params_struct(opts):
     params["gpsStart"] = opts.gpsStart
     params["gpsEnd"] = opts.gpsEnd
     params["fftDuration"] = opts.fftDuration
+    params["channel"] = [x for x in opts.channel.split(",")]
 
     if opts.gpsSpectraStart == None:
         params["gpsSpectraStart"] = opts.gpsStart - 24*60*60
@@ -133,7 +136,7 @@ def readParamsFromFile(file):
                 params[line_split[0]] = line_split[1]
     return params
 
-def channel_struct(channelList):
+def channel_struct(params,channelList):
     # Create channel structure
     structproxy_channel = namedtuple( "structproxy_channel", "station station_underscore samplef calibration latitude longitude" )
 
@@ -170,6 +173,10 @@ def channel_struct(channelList):
            elif station[0] == "M":
                latitude = 44.3465
                longitude = -103.7574
+
+           if not params["channel"] == None:
+               if not station in params["channel"]:
+                   continue
 
            channel.append( structproxy_channel(station,station_underscore,samplef,calibration,latitude,longitude))
     return channel
@@ -262,7 +269,8 @@ if params["doEarthquakesMonitor"] or params["doEarthquakesAnalysis"]:
     channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list_EarthquakesAnalysis.txt"
 else:
     channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list.txt"
-channels = channel_struct(channelList)
+channels = channel_struct(params,channelList)
+
 params["channels"] = channels
 
 params = frame_struct(params)
