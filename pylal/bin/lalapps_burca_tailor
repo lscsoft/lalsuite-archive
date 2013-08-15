@@ -132,16 +132,6 @@ if options.add_from:
 
 
 #
-# Construct a DistributionsStats instance to populate a
-# CoincParamsDistributions book-keeping object from the information in the
-# input files.
-#
-
-
-stats = ligolw_burca_tailor.DistributionsStats(distributions)
-
-
-#
 # Iterate over files
 #
 
@@ -174,9 +164,17 @@ for n, filename in enumerate(filenames):
 	#
 
 	if database.sim_burst_table is None:
-		stats.add_noninjections(distributions.coinc_params, database, *(MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD))
+		# iterate over burst<-->burst coincs
+		for is_background, events, offsetvector in ligolw_burca_tailor.get_noninjections(database):
+			if is_background:
+				distributions.add_background(distributions.coinc_params(events, offsetvector, MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD))
+			else:
+				distributions.add_zero_lag(distributions.coinc_params(events, offsetvector, MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD))
 	else:
-		stats.add_injections(distributions.coinc_params, database, *(MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD))
+		# iterate over burst<-->burst coincs matching injections
+		# "exactly"
+		for sim, events, offsetvector in ligolw_burca_tailor.get_injections(database):
+			distributions.add_injection(distributions.coinc_params(events, offsetvector, MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD))
 
 	#
 	# Clean up.

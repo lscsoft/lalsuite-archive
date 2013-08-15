@@ -33,7 +33,6 @@ import sys
 
 from glue import iterutils
 from glue.ligolw import ligolw
-from glue.ligolw import ilwd
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
@@ -341,77 +340,6 @@ WHERE
 
 
 #
-# Covariance matrix
-#
-
-
-def covariance_normalize(c):
-	"""
-	Normalize a covariance matrix so that the variances (diagonal
-	elements) are 1.
-	"""
-	std_dev = numpy.sqrt(numpy.diagonal(c))
-	return c / numpy.outer(std_dev, std_dev)
-
-
-class Covariance(object):
-	def __init__(self):
-		self.bak_observations = []
-		self.inj_observations = []
-
-	def add_noninjections(self, param_func, database):
-		# iterate over burst<-->burst coincs
-		for is_background, events, offsetvector in get_noninjections(database):
-			if is_background:
-				self.bak_observations.append(tuple(value for name, value in sorted(param_func(events, offsetvector).items())))
-			else:
-				# zero-lag not used
-				pass
-
-	def add_injections(self, param_func, database):
-		# iterate over burst<-->burst coincs matching injections
-		# "exactly"
-		for sim, events, offsetvector in get_injections(database):
-			self.inj_observations.append(tuple(value for name, value in sorted(param_func(events, offsetvector).items())))
-
-	def finish(self):
-		self.bak_cov = covariance_normalize(stats.cov(self.bak_observations))
-		self.inj_cov = covariance_normalize(stats.cov(self.inj_observations))
-
-
-#
-# Parameter distributions
-#
-
-
-class DistributionsStats(object):
-	"""
-	A class used to populate a CoincParamsDistribution instance with
-	the data from the outputs of ligolw_burca and ligolw_binjfind.
-	"""
-
-	def __init__(self, distributions):
-		self.distributions = distributions
-
-	def add_noninjections(self, param_func, database, *args):
-		# iterate over burst<-->burst coincs
-		for is_background, events, offsetvector in get_noninjections(database):
-			if is_background:
-				self.distributions.add_background(param_func(events, offsetvector, *args))
-			else:
-				self.distributions.add_zero_lag(param_func(events, offsetvector, *args))
-
-	def add_injections(self, param_func, database, *args):
-		# iterate over burst<-->burst coincs matching injections
-		# "exactly"
-		for sim, events, offsetvector in get_injections(database):
-			self.distributions.add_injection(param_func(events, offsetvector, *args))
-
-	def finish(self):
-		self.distributions.finish()
-
-
-#
 # =============================================================================
 #
 #                                     I/O
@@ -420,14 +348,14 @@ class DistributionsStats(object):
 #
 
 
+process_program_name = "ligolw_burca_tailor"
+
+
 def gen_likelihood_control(coinc_params_distributions, seglists, name = u"ligolw_burca_tailor", comment = u""):
 	xmldoc = ligolw.Document()
 	node = xmldoc.appendChild(ligolw.LIGO_LW())
 
-	node.appendChild(lsctables.New(lsctables.ProcessTable))
-	node.appendChild(lsctables.New(lsctables.ProcessParamsTable))
-	node.appendChild(lsctables.New(lsctables.SearchSummaryTable))
-	process = append_process(xmldoc, comment = comment)
+	process = ligolw_process.register_to_xmldoc(xmldoc, program = process_program_name, paramdict = {}, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = comment)
 	ligolw_search_summary.append_search_summary(xmldoc, process, ifos = seglists.keys(), inseg = seglists.extent_all(), outseg = seglists.extent_all())
 
 	node.appendChild(coinc_params_distributions.to_xml(process, name))
@@ -435,55 +363,3 @@ def gen_likelihood_control(coinc_params_distributions, seglists, name = u"ligolw
 	ligolw_process.set_process_end_time(process)
 
 	return xmldoc
-
-
-#
-# =============================================================================
-#
-#                             Process Information
-#
-# =============================================================================
-#
-
-
-process_program_name = "ligolw_burca_tailor"
-
-
-def append_process(xmldoc, **kwargs):
-	return ligolw_process.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
-
-
-#
-# =============================================================================
-#
-#                           param_dist_definer:table
-#
-# =============================================================================
-#
-
-
-ParamDistDefinerID = ilwd.get_ilwdchar_class(u"param_dist_definer", u"param_dist_def_id")
-
-
-class ParamDistDefinerTable(lsctables.table.Table):
-	tableName = "param_dist_definer:table"
-	validcolumns = {
-		"process_id": "ilwd:char",
-		"param_dist_def_id": "ilwd:char",
-		"search": "lstring",
-		"distribution_name": "lstring",
-		"start_time": "int_4s",
-		"start_time_ns": "int_4s",
-		"end_time": "int_4s",
-		"end_time_ns": "int_4s",
-		"array_name": "lstring"
-	}
-	constraints = "PRIMARY KEY (param_dist_def_id)"
-	next_id = ParamDistDefinerID(0)
-
-
-class ParamDistDefiner(object):
-	__slots__ = ParamDistDefinerTable.validcolumns.keys()
-
-
-ParamDistDefinerTable.RowType = ParamDistDefiner
