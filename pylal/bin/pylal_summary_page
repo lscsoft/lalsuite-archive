@@ -793,7 +793,7 @@ def get_segments(cp, flag, segment_summary, cache=None, buffer_=0, query=True):
     for f in flags:
         # return the required segments
         out.append(segment_summary & G_SEGMENTS[f])
-        if len(out) and f != 'hveto':
+        if len(out) and f != 'G1:HVETO:1':
             minlength = (cp.has_option("segfind", "minimum-segment-length") and
                          cp.getfloat("segfind", "minimum-segment-length") or 0)
             out[-1] = type(out[-1])([seg for seg in out[-1] if
@@ -834,21 +834,24 @@ def get_state_segments(cp, state, veto_def_table, mode=0):
             append = (key.startswith("-") or (i!=0 and divs[i-1] == "!") ) \
                 and vetoes.append or flags.append
             if key.lower() == "vetoes":
-                for v in veto_def_table:
-                    flag = "%s:%s:%d" % (v.ifo, v.name, v.version)
-                    append(flag)
-            elif re.match("cat/d", key, re.I):
-                cat = int(key[4])
-                for v in veto_def_table:
-                    if v.category == cat:
+                if veto_def_table:
+                    for v in veto_def_table:
                         flag = "%s:%s:%d" % (v.ifo, v.name, v.version)
                         append(flag)
-            elif re.match("ccat\d", key, re.I):
-                cat = int(key[4])
-                for v in veto_def_table:
-                    if v.category <= cat:
-                        flag = "%s:%s:%d" % (v.ifo, v.name, v.version)
-                        append(flag)
+            elif re.match("cat/d", key, re.I): 
+                if veto_def_table:
+                    cat = int(key[4])
+                    for v in veto_def_table:
+                        if v.category == cat:
+                            flag = "%s:%s:%d" % (v.ifo, v.name, v.version)
+                            append(flag)
+            elif re.match("ccat\d", key, re.I) :
+                if veto_def_table:
+                    cat = int(key[4])
+                    for v in veto_def_table:
+                        if v.category <= cat:
+                            flag = "%s:%s:%d" % (v.ifo, v.name, v.version)
+                            append(flag)
             else:
                 append(key)
         # read new segments
@@ -862,10 +865,10 @@ def get_state_segments(cp, state, veto_def_table, mode=0):
             if not state.set:
                 load_archive_segments(cp, flag, seg_sum_list, mode=mode)
             newsegs &= get_segments(cp, flag, seg_sum_list)
-        state.segments += newsegs
+        state.segments = newsegs
     else:
         # otherwise use all time
-        state.segments += seg_sum_list
+        state.segments = seg_sum_list
     # set state-specific variables restrictions
     cpsec = "state-%s" % (state.name)
     if cp.has_section(cpsec):
@@ -874,7 +877,6 @@ def get_state_segments(cp, state, veto_def_table, mode=0):
             if cp.has_option(cpsec, param):
                 setattr(state, param.replace("-", "_"),
                         cp.getfloat(cpsec, param))
-
     # apply minimum segment length
     state.segments.contract(state.segment_buffer)
     if state.minimum_segment_length:
@@ -3779,7 +3781,7 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             rounds[rnd].veto_segments = fvetosegs
 
             # put segments into global holder for other parts of summary pages
-            hvetoflag='hveto'
+            hvetoflag='G1:HVETO:1'
             if G_SEGMENTS.has_key(hvetoflag):
                 if abs(SegmentList([runseg]) & G_SEGMENT_SUMMARY[hvetoflag]) \
                         != abs(SegmentList([runseg])) or \
@@ -5351,6 +5353,14 @@ if __name__=="__main__":
     # load veto definer table
     veto_def_table = dict()
     if opts.run_vetoes and not opts.html_only:
+        # KLUDGE, hardcode hveto usage for "Cleaned" states
+        veto_def_table["Cleaned"] = lsctables.New(lsctables.VetoDefTable, ["ifo","name","version"])
+        tmp = lsctables.VetoDef()
+        tmp.ifo = "G1"
+        tmp.name = "HVETO"
+        tmp.version = 1
+        veto_def_table["Cleaned"].append(tmp)
+
         sections = [s for s in cp.sections() if s.startswith("vetoes")]
         for sec in sections:
             # load veto definer file
@@ -5384,7 +5394,6 @@ if __name__=="__main__":
     #
     # get state defining segments
     #
-
 
     #
     # generate summary tabs
@@ -5534,8 +5543,8 @@ if __name__=="__main__":
             metatab.span = span
             metatab.parent = section_summary[parent]
             for state in run_states:
-                if state in veto_def_table.keys():
-                    vetotable = veto_def_table[run]
+                if state.name in veto_def_table.keys():
+                    vetotable = veto_def_table[state.name]
                 else:
                     vetotable = None
                 if not opts.html_only:
@@ -5660,8 +5669,8 @@ if __name__=="__main__":
                 # for range type, need to split segments and vetoes,
                 # segments are used for spectra and segment-vetoes for
                 # triggers only
-                if state in veto_def_table.keys():
-                    vetotable = veto_def_table[state]
+                if state.name in veto_def_table.keys():
+                    vetotable = veto_def_table[state.name]
                 else:
                     vetotable = None
                 if not opts.html_only:
