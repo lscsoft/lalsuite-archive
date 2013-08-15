@@ -43,6 +43,7 @@ from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolwprocess
 from pylal import SnglBurstUtils
 from pylal import git_version
+from pylal import ligolw_burca_tailor
 from pylal import stringutils
 
 
@@ -164,7 +165,6 @@ options, filenames = parse_command_line()
 
 distributions = stringutils.StringCoincParamsDistributions()
 segs = segments.segmentlistdict()
-stats = stringutils.DistributionsStats(distributions)
 
 
 #
@@ -210,9 +210,20 @@ for n, filename in enumerate(filenames):
 	#
 
 	if contents.sim_burst_table is None:
-		stats.add_noninjections(distributions.coinc_params, contents, param_func_args = (triangulators,))
+		# iterate over burst<-->burst coincs
+		for is_background, events, offsetvector in ligolw_burca_tailor.get_noninjections(contents):
+			events = [event for event in events if event.ifo not in contents.vetoseglists or event.get_peak() not in contents.vetoseglists[event.ifo]]
+			if is_background:
+				distributions.add_background(distributions.coinc_params(events, offsetvector, triangulators))
+			else:
+				distributions.add_zero_lag(distributions.coinc_params(events, offsetvector, triangulators))
 	else:
-		stats.add_injections(distributions.coinc_params, contents, weight_func = get_injection_weight_func(contents, options.injection_reweight, options.injection_reweight_cutoff), param_func_args = (triangulators,))
+		weight_func = get_injection_weight_func(contents, options.injection_reweight, options.injection_reweight_cutoff)
+		# iterate over burst<-->burst coincs matching injections
+		# "exactly"
+		for sim, events, offsetvector in ligolw_burca_tailor.get_injections(contents):
+			events = [event for event in events if event.ifo not in contents.vetoseglists or event.get_peak() not in contents.vetoseglists[event.ifo]]
+			distributions.add_injection(distributions.coinc_params(events, offsetvector, triangulators), weight = weight_func(sim))
 
 	#
 	# Clean up.

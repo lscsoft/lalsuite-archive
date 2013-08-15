@@ -325,34 +325,6 @@ class StringCoincParamsDistributions(snglcoinc.CoincParamsDistributions):
 			event.set_peak(peak_time)
 
 
-class DistributionsStats(object):
-	"""
-	A class used to populate a StringCoincParamsDistributions instance with
-	the data from the outputs of ligolw_burca and ligolw_binjfind.
-	"""
-	def __init__(self, distributions):
-		self.distributions = distributions
-
-	def add_noninjections(self, param_func, database, param_func_args = ()):
-		# iterate over burst<-->burst coincs
-		for is_background, events, offsetvector in ligolw_burca_tailor.get_noninjections(database):
-			events = [event for event in events if event.ifo not in database.vetoseglists or event.get_peak() not in database.vetoseglists[event.ifo]]
-			if is_background:
-				self.distributions.add_background(param_func(events, offsetvector, *param_func_args))
-			else:
-				self.distributions.add_zero_lag(param_func(events, offsetvector, *param_func_args))
-
-	def add_injections(self, param_func, database, weight_func = lambda sim: 1.0, param_func_args = ()):
-		# iterate over burst<-->burst coincs matching injections
-		# "exactly"
-		for sim, events, offsetvector in ligolw_burca_tailor.get_injections(database):
-			events = [event for event in events if event.ifo not in database.vetoseglists or event.get_peak() not in database.vetoseglists[event.ifo]]
-			self.distributions.add_injection(param_func(events, offsetvector, *param_func_args), weight = weight_func(sim))
-
-	def finish(self):
-		self.distributions.finish()
-
-
 #
 # I/O
 #
