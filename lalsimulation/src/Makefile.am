@@ -51,6 +51,7 @@ lalsimulationinclude_HEADERS = \
 	LALSimIMR.h \
 	LALSimInspiral.h \
 	LALSimInspiralSphHarmSeries.h \
+	LALSimInspiralPrecessingPNMode.h \
 	LALSimInspiralWaveformCache.h \
 	LALSimulation.h \
 	LALSimNeutronStar.h \
@@ -99,6 +100,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiral.c \
 	LALSimInspiralSphHarmSeries.c \
 	LALSimInspiralPNMode.c \
+	LALSimInspiralPrecessingPNMode.c \
 	LALSimInspiralSpinTaylor.c \
 	LALSimInspiralSpinTaylorF2.c \
 	LALSimInspiralTaylorEt.c \
