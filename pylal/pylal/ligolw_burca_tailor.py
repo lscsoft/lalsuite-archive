@@ -356,9 +356,10 @@ def gen_likelihood_control(coinc_params_distributions, seglists, name = u"ligolw
 	node = xmldoc.appendChild(ligolw.LIGO_LW())
 
 	process = ligolw_process.register_to_xmldoc(xmldoc, program = process_program_name, paramdict = {}, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = comment)
+	coinc_params_distributions.process_id = process.process_id
 	ligolw_search_summary.append_search_summary(xmldoc, process, ifos = seglists.keys(), inseg = seglists.extent_all(), outseg = seglists.extent_all())
 
-	node.appendChild(coinc_params_distributions.to_xml(process, name))
+	node.appendChild(coinc_params_distributions.to_xml(name))
 
 	ligolw_process.set_process_end_time(process)
 

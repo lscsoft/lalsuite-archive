@@ -1540,7 +1540,7 @@ class CoincParamsDistributions(object):
 	# begin implementation
 	#
 
-	def __init__(self):
+	def __init__(self, process_id = None):
 		if not self.binnings:
 			raise NotImplementedError("subclass must provide dictionary of binnings")
 		self.zero_lag_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
@@ -1552,6 +1552,7 @@ class CoincParamsDistributions(object):
 		self.zero_lag_pdf_interp = {}
 		self.background_pdf_interp = {}
 		self.injection_pdf_interp = {}
+		self.process_id = process_id
 
 	def _rebuild_interpolators(self):
 		"""
@@ -1613,7 +1614,7 @@ class CoincParamsDistributions(object):
 		return self
 
 	def copy(self):
-		new = type(self)()
+		new = type(self)(process_id = self.process_id)
 		new += self
 		return new
 
@@ -1815,7 +1816,7 @@ class CoincParamsDistributions(object):
 		xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:%s" % (name, self.ligo_lw_name_suffix)]
 
 		# retrieve the process ID
-		process_id = param.get_pyvalue(xml, u"process_id")
+		self.process_id = param.get_pyvalue(xml, u"process_id")
 
 		# reconstruct the BinnedArray objects
 		def reconstruct(xml, prefix, target_dict):
@@ -1838,9 +1839,9 @@ class CoincParamsDistributions(object):
 		# done
 		#
 
-		return self, process_id
+		return self
 
-	def to_xml(self, process, name):
+	def to_xml(self, name):
 		"""
 		Serialize this CoincParamsDistributions object to an XML
 		fragment and return the root element of the resulting XML
@@ -1849,7 +1850,7 @@ class CoincParamsDistributions(object):
 		given the name name.
 		"""
 		xml = ligolw.LIGO_LW({u"Name": u"%s:%s" % (name, self.ligo_lw_name_suffix)})
-		xml.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
+		xml.appendChild(param.new_param(u"process_id", u"ilwd:char", self.process_id))
 		def store(xml, prefix, source_dict):
 			for name, binnedarray in sorted(source_dict.items()):
 				xml.appendChild(rate.binned_array_to_xml(binnedarray, u"%s:%s" % (prefix, name)))
@@ -1883,13 +1884,13 @@ class CoincParamsDistributions(object):
 				print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 			xmldoc = utils.load_filename(filename, verbose = verbose, contenthandler = contenthandler)
 			if self is None:
-				self, process_id = cls.from_xml(xmldoc, name)
-				seglists = lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([process_id])).coalesce()
+				self = cls.from_xml(xmldoc, name)
+				seglists = lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([self.process_id])).coalesce()
 			else:
-				c, process_id = cls.from_xml(xmldoc, name)
-				self += c
-				del c
-				seglists |= lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([process_id])).coalesce()
+				other = cls.from_xml(xmldoc, name)
+				self += other
+				seglists |= lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([other.process_id])).coalesce()
+				del other
 			xmldoc.unlink()
 		return self, seglists
 
