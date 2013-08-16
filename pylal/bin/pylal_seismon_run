@@ -84,7 +84,10 @@ def params_struct(opts):
     params["gpsStart"] = opts.gpsStart
     params["gpsEnd"] = opts.gpsEnd
     params["fftDuration"] = opts.fftDuration
-    params["channel"] = [x for x in opts.channel.split(",")]
+    if opts.channel == None:
+        params["channel"] = opts.channel
+    else:
+        params["channel"] = [x for x in opts.channel.split(",")]
 
     if opts.gpsSpectraStart == None:
         params["gpsSpectraStart"] = opts.gpsStart - 24*60*60
