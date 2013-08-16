@@ -70,6 +70,7 @@ const char *const polarizationCorrPhaseJumpName = "CorrPolarizationPhase";
 const char *const distanceQuasiGibbsProposalName = "DistanceQuasiGibbs";
 const char *const extrinsicParamProposalName = "ExtrinsicParamProposal";
 const char *const KDNeighborhoodProposalName = "KDNeighborhood";
+const char *const FisherMatrixJumpName = "FisherMatrixJump";
 
 /* Mode hopping fraction for the differential evoultion proposals. */
 static const REAL8 modeHoppingFrac = 1.0;
@@ -375,7 +376,6 @@ void LALInferenceSetupDefaultNSProposal(LALInferenceRunState *runState, LALInfer
   {
     LALInferenceAddProposalToCycle (runState, PSDFitJumpName, *LALInferencePSDFitJump, SMALLWEIGHT);
   }
-
   
   
   /********** TURNED OFF - very small acceptance with nested sampling, slows everything down ****************/
@@ -409,6 +409,14 @@ SetupDefaultProposal(LALInferenceRunState *runState, LALInferenceVariables *prop
       LALInferenceAddVariable(runState->proposalArgs,LALInferenceCurrentProposalName, (void*)&defaultPropName, LALINFERENCE_string_t, LALINFERENCE_PARAM_OUTPUT);
 
   LALInferenceCopyVariables(runState->currentParams, proposedParams);
+
+
+  //Add LALInferenceFisherMatirxJump
+  if(LALInferenceGetProcParamVal(runState->commandLine, "--fisher"))
+  {
+    LALInferenceAddProposalToCycle(runState, FisherMatrixJumpName, &LALInferenceFisherMatrixJump,SMALLWEIGHT);
+  }
+
 
   /* The default, single-parameter updates. */
   if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-singleadapt"))
@@ -1674,6 +1682,88 @@ void LALInferencePSDFitJump(LALInferenceRunState *runState, LALInferenceVariable
   LALInferenceSetLogProposalRatio(runState, 0.0);
 }
 
+void
+LALInferenceFisherMatrixJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams)
+{
+  //set the name
+  const char *propName = FisherMatrixJumpName;
+  LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
+
+  //set variables
+  INT4 i;
+  INT4 N;
+
+  LALInferenceCopyVariables(runState->currentParams, proposedParams);
+
+  REAL8 chirp = *(REAL8 *)LALInferenceGetVariable(proposedParams, "chirpmass");
+  REAL8 q =	*(REAL8 *)LALInferenceGetVariable(proposedParams, "asym_massratio");
+  REAL8 phi =   *(REAL8 *)LALInferenceGetVariable(proposedParams, "phase");
+  REAL8 dist =  *(REAL8 *)LALInferenceGetVariable(proposedParams, "distance");
+  REAL8 iota =  *(REAL8 *)LALInferenceGetVariable(proposedParams, "inclination");
+  REAL8 ra =    *(REAL8 *)LALInferenceGetVariable(proposedParams, "rightascension");
+  REAL8 dec =   *(REAL8 *)LALInferenceGetVariable(proposedParams, "declination");
+  REAL8 psi =   *(REAL8 *)LALInferenceGetVariable(proposedParams, "polarisation");
+  REAL8 t =     *(REAL8 *)LALInferenceGetVariable(proposedParams, "time");
+
+  REAL8 draw;
+  int irreg;
+  REAL8 value;
+  REAL8 scale;
+
+  //draw the fisher Matrix (if we're on the first iteration and haven't done so already)
+  if(!LALInferenceCheckVariable(runState->proposalArgs,"covarEigenvalue")) drawFisherMatrix(runState);
+
+  REAL8Vector *eval = *((REAL8Vector **)LALInferenceGetVariable(runState->proposalArgs, "covarEigenvalue"));
+  gsl_matrix *evec = *((gsl_matrix **)LALInferenceGetVariable(runState->proposalArgs, "covarEigenvector"));
+
+  N = 9 ;
+  //Get the parameter array
+  gsl_vector *params = gsl_vector_alloc (N);
+
+  gsl_vector_set(params,0,chirp);
+  gsl_vector_set(params,1,q);
+  gsl_vector_set(params,2,phi);
+  gsl_vector_set(params,3,dist);
+  gsl_vector_set(params,4,iota);
+  gsl_vector_set(params,5,ra);
+  gsl_vector_set(params,6,dec);
+  gsl_vector_set(params,7,psi);
+  gsl_vector_set(params,8,t);
+
+  //find a random eigenvalue
+  irreg = (int)gsl_rng_uniform_int(runState->GSLrandom,N);
+  value = eval->data[irreg]; 
+ 
+  //find the eigenvalue's respective eigenvector
+  gsl_vector *eigen = gsl_vector_alloc (N);
+  gsl_matrix_get_col(eigen, evec, irreg);
+
+  //add the eigenvector to the parameter vector
+  scale = gsl_ran_ugaussian(runState->GSLrandom)*sqrt(1/value);
+
+  double *jump = (double *)malloc(sizeof(double)*N);
+  for(i=0; i<N; i++)
+  {
+    draw = gsl_vector_get(params,i) + gsl_vector_get(eigen,i)*scale;
+	jump[i] = draw;
+  }
+
+  LALInferenceSetVariable(proposedParams, "chirpmass", &jump[0]);
+  LALInferenceSetVariable(proposedParams, "asym_massratio", &jump[1]);
+  LALInferenceSetVariable(proposedParams, "phase", &jump[2]);
+  LALInferenceSetVariable(proposedParams, "distance", &jump[3]);
+  LALInferenceSetVariable(proposedParams, "inclination", &jump[4]);
+  LALInferenceSetVariable(proposedParams, "rightascension", &jump[5]);
+  LALInferenceSetVariable(proposedParams, "declination", &jump[6]);
+  LALInferenceSetVariable(proposedParams, "polarisation", &jump[7]);
+  LALInferenceSetVariable(proposedParams, "time", &jump[8]);
+
+  LALInferenceSetLogProposalRatio(runState, 0.0);
+
+  //gsl_matrix_free(evec);
+  gsl_vector_free(eigen);
+}
+
 void 
 LALInferenceRotateSpins(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) {
   const char *propName = rotateSpinsName;
@@ -2479,14 +2569,38 @@ void drawFisherMatrix(LALInferenceRunState *runState)
 	fisherMatrix = gsl_matrix_alloc(9,9);
     computeFisherMatrix(fisherMatrix, runState, outputDerivs);
 
+	/* compute eigenstuff*/
+    gsl_vector *eval = gsl_vector_alloc (9);
+    gsl_matrix *evec = gsl_matrix_alloc (9,9);
 
-	/*add fisher matrix to runState*/
-	if(!LALInferenceCheckVariable(runState->proposalArgs,"fisherMatrix"))
-        LALInferenceAddVariable(runState->proposalArgs, "fisherMatrix", &fisherMatrix,
-		                        LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_LINEAR);
-	else
-        LALInferenceSetVariable(runState->proposalArgs, "fisherMatrix", &fisherMatrix);
+    gsl_eigen_symmv_workspace * workspace = gsl_eigen_symmv_alloc (9);
+    gsl_eigen_symmv (fisherMatrix, eval, evec, workspace);
 
+    // sort and put them into evec
+    gsl_eigen_symmv_sort (eval, evec, GSL_EIGEN_SORT_ABS_ASC);
+
+    REAL8Vector *evalue = NULL;
+    evalue = XLALCreateREAL8Vector(9);
+
+    for(i = 0; i < 9; i++)
+    {
+      evalue->data[i] = (REAL8)gsl_vector_get(eval, i);
+    }
+
+    // add to runState
+    if(!LALInferenceCheckVariable(runState->proposalArgs,"covarEigenvalue"))
+    {
+    LALInferenceAddVariable(runState->proposalArgs, "covarEigenvalue", &evalue,
+				LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_LINEAR);
+    LALInferenceAddVariable(runState->proposalArgs, "covarEigenvector", &evec,
+				LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_LINEAR);
+    }
+
+    else
+    {
+    LALInferenceSetVariable(runState->proposalArgs, "covarEigenvalue", &evalue);
+    LALInferenceSetVariable(runState->proposalArgs, "covarEigenvector", &evec);
+    }
 
     /*clean up all the crap we've generated*/
 	for(i = 0 ; i < nIFO ; i++)
@@ -2501,7 +2615,7 @@ void drawFisherMatrix(LALInferenceRunState *runState)
 
   /*code to print out the FIM*/
   /*drawFisherMatrix(runState);
-  gsl_matrix *FIM = *((gsl_matrix **)LALInferenceGetVariable(runState->proposalArgs, "fisherMatrix"));
+  gsl_matrix *FIM = *((gsl_matrix **)LALInferenceGetVariable(runState->proposalArgs, "covarEigenvector"));
     for(i = 0 ; i < 9 ; i++)
 	{
 	    for(j = 0 ; j < 9 ; j++)
@@ -2669,7 +2783,7 @@ void computeFisherMatrix(void *fisherMatrix, /**GSL Matrix to store FIM values*/
 		           	        	cimag(outputDerivs[det][i]->data->data[k])*
 								cimag(outputDerivs[det][j]->data->data[k]);
 		            integrand /= XLALSimNoisePSDaLIGOZeroDetHighPower(
-					                outputDerivs[det][i]->f0 + k*(outputDerivs[det][i]->deltaF));
+					               outputDerivs[det][i]->f0 + k*(outputDerivs[det][i]->deltaF));
 	//		    	integrand /= dataPtr->oneSidedNoisePowerSpectrum->data->data[k];
 					elementFIM += (double)integrand;
 				}

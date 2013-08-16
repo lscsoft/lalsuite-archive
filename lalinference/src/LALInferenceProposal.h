@@ -109,6 +109,7 @@ extern const char *const polarizationPhaseJumpName;
 extern const char *const distanceQuasiGibbsProposalName;
 extern const char *const extrinsicParamProposalName;
 extern const char *const KDNeighborhoodProposalName;
+extern const char *const FisherMatrixJumpName;
 
 /** The name of the variable that will store the name of the current
     proposal function. */
@@ -222,6 +223,8 @@ void LALInferenceDistanceQuasiGibbsProposal(LALInferenceRunState *runState, LALI
     and then chooses the proposed point uniformly within the bounding
     box of the points contained in this sell. */
 void LALInferenceKDNeighborhoodProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+
+void LALInferenceFisherMatrixJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
 /** Proposal for the extrinsic parameters. Uses the sky reflection for 3
  independent detector locations, then computes the corresponding values

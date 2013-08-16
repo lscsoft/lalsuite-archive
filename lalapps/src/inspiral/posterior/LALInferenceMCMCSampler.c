@@ -814,11 +814,15 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
         MPI_Send(&runComplete, 1, MPI_INT, c, RUN_COMPLETE, MPI_COMM_WORLD);
       }
     }
+
+  if((i % (1*Nskip)) == 0)
+      drawFisherMatrix(runState);
   }// while (!runComplete)
   
   /* Flush any remaining PT swap attempts before moving on */
   LALInferenceFlushPTswap();
   MPI_Barrier(MPI_COMM_WORLD);
+
 
   fclose(chainoutput);
 
