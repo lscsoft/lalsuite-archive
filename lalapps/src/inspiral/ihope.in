@@ -314,7 +314,7 @@ shutil.copy( opts.config_file, analysisDirectory )
 opts.config_file = opts.config_file.split("/")[-1]
 
 os.chdir(analysisDirectory)
-inspiralutils.mkdir('logs')
+inspiralutils.mkdir("logs")
 
 # parse the ini file:
 cp = ConfigParser.ConfigParser()
@@ -327,7 +327,6 @@ cp.set("input", "output-path", str(opts.node_access_path) )
 cp.set("input", "username", str(opts.username) )
 
 # Check for --disable-dag-categories
-
 opts.do_dag_categories = not cp.has_option(
               "hipe-arguments","disable-dag-categories")
 
@@ -340,7 +339,7 @@ if opts.run_pipedown:
 
 # Add GPU flag
 if opts.use_gpus:
-  cp.set('condor', 'use-gpus', '')
+  cp.set("condor", "use-gpus", "")
 
 ##############################################################################
 # create a directory called executables and copy them over
@@ -421,8 +420,13 @@ os.chdir(analysisDirectory)
 os.chdir("segments")
 
 # Determine which veto categories to filter
-veto_categories = [int(cat) for cat in cp.get('segments','veto-categories').split(',')] 
+veto_categories = [int(cat) for cat in \
+    cp.get("segments", "veto-categories").split(",")]
+if 1 not in veto_categories: 
+  raise ValueError("The list of veto categories must include 1!")
 veto_categories.sort()
+# separate out non-CAT1 categories for some purposes
+vetocats_without1 = [cat for cat in veto_categories if cat!=1]
 
 # Download the veto definer xml file
 vetoDefFile = inspiralutils.downloadVetoDefFile(cp, opts.generate_segments)
@@ -438,24 +442,24 @@ duration = gps_end - gps_start
 
 dqVetoes = {}
 dqVetoes["combined-veto-file"] = {}
-for category in [1] + veto_categories:
-  ifos_string = ''
+for category in veto_categories:
+  ifos_string = ""
   veto_cat_files = []
-  veto_cat_filename = str(gps_start) + '-' + str(duration) + '.xml'
+  veto_cat_filename = str(gps_start) + "-" + str(duration) + ".xml"
   for ifo in ifos:
-    veto_cat_files.append('-'.join([ifo, 'VETOTIME_CAT' + str(category), veto_cat_filename]))
+    veto_cat_files.append("-".join([ifo, "VETOTIME_CAT" + str(category), veto_cat_filename]))
     ifos_string += ifo
-  dqVetoes["combined-veto-file"][category] = '-'.join([ifos_string, 'VETOTIME_CAT_' + str(category), veto_cat_filename])
-  concat_veto_call = ' '.join([ cp.get("condor", "ligolw_add"),
-    "--output", dqVetoes["combined-veto-file"][category]] + veto_cat_files )
+  dqVetoes["combined-veto-file"][category] = '-'.join([ifos_string, "VETOTIME_CAT_" + str(category), veto_cat_filename])
+  concat_veto_call = " ".join([ cp.get("condor", "ligolw_add"),
+    "--output", dqVetoes["combined-veto-file"][category] ] + veto_cat_files)
   inspiralutils.make_external_call(concat_veto_call)
 
-  # FIXME: remove this block  when the veto files from
+  # FIXME: remove this block when the veto files from
   # ligolw_segments_from_cats have contain a segment table with start_time_ns
   # and end_time_ns, and when the process table doesn't need the domain, jobid,
   # and is_online columns added
 
-  compat_veto_call = ' '.join([cp.get("condor", "ligolw_segments_compat"), dqVetoes["combined-veto-file"][category]])
+  compat_veto_call = " ".join([cp.get("condor", "ligolw_segments_compat"), dqVetoes["combined-veto-file"][category]])
   inspiralutils.make_external_call(compat_veto_call)
 
 segFile = {}
@@ -481,18 +485,19 @@ if opts.run_hardware_inj:
   inspiralutils.get_hwinj_segments(cp,ifos,hw_inj_dir)
 
 if opts.do_omega_scans:
-  if not os.path.isdir('omega_setup'):
-    os.mkdir('omega_setup')
-  os.chdir('omega_setup')
+  if not os.path.isdir("omega_setup"):
+    os.mkdir("omega_setup")
+  os.chdir("omega_setup")
   inspiralutils.omega_scan_setup(cp,ifos)
-  os.chdir('..')
+  os.chdir("..")
 
 # create the list of files that will be concatenated into the ihope cache
 cachelist = []
-cachefilename = basename + '.cache'
+cachefilename = basename + ".cache"
 
 ##############################################################################
 # Run lalapps_inspiral_hipe for datafind and template bank generation
+
 if opts.run_datafind or opts.run_tmpltbank:
   print "Running inspiral hipe for datafind/template bank run"
   hipeDfNode = inspiralutils.hipe_setup("datafind", cp, ifos, \
@@ -525,7 +530,7 @@ if opts.complete_cache:
 
   if opts.reverse_analysis:
     print "Setting up dags for a reverse chirp analysis"
-    cp.set ("inspiral","reverse-chirp-bank","")
+    cp.set("inspiral", "reverse-chirp-bank","")
     # Add reverse to directories to specify that a reverse chirp search is being done
     playDir += "_reverse"
     fullDir += "_reverse"
@@ -541,7 +546,7 @@ if opts.complete_cache:
 
     if opts.run_playground:
       if opts.run_search:
-        print "Running inspiral hipe for playground with vetoes."
+        print "Running inspiral hipe for playground with vetoes"
         hipePlayVetoNode[category] = inspiralutils.hipe_setup(
             playDir, cp, ifos, opts.log_path, \
             playOnly = True, vetoCat = category, vetoFiles = dqVetoes, \
@@ -654,14 +659,6 @@ if len(cachelist):
   command = "cat " + " ".join(cachelist) + " > " + cachefilename
   os.popen(command)
 
-# Ugly hack to satisfy bits of code that weren't updated
-# to use CAT1 on the same footing as the other CATs
-hipeAnalysisVetoNodeWithout1 = hipeAnalysisVetoNode.copy()
-del hipeAnalysisVetoNodeWithout1[1]
-hipeAnalysisNode=hipeAnalysisVetoNode[1]
-veto_categories_without1=list(veto_categories)
-if 1 in veto_categories:
-  veto_categories_without1.remove(1)
 
 ##############################################################################
 # Run lalapps_pipedown
@@ -690,66 +687,85 @@ if opts.run_pipedown:
 
 
 ##############################################################################
-# Set up the directories for plotting and run lalapps_plot
+# Set up the directories for plotting and run lalapps_plot_hipe
+
+# Plotting dag setup still treats CAT1 differently from other CATs
+# hence need to hack the parent nodes somewhat
+
+if opts.run_playground and opts.run_data_quality:
+  hipePlayVetoNodeWithout1 = dict( (cat, hipePlayVetoNode[cat]) \
+      for cat in vetocats_without1 )
+if opts.run_full_data and opts.run_data_quality:
+  hipeAnalysisVetoNodeWithout1 = dict( (cat, hipeAnalysisVetoNode[cat]) \
+    for cat in vetocats_without1 )
+
 if opts.run_plots:
+
+  # playground plots
   if opts.run_playground:
 
-    # set up parents correctly
-    if opts.run_search: 
+    # set up parents
+    if opts.run_search:
+      # define hipePlayNode as parent for playground CAT1 plotting nodes
+      hipePlayNode = hipePlayVetoNode[1]
       parentNodes = [hipePlayNode]
     else: parentNodes = None
 
     if opts.run_data_quality:
-      parentVetoNodes = [hipePlayVetoNode]
+      parentVetoNodes = [hipePlayVetoNodeWithout1]
     else: parentVetoNodes = None
     
-    # make the playground slide/zerolag plots
     print "Making plots depending only on the playground"
     dag = inspiralutils.zeroSlidePlots(dag, "playground_summary_plots", cp, \
         opts.log_path, "PLAYGROUND", "PLAYGROUND", "../" + cachefilename, \
         opts.do_dag_categories, parentNodes, parentVetoNodes, \
-        veto_categories, ifos)
+        vetocats_without1, ifos)
 
-  if opts.run_playground and opts.run_full_data:
-    cat1enabled= 1 in veto_cateories 
-    # set up parents correctly
-    if opts.run_search and cat1enabled: 
-      parentNodes = [hipePlayNode, hipeAnalysisVetoNode[1]]
+  # full data plots
+  if opts.run_full_data:
+
+    # set up parents
+    if opts.run_search:
+      # define hipeAnalysisNode as parent for full_data CAT1 plotting nodes
+      hipeAnalysisNode = hipeAnalysisVetoNode[1]
+      parentNodes = [hipeAnalysisNode]
     else: parentNodes = None
 
-
-    if opts.run_data_quality and opts.run_playground:
-      parentVetoNodes = [hipePlayVetoNode, hipeAnalysisVetoNode]
+    if opts.run_data_quality:
+      parentVetoNodes = [hipeAnalysisVetoNodeWithout1]
     else: parentVetoNodes = None
 
-    # make the playground slide/zerolag plots
+    print "Making full data zero lag plots"
+    dag = inspiralutils.zeroSlidePlots(dag, "full_data_summary_plots", cp, \
+        opts.log_path, "FULL_DATA", "FULL_DATA", "../" + cachefilename, \
+        opts.do_dag_categories, parentNodes, parentVetoNodes, \
+        vetocats_without1, ifos)
+
+  # playground/full-data-slide plots
+  if opts.run_playground and opts.run_full_data:
+
+    # set up parents
+    if opts.run_search:
+      parentNodes = [hipePlayNode, hipeAnalysisNode]
+    else: parentNodes = None
+
+    if opts.run_data_quality:
+      parentVetoNodes = [hipePlayVetoNodeWithout1, hipeAnalysisVetoNodeWithout1]
+    else: parentVetoNodes = None
+
     print "Making plots with full data slides, playground zero lag"
     dag = inspiralutils.zeroSlidePlots(dag, "full_data_slide_summary_plots", \
         cp, opts.log_path, "PLAYGROUND", "FULL_DATA", "../" + cachefilename, \
         opts.do_dag_categories, parentNodes, parentVetoNodes, \
-        veto_categories, ifos)
- 
-  if opts.run_full_data:
+        vetocats_without1, ifos)
 
-    # set up parents correctly
-    parentNodes = None
-    parentVetoNodes = None
-    if opts.run_full_data:
-      if opts.run_search:
-        parentNodes = [hipeAnalysisNode]
-      if opts.run_data_quality:
-        parentVetoNodes = [hipeAnalysisVetoNodeWithout1]
-
-    # make the full data slide/zerolag plots
-    print "Making full data zero lag plots."
-    dag = inspiralutils.zeroSlidePlots(dag, "full_data_summary_plots", cp, \
-          opts.log_path, "FULL_DATA", "FULL_DATA", "../" + cachefilename, \
-          opts.do_dag_categories, parentNodes, parentVetoNodes, veto_categories_without1 , ifos)
-
-
-  # Setting up plots for software injection run.
+  # software injection run plots
   if opts.run_injections:
+
+    hipeInjNode = {}
+
     print "Making plots depending on the injection runs"
+
     if opts.run_full_data:
       slideSuffix = "FULL_DATA"
     elif opts.run_playground:
@@ -760,17 +776,22 @@ if opts.run_plots:
       zeroLagSuffix = "PLAYGROUND"
     else:
       zeroLagSuffix = "NONE_AVAILABLE"
+
     for (injDir, injSeed) in cp.items("injections"):
-  
-      # set up parents correctly
-      if opts.run_search: 
-        parentNodes=[hipeInjNode[injDir]]
+
+      # similar hack to separate out the CAT1 injection parent node
+      hipeInjNode[injDir] = hipeInjVetoNode[1][injDir]
+
+      # set up parents
+      if opts.run_search:
+        parentNodes = [hipeInjNode[injDir]]
         if opts.run_full_data:
           parentNodes.append(hipeAnalysisNode)
         if opts.run_playground:
           parentNodes.append(hipePlayNode)
       else: parentNodes = None
 
+      # use the last veto category node as parent
       if opts.run_data_quality:
         parentVetoNodes = [hipeInjVetoNode[veto_categories[-1]][injDir]]
         if opts.run_full_data:
@@ -782,12 +803,12 @@ if opts.run_plots:
       dag = inspiralutils.injZeroSlidePlots(dag, injDir + "_summary_plots", \
           cp, opts.log_path, injDir.upper(), zeroLagSuffix, slideSuffix, \
           "../" + cachefilename, opts.do_dag_categories, parentNodes, 
-          parentVetoNodes, veto_categories, ifos)
+          parentVetoNodes, vetocats_without1, ifos)
 
     print "Making plots of all injection runs together"
 
-    # set up parents correctly
-    if opts.run_search: 
+    # set up parents
+    if opts.run_search:
       parentNodes = hipeInjNode.values()
       if opts.run_full_data:
         parentNodes.append(hipeAnalysisNode)
@@ -806,7 +827,7 @@ if opts.run_plots:
     dag = inspiralutils.injZeroSlidePlots(dag, "allinj_summary_plots", cp, \
         opts.log_path, "*INJ", zeroLagSuffix, slideSuffix, \
         "../" + cachefilename, opts.do_dag_categories, parentNodes, 
-        parentVetoNodes, veto_categories, ifos)
+        parentVetoNodes, vetocats_without1, ifos)
 
   if opts.do_dag_categories:
     dag.add_maxjobs_category('plotting',2)
@@ -815,18 +836,20 @@ if opts.run_plots:
 # Set up jobs for HW injection page
 
 if opts.run_hardware_inj:
-  # Set up parents correctly
+
+  print "Setting up hardware injection summary jobs"
+
+  # set up parents
   parentNodes = []
   if opts.run_search:
     if opts.run_full_data:
-      parentNodes.append(hipeAnalysisNode)
+      parentNodes.append(hipeAnalysisVetoNode[1])
 
-    if opts.run_full_data:
-      for category in veto_categories:
-        if category == 1: continue
+    if opts.run_data_quality:
+      for category in vetocats_without1:
         parentNodes.append(hipeAnalysisVetoNode[category])
 
-  HWinjNodes = inspiralutils.hwinj_page_setup(cp,ifos,veto_categories,hw_inj_dir)
+  HWinjNodes = inspiralutils.hwinj_page_setup(cp,ifos,vetocats_without1,hw_inj_dir)
   for node in HWinjNodes:
     for parent in parentNodes:
       node.add_parent(parent)
@@ -844,7 +867,7 @@ if opts.run_followup:
 ##############################################################################
 # set the number of retries for each of the sub-dags run by ihope
 try:
-  num_retries = int(cp.get('pipeline','retry-subdag'))
+  num_retries = int(cp.get("pipeline","retry-subdag"))
   for node in dag.get_nodes():
     node.set_retry(num_retries)
 except:
