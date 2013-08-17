@@ -241,7 +241,7 @@ def generate_veto_cat_files(config, vetoDefFile, generateVetoes):
 	"--gps-end-time", end ])
   
   if generateVetoes:
-    print "Generating veto category xml files... this may take some time`..."
+    print "Generating veto category xml files... this may take some time..."
     make_external_call(genVetoCall)
 
 ##############################################################################
@@ -259,7 +259,7 @@ def convert_veto_cat_xml_to_txt(config, veto_cat_file, output_file):
   """
   
   if not (os.path.isfile(veto_cat_file) and os.access(veto_cat_file,os.R_OK) ):
-      print 'Veto file not found or unreadble, skipping %s'%(veto_cat_file)
+      print 'Veto file not found or unreadable, skipping %s'%(veto_cat_file)
       return False
 
   print "Converting veto-category xml file %s to txt file %s" \

@@ -218,16 +218,6 @@ if opts.gps_end_time < opts.gps_start_time:
   print >> sys.stderr, "The GPS end time must be after the GPS start time"
   sys.exit(1)
 
-if not opts.node_access_path:
-  print >> sys.stdout, "WARNING! No node-access-path specified:"
-  print >> sys.stdout, "  Use --node-access-path and --username to speed up"
-  print >> sys.stdout, "  the coherent-stage."
-
-if not opts.username:
-  print >> sys.stdout, "WARNING! No username specified:"
-  print >> sys.stdout, "  Use --node-access-path and --username to speed up"
-  print >> sys.stdout, "  the coherent-stage."
-
 opts.complete_cache = (opts.run_data_quality or opts.run_plots or opts.run_pipedown or opts.run_search)
 
 ##############################################################################
