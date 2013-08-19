@@ -1055,10 +1055,6 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                     for i,t in enumerate(trigtable):
                         if t.snr > 0:
                             trigtable[i].snr = t.snr**(1/2)
-                if etg.lower() == "excesspower":
-                    for i,t in enumerate(trigtable):
-                        if t.snr > 0:
-                            trigtable[i].snr = t.snr**(1/2)
                         t.peak_frequency = t.central_freq
                         t.set_ms_period(t.get_period())
                         t.set_ms_band(t.get_band())
