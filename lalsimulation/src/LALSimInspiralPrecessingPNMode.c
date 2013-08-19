@@ -188,6 +188,114 @@ int XLALSimInspiralRadiationFrameToJFrame(
 }
 
 /**
+ * Compute the -2 spin-weighted spherical harmonic mode h(l,m).
+ *
+ * Note that the (x,y,z) vector components are expected to be given in
+ * the so-called J-frame. This means the z-component is along the
+ * total angular momentum J (at some reference time). The function
+ * XLALSimInspiralRadiationFrameToJFrame can be used to convert from the
+ * radiation frame used internally by the SpinTaylor code to the J-frame.
+ *
+ * Also note that the spin vectors are (m_i/M)^2 * \chi_i * \hat{S}_i,
+ * as these are what is output by the SpinTaylor binary evolution code.
+ */
+COMPLEX16TimeSeries *XLALSimInspiralComputePrecessingPNMode(
+        REAL8TimeSeries *V,      /**< post-Newtonian parameter */
+        REAL8TimeSeries *Phi,    /**< orbital phase (rad) */
+        REAL8TimeSeries *S1x,    /**< spin 1 x-component in J-frame */
+        REAL8TimeSeries *S1y,    /**< spin 1 y-component in J-frame */
+        REAL8TimeSeries *S1z,    /**< spin 1 z-component in J-frame */
+        REAL8TimeSeries *S2x,    /**< spin 2 x-component in J-frame */
+        REAL8TimeSeries *S2y,    /**< spin 2 y-component in J-frame */
+        REAL8TimeSeries *S2z,    /**< spin 2 z-component in J-frame */
+        REAL8TimeSeries *LNhatx, /**< \hat{L}_N x-component in J-frame */
+        REAL8TimeSeries *LNhaty, /**< \hat{L}_N y-component in J-frame */
+        REAL8TimeSeries *LNhatz, /**< \hat{L}_N z-component in J-frame */
+        REAL8 m1,                /**< mass1 (kg) */
+        REAL8 m2,                /**< mass2 (kg) */
+        REAL8 r,                 /**< distance to binary (m) */
+        REAL8 ampO,              /**< twice PN amplitude order (3 == 1.5PN) */
+        int l,                   /**< mode number l */
+        int m                    /**< mode number m */
+        )
+{
+    COMPLEX16TimeSeries *hlm;
+
+    if( l == 2 && m == 2 )
+        hlm = XLALSimInspiralPrecessingPNMode22(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 2 && m == -2 )
+        hlm = XLALSimInspiralPrecessingPNMode2m2(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 2 && m == 1 )
+        hlm = XLALSimInspiralPrecessingPNMode21(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 2 && m == -1 )
+        hlm = XLALSimInspiralPrecessingPNMode2m1(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 2 && m == 0 )
+        hlm = XLALSimInspiralPrecessingPNMode20(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 3 && m == 3 )
+        hlm = XLALSimInspiralPrecessingPNMode33(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 3 && m == -3 )
+        hlm = XLALSimInspiralPrecessingPNMode3m3(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 3 && m == 2 )
+        hlm = XLALSimInspiralPrecessingPNMode32(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 3 && m == -2 )
+        hlm = XLALSimInspiralPrecessingPNMode3m2(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 3 && m == 1 )
+        hlm = XLALSimInspiralPrecessingPNMode31(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 3 && m == -1 )
+        hlm = XLALSimInspiralPrecessingPNMode3m1(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 3 && m == 0 )
+        hlm = XLALSimInspiralPrecessingPNMode30(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 4 && m == 4 )
+        hlm = XLALSimInspiralPrecessingPNMode44(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 4 && m == -4 )
+        hlm = XLALSimInspiralPrecessingPNMode4m4(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 4 && m == 3 )
+        hlm = XLALSimInspiralPrecessingPNMode43(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 4 && m == -3 )
+        hlm = XLALSimInspiralPrecessingPNMode4m3(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 4 && m == 2 )
+        hlm = XLALSimInspiralPrecessingPNMode42(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 4 && m == -2 )
+        hlm = XLALSimInspiralPrecessingPNMode4m2(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 4 && m == 1 )
+        hlm = XLALSimInspiralPrecessingPNMode41(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 4 && m == -1 )
+        hlm = XLALSimInspiralPrecessingPNMode4m1(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else if( l == 4 && m == 0 )
+        hlm = XLALSimInspiralPrecessingPNMode40(V, Phi, S1x, S1y, S1z,
+                S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, ampO);
+    else {
+        XLALPrintError("XLAL Error - %s: Unsupported mode l=%d, m=%d\n",
+                __func__, l, m);
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    }
+    if( !hlm )
+        XLAL_ERROR_NULL(XLAL_EFUNC);
+
+    return hlm;
+}
+
+/**
  * Computes h(2,2) mode of spherical harmonic decomposition of
  * precessing post-Newtonian inspiral waveforms.
  *

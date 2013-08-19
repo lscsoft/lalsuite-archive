@@ -47,6 +47,26 @@ int XLALSimInspiralRadiationFrameToJFrame(
         const REAL8 fref               /**< frame is set by J at this GW freq.*/
         );
 
+COMPLEX16TimeSeries *XLALSimInspiralComputePrecessingPNMode(
+        REAL8TimeSeries *V,      /**< post-Newtonian parameter */
+        REAL8TimeSeries *Phi,    /**< orbital phase (rad) */
+        REAL8TimeSeries *S1x,    /**< spin 1 x-component in J-frame */
+        REAL8TimeSeries *S1y,    /**< spin 1 y-component in J-frame */
+        REAL8TimeSeries *S1z,    /**< spin 1 z-component in J-frame */
+        REAL8TimeSeries *S2x,    /**< spin 2 x-component in J-frame */
+        REAL8TimeSeries *S2y,    /**< spin 2 y-component in J-frame */
+        REAL8TimeSeries *S2z,    /**< spin 2 z-component in J-frame */
+        REAL8TimeSeries *LNhatx, /**< \hat{L}_N x-component in J-frame */
+        REAL8TimeSeries *LNhaty, /**< \hat{L}_N y-component in J-frame */
+        REAL8TimeSeries *LNhatz, /**< \hat{L}_N z-component in J-frame */
+        REAL8 m1,                /**< mass1 (kg) */
+        REAL8 m2,                /**< mass2 (kg) */
+        REAL8 r,                 /**< distance to binary (m) */
+        REAL8 ampO,              /**< twice PN amplitude order (3 == 1.5PN) */
+        int l,                   /**< mode number l */
+        int m                    /**< mode number m */
+        );
+
 COMPLEX16TimeSeries *XLALSimInspiralPrecessingPNMode22(
         const REAL8TimeSeries *V,      /**< post-Newtonian parameter */
         const REAL8TimeSeries *Phi,    /**< orbital phase */
