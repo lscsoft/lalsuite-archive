@@ -425,6 +425,7 @@ class SummaryTab(object):
         else:
             tablink = rindex.sub("", tablink)
         self.ifobar = markup.page()
+        baselist.sort(key=lambda (a,b): a)
         for ifo,base in baselist:
             if ifo.upper() == thisifo.upper():
                 self.ifobar.h1(markup.oneliner.a(ifo, href=tablink))
