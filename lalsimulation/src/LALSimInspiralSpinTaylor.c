@@ -21,6 +21,7 @@
 #include <lal/Units.h>
 #include <lal/LALConstants.h>
 #include <lal/LALSimInspiral.h>
+#include <lal/LALSimInspiralPrecessingPNMode.h>
 #include <lal/LALAdaptiveRungeKutta4.h>
 #include <lal/TimeSeries.h>
 #include "check_series_macros.h"
@@ -1834,6 +1835,433 @@ static int XLALSimInspiralSpinTaylorDriver(
         XLAL_ERROR(XLAL_EFUNC);
 
     return n;
+}
+
+/**
+ * Driver routine to compute the -2 spin-weighted spherical harmonic modes
+ * for precessing SpinTaylor models
+ */
+SphHarmTimeSeries *XLALSimInspiralSpinTaylorPNModes(
+	REAL8 phiRef,                   /**< orbital phase at reference pt. */
+	REAL8 deltaT,                   /**< sampling interval (s) */
+	REAL8 m1,                       /**< mass of companion 1 (kg) */
+	REAL8 m2,                       /**< mass of companion 2 (kg) */
+	REAL8 fStart,                   /**< start GW frequency (Hz) */
+	REAL8 fRef,                     /**< reference GW frequency (Hz) */
+	REAL8 r,                        /**< distance of source (m) */
+	REAL8 s1x,                      /**< initial value of S1x */
+	REAL8 s1y,                      /**< initial value of S1y */
+	REAL8 s1z,                      /**< initial value of S1z */
+	REAL8 s2x,                      /**< initial value of S2x */
+	REAL8 s2y,                      /**< initial value of S2y */
+	REAL8 s2z,                      /**< initial value of S2z */
+	REAL8 lnhatx,                   /**< initial value of LNhatx */
+	REAL8 lnhaty,                   /**< initial value of LNhaty */
+	REAL8 lnhatz,                   /**< initial value of LNhatz */
+	REAL8 e1x,                      /**< initial value of E1x */
+	REAL8 e1y,                      /**< initial value of E1y */
+	REAL8 e1z,                      /**< initial value of E1z */
+	REAL8 lambda1,                  /**< (tidal deformability of mass 1) / (mass of body 1)^5 (dimensionless) */
+	REAL8 lambda2,                  /**< (tidal deformability of mass 2) / (mass of body 2)^5 (dimensionless) */
+	REAL8 quadparam1,               /**< phenom. parameter describing induced quad. moment of body 1 (=1 for BHs, ~2-12 for NSs) */
+	REAL8 quadparam2,               /**< phenom. parameter describing induced quad. moment of body 2 (=1 for BHs, ~2-12 for NSs) */
+	LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
+	LALSimInspiralTidalOrder tideO, /**< twice PN order of tidal effects */
+	int phaseO,                     /**< twice PN phase order */
+	int amplitudeO,                 /**< twice PN amplitude order */
+	int lmax,                       /**< generate all modes with l <= lmax */
+    Approximant approx              /**< PN approximant (SpinTaylorT1/T2/T4) */
+	)
+{
+    SphHarmTimeSeries *hlm = NULL;
+    REAL8TimeSeries *V, *Phi, *S1x, *S1y, *S1z, *S2x, *S2y, *S2z;
+    REAL8TimeSeries *LNhatx, *LNhaty, *LNhatz, *E1x, *E1y, *E1z;
+    REAL8TimeSeries *S1x_J, *S1y_J, *S1z_J, *S2x_J, *S2y_J, *S2z_J;
+    REAL8TimeSeries *LNhatx_J, *LNhaty_J, *LNhatz_J;
+    COMPLEX16TimeSeries *hxx;
+    int ret, n, l, m;
+    unsigned int i;
+    REAL8 fS, fE, phiShift;
+    /* The Schwarzschild ISCO frequency - for sanity checking fRef */
+    REAL8 fISCO = pow(LAL_C_SI,3) / (pow(6.,3./2.)*LAL_PI*(m1+m2)*LAL_G_SI);
+
+    /* Sanity check fRef value */
+    if( fRef < 0. )
+    {
+        XLALPrintError("XLAL Error - %s: fRef = %f must be >= 0\n",
+                __func__, fRef);
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    }
+    if( fRef != 0. && fRef < fStart )
+    {
+        XLALPrintError("XLAL Error - %s: fRef = %f must be > fStart = %f\n",
+                __func__, fRef, fStart);
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    }
+    if( fRef >= fISCO )
+    {
+        XLALPrintError("XLAL Error - %s: fRef = %f must be < Schwar. ISCO=%f\n",
+                __func__, fRef, fISCO);
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    }
+
+    /* if fRef=0, just integrate from start to end. Let phiRef=phiC */
+    if( fRef < LAL_REAL4_EPS )
+    {
+        fS = fStart;
+        fE = 0.;
+        /* Evolve the dynamical variables */
+        n = XLALSimInspiralSpinTaylorPNEvolveOrbit(&V, &Phi,
+                &S1x, &S1y, &S1z, &S2x, &S2y, &S2z,
+                &LNhatx, &LNhaty, &LNhatz, &E1x, &E1y, &E1z,
+                deltaT, m1, m2, fS, fE, s1x, s1y, s1z, s2x, s2y, s2z,
+                lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2,
+                quadparam1, quadparam2, spinO, tideO, phaseO, approx);
+        if( n < 0 )
+            XLAL_ERROR_NULL(XLAL_EFUNC);
+
+        /* Apply phase shift so orbital phase ends with desired value */
+        phiShift = phiRef - Phi->data->data[Phi->data->length-1];
+        for( i=0; i < Phi->data->length; i++)
+        {
+            Phi->data->data[i] += phiShift;
+        }
+    }
+    /* if fRef=fStart, just integrate from start to end. Let phiRef=phiStart */
+    else if( abs(fRef - fStart) < LAL_REAL4_EPS )
+    {
+        fS = fStart;
+        fE = 0.;
+        /* Evolve the dynamical variables */
+        n = XLALSimInspiralSpinTaylorPNEvolveOrbit(&V, &Phi,
+                &S1x, &S1y, &S1z, &S2x, &S2y, &S2z,
+                &LNhatx, &LNhaty, &LNhatz, &E1x, &E1y, &E1z,
+                deltaT, m1, m2, fS, fE, s1x, s1y, s1z, s2x, s2y, s2z,
+                lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2,
+                quadparam1, quadparam2, spinO, tideO, phaseO, approx);
+        if( n < 0 )
+            XLAL_ERROR_NULL(XLAL_EFUNC);
+
+        /* Apply phase shift so orbital phase starts with desired value */
+        phiShift = phiRef - Phi->data->data[0];
+        for( i=0; i < Phi->data->length; i++)
+        {
+            Phi->data->data[i] += phiShift;
+        }
+    }
+    else /* Start in middle, integrate backward and forward, stitch together */
+    {
+        REAL8TimeSeries *V1=NULL, *Phi1=NULL, *S1x1=NULL, *S1y1=NULL, *S1z1=NULL, *S2x1=NULL, *S2y1=NULL, *S2z1=NULL;
+        REAL8TimeSeries *LNhatx1=NULL, *LNhaty1=NULL, *LNhatz1=NULL, *E1x1=NULL, *E1y1=NULL, *E1z1=NULL;
+        REAL8TimeSeries *V2=NULL, *Phi2=NULL, *S1x2=NULL, *S1y2=NULL, *S1z2=NULL, *S2x2=NULL, *S2y2=NULL, *S2z2=NULL;
+        REAL8TimeSeries *LNhatx2=NULL, *LNhaty2=NULL, *LNhatz2=NULL, *E1x2=NULL, *E1y2=NULL, *E1z2=NULL;
+
+        /* Integrate backward to fStart */
+        fS = fRef;
+        fE = fStart;
+        n = XLALSimInspiralSpinTaylorPNEvolveOrbit(&V1, &Phi1,
+                &S1x1, &S1y1, &S1z1, &S2x1, &S2y1, &S2z1,
+                &LNhatx1, &LNhaty1, &LNhatz1, &E1x1, &E1y1, &E1z1,
+                deltaT, m1, m2, fS, fE, s1x, s1y, s1z, s2x, s2y,
+                s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2,
+                quadparam1, quadparam2, spinO, tideO, phaseO, approx);
+
+        /* Apply phase shift so orbital phase has desired value at fRef */
+        phiShift = phiRef - Phi1->data->data[Phi1->data->length-1];
+        for( i=0; i < Phi1->data->length; i++)
+        {
+            Phi1->data->data[i] += phiShift;
+        }
+
+        /* Integrate forward to end of waveform */
+        fS = fRef;
+        fE = 0.;
+        n = XLALSimInspiralSpinTaylorPNEvolveOrbit(&V2, &Phi2,
+                &S1x2, &S1y2, &S1z2, &S2x2, &S2y2, &S2z2,
+                &LNhatx2, &LNhaty2, &LNhatz2, &E1x2, &E1y2, &E1z2,
+                deltaT, m1, m2, fS, fE, s1x, s1y, s1z, s2x, s2y,
+                s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2,
+                quadparam1, quadparam2, spinO, tideO, phaseO, approx);
+
+        /* Apply phase shift so orbital phase has desired value at fRef */
+        phiShift = phiRef - Phi2->data->data[0];
+        for( i=0; i < Phi2->data->length; i++)
+        {
+            Phi2->data->data[i] += phiShift;
+        }
+
+        /* Stitch 2nd set of vectors onto 1st set. Free 2nd set. */
+        V = appendTSandFree(V1, V2);
+        Phi = appendTSandFree(Phi1, Phi2);
+        S1x = appendTSandFree(S1x1, S1x2);
+        S1y = appendTSandFree(S1y1, S1y2);
+        S1z = appendTSandFree(S1z1, S1z2);
+        S2x = appendTSandFree(S2x1, S2x2);
+        S2y = appendTSandFree(S2y1, S2y2);
+        S2z = appendTSandFree(S2z1, S2z2);
+        LNhatx = appendTSandFree(LNhatx1, LNhatx2);
+        LNhaty = appendTSandFree(LNhaty1, LNhaty2);
+        LNhatz = appendTSandFree(LNhatz1, LNhatz2);
+        E1x = appendTSandFree(E1x1, E1x2);
+        E1y = appendTSandFree(E1y1, E1y2);
+        E1z = appendTSandFree(E1z1, E1z2);
+    }
+
+    // Rotate vectors to radiation frame
+    ret = XLALSimInspiralRadiationFrameToJFrame(&S1x_J, &S1y_J, &S1z_J,
+            &S2x_J, &S2y_J, &S2z_J, &LNhatx_J, &LNhaty_J, &LNhatz_J, V,
+            S1x, S1y, S1z, S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, fRef);
+    if( ret < 0 )
+        XLAL_ERROR_NULL(XLAL_EFUNC);
+
+    // Compute the h_lm modes
+    for( l=2; l <= lmax; l++) {
+        for(m = -l; m <= l; m++) {
+            hxx = XLALSimInspiralComputePrecessingPNMode(V, Phi,
+                    S1x, S1y, S1z, S2x, S2y, S2z,
+                    LNhatx, LNhaty, LNhatz, m1, m2, r, amplitudeO, l, m);
+            if( !hxx ) XLAL_ERROR_NULL(XLAL_EFUNC);
+            hlm = XLALSphHarmTimeSeriesAddMode(hlm, hxx, l, m);
+            XLALDestroyCOMPLEX16TimeSeries(hxx);
+        }
+    }
+
+    /* Destroy vectors of dynamical variables, check for errors then exit */
+    XLALDestroyREAL8TimeSeries(S1x_J);
+    XLALDestroyREAL8TimeSeries(S1y_J);
+    XLALDestroyREAL8TimeSeries(S1z_J);
+    XLALDestroyREAL8TimeSeries(S2x_J);
+    XLALDestroyREAL8TimeSeries(S2y_J);
+    XLALDestroyREAL8TimeSeries(S2z_J);
+    XLALDestroyREAL8TimeSeries(LNhatx_J);
+    XLALDestroyREAL8TimeSeries(LNhaty_J);
+    XLALDestroyREAL8TimeSeries(LNhatz_J);
+    XLALDestroyREAL8TimeSeries(V);
+    XLALDestroyREAL8TimeSeries(Phi);
+    XLALDestroyREAL8TimeSeries(S1x);
+    XLALDestroyREAL8TimeSeries(S1y);
+    XLALDestroyREAL8TimeSeries(S1z);
+    XLALDestroyREAL8TimeSeries(S2x);
+    XLALDestroyREAL8TimeSeries(S2y);
+    XLALDestroyREAL8TimeSeries(S2z);
+    XLALDestroyREAL8TimeSeries(LNhatx);
+    XLALDestroyREAL8TimeSeries(LNhaty);
+    XLALDestroyREAL8TimeSeries(LNhatz);
+    XLALDestroyREAL8TimeSeries(E1x);
+    XLALDestroyREAL8TimeSeries(E1y);
+    XLALDestroyREAL8TimeSeries(E1z);
+
+    return hlm;
+}
+
+/**
+ * Driver routine to compute a single -2 spin-weighted spherical harmonic mode
+ * for precessing SpinTaylor models
+ */
+COMPLEX16TimeSeries *XLALSimInspiralSpinTaylorPNMode(
+	REAL8 phiRef,                   /**< orbital phase at reference pt. */
+	REAL8 deltaT,                   /**< sampling interval (s) */
+	REAL8 m1,                       /**< mass of companion 1 (kg) */
+	REAL8 m2,                       /**< mass of companion 2 (kg) */
+	REAL8 fStart,                   /**< start GW frequency (Hz) */
+	REAL8 fRef,                     /**< reference GW frequency (Hz) */
+	REAL8 r,                        /**< distance of source (m) */
+	REAL8 s1x,                      /**< initial value of S1x */
+	REAL8 s1y,                      /**< initial value of S1y */
+	REAL8 s1z,                      /**< initial value of S1z */
+	REAL8 s2x,                      /**< initial value of S2x */
+	REAL8 s2y,                      /**< initial value of S2y */
+	REAL8 s2z,                      /**< initial value of S2z */
+	REAL8 lnhatx,                   /**< initial value of LNhatx */
+	REAL8 lnhaty,                   /**< initial value of LNhaty */
+	REAL8 lnhatz,                   /**< initial value of LNhatz */
+	REAL8 e1x,                      /**< initial value of E1x */
+	REAL8 e1y,                      /**< initial value of E1y */
+	REAL8 e1z,                      /**< initial value of E1z */
+	REAL8 lambda1,                  /**< (tidal deformability of mass 1) / (mass of body 1)^5 (dimensionless) */
+	REAL8 lambda2,                  /**< (tidal deformability of mass 2) / (mass of body 2)^5 (dimensionless) */
+	REAL8 quadparam1,               /**< phenom. parameter describing induced quad. moment of body 1 (=1 for BHs, ~2-12 for NSs) */
+	REAL8 quadparam2,               /**< phenom. parameter describing induced quad. moment of body 2 (=1 for BHs, ~2-12 for NSs) */
+	LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
+	LALSimInspiralTidalOrder tideO, /**< twice PN order of tidal effects */
+	int phaseO,                     /**< twice PN phase order */
+	int amplitudeO,                 /**< twice PN amplitude order */
+	int l,                          /**< l index of mode */
+	int m,                          /**< m index of mode */
+    Approximant approx              /**< PN approximant (SpinTaylorT1/T2/T4) */
+	)
+{
+    COMPLEX16TimeSeries *hlm;
+    REAL8TimeSeries *V, *Phi, *S1x, *S1y, *S1z, *S2x, *S2y, *S2z;
+    REAL8TimeSeries *LNhatx, *LNhaty, *LNhatz, *E1x, *E1y, *E1z;
+    REAL8TimeSeries *S1x_J, *S1y_J, *S1z_J, *S2x_J, *S2y_J, *S2z_J;
+    REAL8TimeSeries *LNhatx_J, *LNhaty_J, *LNhatz_J;
+    int ret, n;
+    unsigned int i;
+    REAL8 fS, fE, phiShift;
+    /* The Schwarzschild ISCO frequency - for sanity checking fRef */
+    REAL8 fISCO = pow(LAL_C_SI,3) / (pow(6.,3./2.)*LAL_PI*(m1+m2)*LAL_G_SI);
+
+    /* Sanity check fRef value */
+    if( fRef < 0. )
+    {
+        XLALPrintError("XLAL Error - %s: fRef = %f must be >= 0\n",
+                __func__, fRef);
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    }
+    if( fRef != 0. && fRef < fStart )
+    {
+        XLALPrintError("XLAL Error - %s: fRef = %f must be > fStart = %f\n",
+                __func__, fRef, fStart);
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    }
+    if( fRef >= fISCO )
+    {
+        XLALPrintError("XLAL Error - %s: fRef = %f must be < Schwar. ISCO=%f\n",
+                __func__, fRef, fISCO);
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    }
+
+    /* if fRef=0, just integrate from start to end. Let phiRef=phiC */
+    if( fRef < LAL_REAL4_EPS )
+    {
+        fS = fStart;
+        fE = 0.;
+        /* Evolve the dynamical variables */
+        n = XLALSimInspiralSpinTaylorPNEvolveOrbit(&V, &Phi,
+                &S1x, &S1y, &S1z, &S2x, &S2y, &S2z,
+                &LNhatx, &LNhaty, &LNhatz, &E1x, &E1y, &E1z,
+                deltaT, m1, m2, fS, fE, s1x, s1y, s1z, s2x, s2y, s2z,
+                lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2,
+                quadparam1, quadparam2, spinO, tideO, phaseO, approx);
+        if( n < 0 )
+            XLAL_ERROR_NULL(XLAL_EFUNC);
+
+        /* Apply phase shift so orbital phase ends with desired value */
+        phiShift = phiRef - Phi->data->data[Phi->data->length-1];
+        for( i=0; i < Phi->data->length; i++)
+        {
+            Phi->data->data[i] += phiShift;
+        }
+    }
+    /* if fRef=fStart, just integrate from start to end. Let phiRef=phiStart */
+    else if( abs(fRef - fStart) < LAL_REAL4_EPS )
+    {
+        fS = fStart;
+        fE = 0.;
+        /* Evolve the dynamical variables */
+        n = XLALSimInspiralSpinTaylorPNEvolveOrbit(&V, &Phi,
+                &S1x, &S1y, &S1z, &S2x, &S2y, &S2z,
+                &LNhatx, &LNhaty, &LNhatz, &E1x, &E1y, &E1z,
+                deltaT, m1, m2, fS, fE, s1x, s1y, s1z, s2x, s2y, s2z,
+                lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2,
+                quadparam1, quadparam2, spinO, tideO, phaseO, approx);
+        if( n < 0 )
+            XLAL_ERROR_NULL(XLAL_EFUNC);
+
+        /* Apply phase shift so orbital phase starts with desired value */
+        phiShift = phiRef - Phi->data->data[0];
+        for( i=0; i < Phi->data->length; i++)
+        {
+            Phi->data->data[i] += phiShift;
+        }
+    }
+    else /* Start in middle, integrate backward and forward, stitch together */
+    {
+        REAL8TimeSeries *V1=NULL, *Phi1=NULL, *S1x1=NULL, *S1y1=NULL, *S1z1=NULL, *S2x1=NULL, *S2y1=NULL, *S2z1=NULL;
+        REAL8TimeSeries *LNhatx1=NULL, *LNhaty1=NULL, *LNhatz1=NULL, *E1x1=NULL, *E1y1=NULL, *E1z1=NULL;
+        REAL8TimeSeries *V2=NULL, *Phi2=NULL, *S1x2=NULL, *S1y2=NULL, *S1z2=NULL, *S2x2=NULL, *S2y2=NULL, *S2z2=NULL;
+        REAL8TimeSeries *LNhatx2=NULL, *LNhaty2=NULL, *LNhatz2=NULL, *E1x2=NULL, *E1y2=NULL, *E1z2=NULL;
+
+        /* Integrate backward to fStart */
+        fS = fRef;
+        fE = fStart;
+        n = XLALSimInspiralSpinTaylorPNEvolveOrbit(&V1, &Phi1,
+                &S1x1, &S1y1, &S1z1, &S2x1, &S2y1, &S2z1,
+                &LNhatx1, &LNhaty1, &LNhatz1, &E1x1, &E1y1, &E1z1,
+                deltaT, m1, m2, fS, fE, s1x, s1y, s1z, s2x, s2y,
+                s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2,
+                quadparam1, quadparam2, spinO, tideO, phaseO, approx);
+
+        /* Apply phase shift so orbital phase has desired value at fRef */
+        phiShift = phiRef - Phi1->data->data[Phi1->data->length-1];
+        for( i=0; i < Phi1->data->length; i++)
+        {
+            Phi1->data->data[i] += phiShift;
+        }
+
+        /* Integrate forward to end of waveform */
+        fS = fRef;
+        fE = 0.;
+        n = XLALSimInspiralSpinTaylorPNEvolveOrbit(&V2, &Phi2,
+                &S1x2, &S1y2, &S1z2, &S2x2, &S2y2, &S2z2,
+                &LNhatx2, &LNhaty2, &LNhatz2, &E1x2, &E1y2, &E1z2,
+                deltaT, m1, m2, fS, fE, s1x, s1y, s1z, s2x, s2y,
+                s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2,
+                quadparam1, quadparam2, spinO, tideO, phaseO, approx);
+
+        /* Apply phase shift so orbital phase has desired value at fRef */
+        phiShift = phiRef - Phi2->data->data[0];
+        for( i=0; i < Phi2->data->length; i++)
+        {
+            Phi2->data->data[i] += phiShift;
+        }
+
+        /* Stitch 2nd set of vectors onto 1st set. Free 2nd set. */
+        V = appendTSandFree(V1, V2);
+        Phi = appendTSandFree(Phi1, Phi2);
+        S1x = appendTSandFree(S1x1, S1x2);
+        S1y = appendTSandFree(S1y1, S1y2);
+        S1z = appendTSandFree(S1z1, S1z2);
+        S2x = appendTSandFree(S2x1, S2x2);
+        S2y = appendTSandFree(S2y1, S2y2);
+        S2z = appendTSandFree(S2z1, S2z2);
+        LNhatx = appendTSandFree(LNhatx1, LNhatx2);
+        LNhaty = appendTSandFree(LNhaty1, LNhaty2);
+        LNhatz = appendTSandFree(LNhatz1, LNhatz2);
+        E1x = appendTSandFree(E1x1, E1x2);
+        E1y = appendTSandFree(E1y1, E1y2);
+        E1z = appendTSandFree(E1z1, E1z2);
+    }
+
+    // Rotate vectors to radiation frame
+    ret = XLALSimInspiralRadiationFrameToJFrame(&S1x_J, &S1y_J, &S1z_J,
+            &S2x_J, &S2y_J, &S2z_J, &LNhatx_J, &LNhaty_J, &LNhatz_J, V,
+            S1x, S1y, S1z, S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, fRef);
+    if( ret < 0 )
+        XLAL_ERROR_NULL(XLAL_EFUNC);
+
+    // Compute the h_lm mode
+    hlm = XLALSimInspiralComputePrecessingPNMode(V, Phi, S1x, S1y, S1z,
+            S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, amplitudeO, l, m);
+    if( !hlm ) XLAL_ERROR_NULL(XLAL_EFUNC);
+
+    /* Destroy vectors of dynamical variables, check for errors then exit */
+    XLALDestroyREAL8TimeSeries(S1x_J);
+    XLALDestroyREAL8TimeSeries(S1y_J);
+    XLALDestroyREAL8TimeSeries(S1z_J);
+    XLALDestroyREAL8TimeSeries(S2x_J);
+    XLALDestroyREAL8TimeSeries(S2y_J);
+    XLALDestroyREAL8TimeSeries(S2z_J);
+    XLALDestroyREAL8TimeSeries(LNhatx_J);
+    XLALDestroyREAL8TimeSeries(LNhaty_J);
+    XLALDestroyREAL8TimeSeries(LNhatz_J);
+    XLALDestroyREAL8TimeSeries(V);
+    XLALDestroyREAL8TimeSeries(Phi);
+    XLALDestroyREAL8TimeSeries(S1x);
+    XLALDestroyREAL8TimeSeries(S1y);
+    XLALDestroyREAL8TimeSeries(S1z);
+    XLALDestroyREAL8TimeSeries(S2x);
+    XLALDestroyREAL8TimeSeries(S2y);
+    XLALDestroyREAL8TimeSeries(S2z);
+    XLALDestroyREAL8TimeSeries(LNhatx);
+    XLALDestroyREAL8TimeSeries(LNhaty);
+    XLALDestroyREAL8TimeSeries(LNhatz);
+    XLALDestroyREAL8TimeSeries(E1x);
+    XLALDestroyREAL8TimeSeries(E1y);
+    XLALDestroyREAL8TimeSeries(E1z);
+
+    return hlm;
 }
 
 /**
