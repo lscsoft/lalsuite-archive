@@ -585,7 +585,7 @@ will compute the search volume using all injections with at least one component 
   # tell svim where to find injections, segments, and triggers
   parser.add_option("--sim-table", default = "sim_inspiral", metavar = "TBL", help = "Set the name of the table containing information regarding the injected signal parameters.", choices = ["sim_inspiral", "sim_ringdown"])
   parser.add_option("--coinc-table", default = "coinc_inspiral", metavar = "TBL", help = "Set the name of the table containing information regarding coincident triggers.", choices = ["coinc_inspiral", "coinc_ringdown"])
-  parser.add_option("--live-time-program", default = "thinca", metavar = "name", type="string", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
+  parser.add_option("--livetime-program", default = None, metavar = "name", type="string", help = "Set the name of the program whose segments or rings will be extracted from the search_summary table: usually thinca or inspiral.")
   parser.add_option("--veto-segments-name", default = None, metavar = "name", type="string", help = "Set the name of the veto segments to use from the XML document.")
 
   #
