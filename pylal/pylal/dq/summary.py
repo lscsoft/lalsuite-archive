@@ -2452,8 +2452,8 @@ class OnlineSummaryTab(SummaryTab):
                     self.frame.div.close()
                 self.frame.div.close()
         if self.refresh:
-            self.frame.script("var t=%s; refreshImages(t);",\
-                             type="text/javascript")
+            self.frame.script("refreshImages(%s);" % self.refresh,
+                               type="text/javascript")
 
 # =============================================================================
 # Define run state object
