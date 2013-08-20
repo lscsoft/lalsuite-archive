@@ -1118,10 +1118,11 @@ class InterpBinnedArray(object):
 
 	def __call__(self, *coords):
 		"""
-		Evaluate the interpolator at the given co-ordinates.  The
-		return value is array-like.
+		Evaluate the interpolator at the given co-ordinates.
 		"""
-		return self.interp(*coords)
+		# interpolators return an array-like thing that we convert
+		# to a scalar here
+		return float(self.interp(*coords))
 
 
 

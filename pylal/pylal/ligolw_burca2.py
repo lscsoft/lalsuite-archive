@@ -117,8 +117,8 @@ class LikelihoodRatio(object):
 		P_bak = 1.0
 		P_inj = 1.0
 		for name, value in params.items():
-			P_bak *= float(self.background_rates[name](*value))
-			P_inj *= float(self.injection_rates[name](*value))
+			P_bak *= self.background_rates[name](*value)
+			P_inj *= self.injection_rates[name](*value)
 		return P_bak, P_inj
 
 	def __call__(self, params):
