@@ -171,6 +171,7 @@ LALStringVector *corlist = NULL;
                      detector and model harmonic in the list (must be in the\n\
                      same order) delimited by commas. If not set you can\n\
                      generate fake data (see --fake-data below)\n"\
+" --sample-interval   (REAL8) the time interval bewteen samples (default to 60 s)\n"\
 " --downsample-factor (INT4) factor by which to downsample the input data\n\
                      (default is for no downsampling and this is NOT\n\
                      applied to fake data)\n"\
@@ -1032,10 +1033,27 @@ detectors specified (no. dets =\%d)\n", ml, ml, numDets);
       ifodata->dataTimes = XLALCreateTimestampVector( datalength );
 
       /* fill in time stamps as LIGO Time GPS Vector */
-      for ( k = 0; k < datalength; k++ ) { XLALGPSSetREAL8( &ifodata->dataTimes->data[k], temptimes->data[k] ); }
+      REAL8 sampledt = INFINITY; /* sample interval */
+      for ( k = 0; k < datalength; k++ ) {
+        XLALGPSSetREAL8( &ifodata->dataTimes->data[k], temptimes->data[k] );
+
+        if ( k > 0 ){
+          /* get sample interval from the minimum time difference in the data */
+          if ( temptimes->data[k] - temptimes->data[k-1] < sampledt ) {
+            sampledt = temptimes->data[k] - temptimes->data[k-1];
+          }
+        }
+      }
 
       ifodata->compTimeData->epoch = ifodata->dataTimes->data[0];
       ifodata->compModelData->epoch = ifodata->dataTimes->data[0];
+
+      /* add data sample interval */
+      ppt = LALInferenceGetProcParamVal( commandLine, "--sample-interval" );
+      if( ppt ){
+        sampledt = atof( ppt->value );
+      }
+      LALInferenceAddVariable( ifodata->dataParams, "dt", &sampledt, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );
 
       XLALDestroyREAL8Vector( temptimes );
     }
@@ -1051,6 +1069,9 @@ detectors specified (no. dets =\%d)\n", ml, ml, numDets);
       /* allocate data time stamps */
       ifodata->dataTimes = NULL;
       ifodata->dataTimes = XLALCreateTimestampVector( (UINT4)datalength );
+
+      /* add data sample interval */
+      LALInferenceAddVariable( ifodata->dataParams, "dt", &fdt[0], LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );
 
       /* resize the data and model times series */
       ifodata->compTimeData = XLALResizeCOMPLEX16TimeSeries( ifodata->compTimeData, 0, datalength );
@@ -2402,6 +2423,8 @@ UINT4Vector *get_chunk_lengths( LALInferenceIFOData *data, INT4 chunkMax ){
 
   chunkLengths = XLALCreateUINT4Vector( length );
 
+  REAL8 dt = *(REAL8*)LALInferenceGetVariable( data->dataParams, "dt" );
+
   /* create vector of data segment length */
   while( 1 ){
     count++; /* counter */
@@ -2419,8 +2442,8 @@ UINT4Vector *get_chunk_lengths( LALInferenceIFOData *data, INT4 chunkMax ){
     t1 = XLALGPSGetREAL8( &data->dataTimes->data[i-1 ]);
     t2 = XLALGPSGetREAL8( &data->dataTimes->data[i] );
 
-    /* if consecutive points are within 180 seconds of each other count as in the same chunk */
-    if( t2 - t1 > 180. || count == chunkMax ){
+    /* if consecutive points are within two sample times of each other count as in the same chunk */
+    if( t2 - t1 > 2.*dt || count == chunkMax ){
       chunkLengths->data[j] = count;
       count = 0; /* reset counter */
 
@@ -2534,9 +2557,13 @@ UINT4Vector *chop_n_merge( LALInferenceIFOData *data, INT4 chunkMin, INT4 chunkM
 COMPLEX16Vector *subtract_running_median( COMPLEX16Vector *data ){
   COMPLEX16Vector *submed = NULL;
   UINT4 length = data->length, i = 0, j = 0, n = 0;
-  UINT4 RANGE = 30; /* perform running median with 30 data points */
-  UINT4 N = (UINT4)floor(RANGE/2);
+  UINT4 mrange = 0;
+  UINT4 N = 0;
   INT4 sidx = 0;
+
+  if ( length > 30 ){ mrange = 30; } /* perform running median with 30 data points */
+  else { mrange = 2*floor((length-1)/2); } /* an even number less than length */
+  N = (UINT4)floor(mrange/2);
 
   submed = XLALCreateCOMPLEX16Vector( length );
 
@@ -2554,7 +2581,7 @@ COMPLEX16Vector *subtract_running_median( COMPLEX16Vector *data ){
       sidx = (i-N)-1;
     }
     else{
-      n = RANGE;
+      n = mrange;
       sidx = i-N;
     }
 

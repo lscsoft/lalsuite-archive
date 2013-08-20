@@ -425,6 +425,7 @@ class SummaryTab(object):
         else:
             tablink = rindex.sub("", tablink)
         self.ifobar = markup.page()
+        baselist.sort(key=lambda (a,b): a)
         for ifo,base in baselist:
             if ifo.upper() == thisifo.upper():
                 self.ifobar.h1(markup.oneliner.a(ifo, href=tablink))
@@ -1941,6 +1942,166 @@ class AuxTriggerSummaryTab(TriggerSummaryTab):
                         td[-1].append("-")
                 self.frame.add(htmlutils.write_table(th, td,
                                                      cellclasses)())
+
+            self.frame.div.close()
+
+        # channel information
+        div(self.frame, (0, 2), "Auxiliary channels", display=True)
+
+        for i,chan in enumerate(self.channels):
+            if chan == self.mainchannel:
+                continue
+            div(self.frame, (0, 2, i), chan, display=True)
+            if (chan, self.mainchannel) in self.numcoincs:
+                th = ["Num. coinc with<br>%s" % (self.mainchannel),\
+                      "Num %s<br>coinc with aux." % (self.mainchannel),\
+                      "Zero time-shift coincidence &sigma;"]
+                td = list()
+                if (chan, self.mainchannel) in self.numcoincs.keys():
+                    td.extend([self.numcoincs[(chan, self.mainchannel)],\
+                               self.numcoincs[(self.mainchannel, chan)]])
+                else:
+                    td.extend(["-", "-"])
+                if self.sigma.has_key(chan) and self.sigma[chan].has_key(0.0):
+                    td.append("%.2f" % self.sigma[chan][0.0])
+                else:
+                    td.append("-")
+                self.frame.add(htmlutils.write_table(th,td,{"table":"full"})())
+            class_ = plotclass(len(self.auxplots[chan]))
+            for p,d in self.auxplots[chan]:
+                self.frame.a(href=p, title=d, class_="fancybox-button", rel=class_)
+                self.frame.img(src=p, alt=d,  class_=class_)
+                self.frame.a.close()
+            self.frame.div.close()
+        self.frame.div.close()
+
+        # information
+        if self.information:
+            div(self.frame, (0, 3), "Information", display=True)
+            self.frame.add(self.information)
+            self.frame.div.close()
+
+        self.frame.div.close()
+
+        # deference
+        for attr in ["triggers", "coincs"]:
+            if hasattr(self, attr):
+                delattr(self, attr)
+
+class HvetoSummaryTab(TriggerSummaryTab):
+    """
+    Object representing a summary of auxiliary channel triggers.
+    """
+    def __init__(self, *args, **kwargs):
+        SummaryTab.__init__(self, *args, **kwargs)
+        self.triggers      = dict()
+        self.channels      = []
+        self.mainchannel   = []
+        self.trigger_files = dict()
+        self.coincs        = dict()
+        self.numcoincs     = dict()
+        self.sigma         = dict()
+        self.auxplots      = dict()
+        self.rounds        = {}
+
+    def plottable(self, outfile, channel, **kwargs):
+        """
+        Plot the triggers for the given channel.
+        """
+        desc = kwargs.pop("description", None)
+        if kwargs.get("xcolumn", None) == "time":
+            kwargs.setdefault("xlim", [self.start_time, self.end_time])
+        kwargs.setdefault("title", "%s (%s)" % (latex(channel),\
+                                                latex(self.etg)))
+        plottriggers.plottable({"_":self.triggers[channel]}, outfile,\
+                               **kwargs)
+        self.auxplots[channel].append((outfile, desc))
+
+    def plothistogram(self, outfile, channel, **kwargs):
+        desc = kwargs.pop("description", None)
+        plottriggers.plothistogram({"_":self.triggers[channel]}, outfile,\
+                                   **kwargs)
+        self.auxplots[channel].append((outfile, desc))
+
+    def plotrate(self, outfile, channel, **kwargs):
+        desc = kwargs.pop("description", None)
+        kwargs.setdefault("xlim", [self.start_time, self.end_time])
+        plottriggers.plotrate({"_":self.triggers[channel]}, outfile,\
+                               **kwargs)
+        self.auxplots[chan].append((outfile, desc))
+
+    def plotautocorrelation(self, outfile, channel, **kwargs):
+        desc = kwargs.pop("description", None)
+        if kwargs.get("xcolumn", None) == "time":
+            kwargs.setdefault("xlim", [self.start_time, self.end_time])
+        plottriggers.plotautocorrleation({"_":self.triggers[channel]},\
+                                         outfile, **kwargs)
+        self.auxplots[chan].append((outfile, desc))
+
+    def plotcoincs(self, outfile, channel, **kwargs):
+        """
+        Plot the coincident triggers between the given channel and the
+        mainchannel.
+        """
+        desc = kwargs.pop("description", None)
+        if kwargs.get("xcolumn", None) == "time":
+            kwargs.setdefault("xlim", [self.start_time, self.end_time])
+        kwargs.setdefault("title", "Coincident %s and %s (%s)"\
+                                   % (latex(channel), latex(self.mainchannel),\
+                                      latex(self.etg)))
+        trigs = {channel:self.coincs[(channel, self.mainchannel)],\
+                 self.mainchannel:self.coincs[(self.mainchannel, channel)]}
+        plottriggers.plottable(trigs, outfile, **kwargs)
+        self.auxplots[channel].append((outfile, desc))
+        
+    def finalize(self):
+        """
+        Generate a glue.markup.page summarising the auxiliary channel triggers
+        for this AuxTriggerSummaryTab.
+        """
+        # opening
+        self.frame = markup.page()
+        div(self.frame, 0, self.name)
+        self.frame.p("This page summarise hveto with %s triggers."\
+                     % self.name, class_="line")
+
+        # summary
+        if self.mainchannel:
+            div(self.frame, (0, 1), "Summary")
+            if len(self.plots):
+                self.frame.a(href=self.plots[0][0], title=self.plots[0][1],\
+                             class_="fancybox-button", rel="full")
+                self.frame.img(src=self.plots[0][0], alt=self.plots[0][1],\
+                               class_="full")
+                self.frame.a.close()
+            for i in sorted(self.rounds.keys()):  
+                # trig stats
+                th = ['Significance', 'T win.', 'SNR', 'Use %', 'Eff.', 'Deadtime',\
+                          'Eff./Deadtime','Safety', 'Segments' ]
+
+                td = []
+                cellclasses = {"table":"full"}
+                # work the numbers
+                use = numpy.nan
+                eff = self.rounds[i].efficiency[0]
+                dt  = self.rounds[i].deadtime[0]
+                edr = self.rounds[i].deadtime!=0\
+                      and round(eff/dt, 2) or 'N/A'
+                # generate strings
+                use = '%s%%' % round(use, 3)
+                eff = '%s%%' % round(eff, 3)
+                dt  = '%s%%' % round(dt, 3)
+
+                # work safety
+                safe = 'N/A'
+
+                # add to table
+                td.extend([round(self.rounds[i].significance, 2), self.rounds[i].dt, self.rounds[i].snr,\
+                      use, eff, dt, edr, safe,\
+                      '<a href="%s" rel="external">link</a>' % self.rounds[i].veto_file])
+
+            self.frame.add(htmlutils.write_table(th, td,
+                                                 cellclasses)())
 
             self.frame.div.close()
 

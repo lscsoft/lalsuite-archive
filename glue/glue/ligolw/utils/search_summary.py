@@ -69,7 +69,13 @@ def append_search_summary(xmldoc, process, shared_object = "standalone", lalwrap
 	row.set_out(outseg)
 	row.nevents = nevents
 	row.nnodes = nnodes
-	table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).append(row)
+
+	try:
+		tbl = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
+	except ValueError:
+		tbl = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SearchSummaryTable))
+	tbl.append(row)
+
 	return row
 
 

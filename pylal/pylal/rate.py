@@ -900,6 +900,13 @@ class BinnedArray(object):
 			self[coords] += other[coords]
 		return self
 
+	def copy(self):
+		"""
+		Return a copy of the BinnedArray.  The .bins attribute is
+		shared with the original.
+		"""
+		return type(self)(self.bins, self.array.copy())
+
 	def centres(self):
 		"""
 		Return a tuple of arrays containing the bin centres for
@@ -1067,21 +1074,33 @@ class InterpBinnedArray(object):
 			z.fill(fill_value)
 			z[(slice(1, -1),) * len(binnedarray.array.shape)] = binnedarray.array
 
-		# if any co-ordinates are infinite, remove them
+		# if any co-ordinates are infinite, remove them.  also
+		# remove degenerate co-ordinates from ends
 		slices = []
 		for c in coords:
 			finite_indexes, = numpy.isfinite(c).nonzero()
 			assert len(finite_indexes) != 0
-			slices.append(slice(finite_indexes.min(), finite_indexes.max() + 1))
+
+			lo, hi = finite_indexes.min(), finite_indexes.max()
+
+			while lo < hi and c[lo + 1] == c[lo]:
+				lo += 1
+			while lo < hi and c[hi - 1] == c[hi]:
+				hi -= 1
+			assert lo < hi
+
+			slices.append(slice(lo, hi + 1))
 		coords = tuple(c[s] for c, s in zip(coords, slices))
 		z = z[slices]
 
 		# build the interpolator from the co-ordinates and array
 		# data
 		if len(coords) == 1:
-			self.interp = interpolate.interp1d(coords[0], z, kind = "linear", bounds_error = False, fill_value = fill_value)
+			#self.interp = interpolate.interp1d(coords[0], z, kind = "linear", bounds_error = False, fill_value = fill_value)
+			self.interp = interpolate.UnivariateSpline(coords[0], z, k = 1)
 		elif len(coords) == 2:
-			self.interp = interpolate.interp2d(coords[0], coords[1], z, kind = "linear", bounds_error = False, fill_value = fill_value)
+			#self.interp = interpolate.interp2d(coords[0], coords[1], z, kind = "linear", bounds_error = False, fill_value = fill_value)
+			self.interp = interpolate.RectBivariateSpline(coords[0], coords[1], z, kx = 1, ky = 1)
 		else:
 			self.interp = interpolate.LinearNDInterpolator(list(itertools.product(*coords)), z.flat, fill_value = fill_value)
 

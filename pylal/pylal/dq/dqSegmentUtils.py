@@ -293,10 +293,17 @@ def grab_segments(start, end, flag,\
     segsums = segmentdb_utils.query_segments(engine, 'segment_summary', segdefs)
     #segsums = reduce(operator.or_, segsums).coalesce()
     segsums = [s.coalesce() for s in segsums]
+    segsummap = [segments.segmentlist() for f in flags]
+    for segdef,segsum in zip(segdefs, segsums):
+      try:
+        fidx = flags.index(':'.join(map(str, segdef[:3])))
+      except ValueError:
+        fidx = flags.index(':'.join(segdef[:2]))
+      segsummap[fidx].extend(segsum)
     if flag == flags[0]:
-      return segs[0],segsums[0]
+      return segs[0],segsummap[0]
     else:
-      return segs,segsums
+      return segs,segsummap
   if flag == flags[0]:
     return segs[0]
   else:

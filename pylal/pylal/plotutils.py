@@ -224,7 +224,7 @@ def display_name(columnName):
     acro    = ['snr', 'ra','dof', 'id', 'ms', 'far']
     # define greek letters
     greek   = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta',\
-               'theta', 'iota', 'kappa', 'lamda', 'mu', 'nu', 'xi', 'omicron',\
+               'theta', 'iota', 'kappa', 'lamda', 'mu', 'nu', 'xi',\
                'pi', 'rho', 'sigma', 'tau', 'upsilon', 'phi', 'chi', 'psi',\
                'omega']
     # define known units
@@ -446,7 +446,7 @@ def parse_plot_config(cp, section):
     booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar-style',\
                 'greyscale', 'zero-indicator', 'normalized', 'fill',\
                 'calendar-time', 'bar']
-    floats   = ['detchar-style-threshold']
+    floats   = ['detchar-style-threshold', 'dcthreshold']
     ints     = ['num-bins']
 
     # construct param dict
@@ -1909,12 +1909,17 @@ class LineHistogram(BasicPlot):
                 self.ax.fill_between(x, 1e-100, y, **plot_kwargs)
 
         if logx:
-            self.ax.set_xscale("log", nonposx='clip')
+            try:
+                self.ax.set_xscale("log", nonposx='clip')
+            except OverflowError:
+                self.ax._autoscaleXon = False
+                self.ax.set_xscale("log", nonposx='clip')
+
         if logy:
             try:
                 self.ax.set_yscale("log", nonposy='clip')
             except OverflowError:
-                self.ax.set_ylim(0.1, 1)
+                self.ax._autoscaleYon = False
                 self.ax.set_yscale("log", nonposy='clip')
 
         # add legend if there are any non-trivial labels
