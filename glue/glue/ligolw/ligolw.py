@@ -694,6 +694,7 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 			self.current.appendData(xmlunescape(content))
 
 
+# FIXME:  remove
 class DefaultLIGOLWContentHandler(LIGOLWContentHandler):
 	pass
 
