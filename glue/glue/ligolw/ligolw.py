@@ -607,6 +607,9 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 	Those functions provide additional features such as support for
 	gzip'ed documents, MD5 hash computation, and Condor eviction
 	trapping to avoid writing broken documents to disk.
+
+	See also:  PartialLIGOLWContentHandler,
+	FilteringLIGOLWContentHandler.
 	"""
 
 	def __init__(self, document, start_handlers = {}):
@@ -791,8 +794,7 @@ def make_parser(handler):
 	feature, but enabling validation can require the LIGO LW DTD to be
 	downloaded from the LDAS document server if the DTD is not included
 	inline in the XML.  This requires a working connection to the
-	internet, which would preclude the use of this library on slave
-	nodes in LSC computer clusters.
+	internet and the server to be up.
 	"""
 	parser = sax.make_parser()
 	parser.setContentHandler(handler)
