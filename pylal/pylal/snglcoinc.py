@@ -58,9 +58,9 @@ from glue import iterutils
 from glue import offsetvector
 from glue import segmentsUtils
 from glue.ligolw import ligolw
-from glue.ligolw import array
-from glue.ligolw import param
-from glue.ligolw import table
+from glue.ligolw import array as ligolw_array
+from glue.ligolw import param as ligolw_param
+from glue.ligolw import table as ligolw_table
 from glue.ligolw import lsctables
 from pylal import git_version
 from pylal import inject
@@ -221,7 +221,7 @@ def make_eventlists(xmldoc, EventListType, event_table_name, process_ids = None)
 	the events, a maximum allowed time window, and the name of the
 	program that generated the events.
 	"""
-	return EventListDict(EventListType, table.get_table(xmldoc, event_table_name), process_ids = process_ids)
+	return EventListDict(EventListType, ligolw_table.get_table(xmldoc, event_table_name), process_ids = process_ids)
 
 
 #
@@ -1513,9 +1513,9 @@ class CoincParamsDistributions(object):
 
 	class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 		pass
-	array.use_in(LIGOLWContentHandler)
+	ligolw_array.use_in(LIGOLWContentHandler)
 	lsctables.use_in(LIGOLWContentHandler)
-	param.use_in(LIGOLWContentHandler)
+	ligolw_param.use_in(LIGOLWContentHandler)
 
 	#
 	# sub-classes must override the following
@@ -1799,6 +1799,18 @@ class CoincParamsDistributions(object):
 				return None
 			raise
 
+	def get_xml_root(self, xml, name):
+		"""
+		Sub-classes can use this in their overrides of the
+		.from_xml() method to find the root element of the XML
+		serialization.
+		"""
+		name = u"%s:%s" % (name, self.ligo_lw_name_suffix)
+		xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == name]
+		if len(xml) != 1:
+			raise ValueError("XML tree must contain exactly one %s element named %s" % (ligolw.LIGO_LW.tagName, name))
+		return xml[0]
+
 	@classmethod
 	def from_xml(cls, xml, name):
 		"""
@@ -1813,10 +1825,10 @@ class CoincParamsDistributions(object):
 		self = cls()
 
 		# find the root element of the XML serialization
-		xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:%s" % (name, self.ligo_lw_name_suffix)]
+		xml = self.get_xml_root(xml, name)
 
 		# retrieve the process ID
-		self.process_id = param.get_pyvalue(xml, u"process_id")
+		self.process_id = ligolw_param.get_pyvalue(xml, u"process_id")
 
 		# reconstruct the BinnedArray objects
 		def reconstruct(xml, prefix, target_dict):
@@ -1850,7 +1862,7 @@ class CoincParamsDistributions(object):
 		given the name name.
 		"""
 		xml = ligolw.LIGO_LW({u"Name": u"%s:%s" % (name, self.ligo_lw_name_suffix)})
-		xml.appendChild(param.new_param(u"process_id", u"ilwd:char", self.process_id))
+		xml.appendChild(ligolw_param.new_param(u"process_id", u"ilwd:char", self.process_id))
 		def store(xml, prefix, source_dict):
 			for name, binnedarray in sorted(source_dict.items()):
 				xml.appendChild(rate.binned_array_to_xml(binnedarray, u"%s:%s" % (prefix, name)))
@@ -1885,11 +1897,11 @@ class CoincParamsDistributions(object):
 			xmldoc = utils.load_filename(filename, verbose = verbose, contenthandler = contenthandler)
 			if self is None:
 				self = cls.from_xml(xmldoc, name)
-				seglists = lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([self.process_id])).coalesce()
+				seglists = lsctables.SearchSummaryTable.get_table(xmldoc).get_out_segmentlistdict(set([self.process_id])).coalesce()
 			else:
 				other = cls.from_xml(xmldoc, name)
 				self += other
-				seglists |= lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([other.process_id])).coalesce()
+				seglists |= lsctables.SearchSummaryTable.get_table(xmldoc).get_out_segmentlistdict(set([other.process_id])).coalesce()
 				del other
 			xmldoc.unlink()
 		return self, seglists
