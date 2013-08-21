@@ -310,6 +310,47 @@ SimInspiralTable* XLALRandomInspiralMasses(
   return ( inj );
 }
 
+
+/** Generates random masses for an inspiral injection. */
+SimInspiralTable* XLALRandomRingdownParameters(
+  SimInspiralTable *inj,   /**< injection for which masses will be set*/
+  RandomParams *randParams,/**< random parameter details*/
+  //MassDistribution mDist,  /**< the mass distribution to use */
+  SpinDistribution spinDistr,
+  REAL4  rdminMass,     /**< minimum total mass of binaty */
+  REAL4  rdmaxMass,      /**< maximum total mass of binary */
+  REAL4  rdminSpin,
+  REAL4  rdmaxSpin,
+  REAL4  rdmeanSpin,
+  REAL4  rdStdevSpin
+)
+{
+  REAL4 rdMass = rdmaxMass + 1.0 ;
+  REAL4 rdSpin = rdmaxSpin + 1.0 ;
+
+  while ( rdMass < rdminMass || rdMass > rdmaxMass )
+  {
+    /*uniformly distributed total mass */
+    rdMass = rdminMass + XLALUniformDeviate( randParams ) * (rdmaxMass - rdminMass);  
+  }
+
+  if( spinDistr==rdGaussianSpinDist ){
+    do rdSpin = rdmeanSpin + rdStdevSpin*XLALNormalDeviate(randParams);
+      while ( rdSpin > rdmaxSpin || rdSpin < rdminSpin );
+  } else {
+    while ( rdSpin < rdminSpin || rdSpin > rdmaxSpin )
+    {
+      rdSpin = rdminSpin + XLALUniformDeviate( randParams ) * (rdmaxSpin - rdminSpin);
+    }  
+  }
+  
+  inj->rdMass = rdMass ;
+  inj->rdSpin = rdSpin ;
+  
+  return ( inj );
+}
+
+
 /** Generates masses for an inspiral injection. Masses are Gaussian distributed
  * with the requested mean and standard deviation. */
 SimInspiralTable* XLALGaussianInspiralMasses(

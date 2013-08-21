@@ -849,6 +849,8 @@ LALWriteLIGOLwXMLTable (
               tablePtr.simInspiralTable->spin2z,
               tablePtr.simInspiralTable->theta0,
               tablePtr.simInspiralTable->phi0,
+              tablePtr.simInspiralTable->rdMass,
+              tablePtr.simInspiralTable->rdSpin,
               tablePtr.simInspiralTable->f_lower,
               tablePtr.simInspiralTable->f_final,
               tablePtr.simInspiralTable->eff_dist_h,

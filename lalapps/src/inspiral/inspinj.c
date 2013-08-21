@@ -203,6 +203,14 @@ LALSimInspiralApplyTaper taperInj = LAL_SIM_INSPIRAL_TAPER_NONE;
 AlignmentType alignInj = notAligned;
 REAL8 redshift;
 
+REAL4 rdminMass = -1.0 ;
+REAL4 rdmaxMass = -1.0 ;
+REAL4 rdminSpin = -1.0 ;
+REAL4 rdmaxSpin = -1.0 ;
+REAL4 rdmeanSpin = -1.0 ;
+REAL4 rdStdevSpin = -1.0 ;
+
+
 REAL8 single_IFO_SNR_threshold=0.0;
 char ** ifonames=NULL;
 int numifos=0;
@@ -760,6 +768,15 @@ static void print_usage(char *program)
       "  [--max-abskappa1] abskappa1max \n"\
       "                           Set the maximum absolute value of cos(S1.L_N) \n"\
       "                           to abskappa1max (1.0)\n\n");
+  fprintf(stderr,
+          "Ringdown information:\n"\
+          "  [--min-rdspin] rdspinmin   Set the minimum spin1 to spin1min (0.0)\n"\
+          "  [--max-rdspin] rdspinmax   Set the maximum spin1 to spin1max (0.0)\n"\
+          "  [--mean-rdspin] rdspinmean Set the mean for |spin1| distribution\n"\
+          "  [--stdev-rdspin] rdspinstd Set the standard deviation for |spin1|\n"\
+          
+          "  [--min-rdmass] rdmmin       set the min ringdown mass to rdmmin\n"\
+          "  [--max-rdmass] rdmmax       set the max ringdown mass to rdmmax\n\n");
   fprintf(stderr,
       "Tapering the injection waveform:\n"\
       "  [--taper-injection] OPT  Taper the inspiral template using option OPT\n"\
@@ -1621,6 +1638,12 @@ int main( int argc, char *argv[] )
     {"stdev-spin2",             required_argument, 0,                 1004},
     {"mean-spin1",              required_argument, 0,                 1005},
     {"mean-spin2",              required_argument, 0,                 1006},
+    {"min-rdspin",           required_argument,       0,                 1009},
+    {"max-rdspin",             required_argument, 0,                 1010},
+    {"mean-rdspin",             required_argument, 0,                 1011},
+    {"stdev-rdspin",              required_argument, 0,                 1012},
+    {"min-rdmass",              required_argument, 0,                 1013},
+    {"max-rdmass",              required_argument, 0,                 1014},
     {0, 0, 0, 0}
   };
   int c;
@@ -2773,6 +2796,51 @@ int main( int argc, char *argv[] )
           "float", "%le", meanSpin2 );
         break;
 
+      /* Ringdown */
+      case 1009:
+        rdminSpin = atof( optarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", rdminSpin );
+        break;
+        
+      case 1010:
+        rdmaxSpin = atof( optarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", rdmaxSpin );
+        break;
+        
+      case 1011:
+        rdmeanSpin = atof( optarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", rdmeanSpin );
+        break;
+        
+      case 1012:
+        rdStdevSpin = atof( optarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", rdStdevSpin );
+        break;
+        
+      case 1013:
+        rdminMass = atof( optarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", rdminMass );
+        break;
+        
+      case 1014:
+        rdmaxMass = atof( optarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", rdmaxMass );
+        break;
+     
+
+
 
       default:
         fprintf( stderr, "unknown error while parsing options\n" );
@@ -3385,6 +3453,63 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
 
+
+  /* Ringdown parameter checks */
+  if( strncmp(waveform, "RingdownTD", 10) || strncmp(waveform, "RingdownFD", 10) ){
+    
+    /*NOTE: need this distribution function */
+    //if (mDistr==rdUniformMassDist)
+      /* first check: require mass ranges */
+      if ( rdminMass<=0.0 || rdmaxMass<=0.0 )
+      {
+        fprintf( stderr,
+                 "Must specify positive minimum and maximum mass for \n"
+                 "your choice of --m-distr.\n" );
+        exit( 1 );
+      }
+//   } else {
+//     fprintf( stderr,
+//              "The choice of mass distribution is unavailable for ringdown injection.\n");
+//     exit( 1 );
+//   }
+  
+  /* check that spin stddev is positive */
+  if ( spinDistr==gaussianSpinDist && ( rdStdevSpin <= 0.0) )
+  {
+    fprintf( stderr,
+             "Must specify positive |spin| standard deviations when using"
+             " --spin-gaussian\n" );
+    exit( 1 );
+  }
+  
+  /* check that spins are in range 0 - 1 */
+  if ( rdminSpin < 0. || rdmaxSpin > 1. )
+  {
+    fprintf( stderr,
+             "Spins can only take values between 0 and 1.\n" );
+    exit( 1 );
+  }
+  
+  /* check max and mins are the correct way around */
+  if (rdminSpin > rdmaxSpin )
+  {
+    fprintf( stderr,
+             "Minimal spins must be less than or equal to maximal spins.\n" );
+    exit( 1 );
+  }
+  
+  /* check that spin means are within a reasonable range */
+  if (spinDistr==gaussianSpinDist && ( rdminSpin - rdmeanSpin > 2.0*rdStdevSpin || rdmeanSpin - rdmaxSpin > 2.0*rdStdevSpin ) )
+  {
+    fprintf(stderr,"Mean of |spin| distribution is way out of range.\n");
+    exit( 1 );
+  }
+  
+}
+
+
+  
+
   if ( spinInjections==-1 && mDistr != massFromNRFile )
   {
     fprintf( stderr,
@@ -3814,6 +3939,18 @@ int main( int argc, char *argv[] )
           alignInj, spinDistr,
           meanSpin1, Spin1Std,
           meanSpin2, Spin2Std );
+
+      simTable = XLALRandomRingdownParameters(
+        simTable,   /**< injection for which masses will be set*/
+        randParams,/**< random parameter details*/
+        //MassDistribution mDist,  /**< the mass distribution to use */
+        rdGaussianSpinDist,
+        rdminMass,     /**< minimum total mass of binaty */
+        rdmaxMass,      /**< maximum total mass of binary */
+        rdminSpin,
+        rdmaxSpin,
+        rdmeanSpin,
+        rdStdevSpin);
     }
 
     /* adjust SNR to desired distribution using NINJA calculation */

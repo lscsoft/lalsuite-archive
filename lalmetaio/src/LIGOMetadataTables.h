@@ -563,6 +563,8 @@ tagSimInspiralTable
   REAL4          spin2z;
   REAL4          theta0;
   REAL4          phi0;
+  REAL4          rdMass;
+  REAL4          rdSpin;
   REAL4          f_lower;
   REAL4          f_final;
   REAL4          mchirp;
