@@ -306,7 +306,7 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 	assert injections_name == background_name
 	assert zero_lag_name == background_name
 	name = background_name
-	instruments = set(name.split("_")) & set(stringutils.instrument_to_factor.keys())
+	instruments = set(name.split("_")) & set(stringutils.StringCoincParamsDistributions.instrument_categories)
 	if name.endswith("_snr2_chi2"):
 		if options.verbose:
 			print >>sys.stderr, "generating plots for %s ..." % name

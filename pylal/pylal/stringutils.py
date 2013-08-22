@@ -92,25 +92,6 @@ def triangulators(timing_uncertainties):
 
 
 #
-# A look-up table used to convert instrument names to powers of 2.  Why?
-# To create a bidirectional mapping between combinations of instrument
-# names and integers so we can use a pylal.rate style binning for the
-# instrument combinations
-#
-
-
-instrument_to_factor = dict((instrument, int(2**n)) for n, instrument in enumerate(("G1", "H1", "H2", "H+", "H-", "L1", "V1")))
-
-
-def instruments_to_category(instruments):
-	return sum(instrument_to_factor[instrument] for instrument in instruments)
-
-
-def category_to_instruments(category):
-	return set(instrument for instrument, factor in instrument_to_factor.items() if category & factor)
-
-
-#
 # Parameter distributions
 #
 
@@ -123,6 +104,8 @@ def dt_binning(instrument1, instrument2):
 class StringCoincParamsDistributions(snglcoinc.CoincParamsDistributions):
 	# FIXME:  switch to new default when possible
 	ligo_lw_name_suffix = u"pylal_ligolw_burca_tailor_coincparamsdistributions"
+
+	instrument_categories = snglcoinc.InstrumentCategories()
 
 	binnings = {
 		"H1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 801), rate.ATanLogarithmicBins(.1, 1e4, 801))),
@@ -152,7 +135,7 @@ class StringCoincParamsDistributions(snglcoinc.CoincParamsDistributions):
 		# want a binning that's linear at the origin so instead of
 		# inventing a new one we just use atan bins that are
 		# symmetric about 0
-		"instrumentgroup,rss_timing_residual": rate.NDBins((rate.LinearBins(0.5, sum(instrument_to_factor.values()) + 0.5, sum(instrument_to_factor.values())), rate.ATanBins(-0.02, +0.02, 1001)))
+		"instrumentgroup,rss_timing_residual": rate.NDBins((rate.LinearBins(0.5, instrument_categories.max() + 0.5, instrument_categories.max()), rate.ATanBins(-0.02, +0.02, 1001)))
 	}
 
 	filters = {
@@ -218,7 +201,7 @@ class StringCoincParamsDistributions(snglcoinc.CoincParamsDistributions):
 		# sometime in the future if we're curious why it didn't help.  Just
 		# delete the next line and you're back in business.
 		rss_timing_residual = 0.0
-		params["instrumentgroup,rss_timing_residual"] = (instruments_to_category(instruments), rss_timing_residual)
+		params["instrumentgroup,rss_timing_residual"] = (StringCoincParamsDistributions.instrument_categories.category(instruments), rss_timing_residual)
 
 		#
 		# one-instrument parameters

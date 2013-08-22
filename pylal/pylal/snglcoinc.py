@@ -1435,6 +1435,44 @@ class TOATriangulator(object):
 
 
 #
+# A look-up table used to convert instrument names to powers of 2.  Why?
+# To create a bidirectional mapping between combinations of instrument
+# names and integers so we can use a pylal.rate style binning for the
+# instrument combinations.  This has to be used because pylal.rate's native
+# Categories binning cannot be serialized to XML.
+#
+# FIXME:  allow pylal.rate's Categories binning to be serialized to XML and
+# get rid of this crap
+#
+
+
+class InstrumentCategories(dict):
+	def __init__(self):
+		# FIXME:  we decided that the coherent and null stream
+		# naming convention would look like
+		#
+		# H1H2:LSC-STRAIN_HPLUS, H1H2:LSC-STRAIN_HNULL
+		#
+		# and so on.  i.e., the +, x and null streams from a
+		# coherent network would be different channels from a
+		# single instrument whose name would be the mash-up of the
+		# names of the instruments in the network.  that is
+		# inconsisntent with the "H1H2+", "H1H2-" shown here, so
+		# this needs to be fixed but I don't know how.  maybe it'll
+		# go away before it needs to be fixed.
+		self.update(dict((instrument, int(2**n)) for n, instrument in enumerate(("G1", "H1", "H2", "H1H2+", "H1H2-", "L1", "V1"))))
+
+	def max(self):
+		return sum(self.values())
+
+	def category(self, instruments):
+		return sum(self[instrument] for instrument in instruments)
+
+	def instruments(self, category):
+		return set(instrument for instrument, factor in self.items() if category & factor)
+
+
+#
 # threading.Thread sub-class for filtering parameter distributions
 #
 
