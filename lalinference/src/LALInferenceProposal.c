@@ -1762,6 +1762,8 @@ LALInferenceFisherMatrixJump(LALInferenceRunState *runState, LALInferenceVariabl
 
   //gsl_matrix_free(evec);
   gsl_vector_free(eigen);
+  gsl_vector_free(params);
+  free(jump);
 }
 
 void 
@@ -2556,9 +2558,8 @@ void drawFisherMatrix(LALInferenceRunState *runState)
         dataPtr = dataPtr->next;
     }
 
-
 	/*compute array of the partial derivatives*/
-    COMPLEX16FrequencySeries ***outputDerivs;
+    COMPLEX16FrequencySeries ***outputDerivs = NULL;
 	outputDerivs = (COMPLEX16FrequencySeries ***)malloc(nIFO*sizeof(COMPLEX16FrequencySeries **));
 		for(i = 0 ; i < nIFO ; i++) outputDerivs[i] = (COMPLEX16FrequencySeries **)
 		                                              malloc(9*sizeof(COMPLEX16FrequencySeries*));
@@ -2569,51 +2570,46 @@ void drawFisherMatrix(LALInferenceRunState *runState)
 	fisherMatrix = gsl_matrix_alloc(9,9);
     computeFisherMatrix(fisherMatrix, runState, outputDerivs);
 
-	/* compute eigenstuff*/
-    gsl_vector *eval = gsl_vector_alloc (9);
-    gsl_matrix *evec = gsl_matrix_alloc (9,9);
-
-    gsl_eigen_symmv_workspace * workspace = gsl_eigen_symmv_alloc (9);
-    gsl_eigen_symmv (fisherMatrix, eval, evec, workspace);
-
-    // sort and put them into evec
-    gsl_eigen_symmv_sort (eval, evec, GSL_EIGEN_SORT_ABS_ASC);
-
+    /*add or pull all the necessities from runState*/
+    gsl_matrix *evec = NULL;
     REAL8Vector *evalue = NULL;
-    evalue = XLALCreateREAL8Vector(9);
-
-    for(i = 0; i < 9; i++)
-    {
-      evalue->data[i] = (REAL8)gsl_vector_get(eval, i);
-    }
-
-    // add to runState
     if(!LALInferenceCheckVariable(runState->proposalArgs,"covarEigenvalue"))
     {
-    LALInferenceAddVariable(runState->proposalArgs, "covarEigenvalue", &evalue,
+	    evec = gsl_matrix_alloc(9,9);
+		evalue = XLALCreateREAL8Vector(9);
+        LALInferenceAddVariable(runState->proposalArgs, "covarEigenvalue", &evalue,
 				LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_LINEAR);
-    LALInferenceAddVariable(runState->proposalArgs, "covarEigenvector", &evec,
+        LALInferenceAddVariable(runState->proposalArgs, "covarEigenvector", &evec,
 				LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_LINEAR);
     }
+	evec = *(gsl_matrix **)LALInferenceGetVariable(runState->proposalArgs, "covarEigenvector");
+    evalue = *(REAL8Vector **)LALInferenceGetVariable(runState->proposalArgs, "covarEigenvalue"); 
 
-    else
-    {
-    LALInferenceSetVariable(runState->proposalArgs, "covarEigenvalue", &evalue);
-    LALInferenceSetVariable(runState->proposalArgs, "covarEigenvector", &evec);
-    }
+
+	/* compute eigenstuff*/
+    gsl_vector *eval = gsl_vector_alloc (9);
+    gsl_eigen_symmv_workspace *workspace = gsl_eigen_symmv_alloc (9);
+    gsl_eigen_symmv(fisherMatrix, eval, evec, workspace);
+
+    /*sort and put them into evec and evalue*/
+    gsl_eigen_symmv_sort (eval, evec, GSL_EIGEN_SORT_ABS_ASC);
+    for(i = 0; i < 9; i++)
+      evalue->data[i] = (REAL8)gsl_vector_get(eval, i);
+
 
     /*clean up all the crap we've generated*/
 	for(i = 0 ; i < nIFO ; i++)
-	{
 	    for(j = 0 ; j < 9 ; j++)
 	        XLALDestroyCOMPLEX16FrequencySeries(outputDerivs[i][j]);
-		free(outputDerivs[i]);
-    }
-	free(outputDerivs);
+	for(i = 0 ; i < nIFO ; i++)
+		XLALFree(outputDerivs[i]);
+	XLALFree(outputDerivs);
 	gsl_matrix_free(fisherMatrix);
+	gsl_eigen_symmv_free(workspace);
+	gsl_vector_free(eval);
+    XLALSimInspiralDestroyWaveformFlags(params->waveFlags);
 	XLALFree(params);
 
-  /*code to print out the FIM*/
   /*drawFisherMatrix(runState);
   gsl_matrix *FIM = *((gsl_matrix **)LALInferenceGetVariable(runState->proposalArgs, "covarEigenvector"));
     for(i = 0 ; i < 9 ; i++)
@@ -2645,7 +2641,7 @@ void waveformDerivative(FIMParams *params, /**< \theta_0 params where you comput
 	for(i = 0 ; i < 9 ; i++)
 	{
 		/*pick a single parameter and move it forward for the finite difference*/
-		*paramsNp1 = *params;
+		memcpy(paramsNp1, params, sizeof(FIMParams));
 		/*reset the waveform structures*/
 		hptilde  = NULL;
 		hctilde  = NULL;
@@ -2728,7 +2724,8 @@ void waveformDerivative(FIMParams *params, /**< \theta_0 params where you comput
 			                         paramsNp1->ra, paramsNp1->dec, paramsNp1->psi, paramsNp1->gmst);
 
 			/*allocate the length to that derivative*/
-			outputDerivs[det][i] = XLALCreateCOMPLEX16FrequencySeries("Deriv",
+			outputDerivs[det][i] = (COMPLEX16FrequencySeries *)
+			                            XLALCreateCOMPLEX16FrequencySeries("Deriv",
 										&(hptilde)->epoch, hptilde->f0, hptilde->deltaF,
 										&(hptilde)->sampleUnits, length);
 
@@ -2742,11 +2739,11 @@ void waveformDerivative(FIMParams *params, /**< \theta_0 params where you comput
 			det++;
 			dataPtr = dataPtr->next;
 		}
+		XLALDestroyCOMPLEX16FrequencySeries(hptilde);
+		XLALDestroyCOMPLEX16FrequencySeries(hctilde);
+		XLALDestroyCOMPLEX16FrequencySeries(hptildeN);
+		XLALDestroyCOMPLEX16FrequencySeries(hctildeN);
     }
-    XLALDestroyCOMPLEX16FrequencySeries(hptilde);
-    XLALDestroyCOMPLEX16FrequencySeries(hctilde);
-    XLALDestroyCOMPLEX16FrequencySeries(hptildeN);
-    XLALDestroyCOMPLEX16FrequencySeries(hctildeN);
 	XLALFree(paramsNp1);
 }
 

@@ -277,6 +277,14 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
     runPhase = TEMP_PT;
   }
 
+  INT4 computeFIM = 0;
+  INT4 FIMSkip = 1;
+  if (LALInferenceGetProcParamVal(runState->commandLine, "--fisher"))
+  {
+    computeFIM = 1;
+    FIMSkip = atoi(LALInferenceGetProcParamVal(runState->commandLine,"--fisher")->value);
+  }
+
   LALInferenceMCMCrunPhase *runPhase_p = &runPhase;
   LALInferenceAddVariable(runState->algorithmParams, "runPhase", &runPhase_p,  LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
 
@@ -815,7 +823,7 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
       }
     }
 
-  if((i % (1*Nskip)) == 0)
+  if((i % (FIMSkip*Nskip)) == 0 && computeFIM)
       drawFisherMatrix(runState);
   }// while (!runComplete)
   
