@@ -134,7 +134,7 @@ int XLALSimBlackHoleRingdownModeTiger(
 	size_t length;
 	size_t j;
 	INT4 UNUSED errnum;
-    char *name=NULL;     // TODO: replace with name[MAXNAMELENGTH]
+    char name[256];     // TODO: replace with name[MAXNAMELENGTH]
     // const LALUnit *hunits; // TODO: fill in units
     
     sprintf(name, "h%u%d", l, m);
@@ -150,7 +150,9 @@ int XLALSimBlackHoleRingdownModeTiger(
     freq = XLALQNMFreqOfOmega(omega, mass)*(1 + dfreq);
 	
 	/* What does the log(epsilon) do? (not -infinity?) */
-	length = ceil(log(LAL_REAL8_EPS) * LAL_G_SI * mass / (pow(LAL_C_SI, 3.0) * cimag(omega) * deltaT));
+  /* NOTE:  For now I hardcoded the length because I'm not sure what tau to use and what its units are
+            The below expression return a huge length. Also, deltaT seems way too small...*/
+  length = 10000 ;//ceil(log(arbitrayN) * LAL_G_SI * mass / (pow(LAL_C_SI, 3.0) * cimag(omega) * deltaT));
 /*
     hplus->data->length = length;
 	hcross->data->length = length;
