@@ -192,7 +192,7 @@ def multipleFileCB(opt, opt_str, value, parser):
         args = oldargs
     setattr(parser.values, opt.dest, args)
 
-def cbcBayesPostProc(
+def cbcBayesBurstPostProc(
                         outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,
                         confidence_levels,twoDplots,
                         #misc. optional
@@ -310,8 +310,10 @@ def cbcBayesPostProc(
     if injfile and eventnum is not None:
         print 'Looking for event %i in %s\n'%(eventnum,injfile)
         xmldoc = utils.load_filename(injfile,contenthandler=LIGOLWContentHandlerExtractSimBurstTable)
+        from glue.ligolw import table
         got_burst_table=1
         try:
+            lsctables.use_in(LIGOLWContentHandlerExtractSimBurstTable)
             simtable=table.get_table(xmldoc,lsctables.SimBurstTable.tableName)
         except ValueError:
             lsctables.use_in(LIGOLWContentHandlerExtractSimInspiralTable)
@@ -1253,7 +1255,7 @@ if __name__=='__main__':
     #2D plots list
     #twoDplots=[['mc','eta'],['mchirp','eta'],['mc', 'time'],['mchirp', 'time'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra', 'dec'],['m1','dist'],['m2','dist'],['mc', 'dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'], ['a1', 'a2'], ['a1', 'iota'], ['a2', 'iota'],['eta','time'],['ra','iota'],['dec','iota'],['chi','iota'],['chi','mchirp'],['chi','eta'],['chi','distance'],['chi','ra'],['chi','dec'],['chi','psi']]
     twoDplots=twoDGreedyMenu
-    cbcBayesPostProc(
+    cbcBayesBurstPostProc(
                         opts.outpath,datafiles,oneDMenu,twoDGreedyMenu,
                         greedyBinSizes,confidenceLevels,twoDplots,
                         #optional

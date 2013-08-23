@@ -5912,7 +5912,7 @@ class BurstPosterior(object):
         reparsed = minidom.parseString(rough_string)
         return_val=reparsed.toprettyxml(indent="  ")
 
-        return return_val
+        return return_val[len('<?xml version="1.0" ?>')+1:]
 
     def write_vot_info(self):
       """
