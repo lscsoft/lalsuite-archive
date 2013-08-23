@@ -397,7 +397,7 @@ Arguments for each section follow:\n\n";
         else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood"))
                 initVarsFunc=&LALInferenceInitVariablesReviewEvidence_banana;
         else if (LALInferenceGetProcParamVal(procParams,"--ringdown"))
-		        initVarsFunc=&LALInferenceInitRingdownVariables;  // TODO: Need to implement this function
+		        initVarsFunc=&LALInferenceInitRingdownVariables;
 	else
 		initVarsFunc=&LALInferenceInitCBCVariables;
 	state->initVariables=initVarsFunc;

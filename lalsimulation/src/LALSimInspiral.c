@@ -3015,6 +3015,10 @@ char* XLALGetStringFromApproximant(Approximant approximant)
       return strdup("FrameFile");
     case Eccentricity:
       return strdup("Eccentricity");
+    case RingdownFD:
+      return strdup("RingdownFD");
+    case RingdownTD:
+      return strdup("RingdownTD");
     default:
         XLALPrintError("Not a valid approximant\n");
         XLAL_ERROR_NULL(XLAL_EINVAL);
