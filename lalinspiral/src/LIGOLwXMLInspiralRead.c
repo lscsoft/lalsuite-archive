@@ -1428,8 +1428,10 @@ SimInspiralTableFromLIGOLw (
     {"amp_order",           -1, 53},
     {"taper",               -1, 54},
     {"bandpass",            -1, 55},
-    {"final_mass",			-1, 56},
-    {"final_spin",			-1, 57},
+    //{"final_mass",			-1, 56}, /* NOTE: Was this here for the tiger_ringdown branch? In that case it needs to be as below*/
+    //{"final_spin",			-1, 57},
+    {"rdMass",      -1, 56},
+    {"rdSpin",      -1, 57},
     {NULL,                   0, 0}
   };
 
@@ -1735,10 +1737,10 @@ SimInspiralTableFromLIGOLw (
  //       	thisSim->qmParameter2 = r4colData;
 //        }
         else if ( tableDir[j].idx == 56 )  {
-		   thisSim->final_mass = r4colData;
+		   thisSim->rdMass = r4colData;
 		}
         else if ( tableDir[j].idx == 57 )  {
-		   thisSim->final_spin = r4colData;
+		   thisSim->rdSpin = r4colData;
 		}
         else
         {

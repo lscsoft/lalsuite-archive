@@ -2487,8 +2487,8 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       // TODO: Get the parameters from the right places (injEvent inspiral or ringdown table?)
       REAL8 m1 = injEvent->mass1;
       REAL8 m2 = injEvent->mass2;
-      REAL8 Mbh = injEvent->final_mass;
-      REAL8 spin = injEvent->final_spin;
+      REAL8 Mbh = injEvent->rdMass;
+      REAL8 spin = injEvent->rdSpin;
       REAL8 Mt = m1+m2;
       // REAL8 eta = m1*m2/(Mt*Mt);
       REAL8 eta = injEvent->eta;
