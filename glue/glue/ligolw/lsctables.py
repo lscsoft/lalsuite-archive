@@ -2569,6 +2569,8 @@ class SimInspiralTable(table.Table):
 		"spin2z": "real_4",
 		"theta0": "real_4",
 		"phi0": "real_4",
+		"rdMass": "real_4",
+		"rdSpin": "real_4",
 		"f_lower": "real_4",
 		"f_final": "real_4",
 		"eff_dist_h": "real_4",
