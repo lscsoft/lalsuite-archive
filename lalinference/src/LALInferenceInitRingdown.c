@@ -909,11 +909,11 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
 
   ppt = LALInferenceGetProcParamVal(commandLine, "--fixMass");
   if (ppt) {
-	  LALInferenceRegisterUniformVariableREAL8(state, currentParams, "mass", start_mass, mMin, mMax, LALINFERENCE_PARAM_FIXED);
+	  LALInferenceRegisterUniformVariableREAL8(state, currentParams, "rdMass", start_mass, mMin, mMax, LALINFERENCE_PARAM_FIXED);
 	  if (lalDebugLevel>0) fprintf(stdout, "final black hole mass fixed and set to %f\n", start_mass);
   } 
   else {
-	  LALInferenceRegisterUniformVariableREAL8(state, currentParams, "mass", start_mass, mMin, mMax, LALINFERENCE_PARAM_LINEAR);
+	  LALInferenceRegisterUniformVariableREAL8(state, currentParams, "rdMass", start_mass, mMin, mMax, LALINFERENCE_PARAM_LINEAR);
   }
 
 
@@ -942,7 +942,7 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
     LALInferenceRegisterUniformVariableREAL8(state, currentParams, "distance", start_dist, Dmin, Dmax, LALInferenceGetProcParamVal(commandLine,"--fixDist")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
   }
 
-  LALInferenceRegisterUniformVariableREAL8(state, currentParams, "spin", start_a_spin, amin, amax, LALInferenceGetProcParamVal(commandLine,"--fixSpin")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
+  LALInferenceRegisterUniformVariableREAL8(state, currentParams, "rdSpin", start_a_spin, amin, amax, LALInferenceGetProcParamVal(commandLine,"--fixSpin")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
   
   LALInferenceRegisterUniformVariableREAL8(state, currentParams, "rightascension", start_ra, raMin, raMax, LALInferenceGetProcParamVal(commandLine,"--fixRa")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_CIRCULAR);
   

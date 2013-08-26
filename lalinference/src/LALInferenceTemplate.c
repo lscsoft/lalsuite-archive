@@ -1886,13 +1886,16 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
       XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBlackHoleRingdown(): (INT4) \"LAL_APPROXIMANT\" parameter not provided!\n");
       XLAL_ERROR_VOID(XLAL_EDATA);
   }
-  
+
+  qnmorder = 4 ;
+  /* NOTE: For now I'm hardcoding qnmorder, there does not appear to be a commandline option yet.
   if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_QNM_ORDER"))
     qnmorder = *(UINT4*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_QNM_ORDER");
   else {
     XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBlackHoleRingdown(): (INT4) \"LAL_QNM_ORDER\" parameter not provided!\n");
     XLAL_ERROR_VOID(XLAL_EDATA);
   }
+  */
 
   if (LALInferenceCheckVariable(IFOdata->modelParams, "LALINFERENCE_FRAME"))
     frame = *(LALInferenceFrame*) LALInferenceGetVariable(IFOdata->modelParams, "LALINFERENCE_FRAME");
@@ -1904,9 +1907,9 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
   deltaT = IFOdata->timeData->deltaT;
 
   
-  if(LALInferenceCheckVariable(IFOdata->modelParams,"finalmass"))
+  if(LALInferenceCheckVariable(IFOdata->modelParams,"rdMass"))
   {
-	mass = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"finalmass");
+	mass = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"rdMass");
     if (LALInferenceCheckVariable(IFOdata->modelParams,"asym_massratio")) 
     {
       q = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"asym_massratio");
@@ -1941,6 +1944,10 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
 	eta = m1*m2/((m1+m2)*(m1+m2));
     mass = (m1 + m2)*(1. - frac_mass_loss); 
   }
+  /* NOTE: because of the rdMass, "finalmass" may not be necessary anymore. */
+//   else if(LALInferenceCheckVariable(IFOdata->modelParams, "rdMass")){
+//     mass = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"rdMass");
+//   }
   else
   {
     fprintf(stderr,"No mass parameters found!");
@@ -2000,8 +2007,8 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
   // TODO: see if the final spin/mass functions can be updated with more recent results
   /* Fill in final black hole spin magnitude */
   
-  if(LALInferenceCheckVariable(IFOdata->modelParams, "spin")){
-    spin = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "spin");
+  if(LALInferenceCheckVariable(IFOdata->modelParams, "rdSpin")){
+    spin = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "rdSpin");
   }
   else if (LALInferenceCheckVariable(IFOdata->modelParams, "spin_from_components") && (m1 > 0.0) && (m2 > 0.0)){
     if ( fabs(spin1x) + fabs(spin1y) + fabs(spin1z) + fabs(spin2x) + fabs(spin2y) + fabs(spin2z) != 0.0) {
