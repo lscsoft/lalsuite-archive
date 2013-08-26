@@ -419,7 +419,7 @@ Arguments for each section follow:\n\n";
 	LALInferenceSetupDefaultNSProposal(state,state->currentParams);
 	
 	/* write injection with noise evidence information from algorithm */
-	LALInferencePrintInjectionSample(state);
+	//LALInferencePrintInjectionSample(state);
 	
 	/* Call nested sampling algorithm */
 	state->algorithm(state);

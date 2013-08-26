@@ -134,13 +134,15 @@ int XLALSimBlackHoleRingdownModeTiger(
 	size_t length;
 	size_t j;
 	INT4 UNUSED errnum;
+  REAL8 mass_sec = mass*LAL_MTSUN_SI/LAL_MSUN_SI ;
+  REAL8 dist_sec = distance/LAL_C_SI ;
     char name[256];     // TODO: replace with name[MAXNAMELENGTH]
     // const LALUnit *hunits; // TODO: fill in units
     
     sprintf(name, "h%u%d", l, m);
 
 	alphalm = XLALSimRingdownQNMAmplitudes(l, m, eta, spin1, spin2);
-    A = alphalm*mass/distance;
+    A = alphalm*mass_sec/dist_sec;
     
 	Yplus = XLALSimSphericalHarmonicPlus(l, m, inclination);
 	Ycross = XLALSimSphericalHarmonicCross(l, m, inclination);

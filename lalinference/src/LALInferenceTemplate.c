@@ -594,8 +594,8 @@ void LALInferenceTemplatePSTRD(LALInferenceIFOData *IFOdata)
   template.inclination=iota;
   //template.distance = exp(distance)*LAL_PC_SI*1.e6;
   template.distance = LAL_PC_SI*1.e6;
-  int order = *(INT4*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_PNORDER");
-  template.order= (LALPNOrder) order; //check order is set correctly
+  //int order = *(INT4*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_PNORDER");
+  //template.order= (LALPNOrder) order; //check order is set correctly
   if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_APPROXIMANT")){
     template.approximant = *(Approximant*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_APPROXIMANT");
     if(template.approximant!=PhenSpinTaylorRD) {
@@ -1955,7 +1955,7 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
   }
 
   phi		= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phase"); /* Start phase */
-  distance  = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "distance");
+  distance  = 1.0;//*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "distance");
   distance *= LAL_PC_SI*1.0e6;  /* Distance to source in meters */
   
   REAL8 spin = 0.0;  /* Spin of the final black hole */
