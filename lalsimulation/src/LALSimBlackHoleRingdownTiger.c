@@ -71,11 +71,18 @@ int XLALSimBlackHoleRingdownTiger(
     // thisMode->mode is a COMPLEX16TimeSeries
     
     /* Create the plus and cross polarization vectors */
-    /* TODO: double check that this initializes to 0s */
     
     length = maxmodelength;
     *hplus = XLALCreateREAL8TimeSeries("hplus", t0, 0.0, deltaT, &lalStrainUnit, length);
     *hcross = XLALCreateREAL8TimeSeries("hcross", t0, 0.0, deltaT, &lalStrainUnit, length);
+
+    /* Initialize vectors */
+    memset( (*hplus)->data->data, 0, length*sizeof(REAL8) );
+    memset( (*hcross)->data->data, 0, length*sizeof(REAL8) );
+    /*for (j=0; j<length; j++){
+      (*hplus)->data->data[j] = 0.0 ;
+      (*hcross)->data->data[j] = 0.0 ;
+    }*/    
     
     /* Fill in the plus and cross polarization vectors */
     thisMode = modeList;
@@ -136,40 +143,37 @@ int XLALSimBlackHoleRingdownModeTiger(
 	INT4 UNUSED errnum;
   REAL8 mass_sec = mass*LAL_MTSUN_SI/LAL_MSUN_SI ;
   REAL8 dist_sec = distance/LAL_C_SI ;
-    char name[256];     // TODO: replace with name[MAXNAMELENGTH]
+  char name[256];     // TODO: replace with name[MAXNAMELENGTH]
     // const LALUnit *hunits; // TODO: fill in units
     
-    sprintf(name, "h%u%d", l, m);
+  sprintf(name, "h%u%d", l, m);
 
 	alphalm = XLALSimRingdownQNMAmplitudes(l, m, eta, spin1, spin2);
-    A = alphalm*mass_sec/dist_sec;
+  A = alphalm*mass_sec/dist_sec;
     
 	Yplus = XLALSimSphericalHarmonicPlus(l, m, inclination);
 	Ycross = XLALSimSphericalHarmonicCross(l, m, inclination);
-	
+
 	omega = XLALSimRingdownFitOmega(l, m, 0, a);
-    tau = XLALQNMTauOfOmega(omega, mass)*(1 + dtau);
-    freq = XLALQNMFreqOfOmega(omega, mass)*(1 + dfreq);
-	
-	/* What does the log(epsilon) do? (not -infinity?) */
-  /* NOTE:  For now I hardcoded the length because I'm not sure what tau to use and what its units are
-            The below expression return a huge length. Also, deltaT seems way too small...*/
-  length = 10000 ;//ceil(log(arbitrayN) * LAL_G_SI * mass / (pow(LAL_C_SI, 3.0) * cimag(omega) * deltaT));
-/*
-    hplus->data->length = length;
-	hcross->data->length = length;
-*/
-	/* allocate memory in hlm */
-    // TODO: Remember to free it afterwards!
-    
-    *hlmmode = XLALCreateCOMPLEX16TimeSeries(name, t0, 0.0, deltaT, &lalStrainUnit, length);
-	
+  tau = XLALQNMTauOfOmega(omega, mass_sec)*(1 + dtau);
+  freq = XLALQNMFreqOfOmega(omega, mass_sec)*(1 + dfreq);
+  
+  length = (size_t) ceil( -tau * log(1.0e-16) / deltaT ) ;
+
+  /* allocate memory in hlm
+   * freed in LALInferenceTemplateXLALSimBlackHoleRingdown using XLALDestroySphHarmTimeSeries(qnmodes)
+   */
+  *hlmmode = XLALCreateCOMPLEX16TimeSeries(name, t0, 0.0, deltaT, &lalStrainUnit, length);
+  memset( (*hlmmode)->data->data, 0, length*sizeof(COMPLEX16) ) ;
+
+  REAL8 t = 0.0 ;
 	if (A > 0.0){
 	  for (j=0; j<length; j++){
-        (*hlmmode)->data->data[j] = A*Yplus*exp(-j*deltaT/tau)*cos(j*deltaT*freq - m*phi0); 
-        (*hlmmode)->data->data[j] -= I*A*Ycross*exp(-j*deltaT/tau)*sin(j*deltaT*freq - m*phi0);
+      t = ((REAL8) j)*deltaT ;
+      (*hlmmode)->data->data[j] = A*Yplus*exp(-t/tau)*cos(t*freq - m*phi0);
+      (*hlmmode)->data->data[j] -= I*A*Ycross*exp(-t/tau)*sin(t*freq - m*phi0);
 	  }
-    }
+  }
     
     // hlmmode = &hlm; 
 
