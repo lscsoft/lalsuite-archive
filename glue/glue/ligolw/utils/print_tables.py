@@ -15,8 +15,8 @@ wiki or html.
 """
 import sys, re
 
-from glue.ligolw import ligolw
-from glue.ligolw import table
+from .. import ligolw
+from .. import table
 
 __author__ = "Collin Capano <cdcapano@ligo.caltech.edu>"
 from glue import git_version

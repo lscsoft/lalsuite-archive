@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2011  Kipp Cannon
+# Copyright (C) 2006--2011,2013  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -25,20 +25,18 @@
 
 
 """
-This module is a wrapper of the xlal.inject module, supplementing the C
-code in that module with additional features that are more easily
-implemented in Python.  It is recommended that you import this module
-rather than importing xlal.inject directly.
+This module provides a few convenience wrappers around bits of LAL's inject
+package.
 """
 
 
 import math
 
 
-from lal import LAL_C_SI
+from lal import ComputeDetAMResponse as XLALComputeDetAMResponse
+from lal import LAL_C_SI as _LAL_C_SI
+from lal import lalCachedDetectors as _lalCachedDetectors
 from pylal import git_version
-from pylal.xlal.tools import *
-from pylal.xlal.inject import *
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -55,17 +53,29 @@ __date__ = git_version.date
 #
 
 
-name_to_prefix = dict((detector.name, detector.prefix) for detector in cached_detector.itervalues())
+cached_detector_by_prefix = dict((cd.frDetector.prefix, cd) for cd in _lalCachedDetectors)
+# make sure there were no duplicates
+assert len(cached_detector_by_prefix) == len(_lalCachedDetectors)
 
 
-prefix_to_name = dict((detector.prefix, detector.name) for detector in cached_detector.itervalues())
+cached_detector_by_name = dict((cd.frDetector.name, cd) for cd in _lalCachedDetectors)
+# make sure there were no duplicates
+assert len(cached_detector_by_name) == len(_lalCachedDetectors)
+
+# FIXME:  backwards compatibility.  remove when no longer used
+cached_detector = cached_detector_by_name
+
+
+name_to_prefix = dict((name, detector.frDetector.prefix) for name, detector in cached_detector_by_name.items())
+prefix_to_name = dict((prefix, name) for name, prefix in name_to_prefix.items())
+
 
 # FIXME:  this is a hack to allow inject.light_travel_time(), which is used
 # internally by snglcoinc.py, to work with the H1H2 coherent and null
 # detectors.  the use of light_travel_time() internally by snglcoinc.py
 # might be inappropriate and should be re-considered.  in the meantime,
 # this will get the sub-solar mass search working.
-prefix_to_name["H1H2"]="LHO_4k"
+prefix_to_name["H1H2"] = "LHO_4k"
 
 
 #
@@ -86,5 +96,5 @@ def light_travel_time(instrument1, instrument2):
 	XLALLightTravelTime() function, which takes two detector objects as
 	input, and returns the time truncated to integer nanoseconds.
 	"""
-	dx = cached_detector[prefix_to_name[instrument1]].location - cached_detector[prefix_to_name[instrument2]].location
-	return math.sqrt((dx * dx).sum()) / LAL_C_SI
+	dx = cached_detector_by_prefix[instrument1].location - cached_detector_by_prefix[instrument2].location
+	return math.sqrt((dx * dx).sum()) / _LAL_C_SI

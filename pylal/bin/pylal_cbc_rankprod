@@ -612,7 +612,7 @@ if not haveTrigs:
 if opts.combined_statistic:
   print >>sys.stdout, "Calculating all possible combined statistic values after cuts..."
   # use different width bins for different combined stats (sum vs sum-sq)
-  binwidths = {2:0.5, 1:0.1}
+  binwidths = {1:0.1, 2:0.5}
   power = powers[opts.combined_statistic]
   # bin the single-ifo statistics up
   snrWidth = 0.02 #has been tested against exact computation
@@ -846,6 +846,8 @@ if opts.combined_statistic and numCoincs:
   plotFANs = plotFAPs*numCoincs
   name = opts.ifo_tag+"_"+opts.combined_statistic+"_"+opts.statistic+"_FAN"
   tag = opts.ifo_tag+"_combined_stat_vs_FAN"
+  print >>sys.stdout, 'Combined stat left bin edges:\n', combinedBins[:-1]
+  print >>sys.stdout, 'Estimated FAN values\n', plotFANs
   plot_one_thing(fig_num, combinedBins[:-1], plotFANs, plotcommand="semilogy", marker="^", size=8, \
     plotcolor="g", plotxlab="Combined "+opts.combined_statistic+" statistic value", plotylab=\
     "Estimated FAN", plottit="", figname=name, figtag=tag)

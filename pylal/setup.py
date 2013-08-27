@@ -278,15 +278,6 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
-			"pylal.xlal.datatypes.laldetector",
-			["src/xlal/datatypes/laldetector.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
-		),
-		Extension(
 			"pylal.xlal.datatypes.lalunit",
 			["src/xlal/datatypes/lalunit.c"],
 			include_dirs = lal_pkg_config.incdirs + ["src/xlal/datatypes"],
@@ -407,15 +398,6 @@ setup(
 			"pylal.xlal.fft",
 			["src/xlal/fft.c", "src/xlal/misc.c"],
 			include_dirs = lal_pkg_config.incdirs + ["src/xlal"],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
-		),
-		Extension(
-			"pylal.xlal.inject",
-			["src/xlal/inject.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs,
@@ -716,6 +698,7 @@ setup(
 		os.path.join("bin","cbcBayesConvergence.py"),
 		os.path.join("bin", "pylal_noise_budget"),
 		os.path.join("bin", "pylal_seismon_run"),
+                os.path.join("bin", "pylal_seismon_traveltimes"),
 		os.path.join("bin", "pylal_summary_page"),
 		os.path.join("bin", "pylal_plot_triggers"),
 		os.path.join("bin", "ligolw_miinjfind"),

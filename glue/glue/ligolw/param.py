@@ -42,8 +42,8 @@ except ImportError:
 
 
 from glue import git_version
-from glue.ligolw import ligolw
-from glue.ligolw import types as ligolwtypes
+from . import ligolw
+from . import types as ligolwtypes
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -287,7 +287,7 @@ class Param(ligolw.Param):
 
 
 #
-# Override portions of ligolw.DefaultLIGOLWContentHandler class
+# Override portions of a ligolw.LIGOLWContentHandler class
 #
 
 
@@ -312,4 +312,5 @@ def use_in(ContentHandler):
 	ContentHandler.startParam = startParam
 
 
+# FIXME:  remove
 use_in(ligolw.DefaultLIGOLWContentHandler)

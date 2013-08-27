@@ -527,7 +527,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
     /* Template is now in dataPtr->timeFreqModelhPlus and hCross */
 
     /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
-    XLALComputeDetAMResponse(&Fplus, &Fcross, dataPtr->detector->response, ra, dec, psi, gmst);
+    XLALComputeDetAMResponse(&Fplus, &Fcross, (const REAL4(*)[3])dataPtr->detector->response, ra, dec, psi, gmst);
 
     /* signal arrival time (relative to geocenter); */
     timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location, ra, dec, &GPSlal);
@@ -797,7 +797,7 @@ REAL8 LALInferenceFreqDomainStudentTLogLikelihood(LALInferenceVariables *current
 
     /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
     XLALComputeDetAMResponse(&Fplus, &Fcross,
-                             dataPtr->detector->response,
+                             (const REAL4(*)[3])dataPtr->detector->response,
 			     ra, dec, psi, gmst);
     /* signal arrival time (relative to geocenter); */
     timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
@@ -1144,7 +1144,7 @@ void LALInferenceComputeFreqDomainResponse(LALInferenceVariables *currentParams,
        dataPtr->freqModelhCross */
 
     /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
-    XLALComputeDetAMResponse(&Fplus, &Fcross, dataPtr->detector->response,
+    XLALComputeDetAMResponse(&Fplus, &Fcross, (const REAL4(*)[3])dataPtr->detector->response,
 			     ra, dec, psi, gmst);
 		 
     /* signal arrival time (relative to geocenter); */
@@ -3143,7 +3143,7 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentP
     
     /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
     XLALComputeDetAMResponse(&Fplus, &Fcross,
-                             dataPtr->detector->response,
+                             (const REAL4(*)[3])dataPtr->detector->response,
                              ra, dec, psi, gmst);
     /* signal arrival time (relative to geocenter); */
     timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,

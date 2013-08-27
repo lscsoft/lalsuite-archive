@@ -282,13 +282,13 @@ not in the <tt>2*Dterms</tt> band are initialized to zero.
  */
 typedef struct tagPulsarSignalParams {
   /* source-parameters */
-  PulsarSourceParams pulsar;	/**< the actual pulsar-source */
-  BinaryOrbitParams *orbit;	/**< and its binary orbit (NULL if isolated pulsar) */
+  PulsarSourceParams pulsar;		/**< the actual pulsar-source */
+  const BinaryOrbitParams *orbit;	/**< and its binary orbit (NULL if isolated pulsar) */
 
   /* characterize the detector */
-  COMPLEX8FrequencySeries *transfer; /**< detector transfer function (NULL if not used) */
-  LALDetector *site;		/**< detector location and orientation */
-  EphemerisData *ephemerides;	/**< Earth and Sun ephemerides */
+  const COMPLEX8FrequencySeries *transfer;/**< detector transfer function (NULL if not used) */
+  const LALDetector *site;		/**< detector location and orientation */
+  const EphemerisData *ephemerides;	/**< Earth and Sun ephemerides */
 
   /* characterize the output time-series */
   LIGOTimeGPS startTimeGPS;     /**< start time of output time series */
@@ -303,9 +303,9 @@ typedef struct tagPulsarSignalParams {
  */
 typedef struct tagSFTParams {
   REAL8 Tsft;			 /**< length of each SFT in seconds */
-  LIGOTimeGPSVector *timestamps; /**< timestamps to produce SFTs for (can be NULL) */
-  SFTVector *noiseSFTs;		 /**< noise SFTs to be added (can be NULL) */
-  REAL4Window *window;		 /**< window function for the time series (can be NULL, which is equivalent to a rectangular window) */
+  const LIGOTimeGPSVector *timestamps; /**< timestamps to produce SFTs for (can be NULL) */
+  const SFTVector *noiseSFTs;	 /**< noise SFTs to be added (can be NULL) */
+  const REAL4Window *window;	 /**< window function for the time series (can be NULL, which is equivalent to a rectangular window) */
 } SFTParams;
 
 /** Parameters defining the pulsar signal and SFTs used by LALFastGeneratePulsarSFTs().  Lookup tables (LUTs) are
@@ -343,9 +343,13 @@ extern const SFTandSignalParams empty_SFTandSignalParams;
 
 /* ---------- Function prototypes ---------- */
 REAL4TimeSeries *XLALGeneratePulsarSignal ( const PulsarSignalParams *params );
+REAL4TimeSeries *XLALGenerateLineFeature ( const PulsarSignalParams *params );
 SFTVector *XLALSignalToSFTs ( const REAL4TimeSeries *signalvec, const SFTParams *params );
 int XLALConvertGPS2SSB ( LIGOTimeGPS *SSBout, LIGOTimeGPS GPSin, const PulsarSignalParams *params );
 int XLALConvertSSB2GPS ( LIGOTimeGPS *GPSout, LIGOTimeGPS GPSin, const PulsarSignalParams *params );
+int XLALAddGaussianNoise ( REAL4TimeSeries *inSeries, REAL4 sigma, INT4 seed );
+
+void XLALDestroyMultiREAL4TimeSeries ( MultiREAL4TimeSeries *multiTS );
 
 // ----- obsolete and deprecated LAL interface
 void LALGeneratePulsarSignal (LALStatus *, REAL4TimeSeries **signalvec, const PulsarSignalParams *params);

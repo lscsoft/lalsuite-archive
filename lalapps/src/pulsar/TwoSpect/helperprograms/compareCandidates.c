@@ -35,10 +35,10 @@ double fdiff(double index, void *params) {
 }
  
 int main(void) {
-   FILE *H1CANDS, *L1CANDS;
-   H1CANDS = fopen("/Users/evgoet/Documents/MATLAB/pulsar/S6/50-330HzH1candidates.dat","r");
+  /* FILE *H1CANDS, *L1CANDS;
+   H1CANDS = fopen("/Users/evgoet/Documents/MATLAB/pulsar/S6/50-350HzH1candidates.dat","r");
    if (H1CANDS == NULL) {
-      fprintf(stderr, "%s: %s does not exist\n", __func__, "/Users/evgoet/Documents/MATLAB/pulsar/S6/50-330HzH1candidates.dat");
+      fprintf(stderr, "%s: %s does not exist\n", __func__, "/Users/evgoet/Documents/MATLAB/pulsar/S6/50-350HzH1candidates.dat");
       exit(1);
    }
 
@@ -49,9 +49,9 @@ int main(void) {
       if (ch == '\n') h1count++;
    } while (ch != EOF);
 
-   L1CANDS = fopen("/Users/evgoet/Documents/MATLAB/pulsar/S6/50-330HzL1candidates.dat","r");
+   L1CANDS = fopen("/Users/evgoet/Documents/MATLAB/pulsar/S6/50-350HzL1candidates.dat","r");
    if (L1CANDS == NULL) {
-      fprintf(stderr, "%s: %s does not exist\n", __func__, "/Users/evgoet/Documents/MATLAB/pulsar/S6/50-330HzL1candidates.dat");
+      fprintf(stderr, "%s: %s does not exist\n", __func__, "/Users/evgoet/Documents/MATLAB/pulsar/S6/50-350HzL1candidates.dat");
       exit(1);
    }
 
@@ -98,7 +98,6 @@ int main(void) {
    sorted_index = (size_t*)malloc(sizeof(size_t)*l1count);
    double *alll1cands_sorted = (double*)malloc(sizeof(double)*l1count*9);
    int *alll1cands_job_sorted = (int*)malloc(sizeof(int)*l1count);
-   int *l1cands_used = (int*)malloc(sizeof(int)*l1count);
    gsl_sort_index(sorted_index, alll1cands, 9, l1count);
    for (ii=0; ii<l1count; ii++) {
       memcpy(&(alll1cands_sorted[ii*9]), &(alll1cands[sorted_index[ii]*9]), sizeof(double)*9);
@@ -108,15 +107,12 @@ int main(void) {
    free(sorted_index);
    free(alll1cands_job);
 
-   //set the l1cands_used array to zeros
-   memset(l1cands_used, 0, sizeof(int)*l1count);
-
    //Close the streams
    fclose(H1CANDS);
    fclose(L1CANDS);
 
    //Open a file to save the output data
-   FILE *CANDS = fopen("/Users/evgoet/Documents/MATLAB/pulsar/S6/50-330HzCandidates.dat","w");
+   FILE *CANDS = fopen("/Users/evgoet/Documents/MATLAB/pulsar/S6/50-350HzCandidates.dat","w");
 
    //Setup and allocate the solver
    int status;
@@ -132,10 +128,11 @@ int main(void) {
    double fdiff_allowed = 1.0/1800.0;
    double dfdiff_allowed = fdiff_allowed;
    double skydiff_allowed = 0.04*200.0;
-   //int firstmatch = 0, secondmatch = 0;
    for (ii=0; ii<h1count; ii++) {
 
+      //Check that the frequency of the H1 candidate we look at is within the frequency span of the L1 candidates
       if ( (allh1cands_sorted[ii*9] - alll1cands_sorted[0]) >= 0.0 && (allh1cands_sorted[ii*9] - alll1cands_sorted[(l1count-1)*9]) <= 0.0) {
+         //Do a root finding search for the closest L1 candidate in frequency to the H1 candidate frequency
          int iter = 0;
          struct solver_params params = {allh1cands_sorted[ii*9], alll1cands_sorted};
          F.params = &params;
@@ -147,31 +144,53 @@ int main(void) {
             status = gsl_root_test_residual(fdiff(foundIndex, &params), 1.05*fdiff_allowed);
          } while (status == GSL_CONTINUE && iter < max_iter);
 
+         //If the search was successful, then we step through the L1 candidates to find matching candidates
          if (status == GSL_SUCCESS && iter < max_iter) {
-            jj = (int)round(foundIndex);
+            jj = (int)round(foundIndex);   //start at the index of the L1 candidate found in the root finding
+
+            int bestmatch = -1;
+            double bestmatchprob = 0.0;
+
+            //Step backwards in L1 candidates until we are definitely below the H1 candidate in frequency (or at the start of the L1 list)
             while (jj>0 && (allh1cands_sorted[ii*9]-alll1cands_sorted[jj*9])<1.05*fdiff_allowed) jj--;
 
-            for (/* jj value */; jj<l1count; jj++) {
+            //Starting from the L1 candidate below the H1 candidate frequency
+            for ( ; jj<l1count; jj++) {
+               //Check that if the frequency of L1 candidate is above the H1 value by greater than the allowed value, break the loop
                if (allh1cands_sorted[ii*9]-alll1cands_sorted[jj*9]<-1.05*fdiff_allowed) break;
 
+               //If the H1 and L1 frequency values are near enough, proceed with checking more parameter values
                if (fabs(allh1cands_sorted[ii*9]-alll1cands_sorted[jj*9])<=fdiff_allowed) {
+                  //Check the modulation depth
                   if (fabs(allh1cands_sorted[ii*9+2]-alll1cands_sorted[jj*9+2])<=dfdiff_allowed) {
+                     //Check the period and harmonic values
                      double Pdiff_allowed = 1.5*allh1cands_sorted[ii*9+1]*allh1cands_sorted[ii*9+1]*sqrt(3.6e-3/allh1cands_sorted[ii*9+2])/(4.5*tobs);
                      double Pdiff_allowed_2 = 1.5*alll1cands_sorted[jj*9+1]*alll1cands_sorted[jj*9+1]*sqrt(3.6e-3/alll1cands_sorted[jj*9+2])/(4.5*tobs);
                      if (fabs(allh1cands_sorted[ii*9+1]-alll1cands_sorted[jj*9+1])<=Pdiff_allowed || fabs(allh1cands_sorted[ii*9+1]-alll1cands_sorted[jj*9+1])<=Pdiff_allowed_2 || fabs(allh1cands_sorted[ii*9+1]-2.0*alll1cands_sorted[jj*9+1])<=Pdiff_allowed || fabs(2.0*allh1cands_sorted[ii*9+1]-alll1cands_sorted[jj*9+1])<=Pdiff_allowed_2 || fabs(allh1cands_sorted[ii*9+1]-3.0*alll1cands_sorted[jj*9+1])<=Pdiff_allowed || fabs(3.0*allh1cands_sorted[ii*9+1]-alll1cands_sorted[jj*9+1])<=Pdiff_allowed_2 || fabs(allh1cands_sorted[ii*9+1]-4.0*alll1cands_sorted[jj*9+1])<=Pdiff_allowed || fabs(4.0*allh1cands_sorted[ii*9+1]-alll1cands_sorted[jj*9+1])<=Pdiff_allowed_2 || fabs(allh1cands_sorted[ii*9+1]-0.5*alll1cands_sorted[jj*9+1])<=Pdiff_allowed || fabs(0.5*allh1cands_sorted[ii*9+1]-alll1cands_sorted[jj*9+1])<=Pdiff_allowed_2 || fabs(allh1cands_sorted[ii*9+1]-alll1cands_sorted[jj*9+1]/3.0)<=Pdiff_allowed || fabs(allh1cands_sorted[ii*9+1]/3.0-alll1cands_sorted[jj*9+1])<=Pdiff_allowed_2 || fabs(allh1cands_sorted[ii*9+1]-0.25*alll1cands_sorted[jj*9+1])<=Pdiff_allowed || fabs(0.25*allh1cands_sorted[ii*9+1]-alll1cands_sorted[jj*9+1])<=Pdiff_allowed_2) {
+                        //Check the sky location
                         double absd1mPo2 = fabs(allh1cands_sorted[ii*9+4]-M_PI_2);
                         double absd2mPo2 = fabs(alll1cands_sorted[jj*9+4]-M_PI_2);
                         double dist = acos(sin(absd1mPo2)*sin(absd2mPo2)*cos(allh1cands_sorted[ii*9+3]-alll1cands_sorted[jj*9+3])+cos(absd1mPo2)*cos(absd2mPo2));
 
                         if (dist<=2.0*skydiff_allowed/(allh1cands_sorted[ii*9]+alll1cands_sorted[jj*9])) {
+                          //if (bestmatchprob>alll1cands_sorted[jj*9+7]) {
+                          //  bestmatchprob = alll1cands_sorted[jj*9+7];
+                          //  bestmatch = jj;
+                          //}
                            fprintf(CANDS, "%f %f %f %f %f %f %g %f %g %d %f %f %f %f %f %f %g %f %g %d\n",  (float)allh1cands_sorted[ii*9], (float)allh1cands_sorted[ii*9+1], (float)allh1cands_sorted[ii*9+2], (float)allh1cands_sorted[ii*9+3], (float)allh1cands_sorted[ii*9+4], (float)allh1cands_sorted[ii*9+5], allh1cands_sorted[ii*9+6], (float)allh1cands_sorted[ii*9+7], allh1cands_sorted[ii*9+8], allh1cands_job_sorted[ii], (float)alll1cands_sorted[jj*9], (float)alll1cands_sorted[jj*9+1], (float)alll1cands_sorted[jj*9+2], (float)alll1cands_sorted[jj*9+3], (float)alll1cands_sorted[jj*9+4], (float)alll1cands_sorted[jj*9+5], alll1cands_sorted[jj*9+6], (float)alll1cands_sorted[jj*9+7], alll1cands_sorted[jj*9+8], alll1cands_job_sorted[jj]);
-                        }
-                     }
-                  }
-               }
-            }
-         }
+                        } //end sky check
+                     } //end period check
+                  } //end modulation depth check
+               } //end frequency check
+            } //end test against L1 values
+//if (bestmatch>=0) {
+//             fprintf(CANDS, "%f %f %f %f %f %f %g %f %g %d %f %f %f %f %f %f %g %f %g %d\n",  (float)allh1cands_sorted[ii*9], (float)allh1cands_sorted[ii*9+1], (float)allh1cands_sorted[ii*9+2], (float)allh1cands_sorted[ii*9+3], (float)allh1cands_sorted[ii*9+4], (float)allh1cands_sorted[ii*9+5], allh1cands_sorted[ii*9+6], (float)allh1cands_sorted[ii*9+7], allh1cands_sorted[ii*9+8], allh1cands_job_sorted[ii], (float)alll1cands_sorted[bestmatch*9], (float)alll1cands_sorted[bestmatch*9+1], (float)alll1cands_sorted[bestmatch*9+2], (float)alll1cands_sorted[bestmatch*9+3], (float)alll1cands_sorted[bestmatch*9+4], (float)alll1cands_sorted[bestmatch*9+5], alll1cands_sorted[bestmatch*9+6], (float)alll1cands_sorted[bestmatch*9+7], alll1cands_sorted[bestmatch*9+8], alll1cands_job_sorted[bestmatch]);
+//         }
+         } //end successful search
       } else if ((alll1cands_sorted[0]-allh1cands_sorted[ii*9])<=fdiff_allowed && (alll1cands_sorted[0]-allh1cands_sorted[ii*9])>=0.0) {
+         int bestmatch = -1;
+         double bestmatchprob = 0.0;
+
          for (jj=0; jj<l1count; jj++) {
             if (allh1cands_sorted[ii*9]-alll1cands_sorted[jj*9]<-1.05*fdiff_allowed) break;
 
@@ -185,17 +204,27 @@ int main(void) {
                      double dist = acos(sin(absd1mPo2)*sin(absd2mPo2)*cos(allh1cands_sorted[ii*9+3]-alll1cands_sorted[jj*9+3])+cos(absd1mPo2)*cos(absd2mPo2));
 
                      if (dist<=2.0*skydiff_allowed/(allh1cands_sorted[ii*9]+alll1cands_sorted[jj*9])) {
+                       //if (bestmatchprob>alll1cands_sorted[jj*9+7]) {
+                       //  bestmatchprob = alll1cands_sorted[jj*9+7];
+                       //  bestmatch = jj;
+                       //  }
                         fprintf(CANDS, "%f %f %f %f %f %f %g %f %g %d %f %f %f %f %f %f %g %f %g %d\n",  (float)allh1cands_sorted[ii*9], (float)allh1cands_sorted[ii*9+1], (float)allh1cands_sorted[ii*9+2], (float)allh1cands_sorted[ii*9+3], (float)allh1cands_sorted[ii*9+4], (float)allh1cands_sorted[ii*9+5], allh1cands_sorted[ii*9+6], (float)allh1cands_sorted[ii*9+7], allh1cands_sorted[ii*9+8], allh1cands_job_sorted[ii], (float)alll1cands_sorted[jj*9], (float)alll1cands_sorted[jj*9+1], (float)alll1cands_sorted[jj*9+2], (float)alll1cands_sorted[jj*9+3], (float)alll1cands_sorted[jj*9+4], (float)alll1cands_sorted[jj*9+5], alll1cands_sorted[jj*9+6], (float)alll1cands_sorted[jj*9+7], alll1cands_sorted[jj*9+8], alll1cands_job_sorted[jj]);
-                     }
-                  }
-               }
-            }
-         }
+                     } //end sky check
+                  } //end period check
+               } //end modulation depth check
+            } //end frequency check
+         } //end test against L1 values
+         //if (bestmatch>=0) {
+         //fprintf(CANDS, "%f %f %f %f %f %f %g %f %g %d %f %f %f %f %f %f %g %f %g %d\n",  (float)allh1cands_sorted[ii*9], (float)allh1cands_sorted[ii*9+1], (float)allh1cands_sorted[ii*9+2], (float)allh1cands_sorted[ii*9+3], (float)allh1cands_sorted[ii*9+4], (float)allh1cands_sorted[ii*9+5], allh1cands_sorted[ii*9+6], (float)allh1cands_sorted[ii*9+7], allh1cands_sorted[ii*9+8], allh1cands_job_sorted[ii], (float)alll1cands_sorted[bestmatch*9], (float)alll1cands_sorted[bestmatch*9+1], (float)alll1cands_sorted[bestmatch*9+2], (float)alll1cands_sorted[bestmatch*9+3], (float)alll1cands_sorted[bestmatch*9+4], (float)alll1cands_sorted[bestmatch*9+5], alll1cands_sorted[bestmatch*9+6], (float)alll1cands_sorted[bestmatch*9+7], alll1cands_sorted[bestmatch*9+8], alll1cands_job_sorted[bestmatch]);
+         //}
       } else if ((allh1cands_sorted[ii*9]-alll1cands_sorted[(l1count-1)*9])<=fdiff_allowed && (allh1cands_sorted[ii*9]-alll1cands_sorted[(l1count-1)*9])>=0.0) {
+         int bestmatch = -1;
+         double bestmatchprob = 0.0;
+
          jj = l1count-1;
          while (l1count>0 && (allh1cands_sorted[ii*9]-alll1cands_sorted[jj*9])<1.05*fdiff_allowed) jj--;
 
-         for (/* jj value */; jj<l1count; jj++) {
+         for ( ; jj<l1count; jj++) {
             if (allh1cands_sorted[ii*9]-alll1cands_sorted[jj*9]<-1.05*fdiff_allowed) break;
 
             if (fabs(allh1cands_sorted[ii*9]-alll1cands_sorted[jj*9])<=fdiff_allowed) {
@@ -208,22 +237,267 @@ int main(void) {
                      double dist = acos(sin(absd1mPo2)*sin(absd2mPo2)*cos(allh1cands_sorted[ii*9+3]-alll1cands_sorted[jj*9+3])+cos(absd1mPo2)*cos(absd2mPo2));
 
                      if (dist<=2.0*skydiff_allowed/(allh1cands_sorted[ii*9]+alll1cands_sorted[jj*9])) {
+                       //if (bestmatchprob>alll1cands_sorted[jj*9+7]) {
+                       //bestmatchprob = alll1cands_sorted[jj*9+7];
+                       //bestmatch = jj;
+                       //}
                         fprintf(CANDS, "%f %f %f %f %f %f %g %f %g %d %f %f %f %f %f %f %g %f %g %d\n",  (float)allh1cands_sorted[ii*9], (float)allh1cands_sorted[ii*9+1], (float)allh1cands_sorted[ii*9+2], (float)allh1cands_sorted[ii*9+3], (float)allh1cands_sorted[ii*9+4], (float)allh1cands_sorted[ii*9+5], allh1cands_sorted[ii*9+6], (float)allh1cands_sorted[ii*9+7], allh1cands_sorted[ii*9+8], allh1cands_job_sorted[ii], (float)alll1cands_sorted[jj*9], (float)alll1cands_sorted[jj*9+1], (float)alll1cands_sorted[jj*9+2], (float)alll1cands_sorted[jj*9+3], (float)alll1cands_sorted[jj*9+4], (float)alll1cands_sorted[jj*9+5], alll1cands_sorted[jj*9+6], (float)alll1cands_sorted[jj*9+7], alll1cands_sorted[jj*9+8], alll1cands_job_sorted[jj]);
-                     }
+                     } //end sky check
+                  } //end period check
+               } //end modulation depth check
+            } //end frequency check
+         } //end check against L1 values
+         //if (bestmatch>=0) {
+         //fprintf(CANDS, "%f %f %f %f %f %f %g %f %g %d %f %f %f %f %f %f %g %f %g %d\n",  (float)allh1cands_sorted[ii*9], (float)allh1cands_sorted[ii*9+1], (float)allh1cands_sorted[ii*9+2], (float)allh1cands_sorted[ii*9+3], (float)allh1cands_sorted[ii*9+4], (float)allh1cands_sorted[ii*9+5], allh1cands_sorted[ii*9+6], (float)allh1cands_sorted[ii*9+7], allh1cands_sorted[ii*9+8], allh1cands_job_sorted[ii], (float)alll1cands_sorted[bestmatch*9], (float)alll1cands_sorted[bestmatch*9+1], (float)alll1cands_sorted[bestmatch*9+2], (float)alll1cands_sorted[bestmatch*9+3], (float)alll1cands_sorted[bestmatch*9+4], (float)alll1cands_sorted[bestmatch*9+5], alll1cands_sorted[bestmatch*9+6], (float)alll1cands_sorted[bestmatch*9+7], alll1cands_sorted[bestmatch*9+8], alll1cands_job_sorted[bestmatch]);
+         //}
+      } //end if H1 candidate is barely outside L1 frequency range
+   } //end loop over H1 values
+
+   //Close combined list file
+   fclose(CANDS);
+   CANDS = NULL;
+
+   gsl_root_fsolver_free(s);
+   free(allh1cands_sorted);
+   free(alll1cands_sorted);
+   free(allh1cands_job_sorted);
+   free(alll1cands_job_sorted); */
+
+
+   /// PART TWO: ///
+
+   //open list for reading
+   FILE *CANDS = fopen("/Users/evgoet/Documents/MATLAB/pulsar/S6/50-350HzCandidates.dat","r");
+   if (CANDS == NULL) {
+      fprintf(stderr, "%s: %s does not exist\n", __func__, "/Users/evgoet/Documents/MATLAB/pulsar/S6/50-350HzCandidates.dat");
+      exit(1);
+   }
+
+   //Determines number of candidates in the file
+   int count = 0, ch, ii, jj;
+   do {
+      ch = fgetc(CANDS);
+      if (ch == '\n') count++;
+   } while (ch != EOF);
+
+   double *allcands = (double*)malloc(sizeof(double)*count*18);
+   int *allcands_job = (int*)malloc(sizeof(int)*count*2);
+
+   //Reset the pointer in the stream
+   rewind(CANDS);
+
+   //Put the data into the array
+   for (ii=0; ii<count; ii++) {
+      fscanf(CANDS, "%la %la %la %la %la %la %la %la %la %d %la %la %la %la %la %la %la %la %la %d", &(allcands[ii*18]), &(allcands[ii*18+1]), &(allcands[ii*18+2]), &(allcands[ii*18+3]), &(allcands[ii*18+4]), &(allcands[ii*18+5]), &(allcands[ii*18+6]), &(allcands[ii*18+7]), &(allcands[ii*18+8]), &(allcands_job[2*ii]), &(allcands[ii*18+9]), &(allcands[ii*18+10]), &(allcands[ii*18+11]), &(allcands[ii*18+12]), &(allcands[ii*18+13]), &(allcands[ii*18+14]), &(allcands[ii*18+15]), &(allcands[ii*18+16]), &(allcands[ii*18+17]), &(allcands_job[ii*2+1]));
+   }
+
+   //Close the stream
+   fclose(CANDS);
+
+   //Open a file to save the output data
+   FILE *NEWCANDS = fopen("/Users/evgoet/Documents/MATLAB/pulsar/S6/50-350HzCandidates_reduced.dat","w");
+
+   for (ii=0; ii<count; ii++) {
+      if (allcands[ii*18]!=0.0) {
+         int bestcand = ii;
+         double bestcandprob = allcands[ii*18+16];
+         if (ii==0) {
+            for (jj=ii+1; jj<count; jj++) {
+               if (allcands[jj*18]!=0.0 && allcands[jj*18] == allcands[ii*18] && allcands[jj*18+1] == allcands[ii*18+1] && allcands[jj*18+2] == allcands[ii*18+2]) {
+                  if (allcands[jj*18+16]<bestcandprob) {
+                     bestcandprob = allcands[jj*18+16];
+                     allcands[bestcand*18] = 0.0;
+                     bestcand = jj;
+                  } else {
+                     allcands[jj*18] = 0.0;
+                  }
+               }
+            }
+         } else if (ii<count-1) {
+            for (jj=0; jj<ii; jj++) {
+               if (allcands[jj*18]!=0.0 && allcands[jj*18] == allcands[ii*18] && allcands[jj*18+1] == allcands[ii*18+1] && allcands[jj*18+2] == allcands[ii*18+2]) {
+                  if (allcands[jj*18+16]<bestcandprob) {
+                     bestcandprob = allcands[jj*18+16];
+                     allcands[bestcand*18] = 0.0;
+                     bestcand = jj;
+                  } else {
+                     allcands[jj*18] = 0.0;
+                  }
+               }
+            }
+            for (jj=ii+1; jj<count; jj++) {
+               if (allcands[jj*18]!=0.0 && allcands[jj*18] == allcands[ii*18] && allcands[jj*18+1] == allcands[ii*18+1] && allcands[jj*18+2] == allcands[ii*18+2]) {
+                  if (allcands[jj*18+16]<bestcandprob) {
+                     bestcandprob = allcands[jj*18+16];
+                     allcands[bestcand*18] = 0.0;
+                     bestcand = jj;
+                  } else {
+                     allcands[jj*18] = 0.0;
+                  }
+               }
+            }
+         } else if (ii==count-1) {
+            for (jj=0; jj<count-1; jj++) {
+               if (allcands[jj*18]!=0.0 && allcands[jj*18] == allcands[ii*18] && allcands[jj*18+1] == allcands[ii*18+1] && allcands[jj*18+2] == allcands[ii*18+2]) {
+                  if (allcands[jj*18+16]<bestcandprob) {
+                     bestcandprob = allcands[jj*18+16];
+                     allcands[bestcand*18] = 0.0;
+                     bestcand = jj;
+                  } else {
+                     allcands[jj*18] = 0.0;
                   }
                }
             }
          }
+         fprintf(NEWCANDS, "%f %f %f %f %f %f %g %f %g %d %f %f %f %f %f %f %g %f %g %d\n",  (float)allcands[bestcand*18], (float)allcands[bestcand*18+1], (float)allcands[bestcand*18+2], (float)allcands[bestcand*18+3], (float)allcands[bestcand*18+4], (float)allcands[bestcand*18+5], allcands[bestcand*18+6], (float)allcands[bestcand*18+7], allcands[bestcand*18+8], allcands_job[bestcand*2], (float)allcands[bestcand*18+9], (float)allcands[bestcand*18+10], (float)allcands[bestcand*18+11], (float)allcands[bestcand*18+12], (float)allcands[bestcand*18+13], (float)allcands[bestcand*18+14], allcands[bestcand*18+15], (float)allcands[bestcand*18+16], allcands[bestcand*18+17], allcands_job[bestcand*2+1]);
+         allcands[bestcand*18] = 0.0;
       }
    }
 
+   /* for (ii=0; ii<count-1; ii++) {
+      if (allcands[ii*18] != 0.0) {
+         int bestcand = ii;
+         double bestcandprob = allcands[ii*18+16];
+         for (jj=ii+1; jj<count; jj++) {
+            if (allcands[jj*18] == allcands[ii*18] && allcands[jj*18+1] == allcands[ii*18+1] && allcands[jj*18+2] == allcands[ii*18+2]) {
+               if (allcands[jj*18+16]<bestcandprob) {
+                  bestcandprob = allcands[jj*18+16];
+                  bestcand = jj;
+               } else {
+                  allcands[jj*18] = 0.0;
+               }
+            }
+         }
+         fprintf(NEWCANDS, "%f %f %f %f %f %f %g %f %g %d %f %f %f %f %f %f %g %f %g %d\n",  (float)allcands[bestcand*18], (float)allcands[bestcand*18+1], (float)allcands[bestcand*18+2], (float)allcands[bestcand*18+3], (float)allcands[bestcand*18+4], (float)allcands[bestcand*18+5], allcands[bestcand*18+6], (float)allcands[bestcand*18+7], allcands[bestcand*18+8], allcands_job[bestcand*2], (float)allcands[bestcand*18+9], (float)allcands[bestcand*18+10], (float)allcands[bestcand*18+11], (float)allcands[bestcand*18+12], (float)allcands[bestcand*18+13], (float)allcands[bestcand*18+14], allcands[bestcand*18+15], (float)allcands[bestcand*18+16], allcands[bestcand*18+17], allcands_job[bestcand*2+1]);
+         allcands[bestcand*18] = 0.0;
+      }
+   }
+   if (allcands[(count-1)*18] != 0.0) {
+      fprintf(NEWCANDS, "%f %f %f %f %f %f %g %f %g %d %f %f %f %f %f %f %g %f %g %d\n",  (float)allcands[(count-1)*18], (float)allcands[(count-1)*18+1], (float)allcands[(count-1)*18+2], (float)allcands[(count-1)*18+3], (float)allcands[(count-1)*18+4], (float)allcands[(count-1)*18+5], allcands[(count-1)*18+6], (float)allcands[(count-1)*18+7], allcands[(count-1)*18+8], allcands_job[(count-1)*2], (float)allcands[(count-1)*18+9], (float)allcands[(count-1)*18+10], (float)allcands[(count-1)*18+11], (float)allcands[(count-1)*18+12], (float)allcands[(count-1)*18+13], (float)allcands[(count-1)*18+14], allcands[(count-1)*18+15], (float)allcands[(count-1)*18+16], allcands[(count-1)*18+17], allcands_job[(count-1)*2+1]);
+      } */
+
+   fclose(NEWCANDS);
+   NEWCANDS = NULL;
+
+   free(allcands);
+   free(allcands_job);
+
+   /// PART THREE: ///
+
+   //open list for reading
+   CANDS = fopen("/Users/evgoet/Documents/MATLAB/pulsar/S6/50-350HzCandidates2_reduced.dat","r");
+   if (CANDS == NULL) {
+      fprintf(stderr, "%s: %s does not exist\n", __func__, "/Users/evgoet/Documents/MATLAB/pulsar/S6/50-350HzCandidates_reduced.dat");
+      exit(1);
+   }
+
+   //Determines number of candidates in the file
+   count = 0;
+   do {
+      ch = fgetc(CANDS);
+      if (ch == '\n') count++;
+   } while (ch != EOF);
+
+   allcands = (double*)malloc(sizeof(double)*count*18);
+   allcands_job = (int*)malloc(sizeof(int)*count*2);
+
+   //Reset the pointer in the stream
+   rewind(CANDS);
+
+   //Put the data into the array
+   for (ii=0; ii<count; ii++) {
+      fscanf(CANDS, "%la %la %la %la %la %la %la %la %la %d %la %la %la %la %la %la %la %la %la %d", &(allcands[ii*18]), &(allcands[ii*18+1]), &(allcands[ii*18+2]), &(allcands[ii*18+3]), &(allcands[ii*18+4]), &(allcands[ii*18+5]), &(allcands[ii*18+6]), &(allcands[ii*18+7]), &(allcands[ii*18+8]), &(allcands_job[2*ii]), &(allcands[ii*18+9]), &(allcands[ii*18+10]), &(allcands[ii*18+11]), &(allcands[ii*18+12]), &(allcands[ii*18+13]), &(allcands[ii*18+14]), &(allcands[ii*18+15]), &(allcands[ii*18+16]), &(allcands[ii*18+17]), &(allcands_job[ii*2+1]));
+   }
+
+   //Close the stream
    fclose(CANDS);
-   gsl_root_fsolver_free(s);
-   free(allh1cands_sorted);
-   free(alll1cands_sorted);
-   free(l1cands_used);
-   free(allh1cands_job_sorted);
-   free(alll1cands_job_sorted);
+
+   //Open a file to save the output data
+   NEWCANDS = fopen("/Users/evgoet/Documents/MATLAB/pulsar/S6/50-350HzCandidates2_reduced2.dat","w");
+
+   for (ii=0; ii<count; ii++) {
+      if (allcands[ii*18]!=0.0) {
+         int bestcand = ii;
+         double bestcandprob = allcands[ii*18+7];
+         if (ii==0) {
+            for (jj=ii+1; jj<count; jj++) {
+               if (allcands[jj*18]!=0.0 && allcands[jj*18+9] == allcands[ii*18+9] && allcands[jj*18+10] == allcands[ii*18+10] && allcands[jj*18+11] == allcands[ii*18+11]) {
+                  if (allcands[jj*18+7]<bestcandprob) {
+                     bestcandprob = allcands[jj*18+7];
+                     allcands[bestcand*18] = 0.0;
+                     bestcand = jj;
+                  } else {
+                     allcands[jj*18] = 0.0;
+                  }
+               }
+            }
+         } else if (ii<count-1) {
+            for (jj=0; jj<ii; jj++) {
+               if (allcands[jj*18]!=0.0 && allcands[jj*18+9] == allcands[ii*18+9] && allcands[jj*18+10] == allcands[ii*18+10] && allcands[jj*18+11] == allcands[ii*18+11]) {
+                  if (allcands[jj*18+7]<bestcandprob) {
+                     bestcandprob = allcands[jj*18+7];
+                     allcands[bestcand*18] = 0.0;
+                     bestcand = jj;
+                  } else {
+                     allcands[jj*18] = 0.0;
+                  }
+               }
+            }
+            for (jj=ii+1; jj<count; jj++) {
+               if (allcands[jj*18]!=0.0 && allcands[jj*18+9] == allcands[ii*18+9] && allcands[jj*18+10] == allcands[ii*18+10] && allcands[jj*18+11] == allcands[ii*18+11]) {
+                  if (allcands[jj*18+7]<bestcandprob) {
+                     bestcandprob = allcands[jj*18+7];
+                     allcands[bestcand*18] = 0.0;
+                     bestcand = jj;
+                  } else {
+                     allcands[jj*18] = 0.0;
+                  }
+               }
+            }
+         } else if (ii==count-1) {
+            for (jj=0; jj<count-1; jj++) {
+               if (allcands[jj*18]!=0.0 && allcands[jj*18+9] == allcands[ii*18+9] && allcands[jj*18+10] == allcands[ii*18+10] && allcands[jj*18+11] == allcands[ii*18+11]) {
+                  if (allcands[jj*18+7]<bestcandprob) {
+                     bestcandprob = allcands[jj*18+7];
+                     allcands[bestcand*18] = 0.0;
+                     bestcand = jj;
+                  } else {
+                     allcands[jj*18] = 0.0;
+                  }
+               }
+            }
+         }
+         fprintf(NEWCANDS, "%f %f %f %f %f %f %g %f %g %d %f %f %f %f %f %f %g %f %g %d\n",  (float)allcands[bestcand*18], (float)allcands[bestcand*18+1], (float)allcands[bestcand*18+2], (float)allcands[bestcand*18+3], (float)allcands[bestcand*18+4], (float)allcands[bestcand*18+5], allcands[bestcand*18+6], (float)allcands[bestcand*18+7], allcands[bestcand*18+8], allcands_job[bestcand*2], (float)allcands[bestcand*18+9], (float)allcands[bestcand*18+10], (float)allcands[bestcand*18+11], (float)allcands[bestcand*18+12], (float)allcands[bestcand*18+13], (float)allcands[bestcand*18+14], allcands[bestcand*18+15], (float)allcands[bestcand*18+16], allcands[bestcand*18+17], allcands_job[bestcand*2+1]);
+         allcands[bestcand*18] = 0.0;
+      }
+   }
+
+   /* for (ii=0; ii<count-1; ii++) {
+      if (allcands[ii*18] != 0.0) {
+         int bestcand = ii;
+         double bestcandprob = allcands[ii*18+7];
+         for (jj=ii+1; jj<count; jj++) {
+            if (allcands[jj*18+9] == allcands[ii*18+9] && allcands[jj*18+10] == allcands[ii*18+10] && allcands[jj*18+11] == allcands[ii*18+11]) {
+               if (allcands[jj*18+7]<bestcandprob) {
+                  bestcandprob = allcands[jj*18+7];
+                  bestcand = jj;
+               } else {
+                  allcands[jj*18] = 0.0;
+               }
+            }
+         }
+         fprintf(NEWCANDS, "%f %f %f %f %f %f %g %f %g %d %f %f %f %f %f %f %g %f %g %d\n",  (float)allcands[bestcand*18], (float)allcands[bestcand*18+1], (float)allcands[bestcand*18+2], (float)allcands[bestcand*18+3], (float)allcands[bestcand*18+4], (float)allcands[bestcand*18+5], allcands[bestcand*18+6], (float)allcands[bestcand*18+7], allcands[bestcand*18+8], allcands_job[bestcand*2], (float)allcands[bestcand*18+9], (float)allcands[bestcand*18+10], (float)allcands[bestcand*18+11], (float)allcands[bestcand*18+12], (float)allcands[bestcand*18+13], (float)allcands[bestcand*18+14], allcands[bestcand*18+15], (float)allcands[bestcand*18+16], allcands[bestcand*18+17], allcands_job[bestcand*2+1]);
+         allcands[bestcand*18] = 0.0;
+      }
+   }
+   if (allcands[(count-1)*18] != 0.0) {
+      fprintf(NEWCANDS, "%f %f %f %f %f %f %g %f %g %d %f %f %f %f %f %f %g %f %g %d\n",  (float)allcands[(count-1)*18], (float)allcands[(count-1)*18+1], (float)allcands[(count-1)*18+2], (float)allcands[(count-1)*18+3], (float)allcands[(count-1)*18+4], (float)allcands[(count-1)*18+5], allcands[(count-1)*18+6], (float)allcands[(count-1)*18+7], allcands[(count-1)*18+8], allcands_job[(count-1)*2], (float)allcands[(count-1)*18+9], (float)allcands[(count-1)*18+10], (float)allcands[(count-1)*18+11], (float)allcands[(count-1)*18+12], (float)allcands[(count-1)*18+13], (float)allcands[(count-1)*18+14], allcands[(count-1)*18+15], (float)allcands[(count-1)*18+16], allcands[(count-1)*18+17], allcands_job[(count-1)*2+1]);
+      } */
+
+   fclose(NEWCANDS);
+
+   free(allcands);
+   free(allcands_job);
 
    return 0;
 }

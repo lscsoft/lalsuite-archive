@@ -170,7 +170,7 @@ class CWB2Coinc(object):
     multi_burst_table = lsctables.New(lsctables.MultiBurstTable,
 	  ["process_id", "peak_time", "peak_time_ns", "coinc_event_id", "snr", "ifos",
     # NOTE: Added to the table definition
-    "false_alarm_rate"])
+    "false_alarm_rate", "ligo_axis_ra", "ligo_axis_dec"])
     xmldoc.childNodes[0].appendChild(multi_burst_table)
   
     coinc_event_map_table = lsctables.New(lsctables.CoincMapTable)
@@ -261,6 +261,9 @@ class CWB2Coinc(object):
         multi_burst.snr = sim_tree.rho
       # NOTE: To be filled in later by farburst
       multi_burst.false_alarm_rate = -1.0 
+      # Reconstructed right ascension and declination
+      multi_burst.ligo_axis_ra = sim_tree.phi[2]
+      multi_burst.ligo_axis_dec = sim_tree.theta[2]
       multi_burst.ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
   
       multi_burst_table.append(multi_burst)

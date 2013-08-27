@@ -48,9 +48,16 @@ typedef struct{
   BOOLEAN inclAutoCorr;       /**< include auto-correlation terms (an SFT with itself) */
   REAL8   fStart;             /**< start frequency in Hz */
   REAL8   fBand;              /**< frequency band to search over in Hz */
-  REAL8   fdotStart;          /**< starting value for first spindown in Hz/s*/
-  REAL8   fdotBand;           /**< range of first spindown to search over in Hz/s */
+  /* REAL8   fdotStart;          /\**< starting value for first spindown in Hz/s*\/ */
+  /* REAL8   fdotBand;           /\**< range of first spindown to search over in Hz/s *\/ */
+  REAL8   alphaRad;           /**< right ascension in radians */
+  REAL8   deltaRad;           /**< declination in radians */
   REAL8   refTime;            /**< reference time for pulsar phase definition */
+  REAL8   orbitAsiniSec;      /**< start projected semimajor axis in seconds */
+  REAL8   orbitAsiniSecBand;  /**< band for projected semimajor axis in seconds */
+  REAL8   orbitPSec;          /**< binary orbital period in seconds */
+  REAL8   orbitTimeAsc;       /**< start time of ascension for binary orbit */ 
+  REAL8   orbitTimeAscBand;   /**< band for time of ascension for binary orbit */ 
   CHAR    *sftLocation;       /**< location of SFT data */
   CHAR    *ephemYear;         /**< range of years for ephemeris file */
   INT4    rngMedBlock;        /**< running median block size */
@@ -84,23 +91,32 @@ int main(int argc, char *argv[]){
 
   /* sft related variables */ 
   MultiSFTVector *inputSFTs = NULL;
-  MultiPSDVector *psd = NULL;
-  SFTIndexList *sftIndices;
-  SFTPairIndexList *sftPairs;
+  MultiPSDVector *multiPSDs = NULL;
+  MultiNoiseWeights *multiWeights = NULL;
+  MultiLIGOTimeGPSVector *multiTimes = NULL;
+  MultiLALDetector *multiDetectors = NULL;
+  MultiDetectorStateSeries *multiStates = NULL;
+  MultiAMCoeffs *multiCoeffs = NULL;
+  SFTIndexList *sftIndices = NULL;
+  SFTPairIndexList *sftPairs = NULL;
+
+  SkyPosition skyPos = empty_SkyPosition;
 
   REAL8 fMin, fMax; /* min and max frequencies read from SFTs */
-  REAL8 deltaF; /* Tsft; frequency resolution and time baseline of SFTs */
+  REAL8 deltaF; /* frequency resolution associated with time baseline of SFTs */
+
+  REAL8Vector *curlyGUnshifted = NULL;
 
   /* initialize and register user variables */
   if ( XLALInitUserVars( &uvar ) != XLAL_SUCCESS ) {
     LogPrintf ( LOG_CRITICAL, "%s: XLALInitUserVars() failed with errno=%d\n", __func__, xlalErrno );
-    return 1;
+    XLAL_ERROR( XLAL_EFUNC );
   }
 
   /* read user input from the command line or config file */
   if ( XLALUserVarReadAllInput ( argc, argv ) != XLAL_SUCCESS ) {
     LogPrintf ( LOG_CRITICAL, "%s: XLALUserVarReadAllInput() failed with errno=%d\n", __func__, xlalErrno );
-    return 1;
+    XLAL_ERROR( XLAL_EFUNC );
   }
 
   if (uvar.help)	/* if help was requested, then exit */
@@ -109,11 +125,10 @@ int main(int argc, char *argv[]){
   /* configure useful variables based on user input */
   if ( XLALInitializeConfigVars ( &config, &uvar) != XLAL_SUCCESS ) {
     LogPrintf ( LOG_CRITICAL, "%s: XLALInitUserVars() failed with errno=%d\n", __func__, xlalErrno );
-    return 1;
+    XLAL_ERROR( XLAL_EFUNC );
   }
 
   deltaF = config.catalog->data[0].header.deltaF;
-  /*Tsft = 1. / deltaF;*/
 
   /* now read the data */
   /* FIXME: need to correct fMin and fMax for Doppler shift, rngmedian bins and spindown range */
@@ -125,13 +140,49 @@ int main(int argc, char *argv[]){
   /* read the SFTs*/
   if ((inputSFTs = XLALLoadMultiSFTs ( config.catalog, fMin, fMax)) == NULL){ 
     LogPrintf ( LOG_CRITICAL, "%s: XLALLoadMultiSFTs() failed with errno=%d\n", __func__, xlalErrno );
-    return 1;
+    XLAL_ERROR( XLAL_EFUNC );
   }
 
   /* calculate the psd and normalize the SFTs */
-  if (( psd =  XLALNormalizeMultiSFTVect ( inputSFTs, uvar.rngMedBlock )) == NULL){
+  if (( multiPSDs =  XLALNormalizeMultiSFTVect ( inputSFTs, uvar.rngMedBlock )) == NULL){
     LogPrintf ( LOG_CRITICAL, "%s: XLALNormalizeMultiSFTVect() failed with errno=%d\n", __func__, xlalErrno );
-    return 1;
+    XLAL_ERROR( XLAL_EFUNC );
+  }
+
+  /* compute the noise weights for the AM coefficients */
+  if (( multiWeights = XLALComputeMultiNoiseWeights ( multiPSDs, uvar.rngMedBlock, 0 )) == NULL){
+    LogPrintf ( LOG_CRITICAL, "%s: XLALComputeMultiNoiseWeights() failed with errno=%d\n", __func__, xlalErrno );
+    XLAL_ERROR( XLAL_EFUNC );
+  }
+
+  /* read the timestamps from the SFTs */
+  if ((multiTimes = XLALExtractMultiTimestampsFromSFTs ( inputSFTs )) == NULL){ 
+    LogPrintf ( LOG_CRITICAL, "%s: XLALExtractMultiTimestampsFromSFTs() failed with errno=%d\n", __func__, xlalErrno );
+    XLAL_ERROR( XLAL_EFUNC );
+  }
+
+  /* read the detector information from the SFTs */
+  if ((multiDetectors = XLALExtractMultiLALDetectorFromSFTs ( inputSFTs )) == NULL){ 
+    LogPrintf ( LOG_CRITICAL, "%s: XLALExtractMultiLALDetectorFromSFTs() failed with errno=%d\n", __func__, xlalErrno );
+    XLAL_ERROR( XLAL_EFUNC );
+  }
+
+  /* Find the detector state for each SFT */
+  if ((multiStates = XLALGetMultiDetectorStates ( multiTimes, multiDetectors, config.edat, 0.0 )) == NULL){ 
+    LogPrintf ( LOG_CRITICAL, "%s: XLALGetMultiDetectorStates() failed with errno=%d\n", __func__, xlalErrno );
+    XLAL_ERROR( XLAL_EFUNC );
+  }
+
+  /* Note this is specialized to a single sky position */
+  /* This might need to be moved into the config variables */
+  skyPos.system = COORDINATESYSTEM_EQUATORIAL;
+  skyPos.longitude = uvar.alphaRad;
+  skyPos.latitude  = uvar.deltaRad;
+
+  /* Calculate the AM coefficients (a,b) for each SFT */
+  if ((multiCoeffs = XLALComputeMultiAMCoeffs ( multiStates, multiWeights, skyPos )) == NULL){ 
+    LogPrintf ( LOG_CRITICAL, "%s: XLALGetMultiDetectorStates() failed with errno=%d\n", __func__, xlalErrno );
+    XLAL_ERROR( XLAL_EFUNC );
   }
 
   /* Construct the flat list of SFTs (this sort of replicates the
@@ -139,31 +190,22 @@ int main(int argc, char *argv[]){
      back) */
 
   if ( ( XLALCreateSFTIndexListFromMultiSFTVect( &sftIndices, inputSFTs ) != XLAL_SUCCESS ) ) {
-    XLALDestroyMultiSFTVector ( inputSFTs ); 
-    XLALDestroyMultiPSDVector ( psd );    
-    XLALDestroySFTCatalog (config.catalog );
-    XLALFree( config.edat->ephemE );
-    XLALFree( config.edat->ephemS );
-    XLALFree( config.edat );
-    /* de-allocate memory for user input variables */
-
-    XLALDestroyUserVars();
+    LogPrintf ( LOG_CRITICAL, "%s: XLALCreateSFTIndexListFromMultiSFTVect() failed with errno=%d\n", __func__, xlalErrno );
     XLAL_ERROR( XLAL_EFUNC );
   }
 
   /* Construct the list of SFT pairs */
 
   if ( ( XLALCreateSFTPairIndexList( &sftPairs, sftIndices, inputSFTs, uvar.maxLag, uvar.inclAutoCorr ) != XLAL_SUCCESS ) ) {
-    /* XLALDestroySFTIndexList(sftIndices) */
-    XLALDestroyMultiSFTVector ( inputSFTs ); 
-    XLALDestroyMultiPSDVector ( psd );    
-    XLALDestroySFTCatalog (config.catalog );
-    XLALFree( config.edat->ephemE );
-    XLALFree( config.edat->ephemS );
-    XLALFree( config.edat );
-    /* de-allocate memory for user input variables */
+    LogPrintf ( LOG_CRITICAL, "%s: XLALCreateSFTPairIndexList() failed with errno=%d\n", __func__, xlalErrno );
+    XLAL_ERROR( XLAL_EFUNC );
+  }
 
-    XLALDestroyUserVars();
+  /* Get weighting factors for calculation of metric */
+  /* note that the sigma-squared is now absorbed into the curly G
+     because the AM coefficients are noise-weighted. */
+  if ( ( XLALCalculateAveCurlyGAmpUnshifted( &curlyGUnshifted, sftPairs, sftIndices, multiCoeffs)  != XLAL_SUCCESS ) ) {
+    LogPrintf ( LOG_CRITICAL, "%s: XLALCalculateAveCurlyGUnshifted() failed with errno=%d\n", __func__, xlalErrno );
     XLAL_ERROR( XLAL_EFUNC );
   }
 
@@ -230,7 +272,7 @@ int main(int argc, char *argv[]){
   /* XLALDestroySFTPairIndexList(sftPairs) */
   /* XLALDestroySFTIndexList(sftIndices) */
   XLALDestroyMultiSFTVector ( inputSFTs ); 
-  XLALDestroyMultiPSDVector ( psd );
+  XLALDestroyMultiPSDVector ( multiPSDs );
 
   XLALDestroySFTCatalog (config.catalog );
   XLALFree( config.edat->ephemE );
@@ -260,12 +302,21 @@ int XLALInitUserVars (UserInput_t *uvar)
   uvar->inclAutoCorr = FALSE;
   uvar->fStart = 100.0; 
   uvar->fBand = 0.1;
-  uvar->fdotStart = 0.0;
-  uvar->fdotBand = 0.0;
+  /* uvar->fdotStart = 0.0; */
+  /* uvar->fdotBand = 0.0; */
+  uvar->alphaRad = 0.0;
+  uvar->deltaRad = 0.0;
   uvar->rngMedBlock = 50;
 
   /* default for reftime is in the middle */
   uvar->refTime = 0.5*(uvar->startTime + uvar->endTime);
+
+  /* zero binary orbital parameters means not a binary */
+  uvar->orbitAsiniSec = 0.0;
+  uvar->orbitAsiniSecBand = 0.0;
+  uvar->orbitPSec = 0.0;
+  uvar->orbitTimeAsc = 0;
+  uvar->orbitTimeAscBand = 0;
 
   uvar->ephemYear = XLALCalloc (1, strlen(EPHEM_YEARS)+1);
   strcpy (uvar->ephemYear, EPHEM_YEARS);
@@ -281,8 +332,16 @@ int XLALInitUserVars (UserInput_t *uvar)
   XLALregBOOLUserStruct  ( inclAutoCorr,  0,  UVAR_OPTIONAL, "Include auto-correlation terms (an SFT with itself)");
   XLALregREALUserStruct  ( fStart,        0,  UVAR_OPTIONAL, "Start frequency in Hz");
   XLALregREALUserStruct  ( fBand,         0,  UVAR_OPTIONAL, "Frequency band to search over in Hz ");
-  XLALregREALUserStruct  ( fdotStart,     0,  UVAR_OPTIONAL, "Start value of spindown in Hz/s");
-  XLALregREALUserStruct  ( fdotBand,      0,  UVAR_OPTIONAL, "Band for spindown values in Hz/s");
+  /* XLALregREALUserStruct  ( fdotStart,     0,  UVAR_OPTIONAL, "Start value of spindown in Hz/s"); */
+  /* XLALregREALUserStruct  ( fdotBand,      0,  UVAR_OPTIONAL, "Band for spindown values in Hz/s"); */
+  XLALregREALUserStruct  ( alphaRad,      0,  UVAR_OPTIONAL, "Right ascension for directed search (radians)");
+  XLALregREALUserStruct  ( deltaRad,      0,  UVAR_OPTIONAL, "Declination for directed search (radians)");
+  XLALregREALUserStruct  ( refTime,       0,  UVAR_OPTIONAL, "SSB reference time for pulsar-parameters [Default: midPoint]");
+  XLALregREALUserStruct  ( orbitAsiniSec, 0,  UVAR_OPTIONAL, "Start of search band for projected semimajor axis (seconds) [0 means not a binary]");
+  XLALregREALUserStruct  ( orbitAsiniSecBand, 0,  UVAR_OPTIONAL, "Width of search band for projected semimajor axis (seconds)");
+  XLALregREALUserStruct  ( orbitPSec,     0,  UVAR_OPTIONAL, "Binary orbital period (seconds) [0 means not a binary]");
+  XLALregREALUserStruct  ( orbitTimeAsc,  0,  UVAR_OPTIONAL, "Start of orbital time-of-ascension band in GPS seconds");
+  XLALregREALUserStruct  ( orbitTimeAscBand, 0,  UVAR_OPTIONAL, "Width of orbital time-of-ascension band (seconds)");
   XLALregSTRINGUserStruct( ephemYear,     0,  UVAR_OPTIONAL, "String Ephemeris year range");
   XLALregSTRINGUserStruct( sftLocation,   0,  UVAR_REQUIRED, "Filename pattern for locating SFT data");
   XLALregINTUserStruct   ( rngMedBlock,   0,  UVAR_OPTIONAL, "Running median block size for PSD estimation");
@@ -320,7 +379,7 @@ int XLALInitializeConfigVars (ConfigVariables *config, const UserInput_t *uvar)
 
   if ( (constraints.startTime == NULL)&& (constraints.endTime == NULL) ) {
     LogPrintf ( LOG_CRITICAL, "%s: XLALGPSSet() failed with errno=%d\n", __func__, xlalErrno );
-    return 1;
+    XLAL_ERROR( XLAL_EFUNC );
   }
 
   */
@@ -328,7 +387,7 @@ int XLALInitializeConfigVars (ConfigVariables *config, const UserInput_t *uvar)
   /* get catalog of SFTs */
   if ((config->catalog = XLALSFTdataFind (uvar->sftLocation, &constraints)) == NULL){ 
     LogPrintf ( LOG_CRITICAL, "%s: XLALSFTdataFind() failed with errno=%d\n", __func__, xlalErrno );
-    return 1;
+    XLAL_ERROR( XLAL_EFUNC );
   }
 
   /* initialize ephemeris data*/
