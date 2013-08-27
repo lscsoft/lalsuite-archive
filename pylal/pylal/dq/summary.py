@@ -1996,6 +1996,7 @@ class HvetoSummaryTab(TriggerSummaryTab):
         SummaryTab.__init__(self, *args, **kwargs)
         self.triggers      = dict()
         self.channels      = []
+        self.winnerchannels = []
         self.mainchannel   = []
         self.trigger_files = dict()
         self.coincs        = dict()
@@ -2075,7 +2076,7 @@ class HvetoSummaryTab(TriggerSummaryTab):
                                class_="full")
                 self.frame.a.close()
             # trig stats
-            th = ['Significance', 'T win.', 'SNR', 'Use %', 'Eff.', 'Deadtime',\
+            th = ['Channel', 'Significance', 'T win.', 'SNR', 'Use %', 'Eff.', 'Deadtime',\
                       'Eff./Deadtime','Safety', 'Segments' ]
             td = []
             cellclasses = {"table":"full"}
@@ -2083,21 +2084,21 @@ class HvetoSummaryTab(TriggerSummaryTab):
             # produce a row for each round
             for i in sorted(self.rounds.keys()):  
                 # work the numbers
-                use = numpy.nan
+                use = self.rounds[i].use_percentage
                 eff = self.rounds[i].efficiency[0]
                 dt  = self.rounds[i].deadtime[0]
                 edr = self.rounds[i].deadtime!=0\
                       and round(eff/dt, 2) or 'N/A'
                 # generate strings
-                use = '%s%%' % round(use, 3)
-                eff = '%s%%' % round(eff, 3)
+                use = '%s%%' % round(use, 2)
+                eff = '%s%%' % round(eff, 2)
                 dt  = '%s%%' % round(dt, 3)
 
                 # work safety
                 safe = 'N/A'
 
                 # add to table
-                td.append([round(self.rounds[i].significance, 2), self.rounds[i].dt, self.rounds[i].snr,\
+                td.append([self.rounds[i].channel, round(self.rounds[i].significance, 2), self.rounds[i].dt, self.rounds[i].snr,\
                       use, eff, dt, edr, safe,\
                       '<a href="%s" rel="external">link</a>' % self.rounds[i].veto_file])
 
@@ -2109,25 +2110,8 @@ class HvetoSummaryTab(TriggerSummaryTab):
         # channel information
         div(self.frame, (0, 2), "Auxiliary channels", display=True)
 
-        for i,chan in enumerate(self.channels):
-            if chan == self.mainchannel:
-                continue
+        for i,chan in enumerate(self.winnerchannels):
             div(self.frame, (0, 2, i), chan, display=True)
-            if (chan, self.mainchannel) in self.numcoincs:
-                th = ["Num. coinc with<br>%s" % (self.mainchannel),\
-                      "Num %s<br>coinc with aux." % (self.mainchannel),\
-                      "Zero time-shift coincidence &sigma;"]
-                td = list()
-                if (chan, self.mainchannel) in self.numcoincs.keys():
-                    td.extend([self.numcoincs[(chan, self.mainchannel)],\
-                               self.numcoincs[(self.mainchannel, chan)]])
-                else:
-                    td.extend(["-", "-"])
-                if self.sigma.has_key(chan) and self.sigma[chan].has_key(0.0):
-                    td.append("%.2f" % self.sigma[chan][0.0])
-                else:
-                    td.append("-")
-                self.frame.add(htmlutils.write_table(th,td,{"table":"full"})())
             class_ = plotclass(len(self.auxplots[chan]))
             for p,d in self.auxplots[chan]:
                 self.frame.a(href=p, title=d, class_="fancybox-button", rel=class_)

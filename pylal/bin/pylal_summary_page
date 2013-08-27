@@ -3624,7 +3624,7 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                     for iF in range(len(freqbands)-1):
                         if trig.peak_frequency >= freqbands[iF] \
                                 and trig.peak_frequency < freqbands[iF+1]:
-                            freq_extension = '_%g-%gHz' % (freqbands[iF], freqbands[iF+1])
+                            freq_extension = ':%g-%gHz' % (freqbands[iF], freqbands[iF+1])
                     swigtrig.channel = trig.channel + freq_extension
                 else:
                     swigtrig.channel = trig.channel
@@ -3785,6 +3785,12 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             tab.rounds[rnd].safter = [numpy.nan]
             tab.rounds[rnd].veto_file = fname
             tab.rounds[rnd].veto_segments = fvetosegs
+            tab.rounds[rnd].use_percentage = n_trig_vetoed/subround_count[(snr_win, wind_win)][winner]
+
+            # strip channel frequency range from winner channel name and record
+            tmp = winner.split(':')
+            tab.winnerchannels.append(tmp[0] + ':' + tmp[1]) 
+
 
             # put segments into global holder for other parts of summary pages
             hvetoflag='G1:HVETO:1'
@@ -3848,14 +3854,15 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
     #
 
     sigmaplot = None
-    channelparams = parse_data_config(cp, cpsec, channels)
-    for chan, params in zip(channels, channelparams):
+    # make plots for each winner channel (each round)
+    channelparams = parse_data_config(cp, cpsec, tab.winnerchannels)
+    for chan, params, rnd in zip(tab.winnerchannels, channelparams, range(1,1+len(tab.winnerchannels))):
         tab.auxplots[chan] = list()
         for plot,_ in plots:
             # format plot
             plottag = re_cchar.sub("_", plot[5:].upper())
-            outfile = os.path.join(tab.directory, "%s-%s_%s_%s-%d-%d.png"\
-                                     % (tab.ifo,\
+            outfile = os.path.join(tab.directory, "%s-HVETO_ROUND_%d_%s_%s_%s-%d-%d.png"\
+                                     % (tab.ifo, rnd,\
                                          re_cchar.sub("_", chan[3:].upper()),\
                                         tab.state.tag, plottag,\
                                         tab.start_time, abs(tab.span)))
