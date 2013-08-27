@@ -28,19 +28,6 @@ information on the Python DOM specification and SAX document content
 handlers, please refer to the Python standard library reference and the
 documentation it links to.
 
-The most important thing to understand about the glue.ligolw package is
-that the import of most modules has side effects.  Due to a bad design
-decision for which I (Kipp) take full responsibility, some of the package's
-configuration information is stored in module-level symbols ("global
-variables" in the language of C).  In particular, the SAX document content
-handler used to parse documents is stored as a module-level symbol.  In
-order to "enable themselves", many modules override portions of the default
-content handler when they are imported.  It is therefore important to
-import modules in the correct order and to import only the modules you wish
-to use.  I have been working to correct this design flaw, and a solution is
-in place but due to the need to support legacy code it's not possible to
-disable this undesirable behaviour at this time.
-
 Here is a brief tutorial for a common use case:  load a LIGO Light-Weight
 XML document containing tabular data complying with the LSC table
 definitions, access rows in the tables including the use of ID-based cross

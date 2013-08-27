@@ -425,6 +425,7 @@ class SummaryTab(object):
         else:
             tablink = rindex.sub("", tablink)
         self.ifobar = markup.page()
+        baselist.sort(key=lambda (a,b): a)
         for ifo,base in baselist:
             if ifo.upper() == thisifo.upper():
                 self.ifobar.h1(markup.oneliner.a(ifo, href=tablink))
@@ -2452,8 +2453,8 @@ class OnlineSummaryTab(SummaryTab):
                     self.frame.div.close()
                 self.frame.div.close()
         if self.refresh:
-            self.frame.script("var t=%s; refreshImages(t);",\
-                             type="text/javascript")
+            self.frame.script("refreshImages(%s);" % self.refresh,
+                               type="text/javascript")
 
 # =============================================================================
 # Define run state object

@@ -856,7 +856,7 @@ class Table(ligolw.Table, list):
 
 
 #
-# Override portions of the ligolw.DefaultLIGOLWContentHandler class
+# Override portions of a ligolw.LIGOLWContentHandler class
 #
 
 
@@ -893,4 +893,5 @@ def use_in(ContentHandler):
 	ContentHandler.startTable = startTable
 
 
+# FIXME:  remove
 use_in(ligolw.DefaultLIGOLWContentHandler)

@@ -63,6 +63,12 @@ def readParamsFromFile(file):
                 params[line_split[0]] = line_split[1]
     return params
 
+def write_file(file,tree):
+
+    f = open(file,'w+')
+    f.write('%s'%tree)
+    f.close()
+
 def write_info(file,attributeDic):
 
     root = etree.Element('eqmon')
@@ -77,8 +83,11 @@ def write_info(file,attributeDic):
             subsubelement = etree.SubElement(subelement,category)
             subsubelement.text = write_array(value[category])
 
-    tree = etree.ElementTree(root)
-    tree.write(file, pretty_print=True, xml_declaration=True)
+    
+    tree = etree.tostring(root, pretty_print=True)
+    write_file(file,tree)
+    #tree = etree.ElementTree(root)
+    #tree.write(file, pretty_print=True, xml_declaration=True)
 
 def write_info_small(file,attributeDic):
 
@@ -153,7 +162,9 @@ def rsync_files(path):
 
 def download_publiceventfiles(path):
 
-    file = "http://earthquake.usgs.gov/earthquakes/feed/geojson/all/hour"
+    #file = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
+    #file = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.geojson"
+    file = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_month.geojson"
 
     x = subprocess.Popen(["wget",file,"-O","%s/events.txt"%path])
     x.wait()

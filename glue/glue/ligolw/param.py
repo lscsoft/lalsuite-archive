@@ -287,7 +287,7 @@ class Param(ligolw.Param):
 
 
 #
-# Override portions of ligolw.DefaultLIGOLWContentHandler class
+# Override portions of a ligolw.LIGOLWContentHandler class
 #
 
 
@@ -312,4 +312,5 @@ def use_in(ContentHandler):
 	ContentHandler.startParam = startParam
 
 
+# FIXME:  remove
 use_in(ligolw.DefaultLIGOLWContentHandler)

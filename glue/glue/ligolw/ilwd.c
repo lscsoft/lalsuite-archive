@@ -151,7 +151,7 @@ static PyObject *ligolw_ilwdchar___new__(PyTypeObject *type, PyObject *args, PyO
 		char *table_name = NULL, *column_name = NULL;
 
 		/* can we parse it as an ilwd:char string? */
-		sscanf(s, " %a[^:]:%a[^:]:%zu %n", &table_name, &column_name, &((ligolw_ilwdchar *) new)->i, &converted_len);
+		sscanf(s, " %m[^:]:%m[^:]:%zu %n", &table_name, &column_name, &((ligolw_ilwdchar *) new)->i, &converted_len);
 		if(converted_len < len) {
 			/* nope, how 'bout just an int? */
 			converted_len = -1;

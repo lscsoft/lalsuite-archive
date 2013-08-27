@@ -188,6 +188,8 @@ class ArrayStream(ligolw.Stream):
 		# token, so add a final delimiter to induce the last token
 		# to get parsed.
 		self.appendData(self.getAttribute(u"Delimiter"))
+		if self._index != len(self._array_view):
+			raise ValueError("length of Stream (%d elements) does not match array size (%d elements)" % (self._index, len(self._array_view)))
 		del self._array_view
 		del self._index
 
@@ -266,7 +268,7 @@ class Array(ligolw.Array):
 
 
 #
-# Override portions of ligolw.DefaultLIGOLWContentHandler class
+# Override portions of a ligolw.LIGOLWContentHandler class
 #
 
 
@@ -298,4 +300,5 @@ def use_in(ContentHandler):
 	ContentHandler.startArray = startArray
 
 
+# FIXME:  remove
 use_in(ligolw.DefaultLIGOLWContentHandler)

@@ -575,7 +575,7 @@ def jsonread(event):
     attributeDic["eventID"] = event["properties"]["code"]
     attributeDic["eventName"] = event["properties"]["ids"].replace(",","")
     attributeDic["Magnitude"] = event["properties"]["mag"]
-    attributeDic["UTC"] = float(event["properties"]["time"])
+    attributeDic["UTC"] = float(event["properties"]["time"]) / 1000.0
     attributeDic["DataSource"] = event["properties"]["sources"].replace(",","")
     attributeDic["Version"] = 1.0
     attributeDic["Type"] = 1.0
@@ -674,7 +674,7 @@ def do_kdtree(combined_x_y_arrays,points):
     dist, indexes = mytree.query(points)
     return indexes
 
-def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
+def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
 
     try:
         from obspy.taup.taup import getTravelTimes
@@ -764,6 +764,78 @@ def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
     traveltimes["Stimes"] = Stimes
     traveltimes["Rtimes"] = Rtimes
     traveltimes["Rfamp"] = [Rfamp] 
+    traveltimes["Pamp"] = [Pamp]
+    traveltimes["Samp"] = [Samp]
+
+    attributeDic["traveltimes"][ifo] = traveltimes
+
+    return attributeDic
+
+def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
+
+    try:
+        from obspy.taup.taup import getTravelTimes
+        from obspy.core.util.geodetics import gps2DistAzimuth
+    except:
+        print "Enable ObsPy if updated earthquake estimates desired...\n"
+        return attributeDic
+
+    distance,fwd,back = gps2DistAzimuth(attributeDic["Latitude"],attributeDic["Longitude"],ifolat,ifolon)
+    distances = np.linspace(0,distance,100)
+    degrees = (distances/6370000)*(180/np.pi)
+
+    c = 18
+    fc = 10**(2.3-(attributeDic["Magnitude"]/2.))
+    Q = np.max([500,80/np.sqrt(fc)])
+
+    Rfamp = ((attributeDic["Magnitude"]/fc)*0.0035) * np.exp(-2*math.pi*attributeDic["Depth"]*fc/c) * np.exp(-2*math.pi*(distances[-1]/1000)*(fc/c)*1/Q)/(distances[-1]/1000)
+    Pamp = 1e-6
+    Samp = 1e-5
+
+    lats = []
+    lons = []
+    Ptimes = []
+    Stimes = []
+    Rtimes = []
+    Rfamps = []
+
+    # Pmag = T * 10^(Mb - 5.9 - 0.01*dist)
+    # Rmag = T * 10^(Ms - 3.3 - 1.66*log_10(dist))
+    T = 20
+
+    for distance, degree in zip(distances, degrees):
+
+        lon, lat, baz = shoot(attributeDic["Longitude"], attributeDic["Latitude"], fwd, distance/1000)
+        lats.append(lat)
+        lons.append(lon)
+
+        #degrees = locations2degrees(lat,lon,attributeDic["Latitude"],attributeDic["Longitude"])
+        #distance,fwd,back = gps2DistAzimuth(lat,lon,attributeDic["Latitude"],attributeDic["Longitude"])
+        tt = getTravelTimes(delta=degree, depth=attributeDic["Depth"])
+        tt.append({'phase_name': 'R', 'dT/dD': 0, 'take-off angle': 0, 'time': distance/3500, 'd2T/dD2': 0, 'dT/dh': 0})
+        Ptime = -1
+        Stime = -1
+        Rtime = -1
+        for phase in tt:
+            if Ptime == -1 and phase["phase_name"][0] == "P":
+                Ptime = attributeDic["GPS"]+phase["time"]
+            if Stime == -1 and phase["phase_name"][0] == "S":
+                Stime = attributeDic["GPS"]+phase["time"]
+            if Rtime == -1 and phase["phase_name"][0] == "R":
+                Rtime = attributeDic["GPS"]+phase["time"]
+        Ptimes.append(Ptime)
+        Stimes.append(Stime)
+        Rtimes.append(Rtime)
+
+    traveltimes = {}
+    traveltimes["Latitudes"] = lats
+    traveltimes["Longitudes"] = lons
+    traveltimes["Distances"] = distances
+    traveltimes["Degrees"] = degrees
+    traveltimes["Ptimes"] = Ptimes
+    traveltimes["Stimes"] = Stimes
+    traveltimes["Rtimes"] = Rtimes
+    traveltimes["Rfamp"] = [Rfamp]
     traveltimes["Pamp"] = [Pamp]
     traveltimes["Samp"] = [Samp]
 

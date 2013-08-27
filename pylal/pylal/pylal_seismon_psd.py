@@ -6,6 +6,7 @@ import numpy as np
 import scipy.signal, scipy.stats, scipy.fftpack, scipy.ndimage.filters
 from collections import namedtuple
 from operator import itemgetter
+from lxml import etree
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
 import pylal.seriesutils
@@ -159,7 +160,58 @@ def envelope(data):
     data = (data ** 2 + hilb ** 2) ** 0.5
     return data
 
+def read_eqmons(file):
+
+    attributeDics = []
+    tree = etree.parse(file)
+    baseroot = tree.getroot()       # get the document root
+    for root in baseroot.iterchildren():
+        attributeDic = {}
+        for element in root.iterchildren(): # now iter through it and print the text
+            if element.tag == "traveltimes":
+                attributeDic[element.tag] = {}
+                for subelement in element.iterchildren():
+                    attributeDic[element.tag][subelement.tag] = {}
+                    for subsubelement in subelement.iterchildren():
+                        textlist = subsubelement.text.replace("\n","").split(" ")
+                        floatlist = [float(x) for x in textlist]
+                        attributeDic[element.tag][subelement.tag][subsubelement.tag] = floatlist
+            else:
+                try:
+                    attributeDic[element.tag] = float(element.text)
+                except:
+                    attributeDic[element.tag] = element.text
+
+        magThreshold = 0
+        if not "Magnitude" in attributeDic or attributeDic["Magnitude"] < magThreshold:
+            return attributeDic
+
+        attributeDic["doPlots"] = 0
+        for ifoName, traveltimes in attributeDic["traveltimes"].items():
+            arrivalMin = min([max(traveltimes["Rtimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
+            arrivalMax = max([max(traveltimes["Rtimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
+            attributeDic["traveltimes"][ifoName]["arrivalMin"] = arrivalMin
+            attributeDic["traveltimes"][ifoName]["arrivalMax"] = arrivalMax
+            #if params["gps"] <= attributeDic["traveltimes"][ifoName]["arrivalMax"]:
+            #    attributeDic["doPlots"] = 1
+
+        attributeDics.append(attributeDic)
+    return attributeDics
+
 def mat(params, channel, segment):
+
+    if params["ifo"] == "H1":
+        ifo = "LHO"
+    elif params["ifo"] == "L1":
+        ifo = "LLO"
+    elif params["ifo"] == "G1":
+        ifo = "GEO"
+    elif params["ifo"] == "V1":
+        ifo = "VIRGO"
+    elif params["ifo"] == "C1":
+        ifo = "FortyMeter"
+    elif params["ifo"] == "XG":
+        ifo = "Homestake"
 
     gpsStart = segment[0]
     gpsEnd = segment[1]
@@ -230,11 +282,8 @@ def mat(params, channel, segment):
     earthquakes = []
     if params["doEarthquakes"]:
         earthquakesDirectory = os.path.join(params["path"],"earthquakes")
-        earthquakesFile = os.path.join(earthquakesDirectory,"earthquakes.txt")
-        try:
-            earthquakes = np.loadtxt(earthquakesFile)
-        except:
-            pass
+        earthquakesXMLFile = os.path.join(earthquakesDirectory,"earthquakes.xml")
+        attributeDics = read_eqmons(earthquakesXMLFile)
 
     if params["doPlots"]:
 
@@ -261,26 +310,21 @@ def mat(params, channel, segment):
         plt.plot(time,dataFull,'k',label='data')
         plt.legend(loc=4,prop={'size':10})
 
-        if len(earthquakes) > 0:
-            if len(earthquakes.shape) == 1:
-                shape_x = 1
-            else:
-                [shape_x,shape_y] = earthquakes.shape
-            for i in xrange(shape_x):
-                if earthquakes[i,1] < 4.0:
-                    continue
+        for attributeDic in attributeDics:
 
-                Ptime = earthquakes[i,2] - startTime
-                Stime = earthquakes[i,3] - startTime
-                Rtime = earthquakes[i,4] - startTime
+            traveltimes = attributeDic["traveltimes"][ifo]
 
-                plt.text(Ptime, 4.1, 'P', fontsize=18, ha='center', va='top')
-                plt.text(Stime, 4.1, 'S', fontsize=18, ha='center', va='top')
-                plt.text(Rtime, 4.1, 'R', fontsize=18, ha='center', va='top')
+            Ptime = max(traveltimes["Ptimes"]) - startTime
+            Stime = max(traveltimes["Stimes"]) - startTime
+            Rtime = max(traveltimes["Rtimes"]) - startTime
 
-                plt.axvline(x=Ptime,color='r',linewidth=2,zorder = 0,clip_on=False)
-                plt.axvline(x=Stime,color='b',linewidth=2,zorder = 0,clip_on=False)
-                plt.axvline(x=Rtime,color='g',linewidth=2,zorder = 0,clip_on=False)
+            plt.text(Ptime, 4.1, 'P', fontsize=18, ha='center', va='top')
+            plt.text(Stime, 4.1, 'S', fontsize=18, ha='center', va='top')
+            plt.text(Rtime, 4.1, 'R', fontsize=18, ha='center', va='top')
+
+            plt.axvline(x=Ptime,color='r',linewidth=2,zorder = 0,clip_on=False)
+            plt.axvline(x=Stime,color='b',linewidth=2,zorder = 0,clip_on=False)
+            plt.axvline(x=Rtime,color='g',linewidth=2,zorder = 0,clip_on=False)
 
         plt.legend(loc=4,prop={'size':10})
         plt.xlabel("Time [s] [%s (%d)]"%(startTimeUTCString,startTime))

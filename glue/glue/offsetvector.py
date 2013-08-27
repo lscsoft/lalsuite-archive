@@ -1,4 +1,4 @@
-# Copyright (C) 2010  Kipp Cannon
+# Copyright (C) 2010--2013  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -74,7 +74,7 @@ class offsetvector(dict):
 		# inside it fail, so we can't simply wrap it in a
 		# try/except pair or we might mask genuine failures
 		if not self:
-			raise ValueError, "offsetvector is empty"
+			raise ValueError("offsetvector is empty")
 		return min(self)
 
 	@property
@@ -125,11 +125,11 @@ class offsetvector(dict):
 
 		Example:
 
-		>>> a = offsetvector({"H1": -10.1234567, "L1": 0.1})
+		>>> a = offsetvector({"H1": -10.1234567, "L1": 0.125})
 		>>> str(a)
-		'H1 = -10.1234567 s, L1 = +0.1 s'
+		'H1 = -10.1234567 s, L1 = +0.125 s'
 		>>> a.__str__(compact = True)
-		'H1=-10.123,L1=0.1'
+		'H1=-10.123,L1=0.125'
 		"""
 		if compact:
 			return ",".join(("%s=%.5g" % x) for x in sorted(self.items()))
