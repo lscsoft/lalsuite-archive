@@ -2663,7 +2663,6 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState)
     return;
 }
 
-<<<<<<< HEAD
 static void LALInferenceSetGPSTrigtimeFromXML(LIGOTimeGPS *GPStrig, ProcessParamsTable *commandLine){
     
     ProcessParamsTable *procparam;
