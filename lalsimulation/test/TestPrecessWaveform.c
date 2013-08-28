@@ -59,8 +59,10 @@ int main(void){
 		SphHarmTimeSeries *ts = XLALSimInspiralChooseTDModes(
 			phi, dt,
 			m1, m2,
+            0., 0., 0., 0., 0., 0., // spin components
 			f_min, f_ref, 
 			dist,
+            0., // inclination - only used in precessing case
 			lambda1, lambda2,
 			waveFlags,
 			nonGRparams,
