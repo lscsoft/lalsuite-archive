@@ -127,7 +127,7 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
         tables = {"_":lsctable}
     else:
         tables = lsctable
-    tablenames = sorted(tables.keys())
+    tablenames = tables.keys()
     tables     = [tables[n] for n in tablenames]
 
     # get axis limits

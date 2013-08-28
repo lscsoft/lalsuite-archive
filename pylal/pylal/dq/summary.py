@@ -2005,55 +2005,20 @@ class HvetoSummaryTab(TriggerSummaryTab):
         self.auxplots      = dict()
         self.rounds        = {}
 
-    def plottable(self, outfile, channel, **kwargs):
+    def plotcoincs(self, outfile, rnd, **kwargs):
         """
-        Plot the triggers for the given channel.
-        """
-        desc = kwargs.pop("description", None)
-        if kwargs.get("xcolumn", None) == "time":
-            kwargs.setdefault("xlim", [self.start_time, self.end_time])
-        kwargs.setdefault("title", "%s (%s)" % (latex(channel),\
-                                                latex(self.etg)))
-        plottriggers.plottable({"_":self.triggers[channel]}, outfile,\
-                               **kwargs)
-        self.auxplots[channel].append((outfile, desc))
-
-    def plothistogram(self, outfile, channel, **kwargs):
-        desc = kwargs.pop("description", None)
-        plottriggers.plothistogram({"_":self.triggers[channel]}, outfile,\
-                                   **kwargs)
-        self.auxplots[channel].append((outfile, desc))
-
-    def plotrate(self, outfile, channel, **kwargs):
-        desc = kwargs.pop("description", None)
-        kwargs.setdefault("xlim", [self.start_time, self.end_time])
-        plottriggers.plotrate({"_":self.triggers[channel]}, outfile,\
-                               **kwargs)
-        self.auxplots[chan].append((outfile, desc))
-
-    def plotautocorrelation(self, outfile, channel, **kwargs):
-        desc = kwargs.pop("description", None)
-        if kwargs.get("xcolumn", None) == "time":
-            kwargs.setdefault("xlim", [self.start_time, self.end_time])
-        plottriggers.plotautocorrleation({"_":self.triggers[channel]},\
-                                         outfile, **kwargs)
-        self.auxplots[chan].append((outfile, desc))
-
-    def plotcoincs(self, outfile, channel, **kwargs):
-        """
-        Plot the coincident triggers between the given channel and the
-        mainchannel.
+        Plot the coincident triggers between the given round
         """
         desc = kwargs.pop("description", None)
         if kwargs.get("xcolumn", None) == "time":
             kwargs.setdefault("xlim", [self.start_time, self.end_time])
         kwargs.setdefault("title", "Coincident %s and %s (%s)"\
-                                   % (latex(channel), latex(self.mainchannel),\
+                                   % (latex(self.rounds[rnd].channel), latex(self.mainchannel),\
                                       latex(self.etg)))
-        trigs = {channel:self.coincs[(channel, self.mainchannel)],\
-                 self.mainchannel:self.coincs[(self.mainchannel, channel)]}
+        trigs = {self.rounds[rnd].channel:self.rounds[rnd].vetoing_aux_trigs,\
+                 self.mainchannel:self.rounds[rnd].vetoed_h_trigs}
         plottriggers.plottable(trigs, outfile, **kwargs)
-        self.auxplots[channel].append((outfile, desc))
+        self.auxplots[rnd].append((outfile, desc))
         
     def finalize(self):
         """
@@ -2112,8 +2077,8 @@ class HvetoSummaryTab(TriggerSummaryTab):
 
         for i,chan in enumerate(self.winnerchannels):
             div(self.frame, (0, 2, i), chan, display=True)
-            class_ = plotclass(len(self.auxplots[chan]))
-            for p,d in self.auxplots[chan]:
+            class_ = plotclass(len(self.auxplots[i+1]))
+            for p,d in self.auxplots[i+1]:
                 self.frame.a(href=p, title=d, class_="fancybox-button", rel=class_)
                 self.frame.img(src=p, alt=d,  class_=class_)
                 self.frame.a.close()
