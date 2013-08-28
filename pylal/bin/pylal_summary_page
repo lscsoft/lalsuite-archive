@@ -2131,7 +2131,7 @@ def load_archive_data(cp, channel, seglist, mode=0, verbose=False):
                                       start_date.day),
                                datadir, "*.hdf")
     elif mode == summary.SUMMARY_MODE_WEEK\
-    or mode == summary.SUMMAR_MODE_MONTH:
+    or mode == summary.SUMMARY_MODE_MONTH:
         globstr = os.path.join("archive_monthly",
                                "%d%.2d*" % (start_date.year, start_date.month),
                                datadir, "*.hdf")
@@ -2221,7 +2221,7 @@ def load_archive_spectrogram(cp, channel, seglist, mode=0, verbose=False):
                                       start_date.day),
                                datadir, "*.hdf")
     elif mode == summary.SUMMARY_MODE_WEEK\
-    or mode == summary.SUMMAR_MODE_MONTH:
+    or mode == summary.SUMMARY_MODE_MONTH:
         globstr = os.path.join("archive_monthly",
                                "%d%.2d*" % (start_date.year, start_date.month),
                                datadir, "*.hdf")
@@ -2308,7 +2308,7 @@ def load_archive_spectrum(cp, channel, seglist, mode=0):
                                    % (start.year, start.month, start.day),
                                datadir, "*.hdf")
     elif mode == summary.SUMMARY_MODE_WEEK\
-    or mode == summary.SUMMAR_MODE_MONTH:
+    or mode == summary.SUMMARY_MODE_MONTH:
         globstr = os.path.join("archive_monthly",
                                "%d%.2d*" % (start.year, start.month),
                                datadir, "*.hdf")
@@ -2371,7 +2371,7 @@ def load_archive_segments(cp, flag, seglist, mode=0, verbose=False):
                                    % (start.year, start.month, start.day),
                                datadir, "%s*.xml.gz" % tag)
     elif mode == summary.SUMMARY_MODE_WEEK\
-    or mode == summary.SUMMAR_MODE_MONTH:
+    or mode == summary.SUMMARY_MODE_MONTH:
         globstr = os.path.join("archive_daily",
                                "%d%.2d*" % (start.year, start.month),
                                datadir, "%s*.xml.gz" % tag)
@@ -2471,7 +2471,7 @@ def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
                                    % (start.year, start.month, start.day),
                                datadir, "%s*.xml.gz" % tag)
     elif mode == summary.SUMMARY_MODE_WEEK\
-    or mode == summary.SUMMAR_MODE_MONTH:
+    or mode == summary.SUMMARY_MODE_MONTH:
         globstr = os.path.join("archive_daily",
                                "%d%.2d*" % (start.year, start.month),
                                datadir, "%s*.xml.gz" % tag)
