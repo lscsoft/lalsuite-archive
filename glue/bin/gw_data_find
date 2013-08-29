@@ -50,7 +50,7 @@ For example,
 # =============================================================================
 
 import os,sys,optparse
-from glue import GWDataFindClient
+from glue import datafind
 from glue import segments,segmentsUtils,git_version
 
 __author__  = "Scott Koranda <scott.koranda@ligo.org>, Duncan M. Macleod <duncan.macleod@ligo.org>"
@@ -235,7 +235,7 @@ if __name__ == "__main__":
 
     # verify authentication options
     if not opts.no_proxy and not opts.server.endswith("80"):
-        cert_file, key_file = GWDataFindClient.find_credential()
+        cert_file, key_file = datafind.find_credential()
     else:
         cert_file, key_file = None,None
 
@@ -249,13 +249,13 @@ if __name__ == "__main__":
     # open connection    
     if cert_file and key_file:
         connection =\
-            GWDataFindClient.GWDataFindHTTPSConnection(host=server,\
+            datafind.GWDataFindHTTPSConnection(host=server,\
                                                        port=port,\
                                                        cert_file=cert_file,\
                                                        key_file=key_file)
     else:
         connection =\
-            GWDataFindClient.GWDataFindHTTPConnection(host=server, port=port)
+            datafind.GWDataFindHTTPConnection(host=server, port=port)
 
     # open output
     if opts.output_file:
