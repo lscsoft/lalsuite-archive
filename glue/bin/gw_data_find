@@ -247,7 +247,7 @@ if __name__ == "__main__":
         port = int(port)
 
     # open connection    
-    if cert_file and proxy_file:
+    if cert_file and key_file:
         connection =\
             GWDataFindClient.GWDataFindHTTPSConnection(host=server,\
                                                        port=port,\
