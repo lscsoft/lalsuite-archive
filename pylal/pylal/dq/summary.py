@@ -56,7 +56,7 @@ from pylal.plotutils import display_name as latex
 from glue import markup
 from glue import segments
 from glue import segmentsUtils
-from glue.ligolw import table
+from glue.ligolw import table, lsctables
 
 LIGOTimeGPS = float
 
@@ -2005,6 +2005,34 @@ class HvetoSummaryTab(TriggerSummaryTab):
         self.auxplots      = dict()
         self.rounds        = {}
 
+    def plothistogram(self, outfile, rnd, **kwargs):
+        """
+        Kludge, rnd=0 is all the rounds combined
+        """
+        print "rnd", rnd
+        desc = kwargs.pop("description", None)
+        trigs = {}
+        segments_before = segments.segmentlist([])
+        for i in range(1,rnd):
+            print i,
+            segments_before |= self.rounds[i].veto_segments
+        print segments_before
+        if rnd:
+            segments_after = segments_before
+            segments_after |= self.rounds[rnd].veto_segments
+        else:
+            segments_after = segments.segmentlist([])
+            for i in range(1,1+len(self.rounds)):
+                segments_after |= self.rounds[i].veto_segments
+        print "trigger keys", self.triggers.keys()
+        trigs["before"] = lsctables.New(lsctables.SnglBurstTable)
+        trigs["before"].extend([t for t in self.triggers[self.mainchannel] if t.peak_time not in segments_before])
+        trigs["after"] = lsctables.New(lsctables.SnglBurstTable)
+        trigs["after"].extend([t for t in self.triggers[self.mainchannel] if t.peak_time not in segments_after])
+        plottriggers.plothistogram(trigs, outfile,\
+                                   **kwargs)
+        self.auxplots[rnd].append((outfile, desc))
+
     def plotcoincs(self, outfile, rnd, **kwargs):
         """
         Plot the coincident triggers between the given round
@@ -2012,11 +2040,23 @@ class HvetoSummaryTab(TriggerSummaryTab):
         desc = kwargs.pop("description", None)
         if kwargs.get("xcolumn", None) == "time":
             kwargs.setdefault("xlim", [self.start_time, self.end_time])
+        if rnd:
+            auxchannelname = latex(self.rounds[rnd].channel)
+        else :
+            auxchannelname = "auxiliary"
         kwargs.setdefault("title", "Coincident %s and %s (%s)"\
-                                   % (latex(self.rounds[rnd].channel), latex(self.mainchannel),\
+                                   % (auxchannelname, latex(self.mainchannel),\
                                       latex(self.etg)))
-        trigs = {self.rounds[rnd].channel:self.rounds[rnd].vetoing_aux_trigs,\
-                 self.mainchannel:self.rounds[rnd].vetoed_h_trigs}
+        trigs = {}
+        if rnd:
+            trigs[auxchannelname] = self.rounds[rnd].vetoing_aux_trigs
+            trigs[self.mainchannel] = self.rounds[rnd].vetoed_h_trigs
+        else:
+            trigs[auxchannelname] = lsctables.New(lsctables.SnglBurstTable)
+            trigs[self.mainchannel] = lsctables.New(lsctables.SnglBurstTable)
+            for i in range(1,1+len(self.rounds)):
+                trigs[auxchannelname].extend(self.rounds[i].vetoing_aux_trigs)
+                trigs[self.mainchannel].extend(self.rounds[i].vetoed_h_trigs)
         plottriggers.plottable(trigs, outfile, **kwargs)
         self.auxplots[rnd].append((outfile, desc))
         

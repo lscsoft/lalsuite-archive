@@ -3351,9 +3351,9 @@ class HVetoRound(object):
     self.efficiency = [None]
     self.use_percentage = None
     self.safety = [None]
-    self.veto_file = None
-    self.vetoed_h_trigs = None
-    self.vetoing_aux_trigs = None
+    self.veto_file = ""
+    self.vetoed_h_trigs = lsctables.New(lsctables.SnglBurstTable)
+    self.vetoing_aux_trigs = lsctables.New(lsctables.SnglBurstTable)
 
 
 def write_hveto_results(filename, rounds):
@@ -3376,6 +3376,43 @@ def write_hveto_results(filename, rounds):
                                     os.path.abspath(rounds[i].veto_file)])))
     fobj.write('\n')
   fobj.close()
+
+def load_hveto_results(filename):
+
+  rounds = {}
+  with open(filename, 'r') as fobj:
+    for line in fobj:
+      if re_cchar.match(line): continue
+      i, c, sig, dt, snr, eff, deadtime, safety, f = line.split(' ')
+      i = int(i)
+      rounds[i] = HVetoRound()
+      csplit = c.split(';')
+      if len(csplit) > 2:
+        rounds[i].freqband = map(float, csplit[2][:-2].split('-'))
+      else:
+        rounds[i].freqband = [-numpy.inf, numpy.inf]
+      if len(csplit) > 1:
+        rounds[i].etg = csplit[1]
+      else:
+        rounds[i].etg = 'HACR'
+      rounds[i].channel       = csplit[0]
+      rounds[i].significance  = float(sig)
+      rounds[i].dt            = float(dt)
+      rounds[i].snr           = float(snr)
+      rounds[i].efficiency    = map(float, eff.split(','))
+      rounds[i].deadtime      = map(float, deadtime.split(','))
+      if safety=='None':
+        rounds[i].safety      = [None]
+      else:
+        rounds[i].safety      = map(float, safety.split(','))
+      rounds[i].veto_file     = f.rstrip('\n')
+      hveto_day_xml = ligolw_utils.load_filename(rounds[i].veto_file)
+      rounds[i].veto_segments = SegmentList([])
+      for seg in hveto_day_xml.childNodes[0].childNodes[-1]:
+          rounds[i].veto_segments.append(seg.get())
+      rounds[i].veto_segments.coalesce()
+
+  return rounds
 
 
 def write_round_xml( vetosegs, vetotrigs, winner, ifo):
@@ -3516,7 +3553,7 @@ def get_chan_list( gseq ):
 	# its keys into a proper set.
 	return set(ghash_to_dict( laldetchar.GetChannelList( gseq ) ).keys())
 
-def run_hveto(tab, trig_seq, twind, snr_thresh, sig_stop_thresh):
+def run_hveto(tab, trig_seq, twind, snr_thresh, sig_stop_thresh, verbose = False):
     """
     Actual hierarchical processing of trigger to make vetoes. Should
     be spin-off with helper functions into a module or something.
@@ -3528,6 +3565,7 @@ def run_hveto(tab, trig_seq, twind, snr_thresh, sig_stop_thresh):
     # type 1, and type 0 may not even work after all the tooling I've done. Fair
     # warning.
     coinc_type = 1
+
 
 
     rnd = 1
@@ -3668,7 +3706,7 @@ def run_hveto(tab, trig_seq, twind, snr_thresh, sig_stop_thresh):
                 break
 
             # Write out vetoes and vetoed triggers
-            xmldoc = write_round_xml( vetosegs, vetoed_trigs, winner, tab.ifo)
+            xmldoc = write_round_xml(vetosegs, vetoed_trigs, winner, tab.ifo)
             fname = "%s/%s-HVETO_ROUND_%d-%d-%d.xml.gz" % (tab.directory, tab.ifo, rnd, int(runseg[0]), int(abs(runseg)))
             ligolw_utils.write_filename( xmldoc, fname, gz=True, verbose=verbose )
 
@@ -3817,43 +3855,69 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
         if opt.startswith("trigfind-"):
             trigfind_args[opt[9:]] = val
 
-    # get triggers
-    if not htmlonly:
-        trigtables = get_multi_triggers(cp, allchannels, tab.etg, tab.segments,
-                                        cluster=tab.cluster,
-                                        minsnr=snr, **trigfind_args)
-        trig_seq = None
-        swigtriglist = []
-        for chan,trigtable in zip(allchannels, trigtables):
-            tab.add_triggers(chan, trigtable)
-            # convert from glue SnglBurst to swig/lal SnglBurst
-            for trig in trigtable:
-                swigtrig = lalburst.CreateSnglBurst()
-                swigtrig.ifo = trig.ifo
-                swigtrig.search = trig.search
-                swigtrig.start_time = lal.LIGOTimeGPS(trig.start_time + 1e-9*trig.start_time_ns)
-                swigtrig.peak_time = lal.LIGOTimeGPS(trig.peak_time + 1e-9*trig.peak_time_ns)
-                swigtrig.central_freq = trig.peak_frequency
-                if trig.channel != tab.mainchannel and freqbands:
-                    freq_extension = ''
-                    for iF in range(len(freqbands)-1):
-                        if trig.peak_frequency >= freqbands[iF] \
-                                and trig.peak_frequency < freqbands[iF+1]:
-                            freq_extension = ':%g-%gHz' % (freqbands[iF], freqbands[iF+1])
-                    swigtrig.channel = trig.channel + freq_extension
-                else:
-                    swigtrig.channel = trig.channel
-                swigtrig.snr = trig.snr
-                swigtriglist.append(swigtrig)
-                trig_seq = laldetchar.PopulateTrigSequenceFromTrigList(trig_seq, swigtriglist[-1])
-
-    print_verbose("All triggers loaded.\n", verbose=verbose)
 
 
     #
     # process hveto
     #
-    run_hveto(tab, trig_seq, twind, snr_thresh, sig_stop_thresh)
+    # for long summaries pick-up hveto results form daily pages, otherwise run hveto
+    if tab.mode == summary.SUMMARY_MODE_MONTH:
+        start_date = datetime.datetime(*lal.GPSToUTC(int(tab.start_time))[:6])
+        globstr = os.path.join("archive_daily",
+                               "%d%.2d*"
+                               % (start_date.year, start_date.month),
+                               "analysis/hveto", "full_results.txt")
+        hveto_files = glob.glob(globstr)
+
+        tab.rounds[1] = HVetoRound()
+        tab.rounds[1].channel = 'N/A'
+        for filename in hveto_files:
+            print filename
+            rounds = load_hveto_results(filename)
+            for i in range(1,1+len(rounds)):
+                tab.rounds[1].veto_segments = tab.rounds[1].veto_segments or rounds[i].veto_segments
+        tab.rounds[1].use_percentage = numpy.nan
+        tab.rounds[1].efficiency = [numpy.nan]
+        tab.rounds[1].deadtime = [numpy.nan]
+        trigtable = get_triggers(cp, tab.mainchannel, tab.etg, tab.segments,
+                                 cluster=tab.cluster,
+                                 minsnr=snr, **trigfind_args)
+        tab.add_triggers(chan, trigtable)
+
+    else:
+        # get triggers
+        if not htmlonly:
+            trigtables = get_multi_triggers(cp, allchannels, tab.etg, tab.segments,
+                                            cluster=tab.cluster,
+                                            minsnr=snr, **trigfind_args)
+            trig_seq = None
+            swigtriglist = []
+            for chan,trigtable in zip(allchannels, trigtables):
+                tab.add_triggers(chan, trigtable)
+                # convert from glue SnglBurst to swig/lal SnglBurst
+                for trig in trigtable:
+                    swigtrig = lalburst.CreateSnglBurst()
+                    swigtrig.ifo = trig.ifo
+                    swigtrig.search = trig.search
+                    swigtrig.start_time = lal.LIGOTimeGPS(trig.start_time + 1e-9*trig.start_time_ns)
+                    swigtrig.peak_time = lal.LIGOTimeGPS(trig.peak_time + 1e-9*trig.peak_time_ns)
+                    swigtrig.central_freq = trig.peak_frequency
+                    if trig.channel != tab.mainchannel and freqbands:
+                        freq_extension = ''
+                        for iF in range(len(freqbands)-1):
+                            if trig.peak_frequency >= freqbands[iF] \
+                                    and trig.peak_frequency < freqbands[iF+1]:
+                                freq_extension = ':%g-%gHz' % (freqbands[iF], freqbands[iF+1])
+                        swigtrig.channel = trig.channel + freq_extension
+                    else:
+                        swigtrig.channel = trig.channel
+                    swigtrig.snr = trig.snr
+                    swigtriglist.append(swigtrig)
+                    trig_seq = laldetchar.PopulateTrigSequenceFromTrigList(trig_seq, swigtriglist[-1])
+                    
+        print_verbose("All triggers loaded.\n", verbose=verbose)
+
+        run_hveto(tab, trig_seq, twind, snr_thresh, sig_stop_thresh)
 
     #
     # plot triggers
@@ -3874,10 +3938,8 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
 
     sigmaplot = None
     # make plots for each winner channel (each round)
-    channelparams = parse_data_config(cp, cpsec, tab.winnerchannels)
-    for chan, params, rnd in zip(tab.winnerchannels, channelparams, range(1,1+len(tab.winnerchannels))):
+    for chan, rnd in zip(["combined"] + tab.winnerchannels,  range(1+len(tab.winnerchannels))):
         tab.auxplots[rnd] = list()
-        dt = tab.rounds[rnd].dt
         for plot,_ in plots:
             # format plot
             plottag = re_cchar.sub("_", plot[5:].upper())
@@ -3902,14 +3964,15 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                 # find coincs
                 tab.plotcoincs(outfile, rnd, **plotparams)
             else:
-                tab.plottable(outfile, rnd, **plotparams)        
+                tab.plothistogram(outfile, rnd, **plotparams)        
         print_verbose("%d plots saved for %s.\n" % (len(plots), chan),\
                       verbose=verbose)
 
     #
     # make summary plot
     #
-    tab.plots.append((tab.auxplots[1][0][0], None))
+    tab.plots.append((tab.auxplots[0][0][0], None))
+    
 
     #
     # write results
