@@ -1009,7 +1009,7 @@ class EngineNode(pipeline.CondorDAGNode):
               if trig_time-psdpad-starttime>endtime-psdpad-trig_time:
                   self.psdlength=trig_time-psdpad-starttime-1.
                   side="left"
-                  self.GPSstart=startime+1.
+                  self.GPSstart=starttime+1.
               else:
                   self.psdlength=endtime-trig_time-psdpad-1.
                   side="right"
