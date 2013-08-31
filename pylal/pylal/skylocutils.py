@@ -16,7 +16,7 @@ from bisect import bisect
 
 from pylal import date
 from pylal import CoincInspiralUtils, SnglInspiralUtils, SimInspiralUtils
-from pylal.xlal import tools, inject
+from pylal import inject
 from pylal.xlal.constants import LAL_PI_2
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS 
 from pylal.sphericalutils import angle_between_points
@@ -35,15 +35,15 @@ from glue.ligolw import utils, table as tab, lsctables
 
 #set the detector locations
 detector_locations = {}
-detector_locations["L1"] =tools.cached_detector["LLO_4k"].location   
-detector_locations["H1"] =tools.cached_detector["LHO_4k"].location 
-detector_locations["V1"] =tools.cached_detector["VIRGO"].location
+detector_locations["L1"] =inject.cached_detector["LLO_4k"].location   
+detector_locations["H1"] =inject.cached_detector["LHO_4k"].location 
+detector_locations["V1"] =inject.cached_detector["VIRGO"].location
 
 #set the detector responses
 detector_responses = {}
-detector_responses["L1"] = tools.cached_detector["LLO_4k"].response
-detector_responses["H1"] = tools.cached_detector["LHO_4k"].response
-detector_responses["V1"] = tools.cached_detector["VIRGO"].response
+detector_responses["L1"] = inject.cached_detector["LLO_4k"].response
+detector_responses["H1"] = inject.cached_detector["LHO_4k"].response
+detector_responses["V1"] = inject.cached_detector["VIRGO"].response
 
 ##############################################################################
 #

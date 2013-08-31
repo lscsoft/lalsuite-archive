@@ -15,7 +15,6 @@ __all__ = [
 	"complex16fftplan",
 	"complex16frequencyseries",
 	"complex16timeseries",
-	"laldetector",
 	"lalunit",
 	"ligotimegps",
 	"real8fftplan",

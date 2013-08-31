@@ -449,7 +449,7 @@ static void write_log(SimBurst **injs, TimeSlide * time_slide_table_head,struct 
     %s\
     -100\
     0\
-    0 ",WFname,hrss, (LAL_PI_2 - currentGeo.latitude),currentGeo.longitude,psi,(int) (mdc_gps_start), geoc_time,WFname);
+    0 ",WFname,hrss, cos(LAL_PI_2 - currentGeo.latitude),currentGeo.longitude,psi,(int) (mdc_gps_start), geoc_time,WFname);
     
     i=0;
     while (i<nifos){

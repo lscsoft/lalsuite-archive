@@ -254,7 +254,7 @@ def WriteMVSCTriggers(MVSCTriggers, output_filename, Classified = False):
   if not Classified:
     Unclassified_variables = list(MVSCTriggers.dtype.names)
     for var in ['index', 'i', 'w', 'glitch-rank']:
-      Unclassified_variables.remove(var)
+      if var in Unclassified_variables: Unclassified_variables.remove(var)
     Unclassified_variables.append('i')
     formats = []
     for var in Unclassified_variables:
@@ -305,7 +305,10 @@ def ReadMVSCTriggers(files, Classified=True):
   else: 
     varline = 1
     nskiplines = 2
-
+  if len(files)==0:
+    print "Error: Empty input file list."
+    sys.exit(1)
+	
   for (i,f) in enumerate(files):
     flines = open(f).readlines()
     variables = flines[varline].split()

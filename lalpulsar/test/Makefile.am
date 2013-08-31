@@ -39,11 +39,14 @@ check_PROGRAMS = \
 	TwoDMeshTest \
 	UniversalDopplerMetricTest \
 	NormalizeSFTRngMedTest \
+	XLALMultiNoiseWeightsTest \
 	$(XMLTEST)
 ##	SFTCleanTest \
 
 TESTS = $(check_PROGRAMS)
 EXTRA_PROGRAMS = XLALLoadSFTsTest
+
+TESTS_ENVIRONMENT = LAL_DEBUG_LEVEL=memdbg
 
 TwoDMeshTest_SOURCES = TwoDMeshTest.c TwoDMeshPlot.h TwoDMeshPlot.c
 
@@ -72,6 +75,13 @@ noinst_DATA = \
 	SFT-test5 \
 	SFT-test6 \
 	SFT-test7 \
+	MultiNoiseWeightsTest1.sft \
+	MultiNoiseWeightsTest2.sft \
+	MultiNoiseWeightsTest3.sft \
+	MultiNoiseWeightsTest4.sft \
+	MultiNoiseWeightsTest5.sft \
+	MultiNoiseWeightsTest6.sft \
+	MultiNoiseWeightsTest7.sft \
 	inputsft.0 \
 	inputsft.1 \
 	earth98.dat \
@@ -79,7 +89,7 @@ noinst_DATA = \
 	testTimestamps.dat
 
 MOSTLYCLEANFILES = \
-	H-1_H1*.sft \
+	H-*_H1*.sft \
 	OutHistogram.asc \
 	OutHough.asc \
 	outputsft*.sft

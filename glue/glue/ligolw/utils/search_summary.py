@@ -31,8 +31,8 @@ search_summary table in LIGO Light-Weight XML documents.
 
 
 from glue import git_version
-from glue.ligolw import table
-from glue.ligolw import lsctables
+from .. import table
+from .. import lsctables
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -69,7 +69,13 @@ def append_search_summary(xmldoc, process, shared_object = "standalone", lalwrap
 	row.set_out(outseg)
 	row.nevents = nevents
 	row.nnodes = nnodes
-	table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).append(row)
+
+	try:
+		tbl = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
+	except ValueError:
+		tbl = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SearchSummaryTable))
+	tbl.append(row)
+
 	return row
 
 

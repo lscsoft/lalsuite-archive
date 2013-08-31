@@ -52,6 +52,7 @@ from scipy import special
 from scipy import signal
 from numpy import linspace
 import random
+import socket
 
 from matplotlib.ticker import FormatStrFormatter,ScalarFormatter,AutoMinorLocator
 
@@ -77,6 +78,15 @@ matplotlib.rcParams.update(
         'savefig.dpi': 120
         })
 
+try:
+  hostname_short=socket.gethostbyaddr(socket.gethostname())[0].split('.',1)[1]
+except:
+  hostname_short='Unknown'
+if hostname_short=='ligo.caltech.edu' or hostname_short=='cluster.ldas.cit': #The CIT cluster has troubles with the default 'cm' font. 'custom' has the least troubles, but does not include \odot
+  matplotlib.rcParams.update(
+                             {'mathtext.fontset' : "custom",
+                             'mathtext.fallback_to_cm' : True
+                             }) 
 
 try:
     from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
@@ -175,6 +185,18 @@ border-bottom-style:double;
 }
 
 """
+
+
+__default_javascript_string='''
+//<![CDATA[
+function toggle_visibility(tbid,lnkid)
+{
+if(document.all){document.getElementById(tbid).style.display = document.getElementById(tbid).style.display == 'block' ? 'none' : 'block';}
+else{document.getElementById(tbid).style.display = document.getElementById(tbid).style.display == 'table' ? 'none' : 'table';}
+document.getElementById(lnkid).value = document.getElementById(lnkid).value == '[-] Collapse' ? '[+] Expand' : '[-] Collapse';
+}
+//]]>
+'''
 
 #===============================================================================
 # Function used to generate plot labels.
@@ -1252,7 +1274,7 @@ class Posterior(object):
         reparsed = minidom.parseString(rough_string)
         return_val=reparsed.toprettyxml(indent="  ")
 
-        return return_val
+        return return_val[len('<?xml version="1.0" ?>')+1:]
 
     def write_vot_info(self):
       """
@@ -1961,6 +1983,37 @@ class htmlChunk(object):
         Ea.text=linktext
         self._html.append(Ea)
         return Ea
+    def tab(self):	
+        Etab=Element('table')
+        self._html.append(Etab)
+        return Etab	
+    def insert_row(self,tab,label=None):
+        """
+        Insert row in table tab.
+        If given, label used as id for the table tag
+        """
+        Etr=Element('tr')
+        if label is not None:
+            Etr.attrib['id']=label
+        tab.append(Etr)
+        return Etr
+    def insert_td(self,row,td,label=None):
+        """
+        Insert cell td into row row.
+        Sets id to label, if given
+        """
+        Etd=Element('td')
+        if type(td) is str:
+            Etd.text=td
+        else:
+            td=tostring(td)
+            td=minidom.parseString(td)
+            td=td.toprettyxml(indent="  ")
+            Etd.text=td
+        if label is not None:
+            Etd.attrib['id']=label
+        row.append(Etd)
+        return Etd    
 
     def append(self,element):
         self._html.append(element)
@@ -1971,7 +2024,7 @@ class htmlPage(htmlChunk):
     """
     A concrete class for generating an XHTML(1) document. Inherits from htmlChunk.
     """
-    def __init__(self,title=None,css=None,toc=False):
+    def __init__(self,title=None,css=None,javascript=None,toc=False):
         htmlChunk.__init__(self,'html',attrib={'xmlns':"http://www.w3.org/1999/xhtml"})
         self.doctype_str='<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'
 
@@ -1979,11 +2032,15 @@ class htmlPage(htmlChunk):
         Etitle=SubElement(self._head,'title')
         self._body=SubElement(self._html,'body')
         self._css=None
+        self._jscript=None
         if title is not None:
             Etitle.text=str(title)
             self._title=SubElement(self._body,'h1')
             self._title.text=title
-
+        if javascript is not None:
+            self._jscript=SubElement(self._head,'script')
+            self._jscript.attrib['type']="text/javascript"
+            self._jscript.text=str(javascript)
         if css is not None:
             self._css=SubElement(self._head,'style')
             self._css.attrib['type']="text/css"
@@ -1992,9 +2049,29 @@ class htmlPage(htmlChunk):
     def __str__(self):
         return self.doctype_str+'\n'+self.toprettyxml()
 
-    def add_section(self,section_name):
+    def add_section(self,section_name,legend=None):
         newSection=htmlSection(section_name)
         self._body.append(newSection._html)
+        if legend is not None:
+            legend.a('#%s'%section_name,'%s'%section_name)
+            legend.br()
+        return newSection
+    def add_collapse_section(self,section_name,legend=None,innertable_id=None):
+        """
+        Create a section embedded into a table that can be collapsed with a button
+        """
+        newSection=htmlCollapseSection(section_name,table_id=innertable_id)
+        self._body.append(newSection._html)
+        if legend is not None:
+            legend.a('#%s'%section_name,'%s'%section_name)
+            legend.br()
+        return newSection
+    def add_section_to_element(self,section_name,parent):
+        """
+        Create a section which is not appended to the body of html, but to the parent Element
+        """
+        newSection=htmlSection(section_name,htmlElement=parent,blank=True)
+        parent.append(newSection._html)	
         return newSection
 
     @property
@@ -2010,11 +2087,31 @@ class htmlSection(htmlChunk):
     """
     Represents a block of html fitting within a htmlPage. Inherits from htmlChunk.
     """
-    def __init__(self,section_name,htmlElement=None):
-        htmlChunk.__init__(self,'div',attrib={'class':'ppsection'},parent=htmlElement)
-
+    def __init__(self,section_name,htmlElement=None,blank=False):
+        if not blank:
+            htmlChunk.__init__(self,'div',attrib={'class':'ppsection','id':section_name},parent=htmlElement)	
+        else:
+            htmlChunk.__init__(self,'div',attrib={'style':'"color:#000000"','id':section_name},parent=htmlElement)
         self.h2(section_name)
 
+class htmlCollapseSection(htmlChunk):
+    """
+    Represents a block of html fitting within a htmlPage. Inherits from htmlChunk.
+    """
+
+    def __init__(self,section_name,htmlElement=None,table_id=None):
+        htmlChunk.__init__(self,'div',attrib={'class':'ppsection','id':section_name},parent=htmlElement)
+        # if table id is none, generate a random id:
+        if table_id is None:
+            table_id=random.randint(1,10000000)
+        self.table_id=table_id
+    def write(self,string):
+        k=random.randint(1,10000000)
+        st='<table width="772px" border="0" align="center" cellpadding="5" cellspacing="0"><tr bgcolor="#4682B4" height="50"><td width="5%%"><font size="4" face="tahoma" color="white"><a href="#"> Top</a></font></td><td width="45%%"><font size="4" face="tahoma" color="white"><strong>%s</strong></font></td><td bgcolor="#4682B4" align="center" width="50%%"><input id="lnk%s" type="button" value="[+] Expand" onclick="toggle_visibility(\'%s\',\'lnk%s\');"></input></td></tr><tr><td colspan="7">'%(self._html.attrib['id'],k,self.table_id,k)
+        st+=string
+        st+='</td></tr></table>'
+        htmlChunk.write(self,st)
+        
 #===============================================================================
 # Internal module functions
 #===============================================================================
@@ -2619,7 +2716,7 @@ def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
 
     np.seterr(under='ignore')
 
-    myfig=plt.figure()
+    myfig=plt.figure(1,figsize=(13,18),dpi=200)    
     plt.clf()
     m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
     
@@ -2644,8 +2741,8 @@ def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
     m.drawmeridians(np.arange(0.,360.,90.),labels=[0,0,0,1],labelstyle='+/-')
     # draw meridians
     plt.title("Skymap") # add a title
-    plt.colorbar()
-    myfig.savefig(os.path.join(outdir,'skymap.png'))
+    plt.colorbar(pad=0.05,orientation='horizontal')
+    myfig.savefig(os.path.join(outdir,'skymap.png'),bbox_inches='tight')
     plt.clf()
 
     #Save skypoints
@@ -5825,7 +5922,7 @@ class BurstPosterior(object):
         reparsed = minidom.parseString(rough_string)
         return_val=reparsed.toprettyxml(indent="  ")
 
-        return return_val
+        return return_val[len('<?xml version="1.0" ?>')+1:]
 
     def write_vot_info(self):
       """

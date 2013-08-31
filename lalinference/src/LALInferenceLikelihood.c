@@ -527,7 +527,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
     /* Template is now in dataPtr->timeFreqModelhPlus and hCross */
 
     /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
-    XLALComputeDetAMResponse(&Fplus, &Fcross, dataPtr->detector->response, ra, dec, psi, gmst);
+    XLALComputeDetAMResponse(&Fplus, &Fcross, (const REAL4(*)[3])dataPtr->detector->response, ra, dec, psi, gmst);
 
     /* signal arrival time (relative to geocenter); */
     timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location, ra, dec, &GPSlal);
@@ -797,7 +797,7 @@ REAL8 LALInferenceFreqDomainStudentTLogLikelihood(LALInferenceVariables *current
 
     /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
     XLALComputeDetAMResponse(&Fplus, &Fcross,
-                             dataPtr->detector->response,
+                             (const REAL4(*)[3])dataPtr->detector->response,
 			     ra, dec, psi, gmst);
     /* signal arrival time (relative to geocenter); */
     timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
@@ -1144,7 +1144,7 @@ void LALInferenceComputeFreqDomainResponse(LALInferenceVariables *currentParams,
        dataPtr->freqModelhCross */
 
     /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
-    XLALComputeDetAMResponse(&Fplus, &Fcross, dataPtr->detector->response,
+    XLALComputeDetAMResponse(&Fplus, &Fcross, (const REAL4(*)[3])dataPtr->detector->response,
 			     ra, dec, psi, gmst);
 		 
     /* signal arrival time (relative to geocenter); */
@@ -1714,7 +1714,7 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
 
     /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
     XLALComputeDetAMResponse(&Fplus, &Fcross,
-                             dataPtr->detector->response,
+                             (const REAL4(*)[3]) dataPtr->detector->response,
 			     ra, dec, psi, gmst);
     /* signal arrival time (relative to geocenter); */
     timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
@@ -1905,10 +1905,10 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_BestIFO(LALInferenceVariab
 
     /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
     XLALComputeDetAMResponse(&Fplus, &Fcross,
-                             dataPtr->detector->response,
+                             (const REAL4(*)[3]) dataPtr->detector->response,
 			     ra, dec, psi, gmst);
     XLALComputeDetAMResponse(&FplusBest, &FcrossBest,
-                             dataPtr->BestIFO->detector->response,
+                             (const REAL4(*)[3]) dataPtr->BestIFO->detector->response,
 			     ra, dec, psi, gmst);           
     /* signal arrival time (relative to geocenter); */
     timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
@@ -2140,7 +2140,7 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood_HMNS(LALInferenceVariables *cur
 
         /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
         XLALComputeDetAMResponse(&Fplus, &Fcross,
-                dataPtr->detector->response,
+                (const REAL4(*)[3]) dataPtr->detector->response,
                 ra, dec, psi, gmst);
         /* signal arrival time (relative to geocenter); */
         timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
@@ -2376,7 +2376,7 @@ REAL8 LALInferenceExtraPowerLogLikelihood(LALInferenceVariables *currentParams, 
     
     /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
     XLALComputeDetAMResponse(&Fplus, &Fcross,
-			    dataPtr->detector->response,
+			   (const REAL4(*)[3]) dataPtr->detector->response,
 			    ra, dec, psi, gmst);
     /* signal arrival time (relative to geocenter); */
     timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
@@ -2650,7 +2650,7 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood_RD(LALInferenceVariables *curre
     
     /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
     XLALComputeDetAMResponse(&Fplus, &Fcross,
-			    dataPtr->detector->response,
+			    (const REAL4(*)[3]) dataPtr->detector->response,
 			    ra, dec, psi, gmst);
     /* signal arrival time (relative to geocenter); */
     timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
@@ -2891,7 +2891,7 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
 
     /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
     XLALComputeDetAMResponse(&Fplus, &Fcross,
-                             dataPtr->detector->response,
+                             (const REAL4(*)[3]) dataPtr->detector->response,
 			     ra, dec, psi, gmst);
     /* signal arrival time (relative to geocenter); */
     timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
@@ -3143,7 +3143,7 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentP
     
     /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
     XLALComputeDetAMResponse(&Fplus, &Fcross,
-                             dataPtr->detector->response,
+                             (const REAL4(*)[3])dataPtr->detector->response,
                              ra, dec, psi, gmst);
     /* signal arrival time (relative to geocenter); */
     timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,

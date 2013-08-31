@@ -47,11 +47,11 @@ import warnings
 from glue import git_version
 from glue import offsetvector
 from glue import segments
-from glue.ligolw import ilwd
-from glue.ligolw import ligolw
-from glue.ligolw import table
-from glue.ligolw import lsctables
-from glue.ligolw import types as ligolwtypes
+from . import ilwd
+from . import ligolw
+from . import table
+from . import lsctables
+from . import types as ligolwtypes
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -1070,7 +1070,7 @@ TableByName = {
 
 
 #
-# Override portions of the ligolw.DefaultLIGOLWContentHandler class
+# Override portions of a ligolw.LIGOLWContentHandler class
 #
 
 
@@ -1116,4 +1116,5 @@ def use_in(ContentHandler):
 	ContentHandler.startTable = startTable
 
 
+# FIXME:  remove
 use_in(ligolw.DefaultLIGOLWContentHandler)

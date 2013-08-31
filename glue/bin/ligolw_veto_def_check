@@ -7,7 +7,6 @@ import copy
 from optparse import OptionParser
 
 from glue import segments
-from glue.iterutils import all, any
 from glue.ligolw import ligolw
 from glue.ligolw import utils
 from glue.ligolw import table

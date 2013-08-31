@@ -43,8 +43,10 @@ except ImportError:
 	# be available
 	PosInf = float("+inf")
 	NegInf = float("-inf")
+import itertools
 import math
 import numpy
+from scipy import interpolate
 from scipy.signal import signaltools
 
 
@@ -317,13 +319,13 @@ class LogarithmicBins(Bins):
 		raise IndexError(x)
 
 	def lower(self):
-		return self.min * numpy.exp(self.delta * numpy.arange(len(self)))
+		return numpy.exp(numpy.linspace(math.log(self.min), math.log(self.max) - self.delta, len(self)))
 
 	def centres(self):
-		return self.min * numpy.exp(self.delta * (numpy.arange(len(self)) + 0.5))
+		return numpy.exp(numpy.linspace(math.log(self.min), math.log(self.max) - self.delta, len(self)) + self.delta / 2.)
 
 	def upper(self):
-		return self.min * numpy.exp(self.delta * (numpy.arange(len(self)) + 1))
+		return numpy.exp(numpy.linspace(math.log(self.min) + self.delta, math.log(self.max), len(self)))
 
 
 class LogarithmicPlusOverflowBins(Bins):
@@ -387,13 +389,13 @@ class LogarithmicPlusOverflowBins(Bins):
 		raise IndexError(x)
 
 	def lower(self):
-		return numpy.concatenate((numpy.array([0.]), self.min * numpy.exp(self.delta * numpy.arange(len(self) - 1))))
+		return numpy.concatenate((numpy.array([0.]), numpy.exp(numpy.linspace(math.log(self.min), math.log(self.max), len(self) - 1))))
 
 	def centres(self):
-		return numpy.concatenate((numpy.array([0.]), self.min * numpy.exp(self.delta * (numpy.arange(len(self) - 2) + 0.5)), numpy.array([PosInf])))
+		return numpy.concatenate((numpy.array([0.]), numpy.exp(numpy.linspace(math.log(self.min), math.log(self.max) - self.delta, len(self) - 2) + self.delta / 2.), numpy.array([PosInf])))
 
 	def upper(self):
-		return numpy.concatenate((self.min * numpy.exp(self.delta * numpy.arange(len(self) - 1)), numpy.array([PosInf])))
+		return numpy.concatenate((numpy.exp(numpy.linspace(math.log(self.min), math.log(self.max), len(self) - 1)), numpy.array([PosInf])))
 
 
 class ATanBins(Bins):
@@ -898,6 +900,13 @@ class BinnedArray(object):
 			self[coords] += other[coords]
 		return self
 
+	def copy(self):
+		"""
+		Return a copy of the BinnedArray.  The .bins attribute is
+		shared with the original.
+		"""
+		return type(self)(self.bins, self.array.copy())
+
 	def centres(self):
 		"""
 		Return a tuple of arrays containing the bin centres for
@@ -1025,6 +1034,84 @@ class BinnedRatios(object):
 		self.denominator.to_pdf()
 
 
+#
+# =============================================================================
+#
+#                          Binned Array Interpolator
+#
+# =============================================================================
+#
+
+
+class InterpBinnedArray(object):
+	"""
+	Wrapper constructing a scipy.interpolate interpolator from the
+	contents of a BinnedArray.  Only piecewise linear interpolators are
+	supported.  In 1 or 2 dimensions, scipy.interpolate.interp1d or
+	.interp2d is used, respectively.  In more than 2 dimensions
+	scipy.interpolate.LinearNDInterpolator is used.
+	"""
+	def __init__(self, binnedarray, fill_value = 0.0):
+		# the upper and lower boundaries of the binnings are added
+		# as additional co-ordinates with the array being assumed
+		# to equal fill_value at those points.  this solve the
+		# problem of providing a valid function in the outer halves
+		# of the first and last bins.
+
+		# coords[0] = co-ordinates along 1st dimension,
+		# coords[1] = co-ordinates along 2nd dimension,
+		# ...
+		coords = tuple(numpy.hstack((l[0], c, u[-1])) for l, c, u in zip(binnedarray.bins.lower(), binnedarray.bins.centres(), binnedarray.bins.upper()))
+
+		# pad the contents of the binned array with 1 element of
+		# fill_value on each side in each dimension
+		try:
+			z = numpy.pad(binnedarray.array, [(1, 1)] * len(binnedarray.array.shape), mode = "constant", constant_values = [(fill_value, fill_value)] * len(binnedarray.array.shape))
+		except AttributeError:
+			# numpy < 1.7 didn't have pad().  FIXME:  remove
+			# when we can rely on a newer numpy
+			z = numpy.empty(tuple(l + 2 for l in binnedarray.array.shape))
+			z.fill(fill_value)
+			z[(slice(1, -1),) * len(binnedarray.array.shape)] = binnedarray.array
+
+		# if any co-ordinates are infinite, remove them.  also
+		# remove degenerate co-ordinates from ends
+		slices = []
+		for c in coords:
+			finite_indexes, = numpy.isfinite(c).nonzero()
+			assert len(finite_indexes) != 0
+
+			lo, hi = finite_indexes.min(), finite_indexes.max()
+
+			while lo < hi and c[lo + 1] == c[lo]:
+				lo += 1
+			while lo < hi and c[hi - 1] == c[hi]:
+				hi -= 1
+			assert lo < hi
+
+			slices.append(slice(lo, hi + 1))
+		coords = tuple(c[s] for c, s in zip(coords, slices))
+		z = z[slices]
+
+		# build the interpolator from the co-ordinates and array
+		# data
+		if len(coords) == 1:
+			#self.interp = interpolate.interp1d(coords[0], z, kind = "linear", bounds_error = False, fill_value = fill_value)
+			self.interp = interpolate.UnivariateSpline(coords[0], z, k = 1)
+		elif len(coords) == 2:
+			#self.interp = interpolate.interp2d(coords[0], coords[1], z, kind = "linear", bounds_error = False, fill_value = fill_value)
+			self.interp = interpolate.RectBivariateSpline(coords[0], coords[1], z, kx = 1, ky = 1)
+		else:
+			self.interp = interpolate.LinearNDInterpolator(list(itertools.product(*coords)), z.flat, fill_value = fill_value)
+
+	def __call__(self, *coords):
+		"""
+		Evaluate the interpolator at the given co-ordinates.  The
+		return value is array-like.
+		"""
+		return self.interp(*coords)
+
+
 
 #
 # =============================================================================
@@ -1079,10 +1166,6 @@ def gaussian_window(*bins, **kwargs):
 		window = reduce(numpy.outer, windows)
 		window.shape = tuple(len(w) for w in windows)
 		return window
-
-
-# compatibility stub.  FIXME:  remove
-gaussian_window2d = gaussian_window
 
 
 def tophat_window(bins):
@@ -1282,15 +1365,16 @@ def marginalize(pdf, dim):
 	"""
 	From a BinnedArray object containing probability density data (bins
 	whose volume integral is 1), return a new BinnedArray object
-	containing the probability density marginalizaed over dimension
+	containing the probability density marginalized over dimension
 	dim.
 	"""
 	dx = pdf.bins[dim].upper() - pdf.bins[dim].lower()
 	dx_shape = [1] * len(pdf.bins)
 	dx_shape[dim] = len(dx)
+	dx.shape = dx_shape
 
 	result = BinnedArray(NDBins(pdf.bins[:dim] + pdf.bins[dim+1:]))
-	result.array = (pdf.array * dx.reshape(dx_shape)).sum(axis = dim)
+	result.array = (pdf.array * dx).sum(axis = dim)
 
 	return result
 

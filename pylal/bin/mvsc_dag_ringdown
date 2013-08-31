@@ -21,7 +21,6 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import git_version
 from pylal import ligolw_tisi
-from pylal import llwapp
 from pylal import ligolw_cafe
 from pylal import mvsc_queries_ringdown
 from glue import pipeline

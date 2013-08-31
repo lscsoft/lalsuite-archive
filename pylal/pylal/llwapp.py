@@ -35,8 +35,8 @@ import time
 
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
+from lal import UTCToGPS as _UTCToGPS
 from pylal import git_version
-from pylal.date import XLALUTCToGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -97,11 +97,11 @@ def append_process(*args, **kwargs):
 	if "cvs_entry_time" in kwargs and kwargs["cvs_entry_time"] is not None and kwargs["cvs_entry_time"] != "":
 		try:
 			# try the git_version format first
-			process.cvs_entry_time = XLALUTCToGPS(time.strptime(kwargs["cvs_entry_time"], "%Y-%m-%d %H:%M:%S +0000")).seconds
+			process.cvs_entry_time = _UTCToGPS(time.strptime(kwargs["cvs_entry_time"], "%Y-%m-%d %H:%M:%S +0000"))
 		except ValueError:
 			# fall back to the old cvs format
-			process.cvs_entry_time = XLALUTCToGPS(time.strptime(kwargs["cvs_entry_time"], "%Y/%m/%d %H:%M:%S")).seconds
-	process.start_time = XLALUTCToGPS(time.gmtime()).seconds
+			process.cvs_entry_time = _UTCToGPS(time.strptime(kwargs["cvs_entry_time"], "%Y/%m/%d %H:%M:%S"))
+	process.start_time = _UTCToGPS(time.gmtime())
 	return process
 
 
@@ -111,5 +111,5 @@ def set_process_end_time(process):
 	glue.ligolw.utils.process except uses LAL to convert UTC to GPS
 	time to get the leap seconds correct.
 	"""
-	process.end_time = XLALUTCToGPS(time.gmtime()).seconds
+	process.end_time = _UTCToGPS(time.gmtime())
 	return process

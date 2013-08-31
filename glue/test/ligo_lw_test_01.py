@@ -9,7 +9,11 @@ from glue.ligolw import ligolw
 from glue.ligolw import array
 from glue.ligolw import utils
 
-xmldoc = utils.load_filename("ligo_lw_test_01.xml", verbose = True)
+class ContentHandler(ligolw.LIGOLWContentHandler):
+	pass
+array.use_in(ContentHandler)
+
+xmldoc = utils.load_filename("ligo_lw_test_01.xml", contenthandler = ContentHandler, verbose = True)
 
 for n, a in enumerate(xmldoc.getElementsByTagName(ligolw.Array.tagName)):
 	print >>sys.stderr, "found %s array '%s'" % ("x".join(map(str, a.array.shape)), a.getAttribute("Name"))
