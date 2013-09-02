@@ -2014,18 +2014,14 @@ class HvetoSummaryTab(TriggerSummaryTab):
         trigs = {}
         segments_before = segments.segmentlist([])
         for i in range(1,rnd):
-            print i, len(segments_before)
-            segments_before.extend( self.rounds[i].veto_segments)
-            segments_before.coalesce()
+            segments_before |= self.rounds[i].veto_segments
         segments_after = segments.segmentlist([])
         if rnd:
-            for i in range(1,rnd+1):
-                segments_after.extend(self.rounds[i].veto_segments)
-                segments_after.coalesce()
+            segments_after |= segments_before
+            segments_after |= self.rounds[rnd].veto_segments
         else:
             for i in range(1,1+len(self.rounds)):
-                segments_after.extend(self.rounds[i].veto_segments)
-                segments_after.coalesce()
+                segments_after |= self.rounds[i].veto_segments
         trigs["before"] = lsctables.New(lsctables.SnglBurstTable)
         trigs["before"].extend([t for t in self.triggers[self.mainchannel] if t.peak_time not in segments_before])
         trigs["after"] = lsctables.New(lsctables.SnglBurstTable)

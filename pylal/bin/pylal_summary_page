@@ -3738,13 +3738,11 @@ def run_hveto(tab, trig_seq, twind, snr_thresh, sig_stop_thresh, verbose = False
                         != abs(SegmentList([runseg])) or \
                         abs(SegmentList([runseg])) != abs(G_SEGMENT_SUMMARY[hvetoflag]):
                     raise ValueError("Unconsistent processed time span for different rounds of hveto")
-                G_SEGMENTS[hvetoflag].extend(fvetosegs)
+                G_SEGMENTS[hvetoflag] |= fvetosegs
             else:
                 G_SEGMENT_SUMMARY[hvetoflag] = SegmentList([runseg])
                 G_SEGMENTS[hvetoflag] = SegmentList([])
-                G_SEGMENTS[hvetoflag].extend(fvetosegs)
-            G_SEGMENT_SUMMARY[hvetoflag].coalesce()
-            G_SEGMENTS[hvetoflag].coalesce()
+                G_SEGMENTS[hvetoflag] |= fvetosegs
 
             # Plots and the like
             chansig = defaultdict(dict)
