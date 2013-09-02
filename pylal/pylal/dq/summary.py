@@ -2009,22 +2009,23 @@ class HvetoSummaryTab(TriggerSummaryTab):
         """
         Kludge, rnd=0 is all the rounds combined
         """
-        print "rnd", rnd
+
         desc = kwargs.pop("description", None)
         trigs = {}
         segments_before = segments.segmentlist([])
         for i in range(1,rnd):
-            print i,
-            segments_before |= self.rounds[i].veto_segments
-        print segments_before
+            print i, len(segments_before)
+            segments_before.extend( self.rounds[i].veto_segments)
+            segments_before.coalesce()
+        segments_after = segments.segmentlist([])
         if rnd:
-            segments_after = segments_before
-            segments_after |= self.rounds[rnd].veto_segments
+            for i in range(1,rnd+1):
+                segments_after.extend(self.rounds[i].veto_segments)
+                segments_after.coalesce()
         else:
-            segments_after = segments.segmentlist([])
             for i in range(1,1+len(self.rounds)):
-                segments_after |= self.rounds[i].veto_segments
-        print "trigger keys", self.triggers.keys()
+                segments_after.extend(self.rounds[i].veto_segments)
+                segments_after.coalesce()
         trigs["before"] = lsctables.New(lsctables.SnglBurstTable)
         trigs["before"].extend([t for t in self.triggers[self.mainchannel] if t.peak_time not in segments_before])
         trigs["after"] = lsctables.New(lsctables.SnglBurstTable)
