@@ -2752,6 +2752,35 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
         LALInferenceAddVariable(vars, "phi_spin2", &phi_spin2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     }
 
+    /* WARNING: I'm not sure if this should go here or somewhere else */
+    REAL8 dtau21=theEventTable->dtau21;
+    LALInferenceAddVariable(vars, "dtau21",&dtau21,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    REAL8 dtau22=theEventTable->dtau22;
+    LALInferenceAddVariable(vars, "dtau22",&dtau22,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    REAL8 dtau33=theEventTable->dtau33;
+    LALInferenceAddVariable(vars, "dtau33",&dtau33,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    REAL8 dtau44=theEventTable->dtau44;
+    LALInferenceAddVariable(vars, "dtau44",&dtau44,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+
+    REAL8 dfreq21=theEventTable->dfreq21;
+    LALInferenceAddVariable(vars, "dfreq21",&dfreq21,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    REAL8 dfreq22=theEventTable->dfreq22;
+    LALInferenceAddVariable(vars, "dfreq22",&dfreq22,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    REAL8 dfreq33=theEventTable->dfreq33;
+    LALInferenceAddVariable(vars, "dfreq33",&dfreq33,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    REAL8 dfreq44=theEventTable->dfreq44;
+    LALInferenceAddVariable(vars, "dfreq44",&dfreq44,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    
+    fprintf(stdout,"Injecting %s in the time domain...\n",theEventTable->waveform);
+    fprintf(stdout,"adding dtau21=%1.3f in the injection\n",theEventTable->dtau21);
+    fprintf(stdout,"adding dtau22=%1.3f in the injection\n",theEventTable->dtau22);
+    fprintf(stdout,"adding dtau33=%1.3f in the injection\n",theEventTable->dtau33);
+    fprintf(stdout,"adding dtau44=%1.3f in the injection\n",theEventTable->dtau44);
+    fprintf(stdout,"adding dfreq21=%1.3f in the injection\n",theEventTable->dfreq21);
+    fprintf(stdout,"adding dfreq22=%1.3f in the injection\n",theEventTable->dfreq22);
+    fprintf(stdout,"adding dfreq33=%1.3f in the injection\n",theEventTable->dfreq33);
+    fprintf(stdout,"adding dfreq44=%1.3f in the injection\n",theEventTable->dfreq44);
+
 }
 
 void LALInferencePrintInjectionSample(LALInferenceRunState *runState)

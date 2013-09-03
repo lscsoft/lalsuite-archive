@@ -18,6 +18,28 @@
 #include <lal/LALInferenceReadData.h>
 #include <lal/LALInferenceInit.h>
 
+int checkParamInList(const char *list, const char *param);
+int checkParamInList(const char *list, const char *param)
+{
+  /* Check for param in comma-seperated list */
+  char *post=NULL,*pos=NULL;
+  if (list==NULL) return 0;
+  if (param==NULL) return 0;
+  
+  if(!(pos=strstr(list,param))) return 0;
+  
+  /* The string is a substring. Check that it is a token */
+  /* Check the character before and after */
+  if(pos!=list)
+    if(*(pos-1)!=',')
+      return 0;
+    
+    post=&(pos[strlen(param)]);
+  if(*post!='\0')
+    if(*post!=',')
+      return 0;
+    return 1;
+}
 
 
 LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *state)
@@ -952,6 +974,78 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   
 
   LALInferenceRegisterUniformVariableREAL8(state, currentParams, "inclination", start_iota, iotaMin, iotaMax, LALInferenceGetProcParamVal(commandLine,"--fixIota")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
+
+
+
+  ppt=LALInferenceGetProcParamVal(commandLine,"--GRtestparameters");
+  /* The strcmp("",ppt->value) is just to avoid that calling --GRtestparameter without any parameters (which is a GR recovery) pins all the dchis */
+  if (ppt && strcmp("",ppt->value) )
+  {
+    REAL8 testParameter_max=.5;
+    REAL8 testParameter_min=-.5;
+    REAL8 tmpVal=testParameter_min+(testParameter_max - testParameter_min)/2.0;
+    REAL8 zeroVal=0.0;
+
+/* Without helper function */    
+//     if (checkParamInList(ppt->value,"dchi0")) {
+//       XLALPrintInfo("Adding %s to the template parameters \n",ppt->value);
+//       LALInferenceAddVariable(currentParams,"dchi0",  &tmpVal,  LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+//       LALInferenceAddMinMaxPrior(priorArgs, "dchi0",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t);
+//     } else {
+//       LALInferenceAddVariable(currentParams,"dchi0",  &zeroVal,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+//     }
+    if (checkParamInList(ppt->value,"dtau21")) {
+      XLALPrintInfo("Adding dtau21 to the template parameters \n");
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dtau21", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
+    } else {
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dtau21", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
+    }
+    if (checkParamInList(ppt->value,"dtau22")) {
+      XLALPrintInfo("Adding dtau22 to the template parameters \n");
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dtau22", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
+    } else {
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dtau22", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
+    }       
+    if (checkParamInList(ppt->value,"dtau33")) {
+      XLALPrintInfo("Adding dtau33 to the template parameters \n");
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dtau33", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
+    } else {
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dtau33", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
+    }   
+    if (checkParamInList(ppt->value,"dtau44")) {
+      XLALPrintInfo("Adding dtau44 to the template parameters \n");
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dtau44", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
+    } else {
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dtau44", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
+    }
+
+    if (checkParamInList(ppt->value,"dfreq21")) {
+      XLALPrintInfo("Adding dfreq21 to the template parameters \n");
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dfreq21", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
+    } else {
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dfreq21", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
+    }
+    if (checkParamInList(ppt->value,"dfreq22")) {
+      XLALPrintInfo("Adding dfreq22 to the template parameters \n");
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dfreq22", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
+    } else {
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dfreq22", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
+    }
+    if (checkParamInList(ppt->value,"dfreq33")) {
+      XLALPrintInfo("Adding dfreq33 to the template parameters \n");
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dfreq33", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
+    } else {
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dfreq33", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
+    }
+    if (checkParamInList(ppt->value,"dfreq44")) {
+      XLALPrintInfo("Adding dfreq44 to the template parameters \n");
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dfreq44", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
+    } else {
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dfreq44", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
+    } 
+ 
+  }
+
 
      /* Print info about orders and waveflags used for templates */
      fprintf(stdout,"\n\n---\t\t ---\n");

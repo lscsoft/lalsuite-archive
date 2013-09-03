@@ -1944,10 +1944,6 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
 	eta = m1*m2/((m1+m2)*(m1+m2));
     mass = (m1 + m2)*(1. - frac_mass_loss); 
   }
-  /* NOTE: because of the rdMass, "finalmass" may not be necessary anymore. */
-//   else if(LALInferenceCheckVariable(IFOdata->modelParams, "rdMass")){
-//     mass = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"rdMass");
-//   }
   else
   {
     fprintf(stderr,"No mass parameters found!");
@@ -2027,10 +2023,17 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
   REAL8 spin1[3] = {0.0};
   REAL8 spin2[3] = {0.0};
 
-  if (LALInferenceCheckVariable(IFOdata->modelParams, "nonGR_QNM")){
-    nonGRparams = (LALSimInspiralTestGRParam*) LALInferenceGetVariable(IFOdata->modelParams, "nonGR_QNM");
-    XLALSimInspiralPrintTestGRParam(stdout, nonGRparams);  // print the nonGR_QNM parameters
+  const char list_extra_parameters[32][7] = {"dtau21","dtau22","dtau33","dtau44","dfreq21","dfreq22","dfreq33","dfreq44"};
+
+  for (UINT4 k=0; k<7; k++)
+  {
+    if(LALInferenceCheckVariable(IFOdata->modelParams,list_extra_parameters[k]))
+    {
+      XLALSimInspiralAddTestGRParam(&nonGRparams,list_extra_parameters[k],*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,list_extra_parameters[k]));
+      printf("added TestGRParam %s, with value %.3f\n",list_extra_parameters[k],XLALSimInspiralGetTestGRParam(nonGRparams,list_extra_parameters[k])) ;
+    }
   }
+
   
   deltaT = IFOdata->timeData->deltaT;
   

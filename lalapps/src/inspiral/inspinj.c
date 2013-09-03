@@ -210,6 +210,15 @@ REAL4 rdmaxSpin = -1.0 ;
 REAL4 rdmeanSpin = -1.0 ;
 REAL4 rdStdevSpin = -1.0 ;
 
+REAL8 dtau22 = 0.0 ;
+REAL8 dtau21 = 0.0 ;
+REAL8 dtau33 = 0.0 ;
+REAL8 dtau44 = 0.0 ;
+REAL8 dfreq22 = 0.0 ;
+REAL8 dfreq21 = 0.0 ;
+REAL8 dfreq33 = 0.0 ;
+REAL8 dfreq44 = 0.0 ;
+
 
 REAL8 single_IFO_SNR_threshold=0.0;
 char ** ifonames=NULL;
@@ -776,7 +785,17 @@ static void print_usage(char *program)
           "  [--stdev-rdspin] rdspinstd Set the standard deviation for |spin1|\n"\
           
           "  [--min-rdmass] rdmmin       set the min ringdown mass to rdmmin\n"\
-          "  [--max-rdmass] rdmmax       set the max ringdown mass to rdmmax\n\n");
+          "  [--max-rdmass] rdmmax       set the max ringdown mass to rdmmax\n");
+  fprintf(stderr,
+          "Ringdown test parameter information:\n"\
+          " --dtau21 value             value of the dtau21 parameter\n"\
+          " --dtau22 value             value of the dtau22 parameter\n"\
+          " --dtau33 value             value of the dtau33 parameter\n"\
+          " --dtau44 value             value of the dtau44 parameter\n"\
+          " --dfreq21 value             value of the dfreq21 parameter\n"\
+          " --dfreq22 value             value of the dfreq22 parameter\n"\
+          " --dfreq33 value            value of the dfreq33 parameter\n"\
+          " --dfreq44 value             value of the dfreq44 parameter\n\n");
   fprintf(stderr,
       "Tapering the injection waveform:\n"\
       "  [--taper-injection] OPT  Taper the inspiral template using option OPT\n"\
@@ -1644,6 +1663,14 @@ int main( int argc, char *argv[] )
     {"stdev-rdspin",              required_argument, 0,                 1012},
     {"min-rdmass",              required_argument, 0,                 1013},
     {"max-rdmass",              required_argument, 0,                 1014},
+    {"dtau21",                   required_argument, 0,                 1016},
+    {"dtau22",                   required_argument, 0,                 1017},
+    {"dtau33",                   required_argument, 0,                 1018},
+    {"dtau44",                   required_argument, 0,                 1019},
+    {"dfreq21",                   required_argument, 0,                 1020},
+    {"dfreq22",                   required_argument, 0,                 1021},
+    {"dfreq33",                  required_argument, 0,                 1022},
+    {"dfreq44",                   required_argument, 0,                 1023},
     {0, 0, 0, 0}
   };
   int c;
@@ -2838,8 +2865,62 @@ int main( int argc, char *argv[] )
         next_process_param( long_options[option_index].name,
                             "float", "%le", rdmaxMass );
         break;
-     
+        
+      case 1016:
+        dtau21 = atof( optarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dtau21 );
+        break;
 
+      case 1017:
+        dtau22 = atof( optarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dtau22 );
+        break;
+
+      case 1018:
+        dtau33 = atof( optarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dtau33 );
+        break;
+
+      case 1019:
+        dtau44 = atof( optarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dtau44 );
+        break;
+
+      case 1020:
+        dfreq21 = atof( optarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dfreq21 );
+        break;
+        
+      case 1021:
+        dfreq22 = atof( optarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dfreq22 );
+        break;
+        
+      case 1022:
+        dfreq33 = atof( optarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dfreq33 );
+        break;
+        
+      case 1023:
+        dfreq44 = atof( optarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", dfreq44 );
+        break;
 
 
       default:
@@ -4134,6 +4215,16 @@ int main( int argc, char *argv[] )
 
     /* populate the bandpass options */
     simTable->bandpass = bandPassInj;
+
+    /* populate the test parameters */
+    simTable->dtau21 = dtau21 ;
+    simTable->dtau22 = dtau22 ;
+    simTable->dtau33 = dtau33 ;
+    simTable->dtau44 = dtau44 ;
+    simTable->dfreq21 = dfreq21 ;
+    simTable->dfreq22 = dfreq22 ;
+    simTable->dfreq33 = dfreq33 ;
+    simTable->dfreq44 = dfreq44 ;
 
 
     /* populate the sim_ringdown table */

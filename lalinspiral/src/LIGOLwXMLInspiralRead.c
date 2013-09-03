@@ -1428,10 +1428,16 @@ SimInspiralTableFromLIGOLw (
     {"amp_order",           -1, 53},
     {"taper",               -1, 54},
     {"bandpass",            -1, 55},
-    //{"final_mass",			-1, 56}, /* NOTE: Was this here for the tiger_ringdown branch? In that case it needs to be as below*/
-    //{"final_spin",			-1, 57},
-    {"rdMass",      -1, 56},
-    {"rdSpin",      -1, 57},
+    {"rdMass",              -1, 56},
+    {"rdSpin",              -1, 57},
+    {"dtau21",              -1, 58},
+    {"dtau22",              -1, 59},
+    {"dtau33",              -1, 60},
+    {"dtau44",              -1, 61},
+    {"dfreq21",             -1, 62},
+    {"dfreq22",             -1, 63},
+    {"dfreq33",             -1, 64},
+    {"dfreq44",             -1, 65},
     {NULL,                   0, 0}
   };
 
@@ -1704,19 +1710,19 @@ SimInspiralTableFromLIGOLw (
         {
           thisSim->eff_dist_v = r4colData;
         }
-	else if ( tableDir[j].idx == 50 )
-	{
-	  thisSim->numrel_mode_min = i4colData;
-	}
-	else if ( tableDir[j].idx == 51 )
-	{
-	  thisSim->numrel_mode_max = i4colData;
-	}
-	else if ( tableDir[j].idx == 52 )
-	{
+        else if ( tableDir[j].idx == 50 )
+        {
+          thisSim->numrel_mode_min = i4colData;
+        }
+        else if ( tableDir[j].idx == 51 )
+        {
+          thisSim->numrel_mode_max = i4colData;
+        }
+        else if ( tableDir[j].idx == 52 )
+        {
           snprintf(thisSim->numrel_data, LIGOMETA_STRING_MAX * sizeof(CHAR),
-              "%s", env->ligo_lw.table.elt[tableDir[j].pos].data.lstring.data);
-	}
+                   "%s", env->ligo_lw.table.elt[tableDir[j].pos].data.lstring.data);
+        }
         else if ( tableDir[j].idx == 53 )
         {
             thisSim->amp_order = i4colData;
@@ -1730,18 +1736,46 @@ SimInspiralTableFromLIGOLw (
         {
             thisSim->bandpass = i4colData;
         }
- //       else if ( tableDir[j].idx == 56 ) {
- //       	thisSim->qmParameter1 = r4colData;
- //       }
- //       else if ( tableDir[j].idx == 57 ) {
- //       	thisSim->qmParameter2 = r4colData;
-//        }
-        else if ( tableDir[j].idx == 56 )  {
-		   thisSim->rdMass = r4colData;
-		}
-        else if ( tableDir[j].idx == 57 )  {
-		   thisSim->rdSpin = r4colData;
-		}
+        else if ( tableDir[j].idx == 56 )
+        {
+            thisSim->rdMass = r4colData;
+        }
+        else if ( tableDir[j].idx == 57 )
+        {
+            thisSim->rdSpin = r4colData;
+        }
+        else if ( tableDir[j].idx == 58 )
+        {
+          thisSim->dtau21 = r4colData;
+        }
+        else if ( tableDir[j].idx == 59 )
+        {
+          thisSim->dtau22 = r4colData;
+        }
+        else if ( tableDir[j].idx == 60 )
+        {
+          thisSim->dtau33 = r4colData;
+        }
+        else if ( tableDir[j].idx == 61 )
+        {
+          thisSim->dtau44 = r4colData;
+        }
+        else if ( tableDir[j].idx == 62 )
+        {
+          thisSim->dfreq21 = r4colData;
+        }
+        else if ( tableDir[j].idx == 63 )
+        {
+          thisSim->dfreq22 = r4colData;
+        }
+        else if ( tableDir[j].idx == 64 )
+        {
+          thisSim->dfreq33 = r4colData;
+        }
+        else if ( tableDir[j].idx == 65 )
+        {
+          thisSim->dfreq44 = r4colData;
+        }
         else
         {
             CLOBBER_SIM;

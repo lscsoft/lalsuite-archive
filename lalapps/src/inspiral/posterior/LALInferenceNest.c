@@ -391,27 +391,28 @@ Arguments for each section follow:\n\n";
 	/* Review task needs special priors */
 	LALInferenceInitVariablesFunction initVarsFunc=NULL;
 	if(LALInferenceGetProcParamVal(procParams,"--correlatedGaussianLikelihood"))
-		initVarsFunc=&LALInferenceInitVariablesReviewEvidence;
-        else if(LALInferenceGetProcParamVal(procParams,"--bimodalGaussianLikelihood"))
-                initVarsFunc=&LALInferenceInitVariablesReviewEvidence_bimod;
-        else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood"))
-                initVarsFunc=&LALInferenceInitVariablesReviewEvidence_banana;
-        else if (LALInferenceGetProcParamVal(procParams,"--ringdown"))
-		        initVarsFunc=&LALInferenceInitRingdownVariables;
+    initVarsFunc=&LALInferenceInitVariablesReviewEvidence;
+  else if(LALInferenceGetProcParamVal(procParams,"--bimodalGaussianLikelihood"))
+    initVarsFunc=&LALInferenceInitVariablesReviewEvidence_bimod;
+  else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood"))
+    initVarsFunc=&LALInferenceInitVariablesReviewEvidence_banana;
+  else if (LALInferenceGetProcParamVal(procParams,"--ringdown"))
+    initVarsFunc=&LALInferenceInitRingdownVariables;
 	else
 		initVarsFunc=&LALInferenceInitCBCVariables;
+  
 	state->initVariables=initVarsFunc;
 	initVarsFunc(state);
 
-        /* Choose the likelihood */
-        LALInferenceInitLikelihood(state);
-    
-       /* Print command line arguments if help requested */
-        if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
-        {
-                fprintf(stdout,"%s",help);
-		exit(0);
-        }
+  /* Choose the likelihood */
+  LALInferenceInitLikelihood(state);
+
+  /* Print command line arguments if help requested */
+  if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
+  {
+    fprintf(stdout,"%s",help);
+    exit(0);
+  }
 
 	/* Call setupLivePointsArray() to populate live points structures */
 	LALInferenceSetupLivePointsArray(state);
