@@ -2018,6 +2018,8 @@ class HvetoSummaryTab(TriggerSummaryTab):
         """
 
         desc = kwargs.pop("description", None)
+        if kwargs.get("cumulative", True) and not kwargs.has_key("normalize"):
+            kwargs["normalize"] = float(abs(self.span))
         trigs = {}
         segments_before = segments.segmentlist([])
         for i in range(1,rnd):
