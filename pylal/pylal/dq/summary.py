@@ -619,7 +619,7 @@ class SectionSummaryTab(SummaryTab):
                                              and order.index(x.parent.name)+1 or 1000)
             children = []
             for tab in self.children:
-                children.extend(tab.children)
+                children.append(tab)
         else:
             children = self.children
         n = len(children) > 1 and 2 or 1
@@ -632,7 +632,7 @@ class SectionSummaryTab(SummaryTab):
                 self.frame.tr()
             self.frame.td()
             if (self.name == "Summary"):
-                parent = tab.parent.parent
+                parent = tab.parent
                 self.frame.a(markup.oneliner.h2(parent.name, class_='summary'),
                              href=parent.index, title=parent.name)
                 self.frame.a(href=parent.index, title=parent.name)
