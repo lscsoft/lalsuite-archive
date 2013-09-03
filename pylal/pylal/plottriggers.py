@@ -495,8 +495,15 @@ def plothistogram(lsctable, outfile, column="snr", numbins=100,\
                              label=name, **kwargs)
         plot.finalize(logcolor=logcolor, colorlabel=colorlabel, loc=loc)
     else:
+        color = kwargs.pop("color", None)
+        if isinstance(color, str):
+            color = color.split(',')
+            if len(color) == 1:
+                color = [color[0]]*len(serieslist)
         plot = plotutils.LineHistogram(xlabel, ylabel, title, subtitle)
         for i,name in enumerate(tablenames):
+            if color:
+                kwargs["color"] = color[i]
             plot.add_content(data[i], normalize=normalize[i], label=name,\
                              **kwargs)
         plot.finalize(loc=loc, logx=logx, logy=logy, bar=bar, num_bins=numbins,\

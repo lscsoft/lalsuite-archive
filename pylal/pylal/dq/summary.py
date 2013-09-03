@@ -2031,8 +2031,9 @@ class HvetoSummaryTab(TriggerSummaryTab):
         else:
             for i in range(1,1+len(self.rounds)):
                 segments_after |= self.rounds[i].veto_segments
-        trigs["before"] = lsctables.New(lsctables.SnglBurstTable)
-        trigs["before"].extend([t for t in self.triggers[self.mainchannel] if t.peak_time not in segments_before])
+        # KLUDGE: putting space in front of "before" so that it is sorted in legends above the "after" line
+        trigs[" before"] = lsctables.New(lsctables.SnglBurstTable)
+        trigs[" before"].extend([t for t in self.triggers[self.mainchannel] if t.peak_time not in segments_before])
         trigs["after"] = lsctables.New(lsctables.SnglBurstTable)
         trigs["after"].extend([t for t in self.triggers[self.mainchannel] if t.peak_time not in segments_after])
         plottriggers.plothistogram(trigs, outfile,\
