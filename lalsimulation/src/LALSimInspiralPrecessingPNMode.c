@@ -332,15 +332,12 @@ COMPLEX16TimeSeries *XLALSimInspiralPrecessingPNMode22(
 
     size_t j;
     REAL8 M = m1+m2;
-    REAL8 m1_sec = LAL_G_SI * m1 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 m2_sec = LAL_G_SI * m2 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 M_sec = m1_sec + m2_sec;
     REAL8 eta = m1*m2/M/M;
     REAL8 dm = (m1-m2)/M;
     REAL8 m1oM = m1/M;
     REAL8 m2oM = m2/M;
     REAL8 lalpi = LAL_PI;
-    REAL8 prefac = -8.0*sqrt(LAL_PI/5.0)*M_sec*eta/r;
+    REAL8 prefac = -8.*sqrt(LAL_PI/5.)*LAL_G_SI*M*eta/(r*LAL_C_SI*LAL_C_SI);
     COMPLEX16 term0, term1, term2, term3;
     COMPLEX16 expmalpha, expm2alpha, expm3alpha, expphi, expmphi;
     COMPLEX16 exp2phi, expm2phi;
@@ -536,15 +533,12 @@ COMPLEX16TimeSeries *XLALSimInspiralPrecessingPNMode21(
 
     size_t j;
     REAL8 M = m1+m2;
-    REAL8 m1_sec = LAL_G_SI * m1 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 m2_sec = LAL_G_SI * m2 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 M_sec = m1_sec + m2_sec;
     REAL8 eta = m1*m2/M/M;
     REAL8 dm = (m1-m2)/M;
     REAL8 m1oM = m1/M;
     REAL8 m2oM = m2/M;
     REAL8 lalpi = LAL_PI;
-    REAL8 prefac = -8.0*sqrt(LAL_PI/5.0)*M_sec*eta/r;
+    REAL8 prefac = 8./3.*sqrt(LAL_PI/5.0)*LAL_G_SI*M*eta/(r*LAL_C_SI*LAL_C_SI);
     COMPLEX16 term0, term1, term2, term3;
     COMPLEX16 expmalpha, expm2alpha, expphi, expmphi;
     COMPLEX16 exp2phi, expm2phi;
@@ -745,15 +739,13 @@ COMPLEX16TimeSeries *XLALSimInspiralPrecessingPNMode20(
 
     size_t j;
     REAL8 M = m1+m2;
-    REAL8 m1_sec = LAL_G_SI * m1 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 m2_sec = LAL_G_SI * m2 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 M_sec = m1_sec + m2_sec;
     REAL8 eta = m1*m2/M/M;
     REAL8 dm = (m1-m2)/M;
     REAL8 m1oM = m1/M;
     REAL8 m2oM = m2/M;
     REAL8 lalpi = LAL_PI;
-    REAL8 prefac = -8.0*sqrt(LAL_PI/5.0)*M_sec*eta/r;
+    REAL8 prefac = -2./7.*sqrt(10.*LAL_PI/3.)*LAL_G_SI*M*eta
+            / (r*LAL_C_SI*LAL_C_SI);
     COMPLEX16 term0, term1, term2, term3;
     COMPLEX16 expalpha, expmalpha, expphi, expmphi;
     COMPLEX16 exp2phi, expm2phi;
@@ -893,14 +885,11 @@ COMPLEX16TimeSeries *XLALSimInspiralPrecessingPNMode33(
 
     size_t j;
     REAL8 M = m1+m2;
-    REAL8 m1_sec = LAL_G_SI * m1 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 m2_sec = LAL_G_SI * m2 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 M_sec = m1_sec + m2_sec;
     REAL8 eta = m1*m2/M/M;
     REAL8 dm = (m1-m2)/M;
     REAL8 m1oM = m1/M;
     REAL8 m2oM = m2/M;
-    REAL8 prefac = -8.0*sqrt(LAL_PI/5.0)*M_sec*eta/r;
+    REAL8 prefac = 3.*sqrt(6.*LAL_PI/7.)*LAL_G_SI*M*eta/(r*LAL_C_SI*LAL_C_SI);
     COMPLEX16 term0, term1, term2, term3;
     COMPLEX16 expm2alpha, expm3alpha, expphi, expmphi;
     COMPLEX16 exp2phi, expm2phi, exp3phi, expm3phi;
@@ -1065,14 +1054,11 @@ COMPLEX16TimeSeries *XLALSimInspiralPrecessingPNMode32(
 
     size_t j;
     REAL8 M = m1+m2;
-    REAL8 m1_sec = LAL_G_SI * m1 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 m2_sec = LAL_G_SI * m2 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 M_sec = m1_sec + m2_sec;
     REAL8 eta = m1*m2/M/M;
     REAL8 dm = (m1-m2)/M;
     REAL8 m1oM = m1/M;
     REAL8 m2oM = m2/M;
-    REAL8 prefac = -8.0*sqrt(LAL_PI/5.0)*M_sec*eta/r;
+    REAL8 prefac = 8./3.*sqrt(LAL_PI/7.)*LAL_G_SI*M*eta/(r*LAL_C_SI*LAL_C_SI);
     COMPLEX16 term0, term1, term2, term3;
     COMPLEX16 expmalpha, expm2alpha, expphi, expmphi;
     COMPLEX16 exp2phi, expm2phi, exp3phi, expm3phi;
@@ -1240,14 +1226,12 @@ COMPLEX16TimeSeries *XLALSimInspiralPrecessingPNMode31(
 
     size_t j;
     REAL8 M = m1+m2;
-    REAL8 m1_sec = LAL_G_SI * m1 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 m2_sec = LAL_G_SI * m2 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 M_sec = m1_sec + m2_sec;
     REAL8 eta = m1*m2/M/M;
     REAL8 dm = (m1-m2)/M;
     REAL8 m1oM = m1/M;
     REAL8 m2oM = m2/M;
-    REAL8 prefac = -8.0*sqrt(LAL_PI/5.0)*M_sec*eta/r;
+    REAL8 prefac = 1./3.*sqrt(2.*LAL_PI/35.)*LAL_G_SI*M*eta
+            / (r*LAL_C_SI*LAL_C_SI);
     COMPLEX16 term0, term1, term2, term3;
     COMPLEX16 expmalpha, expm2alpha, expphi, expmphi;
     COMPLEX16 exp2phi, expm2phi, exp3phi, expm3phi;
@@ -1421,14 +1405,12 @@ COMPLEX16TimeSeries *XLALSimInspiralPrecessingPNMode30(
 
     size_t j;
     REAL8 M = m1+m2;
-    REAL8 m1_sec = LAL_G_SI * m1 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 m2_sec = LAL_G_SI * m2 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 M_sec = m1_sec + m2_sec;
     REAL8 eta = m1*m2/M/M;
     REAL8 dm = (m1-m2)/M;
     REAL8 m1oM = m1/M;
     REAL8 m2oM = m2/M;
-    REAL8 prefac = -8.0*sqrt(LAL_PI/5.0)*M_sec*eta/r;
+    REAL8 prefac = 16./5.*sqrt(6.*LAL_PI/35.)*LAL_G_SI*M*eta
+            /(r*LAL_C_SI*LAL_C_SI);
     COMPLEX16 term0, term1, term2, term3;
     COMPLEX16 expalpha, expmalpha, expphi, expmphi;
     COMPLEX16 exp2phi, expm2phi, exp3phi, expm3phi;
@@ -1552,12 +1534,9 @@ COMPLEX16TimeSeries *XLALSimInspiralPrecessingPNMode44(
 
     size_t j;
     REAL8 M = m1+m2;
-    REAL8 m1_sec = LAL_G_SI * m1 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 m2_sec = LAL_G_SI * m2 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 M_sec = m1_sec + m2_sec;
     REAL8 eta = m1*m2/M/M;
     REAL8 dm = (m1-m2)/M;
-    REAL8 prefac = -8.0*sqrt(LAL_PI/5.0)*M_sec*eta/r;
+    REAL8 prefac = 64./9.*sqrt(LAL_PI/7.)*LAL_G_SI*M*eta/(r*LAL_C_SI*LAL_C_SI);
     COMPLEX16 term0, term1, term2, term3;
     COMPLEX16 expm4alpha, expphi, expmphi;
     COMPLEX16 exp2phi, expm2phi, exp3phi, expm3phi, exp4phi, expm4phi;
@@ -1712,12 +1691,10 @@ COMPLEX16TimeSeries *XLALSimInspiralPrecessingPNMode43(
 
     size_t j;
     REAL8 M = m1+m2;
-    REAL8 m1_sec = LAL_G_SI * m1 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 m2_sec = LAL_G_SI * m2 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 M_sec = m1_sec + m2_sec;
     REAL8 eta = m1*m2/M/M;
     REAL8 dm = (m1-m2)/M;
-    REAL8 prefac = -8.0*sqrt(LAL_PI/5.0)*M_sec*eta/r;
+    REAL8 prefac = 9./5.*sqrt(2.*LAL_PI/7.)*LAL_G_SI*M*eta
+            / (r*LAL_C_SI*LAL_C_SI);
     COMPLEX16 term0, term1, term2, term3;
     COMPLEX16 expm3alpha, expphi, expmphi;
     COMPLEX16 exp2phi, expm2phi, exp3phi, expm3phi, exp4phi, expm4phi;
@@ -1871,12 +1848,9 @@ COMPLEX16TimeSeries *XLALSimInspiralPrecessingPNMode42(
 
     size_t j;
     REAL8 M = m1+m2;
-    REAL8 m1_sec = LAL_G_SI * m1 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 m2_sec = LAL_G_SI * m2 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 M_sec = m1_sec + m2_sec;
     REAL8 eta = m1*m2/M/M;
     REAL8 dm = (m1-m2)/M;
-    REAL8 prefac = -8.0*sqrt(LAL_PI/5.0)*M_sec*eta/r;
+    REAL8 prefac = 8./63.*sqrt(LAL_PI)*LAL_G_SI*M*eta/(r*LAL_C_SI*LAL_C_SI);
     COMPLEX16 term0, term1, term2, term3;
     COMPLEX16 expm2alpha, expphi, expmphi;
     COMPLEX16 exp2phi, expm2phi, exp3phi, expm3phi, exp4phi, expm4phi;
@@ -2030,12 +2004,9 @@ COMPLEX16TimeSeries *XLALSimInspiralPrecessingPNMode41(
 
     size_t j;
     REAL8 M = m1+m2;
-    REAL8 m1_sec = LAL_G_SI * m1 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 m2_sec = LAL_G_SI * m2 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 M_sec = m1_sec + m2_sec;
     REAL8 eta = m1*m2/M/M;
     REAL8 dm = (m1-m2)/M;
-    REAL8 prefac = -8.0*sqrt(LAL_PI/5.0)*M_sec*eta/r;
+    REAL8 prefac = 1./105.*sqrt(2.*LAL_PI)*LAL_G_SI*M*eta/(r*LAL_C_SI*LAL_C_SI);
     COMPLEX16 term0, term1, term2, term3;
     COMPLEX16 expmalpha, expphi, expmphi;
     COMPLEX16 exp2phi, expm2phi, exp3phi, expm3phi, exp4phi, expm4phi;
@@ -2189,12 +2160,9 @@ COMPLEX16TimeSeries *XLALSimInspiralPrecessingPNMode40(
 
     size_t j;
     REAL8 M = m1+m2;
-    REAL8 m1_sec = LAL_G_SI * m1 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 m2_sec = LAL_G_SI * m2 / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-    REAL8 M_sec = m1_sec + m2_sec;
     REAL8 eta = m1*m2/M/M;
     REAL8 dm = (m1-m2)/M;
-    REAL8 prefac = -8.0*sqrt(LAL_PI/5.0)*M_sec*eta/r;
+    REAL8 prefac = 1./63.*sqrt(LAL_PI/10.)*LAL_G_SI*M*eta/(r*LAL_C_SI*LAL_C_SI);
     COMPLEX16 term0, term1, term2, term3;
     COMPLEX16 expphi, expmphi;
     COMPLEX16 exp2phi, expm2phi, exp3phi, expm3phi, exp4phi, expm4phi;
