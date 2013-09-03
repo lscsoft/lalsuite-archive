@@ -3343,7 +3343,7 @@ class HVetoRound(object):
     self.etg = None
     self.freqband = [0, numpy.inf]
     self.veto_segments = SegmentList([])
-    self.significance = None
+    self.significance = numpy.nan
     self.fakesignificance = None
     self.dt = None
     self.snr = None
@@ -3881,7 +3881,7 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
         trigtable = get_triggers(cp, tab.mainchannel, tab.etg, tab.segments,
                                  cluster=tab.cluster,
                                  minsnr=snr, **trigfind_args)
-        tab.add_triggers(chan, trigtable)
+        tab.add_triggers(tab.mainchannel, trigtable)
 
     else:
         # get triggers
