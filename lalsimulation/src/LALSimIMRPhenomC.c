@@ -34,7 +34,7 @@
 #include <lal/TimeFreqFFT.h>
 #include <lal/Units.h>
 
-#define debugPrayush 1
+#define debugPrayush FALSE
 /*********************************************************************/
 /* This structure stores the PN coefficients used to calculate flux  */
 /* and waveform amplitude, and Fourier phase. It also stores some    */
@@ -357,7 +357,7 @@ static BBHPhenomCParams* ComputeIMRPhenomCParams(
   p->fRingDown = (prefac * (k1 + k2 * pow(1. - fabs(finspin), k3)));
   p->MfRingDown = p->m_sec * p->fRingDown;
 
-  printf("fRD prefac = %12.18f, fRD = %f\n", prefac, p->fRingDown);
+  /* printf("fRD prefac = %12.18f, fRD = %f\n", prefac, p->fRingDown); */
   /* Get the quality factor of ring-fown, using Eq (5.6) of Main paper */
   p->Qual = (0.7000 + (1.4187 * pow(1.0 - fabs(finspin), -0.4990)) );;
 
@@ -539,6 +539,7 @@ int XLALSimIMRPhenomCGenerateTD(
 	/* external: SI; internal: solar masses */
 	const REAL8 m1 = m1_SI / LAL_MSUN_SI;
 	const REAL8 m2 = m2_SI / LAL_MSUN_SI;
+	const REAL8 fISCO = 0.022 / ((m1 + m2) * LAL_MTSUN_SI); 
 	
 	/* check inputs for sanity */
 	if (*hplus) XLAL_ERROR(XLAL_EFAULT);
@@ -619,7 +620,12 @@ int XLALSimIMRPhenomCGenerateTD(
 	//const size_t start_ind = ((*hplus)->data->length 
 	//	      - EstimateIMRLength(m1, m2, 0.95 * f_min + 0.05 * f_max_prime, deltaT));
 	
-	cut_ind = 0.* find_instant_freq(*hplus, *hcross, f_min, ind_t0);
+	
+	peak_ind = find_peak_amp(*hplus, *hcross);
+	/* printf("\nf_min = %5.1f   fISCO = %5.1f\n", f_min, fISCO); */
+
+	cut_ind =find_instant_freq(*hplus, *hcross, f_min < fISCO/2. ? f_min : fISCO/2., peak_ind);
+	/* printf("Applying lower cutoff!"); */
 	*hplus = XLALResizeREAL8TimeSeries(*hplus, cut_ind, (*hplus)->data->length - cut_ind);
 	*hcross = XLALResizeREAL8TimeSeries(*hcross, cut_ind, (*hcross)->data->length - cut_ind);
 	
@@ -943,7 +949,7 @@ static int IMRPhenomCGenerateTD(
     
     const size_t nt = NextPow2(EstimateIMRLength(m1, m2, f_min_wide, deltaT));
     const size_t ne = EstimateIMRLength(m1, m2, params->fRingDown, deltaT);
-    *ind_t0 = ((nt - EstimateIMRLength(m1, m2, f_min_wide, deltaT)) > (4 * ne)) ? (nt - (4 * ne)) : (nt - (2 * ne));
+    *ind_t0 = ((nt - EstimateIMRLength(m1, m2, f_min_wide, deltaT)) > (4 * ne)) ? (nt -(2* ne)) : (nt - (1 * ne));
 	deltaF = 1. / (deltaT * (REAL8) nt);
 	
 	#if debugPrayush
@@ -1010,10 +1016,12 @@ static size_t EstimateIMRLength(const REAL8 m1, const REAL8 m2, const REAL8 f_mi
 static REAL8 EstimateSafeFMinForTD(const REAL8 m1, const REAL8 m2, const REAL8 f_min, const REAL8 deltaT) {
 	const REAL8 totalMass = m1 + m2;
 	const REAL8 eta = m1 * m2 / (totalMass * totalMass);
+	const REAL8 fISCO = 0.022 / (totalMass * LAL_MTSUN_SI); 
 	REAL8 tau0 = deltaT * NextPow2(1.025 * EstimateIMRLength(m1, m2, f_min, deltaT));
 	REAL8 temp_f_min = pow((tau0 * 256. * eta * pow(totalMass * LAL_MTSUN_SI, 5./3.) / 5.), -3./8.) / LAL_PI;
 	if (temp_f_min > f_min) temp_f_min = f_min;
 	if (temp_f_min < 0.5) temp_f_min = 0.5;
+	if (temp_f_min > fISCO/2.) temp_f_min = fISCO/2.;
 	return temp_f_min;
 }
 
@@ -1105,8 +1113,9 @@ static int FDToTD(REAL8TimeSeries **signalTD, const COMPLEX16FrequencySeries *si
 
 /* return the index before the instantaneous frequency rises past target */
 static size_t find_instant_freq(const REAL8TimeSeries *hp, const REAL8TimeSeries *hc, const REAL8 target, const size_t start) {
-	const size_t n = hp->data->length - 1;
-	size_t k = (start + 1) > 0 ? (start + 1) : 0;
+	/* const size_t n = hp->data->length - 1; */
+	/* size_t k = (start + 1) > 0 ? (start + 1) : 0; */
+	size_t k = start;
 	size_t target_ind = 0;
 	FILE *fout = fopen("./instF.dat","w+");
 	
@@ -1123,9 +1132,9 @@ static size_t find_instant_freq(const REAL8TimeSeries *hp, const REAL8TimeSeries
 		fprintf( fout, "%d\t%e\n", (int) k, f );
 		fflush(NULL);
 		#endif
-		if (f <= target && target_ind == 0){
-			target_ind = k + 1; 
-			//break;
+		if (f <= target){
+			target_ind = k; 
+			break;
 			//return k;// - 1;
 		}
 	}
