@@ -52,17 +52,24 @@ int XLALSimBlackHoleRingdownTiger(
     SphHarmTimeSeries *modeList; 
     SphHarmTimeSeries *thisMode;
     //const LALUnit *hunits; // TODO: fill in units for hplus/hcross
-    REAL8 dtau, dfreq;
+    REAL8 dtau = 0.0, dfreq = 0.0 ;
     
     modeList = hlms;
     thisMode = hlms;
+
+    char *nonGRParamName = malloc(512*sizeof(char)) ;
     
     /* Go through the list of quasi-normal modes and fill in the structure */
     
     while (thisMode){
-        dtau = 0.0;    // TODO: import this value from nonGRparams
-        dfreq = 0.0;   // TODO: import this value from nonGRparams
-        if (!nonGRparams) dtau = dfreq = 0.0; // Placeholder
+
+        sprintf(nonGRParamName,"dtau%d%d",thisMode->l,thisMode->m) ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dtau = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+        sprintf(nonGRParamName,"dfreq%d%d",thisMode->l,thisMode->m) ;
+        if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
+          dfreq = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
+
         XLALSimBlackHoleRingdownModeTiger(&(thisMode->mode), t0, phi0, deltaT, mass, a, distance, inclination, eta, spin1, spin2, thisMode->l, thisMode->m, dfreq, dtau);
         thismodelength = thisMode->mode->data->length;
         maxmodelength = thismodelength > maxmodelength ?  thismodelength : maxmodelength;
@@ -95,6 +102,8 @@ int XLALSimBlackHoleRingdownTiger(
         }
         thisMode = thisMode->next;
     }
+
+    free(nonGRParamName);
     
     return 0;
 }
