@@ -866,10 +866,17 @@ class SegmentSummaryTab(SummaryTab):
  
         # construct livetime table
         uptime = abs(self.span)
-        headers = ["Flags", "Livetime (s)", "Duty cycle (\%)"]
-        data    = [[flag, float(abs(self.segdict[flag])),\
-                    100*float(abs(self.segdict[flag]))/float(uptime)]\
-                   for flag in self.flags]
+        headers = ["Flags", "Livetime (s)", "Duty cycle (\%)", "Relative duty cycle (\%)"]
+        data = []
+        for i,flag in enumerate(self.flags):
+            if i>0:
+                data.append([flag, float(abs(self.segdict[flag])),\
+                                 100*float(abs(self.segdict[flag]))/float(uptime),\
+                                 100*float(abs(self.segdict[flag]))/float(abs(self.segdict[self.flags[i-1]]))])
+            else:
+                data.append([flag, float(abs(self.segdict[flag])),\
+                                 100*float(abs(self.segdict[flag]))/float(uptime),\
+                                 100*float(abs(self.segdict[flag]))/float(uptime)])
         self.frame.add(htmlutils.write_table(headers, data, {"table":"full"})())
         self.frame.div.close()
 
