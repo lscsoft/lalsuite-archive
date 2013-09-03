@@ -2088,11 +2088,14 @@ class HvetoSummaryTab(TriggerSummaryTab):
                 self.frame.a.close()
             # trig stats
             th = ['Channel', 'Significance', 'T win.', 'SNR', 'Use %', 'Eff.', 'Deadtime',\
-                      'Eff./Deadtime','Safety', 'Segments' ]
+                      'Eff./Deadtime', 'Cum. Eff.', 'Cum. Deadtime', 'Cum. Eff./Deadtime',\
+                      'Safety', 'Segments' ]
             td = []
             cellclasses = {"table":"full"}
 
             # produce a row for each round
+            cumeff = 0
+            cumdt = 0
             for i in sorted(self.rounds.keys()):  
                 # work the numbers
                 use = self.rounds[i].use_percentage
@@ -2100,17 +2103,23 @@ class HvetoSummaryTab(TriggerSummaryTab):
                 dt  = self.rounds[i].deadtime[0]
                 edr = self.rounds[i].deadtime!=0\
                       and round(eff/dt, 2) or 'N/A'
+                cumeff += eff
+                cumdt += dt
+                cumedr = cumeff/cumdt
                 # generate strings
                 use = '%s%%' % round(use, 2)
                 eff = '%s%%' % round(eff, 2)
                 dt  = '%s%%' % round(dt, 3)
+                cumeffstr = '%s%%' % round(cumeff, 2)
+                cumdtstr = '%s%%' % round(cumdt, 2)
+                cumedrstr = '%s%%' % round(cumedr, 2)
 
                 # work safety
                 safe = 'N/A'
 
                 # add to table
                 td.append([self.rounds[i].channel, round(self.rounds[i].significance, 2), self.rounds[i].dt, self.rounds[i].snr,\
-                      use, eff, dt, edr, safe,\
+                      use, eff, dt, edr, cumeffstr, cumdtstr, cumedrstr, safe,\
                       '<a href="%s" rel="external">link</a>' % self.rounds[i].veto_file])
 
             self.frame.add(htmlutils.write_table(th, td,
