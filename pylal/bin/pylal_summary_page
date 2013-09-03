@@ -5967,10 +5967,14 @@ if __name__=="__main__":
         if len(section_summary[p].children) == 0:
             continue
         if cp.has_section('summary-tab') and cp.has_option('summary-tab', p):
-            summtab = section_summary[p].get_child(cp.get('summary-tab', p))
+            summlist = cp.get('summary-tab', p).split(',')
+            for summname in summlist:
+                summtab = section_summary[p].get_child(summname)
+                tabs.add_child(summtab)
         else:
             summtab = section_summary[p].children[0]
-        tabs.add_child(summtab)
+            if not summtab.skip_summary:
+                tabs.add_child(summtab)
 
     section_summary_tabs = [p for p in section_summary.values() if
                             len(p.children)!=0]
