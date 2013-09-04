@@ -116,7 +116,9 @@ def plottimeseries(series, outfile, t0=0, zeroline=False, **kwargs):
 
     color = kwargs.pop("color", None)
     if isinstance(color, str):
-        color = [color]*len(serieslist)
+        color = color.split(',')
+        if len(color) == 1:
+            color = [color[0]]*len(serieslist)
     kwargs2 = dict()
     kwargs2.update(kwargs)
     if kwargs.has_key("marker"):
@@ -584,16 +586,26 @@ def plothistogram(serieslist, outfile, nonzero=False, num_bins=100,\
     loc = kwargs.pop("loc", 0)
     alpha = kwargs.pop("alpha", 0.8)
 
+    # get colors to use
+    color = kwargs.pop("color", None)
+    if isinstance(color, str):
+        color = color.split(',')
+        if len(color) == 1:
+            color = [color[0]]*len(serieslist)
+
+
     #
     # plot
     #
 
     plot = plotutils.LineHistogram(xlabel, ylabel, title, subtitle)
 
-    for series in serieslist:
+    for i, series in enumerate(serieslist):
         data = series.data.data
         if nonzero:
             data = data[data!=0]
+        if color:
+            kwargs["color"] = color[i]
         plot.add_content(data, normalize=data.size, label=series.name, **kwargs)
     plot.finalize(loc=loc, alpha=alpha, logx=logx, logy=logy, bar=bar,\
                   xlim=xlim, num_bins=num_bins, cumulative=cumulative)
