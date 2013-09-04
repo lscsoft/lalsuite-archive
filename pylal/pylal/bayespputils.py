@@ -570,7 +570,15 @@ class Posterior(object):
                             'h1_end_time':lambda inj:float(inj.get_end('H')),
                             'l1_end_time':lambda inj:float(inj.get_end('L')),
                             'v1_end_time':lambda inj:float(inj.get_end('V')),
-                            'lal_amporder':lambda inj:inj.amp_order
+                            'lal_amporder':lambda inj:inj.amp_order,
+                            'dtau21':lambda inj:inj.dtau21,
+                            'dtau22':lambda inj:inj.dtau22,
+                            'dtau33':lambda inj:inj.dtau33,
+                            'dtau44':lambda inj:inj.dtau44,
+                            'dfreq21':lambda inj:inj.dfreq21,
+                            'dfreq22':lambda inj:inj.dfreq22,
+                            'dfreq33':lambda inj:inj.dfreq33,
+                            'dfreq44':lambda inj:inj.dfreq44
                            }
 
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
