@@ -984,7 +984,7 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
     REAL8 testParameter_max=.5;
     REAL8 testParameter_min=-.5;
     REAL8 tmpVal=testParameter_min+(testParameter_max - testParameter_min)/2.0;
-    REAL8 zeroVal=0.0;
+    //REAL8 zeroVal=0.0;
 
 /* Without helper function */    
 //     if (checkParamInList(ppt->value,"dchi0")) {
@@ -997,52 +997,52 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
     if (checkParamInList(ppt->value,"dtau21")) {
       XLALPrintInfo("Adding dtau21 to the template parameters \n");
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dtau21", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
-    } else {
+    } /*else {
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dtau21", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
-    }
+    }*/
     if (checkParamInList(ppt->value,"dtau22")) {
       XLALPrintInfo("Adding dtau22 to the template parameters \n");
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dtau22", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
-    } else {
+    } /*else {
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dtau22", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
-    }       
+    }  */     
     if (checkParamInList(ppt->value,"dtau33")) {
       XLALPrintInfo("Adding dtau33 to the template parameters \n");
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dtau33", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
-    } else {
+    } /*else {
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dtau33", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
-    }   
+    } */  
     if (checkParamInList(ppt->value,"dtau44")) {
       XLALPrintInfo("Adding dtau44 to the template parameters \n");
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dtau44", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
-    } else {
+    } /*else {
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dtau44", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
-    }
+    }*/
 
     if (checkParamInList(ppt->value,"dfreq21")) {
       XLALPrintInfo("Adding dfreq21 to the template parameters \n");
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dfreq21", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
-    } else {
+    } /*else {
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dfreq21", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
-    }
+    }*/
     if (checkParamInList(ppt->value,"dfreq22")) {
       XLALPrintInfo("Adding dfreq22 to the template parameters \n");
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dfreq22", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
-    } else {
+    } /*else {
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dfreq22", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
-    }
+    }*/
     if (checkParamInList(ppt->value,"dfreq33")) {
       XLALPrintInfo("Adding dfreq33 to the template parameters \n");
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dfreq33", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
-    } else {
+    } /*else {
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dfreq33", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
-    }
+    }*/
     if (checkParamInList(ppt->value,"dfreq44")) {
       XLALPrintInfo("Adding dfreq44 to the template parameters \n");
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dfreq44", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
-    } else {
+    } /*else {
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dfreq44", zeroVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_FIXED);
-    } 
+    } */
  
   }
 

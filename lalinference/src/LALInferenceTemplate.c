@@ -2023,14 +2023,14 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
   REAL8 spin1[3] = {0.0};
   REAL8 spin2[3] = {0.0};
 
-  const char list_extra_parameters[32][7] = {"dtau21","dtau22","dtau33","dtau44","dfreq21","dfreq22","dfreq33","dfreq44"};
+  const char list_extra_parameters[32][8] = {"dtau21","dtau22","dtau33","dtau44","dfreq21","dfreq22","dfreq33","dfreq44"};
 
-  for (UINT4 k=0; k<7; k++)
+  for (UINT4 k=0; k<8; k++)
   {
     if(LALInferenceCheckVariable(IFOdata->modelParams,list_extra_parameters[k]))
     {
       XLALSimInspiralAddTestGRParam(&nonGRparams,list_extra_parameters[k],*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,list_extra_parameters[k]));
-      printf("added TestGRParam %s, with value %.3f\n",list_extra_parameters[k],XLALSimInspiralGetTestGRParam(nonGRparams,list_extra_parameters[k])) ;
+      //printf("added TestGRParam %s, with value %.3f\n",list_extra_parameters[k],XLALSimInspiralGetTestGRParam(nonGRparams,list_extra_parameters[k])) ;
     }
   }
 
