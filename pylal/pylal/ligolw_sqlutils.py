@@ -20,7 +20,6 @@ import bisect
 from glue.ligolw import dbtables
 from glue.ligolw import lsctables
 from glue.ligolw import ilwd
-from glue.iterutils import any
 from glue import git_version
 
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"

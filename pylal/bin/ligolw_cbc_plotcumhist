@@ -262,7 +262,6 @@ if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
 from pylab import * 
-from glue.iterutils import any
 from numpy import histogram
 from pylal.viz import makesteps
 rc('text', usetex=True)
