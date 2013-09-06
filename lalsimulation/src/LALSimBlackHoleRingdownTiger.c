@@ -86,10 +86,6 @@ int XLALSimBlackHoleRingdownTiger(
     /* Initialize vectors */
     memset( (*hplus)->data->data, 0, length*sizeof(REAL8) );
     memset( (*hcross)->data->data, 0, length*sizeof(REAL8) );
-    /*for (j=0; j<length; j++){
-      (*hplus)->data->data[j] = 0.0 ;
-      (*hcross)->data->data[j] = 0.0 ;
-    }*/    
     
     /* Fill in the plus and cross polarization vectors */
     thisMode = modeList;

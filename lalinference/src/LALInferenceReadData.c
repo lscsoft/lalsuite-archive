@@ -2752,7 +2752,8 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
         LALInferenceAddVariable(vars, "phi_spin2", &phi_spin2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     }
 
-    /* WARNING: I'm not sure if this should go here or somewhere else */
+    /* WARNING: I'm not sure if TIGER needs this, It never appears to be used. */
+    /*
     REAL8 dtau21=theEventTable->dtau21;
     LALInferenceAddVariable(vars, "dtau21",&dtau21,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
     REAL8 dtau22=theEventTable->dtau22;
@@ -2780,6 +2781,7 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
     fprintf(stdout,"adding dfreq22=%1.3f in the injection\n",theEventTable->dfreq22);
     fprintf(stdout,"adding dfreq33=%1.3f in the injection\n",theEventTable->dfreq33);
     fprintf(stdout,"adding dfreq44=%1.3f in the injection\n",theEventTable->dfreq44);
+    */
 
 }
 
