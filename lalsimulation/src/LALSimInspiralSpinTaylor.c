@@ -2018,8 +2018,8 @@ SphHarmTimeSeries *XLALSimInspiralSpinTaylorPNModes(
     for( l=2; l <= lmax; l++) {
         for(m = -l; m <= l; m++) {
             hxx = XLALSimInspiralComputePrecessingPNMode(V, Phi,
-                    S1x, S1y, S1z, S2x, S2y, S2z,
-                    LNhatx, LNhaty, LNhatz, m1, m2, r, amplitudeO, l, m);
+                    S1x_J, S1y_J, S1z_J, S2x_J, S2y_J, S2z_J,
+                    LNhatx_J, LNhaty_J, LNhatz_J, m1, m2, r, amplitudeO, l, m);
             if( !hxx ) XLAL_ERROR_NULL(XLAL_EFUNC);
             hlm = XLALSphHarmTimeSeriesAddMode(hlm, hxx, l, m);
             XLALDestroyCOMPLEX16TimeSeries(hxx);
@@ -2232,8 +2232,9 @@ COMPLEX16TimeSeries *XLALSimInspiralSpinTaylorPNMode(
         XLAL_ERROR_NULL(XLAL_EFUNC);
 
     // Compute the h_lm mode
-    hlm = XLALSimInspiralComputePrecessingPNMode(V, Phi, S1x, S1y, S1z,
-            S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, r, amplitudeO, l, m);
+    hlm = XLALSimInspiralComputePrecessingPNMode(V, Phi, S1x_J, S1y_J, S1z_J,
+            S2x_J, S2y_J, S2z_J, LNhatx_J, LNhaty_J, LNhatz_J,
+            m1, m2, r, amplitudeO, l, m);
     if( !hlm ) XLAL_ERROR_NULL(XLAL_EFUNC);
 
     /* Destroy vectors of dynamical variables, check for errors then exit */
