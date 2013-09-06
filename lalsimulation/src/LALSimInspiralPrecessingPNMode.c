@@ -75,6 +75,7 @@ int XLALSimInspiralRadiationFrameToJFrame(
     LAL_CHECK_CONSISTENT_TIME_SERIES(V, LNhaty, XLAL_FAILURE);
     LAL_CHECK_CONSISTENT_TIME_SERIES(V, LNhatz, XLAL_FAILURE);
 
+    REAL8 PARALLEL_TOLERANCE = 1.e-8; // Tolerance to treat vectors as parallel
     REAL8 LNx, LNy, LNz, LNmag, s1x, s1y, s1z, s2x, s2y, s2z, Jx, Jy, Jz;
     REAL8 E1x, E1y, E1z, E2x, E2y, E2z, norm, JdotN;
     REAL8 eta = m1 * m2 / (m1+m2) / (m1+m2);
@@ -138,25 +139,37 @@ int XLALSimInspiralRadiationFrameToJFrame(
     Jx /= norm;
     Jy /= norm;
     Jz /= norm;
-    // Now find E1 and E2 basis vectors
-    // FIXME: What to do if J || N ?
+
+    // If J || N, frame is unchanged. Otherwise, find bases of new J-frame
     JdotN = Jz; // b/c N = {0, 0, 1}
-    // E1 \propto N - (J \cdot N) J
-    E1x = - JdotN * Jx;
-    E1y = - JdotN * Jy;
-    E1z = 1. - JdotN * Jx;
-    norm = sqrt(E1x*E1x + E1y*E1y + E1z*E1z);
-    E1x /= norm;
-    E1y /= norm;
-    E1z /= norm;
-    // E2 = J x E1
-    E2x = Jy * E1z - Jz * E1y;
-    E2y = Jz * E1x - Jx * E1z;
-    E2z = Jx * E1y - Jy * E1x;
-    norm = sqrt(E2x*E2x + E2y*E2y + E2z*E2z);
-    E2x /= norm;
-    E2y /= norm;
-    E2z /= norm;
+    if( abs(JdotN - 1.) < PARALLEL_TOLERANCE)
+    { // J is parallel to line of sight, frame is unchanged
+        E1x = 1.;
+        E1y = 0.;
+        E1z = 0.;
+        E2x = 0.;
+        E2y = 1.;
+        E2z = 0.;
+    }
+    else
+    { // Define E1 and E2 basis vectors of new J-frame
+        // E1 \propto N - (J \cdot N) J
+        E1x = - JdotN * Jx;
+        E1y = - JdotN * Jy;
+        E1z = 1. - JdotN * Jx;
+        norm = sqrt(E1x*E1x + E1y*E1y + E1z*E1z);
+        E1x /= norm;
+        E1y /= norm;
+        E1z /= norm;
+        // E2 = J x E1
+        E2x = Jy * E1z - Jz * E1y;
+        E2y = Jz * E1x - Jx * E1z;
+        E2z = Jx * E1y - Jy * E1x;
+        norm = sqrt(E2x*E2x + E2y*E2y + E2z*E2z);
+        E2x /= norm;
+        E2y /= norm;
+        E2z /= norm;
+    }
 
     /* E1, E2, J are the {x,y,z} basis vectors of the J-frame.  Compute the
      * spin and L_N components in this frame and copy them to output series.
@@ -345,12 +358,6 @@ COMPLEX16TimeSeries *XLALSimInspiralPrecessingPNMode22(
     REAL8 v, v2, iota, alpha, s1x, s1y, s1z, s2x, s2y, s2z;
     REAL8 cosiota, cosiota2, cos2iotao2, cos4iotao2, cos5iotao2;
     REAL8 siniota, sin2iota, sin3iota, siniotao2, sin2iotao2, sin4iotao2;
-
-    // Convert vectors from radiation frame to J frame
-    /*ret = XLALSimInspiralRadiationFrameToJFrame(&S1x_J, &S1y_J, &S1z_J,
-            &S2x_J, &S2y_J, &S2z_J, &LNhatx_J, &LNhaty_J, &LNhatz_J, V,
-            S1x, S1y, S1z, S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, m1, m2, fref);
-    if(ret != XLAL_SUCCESS) XLAL_ERROR_NULL(XLAL_EFUNC);*/
 
     for(j=0; j < V->data->length; j++) {
         // Compute the dynamic quantities in the terms below
