@@ -194,12 +194,12 @@ def plotcumhist(figure_number, zero_lag_list, slide_dict, nbins, ranking_stat,
                         cum_dist_slide.append( num_slide[::-1].cumsum()[::-1] )
                 cum_dist_slide = numpy.array(cum_dist_slide)
                 slide_mean = cum_dist_slide.mean(axis=0) * bkg_correction
-                slide_std = cum_dist_slide.std(axis=0) * sqrt(bkg_correction)
+                slide_std = cum_dist_slide.std(axis=0) * numpy.sqrt(bkg_correction)
                 slide_min = []
                 for i in range( len(slide_mean) ):
                     slide_min.append( max(slide_mean[i] - slide_std[i], 0.00001) )
                     slide_mean[i] = max(slide_mean[i], 0.00001)
-                semilogy(xvals, asarray(slide_mean),
+                semilogy(xvals, numpy.asarray(slide_mean),
                     marker = '+',
                     markerfacecolor = 'k',
                     markeredgecolor = 'k',
@@ -259,10 +259,9 @@ coinc_table = sqlutils.validate_option( opts.coinc_table )
 # Change to Agg back-end if show() will not be called 
 # thus avoiding display problem
 if not opts.show_plot:
-  import matplotlib
-  matplotlib.use('Agg')
-from pylab import * 
-from numpy import histogram
+  from matplotlib import use
+  use('Agg')
+from matplotlib.pyplot import *
 from pylal.viz import makesteps
 rc('text', usetex=True)
 
