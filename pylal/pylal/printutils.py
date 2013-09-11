@@ -14,7 +14,6 @@ import sys, re, math
 import time, datetime
 
 from glue import iterutils
-from glue.iterutils import any
 from glue.ligolw.utils import print_tables
 from glue.ligolw import ligolw
 from glue.ligolw import table
