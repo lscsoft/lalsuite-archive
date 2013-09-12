@@ -864,15 +864,19 @@ class SegmentSummaryTab(SummaryTab):
         self.frame.img(src=self.plots[0][0], alt=self.plots[0][1],class_="full")
         self.frame.a.close()
  
-        # construct livetime table
-        uptime = abs(self.span)
+        # construct livetime table, KLUDGE, the "now" time should be
+        # provided by when the calling script started
+        uptime = abs(self.span & segments.segment(self.span[0],float(lal.GPSTimeNow())))
         headers = ["Flags", "Livetime (s)", "Duty cycle (\%)", "Relative duty cycle (\%)"]
         data = []
         for i,flag in enumerate(self.flags):
             if i>0:
+                previousuptime = float(abs(self.segdict[self.flags[i-1]]))
+                if previousuptime == 0:
+                    previousuptime = numpy.inf
                 data.append([flag, float(abs(self.segdict[flag])),\
                                  100*float(abs(self.segdict[flag]))/float(uptime),\
-                                 100*float(abs(self.segdict[flag]))/float(abs(self.segdict[self.flags[i-1]]))])
+                                 100*float(abs(self.segdict[flag]))/previousuptime])
             else:
                 data.append([flag, float(abs(self.segdict[flag])),\
                                  100*float(abs(self.segdict[flag]))/float(uptime),\
