@@ -218,6 +218,9 @@ class CoincParamsFilterThread(threading.Thread):
 		self.binnedarray.array /= numpy.sum(self.binnedarray.array)
 		rate.to_moving_mean_density(self.binnedarray, self.filter)
 
+		# guard against round-off in FFT convolution
+		numpy.clip(self.binnedarray.array, 0, float("inf"), self.binnedarray.array)
+
 		if self.verbose:
 			self.stderr.acquire()
 			print >>sys.stderr, "\tcompleted %s" % self.getName()
