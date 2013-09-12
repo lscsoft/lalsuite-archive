@@ -5,7 +5,7 @@ import numpy as np
 from datetime import datetime
 from operator import itemgetter
 import xml.dom.minidom
-import glue.GWDataFindClient, glue.segments, glue.segmentsUtils
+import glue.datafind, glue.segments, glue.segmentsUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALUTCToGPS, XLALGPSToUTC
 from lxml import etree

@@ -76,7 +76,7 @@ from pylal import (git_version, seriesutils, plotutils, htmlutils,
 from pylal.dq import (dqSegmentUtils, dqTriggerUtils, stateutils, summary)
 
 # import GLUE modules
-from glue import (segmentsUtils, markup, GWDataFindClient, gpstime)
+from glue import (segmentsUtils, markup, datafind, gpstime)
 from glue.lal import Cache, CacheEntry
 from glue.LDBDWClient import LDBDClientException
 from glue.ligolw import (ilwd, ligolw, lsctables, table, utils as ligolw_utils)
@@ -1278,10 +1278,10 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
                 server, port = cp.get("datafind", "datafind-server").split(":")
                 if not port:
                     port = None
-                connection = GWDataFindClient.GWDataFindHTTPConnection(
+                connection = datafind.GWDataFindHTTPConnection(
                                  host=server, port=port)
             else:
-                connection = GWDataFindClient.GWDataFindHTTPConnection()
+                connection = datafind.GWDataFindHTTPConnection()
             # KLUDGE for GEO trend files, 1 frame type,
             # but three different frames with different data
             if (channel[0] == "G" and

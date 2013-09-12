@@ -35,7 +35,6 @@ from glue import git_version
 from glue.ligolw import dbtables
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process
-from glue.iterutils import any
 
 from pylal import ligolw_dbinjfind
 from pylal import ligolw_sqlutils as sqlutils

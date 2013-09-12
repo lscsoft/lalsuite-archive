@@ -5,7 +5,7 @@ from collections import namedtuple
 import numpy as np
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
-import glue.GWDataFindClient, glue.segments, glue.segmentsUtils, glue.lal
+import glue.datafind, glue.segments, glue.segmentsUtils, glue.lal
 import pylal.dq.dqSegmentUtils
 import pylal.pylal_seismon_psd, pylal.pylal_seismon_html, pylal.pylal_seismon_omicron
 import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_eqmon_plot
@@ -226,7 +226,7 @@ def frame_struct(params):
             params["ndsConnection"] = conn
 
         else:
-            connection = glue.GWDataFindClient.GWDataFindHTTPConnection()
+            connection = glue.datafind.GWDataFindHTTPConnection()
             datacache = connection.find_frame_urls(params["ifo"][0], params["frameType"],
                                                    gpsStart, gpsEnd,
                                                    urltype="file",
