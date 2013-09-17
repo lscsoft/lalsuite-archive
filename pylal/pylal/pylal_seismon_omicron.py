@@ -1,16 +1,17 @@
 #!/usr/bin/python
 
-import os, glob, optparse, shutil, warnings, re, matplotlib
-import matplotlib.pyplot as plt
+import os, glob, optparse, shutil, warnings
 import numpy as np
 from collections import namedtuple
 from subprocess import Popen, PIPE, STDOUT
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
 
-from glue.ligolw import table as ligolw_table
-from glue.ligolw import utils as ligolw_utils
-from glue.ligolw import lsctables
+import pylal.pylal_seismon_utils
+
+import gwpy.time, gwpy.timeseries
+import gwpy.spectrum, gwpy.spectrogram
+import gwpy.plotter, gwpy.table
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
 __date__ = "2012/8/26"
@@ -22,66 +23,10 @@ __version__ = "0.1"
 #
 # =============================================================================
 
-# set up useful regular expressions
-_re_xml = re.compile('(xml|xml.gz)\Z')
+def plot_triggers(params,channel,segment):
 
-def read_triggers(fp, format_, columns=None):
-    """@returns a LIGOLw xml table of events loaded from the given filepath
-
-    @param fp
-        path to file on disk
-    @param format
-        identifier of trigger type, or table name
-    @param columns
-        list of column name strings to load
-    """
-    format_ = format_.lower()
-    isxml = _re_xml.search(fp)
-
-    # verify columns
-    if columns is not None:
-        columns = map(str.lower, columns)
-        if "time" in columns:
-            columns.pop(columns.index("time"))
-            if re.match("sim_inspiral", format_, re.I):
-                columns.extend(["geocent_end_time", "geocent_end_time_ns"])
-            elif re.match("sim_burst", format_, re.I):
-                columns.extend(["time_geocent_gps", "time_geocent_gps_ns"])
-            elif re.match("sim_ringdown", format_, re.I):
-                columns.extend(["geocent_start_time", "geocent_start_time_ns"])
-            elif re.search("inspiral", format_, re.I):
-                columns.extend(["end_time", "end_time_ns"])
-            elif re.search("burst", format_, re.I):
-                columns.extend(["peak_time", "peak_time_ns"])
-            elif re.search("(ringdown|stochastic)", format_, re.I):
-                columns.extend(["start_time", "start_time_ns"])
-
-    # read XML file
-    if isxml:
-        # get table class
-        Table = lsctables.TableByName[format_]
-        # verify columns are actually in the table. If not, load all of them
-        for c in columns:
-            if c.lower() not in Table.validcolumns.keys():
-                columns = None
-                break
-        # set columns
-        if columns is not None:
-            Table.loadcolumns = columns
-        # load table
-        xmldoc = ligolw_utils.load_filename(fp, gz=fp.endswith("gz"))
-        return ligolw_table.get_table(xmldoc, format_)
-    # read ASCII format_ file
-    else:
-        if format_ == "omega":
-            return omegautils.fromfile(fp, columns=columns)
-        elif format_ == "kw":
-            return kwutils.fromfile(fp, columns=columns)
-        else:
-            raise ValueError("No read function defined for ASCII format "
-             "\"%s\"" % format_)
-
-def plot_triggers(params,channel):
+    gpsStart = segment[0]
+    gpsEnd = segment[1]
 
     columns = ["peak_time","peak_time_ns","start_time","start_time_ns","stop_time","stop_time_ns","duration","central_freq","flow","fhigh","bandwidth","amplitude","snr"]
 
@@ -92,92 +37,48 @@ def plot_triggers(params,channel):
     omicronXMLs = glob.glob(os.path.join(omicronPath,"*.xml"))
 
     triggers = []
+    format = "sngl_burst"
 
     for omicronXML in omicronXMLs:
-        triggers_xml = read_triggers(omicronXML, "sngl_burst", columns)
-        for trigger in triggers_xml:
-            if trigger.snr < trigger_threshold:
-                continue
-            t = trigger.peak_time + trigger.peak_time_ns * 10**(-9)
-            triggers.append([t,trigger.central_freq,trigger.snr])
+        table = gwpy.table.Table.read(omicronXML,format,columns=columns)
+        table.add_column(table.ColumnClass(
+            data=table['peak_time']+table['peak_time_ns']*1e-9,
+            name='time'))
       
     textLocation = params["path"] + "/" + channel.station_underscore
-    if not os.path.isdir(textLocation):
-        os.makedirs(textLocation)
-
-    triggers = np.array(triggers)
-    if len(triggers) > 0:
-        triggers_t = triggers[:,0]
-        triggers_f = triggers[:,1]
-        triggers_snr = triggers[:,2]
+    pylal.pylal_seismon_utils.mkdir(textLocation)
 
     f = open(os.path.join(textLocation,"triggers.txt"),"w")
-    for i in xrange(len(triggers)):
-        f.write("%.1f %e %e\n"%(triggers_t[i],triggers_f[i],triggers_snr[i]))
+    #for i in xrange(len(triggers)):
+    for row in table:
+        f.write("%.1f %e %e\n"%(row["peak_time"],row["central_freq"],row["snr"]))
     f.close()
-
-    earthquakesDirectory = os.path.join(params["path"],"earthquakes")
-    earthquakesFile = os.path.join(earthquakesDirectory,"earthquakes.txt")
-    try:
-        earthquakes = np.loadtxt(earthquakesFile)
-    except:
-        earthquakes = []
 
     if params["doPlots"]:
 
         plotLocation = params["path"] + "/" + channel.station_underscore
-        if not os.path.isdir(plotLocation):
-            os.makedirs(plotLocation)
+        pylal.pylal_seismon_utils.mkdir(plotLocation)
 
-        startTime = params["gpsStart"]
-        timeDur = params["gpsEnd"] - startTime
+        if params["doEarthquakesAnalysis"]:
+            pngFile = os.path.join(plotLocation,"omicron-%d-%d.png"%(gpsStart,gpsEnd))
+        else:
+            pngFile = os.path.join(plotLocation,"omicron.png")
 
-        ax = plt.subplot(111)
-        if len(triggers) > 0:
-            triggers_t = triggers_t - startTime
-            plt.scatter(triggers_t,triggers_f, c=triggers_snr,vmin=min(triggers_snr),vmax=max(triggers_snr))
-        cbar = plt.colorbar(orientation='horizontal')  
-        #cbar = plt.colorbar(orientation='vertical') 
-        cbar.set_label('SNR')
-        ax.set_yscale('log')
-
-        if len(earthquakes) > 0:
-            if len(earthquakes.shape) == 1:
-                shape_x = 1
-            else:
-                [shape_x,shape_y] = earthquakes.shape
-            for i in xrange(shape_x):
-                if earthquakes[i,1] < 4.0:
-                    continue
-
-                Ptime = earthquakes[i,2] - startTime
-                Stime = earthquakes[i,3] - startTime
-                Rtime = earthquakes[i,4] - startTime
-
-                plt.text(Ptime, 15, 'P', fontsize=18, ha='center', va='top')
-                plt.text(Stime, 15, 'S', fontsize=18, ha='center', va='top')
-                plt.text(Rtime, 15, 'R', fontsize=18, ha='center', va='top')
-
-                plt.axvline(x=Ptime,color='r',linewidth=2,zorder = 0,clip_on=False)
-                plt.axvline(x=Stime,color='b',linewidth=2,zorder = 0,clip_on=False)
-                plt.axvline(x=Rtime,color='g',linewidth=2,zorder = 0,clip_on=False)
-
-        plt.ylim([0.1,10])
-        #plt.xlim([params["gpsStart"], params["gpsEnd"]])
-        plt.xlim([0,timeDur])
-        plt.ylabel("Frequency [Hz]")
-        plt.xlabel("GPS [s] [%d]"%startTime)
-        plt.grid
-        plt.show()
-        plt.savefig(os.path.join(plotLocation,"omicron.png"),dpi=200)
-        plt.savefig(os.path.join(plotLocation,"omicron.eps"),dpi=200)
-        plt.close('all')
+        epoch = gwpy.time.Time(gpsStart, format='gps')
+        plot = gwpy.plotter.TablePlot(table, 'time', 'central_freq', colorcolumn='snr', figsize=[12,6])
+        plot.add_colorbar(log=False, clim=[6, 20])
+        plot.set_time_format('gps', epoch=epoch)
+        #plot.xlim = [852973831, 852973831+2176]
+        #plot.ylim = [3.1, 4.1]
+        plot.xlabel = 'Time'
+        plot.colorlabel = r'Signal-to-noise ratio (SNR)'
+        plot.save(pngFile)
+        plot.close()
 
 def generate_triggers(params,channels):
 
     omicronDirectory = os.path.join(params["path"],"omicron")
-    if not os.path.isdir(omicronDirectory):
-        os.makedirs(omicronDirectory)
+    pylal.pylal_seismon_utils.mkdir(omicronDirectory)
 
     gpsStart = 1e20
     gpsEnd = -1e20
