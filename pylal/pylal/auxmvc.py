@@ -120,30 +120,34 @@ class build_auxmvc_vectors_job(auxmvc_analysis_job):
   """
   Job for building auxmvc feature vectors. 
   """
-  def __init__(self, cp):
+  def __init__(self, cp, main_channel, channels=None, unsafe_channels=None):
     """
     """
-    sections = ['build-auxmvc-vectors']
+    sections = ['build_auxmvc_vectors']
     exec_name = 'idq_build_auxmvc_vectors'
     tag_base = 'build_vectors'
-    auxmvc_analysis_job.__init__(self,cp,sections,exec_name,tag_base=tag_base)	
+    auxmvc_analysis_job.__init__(self,cp,sections,exec_name,tag_base=tag_base)
+    self.add_opt('main-channel',main_channel)
+    if channels: self.add_opt('channels', channels)
+    if unsafe_channels: self.add_opt('unsafe-channels', unsafe_channels)	
 		
 
 class build_auxmvc_vectors_node(pipeline.CondorDAGNode):
   """
-  Dag node for building axumvc feature vector.
+  Dag node for building auxmvc feature vector.
   """
-  def __init__(self, job, triggerfiles, gps_start_time, gps_end_time, p_node=[]):
+  def __init__(self, job, trigdir, gps_start_time, gps_end_time, output_file, dq_segments=None, dq_segments_name="", p_node=[]):
+    job.set_stdout_file('logs/' + job.tag_base + '-' + str(gps_start_time) + '-' + str(gps_end_time - gps_start_time) +'.out')
+    job.set_stderr_file('logs/' + job.tag_base + '-' +  str(gps_start_time) + '-' + str(gps_end_time - gps_start_time) +'.err')
     pipeline.CondorDAGNode.__init__(self,job)
-    self.job.set_stdout_file('logs/' + job.tag_base + '-' + str(gps_start_time) + '-' + str(gps_end_time - gps_start_time) +'.out')
-    self.job.set_stderr_file('logs/' + job.tag_base + '-' +  str(gps_start_time) + '-' + str(gps_end_time - gps_start_time) +'.err')
-    self.add_input_file(triggerfiles)
-    trigger_type = self.job.get_opt('trigger-type')
-    ifo = self.job.get_opt('ifo')
-    user_tag = self.job.get_opt('user-tag')
-    output_file_name= trigger_type + ifo + "-" + "evaluation_" + user_tag  + "-" + gps_start_time + "-" + str(gps_end_time - gps_start_time) + ".pat"
-    self.add_output_file(output_file_name)
-    self.add_var_opt('trigger-files', triggerfiles)
+    self.add_output_file(output_file)
+    self.add_var_opt('trigger-dir', trigdir)
+    self.add_var_opt('gps-start-time', gps_start_time)
+    self.add_var_opt('gps-end-time', gps_end_time)
+    self.add_var_opt('output-file', output_file)
+    if dq_segments: 
+	  self.add_var_opt('dq-segments', dq_segments)
+	  self.add_var_opt('dq-segments-name', dq_segments_name)
     for p in p_node:
       self.add_parent(p)
   
@@ -154,7 +158,7 @@ class prepare_training_auxmvc_samples_job(auxmvc_analysis_job):
   def __init__(self, cp):
     """
     """
-    sections = ['prepare-training-auxmvc-samples']
+    sections = ['prepare_training_auxmvc_samples']
     exec_name = 'idq_prepare_training_auxmvc_samples'
     tag_base = 'training_auxmvc'
     auxmvc_analysis_job.__init__(self,cp,sections,exec_name,tag_base=tag_base)	
@@ -195,12 +199,13 @@ class add_file_to_cache_node(pipeline.CondorDAGNode):
   """
   Node for preparing training auxmvc samples job. 
   """
-  def __init__(self, job, file, cache, p_node=[]):
-    job.set_stdout_file('logs/' + os.path.split(file)[1].split(".")[0] + 'adding_to_cache.out')
-    job.set_stderr_file('logs/' + os.path.split(file)[1].split(".")[0] + 'adding_to_cache.err')
+  def __init__(self, job, files, cache, p_node=[]):
+    job.set_stdout_file('logs/' + os.path.split(files[0])[1].split(".")[0] + '_adding_to_cache.out')
+    job.set_stderr_file('logs/' + os.path.split(files[0])[1].split(".")[0] + '_adding_to_cache.err')
     pipeline.CondorDAGNode.__init__(self,job)
-    self.add_var_arg(file)
     self.add_var_arg(cache)
+    for file in files:
+      self.add_var_arg(file)
     for p in p_node:
       self.add_parent(p)
 	
