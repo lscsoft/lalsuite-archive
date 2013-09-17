@@ -1994,13 +1994,17 @@ int main( int argc, char *argv[] )
         {
           mDistr=uniformTotalMassFraction;
         }
+        else if (!strcmp(dummy, "finalMass"))
+        {
+          mDistr=uniformFinalMassRatio;
+        }
         else
         {
           fprintf( stderr, "invalid argument to --%s:\n"
               "unknown mass distribution: %s must be one of\n"
               "(source, nrwaves, totalMass, componentMass, gaussian, log,\n"
               "totalMassRatio, totalMassFraction, logTotalMassUniformMassRatio,\n"
-              "m1m2SquareGrid, fixMasses)\n",
+              "m1m2SquareGrid, fixMasses, finalMass)\n",
               long_options[option_index].name, optarg );
           exit( 1 );
         }
@@ -3536,59 +3540,69 @@ int main( int argc, char *argv[] )
 
 
   /* Ringdown parameter checks */
-  if( strncmp(waveform, "RingdownTD", 10) || strncmp(waveform, "RingdownFD", 10) ){
+	  
+      /* checks for ringdown mass injections */
+  if ( mDistr==uniformFinalMassRatio )
+  {
+	  if ( rdminMass <= 0.0 || rdmaxMass <=0.0 ){
+		  fprintf( stderr, "Must specify positive minimum and maxium ringdown mass \n"
+		  "for your choice of --m-distr.\n" );
+		  exit(1);
+	  }
+	  if ( minMassRatio <= 0.0 || maxMassRatio <=0.0 ){
+		  fprintf( stderr, "Must specify positive minimum and maxium ringdown mass ratio \n"
+		  "for your choice of --m-distr.\n" );
+		  exit(1);
+	  }
+	  if ( strncmp(waveform, "Ringdown", 8) ){
+		  fprintf( stderr, "This choice of --m-distr is only supported by ringdown waveforms.\n");
+		  exit(1);
+	  }
+  } 
+
+  //} else {
+      //fprintf( stderr,
+               //"The choice of mass distribution is unavailable for ringdown injection.\n");
+      //exit( 1 );
+    //}
+  //}
+
+
+  if ( strncmp(waveform, "Ringdown", 8) && spinInjections==1 ){
+
+    /* check that spin stddev is positive */
+    if ( spinDistr==gaussianSpinDist && ( rdStdevSpin <= 0.0) )
+    {
+      fprintf( stderr,
+               "Must specify positive |spin| standard deviations when using"
+               " --spin-gaussian\n" );
+      exit( 1 );
+    }
     
-    /*NOTE: need this distribution function */
-    //if (mDistr==rdUniformMassDist)
-      /* first check: require mass ranges */
-      if ( rdminMass<=0.0 || rdmaxMass<=0.0 )
-      {
-        fprintf( stderr,
-                 "Must specify positive minimum and maximum mass for \n"
-                 "your choice of --m-distr.\n" );
-        exit( 1 );
-      }
-//   } else {
-//     fprintf( stderr,
-//              "The choice of mass distribution is unavailable for ringdown injection.\n");
-//     exit( 1 );
-//   }
-  
-  /* check that spin stddev is positive */
-  if ( spinDistr==gaussianSpinDist && ( rdStdevSpin <= 0.0) )
-  {
-    fprintf( stderr,
-             "Must specify positive |spin| standard deviations when using"
-             " --spin-gaussian\n" );
-    exit( 1 );
+    /* check that spins are in range 0 - 1 */
+    if ( rdminSpin < 0. || rdmaxSpin > 1. )
+    {
+      fprintf( stderr,
+               "Spins can only take values between 0 and 1.\n" );
+      exit( 1 );
+    }
+    
+    /* check max and mins are the correct way around */
+    if (rdminSpin > rdmaxSpin )
+    {
+      fprintf( stderr,
+               "Minimal spins must be less than or equal to maximal spins.\n" );
+      exit( 1 );
+    }
+    
+    /* check that spin means are within a reasonable range */
+    if (spinDistr==gaussianSpinDist && ( rdminSpin - rdmeanSpin > 2.0*rdStdevSpin || rdmeanSpin - rdmaxSpin > 2.0*rdStdevSpin ) )
+    {
+      fprintf(stderr,"Mean of |spin| distribution is way out of range.\n");
+      exit( 1 );
+    }
+    
   }
-  
-  /* check that spins are in range 0 - 1 */
-  if ( rdminSpin < 0. || rdmaxSpin > 1. )
-  {
-    fprintf( stderr,
-             "Spins can only take values between 0 and 1.\n" );
-    exit( 1 );
-  }
-  
-  /* check max and mins are the correct way around */
-  if (rdminSpin > rdmaxSpin )
-  {
-    fprintf( stderr,
-             "Minimal spins must be less than or equal to maximal spins.\n" );
-    exit( 1 );
-  }
-  
-  /* check that spin means are within a reasonable range */
-  if (spinDistr==gaussianSpinDist && ( rdminSpin - rdmeanSpin > 2.0*rdStdevSpin || rdmeanSpin - rdmaxSpin > 2.0*rdStdevSpin ) )
-  {
-    fprintf(stderr,"Mean of |spin| distribution is way out of range.\n");
-    exit( 1 );
-  }
-  
-}
-
-
   
 
   if ( spinInjections==-1 && mDistr != massFromNRFile )
@@ -3877,7 +3891,7 @@ int main( int argc, char *argv[] )
       simTable=XLALRandomInspiralTotalMassFraction(simTable, randParams,
           mDistr, minMtotal, maxMtotal, minMassRatio, maxMassRatio );
     }
-    else {
+    else if ( mDistr!=uniformFinalMassRatio ){
       simTable=XLALRandomInspiralMasses( simTable, randParams, mDistr,
           minMass1, maxMass1,
           minMass2, maxMass2,
@@ -4020,14 +4034,18 @@ int main( int argc, char *argv[] )
           alignInj, spinDistr,
           meanSpin1, Spin1Std,
           meanSpin2, Spin2Std );
+    }
 
+    if ( !strncmp(waveform, "Ringdown", 8) ){
       simTable = XLALRandomRingdownParameters(
         simTable,   /**< injection for which masses will be set*/
         randParams,/**< random parameter details*/
-        //MassDistribution mDist,  /**< the mass distribution to use */
-        rdGaussianSpinDist,
+        mDistr,  /**< the mass distribution to use */
+        spinDistr,  /**< the spin distribution to use */
         rdminMass,     /**< minimum total mass of binaty */
         rdmaxMass,      /**< maximum total mass of binary */
+        minMassRatio,
+        maxMassRatio,
         rdminSpin,
         rdmaxSpin,
         rdmeanSpin,

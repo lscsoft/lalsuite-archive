@@ -83,7 +83,7 @@ typedef enum
   m1m2SquareGrid,
   fixMasses,
   uniformTotalMassFraction,
-  rdUniformMassDist
+  uniformFinalMassRatio
 }
 MassDistribution;
 
@@ -105,6 +105,7 @@ typedef enum
   unknownSpinDist,
   uniformSpinDist,
   gaussianSpinDist,
+  rdUniformSpinDist,
   rdGaussianSpinDist
 }
 SpinDistribution;
@@ -177,9 +178,12 @@ SimInspiralTable* XLALRandomInspiralMasses( SimInspiralTable *inj,
 SimInspiralTable* XLALRandomRingdownParameters(
     SimInspiralTable *inj,
     RandomParams *randParams,
+    MassDistribution massDistr,
     SpinDistribution spinDistr,
     REAL4  rdminMass,
     REAL4  rdmaxMass,
+    REAL4  minMassRatio,
+    REAL4  maxMassRatio,
     REAL4  rdminSpin,
     REAL4  rdmaxSpin,
     REAL4  rdmeanSpin,

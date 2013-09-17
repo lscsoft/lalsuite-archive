@@ -42,6 +42,7 @@
 #include <lal/TimeDelay.h>
 #include <lal/InspiralInjectionParams.h>
 #include <lal/VectorOps.h>
+#include <lal/RingUtils.h>
 
 /** Generates the geocent_end_time for an inspiral injection, based on the
  * given startTime and timeWindow */
@@ -311,14 +312,19 @@ SimInspiralTable* XLALRandomInspiralMasses(
 }
 
 
-/** Generates random masses for an inspiral injection. */
+/** Generates masses and spins for a ringdown injection. 
+ *  In case uniformFinalMass is chosen as a mass distribution,
+ *  final mass and mass ratio are uniformly distributed. 
+ *  Otherwise, m1 and m2 are used to determine the final mass **/
 SimInspiralTable* XLALRandomRingdownParameters(
   SimInspiralTable *inj,   /**< injection for which masses will be set*/
   RandomParams *randParams,/**< random parameter details*/
-  //MassDistribution mDist,  /**< the mass distribution to use */
+  MassDistribution mDist,  /**< the mass distribution to use */
   SpinDistribution spinDistr,
   REAL4  rdminMass,     /**< minimum total mass of binaty */
   REAL4  rdmaxMass,      /**< maximum total mass of binary */
+  REAL4  minMassRatio,  /**< minimum value for q */
+  REAL4  maxMassRatio,  /**< maximum value for q */
   REAL4  rdminSpin,
   REAL4  rdmaxSpin,
   REAL4  rdmeanSpin,
@@ -326,24 +332,33 @@ SimInspiralTable* XLALRandomRingdownParameters(
 )
 {
   REAL4 rdMass = rdmaxMass + 1.0 ;
+  REAL4 q = maxMassRatio + 1.0 ;
   REAL4 rdSpin = rdmaxSpin + 1.0 ;
 
-  while ( rdMass < rdminMass || rdMass > rdmaxMass )
-  {
-    /*uniformly distributed total mass */
-    rdMass = rdminMass + XLALUniformDeviate( randParams ) * (rdmaxMass - rdminMass);  
+  if ( mDist == uniformFinalMassRatio ){
+      /*uniformly distributed final BH mass */
+      rdMass = rdminMass + XLALUniformDeviate( randParams ) * (rdmaxMass - rdminMass);  
+      q = minMassRatio + (XLALUniformDeviate(randParams) * (maxMassRatio - minMassRatio));  
+      inj->eta = q/((q+1)*(q+1));
+      inj->mass1 = rdMass/(1+q);
+      inj->mass2 = rdMass*q/(1+q);
+      inj->mchirp = rdMass * pow(inj->eta, 0.6);
+  } 
+  else {
+	  /* The other mass parameters have already been filled in */
+	  rdMass = XLALNonSpinBinaryFinalBHMass(inj->eta, inj->mass1, inj->mass2);
   }
+
 
   if( spinDistr==rdGaussianSpinDist ){
     do rdSpin = rdmeanSpin + rdStdevSpin*XLALNormalDeviate(randParams);
       while ( rdSpin > rdmaxSpin || rdSpin < rdminSpin );
-  } else {
-    while ( rdSpin < rdminSpin || rdSpin > rdmaxSpin )
-    {
+  } else if ( spinDistr == rdUniformSpinDist ) {
       rdSpin = rdminSpin + XLALUniformDeviate( randParams ) * (rdmaxSpin - rdminSpin);
-    }  
   }
-  
+  else { 
+	  rdSpin = XLALNonSpinBinaryFinalBHSpin( inj->eta );
+  }
   inj->rdMass = rdMass ;
   inj->rdSpin = rdSpin ;
   
