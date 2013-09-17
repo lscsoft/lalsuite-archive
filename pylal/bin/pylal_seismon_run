@@ -206,7 +206,7 @@ for channel in channels:
     print "Generating PSD for %s"%channel.station
     for segment in params["segments"]:
         print "Segment: %d-%d"%(segment[0],segment[1])
-        #pylal.pylal_seismon_psd.mat(params,channel,segment)
+        pylal.pylal_seismon_psd.mat(params,channel,segment)
     if params["doAnalysis"]:
         print "Analyzing PSD significance for %s"%channel.station
         pylal.pylal_seismon_psd.analysis(params,channel)
