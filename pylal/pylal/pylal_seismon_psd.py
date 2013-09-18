@@ -120,18 +120,18 @@ def calculate_spectra(params,channel,dataFull):
         plot.close()
 
     #dataLowpass = dataFull.lowpass(1.0)
-    dataLowpass = dataFull.copy()
-    dataLowpass.sample_rate =  dataFull.sample_rate
-    dataLowpass.epoch = dataFull.epoch
-    dataLowpass.data = scipy.signal.lfilter(B_low, A_low, dataFull.data, axis=0)
+    dataLowpass = scipy.signal.lfilter(B_low, A_low, dataFull,
+                                       axis=0).view(dataFull.__class__)
     dataLowpass.data[:2*channel.samplef] = dataLowpass.data[2*channel.samplef]
     dataLowpass.data[-2*channel.samplef:] = dataLowpass.data[-2*channel.samplef]
+    dataLowpass.sample_rate =  dataFull.sample_rate
+    dataLowpass.epoch = dataFull.epoch
 
     #dataHighpass = dataFull.highpass(1.0)
-    dataHighpass = dataFull.copy()
+    dataHighpass = scipy.signal.lfilter(B_high, A_high, dataFull,
+                                        axis=0).view(dataFull.__class__)
     dataHighpass.sample_rate =  dataFull.sample_rate
     dataHighpass.epoch = dataFull.epoch
-    dataHighpass.data = scipy.signal.lfilter(B_high, A_high, dataFull.data, axis=0)
 
     # calculate spectrum
     NFFT = params["fftDuration"]
@@ -206,12 +206,12 @@ def spectra(params, channel, segment):
     # make timeseries
     dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel.station, epoch=gpsStart, duration=duration)
 
-    dataFull.data = dataFull.data/channel.calibration
+    dataFull /= channel.calibration
     indexes = np.where(np.isnan(dataFull.data))[0]
     meanSamples = np.mean(np.ma.masked_array(dataFull.data,np.isnan(dataFull.data)))
     for index in indexes:
-        dataFull.data[index] = meanSamples
-    dataFull.data = dataFull.data - np.mean(dataFull.data)
+        dataFull[index] = meanSamples
+    dataFull -= np.mean(dataFull.data)
 
     if np.mean(dataFull.data) == 0.0:
         print "data only zeroes... continuing\n"
@@ -249,9 +249,9 @@ def spectra(params, channel, segment):
         #dataFull = data["dataFull"].resample(16)
         #dataLowpass = data["dataLowpass"].resample(16)
 
-        dataHighpass.data = data["dataHighpass"].data * 1e6
-        dataFull.data = data["dataFull"].data * 1e6
-        dataLowpass.data = data["dataLowpass"].data * 1e6
+        dataHighpass *= 1e6
+        dataFull *= 1e6
+        dataLowpass *= 1e6
 
         plot.add_timeseries(dataHighpass,label="highpass")
         plot.add_timeseries(dataFull,label="data")
