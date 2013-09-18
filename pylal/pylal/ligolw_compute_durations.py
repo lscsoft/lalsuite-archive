@@ -87,7 +87,7 @@ def get_single_ifo_segments(connection, program_name = "inspiral", usertag = Non
 	xmldoc.unlink()
 
 	seglist_dict = segments.segmentlistdict((key, segments.segmentlist(sorted(set(value)))) for key, value in seglist_dict.items())
-	return seglist_dict.coalesce()
+	return seglist_dict
 
 def get_allifo_combos(ifo_keys, min_num_ifos):
 	"""
