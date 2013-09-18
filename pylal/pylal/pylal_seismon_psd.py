@@ -291,7 +291,7 @@ def spectra(params, channel, segment):
         plot.ylim = ylim
         plot.add_legend(loc=1,prop={'size':10})
 
-        plot.save(pngFile,dpi=200)
+        plot.save(pngFile)
         plot.close()
 
         fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
