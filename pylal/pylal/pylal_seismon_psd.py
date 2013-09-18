@@ -78,7 +78,7 @@ def calculate_spectra(params,channel,dataFull):
         else:
             pngFile = os.path.join(plotLocation,"mag.png")
 
-        plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+        plot = gwpy.plotter.Plot(figsize=[14,8])
         kwargs = {"linestyle":"-","color":"k"}
         plot.add_line(w, np.absolute(h_high), label="highpass", **kwargs)
         kwargs = {"linestyle":"-","color":"b"}
@@ -104,7 +104,7 @@ def calculate_spectra(params,channel,dataFull):
         else:
             pngFile = os.path.join(plotLocation,"phase.png")
 
-        plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+        plot = gwpy.plotter.Plot(figsize=[14,8])
         kwargs = {"linestyle":"-","color":"k"}
         plot.add_line(w, np.unwrap(np.angle(h_high)), label="highpass", **kwargs)
         kwargs = {"linestyle":"-","color":"b"}
@@ -239,7 +239,7 @@ def spectra(params, channel, segment):
         else:
             pngFile = os.path.join(plotLocation,"timeseries.png")
 
-        plot = gwpy.plotter.TimeSeriesPlot(auto_refresh=True,figsize=[14,8]) 
+        plot = gwpy.plotter.TimeSeriesPlot(figsize=[14,8])
 
         dataHighpass = data["dataHighpass"]
         dataFull = data["dataFull"]
@@ -303,7 +303,7 @@ def spectra(params, channel, segment):
  
         label = channel.station.replace("_","\_")
 
-        plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+        plot = gwpy.plotter.Plot(figsize=[14,8])
         plot.add_spectrum(data["dataASD"],label=label)
         kwargs = {"linestyle":"-.","color":"k"}
         plot.add_line(fl, low, label="HNM/LNM", **kwargs)
@@ -643,7 +643,7 @@ def analysis(params, channel):
             pngFile = os.path.join(plotLocation,"specvar.png")
 
         kwargs = {"linestyle":"-","color":"w"}
-        plot = spectraNow.plot(auto_refresh=True,**kwargs)
+        plot = spectraNow.plot(**kwargs)
         kwargs = {"linestyle":"-","color":"k"}
         plot.add_line(freq, spectral_variation_10per, **kwargs)
         plot.add_line(freq, spectral_variation_50per, **kwargs)
@@ -723,7 +723,7 @@ def channel_summary(params, channels, segment):
 
         lowBin = np.inf
         highBin = -np.inf
-        plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+        plot = gwpy.plotter.Plot(figsize=[14,8])
         for key in data.iterkeys():
 
             label = key.replace("_","\_")
@@ -754,7 +754,7 @@ def channel_summary(params, channels, segment):
         lowBin = np.inf
         highBin = -np.inf
         ref = params["referenceChannel"].replace(":","_")
-        plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+        plot = gwpy.plotter.Plot(figsize=[14,8])
         for key in data.iterkeys():
 
             label = key.replace("_","\_")
