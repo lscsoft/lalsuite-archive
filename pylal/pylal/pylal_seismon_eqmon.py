@@ -81,8 +81,8 @@ def run_earthquakes(params):
     f = open(earthquakesFile,"w+")
     g = open(noticesFile,"w+")
 
-    threshold = 10**(-7)
-    threshold = 0
+    threshold = 10**(-10)
+    #threshold = 0
 
     amp = 0
     segmentlist = glue.segments.segmentlist()

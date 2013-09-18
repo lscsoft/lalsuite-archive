@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os, glob, optparse, shutil, warnings, matplotlib, pickle, math, copy, pickle
+import os, glob, optparse, shutil, warnings, pickle, math, copy, pickle, matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal, scipy.stats, scipy.fftpack, scipy.ndimage.filters
@@ -56,7 +56,133 @@ def save_data(params,channel,gpsStart,gpsEnd,data):
         f.write("%e %e %e\n"%(freq[i],data["dataFFT"].data[i].real,data["dataFFT"].data[i].imag))
     f.close()
 
-def mat(params, channel, segment):
+def calculate_spectra(params,channel,dataFull):
+
+    fs = channel.samplef # 1 ns -> 1 GHz
+    cutoff = 1.0 # 10 MHz
+    n = 3
+    B_low, A_low = scipy.signal.butter(n, cutoff / (fs / 2.0), btype='lowpass')
+    w_low, h_low = scipy.signal.freqz(B_low,A_low)
+    B_high, A_high = scipy.signal.butter(n, cutoff / (fs / 2.0), btype='highpass') 
+    w_high, h_high = scipy.signal.freqz(B_high,A_high)
+
+    w = w_high * (fs / (2.0*np.pi))
+
+    if params["doPlots"]:
+
+        plotLocation = params["path"] + "/" + channel.station_underscore
+        pylal.pylal_seismon_utils.mkdir(plotLocation)
+
+        if params["doEarthquakesAnalysis"]:
+            pngFile = os.path.join(plotLocation,"mag-%d-%d.png"%(gpsStart,gpsEnd))
+        else:
+            pngFile = os.path.join(plotLocation,"mag.png")
+
+        plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+        kwargs = {"linestyle":"-","color":"k"}
+        plot.add_line(w, np.absolute(h_high), label="highpass", **kwargs)
+        kwargs = {"linestyle":"-","color":"b"}
+        plot.add_line(w, np.absolute(h_low), label="lowpass", **kwargs)
+
+        xlim = [plot.xlim[0],plot.xlim[1]]
+        ylim = [plot.ylim[0],plot.ylim[1]]
+        ylim = [1e-5,1.5]
+        plot.ylim = ylim
+
+        #plot.xlim = [params["fmin"],params["fmax"]]
+        plot.xlabel = "Frequency [Hz]"
+        plot.ylabel = "Amplitude Response [dB]"
+        plot.axes.set_xscale("log")
+        plot.axes.set_yscale("log")
+        plot.add_legend(loc=1,prop={'size':10})
+
+        plot.save(pngFile,dpi=200)
+        plot.close()
+
+        if params["doEarthquakesAnalysis"]:
+            pngFile = os.path.join(plotLocation,"phase-%d-%d.png"%(gpsStart,gpsEnd))
+        else:
+            pngFile = os.path.join(plotLocation,"phase.png")
+
+        plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+        kwargs = {"linestyle":"-","color":"k"}
+        plot.add_line(w, np.unwrap(np.angle(h_high)), label="highpass", **kwargs)
+        kwargs = {"linestyle":"-","color":"b"}
+        plot.add_line(w, np.unwrap(np.angle(h_low)), label="lowpass", **kwargs)
+        #plot.xlim = [params["fmin"],params["fmax"]]
+        plot.xlabel = "Frequency [Hz]"
+        plot.ylabel = "Phase Response"
+        plot.axes.set_xscale("log")
+        #plot.axes.set_yscale("log")
+        plot.add_legend(loc=1,prop={'size':10})
+
+        plot.save(pngFile,dpi=200)
+        plot.close()
+
+    #dataLowpass = dataFull.lowpass(1.0)
+    dataLowpass = dataFull.copy()
+    dataLowpass.sample_rate =  dataFull.sample_rate
+    dataLowpass.epoch = dataFull.epoch
+    dataLowpass.data = scipy.signal.lfilter(B_low, A_low, dataFull.data, axis=0)
+    dataLowpass.data[:2*channel.samplef] = dataLowpass.data[2*channel.samplef]
+    dataLowpass.data[-2*channel.samplef:] = dataLowpass.data[-2*channel.samplef]
+
+    #dataHighpass = dataFull.highpass(1.0)
+    dataHighpass = dataFull.copy()
+    dataHighpass.sample_rate =  dataFull.sample_rate
+    dataHighpass.epoch = dataFull.epoch
+    dataHighpass.data = scipy.signal.lfilter(B_high, A_high, dataFull.data, axis=0)
+
+    # calculate spectrum
+    NFFT = params["fftDuration"]
+    #window = None
+    dataASD = dataFull.asd(NFFT,NFFT,'welch')
+    #dataFFT = np.fft.fft(dataFull.data)
+    dataFFT = np.fft.fft(dataFull.data,params["fftDuration"]*channel.samplef)
+    #freqFFT = np.fft.fftfreq(dataFull.data.shape[-1],d=1.0/channel.samplef)
+    freqFFT = np.fft.fftfreq(int(params["fftDuration"]*channel.samplef),d=1.0/channel.samplef)
+    freq = np.array(dataASD.get_frequencies())
+
+    indexes = np.where((freq >= params["fmin"]) & (freq <= params["fmax"]))[0]
+    dataASD = np.array(dataASD.data)
+
+    freq = freq[indexes]
+    dataASD = dataASD[indexes]
+    dataASD = gwpy.spectrum.Spectrum(dataASD, f0=np.min(freq), df=(freq[1]-freq[0]))
+
+    indexes = np.where((freqFFT >= params["fmin"]) & (freqFFT <= params["fmax"]))[0]
+    freqFFT = freqFFT[indexes]
+    dataFFT = dataFFT[indexes]
+    dataFFT = gwpy.spectrum.Spectrum(dataFFT, f0=np.min(freqFFT), df=(freqFFT[1]-freqFFT[0]))
+
+    # manually set units (units in CIS aren't correct)
+    dataASD.unit = 'counts/Hz^(1/2)'
+    dataFFT.unit = 'counts/Hz^(1/2)'
+
+    data = {}
+    data["dataFull"] = dataFull
+    data["dataLowpass"] = dataLowpass
+    data["dataHighpass"] = dataHighpass
+    data["dataASD"] = dataASD
+    data["dataFFT"] = dataFFT
+
+    return data
+
+def apply_calibration(params,channel,data):
+  
+    b = [1,0,0,0];
+    a = [0,1,-1.414,1];
+    w, h = scipy.signal.freqz(b, a)
+
+    #ss = scipy.signal.zpk2ss([0,0,0],[0.70711 + 0.70711*1j , 0.70711 - 0.70711*1j], 1)
+ 
+    #if ("L4C" in channel.station) or ("GS13" in channel.station):
+    if False:
+        data["dataASD"].filter(zeros=[0,0], poles=[0.70711 + 0.70711*1j , 0.70711 - 0.70711*1j], gain=1, inplace=True)
+
+    return data
+
+def spectra(params, channel, segment):
 
     if params["ifo"] == "H1":
         ifo = "LHO"
@@ -91,48 +217,11 @@ def mat(params, channel, segment):
         print "data only zeroes... continuing\n"
         return
 
-    dataLowpass = dataFull.lowpass(1.0)
-    dataLowpass.data[:2*channel.samplef] = dataLowpass.data[2*channel.samplef]
-    dataLowpass.data[-2*channel.samplef:] = dataLowpass.data[-2*channel.samplef]
-
-    dataHighpass = dataFull.highpass(1.0)
-
-    # calculate spectrum
-    NFFT = params["fftDuration"]
-    #window = None
-    dataASD = dataFull.asd(NFFT,NFFT,'welch')
-    dataFFT = np.fft.fft(dataFull.data)
-    freq = np.array(dataASD.get_frequencies())
-
-    indexes = np.where((freq >= params["fmin"]) & (freq <= params["fmax"]))[0]
-    minIndex = np.min(indexes)
-    maxIndex = np.max(indexes)
-    #dataASD = dataASD[(freq >= params["fmin"]) & (freq <= params["fmax"])]
-    #dataASD = dataASD[minIndex:maxIndex]
-    #dataASD = dataASD[indexes]
-    dataASD = np.array(dataASD.data)
-
-    freq = freq[indexes]
-    dataFFT = dataFFT[indexes]      
-    dataASD = dataASD[indexes]
-    dataASD = gwpy.spectrum.Spectrum(dataASD, f0=np.min(freq), df=(freq[1]-freq[0]))
-    dataFFT = gwpy.spectrum.Spectrum(dataFFT, f0=np.min(freq), df=(freq[1]-freq[0]))
-
-    # manually set units (units in CIS aren't correct)
-    dataASD.unit = 'counts/Hz^(1/2)'
-    dataFFT.unit = 'counts/Hz^(1/2)'
-
-    data = {}
-    #data["time"] = dataFull.
-    data["dataFull"] = dataFull
-    data["dataLowpass"] = dataLowpass
-    data["dataHighpass"] = dataHighpass
-    data["dataASD"] = dataASD
-    data["dataFFT"] = dataFFT
+    data = calculate_spectra(params,channel,dataFull)
+    data = apply_calibration(params,channel,data)
 
     save_data(params,channel,gpsStart,gpsEnd,data)
 
-    earthquakes = []
     if params["doEarthquakes"]:
         earthquakesDirectory = os.path.join(params["path"],"earthquakes")
         earthquakesXMLFile = os.path.join(earthquakesDirectory,"earthquakes.xml")
@@ -152,9 +241,17 @@ def mat(params, channel, segment):
 
         plot = gwpy.plotter.TimeSeriesPlot(auto_refresh=True,figsize=[14,8]) 
 
-        dataHighpass = dataHighpass.resample(16)
-        dataFull = dataFull.resample(16)
-        dataLowpass = dataLowpass.resample(16)
+        dataHighpass = data["dataHighpass"]
+        dataFull = data["dataFull"]
+        dataLowpass = data["dataLowpass"]
+
+        #dataHighpass = data["dataHighpass"].resample(16)
+        #dataFull = data["dataFull"].resample(16)
+        #dataLowpass = data["dataLowpass"].resample(16)
+
+        dataHighpass.data = data["dataHighpass"].data * 1e6
+        dataFull.data = data["dataFull"].data * 1e6
+        dataLowpass.data = data["dataLowpass"].data * 1e6
 
         plot.add_timeseries(dataHighpass,label="highpass")
         plot.add_timeseries(dataFull,label="data")
@@ -171,6 +268,7 @@ def mat(params, channel, segment):
             Stime = max(traveltimes["Stimes"])
             Rtime = max(traveltimes["Rtimes"])
             peak_velocity = traveltimes["Rfamp"][0]
+            peak_velocity = peak_velocity * 1e6
 
             if peak_velocity > ylim[1]:
                ylim[1] = peak_velocity*1.1
@@ -178,16 +276,17 @@ def mat(params, channel, segment):
                ylim[0] = -peak_velocity*1.1
 
             kwargs = {"linestyle":"--","color":"r"}
-            plot.add_line([Ptime,Ptime],ylim,label="P",**kwargs)
+            plot.add_line([Ptime,Ptime],ylim,label="P Est. Arrival",**kwargs)
             kwargs = {"linestyle":"--","color":"g"}
-            plot.add_line([Stime,Stime],ylim,label="S",**kwargs)
+            plot.add_line([Stime,Stime],ylim,label="S Est. Arrival",**kwargs)
             kwargs = {"linestyle":"--","color":"b"}
-            plot.add_line([Rtime,Rtime],ylim,label="R",**kwargs)            
+            plot.add_line([Rtime,Rtime],ylim,label="R Est. Arrival",**kwargs)            
             kwargs = {"linestyle":"--","color":"k"}
             plot.add_line(xlim,[peak_velocity,peak_velocity],label="pred. vel.",**kwargs)
             plot.add_line(xlim,[-peak_velocity,-peak_velocity],**kwargs)
 
-        plot.ylabel = "Velocity [m/s]"
+        plot.ylabel = r"Velocity [$\mu$m/s]"
+        plot.title = channel.station.replace("_","\_")
         plot.xlim = xlim
         plot.ylim = ylim
         plot.add_legend(loc=1,prop={'size':10})
@@ -205,7 +304,7 @@ def mat(params, channel, segment):
         label = channel.station.replace("_","\_")
 
         plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
-        plot.add_spectrum(dataASD,label=label)
+        plot.add_spectrum(data["dataASD"],label=label)
         kwargs = {"linestyle":"-.","color":"k"}
         plot.add_line(fl, low, label="HNM/LNM", **kwargs)
         plot.add_line(fh, high, **kwargs)
@@ -213,6 +312,7 @@ def mat(params, channel, segment):
         plot.ylim = [10**-10, 10**-5]
         plot.xlabel = "Frequency [Hz]"
         plot.ylabel = "Amplitude Spectrum [(m/s)/rtHz]"
+        plot.title = channel.station.replace("_","\_")
         plot.axes.set_xscale("log")
         plot.axes.set_yscale("log")
         plot.add_legend(loc=1,prop={'size':10})

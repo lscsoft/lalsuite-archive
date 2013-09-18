@@ -113,6 +113,8 @@ def earthquakes(data,plotName):
         return
 
     t = data["earthquakes"]["tt"]
+    epoch = gwpy.time.Time(t[0], format='gps')
+
     amp = np.log10(data["earthquakes"]["data"])
     indexes = np.isinf(amp)
     amp[indexes] = -250
@@ -138,8 +140,7 @@ def earthquakes(data,plotName):
     ylim = [plot.ylim[0],plot.ylim[1]]
     plot.add_line(xlim,[threshold,threshold],label='threshold')
 
-    epoch = gwpy.time.Time(t[0], format='gps')
-    plot.epoch = epoch
+    #plot.epoch = epoch
     plot.ylabel = 'Mean Amplitude Spectrum in 0.02-0.1 Hz Band [log10(m/s)]'
     plot.add_legend(loc=1,prop={'size':10}) 
 
@@ -152,6 +153,8 @@ def prediction(data,plotName):
         return
 
     t = data["prediction"]["tt"]
+    epoch = gwpy.time.Time(t[0], format='gps')
+
     amp = np.log10(data["prediction"]["data"])
     indexes = np.isinf(amp)
     amp[indexes] = -250
@@ -177,8 +180,7 @@ def prediction(data,plotName):
     ylim = [plot.ylim[0],plot.ylim[1]]
     plot.add_line(xlim,[threshold,threshold],label='threshold')
 
-    epoch = gwpy.time.Time(t[0], format='gps')
-    plot.epoch = epoch
+    #plot.epoch = epoch
     plot.ylabel = 'Mean Amplitude Spectrum in 0.02-0.1 Hz Band [log10(m/s)]'
     plot.add_legend(loc=1,prop={'size':10})
 
@@ -191,16 +193,17 @@ def residual(data,plotName):
         return
 
     t = data["prediction"]["tt"]
+    epoch = gwpy.time.Time(t[0], format='gps')
+   
     amp = np.log10(data["prediction"]["data"])
     indexes = np.isinf(amp)
     amp[indexes] = -250
-    amp_prediction = amp
 
     threshold = -8
 
-    indexes = np.where(amp_prediction >= threshold)
-    t_prediction = t_prediction[indexes]
-    amp_prediction = amp_prediction[indexes]
+    indexes = np.where(amp >= threshold)
+    t_prediction = t[indexes]
+    amp_prediction = amp[indexes]
 
     plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
     plot.add_scatter(t, amp, marker='o', zorder=1000, color='k',label='predicted')
@@ -226,8 +229,7 @@ def residual(data,plotName):
     ylim = [plot.ylim[0],plot.ylim[1]]
     plot.add_line(xlim,[threshold,threshold],label='threshold')
 
-    epoch = gwpy.time.Time(t[0], format='gps')
-    plot.epoch = epoch
+    #plot.epoch = epoch
     plot.ylabel = 'Mean Amplitude Spectrum in 0.02-0.1 Hz Band [log10(m/s)]'
     plot.add_legend(loc=1,prop={'size':10})
 

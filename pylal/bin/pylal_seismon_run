@@ -1,15 +1,17 @@
 #!/usr/bin/python
 
 import os, sys, glob, optparse, shutil, warnings
+
+if not os.getenv("DISPLAY", None):
+    import matplotlib
+    matplotlib.use("agg", warn=False)
+
 from collections import namedtuple
-import numpy as np
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
-import pylal.dq.dqSegmentUtils
 import pylal.pylal_seismon_psd, pylal.pylal_seismon_utils
 import pylal.pylal_seismon_html, pylal.pylal_seismon_omicron
 import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_eqmon_plot
-import nds2
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
 __date__ = "2013/7/29"
@@ -206,7 +208,7 @@ for channel in channels:
     print "Generating PSD for %s"%channel.station
     for segment in params["segments"]:
         print "Segment: %d-%d"%(segment[0],segment[1])
-        pylal.pylal_seismon_psd.mat(params,channel,segment)
+        pylal.pylal_seismon_psd.spectra(params,channel,segment)
     if params["doAnalysis"]:
         print "Analyzing PSD significance for %s"%channel.station
         pylal.pylal_seismon_psd.analysis(params,channel)

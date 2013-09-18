@@ -65,12 +65,14 @@ def plot_triggers(params,channel,segment):
             pngFile = os.path.join(plotLocation,"omicron.png")
 
         epoch = gwpy.time.Time(gpsStart, format='gps')
+       
+        #plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+        #plot.add_table(table, 'time', 'central_freq', colorcolumn='snr') 
         plot = gwpy.plotter.TablePlot(table, 'time', 'central_freq', colorcolumn='snr', figsize=[12,6])
         plot.add_colorbar(log=False, clim=[6, 20])
-        plot.set_time_format('gps', epoch=epoch)
-        #plot.xlim = [852973831, 852973831+2176]
-        #plot.ylim = [3.1, 4.1]
+        plot.xlim = [gpsStart, gpsEnd]
         plot.xlabel = 'Time'
+        plot.ylabel = 'Frequency [Hz]'
         plot.colorlabel = r'Signal-to-noise ratio (SNR)'
         plot.save(pngFile)
         plot.close()
