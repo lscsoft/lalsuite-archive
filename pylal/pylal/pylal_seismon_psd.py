@@ -42,7 +42,7 @@ def save_data(params,channel,gpsStart,gpsEnd,data):
     timeseriesLocation = params["dirPath"] + "/Text_Files/Timeseries/" + channel.station_underscore + "/" + str(params["fftDuration"])
     pylal.pylal_seismon_utils.mkdir(timeseriesLocation)
 
-    freq = np.array(data["dataASD"].get_frequencies())
+    freq = np.array(data["dataASD"].frequencies)
 
     psdFile = os.path.join(psdLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
     f = open(psdFile,"wb")
@@ -141,7 +141,7 @@ def calculate_spectra(params,channel,dataFull):
     dataFFT = np.fft.fft(dataFull.data,params["fftDuration"]*channel.samplef)
     #freqFFT = np.fft.fftfreq(dataFull.data.shape[-1],d=1.0/channel.samplef)
     freqFFT = np.fft.fftfreq(int(params["fftDuration"]*channel.samplef),d=1.0/channel.samplef)
-    freq = np.array(dataASD.get_frequencies())
+    freq = np.array(dataASD.frequencies)
 
     indexes = np.where((freq >= params["fmin"]) & (freq <= params["fmax"]))[0]
     dataASD = np.array(dataASD.data)
@@ -492,7 +492,7 @@ def analysis(params, channel):
     epoch = gwpy.time.Time(tts[0], format='gps')
     specgram = gwpy.spectrogram.Spectrogram.from_spectra(*spectra, dt=dt,epoch=epoch)
     
-    freq = np.array(specgram.get_frequencies())
+    freq = np.array(specgram.frequencies)
 
     bins,specvar = pylal.pylal_seismon_utils.spectral_histogram(specgram)
 
