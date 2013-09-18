@@ -1102,7 +1102,19 @@ class InterpBinnedArray(object):
 			#self.interp = interpolate.interp2d(coords[0], coords[1], z, kind = "linear", bounds_error = False, fill_value = fill_value)
 			self.interp = interpolate.RectBivariateSpline(coords[0], coords[1], z, kx = 1, ky = 1)
 		else:
-			self.interp = interpolate.LinearNDInterpolator(list(itertools.product(*coords)), z.flat, fill_value = fill_value)
+			try:
+				self.interp = interpolate.LinearNDInterpolator(list(itertools.product(*coords)), z.flat, fill_value = fill_value)
+			except AttributeError:
+				# scipy < 0.9 is missing
+				# interpolate.LinearNDInterpolator.
+				# fall-through to discrete binning (aka
+				# "nearest neighbour interpolation")
+				def LinearNDInterpolator(*coords):
+					try:
+						return binnedarray[coords]
+					except IndexError:
+						return fill_value
+				self.interp = LinearNDInterpolator
 
 	def __call__(self, *coords):
 		"""
