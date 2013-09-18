@@ -11,45 +11,7 @@ from pylal.xlal.date import XLALUTCToGPS, XLALGPSToUTC
 from lxml import etree
 import scipy.spatial
 
-import pylal.pylal_seismon_eqmon_plot
-
-def read_eqmons(file):
-
-    attributeDics = []
-    tree = etree.parse(file)
-    baseroot = tree.getroot()       # get the document root
-    for root in baseroot.iterchildren():
-        attributeDic = {}
-        for element in root.iterchildren(): # now iter through it and print the text
-            if element.tag == "traveltimes":
-                attributeDic[element.tag] = {}
-                for subelement in element.iterchildren():
-                    attributeDic[element.tag][subelement.tag] = {}
-                    for subsubelement in subelement.iterchildren():
-                        textlist = subsubelement.text.replace("\n","").split(" ")
-                        floatlist = [float(x) for x in textlist]
-                        attributeDic[element.tag][subelement.tag][subsubelement.tag] = floatlist
-            else:
-                try:
-                    attributeDic[element.tag] = float(element.text)
-                except:
-                    attributeDic[element.tag] = element.text
-
-        magThreshold = 0
-        if not "Magnitude" in attributeDic or attributeDic["Magnitude"] < magThreshold:
-            return attributeDic
-
-        attributeDic["doPlots"] = 0
-        for ifoName, traveltimes in attributeDic["traveltimes"].items():
-            arrivalMin = min([max(traveltimes["Rtimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
-            arrivalMax = max([max(traveltimes["Rtimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
-            attributeDic["traveltimes"][ifoName]["arrivalMin"] = arrivalMin
-            attributeDic["traveltimes"][ifoName]["arrivalMax"] = arrivalMax
-            #if params["gps"] <= attributeDic["traveltimes"][ifoName]["arrivalMax"]:
-            #    attributeDic["doPlots"] = 1
-
-        attributeDics.append(attributeDic)
-    return attributeDics
+import pylal.pylal_seismon_utils, pylal.pylal_seismon_eqmon_plot
 
 def write_info(file,attributeDics):
 
@@ -81,12 +43,13 @@ def write_array(array):
 def run_earthquakes(params):
 
     timeseriesDirectory = os.path.join(params["path"],"timeseries")
-    if not os.path.isdir(timeseriesDirectory):
-        os.makedirs(timeseriesDirectory)
+    pylal.pylal_seismon_utils.mkdir(timeseriesDirectory)
 
     earthquakesDirectory = os.path.join(params["path"],"earthquakes")
-    if not os.path.isdir(earthquakesDirectory):
-        os.makedirs(earthquakesDirectory)
+    pylal.pylal_seismon_utils.mkdir(earthquakesDirectory)
+
+    noticesDirectory = os.path.join(params["path"],"notices")
+    pylal.pylal_seismon_utils.mkdir(noticesDirectory)
 
     if params["ifo"] == "H1":
         ifo = "LHO"
@@ -108,14 +71,18 @@ def run_earthquakes(params):
         earthquakesFile = os.path.join(earthquakesDirectory,"%d-%d.txt"%(params["gpsStart"],params["gpsEnd"]))
         earthquakesXMLFile = os.path.join(earthquakesDirectory,"%d-%d.xml"%(params["gpsStart"],params["gpsEnd"]))
         timeseriesFile = os.path.join(timeseriesDirectory,"%d-%d.txt"%(params["gpsStart"],params["gpsEnd"]))
+        noticesFile = os.path.join(noticesDirectory,"%d-%d.txt"%(params["gpsStart"],params["gpsEnd"]))
     else:
         earthquakesFile = os.path.join(earthquakesDirectory,"earthquakes.txt")
         earthquakesXMLFile = os.path.join(earthquakesDirectory,"earthquakes.xml")
         timeseriesFile = os.path.join(timeseriesDirectory,"amp.txt")
- 
+        noticesFile = os.path.join(noticesDirectory,"notices.txt")
+
     f = open(earthquakesFile,"w+")
+    g = open(noticesFile,"w+")
 
     threshold = 10**(-7)
+    threshold = 0
 
     amp = 0
     segmentlist = glue.segments.segmentlist()
@@ -129,6 +96,9 @@ def run_earthquakes(params):
         gpsStart = max(traveltimes["Rtimes"]) - 200
         gpsEnd = max(traveltimes["Rtimes"]) + 200
 
+        arrival = np.min([max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtimes"])])
+        departure = np.max([max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtimes"])])
+
         check_intersect = (gpsEnd >= params["gpsStart"]) and (params["gpsEnd"] >= gpsStart)
 
         if check_intersect:
@@ -138,6 +108,8 @@ def run_earthquakes(params):
 
         if traveltimes["Rfamp"][0] >= threshold:
             print "%.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd,attributeDic["Latitude"],attributeDic["Longitude"])
+
+            g.write("%.1f %.1f %.5e\n"%(arrival,departure-arrival,traveltimes["Rfamp"][0]))
 
         segmentlist.append(glue.segments.segment(gpsStart,gpsEnd))
 
@@ -153,28 +125,7 @@ def run_earthquakes(params):
         return segmentlist
 
     plotsDirectory = os.path.join(params["path"],"plots")
-    if not os.path.isdir(plotsDirectory):
-        os.makedirs(plotsDirectory)
-
-    try:
-        earthquakes = np.loadtxt(earthquakesFile)
-    except:
-        return segmentlist
-
-    if earthquakes.ndim == 1:
-        gpsStart = earthquakes[6]
-        gpsEnd = earthquakes[7]
-        latitude = earthquakes[8]
-        longitude = earthquakes[9]
-        magnitude = earthquakes[1]
-    else:
-        gpsStart = earthquakes[:,6]
-        gpsEnd = earthquakes[:,7]
-        latitude = earthquakes[:,8]
-        longitude = earthquakes[:,9]
-        magnitude = earthquakes[:,1]
-    #for i in xrange(len(earthquakes)):
-    #    print gpsStart[i], gpsEnd[i]
+    pylal.pylal_seismon_utils.mkdir(plotsDirectory)
 
     files = glob.glob(os.path.join(timeseriesDirectory,"*.txt"))
     files = sorted(files)
@@ -238,12 +189,8 @@ def run_earthquakes(params):
 
     for channel in params["channels"]:
 
-        psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore
-        if not os.path.isdir(psdLocation):
-            os.makedirs(psdLocation)
-        psdLocation = os.path.join(psdLocation,str(params["fftDuration"]))
-        if not os.path.isdir(psdLocation):
-            os.makedirs(psdLocation)
+        psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore + "/" + str(params["fftDuration"])
+        pylal.pylal_seismon_utils.mkdir(psdLocation)
 
         files = glob.glob(os.path.join(psdLocation,"*.txt"))
         files = sorted(files)
@@ -297,47 +244,6 @@ def run_earthquakes(params):
     plotName = os.path.join(plotsDirectory,"%d-%d-earthquakes.png"%(params["gpsStart"],params["gpsEnd"]))
     pylal.pylal_seismon_eqmon_plot.earthquakes(data,plotName)
 
-    for attributeDic in attributeDics:
-
-        if not ifo in attributeDic["traveltimes"]:
-            continue
-
-        traveltimes = attributeDic["traveltimes"][ifo]
-
-        if traveltimes["Rfamp"][0] <= threshold:
-            continue
-
-        gpsStart = max(traveltimes["Rtimes"]) - 200
-        gpsEnd = max(traveltimes["Rtimes"]) + 200
-
-        for channel in params["channels"]:
-
-            envelopeLocation = params["dirPath"] + "/Text_Files/Envelope/" + channel.station_underscore
-            if not os.path.isdir(envelopeLocation):
-                os.makedirs(envelopeLocation)
-            envelopeLocation = os.path.join(envelopeLocation,str(params["fftDuration"]))
-            if not os.path.isdir(envelopeLocation):
-                os.makedirs(envelopeLocation)
-
-            envelopeFiles = glob.glob(os.path.join(envelopeLocation,"*"))
-            envelopeFiles = sorted(envelopeFiles)
-
-            time_envelope,data_envelope = get_envelope(gpsStart,gpsEnd,envelopeFiles)
-            time_envelope = np.array(time_envelope)
-            data_envelope = np.array(data_envelope)
-
-            if len(time_envelope) > 0:
-
-                data_envelope_argmax = data_envelope.argmax()
-                time_envelope_argmax = time_envelope[data_envelope_argmax]
-
-                timeEstimate = time_envelope_argmax
-                attributeDic["traveltimes"][ifo]["Restimate"] = timeEstimate
-                plotName = os.path.join(earthquakesDirectory,"%s-%d-%d.png"%(channel.station_underscore,\
-                    gpsStart,gpsEnd))
-                pylal.pylal_seismon_eqmon_plot.plot_envelope(params,time_envelope,data_envelope,\
-                    attributeDic["traveltimes"][ifo],plotName)
-
     if params["doPlots"]:
 
         if params["doEarthquakesAnalysis"]:
@@ -368,43 +274,6 @@ def run_earthquakes(params):
 
 
     return segmentlist
-
-def get_envelope(start_time,end_time,files):
-
-    time = []
-    data = []
-
-    #== loop over frames in cache
-    for file in files:
-
-        fileSplit = file.split("/")
-        txtFile = fileSplit[-1].replace(".txt","")
-        txtFileSplit = txtFile.split("-")
-        thisTTStart = int(txtFileSplit[0])
-        thisTTEnd = int(txtFileSplit[1])
-
-        if end_time < thisTTStart:
-            continue
-        if start_time > thisTTEnd:
-            continue
-
-        try:
-            data_out = np.loadtxt(file)
-        except:
-            continue
-        file_time = data_out[:,0]
-        file_data = data_out[:,1]
-        data_out[0,1] = data_out[3,1]
-        data_out[1,1] = data_out[3,1]
-        data_out[2,1] = data_out[3,1]
-
-        for i in range(len(file_data)):
-            if file_time[i] <= start_time:  continue
-            if file_time[i] >= end_time:  continue
-            time.append(file_time[i])
-            data.append(file_data[i])
-
-    return time,data
 
 def parse_xml(element):
 

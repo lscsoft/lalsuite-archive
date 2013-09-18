@@ -162,7 +162,7 @@ def rsync_files(path):
 
 def download_publiceventfiles(path):
 
-    #file = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
+    file = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
     #file = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.geojson"
     file = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_month.geojson"
 
@@ -208,24 +208,11 @@ def private_events(params):
                     continue
 
                 file = os.path.join(params["eventfilesLocation"],"private/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))
-                print file
-                if attributeDic["Magnitude"] >= 0:
-                    write_info(file,attributeDic)
-                file = os.path.join(params["eventfilesLocationJan"],"private/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))
-                #if attributeDic["Magnitude"] >= 0:
-                #    write_info_small(file,attributeDic)
-                arrivalTimes = [attributeDic["traveltimes"][ifo]["Rtimes"][-1] for ifo in attributeDic["traveltimes"].iterkeys()]
-                file = os.path.join(params["eventfilesLocationFast"],"private/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))
-                if min(arrivalTimes) >= attributeDic["WrittenGPS"]:
+                if attributeDic["Magnitude"] >= params["minMagnitude"]:
                     write_info(file,attributeDic)
 
-                print "%s added at "%attributeDic["eventName"], time.time(), ". %.3f seconds after event"%(attributeDic["SentGPS"] - attributeDic["GPS"])
-                numEventsAdded = numEventsAdded + 1
-
-    if numEventsAdded > 0:
-        gps = int(os.popen("tconvert now - 2 hours").readline())
-        #delete_files(os.path.join(params["eventfilesLocationJan"],"private"),gps)
-        #write_context(os.path.join(params["eventfilesLocationJan"],"private"))
+                    print "%s added at "%attributeDic["eventName"], time.time(), ". %.3f seconds after event"%(attributeDic["SentGPS"] - attributeDic["GPS"])
+                    numEventsAdded = numEventsAdded + 1
 
     return numEventsAdded
 
@@ -245,23 +232,11 @@ def public_events(params):
             continue
 
         file = os.path.join(params["eventfilesLocation"],"public/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))
-        if attributeDic["Magnitude"] >= 0:
-            write_info(file,attributeDic)
-        file = os.path.join(params["eventfilesLocationJan"],"public/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))
-        #if attributeDic["Magnitude"] >= 0:
-        #    write_info_small(file,attributeDic)
-        arrivalTimes = [attributeDic["traveltimes"][ifo]["Rtimes"][-1] for ifo in attributeDic["traveltimes"].iterkeys()]
-        file = os.path.join(params["eventfilesLocationFast"],"public/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))
-        if min(arrivalTimes) >= attributeDic["WrittenGPS"]:
+        if attributeDic["Magnitude"] >= params["minMagnitude"]:
             write_info(file,attributeDic)
 
-        print "%s added at "%attributeDic["eventName"], time.time(), ". %.3f seconds after event"%(attributeDic["SentGPS"] - attributeDic["GPS"])
-        numEventsAdded = numEventsAdded + 1
-
-    if numEventsAdded > 0:
-        gps = int(os.popen("tconvert now - 2 hours").readline())
-        #delete_files(os.path.join(params["eventfilesLocationJan"],"public"),gps)
-        #write_context(os.path.join(params["eventfilesLocationJan"],"public"))
+            print "%s added at "%attributeDic["eventName"], time.time(), ". %.3f seconds after event"%(attributeDic["SentGPS"] - attributeDic["GPS"])
+            numEventsAdded = numEventsAdded + 1
 
     return numEventsAdded
 
@@ -300,7 +275,9 @@ def run_traveltimes():
     # Parse command line
     params = params_struct(opts)
 
+    print "Running public events..."
     numEventsAddedPrivate = private_events(params)
+    print "Running private events..."
     numEventsAddedPublic = public_events(params)
     #numEventsAddedDatabase = database_events(params)
 
