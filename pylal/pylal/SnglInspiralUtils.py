@@ -34,10 +34,6 @@ from glue.ligolw.utils import ligolw_add
 from glue import iterutils
 from glue import segments
 
-try:
-  all
-except NameError:
-  from glue.iterutils import all
 
 #
 # =============================================================================

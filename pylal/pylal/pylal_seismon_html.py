@@ -10,8 +10,7 @@ This program checks for earthquakes.
 """
 
 import os, time, glob, pickle
-
-import pylal.pylal_seismon_eqmon
+import pylal.pylal_seismon_utils
 
 __author__ = "Michael Coughlin <coughlim@carleton.edu>"
 __date__ = "2012/2/7"
@@ -117,7 +116,7 @@ def summary_page(params,channels):
     earthquakesXMLFile = os.path.join(earthquakesDirectory,"earthquakes.xml")
 
     if os.path.isfile(earthquakesXMLFile):
-        attributeDics = pylal.pylal_seismon_eqmon.read_eqmons(earthquakesXMLFile)
+        attributeDics = pylal.pylal_seismon_utils.read_eqmons(earthquakesXMLFile)
 
         table = ["""
         <table style="text-align: center; width: 1260px; height: 67px; margin-left:auto; margin-right: auto;" border="1" cellpadding="1" cellspacing="1">
