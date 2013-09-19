@@ -1,15 +1,17 @@
 #!/usr/bin/python
 
 import os, sys, glob, optparse, shutil, warnings
+
+if not os.getenv("DISPLAY", None):
+    import matplotlib
+    matplotlib.use("agg", warn=False)
+
 from collections import namedtuple
-import numpy as np
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
-import glue.datafind, glue.segments, glue.segmentsUtils, glue.lal
-import pylal.dq.dqSegmentUtils
-import pylal.pylal_seismon_psd, pylal.pylal_seismon_html, pylal.pylal_seismon_omicron
+import pylal.pylal_seismon_psd, pylal.pylal_seismon_utils
+import pylal.pylal_seismon_html, pylal.pylal_seismon_omicron
 import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_eqmon_plot
-import nds2
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
 __date__ = "2013/7/29"
@@ -35,6 +37,7 @@ def parse_commandline():
     parser.add_option("-f", "--fftDuration", help="FFT duration.", default=64,type=int)
 
     parser.add_option("-c", "--channel", help="Run on a specific channel.", default=None)
+    parser.add_option("-r", "--referenceChannel", help="Channel for PSD comparison.", default=None)
 
     parser.add_option("--gpsSpectraStart", help="GPS spectra Start Time.", type=int)
     parser.add_option("--gpsSpectraEnd", help="GPS spectra End Time.", type=int)
@@ -56,7 +59,7 @@ def parse_commandline():
     parser.add_option("--doHTML",  action="store_true", default=False)
     parser.add_option("--doSegmentsDatabase",  action="store_true", default=False)
     parser.add_option("--doSegmentsTextFile",  action="store_true", default=False)
-
+    
     parser.add_option("--doBokeh",  action="store_true", default=False)
 
     parser.add_option("-v", "--verbose", action="store_true", default=False,
@@ -80,7 +83,7 @@ def parse_commandline():
 
 def params_struct(opts):
 
-    params = readParamsFromFile(opts.paramsFile)
+    params = pylal.pylal_seismon_utils.readParamsFromFile(opts.paramsFile)
     params["gpsStart"] = opts.gpsStart
     params["gpsEnd"] = opts.gpsEnd
     params["fftDuration"] = opts.fftDuration
@@ -88,6 +91,10 @@ def params_struct(opts):
         params["channel"] = opts.channel
     else:
         params["channel"] = [x for x in opts.channel.split(",")]
+    if opts.referenceChannel == None:
+        params["referenceChannel"] = params["channel"][0]
+    else:
+        params["referenceChannel"] = opts.referenceChannel
 
     if opts.gpsSpectraStart == None:
         params["gpsSpectraStart"] = opts.gpsStart - 24*60*60
@@ -128,134 +135,6 @@ def params_struct(opts):
 
     return params
 
-def readParamsFromFile(file):
-        
-    params = {}
-    if os.path.isfile(file):
-        with open(file,'r') as f:
-            for line in f:
-                line_without_return = line.split("\n")
-                line_split = line_without_return[0].split(" ")
-                params[line_split[0]] = line_split[1]
-    return params
-
-def channel_struct(params,channelList):
-    # Create channel structure
-    structproxy_channel = namedtuple( "structproxy_channel", "station station_underscore samplef calibration latitude longitude" )
-
-    channel = []
-
-    with open(channelList,'r') as f:
-
-       for line in f:
-
-           line_without_return = line.split("\n")
-           line_split = line_without_return[0].split(" ")
-
-           station = line_split[0]
-           station_underscore = station.replace(":","_")
-
-           samplef = float(line_split[1])
-           calibration = float(line_split[2])
-
-           if station[0] == "H":
-               latitude = 46.6475
-               longitude = -119.5986;
-           elif station[0] == "L":
-               latitude = 30.4986
-               longitude = -90.7483
-           elif station[0] == "G":
-               latitude = 52.246944
-               longitude = 9.808333
-           elif station[0] == "V":
-               latitude = 43.631389
-               longitude = 10.505
-           elif station[0] == "C":
-               latitude = 34.1391
-               longitude = -118.1238
-           elif station[0] == "M":
-               latitude = 44.3465
-               longitude = -103.7574
-
-           if not params["channel"] == None:
-               if not station in params["channel"]:
-                   continue
-
-           channel.append( structproxy_channel(station,station_underscore,samplef,calibration,latitude,longitude))
-    return channel
-
-def frame_struct(params):
-
-    gpsStart = params["gpsStart"]-1000
-    gpsEnd = params["gpsEnd"]
-
-    if params["ifo"] == "XG":
-        frameDir = "/archive/frames/MBH/"
-        frameList = [os.path.join(root, name)
-            for root, dirs, files in os.walk(frameDir)
-            for name in files]
-
-        datacache = []
-        for frame in frameList:
-            thisFrame = frame.replace("file://localhost","")
-            if thisFrame == "":
-                continue
-
-            thisFrameSplit = thisFrame.split(".")
-            if thisFrameSplit[-1] == "log":
-                continue
-
-            thisFrameSplit = thisFrame.split("-")
-            gps = float(thisFrameSplit[-2])
-            dur = float(thisFrameSplit[-1].replace(".gwf",""))
-
-            if gps+dur < gpsStart:
-                continue
-            if gps > gpsEnd:
-                continue
-
-            cacheFile = glue.lal.CacheEntry("%s %s %d %d %s"%("XG","Homestake",gps,dur,frame))
-            datacache.append(cacheFile)
-
-    else:
-        if params["frameType"] == "nds":
-            conn = nds2.connection(params["ndsServer"])
-            #y = conn.find_channels('*',nds2.channel.CHANNEL_TYPE_RAW,\
-            #    nds2.channel.DATA_TYPE_FLOAT32, 128, 16384)
-
-            params["ndsConnection"] = conn
-
-        else:
-            connection = glue.datafind.GWDataFindHTTPConnection()
-            datacache = connection.find_frame_urls(params["ifo"][0], params["frameType"],
-                                                   gpsStart, gpsEnd,
-                                                   urltype="file",
-                                                   on_gaps="warn")
-            connection.close()
-
-            params["frame"] = datacache
-
-    return params
-
-def segment_struct(params):
-  
-    if params["doSegmentsDatabase"]:    
-        segmentlist, segmentlistValid = pylal.dq.dqSegmentUtils.grab_segments(
-                                               params["gpsStart"],params["gpsEnd"],
-                                               params["segmentFlag"],params["segmentDatabase"],
-                                               segment_summary=True)
-    elif params["doSegmentsTextFile"]:
-        segmentlist = glue.segments.segmentlist() 
-        segs = np.loadtxt(params["segmentsTextFile"])
-        for seg in segs:
-            segmentlist.append(glue.segments.segment(seg[0],seg[1]))
-    else:
-        segmentlist = [glue.segments.segment(params["gpsStart"],params["gpsEnd"])]
- 
-    params["segments"] = segmentlist
-    
-    return params
-
 # =============================================================================
 #
 #                                    MAIN
@@ -272,17 +151,17 @@ if params["doEarthquakesMonitor"] or params["doEarthquakesAnalysis"]:
     channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list_EarthquakesAnalysis.txt"
 else:
     channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list.txt"
-channels = channel_struct(params,channelList)
+channels = pylal.pylal_seismon_utils.channel_struct(params,channelList)
 
 params["channels"] = channels
 
-params = frame_struct(params)
-params = segment_struct(params)
+params = pylal.pylal_seismon_utils.frame_struct(params)
+params = pylal.pylal_seismon_utils.segment_struct(params)
 
 if params["doEarthquakesMonitor"]:
 
     # Output path for run
-    params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"]
+    params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + '-EarthquakesMonitor' 
     if not os.path.isdir(params["path"]):
         os.makedirs(params["path"])
 
@@ -329,18 +208,20 @@ for channel in channels:
     print "Generating PSD for %s"%channel.station
     for segment in params["segments"]:
         print "Segment: %d-%d"%(segment[0],segment[1])
-        pylal.pylal_seismon_psd.mat(params,channel,segment)
+        pylal.pylal_seismon_psd.spectra(params,channel,segment)
     if params["doAnalysis"]:
         print "Analyzing PSD significance for %s"%channel.station
         pylal.pylal_seismon_psd.analysis(params,channel)
 
-    if params["doOmicron"]:
-        print "Plotting Omicron triggers for %s"%channel.station
-        pylal.pylal_seismon_omicron.plot_triggers(params,channel)
+    for segment in params["segments"]:
+        if params["doOmicron"]:
+            print "Plotting Omicron triggers for %s"%channel.station
+            pylal.pylal_seismon_omicron.plot_triggers(params,channel,segment)
 
 for segment in params["segments"]:
     print "Running summary for Segment: %d-%d"%(segment[0],segment[1])
     pylal.pylal_seismon_psd.channel_summary(params, channels, segment)
+print "Summaries complete!"
 
 if params["doHTML"]:
     htmlPage = pylal.pylal_seismon_html.summary_page(params,channels)
@@ -351,9 +232,8 @@ if params["doHTML"]:
 
     # Public HTML output path
     params["outputPath"] = os.path.join(params["publicPath"],params["ifo"]);
-    if not os.path.isdir(params["outputPath"]):
-        os.makedirs(params["outputPath"])
+    pylal.pylal_seismon_utils.mkdir(params["outputPath"])
 
-    os.system("rm -r %s/%s"%(params["outputPath"],params["runName"]))
-    os.system("cp -r %s %s/%s"%(params["path"],params["outputPath"],params["runName"]))
+    #os.system("rm -r %s/%s"%(params["outputPath"],params["runName"]))
+    #os.system("cp -r %s %s/%s"%(params["path"],params["outputPath"],params["runName"]))
 

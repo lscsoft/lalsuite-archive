@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os, glob, optparse, shutil, warnings, matplotlib, pickle, math, copy, pickle
+import os, glob, optparse, shutil, warnings, pickle, math, copy, pickle, matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal, scipy.stats, scipy.fftpack, scipy.ndimage.filters
@@ -13,7 +13,13 @@ import pylal.seriesutils
 from pylal import Fr
 import pylal.dq.dqDataUtils
 import pylal.pylal_seismon_NLNM, pylal.pylal_seismon_html
-import pylal.pylal_seismon_eqmon
+import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_utils
+
+import gwpy.time, gwpy.timeseries
+import gwpy.spectrum, gwpy.spectrogram
+import gwpy.plotter
+
+import astropy.units
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
 __date__ = "2012/8/26"
@@ -25,180 +31,158 @@ __version__ = "0.1"
 #
 # =============================================================================
 
-def read_frames(start_time,end_time,channel,cache):
-
-    time = []
-    data = []
-
-    #== loop over frames in cache
-    for frame in cache:
-
-        if end_time < frame.segment[0]:
-            continue
-        if start_time > frame.segment[1]:
-            continue
-
-        frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame.path,channel.station)
-        frame_length = float(dt)*len(frame_data)
-        frame_time = data_start+dt*np.arange(len(frame_data))
-
-        for i in range(len(frame_data)):
-            if frame_time[i] <= start_time:  continue
-            if frame_time[i] >= end_time:  continue
-            time.append(frame_time[i])
-            data.append(frame_data[i])
-    data = [e/channel.calibration for e in data]
-
-    indexes = np.where(np.isnan(data))[0]
-    meanSamples = np.mean(np.ma.masked_array(data,np.isnan(data)))
-    for index in indexes:
-        data[index] = meanSamples
-
-    return time,data
-
-def read_nds(start_time,end_time,channel,conn):
-
-    try:
-        buffers = conn.fetch(start_time, end_time,[channel.station])
-    except:
-        time = []
-        data = []
-        return time,data
-
-    data = buffers[0].data
-    data_start = buffers[0].gps_seconds + buffers[0].gps_nanoseconds
-    dt = 1.0 / buffers[0].channel.sample_rate 
-    time = data_start+dt*np.arange(len(data))
-    data = [e/channel.calibration for e in data]
-
-    indexes = np.where(np.isnan(data))[0]
-    meanSamples = np.mean(np.ma.masked_array(data,np.isnan(data)))
-    for index in indexes:
-        data[index] = meanSamples
-
-    return time,data
-
 def save_data(params,channel,gpsStart,gpsEnd,data):
 
-    psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore
-    if not os.path.isdir(psdLocation):
-        os.makedirs(psdLocation)
-    psdLocation = os.path.join(psdLocation,str(params["fftDuration"]))
-    if not os.path.isdir(psdLocation):
-        os.makedirs(psdLocation)
+    psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore + "/" + str(params["fftDuration"])
+    pylal.pylal_seismon_utils.mkdir(psdLocation)
 
-    fftLocation = params["dirPath"] + "/Text_Files/FFT/" + channel.station_underscore
-    if not os.path.isdir(fftLocation):
-        os.makedirs(fftLocation)
-    fftLocation = os.path.join(fftLocation,str(params["fftDuration"]))
-    if not os.path.isdir(fftLocation):
-        os.makedirs(fftLocation)
+    fftLocation = params["dirPath"] + "/Text_Files/FFT/" + channel.station_underscore + "/" + str(params["fftDuration"])
+    pylal.pylal_seismon_utils.mkdir(fftLocation)
 
-    timeseriesLocation = params["dirPath"] + "/Text_Files/Timeseries/" + channel.station_underscore
-    if not os.path.isdir(timeseriesLocation):
-        os.makedirs(timeseriesLocation)
-    timeseriesLocation = os.path.join(timeseriesLocation,str(params["fftDuration"]))
-    if not os.path.isdir(timeseriesLocation):
-        os.makedirs(timeseriesLocation)
+    timeseriesLocation = params["dirPath"] + "/Text_Files/Timeseries/" + channel.station_underscore + "/" + str(params["fftDuration"])
+    pylal.pylal_seismon_utils.mkdir(timeseriesLocation)
 
-    envelopeLocation = params["dirPath"] + "/Text_Files/Envelope/" + channel.station_underscore
-    if not os.path.isdir(envelopeLocation):
-        os.makedirs(envelopeLocation)
-    envelopeLocation = os.path.join(envelopeLocation,str(params["fftDuration"]))
-    if not os.path.isdir(envelopeLocation):
-        os.makedirs(envelopeLocation)
+    freq = np.array(data["dataASD"].frequencies)
 
     psdFile = os.path.join(psdLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
     f = open(psdFile,"wb")
-    for i in xrange(len(data["freq"])):
-        f.write("%e %e\n"%(data["freq"][i],data["spectra"][i]))
+    for i in xrange(len(freq)):
+        f.write("%e %e\n"%(freq[i],data["dataASD"][i]))
     f.close()
 
     fftFile = os.path.join(fftLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
     f = open(fftFile,"wb")
-    for i in xrange(len(data["freq"])):
-        f.write("%e %e %e\n"%(data["freq"][i],data["fft_spectra"][i].real,data["fft_spectra"][i].imag))
+    for i in xrange(len(freq)):
+        f.write("%e %e %e\n"%(freq[i],data["dataFFT"].data[i].real,data["dataFFT"].data[i].imag))
     f.close()
 
-    data_argmax = np.absolute(data["data"]).argmax()
-    datalowpass_argmax = np.absolute(data["dataLowpass"]).argmax()
-    datahighpass_argmax = np.absolute(data["dataHighpass"]).argmax()
+def calculate_spectra(params,channel,dataFull):
 
-    timeseriesFile = os.path.join(timeseriesLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
-    f = open(timeseriesFile,"wb")
-    f.write("%.2f %e\n"%(data["time"][data_argmax],data["data"][data_argmax]))
-    f.write("%.2f %e\n"%(data["time"][datalowpass_argmax],data["dataLowpass"][datalowpass_argmax]))
-    f.write("%.2f %e\n"%(data["time"][datahighpass_argmax],data["dataHighpass"][datahighpass_argmax]))
-    f.close()
+    fs = channel.samplef # 1 ns -> 1 GHz
+    cutoff = 1.0 # 10 MHz
+    n = 3
+    B_low, A_low = scipy.signal.butter(n, cutoff / (fs / 2.0), btype='lowpass')
+    w_low, h_low = scipy.signal.freqz(B_low,A_low)
+    B_high, A_high = scipy.signal.butter(n, cutoff / (fs / 2.0), btype='highpass') 
+    w_high, h_high = scipy.signal.freqz(B_high,A_high)
 
-    envelopeFile = os.path.join(envelopeLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
-    f = open(envelopeFile,"wb")
-    for i in xrange(len(data["timeEnvelope"])):
-        f.write("%.0f %e\n"%(data["timeEnvelope"][i],data["dataEnvelope"][i]))
-    f.close()
+    w = w_high * (fs / (2.0*np.pi))
 
-def normalize_timeseries(data):  
+    if params["doPlots"]:
 
-    dataSort = np.sort(data)
-    index10 = np.floor(len(data) * 0.1)
-    index90 = np.floor(len(data) * 0.9)
-    dataMin = dataSort[index10]
-    dataMax = dataSort[index90] 
+        plotLocation = params["path"] + "/" + channel.station_underscore
+        pylal.pylal_seismon_utils.mkdir(plotLocation)
 
-    dataNorm = (1/(dataMax - dataMin)) * (data - dataMin)
+        if params["doEarthquakesAnalysis"]:
+            pngFile = os.path.join(plotLocation,"mag-%d-%d.png"%(gpsStart,gpsEnd))
+        else:
+            pngFile = os.path.join(plotLocation,"mag.png")
 
-    indexes = (np.absolute(dataNorm) >= 2).nonzero()[0]
-    dataNorm[indexes] = 0
+        plot = gwpy.plotter.Plot(figsize=[14,8])
+        kwargs = {"linestyle":"-","color":"k"}
+        plot.add_line(w, np.absolute(h_high), label="highpass", **kwargs)
+        kwargs = {"linestyle":"-","color":"b"}
+        plot.add_line(w, np.absolute(h_low), label="lowpass", **kwargs)
 
-    dataNorm = dataNorm / 2
- 
-    return dataNorm
+        xlim = [plot.xlim[0],plot.xlim[1]]
+        ylim = [plot.ylim[0],plot.ylim[1]]
+        ylim = [1e-5,1.5]
+        plot.ylim = ylim
 
-def envelope(data):
+        #plot.xlim = [params["fmin"],params["fmax"]]
+        plot.xlabel = "Frequency [Hz]"
+        plot.ylabel = "Amplitude Response [dB]"
+        plot.axes.set_xscale("log")
+        plot.axes.set_yscale("log")
+        plot.add_legend(loc=1,prop={'size':10})
 
-    hilb = scipy.fftpack.hilbert(data)
-    data = (data ** 2 + hilb ** 2) ** 0.5
+        plot.save(pngFile,dpi=200)
+        plot.close()
+
+        if params["doEarthquakesAnalysis"]:
+            pngFile = os.path.join(plotLocation,"phase-%d-%d.png"%(gpsStart,gpsEnd))
+        else:
+            pngFile = os.path.join(plotLocation,"phase.png")
+
+        plot = gwpy.plotter.Plot(figsize=[14,8])
+        kwargs = {"linestyle":"-","color":"k"}
+        plot.add_line(w, np.unwrap(np.angle(h_high)), label="highpass", **kwargs)
+        kwargs = {"linestyle":"-","color":"b"}
+        plot.add_line(w, np.unwrap(np.angle(h_low)), label="lowpass", **kwargs)
+        #plot.xlim = [params["fmin"],params["fmax"]]
+        plot.xlabel = "Frequency [Hz]"
+        plot.ylabel = "Phase Response"
+        plot.axes.set_xscale("log")
+        #plot.axes.set_yscale("log")
+        plot.add_legend(loc=1,prop={'size':10})
+
+        plot.save(pngFile,dpi=200)
+        plot.close()
+
+    #dataLowpass = dataFull.lowpass(1.0)
+    dataLowpass = scipy.signal.lfilter(B_low, A_low, dataFull,
+                                       axis=0).view(dataFull.__class__)
+    dataLowpass.data[:2*channel.samplef] = dataLowpass.data[2*channel.samplef]
+    dataLowpass.data[-2*channel.samplef:] = dataLowpass.data[-2*channel.samplef]
+    dataLowpass.sample_rate =  dataFull.sample_rate
+    dataLowpass.epoch = dataFull.epoch
+
+    #dataHighpass = dataFull.highpass(1.0)
+    dataHighpass = scipy.signal.lfilter(B_high, A_high, dataFull,
+                                        axis=0).view(dataFull.__class__)
+    dataHighpass.sample_rate =  dataFull.sample_rate
+    dataHighpass.epoch = dataFull.epoch
+
+    # calculate spectrum
+    NFFT = params["fftDuration"]
+    #window = None
+    dataASD = dataFull.asd(NFFT,NFFT,'welch')
+    #dataFFT = np.fft.fft(dataFull.data)
+    dataFFT = np.fft.fft(dataFull.data,params["fftDuration"]*channel.samplef)
+    #freqFFT = np.fft.fftfreq(dataFull.data.shape[-1],d=1.0/channel.samplef)
+    freqFFT = np.fft.fftfreq(int(params["fftDuration"]*channel.samplef),d=1.0/channel.samplef)
+    freq = np.array(dataASD.frequencies)
+
+    indexes = np.where((freq >= params["fmin"]) & (freq <= params["fmax"]))[0]
+    dataASD = np.array(dataASD.data)
+
+    freq = freq[indexes]
+    dataASD = dataASD[indexes]
+    dataASD = gwpy.spectrum.Spectrum(dataASD, f0=np.min(freq), df=(freq[1]-freq[0]))
+
+    indexes = np.where((freqFFT >= params["fmin"]) & (freqFFT <= params["fmax"]))[0]
+    freqFFT = freqFFT[indexes]
+    dataFFT = dataFFT[indexes]
+    dataFFT = gwpy.spectrum.Spectrum(dataFFT, f0=np.min(freqFFT), df=(freqFFT[1]-freqFFT[0]))
+
+    # manually set units (units in CIS aren't correct)
+    dataASD.unit = 'counts/Hz^(1/2)'
+    dataFFT.unit = 'counts/Hz^(1/2)'
+
+    data = {}
+    data["dataFull"] = dataFull
+    data["dataLowpass"] = dataLowpass
+    data["dataHighpass"] = dataHighpass
+    data["dataASD"] = dataASD
+    data["dataFFT"] = dataFFT
+
     return data
 
-def read_eqmons(file):
+def apply_calibration(params,channel,data):
+  
+    b = [1,0,0,0];
+    a = [0,1,-1.414,1];
+    w, h = scipy.signal.freqz(b, a)
 
-    attributeDics = []
-    tree = etree.parse(file)
-    baseroot = tree.getroot()       # get the document root
-    for root in baseroot.iterchildren():
-        attributeDic = {}
-        for element in root.iterchildren(): # now iter through it and print the text
-            if element.tag == "traveltimes":
-                attributeDic[element.tag] = {}
-                for subelement in element.iterchildren():
-                    attributeDic[element.tag][subelement.tag] = {}
-                    for subsubelement in subelement.iterchildren():
-                        textlist = subsubelement.text.replace("\n","").split(" ")
-                        floatlist = [float(x) for x in textlist]
-                        attributeDic[element.tag][subelement.tag][subsubelement.tag] = floatlist
-            else:
-                try:
-                    attributeDic[element.tag] = float(element.text)
-                except:
-                    attributeDic[element.tag] = element.text
+    #ss = scipy.signal.zpk2ss([0,0,0],[0.70711 + 0.70711*1j , 0.70711 - 0.70711*1j], 1)
+ 
+    #if ("L4C" in channel.station) or ("GS13" in channel.station):
+    if False:
+        data["dataASD"].filter(zeros=[0,0], poles=[0.70711 + 0.70711*1j , 0.70711 - 0.70711*1j], gain=1, inplace=True)
 
-        magThreshold = 0
-        if not "Magnitude" in attributeDic or attributeDic["Magnitude"] < magThreshold:
-            return attributeDic
+    return data
 
-        attributeDic["doPlots"] = 0
-        for ifoName, traveltimes in attributeDic["traveltimes"].items():
-            arrivalMin = min([max(traveltimes["Rtimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
-            arrivalMax = max([max(traveltimes["Rtimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
-            attributeDic["traveltimes"][ifoName]["arrivalMin"] = arrivalMin
-            attributeDic["traveltimes"][ifoName]["arrivalMax"] = arrivalMax
-            #if params["gps"] <= attributeDic["traveltimes"][ifoName]["arrivalMax"]:
-            #    attributeDic["doPlots"] = 1
-
-        attributeDics.append(attributeDic)
-    return attributeDics
-
-def mat(params, channel, segment):
+def spectra(params, channel, segment):
 
     if params["ifo"] == "H1":
         ifo = "LHO"
@@ -216,202 +200,125 @@ def mat(params, channel, segment):
     gpsStart = segment[0]
     gpsEnd = segment[1]
    
-    if params["frameType"] == "nds":
-        time,data = read_nds(gpsStart,gpsEnd,channel,params["ndsConnection"])
-    else:
-        time,data = read_frames(gpsStart,gpsEnd,channel,params["frame"])
+    # set the times
+    duration = np.ceil(gpsEnd-gpsStart)
 
-    if len(time) == 0:
-        print "No data available... continuing"
+    # make timeseries
+    dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel.station, epoch=gpsStart, duration=duration)
+
+    dataFull /= channel.calibration
+    indexes = np.where(np.isnan(dataFull.data))[0]
+    meanSamples = np.mean(np.ma.masked_array(dataFull.data,np.isnan(dataFull.data)))
+    for index in indexes:
+        dataFull[index] = meanSamples
+    dataFull -= np.mean(dataFull.data)
+
+    if np.mean(dataFull.data) == 0.0:
+        print "data only zeroes... continuing\n"
         return
 
-    dataFull = np.array(data)
-    dataLowpass = pylal.dq.dqDataUtils.lowpass(dataFull,channel.samplef,1.0)
-    dataHighpass = pylal.dq.dqDataUtils.highpass(dataFull,channel.samplef,1.0)
-    dataRMS = pylal.dq.dqDataUtils.blrms(dataFull, channel.samplef, average=1, band=[0,1])
-
-    #dataLowpass = scipy.ndimage.filters.gaussian_filter(dataFull,100)
-
-    dataLowpass[:2*channel.samplef] = dataLowpass[2*channel.samplef]
-    dataLowpass[-2*channel.samplef:] = dataLowpass[-2*channel.samplef]
-
-    dataLowpass = dataLowpass - np.mean(dataLowpass)
-    
-    timeEnvelope = np.arange(np.min(time),np.max(time))
-    dataEnvelope = np.interp(timeEnvelope,time,dataLowpass)
-    dataEnvelope = envelope(dataEnvelope)
-
-    data = {}
-    data["time"] = time
-    data["data"] = dataFull
-    data["dataLowpass"] = dataLowpass
-    data["dataHighpass"] = dataHighpass
-    data["dataEnvelope"] = dataEnvelope
-
-    data["timeEnvelope"] = timeEnvelope 
-    data["dataEnvelope"] = dataEnvelope
-
-    NFFT = params["fftDuration"]*channel.samplef
-    spectra, freq = matplotlib.pyplot.psd(data["data"], NFFT=NFFT, Fs=channel.samplef, Fc=0, detrend=matplotlib.mlab.detrend_mean,window=matplotlib.mlab.window_hanning)
-    plt.close('all')
-
-    spectra = [math.sqrt(e) for e in spectra]
-
-    fft_spectra = np.fft.fft(data["data"])
-
-    newSpectra = []
-    newFreq = []
-    newSpectraFFT = []
-
-    for i in xrange(len(freq)):
-        if freq[i] <= params["fmax"] and freq[i] >= params["fmin"]:
-            newFreq.append(freq[i])
-            newSpectra.append(spectra[i])
-            newSpectraFFT.append(fft_spectra[i])
-
-    spectra = newSpectra
-    freq = newFreq
-    fft_spectra = newSpectraFFT
-
-    data["freq"] = freq
-    data["spectra"] = spectra
-    data["fft_spectra"] = fft_spectra
+    data = calculate_spectra(params,channel,dataFull)
+    data = apply_calibration(params,channel,data)
 
     save_data(params,channel,gpsStart,gpsEnd,data)
 
-    earthquakes = []
     if params["doEarthquakes"]:
         earthquakesDirectory = os.path.join(params["path"],"earthquakes")
         earthquakesXMLFile = os.path.join(earthquakesDirectory,"earthquakes.xml")
-        attributeDics = read_eqmons(earthquakesXMLFile)
+        attributeDics = pylal.pylal_seismon_utils.read_eqmons(earthquakesXMLFile)
+    else:
+        attributeDics = []
 
     if params["doPlots"]:
 
         plotLocation = params["path"] + "/" + channel.station_underscore
-        if not os.path.isdir(plotLocation):
-            os.makedirs(plotLocation)        
+        pylal.pylal_seismon_utils.mkdir(plotLocation)        
 
-        startTime = np.min(data["time"])
-        startTimeUTC = XLALGPSToUTC(LIGOTimeGPS(int(startTime)))
-        startTimeUTCString = "%d-%d-%d %d:%d:%d"%(startTimeUTC[0],startTimeUTC[1],startTimeUTC[2],startTimeUTC[3],startTimeUTC[4],startTimeUTC[5])
+        if params["doEarthquakesAnalysis"]:
+            pngFile = os.path.join(plotLocation,"timeseries-%d-%d.png"%(gpsStart,gpsEnd))
+        else:
+            pngFile = os.path.join(plotLocation,"timeseries.png")
 
-        time = data["time"] - startTime
+        plot = gwpy.plotter.TimeSeriesPlot(figsize=[14,8])
 
-        dataLowpass = normalize_timeseries(data["dataLowpass"])
-        dataLowpass = dataLowpass + 0.5
-        plt.plot(time,dataLowpass,label="lowpass")
+        dataHighpass = data["dataHighpass"]
+        dataFull = data["dataFull"]
+        dataLowpass = data["dataLowpass"]
 
-        dataHighpass = normalize_timeseries(data["dataHighpass"])
-        dataHighpass = dataHighpass + 1.5
-        plt.plot(time,dataHighpass,label="highpass")
+        #dataHighpass = data["dataHighpass"].resample(16)
+        #dataFull = data["dataFull"].resample(16)
+        #dataLowpass = data["dataLowpass"].resample(16)
 
-        dataFull = normalize_timeseries(data["data"])
-        dataFull = dataFull + 2.5
-        plt.plot(time,dataFull,'k',label='data')
-        plt.legend(loc=4,prop={'size':10})
+        dataHighpass *= 1e6
+        dataFull *= 1e6
+        dataLowpass *= 1e6
+
+        plot.add_timeseries(dataHighpass,label="highpass")
+        plot.add_timeseries(dataFull,label="data")
+        plot.add_timeseries(dataLowpass,label="lowpass")
+
+        xlim = [plot.xlim[0],plot.xlim[1]]
+        ylim = [plot.ylim[0],plot.ylim[1]]
 
         for attributeDic in attributeDics:
 
             traveltimes = attributeDic["traveltimes"][ifo]
 
-            Ptime = max(traveltimes["Ptimes"]) - startTime
-            Stime = max(traveltimes["Stimes"]) - startTime
-            Rtime = max(traveltimes["Rtimes"]) - startTime
+            Ptime = max(traveltimes["Ptimes"])
+            Stime = max(traveltimes["Stimes"])
+            Rtime = max(traveltimes["Rtimes"])
+            peak_velocity = traveltimes["Rfamp"][0]
+            peak_velocity = peak_velocity * 1e6
 
-            plt.text(Ptime, 4.1, 'P', fontsize=18, ha='center', va='top')
-            plt.text(Stime, 4.1, 'S', fontsize=18, ha='center', va='top')
-            plt.text(Rtime, 4.1, 'R', fontsize=18, ha='center', va='top')
+            if peak_velocity > ylim[1]:
+               ylim[1] = peak_velocity*1.1
+            if -peak_velocity < ylim[0]:
+               ylim[0] = -peak_velocity*1.1
 
-            plt.axvline(x=Ptime,color='r',linewidth=2,zorder = 0,clip_on=False)
-            plt.axvline(x=Stime,color='b',linewidth=2,zorder = 0,clip_on=False)
-            plt.axvline(x=Rtime,color='g',linewidth=2,zorder = 0,clip_on=False)
+            kwargs = {"linestyle":"--","color":"r"}
+            plot.add_line([Ptime,Ptime],ylim,label="P Est. Arrival",**kwargs)
+            kwargs = {"linestyle":"--","color":"g"}
+            plot.add_line([Stime,Stime],ylim,label="S Est. Arrival",**kwargs)
+            kwargs = {"linestyle":"--","color":"b"}
+            plot.add_line([Rtime,Rtime],ylim,label="R Est. Arrival",**kwargs)            
+            kwargs = {"linestyle":"--","color":"k"}
+            plot.add_line(xlim,[peak_velocity,peak_velocity],label="pred. vel.",**kwargs)
+            plot.add_line(xlim,[-peak_velocity,-peak_velocity],**kwargs)
 
-        plt.legend(loc=4,prop={'size':10})
-        plt.xlabel("Time [s] [%s (%d)]"%(startTimeUTCString,startTime))
-        plt.ylabel("Normalized Amplitude")
-        plt.xlim([np.min(time),np.max(time)])
-        plt.ylim([0,4])
+        plot.ylabel = r"Velocity [$\mu$m/s]"
+        plot.title = channel.station.replace("_","\_")
+        plot.xlim = xlim
+        plot.ylim = ylim
+        plot.add_legend(loc=1,prop={'size':10})
 
-        plt.show()
-        if params["doEarthquakesAnalysis"]: 
-            plt.savefig(os.path.join(plotLocation,"timeseries-%d-%d.png"%(gpsStart,gpsEnd)),dpi=200)
-            plt.savefig(os.path.join(plotLocation,"timeseries-%d-%d.eps"%(gpsStart,gpsEnd)),dpi=200)
-        else:
-            plt.savefig(os.path.join(plotLocation,"timeseries.png"),dpi=200)
-            plt.savefig(os.path.join(plotLocation,"timeseries.eps"),dpi=200)
-        plt.close('all')
-    
-        plt.plot(time,data["dataLowpass"],'k',label='data')
-        plt.plot(data["timeEnvelope"]-startTime,data["dataEnvelope"],'r--',label='envelope')
-        plt.legend(loc=4,prop={'size':10})
-        plt.xlabel("Time [s] [%s (%d)]"%(startTimeUTCString,startTime))
-        plt.ylabel("Normalized Amplitude")
-        plt.xlim([np.min(time),np.max(time)])
-
-        plt.show()
-        if params["doEarthquakesAnalysis"]:
-            plt.savefig(os.path.join(plotLocation,"envelope-%d-%d.png"%(gpsStart,gpsEnd)),dpi=200)
-            plt.savefig(os.path.join(plotLocation,"envelope-%d-%d.eps"%(gpsStart,gpsEnd)),dpi=200)
-        else:
-            plt.savefig(os.path.join(plotLocation,"envelope.png"),dpi=200)
-            plt.savefig(os.path.join(plotLocation,"envelope.eps"),dpi=200)
-        plt.close('all')
-
+        plot.save(pngFile)
+        plot.close()
 
         fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
 
-        try:
-            plt.semilogx(data["freq"],data["spectra"], 'k')
-            plt.loglog(fl,low,'k-.',fh,high,'k-.')
-        except:
-            pass
-        plt.xlim([params["fmin"],params["fmax"]])
-        plt.ylim([10**-10, 10**-5])
-        plt.xlabel("Frequency [Hz]")
-        plt.ylabel("Amplitude Spectrum [(m/s)/rtHz]")
-        plt.grid()
-        plt.show()
         if params["doEarthquakesAnalysis"]:
-            plt.savefig(os.path.join(plotLocation,"psd-%d-%d.png"%(gpsStart,gpsEnd)),dpi=200)
-            plt.savefig(os.path.join(plotLocation,"psd-%d-%d.eps"%(gpsStart,gpsEnd)),dpi=200)
+            pngFile = os.path.join(plotLocation,"psd-%d-%d.png"%(gpsStart,gpsEnd))
         else:
-            plt.savefig(os.path.join(plotLocation,"psd.png"),dpi=200)
-            plt.savefig(os.path.join(plotLocation,"psd.eps"),dpi=200)
-        plt.close('all')
+            pngFile = os.path.join(plotLocation,"psd.png")
+ 
+        label = channel.station.replace("_","\_")
 
-    if params["doBokeh"]:
+        plot = gwpy.plotter.Plot(figsize=[14,8])
+        plot.add_spectrum(data["dataASD"],label=label)
+        kwargs = {"linestyle":"-.","color":"k"}
+        plot.add_line(fl, low, label="HNM/LNM", **kwargs)
+        plot.add_line(fh, high, **kwargs)
+        plot.xlim = [params["fmin"],params["fmax"]]
+        plot.ylim = [10**-10, 10**-5]
+        plot.xlabel = "Frequency [Hz]"
+        plot.ylabel = "Amplitude Spectrum [(m/s)/rtHz]"
+        plot.title = channel.station.replace("_","\_")
+        plot.axes.set_xscale("log")
+        plot.axes.set_yscale("log")
+        plot.add_legend(loc=1,prop={'size':10})
 
-        import bokeh.plotting
-
-        plotLocation = params["path"] + "/" + channel.station_underscore
-        if not os.path.isdir(plotLocation):
-            os.makedirs(plotLocation)
-
-        startTime = np.min(data["time"])
-        startTimeUTC = XLALGPSToUTC(LIGOTimeGPS(int(startTime)))
-        startTimeUTCString = "%d-%d-%d %d:%d:%d"%(startTimeUTC[0],startTimeUTC[1],startTimeUTC[2],startTimeUTC[3],startTimeUTC[4],startTimeUTC[5])
-
-        time = data["time"] - startTime
-
-        dataLowpass = normalize_timeseries(data["dataLowpass"])
-        dataLowpass = dataLowpass + 0.5
-
-        dataHighpass = normalize_timeseries(data["dataHighpass"])
-        dataHighpass = dataHighpass + 1.5
-
-        dataFull = normalize_timeseries(data["data"])
-        dataFull = dataFull + 2.5
-
-        outputFile = os.path.join(plotLocation,"bokeh.html")
-        bokeh.plotting.output_file(outputFile, title="Time Series")
-
-        bokeh.plotting.hold(True)
-        bokeh.plotting.plot(time,dataLowpass, tools="pan,zoom,resize")
-        bokeh.plotting.plot(time,dataHighpass, tools="pan,zoom,resize")
-        bokeh.plotting.plot(time,dataFull, color="green", tools="pan,zoom,resize")
-
-        bokeh.plotting.save()
-
+        plot.save(pngFile,dpi=200)
+        plot.close()
 
 def freq_analysis(params,channel,tt,freq,spectra):
 
@@ -540,66 +447,9 @@ def freq_analysis(params,channel,tt,freq,spectra):
         plt.savefig(os.path.join(plotLocation,"ttCohs.eps"),dpi=200)
         plt.close('all')
 
-def spectral_histogram(data,bins):
-    
-    spectral_variation_norm = []
-    rows, columns = data.shape
-
-    for i in xrange(columns):
-        this_spectral_variation, bin_edges = np.histogram(data[:,i],bins)
-        this_spectral_variation = np.array(this_spectral_variation)
-        weight = (100/float(sum(this_spectral_variation))) + np.zeros(this_spectral_variation.shape)
-        if spectral_variation_norm == []:
-            spectral_variation_norm = this_spectral_variation * weight
-        else:
-            spectral_variation_norm = np.vstack([spectral_variation_norm,this_spectral_variation * weight])
-    return spectral_variation_norm
-
-def calculate_percentiles(data,bins,percentile):
-
-    cumsumvals = np.cumsum(data)
-    
-    abs_cumsumvals_minus_percentile = abs(cumsumvals - percentile)
-    minindex = abs_cumsumvals_minus_percentile.argmin()
-    val = bins[minindex]
- 
-    return val
-
-def html_bgcolor(snr,data):
-
-    data = np.append(data,snr)
-
-    # Number of colors in array
-    N = 256
-
-    colormap = []
-    for i in xrange(N):
-        r,g,b,a = matplotlib.pyplot.cm.jet(i)
-        r = int(round((r * 255),0))
-        g = int(round((g * 255),0))
-        b = int(round((b* 255),0))
-        colormap.append((r,g,b))
-
-    data = np.sort(data)
-    itemIndex = np.where(data==snr)
-
-    # Determine significance of snr (between 0 and 1)
-    snrSig = itemIndex[0][0] / float(len(data)+1)
-
-    # Determine color index of this significance
-    index = int(np.floor(N * snrSig))
-
-    # Return colors of this index
-    thisColor = colormap[index]
-    # Return rgb string containing these colors
-    bgcolor = "rgb(%d,%d,%d)"%(thisColor[0],thisColor[1],thisColor[2])
-
-    return snrSig, bgcolor
-
 def analysis(params, channel):
 
-    psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore
-    psdLocation = os.path.join(psdLocation,str(params["fftDuration"]))
+    psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore + "/" + str(params["fftDuration"])
     files = glob.glob(os.path.join(psdLocation,"*.txt"))
 
     files = sorted(files)
@@ -608,9 +458,9 @@ def analysis(params, channel):
         if len(files) > 1000:
             files = files[-1000:]
 
-    ttStart = []
-    ttEnd = []
-    freq = []
+    #files = files[-10:]
+
+    tts = []
     spectra = []
 
     for file in files:
@@ -620,71 +470,48 @@ def analysis(params, channel):
         txtFileSplit = txtFile.split("-")
         thisTTStart = int(txtFileSplit[0])
         thisTTEnd = int(txtFileSplit[1])
+        tt = thisTTStart
+        tts.append(tt)
 
-        ttStart.append(thisTTStart)
-        ttEnd.append(thisTTEnd)
+        spectra_out = gwpy.spectrum.Spectrum.read(file)
+        spectra_out.unit = 'counts/Hz^(1/2)'
+        spectra.append(spectra_out)
 
-        data = np.loadtxt(file)
-        thisSpectra = data[:,1]
-        thisFreq = data[:,0]
+        if tt == params["gpsStart"]:
+            spectraNow = spectra_out
 
-        if freq == []:
-            freq = np.array(thisFreq)
-        if spectra == []:
-            spectra = np.array(thisSpectra)
-        else:
-            spectra = np.vstack([spectra,np.array(copy.copy(thisSpectra))])
-        if thisTTStart == params["gpsStart"]:
-            freqNow = copy.copy(thisFreq)
-            spectraNow = copy.copy(thisSpectra)
-
-    lowBin = np.log10(np.min(spectra)/2)
-    highBin = np.log10(np.max(spectra)*2)
-
-    # Binning parameters
-    nb = 500
-    range_binning = np.logspace(lowBin,highBin,num=nb);
-
-    try:
-        spectra.max(axis = 1)
-    except:
-        print "Requires more than one spectra for analysis, continuing..."
+    if not 'spectraNow' in locals():
+        print "no data at requested time... continuing\n"
         return
 
-    spectra[spectra==float('Inf')] = 0
-
-    # Calculate bin histogram of PSDs
-    which_spectra = np.all([spectra.max(axis = 1) <= float('Inf'),spectra.max(axis = 1) > 0],axis=0)
-
-    if len(spectra[which_spectra]) == 0:
+    if np.mean(spectraNow.data) == 0.0:
+        print "data only zeroes... continuing\n"
         return
+
+    dt = tts[-1] - tts[-2]
+    epoch = gwpy.time.Time(tts[0], format='gps')
+    specgram = gwpy.spectrogram.Spectrogram.from_spectra(*spectra, dt=dt,epoch=epoch)
+    
+    freq = np.array(specgram.frequencies)
+
+    bins,specvar = pylal.pylal_seismon_utils.spectral_histogram(specgram)
 
     if params["doFreqAnalysis"]:
-        freq_analysis(params,channel,ttStart,freq,spectra[which_spectra])
+        freq_analysis(params,channel,ttStart,freq,specgram)
 
-    spectral_variation_norm = spectral_histogram(spectra[which_spectra],range_binning)
-
-    # Initialize arrays
-    spectral_variation_norm_1per = []
-    spectral_variation_norm_10per = []
-    spectral_variation_norm_50per = []
-    spectral_variation_norm_90per = []
-    spectral_variation_norm_99per = []
-
-    for i in xrange(len(freq)):
-        spectral_variation_norm_1per.append(calculate_percentiles(spectral_variation_norm[i,:],range_binning,1))
-        spectral_variation_norm_10per.append(calculate_percentiles(spectral_variation_norm[i,:],range_binning,10))
-        spectral_variation_norm_50per.append(calculate_percentiles(spectral_variation_norm[i,:],range_binning,50))
-        spectral_variation_norm_90per.append(calculate_percentiles(spectral_variation_norm[i,:],range_binning,90))
-        spectral_variation_norm_99per.append(calculate_percentiles(spectral_variation_norm[i,:],range_binning,99))
+    # Calculate percentiles
+    spectral_variation_1per = pylal.pylal_seismon_utils.spectral_percentiles(specvar,bins,1)
+    spectral_variation_10per = pylal.pylal_seismon_utils.spectral_percentiles(specvar,bins,10)
+    spectral_variation_50per = pylal.pylal_seismon_utils.spectral_percentiles(specvar,bins,50)
+    spectral_variation_90per = pylal.pylal_seismon_utils.spectral_percentiles(specvar,bins,90)
+    spectral_variation_99per = pylal.pylal_seismon_utils.spectral_percentiles(specvar,bins,99)
 
     textLocation = params["path"] + "/" + channel.station_underscore
-    if not os.path.isdir(textLocation):
-        os.makedirs(textLocation)
+    pylal.pylal_seismon_utils.mkdir(textLocation)
 
     f = open(os.path.join(textLocation,"spectra.txt"),"w")
     for i in xrange(len(freq)):
-        f.write("%e %e %e %e %e %e %e\n"%(freq[i],spectral_variation_norm_1per[i],spectral_variation_norm_10per[i],spectral_variation_norm_50per[i],spectral_variation_norm_90per[i],spectral_variation_norm_99per[i],spectraNow[i]))
+        f.write("%e %e %e %e %e %e %e\n"%(freq[i],spectral_variation_1per[i],spectral_variation_10per[i],spectral_variation_50per[i],spectral_variation_90per[i],spectral_variation_99per[i],spectraNow[i]))
     f.close()
 
     sigDict = {}
@@ -700,135 +527,158 @@ def analysis(params, channel):
         for j in xrange(len(freq)):
             if ff_ave[i] <= freq[j] and freq[j] <= ff_ave[i+1]:
                 newFreq.append(freq[j])
-                newSpectraNow.append(spectraNow[j])
+                newSpectraNow.append(spectraNow.data[j])
                 if newSpectra == []:
-                    newSpectra = spectra[:,j]
+                    newSpectra = specgram.data[:,j]
                 else:                 
-                    newSpectra = np.vstack([newSpectra,spectra[:,j]])
+                    newSpectra = np.vstack([newSpectra,specgram.data[:,j]])
 
+        newSpectra = np.array(newSpectra)
         if len(newSpectra.shape) > 1:
             newSpectra = np.mean(newSpectra, axis = 0)
-        sig, bgcolor = html_bgcolor(np.mean(newSpectraNow),newSpectra)
+        sig, bgcolor = pylal.pylal_seismon_utils.html_bgcolor(np.mean(newSpectraNow),newSpectra)
 
         f.write("%e %e %e %e %s\n"%(ff_ave[i],ff_ave[i+1],np.mean(newSpectraNow),sig,bgcolor))
 
         key = "%s-%s"%(ff_ave[i],ff_ave[i+1])
+
+        dt = tts[-1] - tts[-2]
+        epoch = gwpy.time.Time(tts[0], format='gps')
+
+        timeseries = gwpy.timeseries.TimeSeries(newSpectra, epoch=epoch, sample_rate=1.0/dt)
+        
         sigDict[key] = {}
-        sigDict[key]["data"] = newSpectra
+        #timeseries.data = np.log10(timeseries.data) 
+        sigDict[key]["data"] = timeseries
 
     f.close()
 
     if params["doPlots"]:
 
         plotLocation = params["path"] + "/" + channel.station_underscore
-        if not os.path.isdir(plotLocation):
-            os.makedirs(plotLocation)
+        pylal.pylal_seismon_utils.mkdir(plotLocation)
 
         fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
 
-        plt.semilogx(freqNow,spectraNow, 'k', label='Current')
-        plt.semilogx(freq,spectral_variation_norm_10per,'b',label='10')
-        plt.semilogx(freq,spectral_variation_norm_50per,'r',label='50')
-        plt.semilogx(freq,spectral_variation_norm_90per,'g',label='90')
-        plt.loglog(fl,low,'k-.')
-        plt.loglog(fh,high,'k-.',label='LNM/HNM')
-        plt.legend(loc=3,prop={'size':10})
-        plt.xlim([params["fmin"],params["fmax"]])
-        plt.ylim([10**lowBin, 10**highBin])
-        plt.xlabel("Frequency [Hz]")
-        plt.ylabel("Seismic Spectrum [(m/s)/rtHz]")
-        plt.grid()
-        plt.show()
-        plt.savefig(os.path.join(plotLocation,"psd.png"),dpi=200)
-        plt.savefig(os.path.join(plotLocation,"psd.eps"),dpi=200)
-        plt.close('all')
+        if params["doEarthquakesAnalysis"]:
+            pngFile = os.path.join(plotLocation,"psd-%d-%d.png"%(gpsStart,gpsEnd))
+        else:
+            pngFile = os.path.join(plotLocation,"psd.png")
 
-        plt.semilogx(freqNow,[y/x for x,y in zip(freqNow,spectraNow)], 'k', label='Current')
-        plt.semilogx(freq,[y/x for x,y in zip(freq,spectral_variation_norm_10per)],'b',label='10')
-        plt.semilogx(freq,[y/x for x,y in zip(freq,spectral_variation_norm_50per)],'r',label='50')
-        plt.semilogx(freq,[y/x for x,y in zip(freq,spectral_variation_norm_90per)],'g',label='90')
-        plt.loglog(fl,[y/x for x,y in zip(fl,low)],'k-.')
-        plt.loglog(fh,[y/x for x,y in zip(fl,high)],'k-.',label='LNM/HNM')
-        plt.legend(loc=3,prop={'size':10})
-        plt.xlim([params["fmin"],params["fmax"]])
-        plt.ylim([10**lowBin, 10**highBin])
-        plt.xlabel("Frequency [Hz]")
-        plt.ylabel("Spectrum [m/rtHz]")
-        plt.grid()
-        plt.show()
-        plt.savefig(os.path.join(plotLocation,"disp.png"),dpi=200)
-        plt.savefig(os.path.join(plotLocation,"disp.eps"),dpi=200)
-        plt.close('all')
+        plot = spectraNow.plot(auto_refresh=True)
+        kwargs = {"linestyle":"-","color":"k"}
+        plot.add_line(freq, spectral_variation_10per, **kwargs)
+        plot.add_line(freq, spectral_variation_50per, **kwargs)
+        plot.add_line(freq, spectral_variation_90per, **kwargs)
+        kwargs = {"linestyle":"-.","color":"k"}
+        plot.add_line(fl, low, **kwargs)
+        plot.add_line(fh, high, **kwargs)
+        plot.xlim = [params["fmin"],params["fmax"]]
+        plot.ylim = [np.min(bins), np.max(bins)]
+        plot.xlabel = "Frequency [Hz]"
+        plot.ylabel = "Amplitude Spectrum [(m/s)/rtHz]"
+        plot.save(pngFile,dpi=200)
+        plot.close()
 
-        indexes = np.unique(np.floor(np.logspace(0, np.log10(len(freq)-1), num=100)))
-        indices = [int(x) for x in indexes]
-        indices.append(0)
-        indices.sort()
+        if params["doEarthquakesAnalysis"]:
+            pngFile = os.path.join(plotLocation,"disp-%d-%d.png"%(gpsStart,gpsEnd))
+        else:
+            pngFile = os.path.join(plotLocation,"disp.png")
 
-        #X,Y = np.meshgrid(freq, range_binning)
-        X,Y = np.meshgrid(freq[indices], range_binning)
-        ax = plt.subplot(111)
-        #im = plt.pcolor(X,Y,np.transpose(spectral_variation_norm), cmap=plt.cm.jet)
-        im = plt.pcolor(X,Y,np.transpose(spectral_variation_norm[indices,:]), cmap=plt.cm.jet)
-        ax.set_xscale('log')
-        ax.set_yscale('log')
-        plt.semilogx(freqNow,spectraNow, 'k', label='Current')
-        plt.semilogx(freq,spectral_variation_norm_10per,'w',label='10')
-        plt.semilogx(freq,spectral_variation_norm_50per,'w',label='50')
-        plt.semilogx(freq,spectral_variation_norm_90per,'w',label='90')
-        plt.loglog(fl,low,'k-.')
-        plt.loglog(fh,high,'k-.',label='LNM/HNM')  
-        plt.xlim([params["fmin"],params["fmax"]])
-        plt.ylim([10**lowBin, 10**highBin])
-        plt.xlabel("Frequency [Hz]")
-        plt.ylabel("Amplitude Spectrum [(m/s)/rtHz]")
-        plt.grid()
-        plt.show()
-        plt.savefig(os.path.join(plotLocation,"specvar.png"),dpi=200)
-        plt.savefig(os.path.join(plotLocation,"specvar.eps"),dpi=200)
-        plt.close('all')
+        spectraNowDisplacement = spectraNow / freq
+        plot = spectraNowDisplacement.plot(auto_refresh=True)
+        kwargs = {"linestyle":"-","color":"k"}
+        plot.add_line(freq, spectral_variation_10per/freq, **kwargs)
+        plot.add_line(freq, spectral_variation_50per/freq, **kwargs)
+        plot.add_line(freq, spectral_variation_90per/freq, **kwargs)
+        kwargs = {"linestyle":"-.","color":"k"}
+        plot.add_line(fl, low/fl, **kwargs)
+        plot.add_line(fh, high/fh, **kwargs)
+        plot.xlim = [params["fmin"],params["fmax"]]
+        plot.ylim = [np.min(bins)/np.max(freq), np.max(bins)/np.min(freq)]
+        plot.xlabel = "Frequency [Hz]"
+        plot.ylabel = "Displacement Spectrum [m/rtHz]"
+        plot.save(pngFile,dpi=200)
+        plot.close()
 
-        ttStart = np.array(ttStart)
-        indices_ttStart = np.where(\
-            (ttStart >= params["gpsSpectraStart"]) &\
-            (ttStart <= params["gpsSpectraEnd"])\
-        )
-        ttStart = ttStart[indices_ttStart]
+        if params["doEarthquakesAnalysis"]:
+            pngFile = os.path.join(plotLocation,"tf-%d-%d.png"%(gpsStart,gpsEnd))
+        else:
+            pngFile = os.path.join(plotLocation,"tf.png")
 
-        spectra = np.squeeze(spectra[indices_ttStart,:])
-        ttStartMin = min(ttStart)
-        tt = [(c-ttStartMin)/(3600.0) for c in ttStart]
+        specgramLog = specgram.to_logscale(fmin=np.min(freq),fmax=np.max(freq))
+        plot = specgramLog.plot(auto_refresh=True)
+        plot.ylim = [params["fmin"],params["fmax"]]
+        plot.ylabel = "Frequency [Hz]"
+        colorbar_label = "Amplitude Spectrum [(m/s)/rtHz]"
+        kwargs = {}
+        plot.add_colorbar(location='right', log=True, label=colorbar_label, clim=None, visible=True, **kwargs)
+        plot.save(pngFile,dpi=200)
+        plot.close()
 
-        #X,Y = np.meshgrid(freq, tt)
-        X,Y = np.meshgrid(freq[indices], tt)
-        ax = plt.subplot(111)
-        #im = plt.pcolor(X,Y,np.log10(spectra), cmap=plt.cm.jet, vmin=-9, vmax=-5)
-        im = plt.pcolor(X,Y,np.log10(spectra[:,indices]), cmap=plt.cm.jet, vmin=lowBin, vmax=highBin)
-        ax.set_xscale('log')
-        plt.xlim([params["fmin"],params["fmax"]])
-        plt.ylim([tt[0],tt[-1]])
-        plt.xlabel("Frequency [Hz]")
-        plt.ylabel("Time [Hours]")
-        cbar=plt.colorbar()
-        cbar.set_label('log10(Amplitude Spectrum [(m/s)/rtHz])') 
-        plt.grid()
-        plt.show()
-        plt.savefig(os.path.join(plotLocation,"tf.png"),dpi=200)
-        plt.savefig(os.path.join(plotLocation,"tf.eps"),dpi=200)
-        plt.close('all')
+        if params["doEarthquakesAnalysis"]:
+            pngFile = os.path.join(plotLocation,"psd-%d-%d.png"%(gpsStart,gpsEnd))
+        else:
+            pngFile = os.path.join(plotLocation,"psd.png")
 
-        ax = plt.subplot(111)
-        for key in sigDict.iterkeys():   
-            plt.semilogy(tt,sigDict[key]["data"][indices_ttStart],\
-               "*",label=key)
-        plt.ylabel("Amplitude Spectrum")
-        plt.xlabel("Time [Hours]")
-        plt.grid()
-        plt.legend(loc=3,prop={'size':10})
-        plt.show()
-        plt.savefig(os.path.join(plotLocation,"bands.png"),dpi=200)
-        plt.savefig(os.path.join(plotLocation,"bands.eps"),dpi=200)
-        plt.close('all')
+        plot = spectraNow.plot(auto_refresh=True)
+        kwargs = {"linestyle":"-","color":"k"}
+        plot.add_line(freq, spectral_variation_10per, **kwargs)
+        plot.add_line(freq, spectral_variation_50per, **kwargs)
+        plot.add_line(freq, spectral_variation_90per, **kwargs)
+        kwargs = {"linestyle":"-.","color":"k"}
+        plot.add_line(fl, low, **kwargs)
+        plot.add_line(fh, high, **kwargs)
+        plot.xlim = [params["fmin"],params["fmax"]]
+        plot.ylim = [np.min(bins),np.max(bins)]
+        plot.xlabel = "Frequency [Hz]"
+        plot.ylabel = "Amplitude Spectrum [(m/s)/rtHz]"
+
+        plot.save(pngFile,dpi=200)
+        plot.close()
+
+        if params["doEarthquakesAnalysis"]:
+            pngFile = os.path.join(plotLocation,"specvar-%d-%d.png"%(gpsStart,gpsEnd))
+        else:
+            pngFile = os.path.join(plotLocation,"specvar.png")
+
+        kwargs = {"linestyle":"-","color":"w"}
+        plot = spectraNow.plot(**kwargs)
+        kwargs = {"linestyle":"-","color":"k"}
+        plot.add_line(freq, spectral_variation_10per, **kwargs)
+        plot.add_line(freq, spectral_variation_50per, **kwargs)
+        plot.add_line(freq, spectral_variation_90per, **kwargs)
+        extent = [np.min(freq), np.max(freq),
+                   np.min(bins), np.max(bins)]
+        kwargs = {}
+        plot.add_image(specvar, extent=extent, **kwargs)
+        plot.axes.set_xscale("log")
+        plot.axes.set_yscale("log")
+        kwargs = {"linestyle":"-.","color":"k"}
+        plot.add_line(fl, low, **kwargs)
+        plot.add_line(fh, high, **kwargs)
+        plot.xlim = [params["fmin"],params["fmax"]]
+        plot.ylim = [np.min(bins), np.max(bins)]
+        plot.xlabel = "Frequency [Hz]"
+        plot.ylabel = "Amplitude Spectrum [(m/s)/rtHz]"
+
+        plot.save(pngFile,dpi=200)
+        plot.close()
+
+        if params["doEarthquakesAnalysis"]:
+            pngFile = os.path.join(plotLocation,"bands-%d-%d.png"%(gpsStart,gpsEnd))
+        else:
+            pngFile = os.path.join(plotLocation,"bands.png")
+
+        plot = gwpy.plotter.TimeSeriesPlot(auto_refresh=True)
+        for key in sigDict.iterkeys():
+            label = key
+            plot.add_timeseries(sigDict[key]["data"], label=label)
+        plot.axes.set_yscale("log")
+        plot.ylabel = "Average Amplitude Spectrum log10[(m/s)/rtHz]"
+        plot.add_legend(loc=1,prop={'size':10})
+        plot.save(pngFile,dpi=200)
+        plot.close()
 
     htmlPage = pylal.pylal_seismon_html.seismon_page(channel,textLocation)
     if htmlPage is not None:
@@ -844,50 +694,88 @@ def channel_summary(params, channels, segment):
     data = {}
     for channel in channels:
 
-        psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore
-        psdLocation = os.path.join(psdLocation,str(params["fftDuration"]))
-        psdFile = os.path.join(psdLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+        psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore + "/" + str(params["fftDuration"])
+        file = os.path.join(psdLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
 
-        if not os.path.isfile(psdFile):
+        if not os.path.isfile(file):
             continue
-        data_out = np.loadtxt(psdFile)
-        thisSpectra = data_out[:,1]
-        thisFreq = data_out[:,0]
 
-        if np.sum(thisSpectra) == 0.0:
+        spectra_out = gwpy.spectrum.Spectrum.read(file)
+        spectra_out.unit = 'counts/Hz^(1/2)'
+
+        if np.sum(spectra_out.data) == 0.0:
             continue
 
         data[channel.station_underscore] = {}
-        data[channel.station_underscore]["freq"] = thisFreq
-        data[channel.station_underscore]["spectra"] = thisSpectra
+        data[channel.station_underscore]["data"] = spectra_out
 
     if params["doPlots"]:
 
         plotLocation = params["path"] + "/summary"
-        if not os.path.isdir(plotLocation):
-            os.makedirs(plotLocation)
+        pylal.pylal_seismon_utils.mkdir(plotLocation)
 
         fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
 
+        if params["doEarthquakesAnalysis"]:
+            pngFile = os.path.join(plotLocation,"psd-%d-%d.png"%(gpsStart,gpsEnd))
+        else:
+            pngFile = os.path.join(plotLocation,"psd.png")
+
         lowBin = np.inf
         highBin = -np.inf
+        plot = gwpy.plotter.Plot(figsize=[14,8])
         for key in data.iterkeys():
-            plt.semilogx(data[key]["freq"],data[key]["spectra"], label=key)
-            lowBin = np.min([lowBin,np.min(data[key]["spectra"])])
-            highBin = np.max([highBin,np.max(data[key]["spectra"])])
 
-        fig = plt.gcf()
-        fig.set_size_inches(10,8)
-        plt.loglog(fl,low,'k-.')
-        plt.loglog(fh,high,'k-.',label='LNM/HNM')
-        plt.legend(loc=1,prop={'size':10})
-        plt.xlim([params["fmin"],params["fmax"]])
-        plt.ylim([lowBin/5, highBin*5])
-        plt.xlabel("Frequency [Hz]")
-        plt.ylabel("Seismic Spectrum [(m/s)/rtHz]")
-        plt.grid()
-        plt.show()
-        plt.savefig(os.path.join(plotLocation,"psd-%d-%d.png"%(gpsStart,gpsEnd)),dpi=200)
-        plt.savefig(os.path.join(plotLocation,"psd-%s-%d.eps"%(gpsStart,gpsEnd)),dpi=200)
-        plt.close('all')
+            label = key.replace("_","\_")
+
+            plot.add_spectrum(data[key]["data"], label=label)
+            lowBin = np.min([lowBin,np.min(data[key]["data"])])
+            highBin = np.max([highBin,np.max(data[key]["data"])])
+
+        kwargs = {"linestyle":"-.","color":"k"}
+        plot.add_line(fl, low, **kwargs)
+        plot.add_line(fh, high, **kwargs)
+        plot.xlim = [params["fmin"],params["fmax"]]
+        plot.ylim = [lowBin, highBin]
+        plot.xlabel = "Frequency [Hz]"
+        plot.ylabel = "Amplitude Spectrum [(m/s)/rtHz]"
+        plot.add_legend(loc=1,prop={'size':10})
+        plot.axes.set_xscale("log")
+        plot.axes.set_yscale("log")
+
+        plot.save(pngFile,dpi=200)
+        plot.close()
+
+        if params["doEarthquakesAnalysis"]:
+            pngFile = os.path.join(plotLocation,"ratio-%d-%d.png"%(gpsStart,gpsEnd))
+        else:
+            pngFile = os.path.join(plotLocation,"ratio.png")
+
+        lowBin = np.inf
+        highBin = -np.inf
+        ref = params["referenceChannel"].replace(":","_")
+        plot = gwpy.plotter.Plot(figsize=[14,8])
+        for key in data.iterkeys():
+
+            label = key.replace("_","\_")
+
+            plot.add_spectrum(data[key]["data"] / data[ref]["data"], label=label)
+            lowBin = np.min([lowBin,np.min(data[key]["data"])])
+            highBin = np.max([highBin,np.max(data[key]["data"])])
+
+        kwargs = {"linestyle":"-.","color":"k"}
+        #plot.add_line(fl, low, **kwargs)
+        #plot.add_line(fh, high, **kwargs)
+        plot.xlim = [params["fmin"],params["fmax"]]
+        #plot.ylim = [lowBin, highBin]
+        plot.xlabel = "Frequency [Hz]"
+        label_ref = params["referenceChannel"].replace("_","\_")
+        plot.ylabel = "Spectrum / Reference [%s]"%(label_ref)
+        plot.add_legend(loc=1,prop={'size':10})
+        plot.axes.set_xscale("log")
+        plot.axes.set_yscale("log")
+
+        plot.save(pngFile,dpi=200)
+        plot.close()
+
 

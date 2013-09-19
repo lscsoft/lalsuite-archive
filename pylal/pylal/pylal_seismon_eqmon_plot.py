@@ -21,6 +21,10 @@ from matplotlib import pyplot as plt
 
 import pylal.pylal_seismon_eqmon
 
+import gwpy.time, gwpy.timeseries
+import gwpy.spectrum, gwpy.spectrogram
+import gwpy.plotter
+
 # =============================================================================
 #
 #                               DEFINITIONS
@@ -108,9 +112,9 @@ def earthquakes(data,plotName):
     if len(data["earthquakes"]["tt"]) == 0:
         return
 
-    timeStart = data["earthquakes"]["tt"][0]
-    t = data["earthquakes"]["tt"] - timeStart
-    t_earthquakes = t / 86400.0
+    t = data["earthquakes"]["tt"]
+    epoch = gwpy.time.Time(t[0], format='gps')
+
     amp = np.log10(data["earthquakes"]["data"])
     indexes = np.isinf(amp)
     amp[indexes] = -250
@@ -118,37 +122,39 @@ def earthquakes(data,plotName):
 
     threshold = -8
 
-    plt.figure()
-    plt.plot(t_earthquakes,amp_earthquakes,'*',label="Predicted")
-    plt.plot(t_earthquakes,np.ones(t_earthquakes.shape)*threshold,label='Threshold')
+    plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+    plot.add_scatter(t, amp, marker='o', zorder=1000, color='k',label='predicted')
 
     for key in data["channels"].iterkeys():
+        label = key.replace("_","\_")
 
-        t = data["channels"][key]["tt"] - timeStart
-        t = t / 86400.0
+        t = data["channels"][key]["tt"]
 
         amp = np.log10(data["channels"][key]["data"])
         indexes = np.isinf(amp)
         amp[indexes] = -250
-        plt.plot(t,amp,'*',label=key)
 
-    plt.legend(loc=1,prop={'size':6})
-    plt.xlim([np.min(t_earthquakes),np.max(t_earthquakes)])
-    plt.ylim([-10,-2])
-    plt.xlabel('Time [Days] [%d]'%timeStart)
-    plt.ylabel('Mean ASD in 0.02-0.1 Hz Band [log10(m/s)]')
-    plt.show()
-    plt.savefig(plotName,dpi=200)
-    plt.close('all')
+        plot.add_scatter(t,amp,marker='*', zorder=1000, label=label)
+
+    xlim = [plot.xlim[0],plot.xlim[1]]
+    ylim = [plot.ylim[0],plot.ylim[1]]
+    plot.add_line(xlim,[threshold,threshold],label='threshold')
+
+    #plot.epoch = epoch
+    plot.ylabel = 'Mean Amplitude Spectrum in 0.02-0.1 Hz Band [log10(m/s)]'
+    plot.add_legend(loc=1,prop={'size':10}) 
+
+    plot.save(plotName,dpi=200)
+    plot.close()
 
 def prediction(data,plotName):
 
     if len(data["prediction"]["tt"]) == 0:
         return
 
-    timeStart = data["prediction"]["tt"][0]
-    t = data["prediction"]["tt"] - timeStart
-    t_prediction = t / 86400.0
+    t = data["prediction"]["tt"]
+    epoch = gwpy.time.Time(t[0], format='gps')
+
     amp = np.log10(data["prediction"]["data"])
     indexes = np.isinf(amp)
     amp[indexes] = -250
@@ -156,77 +162,79 @@ def prediction(data,plotName):
 
     threshold = -8
 
-    plt.figure()
-    plt.plot(t_prediction,amp_prediction,'*',label="Predicted")
-    plt.plot(t_prediction,np.ones(t_prediction.shape)*threshold,label='Threshold')
+    plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+    plot.add_scatter(t, amp, marker='o', zorder=1000, color='k',label='predicted')
 
     for key in data["channels"].iterkeys():
+        label = key.replace("_","\_")
 
-        t = data["channels"][key]["tt"] - timeStart
-        t = t / 86400.0
+        t = data["channels"][key]["tt"]
 
         amp = np.log10(data["channels"][key]["data"])
         indexes = np.isinf(amp)
         amp[indexes] = -250
-        plt.plot(t,amp,'*',label=key)
 
-    plt.legend(loc=1,prop={'size':6})
-    plt.xlim([np.min(t_prediction),np.max(t_prediction)])
-    plt.ylim([-10,-2])
-    plt.xlabel('Time [Days] [%d]'%timeStart)
-    plt.ylabel('Mean ASD in 0.02-0.1 Hz Band [log10(m/s)]')
-    plt.show()
-    plt.savefig(plotName,dpi=200)
-    plt.close('all')
+        plot.add_scatter(t,amp,marker='*', zorder=1000, label=label)
+
+    xlim = [plot.xlim[0],plot.xlim[1]]
+    ylim = [plot.ylim[0],plot.ylim[1]]
+    plot.add_line(xlim,[threshold,threshold],label='threshold')
+
+    #plot.epoch = epoch
+    plot.ylabel = 'Mean Amplitude Spectrum in 0.02-0.1 Hz Band [log10(m/s)]'
+    plot.add_legend(loc=1,prop={'size':10})
+
+    plot.save(plotName,dpi=200)
+    plot.close()
 
 def residual(data,plotName):
 
     if len(data["prediction"]["tt"]) == 0:
         return
 
-    timeStart = data["prediction"]["tt"][0]
-    t = data["prediction"]["tt"] - timeStart
-    t_prediction = t / 86400.0
-
+    t = data["prediction"]["tt"]
+    epoch = gwpy.time.Time(t[0], format='gps')
+   
     amp = np.log10(data["prediction"]["data"])
     indexes = np.isinf(amp)
     amp[indexes] = -250
-    amp_prediction = amp
 
     threshold = -8
 
-    indexes = np.where(amp_prediction >= threshold)
-    t_prediction = t_prediction[indexes]
-    amp_prediction = amp_prediction[indexes]
+    indexes = np.where(amp >= threshold)
+    t_prediction = t[indexes]
+    amp_prediction = amp[indexes]
 
-    plt.figure()
-    #plt.plot(t_prediction,amp_prediction,'*',label="Predicted")
-    #plt.plot(t_prediction,np.ones(t_prediction.shape)*threshold,label='Threshold')
+    plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+    plot.add_scatter(t, amp, marker='o', zorder=1000, color='k',label='predicted')
 
     for key in data["channels"].iterkeys():
+        label = key.replace("_","\_")
 
-        t = data["channels"][key]["tt"] - timeStart
-        t = t / 86400.0
+        t = data["channels"][key]["tt"]
 
         amp = np.log10(data["channels"][key]["data"])
         indexes = np.isinf(amp)
         amp[indexes] = -250
-        #plt.plot(t,amp,'*',label=key)
 
         amp_interp = np.interp(t_prediction,t,amp)
         residual = amp_interp - amp_prediction
 
-        residual_label = "%s residual"%key
-        plt.plot(t_prediction,residual,'*',label=residual_label)
+        label = "%s residual"%key.replace("_","\_")
+        plt.plot(t_prediction,residual,'*',label=label)
 
-    plt.legend(loc=1,prop={'size':6})
-    plt.xlim([np.min(t_prediction),np.max(t_prediction)])
-    plt.ylim([-5,5])
-    plt.xlabel('Time [Days] [%d]'%timeStart)
-    plt.ylabel('Residual in prediction [log10(m/s)]')
-    plt.show()
-    plt.savefig(plotName,dpi=200)
-    plt.close('all')
+        plot.add_scatter(t_prediction,residual,marker='*', zorder=1000, label=label)
+
+    xlim = [plot.xlim[0],plot.xlim[1]]
+    ylim = [plot.ylim[0],plot.ylim[1]]
+    plot.add_line(xlim,[threshold,threshold],label='threshold')
+
+    #plot.epoch = epoch
+    plot.ylabel = 'Mean Amplitude Spectrum in 0.02-0.1 Hz Band [log10(m/s)]'
+    plot.add_legend(loc=1,prop={'size':10})
+
+    plot.save(plotName,dpi=200)
+    plot.close()
 
 def efficiency(data,plotName):
 

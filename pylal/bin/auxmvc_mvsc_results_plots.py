@@ -135,7 +135,7 @@ if opts.plot_rank_vs_significance:
 if opts.plot_rank_vs_dt:
 
   variables = data.dtype.names
-  sig_variables = [s for s in variables if s.endswith("_sig")]
+  sig_variables = [s for s in variables if s.endswith("_signif")]
   dt_variables = [s for s in variables if s.endswith("_dt")]
   
   #form arrays with dt for clean data sets
@@ -201,11 +201,16 @@ if opts.plot_rank_vs_dt:
 
 if opts.histograms:
   variables = data.dtype.names
+  fig_num = 1000
   for i,var in enumerate(variables):
-    pylab.figure(i)
+    fig_num += 1
+    pylab.figure(fig_num)
     print var
     pylab.hist(clean_data[var],100)
     pylab.savefig(opts.output_dir + "/"+"hist_twosided"+var+"_cleantimes") 
-    pylab.figure(100+i)
+    pylab.close()
+    fig_num += 1
+    pylab.figure(fig_num)
     pylab.hist(glitch_data[var],bins=100)
-    pylab.savefig(opts.output_dir + "/"+"hist_twosided"+var+"_glitches") 
+    pylab.savefig(opts.output_dir + "/"+"hist_twosided"+var+"_glitches")
+    pylab.close() 
