@@ -645,18 +645,10 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   # work out all mass bins
   maxSNR['all'] = np.array(maxSNR.values()).max()
   maxBestNR['all'] = np.array(maxBestNR.values()).max()
-  if ( (totalTrials*len(massBins)) % 2):
-    medianSNR['all'] = (fullTimeBinVetoMaxSNR[binNum])\
-            [((totalTrials*len(massBins)) - 1) //2]
-    medianBestNR['all'] = (fullTimeBinVetoMaxBestNR[binNum])\
-            [((totalTrials*len(massBins)) - 1) //2]
-  else:
-    medianSNR['all'] = np.mean( (fullTimeBinVetoMaxSNR[binNum])\
-            [(totalTrials*len(massBins))//2 - 1:\
-             (totalTrials*len(massBins))//2 + 1])
-    medianBestNR['all'] = np.mean( (fullTimeBinVetoMaxBestNR[binNum])\
-            [(totalTrials*len(massBins))//2 - 1:\
-             (totalTrials*len(massBins))//2 + 1])
+  medianSNR['all'] = (fullTimeBinVetoMaxSNR[binNum])\
+          [totalTrials //2]
+  medianBestNR['all'] = (fullTimeBinVetoMaxBestNR[binNum])\
+          [totalTrials//2]
   
   # print to html table
   d = [ "Loudest in all bins", maxSNR['all'], maxBestNR['all'] ]
@@ -730,8 +722,10 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     for i,bin in enumerate(massBins):
       if loudOnBestNRTrigs[bin[0]]:
         trig = loudOnBestNRTrigs[bin[0]]
-        numTrialsLouder = len(timeBinVetoMaxBestNR[i][timeBinVetoMaxBestNR[i] >\
-                                                      loudOnBestNR[bin[0]]])
+        numTrialsLouder = 0
+        for slideID in range(numSlides):
+          numTrialsLouder = len(timeBinVetoMaxBestNR[slideID][i]\
+                     [timeBinVetoMaxBestNR[slideID][i] > loudOnBestNR[bin[0]]] )
 
         FAP = numTrialsLouder/totalTrials
         loudOnFAP[bin[0]] = FAP
