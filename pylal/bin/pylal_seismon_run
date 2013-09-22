@@ -40,8 +40,8 @@ import pylal.pylal_seismon_html, pylal.pylal_seismon_omicron
 import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_eqmon_plot
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
-__version__ = git_version.id
-__date__    = git_version.date
+__version__ = 1.0
+__date__    = "9/22/2013"
 
 # =============================================================================
 #
