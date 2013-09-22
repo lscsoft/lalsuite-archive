@@ -14,6 +14,11 @@ __version__ = "0.1"
 # =============================================================================
 
 def NLNM(unit):
+    """@calculates Peterson's New High/Low Noise Model
+
+    @param unit
+        unit to calculate model in
+    """
 
     PL = [0.1, 0.17, 0.4, 0.8, 1.24, 2.4, 4.3, 5, 6, 10, 12, 15.6, 21.9, 31.6, 45, 70,\
         101, 154, 328, 600, 10000]

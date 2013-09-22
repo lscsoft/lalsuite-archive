@@ -23,6 +23,15 @@ __version__ = "0.1"
 # =============================================================================
 
 def plot_triggers(params,channel,segment):
+    """plot omicron triggers for given channel and segment.
+
+    @param params
+        seismon params dictionary
+    @param channel
+        seismon channel structure
+    @param segment
+        [start,end] gps
+    """
 
     gpsStart = segment[0]
     gpsEnd = segment[1]
@@ -79,6 +88,13 @@ def plot_triggers(params,channel,segment):
         plot.close()
 
 def generate_triggers(params,channels):
+    """@generate omicron triggers for given channels.
+
+    @param params
+        seismon params dictionary
+    @param channels
+        list of seismon channel structures
+    """
 
     omicronDirectory = os.path.join(params["path"],"omicron")
     pylal.pylal_seismon_utils.mkdir(omicronDirectory)
@@ -109,6 +125,13 @@ def generate_triggers(params,channels):
     output = p.stdout.read()
 
 def omicron_params(params,channels):
+    """@generate omicron params file for given channels.
+
+    @param params
+        seismon params dictionary
+    @param channels
+        list of seismon channel structures
+    """
 
     omicronDirectory = os.path.join(params["path"],"omicron")
 

@@ -28,41 +28,16 @@ import gwpy.plotter
 #
 # =============================================================================
 
-def plot_envelope(params,time,data,traveltimes,plotName):
-
-    plotNameSplit = plotName.split("/")
-    plotTitle = plotNameSplit[-1].replace(".png","")
-
-    time = np.array(time)
-    data = np.array(data)
-
-    startTime = np.min(time)
-    endTime = np.max(time)
-
-    time = time - startTime
-
-    Ptime = traveltimes["Ptimes"][-1] - startTime
-    Stime = traveltimes["Stimes"][-1] - startTime
-    Rtime = traveltimes["Rtimes"][-1] - startTime
-
-    plt.plot(time,data, 'k')
-    plt.axvline(x=Ptime,color='r')
-    plt.axvline(x=Stime,color='b')
-    plt.axvline(x=Rtime,color='g')
-    plt.text(Ptime, -0.05, 'P', fontsize=18, ha='center', va='top')
-    plt.text(Stime, -0.05, 'S', fontsize=18, ha='center', va='top')
-    plt.text(Rtime, -0.05, 'R', fontsize=18, ha='center', va='top')
-    #xlim([min(time), max(time)])
-    plt.xlim([0, endTime-startTime])
-    plt.ylim([0, 1])
-    plt.xlabel('Time [s]')
-    plt.ylabel("%.0f - %.0f"%(startTime,endTime))
-    plt.title(plotTitle)
-    plt.show()
-    plt.savefig(plotName,dpi=200)
-    plt.close('all')
-
 def restimates(params,attributeDics,plotName):
+    """@restimates plot
+
+    @param params
+        seismon params dictionary
+    @param attributeDics
+        list of eqmon structures
+    @param plotName
+        name of plot    
+    """
 
     if params["ifo"] == "H1":
         ifo = "LHO"
@@ -105,6 +80,13 @@ def restimates(params,attributeDics,plotName):
     plt.close('all')
 
 def earthquakes(data,plotName):
+    """@earthquakes plot
+
+    @param data
+        list of data structures
+    @param plotName
+        name of plot
+    """
 
     if len(data["earthquakes"]["tt"]) == 0:
         return
@@ -145,6 +127,13 @@ def earthquakes(data,plotName):
     plot.close()
 
 def prediction(data,plotName):
+    """@prediction plot
+
+    @param data
+        list of data structures
+    @param plotName
+        name of plot
+    """
 
     if len(data["prediction"]["tt"]) == 0:
         return
@@ -185,6 +174,13 @@ def prediction(data,plotName):
     plot.close()
 
 def residual(data,plotName):
+    """@residual plot
+
+    @param data
+        list of data structures
+    @param plotName
+        name of plot
+    """
 
     if len(data["prediction"]["tt"]) == 0:
         return
@@ -234,6 +230,13 @@ def residual(data,plotName):
     plot.close()
 
 def efficiency(data,plotName):
+    """@efficiency plot
+
+    @param data
+        list of data structures
+    @param plotName
+        name of plot
+    """
 
     data = np.array(data)
     t = data[:,0] - data[0,0]
@@ -249,6 +252,13 @@ def efficiency(data,plotName):
     plt.close('all')
 
 def efficiency_limits(data,plotName):
+    """@efficiency limits plot
+
+    @param data
+        list of data structures
+    @param plotName
+        name of plot
+    """
 
     data = np.array(data)
     t = data[:,0] - data[0,0]
@@ -264,48 +274,16 @@ def efficiency_limits(data,plotName):
     plt.savefig(plotName,dpi=200)
     plt.close('all')
 
-def plot_timeseries(time,data,traveltimes,gpsStart,gpsEnd,type,plotName):
-
-    plotNameSplit = plotName.split("/")
-    plotTitle = plotNameSplit[-1].replace(".png","")
-
-    startTime = gpsStart
-    endTime = gpsEnd
-
-    time = np.array(time)
-    data = np.array(data)
-
-    minData = min(data)
-    maxData = max(data)
-
-    time = time - startTime  
-    data = 1/(maxData - minData) * (data - minData)
-
-    Ptime = traveltimes["Ptimes"][-1] - startTime
-    Stime = traveltimes["Stimes"][-1] - startTime
-    Rtime = traveltimes["Rtimes"][-1] - startTime
-
-    if type == "timeseries":
-        plt.plot(time,data, 'k')
-    elif type == "kw":
-        plot.plot(time,data, 'k*')
-    plt.axvline(x=Ptime,color='r')
-    plt.axvline(x=Stime,color='b')
-    plt.axvline(x=Rtime,color='g')
-    plt.text(Ptime, -0.05, 'P', fontsize=18, ha='center', va='top')
-    plt.text(Stime, -0.05, 'S', fontsize=18, ha='center', va='top')
-    plt.text(Rtime, -0.05, 'R', fontsize=18, ha='center', va='top')
-    #xlim([min(time), max(time)])
-    plt.xlim([0, endTime-startTime])
-    plt.ylim([0, 1])
-    plt.xlabel('Time [s]')
-    plt.ylabel("%.0f - %.0f"%(startTime,endTime))
-    plt.title(plotTitle)
-    plt.show()
-    plt.savefig(plotName,dpi=200)
-    plt.close('all')
-
 def latencies_sent(params,attributeDics,plotName):
+    """@latencies sent plot
+
+    @param params
+        seismon params dictionary
+    @param attributeDics
+        list of eqmon structures
+    @param plotName
+        name of plot
+    """
 
     latencies = []
     for attributeDic in attributeDics:
@@ -325,6 +303,15 @@ def latencies_sent(params,attributeDics,plotName):
     plt.close('all')
 
 def latencies_written(params,attributeDics,plotName):
+    """@latencies written plot
+
+    @param params
+        seismon params dictionary
+    @param attributeDics
+        list of eqmon structures
+    @param plotName
+        name of plot
+    """
 
     latencies = []
     for attributeDic in attributeDics:
@@ -345,6 +332,15 @@ def latencies_written(params,attributeDics,plotName):
     plt.close('all')
 
 def magnitudes(params,attributeDics,plotName):
+    """@magnitudes plot
+
+    @param params
+        seismon params dictionary
+    @param attributeDics
+        list of eqmon structures
+    @param plotName
+        name of plot
+    """
 
     gps = []
     magnitudes = []
@@ -375,6 +371,15 @@ def magnitudes(params,attributeDics,plotName):
     plt.close('all')
 
 def magnitudes_latencies(params,attributeDics,plotName):
+    """@magnitudes latencies plot
+
+    @param params
+        seismon params dictionary
+    @param attributeDics
+        list of eqmon structures
+    @param plotName
+        name of plot
+    """
 
     latencies = []
     magnitudes = []
@@ -395,6 +400,15 @@ def magnitudes_latencies(params,attributeDics,plotName):
     plt.close('all')
 
 def variable_magnitudes(attributeDicsDiff,variable,plotName):
+    """@variable magnitudes plot
+
+    @param params
+        seismon params dictionary
+    @param attributeDics
+        list of eqmon structures
+    @param plotName
+        name of plot
+    """
 
     variables = []
     magnitudes = []
@@ -415,6 +429,19 @@ def variable_magnitudes(attributeDicsDiff,variable,plotName):
     plt.close('all')
 
 def traveltimes(params,attributeDics,ifo,currentGPS,plotName):
+    """@latencies sent plot
+
+    @param params
+        seismon params dictionary
+    @param attributeDics
+        list of eqmon structures
+    @param ifo
+        ifo
+    @param currentGPS
+        current gps time
+    @param plotName
+        name of plot
+    """
 
     traveltimes = []
 
@@ -469,11 +496,30 @@ def traveltimes(params,attributeDics,ifo,currentGPS,plotName):
     plt.close('all')
 
 def find_nearest(array,value):
+    """@find nearest value
+
+    @param array
+        array of values
+    @param value
+        value to compare array to
+    """
+
     array = np.array(array)
     index=(np.abs(array-value)).argmin()
     return array[index], index
 
 def worldmap_plot(params,attributeDics,type,plotName):
+    """@worldmap plot
+
+    @param params
+        seismon params dictionary
+    @param attributeDics
+        list of eqmon structures
+    @param type
+        type of worldmap plot
+    @param plotName
+        name of plot
+    """
 
     if params["ifo"] == "H1":
         ifo = "LHO"
@@ -582,6 +628,17 @@ def worldmap_plot(params,attributeDics,type,plotName):
     plt.close('all')
 
 def worldmap_wavefronts(params,attributeDics,currentGPS,plotName):
+    """@worldmap wavefronts plot
+
+    @param params
+        seismon params dictionary
+    @param attributeDics
+        list of eqmon structures
+    @param currentGPS
+        current gps
+    @param plotName
+        name of plot
+    """
 
     plt.figure(figsize=(10,5))
     plt.axes([0,0,1,1])

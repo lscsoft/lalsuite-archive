@@ -22,6 +22,21 @@ __version__ = "0.1"
 # =============================================================================
 
 def save_data(params,channel,gpsStart,gpsEnd,data):
+    """@saves spectral data in text files.
+
+    @param params
+        seismon params dictionary
+    @param channel
+        seismon channel structure
+    @param gpsStart
+        start gps
+    @param gpsStart
+        start gps
+    @param gpsEnd
+        end gps
+    @param data
+        spectral data structure 
+    """
 
     psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore + "/" + str(params["fftDuration"])
     pylal.pylal_seismon_utils.mkdir(psdLocation)
@@ -47,6 +62,15 @@ def save_data(params,channel,gpsStart,gpsEnd,data):
     f.close()
 
 def calculate_spectra(params,channel,dataFull):
+    """@calculate spectral data
+
+    @param params
+        seismon params dictionary
+    @param channel
+        seismon channel structure
+    @param dataFull
+        timeseries data structure
+    """
 
     fs = channel.samplef # 1 ns -> 1 GHz
     cutoff_high = 0.5 # 10 MHz
@@ -129,10 +153,15 @@ def calculate_spectra(params,channel,dataFull):
     return data
 
 def apply_calibration(params,channel,data):
-  
-    b = [1,0,0,0];
-    a = [0,1,-1.414,1];
-    w, h = scipy.signal.freqz(b, a)
+    """@applies calibration to necessary channels
+
+    @param params
+        seismon params dictionary
+    @param channel
+        seismon channel structure
+    @param data
+        spectral data structure
+    """  
 
     if ("L4C" in channel.station) or ("GS13" in channel.station):
 
@@ -178,6 +207,15 @@ def apply_calibration(params,channel,data):
     return data
 
 def spectra(params, channel, segment):
+    """@calculates spectral data for given channel and segment.
+
+    @param params
+        seismon params dictionary
+    @param channel
+        seismon channel structure
+    @param segment
+        [start,end] gps
+    """
 
     if params["ifo"] == "H1":
         ifo = "LHO"
@@ -316,14 +354,23 @@ def spectra(params, channel, segment):
         plot.close()
 
 def freq_analysis(params,channel,tt,freq,spectra):
+    """@frequency analysis of spectral data.
+
+    @param params
+        seismon params dictionary
+    @param channel
+        seismon channel structure
+    @param tt
+        array of start times
+    @param freq
+        frequency vector
+    @param spectra
+        spectrogram structure
+    """
 
     if params["doPlots"]:
-        plotLocation = params["path"] + "/" + channel.station_underscore
-        if not os.path.isdir(plotLocation):
-            os.makedirs(plotLocation)
-        plotLocation = params["path"] + "/" + channel.station_underscore + "/freq" 
-        if not os.path.isdir(plotLocation):
-            os.makedirs(plotLocation)
+        plotLocation = params["path"] + "/" + channel.station_underscore + "/freq"
+        pylal_seismon_utils.mkdir(plotLocation)
  
     indexes = np.logspace(0,np.log10(len(freq)-1),num=100)
     indexes = list(np.unique(np.ceil(indexes)))
@@ -443,6 +490,13 @@ def freq_analysis(params,channel,tt,freq,spectra):
         plt.close('all')
 
 def analysis(params, channel):
+    """@analysis of spectral data.
+
+    @param params
+        seismon params dictionary
+    @param channel
+        seismon channel structure
+    """
 
     psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore + "/" + str(params["fftDuration"])
     files = glob.glob(os.path.join(psdLocation,"*.txt"))
@@ -682,6 +736,15 @@ def analysis(params, channel):
         f.close()
 
 def channel_summary(params, channels, segment):
+    """@summary of channels of spectral data.
+
+    @param params
+        seismon params dictionary
+    @param channel
+        seismon channel structure
+    @param segment
+        [start,end] gps
+    """
 
     gpsStart = segment[0]
     gpsEnd = segment[1]

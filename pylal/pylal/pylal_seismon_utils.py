@@ -26,6 +26,11 @@ __version__ = "0.1"
 # =============================================================================
 
 def mkdir(path):
+    """@create path (if it does not already exist).
+
+    @param path
+        directory path to create
+    """
 
     pathSplit = path.split("/")
     pathAppend = "/"
@@ -37,6 +42,17 @@ def mkdir(path):
             os.mkdir(pathAppend)   
 
 def read_frames(start_time,end_time,channel,cache):
+    """@read frames and return time series.
+
+    @param start_time
+        start gps time
+    @param end_time
+        end gps time
+    @param channel
+        seismon channel structure
+    @param cache
+        seismon cache structure
+    """
 
     time = []
     data = []
@@ -68,6 +84,17 @@ def read_frames(start_time,end_time,channel,cache):
     return time,data
 
 def read_nds(start_time,end_time,channel,conn):
+    """@read nds2 and return time series.
+
+    @param start_time
+        start gps time
+    @param end_time
+        end gps time
+    @param channel
+        seismon channel structure
+    @param conn
+        nds2 connection
+    """
 
     try:
         buffers = conn.fetch(start_time, end_time,[channel.station])
@@ -90,6 +117,11 @@ def read_nds(start_time,end_time,channel,conn):
     return time,data
 
 def normalize_timeseries(data):  
+    """@normalize timeseries for plotting purposes
+
+    @param data
+        timeseries structure
+    """
 
     dataSort = np.sort(data)
     index10 = np.floor(len(data) * 0.1)
@@ -107,12 +139,22 @@ def normalize_timeseries(data):
     return dataNorm
 
 def envelope(data):
+    """@calculate data envelope
+
+    @param data
+        timeseries structure
+    """
 
     hilb = scipy.fftpack.hilbert(data)
     data = (data ** 2 + hilb ** 2) ** 0.5
     return data
 
 def read_eqmons(file):
+    """@read eqmon file, returning earthquakes
+
+    @param file
+        eqmon file
+    """
 
     attributeDics = []
 
@@ -156,6 +198,20 @@ def read_eqmons(file):
     return attributeDics
 
 def spectral_histogram(specgram,bins=None,lowBin=None,highBin=None,nbins=None):
+    """@calculate spectral histogram from spectrogram
+
+    @param specgram
+        spectrogram structure
+    @param bins
+        spectral bins
+    @param lowBin
+        low bin
+    @param highBin
+        high bin
+    @param nbins
+        number of spectral bins
+        
+    """
 
     # Define bins for the spectral variation histogram
     if lowBin == None:
@@ -190,6 +246,15 @@ def spectral_histogram(specgram,bins=None,lowBin=None,highBin=None,nbins=None):
     return bins,spectral_variation_norm
 
 def spectral_percentiles(specvar,bins,percentile):
+    """@calculate spectral percentiles from spectral variation histogram
+
+    @param specvar
+        spectral variation histogram
+    @param bins
+        spectral bins
+    @param percentile
+        percentile of the bins to compute
+    """
 
     # Ensure we work with numpy array data
     data = np.array(specvar)
@@ -212,6 +277,13 @@ def spectral_percentiles(specvar,bins,percentile):
     return percentiles
 
 def html_bgcolor(snr,data):
+    """@calculate html color
+
+    @param snr
+        snr to compute color for
+    @param data
+        array to compare snr to
+    """
 
     data = np.append(data,snr)
 
@@ -243,6 +315,11 @@ def html_bgcolor(snr,data):
     return snrSig, bgcolor
 
 def segment_struct(params):
+    """@create seismon segment structure
+
+    @param params
+        seismon params structure
+    """
 
     if params["doSegmentsDatabase"]:
         segmentlist, segmentlistValid = pylal.dq.dqSegmentUtils.grab_segments(
@@ -262,6 +339,11 @@ def segment_struct(params):
     return params
 
 def frame_struct(params):
+    """@create seismon frame structure
+
+    @param params
+        seismon params structure
+    """
 
     gpsStart = params["gpsStart"]-1000
     gpsEnd = params["gpsEnd"]
@@ -315,6 +397,14 @@ def frame_struct(params):
     return params
 
 def channel_struct(params,channelList):
+    """@create seismon channel structure
+
+    @param params
+        seismon params structure
+    @param channelList
+        list of channels desired
+    """
+
     # Create channel structure
     structproxy_channel = namedtuple( "structproxy_channel", "station station_underscore samplef calibration latitude longitude" )
 
@@ -360,6 +450,11 @@ def channel_struct(params,channelList):
     return channel
 
 def readParamsFromFile(file):
+    """@read seismon params file
+
+    @param file
+        seismon params file
+    """
 
     params = {}
     if os.path.isfile(file):
