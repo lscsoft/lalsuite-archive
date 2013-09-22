@@ -1,0 +1,108 @@
+#!/usr/bin/python
+
+"""
+%prog
+
+Michael Coughlin (coughlim@carleton.edu)
+
+This program runs seismon_run.py.
+
+"""
+
+import os, sys, glob, optparse, shutil, warnings
+import datetime, time
+from subprocess import Popen, PIPE, STDOUT
+
+# =============================================================================
+#
+#                               PREAMBLE
+#
+# =============================================================================
+
+
+__author__ = "Michael Coughlin <coughlim@carleton.edu>"
+__date__ = "2012/2/7"
+__version__ = "0.1"
+
+# =============================================================================
+#
+#                               DEFINITIONS
+#
+# =============================================================================
+
+def verboseProcess(process,verbose):
+
+   numLines = 10
+   if verbose:
+       # Poll process for new output until finished
+       #while True:
+       for i in xrange(numLines):
+           nextline = process.stdout.readline()
+           if nextline == '' and process.poll() != None:
+               break
+           sys.stdout.write(nextline)
+           sys.stdout.flush()
+
+
+def runProcess(process,verbose=False):
+
+   if not process == []:
+       poll_process = process.poll()
+       if not poll_process == None:
+           process = []
+       else:
+           verboseProcess(process,verbose)
+           return process
+
+   #runCommand = "source /home/mcoughlin/Seismon/ProductClient/run.sh"
+   runCommand = "java -jar /home/mcoughlin/Seismon/ProductClient/ProductClient.jar --receive --configFile=/home/mcoughlin/Seismon/ProductClient/config.ini -Xmx1024m"
+   process = Popen(runCommand,shell=True,stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
+   verboseProcess(process,verbose)
+   exitCode = process.returncode
+
+   return process
+
+def findProcess():
+
+    ps= Popen("ps -ef | grep mcoughlin | grep ProductClient", shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
+    output = ps.stdout.read()
+    ps.stdout.close()
+    ps.wait()
+
+    lines = output.split("\n")
+
+    process = []
+    runningProcess = False
+    for line in lines:
+        if "source" in line:
+            runningProcess = True
+    if runningProcess:
+        sys.exit()
+
+    return process
+
+folderDirectory = '/home/mcoughlin/Seismon/ProductClient' 
+dataDirectory = '/home/mcoughlin/Seismon/ProductClient/data'
+dataOldDirectory = '/home/mcoughlin/Seismon/ProductClient/dataOld'
+
+current_date = datetime.date.today()
+
+process = findProcess()
+
+while 1:
+
+   today = datetime.date.today()
+   yesterday = datetime.date.today() - datetime.timedelta(1)
+
+   todayFolder = today.strftime("%Y_%m_%d")
+   yesterdayFolder = yesterday.strftime("%Y_%m_%d")
+
+   todayFolder = os.path.join(folderDirectory,todayFolder)
+   yesterdayFolder = os.path.join(folderDirectory,yesterdayFolder)
+
+   process = runProcess(process,verbose=True) 
+
+   if not current_date == today:
+       mv_command = "mv %s %s/%s"%(dataDirectory,dataOldDirectory,yesterdayFolder)
+       os.system(mv_command)
+       current_date = datetime.date.today()
