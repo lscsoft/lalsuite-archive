@@ -3,16 +3,13 @@
 import os, glob, optparse, shutil, warnings, matplotlib, pickle, math, copy, pickle
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.signal, scipy.stats, scipy.fftpack, scipy.ndimage.filters
+import scipy.signal, scipy.stats, scipy.fftpack
 from collections import namedtuple
-from operator import itemgetter
 from lxml import etree
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
-import pylal.seriesutils
 from pylal import Fr
 import glue.datafind, glue.segments, glue.segmentsUtils, glue.lal
-import pylal.dq.dqDataUtils
 import pylal.pylal_seismon_NLNM, pylal.pylal_seismon_html
 import pylal.pylal_seismon_eqmon
 

@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import math
+import numpy as np
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
 __date__ = "2012/8/26"
@@ -49,6 +50,9 @@ def NLNM(unit):
         elif unit==2:
             highnoise[i] = highnoise[i] * (PH[i]/(2*math.pi))
 
-
+    fl = np.array(fl)
+    fh = np.array(fh)
+    lownoise = np.array(lownoise)
+    highnoise = np.array(highnoise)    
 
     return fl, lownoise, fh, highnoise

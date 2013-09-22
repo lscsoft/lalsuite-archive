@@ -14,9 +14,6 @@ import numpy as np
 from mpl_toolkits.basemap import Basemap
 matplotlib.use("AGG")
 matplotlib.rcParams.update({'font.size': 18})
-from subprocess import Popen, PIPE, STDOUT
-from pylal import Fr 
-from pylab import *
 from matplotlib import pyplot as plt
 
 import pylal.pylal_seismon_eqmon
@@ -317,16 +314,15 @@ def latencies_sent(params,attributeDics,plotName):
     if latencies == []:
         return
 
-    figure()
+    plt.figure()
     bins=np.logspace(1,5,15)
-    hist(latencies, bins=bins, rwidth=1)
-    gca().set_xscale("log")
-    gca().set_xlim([10**1,10**5])
-    xlabel('Latencies [s]')
-    #title("Latencies Sent")
-    show()
-    savefig(plotName,dpi=200)
-    close('all')
+    plt.hist(latencies, bins=bins, rwidth=1)
+    plt.gca().set_xscale("log")
+    plt.gca().set_xlim([10**1,10**5])
+    plt.xlabel('Latencies [s]')
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
 
 def latencies_written(params,attributeDics,plotName):
 
@@ -389,16 +385,14 @@ def magnitudes_latencies(params,attributeDics,plotName):
     if latencies == []:
         return
 
-    figure()
-    plot(latencies, magnitudes, '*')
-    gca().set_xscale("log")
-    gca().set_xlim([10**1,10**5])
-    xlabel('Latencies [s]')
-    #ylabel('Magnitudes')
-    #title("Magnitudes vs. Latencies Sent")
-    show()
-    savefig(plotName,dpi=200)
-    close('all')
+    plt.figure()
+    plt.plot(latencies, magnitudes, '*')
+    plt.gca().set_xscale("log")
+    plt.gca().set_xlim([10**1,10**5])
+    plt.xlabel('Latencies [s]')
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
 
 def variable_magnitudes(attributeDicsDiff,variable,plotName):
 
@@ -411,18 +405,14 @@ def variable_magnitudes(attributeDicsDiff,variable,plotName):
     if variables == []:
         return
 
-    figure()
-    plot(magnitudes, variables, '*')
-    xlabel('Magnitudes')
-    #ylabel(variable)
-
-    xlim([min(magnitudes)-0.5,max(magnitudes)+0.5])
-    ylim([min(variables)-0.5,max(variables)+0.5])
-
-    #title("%s vs. Magnitudes"%variable)
-    show()
-    savefig(plotName,dpi=200)
-    close('all')
+    plt.figure()
+    plt.plot(magnitudes, variables, '*')
+    plt.xlabel('Magnitudes')
+    plt.xlim([min(magnitudes)-0.5,max(magnitudes)+0.5])
+    plt.ylim([min(variables)-0.5,max(variables)+0.5])
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
 
 def traveltimes(params,attributeDics,ifo,currentGPS,plotName):
 
@@ -451,32 +441,32 @@ def traveltimes(params,attributeDics,ifo,currentGPS,plotName):
     startTime = np.min(traveltimes)
     endTime = np.max(traveltimes)
 
-    ax = subplot(1,1,1)
+    ax = plt.subplot(1,1,1)
 
     if len(traveltimes.shape) == 1:
-        plot(traveltimes[0],1.5 * ones(1), 'r*', label='P', markersize=10.0)
-        plot(traveltimes[1],2.0 * ones(1), 'g*', label='S', markersize=10.0)
-        plot(traveltimes[2],2.5 * ones(1), 'b*', label='R', markersize=10.0)
-        vlines(traveltimes[0], 0, 1.5)
-        vlines(traveltimes[1], 0, 2.0)
-        vlines(traveltimes[2], 0, 2.5)
+        plt.plot(traveltimes[0],1.5 * np.ones(1), 'r*', label='P', markersize=10.0)
+        plt.plot(traveltimes[1],2.0 * np.ones(1), 'g*', label='S', markersize=10.0)
+        plt.plot(traveltimes[2],2.5 * np.ones(1), 'b*', label='R', markersize=10.0)
+        plt.vlines(traveltimes[0], 0, 1.5)
+        plt.vlines(traveltimes[1], 0, 2.0)
+        plt.vlines(traveltimes[2], 0, 2.5)
     else:
-        plot(traveltimes[:,0],1.5 * ones(len(traveltimes[:,0])), 'r*', label='P', markersize=10.0)
-        plot(traveltimes[:,1],2.0 * ones(len(traveltimes[:,1])), 'g*', label='S', markersize=10.0)
-        plot(traveltimes[:,2],2.5 * ones(len(traveltimes[:,2])), 'b*', label='R', markersize=10.0)
-        vlines(traveltimes[:,0], 0, 1.5)
-        vlines(traveltimes[:,1], 0, 2.0)
-        vlines(traveltimes[:,2], 0, 2.5)
-    xlim([startTime-1000, 1000])
-    ylim([1, 3])
-    xlabel('Countdown [s]')
-    title(plotTitle)
+        plt.plot(traveltimes[:,0],1.5 * np.ones(len(traveltimes[:,0])), 'r*', label='P', markersize=10.0)
+        plt.plot(traveltimes[:,1],2.0 * np.ones(len(traveltimes[:,1])), 'g*', label='S', markersize=10.0)
+        plt.plot(traveltimes[:,2],2.5 * np.ones(len(traveltimes[:,2])), 'b*', label='R', markersize=10.0)
+        plt.vlines(traveltimes[:,0], 0, 1.5)
+        plt.vlines(traveltimes[:,1], 0, 2.0)
+        plt.vlines(traveltimes[:,2], 0, 2.5)
+    plt.xlim([startTime-1000, 1000])
+    plt.ylim([1, 3])
+    plt.xlabel('Countdown [s]')
+    plt.title(plotTitle)
 
     handles, labels = ax.get_legend_handles_labels()
-    legend(handles[0:3], labels[0:3])
-    show()
-    savefig(plotName,dpi=200)
-    close('all')
+    plt.legend(handles[0:3], labels[0:3])
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
 
 def find_nearest(array,value):
     array = np.array(array)
@@ -593,8 +583,8 @@ def worldmap_plot(params,attributeDics,type,plotName):
 
 def worldmap_wavefronts(params,attributeDics,currentGPS,plotName):
 
-    figure(figsize=(10,5))
-    axes([0,0,1,1])
+    plt.figure(figsize=(10,5))
+    plt.axes([0,0,1,1])
 
     # lon_0 is central longitude of robinson projection.
     # resolution = 'c' means use crude resolution coastlines.
@@ -627,7 +617,7 @@ def worldmap_wavefronts(params,attributeDics,currentGPS,plotName):
             alpha=0.5, #transparency
             zorder = 2, #plotting order
             )
-        text(
+        plt.text(
             ifox+50000,
             ifoy+50000,
             ifoName,
@@ -671,7 +661,7 @@ def worldmap_wavefronts(params,attributeDics,currentGPS,plotName):
                 alpha=0.5, #transparency
                 zorder = 2, #plotting order
         )
-        text(
+        plt.text(
                 x,
                 y,
                 attributeDic["eventName"],
@@ -707,8 +697,8 @@ def worldmap_wavefronts(params,attributeDics,currentGPS,plotName):
                 color = 'y'
         )
 
-    show()
-    savefig(plotName,dpi=200)
+    plt.show()
+    plt.savefig(plotName,dpi=200)
     #savefig(plotNameCounter,dpi=200)
-    close('all')
+    plt.close('all')
 
