@@ -32,7 +32,7 @@ import subprocess
 from subprocess import Popen
 from lxml import etree
 
-import pylal.pylal_seismon_eqmon
+import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_utils
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
 __version__ = 1.0
@@ -77,7 +77,7 @@ def params_struct(opts):
         command line options
     """
 
-    params = pylal_seismon_utils.readParamsFromFile(opts.paramsFile)
+    params = pylal.pylal_seismon_utils.readParamsFromFile(opts.paramsFile)
 
     return params
 
@@ -194,7 +194,7 @@ def download_publiceventfiles(path):
         output path for events file
     """
 
-    file = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
+    #file = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
     #file = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.geojson"
     file = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_month.geojson"
 
@@ -245,7 +245,7 @@ def private_events(params):
                     continue
 
                 file = os.path.join(params["eventfilesLocation"],"private/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))
-                if attributeDic["Magnitude"] >= params["minMagnitude"]:
+                if attributeDic["Magnitude"] >= float(params["minMagnitude"]):
                     write_info(file,attributeDic)
 
                     print "%s added at "%attributeDic["eventName"], time.time(), ". %.3f seconds after event"%(attributeDic["SentGPS"] - attributeDic["GPS"])
@@ -270,11 +270,11 @@ def public_events(params):
         attributeDic = pylal.pylal_seismon_eqmon.jsonread(event)
         if not "GPS" in attributeDic:
             continue
-        if os.path.isfile(os.path.join(params["eventfilesLocation"],"public/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))):
-            continue
+        #if os.path.isfile(os.path.join(params["eventfilesLocation"],"public/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))):
+        #    continue
 
         file = os.path.join(params["eventfilesLocation"],"public/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))
-        if attributeDic["Magnitude"] >= params["minMagnitude"]:
+        if attributeDic["Magnitude"] >= float(params["minMagnitude"]):
             write_info(file,attributeDic)
 
             print "%s added at "%attributeDic["eventName"], time.time(), ". %.3f seconds after event"%(attributeDic["SentGPS"] - attributeDic["GPS"])
@@ -304,7 +304,7 @@ def database_events(params):
                 continue
 
             file = os.path.join(params["eventfilesLocation"],"database/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))
-            if attributeDic["Magnitude"] >= 0:
+            if attributeDic["Magnitude"] >= float(params["minMagnitude"]):
                 write_info(file,attributeDic)
 
             print "%s added at "%attributeDic["eventName"], time.time(), ". %.3f seconds after event"%(attributeDic["SentGPS"] - attributeDic["GPS"])

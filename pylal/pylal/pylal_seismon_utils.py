@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 import os, glob, optparse, shutil, warnings, matplotlib, pickle, math, copy, pickle
-import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal, scipy.stats, scipy.fftpack
 from collections import namedtuple
@@ -187,8 +186,8 @@ def read_eqmons(file):
 
         attributeDic["doPlots"] = 0
         for ifoName, traveltimes in attributeDic["traveltimes"].items():
-            arrivalMin = min([max(traveltimes["Rtimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
-            arrivalMax = max([max(traveltimes["Rtimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
+            arrivalMin = min([max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
+            arrivalMax = max([max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
             attributeDic["traveltimes"][ifoName]["arrivalMin"] = arrivalMin
             attributeDic["traveltimes"][ifoName]["arrivalMax"] = arrivalMax
             #if params["gps"] <= attributeDic["traveltimes"][ifoName]["arrivalMax"]:
@@ -326,15 +325,18 @@ def segment_struct(params):
                                                params["gpsStart"],params["gpsEnd"],
                                                params["segmentFlag"],params["segmentDatabase"],
                                                segment_summary=True)
+        params["segments"] = segmentlist
     elif params["doSegmentsTextFile"]:
         segmentlist = glue.segments.segmentlist()
         segs = np.loadtxt(params["segmentsTextFile"])
         for seg in segs:
             segmentlist.append(glue.segments.segment(seg[0],seg[1]))
+        params["segments"] = segmentlist
+        params["gpsStart"] = np.min(params["segments"])
+        params["gpsEnd"] = np.max(params["segments"])
     else:
         segmentlist = [glue.segments.segment(params["gpsStart"],params["gpsEnd"])]
-
-    params["segments"] = segmentlist
+        params["segments"] = segmentlist
 
     return params
 
@@ -345,8 +347,8 @@ def frame_struct(params):
         seismon params structure
     """
 
-    gpsStart = params["gpsStart"]-1000
-    gpsEnd = params["gpsEnd"]
+    gpsStart = np.min(params["gpsStart"])-1000
+    gpsEnd = np.max(params["gpsEnd"])
 
     if params["ifo"] == "XG":
         frameDir = "/archive/frames/MBH/"
@@ -464,3 +466,43 @@ def readParamsFromFile(file):
                 line_split = line_without_return[0].split(" ")
                 params[line_split[0]] = line_split[1]
     return params
+
+def setPath(params,segment):
+    """@set seismon params
+
+    @param params
+        seismon params structure
+    @param segment
+        [start,end] gps
+    """
+
+    gpsStart = segment[0]
+    gpsEnd = segment[1]
+
+    if params["doEarthquakesMonitor"]:
+        # Output path for run
+        params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + '-EarthquakesMonitor'
+    else:
+        params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + "-" + "%.0f"%gpsStart + "-" + "%.0f"%gpsEnd
+
+    if params["doAnalysis"] or params["doPlots"] or params["doEarthquakesAnalysis"]:
+        pylal.pylal_seismon_utils.mkdir(params["path"])
+
+    return params
+
+def getIfo(params):
+
+    if params["ifo"] == "H1":
+        ifo = "LHO"
+    elif params["ifo"] == "L1":
+        ifo = "LLO"
+    elif params["ifo"] == "G1":
+        ifo = "GEO"
+    elif params["ifo"] == "V1":
+        ifo = "VIRGO"
+    elif params["ifo"] == "C1":
+        ifo = "FortyMeter"
+    elif params["ifo"] == "XG":
+        ifo = "Homestake"
+
+    return ifo
