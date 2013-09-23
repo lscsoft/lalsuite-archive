@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import math
+import numpy as np
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
 __date__ = "2012/8/26"
@@ -13,6 +14,11 @@ __version__ = "0.1"
 # =============================================================================
 
 def NLNM(unit):
+    """@calculates Peterson's New High/Low Noise Model
+
+    @param unit
+        unit to calculate model in
+    """
 
     PL = [0.1, 0.17, 0.4, 0.8, 1.24, 2.4, 4.3, 5, 6, 10, 12, 15.6, 21.9, 31.6, 45, 70,\
         101, 154, 328, 600, 10000]
@@ -49,6 +55,9 @@ def NLNM(unit):
         elif unit==2:
             highnoise[i] = highnoise[i] * (PH[i]/(2*math.pi))
 
-
+    fl = np.array(fl)
+    fh = np.array(fh)
+    lownoise = np.array(lownoise)
+    highnoise = np.array(highnoise)    
 
     return fl, lownoise, fh, highnoise

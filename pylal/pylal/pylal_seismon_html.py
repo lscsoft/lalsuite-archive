@@ -23,8 +23,12 @@ __version__ = "0.1"
 # =============================================================================
 
 def summary_page(params,channels):
-    """
-    creates eqmon summary page
+    """@html summary page.
+
+    @param params
+        seismon params dictionary
+    @param channels
+        lists of seismon channel structures
     """
 
     if params["ifo"] == "H1":
@@ -179,9 +183,12 @@ def summary_page(params,channels):
     return page
 
 def seismon_page(channel,textLocation):
+    """@html channel page.
 
-    """
-    creates eqmon earthquake page
+    @param channel
+        seismon channel structure
+    @param textLocation
+        location of seismon text files
     """
 
     ############################## header ######################################

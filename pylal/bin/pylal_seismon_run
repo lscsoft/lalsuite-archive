@@ -1,5 +1,31 @@
 #!/usr/bin/python
 
+# Copyright (C) 2013 Michael Coughlin
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+"""Seismic summary information generator.
+
+This script generates a nested web page and content for
+reviewing seismicity at the sites and earthquake status.
+
+Comments should be e-mailed to michael.coughlin@ligo.org.
+
+"""
+
+
 import os, sys, glob, optparse, shutil, warnings
 
 if not os.getenv("DISPLAY", None):
@@ -14,8 +40,8 @@ import pylal.pylal_seismon_html, pylal.pylal_seismon_omicron
 import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_eqmon_plot
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
-__date__ = "2013/7/29"
-__version__ = "0.2"
+__version__ = 1.0
+__date__    = "9/22/2013"
 
 # =============================================================================
 #
@@ -24,8 +50,7 @@ __version__ = "0.2"
 # =============================================================================
 
 def parse_commandline():
-    """
-    Parse the options given on the command-line.
+    """@Parse the options given on the command-line.
     """
     parser = optparse.OptionParser(usage=__doc__,version=__version__)
 
@@ -82,6 +107,10 @@ def parse_commandline():
     return opts
 
 def params_struct(opts):
+    """@Creates seismon params structure
+    @param opts
+        seismon command line options
+    """
 
     params = pylal.pylal_seismon_utils.readParamsFromFile(opts.paramsFile)
     params["gpsStart"] = opts.gpsStart

@@ -1,5 +1,30 @@
 #!/usr/bin/python
 
+# Copyright (C) 2013 Michael Coughlin
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+"""Earthquake xml file generator.
+
+This script generates earthquake xml files using notices from the
+internet and USGS PDL client.
+
+Comments should be e-mailed to michael.coughlin@ligo.org.
+
+"""
+
 import os, sys, glob, optparse, warnings, time, json
 import numpy as np
 from operator import itemgetter
@@ -10,8 +35,8 @@ from lxml import etree
 import pylal.pylal_seismon_eqmon
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
-__date__ = "2012/8/26"
-__version__ = "0.1"
+__version__ = 1.0
+__date__    = "9/22/2013"
 
 # =============================================================================
 #
@@ -20,8 +45,7 @@ __version__ = "0.1"
 # =============================================================================
 
 def parse_commandline():
-    """
-    Parse the options given on the command-line.
+    """@parse the options given on the command-line.
     """
     parser = optparse.OptionParser(usage=__doc__,version=__version__)
 
@@ -47,29 +71,37 @@ def parse_commandline():
     return opts
 
 def params_struct(opts):
+    """@create params structure
 
-    params = readParamsFromFile(opts.paramsFile)
+    @param opts
+        command line options
+    """
 
-    return params
+    params = pylal_seismon_utils.readParamsFromFile(opts.paramsFile)
 
-def readParamsFromFile(file):
-
-    params = {}
-    if os.path.isfile(file):
-        with open(file,'r') as f:
-            for line in f:
-                line_without_return = line.split("\n")
-                line_split = line_without_return[0].split(" ")
-                params[line_split[0]] = line_split[1]
     return params
 
 def write_file(file,tree):
+    """@write eqmon file
+
+    @param file
+        eqmon file
+    @param tree
+        xml tree
+    """
 
     f = open(file,'w+')
     f.write('%s'%tree)
     f.close()
 
 def write_info(file,attributeDic):
+    """@write eqmon file
+
+    @param file
+        eqmon file
+    @param attributeDic
+        eqmon structure
+    """
 
     root = etree.Element('eqmon')
     for key, value in attributeDic.items():
@@ -89,38 +121,21 @@ def write_info(file,attributeDic):
     #tree = etree.ElementTree(root)
     #tree.write(file, pretty_print=True, xml_declaration=True)
 
-def write_info_small(file,attributeDic):
-
-    root = etree.Element('eqmon')
-    for key, value in attributeDic.items():
-        if not key == "traveltimes":
-            element = etree.SubElement(root,key)
-            element.text = str(value)
-    element = etree.SubElement(root,'traveltimes')
-    for key, value in attributeDic["traveltimes"].items():
-        subelement = etree.SubElement(element,key)
-        for category in value:
-            if category == "Ptimes" or category == "Stimes" or category == "Rtimes":
-                subsubelement = etree.SubElement(subelement,category)
-                subsubelement.text = write_array(np.array(np.around(np.array(value[category]) - attributeDic["GPS"]),dtype=np.int))
-            elif category in ["Pamp","Samp","Rfamp"]:
-                subsubelement = etree.SubElement(subelement,category)
-                subsubelement.text = str(value[category][0])
-            elif category in ["Distances"]:
-                subsubelement = etree.SubElement(subelement,category)
-                subsubelement.text = str(value[category][-1])
-
-    tree = etree.ElementTree(root)
-    try:
-        tree.write(file, pretty_print=True, xml_declaration=True)
-    except:
-        print "Unable to write %s"%file
-
 def write_array(array):
+    """@write array
+
+    @param array
+        write array of value
+    """
     text = ' '.join([str(x) for x in array])
     return text
 
 def write_context(path):
+    """@write context file
+
+    @param path
+        path to earthquake directory
+    """
 
     files = glob.glob(os.path.join(path,"*.xml"))
 
@@ -134,6 +149,13 @@ def write_context(path):
     f.close()
 
 def delete_files(path,gps):
+    """@delete eqmon files
+
+    @param path
+        path to eqmon files
+    @param gps
+        gps time before which to delete files
+    """
 
     files = glob.glob(os.path.join(path,"*.xml"))
 
@@ -149,6 +171,11 @@ def delete_files(path,gps):
             os.system("rm %s"%file)
 
 def rsync_files(path):
+    """@rsync eqmon files
+
+    @param path
+        path to rsync 
+    """
 
     hostname = "coughlin@muon1.ast.cam.ac.uk"
     folder = "/home/coughlin/public_html"
@@ -161,6 +188,11 @@ def rsync_files(path):
         print 'Copying failed'
 
 def download_publiceventfiles(path):
+    """@download events from usgs website
+
+    @param path
+        output path for events file
+    """
 
     file = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
     #file = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.geojson"
@@ -174,6 +206,11 @@ def download_publiceventfiles(path):
         print 'Copying failed'
 
 def private_events(params):
+    """@write pdl events
+
+    @param params
+        seismon params structure
+    """
 
     numEventsAdded = 0
 
@@ -217,6 +254,11 @@ def private_events(params):
     return numEventsAdded
 
 def public_events(params):
+    """@write usgs website events
+
+    @param params
+        seismon params structure
+    """
 
     numEventsAdded = 0
 
@@ -241,6 +283,11 @@ def public_events(params):
     return numEventsAdded
 
 def database_events(params):
+    """@write usgs database events
+
+    @param params
+        seismon params structure
+    """
 
     numEventsAdded = 0
 
@@ -267,6 +314,8 @@ def database_events(params):
 
 
 def run_traveltimes():
+    """@run traveltime calculator
+    """
 
     warnings.filterwarnings("ignore")
 
@@ -280,9 +329,6 @@ def run_traveltimes():
     print "Running private events..."
     numEventsAddedPublic = public_events(params)
     #numEventsAddedDatabase = database_events(params)
-
-    #if numEventsAddedPublic > 0 or numEventsAddedPrivate > 0:
-    #    rsync_files(params["eventfilesLocationJan"])
 
 
 # =============================================================================

@@ -4,8 +4,7 @@ import os, sys, time, glob, math, matplotlib, random, string
 import numpy as np
 from datetime import datetime
 from operator import itemgetter
-import xml.dom.minidom
-import glue.datafind, glue.segments, glue.segmentsUtils
+import glue.segments, glue.segmentsUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALUTCToGPS, XLALGPSToUTC
 from lxml import etree
@@ -14,6 +13,13 @@ import scipy.spatial
 import pylal.pylal_seismon_utils, pylal.pylal_seismon_eqmon_plot
 
 def write_info(file,attributeDics):
+    """@write eqmon file
+
+    @param file
+        eqmon file
+    @param attributeDics
+        list of eqmon structures
+    """
 
     baseroot = etree.Element('eqmon')
     for attributeDic in attributeDics:
@@ -33,6 +39,11 @@ def write_info(file,attributeDics):
     tree.write(file, pretty_print=True, xml_declaration=True)
 
 def write_array(array):
+    """@create string of array values
+
+    @param array
+        array of values
+    """
 
     if isinstance(array, float):
         text = str(array)
@@ -41,6 +52,11 @@ def write_array(array):
     return text
 
 def run_earthquakes(params):
+    """@run earthquakes analysis.
+
+    @param params
+        seismon params dictionary
+    """
 
     timeseriesDirectory = os.path.join(params["path"],"timeseries")
     pylal.pylal_seismon_utils.mkdir(timeseriesDirectory)
@@ -276,6 +292,11 @@ def run_earthquakes(params):
     return segmentlist
 
 def parse_xml(element):
+    """@parse xml element.
+
+    @param element
+        xml element
+    """
 
     subdic = {}
 
@@ -301,6 +322,13 @@ def parse_xml(element):
     return dic
 
 def read_eqxml(file,eventName):
+    """@read eqxml file.
+
+    @param file
+        eqxml file
+    @param eventName
+        name of earthquake event
+    """
 
     tree = etree.parse(file)
     root = tree.getroot()
@@ -358,6 +386,13 @@ def read_eqxml(file,eventName):
     return attributeDic
 
 def read_quakeml(file,eventName):
+    """@read quakeml file.
+
+    @param file
+        quakeml file
+    @param eventName
+        name of earthquake event
+    """
 
     tree = etree.parse(file)
     root = tree.getroot()
@@ -402,6 +437,13 @@ def read_quakeml(file,eventName):
     return attributeDic
 
 def read_eqmon(params,file):
+    """@read eqmon file.
+
+    @param params
+        seismon params struct
+    @param file
+        name of eqmon file
+    """
 
     attributeDic = {}
     tree = etree.parse(file)
@@ -436,6 +478,11 @@ def read_eqmon(params,file):
     return attributeDic
 
 def jsonread(event):
+    """@read json event.
+
+    @param event
+        json event
+    """
 
     attributeDic = {}
     attributeDic["Longitude"] = event["geometry"]["coordinates"][0]
@@ -472,6 +519,11 @@ def jsonread(event):
     return attributeDic
 
 def databaseread(event):
+    """@read database event.
+
+    @param event
+        database event
+    """
 
     attributeDic = {}
     eventSplit = event.split(",")
@@ -522,6 +574,11 @@ def databaseread(event):
     return attributeDic
 
 def calculate_traveltimes(attributeDic): 
+    """@calculate travel times of earthquake
+
+    @param attributeDic
+        earthquake stucture
+    """
 
     if not "traveltimes" in attributeDic:
         attributeDic["traveltimes"] = {}
@@ -539,11 +596,30 @@ def calculate_traveltimes(attributeDic):
     return attributeDic
 
 def do_kdtree(combined_x_y_arrays,points):
+    """@calculate nearest points.
+
+    @param combined_x_y_arrays
+        list of x,y map points
+    @param points
+        list of x,y points
+    """
+
     mytree = scipy.spatial.cKDTree(combined_x_y_arrays)
     dist, indexes = mytree.query(points)
     return indexes
 
 def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
+    """@calculate travel times of earthquake
+
+    @param attributeDic
+        earthquake stucture
+    @param ifo
+        ifo name
+    @param ifolat
+        ifo latitude
+    @param ifolon
+        ifo longitude
+    """
 
     try:
         from obspy.taup.taup import getTravelTimes
@@ -641,6 +717,17 @@ def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
     return attributeDic
 
 def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
+    """@calculate travel times of earthquake
+
+    @param attributeDic
+        earthquake stucture
+    @param ifo
+        ifo name
+    @param ifolat
+        ifo latitude
+    @param ifolon
+        ifo longitude
+    """
 
     try:
         from obspy.taup.taup import getTravelTimes
@@ -713,6 +800,11 @@ def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
     return attributeDic
 
 def GPSToUTCDateTime(gps):
+    """@calculate UTC time from gps
+
+    @param gps
+        gps time
+    """
 
     utc = XLALGPSToUTC(LIGOTimeGPS(int(gps)))
     tt = time.strftime("%Y-%jT%H:%M:%S", utc)
@@ -721,6 +813,17 @@ def GPSToUTCDateTime(gps):
     return ttUTC    
 
 def eventDiff(attributeDics, magnitudeDiff, latitudeDiff, longitudeDiff):
+    """@calculate difference between two events
+
+    @param attributeDics
+        list of earthquake stuctures
+    @param magnitudeDiff
+        difference in magnitudes
+    @param latitudeDiff
+        difference in latitudes
+    @param longitudeDiff
+        difference in longitudes
+    """
 
     if len(attributeDics) > 1:
         for i in xrange(len(attributeDics)-1):
@@ -734,6 +837,13 @@ def eventDiff(attributeDics, magnitudeDiff, latitudeDiff, longitudeDiff):
     return magnitudeDiff, latitudeDiff, longitudeDiff
 
 def great_circle_distance(latlong_a, latlong_b):
+    """@calculate distance between two points
+
+    @param latlong_a
+        first point
+    @param latlong_b
+        second point
+    """
 
     EARTH_CIRCUMFERENCE = 6378.137 # earth circumference in kilometers
 
@@ -751,6 +861,11 @@ def great_circle_distance(latlong_a, latlong_b):
     return d
 
 def retrieve_earthquakes(params):
+    """@retrieve earthquakes information.
+
+    @param params
+        seismon params dictionary
+    """
 
     attributeDics = []
     files = glob.glob(os.path.join(params["eventfilesLocation"],"*.xml"))
@@ -773,6 +888,12 @@ def retrieve_earthquakes(params):
     return attributeDics
 
 def retrieve_earthquakes_text(params):
+    """@retrieve earthquakes information.
+
+    @param params
+        seismon params dictionary
+    """
+
     attributeDics = []
     files = glob.glob(os.path.join(params["eventfilesLocation"],"*.txt"))
     for numFile in xrange(len(files)):
@@ -825,6 +946,18 @@ def retrieve_earthquakes_text(params):
     return attributeDics
 
 def equi(m, centerlon, centerlat, radius):
+    """@calculate circle around specified point
+
+    @param m
+        basemap projection
+    @param centerlon
+        longitude of center
+    @param centerlat
+        latitude of center
+    @param radius
+        radius of circle
+    """
+
     glon1 = centerlon
     glat1 = centerlat
     X = []
@@ -841,9 +974,19 @@ def equi(m, centerlon, centerlat, radius):
     return X,Y
 
 def shoot(lon, lat, azimuth, maxdist=None):
-    """Shooter Function
+    """@Shooter Function
     Original javascript on http://williams.best.vwh.net/gccalc.htm
     Translated to python by Thomas Lecocq
+
+    @param lon
+        longitude
+    @param lat
+        latitude
+    @param azimuth
+        azimuth
+    @param maxdist
+        maximum distance
+
     """
     glat1 = lat * np.pi / 180.
     glon1 = lon * np.pi / 180.

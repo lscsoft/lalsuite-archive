@@ -3,23 +3,13 @@
 import os, glob, optparse, shutil, warnings, pickle, math, copy, pickle, matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.signal, scipy.stats, scipy.fftpack, scipy.ndimage.filters
-from collections import namedtuple
-from operator import itemgetter
-from lxml import etree
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pylal.xlal.date import XLALGPSToUTC
-import pylal.seriesutils
-from pylal import Fr
-import pylal.dq.dqDataUtils
+import scipy.signal, scipy.stats
 import pylal.pylal_seismon_NLNM, pylal.pylal_seismon_html
 import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_utils
 
 import gwpy.time, gwpy.timeseries
 import gwpy.spectrum, gwpy.spectrogram
 import gwpy.plotter
-
-import astropy.units
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
 __date__ = "2012/8/26"
@@ -32,6 +22,21 @@ __version__ = "0.1"
 # =============================================================================
 
 def save_data(params,channel,gpsStart,gpsEnd,data):
+    """@saves spectral data in text files.
+
+    @param params
+        seismon params dictionary
+    @param channel
+        seismon channel structure
+    @param gpsStart
+        start gps
+    @param gpsStart
+        start gps
+    @param gpsEnd
+        end gps
+    @param data
+        spectral data structure 
+    """
 
     psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore + "/" + str(params["fftDuration"])
     pylal.pylal_seismon_utils.mkdir(psdLocation)
@@ -57,14 +62,26 @@ def save_data(params,channel,gpsStart,gpsEnd,data):
     f.close()
 
 def calculate_spectra(params,channel,dataFull):
+    """@calculate spectral data
+
+    @param params
+        seismon params dictionary
+    @param channel
+        seismon channel structure
+    @param dataFull
+        timeseries data structure
+    """
 
     fs = channel.samplef # 1 ns -> 1 GHz
-    cutoff = 1.0 # 10 MHz
+    cutoff_high = 0.5 # 10 MHz
+    cutoff_low = 0.3
     n = 3
-    B_low, A_low = scipy.signal.butter(n, cutoff / (fs / 2.0), btype='lowpass')
-    w_low, h_low = scipy.signal.freqz(B_low,A_low)
-    B_high, A_high = scipy.signal.butter(n, cutoff / (fs / 2.0), btype='highpass') 
-    w_high, h_high = scipy.signal.freqz(B_high,A_high)
+    worN = 16384
+    B_low, A_low = scipy.signal.butter(n, cutoff_low / (fs / 2.0), btype='lowpass')
+    #w_low, h_low = scipy.signal.freqz(B_low,A_low)
+    w_low, h_low = scipy.signal.freqz(B_low,A_low,worN=worN)
+    B_high, A_high = scipy.signal.butter(n, cutoff_high / (fs / 2.0), btype='highpass') 
+    w_high, h_high = scipy.signal.freqz(B_high,A_high,worN=worN)
 
     w = w_high * (fs / (2.0*np.pi))
 
@@ -74,48 +91,15 @@ def calculate_spectra(params,channel,dataFull):
         pylal.pylal_seismon_utils.mkdir(plotLocation)
 
         if params["doEarthquakesAnalysis"]:
-            pngFile = os.path.join(plotLocation,"mag-%d-%d.png"%(gpsStart,gpsEnd))
+            pngFile = os.path.join(plotLocation,"bode-%d-%d.png"%(gpsStart,gpsEnd))
         else:
-            pngFile = os.path.join(plotLocation,"mag.png")
+            pngFile = os.path.join(plotLocation,"bode.png")
 
-        plot = gwpy.plotter.Plot(figsize=[14,8])
-        kwargs = {"linestyle":"-","color":"k"}
-        plot.add_line(w, np.absolute(h_high), label="highpass", **kwargs)
-        kwargs = {"linestyle":"-","color":"b"}
-        plot.add_line(w, np.absolute(h_low), label="lowpass", **kwargs)
-
-        xlim = [plot.xlim[0],plot.xlim[1]]
-        ylim = [plot.ylim[0],plot.ylim[1]]
-        ylim = [1e-5,1.5]
-        plot.ylim = ylim
-
-        #plot.xlim = [params["fmin"],params["fmax"]]
-        plot.xlabel = "Frequency [Hz]"
-        plot.ylabel = "Amplitude Response [dB]"
-        plot.axes.set_xscale("log")
-        plot.axes.set_yscale("log")
+        kwargs = {'logx':True}
+        plot = gwpy.plotter.BodePlot(figsize=[14,8],**kwargs)
+        plot.add_filter((B_low,A_low),frequencies=w_high,sample_rate=fs,label="lowpass")
+        plot.add_filter((B_high,A_high),frequencies=w_high,sample_rate=fs,label="highpass")
         plot.add_legend(loc=1,prop={'size':10})
-
-        plot.save(pngFile,dpi=200)
-        plot.close()
-
-        if params["doEarthquakesAnalysis"]:
-            pngFile = os.path.join(plotLocation,"phase-%d-%d.png"%(gpsStart,gpsEnd))
-        else:
-            pngFile = os.path.join(plotLocation,"phase.png")
-
-        plot = gwpy.plotter.Plot(figsize=[14,8])
-        kwargs = {"linestyle":"-","color":"k"}
-        plot.add_line(w, np.unwrap(np.angle(h_high)), label="highpass", **kwargs)
-        kwargs = {"linestyle":"-","color":"b"}
-        plot.add_line(w, np.unwrap(np.angle(h_low)), label="lowpass", **kwargs)
-        #plot.xlim = [params["fmin"],params["fmax"]]
-        plot.xlabel = "Frequency [Hz]"
-        plot.ylabel = "Phase Response"
-        plot.axes.set_xscale("log")
-        #plot.axes.set_yscale("log")
-        plot.add_legend(loc=1,prop={'size':10})
-
         plot.save(pngFile,dpi=200)
         plot.close()
 
@@ -169,20 +153,69 @@ def calculate_spectra(params,channel,dataFull):
     return data
 
 def apply_calibration(params,channel,data):
-  
-    b = [1,0,0,0];
-    a = [0,1,-1.414,1];
-    w, h = scipy.signal.freqz(b, a)
+    """@applies calibration to necessary channels
 
-    #ss = scipy.signal.zpk2ss([0,0,0],[0.70711 + 0.70711*1j , 0.70711 - 0.70711*1j], 1)
- 
-    #if ("L4C" in channel.station) or ("GS13" in channel.station):
-    if False:
-        data["dataASD"].filter(zeros=[0,0], poles=[0.70711 + 0.70711*1j , 0.70711 - 0.70711*1j], gain=1, inplace=True)
+    @param params
+        seismon params dictionary
+    @param channel
+        seismon channel structure
+    @param data
+        spectral data structure
+    """  
+
+    if ("L4C" in channel.station) or ("GS13" in channel.station):
+
+        zeros = [0,0,0]
+        poles = [0.70711 + 0.70711*1j , 0.70711 - 0.70711*1j]
+        gain = 1
+
+        b = [1,0,0,0];
+        a = [0,1,-1.414,1];
+        w, h = scipy.signal.freqz(b, a)
+
+        f = data["dataASD"].frequencies.data
+      
+        # Divide by f to get to displacement
+        data["dataASD"]/=f
+        # Filter spectrum 
+        data["dataASD"].filterba(a,b,inplace=True)
+        fresp = abs(scipy.signal.freqs(a, b, f)[1])
+        # Multiply by f to get to velocity
+        data["dataASD"]*=f
+
+        if params["doPlots"]:
+
+            plotLocation = params["path"] + "/" + channel.station_underscore
+            pylal.pylal_seismon_utils.mkdir(plotLocation)
+
+            if params["doEarthquakesAnalysis"]:
+                pngFile = os.path.join(plotLocation,"calibration-%d-%d.png"%(gpsStart,gpsEnd))
+            else:
+                pngFile = os.path.join(plotLocation,"calibration.png")
+
+            plot = gwpy.plotter.Plot(figsize=[14,8])
+            plot.add_line(f,fresp)
+            plot.xlim = [params["fmin"],params["fmax"]]
+            plot.xlabel = "Frequency [Hz]"
+            plot.ylabel = "Response"
+            plot.title = channel.station.replace("_","\_")
+            plot.axes.set_xscale("log")
+            plot.axes.set_yscale("log")
+            plot.save(pngFile,dpi=200)
+            plot.close()
 
     return data
 
 def spectra(params, channel, segment):
+    """@calculates spectral data for given channel and segment.
+
+    @param params
+        seismon params dictionary
+    @param channel
+        seismon channel structure
+    @param segment
+        [start,end] gps
+    """
 
     if params["ifo"] == "H1":
         ifo = "LHO"
@@ -213,7 +246,7 @@ def spectra(params, channel, segment):
         dataFull[index] = meanSamples
     dataFull -= np.mean(dataFull.data)
 
-    if np.mean(dataFull.data) == 0.0:
+    if np.mean(dataFull) == 0.0:
         print "data only zeroes... continuing\n"
         return
 
@@ -245,9 +278,9 @@ def spectra(params, channel, segment):
         dataFull = data["dataFull"]
         dataLowpass = data["dataLowpass"]
 
-        #dataHighpass = data["dataHighpass"].resample(16)
-        #dataFull = data["dataFull"].resample(16)
-        #dataLowpass = data["dataLowpass"].resample(16)
+        dataHighpass = data["dataHighpass"].resample(16)
+        dataFull = data["dataFull"].resample(16)
+        dataLowpass = data["dataLowpass"].resample(16)
 
         dataHighpass *= 1e6
         dataFull *= 1e6
@@ -321,14 +354,23 @@ def spectra(params, channel, segment):
         plot.close()
 
 def freq_analysis(params,channel,tt,freq,spectra):
+    """@frequency analysis of spectral data.
+
+    @param params
+        seismon params dictionary
+    @param channel
+        seismon channel structure
+    @param tt
+        array of start times
+    @param freq
+        frequency vector
+    @param spectra
+        spectrogram structure
+    """
 
     if params["doPlots"]:
-        plotLocation = params["path"] + "/" + channel.station_underscore
-        if not os.path.isdir(plotLocation):
-            os.makedirs(plotLocation)
-        plotLocation = params["path"] + "/" + channel.station_underscore + "/freq" 
-        if not os.path.isdir(plotLocation):
-            os.makedirs(plotLocation)
+        plotLocation = params["path"] + "/" + channel.station_underscore + "/freq"
+        pylal_seismon_utils.mkdir(plotLocation)
  
     indexes = np.logspace(0,np.log10(len(freq)-1),num=100)
     indexes = list(np.unique(np.ceil(indexes)))
@@ -448,6 +490,13 @@ def freq_analysis(params,channel,tt,freq,spectra):
         plt.close('all')
 
 def analysis(params, channel):
+    """@analysis of spectral data.
+
+    @param params
+        seismon params dictionary
+    @param channel
+        seismon channel structure
+    """
 
     psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore + "/" + str(params["fftDuration"])
     files = glob.glob(os.path.join(psdLocation,"*.txt"))
@@ -587,7 +636,7 @@ def analysis(params, channel):
 
         spectraNowDisplacement = spectraNow / freq
         plot = spectraNowDisplacement.plot(auto_refresh=True)
-        kwargs = {"linestyle":"-","color":"k"}
+        kwargs = {"linestyle":"-","color":"w"}
         plot.add_line(freq, spectral_variation_10per/freq, **kwargs)
         plot.add_line(freq, spectral_variation_50per/freq, **kwargs)
         plot.add_line(freq, spectral_variation_90per/freq, **kwargs)
@@ -687,6 +736,15 @@ def analysis(params, channel):
         f.close()
 
 def channel_summary(params, channels, segment):
+    """@summary of channels of spectral data.
+
+    @param params
+        seismon params dictionary
+    @param channel
+        seismon channel structure
+    @param segment
+        [start,end] gps
+    """
 
     gpsStart = segment[0]
     gpsEnd = segment[1]

@@ -2,7 +2,6 @@
 
 import os, glob, optparse, shutil, warnings
 import numpy as np
-from collections import namedtuple
 from subprocess import Popen, PIPE, STDOUT
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
@@ -24,6 +23,15 @@ __version__ = "0.1"
 # =============================================================================
 
 def plot_triggers(params,channel,segment):
+    """plot omicron triggers for given channel and segment.
+
+    @param params
+        seismon params dictionary
+    @param channel
+        seismon channel structure
+    @param segment
+        [start,end] gps
+    """
 
     gpsStart = segment[0]
     gpsEnd = segment[1]
@@ -36,20 +44,21 @@ def plot_triggers(params,channel,segment):
     omicronPath = os.path.join(omicronDirectory,channel.station)
     omicronXMLs = glob.glob(os.path.join(omicronPath,"*.xml"))
 
-    triggers = []
     format = "sngl_burst"
-
+    table = []
     for omicronXML in omicronXMLs:
         table = gwpy.table.Table.read(omicronXML,format,columns=columns)
         table.add_column(table.ColumnClass(
             data=table['peak_time']+table['peak_time_ns']*1e-9,
             name='time'))
+
+    if table == []:
+       return
       
     textLocation = params["path"] + "/" + channel.station_underscore
     pylal.pylal_seismon_utils.mkdir(textLocation)
 
     f = open(os.path.join(textLocation,"triggers.txt"),"w")
-    #for i in xrange(len(triggers)):
     for row in table:
         f.write("%.1f %e %e\n"%(row["peak_time"],row["central_freq"],row["snr"]))
     f.close()
@@ -73,11 +82,19 @@ def plot_triggers(params,channel,segment):
         plot.xlim = [gpsStart, gpsEnd]
         plot.xlabel = 'Time'
         plot.ylabel = 'Frequency [Hz]'
+        plot.axes.set_yscale("log")
         plot.colorlabel = r'Signal-to-noise ratio (SNR)'
         plot.save(pngFile)
         plot.close()
 
 def generate_triggers(params,channels):
+    """@generate omicron triggers for given channels.
+
+    @param params
+        seismon params dictionary
+    @param channels
+        list of seismon channel structures
+    """
 
     omicronDirectory = os.path.join(params["path"],"omicron")
     pylal.pylal_seismon_utils.mkdir(omicronDirectory)
@@ -108,6 +125,13 @@ def generate_triggers(params,channels):
     output = p.stdout.read()
 
 def omicron_params(params,channels):
+    """@generate omicron params file for given channels.
+
+    @param params
+        seismon params dictionary
+    @param channels
+        list of seismon channel structures
+    """
 
     omicronDirectory = os.path.join(params["path"],"omicron")
 
