@@ -29,16 +29,18 @@
  * (http://arxiv.org/pdf/gr-qc/0504017v2.pdf )
  *************************************************************/
  
-void XLALSimInspiralComputePPEparametersForMassiveGravity(LALSimInspiralTestGRParam *parameter, /* the test parameter structure output */ 
+void XLALSimInspiralComputePPEparametersForMassiveGravity(LALSimInspiralTestGRParam **parameter, /* the test parameter structure output */ 
 														REAL8 wavelength,					  /* Compton wavelength of the graviton in meters */ 
 														REAL8 distance,						  /* distance to the source in meters, use the luminosity distance for now, but there should be an additional 1+z */
 														REAL8 chirpmass,					  /* chirp mass of the system in meters */
 														REAL8 z)							  /* redshift to the source */
 {
     REAL8 lambdaG=pow(10.0,wavelength);
-	if (parameter==NULL) parameter = XLALSimInspiralCreateTestGRParam("betaPPE",-LAL_PI*LAL_PI*distance*chirpmass/(lambdaG*lambdaG*(1.0+z)));
-	else XLALSimInspiralAddTestGRParam(&parameter,"betaPPE",-LAL_PI*LAL_PI*distance*chirpmass/(lambdaG*lambdaG*(1.0+z)));
-	XLALSimInspiralAddTestGRParam(&parameter,"bPPE",-1.0);
+	REAL8 coefficient=-LAL_PI*LAL_PI*distance*chirpmass/(lambdaG*lambdaG*(1.0+z));
+	if (!XLALSimInspiralTestGRParamExists(*parameter,"betaPPE")) XLALSimInspiralAddTestGRParam(parameter,"betaPPE",coefficient);
+	else XLALSimInspiralSetTestGRParam(*parameter,"betaPPE",coefficient);
+	if (!XLALSimInspiralTestGRParamExists(*parameter,"bPPE")) XLALSimInspiralAddTestGRParam(parameter,"bPPE",-1.0);
+	else XLALSimInspiralSetTestGRParam(*parameter,"bPPE",-1.0);
 }
 
 /*************************************************************
@@ -46,7 +48,7 @@ void XLALSimInspiralComputePPEparametersForMassiveGravity(LALSimInspiralTestGRPa
  * for the Brans-Dicke theory (http://arxiv.org/pdf/gr-qc/0504017v2.pdf )
  *************************************************************/
  
-void XLALSimInspiralComputePPEparametersForBransDicke(LALSimInspiralTestGRParam *parameter, /* the test parameter structure output */ 
+void XLALSimInspiralComputePPEparametersForBransDicke(LALSimInspiralTestGRParam **parameter, /* the test parameter structure output */ 
 														REAL8 alpha1,					    /* scalar charge for body 1 */ 
 														REAL8 alpha2,						/* scalar charge for body 2 */
 														REAL8 omegaBD,					    /* BD parameter */
@@ -54,13 +56,14 @@ void XLALSimInspiralComputePPEparametersForBransDicke(LALSimInspiralTestGRParam 
 														
 {
     REAL8 coefficient=5.0*pow(eta,2.0/5.0)*(alpha1-alpha2)*(alpha1-alpha2)/(43008.0*omegaBD);
-	if (parameter==NULL) parameter = XLALSimInspiralCreateTestGRParam("betaPPE",coefficient);
-	else XLALSimInspiralAddTestGRParam(&parameter,"betaPPE",coefficient);
-	XLALSimInspiralAddTestGRParam(&parameter,"bPPE",-7.0/3.0);
+	if (!XLALSimInspiralTestGRParamExists(*parameter,"betaPPE")) XLALSimInspiralAddTestGRParam(parameter,"betaPPE",coefficient);
+	else XLALSimInspiralSetTestGRParam(*parameter,"betaPPE",coefficient);
+	if (!XLALSimInspiralTestGRParamExists(*parameter,"bPPE")) XLALSimInspiralAddTestGRParam(parameter,"bPPE",-7.0/3.0);
+	else XLALSimInspiralSetTestGRParam(*parameter,"bPPE",-7.0/3.0);
 }
 
 /* http://arxiv.org/abs/0912.2724*/
-void XLALSimInspiralComputePPEparametersForVariableG(LALSimInspiralTestGRParam *parameter, /* the test parameter structure output */ 
+void XLALSimInspiralComputePPEparametersForVariableG(LALSimInspiralTestGRParam **parameter, /* the test parameter structure output */ 
 														REAL8 Gdot,					    /* time variation of G */
 														REAL8 chirpmass,				/* chirp mass */
 														REAL8 z)						/* redshift */
@@ -68,24 +71,30 @@ void XLALSimInspiralComputePPEparametersForVariableG(LALSimInspiralTestGRParam *
 {
 	/* order of magnitude for Gdot~8×10^−7 * G *yr^-1 */
 	REAL8 Mz = chirpmass*(1.0+z);
-	if (parameter==NULL) parameter = XLALSimInspiralCreateTestGRParam("betaPPE",(-25.0/65536.0)*Gdot*Mz);
-	else XLALSimInspiralAddTestGRParam(&parameter,"betaPPE",(-25.0/65536.0)*Gdot*Mz);
-	XLALSimInspiralAddTestGRParam(&parameter,"bPPE",-13.0/3.0);
-	XLALSimInspiralAddTestGRParam(&parameter,"alphaPPE",-(5.0/512.0)*Gdot*Mz);
-	XLALSimInspiralAddTestGRParam(&parameter,"aPPE",-8.0/3.0);
+	if (!XLALSimInspiralTestGRParamExists(*parameter,"betaPPE")) XLALSimInspiralAddTestGRParam(parameter,"betaPPE",(-25.0/65536.0)*Gdot*Mz);
+	else XLALSimInspiralSetTestGRParam(*parameter,"betaPPE",(-25.0/65536.0)*Gdot*Mz);
+	if (!XLALSimInspiralTestGRParamExists(*parameter,"bPPE")) XLALSimInspiralAddTestGRParam(parameter,"bPPE",-13.0/3.0);
+	else XLALSimInspiralSetTestGRParam(*parameter,"bPPE",-13.0/3.0);
+	if (!XLALSimInspiralTestGRParamExists(*parameter,"alphaPPE")) XLALSimInspiralAddTestGRParam(parameter,"alphaPPE",-(5.0/512.0)*Gdot*Mz);
+	else XLALSimInspiralSetTestGRParam(*parameter,"alphaPPE",-(5.0/512.0)*Gdot*Mz);
+	if (!XLALSimInspiralTestGRParamExists(*parameter,"aPPE")) XLALSimInspiralAddTestGRParam(parameter,"aPPE",-8.0/3.0);
+	else XLALSimInspiralSetTestGRParam(*parameter,"aPPE",-8.0/3.0);
 }
 
 /* http://arxiv.org/pdf/1101.2921v2.pdf */
 
-void XLALSimInspiralComputePPEparametersForQuadraticGravity(LALSimInspiralTestGRParam *parameter, /* the test parameter structure output */ 
+void XLALSimInspiralComputePPEparametersForQuadraticGravity(LALSimInspiralTestGRParam **parameter, /* the test parameter structure output */ 
 														REAL8 eta,					/* chirp mass */
 														REAL8 zeta)					/* coupling constant */
 														
 {	
 	/* zeta constrained to be < 10^7 */
-	if (parameter==NULL) parameter = XLALSimInspiralCreateTestGRParam("betaPPE",(50.0/3.0)*zeta*pow(eta,-4.0/5.0));
-	else XLALSimInspiralAddTestGRParam(&parameter,"betaPPE",(50.0/3.0)*zeta);
-	XLALSimInspiralAddTestGRParam(&parameter,"bPPE",4.0/3.0);
-	XLALSimInspiralAddTestGRParam(&parameter,"alphaPPE",(5.0/6.0)*zeta*pow(eta,-4.0/5.0));
-	XLALSimInspiralAddTestGRParam(&parameter,"aPPE",4.0/3.0);
+	if (!XLALSimInspiralTestGRParamExists(*parameter,"betaPPE")) XLALSimInspiralAddTestGRParam(parameter,"betaPPE",(50.0/3.0)*zeta);
+	else XLALSimInspiralSetTestGRParam(*parameter,"betaPPE",(50.0/3.0)*zeta);
+	if (!XLALSimInspiralTestGRParamExists(*parameter,"bPPE")) XLALSimInspiralAddTestGRParam(parameter,"bPPE",4.0/3.0);
+	else XLALSimInspiralSetTestGRParam(*parameter,"bPPE",4.0/3.0);
+	if (!XLALSimInspiralTestGRParamExists(*parameter,"alphaPPE")) XLALSimInspiralAddTestGRParam(parameter,"alphaPPE",(5.0/6.0)*zeta*pow(eta,-4.0/5.0));
+	else XLALSimInspiralSetTestGRParam(*parameter,"alphaPPE",(5.0/6.0)*zeta*pow(eta,-4.0/5.0));
+	if (!XLALSimInspiralTestGRParamExists(*parameter,"aPPE")) XLALSimInspiralAddTestGRParam(parameter,"aPPE",4.0/3.0);
+	else XLALSimInspiralSetTestGRParam(*parameter,"aPPE",4.0/3.0);
 }

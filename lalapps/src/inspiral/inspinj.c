@@ -227,14 +227,11 @@ REAL8 ScalarCharge1 = 0.0;
 REAL8 ScalarCharge2 = 0.0;
 REAL8 omegaBD = 100000.0;
 REAL8 Gdot=0.0;
-REAL8 ZetaQG=0.0;
+REAL8 zetaQG=0.0;
 REAL8 aPPE = 0.0;
 REAL8 alphaPPE = 0.0;
 REAL8 bPPE = 0.0;
 REAL8 betaPPE = 0.0;
-
-LALSimInspiralTestGRParam *nonGRparams=NULL;
-
 REAL8 single_IFO_SNR_threshold=0.0;
 char ** ifonames=NULL;
 int numifos=0;
@@ -1562,7 +1559,7 @@ int main( int argc, char *argv[] )
   LIGOTimeGPS IPNgpsTime = {-1,0};
   LIGOTimeGPS currentGpsTime;
   long gpsDuration;
-
+  LALSimInspiralTestGRParam *nonGRparams=NULL;
   REAL8 meanTimeStep = -1;
   REAL8 timeInterval = 0;
   REAL4 fLower = -1;
@@ -2957,26 +2954,19 @@ int main( int argc, char *argv[] )
             next_process_param( long_options[option_index].name,
               "float", "%le", Gdot );
           break;
-       case 1032:
+       case 1033:
              /* enable quadratic gravity injections */
             this_proc_param = this_proc_param->next =
             next_process_param( long_options[option_index].name,
               "string", "");
             QuadraticGravityInjections = 1;
           break;
-       case 1033:
+       case 1034:
             zetaQG = atof( optarg );
             this_proc_param = this_proc_param->next =
             next_process_param( long_options[option_index].name,
               "float", "%le", zetaQG );
           break;
-          
-       case 1030:
-            betaPPE = atof( optarg );
-            this_proc_param = this_proc_param->next =
-            next_process_param( long_options[option_index].name,
-              "float", "%le", betaPPE );
-	  break;	
        case 1026:
              /* enable PPE injections */
             this_proc_param = this_proc_param->next =
@@ -4298,22 +4288,23 @@ int main( int argc, char *argv[] )
     simTable->omegaBD = omegaBD;
     
 	/* populate the LALSimInspiralTestGRParams structure depending on the alternative gravity model requested for injection */
-	if (BDinjections) XLALSimInspiralComputePPEparametersForBransDicke(nonGRparams,ScalarCharge1,ScalarCharge2,omegaBD,simTable->eta);
-	else if (VariableGInjections) XLALSimInspiralComputePPEparametersForVariableG(nonGRparams,Gdot,mchirp*LAL_MRSUN_SI,redshift);
-	else if (QuadraticGravityInjections) XLALSimInspiralComputePPEparametersForQuadraticGravity(nonGRparams,simTable->eta,zetaQG);
-	else if (MGInjections) XLALSimInspiralComputePPEparametersForMassiveGravity(nonGRparams,loglambdaG,simTable->distance*1e6*LAL_PC_SI,redshift);
-	    
-    /* populate the PPE parameters */
+	if (BDinjections) XLALSimInspiralComputePPEparametersForBransDicke(&nonGRparams,ScalarCharge1,ScalarCharge2,omegaBD,simTable->eta);
+	else if (VariableGInjections) XLALSimInspiralComputePPEparametersForVariableG(&nonGRparams,Gdot,simTable->mchirp*LAL_MRSUN_SI,redshift);
+	else if (QuadraticGravityInjections) XLALSimInspiralComputePPEparametersForQuadraticGravity(&nonGRparams,simTable->eta,zetaQG);
+	else if (MGInjections) XLALSimInspiralComputePPEparametersForMassiveGravity(&nonGRparams,loglambdaG,simTable->distance*1e6*LAL_PC_SI,simTable->mchirp*LAL_MRSUN_SI,redshift);
+	
+		/* populate the PPE parameters */
     
-	if (XLALSimInspiralTestGRParamExists(extraParams,"aPPE")) aPPE = XLALSimInspiralGetTestGRParam(extraParams,"aPPE");
-	if (XLALSimInspiralTestGRParamExists(extraParams,"alphaPPE")) alphaPPE = XLALSimInspiralGetTestGRParam(extraParams,"alphaPPE");
-	if (XLALSimInspiralTestGRParamExists(extraParams,"bPPE")) bPPE = XLALSimInspiralGetTestGRParam(extraParams,"bPPE");
-	if (XLALSimInspiralTestGRParamExists(extraParams,"betaPPE")) betaPPE = XLALSimInspiralGetTestGRParam(extraParams,"betaPPE");
+	if (XLALSimInspiralTestGRParamExists(nonGRparams,"aPPE")) aPPE = XLALSimInspiralGetTestGRParam(nonGRparams,"aPPE");
+	if (XLALSimInspiralTestGRParamExists(nonGRparams,"alphaPPE")) alphaPPE = XLALSimInspiralGetTestGRParam(nonGRparams,"alphaPPE");
+	if (XLALSimInspiralTestGRParamExists(nonGRparams,"bPPE")) bPPE = XLALSimInspiralGetTestGRParam(nonGRparams,"bPPE");
+	if (XLALSimInspiralTestGRParamExists(nonGRparams,"betaPPE")) betaPPE = XLALSimInspiralGetTestGRParam(nonGRparams,"betaPPE");
+	
     simTable->aPPE = aPPE;
     simTable->alphaPPE = alphaPPE;
     simTable->bPPE = bPPE;
     simTable->betaPPE = betaPPE;
-    
+	
     /* populate the sim_ringdown table */
     if ( writeSimRing )
     {
@@ -4447,7 +4438,7 @@ int main( int argc, char *argv[] )
   if ( virgoPsd )
     XLALDestroyREAL8FrequencySeries( virgoPsd );
   if (ifonames) LALFree(ifonames);
-
+  if (nonGRparams) XLALSimInspiralDestroyTestGRParam(nonGRparams);
   LALCheckMemoryLeaks();
   return 0;
 }

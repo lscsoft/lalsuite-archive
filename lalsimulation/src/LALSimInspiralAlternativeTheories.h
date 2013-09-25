@@ -41,7 +41,7 @@
  * (http://arxiv.org/pdf/gr-qc/0504017v2.pdf )
  *************************************************************/
  
-void XLALSimInspiralComputePPEparametersForMassiveGravity(LALSimInspiralTestGRParam *parameter, /* the test parameter structure output */ 
+void XLALSimInspiralComputePPEparametersForMassiveGravity(LALSimInspiralTestGRParam **parameter, /* the test parameter structure output */ 
 														REAL8 wavelength,					  /* Compton wavelength of the graviton in meters */ 
 														REAL8 distance,						  /* distance to the source in meters, use the luminosity distance for now, but there should be an additional 1+z */
 														REAL8 chirpmass,					  /* chirp mass of the system in meters */
@@ -52,21 +52,21 @@ void XLALSimInspiralComputePPEparametersForMassiveGravity(LALSimInspiralTestGRPa
  * for the Brans-Dicke theory (http://arxiv.org/pdf/gr-qc/0504017v2.pdf )
  *************************************************************/
  
-void XLALSimInspiralComputePPEparametersForBransDicke(LALSimInspiralTestGRParam *parameter, /* the test parameter structure output */ 
+void XLALSimInspiralComputePPEparametersForBransDicke(LALSimInspiralTestGRParam **parameter, /* the test parameter structure output */ 
 														REAL8 alpha1,					    /* scalar charge for body 1 */ 
 														REAL8 alpha2,						/* scalar charge for body 2 */
 														REAL8 omegaBD,					    /* BD parameter */
 														REAL8 eta);						/* symmetric mass ratio */
 														
 /* http://arxiv.org/abs/0912.2724*/
-void XLALSimInspiralComputePPEparametersForVariableG(LALSimInspiralTestGRParam *parameter, /* the test parameter structure output */ 
+void XLALSimInspiralComputePPEparametersForVariableG(LALSimInspiralTestGRParam **parameter, /* the test parameter structure output */ 
 														REAL8 Gdot,					    /* time variation of G */
 														REAL8 chirpmass,				/* chirp mass */
 														REAL8 z);						/* redshift */
 
 /* http://arxiv.org/pdf/1101.2921v2.pdf */
 
-void XLALSimInspiralComputePPEparametersForQuadraticGravity(LALSimInspiralTestGRParam *parameter, /* the test parameter structure output */ 
+void XLALSimInspiralComputePPEparametersForQuadraticGravity(LALSimInspiralTestGRParam **parameter, /* the test parameter structure output */ 
 														REAL8 eta,					/* chirp mass */
 														REAL8 zeta);					/* coupling constant */
 														
