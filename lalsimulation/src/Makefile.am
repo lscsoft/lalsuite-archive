@@ -29,6 +29,7 @@ lalsimulationincludedir = $(includedir)/lal
 lalsimulationinclude_HEADERS = \
 	LALSimBlackHoleRingdown.h \
 	LALSimBurst.h \
+	LALSimInspiralAlternativeTheories.h \
 	LALSimInspiralPrecess.h \
 	LALSimInspiralWaveformFlags.h \
 	LALSimInspiralTestGRParams.h \
@@ -76,6 +77,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimIMRPhenomC.c \
 	LALSimIMRPSpinInspiralRD.c \
 	LALSimPhenSpinRingDown.c \
+	LALSimInspiralAlternativeTheories.c \
 	LALSimInspiralWaveformFlags.c \
 	LALSimInspiralTestGRParams.c \
 	LALSimInspiralPrecess.c \

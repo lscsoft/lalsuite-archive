@@ -47,6 +47,8 @@
 #include <LALAppsVCSInfo.h>
 #include <lal/LALDatatypes.h>
 #include <lal/FrequencySeries.h>
+#include <lal/LALSimInspiralAlternativeTheories.h>
+#include <lal/LALSimInspiralTestGRParams.h>
 #include "inspiral.h"
 
 #define CVS_REVISION "$Revision$"
@@ -207,6 +209,8 @@ REAL8 redshift;
 INT4 phiTestInjections=0;
 INT4 MGInjections = 0;
 INT4 BDinjections = 0;
+INT4 VariableGInjections = 0;
+INT4 QuadraticGravityInjections = 0;
 INT4 PPEinjections = 0;
 REAL8 dchi0=0.0;
 REAL8 dchi1=0.0;
@@ -222,10 +226,14 @@ REAL8 loglambdaG=28.0;
 REAL8 ScalarCharge1 = 0.0;
 REAL8 ScalarCharge2 = 0.0;
 REAL8 omegaBD = 100000.0;
+REAL8 Gdot=0.0;
+REAL8 ZetaQG=0.0;
 REAL8 aPPE = 0.0;
 REAL8 alphaPPE = 0.0;
 REAL8 bPPE = 0.0;
 REAL8 betaPPE = 0.0;
+
+LALSimInspiralTestGRParam *nonGRparams=NULL;
 
 REAL8 single_IFO_SNR_threshold=0.0;
 char ** ifonames=NULL;
@@ -825,6 +833,14 @@ static void print_usage(char *program)
       " --scalar-charge-1 value   scalar charge for body 1\n"\
       " --scalar-charge-2 value   scalar charge for body 2\n"\
       " --omegaBD value           Brans-Dicke parameter Omega\n");
+  fprintf(stderr,
+      "Variable G Information:\n"\
+      " --enable-vg               enable variable G injections\n"\
+      " --Gdot value			  variation for G\n");
+  fprintf(stderr,
+      "Quadratic Gravity Information:\n"\
+      " --enable-qg               enable quadratic gravity injections\n"\
+      " --zetaQG value			  coupling constant\n");
   fprintf(stderr,
       "PPE Information:\n"\
       " --enable-ppe              enable PPE injections\n"\
@@ -1699,6 +1715,10 @@ int main( int argc, char *argv[] )
     {"scalar-charge-1",         required_argument, 0,                 1023},
     {"scalar-charge-2",         required_argument, 0,                 1024},
     {"omegaBD",                 required_argument, 0,                 1025},
+	{"enable-vg",               no_argument,       0,                 1031},
+    {"Gdot",					required_argument, 0,                 1032},
+	{"enable-qg",               no_argument,       0,                 1033},
+    {"zetaQG",					required_argument, 0,                 1034},
     {"enable-ppe",              no_argument,       0,                 1026},
     {"aPPE",                    required_argument, 0,                 1027},
     {"alphaPPE",                required_argument, 0,                 1028},
@@ -2924,6 +2944,39 @@ int main( int argc, char *argv[] )
             next_process_param( long_options[option_index].name,
               "float", "%le", omegaBD );
           break;
+       case 1031:
+             /* enable variable G injections */
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "string", "");
+            VariableGInjections = 1; 
+          break;
+       case 1032:
+            Gdot = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", Gdot );
+          break;
+       case 1032:
+             /* enable quadratic gravity injections */
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "string", "");
+            QuadraticGravityInjections = 1;
+          break;
+       case 1033:
+            zetaQG = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", zetaQG );
+          break;
+          
+       case 1030:
+            betaPPE = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", betaPPE );
+	  break;	
        case 1026:
              /* enable PPE injections */
             this_proc_param = this_proc_param->next =
@@ -4238,19 +4291,24 @@ int main( int argc, char *argv[] )
     
     simTable->loglambdaG=loglambdaG;
     
-    /* compute the corresponding value of the betaPPE parameter */
-    
-    bPPE = -1.0;
-    betaPPE = ComputePPEparameterFromLambdaG(loglambdaG,simTable->distance*1e6*LAL_PC_SI,simTable->mchirp*LAL_MRSUN_SI,0.0);
-    
-    /* populate the Brans-Dicke parameters */
+	/* populate the Brans-Dicke parameters */
     
     simTable->ScalarCharge1 = ScalarCharge1;
     simTable->ScalarCharge2 = ScalarCharge2;
     simTable->omegaBD = omegaBD;
     
+	/* populate the LALSimInspiralTestGRParams structure depending on the alternative gravity model requested for injection */
+	if (BDinjections) XLALSimInspiralComputePPEparametersForBransDicke(nonGRparams,ScalarCharge1,ScalarCharge2,omegaBD,simTable->eta);
+	else if (VariableGInjections) XLALSimInspiralComputePPEparametersForVariableG(nonGRparams,Gdot,mchirp*LAL_MRSUN_SI,redshift);
+	else if (QuadraticGravityInjections) XLALSimInspiralComputePPEparametersForQuadraticGravity(nonGRparams,simTable->eta,zetaQG);
+	else if (MGInjections) XLALSimInspiralComputePPEparametersForMassiveGravity(nonGRparams,loglambdaG,simTable->distance*1e6*LAL_PC_SI,redshift);
+	    
     /* populate the PPE parameters */
     
+	if (XLALSimInspiralTestGRParamExists(extraParams,"aPPE")) aPPE = XLALSimInspiralGetTestGRParam(extraParams,"aPPE");
+	if (XLALSimInspiralTestGRParamExists(extraParams,"alphaPPE")) alphaPPE = XLALSimInspiralGetTestGRParam(extraParams,"alphaPPE");
+	if (XLALSimInspiralTestGRParamExists(extraParams,"bPPE")) bPPE = XLALSimInspiralGetTestGRParam(extraParams,"bPPE");
+	if (XLALSimInspiralTestGRParamExists(extraParams,"betaPPE")) betaPPE = XLALSimInspiralGetTestGRParam(extraParams,"betaPPE");
     simTable->aPPE = aPPE;
     simTable->alphaPPE = alphaPPE;
     simTable->bPPE = bPPE;

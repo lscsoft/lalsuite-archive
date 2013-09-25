@@ -1883,15 +1883,22 @@ int XLALSimInspiralTaylorF2Test(
  
 int XLALSimInspiralPPE(
         COMPLEX16FrequencySeries **htilde_out, /**< FD waveform */
-        const REAL8 phic,                /**< coalescence GW phase (rad) */
-        const REAL8 deltaF,              /**< frequency resolution */
-        const REAL8 m1_SI,               /**< mass of companion 1 (kg) */
-        const REAL8 m2_SI,               /**< mass of companion 2 (kg) */
-        const REAL8 fStart,              /**< start GW frequency (Hz) */
-        const REAL8 r,                   /**< distance of source (m) */
-        const INT4 phaseO,               /**< twice PN phase order */
-        const INT4 amplitudeO,            /**< twice PN amplitude order */
-        const LALSimInspiralTestGRParam *extraParams /**< structure of testing parameters */
+        const REAL8 phic,                      /**< orbital coalescence phase (rad) */
+        const REAL8 deltaF,                    /**< frequency resolution */
+        const REAL8 m1_SI,                     /**< mass of companion 1 (kg) */
+        const REAL8 m2_SI,                     /**< mass of companion 2 (kg) */
+        const REAL8 S1z,                       /**<  z component of the spin of companion 1 */
+        const REAL8 S2z,                       /**<  z component of the spin of companion 2  */
+        const REAL8 fStart,                    /**< start GW frequency (Hz) */
+        const REAL8 fEnd,                      /**< highest GW frequency (Hz) of waveform generation - if 0, end at Schwarzschild ISCO */
+        const REAL8 r,                         /**< distance of source (m) */
+        const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
+        const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
+        const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
+        const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
+        const INT4 phaseO,                     /**< twice PN phase order */
+        const INT4 amplitudeO,                  /**< twice PN amplitude order */
+		const LALSimInspiralTestGRParam *extraParams /**< structure of testing parameters */
         );
 
 int XLALSimInspiralSpinTaylorF2(
