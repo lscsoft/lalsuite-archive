@@ -354,7 +354,7 @@ int XLALSimInspiralPPE(
         phasing += shft * f - 2.*phic;
 		if (betaPPE!=0.0) phasing+=betaPPE*pow(v,bPPE);
         amp = amp0 * sqrt(-dEnergy/flux) * v;
-		if (aPPE!=0.0) amp+=alphaPPE*pow(v,aPPE);
+		if (alphaPPE!=0.0) amp*=(1.0+alphaPPE*pow(v,aPPE));
         data[i] = amp * cos(phasing - LAL_PI_4)
                 - amp * sin(phasing - LAL_PI_4) * 1.0j;
     }
