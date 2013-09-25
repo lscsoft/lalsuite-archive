@@ -39,18 +39,7 @@ def restimates(params,attributeDics,plotName):
         name of plot    
     """
 
-    if params["ifo"] == "H1":
-        ifo = "LHO"
-    elif params["ifo"] == "L1":
-        ifo = "LLO"
-    elif params["ifo"] == "G1":
-        ifo = "GEO"
-    elif params["ifo"] == "V1":
-        ifo = "VIRGO"
-    elif params["ifo"] == "C1":
-        ifo = "FortyMeter"
-    elif params["ifo"] == "XG":
-        ifo = "Homestake"
+    ifo = pylal.pylal_seismon_utils.getIfo(params)
 
     gps = []
     magnitudes = []
@@ -91,36 +80,37 @@ def earthquakes(data,plotName):
     if len(data["earthquakes"]["tt"]) == 0:
         return
 
-    t = data["earthquakes"]["tt"]
-    epoch = gwpy.time.Time(t[0], format='gps')
-
+    earthquakes_tt = data["earthquakes"]["tt"]
     amp = np.log10(data["earthquakes"]["data"])
     indexes = np.isinf(amp)
     amp[indexes] = -250
-    amp_earthquakes = amp
+    earthquakes_amp = amp
 
     threshold = -8
 
     plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
-    plot.add_scatter(t, amp, marker='o', zorder=1000, color='k',label='predicted')
+    plot.add_scatter(earthquakes_tt,earthquakes_amp, marker='o', zorder=1000, color='b',label='predicted')
 
     for key in data["channels"].iterkeys():
         label = key.replace("_","\_")
 
-        t = data["channels"][key]["tt"]
+        channel_ttStart = data["channels"][key]["timeseries"]["ttStart"]
+        channel_ttEnd = data["channels"][key]["timeseries"]["ttEnd"]
 
-        amp = np.log10(data["channels"][key]["data"])
+        amp = np.log10(data["channels"][key]["timeseries"]["data"])
         indexes = np.isinf(amp)
         amp[indexes] = -250
+        channel_amp = amp
 
-        plot.add_scatter(t,amp,marker='*', zorder=1000, label=label)
+        plot.add_scatter(channel_ttStart,channel_amp,marker='*', zorder=1000, label=label)
 
     xlim = [plot.xlim[0],plot.xlim[1]]
     ylim = [plot.ylim[0],plot.ylim[1]]
     plot.add_line(xlim,[threshold,threshold],label='threshold')
 
+    plot.ylim = [-10,plot.ylim[1]]
     #plot.epoch = epoch
-    plot.ylabel = 'Mean Amplitude Spectrum in 0.02-0.1 Hz Band [log10(m/s)]'
+    plot.ylabel = 'Velocity [log10(m/s)]'
     plot.add_legend(loc=1,prop={'size':10}) 
 
     plot.save(plotName,dpi=200)
@@ -135,39 +125,42 @@ def prediction(data,plotName):
         name of plot
     """
 
-    if len(data["prediction"]["tt"]) == 0:
+    if len(data["prediction"]["ttStart"]) == 0:
         return
 
-    t = data["prediction"]["tt"]
-    epoch = gwpy.time.Time(t[0], format='gps')
-
+    prediction_ttStart = data["prediction"]["ttStart"]
+    prediction_ttEnd = data["prediction"]["ttEnd"]
     amp = np.log10(data["prediction"]["data"])
     indexes = np.isinf(amp)
     amp[indexes] = -250
-    amp_prediction = amp
+    prediction_amp = amp
 
     threshold = -8
 
     plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
-    plot.add_scatter(t, amp, marker='o', zorder=1000, color='k',label='predicted')
+    plot.add_scatter(prediction_ttStart, prediction_amp, marker='o', zorder=1000, color='b',label='predicted')
+    #for i in xrange(len(prediction_ttStart)):
+    #    plot.add_line([prediction_ttStart[i],prediction_ttEnd[i]],[prediction_amp[i],prediction_amp[i]],color='b',label='predicted')
 
     for key in data["channels"].iterkeys():
         label = key.replace("_","\_")
 
-        t = data["channels"][key]["tt"]
+        channel_ttStart = data["channels"][key]["timeseries"]["ttStart"]
+        channel_ttEnd = data["channels"][key]["timeseries"]["ttEnd"]
 
-        amp = np.log10(data["channels"][key]["data"])
+        amp = np.log10(data["channels"][key]["timeseries"]["data"])
         indexes = np.isinf(amp)
         amp[indexes] = -250
+        channel_amp = amp
 
-        plot.add_scatter(t,amp,marker='*', zorder=1000, label=label)
+        plot.add_scatter(channel_ttStart,channel_amp,marker='*', zorder=1000, label=label)
 
     xlim = [plot.xlim[0],plot.xlim[1]]
     ylim = [plot.ylim[0],plot.ylim[1]]
     plot.add_line(xlim,[threshold,threshold],label='threshold')
 
-    #plot.epoch = epoch
-    plot.ylabel = 'Mean Amplitude Spectrum in 0.02-0.1 Hz Band [log10(m/s)]'
+    plot.ylim = [-10,plot.ylim[1]]
+    plot.ylabel = 'Velocity [log10(m/s)]'
     plot.add_legend(loc=1,prop={'size':10})
 
     plot.save(plotName,dpi=200)
@@ -182,48 +175,48 @@ def residual(data,plotName):
         name of plot
     """
 
-    if len(data["prediction"]["tt"]) == 0:
+    if len(data["prediction"]["ttStart"]) == 0:
         return
 
-    t = data["prediction"]["tt"]
-    epoch = gwpy.time.Time(t[0], format='gps')
-   
+    prediction_ttStart = data["prediction"]["ttStart"]
+    prediction_ttEnd = data["prediction"]["ttEnd"]
     amp = np.log10(data["prediction"]["data"])
     indexes = np.isinf(amp)
     amp[indexes] = -250
+    prediction_amp = amp
 
     threshold = -8
 
-    indexes = np.where(amp >= threshold)
-    t_prediction = t[indexes]
-    amp_prediction = amp[indexes]
+    indexes = np.where(prediction_amp >= threshold)
+    prediction_ttStart = prediction_ttStart[indexes]
+    prediction_amp = prediction_amp[indexes]
 
     plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
-    plot.add_scatter(t, amp, marker='o', zorder=1000, color='k',label='predicted')
+    plot.add_scatter(prediction_ttStart, prediction_amp, marker='o', zorder=1000, color='b',label='predicted')
 
     for key in data["channels"].iterkeys():
         label = key.replace("_","\_")
 
-        t = data["channels"][key]["tt"]
+        channel_ttStart = data["channels"][key]["timeseries"]["ttStart"]
+        channel_ttEnd = data["channels"][key]["timeseries"]["ttEnd"]
 
-        amp = np.log10(data["channels"][key]["data"])
+        amp = np.log10(data["channels"][key]["timeseries"]["data"])
         indexes = np.isinf(amp)
         amp[indexes] = -250
+        channel_amp = amp
 
-        amp_interp = np.interp(t_prediction,t,amp)
-        residual = amp_interp - amp_prediction
+        channel_amp_interp = np.interp(prediction_ttStart,channel_ttStart,channel_amp)
+        residual = channel_amp_interp - prediction_amp
 
         label = "%s residual"%key.replace("_","\_")
-        plt.plot(t_prediction,residual,'*',label=label)
-
-        plot.add_scatter(t_prediction,residual,marker='*', zorder=1000, label=label)
+        plot.add_scatter(prediction_ttStart,residual,marker='*', zorder=1000, label=label)
 
     xlim = [plot.xlim[0],plot.xlim[1]]
     ylim = [plot.ylim[0],plot.ylim[1]]
     plot.add_line(xlim,[threshold,threshold],label='threshold')
 
     #plot.epoch = epoch
-    plot.ylabel = 'Mean Amplitude Spectrum in 0.02-0.1 Hz Band [log10(m/s)]'
+    plot.ylabel = 'Velocity [log10(m/s)]'
     plot.add_legend(loc=1,prop={'size':10})
 
     plot.save(plotName,dpi=200)
@@ -521,18 +514,7 @@ def worldmap_plot(params,attributeDics,type,plotName):
         name of plot
     """
 
-    if params["ifo"] == "H1":
-        ifo = "LHO"
-    elif params["ifo"] == "L1":
-        ifo = "LLO"
-    elif params["ifo"] == "G1":
-        ifo = "GEO"
-    elif params["ifo"] == "V1":
-        ifo = "VIRGO"
-    elif params["ifo"] == "C1":
-        ifo = "FortyMeter"
-    elif params["ifo"] == "XG":
-        ifo = "Homestake"
+    ifo = pylal.pylal_seismon_utils.getIfo(params)
 
     plt.figure(figsize=(10,5))
     plt.axes([0,0,1,1])
@@ -568,7 +550,7 @@ def worldmap_plot(params,attributeDics,type,plotName):
             alpha=0.5, #transparency
             zorder = 1, #plotting order
             )
-        text(
+        plt.text(
             ifox+50000,
             ifoy+50000,
             ifo,

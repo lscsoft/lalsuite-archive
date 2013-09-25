@@ -176,49 +176,32 @@ warnings.filterwarnings("ignore")
 opts = parse_commandline()
 params = params_struct(opts)
 
-if params["doEarthquakesMonitor"] or params["doEarthquakesAnalysis"]: 
+if params["doEarthquakesMonitor"]: 
     channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list_EarthquakesAnalysis.txt"
+elif params["doEarthquakesAnalysis"]:
+    channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list.txt"
 else:
     channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list.txt"
 channels = pylal.pylal_seismon_utils.channel_struct(params,channelList)
 
 params["channels"] = channels
 
-params = pylal.pylal_seismon_utils.frame_struct(params)
 params = pylal.pylal_seismon_utils.segment_struct(params)
+params = pylal.pylal_seismon_utils.frame_struct(params)
+params = pylal.pylal_seismon_utils.setPath(params,[params["gpsStart"],params["gpsEnd"]])
+print params["path"]
 
 if params["doEarthquakesMonitor"]:
-
-    # Output path for run
-    params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + '-EarthquakesMonitor' 
-    if not os.path.isdir(params["path"]):
-        os.makedirs(params["path"])
-
-    segmentlist = pylal.pylal_seismon_eqmon.run_earthquakes(params)
-
+    segmentlist = pylal.pylal_seismon_eqmon.run_earthquakes(params,[params["gpsStart"],params["gpsEnd"]])
     sys.exit()
-
 if params["doEarthquakesAnalysis"]:
-    # Output path for run
-    params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + "-" + str(params["gpsStart"]) + "-" + str(params["gpsEnd"])
-    if not os.path.isdir(params["path"]):
-        os.makedirs(params["path"])
-
-    print params["path"]
-
-    params["segments"] = pylal.pylal_seismon_eqmon.run_earthquakes(params)
-
-if params["doAnalysis"] or params["doPlots"]:
-    # Output path for run
-    params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + "-" + str(params["gpsStart"]) + "-" + str(params["gpsEnd"])
-    if not os.path.isdir(params["path"]):
-        os.makedirs(params["path"])
-
-    print params["path"]
+    params["segments"] = pylal.pylal_seismon_eqmon.run_earthquakes(params,[params["gpsStart"],params["gpsEnd"]])
 
 if params["doEarthquakes"]:
     print "Finding earthquakes"
-    segments = pylal.pylal_seismon_eqmon.run_earthquakes(params)
+    for segment in params["segments"]:
+        params = pylal.pylal_seismon_utils.setPath(params,segment)
+        segments = pylal.pylal_seismon_eqmon.run_earthquakes(params,segment)
 
 if params["doOmicron"]:
     print "Generating Omicron triggers"
@@ -237,6 +220,7 @@ for channel in channels:
     print "Generating PSD for %s"%channel.station
     for segment in params["segments"]:
         print "Segment: %d-%d"%(segment[0],segment[1])
+        params = pylal.pylal_seismon_utils.setPath(params,segment)
         pylal.pylal_seismon_psd.spectra(params,channel,segment)
     if params["doAnalysis"]:
         print "Analyzing PSD significance for %s"%channel.station
@@ -245,12 +229,18 @@ for channel in channels:
     for segment in params["segments"]:
         if params["doOmicron"]:
             print "Plotting Omicron triggers for %s"%channel.station
+            params = pylal.pylal_seismon_utils.setPath(params,segment)
             pylal.pylal_seismon_omicron.plot_triggers(params,channel,segment)
 
 for segment in params["segments"]:
     print "Running summary for Segment: %d-%d"%(segment[0],segment[1])
+    params = pylal.pylal_seismon_utils.setPath(params,segment)
     pylal.pylal_seismon_psd.channel_summary(params, channels, segment)
 print "Summaries complete!"
+
+if params["doEarthquakesAnalysis"]:
+    params = pylal.pylal_seismon_utils.setPath(params,[params["gpsStart"],params["gpsEnd"]])
+    pylal.pylal_seismon_eqmon.run_earthquakes_analysis(params,[params["gpsStart"],params["gpsEnd"]])
 
 if params["doHTML"]:
     htmlPage = pylal.pylal_seismon_html.summary_page(params,channels)

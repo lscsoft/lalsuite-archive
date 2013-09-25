@@ -39,13 +39,13 @@ __date__    = "9/22/2013"
 # =============================================================================
 
 def verboseProcess(process,verbose):
-    """@print PDL output (if requested)
+   """@print PDL output (if requested)
 
-    @param process
-        pdl process
-    @param verbose
-        run verbosely (bool)
-    """
+   @param process
+       pdl process
+   @param verbose
+       run verbosely (bool)
+   """
 
    numLines = 10
    if verbose:
@@ -59,13 +59,13 @@ def verboseProcess(process,verbose):
            sys.stdout.flush()
 
 def runProcess(process,verbose=False):
-    """@run PDL process
+   """@run PDL process
 
-    @param process
-        pdl process
-    @param verbose
-        run verbosely (bool)
-    """
+   @param process
+       pdl process
+   @param verbose
+       run verbosely (bool)
+   """
 
    if not process == []:
        poll_process = process.poll()

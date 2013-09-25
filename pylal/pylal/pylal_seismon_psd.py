@@ -38,27 +38,32 @@ def save_data(params,channel,gpsStart,gpsEnd,data):
         spectral data structure 
     """
 
-    psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore + "/" + str(params["fftDuration"])
-    pylal.pylal_seismon_utils.mkdir(psdLocation)
+    psdDirectory = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore + "/" + str(params["fftDuration"])
+    pylal.pylal_seismon_utils.mkdir(psdDirectory)
 
-    fftLocation = params["dirPath"] + "/Text_Files/FFT/" + channel.station_underscore + "/" + str(params["fftDuration"])
-    pylal.pylal_seismon_utils.mkdir(fftLocation)
+    fftDirectory = params["dirPath"] + "/Text_Files/FFT/" + channel.station_underscore + "/" + str(params["fftDuration"])
+    pylal.pylal_seismon_utils.mkdir(fftDirectory)
 
-    timeseriesLocation = params["dirPath"] + "/Text_Files/Timeseries/" + channel.station_underscore + "/" + str(params["fftDuration"])
-    pylal.pylal_seismon_utils.mkdir(timeseriesLocation)
+    timeseriesDirectory = params["dirPath"] + "/Text_Files/Timeseries/" + channel.station_underscore + "/" + str(params["fftDuration"])
+    pylal.pylal_seismon_utils.mkdir(timeseriesDirectory)
 
     freq = np.array(data["dataASD"].frequencies)
 
-    psdFile = os.path.join(psdLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+    psdFile = os.path.join(psdDirectory,"%d-%d.txt"%(gpsStart,gpsEnd))
     f = open(psdFile,"wb")
     for i in xrange(len(freq)):
         f.write("%e %e\n"%(freq[i],data["dataASD"][i]))
     f.close()
 
-    fftFile = os.path.join(fftLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+    fftFile = os.path.join(fftDirectory,"%d-%d.txt"%(gpsStart,gpsEnd))
     f = open(fftFile,"wb")
     for i in xrange(len(freq)):
         f.write("%e %e %e\n"%(freq[i],data["dataFFT"].data[i].real,data["dataFFT"].data[i].imag))
+    f.close()
+
+    timeseriesFile = os.path.join(timeseriesDirectory,"%d-%d.txt"%(gpsStart,gpsEnd))
+    f = open(timeseriesFile,"wb")
+    f.write("%e %e %e\n"%(np.min(data["dataFull"].data),np.median(data["dataFull"].data),np.max(data["dataFull"].data)))
     f.close()
 
 def calculate_spectra(params,channel,dataFull):
@@ -87,14 +92,10 @@ def calculate_spectra(params,channel,dataFull):
 
     if params["doPlots"]:
 
-        plotLocation = params["path"] + "/" + channel.station_underscore
-        pylal.pylal_seismon_utils.mkdir(plotLocation)
+        plotDirectory = params["path"] + "/" + channel.station_underscore
+        pylal.pylal_seismon_utils.mkdir(plotDirectory)
 
-        if params["doEarthquakesAnalysis"]:
-            pngFile = os.path.join(plotLocation,"bode-%d-%d.png"%(gpsStart,gpsEnd))
-        else:
-            pngFile = os.path.join(plotLocation,"bode.png")
-
+        pngFile = os.path.join(plotDirectory,"bode.png")
         kwargs = {'logx':True}
         plot = gwpy.plotter.BodePlot(figsize=[14,8],**kwargs)
         plot.add_filter((B_low,A_low),frequencies=w_high,sample_rate=fs,label="lowpass")
@@ -120,7 +121,9 @@ def calculate_spectra(params,channel,dataFull):
     # calculate spectrum
     NFFT = params["fftDuration"]
     #window = None
-    dataASD = dataFull.asd(NFFT,NFFT,'welch')
+    #dataASD = dataFull.asd(NFFT,NFFT,'welch')
+    dataPSD = dataFull.psd(NFFT,NFFT,'welch')
+    dataASD = dataPSD**(1/2.)
     #dataFFT = np.fft.fft(dataFull.data)
     dataFFT = np.fft.fft(dataFull.data,params["fftDuration"]*channel.samplef)
     #freqFFT = np.fft.fftfreq(dataFull.data.shape[-1],d=1.0/channel.samplef)
@@ -185,14 +188,10 @@ def apply_calibration(params,channel,data):
 
         if params["doPlots"]:
 
-            plotLocation = params["path"] + "/" + channel.station_underscore
-            pylal.pylal_seismon_utils.mkdir(plotLocation)
+            plotDirectory = params["path"] + "/" + channel.station_underscore
+            pylal.pylal_seismon_utils.mkdir(plotDirectory)
 
-            if params["doEarthquakesAnalysis"]:
-                pngFile = os.path.join(plotLocation,"calibration-%d-%d.png"%(gpsStart,gpsEnd))
-            else:
-                pngFile = os.path.join(plotLocation,"calibration.png")
-
+            pngFile = os.path.join(plotDirectory,"calibration.png")
             plot = gwpy.plotter.Plot(figsize=[14,8])
             plot.add_line(f,fresp)
             plot.xlim = [params["fmin"],params["fmax"]]
@@ -217,18 +216,7 @@ def spectra(params, channel, segment):
         [start,end] gps
     """
 
-    if params["ifo"] == "H1":
-        ifo = "LHO"
-    elif params["ifo"] == "L1":
-        ifo = "LLO"
-    elif params["ifo"] == "G1":
-        ifo = "GEO"
-    elif params["ifo"] == "V1":
-        ifo = "VIRGO"
-    elif params["ifo"] == "C1":
-        ifo = "FortyMeter"
-    elif params["ifo"] == "XG":
-        ifo = "Homestake"
+    ifo = pylal.pylal_seismon_utils.getIfo(params)
 
     gpsStart = segment[0]
     gpsEnd = segment[1]
@@ -237,7 +225,11 @@ def spectra(params, channel, segment):
     duration = np.ceil(gpsEnd-gpsStart)
 
     # make timeseries
-    dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel.station, epoch=gpsStart, duration=duration)
+    try:
+        dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel.station, epoch=gpsStart, duration=duration)
+    except:
+        print "data read from frames failed... continuing\n"
+        return
 
     dataFull /= channel.calibration
     indexes = np.where(np.isnan(dataFull.data))[0]
@@ -264,23 +256,19 @@ def spectra(params, channel, segment):
 
     if params["doPlots"]:
 
-        plotLocation = params["path"] + "/" + channel.station_underscore
-        pylal.pylal_seismon_utils.mkdir(plotLocation)        
+        plotDirectory = params["path"] + "/" + channel.station_underscore
+        pylal.pylal_seismon_utils.mkdir(plotDirectory)        
 
-        if params["doEarthquakesAnalysis"]:
-            pngFile = os.path.join(plotLocation,"timeseries-%d-%d.png"%(gpsStart,gpsEnd))
-        else:
-            pngFile = os.path.join(plotLocation,"timeseries.png")
-
+        pngFile = os.path.join(plotDirectory,"timeseries.png")
         plot = gwpy.plotter.TimeSeriesPlot(figsize=[14,8])
-
-        dataHighpass = data["dataHighpass"]
-        dataFull = data["dataFull"]
-        dataLowpass = data["dataLowpass"]
 
         dataHighpass = data["dataHighpass"].resample(16)
         dataFull = data["dataFull"].resample(16)
         dataLowpass = data["dataLowpass"].resample(16)
+
+        #dataHighpass = data["dataHighpass"]
+        #dataFull = data["dataFull"]
+        #dataLowpass = data["dataLowpass"]
 
         dataHighpass *= 1e6
         dataFull *= 1e6
@@ -299,7 +287,10 @@ def spectra(params, channel, segment):
 
             Ptime = max(traveltimes["Ptimes"])
             Stime = max(traveltimes["Stimes"])
-            Rtime = max(traveltimes["Rtimes"])
+            Rtwotime = max(traveltimes["Rtwotimes"])
+            RthreePointFivetime = max(traveltimes["RthreePointFivetimes"])
+            Rfivetime = max(traveltimes["Rfivetimes"])
+
             peak_velocity = traveltimes["Rfamp"][0]
             peak_velocity = peak_velocity * 1e6
 
@@ -313,7 +304,11 @@ def spectra(params, channel, segment):
             kwargs = {"linestyle":"--","color":"g"}
             plot.add_line([Stime,Stime],ylim,label="S Est. Arrival",**kwargs)
             kwargs = {"linestyle":"--","color":"b"}
-            plot.add_line([Rtime,Rtime],ylim,label="R Est. Arrival",**kwargs)            
+            plot.add_line([RthreePointFivetime,RthreePointFivetime],ylim,label="Middle R Est. Arrival",**kwargs)            
+            kwargs = {"linestyle":"--","color":"b"}
+            plot.add_line([Rtwotime,Rtwotime],ylim,label="High R Est. Arrival",**kwargs)
+            kwargs = {"linestyle":"--","color":"b"}
+            plot.add_line([Rfivetime,Rfivetime],ylim,label="Low R Est. Arrival",**kwargs)
             kwargs = {"linestyle":"--","color":"k"}
             plot.add_line(xlim,[peak_velocity,peak_velocity],label="pred. vel.",**kwargs)
             plot.add_line(xlim,[-peak_velocity,-peak_velocity],**kwargs)
@@ -329,11 +324,7 @@ def spectra(params, channel, segment):
 
         fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
 
-        if params["doEarthquakesAnalysis"]:
-            pngFile = os.path.join(plotLocation,"psd-%d-%d.png"%(gpsStart,gpsEnd))
-        else:
-            pngFile = os.path.join(plotLocation,"psd.png")
- 
+        pngFile = os.path.join(plotDirectory,"psd.png")
         label = channel.station.replace("_","\_")
 
         plot = gwpy.plotter.Plot(figsize=[14,8])
@@ -369,8 +360,8 @@ def freq_analysis(params,channel,tt,freq,spectra):
     """
 
     if params["doPlots"]:
-        plotLocation = params["path"] + "/" + channel.station_underscore + "/freq"
-        pylal_seismon_utils.mkdir(plotLocation)
+        plotDirectory = params["path"] + "/" + channel.station_underscore + "/freq"
+        pylal_seismon_utils.mkdir(plotDirectory)
  
     indexes = np.logspace(0,np.log10(len(freq)-1),num=100)
     indexes = list(np.unique(np.ceil(indexes)))
@@ -453,8 +444,8 @@ def freq_analysis(params,channel,tt,freq,spectra):
             plt.title(plot_title)
             plt.legend()
             plt.show()
-            plt.savefig(os.path.join(plotLocation,"%s_dist.png"%str(freq[i])),dpi=200)
-            plt.savefig(os.path.join(plotLocation,"%s_dist.eps"%str(freq[i])),dpi=200)
+            plt.savefig(os.path.join(plotDirectory,"%s_dist.png"%str(freq[i])),dpi=200)
+            plt.savefig(os.path.join(plotDirectory,"%s_dist.eps"%str(freq[i])),dpi=200)
             plt.close('all')
 
             ax = plt.subplot(111)
@@ -464,8 +455,8 @@ def freq_analysis(params,channel,tt,freq,spectra):
             plt.xlabel("Time [Seconds]")
             plt.ylabel("Correlation")
             plt.show()
-            plt.savefig(os.path.join(plotLocation,"%s_cov.png"%str(freq[i])),dpi=200)
-            plt.savefig(os.path.join(plotLocation,"%s_cov.eps"%str(freq[i])),dpi=200)
+            plt.savefig(os.path.join(plotDirectory,"%s_cov.png"%str(freq[i])),dpi=200)
+            plt.savefig(os.path.join(plotDirectory,"%s_cov.eps"%str(freq[i])),dpi=200)
             plt.close('all')
 
     if params["doPlots"]:
@@ -476,8 +467,8 @@ def freq_analysis(params,channel,tt,freq,spectra):
         plt.ylabel("p-value")
         plt.legend(loc=3)
         plt.show()
-        plt.savefig(os.path.join(plotLocation,"freq_analysis.png"),dpi=200)
-        plt.savefig(os.path.join(plotLocation,"freq_analysis.eps"),dpi=200)
+        plt.savefig(os.path.join(plotDirectory,"freq_analysis.png"),dpi=200)
+        plt.savefig(os.path.join(plotDirectory,"freq_analysis.eps"),dpi=200)
         plt.close('all')      
 
         ax = plt.subplot(111)
@@ -485,8 +476,8 @@ def freq_analysis(params,channel,tt,freq,spectra):
         plt.xlabel("Frequency [Hz]")
         plt.ylabel("Coherence Time [s]")
         plt.show()
-        plt.savefig(os.path.join(plotLocation,"ttCohs.png"),dpi=200)
-        plt.savefig(os.path.join(plotLocation,"ttCohs.eps"),dpi=200)
+        plt.savefig(os.path.join(plotDirectory,"ttCohs.png"),dpi=200)
+        plt.savefig(os.path.join(plotDirectory,"ttCohs.eps"),dpi=200)
         plt.close('all')
 
 def analysis(params, channel):
@@ -498,8 +489,8 @@ def analysis(params, channel):
         seismon channel structure
     """
 
-    psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore + "/" + str(params["fftDuration"])
-    files = glob.glob(os.path.join(psdLocation,"*.txt"))
+    psdDirectory = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore + "/" + str(params["fftDuration"])
+    files = glob.glob(os.path.join(psdDirectory,"*.txt"))
 
     files = sorted(files)
 
@@ -555,10 +546,10 @@ def analysis(params, channel):
     spectral_variation_90per = pylal.pylal_seismon_utils.spectral_percentiles(specvar,bins,90)
     spectral_variation_99per = pylal.pylal_seismon_utils.spectral_percentiles(specvar,bins,99)
 
-    textLocation = params["path"] + "/" + channel.station_underscore
-    pylal.pylal_seismon_utils.mkdir(textLocation)
+    textDirectory = params["path"] + "/" + channel.station_underscore
+    pylal.pylal_seismon_utils.mkdir(textDirectory)
 
-    f = open(os.path.join(textLocation,"spectra.txt"),"w")
+    f = open(os.path.join(textDirectory,"spectra.txt"),"w")
     for i in xrange(len(freq)):
         f.write("%e %e %e %e %e %e %e\n"%(freq[i],spectral_variation_1per[i],spectral_variation_10per[i],spectral_variation_50per[i],spectral_variation_90per[i],spectral_variation_99per[i],spectraNow[i]))
     f.close()
@@ -567,7 +558,7 @@ def analysis(params, channel):
     # Break up entire frequency band into 6 segments
     ff_ave = [1/float(128), 1/float(64),  0.1, 1, 3, 5, 10]
 
-    f = open(os.path.join(textLocation,"sig.txt"),"w")
+    f = open(os.path.join(textDirectory,"sig.txt"),"w")
     for i in xrange(len(ff_ave)-1):
         newSpectra = []
         newSpectraNow = []
@@ -604,15 +595,12 @@ def analysis(params, channel):
 
     if params["doPlots"]:
 
-        plotLocation = params["path"] + "/" + channel.station_underscore
-        pylal.pylal_seismon_utils.mkdir(plotLocation)
+        plotDirectory = params["path"] + "/" + channel.station_underscore
+        pylal.pylal_seismon_utils.mkdir(plotDirectory)
 
         fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
 
-        if params["doEarthquakesAnalysis"]:
-            pngFile = os.path.join(plotLocation,"psd-%d-%d.png"%(gpsStart,gpsEnd))
-        else:
-            pngFile = os.path.join(plotLocation,"psd.png")
+        pngFile = os.path.join(plotDirectory,"psd.png")
 
         plot = spectraNow.plot(auto_refresh=True)
         kwargs = {"linestyle":"-","color":"k"}
@@ -629,10 +617,7 @@ def analysis(params, channel):
         plot.save(pngFile,dpi=200)
         plot.close()
 
-        if params["doEarthquakesAnalysis"]:
-            pngFile = os.path.join(plotLocation,"disp-%d-%d.png"%(gpsStart,gpsEnd))
-        else:
-            pngFile = os.path.join(plotLocation,"disp.png")
+        pngFile = os.path.join(plotDirectory,"disp.png")
 
         spectraNowDisplacement = spectraNow / freq
         plot = spectraNowDisplacement.plot(auto_refresh=True)
@@ -650,11 +635,7 @@ def analysis(params, channel):
         plot.save(pngFile,dpi=200)
         plot.close()
 
-        if params["doEarthquakesAnalysis"]:
-            pngFile = os.path.join(plotLocation,"tf-%d-%d.png"%(gpsStart,gpsEnd))
-        else:
-            pngFile = os.path.join(plotLocation,"tf.png")
-
+        pngFile = os.path.join(plotDirectory,"tf.png")
         specgramLog = specgram.to_logscale(fmin=np.min(freq),fmax=np.max(freq))
         plot = specgramLog.plot(auto_refresh=True)
         plot.ylim = [params["fmin"],params["fmax"]]
@@ -665,11 +646,7 @@ def analysis(params, channel):
         plot.save(pngFile,dpi=200)
         plot.close()
 
-        if params["doEarthquakesAnalysis"]:
-            pngFile = os.path.join(plotLocation,"psd-%d-%d.png"%(gpsStart,gpsEnd))
-        else:
-            pngFile = os.path.join(plotLocation,"psd.png")
-
+        pngFile = os.path.join(plotDirectory,"psd-%d-%d.png"%(gpsStart,gpsEnd))
         plot = spectraNow.plot(auto_refresh=True)
         kwargs = {"linestyle":"-","color":"k"}
         plot.add_line(freq, spectral_variation_10per, **kwargs)
@@ -686,11 +663,7 @@ def analysis(params, channel):
         plot.save(pngFile,dpi=200)
         plot.close()
 
-        if params["doEarthquakesAnalysis"]:
-            pngFile = os.path.join(plotLocation,"specvar-%d-%d.png"%(gpsStart,gpsEnd))
-        else:
-            pngFile = os.path.join(plotLocation,"specvar.png")
-
+        pngFile = os.path.join(plotDirectory,"specvar.png")
         kwargs = {"linestyle":"-","color":"w"}
         plot = spectraNow.plot(**kwargs)
         kwargs = {"linestyle":"-","color":"k"}
@@ -714,11 +687,7 @@ def analysis(params, channel):
         plot.save(pngFile,dpi=200)
         plot.close()
 
-        if params["doEarthquakesAnalysis"]:
-            pngFile = os.path.join(plotLocation,"bands-%d-%d.png"%(gpsStart,gpsEnd))
-        else:
-            pngFile = os.path.join(plotLocation,"bands.png")
-
+        pngFile = os.path.join(plotDirectory,"bands.png")
         plot = gwpy.plotter.TimeSeriesPlot(auto_refresh=True)
         for key in sigDict.iterkeys():
             label = key
@@ -729,9 +698,9 @@ def analysis(params, channel):
         plot.save(pngFile,dpi=200)
         plot.close()
 
-    htmlPage = pylal.pylal_seismon_html.seismon_page(channel,textLocation)
+    htmlPage = pylal.pylal_seismon_html.seismon_page(channel,textDirectory)
     if htmlPage is not None:
-        f = open(os.path.join(textLocation,"psd.html"),"w")
+        f = open(os.path.join(textDirectory,"psd.html"),"w")
         f.write(htmlPage)
         f.close()
 
@@ -752,8 +721,8 @@ def channel_summary(params, channels, segment):
     data = {}
     for channel in channels:
 
-        psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore + "/" + str(params["fftDuration"])
-        file = os.path.join(psdLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+        psdDirectory = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore + "/" + str(params["fftDuration"])
+        file = os.path.join(psdDirectory,"%d-%d.txt"%(gpsStart,gpsEnd))
 
         if not os.path.isfile(file):
             continue
@@ -767,18 +736,17 @@ def channel_summary(params, channels, segment):
         data[channel.station_underscore] = {}
         data[channel.station_underscore]["data"] = spectra_out
 
+    if data == {}:
+        return
+
     if params["doPlots"]:
 
-        plotLocation = params["path"] + "/summary"
-        pylal.pylal_seismon_utils.mkdir(plotLocation)
+        plotDirectory = params["path"] + "/summary"
+        pylal.pylal_seismon_utils.mkdir(plotDirectory)
 
         fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
 
-        if params["doEarthquakesAnalysis"]:
-            pngFile = os.path.join(plotLocation,"psd-%d-%d.png"%(gpsStart,gpsEnd))
-        else:
-            pngFile = os.path.join(plotLocation,"psd.png")
-
+        pngFile = os.path.join(plotDirectory,"psd-%d-%d.png"%(gpsStart,gpsEnd))
         lowBin = np.inf
         highBin = -np.inf
         plot = gwpy.plotter.Plot(figsize=[14,8])
@@ -804,11 +772,7 @@ def channel_summary(params, channels, segment):
         plot.save(pngFile,dpi=200)
         plot.close()
 
-        if params["doEarthquakesAnalysis"]:
-            pngFile = os.path.join(plotLocation,"ratio-%d-%d.png"%(gpsStart,gpsEnd))
-        else:
-            pngFile = os.path.join(plotLocation,"ratio.png")
-
+        pngFile = os.path.join(plotDirectory,"ratio.png")
         lowBin = np.inf
         highBin = -np.inf
         ref = params["referenceChannel"].replace(":","_")
