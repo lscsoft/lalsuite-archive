@@ -2764,6 +2764,112 @@ COMPLEX16TimeSeries *XLALSimInspiralChooseTDMode(
 
 
 /**
+ * Interface to compute a set of -2 spin-weighted spherical harmonic modes
+ * for a binary inspiral of any available amplitude and phase PN order.
+ * The phasing is computed with any of the TaylorT1, T2, T3, T4 methods.
+ */
+SphHarmFrequencySeries *XLALSimInspiralChooseFDModes(
+    REAL8 phiRef,                               /**< reference orbital phase (rad) */
+    REAL8 deltaF,                               /**< sampling interval (Hz) */
+    REAL8 m1,                                   /**< mass of companion 1 (kg) */
+    REAL8 m2,                                   /**< mass of companion 2 (kg) */
+    REAL8 S1x,                                  /**< x-component of the dimensionless spin of object 1*/
+    REAL8 S1y,                                  /**< y-component of the dimensionless spin of object 1 */
+    REAL8 S1z,                                  /**< z-component of the dimensionless spin of object 1 */
+    REAL8 f_min,                                /**< starting GW frequency (Hz) */
+    REAL8 f_ref,
+    REAL8 f_max,                                /**< ending GW frequency (Hz) */
+    REAL8 r,                                    /**< distance of source (m) */
+    REAL8 i,                                    /**< inclination of source (rad) */
+    REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
+    REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
+    LALSimInspiralWaveformFlags *waveFlags,     /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
+    LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
+    int amplitudeO,                             /**< twice post-Newtonian amplitude order */
+    int phaseO,                                 /**< twice post-Newtonian order */
+    int lmax,                                   /**< generate all modes with l <= lmax */
+    Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
+                                                     ) {
+
+
+    REAL8 LNhatx, LNhaty, LNhatz;
+
+    SphHarmFrequencySeries *hlm = NULL;
+
+    /* General sanity checks that will abort */
+    /*
+     * If non-GR approximants are added, change the below to
+     * if( nonGRparams && approximant != nonGR1 && approximant != nonGR2 )
+     */
+    if( nonGRparams )
+    {
+        XLALPrintError("XLAL Error - %s: Passed in non-NULL pointer to LALSimInspiralTestGRParam for an approximant that does not use LALSimInspiralTestGRParam\n", __func__);
+        XLAL_ERROR(XLAL_EINVAL);
+    }
+
+    /* General sanity check the input parameters - only give warnings! */
+    if( deltaF > 1. )
+        XLALPrintWarning("XLAL Warning - %s: Large value of deltaF = %e requested...This corresponds to a very short TD signal (with padding). Consider a smaller value.\n", __func__, deltaF);
+    if( deltaF < 1./4096. )
+        XLALPrintWarning("XLAL Warning - %s: Small value of deltaF = %e requested...This corresponds to a very long TD signal. Consider a larger value.\n", __func__, deltaF);
+    if( m1 < 0.09 * LAL_MSUN_SI )
+        XLALPrintWarning("XLAL Warning - %s: Small value of m1 = %e (kg) = %e (Msun) requested...Perhaps you have a unit conversion error?\n", __func__, m1, m1/LAL_MSUN_SI);
+    if( m2 < 0.09 * LAL_MSUN_SI )
+        XLALPrintWarning("XLAL Warning - %s: Small value of m2 = %e (kg) = %e (Msun) requested...Perhaps you have a unit conversion error?\n", __func__, m2, m2/LAL_MSUN_SI);
+    if( m1 + m2 > 1000. * LAL_MSUN_SI )
+        XLALPrintWarning("XLAL Warning - %s: Large value of total mass m1+m2 = %e (kg) = %e (Msun) requested...Signal not likely to be in band of ground-based detectors.\n", __func__, m1+m2, (m1+m2)/LAL_MSUN_SI);
+    if( S1x*S1x + S1y*S1y + S1z*S1z > 1.000001 )
+        XLALPrintWarning("XLAL Warning - %s: S1 = (%e,%e,%e) with norm > 1 requested...Are you sure you want to violate the Kerr bound?\n", __func__, S1x, S1y, S1z);
+    if( S2x*S2x + S2y*S2y + S2z*S2z > 1.000001 )
+        XLALPrintWarning("XLAL Warning - %s: S2 = (%e,%e,%e) with norm > 1 requested...Are you sure you want to violate the Kerr bound?\n", __func__, S2x, S2y, S2z);
+    if( f_min < 1. )
+        XLALPrintWarning("XLAL Warning - %s: Small value of fmin = %e requested...Check for errors, this could create a very long waveform.\n", __func__, f_min);
+    if( f_min > 40.000001 )
+        XLALPrintWarning("XLAL Warning - %s: Large value of fmin = %e requested...Check for errors, the signal will start in band.\n", __func__, f_min);
+
+    if (lambda1<-1e3 || lambda2 < -1e3) {
+      XLALPrintWarning("XLAL Warning - %s: one ambda is negative: %e %e.\n", __func__, lambda1, lambda2);
+
+    }
+
+    switch (approximant)
+    {
+    case SpinTaylorF2:
+            /* Waveform-specific sanity checks */
+            /* Sanity check unused fields of waveFlags */
+            if( !XLALSimInspiralFrameAxisIsDefault(
+                    XLALSimInspiralGetFrameAxis(waveFlags) ) )
+                ABORT_NONDEFAULT_FRAME_AXIS(waveFlags);
+            if( !XLALSimInspiralModesChoiceIsDefault(
+                    XLALSimInspiralGetModesChoice(waveFlags) ) )
+                ABORT_NONDEFAULT_MODES_CHOICE(waveFlags);
+            if( S2z != 0. ) // This is a single-spin model
+                ABORT_NONZERO_SPINS(waveFlags);
+            LNhatx = sin(i);
+            LNhaty = 0.;
+            LNhatz = cos(i);
+            /* Maximum PN amplitude order for precessing waveforms is 
+             * MAX_PRECESSING_AMP_PN_ORDER */
+            amplitudeO = 0; /* amplitudeO <= MAX_PRECESSING_AMP_PN_ORDER ? 
+                    amplitudeO : MAX_PRECESSING_AMP_PN_ORDER */;
+            /* Call the waveform driver routine */
+            hlm = XLALSimInspiralSpinTaylorF2Modes(f_min, f_max, f_ref, deltaF, phiRef, m1_SI, m2_SI, f, s1x,s1y, s1z,LNhatx,LNhaty,LNhatz, phaseO, amplitudeO);
+            break;
+    default:
+      
+      break;
+
+    }
+
+    if ( !hlm )
+        XLAL_ERROR_NULL(XLAL_EFUNC);
+
+    return hlm;
+
+}
+
+
+/**
  * Checks whether the given approximant is implemented in lalsimulation's XLALSimInspiralChooseTDWaveform().
  *
  * returns 1 if the approximant is implemented, 0 otherwise.
