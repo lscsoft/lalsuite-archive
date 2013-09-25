@@ -1,6 +1,7 @@
 /*
  *  Copyright (C) 2007 Jolien Creighton, B.S. Sathyaprakash, Thomas Cokelaer
  *  Copyright (C) 2012 Leo Singer
+ *     Andy Lundgren, Richard O'Shaughnessy
  *  Assembled from code found in:
  *    - LALInspiralStationaryPhaseApproximation2.c
  *    - LALInspiralChooseModel.c
