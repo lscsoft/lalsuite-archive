@@ -2861,8 +2861,8 @@ SphHarmFrequencySeries *XLALSimInspiralChooseFDModes(
 
     }
 
-    if ( !hlm )
-        XLAL_ERROR_NULL(XLAL_EFUNC);
+    //    if ( !hlm )
+    //   XLAL_ERROR_NULL(XLAL_EFUNC);
 
     return hlm;
 

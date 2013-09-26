@@ -700,3 +700,217 @@ int XLALSimInspiralSpinTaylorF2(
     *htilde_out = htilde;
     return XLAL_SUCCESS;
 }
+
+
+// BEWARE: These frequency series are centered with zero frequency at the CENTER
+SphHarmFrequencySeries*  XLALSimInspiralSpinTaylorF2Modes(
+                                                          REAL8 f_min,
+                                                          REAL8 f_max,
+                                                          REAL8 f_ref,
+	REAL8 deltaF,                   /**< sampling frequency (Hz) */
+	REAL8 phic,                     /**< coalescence GW phase */
+	REAL8 m1_SI,                    /**< mass of companion 1 (kg) */
+	REAL8 m2_SI,                    /**< mass of companion 2 (kg) */
+	REAL8 r,                        /**< distance of source (m) */
+	REAL8 s1x,                      /**< initial value of S1x  */
+	REAL8 s1y,                      /**< initial value of S1y */
+	REAL8 s1z,                      /**< initial value of S1z */
+	REAL8 lnhatx,                   /**< initial value of LNhatx */
+	REAL8 lnhaty,                   /**< initial value of LNhaty */
+	REAL8 lnhatz,                   /**< initial value of LNhatz */
+	int phaseO,                     /**< twice PN phase order */
+	int amplitudeO                  /**< twice PN amplitude order */
+                                                          ){
+
+
+  SphHarmFrequencySeries* hlm;
+  LALSimInspiralSF2Orientation * orientation;
+    const REAL8 m1 = m1_SI / LAL_MSUN_SI;
+    const REAL8 m2 = m2_SI / LAL_MSUN_SI;
+    const REAL8 m = m1 + m2;
+    const REAL8 m_sec = m * LAL_MTSUN_SI;  /* total mass in seconds */
+    const REAL8 piM = LAL_PI * m_sec;
+    const REAL8 v0 = cbrt(piM * fStart);
+    int m;
+
+  // Convert orientation using Andy's tool
+  m1 = m1/LAL_MSUN_SI;
+  m2 = m2/LAL_MSUN_SI;
+  vref = 0.2; // Fixme: (pi M f)^(1/3)
+  XLALSimInspiralSF2CalculateOrientation(orientation, m1, m2, vref, lnhatx, lnhaty, lnhatz,s1x,s1y,s1z);
+
+  // Get coefficients of frequency expansion
+    LALSimInspiralSF2Coeffs coeffs;
+    XLALSimInspiralSF2CalculateCoeffs(&coeffs, m1, m2, orientation.chi, orientation.kappa);
+
+
+        const REAL8 pn_beta = coeffs.pn_beta;
+    const REAL8 pn_sigma = coeffs.pn_sigma;
+    const REAL8 pn_gamma = coeffs.pn_gamma;
+
+    /* phasing coefficients */
+    const REAL8 pfaN = 3.L/(128.L * eta);
+    const REAL8 pfa2 = 5.L*(743.L/84.L + 11.L * eta)/9.L;
+    const REAL8 pfa3 = -16.L*LAL_PI + 4.L*pn_beta;
+    const REAL8 pfa4 = 5.L*(3058.673L/7.056L + 5429.L/7.L * eta
+                     + 617.L * eta*eta)/72.L - 10.L*pn_sigma;
+    const REAL8 pfa5 = 5.L/9.L * (7729.L/84.L - 13.L * eta) * LAL_PI - pn_gamma;
+    const REAL8 pfl5 = 5.L/3.L * (7729.L/84.L - 13.L * eta) * LAL_PI - pn_gamma *3.0;
+    const REAL8 pfa6 = (11583.231236531L/4.694215680L - 640.L/3.L * LAL_PI * LAL_PI - 6848.L/21.L*LAL_GAMMA)
+                     + eta * (-15335.597827L/3.048192L + 2255./12. * LAL_PI * LAL_PI - 1760./3.*theta +12320./9.*lambda)
+                     + eta*eta * 76055.L/1728.L
+                     - eta*eta*eta*  127825.L/1296.L ;
+    const REAL8 pfl6 = -6848.L/21.L;
+    const REAL8 pfa7 = LAL_PI * 5.L/756.L * ( 15419335.L/336.L + 75703.L/2.L * eta - 14809.L * eta*eta);
+
+    /* flux coefficients */
+    const REAL8 FTaN = XLALSimInspiralPNFlux_0PNCoeff(eta);
+    const REAL8 FTa2 = XLALSimInspiralPNFlux_2PNCoeff(eta);
+    const REAL8 FTa3 = XLALSimInspiralPNFlux_3PNCoeff(eta);
+    const REAL8 FTa4 = XLALSimInspiralPNFlux_4PNCoeff(eta);
+    const REAL8 FTa5 = XLALSimInspiralPNFlux_5PNCoeff(eta);
+    const REAL8 FTl6 = XLALSimInspiralPNFlux_6PNLogCoeff(eta);
+    const REAL8 FTa6 = XLALSimInspiralPNFlux_6PNCoeff(eta);
+    const REAL8 FTa7 = XLALSimInspiralPNFlux_7PNCoeff(eta);
+
+    /* energy coefficients */
+    const REAL8 dETaN = 2. * XLALSimInspiralPNEnergy_0PNCoeff(eta);
+    const REAL8 dETa1 = 2. * XLALSimInspiralPNEnergy_2PNCoeff(eta);
+    const REAL8 dETa2 = 3. * XLALSimInspiralPNEnergy_4PNCoeff(eta);
+    const REAL8 dETa3 = 4. * XLALSimInspiralPNEnergy_6PNCoeff(eta);
+
+    /* extrinsic parameters */
+    amp0 = -4. * m1 * m2 / r * LAL_MRSUN_SI * LAL_MTSUN_SI * sqrt(LAL_PI/12.L);
+    shft = -LAL_TWOPI * (tC.gpsSeconds + 1e-9 * tC.gpsNanoSeconds);
+
+
+    // Create a (2l+1)=5-dimensional array of Complex16FrequencySeries to hold the modes in the COROTATING frame. (This will be converted in place to the FD by a rotation operator)
+    COMPLEX16FrequencySeries * hTildeArray[5];
+    REAL8FrequencySeries * betaSeries, *alphaSeries, *zetaSeries;
+    f_max = CeilPow2(fISCO);
+    n = 2*(f_max / deltaF + 1);
+    XLALGPSAdd(&tC, -1 / deltaF);  /* coalesce at t=0 */
+       for (m=-2; m<=2; m++) {
+          COMPLEX16FrequencySeries *htilde;
+          if (!htilde_out) XLAL_ERROR(XLAL_EFAULT);
+          if (*htilde_out) XLAL_ERROR(XLAL_EFAULT);
+
+          /* allocate htilde */
+          htilde = XLALCreateCOMPLEX16FrequencySeries("htilde: FD waveform", &tC, 0.0, deltaF, &lalStrainUnit, n);
+          if (!htilde) XLAL_ERROR(XLAL_EFUNC);
+          memset(htilde->data->data, 0, n * sizeof(COMPLEX16));
+          XLALUnitDivide(&htilde->sampleUnits, &htilde->sampleUnits, &lalSecondUnit);
+
+          hTildeArray[m+2] = htilde;
+    }
+    alphaSeries = XLALCreateCOMPLEX16FrequencySeries("alpha(f)", &tC, 0.0, deltaF, &lalStrainUnit, n);
+    betaSeries = XLALCreateCOMPLEX16FrequencySeries("beta(f)", &tC, 0.0, deltaF, &lalStrainUnit, n);
+    zetaSeries = XLALCreateCOMPLEX16FrequencySeries("zeta(f)", &tC, 0.0, deltaF, &lalStrainUnit, n);
+    memset(alphaSeries->data->data, 0, n * sizeof(COMPLEX16));
+    memset(betaSeries->data->data, 0, n * sizeof(COMPLEX16));
+    memset(zetaSeries->data->data, 0, n * sizeof(COMPLEX16));
+    
+
+
+    // Loop over the frequency bins
+    iStart = (size_t) ceil(fStart / deltaF);
+    iISCO = (size_t) (fISCO / deltaF);
+    iISCO = (iISCO < n) ? iISCO : n;  /* overflow protection; should we warn? */
+    data = htilde->data->data;
+    int nMid = n/2;
+    for (i = iStart; i < iISCO; i++) {
+      const REAL8 f = i * deltaF;
+      const REAL8 v = cbrt(piM*f);
+      const REAL8 v2 = v * v;
+      const REAL8 v3 = v * v2;
+      const REAL8 v4 = v * v3;
+      const REAL8 v5 = v * v4;
+      const REAL8 v6 = v * v5;
+      const REAL8 v7 = v * v6;
+      const REAL8 v8 = v * v7;
+      const REAL8 v9 = v * v8;
+      const REAL8 v10 = v * v9;
+      REAL8 phasing = 0.;
+      REAL8 dEnergy = 0.;
+      REAL8 flux = 0.;
+      REAL8 amp;
+
+      switch (phaseO)
+        {
+        case -1:
+        case 7:
+          phasing += pfa7 * v7;
+        case 6:
+          phasing += (pfa6 + pfl6 * log(4.*v) ) * v6;
+        case 5:
+          phasing += (pfa5 + pfl5 * log(v/v0)) * v5;
+        case 4:
+          phasing += pfa4 * v4;
+        case 3:
+          phasing += pfa3 * v3;
+        case 2:
+          phasing += pfa2 * v2;
+        case 0:
+          phasing += 1.;
+          break;
+        default:
+          XLALDestroyCOMPLEX16FrequencySeries(htilde);
+          XLAL_ERROR(XLAL_ETYPE);
+        }
+      switch (amplitudeO)
+        {
+        case -1:
+        case 7:
+          flux += FTa7 * v7;
+        case 6:
+          flux += (FTa6 + FTl6*log(16.*v2)) * v6;
+          dEnergy += dETa3 * v6;
+        case 5:
+          flux += FTa5 * v5;
+        case 4:
+          flux += FTa4 * v4;
+          dEnergy += dETa2 * v4;
+        case 3:
+          flux += FTa3 * v3;
+        case 2:
+          flux += FTa2 * v2;
+          dEnergy += dETa1 * v2;
+        case 0:
+          flux += 1.;
+          dEnergy += 1.;
+          break;
+        default:
+          XLALDestroyCOMPLEX16FrequencySeries(htilde);
+          XLAL_ERROR(XLAL_ETYPE);
+        }
+      phasing *= pfaN / v5;
+      flux *= FTaN * v10;
+      dEnergy *= dETaN * v;
+      
+      
+
+      // Note the factor of 2 b/c phic is orbital phase
+      phasing += shft * f - 2.*phic;
+      phasing += 2.*zeta;
+      amp = amp0 * sqrt(-dEnergy/flux) * v;
+
+      // Be VERY VERY CAREFUL here, to make sure I am populating everything correctly
+      hTildeArray[4].data.data[nMid+i-1] = ((COMPLEX16)amp)*(cos(phasing - LAL_PI_4) - sin(phasing - LAL_PI_4) * 1.0j);  //m =-2 in corotating frame
+      hTildeArray[0].data.data[nMin-i+1] = conj(((COMPLEX16)amp)*(cos(phasing - LAL_PI_4) - sin(phasing - LAL_PI_4) * 1.0j); // m=2 in corotating frame
+
+      alphaSeries.data.data[nMid+i-1] = XLALSimInspiralSF2Alpha(v, coeffs) - alpha_ref;
+      alphaSeries.data.data[nMid-i+1] = XLALSimInspiralSF2Alpha(v, coeffs) - alpha_ref;
+      betaSeries.data.data[nMid+i-1] = XLALSimInspiralSF2Beta(v, coeffs);
+      betaSeries.data.data[nMid-i+1] = XLALSimInspiralSF2Beta(v, coeffs);
+      zetaSeries.data.data[nMid+i-1] = XLALSimInspiralSF2Zeta(v, coeffs) - zeta_ref;
+      zetaSeries.data.data[nMid-i+1] = XLALSimInspiralSF2Zeta(v, coeffs) - zeta_ref;
+
+    }
+        // add the waveforms to an hlm object, after the loop to populate the arrays is finished
+       for (m=-2; m<=2; m++{
+           hlm  = XLALSphHarmFrequencySeriesAddMode(hlm, hTildeArray[m+2], l, m);
+         }
+              // Perform the rotation operation. Using a black box
+              XLALSimInspiralPrecessionRotateModesFD(hlm, alpha, beta, gam);
+  return hlm;
+}
