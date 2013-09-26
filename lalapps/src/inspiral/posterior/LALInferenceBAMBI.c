@@ -265,9 +265,12 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
         Ntrain=50;
 
     REAL8 tmin,tmax,tmid;
-    LALInferenceGetMinMaxPrior(runState->priorArgs, "time", (void *)&tmin, (void *)&tmax);
-    tmid=(tmax+tmin)/2.0;
-    LALInferenceAddVariable(runState->priorArgs,"trigtime",&tmid,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
+    if (LALInferenceCheckVariable(runState->priorArgs,"time"))
+    {
+        LALInferenceGetMinMaxPrior(runState->priorArgs, "time", (void *)&tmin, (void *)&tmax);
+        tmid=(tmax+tmin)/2.0;
+        LALInferenceAddVariable(runState->priorArgs,"trigtime",&tmid,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
+    }
 
     runStateGlobal = runState;
 
@@ -291,6 +294,12 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
     }
 
     int mmodal = 0;
+    int maxModes = 1;
+    ppt=LALInferenceGetProcParamVal(runState->commandLine,"--multimodal");
+    if(ppt){
+        mmodal = 1;
+        maxModes = atoi(ppt->value);
+    }
     int ceff = 0;
     int nlive = Nlive;
     double efr = eff;
@@ -300,7 +309,6 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
     int nClsPar = fmin(2,ND);
     int updInt = Ntrain;
     double Ztol = -1.e90;
-    int maxModes = 1;
     int pWrap[ndims];
     item=runState->currentParams->head;
     int k = -1;
@@ -545,6 +553,8 @@ void initializeMN(LALInferenceRunState *runState)
                (--Ntrain N)                     Number of training points to use for NN (default=Nlive).\n\
                (--eff e)                        Target efficiency (0.1)\n\
                (--tol tol)                      Tolerance on evidence calculation (0.5)\n\
+               (--multimodal maxModes)          Enables multimodal sampling with specified maximum number of modes\n\
+                                                  (default is turned off with 1 mode)\
                (--progress)                     Produce progress information.\n\
                (--noresume)                     Do not resume on previous run.\n\
                (--BAMBI)                        Use BAMBI instead of just MultiNest\n\
@@ -566,7 +576,7 @@ void initializeMN(LALInferenceRunState *runState)
                                                 Default prior is currently the S6 prior.\n\
                (--S6Prior)                      Use prior from S6 analysis.\n\
                (--skyLocPrior)                  Use prior from sky localisation project.\n\
-               (--AnalyticPrior)                   Use prior for analytic likelihood tests.\n\
+               (--AnalyticPrior)                Use prior for analytic likelihood tests.\n\
                \n\
                ---------------------------------------------------------------------------------------------------\n\
                --- Output ----------------------------------------------------------------------------------------\n\
