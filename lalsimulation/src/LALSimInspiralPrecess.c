@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2012 Chris Pankow, Evan Ochsner
+ *  Copyright (C) 2012 Chris Pankow, Evan Ochsner, R. O'Shaughnessy
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -68,6 +68,57 @@ int XLALSimInspiralPrecessionRotateModes(
 	XLALFree( h_xx );
 	return XLAL_SUCCESS;
 }
+
+/**
+ * Takes in the h_lm(f) spherical harmonic decomposed modes and rotates the modes
+ * by Euler angles alpha(f), beta(f), and gamma(f) using the Wigner D matrices. 
+ * The user is assumed to know what they are doing (i.e., that the SPA applies!)
+ *
+ * e.g.
+ *
+ * \f$\tilde{h}_{l,m}(t) = D^l_{m',m} h_{l,m'}(t)\f$
+ */
+int XLALSimInspiralPrecessionRotateFDModes(
+                SphHarmFrequencySeries* h_lm, /**< spherical harmonic decomposed modes, modified in place */
+                REAL8FrequencySeries* alpha, /**< alpha Euler angle time series */
+                REAL8FrequencySeries* beta, /**< beta Euler angle time series */
+                REAL8FrequencySeries* gam /**< gamma Euler angle time series */
+){
+
+	unsigned int i;
+	int l, lmax, m, mp;
+	lmax = XLALSphHarmFrequencySeriesGetMaxL( h_lm );
+	// Temporary holding variables
+	complex double *x_lm = XLALCalloc( 2*lmax+1, sizeof(complex double) );
+	COMPLEX16FrequencySeries **h_xx = XLALCalloc( 2*lmax+1, sizeof(COMPLEX16FrequencySeries) );
+
+	for(i=0; i<alpha->data->length; i++){
+		for(l=2; l<=lmax; l++){
+			for(m=0; m<2*l+1; m++){
+				h_xx[m] = XLALSphHarmFrequencySeriesGetMode(h_lm, l, m-l);
+				if( !h_xx[m] ){
+					x_lm[m] = 0;
+				} else {
+					x_lm[m] = h_xx[m]->data->data[i];
+					h_xx[m]->data->data[i] = 0;
+				}
+			}
+
+			for(m=0; m<2*l+1; m++){
+				for(mp=0; mp<2*l+1; mp++){
+					if( !h_xx[m] ) continue;
+					h_xx[m]->data->data[i] += 
+						x_lm[mp] * XLALWignerDMatrix( l, mp-l, m-l, alpha->data->data[i], beta->data->data[i], gam->data->data[i] );
+				}
+			}
+		}
+	}
+
+	XLALFree( x_lm );
+	XLALFree( h_xx );
+	return XLAL_SUCCESS;
+}
+
 
 /**
  * Takes in the l=2, abs(m)=2 decomposed modes as a strain time series and

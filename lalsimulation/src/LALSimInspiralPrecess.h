@@ -45,6 +45,12 @@ int XLALSimInspiralPrecessionRotateModes(
 				REAL8TimeSeries* beta,
 				REAL8TimeSeries* gam
 );
+int XLALSimInspiralPrecessionRotateFDModes(
+                SphHarmFrequencySeries* h_lm, /**< spherical harmonic decomposed modes, modified in place */
+                REAL8FrequencySeries* alpha, /**< alpha Euler angle time series */
+                REAL8FrequencySeries* beta, /**< beta Euler angle time series */
+                REAL8FrequencySeries* gam /**< gamma Euler angle time series */
+                                           );
 
 int XLALSimInspiralConstantPrecessionConeWaveformModes(
 				SphHarmTimeSeries** h_lm_tmp,
