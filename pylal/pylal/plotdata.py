@@ -294,9 +294,11 @@ def plotfrequencyseries(series, outfile, **kwargs):
                         x2 = numpy.arange(series2.data.length) * series2.deltaF\
                             + series2.f0 
                     plot.ax.plot(x2, series2.data.data, color=c, **kwargs2)
-                    plot.ax.fill_between(x2, series.data.data,\
-                                         series2.data.data, alpha=0.1,\
-                                         color=c)
+                    # sanity check for malformed inputs
+                    if series.data.data.shape == series2.data.data.shape:
+                        plot.ax.fill_between(x2, series.data.data,\
+                                                 series2.data.data, alpha=0.1,\
+                                                 color=c)
 
     # finalize
     plot.finalize(loc=loc, alpha=alpha)
