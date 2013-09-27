@@ -1571,6 +1571,9 @@ def build_omega_spectrogram(trigs, start, end, time_step, spectype='snr'):
     if len(f) > 0 and (spectrogram is None or spectrogram.length == 0):
         func = getattr(lal, "CreateREAL8VectorSequence")                                                                                     
         spectrogram = func(int(numseg), int(len(f))) 
+        # fill with zeros on spectrogram creation  
+        for j in range(int(numseg)):
+            spectrogram.data[j,:] = numpy.zeros(len(f)).astype(float)
 
     # append spectrum to spectrogram
     if len(S) > 0:
@@ -4816,9 +4819,12 @@ def process_squeezing(tab, cp, cpsec, verbose=False, doplots=True,\
             # compute squeezing parameters for this step
             mediandata = []
             for iParam in range(len(serieslist)):
-                tParam = (numpy.arange(serieslist[iParam][i].data.length) * serieslist[iParam][i].deltaT +
-                          float(serieslist[iParam][i].epoch))
-                mediandata.append(numpy.median(serieslist[iParam][i].data.data[(tParam>=seg[0]) & (tParam<seg[1])]))
+                if i < len(serieslist[iParam]):
+                    tParam = (numpy.arange(serieslist[iParam][i].data.length) * serieslist[iParam][i].deltaT +
+                              float(serieslist[iParam][i].epoch))
+                    mediandata.append(numpy.median(serieslist[iParam][i].data.data[(tParam>=seg[0]) & (tParam<seg[1])]))
+                else:
+                    mediandata.append(numpy.nan)
 
             # loop over sources
             for k,s in enumerate(sources):

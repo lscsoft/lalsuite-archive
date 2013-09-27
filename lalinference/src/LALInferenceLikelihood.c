@@ -1947,6 +1947,16 @@ static double integrate_interpolated_log(double h, double *log_ys, size_t n) {
   return log_integral - log(2.0);
 }
 
+static void reverse_array(double *xs, INT4 n) {
+  INT4 i;
+
+  for (i = 0; i < n - i - 1; i++) {
+    double temp = xs[i];
+    xs[i] = xs[n-1-i];
+    xs[n-1-i] = temp;
+  }
+}
+
 REAL8 LALInferenceMarginalisedTimeLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData * data, 
                               LALInferenceTemplateFunction templt)
 /***************************************************************/
@@ -2054,7 +2064,10 @@ REAL8 LALInferenceMarginalisedTimeLogLikelihood(LALInferenceVariables *currentPa
   /* Setup times to integrate over */
   UINT4 freq_length = dataPtr->freqData->data->length;
   UINT4 time_length = 2*(freq_length-1);
-  REAL8 approx_tc = XLALGPSGetREAL8(&(dataPtr->freqData->epoch)) + time_length*deltaT - 2.0;
+
+  /* Desired tc == final sample in the buffer. */
+  REAL8 desired_tc = XLALGPSGetREAL8(&(dataPtr->freqData->epoch)) + (time_length-1)*deltaT;
+
   COMPLEX16Vector * dh_S_tilde = XLALCreateCOMPLEX16Vector(freq_length);
   COMPLEX16Vector * dh_S_tilde_im = NULL;
   REAL8Vector * dh_S = XLALCreateREAL8Vector(time_length);
@@ -2081,7 +2094,7 @@ REAL8 LALInferenceMarginalisedTimeLogLikelihood(LALInferenceVariables *currentPa
   }
 
   /* Calculate gmst at upper bound of prior for antenna pattern calculation */
-  XLALGPSSetREAL8(&GPSlal, approx_tc);
+  XLALGPSSetREAL8(&GPSlal, desired_tc);
   gmst=XLALGreenwichMeanSiderealTime(&GPSlal);
 
   intrinsicParams = LALInferenceGetInstrinsicParams(currentParams);
@@ -2112,7 +2125,7 @@ REAL8 LALInferenceMarginalisedTimeLogLikelihood(LALInferenceVariables *currentPa
 
     if (different) { /* template needs to be re-computed: */
       LALInferenceCopyVariables(&intrinsicParams, dataPtr->modelParams);
-      LALInferenceAddVariable(dataPtr->modelParams, "time", &approx_tc, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+      LALInferenceAddVariable(dataPtr->modelParams, "time", &desired_tc, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
       if (margphi) {
 	double pi2 = M_PI / 2.0;
 	LALInferenceAddVariable(dataPtr->modelParams, "phase", &pi2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
@@ -2132,7 +2145,7 @@ REAL8 LALInferenceMarginalisedTimeLogLikelihood(LALInferenceVariables *currentPa
     /* Time between arrival at geocenter and arrival at detector */
     timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
                                              ra, dec, &GPSlal);
-    timeshift = approx_tc - *(REAL8 *)LALInferenceGetVariable(dataPtr->modelParams, "time") + timedelay;
+    timeshift = desired_tc - *(REAL8 *)LALInferenceGetVariable(dataPtr->modelParams, "time") + timedelay;
     twopitimeshift = 2.0*M_PI*timeshift;
 
     /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
@@ -2273,9 +2286,7 @@ REAL8 LALInferenceMarginalisedTimeLogLikelihood(LALInferenceVariables *currentPa
     dataPtr = dataPtr->next;
   }
 
-  /* LALSuite only performs complex->real reverse-FFTs. We reverse the
-   *  array to effectively perform a complex->real forward-FFT.  This
-   *  is the reason for the "-i*deltaT" above.  */
+  /* LALSuite only performs complex->real reverse-FFTs. */
   dh_S_tilde->data[0].imag_FIXME = 0.;
   XLALREAL8ReverseFFT(dh_S, dh_S_tilde, data->freqToTimeFFTPlan);
 
@@ -2284,16 +2295,30 @@ REAL8 LALInferenceMarginalisedTimeLogLikelihood(LALInferenceVariables *currentPa
     XLALREAL8ReverseFFT(dh_S_im, dh_S_tilde_im, data->freqToTimeFFTPlan);
   }
 
+  /* The time series comes out reversed, so we have to reverse it
+     ourselves. */
+  reverse_array(dh_S->data, dh_S->length);
+  if (margphi) {
+    reverse_array(dh_S_im->data, dh_S_im->length);
+  }
+
+  REAL8 time_low = *(REAL8 *)LALInferenceGetVariable(currentParams, "time_prior_low");
+  REAL8 time_high = *(REAL8 *)LALInferenceGetVariable(currentParams, "time_prior_high");
+  REAL8 t0 = XLALGPSGetREAL8(&(data->freqData->epoch));
+  UINT4 istart = (UINT4)round((time_low - t0)/deltaT);
+  UINT4 iend = (UINT4)round((time_high - t0)/deltaT);
+  UINT4 n = iend - istart;
+
   if (margphi) {
     /* We've got the real and imaginary parts of the FFT in the two
        arrays.  Now combine them into one Bessel function. */
-    for (i = 0; i < time_length; i++) {
+    for (i = istart; i < iend; i++) {
       double x = sqrt(dh_S->data[i]*dh_S->data[i] + dh_S_im->data[i]*dh_S_im->data[i]);
       dh_S->data[i] = log(gsl_sf_bessel_I0_scaled(x)) + fabs(x);
     }
   }     
 
-  loglike += integrate_interpolated_log(deltaT, dh_S->data, time_length) - log(time_length*deltaT);
+  loglike += integrate_interpolated_log(deltaT, dh_S->data + istart, n) - log(n*deltaT);
 
   XLALDestroyCOMPLEX16Vector(dh_S_tilde);
   XLALDestroyREAL8Vector(dh_S);
