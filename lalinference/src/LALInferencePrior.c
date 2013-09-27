@@ -1323,6 +1323,7 @@ LALInferenceVariableItem *item=params->head;
                             }else{
                                   if( MTotMax > component_max && MTotMax < 2.0*component_max - component_min ) {
                                      norm = -log( (pow(MTotMax-2.0*component_min,2)/4.0) - (pow(MTotMax-component_max-component_min,2)/2.0) );
+
                         }else if(MTotMax >= component_max - component_min){
                           norm = -log( pow(MTotMax-2.0*component_min,2)/4.0 );
                         }else if(2.0*MTotMax < component_max){

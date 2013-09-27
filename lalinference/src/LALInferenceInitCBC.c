@@ -477,6 +477,22 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
     if(strstr(ppt->value,"SMOOTH")) bookends=LALINFERENCE_SMOOTH;
   }
 
+  /* Read time parameter from injection file */
+  if(injTable)
+  {
+    endtime=XLALGPSGetREAL8(&(injTable->geocent_end_time));
+    fprintf(stdout,"Using end time from injection file: %lf\n", endtime);
+  }
+  /* Over-ride end time if specified */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
+  if(ppt && !analytic){
+    endtime=atof(ppt->value);
+    printf("Read end time %f\n",endtime);
+  }
+  /* Adjust prior accordingly */
+  if (!analytic) {
+      timeMin=endtime-dt; timeMax=endtime+dt;
+  }
   
   /************ Prior Related Settings START ******************************/
   

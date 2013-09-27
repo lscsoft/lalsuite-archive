@@ -2653,14 +2653,12 @@ LALInferenceVariables *LALInferenceReadVariablesBinary(FILE *stream)
 	gsl_matrix *matrix=gsl_matrix_alloc(size1,size2);
 	gsl_matrix_fread(stream,matrix);
 	LALInferenceAddVariable(vars,name,&matrix,type,vary);
-
 	break;
       }
       case LALINFERENCE_REAL8Vector_t:
       {
 	REAL8Vector *v=REAL8Vector_fread(stream);
 	LALInferenceAddVariable(vars,name,&v,type,vary);
-
 	break;
       }
       default:
@@ -2691,4 +2689,3 @@ int LALInferenceReadVariablesArrayBinary(FILE *file, LALInferenceVariables **var
   }
   return N;
 }
-
