@@ -51,6 +51,8 @@ def parse_commandline():
 
     parser.add_option("-p", "--paramsFile", help="Seismon params file.",
                       default ="/home/mcoughlin/Seismon/seismon/input/seismon_params_traveltimes.txt")
+    parser.add_option("-t", "--publicFileType", help="Type of public data.",
+                      default ="hour")
     parser.add_option("-v", "--verbose", action="store_true", default=False,
                       help="Run verbosely. (Default: False)")
 
@@ -78,6 +80,7 @@ def params_struct(opts):
     """
 
     params = pylal.pylal_seismon_utils.readParamsFromFile(opts.paramsFile)
+    params["publicFileType"] = opts.publicFileType
 
     return params
 
@@ -187,16 +190,21 @@ def rsync_files(path):
     else:
         print 'Copying failed'
 
-def download_publiceventfiles(path):
+def download_publiceventfiles(params):
     """@download events from usgs website
 
-    @param path
-        output path for events file
+    @param params
+        seismon params structure
     """
 
-    file = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
-    #file = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.geojson"
-    #file = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_month.geojson"
+    path = params["publicdataLocation"]
+
+    if params["publicFileType"] == "hour":
+        file = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
+    elif params["publicFileType"] == "month":
+        file = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_month.geojson"
+    else:
+        error("Public file type not supported")
 
     x = subprocess.Popen(["wget",file,"-O","%s/events.txt"%path])
     x.wait()
@@ -262,7 +270,7 @@ def public_events(params):
 
     numEventsAdded = 0
 
-    download_publiceventfiles(params["publicdataLocation"])
+    download_publiceventfiles(params)
     events_text = open(os.path.join(params["publicdataLocation"],"events.txt"),"r").read()
     events = json.loads(events_text)
 
@@ -325,10 +333,10 @@ def run_traveltimes():
     params = params_struct(opts)
 
     print "Running public events..."
-    #numEventsAddedPrivate = private_events(params)
+    numEventsAddedPrivate = private_events(params)
     print "Running private events..."
-    #numEventsAddedPublic = public_events(params)
-    numEventsAddedDatabase = database_events(params)
+    numEventsAddedPublic = public_events(params)
+    #numEventsAddedDatabase = database_events(params)
 
 
 # =============================================================================

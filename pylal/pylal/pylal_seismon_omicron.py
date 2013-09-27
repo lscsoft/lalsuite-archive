@@ -87,13 +87,11 @@ def plot_triggers(params,channel,segment):
         plot.save(pngFile)
         plot.close()
 
-def generate_triggers(params,channels):
-    """@generate omicron triggers for given channels.
+def generate_triggers(params):
+    """@generate omicron triggers.
 
     @param params
         seismon params dictionary
-    @param channels
-        list of seismon channel structures
     """
 
     omicronDirectory = os.path.join(params["path"],"omicron")
@@ -108,7 +106,7 @@ def generate_triggers(params,channels):
         gpsEnd = max(gpsEnd,frame.segment[1])
     f.close()
 
-    paramsFile = omicron_params(params,channels)
+    paramsFile = omicron_params(params)
     f = open(os.path.join(omicronDirectory,"params.txt"),"w")
     f.write("%s"%(paramsFile))
     f.close()
@@ -124,20 +122,18 @@ def generate_triggers(params,channels):
     p = Popen(omicronCommand,shell=True,stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
     output = p.stdout.read()
 
-def omicron_params(params,channels):
-    """@generate omicron params file for given channels.
+def omicron_params(params):
+    """@generate omicron params file.
 
     @param params
         seismon params dictionary
-    @param channels
-        list of seismon channel structures
     """
 
     omicronDirectory = os.path.join(params["path"],"omicron")
 
     channelList = ""
     samplerateList = ""
-    for channel in channels:
+    for channel in params["channels"]:
         channelList = "%s %s"%(channelList,channel.station)
         samplerateList = "%s %d"%(samplerateList,channel.samplef)
 

@@ -953,19 +953,6 @@ def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
 
     return attributeDic
 
-def GPSToUTCDateTime(gps):
-    """@calculate UTC time from gps
-
-    @param gps
-        gps time
-    """
-
-    utc = XLALGPSToUTC(LIGOTimeGPS(int(gps)))
-    tt = time.strftime("%Y-%jT%H:%M:%S", utc)
-    ttUTC = UTCDateTime(tt)
-
-    return ttUTC    
-
 def eventDiff(attributeDics, magnitudeDiff, latitudeDiff, longitudeDiff):
     """@calculate difference between two events
 

@@ -4,6 +4,7 @@ import os, glob, optparse, shutil, warnings, pickle, math, copy, pickle, matplot
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal, scipy.stats
+from lxml import etree
 import pylal.pylal_seismon_NLNM, pylal.pylal_seismon_html
 import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_utils
 
@@ -54,6 +55,8 @@ def save_data(params,channel,gpsStart,gpsEnd,data):
     for i in xrange(len(freq)):
         f.write("%e %e\n"%(freq[i],data["dataASD"][i]))
     f.close()
+
+    freq = np.array(data["dataFFT"].frequencies)
 
     fftFile = os.path.join(fftDirectory,"%d-%d.txt"%(gpsStart,gpsEnd))
     f = open(fftFile,"wb")
@@ -205,6 +208,49 @@ def apply_calibration(params,channel,data):
 
     return data
 
+def retrieve_timeseries(params,channel,segment):
+    """@retrieves timeseries for given channel and segment.
+
+    @param params
+        seismon params dictionary
+    @param channel
+        seismon channel structure
+    @param segment
+        [start,end] gps
+    """
+
+    gpsStart = segment[0]
+    gpsEnd = segment[1]
+
+    # set the times
+    duration = np.ceil(gpsEnd-gpsStart)
+
+    dataFull = []
+    if params["ifo"] == "IRIS":
+        import obspy.iris
+        client = obspy.iris.Client()
+        tstart = pylal.pylal_seismon_utils.GPSToUTCDateTime(gpsStart)
+        tend = pylal.pylal_seismon_utils.GPSToUTCDateTime(gpsEnd)
+
+        channelSplit = channel.station.split(":")
+        st = client.getWaveform(channelSplit[0], channelSplit[1], channelSplit[2], channelSplit[3],\
+            tstart, tend)
+
+        data = np.array(st[0].data)
+        data = data.astype(float)
+
+        dataFull = gwpy.timeseries.TimeSeries(data, times=None, epoch=gpsStart, channel=channel.station, unit=None,sample_rate=channel.samplef, name=channel.station)
+
+    else:
+        # make timeseries
+        try:
+            dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel.station, epoch=gpsStart, duration=duration)
+        except:
+            print "data read from frames failed... continuing\n"
+            return
+
+    return dataFull
+
 def spectra(params, channel, segment):
     """@calculates spectral data for given channel and segment.
 
@@ -225,11 +271,9 @@ def spectra(params, channel, segment):
     duration = np.ceil(gpsEnd-gpsStart)
 
     # make timeseries
-    try:
-        dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel.station, epoch=gpsStart, duration=duration)
-    except:
-        print "data read from frames failed... continuing\n"
-        return
+    dataFull = retrieve_timeseries(params, channel, segment)
+    if dataFull == []:
+        return 
 
     dataFull /= channel.calibration
     indexes = np.where(np.isnan(dataFull.data))[0]
@@ -704,13 +748,11 @@ def analysis(params, channel):
         f.write(htmlPage)
         f.close()
 
-def channel_summary(params, channels, segment):
+def channel_summary(params, segment):
     """@summary of channels of spectral data.
 
     @param params
         seismon params dictionary
-    @param channel
-        seismon channel structure
     @param segment
         [start,end] gps
     """
@@ -719,7 +761,7 @@ def channel_summary(params, channels, segment):
     gpsEnd = segment[1]
 
     data = {}
-    for channel in channels:
+    for channel in params["channels"]:
 
         psdDirectory = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore + "/" + str(params["fftDuration"])
         file = os.path.join(psdDirectory,"%d-%d.txt"%(gpsStart,gpsEnd))

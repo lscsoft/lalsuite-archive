@@ -121,10 +121,7 @@ def params_struct(opts):
         params["channel"] = opts.channel
     else:
         params["channel"] = [x for x in opts.channel.split(",")]
-    if opts.referenceChannel == None:
-        params["referenceChannel"] = params["channel"][0]
-    else:
-        params["referenceChannel"] = opts.referenceChannel
+    params["referenceChannel"] = opts.referenceChannel
 
     if opts.gpsSpectraStart == None:
         params["gpsSpectraStart"] = opts.gpsStart - 24*60*60
@@ -184,9 +181,7 @@ elif params["doEarthquakesAnalysis"]:
     channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list.txt"
 else:
     channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list.txt"
-channels = pylal.pylal_seismon_utils.channel_struct(params,channelList)
-
-params["channels"] = channels
+params = pylal.pylal_seismon_utils.channel_struct(params,channelList)
 
 params = pylal.pylal_seismon_utils.segment_struct(params)
 params = pylal.pylal_seismon_utils.frame_struct(params)
@@ -207,18 +202,18 @@ if params["doEarthquakes"]:
 
 if params["doOmicron"]:
     print "Generating Omicron triggers"
-    pylal.pylal_seismon_omicron.generate_triggers(params,channels)
+    pylal.pylal_seismon_omicron.generate_triggers(params)
 
 if params["doBokeh"]:
 
     import pylal.pylal_seismon_bokeh
 
-    for channel in channels:
+    for channel in params["channels"]:
         print "Generating bokeh page for %s"%channel.station
         pylal.pylal_seismon_bokeh.channel_page(params,channel)
     sys.exit()
 
-for channel in channels:
+for channel in params["channels"]:
     print "Generating PSD for %s"%channel.station
     for segment in params["segments"]:
         print "Segment: %d-%d"%(segment[0],segment[1])
@@ -238,7 +233,7 @@ for channel in channels:
 for segment in params["segments"]:
     print "Running summary for Segment: %d-%d"%(segment[0],segment[1])
     params = pylal.pylal_seismon_utils.setPath(params,segment)
-    #pylal.pylal_seismon_psd.channel_summary(params, channels, segment)
+    pylal.pylal_seismon_psd.channel_summary(params, segment)
 print "Summaries complete!"
 
 if params["doEarthquakesAnalysis"]:
@@ -247,7 +242,7 @@ if params["doEarthquakesAnalysis"]:
     pylal.pylal_seismon_eqmon.run_earthquakes_analysis(params,[params["gpsStart"],params["gpsEnd"]])
 
 if params["doHTML"]:
-    htmlPage = pylal.pylal_seismon_html.summary_page(params,channels)
+    htmlPage = pylal.pylal_seismon_html.summary_page(params)
     if htmlPage is not None:
         f = open(os.path.join(params["path"],"summary.html"),"w")
         f.write(htmlPage)
