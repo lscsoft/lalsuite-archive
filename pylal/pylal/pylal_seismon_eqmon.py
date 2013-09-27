@@ -157,8 +157,10 @@ def run_earthquakes_analysis(params,segment):
         pylal.pylal_seismon_eqmon_plot.prediction(data,plotName)
         plotName = os.path.join(plotsDirectory,"residual.png")
         pylal.pylal_seismon_eqmon_plot.residual(data,plotName)
-        plotName = os.path.join(plotsDirectory,"earthquakes.png")
-        pylal.pylal_seismon_eqmon_plot.earthquakes(data,plotName)
+        plotName = os.path.join(plotsDirectory,"earthquakes_timeseries.png")
+        pylal.pylal_seismon_eqmon_plot.earthquakes_timeseries(params,data,plotName)
+        plotName = os.path.join(plotsDirectory,"earthquakes_psd.png")
+        pylal.pylal_seismon_eqmon_plot.earthquakes_psd(params,data,plotName)
 
         if params["doEarthquakesAnalysis"]:
             plotName = os.path.join(plotsDirectory,"worldmap_magnitudes.png")
@@ -251,7 +253,7 @@ def loadEarthquakes(params,attributeDics):
 
         traveltimes = attributeDic["traveltimes"][ifo]
 
-        tt.append(max(traveltimes["Rtimes"]))
+        tt.append(max(traveltimes["RthreePointFivetimes"]))
         amp.append(traveltimes["Rfamp"][0])
 
     tt = np.array(tt)
@@ -638,33 +640,34 @@ def jsonread(event):
     return attributeDic
 
 def databaseread(event):
-    """@read database event.
-
-    @param event
-        database event
-    """
 
     attributeDic = {}
     eventSplit = event.split(",")
 
-    date = eventSplit[10]
+    date = eventSplit[0]
 
     year = int(date[0:4])
-    month = int(date[6:7])
-    day = int(date[9:10])
-    hour = int(date[12:13])
-    minute = int(date[15:16])
-    second = int(date[18:19])
+    month = int(date[5:7])
+    day = int(date[8:10])
+    hour = int(date[11:13])
+    minute = int(date[14:16])
+    second = int(date[17:19])
 
     timeString = "%d-%02d-%02d %02d:%02d:%02d"%(year,month,day,hour,minute,second)
     dt = datetime.strptime(timeString, "%Y-%m-%d %H:%M:%S")
 
-    attributeDic["Longitude"] = float(eventSplit[0])
+    eventID = int(eventSplit[11])
+    eventName = ''.join(["db",str(eventID)])
+
+    attributeDic["Longitude"] = float(eventSplit[2])
     attributeDic["Latitude"] = float(eventSplit[1])
-    attributeDic["Depth"] = float(eventSplit[0])
-    attributeDic["eventID"] = eventSplit[9]
-    attributeDic["eventName"] = eventSplit[9]
-    attributeDic["Magnitude"] = float(eventSplit[2])
+    attributeDic["Depth"] = float(eventSplit[3])
+    attributeDic["eventID"] = float(eventID)
+    attributeDic["eventName"] = eventName
+    try:
+        attributeDic["Magnitude"] = float(eventSplit[4])
+    except:
+        attributeDic["Magnitude"] = 0
     tm = time.struct_time(dt.timetuple())
     attributeDic['GPS'] = float(XLALUTCToGPS(tm))
     attributeDic['UTC'] = float(dt.strftime("%s"))
@@ -766,7 +769,10 @@ def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
     lons = []
     Ptimes = []
     Stimes = []
-    Rtimes = []
+    #Rtimes = []
+    Rtwotimes = []
+    RthreePointFivetimes = []
+    Rfivetimes = []
     Rfamps = []
 
     velocityFile = '/home/mcoughlin/Seismon/velocity_maps/GR025_1_GDM52.pix'
@@ -795,6 +801,11 @@ def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
 
         tt = getTravelTimes(delta=degree, depth=attributeDic["Depth"])
         tt.append({'phase_name': 'R', 'dT/dD': 0, 'take-off angle': 0, 'time': time, 'd2T/dD2': 0, 'dT/dh': 0})
+        #tt.append({'phase_name': 'R', 'dT/dD': 0, 'take-off angle': 0, 'time': distance/3500, 'd2T/dD2': 0, 'dT/dh': 0})
+        tt.append({'phase_name': 'Rtwo', 'dT/dD': 0, 'take-off angle': 0, 'time': distance/2000, 'd2T/dD2': 0, 'dT/dh': 0})
+        tt.append({'phase_name': 'RthreePointFive', 'dT/dD': 0, 'take-off angle': 0, 'time': distance/3500, 'd2T/dD2': 0, 'dT/dh': 0})
+        tt.append({'phase_name': 'Rfive', 'dT/dD': 0, 'take-off angle': 0, 'time': distance/5000, 'd2T/dD2': 0, 'dT/dh': 0})
+
         Ptime = -1
         Stime = -1
         Rtime = -1
@@ -803,12 +814,21 @@ def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
                 Ptime = attributeDic["GPS"]+phase["time"]
             if Stime == -1 and phase["phase_name"][0] == "S":
                 Stime = attributeDic["GPS"]+phase["time"]
-            if Rtime == -1 and phase["phase_name"][0] == "R":
-                Rtime = attributeDic["GPS"]+phase["time"]
-
+            #if Rtime == -1 and phase["phase_name"][0] == "R":
+            #    Rtime = attributeDic["GPS"]+phase["time"]
+            if phase["phase_name"] == "Rtwo":
+                Rtwotime = attributeDic["GPS"]+phase["time"]
+            if phase["phase_name"] == "RthreePointFive":
+                RthreePointFivetime = attributeDic["GPS"]+phase["time"]
+            if phase["phase_name"] == "Rfive":
+                Rfivetime = attributeDic["GPS"]+phase["time"]
         Ptimes.append(Ptime)
         Stimes.append(Stime)
-        Rtimes.append(Rtime)
+        #Rtimes.append(Rtime)
+        Rtwotimes.append(Rtwotime)
+        RthreePointFivetimes.append(RthreePointFivetime)
+        Rfivetimes.append(Rfivetime)
+
 
     #if ifo == "LHO":
     #    print time - distance / 3500
@@ -820,7 +840,10 @@ def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
     traveltimes["Degrees"] = degrees
     traveltimes["Ptimes"] = Ptimes
     traveltimes["Stimes"] = Stimes
-    traveltimes["Rtimes"] = Rtimes
+    #traveltimes["Rtimes"] = Rtimes
+    traveltimes["Rtwotimes"] = Rtwotimes
+    traveltimes["RthreePointFivetimes"] = RthreePointFivetimes
+    traveltimes["Rfivetimes"] = Rfivetimes
     traveltimes["Rfamp"] = [Rfamp] 
     traveltimes["Pamp"] = [Pamp]
     traveltimes["Samp"] = [Samp]

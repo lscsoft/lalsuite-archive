@@ -131,12 +131,12 @@ def summary_page(params,channels):
 
             traveltimes = attributeDic["traveltimes"][ifo]
 
-            gpsStart = max(traveltimes["Rtimes"]) - 200
-            gpsEnd = max(traveltimes["Rtimes"]) + 200
+            gpsStart = max(traveltimes["RthreePointFivetimes"]) - 200
+            gpsEnd = max(traveltimes["RthreePointFivetimes"]) + 200
 
             check_intersect = (gpsEnd >= params["gpsStart"]) and (params["gpsEnd"] >= gpsStart)
             if check_intersect:
-                table.append('<tr><td><a href="%s/%s">%s</td><td>%.1f</td><td>%.1f</td><td>%.1f</td><td>%.1f</td><td>%.1f</td><td>%.2e</td></tr>'%("http://earthquake.usgs.gov/earthquakes/eventpage",attributeDic["eventName"],attributeDic["eventName"],attributeDic["Magnitude"],attributeDic["Latitude"],attributeDic["Longitude"],attributeDic["Depth"],max(traveltimes["Rtimes"]),traveltimes["Rfamp"][0]))
+                table.append('<tr><td><a href="%s/%s">%s</td><td>%.1f</td><td>%.1f</td><td>%.1f</td><td>%.1f</td><td>%.1f</td><td>%.2e</td></tr>'%("http://earthquake.usgs.gov/earthquakes/eventpage",attributeDic["eventName"],attributeDic["eventName"],attributeDic["Magnitude"],attributeDic["Latitude"],attributeDic["Longitude"],attributeDic["Depth"],max(traveltimes["RthreePointFivetimes"]),traveltimes["Rfamp"][0]))
 
         table.append("</tbody></table><br><br>")
         contents.append("".join(table))

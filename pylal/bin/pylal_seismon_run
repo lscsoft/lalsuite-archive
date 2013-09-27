@@ -84,7 +84,8 @@ def parse_commandline():
     parser.add_option("--doHTML",  action="store_true", default=False)
     parser.add_option("--doSegmentsDatabase",  action="store_true", default=False)
     parser.add_option("--doSegmentsTextFile",  action="store_true", default=False)
-    
+    parser.add_option("--doSkipPSD",  action="store_true", default=False)    
+
     parser.add_option("--doBokeh",  action="store_true", default=False)
 
     parser.add_option("-v", "--verbose", action="store_true", default=False,
@@ -151,6 +152,7 @@ def params_struct(opts):
     params["doHTML"] = opts.doHTML
     params["doSegmentsDatabase"] = opts.doSegmentsDatabase
     params["doSegmentsTextFile"] = opts.doSegmentsTextFile
+    params["doSkipPSD"] = opts.doSkipPSD
 
     params["doBokeh"] = opts.doBokeh
 
@@ -221,7 +223,8 @@ for channel in channels:
     for segment in params["segments"]:
         print "Segment: %d-%d"%(segment[0],segment[1])
         params = pylal.pylal_seismon_utils.setPath(params,segment)
-        pylal.pylal_seismon_psd.spectra(params,channel,segment)
+        if not params["doSkipPSD"]:
+            pylal.pylal_seismon_psd.spectra(params,channel,segment)
     if params["doAnalysis"]:
         print "Analyzing PSD significance for %s"%channel.station
         pylal.pylal_seismon_psd.analysis(params,channel)
@@ -235,10 +238,11 @@ for channel in channels:
 for segment in params["segments"]:
     print "Running summary for Segment: %d-%d"%(segment[0],segment[1])
     params = pylal.pylal_seismon_utils.setPath(params,segment)
-    pylal.pylal_seismon_psd.channel_summary(params, channels, segment)
+    #pylal.pylal_seismon_psd.channel_summary(params, channels, segment)
 print "Summaries complete!"
 
 if params["doEarthquakesAnalysis"]:
+    print "Running earthquake analysis"
     params = pylal.pylal_seismon_utils.setPath(params,[params["gpsStart"],params["gpsEnd"]])
     pylal.pylal_seismon_eqmon.run_earthquakes_analysis(params,[params["gpsStart"],params["gpsEnd"]])
 
