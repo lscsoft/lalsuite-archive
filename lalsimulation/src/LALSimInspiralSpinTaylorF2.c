@@ -704,47 +704,57 @@ int XLALSimInspiralSpinTaylorF2(
 
 // BEWARE: These frequency series are centered with zero frequency at the CENTER
 SphHarmFrequencySeries*  XLALSimInspiralSpinTaylorF2Modes(
-                                                          REAL8 f_min,
-                                                          REAL8 f_max,
-                                                          REAL8 f_ref,
-	REAL8 deltaF,                   /**< sampling frequency (Hz) */
-	REAL8 phic,                     /**< coalescence GW phase */
-	REAL8 m1_SI,                    /**< mass of companion 1 (kg) */
-	REAL8 m2_SI,                    /**< mass of companion 2 (kg) */
+	REAL8 phiRef,                   /**< reference orbital phase (rad) */
+	REAL8 deltaF,                   /**< sampling interval (Hz) */
+	REAL8 m1_SI,                       /**< mass of companion 1 (kg) */
+	REAL8 m2_SI,                       /**< mass of companion 2 (kg) */
+	REAL8 S1x,                      /**< x-component of the dimensionless spin of object 1*/
+	REAL8 S1y,                      /**< y-component of the dimensionless spin of object 1 */
+	REAL8 S1z,                      /**< z-component of the dimensio
+	nless spin of object 1 */
+	REAL8 lnhatx,                   /**< x-component of the initial angular momentum direction */
+	REAL8 lnhaty,                   /**< y-component of the initial angular momentum direction */
+	REAL8 lnhatz,                   /**< z-component of the initial angular momentum direction */
+	REAL8 f_min,                    /**< starting GW frequency (Hz) */
+	REAL8 f_ref,
+	REAL8 f_max,                    /**< ending GW frequency (Hz) */
 	REAL8 r,                        /**< distance of source (m) */
-	REAL8 s1x,                      /**< initial value of S1x  */
-	REAL8 s1y,                      /**< initial value of S1y */
-	REAL8 s1z,                      /**< initial value of S1z */
-	REAL8 lnhatx,                   /**< initial value of LNhatx */
-	REAL8 lnhaty,                   /**< initial value of LNhaty */
-	REAL8 lnhatz,                   /**< initial value of LNhatz */
-	int phaseO,                     /**< twice PN phase order */
-	int amplitudeO                  /**< twice PN amplitude order */
-                                                          ){
+	int amplitudeO,                 /**< twice post-Newtonian amplitude order */
+	int phaseO,                     /**< twice post-Newtonian order */
+	int lmax                 /**< generate all modes w
+ith l <= lmax */
+	){
 
+    /* Stupid constants, these should be built into the phasing */
+    const REAL8 lambda = -1987./3080.;
+    const REAL8 theta = -11831./9240.;
 
-  SphHarmFrequencySeries* hlm;
-  LALSimInspiralSF2Orientation * orientation;
+    SphHarmFrequencySeries* hlm;
+    LALSimInspiralSF2Orientation * orientation;
     const REAL8 m1 = m1_SI / LAL_MSUN_SI;
     const REAL8 m2 = m2_SI / LAL_MSUN_SI;
-    const REAL8 m = m1 + m2;
-    const REAL8 m_sec = m * LAL_MTSUN_SI;  /* total mass in seconds */
+    const REAL8 mt = m1 + m2;
+    const REAL8 eta = m1*m2/mt/mt;
+    const REAL8 m_sec = mt * LAL_MTSUN_SI;  /* total mass in seconds */
     const REAL8 piM = LAL_PI * m_sec;
-    const REAL8 v0 = cbrt(piM * fStart);
+    const REAL8 v0 = cbrt(piM * f_min);
+    const REAL8 fISCO = 6.*sqrt(6.)/piM;
+    REAL8 shft, amp0;
+    size_t i, n, iStart, iISCO;
+    LIGOTimeGPS tC = {0, 0};
+
     int m;
 
   // Convert orientation using Andy's tool
-  m1 = m1/LAL_MSUN_SI;
-  m2 = m2/LAL_MSUN_SI;
-  vref = 0.2; // Fixme: (pi M f)^(1/3)
-  XLALSimInspiralSF2CalculateOrientation(orientation, m1, m2, vref, lnhatx, lnhaty, lnhatz,s1x,s1y,s1z);
+  const REAL8 v_ref = cbrt(piM * f_ref); // Fixme: (pi M f)^(1/3)
+  XLALSimInspiralSF2CalculateOrientation(orientation, m1, m2, v_ref, lnhatx, lnhaty, lnhatz, S1x,S1y,S1z);
 
   // Get coefficients of frequency expansion
     LALSimInspiralSF2Coeffs coeffs;
-    XLALSimInspiralSF2CalculateCoeffs(&coeffs, m1, m2, orientation.chi, orientation.kappa);
+    XLALSimInspiralSF2CalculateCoeffs(&coeffs, m1, m2, orientation->chi, orientation->kappa);
 
 
-        const REAL8 pn_beta = coeffs.pn_beta;
+    const REAL8 pn_beta = coeffs.pn_beta;
     const REAL8 pn_sigma = coeffs.pn_sigma;
     const REAL8 pn_gamma = coeffs.pn_gamma;
 
@@ -781,13 +791,13 @@ SphHarmFrequencySeries*  XLALSimInspiralSpinTaylorF2Modes(
 
     /* extrinsic parameters */
     amp0 = -4. * m1 * m2 / r * LAL_MRSUN_SI * LAL_MTSUN_SI * sqrt(LAL_PI/12.L);
-    shft = -LAL_TWOPI * (tC.gpsSeconds + 1e-9 * tC.gpsNanoSeconds);
+    shft = -LAL_TWOPI * (tC.gpsSeconds + 1e-9 * tC.gpsNanoSeconds); 
 
 
     // Create a (2l+1)=5-dimensional array of Complex16FrequencySeries to hold the modes in the COROTATING frame. (This will be converted in place to the FD by a rotation operator)
     COMPLEX16FrequencySeries * hTildeArray[5];
     REAL8FrequencySeries * betaSeries, *alphaSeries, *zetaSeries;
-    f_max = CeilPow2(fISCO);
+    if (f_max < f_min) { f_max = CeilPow2(fISCO); }
     n = 2*(f_max / deltaF + 1);
     XLALGPSAdd(&tC, -1 / deltaF);  /* coalesce at t=0 */
        for (m=-2; m<=2; m++) {

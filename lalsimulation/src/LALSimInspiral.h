@@ -1918,22 +1918,25 @@ int XLALSimInspiralSpinTaylorF2(
 	);
 
 SphHarmFrequencySeries*  XLALSimInspiralSpinTaylorF2Modes(
-                                                          REAL8 f_min,
-                                                          REAL8 f_max,
-                                                          REAL8 f_ref,
-	REAL8 deltaF,                   /**< sampling frequency (Hz) */
-	REAL8 phic,                     /**< coalescence GW phase */
-	REAL8 m1_SI,                    /**< mass of companion 1 (kg) */
-	REAL8 m2_SI,                    /**< mass of companion 2 (kg) */
+	REAL8 phiRef,                   /**< reference orbital phase (rad) */
+	REAL8 deltaF,                   /**< sampling interval (Hz) */
+	REAL8 m1_SI,                       /**< mass of companion 1 (kg) */
+	REAL8 m2_SI,                       /**< mass of companion 2 (kg) */
+	REAL8 S1x,                      /**< x-component of the dimensionless spin of object 1*/
+	REAL8 S1y,                      /**< y-component of the dimensionless spin of object 1 */
+	REAL8 S1z,                      /**< z-component of the dimensio
+	nless spin of object 1 */
+	REAL8 lnhatx,                   /**< x-component of the initial angular momentum direction */
+	REAL8 lnhaty,                   /**< y-component of the initial angular momentum direction */
+	REAL8 lnhatz,                   /**< z-component of the initial angular momentum direction */
+	REAL8 f_min,                    /**< starting GW frequency (Hz) */
+	REAL8 f_ref,
+	REAL8 f_max,                    /**< ending GW frequency (Hz) */
 	REAL8 r,                        /**< distance of source (m) */
-	REAL8 s1x,                      /**< initial value of S1x  */
-	REAL8 s1y,                      /**< initial value of S1y */
-	REAL8 s1z,                      /**< initial value of S1z */
-	REAL8 lnhatx,                   /**< initial value of LNhatx */
-	REAL8 lnhaty,                   /**< initial value of LNhaty */
-	REAL8 lnhatz,                   /**< initial value of LNhatz */
-	int phaseO,                     /**< twice PN phase order */
-	int amplitudeO                  /**< twice PN amplitude order */
+	int amplitudeO,                 /**< twice post-Newtonian amplitude order */
+	int phaseO,                     /**< twice post-Newtonian order */
+	int lmax                 /**< generate all modes w
+ith l <= lmax */
 	);
 
 

@@ -2787,7 +2787,7 @@ SphHarmFrequencySeries *XLALSimInspiralChooseFDModes(
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
-    int lmax,                                   /**< generate all modes with l <= lmax */
+    int UNUSED lmax,                                   /**< generate all modes with l <= lmax */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
                                                      ) {
 
@@ -2804,7 +2804,7 @@ SphHarmFrequencySeries *XLALSimInspiralChooseFDModes(
     if( nonGRparams )
     {
         XLALPrintError("XLAL Error - %s: Passed in non-NULL pointer to LALSimInspiralTestGRParam for an approximant that does not use LALSimInspiralTestGRParam\n", __func__);
-        XLAL_ERROR(XLAL_EINVAL);
+        XLAL_ERROR_NULL(XLAL_EINVAL);
     }
 
     /* General sanity check the input parameters - only give warnings! */
@@ -2820,8 +2820,6 @@ SphHarmFrequencySeries *XLALSimInspiralChooseFDModes(
         XLALPrintWarning("XLAL Warning - %s: Large value of total mass m1+m2 = %e (kg) = %e (Msun) requested...Signal not likely to be in band of ground-based detectors.\n", __func__, m1+m2, (m1+m2)/LAL_MSUN_SI);
     if( S1x*S1x + S1y*S1y + S1z*S1z > 1.000001 )
         XLALPrintWarning("XLAL Warning - %s: S1 = (%e,%e,%e) with norm > 1 requested...Are you sure you want to violate the Kerr bound?\n", __func__, S1x, S1y, S1z);
-    if( S2x*S2x + S2y*S2y + S2z*S2z > 1.000001 )
-        XLALPrintWarning("XLAL Warning - %s: S2 = (%e,%e,%e) with norm > 1 requested...Are you sure you want to violate the Kerr bound?\n", __func__, S2x, S2y, S2z);
     if( f_min < 1. )
         XLALPrintWarning("XLAL Warning - %s: Small value of fmin = %e requested...Check for errors, this could create a very long waveform.\n", __func__, f_min);
     if( f_min > 40.000001 )
@@ -2839,12 +2837,10 @@ SphHarmFrequencySeries *XLALSimInspiralChooseFDModes(
             /* Sanity check unused fields of waveFlags */
             if( !XLALSimInspiralFrameAxisIsDefault(
                     XLALSimInspiralGetFrameAxis(waveFlags) ) )
-                ABORT_NONDEFAULT_FRAME_AXIS(waveFlags);
+                ABORT_NONDEFAULT_FRAME_AXIS_NULL(waveFlags);
             if( !XLALSimInspiralModesChoiceIsDefault(
                     XLALSimInspiralGetModesChoice(waveFlags) ) )
-                ABORT_NONDEFAULT_MODES_CHOICE(waveFlags);
-            if( S2z != 0. ) // This is a single-spin model
-                ABORT_NONZERO_SPINS(waveFlags);
+                ABORT_NONDEFAULT_MODES_CHOICE_NULL(waveFlags);
             LNhatx = sin(i);
             LNhaty = 0.;
             LNhatz = cos(i);
@@ -2853,7 +2849,7 @@ SphHarmFrequencySeries *XLALSimInspiralChooseFDModes(
             amplitudeO = 0; /* amplitudeO <= MAX_PRECESSING_AMP_PN_ORDER ? 
                     amplitudeO : MAX_PRECESSING_AMP_PN_ORDER */;
             /* Call the waveform driver routine */
-            hlm = XLALSimInspiralSpinTaylorF2Modes(f_min, f_max, f_ref, deltaF, phiRef, m1_SI, m2_SI, f, s1x,s1y, s1z,LNhatx,LNhaty,LNhatz, phaseO, amplitudeO);
+            hlm = XLALSimInspiralSpinTaylorF2Modes(phiRef, deltaF, m1, m2, S1x,S1y,S1z, LNhatx,LNhaty,LNhatz, f_min,f_ref,f_max, r, amplitudeO, phaseO, 2); /* Last argument is l_max, just set it to 2 for now. */
             break;
     default:
       
