@@ -11,6 +11,7 @@ This program checks for earthquakes.
 
 import os, time, glob, matplotlib, math
 import numpy as np
+import scipy.optimize
 from mpl_toolkits.basemap import Basemap
 matplotlib.use("AGG")
 matplotlib.rcParams.update({'font.size': 18})
@@ -273,6 +274,9 @@ def residual(data,plotName):
         indexes = np.isinf(amp)
         amp[indexes] = -250
         channel_amp = amp
+
+        if len(channel_ttStart) == 0:
+            continue
 
         channel_amp_interp = np.interp(prediction_ttStart,channel_ttStart,channel_amp)
         residual = channel_amp_interp - prediction_amp
@@ -678,6 +682,122 @@ def worldmap_plot(params,attributeDics,type,plotName):
     plt.savefig(plotName,dpi=200)
     plt.close('all')
 
+def worldmap_station_plot(params,attributeDics,data,type,plotName):
+    """@worldmap plot
+
+    @param params
+        seismon params dictionary
+    @param attributeDics
+        list of eqmon structures
+    @param data
+        channel data dictionary
+    @param type
+        type of worldmap plot
+    @param plotName
+        name of plot
+    """
+
+    ifo = pylal.pylal_seismon_utils.getIfo(params)
+
+    plt.figure(figsize=(10,5))
+    plt.axes([0,0,1,1])
+
+    # lon_0 is central longitude of robinson projection.
+    # resolution = 'c' means use crude resolution coastlines.
+    m = Basemap(projection='robin',lon_0=0,resolution='c')
+    #set a background colour
+    m.drawmapboundary(fill_color='#85A6D9')
+
+    # draw coastlines, country boundaries, fill continents.
+    m.fillcontinents(color='white',lake_color='#85A6D9')
+    m.drawcoastlines(color='#6D5F47', linewidth=.4)
+    m.drawcountries(color='#6D5F47', linewidth=.4)
+
+    # draw lat/lon grid lines every 30 degrees.
+    m.drawmeridians(np.arange(-180, 180, 30), color='#bbbbbb')
+    m.drawparallels(np.arange(-90, 90, 30), color='#bbbbbb')
+
+    for attributeDic in attributeDics:
+        x,y = m(attributeDic["Longitude"], attributeDic["Latitude"])
+        m.scatter(
+                x,
+                y,
+                s=20, #size
+                marker='x', #symbol
+                alpha=0.5, #transparency
+                zorder = 3, #plotting order
+        )
+        plt.text(
+                x,
+                y+5,
+                attributeDic["eventName"],
+                color = 'black',
+                size='small',
+                horizontalalignment='center',
+                verticalalignment='center',
+                zorder = 3,
+        )
+
+
+    xs = []
+    ys = []
+    zs = []
+    for channel in params["channels"]:
+        channel_data = data["channels"][channel.station_underscore]
+
+        if len(channel_data["timeseries"]["data"]) == 0:
+            continue
+
+        x,y = m(channel_data["info"].longitude,channel_data["info"].latitude)
+        if type == "amplitude":
+            z = channel_data["timeseries"]["data"][0] * 1e6
+            xs.append(x)
+            ys.append(y)
+            zs.append(z)
+        elif type == "time":
+            z = channel_data["timeseries"]["ttMax"][0]
+            xs.append(x)
+            ys.append(y)
+            zs.append(z)
+
+    if xs == []:
+        return
+
+    zs = np.array(zs)
+    if type == "time":
+        minTime = attributeDics[0]["GPS"]
+        zs = zs - minTime
+        colorbar_label = "dt [s] [%d]"%minTime
+        vmin = np.min(zs)
+        vmax = np.max(zs)
+    elif type == "amplitude":
+        #vmin = np.mean(zs) - np.std(zs)
+        #vmax = np.mean(zs) + np.std(zs)
+        colorbar_label = "Velocity [$\mu$m/s]"
+        vmin = np.min(zs)
+        vmax = np.max(zs)
+
+    im = m.scatter(
+                xs,
+                ys,
+                s=10, #size
+                marker='o', #symbol
+                alpha=0.5, #transparency
+                zorder = 3, #plotting order
+                c=zs
+    )
+
+    #try:
+    cbar = plt.colorbar(im)
+    cbar.set_label(colorbar_label)
+    cbar.set_clim(vmin=vmin,vmax=vmax)
+    
+    #except:
+    #   pass
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
+
 def worldmap_wavefronts(params,attributeDics,currentGPS,plotName):
     """@worldmap wavefronts plot
 
@@ -809,4 +929,95 @@ def worldmap_wavefronts(params,attributeDics,currentGPS,plotName):
     plt.savefig(plotName,dpi=200)
     #savefig(plotNameCounter,dpi=200)
     plt.close('all')
+
+def station_plot(params,attributeDics,data,type,plotName):
+    """@worldmap plot
+
+    @param params
+        seismon params dictionary
+    @param attributeDics
+        list of eqmon structures
+    @param data
+        channel data dictionary
+    @param type
+        type of worldmap plot
+    @param plotName
+        name of plot
+    """
+
+    ifo = pylal.pylal_seismon_utils.getIfo(params)
+
+    try:
+        from obspy.taup.taup import getTravelTimes
+        from obspy.core.util.geodetics import gps2DistAzimuth
+    except:
+        print "Enable ObsPy if updated earthquake estimates desired...\n"
+        return attributeDic
+
+    plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+
+    colors = cm.rainbow(np.linspace(0, 1, len(data["channels"])))
+    for attributeDic in attributeDics:
+        xs = []
+        ys = []
+
+        count=0
+        for channel in params["channels"]:
+            channel_data = data["channels"][channel.station_underscore]
+
+            if len(channel_data["timeseries"]["data"]) == 0:
+                continue
+
+            distance,fwd,back = gps2DistAzimuth(attributeDic["Latitude"],attributeDic["Longitude"],channel_data["info"].latitude,channel_data["info"].longitude)
+
+            xs.append(distance)
+            if type == "amplitude":
+                y = channel_data["timeseries"]["data"][0] * 1e6
+                ys.append(y)
+            elif type == "time":
+                y = channel_data["timeseries"]["ttMax"][0] - attributeDic["GPS"]
+                ys.append(y)
+
+        if xs == []:
+            continue
+
+        label = attributeDic["eventName"]
+
+        xs, ys = zip(*sorted(zip(xs, ys)))
+
+        color = colors[count]
+        plot.add_scatter(xs,ys,marker='*', zorder=1000, label=label, color=color)
+        count=count+1
+
+        #fitfunc = lambda p, x: p[0]*x + p[1] # Target function
+        #errfunc = lambda p, x, y: fitfunc(p, x) - y # Distance to the target function
+        #p0 = [1,1] # Initial guess for the parameters
+        #p1, success = scipy.optimize.leastsq(errfunc, p0[:], args=(xs,ys))
+         
+        z = np.polyfit(xs, ys, 1)
+        p = np.poly1d(z)
+        xp = np.linspace(np.min(xs),np.max(xs),100)
+
+        label = "%s fit"%attributeDic["eventName"]
+        plot.add_line(xp,p(xp),label=label)
+
+    if count == 0:
+        return
+
+    if type == "time":
+        ylabel = "dt [s]"
+    elif type == "amplitude":
+        ylabel = "Velocity [$\mu$m/s]"
+        plot.axes.set_yscale("log")
+        plot.ylim = [10,200]
+
+    plot.xlabel = 'Distance [m]'
+    plot.ylabel = ylabel
+    plot.add_legend(loc=1,prop={'size':10})
+    plot.axes.set_xscale("log")
+
+
+    plot.save(plotName,dpi=200)
+    plot.close()
+
 

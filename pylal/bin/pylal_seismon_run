@@ -74,6 +74,8 @@ def parse_commandline():
     parser.add_option("--fmin", help="fmin.", default=1.0/64.0,type=float)
     parser.add_option("--fmax", help="fmax.", default=64.0,type=float)
 
+    parser.add_option("--eventfilesType", help="Event files type.", default="public")
+
     parser.add_option("--doPlots",  action="store_true", default=False)
     parser.add_option("--doEarthquakes",  action="store_true", default=False)
     parser.add_option("--doEarthquakesAnalysis",  action="store_true", default=False)
@@ -86,6 +88,7 @@ def parse_commandline():
     parser.add_option("--doSegmentsTextFile",  action="store_true", default=False)
     parser.add_option("--doSkipPSD",  action="store_true", default=False)    
 
+    parser.add_option("--doKML",  action="store_true", default=False)
     parser.add_option("--doBokeh",  action="store_true", default=False)
 
     parser.add_option("-v", "--verbose", action="store_true", default=False,
@@ -137,6 +140,8 @@ def params_struct(opts):
     params["segmentFlag"] = opts.segmentFlag
     params["segmentsTextFile"] = opts.segmentsTextFile
 
+    params["eventfilesType"] = opts.eventfilesType
+
     params["fmin"] = opts.fmin
     params["fmax"] = opts.fmax
     params["doPlots"] = opts.doPlots
@@ -151,6 +156,7 @@ def params_struct(opts):
     params["doSegmentsTextFile"] = opts.doSegmentsTextFile
     params["doSkipPSD"] = opts.doSkipPSD
 
+    params["doKML"] = opts.doKML
     params["doBokeh"] = opts.doBokeh
 
     params["date"] = XLALGPSToUTC(LIGOTimeGPS(params["gpsStart"]))
@@ -233,7 +239,7 @@ for channel in params["channels"]:
 for segment in params["segments"]:
     print "Running summary for Segment: %d-%d"%(segment[0],segment[1])
     params = pylal.pylal_seismon_utils.setPath(params,segment)
-    pylal.pylal_seismon_psd.channel_summary(params, segment)
+    #pylal.pylal_seismon_psd.channel_summary(params, segment)
 print "Summaries complete!"
 
 if params["doEarthquakesAnalysis"]:

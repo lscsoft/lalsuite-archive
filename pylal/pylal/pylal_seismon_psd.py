@@ -64,9 +64,11 @@ def save_data(params,channel,gpsStart,gpsEnd,data):
         f.write("%e %e %e\n"%(freq[i],data["dataFFT"].data[i].real,data["dataFFT"].data[i].imag))
     f.close()
 
+    tt = np.array(data["dataFull"].times)
     timeseriesFile = os.path.join(timeseriesDirectory,"%d-%d.txt"%(gpsStart,gpsEnd))
     f = open(timeseriesFile,"wb")
-    f.write("%e %e %e\n"%(np.min(data["dataFull"].data),np.median(data["dataFull"].data),np.max(data["dataFull"].data)))
+    f.write("%.10f %e\n"%(tt[np.argmin(data["dataFull"].data)],np.min(data["dataFull"].data)))
+    f.write("%.10f %e\n"%(tt[np.argmax(data["dataFull"].data)],np.max(data["dataFull"].data)))
     f.close()
 
 def calculate_spectra(params,channel,dataFull):
@@ -124,25 +126,20 @@ def calculate_spectra(params,channel,dataFull):
     # calculate spectrum
     NFFT = params["fftDuration"]
     #window = None
-    #dataASD = dataFull.asd(NFFT,NFFT,'welch')
-    dataPSD = dataFull.psd(NFFT,NFFT,'welch')
-    dataASD = dataPSD**(1/2.)
-    #dataFFT = np.fft.fft(dataFull.data)
-    dataFFT = np.fft.fft(dataFull.data,params["fftDuration"]*channel.samplef)
-    #freqFFT = np.fft.fftfreq(dataFull.data.shape[-1],d=1.0/channel.samplef)
-    freqFFT = np.fft.fftfreq(int(params["fftDuration"]*channel.samplef),d=1.0/channel.samplef)
+    dataASD = dataFull.asd(NFFT,NFFT,'welch')
     freq = np.array(dataASD.frequencies)
-
     indexes = np.where((freq >= params["fmin"]) & (freq <= params["fmax"]))[0]
     dataASD = np.array(dataASD.data)
-
     freq = freq[indexes]
     dataASD = dataASD[indexes]
     dataASD = gwpy.spectrum.Spectrum(dataASD, f0=np.min(freq), df=(freq[1]-freq[0]))
 
-    indexes = np.where((freqFFT >= params["fmin"]) & (freqFFT <= params["fmax"]))[0]
-    freqFFT = freqFFT[indexes]
-    dataFFT = dataFFT[indexes]
+    dataFFT = dataFull.fft()
+    freqFFT = np.array(dataFFT.frequencies)
+    dataFFT = np.array(dataFFT)
+    dataFFTreal = np.interp(freq,freqFFT,dataFFT.real)
+    dataFFTimag = np.interp(freq,freqFFT,dataFFT.imag)
+    dataFFT = dataFFTreal + 1j*dataFFTimag
     dataFFT = gwpy.spectrum.Spectrum(dataFFT, f0=np.min(freqFFT), df=(freqFFT[1]-freqFFT[0]))
 
     # manually set units (units in CIS aren't correct)
@@ -233,8 +230,12 @@ def retrieve_timeseries(params,channel,segment):
         tend = pylal.pylal_seismon_utils.GPSToUTCDateTime(gpsEnd)
 
         channelSplit = channel.station.split(":")
-        st = client.getWaveform(channelSplit[0], channelSplit[1], channelSplit[2], channelSplit[3],\
-            tstart, tend)
+        try:
+            st = client.getWaveform(channelSplit[0], channelSplit[1], channelSplit[2], channelSplit[3],\
+                tstart, tend)
+        except:
+            print "data read from IRIS failed... continuing\n"
+            return dataFull
 
         data = np.array(st[0].data)
         data = data.astype(float)
@@ -247,7 +248,7 @@ def retrieve_timeseries(params,channel,segment):
             dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel.station, epoch=gpsStart, duration=duration)
         except:
             print "data read from frames failed... continuing\n"
-            return
+            return dataFull
 
     return dataFull
 
@@ -327,7 +328,11 @@ def spectra(params, channel, segment):
 
         for attributeDic in attributeDics:
 
-            traveltimes = attributeDic["traveltimes"][ifo]
+            if params["ifo"] == "IRIS":
+                attributeDic = pylal.pylal_seismon_eqmon.ifotraveltimes(attributeDic, "IRIS", channel.latitude, channel.longitude)
+                traveltimes = attributeDic["traveltimes"]["IRIS"]
+            else:
+                traveltimes = attributeDic["traveltimes"][ifo]
 
             Ptime = max(traveltimes["Ptimes"])
             Stime = max(traveltimes["Stimes"])

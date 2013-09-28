@@ -313,6 +313,52 @@ def html_bgcolor(snr,data):
 
     return snrSig, bgcolor
 
+def html_hexcolor(snr,data):
+    """@calculate html color
+
+    @param snr
+        snr to compute color for
+    @param data
+        array to compare snr to
+    """
+
+    data = np.append(data,snr)
+
+    # Number of colors in array
+    N = 256
+
+    colormap = []
+    for i in xrange(N):
+        r,g,b,a = matplotlib.pyplot.cm.jet(i)
+        r = int(round((r * 255),0))
+        g = int(round((g * 255),0))
+        b = int(round((b* 255),0))
+        colormap.append((r,g,b))
+
+    data = np.sort(data)
+    itemIndex = np.where(data==snr)
+
+    # Determine significance of snr (between 0 and 1)
+    snrSig = itemIndex[0][0] / float(len(data)+1)
+
+    # Determine color index of this significance
+    index = int(np.floor(N * snrSig))
+
+    # Return colors of this index
+    thisColor = colormap[index]
+
+    r = hex(thisColor[0]).split("x")
+    r = r[1].rjust(2,"0")
+    g = hex(thisColor[1]).split("x")
+    g = g[1].rjust(2,"0")
+    b = hex(thisColor[2]).split("x")
+    b = b[1].rjust(2,"0")
+
+    # Return rgb string containing these colors
+    hexcolor = '#ff%s%s%s'%(r,g,b)
+
+    return snrSig,hexcolor
+
 def segment_struct(params):
     """@create seismon segment structure
 
@@ -475,6 +521,20 @@ def channel_struct(params,channelList):
                        lineSplit = line.split("<")
                        lineSplit = lineSplit[1].split(">")
                        samplef = float(lineSplit[1])
+                       break
+               for line in responseLines:
+                   index = line.find("Lat")
+                   if not index == -1:
+                       lineSplit = line.split("<")
+                       lineSplit = lineSplit[1].split(">")
+                       latitude = float(lineSplit[1])
+                       break
+               for line in responseLines:
+                   index = line.find("Lon")
+                   if not index == -1:
+                       lineSplit = line.split("<")
+                       lineSplit = lineSplit[1].split(">")
+                       longitude = float(lineSplit[1])
                        break
 
            channel.append( structproxy_channel(station,station_underscore,samplef,calibration,latitude,longitude))
