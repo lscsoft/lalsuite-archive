@@ -74,6 +74,8 @@ def parse_commandline():
     parser.add_option("--fmin", help="fmin.", default=1.0/64.0,type=float)
     parser.add_option("--fmax", help="fmax.", default=64.0,type=float)
 
+    parser.add_option("--eventfilesType", help="Event files type.", default="public")
+
     parser.add_option("--doPlots",  action="store_true", default=False)
     parser.add_option("--doEarthquakes",  action="store_true", default=False)
     parser.add_option("--doEarthquakesAnalysis",  action="store_true", default=False)
@@ -84,7 +86,9 @@ def parse_commandline():
     parser.add_option("--doHTML",  action="store_true", default=False)
     parser.add_option("--doSegmentsDatabase",  action="store_true", default=False)
     parser.add_option("--doSegmentsTextFile",  action="store_true", default=False)
-    
+    parser.add_option("--doSkipPSD",  action="store_true", default=False)    
+
+    parser.add_option("--doKML",  action="store_true", default=False)
     parser.add_option("--doBokeh",  action="store_true", default=False)
 
     parser.add_option("-v", "--verbose", action="store_true", default=False,
@@ -120,10 +124,7 @@ def params_struct(opts):
         params["channel"] = opts.channel
     else:
         params["channel"] = [x for x in opts.channel.split(",")]
-    if opts.referenceChannel == None:
-        params["referenceChannel"] = params["channel"][0]
-    else:
-        params["referenceChannel"] = opts.referenceChannel
+    params["referenceChannel"] = opts.referenceChannel
 
     if opts.gpsSpectraStart == None:
         params["gpsSpectraStart"] = opts.gpsStart - 24*60*60
@@ -139,6 +140,8 @@ def params_struct(opts):
     params["segmentFlag"] = opts.segmentFlag
     params["segmentsTextFile"] = opts.segmentsTextFile
 
+    params["eventfilesType"] = opts.eventfilesType
+
     params["fmin"] = opts.fmin
     params["fmax"] = opts.fmax
     params["doPlots"] = opts.doPlots
@@ -151,7 +154,9 @@ def params_struct(opts):
     params["doHTML"] = opts.doHTML
     params["doSegmentsDatabase"] = opts.doSegmentsDatabase
     params["doSegmentsTextFile"] = opts.doSegmentsTextFile
+    params["doSkipPSD"] = opts.doSkipPSD
 
+    params["doKML"] = opts.doKML
     params["doBokeh"] = opts.doBokeh
 
     params["date"] = XLALGPSToUTC(LIGOTimeGPS(params["gpsStart"]))
@@ -182,9 +187,7 @@ elif params["doEarthquakesAnalysis"]:
     channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list.txt"
 else:
     channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list.txt"
-channels = pylal.pylal_seismon_utils.channel_struct(params,channelList)
-
-params["channels"] = channels
+params = pylal.pylal_seismon_utils.channel_struct(params,channelList)
 
 params = pylal.pylal_seismon_utils.segment_struct(params)
 params = pylal.pylal_seismon_utils.frame_struct(params)
@@ -205,23 +208,24 @@ if params["doEarthquakes"]:
 
 if params["doOmicron"]:
     print "Generating Omicron triggers"
-    pylal.pylal_seismon_omicron.generate_triggers(params,channels)
+    pylal.pylal_seismon_omicron.generate_triggers(params)
 
 if params["doBokeh"]:
 
     import pylal.pylal_seismon_bokeh
 
-    for channel in channels:
+    for channel in params["channels"]:
         print "Generating bokeh page for %s"%channel.station
         pylal.pylal_seismon_bokeh.channel_page(params,channel)
     sys.exit()
 
-for channel in channels:
+for channel in params["channels"]:
     print "Generating PSD for %s"%channel.station
     for segment in params["segments"]:
         print "Segment: %d-%d"%(segment[0],segment[1])
         params = pylal.pylal_seismon_utils.setPath(params,segment)
-        pylal.pylal_seismon_psd.spectra(params,channel,segment)
+        if not params["doSkipPSD"]:
+            pylal.pylal_seismon_psd.spectra(params,channel,segment)
     if params["doAnalysis"]:
         print "Analyzing PSD significance for %s"%channel.station
         pylal.pylal_seismon_psd.analysis(params,channel)
@@ -235,15 +239,16 @@ for channel in channels:
 for segment in params["segments"]:
     print "Running summary for Segment: %d-%d"%(segment[0],segment[1])
     params = pylal.pylal_seismon_utils.setPath(params,segment)
-    pylal.pylal_seismon_psd.channel_summary(params, channels, segment)
+    #pylal.pylal_seismon_psd.channel_summary(params, segment)
 print "Summaries complete!"
 
 if params["doEarthquakesAnalysis"]:
+    print "Running earthquake analysis"
     params = pylal.pylal_seismon_utils.setPath(params,[params["gpsStart"],params["gpsEnd"]])
     pylal.pylal_seismon_eqmon.run_earthquakes_analysis(params,[params["gpsStart"],params["gpsEnd"]])
 
 if params["doHTML"]:
-    htmlPage = pylal.pylal_seismon_html.summary_page(params,channels)
+    htmlPage = pylal.pylal_seismon_html.summary_page(params)
     if htmlPage is not None:
         f = open(os.path.join(params["path"],"summary.html"),"w")
         f.write(htmlPage)

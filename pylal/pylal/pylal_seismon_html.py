@@ -22,7 +22,7 @@ __version__ = "0.1"
 #
 # =============================================================================
 
-def summary_page(params,channels):
+def summary_page(params):
     """@html summary page.
 
     @param params
@@ -31,18 +31,7 @@ def summary_page(params,channels):
         lists of seismon channel structures
     """
 
-    if params["ifo"] == "H1":
-        ifo = "LHO"
-    elif params["ifo"] == "L1":
-        ifo = "LLO"
-    elif params["ifo"] == "G1":
-        ifo = "GEO"
-    elif params["ifo"] == "V1":
-        ifo = "VIRGO"
-    elif params["ifo"] == "C1":
-        ifo = "FortyMeter"
-    elif params["ifo"] == "XG":
-        ifo = "Homestake"
+    ifo = pylal.pylal_seismon_utils.getIfo(params)
 
     title = "Seismon Summary Page for %s (%d)"%(params["dateString"],params["gpsStart"])
 
@@ -78,9 +67,8 @@ def summary_page(params,channels):
     <tbody>
     """]
 
-    for i in xrange(len(channels)):
-
-        channel = channels[i]
+    count = 0
+    for channel in params["channels"]:
 
         textLocation = params["path"] + "/" + channel.station_underscore
 
@@ -101,7 +89,7 @@ def summary_page(params,channels):
             sig["bgcolor"] = lineSplit[4]
             sigDict.append(sig)
 
-        if i == 0:
+        if count == 0:
             table.append("""<tr><td>Frequency Band (Hz)</td>""")
             for sig in sigDict:
                 table.append("""<td>%.4f - %.4f</td>"""%(sig["flow"],sig["fhigh"]))
@@ -110,6 +98,8 @@ def summary_page(params,channels):
         for sig in sigDict:
             table.append("""<td style="background-color: %s">%.4f</td>"""%(sig["bgcolor"],sig["sig"]))
         table.append("""</tr>""")
+
+        count = count+1
 
     table.append("</tbody></table><br><br>")
 
@@ -131,12 +121,12 @@ def summary_page(params,channels):
 
             traveltimes = attributeDic["traveltimes"][ifo]
 
-            gpsStart = max(traveltimes["Rtimes"]) - 200
-            gpsEnd = max(traveltimes["Rtimes"]) + 200
+            gpsStart = max(traveltimes["RthreePointFivetimes"]) - 200
+            gpsEnd = max(traveltimes["RthreePointFivetimes"]) + 200
 
             check_intersect = (gpsEnd >= params["gpsStart"]) and (params["gpsEnd"] >= gpsStart)
             if check_intersect:
-                table.append('<tr><td><a href="%s/%s">%s</td><td>%.1f</td><td>%.1f</td><td>%.1f</td><td>%.1f</td><td>%.1f</td><td>%.2e</td></tr>'%("http://earthquake.usgs.gov/earthquakes/eventpage",attributeDic["eventName"],attributeDic["eventName"],attributeDic["Magnitude"],attributeDic["Latitude"],attributeDic["Longitude"],attributeDic["Depth"],max(traveltimes["Rtimes"]),traveltimes["Rfamp"][0]))
+                table.append('<tr><td><a href="%s/%s">%s</td><td>%.1f</td><td>%.1f</td><td>%.1f</td><td>%.1f</td><td>%.1f</td><td>%.2e</td></tr>'%("http://earthquake.usgs.gov/earthquakes/eventpage",attributeDic["eventName"],attributeDic["eventName"],attributeDic["Magnitude"],attributeDic["Latitude"],attributeDic["Longitude"],attributeDic["Depth"],max(traveltimes["RthreePointFivetimes"]),traveltimes["Rfamp"][0]))
 
         table.append("</tbody></table><br><br>")
         contents.append("".join(table))

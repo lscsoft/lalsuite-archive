@@ -11,10 +11,12 @@ This program checks for earthquakes.
 
 import os, time, glob, matplotlib, math
 import numpy as np
+import scipy.optimize
 from mpl_toolkits.basemap import Basemap
 matplotlib.use("AGG")
 matplotlib.rcParams.update({'font.size': 18})
 from matplotlib import pyplot as plt
+from matplotlib import cm
 
 import pylal.pylal_seismon_eqmon
 
@@ -48,7 +50,7 @@ def restimates(params,attributeDics,plotName):
         if "Restimate" not in attributeDic["traveltimes"][ifo]:
             continue
 
-        travel_time = attributeDic["traveltimes"][ifo]["Restimate"] - attributeDic["traveltimes"][ifo]["Rtimes"][-1]
+        travel_time = attributeDic["traveltimes"][ifo]["Restimate"] - attributeDic["traveltimes"][ifo]["RthreePointFivetimes"][-1]
 
         gps.append(travel_time)
         magnitudes.append(attributeDic["Magnitude"])
@@ -68,9 +70,11 @@ def restimates(params,attributeDics,plotName):
     plt.savefig(plotName,dpi=200)
     plt.close('all')
 
-def earthquakes(data,plotName):
-    """@earthquakes plot
+def earthquakes_timeseries(params,data,plotName):
+    """@earthquakes timeseries plot
 
+    @param params
+        seismon params dictionary
     @param data
         list of data structures
     @param plotName
@@ -91,6 +95,8 @@ def earthquakes(data,plotName):
     plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
     plot.add_scatter(earthquakes_tt,earthquakes_amp, marker='o', zorder=1000, color='b',label='predicted')
 
+    colors = cm.rainbow(np.linspace(0, 1, len(data["channels"])))
+    count=0
     for key in data["channels"].iterkeys():
         label = key.replace("_","\_")
 
@@ -102,16 +108,76 @@ def earthquakes(data,plotName):
         amp[indexes] = -250
         channel_amp = amp
 
-        plot.add_scatter(channel_ttStart,channel_amp,marker='*', zorder=1000, label=label)
+        color = colors[count]
+        plot.add_scatter(channel_ttStart,channel_amp,marker='*', zorder=1000, label=label,color=color)
+        count=count+1
 
     xlim = [plot.xlim[0],plot.xlim[1]]
     ylim = [plot.ylim[0],plot.ylim[1]]
     plot.add_line(xlim,[threshold,threshold],label='threshold')
 
-    plot.ylim = [-10,plot.ylim[1]]
+    plot.ylim = [-10,-3]
     #plot.epoch = epoch
     plot.ylabel = 'Velocity [log10(m/s)]'
     plot.add_legend(loc=1,prop={'size':10}) 
+
+    plot.xlim = [params["gpsStart"],params["gpsEnd"]]
+
+    plot.save(plotName,dpi=200)
+    plot.close()
+
+def earthquakes_psd(params,data,plotName):
+    """@earthquakes psd plot
+
+    @param params
+        seismon params dictionary
+    @param data
+        list of data structures
+    @param plotName
+        name of plot
+    """
+
+    if len(data["earthquakes"]["tt"]) == 0:
+        return
+
+    earthquakes_tt = data["earthquakes"]["tt"]
+    amp = np.log10(data["earthquakes"]["data"])
+    indexes = np.isinf(amp)
+    amp[indexes] = -250
+    earthquakes_amp = amp
+
+    threshold = -8
+
+    plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+    plot.add_scatter(earthquakes_tt,earthquakes_amp, marker='o', zorder=1000, color='b',label='predicted')
+
+    colors = cm.rainbow(np.linspace(0, 1, len(data["channels"])))
+    count=0
+    for key in data["channels"].iterkeys():
+        label = key.replace("_","\_")
+
+        channel_ttStart = data["channels"][key]["psd"]["ttStart"]
+        channel_ttEnd = data["channels"][key]["psd"]["ttEnd"]
+
+        amp = np.log10(data["channels"][key]["psd"]["data"])
+        indexes = np.isinf(amp)
+        amp[indexes] = -250
+        channel_amp = amp
+
+        color = colors[count]
+        plot.add_scatter(channel_ttStart,channel_amp,marker='*', zorder=1000, label=label,color=color)
+        count=count+1
+
+    xlim = [plot.xlim[0],plot.xlim[1]]
+    ylim = [plot.ylim[0],plot.ylim[1]]
+    plot.add_line(xlim,[threshold,threshold],label='threshold')
+
+    plot.ylim = [-10,-3]
+    #plot.epoch = epoch
+    plot.ylabel = 'Mean PSD 0.02-0.1 Hz'
+    plot.add_legend(loc=1,prop={'size':10})
+
+    plot.xlim = [params["gpsStart"],params["gpsEnd"]]
 
     plot.save(plotName,dpi=200)
     plot.close()
@@ -142,6 +208,8 @@ def prediction(data,plotName):
     #for i in xrange(len(prediction_ttStart)):
     #    plot.add_line([prediction_ttStart[i],prediction_ttEnd[i]],[prediction_amp[i],prediction_amp[i]],color='b',label='predicted')
 
+    colors = cm.rainbow(np.linspace(0, 1, len(data["channels"])))
+    count = 0
     for key in data["channels"].iterkeys():
         label = key.replace("_","\_")
 
@@ -153,13 +221,15 @@ def prediction(data,plotName):
         amp[indexes] = -250
         channel_amp = amp
 
-        plot.add_scatter(channel_ttStart,channel_amp,marker='*', zorder=1000, label=label)
+        color = colors[count]
+        plot.add_scatter(channel_ttStart,channel_amp,marker='*', zorder=1000, label=label,color=color)
+        count=count+1
 
     xlim = [plot.xlim[0],plot.xlim[1]]
     ylim = [plot.ylim[0],plot.ylim[1]]
-    plot.add_line(xlim,[threshold,threshold],label='threshold')
+    #plot.add_line(xlim,[threshold,threshold],label='threshold')
 
-    plot.ylim = [-10,plot.ylim[1]]
+    plot.ylim = [-10,-4]
     plot.ylabel = 'Velocity [log10(m/s)]'
     plot.add_legend(loc=1,prop={'size':10})
 
@@ -204,6 +274,9 @@ def residual(data,plotName):
         indexes = np.isinf(amp)
         amp[indexes] = -250
         channel_amp = amp
+
+        if len(channel_ttStart) == 0:
+            continue
 
         channel_amp_interp = np.interp(prediction_ttStart,channel_ttStart,channel_amp)
         residual = channel_amp_interp - prediction_amp
@@ -444,10 +517,10 @@ def traveltimes(params,attributeDics,ifo,currentGPS,plotName):
             continue
 
         if traveltimes == []:
-            arrivalTimes = [max(attributeDic["traveltimes"][ifo]["Rtimes"]),max(attributeDic["traveltimes"][ifo]["Stimes"]),max(attributeDic["traveltimes"][ifo]["Ptimes"])]
+            arrivalTimes = [max(attributeDic["traveltimes"][ifo]["RthreePointFivetimes"]),max(attributeDic["traveltimes"][ifo]["Stimes"]),max(attributeDic["traveltimes"][ifo]["Ptimes"])]
             traveltimes = np.array(arrivalTimes)
         else:
-            arrivalTimes = [max(attributeDic["traveltimes"][ifo]["Rtimes"]),max(attributeDic["traveltimes"][ifo]["Stimes"]),max(attributeDic["traveltimes"][ifo]["Ptimes"])]            
+            arrivalTimes = [max(attributeDic["traveltimes"][ifo]["RthreePointFivetimes"]),max(attributeDic["traveltimes"][ifo]["Stimes"]),max(attributeDic["traveltimes"][ifo]["Ptimes"])]            
             traveltimes = np.vstack([traveltimes,arrivalTimes])
 
     if traveltimes == []:
@@ -573,7 +646,7 @@ def worldmap_plot(params,attributeDics,type,plotName):
             vmin = 0
             vmax = 7
         elif type == "Traveltimes":
-            travel_time = attributeDic["traveltimes"][ifo]["Rtimes"][-1] - attributeDic["traveltimes"][ifo]["Rtimes"][0]
+            travel_time = attributeDic["traveltimes"][ifo]["RthreePointFivetimes"][-1] - attributeDic["traveltimes"][ifo]["RthreePointFivetimes"][0]
             travel_time = travel_time / 60
             color = travel_time
             colorbar_label = "Travel times [minutes]"
@@ -581,7 +654,7 @@ def worldmap_plot(params,attributeDics,type,plotName):
             vmax = 60
         elif type == "Restimates":
             
-            travel_time = attributeDic["traveltimes"][ifo]["Restimate"] - attributeDic["traveltimes"][ifo]["Rtimes"][0]
+            travel_time = attributeDic["traveltimes"][ifo]["Restimate"] - attributeDic["traveltimes"][ifo]["RthreePointFivetimes"][0]
             travel_time = travel_time / 60
             color = travel_time
             colorbar_label = "Travel times [minutes]"
@@ -605,6 +678,122 @@ def worldmap_plot(params,attributeDics,type,plotName):
        cbar.set_clim(vmin=vmin,vmax=vmax)
     except:
        pass
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
+
+def worldmap_station_plot(params,attributeDics,data,type,plotName):
+    """@worldmap plot
+
+    @param params
+        seismon params dictionary
+    @param attributeDics
+        list of eqmon structures
+    @param data
+        channel data dictionary
+    @param type
+        type of worldmap plot
+    @param plotName
+        name of plot
+    """
+
+    ifo = pylal.pylal_seismon_utils.getIfo(params)
+
+    plt.figure(figsize=(10,5))
+    plt.axes([0,0,1,1])
+
+    # lon_0 is central longitude of robinson projection.
+    # resolution = 'c' means use crude resolution coastlines.
+    m = Basemap(projection='robin',lon_0=0,resolution='c')
+    #set a background colour
+    m.drawmapboundary(fill_color='#85A6D9')
+
+    # draw coastlines, country boundaries, fill continents.
+    m.fillcontinents(color='white',lake_color='#85A6D9')
+    m.drawcoastlines(color='#6D5F47', linewidth=.4)
+    m.drawcountries(color='#6D5F47', linewidth=.4)
+
+    # draw lat/lon grid lines every 30 degrees.
+    m.drawmeridians(np.arange(-180, 180, 30), color='#bbbbbb')
+    m.drawparallels(np.arange(-90, 90, 30), color='#bbbbbb')
+
+    for attributeDic in attributeDics:
+        x,y = m(attributeDic["Longitude"], attributeDic["Latitude"])
+        m.scatter(
+                x,
+                y,
+                s=20, #size
+                marker='x', #symbol
+                alpha=0.5, #transparency
+                zorder = 3, #plotting order
+        )
+        plt.text(
+                x,
+                y+5,
+                attributeDic["eventName"],
+                color = 'black',
+                size='small',
+                horizontalalignment='center',
+                verticalalignment='center',
+                zorder = 3,
+        )
+
+
+    xs = []
+    ys = []
+    zs = []
+    for channel in params["channels"]:
+        channel_data = data["channels"][channel.station_underscore]
+
+        if len(channel_data["timeseries"]["data"]) == 0:
+            continue
+
+        x,y = m(channel_data["info"].longitude,channel_data["info"].latitude)
+        if type == "amplitude":
+            z = channel_data["timeseries"]["data"][0] * 1e6
+            xs.append(x)
+            ys.append(y)
+            zs.append(z)
+        elif type == "time":
+            z = channel_data["timeseries"]["ttMax"][0]
+            xs.append(x)
+            ys.append(y)
+            zs.append(z)
+
+    if xs == []:
+        return
+
+    zs = np.array(zs)
+    if type == "time":
+        minTime = attributeDics[0]["GPS"]
+        zs = zs - minTime
+        colorbar_label = "dt [s] [%d]"%minTime
+        vmin = np.min(zs)
+        vmax = np.max(zs)
+    elif type == "amplitude":
+        #vmin = np.mean(zs) - np.std(zs)
+        #vmax = np.mean(zs) + np.std(zs)
+        colorbar_label = "Velocity [$\mu$m/s]"
+        vmin = np.min(zs)
+        vmax = np.max(zs)
+
+    im = m.scatter(
+                xs,
+                ys,
+                s=10, #size
+                marker='o', #symbol
+                alpha=0.5, #transparency
+                zorder = 3, #plotting order
+                c=zs
+    )
+
+    #try:
+    cbar = plt.colorbar(im)
+    cbar.set_label(colorbar_label)
+    cbar.set_clim(vmin=vmin,vmax=vmax)
+    
+    #except:
+    #   pass
     plt.show()
     plt.savefig(plotName,dpi=200)
     plt.close('all')
@@ -688,7 +877,7 @@ def worldmap_wavefronts(params,attributeDics,currentGPS,plotName):
         nearestGPS, Rindex = find_nearest(attributeDic["traveltimes"][ifo]["Ptimes"],currentGPS)
         Rdist = attributeDic["traveltimes"][ifo]["Distances"][Rindex]/1000
 
-        if currentGPS > max([attributeDic["traveltimes"][ifo]["Ptimes"][-1],attributeDic["traveltimes"][ifo]["Stimes"][-1],attributeDic["traveltimes"][ifo]["Rtimes"][-1]]):
+        if currentGPS > max([attributeDic["traveltimes"][ifo]["Ptimes"][-1],attributeDic["traveltimes"][ifo]["Stimes"][-1],attributeDic["traveltimes"][ifo]["RthreePointFivetimes"][-1]]):
             continue
 
         x,y = m(attributeDic["Longitude"], attributeDic["Latitude"])
@@ -740,4 +929,95 @@ def worldmap_wavefronts(params,attributeDics,currentGPS,plotName):
     plt.savefig(plotName,dpi=200)
     #savefig(plotNameCounter,dpi=200)
     plt.close('all')
+
+def station_plot(params,attributeDics,data,type,plotName):
+    """@worldmap plot
+
+    @param params
+        seismon params dictionary
+    @param attributeDics
+        list of eqmon structures
+    @param data
+        channel data dictionary
+    @param type
+        type of worldmap plot
+    @param plotName
+        name of plot
+    """
+
+    ifo = pylal.pylal_seismon_utils.getIfo(params)
+
+    try:
+        from obspy.taup.taup import getTravelTimes
+        from obspy.core.util.geodetics import gps2DistAzimuth
+    except:
+        print "Enable ObsPy if updated earthquake estimates desired...\n"
+        return attributeDic
+
+    plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+
+    colors = cm.rainbow(np.linspace(0, 1, len(data["channels"])))
+    for attributeDic in attributeDics:
+        xs = []
+        ys = []
+
+        count=0
+        for channel in params["channels"]:
+            channel_data = data["channels"][channel.station_underscore]
+
+            if len(channel_data["timeseries"]["data"]) == 0:
+                continue
+
+            distance,fwd,back = gps2DistAzimuth(attributeDic["Latitude"],attributeDic["Longitude"],channel_data["info"].latitude,channel_data["info"].longitude)
+
+            xs.append(distance)
+            if type == "amplitude":
+                y = channel_data["timeseries"]["data"][0] * 1e6
+                ys.append(y)
+            elif type == "time":
+                y = channel_data["timeseries"]["ttMax"][0] - attributeDic["GPS"]
+                ys.append(y)
+
+        if xs == []:
+            continue
+
+        label = attributeDic["eventName"]
+
+        xs, ys = zip(*sorted(zip(xs, ys)))
+
+        color = colors[count]
+        plot.add_scatter(xs,ys,marker='*', zorder=1000, label=label, color=color)
+        count=count+1
+
+        #fitfunc = lambda p, x: p[0]*x + p[1] # Target function
+        #errfunc = lambda p, x, y: fitfunc(p, x) - y # Distance to the target function
+        #p0 = [1,1] # Initial guess for the parameters
+        #p1, success = scipy.optimize.leastsq(errfunc, p0[:], args=(xs,ys))
+         
+        z = np.polyfit(xs, ys, 1)
+        p = np.poly1d(z)
+        xp = np.linspace(np.min(xs),np.max(xs),100)
+
+        label = "%s fit"%attributeDic["eventName"]
+        plot.add_line(xp,p(xp),label=label)
+
+    if count == 0:
+        return
+
+    if type == "time":
+        ylabel = "dt [s]"
+    elif type == "amplitude":
+        ylabel = "Velocity [$\mu$m/s]"
+        plot.axes.set_yscale("log")
+        plot.ylim = [10,200]
+
+    plot.xlabel = 'Distance [m]'
+    plot.ylabel = ylabel
+    plot.add_legend(loc=1,prop={'size':10})
+    plot.axes.set_xscale("log")
+
+
+    plot.save(plotName,dpi=200)
+    plot.close()
+
 

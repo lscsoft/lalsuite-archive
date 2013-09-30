@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os, glob, optparse, shutil, warnings, matplotlib, pickle, math, copy, pickle
+import os, glob, optparse, shutil, warnings, matplotlib, pickle, math, copy, pickle, time
 import numpy as np
 import scipy.signal, scipy.stats, scipy.fftpack
 from collections import namedtuple
@@ -313,6 +313,52 @@ def html_bgcolor(snr,data):
 
     return snrSig, bgcolor
 
+def html_hexcolor(snr,data):
+    """@calculate html color
+
+    @param snr
+        snr to compute color for
+    @param data
+        array to compare snr to
+    """
+
+    data = np.append(data,snr)
+
+    # Number of colors in array
+    N = 256
+
+    colormap = []
+    for i in xrange(N):
+        r,g,b,a = matplotlib.pyplot.cm.jet(i)
+        r = int(round((r * 255),0))
+        g = int(round((g * 255),0))
+        b = int(round((b* 255),0))
+        colormap.append((r,g,b))
+
+    data = np.sort(data)
+    itemIndex = np.where(data==snr)
+
+    # Determine significance of snr (between 0 and 1)
+    snrSig = itemIndex[0][0] / float(len(data)+1)
+
+    # Determine color index of this significance
+    index = int(np.floor(N * snrSig))
+
+    # Return colors of this index
+    thisColor = colormap[index]
+
+    r = hex(thisColor[0]).split("x")
+    r = r[1].rjust(2,"0")
+    g = hex(thisColor[1]).split("x")
+    g = g[1].rjust(2,"0")
+    b = hex(thisColor[2]).split("x")
+    b = b[1].rjust(2,"0")
+
+    # Return rgb string containing these colors
+    hexcolor = '#ff%s%s%s'%(r,g,b)
+
+    return snrSig,hexcolor
+
 def segment_struct(params):
     """@create seismon segment structure
 
@@ -379,12 +425,13 @@ def frame_struct(params):
             datacache.append(cacheFile)
 
     else:
-        if params["frameType"] == "nds":
-            conn = nds2.connection(params["ndsServer"])
+        if params["frameType"] == "nds2":
+            #conn = nds2.connection(params["ndsServer"])
             #y = conn.find_channels('*',nds2.channel.CHANNEL_TYPE_RAW,\
             #    nds2.channel.DATA_TYPE_FLOAT32, 128, 16384)
 
-            params["ndsConnection"] = conn
+            #params["ndsConnection"] = conn
+            pass
 
         else:
             connection = glue.datafind.GWDataFindHTTPConnection()
@@ -407,6 +454,8 @@ def channel_struct(params,channelList):
         list of channels desired
     """
 
+    latitude = -1
+    longitude = -1
     # Create channel structure
     structproxy_channel = namedtuple( "structproxy_channel", "station station_underscore samplef calibration latitude longitude" )
 
@@ -448,8 +497,53 @@ def channel_struct(params,channelList):
                if not station in params["channel"]:
                    continue
 
+           if params["ifo"] == "IRIS":
+               import obspy.iris
+               client = obspy.iris.Client()
+
+               tstart = pylal.pylal_seismon_utils.GPSToUTCDateTime(params["gpsStart"])
+               tend = pylal.pylal_seismon_utils.GPSToUTCDateTime(params["gpsEnd"])
+               channelSplit = station.split(":")
+
+               calibration = 1
+               response = client.station(channelSplit[0], channelSplit[1], channelSplit[2], channelSplit[3],starttime=tstart,endtime=tend,level="resp")
+               responseLines = response.split("\n")
+               for line in responseLines:
+                   index = line.find("SensitivityValue")
+                   if not index == -1:
+                       lineSplit = line.split("<")
+                       lineSplit = lineSplit[1].split(">")
+                       calibration = float(lineSplit[1])
+                       break
+               for line in responseLines:
+                   index = line.find("SampleRate")
+                   if not index == -1:
+                       lineSplit = line.split("<")
+                       lineSplit = lineSplit[1].split(">")
+                       samplef = float(lineSplit[1])
+                       break
+               for line in responseLines:
+                   index = line.find("Lat")
+                   if not index == -1:
+                       lineSplit = line.split("<")
+                       lineSplit = lineSplit[1].split(">")
+                       latitude = float(lineSplit[1])
+                       break
+               for line in responseLines:
+                   index = line.find("Lon")
+                   if not index == -1:
+                       lineSplit = line.split("<")
+                       lineSplit = lineSplit[1].split(">")
+                       longitude = float(lineSplit[1])
+                       break
+
            channel.append( structproxy_channel(station,station_underscore,samplef,calibration,latitude,longitude))
-    return channel
+
+    params["channels"] = channel
+    if params["referenceChannel"] == None:
+        params["referenceChannel"] = params["channels"][0].station
+
+    return params
 
 def readParamsFromFile(file):
     """@read seismon params file
@@ -504,5 +598,21 @@ def getIfo(params):
         ifo = "FortyMeter"
     elif params["ifo"] == "XG":
         ifo = "Homestake"
+    elif params["ifo"] == "IRIS":
+        ifo = "LHO"
 
     return ifo
+
+def GPSToUTCDateTime(gps):
+    """@calculate UTC time from gps
+
+    @param gps
+        gps time
+    """
+
+    import obspy
+    utc = XLALGPSToUTC(LIGOTimeGPS(int(gps)))
+    tt = time.strftime("%Y-%jT%H:%M:%S", utc)
+    ttUTC = obspy.UTCDateTime(tt)
+
+    return ttUTC
