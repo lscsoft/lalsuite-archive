@@ -1,3 +1,5 @@
+
+
 /*
  *  LALInferenceMCMC.c:  Bayesian Followup, MCMC algorithm.
  *
@@ -418,7 +420,8 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
       runState->likelihood==&LALInferenceFreqDomainLogLikelihood ||
       runState->likelihood==&LALInferenceNoiseOnlyLogLikelihood){
     nullLikelihood = LALInferenceNullLogLikelihood(runState->data);
-  } else if (runState->likelihood==&LALInferenceFreqDomainStudentTLogLikelihood) {
+  } else if (runState->likelihood==&LALInferenceFreqDomainStudentTLogLikelihood ||
+             runState->likelihood==&LALInferenceMarginalisedPhaseLogLikelihood ) {
     REAL8 d = *(REAL8 *)LALInferenceGetVariable(runState->currentParams, "distance");
     REAL8 bigD = 1.0 / 0.0;
 
@@ -1665,11 +1668,19 @@ void LALInferencePrintPTMCMCInjectionSample(LALInferenceRunState *runState) {
       XLALFree(saveParams);
       XLAL_ERROR_VOID(XLAL_EINVAL, "unknown mass ratio parameter name (allowed are 'massratio' or 'asym_massratio')");
     }
+
+    UINT4 added_phase_param = 0;
+    if (!LALInferenceCheckVariable(runState->currentParams, "phase")) {
+       added_phase_param = 1;
+       LALInferenceAddVariable(runState->currentParams, "phase", &phase, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    } else {
+       LALInferenceSetVariable(runState->currentParams, "phase", &phase);
+    }
+
     LALInferenceSetVariable(runState->currentParams, "time", &injGPSTime);
     LALInferenceSetVariable(runState->currentParams, "distance", &dist);
     LALInferenceSetVariable(runState->currentParams, "inclination", &inclination);
     LALInferenceSetVariable(runState->currentParams, "polarisation", &(psi));
-    LALInferenceSetVariable(runState->currentParams, "phase", &phase);
     LALInferenceSetVariable(runState->currentParams, "declination", &dec);
     LALInferenceSetVariable(runState->currentParams, "rightascension", &ra);
     if (LALInferenceCheckVariable(runState->currentParams, "a_spin1")) {
@@ -1697,6 +1708,11 @@ void LALInferencePrintPTMCMCInjectionSample(LALInferenceRunState *runState) {
     LALInferencePrintPTMCMCHeaderFile(runState, out);
     fclose(out);
     
+    if (added_phase_param) {
+      LALInferenceRemoveVariable(runState->currentParams, "phase");
+      LALInferenceRemoveMinMaxPrior(runState->priorArgs, "phase");
+    }
+
     LALInferenceCopyVariables(saveParams, runState->currentParams);
     runState->currentLikelihood = runState->likelihood(runState->currentParams, runState->data, runState->templt);
     runState->currentPrior = runState->prior(runState, runState->currentParams);

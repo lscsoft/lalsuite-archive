@@ -415,7 +415,8 @@ SetupDefaultProposal(LALInferenceRunState *runState, LALInferenceVariables *prop
   if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-singleadapt"))
     LALInferenceAddProposalToCycle(runState, singleAdaptProposalName, &LALInferenceSingleAdaptProposal, BIGWEIGHT);
 
-  if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-psiphi")){
+  if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-psiphi") &&
+     LALInferenceCheckVariableNonFixed(proposedParams,"phase") ){
     LALInferenceAddProposalToCycle(runState, polarizationPhaseJumpName, &LALInferencePolarizationPhaseJump, TINYWEIGHT);
   }
 
@@ -486,7 +487,8 @@ SetupDefaultProposal(LALInferenceRunState *runState, LALInferenceVariables *prop
     LALInferenceAddProposalToCycle(runState, skyRingProposalName, &LALInferenceSkyRingProposal, SMALLWEIGHT);
   }
 
-  if (!LALInferenceGetProcParamVal(runState->commandLine,"--noProposalCorrPsiPhi")) {
+  if (!LALInferenceGetProcParamVal(runState->commandLine,"--noProposalCorrPsiPhi") &&
+      LALInferenceCheckVariableNonFixed(proposedParams,"phase") ) {
     LALInferenceAddProposalToCycle(runState, polarizationCorrPhaseJumpName, &LALInferenceCorrPolarizationPhaseJump, SMALLWEIGHT);
   }
 
@@ -535,7 +537,8 @@ SetupPostPTProposal(LALInferenceRunState *runState, LALInferenceVariables *propo
   if (!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-singleadapt"))
     LALInferenceAddProposalToCycle(runState, singleAdaptProposalName, &LALInferenceSingleAdaptProposal, 5);
 
-  if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-psiphi"))
+  if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-psiphi") &&
+     LALInferenceCheckVariableNonFixed(proposedParams,"phase") )
     LALInferenceAddProposalToCycle(runState, polarizationPhaseJumpName, &LALInferencePolarizationPhaseJump, 1);
 
   if (!LALInferenceGetProcParamVal(runState->commandLine, "--noDifferentialEvolution")) {
@@ -1102,8 +1105,10 @@ LALInferenceDrawApproxPrior(LALInferenceRunState *runState, LALInferenceVariable
     REAL8 theTime = draw_flat(runState, "time");
     LALInferenceSetVariable(proposedParams, "time", &theTime);
 
-    REAL8 phase = draw_flat(runState, "phase");
-    LALInferenceSetVariable(proposedParams, "phase", &phase);
+    if (LALInferenceCheckVariableNonFixed(runState->currentParams, "phase")) {
+      REAL8 phase = draw_flat(runState, "phase");
+      LALInferenceSetVariable(proposedParams, "phase", &phase);
+    }
 
     if (LALInferenceCheckVariableNonFixed(proposedParams, "inclination")) {
       REAL8 inc = draw_colatitude(runState, "inclination");
