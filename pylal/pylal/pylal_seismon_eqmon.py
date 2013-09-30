@@ -9,6 +9,7 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALUTCToGPS, XLALGPSToUTC
 from lxml import etree
 import scipy.spatial
+import simplekml
 
 import pylal.pylal_seismon_utils, pylal.pylal_seismon_eqmon_plot
 
@@ -120,9 +121,6 @@ def run_earthquakes_analysis(params,segment):
     earthquakesXMLFile = os.path.join(earthquakesDirectory,"earthquakes.xml")
     attributeDics = pylal.pylal_seismon_utils.read_eqmons(earthquakesXMLFile)
 
-    plotsDirectory = os.path.join(params["path"],"plots")
-    pylal.pylal_seismon_utils.mkdir(plotsDirectory)
-
     data = {}
     ttStart,ttEnd,amp = loadPredictions(params,segment)
     data["prediction"] = {}
@@ -140,52 +138,125 @@ def run_earthquakes_analysis(params,segment):
         data["channels"][channel.station_underscore] = {}
         data["channels"][channel.station_underscore]["psd"] = {}        
         data["channels"][channel.station_underscore]["timeseries"] = {}
+        data["channels"][channel.station_underscore]["info"] = channel
 
         ttStart,ttEnd,amp = loadChannelPSD(params,channel,segment)
         data["channels"][channel.station_underscore]["psd"]["ttStart"] = ttStart
         data["channels"][channel.station_underscore]["psd"]["ttEnd"] = ttEnd
         data["channels"][channel.station_underscore]["psd"]["data"] = amp
 
-        ttStart,ttEnd,amp = loadChannelTimeseries(params,channel,segment)
+        ttStart,ttEnd,ttMax,amp = loadChannelTimeseries(params,channel,segment)
         data["channels"][channel.station_underscore]["timeseries"]["ttStart"] = ttStart
         data["channels"][channel.station_underscore]["timeseries"]["ttEnd"] = ttEnd
+        data["channels"][channel.station_underscore]["timeseries"]["ttMax"] = ttMax
         data["channels"][channel.station_underscore]["timeseries"]["data"] = amp
+
+    if params["doKML"]:
+        kmlName = os.path.join(earthquakesDirectory,"earthquakes_time.kml")
+        create_kml(params,attributeDics,data,"time",kmlName)
+        kmlName = os.path.join(earthquakesDirectory,"earthquakes_amplitude.kml") 
+        create_kml(params,attributeDics,data,"amplitude",kmlName)
 
     if params["doPlots"]:
 
-        plotName = os.path.join(plotsDirectory,"prediction.png")
+        plotName = os.path.join(earthquakesDirectory,"prediction.png")
         pylal.pylal_seismon_eqmon_plot.prediction(data,plotName)
-        plotName = os.path.join(plotsDirectory,"residual.png")
+        plotName = os.path.join(earthquakesDirectory,"residual.png")
         pylal.pylal_seismon_eqmon_plot.residual(data,plotName)
-        plotName = os.path.join(plotsDirectory,"earthquakes.png")
-        pylal.pylal_seismon_eqmon_plot.earthquakes(data,plotName)
+        plotName = os.path.join(earthquakesDirectory,"earthquakes_timeseries.png")
+        pylal.pylal_seismon_eqmon_plot.earthquakes_timeseries(params,data,plotName)
+        plotName = os.path.join(earthquakesDirectory,"earthquakes_psd.png")
+        pylal.pylal_seismon_eqmon_plot.earthquakes_psd(params,data,plotName)
 
-        if params["doEarthquakesAnalysis"]:
-            plotName = os.path.join(plotsDirectory,"worldmap_magnitudes.png")
-            pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,"Magnitude",plotName)
+        plotName = os.path.join(earthquakesDirectory,"station_amplitude.png")
+        pylal.pylal_seismon_eqmon_plot.station_plot(params,attributeDics,data,"amplitude",plotName)
+        plotName = os.path.join(earthquakesDirectory,"station_time.png")
+        pylal.pylal_seismon_eqmon_plot.station_plot(params,attributeDics,data,"time",plotName)
 
-            plotName = os.path.join(plotsDirectory,"worldmap_traveltimes.png")
-            pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,"Traveltimes",plotName)
+        plotName = os.path.join(earthquakesDirectory,"worldmap_station_amplitude.png")
+        pylal.pylal_seismon_eqmon_plot.worldmap_station_plot(params,attributeDics,data,"amplitude",plotName)
+        plotName = os.path.join(earthquakesDirectory,"worldmap_station_time.png")
+        pylal.pylal_seismon_eqmon_plot.worldmap_station_plot(params,attributeDics,data,"time",plotName)
 
-            plotName = os.path.join(plotsDirectory,"worldmap_restimates.png")
-            pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,"Restimates",plotName)
+        plotName = os.path.join(earthquakesDirectory,"worldmap_magnitudes.png")
+        pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,"Magnitude",plotName)
+        plotName = os.path.join(earthquakesDirectory,"worldmap_traveltimes.png")
+        pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,"Traveltimes",plotName)
+        plotName = os.path.join(earthquakesDirectory,"worldmap_restimates.png")
+        pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,"Restimates",plotName)
 
-            plotName = os.path.join(plotsDirectory,"restimates.png")
-            pylal.pylal_seismon_eqmon_plot.restimates(params,attributeDics,plotName)
+        plotName = os.path.join(earthquakesDirectory,"restimates.png")
+        pylal.pylal_seismon_eqmon_plot.restimates(params,attributeDics,plotName)
+        plotName = os.path.join(earthquakesDirectory,"magnitudes.png")
+        pylal.pylal_seismon_eqmon_plot.magnitudes(params,attributeDics,plotName)
+        plotName = os.path.join(earthquakesDirectory,"magnitudes_latencies.png")
+        pylal.pylal_seismon_eqmon_plot.magnitudes_latencies(params,attributeDics,plotName)
+        plotName = os.path.join(earthquakesDirectory,"latencies_sent.png")
+        pylal.pylal_seismon_eqmon_plot.latencies_sent(params,attributeDics,plotName)
+        plotName = os.path.join(earthquakesDirectory,"latencies_written.png")
 
-            plotName = os.path.join(plotsDirectory,"magnitudes.png")
-            pylal.pylal_seismon_eqmon_plot.magnitudes(params,attributeDics,plotName)
-            plotName = os.path.join(plotsDirectory,"magnitudes_latencies.png")
-            pylal.pylal_seismon_eqmon_plot.magnitudes_latencies(params,attributeDics,plotName)
-            plotName = os.path.join(plotsDirectory,"latencies_sent.png")
-            pylal.pylal_seismon_eqmon_plot.latencies_sent(params,attributeDics,plotName)
-            plotName = os.path.join(plotsDirectory,"latencies_written.png")
+        pylal.pylal_seismon_eqmon_plot.latencies_written(params,attributeDics,plotName)
+        plotName = os.path.join(earthquakesDirectory,"traveltimes%s.png"%params["ifo"])
+        pylal.pylal_seismon_eqmon_plot.traveltimes(params,attributeDics,ifo,gpsEnd,plotName)
+        plotName = os.path.join(earthquakesDirectory,"worldmap.png")
+        pylal.pylal_seismon_eqmon_plot.worldmap_wavefronts(params,attributeDics,gpsEnd,plotName)
 
-            pylal.pylal_seismon_eqmon_plot.latencies_written(params,attributeDics,plotName)
-            plotName = os.path.join(plotsDirectory,"traveltimes%s.png"%params["ifo"])
-            pylal.pylal_seismon_eqmon_plot.traveltimes(params,attributeDics,ifo,gpsEnd,plotName)
-            plotName = os.path.join(plotsDirectory,"worldmap.png")
-            pylal.pylal_seismon_eqmon_plot.worldmap_wavefronts(params,attributeDics,gpsEnd,plotName)
+def create_kml(params,attributeDics,data,type,kmlFile):
+    """@worldmap plot
+
+    @param params
+        seismon params dictionary
+    @param attributeDics
+        list of eqmon structures
+    @param data
+        channel data dictionary
+    @param type
+        type of worldmap plot
+    @param kmlFile
+        name of file
+    """
+
+    # Create an instance of Kml
+    kml = simplekml.Kml(open=1)
+
+    for attributeDic in attributeDics:
+        pnt = kml.newpoint(coords = [(attributeDic["Longitude"],attributeDic["Latitude"])])
+        pnt.name = attributeDic["eventName"]
+        
+        pnt.lookat.longitude = attributeDic["Longitude"]
+        pnt.lookat.latitude = attributeDic["Latitude"]
+
+    for channel in params["channels"]:
+        channel_data = data["channels"][channel.station_underscore]
+
+        if len(channel_data["timeseries"]["data"]) == 0:
+            continue
+
+        pnt = kml.newpoint(coords = [(channel_data["info"].longitude,channel_data["info"].latitude)])
+        pnt.name = channel_data["info"].station
+
+        pnt.lookat.longitude = channel_data["info"].longitude
+        pnt.lookat.latitude = channel_data["info"].latitude
+
+        #pnt.lookat.longitude = 0
+        #pnt.lookat.latitude = 0
+
+        if type == "amplitude":
+            z = channel_data["timeseries"]["data"][0] * 1e6
+            array = np.linspace(1,2000,1000)
+        elif type == "time":
+            z = channel_data["timeseries"]["ttMax"][0] - attributeDic["GPS"]
+            array = np.linspace(0,10000,1000)
+
+        snrSig,hexcolor = pylal.pylal_seismon_utils.html_hexcolor(z,array)
+
+        #pnt.style.labelstyle.scale = 0.1  # Text twice as big
+        pnt.style.iconstyle.color = hexcolor  # Blue
+        pnt.style.iconstyle.scale = 3  # Icon thrice as big
+        pnt.style.iconstyle.icon.href = 'http://maps.google.com/mapfiles/kml/shapes/road_shield3.png'
+        #pnt.style.iconstyle.icon.href = None
+
+    kml.save(kmlFile)
 
 def loadPredictions(params,segment):
     """@load earthquakes predictions.
@@ -251,7 +322,7 @@ def loadEarthquakes(params,attributeDics):
 
         traveltimes = attributeDic["traveltimes"][ifo]
 
-        tt.append(max(traveltimes["Rtimes"]))
+        tt.append(max(traveltimes["RthreePointFivetimes"]))
         amp.append(traveltimes["Rfamp"][0])
 
     tt = np.array(tt)
@@ -341,6 +412,7 @@ def loadChannelTimeseries(params,channel,segment):
 
     ttStart = []
     ttEnd = []
+    ttMax = []
     amp = []
 
     for file in files:
@@ -359,14 +431,16 @@ def loadChannelTimeseries(params,channel,segment):
 
         data_out = np.loadtxt(file)
 
-        thisAmp = data_out[2]
+        thisttMax = data_out[1,0]
+        thisAmp = data_out[1,1]
+        ttMax.append(thisttMax)
         amp.append(thisAmp)
 
     ttStart = np.array(ttStart)
     ttEnd = np.array(ttEnd)
     amp = np.array(amp)
 
-    return ttStart,ttEnd,amp
+    return ttStart,ttEnd,ttMax,amp
 
 def write_info(file,attributeDics):
     """@write eqmon file
@@ -637,34 +711,84 @@ def jsonread(event):
 
     return attributeDic
 
-def databaseread(event):
-    """@read database event.
+def irisread(event):
+    """@read iris event.
 
     @param event
-        database event
+        iris event
     """
+
+    attributeDic = {}
+
+    attributeDic['Time'] = str(event.origins[0].time)
+    timeString = attributeDic['Time'].replace("T"," ").replace("Z","")
+    dt = datetime.strptime(timeString, "%Y-%m-%d %H:%M:%S.%f")
+    tm = time.struct_time(dt.timetuple())
+
+    attributeDic["Longitude"] = event.origins[0].longitude
+    attributeDic["Latitude"] = event.origins[0].latitude
+    attributeDic["Depth"] = event.origins[0].depth
+    attributeDic["eventID"] = event.origins[0].region
+
+    attributeDic['GPS'] = float(XLALUTCToGPS(tm))
+    attributeDic['UTC'] = float(dt.strftime("%s"))
+
+    eventID = random.randrange(10**7, 10**8)
+    eventName = ''.join(["iris",str(eventID)])
+
+    attributeDic["eventName"] = eventName
+    attributeDic["Magnitude"] = event.magnitudes[0].mag
+    attributeDic["DataSource"] = "IRIS"
+    attributeDic["Version"] = 1.0
+    attributeDic["Type"] = 1.0
+    attributeDic['Region'] = event.origins[0].region
+
+    if event.origins[0].evaluation_status == "AUTOMATIC":
+        attributeDic["Review"] = "Automatic"
+    else:
+        attributeDic["Review"] = "Manual"
+
+    SentTime = time.gmtime()
+    attributeDic['SentGPS'] = float(XLALUTCToGPS(SentTime))
+    attributeDic['SentUTC'] = time.time()
+    attributeDic['Sent'] = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", SentTime)
+
+    attributeDic = calculate_traveltimes(attributeDic)
+    tm = time.struct_time(time.gmtime())
+    attributeDic['WrittenGPS'] = float(XLALUTCToGPS(tm))
+    attributeDic['WrittenUTC'] = float(time.time())
+
+    return attributeDic
+
+def databaseread(event):
 
     attributeDic = {}
     eventSplit = event.split(",")
 
-    date = eventSplit[10]
+    date = eventSplit[0]
 
     year = int(date[0:4])
-    month = int(date[6:7])
-    day = int(date[9:10])
-    hour = int(date[12:13])
-    minute = int(date[15:16])
-    second = int(date[18:19])
+    month = int(date[5:7])
+    day = int(date[8:10])
+    hour = int(date[11:13])
+    minute = int(date[14:16])
+    second = int(date[17:19])
 
     timeString = "%d-%02d-%02d %02d:%02d:%02d"%(year,month,day,hour,minute,second)
     dt = datetime.strptime(timeString, "%Y-%m-%d %H:%M:%S")
 
-    attributeDic["Longitude"] = float(eventSplit[0])
+    eventID = int(eventSplit[11])
+    eventName = ''.join(["db",str(eventID)])
+
+    attributeDic["Longitude"] = float(eventSplit[2])
     attributeDic["Latitude"] = float(eventSplit[1])
-    attributeDic["Depth"] = float(eventSplit[0])
-    attributeDic["eventID"] = eventSplit[9]
-    attributeDic["eventName"] = eventSplit[9]
-    attributeDic["Magnitude"] = float(eventSplit[2])
+    attributeDic["Depth"] = float(eventSplit[3])
+    attributeDic["eventID"] = float(eventID)
+    attributeDic["eventName"] = eventName
+    try:
+        attributeDic["Magnitude"] = float(eventSplit[4])
+    except:
+        attributeDic["Magnitude"] = 0
     tm = time.struct_time(dt.timetuple())
     attributeDic['GPS'] = float(XLALUTCToGPS(tm))
     attributeDic['UTC'] = float(dt.strftime("%s"))
@@ -766,7 +890,10 @@ def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
     lons = []
     Ptimes = []
     Stimes = []
-    Rtimes = []
+    #Rtimes = []
+    Rtwotimes = []
+    RthreePointFivetimes = []
+    Rfivetimes = []
     Rfamps = []
 
     velocityFile = '/home/mcoughlin/Seismon/velocity_maps/GR025_1_GDM52.pix'
@@ -795,6 +922,11 @@ def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
 
         tt = getTravelTimes(delta=degree, depth=attributeDic["Depth"])
         tt.append({'phase_name': 'R', 'dT/dD': 0, 'take-off angle': 0, 'time': time, 'd2T/dD2': 0, 'dT/dh': 0})
+        #tt.append({'phase_name': 'R', 'dT/dD': 0, 'take-off angle': 0, 'time': distance/3500, 'd2T/dD2': 0, 'dT/dh': 0})
+        tt.append({'phase_name': 'Rtwo', 'dT/dD': 0, 'take-off angle': 0, 'time': distance/2000, 'd2T/dD2': 0, 'dT/dh': 0})
+        tt.append({'phase_name': 'RthreePointFive', 'dT/dD': 0, 'take-off angle': 0, 'time': distance/3500, 'd2T/dD2': 0, 'dT/dh': 0})
+        tt.append({'phase_name': 'Rfive', 'dT/dD': 0, 'take-off angle': 0, 'time': distance/5000, 'd2T/dD2': 0, 'dT/dh': 0})
+
         Ptime = -1
         Stime = -1
         Rtime = -1
@@ -803,12 +935,21 @@ def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
                 Ptime = attributeDic["GPS"]+phase["time"]
             if Stime == -1 and phase["phase_name"][0] == "S":
                 Stime = attributeDic["GPS"]+phase["time"]
-            if Rtime == -1 and phase["phase_name"][0] == "R":
-                Rtime = attributeDic["GPS"]+phase["time"]
-
+            #if Rtime == -1 and phase["phase_name"][0] == "R":
+            #    Rtime = attributeDic["GPS"]+phase["time"]
+            if phase["phase_name"] == "Rtwo":
+                Rtwotime = attributeDic["GPS"]+phase["time"]
+            if phase["phase_name"] == "RthreePointFive":
+                RthreePointFivetime = attributeDic["GPS"]+phase["time"]
+            if phase["phase_name"] == "Rfive":
+                Rfivetime = attributeDic["GPS"]+phase["time"]
         Ptimes.append(Ptime)
         Stimes.append(Stime)
-        Rtimes.append(Rtime)
+        #Rtimes.append(Rtime)
+        Rtwotimes.append(Rtwotime)
+        RthreePointFivetimes.append(RthreePointFivetime)
+        Rfivetimes.append(Rfivetime)
+
 
     #if ifo == "LHO":
     #    print time - distance / 3500
@@ -820,7 +961,10 @@ def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
     traveltimes["Degrees"] = degrees
     traveltimes["Ptimes"] = Ptimes
     traveltimes["Stimes"] = Stimes
-    traveltimes["Rtimes"] = Rtimes
+    #traveltimes["Rtimes"] = Rtimes
+    traveltimes["Rtwotimes"] = Rtwotimes
+    traveltimes["RthreePointFivetimes"] = RthreePointFivetimes
+    traveltimes["Rfivetimes"] = Rfivetimes
     traveltimes["Rfamp"] = [Rfamp] 
     traveltimes["Pamp"] = [Pamp]
     traveltimes["Samp"] = [Samp]
@@ -930,19 +1074,6 @@ def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
 
     return attributeDic
 
-def GPSToUTCDateTime(gps):
-    """@calculate UTC time from gps
-
-    @param gps
-        gps time
-    """
-
-    utc = XLALGPSToUTC(LIGOTimeGPS(int(gps)))
-    tt = time.strftime("%Y-%jT%H:%M:%S", utc)
-    ttUTC = UTCDateTime(tt)
-
-    return ttUTC    
-
 def eventDiff(attributeDics, magnitudeDiff, latitudeDiff, longitudeDiff):
     """@calculate difference between two events
 
@@ -999,7 +1130,8 @@ def retrieve_earthquakes(params,gpsStart,gpsEnd):
     """
 
     attributeDics = []
-    files = glob.glob(os.path.join(params["eventfilesLocation"],"*.xml"))
+    eventfilesLocation = os.path.join(params["eventfilesLocation"],params["eventfilesType"])
+    files = glob.glob(os.path.join(eventfilesLocation,"*.xml"))
 
 #    for numFile in xrange(100):
     for numFile in xrange(len(files)):
@@ -1015,64 +1147,6 @@ def retrieve_earthquakes(params,gpsStart,gpsEnd):
 
         if attributeDic["Magnitude"] >= params["earthquakesMinMag"]:
             attributeDics.append(attributeDic)
-
-    return attributeDics
-
-def retrieve_earthquakes_text(params):
-    """@retrieve earthquakes information.
-
-    @param params
-        seismon params dictionary
-    """
-
-    attributeDics = []
-    files = glob.glob(os.path.join(params["eventfilesLocation"],"*.txt"))
-    for numFile in xrange(len(files)):
-
-        file = files[numFile]
-
-        fileSplit = file.split("/")
-        fileName = fileSplit[-1]
-
-        eventName = fileName.replace(".txt","").split("-")[0]
-        gps = int(fileName.replace(".txt","").split("-")[1])
-
-        #if gps + 10000 < params["gps"]:
-        #    continue
-
-        attributeDic = {}
-        attributeDic["eventName"] = eventName
-        attributeDic["traveltimes"] = {}
-        with open(file,'r') as f:
-            counter = 0
-            attributeDic["traveltimes"]["LHO"] = []
-            attributeDic["traveltimes"]["LLO"] = []
-            for line in f:
-                counter += 1
-                line_without_return = line.split("\n")
-                space_split = line_without_return[0].split(" ")
-                colon_split = line_without_return[0].split(";")
-                if len(colon_split) > 1:
-                    if colon_split[0] == "traveltimes":
-                        continue
-                    try:
-                        attributeDic[colon_split[0]] = float(colon_split[1])
-                    except:
-                        attributeDic[colon_split[0]] = colon_split[1]
-                elif len(space_split) > 1:
-                    if counter < 4:
-                        attributeDic["traveltimes"]["LHO"].append(float(space_split[-2]))
-                    else:
-                        attributeDic["traveltimes"]["LLO"].append(float(space_split[-2]))
-
-        magThreshold = 0
-        if not "Magnitude" in attributeDic or attributeDic["Magnitude"] < magThreshold:
-            continue
-        attributeDic["doPlots"] = 0
-        for ifoName, traveltimes in attributeDic["traveltimes"].items():
-            if params["gps"] <= max(traveltimes):
-                attributeDic["doPlots"] = 1
-        attributeDics.append(attributeDic)
 
     return attributeDics
 
