@@ -4,6 +4,7 @@ import os, glob, optparse, shutil, warnings, matplotlib, pickle, math, copy, pic
 import numpy as np
 import scipy.signal, scipy.stats, scipy.fftpack
 from collections import namedtuple
+from datetime import datetime
 from lxml import etree
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
@@ -424,6 +425,18 @@ def frame_struct(params):
             cacheFile = glue.lal.CacheEntry("%s %s %d %d %s"%("XG","Homestake",gps,dur,frame))
             datacache.append(cacheFile)
 
+    
+
+    elif params["ifo"] == "LUNAR":
+        frameDir = "/home/mcoughlin/Lunar/data/"
+        frameList = [os.path.join(root, name)
+            for root, dirs, files in os.walk(frameDir)
+            for name in files]
+
+        datacache = []
+        for frame in frameList:
+            datacache.append(frame)
+
     else:
         if params["frameType"] == "nds2":
             #conn = nds2.connection(params["ndsServer"])
@@ -441,7 +454,7 @@ def frame_struct(params):
                                                    on_gaps="warn")
             connection.close()
 
-            params["frame"] = datacache
+    params["frame"] = datacache
 
     return params
 
@@ -501,8 +514,8 @@ def channel_struct(params,channelList):
                import obspy.iris
                client = obspy.iris.Client()
 
-               tstart = pylal.pylal_seismon_utils.GPSToUTCDateTime(params["gpsStart"])
-               tend = pylal.pylal_seismon_utils.GPSToUTCDateTime(params["gpsEnd"])
+               tstart = GPSToUTCDateTime(params["gpsStart"])
+               tend = GPSToUTCDateTime(params["gpsEnd"])
                channelSplit = station.split(":")
 
                calibration = 1
@@ -600,6 +613,8 @@ def getIfo(params):
         ifo = "Homestake"
     elif params["ifo"] == "IRIS":
         ifo = "LHO"
+    elif params["ifo"] == "LUNAR":
+        ifo = "LHO"
 
     return ifo
 
@@ -616,3 +631,99 @@ def GPSToUTCDateTime(gps):
     ttUTC = obspy.UTCDateTime(tt)
 
     return ttUTC
+
+def UnixToUTCDateTime(gps):
+    """@calculate UTC time from unix timestamp
+
+    @param gps
+        gps time
+    """
+
+    import obspy
+    tt = datetime.fromtimestamp(gps)
+    ttUTC = obspy.UTCDateTime(tt)
+
+    return ttUTC
+
+def retrieve_timeseries(params,channel,segment):
+    """@retrieves timeseries for given channel and segment.
+
+    @param params
+        seismon params dictionary
+    @param channel
+        seismon channel structure
+    @param segment
+        [start,end] gps
+    """
+
+    gpsStart = segment[0]
+    gpsEnd = segment[1]
+
+    # set the times
+    duration = np.ceil(gpsEnd-gpsStart)
+
+    dataFull = []
+    if params["ifo"] == "IRIS":
+        import obspy.iris
+        client = obspy.iris.Client()
+        tstart = pylal.pylal_seismon_utils.GPSToUTCDateTime(gpsStart)
+        tend = pylal.pylal_seismon_utils.GPSToUTCDateTime(gpsEnd)
+
+        channelSplit = channel.station.split(":")
+        try:
+            st = client.getWaveform(channelSplit[0], channelSplit[1], channelSplit[2], channelSplit[3],\
+                tstart, tend)
+        except:
+            print "data read from IRIS failed... continuing\n"
+            return dataFull
+
+        data = np.array(st[0].data)
+        data = data.astype(float)
+
+        dataFull = gwpy.timeseries.TimeSeries(data, times=None, epoch=gpsStart, channel=channel.station, unit=None,sample_rate=channel.samplef, name=channel.station)
+
+    elif params["ifo"] == "LUNAR":
+        import obspy
+        traces = []
+        for frame in params["frame"]:
+            st = obspy.read(frame)
+            for trace in st:
+                trace_station = "%s.%s.%s.%s"%(trace.stats["network"],trace.stats["station"],trace.stats["location"],trace.stats["channel"])
+                if trace_station == channel.station:
+                    traces.append(trace)
+        st = obspy.core.stream.Stream(traces=traces)
+
+        starttime = UnixToUTCDateTime(gpsStart)
+        endtime = UnixToUTCDateTime(gpsEnd)
+        st = st.slice(starttime, endtime)
+
+        data = st[0].data
+        data = data.astype(float)
+        data = RunningMedian(data,701,2)
+
+        sample_rate = st[0].stats.sampling_rate
+        dataFull = gwpy.timeseries.TimeSeries(data, times=None, epoch=gpsStart, channel=channel.station, unit=None,sample_rate=sample_rate, name=channel.station)
+
+        dataFull.resample(channel.samplef)
+
+    else:
+        # make timeseries
+        try:
+            dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel.station, epoch=gpsStart, duration=duration)
+        except:
+            print "data read from frames failed... continuing\n"
+            return dataFull
+
+    return dataFull
+
+def RunningMedian(data, M, factor):
+
+    m = np.round(M/2)
+    for i in xrange(len(data)):
+        indexMin = np.max([1,i-m])
+        indexMax = np.min([i+m,len(data)])
+        data_slice_median = np.median(data[indexMin:indexMax])
+        if np.absolute(data_slice_median)*factor < np.absolute(data[i]):
+            data[i] = data_slice_median
+    return data
+

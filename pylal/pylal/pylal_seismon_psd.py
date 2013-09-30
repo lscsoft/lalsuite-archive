@@ -205,53 +205,6 @@ def apply_calibration(params,channel,data):
 
     return data
 
-def retrieve_timeseries(params,channel,segment):
-    """@retrieves timeseries for given channel and segment.
-
-    @param params
-        seismon params dictionary
-    @param channel
-        seismon channel structure
-    @param segment
-        [start,end] gps
-    """
-
-    gpsStart = segment[0]
-    gpsEnd = segment[1]
-
-    # set the times
-    duration = np.ceil(gpsEnd-gpsStart)
-
-    dataFull = []
-    if params["ifo"] == "IRIS":
-        import obspy.iris
-        client = obspy.iris.Client()
-        tstart = pylal.pylal_seismon_utils.GPSToUTCDateTime(gpsStart)
-        tend = pylal.pylal_seismon_utils.GPSToUTCDateTime(gpsEnd)
-
-        channelSplit = channel.station.split(":")
-        try:
-            st = client.getWaveform(channelSplit[0], channelSplit[1], channelSplit[2], channelSplit[3],\
-                tstart, tend)
-        except:
-            print "data read from IRIS failed... continuing\n"
-            return dataFull
-
-        data = np.array(st[0].data)
-        data = data.astype(float)
-
-        dataFull = gwpy.timeseries.TimeSeries(data, times=None, epoch=gpsStart, channel=channel.station, unit=None,sample_rate=channel.samplef, name=channel.station)
-
-    else:
-        # make timeseries
-        try:
-            dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel.station, epoch=gpsStart, duration=duration)
-        except:
-            print "data read from frames failed... continuing\n"
-            return dataFull
-
-    return dataFull
-
 def spectra(params, channel, segment):
     """@calculates spectral data for given channel and segment.
 
@@ -272,11 +225,11 @@ def spectra(params, channel, segment):
     duration = np.ceil(gpsEnd-gpsStart)
 
     # make timeseries
-    dataFull = retrieve_timeseries(params, channel, segment)
+    dataFull = pylal.pylal_seismon_utils.retrieve_timeseries(params, channel, segment)
     if dataFull == []:
         return 
 
-    dataFull /= channel.calibration
+    dataFull = dataFull / channel.calibration
     indexes = np.where(np.isnan(dataFull.data))[0]
     meanSamples = np.mean(np.ma.masked_array(dataFull.data,np.isnan(dataFull.data)))
     for index in indexes:

@@ -989,17 +989,37 @@ def station_plot(params,attributeDics,data,type,plotName):
         plot.add_scatter(xs,ys,marker='*', zorder=1000, label=label, color=color)
         count=count+1
 
-        #fitfunc = lambda p, x: p[0]*x + p[1] # Target function
-        #errfunc = lambda p, x, y: fitfunc(p, x) - y # Distance to the target function
-        #p0 = [1,1] # Initial guess for the parameters
-        #p1, success = scipy.optimize.leastsq(errfunc, p0[:], args=(xs,ys))
-         
         z = np.polyfit(xs, ys, 1)
         p = np.poly1d(z)
         xp = np.linspace(np.min(xs),np.max(xs),100)
 
         label = "%s fit"%attributeDic["eventName"]
         plot.add_line(xp,p(xp),label=label)
+
+        if type == "amplitude":
+            c = 18
+            fc = 10**(2.3-(attributeDic["Magnitude"]/2.))
+            Q = np.max([500,80/np.sqrt(fc)])
+
+            Rfamp = ((attributeDic["Magnitude"]/fc)*0.0035) * np.exp(-2*math.pi*attributeDic["Depth"]*fc/c) * np.exp(-2*math.pi*(xp/1000.0)*(fc/c)*1/Q)/(xp/1000.0)
+            Rfamp = Rfamp * 1e6
+            label = "%s prediction"%attributeDic["eventName"]
+            plot.add_line(xp,Rfamp,label=label)
+
+            Rfamp = 100 + xp * -1e-7*(attributeDic["Magnitude"]/fc) * np.exp(-2*math.pi*attributeDic["Depth"]*fc/c)
+            label = "%s linear prediction"%attributeDic["eventName"]
+            plot.add_line(xp,Rfamp,label=label)
+
+        elif type == "time":
+            p = np.poly1d([1.0/2000,0])
+            label = "%s prediction [2 km/s]"%attributeDic["eventName"]
+            plot.add_line(xp,p(xp),label=label)
+            p = np.poly1d([1.0/3500,0])
+            label = "%s prediction [3.5 km/s]"%attributeDic["eventName"]
+            plot.add_line(xp,p(xp),label=label)
+            p = np.poly1d([1.0/5000,0])
+            label = "%s prediction [5 km/s]"%attributeDic["eventName"]
+            plot.add_line(xp,p(xp),label=label)
 
     if count == 0:
         return
@@ -1009,15 +1029,13 @@ def station_plot(params,attributeDics,data,type,plotName):
     elif type == "amplitude":
         ylabel = "Velocity [$\mu$m/s]"
         plot.axes.set_yscale("log")
-        plot.ylim = [10,200]
+        plot.ylim = [1,200]
 
     plot.xlabel = 'Distance [m]'
     plot.ylabel = ylabel
     plot.add_legend(loc=1,prop={'size':10})
     plot.axes.set_xscale("log")
 
-
     plot.save(plotName,dpi=200)
     plot.close()
-
 
