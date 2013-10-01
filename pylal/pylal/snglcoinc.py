@@ -1048,7 +1048,7 @@ class CoincSynthesizer(object):
 		>>> seglists = segmentlistdict({"H1": segmentlist([segment(0, 30)]), "L1": segmentlist([segment(10, 50)]), "V1": segmentlist([segment(20, 70)])})
 		>>> coinc_synth = CoincSynthesizer(eventlists, seglists, 0.001)
 		>>> combos = coinc_synth.instrument_combos()
-		>>> coincs.next()	# returns a frozenset of instruments
+		>>> combos.next()	# returns a frozenset of instruments
 		"""
 		#
 		# retrieve sorted tuple of (probability mass, instrument
