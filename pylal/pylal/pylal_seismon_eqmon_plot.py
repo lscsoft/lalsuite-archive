@@ -70,7 +70,7 @@ def restimates(params,attributeDics,plotName):
     plt.savefig(plotName,dpi=200)
     plt.close('all')
 
-def earthquakes_timeseries(params,data,plotName):
+def earthquakes_station(params,data,type,plotName):
     """@earthquakes timeseries plot
 
     @param params
@@ -100,10 +100,10 @@ def earthquakes_timeseries(params,data,plotName):
     for key in data["channels"].iterkeys():
         label = key.replace("_","\_")
 
-        channel_ttStart = data["channels"][key]["timeseries"]["ttStart"]
-        channel_ttEnd = data["channels"][key]["timeseries"]["ttEnd"]
+        channel_ttStart = data["channels"][key][type]["ttStart"]
+        channel_ttEnd = data["channels"][key][type]["ttEnd"]
 
-        amp = np.log10(data["channels"][key]["timeseries"]["data"])
+        amp = np.log10(data["channels"][key][type]["data"])
         indexes = np.isinf(amp)
         amp[indexes] = -250
         channel_amp = amp
@@ -118,7 +118,10 @@ def earthquakes_timeseries(params,data,plotName):
 
     plot.ylim = [-10,-3]
     #plot.epoch = epoch
-    plot.ylabel = 'Velocity [log10(m/s)]'
+    if type == "psd":
+        plot.ylabel = 'Mean PSD 0.02-0.1 Hz'
+    elif type == "timeseries":
+        plot.ylabel = 'Velocity [log10(m/s)]'
     plot.add_legend(loc=1,prop={'size':10}) 
 
     plot.xlim = [params["gpsStart"],params["gpsEnd"]]
@@ -126,8 +129,8 @@ def earthquakes_timeseries(params,data,plotName):
     plot.save(plotName,dpi=200)
     plot.close()
 
-def earthquakes_psd(params,data,plotName):
-    """@earthquakes psd plot
+def earthquakes_station_distance(params,data,type,plotName):
+    """@earthquakes distance plot
 
     @param params
         seismon params dictionary
@@ -149,38 +152,59 @@ def earthquakes_psd(params,data,plotName):
     threshold = -8
 
     plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
-    plot.add_scatter(earthquakes_tt,earthquakes_amp, marker='o', zorder=1000, color='b',label='predicted')
+    #plot.add_scatter(earthquakes_tt,earthquakes_amp, marker='o', zorder=1000, color='b',label='predicted')
 
     colors = cm.rainbow(np.linspace(0, 1, len(data["channels"])))
     count=0
     for key in data["channels"].iterkeys():
         label = key.replace("_","\_")
 
-        channel_ttStart = data["channels"][key]["psd"]["ttStart"]
-        channel_ttEnd = data["channels"][key]["psd"]["ttEnd"]
+        channel_ttStart = data["channels"][key]["timeseries"]["ttStart"]
+        channel_ttEnd = data["channels"][key]["timeseries"]["ttEnd"]
+        channel_ttMax = data["channels"][key]["timeseries"]["ttMax"]        
+        channel_eq_distance = data["channels"][key]["timeseries"]["eq_distance"]
+        channel_eq_tt = data["channels"][key]["timeseries"]["eq_tt"]
+        channel_eq_amp = data["channels"][key]["timeseries"]["eq_amp"]
 
-        amp = np.log10(data["channels"][key]["psd"]["data"])
-        indexes = np.isinf(amp)
-        amp[indexes] = -250
-        channel_amp = amp
+        channel_eq_amp = 1e6 * np.array(channel_eq_amp)
 
         color = colors[count]
-        plot.add_scatter(channel_ttStart,channel_amp,marker='*', zorder=1000, label=label,color=color)
+        if type == "time":
+            plot.add_scatter(channel_eq_distance,channel_eq_tt,marker='*', zorder=1000, label=label,color=color)
+        elif type == "amplitude":
+            plot.add_scatter(channel_eq_distance,channel_eq_amp,marker='*', zorder=1000, label=label,color=color) 
         count=count+1
 
-    xlim = [plot.xlim[0],plot.xlim[1]]
-    ylim = [plot.ylim[0],plot.ylim[1]]
-    plot.add_line(xlim,[threshold,threshold],label='threshold')
+    xp = np.linspace(np.min(channel_eq_distance),np.max(channel_eq_distance),100)
 
-    plot.ylim = [-10,-3]
+    if type == "time":
+        p = np.poly1d([1.0/2000,0])
+        label = "prediction [2 km/s]"
+        plot.add_line(xp,p(xp),label=label)
+        p = np.poly1d([1.0/3500,0])
+        label = "prediction [3.5 km/s]"
+        plot.add_line(xp,p(xp),label=label)
+        p = np.poly1d([1.0/5000,0])
+        label = "prediction [5 km/s]"
+        plot.add_line(xp,p(xp),label=label)
+
+    #xlim = [plot.xlim[0],plot.xlim[1]]
+    #ylim = [plot.ylim[0],plot.ylim[1]]
+
+    #plot.ylim = [-10,-3]
     #plot.epoch = epoch
-    plot.ylabel = 'Mean PSD 0.02-0.1 Hz'
+    if type == "amplitude":
+        plot.ylabel = r"Velocity [$\mu$m/s]"
+    elif type == "time":
+        plot.ylabel = 'Time [s]'
+    plot.xlabel = 'Distance [m]'
     plot.add_legend(loc=1,prop={'size':10})
 
-    plot.xlim = [params["gpsStart"],params["gpsEnd"]]
+    plot.axes.set_xscale("log")
 
     plot.save(plotName,dpi=200)
     plot.close()
+
 
 def prediction(data,plotName):
     """@prediction plot
@@ -956,6 +980,7 @@ def station_plot(params,attributeDics,data,type,plotName):
 
     plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
 
+    count = 0
     colors = cm.rainbow(np.linspace(0, 1, len(data["channels"])))
     for attributeDic in attributeDics:
         xs = []

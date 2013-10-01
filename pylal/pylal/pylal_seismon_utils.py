@@ -10,10 +10,12 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
 from pylal import Fr
 import glue.datafind, glue.segments, glue.segmentsUtils, glue.lal
+import pylal.dq.dqSegmentUtils
 import pylal.pylal_seismon_NLNM, pylal.pylal_seismon_html
 import pylal.pylal_seismon_eqmon
 
 import gwpy.time, gwpy.timeseries, gwpy.spectrum, gwpy.plotter
+import gwpy.segments
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
 __date__ = "2012/8/26"
@@ -422,10 +424,9 @@ def frame_struct(params):
             if gps > gpsEnd:
                 continue
 
-            cacheFile = glue.lal.CacheEntry("%s %s %d %d %s"%("XG","Homestake",gps,dur,frame))
-            datacache.append(cacheFile)
-
-    
+            #cacheFile = glue.lal.CacheEntry("%s %s %d %d %s"%("XG","Homestake",gps,dur,frame))
+            datacache.append(frame)
+        datacache = glue.lal.Cache(map(glue.lal.CacheEntry.from_T050017, datacache))
 
     elif params["ifo"] == "LUNAR":
         frameDir = "/home/mcoughlin/Lunar/data/"
@@ -707,6 +708,15 @@ def retrieve_timeseries(params,channel,segment):
         dataFull.resample(channel.samplef)
 
     else:
+
+        #for frame in params["frame"]:
+        #    print frame.path
+        #    frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame.path,channel.station)
+
+        #print params["frame"]
+        #dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel.station, epoch=gpsStart, duration=duration)
+        #print "done"
+
         # make timeseries
         try:
             dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel.station, epoch=gpsStart, duration=duration)
@@ -726,4 +736,151 @@ def RunningMedian(data, M, factor):
         if np.absolute(data_slice_median)*factor < np.absolute(data[i]):
             data[i] = data_slice_median
     return data
+
+def flag_struct(params):
+    """@create seismon flag structure
+
+    @param params
+        seismon params structure
+    """
+
+    gpsStart = params["gpsStart"]
+    gpsEnd = params["gpsEnd"]
+
+    print gpsStart, gpsEnd
+
+    # set the times
+    duration = np.ceil(gpsEnd-gpsStart)
+    segmentlist = glue.segments.segmentlist()
+
+    if params["doFlagsDatabase"]:
+        print "Generating flags from database"
+        #segmentlist, segmentlistValid = pylal.dq.dqSegmentUtils.grab_segments(
+        #                                       gpsStart,gpsEnd,
+        #                                       params["flagsFlag"],params["flagsDatabase"],
+        #                                       segment_summary=True)
+        dqsegments = gwpy.segments.DataQualityFlag.query(params["flagsFlag"],gpsStart,gpsEnd,url=params["flagsDatabase"])
+        segmentlist = dqsegments.active
+    elif params["doFlagsTextFile"]:
+        segmentlist = glue.segments.segmentlist()
+        lines = [line.strip() for line in open(params["flagsTextFile"])]
+        for line in lines:
+            lineSplit = line.split(",")
+            seg = [float(lineSplit[0]),float(lineSplit[1])]
+            segmentlist.append(glue.segments.segment(seg[0],seg[1]))
+
+    elif params["doFlagsChannel"]:
+        segmentlist = [glue.segments.segment(params["gpsStart"],params["gpsEnd"])]
+        params["segments"] = segmentlist
+
+        if params["doPlots"]:
+            plotDirectory = params["path"] + "/flags" 
+            pylal.pylal_seismon_utils.mkdir(plotDirectory)
+
+            pngFile = os.path.join(plotDirectory,"timeseries.png")
+            plot = gwpy.plotter.TimeSeriesPlot(figsize=[14,8])
+
+        segmentlist = glue.segments.segmentlist()
+
+        lines = [line.strip() for line in open(params["flagsTextFile"])]    
+        for line in lines:
+
+            lineSplit = line.split(" ")
+            channel = lineSplit[0]
+            samplef = int(lineSplit[1])
+            threshold = float(lineSplit[2])
+
+            dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel, epoch=gpsStart, duration=duration)
+
+            if params["doPlots"]:
+                label = channel.replace(":","_").replace("_","\_")
+                plot.add_timeseries(dataFull,label=label)
+
+            try:
+                dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel, epoch=gpsStart, duration=duration)
+            except:
+                print "data read from frames failed... continuing\n"
+                continue
+
+            continue
+            segmentlist = glue.segments.segmentlist()
+            segs = np.loadtxt(params["segmentsTextFile"])
+            for seg in segs:
+                segmentlist.append(glue.segments.segment(seg[0],seg[1]))
+            params["segments"] = segmentlist
+            params["gpsStart"] = np.min(params["segments"])
+            params["gpsEnd"] = np.max(params["segments"])
+
+        if params["doPlots"]:
+            plot.ylabel = r"RMS Velocity [$\mu$m/s]"
+            plot.add_legend(loc=1,prop={'size':10})
+
+            plot.save(pngFile)
+            plot.close()
+
+    params["flagList"] = segmentlist
+    return params
+
+def segmentlist_duration(segmentlist):
+    """@determine duration of segmentlist
+
+    @param segmentlist
+        glue segment list
+    """
+
+    duration = 0
+    for seg in segmentlist:
+        dur = seg[1] - seg[0]
+        duration = duration + dur
+        print seg, duration
+    return duration
+
+def run_flags_analysis(params,segment):
+    """@run earthquakes prediction.
+
+    @param params
+        seismon params dictionary
+    @param segment
+        [start,end] gps
+    """
+
+    gpsStart = segment[0]
+    gpsEnd = segment[1]
+
+    noticesDirectory = os.path.join(params["path"],"notices")
+    noticesFile = os.path.join(noticesDirectory,"notices.txt")
+
+    segmentlist = glue.segments.segmentlist()
+    segs = np.loadtxt(noticesFile)
+    for seg in segs:
+        segmentlist.append(glue.segments.segment(seg[0],seg[0]+seg[1]))
+    earthquake_segmentlist = segmentlist
+    earthquake_segmentlist.coalesce()
+    earthquake_segmentlist_duration = segmentlist_duration(earthquake_segmentlist)
+    earthquake_segmentlist_percentage = 100 * earthquake_segmentlist_duration / float(gpsEnd - gpsStart)
+
+    flag_segmentlist = params["flagList"]
+    flag_segmentlist_duration = segmentlist_duration(flag_segmentlist)
+    flag_segmentlist_percentage = 100 * flag_segmentlist_duration / float(gpsEnd - gpsStart)
+
+    earthquake_minus_flag_segmentlist = earthquake_segmentlist - flag_segmentlist
+    earthquake_minus_flag_segmentlist.coalesce()
+    earthquake_minus_flag_segmentlist_duration = segmentlist_duration(earthquake_minus_flag_segmentlist)
+    earthquake_minus_flag_segmentlist_percentage = \
+        100 * earthquake_minus_flag_segmentlist_duration/float(gpsEnd - gpsStart)
+    flag_minus_earthquake_segmentlist = flag_segmentlist - earthquake_segmentlist
+    flag_minus_earthquake_segmentlist.coalesce()
+    flag_minus_earthquake_segmentlist_duration = segmentlist_duration(flag_minus_earthquake_segmentlist)
+    flag_minus_earthquake_segmentlist_percentage = \
+        100 * flag_minus_earthquake_segmentlist_duration/float(gpsEnd - gpsStart)
+
+    print "Flags statistics"
+    print "Earthquakes total time: %d s"%earthquake_segmentlist_duration
+    print "Earthquakes percentage time: %.5e"%earthquake_segmentlist_percentage
+    print "Flags total time: %d s"%flag_segmentlist_duration
+    print "Flags percentage time: %.5e"%flag_segmentlist_percentage
+    print "Earthquakes minus flag total time: %d s"%earthquake_minus_flag_segmentlist_duration
+    print "Earthquakes minus flag percentage time: %.5e"%earthquake_minus_flag_segmentlist_percentage
+    print "Flags minus earthquake total time: %d s"%flag_minus_earthquake_segmentlist_duration
+    print "Flags minus earthquake percentage time: %.5e"%flag_minus_earthquake_segmentlist_percentage
 

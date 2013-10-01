@@ -205,6 +205,28 @@ def apply_calibration(params,channel,data):
 
     return data
 
+def calculate_picks(params,channel,data):
+
+    if params["doEarthquakesPicks"]:
+        import obspy.signal
+
+        nsta = int(2.5 * channel.samplef)
+        nlta = int(10.0 * channel.samplef)
+        cft = obspy.signal.trigger.recSTALTA(data["dataFull"].data, nsta, nlta)
+
+        thres1 = 0.9 * np.max(cft)
+        thres2 = 0.5
+        on_off = obspy.signal.triggerOnset(cft, thres1, thres2)
+        on_off = np.array(on_off) / channel.samplef
+        on_off = data["dataFull"].epoch.val + on_off
+
+    else:
+        on_off = []
+
+    data["on_off"] = on_off
+   
+    return data
+
 def spectra(params, channel, segment):
     """@calculates spectral data for given channel and segment.
 
@@ -236,12 +258,16 @@ def spectra(params, channel, segment):
         dataFull[index] = meanSamples
     dataFull -= np.mean(dataFull.data)
 
-    if np.mean(dataFull) == 0.0:
+    if np.mean(dataFull.data) == 0.0:
         print "data only zeroes... continuing\n"
+        return
+    if len(dataFull.data) < 2*channel.samplef:
+        print "timeseries too short for analysis... continuing\n"
         return
 
     data = calculate_spectra(params,channel,dataFull)
     data = apply_calibration(params,channel,data)
+    data = calculate_picks(params,channel,data)
 
     save_data(params,channel,gpsStart,gpsEnd,data)
 
@@ -279,6 +305,7 @@ def spectra(params, channel, segment):
         xlim = [plot.xlim[0],plot.xlim[1]]
         ylim = [plot.ylim[0],plot.ylim[1]]
 
+        count = 0
         for attributeDic in attributeDics:
 
             if params["ifo"] == "IRIS":
@@ -301,19 +328,50 @@ def spectra(params, channel, segment):
             if -peak_velocity < ylim[0]:
                ylim[0] = -peak_velocity*1.1
 
-            kwargs = {"linestyle":"--","color":"r"}
-            plot.add_line([Ptime,Ptime],ylim,label="P Est. Arrival",**kwargs)
-            kwargs = {"linestyle":"--","color":"g"}
-            plot.add_line([Stime,Stime],ylim,label="S Est. Arrival",**kwargs)
-            kwargs = {"linestyle":"--","color":"b"}
-            plot.add_line([RthreePointFivetime,RthreePointFivetime],ylim,label="Middle R Est. Arrival",**kwargs)            
-            kwargs = {"linestyle":"--","color":"b"}
-            plot.add_line([Rtwotime,Rtwotime],ylim,label="High R Est. Arrival",**kwargs)
-            kwargs = {"linestyle":"--","color":"b"}
-            plot.add_line([Rfivetime,Rfivetime],ylim,label="Low R Est. Arrival",**kwargs)
-            kwargs = {"linestyle":"--","color":"k"}
-            plot.add_line(xlim,[peak_velocity,peak_velocity],label="pred. vel.",**kwargs)
-            plot.add_line(xlim,[-peak_velocity,-peak_velocity],**kwargs)
+            if count ==  0:
+                kwargs = {"linestyle":"--","color":"r"}
+                plot.add_line([Ptime,Ptime],ylim,label="P Est. Arrival",**kwargs)
+                kwargs = {"linestyle":"--","color":"g"}
+                plot.add_line([Stime,Stime],ylim,label="S Est. Arrival",**kwargs)
+                kwargs = {"linestyle":"--","color":"b"}
+                plot.add_line([RthreePointFivetime,RthreePointFivetime],ylim,label="Middle R Est. Arrival",**kwargs)            
+                plot.add_line([Rtwotime,Rtwotime],ylim,label="High R Est. Arrival",**kwargs)
+                plot.add_line([Rfivetime,Rfivetime],ylim,label="Low R Est. Arrival",**kwargs)
+                kwargs = {"linestyle":"--","color":"k"}
+                plot.add_line(xlim,[peak_velocity,peak_velocity],label="pred. vel.",**kwargs)
+                plot.add_line(xlim,[-peak_velocity,-peak_velocity],**kwargs)
+            else:
+                kwargs = {"linestyle":"--","color":"r"}
+                plot.add_line([Ptime,Ptime],ylim,**kwargs)
+                kwargs = {"linestyle":"--","color":"g"}
+                plot.add_line([Stime,Stime],ylim,**kwargs)
+                kwargs = {"linestyle":"--","color":"b"}
+                plot.add_line([RthreePointFivetime,RthreePointFivetime],ylim,**kwargs)
+                plot.add_line([Rtwotime,Rtwotime],ylim,**kwargs)
+                plot.add_line([Rfivetime,Rfivetime],ylim,**kwargs)
+                kwargs = {"linestyle":"--","color":"k"}
+                plot.add_line(xlim,[peak_velocity,peak_velocity],**kwargs)
+                plot.add_line(xlim,[-peak_velocity,-peak_velocity],**kwargs)
+
+            count = count + 1
+
+        count = 0
+        for on_off in data["on_off"]:
+
+            ontime = on_off[0]
+            offtime = on_off[1]
+
+            if count ==  0:
+                kwargs = {"linestyle":"-.","color":"r"}
+                plot.add_line([ontime,ontime],ylim,label="On trigger",**kwargs)
+                kwargs = {"linestyle":"-.","color":"b"}
+                plot.add_line([offtime,offtime],ylim,label="Off trigger",**kwargs)
+            else:
+                kwargs = {"linestyle":"-.","color":"r"}
+                plot.add_line([ontime,ontime],ylim,**kwargs)
+                kwargs = {"linestyle":"-.","color":"b"}
+                plot.add_line([offtime,offtime],ylim,**kwargs)
+            count = count + 1
 
         plot.ylabel = r"Velocity [$\mu$m/s]"
         plot.title = channel.station.replace("_","\_")
@@ -746,7 +804,7 @@ def channel_summary(params, segment):
 
         fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
 
-        pngFile = os.path.join(plotDirectory,"psd-%d-%d.png"%(gpsStart,gpsEnd))
+        pngFile = os.path.join(plotDirectory,"psd.png")
         lowBin = np.inf
         highBin = -np.inf
         plot = gwpy.plotter.Plot(figsize=[14,8])

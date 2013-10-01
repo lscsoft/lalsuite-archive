@@ -71,6 +71,13 @@ def parse_commandline():
     parser.add_option("--segmentFlag", help="Segment flag", default="H1:ODC-PSL_SUMMARY:1")
     parser.add_option("--segmentsTextFile", help="Segments text file.", default=None)
 
+    parser.add_option("--flagsDatabase", help="Flags database", default="https://segdb.ligo.caltech.edu")
+    parser.add_option("--flagsFlag", help="Flags flag", default="H1:DMT-BRMS_SEISMIC_Y_30_100_MHZ_HIGHTHRESH")
+    parser.add_option("--flagsTextFile", help="Flags text file.", 
+                     default="/home/mcoughlin/Seismon/seismon/input/seismon_flags_BLRMS.txt")
+    parser.add_option("--flagsChannelTextFile", help="Flags text file.",
+                     default="/home/mcoughlin/Seismon/seismon/input/seismon_flags_BLRMS.txt")
+
     parser.add_option("--fmin", help="fmin.", default=1.0/64.0,type=float)
     parser.add_option("--fmax", help="fmax.", default=64.0,type=float)
 
@@ -80,13 +87,20 @@ def parse_commandline():
     parser.add_option("--doEarthquakes",  action="store_true", default=False)
     parser.add_option("--doEarthquakesAnalysis",  action="store_true", default=False)
     parser.add_option("--doEarthquakesMonitor",  action="store_true", default=False)
+    parser.add_option("--doEarthquakesPicks",  action="store_true", default=False)
+
     parser.add_option("--doOmicron",  action="store_true", default=False)
     parser.add_option("--doFreqAnalysis",  action="store_true", default=False)
     parser.add_option("--doAnalysis",  action="store_true", default=False)
     parser.add_option("--doHTML",  action="store_true", default=False)
     parser.add_option("--doSegmentsDatabase",  action="store_true", default=False)
     parser.add_option("--doSegmentsTextFile",  action="store_true", default=False)
-    parser.add_option("--doSkipPSD",  action="store_true", default=False)    
+    parser.add_option("--doPSD",  action="store_true", default=False)    
+    parser.add_option("--doSummary",  action="store_true", default=False)
+    parser.add_option("--doFlagsDatabase",  action="store_true", default=False)
+    parser.add_option("--doFlagsTextFile",  action="store_true", default=False)
+    parser.add_option("--doFlagsChannel",  action="store_true", default=False)
+    parser.add_option("--doFlagsAnalysis",  action="store_true", default=False)
 
     parser.add_option("--doKML",  action="store_true", default=False)
     parser.add_option("--doBokeh",  action="store_true", default=False)
@@ -139,6 +153,10 @@ def params_struct(opts):
     params["segmentDatabase"] = opts.segmentDatabase
     params["segmentFlag"] = opts.segmentFlag
     params["segmentsTextFile"] = opts.segmentsTextFile
+    params["flagsDatabase"] = opts.flagsDatabase
+    params["flagsFlag"] = opts.flagsFlag
+    params["flagsTextFile"] = opts.flagsTextFile
+    params["flagsChannelTextFile"] = opts.flagsTextFile
 
     params["eventfilesType"] = opts.eventfilesType
 
@@ -148,13 +166,20 @@ def params_struct(opts):
     params["doEarthquakes"] = opts.doEarthquakes
     params["doEarthquakesAnalysis"] = opts.doEarthquakesAnalysis
     params["doEarthquakesMonitor"] = opts.doEarthquakesMonitor
+    params["doEarthquakesPicks"] = opts.doEarthquakesPicks
+
     params["doOmicron"] = opts.doOmicron
     params["doAnalysis"] = opts.doAnalysis
     params["doFreqAnalysis"] = opts.doFreqAnalysis
     params["doHTML"] = opts.doHTML
     params["doSegmentsDatabase"] = opts.doSegmentsDatabase
     params["doSegmentsTextFile"] = opts.doSegmentsTextFile
-    params["doSkipPSD"] = opts.doSkipPSD
+    params["doPSD"] = opts.doPSD
+    params["doSummary"] = opts.doSummary
+    params["doFlagsDatabase"] = opts.doFlagsDatabase
+    params["doFlagsTextFile"] = opts.doFlagsTextFile
+    params["doFlagsChannel"] = opts.doFlagsTextFile
+    params["doFlagsAnalysis"] = opts.doFlagsAnalysis
 
     params["doKML"] = opts.doKML
     params["doBokeh"] = opts.doBokeh
@@ -187,12 +212,17 @@ elif params["doEarthquakesAnalysis"]:
     channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list.txt"
 else:
     channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list.txt"
-params = pylal.pylal_seismon_utils.channel_struct(params,channelList)
 
+params = pylal.pylal_seismon_utils.channel_struct(params,channelList)
 params = pylal.pylal_seismon_utils.segment_struct(params)
 params = pylal.pylal_seismon_utils.frame_struct(params)
+if params["frame"] == []:
+    print "No frames found... quitting."
+    sys.exit()
+
 params = pylal.pylal_seismon_utils.setPath(params,[params["gpsStart"],params["gpsEnd"]])
 print params["path"]
+params = pylal.pylal_seismon_utils.flag_struct(params)
 
 if params["doEarthquakesMonitor"]:
     segmentlist = pylal.pylal_seismon_eqmon.run_earthquakes(params,[params["gpsStart"],params["gpsEnd"]])
@@ -220,32 +250,37 @@ if params["doBokeh"]:
     sys.exit()
 
 for channel in params["channels"]:
-    print "Generating PSD for %s"%channel.station
-    for segment in params["segments"]:
-        print "Segment: %d-%d"%(segment[0],segment[1])
-        params = pylal.pylal_seismon_utils.setPath(params,segment)
-        if not params["doSkipPSD"]:
+    if params["doPSD"]:
+        print "Generating PSD for %s"%channel.station
+        for segment in params["segments"]:
+            print "Segment: %d-%d"%(segment[0],segment[1])
+            params = pylal.pylal_seismon_utils.setPath(params,segment)
             pylal.pylal_seismon_psd.spectra(params,channel,segment)
     if params["doAnalysis"]:
         print "Analyzing PSD significance for %s"%channel.station
         pylal.pylal_seismon_psd.analysis(params,channel)
-
-    for segment in params["segments"]:
-        if params["doOmicron"]:
+    if params["doOmicron"]:
+        for segment in params["segments"]:
             print "Plotting Omicron triggers for %s"%channel.station
             params = pylal.pylal_seismon_utils.setPath(params,segment)
             pylal.pylal_seismon_omicron.plot_triggers(params,channel,segment)
 
-for segment in params["segments"]:
-    print "Running summary for Segment: %d-%d"%(segment[0],segment[1])
-    params = pylal.pylal_seismon_utils.setPath(params,segment)
-    #pylal.pylal_seismon_psd.channel_summary(params, segment)
-print "Summaries complete!"
+if params["doSummary"]:
+    for segment in params["segments"]:
+        print "Running summary for Segment: %d-%d"%(segment[0],segment[1])
+        params = pylal.pylal_seismon_utils.setPath(params,segment)
+        pylal.pylal_seismon_psd.channel_summary(params, segment)
+    print "Summaries complete!"
 
 if params["doEarthquakesAnalysis"]:
     print "Running earthquake analysis"
     params = pylal.pylal_seismon_utils.setPath(params,[params["gpsStart"],params["gpsEnd"]])
     pylal.pylal_seismon_eqmon.run_earthquakes_analysis(params,[params["gpsStart"],params["gpsEnd"]])
+
+if params["doFlagsAnalysis"]:
+    print "Running flags analysis"
+    params = pylal.pylal_seismon_utils.setPath(params,[params["gpsStart"],params["gpsEnd"]])
+    pylal.pylal_seismon_utils.run_flags_analysis(params,[params["gpsStart"],params["gpsEnd"]])
 
 if params["doHTML"]:
     htmlPage = pylal.pylal_seismon_html.summary_page(params)

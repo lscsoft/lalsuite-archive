@@ -65,7 +65,7 @@ def run_earthquakes(params,segment):
         traveltimes = attributeDic["traveltimes"][ifo]
 
         arrival = np.min([max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
-        departure = np.min([max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
+        departure = np.max([max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
 
         check_intersect = (arrival >= gpsStart) and (departure <= gpsEnd)
 
@@ -128,10 +128,12 @@ def run_earthquakes_analysis(params,segment):
     data["prediction"]["ttEnd"] = ttEnd
     data["prediction"]["data"] = amp
 
-    tt,amp = loadEarthquakes(params,attributeDics)
+    tt,ttArrival,amp,distance = loadEarthquakes(params,attributeDics)
     data["earthquakes"] = {}
     data["earthquakes"]["tt"] = tt
+    data["earthquakes"]["ttArrival"] = ttArrival
     data["earthquakes"]["data"] = amp
+    data["earthquakes"]["distance"] = distance
 
     data["channels"] = {}
     for channel in params["channels"]:
@@ -151,6 +153,8 @@ def run_earthquakes_analysis(params,segment):
         data["channels"][channel.station_underscore]["timeseries"]["ttMax"] = ttMax
         data["channels"][channel.station_underscore]["timeseries"]["data"] = amp
 
+    data = channelEarthquakesIntersect(params,data)
+
     if params["doKML"]:
         kmlName = os.path.join(earthquakesDirectory,"earthquakes_time.kml")
         create_kml(params,attributeDics,data,"time",kmlName)
@@ -163,10 +167,16 @@ def run_earthquakes_analysis(params,segment):
         pylal.pylal_seismon_eqmon_plot.prediction(data,plotName)
         plotName = os.path.join(earthquakesDirectory,"residual.png")
         pylal.pylal_seismon_eqmon_plot.residual(data,plotName)
+
         plotName = os.path.join(earthquakesDirectory,"earthquakes_timeseries.png")
-        pylal.pylal_seismon_eqmon_plot.earthquakes_timeseries(params,data,plotName)
+        pylal.pylal_seismon_eqmon_plot.earthquakes_station(params,data,"timeseries",plotName)
         plotName = os.path.join(earthquakesDirectory,"earthquakes_psd.png")
-        pylal.pylal_seismon_eqmon_plot.earthquakes_psd(params,data,plotName)
+        pylal.pylal_seismon_eqmon_plot.earthquakes_station(params,data,"psd",plotName)
+
+        plotName = os.path.join(earthquakesDirectory,"earthquakes_distance_amplitude.png")
+        pylal.pylal_seismon_eqmon_plot.earthquakes_station_distance(params,data,"amplitude",plotName)
+        plotName = os.path.join(earthquakesDirectory,"earthquakes_distance_time.png")
+        pylal.pylal_seismon_eqmon_plot.earthquakes_station_distance(params,data,"time",plotName)
 
         plotName = os.path.join(earthquakesDirectory,"station_amplitude.png")
         pylal.pylal_seismon_eqmon_plot.station_plot(params,attributeDics,data,"amplitude",plotName)
@@ -258,6 +268,53 @@ def create_kml(params,attributeDics,data,type,kmlFile):
 
     kml.save(kmlFile)
 
+def channelEarthquakesIntersect(params,data):
+    """@load earthquakes dictionaries.
+
+    @param params
+        seismon params dictionary
+    @param data
+        channel timeseries data
+    """
+
+    ifo = pylal.pylal_seismon_utils.getIfo(params)
+
+    earthquakes_data = data["earthquakes"]
+    earthquakes_tt = earthquakes_data["tt"]
+    earthquakes_ttArrival = earthquakes_data["ttArrival"]
+    earthquakes_amp = earthquakes_data["data"]
+    earthquakes_distance = earthquakes_data["distance"]
+
+    for channel in params["channels"]:
+        channel_data = data["channels"][channel.station_underscore]
+
+        channel_ttStart = data["channels"][channel.station_underscore]["timeseries"]["ttStart"] 
+        channel_ttEnd = data["channels"][channel.station_underscore]["timeseries"]["ttEnd"]
+        channel_ttMax = data["channels"][channel.station_underscore]["timeseries"]["ttMax"]
+        distances = []
+        amps = []
+        tts = []  
+
+        for ttStart,ttEnd,ttMax in zip(channel_ttStart,channel_ttEnd,channel_ttMax): 
+            channel_distance = -1
+            channel_amp = -1
+            channel_tt = -1
+            for tt,ttArrival,amp,distance in zip(earthquakes_tt,earthquakes_ttArrival,earthquakes_amp,earthquakes_distance): 
+                if (ttArrival >= ttStart) and (ttArrival <= ttEnd):
+                    channel_distance = distance
+                    channel_amp = amp
+                    channel_tt = ttMax - tt 
+            if not channel_distance == -1:
+                distances.append(channel_distance)
+                amps.append(channel_amp)
+                tts.append(channel_tt)
+
+        data["channels"][channel.station_underscore]["timeseries"]["eq_distance"] = distances
+        data["channels"][channel.station_underscore]["timeseries"]["eq_amp"] = amps
+        data["channels"][channel.station_underscore]["timeseries"]["eq_tt"] = tts
+
+    return data
+
 def loadPredictions(params,segment):
     """@load earthquakes predictions.
 
@@ -316,19 +373,25 @@ def loadEarthquakes(params,attributeDics):
     ifo = pylal.pylal_seismon_utils.getIfo(params)
 
     tt = []
+    ttArrival = []
     amp = []
+    distance = []
 
     for attributeDic in attributeDics:
 
         traveltimes = attributeDic["traveltimes"][ifo]
 
-        tt.append(max(traveltimes["RthreePointFivetimes"]))
+        tt.append(attributeDic["GPS"])
+        ttArrival.append(max(traveltimes["RthreePointFivetimes"]))
         amp.append(traveltimes["Rfamp"][0])
+        distance.append(max(traveltimes["Distances"]))
 
     tt = np.array(tt)
+    ttArrival = np.array(ttArrival)
     amp = np.array(amp)
+    distance = np.array(distance)
 
-    return tt,amp
+    return tt,ttArrival,amp,distance
 
 def loadChannelPSD(params,channel,segment):
     """@load channel PSDs.
@@ -733,7 +796,7 @@ def irisread(event):
     attributeDic['GPS'] = float(XLALUTCToGPS(tm))
     attributeDic['UTC'] = float(dt.strftime("%s"))
 
-    eventID = random.randrange(10**7, 10**8)
+    eventID = "%.0f"%attributeDic['GPS']
     eventName = ''.join(["iris",str(eventID)])
 
     attributeDic["eventName"] = eventName
@@ -949,10 +1012,6 @@ def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
         Rtwotimes.append(Rtwotime)
         RthreePointFivetimes.append(RthreePointFivetime)
         Rfivetimes.append(Rfivetime)
-
-
-    #if ifo == "LHO":
-    #    print time - distance / 3500
 
     traveltimes = {}
     traveltimes["Latitudes"] = lats

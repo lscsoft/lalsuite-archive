@@ -57,6 +57,7 @@ def parse_commandline():
                       default ="hour")
     parser.add_option("-s", "--gpsStart", help="GPS Start Time.", default=1054028959,type=int)
     parser.add_option("-e", "--gpsEnd", help="GPS End Time.", default=1054029209,type=int)
+    parser.add_option("-m", "--minMagnitude", help="Minimum earthquake magnitude.", default=5.0,type=float)
     parser.add_option("-v", "--verbose", action="store_true", default=False,
                       help="Run verbosely. (Default: False)")
 
@@ -92,6 +93,7 @@ def params_struct(opts):
     params["publicFileType"] = opts.publicFileType
     params["gpsStart"] = opts.gpsStart
     params["gpsEnd"] = opts.gpsEnd
+    params["minMagnitude"] = opts.minMagnitude
 
     params["doPublic"] = opts.doPublic
     params["doPrivate"] = opts.doPrivate
