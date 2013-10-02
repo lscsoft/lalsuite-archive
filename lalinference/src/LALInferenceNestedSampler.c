@@ -695,12 +695,13 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
   LALInferenceAddVariable(runState->livePoints[minpos],"logw",&logw,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
   dZ=logadd(logZ,logLmax-((double) iter)/((double)Nlive))-logZ;
   sloppyfrac=*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams,"sloppyfraction");
-  if(displayprogress) fprintf(stderr,"%i: accpt: %1.3f Nmcmc: %i sub_accpt: %1.3f slpy: %2.1f%% H: %3.3lf nats (%3.3lf b) logL:%lf ->%lf logZ: %lf dZ: %lf Zratio: %lf db\n",\
+  if(displayprogress) fprintf(stderr,"%i: accpt: %1.3f Nmcmc: %i sub_accpt: %1.3f slpy: %2.1f%% Nlike: %u H: %3.3lf nats (%3.3lf b) logL:%lf ->%lf logZ: %lf dZ: %lf Zratio: %lf db\n",\
     iter,\
     *(REAL8 *)LALInferenceGetVariable(runState->algorithmParams,"accept_rate")/(REAL8)itercounter,\
     *(INT4 *)LALInferenceGetVariable(runState->algorithmParams,"Nmcmc"),\
     *(REAL8 *)LALInferenceGetVariable(runState->algorithmParams,"sub_accept_rate"),\
     100.0*sloppyfrac,\
+    runState->data->likeli_counter,\
     H,\
     H/LAL_LN2,\
     logLmin,\
@@ -786,6 +787,12 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
     sprintf(bayesfile,"%s_B.txt",outfile);
     fpout=fopen(bayesfile,"w");
     fprintf(fpout,"%lf %lf %lf %lf\n",logZ-logZnoise,logZ,logZnoise,logLmax);
+    fclose(fpout);
+    char statsfile[FILENAME_MAX];
+    sprintf(statsfile,"%s_stats.txt",outfile);
+    fpout=fopen(statsfile,"w");
+    fprintf(fpout,"IFO templates likelihoods\n");
+    for(LALInferenceIFOData *p=runState->data;p;p=p->next) fprintf(fpout,"%s: %u %u\n",p->name,p->templa_counter,p->likeli_counter);
     fclose(fpout);
     double logB=logZ-logZnoise;
     /* Pass output back through algorithmparams */

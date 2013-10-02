@@ -1387,6 +1387,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
     LALInferenceAddVariable(currentParams, "tideO", &tideO,
         LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   }
+  
   if (injTable)
      print_flags_orders_warning(injTable,commandLine); 
          

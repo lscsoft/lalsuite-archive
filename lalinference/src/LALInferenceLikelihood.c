@@ -346,6 +346,7 @@ REAL8 LALInferenceNoiseOnlyLogLikelihood(LALInferenceVariables *currentParams, L
       
      }
     ifo++; //increment IFO counter for noise parameters
+    dataPtr->likeli_counter+=1;
     dataPtr = dataPtr->next;
   }
 
@@ -366,7 +367,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
 /*   - "distance"        (REAL8, Mpc, >0)                      */
 /*   - "time"            (REAL8, GPS sec.)                     */
 /***************************************************************/
-{
+{ 
   double Fplus, Fcross;
   double FplusScaled, FcrossScaled;
   double diffRe, diffIm, diffSquared;
@@ -491,6 +492,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
     if (different) { /* template needs to be re-computed: */
       LALInferenceCopyVariables(&intrinsicParams, dataPtr->modelParams);
       LALInferenceAddVariable(dataPtr->modelParams, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+      dataPtr->templa_counter+=1;
       templt(dataPtr);
       if(XLALGetBaseErrno()==XLAL_FAILURE) /* Template generation failed in a known way, set -Inf likelihood */
           return(-DBL_MAX);
@@ -636,6 +638,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
       im = newIm;
     }
     ifo++; //increment IFO counter for noise parameters
+    dataPtr->likeli_counter+=1;
     dataPtr = dataPtr->next;
   }
   loglikeli = -1.0 * chisquared; // note (again): the log-likelihood is unnormalised!
@@ -754,6 +757,7 @@ REAL8 LALInferenceFreqDomainStudentTLogLikelihood(LALInferenceVariables *current
     if (different) { /* template needs to be re-computed: */
       LALInferenceCopyVariables(&intrinsicParams, dataPtr->modelParams);
       LALInferenceAddVariable(dataPtr->modelParams, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+      dataPtr->templa_counter+=1;
       templt(dataPtr);
 
       if (dataPtr->modelDomain == LAL_SIM_DOMAIN_TIME) {
@@ -904,8 +908,8 @@ REAL8 LALInferenceFreqDomainLogLikelihood(LALInferenceVariables *currentParams, 
           -2.0*LALInferenceComputeFrequencyDomainOverlap(ifoPtr, ifoPtr->freqData->data, freqModelResponse)
           +LALInferenceComputeFrequencyDomainOverlap(ifoPtr, freqModelResponse, freqModelResponse);
 	totalChiSquared+=temp;
-        ifoPtr->loglikelihood -= 0.5*temp;
-
+    ifoPtr->loglikelihood -= 0.5*temp;
+    ifoPtr->likeli_counter+=1;
     ifoPtr = ifoPtr->next;
   }
   loglikeli = -0.5 * totalChiSquared; // note (again): the log-likelihood is unnormalised!
@@ -1121,6 +1125,7 @@ void LALInferenceComputeFreqDomainResponse(LALInferenceVariables *currentParams,
     if (different) { /* template needs to be re-computed: */
       LALInferenceCopyVariables(&intrinsicParams, dataPtr->modelParams);
       LALInferenceAddVariable(dataPtr->modelParams, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+      dataPtr->templa_counter+=1;
       templt(dataPtr);
 
       if (dataPtr->modelDomain == LAL_SIM_DOMAIN_TIME) {
@@ -1697,6 +1702,7 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentP
     if (different) { /* template needs to be re-computed: */
       LALInferenceCopyVariables(&intrinsicParams, dataPtr->modelParams);
       LALInferenceAddVariable(dataPtr->modelParams, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+      dataPtr->templa_counter+=1;
       templt(dataPtr);
       if(XLALGetBaseErrno()==XLAL_FAILURE) /* Template generation failed in a known way, set -Inf likelihood */
         return(-DBL_MAX);
@@ -1853,6 +1859,7 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentP
       re = newRe;
       im = newIm;
     }
+    dataPtr->likeli_counter+=1;
     dataPtr = dataPtr->next;
   }
   R=2.0*sqrt(Rre*Rre+Rim*Rim);
