@@ -799,6 +799,16 @@ class CoincSynthesizer(object):
 
 
 	@property
+	def all_instrument_combos(self):
+		"""
+		A tuple of all possible instrument combinations (as
+		frozensets).
+		"""
+		all_instruments = tuple(self.eventlists)
+		return tuple(frozenset(instruments) for n in range(2, len(all_instruments) + 1) for instruments in iterutils.choices(all_instruments, n))
+
+
+	@property
 	def P_live(self):
 		"""
 		Dictionary mapping instrument combination (as a frozenset)
@@ -814,7 +824,7 @@ class CoincSynthesizer(object):
 		except AttributeError:
 			livetime = float(abs(segmentsUtils.vote(self.segmentlists.values(), 2)))
 			all_instruments = set(self.segmentlists)
-			self._P_live = dict((frozenset(instruments), float(abs(self.segmentlists.intersection(instruments) - self.segmentlists.union(all_instruments - set(instruments)))) / livetime) for n in range(2, len(all_instruments) + 1) for instruments in iterutils.choices(tuple(all_instruments), n))
+			self._P_live = dict((instruments, float(abs(self.segmentlists.intersection(instruments) - self.segmentlists.union(all_instruments - instruments))) / livetime) for instruments in self.all_instrument_combos)
 			# check normalization
 			total = sum(sorted(self._P_live.values()))
 			assert abs(1.0 - total) < 1e-14
@@ -909,13 +919,13 @@ class CoincSynthesizer(object):
 		except AttributeError:
 			all_instruments = set(self.mu)
 			self._rates = {}
-			for instruments in (instruments for n in range(2, len(all_instruments) + 2) for instruments in iterutils.choices(tuple(all_instruments), n)):
+			for instruments in self.all_instrument_combos:
 		# choose the instrument whose TOA forms the "epoch" of the
 		# coinc.  to improve the convergence rate this should be
 		# the instrument with the smallest coincidence windows
-				key = frozenset(instruments)
-				anchor = min((self.tau[frozenset(ab)], ab[0]) for ab in iterutils.choices(instruments, 2))[1]
-				instruments = tuple(key - set([anchor]))
+				key = instruments
+				anchor = min((self.tau[frozenset(ab)], ab[0]) for ab in iterutils.choices(tuple(instruments), 2))[1]
+				instruments = tuple(instruments - set([anchor]))
 		# compute \mu_{1} * \mu_{2} ... \mu_{N} * 2 * \tau_{12} * 2
 		# * \tau_{13} ... 2 * \tau_{1N}.  this is the rate at which
 		# events from instrument 1 are coincident with events from
