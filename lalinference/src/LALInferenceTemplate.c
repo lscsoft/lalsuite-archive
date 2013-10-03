@@ -465,7 +465,7 @@ static void eta2q(REAL8 eta, REAL8 *q)
  * symmetric mass ratio, eta.
  */
 {
-  *q = (1.0/2.*eta)*(1. + sqrt(1. - 4.*eta)) - 1; // TODO: check this!
+  *q = 1.0/(2.*eta)*(1. - sqrt(1. - 4.*eta)) - 1; // TODO: check this!
 }
 
 /*
@@ -1926,8 +1926,8 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
       exit(0);
     }
     if(LALInferenceCheckVariable(IFOdata->modelParams, "fractionalmassloss")) frac_mass_loss = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "frac_mass_loss");
-    m1 = mass*(1. - frac_mass_loss)*q/(1+q);
-    m2 = m1/q;
+    m1 = mass*(1. - frac_mass_loss)/(1+q);
+    m2 = m1*q;
   }
   else if(LALInferenceCheckVariable(IFOdata->modelParams, "nospincomponentmasses") && LALInferenceGetVariable(IFOdata->modelParams, "mass1") && LALInferenceGetVariable(IFOdata->modelParams, "mass2"))
   { 
@@ -2001,7 +2001,11 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
   }
 
   // TODO: see if the final spin/mass functions can be updated with more recent results
-  /* Fill in final black hole spin magnitude */
+  /* Fill in final black hole spin magnitude.
+   * Three options are available here :
+   * 1) Final BH spin distribution is defined 
+   * 2) Final BH spin is calculated from progenitor mass and spin parameters
+   * 3) Final BH spin is calculated from non-spinning progenitor mass ratio. */
   
   if(LALInferenceCheckVariable(IFOdata->modelParams, "rdSpin")){
     spin = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "rdSpin");
@@ -2020,8 +2024,15 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
     
   }
   
-  REAL8 spin1[3] = {0.0};
-  REAL8 spin2[3] = {0.0};
+  REAL8 spin1[3];
+  REAL8 spin2[3];
+  
+  spin1[0] = spin1x;
+  spin1[1] = spin1y;
+  spin1[2] = spin1z;
+  spin2[0] = spin2x;
+  spin2[1] = spin2y;
+  spin2[2] = spin2z;
 
   const char list_extra_parameters[32][8] = {"dtau21","dtau22","dtau33","dtau44","dfreq21","dfreq22","dfreq33","dfreq44"};
 
@@ -2037,20 +2048,20 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
   
   deltaT = IFOdata->timeData->deltaT;
   
-        SphHarmTimeSeries *qnmodes=NULL;        /**< List containing empty Quasi-Normal Modes  */
-      
-      // TODO: Get maxl or (l,m) pairs from commandLine.
+  SphHarmTimeSeries *qnmodes=NULL;        /**< List containing empty Quasi-Normal Modes  */
+  
+  // TODO: Get maxl or (l,m) pairs from commandLine.
 
-      UINT4 maxl = qnmorder;
+  UINT4 maxl = qnmorder;
       
-      if (!qnmodes){
-        qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 2, 2);
-        qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 2, 1);
-        qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 3, 3);
-        qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 4, 4);
-      }
-      else maxl = XLALSphHarmTimeSeriesGetMaxL(qnmodes);
-      qnmorder = maxl; 
+  if (!qnmodes){
+    qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 2, 2);
+    qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 2, 1);
+    qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 3, 3);
+    qnmodes = XLALSphHarmTimeSeriesAddMode(qnmodes, NULL, 4, 4);
+  }
+  else maxl = XLALSphHarmTimeSeriesGetMaxL(qnmodes);
+  qnmorder = maxl; 
       
 
   if (model_domain == LAL_SIM_DOMAIN_FREQUENCY){
