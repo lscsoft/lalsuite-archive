@@ -265,11 +265,9 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
 		coinc_inspiral.mass = sum(event.mass1 + event.mass2 for event in events) / len(events)
 		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
-		if all(event.chisq for event in events):
-			coinc_inspiral.snr = math.sqrt(sum(event.get_weighted_snr(fac = magic_number)**2 for event in events))
-		else:
-			# would get divide-by-zero without a \chi^{2} value
-			coinc_inspiral.snr = None
+		coinc_inspiral.snr = math.sqrt(sum(event.get_weighted_snr(fac = magic_number)**2 for event in events))
+		# this will fail if chisq=0 for any trigger and you try to calculate effsnr or snr/chi
+		# if so, choose a different command line option for weighted-snr !
 		coinc_inspiral.false_alarm_rate = None
 		coinc_inspiral.combined_far = None
 		coinc_inspiral.minimum_duration = min(event.template_duration for event in events)
