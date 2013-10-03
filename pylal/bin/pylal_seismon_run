@@ -182,7 +182,7 @@ def params_struct(opts):
 
     params["doFlagsDatabase"] = opts.doFlagsDatabase
     params["doFlagsTextFile"] = opts.doFlagsTextFile
-    params["doFlagsChannel"] = opts.doFlagsTextFile
+    params["doFlagsChannel"] = opts.doFlagsChannel
     params["doFlagsAnalysis"] = opts.doFlagsAnalysis
 
     params["doKML"] = opts.doKML
@@ -270,8 +270,12 @@ for channel in params["channels"]:
             pylal.pylal_seismon_omicron.plot_triggers(params,channel,segment)
     
 if params["doCoherence"]:
-    for channel1 in params["channels"]:
-        for channel2 in params["channels"]:
+    for i in xrange(len(params["channels"])):
+        channel1 = params["channels"][i]
+        for j in xrange(len(params["channels"])):
+            channel2 = params["channels"][j]
+            if j >= i:
+                continue
             print "Generating coherence for %s, %s"%(channel1.station,channel2.station)
             for segment in params["segments"]:
                 print "Segment: %d-%d"%(segment[0],segment[1])

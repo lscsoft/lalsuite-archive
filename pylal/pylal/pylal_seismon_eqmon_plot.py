@@ -154,6 +154,9 @@ def earthquakes_station_distance(params,data,type,plotName):
             plot.add_scatter(channel_data["distance"],channel_data["ttDiff"],marker='*', zorder=1000, label=label,color=color)
         elif type == "amplitude":
             plot.add_scatter(channel_data["distance"],1e6 * channel_data["ampMax"],marker='*', zorder=1000, label=label,color=color) 
+        elif type == "residual":
+            plot.add_scatter(channel_data["distance"],1e6 * (channel_data["ampMax"]-channel_data["ampPrediction"]),marker='*', zorder=1000, label=label,color=color)
+
         count=count+1
 
     xlim = plot.xlim
@@ -170,10 +173,13 @@ def earthquakes_station_distance(params,data,type,plotName):
         label = "prediction [5 km/s]"
         plot.add_line(xp,p(xp),label=label)
 
-    if type == "amplitude":
-        plot.ylabel = r"Velocity [$\mu$m/s]"
-    elif type == "time":
         plot.ylabel = 'Time [s]'
+
+    elif type == "amplitude":
+        plot.ylabel = r"Velocity [$\mu$m/s]"
+        #plot.axes.set_yscale("log")
+    elif type == "residual":
+        plot.ylabel = r"Residual Velocity [$\mu$m/s]"
     plot.xlabel = 'Distance [m]'
     plot.add_legend(loc=1,prop={'size':10})
 

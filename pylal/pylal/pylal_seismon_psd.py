@@ -310,6 +310,12 @@ def spectra(params, channel, segment):
     data = apply_calibration(params,channel,data)
     data = calculate_picks(params,channel,data)
 
+    # calculate spectrogram
+    specgram = dataFull.spectrogram(params["fftDuration"])
+    specgram **= 1/2.
+    speclog = specgram.to_logf()
+    medratio = speclog.ratio('median')
+
     if params["doEarthquakes"]:
         earthquakesDirectory = os.path.join(params["path"],"earthquakes")
         earthquakesXMLFile = os.path.join(earthquakesDirectory,"earthquakes.xml")
@@ -444,6 +450,16 @@ def spectra(params, channel, segment):
 
         plot.save(pngFile,dpi=200)
         plot.close()
+
+        pngFile = os.path.join(plotDirectory,"tf.png")
+
+        plot = medratio.plot()
+        plot.add_colorbar(log=True, clim=[0.1, 10], label='ASD ratio to median average')
+        plot.ylabel = "Frequency [Hz]"
+        plot.ylim = [params["fmin"],params["fmax"]]
+        plot.show()
+        plot.save(pngFile,dpi=200)
+        plot.close()                                       
 
 def freq_analysis(params,channel,tt,freq,spectra):
     """@frequency analysis of spectral data.

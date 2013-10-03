@@ -160,6 +160,8 @@ def run_earthquakes_analysis(params,segment):
         pylal.pylal_seismon_eqmon_plot.earthquakes_station_distance(params,data,"amplitude",plotName)
         plotName = os.path.join(earthquakesDirectory,"earthquakes_distance_time.png")
         pylal.pylal_seismon_eqmon_plot.earthquakes_station_distance(params,data,"time",plotName)
+        plotName = os.path.join(earthquakesDirectory,"earthquakes_distance_residual.png")
+        pylal.pylal_seismon_eqmon_plot.earthquakes_station_distance(params,data,"residual",plotName)
 
         plotName = os.path.join(earthquakesDirectory,"station_amplitude.png")
         pylal.pylal_seismon_eqmon_plot.station_plot(params,attributeDics,data,"amplitude",plotName)
@@ -353,12 +355,14 @@ def loadEarthquakeChannels(params,attributeDic):
     """
 
     ifo = pylal.pylal_seismon_utils.getIfo(params)
+    traveltimes = attributeDic["traveltimes"][ifo]
 
     ttMax = []
     ttDiff = []
     distance = []
     velocity = []
     ampMax = []
+    ampPrediction = []
 
     for channel in params["channels"]:
         earthquakesDirectory = params["dirPath"] + "/Text_Files/Earthquakes/" + channel.station_underscore + "/" + str(params["fftDuration"])
@@ -373,12 +377,14 @@ def loadEarthquakeChannels(params,attributeDic):
         distance.append(data_out[2])
         velocity.append(data_out[3])
         ampMax.append(data_out[4])
+        ampPrediction.append(traveltimes["Rfamp"][0])
 
     ttMax = np.array(ttMax)
     ttDiff = np.array(ttDiff)
     distance = np.array(distance)
     velocity = np.array(velocity)
     ampMax = np.array(ampMax)
+    ampPrediction = np.array(ampPrediction)
 
     data = {}
     data["tt"] = ttMax
@@ -386,6 +392,7 @@ def loadEarthquakeChannels(params,attributeDic):
     data["distance"] = distance
     data["velocity"] = velocity
     data["ampMax"] = ampMax
+    data["ampPrediction"] = ampPrediction
 
     return data
 
@@ -405,6 +412,7 @@ def loadChannelEarthquakes(params,channel,attributeDics):
     distance = []
     velocity = []
     ampMax = [] 
+    ampPrediction = []
 
     for attributeDic in attributeDics:
 
@@ -426,12 +434,14 @@ def loadChannelEarthquakes(params,channel,attributeDics):
         distance.append(data_out[2])
         velocity.append(data_out[3])
         ampMax.append(data_out[4])
+        ampPrediction.append(traveltimes["Rfamp"][0])
 
     ttMax = np.array(ttMax)
     ttDiff = np.array(ttDiff)
     distance = np.array(distance)
     velocity = np.array(velocity)
     ampMax = np.array(ampMax)
+    ampPrediction = np.array(ampPrediction)
 
     data = {}
     data["tt"] = ttMax
@@ -439,6 +449,7 @@ def loadChannelEarthquakes(params,channel,attributeDics):
     data["distance"] = distance
     data["velocity"] = velocity
     data["ampMax"] = ampMax
+    data["ampPrediction"] = ampPrediction
 
     return data
 
