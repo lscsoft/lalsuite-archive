@@ -437,7 +437,8 @@ def frame_struct(params):
         datacache = []
         for frame in frameList:
             datacache.append(frame)
-
+    elif params["ifo"] == "IRIS":
+        datacache = "IRIS"
     else:
         if params["frameType"] == "nds2":
             #conn = nds2.connection(params["ndsServer"])
@@ -719,7 +720,7 @@ def retrieve_timeseries(params,channel,segment):
 
         # make timeseries
         try:
-            dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel.station, epoch=gpsStart, duration=duration)
+            dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel.station, start=gpsStart, end=gpsEnd)
         except:
             print "data read from frames failed... continuing\n"
             return dataFull
@@ -797,7 +798,7 @@ def flag_struct(params):
                 plot.add_timeseries(dataFull,label=label)
 
             try:
-                dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel, epoch=gpsStart, duration=duration)
+                dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel, start=gpsStart, end=gpsEnd)
             except:
                 print "data read from frames failed... continuing\n"
                 continue

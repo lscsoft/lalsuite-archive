@@ -81,11 +81,11 @@ def earthquakes_station(params,data,type,plotName):
         name of plot
     """
 
-    if len(data["earthquakes"]["tt"]) == 0:
+    if len(data["earthquakes_all"]["tt"]) == 0:
         return
 
-    earthquakes_tt = data["earthquakes"]["tt"]
-    amp = np.log10(data["earthquakes"]["data"])
+    earthquakes_tt = data["earthquakes_all"]["tt"]
+    amp = np.log10(data["earthquakes_all"]["data"])
     indexes = np.isinf(amp)
     amp[indexes] = -250
     earthquakes_amp = amp
@@ -140,42 +140,24 @@ def earthquakes_station_distance(params,data,type,plotName):
         name of plot
     """
 
-    if len(data["earthquakes"]["tt"]) == 0:
-        return
-
-    earthquakes_tt = data["earthquakes"]["tt"]
-    amp = np.log10(data["earthquakes"]["data"])
-    indexes = np.isinf(amp)
-    amp[indexes] = -250
-    earthquakes_amp = amp
-
-    threshold = -8
-
     plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
-    #plot.add_scatter(earthquakes_tt,earthquakes_amp, marker='o', zorder=1000, color='b',label='predicted')
 
     colors = cm.rainbow(np.linspace(0, 1, len(data["channels"])))
     count=0
     for key in data["channels"].iterkeys():
         label = key.replace("_","\_")
 
-        channel_ttStart = data["channels"][key]["timeseries"]["ttStart"]
-        channel_ttEnd = data["channels"][key]["timeseries"]["ttEnd"]
-        channel_ttMax = data["channels"][key]["timeseries"]["ttMax"]        
-        channel_eq_distance = data["channels"][key]["timeseries"]["eq_distance"]
-        channel_eq_tt = data["channels"][key]["timeseries"]["eq_tt"]
-        channel_eq_amp = data["channels"][key]["timeseries"]["eq_amp"]
-
-        channel_eq_amp = 1e6 * np.array(channel_eq_amp)
+        channel_data = data["channels"][key]["earthquakes"]
 
         color = colors[count]
         if type == "time":
-            plot.add_scatter(channel_eq_distance,channel_eq_tt,marker='*', zorder=1000, label=label,color=color)
+            plot.add_scatter(channel_data["distance"],channel_data["ttDiff"],marker='*', zorder=1000, label=label,color=color)
         elif type == "amplitude":
-            plot.add_scatter(channel_eq_distance,channel_eq_amp,marker='*', zorder=1000, label=label,color=color) 
+            plot.add_scatter(channel_data["distance"],1e6 * channel_data["ampMax"],marker='*', zorder=1000, label=label,color=color) 
         count=count+1
 
-    xp = np.linspace(np.min(channel_eq_distance),np.max(channel_eq_distance),100)
+    xlim = plot.xlim
+    xp = np.linspace(xlim[0],xlim[1],100)
 
     if type == "time":
         p = np.poly1d([1.0/2000,0])
@@ -188,11 +170,6 @@ def earthquakes_station_distance(params,data,type,plotName):
         label = "prediction [5 km/s]"
         plot.add_line(xp,p(xp),label=label)
 
-    #xlim = [plot.xlim[0],plot.xlim[1]]
-    #ylim = [plot.ylim[0],plot.ylim[1]]
-
-    #plot.ylim = [-10,-3]
-    #plot.epoch = epoch
     if type == "amplitude":
         plot.ylabel = r"Velocity [$\mu$m/s]"
     elif type == "time":
@@ -971,39 +948,22 @@ def station_plot(params,attributeDics,data,type,plotName):
 
     ifo = pylal.pylal_seismon_utils.getIfo(params)
 
-    try:
-        from obspy.taup.taup import getTravelTimes
-        from obspy.core.util.geodetics import gps2DistAzimuth
-    except:
-        print "Enable ObsPy if updated earthquake estimates desired...\n"
-        return attributeDic
-
     plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
 
     count = 0
-    colors = cm.rainbow(np.linspace(0, 1, len(data["channels"])))
-    for attributeDic in attributeDics:
-        xs = []
-        ys = []
+    keys = [key for key in data["earthquakes"].iterkeys()]
+    colors = cm.rainbow(np.linspace(0, 1, len(keys)))
+    for key in keys:
+        attributeDic = data["earthquakes"][key]["attributeDic"]
+        earthquake_data = data["earthquakes"][key]["data"]
+        xs = earthquake_data["distance"]
 
-        count=0
-        for channel in params["channels"]:
-            channel_data = data["channels"][channel.station_underscore]
+        if type == "amplitude":
+            ys = earthquake_data["ampMax"] * 1e6
+        elif type == "time":
+            ys = earthquake_data["ttDiff"]
 
-            if len(channel_data["timeseries"]["data"]) == 0:
-                continue
-
-            distance,fwd,back = gps2DistAzimuth(attributeDic["Latitude"],attributeDic["Longitude"],channel_data["info"].latitude,channel_data["info"].longitude)
-
-            xs.append(distance)
-            if type == "amplitude":
-                y = channel_data["timeseries"]["data"][0] * 1e6
-                ys.append(y)
-            elif type == "time":
-                y = channel_data["timeseries"]["ttMax"][0] - attributeDic["GPS"]
-                ys.append(y)
-
-        if xs == []:
+        if len(xs) == 0:
             continue
 
         label = attributeDic["eventName"]

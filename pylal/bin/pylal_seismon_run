@@ -32,12 +32,12 @@ if not os.getenv("DISPLAY", None):
     import matplotlib
     matplotlib.use("agg", warn=False)
 
-from collections import namedtuple
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
 import pylal.pylal_seismon_psd, pylal.pylal_seismon_utils
 import pylal.pylal_seismon_html, pylal.pylal_seismon_omicron
 import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_eqmon_plot
+import pylal.pylal_seismon_coherence
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
 __version__ = 1.0
@@ -97,6 +97,8 @@ def parse_commandline():
     parser.add_option("--doSegmentsTextFile",  action="store_true", default=False)
     parser.add_option("--doPSD",  action="store_true", default=False)    
     parser.add_option("--doSummary",  action="store_true", default=False)
+    parser.add_option("--doCoherence",  action="store_true", default=False)
+
     parser.add_option("--doFlagsDatabase",  action="store_true", default=False)
     parser.add_option("--doFlagsTextFile",  action="store_true", default=False)
     parser.add_option("--doFlagsChannel",  action="store_true", default=False)
@@ -176,6 +178,8 @@ def params_struct(opts):
     params["doSegmentsTextFile"] = opts.doSegmentsTextFile
     params["doPSD"] = opts.doPSD
     params["doSummary"] = opts.doSummary
+    params["doCoherence"] = opts.doCoherence
+
     params["doFlagsDatabase"] = opts.doFlagsDatabase
     params["doFlagsTextFile"] = opts.doFlagsTextFile
     params["doFlagsChannel"] = opts.doFlagsTextFile
@@ -264,6 +268,15 @@ for channel in params["channels"]:
             print "Plotting Omicron triggers for %s"%channel.station
             params = pylal.pylal_seismon_utils.setPath(params,segment)
             pylal.pylal_seismon_omicron.plot_triggers(params,channel,segment)
+    
+if params["doCoherence"]:
+    for channel1 in params["channels"]:
+        for channel2 in params["channels"]:
+            print "Generating coherence for %s, %s"%(channel1.station,channel2.station)
+            for segment in params["segments"]:
+                print "Segment: %d-%d"%(segment[0],segment[1])
+                params = pylal.pylal_seismon_utils.setPath(params,segment)
+                pylal.pylal_seismon_coherence.coherence(params,channel1,channel2,segment)
 
 if params["doSummary"]:
     for segment in params["segments"]:

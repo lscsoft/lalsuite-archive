@@ -22,7 +22,7 @@ __version__ = "0.1"
 #
 # =============================================================================
 
-def save_data(params,channel,gpsStart,gpsEnd,data):
+def save_data(params,channel,gpsStart,gpsEnd,data,attributeDics):
     """@saves spectral data in text files.
 
     @param params
@@ -39,6 +39,8 @@ def save_data(params,channel,gpsStart,gpsEnd,data):
         spectral data structure 
     """
 
+    ifo = pylal.pylal_seismon_utils.getIfo(params)
+
     psdDirectory = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore + "/" + str(params["fftDuration"])
     pylal.pylal_seismon_utils.mkdir(psdDirectory)
 
@@ -47,6 +49,9 @@ def save_data(params,channel,gpsStart,gpsEnd,data):
 
     timeseriesDirectory = params["dirPath"] + "/Text_Files/Timeseries/" + channel.station_underscore + "/" + str(params["fftDuration"])
     pylal.pylal_seismon_utils.mkdir(timeseriesDirectory)
+
+    earthquakesDirectory = params["dirPath"] + "/Text_Files/Earthquakes/" + channel.station_underscore + "/" + str(params["fftDuration"])
+    pylal.pylal_seismon_utils.mkdir(earthquakesDirectory)
 
     freq = np.array(data["dataASD"].frequencies)
 
@@ -70,6 +75,42 @@ def save_data(params,channel,gpsStart,gpsEnd,data):
     f.write("%.10f %e\n"%(tt[np.argmin(data["dataFull"].data)],np.min(data["dataFull"].data)))
     f.write("%.10f %e\n"%(tt[np.argmax(data["dataFull"].data)],np.max(data["dataFull"].data)))
     f.close()
+
+    for attributeDic in attributeDics:
+
+        if params["ifo"] == "IRIS":
+            attributeDic = pylal.pylal_seismon_eqmon.ifotraveltimes(attributeDic, "IRIS", channel.latitude, channel.longitude)
+            traveltimes = attributeDic["traveltimes"]["IRIS"]
+        else:
+            traveltimes = attributeDic["traveltimes"][ifo]
+
+        Ptime = max(traveltimes["Ptimes"])
+        Stime = max(traveltimes["Stimes"])
+        Rtwotime = max(traveltimes["Rtwotimes"])
+        RthreePointFivetime = max(traveltimes["RthreePointFivetimes"])
+        Rfivetime = max(traveltimes["Rfivetimes"])
+        distance = max(traveltimes["Distances"])
+
+        indexes = np.intersect1d(np.where(tt >= Rfivetime)[0],np.where(tt <= Rtwotime)[0])
+
+        if len(indexes) == 0:
+            continue
+
+        indexMin = np.min(indexes)
+        indexMax = np.max(indexes)
+        ttCut = tt[indexes]
+        dataCut = data["dataFull"][indexMin:indexMax]
+
+        ampMax = np.max(dataCut.data)
+        ttMax = ttCut[np.argmax(dataCut.data)]
+        ttDiff = ttMax - attributeDic["GPS"] 
+        velocity = distance / ttDiff
+        velocity = velocity / 1000.0
+ 
+        earthquakesFile = os.path.join(earthquakesDirectory,"%s.txt"%(attributeDic["eventName"]))
+        f = open(earthquakesFile,"wb")
+        f.write("%.10f %e %e %e %e\n"%(ttMax,ttDiff,distance,velocity,ampMax))
+        f.close()
 
 def calculate_spectra(params,channel,dataFull):
     """@calculate spectral data
@@ -269,14 +310,14 @@ def spectra(params, channel, segment):
     data = apply_calibration(params,channel,data)
     data = calculate_picks(params,channel,data)
 
-    save_data(params,channel,gpsStart,gpsEnd,data)
-
     if params["doEarthquakes"]:
         earthquakesDirectory = os.path.join(params["path"],"earthquakes")
         earthquakesXMLFile = os.path.join(earthquakesDirectory,"earthquakes.xml")
         attributeDics = pylal.pylal_seismon_utils.read_eqmons(earthquakesXMLFile)
     else:
         attributeDics = []
+
+    save_data(params,channel,gpsStart,gpsEnd,data,attributeDics)
 
     if params["doPlots"]:
 
@@ -571,6 +612,10 @@ def analysis(params, channel):
         thisTTStart = int(txtFileSplit[0])
         thisTTEnd = int(txtFileSplit[1])
         tt = thisTTStart
+
+        if tt in tts:
+            continue
+
         tts.append(tt)
 
         spectra_out = gwpy.spectrum.Spectrum.read(file)
@@ -588,10 +633,10 @@ def analysis(params, channel):
         print "data only zeroes... continuing\n"
         return
 
-    dt = tts[-1] - tts[-2]
+    dt = tts[1] - tts[0]
     epoch = gwpy.time.Time(tts[0], format='gps')
     specgram = gwpy.spectrogram.Spectrogram.from_spectra(*spectra, dt=dt,epoch=epoch)
-    
+
     freq = np.array(specgram.frequencies)
 
     bins,specvar = pylal.pylal_seismon_utils.spectral_histogram(specgram)
@@ -662,7 +707,7 @@ def analysis(params, channel):
 
         pngFile = os.path.join(plotDirectory,"psd.png")
 
-        plot = spectraNow.plot(auto_refresh=True)
+        plot = spectraNow.plot()
         kwargs = {"linestyle":"-","color":"k"}
         plot.add_line(freq, spectral_variation_10per, **kwargs)
         plot.add_line(freq, spectral_variation_50per, **kwargs)
@@ -680,7 +725,7 @@ def analysis(params, channel):
         pngFile = os.path.join(plotDirectory,"disp.png")
 
         spectraNowDisplacement = spectraNow / freq
-        plot = spectraNowDisplacement.plot(auto_refresh=True)
+        plot = spectraNowDisplacement.plot()
         kwargs = {"linestyle":"-","color":"w"}
         plot.add_line(freq, spectral_variation_10per/freq, **kwargs)
         plot.add_line(freq, spectral_variation_50per/freq, **kwargs)
@@ -696,8 +741,8 @@ def analysis(params, channel):
         plot.close()
 
         pngFile = os.path.join(plotDirectory,"tf.png")
-        specgramLog = specgram.to_logscale(fmin=np.min(freq),fmax=np.max(freq))
-        plot = specgramLog.plot(auto_refresh=True)
+        specgramLog = specgram.to_logf(fmin=np.min(freq),fmax=np.max(freq))
+        plot = specgramLog.plot()
         plot.ylim = [params["fmin"],params["fmax"]]
         plot.ylabel = "Frequency [Hz]"
         colorbar_label = "Amplitude Spectrum [(m/s)/rtHz]"
@@ -706,8 +751,8 @@ def analysis(params, channel):
         plot.save(pngFile,dpi=200)
         plot.close()
 
-        pngFile = os.path.join(plotDirectory,"psd-%d-%d.png"%(gpsStart,gpsEnd))
-        plot = spectraNow.plot(auto_refresh=True)
+        pngFile = os.path.join(plotDirectory,"psd.png")
+        plot = spectraNow.plot()
         kwargs = {"linestyle":"-","color":"k"}
         plot.add_line(freq, spectral_variation_10per, **kwargs)
         plot.add_line(freq, spectral_variation_50per, **kwargs)
@@ -748,7 +793,7 @@ def analysis(params, channel):
         plot.close()
 
         pngFile = os.path.join(plotDirectory,"bands.png")
-        plot = gwpy.plotter.TimeSeriesPlot(auto_refresh=True)
+        plot = gwpy.plotter.TimeSeriesPlot()
         for key in sigDict.iterkeys():
             label = key
             plot.add_timeseries(sigDict[key]["data"], label=label)
