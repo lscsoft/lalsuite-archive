@@ -88,7 +88,7 @@ int XLALSimInspiralTaylorF2Test(
 
     /* phasing coefficients */
 	REAL8 prefactor = 3.L/(128.L * eta);
-    REAL8 pfaN = 1.0;
+    REAL8 pfaN = prefactor*1.0;
 	REAL8 pfa1 = 0.0; 
     REAL8 pfa2 = prefactor*5.L*(743.L/84.L + 11.L * eta)/9.L;
     REAL8 pfa3 = prefactor*(-16.L*LAL_PI);
