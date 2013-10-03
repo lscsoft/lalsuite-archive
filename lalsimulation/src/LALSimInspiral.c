@@ -2201,12 +2201,8 @@ int XLALSimInspiralChooseFDWaveform(
                     S1z, S2z, f_min, f_max, r, lambda1, lambda2,
                     XLALSimInspiralGetSpinOrder(waveFlags),
                     XLALSimInspiralGetTidalOrder(waveFlags),
-<<<<<<< HEAD
                     phaseO, amplitudeO);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
-=======
-                    phaseO, amplitudeO, eos);
->>>>>>> Added Quadrupole-Monopole and Tidal functionality to TaylorF2, ChooseXDWaveform. Added --eos command line option for lalinference. Added Yagi-Yunes I-Love-Q relation to calculate quadrupole-monopole parameters from love numbers.
             /* The above returns h(f) for optimal orientation (i=0, Fp=1, Fc=0)
              * To get generic polarizations we multiply by incl. dependence
              * and note hc(f) \propto I * hp(f)
