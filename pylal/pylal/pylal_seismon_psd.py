@@ -22,7 +22,7 @@ __version__ = "0.1"
 #
 # =============================================================================
 
-def save_data(params,channel,gpsStart,gpsEnd,data):
+def save_data(params,channel,gpsStart,gpsEnd,data,attributeDics):
     """@saves spectral data in text files.
 
     @param params
@@ -39,6 +39,8 @@ def save_data(params,channel,gpsStart,gpsEnd,data):
         spectral data structure 
     """
 
+    ifo = pylal.pylal_seismon_utils.getIfo(params)
+
     psdDirectory = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore + "/" + str(params["fftDuration"])
     pylal.pylal_seismon_utils.mkdir(psdDirectory)
 
@@ -47,6 +49,9 @@ def save_data(params,channel,gpsStart,gpsEnd,data):
 
     timeseriesDirectory = params["dirPath"] + "/Text_Files/Timeseries/" + channel.station_underscore + "/" + str(params["fftDuration"])
     pylal.pylal_seismon_utils.mkdir(timeseriesDirectory)
+
+    earthquakesDirectory = params["dirPath"] + "/Text_Files/Earthquakes/" + channel.station_underscore + "/" + str(params["fftDuration"])
+    pylal.pylal_seismon_utils.mkdir(earthquakesDirectory)
 
     freq = np.array(data["dataASD"].frequencies)
 
@@ -70,6 +75,42 @@ def save_data(params,channel,gpsStart,gpsEnd,data):
     f.write("%.10f %e\n"%(tt[np.argmin(data["dataFull"].data)],np.min(data["dataFull"].data)))
     f.write("%.10f %e\n"%(tt[np.argmax(data["dataFull"].data)],np.max(data["dataFull"].data)))
     f.close()
+
+    for attributeDic in attributeDics:
+
+        if params["ifo"] == "IRIS":
+            attributeDic = pylal.pylal_seismon_eqmon.ifotraveltimes(attributeDic, "IRIS", channel.latitude, channel.longitude)
+            traveltimes = attributeDic["traveltimes"]["IRIS"]
+        else:
+            traveltimes = attributeDic["traveltimes"][ifo]
+
+        Ptime = max(traveltimes["Ptimes"])
+        Stime = max(traveltimes["Stimes"])
+        Rtwotime = max(traveltimes["Rtwotimes"])
+        RthreePointFivetime = max(traveltimes["RthreePointFivetimes"])
+        Rfivetime = max(traveltimes["Rfivetimes"])
+        distance = max(traveltimes["Distances"])
+
+        indexes = np.intersect1d(np.where(tt >= Rfivetime)[0],np.where(tt <= Rtwotime)[0])
+
+        if len(indexes) == 0:
+            continue
+
+        indexMin = np.min(indexes)
+        indexMax = np.max(indexes)
+        ttCut = tt[indexes]
+        dataCut = data["dataFull"][indexMin:indexMax]
+
+        ampMax = np.max(dataCut.data)
+        ttMax = ttCut[np.argmax(dataCut.data)]
+        ttDiff = ttMax - attributeDic["GPS"] 
+        velocity = distance / ttDiff
+        velocity = velocity / 1000.0
+ 
+        earthquakesFile = os.path.join(earthquakesDirectory,"%s.txt"%(attributeDic["eventName"]))
+        f = open(earthquakesFile,"wb")
+        f.write("%.10f %e %e %e %e\n"%(ttMax,ttDiff,distance,velocity,ampMax))
+        f.close()
 
 def calculate_spectra(params,channel,dataFull):
     """@calculate spectral data
@@ -205,52 +246,27 @@ def apply_calibration(params,channel,data):
 
     return data
 
-def retrieve_timeseries(params,channel,segment):
-    """@retrieves timeseries for given channel and segment.
+def calculate_picks(params,channel,data):
 
-    @param params
-        seismon params dictionary
-    @param channel
-        seismon channel structure
-    @param segment
-        [start,end] gps
-    """
+    if params["doEarthquakesPicks"]:
+        import obspy.signal
 
-    gpsStart = segment[0]
-    gpsEnd = segment[1]
+        nsta = int(2.5 * channel.samplef)
+        nlta = int(10.0 * channel.samplef)
+        cft = obspy.signal.trigger.recSTALTA(data["dataFull"].data, nsta, nlta)
 
-    # set the times
-    duration = np.ceil(gpsEnd-gpsStart)
-
-    dataFull = []
-    if params["ifo"] == "IRIS":
-        import obspy.iris
-        client = obspy.iris.Client()
-        tstart = pylal.pylal_seismon_utils.GPSToUTCDateTime(gpsStart)
-        tend = pylal.pylal_seismon_utils.GPSToUTCDateTime(gpsEnd)
-
-        channelSplit = channel.station.split(":")
-        try:
-            st = client.getWaveform(channelSplit[0], channelSplit[1], channelSplit[2], channelSplit[3],\
-                tstart, tend)
-        except:
-            print "data read from IRIS failed... continuing\n"
-            return dataFull
-
-        data = np.array(st[0].data)
-        data = data.astype(float)
-
-        dataFull = gwpy.timeseries.TimeSeries(data, times=None, epoch=gpsStart, channel=channel.station, unit=None,sample_rate=channel.samplef, name=channel.station)
+        thres1 = 0.9 * np.max(cft)
+        thres2 = 0.5
+        on_off = obspy.signal.triggerOnset(cft, thres1, thres2)
+        on_off = np.array(on_off) / channel.samplef
+        on_off = data["dataFull"].epoch.val + on_off
 
     else:
-        # make timeseries
-        try:
-            dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel.station, epoch=gpsStart, duration=duration)
-        except:
-            print "data read from frames failed... continuing\n"
-            return dataFull
+        on_off = []
 
-    return dataFull
+    data["on_off"] = on_off
+   
+    return data
 
 def spectra(params, channel, segment):
     """@calculates spectral data for given channel and segment.
@@ -272,25 +288,27 @@ def spectra(params, channel, segment):
     duration = np.ceil(gpsEnd-gpsStart)
 
     # make timeseries
-    dataFull = retrieve_timeseries(params, channel, segment)
+    dataFull = pylal.pylal_seismon_utils.retrieve_timeseries(params, channel, segment)
     if dataFull == []:
         return 
 
-    dataFull /= channel.calibration
+    dataFull = dataFull / channel.calibration
     indexes = np.where(np.isnan(dataFull.data))[0]
     meanSamples = np.mean(np.ma.masked_array(dataFull.data,np.isnan(dataFull.data)))
     for index in indexes:
         dataFull[index] = meanSamples
     dataFull -= np.mean(dataFull.data)
 
-    if np.mean(dataFull) == 0.0:
+    if np.mean(dataFull.data) == 0.0:
         print "data only zeroes... continuing\n"
+        return
+    if len(dataFull.data) < 2*channel.samplef:
+        print "timeseries too short for analysis... continuing\n"
         return
 
     data = calculate_spectra(params,channel,dataFull)
     data = apply_calibration(params,channel,data)
-
-    save_data(params,channel,gpsStart,gpsEnd,data)
+    data = calculate_picks(params,channel,data)
 
     if params["doEarthquakes"]:
         earthquakesDirectory = os.path.join(params["path"],"earthquakes")
@@ -298,6 +316,8 @@ def spectra(params, channel, segment):
         attributeDics = pylal.pylal_seismon_utils.read_eqmons(earthquakesXMLFile)
     else:
         attributeDics = []
+
+    save_data(params,channel,gpsStart,gpsEnd,data,attributeDics)
 
     if params["doPlots"]:
 
@@ -326,6 +346,7 @@ def spectra(params, channel, segment):
         xlim = [plot.xlim[0],plot.xlim[1]]
         ylim = [plot.ylim[0],plot.ylim[1]]
 
+        count = 0
         for attributeDic in attributeDics:
 
             if params["ifo"] == "IRIS":
@@ -348,19 +369,50 @@ def spectra(params, channel, segment):
             if -peak_velocity < ylim[0]:
                ylim[0] = -peak_velocity*1.1
 
-            kwargs = {"linestyle":"--","color":"r"}
-            plot.add_line([Ptime,Ptime],ylim,label="P Est. Arrival",**kwargs)
-            kwargs = {"linestyle":"--","color":"g"}
-            plot.add_line([Stime,Stime],ylim,label="S Est. Arrival",**kwargs)
-            kwargs = {"linestyle":"--","color":"b"}
-            plot.add_line([RthreePointFivetime,RthreePointFivetime],ylim,label="Middle R Est. Arrival",**kwargs)            
-            kwargs = {"linestyle":"--","color":"b"}
-            plot.add_line([Rtwotime,Rtwotime],ylim,label="High R Est. Arrival",**kwargs)
-            kwargs = {"linestyle":"--","color":"b"}
-            plot.add_line([Rfivetime,Rfivetime],ylim,label="Low R Est. Arrival",**kwargs)
-            kwargs = {"linestyle":"--","color":"k"}
-            plot.add_line(xlim,[peak_velocity,peak_velocity],label="pred. vel.",**kwargs)
-            plot.add_line(xlim,[-peak_velocity,-peak_velocity],**kwargs)
+            if count ==  0:
+                kwargs = {"linestyle":"--","color":"r"}
+                plot.add_line([Ptime,Ptime],ylim,label="P Est. Arrival",**kwargs)
+                kwargs = {"linestyle":"--","color":"g"}
+                plot.add_line([Stime,Stime],ylim,label="S Est. Arrival",**kwargs)
+                kwargs = {"linestyle":"--","color":"b"}
+                plot.add_line([RthreePointFivetime,RthreePointFivetime],ylim,label="Middle R Est. Arrival",**kwargs)            
+                plot.add_line([Rtwotime,Rtwotime],ylim,label="High R Est. Arrival",**kwargs)
+                plot.add_line([Rfivetime,Rfivetime],ylim,label="Low R Est. Arrival",**kwargs)
+                kwargs = {"linestyle":"--","color":"k"}
+                plot.add_line(xlim,[peak_velocity,peak_velocity],label="pred. vel.",**kwargs)
+                plot.add_line(xlim,[-peak_velocity,-peak_velocity],**kwargs)
+            else:
+                kwargs = {"linestyle":"--","color":"r"}
+                plot.add_line([Ptime,Ptime],ylim,**kwargs)
+                kwargs = {"linestyle":"--","color":"g"}
+                plot.add_line([Stime,Stime],ylim,**kwargs)
+                kwargs = {"linestyle":"--","color":"b"}
+                plot.add_line([RthreePointFivetime,RthreePointFivetime],ylim,**kwargs)
+                plot.add_line([Rtwotime,Rtwotime],ylim,**kwargs)
+                plot.add_line([Rfivetime,Rfivetime],ylim,**kwargs)
+                kwargs = {"linestyle":"--","color":"k"}
+                plot.add_line(xlim,[peak_velocity,peak_velocity],**kwargs)
+                plot.add_line(xlim,[-peak_velocity,-peak_velocity],**kwargs)
+
+            count = count + 1
+
+        count = 0
+        for on_off in data["on_off"]:
+
+            ontime = on_off[0]
+            offtime = on_off[1]
+
+            if count ==  0:
+                kwargs = {"linestyle":"-.","color":"r"}
+                plot.add_line([ontime,ontime],ylim,label="On trigger",**kwargs)
+                kwargs = {"linestyle":"-.","color":"b"}
+                plot.add_line([offtime,offtime],ylim,label="Off trigger",**kwargs)
+            else:
+                kwargs = {"linestyle":"-.","color":"r"}
+                plot.add_line([ontime,ontime],ylim,**kwargs)
+                kwargs = {"linestyle":"-.","color":"b"}
+                plot.add_line([offtime,offtime],ylim,**kwargs)
+            count = count + 1
 
         plot.ylabel = r"Velocity [$\mu$m/s]"
         plot.title = channel.station.replace("_","\_")
@@ -560,6 +612,10 @@ def analysis(params, channel):
         thisTTStart = int(txtFileSplit[0])
         thisTTEnd = int(txtFileSplit[1])
         tt = thisTTStart
+
+        if tt in tts:
+            continue
+
         tts.append(tt)
 
         spectra_out = gwpy.spectrum.Spectrum.read(file)
@@ -577,10 +633,10 @@ def analysis(params, channel):
         print "data only zeroes... continuing\n"
         return
 
-    dt = tts[-1] - tts[-2]
+    dt = tts[1] - tts[0]
     epoch = gwpy.time.Time(tts[0], format='gps')
     specgram = gwpy.spectrogram.Spectrogram.from_spectra(*spectra, dt=dt,epoch=epoch)
-    
+
     freq = np.array(specgram.frequencies)
 
     bins,specvar = pylal.pylal_seismon_utils.spectral_histogram(specgram)
@@ -651,7 +707,7 @@ def analysis(params, channel):
 
         pngFile = os.path.join(plotDirectory,"psd.png")
 
-        plot = spectraNow.plot(auto_refresh=True)
+        plot = spectraNow.plot()
         kwargs = {"linestyle":"-","color":"k"}
         plot.add_line(freq, spectral_variation_10per, **kwargs)
         plot.add_line(freq, spectral_variation_50per, **kwargs)
@@ -669,7 +725,7 @@ def analysis(params, channel):
         pngFile = os.path.join(plotDirectory,"disp.png")
 
         spectraNowDisplacement = spectraNow / freq
-        plot = spectraNowDisplacement.plot(auto_refresh=True)
+        plot = spectraNowDisplacement.plot()
         kwargs = {"linestyle":"-","color":"w"}
         plot.add_line(freq, spectral_variation_10per/freq, **kwargs)
         plot.add_line(freq, spectral_variation_50per/freq, **kwargs)
@@ -685,8 +741,8 @@ def analysis(params, channel):
         plot.close()
 
         pngFile = os.path.join(plotDirectory,"tf.png")
-        specgramLog = specgram.to_logscale(fmin=np.min(freq),fmax=np.max(freq))
-        plot = specgramLog.plot(auto_refresh=True)
+        specgramLog = specgram.to_logf(fmin=np.min(freq),fmax=np.max(freq))
+        plot = specgramLog.plot()
         plot.ylim = [params["fmin"],params["fmax"]]
         plot.ylabel = "Frequency [Hz]"
         colorbar_label = "Amplitude Spectrum [(m/s)/rtHz]"
@@ -695,8 +751,8 @@ def analysis(params, channel):
         plot.save(pngFile,dpi=200)
         plot.close()
 
-        pngFile = os.path.join(plotDirectory,"psd-%d-%d.png"%(gpsStart,gpsEnd))
-        plot = spectraNow.plot(auto_refresh=True)
+        pngFile = os.path.join(plotDirectory,"psd.png")
+        plot = spectraNow.plot()
         kwargs = {"linestyle":"-","color":"k"}
         plot.add_line(freq, spectral_variation_10per, **kwargs)
         plot.add_line(freq, spectral_variation_50per, **kwargs)
@@ -737,7 +793,7 @@ def analysis(params, channel):
         plot.close()
 
         pngFile = os.path.join(plotDirectory,"bands.png")
-        plot = gwpy.plotter.TimeSeriesPlot(auto_refresh=True)
+        plot = gwpy.plotter.TimeSeriesPlot()
         for key in sigDict.iterkeys():
             label = key
             plot.add_timeseries(sigDict[key]["data"], label=label)
@@ -793,7 +849,7 @@ def channel_summary(params, segment):
 
         fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
 
-        pngFile = os.path.join(plotDirectory,"psd-%d-%d.png"%(gpsStart,gpsEnd))
+        pngFile = os.path.join(plotDirectory,"psd.png")
         lowBin = np.inf
         highBin = -np.inf
         plot = gwpy.plotter.Plot(figsize=[14,8])

@@ -70,7 +70,7 @@ def restimates(params,attributeDics,plotName):
     plt.savefig(plotName,dpi=200)
     plt.close('all')
 
-def earthquakes_timeseries(params,data,plotName):
+def earthquakes_station(params,data,type,plotName):
     """@earthquakes timeseries plot
 
     @param params
@@ -81,11 +81,11 @@ def earthquakes_timeseries(params,data,plotName):
         name of plot
     """
 
-    if len(data["earthquakes"]["tt"]) == 0:
+    if len(data["earthquakes_all"]["tt"]) == 0:
         return
 
-    earthquakes_tt = data["earthquakes"]["tt"]
-    amp = np.log10(data["earthquakes"]["data"])
+    earthquakes_tt = data["earthquakes_all"]["tt"]
+    amp = np.log10(data["earthquakes_all"]["data"])
     indexes = np.isinf(amp)
     amp[indexes] = -250
     earthquakes_amp = amp
@@ -100,10 +100,10 @@ def earthquakes_timeseries(params,data,plotName):
     for key in data["channels"].iterkeys():
         label = key.replace("_","\_")
 
-        channel_ttStart = data["channels"][key]["timeseries"]["ttStart"]
-        channel_ttEnd = data["channels"][key]["timeseries"]["ttEnd"]
+        channel_ttStart = data["channels"][key][type]["ttStart"]
+        channel_ttEnd = data["channels"][key][type]["ttEnd"]
 
-        amp = np.log10(data["channels"][key]["timeseries"]["data"])
+        amp = np.log10(data["channels"][key][type]["data"])
         indexes = np.isinf(amp)
         amp[indexes] = -250
         channel_amp = amp
@@ -118,7 +118,10 @@ def earthquakes_timeseries(params,data,plotName):
 
     plot.ylim = [-10,-3]
     #plot.epoch = epoch
-    plot.ylabel = 'Velocity [log10(m/s)]'
+    if type == "psd":
+        plot.ylabel = 'Mean PSD 0.02-0.1 Hz'
+    elif type == "timeseries":
+        plot.ylabel = 'Velocity [log10(m/s)]'
     plot.add_legend(loc=1,prop={'size':10}) 
 
     plot.xlim = [params["gpsStart"],params["gpsEnd"]]
@@ -126,8 +129,8 @@ def earthquakes_timeseries(params,data,plotName):
     plot.save(plotName,dpi=200)
     plot.close()
 
-def earthquakes_psd(params,data,plotName):
-    """@earthquakes psd plot
+def earthquakes_station_distance(params,data,type,plotName):
+    """@earthquakes distance plot
 
     @param params
         seismon params dictionary
@@ -137,50 +140,48 @@ def earthquakes_psd(params,data,plotName):
         name of plot
     """
 
-    if len(data["earthquakes"]["tt"]) == 0:
-        return
-
-    earthquakes_tt = data["earthquakes"]["tt"]
-    amp = np.log10(data["earthquakes"]["data"])
-    indexes = np.isinf(amp)
-    amp[indexes] = -250
-    earthquakes_amp = amp
-
-    threshold = -8
-
     plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
-    plot.add_scatter(earthquakes_tt,earthquakes_amp, marker='o', zorder=1000, color='b',label='predicted')
 
     colors = cm.rainbow(np.linspace(0, 1, len(data["channels"])))
     count=0
     for key in data["channels"].iterkeys():
         label = key.replace("_","\_")
 
-        channel_ttStart = data["channels"][key]["psd"]["ttStart"]
-        channel_ttEnd = data["channels"][key]["psd"]["ttEnd"]
-
-        amp = np.log10(data["channels"][key]["psd"]["data"])
-        indexes = np.isinf(amp)
-        amp[indexes] = -250
-        channel_amp = amp
+        channel_data = data["channels"][key]["earthquakes"]
 
         color = colors[count]
-        plot.add_scatter(channel_ttStart,channel_amp,marker='*', zorder=1000, label=label,color=color)
+        if type == "time":
+            plot.add_scatter(channel_data["distance"],channel_data["ttDiff"],marker='*', zorder=1000, label=label,color=color)
+        elif type == "amplitude":
+            plot.add_scatter(channel_data["distance"],1e6 * channel_data["ampMax"],marker='*', zorder=1000, label=label,color=color) 
         count=count+1
 
-    xlim = [plot.xlim[0],plot.xlim[1]]
-    ylim = [plot.ylim[0],plot.ylim[1]]
-    plot.add_line(xlim,[threshold,threshold],label='threshold')
+    xlim = plot.xlim
+    xp = np.linspace(xlim[0],xlim[1],100)
 
-    plot.ylim = [-10,-3]
-    #plot.epoch = epoch
-    plot.ylabel = 'Mean PSD 0.02-0.1 Hz'
+    if type == "time":
+        p = np.poly1d([1.0/2000,0])
+        label = "prediction [2 km/s]"
+        plot.add_line(xp,p(xp),label=label)
+        p = np.poly1d([1.0/3500,0])
+        label = "prediction [3.5 km/s]"
+        plot.add_line(xp,p(xp),label=label)
+        p = np.poly1d([1.0/5000,0])
+        label = "prediction [5 km/s]"
+        plot.add_line(xp,p(xp),label=label)
+
+    if type == "amplitude":
+        plot.ylabel = r"Velocity [$\mu$m/s]"
+    elif type == "time":
+        plot.ylabel = 'Time [s]'
+    plot.xlabel = 'Distance [m]'
     plot.add_legend(loc=1,prop={'size':10})
 
-    plot.xlim = [params["gpsStart"],params["gpsEnd"]]
+    plot.axes.set_xscale("log")
 
     plot.save(plotName,dpi=200)
     plot.close()
+
 
 def prediction(data,plotName):
     """@prediction plot
@@ -947,38 +948,22 @@ def station_plot(params,attributeDics,data,type,plotName):
 
     ifo = pylal.pylal_seismon_utils.getIfo(params)
 
-    try:
-        from obspy.taup.taup import getTravelTimes
-        from obspy.core.util.geodetics import gps2DistAzimuth
-    except:
-        print "Enable ObsPy if updated earthquake estimates desired...\n"
-        return attributeDic
-
     plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
 
-    colors = cm.rainbow(np.linspace(0, 1, len(data["channels"])))
-    for attributeDic in attributeDics:
-        xs = []
-        ys = []
+    count = 0
+    keys = [key for key in data["earthquakes"].iterkeys()]
+    colors = cm.rainbow(np.linspace(0, 1, len(keys)))
+    for key in keys:
+        attributeDic = data["earthquakes"][key]["attributeDic"]
+        earthquake_data = data["earthquakes"][key]["data"]
+        xs = earthquake_data["distance"]
 
-        count=0
-        for channel in params["channels"]:
-            channel_data = data["channels"][channel.station_underscore]
+        if type == "amplitude":
+            ys = earthquake_data["ampMax"] * 1e6
+        elif type == "time":
+            ys = earthquake_data["ttDiff"]
 
-            if len(channel_data["timeseries"]["data"]) == 0:
-                continue
-
-            distance,fwd,back = gps2DistAzimuth(attributeDic["Latitude"],attributeDic["Longitude"],channel_data["info"].latitude,channel_data["info"].longitude)
-
-            xs.append(distance)
-            if type == "amplitude":
-                y = channel_data["timeseries"]["data"][0] * 1e6
-                ys.append(y)
-            elif type == "time":
-                y = channel_data["timeseries"]["ttMax"][0] - attributeDic["GPS"]
-                ys.append(y)
-
-        if xs == []:
+        if len(xs) == 0:
             continue
 
         label = attributeDic["eventName"]
@@ -989,17 +974,37 @@ def station_plot(params,attributeDics,data,type,plotName):
         plot.add_scatter(xs,ys,marker='*', zorder=1000, label=label, color=color)
         count=count+1
 
-        #fitfunc = lambda p, x: p[0]*x + p[1] # Target function
-        #errfunc = lambda p, x, y: fitfunc(p, x) - y # Distance to the target function
-        #p0 = [1,1] # Initial guess for the parameters
-        #p1, success = scipy.optimize.leastsq(errfunc, p0[:], args=(xs,ys))
-         
         z = np.polyfit(xs, ys, 1)
         p = np.poly1d(z)
         xp = np.linspace(np.min(xs),np.max(xs),100)
 
         label = "%s fit"%attributeDic["eventName"]
         plot.add_line(xp,p(xp),label=label)
+
+        if type == "amplitude":
+            c = 18
+            fc = 10**(2.3-(attributeDic["Magnitude"]/2.))
+            Q = np.max([500,80/np.sqrt(fc)])
+
+            Rfamp = ((attributeDic["Magnitude"]/fc)*0.0035) * np.exp(-2*math.pi*attributeDic["Depth"]*fc/c) * np.exp(-2*math.pi*(xp/1000.0)*(fc/c)*1/Q)/(xp/1000.0)
+            Rfamp = Rfamp * 1e6
+            label = "%s prediction"%attributeDic["eventName"]
+            plot.add_line(xp,Rfamp,label=label)
+
+            Rfamp = 100 + xp * -1e-7*(attributeDic["Magnitude"]/fc) * np.exp(-2*math.pi*attributeDic["Depth"]*fc/c)
+            label = "%s linear prediction"%attributeDic["eventName"]
+            plot.add_line(xp,Rfamp,label=label)
+
+        elif type == "time":
+            p = np.poly1d([1.0/2000,0])
+            label = "%s prediction [2 km/s]"%attributeDic["eventName"]
+            plot.add_line(xp,p(xp),label=label)
+            p = np.poly1d([1.0/3500,0])
+            label = "%s prediction [3.5 km/s]"%attributeDic["eventName"]
+            plot.add_line(xp,p(xp),label=label)
+            p = np.poly1d([1.0/5000,0])
+            label = "%s prediction [5 km/s]"%attributeDic["eventName"]
+            plot.add_line(xp,p(xp),label=label)
 
     if count == 0:
         return
@@ -1009,15 +1014,13 @@ def station_plot(params,attributeDics,data,type,plotName):
     elif type == "amplitude":
         ylabel = "Velocity [$\mu$m/s]"
         plot.axes.set_yscale("log")
-        plot.ylim = [10,200]
+        plot.ylim = [1,200]
 
     plot.xlabel = 'Distance [m]'
     plot.ylabel = ylabel
     plot.add_legend(loc=1,prop={'size':10})
     plot.axes.set_xscale("log")
 
-
     plot.save(plotName,dpi=200)
     plot.close()
-
 
