@@ -62,11 +62,14 @@ typedef enum {
     LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN =  0,
     LAL_SIM_INSPIRAL_TIDAL_ORDER_5PN = 10,
     LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN = 12,
+    LAL_SIM_INSPIRAL_TIDAL_ORDER_65PN = 13,
+    LAL_SIM_INSPIRAL_TIDAL_ORDER_7PN = 14,
+    LAL_SIM_INSPIRAL_TIDAL_ORDER_75PN = 15,
     LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL = 1
 } LALSimInspiralTidalOrder;
 
 
-/**
+/** 
  * Enumeration to specify which interaction will be used in the waveform
  * generation. Their combination also can be used by the bitwise or.
  */
@@ -94,7 +97,7 @@ typedef enum {
     LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L, /**< Set z-axis along the initial orbital angular momentum */
 } LALSimInspiralFrameAxis;
 
-/**
+/** 
  * Enumerator for choosing which modes to include in IMR models.
  *
  * 'ALL' means to use all modes available to that model.
@@ -103,22 +106,10 @@ typedef enum {
  * or only the set of l=2 modes for precessing models.
  */
 typedef enum {
-  LAL_SIM_INSPIRAL_MODES_CHOICE_DEFAULT    = 1,                     /**< Include only (2,2) or l=2 modes */
-  LAL_SIM_INSPIRAL_MODES_CHOICE_3L         = 1<<1,                  /**< Inlude only l=3 modes */
-  LAL_SIM_INSPIRAL_MODES_CHOICE_2AND3L     = (1<<2) - 1,            /**< Inlude l=2,3 modes */
-  LAL_SIM_INSPIRAL_MODES_CHOICE_4L         = 1<<2,                  /**< Inlude only l=4 modes */
-  LAL_SIM_INSPIRAL_MODES_CHOICE_2AND3AND4L = (1<<3) - 1,            /**< Include l=2,3,4 modes */
-  LAL_SIM_INSPIRAL_MODES_CHOICE_2AND4L     = (1<<3) - 1 - (1<<1),   /**< Include l=2,4 modes */
-  LAL_SIM_INSPIRAL_MODES_CHOICE_3AND4L     = (1<<3) - (1<<1),       /**< Include l=3,4 modes */
-  LAL_SIM_INSPIRAL_MODES_CHOICE_5L         = 1<<3,                  /**< Inlude only l=5 modes */
-  LAL_SIM_INSPIRAL_MODES_CHOICE_2AND5L     = (1<<4) -1,             /**< Inlude l=2,5 modes */
-  LAL_SIM_INSPIRAL_MODES_CHOICE_3AND5L     = (1<<4) - (1<<1),       /**< Inlude l=3,5 modes */
-  LAL_SIM_INSPIRAL_MODES_CHOICE_4AND5L     = (1<<4),                /**< Inlude l=4,5 modes */
-  LAL_SIM_INSPIRAL_MODES_CHOICE_2AND3AND5L = (1<<4) - 1 -(1<<2),    /**< Inlude l=2,3,5 modes */
-  LAL_SIM_INSPIRAL_MODES_CHOICE_2AND4AND5L = (1<<4) - 1 -(1<<1),    /**< Inlude l=2,4,5 modes */
-  LAL_SIM_INSPIRAL_MODES_CHOICE_3AND4AND5L = (1<<4) - (1<<1),       /**< Inlude l=3,4,5 modes */
-  LAL_SIM_INSPIRAL_MODES_CHOICE_ALL        = (1<<4) - 1,            /**< Include l=2,3,4,5 modes */
+    LAL_SIM_INSPIRAL_MODES_CHOICE_RESTRICTED, /**< Include only (2,2) or l=2 modes */
+    LAL_SIM_INSPIRAL_MODES_CHOICE_ALL /**< Include all available (l,m) modes */
 } LALSimInspiralModesChoice;
+
 
 /**
  * Struct containing several enumerated flags that control specialized behavior
@@ -133,9 +124,9 @@ typedef enum {
 typedef struct tagLALSimInspiralWaveformFlags LALSimInspiralWaveformFlags;
 
 /**
- * Create a new LALSimInspiralWaveformFlags struct
+ * Create a new LALSimInspiralWaveformFlags struct 
  * with all flags set to their default values.
- *
+ * 
  * If you create a struct, remember to destroy it when you are done with it.
  */
 LALSimInspiralWaveformFlags *XLALSimInspiralCreateWaveformFlags(void);
@@ -153,15 +144,6 @@ void XLALSimInspiralDestroyWaveformFlags(
  */
 bool XLALSimInspiralWaveformFlagsIsDefault(
         LALSimInspiralWaveformFlags *waveFlags
-        );
-
-/**
- * Checks if all flags in two LALSimInspiralWaveformFlags structs are equal.
- * Returns true if all flags are equal. Returns false if one or more differ.
- */
-bool XLALSimInspiralWaveformFlagsEqual(
-        LALSimInspiralWaveformFlags *waveFlags1,
-        LALSimInspiralWaveformFlags *waveFlags2
         );
 
 /**
