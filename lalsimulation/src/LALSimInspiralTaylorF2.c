@@ -37,7 +37,7 @@
 
 /**
  * Computes the stationary phase approximation to the Fourier transform of
- * a chirp waveform with phase given by \eqref{eq_InspiralFourierPhase_f2}
+ * a chirp waveform with phase given by Eq.\eqref{eq_InspiralFourierPhase_f2}
  * and amplitude given by expanding \f$1/\sqrt{\dot{F}}\f$. If the PN order is
  * set to -1, then the highest implemented order is used.
  *
@@ -80,6 +80,7 @@ int XLALSimInspiralTaylorF2(
     const REAL8 v0 = cbrt(piM * fStart);
     const REAL8 chi1 = m1 / m;
     const REAL8 chi2 = m2 / m;
+    REAL8 fCONT = fEnd; 
     REAL8 lam1 = lambda1;
     REAL8 lam2 = lambda2;
     REAL8 shft, amp0, f_max;
@@ -119,7 +120,8 @@ int XLALSimInspiralTaylorF2(
     lam2 = XLALSimInspiralEOSLambda(eos, m2);
     lam1 = lam1/(m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI);
     lam2 = lam2/(m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI);
-
+    fCONT = XLALSimInspiralContactFrequency(m1, lam1, m2, lam2);
+    
 //	fprintf(stderr, "Lambdas: %e, %e\n", lam1, lam2);
 
     REAL8 qm_def1 = XLALSimInspiralEOSQfromLambda(lam1); /* The QM deformability parameters */
@@ -172,9 +174,22 @@ int XLALSimInspiralTaylorF2(
     /* Tidal coefficients for phasing, fluz, and energy */
     REAL8 pft10 = 0.;
     REAL8 pft12 = 0.;
+    REAL8 pft13 = 0.;
+    REAL8 pft14 = 0.;
+    REAL8 pft15 = 0.;
     switch( tideO )
     {
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_75PN:
+            pft15 = lam2* chi2*chi2*chi2*chi2 * 1.L/28.L*LAL_PI*(27719.L - 22127.L*chi2 + 7022.L*chi2*chi2 - 10232.L*chi2*chi2*chi2)
+                + lam1* chi1*chi1*chi1*chi1 * 1.L/28.L*LAL_PI*(27719.L - 22127.L*chi1 + 7022.L*chi1*chi1 - 10232.L*chi1*chi1*chi1);
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_7PN:
+            pft14 = - lam2 * chi2*chi2*chi2*chi2 * 24.L*(39927845.L/508032.L                           - 480043345.L/9144576.L*chi2 + 9860575.L/127008.L*chi2*chi2 - 421821905.L/2286144.L*chi2*chi2*chi2 + 4359700.L/35721.L*chi2*chi2*chi2*chi2 - 10578445.L/285768.L*chi2*chi2*chi2*chi2*chi2)
+                   - lam1 * chi1*chi1*chi1*chi1 * 24.L*(39927845.L/508032.L 
+                - 480043345.L/9144576.L*chi1 + 9860575.L/127008.L*chi1*chi1 - 421821905.L/2286144.L*chi1*chi1*chi1 + 4359700.L/35721.L*chi1*chi1*chi1*chi1 - 10578445.L/285768.L*chi1*chi1*chi1*chi1*chi1);
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_65PN:
+            pft13 = - lam2 * chi2*chi2*chi2*chi2 * 24.L*(12.L - 11.L*chi2)*LAL_PI
+                    - lam1 * chi1*chi1*chi1*chi1 * 24.L*(12.L - 11.L*chi1)*LAL_PI;
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
             pft12 = - 5.L * lam2 * chi2*chi2*chi2*chi2 * (3179.L - 919.L*chi2
                     - 2286.L*chi2*chi2 + 260.L*chi2*chi2*chi2)/28.L
@@ -196,14 +211,14 @@ int XLALSimInspiralTaylorF2(
 //    fprintf(stderr, "5PN Tidal: %e\n", pft10);
 
     /* flux coefficients */
-    const REAL8 FTaN = XLALSimInspiralPNFlux_0PNCoeff(eta);
-    const REAL8 FTa2 = XLALSimInspiralPNFlux_2PNCoeff(eta);
-    const REAL8 FTa3 = XLALSimInspiralPNFlux_3PNCoeff(eta);
-    const REAL8 FTa4 = XLALSimInspiralPNFlux_4PNCoeff(eta);
-    const REAL8 FTa5 = XLALSimInspiralPNFlux_5PNCoeff(eta);
-    const REAL8 FTl6 = XLALSimInspiralPNFlux_6PNLogCoeff(eta);
-    const REAL8 FTa6 = XLALSimInspiralPNFlux_6PNCoeff(eta);
-    const REAL8 FTa7 = XLALSimInspiralPNFlux_7PNCoeff(eta);
+    const REAL8 FTaN = XLALSimInspiralTaylorT1Flux_0PNCoeff(eta);
+    const REAL8 FTa2 = XLALSimInspiralTaylorT1Flux_2PNCoeff(eta);
+    const REAL8 FTa3 = XLALSimInspiralTaylorT1Flux_3PNCoeff(eta);
+    const REAL8 FTa4 = XLALSimInspiralTaylorT1Flux_4PNCoeff(eta);
+    const REAL8 FTa5 = XLALSimInspiralTaylorT1Flux_5PNCoeff(eta);
+    const REAL8 FTl6 = XLALSimInspiralTaylorT1Flux_6PNLogCoeff(eta);
+    const REAL8 FTa6 = XLALSimInspiralTaylorT1Flux_6PNCoeff(eta);
+    const REAL8 FTa7 = XLALSimInspiralTaylorT1Flux_7PNCoeff(eta);
 
     /* energy coefficients */
     const REAL8 dETaN = 2. * XLALSimInspiralPNEnergy_0PNCoeff(eta);
@@ -223,10 +238,13 @@ int XLALSimInspiralTaylorF2(
     if (r <= 0) XLAL_ERROR(XLAL_EDOM);
 
     /* allocate htilde */
-    if ( fEnd == 0. ) // End at ISCO
+    if ( fISCO < fCONT ) // Use min{fISCO,fCONT} as termination frequency
         f_max = fISCO;
-    else // End at user-specified freq.
-        f_max = fEnd;
+    else 
+        f_max = fCONT;
+    // printf("fISCO = %e\n", fISCO);
+    // printf("fCONT = %e\n", fCONT);
+    // printf("f_max = %e\n", f_max);    
     n = (size_t) (f_max / deltaF + 1);
     XLALGPSAdd(&tC, -1 / deltaF);  /* coalesce at t=0 */
     htilde = XLALCreateCOMPLEX16FrequencySeries("htilde: FD waveform", &tC, 0.0, deltaF, &lalStrainUnit, n);
@@ -263,6 +281,9 @@ int XLALSimInspiralTaylorF2(
         const REAL8 v9 = v * v8;
         const REAL8 v10 = v * v9;
         const REAL8 v12 = v2 * v10;
+        const REAL8 v13 = v * v12;
+        const REAL8 v14 = v * v13;
+        const REAL8 v15 = v * v14;
         REAL8 phasing = 0.;
         REAL8 dEnergy = 0.;
         REAL8 flux = 0.;
@@ -344,6 +365,12 @@ int XLALSimInspiralTaylorF2(
         switch( tideO )
         {
             case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
+            case LAL_SIM_INSPIRAL_TIDAL_ORDER_75PN:
+                phasing += pft15 * v15;
+            case LAL_SIM_INSPIRAL_TIDAL_ORDER_7PN:
+                phasing += pft14 * v14;
+            case LAL_SIM_INSPIRAL_TIDAL_ORDER_65PN:
+                phasing += pft13 * v13;
             case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
                 phasing += pft12 * v12;
 //              fprintf(stderr,"Added v12, phasing = %e\n",phasing);
