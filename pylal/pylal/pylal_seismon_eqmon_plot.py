@@ -149,13 +149,19 @@ def earthquakes_station_distance(params,data,type,plotName):
 
         channel_data = data["channels"][key]["earthquakes"]
 
+        if len(channel_data["magnitude"]) == 0:
+            continue
+
         color = colors[count]
+        vmin = np.min(channel_data["magnitude"])
+        vmax = np.max(channel_data["magnitude"])
+        kwargs = {'zorder':1000,'label':label,'s':25,'vmin':vmin,'vmax':vmax}
         if type == "time":
-            plot.add_scatter(channel_data["distance"],channel_data["ttDiff"],marker='*', zorder=1000, label=label,color=color)
+            plot.add_scatter(channel_data["distance"],channel_data["ttDiff"],c=channel_data["magnitude"],**kwargs)
         elif type == "amplitude":
-            plot.add_scatter(channel_data["distance"],1e6 * channel_data["ampMax"],marker='*', zorder=1000, label=label,color=color) 
+            plot.add_scatter(channel_data["distance"],1e6 * channel_data["ampMax"],c=channel_data["magnitude"],**kwargs) 
         elif type == "residual":
-            plot.add_scatter(channel_data["distance"],1e6 * (channel_data["ampMax"]-channel_data["ampPrediction"]),marker='*', zorder=1000, label=label,color=color)
+            plot.add_scatter(channel_data["distance"],channel_data["residual"],c=channel_data["magnitude"],**kwargs)
 
         count=count+1
 
@@ -177,17 +183,28 @@ def earthquakes_station_distance(params,data,type,plotName):
 
     elif type == "amplitude":
         plot.ylabel = r"Velocity [$\mu$m/s]"
-        #plot.axes.set_yscale("log")
+        plot.axes.set_yscale("log")
     elif type == "residual":
-        plot.ylabel = r"Residual Velocity [$\mu$m/s]"
+        plot.ylabel = r"Relative difference [(actual-prediction)/prediction]"
+        plot.ylim = [get_dist(channel_data["residual"],5)-20,get_dist(channel_data["residual"],90)+20]
     plot.xlabel = 'Distance [m]'
     plot.add_legend(loc=1,prop={'size':10})
 
+    #plot.add_colorbar(log=False,clim=[vmin,vmax])
     plot.axes.set_xscale("log")
 
     plot.save(plotName,dpi=200)
     plot.close()
 
+def get_dist(array,percentile):
+
+    if len(array) == 0:
+        return 0
+
+    array = np.sort(array)
+    index = int(np.floor(len(array)*percentile*0.01))
+    val = array[index]
+    return val
 
 def prediction(data,plotName):
     """@prediction plot
@@ -772,7 +789,10 @@ def worldmap_station_plot(params,attributeDics,data,type,plotName):
 
     zs = np.array(zs)
     if type == "time":
-        minTime = attributeDics[0]["GPS"]
+        if len(attributeDics) == 0:
+            minTime = zs[0]
+        else:
+            minTime = attributeDics[0]["GPS"]
         zs = zs - minTime
         colorbar_label = "dt [s] [%d]"%minTime
         vmin = np.min(zs)

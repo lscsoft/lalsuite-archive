@@ -12,6 +12,7 @@ import scipy.spatial
 import simplekml
 
 import pylal.pylal_seismon_utils, pylal.pylal_seismon_eqmon_plot
+import pylal.pylal_seismon_pybrain
 
 def run_earthquakes(params,segment):
     """@run earthquakes prediction.
@@ -60,8 +61,6 @@ def run_earthquakes(params,segment):
  
     for attributeDic in attributeDics:
 
-        #attributeDic = calculate_traveltimes(attributeDic)
-
         traveltimes = attributeDic["traveltimes"][ifo]
 
         arrival = np.min([max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
@@ -72,10 +71,10 @@ def run_earthquakes(params,segment):
         if check_intersect:
             amp += traveltimes["Rfamp"][0]
 
-            f.write("%.1f %.1f %.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd,attributeDic["Latitude"],attributeDic["Longitude"]))
+            f.write("%.1f %.1f %.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f %e\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd,attributeDic["Latitude"],attributeDic["Longitude"],max(traveltimes["Distances"])))
 
             if traveltimes["Rfamp"][0] >= threshold:
-                print "%.1f %.1f %.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd,attributeDic["Latitude"],attributeDic["Longitude"])
+                print "%.1f %.1f %.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f %e\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd,attributeDic["Latitude"],attributeDic["Longitude"],max(traveltimes["Distances"]))
 
                 g.write("%.1f %.1f %.5e\n"%(arrival,departure-arrival,traveltimes["Rfamp"][0]))
 
@@ -121,6 +120,26 @@ def run_earthquakes_analysis(params,segment):
     earthquakesXMLFile = os.path.join(earthquakesDirectory,"earthquakes.xml")
     attributeDics = pylal.pylal_seismon_utils.read_eqmons(earthquakesXMLFile)
 
+    minDiff = 10*60
+    coincident = []
+    for i in xrange(len(attributeDics)):
+        attributeDic1 = attributeDics[i]
+        for j in xrange(len(attributeDics)):
+            if j <= i:
+                continue
+            attributeDic2 = attributeDics[j]
+            gpsDiff = attributeDic1["GPS"] - attributeDic2["GPS"]
+            if np.absolute(gpsDiff) < minDiff:
+                coincident.append(j)
+                print i,j,gpsDiff
+    coincident = list(set(coincident))
+    print "%d coincident earthquakes"%len(coincident)
+    indexes = list(set(range(len(attributeDics))) - set(coincident))
+    attributeDicsKeep = []
+    for index in indexes:
+        attributeDicsKeep.append(attributeDics[index])
+    attributeDics = attributeDicsKeep
+
     data = {}
     data["prediction"] = loadPredictions(params,segment)
     data["earthquakes_all"] = loadEarthquakes(params,attributeDics)
@@ -143,6 +162,11 @@ def run_earthquakes_analysis(params,segment):
         create_kml(params,attributeDics,data,"time",kmlName)
         kmlName = os.path.join(earthquakesDirectory,"earthquakes_amplitude.kml") 
         create_kml(params,attributeDics,data,"amplitude",kmlName)
+
+    if params["doEarthquakesTraining"]:
+        pylal.pylal_seismon_pybrain.earthquakes_training(params,attributeDics,data)
+
+    save_predictions(params,data)
 
     if params["doPlots"]:
 
@@ -196,8 +220,36 @@ def run_earthquakes_analysis(params,segment):
         plotName = os.path.join(earthquakesDirectory,"worldmap.png")
         pylal.pylal_seismon_eqmon_plot.worldmap_wavefronts(params,attributeDics,gpsEnd,plotName)
 
+def save_predictions(params,data):
+    """@save file for generating predictions
+
+    @param params
+        seismon params dictionary
+    @param data
+        channel data dictionary
+    """
+
+    earthquakesDirectory = os.path.join(params["path"],"earthquakes")
+    predictionsDirectory = os.path.join(earthquakesDirectory,"predictions")
+    pylal.pylal_seismon_utils.mkdir(predictionsDirectory)
+
+    threshold = 1.5e-6
+
+    for key in data["channels"].iterkeys():
+        channel_data = data["channels"][key]["earthquakes"]
+
+        predictionFile = os.path.join(predictionsDirectory,"%s.txt"%key)
+        f = open(predictionFile,"w")
+        for gps,arrival,departure,latitude, longitude, distance, magnitude, depth,ampMax,ampPrediction in zip(channel_data["gps"],channel_data["arrival"],channel_data["departure"],channel_data["latitude"],channel_data["longitude"],channel_data["distance"],channel_data["magnitude"],channel_data["depth"],channel_data["ampMax"],channel_data["ampPrediction"]):
+
+            if (ampMax < threshold) and (ampPrediction<threshold):
+                continue
+
+            f.write("%.0f %.0f %.0f %.2f %.2f %e %.2f %.2f %e\n"%(gps,arrival,departure,latitude, longitude, distance, magnitude, depth,ampMax))
+        f.close()
+
 def create_kml(params,attributeDics,data,type,kmlFile):
-    """@worldmap plot
+    """@create kml
 
     @param params
         seismon params dictionary
@@ -363,6 +415,7 @@ def loadEarthquakeChannels(params,attributeDic):
     velocity = []
     ampMax = []
     ampPrediction = []
+    residual = []
 
     for channel in params["channels"]:
         earthquakesDirectory = params["dirPath"] + "/Text_Files/Earthquakes/" + channel.station_underscore + "/" + str(params["fftDuration"])
@@ -378,6 +431,8 @@ def loadEarthquakeChannels(params,attributeDic):
         velocity.append(data_out[3])
         ampMax.append(data_out[4])
         ampPrediction.append(traveltimes["Rfamp"][0])
+        thisResidual = (data_out[4] - traveltimes["Rfamp"][0])/traveltimes["Rfamp"][0]
+        residual.append(thisResidual)
 
     ttMax = np.array(ttMax)
     ttDiff = np.array(ttDiff)
@@ -385,6 +440,7 @@ def loadEarthquakeChannels(params,attributeDic):
     velocity = np.array(velocity)
     ampMax = np.array(ampMax)
     ampPrediction = np.array(ampPrediction)
+    residual = np.array(residual)
 
     data = {}
     data["tt"] = ttMax
@@ -393,6 +449,7 @@ def loadEarthquakeChannels(params,attributeDic):
     data["velocity"] = velocity
     data["ampMax"] = ampMax
     data["ampPrediction"] = ampPrediction
+    data["residual"] = residual
 
     return data
 
@@ -413,7 +470,16 @@ def loadChannelEarthquakes(params,channel,attributeDics):
     velocity = []
     ampMax = [] 
     ampPrediction = []
+    depth = []
+    magnitude = []
+    latitude = []
+    longitude = []
+    arrival = []
+    departure = []
+    gps = []
+    residual = []
 
+    print "Large residuals"
     for attributeDic in attributeDics:
 
         if params["ifo"] == "IRIS":
@@ -428,6 +494,12 @@ def loadChannelEarthquakes(params,channel,attributeDics):
         if not os.path.isfile(earthquakesFile):
             continue
 
+        thisArrival = np.min([max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
+        thisDeparture = np.max([max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
+
+        arrival_floor = np.floor(thisArrival / 100.0) * 100.0
+        departure_ceil = np.ceil(thisDeparture / 100.0) * 100.0
+
         data_out = np.loadtxt(earthquakesFile)
         ttMax.append(data_out[0])
         ttDiff.append(data_out[1])
@@ -435,6 +507,19 @@ def loadChannelEarthquakes(params,channel,attributeDics):
         velocity.append(data_out[3])
         ampMax.append(data_out[4])
         ampPrediction.append(traveltimes["Rfamp"][0])
+        depth.append(attributeDic["Depth"])
+        magnitude.append(attributeDic["Magnitude"])
+        latitude.append(attributeDic["Latitude"])
+        longitude.append(attributeDic["Longitude"])
+        arrival.append(arrival_floor)
+        departure.append(departure_ceil)
+        gps.append(attributeDic["GPS"])
+        thisResidual = (data_out[4] - traveltimes["Rfamp"][0])/traveltimes["Rfamp"][0]
+        residual.append(thisResidual)
+
+        if thisResidual > 100:
+
+            print "%.0f %.0f %.0f %e"%(attributeDic["GPS"],arrival_floor,departure_ceil,thisResidual)
 
     ttMax = np.array(ttMax)
     ttDiff = np.array(ttDiff)
@@ -442,6 +527,14 @@ def loadChannelEarthquakes(params,channel,attributeDics):
     velocity = np.array(velocity)
     ampMax = np.array(ampMax)
     ampPrediction = np.array(ampPrediction)
+    depth = np.array(depth)
+    magnitude = np.array(magnitude)
+    latitude = np.array(latitude)
+    longitude = np.array(longitude)
+    arrival = np.array(arrival)
+    departure = np.array(departure)
+    gps = np.array(gps)
+    residual = np.array(residual)
 
     data = {}
     data["tt"] = ttMax
@@ -450,6 +543,14 @@ def loadChannelEarthquakes(params,channel,attributeDics):
     data["velocity"] = velocity
     data["ampMax"] = ampMax
     data["ampPrediction"] = ampPrediction
+    data["depth"] = depth
+    data["magnitude"] = magnitude
+    data["latitude"] = latitude
+    data["longitude"] = longitude
+    data["arrival"] = arrival
+    data["departure"] = departure 
+    data["gps"] = gps
+    data["residual"] = residual
 
     return data
 

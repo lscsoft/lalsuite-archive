@@ -88,6 +88,7 @@ def parse_commandline():
     parser.add_option("--doEarthquakesAnalysis",  action="store_true", default=False)
     parser.add_option("--doEarthquakesMonitor",  action="store_true", default=False)
     parser.add_option("--doEarthquakesPicks",  action="store_true", default=False)
+    parser.add_option("--doEarthquakesTraining",  action="store_true", default=False)
 
     parser.add_option("--doOmicron",  action="store_true", default=False)
     parser.add_option("--doFreqAnalysis",  action="store_true", default=False)
@@ -98,6 +99,8 @@ def parse_commandline():
     parser.add_option("--doPSD",  action="store_true", default=False)    
     parser.add_option("--doSummary",  action="store_true", default=False)
     parser.add_option("--doCoherence",  action="store_true", default=False)
+    parser.add_option("--doCoherenceSummary",  action="store_true", default=False)
+    parser.add_option("--doBeamForming",  action="store_true", default=False)
 
     parser.add_option("--doFlagsDatabase",  action="store_true", default=False)
     parser.add_option("--doFlagsTextFile",  action="store_true", default=False)
@@ -169,6 +172,7 @@ def params_struct(opts):
     params["doEarthquakesAnalysis"] = opts.doEarthquakesAnalysis
     params["doEarthquakesMonitor"] = opts.doEarthquakesMonitor
     params["doEarthquakesPicks"] = opts.doEarthquakesPicks
+    params["doEarthquakesTraining"] = opts.doEarthquakesTraining
 
     params["doOmicron"] = opts.doOmicron
     params["doAnalysis"] = opts.doAnalysis
@@ -179,6 +183,8 @@ def params_struct(opts):
     params["doPSD"] = opts.doPSD
     params["doSummary"] = opts.doSummary
     params["doCoherence"] = opts.doCoherence
+    params["doCoherenceSummary"] = opts.doCoherenceSummary
+    params["doBeamForming"] = opts.doBeamForming
 
     params["doFlagsDatabase"] = opts.doFlagsDatabase
     params["doFlagsTextFile"] = opts.doFlagsTextFile
@@ -226,13 +232,16 @@ if params["frame"] == []:
 
 params = pylal.pylal_seismon_utils.setPath(params,[params["gpsStart"],params["gpsEnd"]])
 print params["path"]
-params = pylal.pylal_seismon_utils.flag_struct(params)
 
 if params["doEarthquakesMonitor"]:
     segmentlist = pylal.pylal_seismon_eqmon.run_earthquakes(params,[params["gpsStart"],params["gpsEnd"]])
     sys.exit()
 if params["doEarthquakesAnalysis"]:
     params["segments"] = pylal.pylal_seismon_eqmon.run_earthquakes(params,[params["gpsStart"],params["gpsEnd"]])
+
+for segment in params["segments"]:
+    params = pylal.pylal_seismon_utils.setPath(params,segment)
+    params = pylal.pylal_seismon_utils.flag_struct(params,segment)
 
 if params["doEarthquakes"]:
     print "Finding earthquakes"
@@ -282,12 +291,29 @@ if params["doCoherence"]:
                 params = pylal.pylal_seismon_utils.setPath(params,segment)
                 pylal.pylal_seismon_coherence.coherence(params,channel1,channel2,segment)
 
+if params["doBeamForming"]:
+    import pylal.pylal_seismon_beamforming
+    print "Running beamforming"
+    for segment in params["segments"]:
+        print "Segment: %d-%d"%(segment[0],segment[1])
+        params = pylal.pylal_seismon_utils.setPath(params,segment)
+        pylal.pylal_seismon_beamforming.beamforming(params,segment)
+
 if params["doSummary"]:
     for segment in params["segments"]:
         print "Running summary for Segment: %d-%d"%(segment[0],segment[1])
         params = pylal.pylal_seismon_utils.setPath(params,segment)
         pylal.pylal_seismon_psd.channel_summary(params, segment)
     print "Summaries complete!"
+
+if params["doCoherenceSummary"]:
+    for i in xrange(len(params["channels"])):
+        channel = params["channels"][i]
+        print "Generating coherence summary for %s"%(channel.station)
+        for segment in params["segments"]:
+            print "Segment: %d-%d"%(segment[0],segment[1])
+            params = pylal.pylal_seismon_utils.setPath(params,segment)
+            pylal.pylal_seismon_coherence.coherence_summary(params,channel,segment)
 
 if params["doEarthquakesAnalysis"]:
     print "Running earthquake analysis"

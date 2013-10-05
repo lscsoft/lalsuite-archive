@@ -489,24 +489,26 @@ def channel_struct(params,channelList):
            samplef = float(line_split[1])
            calibration = float(line_split[2])
 
-           if station[0] == "H":
-               latitude = 46.6475
-               longitude = -119.5986;
-           elif station[0] == "L":
-               latitude = 30.4986
-               longitude = -90.7483
-           elif station[0] == "G":
-               latitude = 52.246944
-               longitude = 9.808333
-           elif station[0] == "V":
-               latitude = 43.631389
-               longitude = 10.505
-           elif station[0] == "C":
-               latitude = 34.1391
-               longitude = -118.1238
-           elif station[0] == "M":
-               latitude = 44.3465
-               longitude = -103.7574
+           latitude,longitude = getLatLon(params)
+
+           if all(x in station for x in ["H1","BS"]):
+               latitude = 46.455166000000
+               longitude = -119.40743100000326
+           elif all(x in station for x in ["H1","ETMX"]):
+               latitude = 46.43394482046292
+               longitude = -119.44972407175652
+           elif all(x in station for x in ["H1","ETMY"]):
+               latitude = 46.48429090731142
+               longitude = -119.43824421717696
+           elif all(x in station for x in ["L1","BS"]):
+               latitude = 30.562906000000023
+               longitude = -90.77422499999618
+           elif all(x in station for x in ["L1","ETMX"]):
+               latitude = 30.5519808137184
+               longitude = -90.8139431511044
+           elif all(x in station for x in ["L1","ETMY"]):
+               latitude = 30.52854703505914
+               longitude = -90.76152205811134
 
            if not params["channel"] == None:
                if not station in params["channel"]:
@@ -619,6 +621,35 @@ def getIfo(params):
         ifo = "LHO"
 
     return ifo
+
+def getLatLon(params):
+
+    if params["ifo"] == "H1":
+        latitude = 46.6475
+        longitude = -119.5986
+    elif params["ifo"] == "L1":
+        latitude = 30.4986
+        longitude = -90.7483
+    elif params["ifo"] == "G1":
+        latitude = 52.246944
+        longitude = 9.808333
+    elif params["ifo"] == "V1":
+        latitude = 43.631389
+        longitude = 10.505
+    elif params["ifo"] == "C1":
+        latitude = 34.1391
+        longitude = -118.1238
+    elif params["ifo"] == "XG":
+        latitude = 44.3465
+        longitude = -103.7574
+    elif params["ifo"] == "IRIS":
+        latitude = 46.6475
+        longitude = -119.5986
+    elif params["ifo"] == "LUNAR":
+        latitude = 46.6475
+        longitude = -119.5986
+
+    return latitude,longitude
 
 def GPSToUTCDateTime(gps):
     """@calculate UTC time from gps
@@ -738,15 +769,20 @@ def RunningMedian(data, M, factor):
             data[i] = data_slice_median
     return data
 
-def flag_struct(params):
+def flag_struct(params,segment):
     """@create seismon flag structure
 
     @param params
         seismon params structure
+    @param segment
+        [start,end] gps
     """
 
-    gpsStart = params["gpsStart"]
-    gpsEnd = params["gpsEnd"]
+    if not "flagList" in params:
+        params["flagList"] = glue.segments.segmentlist()
+
+    gpsStart = segment[0]
+    gpsEnd = segment[1]
 
     # set the times
     duration = np.ceil(gpsEnd-gpsStart)
@@ -805,7 +841,7 @@ def flag_struct(params):
             plot.save(pngFile)
             plot.close()
 
-    params["flagList"] = segmentlist
+    params["flagList"] = params["flagList"] | segmentlist
     return params
 
 def segmentlist_duration(segmentlist):

@@ -69,11 +69,11 @@ def save_data(params,channel,gpsStart,gpsEnd,data,attributeDics):
         f.write("%e %e %e\n"%(freq[i],data["dataFFT"].data[i].real,data["dataFFT"].data[i].imag))
     f.close()
 
-    tt = np.array(data["dataFull"].times)
+    tt = np.array(data["dataLowpass"].times)
     timeseriesFile = os.path.join(timeseriesDirectory,"%d-%d.txt"%(gpsStart,gpsEnd))
     f = open(timeseriesFile,"wb")
-    f.write("%.10f %e\n"%(tt[np.argmin(data["dataFull"].data)],np.min(data["dataFull"].data)))
-    f.write("%.10f %e\n"%(tt[np.argmax(data["dataFull"].data)],np.max(data["dataFull"].data)))
+    f.write("%.10f %e\n"%(tt[np.argmin(data["dataLowpass"].data)],np.min(data["dataLowpass"].data)))
+    f.write("%.10f %e\n"%(tt[np.argmax(data["dataLowpass"].data)],np.max(data["dataLowpass"].data)))
     f.close()
 
     for attributeDic in attributeDics:
@@ -99,7 +99,7 @@ def save_data(params,channel,gpsStart,gpsEnd,data,attributeDics):
         indexMin = np.min(indexes)
         indexMax = np.max(indexes)
         ttCut = tt[indexes]
-        dataCut = data["dataFull"][indexMin:indexMax]
+        dataCut = data["dataLowpass"][indexMin:indexMax]
 
         ampMax = np.max(dataCut.data)
         ttMax = ttCut[np.argmax(dataCut.data)]
@@ -320,6 +320,7 @@ def spectra(params, channel, segment):
         earthquakesDirectory = os.path.join(params["path"],"earthquakes")
         earthquakesXMLFile = os.path.join(earthquakesDirectory,"earthquakes.xml")
         attributeDics = pylal.pylal_seismon_utils.read_eqmons(earthquakesXMLFile)
+
     else:
         attributeDics = []
 
@@ -346,7 +347,7 @@ def spectra(params, channel, segment):
         dataLowpass *= 1e6
 
         plot.add_timeseries(dataHighpass,label="highpass")
-        plot.add_timeseries(dataFull,label="data")
+        #plot.add_timeseries(dataFull,label="data")
         plot.add_timeseries(dataLowpass,label="lowpass")
 
         xlim = [plot.xlim[0],plot.xlim[1]]
@@ -399,6 +400,17 @@ def spectra(params, channel, segment):
                 kwargs = {"linestyle":"--","color":"k"}
                 plot.add_line(xlim,[peak_velocity,peak_velocity],**kwargs)
                 plot.add_line(xlim,[-peak_velocity,-peak_velocity],**kwargs)
+
+            earthquakesDirectory = params["dirPath"] + "/Text_Files/Earthquakes/" + channel.station_underscore + "/" + str(params["fftDuration"])
+            earthquakesFile = os.path.join(earthquakesDirectory,"%s.txt"%(attributeDic["eventName"]))
+ 
+            if not os.path.isfile(earthquakesFile):
+                continue
+
+            data_out = np.loadtxt(earthquakesFile)
+            ttMax = data_out[0]
+            kwargs = {"linestyle":"-","color":"k"}
+            plot.add_line([ttMax,ttMax],ylim,label="Max amplitude",**kwargs)
 
             count = count + 1
 
