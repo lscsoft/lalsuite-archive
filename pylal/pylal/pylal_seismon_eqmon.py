@@ -9,6 +9,7 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALUTCToGPS, XLALGPSToUTC
 from lxml import etree
 import scipy.spatial
+import smtplib, email.mime.text
 import simplekml
 
 import pylal.pylal_seismon_utils, pylal.pylal_seismon_eqmon_plot
@@ -71,9 +72,10 @@ def run_earthquakes(params,segment):
         if check_intersect:
             amp += traveltimes["Rfamp"][0]
 
-            f.write("%.1f %.1f %.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f %e\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd,attributeDic["Latitude"],attributeDic["Longitude"],max(traveltimes["Distances"])))
-
             if traveltimes["Rfamp"][0] >= threshold:
+
+                f.write("%.1f %.1f %.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f %e\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd,attributeDic["Latitude"],attributeDic["Longitude"],max(traveltimes["Distances"])))
+
                 print "%.1f %.1f %.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f %e\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd,attributeDic["Latitude"],attributeDic["Longitude"],max(traveltimes["Distances"]))
 
                 g.write("%.1f %.1f %.5e\n"%(arrival,departure-arrival,traveltimes["Rfamp"][0]))
@@ -99,6 +101,23 @@ def run_earthquakes(params,segment):
     f.close()
 
     write_info(earthquakesXMLFile,attributeDics)
+
+    if params["doEarthquakesOnline"]:
+        sender = 'michael.w.coughlin@gmail.com'
+        receivers = ['michael.w.coughlin@gmail.com']
+
+        lines = [line for line in open(earthquakesFile)]
+        if lines == []:
+            return segmentlist
+
+        message = ""
+        for line in lines:
+            message = "%s\n%s"%(message,line)
+
+        s = smtplib.SMTP('localhost')
+        s.sendmail(sender,receivers, message)         
+        s.quit()
+        print "mail sent"
 
     return segmentlist
 

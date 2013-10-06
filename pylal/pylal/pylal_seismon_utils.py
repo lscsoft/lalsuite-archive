@@ -590,13 +590,13 @@ def setPath(params,segment):
     gpsStart = segment[0]
     gpsEnd = segment[1]
 
-    if params["doEarthquakesMonitor"]:
+    if params["doEarthquakesOnline"]:
         # Output path for run
-        params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + '-EarthquakesMonitor'
+        params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + '-Online' + '/' + "%.0f"%gpsStart + "-" + "%.0f"%gpsEnd
     else:
         params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + "-" + "%.0f"%gpsStart + "-" + "%.0f"%gpsEnd
 
-    if params["doAnalysis"] or params["doPlots"] or params["doEarthquakesAnalysis"]:
+    if params["doAnalysis"] or params["doPlots"] or params["doEarthquakesAnalysis"] or params["doEarthquakesOnline"]:
         pylal.pylal_seismon_utils.mkdir(params["path"])
 
     return params

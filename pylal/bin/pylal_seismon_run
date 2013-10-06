@@ -86,7 +86,7 @@ def parse_commandline():
     parser.add_option("--doPlots",  action="store_true", default=False)
     parser.add_option("--doEarthquakes",  action="store_true", default=False)
     parser.add_option("--doEarthquakesAnalysis",  action="store_true", default=False)
-    parser.add_option("--doEarthquakesMonitor",  action="store_true", default=False)
+    parser.add_option("--doEarthquakesOnline",  action="store_true", default=False)
     parser.add_option("--doEarthquakesPicks",  action="store_true", default=False)
     parser.add_option("--doEarthquakesTraining",  action="store_true", default=False)
 
@@ -170,7 +170,7 @@ def params_struct(opts):
     params["doPlots"] = opts.doPlots
     params["doEarthquakes"] = opts.doEarthquakes
     params["doEarthquakesAnalysis"] = opts.doEarthquakesAnalysis
-    params["doEarthquakesMonitor"] = opts.doEarthquakesMonitor
+    params["doEarthquakesOnline"] = opts.doEarthquakesOnline
     params["doEarthquakesPicks"] = opts.doEarthquakesPicks
     params["doEarthquakesTraining"] = opts.doEarthquakesTraining
 
@@ -216,9 +216,7 @@ warnings.filterwarnings("ignore")
 opts = parse_commandline()
 params = params_struct(opts)
 
-if params["doEarthquakesMonitor"]: 
-    channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list_EarthquakesAnalysis.txt"
-elif params["doEarthquakesAnalysis"]:
+if params["doEarthquakesAnalysis"]:
     channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list.txt"
 else:
     channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list.txt"
@@ -233,7 +231,7 @@ if params["frame"] == []:
 params = pylal.pylal_seismon_utils.setPath(params,[params["gpsStart"],params["gpsEnd"]])
 print params["path"]
 
-if params["doEarthquakesMonitor"]:
+if params["doEarthquakesOnline"]:
     segmentlist = pylal.pylal_seismon_eqmon.run_earthquakes(params,[params["gpsStart"],params["gpsEnd"]])
     sys.exit()
 if params["doEarthquakesAnalysis"]:
