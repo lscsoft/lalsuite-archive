@@ -1658,6 +1658,9 @@ def update_experiment_summ_nevents( connection, verbose = False ):
     if verbose:
         print >> sys.stderr, "Updating nevents column in experiment_summary table..."
 
+    # Speedup measure: index may have been deleted during dbsimplify
+    connection.cursor().execute("CREATE INDEX IF NOT EXISTS em_esi_index ON experiment_map(experiment_summ_id)")
+
     sqlquery = """
         UPDATE experiment_summary
         SET nevents = (
