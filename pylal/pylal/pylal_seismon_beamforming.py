@@ -23,12 +23,10 @@ __version__ = "0.1"
 # =============================================================================
 
 def beamforming(params, segment):
-    """@calculates spectral data for given channel and segment.
+    """@calculates beam forming data for given segment.
 
     @param params
         seismon params dictionary
-    @param channel
-        seismon channel structure
     @param segment
         [start,end] gps
     """
@@ -77,9 +75,13 @@ def beamforming(params, segment):
             'longitude': channel.longitude,
             'elevation': 0.0})
 
+        print trace.data
+        print "%.10f"%channel.latitude
+        print "%.10f"%channel.longitude
         st += trace
 
     print st
+    print penis
 
     # Execute sonic
     kwargs = dict(

@@ -491,13 +491,13 @@ def channel_struct(params,channelList):
 
            latitude,longitude = getLatLon(params)
 
-           if all(x in station for x in ["H1","BS"]):
+           if all(x in station for x in ["H1","BS"]) or all(x in station for x in ["H1","LVEA"]):
                latitude = 46.455166000000
                longitude = -119.40743100000326
-           elif all(x in station for x in ["H1","ETMX"]):
+           elif all(x in station for x in ["H1","ETMX"]) or all(x in station for x in ["H1","EX"]):
                latitude = 46.43394482046292
                longitude = -119.44972407175652
-           elif all(x in station for x in ["H1","ETMY"]):
+           elif all(x in station for x in ["H1","ETMY"]) or all(x in station for x in ["H1","EY"]):
                latitude = 46.48429090731142
                longitude = -119.43824421717696
            elif all(x in station for x in ["L1","BS"]):

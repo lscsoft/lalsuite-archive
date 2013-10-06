@@ -89,6 +89,9 @@ def parse_commandline():
     parser.add_option("--doEarthquakesOnline",  action="store_true", default=False)
     parser.add_option("--doEarthquakesPicks",  action="store_true", default=False)
     parser.add_option("--doEarthquakesTraining",  action="store_true", default=False)
+    parser.add_option("--doEarthquakesTesting",  action="store_true", default=False)
+    parser.add_option("--earthquakesTrainingFile", help="Earthquakes training file.",
+                     default="/home/mcoughlin/Seismon/H1/H1S5-815097613-875145614/earthquakes_training/training.xml")
 
     parser.add_option("--doOmicron",  action="store_true", default=False)
     parser.add_option("--doFreqAnalysis",  action="store_true", default=False)
@@ -101,6 +104,7 @@ def parse_commandline():
     parser.add_option("--doCoherence",  action="store_true", default=False)
     parser.add_option("--doCoherenceSummary",  action="store_true", default=False)
     parser.add_option("--doBeamForming",  action="store_true", default=False)
+    parser.add_option("--doWiener",  action="store_true", default=False)
 
     parser.add_option("--doFlagsDatabase",  action="store_true", default=False)
     parser.add_option("--doFlagsTextFile",  action="store_true", default=False)
@@ -173,6 +177,9 @@ def params_struct(opts):
     params["doEarthquakesOnline"] = opts.doEarthquakesOnline
     params["doEarthquakesPicks"] = opts.doEarthquakesPicks
     params["doEarthquakesTraining"] = opts.doEarthquakesTraining
+    params["doEarthquakesTesting"] = opts.doEarthquakesTesting
+
+    params["earthquakesTrainingFile"] = opts.earthquakesTrainingFile
 
     params["doOmicron"] = opts.doOmicron
     params["doAnalysis"] = opts.doAnalysis
@@ -185,6 +192,7 @@ def params_struct(opts):
     params["doCoherence"] = opts.doCoherence
     params["doCoherenceSummary"] = opts.doCoherenceSummary
     params["doBeamForming"] = opts.doBeamForming
+    params["doWiener"] = opts.doWiener
 
     params["doFlagsDatabase"] = opts.doFlagsDatabase
     params["doFlagsTextFile"] = opts.doFlagsTextFile
@@ -312,6 +320,15 @@ if params["doCoherenceSummary"]:
             print "Segment: %d-%d"%(segment[0],segment[1])
             params = pylal.pylal_seismon_utils.setPath(params,segment)
             pylal.pylal_seismon_coherence.coherence_summary(params,channel,segment)
+
+if params["doWiener"]:
+    import pylal.pylal_seismon_wiener
+    for channel in params["channels"]:
+        print "Running wiener filter"
+        for segment in params["segments"]:
+            print "Segment: %d-%d"%(segment[0],segment[1])
+            params = pylal.pylal_seismon_utils.setPath(params,segment)
+            pylal.pylal_seismon_wiener.wiener(params,channel,segment)
 
 if params["doEarthquakesAnalysis"]:
     print "Running earthquake analysis"

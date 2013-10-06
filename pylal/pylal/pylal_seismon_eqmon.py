@@ -67,6 +67,9 @@ def run_earthquakes(params,segment):
         arrival = np.min([max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
         departure = np.max([max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
 
+        arrival_floor = np.floor(arrival / 100.0) * 100.0
+        departure_ceil = np.ceil(departure / 100.0) * 100.0
+
         check_intersect = (arrival >= gpsStart) and (departure <= gpsEnd)
 
         if check_intersect:
@@ -74,20 +77,15 @@ def run_earthquakes(params,segment):
 
             if traveltimes["Rfamp"][0] >= threshold:
 
-                f.write("%.1f %.1f %.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f %e\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd,attributeDic["Latitude"],attributeDic["Longitude"],max(traveltimes["Distances"])))
+                f.write("%.1f %.1f %.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f %e\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),traveltimes["Rfamp"][0],arrival_floor,departure_ceil,attributeDic["Latitude"],attributeDic["Longitude"],max(traveltimes["Distances"])))
 
-                print "%.1f %.1f %.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f %e\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd,attributeDic["Latitude"],attributeDic["Longitude"],max(traveltimes["Distances"]))
+                print "%.1f %.1f %.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f %e\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),traveltimes["Rfamp"][0],arrival_floor,departure_ceil,attributeDic["Latitude"],attributeDic["Longitude"],max(traveltimes["Distances"]))
 
                 g.write("%.1f %.1f %.5e\n"%(arrival,departure-arrival,traveltimes["Rfamp"][0]))
-
-                arrival_floor = np.floor(arrival / 100.0) * 100.0
-                departure_ceil = np.ceil(departure / 100.0) * 100.0
-
                 h.write("%.0f %.0f\n"%(arrival_floor,departure_ceil))
 
-                #segmentlist.append(glue.segments.segment(gpsStart,gpsEnd))
                 segmentlist.append(glue.segments.segment(arrival_floor,departure_ceil))
-
+    
     f.close()
     g.close()
     h.close()
@@ -184,6 +182,8 @@ def run_earthquakes_analysis(params,segment):
 
     if params["doEarthquakesTraining"]:
         pylal.pylal_seismon_pybrain.earthquakes_training(params,attributeDics,data)
+    if params["doEarthquakesTesting"]:
+        pylal.pylal_seismon_pybrain.earthquakes_testing(params,attributeDics,data)
 
     save_predictions(params,data)
 
@@ -1097,6 +1097,31 @@ def do_kdtree(combined_x_y_arrays,points):
     dist, indexes = mytree.query(points)
     return indexes
 
+def ampRf(M,r,h,Rf0,Rfs,Q0,Qs,cd,ch,rs):
+    # Rf amplitude estimate
+    # M = magnitude
+    # r = distance [km]
+    # h = depth [km]
+
+    # Rf0 = Rf amplitude parameter
+    # Rfs = exponent of power law for f-dependent Rf amplitude
+    # Q0 = Q-value of Earth for Rf waves at 1Hz
+    # Qs = exponent of power law for f-dependent Q
+    # cd = speed parameter for surface coupling  [km/s]
+    # ch = speed parameter for horizontal propagation  [km/s]
+    # rs
+
+    # exp(-2*pi*h.*fc./cd), coupling of source to surface waves
+    # exp(-2*pi*r.*fc./ch./Q), dissipation
+
+    fc = 10**(2.3-M/2)
+    Q = Q0/(fc**Qs)
+    Af = Rf0/(fc**Rfs)
+
+    Rf = 1e-3 * M*Af*np.exp(-2*np.pi*h*fc/cd)*np.exp(-2*np.pi*r*(fc/ch)/Q)/(r**(rs))
+
+    return Rf
+
 def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
     """@calculate travel times of earthquake
 
@@ -1126,11 +1151,15 @@ def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
     periods = [25.0,27.0,30.0,32.0,35.0,40.0,45.0,50.0,60.0,75.0,100.0,125.0,150.0,200.0,250.0]
     frequencies = 1 / np.array(periods)
    
-    c = 18
-    fc = 10**(2.3-(attributeDic["Magnitude"]/2.))
-    Q = np.max([500,80/np.sqrt(fc)])
+    Rf0 = 0.89256174
+    Rfs = 1.3588703
+    Q0 = 4169.7511
+    Qs = -0.017424297
+    cd = 254.13458
+    ch = 10.331297
+    rs = 1.0357451
 
-    Rfamp = ((attributeDic["Magnitude"]/fc)*0.0035) * np.exp(-2*math.pi*attributeDic["Depth"]*fc/c) * np.exp(-2*math.pi*(distances[-1]/1000)*(fc/c)*1/Q)/(distances[-1]/1000)
+    Rfamp = ampRf(attributeDic["Magnitude"],distances[-1],attributeDic["Depth"],Rf0,Rfs,Q0,Qs,cd,ch,rs)
     Pamp = 1e-6
     Samp = 1e-5
 
@@ -1243,11 +1272,16 @@ def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
     distances = np.linspace(0,distance,100)
     degrees = (distances/6370000)*(180/np.pi)
 
-    c = 18
-    fc = 10**(2.3-(attributeDic["Magnitude"]/2.))
-    Q = np.max([500,80/np.sqrt(fc)])
+    Rf0 = 0.89256174
+    Rfs = 1.3588703
+    Q0 = 4169.7511
+    Qs = -0.017424297
+    cd = 254.13458
+    ch = 10.331297
+    rs = 1.0357451
 
-    Rfamp = ((attributeDic["Magnitude"]/fc)*0.0035) * np.exp(-2*math.pi*attributeDic["Depth"]*fc/c) * np.exp(-2*math.pi*(distances[-1]/1000)*(fc/c)*1/Q)/(distances[-1]/1000)
+    Rfamp = ampRf(attributeDic["Magnitude"],distances[-1],attributeDic["Depth"],Rf0,Rfs,Q0,Qs,cd,ch,rs)
+    
     Pamp = 1e-6
     Samp = 1e-5
 

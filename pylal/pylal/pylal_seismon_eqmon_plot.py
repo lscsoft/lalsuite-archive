@@ -92,7 +92,7 @@ def earthquakes_station(params,data,type,plotName):
 
     threshold = -8
 
-    plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+    plot = gwpy.plotter.Plot(figsize=[14,8])
     plot.add_scatter(earthquakes_tt,earthquakes_amp, marker='o', zorder=1000, color='b',label='predicted')
 
     colors = cm.rainbow(np.linspace(0, 1, len(data["channels"])))
@@ -140,7 +140,7 @@ def earthquakes_station_distance(params,data,type,plotName):
         name of plot
     """
 
-    plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+    plot = gwpy.plotter.Plot(figsize=[14,8])
 
     colors = cm.rainbow(np.linspace(0, 1, len(data["channels"])))
     count=0
@@ -227,7 +227,7 @@ def prediction(data,plotName):
 
     threshold = -8
 
-    plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+    plot = gwpy.plotter.Plot(figsize=[14,8])
     plot.add_scatter(prediction_ttStart, prediction_amp, marker='o', zorder=1000, color='b',label='predicted')
     #for i in xrange(len(prediction_ttStart)):
     #    plot.add_line([prediction_ttStart[i],prediction_ttEnd[i]],[prediction_amp[i],prediction_amp[i]],color='b',label='predicted')
@@ -285,7 +285,7 @@ def residual(data,plotName):
     prediction_ttStart = prediction_ttStart[indexes]
     prediction_amp = prediction_amp[indexes]
 
-    plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+    plot = gwpy.plotter.Plot(figsize=[14,8])
     plot.add_scatter(prediction_ttStart, prediction_amp, marker='o', zorder=1000, color='b',label='predicted')
 
     for key in data["channels"].iterkeys():
@@ -974,7 +974,7 @@ def station_plot(params,attributeDics,data,type,plotName):
 
     ifo = pylal.pylal_seismon_utils.getIfo(params)
 
-    plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+    plot = gwpy.plotter.Plot(figsize=[14,8])
 
     count = 0
     keys = [key for key in data["earthquakes"].iterkeys()]
