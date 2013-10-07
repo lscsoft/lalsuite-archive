@@ -745,6 +745,7 @@ def parse_xml(element):
         tag = str(subelement.tag)
         tag = tag.replace("{http://www.usgs.gov/ansseqmsg}","")
         tag = tag.replace("{http://quakeml.org/xmlns/quakeml/1.2}","")
+        tag = tag.replace("{http://quakeml.org/xmlns/bed/1.2}","")
         subdic[tag] = parse_xml(subelement)
         numChildren += 1
 
@@ -757,6 +758,7 @@ def parse_xml(element):
     tag = str(element.tag)
     tag = tag.replace("{http://www.usgs.gov/ansseqmsg}","")
     tag = tag.replace("{http://quakeml.org/xmlns/quakeml/1.2}","")
+    tag = tag.replace("{http://quakeml.org/xmlns/bed/1.2}","")
     dic = value
 
     return dic
@@ -861,15 +863,18 @@ def read_quakeml(file,eventName):
     attributeDic['SentUTC'] = float(dt.strftime("%s"))
 
     attributeDic["DataSource"] = dic["eventParameters"]["event"]["creationInfo"]["agencyID"]
-    attributeDic["Version"] = float(dic["eventParameters"]["event"]["creationInfo"]["version"])
+    #attributeDic["Version"] = float(dic["eventParameters"]["event"]["creationInfo"]["version"])
     attributeDic["Type"] = dic["eventParameters"]["event"]["type"]
 
-    if dic["eventParameters"]["event"]["origin"]["evaluationMode"] == "automatic":
-        attributeDic["Review"] = "Automatic"
+    if "evalulationMode" in dic["eventParameters"]["event"]:
+        if dic["eventParameters"]["event"]["origin"]["evaluationMode"] == "automatic":
+            attributeDic["Review"] = "Automatic"
+        else:
+            attributeDic["Review"] = "Manual"
     else:
-        attributeDic["Review"] = "Manual"
+        attributeDic["Review"] = "Unknown"
 
-    attributeDic = traveltimes(attributeDic)
+    attributeDic = calculate_traveltimes(attributeDic)
     tm = time.struct_time(time.gmtime())
     attributeDic['WrittenGPS'] = float(XLALUTCToGPS(tm))
     attributeDic['WrittenUTC'] = float(time.time())
