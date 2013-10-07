@@ -745,7 +745,7 @@ ith l <= lmax */
 
     int m;
 
-  // Convert orientation using Andy's tool
+  // Convert orientation into our frame
   const REAL8 v_ref = cbrt(piM * f_ref); // Fixme: (pi M f)^(1/3)
   XLALSimInspiralSF2CalculateOrientation(orientation, m1, m2, v_ref, lnhatx, lnhaty, lnhatz, S1x,S1y,S1z);
 
@@ -793,13 +793,13 @@ ith l <= lmax */
     amp0 = -4. * m1 * m2 / r * LAL_MRSUN_SI * LAL_MTSUN_SI * sqrt(LAL_PI/12.L);
     shft = -LAL_TWOPI * (tC.gpsSeconds + 1e-9 * tC.gpsNanoSeconds); 
 
+    if (f_max < f_min) { f_max = CeilPow2(fISCO); }
+    n = 2*(f_max / deltaF + 1);
+    XLALGPSAdd(&tC, -1 / deltaF);  /* coalesce at t=0 */
 
     // Create a (2l+1)=5-dimensional array of Complex16FrequencySeries to hold the modes in the COROTATING frame. (This will be converted in place to the FD by a rotation operator)
     COMPLEX16FrequencySeries * hTildeArray[5];
     REAL8FrequencySeries * betaSeries, *alphaSeries, *zetaSeries;
-    if (f_max < f_min) { f_max = CeilPow2(fISCO); }
-    n = 2*(f_max / deltaF + 1);
-    XLALGPSAdd(&tC, -1 / deltaF);  /* coalesce at t=0 */
        for (m=-2; m<=2; m++) {
           COMPLEX16FrequencySeries *htilde;
           if (!htilde_out) XLAL_ERROR(XLAL_EFAULT);
