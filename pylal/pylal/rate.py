@@ -1125,7 +1125,6 @@ class InterpBinnedArray(object):
 		return float(self.interp(*coords))
 
 
-
 #
 # =============================================================================
 #
