@@ -104,6 +104,7 @@ def parse_commandline():
     parser.add_option("--doCoherence",  action="store_true", default=False)
     parser.add_option("--doCoherenceSummary",  action="store_true", default=False)
     parser.add_option("--doBeamForming",  action="store_true", default=False)
+    parser.add_option("--doStrainz",  action="store_true", default=False)
     parser.add_option("--doWiener",  action="store_true", default=False)
 
     parser.add_option("--doFlagsDatabase",  action="store_true", default=False)
@@ -192,6 +193,7 @@ def params_struct(opts):
     params["doCoherence"] = opts.doCoherence
     params["doCoherenceSummary"] = opts.doCoherenceSummary
     params["doBeamForming"] = opts.doBeamForming
+    params["doStrainz"] = opts.doStrainz
     params["doWiener"] = opts.doWiener
 
     params["doFlagsDatabase"] = opts.doFlagsDatabase
@@ -305,6 +307,14 @@ if params["doBeamForming"]:
         params = pylal.pylal_seismon_utils.setPath(params,segment)
         pylal.pylal_seismon_beamforming.beamforming(params,segment)
 
+if params["doStrainz"]:
+    import pylal.pylal_seismon_beamforming
+    print "Running strainz"
+    for segment in params["segments"]:
+        print "Segment: %d-%d"%(segment[0],segment[1])
+        params = pylal.pylal_seismon_utils.setPath(params,segment)
+        pylal.pylal_seismon_beamforming.strainz(params,segment)
+
 if params["doSummary"]:
     for segment in params["segments"]:
         print "Running summary for Segment: %d-%d"%(segment[0],segment[1])
@@ -324,7 +334,7 @@ if params["doCoherenceSummary"]:
 if params["doWiener"]:
     import pylal.pylal_seismon_wiener
     for channel in params["channels"]:
-        print "Running wiener filter"
+        print "Running wiener filter for %s"%(channel.station)
         for segment in params["segments"]:
             print "Segment: %d-%d"%(segment[0],segment[1])
             params = pylal.pylal_seismon_utils.setPath(params,segment)

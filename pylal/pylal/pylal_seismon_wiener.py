@@ -61,22 +61,6 @@ def wiener(params, target_channel, segment):
             print "timeseries too short for analysis... continuing\n"
             continue
     
-        fs = target_channel.samplef # 1 ns -> 1 GHz
-        cutoff = 1.0
-        n = 3
-        #B, A = scipy.signal.butter(n, cutoff / (fs / 2.0), btype='lowpass')
-
-        #dataLowpass = dataFull.lowpass(cutoff, amplitude=0.9, order=3, method='scipy')
-
-        #dataLowpass = scipy.signal.lfilter(B, A, dataFull,
-        #                               axis=0).view(dataFull.__class__)
-        #dataLowpass.data[:2*target_channel.samplef] = dataLowpass.data[2*target_channel.samplef]
-        #dataLowpass.data[-2*target_channel.samplef:] = dataLowpass.data[-2*target_channel.samplef]
-        #dataLowpass.sample_rate =  dataFull.sample_rate
-        #dataLowpass.epoch = dataFull.epoch
-        #dataLowpass.name = dataFull.name
-        #dataLowpass.channel = dataFull.channel
-
         dataAll.append(dataFull)
 
     X = []
@@ -94,15 +78,24 @@ def wiener(params, target_channel, segment):
                 except:
                     continue
 
+    if len(y) == 0:
+        print "No data for target channel... continuing"
+        return
+
     originalASD = []
     residualASD = []
     FFASD = []
 
     N = 1000
-    gpss = np.arange(gpsStart,gpsEnd,params["fftDuration"])
+    gpss = np.arange(gpsStart,gpsEnd,2*params["fftDuration"])
+    create_filter = True
     for i in xrange(len(gpss)-1):
         tt = np.array(dataFull.times)
         indexes = np.intersect1d(np.where(tt >= gpss[i])[0],np.where(tt <= gpss[i+1])[0])
+
+        if len(indexes) == 0:
+            continue
+
         indexMin = np.min(indexes)
         indexMax = np.max(indexes)
 
@@ -110,26 +103,25 @@ def wiener(params, target_channel, segment):
         XCut = X[:,indexMin:indexMax]
 
         XCut = XCut.T
-        if i == 0:
+        if create_filter:
             W,R,P = miso_firwiener(N,XCut,yCut)
+            create_filter = False
             continue
             
-        residual, FF = subtractFF(W,XCut,yCut)
-
-        print np.std(yCut), np.std(residual), np.std(FF)
+        residual, FF = subtractFF(W,XCut,yCut,target_channel)
 
         gpsStart = tt[indexMin]
         dataOriginal = gwpy.timeseries.TimeSeries(yCut, epoch=gpsStart, sample_rate=target_channel.samplef)
         dataResidual = gwpy.timeseries.TimeSeries(residual, epoch=gpsStart, sample_rate=target_channel.samplef)
         dataFF = gwpy.timeseries.TimeSeries(FF, epoch=gpsStart, sample_rate=target_channel.samplef)
 
-        cutoff = 1.0
-        dataOriginal = dataOriginal.lowpass(cutoff, amplitude=0.9, order=3, method='scipy')
-        dataResidual = dataResidual.lowpass(cutoff, amplitude=0.9, order=3, method='scipy')
-        dataFF = dataFF.lowpass(cutoff, amplitude=0.9, order=3, method='scipy')
+        #cutoff = 1.0
+        #dataOriginal = dataOriginal.lowpass(cutoff, amplitude=0.9, order=3, method='scipy')
+        #dataResidual = dataResidual.lowpass(cutoff, amplitude=0.9, order=3, method='scipy')
+        #dataFF = dataFF.lowpass(cutoff, amplitude=0.9, order=3, method='scipy')
 
         # calculate spectrum
-        NFFT = params["fftDuration"] / 2
+        NFFT = params["fftDuration"]
         #window = None
         dataOriginalASD = dataOriginal.asd(NFFT,NFFT,'welch')
         dataResidualASD = dataResidual.asd(NFFT,NFFT,'welch')
@@ -171,7 +163,7 @@ def wiener(params, target_channel, segment):
 
     if params["doPlots"]:
 
-        plotDirectory = params["path"] + "/Wiener/" + channel.station_underscore
+        plotDirectory = params["path"] + "/Wiener/" + target_channel.station_underscore
         pylal.pylal_seismon_utils.mkdir(plotDirectory)
 
         fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
@@ -189,7 +181,7 @@ def wiener(params, target_channel, segment):
         plot.axes.set_yscale("log")
         plot.axes.set_xscale("log")
         plot.xlim = [params["fmin"],params["fmax"]]
-        plot.ylim = [np.min(bins), np.max(bins)]
+        #plot.ylim = [np.min(bins), np.max(bins)]
         plot.xlabel = "Frequency [Hz]"
         plot.ylabel = "Amplitude Spectrum [(m/s)/rtHz]"
         plot.add_legend(loc=1,prop={'size':10})
@@ -285,7 +277,7 @@ def miso_firwiener(N,X,y):
 
     return W,R,P
 
-def subtractFF(W,SS,S):
+def subtractFF(W,SS,S,channel):
 
     # Subtracts the filtered SS from S using FIR filter coefficients W.
     # Routine written by Jan Harms. Routine modified by Michael Coughlin.
@@ -300,6 +292,11 @@ def subtractFF(W,SS,S):
     for k in xrange(N+1,ns):
         tmp = SS[range(k-N,k+1),:] * W
         FF[k-N] = np.sum(tmp)
+
+    cutoff = 1.0
+    dataFF = gwpy.timeseries.TimeSeries(FF, sample_rate=channel.samplef)
+    dataFFLowpass = dataFF.lowpass(cutoff, amplitude=0.9, order=3, method='scipy')
+    FF = np.array(dataFFLowpass)
 
     residual = S[range(ns-N)]-FF
 

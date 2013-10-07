@@ -1164,7 +1164,7 @@ def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
     ch = 10.331297
     rs = 1.0357451
 
-    Rfamp = ampRf(attributeDic["Magnitude"],distances[-1],attributeDic["Depth"],Rf0,Rfs,Q0,Qs,cd,ch,rs)
+    Rfamp = ampRf(attributeDic["Magnitude"],distances[-1]/1000.0,attributeDic["Depth"],Rf0,Rfs,Q0,Qs,cd,ch,rs)
     Pamp = 1e-6
     Samp = 1e-5
 
@@ -1285,7 +1285,7 @@ def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
     ch = 10.331297
     rs = 1.0357451
 
-    Rfamp = ampRf(attributeDic["Magnitude"],distances[-1],attributeDic["Depth"],Rf0,Rfs,Q0,Qs,cd,ch,rs)
+    Rfamp = ampRf(attributeDic["Magnitude"],distances[-1]/1000.0,attributeDic["Depth"],Rf0,Rfs,Q0,Qs,cd,ch,rs)
     
     Pamp = 1e-6
     Samp = 1e-5
