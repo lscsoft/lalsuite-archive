@@ -2233,13 +2233,11 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     if(LALInferenceGetProcParamVal(commandLine, "--inj-tidalOrder")) {
         tideO = atoi(LALInferenceGetProcParamVal(commandLine, "--inj-tidalOrder")->value);
         LALInferenceAddVariable(tmpdata->modelParams, "tideO", &tideO,   LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
-    }
-   
    /* Print a line with information about approximant, amporder, phaseorder, tide order and spin order */
     fprintf(stdout,"\n\n---\t\t ---\n");
    fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, in the frequency domain.\n",injapprox,XLALGetStringFromApproximant(injapprox),phase_order,amp_order,(int) spinO,(int) tideO);
      fprintf(stdout,"---\t\t ---\n\n");
-
+    }
      
     else
         fprintf(stdout,"No --inj-tidalOrder option given. Injecting the highest tidal order for this waveform!\n");

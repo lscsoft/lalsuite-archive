@@ -55,6 +55,7 @@ typedef struct tagGSParams {
     REAL8 s2z;                /**< dimensionless spin, Kerr bound: |s2| <= 1 */
     REAL8 lambda1;	      /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
     REAL8 lambda2;	      /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+    LALEquationOfState eos;              /**< Equation of state for NS */
     LALSimInspiralWaveformFlags *waveFlags; /**< Set of flags to control special behavior of some waveform families */
     LALSimInspiralTestGRParam *nonGRparams; /**< Linked list of non-GR parameters. Pass in NULL for standard GR waveforms */
     int axisChoice;           /**< flag to choose reference frame for spin coordinates */
@@ -121,6 +122,7 @@ const char * usage =
 "                           (~128-2560 for NS, 0 for BH) (default 0)\n"
 "--tidal-lambda2 L2         (tidal deformability of mass 2) / (mass of body 2)^5\n"
 "                           (~128-2560 for NS, 0 for BH) (default 0)\n"
+"--eos EOS                  NS equation of state (default PP)\n"
 "--spin-order ORD           Twice PN order of spin effects\n"
 "                           (default ORD=-1 <==> All spin effects)\n"
 "--tidal-order ORD          Twice PN order of tidal effects\n"
@@ -169,6 +171,7 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
     params->s2z = 0.;
     params->lambda1 = 0.;
     params->lambda2 = 0.;
+    params->eos = 0;
     strncpy(params->outname, "simulation.dat", 256); /* output to this file */
     params->ampPhase = 0; /* output h+ and hx */
     params->verbose = 0; /* No verbosity */
@@ -227,6 +230,8 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
             params->lambda1 = atof(argv[++i]);
         } else if (strcmp(argv[i], "--tidal-lambda2") == 0) {
             params->lambda2 = atof(argv[++i]);
+        } else if (strcmp(argv[i], "--eos") == 0) {
+			params->eos = XLALSimEOSfromString(argv[++i]);
         } else if (strcmp(argv[i], "--spin-order") == 0) {
             XLALSimInspiralSetSpinOrder( params->waveFlags, atoi(argv[++i]) );
         } else if (strcmp(argv[i], "--tidal-order") == 0) {
@@ -431,7 +436,7 @@ int main (int argc , char **argv) {
                     params->s2z, params->f_min, params->f_max, 
                     params->distance, params->inclination, params->lambda1, 
                     params->lambda2, params->waveFlags, params->nonGRparams,
-                    params->ampO, params->phaseO, params->approximant);
+                    params->ampO, params->phaseO, params->approximant, params->eos);
             break;
         case LAL_SIM_DOMAIN_TIME:
             XLALSimInspiralChooseTDWaveform(&hplus, &hcross, params->phiRef, 
@@ -441,7 +446,7 @@ int main (int argc , char **argv) {
                     params->distance, params->inclination, params->lambda1, 
                     params->lambda2, params->waveFlags,
                     params->nonGRparams, params->ampO, params->phaseO,
-                    params->approximant);
+                    params->approximant, params->eos);
             break;
         default:
             XLALPrintError("Error: domain must be either TD or FD\n");

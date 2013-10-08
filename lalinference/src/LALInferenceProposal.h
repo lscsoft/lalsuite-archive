@@ -288,6 +288,7 @@ typedef struct tagFIMParams {
     REAL8 s2z;                /**< dimensionless spin, Kerr bound: |s2| <= 1 */
     REAL8 lambda1;            /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
     REAL8 lambda2;            /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+    LALEquationOfState eos;   /**< FIXME: temporaray fix*/
 	REAL8 ra;                 /**< right ascension of source */
 	REAL8 dec;                 /**< declination of source */
 	REAL8 psi;                 /**< polarization of source */

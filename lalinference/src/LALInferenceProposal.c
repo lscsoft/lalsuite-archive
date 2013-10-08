@@ -2583,14 +2583,14 @@ void waveformDerivative(FIMParams *params, /**< \theta_0 params where you comput
                                     params->s2y,params->s2z,params->f_min,params->f_max,
                                     params->distance,params->inclination,params->lambda1,
 									params->lambda2,params->waveFlags,params->nonGRparams,
-									params->ampPhase,params->phaseO,params->approximant);
+									params->ampPhase,params->phaseO,params->approximant, params->eos);
         XLALSimInspiralChooseFDWaveform(&hptildeN, &hctildeN,
                                     paramsNp1->phiRef,paramsNp1->deltaF,paramsNp1->m1,paramsNp1->m2,
                                     paramsNp1->s1x,paramsNp1->s1y,paramsNp1->s1z,paramsNp1->s2x,
                                     paramsNp1->s2y,paramsNp1->s2z,paramsNp1->f_min,paramsNp1->f_max,
                                     paramsNp1->distance,paramsNp1->inclination,paramsNp1->lambda1,
 									paramsNp1->lambda2,paramsNp1->waveFlags,paramsNp1->nonGRparams,
-									paramsNp1->ampPhase,paramsNp1->phaseO,paramsNp1->approximant);
+									paramsNp1->ampPhase,paramsNp1->phaseO,paramsNp1->approximant, paramsNp1->eos);
 
 
 		/*If changing the masses, the termination point of the waveform can change
@@ -2719,6 +2719,8 @@ void parametersSetFIM(LALInferenceRunState *runState, FIMParams *params)
 	params->s2z = 0.;
 	params->lambda1 = 0.;
 	params->lambda2 = 0.;
+        params->eos = LAL_SIM_INSPIRAL_EOS_NONE;
+	//        params->eos = *(LALEquationOfState *)LALInferenceGetVariable(runstate->currentParams, "LAL_SIM_INSPIRAL_EOS");
 	params->ampPhase = 0; /* output h+ and hx */
 	params->verbose = 0; /* No verbosity */
 	params->ra = *(REAL8 *)LALInferenceGetVariable(runState->currentParams, "rightascension");       	 params->dec = *(REAL8 *)LALInferenceGetVariable(runState->currentParams, "declination");
