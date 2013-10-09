@@ -1154,13 +1154,6 @@ class CoincSynthesizer(object):
 		>>> toas = coinc_synth.plausible_toas(instruments)
 		>>> toas.next()
 		>>> toas.next()
-
-		NOTE:  the times are simply chosen uniformly within the
-		intervals permitted.  In searches, it is normal for signals
-		to preferentially match the filters being used to search
-		for them at certain offsets (an effect caused by ringing in
-		the filter autocorrelation function).  This effect is not
-		simulated here.
 		"""
 		# this algorithm is documented in slideless_coinc_generator_rates()
 		instruments = tuple(instruments)

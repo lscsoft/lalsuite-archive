@@ -257,25 +257,35 @@ def private_events(params):
         attributeDics = []
         for timeFolder in timeFolders:
             attributeDic = []
-            #if os.path.isfile(os.path.join(timeFolders[0],"eqxml.xml")):
-            if os.path.isfile(os.path.join(timeFolders[0],"eqxml.xml")) and not os.path.isfile(os.path.join(timeFolders[0],"eqxml.txt")):
-                xmlfile = os.path.join(timeFolders[0],"eqxml.xml")
-                attributeDic = pylal.pylal_seismon_eqmon.read_eqxml(xmlfile,eventName)
+            eqxmlfile = os.path.join(timeFolders[0],"eqxml.xml")
+            quakemlfile = os.path.join(timeFolders[0],"quakeml.xml")
+
+            #if os.path.isfile(os.path.join(timeFolders[0],"eqxml.txt"):
+            #    continue
+
+            if os.path.isfile(eqxmlfile):
+                attributeDic = pylal.pylal_seismon_eqmon.read_eqxml(eqxmlfile,eventName)
+                attributeDics.append(attributeDic)
+            elif os.path.isfile(quakemlfile):
+                attributeDic = pylal.pylal_seismon_eqmon.read_quakeml(quakemlfile,eventName)
                 attributeDics.append(attributeDic)
 
-                f = open(os.path.join(timeFolders[0],"eqxml.txt"),"w")
-                f.write("Done")
-                f.close()
+            if attributeDic == []:
+                continue
 
-                if not "GPS" in attributeDic:
-                    continue
+            f = open(os.path.join(timeFolders[0],"eqxml.txt"),"w")
+            f.write("Done")
+            f.close()
 
-                file = os.path.join(params["eventfilesLocation"],"private/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))
-                if attributeDic["Magnitude"] >= float(params["minMagnitude"]):
-                    write_info(file,attributeDic)
+            if (not "GPS" in attributeDic) or (not "Magnitude" in attributeDic):
+                continue
 
-                    print "%s added at "%attributeDic["eventName"], time.time(), ". %.3f seconds after event"%(attributeDic["SentGPS"] - attributeDic["GPS"])
-                    numEventsAdded = numEventsAdded + 1
+            file = os.path.join(params["eventfilesLocation"],"private/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))
+            if attributeDic["Magnitude"] >= float(params["minMagnitude"]):
+                write_info(file,attributeDic)
+
+                print "%s added at "%attributeDic["eventName"], time.time(), ". %.3f seconds after event"%(attributeDic["SentGPS"] - attributeDic["GPS"])
+                numEventsAdded = numEventsAdded + 1
 
     return numEventsAdded
 

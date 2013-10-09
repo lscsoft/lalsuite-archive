@@ -9,9 +9,11 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALUTCToGPS, XLALGPSToUTC
 from lxml import etree
 import scipy.spatial
+import smtplib, email.mime.text
 import simplekml
 
 import pylal.pylal_seismon_utils, pylal.pylal_seismon_eqmon_plot
+import pylal.pylal_seismon_pybrain
 
 def run_earthquakes(params,segment):
     """@run earthquakes prediction.
@@ -60,33 +62,30 @@ def run_earthquakes(params,segment):
  
     for attributeDic in attributeDics:
 
-        #attributeDic = calculate_traveltimes(attributeDic)
-
         traveltimes = attributeDic["traveltimes"][ifo]
 
         arrival = np.min([max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
         departure = np.max([max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
+
+        arrival_floor = np.floor(arrival / 100.0) * 100.0
+        departure_ceil = np.ceil(departure / 100.0) * 100.0
 
         check_intersect = (arrival >= gpsStart) and (departure <= gpsEnd)
 
         if check_intersect:
             amp += traveltimes["Rfamp"][0]
 
-            f.write("%.1f %.1f %.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd,attributeDic["Latitude"],attributeDic["Longitude"]))
-
             if traveltimes["Rfamp"][0] >= threshold:
-                print "%.1f %.1f %.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd,attributeDic["Latitude"],attributeDic["Longitude"])
+
+                f.write("%.1f %.1f %.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f %e\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),traveltimes["Rfamp"][0],arrival_floor,departure_ceil,attributeDic["Latitude"],attributeDic["Longitude"],max(traveltimes["Distances"])))
+
+                print "%.1f %.1f %.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f %e\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),traveltimes["Rfamp"][0],arrival_floor,departure_ceil,attributeDic["Latitude"],attributeDic["Longitude"],max(traveltimes["Distances"]))
 
                 g.write("%.1f %.1f %.5e\n"%(arrival,departure-arrival,traveltimes["Rfamp"][0]))
-
-                arrival_floor = np.floor(arrival / 100.0) * 100.0
-                departure_ceil = np.ceil(departure / 100.0) * 100.0
-
                 h.write("%.0f %.0f\n"%(arrival_floor,departure_ceil))
 
-                #segmentlist.append(glue.segments.segment(gpsStart,gpsEnd))
                 segmentlist.append(glue.segments.segment(arrival_floor,departure_ceil))
-
+    
     f.close()
     g.close()
     h.close()
@@ -100,6 +99,23 @@ def run_earthquakes(params,segment):
     f.close()
 
     write_info(earthquakesXMLFile,attributeDics)
+
+    if params["doEarthquakesOnline"]:
+        sender = 'michael.w.coughlin@gmail.com'
+        receivers = ['michael.w.coughlin@gmail.com']
+
+        lines = [line for line in open(earthquakesFile)]
+        if lines == []:
+            return segmentlist
+
+        message = ""
+        for line in lines:
+            message = "%s\n%s"%(message,line)
+
+        s = smtplib.SMTP('localhost')
+        s.sendmail(sender,receivers, message)         
+        s.quit()
+        print "mail sent"
 
     return segmentlist
 
@@ -120,6 +136,26 @@ def run_earthquakes_analysis(params,segment):
     earthquakesDirectory = os.path.join(params["path"],"earthquakes")
     earthquakesXMLFile = os.path.join(earthquakesDirectory,"earthquakes.xml")
     attributeDics = pylal.pylal_seismon_utils.read_eqmons(earthquakesXMLFile)
+
+    minDiff = 10*60
+    coincident = []
+    for i in xrange(len(attributeDics)):
+        attributeDic1 = attributeDics[i]
+        for j in xrange(len(attributeDics)):
+            if j <= i:
+                continue
+            attributeDic2 = attributeDics[j]
+            gpsDiff = attributeDic1["GPS"] - attributeDic2["GPS"]
+            if np.absolute(gpsDiff) < minDiff:
+                coincident.append(j)
+                print i,j,gpsDiff
+    coincident = list(set(coincident))
+    print "%d coincident earthquakes"%len(coincident)
+    indexes = list(set(range(len(attributeDics))) - set(coincident))
+    attributeDicsKeep = []
+    for index in indexes:
+        attributeDicsKeep.append(attributeDics[index])
+    attributeDics = attributeDicsKeep
 
     data = {}
     data["prediction"] = loadPredictions(params,segment)
@@ -144,6 +180,13 @@ def run_earthquakes_analysis(params,segment):
         kmlName = os.path.join(earthquakesDirectory,"earthquakes_amplitude.kml") 
         create_kml(params,attributeDics,data,"amplitude",kmlName)
 
+    if params["doEarthquakesTraining"]:
+        pylal.pylal_seismon_pybrain.earthquakes_training(params,attributeDics,data)
+    if params["doEarthquakesTesting"]:
+        pylal.pylal_seismon_pybrain.earthquakes_testing(params,attributeDics,data)
+
+    save_predictions(params,data)
+
     if params["doPlots"]:
 
         plotName = os.path.join(earthquakesDirectory,"prediction.png")
@@ -160,6 +203,8 @@ def run_earthquakes_analysis(params,segment):
         pylal.pylal_seismon_eqmon_plot.earthquakes_station_distance(params,data,"amplitude",plotName)
         plotName = os.path.join(earthquakesDirectory,"earthquakes_distance_time.png")
         pylal.pylal_seismon_eqmon_plot.earthquakes_station_distance(params,data,"time",plotName)
+        plotName = os.path.join(earthquakesDirectory,"earthquakes_distance_residual.png")
+        pylal.pylal_seismon_eqmon_plot.earthquakes_station_distance(params,data,"residual",plotName)
 
         plotName = os.path.join(earthquakesDirectory,"station_amplitude.png")
         pylal.pylal_seismon_eqmon_plot.station_plot(params,attributeDics,data,"amplitude",plotName)
@@ -194,8 +239,36 @@ def run_earthquakes_analysis(params,segment):
         plotName = os.path.join(earthquakesDirectory,"worldmap.png")
         pylal.pylal_seismon_eqmon_plot.worldmap_wavefronts(params,attributeDics,gpsEnd,plotName)
 
+def save_predictions(params,data):
+    """@save file for generating predictions
+
+    @param params
+        seismon params dictionary
+    @param data
+        channel data dictionary
+    """
+
+    earthquakesDirectory = os.path.join(params["path"],"earthquakes")
+    predictionsDirectory = os.path.join(earthquakesDirectory,"predictions")
+    pylal.pylal_seismon_utils.mkdir(predictionsDirectory)
+
+    threshold = 1.5e-6
+
+    for key in data["channels"].iterkeys():
+        channel_data = data["channels"][key]["earthquakes"]
+
+        predictionFile = os.path.join(predictionsDirectory,"%s.txt"%key)
+        f = open(predictionFile,"w")
+        for gps,arrival,departure,latitude, longitude, distance, magnitude, depth,ampMax,ampPrediction in zip(channel_data["gps"],channel_data["arrival"],channel_data["departure"],channel_data["latitude"],channel_data["longitude"],channel_data["distance"],channel_data["magnitude"],channel_data["depth"],channel_data["ampMax"],channel_data["ampPrediction"]):
+
+            if (ampMax < threshold) and (ampPrediction<threshold):
+                continue
+
+            f.write("%.0f %.0f %.0f %.2f %.2f %e %.2f %.2f %e\n"%(gps,arrival,departure,latitude, longitude, distance, magnitude, depth,ampMax))
+        f.close()
+
 def create_kml(params,attributeDics,data,type,kmlFile):
-    """@worldmap plot
+    """@create kml
 
     @param params
         seismon params dictionary
@@ -353,12 +426,15 @@ def loadEarthquakeChannels(params,attributeDic):
     """
 
     ifo = pylal.pylal_seismon_utils.getIfo(params)
+    traveltimes = attributeDic["traveltimes"][ifo]
 
     ttMax = []
     ttDiff = []
     distance = []
     velocity = []
     ampMax = []
+    ampPrediction = []
+    residual = []
 
     for channel in params["channels"]:
         earthquakesDirectory = params["dirPath"] + "/Text_Files/Earthquakes/" + channel.station_underscore + "/" + str(params["fftDuration"])
@@ -373,12 +449,17 @@ def loadEarthquakeChannels(params,attributeDic):
         distance.append(data_out[2])
         velocity.append(data_out[3])
         ampMax.append(data_out[4])
+        ampPrediction.append(traveltimes["Rfamp"][0])
+        thisResidual = (data_out[4] - traveltimes["Rfamp"][0])/traveltimes["Rfamp"][0]
+        residual.append(thisResidual)
 
     ttMax = np.array(ttMax)
     ttDiff = np.array(ttDiff)
     distance = np.array(distance)
     velocity = np.array(velocity)
     ampMax = np.array(ampMax)
+    ampPrediction = np.array(ampPrediction)
+    residual = np.array(residual)
 
     data = {}
     data["tt"] = ttMax
@@ -386,6 +467,8 @@ def loadEarthquakeChannels(params,attributeDic):
     data["distance"] = distance
     data["velocity"] = velocity
     data["ampMax"] = ampMax
+    data["ampPrediction"] = ampPrediction
+    data["residual"] = residual
 
     return data
 
@@ -405,7 +488,17 @@ def loadChannelEarthquakes(params,channel,attributeDics):
     distance = []
     velocity = []
     ampMax = [] 
+    ampPrediction = []
+    depth = []
+    magnitude = []
+    latitude = []
+    longitude = []
+    arrival = []
+    departure = []
+    gps = []
+    residual = []
 
+    print "Large residuals"
     for attributeDic in attributeDics:
 
         if params["ifo"] == "IRIS":
@@ -420,18 +513,47 @@ def loadChannelEarthquakes(params,channel,attributeDics):
         if not os.path.isfile(earthquakesFile):
             continue
 
+        thisArrival = np.min([max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
+        thisDeparture = np.max([max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
+
+        arrival_floor = np.floor(thisArrival / 100.0) * 100.0
+        departure_ceil = np.ceil(thisDeparture / 100.0) * 100.0
+
         data_out = np.loadtxt(earthquakesFile)
         ttMax.append(data_out[0])
         ttDiff.append(data_out[1])
         distance.append(data_out[2])
         velocity.append(data_out[3])
         ampMax.append(data_out[4])
+        ampPrediction.append(traveltimes["Rfamp"][0])
+        depth.append(attributeDic["Depth"])
+        magnitude.append(attributeDic["Magnitude"])
+        latitude.append(attributeDic["Latitude"])
+        longitude.append(attributeDic["Longitude"])
+        arrival.append(arrival_floor)
+        departure.append(departure_ceil)
+        gps.append(attributeDic["GPS"])
+        thisResidual = (data_out[4] - traveltimes["Rfamp"][0])/traveltimes["Rfamp"][0]
+        residual.append(thisResidual)
+
+        if thisResidual > 100:
+
+            print "%.0f %.0f %.0f %e"%(attributeDic["GPS"],arrival_floor,departure_ceil,thisResidual)
 
     ttMax = np.array(ttMax)
     ttDiff = np.array(ttDiff)
     distance = np.array(distance)
     velocity = np.array(velocity)
     ampMax = np.array(ampMax)
+    ampPrediction = np.array(ampPrediction)
+    depth = np.array(depth)
+    magnitude = np.array(magnitude)
+    latitude = np.array(latitude)
+    longitude = np.array(longitude)
+    arrival = np.array(arrival)
+    departure = np.array(departure)
+    gps = np.array(gps)
+    residual = np.array(residual)
 
     data = {}
     data["tt"] = ttMax
@@ -439,6 +561,15 @@ def loadChannelEarthquakes(params,channel,attributeDics):
     data["distance"] = distance
     data["velocity"] = velocity
     data["ampMax"] = ampMax
+    data["ampPrediction"] = ampPrediction
+    data["depth"] = depth
+    data["magnitude"] = magnitude
+    data["latitude"] = latitude
+    data["longitude"] = longitude
+    data["arrival"] = arrival
+    data["departure"] = departure 
+    data["gps"] = gps
+    data["residual"] = residual
 
     return data
 
@@ -614,6 +745,7 @@ def parse_xml(element):
         tag = str(subelement.tag)
         tag = tag.replace("{http://www.usgs.gov/ansseqmsg}","")
         tag = tag.replace("{http://quakeml.org/xmlns/quakeml/1.2}","")
+        tag = tag.replace("{http://quakeml.org/xmlns/bed/1.2}","")
         subdic[tag] = parse_xml(subelement)
         numChildren += 1
 
@@ -626,6 +758,7 @@ def parse_xml(element):
     tag = str(element.tag)
     tag = tag.replace("{http://www.usgs.gov/ansseqmsg}","")
     tag = tag.replace("{http://quakeml.org/xmlns/quakeml/1.2}","")
+    tag = tag.replace("{http://quakeml.org/xmlns/bed/1.2}","")
     dic = value
 
     return dic
@@ -730,15 +863,18 @@ def read_quakeml(file,eventName):
     attributeDic['SentUTC'] = float(dt.strftime("%s"))
 
     attributeDic["DataSource"] = dic["eventParameters"]["event"]["creationInfo"]["agencyID"]
-    attributeDic["Version"] = float(dic["eventParameters"]["event"]["creationInfo"]["version"])
+    #attributeDic["Version"] = float(dic["eventParameters"]["event"]["creationInfo"]["version"])
     attributeDic["Type"] = dic["eventParameters"]["event"]["type"]
 
-    if dic["eventParameters"]["event"]["origin"]["evaluationMode"] == "automatic":
-        attributeDic["Review"] = "Automatic"
+    if "evalulationMode" in dic["eventParameters"]["event"]:
+        if dic["eventParameters"]["event"]["origin"]["evaluationMode"] == "automatic":
+            attributeDic["Review"] = "Automatic"
+        else:
+            attributeDic["Review"] = "Manual"
     else:
-        attributeDic["Review"] = "Manual"
+        attributeDic["Review"] = "Unknown"
 
-    attributeDic = traveltimes(attributeDic)
+    attributeDic = calculate_traveltimes(attributeDic)
     tm = time.struct_time(time.gmtime())
     attributeDic['WrittenGPS'] = float(XLALUTCToGPS(tm))
     attributeDic['WrittenUTC'] = float(time.time())
@@ -966,6 +1102,31 @@ def do_kdtree(combined_x_y_arrays,points):
     dist, indexes = mytree.query(points)
     return indexes
 
+def ampRf(M,r,h,Rf0,Rfs,Q0,Qs,cd,ch,rs):
+    # Rf amplitude estimate
+    # M = magnitude
+    # r = distance [km]
+    # h = depth [km]
+
+    # Rf0 = Rf amplitude parameter
+    # Rfs = exponent of power law for f-dependent Rf amplitude
+    # Q0 = Q-value of Earth for Rf waves at 1Hz
+    # Qs = exponent of power law for f-dependent Q
+    # cd = speed parameter for surface coupling  [km/s]
+    # ch = speed parameter for horizontal propagation  [km/s]
+    # rs
+
+    # exp(-2*pi*h.*fc./cd), coupling of source to surface waves
+    # exp(-2*pi*r.*fc./ch./Q), dissipation
+
+    fc = 10**(2.3-M/2)
+    Q = Q0/(fc**Qs)
+    Af = Rf0/(fc**Rfs)
+
+    Rf = 1e-3 * M*Af*np.exp(-2*np.pi*h*fc/cd)*np.exp(-2*np.pi*r*(fc/ch)/Q)/(r**(rs))
+
+    return Rf
+
 def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
     """@calculate travel times of earthquake
 
@@ -995,11 +1156,15 @@ def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
     periods = [25.0,27.0,30.0,32.0,35.0,40.0,45.0,50.0,60.0,75.0,100.0,125.0,150.0,200.0,250.0]
     frequencies = 1 / np.array(periods)
    
-    c = 18
-    fc = 10**(2.3-(attributeDic["Magnitude"]/2.))
-    Q = np.max([500,80/np.sqrt(fc)])
+    Rf0 = 0.89256174
+    Rfs = 1.3588703
+    Q0 = 4169.7511
+    Qs = -0.017424297
+    cd = 254.13458
+    ch = 10.331297
+    rs = 1.0357451
 
-    Rfamp = ((attributeDic["Magnitude"]/fc)*0.0035) * np.exp(-2*math.pi*attributeDic["Depth"]*fc/c) * np.exp(-2*math.pi*(distances[-1]/1000)*(fc/c)*1/Q)/(distances[-1]/1000)
+    Rfamp = ampRf(attributeDic["Magnitude"],distances[-1]/1000.0,attributeDic["Depth"],Rf0,Rfs,Q0,Qs,cd,ch,rs)
     Pamp = 1e-6
     Samp = 1e-5
 
@@ -1112,11 +1277,16 @@ def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
     distances = np.linspace(0,distance,100)
     degrees = (distances/6370000)*(180/np.pi)
 
-    c = 18
-    fc = 10**(2.3-(attributeDic["Magnitude"]/2.))
-    Q = np.max([500,80/np.sqrt(fc)])
+    Rf0 = 0.89256174
+    Rfs = 1.3588703
+    Q0 = 4169.7511
+    Qs = -0.017424297
+    cd = 254.13458
+    ch = 10.331297
+    rs = 1.0357451
 
-    Rfamp = ((attributeDic["Magnitude"]/fc)*0.0035) * np.exp(-2*math.pi*attributeDic["Depth"]*fc/c) * np.exp(-2*math.pi*(distances[-1]/1000)*(fc/c)*1/Q)/(distances[-1]/1000)
+    Rfamp = ampRf(attributeDic["Magnitude"],distances[-1]/1000.0,attributeDic["Depth"],Rf0,Rfs,Q0,Qs,cd,ch,rs)
+    
     Pamp = 1e-6
     Samp = 1e-5
 

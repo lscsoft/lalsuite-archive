@@ -92,7 +92,7 @@ def earthquakes_station(params,data,type,plotName):
 
     threshold = -8
 
-    plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+    plot = gwpy.plotter.Plot(figsize=[14,8])
     plot.add_scatter(earthquakes_tt,earthquakes_amp, marker='o', zorder=1000, color='b',label='predicted')
 
     colors = cm.rainbow(np.linspace(0, 1, len(data["channels"])))
@@ -140,7 +140,7 @@ def earthquakes_station_distance(params,data,type,plotName):
         name of plot
     """
 
-    plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+    plot = gwpy.plotter.Plot(figsize=[14,8])
 
     colors = cm.rainbow(np.linspace(0, 1, len(data["channels"])))
     count=0
@@ -149,11 +149,20 @@ def earthquakes_station_distance(params,data,type,plotName):
 
         channel_data = data["channels"][key]["earthquakes"]
 
+        if len(channel_data["magnitude"]) == 0:
+            continue
+
         color = colors[count]
+        vmin = np.min(channel_data["magnitude"])
+        vmax = np.max(channel_data["magnitude"])
+        kwargs = {'zorder':1000,'label':label,'s':25,'vmin':vmin,'vmax':vmax}
         if type == "time":
-            plot.add_scatter(channel_data["distance"],channel_data["ttDiff"],marker='*', zorder=1000, label=label,color=color)
+            plot.add_scatter(channel_data["distance"],channel_data["ttDiff"],c=channel_data["magnitude"],**kwargs)
         elif type == "amplitude":
-            plot.add_scatter(channel_data["distance"],1e6 * channel_data["ampMax"],marker='*', zorder=1000, label=label,color=color) 
+            plot.add_scatter(channel_data["distance"],1e6 * channel_data["ampMax"],c=channel_data["magnitude"],**kwargs) 
+        elif type == "residual":
+            plot.add_scatter(channel_data["distance"],channel_data["residual"],c=channel_data["magnitude"],**kwargs)
+
         count=count+1
 
     xlim = plot.xlim
@@ -170,18 +179,32 @@ def earthquakes_station_distance(params,data,type,plotName):
         label = "prediction [5 km/s]"
         plot.add_line(xp,p(xp),label=label)
 
-    if type == "amplitude":
-        plot.ylabel = r"Velocity [$\mu$m/s]"
-    elif type == "time":
         plot.ylabel = 'Time [s]'
+
+    elif type == "amplitude":
+        plot.ylabel = r"Velocity [$\mu$m/s]"
+        plot.axes.set_yscale("log")
+    elif type == "residual":
+        plot.ylabel = r"Relative difference [(actual-prediction)/prediction]"
+        plot.ylim = [get_dist(channel_data["residual"],5)-20,get_dist(channel_data["residual"],90)+20]
     plot.xlabel = 'Distance [m]'
     plot.add_legend(loc=1,prop={'size':10})
 
+    #plot.add_colorbar(log=False,clim=[vmin,vmax])
     plot.axes.set_xscale("log")
 
     plot.save(plotName,dpi=200)
     plot.close()
 
+def get_dist(array,percentile):
+
+    if len(array) == 0:
+        return 0
+
+    array = np.sort(array)
+    index = int(np.floor(len(array)*percentile*0.01))
+    val = array[index]
+    return val
 
 def prediction(data,plotName):
     """@prediction plot
@@ -204,7 +227,7 @@ def prediction(data,plotName):
 
     threshold = -8
 
-    plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+    plot = gwpy.plotter.Plot(figsize=[14,8])
     plot.add_scatter(prediction_ttStart, prediction_amp, marker='o', zorder=1000, color='b',label='predicted')
     #for i in xrange(len(prediction_ttStart)):
     #    plot.add_line([prediction_ttStart[i],prediction_ttEnd[i]],[prediction_amp[i],prediction_amp[i]],color='b',label='predicted')
@@ -262,7 +285,7 @@ def residual(data,plotName):
     prediction_ttStart = prediction_ttStart[indexes]
     prediction_amp = prediction_amp[indexes]
 
-    plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+    plot = gwpy.plotter.Plot(figsize=[14,8])
     plot.add_scatter(prediction_ttStart, prediction_amp, marker='o', zorder=1000, color='b',label='predicted')
 
     for key in data["channels"].iterkeys():
@@ -766,7 +789,10 @@ def worldmap_station_plot(params,attributeDics,data,type,plotName):
 
     zs = np.array(zs)
     if type == "time":
-        minTime = attributeDics[0]["GPS"]
+        if len(attributeDics) == 0:
+            minTime = zs[0]
+        else:
+            minTime = attributeDics[0]["GPS"]
         zs = zs - minTime
         colorbar_label = "dt [s] [%d]"%minTime
         vmin = np.min(zs)
@@ -948,7 +974,7 @@ def station_plot(params,attributeDics,data,type,plotName):
 
     ifo = pylal.pylal_seismon_utils.getIfo(params)
 
-    plot = gwpy.plotter.Plot(auto_refresh=True,figsize=[14,8])
+    plot = gwpy.plotter.Plot(figsize=[14,8])
 
     count = 0
     keys = [key for key in data["earthquakes"].iterkeys()]
