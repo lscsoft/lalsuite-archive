@@ -2102,7 +2102,7 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
     XLALGPSSetREAL8(&GPSlal, GPSdouble);
     gmst=XLALGreenwichMeanSiderealTime(&GPSlal);
     /* Fill Fplus and Fcross*/
-    XLALComputeDetAMResponse(&Fplus, &Fcross,detector->response,longitude, latitude, polarization, gmst);
+    XLALComputeDetAMResponse(&Fplus, &Fcross,(const REAL4(*)[3]) detector->response,longitude, latitude, polarization, gmst);
     /* And take the distance into account */
     FplusScaled  = Fplus  ;
     FcrossScaled = Fcross ;

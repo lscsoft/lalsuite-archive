@@ -1042,10 +1042,18 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             if(!IFOdata[i].windowedTimeData) XLAL_ERROR_NULL(XLAL_EFUNC);
             XLALDDVectorMultiply(IFOdata[i].windowedTimeData->data,IFOdata[i].timeData->data,IFOdata[i].window->data);
             XLALREAL8TimeFreqFFT(IFOdata[i].freqData,IFOdata[i].windowedTimeData,IFOdata[i].timeToFreqFFTPlan);
+            int j_Lo = (int) IFOdata[i].fLow/IFOdata[i].freqData->deltaF;
+            if(LALInferenceGetProcParamVal(commandLine,"--0noise")){
 
-            for(j=0;j<IFOdata[i].freqData->data->length;j++){
-                IFOdata[i].freqData->data->data[j] /= sqrt(IFOdata[i].window->sumofsquares / IFOdata[i].window->data->length);
-                IFOdata[i].windowedTimeData->data->data[j] /= sqrt(IFOdata[i].window->sumofsquares / IFOdata[i].window->data->length);
+                for(j=j_Lo;j<IFOdata[i].freqData->data->length;j++){
+                    IFOdata[i].freqData->data->data[j] = 0.0;
+                }
+            }
+            else{
+                for(j=0;j<IFOdata[i].freqData->data->length;j++){
+                  IFOdata[i].freqData->data->data[j] /= sqrt(IFOdata[i].window->sumofsquares / IFOdata[i].window->data->length);
+                  IFOdata[i].windowedTimeData->data->data[j] /= sqrt(IFOdata[i].window->sumofsquares / IFOdata[i].window->data->length);
+                }
             }
         } /* End of data reading process */
 
@@ -2855,14 +2863,14 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
     /* Inject into FD data stream and calculate optimal SNR */
     while(data){
         
-        char foutname[50]="";
+        /*char foutname[50]="";
         sprintf(foutname,"MDC_freq_%s_%d",data->name,epoch.gpsSeconds);
         FILE * fout = fopen(foutname,"w");
 
         char outname[50]="";
         sprintf(outname,"MDC_time_%s_%d",data->name,epoch.gpsSeconds);
         FILE * out = fopen(outname,"w");
-    
+        */
         tmp=0.0;
         
         /* Read MDC frame */
@@ -2872,10 +2880,11 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
         /* window timeData and store it in windTimeData */
         XLALDDVectorMultiply(windTimeData->data,timeData->data,IFOdata->window->data);
 
-        for(j=0;j< timeData->data->length;j++) 
+        /*for(j=0;j< timeData->data->length;j++) 
             fprintf(out,"%lf %10.10e %10.10e %10.10e \n",epoch.gpsSeconds + j*deltaT,data->timeData->data->data[j],data->timeData->data->data[j]+timeData->data->data[j],timeData->data->data[j]);
         fclose(out);
-        
+        */
+
         /* set the whole seq to 0 */
         for(j=0;j<injF->data->length;j++) injF->data->data[j]=0.0+I*0.0;
             
@@ -2884,8 +2893,10 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
         
         
         for(j=lower;j<upper;j++){
+/*
          fprintf(fout,"%lf %10.10e %10.10e %10.10e\n", j*injF->deltaF,creal(injF->data->data[j])/WinNorm,cimag(injF->data->data[j])/WinNorm,data->oneSidedNoisePowerSpectrum->data->data[j]);
-                //injF ->data->data[j]/=sqrt(data->window->sumofsquares / data->window->data->length);
+*/             
+   //injF ->data->data[j]/=sqrt(data->window->sumofsquares / data->window->data->length);
                 windTimeData->data->data[j] /= sqrt(data->window->sumofsquares / data->window->data->length);
  
                 /* Add data in freq stream */
@@ -2897,7 +2908,7 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
         printf("Injected SNR %.3f in IFO %s from MDC \n",sqrt(2*tmp),data->name);
         data->SNR=sqrt(2*tmp);
         net_snr+=2*tmp;
-        fclose(fout);         
+  //      fclose(fout);         
 
         i++;
         data=data->next;
