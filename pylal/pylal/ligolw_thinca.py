@@ -34,6 +34,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
+from glue import offsetvector
 import lal
 from pylal import git_version
 from pylal import llwapp
@@ -638,6 +639,19 @@ class sngl_inspiral_coincs(object):
 		coincs in the source XML document.
 		"""
 		return self.coinc_def.coinc_def_id
+
+	def sngl_inspirals(self, coinc_event_id):
+		"""
+		Return a list of the sngl_inspiral rows that participated
+		in the coincidence given by coinc_event_id.
+		"""
+		return [self.sngl_inspiral_index[event_id] for event_id in self.coinc_event_map_index[coinc_event_id]]
+
+	def offset_vector(self, time_slide_id):
+		"""
+		Return the offsetvector given by time_slide_id.
+		"""
+		return offsetvector.offsetvector((row.instrument, row.offset) for row in self.time_slide_index[time_slide_id])
 
 	def __getitem__(self, coinc_event_id):
 		"""
