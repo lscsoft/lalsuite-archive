@@ -823,6 +823,21 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
   LALInferenceFlushPTswap();
   MPI_Barrier(MPI_COMM_WORLD);
 
+  char *likelihoodstatsfilename = NULL;
+  FILE *likelihoodstatsfile = NULL;
+  ppt = LALInferenceGetProcParamVal(runState->commandLine, "--outfile");
+  if (ppt) {
+    likelihoodstatsfilename = (char*)XLALCalloc(strlen(ppt->value)+255,sizeof(char*));
+    sprintf(likelihoodstatsfilename,"%s.%2.2d_stats.txt",ppt->value,MPIrank);
+  } else {
+    likelihoodstatsfilename = (char*)XLALCalloc(255,sizeof(char*));
+    sprintf(likelihoodstatsfilename,"PTMCMC.output.%u.%2.2d_stats.txt",randomseed,MPIrank);
+  }
+  likelihoodstatsfile=fopen(likelihoodstatsfilename,"w");
+  fprintf(likelihoodstatsfile,"IFO templates likelihoods\n");
+  for(LALInferenceIFOData *p=runState->data;p;p=p->next) fprintf(likelihoodstatsfile,"%s: %u %u\n",p->name,p->templa_counter,p->likeli_counter);
+  fclose(likelihoodstatsfile);
+  
   fclose(chainoutput);
 
   if(MPIrank == 0){
