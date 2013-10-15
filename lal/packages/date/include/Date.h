@@ -95,7 +95,7 @@ information.  The various time systems are discussed in [\ref esaa1992].
 typedef struct
 tagLALPlaceAndGPS
 {
-    LALDetector *p_detector;   /**< pointer to a detector */
+  const LALDetector *p_detector;   /**< pointer to a detector */
     LIGOTimeGPS *p_gps;        /**< Pointer to a GPS time structure */
 }
 LALPlaceAndGPS;
@@ -156,7 +156,6 @@ char *XLALGPSToStr(char *, const LIGOTimeGPS *t);
 
 #ifdef SWIG // SWIG interface directives
 SWIGLAL(NEW_EMPTY_ARGUMENT(LIGOTimeGPS*, gpstime));
-SWIGLAL(RETURN_VALUE(LIGOTimeGPS*, XLALGPSTimeNow));
 #endif
 
 /* This function returns the current GPS time according to the system clock */
@@ -180,7 +179,6 @@ INT4 XLALUTCToGPS( const struct tm *utc );
 
 #ifdef SWIG // SWIG interface directives
 SWIGLAL(EMPTY_ARGUMENT(struct tm*, utc));
-SWIGLAL(RETURN_VALUE(struct tm*, XLALGPSToUTC));
 #endif
 
 /* Returns a pointer to a tm structure representing the time

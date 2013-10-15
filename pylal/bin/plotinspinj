@@ -16,7 +16,6 @@ from optparse import *
 import warnings
 warnings.filterwarnings('ignore', '^NumpyTest')
 
-from glue import iterutils
 from glue import segmentsUtils
 from glue.ligolw import ligolw, table as tab, lsctables, utils
 from glue import lal
@@ -508,7 +507,7 @@ if opts.coire_split:
   new_sim_table = tab.new_from_template(sims)
     
   # iterator over consecutive triggers with matching event_ids
-  coincs = iterutils.groupby(trigs, lambda row: row.event_id)
+  coincs = itertools.groupby(trigs, lambda row: row.event_id)
   for coinc, inj in itertools.izip(coincs, sims):
     # coinc is tuple of (key, iterator); count length of iterator
     num_coincs = reduce(lambda x,y: x + 1, coinc[1], 0)

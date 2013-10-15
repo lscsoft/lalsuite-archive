@@ -34,9 +34,6 @@ def ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_
     """Convenience function to produce a sky map from LIGO-LW rows. Note that
     min_distance and max_distance should be in Mpc."""
 
-    if method == "toa_snr" and prior_distance_power is None:
-        raise ValueError("For method='toa_snr', the argument prior_distance_power is required.")
-
     ifos = [sngl_inspiral.ifo for sngl_inspiral in sngl_inspirals]
 
     # Extract masses from the table.
@@ -93,15 +90,25 @@ def ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_
     responses = [det.response for det in detectors]
     locations = [det.location for det in detectors]
 
-    # Use half the minimum effective distance as the default value for
-    # min_distance and twice the maximum effective distance as the default
-    # value for max_distance.
-    if min_distance is None or max_distance is None:
-        effective_distances = np.asarray(horizons) / np.abs(snrs)
-        if min_distance is None:
-            min_distance = 0.5 * min(effective_distances)
-        if max_distance is None:
-            max_distance = 2 * max(effective_distances)
+    # If minimum distance is not specified, then default to 0 Mpc.
+    if min_distance is None:
+        min_distance = 0
+
+    # If maximum distance is not specified, then default to the SNR=4
+    # horizon distance of the most sensitive detector.
+    if max_distance is None:
+        max_distance = max(horizons) / 4
+
+    # If prior_distance_power is not specified, then default to 2
+    # (p(r) ~ r^2, uniform in volume).
+    if prior_distance_power is None:
+        prior_distance_power = 2
+
+    # Raise an exception if 0 Mpc is the minimum effective distance and the prior
+    # is of the form r**k for k<0
+    if min_distance == 0 and prior_distance_power < 0:
+        raise ValueError(("Prior is a power law r^k with k={}, "
+            + "undefined at min_distance=0").format(prior_distance_power))
 
     # Time and run sky localization.
     start_time = time.time()
@@ -148,6 +155,7 @@ def gracedb_sky_map(coinc_file, psd_file, waveform, f_low, min_distance=None, ma
         if coinc_map.coinc_event_id == coinc_event_id]
     sngl_inspirals = [(sngl_inspiral for sngl_inspiral in sngl_inspiral_table
         if sngl_inspiral.event_id == event_id).next() for event_id in event_ids]
+    instruments = set(sngl_inspiral.ifo for sngl_inspiral in sngl_inspirals)
 
     # Read PSDs.
     if psd_file is None:
@@ -163,6 +171,9 @@ def gracedb_sky_map(coinc_file, psd_file, waveform, f_low, min_distance=None, ma
         psds = [timing.InterpolatedPSD(filter.abscissa(psd), psd.data.data) for psd in psds]
 
     # TOA+SNR sky localization
-    return ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_low,
+    prob, epoch, elapsed_time = ligolw_sky_map(sngl_inspirals, approximant,
+        amplitude_order, phase_order, f_low,
         min_distance, max_distance, prior_distance_power,
         reference_frequency=reference_frequency, nside=nside, psds=psds)
+
+    return prob, epoch, elapsed_time, instruments

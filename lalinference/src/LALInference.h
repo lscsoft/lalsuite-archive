@@ -308,6 +308,13 @@ tagLALInferenceProposalStatistics
 typedef REAL8 (*LALInferencePriorFunction) (struct tagLALInferenceRunState *runState,
 	LALInferenceVariables *params);
 
+/** Type declaration for CubeToPrior function which converts parameters in unit hypercube
+  * to their corresponding physical values according to the prior.
+  * Can depend on \param runState ->priorArgs
+  */
+typedef UINT4 (*LALInferenceCubeToPriorFunction) (struct tagLALInferenceRunState *runState,
+  LALInferenceVariables *params, double *cube, void *context);
+
 //Likelihood calculator 
 //Should take care to perform expensive evaluation of h+ and hx 
 //only once if possible, unless necessary because different IFOs 
@@ -347,6 +354,7 @@ tagLALInferenceRunState
   LALInferenceAlgorithm              algorithm; /** The algorithm function */
   LALInferenceEvolveOneStepFunction  evolve; /** The algorithm's single iteration function */
   LALInferencePriorFunction          prior; /** The prior for the parameters */
+  LALInferenceCubeToPriorFunction    CubeToPrior; /** MultiNest prior for the parameters */
   LALInferenceLikelihoodFunction     likelihood; /** The likelihood function */
   LALInferenceProposalFunction       proposal; /** The proposal function */
   LALInferenceTemplateFunction       templt; /** The template generation function */
@@ -419,6 +427,8 @@ tagLALInferenceIFOData
   struct tagLALInferenceBestIFO *BestIFO;
   int skipIFO;
   REAL8  injtime;
+  INT4 template_counter;
+  INT4 likelihood_counter;
   struct tagLALInferenceIFOData      *next;     /** A pointer to the next set of data for linked list */
 
 } LALInferenceIFOData;
@@ -663,6 +673,22 @@ INT4 LALInferenceSanityCheck(LALInferenceRunState *state);
  basefilename is optional text to append to file names
  */
 void LALInferenceDumpWaveforms(LALInferenceRunState *state, const char *basefilename);
+
+/** Write a LALInferenceVariables as binary to a given FILE pointer, returns the number
+ * of items written (should be the dimension of the variables) or -1 on error */
+int LALInferenceWriteVariablesBinary(FILE *file, LALInferenceVariables *vars);
+
+/** Read from the given FILE * a LALInferenceVariables, which was previously
+ * written with LALInferenceWriteVariablesBinary() Returns a new LALInferenceVariables */
+LALInferenceVariables *LALInferenceReadVariablesBinary(FILE *stream);
+
+/** Write an array N of LALInferenceVariables to the given FILE * using
+ * LALInferenceWriteVariablesBinary(). Returns the number written (should be ==N) */
+int LALInferenceWriteVariablesArrayBinary(FILE *file, LALInferenceVariables **vars, UINT4 N);
+
+/** Read N LALInferenceVariables from the binary FILE *file, previously written with
+ * LALInferenceWriteVariablesArrayBinary() returns the number read */
+int LALInferenceReadVariablesArrayBinary(FILE *file, LALInferenceVariables **vars, UINT4 N);
 
 /*@}*/
 

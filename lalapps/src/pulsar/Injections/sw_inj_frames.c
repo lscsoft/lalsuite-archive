@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Erin Macdonald
+ * Copyright (C) 2010 Erin Macdonald, Matthew Pitkin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,8 +31,9 @@ example$ ./lalapps_sw_inj_frames -p /Users/erinmacdonald/lsc/analyses/test_par_f
 /* 31/5/11 v.8: Matt Pitkin's fixes for the memory leak*/
 /* 23/6/11 v.9; Changed naming of log files to append time, sloppy but works */
 /* 29/6/11 v.10; XLAL functions memory leaks fixed */
-/* 11/7/11 v.11; Outputs surpressed and better log output*/
-/* 30/1/12 v.12: Set signal generation barycenter delay lookup table step size*/
+/* 11/7/11 v.11; Outputs surpressed and better log output */
+/* 30/1/12 v.12: Set signal generation barycenter delay lookup table step size */
+/* 27/06/13 v.13: Allow 2nd and 3rd frequency derivatives and make compatible with new frame functions */
 
 #include <stdio.h>
 #include <unistd.h>
@@ -52,9 +53,9 @@ example$ ./lalapps_sw_inj_frames -p /Users/erinmacdonald/lsc/analyses/test_par_f
 /*LAL Functions */
 #include <lalapps.h>
 #include <lal/Units.h>
-#include <lal/FrameStream.h>
+#include <lal/LALFrStream.h>
 #include <lal/LALFrameIO.h>
-#include <lal/FrameCache.h>
+#include <lal/LALCache.h>
 #include <lal/TimeSeries.h>
 #include <lal/LALStdlib.h>
 #include <lal/AVFactories.h>
@@ -69,6 +70,7 @@ example$ ./lalapps_sw_inj_frames -p /Users/erinmacdonald/lsc/analyses/test_par_f
 #include <lal/LALRunningMedian.h>
 #include <lal/BinaryPulsarTiming.h>
 #include <lal/LogPrintf.h>
+#include <lal/LALString.h>
 /*#include <lal/PulsarDataTypes.h>*/
 
 #define STRINGLENGTH 256              /* the length of general string */
@@ -96,6 +98,8 @@ EphemerisData * XLALInitEphemeris( const CHAR *ephemDir ); /*function to read ep
 
 int InitUserVars ( UserInput_t *uvar, int argc, char **argv ); /*Initiates user variables*/
 
+int XLALFrameFileName(char *fname, size_t size, const char *chname, const LIGOTimeGPS * epoch, double duration);
+
 /* empty initialiser */
 LALStatus empty_LALStatus;
 
@@ -117,7 +121,7 @@ int main(int argc, char **argv)
     return 0;
 
   char version[256];
-  sprintf(version, "v11"); /*manually change */
+  sprintf(version, "v13"); /*manually change */
 
   /*Get current time for log */
   time_t result;
@@ -182,11 +186,11 @@ int main(int argc, char **argv)
   /*fprintf( stderr, "\nin_chan = %s\n", in_chan);*/
 
   CHAR out_chan[256];
-  sprintf( out_chan, "%s_LDAS_C02_L2_CWINJ_TOT", uvar->IFO );
+  sprintf( out_chan, "%s:CWINJ_TOT", uvar->IFO );
   /*fprintf( stderr, "\nout_chan = %s\n", out_chan);*/
 
   CHAR inj_chan[256];
-  sprintf( inj_chan, "%s_LDAS_C02_L2_CWINJ_SIG", uvar->IFO );
+  sprintf( inj_chan, "%s:CWINJ_SIG", uvar->IFO );
 
   /*Writing to .log file*/
   if (( logfile = fopen( log_file, "a" )) == NULL ) {
@@ -206,15 +210,13 @@ int main(int argc, char **argv)
   char out_file[256]; /*need a different way to do this */
   FILE *inject; /*for .par file from uvar->inputdir*/
 
-  CHAR gwf_dir[256]; /* for use with XLALFrOpen */
+  CHAR gwf_dir[256]; /* for use with XLALFrStreamOpen */
   sprintf( gwf_dir, "%s/.", uvar->gwfdir );
 
   LIGOTimeGPS epoch;
   char strepoch[10];
 
   UINT4 ndata;
-  size_t filength;
-
 
   /** Put the pulsar files in the log (so as not to loop every time) **/
 
@@ -296,9 +298,9 @@ int main(int argc, char **argv)
       continue; /*make sure it's a .gwf file */
     }
     else{
-      FrStream *gwffile=NULL;
+      LALFrStream *gwffile=NULL;
 
-      if (( gwffile = XLALFrOpen( uvar->gwfdir, gwfnamelist[k]->d_name)) == NULL ) {
+      if (( gwffile = XLALFrStreamOpen( uvar->gwfdir, gwfnamelist[k]->d_name)) == NULL ) {
 	/*XLAL_ERROR ( fn, XLAL_EFUNC ); -- don't want to abort, but save elsewhere test that it's an acceptable file */
 
 	/*Writing to failed file*/
@@ -339,7 +341,6 @@ int main(int argc, char **argv)
 	epoch.gpsNanoSeconds = 0; /* no nanosecond precision */
 	/*	fprintf(stderr, "epoch = %i\n", epoch.gpsSeconds);*/
 
-	filength = strlen(gwfnamelist[k]->d_name);
 	char strdur[4];
 	strncpy(strdur, (strrchr(gwfnamelist[k]->d_name, '-')+1), 3); /* duration is last number in frame file */
 	strdur[sizeof(strdur)-1] = '\0';
@@ -362,12 +363,30 @@ int main(int argc, char **argv)
 	  XLAL_ERROR ( XLAL_EFUNC );
 	}
 
-	if ( XLALFrGetREAL8TimeSeries( gwfseries, gwffile ) != XLAL_SUCCESS ) {
-	  XLAL_ERROR ( XLAL_EFUNC );
+	if ( XLALFrStreamGetREAL8TimeSeries( gwfseries, gwffile ) != XLAL_SUCCESS ) {
+	  /*Writing to failed file*/
+	  FILE *frames;
+	  char framefilename[256];
+	  sprintf(framefilename, "%s/%s/failed_frames.txt", uvar->outputdir, uvar->logDir);
+          if (( frames = fopen( framefilename, "a" )) == NULL ) {
+            fprintf (stderr, "Error opening file %s! \n", framefilename );
+            return 0;
+          }
+          else {
+            fprintf (frames, "%s\n", gwfnamelist[k]->d_name);
+	    fclose(frames);
+          }
+          
+          /* </failed file> */
+          XLALDestroyREAL8TimeSeries( gwfseries );
+	  continue; /*don't exit program if .gwf file fails, continue through*/
 	}
 
+        int detflags;
+
 	/* define output .gwf file */
-	sprintf(out_file, "%c-%s-%d-%d.gwf", uvar->IFO[0], out_chan, epoch.gpsSeconds, ndata);
+ 	detflags = XLALFrameFileName(out_file, sizeof(out_file), out_chan, &epoch, ndata);
+        //sprintf(out_file, "%c-%s-%d-%d.gwf", uvar->IFO[0], out_chan, epoch.gpsSeconds, ndata);
 
 	/*Writing to .log file*/
 	if (( logfile = fopen( log_file, "a" )) == NULL ) {
@@ -382,9 +401,9 @@ int main(int argc, char **argv)
 
 	/* read in and test generated frame with XLAL function*/
 
-	struct FrameH *outFrame   = NULL;        /* frame data structure */
+	LALFrameH *outFrame   = NULL;        /* frame data structure */     
 
-	if ((outFrame = XLALFrameNew(&epoch,(REAL8)ndata,"CW_INJ",1,0,0)) == NULL) {
+	if ((outFrame = XLALFrameNew(&epoch,(REAL8)ndata,"CW_INJ",0,0,detflags)) == NULL) {
 	  LogPrintf(LOG_CRITICAL, "%s : XLALFrameNew() failed with error = %d.\n",fn,xlalErrno);
 	  XLAL_ERROR(XLAL_EFAILED);
 	}
@@ -444,7 +463,7 @@ int main(int argc, char **argv)
             params.dtDelayBy2 = 10.; /* generate table every 10 seconds */
 
 	    /*BinaryPulsarParams pulparams; read from the .par file */
-	    if ( (params.pulsar.spindown = XLALCreateREAL8Vector(1))== NULL ) {
+	    if ( (params.pulsar.spindown = XLALCreateREAL8Vector(3))== NULL ) {
 	      XLALPrintError("Out of memory");
 	      XLAL_ERROR ( XLAL_EFUNC );
 	    }
@@ -463,7 +482,9 @@ int main(int argc, char **argv)
 	    params.pulsar.position.system = COORDINATESYSTEM_EQUATORIAL;
 
 	    params.pulsar.f0 = 2.*pulparams[h].f0;
-	    params.pulsar.spindown->data[0] = 2.*pulparams[h].f1; /*spindown is REAL8Vector ?? */
+	    params.pulsar.spindown->data[0] = 2.*pulparams[h].f1; /* first frequency derivative */
+	    params.pulsar.spindown->data[1] = 2.*pulparams[h].f2; /* second frequency derivative */
+            params.pulsar.spindown->data[2] = 2.*pulparams[h].f3; /* third frequency derivative */
 	    if (( XLALGPSSetREAL8(&(params.pulsar.refTime),pulparams[h].pepoch) ) == NULL ){
 	      XLAL_ERROR ( XLAL_EFUNC );
 	    }
@@ -563,14 +584,14 @@ int main(int argc, char **argv)
 
 
 	/* write frame structure to file (opens, writes, and closes file) - last argument is compression level */
-	if (XLALFrameWrite(outFrame,fffile,1)) {
+	if (XLALFrameWrite(outFrame,fffile)) {
 	  LogPrintf(LOG_CRITICAL, "%s : XLALFrameWrite() failed with error = %d.\n",fn,xlalErrno);
 	  XLAL_ERROR(XLAL_EFAILED);
 	}
 
 	/*free(fffile);*/
 
-	FrameFree(outFrame);
+	XLALFrameFree(outFrame);
 
 	XLALDestroyREAL8TimeSeries( gwfseries);
 	XLALDestroyREAL8TimeSeries( total_inject );
@@ -601,7 +622,7 @@ int main(int argc, char **argv)
       /* </log file> */
       /*fprintf(stderr, "you created %s\n", out_file);*/
 
-      XLALFrClose( gwffile );
+      XLALFrStreamClose( gwffile );
 
     } /*ends loop through all .gwf files in .gwf directory*/
   }
@@ -613,7 +634,7 @@ int main(int argc, char **argv)
 
   fprintf(stderr, "done\n" );
 
-  return 1;
+  return 0;
 
 } /* main() */
 
@@ -689,3 +710,70 @@ XLALInitEphemeris (const CHAR *ephemDir)
   return edat;
 
 } /* XLALInitEphemeris() */
+
+/* compare to chars - taken from LALFrameIO.c */
+static int charcmp(const void *c1, const void *c2){
+    char a = *(const char *)c1;
+    char b = *(const char *)c2;
+    return (a > b) - (a < b);
+}
+
+/* function to set the Frame file name from the input data - taken from LALFrameIO.c */
+int XLALFrameFileName(char *fname, size_t size, const char *chname, const LIGOTimeGPS * epoch, double duration){
+    char site[LAL_NUM_DETECTORS + 1] = "";
+    char *desc;
+    const char *cs;
+    char *s;
+    int detflgs = 0;
+    int t0;
+    int dt;
+
+    /* parse chname to get identified sites and detectors */
+    /* strip out detectors from "XmYn...:"-style prefix */
+    for (cs = chname; *cs; cs += 2) {
+        int d;
+        /* when you get to a colon, you're done! */
+        if (*cs == ':')
+            break;
+        /* see if this is an unexpected format */
+        if (strlen(cs) <= 2 || !isupper(cs[0]) || !isdigit(cs[1])) {
+            /* parse error so reset detflgs and site */
+            detflgs = 0;
+            site[0] = 0;
+            break;
+        }
+        /* try to find this detector */
+        for (d = 0; d < LAL_NUM_DETECTORS; ++d)
+            if (0 == strncmp(cs, lalCachedDetectors[d].frDetector.prefix, 2)) {
+                /* found it: put it in sites and detflgs */
+                detflgs |= 1 << 2 * d;
+                strncat(site, cs, 1);
+            }
+    }
+
+    /* sort and uniqify sites */
+    qsort(site, strlen(site), 1, charcmp);
+    cs = s = site;
+    for (cs = s = site; *s; ++cs)
+        if (*s != *cs)
+            *++s = *cs;
+
+    /* description is a modified version of chname */
+    /* replace invalid description char with '_' */
+    desc = XLALStringDuplicate(chname);
+    for (s = desc; *s; ++s)
+        if (!isalnum(*s))
+            *s = '_';
+
+    /* determine start time field and duration field */
+    t0 = epoch->gpsSeconds;
+    dt = (int)ceil(XLALGPSGetREAL8(epoch) + duration) - t0;
+
+    /* now format the file name */
+    snprintf(fname, size, "%s-%s-%d-%d.gwf", *site ? site : "X", desc, t0,
+        dt);
+
+    LALFree(desc);
+    return detflgs;
+}
+

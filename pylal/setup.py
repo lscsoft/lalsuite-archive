@@ -212,7 +212,7 @@ class pylal_sdist(sdist.sdist):
 
 setup(
 	name = "pylal",
-	version = "0.3.0",
+	version = "0.4.0",
 	author = "Kipp Cannon and Nickolas Fotopoulos",
 	author_email = "lal-discuss@gravity.phys.uwm.edu",
 	description = "Python LIGO Algorithm Library",
@@ -271,15 +271,6 @@ setup(
 		Extension(
 			"pylal.xlal.datatypes.complex16timeseries",
 			["src/xlal/datatypes/complex16timeseries.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
-		),
-		Extension(
-			"pylal.xlal.datatypes.laldetector",
-			["src/xlal/datatypes/laldetector.c"],
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
@@ -407,15 +398,6 @@ setup(
 			"pylal.xlal.fft",
 			["src/xlal/fft.c", "src/xlal/misc.c"],
 			include_dirs = lal_pkg_config.incdirs + ["src/xlal"],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
-		),
-		Extension(
-			"pylal.xlal.inject",
-			["src/xlal/inject.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs,
@@ -716,6 +698,7 @@ setup(
 		os.path.join("bin","cbcBayesConvergence.py"),
 		os.path.join("bin", "pylal_noise_budget"),
 		os.path.join("bin", "pylal_seismon_run"),
+                os.path.join("bin", "pylal_seismon_traveltimes"),
 		os.path.join("bin", "pylal_summary_page"),
 		os.path.join("bin", "pylal_plot_triggers"),
 		os.path.join("bin", "ligolw_miinjfind"),
@@ -727,7 +710,8 @@ setup(
 		os.path.join("bin", "pylal_write_coh_PTF_page"),
 		os.path.join("bin", "ligolw_dbinjfind"),
 		os.path.join("bin", "lalapps_cbc_plothzdist"),
-		os.path.join("bin", "pylal_plot_segments")
+		os.path.join("bin", "pylal_plot_segments"),
+		os.path.join("bin", "ligolw_fix_ids")
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

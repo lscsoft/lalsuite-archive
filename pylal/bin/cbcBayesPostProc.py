@@ -412,8 +412,8 @@ def cbcBayesPostProc(
     and ('declination' in pos.names or 'dec' in pos.names) \
     and 'time' in pos.names:
         from pylal import antenna
-        from pylal import xlal
-        from pylal.xlal import tools,datatypes
+        from pylal import xlal,inject
+        from pylal.xlal import datatypes
         from pylal import date
         from pylal.date import XLALTimeDelayFromEarthCenter
         from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -432,7 +432,7 @@ def cbcBayesPostProc(
             inj_time=None
             if injection:
                 inj_time=float(injection.get_end(ifo[0]))
-            location=tools.cached_detector[detMap[ifo]].location
+            location=inject.cached_detector[detMap[ifo]].location
             ifo_times[ifo]=array(map(lambda ra,dec,time: array([time[0]+XLALTimeDelayFromEarthCenter(location,ra[0],dec[0],LIGOTimeGPS(float(time[0])))]), pos[ra_name].samples,pos[dec_name].samples,pos['time'].samples))
             loc_end_time=bppu.PosteriorOneDPDF(ifo.lower()+'_end_time',ifo_times[ifo],injected_value=inj_time)
             pos.append(loc_end_time)
@@ -1263,8 +1263,6 @@ if __name__=='__main__':
         for mp in massParams:
             for d in distParams:
                 twoDGreedyMenu.append([mp,d])
-        for b1,b2 in combinations(burstParams,2):
-            twoDGreedyMenu.append([b1,b2])
         for mp in massParams:
             for sp in spinParams:
                 twoDGreedyMenu.append([mp,sp])
@@ -1321,8 +1319,6 @@ if __name__=='__main__':
         greedyBinSizes[param]=0.01
     for param in tidalParams:
         greedyBinSizes[param]=2.5
-    for param in burstParams:
-        greedyBinSizes[param]=1.0
     #Confidence levels
     for loglname in ['logl','deltalogl','deltaloglh1','deltaloglv1','deltalogll1','logll1','loglh1','loglv1']:
         greedyBinSizes[loglname]=0.1

@@ -19,6 +19,9 @@ set -x
 #debugging
 find .
 
+# since we specified "untar_results = symlink" in the nmi input file, we need to untar it here
+#tar zxvf results.tar.gz
+
 # extract params from the reference XML file
 # NOTE: the sed command strips out single-quote chars surrounding
 # filename values (which can occur in, e.g., coire's XML output)

@@ -40,8 +40,9 @@ as compared to some algorigthms found in the literature and on the web.
 """
 
 __author__ = 'Duncan Brown <duncan@gravity.phys.uwm.edu>'
-__date__ = '$Date$'
-__version__ = '$Revision$'
+from glue import git_version
+__date__ = git_version.date
+__version__ = git_version.id
 
 import time, math
 

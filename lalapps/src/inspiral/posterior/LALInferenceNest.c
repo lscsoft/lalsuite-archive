@@ -429,6 +429,7 @@ Arguments for each section follow:\n\n";
 	/* Set template function */
 	ppt=LALInferenceGetProcParamVal(procParams,"--template");
 	if(!strcmp("SineGauss",ppt->value) || !strcmp("SineGaussF",ppt->value)||!strcmp("BestIFO",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value)){  
+        fprintf(stdout,"--- Calling burst init template \n");
 	    LALInferenceInitBurstTemplate(state);
 	}
 	else {    
@@ -447,7 +448,7 @@ Arguments for each section follow:\n\n";
         else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood"))
                 initVarsFunc=&LALInferenceInitVariablesReviewEvidence_banana;
 	else if(!strcmp("SineGauss",ppt->value) || !strcmp("SineGaussF",ppt->value)){
-	    fprintf(stdout,"--- Calling burst init function \n");
+	    fprintf(stdout,"--- Calling burst init variables \n");
 	    initVarsFunc=&LALInferenceInitBurstVariables;
 	}
 	else if(!strcmp("RingdownF",ppt->value) ){
@@ -492,11 +493,13 @@ Arguments for each section follow:\n\n";
 	ppt=LALInferenceGetProcParamVal(procParams,"--template");
 	if(ppt) {
 	// SALVO: We may want different if else for differnt templates in the future
-	if(!strcmp("SineGaussF",ppt->value) || !strcmp("SineGauss",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value) )
+	if(!strcmp("SineGaussF",ppt->value) || !strcmp("SineGauss",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value) ){
+        fprintf(stdout,"--- Setting SG jump proposal \n");
+
 	    LALInferenceSetupSinGaussianProposal(state,state->currentParams);}
+    }
 	else 
 	    LALInferenceSetupDefaultNSProposal(state,state->currentParams);
-	
 	/* write injection with noise evidence information from algorithm */
 	LALInferencePrintInjectionSample(state);
 	

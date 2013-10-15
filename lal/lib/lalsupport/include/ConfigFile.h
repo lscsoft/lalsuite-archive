@@ -121,7 +121,7 @@ typedef enum {
 /** This structure defines a config-variable to be read in using the
  * general-purpose reading function LALReadConfigVariable(). */
 #ifdef SWIG /* SWIG interface directives */
-SWIGLAL(STRUCT_IMMUTABLE(tagLALConfigVar, secName, varName, fmt));
+SWIGLAL(IMMUTABLE_MEMBERS(tagLALConfigVar, secName, varName, fmt));
 #endif /* SWIG */
 typedef struct tagLALConfigVar {
   const CHAR *secName;          /**< Section name within which to find varName.  May be NULL */
@@ -145,9 +145,12 @@ typedef struct tagLALParsedDataFile {
 
 /* Function prototypes */
 int XLALParseDataFile (LALParsedDataFile **cfgdata, const CHAR *fname);
+int XLALParseDataFileContent (LALParsedDataFile **cfgdata, const CHAR *string );
+
 void XLALDestroyParsedDataFile (LALParsedDataFile *cfgdata);
 
 int XLALConfigSectionExists(const LALParsedDataFile *, const CHAR *);
+LALStringVector *XLALListConfigFileSections ( const LALParsedDataFile *cfgdata );
 
 int
 XLALReadConfigBOOLVariable (BOOLEAN *varp,

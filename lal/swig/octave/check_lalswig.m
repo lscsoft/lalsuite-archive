@@ -38,7 +38,7 @@ assert(all(strcmp(sv.data, strs)));
 strs{1} = "ghijk";
 sv.data{1} = strs{1};
 strs{end+1} = "lmnopq";
-AppendString2Vector(sv, strs{4});
+sv = AppendString2Vector(sv, strs{4});
 assert(sv.length == 4);
 for i = 1:4
   assert(strcmp(sv.data{i}, strs{i}));
@@ -49,11 +49,13 @@ disp("passed string conversions");
 
 ## check static vector/matrix conversions
 lalcvar.lalswig_test_struct_vector{1} = lalcvar.lalswig_test_struct_const;
+assert(lalcvar.lalswig_test_struct_vector{1}.n == lalcvar.lalswig_test_struct_const.n);
 assert(lalcvar.lalswig_test_struct_vector{1}.i == lalcvar.lalswig_test_struct_const.i);
 assert(lalcvar.lalswig_test_struct_vector{1}.f == lalcvar.lalswig_test_struct_const.f);
 assert(strcmp(lalcvar.lalswig_test_struct_vector{1}.str, lalcvar.lalswig_test_struct_const.str));
 assert(all(lalcvar.lalswig_test_struct_vector{1}.vec == lalcvar.lalswig_test_struct_const.vec));
 lalcvar.lalswig_test_struct_matrix{1, 1} = lalcvar.lalswig_test_struct_const;
+assert(lalcvar.lalswig_test_struct_matrix{1, 1}.n == lalcvar.lalswig_test_struct_const.n);
 assert(lalcvar.lalswig_test_struct_matrix{1, 1}.i == lalcvar.lalswig_test_struct_const.i);
 assert(lalcvar.lalswig_test_struct_matrix{1, 1}.f == lalcvar.lalswig_test_struct_const.f);
 assert(strcmp(lalcvar.lalswig_test_struct_matrix{1, 1}.str, lalcvar.lalswig_test_struct_const.str));

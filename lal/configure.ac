@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([lal],[6.10.0.1],[lal-discuss@gravity.phys.uwm.edu])
+AC_INIT([lal],[6.11.0.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([include/config.h include/lal/LALConfig.h])
 AC_CONFIG_SRCDIR([packages/std/include/LALStdio.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -22,6 +22,8 @@ AC_CONFIG_FILES([ \
   lib/lalsupport/test/Makefile \
   python/Makefile \
   python/__init__.py \
+  python/utils/Makefile \
+  python/spectrum/Makefile \
   swig/Makefile \
   swig/octave/Makefile \
   swig/python/Makefile \
@@ -115,9 +117,9 @@ LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[6])
+AC_SUBST([LIBCURRENT],[7])
 AC_SUBST([LIBREVISION],[0])
-AC_SUBST([LIBAGE],[1])
+AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 
 # set library api info - liblalsupport
@@ -134,7 +136,7 @@ AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT_SUPPORT],[3])
+AC_SUBST([LIBCURRENT_SUPPORT],[4])
 AC_SUBST([LIBREVISION_SUPPORT],[0])
 AC_SUBST([LIBAGE_SUPPORT],[0])
 AC_SUBST([LIBVERSION_SUPPORT],[${LIBCURRENT_SUPPORT}:${LIBREVISION_SUPPORT}:${LIBAGE_SUPPORT}])
@@ -187,8 +189,8 @@ LALSUITE_MULTILIB_LIBTOOL_HACK
 # use silent build rules
 AM_SILENT_RULES([yes])
 
-# check for C/C++ compilers
-LALSUITE_PROG_CC_CXX
+# check for required compilers
+LALSUITE_PROG_COMPILERS
 
 # check for pthreads
 lal_pthread_available="yes"

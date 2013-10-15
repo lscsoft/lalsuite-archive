@@ -39,7 +39,7 @@ assert((sv.data.astype(numpy.object) == strs).all())
 strs[0] = "ghijk"
 sv.data[0] = strs[0]
 strs.append("lmnopq")
-lal.AppendString2Vector(sv, strs[3])
+sv = lal.AppendString2Vector(sv, strs[3])
 assert(sv.length == 4)
 for i in range(0, 4):
     assert(sv.data[i] == strs[i])
@@ -49,11 +49,13 @@ print("passed string conversions")
 
 ## check static vector/matrix conversions
 lalcvar.lalswig_test_struct_vector[0] = lalcvar.lalswig_test_struct_const
+assert(lalcvar.lalswig_test_struct_vector[0].n == lalcvar.lalswig_test_struct_const.n)
 assert(lalcvar.lalswig_test_struct_vector[0].i == lalcvar.lalswig_test_struct_const.i)
 assert(lalcvar.lalswig_test_struct_vector[0].f == lalcvar.lalswig_test_struct_const.f)
 assert(lalcvar.lalswig_test_struct_vector[0].str == lalcvar.lalswig_test_struct_const.str)
 assert((lalcvar.lalswig_test_struct_vector[0].vec == lalcvar.lalswig_test_struct_const.vec).all())
 lalcvar.lalswig_test_struct_matrix[0, 0] = lalcvar.lalswig_test_struct_const
+assert(lalcvar.lalswig_test_struct_matrix[0, 0].n == lalcvar.lalswig_test_struct_const.n)
 assert(lalcvar.lalswig_test_struct_matrix[0, 0].i == lalcvar.lalswig_test_struct_const.i)
 assert(lalcvar.lalswig_test_struct_matrix[0, 0].f == lalcvar.lalswig_test_struct_const.f)
 assert(lalcvar.lalswig_test_struct_matrix[0, 0].str == lalcvar.lalswig_test_struct_const.str)

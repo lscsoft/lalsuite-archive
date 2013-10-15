@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([lalapps],[6.12.0.1],[lal-discuss@gravity.phys.uwm.edu])
+AC_INIT([lalapps],[6.13.2.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/lalapps/lalapps.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -49,7 +49,10 @@ AC_CONFIG_FILES([\
   src/online/Makefile \
   src/hwinjection/Makefile \
 ])
-AM_INIT_AUTOMAKE([1.11 foreign color-tests parallel-tests])
+# FIXME: -Wno-unsupported is a hack which silences warnings regarding
+# subdir-objects in automake-1.14+. this will be the default, and only,
+# behaviour in automake-2.0+ so this is only a temporary measure
+AM_INIT_AUTOMAKE([1.11 foreign color-tests parallel-tests -Wno-unsupported])
 AH_TOP([
 #ifndef CONFIG_H
 #define CONFIG_H])
@@ -66,6 +69,7 @@ LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 LALSUITE_CHECK_GIT_REPO
 
 LALAPPS_WITH_CC
+
 LALAPPS_WITH_LAL_PREFIX
 LALAPPS_WITH_EXTRA_CPPFLAGS
 LALAPPS_WITH_EXTRA_CFLAGS
@@ -83,6 +87,7 @@ LALSUITE_ENABLE_BOINC
 LALAPPS_ENABLE_STATIC_BINARIES
 
 LALAPPS_ENABLE_MPI
+LALAPPS_ENABLE_BAMBI
 
 LALAPPS_ENABLE_FFTW
 LALAPPS_ENABLE_FRAME
@@ -138,8 +143,14 @@ LALSUITE_MULTILIB_LIBTOOL_HACK
 # use silent build rules
 AM_SILENT_RULES([yes])
 
-# check for C/C++ compilers
-LALSUITE_PROG_CC_CXX
+# enable Fortran and C++ compilers for BAMBI
+AS_IF([test "$bambi" = "true"], [
+  LALSUITE_REQUIRE_F77
+  LALSUITE_REQUIRE_CXX
+])
+
+# check for required compilers
+LALSUITE_PROG_COMPILERS
 
 # check for MPI compiler
 if test "x$mpi" = "xtrue"; then
@@ -387,22 +398,31 @@ if test "${pss}" = "true"; then
 fi
 LALSUITE_ENABLE_MODULE([PSS],[pss])
 
+# check for libbambi
+# Note:  if done in AS_IF() then AC_REQUIRE'd checks are done when not wanted, causing problems
+BAMBI_ENABLE_VAL="DISABLED"
+hbf=false
+if test "$bambi" = "true"; then
+  LALAPPS_CHECK_BAMBI
+fi
+AM_CONDITIONAL([HAVE_BAMBI],[${hbf}])
+
 # use c++ mode for boinc build
 if test "${boinc}" = "true" ; then
    AC_LANG_PUSH([C++])
 fi
 
 # check for lal libararies and headers
-LALSUITE_CHECK_LIB([LAL],[6.10.0],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.10.0],[LALOpenDataFile],[lal/FileIO.h])
-LALSUITE_CHECK_OPT_LIB([LALFrame],[1.0.10],[LALFrOpen],[lal/LALFrameL.h])
+LALSUITE_CHECK_LIB([LAL],[6.11.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.11.0],[LALOpenDataFile],[lal/FileIO.h])
+LALSUITE_CHECK_OPT_LIB([LALFrame],[1.1.0],[LALFrOpen],[lal/LALFrameL.h])
 LALSUITE_CHECK_OPT_LIB([LALMetaIO],[1.1.0],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
 LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.3],[XLALXMLFilePrintElements],[lal/LALXML.h])
-LALSUITE_CHECK_OPT_LIB([LALSimulation],[0.7.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
+LALSUITE_CHECK_OPT_LIB([LALSimulation],[1.0.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
 LALSUITE_CHECK_OPT_LIB([LALBurst],[1.2.0],[XLALEPSearch],[lal/EPSearch.h])
 LALSUITE_CHECK_OPT_LIB([LALInspiral],[1.5.0],[LALInspiralParameterCalc],[lal/LALInspiral.h])
-LALSUITE_CHECK_OPT_LIB([LALPulsar],[1.7.0],[XLALComputeFaFb],[lal/ComputeFstat.h])
-LALSUITE_CHECK_OPT_LIB([LALInference],[1.1.0],[LALInferenceAddVariable],[lal/LALInference.h])
+LALSUITE_CHECK_OPT_LIB([LALPulsar],[1.8.0],[XLALComputeFaFb],[lal/ComputeFstat.h])
+LALSUITE_CHECK_OPT_LIB([LALInference],[1.2.0],[LALInferenceAddVariable],[lal/LALInference.h])
 LALSUITE_CHECK_OPT_LIB([LALStochastic],[1.1.4],[LALStochasticOptimalFilter],[lal/StochasticCrossCorrelation.h])
 
 # back to c mode
@@ -478,6 +498,7 @@ LALApps has now been successfully configured:
 * LALInference library support is $LALINFERENCE_ENABLE_VAL
 * FITS library support is $CFITSIO_ENABLE_VAL
 * PSS library support is $PSS_ENABLE_VAL
+* BAMBI library support is $BAMBI_ENABLE_VAL
 * Condor support is $CONDOR_ENABLE_VAL
 * BOINC support is $BOINC_ENABLE_VAL
 * MPI support is $MPI_ENABLE_VAL

@@ -69,9 +69,10 @@ try:
 except:
   USER_NAME = pwd.getpwuid(os.getuid())[0]
 
+from glue import git_version
 __author__  = "Duncan Brown <dabrown@physics.syr.edu>"
-__date__    = "$Date$"
-__version__ = "$Revision$"
+__date__    = git_version.date
+__version__ = git_version.id
 
 parser = OptionParser(
   version = "%prog CVS $Header$",

@@ -47,11 +47,21 @@
 #include <octave/toplev.h>
 }%}
 
-// Name of octave_value containing the SWIG wrapping of the 'this'
-// pointer, i.e. the struct whose members are being accessed.
+// Name of octave_value containing the SWIG wrapping of the struct whose members are being accessed.
 %header %{
 #define swiglal_self()    (args.length() > 0 ? args(0) : octave_value())
-#define swiglal_no_self() octave_value()
+#define swiglal_no_self() (octave_value())
+%}
+
+// Name of octave_value containing the SWIG wrapping of the first argument to a function.
+%header %{
+#define swiglal_1starg()  (args.length() > 0 ? args(0) : octave_value())
+%}
+
+// Append an argument to the output argument list of an Octave SWIG-wrapped function, if the list is empty.
+%header %{
+#define swiglal_append_output_if_empty(v) \
+  if (_outp->length() == 0) _outp = SWIG_Octave_AppendOutput(_outp, v)
 %}
 
 ////////// SWIG directives for operators //////////
@@ -84,20 +94,6 @@
 %swiglal_oct_bin_op(xor);
 
 ////////// General fragments, typemaps, and macros //////////
-
-// Helper fragment and macro for typemap for functions which return 'int'.
-// Drops the first return value (which is the 'int') from the output argument
-// list if the argument list contains at least 2 items (the 'int' and some
-// other output argument).
-%fragment("swiglal_maybe_drop_first_retval", "header") {
-  SWIGINTERNINLINE void swiglal_maybe_drop_first_retval(octave_value_list& out) {
-    if (out.length() > 1) {
-      out = out.slice(1, out.length()-1);
-    }
-  }
-}
-#define %swiglal_maybe_drop_first_retval() \
-  swiglal_maybe_drop_first_retval(*_outp)
 
 // SWIG conversion fragments and typemaps for GSL complex numbers.
 %swig_cplxflt_convn(gsl_complex_float, gsl_complex_float_rect, GSL_REAL, GSL_IMAG);

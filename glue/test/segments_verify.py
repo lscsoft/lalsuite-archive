@@ -339,6 +339,22 @@ class test_segmentlist(unittest.TestCase):
 				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
 
 
+	def test_typesafety(self):
+		x = "segments.segmentlist([segments.segment(0, 10), segments.segment(20, 30)])"
+		y = "segments.segment(10, 20)"
+		z = "[(10, 20)]"
+
+		for op in ("|", "&", "-", "^"):
+			for expr in ("%s %s %s" % (x, op, y), "%s %s %s" % (y, op, x)):
+				try:
+					eval(expr)
+				except TypeError:
+					pass
+				else:
+					raise AssertionError("%s did not raise TypeError" % expr)
+		self.assertEqual(eval("%s | %s" % (x, z)), segments.segmentlist([segments.segment(0, 30)]))
+
+
 class test_segmentlistdict(unittest.TestCase):
 	def testextent_all(self):
 		a = segments.segmentlistdict({"H1": segments.segmentlist(), "L1": segments.segmentlist([segments.segment(25, 35)])})

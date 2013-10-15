@@ -53,9 +53,9 @@ from xml.sax.xmlreader import AttributesImpl
 
 
 from glue import git_version
-from glue.ligolw import ligolw
-from glue.ligolw import tokenizer
-from glue.ligolw import types as ligolwtypes
+from . import ligolw
+from . import tokenizer
+from . import types as ligolwtypes
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -492,8 +492,9 @@ class TableStream(ligolw.Stream):
 	def appendData(self, content):
 		# tokenize buffer, pack into row objects, and append to
 		# table
+		appendfunc = self.parentNode.append
 		for row in self._rowbuilder.append(self._tokenizer.append(content)):
-			self.parentNode.append(row)
+			appendfunc(row)
 
 	def unlink(self):
 		"""
@@ -855,7 +856,7 @@ class Table(ligolw.Table, list):
 
 
 #
-# Override portions of the ligolw.DefaultLIGOLWContentHandler class
+# Override portions of a ligolw.LIGOLWContentHandler class
 #
 
 
@@ -892,4 +893,5 @@ def use_in(ContentHandler):
 	ContentHandler.startTable = startTable
 
 
+# FIXME:  remove
 use_in(ligolw.DefaultLIGOLWContentHandler)

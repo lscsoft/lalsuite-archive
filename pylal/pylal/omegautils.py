@@ -45,7 +45,7 @@ __date__    = git_version.date
 _comment = re.compile('[#%]')
 _delim   = re.compile('[\t\,\s]+')
 
-def trigger(line, columns=lsctables.SnglBurst.__slots__, virgo=False):
+def trigger(line, columns=lsctables.SnglBurst.__slots__, virgo=False, ifo=None, channel=None):
     """
     Convert a line from an Omega-format ASCII file into a SnglBurst object.
     """
@@ -92,11 +92,20 @@ def trigger(line, columns=lsctables.SnglBurst.__slots__, virgo=False):
         err_freq = 0
         snr      = (2*amplitude)**(1/2)
         clusters = False
+    elif len(dat)==4:
+        peak, av_freq, amplitude, chisq = dat
+        snr      = (amplitude)**(1/2)
+        peak     = LIGOTimeGPS(peak)
     else:
         raise ValueError("Wrong number of columns in ASCII line. Cannot read.")
     
     # set object
     t = lsctables.SnglBurst()
+
+    # set columns that are same for all triggers
+    if 'ifo' in columns: t.ifo = ifo
+    if 'channel' in columns: t.channel = channel
+    if 'search' in columns: t.search = 'omega'
 
     # set times
     if 'start_time' in columns:     t.start_time    = start.gpsSeconds
@@ -248,7 +257,7 @@ def fromfile(fobj, start=None, end=None, ifo=None, channel=None,\
     # read file and generate triggers
     for i,line in enumerate(fh):
         if _comment.match(line): continue
-        t = trigger(line, columns=columns, virgo=virgo)
+        t = trigger(line, columns=columns, virgo=virgo, channel=channel, ifo=ifo)
         if not check_time or (check_time and float(t.get_peak()) in span):
             append(t)
 
@@ -297,7 +306,7 @@ def tofrequencyseries(bursttable, fcol='peak_frequency', pcol=None,\
 # Get LAL cache of omega files from their expected location
 # =============================================================================
 
-def get_cache(start, end, ifo, mask='DOWNSELECT', checkfilesexist=False,\
+def get_cache(start, end, ifo, channel, mask='DOWNSELECT', checkfilesexist=False,\
               **kwargs):
     """
     Returns a glue.lal.Cache contatining CacheEntires for all omega online
@@ -315,8 +324,11 @@ def get_cache(start, end, ifo, mask='DOWNSELECT', checkfilesexist=False,\
 
     span = segments.segment(start,end)
     if ifo == 'G1':
-        kwargs.setdefault('directory', '/home/omega/online/G1/segments')
-        kwargs.setdefault('epoch', 983669456)
+        if channel:
+            kwargs.setdefault('directory', '/home/omega/online/%s/segments' % channel.replace(':','_'))
+        else:
+            kwargs.setdefault('directory', '/home/omega/online/G1/segments')
+        kwargs.setdefault('epoch', 0)
     else:
         kwargs.setdefault('directory',\
                             '/home/omega/online/%s/archive/S6/segments' % ifo)
@@ -362,7 +374,7 @@ def get_cache(start, end, ifo, mask='DOWNSELECT', checkfilesexist=False,\
 # =============================================================================
 
 def fromfiles(filelist, start=None, end=None, columns=None, verbose=False,\
-              virgo=False):
+              virgo=False, channel=None):
     """
     Read omega triggers from a list of ASCII filepaths.
     """
@@ -380,7 +392,7 @@ def fromfiles(filelist, start=None, end=None, columns=None, verbose=False,\
     for i,fp in enumerate(filelist):
         with open(fp, "r") as f:
             extend(fromfile(f, start=start, end=end, columns=columns,\
-                            virgo=virgo))
+                            virgo=virgo, channel=channel))
         if verbose:
             progress = int((i+1)/num)
             sys.stdout.write('%s%.2d%%' % (delete, progress))
@@ -392,9 +404,9 @@ def fromfiles(filelist, start=None, end=None, columns=None, verbose=False,\
     return out
 
 def fromlalcache(cache, start=None, end=None, columns=None, verbose=False,\
-                 virgo=False):
+                 virgo=False,channel=None):
      """
      Read omega triggers from a glue.lal.Cache list of ASCII CacheEntries.
      """
      return fromfiles(cache.pfnlist(), start=start, end=end, columns=columns,\
-                      verbose=verbose, virgo=virgo)
+                      verbose=verbose, virgo=virgo, channel=channel)

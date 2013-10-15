@@ -41,11 +41,6 @@ from pylal import snglcoinc
 from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.datatypes import snglinspiraltable
-try:
-	all
-except NameError:
-	# Python < 2.5.x
-	from glue.iterutils import all
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

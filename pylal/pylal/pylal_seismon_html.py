@@ -11,6 +11,8 @@ This program checks for earthquakes.
 
 import os, time, glob, pickle
 
+import pylal.pylal_seismon_eqmon
+
 __author__ = "Michael Coughlin <coughlim@carleton.edu>"
 __date__ = "2012/2/7"
 __version__ = "0.1"
@@ -26,7 +28,20 @@ def summary_page(params,channels):
     creates eqmon summary page
     """
 
-    title = "Seismon Summary Page for %s (%d)"%(params["date"],params["gps"])
+    if params["ifo"] == "H1":
+        ifo = "LHO"
+    elif params["ifo"] == "L1":
+        ifo = "LLO"
+    elif params["ifo"] == "G1":
+        ifo = "GEO"
+    elif params["ifo"] == "V1":
+        ifo = "VIRGO"
+    elif params["ifo"] == "C1":
+        ifo = "FortyMeter"
+    elif params["ifo"] == "XG":
+        ifo = "Homestake"
+
+    title = "Seismon Summary Page for %s (%d)"%(params["dateString"],params["gpsStart"])
 
     contents=["""
     <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
@@ -67,6 +82,9 @@ def summary_page(params,channels):
         textLocation = params["path"] + "/" + channel.station_underscore
 
         file = os.path.join(textLocation,"sig.txt")
+        if not os.path.isfile(file):
+            continue
+
         lines = [line.strip() for line in open(file)]
 
         sigDict = []
@@ -94,6 +112,32 @@ def summary_page(params,channels):
 
     # add tables and list
     contents.append("".join(table))
+
+    earthquakesDirectory = os.path.join(params["path"],"earthquakes")
+    earthquakesXMLFile = os.path.join(earthquakesDirectory,"earthquakes.xml")
+
+    if os.path.isfile(earthquakesXMLFile):
+        attributeDics = pylal.pylal_seismon_eqmon.read_eqmons(earthquakesXMLFile)
+
+        table = ["""
+        <table style="text-align: center; width: 1260px; height: 67px; margin-left:auto; margin-right: auto;" border="1" cellpadding="1" cellspacing="1">
+        <tbody>
+        <tr><td>ID</td><td>Magnitude</td><td>Latitude</td><td>Longitude</td><td>Depth</td><td>R-arrival</td><td>R-amp</td></tr>"""]
+
+        for attributeDic in attributeDics:
+
+            traveltimes = attributeDic["traveltimes"][ifo]
+
+            gpsStart = max(traveltimes["Rtimes"]) - 200
+            gpsEnd = max(traveltimes["Rtimes"]) + 200
+
+            check_intersect = (gpsEnd >= params["gpsStart"]) and (params["gpsEnd"] >= gpsStart)
+            if check_intersect:
+                table.append('<tr><td><a href="%s/%s">%s</td><td>%.1f</td><td>%.1f</td><td>%.1f</td><td>%.1f</td><td>%.1f</td><td>%.2e</td></tr>'%("http://earthquake.usgs.gov/earthquakes/eventpage",attributeDic["eventName"],attributeDic["eventName"],attributeDic["Magnitude"],attributeDic["Latitude"],attributeDic["Longitude"],attributeDic["Depth"],max(traveltimes["Rtimes"]),traveltimes["Rfamp"][0]))
+
+        table.append("</tbody></table><br><br>")
+        contents.append("".join(table))
+
 
     table = ["""
     <table style="text-align: center; width: 1260px; height: 67px; margin-left:auto; margin-right: auto;" border="1" cellpadding="1" cellspacing="1">
@@ -225,9 +269,11 @@ def seismon_page(channel,textLocation):
 
     <tr>
     <td style="vertical-align: top;">ASD (m/s) (including 10, 50, and 90 percentiles)</td>
+    <td style="vertical-align: top;">Mean ASD vs. time</td>
     </tr>
     <tr>
     <td style="vertical-align: top;"><a href="./psd.png"><img alt="" src="./psd.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
+    <td style="vertical-align: top;"><a href="./bands.png"><img alt="" src="./bands.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
     </tr>
 
     <tr>

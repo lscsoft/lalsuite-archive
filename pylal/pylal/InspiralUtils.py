@@ -13,7 +13,6 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
-from glue.iterutils import any
 from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
 from pylal import git_version

@@ -194,6 +194,10 @@ def coinc_params_func(events, offsetvector, triangulators):
 #
 
 
+class StringCoincParamsDistributions(ligolw_burca_tailor.BurcaCoincParamsDistributions):
+	ligo_lw_name_suffix = u"pylal_ligolw_burca_tailor_coincparamsdistributions"
+
+
 def dt_binning(instrument1, instrument2):
 	dt = 0.005 + inject.light_travel_time(instrument1, instrument2)	# seconds
 	return rate.NDBins((rate.ATanBins(-dt, +dt, 801),))
@@ -201,7 +205,7 @@ def dt_binning(instrument1, instrument2):
 
 class DistributionsStats(object):
 	"""
-	A class used to populate a CoincParamsDistribution instance with
+	A class used to populate a StringCoincParamsDistributions instance with
 	the data from the outputs of ligolw_burca and ligolw_binjfind.
 	"""
 
@@ -237,10 +241,10 @@ class DistributionsStats(object):
 	}
 
 	filters = {
-		"H1_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
-		"H2_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
-		"L1_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
-		"V1_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
+		"H1_snr2_chi2": rate.gaussian_window(11, 11, sigma = 20),
+		"H2_snr2_chi2": rate.gaussian_window(11, 11, sigma = 20),
+		"L1_snr2_chi2": rate.gaussian_window(11, 11, sigma = 20),
+		"V1_snr2_chi2": rate.gaussian_window(11, 11, sigma = 20),
 		"H1_H2_dt": rate.gaussian_window(11, sigma = 20),
 		"H1_L1_dt": rate.gaussian_window(11, sigma = 20),
 		"H1_V1_dt": rate.gaussian_window(11, sigma = 20),
@@ -261,11 +265,11 @@ class DistributionsStats(object):
 		"L1_V1_df": rate.gaussian_window(11, sigma = 20),
 		# instrument group filter is a no-op, should produce a
 		# 1-bin top-hat window.
-		"instrumentgroup,rss_timing_residual": rate.gaussian_window2d(1e-100, 11, sigma = 20)
+		"instrumentgroup,rss_timing_residual": rate.gaussian_window(1e-100, 11, sigma = 20)
 	}
 
 	def __init__(self):
-		self.distributions = ligolw_burca_tailor.CoincParamsDistributions(**self.binnings)
+		self.distributions = StringCoincParamsDistributions(**self.binnings)
 
 	def add_noninjections(self, param_func, database, param_func_args = ()):
 		# iterate over burst<-->burst coincs
@@ -326,14 +330,17 @@ class DistributionsStats(object):
 
 		# generate synthetic background coincs
 		for n, events in enumerate(coinc_generator):
+			# n = 1 on 2nd iteration, so placing this condition
+			# where it is in the loop causes the correct number
+			# of events to be added to the background
+			if n >= n_coincs:
+				break
 			# assign fake peak times
 			toas = toa_generator[frozenset(event.ifo for event in events)].next()
 			for event in events:
 				event.set_peak(toas[event.ifo])
 			# compute coincidence parameters
 			self.distributions.add_background(param_func(events, zero_lag_offset_vector, *param_func_args))
-			if n > n_coincs:
-				break
 
 		# restore original peak times
 		for event, peak_time in orig_peak_times.iteritems():
@@ -356,7 +363,7 @@ class DistributionsStats(object):
 
 
 def load_likelihood_data(filenames, verbose = False):
-	return ligolw_burca_tailor.load_likelihood_data(filenames, name = u"string_cusp_likelihood", verbose = verbose)
+	return ligolw_burca_tailor.load_likelihood_data(filenames, StringCoincParamsDistributions, name = u"string_cusp_likelihood", verbose = verbose)
 
 
 def write_likelihood_data(filename, coincparamsdistributions, seglists, verbose = False):

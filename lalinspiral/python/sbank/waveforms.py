@@ -240,7 +240,7 @@ class TaylorF2RedSpinTemplate(Template):
             0, df, self.m1 * LAL_MSUN_SI, self.m2 * LAL_MSUN_SI, self.chi,
             self.bank.flow, 0, 1000000 * LAL_PC_SI, 7, 3)
         # have to resize wf to next pow 2 for FFT plan caching
-        lal.ResizeCOMPLEX16FrequencySeries( wf, 0, ceil_pow_2(wf.data.length) )
+        wf = lal.ResizeCOMPLEX16FrequencySeries( wf, 0, ceil_pow_2(wf.data.length) )
         return wf
 
     def metric_match(self, other, df, **kwargs):
@@ -399,7 +399,7 @@ class SEOBNRv1Template(Template):
             self.bank.flow, 1e6*LAL_PC_SI, 0., self.spin1z, self.spin2z)
         # zero-pad up to 1/df
         N = int(sample_rate / df)
-        lal.ResizeREAL8TimeSeries(hplus, 0, N)
+        hplus = lal.ResizeREAL8TimeSeries(hplus, 0, N)
         # taper
         lalsim.SimInspiralREAL8WaveTaper(hplus.data, lalsim.LAL_SIM_INSPIRAL_TAPER_START)
 
@@ -485,7 +485,7 @@ class EOBNRv2Template(Template):
             self.bank.flow, 1e6*LAL_PC_SI, 0.)
         # zero-pad up to 1/df
         N = int(sample_rate / df)
-        lal.ResizeREAL8TimeSeries(hplus, 0, N)
+        hplus = lal.ResizeREAL8TimeSeries(hplus, 0, N)
         # taper
         lalsim.SimInspiralREAL8WaveTaper(hplus.data, lalsim.LAL_SIM_INSPIRAL_TAPER_START)
 
@@ -591,17 +591,20 @@ class SpinTaylorT4Template(Template):
             -np.sin(self.inclination),	# initial value of E1z
             0,				# tidal deformability of mass 1
             0,				# tidal deformability of mass 2
-            lalsim.LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN, # flags to control spin effects
-            7,				# twice PN phase order
-            0
+            1, # phenom. parameter describing induced quad. moment of body 1 (=1 for BHs, ~2-12 for NSs)
+            1, # phenom. parameter describing induced quad. moment of body 2 (=1 for BHs, ~2-12 for NSs)
+            7, # twice PN spin order
+            0, # twice PN tidal order
+            7, # twice PN phase order
+            3 # twice PN amplitude order
         )
 
         # project onto detector
         hoft = project_hplus_hcross(hplus, hcross, self.theta, self.phi, self.psi)
 
         # zero-pad up to 1/df
-        N = int(sample_rate / df)
-        lal.ResizeREAL8TimeSeries(hoft, 0, N)
+        N = ceil_pow_2(int(sample_rate / df))
+        hoft = lal.ResizeREAL8TimeSeries(hoft, 0, N)
 
         # taper
         lalsim.SimInspiralREAL8WaveTaper(hoft.data, lalsim.LAL_SIM_INSPIRAL_TAPER_STARTEND)
@@ -682,7 +685,7 @@ class SpinTaylorT5Template(Template):
 
         # zero-pad up to 1/df
         N = int(sample_rate / df)
-        lal.ResizeREAL8TimeSeries(hoft, 0, N)
+        hoft = lal.ResizeREAL8TimeSeries(hoft, 0, N)
 
         # taper
         lalsim.SimInspiralREAL8WaveTaper(hoft.data, lalsim.LAL_SIM_INSPIRAL_TAPER_STARTEND)

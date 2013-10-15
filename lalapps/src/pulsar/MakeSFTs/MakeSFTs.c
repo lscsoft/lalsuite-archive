@@ -83,8 +83,8 @@ int main(void) {fputs("disabled, no gsl or no lal frame library support.\n", std
 #include <lal/LALStdio.h>
 #include <lal/FileIO.h>
 #include <lal/AVFactories.h>
-#include <lal/FrameCache.h>
-#include <lal/FrameStream.h>
+#include <lal/LALCache.h>
+#include <lal/LALFrStream.h>
 #include <lal/Window.h>
 #include <lal/Calibration.h>
 #include <lal/LALConstants.h>
@@ -96,6 +96,7 @@ int main(void) {fputs("disabled, no gsl or no lal frame library support.\n", std
 #include <lal/RealFFT.h>
 #include <lal/ComplexFFT.h>
 #include <lal/SFTfileIO.h>
+#include <lal/SFTutils.h>
 
 #ifdef PSS_ENABLED
 #include <XLALPSSInterface.h>
@@ -164,8 +165,8 @@ REAL8 DF = 2000.0; /* default band */
 REAL8 winFncRMS = 1.0; /* 10/05/12 gam; global variable with the RMS of the window function; default value is 1.0 */
 
 static LALStatus status;
-FrCache *framecache;         /* frame reading variables */
-FrStream *framestream=NULL;
+LALCache *framecache;         /* frame reading variables */
+LALFrStream *framestream=NULL;
 
 REAL8TimeSeries dataDouble;
 REAL4TimeSeries dataSingle;
@@ -486,12 +487,10 @@ int main(int argc,char *argv[])
   SegmentDuration = CommandLineArgs.GPSEnd - CommandLineArgs.GPSStart ;
 
   /* create Frame cache, open frame stream and delete frame cache */
-  LALFrCacheImport(&status,&framecache,CommandLineArgs.FrCacheFile);
-  TESTSTATUS( &status );
+  framecache = XLALCacheImport(CommandLineArgs.FrCacheFile);
   LALFrCacheOpen(&status,&framestream,framecache);
   TESTSTATUS( &status );
-  LALDestroyFrCache(&status,&framecache);
-  TESTSTATUS( &status );
+  XLALDestroyCache(framecache);
 
   #if TRACKMEMUSE
     printf("Memory use after reading command line arguments and reading frame cache:\n"); printmemuse();

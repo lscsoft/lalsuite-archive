@@ -31,7 +31,6 @@ pylab.rc('text', usetex=True)
 
 from glue import lal
 from glue import segments
-from glue.iterutils import all, any
 from glue.ligolw import dbtables
 from glue.ligolw import lsctables
 from glue import git_version

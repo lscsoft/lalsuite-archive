@@ -21,10 +21,9 @@
 #define _LALSIMINSPIRAL_H
 
 #include <lal/LALDatatypes.h>
-#include <lal/LALSimIMR.h>
-#include  <lal/LALSimInspiralWaveformFlags.h>
-#include  <lal/LALSimInspiralTestGRParams.h>
-#include  <lal/TimeSeries.h>
+#include <lal/LALSimInspiralWaveformFlags.h>
+#include <lal/LALSimInspiralTestGRParams.h>
+#include <lal/TimeSeries.h>
 #include <gsl/gsl_matrix.h>
 
 #if defined(__cplusplus)
@@ -67,6 +66,7 @@ typedef enum {
    SpinTaylorT2,	/**< Spinning case T2 models */
    SpinTaylorT3,	/**< Spinning case T3 models */
    SpinTaylorT4,	/**< Spinning case T4 models (lalsimulation's equivalent of SpinTaylorFrameless) */
+   SpinTaylorT5,       /**< Spinning case T5. Ref. Sec III of P. Ajith, Phys Rev D (2011)  */
    SpinTaylorF2,	/**< Spinning case F2 models (single spin only) */
    SpinTaylorFrameless,	/**< Spinning case PN models (replace SpinTaylor by removing the coordinate singularity) */
    SpinTaylor,		/**< Spinning case PN models (should replace SpinTaylorT3 in the future) */
@@ -121,11 +121,6 @@ typedef enum
   LAL_SIM_INSPIRAL_TAPER_NUM_OPTS	/**< Number of elements in enum, useful for checking bounds */
 }  LALSimInspiralApplyTaper;
 
-/** Stores previously-computed waveforms and parameters to take
-    advantage of approximant- and parameter-specific opportunities for
-    accelerating waveform computation. */
-typedef struct tagLALSimInspiralWaveformCache LALSimInspiralWaveformCache;
-
 /** Enumeration to specify time or frequency domain */
 typedef enum {
   LAL_SIM_DOMAIN_TIME,
@@ -156,6 +151,8 @@ int XLALSimInspiralREAL8WaveTaper(
  */
 typedef struct tagSphHarmTimeSeries SphHarmTimeSeries;
 
+typedef struct tagSphHarmFrequencySeries SphHarmFrequencySeries;
+
 /* 
  * Create a SphHarmTimeSeries. If appended is not NULL, this will prepend a new
  * structure to the list by duplicating the mode inmode, mode numbers l, and m, 
@@ -180,6 +177,10 @@ void XLALDestroySphHarmTimeSeries( SphHarmTimeSeries* ts );
  */
 UINT4 XLALSphHarmTimeSeriesGetMaxL( SphHarmTimeSeries* ts );
 
+#ifdef SWIG   // SWIG interface directives
+SWIGLAL(RETURNS_PROPERTY(COMPLEX16TimeSeries*, XLALSphHarmTimeSeriesGetMode));
+#endif
+
 /* 
  * Get the mode-decomposed time series corresponding to l,m.
  */
@@ -188,6 +189,61 @@ COMPLEX16TimeSeries* XLALSphHarmTimeSeriesGetMode(
 				UINT4 l, 
 				INT4 m 
 );
+
+/* 
+ * Create a SphHarmFrequencySeries. If appended is not NULL, this will prepend a new
+ * structure to the list by duplicating the mode inmode, mode numbers l, and m, 
+ * and then set the next pointer to the appended structure.
+ */
+SphHarmFrequencySeries* XLALSphHarmFrequencySeriesAddMode( 
+		SphHarmFrequencySeries *appended,  /**< List structure to prepend to */
+		const COMPLEX16FrequencySeries* inmode,  /**< mode series to contain */
+		UINT4 l, /**< major mode number */
+		INT4 m  /**< minor mode number */
+);
+
+/* 
+ * Destroy a SphHarmFrequencySeries. Note that this will destroy any 
+ * COMPLEX16TimeSeries which it has references to.
+ */
+void XLALDestroySphHarmFrequencySeries( SphHarmFrequencySeries* ts );
+
+/* 
+ * Destroy a SphHarmFrequencySeries. Note that this will destroy any 
+ * COMPLEX16FrequencySeries which it has references to.
+ */
+UINT4 XLALSphHarmFrequencySeriesGetMaxL( SphHarmFrequencySeries* ts );
+
+#ifdef SWIG   // SWIG interface directives
+SWIGLAL(RETURNS_PROPERTY(COMPLEX16FrequencySeries*, XLALSphHarmFrequencySeriesGetMode));
+#endif
+
+/* 
+ * Get the mode-decomposed frequency series corresponding to l,m.
+ */
+COMPLEX16FrequencySeries* XLALSphHarmFrequencySeriesGetMode( 
+				SphHarmFrequencySeries *ts, 
+				UINT4 l, 
+				INT4 m 
+);
+
+/**
+ * Compute the polarizations from all the -2 spin-weighted spherical harmonic
+ * modes stored in 'hlms'. Be sure that 'hlms' is the head of the linked list!
+ *
+ * The computation done is:
+ * hp(t) - i hc(t) = \sum_l \sum_m h_lm(t) -2Y_lm(iota,psi)
+ *
+ * iota and psi are the inclination and polarization angle of the observer
+ * relative to the source of GWs.
+ */
+int XLALSimInspiralPolarizationsFromSphHarmTimeSeries(
+    REAL8TimeSeries **hp, /**< Plus polarization time series [returned] */
+    REAL8TimeSeries **hc, /**< Cross polarization time series [returned] */
+    SphHarmTimeSeries *hlms, /**< Head of linked list of waveform modes */
+    REAL8 iota, /**< inclination of viewer to source frame (rad) */
+    REAL8 psi /**< polarization angle (rad) */
+    );
 
 /**
  * Computes h(2,2) mode of spherical harmonic decomposition of
@@ -916,18 +972,6 @@ int XLALGetFrameAxisFromString(const CHAR *inString);
  */
 int XLALGetHigherModesFromString(const CHAR *inString);
 
-/*
- * Construct and initialize a waveform cache.  Caches are used to
- * avoid re-computation of waveforms that differ only by simple
- * scaling relations in parameters.
- */
-LALSimInspiralWaveformCache *XLALCreateSimInspiralWaveformCache(void);
-
-/** 
- * Destroy a waveform cache.
- */
-void XLALDestroySimInspiralWaveformCache(LALSimInspiralWaveformCache *cache);
-
 /**
  * DEPRECATED: USE XLALSimInspiralChooseTDWaveform() INSTEAD
  *
@@ -997,44 +1041,6 @@ int XLALSimInspiralChooseTDWaveform(
 
 /**
  * Chooses between different approximants when requesting a waveform to be generated
- * Returns the waveform in the time domain.
- * The parameters passed must be in SI units.
- * 
- * This version allows caching of waveforms. The most recently generated
- * waveform and its parameters are stored. If the next call requests a waveform
- * that can be obtained by a simple transformation, then it is done.
- * This bypasses the waveform generation and speeds up the code.
- */
-int XLALSimInspiralChooseTDWaveformFromCache(
-    REAL8TimeSeries **hplus,    /**< +-polarization waveform */
-    REAL8TimeSeries **hcross,   /**< x-polarization waveform */
-    REAL8 phiRef,               /**< reference orbital phase (rad) */
-    REAL8 deltaT,               /**< sampling interval (s) */
-    REAL8 m1,                   /**< mass of companion 1 (kg) */
-    REAL8 m2,                   /**< mass of companion 2 (kg) */
-    REAL8 s1x,                  /**< x-component of the dimensionless spin of object 1 */
-    REAL8 s1y,                  /**< y-component of the dimensionless spin of object 1 */
-    REAL8 s1z,                  /**< z-component of the dimensionless spin of object 1 */
-    REAL8 s2x,                  /**< x-component of the dimensionless spin of object 2 */
-    REAL8 s2y,                  /**< y-component of the dimensionless spin of object 2 */
-    REAL8 s2z,                  /**< z-component of the dimensionless spin of object 2 */
-    REAL8 f_min,                /**< starting GW frequency (Hz) */
-    REAL8 f_ref,                /**< reference GW frequency (Hz) */
-    REAL8 r,                    /**< distance of source (m) */
-    REAL8 i,                    /**< inclination of source (rad) */
-    REAL8 lambda1,              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
-    REAL8 lambda2,              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
-    LALSimInspiralWaveformFlags *waveFlags, /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
-    LALSimInspiralTestGRParam *nonGRparams, /**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
-    int amplitudeO,             /**< twice post-Newtonian amplitude order */
-    int phaseO,                 /**< twice post-Newtonian phase order */
-    Approximant approximant,    /**< post-Newtonian approximant to use for waveform production */
-    LALSimInspiralWaveformCache *cache  /**< waveform cache structure; use NULL for no caching */
-    );
-
-
-/**
- * Chooses between different approximants when requesting a waveform to be generated
  * For spinning waveforms, all known spin effects up to given PN order are included
  * Returns the waveform in the frequency domain.
  *
@@ -1065,44 +1071,6 @@ int XLALSimInspiralChooseFDWaveform(
     int phaseO,                                 /**< twice post-Newtonian order */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
     );
-
-/**
- * Chooses between different approximants when requesting a waveform to be generated
- * Returns the waveform in the frequency domain.
- * The parameters passed must be in SI units.
- *
- * This version allows caching of waveforms. The most recently generated
- * waveform and its parameters are stored. If the next call requests a waveform
- * that can be obtained by a simple transformation, then it is done.
- * This bypasses the waveform generation and speeds up the code.
- */
-int XLALSimInspiralChooseFDWaveformFromCache(
-    COMPLEX16FrequencySeries **hptilde,         /**< FD plus polarization */
-    COMPLEX16FrequencySeries **hctilde,         /**< FD cross polarization */
-    REAL8 phiRef,                               /**< reference orbital phase (rad) */
-    REAL8 deltaF,                               /**< sampling interval (Hz) */
-    REAL8 m1,                                   /**< mass of companion 1 (kg) */
-    REAL8 m2,                                   /**< mass of companion 2 (kg) */
-    REAL8 S1x,                                  /**< x-component of the dimensionless spin of object 1 */
-    REAL8 S1y,                                  /**< y-component of the dimensionless spin of object 1 */
-    REAL8 S1z,                                  /**< z-component of the dimensionless spin of object 1 */
-    REAL8 S2x,                                  /**< x-component of the dimensionless spin of object 2 */
-    REAL8 S2y,                                  /**< y-component of the dimensionless spin of object 2 */
-    REAL8 S2z,                                  /**< z-component of the dimensionless spin of object 2 */
-    REAL8 f_min,                                /**< starting GW frequency (Hz) */
-    REAL8 f_max,                                /**< ending GW frequency (Hz) */
-    REAL8 r,                                    /**< distance of source (m) */
-    REAL8 i,                                    /**< inclination of source (rad) */
-    REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
-    REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
-    LALSimInspiralWaveformFlags *waveFlags,     /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
-    LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
-    int amplitudeO,                             /**< twice post-Newtonian amplitude order */
-    int phaseO,                                 /**< twice post-Newtonian order */
-    Approximant approximant,                    /**< post-Newtonian approximant to use for waveform production */
-    LALSimInspiralWaveformCache *cache         /**< waveform cache structure; use NULL for no caching */
-    );
-
 
 /**
  * Interface to compute a set of -2 spin-weighted spherical harmonic modes
@@ -1969,6 +1937,27 @@ int XLALSimInspiralSpinTaylorT4(
 	int phaseO,                     /**< twice PN phase order */
 	int amplitudeO                  /**< twice PN amplitude order */
 	);
+
+int XLALSimInspiralSpinTaylorT5 (
+        REAL8TimeSeries **hplus,        /**< +-polarization waveform */
+        REAL8TimeSeries **hcross,       /**< x-polarization waveform */
+        REAL8 phiRef,                   /**< orbital phase at reference pt. */
+        REAL8 deltaT,                   /**< sampling interval (s) */
+        REAL8 m1,                       /**< mass of companion 1 (kg) */
+        REAL8 m2,                       /**< mass of companion 2 (kg) */
+        REAL8 fStart,                   /**< start GW frequency (Hz) */
+        REAL8 r,                        /**< distance of source (m) */
+        REAL8 s1x,                      /**< initial value of S1x */
+        REAL8 s1y,                      /**< initial value of S1y */
+        REAL8 s1z,                      /**< initial value of S1z */
+        REAL8 s2x,                      /**< initial value of S2x */
+        REAL8 s2y,                      /**< initial value of S2y */
+        REAL8 s2z,                      /**< initial value of S2z */
+        REAL8 incAngle,                                 /**< inclination angle with J_ini */
+        int phaseO,                     /**< twice PN phase order */
+        int amplitudeO                  /**< twice PN amplitude order */
+        );
+
 
 int XLALSimInspiralSpinTaylorT2(
 	REAL8TimeSeries **hplus,        /**< +-polarization waveform */

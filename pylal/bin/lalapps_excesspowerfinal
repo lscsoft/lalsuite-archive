@@ -955,7 +955,7 @@ FROM
 		# smooth the efficiency bins and the found injection
 		# density bins using the same 2D window.
 
-		window = rate.gaussian_window2d(self.window_size_x, self.window_size_y)
+		window = rate.gaussian_window(self.window_size_x, self.window_size_y)
 		window /= window[tuple((numpy.array(window.shape, dtype = "double") - 1) / 2)]
 		rate.filter_binned_ratios(self.efficiency, window)
 		rate.filter_array(self.found_density.array, window)

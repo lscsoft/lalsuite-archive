@@ -57,8 +57,8 @@
 #include <lal/LALStdlib.h>
 #include <lal/Units.h>
 
-#include <lal/FrameCache.h>
-#include <lal/FrameStream.h>
+#include <lal/LALCache.h>
+#include <lal/LALFrStream.h>
 #include <lal/Units.h>
 //#include <lal/TimeFreqFFT.h>
 #include <lal/LALDetectors.h>
@@ -1236,7 +1236,7 @@ void templateLALPhenSpinTaylorRD(struct parSet *par, struct interferometer *ifo[
 	else
 	{
 		/* compute detector response */
-		XLALComputeDetAMResponse(&fplus, &fcross, det.response, injParams.longitude,
+		XLALComputeDetAMResponse(&fplus, &fcross, (const REAL4 (*)[3])det.response, injParams.longitude,
 								 injParams.latitude, injParams.polarization, injParams.end_time_gmst);
 		
 		/* calculate the time delay */

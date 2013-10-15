@@ -466,5 +466,8 @@ def _create_groups(h5file, group):
         groups = group.split("/")
         h5group = h5file
         for g in groups:
-            h5group = h5group.create_group(g)
+            try:
+                h5group = h5group.create_group(g)
+            except ValueError:
+                pass
     return h5group
