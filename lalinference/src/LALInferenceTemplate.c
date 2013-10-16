@@ -1847,7 +1847,14 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     dLambdaT = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dLambdaT");
     sym_mass_ratio_eta = m1*m2/((m1+m2)*(m1+m2));
     LALInferenceLambdaTsEta2Lambdas(lambdaT,dLambdaT,sym_mass_ratio_eta,&lambda1,&lambda2);
+  } else if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_SIM_INSPIRAL_EOS")){
+      LALEquationOfState equation_of_state = LAL_SIM_INSPIRAL_EOS_NONE;
+      equation_of_state = *(LALEquationOfState*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_SIM_INSPIRAL_EOS");
+      lambda1 = XLALSimInspiralEOSLambda(equation_of_state, m1)/(m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI); /* gives lambda1/m1^5 (dimensionless) */
+      lambda1 = XLALSimInspiralEOSLambda(equation_of_state, m2)/(m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI); /* gives lambda2/m2^5 (dimensionless) */
+      // 	fprintf(stderr, "Equation of State (LalInfTemplate): %d\n", equation_of_state);
   }
+  
   LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
   if(LALInferenceCheckVariable(IFOdata->modelParams, "spinO")) XLALSimInspiralSetSpinOrder(waveFlags, *(LALSimInspiralSpinOrder*) LALInferenceGetVariable(IFOdata->modelParams, "spinO"));
   if(LALInferenceCheckVariable(IFOdata->modelParams, "tideO")) XLALSimInspiralSetTidalOrder(waveFlags, *(LALSimInspiralTidalOrder*) LALInferenceGetVariable(IFOdata->modelParams, "tideO"));
@@ -1858,12 +1865,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     XLAL_ERROR_VOID(XLAL_EFAULT);
   }
   deltaT = IFOdata->timeData->deltaT;
- 
-    LALEquationOfState equation_of_state = LAL_SIM_INSPIRAL_EOS_NONE ;
-    if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_SIM_INSPIRAL_EOS"))
-      equation_of_state = *(LALEquationOfState*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_SIM_INSPIRAL_EOS");
-
-// 	fprintf(stderr, "Equation of State (LalInfTemplate): %d\n", equation_of_state);
   
   if(IFOdata->modelDomain == LAL_SIM_DOMAIN_FREQUENCY) {
     if (IFOdata->freqData==NULL) {
@@ -1877,7 +1878,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
             deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
             spin2x, spin2y, spin2z, f_start, f_max, distance, inclination,
             lambda1, lambda2, waveFlags, nonGRparams, amporder, order,
-            approximant, equation_of_state), errnum);
+            approximant), errnum);
 
 	if (hptilde==NULL || hptilde->data==NULL || hptilde->data->data==NULL ) {
 	  XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'hptilde'.\n");
@@ -1923,7 +1924,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
             m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
             spin2x, spin2y, spin2z, f_start, fRef, distance,
             inclination, lambda1, lambda2, waveFlags, nonGRparams,
-            amporder, order, approximant, equation_of_state), errnum);
+            amporder, order, approximant), errnum);
     XLALSimInspiralDestroyWaveformFlags(waveFlags);
     XLALSimInspiralDestroyTestGRParam(nonGRparams);
     if (ret == XLAL_FAILURE || hplus == NULL || hcross == NULL)

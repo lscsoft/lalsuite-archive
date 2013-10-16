@@ -183,7 +183,13 @@ int XLALSimInspiralChooseWaveformFromSimInspiral(
    if ( (int) taper == XLAL_FAILURE)
       XLAL_ERROR(XLAL_EFUNC);
 
-    LALEquationOfState eos = LAL_SIM_INSPIRAL_EOS_NONE; // Shoud be set from command line argument --eos
+    /* get the NS equation of state and set values form lambdas */
+    LALEquationOfState eos = LAL_SIM_INSPIRAL_EOS_NONE; 
+    eos = thisRow->eos;
+    
+    lambda1 = XLALSimInspiralEOSLambda(eos, thisRow->mass1)/(thisRow->mass1*LAL_MTSUN_SI*thisRow->mass1*LAL_MTSUN_SI*thisRow->mass1*LAL_MTSUN_SI*thisRow->mass1*LAL_MTSUN_SI*thisRow->mass1*LAL_MTSUN_SI); /* gives lambda1/m1^5 (dimensionless) */
+    lambda2 = XLALSimInspiralEOSLambda(eos, thisRow->mass2)/(thisRow->mass2*LAL_MTSUN_SI*thisRow->mass2*LAL_MTSUN_SI*thisRow->mass2*LAL_MTSUN_SI*thisRow->mass2*LAL_MTSUN_SI*thisRow->mass2*LAL_MTSUN_SI); /* gives lambda2/m2^5 (dimensionless) */
+
    /* generate +,x waveforms */
    /* special case for NR waveforms */
    switch(approximant)
@@ -196,7 +202,7 @@ int XLALSimInspiralChooseWaveformFromSimInspiral(
          ret = XLALSimInspiralChooseTDWaveform(hplus, hcross, phi0, deltaT,
                m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, i,
                lambda1, lambda2, waveFlags, nonGRparams, amplitudeO,
-               order, approximant, eos);
+               order, approximant);
          XLALSimInspiralDestroyWaveformFlags(waveFlags);
          XLALSimInspiralDestroyTestGRParam(nonGRparams);
          if( ret == XLAL_FAILURE )
@@ -250,11 +256,15 @@ XLALSimInspiralChooseWaveformFromInspiralTemplate(
   LALPNOrder amplitudeO = params->ampOrder;
   LALPNOrder order = params->order;
   Approximant approximant = params->approximant;
-  LALEquationOfState eos = LAL_SIM_INSPIRAL_EOS_NONE; //Should be set from command line
+  LALEquationOfState eos = LAL_SIM_INSPIRAL_EOS_NONE; 
+  lambda1 = XLALSimInspiralEOSLambda(eos, params->mass1)/(params->mass1*LAL_MTSUN_SI*params->mass1*LAL_MTSUN_SI*params->mass1*LAL_MTSUN_SI*params->mass1*LAL_MTSUN_SI*params->mass1*LAL_MTSUN_SI); /* gives lambda1/m1^5 (dimensionless) */
+  lambda2 = XLALSimInspiralEOSLambda(eos, params->mass2)/(params->mass2*LAL_MTSUN_SI*params->mass2*LAL_MTSUN_SI*params->mass2*LAL_MTSUN_SI*params->mass2*LAL_MTSUN_SI*params->mass2*LAL_MTSUN_SI); /* gives lambda2/m2^5 (dimensionless) */
+
+  
   /* generate +,x waveforms */
   ret = XLALSimInspiralChooseTDWaveform(hplus, hcross, phi0, deltaT, m1, m2,
             S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, i, lambda1, lambda2,
-            waveFlags, nonGRparams, amplitudeO, order, approximant, eos);
+            waveFlags, nonGRparams, amplitudeO, order, approximant);
   XLALSimInspiralDestroyWaveformFlags(waveFlags);
   XLALSimInspiralDestroyTestGRParam(nonGRparams);
   if( ret == XLAL_FAILURE)

@@ -1459,25 +1459,44 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
         ABORTXLAL(&status);
       amporder = injEvent->amp_order;
       //if(amporder<0) amporder=0;
-      /* FIXME - tidal lambda's and interactionFlag are just set to command line values here.
-       * They should be added to injEvent and set to appropriate values
-       */
-      REAL8 lambda1 = 0.;
-      if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")) {
-        lambda1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")->value);
-        fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
-      }
-      REAL8 lambda2 = 0.;
-      if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")) {
-        lambda2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")->value);
-        fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
-      }
+      
+      /* Read the NS equation of state and define lambdas */
+      LALEquationOfState equation_of_state = LAL_SIM_INSPIRAL_EOS_NONE;
       REAL8 lambdaT = 0.;
       REAL8 dLambdaT = 0.;
       REAL8 m1=injEvent->mass1;
       REAL8 m2=injEvent->mass2;
       REAL8 Mt=m1+m2;
       REAL8 eta=m1*m2/(Mt*Mt);
+      equation_of_state = injEvent->eos;
+      REAL8 lambda1 = 0.;
+      REAL8 lambda2 = 0.;
+      /* check which EOS chosen, error if not available */
+      if (equation_of_state > LAL_SIM_INSPIRAL_NumEOS ) {
+          XLALPrintError("Chosen equation of state not implemented in lalsimulation.\n");
+          XLAL_ERROR_VOID(XLAL_EINVAL);
+          // exit(-1) ;
+      }
+      // FIXME: this is overwritten if --inj-lambda1,2 or --inj-lambdaT,dT are set
+      lambda1 = XLALSimInspiralEOSLambda(equation_of_state, m1)/(m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI); /* gives lambda1/m1^5 (dimensionless) */
+      lambda1 = XLALSimInspiralEOSLambda(equation_of_state, m2)/(m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI); /* gives lambda2/m2^5 (dimensionless) */
+
+      // fprintf(stderr, "Equation of state: %d\n",eos);
+      // fprintf(stdout,"lambda1 set to %f\n",lambda1);
+      // fprintf(stdout,"lambda2 set to %f\n",lambda2);
+
+      /* FIXME - tidal lambda's and interactionFlag are just set to command line values here.
+       * They should be added to injEvent and set to appropriate values
+       */
+      if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")) {
+        lambda1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")->value);
+        fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
+      }
+      if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")) {
+        lambda2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")->value);
+        fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
+      }
+
       if(LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT")&&LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")) {
         lambdaT= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT")->value);
         dLambdaT= atof(LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")->value);
@@ -1487,6 +1506,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
         fprintf(stdout,"lambda1 set to %f\n",lambda1);
         fprintf(stdout,"lambda2 set to %f\n",lambda2);
       }
+
 
       REAL8 fref = 0.;
       if(LALInferenceGetProcParamVal(commandLine,"--inj-fref")) {
@@ -1512,27 +1532,13 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       REAL8 f_min = fLow2fStart(injEvent->f_lower, amporder, approximant);
       printf("Injecting with f_min = %f.\n", f_min);
 
-
-      LALEquationOfState eos = LAL_SIM_INSPIRAL_EOS_NONE;
-
-      eos = injEvent->eos;
-
-//      fprintf(stderr, "Equation of state: %d\n",eos);
-
-      /* check which EOS chosen, error if not available */
-      if (eos > LAL_SIM_INSPIRAL_NumEOS ) {
-          XLALPrintError("Chosen equation of state not implemented in lalsimulation.\n");
-          exit(-1) ;
-      }
-
-
       
       XLALSimInspiralChooseTDWaveform(&hplus, &hcross, injEvent->coa_phase, 1.0/InjSampleRate,
                                       injEvent->mass1*LAL_MSUN_SI, injEvent->mass2*LAL_MSUN_SI, injEvent->spin1x,
                                       injEvent->spin1y, injEvent->spin1z, injEvent->spin2x, injEvent->spin2y,
                                       injEvent->spin2z, f_min, fref, injEvent->distance*LAL_PC_SI * 1.0e6,
                                       injEvent->inclination, lambda1, lambda2, waveFlags,
-                                      nonGRparams, amporder, order, approximant, eos);
+                                      nonGRparams, amporder, order, approximant);
       if(!hplus || !hcross) {
         fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to produce waveform.\n");
         exit(-1);
@@ -2164,6 +2170,8 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     REAL8 latitude=0.0;
     REAL8 polarization=0.0;
     REAL8 injtime=0.0;
+    REAL8 m1=inj_table->mass1;
+    REAL8 m2=inj_table->mass2;
    
     
     tmpdata->modelParams=XLALCalloc(1,sizeof(LALInferenceVariables));
@@ -2243,9 +2251,21 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
         fprintf(stdout,"No --inj-tidalOrder option given. Injecting the highest tidal order for this waveform!\n");
     fprintf(stdout,"injectTaylorF2 will run using Approximant %i (%s), phase order %i, amp order %i, spinOrder %i TidalOrder %i in the Frequency domain.\n",injapprox,XLALGetStringFromApproximant(injapprox),phase_order,amp_order,(int) spinO,(int) tideO);
     
+    // FIXME: this adds lambda1 and lambda2 twice if --inj-lambda1,2 are set
+    LALEquationOfState equation_of_state = LAL_SIM_INSPIRAL_EOS_NONE;
+    equation_of_state = inj_table->eos;
+    lambda1 = XLALSimInspiralEOSLambda(equation_of_state, m1)/(m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI); /* gives lambda1/m1^5 (dimensionless) */
+    lambda1 = XLALSimInspiralEOSLambda(equation_of_state, m2)/(m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI); /* gives lambda2/m2^5 (dimensionless) */
+    fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
+    fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_SIM_INSPIRAL_EOS", &(inj_table->eos), LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(tmpdata->modelParams, "lambda1",&lambda1,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceAddVariable(tmpdata->modelParams, "lambda2",&lambda2,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+
     LALEquationOfState eoscheck =  *(LALEquationOfState*) LALInferenceGetVariable(tmpdata->modelParams, "LAL_SIM_INSPIRAL_EOS");
     fprintf(stderr, "In InjectTaylorF2, with eos: %d\n", eoscheck);
+    fprintf(stderr, "In InjectTaylorF2, with lambda1: %f\n", *(REAL8*) LALInferenceGetVariable(tmpdata->modelParams, "LAL_SIM_INSPIRAL_lambda1")); // FIXME: test prints to be removed
+    fprintf(stderr, "In InjectTaylorF2, with lambda2: %f\n", *(REAL8*) LALInferenceGetVariable(tmpdata->modelParams, "LAL_SIM_INSPIRAL_lambda2"));
  
     COMPLEX16FrequencySeries *freqModelhCross=NULL;
     freqModelhCross=XLALCreateCOMPLEX16FrequencySeries("freqDatahC",&(tmpdata->timeData->epoch),0.0,tmpdata->freqData->deltaF,&lalDimensionlessUnit,tmpdata->freqData->data->length);

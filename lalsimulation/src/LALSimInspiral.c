@@ -1836,8 +1836,7 @@ int XLALSimInspiralChooseTDWaveform(
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
-    Approximant approximant,                     /**< post-Newtonian approximant to use for waveform production */
-    LALEquationOfState eos
+    Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
     )
 {
     REAL8 LNhatx, LNhaty, LNhatz, E1x, E1y, E1z;
@@ -1849,21 +1848,12 @@ int XLALSimInspiralChooseTDWaveform(
      * For now, hardcode quadparam1,2 = 1.
      * Will later add ability to set via LALSimInspiralTestGRParam
      */
-    REAL8 v0 = 1., quadparam1 = 1., quadparam2 = 1., lam1 = 0., lam2 = 0.;
-    REAL8 m1sun, m2sun;
-    m1sun = m1/LAL_MSUN_SI;
-    m2sun = m2/LAL_MSUN_SI;
+    REAL8 v0 = 1., quadparam1 = 1., quadparam2 = 1.;
 //    printf("masses: %e, %e\n", m1, m2);
-    lam1 = XLALSimInspiralEOSLambda(eos, m1sun); //Marco: These should be intrinsic masses; how do I do that?
-    lam2 = XLALSimInspiralEOSLambda(eos, m2sun); 
-//    printf("Lambdas: %e, %e\n", lam1, lam2);
-    lam1 = lam1/pow(m1sun*LAL_MTSUN_SI,5);
-    lam2 = lam2/pow(m2sun*LAL_MTSUN_SI,5);
-//    printf("love numbers: %e, %e\n", lam1, lam2);
-    quadparam1 = XLALSimInspiralEOSQfromLambda(lam1);
-    quadparam2 = XLALSimInspiralEOSQfromLambda(lam2); 
+    quadparam1 = XLALSimInspiralEOSQfromLambda(lambda1);
+    quadparam2 = XLALSimInspiralEOSQfromLambda(lambda2); 
 //    printf("quadparams: %e, %e\n", quadparam1, quadparam2);
-//    printf("Lambdas/m^5: %e, %e\n", lam1, lam2);
+//    printf("Lambda_i/m_i^5: %e, %e\n", lambda1, lambda2);
     // printf("Entering XLALSimInspiralChooseTDWaveform for recovery\n");
     
     /* General sanity checks that will abort */
@@ -1972,7 +1962,7 @@ int XLALSimInspiralChooseTDWaveform(
                 ABORT_NONZERO_SPINS(waveFlags);
             /* Call the waveform driver routine */
             ret = XLALSimInspiralTaylorT4PNGenerator(hplus, hcross, phiRef, v0,
-                    deltaT, m1, m2, f_min, f_ref, r, i, lam1, lam2,
+                    deltaT, m1, m2, f_min, f_ref, r, i, lambda1, lambda2,
                     XLALSimInspiralGetTidalOrder(waveFlags), amplitudeO, phaseO);
             break;
 
@@ -2080,10 +2070,10 @@ int XLALSimInspiralChooseTDWaveform(
             amplitudeO = amplitudeO <= MAX_PRECESSING_AMP_PN_ORDER ? 
                     amplitudeO : MAX_PRECESSING_AMP_PN_ORDER;
             /* Call the waveform driver routine */
-            // printf("About to call engine\nlam1, lam2: %e, %e\n", lam1, lam2);
+            // printf("About to call engine\nlambda1, lambda2: %e, %e\n", lambda1, lambda2);
             ret = XLALSimInspiralSpinTaylorT4(hplus, hcross, phiRef, v0, deltaT,
                     m1, m2, f_min, f_ref, r, S1x, S1y, S1z, S2x, S2y, S2z,
-                    LNhatx, LNhaty, LNhatz, E1x, E1y, E1z, lam1, lam2,
+                    LNhatx, LNhaty, LNhatz, E1x, E1y, E1z, lambda1, lambda2,
                     quadparam1, quadparam2,
                     XLALSimInspiralGetSpinOrder(waveFlags),
                     XLALSimInspiralGetTidalOrder(waveFlags),
@@ -2183,8 +2173,7 @@ int XLALSimInspiralChooseFDWaveform(
     LALSimInspiralTestGRParam *nonGRparams, /**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                         /**< twice post-Newtonian amplitude order */
     int phaseO,                             /**< twice post-Newtonian order */
-    Approximant approximant,                 /**< post-Newtonian approximant to use for waveform production */
-    LALEquationOfState eos
+    Approximant approximant                 /**< post-Newtonian approximant to use for waveform production */
     )
 {
     REAL8 LNhatx, LNhaty, LNhatz;
@@ -2241,7 +2230,7 @@ int XLALSimInspiralChooseFDWaveform(
                     S1z, S2z, f_min, f_max, r, lambda1, lambda2,
                     XLALSimInspiralGetSpinOrder(waveFlags),
                     XLALSimInspiralGetTidalOrder(waveFlags),
-                    phaseO, amplitudeO, eos);
+                    phaseO, amplitudeO);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             /* The above returns h(f) for optimal orientation (i=0, Fp=1, Fc=0)
              * To get generic polarizations we multiply by incl. dependence

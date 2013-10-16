@@ -61,8 +61,7 @@ int XLALSimInspiralTaylorF2(
         const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
         const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
         const INT4 phaseO,                     /**< twice PN phase order */
-        const INT4 amplitudeO,                 /**< twice PN amplitude order */
-        const LALEquationOfState eos
+        const INT4 amplitudeO                 /**< twice PN amplitude order */
         )
 {
     const REAL8 lambda = -1987./3080.;
@@ -81,8 +80,6 @@ int XLALSimInspiralTaylorF2(
     const REAL8 chi1 = m1 / m;
     const REAL8 chi2 = m2 / m;
     REAL8 fCONT = fEnd; 
-    REAL8 lam1 = lambda1;
-    REAL8 lam2 = lambda2;
     REAL8 shft, amp0, f_max;
     size_t i, n, iStart;
     COMPLEX16 *data = NULL;
@@ -115,17 +112,12 @@ int XLALSimInspiralTaylorF2(
     REAL8 d = (m1 - m2) / (m1 + m2);
     REAL8 xs = .5 * (S1z + S2z);
     REAL8 xa = .5 * (S1z - S2z);
-//    fprintf(stderr, "TaylorF2 Waveform Generator; EOS: %d\n", eos);
-    lam1 = XLALSimInspiralEOSLambda(eos, m1);
-    lam2 = XLALSimInspiralEOSLambda(eos, m2);
-    lam1 = lam1/(m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI);
-    lam2 = lam2/(m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI);
-    fCONT = XLALSimInspiralContactFrequency(m1, lam1, m2, lam2);
+    fCONT = XLALSimInspiralContactFrequency(m1, lambda1, m2, lambda2);
     
-//	fprintf(stderr, "Lambdas: %e, %e\n", lam1, lam2);
+//	fprintf(stderr, "Lambdas: %e, %e\n", lambda1, lambda2);
 
-    REAL8 qm_def1 = XLALSimInspiralEOSQfromLambda(lam1); /* The QM deformability parameters */
-    REAL8 qm_def2 = XLALSimInspiralEOSQfromLambda(lam2); /* This is 1 for black holes and larger for neutron stars */
+    REAL8 qm_def1 = XLALSimInspiralEOSQfromLambda(lambda1); /* The QM deformability parameters */
+    REAL8 qm_def2 = XLALSimInspiralEOSQfromLambda(lambda2); /* This is 1 for black holes and larger for neutron stars */
 
 //    fprintf(stderr,"Quadparams: %e, %e\n", qm_def1, qm_def2);
 
@@ -181,23 +173,23 @@ int XLALSimInspiralTaylorF2(
     {
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_75PN:
-            pft15 = lam2* chi2*chi2*chi2*chi2 * 1.L/28.L*LAL_PI*(27719.L - 22127.L*chi2 + 7022.L*chi2*chi2 - 10232.L*chi2*chi2*chi2)
-                + lam1* chi1*chi1*chi1*chi1 * 1.L/28.L*LAL_PI*(27719.L - 22127.L*chi1 + 7022.L*chi1*chi1 - 10232.L*chi1*chi1*chi1);
+            pft15 = lambda2* chi2*chi2*chi2*chi2 * 1.L/28.L*LAL_PI*(27719.L - 22127.L*chi2 + 7022.L*chi2*chi2 - 10232.L*chi2*chi2*chi2)
+                + lambda1* chi1*chi1*chi1*chi1 * 1.L/28.L*LAL_PI*(27719.L - 22127.L*chi1 + 7022.L*chi1*chi1 - 10232.L*chi1*chi1*chi1);
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_7PN:
-            pft14 = - lam2 * chi2*chi2*chi2*chi2 * 24.L*(39927845.L/508032.L                           - 480043345.L/9144576.L*chi2 + 9860575.L/127008.L*chi2*chi2 - 421821905.L/2286144.L*chi2*chi2*chi2 + 4359700.L/35721.L*chi2*chi2*chi2*chi2 - 10578445.L/285768.L*chi2*chi2*chi2*chi2*chi2)
-                   - lam1 * chi1*chi1*chi1*chi1 * 24.L*(39927845.L/508032.L 
+            pft14 = - lambda2 * chi2*chi2*chi2*chi2 * 24.L*(39927845.L/508032.L                           - 480043345.L/9144576.L*chi2 + 9860575.L/127008.L*chi2*chi2 - 421821905.L/2286144.L*chi2*chi2*chi2 + 4359700.L/35721.L*chi2*chi2*chi2*chi2 - 10578445.L/285768.L*chi2*chi2*chi2*chi2*chi2)
+                   - lambda1 * chi1*chi1*chi1*chi1 * 24.L*(39927845.L/508032.L 
                 - 480043345.L/9144576.L*chi1 + 9860575.L/127008.L*chi1*chi1 - 421821905.L/2286144.L*chi1*chi1*chi1 + 4359700.L/35721.L*chi1*chi1*chi1*chi1 - 10578445.L/285768.L*chi1*chi1*chi1*chi1*chi1);
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_65PN:
-            pft13 = - lam2 * chi2*chi2*chi2*chi2 * 24.L*(12.L - 11.L*chi2)*LAL_PI
-                    - lam1 * chi1*chi1*chi1*chi1 * 24.L*(12.L - 11.L*chi1)*LAL_PI;
+            pft13 = - lambda2 * chi2*chi2*chi2*chi2 * 24.L*(12.L - 11.L*chi2)*LAL_PI
+                    - lambda1 * chi1*chi1*chi1*chi1 * 24.L*(12.L - 11.L*chi1)*LAL_PI;
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
-            pft12 = - 5.L * lam2 * chi2*chi2*chi2*chi2 * (3179.L - 919.L*chi2
+            pft12 = - 5.L * lambda2 * chi2*chi2*chi2*chi2 * (3179.L - 919.L*chi2
                     - 2286.L*chi2*chi2 + 260.L*chi2*chi2*chi2)/28.L
-                    - 5.L * lam1 * chi1*chi1*chi1*chi1 * (3179.L - 919.L*chi1
+                    - 5.L * lambda1 * chi1*chi1*chi1*chi1 * (3179.L - 919.L*chi1
                     - 2286.L*chi1*chi1 + 260.L*chi1*chi1*chi1)/28.L;
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_5PN:
-            pft10 = - 24.L * lam2 * chi2*chi2*chi2*chi2 * (1.L + 11.L*chi1)
-                    - 24.L * lam1 * chi1*chi1*chi1*chi1 * (1.L + 11.L*chi2);
+            pft10 = - 24.L * lambda2 * chi2*chi2*chi2*chi2 * (1.L + 11.L*chi1)
+                    - 24.L * lambda1 * chi1*chi1*chi1*chi1 * (1.L + 11.L*chi2);
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
             break;
         default:

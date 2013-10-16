@@ -1220,7 +1220,7 @@ REAL8 calculate_lalsim_snr(SimInspiralTable *inj, char *IFOname, REAL8FrequencyS
     XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&hptilde,&hctilde, phi0, deltaF, m1, m2,
       s1x, s1y, s1z, s2x, s2y, s2z, f_min, 0.0, LAL_PC_SI * 1.0e6,
       iota, lambda1, lambda2, waveFlags, nonGRparams,
-      amporder, order, approx, eos),errnum
+      amporder, order, approx),errnum
     );
 
     if(!hptilde|| hptilde->data==NULL || hptilde->data->data==NULL ||!hctilde|| hctilde->data==NULL || hctilde->data->data==NULL)
@@ -1285,7 +1285,7 @@ REAL8 calculate_lalsim_snr(SimInspiralTable *inj, char *IFOname, REAL8FrequencyS
 
     XLAL_TRY(ret=XLALSimInspiralChooseTDWaveform(&hplus, &hcross, phi0, deltaT,
         m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, f_min, 0., LAL_PC_SI*1.0e6,
-        iota, lambda1, lambda2, waveFlags, nonGRparams, amporder, order, approx, eos),
+        iota, lambda1, lambda2, waveFlags, nonGRparams, amporder, order, approx),
         errnum);
 
     if (ret == XLAL_FAILURE || hplus == NULL || hcross == NULL)

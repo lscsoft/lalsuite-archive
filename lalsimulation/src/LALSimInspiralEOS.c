@@ -36,10 +36,11 @@
    else if (!strcmp("APR",eos_name)) eos = LAL_SIM_INSPIRAL_EOS_APR;
    else if (!strcmp("UU",eos_name)) eos = LAL_SIM_INSPIRAL_EOS_UU;
    else if (!strcmp("L",eos_name)) eos = LAL_SIM_INSPIRAL_EOS_L;
+   else if (!strcmp("PP",eos_name)) eos = LAL_SIM_INSPIRAL_EOS_NONE;
    else
    {
-     fprintf(stderr,"Warning! %s not supported. Equation of state set to NONE\n",eos_name);
-     eos = LAL_SIM_INSPIRAL_EOS_NONE;
+    XLALPrintError( "XLAL Error - %s: Equation of state %s not recognized.", __func__, eos_name);
+    XLAL_ERROR(XLAL_EINVAL);
    }
    return eos;
  }
@@ -47,7 +48,7 @@
 REAL8 XLALSimInspiralEOSLambda(LALEquationOfState eos_type, REAL8 m_intr_msun){/** this must be fed the INTRINSIC mass */
 
     /* this is fed the intrinsic masses and then computes the value of \Lambda(m) See Hinderer et al ( http://arxiv.org/abs/0911.3535 ) for details of the EOSes*/
-    /* \Lambda(m) is in units of s^-5 */
+    /* \Lambda(m) is in units of s^5 */
     REAL8 lambda=0.;
 //  printf("EOS number: %d\n", eos_type);
 //  printf("mass: %e\n", m_intr_msun);
