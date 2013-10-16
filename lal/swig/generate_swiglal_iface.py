@@ -266,7 +266,7 @@ for header in headers:
         structs[struct['name']] = struct
 
 # look for a destructor function for each struct
-dtor_name_regexp = re.compile(r'(Destroy|Close)([A-Z0-9_]|$)')
+dtor_name_regexp = re.compile(r'(Destroy|Free|Close)([A-Z0-9_]|$)')
 dtor_decl_regexp = re.compile(r'^f\(p\.(.*)\)\.$')
 for function_name in functions:
 
@@ -287,6 +287,12 @@ for function_name in functions:
     # function argument must be a struct name
     if not dtor_struct_name in tdstructs:
         continue
+
+    # struct must not already have a destructor
+    if 'dtor_function' in tdstructs[dtor_struct_name]:
+        fail("struct typedef '%s' has duplicate destructors '%s' and '%s'" %
+             (dtor_struct_name, tdstructs[dtor_struct_name]['dtor_function'], function_name)
+             )
 
     # save destructor name
     tdstructs[dtor_struct_name]['dtor_function'] = function_name

@@ -489,24 +489,26 @@ def channel_struct(params,channelList):
            samplef = float(line_split[1])
            calibration = float(line_split[2])
 
-           if station[0] == "H":
-               latitude = 46.6475
-               longitude = -119.5986;
-           elif station[0] == "L":
-               latitude = 30.4986
-               longitude = -90.7483
-           elif station[0] == "G":
-               latitude = 52.246944
-               longitude = 9.808333
-           elif station[0] == "V":
-               latitude = 43.631389
-               longitude = 10.505
-           elif station[0] == "C":
-               latitude = 34.1391
-               longitude = -118.1238
-           elif station[0] == "M":
-               latitude = 44.3465
-               longitude = -103.7574
+           latitude,longitude = getLatLon(params)
+
+           if station in ["H1:HPI-BS_STSINF_A_Z_IN1_DQ","H0:PEM-LVEA_SEISZ"]:
+               latitude = 46.455166000000
+               longitude = -119.40743100000326
+           elif station in ["H1:HPI-ETMX_STSINF_A_Z_IN1_DQ","H0:PEM-EX_SEISZ"]:
+               latitude = 46.43394482046292
+               longitude = -119.44972407175652
+           elif station in ["H1:HPI-ETMY_STSINF_A_Z_IN1_DQ","H0:PEM-EY_SEISZ"]:
+               latitude = 46.48429090731142
+               longitude = -119.43824421717696
+           elif all(x in station for x in ["L1","BS"]):
+               latitude = 30.562906000000023
+               longitude = -90.77422499999618
+           elif all(x in station for x in ["L1","ETMX"]):
+               latitude = 30.5519808137184
+               longitude = -90.8139431511044
+           elif all(x in station for x in ["L1","ETMY"]):
+               latitude = 30.52854703505914
+               longitude = -90.76152205811134
 
            if not params["channel"] == None:
                if not station in params["channel"]:
@@ -588,13 +590,13 @@ def setPath(params,segment):
     gpsStart = segment[0]
     gpsEnd = segment[1]
 
-    if params["doEarthquakesMonitor"]:
+    if params["doEarthquakesOnline"]:
         # Output path for run
-        params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + '-EarthquakesMonitor'
+        params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + '-Online' + '/' + "%.0f"%gpsStart + "-" + "%.0f"%gpsEnd
     else:
         params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + "-" + "%.0f"%gpsStart + "-" + "%.0f"%gpsEnd
 
-    if params["doAnalysis"] or params["doPlots"] or params["doEarthquakesAnalysis"]:
+    if params["doAnalysis"] or params["doPlots"] or params["doEarthquakesAnalysis"] or params["doEarthquakesOnline"]:
         pylal.pylal_seismon_utils.mkdir(params["path"])
 
     return params
@@ -619,6 +621,35 @@ def getIfo(params):
         ifo = "LHO"
 
     return ifo
+
+def getLatLon(params):
+
+    if params["ifo"] == "H1":
+        latitude = 46.6475
+        longitude = -119.5986
+    elif params["ifo"] == "L1":
+        latitude = 30.4986
+        longitude = -90.7483
+    elif params["ifo"] == "G1":
+        latitude = 52.246944
+        longitude = 9.808333
+    elif params["ifo"] == "V1":
+        latitude = 43.631389
+        longitude = 10.505
+    elif params["ifo"] == "C1":
+        latitude = 34.1391
+        longitude = -118.1238
+    elif params["ifo"] == "XG":
+        latitude = 44.3465
+        longitude = -103.7574
+    elif params["ifo"] == "IRIS":
+        latitude = 46.6475
+        longitude = -119.5986
+    elif params["ifo"] == "LUNAR":
+        latitude = 46.6475
+        longitude = -119.5986
+
+    return latitude,longitude
 
 def GPSToUTCDateTime(gps):
     """@calculate UTC time from gps
@@ -738,17 +769,20 @@ def RunningMedian(data, M, factor):
             data[i] = data_slice_median
     return data
 
-def flag_struct(params):
+def flag_struct(params,segment):
     """@create seismon flag structure
 
     @param params
         seismon params structure
+    @param segment
+        [start,end] gps
     """
 
-    gpsStart = params["gpsStart"]
-    gpsEnd = params["gpsEnd"]
+    if not "flagList" in params:
+        params["flagList"] = glue.segments.segmentlist()
 
-    print gpsStart, gpsEnd
+    gpsStart = segment[0]
+    gpsEnd = segment[1]
 
     # set the times
     duration = np.ceil(gpsEnd-gpsStart)
@@ -763,7 +797,6 @@ def flag_struct(params):
         dqsegments = gwpy.segments.DataQualityFlag.query(params["flagsFlag"],gpsStart,gpsEnd,url=params["flagsDatabase"])
         segmentlist = dqsegments.active
     elif params["doFlagsTextFile"]:
-        segmentlist = glue.segments.segmentlist()
         lines = [line.strip() for line in open(params["flagsTextFile"])]
         for line in lines:
             lineSplit = line.split(",")
@@ -771,17 +804,13 @@ def flag_struct(params):
             segmentlist.append(glue.segments.segment(seg[0],seg[1]))
 
     elif params["doFlagsChannel"]:
-        segmentlist = [glue.segments.segment(params["gpsStart"],params["gpsEnd"])]
-        params["segments"] = segmentlist
-
+        print "Generating flags from timeseries"
         if params["doPlots"]:
             plotDirectory = params["path"] + "/flags" 
             pylal.pylal_seismon_utils.mkdir(plotDirectory)
 
             pngFile = os.path.join(plotDirectory,"timeseries.png")
             plot = gwpy.plotter.TimeSeriesPlot(figsize=[14,8])
-
-        segmentlist = glue.segments.segmentlist()
 
         lines = [line.strip() for line in open(params["flagsTextFile"])]    
         for line in lines:
@@ -791,27 +820,20 @@ def flag_struct(params):
             samplef = int(lineSplit[1])
             threshold = float(lineSplit[2])
 
-            dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel, epoch=gpsStart, duration=duration)
-
-            if params["doPlots"]:
-                label = channel.replace(":","_").replace("_","\_")
-                plot.add_timeseries(dataFull,label=label)
-
             try:
                 dataFull = gwpy.timeseries.TimeSeries.read(params["frame"], channel, start=gpsStart, end=gpsEnd)
             except:
                 print "data read from frames failed... continuing\n"
                 continue
 
-            continue
-            segmentlist = glue.segments.segmentlist()
-            segs = np.loadtxt(params["segmentsTextFile"])
-            for seg in segs:
-                segmentlist.append(glue.segments.segment(seg[0],seg[1]))
-            params["segments"] = segmentlist
-            params["gpsStart"] = np.min(params["segments"])
-            params["gpsEnd"] = np.max(params["segments"])
+            if params["doPlots"]:
+                label = channel.replace(":","_").replace("_","\_")
+                plot.add_timeseries(dataFull,label=label)
 
+            dataFullState = dataFull > threshold
+            segmentlistflag = dataFullState.to_dqflag(round=True)
+            segmentlist = segmentlist | segmentlistflag.active
+ 
         if params["doPlots"]:
             plot.ylabel = r"RMS Velocity [$\mu$m/s]"
             plot.add_legend(loc=1,prop={'size':10})
@@ -819,7 +841,7 @@ def flag_struct(params):
             plot.save(pngFile)
             plot.close()
 
-    params["flagList"] = segmentlist
+    params["flagList"] = params["flagList"] | segmentlist
     return params
 
 def segmentlist_duration(segmentlist):
@@ -833,7 +855,6 @@ def segmentlist_duration(segmentlist):
     for seg in segmentlist:
         dur = seg[1] - seg[0]
         duration = duration + dur
-        print seg, duration
     return duration
 
 def run_flags_analysis(params,segment):
@@ -853,8 +874,11 @@ def run_flags_analysis(params,segment):
 
     segmentlist = glue.segments.segmentlist()
     segs = np.loadtxt(noticesFile)
-    for seg in segs:
-        segmentlist.append(glue.segments.segment(seg[0],seg[0]+seg[1]))
+    try:
+        for seg in segs:
+            segmentlist.append(glue.segments.segment(seg[0],seg[0]+seg[1]))
+    except:
+            segmentlist.append(glue.segments.segment(segs[0],segs[0]+segs[1]))
     earthquake_segmentlist = segmentlist
     earthquake_segmentlist.coalesce()
     earthquake_segmentlist_duration = segmentlist_duration(earthquake_segmentlist)
