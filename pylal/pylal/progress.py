@@ -24,6 +24,7 @@ __all__       = ["ProgressBar"]
 # TODO: Is it better to print the progress bar to stderr or stdout?
 
 
+import math
 import os
 import sys
 
@@ -69,7 +70,7 @@ def getTerminalSize():
 class ProgressBar:
     """Display a text progress bar."""
 
-    def __init__(self, text='Working', max=1, value=0, textwidth=24, fid=None):
+    def __init__(self, text='Working', max=1, value=0, textwidth=24, fid=None, sequence=' .:!|', twiddle_sequence=(' ..', '. .', '.. ')):
         if fid is None:
             self.fid = sys.stderr
         self.isatty = os.isatty(self.fid.fileno())
@@ -77,6 +78,8 @@ class ProgressBar:
         self.max = max
         self.value = value
         self.textwidth = textwidth
+        self.sequence = sequence
+        self.twiddle_sequence = twiddle_sequence
         self.twiddle = 0
 
     def iterate(self, iterable, format="%s"):
@@ -121,28 +124,20 @@ class ProgressBar:
         barWidth = terminalSize - self.textwidth - 10
 
         if self.value is None or self.value < 0:
-            if self.twiddle == 0:
-                pattern = ' ..'
-                self.twiddle = 1
-            elif self.twiddle == 1:
-                pattern = '. .'
-                self.twiddle = 2
-            else:
-                pattern = '.. '
-                self.twiddle = 0
+            pattern = self.twiddle_sequence[self.twiddle % len(self.twiddle_sequence)]
+            self.twiddle += 1
             barSymbols = (pattern * int(ceil(barWidth/3.0)))[0:barWidth]
             progressFractionText = '   . %'
         else:
-            solidBlock = '|'
-            partialBlocks = ' .:!'
-            blank = ' '
-
             progressFraction = float(self.value) / self.max
-            nBlocks = progressFraction * barWidth
-            nBlocksInt = int(floor(progressFraction * barWidth))
-            partialBlock = partialBlocks[int(floor((nBlocks - nBlocksInt) * len(partialBlocks)))]
+
+            nBlocksFrac, nBlocksInt = math.modf(max(0.0, min(1.0, progressFraction)) * barWidth)
+            nBlocksInt = int(nBlocksInt)
+
+            partialBlock = self.sequence[int(floor(nBlocksFrac * len(self.sequence)))]
+
             nBlanks = barWidth - nBlocksInt - 1
-            barSymbols = (solidBlock * nBlocksInt) + partialBlock + (blank * nBlanks)
+            barSymbols = (self.sequence[-1] * nBlocksInt) + partialBlock + (self.sequence[0] * nBlanks)
             progressFractionText = ('%.1f%%' % (100*progressFraction)).rjust(6)
 
         print >>self.fid, '\r\x1B[1m' + label + '\x1B[0m [' + barSymbols + ']' + progressFractionText,
