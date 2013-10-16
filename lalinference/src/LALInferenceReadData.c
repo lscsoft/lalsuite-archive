@@ -2509,6 +2509,34 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       REAL8 spin1[3] = {0.0};
       REAL8 spin2[3] = {0.0};
       spin1[1]*=Mt*responseScale;
+      
+      
+      /* Ugly method to inject the nonGRparams */
+      if(injEvent->dfreq21 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq21",injEvent->dfreq21) ;
+      }
+      if(injEvent->dfreq22 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq22",injEvent->dfreq22) ;
+      }
+      if(injEvent->dfreq33 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq33",injEvent->dfreq33) ;
+      }
+      if(injEvent->dfreq44 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dfreq44",injEvent->dfreq44) ;
+      }
+      if(injEvent->dtau21 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau21",injEvent->dtau21) ;
+      }
+      if(injEvent->dtau22 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau22",injEvent->dtau22) ;
+      }
+      if(injEvent->dtau33 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau33",injEvent->dtau33) ;
+      }
+      if(injEvent->dtau44 != 0.0) {
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dtau44",injEvent->dtau44) ;
+      } 
+      
       XLALSimBlackHoleRingdownTiger(&hplus, &hcross, qnmodes, &t0, phase, 1.0/InjSampleRate, Mbh*LAL_MSUN_SI,
                                     spin, eta, spin1, spin2, injEvent->distance*LAL_PC_SI * 1.0e6, 
                                     injEvent->inclination, nonGRparams);

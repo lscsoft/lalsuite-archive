@@ -465,7 +465,7 @@ static void eta2q(REAL8 eta, REAL8 *q)
  * symmetric mass ratio, eta.
  */
 {
-  *q = 1.0/(2.*eta)*(1. - sqrt(1. - 4.*eta)) - 1; // TODO: check this!
+  *q = (1. - sqrt(1. - 4.*eta))/(1. + sqrt(1. - 4.*eta)) ;
 }
 
 /*
