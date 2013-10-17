@@ -65,6 +65,8 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
                                                default modeldomain=\"frequency\": RingdownFD.\n\
                (--fref fRef)                   Specify a reference frequency at which parameters are defined (default 0).\n\
                (--modeldomain)                 domain the waveform template will be computed in (\"time\" or \"frequency\").\n\
+               (--enable-a)                    Treat final BH spin as a free parameter.\n\
+               (--disable-a)                   Calculate spin from progenitor parameters.\n\
                \n\
                ------------------------------------------------------------------------------------------------------------------\n\
                --- Starting Parameters ------------------------------------------------------------------------------------------\n\
@@ -964,7 +966,14 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
     LALInferenceRegisterUniformVariableREAL8(state, currentParams, "distance", start_dist, Dmin, Dmax, LALInferenceGetProcParamVal(commandLine,"--fixDist")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
   }
 
-  LALInferenceRegisterUniformVariableREAL8(state, currentParams, "rdSpin", start_a_spin, amin, amax, LALInferenceGetProcParamVal(commandLine,"--fixSpin")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
+  ppt = LALInferenceGetProcParamVal(commandLine,"--enable-a");
+  if (ppt){
+    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "rdSpin", start_a_spin, amin, amax, LALInferenceGetProcParamVal(commandLine,"--fixSpin")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
+    XLALPrintInfo("Adding final black hole spin to the template parameters \n");
+  } else if (LALInferenceGetProcParamVal(commandLine, "--disable-a")) {
+	  LALInferenceAddVariable(currentParams, "spin_from_components", NULL, LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
+  }
+  
   
   LALInferenceRegisterUniformVariableREAL8(state, currentParams, "rightascension", start_ra, raMin, raMax, LALInferenceGetProcParamVal(commandLine,"--fixRa")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_CIRCULAR);
   

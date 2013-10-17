@@ -2005,7 +2005,9 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
    * Three options are available here :
    * 1) Final BH spin distribution is defined 
    * 2) Final BH spin is calculated from progenitor mass and spin parameters
-   * 3) Final BH spin is calculated from non-spinning progenitor mass ratio. */
+   * 3) Final BH spin is calculated from non-spinning progenitor mass ratio. 
+   * If --enable-a is used, with the related options, then 1) is chosen.
+   * If --disable-a is used, then 2) or 3) is chosen, depending on spins being 0 or not. */
   
   if(LALInferenceCheckVariable(IFOdata->modelParams, "rdSpin")){
     spin = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "rdSpin");
