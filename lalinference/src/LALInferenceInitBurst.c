@@ -43,7 +43,7 @@
 void LALInferenceInitBurstTemplate(LALInferenceRunState *runState)
 {
 
-  char help[]="(--template [SineGauss,SineGaussF,BestIFO,RingdownF,HMNS]\tSpecify template (default LAL)\n";
+  char help[]="(--template [SineGauss,SineGaussF,Gauss,BestIFO,RingdownF,HMNS]\tSpecify template (default LAL)\n";
   ProcessParamsTable *ppt=NULL;
   ProcessParamsTable *commandLine=runState->commandLine;
   /* Print command line arguments if help requested */
@@ -98,8 +98,8 @@ LALInferenceVariables * LALInferenceInitBurstVariables(LALInferenceRunState *sta
 	state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
 	LALInferenceVariables *currentParams=state->currentParams;
 	ProcessParamsTable *commandLine=state->commandLine;
-	REAL8 endtime=0;
-	REAL8 endtime_from_inj=0;
+	REAL8 endtime=-1;
+	REAL8 endtime_from_inj=-1;
 	ProcessParamsTable *ppt=NULL;
     
     REAL8 tmpMax, tmpVal,tmpMin;
@@ -115,7 +115,7 @@ Parameter arguments:\n\
 (--trigtime time)\tTrigger time to use\n\
 (--approx ApproximantphaseOrderPN)\tSet approximant (PhenSpin implicitly enables spin)\n\
 (--fref fRef)\tSpecify a reference frequency at which parameters are defined (default 0).\n\
-(--pinparams [mchirp,asym_massratio,etc])\n\tList of parameters to set to injected values\n\
+(--pinparams [frequency,q,loghrss, etc])\n\tList of parameters to set to injected values\n\
 (--burst_inj)\t Assume burst signals are injected (for the moment singaussian only)\n";
 	/* Print command line arguments if help requested */
 	ppt=LALInferenceGetProcParamVal(commandLine,"--help");
@@ -142,9 +142,9 @@ Parameter arguments:\n\
           while(i<event) {i++; BinjTable = BinjTable->next;}
         }
         else
-        fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
+          fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
         endtime_from_inj=XLALGPSGetREAL8(&(BinjTable->time_geocent_gps));
-        state->data->modelDomain=LAL_SIM_DOMAIN_TIME; // fixme
+        state->data->modelDomain=LAL_SIM_DOMAIN_FREQUENCY; // fixme
     }
     else{
 	ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
@@ -168,9 +168,13 @@ Parameter arguments:\n\
             printf("Did not provide --trigtime or an xml file and event... Exiting.\n");
             exit(1);
     }
-    if(endtime_from_inj && endtime && (endtime_from_inj!=endtime))
-	fprintf(stderr,"WARNING!!! You set trigtime %lf with --trigtime but event %i seems to trigger at time %lf\n",endtime,event,endtime_from_inj);
-	
+    if (endtime_from_inj!=endtime){
+      if(endtime_from_inj>0 && endtime>0)
+        fprintf(stderr,"WARNING!!! You set trigtime %lf with --trigtime but event %i seems to trigger at time %lf\n",endtime,event,endtime_from_inj);
+      else if(endtime_from_inj>0)
+        endtime=endtime_from_inj;
+    }
+    
     fprintf(stdout,"Set trigtime %lf for template\n",endtime);
     
     if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
@@ -197,8 +201,15 @@ Parameter arguments:\n\
     REAL8 psimin=0.0,psimax=LAL_PI; 
     REAL8 ramin=0.0,ramax=LAL_TWOPI; 
     REAL8 decmin=-LAL_PI/2.0,decmax=LAL_PI/2.0; 
-    REAL8 ffmin=40., ffmax=1300.0;
-    REAL8 qmin=3., qmax=100.0;
+    ppt=LALInferenceGetProcParamVal(commandLine,"--template");
+    //if (!strcmp("SineGauss",ppt->value) || !strcmp("SineGaussF",ppt->value)){
+      REAL8 qmin=3., qmax=100.0;
+      REAL8 ffmin=40., ffmax=1300.0;
+    //}
+    //else if !strcmp("Gauss",ppt->value){
+      REAL8 durmin=1.0e-4; // min and max value of duration for gaussian templates 
+      REAL8 durmax=.5;
+      //}
     REAL8 hrssmin=1.e-23, hrssmax=1.0e-21;
     REAL8 loghrssmin=log(hrssmin),loghrssmax=log(hrssmax);
     REAL8 dt=0.1;
@@ -213,14 +224,24 @@ Parameter arguments:\n\
     if (ppt){ loghrssmin=log(atof(ppt->value)); fprintf(stdout,"Setting min prior for loghrss to %f\n",log(atof(ppt->value)));}
     ppt=LALInferenceGetProcParamVal(commandLine,"--hrssmax");
     if (ppt){ loghrssmax=log(atof(ppt->value)); fprintf(stdout,"Setting max prior for loghrss to %f\n",log(atof(ppt->value)));}    
-    ppt=LALInferenceGetProcParamVal(commandLine,"--qmin");
-    if (ppt){ qmin=atof(ppt->value); fprintf(stdout,"Setting min prior for Q to %f\n",atof(ppt->value));}
-    ppt=LALInferenceGetProcParamVal(commandLine,"--qmax");
-    if (ppt){ qmax=atof(ppt->value); fprintf(stdout,"Setting max prior for Q to %f\n",atof(ppt->value));}
-    ppt=LALInferenceGetProcParamVal(commandLine,"--fmin");
-    if (ppt){ ffmin=atof(ppt->value);     fprintf(stdout,"Setting min prior for centre frequency to %f\n",atof(ppt->value));}
-    ppt=LALInferenceGetProcParamVal(commandLine,"--fmax");
-    if (ppt){ ffmax=atof(ppt->value); fprintf(stdout,"Setting max prior for centre frequency to %f\n",atof(ppt->value));}
+    ppt=LALInferenceGetProcParamVal(commandLine,"--template");
+    if (!strcmp("SineGauss",ppt->value) || !strcmp("SineGaussF",ppt->value)){
+      ppt=LALInferenceGetProcParamVal(commandLine,"--qmin");
+      if (ppt){ qmin=atof(ppt->value); fprintf(stdout,"Setting min prior for Q to %f\n",atof(ppt->value));}
+      ppt=LALInferenceGetProcParamVal(commandLine,"--qmax");
+      if (ppt){ qmax=atof(ppt->value); fprintf(stdout,"Setting max prior for Q to %f\n",atof(ppt->value));}
+      ppt=LALInferenceGetProcParamVal(commandLine,"--fmin");
+      if (ppt){ ffmin=atof(ppt->value);     fprintf(stdout,"Setting min prior for centre frequency to %f\n",atof(ppt->value));}
+      ppt=LALInferenceGetProcParamVal(commandLine,"--fmax");
+      if (ppt){ ffmax=atof(ppt->value); fprintf(stdout,"Setting max prior for centre frequency to %f\n",atof(ppt->value));}
+    }
+    ppt=LALInferenceGetProcParamVal(commandLine,"--template");
+    if (!strcmp("Gauss",ppt->value)){
+      ppt=LALInferenceGetProcParamVal(commandLine,"--durmin");
+      if (ppt){ durmin=atof(ppt->value); fprintf(stdout,"Setting min prior for duration to %f\n",atof(ppt->value));}
+      ppt=LALInferenceGetProcParamVal(commandLine,"--durmax");
+      if (ppt){ durmax=atof(ppt->value); fprintf(stdout,"Setting max prior for duration to %f\n",atof(ppt->value));}
+      }
     ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
     if (ppt) dt=atof(ppt->value);
 	
@@ -231,7 +252,7 @@ Parameter arguments:\n\
     REAL8 startf=ffmin+gsl_rng_uniform(GSLrandom)*(ffmax-ffmin);
     REAL8 startq=qmin+gsl_rng_uniform(GSLrandom)*(qmax-qmin);
     REAL8 startloghrss=loghrssmin+gsl_rng_uniform(GSLrandom)*(loghrssmax-loghrssmin);
-    
+    REAL8 startdur=durmin+gsl_rng_uniform(GSLrandom)*(durmax-durmin);
     
     if(!LALInferenceCheckVariable(currentParams,"time")){
         ppt=LALInferenceGetProcParamVal(commandLine,"--t");
@@ -282,24 +303,60 @@ Parameter arguments:\n\
             LALInferenceAddVariable(currentParams, "polarisation",    &startpsi,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
     }
     LALInferenceAddMinMaxPrior(priorArgs, "polarisation",     &psimin, &psimax,   LALINFERENCE_REAL8_t);
-       
-    if(!LALInferenceCheckVariable(currentParams,"frequency")){
-        ppt=LALInferenceGetProcParamVal(commandLine,"--freq");
-        if (ppt) {
-            tmpVal=atof(ppt->value);
-            fprintf(stdout,"Fixing freq to %lf\n",tmpVal);
-            if (tmpVal<ffmin || tmpVal>ffmax){
-                fprintf(stderr,"ERROR: the value of --freq is outside the prior range for the centre frenquency (%f,%f)! Consider increasing the prior range using --fmin --fmax. Exiting...\n",ffmin,ffmax);
-                exit(1);
-            }
-            LALInferenceAddVariable(currentParams, "frequency",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-        }
-        else
-            LALInferenceAddVariable(currentParams, "frequency",     &startf,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-    }
-    LALInferenceAddMinMaxPrior(priorArgs, "frequency",     &ffmin, &ffmax,   LALINFERENCE_REAL8_t);
     
-    if(!LALInferenceCheckVariable(currentParams,"loghrss")){
+    ppt=LALInferenceGetProcParamVal(commandLine,"--template");
+    if (!strcmp("SineGauss",ppt->value) || !strcmp("SineGaussF",ppt->value)){
+      if(!LALInferenceCheckVariable(currentParams,"frequency")){
+          ppt=LALInferenceGetProcParamVal(commandLine,"--freq");
+          if (ppt) {
+              tmpVal=atof(ppt->value);
+              fprintf(stdout,"Fixing freq to %lf\n",tmpVal);
+              if (tmpVal<ffmin || tmpVal>ffmax){
+                  fprintf(stderr,"ERROR: the value of --freq is outside the prior range for the centre frenquency (%f,%f)! Consider increasing the prior range using --fmin --fmax. Exiting...\n",ffmin,ffmax);
+                  exit(1);
+              }
+              LALInferenceAddVariable(currentParams, "frequency",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+          }
+          else
+              LALInferenceAddVariable(currentParams, "frequency",     &startf,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+      }
+      LALInferenceAddMinMaxPrior(priorArgs, "frequency",     &ffmin, &ffmax,   LALINFERENCE_REAL8_t);
+      
+      if(!LALInferenceCheckVariable(currentParams,"Q")){
+          ppt=LALInferenceGetProcParamVal(commandLine,"--q");
+          if (ppt) {
+              tmpVal=atof(ppt->value);
+              fprintf(stdout,"Fixing q to %lf\n",tmpVal);
+              if (tmpVal<qmin || tmpVal>qmax){
+                  fprintf(stderr,"ERROR: the value of --q is outside the prior range for the qaulity (%f,%f)! Consider increasing the prior range using --qmin --qmax. Exiting...\n",qmin,qmax);
+                  exit(1);
+              }
+              LALInferenceAddVariable(currentParams, "Q",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+          }
+          else
+              LALInferenceAddVariable(currentParams, "Q",     &startq,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+      }
+      LALInferenceAddMinMaxPrior(priorArgs, "Q",     &qmin, &qmax,   LALINFERENCE_REAL8_t);
+    }
+    ppt=LALInferenceGetProcParamVal(commandLine,"--template");
+    if (!strcmp("Gauss",ppt->value)){
+      if(!LALInferenceCheckVariable(currentParams,"duration")){
+          ppt=LALInferenceGetProcParamVal(commandLine,"--duration");
+          if (ppt) {
+              tmpVal=atof(ppt->value);
+              fprintf(stdout,"Fixing duration to %lf\n",tmpVal);
+              if (tmpVal<durmin || tmpVal>durmax){
+                  fprintf(stderr,"ERROR: the value of --duration is outside the prior range (%f,%f)! Consider increasing the prior range using --durmin --durmax. Exiting...\n",qmin,qmax);
+                  exit(1);
+              }
+              LALInferenceAddVariable(currentParams, "duration",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+          }
+          else
+              LALInferenceAddVariable(currentParams, "duration",     &startdur,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+      }
+      LALInferenceAddMinMaxPrior(priorArgs, "duration",     &durmin, &durmax,   LALINFERENCE_REAL8_t);
+    }
+        if(!LALInferenceCheckVariable(currentParams,"loghrss")){
         if (LALInferenceGetProcParamVal(commandLine,"--hrss") || LALInferenceGetProcParamVal(commandLine,"--loghrss")){
             if (LALInferenceGetProcParamVal(commandLine,"--hrss")) 
                 tmpVal=log(atof((LALInferenceGetProcParamVal(commandLine,"--hrss"))->value));
@@ -317,26 +374,10 @@ Parameter arguments:\n\
     }
     LALInferenceAddMinMaxPrior(priorArgs, "loghrss",     &loghrssmin, &loghrssmax,   LALINFERENCE_REAL8_t);
         
-    if(!LALInferenceCheckVariable(currentParams,"Q")){
-        ppt=LALInferenceGetProcParamVal(commandLine,"--q");
-        if (ppt) {
-            tmpVal=atof(ppt->value);
-            fprintf(stdout,"Fixing q to %lf\n",tmpVal);
-            if (tmpVal<qmin || tmpVal>qmax){
-                fprintf(stderr,"ERROR: the value of --q is outside the prior range for the qaulity (%f,%f)! Consider increasing the prior range using --qmin --qmax. Exiting...\n",qmin,qmax);
-                exit(1);
-            }
-            LALInferenceAddVariable(currentParams, "Q",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-        }
-        else
-            LALInferenceAddVariable(currentParams, "Q",     &startq,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-    }
-    LALInferenceAddMinMaxPrior(priorArgs, "Q",     &qmin, &qmax,   LALINFERENCE_REAL8_t);
-    
     tmpVal=1.0;
     if(!LALInferenceCheckVariable(currentParams,"eccentricity")){
         ppt=LALInferenceGetProcParamVal(commandLine,"--SGonly");
-        if (ppt){printf("Fixing eccentricity to 0 in template \n");
+        if (ppt){printf("Fixing eccentricity to 1 in template \n");
             LALInferenceAddVariable(currentParams, "eccentricity",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);}
         else
             LALInferenceAddVariable(currentParams, "eccentricity",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
