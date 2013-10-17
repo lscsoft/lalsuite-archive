@@ -321,7 +321,7 @@ void LALInferenceBurstInjectionToVariables(SimBurst *theEventTable, LALInference
     REAL8 f0 = theEventTable->frequency;
     REAL8 pol_angle = theEventTable->pol_ellipse_angle;
     REAL8 eccentricity = theEventTable->pol_ellipse_e;
-
+    REAL8 duration=theEventTable->duration;
     REAL8 dec = theEventTable->dec;
     REAL8 ra = theEventTable->ra;
     
@@ -335,7 +335,7 @@ void LALInferenceBurstInjectionToVariables(SimBurst *theEventTable, LALInference
     LALInferenceAddVariable(vars, "declination", &dec, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "rightascension", &ra, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "loghrss", &loghrss, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-
+    LALInferenceAddVariable(vars,"duration",&duration,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 }
 
 static void PrintBurstSNRsToFile(LALInferenceIFOData *IFOdata ,REAL8 injtime){
@@ -406,7 +406,6 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
     injtime=inj_table->time_geocent_gps.gpsSeconds + 1e-9*inj_table->time_geocent_gps.gpsNanoSeconds;
     latitude=inj_table->dec;
     longitude=inj_table->ra;
-//printf("----time before template call %10.10e\n",injtime);
     LALInferenceAddVariable(tmpdata->modelParams, "loghrss",&loghrss,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "Q",&Q,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);  
     LALInferenceAddVariable(tmpdata->modelParams, "rightascension",&longitude,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);  
@@ -445,9 +444,9 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
     double timedelay;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
     double timeshift;  /* time shift (not necessarily same as above)                   */
     double deltaT, deltaF, twopit, f, re, im;
-   UINT4 j=0;
+    UINT4 j=0;
     REAL8 temp=0.0;
-      REAL8 NetSNR=0.0;
+    REAL8 NetSNR=0.0;
     LALInferenceVariables intrinsicParams;
 
     /* determine source's sky location & orientation parameters: */
@@ -490,7 +489,6 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
       /* signal arrival time (relative to geocenter); */
       timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
                                                ra, dec, &GPSlal);
-      //printf("----time after template call %10.10e\n",(*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time")));
       dataPtr->injtime=injtime;
       /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
       /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
@@ -499,7 +497,6 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
       /* Restore hrss (template has been calculated for hrss=1) effect in Fplus/Fcross: */
       FplusScaled  = Fplus *hrss ;
       FcrossScaled = Fcross*hrss;
-      //printf("diff in inj %lf \n", (injtime - (*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time"))));
       dataPtr->fPlus = FplusScaled;
       dataPtr->fCross = FcrossScaled;
       dataPtr->timeshift = timeshift;
@@ -543,7 +540,7 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
         chisquared  += temp;
         fprintf(outInj,"%lf %10.10e %10.10e\n",f,templateReal,templateImag);
       }
-      printf("injected SNR %.1f in IFO %s\n",sqrt(2.0*chisquared),dataPtr->name);
+      printf("Injected SNR %.1f in IFO %s\n",sqrt(2.0*chisquared),dataPtr->name);
       NetSNR+=2.0*chisquared;
       dataPtr->SNR=sqrt(2.0*chisquared);
        
@@ -554,7 +551,6 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
 
       /* Calculate IFFT and print it to file */
       REAL8TimeSeries* timeData=NULL;
-      //printf("doing IFFT. epoch %10.10f , dT %lf lenght %i \n",IFOdata->timeData->epoch.gpsSeconds+1.0e-9*IFOdata->timeData->epoch.gpsNanoSeconds,(REAL8)IFOdata->timeData->deltaT,IFOdata->timeData->data->length);
       timeData=(REAL8TimeSeries *) XLALCreateREAL8TimeSeries("name",&IFOdata->timeData->epoch,0.0,(REAL8)IFOdata->timeData->deltaT,&lalDimensionlessUnit,(size_t)IFOdata->timeData->data->length);
        
        XLALREAL8FreqTimeFFT(timeData,freqTemplate,IFOdata->freqToTimeFFTPlan);
