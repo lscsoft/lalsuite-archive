@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008 J. Creighton, K. Cannon
+ * 2013 Salvatore Vitale
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -88,8 +89,7 @@ int XLALSimBurstSineGaussian(
 int XLALSimBurstGaussian(
 	REAL8TimeSeries **hplus,
 	REAL8TimeSeries **hcross,
-	REAL8 Q,
-	REAL8 centre_frequency,
+	REAL8 duration,
 	REAL8 hrss,
 	REAL8 eccentricity,
 	REAL8 polarization,
@@ -133,6 +133,17 @@ int XLALSimBurstSineGaussianF(
     REAL8 deltaT
 );
 
+int XLALSimBurstGaussianF(
+	COMPLEX16FrequencySeries **hplus,
+	COMPLEX16FrequencySeries **hcross,
+	REAL8 duration,
+	REAL8 hrss,
+	REAL8 eccentricity,
+	REAL8 polarization,
+	REAL8 deltaF,
+    REAL8 deltaT
+);
+
 REAL8 XLALMeasureHPeak(const REAL8TimeSeries *);
 REAL8 XLALMeasureIntS1S2DT(const REAL8TimeSeries *, const REAL8TimeSeries *);
 REAL8 XLALMeasureHrss(const REAL8TimeSeries *, const REAL8TimeSeries *);
@@ -145,6 +156,22 @@ typedef enum {
   LAL_SIM_BURST_DOMAIN_FREQUENCY
  } LALSimulationBurstDomain;
 
+
+/** Enum that specifies the PN approximant to be used in computing the waveform.
+*/
+typedef enum {
+   SineGaussianF,
+   SineGaussian,
+   GaussianF,
+   Gaussian,
+   NumApproximants	/**< Number of elements in enum, useful for checking bounds */
+ } BurstApproximant;
+
+/** 
+ * XLAL function to determine burst approximant from a string.  The string need not 
+ * match exactly, only contain a member of the BurstApproximant enum.
+ */
+int XLALGetBurstApproximantFromString(const CHAR *inString);
 
 #if 0
 { /* so that editors will match succeeding brace */

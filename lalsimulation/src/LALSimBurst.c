@@ -1093,3 +1093,34 @@ int XLALGenerateStringCusp(
 
 	return 0;
 }
+
+
+int XLALGetBurstApproximantFromString(const CHAR *inString)
+{
+#ifndef LAL_NDEBUG
+  if ( !inString )
+    XLAL_ERROR( XLAL_EFAULT );
+#endif
+  if ( strstr(inString, "Gaussian" ) )
+  {
+    return Gaussian;
+  }
+  else if ( strstr(inString, "GaussianF" ) )
+  {
+    return GaussianF;
+  }
+  
+  else if ( strstr(inString, "SineGaussian" ) )
+  {
+    return SineGaussian;
+  }
+  else if ( strstr(inString, "SineGaussianF" ) )
+  {
+    return SineGaussianF;
+  }
+  else
+  {
+    XLALPrintError( "Cannot parse burst approximant from string: %s \n", inString );
+    XLAL_ERROR( XLAL_EINVAL );
+  }
+}

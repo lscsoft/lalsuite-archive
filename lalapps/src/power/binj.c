@@ -156,6 +156,9 @@ struct options {
 	double minbandwidth;
 	double maxduration;
 	double minduration;
+  ParDistr tau_distr;
+  double tau_stdev;
+  double tau;
 	double maxEoverr2;
 	double minEoverr2;
 	double maxf;
@@ -201,6 +204,9 @@ static struct options options_defaults(void)
 	defaults.minbandwidth = XLAL_REAL8_FAIL_NAN;
 	defaults.maxduration = XLAL_REAL8_FAIL_NAN;
 	defaults.minduration = XLAL_REAL8_FAIL_NAN;
+  defaults.tau=XLAL_REAL8_FAIL_NAN;
+  defaults.tau_stdev=-1.0;
+  defaults.tau_distr=FIXED;
 	defaults.maxEoverr2 = XLAL_REAL8_FAIL_NAN;
 	defaults.minEoverr2 = XLAL_REAL8_FAIL_NAN;
 	defaults.maxf = XLAL_REAL8_FAIL_NAN;
@@ -265,8 +271,7 @@ static void print_usage(void)
 	); fprintf(stderr, 
 "--max-duration seconds\n" \
 "--min-duration seconds\n" \
-"	Set the bounds of the injection durations.  These only affect\n" \
-"	btlwnb waveforms.\n" \
+"	Set the bounds of the injection durations (btlwnb waveforms) or the min and max duration of Gaussians.\n" \
 "\n" \
 "--max-e-over-r2 value\n" \
 "--min-e-over-r2 value\n" \
@@ -438,6 +443,9 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 		{"time-slide-file", required_argument, NULL, 'W'},
 		{"jitter", required_argument, NULL, 'X'},
 		{"user-tag", required_argument, NULL, 'R'},
+    {"tau-distr",required_argument,NULL,1727},
+    {"tau-stdev",required_argument,NULL,1728},
+    {"tau",required_argument,NULL,1729},
 		{NULL, 0, NULL, 0}
 	};
 	int optarg_len=0;
@@ -628,6 +636,18 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 		options.hrss_distr=parse_distr(optarg);
 		ADD_PROCESS_PARAM(process, "int_4s");
 		break;
+  case 1727:
+		options.tau_distr=parse_distr(optarg);
+		ADD_PROCESS_PARAM(process, "int_4s");
+		break;
+  case 1728:
+		options.tau_stdev=atof(optarg);
+		ADD_PROCESS_PARAM(process, "real_8");
+		break;
+  case 1729:
+		options.tau=atof(optarg);
+		ADD_PROCESS_PARAM(process, "real_8");
+		break;    
 	case 1712:
 		options.q_stdev = atof(optarg);
 		ADD_PROCESS_PARAM(process, "real_8");
@@ -1464,7 +1484,24 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 			fprintf(stderr,"unknown distribution of frequency. Known values are fixed, uniform, gaussian, log.\n");
 			exit(1);
 	}
-
+  /* duration */
+  switch (options->tau_distr){
+		case FIXED:
+			sim_burst->duration = options->tau;
+			break;
+		case UNIFORM:
+			sim_burst->duration=draw_uniform(rng,options->minduration,options->maxduration);
+			break;
+		case GAUSSIAN:
+			sim_burst->duration=draw_gaussian(rng,options->tau,options->tau_stdev);
+			break;
+		case UNIFORM_LOG:
+			sim_burst->duration=ran_flat_log(rng, options->minduration, options->maxduration);
+			break;
+		default:
+			fprintf(stderr,"unknown distribution of duration tau. Known values are fixed, uniform, gaussian, log.\n");
+			exit(1);
+	}
 	/* hrss */
 
 	//sim_burst->hrss = ran_flat_log(rng, minhrsst, maxhrsst);// / duration_from_q_and_f(sim_burst->q, sim_burst->frequency);
@@ -1964,6 +2001,7 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
     REAL8 polarization=0.0;
     REAL8 injtime=0.0;
     REAL8 longitude;
+    //REAL8 duration=0.0;
 	LALSimulationBurstDomain modelDomain=LAL_SIM_BURST_DOMAIN_FREQUENCY;
 	REAL8 f_max;
 	Q=inj->q;
@@ -1975,6 +2013,7 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 	injtime=inj->time_geocent_gps.gpsSeconds + 1e-9*inj->time_geocent_gps.gpsNanoSeconds;
 	latitude=inj->dec;
 	longitude=inj->ra;
+  //duration=inj->duration;
 
 	const CHAR *WF=inj->waveform;
 
@@ -2102,7 +2141,7 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
     XLALGPSSetREAL8(&GPSlal, GPSdouble);
     gmst=XLALGreenwichMeanSiderealTime(&GPSlal);
     /* Fill Fplus and Fcross*/
-    XLALComputeDetAMResponse(&Fplus, &Fcross,detector->response,longitude, latitude, polarization, gmst);
+    XLALComputeDetAMResponse(&Fplus, &Fcross,(const REAL4 (*)[3])detector->response,longitude, latitude, polarization, gmst);
     /* And take the distance into account */
     FplusScaled  = Fplus  ;
     FcrossScaled = Fcross ;

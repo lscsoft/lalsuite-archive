@@ -134,22 +134,21 @@ Initialisation arguments:\n\
 	/*     window, oneSidedNoisePowerSpectrum, timeDate, freqData         ) */
 	fprintf(stdout, " LALInferenceReadData(): finished.\n");
 	if (irs->data != NULL) {
-	    fprintf(stdout, " initialize(): successfully read data.\n");
-	    if(LALInferenceGetProcParamVal(commandLine,"--burst_inj")){
-        fprintf(stdout, " LALInferenceInjectBurstSignal(): started.\n");
-	    LALInferenceInjectBurstSignal(irs,commandLine);
-        fprintf(stdout, " LALInferenceInjectBurstSignal(): finished.\n");
+    fprintf(stdout, " initialize(): successfully read data.\n");
+    if(LALInferenceGetProcParamVal(commandLine,"--burst_inj")){
+      fprintf(stdout, " LALInferenceInjectBurstSignal(): started.\n");
+      LALInferenceInjectBurstSignal(irs,commandLine);
+      fprintf(stdout, " LALInferenceInjectBurstSignal(): finished.\n");
     }else{
-		fprintf(stdout, " LALInferenceInjectInspiralSignal(): started.\n");
-		LALInferenceInjectInspiralSignal(irs->data,commandLine);
-		fprintf(stdout, " LALInferenceInjectInspiralSignal(): finished.\n");
+      fprintf(stdout, " LALInferenceInjectInspiralSignal(): started.\n");
+      LALInferenceInjectInspiralSignal(irs->data,commandLine);
+      fprintf(stdout, " LALInferenceInjectInspiralSignal(): finished.\n");
     }
     ppt=LALInferenceGetProcParamVal(commandLine,"--inject_from_mdc");
-    if (ppt) {fprintf(stdout,"INJECTING A SIGNAL FROM MDC HAS NOT CAREFULLY TESTED YET...\n"); 
-	
-	LALInferenceInjectFromMDC(commandLine, irs->data);
-	
-	}
+    if (ppt){
+      fprintf(stdout,"INJECTING A SIGNAL FROM MDC HAS NOT CAREFULLY TESTED YET...\n"); 
+      LALInferenceInjectFromMDC(commandLine, irs->data);
+    }
 		ifoPtr = irs->data;
 		ifoListStart = irs->data;
 		while (ifoPtr != NULL) {
@@ -280,7 +279,7 @@ Nested sampling arguments:\n\
 	
      ppt=LALInferenceGetProcParamVal(commandLine,"--template");
     if(ppt) {
-    if(!strcmp("SineGaussF",ppt->value) || !strcmp("SineGauss",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value))
+    if(!strcmp("SineGaussF",ppt->value) ||!strcmp("Gauss",ppt->value) || !strcmp("SineGauss",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value))
     // SALVO: giving the same basic jump proposal to all the burst signals. When we have more ad hoc functions we can differentiate here
     runState->proposal=&NSWrapMCMCSinGaussProposal;
     }
@@ -301,7 +300,7 @@ Nested sampling arguments:\n\
 	
 	ppt=LALInferenceGetProcParamVal(commandLine,"--template");
         if(ppt) {
-		if(!strcmp("SineGaussF",ppt->value) || !strcmp("SineGauss",ppt->value)){
+		if(!strcmp("SineGaussF",ppt->value) || !strcmp("SineGauss",ppt->value)|| !strcmp("Gauss",ppt->value)){
 		runState->prior = &LALInferenceSinGaussPrior;
 		XLALPrintInfo("Using SineGauss prior\n");
 		}
@@ -413,7 +412,7 @@ Arguments for each section follow:\n\n";
 
 	LALInferenceRunState *state;
 	ProcessParamsTable *procParams=NULL;
-    ProcessParamsTable *ppt=NULL;
+  ProcessParamsTable *ppt=NULL;
 	/* Read command line and parse */
 	procParams=LALInferenceParseCommandLine(argc,argv);
 	
@@ -428,7 +427,7 @@ Arguments for each section follow:\n\n";
 	
 	/* Set template function */
 	ppt=LALInferenceGetProcParamVal(procParams,"--template");
-	if(!strcmp("SineGauss",ppt->value) || !strcmp("SineGaussF",ppt->value)||!strcmp("BestIFO",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value)){  
+	if(!strcmp("SineGauss",ppt->value) || !strcmp("Gauss",ppt->value)|| !strcmp("SineGaussF",ppt->value)||!strcmp("BestIFO",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value)){  
         fprintf(stdout,"--- Calling burst init template \n");
 	    LALInferenceInitBurstTemplate(state);
 	}
@@ -447,7 +446,7 @@ Arguments for each section follow:\n\n";
                 initVarsFunc=&LALInferenceInitVariablesReviewEvidence_bimod;
         else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood"))
                 initVarsFunc=&LALInferenceInitVariablesReviewEvidence_banana;
-	else if(!strcmp("SineGauss",ppt->value) || !strcmp("SineGaussF",ppt->value)){
+	else if(!strcmp("SineGauss",ppt->value) || !strcmp("Gauss",ppt->value)|| !strcmp("SineGaussF",ppt->value)){
 	    fprintf(stdout,"--- Calling burst init variables \n");
 	    initVarsFunc=&LALInferenceInitBurstVariables;
 	}
@@ -473,19 +472,19 @@ Arguments for each section follow:\n\n";
 
 	/* Check for student-t and apply */
 	//initStudentt(state);
-        /* Choose the likelihood */
-        LALInferenceInitLikelihood(state);
+  /* Choose the likelihood */
+  LALInferenceInitLikelihood(state);
     
-        /* Check for powerburst and apply (ignored unless --powerburst is provided) */
+    /* Check for powerburst and apply (ignored unless --powerburst is provided) */
 	LALInferenceInitPowerBurst(state);
 	
 	
-       /* Print command line arguments if help requested */
-        if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
-        {
-                fprintf(stdout,"%s",help);
-		exit(0);
-        }
+  /* Print command line arguments if help requested */
+  if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
+  {
+    fprintf(stdout,"%s",help);
+    exit(0);
+  }
 
 	/* Call setupLivePointsArray() to populate live points structures */
 	LALInferenceSetupLivePointsArray(state);
@@ -493,7 +492,7 @@ Arguments for each section follow:\n\n";
 	ppt=LALInferenceGetProcParamVal(procParams,"--template");
 	if(ppt) {
 	// SALVO: We may want different if else for differnt templates in the future
-	if(!strcmp("SineGaussF",ppt->value) || !strcmp("SineGauss",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value) ){
+	if(!strcmp("SineGaussF",ppt->value) ||!strcmp("Gauss",ppt->value) || !strcmp("SineGauss",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value) ){
         fprintf(stdout,"--- Setting SG jump proposal \n");
 
 	    LALInferenceSetupSinGaussianProposal(state,state->currentParams);}
