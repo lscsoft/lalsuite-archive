@@ -52,6 +52,8 @@ class offsetvector(dict):
 	>>> x = offsetvector({"H1": 0, "L1": 10, "V1": 20})
 	>>> x["H1"]
 	0
+	>>> not any(x.values())	# check for "zero-lag"
+	False
 
 	The motivation for introducing this class, instead of using
 	dictionaries, is that it provides a number of tools for comparing
