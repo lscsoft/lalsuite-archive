@@ -2716,7 +2716,7 @@ static void LALInferenceSetGPSTrigtimeFromXML(LIGOTimeGPS *GPStrig, ProcessParam
             }
             else
             fprintf(stdout,"You did not provide an event number with the injtable. Using event 0 which may not be what you want!!!!!\n");
-          memcpy(&GPStrig,&(inspiralTable->geocent_end_time),sizeof(GPStrig));
+          memcpy(&GPStrig,&(inspiralTable->geocent_end_time),sizeof(LIGOTimeGPS));
           printf("Set inspiral injtime %.10f\n",inspiralTable->geocent_end_time.gpsSeconds+1.0e-9* inspiralTable->geocent_end_time.gpsNanoSeconds);
           return;
        }
@@ -2739,7 +2739,7 @@ static void LALInferenceSetGPSTrigtimeFromXML(LIGOTimeGPS *GPStrig, ProcessParam
             }
             else
             fprintf(stdout,"You did not provide an event number with the injtable. Using event 0 which may not be what you want!!!!!\n");
-        memcpy(GPStrig,&(burstTable->time_geocent_gps),sizeof(GPStrig));
+        memcpy(GPStrig,&(burstTable->time_geocent_gps),sizeof(LIGOTimeGPS));
         fprintf(stdout,"Set trigtime from burstable to %.10f\n",GPStrig->gpsSeconds+1.0e-9 * GPStrig->gpsNanoSeconds);
           return;
             
@@ -2877,7 +2877,7 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
         fclose(out);
         
         /* set the whole seq to 0 */
-        for(j=0;j<injF->data->length;j++) injF->data->data[j]=0.0+I*0.0;
+        for(j=0;j<injF->data->length;j++) injF->data->data[j]=0.0+1j*0.0;
             
         /* FFT */
         XLALREAL8TimeFreqFFT(injF,windTimeData,IFOdata->timeToFreqFFTPlan);   
@@ -2940,7 +2940,7 @@ void enforce_m1_larger_m2(SimInspiralTable* injEvent){
         tmp=injEvent->spin1z;
         injEvent->spin1z=injEvent->spin2z;
         injEvent->spin2z=tmp;
-	injEvent->coa_phase=injEvent->coa_phase+LAL_PI;
+        injEvent->coa_phase=injEvent->coa_phase+LAL_PI;
         }
     return ;
 }
