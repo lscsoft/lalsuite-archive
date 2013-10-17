@@ -2249,6 +2249,9 @@ def kdtree_bin_sky_volume(posterior,confidence_levels):
             self.unrho=0.
             
         def __call__(self,tree):
+            print len(tree.objects())
+            print tree.objects() 
+            print tree.volume()
             number_density=float(len(tree.objects()))/float(tree.volume())
             self.append([number_density,tree.volume(),tree.bounds()])
             self.unrho+=number_density
@@ -2315,6 +2318,14 @@ def kdtree_bin_sky_area(posterior,confidence_levels,samples_per_bin=10):
         def __call__(self,tree):
             #area = (cos(tree.bounds()[0][1])-cos(tree.bounds()[1][1]))*(tree.bounds()[1][0] - tree.bounds()[0][0])
             area = - (cos(pi/2. - tree.bounds()[0][1])-cos(pi/2. - tree.bounds()[1][1]))*(tree.bounds()[1][0] - tree.bounds()[0][0])
+            print tree.bounds()[0][1] ,tree.bounds()[1][1] ,tree.bounds()[0][0], tree.bounds()[1][0]  
+            print tree.objects() 
+            print area
+            if area==0.:
+              number_density=0
+              self.unrho+=0
+              self.append([number_density,len(tree.objects()),area,tree.bounds()])
+              return
             number_density=float(len(tree.objects()))/float(area)
             self.append([number_density,len(tree.objects()),area,tree.bounds()])
             self.unrho+=number_density
@@ -2335,7 +2346,7 @@ def kdtree_bin_sky_area(posterior,confidence_levels,samples_per_bin=10):
     header=header.split()
     coord_names=["ra","dec"]
     initial_dimensions = [[0.,-pi/2.],[2.*pi, pi/2.]]
-    coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+    coordinatized_samples=[PosteriorSample(row, header, coord_names) for row in samples]
     tree=KDTreeVolume(coordinatized_samples,initial_dimensions)
 
     a=Harvester()
@@ -2438,7 +2449,7 @@ def kdtree_bin(posterior,coord_names,confidence_levels,initial_boundingbox = Non
 
     samples,header=posterior.samples()
     header=header.split()
-    coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+    coordinatized_samples=[PosteriorSample(row, header, coord_names) for row in samples]
 
     #if initial bounding box is not provided, create it using max/min of sample coords.
     if initial_boundingbox is None:
