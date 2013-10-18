@@ -758,7 +758,7 @@ class CoincSynthesizer(object):
 		>>> coinc_synth.P_live
 		{frozenset(['V1', 'H1']): 0.0, frozenset(['V1', 'H1', 'L1']): 0.25, frozenset(['H1', 'L1']): 0.25, frozenset(['V1', 'L1']): 0.5}
 		"""
-		self.eventlists = eventlists if eventlists is not None else {}
+		self.eventlists = eventlists if eventlists is not None else dict.fromkeys(segmentlists, 0) if segmentlists is not None else {}
 		self.segmentlists = segmentlists if segmentlists is not None else segments.segmentlistdict()
 		self.delta_t = delta_t
 		# require a segment list for each list of events
