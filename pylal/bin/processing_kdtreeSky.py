@@ -69,7 +69,8 @@ if 'ra' and 'dec' not in posterior.names:
     else:
         print 'param not found'
 print 'out test --------'
-areas, nodeList, injInfo = bppu.kdtree_bin_sky_area(posterior,confidenceLevels,samples_per_bin = 50)
+injCoordinates=[posterior['ra'].injval,posterior['dec'].injval]
+nodeList, areas, injInfo = bppu.kdtree_bin2Step(posterior,['ra','dec'],confidenceLevels,samples_per_bin = 50,skyCoords=True,injCoords = injCoordinates)
 print 'details'
 print injInfo
 print areas
