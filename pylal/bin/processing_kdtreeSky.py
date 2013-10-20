@@ -1,3 +1,8 @@
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.patches as mpatches
+from matplotlib import pyplot as plt
+from matplotlib.collections import PatchCollection
 import pylal.bayespputils as bppu
 from optparse import OptionParser
 from math import pi
@@ -10,7 +15,7 @@ parser.add_option("-e","--event",type="int",dest="e")
 parser.add_option("-u","--url",action="store_true",dest="u",default=False)
 parser.add_option("-n","--name",dest="n")
 parser.add_option("-p","--password",dest="p")
-
+parser.add_option("--plot",action="store_true",dest="x",default=False)
 (options, args) = parser.parse_args()
 
 if (options.i == None or options.o == None or options.j == None or options.e == None):
@@ -22,6 +27,7 @@ event=options.e
 urlUsed=options.u
 userName = options.n
 userPassword = options.p
+makePlot = options.x
 
 ###############                                                                                                                            
 def open_url_wget(url,folder,un=userName,pw=userPassword,eventNum=0, args=[]):
@@ -33,6 +39,20 @@ def open_url_wget(url,folder,un=userName,pw=userPassword,eventNum=0, args=[]):
     retcode=subprocess.call(['wget']+[url]+args)
 
     return retcode
+
+def plot_kdtree(tiles):
+    myfig = plt.figure(figsize=(20,20))                                                                         
+    ax = plt.axes()
+    ax.set_xlim((0.0,2.*pi))
+    ax.set_ylim((-pi/2.,pi/2.))
+
+    for tile in tiles:
+        patches = []
+
+        art = mpatches.Rectangle((tile[0],tile[2]),tile[1] - tile[0],tile[3] - tile[2],fill = True, facecolor=matplotlib.cm.jet(1.-tile[4]),linewidth=0)#,edgecolor = 'k') 
+        ax.add_patch(art)
+    myfig.savefig(output+'plot'+str(event))
+
 ###############load posterior#########                                                                                                     
 
 data=bppu.PEOutputParser('common')
@@ -82,3 +102,16 @@ for cl in confidenceLevels:
 outFile.write('kd_injCL ' + str(injInfo[3])+' \n')                                                                                                      
 temp_area = injInfo[4]*(180/pi)**2.
 outFile.write('kd_injCLarea ' + str(temp_area) + '\n')
+
+if makePlot:
+    tiles = []
+    temp = 0
+    total = 0
+    for node in nodeList:
+        total +=  node[2]
+        print node[2]
+    for node in nodeList:
+        temp += node[2]
+        tiles.append([node[0][0][0],node[0][1][0],node[0][0][1],node[0][1][1],float(temp)/total])
+        print node[1]
+    plot_kdtree(tiles)
