@@ -175,23 +175,28 @@ class EventListDict(dict):
 		for l in self.values():
 			l.make_index()
 
-	def set_offsetdict(self, offsetdict):
+	@property
+	def offsetvector(self):
 		"""
-		Set the event list offsets to those in the dictionary of
-		instrument/offset pairs.  Instruments not in offsetdict are
-		not modified.  KeyError is raised if the dictionary of
-		instrument/offset pairs contains a key (instrument) that
-		this dictionary does not.
+		offsetvector of the offsets carried by the event lists.
+		When assigning to this property, any event list whose
+		instrument is not in the dictionary of offsets is not
+		modified, and KeyError is raised if the offset dictionary
+		contains an instrument that is not in this dictionary of
+		event lists.  As a short-cut to setting all offsets to 0,
+		the attribute can be deleted.
 		"""
-		for instrument, offset in offsetdict.items():
+		return offsetvector.offsetvector((instrument, eventlist.offset) for instrument, eventlist in self.items())
+
+	@offsetvector.setter
+	def offsetvector(self, offsetvector):
+		for instrument, offset in offsetvector.items():
 			self[instrument].set_offset(offset)
 
-	def remove_offsetdict(self):
-		"""
-		Remove the offsets from all event lists (reset them to 0).
-		"""
-		for l in self.values():
-			l.set_offset(0)
+	@offsetvector.deleter
+	def offsetvector(self):
+		for eventlist in self.values():
+			eventlist.set_offset(0)
 
 
 def make_eventlists(xmldoc, EventListType, event_table_name, process_ids = None):
@@ -358,7 +363,7 @@ class TimeSlideGraphNode(object):
 
 			if verbose:
 				print >>sys.stderr, "\tapplying offsets ..."
-			eventlists.set_offsetdict(self.offset_vector)
+			eventlists.offsetvector = self.offset_vector
 
 			#
 			# search for and record coincidences.  coincs is a

@@ -466,7 +466,7 @@ def ligolw_thinca(
 	# remove time offsets from events
 	#
 
-	eventlists.remove_offsetdict()
+	del eventlists.offsetvector
 
 	#
 	# done
