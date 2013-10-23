@@ -2275,8 +2275,8 @@ a2")) + (LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT") || LALInferenc
     } 
     LALEquationOfState eoscheck =  *(LALEquationOfState*) LALInferenceGetVariable(tmpdata->modelParams, "LAL_SIM_INSPIRAL_EOS");
     fprintf(stderr, "In InjectTaylorF2, with eos: %d\n", eoscheck);
-    fprintf(stderr, "In InjectTaylorF2, with lambda1: %f\n", *(REAL8*) LALInferenceGetVariable(tmpdata->modelParams, "LAL_SIM_INSPIRAL_lambda1")); // FIXME: test prints to be removed
-    fprintf(stderr, "In InjectTaylorF2, with lambda2: %f\n", *(REAL8*) LALInferenceGetVariable(tmpdata->modelParams, "LAL_SIM_INSPIRAL_lambda2"));
+    // fprintf(stderr, "In InjectTaylorF2, with lambda1: %f\n", *(REAL8*) LALInferenceGetVariable(tmpdata->modelParams, "LAL_SIM_INSPIRAL_lambda1")); // FIXME: test prints to be removed
+    // fprintf(stderr, "In InjectTaylorF2, with lambda2: %f\n", *(REAL8*) LALInferenceGetVariable(tmpdata->modelParams, "LAL_SIM_INSPIRAL_lambda2"));
  
     COMPLEX16FrequencySeries *freqModelhCross=NULL;
     freqModelhCross=XLALCreateCOMPLEX16FrequencySeries("freqDatahC",&(tmpdata->timeData->epoch),0.0,tmpdata->freqData->deltaF,&lalDimensionlessUnit,tmpdata->freqData->data->length);
