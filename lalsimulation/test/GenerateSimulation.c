@@ -279,6 +279,13 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
         }
     }
 
+    if (params->eos != LAL_SIM_INSPIRAL_EOS_NONE) {
+      params->lambda1 = XLALSimInspiralEOSLambda(params->eos, params->m1/LAL_MSUN_SI)/(params->m1*LAL_MTSUN_SI*params->m1*LAL_MTSUN_SI*params->m1*LAL_MTSUN_SI*params->m1*LAL_MTSUN_SI*params->m1*LAL_MTSUN_SI)*(LAL_MSUN_SI*LAL_MSUN_SI*LAL_MSUN_SI*LAL_MSUN_SI*LAL_MSUN_SI);
+      params->lambda2 = XLALSimInspiralEOSLambda(params->eos, params->m2/LAL_MSUN_SI)/(params->m2*LAL_MTSUN_SI*params->m2*LAL_MTSUN_SI*params->m2*LAL_MTSUN_SI*params->m2*LAL_MTSUN_SI*params->m2*LAL_MTSUN_SI)*(LAL_MSUN_SI*LAL_MSUN_SI*LAL_MSUN_SI*LAL_MSUN_SI*LAL_MSUN_SI);
+    printf("Massess are %f\t%f\n", params->m1/LAL_MSUN_SI, params->m2/LAL_MSUN_SI);
+    printf("Lambdas are %e\t%e\n", XLALSimInspiralEOSLambda(params->eos, params->m1/LAL_MSUN_SI), XLALSimInspiralEOSLambda(params->eos, params->m2/LAL_MSUN_SI));
+    printf("Lambdas are %f\t%f\n", params->lambda1, params->lambda2);
+    }
     return params;
 
     fail:
@@ -436,7 +443,7 @@ int main (int argc , char **argv) {
                     params->s2z, params->f_min, params->f_max, 
                     params->distance, params->inclination, params->lambda1, 
                     params->lambda2, params->waveFlags, params->nonGRparams,
-                    params->ampO, params->phaseO, params->approximant, params->eos);
+                    params->ampO, params->phaseO, params->approximant);
             break;
         case LAL_SIM_DOMAIN_TIME:
             XLALSimInspiralChooseTDWaveform(&hplus, &hcross, params->phiRef, 
@@ -446,7 +453,7 @@ int main (int argc , char **argv) {
                     params->distance, params->inclination, params->lambda1, 
                     params->lambda2, params->waveFlags,
                     params->nonGRparams, params->ampO, params->phaseO,
-                    params->approximant, params->eos);
+                    params->approximant);
             break;
         default:
             XLALPrintError("Error: domain must be either TD or FD\n");

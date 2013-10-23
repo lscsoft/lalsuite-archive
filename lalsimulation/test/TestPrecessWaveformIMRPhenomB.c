@@ -42,7 +42,7 @@ int main(void){
 		double s2x = 0.0, s2y = 0.0, s2z = 0.0;
 		double f_min = 40.0, f_ref = 0.0, dist = 1e6*LAL_PC_SI, inc = LAL_PI_4;
 		double lambda1 = 0.0, lambda2 = 0.0;
-		LALEquationOfState eos=0;
+		// LALEquationOfState eos=0;
 		double phi = 0.0, dt = 1/16384.0;
 		LALSimInspiralWaveformFlags *waveFlags = NULL;
         LALSimInspiralTestGRParam *nonGRparams = NULL;
@@ -67,7 +67,7 @@ int main(void){
 			waveFlags,
 			nonGRparams,
 			amplitudeOrder, phaseOrder,
-			approximant, eos
+			approximant
 		);
         if( ret != XLAL_SUCCESS )
             XLAL_ERROR( XLAL_EFUNC );
@@ -106,7 +106,7 @@ int main(void){
 			waveFlags,
 			NULL, // non-GR params
 			amplitudeOrder, phaseOrder,
-			approximant, eos
+			approximant
 		);
         if( ret != XLAL_SUCCESS )
             XLAL_ERROR( XLAL_EFUNC );

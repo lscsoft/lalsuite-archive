@@ -46,7 +46,7 @@ int main(void) {
     REAL8 m1 = 10. * LAL_MSUN_SI, m2 = 10 * LAL_MSUN_SI;
     REAL8 s1x = 0., s1y = 0., s1z = 0., s2x = 0., s2y = 0., s2z = 0.;
     REAL8 f_min = 40., f_ref = 0., lambda1 = 0., lambda2 = 0.i, f_max = 0.;
-    LALEquationOfState eos=0;
+    // LALEquationOfState eos=0;
     REAL8 dt = 1./16384., df = 1./16.;
     int ret, phaseO = 7, ampO = 0;
     Approximant approx = SEOBNRv1;
@@ -64,7 +64,7 @@ int main(void) {
     s1 = clock();
     ret = XLALSimInspiralChooseTDWaveform(&hplus, &hcross, phiref1, dt, m1, m2,
         s1x, s1y, s1z, s2x, s2y, s2z, f_min, f_ref, dist1, inc1,
-        lambda1, lambda2, NULL, NULL, ampO, phaseO, approx, eos);
+        lambda1, lambda2, NULL, NULL, ampO, phaseO, approx);
     e1 = clock();
     diff1 = (double) (e1 - s1) / CLOCKS_PER_SEC;
     if( ret == XLAL_FAILURE )
@@ -100,7 +100,7 @@ int main(void) {
     s1 = clock();
     ret = XLALSimInspiralChooseTDWaveform(&hplus, &hcross, phiref2, dt, m1, m2,
         s1x, s1y, s1z, s2x, s2y, s2z, f_min, f_ref, dist2, inc2,
-        lambda1, lambda2, NULL, NULL, ampO, phaseO, approx, eos);
+					  lambda1, lambda2, NULL, NULL, ampO, phaseO, approx);
     e1 = clock();
     diff1 = (double) (e1 - s1) / CLOCKS_PER_SEC;
     if( ret == XLAL_FAILURE )
@@ -146,7 +146,7 @@ int main(void) {
     s1 = clock();
     ret = XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, phiref1, df,
             m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, f_min, f_max, dist1, inc1,
-        lambda1, lambda2, NULL, NULL, ampO, phaseO, approxFD, eos);
+        lambda1, lambda2, NULL, NULL, ampO, phaseO, approxFD);
     e1 = clock();
     diff1 = (double) (e1 - s1) / CLOCKS_PER_SEC;
     if( ret == XLAL_FAILURE )
@@ -189,7 +189,7 @@ int main(void) {
     s1 = clock();
     ret = XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, phiref2, df,
             m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, f_min, f_max, dist2, inc2,
-        lambda1, lambda2, NULL, NULL, ampO, phaseO, approxFD, eos);
+        lambda1, lambda2, NULL, NULL, ampO, phaseO, approxFD);
     e1 = clock();
     diff1 = (double) (e1 - s1) / CLOCKS_PER_SEC;
     if( ret == XLAL_FAILURE )
