@@ -1851,7 +1851,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
       LALEquationOfState equation_of_state = LAL_SIM_INSPIRAL_EOS_NONE;
       equation_of_state = *(LALEquationOfState*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_SIM_INSPIRAL_EOS");
       lambda1 = XLALSimInspiralEOSLambda(equation_of_state, m1)/(m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI); /* gives lambda1/m1^5 (dimensionless) */
-      lambda1 = XLALSimInspiralEOSLambda(equation_of_state, m2)/(m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI); /* gives lambda2/m2^5 (dimensionless) */
+      lambda2 = XLALSimInspiralEOSLambda(equation_of_state, m2)/(m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI); /* gives lambda2/m2^5 (dimensionless) */
       // 	fprintf(stderr, "Equation of State (LalInfTemplate): %d\n", equation_of_state);
   }
   
