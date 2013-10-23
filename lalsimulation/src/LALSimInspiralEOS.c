@@ -192,8 +192,13 @@ REAL8 XLALSimInspiralNSRadiusOfLambdaM(REAL8 m_intr_msun, REAL8 barlambda){
   }
 
   /* Check that radius is larger than Schwarzschild radius */
-  if ( compactness > 0.5 || compactness < 0.0 ) {
-    XLALPrintError( "XLAL Error - %s: Neutron Star is calculated to have compactness larger than a black hole or negative.", __func__);
+  if ( compactness > 0.5 ) {
+    XLALPrintWarning( "XLAL Warning - %s: Neutron Star is calculated to have compactness larger than a black hole (C = %f, lambda = %f, m = %f).\n Setting C=0.5 ...", __func__, compactness, barlambda, m_intr_msun);
+    compactness = 0.5;
+  }
+
+  if ( compactness < 0.0 ) {
+    XLALPrintError( "XLAL Error - %s: Neutron Star is calculated to have negative compactness (C = %f, lambda = %f, m = %f).", __func__, compactness, barlambda, m_intr_msun);
     XLAL_ERROR_REAL8(XLAL_ERANGE);
   }
 
