@@ -175,7 +175,7 @@ static int XLALSimInspiralSpinTaylorT2Setup(
     params->fStart = fStart;
     params->fEnd = fEnd;
     if ( lambda1 == 0.0 && lambda2 == 0.0 ) params->fContact = 0.0;
-    else params->fContact = XLALSimInspiralContactFrequency(m1/LAL_MSUN_SI, lambda1, m2/LAL_MSUN_SI, lambda2);
+    else params->fContact = XLALSimInspiralContactFrequency(m1/LAL_MTSUN_SI, lambda1, m2/LAL_MTSUN_SI, lambda2);
     params->spinO = spinO;
     params->tideO = tideO;
 
