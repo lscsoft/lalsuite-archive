@@ -120,70 +120,80 @@ Initialisation arguments:\n\
 				  LALINFERENCE_PARAM_FIXED);		
 	}
 	
+  /*This is in common for both CBC and burst injections */
 	irs->data = LALInferenceReadData(commandLine);
 
 	/* (this will already initialise each LALIFOData's following elements:  */
-        ppt=LALInferenceGetProcParamVal(commandLine,"--help");
-        if(ppt)
-        {
-                fprintf(stdout,"%s",help);
-                return(irs);
-        }
+  ppt=LALInferenceGetProcParamVal(commandLine,"--help");
+  if(ppt)
+  {
+    fprintf(stdout,"%s",help);
+    return(irs);
+  }
 
 	/*     fLow, fHigh, detector, timeToFreqFFTPlan, freqToTimeFFTPlan,     */
 	/*     window, oneSidedNoisePowerSpectrum, timeDate, freqData         ) */
 	fprintf(stdout, " LALInferenceReadData(): finished.\n");
 	if (irs->data != NULL) {
     fprintf(stdout, " initialize(): successfully read data.\n");
-    if(LALInferenceGetProcParamVal(commandLine,"--burst_inj")){
-      fprintf(stdout, " LALInferenceInjectBurstSignal(): started.\n");
-      LALInferenceInjectBurstSignal(irs,commandLine);
-      fprintf(stdout, " LALInferenceInjectBurstSignal(): finished.\n");
-    }else{
-      fprintf(stdout, " LALInferenceInjectInspiralSignal(): started.\n");
-      LALInferenceInjectInspiralSignal(irs->data,commandLine);
-      fprintf(stdout, " LALInferenceInjectInspiralSignal(): finished.\n");
+    ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
+    if(ppt){
+      SimInspiralTable *inspiralTable=NULL;
+      SimBurst *burstTable=NULL;
+      burstTable=XLALSimBurstTableFromLIGOLw(ppt->value,0,0);
+      SimInspiralTableFromLIGOLw(&inspiralTable,ppt->value,0,0);
+      if(burstTable){
+        fprintf(stdout, " LALInferenceInjectBurstSignal(): started.\n");
+        LALInferenceInjectBurstSignal(irs,commandLine);
+        fprintf(stdout, " LALInferenceInjectBurstSignal(): finished.\n");
+      }
+      else if (inspiralTable){
+        fprintf(stdout, " LALInferenceInjectInspiralSignal(): started.\n");
+        LALInferenceInjectInspiralSignal(irs->data,commandLine);
+        fprintf(stdout, " LALInferenceInjectInspiralSignal(): finished.\n");
+      }
     }
     ppt=LALInferenceGetProcParamVal(commandLine,"--inject_from_mdc");
     if (ppt){
       fprintf(stdout,"INJECTING A SIGNAL FROM MDC HAS NOT CAREFULLY TESTED YET...\n"); 
       LALInferenceInjectFromMDC(commandLine, irs->data);
     }
-		ifoPtr = irs->data;
-		ifoListStart = irs->data;
-		while (ifoPtr != NULL) {
-			/*If two IFOs have the same sampling rate, they should have the same timeModelh*,
-			 freqModelh*, and modelParams variables to avoid excess computation 
-			 in model waveform generation in the future*/
-			LALInferenceIFOData * ifoPtrCompare=ifoListStart;
-			int foundIFOwithSameSampleRate=0;
-			while(ifoPtrCompare != NULL && ifoPtrCompare!=ifoPtr) {
-				if(ifoPtrCompare->timeData->deltaT == ifoPtr->timeData->deltaT){
-					ifoPtr->timeModelhPlus=ifoPtrCompare->timeModelhPlus;
-					ifoPtr->freqModelhPlus=ifoPtrCompare->freqModelhPlus;
-					ifoPtr->timeModelhCross=ifoPtrCompare->timeModelhCross;				
-					ifoPtr->freqModelhCross=ifoPtrCompare->freqModelhCross;				
-					ifoPtr->modelParams=ifoPtrCompare->modelParams;	
-					foundIFOwithSameSampleRate=1;	
-					break;
-				}
-			}
-			if(!foundIFOwithSameSampleRate){
-				ifoPtr->timeModelhPlus  = XLALCreateREAL8TimeSeries("timeModelhPlus",&(ifoPtr->timeData->epoch),0.0,ifoPtr->timeData->deltaT,&lalDimensionlessUnit,ifoPtr->timeData->data->length);
-				ifoPtr->timeModelhCross = XLALCreateREAL8TimeSeries("timeModelhCross",&(ifoPtr->timeData->epoch),0.0,	ifoPtr->timeData->deltaT,&lalDimensionlessUnit,ifoPtr->timeData->data->length);
-				ifoPtr->freqModelhPlus = XLALCreateCOMPLEX16FrequencySeries("freqModelhPlus",&(ifoPtr->freqData->epoch),0.0,ifoPtr->freqData->deltaF,&lalDimensionlessUnit,ifoPtr->freqData->data->length);
-				ifoPtr->freqModelhCross = XLALCreateCOMPLEX16FrequencySeries("freqModelhCross",&(ifoPtr->freqData->epoch), 0.0, ifoPtr->freqData->deltaF, &lalDimensionlessUnit,ifoPtr->freqData->data->length);
-				ifoPtr->modelParams = XLALCalloc(1, sizeof(LALInferenceVariables));
-			}
-			ifoPtr = ifoPtr->next;
-		}
-        ppt=LALInferenceGetProcParamVal(commandLine,"--template");
-        if(!strcmp("BestIFO",ppt->value))
-   		irs->currentLikelihood=LALInferenceNullLogLikelihoodBestIFO(irs->data);
-        else
-		{irs->currentLikelihood=LALInferenceNullLogLikelihood(irs->data);
-    printf("NOT doing bestIFO null logl\n");}
-		printf("Injection Null Log Likelihood: %g\n", irs->currentLikelihood);
+    ifoPtr = irs->data;
+    ifoListStart = irs->data;
+    while (ifoPtr != NULL) {
+      /*If two IFOs have the same sampling rate, they should have the same timeModelh*,
+      freqModelh*, and modelParams variables to avoid excess computation 
+      in model waveform generation in the future*/
+      LALInferenceIFOData * ifoPtrCompare=ifoListStart;
+      int foundIFOwithSameSampleRate=0;
+      while(ifoPtrCompare != NULL && ifoPtrCompare!=ifoPtr) {
+      if(ifoPtrCompare->timeData->deltaT == ifoPtr->timeData->deltaT){
+      ifoPtr->timeModelhPlus=ifoPtrCompare->timeModelhPlus;
+      ifoPtr->freqModelhPlus=ifoPtrCompare->freqModelhPlus;
+      ifoPtr->timeModelhCross=ifoPtrCompare->timeModelhCross;				
+      ifoPtr->freqModelhCross=ifoPtrCompare->freqModelhCross;				
+      ifoPtr->modelParams=ifoPtrCompare->modelParams;	
+      foundIFOwithSameSampleRate=1;	
+      break;
+      }
+      }
+      if(!foundIFOwithSameSampleRate){
+      ifoPtr->timeModelhPlus  = XLALCreateREAL8TimeSeries("timeModelhPlus",&(ifoPtr->timeData->epoch),0.0,ifoPtr->timeData->deltaT,&lalDimensionlessUnit,ifoPtr->timeData->data->length);
+      ifoPtr->timeModelhCross = XLALCreateREAL8TimeSeries("timeModelhCross",&(ifoPtr->timeData->epoch),0.0,	ifoPtr->timeData->deltaT,&lalDimensionlessUnit,ifoPtr->timeData->data->length);
+      ifoPtr->freqModelhPlus = XLALCreateCOMPLEX16FrequencySeries("freqModelhPlus",&(ifoPtr->freqData->epoch),0.0,ifoPtr->freqData->deltaF,&lalDimensionlessUnit,ifoPtr->freqData->data->length);
+      ifoPtr->freqModelhCross = XLALCreateCOMPLEX16FrequencySeries("freqModelhCross",&(ifoPtr->freqData->epoch), 0.0, ifoPtr->freqData->deltaF, &lalDimensionlessUnit,ifoPtr->freqData->data->length);
+      ifoPtr->modelParams = XLALCalloc(1, sizeof(LALInferenceVariables));
+      }
+      ifoPtr = ifoPtr->next;
+    }
+    ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
+    if(!strcmp("BestIFO",ppt->value)){
+      irs->currentLikelihood=LALInferenceNullLogLikelihoodBestIFO(irs->data);
+      printf("Using bestIFO null logl\n");}
+    else
+      irs->currentLikelihood=LALInferenceNullLogLikelihood(irs->data);
+      
+      printf("Injection Null Log Likelihood: %g\n", irs->currentLikelihood);
 	}
 	else
 	{
@@ -272,47 +282,46 @@ Nested sampling arguments:\n\
 
 	
 	/* Set up the appropriate functions for the nested sampling algorithm */
-	runState->algorithm=&LALInferenceNestedSamplingAlgorithm;
-        runState->evolve=&LALInferenceNestedSamplingOneStep;
-        /* use the ptmcmc proposal to sample prior */
-    runState->proposal=&NSWrapMCMCLALProposal;
-	
-     ppt=LALInferenceGetProcParamVal(commandLine,"--template");
-    if(ppt) {
-    if(!strcmp("SineGaussF",ppt->value) ||!strcmp("Gauss",ppt->value) || !strcmp("SineGauss",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value))
-    // SALVO: giving the same basic jump proposal to all the burst signals. When we have more ad hoc functions we can differentiate here
-    runState->proposal=&NSWrapMCMCSinGaussProposal;
-    }
-    REAL8 temp=1.0;
-    LALInferenceAddVariable(runState->proposalArgs,"temperature",&temp,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
-	
-	/* Default likelihood is the frequency domain one */
-	runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
+  runState->algorithm=&LALInferenceNestedSamplingAlgorithm;
+  runState->evolve=&LALInferenceNestedSamplingOneStep;
+  /* use the ptmcmc proposal to sample prior */
+  runState->proposal=&NSWrapMCMCLALProposal;
 
-        /* Check whether to use the SkyLocalization prior. Otherwise uses the default LALInferenceInspiralPriorNormalised. That should probably be replaced with a swhich over the possible priors. */
-        ppt=LALInferenceGetProcParamVal(commandLine,"--prior_distr");
-        if(ppt){
-            if (!strcmp(ppt->value,"SkyLoc")) runState->prior = &LALInferenceInspiralSkyLocPrior;
-        }
-        else{
-            runState->prior = &LALInferenceInspiralPriorNormalised;
-        }
-	
-	ppt=LALInferenceGetProcParamVal(commandLine,"--template");
-        if(ppt) {
-		if(!strcmp("SineGaussF",ppt->value) || !strcmp("SineGauss",ppt->value)|| !strcmp("Gauss",ppt->value)){
-		runState->prior = &LALInferenceSinGaussPrior;
-		XLALPrintInfo("Using SineGauss prior\n");
-		}
-		else if (!strcmp("RingdownF",ppt->value)){
-		runState->prior = &LALInferenceRingdownPrior;
-		XLALPrintInfo("Using Ringdown prior\n");
-		}
-		else if (!strcmp("HMNS",ppt->value)){
-		runState->prior = &LALInferenceHMNSPrior;
-		XLALPrintInfo("Using HMNS prior\n");
-		}
-	}
+  ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
+  if(ppt) {
+    if(XLALCheckBurstApproximantFromString(ppt->value))
+    // SALVO: giving the same basic jump proposal to all the burst signals. When we have more ad hoc functions we can differentiate here
+      runState->proposal=&NSWrapMCMCSinGaussProposal;
+  }
+  REAL8 temp=1.0;
+  LALInferenceAddVariable(runState->proposalArgs,"temperature",&temp,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
+
+  /* Default likelihood is the frequency domain one */
+  runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
+
+  /* Check whether to use the SkyLocalization prior. Otherwise uses the default LALInferenceInspiralPriorNormalised. That should probably be replaced with a swhich over the possible priors. */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--prior_distr");
+  if(ppt){
+    if (!strcmp(ppt->value,"SkyLoc")) runState->prior = &LALInferenceInspiralSkyLocPrior;
+  }
+  else{
+      runState->prior = &LALInferenceInspiralPriorNormalised;
+  }
+  ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
+  if(ppt) {
+    if(!strcmp("SineGaussianF",ppt->value) || !strcmp("SineGaussian",ppt->value)|| !strcmp("Gaussian",ppt->value)|| !strcmp("GaussianF",ppt->value)){
+    runState->prior = &LALInferenceSinGaussPrior;
+    XLALPrintInfo("Using (Sine)Gaussian(F) prior\n");
+    }
+    else if (!strcmp("RingdownF",ppt->value)){
+    runState->prior = &LALInferenceRingdownPrior;
+    XLALPrintInfo("Using Ringdown prior\n");
+    }
+    else if (!strcmp("HMNS",ppt->value)){
+    runState->prior = &LALInferenceHMNSPrior;
+    XLALPrintInfo("Using HMNS prior\n");
+    }
+  }
 
 	/* Set up the prior for analytic tests if needed */
 	if(LALInferenceGetProcParamVal(commandLine,"--correlatedGaussianLikelihood")){
@@ -407,7 +416,7 @@ int main(int argc, char *argv[]){
         char help[]="\
 LALInferenceNest:\n\
 Bayesian analysis tool using Nested Sampling algorithm\n\
-for CBC analysis. Uses LALInference library for back-end.\n\n\
+for CBC and burst analysis. Uses LALInference library for back-end.\n\n\
 Arguments for each section follow:\n\n";
 
 	LALInferenceRunState *state;
@@ -426,27 +435,27 @@ Arguments for each section follow:\n\n";
 	initializeNS(state);
 	
 	/* Set template function */
-	ppt=LALInferenceGetProcParamVal(procParams,"--template");
-	if(!strcmp("SineGauss",ppt->value) || !strcmp("Gauss",ppt->value)|| !strcmp("SineGaussF",ppt->value)||!strcmp("BestIFO",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value)){  
-        fprintf(stdout,"--- Calling burst init template \n");
+	ppt=LALInferenceGetProcParamVal(procParams,"--approx");
+	if(XLALCheckBurstApproximantFromString(ppt->value)){  
+      fprintf(stdout,"--- Calling burst init template \n");
 	    LALInferenceInitBurstTemplate(state);
 	}
 	else {    
+      fprintf(stdout,"--- Calling CBC init template \n");
 	    LALInferenceInitCBCTemplate(state);
 	}
 
 	/* Set up currentParams with variables to be used */
 	/* Review task needs special priors */
-	ppt=LALInferenceGetProcParamVal(procParams,"--template");
-
+  ppt=LALInferenceGetProcParamVal(procParams,"--approx");
 	LALInferenceInitVariablesFunction initVarsFunc=NULL;
 	if(LALInferenceGetProcParamVal(procParams,"--correlatedGaussianLikelihood"))
 		initVarsFunc=&LALInferenceInitVariablesReviewEvidence;
-        else if(LALInferenceGetProcParamVal(procParams,"--bimodalGaussianLikelihood"))
-                initVarsFunc=&LALInferenceInitVariablesReviewEvidence_bimod;
-        else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood"))
-                initVarsFunc=&LALInferenceInitVariablesReviewEvidence_banana;
-	else if(!strcmp("SineGauss",ppt->value) || !strcmp("Gauss",ppt->value)|| !strcmp("SineGaussF",ppt->value)){
+  else if(LALInferenceGetProcParamVal(procParams,"--bimodalGaussianLikelihood"))
+    initVarsFunc=&LALInferenceInitVariablesReviewEvidence_bimod;
+  else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood"))
+    initVarsFunc=&LALInferenceInitVariablesReviewEvidence_banana;
+  else if(!strcmp("SineGaussian",ppt->value) || !strcmp("Gaussian",ppt->value)|| !strcmp("SineGaussianF",ppt->value)|| !strcmp("GaussianF",ppt->value)){
 	    fprintf(stdout,"--- Calling burst init variables \n");
 	    initVarsFunc=&LALInferenceInitBurstVariables;
 	}
@@ -458,7 +467,7 @@ Arguments for each section follow:\n\n";
 	     fprintf(stdout,"--- Calling HMNS init function \n");
 	    initVarsFunc=&LALInferenceInitHMNSVariables;
 	}
-	else if(!strcmp("BestIFO",LALInferenceGetProcParamVal(procParams,"--template")->value)){
+	else if(!strcmp("BestIFO",LALInferenceGetProcParamVal(procParams,"--approx")->value)){
 	    fprintf(stdout,"--- Calling bestIFO init function \n");
 	    initVarsFunc=&LALInferenceInitBestIFOVariables;
 	}
@@ -489,16 +498,17 @@ Arguments for each section follow:\n\n";
 	/* Call setupLivePointsArray() to populate live points structures */
 	LALInferenceSetupLivePointsArray(state);
 
-	ppt=LALInferenceGetProcParamVal(procParams,"--template");
+	ppt=LALInferenceGetProcParamVal(procParams,"--approx");
 	if(ppt) {
-	// SALVO: We may want different if else for differnt templates in the future
-	if(!strcmp("SineGaussF",ppt->value) ||!strcmp("Gauss",ppt->value) || !strcmp("SineGauss",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value) ){
-        fprintf(stdout,"--- Setting SG jump proposal \n");
-
-	    LALInferenceSetupSinGaussianProposal(state,state->currentParams);}
+    // SALVO: We may want different if else for differnt templates in the future
+    if(XLALCheckBurstApproximantFromString(ppt->value)){
+      fprintf(stdout,"--- Setting burst jump proposal \n");
+      LALInferenceSetupSinGaussianProposal(state,state->currentParams);
     }
+  }
 	else 
 	    LALInferenceSetupDefaultNSProposal(state,state->currentParams);
+
 	/* write injection with noise evidence information from algorithm */
 	LALInferencePrintInjectionSample(state);
 	

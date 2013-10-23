@@ -297,7 +297,7 @@ static void print_usage(void)
 "[--f-stdev  hertz] For gaussian distribution of centre frequency, standard deviation of the distribution.\n" \
 "\n" \
 "[--hrss-distr constant,uniform,log,gaussian,volume] \n" \
-"   hrss distribution of SineGaussian injections:\n" \
+"   hrss distribution of (Sine)Gaussian injections:\n" \
 "   constant: all the signal have the same hrss (requires --hrss)\n" \
 "   uniform:  uniform distribution (requires --min-hrss and --max-hrss)\n" \
 "   log:      log distribution (requires --min-hrss and --max-hrss)\n" \
@@ -308,13 +308,13 @@ static void print_usage(void)
 "[--min-hrss value]\n" \
 "\n"\
 "	Set the bounds of the injection h_{rss} values.  These only affect\n" \
-"	sine-Gaussian injections.\n" \
+"	(sine)Gaussian injections.\n" \
 "\n" \
 "[--hrss value ] For gaussian distribution of hrss, mean of the distribution.\n"\
 "[--hrss-stdev value ] For gaussian distribution of hrss, standard deviation of the distribution.\n"\
 "\n" \
 "[--snr-distr uniform,log,volume] \n" \
-"   SNR distribution of SineGaussian injections (cannot be used together with --hrss* :\n" \
+"   SNR distribution of (Sine)Gaussian injections (cannot be used together with --hrss* :\n" \
 "   uniform:  uniform distribution (requires --min-snr and --max-snr)\n" \
 "   log:      log distribution (requires --min-snr and --max-snr)\n" \
 "   volume:   distribution uniform in volume (requires --min-snr and --max-snr)\n" \
@@ -323,7 +323,7 @@ static void print_usage(void)
 "[--min-hrss value]\n" \
 "\n"\
 "	Set the bounds of the injection h_{rss} values.  These only affect\n" \
-"	sine-Gaussian injections.\n" \
+"	(sine)Gaussian injections.\n" \
 "\n" \
 "[--q-distr constant,uniform,log,gaussian] \n" \
 "   Q distribution of SineGaussian injections:\n" \
@@ -345,7 +345,7 @@ static void print_usage(void)
 "\n" \
 "--population name\n" \
 "	Select the injection population to synthesize.  Allowed values are\n" \
-"	\"targeted\", \"string_cusp\", \"all_sky_sinegaussian\",\n" \
+"	\"targeted\", \"string_cusp\", \"all_sky_sinegaussian\", \"all_sky_gaussian\",\n" \
 "	\"all_sky_sinegaussian_F\", \"all_sky_btlwnb\".\n" \
 "\n" \
 "--ra-dec ra,dec\n" \

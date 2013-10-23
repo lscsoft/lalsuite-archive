@@ -54,7 +54,7 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
 
     ProcessParamsTable *commandLine=runState->commandLine;
     LALInferenceIFOData *ifo=runState->data;
-    ProcessParamsTable *ppt=LALInferenceGetProcParamVal(commandLine,"--template");
+    ProcessParamsTable *ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
 
     /* Print command line arguments if help requested */
     if(LALInferenceGetProcParamVal(runState->commandLine,"--help"))
@@ -90,7 +90,7 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
     fprintf(stderr, "Using noise-only likelihood.\n");
     runState->likelihood=&LALInferenceNoiseOnlyLogLikelihood;
    }  else if (ppt){
-     if(!strcmp("SineGauss",ppt->value) || !strcmp("SineGaussF",ppt->value)|| !strcmp("Gauss",ppt->value)){
+     if(!strcmp("SineGaussian",ppt->value) || !strcmp("SineGaussianF",ppt->value)|| !strcmp("Gaussian",ppt->value)|| !strcmp("GaussianF",ppt->value)){
         runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_Burst;
         printf("setting Burst Likelihood ----- \n");
         }

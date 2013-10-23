@@ -266,6 +266,8 @@ void LALInferenceTemplateSineGaussianF(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateGaussian(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateHMNS(LALInferenceIFOData *IFOdata);
+void LALInferenceTemplateGaussianF(LALInferenceIFOData *IFOdata);
+
 /*@}*/
 
 #endif

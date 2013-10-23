@@ -141,7 +141,7 @@ int XLALSimBurstGaussianF(
 	REAL8 eccentricity,
 	REAL8 polarization,
 	REAL8 deltaF,
-    REAL8 deltaT
+  REAL8 deltaT
 );
 
 REAL8 XLALMeasureHPeak(const REAL8TimeSeries *);
@@ -164,7 +164,9 @@ typedef enum {
    SineGaussian,
    GaussianF,
    Gaussian,
-   NumApproximants	/**< Number of elements in enum, useful for checking bounds */
+   RingodownF,
+   HMNS,
+   NumBurstApproximants	/**< Number of elements in enum, useful for checking bounds */
  } BurstApproximant;
 
 /** 
@@ -172,6 +174,7 @@ typedef enum {
  * match exactly, only contain a member of the BurstApproximant enum.
  */
 int XLALGetBurstApproximantFromString(const CHAR *inString);
+int XLALCheckBurstApproximantFromString(const CHAR *inString);
 
 #if 0
 { /* so that editors will match succeeding brace */
