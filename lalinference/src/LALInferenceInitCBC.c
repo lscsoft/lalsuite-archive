@@ -159,6 +159,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
                                                                                 TaylorF2RedSpinTidal, IMRPhenomA, IMRPhenomB.\n\
                (--amporder PNorder)            Specify a PN order in amplitude to use (defaults: LALSimulation: max available; LALInspiral: newtownian).\n\
                (--fref fRef)                   Specify a reference frequency at which parameters are defined (default 0).\n\
+               (--eos EOS)                     Specify a model for the equation of state (e.g. MS1), only with LALSimulation.\n\
                (--tidal)                       Enables tidal corrections, only with LALSimulation.\n\
                (--tidalT)                      Enables reparmeterized tidal corrections, only with LALSimulation.\n\
                (--spinOrder PNorder)           Specify twice the PN order (e.g. 5 <==> 2.5PN) of spin effects to use, only for LALSimulation (default: -1 <==> Use all spin effects).\n\
@@ -762,9 +763,10 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
   if(ppt){
 
       equation_of_state = XLALSimEOSfromString(ppt->value);
+      fprintf(stdout, "EOS %i chosen!\n", equation_of_state);
 
       /* check which EOS chosen, error if not available */
-      if (equation_of_state > LAL_SIM_INSPIRAL_NumEOS ) {
+      if (equation_of_state >= LAL_SIM_INSPIRAL_NumEOS ) {
           XLALPrintError("Chosen equation of state not implemented in lalsimulation.\n");
           exit(-1) ;
       }
@@ -1413,8 +1415,8 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
     
   }
 
-  if(LALInferenceGetProcParamVal(commandLine,"--tidalT")&&LALInferenceGetProcParamVal(commandLine,"--tidal")){
-    XLALPrintError("Error: cannot use both --tidalT and --tidal.\n");
+  if (!LALInferenceGetProcParamVal(commandLine,"--eos") + !LALInferenceGetProcParamVal(commandLine,"--tidalT") + !LALInferenceGetProcParamVal(commandLine,"--tidal") < 2){
+    XLALPrintError("Error: cannot use more than one of --eos, --tidalT and --tidal.\n");
     XLAL_ERROR_NULL(XLAL_EINVAL);
   } else if(LALInferenceGetProcParamVal(commandLine,"--tidalT")){
     LALInferenceRegisterUniformVariableREAL8(state, currentParams, "lambdaT", 0.0, lambdaTMin, lambdaTMax, LALINFERENCE_PARAM_LINEAR);
