@@ -4,7 +4,6 @@ import os, glob, optparse, shutil, warnings, pickle, math, copy, pickle, matplot
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal, scipy.stats
-from lxml import etree
 import pylal.pylal_seismon_NLNM, pylal.pylal_seismon_html
 import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_utils
 
@@ -194,6 +193,14 @@ def calculate_spectra(params,channel,dataFull):
     data["dataASD"] = dataASD
     data["dataFFT"] = dataFFT
 
+    if params["doEarthquakesHilbert"]:
+
+        dataHilbert = scipy.signal.hilbert(dataLowpass).imag
+        dataHilbert = dataHilbert.view(dataLowpass.__class__)
+        dataHilbert.sample_rate =  dataFull.sample_rate
+        dataHilbert.epoch = dataFull.epoch
+        data["dataHilbert"] = dataHilbert
+
     return data
 
 def apply_calibration(params,channel,data):
@@ -313,8 +320,9 @@ def spectra(params, channel, segment):
     # calculate spectrogram
     specgram = dataFull.spectrogram(params["fftDuration"])
     specgram **= 1/2.
-    speclog = specgram.to_logf()
-    medratio = speclog.ratio('median')
+    #speclog = specgram.to_logf()
+    #medratio = speclog.ratio('median')
+    medratio = specgram.ratio('median')
 
     if params["doEarthquakes"]:
         earthquakesDirectory = os.path.join(params["path"],"earthquakes")
@@ -337,7 +345,7 @@ def spectra(params, channel, segment):
         dataHighpass = data["dataHighpass"].resample(16)
         dataFull = data["dataFull"].resample(16)
         dataLowpass = data["dataLowpass"].resample(16)
-
+       
         #dataHighpass = data["dataHighpass"]
         #dataFull = data["dataFull"]
         #dataLowpass = data["dataLowpass"]
@@ -368,6 +376,11 @@ def spectra(params, channel, segment):
             RthreePointFivetime = max(traveltimes["RthreePointFivetimes"])
             Rfivetime = max(traveltimes["Rfivetimes"])
 
+            if params["doEarthquakesVelocityMap"]:
+                Rvelocitymaptimes = traveltimes["Rvelocitymaptimes"]
+                Rvelocitymaptime = max(traveltimes["Rvelocitymaptimes"])
+                Rvelocitymapvelocities = traveltimes["Rvelocitymapvelocities"]
+
             peak_velocity = traveltimes["Rfamp"][0]
             peak_velocity = peak_velocity * 1e6
 
@@ -382,12 +395,17 @@ def spectra(params, channel, segment):
                 kwargs = {"linestyle":"--","color":"g"}
                 plot.add_line([Stime,Stime],ylim,label="S Est. Arrival",**kwargs)
                 kwargs = {"linestyle":"--","color":"b"}
-                plot.add_line([RthreePointFivetime,RthreePointFivetime],ylim,label="Middle R Est. Arrival",**kwargs)            
-                plot.add_line([Rtwotime,Rtwotime],ylim,label="High R Est. Arrival",**kwargs)
-                plot.add_line([Rfivetime,Rfivetime],ylim,label="Low R Est. Arrival",**kwargs)
+                plot.add_line([RthreePointFivetime,RthreePointFivetime],ylim,label="3.5 km/s R Est. Arrival",**kwargs)            
+                plot.add_line([Rtwotime,Rtwotime],ylim,label="2 km/s R Est. Arrival",**kwargs)
+                plot.add_line([Rfivetime,Rfivetime],ylim,label="5 km/s R Est. Arrival",**kwargs)
+
+                if params["doEarthquakesVelocityMap"]:
+                    kwargs = {"linestyle":"--","color":"m"}
+                    plot.add_line([Rvelocitymaptime,Rvelocitymaptime],ylim,label="Velocity map R Est. Arrival",**kwargs)
                 kwargs = {"linestyle":"--","color":"k"}
                 plot.add_line(xlim,[peak_velocity,peak_velocity],label="pred. vel.",**kwargs)
                 plot.add_line(xlim,[-peak_velocity,-peak_velocity],**kwargs)
+
             else:
                 kwargs = {"linestyle":"--","color":"r"}
                 plot.add_line([Ptime,Ptime],ylim,**kwargs)
@@ -397,6 +415,10 @@ def spectra(params, channel, segment):
                 plot.add_line([RthreePointFivetime,RthreePointFivetime],ylim,**kwargs)
                 plot.add_line([Rtwotime,Rtwotime],ylim,**kwargs)
                 plot.add_line([Rfivetime,Rfivetime],ylim,**kwargs)
+
+                if params["doEarthquakesVelocityMap"]:
+                    kwargs = {"linestyle":"--","color":"m"}
+                    plot.add_line([Rvelocitymaptime,Rvelocitymaptime],ylim,**kwargs)
                 kwargs = {"linestyle":"--","color":"k"}
                 plot.add_line(xlim,[peak_velocity,peak_velocity],**kwargs)
                 plot.add_line(xlim,[-peak_velocity,-peak_velocity],**kwargs)
@@ -441,6 +463,23 @@ def spectra(params, channel, segment):
         plot.save(pngFile)
         plot.close()
 
+        if params["doEarthquakesHilbert"]:
+            dataHilbert = data["dataHilbert"].resample(16)
+            dataHilbert *= 1e6
+
+            pngFile = os.path.join(plotDirectory,"hilbert.png")
+            plot = gwpy.plotter.TimeSeriesPlot(figsize=[14,8])
+
+            plot.add_timeseries(dataHilbert,label="highpass")
+
+            plot.ylabel = r"Velocity [$\mu$m/s]"
+            plot.title = channel.station.replace("_","\_")
+            plot.xlim = xlim
+            plot.ylim = ylim
+
+            plot.save(pngFile)
+            plot.close()
+
         fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
 
         pngFile = os.path.join(plotDirectory,"psd.png")
@@ -456,8 +495,8 @@ def spectra(params, channel, segment):
         plot.xlabel = "Frequency [Hz]"
         plot.ylabel = "Amplitude Spectrum [(m/s)/rtHz]"
         plot.title = channel.station.replace("_","\_")
-        plot.axes.set_xscale("log")
-        plot.axes.set_yscale("log")
+        plot.axes[0].set_xscale("log")
+        plot.axes[0].set_yscale("log")
         plot.add_legend(loc=1,prop={'size':10})
 
         plot.save(pngFile,dpi=200)
@@ -469,9 +508,38 @@ def spectra(params, channel, segment):
         plot.add_colorbar(log=True, clim=[0.1, 10], label='ASD ratio to median average')
         plot.ylabel = "Frequency [Hz]"
         plot.ylim = [params["fmin"],params["fmax"]]
+        plot.axes[0].set_yscale("log")
         plot.show()
         plot.save(pngFile,dpi=200)
         plot.close()                                       
+
+        if params["doEarthquakesVelocityMap"]:
+            pngFile = os.path.join(plotDirectory,"velocitymaps.png")
+            plot = gwpy.plotter.TimeSeriesPlot(figsize=[14,8])
+
+            for attributeDic in attributeDics:
+       
+                Rvelocitymaptimes = traveltimes["Rvelocitymaptimes"]
+                Rvelocitymaptime = max(traveltimes["Rvelocitymaptimes"])
+                Rvelocitymapvelocities = traveltimes["Rvelocitymapvelocities"]
+
+                kwargs = {"linestyle":"-","color":"k"}
+                plot.add_line(Rvelocitymaptimes,Rvelocitymapvelocities,label="Velocity Map",**kwargs)
+
+            xlim = [plot.xlim[0],plot.xlim[1]]
+            ylim = [plot.ylim[0],plot.ylim[1]]
+
+            kwargs = {"linestyle":"-","color":"b"}
+            plot.add_line(xlim,[2,2],**kwargs)
+            plot.add_line(xlim,[3.5,3.5],**kwargs)
+            plot.add_line(xlim,[5,5],**kwargs)
+
+            plot.ylim = [1.75,5.25]
+            plot.xlabel = "Time [s]"
+            plot.ylabel = "Velocity [km/s]"
+            plot.show()
+            plot.save(pngFile,dpi=200)
+            plot.close()
 
 def freq_analysis(params,channel,tt,freq,spectra):
     """@frequency analysis of spectral data.
@@ -807,8 +875,8 @@ def analysis(params, channel):
                    np.min(bins), np.max(bins)]
         kwargs = {}
         plot.add_image(specvar, extent=extent, **kwargs)
-        plot.axes.set_xscale("log")
-        plot.axes.set_yscale("log")
+        plot.axes[0].set_xscale("log")
+        plot.axes[0].set_yscale("log")
         kwargs = {"linestyle":"-.","color":"k"}
         plot.add_line(fl, low, **kwargs)
         plot.add_line(fh, high, **kwargs)
@@ -825,7 +893,7 @@ def analysis(params, channel):
         for key in sigDict.iterkeys():
             label = key
             plot.add_timeseries(sigDict[key]["data"], label=label)
-        plot.axes.set_yscale("log")
+        plot.axes[0].set_yscale("log")
         plot.ylabel = "Average Amplitude Spectrum log10[(m/s)/rtHz]"
         plot.add_legend(loc=1,prop={'size':10})
         plot.save(pngFile,dpi=200)

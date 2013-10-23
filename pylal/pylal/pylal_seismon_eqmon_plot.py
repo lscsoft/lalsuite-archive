@@ -157,11 +157,34 @@ def earthquakes_station_distance(params,data,type,plotName):
         vmax = np.max(channel_data["magnitude"])
         kwargs = {'zorder':1000,'label':label,'s':25,'vmin':vmin,'vmax':vmax}
         if type == "time":
+            kwargs = {'zorder':1000,'label':label,'s':25,'vmin':vmin,'vmax':vmax}
             plot.add_scatter(channel_data["distance"],channel_data["ttDiff"],c=channel_data["magnitude"],**kwargs)
         elif type == "amplitude":
+            kwargs = {'zorder':1000,'label':label,'s':25,'vmin':vmin,'vmax':vmax}
             plot.add_scatter(channel_data["distance"],1e6 * channel_data["ampMax"],c=channel_data["magnitude"],**kwargs) 
         elif type == "residual":
+            kwargs = {'zorder':1000,'label':label,'s':25,'vmin':vmin,'vmax':vmax}
             plot.add_scatter(channel_data["distance"],channel_data["residual"],c=channel_data["magnitude"],**kwargs)
+        elif type == "velocitymap":
+            kwargs = {'zorder':1000,'label':'Velocity map','s':25}
+            plot.add_scatter(channel_data["distance"],channel_data["RvelocitymaptimeDiff"],c='r',**kwargs)
+            kwargs = {'zorder':1000,'label':'Actual','s':25}
+            plot.add_scatter(channel_data["distance"],channel_data["ttDiff"],c='b',**kwargs)
+            kwargs = {'zorder':1000,'label':'3.5 km/s','s':25}
+            plot.add_scatter(channel_data["distance"],channel_data["distance"]/3500,c='g',**kwargs)
+        elif type == "velocitymapresidual":
+            kwargs = {'zorder':1000,'label':label,'s':25}
+            plot.add_scatter(channel_data["distance"],channel_data["RvelocitymaptimeResidual"],c='k',**kwargs)
+        elif type == "lookup":
+            kwargs = {'zorder':1000,'label':'Look Up Table','s':25}
+            plot.add_scatter(channel_data["distance"],channel_data["RlookuptimeDiff"],c='r',**kwargs)
+            kwargs = {'zorder':1000,'label':'Actual','s':25}
+            plot.add_scatter(channel_data["distance"],channel_data["ttDiff"],c='b',**kwargs)
+            kwargs = {'zorder':1000,'label':'3.5 km/s','s':25}
+            plot.add_scatter(channel_data["distance"],channel_data["distance"]/3500,c='g',**kwargs)
+        elif type == "lookupresidual":
+            kwargs = {'zorder':1000,'label':label,'s':25}
+            plot.add_scatter(channel_data["distance"],channel_data["RlookuptimeResidual"],c='k',**kwargs)
 
         count=count+1
 
@@ -180,21 +203,110 @@ def earthquakes_station_distance(params,data,type,plotName):
         plot.add_line(xp,p(xp),label=label)
 
         plot.ylabel = 'Time [s]'
+        plot.axes[0].set_yscale("log")
+
+        distanceMin = 1e6
+        distanceMax = 2e7
+        timeMin = 1e2
+        timeMax = 1e4
+
+        plot.xlim = [distanceMin,distanceMax]
+        plot.ylim = [timeMin,timeMax]
+
 
     elif type == "amplitude":
         plot.ylabel = r"Velocity [$\mu$m/s]"
-        plot.axes.set_yscale("log")
+        plot.axes[0].set_yscale("log")
     elif type == "residual":
         plot.ylabel = r"Relative difference [(actual-prediction)/prediction]"
         plot.ylim = [get_dist(channel_data["residual"],5)-20,get_dist(channel_data["residual"],90)+20]
+    elif type == "velocitymap":
+        plot.ylabel = r"Time [s]"
+    elif type == "velocitymapresidual":
+        plot.ylabel = r"Relative difference [(actual-prediction)/prediction]"
+    elif type == "lookup":
+        plot.ylabel = r"Time [s]"
+    elif type == "lookupresidual":
+        plot.ylabel = r"Relative difference [(actual-prediction)/prediction]"
+
     plot.xlabel = 'Distance [m]'
-    plot.add_legend(loc=1,prop={'size':10})
+    plot.add_legend(loc=2,prop={'size':10})
 
     #plot.add_colorbar(log=False,clim=[vmin,vmax])
-    plot.axes.set_xscale("log")
+    plot.axes[0].set_xscale("log")
 
     plot.save(plotName,dpi=200)
     plot.close()
+
+def earthquakes_station_distance_heatmap(params,data,type,plotName):
+    """@earthquakes distance heatmap plot
+
+    @param params
+        seismon params dictionary
+    @param data
+        list of data structures
+    @param plotName
+        name of plot
+    """
+
+    x = np.array([])
+    y = np.array([])
+
+    for key in data["channels"].iterkeys():
+        label = key.replace("_","\_")
+
+        channel_data = data["channels"][key]["earthquakes"]
+
+        if len(channel_data["magnitude"]) == 0:
+            continue
+
+        x = np.append(x,channel_data["distance"])
+        y = np.append(y,channel_data["ttDiff"])
+
+    if type == "time":
+
+        distanceMin = 1e6
+        distanceMax = 2e7
+        timeMin = 1e2
+        timeMax = 1e4
+        num=50
+
+        distanceBins = np.logspace(np.log10(distanceMin),np.log10(distanceMax),num=num)
+        timeBins = np.logspace(np.log10(timeMin),np.log10(timeMax),num=num)
+
+        bins = np.vstack([distanceBins,timeBins])
+        hist2,xedges,yedges = np.histogram2d(x,y, bins=bins, range=None, normed=False, weights=None)
+
+        X,Y = np.meshgrid(distanceBins, timeBins)
+        fig = plt.Figure(figsize=[14,8])
+        ax = plt.subplot(111)
+        im = plt.pcolor(X,Y,hist2.T, cmap=plt.cm.jet)
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        xp = distanceBins
+        linewidth=2.0
+        p = np.poly1d([1.0/2000,0])
+        label = "prediction [2.0 km/s]"
+        plt.loglog(xp,p(xp),'b',label=label,linewidth=linewidth)
+        p = np.poly1d([1.0/3500,0])
+        label = "prediction [3.5 km/s]"
+        plt.loglog(xp,p(xp),'g',label=label,linewidth=linewidth)
+        p = np.poly1d([1.0/5000,0])
+        label = "prediction [5 km/s]"
+        plt.loglog(xp,p(xp),'r',label=label,linewidth=linewidth)
+
+        plt.xlabel('Distance [m]')
+        plt.ylabel('Time [s]')
+        plt.legend(loc=2,prop={'size':10})
+        title = "Earthquake Epicenter Distance to Site vs Arrival Time. %s: %d Earthquakes"%(params["runName"],len(x))
+        plt.title(title,fontsize=10)
+
+        plt.xlim([distanceMin,distanceMax])
+        plt.ylim([timeMin,timeMax])
+        plt.grid(b=True, which='both', color='w',linestyle='--')
+        plt.show()
+        plt.savefig(plotName,dpi=200)
+        plt.close('all')
 
 def get_dist(array,percentile):
 
@@ -706,6 +818,139 @@ def worldmap_plot(params,attributeDics,type,plotName):
     plt.savefig(plotName,dpi=200)
     plt.close('all')
 
+def worldmap_channel_plot(params,data,type,plotName):
+    """@worldmap plot
+
+    @param params
+        seismon params dictionary
+    @param data
+        list of eqmon structures
+    @param type
+        type of worldmap plot
+    @param plotName
+        name of plot
+    """
+
+    ifo = pylal.pylal_seismon_utils.getIfo(params)
+
+    plt.figure(figsize=(10,5))
+    plt.axes([0,0,1,1])
+
+    # lon_0 is central longitude of robinson projection.
+    # resolution = 'c' means use crude resolution coastlines.
+    m = Basemap(projection='robin',lon_0=0,resolution='c')
+    #set a background colour
+    m.drawmapboundary(fill_color='#85A6D9')
+
+    # draw coastlines, country boundaries, fill continents.
+    m.fillcontinents(color='white',lake_color='#85A6D9')
+    m.drawcoastlines(color='#6D5F47', linewidth=.4)
+    m.drawcountries(color='#6D5F47', linewidth=.4)
+
+    # draw lat/lon grid lines every 30 degrees.
+    m.drawmeridians(np.arange(-180, 180, 30), color='#bbbbbb')
+    m.drawparallels(np.arange(-90, 90, 30), color='#bbbbbb')
+
+    for key in data["channels"].iterkeys():
+        label = key.replace("_","\_")
+
+        channel_data = data["channels"][key]["earthquakes"]
+
+        if len(channel_data["magnitude"]) == 0:
+            continue
+
+        x,y = m(channel_data["longitude"], channel_data["latitude"])
+
+        if type == "time":
+            travel_time = channel_data["ttDiff"]
+            travel_time = travel_time / 60
+            color = travel_time
+            colorbar_label = "Travel times [minutes]"
+            vmin = 0
+            vmax = 90
+
+        m.scatter(
+                x,
+                y,
+                s=20, #size
+                marker='o', #symbol
+                alpha=0.5, #transparency
+                zorder = 3, #plotting order
+                c=color,
+                vmin=vmin,
+                vmax=vmax
+        )
+
+    try:
+       cbar=plt.colorbar()
+       cbar.set_label(colorbar_label)
+       cbar.set_clim(vmin=vmin,vmax=vmax)
+    except:
+       pass
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
+
+def worldmap_velocitymap(params,plotName):
+    """@worldmap plot
+
+    @param params
+        seismon params dictionary
+    @param plotName
+        name of plot
+    """
+
+    plt.figure(figsize=(15,10))
+    plt.axes([0,0,1,1])
+
+    # lon_0 is central longitude of robinson projection.
+    # resolution = 'c' means use crude resolution coastlines.
+    m = Basemap(projection='robin',lon_0=0,resolution='c')
+    #set a background colour
+    m.drawmapboundary(fill_color='#85A6D9')
+
+    # draw coastlines, country boundaries, fill continents.
+    m.fillcontinents(color='white',lake_color='#85A6D9')
+    m.drawcoastlines(color='#6D5F47', linewidth=.4)
+    m.drawcountries(color='#6D5F47', linewidth=.4)
+
+    # draw lat/lon grid lines every 30 degrees.
+    m.drawmeridians(np.arange(-180, 180, 30), color='#bbbbbb',zorder=3)
+    m.drawparallels(np.arange(-90, 90, 30), color='#bbbbbb',zorder=3)
+
+    velocityFile = '/home/mcoughlin/Seismon/velocity_maps/GR025_1_GDM52.pix'
+    velocity_map = np.loadtxt(velocityFile)
+    base_velocity = 3.59738
+
+    lats = velocity_map[:,0]
+    lons = velocity_map[:,1]
+    velocity = 1000 * (1 + 0.01*velocity_map[:,3])*base_velocity
+
+    lats_unique = np.unique(lats)
+    lons_unique = np.unique(lons)
+    velocity_matrix = np.zeros((len(lats_unique),len(lons_unique)))
+
+    for k in xrange(len(lats)):
+        index1 = np.where(lats[k] == lats_unique)
+        index2 = np.where(lons[k] == lons_unique)
+        velocity_matrix[index1[0],index2[0]] = velocity[k]
+
+    lons_grid,lats_grid = np.meshgrid(lons_unique,lats_unique)
+    x, y = m(lons_grid, lats_grid) # compute map proj coordinates.
+    # draw filled contours.
+
+    cs = m.pcolor(x,y,velocity_matrix,alpha=0.5,zorder=2)
+    colorbar_label = "Velocity [m/s]"
+
+    try:
+       cbar=plt.colorbar()
+       cbar.set_label(colorbar_label)
+    except:
+       pass
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
+
 def worldmap_station_plot(params,attributeDics,data,type,plotName):
     """@worldmap plot
 
@@ -1039,13 +1284,13 @@ def station_plot(params,attributeDics,data,type,plotName):
         ylabel = "dt [s]"
     elif type == "amplitude":
         ylabel = "Velocity [$\mu$m/s]"
-        plot.axes.set_yscale("log")
+        plot.axes[0].set_yscale("log")
         plot.ylim = [1,200]
 
     plot.xlabel = 'Distance [m]'
     plot.ylabel = ylabel
     plot.add_legend(loc=1,prop={'size':10})
-    plot.axes.set_xscale("log")
+    plot.axes[0].set_xscale("log")
 
     plot.save(plotName,dpi=200)
     plot.close()

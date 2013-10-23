@@ -59,9 +59,14 @@ def run_earthquakes(params,segment):
 
     amp = 0
     segmentlist = glue.segments.segmentlist()
- 
+
     for attributeDic in attributeDics:
 
+        if params["doEarthquakesVelocityMap"]:
+            attributeDic = calculate_traveltimes_velocitymap(attributeDic)
+        if params["doEarthquakesLookUp"]:
+            attributeDic = calculate_traveltimes_lookup(attributeDic)        
+    
         traveltimes = attributeDic["traveltimes"][ifo]
 
         arrival = np.min([max(traveltimes["Rtwotimes"]),max(traveltimes["RthreePointFivetimes"]),max(traveltimes["Rfivetimes"]),max(traveltimes["Stimes"]),max(traveltimes["Ptimes"])])
@@ -101,8 +106,8 @@ def run_earthquakes(params,segment):
     write_info(earthquakesXMLFile,attributeDics)
 
     if params["doEarthquakesOnline"]:
-        sender = 'michael.w.coughlin@gmail.com'
-        receivers = ['michael.w.coughlin@gmail.com']
+        sender = params["userEmail"]
+        receivers = [params["userEmail"]]
 
         lines = [line for line in open(earthquakesFile)]
         if lines == []:
@@ -148,7 +153,6 @@ def run_earthquakes_analysis(params,segment):
             gpsDiff = attributeDic1["GPS"] - attributeDic2["GPS"]
             if np.absolute(gpsDiff) < minDiff:
                 coincident.append(j)
-                print i,j,gpsDiff
     coincident = list(set(coincident))
     print "%d coincident earthquakes"%len(coincident)
     indexes = list(set(range(len(attributeDics))) - set(coincident))
@@ -206,6 +210,9 @@ def run_earthquakes_analysis(params,segment):
         plotName = os.path.join(earthquakesDirectory,"earthquakes_distance_residual.png")
         pylal.pylal_seismon_eqmon_plot.earthquakes_station_distance(params,data,"residual",plotName)
 
+        plotName = os.path.join(earthquakesDirectory,"earthquakes_distance_heatmap_time.png")
+        pylal.pylal_seismon_eqmon_plot.earthquakes_station_distance_heatmap(params,data,"time",plotName)
+
         plotName = os.path.join(earthquakesDirectory,"station_amplitude.png")
         pylal.pylal_seismon_eqmon_plot.station_plot(params,attributeDics,data,"amplitude",plotName)
         plotName = os.path.join(earthquakesDirectory,"station_time.png")
@@ -223,6 +230,9 @@ def run_earthquakes_analysis(params,segment):
         plotName = os.path.join(earthquakesDirectory,"worldmap_restimates.png")
         pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,"Restimates",plotName)
 
+        plotName = os.path.join(earthquakesDirectory,"worldmap_channel_traveltimes.png")
+        pylal.pylal_seismon_eqmon_plot.worldmap_channel_plot(params,data,"time",plotName)
+
         plotName = os.path.join(earthquakesDirectory,"restimates.png")
         pylal.pylal_seismon_eqmon_plot.restimates(params,attributeDics,plotName)
         plotName = os.path.join(earthquakesDirectory,"magnitudes.png")
@@ -238,6 +248,20 @@ def run_earthquakes_analysis(params,segment):
         pylal.pylal_seismon_eqmon_plot.traveltimes(params,attributeDics,ifo,gpsEnd,plotName)
         plotName = os.path.join(earthquakesDirectory,"worldmap.png")
         pylal.pylal_seismon_eqmon_plot.worldmap_wavefronts(params,attributeDics,gpsEnd,plotName)
+
+        if params["doEarthquakesVelocityMap"]:
+            plotName = os.path.join(earthquakesDirectory,"earthquakes_distance_velocitymap.png")
+            pylal.pylal_seismon_eqmon_plot.earthquakes_station_distance(params,data,"velocitymap",plotName)
+            plotName = os.path.join(earthquakesDirectory,"earthquakes_distance_velocitymapresidual.png")
+            pylal.pylal_seismon_eqmon_plot.earthquakes_station_distance(params,data,"velocitymapresidual",plotName)
+            plotName = os.path.join(earthquakesDirectory,"velocitymap.png")
+            pylal.pylal_seismon_eqmon_plot.worldmap_velocitymap(params,plotName)
+
+        if params["doEarthquakesLookUp"]:
+            plotName = os.path.join(earthquakesDirectory,"earthquakes_distance_lookup.png")
+            pylal.pylal_seismon_eqmon_plot.earthquakes_station_distance(params,data,"lookup",plotName)
+            plotName = os.path.join(earthquakesDirectory,"earthquakes_distance_lookupresidual.png")
+            pylal.pylal_seismon_eqmon_plot.earthquakes_station_distance(params,data,"lookupresidual",plotName)
 
 def save_predictions(params,data):
     """@save file for generating predictions
@@ -259,12 +283,12 @@ def save_predictions(params,data):
 
         predictionFile = os.path.join(predictionsDirectory,"%s.txt"%key)
         f = open(predictionFile,"w")
-        for gps,arrival,departure,latitude, longitude, distance, magnitude, depth,ampMax,ampPrediction in zip(channel_data["gps"],channel_data["arrival"],channel_data["departure"],channel_data["latitude"],channel_data["longitude"],channel_data["distance"],channel_data["magnitude"],channel_data["depth"],channel_data["ampMax"],channel_data["ampPrediction"]):
+        for gps,arrival,departure,latitude, longitude, distance, magnitude, depth,ampMax,ampPrediction,ttDiff in zip(channel_data["gps"],channel_data["arrival"],channel_data["departure"],channel_data["latitude"],channel_data["longitude"],channel_data["distance"],channel_data["magnitude"],channel_data["depth"],channel_data["ampMax"],channel_data["ampPrediction"],channel_data["ttDiff"]):
 
             if (ampMax < threshold) and (ampPrediction<threshold):
                 continue
 
-            f.write("%.0f %.0f %.0f %.2f %.2f %e %.2f %.2f %e\n"%(gps,arrival,departure,latitude, longitude, distance, magnitude, depth,ampMax))
+            f.write("%.0f %.0f %.0f %.2f %.2f %e %.2f %.2f %e %.2f\n"%(gps,arrival,departure,latitude, longitude, distance, magnitude, depth,ampMax,ttDiff))
         f.close()
 
 def create_kml(params,attributeDics,data,type,kmlFile):
@@ -497,7 +521,13 @@ def loadChannelEarthquakes(params,channel,attributeDics):
     departure = []
     gps = []
     residual = []
-
+    Rvelocitymaptime = []
+    RvelocitymaptimeDiff = []
+    RvelocitymaptimeResidual = []
+    Rlookuptime = []
+    RlookuptimeDiff = []
+    RlookuptimeResidual = [] 
+ 
     print "Large residuals"
     for attributeDic in attributeDics:
 
@@ -536,8 +566,22 @@ def loadChannelEarthquakes(params,channel,attributeDics):
         thisResidual = (data_out[4] - traveltimes["Rfamp"][0])/traveltimes["Rfamp"][0]
         residual.append(thisResidual)
 
-        if thisResidual > 100:
+        if params["doEarthquakesVelocityMap"]:
+            thisRvelocitymaptime = max(traveltimes["Rvelocitymaptimes"])
+            Rvelocitymaptime.append(thisRvelocitymaptime)
+            thisRvelocitymaptimeDiff = thisRvelocitymaptime - attributeDic["GPS"]
+            RvelocitymaptimeDiff.append(thisRvelocitymaptimeDiff)
+            thisRvelocitymaptimeResidual = (thisRvelocitymaptimeDiff - data_out[1]) / data_out[1]
+            RvelocitymaptimeResidual.append(thisRvelocitymaptimeResidual)
+        if params["doEarthquakesLookUp"]:
+            thisRlookuptime = traveltimes["Rlookuptime"][0]
+            Rlookuptime.append(thisRlookuptime)
+            thisRlookuptimeDiff = thisRlookuptime - attributeDic["GPS"]
+            RlookuptimeDiff.append(thisRlookuptimeDiff)
+            thisRlookuptimeResidual = (thisRlookuptimeDiff - data_out[1]) / data_out[1]
+            RlookuptimeResidual.append(thisRlookuptimeResidual)
 
+        if thisResidual > 100:
             print "%.0f %.0f %.0f %e"%(attributeDic["GPS"],arrival_floor,departure_ceil,thisResidual)
 
     ttMax = np.array(ttMax)
@@ -554,6 +598,12 @@ def loadChannelEarthquakes(params,channel,attributeDics):
     departure = np.array(departure)
     gps = np.array(gps)
     residual = np.array(residual)
+    Rvelocitymaptime = np.array(Rvelocitymaptime)
+    RvelocitymaptimeDiff = np.array(RvelocitymaptimeDiff)
+    RvelocitymaptimeResidual = np.array(RvelocitymaptimeResidual)
+    Rlookuptime = np.array(Rlookuptime)
+    RlookuptimeDiff = np.array(RlookuptimeDiff)
+    RlookuptimeResidual = np.array(RlookuptimeResidual)
 
     data = {}
     data["tt"] = ttMax
@@ -570,6 +620,12 @@ def loadChannelEarthquakes(params,channel,attributeDics):
     data["departure"] = departure 
     data["gps"] = gps
     data["residual"] = residual
+    data["Rvelocitymaptime"] = Rvelocitymaptime
+    data["RvelocitymaptimeDiff"] = RvelocitymaptimeDiff
+    data["RvelocitymaptimeResidual"] = RvelocitymaptimeResidual
+    data["Rlookuptime"] = Rlookuptime
+    data["RlookuptimeDiff"] = RlookuptimeDiff
+    data["RlookuptimeResidual"] = RlookuptimeResidual
 
     return data
 
@@ -1067,6 +1123,50 @@ def databaseread(event):
 
     return attributeDic
 
+def calculate_traveltimes_lookup(attributeDic):
+    """@calculate travel times of earthquake
+
+    @param attributeDic
+        earthquake stucture
+    """
+
+    if not "traveltimes" in attributeDic:
+        attributeDic["traveltimes"] = {}
+
+    if not "Latitude" in attributeDic and not "Longitude" in attributeDic:
+        return attributeDic
+
+    attributeDic = ifotraveltimes_lookup(attributeDic, "LHO", 46.6475, -119.5986)
+    attributeDic = ifotraveltimes_lookup(attributeDic, "LLO", 30.4986, -90.7483)
+    attributeDic = ifotraveltimes_lookup(attributeDic, "GEO", 52.246944, 9.808333)
+    attributeDic = ifotraveltimes_lookup(attributeDic, "VIRGO", 43.631389, 10.505)
+    attributeDic = ifotraveltimes_lookup(attributeDic, "FortyMeter", 34.1391, -118.1238)
+    attributeDic = ifotraveltimes_lookup(attributeDic, "Homestake", 44.3465, -103.7574)
+
+    return attributeDic
+
+def calculate_traveltimes_velocitymap(attributeDic):
+    """@calculate travel times of earthquake
+
+    @param attributeDic
+        earthquake stucture
+    """
+
+    if not "traveltimes" in attributeDic:
+        attributeDic["traveltimes"] = {}
+
+    if not "Latitude" in attributeDic and not "Longitude" in attributeDic:
+        return attributeDic
+
+    attributeDic = ifotraveltimes_velocitymap(attributeDic, "LHO", 46.6475, -119.5986)
+    attributeDic = ifotraveltimes_velocitymap(attributeDic, "LLO", 30.4986, -90.7483)
+    attributeDic = ifotraveltimes_velocitymap(attributeDic, "GEO", 52.246944, 9.808333)
+    attributeDic = ifotraveltimes_velocitymap(attributeDic, "VIRGO", 43.631389, 10.505)
+    attributeDic = ifotraveltimes_velocitymap(attributeDic, "FortyMeter", 34.1391, -118.1238)
+    attributeDic = ifotraveltimes_velocitymap(attributeDic, "Homestake", 44.3465, -103.7574)
+
+    return attributeDic
+
 def calculate_traveltimes(attributeDic): 
     """@calculate travel times of earthquake
 
@@ -1127,6 +1227,48 @@ def ampRf(M,r,h,Rf0,Rfs,Q0,Qs,cd,ch,rs):
 
     return Rf
 
+def ifotraveltimes_lookup(attributeDic,ifo,ifolat,ifolon):
+    """@calculate travel times of earthquake
+
+    @param attributeDic
+        earthquake stucture
+    @param ifo
+        ifo name
+    @param ifolat
+        ifo latitude
+    @param ifolon
+        ifo longitude
+    """
+
+    try:
+        from obspy.taup.taup import getTravelTimes
+        from obspy.core.util.geodetics import gps2DistAzimuth
+    except:
+        print "Enable ObsPy if updated earthquake estimates desired...\n"
+        return attributeDic
+
+    distance,fwd,back = gps2DistAzimuth(attributeDic["Latitude"],attributeDic["Longitude"],ifolat,ifolon)
+    distances = np.linspace(0,distance,1000)
+    degrees = (distances/6370000)*(180/np.pi)
+
+    #predictionFile = '/home/mcoughlin/Seismon/H1/H1ER4-1057881616-1061856016/earthquakes/predictions/H1_HPI-BS_STSINF_A_Z_IN1_DQ.txt'
+    predictionFile = '/home/mcoughlin/Seismon/H1/H1S5-815097613-875145614/earthquakes/predictions/H0_PEM-LVEA_SEISZ.txt'
+    predictions = np.loadtxt(predictionFile)
+
+    combined_x_y_arrays = np.dstack([predictions[:,3],predictions[:,4]])[0]
+    points_list = np.dstack([attributeDic["Latitude"], attributeDic["Longitude"]])
+
+    index = do_kdtree(combined_x_y_arrays,points_list)[0]
+
+    distanceNearest,fwdNearest,backNearest = gps2DistAzimuth(predictions[index,3],predictions[index,4],ifolat,ifolon)
+
+    time = attributeDic["GPS"]
+    time = time + predictions[index,9] * (distance/distanceNearest)
+
+    attributeDic["traveltimes"][ifo]["Rlookuptime"] = time
+
+    return attributeDic
+
 def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
     """@calculate travel times of earthquake
 
@@ -1156,29 +1298,13 @@ def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
     periods = [25.0,27.0,30.0,32.0,35.0,40.0,45.0,50.0,60.0,75.0,100.0,125.0,150.0,200.0,250.0]
     frequencies = 1 / np.array(periods)
    
-    Rf0 = 0.89256174
-    Rfs = 1.3588703
-    Q0 = 4169.7511
-    Qs = -0.017424297
-    cd = 254.13458
-    ch = 10.331297
-    rs = 1.0357451
-
-    Rfamp = ampRf(attributeDic["Magnitude"],distances[-1]/1000.0,attributeDic["Depth"],Rf0,Rfs,Q0,Qs,cd,ch,rs)
-    Pamp = 1e-6
-    Samp = 1e-5
-
+    fc = 10**(2.3-attributeDic["Magnitude"]/2)
     index = np.argmin(np.absolute(frequencies - fc))
 
     lats = []
     lons = []
-    Ptimes = []
-    Stimes = []
-    #Rtimes = []
-    Rtwotimes = []
-    RthreePointFivetimes = []
-    Rfivetimes = []
-    Rfamps = []
+    Rvelocitytimes = []
+    velocities = []
 
     velocityFile = '/home/mcoughlin/Seismon/velocity_maps/GR025_1_GDM52.pix'
     velocity_map = np.loadtxt(velocityFile)
@@ -1195,7 +1321,7 @@ def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
 
     indexes = do_kdtree(combined_x_y_arrays,points_list)[0]
 
-    time = 0
+    time = attributeDic["GPS"]
 
     for distance, degree, index in zip(distances, degrees,indexes):
 
@@ -1204,52 +1330,11 @@ def ifotraveltimes_velocitymap(attributeDic,ifo,ifolat,ifolon):
         time_delta = distance_delta / velocity
         time = time + time_delta
 
-        tt = getTravelTimes(delta=degree, depth=attributeDic["Depth"])
-        tt.append({'phase_name': 'R', 'dT/dD': 0, 'take-off angle': 0, 'time': time, 'd2T/dD2': 0, 'dT/dh': 0})
-        #tt.append({'phase_name': 'R', 'dT/dD': 0, 'take-off angle': 0, 'time': distance/3500, 'd2T/dD2': 0, 'dT/dh': 0})
-        tt.append({'phase_name': 'Rtwo', 'dT/dD': 0, 'take-off angle': 0, 'time': distance/2000, 'd2T/dD2': 0, 'dT/dh': 0})
-        tt.append({'phase_name': 'RthreePointFive', 'dT/dD': 0, 'take-off angle': 0, 'time': distance/3500, 'd2T/dD2': 0, 'dT/dh': 0})
-        tt.append({'phase_name': 'Rfive', 'dT/dD': 0, 'take-off angle': 0, 'time': distance/5000, 'd2T/dD2': 0, 'dT/dh': 0})
+        Rvelocitytimes.append(time)
+        velocities.append(velocity/1000)
 
-        Ptime = -1
-        Stime = -1
-        Rtime = -1
-        for phase in tt:
-            if Ptime == -1 and phase["phase_name"][0] == "P":
-                Ptime = attributeDic["GPS"]+phase["time"]
-            if Stime == -1 and phase["phase_name"][0] == "S":
-                Stime = attributeDic["GPS"]+phase["time"]
-            #if Rtime == -1 and phase["phase_name"][0] == "R":
-            #    Rtime = attributeDic["GPS"]+phase["time"]
-            if phase["phase_name"] == "Rtwo":
-                Rtwotime = attributeDic["GPS"]+phase["time"]
-            if phase["phase_name"] == "RthreePointFive":
-                RthreePointFivetime = attributeDic["GPS"]+phase["time"]
-            if phase["phase_name"] == "Rfive":
-                Rfivetime = attributeDic["GPS"]+phase["time"]
-        Ptimes.append(Ptime)
-        Stimes.append(Stime)
-        #Rtimes.append(Rtime)
-        Rtwotimes.append(Rtwotime)
-        RthreePointFivetimes.append(RthreePointFivetime)
-        Rfivetimes.append(Rfivetime)
-
-    traveltimes = {}
-    traveltimes["Latitudes"] = lats
-    traveltimes["Longitudes"] = lons
-    traveltimes["Distances"] = distances
-    traveltimes["Degrees"] = degrees
-    traveltimes["Ptimes"] = Ptimes
-    traveltimes["Stimes"] = Stimes
-    #traveltimes["Rtimes"] = Rtimes
-    traveltimes["Rtwotimes"] = Rtwotimes
-    traveltimes["RthreePointFivetimes"] = RthreePointFivetimes
-    traveltimes["Rfivetimes"] = Rfivetimes
-    traveltimes["Rfamp"] = [Rfamp] 
-    traveltimes["Pamp"] = [Pamp]
-    traveltimes["Samp"] = [Samp]
-
-    attributeDic["traveltimes"][ifo] = traveltimes
+    attributeDic["traveltimes"][ifo]["Rvelocitymaptimes"] = Rvelocitytimes
+    attributeDic["traveltimes"][ifo]["Rvelocitymapvelocities"] = velocities
 
     return attributeDic
 
