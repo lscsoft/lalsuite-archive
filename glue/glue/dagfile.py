@@ -342,6 +342,18 @@ class DAG(object):
 		# filename or None
 		self.jobstate_log = None
 
+	def reindex(self):
+		"""
+		Rebuild the .nodes index.  This is required if the names of
+		nodes are changed.
+		"""
+		# the .nodes object has its contents replaced instead of
+		# building a new object so that if external code is holding
+		# a reference to it that code sees the new index as well
+		nodes = dict((node.name, node) for node in self.nodes.values())
+		self.nodes.clear()
+		self.nodes.update(nodes)
+
 	@classmethod
 	def parse(cls, f, progress = None):
 		"""
