@@ -1010,17 +1010,19 @@ class CoincSynthesizer(object):
 
 
 	@property
-	def P_instrument_combo(self):
+	def mean_coinc_rate(self):
 		"""
-		A dictionary mapping instrument combination (as a
-		frozenset) to the probability that a background coincidence
-		involves precisely that combination of instruments.  This
-		is derived from the live times and the mean rates at which
-		the different instrument combinations participate in
-		coincidences.  The result is not cached.
+		Dictionary mapping instrument combo (as a frozenset) to the
+		mean rate at which coincidences involving precisely that
+		combination of instruments occur, averaged over times when
+		at least two instruments are operating --- the mean rate
+		during times when coincidences are possible, not the mean
+		rate over all time.  The result is not cached.
 		"""
-		P = dict.fromkeys(self.rates, 0.0)
-		for on_instruments, P_on_instruments in self.P_live.items():
+		coinc_rate = dict.fromkeys(self.rates, 0.0)
+		# iterate over probabilities in order for better numerical
+		# accuracy
+		for on_instruments, P_on_instruments in sorted(self.P_live.items(), key = lambda (ignored, P): P):
 			# rates for instrument combinations that are
 			# possible given the instruments that are on
 			allowed_rates = dict((key, value) for key, value in self.rates.items() if key <= on_instruments)
@@ -1034,18 +1036,43 @@ class CoincSynthesizer(object):
 			for key in sorted(allowed_rates, key = lambda x: len(x), reverse = True):
 				allowed_rates[key] -= sum(sorted(rate for otherkey, rate in allowed_rates.items() if key < otherkey))
 
-			# convert rates to relative abundances
-			total_rate = sum(sorted(allowed_rates.values()))
-			abundances = dict((key, rate / total_rate) for key, rate in allowed_rates.items())
+			for combo, rate in allowed_rates.items():
+				coinc_rate[combo] += P_on_instruments * rate
+		return coinc_rate
 
-			for combo, P_combo in abundances.items():
-				P[combo] += P_on_instruments * P_combo
+
+	@property
+	def P_instrument_combo(self):
+		"""
+		A dictionary mapping instrument combination (as a
+		frozenset) to the probability that a background coincidence
+		involves precisely that combination of instruments.  This
+		is derived from the live times and the mean rates at which
+		the different instrument combinations participate in
+		coincidences.  The result is not cached.
+		"""
+		# convert rates to relative abundances
+		mean_rates = self.mean_coinc_rate	# calculate once
+		total_rate = sum(sorted(mean_rates.values()))
+		P = dict((key, rate / total_rate) for key, rate in mean_rates.items())
 		# make sure normalization is good
 		total = sum(sorted(P.values()))
 		assert abs(1.0 - total) < 1e-14
 		for key in P:
 			P[key] /= total
 		return P
+
+
+	@property
+	def mean_coinc_count(self):
+		"""
+		A dictionary mapping instrument combination (as a
+		frozenset) to the total number of coincidences involving
+		precisely that combination of instruments expected from the
+		background.  The result is not cached.
+		"""
+		T = float(abs(segmentsUtils.vote(self.segmentlists.values(), 2)))
+		return dict((instruments, rate * T) for instruments, rate in self.mean_coinc_rate.items())
 
 
 	def instrument_combos(self):
