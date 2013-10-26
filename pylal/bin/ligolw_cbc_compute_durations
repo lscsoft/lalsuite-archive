@@ -65,7 +65,7 @@ def parse_command_line():
         help = 
             "Input database to read. Can only input one at a time."
         )
-    parser.add_option( "", "--live-time-program", action = "store", type = "string", default = None,
+    parser.add_option( "", "--livetime-program", action = "store", type = "string", default = None,
         help = 
             "Required; Set the name of the program whose entries in the " +
             "search summary table will set the live time. Ex. inspiral, ringdown"
@@ -88,7 +88,7 @@ def parse_command_line():
     if not options.database:
         raise ValueError, "No database specified."
 
-    if not options.live_time_program:
+    if not options.livetime_program:
         raise ValueError, "No livetime program specified."
 
     return options, sys.argv[1:]
@@ -168,7 +168,7 @@ if options.tmp_space:
 dbtables.DBTable_set_connection( connection )
 xmldoc = dbtables.get_xml(connection)
 
-livetime_program = sqlutils.validate_option( options.live_time_program )
+livetime_program = sqlutils.validate_option( options.livetime_program )
 
 # Add program to process and process params table
 
