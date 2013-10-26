@@ -152,7 +152,7 @@ class upper_limit(object):
       print >>sys.stdout,"\nQuerying database for single IFO segments..."
     self.segments = compute_dur.get_single_ifo_segments(
       connection,
-      program_name = self.opts.live_time_program,
+      program_name = self.opts.livetime_program,
       usertag = "FULL_DATA")
     if self.opts.verbose:
       for ifo in self.segments.keys():
@@ -648,6 +648,10 @@ will compute the search volume using all injections with at least one component 
   parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory used as work area for the database file.  The database file will be worked on in this directory then moved to the final location when complete.  Intended to improve performance in a networked environment: eg local disk with higher available bandwidth than the filesystem where the database lives.")
 
   opts, filenames = parser.parse_args()
+
+  if opts.livetime_program is None:
+    print >>sys.stderr, "Error: no livetime-program option was given, exiting!"
+    sys.exit(1)
 
   if opts.instruments is not None:
     opts.instruments = frozenset(lsctables.instrument_set_from_ifos(opts.instruments))
