@@ -31,8 +31,7 @@ import subprocess
 from subprocess import Popen
 from lxml import etree
 
-from pylal.xlal.date import XLALUTCToGPS, XLALGPSToUTC
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+import lal.gpstime
 
 import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_utils
 
@@ -360,8 +359,8 @@ def iris_events(params):
     starttime = LIGOTimeGPS(params["gpsStart"])
     endtime = LIGOTimeGPS(params["gpsEnd"])
 
-    starttime = XLALGPSToUTC(starttime)
-    endtime = XLALGPSToUTC(endtime)
+    starttime = lal.gpstime.gps_to_utc(starttime)
+    endtime = lal.gpstime.gps_to_utc(endtime)
 
     starttime = obspy.core.UTCDateTime(starttime[0],starttime[1],starttime[2],starttime[3],starttime[4],starttime[5])
     endtime = obspy.core.UTCDateTime(endtime[0],endtime[1],endtime[2],endtime[3],endtime[4],endtime[5],endtime[6])

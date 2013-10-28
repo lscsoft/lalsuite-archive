@@ -32,8 +32,8 @@ if not os.getenv("DISPLAY", None):
     import matplotlib
     matplotlib.use("agg", warn=False)
 
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pylal.xlal.date import XLALGPSToUTC
+import lal.gpstime
+
 import pylal.pylal_seismon_psd, pylal.pylal_seismon_utils
 import pylal.pylal_seismon_html, pylal.pylal_seismon_omicron
 import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_eqmon_plot
@@ -214,8 +214,10 @@ def params_struct(opts):
     params["doKML"] = opts.doKML
     params["doBokeh"] = opts.doBokeh
 
-    params["date"] = XLALGPSToUTC(LIGOTimeGPS(params["gpsStart"]))
-    params["dateString"] = "%d-%d-%d %d:%d:%d"%(params["date"][0],params["date"][1],params["date"][2],params["date"][3],params["date"][4],params["date"][5])
+    params["date"] = lal.gpstime.gps_to_utc(params["gpsStart"])
+    #params["date"] = XLALGPSToUTC(LIGOTimeGPS(params["gpsStart"]))
+    params["dateString"] = params["date"].strftime("%Y-%m-%d %H:%M:%S")
+    #params["dateString"] = "%d-%d-%d %d:%d:%d"%(params["date"][0],params["date"][1],params["date"][2],params["date"][3],params["date"][4],params["date"][5])
 
     if params["doEarthquakesAnalysis"]:
        params["earthquakesMinMag"] = 5

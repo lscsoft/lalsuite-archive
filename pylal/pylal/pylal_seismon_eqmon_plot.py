@@ -304,6 +304,11 @@ def earthquakes_station_distance_heatmap(params,data,type,plotName):
         plt.xlim([distanceMin,distanceMax])
         plt.ylim([timeMin,timeMax])
         plt.grid(b=True, which='both', color='w',linestyle='--')
+
+        colorbar_label = "Number of events"
+        cbar=plt.colorbar()
+        cbar.set_label(colorbar_label)
+
         plt.show()
         plt.savefig(plotName,dpi=200)
         plt.close('all')

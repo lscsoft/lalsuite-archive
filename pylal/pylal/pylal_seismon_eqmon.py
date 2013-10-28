@@ -5,12 +5,11 @@ import numpy as np
 from datetime import datetime
 from operator import itemgetter
 import glue.segments, glue.segmentsUtils
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pylal.xlal.date import XLALUTCToGPS, XLALGPSToUTC
 from lxml import etree
 import scipy.spatial
 import smtplib, email.mime.text
-import simplekml
+
+import lal.gpstime
 
 import pylal.pylal_seismon_utils, pylal.pylal_seismon_eqmon_plot
 import pylal.pylal_seismon_pybrain
@@ -210,7 +209,14 @@ def run_earthquakes_analysis(params,segment):
         plotName = os.path.join(earthquakesDirectory,"earthquakes_distance_residual.png")
         pylal.pylal_seismon_eqmon_plot.earthquakes_station_distance(params,data,"residual",plotName)
 
-        plotName = os.path.join(earthquakesDirectory,"earthquakes_distance_heatmap_time.png")
+        name = ""
+        for key in data["channels"].iterkeys():
+            if name == "":
+               name = key
+            else:
+               name = "%s_%s"%(name,key)
+
+        plotName = os.path.join(earthquakesDirectory,"earthquakes_distance_heatmap_time_%s.png"%name)
         pylal.pylal_seismon_eqmon_plot.earthquakes_station_distance_heatmap(params,data,"time",plotName)
 
         plotName = os.path.join(earthquakesDirectory,"station_amplitude.png")
@@ -305,6 +311,8 @@ def create_kml(params,attributeDics,data,type,kmlFile):
     @param kmlFile
         name of file
     """
+
+    import simplekml
 
     # Create an instance of Kml
     kml = simplekml.Kml(open=1)
@@ -853,14 +861,15 @@ def read_eqxml(file,eventName):
     timeString = attributeDic["Time"].replace("T"," ").replace("Z","")
     dt = datetime.strptime(timeString, "%Y-%m-%d %H:%M:%S.%f")
     tm = time.struct_time(dt.timetuple())
-    attributeDic['GPS'] = float(XLALUTCToGPS(tm))
+
+    attributeDic['GPS'] = float(lal.gpstime.utc_to_gps(tm))
     attributeDic['UTC'] = float(dt.strftime("%s"))
 
     attributeDic["Sent"] = dic["Sent"]
     timeString = attributeDic["Sent"].replace("T"," ").replace("Z","")
     dt = datetime.strptime(timeString, "%Y-%m-%d %H:%M:%S.%f")
     tm = time.struct_time(dt.timetuple())
-    attributeDic['SentGPS'] = float(XLALUTCToGPS(tm))
+    attributeDic['SentGPS'] = float(lal.gpstime.utc_to_gps(tm))
     attributeDic['SentUTC'] = float(dt.strftime("%s"))
 
     attributeDic["DataSource"] = dic["Source"]
@@ -878,7 +887,7 @@ def read_eqxml(file,eventName):
 
     attributeDic = calculate_traveltimes(attributeDic)
     tm = time.struct_time(time.gmtime())
-    attributeDic['WrittenGPS'] = float(XLALUTCToGPS(tm))
+    attributeDic['WrittenGPS'] = float(lal.gpstime.utc_to_gps(tm))
     attributeDic['WrittenUTC'] = float(time.time())
 
     return attributeDic
@@ -908,14 +917,14 @@ def read_quakeml(file,eventName):
     timeString = attributeDic["Time"].replace("T"," ").replace("Z","")
     dt = datetime.strptime(timeString, "%Y-%m-%d %H:%M:%S.%f")
     tm = time.struct_time(dt.timetuple())
-    attributeDic['GPS'] = float(XLALUTCToGPS(tm))
+    attributeDic['GPS'] = float(lal.gpstime.utc_to_gps(tm))
     attributeDic['UTC'] = float(dt.strftime("%s"))
 
     attributeDic["Sent"] = dic["eventParameters"]["event"]["creationInfo"]["creationTime"]
     timeString = attributeDic["Sent"].replace("T"," ").replace("Z","")
     dt = datetime.strptime(timeString, "%Y-%m-%d %H:%M:%S.%f")
     tm = time.struct_time(dt.timetuple())
-    attributeDic['SentGPS'] = float(XLALUTCToGPS(tm))
+    attributeDic['SentGPS'] = float(lal.gpstime.utc_to_gps(tm))
     attributeDic['SentUTC'] = float(dt.strftime("%s"))
 
     attributeDic["DataSource"] = dic["eventParameters"]["event"]["creationInfo"]["agencyID"]
@@ -932,7 +941,7 @@ def read_quakeml(file,eventName):
 
     attributeDic = calculate_traveltimes(attributeDic)
     tm = time.struct_time(time.gmtime())
-    attributeDic['WrittenGPS'] = float(XLALUTCToGPS(tm))
+    attributeDic['WrittenGPS'] = float(lal.gpstime.utc_to_gps(tm))
     attributeDic['WrittenUTC'] = float(time.time())
 
     return attributeDic
@@ -1007,9 +1016,9 @@ def jsonread(event):
         attributeDic["Review"] = "Manual"
 
     Time = time.gmtime(attributeDic["UTC"])
-    attributeDic['GPS'] = float(XLALUTCToGPS(Time))
+    attributeDic['GPS'] = float(lal.gpstime.utc_to_gps(Time))
     SentTime = time.gmtime()
-    attributeDic['SentGPS'] = float(XLALUTCToGPS(SentTime))
+    attributeDic['SentGPS'] = float(lal.gpstime.utc_to_gps(SentTime))
     attributeDic['SentUTC'] = time.time()
 
     attributeDic['Time'] = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", Time)
@@ -1017,7 +1026,7 @@ def jsonread(event):
 
     attributeDic = calculate_traveltimes(attributeDic)
     tm = time.struct_time(time.gmtime())
-    attributeDic['WrittenGPS'] = float(XLALUTCToGPS(tm))
+    attributeDic['WrittenGPS'] = float(lal.gpstime.utc_to_gps(tm))
     attributeDic['WrittenUTC'] = float(time.time())
 
     return attributeDic
@@ -1041,7 +1050,7 @@ def irisread(event):
     attributeDic["Depth"] = event.origins[0].depth
     attributeDic["eventID"] = event.origins[0].region
 
-    attributeDic['GPS'] = float(XLALUTCToGPS(tm))
+    attributeDic['GPS'] = float(lal.gpstime.utc_to_gps(tm))
     attributeDic['UTC'] = float(dt.strftime("%s"))
 
     eventID = "%.0f"%attributeDic['GPS']
@@ -1060,13 +1069,13 @@ def irisread(event):
         attributeDic["Review"] = "Manual"
 
     SentTime = time.gmtime()
-    attributeDic['SentGPS'] = float(XLALUTCToGPS(SentTime))
+    attributeDic['SentGPS'] = float(lal.gpstime.utc_to_gps(SentTime))
     attributeDic['SentUTC'] = time.time()
     attributeDic['Sent'] = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", SentTime)
 
     attributeDic = calculate_traveltimes(attributeDic)
     tm = time.struct_time(time.gmtime())
-    attributeDic['WrittenGPS'] = float(XLALUTCToGPS(tm))
+    attributeDic['WrittenGPS'] = float(lal.gpstime.utc_to_gps(tm))
     attributeDic['WrittenUTC'] = float(time.time())
 
     return attributeDic
@@ -1101,7 +1110,7 @@ def databaseread(event):
     except:
         attributeDic["Magnitude"] = 0
     tm = time.struct_time(dt.timetuple())
-    attributeDic['GPS'] = float(XLALUTCToGPS(tm))
+    attributeDic['GPS'] = float(lal.gpstime.utc_to_gps(tm))
     attributeDic['UTC'] = float(dt.strftime("%s"))
     attributeDic["DataSource"] = "DB"
     attributeDic["Version"] = 1.0
@@ -1110,7 +1119,7 @@ def databaseread(event):
     attributeDic["Review"] = "Manual"
 
     SentTime = time.gmtime()
-    attributeDic['SentGPS'] = float(XLALUTCToGPS(SentTime))
+    attributeDic['SentGPS'] = float(lal.gpstime.utc_to_gps(SentTime))
     attributeDic['SentUTC'] = time.time()
 
     attributeDic['Time'] = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", tm)
@@ -1118,7 +1127,7 @@ def databaseread(event):
 
     attributeDic = calculate_traveltimes(attributeDic)
     tm = time.struct_time(time.gmtime())
-    attributeDic['WrittenGPS'] = float(XLALUTCToGPS(tm))
+    attributeDic['WrittenGPS'] = float(lal.gpstime.utc_to_gps(tm))
     attributeDic['WrittenUTC'] = float(time.time())
 
     return attributeDic

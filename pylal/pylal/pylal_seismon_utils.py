@@ -6,11 +6,10 @@ import scipy.signal, scipy.stats, scipy.fftpack
 from collections import namedtuple
 from datetime import datetime
 from lxml import etree
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pylal.xlal.date import XLALGPSToUTC
-from pylal import Fr
+
+import lal.gpstime
+
 import glue.datafind, glue.segments, glue.segmentsUtils, glue.lal
-import pylal.dq.dqSegmentUtils
 import pylal.pylal_seismon_NLNM, pylal.pylal_seismon_html
 import pylal.pylal_seismon_eqmon
 
@@ -370,10 +369,14 @@ def segment_struct(params):
     """
 
     if params["doSegmentsDatabase"]:
-        segmentlist, segmentlistValid = pylal.dq.dqSegmentUtils.grab_segments(
+        #segmentlist, segmentlistValid = pylal.dq.dqSegmentUtils.grab_segments(
+        #                                       params["gpsStart"],params["gpsEnd"],
+        #                                       params["segmentFlag"],params["segmentDatabase"],
+        #                                       segment_summary=True)
+        segmentlist, segmentlistValid = gwpy.segments.DataQualityFlag.query(params["segmentFlag"],
                                                params["gpsStart"],params["gpsEnd"],
-                                               params["segmentFlag"],params["segmentDatabase"],
-                                               segment_summary=True)
+                                               url=params["segmentDatabase"])
+        
         params["segments"] = segmentlist
     elif params["doSegmentsTextFile"]:
         segmentlist = glue.segments.segmentlist()
@@ -690,7 +693,7 @@ def GPSToUTCDateTime(gps):
     """
 
     import obspy
-    utc = XLALGPSToUTC(LIGOTimeGPS(int(gps)))
+    utc = lal.gpstime.gps_to_utc(int(gps))
     tt = time.strftime("%Y-%jT%H:%M:%S", utc)
     ttUTC = obspy.UTCDateTime(tt)
 
