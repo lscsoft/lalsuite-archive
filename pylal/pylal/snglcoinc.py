@@ -1023,9 +1023,13 @@ class CoincSynthesizer(object):
 		# iterate over probabilities in order for better numerical
 		# accuracy
 		for on_instruments, P_on_instruments in sorted(self.P_live.items(), key = lambda (ignored, P): P):
+			# short cut
+			if not P_on_instruments:
+				continue
+
 			# rates for instrument combinations that are
 			# possible given the instruments that are on
-			allowed_rates = dict((key, value) for key, value in self.rates.items() if key <= on_instruments)
+			allowed_rates = dict((participating_instruments, rate) for participating_instruments, rate in self.rates.items() if participating_instruments <= on_instruments)
 
 			# subtract from each rate the rate at which that
 			# combination of instruments is found in (allowed)
@@ -1037,6 +1041,7 @@ class CoincSynthesizer(object):
 				allowed_rates[key] -= sum(sorted(rate for otherkey, rate in allowed_rates.items() if key < otherkey))
 
 			for combo, rate in allowed_rates.items():
+				assert rate >= 0.
 				coinc_rate[combo] += P_on_instruments * rate
 		return coinc_rate
 
