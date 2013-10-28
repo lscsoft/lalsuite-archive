@@ -154,7 +154,7 @@ def coherence(params, channel1, channel2, segment):
         plot.ylim = [0,1]
         plot.xlabel = "Frequency [Hz]"
         plot.ylabel = "Coherence"
-        plot.axes.set_xscale("log")
+        plot.axes[0].set_xscale("log")
 
         plot.save(pngFile,dpi=200)
         plot.close()

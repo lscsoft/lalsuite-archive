@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006-2010,2012--2013  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -36,9 +36,7 @@ import sys
 from glue import segments
 from glue import offsetvector
 from glue.lal import CacheEntry
-from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue.ligolw import utils
 from pylal import git_version
 from pylal import packing
 
@@ -66,7 +64,7 @@ def load_cache(filename, verbose = False):
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (filename or "stdin")
 	if filename is not None:
-		f = file(filename)
+		f = open(filename)
 	else:
 		f = sys.stdin
 	return [CacheEntry(line, coltype = lsctables.LIGOTimeGPS) for line in f]
@@ -442,7 +440,7 @@ def write_caches(base, bins, instruments, verbose = False):
 		filenames.append(filename)
 		if verbose:
 			print >>sys.stderr, "writing %s ..." % filename
-		f = file(filename, "w")
+		f = open(filename, "w")
 		for cacheentry in bin.objects:
 			if instruments & set(cacheentry.segmentlistdict.keys()):
 				print >>f, str(cacheentry)

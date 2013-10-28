@@ -41,7 +41,6 @@ from glue.ligolw.utils import segments as ligolw_segments
 from glue import segmentsUtils
 from pylal import git_version
 from pylal import ligolw_thinca
-from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
@@ -125,6 +124,48 @@ def parse_command_line():
 #
 # =============================================================================
 #
+#                           Add Process Information
+#
+# =============================================================================
+#
+
+
+process_program_name = "ligolw_thinca"
+
+
+def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, exact_mass = None, effective_snr_factor = None, vetoes_name = None, trigger_program = None, effective_snr = None, coinc_end_time_segment = None, verbose = None):
+	process = ligolw_process.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
+
+	params = [
+		(u"--e-thinca-parameter", u"real_8", e_thinca_parameter)
+	]
+	if comment is not None:
+		params += [(u"--comment", u"lstring", comment)]
+	if force is not None:
+		params += [(u"--force", None, None)]
+	if effective_snr_factor is not None:
+		params += [(u"--effective-snr-factor", u"real_8", effective_snr_factor)]
+	if vetoes_name is not None:
+		params += [(u"--vetoes-name", u"lstring", vetoes_name)]
+	if trigger_program is not None:
+		params += [(u"--trigger-program", u"lstring", trigger_program)]
+	if effective_snr is not None:
+		params += [(u"--effective-snr", u"lstring", effective_snr)]
+	if coinc_end_time_segment is not None:
+		params += [(u"--coinc-end-time-segment", u"lstring", coinc_end_time_segment)]
+	if exact_mass is not None:
+		params += [(u"--exact-mass", None, None)]
+	if verbose is not None:
+		params += [(u"--verbose", None, None)]
+
+	ligolw_process.append_process_params(xmldoc, process, params)
+
+	return process
+
+
+#
+# =============================================================================
+#
 #                                     Main
 #
 # =============================================================================
@@ -196,7 +237,7 @@ for n, filename in enumerate(filenames):
 	# Have we already processed it?
 	#
 
-	if ligolw_process.doc_includes_process(xmldoc, ligolw_thinca.process_program_name):
+	if ligolw_process.doc_includes_process(xmldoc, process_program_name):
 		if options.verbose:
 			print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
 		if not options.force:
@@ -210,7 +251,7 @@ for n, filename in enumerate(filenames):
 	# Add an entry to the process table.
 	#
 
-	process = ligolw_thinca.append_process(
+	process = append_process(
 		xmldoc,
 		comment = options.comment,
 		force = options.force,
@@ -281,7 +322,7 @@ for n, filename in enumerate(filenames):
 	# Close out the process table.
 	#
 
-	llwapp.set_process_end_time(process)
+	ligolw_process.set_process_end_time(process)
 
 	#
 	# Write back to disk, and clean up.
