@@ -15,6 +15,7 @@ parser.add_option("-e","--event",type="int",dest="e")
 parser.add_option("-u","--url",action="store_true",dest="u",default=False)
 parser.add_option("-n","--name",dest="n")
 parser.add_option("-p","--password",dest="p")
+parser.add_option("--samples_per_bin",type="int",dest="spb", default=32)
 parser.add_option("--plot",action="store_true",dest="x",default=False)
 (options, args) = parser.parse_args()
 
@@ -28,6 +29,7 @@ urlUsed=options.u
 userName = options.n
 userPassword = options.p
 makePlot = options.x
+samplesPerBin = options.spb
 
 ###############                                                                                                                            
 def open_url_wget(url,folder,un=userName,pw=userPassword,eventNum=0, args=[]):
@@ -77,8 +79,15 @@ outFile = open(output+'/kdresult' + str(event), 'w')
 outFile.write('label injection_cl injection_area\n')
 confidenceLevels = [0.68,0.9]
 
+######################################
+
 def mapping(ra,dec):
     return (ra,dec)
+
+def isEdge(bounds):
+    if bounds[0][0] == 0. or bounds[1][0]==2*pi or bounds[0][1] == -pi/2. or bounds[1][1]==pi/2:
+        return True
+    return False
 
 #set up evrything for running kd algorithm
 if 'ra' and 'dec' not in posterior.names:
@@ -90,14 +99,32 @@ if 'ra' and 'dec' not in posterior.names:
         print 'param not found'
 print 'out test --------'
 injCoordinates=[posterior['ra'].injval,posterior['dec'].injval]
-nodeList, areas, injInfo = bppu.kdtree_bin2Step(posterior,['ra','dec'],confidenceLevels,samples_per_bin = 50,skyCoords=True,injCoords = injCoordinates)
+
+#create kd node list
+nodeList, areas, injInfo = bppu.kdtree_bin2Step(posterior,['ra','dec'],confidenceLevels,samples_per_bin = samplesPerBin,skyCoords=True,injCoords = injCoordinates)
 print 'details'
 print injInfo
 print areas
 
+rollingCL = 0
+edgeCL = 100.
+totalSamples = 0.
+for node in nodeList:
+    totalSamples+=node[2]
+
+for node in nodeList:
+    rollingCL += node[2]
+    if isEdge(node[0]):
+        if float(rollingCL)/totalSamples < edgeCL:
+            edgeCL = float(rollingCL)/totalSamples
+            break
+
 for cl in confidenceLevels:
     temp_area = areas[cl]*(180/pi)**2.
-    outFile.write('kd_areaCL' +str(cl) + ' ' + str(temp_area) + '\n')
+    if cl > edgeCL:
+        outFile.write('kd_areaCL' +str(cl) + ' ' + str(temp_area) + ' EDGE\n')
+    else:
+        outFile.write('kd_areaCL' +str(cl) + ' ' + str(temp_area) + '\n')
 
 outFile.write('kd_injCL ' + str(injInfo[3])+' \n')                                                                                                      
 temp_area = injInfo[4]*(180/pi)**2.
@@ -109,9 +136,7 @@ if makePlot:
     total = 0
     for node in nodeList:
         total +=  node[2]
-        print node[2]
     for node in nodeList:
         temp += node[2]
         tiles.append([node[0][0][0],node[0][1][0],node[0][0][1],node[0][1][1],float(temp)/total])
-        print node[1]
     plot_kdtree(tiles)
