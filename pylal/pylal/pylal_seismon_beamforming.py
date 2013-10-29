@@ -135,6 +135,11 @@ def beamforming(params, segment):
         hist, baz_edges, sl_edges = np.histogram2d(baz, slow,
                 bins=[abins, sbins], weights=rel_power)
 
+        max_i,max_j = np.unravel_index(hist.argmax(), hist.shape)
+        print hist[max_i,max_j]
+        print baz_edges[max_i]
+        print sl_edges[max_j]
+
         # transform to gradient
         baz_edges = baz_edges / 180 * np.pi
 
@@ -206,9 +211,9 @@ def strainz(params, segment):
             print "timeseries too short for analysis... continuing\n"
             continue
 
-        cutoff = 1.0
+        cutoff = 0.3
         dataFull = dataFull.lowpass(cutoff, amplitude=0.9, order=3, method='scipy')
-        dataFull.resample(16)
+        dataFull = dataFull.resample(16)
 
         dataAll.append(dataFull)
 
@@ -266,18 +271,26 @@ def strainz(params, segment):
         fig = plt.figure(figsize=(32, 24))
         for i, lab in enumerate(labels):
             ax = fig.add_subplot(6, 1, i + 1)
+            data = gwpy.timeseries.TimeSeries(data, epoch=tt[0], sample_rate=1.0/(tt[1]-tt[0]))
             if i == 0:
+                data = out_dic["ts_s"]
                 ax.plot(tt,out_dic["ts_s"])
             elif i == 1:
+                data = out_dic["ts_d"]
                 ax.plot(tt,out_dic["ts_d"])
             elif i == 2:
+                data = out_dic["ts_w1"]
                 ax.plot(tt,out_dic["ts_w1"])
             elif i == 3:
+                data = out_dic["ts_w2"]
                 ax.plot(tt,out_dic["ts_w2"])
             elif i == 4:
+                data = out_dic["ts_w3"]
                 ax.plot(tt,out_dic["ts_w3"])
             elif i == 5:
+                data = out_dic["ts_M"]
                 ax.plot(tt,out_dic["ts_M"])
+            data = gwpy.timeseries.TimeSeries(data, epoch=tt[0], sample_rate=1.0/(tt[1]-tt[0]))
             ax.set_ylabel(lab)
             #ax.set_xlim(out[0, 0], out[-1, 0])
             #ax.set_ylim(out[:, i + 1].min(), out[:, i + 1].max())

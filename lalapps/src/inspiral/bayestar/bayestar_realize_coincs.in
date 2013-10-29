@@ -24,6 +24,14 @@ is omitted) should be an optionally gzip-compressed LIGO-LW XML file of the form
 produced by lalapps_inspinj. The output file (or stdout if omitted) will be an
 optionally gzip-compressed LIGO-LW XML file containing single-detector triggers
 and coincidences.
+
+The root-mean square measurement error depends on the SNR of the signal, so
+there is a choice for how to generate perturbed time and phase measurements:
+
+ - zero-noise: no measurement error at all
+ - from-truth: use true, nominal SNR in each detector
+ - from-measurement: first perturb SNR with measurement error, then use
+   that perturbed SNR to compute covariance of time and phase errors
 """
 __author__ = "Leo Singer <leo.singer@ligo.org>"
 
@@ -37,6 +45,7 @@ available_ifos = sorted(det.frDetector.prefix
 from optparse import Option, OptionParser
 from lalinference.bayestar import command
 
+measurement_error_choices = ("zero-noise", "from-truth", "from-measurement")
 parser = OptionParser(
     formatter = command.NewlinePreservingHelpFormatter(),
     description = __doc__,
@@ -51,9 +60,9 @@ parser = OptionParser(
             help="Single-detector SNR threshold [default: %default]"),
         Option("--min-triggers", type=int, default=3,
             help="Emit coincidences only when at least this many triggers are found [default: %default]"),
-        Option("--toa-error-from-estimator", action="store_true", default=False,
-            help="Compute time-of-arrival measurement error from estimate of " +
-            "amplitude, rather than true value.")
+        Option("--measurement-error", choices=measurement_error_choices,
+            default=measurement_error_choices[0], metavar='|'.join(measurement_error_choices),
+            help="How to compute the measurement error [default: %default]")
     ]
 )
 opts, args = parser.parse_args()
@@ -65,7 +74,6 @@ import os
 
 # LIGO-LW XML imports.
 from glue.ligolw import ligolw
-from pylal import llwapp as ligolw_app
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue.ligolw import table as ligolw_table
@@ -113,7 +121,9 @@ out_xmldoc.childNodes[0].appendChild(sngl_inspiral_table)
 sngl_inspiral_table.set_next_id(lsctables.SnglInspiralID(0))
 
 # Create a time slide entry.  Needed for coinc_event rows.
-time_slide_id = ligolw_app.get_time_slide_id(out_xmldoc,
+time_slide_table = lsctables.New(lsctables.TimeSlideTable)
+out_xmldoc.childNodes[0].appendChild(time_slide_table)
+time_slide_id = time_slide_table.get_time_slide_id(
     dict((ifo, 0) for ifo in opts.detector), create_new=process)
 
 # Create a CoincDef table and record a CoincDef row for
@@ -193,7 +203,9 @@ for sim_inspiral in sim_inspiral_table:
     abs_snrs = np.abs(snrs)
     arg_snrs = np.angle(snrs)
 
-    if opts.toa_error_from_estimator:
+    if opts.measurement_error == 'zero-noise':
+        pass
+    elif opts.measurement_error == 'from-truth':
         # If user asked, apply noise to amplitudes /before/ adding noise to TOAs and phases.
 
         # Add noise to SNR estimates.
@@ -201,7 +213,7 @@ for sim_inspiral in sim_inspiral_table:
 
         for i, signal_model in enumerate(signal_models):
             arg_snrs[i], toas[i]  = np.random.multivariate_normal([arg_snrs[i], toas[i]], signal_model.get_cov(abs_snrs[i]))
-    else:
+    elif opts.measurement_error == 'from-measurement':
         # Otherwise, by defualt, apply noise to TOAs and phases first.
 
         for i, signal_model in enumerate(signal_models):
@@ -209,6 +221,8 @@ for sim_inspiral in sim_inspiral_table:
 
         # Add noise to SNR estimates.
         abs_snrs += np.random.randn(len(abs_snrs))
+    else:
+        raise RuntimeError("This code should not be reached.")
 
     sngl_inspirals = []
 

@@ -37,7 +37,7 @@ of the Bayesian parameter estimation codes.
 #standard library imports
 import os
 import sys
-from math import ceil,floor,sqrt,pi as pi_constant
+from math import cos,ceil,floor,sqrt,pi as pi_constant
 import xml
 from xml.dom import minidom
 from operator import itemgetter
@@ -1768,6 +1768,70 @@ class KDTreeVolume(object):
         else:
             return self._right.search(coordinates,boxing)
 
+    def fillNewTree(self,boxing = 64, isArea = False):
+        """
+        copies tree structure, but with KDSkeleton as the new nodes.
+        """
+        boxN = boxing
+        if len(self._objects) <= boxN:
+            newNode = KDSkeleton(self.bounds(), left_child = None , right_child = None)
+            if isArea:
+                newNode.setImportance(len(self._objects),skyArea(self.bounds()))
+            else:
+                newNode.setImportance(len(self._objects),self.volume())
+            return newNode
+        else:
+            if isArea:
+                newNode = KDSkeleton(self.bounds, left_child = self._left.fillNewTree(boxN,isArea=True), right_child = self._right.fillNewTree(boxN,isArea=True))
+                newNode.setImportance(len(self._objects),skyArea(self.bounds()))
+            else:
+                newNode = KDSkeleton(self.bounds, left_child = self._left.fillNewTree(boxN), right_child = self._right.fillNewTree(boxN))
+                newNode.setImportance(len(self._objects),self.volume())
+            newNode.setSplit(self._dimension,self._split_value)
+            return newNode
+
+class KDSkeleton(object):
+    """
+    object to store the structure of a kd tree
+    """
+
+    def __init__(self, bounding_box, left_child = None, right_child = None):
+        self._bounds = bounding_box
+        #self._names = coordinate_names
+        self._left = left_child
+        self._right = right_child
+        self._samples = 0
+        self._splitValue = None
+        self._splitDim = None
+        self._importance = None
+        self._volume = None
+
+    def addSample(self):
+        self._samples +=1
+
+    def bounds(self):
+        return self._bounds
+
+    def search(self,coordinates):
+        """
+        takes a set of coordinates and searches down through the tree untill it gets
+        to a box with less than 'boxing' objects in it and returns the box bounds,
+        number of objects in the box, and the weighting.
+        """
+        if self._left == None:
+            return self._bounds, self._samples, self._importance
+        elif coordinates[self._splitDim] < self._splitValue:
+            return self._left.search(coordinates)
+        else:
+            return self._right.search(coordinates)
+
+    def setImportance(self, sampleNumber, volume):
+        self._importance = sampleNumber/volume
+        self._volume = volume
+
+    def setSplit(self,dimension,value):
+        self._splitDim = dimension
+        self._splitValue = value
 
 
 class PosteriorSample(object):
@@ -2144,7 +2208,23 @@ def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,co
 
     return toppoints,injectionconfidence,reses,injection_area
 #
+#### functions used in 2stage kdtree 
 
+def skyArea(bounds):
+    return - (cos(pi_constant/2. - bounds[0][1])-cos(pi_constant/2. - bounds[1][1]))*(bounds[1][0] - bounds[0][0])
+
+def random_split(items, fraction):
+    size = int(len(items)*fraction)
+    random.shuffle(items)
+    return items[:size], items[size:]
+
+def addSample(tree,coordinates):
+    if tree._left == None:
+        tree.addSample()
+    elif coordinates[tree._splitDim] < tree._splitValue:
+        addSample(tree._left,coordinates)
+    else:
+        addSample(tree._right,coordinates)
 
 #
 #===============================================================================
@@ -2205,7 +2285,6 @@ def kdtree_bin_sky_volume(posterior,confidence_levels):
     
     return confidence_intervals
 
-
 def kdtree_bin_sky_area(posterior,confidence_levels,samples_per_bin=10):
     """
     takes samples and applies a KDTree to them to return confidence levels
@@ -2248,7 +2327,7 @@ def kdtree_bin_sky_area(posterior,confidence_levels,samples_per_bin=10):
     header=header.split()
     coord_names=["ra","dec"]
     initial_dimensions = [[0.,-pi/2.],[2.*pi, pi/2.]]
-    coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+    coordinatized_samples=[PosteriorSample(row, header, coord_names) for row in samples]
     tree=KDTreeVolume(coordinatized_samples,initial_dimensions)
 
     a=Harvester()
@@ -2435,6 +2514,121 @@ def kdtree_bin(posterior,coord_names,confidence_levels,initial_boundingbox = Non
                 break
 
     return confidence_intervals, b, initial_boundingbox,injInfo
+
+def kdtree_bin2Step(posterior,coord_names,confidence_levels,initial_boundingbox = None,samples_per_bin = 10,injCoords = None,alternate = False, fraction = 0.5, skyCoords=False):
+    """
+    input: posterior class instance, list of confidence levels, optional choice of inital parameter space, samples per box in kdtree
+    note initial_boundingbox is [[lowerbound of each param][upper bound of each param]], if not specified will just take limits of samples
+    fraction is proportion of samples used for making the tree structure.
+    returns: confidence_intervals, sorted list of kd objects, initial_boundingbox, injInfo
+    where injInfo is [bounding box injection is found within, samples in said box, weighting of box (in case of repeated samples),inj_confidence, inj_confidence_area]
+    """
+    confidence_levels.sort()
+
+    samples,header=posterior.samples()
+    numberSamples = len(samples)
+    if alternate == False:
+        samplesStructure, samplesFill = random_split(samples,fraction)
+    else:
+        samplesStructure = samples[:int(numberSamples*fraction)]
+        samplesFill = samples[int(numberSamples*fraction):]
+    samplesFillLen = len(samplesFill)
+    
+    header=header.split()
+    coordinatized_samples=[PosteriorSample(row, header, coord_names) for row in samplesStructure]
+    #if initial bounding box is not provided, create it using max/min of sample coords.
+    if skyCoords == True:
+        initial_boundingbox = [[0,-pi_constant/2.],[2*pi_constant,pi_constant/2.]]
+    if initial_boundingbox is None:
+        low=coordinatized_samples[0].coord()
+        high=coordinatized_samples[0].coord()
+        for obj in coordinatized_samples[1:]:
+            low=np.minimum(low,obj.coord())
+            high=np.maximum(high,obj.coord())
+        initial_boundingbox = [low,high]
+    tree=KDTreeVolume(coordinatized_samples,initial_boundingbox)
+    tree2fill = tree.fillNewTree(boxing=samples_per_bin, isArea = skyCoords)#set isArea True if looking at sky coords(modifies stored volume values
+
+    columns = []
+    for name in coord_names:
+        columns.append(header.index(name))
+
+    for sample in samplesFill:
+        tempSample=[]
+        for column in columns:
+            tempSample.append(sample[column])
+        addSample(tree2fill,tempSample)
+
+    def getValues(tree,listing):
+        if tree._left == None:
+            listing.append([tree.bounds(),tree._importance,tree._samples,tree._volume])
+        else:
+            getValues(tree._left,listing)
+            getValues(tree._right,listing)
+
+    listLeaves = []
+    getValues(tree2fill,listLeaves)
+
+    clSamples = []
+    for cl in confidence_levels:
+        clSamples.append(samplesFillLen*cl)
+    
+    sortedLeavesList = sorted(listLeaves, key=lambda importance: importance[1])
+    sortedLeavesList.reverse()
+    runningTotalSamples = 0
+    for i in range(len(sortedLeavesList)):
+        runningTotalSamples += sortedLeavesList[i][2]
+        sortedLeavesList[i].append(float(runningTotalSamples)/samplesFillLen,)
+
+
+    level = 0
+    countSamples = 0
+    volume = 0
+    lencl = len(clSamples)
+    #finds confidence levels
+    confidence_intervals={}
+    interpConfAreas = {}
+    countLeaves = 0
+    for leaf in sortedLeavesList:
+        countSamples += leaf[2]
+        countLeaves += 1
+        volume += leaf[3]
+        if level < lencl and countSamples >= clSamples[level]:
+            confidence_intervals[confidence_levels[level]]=(volume,float(countSamples)/samplesFillLen)
+            interpConfAreas[confidence_levels[level]] = volume-leaf[3]*(countSamples-clSamples[level])/leaf[2]
+            level +=1
+
+    if injCoords is not None:
+        injBound,injNum,injImportance = tree2fill.search(injCoords)                                                                                                              
+        injInfo = [injBound,injNum,injImportance]
+    else:
+        injInfo = None
+
+
+    #finds the confidence level of the injection and the volume of the associated contained region                                                         
+    inj_confidence = None
+    inj_confidence_area = None
+    if injInfo is not None:
+        print 'calculating cl'
+        acc_vol=0.
+        acc_cl=0.
+        for leaf in sortedLeavesList:
+            acc_vol+=leaf[3]
+            acc_cl+=leaf[2]
+            if leaf[1] <= injImportance:
+                inj_confidence = float(acc_cl)/samplesFillLen
+                inj_confidence_area = acc_vol
+                injInfo.append(inj_confidence)
+                injInfo.append(inj_confidence_area)
+                break
+
+    return sortedLeavesList, interpConfAreas, injInfo
+    #check that there is an injection value for all dimension names
+    def checkNone(listoParams):
+        for param in listoParams:
+            if posterior[param].injval is None:
+                return False
+        return True
 
 def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
     """

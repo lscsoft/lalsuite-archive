@@ -178,8 +178,8 @@ def wiener(params, target_channel, segment):
         kwargs = {"linestyle":"-.","color":"k"}
         plot.add_line(fl, low, **kwargs)
         plot.add_line(fh, high, **kwargs)
-        plot.axes.set_yscale("log")
-        plot.axes.set_xscale("log")
+        plot.axes[0].set_yscale("log")
+        plot.axes[0].set_xscale("log")
         plot.xlim = [params["fmin"],params["fmax"]]
         #plot.ylim = [np.min(bins), np.max(bins)]
         plot.xlabel = "Frequency [Hz]"
@@ -187,33 +187,6 @@ def wiener(params, target_channel, segment):
         plot.add_legend(loc=1,prop={'size':10})
         plot.save(pngFile,dpi=200)
         plot.close()
-
-def xcorr(x, y, normed=True, maxlags=None):
-    """
-    Call signature::
-
-    xcorr(x, y, normed=True, detrend=mlab.detrend_none,
-    usevlines=True, maxlags=10, **kwargs)
-
-    """
-
-    Nx = len(x)
-    if Nx!=len(y):
-        raise ValueError('x and y must be equal length')
-
-    c = np.correlate(x, y, mode='full')
-
-    if normed: c/= np.sqrt(np.dot(x,x) * np.dot(y,y))
-
-    if maxlags is None: maxlags = Nx - 1
-
-    if maxlags >= Nx or maxlags < 1:
-        raise ValueError('maglags must be None or strictly positive < %d'%Nx)
-
-    lags = np.arange(-maxlags,maxlags+1)
-    c = c[Nx-1-maxlags:Nx+maxlags]
-
-    return c,lags
 
 def miso_firwiener(N,X,y):
 
@@ -237,7 +210,7 @@ def miso_firwiener(N,X,y):
     R = np.zeros([M*(N+1),M*(N+1)])
     for m in xrange(M):
         for i in xrange(m,M):
-            rmi,lags = xcorr(X[:,m],X[:,i],maxlags=N,normed=False)
+            rmi,lags = pylal.pylal_seismon_utils.xcorr(X[:,m],X[:,i],maxlags=N,normed=False)
             Rmi = scipy.linalg.toeplitz(np.flipud(rmi[range(N+1)]),r=rmi[range(N,2*N+1)])
             top = m*(N+1)
             bottom = (m+1)*(N+1)
@@ -262,7 +235,7 @@ def miso_firwiener(N,X,y):
     for i in xrange(M):
         top = i*(N+1)
         bottom = (i+1)*(N+1)
-        p, lags = xcorr(y,X[:,i],maxlags=N,normed=False)
+        p, lags = pylal.pylal_seismon_utils.xcorr(y,X[:,i],maxlags=N,normed=False)
 
         P[range(top,bottom)] = p[range(N,2*N+1)]
 

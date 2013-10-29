@@ -397,7 +397,7 @@ def ligolw_burca(
 	# remove time offsets from events
 	#
 
-	eventlists.remove_offsetdict()
+	del eventlists.offsetvector
 
 	#
 	# done
