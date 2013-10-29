@@ -57,7 +57,7 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
                --- Template Arguments -------------------------------------------------------------------------------------------\n\
                ------------------------------------------------------------------------------------------------------------------\n\
                (--symMassRatio)                Jump in symmetric mass ratio eta, instead of q=m2/m1.\n\
-               (--logdistance)                 Jump in log(distance) instead of distance.\n\
+               (--use-logdistance)             Jump in log(distance) instead of distance.\n\
                (--system-frame                 Jump in spin parameters defined in the system coordinates, relative to total angular momentum\n\
                (--approx)                      Specify a template approximant to use.\n\
                                                (default RingdownTD). Available approximants:\n\
@@ -89,8 +89,8 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
                ------------------------------------------------------------------------------------------------------------------\n\
                (--mass-min massMin)            Minimum mass.\n\
                (--mass-max massMax)            Maximum mass.\n\
-               (--eta-min etaMin)              Minimum eta.\n\
-               (--eta-max etaMax)              Maximum eta.\n\
+               (--eta-min etaMin)              Minimum eta. Use with --symMassRatio.\n\
+               (--eta-max etaMax)              Maximum eta. Use with --symMassRatio.\n\
                (--q-min qMin)                  Minimum q.\n\
                (--q-max qMax)                  Maximum q.\n\
                (--a-min max)                   Minimum component spin (-1.0).\n\
@@ -155,8 +155,8 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   REAL8 mMin=2.0,mMax=30.0;
   REAL8 etaMin=0.0312;
   REAL8 etaMax=0.25;
-  REAL8 qMin=1.0;
-  REAL8 qMax=30.0;
+  REAL8 qMin=0.0;
+  REAL8 qMax=1.0;
   REAL8 iotaMin=0.0,iotaMax=LAL_PI;
   REAL8 psiMin=0.0,psiMax=LAL_PI;
   REAL8 decMin=-LAL_PI/2.0,decMax=LAL_PI/2.0;
@@ -966,12 +966,15 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
     LALInferenceRegisterUniformVariableREAL8(state, currentParams, "distance", start_dist, Dmin, Dmax, LALInferenceGetProcParamVal(commandLine,"--fixDist")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
   }
 
+  /* Choose a way to get the spin of the final BH (free parameter or by component parameters) */
+  UINT4 getRDSpin = 0;
   ppt = LALInferenceGetProcParamVal(commandLine,"--enable-a");
   if (ppt){
     LALInferenceRegisterUniformVariableREAL8(state, currentParams, "rdSpin", start_a_spin, amin, amax, LALInferenceGetProcParamVal(commandLine,"--fixSpin")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
     XLALPrintInfo("Adding final black hole spin to the template parameters \n");
   } else if (LALInferenceGetProcParamVal(commandLine, "--disable-a")) {
-	  LALInferenceAddVariable(currentParams, "spin_from_components", NULL, LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
+    getRDSpin = 1;
+    LALInferenceAddVariable(currentParams, "spin_from_components", &getRDSpin, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
   }
   
   
