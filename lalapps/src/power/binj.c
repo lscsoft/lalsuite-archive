@@ -1463,7 +1463,7 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 		case UNIFORM_LOG:
 			sim_burst->q=ran_flat_log(rng, options->minq, options->maxq);
 			break;
-	    default:
+    default:
 			fprintf(stderr,"unknown distribution of q. Known values are fixed, uniform, gaussian, log.\n");
 			exit(1);
 	}
@@ -2115,8 +2115,8 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
         memcpy(timeHcross->data->data, hcross->data->data ,hplus->data->length*sizeof(REAL8));
         
         for (j=0; j<(UINT4) freqHplus->data->length; ++j) {
-                freqHplus->data->data[j]=0.0+I*0,0; 
-                freqHcross->data->data[j]=0.0+I*0,0;
+                freqHplus->data->data[j]=0.0+1j*0,0; 
+                freqHcross->data->data[j]=0.0+1j*0,0;
             }
         
         /* FFT into freqHplus and freqHcross */

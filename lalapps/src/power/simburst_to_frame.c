@@ -463,7 +463,7 @@ static void write_log(SimBurst **injs, TimeSlide * time_slide_table_head,struct 
         else if(!strcmp(IFOnames[i],"GEO")) 
             memcpy(detector,&lalCachedDetectors[LALDetectorIndexGEO600DIFF],sizeof(LALDetector));
         gmst=XLALGreenwichMeanSiderealTime(&injtime);
-        XLALComputeDetAMResponse(&Fplus, &Fcross,detector->response, ra, dec, psi, gmst);
+        XLALComputeDetAMResponse(&Fplus, &Fcross,(const REAL4(*)[3])detector->response, ra, dec, psi, gmst);
         timedelay = XLALTimeDelayFromEarthCenter(detector->location,ra, dec, &injtime);
     
         fprintf(log_file, "%s %10.10f %.10e %.10e ", IFOnames[i], geoc_time+timedelay,Fplus,Fcross);

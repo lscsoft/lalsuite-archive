@@ -389,13 +389,18 @@ Parameter arguments:\n\
     if (BinjTable && burst_inj){
         
         if (log(BinjTable->hrss) > loghrssmax || log(BinjTable->hrss) < loghrssmin)
-            fprintf(stdout,"WARNING: The injected value of hrss lies outside the prior range\n");
+            fprintf(stdout,"WARNING: The injected value of hrss (%.4e) lies outside the prior range\n",log(BinjTable->hrss));
         if (BinjTable->q > qmax || BinjTable->q < qmin )
-            fprintf(stdout,"WARNING: The injected value of q lies outside the prior range\n");
+            fprintf(stdout,"WARNING: The injected value of q (%lf) lies outside the prior range\n",BinjTable->q);
          if (BinjTable->frequency > ffmax || BinjTable->frequency < ffmin )
-            fprintf(stdout,"WARNING: The injected value of centre_frequency lies outside the prior range\n");
-        // Check the max Nyquist frequency for this parameter range
+            fprintf(stdout,"WARNING: The injected value of centre_frequency (%lf) lies outside the prior range\n",BinjTable->frequency);
         
+        ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
+        if (!strcmp("Gaussian",ppt->value) || !strcmp("GaussianF",ppt->value)){
+          if (BinjTable->duration >durmax || BinjTable->duration < durmin )
+            fprintf(stdout,"WARNING: The injected value of centre_frequency (%lf) lies outside the prior range\n",BinjTable->frequency);
+        }
+        // Check the max Nyquist frequency for this parameter range
         if ( (ffmax+ 3.0*ffmax/qmin) > state->data->fHigh){
             fprintf(stderr,"WARNING, some of the template in your parameter space will be generated at a frequency higher than Nyquist (%lf). Consider increasing the sampling rate, or reducing (increasing) the max (min) value of frequency (Q). With current setting, srate must be higher than %lf\n",state->data->fHigh,2*(ffmax+ 3.0*ffmax/qmin));
             //exit(1);

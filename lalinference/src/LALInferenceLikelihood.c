@@ -3296,3 +3296,4 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentP
   LALInferenceClearVariables(&intrinsicParams);
   return(loglikeli);
 }
+

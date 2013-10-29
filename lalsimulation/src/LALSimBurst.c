@@ -42,10 +42,11 @@
 #include "check_series_macros.h"
 
 
-#define LAL_PI_1_2   1.7724538509055159 /* sqrt of PI */
-#define LAL_PI_1_4   1.7724538509055159 /* PI^1/4 */
-#define LAL_4RT2   1.189207115002721  /* 2^(1/4) */
-
+#define LAL_PI_1_2      1.7724538509055160272981674833411451 /* sqrt of PI */
+#define LAL_PI_1_4      1.3313353638003897127975349179502808 /* PI^1/4 */
+#define LAL_4RT2        1.1892071150027210667174999705604759  /* 2^(1/4) */
+#define FRTH_2_Pi       0.8932438417380023314010427521746490  /* (2/Pi)^(1/4)*/
+#define FRTH_2_times_PI 1.5832334870861595385799030344545584  /* (2*Pi)^(1/4)*/
 
 /*
  * ============================================================================
@@ -660,15 +661,43 @@ int XLALSimBurstSineGaussian(
 
 	/* populate */
   //  FILE * testout = fopen("SinGaussTime_WF.txt","w");
-double t=0.0;
-double phi=0.0;
-double fac=0.0;
-	for(i = 0; i < (*hplus)->data->length; i++) {
-		t = ((int) i - (length - 1) / 2) * delta_t; // t in [-30 tau, ??]
-		phi = LAL_TWOPI * centre_frequency * t; // this is the actual time, not t0
+  double t=0.0;
+  double phi=0.0;
+  double fac=0.0;
+  double newRe,newIm,dre,dim,re,im;
+  /* Employ a trick here for avoiding cos(...) and sin(...) in time
+       shifting.  We need to multiply each template frequency bin by
+       exp(-J*twopit*deltaF*i) = exp(-J*twopit*deltaF*(i-1)) +
+       exp(-J*twopit*deltaF*(i-1))*(exp(-J*twopit*deltaF) - 1) .  This
+       recurrance relation has the advantage that the error growth is
+       O(sqrt(N)) for N repetitions. */
+    
+    /* Values for the first iteration: */
+    REAL8 twopif=LAL_TWOPI * centre_frequency;
+    re = cos(twopif*(-((REAL8)length-1.)/ 2.) * delta_t);
+    im = sin(twopif*(-((REAL8)length-1.)/ 2.) * delta_t);
+    
+    // Incremental values, using cos(theta) - 1 = -2*sin(theta/2)^2 
+   dim = sin(twopif*delta_t);
+   dre = -2.0*sin(0.5*twopif*delta_t)*sin(0.5*twopif*delta_t);
+    
+     for(i = 0; i < (*hplus)->data->length; i++) {
+		 t = ((REAL8) i - ((REAL8)length - 1.) / 2.) * delta_t; // t in [-30 tau, ??]
+		 phi = LAL_TWOPI * centre_frequency * t; // this is the actual time, not t0
 		fac = exp(-0.5 * phi * phi / (Q * Q));
-		(*hplus)->data->data[i]  = h0plus * fac * cos(phi);
-		(*hcross)->data->data[i] = h0cross * fac * sin(phi);  
+    
+		//(*hplus)->data->data[i]  = h0plus * fac*cos(phi);
+		//(*hcross)->data->data[i] = h0cross * fac*sin(phi);
+    (*hplus)->data->data[i]  = h0plus * fac*re;
+    (*hcross)->data->data[i] = h0cross * fac*im ;
+      // Now update re and im for the next iteration. 
+     newRe = re + re*dre - im*dim;
+     newIm = im + re*dim + im*dre;
+//if (i==(UINT4)((*hplus)->data->length-1))
+//printf("%d %.14e %.14e %.14e %.14e\n",i,re,cos(phi),im,sin(phi));
+     re = newRe;
+     im = newIm;
+      //
 	}
 //fclose(testout);
 	/* apply a Tukey window for continuity at the start and end of the
@@ -701,6 +730,16 @@ int XLALSimBurstGaussian(
 	REAL8 delta_t // 1 over srate
 )
 {	
+  /*
+   * 
+   * We produce gaussian WFs having the form:
+   * 
+   * h_x=C (hrss /sqrt(tau)) (2/Pi)^1/4 exp(-t^2/tau^2) 
+   * h_x=P (hrss /sqrt(tau)) (2/Pi)^1/4 exp(-t^2/tau^2) 
+   * 
+   * 
+   * */
+  
 	REAL8Window *window;
 	/* semimajor and semiminor axes of waveform ellipsoid */
 	const double a = 1.0 / sqrt(2.0 - eccentricity * eccentricity);
@@ -708,14 +747,13 @@ int XLALSimBurstGaussian(
 	/* rss of plus and cross polarizations */
 	const double hplusrss  = hrss * (a * cos(polarization) - b * sin(polarization));
 	const double hcrossrss = hrss * (b * cos(polarization) + a * sin(polarization));
-	/* rss of unit amplitude cosine- and sine-gaussian waveforms.  see
-	 * K. Riles, LIGO-T040055-00.pdf */
-   REAL8 sdur=sqrt(duration);
-	const double grss = sdur*LAL_PI_1_4/LAL_4RT2;
+	
+  REAL8 sdur=sqrt(duration);
 	/* "peak" amplitudes of plus and cross */
-	const double h0plus  = hplusrss / grss;
-	const double h0cross = hcrossrss / grss;
-	LIGOTimeGPS epoch= LIGOTIMEGPSZERO;
+	const double h0plus  = hplusrss /sdur*FRTH_2_Pi ;
+	const double h0cross = hcrossrss/sdur*FRTH_2_Pi;
+	
+  LIGOTimeGPS epoch= LIGOTIMEGPSZERO;
 	int length;
 	unsigned i;
 
@@ -742,8 +780,8 @@ int XLALSimBurstGaussian(
 
 	/* populate */
   //  FILE * testout = fopen("GaussTime_WF.txt","w");
-double t=0.0;
-double fac=0.0;
+  double t=0.0;
+  double fac=0.0;
 	for(i = 0; i < (*hplus)->data->length; i++) {
 		t = ((int) i - (length - 1) / 2) * delta_t; // t in [-30 tau, ??]
 		fac = exp(-t*t/duration/duration);  // centered around zero. Time shift will be applied later by the caller
@@ -847,11 +885,12 @@ int XLALSimBurstSineGaussianF(
     REAL8 sigma= Q/(LAL_TWOPI*centre_frequency);
     REAL8 tau2=tau*tau;
     /* set fmax to be f0 + 3sigmas*/
-    //REAL8 Fmax=centre_frequency + 6.0*tau;
+    REAL8 Fmax=centre_frequency + 6.0*tau;
     //printf("fmax %lf    f0=%lf\n",Fmax,centre_frequency);
     /* if fmax > nyquist use nyquist */
-   // if (Fmax>(1.0/(2.0*deltaT))) 
-    REAL8 Fmax=1.0/(2.0*deltaT);
+    if (Fmax>(1.0/(2.0*deltaT))) 
+      Fmax=1.0/(2.0*deltaT);
+    
     size_t upper= (size_t) ( Fmax/deltaF+1);
     
     COMPLEX16FrequencySeries *hptilde;
@@ -905,7 +944,13 @@ int XLALSimBurstGaussianF(
   REAL8 deltaT
 )
 {
- 
+  /*
+   * Here we want 
+   * 
+   * h_+= P hrss sqrt(tau) (2 Pi)^(1/4) exp(-f^2 tau^2 Pi^2)
+   * h_x= C hrss sqrt(tau) (2 Pi)^(1/4) exp(-f^2 tau^2 Pi^2)
+   * 
+   * */
 	//REAL8Window *window;
 	/* semimajor and semiminor axes of waveform ellipsoid */
 	const double a = 1.0 / sqrt(2.0 - eccentricity * eccentricity);
@@ -913,13 +958,11 @@ int XLALSimBurstGaussianF(
 	/* rss of plus and cross polarizations */
 	const double hplusrss  = hrss * (a * cos(polarization) - b * sin(polarization));
 	const double hcrossrss = hrss * (b * cos(polarization) + a * sin(polarization));
-	/* rss of unit amplitude cosine- and sine-gaussian waveforms.  see
-	 * K. Riles, LIGO-T040055-00.pdf */
-   REAL8 sdur=sqrt(duration);
-  const double grss = sdur*LAL_PI_1_4*LAL_4RT2;
-	/* "peak" amplitudes of plus and cross */
-	const double h0plus  = hplusrss * grss;
-	const double h0cross = hcrossrss *grss;
+	
+  REAL8 sdur=sqrt(duration);
+  /* "peak" amplitudes of plus and cross */
+	const double h0plus  = hplusrss  *sdur*FRTH_2_times_PI;
+	const double h0cross = hcrossrss *sdur*FRTH_2_times_PI;
 	LIGOTimeGPS epoch= LIGOTIMEGPSZERO;
 	int length;
 	unsigned i;
@@ -959,8 +1002,8 @@ int XLALSimBurstGaussianF(
       f=((REAL8 ) i )*deltaF;
 		  phi=f*f/sigma2;
       ephi=exp(-0.5*phi);
-      hptilde->data->data[i] = h0plus *LAL_SQRT2*ephi;
-		  hctilde->data->data[i] = h0cross*LAL_SQRT2*ephi;
+      hptilde->data->data[i] = h0plus *ephi;
+		  hctilde->data->data[i] = h0cross*ephi;
   }
 	//fclose(testout);
 

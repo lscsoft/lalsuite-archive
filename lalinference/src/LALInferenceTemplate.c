@@ -1209,7 +1209,7 @@ void LALInferenceTemplateSineGaussian(LALInferenceIFOData *IFOdata)
       }
       fprintf( stderr, " ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): no generated waveform.\n");
     }
-
+/*
 REAL8 max=0.0;
  for (i=0; i<IFOdata->timeData->data->length; i++){
         max=max>IFOdata->timeModelhPlus->data->data[i] ?max:IFOdata->timeModelhPlus->data->data[i];
@@ -1217,7 +1217,7 @@ REAL8 max=0.0;
       }
       if (max==0.0)
       printf("zeromax\n");
-
+*/
 		if ( hplus ) XLALDestroyREAL8TimeSeries(hplus);
 		if ( hcross ) XLALDestroyREAL8TimeSeries(hcross);
  
@@ -1314,7 +1314,7 @@ void LALInferenceTemplateGaussian(LALInferenceIFOData *IFOdata)
       }
       fprintf( stderr, " ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): no generated waveform.\n");
     }
-
+/*
 REAL8 max=0.0;
  for (i=0; i<IFOdata->timeData->data->length; i++){
         max=max>IFOdata->timeModelhPlus->data->data[i] ?max:IFOdata->timeModelhPlus->data->data[i];
@@ -1322,7 +1322,7 @@ REAL8 max=0.0;
       }
       if (max==0.0)
       printf("zeromax\n");
-
+*/
 		if ( hplus ) XLALDestroyREAL8TimeSeries(hplus);
 		if ( hcross ) XLALDestroyREAL8TimeSeries(hcross);
  
