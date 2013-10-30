@@ -1351,33 +1351,28 @@ void LALInferenceTemplateSineGaussianF(LALInferenceIFOData *IFOdata)
 /****************************************************************************************/
 {
     
-   	//static int sizeWarning = 0;
-
-       COMPLEX16FrequencySeries *hplus=NULL;  /**< +-polarization waveform */
-      COMPLEX16FrequencySeries *hcross=NULL; /**< x-polarization waveform */
-     // printf("using SGF\n");
-      REAL8 Q, centre_frequency,hrss,eccentricity,polar_angle;
-     // REAL8 padding=0.4; // hard coded value found in LALInferenceReadData(). Padding (in seconds) for the tuckey window.
-        //UINT8 windowshift=(UINT8) ceil(padding/IFOdata->timeData->deltaT);
-        UINT4 i=0;
+    COMPLEX16FrequencySeries *hplus=NULL;  /**< +-polarization waveform */
+    COMPLEX16FrequencySeries *hcross=NULL; /**< x-polarization waveform */
+    REAL8 Q, centre_frequency,hrss,eccentricity,polar_angle;
+    UINT4 i=0;
   
-      Q = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "Q");
-      centre_frequency=  *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "frequency");  
+    Q = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "Q");
+    centre_frequency=  *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "frequency");  
       
-      /*Always calculate the template at fixed hrss of 1. That will avoid recalculation of the template unless Q, f, polar_angle, polar_eccentricity are varied */
-      hrss=1.0;
-      polar_angle=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "polar_angle"); 
-      eccentricity=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "eccentricity"); 
+    /*Always calculate the template at fixed hrss of 1. That will avoid recalculation of the template unless Q, f, polar_angle, polar_eccentricity are varied */
+    hrss=1.0;
+    polar_angle=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "polar_angle"); 
+    eccentricity=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "eccentricity"); 
            
-      XLALSimBurstSineGaussianF(&hplus,&hcross, Q, centre_frequency,hrss,eccentricity,polar_angle,IFOdata->freqData->deltaF,IFOdata->timeData->deltaT);
-   REAL8 instant= (IFOdata->timeData->epoch.gpsSeconds + 1e-9*(IFOdata->timeData->epoch.gpsNanoSeconds));
+    XLALSimBurstSineGaussianF(&hplus,&hcross, Q, centre_frequency,hrss,eccentricity,polar_angle,IFOdata->freqData->deltaF,IFOdata->timeData->deltaT);
+    
+    REAL8 instant= (IFOdata->timeData->epoch.gpsSeconds + 1e-9*(IFOdata->timeData->epoch.gpsNanoSeconds));
 
     /* write template (time axis) location in "->modelParams" so that     */
     /* template corresponds to stored parameter values                    */
     /* and other functions may time-shift template to where they want it: */
     LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
     
-    // FILE * testout = fopen("freqModelhPlus.txt","w");
     if(hplus->data && hcross->data){
         for (i=0; i<IFOdata->freqData->data->length; i++){
           if( i>=hplus->data->length){
@@ -1393,17 +1388,12 @@ void LALInferenceTemplateSineGaussianF(LALInferenceIFOData *IFOdata)
             IFOdata->freqModelhCross->data->data[i]= hcross->data->data[i];
         }
       }
-  }/*
-  for (i=0; i<IFOdata->freqData->data->length; i++){
-      fprintf(testout,"%lf %10.10e %10.10e\n",i*IFOdata->freqData->deltaF,  IFOdata->freqModelhPlus->data->data[i].re,  IFOdata->freqModelhPlus->data->data[i].im);
-      }
-  fclose(testout);
-  */
-		if ( hplus ) XLALDestroyCOMPLEX16FrequencySeries(hplus);
-		if ( hcross )XLALDestroyCOMPLEX16FrequencySeries(hcross);
- //exit(1);
+    }
 
- IFOdata->modelDomain = LAL_SIM_DOMAIN_FREQUENCY;
+  if ( hplus ) XLALDestroyCOMPLEX16FrequencySeries(hplus);
+  if ( hcross )XLALDestroyCOMPLEX16FrequencySeries(hcross);
+ 
+  IFOdata->modelDomain = LAL_SIM_DOMAIN_FREQUENCY;
   return;
 }
 
@@ -1428,59 +1418,51 @@ void LALInferenceTemplateGaussianF(LALInferenceIFOData *IFOdata)
 /****************************************************************************************/
 {
     
-   	//static int sizeWarning = 0;
+  COMPLEX16FrequencySeries *hplus=NULL;  /**< +-polarization waveform */
+  COMPLEX16FrequencySeries *hcross=NULL; /**< x-polarization waveform */
+  REAL8 duration,hrss,eccentricity,polar_angle;
+   
+  UINT4 i=0;
 
-       COMPLEX16FrequencySeries *hplus=NULL;  /**< +-polarization waveform */
-      COMPLEX16FrequencySeries *hcross=NULL; /**< x-polarization waveform */
-     // printf("using SGF\n");
-      REAL8 duration,hrss,eccentricity,polar_angle;
-     // REAL8 padding=0.4; // hard coded value found in LALInferenceReadData(). Padding (in seconds) for the tuckey window.
-        //UINT8 windowshift=(UINT8) ceil(padding/IFOdata->timeData->deltaT);
-        UINT4 i=0;
+  /*Always calculate the template at fixed hrss of 1. That will avoid recalculation of the template unless duration, polar_angle, polar_eccentricity are varied */
+  hrss=1.0;
+  polar_angle=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "polar_angle"); 
+  eccentricity=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "eccentricity"); 
+  duration = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "duration");
+     
+
+  XLALSimBurstGaussianF(&hplus,&hcross, duration,hrss,eccentricity,polar_angle,IFOdata->freqData->deltaF,IFOdata->timeData->deltaT);
+
+  REAL8 instant= (IFOdata->timeData->epoch.gpsSeconds + 1e-9*(IFOdata->timeData->epoch.gpsNanoSeconds));
+
+  /* write template (time axis) location in "->modelParams" so that     */
+  /* template corresponds to stored parameter values                    */
+  /* and other functions may time-shift template to where they want it: */
+  LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
   
-      duration = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "duration");
-      
-      /*Always calculate the template at fixed hrss of 1. That will avoid recalculation of the template unless duration, polar_angle, polar_eccentricity are varied */
-      hrss=1.0;
-      polar_angle=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "polar_angle"); 
-      eccentricity=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "eccentricity"); 
-           
-      XLALSimBurstGaussianF(&hplus,&hcross, duration,hrss,eccentricity,polar_angle,IFOdata->freqData->deltaF,IFOdata->timeData->deltaT);
-   REAL8 instant= (IFOdata->timeData->epoch.gpsSeconds + 1e-9*(IFOdata->timeData->epoch.gpsNanoSeconds));
-
-    /* write template (time axis) location in "->modelParams" so that     */
-    /* template corresponds to stored parameter values                    */
-    /* and other functions may time-shift template to where they want it: */
-    LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
-    
-    // FILE * testout = fopen("freqModelhPlus.txt","w");
-    if(hplus->data && hcross->data){
-        for (i=0; i<IFOdata->freqData->data->length; i++){
-          if( i>=hplus->data->length){
-            IFOdata->freqModelhPlus->data->data[i] = crect(0.0,0.0);
-            IFOdata->freqModelhCross->data->data[i]= crect(0.0,0.0);		
-          }
-          else if(isnan(creal(hcross->data->data[i]))){
-            IFOdata->freqModelhPlus->data->data[i] = crect(0.0,0.0);
-            IFOdata->freqModelhCross->data->data[i] = crect(0.0,0.0);		
-              }
-          else{
-            IFOdata->freqModelhPlus->data->data[i] = hplus->data->data[i];
-            IFOdata->freqModelhCross->data->data[i]= hcross->data->data[i];
+  // FILE * testout = fopen("freqModelhPlus.txt","w");
+  if(hplus->data && hcross->data){
+      for (i=0; i<IFOdata->freqData->data->length; i++){
+        if( i>=hplus->data->length){
+          IFOdata->freqModelhPlus->data->data[i] = crect(0.0,0.0);
+          IFOdata->freqModelhCross->data->data[i]= crect(0.0,0.0);		
         }
+        else if(isnan(creal(hcross->data->data[i]))){
+          IFOdata->freqModelhPlus->data->data[i] = crect(0.0,0.0);
+          IFOdata->freqModelhCross->data->data[i] = crect(0.0,0.0);		
+            }
+        else{
+          IFOdata->freqModelhPlus->data->data[i] = hplus->data->data[i];
+          IFOdata->freqModelhCross->data->data[i]= hcross->data->data[i];
       }
-  }/*
-  for (i=0; i<IFOdata->freqData->data->length; i++){
-      fprintf(testout,"%lf %10.10e %10.10e\n",i*IFOdata->freqData->deltaF,  IFOdata->freqModelhPlus->data->data[i].re,  IFOdata->freqModelhPlus->data->data[i].im);
-      }
-  fclose(testout);
-  */
-		if ( hplus ) XLALDestroyCOMPLEX16FrequencySeries(hplus);
-		if ( hcross )XLALDestroyCOMPLEX16FrequencySeries(hcross);
- //exit(1);
+    }
+  }
+  if ( hplus ) XLALDestroyCOMPLEX16FrequencySeries(hplus);
+  if ( hcross )XLALDestroyCOMPLEX16FrequencySeries(hcross);
 
- IFOdata->modelDomain = LAL_SIM_DOMAIN_FREQUENCY;
-  return;
+
+IFOdata->modelDomain = LAL_SIM_DOMAIN_FREQUENCY;
+return;
 }
 
 
