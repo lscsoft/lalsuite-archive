@@ -292,7 +292,7 @@ def append_process(xmldoc, match_algorithm, comment):
 	"""
 	Convenience wrapper for adding process metadata to the document.
 	"""
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
+	process = ligolw_process.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [(u"--match-algorithm", u"lstring", match_algorithm)]
 	ligolw_process.append_process_params(xmldoc, process, params)
