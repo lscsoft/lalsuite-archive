@@ -54,7 +54,8 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
 
     ProcessParamsTable *commandLine=runState->commandLine;
     LALInferenceIFOData *ifo=runState->data;
-    ProcessParamsTable *ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
+    ProcessParamsTable *ppt=NULL;
+    ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
 
     /* Print command line arguments if help requested */
     if(LALInferenceGetProcParamVal(runState->commandLine,"--help"))
