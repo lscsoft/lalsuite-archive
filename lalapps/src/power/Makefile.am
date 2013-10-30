@@ -3,8 +3,9 @@ AM_CPPFLAGS = -I$(top_srcdir)/src/lalapps -I$(top_builddir)/src/lalapps -DPKG_DA
 if LALFRAME
 if LALMETAIO
 if LALBURST
-BURSTPROGS = lalapps_binj
+BURSTPROGS = lalapps_binj lalapps_simburst_to_frame
 lalapps_binj_SOURCES = binj.c
+lalapps_simburst_to_frame_SOURCES=simburst_to_frame.c
 if LALINSPIRAL
 INSPPROGS = lalapps_power
 lalapps_power_SOURCES = power.c

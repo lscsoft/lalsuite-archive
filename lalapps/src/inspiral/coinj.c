@@ -38,7 +38,7 @@
 #include <lal/TimeFreqFFT.h>
 #include <lal/InspiralInjectionParams.h>
 #include <lal/VectorOps.h>
-#include <lal/FrameStream.h>
+#include <lal/LALFrStream.h>
 #include <lal/LALDetectors.h>
 #include <lal/LALFrameIO.h>
 
@@ -65,7 +65,6 @@ lalapps_coinj: create coherent injection files for LIGO and VIRGO\n"
 #endif
 
 extern int vrbflg;
-extern int lalDebugLevel;
 
 typedef enum
 {
@@ -166,9 +165,7 @@ int main(int argc, char *argv[])
   INT4 GPSstart=0,GPSend=2147483647;
   int UNUSED SNROK=1;
   int rewriteXML=0;
-  FrameH *frame;
-  /*vrbflg=6;
-    lalDebugLevel=6; */
+  LALFrameH *frame;
 
   struct option long_options[]=
     {
@@ -438,14 +435,14 @@ int main(int argc, char *argv[])
         /* write frame */
         sprintf(fname,"%s%s%s-INSP%i_HWINJ_STRAIN-%i-%i.gwf",outputpath,"/",det_name, inj_num, inj_epoch.gpsSeconds, (UINT4)injLength);
         /*sprintf(fname, "%s%s%s",outputpath, "/", fname);*/
-        if (XLALFrameWrite( frame, fname, 8) != 0)
+        if (XLALFrameWrite( frame, fname) != 0)
         {
           fprintf( stderr, "ERROR: Cannot save frame file: '%s'\n", fname );
           exit( 1 );
         }
 
         /* clear frame */
-        FrameFree( frame );
+        XLALFrameFree( frame );
 
         
       }

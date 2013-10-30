@@ -20,8 +20,8 @@ details.
 You should have received a copy of the GNU General Public License along with
 this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-
-__version__ = '$Revision$'
+from glue import git_version
+__version__ = git_version.id
 
 import sys
 import os

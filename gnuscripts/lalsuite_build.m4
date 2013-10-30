@@ -1,6 +1,6 @@
 # lalsuite_build.m4 - top level build macros
 #
-# serial 62
+# serial 68
 
 AC_DEFUN([LALSUITE_CHECK_GIT_REPO],[
   # check for git
@@ -21,6 +21,7 @@ AC_DEFUN([LALSUITE_CHECK_GIT_REPO],[
   AM_CONDITIONAL(HAVE_GIT_REPO,[test "x${have_git_repo}" = xyes])
   # command line for version information generation script
   AM_COND_IF(HAVE_GIT_REPO,[
+    m4_pattern_allow([AM_DEFAULT_VERBOSITY])
     m4_pattern_allow([AM_V_GEN])
     AC_SUBST([genvcsinfo_],["\$(genvcsinfo_\$(AM_DEFAULT_VERBOSITY))"])
     AC_SUBST([genvcsinfo_0],["--am-v-gen='\$(AM_V_GEN)'"])
@@ -34,6 +35,11 @@ AC_DEFUN([LALSUITE_REQUIRE_CXX],[
   lalsuite_require_cxx=true
 ])
 
+AC_DEFUN([LALSUITE_REQUIRE_F77],[
+  # require an F77 compiler
+  lalsuite_require_f77=true
+])
+
 # because we want to decide whether to run AC_PROG_CXX/AC_PROG_CXXCPP
 # at ./configure run time, we must erase the following macros, which
 # (in autoconf 2.64 and later) require AC_PROG_CXX/AC_PROG_CXXCPP to
@@ -41,8 +47,13 @@ AC_DEFUN([LALSUITE_REQUIRE_CXX],[
 # they're needed or not (which is only decided later at run time).
 m4_defun([AC_LANG_COMPILER(C++)],[])
 m4_defun([AC_LANG_PREPROC(C++)],[])
+# Same for Fortran compilers
+m4_defun([AC_LANG_COMPILER(Fortran 77)],[])
+m4_defun([AC_LANG_PREPROC(Fortran 77)],[])
+m4_defun([AC_LANG_COMPILER(Fortran)],[])
+m4_defun([AC_LANG_PREPROC(Fortran)],[])
 
-AC_DEFUN([LALSUITE_PROG_CC_CXX],[
+AC_DEFUN([LALSUITE_PROG_COMPILERS],[
   # check for C99 compiler
   AC_REQUIRE([AC_PROG_CC])
   AC_REQUIRE([AC_PROG_CC_C99])
@@ -75,6 +86,13 @@ AC_DEFUN([LALSUITE_PROG_CC_CXX],[
   AS_IF([test "${lalsuite_require_cxx}" = true],[
     LALSUITE_CHECK_CXX_COMPLEX_NUMBERS
   ])
+
+  # check for F77 compiler, if needed
+  AS_IF([test "${lalsuite_require_f77}" = true],[
+    AC_PROG_F77
+  ],[
+    F77=
+  ])
 ])
 
 AC_DEFUN([LALSUITE_USE_LIBTOOL],
@@ -93,6 +111,7 @@ AC_LANG(_AC_LANG)[]dnl
 
 AC_DEFUN([LALSUITE_ARG_VAR],[
   AC_ARG_VAR(LALSUITE_BUILD,[Set if part of lalsuite build])
+  AC_ARG_VAR(LALSUITE_SUBDIRS,[Set to subdirs configured by lalsuite])
 ])
 
 AC_DEFUN([LALSUITE_MULTILIB_LIBTOOL_HACK],
@@ -155,6 +174,7 @@ if test "$lowercase" = "true"; then
       *)   LIBS="$LIBS $arg";;
     esac
   done
+  LALSUITE_CHECKED_LIBS="${LALSUITE_CHECKED_LIBS} lowercase"
   if test "$LALSUITE_BUILD" = "true"; then
     AC_DEFINE([HAVE_LIB]uppercase,[1],[Define to 1 if you have the $1 library])
     lowercase="true"
@@ -193,6 +213,7 @@ if test "$lowercase" = "true"; then
         *)   LIBS="$LIBS $arg";;
       esac
     done
+    LALSUITE_CHECKED_LIBS="${LALSUITE_CHECKED_LIBS} lowercase"
     if test "$LALSUITE_BUILD" = "true"; then
       AC_DEFINE([HAVE_LIB]uppercase,[1],[Define to 1 if you have the $1 library])
       lowercase="true"
@@ -372,7 +393,7 @@ AC_ARG_ENABLE(
       no) laldetchar=false;;
       *) AC_MSG_ERROR(bad value ${enableval} for --enable-laldetchar) ;;
     esac
-  ], [ laldetchar=${all_lal:-false} ] )
+  ], [ laldetchar=${all_lal:-true} ] )
 if test "$lalmetaio" = "false"; then
   laldetchar=false
 fi

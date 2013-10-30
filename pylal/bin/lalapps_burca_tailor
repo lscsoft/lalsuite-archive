@@ -135,11 +135,11 @@ coinc_params_func_extra_args = (MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD)
 segs = segments.segmentlistdict()
 
 if options.add_from:
-	extra_data = ligolw_burca_tailor.CoincParamsDistributions()
+	extra_data = ligolw_burca_tailor.BurcaCoincParamsDistributions()
 	for n, filename in enumerate(options.add_from):
 		if options.verbose:
 			print >>sys.stderr, "%d/%d: " % (n + 1, len(options.add_from)),
-		c, s = ligolw_burca_tailor.get_coincparamsdistributions(utils.load_filename(filename, verbose = options.verbose, contenthandler = StatsContentHandler), u"ligolw_burca_tailor")
+		c, s = ligolw_burca_tailor.get_coincparamsdistributions(utils.load_filename(filename, verbose = options.verbose, contenthandler = StatsContentHandler), type(extra_data), u"ligolw_burca_tailor")
 		extra_data += c
 		segs |= s
 else:
@@ -148,7 +148,7 @@ else:
 
 #
 # Construct a DistributionsStats instance to populate a
-# CoincParamsDistributions book-keeping object from the information in the
+# BurcaCoincParamsDistributions book-keeping object from the information in the
 # input files.
 #
 

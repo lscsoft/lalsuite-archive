@@ -20,7 +20,7 @@ def bin_and_smooth(X, Y, DATA, XYbin):
   for i, d in enumerate(DATA):
     out[Y[i],X[i]] += d
   #out.to_pdf()
-  wn = rate.gaussian_window2d(11, 11, 10)
+  wn = rate.gaussian_window(11, 11, 10)
   rate.filter_array(out.array, wn)
   return out.array
    

@@ -14,3 +14,5 @@ inputs = scripts.git, ligolw_diff.git, unit_a.nmi, unit_b.nmi
 
 remote_task = remote_task.sh
 remote_task_args = $(GIT_ID_A) $(GIT_ID_B)
+
+platform_post = platform_post.sh

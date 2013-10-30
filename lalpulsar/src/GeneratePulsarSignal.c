@@ -34,6 +34,7 @@
 #include <lal/RealFFT.h>
 #include <lal/SFTutils.h>
 #include <lal/Window.h>
+#include <lal/Random.h>
 
 #include <lal/GeneratePulsarSignal.h>
 
@@ -45,13 +46,12 @@ static int XLALcorrect_phase ( SFTtype *sft, LIGOTimeGPS tHeterodyne );
 
 /*----------------------------------------------------------------------*/
 
-extern INT4 lalDebugLevel;
-
 static REAL8 eps = 1.e-14;	/* maximal REAL8 roundoff-error (used for determining if some REAL8 frequency corresponds to an integer "bin-index" */
 
 /* ----- DEFINES ----- */
 
 /*---------- Global variables ----------*/
+
 /* empty init-structs for the types defined in here */
 static SpinOrbitCWParamStruc emptyCWParams;
 static PulsarCoherentGW emptySignal;
@@ -59,7 +59,7 @@ static PulsarCoherentGW emptySignal;
 const PulsarSignalParams empty_PulsarSignalParams;
 const SFTParams empty_SFTParams;
 const SFTandSignalParams empty_SFTandSignalParams;
-static LALUnit emptyUnit;
+static LALUnit empty_LALUnit;
 
 /** Generate a time-series at the detector for a given pulsar.
  */
@@ -203,7 +203,7 @@ XLALGeneratePulsarSignal ( const PulsarSignalParams *params /**< input params */
   REAL8 fHet = params->fHeterodyne;
 
   /* ok, we  need to prepare the output time-series */
-  REAL4TimeSeries *output = XLALCreateREAL4TimeSeries ( "", &(params->startTimeGPS), fHet, dt, &emptyUnit, numSteps );
+  REAL4TimeSeries *output = XLALCreateREAL4TimeSeries ( "", &(params->startTimeGPS), fHet, dt, &empty_LALUnit, numSteps );
   XLAL_CHECK_NULL ( output != NULL, XLAL_EFUNC, "XLALCreateREAL4TimeSeries() failed with xlalErrno = %d\n", xlalErrno );
 
   // internal interpolation parameters for LALPulsarSimulateCoherentGW()
@@ -296,15 +296,18 @@ XLALSignalToSFTs ( const REAL4TimeSeries *signalvec, 	/**< input time-series */
 
   /* for simplicity we _always_ work with timestamps.
    * Therefore, we have to generate them now if none have been provided by the user. */
-  LIGOTimeGPSVector *timestamps;
+  const LIGOTimeGPSVector *timestamps;
+  LIGOTimeGPSVector *localTimestamps = NULL;
   if ( params->timestamps == NULL )
     {
-      timestamps = XLALMakeTimestamps ( tStart, duration, params->Tsft );
-      XLAL_CHECK_NULL ( timestamps != NULL, XLAL_EFUNC );
+      REAL8 Toverlap = 0;
+      XLAL_CHECK_NULL ( ( localTimestamps = XLALMakeTimestamps ( tStart, duration, params->Tsft, Toverlap )) != NULL, XLAL_EFUNC );
       /* see if the last timestamp is valid (can fit a full SFT in?), if not, drop it */
-      LIGOTimeGPS lastTs = timestamps->data[timestamps->length-1];
-      if ( XLALGPSDiff ( &lastTs, &tLast ) > 0 )	// if lastTs > tLast
-	timestamps->length --;
+      LIGOTimeGPS lastTs = localTimestamps->data [ localTimestamps->length - 1 ];
+      if ( XLALGPSDiff ( &lastTs, &tLast ) > 0 ) {	// if lastTs > tLast
+	localTimestamps->length --;
+      }
+      timestamps = localTimestamps;
     }
   else	/* if given, use those, and check they are valid */
     {
@@ -439,8 +442,8 @@ XLALSignalToSFTs ( const REAL4TimeSeries *signalvec, 	/**< input time-series */
   XLALDestroyREAL4Vector ( timeStretchCopy );
 
   /* did we create timestamps ourselves? */
-  if (params->timestamps == NULL) {
-    XLALDestroyTimestampVector ( timestamps );	// if yes, free them
+  if ( localTimestamps != NULL) {
+    XLALDestroyTimestampVector ( localTimestamps );	// if yes, free them
   }
 
   return sftvect;
@@ -978,6 +981,104 @@ int XLALConvertSSB2GPS ( LIGOTimeGPS *GPSout,			/**< [out] GPS-arrival-time at d
   return XLAL_SUCCESS;
 
 } /* XLALConvertSSB2GPS() */
+
+/**
+ * Generate a REAL4TimeSeries containing a sinusoid with
+ * amplitude 'h0', frequency 'Freq-fHeterodyne' and initial phase 'phi0'.
+ */
+REAL4TimeSeries *
+XLALGenerateLineFeature ( const PulsarSignalParams *params )
+{
+  XLAL_CHECK_NULL ( params != NULL, XLAL_EINVAL );
+
+  /* set 'name'-field of timeseries to contain the right "channel prefix" for the detector */
+  char *name;
+  XLAL_CHECK_NULL ( (name = XLALGetChannelPrefix ( params->site->frDetector.name )) != NULL, XLAL_EFUNC );
+
+  /* NOTE: a timeseries of length N*dT has no timestep at N*dT !! (convention) */
+  UINT4 length = (UINT4) ceil( params->samplingRate * params->duration);
+  REAL8 deltaT = 1.0 / params->samplingRate;
+  REAL8 tStart = XLALGPSGetREAL8 ( &params->startTimeGPS );
+
+  LALUnit units = empty_LALUnit;
+  REAL4TimeSeries *ret;
+  XLAL_CHECK_NULL ( (ret = XLALCreateREAL4TimeSeries (name, &(params->startTimeGPS), params->fHeterodyne, deltaT, &units, length)) != NULL, XLAL_EFUNC );
+  XLALFree ( name );
+
+  REAL8 h0 = params->pulsar.aPlus + sqrt ( pow(params->pulsar.aPlus,2) - pow(params->pulsar.aCross,2) );
+  REAL8 omH = LAL_TWOPI * ( params->pulsar.f0 - params->fHeterodyne );
+
+  for ( UINT4 i = 0; i < length; i++ )
+    {
+      REAL8 ti = tStart + i * deltaT;
+      ret->data->data[i] = h0 * sin( omH * ti  + params->pulsar.phi0 );
+    }
+
+  /* return final timeseries */
+  return ret;
+
+} /* XLALGenerateLineFeature() */
+
+
+/**
+ * Generate Gaussian noise with standard-deviation sigma, add it to inSeries.
+ *
+ * NOTE2: if seed==0, then time(NULL) is used as random-seed!
+ *
+ */
+int
+XLALAddGaussianNoise ( REAL4TimeSeries *inSeries, REAL4 sigma, INT4 seed )
+{
+  XLAL_CHECK ( inSeries != NULL, XLAL_EINVAL );
+
+  UINT4 numPoints = inSeries->data->length;
+
+  REAL4Vector *v1;
+  XLAL_CHECK ( (v1 = XLALCreateREAL4Vector ( numPoints )) != NULL, XLAL_EFUNC );
+
+  RandomParams *randpar;
+  XLAL_CHECK ( (randpar = XLALCreateRandomParams ( seed )) != NULL, XLAL_EFUNC );
+
+  XLAL_CHECK ( XLALNormalDeviates ( v1, randpar) == XLAL_SUCCESS, XLAL_EFUNC );
+
+  for (UINT4 i = 0; i < numPoints; i++ ) {
+    inSeries->data->data[i] += sigma * v1->data[i];
+  }
+
+  /* destroy randpar*/
+  XLALDestroyRandomParams ( randpar );
+
+  /*   destroy v1 */
+  XLALDestroyREAL4Vector ( v1 );
+
+  return XLAL_SUCCESS;
+
+} /* XLALAddGaussianNoise() */
+
+
+
+/**
+ * Destroy a MultiREAL4TimeSeries, NULL-robust
+ */
+void
+XLALDestroyMultiREAL4TimeSeries ( MultiREAL4TimeSeries *multiTS )
+{
+  if ( !multiTS ) {
+    return;
+  }
+
+  UINT4 numDet = multiTS->length;
+  for ( UINT4 X=0; X < numDet; X ++ )
+    {
+      XLALDestroyREAL4TimeSeries ( multiTS->data[X] );
+    }
+
+  XLALFree ( multiTS->data );
+  XLALFree ( multiTS );
+
+  return;
+
+} // XLALDestroyMultiREAL4TimeSeries()
 
 
 /* ***********************************************************************

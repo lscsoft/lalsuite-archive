@@ -31,8 +31,8 @@ search_summary table in LIGO Light-Weight XML documents.
 
 
 from glue import git_version
-from glue.ligolw import table
-from glue.ligolw import lsctables
+from .. import table
+from .. import lsctables
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -69,11 +69,34 @@ def append_search_summary(xmldoc, process, shared_object = "standalone", lalwrap
 	row.set_out(outseg)
 	row.nevents = nevents
 	row.nnodes = nnodes
-	table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).append(row)
+
+	try:
+		tbl = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
+	except ValueError:
+		tbl = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SearchSummaryTable))
+	tbl.append(row)
+
 	return row
 
 
-def segmentlistdict_fromsearchsummary(xmldoc, program = None):
+def segmentlistdict_fromsearchsummary_in(xmldoc, program = None):
+	"""
+	Convenience wrapper for a common case usage of the segmentlistdict
+	class:  searches the process table in xmldoc for occurances of a
+	program named program, then scans the search summary table for
+	matching process IDs and constructs a segmentlistdict object from
+	the in segments in those rows.
+
+	Note:  the segmentlists in the segmentlistdict are not necessarily
+	coalesced, they contain the segments as they appear in the
+	search_summary table.
+	"""
+	stbl = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
+	ptbl = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+	return stbl.get_in_segmentlistdict(program and ptbl.get_ids_by_program(program))
+
+
+def segmentlistdict_fromsearchsummary_out(xmldoc, program = None):
 	"""
 	Convenience wrapper for a common case usage of the segmentlistdict
 	class:  searches the process table in xmldoc for occurances of a
@@ -88,3 +111,7 @@ def segmentlistdict_fromsearchsummary(xmldoc, program = None):
 	stbl = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
 	ptbl = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
 	return stbl.get_out_segmentlistdict(program and ptbl.get_ids_by_program(program))
+
+
+# FIXME:  deprecate this
+segmentlistdict_fromsearchsummary = segmentlistdict_fromsearchsummary_out

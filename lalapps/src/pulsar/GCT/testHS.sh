@@ -1,5 +1,8 @@
 #!/bin/bash
 
+## run all LALApps programs with memory debugging
+export LAL_DEBUG_LEVEL="${LAL_DEBUG_LEVEL},memdbg"
+
 #NORESAMP="1"
 #NOCLEANUP="1"
 #DEBUG=1
@@ -68,6 +71,7 @@ psi=0.6
 phi0=1.5
 Freq=100.123456789
 f1dot=-1e-9
+f2dot=1e-18
 
 ## perfectly targeted search in sky
 AlphaSearch=$Alpha
@@ -86,8 +90,10 @@ RngMedWindow=50
 
 gct_FreqBand=0.01
 gct_F1dotBand=2.0e-10
+gct_F2dotBand=0
 gct_dFreq=0.000002 #"2.0e-6"
 gct_dF1dot=1.0e-10
+gct_dF2dot=0
 gct_nCands=1000
 
 sqrtSh=1
@@ -167,7 +173,7 @@ FreqStep=`echo $mfd_FreqBand $numFreqBands |  awk '{print $1 / $2}'`
 mfd_fBand=`echo $FreqStep $Tsft |  awk '{print ($1 - 1.5 / $2)}'`	## reduce by 1/2 a bin to avoid including last freq-bins
 
 # construct common MFD cmd
-mfd_CL_common="--Band=${mfd_fBand} --Freq=$Freq --f1dot=$f1dot --Alpha=$Alpha --Delta=$Delta --psi=$psi --phi0=$phi0 --h0=$h0 --cosi=$cosi --generationMode=1 --refTime=$refTime --Tsft=$Tsft --randSeed=1000 --outSingleSFT"
+mfd_CL_common="--Band=${mfd_fBand} --Freq=$Freq --f1dot=$f1dot --f2dot=$f2dot --Alpha=$Alpha --Delta=$Delta --psi=$psi --phi0=$phi0 --h0=$h0 --cosi=$cosi --generationMode=1 --refTime=$refTime --Tsft=$Tsft --randSeed=1000 --outSingleSFT"
 
 if [ "$sqrtSh" != "0" ]; then
     mfd_CL_common="$mfd_CL_common --noiseSqrtSh=$sqrtSh";
@@ -182,9 +188,9 @@ while [ $iFreq -le $numFreqBands ]; do
     if [ ! -r $SFTname ]; then
         cmdline="$mfd_code $mfd_CL_common --fmin=$mfd_fi --IFO=H1 --outSFTbname='$SFTname' --timestampsFile='$tsFile_H1'"
         if [ -n "$DEBUG" ]; then
-            cmdline="$cmdline -v1"
+            cmdline="$cmdline"
         else
-            cmdline="$cmdline -v0 &> /dev/null"
+            cmdline="$cmdline &> /dev/null"
         fi
         echo "$cmdline";
         if ! eval "$cmdline"; then
@@ -200,9 +206,9 @@ while [ $iFreq -le $numFreqBands ]; do
     if [ ! -r $SFTname ]; then
         cmdline="$mfd_code $mfd_CL_common --fmin=$mfd_fi --IFO=L1 --outSFTbname='$SFTname' --timestampsFile='$tsFile_L1'";
         if [ -n "$DEBUG" ]; then
-            cmdline="$cmdline -v1"
+            cmdline="$cmdline"
         else
-            cmdline="$cmdline -v0 &> /dev/null"
+            cmdline="$cmdline &> /dev/null"
         fi
         echo "$cmdline";
         if ! eval "$cmdline"; then
@@ -227,7 +233,7 @@ outfile_cfs="${testDir}/CFS.dat";
 
 if [ ! -r "$outfile_cfs" ]; then
     tmpfile_cfs="${testDir}/__tmp_CFS.dat";
-    cfs_CL_common=" --Alpha=$Alpha --Delta=$Delta --Freq=$Freq --f1dot=$f1dot --outputLoudest=$tmpfile_cfs --refTime=$refTime --Dterms=$Dterms --RngMedWindow=$RngMedWindow --computeLV "
+    cfs_CL_common=" --Alpha=$Alpha --Delta=$Delta --Freq=$Freq --f1dot=$f1dot --f2dot=$f2dot --outputLoudest=$tmpfile_cfs --refTime=$refTime --Dterms=$Dterms --RngMedWindow=$RngMedWindow --computeLV "
     if [ "$sqrtSh" = "0" ]; then
         cfs_CL_common="$cfs_CL_common --SignalOnly";
     fi
@@ -244,9 +250,9 @@ if [ ! -r "$outfile_cfs" ]; then
         # ----- get multi-IFO + single-IFO F-stat values
         cmdline="$cfs_CL --DataFiles='$SFTfiles'"
         if [ -n "$DEBUG" ]; then
-            cmdline="$cmdline -v1"
+            cmdline="$cmdline"
         else
-            cmdline="$cmdline -v0 &> /dev/null"
+            cmdline="$cmdline &> /dev/null"
         fi
         echo "$cmdline"
         if ! eval "$cmdline"; then
@@ -289,7 +295,7 @@ echo "==>   Average <2F_multi>=$TwoFAvg, <2F_H1>=$TwoFAvg_H1, <2F_L1>=$TwoFAvg_L
 
 ## ---------- run GCT code on this data ----------------------------------------
 
-gct_CL_common="--gridType1=3 --nCand1=$gct_nCands --skyRegion='allsky' --Freq=$Freq --DataFiles='$SFTfiles' --skyGridFile='$skygridfile' --printCand1 --semiCohToplist --df1dot=$gct_dF1dot --f1dot=$f1dot --f1dotBand=$gct_F1dotBand --dFreq=$gct_dFreq --FreqBand=$gct_FreqBand --refTime=$refTime --segmentList=$segFile --Dterms=$Dterms --blocksRngMed=$RngMedWindow"
+gct_CL_common="--gridType1=3 --nCand1=$gct_nCands --skyRegion='allsky' --Freq=$Freq --DataFiles='$SFTfiles' --skyGridFile='$skygridfile' --printCand1 --semiCohToplist --df1dot=$gct_dF1dot --f1dot=$f1dot --f1dotBand=$gct_F1dotBand  --df2dot=$gct_dF2dot --f2dot=$f2dot --f2dotBand=$gct_F2dotBand --dFreq=$gct_dFreq --FreqBand=$gct_FreqBand --refTime=$refTime --segmentList=$segFile --Dterms=$Dterms --blocksRngMed=$RngMedWindow"
 if [ "$sqrtSh" = "0" ]; then
     gct_CL_common="$gct_CL_common --SignalOnly";
 fi
@@ -307,9 +313,9 @@ timingsfile_RS="${testDir}/timing_RS.dat"
 if [ -z "$NORESAMP" ]; then
     cmdline="$gct_code $gct_CL_common --useResamp=true --fnameout='$outfile_GCT_RS' --outputTiming='$timingsfile_RS' --recalcToplistStats"
     if [ -n "$DEBUG" ]; then
-        cmdline="$cmdline -d1"
+        cmdline="$cmdline"
     else
-        cmdline="$cmdline -d0 &> /dev/null"
+        cmdline="$cmdline &> /dev/null"
     fi
     echo "$cmdline"
     if ! eval "$cmdline"; then
@@ -340,9 +346,9 @@ timingsfile_DM="${testDir}/timing_DM.dat"
 
 cmdline="$gct_code $gct_CL_common --useResamp=false --fnameout='$outfile_GCT_DM' --outputTiming='$timingsfile_DM' ${LV_flags}"
 if [ -n "$DEBUG" ]; then
-    cmdline="$cmdline -d1"
+    cmdline="$cmdline"
 else
-    cmdline="$cmdline -d0 &> /dev/null"
+    cmdline="$cmdline &> /dev/null"
 fi
 
 echo $cmdline
@@ -370,9 +376,9 @@ timingsfile_DM_LV="${testDir}/timing_DM_LV.dat"
 
 cmdline="$gct_code $gct_CL_common --useResamp=false ${LV_flags} --SortToplist=2 --fnameout='$outfile_GCT_DM_LV' --outputTiming='$timingsfile_DM_LV'"
 if [ -n "$DEBUG" ]; then
-    cmdline="$cmdline -d1"
+    cmdline="$cmdline"
 else
-    cmdline="$cmdline -d0 &> /dev/null"
+    cmdline="$cmdline &> /dev/null"
 fi
 
 echo $cmdline
@@ -399,9 +405,9 @@ timingsfile_DM_DUAL="${testDir}/timing_DM_DUAL.dat"
 
 cmdline="$gct_code $gct_CL_common --useResamp=false --SortToplist=3 ${LV_flags} --fnameout='$outfile_GCT_DM_DUAL' --outputTiming='$timingsfile_DM_DUAL'"
 if [ -n "$DEBUG" ]; then
-    cmdline="$cmdline -d1"
+    cmdline="$cmdline"
 else
-    cmdline="$cmdline -d0 &> /dev/null"
+    cmdline="$cmdline &> /dev/null"
 fi
 
 echo $cmdline

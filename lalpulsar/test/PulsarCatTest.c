@@ -165,7 +165,6 @@ this with the <tt>-i</tt> option.
 #include <lal/PulsarCat.h>
 
 /* Default parameter settings. */
-extern int lalDebugLevel;
 #define J2000GPS 630763213 /* J2000.0 epoch in GPS seconds */
 #define J2000JD    2451545 /* J2000.0 epoch in Julian days */
 
@@ -272,7 +271,6 @@ main(int argc, char **argv)
   LALPlaceAndGPS detectorTime; /* epoch and detector site */
   EphemerisData *edat = NULL;  /* detector ephemerides */
 
-  lalDebugLevel = 0;
 
   /* First set up some defaults. */
   memset( &node, 0, sizeof(PulsarCatNode) );
@@ -357,7 +355,6 @@ main(int argc, char **argv)
     else if ( !strcmp( argv[arg], "-d" ) ) {
       if ( argc > arg + 1 ) {
 	arg++;
-	lalDebugLevel = atoi( argv[arg++] );
       } else {
 	ERROR( PULSARCATTESTC_EARG, PULSARCATTESTC_MSGEARG, 0 );
         XLALPrintError( USAGE, *argv );
@@ -452,6 +449,7 @@ main(int argc, char **argv)
     SUB( ParseEpoch( &stat, &(node.fepoch), "JD2449550.0" ), &stat ); */
   }
 
+  LALDetector *lsite = NULL;
   /* If the detector was specified, set up the detector position. */
   if ( site ) {
     UINT4 i; /* site index */
@@ -474,13 +472,13 @@ main(int argc, char **argv)
 	XLALPrintError( "%s", site );
       return PULSARCATTESTC_EVAL;
     }
-    detectorTime.p_detector =
-      (LALDetector *)LALMalloc( sizeof(LALDetector) );
-    if ( !(detectorTime.p_detector) ) {
+    lsite = (LALDetector *)LALMalloc( sizeof(LALDetector) );
+    if ( !(lsite) ) {
       ERROR( PULSARCATTESTC_EMEM, PULSARCATTESTC_MSGEMEM, 0 );
       return PULSARCATTESTC_EMEM;
     }
-    *(detectorTime.p_detector) = lalCachedDetectors[i];
+    *(lsite) = lalCachedDetectors[i];
+    detectorTime.p_detector = lsite;
 
     /* Read ephemerides. */
     edat = (EphemerisData *)LALMalloc( sizeof(EphemerisData) );
@@ -709,8 +707,8 @@ main(int argc, char **argv)
       LALFree( edat->ephemS );
     LALFree( edat );
   }
-  if ( detectorTime.p_detector )
-    LALFree( detectorTime.p_detector );
+  if ( lsite )
+    LALFree( lsite );
 
   /* Done! */
   LALCheckMemoryLeaks();

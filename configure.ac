@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([lalsuite],[6.16.1],[lal-discuss@gravity.phys.uwm.edu])
+AC_INIT([lalsuite],[6.20.1],[lal-discuss@ligo.org])
 AC_CONFIG_SRCDIR([configure.ac])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
@@ -14,8 +14,8 @@ AM_INIT_AUTOMAKE([1.11 foreign color-tests parallel-tests])
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 
 # for building doxygen
+LALSUITE_CHECK_GIT_REPO
 AC_PROG_LN_S
-AC_CHECK_PROGS([GIT], [git], [])
 
 LALSUITE_ENABLE_ALL_LAL
 LALSUITE_ENABLE_LALFRAME
@@ -34,7 +34,8 @@ lalsuite_top_builddir='$(top_builddir)/..'
 lalsuite_top_srcdir='$(top_srcdir)/..'
 
 LALSUITE_BUILD="true"
-export LALSUITE_BUILD
+LALSUITE_SUBDIRS="`echo ${ac_subdirs_all}`"
+export LALSUITE_BUILD LALSUITE_SUBDIRS
 
 LAL_LIBS="-L${libdir} ${lalsuite_top_builddir}/lal/lib/lal/liblal.la"
 LAL_CFLAGS="-I${lalsuite_top_builddir}/lal/include"

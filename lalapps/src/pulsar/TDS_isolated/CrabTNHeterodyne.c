@@ -45,7 +45,6 @@
 /* Crab heterodyne specific headers */
 #include "HeterodyneCrabPulsar.h"
 
-INT4 lalDebugLevel = 1;
 
 #define MAXLENGTH 10000010
 /* max num of lines in crab ephem file (ok for next 61 years file contains 266 lines as of 15 Jan
@@ -159,7 +158,10 @@ int main(int argc, char *argv[]){
     
     REAL8 tmpr, tmpi;
     
-    fscanf(fpin, "%lf%lf%lf", &times->data[i], &tmpr, &tmpi);
+    if( fscanf(fpin, "%lf%lf%lf", &times->data[i], &tmpr, &tmpi) != 3 ){
+      fprintf(stderr, "Error... problem reading line %d of the heterodyne file!\n", i+1);
+      exit(1);
+    }
     B->data[i] = tmpr + I*tmpi;
     i++;
   }

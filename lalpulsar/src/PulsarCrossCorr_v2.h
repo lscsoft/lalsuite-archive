@@ -114,6 +114,43 @@ int XLALGetDopplerShiftedFrequencyInfo
   )
 ;
 
+int XLALCreateSFTIndexListFromMultiSFTVect
+  (
+   SFTIndexList        **indexList,
+   MultiSFTVector      *sfts
+  )
+;
+
+int XLALCreateSFTPairIndexList
+  (
+   SFTPairIndexList  **pairIndexList,
+   SFTIndexList       *indexList,
+   MultiSFTVector     *sfts,
+   REAL8               maxLag,
+   BOOLEAN             inclAutoCorr
+  )
+;
+
+int XLALCalculateCrossCorrSigmaUnshifted
+  (
+   REAL8Vector      **sigma_alpha,
+   SFTPairIndexList  *pairIndexList,
+   SFTIndexList      *indexList,
+   MultiPSDVector    *psds,
+   REAL8              freq,
+   REAL8              Tsft
+  )
+;
+
+int XLALCalculateAveCurlyGAmpUnshifted
+  (
+   REAL8Vector      **G_alpha,
+   SFTPairIndexList  *pairIndexList,
+   SFTIndexList      *indexList,
+   MultiAMCoeffs     *multiCoeffs
+  )
+;
+
 /*@}*/
 
 #ifdef  __cplusplus

@@ -225,13 +225,19 @@ def main(cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
         gz=( (cache[0]).path ).endswith(".gz"))
     timeSlideTable = table.get_table(timeSlideDoc,
           lsctables.TimeSlideTable.tableName)
+    segmentTable = table.get_table(timeSlideDoc,
+          lsctables.SegmentTable.tableName)
+    timeSlideSegmentMap = table.get_table(timeSlideDoc,
+          lsctables.TimeSlideSegmentMapTable.tableName)
   else:
     trigs['ALL_TIMES'] = lsctables.New(lsctables.MultiInspiralTable,\
                                columns=lsctables.MultiInspiralTable.loadcolumns)
     inpFiles = [e.path for e in cache]
     inpFiles.extend([e.path for e in slideCache])
-    tempTrigs,slideDictList,timeSlideTable = \
-        MultiInspiralUtils.ReadMultiInspiralTimeSlidesFromFiles(inpFiles)
+    tempTrigs,slideDictList,segmentDict,timeSlideTable,\
+        segmentTable,timeSlideSegmentMap = \
+            MultiInspiralUtils.ReadMultiInspiralTimeSlidesFromFiles(inpFiles,\
+                generate_output_tables=True)
     trigs['ALL_TIMES'].extend(tempTrigs)
     # Also want to separate out the zerolag trigs
     zeroLagTrigs = {}
@@ -332,6 +338,10 @@ def main(cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
 
   # Add time slide table
   xmldoc.childNodes[-1].appendChild(timeSlideTable)
+  # Add segment table
+  xmldoc.childNodes[-1].appendChild(segmentTable)
+  # And the map between the two
+  xmldoc.childNodes[-1].appendChild(timeSlideSegmentMap)
 
   # construct new xml file names
   start, end = cache.to_segmentlistdict().extent_all()

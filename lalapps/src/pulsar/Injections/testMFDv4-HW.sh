@@ -8,6 +8,9 @@
 ## We use S5 pulsar0 parameters for the test.
 ##
 
+## run all LALApps programs with memory debugging
+export LAL_DEBUG_LEVEL="${LAL_DEBUG_LEVEL},memdbg"
+
 ## allow 'make test' to work from builddir != srcdir
 builddir="./";
 testDIR="./mfd_TEST-HW"
@@ -79,7 +82,7 @@ v4_cfg=In.data-v4
 v4_log=v4.log
 
 v2_CL="-i $v2_cfg -I $IFO -S $refTime -G $startTime -b"
-v4_CL="-I $IFO @${v4_cfg} --Tsft=$Tsft --startTime=$startTime --duration=$duration -l $v4_log --generationMode=1 -b -v${debug}"
+v4_CL="-I $IFO @${v4_cfg} --Tsft=$Tsft --startTime=$startTime --duration=$duration -l $v4_log --generationMode=1 -b"
 
 ## produce In.data-v2 file for makefakedata_v2
 echo "
@@ -144,7 +147,7 @@ fi
 echo
 echo "3) Comparison of resulting binary strains ..."
 echo
-cmdline="$comp_code -1 ${v2_strain} -2 ${v4_strain} --relErrorMax=$tol -d${debug}"
+cmdline="$comp_code -1 ${v2_strain} -2 ${v4_strain} --relErrorMax=$tol"
 echo $cmdline
 if ! eval $cmdline; then
     echo "Error.. comparison failed using '$comp_code' ..."

@@ -88,7 +88,7 @@ static void simulate(size_t *num_found, LALDetector *network, size_t network_siz
       /* gather distance-independent amplitude factors */
       for(l=network_size; l--;) {
         double fplus = 0, fcross = 0;
-        XLALComputeDetAMResponse(&fplus, &fcross, network[l].response, lon, lat, zeta, 0.0);
+        XLALComputeDetAMResponse(&fplus, &fcross, (const REAL4 (*)[3])network[l].response, lon, lat, zeta, 0.0);
         const double S2 = (fplus*fplus)*iotafac+(fcross*fcross)*cosiotasq;
         lambda_const[l] = (64 - 2) * BNS_horizon_dist[l] * BNS_horizon_dist[l] * S2 * mass_correction;
       }

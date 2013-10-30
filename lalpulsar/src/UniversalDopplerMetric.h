@@ -65,12 +65,18 @@ typedef REAL8 mat33_t[3][3];
 
 /** variable-length list of 2D-vectors */
 typedef struct tagvect2Dlist_t {
+#ifdef SWIG   // SWIG interface directives
+  SWIGLAL(ARRAY_2D_FIXED(vect2Dlist_t, REAL8, vect2D_t, data, UINT4, length));
+#endif   // SWIG
   UINT4 length;			/**< number of elements */
   vect2D_t *data;		/**< array of 2D vectors */
 } vect2Dlist_t;
 
 /** variable-length list of 3D vectors */
 typedef struct tagvect3Dlist_t {
+#ifdef SWIG   // SWIG interface directives
+  SWIGLAL(ARRAY_2D_FIXED(vect3Dlist_t, REAL8, vect3D_t, data, UINT4, length));
+#endif   // SWIG
   UINT4 length;			/**< number of elements */
   vect3D_t *data;		/**< array of 3D vectors */
 } vect3Dlist_t;
@@ -83,19 +89,16 @@ typedef struct tagPosVel3D_t {
 } PosVel3D_t;
 
 
-/** Different types of detector-motion to use in order to compute the Doppler-metric */
+/** Bitfield of different types of detector-motion to use in order to compute the Doppler-metric */
 typedef enum {
-  DETMOTION_SPIN_ORBIT,		/**< full detector motion: spin + ephemeris-based orbital motion */
-  DETMOTION_ORBIT,		/**< pure ephemeris-based orbital motion, no spin motion */
-  DETMOTION_SPIN,		/**< pure spin motion, no orbital motion */
+  DETMOTION_SPIN       = 0x01,   /**< Full spin motion */
+  DETMOTION_SPINZ      = 0x02,   /**< Ecliptic-Z component of spin motion only */
+  DETMOTION_SPINXY     = 0x03,   /**< Ecliptic-X+Y components of spin motion only */
+  DETMOTION_MASKSPIN   = 0x0F,   /**< Mask for spin motion bits */
 
-  DETMOTION_SPIN_PTOLEORBIT,	/**< spin motion + Ptolemaic (circular) orbital motion */
-  DETMOTION_PTOLEORBIT,		/**< pure Ptolemaic (circular) orbital motion, no spin motion */
-
-  DETMOTION_SPINZ_ORBIT,	/**< *only* ecliptic-Z component of spin motion + ephemeris-based orbital motion*/
-  DETMOTION_SPINXY_ORBIT,	/**< *only* ecliptic-X+Y components of spin motion + ephemeris-based orbital motion */
-
-  DETMOTION_LAST
+  DETMOTION_ORBIT      = 0x10,   /**< Ephemeris-based orbital motion */
+  DETMOTION_PTOLEORBIT = 0x20,   /**< Ptolemaic (circular) orbital motion */
+  DETMOTION_MASKORBIT  = 0xF0,   /**< Mask for orbital motion bits */
 } DetectorMotionType;
 
 

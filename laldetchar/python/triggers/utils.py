@@ -32,6 +32,7 @@ for a given trigger generator, and a few helper functions.
 import numpy
 import re
 
+from glue import iterutils
 from glue.ligolw import (lsctables, table as ligolw_table,
                          utils as ligolw_utils)
 
@@ -44,6 +45,7 @@ HACR_REGEX = re.compile("\Ahacr\Z", re.I)
 KW_REGEX = re.compile("\A(kw|kleinewelle)\Z", re.I)
 OMEGA_REGEX = re.compile("\Aomega", re.I)
 OMICRON_REGEX = re.compile("\Aomicron\Z", re.I)
+EXCESSPOWER_REGEX = re.compile('excesspower\Z', re.I)
 CWB_REGEX = re.compile("(cwb|waveburst)", re.I)
 IHOPE_REGEX = re.compile("ihope", re.I)
 COH_PTF_REGEX = re.compile("coh_PTF", re.I)
@@ -52,10 +54,12 @@ SNGL_BURST_REGEX = re.compile("(%s)" % "|".join([HACR_REGEX.pattern,
                                                  KW_REGEX.pattern,
                                                  OMEGA_REGEX.pattern,
                                                  OMICRON_REGEX.pattern,
+                                                 EXCESSPOWER_REGEX.pattern,
                                                  CWB_REGEX.pattern]))
 MULTI_BURST_REGEX = CWB_REGEX
 SNGL_INSPIRAL_REGEX = IHOPE_REGEX
 MULTI_INSPIRAL_REGEX = COH_PTF_REGEX
+SNGL_RING_REGEX = re.compile('ringdown', re.I)
 
 
 def _which_etg(etg):
@@ -140,7 +144,7 @@ def new_ligolw_table(etg, columns=None):
              given trigger generator
     """
     table_name = which_table(etg)
-    return lsctables.New(lsctables.TableByName(table_name), columns=columns)
+    return lsctables.New(lsctables.TableByName[table_name], columns=columns)
 
 
 def time_func(table_name, ifo=None):
@@ -231,7 +235,7 @@ def from_ligolw(filepath, table_name, columns=None, start=None, end=None):
     xmldoc = ligolw_utils.load_filename(filepath)
     out = ligolw_table.get_table(xmldoc, table_name)
     if start or end:
-        time = time_func(out)
+        time = time_func(table_name)
         start = start is not None and start or segments.NegInfinity
         end = end is not None and end or segments.PosInfinity
         keep = lambda row: ((start <= float(time(row))) & (time(row) < end))

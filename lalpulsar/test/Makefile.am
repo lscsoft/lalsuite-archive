@@ -1,4 +1,5 @@
 AM_CFLAGS = $(LALSUPPORT_CFLAGS) -DTEST_DATA_DIR='"$(abs_srcdir)/"'
+AM_CPPFLAGS = -I$(top_builddir)/include -DSRCDIR=\"$(srcdir)\"
 LDADD = $(LALSUPPORT_LIBS) $(top_builddir)/src/liblalpulsar.la
 
 if LALXML
@@ -6,6 +7,7 @@ XMLTEST = LALPulsarXMLTest
 endif
 
 check_PROGRAMS = \
+	LALBarycenterTest \
 	BinarySSBTimesTest \
 	ExtrapolatePulsarSpinsTest \
 	FitToPulsarTest \
@@ -20,7 +22,6 @@ check_PROGRAMS = \
 	PtoleMeshTest \
 	PtoleMetricTest \
 	PulsarCatTest \
-	ResampleTest \
 	SFTfileIOTest \
 	SimulateTaylorCWTest \
 	SkyMetricTest \
@@ -38,13 +39,15 @@ check_PROGRAMS = \
 	TwoDMeshTest \
 	UniversalDopplerMetricTest \
 	NormalizeSFTRngMedTest \
+	XLALMultiNoiseWeightsTest \
 	$(XMLTEST)
 ##	SFTCleanTest \
 
 TESTS = $(check_PROGRAMS)
 EXTRA_PROGRAMS = XLALLoadSFTsTest
 
-AM_CPPFLAGS = -DSRCDIR=\"$(srcdir)\"
+TESTS_ENVIRONMENT = LAL_DEBUG_LEVEL=memdbg
+
 TwoDMeshTest_SOURCES = TwoDMeshTest.c TwoDMeshPlot.h TwoDMeshPlot.c
 
 UniversalDopplerMetricTest_SOURCES = UniversalDopplerMetricTest.c old-FstatMetric.c
@@ -72,12 +75,21 @@ noinst_DATA = \
 	SFT-test5 \
 	SFT-test6 \
 	SFT-test7 \
+	MultiNoiseWeightsTest1.sft \
+	MultiNoiseWeightsTest2.sft \
+	MultiNoiseWeightsTest3.sft \
+	MultiNoiseWeightsTest4.sft \
+	MultiNoiseWeightsTest5.sft \
+	MultiNoiseWeightsTest6.sft \
+	MultiNoiseWeightsTest7.sft \
 	inputsft.0 \
 	inputsft.1 \
+	earth98.dat \
+	sun98.dat \
 	testTimestamps.dat
 
 MOSTLYCLEANFILES = \
-	H-1_H1*.sft \
+	H-*_H1*.sft \
 	OutHistogram.asc \
 	OutHough.asc \
 	outputsft*.sft
@@ -88,8 +100,8 @@ pkgdata_DATA = \
 	earth00-19-DE405.dat.gz \
 	earth00-19-DE414.dat.gz \
 	sun00-19-DE200.dat.gz \
-        sun00-19-DE405.dat.gz \
-        sun00-19-DE414.dat.gz \
+	sun00-19-DE405.dat.gz \
+	sun00-19-DE414.dat.gz \
 	testTimestamps.dat \
 	VOTable-1.1.xsd \
 	tdb_2000-2019.dat.gz \

@@ -67,8 +67,9 @@
 #include <lal/TimeFreqFFT.h>
 #include <lal/DetResponse.h>
 #include <lal/Units.h>
-#include <lal/FrameStream.h>
+#include <lal/LALFrStream.h>
 #include <lal/LALFrameIO.h>
+#include <lal/LALCache.h>
 
 #define CVS_REVISION "$Revision$"
 #define CVS_SOURCE "$Source$"
@@ -90,6 +91,14 @@ REAL8FrequencySeries *ligoPsd  = NULL;
   REAL8FrequencySeries *virgoPsd = NULL;
 static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8FrequencySeries *psd, REAL8 start_freq);
 
+struct fvec *interpFromFile(char *filename);
+struct fvec {
+	REAL8 f;
+	REAL8 x;
+};
+REAL8 interpolate(struct fvec *fvec, REAL8 f);
+struct fvec *ligo_interp;
+struct fvec *virgo_interp;
 /*
  * ============================================================================
  *
@@ -102,6 +111,7 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 enum population {
 	POPULATION_TARGETED,
 	POPULATION_ALL_SKY_SINEGAUSSIAN,
+    POPULATION_ALL_SKY_GAUSSIAN,
 	POPULATION_ALL_SKY_SINEGAUSSIAN_F,
 	POPULATION_ALL_SKY_BTLWNB,
 	POPULATION_STRING_CUSP
@@ -146,6 +156,9 @@ struct options {
 	double minbandwidth;
 	double maxduration;
 	double minduration;
+  ParDistr tau_distr;
+  double tau_stdev;
+  double tau;
 	double maxEoverr2;
 	double minEoverr2;
 	double maxf;
@@ -172,11 +185,9 @@ struct options {
 	ParDistr snr_distr;
 	double minsnr;
 	double maxsnr;
-	int write_mdc;
 	char ** ifonames;
 	int nIFO;
-	double mdc_gps_start;
-	int mdc_duration;
+
 };
 
 
@@ -193,6 +204,9 @@ static struct options options_defaults(void)
 	defaults.minbandwidth = XLAL_REAL8_FAIL_NAN;
 	defaults.maxduration = XLAL_REAL8_FAIL_NAN;
 	defaults.minduration = XLAL_REAL8_FAIL_NAN;
+  defaults.tau=XLAL_REAL8_FAIL_NAN;
+  defaults.tau_stdev=-1.0;
+  defaults.tau_distr=FIXED;
 	defaults.maxEoverr2 = XLAL_REAL8_FAIL_NAN;
 	defaults.minEoverr2 = XLAL_REAL8_FAIL_NAN;
 	defaults.maxf = XLAL_REAL8_FAIL_NAN;
@@ -221,16 +235,13 @@ static struct options options_defaults(void)
 	defaults.snr_distr=NUM_ELEMENTS+1;
 	defaults.minsnr=XLAL_REAL8_FAIL_NAN;
 	defaults.maxsnr=XLAL_REAL8_FAIL_NAN;
-	defaults.write_mdc=0;
 	defaults.ifonames=NULL;
 	defaults.nIFO=0;
-	defaults.mdc_gps_start=0;
-	defaults.mdc_duration=0;
 	return defaults;
 }
 
 static REAL8  scale_sinegaussian_hrss(SimBurst *inj,char ** IFOnames, REAL8FrequencySeries **psds, REAL8 *start_freqs, struct options *options, gsl_rng *rng);
-static void write_mdc(SimBurst **injs, TimeSlide *time_slide_table_head,struct options *options);
+
 
 
 static void print_usage(void)
@@ -260,8 +271,7 @@ static void print_usage(void)
 	); fprintf(stderr, 
 "--max-duration seconds\n" \
 "--min-duration seconds\n" \
-"	Set the bounds of the injection durations.  These only affect\n" \
-"	btlwnb waveforms.\n" \
+"	Set the bounds of the injection durations (btlwnb waveforms) or the min and max duration of Gaussians.\n" \
 "\n" \
 "--max-e-over-r2 value\n" \
 "--min-e-over-r2 value\n" \
@@ -287,7 +297,7 @@ static void print_usage(void)
 "[--f-stdev  hertz] For gaussian distribution of centre frequency, standard deviation of the distribution.\n" \
 "\n" \
 "[--hrss-distr constant,uniform,log,gaussian,volume] \n" \
-"   hrss distribution of SineGaussian injections:\n" \
+"   hrss distribution of (Sine)Gaussian injections:\n" \
 "   constant: all the signal have the same hrss (requires --hrss)\n" \
 "   uniform:  uniform distribution (requires --min-hrss and --max-hrss)\n" \
 "   log:      log distribution (requires --min-hrss and --max-hrss)\n" \
@@ -298,13 +308,13 @@ static void print_usage(void)
 "[--min-hrss value]\n" \
 "\n"\
 "	Set the bounds of the injection h_{rss} values.  These only affect\n" \
-"	sine-Gaussian injections.\n" \
+"	(sine)Gaussian injections.\n" \
 "\n" \
 "[--hrss value ] For gaussian distribution of hrss, mean of the distribution.\n"\
 "[--hrss-stdev value ] For gaussian distribution of hrss, standard deviation of the distribution.\n"\
 "\n" \
 "[--snr-distr uniform,log,volume] \n" \
-"   SNR distribution of SineGaussian injections (cannot be used together with --hrss* :\n" \
+"   SNR distribution of (Sine)Gaussian injections (cannot be used together with --hrss* :\n" \
 "   uniform:  uniform distribution (requires --min-snr and --max-snr)\n" \
 "   log:      log distribution (requires --min-snr and --max-snr)\n" \
 "   volume:   distribution uniform in volume (requires --min-snr and --max-snr)\n" \
@@ -313,7 +323,7 @@ static void print_usage(void)
 "[--min-hrss value]\n" \
 "\n"\
 "	Set the bounds of the injection h_{rss} values.  These only affect\n" \
-"	sine-Gaussian injections.\n" \
+"	(sine)Gaussian injections.\n" \
 "\n" \
 "[--q-distr constant,uniform,log,gaussian] \n" \
 "   Q distribution of SineGaussian injections:\n" \
@@ -335,7 +345,7 @@ static void print_usage(void)
 "\n" \
 "--population name\n" \
 "	Select the injection population to synthesize.  Allowed values are\n" \
-"	\"targeted\", \"string_cusp\", \"all_sky_sinegaussian\",\n" \
+"	\"targeted\", \"string_cusp\", \"all_sky_sinegaussian\", \"all_sky_gaussian\",\n" \
 "	\"all_sky_sinegaussian_F\", \"all_sky_btlwnb\".\n" \
 "\n" \
 "--ra-dec ra,dec\n" \
@@ -427,15 +437,15 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 		{"virgo-start-freq", required_argument, 0, 1724},
 		{"ligo-psd",  required_argument, 0, 1725},
 		{"virgo-psd",  required_argument, 0, 1726},
-		{"mdc_gps_start", required_argument,0,1728},
-		{"mdc_duration", required_argument,0,1729},
 		{"ra-dec", required_argument, NULL, 'U'},
 		{"seed", required_argument, NULL, 'P'},
 		{"time-step", required_argument, NULL, 'Q'},
 		{"time-slide-file", required_argument, NULL, 'W'},
 		{"jitter", required_argument, NULL, 'X'},
 		{"user-tag", required_argument, NULL, 'R'},
-		{"write-mdc",no_argument,NULL, 1727},
+    {"tau-distr",required_argument,NULL,1727},
+    {"tau-stdev",required_argument,NULL,1728},
+    {"tau",required_argument,NULL,1729},
 		{NULL, 0, NULL, 0}
 	};
 	int optarg_len=0;
@@ -531,6 +541,8 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 			options.population = POPULATION_ALL_SKY_SINEGAUSSIAN_F;
 		else if(!strcmp(optarg, "all_sky_sinegaussian"))
 			options.population = POPULATION_ALL_SKY_SINEGAUSSIAN;
+        else if(!strcmp(optarg, "all_sky_gaussian"))
+			options.population = POPULATION_ALL_SKY_GAUSSIAN;
 		else if(!strcmp(optarg, "all_sky_btlwnb"))
 			options.population = POPULATION_ALL_SKY_BTLWNB;
 		else {
@@ -624,6 +636,18 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 		options.hrss_distr=parse_distr(optarg);
 		ADD_PROCESS_PARAM(process, "int_4s");
 		break;
+  case 1727:
+		options.tau_distr=parse_distr(optarg);
+		ADD_PROCESS_PARAM(process, "int_4s");
+		break;
+  case 1728:
+		options.tau_stdev=atof(optarg);
+		ADD_PROCESS_PARAM(process, "real_8");
+		break;
+  case 1729:
+		options.tau=atof(optarg);
+		ADD_PROCESS_PARAM(process, "real_8");
+		break;    
 	case 1712:
 		options.q_stdev = atof(optarg);
 		ADD_PROCESS_PARAM(process, "real_8");
@@ -687,17 +711,6 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
         virgoPsdFileName = calloc( 1, optarg_len * sizeof(char) );
         memcpy( virgoPsdFileName, optarg, optarg_len * sizeof(char) );
         break;
-	case 1727:
-	printf("Trying to write MDC!\n");
-		options.write_mdc=1;
-        break;
-	case 1728:
-		options.mdc_gps_start= (double) atof(optarg);
-		break;
-	case 1729:
-		options.mdc_duration=  atoi(optarg);
-		break;
-
 	case 0:
 		/* option sets a flag */
 		break;
@@ -873,11 +886,41 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
     }
     if (tmp) LALFree(tmp);
     if (ifo) LALFree(ifo);
-	
-	}
+	if ( options.maxsnr <= options.minsnr )
+    {
+      fprintf( stderr, "max SNR must be greater than min SNR\n");
+      exit( 1 );
+    }
+    /*if (single_IFO_SNR_threshold<0.0)
+      {
+        fprintf( stderr,
+            "The single IFO SNR threshold must be positive. Exiting...\n" );
+        exit( 1 );
+      }*/
+      
+       /* Check custom PSDs */
+      if (ligoPsdFileName){
+        ligo_interp=interpFromFile(ligoPsdFileName);
+            
+        
+        /* We're done with the filename */
+        free(ligoPsdFileName);
+        }
+
+    if (virgoPsdFileName) {
+      
+      virgo_interp=interpFromFile(virgoPsdFileName);
+      /* We're done with the filename */
+      free(virgoPsdFileName);
+    }
+  
+  
+  
+    }
 	switch(options.population) {
 	case POPULATION_TARGETED:
 	case POPULATION_ALL_SKY_SINEGAUSSIAN:
+    case POPULATION_ALL_SKY_GAUSSIAN:
 	case POPULATION_ALL_SKY_BTLWNB:
 	case POPULATION_STRING_CUSP:
 	case POPULATION_ALL_SKY_SINEGAUSSIAN_F:
@@ -1384,9 +1427,14 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
     
     if (options->population==POPULATION_ALL_SKY_SINEGAUSSIAN)
 		strcpy(sim_burst->waveform, "SineGaussian");
-	else 
+	else if (options->population==POPULATION_ALL_SKY_SINEGAUSSIAN_F)
 		strcpy(sim_burst->waveform, "SineGaussianF");
-	
+    else if (options->population==POPULATION_ALL_SKY_GAUSSIAN)
+        strcpy(sim_burst->waveform, "Gaussian");
+    else{
+        fprintf(stderr,"Unrecognized population %d. Exiting\n",options->population);
+        exit(1);
+        }
 	/* sky location and wave frame orientation */
 
 	random_location_and_polarization(&sim_burst->ra, &sim_burst->dec, &sim_burst->psi, rng);
@@ -1415,7 +1463,7 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 		case UNIFORM_LOG:
 			sim_burst->q=ran_flat_log(rng, options->minq, options->maxq);
 			break;
-	    default:
+    default:
 			fprintf(stderr,"unknown distribution of q. Known values are fixed, uniform, gaussian, log.\n");
 			exit(1);
 	}
@@ -1436,7 +1484,24 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 			fprintf(stderr,"unknown distribution of frequency. Known values are fixed, uniform, gaussian, log.\n");
 			exit(1);
 	}
-
+  /* duration */
+  switch (options->tau_distr){
+		case FIXED:
+			sim_burst->duration = options->tau;
+			break;
+		case UNIFORM:
+			sim_burst->duration=draw_uniform(rng,options->minduration,options->maxduration);
+			break;
+		case GAUSSIAN:
+			sim_burst->duration=draw_gaussian(rng,options->tau,options->tau_stdev);
+			break;
+		case UNIFORM_LOG:
+			sim_burst->duration=ran_flat_log(rng, options->minduration, options->maxduration);
+			break;
+		default:
+			fprintf(stderr,"unknown distribution of duration tau. Known values are fixed, uniform, gaussian, log.\n");
+			exit(1);
+	}
 	/* hrss */
 
 	//sim_burst->hrss = ran_flat_log(rng, minhrsst, maxhrsst);// / duration_from_q_and_f(sim_burst->q, sim_burst->frequency);
@@ -1474,7 +1539,7 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 		REAL8 *start_freqs;
 		REAL8FrequencySeries **psds;
 		int i=1;
-	    
+	    UINT4 ui=0;
 		/*reset counter */
 		ifo=ifonames[0];
 		i=0;
@@ -1486,28 +1551,41 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 		/* Salvo: Use 60secs. May want to increase*/
 		REAL8 segment=60.0;
 		size_t seglen=(size_t) segment*srate;
-		LIGOTimeGPS time;
-		memcpy(&time,&(sim_burst->time_geocent_gps.gpsSeconds),sizeof(LIGOTimeGPS));
+		LIGOTimeGPS ttime;
+		memcpy(&ttime,&(sim_burst->time_geocent_gps.gpsSeconds),sizeof(LIGOTimeGPS));
 		
 		/* Fill psds and start_freqs */
 		/* If the user did not provide files for the PSDs, use XLALSimNoisePSD to fill in ligoPsd and virgoPsd */
 		while(ifo !=NULL){
 		    if(!strcmp("V1",ifo)){
-			start_freqs[i]=virgoStartFreq;
-			if (!virgoPsd){
-						
-			    virgoPsd=XLALCreateREAL8FrequencySeries("VPSD",&time , 0, 1.0/segment, &lalHertzUnit, seglen/2+1);
-			    get_FakePsdFromString(virgoPsd,virgoFakePsd, virgoStartFreq);
-			}
-			if (!virgoPsd) fprintf(stderr,"Failed to produce Virgo PSD series. Exiting...\n");
-			psds[i]=virgoPsd;
+                start_freqs[i]=virgoStartFreq;
+                if (!virgoPsd){
+                            
+                    virgoPsd=XLALCreateREAL8FrequencySeries("VPSD",&ttime , 0, 1.0/segment, &lalHertzUnit, seglen/2+1);
+                    if (!virgo_interp)
+                        get_FakePsdFromString(virgoPsd,virgoFakePsd, virgoStartFreq);
+                    else{
+                        for (ui=0;ui<virgoPsd->data->length;ui++){
+                            virgoPsd->data->data[ui]=interpolate(virgo_interp,ui/segment);
+                    
+                        }
+                    }
+                }
+                if (!virgoPsd) fprintf(stderr,"Failed to produce Virgo PSD series. Exiting...\n");
+                psds[i]=virgoPsd;
 		    }
 		    else if (!strcmp("L1",ifo) || !strcmp("H1",ifo)){
 			start_freqs[i]=ligoStartFreq;
 			if(!ligoPsd){
-			    ligoPsd=XLALCreateREAL8FrequencySeries("LPSD", &time, 0, 1.0/segment, &lalHertzUnit, seglen/2+1);
-			    get_FakePsdFromString(ligoPsd,ligoFakePsd,ligoStartFreq);
-			}   
+			    ligoPsd=XLALCreateREAL8FrequencySeries("LPSD", &ttime, 0, 1.0/segment, &lalHertzUnit, seglen/2+1);
+                if (! ligo_interp)
+                    get_FakePsdFromString(ligoPsd,ligoFakePsd,ligoStartFreq);
+                else{
+                    for (ui=0;ui<ligoPsd->data->length;ui++){
+                    ligoPsd->data->data[ui]=interpolate(ligo_interp,ui/segment);
+                
+                    }
+                }			}   
 			if (!ligoPsd) fprintf(stderr,"Failed to produce LIGO PSD series. Exiting...\n");   
 			psds[i]=ligoPsd;
 		    }
@@ -1695,6 +1773,7 @@ int main(int argc, char *argv[])
 
 		case POPULATION_ALL_SKY_SINEGAUSSIAN:
 		case POPULATION_ALL_SKY_SINEGAUSSIAN_F:
+        case POPULATION_ALL_SKY_GAUSSIAN:
 			*sim_burst = random_all_sky_sineGaussian(rng, &options,tinj);
 			break;
 
@@ -1762,9 +1841,8 @@ int main(int argc, char *argv[])
 	XLALGPSTimeNow(&process->end_time);
 	search_summary->nevents = XLALSimBurstAssignIDs(sim_burst_table_head, process->process_id, time_slide_table_head->time_slide_id, 0);
 	write_xml(options.output, process_table_head, process_params_table_head, search_summary_table_head, time_slide_table_head, sim_burst_table_head);
-	if (options.write_mdc)
-		write_mdc(&sim_burst_table_head, time_slide_table_head, &options);
-		
+	//if (options.write_mdc)
+	//	write_mdc(&sim_burst_table_head, time_slide_table_head, &options);
 	/* done */
 
 	gsl_rng_free(rng);
@@ -1798,86 +1876,6 @@ static void get_FakePsdFromString(REAL8FrequencySeries* PsdFreqSeries,char* Fake
             }
 }
 
-static void write_mdc(SimBurst **injs, TimeSlide * time_slide_table_head,struct options *options){
-	
-	SimBurst *inj=&(*injs[0]);
-	TimeSlide * ts=NULL;
-	INT4 gps_start;
-	CHAR fname[256];
-	INT4 gps_end=0;
-	INT4 duration=0;
-	INT4 detectorFlags;
-	FrameH *frame=NULL;
-	REAL8 trigtime=0.0;
-	REAL8 srate=16384.;
-	REAL8 deltaT=1./srate;
-	REAL8 seglen;
-	LIGOTimeGPS epoch;
-	int i=0;
-	int nIFO=options->nIFO;
-	CHAR frameType[256]="SineGaussian";
-	//lalDebugLevel=LALMSGLVL3;
-	//sprintf(frameType,"%s","SineGaussian");
-	double mdc_gps_start=options->mdc_gps_start;
-	int mdc_duration=options->mdc_duration;
-	/* Just set min and max trigtime to 0th event to start with */
-	gps_start= (INT4) (inj->time_geocent_gps.gpsSeconds + 1.e-9* inj->time_geocent_gps.gpsNanoSeconds - 1.);
-	/* Set epoch */
-	XLALGPSSet(&epoch,floor(mdc_gps_start),1e9 *(mdc_gps_start-floor(mdc_gps_start))); //SALVO that is wrong
-	
-	/* Now look for max */
-	while(inj){
-		
-		trigtime=inj->time_geocent_gps.gpsSeconds + 1.e-9* inj->time_geocent_gps.gpsNanoSeconds;
-		inj=inj->next;
-	}
-	
-	gps_end= (INT4) trigtime +1;
-	duration=mdc_duration;
-	if (gps_end - gps_start > duration) {
-		fprintf(stderr,"ERROR, the requested duration of the MDC file (%d sec) is shorter than the time difference between the last and first injections + 2 seconds (%d sec). Exiting\n",duration,(gps_end-gps_start));
-		exit(1);
-	}
-	if (mdc_gps_start > gps_start){
-		fprintf(stderr,"ERROR, the requested start time of the MDC file seems to be larger than the trigtime of the first event. Exiting\n");
-		exit(1);
-		}
-		
-	
-	snprintf( fname, FILENAME_MAX, "GHLTV-%s-%d-%d.gwf", frameType, (int) mdc_gps_start, duration );
-		 /* set detector flags */
-	detectorFlags = LAL_GEO_600_DETECTOR_BIT | LAL_LHO_4K_DETECTOR_BIT |
-			LAL_LHO_2K_DETECTOR_BIT | LAL_LLO_4K_DETECTOR_BIT |
-			LAL_TAMA_300_DETECTOR_BIT | LAL_VIRGO_DETECTOR_BIT;
-		
-	seglen = duration*srate;
-	frame = XLALFrameNew( &epoch, duration, "LIGO", 0, 1,detectorFlags );
-	
-	for (i=0;i<nIFO-1;i++){
-		char IFOname[256];
-		sprintf(IFOname,"%s",options->ifonames[i]);
-		REAL8TimeSeries *soft=NULL;
-		soft = XLALCreateREAL8TimeSeries(IFOname,&epoch,0.0,deltaT,&lalStrainUnit,	seglen);
-		memset(soft->data->data,0.0,soft->data->length*sizeof(REAL8));
-		inj=&(*injs[0]);
-		ts=time_slide_table_head;
-		XLALBurstInjectSignals(soft,inj,ts , NULL);
-		char foutname[50]="";
-                sprintf(foutname,"MDC_create_time_%s",IFOname);
-		FILE * fout = fopen(foutname,"w");
-                UINT4 j=0;
-		for (j=0;j<soft->data->length;j++)
-		fprintf(fout,"%lf %10.10e\n", epoch.gpsSeconds+j*deltaT, soft->data->data[j]);
-		fclose(fout);
-		XLALFrameAddREAL8TimeSeriesSimData( frame, soft );
-		XLALDestroyREAL8TimeSeries(soft);
-	}
-	XLALFrameWrite( frame, fname, 8 );
-	FrameFree(frame);
-	
-	return;
-}
-
 static REAL8  scale_sinegaussian_hrss(SimBurst *inj,char ** IFOnames, REAL8FrequencySeries **psds,REAL8 *start_freqs, struct options *options, gsl_rng *rng )
 {
     
@@ -1892,7 +1890,7 @@ static REAL8  scale_sinegaussian_hrss(SimBurst *inj,char ** IFOnames, REAL8Frequ
     /* If not already done, set distance to 100Mpc, just to have something while calculating the actual SNR */
        
     if (IFOnames ==NULL){
-        fprintf(stderr,"scale_lalsim_distance() called with IFOnames=NULL. Exiting...\n");
+        fprintf(stderr,"scale_sinegaussian_hrss() called with IFOnames=NULL. Exiting...\n");
         exit(1);
         }
     char * ifo=IFOnames[0];
@@ -2003,6 +2001,7 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
     REAL8 polarization=0.0;
     REAL8 injtime=0.0;
     REAL8 longitude;
+    //REAL8 duration=0.0;
 	LALSimulationBurstDomain modelDomain=LAL_SIM_BURST_DOMAIN_FREQUENCY;
 	REAL8 f_max;
 	Q=inj->q;
@@ -2014,13 +2013,14 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 	injtime=inj->time_geocent_gps.gpsSeconds + 1e-9*inj->time_geocent_gps.gpsNanoSeconds;
 	latitude=inj->dec;
 	longitude=inj->ra;
+  //duration=inj->duration;
 
 	const CHAR *WF=inj->waveform;
 
 	if(strstr(WF,"SineGaussianF"))
 			modelDomain=LAL_SIM_BURST_DOMAIN_FREQUENCY;
 			
-	else if (strstr(WF,"SineGaussian"))
+	else if (strstr(WF,"SineGaussian") || strstr(WF,"Gaussian"))
             modelDomain=LAL_SIM_BURST_DOMAIN_TIME;
 			
     LIGOTimeGPS		    epoch;  
@@ -2054,7 +2054,7 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 										&lalDimensionlessUnit,
 										seglen/2+1);
      
-    /* If the approximant is on the FD call XLALSimInspiralChooseFDWaveform */
+    /* If the approximant is on the FD call XLALSimBurstSineGaussianF */
     if(modelDomain == LAL_SIM_BURST_DOMAIN_FREQUENCY) {
         COMPLEX16FrequencySeries *hptilde=NULL;
         COMPLEX16FrequencySeries *hctilde=NULL;
@@ -2083,7 +2083,12 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 
     }
     else{
-        /* Otherwise use  XLALSimInspiralChooseTDWaveform */
+        /* Otherwise use XLALGenerateSimBurst(
+	REAL8TimeSeries **hplus,
+	REAL8TimeSeries **hcross,
+	const SimBurst *sim_burst,
+	double delta_t;
+ */
         REAL8FFTPlan *timeToFreqFFTPlan = XLALCreateForwardREAL8FFTPlan((UINT4) seglen, 0 );
         REAL8TimeSeries *hplus=NULL; 
         REAL8TimeSeries *hcross=NULL; 
@@ -2102,16 +2107,16 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 																	deltaT,
 																	&lalDimensionlessUnit,
 																	seglen);
-		 XLALSimBurstSineGaussian(&hplus,&hcross,Q,centre_frequency,hrss, eccentricity,polar_angle,deltaT);
-        
+		 //XLALSimBurstSineGaussian(&hplus,&hcross,Q,centre_frequency,hrss, eccentricity,polar_angle,deltaT);
+        XLALGenerateSimBurst(&hplus,&hcross,inj,deltaT);
         memset(timeHplus->data->data, 0, sizeof (REAL8)*timeHplus->data->length);
         memset(timeHcross->data->data, 0, sizeof (REAL8)*timeHcross->data->length);
         memcpy(timeHplus->data->data, hplus->data->data,hplus->data->length*sizeof(REAL8));
         memcpy(timeHcross->data->data, hcross->data->data ,hplus->data->length*sizeof(REAL8));
         
         for (j=0; j<(UINT4) freqHplus->data->length; ++j) {
-                freqHplus->data->data[j]=0.0+I*0,0; 
-                freqHcross->data->data[j]=0.0+I*0,0;
+                freqHplus->data->data[j]=0.0+1j*0,0; 
+                freqHcross->data->data[j]=0.0+1j*0,0;
             }
         
         /* FFT into freqHplus and freqHcross */
@@ -2136,7 +2141,7 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
     XLALGPSSetREAL8(&GPSlal, GPSdouble);
     gmst=XLALGreenwichMeanSiderealTime(&GPSlal);
     /* Fill Fplus and Fcross*/
-    XLALComputeDetAMResponse(&Fplus, &Fcross,detector->response,longitude, latitude, polarization, gmst);
+    XLALComputeDetAMResponse(&Fplus, &Fcross,(const REAL4 (*)[3])detector->response,longitude, latitude, polarization, gmst);
     /* And take the distance into account */
     FplusScaled  = Fplus  ;
     FcrossScaled = Fcross ;
@@ -2188,4 +2193,52 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
     
     return sqrt(this_snr*2.0);
   
+}
+
+struct fvec *interpFromFile(char *filename){
+	UINT4 fileLength=0;
+	UINT4 i=0;
+	UINT4 minLength=100; /* size of initial file buffer, and also size of increment */
+	FILE *interpfile=NULL;
+	struct fvec *interp=NULL;
+	interp=XLALCalloc(minLength,sizeof(struct fvec)); /* Initialise array */
+	if(!interp) {printf("Unable to allocate memory buffer for reading interpolation file\n");}
+	fileLength=minLength;
+	REAL8 f=0.0,x=0.0;
+	interpfile = fopen(filename,"r");
+	if (interpfile==NULL){
+		printf("Unable to open file %s\n",filename);
+		exit(1);
+	}
+	while(2==fscanf(interpfile," %lf %lf ", &f, &x )){
+		interp[i].f=f; interp[i].x=x*x;
+		i++;
+		if(i>fileLength-1){ /* Grow the array */
+			interp=XLALRealloc(interp,(fileLength+minLength)*sizeof(struct fvec));
+			fileLength+=minLength;
+		}
+	}
+	interp[i].f=0; interp[i].x=0;
+	fileLength=i+1;
+	interp=XLALRealloc(interp,fileLength*sizeof(struct fvec)); /* Resize array */
+	fclose(interpfile);
+	printf("Read %i records from %s\n",fileLength-1,filename);
+	return interp;
+}
+
+REAL8 interpolate(struct fvec *fvec, REAL8 f){
+	int i=0;
+	REAL8 a=0.0; /* fractional distance between bins */
+	REAL8 delta=0.0;
+	if(f<fvec[0].f) return(0.0);
+	while(fvec[i].f<f && (fvec[i].x!=0.0 )){i++;}; //&& fvec[i].f!=0.0)){i++;};
+  //printf("%d\t%lg\t%lg\t%lg\n",i,fvec[i].f,f,fvec[i].x);
+	if (fvec[i].f==0.0 && fvec[i].x==0.0) /* Frequency above moximum */
+	{
+		return (fvec[i-1].x);
+	}
+  //if(i==0){return (fvec[0].x);}
+	a=(fvec[i].f-f)/(fvec[i].f-fvec[i-1].f);
+	delta=fvec[i].x-fvec[i-1].x;
+	return (fvec[i-1].x + delta*a);
 }

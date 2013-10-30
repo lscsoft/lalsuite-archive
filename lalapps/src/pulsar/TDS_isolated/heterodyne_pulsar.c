@@ -46,6 +46,9 @@ and reheterodyne with this phase difference. */
 /* define a macro to round a number without having to use the C round function */
 #define ROUND(a) (floor(a+0.5))
 
+/* allocate 1Mb (2^20) of memory at a time */
+#define MAXALLOC 1048576
+
 /* track memory usage under linux */
 #define TRACKMEMUSE 0
 
@@ -89,7 +92,6 @@ int main(int argc, char *argv[]){
   CHAR *pos=NULL;
 
   /* set error handler */
-  lalDebugLevel = 7;
   XLALSetErrorHandler(XLALAbortErrorHandler);
 
   #if TRACKMEMUSE
@@ -475,11 +477,11 @@ heterodyne.\n");  }
             exit(1);
           }
 
-          /* dynamically allocate memory 100 lines at a time */
-          if( ( i == 1 ) || ( i % 100 == 0 ) ){
-            if( (times = XLALResizeREAL8Vector( times, 100*memcount )) == NULL
+          /* dynamically allocate memory 2^20 lines at a time */
+          if( ( i == 1 ) || ( i % MAXALLOC == 0 ) ){
+            if( (times = XLALResizeREAL8Vector( times, MAXALLOC*memcount )) == NULL
               || (data = XLALResizeCOMPLEX16TimeSeries( data, 0,
-              100*memcount)) == NULL )
+              MAXALLOC*memcount)) == NULL )
               {  XLALPrintError("Error resizing data memory.\n");  }
             memcount++;
           }
@@ -504,11 +506,11 @@ heterodyne.\n");  }
           }
           else continue;
 
-          /* dynamically allocate memory 100 lines at a time */
-          if( ( i == 1 ) || ( i % 100 == 0 ) ){
-            if( (times = XLALResizeREAL8Vector( times, 100*memcount )) == NULL
+          /* dynamically allocate memory 2^20 lines at a time */
+          if( ( i == 1 ) || ( i % MAXALLOC == 0 ) ){
+            if( (times = XLALResizeREAL8Vector( times, MAXALLOC*memcount )) == NULL
               || (data = XLALResizeCOMPLEX16TimeSeries( data, 0,
-              100*memcount)) == NULL )
+              MAXALLOC*memcount)) == NULL )
               {  XLALPrintError("Error resizing data memory.\n");  }
             memcount++;
           }
@@ -1246,12 +1248,12 @@ void heterodyne_data(COMPLEX16TimeSeries *data, REAL8Vector *times,
         REAL8 dtWave = (XLALGPSGetREAL8(&emit.te) -
           hetParams.hetUpdate.waveepoch)/86400.;
 
-        for( INT4 k = 0; k < hetParams.hetUpdate.nwaves; k++ ){
+       for( INT4 k = 0; k < hetParams.hetUpdate.nwaves; k++ ){
           tWave1 += hetParams.hetUpdate.waveSin[k]*sin(omu*(REAL8)(k+1.)*dtWave) +
             hetParams.hetUpdate.waveCos[k]*cos(omu*(REAL8)(k+1.)*dtWave);
 
-          tWave2 += hetParams.hetUpdate.waveSin[k]*sin(omu*(REAL8)(k+1.)*(dtWave+1.)) +
-            hetParams.hetUpdate.waveCos[k]*cos(omu*(REAL8)(k+1.)*(dtWave+1.));
+          tWave2 += hetParams.hetUpdate.waveSin[k]*sin(omu*(REAL8)(k+1.)*(dtWave+(1./86400.))) +
+            hetParams.hetUpdate.waveCos[k]*cos(omu*(REAL8)(k+1.)*(dtWave+(1./86400.)));
         }
         phaseWave = hetParams.hetUpdate.f0*freqfactor*tWave1;
       }
@@ -1448,41 +1450,39 @@ channel.\n", channel);
 
 /* function to set up three low-pass third order Butterworth IIR filters */
 void set_filters(Filters *iirFilters, REAL8 filterKnee, REAL8 samplerate){
-  static LALStatus status;
   COMPLEX16ZPGFilter *zpg=NULL;
   REAL4 wc;
 
   /* set zero pole gain values */
   wc = tan(LAL_PI * filterKnee/samplerate);
-  LAL_CALL( LALCreateCOMPLEX16ZPGFilter(&status, &zpg, 0, 3), &status );
+  zpg = XLALCreateCOMPLEX16ZPGFilter(0, 3);
   zpg->poles->data[0] = (wc*sqrt(3.)/2.) + I*(wc*0.5);
   zpg->poles->data[1] = I * wc;
   zpg->poles->data[2] = -(wc*sqrt(3.)/2.) + I*(wc*0.5);
   zpg->gain = I * wc * wc * wc;
-  LAL_CALL( LALWToZCOMPLEX16ZPGFilter( &status, zpg ), &status );
+  XLALWToZCOMPLEX16ZPGFilter( zpg );
 
   /* create IIR filters */
   iirFilters->filter1Re = NULL;
   iirFilters->filter1Im = NULL;
-  LAL_CALL( LALCreateREAL8IIRFilter( &status, &iirFilters->filter1Re, zpg ), &status);
-  LAL_CALL( LALCreateREAL8IIRFilter( &status, &iirFilters->filter1Im, zpg ), &status );
+  iirFilters->filter1Re = XLALCreateREAL8IIRFilter( zpg );
+  iirFilters->filter1Im = XLALCreateREAL8IIRFilter( zpg );
 
   iirFilters->filter2Re = NULL;
   iirFilters->filter2Im = NULL;
-  LAL_CALL( LALCreateREAL8IIRFilter( &status, &iirFilters->filter2Re, zpg ), &status );
-  LAL_CALL( LALCreateREAL8IIRFilter( &status, &iirFilters->filter2Im, zpg ), &status) ;
+  iirFilters->filter2Re = XLALCreateREAL8IIRFilter( zpg );
+  iirFilters->filter2Im = XLALCreateREAL8IIRFilter( zpg );
 
   iirFilters->filter3Re = NULL;
   iirFilters->filter3Im = NULL;
-  LAL_CALL( LALCreateREAL8IIRFilter( &status, &iirFilters->filter3Re, zpg ), &status );
-  LAL_CALL( LALCreateREAL8IIRFilter( &status, &iirFilters->filter3Im, zpg ), &status );
+  iirFilters->filter3Re = XLALCreateREAL8IIRFilter( zpg );
+  iirFilters->filter3Im = XLALCreateREAL8IIRFilter( zpg );
 
   /* destroy zpg filter */
-  LAL_CALL( LALDestroyCOMPLEX16ZPGFilter( &status, &zpg ), &status );
+  XLALDestroyCOMPLEX16ZPGFilter( zpg );
 }
 
-/* function to low-pass filter the data using three third order Butterworth IIR
-   filters */
+/* function to low-pass filter the data using three third order Butterworth IIR filters */
 void filter_data(COMPLEX16TimeSeries *data, Filters *iirFilters){
   COMPLEX16 tempData;
   INT4 i=0;

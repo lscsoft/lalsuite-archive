@@ -102,7 +102,6 @@
 /* globals, constants and defaults */
 
 
-extern int lalDebugLevel;
 
 /* boolean global variables for controlling output */
 BOOLEAN uvar_EnableExtraInfo, uvar_EnableChi2;
@@ -356,9 +355,6 @@ int main(int argc, char *argv[]){
 
   /* LAL error-handler */
   lal_errhandler = LAL_ERR_EXIT;
-  
-  lalDebugLevel = 0;  /* LALDebugLevel must be called before anything else */
-  LAL_CALL( LALGetDebugLevel( &status, argc, argv, 'd'), &status);
   
   uvar_help = FALSE;
   uvar_weighAM = TRUE;
@@ -2805,7 +2801,7 @@ void ComputeandPrintChi2 ( LALStatus                *status,
 	}
 	
 	setvbuf(fpChi2, (char *)NULL, _IOLBF, 0);
-	fprintf(fpChi2, "%g  %g %g  %g  %g %g  %g \n", pulsarTemplate.f0, pulsarTemplate.longitude, pulsarTemplate.latitude, pulsarTemplate.spindown.data[0], (numberCountTotal - meanN)/sigmaN, oldSig, chi2);
+	fprintf(fpChi2, "%.13g  %.7g %.7g  %.5g  %.6g %.6g  %.7g \n", pulsarTemplate.f0, pulsarTemplate.longitude, pulsarTemplate.latitude, pulsarTemplate.spindown.data[0], (numberCountTotal - meanN)/sigmaN, oldSig, chi2);
 	
 	/*-----------------------------*/
 		

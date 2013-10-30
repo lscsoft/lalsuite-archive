@@ -57,6 +57,8 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
     {"dynamic-template-length",no_argument, &(localparams.dynTempLength),1},
     {"store-amplitude-params",no_argument, &(localparams.storeAmpParams),1},
     {"analyse-segment-end", no_argument, &(localparams.analSegmentEnd),1},
+    {"do-short-slides", no_argument, &(localparams.doShortSlides),1},
+    { "write-sngl-inspiral-table", no_argument, &(localparams.writeSnglInspiralTable),1},
     { "help",               no_argument, 0, 'h' },
     { "version",            no_argument, 0, 'V' },
     { "simulated-data",          required_argument, 0, '6' },
@@ -74,7 +76,6 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
     { "l1-frame-cache",          required_argument, 0, 'Y' },
     { "v1-channel-name",         required_argument, 0, 'z' },
     { "v1-frame-cache",          required_argument, 0, 'Z' },
-    { "debug-level",             required_argument, 0, 'd' },
     { "low-template-freq",       required_argument, 0, 'e' },
     { "low-filter-freq",         required_argument, 0, 'H' },
     { "high-filter-freq",        required_argument, 0, 'I' },
@@ -126,10 +127,10 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
     { "inj-mchirp-window",       required_argument, 0, '5' },
     { "ligo-calibrated-data",    required_argument, 0, '7' }, 
     { "virgo-calibrated-data",   required_argument, 0, '8' }, 
-    { "spectrum-truncation-length", required_argument, 0, '@' },       
+    { "short-slide-offset",      required_argument, 0, '@' },
     { 0, 0, 0, 0 }
   };
-  char args[] = "a:A:b:B:c:C:d:D:e:E:f:F:g:G:h:H:i:I:j:J:k:K:l:L:m:M:n:N:o:O:p:P:q:Q:r:R:s:S:t:T:u:U:v:V:w:W:x:X:y:Y:z:Z:1:2:3:4:5:6:7:8:9:<:>:!:&:(:):#:|:@";
+  char args[] = "a:A:b:B:c:C:D:e:E:f:F:g:G:h:H:i:I:j:J:k:K:l:L:m:M:n:N:o:O:p:P:q:Q:r:R:s:S:t:T:u:U:v:V:w:W:x:X:y:Y:z:Z:1:2:3:4:5:6:7:8:9:<:>:!:&:(:):#:|:@";
   char *program = argv[0];
 
   /* set default values for parameters before parsing arguments */
@@ -193,9 +194,6 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
         break;
       case 'X': /* h2 frame-cache */
         localparams.dataCache[LAL_IFO_H2] = optarg;
-        break;
-      case 'd': /* debug-level */
-        set_debug_level( optarg );
         break;
       case 'e': /* start frequency of template generation */
         localparams.lowTemplateFrequency = atof( optarg );
@@ -435,6 +433,9 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
       case ')': /* v1-slide-segments */
         localparams.slideSegments[LAL_IFO_V1] = atoi( optarg );
         break;
+      case '@': /* Short slide offset time */
+        localparams.shortSlideOffset = atoi( optarg );
+        break;
       case 'V': /* version */
         XLALOutputVersionString(stderr, 0);
         exit( 0 );
@@ -574,6 +575,8 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
                                 localparams.sampleRate;
   localparams.analStartPointBuf = localparams.analStartPoint\
                                   - localparams.numBufferPoints;
+  localparams.analEndTime = localparams.analEndPoint / \
+                                localparams.sampleRate;
   localparams.analEndPointBuf = localparams.analEndPoint\
                                + localparams.numBufferPoints;
   localparams.numAnalPoints = localparams.analEndPoint\
@@ -583,6 +586,35 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
   /* Max template length is start length minus PSD truncation */
   localparams.maxTempLength = localparams.analStartTime;
   localparams.maxTempLength -= localparams.truncateDuration/2.;
+
+  /* Determine the number of short slides */
+  if (localparams.doShortSlides)
+  {
+    localparams.numShortSlides = 1 + localparams.numIFO * (int) floor( \
+        localparams.strideDuration / \
+        (localparams.shortSlideOffset * (localparams.numIFO-1)) );
+  }
+  else
+  {
+    localparams.numShortSlides = 1;
+  }
+
+  /* Set the template correction factor */
+  if ( localparams.approximant == FindChirpSP)
+  {
+    /* Most of this gets stored in fcTmplt->fcTmpltNorm which is computed on th
+     * fly. This is correction needed to that. */
+    /* First need to add ( (df)**-7./6. )**2 */
+    localparams.tempCorrFac = pow(localparams.segmentDuration,14./6.); 
+    /* For some reason FindChirp multiplies by a dt factor, take this out */
+    localparams.tempCorrFac *= pow(localparams.sampleRate,2./6.);
+  }
+  else
+  {
+    /* Sigmasq factors are not yet available for all approximants */
+    /* Set values to 0 to avoid confusion in this case */
+    localparams.tempCorrFac = 0;
+  }
 
   *params = localparams;
 
@@ -616,7 +648,7 @@ int coh_PTF_default_params( struct coh_PTF_params *params )
   params->injSearchWindow = 1.;
 
   /* dynamic range factor must be greater than zero */
-  params->dynRangeFac = 1.0;
+  params->dynRangeFac = 1E20;
 
   /* Various frequencies must be set */
   params->highpassFrequency     = -1.0; 
@@ -846,6 +878,10 @@ int coh_PTF_params_inspiral_sanity_check( struct coh_PTF_params *params )
                     "why are you using the coherent code? \n");
   }
 
+  sanity_check( params->numShortSlides > 0);
+  sanity_check( ! (params->doShortSlides && params->shortSlideOffset == 0));
+
+  sanity_check( ! (params->writeSnglInspiralTable && (params->numIFO != 1)));
 
   return 0;
 }
@@ -870,7 +906,6 @@ int coh_PTF_usage( const char *program )
   fprintf( stderr, "--help                     print this message\n" );
   fprintf( stderr, "--version                  print the version of the code\n" );
   fprintf( stderr, "--verbose                  print verbose messages while running\n" );
-  fprintf( stderr, "--debug-level=dbglvl       set the LAL debug level\n" );
 
   fprintf( stderr, "\ndata reading options:\n" );
   fprintf( stderr, "--h1-data                  Analyze h1 data \n" );
@@ -916,6 +951,8 @@ int coh_PTF_usage( const char *program )
   fprintf( stderr, "--h2-slide-segment=amount    amount to be slid H2\n" );
   fprintf( stderr, "--l1-slide-segment=amount    amount to be slid L1\n" );
   fprintf( stderr, "--v1-slide-segment=amount    amount to be slid V1\n" );
+  fprintf( stderr, "--do-short-slides  Enabling sliding within the analysis segments. \n");
+  fprintf( stderr, "--short-slide-offset Sets the slide amount between ifos when doing short slides.\n");
 
   fprintf( stderr, "\npower spectrum options:\n" );
   fprintf( stderr, "--theoretical-spectrum      take the PSD as the PSD used to generate the simulated data\n" );
@@ -975,6 +1012,7 @@ int coh_PTF_usage( const char *program )
   fprintf( stderr, "--user-tag=string          set the process_params usertag to string\n" );
   fprintf( stderr, "--do-clustering            turn on clustering\n");
   fprintf( stderr, "--cluster-window=arg       cluster window length\n");
+  fprintf( stderr, "--write-sngl-inspiral-table Write output as sngl_inspiral\n");
 
   fprintf( stderr, "\nintermediate data output options:\n" );
   fprintf( stderr, "--write-raw-data           write raw data before injection or conditioning\n" );

@@ -1,6 +1,6 @@
 AC_PREREQ([2.63])
-AC_INIT([lalinference],[1.1.0.1],[lal-discuss@gravity.phys.uwm.edu])
-AC_CONFIG_HEADERS([include/config.h src/LALInferenceConfig.h])
+AC_INIT([lalinference],[1.2.1.1],[lal-discuss@ligo.org])
+AC_CONFIG_HEADERS([src/config.h src/LALInferenceConfig.h])
 AC_CONFIG_SRCDIR([src/LALInference.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
@@ -42,7 +42,7 @@ LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[5])
+AC_SUBST([LIBCURRENT],[6])
 AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
@@ -98,8 +98,8 @@ LALSUITE_MULTILIB_LIBTOOL_HACK
 # use silent build rules
 AM_SILENT_RULES([yes])
 
-# check for C/C++ compilers
-LALSUITE_PROG_CC_CXX
+# check for required compilers
+LALSUITE_PROG_COMPILERS
 
 # checks for programs
 AC_PROG_INSTALL
@@ -144,8 +144,8 @@ AS_IF([test "x$OPENMP_CFLAGS" != "x"],
         AC_MSG_RESULT([no, disabling OpenMP])
         OPENMP_CFLAGS=
       ]
-      CFLAGS=$save_CFLAGS
     )
+    CFLAGS=$save_CFLAGS
   ]
 )
 
@@ -185,26 +185,30 @@ if test "$lalxml" = "true"; then
 fi
 
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.10.0],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.10.0],[LALOpenDataFile],[lal/FileIO.h])
+LALSUITE_CHECK_LIB([LAL],[6.11.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.11.0],[LALOpenDataFile],[lal/FileIO.h])
 LALSUITE_CHECK_LIB([LALMetaIO],[1.1.0],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
-LALSUITE_CHECK_LIB([LALFrame],[1.0.10],[LALFrOpen],[lal/LALFrameL.h])
-LALSUITE_CHECK_LIB([LALSimulation],[0.7.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
+LALSUITE_CHECK_LIB([LALFrame],[1.1.0],[LALFrOpen],[lal/LALFrameL.h])
+LALSUITE_CHECK_LIB([LALSimulation],[1.0.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
 LALSUITE_CHECK_LIB([LALInspiral],[1.5.0],[LALInspiralParameterCalc],[lal/LALInspiral.h])
-LALSUITE_CHECK_LIB([LALPulsar],[1.7.0],[XLALComputeFaFb],[lal/ComputeFstat.h])
+LALSUITE_CHECK_LIB([LALPulsar],[1.8.0],[XLALComputeFaFb],[lal/ComputeFstat.h])
 LALSUITE_CHECK_LIB([LALBurst],[1.2.0],[XLALSimBurstTableFromLIGOLw],[lal/LIGOLwXMLBurstRead.h])
-
 
 # check for lalxml
 LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.5],[XLALXMLFilePrintElements],[lal/LALXML.h])
 
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG([XLALInference LALInference XLAL LAL])
-LALSUITE_SWIG_DEPENDS([lal],[true])
 
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
 
+# Disable OpenMP by default.
+# FIXME: OpenMP should be on by default, but it breaks condor_compiling lalapps.
+AS_IF(
+  [test "x$enable_openmp" = "x"],
+  [OPENMP_CFLAGS=]
+)
 # add compiler flags for OpenMP
 AS_IF(
   [test "x$OPENMP_CFLAGS" = "x"],
@@ -217,6 +221,11 @@ AS_IF(
     CFLAGS="$CFLAGS $OPENMP_CFLAGS"
   ]
 )
+
+# force all python modules into the exec dir to prevent mixed C and
+# pure-python library code from being split across lib and lib64 on
+# RedHat-derived systems.
+AC_SUBST([pkgpythondir], ["\${pkgpyexecdir}"])
 
 # output
 LAL_HEADER_LINK=${ac_aux_dir}/header-link.mk

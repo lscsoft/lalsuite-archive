@@ -168,14 +168,12 @@ int main(int argc,char *argv[])
   UserInput_t uvar = empty_UserInput;
   CHAR *VCSInfoString;          /**< LAL + LALapps Git version string */
 
-  lalDebugLevel = 0;
   vrbflg = 1;	/* verbose error-messages */
 
   /* set LAL error-handler */
   lal_errhandler = LAL_ERR_EXIT;
 
   /* register all user-variable */
-  LAL_CALL (LALGetDebugLevel(&status, argc, argv, 'v'), &status);
   LAL_CALL (initUserVars(&status, &uvar), &status);
 
   /* do ALL cmdline and cfgfile handling */
@@ -593,7 +591,7 @@ InitPFS ( LALStatus *status, ConfigVariables *cfg, const UserInput_t *uvar )
   /* noise-weighting of Antenna-patterns and compute A,B,C */
   if ( XLALWeightMultiAMCoeffs ( multiAMcoef, multiNoiseWeights ) != XLAL_SUCCESS ) {
     LogPrintf (LOG_CRITICAL, "XLALWeightMultiAMCoeffs() failed with error = %d\n\n", xlalErrno );
-    ABORT ( status, COMPUTEFSTATC_EXLAL, COMPUTEFSTATC_MSGEXLAL );
+    ABORT ( status, PREDICTFSTAT_EXLAL, PREDICTFSTAT_MSGEXLAL );
   }
 
   /* OK: we only need the antenna-pattern matrix M_mu_nu */

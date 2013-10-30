@@ -1,6 +1,6 @@
 AC_PREREQ([2.63])
-AC_INIT([lalpulsar],[1.7.0.1],[lal-discuss@gravity.phys.uwm.edu])
-AC_CONFIG_HEADERS([include/config.h src/LALPulsarConfig.h])
+AC_INIT([lalpulsar],[1.8.0.1],[lal-discuss@ligo.org])
+AC_CONFIG_HEADERS([src/config.h src/LALPulsarConfig.h])
 AC_CONFIG_SRCDIR([src/ComputeFstat.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
@@ -41,7 +41,7 @@ LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[7])
+AC_SUBST([LIBCURRENT],[8])
 AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
@@ -95,8 +95,8 @@ LALSUITE_MULTILIB_LIBTOOL_HACK
 # use silent build rules
 AM_SILENT_RULES([yes])
 
-# check for C/C++ compilers
-LALSUITE_PROG_CC_CXX
+# check for required compilers
+LALSUITE_PROG_COMPILERS
 
 # checks for programs
 AC_PROG_INSTALL
@@ -142,7 +142,7 @@ if test "${boinc}" = "true" ; then
 fi
 
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.10.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LAL],[6.11.0],[LALVersion],[lal/LALStdio.h])
 
 # check that lal has been buil with boinc support, for boinc build
 if test "${boinc}" = "true" ; then
@@ -150,7 +150,7 @@ if test "${boinc}" = "true" ; then
 fi
 
 # check for lalsupport, needed for test suite
-LALSUITE_CHECK_LIB([LALSupport],[6.10.0],[LALOpenDataFile],[lal/FileIO.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.11.0],[LALOpenDataFile],[lal/FileIO.h])
 
 # back to c mode
 if test "${boinc}" = "true" ; then
@@ -162,8 +162,6 @@ LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.5],[XLALXMLFilePrintElements],[lal/LALXML.h
 
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG([XLAL LAL])
-LALSUITE_SWIG_DEPENDS([lal],[true])
-LALSUITE_SWIG_DEPENDS([lalxml],[$lalxml])
 
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS

@@ -181,7 +181,6 @@ int main(int argc,char *argv[])
   UserInput_t uvar = empty_UserInput;
   ConfigVariables cfg = empty_ConfigVariables;		/**< various derived configuration settings */
 
-  lalDebugLevel = 0;
   vrbflg = 1;	/* verbose error-messages */
   LogSetLevel(lalDebugLevel);
 
@@ -189,10 +188,6 @@ int main(int argc,char *argv[])
   gsl_set_error_handler_off ();
 
   /* ----- register and read all user-variables ----- */
-  if ( XLALGetDebugLevel ( argc, argv, 'v') != XLAL_SUCCESS ) {
-    LogPrintf ( LOG_CRITICAL, "%s: XLALGetDebugLevel() failed with errno=%d\n", __func__, xlalErrno );
-    return 1;
-  }
   LogSetLevel(lalDebugLevel);
 
   if ( XLALInitUserVars( &uvar ) != XLAL_SUCCESS ) {
@@ -267,7 +262,7 @@ int main(int argc,char *argv[])
 
       /* ----- generate signal random draws from ranges and generate Fstat atoms */
       MultiFstatAtomVector *multiAtoms;
-      multiAtoms = XLALSynthesizeTransientAtoms ( &injParamsDrawn, cfg.skypos, cfg.AmpPrior, cfg.transientInjectRange, cfg.multiDetStates, cfg.SignalOnly, &multiAMBuffer, cfg.rng);
+      multiAtoms = XLALSynthesizeTransientAtoms ( &injParamsDrawn, cfg.skypos, cfg.AmpPrior, cfg.transientInjectRange, cfg.multiDetStates, cfg.SignalOnly, &multiAMBuffer, cfg.rng, -1);
       if ( multiAtoms ==NULL ) {
         LogPrintf ( LOG_CRITICAL, "%s: XLALSynthesizeTransientAtoms() failed with xlalErrno = %d\n", __func__, xlalErrno );
         XLAL_ERROR ( XLAL_EFUNC );
