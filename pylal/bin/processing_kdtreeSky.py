@@ -1,5 +1,6 @@
+#!/usr/bin/python
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 import matplotlib.patches as mpatches
 from matplotlib import pyplot as plt
 from matplotlib.collections import PatchCollection
