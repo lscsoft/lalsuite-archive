@@ -1683,11 +1683,8 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
     /* wasn't allocated yet (as in the very 1st iteration).      */
 
     if (different) { /* template needs to be re-computed: */
-      //  printf("IM RECALCULATING THE TEMPLATE!\n");
-
       LALInferenceCopyVariables(&intrinsicParams, dataPtr->modelParams);
       LALInferenceAddVariable(dataPtr->modelParams, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-      //LALInferenceAddVariable(dataPtr->modelParams, "polarisation", &psi, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
 
       templt(dataPtr);
       dataPtr->template_counter++;
