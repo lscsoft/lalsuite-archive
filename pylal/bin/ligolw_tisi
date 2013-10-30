@@ -32,11 +32,11 @@ import sys
 
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
-from glue.ligolw import utils
+from glue.ligolw import utils as ligolw_utils
+from glue.ligolw.utils import process as ligolw_process
 from glue import offsetvector
 from pylal import git_version
 from pylal import ligolw_tisi
-from pylal import llwapp
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -238,11 +238,11 @@ while filenames:
 	# Finish off the document.
 	#
 
-	llwapp.set_process_end_time(process)
+	ligolw_process.set_process_end_time(process)
 
 	#
 	# Write.
 	#
 
 	filename = filenames.pop(0)
-	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
+	ligolw_utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
