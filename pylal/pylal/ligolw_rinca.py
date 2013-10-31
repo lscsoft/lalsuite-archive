@@ -116,7 +116,7 @@ process_program_name = "ligolw_rinca"
 
 
 def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None, save_small_coincs = None, vetoes_name = None, coinc_end_time_segment = None, verbose = None):
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
+	process = ligolw_process.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
 		(u"--ds-sq-threshold", u"real_8", ds_sq_threshold)

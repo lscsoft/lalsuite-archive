@@ -30,12 +30,7 @@ data in LIGO Light-Weight XML format.
 """
 
 
-import time
-
-
 from glue.ligolw import lsctables
-from glue.ligolw.utils import process as ligolw_process
-from lal import UTCToGPS as _UTCToGPS
 from pylal import git_version
 
 
@@ -74,42 +69,3 @@ def get_coinc_def_id(xmldoc, search, coinc_type, create_new = True, description 
 	coincdeftable.sync_next_id()
 	# get the id
 	return coincdeftable.get_coinc_def_id(search, coinc_type, create_new = create_new, description = description)
-
-
-#
-# =============================================================================
-#
-#                               Process Metadata
-#
-# =============================================================================
-#
-
-
-def append_process(*args, **kwargs):
-	"""
-	Identical to the append_process() function in
-	glue.ligolw.utils.process except uses LAL to convert UTC to GPS
-	time to get the leap seconds correct.
-	"""
-	process = ligolw_process.append_process(*args, **kwargs)
-	# FIXME:  remove the "" case when the git metadata business is
-	# sorted out
-	if "cvs_entry_time" in kwargs and kwargs["cvs_entry_time"] is not None and kwargs["cvs_entry_time"] != "":
-		try:
-			# try the git_version format first
-			process.cvs_entry_time = _UTCToGPS(time.strptime(kwargs["cvs_entry_time"], "%Y-%m-%d %H:%M:%S +0000"))
-		except ValueError:
-			# fall back to the old cvs format
-			process.cvs_entry_time = _UTCToGPS(time.strptime(kwargs["cvs_entry_time"], "%Y/%m/%d %H:%M:%S"))
-	process.start_time = _UTCToGPS(time.gmtime())
-	return process
-
-
-def set_process_end_time(process):
-	"""
-	Identical to the set_process_end_time() function in
-	glue.ligolw.utils.process except uses LAL to convert UTC to GPS
-	time to get the leap seconds correct.
-	"""
-	process.end_time = _UTCToGPS(time.gmtime())
-	return process
