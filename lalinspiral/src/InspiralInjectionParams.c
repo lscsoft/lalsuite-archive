@@ -43,6 +43,14 @@
 #include <lal/InspiralInjectionParams.h>
 #include <lal/VectorOps.h>
 #include <lal/RingUtils.h>
+#include <gsl/gsl_vector.h>
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_blas.h>
+#include <gsl/gsl_integration.h>
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_roots.h>
+#include <gsl/gsl_randist.h>
+#include <gsl/gsl_multifit_nlin.h>
 
 /** Generates the geocent_end_time for an inspiral injection, based on the
  * given startTime and timeWindow */
@@ -111,6 +119,210 @@ SimInspiralTable* XLALRandomInspiralDistance(
 
   return ( inj );
 }
+
+/** Generates the luminosity distance for an inspiral injection, based a given cosmology, and max/min redshifts */
+
+SimInspiralTable* XLALRandomLuminosityDistance(
+    SimInspiralTable *inj,     /**< injection for which distance will be set */
+    RandomParams *randParams,  /**< random parameter details*/
+    REAL8  minZ,            /**< minimum redshift */
+    REAL8  maxZ             /**< maximum redshift */
+    )
+{
+    double Pc, Mpc;
+    double z, DL, thisVc, minVc, maxVc;
+    const gsl_root_fsolver_type *T;
+    gsl_root_fsolver *s;
+    const gsl_rng_type *type;
+    gsl_rng *p;
+    int status;
+    int iter = 0;
+    int max_iter = 100;
+    double r = 0.0; 
+    double z_lo = 0.0; 
+    double z_hi = 7.0;
+    gsl_function F;
+    CosmoV *params = malloc(sizeof(CosmoV));
+    
+    Pc = 3.09e16;
+    Mpc = 1.e6 * Pc;
+    
+    gsl_rng_env_setup();
+    gsl_rng_default_seed = 42;
+    
+    type = gsl_rng_default;
+    p =    gsl_rng_alloc (type);
+    
+    minVc = CosmoVc(minZ)/(1.e9*Mpc);
+    maxVc = CosmoVc(maxZ)/(1.e9*Mpc);
+	    
+    T = gsl_root_fsolver_brent;
+        
+    s = gsl_root_fsolver_alloc (T);
+        
+    thisVc = minVc + (maxVc - minVc)*XLALUniformDeviate( randParams ); 
+    
+    params->thisVc = thisVc;
+    
+    fprintf(stdout, "minZ = %e, maxZ = %e\n", minZ, maxZ);
+    
+    fprintf(stdout, "thisVc = %e\n", thisVc*1.e9*Mpc);
+        
+    F.function = &CosmoVcdiff;
+    F.params = &params;
+        
+    gsl_root_fsolver_set (s, &F, z_lo, z_hi);
+        
+    do
+    {
+            iter++;
+            status = gsl_root_fsolver_iterate (s);
+            r = gsl_root_fsolver_root (s);
+            
+            z_lo = gsl_root_fsolver_x_lower (s);    
+            z_hi = gsl_root_fsolver_x_upper (s);
+            status = gsl_root_test_interval (z_lo, z_hi, 0, 0.001);
+    }
+    while (status == GSL_CONTINUE && iter < max_iter); 
+        
+    z=r;
+        
+    gsl_root_fsolver_free (s);
+        
+    DL = CosmoDL(z);
+    
+    fprintf(stdout, "z = %e, DL = %e\n", z, DL);
+    
+    inj->distance = DL;
+    
+    free(params);
+    
+    return ( inj );
+}
+
+double CosmoVcdiff(double z, void *params)
+{
+    CosmoV *par = (CosmoV *) params;
+    double Vc;
+    double Pc, Mpc;
+    
+    Pc = 3.09e16;
+    Mpc = 1.e6 * Pc;
+    
+    Vc = CosmoVc(z)/(1.e9*Mpc);
+    
+    return(par->thisVc - Vc);
+}
+
+double CosmoVc(double z)
+{ 
+    double c, Pc, Mpc, H;
+    double PI;
+    double Vc;
+    double zero;
+    double epsabs;
+    double epsrel;  
+    double result, error;	   
+    size_t limit;
+    int key;
+    
+    zero = 0.;
+    epsabs = 0.;
+    epsrel = 1.e-7;
+    limit = 1000;
+    key = 6;
+    
+    PI = 3.1415926535;
+    c = 3.e8;
+    Pc = 3.09e16;
+    Mpc = 1.e6 * Pc;
+    H = 7.0e4/Mpc;
+    
+    gsl_function K;
+    gsl_integration_workspace *workSpace = gsl_integration_workspace_alloc (1000);  
+    
+    K.function = &CosmoVcIntegrand;
+    gsl_integration_qag(&K, zero, z, epsabs, epsrel, limit, key, workSpace, &result, &error); 
+    Vc = 4*PI*c/H*result;
+    gsl_integration_workspace_free (workSpace);
+
+    
+    return( Vc );	  
+}	  
+
+double CosmoVcIntegrand(double z, void *params) 
+{    
+    CosmoV *par = (CosmoV *) params;
+    double Om;
+    double Od;
+    double threewp;
+    double DL;
+    double fudge;
+    
+    Od = 0.73;
+    Om = 1. - Od;
+    threewp = 0.;
+    
+    double zp = 1.+z;
+    DL = CosmoDL(z);
+    
+    fudge = par->thisVc;
+    
+    return(pow(DL/zp,2.)/sqrt( Om*pow(zp, 3.) + Od*pow(zp, threewp) )); 
+}
+
+double CosmoDL(double zz)
+{  
+    double c, Pc, Mpc, H;
+    double DL2;
+    double zero2;
+    double epsabs2;
+    double epsrel2;  
+    double result2, error2;	   
+    size_t limit2;
+    int key2;
+    
+    zero2 = 0.;
+    epsabs2 = 0.;
+    epsrel2 = 1.e-7;
+    limit2 = 1000;
+    key2 = 6;
+    
+    c = 3.e8;
+    Pc = 3.09e16;
+    Mpc = 1.e6 * Pc;
+    H = 7.0e4/Mpc;
+    gsl_function G;
+    gsl_integration_workspace *workSpace2 = gsl_integration_workspace_alloc (1000);  
+    
+    G.function = &CosmoDLIntegrand;
+    gsl_integration_qag(&G, zero2, zz, epsabs2, epsrel2, limit2, key2, workSpace2, &result2, &error2); 
+    DL2 = (1.+zz)*c/H*result2/Mpc;
+    gsl_integration_workspace_free (workSpace2);
+ 
+    return( DL2 );	  
+}
+
+double CosmoDLIntegrand(double z, void *params) 
+{
+    CosmoV *par = (CosmoV *) params;
+    double Om;
+    double Od;
+    double threewp;
+    double fudge;
+    
+    
+    Od = 0.73;
+    Om = 1. - Od;
+    threewp = 0.;
+    
+    double zp = 1.+z;
+    
+    fudge = par->thisVc;
+    
+    return(1./sqrt( Om*pow(zp, 3.) + Od*pow(zp, threewp) )); 
+}
+
 
 
 /** Generates a random sky location (right ascension=longitude,

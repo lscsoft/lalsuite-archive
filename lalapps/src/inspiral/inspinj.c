@@ -666,6 +666,7 @@ static void print_usage(char *program)
       "                           distancesquared: uniform distribution in distance^2\n"\
       "                           log10: uniform distribution in log10(d) \n"\
       "                           volume: uniform distribution in volume\n"\
+      "                           covolume: uniform distribution in comoving volume\n"\
       "                           sfr: distribution derived from the SFR\n"\
       " [--min-distance] DMIN     set the minimum (chirp) distance to DMIN kpc\n"\
       " [--max-distance] DMAX     set the maximum (chirp) distance to DMAX kpc\n"\
@@ -2154,6 +2155,10 @@ int main( int argc, char *argv[] )
         {
           dDistr=uniformVolume;
         }
+        else if (!strcmp(dummy, "covolume"))    
+        {
+          dDistr=uniformComovingVolume;
+        }
         else
         {
           fprintf( stderr, "invalid argument to --%s:\n"
@@ -3057,6 +3062,14 @@ int main( int argc, char *argv[] )
       exit( 1 );
     }
   }
+  if ( dDistr == uniformComovingVolume )
+  {
+      if ( minZ<0.0 || maxZ<0.0 || maxZ<minZ )
+      {
+          fprintf(stderr, "Bad choices for redshift bounds!\n");    
+          exit( 1 );
+      }
+  }
   if ( dDistr == starFormationRate )
   {
     if ( minD>0.0 || maxD>0.0 || ninjaSNR || minSNR>0.0 || maxSNR>0.0 || ifos!=NULL )
@@ -3925,6 +3938,10 @@ int main( int argc, char *argv[] )
     {
       simTable=XLALRandomInspiralDistance(simTable, randParams,
           dDistr, minD/1000.0, maxD/1000.0);
+    }
+    else if ( dDistr == uniformComovingVolume )
+    {
+      simTable=XLALRandomLuminosityDistance(simTable, randParams, minZ, maxZ);
     }
     else if (dDistr==uniformSnr || dDistr==uniformLogSnr || dDistr==uniformVolumeSnr)
     {

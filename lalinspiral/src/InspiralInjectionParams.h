@@ -47,6 +47,7 @@ typedef enum
   uniformDistanceSquared,
   uniformLogDistance,
   uniformVolume,
+  uniformComovingVolume,
   starFormationRate,
   uniformSnr,
   uniformLogSnr,
@@ -131,6 +132,23 @@ SimInspiralTable* XLALRandomInspiralDistance( SimInspiralTable *inj,
     LoudnessDistribution dDist,
     REAL4  distMin,
     REAL4  distMax );
+    
+SimInspiralTable* XLALRandomLuminosityDistance( SimInspiralTable *inj,
+    RandomParams *randParams, REAL8 minZ, REAL8 maxZ );
+
+typedef struct
+tagCosmoV
+{
+    double thisVc;
+}
+CosmoV;
+    
+double CosmoVc(double);
+double CosmoVcdiff(double, void *);
+double CosmoDL(double);   
+double CosmoVcIntegrand(double, void *);
+double CosmoDLIntegrand(double, void *);    
+    
 
 SimInspiralTable* XLALRandomInspiralSkyLocation( SimInspiralTable *inj,
     RandomParams *randParams);
