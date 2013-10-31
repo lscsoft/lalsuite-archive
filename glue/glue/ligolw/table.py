@@ -515,10 +515,10 @@ class TableStream(ligolw.Stream):
 		# call parent's _end_of_rows() hook.
 		self.parentNode._end_of_rows()
 
-	def write(self, file = sys.stdout, indent = u""):
+	def write(self, fileobj = sys.stdout, indent = u""):
 		# retrieve the .write() method of the file object to avoid
 		# doing the attribute lookup in loops
-		w = file.write
+		w = fileobj.write
 		# loop over parent's rows.  This is complicated because we
 		# need to not put a delimiter at the end of the last row
 		# unless it ends with a null token
