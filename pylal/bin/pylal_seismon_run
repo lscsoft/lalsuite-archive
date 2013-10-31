@@ -32,12 +32,12 @@ if not os.getenv("DISPLAY", None):
     import matplotlib
     matplotlib.use("agg", warn=False)
 
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pylal.xlal.date import XLALGPSToUTC
+import lal.gpstime
+
 import pylal.pylal_seismon_psd, pylal.pylal_seismon_utils
 import pylal.pylal_seismon_html, pylal.pylal_seismon_omicron
 import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_eqmon_plot
-import pylal.pylal_seismon_coherence
+import pylal.pylal_seismon_coherence, pylal.pylal_seismon_hilbert
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
 __version__ = 1.0
@@ -82,14 +82,18 @@ def parse_commandline():
     parser.add_option("--fmax", help="fmax.", default=64.0,type=float)
 
     parser.add_option("--eventfilesType", help="Event files type.", default="public")
+    parser.add_option("--userEmail", help="User e-mail.", default="public")
 
     parser.add_option("--doPlots",  action="store_true", default=False)
     parser.add_option("--doEarthquakes",  action="store_true", default=False)
     parser.add_option("--doEarthquakesAnalysis",  action="store_true", default=False)
     parser.add_option("--doEarthquakesOnline",  action="store_true", default=False)
     parser.add_option("--doEarthquakesPicks",  action="store_true", default=False)
+    parser.add_option("--doEarthquakesVelocityMap",  action="store_true", default=False)
+    parser.add_option("--doEarthquakesLookUp",  action="store_true", default=False)
     parser.add_option("--doEarthquakesTraining",  action="store_true", default=False)
     parser.add_option("--doEarthquakesTesting",  action="store_true", default=False)
+    parser.add_option("--doEarthquakesHilbert",  action="store_true", default=False)
     parser.add_option("--earthquakesTrainingFile", help="Earthquakes training file.",
                      default="/home/mcoughlin/Seismon/H1/H1S5-815097613-875145614/earthquakes_training/training.xml")
 
@@ -106,6 +110,7 @@ def parse_commandline():
     parser.add_option("--doBeamForming",  action="store_true", default=False)
     parser.add_option("--doStrainz",  action="store_true", default=False)
     parser.add_option("--doWiener",  action="store_true", default=False)
+    parser.add_option("--noFrames",  action="store_true", default=False)
 
     parser.add_option("--doFlagsDatabase",  action="store_true", default=False)
     parser.add_option("--doFlagsTextFile",  action="store_true", default=False)
@@ -177,9 +182,13 @@ def params_struct(opts):
     params["doEarthquakesAnalysis"] = opts.doEarthquakesAnalysis
     params["doEarthquakesOnline"] = opts.doEarthquakesOnline
     params["doEarthquakesPicks"] = opts.doEarthquakesPicks
+    params["doEarthquakesVelocityMap"] = opts.doEarthquakesVelocityMap
+    params["doEarthquakesLookUp"] = opts.doEarthquakesLookUp
     params["doEarthquakesTraining"] = opts.doEarthquakesTraining
     params["doEarthquakesTesting"] = opts.doEarthquakesTesting
+    params["doEarthquakesHilbert"] = opts.doEarthquakesHilbert
 
+    params["userEmail"] = opts.userEmail
     params["earthquakesTrainingFile"] = opts.earthquakesTrainingFile
 
     params["doOmicron"] = opts.doOmicron
@@ -195,6 +204,7 @@ def params_struct(opts):
     params["doBeamForming"] = opts.doBeamForming
     params["doStrainz"] = opts.doStrainz
     params["doWiener"] = opts.doWiener
+    params["noFrames"] = opts.noFrames
 
     params["doFlagsDatabase"] = opts.doFlagsDatabase
     params["doFlagsTextFile"] = opts.doFlagsTextFile
@@ -204,8 +214,10 @@ def params_struct(opts):
     params["doKML"] = opts.doKML
     params["doBokeh"] = opts.doBokeh
 
-    params["date"] = XLALGPSToUTC(LIGOTimeGPS(params["gpsStart"]))
-    params["dateString"] = "%d-%d-%d %d:%d:%d"%(params["date"][0],params["date"][1],params["date"][2],params["date"][3],params["date"][4],params["date"][5])
+    params["date"] = lal.gpstime.gps_to_utc(params["gpsStart"])
+    #params["date"] = XLALGPSToUTC(LIGOTimeGPS(params["gpsStart"]))
+    params["dateString"] = params["date"].strftime("%Y-%m-%d %H:%M:%S")
+    #params["dateString"] = "%d-%d-%d %d:%d:%d"%(params["date"][0],params["date"][1],params["date"][2],params["date"][3],params["date"][4],params["date"][5])
 
     if params["doEarthquakesAnalysis"]:
        params["earthquakesMinMag"] = 5
@@ -234,7 +246,8 @@ else:
 params = pylal.pylal_seismon_utils.channel_struct(params,channelList)
 params = pylal.pylal_seismon_utils.segment_struct(params)
 params = pylal.pylal_seismon_utils.frame_struct(params)
-if params["frame"] == []:
+
+if params["frame"] == [] and not params["noFrames"]:
     print "No frames found... quitting."
     sys.exit()
 
@@ -314,6 +327,13 @@ if params["doStrainz"]:
         print "Segment: %d-%d"%(segment[0],segment[1])
         params = pylal.pylal_seismon_utils.setPath(params,segment)
         pylal.pylal_seismon_beamforming.strainz(params,segment)
+
+if params["doEarthquakesHilbert"]:
+    print "Running Hilbert transform"
+    for segment in params["segments"]:
+        print "Segment: %d-%d"%(segment[0],segment[1])
+        params = pylal.pylal_seismon_utils.setPath(params,segment)
+        pylal.pylal_seismon_hilbert.hilbert(params,segment)
 
 if params["doSummary"]:
     for segment in params["segments"]:

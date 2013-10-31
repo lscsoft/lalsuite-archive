@@ -3,8 +3,6 @@
 import os, glob, optparse, shutil, warnings
 import numpy as np
 from subprocess import Popen, PIPE, STDOUT
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pylal.xlal.date import XLALGPSToUTC
 
 import pylal.pylal_seismon_utils
 

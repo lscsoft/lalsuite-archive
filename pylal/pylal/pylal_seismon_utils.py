@@ -6,11 +6,10 @@ import scipy.signal, scipy.stats, scipy.fftpack
 from collections import namedtuple
 from datetime import datetime
 from lxml import etree
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pylal.xlal.date import XLALGPSToUTC
-from pylal import Fr
+
+import lal.gpstime
+
 import glue.datafind, glue.segments, glue.segmentsUtils, glue.lal
-import pylal.dq.dqSegmentUtils
 import pylal.pylal_seismon_NLNM, pylal.pylal_seismon_html
 import pylal.pylal_seismon_eqmon
 
@@ -370,10 +369,14 @@ def segment_struct(params):
     """
 
     if params["doSegmentsDatabase"]:
-        segmentlist, segmentlistValid = pylal.dq.dqSegmentUtils.grab_segments(
+        #segmentlist, segmentlistValid = pylal.dq.dqSegmentUtils.grab_segments(
+        #                                       params["gpsStart"],params["gpsEnd"],
+        #                                       params["segmentFlag"],params["segmentDatabase"],
+        #                                       segment_summary=True)
+        segmentlist, segmentlistValid = gwpy.segments.DataQualityFlag.query(params["segmentFlag"],
                                                params["gpsStart"],params["gpsEnd"],
-                                               params["segmentFlag"],params["segmentDatabase"],
-                                               segment_summary=True)
+                                               url=params["segmentDatabase"])
+        
         params["segments"] = segmentlist
     elif params["doSegmentsTextFile"]:
         segmentlist = glue.segments.segmentlist()
@@ -399,7 +402,9 @@ def frame_struct(params):
     gpsStart = np.min(params["gpsStart"])-1000
     gpsEnd = np.max(params["gpsEnd"])
 
-    if params["ifo"] == "XG":
+    if params["noFrames"]:
+        datacache = []
+    elif params["ifo"] == "XG":
         frameDir = "/archive/frames/MBH/"
         frameList = [os.path.join(root, name)
             for root, dirs, files in os.walk(frameDir)
@@ -651,6 +656,35 @@ def getLatLon(params):
 
     return latitude,longitude
 
+def getAzimuth(params):
+
+    if params["ifo"] == "H1":
+        xazimuth = 5.65487724844 * (180.0/np.pi)
+        yazimuth = 4.08408092164 * (180.0/np.pi)
+    elif params["ifo"] == "L1":
+        xazimuth = 4.40317772346 * (180.0/np.pi)
+        yazimuth = 2.83238139666 * (180.0/np.pi)
+    elif params["ifo"] == "G1":
+        xazimuth = 1.19360100484 * (180.0/np.pi)
+        yazimuth = 5.83039279401 * (180.0/np.pi)
+    elif params["ifo"] == "V1":
+        xazimuth = 0.33916285222 * (180.0/np.pi)
+        yazimuth = 5.05155183261 * (180.0/np.pi)
+    elif params["ifo"] == "C1":
+        xazimuth = 3.14159265359 * (180.0/np.pi)
+        yazimuth = 1.57079632679 * (180.0/np.pi)
+    elif params["ifo"] == "XG":
+        xazimuth = 0.0
+        yazimuth = 0.0
+    elif params["ifo"] == "IRIS":
+        xazimuth = 0.0
+        yazimuth = 0.0
+    elif params["ifo"] == "LUNAR":
+        xazimuth = 0.0
+        yazimuth = 0.0
+
+    return xazimuth,yazimuth
+
 def GPSToUTCDateTime(gps):
     """@calculate UTC time from gps
 
@@ -659,7 +693,7 @@ def GPSToUTCDateTime(gps):
     """
 
     import obspy
-    utc = XLALGPSToUTC(LIGOTimeGPS(int(gps)))
+    utc = lal.gpstime.gps_to_utc(int(gps))
     tt = time.strftime("%Y-%jT%H:%M:%S", utc)
     ttUTC = obspy.UTCDateTime(tt)
 
@@ -909,3 +943,29 @@ def run_flags_analysis(params,segment):
     print "Flags minus earthquake total time: %d s"%flag_minus_earthquake_segmentlist_duration
     print "Flags minus earthquake percentage time: %.5e"%flag_minus_earthquake_segmentlist_percentage
 
+def xcorr(x, y, normed=True, maxlags=None):
+    """
+    Call signature::
+
+    xcorr(x, y, normed=True, detrend=mlab.detrend_none,
+    usevlines=True, maxlags=10, **kwargs)
+
+    """
+
+    Nx = len(x)
+    if Nx!=len(y):
+        raise ValueError('x and y must be equal length')
+
+    c = np.correlate(x, y, mode='full')
+
+    if normed: c/= np.sqrt(np.dot(x,x) * np.dot(y,y))
+
+    if maxlags is None: maxlags = Nx - 1
+
+    if maxlags >= Nx or maxlags < 1:
+        raise ValueError('maglags must be None or strictly positive < %d'%Nx)
+
+    lags = np.arange(-maxlags,maxlags+1)
+    c = c[Nx-1-maxlags:Nx+maxlags]
+
+    return c,lags

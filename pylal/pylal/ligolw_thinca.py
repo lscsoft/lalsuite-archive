@@ -32,7 +32,6 @@ import sys
 from glue import iterutils
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
-from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue import offsetvector
 import lal
@@ -107,48 +106,6 @@ class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
-
-
-#
-# =============================================================================
-#
-#                           Add Process Information
-#
-# =============================================================================
-#
-
-
-process_program_name = "ligolw_thinca"
-
-
-def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, exact_mass = None, effective_snr_factor = None, vetoes_name = None, trigger_program = None, effective_snr = None, coinc_end_time_segment = None, verbose = None):
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
-
-	params = [
-		(u"--e-thinca-parameter", u"real_8", e_thinca_parameter)
-	]
-	if comment is not None:
-		params += [(u"--comment", u"lstring", comment)]
-	if force is not None:
-		params += [(u"--force", None, None)]
-	if effective_snr_factor is not None:
-		params += [(u"--effective-snr-factor", u"real_8", effective_snr_factor)]
-	if vetoes_name is not None:
-		params += [(u"--vetoes-name", u"lstring", vetoes_name)]
-	if trigger_program is not None:
-		params += [(u"--trigger-program", u"lstring", trigger_program)]
-	if effective_snr is not None:
-		params += [(u"--effective-snr", u"lstring", effective_snr)]
-	if coinc_end_time_segment is not None:
-		params += [(u"--coinc-end-time-segment", u"lstring", coinc_end_time_segment)]
-	if exact_mass is not None:
-		params += [(u"--exact-mass", None, None)]
-	if verbose is not None:
-		params += [(u"--verbose", None, None)]
-
-	ligolw_process.append_process_params(xmldoc, process, params)
-
-	return process
 
 
 #
@@ -509,7 +466,7 @@ def ligolw_thinca(
 	# remove time offsets from events
 	#
 
-	eventlists.remove_offsetdict()
+	del eventlists.offsetvector
 
 	#
 	# done
@@ -732,21 +689,3 @@ class sngl_inspiral_coincs(object):
 			yield (coinc_event_id, self[coinc_event_id])
 
 	iteritems = items
-
-	def column_index(self, table_name, column_name):
-		"""
-		Return a dictionary mapping coinc_event_id to the values in
-		the given column in the given table.
-
-		Example:
-
-		>>> print coincs.column_index("coinc_event", "likelihood")
-
-		Only columns in the coinc_event and coinc_inspiral tables
-		can be retrieved this way.
-		"""
-		if not lsctables.table.CompareTableNames(table_name, lsctables.CoincTable.tableName):
-			return dict(zip(self.coinc_event_table.getColumnByName("coinc_event_id"), self.coinc_event_table.getColumnByName(column_name)))
-		elif not lsctables.table.CompareTableNames(table_name, lsctables.CoincInspiralTable.tableName):
-			return dict(zip(self.coinc_inspiral_table.getColumnByName("coinc_event_id"), self.coinc_inspiral_table.getColumnByName(column_name)))
-		raise ValueError(table_name)

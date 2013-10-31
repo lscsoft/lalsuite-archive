@@ -144,6 +144,7 @@ static int unpack(PyObject *seg, PyObject **lo, PyObject **hi)
 	if(!seg)
 		return -1;
 	if(!PyTuple_Check(seg)) {
+		/* FIXME:  should this raise NotImplemented? */
 		PyErr_SetObject(PyExc_TypeError, seg);
 		return -1;
 	}
@@ -221,6 +222,10 @@ static PyObject *make_segment(PyObject *lo, PyObject *hi)
 static int pylist_extend(PyListObject *l, PyObject *v)
 {
 #if (PY_MAJOR_VERSION >= 2) && (PY_MINOR_VERSION >= 4)
+	if(!PyList_Check(l)) {
+		PyErr_SetObject(PyExc_TypeError, (PyObject *) l);
+		return -1;
+	}
 	PyObject *result = _PyList_Extend(l, v);
 #else
 	PyObject *result = PyObject_CallMethod((PyObject *) l, "extend", "O", v);
@@ -234,7 +239,12 @@ static int pylist_extend(PyListObject *l, PyObject *v)
 
 static PyListObject *segments_SegmentList_New(PyTypeObject *type, PyObject *sequence)
 {
-	PyListObject *new = (PyListObject *) type->tp_alloc(type, 0);
+	PyListObject *new;
+	if(!type->tp_alloc) {
+		PyErr_SetObject(PyExc_TypeError, (PyObject *) type);
+		return NULL;
+	}
+	new = (PyListObject *) type->tp_alloc(type, 0);
 	if(new && sequence)
 		if(pylist_extend(new, sequence)) {
 			Py_DECREF(new);
@@ -653,7 +663,7 @@ static PyObject *__and__(PyObject *self, PyObject *other)
 	PyObject *new = NULL;
 
 	/* error checking on size functions not required */
-	if(PyList_GET_SIZE(self) >= PySequence_Size(other)) {
+	if(PySequence_Size(self) >= PySequence_Size(other)) {
 		self = (PyObject *) segments_SegmentList_New(self->ob_type, self);
 		if(self) {
 			new = PyNumber_InPlaceAnd(self, other);
@@ -818,7 +828,7 @@ static PyObject *__or__(PyObject *self, PyObject *other)
 	PyObject *new = NULL;
 
 	/* error checking on size functions not required */
-	if(PyList_GET_SIZE(self) >= PySequence_Size(other)) {
+	if(PySequence_Size(self) >= PySequence_Size(other)) {
 		self = (PyObject *) segments_SegmentList_New(self->ob_type, self);
 		if(self) {
 			new = PyNumber_InPlaceOr(self, other);

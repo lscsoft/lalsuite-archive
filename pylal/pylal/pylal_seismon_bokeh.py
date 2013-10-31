@@ -6,11 +6,6 @@ import numpy as np
 import scipy.signal, scipy.stats, scipy.fftpack, scipy.ndimage.filters
 from collections import namedtuple
 from operator import itemgetter
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pylal.xlal.date import XLALGPSToUTC
-import pylal.seriesutils
-from pylal import Fr
-import pylal.dq.dqDataUtils
 import pylal.pylal_seismon_NLNM, pylal.pylal_seismon_html
 import pylal.pylal_seismon_eqmon
 

@@ -1,4 +1,6 @@
-SUBDIRS = bayestar
+SUBDIRS = \
+	bayestar \
+	tiger
 
 pkgpython_PYTHON = \
 	__init__.py \

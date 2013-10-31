@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2013  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -31,10 +31,9 @@ import sys
 from glue import iterutils
 from glue import offsetvector
 from glue.ligolw import lsctables
-from glue.ligolw import utils
+from glue.ligolw import utils as ligolw_utils
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
-from pylal import llwapp
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -173,7 +172,7 @@ def load_time_slides(filename, verbose = False, gz = None, contenthandler = Defa
 	from scratch.  Instead, from the glue.ligolw package use
 	table.get_table(...).as_dict().
 	"""
-	time_slide_table = lsctables.table.get_table(utils.load_filename(filename, verbose = verbose, gz = gz, contenthandler = contenthandler), lsctables.TimeSlideTable.tableName)
+	time_slide_table = lsctables.table.get_table(ligolw_utils.load_filename(filename, verbose = verbose, gz = gz, contenthandler = contenthandler), lsctables.TimeSlideTable.tableName)
 	time_slide_table.sync_next_id()
 	return time_slide_table.as_dict()
 
@@ -223,12 +222,16 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None, superset_ok = False
 #
 
 
-def append_process(doc, **kwargs):
-	process = llwapp.append_process(doc, program = u"ligolw_tisi", version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
-
-	ligolw_process.append_process_params(doc, process, [(u"--instrument", u"lstring", instrument) for instrument in kwargs["instrument"]])
-
-	return process
+def append_process(xmldoc, comment = None, **kwargs):
+	return ligolw_process.register_to_xmldoc(
+		xmldoc,
+		program = u"ligolw_tisi",
+		paramdict = kwargs,
+		version = __version__,
+		cvs_repository = u"lscsoft",
+		cvs_entry_time = __date__,
+		comment = comment
+	)
 
 
 #
