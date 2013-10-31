@@ -553,15 +553,6 @@ class TableStream(ligolw.Stream):
 				w(rowdumper.delimiter)
 		w(u"\n" + self.end_tag(indent) + u"\n")
 
-	# FIXME: This function is for the metaio library:  metaio cares
-	# what order the attributes of XML tags come in.  This function
-	# will be removed when the metaio library is fixed.
-	def start_tag(self, indent):
-		"""
-		Generate the element start tag.
-		"""
-		return indent + u"<%s Name=\"%s\" Type=\"%s\" Delimiter=\"%s\">" % (self.tagName, self.getAttribute("Name"), self.getAttribute("Type"), self.getAttribute("Delimiter"))
-
 
 #
 # =============================================================================
