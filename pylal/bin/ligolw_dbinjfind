@@ -115,6 +115,10 @@ def parse_command_line():
         help =
             "Perform injection finding even if maps with the given map-label already exist between the recovery-table and simulation-table in the database."
         )
+    parser.add_option("-S", "--search", action = "store", type = "string", default = None,
+        help = 
+            "Define the search type (ala 'inspiral','ringdown', etc) which then will be stored in the search column of the coinc_definer table."
+        )
 
     (options, args) = parser.parse_args()
     # check for required options and for self-consistency
@@ -263,7 +267,7 @@ else:
 ligolw_dbinjfind.dbinjfind( connection, opts.simulation_table, opts.recovery_table, match_criteria, rough_match, rejection_criteria, rough_rejection, verbose = opts.verbose )
 
 # write results to database
-ligolw_dbinjfind.write_coincidences( connection, opts.map_label, this_process.process_id, verbose = opts.verbose )
+ligolw_dbinjfind.write_coincidences( connection, opts.map_label, opts.search, this_process.process_id, verbose = opts.verbose )
 
 # save and exit
 process.set_process_end_time(this_process)
