@@ -211,8 +211,8 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		#
 
 		tstart = coinc_inspiral.get_end()
-		instruments = set([event.ifo for event in events])
-		instruments |= set([instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs])
+		instruments = set(event.ifo for event in events)
+		instruments |= set(instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs)
 		coinc.set_instruments(instruments)
 
 		#
