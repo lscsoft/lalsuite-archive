@@ -723,8 +723,9 @@ def printmissed(connection, simulation_table, recovery_table, map_label, livetim
     limit = None, daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
     
     from pylal import ligolw_sqlutils as sqlutils
-    from pylal import db_thinca_rings
+    from pylal import ligolw_cbc_compute_durations as compute_dur
     from glue import segments
+    from glue.ligolw import dbtables
 
     # Get simulation/recovery tables
     simulation_table = sqlutils.validate_option(simulation_table)
@@ -808,76 +809,53 @@ def printmissed(connection, simulation_table, recovery_table, map_label, livetim
             sqlutils.parse_coinc_options( exclude_coincs, verbose = verbose ).get_coinc_types().items()
             if 'ALL' in type]
 
-    #
-    #   Get the veto segments
-    #
-
-    ring_sets = db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = livetime_program)
-    if ring_sets == {}:
+    # get the usertags of inspiral jobs in this database
+    sqlquery = """
+        SELECT value
+        FROM process_params
+        WHERE param == "-userTag"
+        GROUP BY value
+    """
+    usertags = set(usertag[0] for usertag in connection.cursor().execute(sqlquery) )
+    
+    # Get the single-ifo science segments after CAT-1 vetoes
+    if "FULL_DATA" in usertags:
+        tag = "FULL_DATA"
+    else:
+        tag = list(usertags)[0]
+    ifo_segments = compute_dur.get_single_ifo_segments(connection, program_name = livetime_program, usertag = tag)
+    if ifo_segments == {}:
         raise ValueError, "Cannot find any analysis segments using %s as a livetime program; cannot get missed injections." % livetime_program
     
     if verbose:
         print >> sys.stderr, "Getting all veto category names from the experiment_summary table..."
-    
-    # get veto_segments
-    sqlquery = """
-        SELECT DISTINCT
-            veto_def_name
-        FROM
-            experiment_summary
-        """
-    for veto_def_name in connection.cursor().execute(sqlquery).fetchall():
-        veto_def_name = veto_def_name[0]
-        if verbose:
-            print >>sys.stderr, "Retrieving veto segments for %s..." % veto_def_name
-        try:
-            veto_segments = db_thinca_rings.get_veto_segments(connection, veto_def_name)
-        except AttributeError:
-            # will get an AttributeError if using newer format veto segment file because
-            # the new format does not include _ns; if so, remove the _ns columns from the
-            # segment table and reset the definitions of lsctables.Segment.get and lsctables.Segment.set
-        
-            del lsctables.SegmentTable.validcolumns['start_time_ns']
-            del lsctables.SegmentTable.validcolumns['end_time_ns']
-        
-            def get_segment(self):
-                """
-                Return the segment described by this row.
-                """
-                return segments.segment(LIGOTimeGPS(self.start_time, 0), LIGOTimeGPS(self.end_time, 0))
-        
-            def set_segment(self, segment):
-                """
-                Set the segment described by this row.
-                """
-                self.start_time = segment[0].seconds
-                self.end_time = segment[1].seconds
-        
-            lsctables.Segment.get = get_segment
-            lsctables.Segment.set = set_segment
-        
-            veto_segments = db_thinca_rings.get_veto_segments(connection, veto_def_name)
 
-        # update the ring-sets with the vetoes
-        for available_instruments, rings in ring_sets.items():
-            for on_instruments in (combo for m in range(2, len(available_instruments) + 1) for combo in iterutils.choices(sorted(available_instruments), m)):
-                on_instruments = frozenset(on_instruments)
-                ring_sets.setdefault(on_instruments, segments.segmentlist())
-                ring_sets[on_instruments] += ring_sets[available_instruments] & veto_segments.intersection(available_instruments - on_instruments)
-        
+    xmldoc = dbtables.get_xml(connection)
+    # get veto_segments
+    veto_segments = compute_dur.get_veto_segments(xmldoc, verbose)
+
+    # make a dictionary of zerolag "shifts" needed for the get_coinc_segments function
+    zerolag_dict = {}
+    for ifo in ifo_segments:
+        zerolag_dict[ifo] = 0.0
+
+    # Cycle over available veto categories
+    for veto_def_name, veto_seg_dict in veto_segments.items():
+        post_vetoes_ifosegs = ifo_segments - veto_seg_dict
+    
+        # make a dictionary of coincident segments by exclusive on-ifos
+        coinc_segs = compute_dur.get_coinc_segments(post_vetoes_ifosegs, zerolag_dict)
+    
         #
         #   Get all the on_instrument times and cycle over them
         #
         sqlquery = """
-            SELECT DISTINCT
-                experiment.instruments
-            FROM    
-                experiment
-            JOIN
-                experiment_summary ON
-                    experiment.experiment_id == experiment_summary.experiment_id
-            WHERE
-                experiment_summary.veto_def_name == ?"""
+            SELECT DISTINCT experiment.instruments
+            FROM experiment
+                JOIN experiment_summary ON (
+                    experiment.experiment_id == experiment_summary.experiment_id )
+            WHERE experiment_summary.veto_def_name == :1
+        """
         for on_instruments in connection.cursor().execute(sqlquery, (veto_def_name,)).fetchall():
             on_instruments = lsctables.instrument_set_from_ifos(on_instruments[0])
     
@@ -886,14 +864,8 @@ def printmissed(connection, simulation_table, recovery_table, map_label, livetim
                 continue
             if exclude_coincs is not None and frozenset(on_instruments) in exclude_times:
                 continue
-            
-            if verbose:
-                print >> sys.stderr, "Applying to %s time..." % ','.join(sorted(on_instruments))
-
-            # get on_time segments
-            on_times = ring_sets[frozenset(on_instruments)].coalesce()
-            for instrument in on_instruments:
-                on_times = on_times - veto_segments[instrument]
+ 
+            on_times = coinc_segs[','.join(sorted(on_instruments))]
             
             def is_in_on_time(gps_time, gps_time_ns):
                 return LIGOTimeGPS(gps_time, gps_time_ns) in on_times
