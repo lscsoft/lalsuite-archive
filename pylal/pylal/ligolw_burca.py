@@ -76,26 +76,20 @@ lsctables.SnglBurst.__cmp__ = sngl_burst___cmp__
 process_program_name = "ligolw_burca"
 
 
-def append_process(xmldoc, **kwargs):
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
+def append_process(xmldoc, comment = None, **kwargs):
+	paramdict = kwargs.copy()
+	if paramdict["coincidence_algorithm"] in ("stringcusp",):
+		paramdict["thresholds"] = [u"%s,%s=%s" % (a, b, ",".join(map(str, value))) for (a, b), value in paramdict["thresholds"].items() if a < b]
 
-	params = [
-		(u"--coincidence-algorithm", u"lstring", kwargs["coincidence_algorithm"])
-	]
-	if "stringcusp_params" in kwargs:
-		params += [(u"--stringcusp-params", u"lstring", kwargs["stringcusp_params"])]
-	if "force" in kwargs and kwargs["force"]:
-		params += [(u"--force", None, None)]
-	if kwargs["coincidence_algorithm"] in ("stringcusp",):
-		for (a, b), value in kwargs["thresholds"].items():
-			if a < b:
-				params += [(u"--thresholds", u"lstring", u"%s,%s=%s" % (a, b, ",".join(map(str, value))))]
-	if "coincidence_segments" in kwargs and kwargs["coincidence_segments"] is not None:
-		params += [(u"--coincidence-segments", u"lstring", kwargs["coincidence_segments"])]
-
-	ligolw_process.append_process_params(xmldoc, process, params)
-
-	return process
+	return ligolw_process.append_process(
+		xmldoc,
+		program = process_program_name,
+		paramdict = paramdict,
+		version = __version__,
+		cvs_repository = u"lscsoft",
+		cvs_entry_time = __date__,
+		comment = comment
+	)
 
 
 #
