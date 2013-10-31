@@ -247,7 +247,7 @@ setup(
     os.path.join('bin','ligolw_dq_active'),
     os.path.join('bin','ligolw_dq_active_cats'),
     os.path.join('bin','ligolw_dq_grapher'),
-       os.path.join('bin','ldbdd'),
+    os.path.join('bin','ldbdd'),
     os.path.join('bin','ligolw_publish_dqxml'),
     os.path.join('bin','ligolw_diff'),
     os.path.join('bin','ligolw_geo_fr_to_dq'),
