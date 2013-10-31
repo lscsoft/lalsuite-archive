@@ -142,7 +142,7 @@ SimInspiralTable* XLALRandomLuminosityDistance(
     double z_lo = 0.0; 
     double z_hi = 7.0;
     gsl_function F;
-    CosmoV *params = malloc(sizeof(CosmoV));
+    CosmoV params;
     
     Pc = 3.09e16;
     Mpc = 1.e6 * Pc;
@@ -162,12 +162,8 @@ SimInspiralTable* XLALRandomLuminosityDistance(
         
     thisVc = minVc + (maxVc - minVc)*XLALUniformDeviate( randParams ); 
     
-    params->thisVc = thisVc;
+    params.thisVc = thisVc;
     
-    fprintf(stdout, "minZ = %e, maxZ = %e\n", minZ, maxZ);
-    
-    fprintf(stdout, "thisVc = %e\n", thisVc*1.e9*Mpc);
-        
     F.function = &CosmoVcdiff;
     F.params = &params;
         
@@ -191,11 +187,7 @@ SimInspiralTable* XLALRandomLuminosityDistance(
         
     DL = CosmoDL(z);
     
-    fprintf(stdout, "z = %e, DL = %e\n", z, DL);
-    
     inj->distance = DL;
-    
-    free(params);
     
     return ( inj );
 }
