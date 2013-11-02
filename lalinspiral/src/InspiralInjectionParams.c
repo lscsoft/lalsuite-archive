@@ -129,7 +129,6 @@ SimInspiralTable* XLALRandomLuminosityDistance(
     REAL8  maxZ             /**< maximum redshift */
     )
 {
-    double Pc, Mpc;
     double z, DL, thisVc, minVc, maxVc;
     const gsl_root_fsolver_type *T;
     gsl_root_fsolver *s;
@@ -144,17 +143,14 @@ SimInspiralTable* XLALRandomLuminosityDistance(
     gsl_function F;
     CosmoV params;
     
-    Pc = 3.09e16;
-    Mpc = 1.e6 * Pc;
-    
     gsl_rng_env_setup();
     gsl_rng_default_seed = 42;
     
     type = gsl_rng_default;
     p =    gsl_rng_alloc (type);
     
-    minVc = CosmoVc(minZ)/(1.e9*Mpc);
-    maxVc = CosmoVc(maxZ)/(1.e9*Mpc);
+    minVc = CosmoVc(minZ);
+    maxVc = CosmoVc(maxZ);
 	    
     T = gsl_root_fsolver_brent;
         
@@ -196,20 +192,15 @@ double CosmoVcdiff(double z, void *params)
 {
     CosmoV *par = (CosmoV *) params;
     double Vc;
-    double Pc, Mpc;
     
-    Pc = 3.09e16;
-    Mpc = 1.e6 * Pc;
-    
-    Vc = CosmoVc(z)/(1.e9*Mpc);
+    Vc = CosmoVc(z);
     
     return(par->thisVc - Vc);
 }
 
 double CosmoVc(double z)
 { 
-    double c, Pc, Mpc, H;
-    double PI;
+    double H;
     double Vc;
     double zero;
     double epsabs;
@@ -224,18 +215,14 @@ double CosmoVc(double z)
     limit = 1000;
     key = 6;
     
-    PI = 3.1415926535;
-    c = 3.e8;
-    Pc = 3.09e16;
-    Mpc = 1.e6 * Pc;
-    H = 7.0e4/Mpc;
+    H = 7.0e4;
     
     gsl_function K;
     gsl_integration_workspace *workSpace = gsl_integration_workspace_alloc (1000);  
     
     K.function = &CosmoVcIntegrand;
     gsl_integration_qag(&K, zero, z, epsabs, epsrel, limit, key, workSpace, &result, &error); 
-    Vc = 4*PI*c/H*result;
+    Vc = 4*LAL_PI*LAL_C_SI/H*result/1.e9; // Vc in Gpc^3.
     gsl_integration_workspace_free (workSpace);
 
     
@@ -265,7 +252,7 @@ double CosmoVcIntegrand(double z, void *params)
 
 double CosmoDL(double zz)
 {  
-    double c, Pc, Mpc, H;
+    double H;
     double DL2;
     double zero2;
     double epsabs2;
@@ -280,16 +267,13 @@ double CosmoDL(double zz)
     limit2 = 1000;
     key2 = 6;
     
-    c = 3.e8;
-    Pc = 3.09e16;
-    Mpc = 1.e6 * Pc;
-    H = 7.0e4/Mpc;
+    H = 7.0e4;
     gsl_function G;
     gsl_integration_workspace *workSpace2 = gsl_integration_workspace_alloc (1000);  
     
     G.function = &CosmoDLIntegrand;
     gsl_integration_qag(&G, zero2, zz, epsabs2, epsrel2, limit2, key2, workSpace2, &result2, &error2); 
-    DL2 = (1.+zz)*c/H*result2/Mpc;
+    DL2 = (1.+zz)*LAL_C_SI/H*result2; // DL in Mpc.
     gsl_integration_workspace_free (workSpace2);
  
     return( DL2 );	  
