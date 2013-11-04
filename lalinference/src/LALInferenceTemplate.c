@@ -1221,7 +1221,7 @@ REAL8 max=0.0;
 		if ( hplus ) XLALDestroyREAL8TimeSeries(hplus);
 		if ( hcross ) XLALDestroyREAL8TimeSeries(hcross);
  
- IFOdata->modelDomain = LAL_SIM_DOMAIN_TIME;
+  IFOdata->modelDomain = LAL_SIM_DOMAIN_TIME;
   return;
 }
 

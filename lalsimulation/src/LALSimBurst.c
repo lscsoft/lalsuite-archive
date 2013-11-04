@@ -619,7 +619,7 @@ int XLALSimBurstSineGaussian(
 	REAL8 delta_t // 1 over srate
 )
 {	
-	REAL8Window *window;
+	//REAL8Window *window;
 	/* semimajor and semiminor axes of waveform ellipsoid */
 	const double a = 1.0 / sqrt(2.0 - eccentricity * eccentricity);
 	const double b = a * sqrt(1.0 - eccentricity * eccentricity);
@@ -703,7 +703,7 @@ int XLALSimBurstSineGaussian(
 	/* apply a Tukey window for continuity at the start and end of the
 	 * injection.  the window's shape parameter sets what fraction of
 	 * the window is used by the tapers */
-
+/*
 	window = XLALCreateTukeyREAL8Window((*hplus)->data->length, 0.5);
 	if(!window) {
 		XLALDestroyREAL8TimeSeries(*hplus);
@@ -716,7 +716,7 @@ int XLALSimBurstSineGaussian(
 		(*hcross)->data->data[i] *= window->data->data[i];
 	}
 	XLALDestroyREAL8Window(window);
-
+*/
 	return 0;
 }
 
@@ -740,7 +740,7 @@ int XLALSimBurstGaussian(
    * 
    * */
   
-	REAL8Window *window;
+//	REAL8Window *window;
 	/* semimajor and semiminor axes of waveform ellipsoid */
 	const double a = 1.0 / sqrt(2.0 - eccentricity * eccentricity);
 	const double b = a * sqrt(1.0 - eccentricity * eccentricity);
@@ -761,7 +761,7 @@ int XLALSimBurstGaussian(
 	 * Gaussian envelope (sigma_t in the comments above), rounded to
 	 * the nearest odd integer */
 
-	length = (int) floor(30.0 *duration/delta_t);  // This is 30 tau
+	length = (int) floor(6.0 *duration/delta_t);  // This is 30 tau
 	length = 2 * length + 1; // length is 60 taus +1 bin
 	/* the middle sample is t = 0 */
 
@@ -793,7 +793,7 @@ int XLALSimBurstGaussian(
 	/* apply a Tukey window for continuity at the start and end of the
 	 * injection.  the window's shape parameter sets what fraction of
 	 * the window is used by the tapers */
-
+/*
 	window = XLALCreateTukeyREAL8Window((*hplus)->data->length, 0.5);
 	if(!window) {
 		XLALDestroyREAL8TimeSeries(*hplus);
@@ -806,39 +806,9 @@ int XLALSimBurstGaussian(
 		(*hcross)->data->data[i] *= window->data->data[i];
 	}
 	XLALDestroyREAL8Window(window);
-
+*/
 	return 0;
 }
-
-/**
- * Input:
- *
- * Q:  the "Q" of the waveform.  The Gaussian envelope is \f$exp(-1/2 t^{2} /
- * \sigma_{t}^{2})\f$ where \f$\sigma_{t} = Q / (2 \pi f)\f$.  High Q --> long
- * duration.
- *
- * centre_frequency:   the frequency of the sinusoidal oscillations that
- * get multiplied by the Gaussian envelope.
- *
- * hrss:  the root-sum-squares strain of the waveform (summed over both
- * polarizations).
- *
- * eccentricity:  0 --> circularly polarized, 1 --> linearly polarized.
- *
- * polarization:  the angle from the + axis to the major axis of the
- * waveform ellipsoid.  with the eccentricity set to 1 (output is linearly
- * polarized):  0 --> output contains + polarization only;  pi/2 --> output
- * contains x polarization only.  with the eccentricity set to 0 (output is
- * circularly polarized), the polarization parameter is irrelevant.
- *
- * Output:
- *
- * h+ and hx time series containing a cosine-Gaussian in the + polarization
- * and a sine-Gaussian in the x polarization.  The Gaussian envelope peaks
- * in both at t = 0 as defined by epoch and deltaT.  Note that a Tukey
- * window with tapers covering 50% of the time series is applied to make
- * the waveform go to 0 smoothly at the start and end.
- */
 
 
 int XLALSimBurstSineGaussianF(
@@ -923,7 +893,7 @@ int XLALSimBurstSineGaussianF(
 		//hptilde->data->data[i]  =0.0;
 		//ASSIGN HPTILDE TO THIS TO RESTORE h_+: h0plus * sigma* LAL_SQRT1_2*LAL_SQRT_PI*(exp(-0.5*phi2minus) +exp(-0.5*phi2plus));
     hptilde->data->data[i] = h0plus * sigma* LAL_SQRT1_2*LAL_SQRT_PI*(ephimin +ephiplu);
-		hctilde->data->data[i] = -1.0j*h0cross *sigma*LAL_SQRT1_2*LAL_SQRT_PI*(ephimin +ephiplu);
+		hctilde->data->data[i] = -1.0j*h0cross *sigma*LAL_SQRT1_2*LAL_SQRT_PI*(ephimin-ephiplu);
 	}
 	//fclose(testout);
 
