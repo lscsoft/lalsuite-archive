@@ -249,9 +249,13 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
       XLALPrintError("Unable to allocate memory for injection buffer\n");
       XLAL_ERROR_VOID(XLAL_EFUNC);
     }
-    /* Window the data */
+    
+        /* Window the data */
     REAL4 WinNorm = sqrt(thisData->window->sumofsquares/thisData->window->data->length);
-        for(j=0;j<inj8Wave->data->length;j++) inj8Wave->data->data[j]*=thisData->window->data->data[j]; /* /WinNorm; */ /* Window normalisation applied only in freq domain */
+        for(j=0;j<inj8Wave->data->length;j++){
+           inj8Wave->data->data[j]*=thisData->window->data->data[j]; /* /WinNorm; */ /* Window normalisation applied only in freq domain */
+         }
+       
     XLALREAL8TimeFreqFFT(injF,inj8Wave,thisData->timeToFreqFFTPlan);
     /*for(j=0;j<injF->data->length;j++) printf("%lf\n",injF->data->data[j].re);*/
     
@@ -275,25 +279,25 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
     }
     /* Actually inject the waveform */
     for(j=0;j<inj8Wave->data->length;j++) thisData->timeData->data->data[j]+=inj8Wave->data->data[j];
-      fprintf(stdout,"Injected SNR in detector %s = %.1f\n",thisData->name,thisData->SNR);
-      char filename[256];
-      sprintf(filename,"%s_timeInjection.dat",thisData->name);
-      FILE* file=fopen(filename, "w");
-      for(j=0;j<inj8Wave->data->length;j++){   
-	  fprintf(file, "%.6f\t%lg\n", XLALGPSGetREAL8(&thisData->timeData->epoch) + thisData->timeData->deltaT*j, inj8Wave->data->data[j]);
-      }
-      fclose(file);
-      sprintf(filename,"%s_freqInjection.dat",thisData->name);
-      file=fopen(filename, "w");
-      for(j=0;j<injF->data->length;j++){   
-	thisData->freqData->data->data[j]+=crect(creal(injF->data->data[j])/WinNorm,cimag(injF->data->data[j])/WinNorm);
-	fprintf(file, "%lg %lg \t %lg\n", thisData->freqData->deltaF*j, creal(injF->data->data[j]), cimag(injF->data->data[j]));
-      }
-      fclose(file);
+    fprintf(stdout,"Injected SNR in detector %s = %.1f\n",thisData->name,thisData->SNR);
+    char filename[256];
+    sprintf(filename,"%s_timeInjection.dat",thisData->name);
+    FILE* file=fopen(filename, "w");
+    for(j=0;j<inj8Wave->data->length;j++){   
+      fprintf(file, "%.6f\t%lg\n", XLALGPSGetREAL8(&thisData->timeData->epoch) + thisData->timeData->deltaT*j, inj8Wave->data->data[j]);
+    }
+    fclose(file);
+    sprintf(filename,"%s_freqInjection.dat",thisData->name);
+    file=fopen(filename, "w");
+    for(j=0;j<injF->data->length;j++){   
+      thisData->freqData->data->data[j]+=crect(creal(injF->data->data[j])/WinNorm,cimag(injF->data->data[j])/WinNorm);
+      fprintf(file, "%lg %lg \t %lg\n", thisData->freqData->deltaF*j, creal(injF->data->data[j]), cimag(injF->data->data[j]));
+    }
+    fclose(file);
     
-      XLALDestroyREAL8TimeSeries(inj8Wave);
-      XLALDestroyCOMPLEX16FrequencySeries(injF);
-      thisData=thisData->next;
+    XLALDestroyREAL8TimeSeries(inj8Wave);
+    XLALDestroyCOMPLEX16FrequencySeries(injF);
+    thisData=thisData->next;
     }
     NetworkSNR=sqrt(NetworkSNR);
     fprintf(stdout,"Network SNR of event %d = %.1f\n",event,NetworkSNR);
