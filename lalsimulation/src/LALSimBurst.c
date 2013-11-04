@@ -823,7 +823,6 @@ int XLALSimBurstSineGaussianF(
   REAL8 deltaT
 )
 {
-	//REAL8Window *window;
 	/* semimajor and semiminor axes of waveform ellipsoid */
     REAL8 LAL_SQRT_PI=sqrt(LAL_PI);
 	const double a = 1.0 / sqrt(2.0 - eccentricity * eccentricity);
@@ -846,29 +845,32 @@ int XLALSimBurstSineGaussianF(
 	 * Gaussian envelope rounded to the nearest odd integer */
 	length = (int) floor(30.0 * Q / (LAL_TWOPI * centre_frequency) / deltaT / 2.0);  // This is 30 tau_t
 	length = 2 * length + 1; // length is 60 taus +1 bin
-    XLALGPSSetREAL8(&epoch, -(length - 1) / 2 * deltaT); // epoch is set to minus (30 taus_t) in secs
+  XLALGPSSetREAL8(&epoch, -(length - 1) / 2 * deltaT); // epoch is set to minus (30 taus_t) in secs
     
-    /* tau is the width of the gaussian envelope in the freq domain */
-    REAL8 tau=centre_frequency/Q;
-	/* sigma is the width of the gaussian envelope in the time domain */
+  /* tau is the width of the gaussian envelope in the freq domain */
+  REAL8 tau=centre_frequency/Q;
+  /* sigma is the width of the gaussian envelope in the time domain */
 
-    REAL8 sigma= Q/(LAL_TWOPI*centre_frequency);
-    REAL8 tau2=tau*tau;
-    /* set fmax to be f0 + 3sigmas*/
-    REAL8 Fmax=centre_frequency + 6.0*tau;
-    //printf("fmax %lf    f0=%lf\n",Fmax,centre_frequency);
-    /* if fmax > nyquist use nyquist */
-    if (Fmax>(1.0/(2.0*deltaT))) 
-      Fmax=1.0/(2.0*deltaT);
+  REAL8 sigma= Q/(LAL_TWOPI*centre_frequency);
+  REAL8 tau2=tau*tau;
+  /* set fmax to be f0 + 3sigmas*/
+  REAL8 Fmax=centre_frequency + 6.0*tau;
+  //printf("fmax %lf    f0=%lf\n",Fmax,centre_frequency);
+  /* if fmax > nyquist use nyquist */
+  if (Fmax>(1.0/(2.0*deltaT))) 
+  Fmax=1.0/(2.0*deltaT);
+  REAL8 Fmin= centre_frequency -6.0*tau;
+  if (Fmin<0.0)
+  Fmin=0.0;
+  size_t lower =(size_t) ( Fmin/deltaF);    
+  size_t upper= (size_t) ( Fmax/deltaF+1);
+
+  COMPLEX16FrequencySeries *hptilde;
+  COMPLEX16FrequencySeries *hctilde;
     
-    size_t upper= (size_t) ( Fmax/deltaF+1);
-    
-    COMPLEX16FrequencySeries *hptilde;
-    COMPLEX16FrequencySeries *hctilde;
-    
-    /* the middle sample is t = 0 */
-    hptilde=XLALCreateCOMPLEX16FrequencySeries("hplus",&epoch,0.0,deltaF,&lalStrainUnit,upper);
-    hctilde=XLALCreateCOMPLEX16FrequencySeries("hcross",&epoch,0.0,deltaF,&lalStrainUnit,upper);
+  /* the middle sample is t = 0 */
+  hptilde=XLALCreateCOMPLEX16FrequencySeries("hplus",&epoch,0.0,deltaF,&lalStrainUnit,upper);
+  hctilde=XLALCreateCOMPLEX16FrequencySeries("hcross",&epoch,0.0,deltaF,&lalStrainUnit,upper);
 	
 	if(!hptilde || !hctilde) {
 		XLALDestroyCOMPLEX16FrequencySeries(hptilde);
@@ -877,30 +879,28 @@ int XLALSimBurstSineGaussianF(
 		XLAL_ERROR(XLAL_EFUNC);
 	}
 
-	/* populate */
-     REAL8 f=0.0;
-     REAL8 phi2plus=0.0;
-     REAL8 phi2minus=0.0;
-    REAL8 ephimin=0.0;
-    REAL8 ephiplu=0.0;
-   //FILE * testout = fopen("cippa2.txt","w");
-	for(i = 0; i < upper; i++) {
+  /* populate */
+  REAL8 f=0.0;
+  REAL8 phi2plus=0.0;
+  REAL8 phi2minus=0.0;
+  REAL8 ephimin=0.0;
+  REAL8 ephiplu=0.0;
+  //FILE * testout = fopen("cippa2.txt","w");
+  for(i = lower; i < upper; i++) {
     f=((REAL8 ) i )*deltaF;
     phi2plus =(centre_frequency +f)*(centre_frequency +f)/tau2;
     phi2minus= (f-centre_frequency )*(f-centre_frequency )/tau2;
-		ephimin=exp(-0.5*phi2minus);
+    ephimin=exp(-0.5*phi2minus);
     ephiplu=exp(-0.5*phi2plus);
-		//hptilde->data->data[i]  =0.0;
-		//ASSIGN HPTILDE TO THIS TO RESTORE h_+: h0plus * sigma* LAL_SQRT1_2*LAL_SQRT_PI*(exp(-0.5*phi2minus) +exp(-0.5*phi2plus));
     hptilde->data->data[i] = h0plus * sigma* LAL_SQRT1_2*LAL_SQRT_PI*(ephimin +ephiplu);
-		hctilde->data->data[i] = -1.0j*h0cross *sigma*LAL_SQRT1_2*LAL_SQRT_PI*(ephimin-ephiplu);
-	}
-	//fclose(testout);
+    hctilde->data->data[i] = -1.0j*h0cross *sigma*LAL_SQRT1_2*LAL_SQRT_PI*(ephimin-ephiplu);
+  }
+  //fclose(testout);
 
-    *hplus=hptilde;
-    *hcross=hctilde;
-	
-	return 0;
+  *hplus=hptilde;
+  *hcross=hctilde;
+
+  return 0;
 }
 
 int XLALSimBurstGaussianF(
