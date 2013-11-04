@@ -53,22 +53,33 @@ void LALInferenceInitBurstTemplate(LALInferenceRunState *runState)
   
   ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
   if(ppt) {
-    if(!strcmp("SineGaussianF",ppt->value))
+    if(!strcmp("SineGaussianF",ppt->value)){
         runState->templt=&LALInferenceTemplateSineGaussianF;
-    else if(!strcmp("SineGaussian",ppt->value))
+        runState->data->modelDomain=LAL_SIM_DOMAIN_FREQUENCY;
+    }
+    else if(!strcmp("SineGaussian",ppt->value)){
         runState->templt=&LALInferenceTemplateSineGaussian;
-    else if(!strcmp("GaussianF",ppt->value))
+        runState->data->modelDomain=LAL_SIM_DOMAIN_TIME;
+    }
+    else if(!strcmp("GaussianF",ppt->value)){
         runState->templt=&LALInferenceTemplateGaussianF;
-    else if(!strcmp("Gaussian",ppt->value))
+        runState->data->modelDomain=LAL_SIM_DOMAIN_FREQUENCY;
+    }
+    else if(!strcmp("Gaussian",ppt->value)){
         runState->templt=&LALInferenceTemplateGaussian;
+        runState->data->modelDomain=LAL_SIM_DOMAIN_TIME;
+    }
     else if(!strcmp("BestIFO",ppt->value))
         runState->templt=&LALInferenceTemplateBestIFO;
     else if(!strcmp("RingdownF",ppt->value)){
         printf("Using LALInferenceTemplateXLALSimRingdown: congratulations!\n");
-        runState->templt=&LALInferenceTemplateXLALSimRingdown;}
+        runState->templt=&LALInferenceTemplateXLALSimRingdown;
+        runState->data->modelDomain=LAL_SIM_DOMAIN_FREQUENCY;}
     else if(!strcmp("HMNS",ppt->value)){
         printf("Using LALInferenceTemplateHMNS\n");
-        runState->templt=&LALInferenceTemplateHMNS;}
+        runState->templt=&LALInferenceTemplateHMNS;
+        // FIXME runState->data->modelDomain=LAL_SIM_DOMAIN_FREQUENCY;
+    }
     else {
       XLALPrintError("Error: unknown template %s\n",ppt->value);
       XLALPrintError(help);
@@ -139,7 +150,7 @@ Parameter arguments:\n\
           else
             fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
           endtime_from_inj=XLALGPSGetREAL8(&(BinjTable->time_geocent_gps));
-          state->data->modelDomain=LAL_SIM_DOMAIN_FREQUENCY; // fixme
+          
       }
     else{
 	    SimInspiralTableFromLIGOLw(&inj_table,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
@@ -151,7 +162,6 @@ Parameter arguments:\n\
           i =0;
           while(i<event) {i++; inj_table=inj_table->next;} /* select event */
           endtime_from_inj=XLALGPSGetREAL8(&(inj_table->geocent_end_time));
-          state->data->modelDomain=LAL_SIM_DOMAIN_FREQUENCY; //fixme
         }
         else
           fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
@@ -502,7 +512,6 @@ Parameter arguments:\n\
         }
         endtime=XLALGPSGetREAL8(&injTable->geocent_end_time);
         fprintf(stderr,"Read trig time %lf from injection XML file\n",endtime);
-        state->data->modelDomain=LAL_SIM_DOMAIN_FREQUENCY; // salvo
     
     if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
             pinned_params=ppt->value;
