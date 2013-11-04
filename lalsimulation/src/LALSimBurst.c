@@ -890,7 +890,10 @@ int XLALSimBurstSineGaussianF(
     /* if fmax > nyquist use nyquist */
     if (Fmax>(1.0/(2.0*deltaT))) 
       Fmax=1.0/(2.0*deltaT);
-    
+    REAL8 Fmin= centre_frequency -6.0*tau;
+    if (Fmin<0.0)
+      Fmin=0.0;
+    size_t lower =(size_t) ( Fmin/deltaF);    
     size_t upper= (size_t) ( Fmax/deltaF+1);
     
     COMPLEX16FrequencySeries *hptilde;
@@ -914,7 +917,7 @@ int XLALSimBurstSineGaussianF(
     REAL8 ephimin=0.0;
     REAL8 ephiplu=0.0;
    //FILE * testout = fopen("cippa2.txt","w");
-	for(i = 0; i < upper; i++) {
+	for(i = lower; i < upper; i++) {
     f=((REAL8 ) i )*deltaF;
     phi2plus =(centre_frequency +f)*(centre_frequency +f)/tau2;
     phi2minus= (f-centre_frequency )*(f-centre_frequency )/tau2;
