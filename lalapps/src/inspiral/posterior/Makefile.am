@@ -20,9 +20,10 @@ endif
 
 if LALPULSAR
 if LALINFERENCE
-pulsar_progs = lalinference_nest ChiSquare_test #lalinference_mcmcmpi
+pulsar_progs = lalinference_nest ChiSquare_test lalsnr #lalinference_mcmcmpi
 ChiSquare_test_SOURCES = ChiSquare_test.c
 lalinference_nest_SOURCES = LALInferenceNest.c
+lalsnr_SOURCES = LALSNR.c
 
 endif
 

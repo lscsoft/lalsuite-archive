@@ -26,6 +26,9 @@
  *
  */
 
+
+#define myUNUSED(expr) do { (void)(expr); } while (0)
+
 #define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <math.h>
 #include <stdio.h>
@@ -132,8 +135,8 @@ SimInspiralTable* XLALRandomLuminosityDistance(
     double z, DL, thisVc, minVc, maxVc;
     const gsl_root_fsolver_type *T;
     gsl_root_fsolver *s;
-    const gsl_rng_type *type;
-    gsl_rng *p;
+    //const gsl_rng_type *type;
+    //gsl_rng *p;
     int status;
     int iter = 0;
     int max_iter = 100;
@@ -146,8 +149,8 @@ SimInspiralTable* XLALRandomLuminosityDistance(
     gsl_rng_env_setup();
     gsl_rng_default_seed = 42;
     
-    type = gsl_rng_default;
-    p =    gsl_rng_alloc (type);
+    //type = gsl_rng_default;
+    //p =    gsl_rng_alloc (type);
     
     minVc = CosmoVc(minZ);
     maxVc = CosmoVc(maxZ);
@@ -232,11 +235,12 @@ double CosmoVc(double z)
 double CosmoVcIntegrand(double z, void *params) 
 {    
     CosmoV *par = (CosmoV *) params;
+    myUNUSED(par);
     double Om;
     double Od;
     double threewp;
     double DL;
-    double fudge;
+    //double fudge;
     
     Od = 0.73;
     Om = 1. - Od;
@@ -245,7 +249,8 @@ double CosmoVcIntegrand(double z, void *params)
     double zp = 1.+z;
     DL = CosmoDL(z);
     
-    fudge = par->thisVc;
+    //fudge = par->thisVc;
+    //(void) fudge ;
     
     return(pow(DL/zp,2.)/sqrt( Om*pow(zp, 3.) + Od*pow(zp, threewp) )); 
 }
@@ -282,10 +287,11 @@ double CosmoDL(double zz)
 double CosmoDLIntegrand(double z, void *params) 
 {
     CosmoV *par = (CosmoV *) params;
+    myUNUSED(par);
     double Om;
     double Od;
     double threewp;
-    double fudge;
+    //double fudge;
     
     
     Od = 0.73;
@@ -294,7 +300,9 @@ double CosmoDLIntegrand(double z, void *params)
     
     double zp = 1.+z;
     
-    fudge = par->thisVc;
+    //fudge = par->thisVc;
+    
+    //(void) fudge ;
     
     return(1./sqrt( Om*pow(zp, 3.) + Od*pow(zp, threewp) )); 
 }
