@@ -30,9 +30,9 @@ import sys
 
 
 from glue.ligolw import lsctables
+from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
-from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal import tools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -361,7 +361,7 @@ def ligolw_burca(
 	if verbose:
 		print >>sys.stderr, "indexing ..."
 	coinc_tables = CoincTables(xmldoc)
-	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
+	coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
 	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglBurstTable.tableName))
 
 	#

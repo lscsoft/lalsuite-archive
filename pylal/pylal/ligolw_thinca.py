@@ -33,10 +33,10 @@ from glue import iterutils
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw.utils import search_summary as ligolw_search_summary
+from glue.ligolw.utils import coincs as ligolw_coincs
 from glue import offsetvector
 import lal
 from pylal import git_version
-from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -415,7 +415,7 @@ def ligolw_thinca(
 	if verbose:
 		print >>sys.stderr, "indexing ..."
 	coinc_tables = InspiralCoincTables(xmldoc, vetoes = veto_segments, program = trigger_program, likelihood_func = likelihood_func, likelihood_params_func = likelihood_params_func)
-	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
+	coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
 	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName))
 
 	#

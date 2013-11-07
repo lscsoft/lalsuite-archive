@@ -262,19 +262,19 @@ class Param(ligolw.Param):
 		# convert pcdata from string to native Python type
 		self.pcdata = self.pytype(self.pcdata.strip())
 
-	def write(self, file = sys.stdout, indent = u""):
-		file.write(self.start_tag(indent) + u"\n")
+	def write(self, fileobj = sys.stdout, indent = u""):
+		fileobj.write(self.start_tag(indent) + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
 				raise ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
-			c.write(file, indent + ligolw.Indent)
+			c.write(fileobj, indent + ligolw.Indent)
 		if self.pcdata is not None:
 			# we have to strip quote characters from string
 			# formats (see comment above)
-			file.write(indent + ligolw.Indent)
-			file.write(xmlescape(ligolwtypes.FormatFunc[self.getAttribute("Type")](self.pcdata).strip(u"\"")))
-			file.write(u"\n")
-		file.write(self.end_tag(indent) + u"\n")
+			fileobj.write(indent + ligolw.Indent)
+			fileobj.write(xmlescape(ligolwtypes.FormatFunc[self.getAttribute("Type")](self.pcdata).strip(u"\"")))
+			fileobj.write(u"\n")
+		fileobj.write(self.end_tag(indent) + u"\n")
 
 
 #
