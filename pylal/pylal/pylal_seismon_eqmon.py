@@ -1062,7 +1062,7 @@ def irisread(event):
     attributeDic["Depth"] = event.origins[0].depth
     attributeDic["eventID"] = event.origins[0].region
 
-    attributeDic['GPS'] = float(lal.gpstime.utc_to_gps(tm))
+    attributeDic['GPS'] = float(lal.gpstime.utc_to_gps(dt))
     attributeDic['UTC'] = float(dt.strftime("%s"))
 
     eventID = "%.0f"%attributeDic['GPS']
@@ -1082,7 +1082,7 @@ def irisread(event):
 
     SentTime = time.gmtime()
     dt = datetime.fromtimestamp(time.mktime(SentTime))
-    attributeDic['SentGPS'] = float(lal.gpstime.utc_to_gps(SentTime))
+    attributeDic['SentGPS'] = float(lal.gpstime.utc_to_gps(dt))
     attributeDic['SentUTC'] = time.time()
     attributeDic['Sent'] = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", SentTime)
 

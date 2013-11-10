@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os, glob, optparse, shutil, warnings, matplotlib, pickle, math, copy, pickle, time
+import os, sys, code, glob, optparse, shutil, warnings, matplotlib, pickle, math, copy, pickle, time
 import numpy as np
 import scipy.signal, scipy.stats, scipy.fftpack
 from collections import namedtuple
@@ -969,3 +969,19 @@ def xcorr(x, y, normed=True, maxlags=None):
     c = c[Nx-1-maxlags:Nx+maxlags]
 
     return c,lags
+
+def keyboard(banner=None):
+    ''' Function that mimics the matlab keyboard command '''
+    # use exception trick to pick up the current frame
+    try:
+        raise None
+    except:
+        frame = sys.exc_info()[2].tb_frame.f_back
+    print "# Use quit() to exit :) Happy debugging!"
+    # evaluate commands in current namespace
+    namespace = frame.f_globals.copy()
+    namespace.update(frame.f_locals)
+    try:
+        code.interact(banner=banner, local=namespace)
+    except SystemExit:
+        return
