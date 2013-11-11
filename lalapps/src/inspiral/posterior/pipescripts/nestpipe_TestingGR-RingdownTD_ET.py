@@ -804,7 +804,7 @@ def write_subfile_datafind( rundir, logdir, filename, hypname, inifile ):
   execpath = cp.get('condor','datafind')
 
   filetext = (
-  "universe = standard\n"
+  "universe = vanilla\n"
   "executable = "+str(execpath)+"\n"
   "arguments = \" --observatory $(macroobservatory) --url-type file --gps-start-time $(macrogpsstarttime) --gps-end-time $(macrogpsendtime) --output $(macrooutput) --lal-cache --type $(macrotype) \"\n"
   "getenv = True\n"
