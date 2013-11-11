@@ -804,7 +804,7 @@ def write_subfile_datafind( rundir, logdir, filename, hypname, inifile ):
   execpath = cp.get('condor','datafind')
 
   filetext = (
-  "universe = local\n"
+  "universe = standard\n"
   "executable = "+str(execpath)+"\n"
   "arguments = \" --observatory $(macroobservatory) --url-type file --gps-start-time $(macrogpsstarttime) --gps-end-time $(macrogpsendtime) --output $(macrooutput) --lal-cache --type $(macrotype) \"\n"
   "getenv = True\n"
@@ -897,7 +897,7 @@ def write_subfile_lalinference( rundir, logdir, filename, hypname, inifile):
   "--ifo $(macroifo) ")
 
   filetext = (
-  "universe = local\n"
+  "universe = standard\n"
   "executable = "+str(execpath)+"\n"
   "arguments = \" "+str(arguments)+GRtestparameters_option+" \"\n"
   "getenv = True\n"
