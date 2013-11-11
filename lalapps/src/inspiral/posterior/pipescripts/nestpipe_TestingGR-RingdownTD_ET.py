@@ -177,8 +177,8 @@ postprocfolder = publichtmlfolder+"/%s/%s/%s/%s"%(ProjectName,InjectionName,type
 
 
 #calculate eta from q
-eta_min = q_min/((1+q_min)*(1+q_min))
-eta_max = q_max/((1+q_max)*(1+q_max))
+eta_min = q_min/((1.0+q_min)*(1.0+q_min))
+eta_max = q_max/((1.0+q_max)*(1.0+q_max))
 
 if (testoutputon):
     print "Creating the xml file\n"
@@ -198,7 +198,7 @@ str(PATH_TO_OPT)+"/bin/lalapps_inspinj \\\n"
 "--gps-start-time "+str(gps_start)+" \\\n"
 "--gps-end-time "+str(gps_end)+" \\\n"
 "--seed "+str(inspinj_seed)+" \\\n"
-"--waveform RingdownTDthreePointFivePN \\\n"
+"--waveform RingdownTD \\\n"
 "--min-z "+str(min_z)+" \\\n"
 "--max-z "+str(max_z)+" \\\n"
 "--d-distr covolume \\\n"
@@ -550,7 +550,7 @@ for run in allcombinations:
     "fake-cache="+str(fakecash_string)+"\n"
     "\n"
     "[lalinferencenest]\n"
-    "approx=RingdownTDthreePointFivePN\n"
+    "approx=RingdownTD\n"
     "nlive="+str(Nlive)+"\n"
     "srate=4096\n"
     "progress=\n"
@@ -558,10 +558,12 @@ for run in allcombinations:
     "mtotalmax="+str(max_rdmass)+"\n"
     "massmin="+str(min_rdmass)+"\n"
     "massmax="+str(max_rdmass)+"\n"
+    "disable-a=\n"
     "a-min="+str(min_rdspin)+"\n"
     "a-max="+str(max_rdspin)+"\n"
     "Dmin="+str(min_distance)+"\n"
     "Dmax="+str(max_distance)+"\n"
+    "symMassRatio=\n"
     "eta-min="+str(eta_min)+"\n"
     "eta-max="+str(eta_max)+"\n"
     "template=LALSimRingdown\n"
@@ -867,7 +869,6 @@ def write_subfile_lalinference( rundir, logdir, filename, hypname, inifile):
   "--srate "+str(srate)+" "
   "--event $(macroevent) "
   "--seglen $(macroseglen) "
-  "--eta-min "+str(eta_min)+" "
   "--cache $(macrocache) "
   "--trigtime $(macrotrigtime) "
   "--massmin "+str(massmin)+" "
@@ -883,11 +884,14 @@ def write_subfile_lalinference( rundir, logdir, filename, hypname, inifile):
   "--Nmcmc "+str(nmcmc)+" "
   "--outfile $(macrooutfile) "
   "--randomseed $(macrorandomseed) "
+  "--disable-a "
   "--a-min "+str(a_min)+" "
   "--a-max "+str(a_max)+" "
   "--mtotalmax "+str(mtotalmax)+" "
   "--dataseed $(macrodataseed) "
   "--flow "+str(flow)+" "
+  "--symMassRatio "
+  "--eta-min "+str(eta_min)+" "
   "--eta-max "+str(eta_max)+" "
   "--channel $(macrochannel) "
   "--ifo $(macroifo) ")
