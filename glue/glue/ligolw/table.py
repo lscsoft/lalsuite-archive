@@ -836,14 +836,6 @@ class Table(ligolw.Table, list):
 					except KeyError:
 						pass
 
-	@classmethod
-	def from_document(cls, xmldoc):
-		"""
-		Extract an instance of this `Table` from the given
-		LIGO_LW Document ``xmldoc``.
-		"""
-		return get_table(xmldoc, cls.tableName)
-
 
 #
 # =============================================================================
