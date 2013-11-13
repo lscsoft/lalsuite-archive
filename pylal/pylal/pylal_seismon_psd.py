@@ -342,10 +342,10 @@ def spectra(params, channel, segment):
         pngFile = os.path.join(plotDirectory,"timeseries.png")
         plot = gwpy.plotter.TimeSeriesPlot(figsize=[14,8])
 
-        dataHighpass = data["dataHighpass"].resample(16)
+        dataHighpass = data["dataHighpass"].resample(16,doDecimate=True)
         dataFull = data["dataFull"].resample(16)
         dataLowpass = data["dataLowpass"].resample(16)
-       
+      
         #dataHighpass = data["dataHighpass"]
         #dataFull = data["dataFull"]
         #dataLowpass = data["dataLowpass"]

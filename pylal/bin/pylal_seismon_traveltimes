@@ -356,14 +356,11 @@ def iris_events(params):
 
     import obspy.iris, obspy.core
 
-    starttime = LIGOTimeGPS(params["gpsStart"])
-    endtime = LIGOTimeGPS(params["gpsEnd"])
+    starttime = lal.gpstime.gps_to_utc(params["gpsStart"])
+    endtime = lal.gpstime.gps_to_utc(params["gpsEnd"])
 
-    starttime = lal.gpstime.gps_to_utc(starttime)
-    endtime = lal.gpstime.gps_to_utc(endtime)
-
-    starttime = obspy.core.UTCDateTime(starttime[0],starttime[1],starttime[2],starttime[3],starttime[4],starttime[5])
-    endtime = obspy.core.UTCDateTime(endtime[0],endtime[1],endtime[2],endtime[3],endtime[4],endtime[5],endtime[6])
+    starttime = obspy.core.UTCDateTime(starttime)
+    endtime = obspy.core.UTCDateTime(endtime)
 
     client = obspy.iris.Client()
     events = client.getEvents(minmag=params["minMagnitude"],starttime=starttime,endtime=endtime)

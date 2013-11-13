@@ -44,12 +44,12 @@ import lal
 from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal import ligolw_burca
 from pylal import ligolw_tisi
-from pylal import llwapp
 from pylal import SimBurstUtils
 from pylal.xlal import tools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -227,11 +227,11 @@ class DocContents(object):
 		#
 
 		if self.simbursttable is not None:
-			self.sb_b_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, sb_b_def.search, sb_b_def.search_coinc_type, create_new = True, description = sb_b_def.description)
+			self.sb_b_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, sb_b_def.search, sb_b_def.search_coinc_type, create_new = True, description = sb_b_def.description)
 		else:
 			self.sb_b_coinc_def_id = None
 		if self.siminspiraltable is not None:
-			self.si_b_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, si_b_def.search, si_b_def.search_coinc_type, create_new = True, description = si_b_def.description)
+			self.si_b_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, si_b_def.search, si_b_def.search_coinc_type, create_new = True, description = si_b_def.description)
 		else:
 			self.si_b_coinc_def_id = None
 
@@ -243,7 +243,7 @@ class DocContents(object):
 		#
 
 		try:
-			b_b_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, b_b_def.search, b_b_def.search_coinc_type, create_new = False)
+			b_b_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, b_b_def.search, b_b_def.search_coinc_type, create_new = False)
 		except KeyError:
 			b_b_coinc_def_id = None
 			self.sb_c_e_coinc_def_id = None
@@ -252,14 +252,14 @@ class DocContents(object):
 			self.si_c_n_coinc_def_id = None
 		else:
 			if self.simbursttable is not None:
-				self.sb_c_e_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, sb_c_e_def.search, sb_c_e_def.search_coinc_type, create_new = True, description = sb_c_e_def.description)
-				self.sb_c_n_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, sb_c_n_def.search, sb_c_n_def.search_coinc_type, create_new = True, description = sb_c_n_def.description)
+				self.sb_c_e_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, sb_c_e_def.search, sb_c_e_def.search_coinc_type, create_new = True, description = sb_c_e_def.description)
+				self.sb_c_n_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, sb_c_n_def.search, sb_c_n_def.search_coinc_type, create_new = True, description = sb_c_n_def.description)
 			else:
 				self.sb_c_e_coinc_def_id = None
 				self.sb_c_n_coinc_def_id = None
 			if self.siminspiraltable is not None:
-				self.si_c_e_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, si_c_e_def.search, si_c_e_def.search_coinc_type, create_new = True, description = si_c_e_def.description)
-				self.si_c_n_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, si_c_n_def.search, si_c_n_def.search_coinc_type, create_new = True, description = si_c_n_def.description)
+				self.si_c_e_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, si_c_e_def.search, si_c_e_def.search_coinc_type, create_new = True, description = si_c_e_def.description)
+				self.si_c_n_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, si_c_n_def.search, si_c_n_def.search_coinc_type, create_new = True, description = si_c_n_def.description)
 			else:
 				self.si_c_e_coinc_def_id = None
 				self.si_c_n_coinc_def_id = None
@@ -392,12 +392,17 @@ def append_process(xmldoc, match_algorithm, comment):
 	"""
 	Convenience wrapper for adding process metadata to the document.
 	"""
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
-
-	params = [(u"--match-algorithm", u"lstring", match_algorithm)]
-	ligolw_process.append_process_params(xmldoc, process, params)
-
-	return process
+	return ligolw_process.register_to_xmldoc(
+		xmldoc,
+		program = process_program_name,
+		paramdict = {
+			"match_algorithm": match_algorithm
+		},
+		version = __version__,
+		cvs_repository = u"lscsoft",
+		cvs_entry_time = __date__,
+		comment = comment
+	)
 
 
 #

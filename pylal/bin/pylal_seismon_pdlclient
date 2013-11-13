@@ -75,7 +75,10 @@ def runProcess(process,verbose=False):
            verboseProcess(process,verbose)
            return process
 
-   #runCommand = "source /home/mcoughlin/Seismon/ProductClient/run.sh"
+
+   runCommand = "rm /home/mcoughlin/Seismon/ProductClient/data/receiver_index.db"
+   process = Popen(runCommand,shell=True,stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
+
    runCommand = "java -jar /home/mcoughlin/Seismon/ProductClient/ProductClient.jar --receive --configFile=/home/mcoughlin/Seismon/ProductClient/config.ini -Xmx1024m"
    process = Popen(runCommand,shell=True,stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
    verboseProcess(process,verbose)

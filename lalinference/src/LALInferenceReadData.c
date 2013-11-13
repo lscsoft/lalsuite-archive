@@ -2606,7 +2606,13 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState)
     }
     REAL8 injPrior = runState->prior(runState,runState->currentParams);
     LALInferenceAddVariable(runState->currentParams,"logPrior",&injPrior,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
-    REAL8 injL = runState->likelihood(runState->currentParams, runState->data, runState->templt);
+    int errnum=0;
+    REAL8 injL=0.;
+    XLAL_TRY(injL = runState->likelihood(runState->currentParams, runState->data, runState->templt), errnum);
+    if(errnum){
+        fprintf(stderr,"ERROR: Cannot print injection sample. Received error code %s\n",XLALErrorString(errnum));
+    }
+
     LALInferenceAddVariable(runState->currentParams,"logL",(void *)&injL,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
     if(LALInferenceCheckVariable(runState->algorithmParams,"logZnoise")){
         REAL8 tmp=injL-*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams,"logZnoise");
@@ -2644,9 +2650,10 @@ void enforce_m1_larger_m2(SimInspiralTable* injEvent){
     REAL8 m1,m2,tmp;
     m1=injEvent->mass1;
     m2=injEvent->mass2;
-    fprintf(stdout, "Injtable has m1<m2. Flipping masses and spins in injection. Shifting phase by pi. \n");
+   
     if (m1>=m2) return;
-    else{        
+    else{
+        fprintf(stdout, "Injtable has m1<m2. Flipping masses and spins in injection. Shifting phase by pi. \n");
         tmp=m1;
         injEvent->mass1=injEvent->mass2;
         injEvent->mass2=tmp;

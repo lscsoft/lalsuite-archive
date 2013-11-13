@@ -93,10 +93,11 @@ const char *gengetopt_args_info_full_help[] = {
   "      --useSSE                  Use SSE functions (caution: user needs to have \n                                  compiled for SSE or program fails)  \n                                  (default=off)",
   "      --followUpOutsideULrange  Follow up outliers outside the range of the UL \n                                  values  (default=off)",
   "\nInjection options:",
-  "      --timestampsFile=@path/filename\n                                File to read timestamps from (file-format: \n                                  lines with <seconds> <nanoseconds>; conflicts \n                                  with --sftDir/--sftFile options) with a \n                                  required preceding @ symbol",
-  "      --injectionSources=path/filename\n                                File containing sources to inject",
+  "      --timestampsFile=path/filename\n                                File to read timestamps from (file-format: \n                                  lines with <seconds> <nanoseconds>; conflicts \n                                  with --sftDir/--sftFile options)",
+  "      --injectionSources=@path/filename\n                                File containing sources to inject with a \n                                  required preceding @ symbol",
   "      --injRandSeed=INT         Random seed value for reproducable noise \n                                  (conflicts with --sftDir/--sftFile options)  \n                                  (default=`0')",
   "\nHidden options:",
+  "      --weightedIHS             Use the noise-weighted IHS scheme  \n                                  (default=off)",
   "      --signalOnly              SFTs contain only signal, no noise  \n                                  (default=off)",
   "      --templateTest            Test the doubly-Fourier transformed data \n                                  against a single, exact template  \n                                  (default=off)",
   "      --templateTestF=DOUBLE    The template test frequency; templateTest flag \n                                  is required",
@@ -111,7 +112,6 @@ const char *gengetopt_args_info_full_help[] = {
   "      --antennaOff              Antenna pattern weights are /NOT/ used if this \n                                  flag is used  (default=off)",
   "      --noiseWeightOff          Turn off noise weighting if this flag is used  \n                                  (default=off)",
   "      --gaussTemplatesOnly      Gaussian templates only throughout the pipeline \n                                  if this flag is used  (default=off)",
-  "      --validateSSE             Validate the use of SSE functions  \n                                  (default=off)",
   "      --ULoff                   Turn off upper limits computation  \n                                  (default=off)",
   "      --printSFTtimes           Output a list <GPS sec> <GPS nanosec> of SFT \n                                  start times of input SFTs  (default=off)",
   "      --printUsedSFTtimes       Output a list <GPS sec> <GPS nanosec> of SFT \n                                  start times of the SFTs passing tests  \n                                  (default=off)",
@@ -305,6 +305,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->timestampsFile_given = 0 ;
   args_info->injectionSources_given = 0 ;
   args_info->injRandSeed_given = 0 ;
+  args_info->weightedIHS_given = 0 ;
   args_info->signalOnly_given = 0 ;
   args_info->templateTest_given = 0 ;
   args_info->templateTestF_given = 0 ;
@@ -319,7 +320,6 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->antennaOff_given = 0 ;
   args_info->noiseWeightOff_given = 0 ;
   args_info->gaussTemplatesOnly_given = 0 ;
-  args_info->validateSSE_given = 0 ;
   args_info->ULoff_given = 0 ;
   args_info->printSFTtimes_given = 0 ;
   args_info->printUsedSFTtimes_given = 0 ;
@@ -410,6 +410,7 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->injectionSources_orig = NULL;
   args_info->injRandSeed_arg = 0;
   args_info->injRandSeed_orig = NULL;
+  args_info->weightedIHS_flag = 0;
   args_info->signalOnly_flag = 0;
   args_info->templateTest_flag = 0;
   args_info->templateTestF_orig = NULL;
@@ -426,7 +427,6 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->antennaOff_flag = 0;
   args_info->noiseWeightOff_flag = 0;
   args_info->gaussTemplatesOnly_flag = 0;
-  args_info->validateSSE_flag = 0;
   args_info->ULoff_flag = 0;
   args_info->printSFTtimes_flag = 0;
   args_info->printUsedSFTtimes_flag = 0;
@@ -500,21 +500,21 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->timestampsFile_help = gengetopt_args_info_full_help[61] ;
   args_info->injectionSources_help = gengetopt_args_info_full_help[62] ;
   args_info->injRandSeed_help = gengetopt_args_info_full_help[63] ;
-  args_info->signalOnly_help = gengetopt_args_info_full_help[65] ;
-  args_info->templateTest_help = gengetopt_args_info_full_help[66] ;
-  args_info->templateTestF_help = gengetopt_args_info_full_help[67] ;
-  args_info->templateTestP_help = gengetopt_args_info_full_help[68] ;
-  args_info->templateTestDf_help = gengetopt_args_info_full_help[69] ;
-  args_info->ULsolver_help = gengetopt_args_info_full_help[70] ;
-  args_info->dopplerMultiplier_help = gengetopt_args_info_full_help[71] ;
-  args_info->IHSonly_help = gengetopt_args_info_full_help[72] ;
-  args_info->noNotchHarmonics_help = gengetopt_args_info_full_help[73] ;
-  args_info->calcRthreshold_help = gengetopt_args_info_full_help[74] ;
-  args_info->BrentsMethod_help = gengetopt_args_info_full_help[75] ;
-  args_info->antennaOff_help = gengetopt_args_info_full_help[76] ;
-  args_info->noiseWeightOff_help = gengetopt_args_info_full_help[77] ;
-  args_info->gaussTemplatesOnly_help = gengetopt_args_info_full_help[78] ;
-  args_info->validateSSE_help = gengetopt_args_info_full_help[79] ;
+  args_info->weightedIHS_help = gengetopt_args_info_full_help[65] ;
+  args_info->signalOnly_help = gengetopt_args_info_full_help[66] ;
+  args_info->templateTest_help = gengetopt_args_info_full_help[67] ;
+  args_info->templateTestF_help = gengetopt_args_info_full_help[68] ;
+  args_info->templateTestP_help = gengetopt_args_info_full_help[69] ;
+  args_info->templateTestDf_help = gengetopt_args_info_full_help[70] ;
+  args_info->ULsolver_help = gengetopt_args_info_full_help[71] ;
+  args_info->dopplerMultiplier_help = gengetopt_args_info_full_help[72] ;
+  args_info->IHSonly_help = gengetopt_args_info_full_help[73] ;
+  args_info->noNotchHarmonics_help = gengetopt_args_info_full_help[74] ;
+  args_info->calcRthreshold_help = gengetopt_args_info_full_help[75] ;
+  args_info->BrentsMethod_help = gengetopt_args_info_full_help[76] ;
+  args_info->antennaOff_help = gengetopt_args_info_full_help[77] ;
+  args_info->noiseWeightOff_help = gengetopt_args_info_full_help[78] ;
+  args_info->gaussTemplatesOnly_help = gengetopt_args_info_full_help[79] ;
   args_info->ULoff_help = gengetopt_args_info_full_help[80] ;
   args_info->printSFTtimes_help = gengetopt_args_info_full_help[81] ;
   args_info->printUsedSFTtimes_help = gengetopt_args_info_full_help[82] ;
@@ -623,7 +623,7 @@ struct generic_list
 };
 
 /**
- * @brief add a node at the head of the list
+ * @brief add a node at the head of the list 
  */
 static void add_node(struct generic_list **list) {
   struct generic_list *new_node = (struct generic_list *) malloc (sizeof (struct generic_list));
@@ -916,6 +916,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "injectionSources", args_info->injectionSources_orig, 0);
   if (args_info->injRandSeed_given)
     write_into_file(outfile, "injRandSeed", args_info->injRandSeed_orig, 0);
+  if (args_info->weightedIHS_given)
+    write_into_file(outfile, "weightedIHS", 0, 0 );
   if (args_info->signalOnly_given)
     write_into_file(outfile, "signalOnly", 0, 0 );
   if (args_info->templateTest_given)
@@ -944,8 +946,6 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "noiseWeightOff", 0, 0 );
   if (args_info->gaussTemplatesOnly_given)
     write_into_file(outfile, "gaussTemplatesOnly", 0, 0 );
-  if (args_info->validateSSE_given)
-    write_into_file(outfile, "validateSSE", 0, 0 );
   if (args_info->ULoff_given)
     write_into_file(outfile, "ULoff", 0, 0 );
   if (args_info->printSFTtimes_given)
@@ -1686,6 +1686,7 @@ cmdline_parser_internal (
         { "timestampsFile",	1, NULL, 0 },
         { "injectionSources",	1, NULL, 0 },
         { "injRandSeed",	1, NULL, 0 },
+        { "weightedIHS",	0, NULL, 0 },
         { "signalOnly",	0, NULL, 0 },
         { "templateTest",	0, NULL, 0 },
         { "templateTestF",	1, NULL, 0 },
@@ -1700,7 +1701,6 @@ cmdline_parser_internal (
         { "antennaOff",	0, NULL, 0 },
         { "noiseWeightOff",	0, NULL, 0 },
         { "gaussTemplatesOnly",	0, NULL, 0 },
-        { "validateSSE",	0, NULL, 0 },
         { "ULoff",	0, NULL, 0 },
         { "printSFTtimes",	0, NULL, 0 },
         { "printUsedSFTtimes",	0, NULL, 0 },
@@ -2418,7 +2418,7 @@ cmdline_parser_internal (
               goto failure;
           
           }
-          /* File to read timestamps from (file-format: lines with <seconds> <nanoseconds>; conflicts with --sftDir/--sftFile options) with a required preceding @ symbol.  */
+          /* File to read timestamps from (file-format: lines with <seconds> <nanoseconds>; conflicts with --sftDir/--sftFile options).  */
           else if (strcmp (long_options[option_index].name, "timestampsFile") == 0)
           {
           
@@ -2432,7 +2432,7 @@ cmdline_parser_internal (
               goto failure;
           
           }
-          /* File containing sources to inject.  */
+          /* File containing sources to inject with a required preceding @ symbol.  */
           else if (strcmp (long_options[option_index].name, "injectionSources") == 0)
           {
           
@@ -2456,6 +2456,18 @@ cmdline_parser_internal (
                 &(local_args_info.injRandSeed_given), optarg, 0, "0", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "injRandSeed", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Use the noise-weighted IHS scheme.  */
+          else if (strcmp (long_options[option_index].name, "weightedIHS") == 0)
+          {
+          
+          
+            if (update_arg((void *)&(args_info->weightedIHS_flag), 0, &(args_info->weightedIHS_given),
+                &(local_args_info.weightedIHS_given), optarg, 0, 0, ARG_FLAG,
+                check_ambiguity, override, 1, 0, "weightedIHS", '-',
                 additional_error))
               goto failure;
           
@@ -2634,18 +2646,6 @@ cmdline_parser_internal (
             if (update_arg((void *)&(args_info->gaussTemplatesOnly_flag), 0, &(args_info->gaussTemplatesOnly_given),
                 &(local_args_info.gaussTemplatesOnly_given), optarg, 0, 0, ARG_FLAG,
                 check_ambiguity, override, 1, 0, "gaussTemplatesOnly", '-',
-                additional_error))
-              goto failure;
-          
-          }
-          /* Validate the use of SSE functions.  */
-          else if (strcmp (long_options[option_index].name, "validateSSE") == 0)
-          {
-          
-          
-            if (update_arg((void *)&(args_info->validateSSE_flag), 0, &(args_info->validateSSE_given),
-                &(local_args_info.validateSSE_given), optarg, 0, 0, ARG_FLAG,
-                check_ambiguity, override, 1, 0, "validateSSE", '-',
                 additional_error))
               goto failure;
           

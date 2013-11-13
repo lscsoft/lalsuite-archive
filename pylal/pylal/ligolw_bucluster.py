@@ -34,7 +34,6 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
-from pylal import llwapp
 from pylal import snglcluster
 
 
@@ -56,11 +55,17 @@ process_program_name = "ligolw_bucluster"
 
 
 def append_process(xmldoc, cluster_algorithm, comment):
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
-
-	ligolw_process.append_process_params(xmldoc, process, [(u"--cluster-algorithm", u"lstring", cluster_algorithm)])
-
-	return process
+	return ligolw_process.register_to_xmldoc(
+		xmldoc,
+		program = process_program_name,
+		paramdict = {
+			"cluster_algorithm": cluster_algorithm
+		},
+		version = __version__,
+		cvs_repository = u"lscsoft",
+		cvs_entry_time = __date__,
+		comment = comment
+	)
 
 
 #

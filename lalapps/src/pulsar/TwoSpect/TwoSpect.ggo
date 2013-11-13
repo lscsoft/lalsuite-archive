@@ -1,5 +1,5 @@
 package "lalapps_TwoSpect"
-version "1.1.29"
+version "1.1.30"
 purpose "TwoSpect analysis program"
 
 args "--string-parser --conf-parser --show-required=[required]"
@@ -70,11 +70,12 @@ option "useSSE"         - "Use SSE functions (caution: user needs to have compil
 option "followUpOutsideULrange"  - "Follow up outliers outside the range of the UL values" flag off
 
 section "Injection options"
-option "timestampsFile"    - "File to read timestamps from (file-format: lines with <seconds> <nanoseconds>; conflicts with --sftDir/--sftFile options) with a required preceding @ symbol" string typestr="@path/filename" optional
-option "injectionSources"  - "File containing sources to inject" string typestr="path/filename" optional
+option "timestampsFile"    - "File to read timestamps from (file-format: lines with <seconds> <nanoseconds>; conflicts with --sftDir/--sftFile options)" string typestr="path/filename" optional
+option "injectionSources"  - "File containing sources to inject with a required preceding @ symbol" string typestr="@path/filename" optional
 option "injRandSeed"       - "Random seed value for reproducable noise (conflicts with --sftDir/--sftFile options)" int default="0" optional
 
 section "Hidden options"
+option "weightedIHS"   - "Use the noise-weighted IHS scheme" flag off hidden
 option "signalOnly"    - "SFTs contain only signal, no noise" flag off hidden
 option "templateTest"  - "Test the doubly-Fourier transformed data against a single, exact template" flag off hidden
 option "templateTestF" - "The template test frequency; templateTest flag is required" double dependon="templateTest" optional hidden
@@ -89,7 +90,6 @@ option "BrentsMethod"  - "Use Brent's method in the root finding algorithm." fla
 option "antennaOff"  - "Antenna pattern weights are /NOT/ used if this flag is used" flag off hidden
 option "noiseWeightOff"     - "Turn off noise weighting if this flag is used" flag off hidden
 option "gaussTemplatesOnly" - "Gaussian templates only throughout the pipeline if this flag is used" flag off hidden
-option "validateSSE"   - "Validate the use of SSE functions" flag off hidden
 option "ULoff"    - "Turn off upper limits computation" flag off hidden
 option "printSFTtimes" - "Output a list <GPS sec> <GPS nanosec> of SFT start times of input SFTs" flag off hidden
 option "printUsedSFTtimes"  - "Output a list <GPS sec> <GPS nanosec> of SFT start times of the SFTs passing tests" flag off hidden

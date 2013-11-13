@@ -38,7 +38,6 @@ from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
-from pylal import llwapp
 from pylal import SimBurstUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
@@ -217,7 +216,7 @@ process_program_name = "ligolw_bucut"
 
 
 def append_process(doc, options):
-	process = llwapp.append_process(doc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = options.comment)
+	process = ligolw_process.append_process(doc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = options.comment)
 
 	params = []
 	if options.coinc_only:
@@ -397,7 +396,7 @@ def ligolw_bucut(xmldoc, options, burst_test_func, veto_segments = segments.segm
 
 	apply_filters(contents, burst_test_func, veto_segments, del_non_coincs = del_non_coincs, del_skipped_injections = del_skipped_injections, verbose = verbose)
 
-	llwapp.set_process_end_time(process)
+	ligolw_process.set_process_end_time(process)
 
 	seg = contents.outsegs.extent_all()
 	ligolw_search_summary.append_search_summary(xmldoc, process, inseg = seg, outseg = seg, nevents = len(contents.snglbursttable))

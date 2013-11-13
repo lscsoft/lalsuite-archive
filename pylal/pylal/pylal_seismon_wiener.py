@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os
+import sys, os
 import numpy as np
 import scipy.linalg
 
@@ -41,6 +41,10 @@ def wiener(params, target_channel, segment):
 
     dataAll = []
 
+    samplef = target_channel.samplef
+    N = 1000
+    samplef = 2048
+
     for channel in params["channels"]:
         # make timeseries
         dataFull = pylal.pylal_seismon_utils.retrieve_timeseries(params, channel, segment)
@@ -60,7 +64,23 @@ def wiener(params, target_channel, segment):
         if len(dataFull.data) < 2*channel.samplef:
             print "timeseries too short for analysis... continuing\n"
             continue
-    
+
+        dataFull = dataFull.resample(samplef)
+
+        cutoff = 10.0
+        cutoff_low = 300.0
+        cutoff_high = 350.0
+        #dataFull = dataFull.lowpass(cutoff, amplitude=0.9, order=3, method='scipy')
+        #print np.sum(dataFull)
+        dataFull = dataFull.bandpass(cutoff_low,cutoff_high, amplitude=0.9, order=6, method='scipy')
+        #print dataFull
+
+        indexes = np.where(np.isnan(dataFull.data))[0]
+        meanSamples = np.mean(np.ma.masked_array(dataFull.data,np.isnan(dataFull.data)))
+        for index in indexes:
+            dataFull[index] = meanSamples
+        dataFull -= np.mean(dataFull.data)
+
         dataAll.append(dataFull)
 
     X = []
@@ -86,12 +106,11 @@ def wiener(params, target_channel, segment):
     residualASD = []
     FFASD = []
 
-    N = 1000
-    gpss = np.arange(gpsStart,gpsEnd,2*params["fftDuration"])
+    gpss = np.arange(gpsStart,gpsEnd,params["fftDuration"])
     create_filter = True
     for i in xrange(len(gpss)-1):
         tt = np.array(dataFull.times)
-        indexes = np.intersect1d(np.where(tt >= gpss[i])[0],np.where(tt <= gpss[i+1])[0])
+        indexes = np.intersect1d(np.where(tt >= gpss[i])[0],np.where(tt <= gpss[i+1]+5)[0])
 
         if len(indexes) == 0:
             continue
@@ -99,6 +118,7 @@ def wiener(params, target_channel, segment):
         indexMin = np.min(indexes)
         indexMax = np.max(indexes)
 
+        ttCut = tt[indexMin:indexMax] 
         yCut = y[indexMin:indexMax]
         XCut = X[:,indexMin:indexMax]
 
@@ -108,12 +128,19 @@ def wiener(params, target_channel, segment):
             create_filter = False
             continue
             
-        residual, FF = subtractFF(W,XCut,yCut,target_channel)
+        residual, FF = subtractFF(W,XCut,yCut,samplef)
 
         gpsStart = tt[indexMin]
-        dataOriginal = gwpy.timeseries.TimeSeries(yCut, epoch=gpsStart, sample_rate=target_channel.samplef)
-        dataResidual = gwpy.timeseries.TimeSeries(residual, epoch=gpsStart, sample_rate=target_channel.samplef)
-        dataFF = gwpy.timeseries.TimeSeries(FF, epoch=gpsStart, sample_rate=target_channel.samplef)
+        dataOriginal = gwpy.timeseries.TimeSeries(yCut, epoch=gpsStart, sample_rate=samplef,name="Original")
+        dataResidual = gwpy.timeseries.TimeSeries(residual, epoch=gpsStart, sample_rate=samplef,name="Residual")
+        dataFF = gwpy.timeseries.TimeSeries(FF, epoch=gpsStart, sample_rate=samplef,name="FF")
+
+        #residual, FF = subtractFF(W,XCut,yCut,target_channel.samplef)
+
+        #gpsStart = tt[indexMin]
+        #dataOriginal = gwpy.timeseries.TimeSeries(yCut, epoch=gpsStart, sample_rate=target_channel.samplef)
+        #dataResidual = gwpy.timeseries.TimeSeries(residual, epoch=gpsStart, sample_rate=target_channel.samplef)
+        #dataFF = gwpy.timeseries.TimeSeries(FF, epoch=gpsStart, sample_rate=target_channel.samplef)
 
         #cutoff = 1.0
         #dataOriginal = dataOriginal.lowpass(cutoff, amplitude=0.9, order=3, method='scipy')
@@ -210,7 +237,7 @@ def miso_firwiener(N,X,y):
     R = np.zeros([M*(N+1),M*(N+1)])
     for m in xrange(M):
         for i in xrange(m,M):
-            rmi,lags = pylal.pylal_seismon_utils.xcorr(X[:,m],X[:,i],maxlags=N,normed=False)
+            rmi,lags = pylal.pylal_seismon_utils.xcorr(X[:,m]-np.mean(X[:,m]),X[:,i]-np.mean(X[:,i]),maxlags=N,normed=False)
             Rmi = scipy.linalg.toeplitz(np.flipud(rmi[range(N+1)]),r=rmi[range(N,2*N+1)])
             top = m*(N+1)
             bottom = (m+1)*(N+1)
@@ -225,17 +252,17 @@ def miso_firwiener(N,X,y):
             if not i == m:
                 #R[range(left,right),range(top,bottom)] = Rmi  # Take advantage of hermiticity.
 
-                #RmiT = Rmi.T
+                RmiT = Rmi.T
                 for j in xrange(left,right):
                     for k in xrange(top,bottom):
-                        R[j,k] = Rmi[j-left,k-top]
+                        R[j,k] = RmiT[j-left,k-top]
 
     # Crosscorrelation vector.
     P = np.zeros([M*(N+1),])
     for i in xrange(M):
         top = i*(N+1)
         bottom = (i+1)*(N+1)
-        p, lags = pylal.pylal_seismon_utils.xcorr(y,X[:,i],maxlags=N,normed=False)
+        p, lags = pylal.pylal_seismon_utils.xcorr(y-np.mean(y),X[:,i]-np.mean(X[:,i]),maxlags=N,normed=False)
 
         P[range(top,bottom)] = p[range(N,2*N+1)]
 
@@ -243,14 +270,13 @@ def miso_firwiener(N,X,y):
     # block Toeplitz structure of R. Its done the same way in the builtin
     # function "firwiener".
     # P / R
-    #W = 
 
-    W = np.linalg.lstsq(R.T, P.T)[0].T
-    W = np.reshape(W,(N+1,M))
+    Z = np.linalg.lstsq(R.T, P.T)[0].T
+    W = Z.reshape(M,N+1).T
 
     return W,R,P
 
-def subtractFF(W,SS,S,channel):
+def subtractFF(W,SS,S,samplef):
 
     # Subtracts the filtered SS from S using FIR filter coefficients W.
     # Routine written by Jan Harms. Routine modified by Michael Coughlin.
@@ -262,15 +288,17 @@ def subtractFF(W,SS,S,channel):
 
     FF = np.zeros([ns-N,])
 
-    for k in xrange(N+1,ns):
-        tmp = SS[range(k-N,k+1),:] * W
+    for k in xrange(N,ns):
+        tmp = SS[k-N:k+1,:] * W
         FF[k-N] = np.sum(tmp)
 
-    cutoff = 1.0
-    dataFF = gwpy.timeseries.TimeSeries(FF, sample_rate=channel.samplef)
-    dataFFLowpass = dataFF.lowpass(cutoff, amplitude=0.9, order=3, method='scipy')
+    cutoff = 10.0
+    dataFF = gwpy.timeseries.TimeSeries(FF, sample_rate=samplef)
+    dataFFLowpass = dataFF.lowpass(cutoff, amplitude=0.9, order=12, method='scipy')
     FF = np.array(dataFFLowpass)
+    FF = np.array(dataFF)
 
     residual = S[range(ns-N)]-FF
+    residual = residual - np.mean(residual)
 
     return residual, FF

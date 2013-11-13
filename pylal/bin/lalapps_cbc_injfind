@@ -39,7 +39,6 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
-from pylal import llwapp
 from pylal import lalapps_cbc_injfind
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -158,7 +157,7 @@ for n, filename in enumerate(filenames):
 	# close out the process metadata
 	#
 
-	llwapp.set_process_end_time(process)
+	ligolw_process.set_process_end_time(process)
 
 	#
 	# done

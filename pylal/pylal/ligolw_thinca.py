@@ -1,4 +1,4 @@
-# Copyright (C) 2008--2012  Kipp Cannon, Drew G. Keppel
+# Copyright (C) 2008--2013  Kipp Cannon, Drew G. Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -33,10 +33,10 @@ from glue import iterutils
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw.utils import search_summary as ligolw_search_summary
+from glue.ligolw.utils import coincs as ligolw_coincs
 from glue import offsetvector
 import lal
 from pylal import git_version
-from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -211,8 +211,8 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		#
 
 		tstart = coinc_inspiral.get_end()
-		instruments = set([event.ifo for event in events])
-		instruments |= set([instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs])
+		instruments = set(event.ifo for event in events)
+		instruments |= set(instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs)
 		coinc.set_instruments(instruments)
 
 		#
@@ -415,7 +415,7 @@ def ligolw_thinca(
 	if verbose:
 		print >>sys.stderr, "indexing ..."
 	coinc_tables = InspiralCoincTables(xmldoc, vetoes = veto_segments, program = trigger_program, likelihood_func = likelihood_func, likelihood_params_func = likelihood_params_func)
-	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
+	coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
 	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName))
 
 	#
@@ -602,7 +602,7 @@ class sngl_inspiral_coincs(object):
 		Return a list of the sngl_inspiral rows that participated
 		in the coincidence given by coinc_event_id.
 		"""
-		return [self.sngl_inspiral_index[event_id] for event_id in self.coinc_event_map_index[coinc_event_id]]
+		return [self.sngl_inspiral_index[row.event_id] for row in self.coinc_event_map_index[coinc_event_id]]
 
 	def offset_vector(self, time_slide_id):
 		"""
