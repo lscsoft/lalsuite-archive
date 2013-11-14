@@ -138,7 +138,7 @@ def output_html(outdir, ks_pvalues):
     """
     table_row_template = string.Template("""<tr> <td> ${name} </td>
     <td> ${pvalue} </td>
-    <td> <img src="${name}.png" alt="${name} p-p plot" width="300" height="225" /> </td> <td> <a href="${name}.png">PNG</a> <a href="${name}.pdf">PDF</a> </td> </tr>
+    <td> <img src="${name}.png" alt="${name} p-p plot" width="300" height="225" /> </td> <td> <a href="${name}.png">PNG</a> <a href="${name}.pdf">PDF</a> <a href="${name}-ps.dat">p-values</a> </td> </tr>
 
     """)
 
@@ -237,5 +237,6 @@ if __name__ == '__main__':
         pp_plot(ps, title=posterior_name_to_latex_name[par], outfile=os.path.join(options.outdir, par))
         pp.clf()
         ks_pvalues[par] = pp_kstest_pvalue(ps)
+        np.savetxt(os.path.join(options.outdir, par + '-ps.dat'), np.reshape(ps, (-1, 1)))
 
     output_html(options.outdir, ks_pvalues)
