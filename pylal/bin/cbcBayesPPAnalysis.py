@@ -83,6 +83,7 @@ def pp_plot(ps, title=None, outfile=None):
       basename.png and basename.pdf will be created.
 
     """
+    
     ps = np.atleast_1d(ps)
     ps = np.sort(ps)
     ys = np.zeros(ps.shape[0]+2)
@@ -91,6 +92,8 @@ def pp_plot(ps, title=None, outfile=None):
     xs = np.zeros(ps.shape[0]+2)
     xs[-1] = 1.0
     xs[1:-1] = ps
+
+    pp.figure(figsize=(6,6), dpi=100)
 
     for i in range(10):
         syn_ps = np.random.uniform(size=ps.shape[0])
@@ -138,7 +141,7 @@ def output_html(outdir, ks_pvalues):
     """
     table_row_template = string.Template("""<tr> <td> ${name} </td>
     <td> ${pvalue} </td>
-    <td> <img src="${name}.png" alt="${name} p-p plot" width="300" height="225" /> </td> <td> <a href="${name}.png">PNG</a> <a href="${name}.pdf">PDF</a> <a href="${name}-ps.dat">p-values</a> </td> </tr>
+    <td> <img src="${name}.png" alt="${name} p-p plot" width="300" height="300" /> </td> <td> <a href="${name}.png">PNG</a> <a href="${name}.pdf">PDF</a> <a href="${name}-ps.dat">p-values</a> </td> </tr>
 
     """)
 
