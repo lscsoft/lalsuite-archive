@@ -206,6 +206,17 @@ REAL8 LALInferenceCubeToLogFlatPrior(double r, double x1, double x2);
 */
 REAL8 LALInferenceCubeToPowerPrior(double p, double r, double x1, double x2);
 
+/**
+ * Prior that converts from a Cube parameter in [0,1] to the Gaussian prior with given mean and standard deviation.
+ */
+REAL8 LALInferenceCubeToGaussianPrior(double r, double mean, double sigma);
+
+/**
+ * Prior that converts from a Cube parameter in [0,1] to the sine prior with given
+ * min (x1) and max (x2) values
+ */
+REAL8 LALInferenceCubeToSinPrior(double r, double x1, double x2);
+
 /*@}*/
 
 #endif
