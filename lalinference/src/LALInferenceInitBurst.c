@@ -337,6 +337,23 @@ Parameter arguments:\n\
       }
       LALInferenceAddMinMaxPrior(priorArgs, "Q",     &qmin, &qmax,   LALINFERENCE_REAL8_t);
     }
+    
+    ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
+    if (!strcmp("SineGaussian",ppt->value)||!strcmp("SineGaussianF",ppt->value)){
+      tmpVal=0.0;
+      if(!LALInferenceCheckVariable(currentParams,"phase")) {
+          ppt=LALInferenceGetProcParamVal(commandLine,"--phase");
+        if (ppt){
+              tmpVal=atof(ppt->value);
+              fprintf(stderr,"Fixing phase angle to %lf in template \n",tmpVal);
+              LALInferenceAddVariable(currentParams, "phase",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);}
+        else
+              LALInferenceAddVariable(currentParams, "phase",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+      }
+      tmpMin=0.0; tmpMax=LAL_TWOPI;
+      LALInferenceAddMinMaxPrior(priorArgs, "phase",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
+    }
+    
     ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
     if (!strcmp("Gaussian",ppt->value) || !strcmp("GaussianF",ppt->value)){
       if(!LALInferenceCheckVariable(currentParams,"duration")){
@@ -355,51 +372,54 @@ Parameter arguments:\n\
       }
       LALInferenceAddMinMaxPrior(priorArgs, "duration",     &durmin, &durmax,   LALINFERENCE_REAL8_t);
     }
-        if(!LALInferenceCheckVariable(currentParams,"loghrss")){
-        if (LALInferenceGetProcParamVal(commandLine,"--hrss") || LALInferenceGetProcParamVal(commandLine,"--loghrss")){
-            if (LALInferenceGetProcParamVal(commandLine,"--hrss")) 
-                tmpVal=log(atof((LALInferenceGetProcParamVal(commandLine,"--hrss"))->value));
-            else if (LALInferenceGetProcParamVal(commandLine,"--loghrss"))
-                tmpVal=atof((LALInferenceGetProcParamVal(commandLine,"--loghrss"))->value);
-            fprintf(stdout,"Fixing loghrss to %lf\n",tmpVal);
-            if (tmpVal<loghrssmin || tmpVal>loghrssmax){
-                fprintf(stderr,"ERROR: the value of --(log)hrss is outside the prior range for the loghrss (%f,%f)! Consider increasing the prior range using --(log)hrssmin --(log)hrssmax. Exiting...\n",loghrssmin,loghrssmax);
-                exit(1);
-            }
-            LALInferenceAddVariable(currentParams, "loghrss",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);   
-        }
-        else
-            LALInferenceAddVariable(currentParams, "loghrss",     &startloghrss,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+    if(!LALInferenceCheckVariable(currentParams,"loghrss")){
+      if (LALInferenceGetProcParamVal(commandLine,"--hrss") || LALInferenceGetProcParamVal(commandLine,"--loghrss")){
+        if (LALInferenceGetProcParamVal(commandLine,"--hrss")) 
+            tmpVal=log(atof((LALInferenceGetProcParamVal(commandLine,"--hrss"))->value));
+        else if (LALInferenceGetProcParamVal(commandLine,"--loghrss"))
+            tmpVal=atof((LALInferenceGetProcParamVal(commandLine,"--loghrss"))->value);
+      fprintf(stdout,"Fixing loghrss to %lf\n",tmpVal);
+      if (tmpVal<loghrssmin || tmpVal>loghrssmax){
+          fprintf(stderr,"ERROR: the value of --(log)hrss is outside the prior range for the loghrss (%f,%f)! Consider increasing the prior range using --(log)hrssmin --(log)hrssmax. Exiting...\n",loghrssmin,loghrssmax);
+          exit(1);
+      }
+      LALInferenceAddVariable(currentParams, "loghrss",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);   
+      }
+      else
+        LALInferenceAddVariable(currentParams, "loghrss",     &startloghrss,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     }
     LALInferenceAddMinMaxPrior(priorArgs, "loghrss",     &loghrssmin, &loghrssmax,   LALINFERENCE_REAL8_t);
         
-    tmpVal=1.0;
-    if(!LALInferenceCheckVariable(currentParams,"eccentricity")){
-        ppt=LALInferenceGetProcParamVal(commandLine,"--SGonly");
-        if (ppt){printf("Fixing eccentricity to 1 in template \n");
-            LALInferenceAddVariable(currentParams, "eccentricity",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);}
+    tmpVal=LAL_PI/2.0;
+    if(!LALInferenceCheckVariable(currentParams,"alpha")){
+        ppt=LALInferenceGetProcParamVal(commandLine,"--cross_only");
+        if (ppt){printf("Fixing alpha to Pi/2 in template ---> only SineGaussian will be used\n");
+            LALInferenceAddVariable(currentParams, "alpha",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+        }
+        ppt=LALInferenceGetProcParamVal(commandLine,"--plus_only");
+        if (ppt){
+            tmpVal=0.0;
+            printf("Fixing alpha to 0 in template ---> only CosineGaussian will be used\n");
+            LALInferenceAddVariable(currentParams, "alpha",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+        }
+        ppt=LALInferenceGetProcParamVal(commandLine,"--alpha");
+        if (ppt){
+            tmpVal=atof(ppt->value);
+            printf("Fixing alpha to %f in template\n",tmpVal);
+            LALInferenceAddVariable(currentParams, "alpha",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+        }
         else
-            LALInferenceAddVariable(currentParams, "eccentricity",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+            LALInferenceAddVariable(currentParams, "alpha",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     }
-    tmpMin=0.0; tmpMax=1.0;//salvo
-    LALInferenceAddMinMaxPrior(priorArgs, "eccentricity",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
-	
-    tmpVal=LAL_PI_2;
-    if(!LALInferenceCheckVariable(currentParams,"polar_angle")) {
-        ppt=LALInferenceGetProcParamVal(commandLine,"--SGonly");
-	    if (ppt){printf("Fixing polar angle to Pi/2 in template \n");
-            LALInferenceAddVariable(currentParams, "polar_angle",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);}
-	    else
-            LALInferenceAddVariable(currentParams, "polar_angle",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
-    }
-    tmpMin=0.0; tmpMax=LAL_PI;
-    LALInferenceAddMinMaxPrior(priorArgs, "polar_angle",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
+    /* 0 to Pi/2 will cover all possible positive combination of cross and plus */
+    tmpMin=0.0; tmpMax=LAL_PI/2.0;
+    LALInferenceAddMinMaxPrior(priorArgs, "alpha",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
 
     /* Needs two condition: must be a burst template and the burst injection must have been provided to do those checks*/
     if (BinjTable && burst_inj){
         
         if (log(BinjTable->hrss) > loghrssmax || log(BinjTable->hrss) < loghrssmin)
-            fprintf(stdout,"WARNING: The injected value of hrss (%.4e) lies outside the prior range\n",log(BinjTable->hrss));
+            fprintf(stdout,"WARNING: The injected value of loghrss (%.4e) lies outside the prior range. That may be ok if your template and injection belong to different WF families\n",log(BinjTable->hrss));
         if (BinjTable->q > qmax || BinjTable->q < qmin )
             fprintf(stdout,"WARNING: The injected value of q (%lf) lies outside the prior range\n",BinjTable->q);
          if (BinjTable->frequency > ffmax || BinjTable->frequency < ffmin )
