@@ -1761,8 +1761,9 @@ REAL8 wnorm=1.0;
     /* Incremental values, using cos(theta) - 1 = -2*sin(theta/2)^2 */
     dim = -sin(twopit*deltaF);
     dre = -2.0*sin(0.5*twopit*deltaF)*sin(0.5*twopit*deltaF);
+    
     //char fname[500];
-    //sprintf(fname,"%s_template.dat",dataPtr->name);
+    // sprintf(fname,"%s_template.dat",dataPtr->name);
     //FILE *testout=fopen(fname,"w");
     for (i=lower; i<=upper; ++i){
       /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
@@ -1773,8 +1774,8 @@ REAL8 wnorm=1.0;
 
       /* do time-shifting...             */
       /* (also un-do 1/deltaT scaling): */
-      templateReal = (plainTemplateReal*re - plainTemplateImag*im) / deltaT/wnorm; //salvo remove norm?
-      templateImag = (plainTemplateReal*im + plainTemplateImag*re) / deltaT/wnorm; //salvo remove norm?
+      templateReal = (plainTemplateReal*re - plainTemplateImag*im) / deltaT/wnorm;//FIXME remove norm?
+      templateImag = (plainTemplateReal*im + plainTemplateImag*re) / deltaT/wnorm; //FIXME remove norm?
       dataReal     = creal(dataPtr->freqData->data->data[i]) / deltaT;
       dataImag     = cimag(dataPtr->freqData->data->data[i]) / deltaT;
       /* compute squared difference & 'chi-squared': */
