@@ -670,6 +670,7 @@ setup(
 		os.path.join("bin", "ring_post"),
 		os.path.join("bin", "ligolw_rinca_to_coinc"),
 		os.path.join("bin", "cbcBayesPostProc.py"),
+                os.path.join("bin", "cbcBayesPPAnalysis.py"),
 		os.path.join("bin", "cbcBayesCompPos.py"),
 		os.path.join("bin", "cbcBayesDIEvidence.py"),
 		os.path.join("bin", "cbcBayesInjProc.py"),
