@@ -4768,7 +4768,7 @@ class PEOutputParser(object):
         for line in runInfoIter:
             headers=line.lstrip().lower().split()
             try:
-                fRefColNum = headers.index('fLow')
+                fRefColNum = headers.index('fRef')
                 info = runInfoIter.next().lstrip().lower().split()
                 fRef = info[fRefColNum]
                 break
