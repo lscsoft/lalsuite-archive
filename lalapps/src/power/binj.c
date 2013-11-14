@@ -1531,7 +1531,7 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 	}
 	else if (options->snr_distr< NUM_ELEMENTS){
 		/* Inject using distribution on snr */
-		sim_burst->hrss=10.0e-23;
+		sim_burst->hrss=1e-22 ;
 		/* adjust SNR to desired distribution using LALSimulation WF Generator */
 		{
 	    
@@ -1549,10 +1549,10 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 		psds        = (REAL8FrequencySeries **) LALCalloc(numifos+1, sizeof(REAL8FrequencySeries *));
 		REAL8    srate=8192.0;
 		/* Salvo: Use 60secs. May want to increase*/
-		REAL8 segment=60.0;
+		REAL8 segment=8.0;
 		size_t seglen=(size_t) segment*srate;
 		LIGOTimeGPS ttime;
-		memcpy(&ttime,&(sim_burst->time_geocent_gps.gpsSeconds),sizeof(LIGOTimeGPS));
+		memcpy(&ttime,&(sim_burst->time_geocent_gps),sizeof(LIGOTimeGPS));
 		
 		/* Fill psds and start_freqs */
 		/* If the user did not provide files for the PSDs, use XLALSimNoisePSD to fill in ligoPsd and virgoPsd */
@@ -1773,7 +1773,7 @@ int main(int argc, char *argv[])
 
 		case POPULATION_ALL_SKY_SINEGAUSSIAN:
 		case POPULATION_ALL_SKY_SINEGAUSSIAN_F:
-        case POPULATION_ALL_SKY_GAUSSIAN:
+    case POPULATION_ALL_SKY_GAUSSIAN:
 			*sim_burst = random_all_sky_sineGaussian(rng, &options,tinj);
 			break;
 
@@ -2017,19 +2017,20 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 
 	const CHAR *WF=inj->waveform;
 
-	if(strstr(WF,"SineGaussianF"))
+	if(!strcmp(WF,"SineGaussianF")||!strcmp(WF,"GaussianF"))
 			modelDomain=LAL_SIM_BURST_DOMAIN_FREQUENCY;
 			
-	else if (strstr(WF,"SineGaussian") || strstr(WF,"Gaussian"))
+	else if (!strcmp(WF,"SineGaussian") ||!strcmp(WF,"Gaussian"))
             modelDomain=LAL_SIM_BURST_DOMAIN_TIME;
 			
     LIGOTimeGPS		    epoch;  
-    memcpy(&epoch,&(inj->time_geocent_gps.gpsSeconds),sizeof(LIGOTimeGPS));
     
     /* Hardcoded values of srate and segment length. If changed here they must also be changed in inspinj.c */
     REAL8 srate=8192.0;
-    REAL8 segment=60.0;
-    
+    REAL8 segment=8.0;
+    //REAL8 start=injtime-segment/2.;
+    memcpy(&epoch,&inj->time_geocent_gps,sizeof(LIGOTimeGPS));
+    XLALGPSAdd(&epoch, -segment/2.0);
     
     f_max=(srate/2.0-(1.0/segment));
     size_t seglen=(size_t) segment*srate;
@@ -2083,12 +2084,7 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 
     }
     else{
-        /* Otherwise use XLALGenerateSimBurst(
-	REAL8TimeSeries **hplus,
-	REAL8TimeSeries **hcross,
-	const SimBurst *sim_burst,
-	double delta_t;
- */
+        
         REAL8FFTPlan *timeToFreqFFTPlan = XLALCreateForwardREAL8FFTPlan((UINT4) seglen, 0 );
         REAL8TimeSeries *hplus=NULL; 
         REAL8TimeSeries *hcross=NULL; 
@@ -2099,29 +2095,48 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 																	&epoch,
 																	0.0,
 																	deltaT,
-																	&lalDimensionlessUnit,
+																	&lalStrainUnit,
 																	seglen);
         timeHplus=XLALCreateREAL8TimeSeries("timeModelhplus",
 																	&epoch,
 																	0.0,
 																	deltaT,
-																	&lalDimensionlessUnit,
+																	&lalStrainUnit,
 																	seglen);
-		 //XLALSimBurstSineGaussian(&hplus,&hcross,Q,centre_frequency,hrss, eccentricity,polar_angle,deltaT);
         XLALGenerateSimBurst(&hplus,&hcross,inj,deltaT);
         memset(timeHplus->data->data, 0, sizeof (REAL8)*timeHplus->data->length);
         memset(timeHcross->data->data, 0, sizeof (REAL8)*timeHcross->data->length);
-        memcpy(timeHplus->data->data, hplus->data->data,hplus->data->length*sizeof(REAL8));
-        memcpy(timeHcross->data->data, hcross->data->data ,hplus->data->length*sizeof(REAL8));
+        XLALGPSAddGPS(&hcross->epoch, &inj->time_geocent_gps);
+		    XLALGPSAddGPS(&hplus->epoch, &inj->time_geocent_gps);
+        XLALSimAddInjectionREAL8TimeSeries(timeHplus, hplus, NULL);
+        XLALSimAddInjectionREAL8TimeSeries(timeHcross, hcross, NULL);
         
         for (j=0; j<(UINT4) freqHplus->data->length; ++j) {
-                freqHplus->data->data[j]=0.0+1j*0,0; 
-                freqHcross->data->data[j]=0.0+1j*0,0;
+                freqHplus->data->data[j]=0.0; 
+                freqHcross->data->data[j]=0.0;
             }
-        
+        REAL8 padding=0.4;
+        REAL8Window *window;
+        window =XLALCreateTukeyREAL8Window(seglen,(REAL8)2.0*padding*srate/(REAL8)seglen);
+        REAL4 WinNorm = sqrt(window->sumofsquares/window->data->length);
+        if(!window) {
+          XLAL_ERROR(XLAL_EFUNC);
+        }
+       
+        for(j = 0; j < window->data->length; j++) {
+          timeHplus ->data->data[j] *= window->data->data[j];
+          timeHcross->data->data[j] *= window->data->data[j];
+        }
+        XLALDestroyREAL8Window(window);   
+         
         /* FFT into freqHplus and freqHcross */
         XLALREAL8TimeFreqFFT(freqHplus,timeHplus,timeToFreqFFTPlan);
         XLALREAL8TimeFreqFFT(freqHcross,timeHcross,timeToFreqFFTPlan);
+        
+        for (j=0; j<(UINT4) freqHplus->data->length; ++j) {
+            freqHplus->data->data[j]/=WinNorm; 
+            freqHcross->data->data[j]/=WinNorm;
+        }
         
         /* Clean... */
         if ( hplus ) XLALDestroyREAL8TimeSeries(hplus);
@@ -2162,7 +2177,6 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
     REAL8  plainTemplateReal,  plainTemplateImag,templateReal,templateImag;
     REAL8  newRe, newIm,temp;
     REAL8 this_snr=0.0;
- 
 
     for (j=lower; j<=(UINT4) upper; ++j){
       /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
@@ -2185,12 +2199,10 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
       re = newRe;
       im = newIm;
     }
-
     /* Clean */
     if (freqHcross) XLALDestroyCOMPLEX16FrequencySeries(freqHcross);
     if (freqHplus) XLALDestroyCOMPLEX16FrequencySeries(freqHplus);
     if (detector) free(detector);
-    
     return sqrt(this_snr*2.0);
   
 }
