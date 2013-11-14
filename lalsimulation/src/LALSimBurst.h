@@ -138,8 +138,7 @@ int XLALSimBurstGaussianF(
 	COMPLEX16FrequencySeries **hcross,
 	REAL8 duration,
 	REAL8 hrss,
-	REAL8 eccentricity,
-	REAL8 polarization,
+	REAL8 alpha,
 	REAL8 deltaF,
   REAL8 deltaT
 );

@@ -762,7 +762,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             /* Create the fake data */
             int j_Lo = (int) IFOdata[i].fLow/IFOdata[i].freqData->deltaF;            
             for(j=0;j<IFOdata[i].freqData->data->length;j++){
-                IFOdata[i].freqData->data->data[j]=0.0+I*0.0;
+                IFOdata[i].freqData->data->data[j]=0.0+1.0j*0.0;
               }
             if(LALInferenceGetProcParamVal(commandLine,"--0noise")){
                 for(j=j_Lo;j<IFOdata[i].freqData->data->length;j++){
@@ -1550,10 +1550,10 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
     XLALREAL8TimeFreqFFT(injF,inj8Wave,thisData->timeToFreqFFTPlan);
     /*for(j=0;j<injF->data->length;j++) printf("%lf\n",injF->data->data[j].re);*/
     if(thisData->oneSidedNoisePowerSpectrum){
-	for(SNR=0.0,j=thisData->fLow/injF->deltaF;j<thisData->fHigh/injF->deltaF;j++){
-	  SNR += pow(creal(injF->data->data[j]), 2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
-	  SNR += pow(cimag(injF->data->data[j]), 2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
-	}
+    for(SNR=0.0,j=thisData->fLow/injF->deltaF;j<thisData->fHigh/injF->deltaF;j++){
+      SNR += pow(creal(injF->data->data[j]), 2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
+      SNR += pow(cimag(injF->data->data[j]), 2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
+    }
         SNR*=4.0*injF->deltaF;
     }
     thisData->SNR=sqrt(SNR);
@@ -1568,19 +1568,19 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
     }
     /* Actually inject the waveform */
     for(j=0;j<inj8Wave->data->length;j++) thisData->timeData->data->data[j]+=inj8Wave->data->data[j];
-      fprintf(stdout,"Injected SNR in detector %s = %g\n",thisData->name,thisData->SNR);
-      char filename[256];
-      sprintf(filename,"%s_timeInjection.dat",thisData->name);
-      FILE* file=fopen(filename, "w");
-      for(j=0;j<inj8Wave->data->length;j++){   
-	fprintf(file, "%.6f\t%lg\n", XLALGPSGetREAL8(&thisData->timeData->epoch) + thisData->timeData->deltaT*j, inj8Wave->data->data[j]);
-      }
-      fclose(file);
-      sprintf(filename,"%s_freqInjection.dat",thisData->name);
-      file=fopen(filename, "w");
-      for(j=0;j<injF->data->length;j++){   
-	thisData->freqData->data->data[j] += injF->data->data[j] / WinNorm;
-	fprintf(file, "%lg %lg \t %lg\n", thisData->freqData->deltaF*j, creal(injF->data->data[j]), cimag(injF->data->data[j]));
+    fprintf(stdout,"Injected SNR in detector %s = %g\n",thisData->name,thisData->SNR);
+    char filename[256];
+    sprintf(filename,"%s_timeInjection.dat",thisData->name);
+    FILE* file=fopen(filename, "w");
+    for(j=0;j<inj8Wave->data->length;j++){   
+      fprintf(file, "%.6f\t%lg\n", XLALGPSGetREAL8(&thisData->timeData->epoch) + thisData->timeData->deltaT*j, inj8Wave->data->data[j]);
+    }
+    fclose(file);
+    sprintf(filename,"%s_freqInjection.dat",thisData->name);
+    file=fopen(filename, "w");
+    for(j=0;j<injF->data->length;j++){   
+    thisData->freqData->data->data[j] += injF->data->data[j] / WinNorm;
+    fprintf(file, "%lg %lg \t %lg\n", thisData->freqData->deltaF*j, creal(injF->data->data[j]), cimag(injF->data->data[j]));
       }
       fclose(file);
     
@@ -2851,7 +2851,7 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
     i=0;
     UINT4 lower = (UINT4)ceil(data->fLow / injF->deltaF);
     UINT4 upper = (UINT4)floor(data->fHigh /injF-> deltaF);
-
+//FIXME CHECK WNORM
     /* Inject into FD data stream and calculate optimal SNR */
     while(data){
         
