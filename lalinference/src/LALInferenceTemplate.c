@@ -1136,7 +1136,8 @@ void LALInferenceTemplateSineGaussian(LALInferenceIFOData *IFOdata)
       REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform */
       //    REAL8TimeSeries       *signalvecREAL8=NULL;
       REAL8 Q, centre_frequency,hrss,eccentricity,polar_angle;
-      REAL8 padding=0.4; // hard coded value found in LALInferenceReadData(). Padding (in seconds) for the tuckey window.
+      REAL8 padding=0.4; // hard coded value found in LALInferenceReadData(). Padding (in seconds) for the tuckey window. 
+      /* FIXME: It should read this from ifodata */
   UINT8 windowshift=(UINT8) ceil(padding/IFOdata->timeData->deltaT);
   UINT4 i=0;
   
@@ -1353,7 +1354,7 @@ void LALInferenceTemplateSineGaussianF(LALInferenceIFOData *IFOdata)
     
     COMPLEX16FrequencySeries *hplus=NULL;  /**< +-polarization waveform */
     COMPLEX16FrequencySeries *hcross=NULL; /**< x-polarization waveform */
-    REAL8 Q, centre_frequency,hrss,eccentricity,polar_angle;
+    REAL8 Q, centre_frequency,hrss,phi,alpha;
     UINT4 i=0;
   
     Q = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "Q");
@@ -1361,10 +1362,10 @@ void LALInferenceTemplateSineGaussianF(LALInferenceIFOData *IFOdata)
       
     /*Always calculate the template at fixed hrss of 1. That will avoid recalculation of the template unless Q, f, polar_angle, polar_eccentricity are varied */
     hrss=1.0;
-    polar_angle=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "polar_angle"); 
-    eccentricity=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "eccentricity"); 
+    phi=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phase"); 
+    alpha=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "alpha"); 
            
-    XLALSimBurstSineGaussianF(&hplus,&hcross, Q, centre_frequency,hrss,eccentricity,polar_angle,IFOdata->freqData->deltaF,IFOdata->timeData->deltaT);
+    XLALSimBurstSineGaussianF(&hplus,&hcross, Q, centre_frequency,hrss,alpha,phi,IFOdata->freqData->deltaF,IFOdata->timeData->deltaT);
     
     REAL8 instant= (IFOdata->timeData->epoch.gpsSeconds + 1e-9*(IFOdata->timeData->epoch.gpsNanoSeconds));
 
@@ -1420,18 +1421,16 @@ void LALInferenceTemplateGaussianF(LALInferenceIFOData *IFOdata)
     
   COMPLEX16FrequencySeries *hplus=NULL;  /**< +-polarization waveform */
   COMPLEX16FrequencySeries *hcross=NULL; /**< x-polarization waveform */
-  REAL8 duration,hrss,eccentricity,polar_angle;
+  REAL8 duration,hrss,alpha;
    
   UINT4 i=0;
 
   /*Always calculate the template at fixed hrss of 1. That will avoid recalculation of the template unless duration, polar_angle, polar_eccentricity are varied */
   hrss=1.0;
-  polar_angle=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "polar_angle"); 
-  eccentricity=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "eccentricity"); 
+  alpha=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "alpha"); 
   duration = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "duration");
      
-
-  XLALSimBurstGaussianF(&hplus,&hcross, duration,hrss,eccentricity,polar_angle,IFOdata->freqData->deltaF,IFOdata->timeData->deltaT);
+  XLALSimBurstGaussianF(&hplus,&hcross, duration,hrss,alpha,IFOdata->freqData->deltaF,IFOdata->timeData->deltaT);
 
   REAL8 instant= (IFOdata->timeData->epoch.gpsSeconds + 1e-9*(IFOdata->timeData->epoch.gpsNanoSeconds));
 
