@@ -221,22 +221,8 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
     //exit(1);
     }
     XLALBurstInjectSignals(inj8Wave,injEvent,tslide,NULL);
-     
-//      XLALResampleREAL8TimeSeries(hplus,thisData->timeData->deltaT);
-    
-   
-   /*   for(i=0;i<signalvecREAL8->data->length;i++){
-        if(isnan(signalvecREAL8->data->data[i])) {signalvecREAL8->data->data[i]=0.0;printf("isnan %d\n",i);}
-      }
-      
-      if(signalvecREAL8->data->length > thisData->timeData->data->length-(UINT4)ceil((2.0*padding)/thisData->timeData->deltaT)){
-        fprintf(stderr, "WARNING: waveform length = %u is longer than thisData->timeData->data->length = %d minus the window width = %d (total of %d points available).\n", signalvecREAL8->data->length, thisData->timeData->data->length, (INT4)ceil((2.0*padding)/thisData->timeData->deltaT) , thisData->timeData->data->length-(INT4)ceil((2.0*padding)/thisData->timeData->deltaT));
-        fprintf(stderr, "The waveform injected is %f seconds long. Consider increasing the %f seconds segment length (--seglen) to be greater than %f. (in %s, line %d)\n",signalvecREAL8->data->length * thisData->timeData->deltaT , thisData->timeData->data->length * thisData->timeData->deltaT, signalvecREAL8->data->length * thisData->timeData->deltaT + 2.0*padding , __FILE__, __LINE__);
-      }
-*/
-     
-    
-    
+    XLALResampleREAL8TimeSeries(inj8Wave,thisData->timeData->deltaT);
+
     //XLALDestroyREAL4TimeSeries(injectionBuffer);
     
     injF=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("injF",
@@ -252,30 +238,28 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
     
         /* Window the data */
     REAL4 WinNorm = sqrt(thisData->window->sumofsquares/thisData->window->data->length);
-        for(j=0;j<inj8Wave->data->length;j++){
-           inj8Wave->data->data[j]*=thisData->window->data->data[j]; /* /WinNorm; */ /* Window normalisation applied only in freq domain */
-         }
-       
+    for(j=0;j<inj8Wave->data->length;j++){
+      inj8Wave->data->data[j]*=thisData->window->data->data[j]; /* /WinNorm; */ /* Window normalisation applied only in freq domain */
+    }
+
     XLALREAL8TimeFreqFFT(injF,inj8Wave,thisData->timeToFreqFFTPlan);
     /*for(j=0;j<injF->data->length;j++) printf("%lf\n",injF->data->data[j].re);*/
     
     if(thisData->oneSidedNoisePowerSpectrum){
         UINT4 upper=thisData->fHigh/injF->deltaF;
-	for(SNR=0.0,j=thisData->fLow/injF->deltaF;j<upper;j++){
-	  SNR+=pow(creal(injF->data->data[j]),2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
-	  SNR+=pow(cimag(injF->data->data[j]),2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
-	}
+        printf("snr calc from flow=%lf\n",thisData->fLow);
+        for(SNR=0.0,j=thisData->fLow/injF->deltaF;j<upper;j++){
+          SNR+=pow(creal(injF->data->data[j]),2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
+          SNR+=pow(cimag(injF->data->data[j]),2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
+        }
         SNR*=4.0*injF->deltaF;
     }
-    thisData->SNR=sqrt(SNR);
-    NetworkSNR+=SNR;
-    
-    //if (thisData->SNR > previous_snr) {best_ifo_snr=highest_snr_index;    previous_snr=thisData->SNR;}
-    //highest_snr_index++;
+    thisData->SNR=sqrt(SNR)/WinNorm;
+    NetworkSNR+=SNR/WinNorm/WinNorm;
 
     if (!(BurstSNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
-    REAL8 trigtime=injEvent->time_geocent_gps.gpsSeconds + 1e-9*injEvent->time_geocent_gps.gpsNanoSeconds;
-    PrintBurstSNRsToFile(IFOdata , trigtime);
+      REAL8 trigtime=injEvent->time_geocent_gps.gpsSeconds + 1e-9*injEvent->time_geocent_gps.gpsNanoSeconds;
+      PrintBurstSNRsToFile(IFOdata , trigtime);
     }
     /* Actually inject the waveform */
     for(j=0;j<inj8Wave->data->length;j++) thisData->timeData->data->data[j]+=inj8Wave->data->data[j];
@@ -289,9 +273,10 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
     fclose(file);
     sprintf(filename,"%s_freqInjection.dat",thisData->name);
     file=fopen(filename, "w");
+    printf("For injection using norm %lf\n",WinNorm);
     for(j=0;j<injF->data->length;j++){   
-      thisData->freqData->data->data[j]+=crect(creal(injF->data->data[j])/WinNorm,cimag(injF->data->data[j])/WinNorm);
-      fprintf(file, "%lg %lg \t %lg\n", thisData->freqData->deltaF*j, creal(injF->data->data[j]), cimag(injF->data->data[j]));
+      thisData->freqData->data->data[j]+=(injF->data->data[j]/WinNorm);
+      fprintf(file, "%lg %lg \t %lg\n", thisData->freqData->deltaF*j, creal(injF->data->data[j]/WinNorm), cimag(injF->data->data[j]/WinNorm));    
     }
     fclose(file);
     
@@ -300,7 +285,7 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
     thisData=thisData->next;
     }
     NetworkSNR=sqrt(NetworkSNR);
-    fprintf(stdout,"Network SNR of event %d = %.1f\n",event,NetworkSNR);
+    fprintf(stdout,"Network SNR of event %d = %.1e\n",event,NetworkSNR);
      thisData=IFOdata;
     
     
@@ -379,7 +364,6 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
 {
     
     fprintf(stdout,"Injecting SineGaussian in the frequency domain\n");
-    fprintf(stdout,"REMEMBER!!!!!! I HARD CODED h_plus=0 in LALSimBurst.c. Remember to restore  it .\n");
     /* Inject a gravitational wave into the data in the frequency domain */ 
     LALStatus status;
     memset(&status,0,sizeof(LALStatus));
