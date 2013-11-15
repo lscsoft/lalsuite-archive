@@ -802,8 +802,18 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     node.set_seed(random.randint(1,2**31))
     if event.srate: node.set_srate(event.srate)
     if event.trigSNR: node.set_trigSNR(event.trigSNR)
+    
+    """ The reason for the following is that LALInferenceReadData will increment dataseed by one for each IFO (keeping the order given in self.ifos). But for the coherence test, the runs with a single IFO won't have their seeds updated, and that will result in the BCI to be wrong. We thus increment by one the seed here"""
+    idx=0
+    if len(ifos)==len(self.ifos):
+      idx=0
+    elif len(ifos)==1:
+      thisifo=ifos[0]
+      idx=self.ifos.index(thisifo)
+      
+      
     if self.dataseed:
-      node.set_dataseed(self.dataseed+event.event_id)
+      node.set_dataseed(self.dataseed+event.event_id+idx)
     gotdata=0
     for ifo in ifos:
       if event.timeslides.has_key(ifo):
