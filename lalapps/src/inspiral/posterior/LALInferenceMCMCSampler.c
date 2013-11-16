@@ -1170,7 +1170,7 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, INT4 i, 
 
 UINT4 decideSwapLog(gsl_rng *rng, REAL8 T1, REAL8 T2, REAL8 L1, REAL8 L2)
 {
-  logChainSwap = (1.0/T2-1.0/T1)*(L1-L2);
+  REAL8 logChainSwap = (1.0/T2-1.0/T1)*(L1-L2);
   return (logChainSwap > 0) || (log(gsl_rng_uniform(rng)) < logChainSwap);
 }
 
