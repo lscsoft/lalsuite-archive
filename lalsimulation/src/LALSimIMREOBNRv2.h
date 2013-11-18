@@ -82,6 +82,7 @@ tagFacWaveformCoeffs
   REAL8 delta22v8;
   REAL8 delta22vh9;
   REAL8 delta22v5;
+  REAL8 delta22v6;
 
   REAL8 rho22v2;
   REAL8 rho22v3;
@@ -117,6 +118,7 @@ tagFacWaveformCoeffs
   REAL8 rho21v10l;
 
   REAL8 f21v1;
+  REAL8 f21v3;
 
   REAL8 delta33vh3;
   REAL8 delta33vh6;
