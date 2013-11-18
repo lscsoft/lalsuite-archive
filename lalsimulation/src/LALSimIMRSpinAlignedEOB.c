@@ -145,7 +145,8 @@ int XLALSimIMRSpinAlignedEOBWaveform(
         const REAL8     r,           /**<< distance in SI unit */
         const REAL8     inc,         /**<< inclination angle */
         const REAL8     spin1z,      /**<< z-component of spin-1, dimensionless */
-        const REAL8     spin2z       /**<< z-component of spin-2, dimensionless */
+        const REAL8     spin2z,       /**<< z-component of spin-2, dimensionless */
+        UINT4           SpinAlignedEOBversion /**<< 1 for SEOBNRv1, 2 for SEOBNRv2 */
      )
 {
   /* If either spin > 0.6, model not available, exit */
