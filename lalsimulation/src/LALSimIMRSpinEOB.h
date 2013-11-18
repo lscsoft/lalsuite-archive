@@ -35,6 +35,8 @@ tagSpinEOBHCoeffs
   double k2;
   double k3;
   double k4;
+  double k5;
+  double k5l;
   double b3;
   double bb3;
 }
