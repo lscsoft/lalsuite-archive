@@ -2176,6 +2176,21 @@ int XLALSimInspiralChooseTDWaveform(
                     deltaT, m1, m2, f_min, r, i, S1z, S2z);
             break;
 
+        case SEOBNRv2:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
+                ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+                ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
+            if( !checkTidesZero(lambda1, lambda2) )
+                ABORT_NONZERO_TIDES(waveFlags);
+            if( f_ref != 0.)
+                XLALPrintWarning("XLAL Warning - %s: This approximant does use f_ref. The reference phase will be defined at coalescence.\n", __func__);
+            /* Call the waveform driver routine */
+            ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef, 
+                    deltaT, m1, m2, f_min, r, i, S1z, S2z);
+            break;
+
         default:
             XLALPrintError("TD version of approximant not implemented in lalsimulation\n");
             XLAL_ERROR(XLAL_EINVAL);
@@ -2788,6 +2803,7 @@ int XLALSimInspiralImplementedTDApproximants(
         case PhenSpinTaylor:
         case PhenSpinTaylorRD:
         case SEOBNRv1:
+        case SEOBNRv2:
             return 1;
 
         default:
@@ -2923,6 +2939,10 @@ int XLALGetApproximantFromString(const CHAR *inString)
   else if ( strstr(inString, "SEOBNRv1" ) )
   {
     return SEOBNRv1;
+  }
+  else if ( strstr(inString, "SEOBNRv2" ) )
+  {
+    return SEOBNRv2;
   }
   else if ( strstr(inString, "EOBNRv2HM" ) )
   {
@@ -3069,6 +3089,8 @@ char* XLALGetStringFromApproximant(Approximant approximant)
       return strdup("IMRPhenomFB");
     case SEOBNRv1:
       return strdup("SEOBNRv1");
+    case SEOBNRv2:
+      return strdup("SEOBNRv2");
     case EOBNRv2HM:
       return strdup("EOBNRv2HM");
     case EOBNRv2:
