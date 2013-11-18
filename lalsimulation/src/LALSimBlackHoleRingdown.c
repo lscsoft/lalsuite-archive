@@ -837,7 +837,7 @@ int main(void)
  * They are given by fittings of NR simulations results. Specifically,
  * for EOBNR, Table I of Buonanno et al. PRD76, 104049;
  * for EOBNRv2 and EOBNRv2HM, Eqs. 29a and 29b of Pan et al. PRD84, 124052;
- * for SEOBNRv1, Eq. 8 of Tichy and Marronetti PRD78, 081501 and
+ * for SEOBNRv1, SEOBNRv2, Eq. 8 of Tichy and Marronetti PRD78, 081501 and
  * Eqs. 1 and 3 of Barausse and Rezzolla ApJ704, L40.
  */
 INT4 XLALSimIMREOBFinalMassSpin(
@@ -888,6 +888,7 @@ INT4 XLALSimIMREOBFinalMassSpin(
       *finalMass = 1 - 0.057191 * eta - 0.498 * eta2;
       *finalSpin = 3.464102 * eta - 2.9 * eta2;
       break;
+    case SEOBNRv2:
     case SEOBNRv1:
       /* Final mass/spin comes from Eq. 8 of Tichy and Marronetti PRD78, 081501 
          and from Eqs. 1 and 3 of Barausse and Rezzolla ApJ704, L40 */
