@@ -134,7 +134,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   REAL8 xi2, xi_x, xi_y, xi_z; /* Cross product of unit vectors in direction of Skerr and r */
   REAL8 vx, vy, vz, pxir, pvr, pn, prT, pr, pf, ptheta2; /*prT is the tortoise pr */
   REAL8 w2, rho2;
-  REAL8 u, u2, u3, u4;
+  REAL8 u, u2, u3, u4, u5;
   REAL8 bulk, deltaT, deltaR, Lambda;
   REAL8 D, qq, ww, B, w, MU, nu, BR, wr, nur, mur;
   REAL8 wcos, nucos, mucos, ww_r, Lambda_r;
@@ -213,13 +213,15 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   u2 = u*u;
   u3 = u2*u;
   u4 = u2*u2;
+  u5 = u4*u;
 
   //printf( "KK = %.16e\n", coeffs->KK );
   m1PlusetaKK = -1. + eta * coeffs->KK;
   /* Eq. 5.75 of BB1 */
   bulk = 1./(m1PlusetaKK*m1PlusetaKK) + (2.*u)/m1PlusetaKK + a2*u2;
   /* Eq. 5.73 of BB1 */
-  logTerms = 1. + eta*coeffs->k0 + eta*log(1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4);
+  logTerms = 1. + eta*coeffs->k0 + eta*log(1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
+                                              + coeffs->k5*u5 + coeffs->k5l*u5*log(u));
   //printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );
   /* Eq. 5.73 of BB1 */
   deltaU = bulk*logTerms;
@@ -455,7 +457,7 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
         )
 {
 
-  REAL8 KK, k0, k1, k2, k3, k4;
+  REAL8 KK, k0, k1, k2, k3, k4, k5, k5l, k1p2, k1p3;
   REAL8 m1PlusEtaKK;
    
   /* Constants are fits taken from Eq. 37 */
@@ -477,11 +479,19 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
   /* Eqs. 5.77 - 5.81 of BB1 */
   coeffs->k0 = k0 = KK*(m1PlusEtaKK - 1.);
   coeffs->k1 = k1 = - 2.*(k0 + KK)*m1PlusEtaKK;
+  k1p2= k1*k1;
+  k1p3= k1*k1p2;
   coeffs->k2 = k2 = (k1 * (k1 - 4.*m1PlusEtaKK)) / 2. - a*a*k0*m1PlusEtaKK*m1PlusEtaKK;
   coeffs->k3 = k3 = -k1*k1*k1/3. + k1*k2 + k1*k1*m1PlusEtaKK - 2.*(k2 - m1PlusEtaKK)*m1PlusEtaKK - a*a*k1*m1PlusEtaKK*m1PlusEtaKK;
   coeffs->k4 = k4 = (24.*k1*k1*k1*k1 - 96.*k1*k1*k2 + 48.*k2*k2 - 64.*k1*k1*k1*m1PlusEtaKK
       + 48.*a*a*(k1*k1 - 2.*k2)*m1PlusEtaKK*m1PlusEtaKK +
       96.*k1*(k3 + 2.*k2*m1PlusEtaKK) - m1PlusEtaKK*(192.*k3 + m1PlusEtaKK*(-3008. + 123.*LAL_PI*LAL_PI)))/96.;
+  coeffs->k5 = k5 = m1PlusEtaKK*m1PlusEtaKK/eta * (
+    	     + eta*(-4237./60.+128./5.*LAL_GAMMA+2275.*LAL_PI*LAL_PI/512.
+    	     - 1./3.*a*a*(k1*k1*k1-3.*k1*k2+3.*k3)
+    	     - (k1p3*k1p2-5.*k1p3*k2+5.*k1*k2*k2+5.*k1p2*k3-5.*k2*k3-5.*k1*k4)/5./(KK*eta-1.)/m1PlusEtaKK
+    	     + (k1p2*k1p2-4.*k1p2*k2+2.*k2*k2+4.*k1*k3-4.*k4)/2./m1PlusEtaKK+256./5.*log(2.)));
+  coeffs->k5l = k5l = m1PlusEtaKK*m1PlusEtaKK * 64./5.;
 
   /*printf( "a = %.16e, k0 = %.16e, k1 = %.16e, k2 = %.16e, k3 = %.16e, k4 = %.16e, b3 = %.16e, bb3 = %.16e, KK = %.16e\n",
             a, coeffs->k0, coeffs->k1, coeffs->k2, coeffs->k3, coeffs->k4, coeffs->b3, coeffs->bb3, coeffs->KK );
@@ -504,7 +514,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaT(
 {
 
   REAL8 a2;
-  REAL8 u, u2, u3, u4;
+  REAL8 u, u2, u3, u4, u5;
   REAL8 m1PlusetaKK;
 
   REAL8 bulk;
@@ -516,6 +526,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaT(
   u2 = u*u;
   u3 = u2*u;
   u4 = u2*u2;
+  u5 = u4*u;
 
   a2 = a*a;
 
@@ -523,7 +534,8 @@ static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaT(
 
   bulk = 1./(m1PlusetaKK*m1PlusetaKK) + (2.*u)/m1PlusetaKK + a2*u2;
 
-  logTerms = 1. + eta*coeffs->k0 + eta*log(1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4);
+  logTerms = 1. + eta*coeffs->k0 + eta*log(1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
+                                              + coeffs->k5*u5 + coeffs->k5l*u5*log(u));
   //printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );
   deltaU = bulk*logTerms;
 
