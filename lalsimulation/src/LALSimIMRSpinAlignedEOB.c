@@ -163,7 +163,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   /* EOB spin vectors used in the Hamiltonian */
   REAL8Vector *sigmaStar = NULL;
   REAL8Vector *sigmaKerr = NULL;
-  REAL8       a;
+  REAL8       a, tplspin;
   REAL8       chiS, chiA;
 
   /* Wrapper spin vectors used to calculate sigmas */
@@ -388,15 +388,26 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   /* Calculate the value of a */
   /* XXX I am assuming that, since spins are aligned, it is okay to just use the z component XXX */
   /* TODO: Check this is actually the way it works in LAL */
-  a = 0.0;
+  switch ( SpinAlignedEOBversion )
+  {
+     case 1:
+       tplspin = 0.0;
+       break;
+     case 2:
+       tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
+       break;
+     default:
+       XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+       XLAL_ERROR( XLAL_EINVAL );
+       break;
+  }
   /*for ( i = 0; i < 3; i++ )
   {
     a += sigmaKerr->data[i]*sigmaKerr->data[i];
   }
   a = sqrt( a );*/
   seobParams.a = a = sigmaKerr->data[2];
-  /* a set to zero in SEOBNRv1, didn't know yet a good mapping from two physical spins to the test-particle limit Kerr spin */
-  if ( XLALSimIMREOBCalcSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta, /*a*/0.0, chiS, chiA ) == XLAL_FAILURE )
+  if ( XLALSimIMREOBCalcSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta, tplspin, chiS, chiA ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( sigmaKerr );
     XLALDestroyREAL8Vector( sigmaStar );
