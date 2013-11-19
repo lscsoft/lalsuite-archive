@@ -219,7 +219,7 @@ static INT4 XLALSimIMRSpinEOBGetSpinFactorizedWaveform(
 	      case 2:
 	        deltalm = vh3*(hCoeffs->delta22vh3 + vh3*(hCoeffs->delta22vh6 
                     + vh*vh*(hCoeffs->delta22vh9*vh)))
-                    + hCoeffs->delta22v5 *v*v2*v2 + hCoeffs->delta22v8 *v2*v2*v2*v2;
+                    + hCoeffs->delta22v5 *v*v2*v2 + hCoeffs->delta22v6 *v2*v2*v2 + hCoeffs->delta22v8 *v2*v2*v2*v2;
             rholm	= 1. + v2*(hCoeffs->rho22v2 + v*(hCoeffs->rho22v3
                 + v*(hCoeffs->rho22v4
                 + v*(hCoeffs->rho22v5 + v*(hCoeffs->rho22v6 
@@ -573,10 +573,11 @@ UNUSED static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
   coeffs->delta22v8 = (20.*a)/63.;
   coeffs->delta22vh9 = -2203./81. + (1712.*LAL_PI*LAL_PI)/315.;
   coeffs->delta22v5  = - 24.*eta;
+  coeffs->delta22v6  = -580. * eta * (chiS+chiA*dM/(1.-2.*eta));
 
   coeffs->rho22v2   = -43./42. + (55.*eta)/84.;
   coeffs->rho22v3   = (-2.*(chiS + chiA*dM - chiS*eta))/3.;
-  coeffs->rho22v4   = -20555./10584. + 0.5*a2 
+  coeffs->rho22v4   = -20555./10584. + 0.5*(chiS+chiA*dM)*(chiS+chiA*dM) 
        - (33025.*eta)/21168. + (19583.*eta2)/42336.;
   coeffs->rho22v5   = (-34.*a)/21.;
   coeffs->rho22v6   = 1556919113./122245200. + (89.*a2)/252. - (48993925.*eta)/9779616. 
@@ -606,12 +607,12 @@ UNUSED static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
     //coeffs->rho21v1   = (-3.*(chiS+chiA/dM))/(4.);
     coeffs->rho21v1   = 0.0;
     //coeffs->rho21v2   = -59./56 - (9.*chiAPlusChiSdM*chiAPlusChiSdM)/(32.*dM2) + (23.*eta)/84.;
-    coeffs->rho21v2   = -59./56 + (23.*eta)/84. - 9./32.*a2;
+    coeffs->rho21v2   = -59./56 + (23.*eta)/84.;
     /*coeffs->rho21v3   = (-567.*chiA*chiA*chiA - 1701.*chiA*chiA*chiS*dM
                         + chiA*(-4708. + 1701.*chiS*chiS - 2648.*eta)*(-1. + 4.*eta)
                         + chiS* dM3 *(4708. - 567.*chiS*chiS
                         + 1816.*eta))/(2688.*dM3);*/
-    coeffs->rho21v3   = 1177./672.*a - 27./128.*a3;
+    coeffs->rho21v3   = 0.0;
     coeffs->rho21v4   = -47009./56448.- (865.*a2)/1792. - (405.*a2*a2)/2048. - (10993.*eta)/14112.
                         + (617.*eta2)/4704.;
     coeffs->rho21v5   = (-98635.*a)/75264. + (2031.*a*a2)/7168. - (1701.*a2*a3)/8192.;
@@ -627,10 +628,12 @@ UNUSED static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
     coeffs->rho21v10l = 5029963./5927040.;
 
     coeffs->f21v1     = (-3.*(chiS+chiA/dM))/(2.);
+    coeffs->f21v3     = (chiS*dM*(427.+79.*eta)+chiA*(147.+280.*dM*dM+1251.*eta))/84./dM;
   }
   else
   {
     coeffs->f21v1     = -3.*chiA/2.;
+    coeffs->f21v3     = (chiS*dM*(427.+79.*eta)+chiA*(147.+280.*dM*dM+1251.*eta))/84.;
   }
 
   /* l = 3, Eqs. A9a - A9c for rho, Eqs. A15b and A15c for f,
