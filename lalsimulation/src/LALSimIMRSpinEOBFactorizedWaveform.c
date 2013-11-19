@@ -63,6 +63,16 @@ static INT4 XLALSimIMRSpinEOBGetSpinFactorizedWaveform(
                                 SpinEOBParams         * restrict params
                                 );
 
+static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
+                                COMPLEX16             * restrict hlm,
+                                REAL8Vector           * restrict values,
+                                const REAL8           v,
+                                const REAL8           Hreal,
+                                const INT4            l,
+                                const INT4            m,
+                                SpinEOBParams         * restrict params
+                                );
+
 UNUSED static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
           FacWaveformCoeffs * const coeffs,
           const REAL8               m1,
@@ -504,7 +514,404 @@ static INT4 XLALSimIMRSpinEOBGetSpinFactorizedWaveform(
 	}*/
 	return XLAL_SUCCESS;
 }
+ 
+/**
+ * This function calculates hlm mode factorized-resummed waveform
+ * for given dynamical variables. This is optimized for flux calculation,
+ * by ignoring complex arguments and keeping only absolute values.
+ * Changes:
+ * (i) Complex Argument of Tlm not exponentiated.
+ * (ii) exp(\ii deltalm) set to 1.
+ * Eq. 17 and the entire Appendix of the paper.
+ */
+static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform( 
+                 COMPLEX16         * restrict hlm,    /**< OUTPUT, hlm waveforms */
+                 REAL8Vector       * restrict values, /**< dyanmical variables */
+                 const REAL8         v,               /**< velocity */
+                 const REAL8         Hreal,           /**< real Hamiltonian */
+                 const INT4          l,               /**< l mode index */
+                 const INT4          m,               /**< m mode index */
+                 SpinEOBParams     * restrict params  /**< Spin EOB parameters */
+                 )
+{
+    /* Status of function calls */
+    INT4 status;
+    INT4 i;
 
+    REAL8 eta;	
+	REAL8 r, pp, Omega, v2, vh, vh3, k, hathatk, eulerlogxabs; //pr
+	REAL8 Slm, rholm, rholmPwrl;
+        REAL8 auxflm = 0.0;
+        REAL8 hathatksq4, hathatk4pi, Tlmprefac, Tlmprodfac;
+	REAL8 Tlm;
+    COMPLEX16 hNewton;
+	gsl_sf_result lnr1, arg1, z2;
+
+    /* Non-Keplerian velocity */
+    REAL8 vPhi, vPhi2;
+
+    /* Pre-computed coefficients */
+    FacWaveformCoeffs *hCoeffs = params->eobParams->hCoeffs;
+
+	if ( abs(m) > (INT4) l )
+	{
+	  XLAL_ERROR( XLAL_EINVAL );
+	}
+        if ( m == 0 )
+	{
+	  XLAL_ERROR( XLAL_EINVAL );
+	}	
+
+        eta = params->eobParams->eta;
+
+        /* Check our eta was sensible */
+        if ( eta > 0.25 )
+        {
+          XLALPrintError("XLAL Error - %s: Eta seems to be > 0.25 - this isn't allowed!\n", __func__ );
+          XLAL_ERROR( XLAL_EINVAL );
+        }
+        /*else if ( eta == 0.25 && m % 2 )
+        {
+          // If m is odd and dM = 0, hLM will be zero 
+          memset( hlm, 0, sizeof( COMPLEX16 ) );
+          return XLAL_SUCCESS;
+        }*/
+        
+	r	= values->data[0];
+	//pr	= values->data[2];
+	pp	= values->data[3];
+
+	v2	= v * v;
+        Omega   = v2 * v;
+        vh3     = Hreal * Omega;
+	vh	= cbrt(vh3);
+	eulerlogxabs = LAL_GAMMA + log( 2.0 * (REAL8)m * v );
+
+        /* Calculate the non-Keplerian velocity */
+        if ( params->alignedSpins )
+        {
+          vPhi = XLALSimIMRSpinAlignedEOBNonKeplerCoeff( values->data, params );
+
+          if ( XLAL_IS_REAL8_FAIL_NAN( vPhi ) )
+          {
+            XLAL_ERROR( XLAL_EFUNC );
+          }
+
+          vPhi  = r * cbrt(vPhi);
+          vPhi *= Omega;
+          vPhi2 = vPhi*vPhi;
+        }
+        else
+        {
+          vPhi = v;
+          vPhi2 = v2;
+        }
+
+        /* Calculate the newtonian multipole, 1st term in Eq. 17, given by Eq. A1 */
+        status = XLALSimIMRSpinEOBCalculateNewtonianMultipole( &hNewton, vPhi2, r,
+                         values->data[1], (UINT4)l, m, params->eobParams );
+        if ( status == XLAL_FAILURE )
+        {
+          XLAL_ERROR( XLAL_EFUNC );
+        }
+
+        /* Calculate the source term, 2nd term in Eq. 17, given by Eq. A5 */
+	if ( ( (l+m)%2 ) == 0)
+	{ 
+	  Slm = (Hreal*Hreal - 1.)/(2.*eta) + 1.;
+	}
+	else
+	{
+	  Slm = v * pp;
+	}
+        //printf( "Hreal = %e, Slm = %e, eta = %e\n", Hreal, Slm, eta );
+
+        /* Calculate the absolute value of the Tail term, 
+         * 3rd term in Eq. 17, given by Eq. A6, and Eq. (42) of
+         * http://arxiv.org/pdf/1202.0790.pdf */	
+	k	= m * Omega;
+	hathatk = Hreal * k;
+        hathatksq4 = 4. * hathatk * hathatk;
+        hathatk4pi = 4. * LAL_PI * hathatk;
+        /*
+        XLAL_CALLGSL( status = gsl_sf_lngamma_complex_e( l+1.0, -2.0*hathatk, &lnr1, &arg1 ) );
+	if (status != GSL_SUCCESS)
+	{
+	  XLALPrintError("XLAL Error - %s: Error in GSL function\n", __func__ );
+	  XLAL_ERROR( XLAL_EFUNC );
+	}
+        */
+	XLAL_CALLGSL( status = gsl_sf_fact_e( l, &z2 ) );
+	if ( status != GSL_SUCCESS)
+	{
+	  XLALPrintError("XLAL Error - %s: Error in GSL function\n", __func__ );
+	  XLAL_ERROR( XLAL_EFUNC );
+	}
+        
+        /* Calculating the prefactor of Tlm, outside the multiple product*/
+        Tlmprefac = sqrt(hathatk4pi / (1. - exp(-hathatk4pi))) / z2.val;
+        
+        /* Calculating the multiple product factor */
+        for( Tlmprodfac = 1., i = 1; i <= l; i++ )
+        {
+          Tlmprodfac *= ( hathatksq4 + (REAL8) i*i );
+        }
+
+        Tlm = Tlmprefac * Tlmprodfac;
+
+
+        /* Calculate the residue phase and amplitude terms */
+        /* deltalm is the 4th term in Eq. 17, delta 22 given by Eq. A15, others  */
+        /* rholm is the 5th term in Eq. 17, given by Eqs. A8 - A14 */
+        /* auxflm is a special part of the 5th term in Eq. 17, given by Eq. A15 */
+        /* Actual values of the coefficients are defined in the next function of this file */
+	switch( l )
+	{
+	  case 2:
+	    switch( abs(m) )
+	    {
+	      case 2:
+                rholm	= 1. + v2*(hCoeffs->rho22v2 + v*(hCoeffs->rho22v3
+                + v*(hCoeffs->rho22v4
+                + v*(hCoeffs->rho22v5 + v*(hCoeffs->rho22v6 
+                + hCoeffs->rho22v6l*eulerlogxabs + v*(hCoeffs->rho22v7 
+                + v*(hCoeffs->rho22v8 + hCoeffs->rho22v8l*eulerlogxabs 
+                + (hCoeffs->rho22v10 + hCoeffs->rho22v10l * eulerlogxabs)*v2)))))));
+	        break;
+	      case 1:
+                {
+		rholm	= 1. + v*(hCoeffs->rho21v1
+			+ v*( hCoeffs->rho21v2 + v*(hCoeffs->rho21v3 + v*(hCoeffs->rho21v4 
+			+ v*(hCoeffs->rho21v5 + v*(hCoeffs->rho21v6 + hCoeffs->rho21v6l*eulerlogxabs 
+			+ v*(hCoeffs->rho21v7 + hCoeffs->rho21v7l * eulerlogxabs 
+			+ v*(hCoeffs->rho21v8 + hCoeffs->rho21v8l * eulerlogxabs 
+			+ (hCoeffs->rho21v10 + hCoeffs->rho21v10l * eulerlogxabs)*v2))))))));
+                auxflm = v*hCoeffs->f21v1;
+                }
+	        break;
+	      default:
+                XLAL_ERROR( XLAL_EINVAL );
+                break;
+	    }
+	    break;
+	  case 3:
+	    switch (m)
+	    {
+	      case 3:
+		rholm	= 1. + v2*(hCoeffs->rho33v2 + v*(hCoeffs->rho33v3 + v*(hCoeffs->rho33v4 
+			+ v*(hCoeffs->rho33v5 + v*(hCoeffs->rho33v6 + hCoeffs->rho33v6l*eulerlogxabs
+			+ v*(hCoeffs->rho33v7 + (hCoeffs->rho33v8 + hCoeffs->rho33v8l*eulerlogxabs)*v))))));
+                auxflm = v*v2*hCoeffs->f33v3;
+	        break;
+	      case 2:
+		rholm	= 1. + v*(hCoeffs->rho32v 
+			+ v*(hCoeffs->rho32v2 + v*(hCoeffs->rho32v3 + v*(hCoeffs->rho32v4 + v*(hCoeffs->rho32v5
+			+ v*(hCoeffs->rho32v6 + hCoeffs->rho32v6l*eulerlogxabs
+			+ (hCoeffs->rho32v8 + hCoeffs->rho32v8l*eulerlogxabs)*v2))))));
+		break;
+	      case 1:
+		rholm	= 1. + v2*(hCoeffs->rho31v2 + v*(hCoeffs->rho31v3 + v*(hCoeffs->rho31v4 
+			+ v*(hCoeffs->rho31v5 + v*(hCoeffs->rho31v6 + hCoeffs->rho31v6l*eulerlogxabs 
+			+ v*(hCoeffs->rho31v7 + (hCoeffs->rho31v8 + hCoeffs->rho31v8l*eulerlogxabs)*v))))));
+                auxflm = v*v2*hCoeffs->f31v3;
+		break;
+              default:
+                XLAL_ERROR( XLAL_EINVAL );
+                break;
+	    }
+	    break;
+	  case 4:
+	    switch (m)
+	    {
+	      case 4:
+                
+		rholm	= 1. + v2*(hCoeffs->rho44v2
+			+ v*( hCoeffs->rho44v3 + v*(hCoeffs->rho44v4
+			+ v*(hCoeffs->rho44v5 + (hCoeffs->rho44v6
+			+ hCoeffs->rho44v6l*eulerlogxabs)*v))));
+	        break;
+	      case 3:
+		rholm	= 1. + v*(hCoeffs->rho43v
+			+ v*(hCoeffs->rho43v2
+			+ v2*(hCoeffs->rho43v4 + v*(hCoeffs->rho43v5
+			+ (hCoeffs->rho43v6 + hCoeffs->rho43v6l*eulerlogxabs)*v))));
+                auxflm = v*hCoeffs->f43v;
+	        break;
+	      case 2:
+		rholm	= 1. + v2*(hCoeffs->rho42v2
+			+ v*(hCoeffs->rho42v3 + v*(hCoeffs->rho42v4 + v*(hCoeffs->rho42v5
+			+ (hCoeffs->rho42v6 + hCoeffs->rho42v6l*eulerlogxabs)*v))));
+		break;
+	      case 1:
+		rholm	= 1. + v*(hCoeffs->rho41v 
+			+ v*(hCoeffs->rho41v2
+			+ v2*(hCoeffs->rho41v4 + v*(hCoeffs->rho41v5 
+			+ (hCoeffs->rho41v6 +  hCoeffs->rho41v6l*eulerlogxabs)*v))));
+                auxflm = v*hCoeffs->f41v;
+		break;
+	      default:
+                XLAL_ERROR( XLAL_EINVAL );
+                break;
+	    }
+	    break;
+	  case 5:
+	    switch (m)
+	    {
+	      case 5:
+		rholm	= 1. + v2*( hCoeffs->rho55v2 
+			+ v*(hCoeffs->rho55v3 + v*(hCoeffs->rho55v4 
+                        + v*(hCoeffs->rho55v5 + hCoeffs->rho55v6*v))));
+	        break;
+	      case 4:
+		rholm	= 1. + v2*(hCoeffs->rho54v2 + v*(hCoeffs->rho54v3
+			+ hCoeffs->rho54v4*v));
+		break;
+	      case 3:
+		rholm	= 1. + v2*(hCoeffs->rho53v2 
+			+ v*(hCoeffs->rho53v3 + v*(hCoeffs->rho53v4 + hCoeffs->rho53v5*v)));
+	        break;
+	      case 2:
+		rholm	= 1. + v2*(hCoeffs->rho52v2 + v*(hCoeffs->rho52v3
+			+ hCoeffs->rho52v4*v));
+		break;
+	      case 1:
+		rholm	= 1. + v2*(hCoeffs->rho51v2 
+			+ v*(hCoeffs->rho51v3 + v*(hCoeffs->rho51v4 + hCoeffs->rho51v5*v)));
+		break;
+	      default:
+                XLAL_ERROR( XLAL_EINVAL );
+                break;
+	    }
+	    break;
+	  case 6:
+	    switch (m)
+	    {
+	      case 6:
+		rholm	= 1. + v2*(hCoeffs->rho66v2 + v*(hCoeffs->rho66v3
+			+ hCoeffs->rho66v4*v));
+	        break;
+	      case 5:
+		rholm	= 1. + v2*(hCoeffs->rho65v2 + hCoeffs->rho65v3*v);
+		break;
+	      case 4:
+		rholm	= 1. + v2*(hCoeffs->rho64v2 + v*(hCoeffs->rho64v3
+			+ hCoeffs->rho64v4*v));
+		break;
+	      case 3:
+		rholm	= 1. + v2*(hCoeffs->rho63v2 + hCoeffs->rho63v3*v);
+	        break;
+	      case 2:
+		rholm	= 1. + v2*(hCoeffs->rho62v2 + v*(hCoeffs->rho62v3
+			+ hCoeffs->rho62v4 * v));
+		break;
+	      case 1:
+		rholm	= 1. + v2*(hCoeffs->rho61v2 + hCoeffs->rho61v3*v);
+		break;
+	      default:
+                XLAL_ERROR( XLAL_EINVAL );
+                break;
+	    }
+	    break;
+	  case 7:
+	    switch (m)
+	    {
+	      case 7:
+		rholm	= 1. + v2*(hCoeffs->rho77v2 + hCoeffs->rho77v3 * v);
+	        break;
+	      case 6:
+		rholm	= 1. + hCoeffs->rho76v2 * v2;
+	        break;
+	      case 5:
+		rholm	= 1. + v2*(hCoeffs->rho75v2 + hCoeffs->rho75v3*v);
+		break;
+	      case 4:
+		rholm	= 1. + hCoeffs->rho74v2 * v2;
+		break;
+	      case 3:
+		rholm	= 1. + v2*(hCoeffs->rho73v2 + hCoeffs->rho73v3 * v);
+	        break;
+	      case 2:
+		rholm	= 1. + hCoeffs->rho72v2 * v2;
+		break;
+	      case 1:
+		rholm	= 1. + v2*(hCoeffs->rho71v2 +hCoeffs->rho71v3 * v);
+		break;
+	      default:
+                XLAL_ERROR( XLAL_EINVAL );
+                break;
+	    }
+	    break;
+	  case 8:
+	    switch (m)
+	    {
+	      case 8:
+		rholm	= 1. + hCoeffs->rho88v2 * v2;
+	        break;
+	      case 7:
+		rholm	= 1. + hCoeffs->rho87v2 * v2;
+		break;
+	      case 6:
+		rholm	= 1. + hCoeffs->rho86v2 * v2;
+	        break;
+	      case 5:
+		rholm	= 1. + hCoeffs->rho85v2 * v2;
+		break;
+	      case 4:
+		rholm	= 1. + hCoeffs->rho84v2 * v2;
+		break;
+	      case 3:
+		rholm	= 1. + hCoeffs->rho83v2 * v2;
+	        break;
+	      case 2:
+		rholm	= 1. + hCoeffs->rho82v2 * v2;
+		break;
+	      case 1:
+		rholm	= 1. + hCoeffs->rho81v2 * v2;
+		break;
+	      default:
+                XLAL_ERROR( XLAL_EINVAL );
+                break;
+	    }
+	    break;
+	  default:
+            XLAL_ERROR( XLAL_EINVAL );
+            break; 
+	}
+
+        /* Raise rholm to the lth power */
+        rholmPwrl = 1.0;
+        i = l;
+        while ( i-- )
+        {
+          rholmPwrl *= rholm;
+        }
+        /* In the equal-mass odd m case, there is no contribution from nonspin terms,  
+         * and the only contribution comes from the auxflm term that is proportional to chiA (asymmetric spins). 
+         * In this case, we must ignore the nonspin terms directly, since the leading term defined by 
+         * CalculateThisMultipolePrefix in LALSimIMREOBNewtonianMultipole.c is not zero (see comments there).
+         */ 
+        if (eta == 0.25 && m % 2)
+        {
+          rholmPwrl = auxflm;
+        }
+        else
+        {
+          rholmPwrl += auxflm;
+        }
+
+        /*if (r > 8.5)
+	{
+	  printf("YP::dynamics variables in waveform: %i, %i, %e, %e\n",l,m,r,pp); 
+	  printf( "rholm^l = %.16e, Tlm = %.16e + i %.16e, \nSlm = %.16e, hNewton = %.16e + i %.16e, delta = %.16e\n", rholmPwrl, Tlm, 0, Slm, hNewton.re, hNewton.im, deltalm );}*/
+        /* Put all factors in Eq. 17 together */
+	*hlm = Tlm * Slm * rholmPwrl;
+        *hlm *= hNewton;
+	/*if (r > 8.5)
+	{
+	  printf("YP::FullWave: %.16e,%.16e, %.16e\n",hlm->re,hlm->im,sqrt(hlm->re*hlm->re+hlm->im*hlm->im));
+	}*/
+	return XLAL_SUCCESS;
+}
 /*--------------------------------------------------------------*/
 /**
  * Spin Factors
