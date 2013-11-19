@@ -157,6 +157,8 @@ int XLALSimIMRSpinAlignedEOBWaveform(
         __func__, SpinAlignedEOBversion);
     XLAL_ERROR( XLAL_EERR );
   }
+  
+  Approximant SpinAlignedEOBapproximant = (SpinAlignedEOBversion == 1) ? SEOBNRv1 : SEOBNRv2;
 
   /* If either spin > 0.6, model not available, exit */
   if ( SpinAlignedEOBversion == 1 && ( spin1z > 0.6 || spin2z > 0.6 ) )
@@ -311,7 +313,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   modefreqVec.length = 1;
   modefreqVec.data   = &modeFreq;
 
-  if ( XLALSimIMREOBGenerateQNMFreqV2( &modefreqVec, m1, m2, spin1, spin2, 2, 2, 1, SEOBNRv1 ) == XLAL_FAILURE )
+  if ( XLALSimIMREOBGenerateQNMFreqV2( &modefreqVec, m1, m2, spin1, spin2, 2, 2, 1, SpinAlignedEOBapproximant ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( values );
     XLAL_ERROR( XLAL_EFUNC );
@@ -825,8 +827,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
 
   if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, 2,
               deltaTHigh, m1, m2, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2],
-              &timeHi, rdMatchPoint, 
-              (SpinAlignedEOBversion == 1) ? SEOBNRv1 : SEOBNRv2)
+              &timeHi, rdMatchPoint, SpinAlignedEOBapproximant )
           == XLAL_FAILURE ) 
   {
     XLAL_ERROR( XLAL_EFUNC );
