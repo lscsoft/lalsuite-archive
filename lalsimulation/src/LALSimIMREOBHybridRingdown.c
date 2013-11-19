@@ -32,7 +32,7 @@
  * between the two models in ring-down waveform is the pseudo-QNM introduced
  * in the latter (see Taracchini et al. PRD 86, 024011 (2012) for more details).
  */
-
+#include <math.h>
 #include <complex.h>
 #include <stdlib.h>
 #include <lal/LALStdlib.h>
@@ -431,7 +431,8 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
       REAL8Vector		*ddinspwave;
       REAL8VectorSequence	*inspwaves1;
       REAL8VectorSequence	*inspwaves2;
-      REAL8 eta, a, NRPeakOmega22; /* To generate pQNM frequency */
+      REAL8 eta, a, chi, NRPeakOmega22; /* To generate pQNM frequency */
+      REAL8 sh, kk, kt1, kt2; /* To generate pQNM frequency */
       REAL8 mTot; /* In geometric units */
       REAL8 spin1[3] = { spin1x, spin1y, spin1z };
       REAL8 spin2[3] = { spin2x, spin2y, spin2z };
@@ -476,6 +477,42 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
           modefreqs->data[7] += I * 10./3. * cimag(modefreqs->data[0]);
       }
 
+      if ( approximant == SEOBNRv2 )
+      {
+          /* Replace the last two QNMs with pQNMs */
+          /* We assume aligned/antialigned spins here */
+          a  = (spin1[2] + spin2[2]) / 2. * (1.0 - 2.0 * eta) + (spin1[2] - spin2[2]) / 2. * (mass1 - mass2) / (mass1 + mass2);
+          NRPeakOmega22 = GetNRSpinPeakOmega( l, m, eta, a ) / mTot;
+          
+          /* Define chi */
+          chi = (spin1[2] + spin2[2]) / 2. + (spin1[2] - spin2[2]) / 2. * sqrt(1. - 4. * eta) / (1. - 2. * eta);
+          
+          /* For extreme chi (>= 0.8), there are scale factors in both complex
+           * pseudo-QNM frequencies. kk, kt1, kt2 describe those factors. */
+          kk = kt1 = kt2 = 1.;
+          if ( chi >= 0.8 )
+          {
+            kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
+            kt1 = -0.125 + sqrt(1. + 200. * pow(eta,2) / 3.)/2.;
+            kt2 = -0.2 + pow(1. + 200. * pow(eta, 3./2.) / 9., 2./3.)/2.;
+          }
+          /*printf("a, chi and NRomega in QNM freq: %.16e %.16e %.16e %.16e %.16e %.16e\n",
+           * spin1[2],spin2[2],mTot/LAL_MTSUN_SI,a,chi,NRPeakOmega22*mTot);*/
+          modefreqs->data[6] = kk * ((2./3. * NRPeakOmega22/finalMass) + (1./3. * creal(modefreqs->data[0])) );
+          modefreqs->data[6] += I * 3.5/0.9 * cimag(modefreqs->data[0]) / kt1;
+
+          modefreqs->data[7] = kk * ((3./4. * NRPeakOmega22/finalMass) + (1./4. * creal(modefreqs->data[0])) / 2.);
+          modefreqs->data[7] += I * 3.5 * cimag(modefreqs->data[0]) / kt2;
+    
+          /* For extreme chi (>= 0.8), the ringdown attachment should end
+           * slightly before the value given passed to this function. sh
+           * gives exactly how long before. */
+          if ( chi >= 0.8 )
+          {
+            sh = -9. * (eta - 0.25);
+            matchrange->data[1] -= sh;
+          }
+      }
       /*for (j = 0; j < nmodes; j++)
       {
         printf("QNM frequencies: %d %d %d %e %e\n",l,m,j,modefreqs->data[j].re*mTot,1./modefreqs->data[j].im/mTot);

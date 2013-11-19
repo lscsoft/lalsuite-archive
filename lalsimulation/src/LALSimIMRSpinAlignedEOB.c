@@ -29,6 +29,7 @@
  * unless otherwise specified.
  */
 
+#include <math.h>
 #include <complex.h>
 #include <lal/LALSimInspiral.h>
 #include <lal/LALSimIMR.h>
@@ -149,8 +150,16 @@ int XLALSimIMRSpinAlignedEOBWaveform(
         UINT4           SpinAlignedEOBversion /**<< 1 for SEOBNRv1, 2 for SEOBNRv2 */
      )
 {
+  /* If the EOB version flag is neither 1 nor 2, exit */
+  if (SpinAlignedEOBversion != 1 && SpinAlignedEOBversion != 2)
+  {
+    XLALPrintError("XLAL Error - %s: SEOBNR version flag incorrectly set to %u\n",
+        __func__, SpinAlignedEOBversion);
+    XLAL_ERROR( XLAL_EERR );
+  }
+
   /* If either spin > 0.6, model not available, exit */
-  if ( spin1z > 0.6 || spin2z > 0.6 )
+  if ( SpinAlignedEOBversion == 1 && ( spin1z > 0.6 || spin2z > 0.6 ) )
   {
     XLALPrintError( "XLAL Error - %s: Component spin larger than 0.6!\nSEOBNRv1 is only available for spins in the range -1 < a/M < 0.6.\n", __func__);
     XLAL_ERROR( XLAL_EINVAL );
@@ -769,8 +778,22 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   
   /* Attach the ringdown at the time of amplitude peak */
   REAL8 combSize = 7.5; /* Eq. 34 */
+  REAL8 chi = (spin1[2] + spin2[2]) / 2. + (spin1[2] - spin2[2]) / 2. * sqrt(1. - 4. * eta) / (1. - 2. * eta);
+  
+  /* Modify the combsize for SEOBNRv2 */
+  /* If chi1=chi2=0, comb = 11. if chi < 0.8, comb = 12. if chi >= 0.8, comb =
+   * 13.5 */
+  if( SpinAlignedEOBversion == 2 )
+  {
+    combSize = (spin1[2] == 0. && spin2[2] == 0.) ? 11. : (( chi >= 0.8 ) ? 13.5 : 12.);
+  }
+
   REAL8 timeshiftPeak;
   timeshiftPeak = timePeak - timewavePeak;
+  if ( SpinAlignedEOBversion == 2)
+  {
+    timeshiftPeak = (timePeak - timewavePeak) > 0. ? (timePeak - timewavePeak) : 0.;
+  }
 
   //printf("YP::timePeak and timewavePeak: %.16e and %.16e\n",timePeak,timewavePeak);
  
@@ -791,7 +814,8 @@ int XLALSimIMRSpinAlignedEOBWaveform(
 
   if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, 2,
               deltaTHigh, m1, m2, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2],
-              &timeHi, rdMatchPoint, SEOBNRv1)
+              &timeHi, rdMatchPoint, 
+              (SpinAlignedEOBversion == 1) ? SEOBNRv1 : SEOBNRv2)
           == XLAL_FAILURE ) 
   {
     XLAL_ERROR( XLAL_EFUNC );
