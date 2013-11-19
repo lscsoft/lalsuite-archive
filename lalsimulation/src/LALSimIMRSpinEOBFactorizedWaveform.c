@@ -608,8 +608,8 @@ static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
         }
 
         /* Calculate the newtonian multipole, 1st term in Eq. 17, given by Eq. A1 */
-        status = XLALSimIMRSpinEOBCalculateNewtonianMultipole( &hNewton, vPhi2, r,
-                         values->data[1], (UINT4)l, m, params->eobParams );
+        status = XLALSimIMRSpinEOBFluxCalculateNewtonianMultipole( &hNewton, 
+            vPhi2, r, values->data[1], (UINT4)l, m, params->eobParams );
         if ( status == XLAL_FAILURE )
         {
           XLAL_ERROR( XLAL_EFUNC );
