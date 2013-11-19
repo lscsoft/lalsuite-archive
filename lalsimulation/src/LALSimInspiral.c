@@ -1906,6 +1906,9 @@ int XLALSimInspiralChooseTDWaveform(
         XLAL_ERROR(XLAL_EINVAL);
     }
 
+    /* SEOBNR flag for model version. 1 for SEOBNRv1, 2 for SEOBNRv2 */
+    UINT4 SpinAlignedEOBversion;
+
     /* General sanity check the input parameters - only give warnings! */
     if( deltaT > 1. )
         XLALPrintWarning("XLAL Warning - %s: Large value of deltaT = %e requested.\nPerhaps sample rate and time step size were swapped?\n", __func__, deltaT);
@@ -2172,7 +2175,7 @@ int XLALSimInspiralChooseTDWaveform(
             if( f_ref != 0.)
                 XLALPrintWarning("XLAL Warning - %s: This approximant does use f_ref. The reference phase will be defined at coalescence.\n", __func__);
             /* Call the waveform driver routine */
-            UINT4 SpinAlignedEOBversion = 1;
+            SpinAlignedEOBversion = 1;
             ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef, 
                     deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion);
             break;
