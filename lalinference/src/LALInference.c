@@ -704,6 +704,8 @@ const char *LALInferenceTranslateInternalToExternalParamName(const char *inName)
     return "iota";
   } else if (!strcmp(inName, "distance")) {
     return "dist";
+  } else if (!strcmp(inName, "fRef")) {
+    return "f_ref";
   } else {
     return inName;
   }
@@ -744,6 +746,8 @@ void LALInferenceTranslateExternalToInternalParamName(char *outName, const char 
     strcpy(outName, "inclination");
   } else if (!strcmp(inName, "dist")) {
     strcpy(outName, "distance");
+  } else if (!strcmp(inName, "f_ref")) {
+    strcpy(outName, "fRef");
   } else {
     strcpy(outName, inName);
   }
