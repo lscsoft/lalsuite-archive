@@ -109,8 +109,8 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
     for ( m = 1; m <= l; m++ )
     {
 
-      if ( XLALSimIMRSpinEOBGetSpinFactorizedWaveform( &hLM, values, v, H, l, m, ak )
-             == XLAL_FAILURE )
+      if ( XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform( &hLM, values, v, H,
+            l, m, ak ) == XLAL_FAILURE )
       {
         XLAL_ERROR_REAL8( XLAL_EFUNC );
       }
