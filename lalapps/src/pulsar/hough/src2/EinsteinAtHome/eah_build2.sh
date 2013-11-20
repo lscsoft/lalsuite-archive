@@ -34,7 +34,9 @@ log_and_dont_fail() {
 }
 
 download() {
-    echo `date '+[%Y-%m-%d %H:%M:%S]'` curl "$1/$2 > $2" >> "$LOGFILE"
+    echo `date '+[%Y-%m-%d %H:%M:%S]'` wget "$1/$2" >> "$LOGFILE" &&
+    wget "$1/$2" 2>> "$LOGFILE" ||
+    echo `date '+[%Y-%m-%d %H:%M:%S]'` curl "$1/$2 > $2" >> "$LOGFILE" &&
     curl "$1/$2" > "$2" 2>> "$LOGFILE"
 }
 
@@ -330,7 +332,7 @@ echo RELEASE_DEPS="\"$RELEASE_DEPS\"" >> "$LOGFILE"
 echo RELEASE_LDADD="\"$RELEASE_LDADD\"" >> "$LOGFILE"
 echo BUILD_INFO="\"$BUILD_INFO\"" >> "$LOGFILE"
 
-gsl=gsl-1.9
+gsl=gsl-1.15
 fftw=fftw-3.2.2
 zlib=zlib-1.2.8
 binutils=binutils-2.19
@@ -358,7 +360,7 @@ if test -z "$rebuild" && pkg-config --exists gsl; then
     log_and_show "using existing gsl source"
 elif test -z "$noupdate"; then
     log_and_show "retrieving $gsl"
-    download http://www.aei.mpg.de/~repr/EaH_packages $gsl.tar.gz
+    download http://www.aei.mpg.de/~bema $gsl.tar.gz
     log_and_do tar xzf "$gsl.tar.gz"
 fi
 

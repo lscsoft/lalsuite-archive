@@ -1,4 +1,4 @@
-# Copyright (C) 2008--2012  Kipp Cannon, Drew G. Keppel
+# Copyright (C) 2008--2013  Kipp Cannon, Drew G. Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -602,7 +602,7 @@ class sngl_inspiral_coincs(object):
 		Return a list of the sngl_inspiral rows that participated
 		in the coincidence given by coinc_event_id.
 		"""
-		return [self.sngl_inspiral_index[event_id] for event_id in self.coinc_event_map_index[coinc_event_id]]
+		return [self.sngl_inspiral_index[row.event_id] for row in self.coinc_event_map_index[coinc_event_id]]
 
 	def offset_vector(self, time_slide_id):
 		"""
