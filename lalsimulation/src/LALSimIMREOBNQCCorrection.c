@@ -1070,15 +1070,15 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQC( EOBNonQCCoeffs * restrict c
   /* Andrea and I have different sign conventions, so I need to put a minus sign in front */
   coeffs->b1 = - coeffs->b1;
   coeffs->b2 = - coeffs->b2;
-  /*coeffs->a1 = -6.292993135543338;
-  coeffs->a2 = 40.26795686019975;
-  coeffs->a3 = -39.29214347590138;
-  coeffs->a3S= 226.3844538692294;
-  coeffs->a4 = -747.9690610155075;
-  coeffs->a5 = 623.9090070111784;
-  coeffs->b1 = 0.7467610798775989;
-  coeffs->b2 = -2.159938635119833;
-  */
+  coeffs->a1 = -8.02798637014;
+  coeffs->a2 = 48.7446843797;
+  coeffs->a3 = -45.7900277224;
+  coeffs->a3S= 0.;
+  coeffs->a4 = 0.;
+  coeffs->a5 = 0.;
+  coeffs->b1 = 0.834742923041;
+  coeffs->b2 = -2.33512320852;
+  
   /* Obsolete polynomial fitting of nonspin NQC coefficients a1, a2, a3, b1 and b2 */
   /*
   coeffs->a1 = -12.67955358602124 + 75.41927959573084 * eta - 106.15933052937714 * eta2;
@@ -1455,6 +1455,8 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
   coeffs->a5  = gsl_vector_get( aCoeff, 2 );*/
   coeffs->b3  = gsl_vector_get( bCoeff, 0 );
   coeffs->b4  = gsl_vector_get( bCoeff, 1 );
+  coeffs->b3  = 0.0;
+  coeffs->b4  = 0.0;
 
   /*printf( "NQC coefficients:\n" );
   printf( "a1 = %.16e, a2 = %.16e, a3 = %.16e, a3s = %.16e, a4 = %.16e, a5 = %.16e\n",
