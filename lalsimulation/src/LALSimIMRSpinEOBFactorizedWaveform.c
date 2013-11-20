@@ -628,12 +628,13 @@ static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
 
         /* Calculate the absolute value of the Tail term, 
          * 3rd term in Eq. 17, given by Eq. A6, and Eq. (42) of
-         * http://arxiv.org/pdf/1202.0790.pdf */	
+         * http://arxiv.org/pdf/1212.4357.pdf */	
 	k	= m * Omega;
 	hathatk = Hreal * k;
         hathatksq4 = 4. * hathatk * hathatk;
         hathatk4pi = 4. * LAL_PI * hathatk;
-        /*
+        /*        
+	gsl_sf_result lnr1, arg1;
         XLAL_CALLGSL( status = gsl_sf_lngamma_complex_e( l+1.0, -2.0*hathatk, &lnr1, &arg1 ) );
 	if (status != GSL_SUCCESS)
 	{
@@ -647,7 +648,12 @@ static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
 	  XLALPrintError("XLAL Error - %s: Error in GSL function\n", __func__ );
 	  XLAL_ERROR( XLAL_EFUNC );
 	}
-        
+        /*
+        COMPLEX16 Tlmold;
+	Tlmold = cexp( ( lnr1.val + LAL_PI * hathatk ) + I * ( 
+				arg1.val + 2.0 * hathatk * log(4.0*k/sqrt(LAL_E)) ) );
+	Tlmold /= z2.val;
+        */
         /* Calculating the prefactor of Tlm, outside the multiple product*/
         Tlmprefac = sqrt(hathatk4pi / (1. - exp(-hathatk4pi))) / z2.val;
         
@@ -657,8 +663,7 @@ static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
           Tlmprodfac *= ( hathatksq4 + (REAL8) i*i );
         }
 
-        Tlm = Tlmprefac * Tlmprodfac;
-
+        Tlm = Tlmprefac * sqrt(Tlmprodfac);
 
         /* Calculate the residue phase and amplitude terms */
         /* deltalm is the 4th term in Eq. 17, delta 22 given by Eq. A15, others  */
