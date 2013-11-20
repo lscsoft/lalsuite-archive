@@ -1,5 +1,5 @@
 /*
-*  Copyright (C) 2010 Craig Robinson, Yi Pan
+*  Copyright (C) 2010 Craig Robinson, Yi Pan, Prayush Kumar
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 
 /**
- * \author Craig Robinson, Yi Pan
+ * \author Craig Robinson, Yi Pan, Prayush Kumar
  *
  * \brief Function to compute the factorized waveform as uses in the SEOBNRv1 model.
  * Waveform expressions are given by
@@ -29,6 +29,12 @@
  * Coefficients of the so-called "deltalm" terms are given by
  * Damour et al. PRD 79, 064004 (2009) and Pan et al. PRD 83, 064003 (2011),
  * henceforth DIN and PBFRT.
+ *
+ * Functions to compute the factorized waveform for the purpose of computing the
+ * flux, i.e. returning only the absolute value of the multipoles. The tail term
+ * Tlm is used in its resummed form, given by Eq. (42) of Damour, Nagar and
+ * Bernuzzi, PRD 87 084035 (2013), called DNB here.
+ *
  */
 
 #ifndef _LALSIMIMRSPINEOBFACTORIZEDWAVEFORM_C

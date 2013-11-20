@@ -1,5 +1,6 @@
 /*
-*  Copyright (C) 2011 Craig Robinson, Enrico Barausse, Yi Pan
+*  Copyright (C) 2011 Craig Robinson, Enrico Barausse, Yi Pan, Prayush Kumar
+*  (minor changes)
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -27,6 +28,11 @@
  * Taracchini et al. ( PRD 86, 024011 (2012), arXiv 1202.0790 ).
  * All equation numbers in this file refer to equations of this paper,
  * unless otherwise specified.
+ *
+ *
+ * \brief Functions for producing SEOBNRv2 waveforms for
+ * spinning binaries, as described in
+ * Taracchini et al. ( arXiv 1311.2544 ).
  */
 
 #include <math.h>
