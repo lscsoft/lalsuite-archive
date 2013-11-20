@@ -808,14 +808,16 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     timeshiftPeak = (timePeak - timewavePeak) > 0. ? (timePeak - timewavePeak) : 0.;
   }
 
-  //printf("YP::timePeak and timewavePeak: %.16e and %.16e\n",timePeak,timewavePeak);
- 
+  printf("YP::timePeak and timewavePeak: %.16e and %.16e\n",timePeak,timewavePeak);
+  printf("YP::timeshiftPeak and combSize: %.16e and %.16e\n",timeshiftPeak,combSize);
+  printf("PK::chi and SpinAlignedEOBversion: %.16e and %u\n\n", chi,SpinAlignedEOBversion);
+
   REAL8Vector *rdMatchPoint = XLALCreateREAL8Vector( 3 );
   if ( !rdMatchPoint )
   {
     XLAL_ERROR( XLAL_ENOMEM );
   }
-
+  
   if ( combSize > timePeak - timeshiftPeak )
   {
     XLALPrintError( "The comb size looks to be too big!!!\n" );
