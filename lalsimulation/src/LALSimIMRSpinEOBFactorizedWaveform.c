@@ -545,7 +545,7 @@ static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
         REAL8 hathatksq4, hathatk4pi, Tlmprefac, Tlmprodfac;
 	REAL8 Tlm;
     COMPLEX16 hNewton;
-	gsl_sf_result lnr1, arg1, z2;
+	gsl_sf_result z2;
 
     /* Non-Keplerian velocity */
     REAL8 vPhi, vPhi2;

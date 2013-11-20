@@ -52,6 +52,11 @@ XLALScalarSphHarmThetaPiBy2(COMPLEX16 *y,
                          REAL8 phi);
 
 static int
+XLALAbsScalarSphHarmThetaPiBy2(COMPLEX16 *y,
+                         INT4 l,
+                         INT4  m);
+
+static int
 CalculateThisMultipolePrefix(
                COMPLEX16 *prefix,
                const REAL8 m1,
@@ -195,10 +200,10 @@ XLALSimIMRSpinEOBFluxCalculateNewtonianMultipole(
 
    INT4 epsilon = (l + m) % 2;
 
-   y = 0.0;
+   phi = y = 0.0;
 
   /* Calculate the necessary Ylm */
-  xlalStatus = XLALAbsScalarSphHarmThetaPiBy2( &y, l - epsilon, - m, phi );
+  xlalStatus = XLALAbsScalarSphHarmThetaPiBy2( &y, l - epsilon, - m );
   if (xlalStatus != XLAL_SUCCESS )
   {
     XLAL_ERROR( XLAL_EFUNC );
@@ -264,8 +269,7 @@ static int
 XLALAbsScalarSphHarmThetaPiBy2(
                  COMPLEX16 *y, /**<< OUTPUT, Ylm(0,phi) */
                  INT4 l,       /**<< Mode l */
-                 INT4  m,      /**<< Mode m */
-                 REAL8 phi     /**<< Orbital phase (in radians) */
+                 INT4  m      /**<< Mode m */
                  )
 {
 
