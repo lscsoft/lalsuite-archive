@@ -70,7 +70,8 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
 static int XLALSimIMRCalculateSpinEOBHCoeffs(
         SpinEOBHCoeffs *coeffs,
         const REAL8    eta,
-        const REAL8    a
+        const REAL8    a,
+        const UINT4    SpinAlignedEOBversion      
         );
 
 static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaT( 
@@ -453,7 +454,8 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
 static int XLALSimIMRCalculateSpinEOBHCoeffs(
         SpinEOBHCoeffs *coeffs, /**<< OUTPUT, EOB parameters including pre-computed coefficients */
         const REAL8    eta,     /**<< symmetric mass ratio */
-        const REAL8    a        /**<< Normalized deformed Kerr spin */
+        const REAL8    a,       /**<< Normalized deformed Kerr spin */
+        const UINT4    SpinAlignedEOBversion  /**<< 1 for SEOBNRv1; 2 for SEOBNRv2 */
         )
 {
 
@@ -465,6 +467,11 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
   static const REAL8 c1  = -1.7152360250654402;
   static const REAL8 c2  = -3.246255899738242;
 
+  static const REAL8 c20  = 1.712;
+  static const REAL8 c21  = -1.803949138004582;
+  static const REAL8 c22  = -39.77229225266885;
+  static const REAL8 c23  = 103.16588921239249;
+
   if ( !coeffs )
   {
     XLAL_ERROR( XLAL_EINVAL );
@@ -474,6 +481,10 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
   coeffs->b3  = 0.;
   coeffs->bb3 = 0.;
   coeffs->KK = KK  = c0 + c1*eta + c2*eta*eta;
+  if ( SpinAlignedEOBversion == 2)
+  {
+     coeffs->KK = KK = c20 + c21*eta + c22*eta*eta + c23*eta*eta*eta;
+  }
 
   m1PlusEtaKK = -1. + eta*KK;
   /* Eqs. 5.77 - 5.81 of BB1 */
@@ -486,12 +497,17 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
   coeffs->k4 = k4 = (24.*k1*k1*k1*k1 - 96.*k1*k1*k2 + 48.*k2*k2 - 64.*k1*k1*k1*m1PlusEtaKK
       + 48.*a*a*(k1*k1 - 2.*k2)*m1PlusEtaKK*m1PlusEtaKK +
       96.*k1*(k3 + 2.*k2*m1PlusEtaKK) - m1PlusEtaKK*(192.*k3 + m1PlusEtaKK*(-3008. + 123.*LAL_PI*LAL_PI)))/96.;
-  coeffs->k5 = k5 = m1PlusEtaKK*m1PlusEtaKK/eta * (
-    	     + eta*(-4237./60.+128./5.*LAL_GAMMA+2275.*LAL_PI*LAL_PI/512.
-    	     - 1./3.*a*a*(k1*k1*k1-3.*k1*k2+3.*k3)
-    	     - (k1p3*k1p2-5.*k1p3*k2+5.*k1*k2*k2+5.*k1p2*k3-5.*k2*k3-5.*k1*k4)/5./(KK*eta-1.)/m1PlusEtaKK
-    	     + (k1p2*k1p2-4.*k1p2*k2+2.*k2*k2+4.*k1*k3-4.*k4)/2./m1PlusEtaKK+256./5.*log(2.)));
-  coeffs->k5l = k5l = m1PlusEtaKK*m1PlusEtaKK * 64./5.;
+  coeffs->k5 = k5 = 0.0;
+  coeffs->k5l= k5l= 0.0;
+  if ( SpinAlignedEOBversion == 2 )
+  {
+    coeffs->k5 = k5 = m1PlusEtaKK*m1PlusEtaKK/eta * (
+      	        eta*(-4237./60.+128./5.*LAL_GAMMA+2275.*LAL_PI*LAL_PI/512.
+    	       - 1./3.*a*a*(k1*k1*k1-3.*k1*k2+3.*k3)
+    	       - (k1p3*k1p2-5.*k1p3*k2+5.*k1*k2*k2+5.*k1p2*k3-5.*k2*k3-5.*k1*k4)/5./(KK*eta-1.)/m1PlusEtaKK
+    	       + (k1p2*k1p2-4.*k1p2*k2+2.*k2*k2+4.*k1*k3-4.*k4)/2./m1PlusEtaKK+256./5.*log(2.)));
+    coeffs->k5l = k5l = m1PlusEtaKK*m1PlusEtaKK * 64./5.;
+  }
 
   /*printf( "a = %.16e, k0 = %.16e, k1 = %.16e, k2 = %.16e, k3 = %.16e, k4 = %.16e, b3 = %.16e, bb3 = %.16e, KK = %.16e\n",
             a, coeffs->k0, coeffs->k1, coeffs->k2, coeffs->k3, coeffs->k4, coeffs->b3, coeffs->bb3, coeffs->KK );

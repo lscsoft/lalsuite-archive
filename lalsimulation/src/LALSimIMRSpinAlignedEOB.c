@@ -418,7 +418,17 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   }
   a = sqrt( a );*/
   seobParams.a = a = sigmaKerr->data[2];
-  if ( XLALSimIMREOBCalcSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta, tplspin, chiS, chiA ) == XLAL_FAILURE )
+
+  /* Now compute the spinning H coefficients and store them in seobCoeffs */
+  if ( XLALSimIMRCalculateSpinEOBHCoeffs( &seobCoeffs, eta, a, SpinAlignedEOBversion ) == XLAL_FAILURE )
+  {    
+    XLALDestroyREAL8Vector( sigmaKerr );
+    XLALDestroyREAL8Vector( sigmaStar );
+    XLALDestroyREAL8Vector( values );
+    XLAL_ERROR( XLAL_EFUNC );
+  }
+
+  if ( XLALSimIMREOBCalcSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta, tplspin, chiS, chiA, SpinAlignedEOBversion ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( sigmaKerr );
     XLALDestroyREAL8Vector( sigmaStar );
@@ -470,11 +480,11 @@ int XLALSimIMRSpinAlignedEOBWaveform(
 
   /* Taken from Andrea's code */
 /*  memset( tmpValues->data, 0, tmpValues->length*sizeof(tmpValues->data[0]));*/
-/*
-  tmpValues->data[0] = 12.983599142327673;
-  tmpValues->data[3] = -0.002383249720459786;
-  tmpValues->data[4] = 4.3204065947459735/tmpValues->data[0];
-*/
+
+  /*tmpValues->data[0] = 19.9947984026;
+  tmpValues->data[3] = -0.000433854158413;
+  tmpValues->data[4] = 4.84217964546/tmpValues->data[0];*/
+
   /* Now convert to Spherical */
   /* The initial conditions code returns Cartesian components of four vectors x, p, S1 and S2,
    * in the special case that the binary starts on the x-axis and the two spins are aligned
@@ -488,16 +498,6 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   values->data[3] = tmpValues->data[0] * tmpValues->data[4];
 
   //fprintf( stderr, "Spherical initial conditions: %e %e %e %e\n", values->data[0], values->data[1], values->data[2], values->data[3] );
-
-  /* Now compute the spinning H coefficients and store them in seobCoeffs */
-  if ( XLALSimIMRCalculateSpinEOBHCoeffs( &seobCoeffs, eta, a ) == XLAL_FAILURE )
-  {    
-    XLALDestroyREAL8Vector( tmpValues );
-    XLALDestroyREAL8Vector( sigmaKerr );
-    XLALDestroyREAL8Vector( sigmaStar );
-    XLALDestroyREAL8Vector( values );
-    XLAL_ERROR( XLAL_EFUNC );
-  }
 
   /*
    * STEP 2) Evolve EOB trajectory until reaching the peak of orbital frequency
