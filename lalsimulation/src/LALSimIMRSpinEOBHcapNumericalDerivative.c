@@ -130,7 +130,7 @@ static int XLALSpinHcapNumericalDerivative(
   REAL8Vector s1, s2, sKerr, sStar;
   REAL8       s1Data[3], s2Data[3];
   REAL8       sKerrData[3], sStarData[3];
-  REAL8 magS1, magS2, chiS, chiA, a;
+  //REAL8 magS1, magS2, chiS, chiA, a;
 
 
   /* Orbital angular momentum */
@@ -214,11 +214,11 @@ static int XLALSpinHcapNumericalDerivative(
   memcpy( s1Data, values+6, 3*sizeof(REAL8) );
   memcpy( s2Data, values+9, 3*sizeof(REAL8) );
 
-  magS1 = sqrt(s1.data[0]*s1.data[0] + s1.data[1]*s1.data[1] + s1.data[2]*s1.data[2]);
-  magS2 = sqrt(s2.data[0]*s2.data[0] + s2.data[1]*s2.data[1] + s2.data[2]*s2.data[2]);
+  //magS1 = sqrt(s1.data[0]*s1.data[0] + s1.data[1]*s1.data[1] + s1.data[2]*s1.data[2]);
+  //magS2 = sqrt(s2.data[0]*s2.data[0] + s2.data[1]*s2.data[1] + s2.data[2]*s2.data[2]);
 
-  chiS = 0.5 * ( magS1 / (mass1*mass1) + magS2 / (mass2*mass2) );
-  chiA = 0.5 * ( magS1 / (mass1*mass1) - magS2 / (mass2*mass2) );
+  //chiS = 0.5 * ( magS1 / (mass1*mass1) + magS2 / (mass2*mass2) );
+  //chiA = 0.5 * ( magS1 / (mass1*mass1) - magS2 / (mass2*mass2) );
 
   sKerr.length = 3;
   sKerr.data   = sKerrData; 
@@ -228,10 +228,10 @@ static int XLALSpinHcapNumericalDerivative(
   sStar.data   = sStarData;
   XLALSimIMRSpinEOBCalculateSigmaStar( &sStar, mass1, mass2, &s1, &s2 );
 
-  a = sqrt(sKerr.data[0]*sKerr.data[0] + sKerr.data[1]*sKerr.data[1] + sKerr.data[2]*sKerr.data[2]);
+  //a = sqrt(sKerr.data[0]*sKerr.data[0] + sKerr.data[1]*sKerr.data[1] + sKerr.data[2]*sKerr.data[2]);
 
-  XLALSimIMREOBCalcSpinFacWaveformCoefficients( params.params->eobParams->hCoeffs, mass1, mass2, eta, a, chiS, chiA );
-  XLALSimIMRCalculateSpinEOBHCoeffs( params.params->seobCoeffs, eta, a );
+  //XLALSimIMREOBCalcSpinFacWaveformCoefficients( params.params->eobParams->hCoeffs, mass1, mass2, eta, a, chiS, chiA );
+  //XLALSimIMRCalculateSpinEOBHCoeffs( params.params->seobCoeffs, eta, a );
  
   rVec.length = pVec.length = 3;
   rVec.data   = rData;
@@ -434,7 +434,7 @@ static double GSLSpinHamiltonianWrapper( double x, void *params )
   {
     printf( "a is nan!!\n");
   }
-  XLALSimIMRCalculateSpinEOBHCoeffs( dParams->params->seobCoeffs, eobParams->eta, a );
+  //XLALSimIMRCalculateSpinEOBHCoeffs( dParams->params->seobCoeffs, eobParams->eta, a );
 
   //printf( "Hamiltonian = %e\n", XLALSimIMRSpinEOBHamiltonian( eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->seobCoeffs ) );
   return XLALSimIMRSpinEOBHamiltonian( eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->tortoise, dParams->params->seobCoeffs ) / eobParams->eta;
