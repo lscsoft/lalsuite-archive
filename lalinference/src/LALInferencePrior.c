@@ -23,6 +23,7 @@
 #include <lal/LALInferencePrior.h>
 #include <math.h>
 #include <gsl/gsl_integration.h>
+#include <gsl/gsl_cdf.h>
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -562,9 +563,6 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
             strcat(header,"phi12 ");
         }
     }
-
-    LALInferenceVariables *priorParams=runState->priorArgs;
-    INT4 ScaleTest = LALInferenceCubeToPSDScaleParams(priorParams, params, &i, Cube, context);
 
     Cube[i] = m1; i++; strcat(header,"m1 ");
     Cube[i] = m2; i++; strcat(header,"m2 ");
@@ -1323,8 +1321,6 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
             strcat(header,"phi12 ");
         }
     }
-
-    INT4 ScaleTest = LALInferenceCubeToPSDScaleParams(priorParams, params, &i, Cube, context);
 
     Cube[i] = m1; i++; strcat(header,"m1 ");
     Cube[i] = m2; i++; strcat(header,"m2 ");
