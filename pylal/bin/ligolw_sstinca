@@ -42,7 +42,6 @@ from pylal import cbc_table_utils as table_utils
 from glue import segmentsUtils
 from pylal import git_version
 from pylal import ligolw_sstinca as ligolw_thinca
-from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
@@ -270,7 +269,7 @@ if options.drop_veto_info:
 # Close out the process table.
 #
 
-llwapp.set_process_end_time(process)
+ligolw_process.set_process_end_time(process)
 
 #
 # Write back to disk, and clean up.
