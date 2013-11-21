@@ -120,7 +120,7 @@ for inifile in inits:
     dag.write_sub_files()
     dag2=dag
   else:
-    dag2=pipe_utils.LALInferencePipelineDAG(cp,first_dag=False,previous_dag=dag)
+    dag2=pipe_utils.LALInferencePipelineDAG(cp)#,first_dag=False,previous_dag=dag)
     dag2.write_sub_files()
     dag=dag2
 
