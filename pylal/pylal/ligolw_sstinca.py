@@ -32,13 +32,13 @@ import sys
 from glue import iterutils
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
+from glue.ligolw.utils.coincs import get_coinc_def_id
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue import offsetvector
 import lal
 from pylal import git_version
-from pylal import llwapp
 from pylal import snglcoinc
 from pylal import lalconstants
 from pylal.xlal import tools as xlaltools
@@ -136,7 +136,7 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 def append_process(xmldoc, **kwargs):
-	process = llwapp.append_process(
+	process = ligolw_process.append_process(
 		xmldoc,
 		program = u"ligolw_thinca",
 		version = __version__,
@@ -515,7 +515,7 @@ def ligolw_thinca(
 		likelihood_func = likelihood_func,
 		likelihood_params_func = likelihood_params_func
 	)
-	coinc_def_id = llwapp.get_coinc_def_id(
+	coinc_def_id = get_coinc_def_id(
 		xmldoc,
 		coinc_definer_row.search,
 		coinc_definer_row.search_coinc_type,
@@ -578,7 +578,7 @@ def ligolw_thinca(
 	# remove time offsets from events
 	#
 
-	eventlists.remove_offsetdict()
+        del eventlists.offsetvector
 
 	#
 	# done
