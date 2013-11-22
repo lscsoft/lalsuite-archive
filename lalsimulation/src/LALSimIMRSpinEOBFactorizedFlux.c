@@ -123,7 +123,7 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
         /* Eq. 16 */
         hLM *= hNQC;
       }
-      // printf( "l = %d, m = %d, mag(hLM) = %.17e\n", l, m,  XLALCOMPLEX16Abs2( hLM ) );
+      //printf( "l = %d, m = %d, mag(hLM) = %.17e, omega = %.16e\n", l, m, sqrt(creal(hLM)*creal(hLM)+cimag(hLM)*cimag(hLM)), omega );
       /* Eq. 13 */
       flux += (REAL8)(m * m) * omegaSq * ( creal(hLM)*creal(hLM) + cimag(hLM)*cimag(hLM) );
     }
