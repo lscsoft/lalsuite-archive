@@ -73,7 +73,7 @@ static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
                                 SpinEOBParams         * restrict params
                                 );
 
-UNUSED static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
           FacWaveformCoeffs * const coeffs,
           const REAL8               m1,
           const REAL8               m2,
@@ -249,7 +249,7 @@ static INT4 XLALSimIMRSpinEOBGetSpinFactorizedWaveform(
 			+ v*(hCoeffs->rho21v7 + hCoeffs->rho21v7l * eulerlogxabs 
 			+ v*(hCoeffs->rho21v8 + hCoeffs->rho21v8l * eulerlogxabs 
 			+ (hCoeffs->rho21v10 + hCoeffs->rho21v10l * eulerlogxabs)*v2))))))));
-                auxflm = v*hCoeffs->f21v1;
+                auxflm = v*hCoeffs->f21v1 + v2*v*hCoeffs->f21v3;
                 }
 	        break;
 	      default:
@@ -540,7 +540,7 @@ static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
     INT4 i;
 
     REAL8 eta;	
-	REAL8 r, pp, Omega, v2, vh, vh3, k, hathatk, eulerlogxabs; //pr
+	REAL8 r, pp, Omega, v2, /*vh, vh3,*/ k, hathatk, eulerlogxabs; //pr
 	REAL8 Slm, rholm, rholmPwrl;
         REAL8 auxflm = 0.0;
         REAL8 hathatksq4, hathatk4pi, Tlmprefac, Tlmprodfac;
@@ -584,8 +584,8 @@ static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
 
 	v2	= v * v;
         Omega   = v2 * v;
-        vh3     = Hreal * Omega;
-	vh	= cbrt(vh3);
+        //vh3     = Hreal * Omega;
+	//vh	= cbrt(vh3);
 	eulerlogxabs = LAL_GAMMA + log( 2.0 * (REAL8)m * v );
 
         /* Calculate the non-Keplerian velocity */
@@ -692,7 +692,7 @@ static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
 			+ v*(hCoeffs->rho21v7 + hCoeffs->rho21v7l * eulerlogxabs 
 			+ v*(hCoeffs->rho21v8 + hCoeffs->rho21v8l * eulerlogxabs 
 			+ (hCoeffs->rho21v10 + hCoeffs->rho21v10l * eulerlogxabs)*v2))))))));
-                auxflm = v*hCoeffs->f21v1;
+                auxflm = v*hCoeffs->f21v1 + v2*v*hCoeffs->f21v3;
                 }
 	        break;
 	      default:
@@ -929,7 +929,7 @@ static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
  * Appendix of the paper, and papers DIN (PRD 79, 064004 (2009)) and PBFRT (PRD 83, 064003 (2011)).
  */
 
-UNUSED static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
           FacWaveformCoeffs * const coeffs, /**< OUTPUT, pre-computed waveform coefficients */
           const REAL8               m1,     /**< mass 1 */
           const REAL8               m2,     /**< mass 2 */
@@ -1024,7 +1024,11 @@ UNUSED static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
      case 2:
        coeffs->rho22v8   = -387216563023./160190110080. + (18353.*a2)/21168. - a2*a2/8.;
        break;
-  }
+     default:
+       XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
+       XLAL_ERROR( XLAL_EINVAL );
+       break;
+   }
   coeffs->rho22v8l  =  9202./2205.;
   coeffs->rho22v10  = -16094530514677./533967033600.;
   coeffs->rho22v10l =  439877./55566.;
@@ -1138,6 +1142,7 @@ UNUSED static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
   coeffs->rho32v3  = (2.*(45.*a*m1Plus3eta3
                         - a*eta*(328. - 2099.*eta + 5.*(733. + 20.*a2)*eta2
                         - 960.*eta3)))/(405.*m1Plus3eta3);
+  coeffs->rho32v3  = 2./9.*a;
   coeffs->rho32v4  = a2/3. + (-1444528.
                         + 8050045.*eta - 4725605.*eta2 - 20338960.*eta3
                         + 3085640.*eta2*eta2)/(1603800.*m1Plus3eta2);
