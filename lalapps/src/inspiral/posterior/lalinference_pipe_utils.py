@@ -271,7 +271,9 @@ def get_zerolag_pipedown(database_connection, dumpfile=None, gpsstart=None, gpse
 		FROM sngl_inspiral join coinc_event_map on (coinc_event_map.table_name=='sngl_inspiral' and coinc_event_map.event_id ==\
 		sngl_inspiral.event_id) join coinc_event on (coinc_event.coinc_event_id==coinc_event_map.coinc_event_id) \
 		join coinc_inspiral on (coinc_event.coinc_event_id==coinc_inspiral.coinc_event_id) \
-		WHERE coinc_event.time_slide_id=='time_slide:time_slide_id:10049'\
+		JOIN experiment_map, experiment_summary ON (coinc_inspiral.coinc_event_id == experiment_map.coinc_event_id\
+		AND experiment_map.experiment_summ_id == experiment_summary.experiment_summ_id )
+		WHERE ( coinc_event.time_slide_id=='time_slide:time_slide_id:10049' AND experiment_summary.datatype == 'all_data') \
 		"
 	if gpsstart is not None:
 		get_coincs=get_coincs+' and coinc_inspiral.end_time+coinc_inspiral.end_time_ns*1.0e-9 > %f'%(gpsstart)
