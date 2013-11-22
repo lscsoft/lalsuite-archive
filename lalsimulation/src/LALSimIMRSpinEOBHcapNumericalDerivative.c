@@ -127,8 +127,8 @@ static int XLALSpinHcapNumericalDerivative(
 
   REAL8 mass1, mass2, eta;
   REAL8 rrTerm2, pDotS1, pDotS2;
-  REAL8Vector s1, s2, sKerr, sStar;
-  REAL8       s1Data[3], s2Data[3];
+  REAL8Vector s1, s2, s1norm, s2norm, sKerr, sStar;
+  REAL8       s1Data[3], s2Data[3], s1DataNorm[3], s2DataNorm[3];
   REAL8       sKerrData[3], sStarData[3];
   //REAL8 magS1, magS2, chiS, chiA, a;
 
@@ -207,13 +207,22 @@ static int XLALSpinHcapNumericalDerivative(
   /* TODO: Modify so that only spin terms get re-calculated */
 
   /* We cannot point to the values vector directly as it leads to a warning */
-  s1.length = s2.length = 3;
+  s1.length = s2.length = s1norm.length = s2norm.length = 3;
   s1.data = s1Data;
   s2.data = s2Data;
+  s1norm.data = s1DataNorm;
+  s2norm.data = s2DataNorm;
 
   memcpy( s1Data, values+6, 3*sizeof(REAL8) );
   memcpy( s2Data, values+9, 3*sizeof(REAL8) );
+  memcpy( s1DataNorm, values+6, 3*sizeof(REAL8) );
+  memcpy( s2DataNorm, values+9, 3*sizeof(REAL8) );
 
+  for ( i = 0; i < 3; i++ )
+  {
+     s1DataNorm[i] /= (mass1+mass2)*(mass1+mass2);
+     s2DataNorm[i] /= (mass1+mass2)*(mass1+mass2);
+  }
   //magS1 = sqrt(s1.data[0]*s1.data[0] + s1.data[1]*s1.data[1] + s1.data[2]*s1.data[2]);
   //magS2 = sqrt(s2.data[0]*s2.data[0] + s2.data[1]*s2.data[1] + s2.data[2]*s2.data[2]);
 
@@ -240,7 +249,7 @@ static int XLALSpinHcapNumericalDerivative(
   memcpy( rData, values, sizeof(rData) );
   memcpy( pData, values+3, sizeof(pData) );
 
-  H =  XLALSimIMRSpinEOBHamiltonian( eta, &rVec, &pVec, &sKerr, &sStar, params.params->tortoise, params.params->seobCoeffs ); 
+  H =  XLALSimIMRSpinEOBHamiltonian( eta, &rVec, &pVec, &s1norm, &s2norm, &sKerr, &sStar, params.params->tortoise, params.params->seobCoeffs ); 
 
 
   /* Now make the conversion */
@@ -397,13 +406,17 @@ static double GSLSpinHamiltonianWrapper( double x, void *params )
   EOBParams *eobParams = dParams->params->eobParams;
 
   REAL8 tmpVec[12];
-  REAL8 sKerrData[3], sStarData[3];
+  REAL8 s1normData[3], s2normData[3], sKerrData[3], sStarData[3];
 
   /* These are the vectors which will be used in the call to the Hamiltonian */
-  REAL8Vector r, p, spin1, spin2;
+  REAL8Vector r, p, spin1, spin2, spin1norm, spin2norm;
   REAL8Vector sigmaKerr, sigmaStar;
 
+  int i;
   REAL8 a;
+  REAL8 m1 = eobParams->m1;
+  REAL8 m2 = eobParams->m2;
+  REAL8 mT2 = (m1+m2)*(m1+m2);
 
   /* Use a temporary vector to avoid corrupting the main function */
   memcpy( tmpVec, dParams->values, 
@@ -413,19 +426,29 @@ static double GSLSpinHamiltonianWrapper( double x, void *params )
   tmpVec[dParams->varyParam] = x;
 
   /* Set the LAL-style vectors to point to the appropriate things */
-  r.length = p.length = spin1.length = spin2.length = 3;
+  r.length = p.length = spin1.length = spin2.length = spin1norm.length = spin2norm.length = 3;
   sigmaKerr.length = sigmaStar.length = 3;
   r.data     = tmpVec;
   p.data     = tmpVec+3;
   spin1.data = tmpVec+6;
   spin2.data = tmpVec+9;
+  spin1norm.data = s1normData;
+  spin2norm.data = s1normData;
   sigmaKerr.data = sKerrData;
   sigmaStar.data = sStarData;
+
+  memcpy( s1normData, tmpVec+6, 3*sizeof(REAL8) );
+  memcpy( s2normData, tmpVec+9, 3*sizeof(REAL8) );
+
+  for ( i = 0; i < 3; i++ )
+  {
+     s1normData[i] /= mT2;
+     s2normData[i] /= mT2;
+  }
 
   /* Calculate various spin parameters */
   XLALSimIMRSpinEOBCalculateSigmaKerr( &sigmaKerr, eobParams->m1, eobParams->m2, &spin1, &spin2 );
   XLALSimIMRSpinEOBCalculateSigmaStar( &sigmaStar, eobParams->m1, eobParams->m2, &spin1, &spin2 );
-
   a = sqrt( sigmaKerr.data[0]*sigmaKerr.data[0] + sigmaKerr.data[1]*sigmaKerr.data[1]
               + sigmaKerr.data[2]*sigmaKerr.data[2] );
   //printf( "a = %e\n", a );
@@ -437,7 +460,7 @@ static double GSLSpinHamiltonianWrapper( double x, void *params )
   //XLALSimIMRCalculateSpinEOBHCoeffs( dParams->params->seobCoeffs, eobParams->eta, a );
 
   //printf( "Hamiltonian = %e\n", XLALSimIMRSpinEOBHamiltonian( eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->seobCoeffs ) );
-  return XLALSimIMRSpinEOBHamiltonian( eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->tortoise, dParams->params->seobCoeffs ) / eobParams->eta;
+  return XLALSimIMRSpinEOBHamiltonian( eobParams->eta, &r, &p, &spin1norm, &spin2norm, &sigmaKerr, &sigmaStar, dParams->params->tortoise, dParams->params->seobCoeffs ) / eobParams->eta;
 }
 
 #endif /* _LALSIMIMRSPINEOBHCAPNUMERICALDERIVATIVE_C */
