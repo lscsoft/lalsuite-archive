@@ -118,6 +118,8 @@ static int XLALSpinAlignedHcapDerivative(
   REAL8 mass1, mass2, eta;
 
   /* Spins */
+  REAL8Vector *s1Vec = NULL;
+  REAL8Vector *s2Vec = NULL;
   REAL8Vector *sKerr = NULL;
   REAL8Vector *sStar = NULL;
 
@@ -136,6 +138,8 @@ static int XLALSpinAlignedHcapDerivative(
   params.values  = cartValues;
   params.params  = (SpinEOBParams *)funcParams;
 
+  s1Vec = params.params->s1Vec;
+  s2Vec = params.params->s2Vec;
   sKerr = params.params->sigmaKerr;
   sStar = params.params->sigmaStar;
 
@@ -157,6 +161,7 @@ static int XLALSpinAlignedHcapDerivative(
   DeltaT = XLALSimIMRSpinEOBHamiltonianDeltaT( params.params->seobCoeffs, r, eta, a );
   DeltaR = XLALSimIMRSpinEOBHamiltonianDeltaR( params.params->seobCoeffs, r, eta, a );
   csi    = sqrt( DeltaT * DeltaR ) / (r*r + a*a);
+  //printf("DeltaT = %.16e, DeltaR = %.16e, a = %.16e\n",DeltaT,DeltaR,a);
   //printf( "csi in derivatives function = %.16e\n", csi );
 
   /* Populate the Cartesian values vector, using polar coordinate values */
@@ -197,7 +202,7 @@ static int XLALSpinAlignedHcapDerivative(
   pData[0] = values[2];
   pData[1] = values[3] / values[0];
   /* Calculate Hamiltonian using Cartesian vectors rVec and pVec */
-  H =  XLALSimIMRSpinEOBHamiltonian( eta, &rVec, &pVec, sKerr, sStar, params.params->tortoise, params.params->seobCoeffs ); 
+  H =  XLALSimIMRSpinEOBHamiltonian( eta, &rVec, &pVec, s1Vec, s2Vec, sKerr, sStar, params.params->tortoise, params.params->seobCoeffs ); 
 
   //printf( "csi = %.16e, ham = %.16e ( tortoise = %d)\n", csi, H, params.params->tortoise );
   //exit(1);
@@ -229,7 +234,7 @@ static int XLALSpinAlignedHcapDerivative(
 
   //printf("Values:\n%.16e %.16e %.16e %.16e\n", values[0], values[1], values[2], values[3] );
 
-  //printf("Derivatives:\n%.16e %.16e %.16e %.16e\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3] );
+  //printf("Derivatives:\n%.16e %.16e %.16e %.16e\n", dvalues[0], r*dvalues[1], dvalues[2], dvalues[3] );
 
   if ( isnan( dvalues[0] ) || isnan( dvalues[1] ) || isnan( dvalues[2] ) || isnan( dvalues[3] ) )
   {
