@@ -1,5 +1,6 @@
 /*
-*  Copyright (C) 2008 Yi Pan, B.S. Sathyaprakash (minor modificaitons)
+*  Copyright (C) 2008 Yi Pan, B.S. Sathyaprakash (minor modificaitons), Prayush
+*  Kumar (some additions)
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by

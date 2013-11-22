@@ -1,5 +1,5 @@
 /*
-*  Copyright (C) 2010 Craig Robinson, Yi Pan
+*  Copyright (C) 2010 Craig Robinson, Yi Pan, Prayush Kumar (minor changes)
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by

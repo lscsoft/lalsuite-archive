@@ -12,6 +12,21 @@
 #define UNUSED
 #endif
 
+/** 
+ * Set the total number of multipoles
+ * */
+#define MAX_NUM_MODES 7
+
+struct
+SpinEOBModes
+{
+  INT4 lmModes[MAX_NUM_MODES][2];
+  REAL8TimeSeries *hlposm[MAX_NUM_MODES];
+  REAL8TimeSeries *hlnegm[MAX_NUM_MODES];
+  
+  struct SpinEOBModes *next;
+};
+
 /**
  * Parameters for the spinning EOB model, used in calculating the Hamiltonian.
  * The Hamiltonian is given in Barausse and Buonanno (http://arxiv.org/pdf/0912.3517)

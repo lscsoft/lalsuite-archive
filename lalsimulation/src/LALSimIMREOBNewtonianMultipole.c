@@ -1,5 +1,5 @@
 /*
-*  Copyright (C) 2010 Craig Robinson 
+*  Copyright (C) 2010 Craig Robinson, Prayush Kumar (minor additions)
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 
 /**
- * \author Craig Robinson
+ * \author Craig Robinson, Prayush Kumar
  *
  * Functions to construct the Newtonian multipolar waveform as given
  * by Damour et al, Phys.Rev.D79:064004,2009.
@@ -29,6 +29,10 @@
  * In addition to the function used to do this,
  * XLALCalculateNewtonianMultipole(), this file also contains a function
  * for calculating the standard scalar spherical harmonics Ylm.
+ *
+ * Also functions to return only the absolute value of the Newtonian multipolar
+ * waveform, ignoring the complex argument that dependens on the orbital phase.
+ * These functions are used in the flux calculation.
  */
 
 #include <complex.h>
