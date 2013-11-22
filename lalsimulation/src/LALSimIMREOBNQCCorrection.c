@@ -1070,6 +1070,7 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQC( EOBNonQCCoeffs * restrict c
   /* Andrea and I have different sign conventions, so I need to put a minus sign in front */
   coeffs->b1 = - coeffs->b1;
   coeffs->b2 = - coeffs->b2;
+#if 0
   coeffs->a1 = -8.02798637014;
   coeffs->a2 = 48.7446843797;
   coeffs->a3 = -45.7900277224;
@@ -1077,8 +1078,42 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQC( EOBNonQCCoeffs * restrict c
   coeffs->a4 = 0.;
   coeffs->a5 = 0.;
   coeffs->b1 = 0.834742923041;
-  coeffs->b2 = -2.33512320852;
-  
+  coeffs->b2 = -2.33512320852; // q=1
+#endif
+#if 1
+  coeffs->a1 = -7.79667;
+  coeffs->a2 = 47.182;
+  coeffs->a3 = 2238.85334023;
+  coeffs->a3S= 0.;
+  coeffs->a4 = -7143.16738899;
+  coeffs->a5 = 5596.0086893;
+  coeffs->b1 = 0.85069;
+  coeffs->b2 = -2.47071; // q=1, chi1=chi2=0.98
+#endif
+#if 0
+  coeffs->a1 = -6.82562365707;
+  coeffs->a2 = 41.5711482044;
+  coeffs->a3 = -39.4329799959;
+  coeffs->a3S= 0.;
+  coeffs->a4 = 0.;
+  coeffs->a5 = 0.;
+  coeffs->b1 = 0.461925688819;
+  coeffs->b2 = -1.38733263299; // q=8
+#endif
+#if 0
+  coeffs->a1 = -7.5758;
+  coeffs->a2 = 46.9323;
+  coeffs->a3 = -118.368375152;
+  //coeffs->a3 = -45.0036; // NS part 
+  coeffs->a3S= 0.;
+  coeffs->a4 = 125.555824111;
+  coeffs->a5 = -22.0751068073;
+  //coeffs->a4 = 0.;
+  //coeffs->a5 = 0.;
+  coeffs->b1 = 0.51305;
+  coeffs->b2 = -1.55133; // q=8, chi1=0.5
+#endif
+   
   /* Obsolete polynomial fitting of nonspin NQC coefficients a1, a2, a3, b1 and b2 */
   /*
   coeffs->a1 = -12.67955358602124 + 75.41927959573084 * eta - 106.15933052937714 * eta2;
@@ -1455,8 +1490,8 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
   coeffs->a5  = gsl_vector_get( aCoeff, 2 );*/
   coeffs->b3  = gsl_vector_get( bCoeff, 0 );
   coeffs->b4  = gsl_vector_get( bCoeff, 1 );
-  coeffs->b3  = 0.0;
-  coeffs->b4  = 0.0;
+  coeffs->b3  = -876.669217307; 
+  coeffs->b4  = 1386.13223658;
 
   /*printf( "NQC coefficients:\n" );
   printf( "a1 = %.16e, a2 = %.16e, a3 = %.16e, a3s = %.16e, a4 = %.16e, a5 = %.16e\n",
