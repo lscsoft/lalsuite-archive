@@ -288,7 +288,6 @@ XLALFindSphericalOrbit( const gsl_vector *x, /**<< Parameters requested by gsl r
                         gsl_vector *f        /**<< Function values for the given parameters */
                       )
 {
-
   SEOBRootParams *rootParams = (SEOBRootParams *) params;
 
   REAL8 py, pz, r, ptheta, pphi;
@@ -296,14 +295,14 @@ XLALFindSphericalOrbit( const gsl_vector *x, /**<< Parameters requested by gsl r
   /* Numerical derivative of Hamiltonian wrt given value */
   REAL8 dHdx, dHdpy, dHdpz;
   REAL8 dHdr, dHdptheta, dHdpphi;
-
+ 
   /* Populate the appropriate values */
   /* In the special theta=pi/2 phi=0 case, r is x */
   rootParams->values[0] = r  = gsl_vector_get( x, 0 );
   rootParams->values[4] = py = gsl_vector_get( x, 1 );
   rootParams->values[5] = pz = gsl_vector_get( x, 2 );
 
-  //printf( "Values r = %.16e, py = %.16e, pz = %.16e\n", r, py, pz );
+ // printf( "Values r = %.16e, py = %.16e, pz = %.16e\n", r, py, pz );
 
   ptheta = - r * pz;
   pphi   = r * py;
@@ -343,7 +342,7 @@ XLALFindSphericalOrbit( const gsl_vector *x, /**<< Parameters requested by gsl r
   gsl_vector_set( f, 2, dHdpphi - rootParams->omega );
 
   //printf( "Current funcvals = %.16e %.16e %.16e\n", gsl_vector_get( f, 0 ), gsl_vector_get( f, 1 ),
-  //   /*gsl_vector_get( f, 2 )*/dHdpphi );
+   //  gsl_vector_get( f, 2 )/*dHdpphi*/ );
 
   return XLAL_SUCCESS;
 }
@@ -544,9 +543,11 @@ static int XLALSimIMRSpinEOBInitialConditions(
   /* We will use temporary vectors to do this */
   REAL8 tmpS1[3];
   REAL8 tmpS2[3];
+  REAL8 tmpS1Norm[3];
+  REAL8 tmpS2Norm[3];
 
   REAL8Vector qCartVec, pCartVec;
-  REAL8Vector s1Vec, s2Vec;
+  REAL8Vector s1Vec, s2Vec, s1VecNorm, s2VecNorm;
   REAL8Vector sKerr, sStar;
   REAL8       sKerrData[3], sStarData[3];
   REAL8       a = 0.; //, chiS, chiA;
@@ -576,12 +577,17 @@ static int XLALSimIMRSpinEOBInitialConditions(
 
   memset( &rootParams, 0, sizeof( rootParams ) );
 
-  memcpy( tmpS1, spin1, sizeof(tmpS1) );
-  memcpy( tmpS2, spin2, sizeof(tmpS2) );
-
   mTotal = mass1 + mass2;
   eta    = mass1 * mass2 / (mTotal * mTotal);
-
+  memcpy( tmpS1, spin1, sizeof(tmpS1) );
+  memcpy( tmpS2, spin2, sizeof(tmpS2) );
+  memcpy( tmpS1Norm, spin1, sizeof(tmpS1Norm) );
+  memcpy( tmpS2Norm, spin2, sizeof(tmpS2Norm) );
+  for ( i = 0; i < 3; i++ )
+  {
+     tmpS1Norm[i] /= mTotal * mTotal;
+     tmpS2Norm[i] /= mTotal * mTotal;
+  }
   /* We compute the ICs for the non-tortoise p, and convert at the end */
   tmpTortoise      = params->tortoise;
   params->tortoise = 0;
@@ -651,7 +657,9 @@ static int XLALSimIMRSpinEOBInitialConditions(
   ApplyRotationMatrix( rotMatrix, LnHat );
   ApplyRotationMatrix( rotMatrix, tmpS1 );
   ApplyRotationMatrix( rotMatrix, tmpS2 );
-
+  ApplyRotationMatrix( rotMatrix, tmpS1Norm );
+  ApplyRotationMatrix( rotMatrix, tmpS2Norm );
+ 
   /* XXX Test code XXX */
   /*printf( "\nAfter applying rotation matrix:\n\n" );
   for ( i = 0; i < 3; i++ )
@@ -793,9 +801,11 @@ static int XLALSimIMRSpinEOBInitialConditions(
   ApplyRotationMatrix( rotMatrix2, LnHat );
   ApplyRotationMatrix( rotMatrix2, tmpS1 );
   ApplyRotationMatrix( rotMatrix2, tmpS2 );
+  ApplyRotationMatrix( rotMatrix2, tmpS1Norm );
+  ApplyRotationMatrix( rotMatrix2, tmpS2Norm );
   ApplyRotationMatrix( rotMatrix2, qCart );
   ApplyRotationMatrix( rotMatrix2, pCart );
-
+ 
   /* STEP 4) In the L0-N0 frame, we calculate (dE/dr)|sph using Eq. (4.14), then initial dr/dt using Eq. (4.10),
    *         and finally pr0 using Eq. (4.15).
    */
@@ -829,12 +839,14 @@ static int XLALSimIMRSpinEOBInitialConditions(
   if ( d2Hdr2 != 0.0 )
   {
     /* We will need to calculate the Hamiltonian to get the flux */
-    s1Vec.length = s2Vec.length = sKerr.length = sStar.length = 3;
+    s1Vec.length = s2Vec.length = s1VecNorm.length = s2VecNorm.length = sKerr.length = sStar.length = 3;
     s1Vec.data = tmpS1;
     s2Vec.data = tmpS2;
+    s1VecNorm.data = tmpS1Norm;
+    s2VecNorm.data = tmpS2Norm;
     sKerr.data = sKerrData;
     sStar.data = sStarData;
-
+ 
     qCartVec.length = pCartVec.length = 3;
     qCartVec.data   = qCart;
     pCartVec.data   = pCart;
@@ -854,8 +866,7 @@ static int XLALSimIMRSpinEOBInitialConditions(
     a = sqrt(sKerr.data[0]*sKerr.data[0] + sKerr.data[1]*sKerr.data[1] + sKerr.data[2]*sKerr.data[2]);
     //XLALSimIMREOBCalcSpinFacWaveformCoefficients( params->eobParams->hCoeffs, mass1, mass2, eta, /*a*/0.0, chiS, chiA );
     //XLALSimIMRCalculateSpinEOBHCoeffs( params->seobCoeffs, eta, a );
-
-    ham = XLALSimIMRSpinEOBHamiltonian( eta, &qCartVec, &pCartVec, &sKerr, &sStar, params->tortoise, params->seobCoeffs );
+    ham = XLALSimIMRSpinEOBHamiltonian( eta, &qCartVec, &pCartVec, &s1VecNorm, &s2VecNorm, &sKerr, &sStar, params->tortoise, params->seobCoeffs );
 
     //printf( "hamiltonian at this point is %.16e\n", ham );
 
@@ -908,6 +919,8 @@ static int XLALSimIMRSpinEOBInitialConditions(
   ApplyRotationMatrix( invMatrix2, LnHat );
   ApplyRotationMatrix( invMatrix2, tmpS1 );
   ApplyRotationMatrix( invMatrix2, tmpS2 );
+  ApplyRotationMatrix( invMatrix2, tmpS1Norm );
+  ApplyRotationMatrix( invMatrix2, tmpS2Norm );
   ApplyRotationMatrix( invMatrix2, qCart );
   ApplyRotationMatrix( invMatrix2, pCart );
 
@@ -917,9 +930,11 @@ static int XLALSimIMRSpinEOBInitialConditions(
   ApplyRotationMatrix( invMatrix, LnHat );
   ApplyRotationMatrix( invMatrix, tmpS1 );
   ApplyRotationMatrix( invMatrix, tmpS2 );
+  ApplyRotationMatrix( invMatrix, tmpS1Norm );
+  ApplyRotationMatrix( invMatrix, tmpS2Norm );
   ApplyRotationMatrix( invMatrix, qCart );
   ApplyRotationMatrix( invMatrix, pCart );
-
+ 
   /* If required, apply the tortoise transform */
   if ( tmpTortoise )
   {
@@ -943,9 +958,9 @@ static int XLALSimIMRSpinEOBInitialConditions(
   /* Now copy the initial conditions back to the return vector */
   memcpy( initConds->data, qCart, sizeof(qCart) );
   memcpy( initConds->data+3, pCart, sizeof(pCart) );
-  memcpy( initConds->data+6, tmpS1, sizeof(tmpS1) );
-  memcpy( initConds->data+9, tmpS2, sizeof(tmpS2) );
-
+  memcpy( initConds->data+6, tmpS1Norm, sizeof(tmpS1Norm) );
+  memcpy( initConds->data+9, tmpS2Norm, sizeof(tmpS2Norm) );
+ 
   //printf( "THE FINAL INITIAL CONDITIONS:\n");
   /*printf( " %.16e %.16e %.16e\n%.16e %.16e %.16e\n%.16e %.16e %.16e\n%.16e %.16e %.16e\n", initConds->data[0], initConds->data[1], initConds->data[2],
           initConds->data[3], initConds->data[4], initConds->data[5], initConds->data[6], initConds->data[7], initConds->data[8],
