@@ -75,7 +75,8 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
                (--trigtime time)               Trigger time to use.\n\
                (--time time)                   Waveform time (overrides random about trigtime).\n\
                (--mass mass)                   Trigger mass (total mass of the final black hole).\n\
-               (--a a_spin)                    Trigger a (dimensionless spin) to use.\n\
+               (--a a_spin)                    Trigger a (dimensionless) spin to use.\n\
+               (--chiEff chi_eff)              Trigger an effective spin to use.\n\
                (--eta eta)                     Trigger eta (symmetric mass ratio) to use.\n\
                (--q q)                         Trigger q (asymmetric mass ratio) to use.\n\
                (--phi phase)                   Trigger phase to use.\n\
@@ -94,8 +95,10 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
                (--eta-max etaMax)              Maximum eta. Use with --symMassRatio.\n\
                (--q-min qMin)                  Minimum q.\n\
                (--q-max qMax)                  Maximum q.\n\
-               (--a-min max)                   Minimum component spin (-1.0).\n\
+               (--a-min min)                   Minimum component spin (-1.0).\n\
                (--a-max max)                   Maximum component spin (1.0).\n\
+               (--chiEff-min min)              Minimum effective spin (-1.0).\n\
+               (--chiEff-max max)              Maximum effective spin (1.0).\n\
                (--iota-max max)                Maximum inclination angle (pi).\n\
                (--Dmin dist)                   Minimum distance in Mpc (1).\n\
                (--Dmax dist)                   Maximum distance in Mpc (100).\n\
@@ -489,6 +492,11 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   ppt=LALInferenceGetProcParamVal(commandLine,"--a");
   if (ppt) {
     start_a_spin = atof(ppt->value);
+  }
+
+  ppt=LALInferenceGetProcParamVal(commandLine,"--chiEff");
+  if (ppt) {
+    start_chiEff = atof(ppt->value);
   }
 
   /* Set up start time. */
