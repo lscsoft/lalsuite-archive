@@ -1871,6 +1871,7 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
   // REAL8 mc;
   REAL8 phi, deltaT, m1, m2, mass, eta, q, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, UNUSED f_min, distance, inclination;
   REAL8 frac_mass_loss = 0.0;
+  REAL8 UNUSED chiEff = 0.0;
 
   //REAL8 *mass_p;
   LALSimulationDomain model_domain = IFOdata->modelDomain;
@@ -1906,6 +1907,10 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
   }
   deltaT = IFOdata->timeData->deltaT;
 
+  if (LALInferenceCheckVariable(IFOdata->modelParams,"rdChiEff"))
+  {
+    chiEff = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "rdChiEff");
+  }
   
   if(LALInferenceCheckVariable(IFOdata->modelParams,"rdMass"))
   {
@@ -2135,7 +2140,7 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata) 
                                                  inclination, waveFlags, nonGRparams,
                                                  qnmorder, qnmodes, approximant), errnum); */
     XLAL_TRY(ret=XLALSimBlackHoleRingdownTiger(&hplus, &hcross, qnmodes, (&IFOdata->timeData->epoch), phi, deltaT, mass*LAL_MSUN_SI,
-                                    spin, eta, spin1, spin2, distance, 
+                                    spin, eta, spin1, spin2, chiEff, distance, 
                                     inclination, nonGRparams), errnum);
     XLALSimInspiralDestroyWaveformFlags(waveFlags);
     XLALSimInspiralDestroyTestGRParam(nonGRparams);

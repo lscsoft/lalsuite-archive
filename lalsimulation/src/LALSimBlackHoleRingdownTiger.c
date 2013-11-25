@@ -36,6 +36,7 @@ int XLALSimBlackHoleRingdownTiger(
     REAL8 eta,         /**< symmetric mass ratio of progenitor */
     REAL8 spin1[3],    /**< initial spin for 1st component */
     REAL8 spin2[3],    /**< initial spin for 2nd component */
+    REAL8 chiEff,      /**< effective spin parameter for initial spins */
 	REAL8 distance,		/**< distance to source (m) */
 	REAL8 inclination,		/**< inclination of source's spin axis (rad) */
     LALSimInspiralTestGRParam *nonGRparams  /**< testing GR parameters */
@@ -70,7 +71,7 @@ int XLALSimBlackHoleRingdownTiger(
         if (XLALSimInspiralTestGRParamExists(nonGRparams,nonGRParamName) )
           dfreq = XLALSimInspiralGetTestGRParam(nonGRparams,nonGRParamName) ;
 
-        XLALSimBlackHoleRingdownModeTiger(&(thisMode->mode), t0, phi0, deltaT, mass, a, distance, inclination, eta, spin1, spin2, thisMode->l, thisMode->m, dfreq, dtau);
+        XLALSimBlackHoleRingdownModeTiger(&(thisMode->mode), t0, phi0, deltaT, mass, a, distance, inclination, eta, spin1, spin2, chiEff, thisMode->l, thisMode->m, dfreq, dtau);
         thismodelength = thisMode->mode->data->length;
         maxmodelength = thismodelength > maxmodelength ?  thismodelength : maxmodelength;
         thisMode = thisMode->next;
@@ -129,6 +130,7 @@ int XLALSimBlackHoleRingdownModeTiger(
     REAL8 eta,         /**< symmetric mass ratio of progenitor */
     REAL8 UNUSED spin1[3],    /**< initial spin for 1st component */
     REAL8 UNUSED spin2[3],    /**< initial spin for 2nd component */
+    REAL8 chiEff,      /**< effective spin parameter for initial spins */
 	UINT4 l,				/**< polar mode number */
 	INT4 m,				/**< azimuthal mode number */
     REAL8 dfreq,         /**< relative shift in the real frequency parameter */
@@ -153,7 +155,7 @@ int XLALSimBlackHoleRingdownModeTiger(
     
   sprintf(name, "h%u%d", l, m);
 
-	alphalm = XLALSimRingdownQNMAmplitudes(l, m, eta, spin1, spin2);
+	alphalm = XLALSimRingdownQNMAmplitudes(l, m, eta, chiEff);
   A = alphalm*mass_sec/dist_sec;
     
 	Yplus = XLALSimSphericalHarmonicPlus(l, m, inclination);
@@ -243,10 +245,11 @@ REAL8 XLALSimSphericalHarmonicCross(UINT4 l, INT4 m, REAL8 iota){
  * 
  * TO DO: rewrite this properly, add initial (effective) spin dependence
  **/
-REAL8 XLALSimRingdownQNMAmplitudes(INT4 l, INT4 m, REAL8 eta, REAL8 UNUSED spin1[3], REAL8 UNUSED spin2[3]){
+REAL8 XLALSimRingdownQNMAmplitudes(INT4 l, INT4 m, REAL8 eta, REAL8 chiEff){
 	REAL8 A = 0.8639*eta;
 	if (l==2 && m==2){ A *= 1.0; }
-	else if (l==2 && abs(m)==1){ A *= 0.52*pow(1.0 - 4.*eta, 0.71); }	// - 0.23 * chiEff
+    // else if (l==2 && abs(m)==1){ A *= 0.52*pow(1.0 - 4.*eta, 0.71); }	
+	else if (l==2 && abs(m)==1){ A *= 0.43*(sqrt(1.0 - 4.*eta) - chiEff); }	
 	else if (l==3 && abs(m)==3){ A *= 0.44*pow(1.0 - 4.*eta, 0.45); }
 	else if (l==3 && abs(m)==2){ A *= 3.69*(eta - 0.2)*(eta - 0.2) + 0.053; }
 	else if (l==4 && abs(m)==4){ A *= 5.41*((eta - 0.22)*(eta - 0.22) + 0.04); }

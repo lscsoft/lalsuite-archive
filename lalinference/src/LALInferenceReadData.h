@@ -60,6 +60,8 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
   */
 void LALInferencePrintInjectionSample(LALInferenceRunState *runState);
 
+REAL8 XLALChiEffRingdown(REAL8 m1, REAL8 m2, REAL8 spin1[3], REAL8 spin2[3]);
+
 /** \brief Function that injects a ringdown-only signal into data, using *** SimRingdownTable
  * This function injects a ringdown signal from a SimRingdownTable into a pre-existing \c IFOdata 
  * structure, based on command-line arguments.

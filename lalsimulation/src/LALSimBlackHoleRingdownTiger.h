@@ -32,7 +32,7 @@ extern "C" {
 REAL8 XLALSimSphericalHarmonicPlus(UINT4 l, INT4 m, REAL8 iota);
 REAL8 XLALSimSphericalHarmonicCross(UINT4 l, INT4 m, REAL8 iota);
 
-REAL8 XLALSimRingdownQNMAmplitudes(INT4 l, INT4 m, REAL8 eta, REAL8 spin1[3], REAL8 spin2[3]);
+REAL8 XLALSimRingdownQNMAmplitudes(INT4 l, INT4 m, REAL8 eta, REAL8 chiEff);
 
 COMPLEX16 XLALSimRingdownFitOmega(UINT4 l, INT4 m, UINT4 n, REAL8 a);
 
@@ -52,6 +52,7 @@ int XLALSimBlackHoleRingdownTiger(
                                   REAL8 eta,          /**< symmetric mass ratio of progenitor */
                                   REAL8 spin1[3],     /**< initial spin for 1st component */
                                   REAL8 spin2[3],     /**< initial spin for 2nd component */
+                                  REAL8 chiEff,
                                   REAL8 distance,		/**< distance to source (m) */
                                   REAL8 inclination,		/**< inclination of source's spin axis (rad) */
                                   LALSimInspiralTestGRParam *nonGRparams  /**< testing GR parameters */ );
@@ -69,6 +70,7 @@ int XLALSimBlackHoleRingdownModeTiger(
                                       REAL8 eta,          /**< symmetric mass ratio of progenitor */
                                       REAL8 spin1[3],     /**< initial spin for 1st component */
                                       REAL8 spin2[3],     /**< initial spin for 2nd component */
+                                      REAL8 chiEff,
                                       UINT4 l,            /**< polar mode number */
                                       INT4 m,             /**< azimuthal mode number */
                                       REAL8 dfreq,        /**< relative shift in the real frequency parameter */

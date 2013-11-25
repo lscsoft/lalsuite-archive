@@ -67,6 +67,7 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
                (--modeldomain)                 domain the waveform template will be computed in (\"time\" or \"frequency\").\n\
                (--enable-a)                    Treat final BH spin as a free parameter.\n\
                (--disable-a)                   Calculate spin from progenitor parameters.\n\
+               (--enable-chiEff)               Effective spin.\n\
                \n\
                ------------------------------------------------------------------------------------------------------------------\n\
                --- Starting Parameters ------------------------------------------------------------------------------------------\n\
@@ -163,6 +164,8 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   REAL8 raMin=0.0,raMax=LAL_TWOPI;
   REAL8 phiMin=0.0,phiMax=LAL_TWOPI;
   REAL8 amin=-1.0,amax=1.0;
+  REAL8 chiEffmin = -1.0;
+  REAL8 chiEffmax = 1.0;
   REAL8 dt=0.1;            /* Width of time prior */
   gsl_rng *GSLrandom=state->GSLrandom;
   REAL8 starttime=0.0, timeParam=0.0;
@@ -368,10 +371,20 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   if (ppt) {
     amin = atof(ppt->value);
   }
-
+  
   ppt=LALInferenceGetProcParamVal(commandLine,"--a-max");
   if (ppt) {
     amax = atof(ppt->value);
+  }
+
+  ppt=LALInferenceGetProcParamVal(commandLine,"--chiEff-min");
+  if (ppt) {
+    chiEffmin = atof(ppt->value);
+  }
+  
+  ppt=LALInferenceGetProcParamVal(commandLine,"--chiEff-max");
+  if (ppt) {
+    chiEffmax = atof(ppt->value);
   }
 
   ppt=LALInferenceGetProcParamVal(commandLine,"--iota-max");
@@ -396,6 +409,7 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   REAL8 start_psi     =0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
   REAL8 start_iota    =0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
   REAL8 start_a_spin  =0.0+gsl_rng_uniform(GSLrandom)*(amax-amin);
+  REAL8 start_chiEff  =0.0+gsl_rng_uniform(GSLrandom)*(chiEffmax - chiEffmin);
   
   
   /* Read time parameter from injection file */
@@ -977,6 +991,11 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
     LALInferenceAddVariable(currentParams, "spin_from_components", &getRDSpin, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
   }
   
+  ppt = LALInferenceGetProcParamVal(commandLine,"--enable-chiEff");
+  if (ppt){
+    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "rdChiEff", start_chiEff, chiEffmin, chiEffmax, LALInferenceGetProcParamVal(commandLine,"--fixChiEff")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
+    XLALPrintInfo("Adding effective spin to the template parameters \n");
+  }
   
   LALInferenceRegisterUniformVariableREAL8(state, currentParams, "rightascension", start_ra, raMin, raMax, LALInferenceGetProcParamVal(commandLine,"--fixRa")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_CIRCULAR);
   

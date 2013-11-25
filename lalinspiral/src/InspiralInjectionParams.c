@@ -508,6 +508,7 @@ SimInspiralTable* XLALRandomInspiralMasses(
 }
 
 
+
 /** Generates masses and spins for a ringdown injection. 
  *  In case uniformFinalMass is chosen as a mass distribution,
  *  final mass and mass ratio are uniformly distributed. 
@@ -553,7 +554,7 @@ SimInspiralTable* XLALRandomRingdownParameters(
       rdSpin = rdminSpin + XLALUniformDeviate( randParams ) * (rdmaxSpin - rdminSpin);
   }
   else { 
-	  rdSpin = XLALNonSpinBinaryFinalBHSpin( inj->eta );
+	  rdSpin = XLALSpinBinaryFinalBHSpin( inj->eta , inj->mass1, inj->mass2, inj->spin1x, inj->spin2x, inj->spin1y, inj->spin2y, inj->spin1z, inj->spin2z);
   }
   inj->rdMass = rdMass ;
   inj->rdSpin = rdSpin ;

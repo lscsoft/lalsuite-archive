@@ -2347,6 +2347,17 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     XLALDestroyCOMPLEX16FrequencySeries(freqModelhPlus);
 }
 
+REAL8 XLALChiEffRingdown(REAL8 m1, REAL8 m2, REAL8 spin1[3], REAL8 spin2[3])
+{
+  REAL8 chi1, chi2, chiEff, chim, eta;
+  eta = (m1*m2)/(m1 + m2)/(m1 + m2);
+  chi1 = sqrt(spin1[0]*spin1[0] + spin1[1]*spin1[1] + spin1[2]*spin1[2]);
+  chi2 = sqrt(spin2[0]*spin2[0] + spin2[1]*spin2[1] + spin2[2]*spin2[2]);
+  chim = (m1*chi1 - m2*chi2)/(m1 + m2);
+  chiEff = 1./2.*(sqrt(1. - 4.*eta)*chi1 + chim);
+  return chiEff;
+}
+
 void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParamsTable *commandLine)
 {
 	LALStatus status;
@@ -2356,7 +2367,7 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	UINT4 Ninj=0;
 	UINT4 event=0;
 	UINT4 i=0,j=0;
-    REAL8 responseScale=1.0;
+    // REAL8 responseScale=1.0;
 	LIGOTimeGPS injstart;
 	LIGOTimeGPS t0;
 	REAL8 SNR=0,NetworkSNR=0;
@@ -2489,7 +2500,7 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       REAL8 m2 = injEvent->mass2;
       REAL8 Mbh = injEvent->rdMass;
       REAL8 spin = injEvent->rdSpin;
-      REAL8 Mt = m1+m2;
+      // REAL8 Mt = m1+m2;
       // REAL8 eta = m1*m2/(Mt*Mt);
       REAL8 eta = injEvent->eta;
       REAL8 phase = injEvent->coa_phase;
@@ -2506,9 +2517,19 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
                                       Mbh*LAL_MSUN_SI, spin, eta, injEvent->distance*LAL_PC_SI * 1.0e6,
                                       injEvent->inclination, waveFlags,
                                       nonGRparams, maxl, qnmodes, approximant); */
-      REAL8 spin1[3] = {0.0};
-      REAL8 spin2[3] = {0.0};
-      spin1[1]*=Mt*responseScale;
+      REAL8 spin1[3];
+      REAL8 spin2[3];
+      
+      spin1[0] = injEvent->spin1x;
+      spin1[1] = injEvent->spin1y;
+      spin1[2] = injEvent->spin1z;
+      spin2[0] = injEvent->spin2x;
+      spin2[1] = injEvent->spin2y;
+      spin2[2] = injEvent->spin2z;
+      
+      REAL8 chiEff;
+      
+      chiEff = XLALChiEffRingdown(m1, m2, spin1, spin2);
       
       
       /* Ugly method to inject the nonGRparams */
@@ -2538,7 +2559,7 @@ void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParam
       } 
       
       XLALSimBlackHoleRingdownTiger(&hplus, &hcross, qnmodes, &t0, phase, 1.0/InjSampleRate, Mbh*LAL_MSUN_SI,
-                                    spin, eta, spin1, spin2, injEvent->distance*LAL_PC_SI * 1.0e6, 
+                                    spin, eta, spin1, spin2, chiEff, injEvent->distance*LAL_PC_SI * 1.0e6, 
                                     injEvent->inclination, nonGRparams);
       if(!hplus || !hcross) {
         fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to produce waveform.\n");
