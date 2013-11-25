@@ -7,6 +7,8 @@ from matplotlib.collections import PatchCollection
 import pylal.bayespputils as bppu
 from optparse import OptionParser
 from math import pi
+matplotlib.rcdefaults()
+
 
 parser=OptionParser()
 parser.add_option("-i", "--input",dest="i")
@@ -43,19 +45,22 @@ def open_url_wget(url,folder,un=userName,pw=userPassword,eventNum=0, args=[]):
 
     return retcode
 
-def plot_kdtree(tiles):
-    myfig = plt.figure(figsize=(20,20))                                                                         
+def plot_kdtree(tiles,injCoords = None):
+    myfig = plt.figure()  
     ax = plt.axes()
-    ax.set_xlim((0.0,2.*pi))
-    ax.set_ylim((-pi/2.,pi/2.))
+    ax.set_xlim((0,2*pi))
+    ax.set_ylim((-pi/2,pi/2))
+    plt.xlabel('RA (rad)')
+    plt.ylabel('dec (rad)')
 
     for tile in tiles:
         patches = []
 
         art = mpatches.Rectangle((tile[0],tile[2]),tile[1] - tile[0],tile[3] - tile[2],fill = True, facecolor=matplotlib.cm.jet(1.-tile[4]),linewidth=0)#,edgecolor = 'k') 
         ax.add_patch(art)
-    myfig.savefig(output+'plot'+str(event))
-
+    if injCoords is not None:
+        plt.scatter(injCoords[0],injCoords[1],marker=(5,1),s=250,c='k')
+    myfig.savefig(output+'/plot'+str(event))
 ###############load posterior#########                                                                                                     
 
 data=bppu.PEOutputParser('common')
@@ -78,7 +83,7 @@ else:
 posterior = bppu.Posterior(dataObj0,injection)
 outFile = open(output+'/kdresult' + str(event), 'w')
 outFile.write('label injection_cl injection_area\n')
-confidenceLevels = [0.68,0.9]
+confidenceLevels = [0.1,0.2,0.3,0.4,0.5,0.6,0.68,0.7,0.8,0.9]
 
 ######################################
 
@@ -89,6 +94,7 @@ def isEdge(bounds):
     if bounds[0][0] == 0. or bounds[1][0]==2*pi or bounds[0][1] == -pi/2. or bounds[1][1]==pi/2:
         return True
     return False
+
 
 #set up evrything for running kd algorithm
 if 'ra' and 'dec' not in posterior.names:
@@ -140,4 +146,4 @@ if makePlot:
     for node in nodeList:
         temp += node[2]
         tiles.append([node[0][0][0],node[0][1][0],node[0][0][1],node[0][1][1],float(temp)/total])
-    plot_kdtree(tiles)
+    plot_kdtree(tiles,injCoordinates)
