@@ -3156,8 +3156,7 @@ class SegmentDefTable(table.Table):
 		"ifos": "lstring",
 		"name": "lstring",
 		"version": "int_4s",
-		"comment": "lstring",
-		"insertion_time": "int_4s"
+		"comment": "lstring"
 	}
 	constraints = "PRIMARY KEY (segment_def_id)"
 	next_id = SegmentDefID(0)
