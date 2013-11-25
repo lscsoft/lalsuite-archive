@@ -654,7 +654,7 @@ class CoincTables(object):
 	def __init__(self, xmldoc):
 		# find the coinc table or create one if not found
 		try:
-			self.coinctable = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+			self.coinctable = lsctables.CoincTable.get_table(xmldoc)
 		except ValueError:
 			self.coinctable = lsctables.New(lsctables.CoincTable)
 			xmldoc.childNodes[0].appendChild(self.coinctable)
@@ -662,13 +662,13 @@ class CoincTables(object):
 
 		# find the coinc_map table or create one if not found
 		try:
-			self.coincmaptable = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+			self.coincmaptable = lsctables.CoincMapTable.get_table(xmldoc)
 		except ValueError:
 			self.coincmaptable = lsctables.New(lsctables.CoincMapTable)
 			xmldoc.childNodes[0].appendChild(self.coincmaptable)
 
 		# find the time_slide table
-		self.time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+		self.time_slide_table = lsctables.TimeSlideTable.get_table(xmldoc)
 		self.time_slide_index = self.time_slide_table.as_dict()
 
 		# cast all offsets to LIGOTimeGPS for reversable arithmetic

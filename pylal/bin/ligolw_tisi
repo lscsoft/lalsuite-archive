@@ -215,7 +215,7 @@ while filenames:
 	#
 
 	xmldoc = new_doc()
-	timeslidetable = lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+	timeslidetable = lsctables.TimeSlideTable.get_table(xmldoc)
 	process = ligolw_tisi.append_process(xmldoc, **options.__dict__)
 
 	#

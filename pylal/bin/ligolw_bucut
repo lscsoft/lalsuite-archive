@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006,2013  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -33,7 +33,7 @@ import sys
 from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
-from glue.ligolw import utils
+from glue.ligolw import utils as ligolw_utils
 from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
@@ -155,7 +155,7 @@ lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 def load_veto_segments(filename, verbose = False, contenthandler = None):
-	return ligolw_segments.segmenttable_get_by_name(utils.load_filename(filename, verbose = verbose, contenthandler = contenthandler), "sngl_burst_veto").coalesce()
+	return ligolw_segments.segmenttable_get_by_name(ligolw_utils.load_filename(filename, verbose = verbose, contenthandler = contenthandler), "sngl_burst_veto").coalesce()
 
 
 class DocContents(object):
@@ -170,7 +170,7 @@ class DocContents(object):
 		# Find the sngl_burst table
 		#
 
-		self.snglbursttable = lsctables.table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+		self.snglbursttable = lsctables.SnglBurstTable.get_table(xmldoc)
 
 		#
 		# Get the list of process IDs we care about
@@ -178,14 +178,14 @@ class DocContents(object):
 
 		self.process_ids = set(self.snglbursttable.getColumnByName("process_id"))
 		if program is not None:
-			self.process_ids &= lsctables.table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
+			self.process_ids &= lsctables.ProcessTable.get_table(xmldoc).get_ids_by_program(program)
 
 		#
 		# Find the sim_burst table, or make a fake one
 		#
 
 		try:
-			self.simbursttable = lsctables.table.get_table(xmldoc, lsctables.SimBurstTable.tableName)
+			self.simbursttable = lsctables.SimBurstTable.get_table(xmldoc)
 		except:
 			self.simbursttable = []
 
@@ -194,9 +194,9 @@ class DocContents(object):
 		#
 
 		try:
-			self.coinctable = lsctables.table.get_table(xmldoc, lsctables.CoincTable.tableName)
-			self.coincmaptable = lsctables.table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
-			self.multibursttable = lsctables.table.get_table(xmldoc, lsctables.MultiBurstTable.tableName)
+			self.coinctable = lsctables.CoincTable.get_table(xmldoc)
+			self.coincmaptable = lsctables.CoincMapTable.get_table(xmldoc)
+			self.multibursttable = lsctables.MultiBurstTable.get_table(xmldoc)
 		except:
 			self.coinctable = []
 			self.coincmaptable = []
@@ -507,8 +507,8 @@ else:
 
 
 for filename in filenames:
-	xmldoc = utils.load_filename(filename, options.verbose, contenthandler = ContentHandler)
+	xmldoc = ligolw_utils.load_filename(filename, options.verbose, contenthandler = ContentHandler)
 	lsctables.table.InterningRowBuilder.strings.clear()
 	xmldoc = ligolw_bucut(xmldoc, options, keep_this_sngl_burst, veto_segments = veto_segments, del_non_coincs = options.coinc_only, del_skipped_injections = options.inj_made_only, program = options.program, verbose = options.verbose)
-	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
+	ligolw_utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	xmldoc.unlink()

@@ -172,7 +172,7 @@ def load_time_slides(filename, verbose = False, gz = None, contenthandler = Defa
 	from scratch.  Instead, from the glue.ligolw package use
 	table.get_table(...).as_dict().
 	"""
-	time_slide_table = lsctables.table.get_table(ligolw_utils.load_filename(filename, verbose = verbose, gz = gz, contenthandler = contenthandler), lsctables.TimeSlideTable.tableName)
+	time_slide_table = lsctables.TimeSlideTable.get_table(ligolw_utils.load_filename(filename, verbose = verbose, gz = gz, contenthandler = contenthandler))
 	time_slide_table.sync_next_id()
 	return time_slide_table.as_dict()
 
@@ -200,7 +200,7 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None, superset_ok = False
 	the affects described by the TimeSlideTable class.
 	"""
 	try:
-		tisitable = lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+		tisitable = lsctables.TimeSlideTable.get_table(xmldoc)
 	except ValueError:
 		# table not found
 		if create_new is None:
