@@ -201,7 +201,19 @@ Parameter arguments:\n\
     }
     state->data->likelihood_counter=0;
     gsl_rng *GSLrandom=state->GSLrandom;
-    
+   
+    /* This flag was added to account for the broken Big Dog
+ *      injection, which had the opposite sign in H and L compared
+ *           to Virgo. */
+  if (LALInferenceGetProcParamVal(commandLine, "--crazyInjectionHLSign")) {
+    INT4 flag = 1;
+    LALInferenceAddVariable(currentParams, "crazyInjectionHLSign", &flag, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+  } else {
+    INT4 flag = 0;
+    LALInferenceAddVariable(currentParams, "crazyInjectionHLSign", &flag, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+  }
+
+ 
     REAL8 psimin=0.0,psimax=LAL_PI; 
     REAL8 ramin=0.0,ramax=LAL_TWOPI; 
     REAL8 decmin=-LAL_PI/2.0,decmax=LAL_PI/2.0; 
