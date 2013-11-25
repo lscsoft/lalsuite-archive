@@ -150,8 +150,12 @@ REAL8 XLALSimInspiralEOSqmparameter(LALEquationOfState eos_type, REAL8 m_intr_ms
     break;
 
   default:
-    q = 0.0 ;
+    q = 1.0 ;
     break ;
+  }
+  
+  if (q < 1.0) {
+    q = 1.0;
   }
   
   return q ;
@@ -175,13 +179,14 @@ REAL8 XLALSimInspiralNSRadiusOfLambdaM(REAL8 m_intr_msun, REAL8 barlambda){
 
   REAL8 loglambda;
   REAL8 compactness, radius ;
+  REAL8 tolerance = 1E-15;
 
   /* Check for sign of lambda */
-  if ( barlambda == 0.0 ) {
+  if ( barlambda <= tolerance && barlambda >= 0.0 ) {
   /* This is a black hole */
     compactness = 0.5;
   }
-  else if ( barlambda > 0.0 ) {
+  else if ( barlambda > tolerance ) {
   loglambda = log(barlambda);
   /* Calculate compactness according to arXiv:1304.2052v1 */
   compactness = 0.371 - 0.0391*loglambda + 0.001056*loglambda*loglambda;
@@ -232,6 +237,10 @@ REAL8 XLALSimInspiralContactFrequency(REAL8 m1_intr, REAL8 barlambda1, REAL8 m2_
 
   /* Calculate the GW contact frequency */
   f_gw_contact = sqrt(mtot/(rtot*rtot*rtot))/LAL_PI;
+  if ( f_gw_contact < 0.0 ) {
+    XLALPrintError( "XLAL Error - %s: Contact frequency is calculated to be negative  (fcontact = %f)", __func__, f_gw_contact);
+    XLAL_ERROR_REAL8(XLAL_ERANGE);
+  }
 
   return f_gw_contact;
 

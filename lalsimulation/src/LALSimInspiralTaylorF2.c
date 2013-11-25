@@ -79,7 +79,7 @@ int XLALSimInspiralTaylorF2(
     const REAL8 v0 = cbrt(piM * fStart);
     const REAL8 chi1 = m1 / m;
     const REAL8 chi2 = m2 / m;
-    REAL8 fCONT = fEnd; 
+    REAL8 fCONT; 
     REAL8 shft, amp0, f_max;
     size_t i, n, iStart;
     COMPLEX16 *data = NULL;
@@ -230,10 +230,9 @@ int XLALSimInspiralTaylorF2(
     if (r <= 0) XLAL_ERROR(XLAL_EDOM);
 
     /* allocate htilde */
-    if ( fEnd == 0. ) // Use min{fISCO,fCONT} as termination frequency
-        f_max = fISCO < fCONT ? fISCO : fCONT;
-    else // End at user-specified freq.
-        f_max = fEnd;
+    if ( fEnd <= 0.0 ) f_max = (fISCO < fCONT) ? fISCO : fCONT; // Use min{fISCO,fCONT} as termination frequency
+    else  f_max = fEnd; // End at user-specified freq.
+  
     // printf("fISCO = %e\n", fISCO);
     // printf("fCONT = %e\n", fCONT);
     // printf("f_max = %e\n", f_max);    
