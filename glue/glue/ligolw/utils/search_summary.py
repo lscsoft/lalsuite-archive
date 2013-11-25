@@ -31,7 +31,6 @@ search_summary table in LIGO Light-Weight XML documents.
 
 
 from glue import git_version
-from .. import table
 from .. import lsctables
 
 
@@ -71,7 +70,7 @@ def append_search_summary(xmldoc, process, shared_object = "standalone", lalwrap
 	row.nnodes = nnodes
 
 	try:
-		tbl = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
+		tbl = lsctables.SearchSummaryTable.get_table(xmldoc)
 	except ValueError:
 		tbl = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SearchSummaryTable))
 	tbl.append(row)
@@ -91,8 +90,8 @@ def segmentlistdict_fromsearchsummary_in(xmldoc, program = None):
 	coalesced, they contain the segments as they appear in the
 	search_summary table.
 	"""
-	stbl = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
-	ptbl = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+	stbl = lsctables.SearchSummaryTable.get_table(xmldoc)
+	ptbl = lsctables.ProcessTable.get_table(xmldoc)
 	return stbl.get_in_segmentlistdict(program and ptbl.get_ids_by_program(program))
 
 
@@ -108,8 +107,8 @@ def segmentlistdict_fromsearchsummary_out(xmldoc, program = None):
 	coalesced, they contain the segments as they appear in the
 	search_summary table.
 	"""
-	stbl = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
-	ptbl = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+	stbl = lsctables.SearchSummaryTable.get_table(xmldoc)
+	ptbl = lsctables.ProcessTable.get_table(xmldoc)
 	return stbl.get_out_segmentlistdict(program and ptbl.get_ids_by_program(program))
 
 

@@ -34,7 +34,6 @@ from glue import iterutils
 from glue import segments
 from glue import segmentsUtils
 from glue.lal import LIGOTimeGPS
-from .. import table
 from .. import lsctables
 
 
@@ -150,17 +149,17 @@ class LigolwSegments(set):
 		#
 
 		try:
-			self.segment_def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
+			self.segment_def_table = lsctables.SegmentDefTable.get_table(xmldoc)
 		except ValueError:
 			self.segment_def_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentDefTable, LigolwSegmentList.segment_def_columns))
 
 		try:
-			self.segment_sum_table = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
+			self.segment_sum_table = lsctables.SegmentSumTable.get_table(xmldoc)
 		except ValueError:
 			self.segment_sum_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentSumTable, LigolwSegmentList.segment_sum_columns))
 
 		try:
-			self.segment_table = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
+			self.segment_table = lsctables.SegmentTable.get_table(xmldoc)
 		except ValueError:
 			self.segment_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentTable, LigolwSegmentList.segment_columns))
 
@@ -367,8 +366,8 @@ def has_segment_tables(xmldoc, name = None):
 	tables, if present, contain a segment list by that name.
 	"""
 	try:
-		def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
-		table.get_table(xmldoc, lsctables.SegmentTable.tableName)
+		def_table = lsctables.SegmentDefTable.get_table(xmldoc)
+		lsctables.SegmentTable.get_table(xmldoc)
 	except ValueError:
 		return False
 	if name is not None and name not in set(row.name for row in def_table):
@@ -388,8 +387,8 @@ def segmenttable_get_by_name(xmldoc, name):
 	# find required tables
 	#
 
-	def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
-	seg_table = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
+	def_table = lsctables.SegmentDefTable.get_table(xmldoc)
+	seg_table = lsctables.SegmentTable.get_table(xmldoc)
 
 	#
 	# segment_def_id --> instrument names mapping but only for

@@ -30,7 +30,6 @@ A collection of utilities to assist with the use of coinc tables.
 
 
 from glue import git_version
-from .. import table
 from .. import lsctables
 
 
@@ -56,7 +55,7 @@ def get_coinc_def_id(xmldoc, search, coinc_type, create_new = True, description 
 	already exist.
 	"""
 	try:
-		coincdeftable = table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
+		coincdeftable = lsctables.CoincDefTable.get_table(xmldoc)
 	except ValueError:
 		# table not found
 		if not create_new:
