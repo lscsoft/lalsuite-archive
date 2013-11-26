@@ -577,7 +577,12 @@ class CacheEntry(object):
 
 	@url.setter
 	def url(self, url):
-		self.scheme, self.host, self.path = urlparse.urlparse(url)[:3]
+		if url is not None:
+			self.scheme, self.host, self.path = urlparse.urlparse(url)[:3]
+		else:
+			self.scheme = None
+			self.host = None
+			self.path = None
 
 	@property
 	def segmentlistdict(self):
