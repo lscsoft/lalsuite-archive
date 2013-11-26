@@ -1395,12 +1395,12 @@ class CondorDAG:
     """
     Write all the nodes in the workflow to the DAX file.
     """
-    import Pegasus.DAX3
 
     if not self.__dax_file_path:
       # this workflow is not dax-compatible, so don't write a dax
       return
 
+    import Pegasus.DAX3
     # create the workflow object
     dax_name = os.path.split(self.__dax_file_path)[-1]
     dax_basename = '.'.join(dax_name.split('.')[0:-1])
