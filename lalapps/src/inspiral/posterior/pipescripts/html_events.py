@@ -10,7 +10,6 @@ import os
 
 from optparse import OptionParser
 
-ligolw_print = 1
 
 #######################################################################################
 ## Option Parser
@@ -21,6 +20,7 @@ Setup an html web page containing links to all posplots.html pages for all injec
 """
 
 parser=OptionParser(usage)
+parser.add_option("-b","--bindir",dest="bindir",default=None,action="store",type="string",help="directory containing the binary files",metavar="BINDIR")
 parser.add_option("-p","--project-htmlpath",dest="projecthtmlpath",default=None, action="store", type="string",help="Public_html directory containing injections",metavar="PROJHTMLPATH")
 parser.add_option("-r","--project-rundir",dest="projectrundir",default=None,action="store",type="string",help="Run directory containing injections",metavar="PROJRUNDIR")
 parser.add_option("-o","--output-html",dest="outhtml",default=None,action="store",type="string",help="Location of the result page",metavar="OUTHTML")
@@ -39,6 +39,15 @@ outputfile = opts.outhtml
 projectlink = opts.projecturl
 rundir = opts.projectrundir
 nopost = opts.nopost
+bindir = opts.bindir
+
+
+##Check which version of lw print to use
+binfiles=os.listdir(bindir)
+if 'ligolw_print' in binfiles:
+    xmlprint = os.path.join(bindir,"ligolw_print")
+else:
+    xmlprint = os.path.join(bindir,"lwt_print")
 
 
 #to be able to include SNR information I need the timestep and gps_start
@@ -160,22 +169,22 @@ def checkDAG(dagman_dot_out):
 
     if os.path.isfile(dagman_dot_out):
         daginfo = readlastline(dagman_dot_out)
-        print daginfo
+        print "last line in dagman.out:",daginfo
         foundstatus = daginfo.find("EXITING WITH STATUS")
-	
-        if(foundstatus != 0):
+
+        if(foundstatus == 0):
             status = daginfo.split()[-1:]
-	    try: 
+            try:
                 status = int(status[0])
             except ValueError:
                 status = -99
-            print "status:",status
+
             if (status == 0):
                 return 1 #finished
             elif (status == 2):
                 return -1 #aborted (destructor called)
             else:
-                return -69 #idunno
+                return -42 #idunno
         else:
             return -99 #ongoing
 
@@ -186,10 +195,7 @@ def checkDAG(dagman_dot_out):
 
 def readxml(xml):
     tmpfile = "processparameters.txt"
-    if (ligolw_print):
-        os.system("ligolw_print "+xml+" -t process_params >> "+tmpfile)
-    else:
-        os.system("lwtprint "+xml+" -t process_params >> "+tmpfile)
+    os.system(xmlprint+" "+xml+" -t process_params >> "+tmpfile)
     with open(tmpfile,'r') as f:
         processparameters = {}
         for line in f:
@@ -257,10 +263,9 @@ def runproject(projectpath,outputfile):
         print injection
         for seed in os.listdir(os.path.join(projectpath,injection)):
             print "  "+seed
-            percent = (injection.split("_")[1]).replace("pc","",1)
-            nonGRparam = injection.split("_")[0]
 
             jobstatus = checkDAG( os.path.join(rundir,injection,seed,"common_dag.dag.dagman.out") )
+            print "jobstatus:",jobstatus
             if(jobstatus == 1):
                 jobstring = "<span style=\"color: #008000\">Finished</span>"
             elif(jobstatus == -1):
@@ -277,12 +282,14 @@ def runproject(projectpath,outputfile):
                 print xml
                 break
             with open(outputfile,'a') as f:
+
                 f.write("    <div class=\"ppsection\"> \n"
                     "      <h2> \n"
                     "        Injection ("+jobstring+")\n"
                     "      </h2> \n"
-                    "      <p> shift in "+nonGRparam+" of "+percent+"% </p>\n"
+                    "      <p> Injection type: "+injection+" </p>\n"
                     "       \n")
+
                 create_injectionparams_table(procparams,f,indent="      ")
                 f.write("    </div> \n" )
 

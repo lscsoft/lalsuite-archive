@@ -1242,7 +1242,7 @@ if (createbuggyhtmlpage):
     projectlink = weburl+"/%s/%s/"%(ProjectName,InjectionName)
     rundir = dirname( dirname( os.path.normpath(basefolder) ) )
 
-    html_executable = "python "+htmlpythonscript+" -p "+projecthtmlpath+" -r "+rundir+" -o "+outputfile+" -u "+projectlink+" -s "+str(gps_start)+" -t "+str(time_step)
+    html_executable = "python "+htmlpythonscript+" -b "+PATH_TO_OPT+"/bin -p "+projecthtmlpath+" -r "+rundir+" -o "+outputfile+" -u "+projectlink+" -s "+str(gps_start)+" -t "+str(time_step)
     if(postprocessing): html_executable+="-n"
 
     if (testoutputon):
