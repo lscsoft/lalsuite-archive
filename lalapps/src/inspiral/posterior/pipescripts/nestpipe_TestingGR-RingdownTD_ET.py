@@ -41,21 +41,21 @@ import sys
 
 testoutputon = False
 postprocessing = False
-createbuggyhtmlpage = False
+createbuggyhtmlpage = True
 
 inspinj_seed=5000   ## Your inspinj seed. The inspnest dataseed will be created from this, adding three zeros at the end (e.g. inspinj 7001 --> inspnest 7001000)
 
-type_inj="dfreq22"       ## This has to be either GR or the name of the test param (e.g. dtau22)
+type_inj="GR"       ## This has to be either GR or the name of the test param (e.g. dtau22)
 
-shift=10            ## This is in percent. If type_inj is GR this will be ignored (you don't need to set it to zero or empty string)
+shift=0.            ## This is in percent. If type_inj is GR this will be ignored (you don't need to set it to zero or empty string)
 
-number_of_injs=10 ## This is the number of signals created in the xml file. Inspnest will analize all of them.
+number_of_injs=1000 ## This is the number of signals created in the xml file. Inspnest will analize all of them.
 
-psd_file="ET_B_data.txt"
-psd_file_path="/home/jeroen/tiger_runs"
+psd_file="ET_Dsum_data.txt"
+psd_file_path="/home/jmeidam/tiger_runs"
 
 #The python script to create the overview html page
-htmlpythonscript="/home/jeroen/public_html/html_events.py"
+htmlpythonscript="/home/jmeidam/public_html/html_events.py"
 
 ProjectName="TigerRingdownET"
 InjectionName="RingdownTDinj"
@@ -63,29 +63,30 @@ InjectionName="RingdownTDinj"
 
 # Create type_name, used for folder and file names
 # typenameextra will be extra info appended like "10Gpc" or "testrun"
-typenameextra = "GreatDistance"
+typenameextra = ""
 if type_inj!='GR':
     type_name=type_inj+'_'+repr(shift)
     type_name+='pc'
 else:
     type_name=type_inj
 
-type_name+="_"+typenameextra
+if not (typenameextra == ""):
+    type_name+="_"+typenameextra
 
 
 ## NOTE: Do not change the '%s' format, only what comes before.
 
-PATH_TO_OPT="/home/jeroen/opt_tiger_ringdown"
+PATH_TO_OPT="/home/jmeidam/opt_tiger_ringdown"
 
 weburl = "https://ldas-jobs.ligo.caltech.edu/~jmeidam"
 
-basefolder = "/home/jeroen/tiger_runs/%s/%s/%s/%s"%(ProjectName,InjectionName,type_name,inspinj_seed)
+basefolder = "/home/jmeidam/tiger_runs/%s/%s/%s/%s"%(ProjectName,InjectionName,type_name,inspinj_seed)
 
-publichtmlfolder = "/home/jeroen/public_html"
+publichtmlfolder = "/home/jmeidam/public_html"
 
 ## logdir and scratchdir are ignored in all the clusters but UWM.
-scratchdir = "/scratch/jeroen/%s/%s/%s/%s"%(ProjectName,InjectionName,type_name,inspinj_seed)
-logdir     = "/people/jeroen/%s/%s/%s/%s"%(ProjectName,InjectionName,type_name,inspinj_seed)
+scratchdir = "/scratch/jmeidam/%s/%s/%s/%s"%(ProjectName,InjectionName,type_name,inspinj_seed)
+logdir     = "/people/jmeidam/%s/%s/%s/%s"%(ProjectName,InjectionName,type_name,inspinj_seed)
 
 
 
@@ -108,8 +109,8 @@ for mode in allmodes:
 mdistr="finalMass"
 
 #Type of spin distribution
-enable_spin = False
-spin_distr_flag = "spin-gaussian"
+enable_spin = True
+#spin_distr_flag = ""
 
 Nlive=512
 seglen=5 #s
@@ -119,14 +120,14 @@ flow = 10.0 #Hz
 
 #Distances in redshift for the injections:
 min_z = 1.5
-max_z = 5.0
+max_z = 2.5
 #Distances in Mpc for the priors (z-range has to be within this range):
-min_distance = 10000.0 #Mpc
-max_distance = 50000.0 #Mpc
+min_distance = 8000.0 #Mpc
+max_distance = 25000.0 #Mpc
 
 ## Component spins of initial binary
 min_spin1 = 0.5
-max_spin1 = 0.9
+max_spin1 = 0.99
 min_spin2 = min_spin1
 max_spin2 = max_spin1
 mean_spin1 = 0.7
@@ -220,15 +221,10 @@ if (mdistr == "finalMass"):
     if (enable_spin):
         inspinj_command+=(
         "--enable-spin \\\n"
-        "--"+str(spin_distr_flag)+" \\\n"
         "--min-spin1 "+str(min_spin1)+" \\\n"
         "--max-spin1 "+str(max_spin1)+" \\\n"
         "--min-spin2 "+str(min_spin2)+" \\\n"
         "--max-spin2 "+str(max_spin2)+" \\\n"
-        "--stdev-spin1 "+str(stdev_spin1)+" \\\n"
-        "--mean-spin1 "+str(mean_spin1)+" \\\n"
-        "--stdev-spin2 "+str(stdev_spin2)+" \\\n"
-        "--mean-spin2 "+str(mean_spin2)
         )
     else:
         inspinj_command+=(
@@ -245,15 +241,10 @@ elif (mdistr == "componentMass"):
     if (enable_spin):
         inspinj_command+=(
         "--enable-spin \\\n"
-        "--"+str(spin_distr_flag)+" \\\n"
         "--min-spin1 "+str(min_spin1)+" \\\n"
         "--max-spin1 "+str(max_spin1)+" \\\n"
         "--min-spin2 "+str(min_spin2)+" \\\n"
         "--max-spin2 "+str(max_spin2)+" \\\n"
-        "--stdev-spin1 "+str(stdev_spin1)+" \\\n"
-        "--mean-spin1 "+str(mean_spin1)+" \\\n"
-        "--stdev-spin2 "+str(stdev_spin2)+" \\\n"
-        "--mean-spin2 "+str(mean_spin2)
         )
     else:
         inspinj_command+=(
@@ -558,11 +549,14 @@ for run in allcombinations:
     "mtotalmax="+str(max_rdmass)+"\n"
     "massmin="+str(min_rdmass)+"\n"
     "massmax="+str(max_rdmass)+"\n"
-    "disable-a=\n"
+    "enable-a=\n"
     "a-min="+str(min_rdspin)+"\n"
     "a-max="+str(max_rdspin)+"\n"
     "Dmin="+str(min_distance)+"\n"
     "Dmax="+str(max_distance)+"\n"
+    "enable-chiEff=\n"
+    "chiEff-min=-1.0\n"
+    "chiEff-max=1.0\n"
     "symMassRatio=\n"
     "eta-min="+str(eta_min)+"\n"
     "eta-max="+str(eta_max)+"\n"
@@ -884,7 +878,10 @@ def write_subfile_lalinference( rundir, logdir, filename, hypname, inifile):
   "--Nmcmc "+str(nmcmc)+" "
   "--outfile $(macrooutfile) "
   "--randomseed $(macrorandomseed) "
-  "--disable-a "
+  "--enable-a "
+  "--enable-chiEff "
+  "--chiEff-min -1.0 "
+  "--chiEff-max 1.0 "
   "--a-min "+str(a_min)+" "
   "--a-max "+str(a_max)+" "
   "--mtotalmax "+str(mtotalmax)+" "

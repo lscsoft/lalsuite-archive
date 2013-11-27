@@ -161,11 +161,26 @@ def checkDAG(dagman_dot_out):
     if os.path.isfile(dagman_dot_out):
         daginfo = readlastline(dagman_dot_out)
         print daginfo
-        return 1
-        daginfo.find("****")
+        foundstatus = daginfo.find("EXITING WITH STATUS")
+	
+        if(foundstatus != 0):
+            status = daginfo.split()[-1:]
+	    try: 
+                status = int(status[0])
+            except ValueError:
+                status = -99
+            print "status:",status
+            if (status == 0):
+                return 1 #finished
+            elif (status == 2):
+                return -1 #aborted (destructor called)
+            else:
+                return -69 #idunno
+        else:
+            return -99 #ongoing
 
     else:
-        return -2
+        return -2 #no dagman found
 
 
 
@@ -212,8 +227,8 @@ def create_injectionparams_table(params,f,indent=""):
     f.write(indent+"<table id=\"injtable\" border=\"0\">")
     f.write(indent+"  <tr> <th colspan=\"2\" align=\"center\"> Injected parameters </th> </tr>")
     if (LumDist):
-        f.write(indent+"  <tr> <td>Dmin</td>  <td>"+dmin+"</td> Mpc</tr>")
-        f.write(indent+"  <tr> <td>Dmax</td>  <td>"+dmax+"</td> Mpc</tr>")
+        f.write(indent+"  <tr> <td>Dmin</td>  <td>"+dmin+" Mpc</td> </tr>")
+        f.write(indent+"  <tr> <td>Dmax</td>  <td>"+dmax+" Mpc</td> </tr>")
     else:
         f.write(indent+"  <tr> <td>zmin</td>  <td>"+dmin+"</td> </tr>")
         f.write(indent+"  <tr> <td>zmax</td>  <td>"+dmax+"</td> </tr>")
@@ -302,8 +317,9 @@ def runproject(projectpath,outputfile):
                 f.write("<th>"+hyp+"</th>")
             f.write("</tr>\n")
 
+            Nevents = int((float(procparams['--gps-end-time']) - float(procparams['--gps-start-time']) )/float(dt))
             #then the rows
-            for event in range(Highestevent+1):
+            for event in range(Nevents):
                 f.write("        <tr>")
                 f.write("<td>"+str(event)+"</td>")
                 gpstime = "%.1f"%float(float(procparams['--gps-start-time'])+event*float(dt))
