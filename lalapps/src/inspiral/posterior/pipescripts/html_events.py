@@ -172,24 +172,25 @@ def checkDAG(dagman_dot_out):
         print "last line in dagman.out:",daginfo
         foundstatus = daginfo.find("EXITING WITH STATUS")
 
-        if(foundstatus == 0):
+        if(foundstatus > 0):
             status = daginfo.split()[-1:]
+
             try:
                 status = int(status[0])
             except ValueError:
                 status = -99
 
             if (status == 0):
-                return 1 #finished
+                return 0 #finished
             elif (status == 2):
-                return -1 #aborted (destructor called)
+                return 2 #aborted (destructor called)
             else:
                 return -42 #idunno
         else:
             return -99 #ongoing
 
     else:
-        return -2 #no dagman found
+        return -1 #no dagman found
 
 
 
@@ -265,15 +266,18 @@ def runproject(projectpath,outputfile):
             print "  "+seed
 
             jobstatus = checkDAG( os.path.join(rundir,injection,seed,"common_dag.dag.dagman.out") )
-            print "jobstatus:",jobstatus
-            if(jobstatus == 1):
+            if(jobstatus == 0):
                 jobstring = "<span style=\"color: #008000\">Finished</span>"
-            elif(jobstatus == -1):
+                print "jobstatus: finished"
+            elif(jobstatus == 2):
                 jobstring = "<span style=\"color: #800000\">Aborted</span>"
-            elif(jobstatus == -2):
+                print "jobstatus: aborted"
+            elif(jobstatus == -1):
                 jobstring = "<span style=\"color: #800080\">No dagman.out found</span>"
+                print "jobstatus: no *dagman.out found"
             else:
                 jobstring = "<span style=\"color: #008080\">Ongoing</span>"
+                print "jobstatus: ongoing"
             xml = os.path.join(rundir,injection,seed)+"/injections_"+injection+"_"+seed+".xml"
             if (os.path.isfile(xml)):
                 procparams = readxml(xml)
