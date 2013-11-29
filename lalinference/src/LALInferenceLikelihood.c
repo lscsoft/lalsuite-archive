@@ -1542,49 +1542,6 @@ REAL8 LALInferenceRosenbrockLogLikelihood(LALInferenceVariables *currentParams,
   return -sum;
 }
 
-//void LALInferencePSDToTDW(REAL8TimeSeries *TDW, const REAL8FrequencySeries *PSD, const REAL8FFTPlan *plan,
-//              const REAL8 fMin, const REAL8 fMax) {
-//  COMPLEX16FrequencySeries *CPSD = NULL;
-//  UINT4 i;
-//  UINT4 PSDLength = TDW->data->length/2 + 1;
-//  
-//  if (PSD->data->length != PSDLength) {
-//    fprintf(stderr, "PSDToTDW: lengths of PSD and TDW do not match (in %s, line %d)", 
-//            __FILE__, __LINE__);
-//    exit(1);
-//  }
-//
-//  CPSD = 
-//    XLALCreateCOMPLEX16FrequencySeries(PSD->name, &(PSD->epoch), PSD->f0, PSD->deltaF, &(PSD->sampleUnits), PSD->data->length);
-//
-//  for (i = 0; i < PSD->data->length; i++) {
-//    REAL8 f = PSD->f0 + i*PSD->deltaF;
-//
-//    if (fMin <= f && f <= fMax) {
-//      CPSD->data->data[i].re = 1.0 / (2.0*PSD->data->data[i]);
-//      CPSD->data->data[i].im = 0.0;
-//    } else {
-//      CPSD->data->data[i].re = 0.0;
-//      CPSD->data->data[i].im = 0.0;
-//    }
-//  }
-//
-//  XLALREAL8FreqTimeFFT(TDW, CPSD, plan);
-//
-//  /* FILE *PSDf = fopen("PSD.dat", "w"); */
-//  /* for (i = 0; i < PSD->data->length; i++) { */
-//  /*   fprintf(PSDf, "%g %g\n", i*PSD->deltaF, PSD->data->data[i]); */
-//  /* } */
-//  /* fclose(PSDf); */
-//
-//  /* FILE *TDWf = fopen("TDW.dat", "w"); */
-//  /* for (i = 0; i < TDW->data->length; i++) { */
-//  /*   fprintf(TDWf, "%g %g\n", i*TDW->deltaT, TDW->data->data[i]); */
-//  /* } */
-//  /* fclose(TDWf); */
-//}
-
-
 REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData * data,LALInferenceTemplateFunction templt)
 /***************************************************************/
 /* (log-) likelihood function.                                 */
@@ -1600,7 +1557,6 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentP
 /*   - "time"            (REAL8, GPS sec.)                     */
 /***************************************************************/
 {
-  //static int timeDomainWarning = 0;
   double Fplus, Fcross;
   double FplusScaled, FcrossScaled;
   double dataReal, dataImag;
@@ -1708,20 +1664,6 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentP
   /* Create parameter set to pass to the template function */
   intrinsicParams = LALInferenceGetInstrinsicParams(currentParams);
   LALInferenceAddVariable(&intrinsicParams, "phase",&phi0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
-  intrinsicParams.head      = NULL;
-  intrinsicParams.dimension = 0;
-  LALInferenceCopyVariables(currentParams, &intrinsicParams);
-  if(logDistFlag)
-    LALInferenceRemoveVariable(&intrinsicParams, "logdistance");
-  else
-    LALInferenceRemoveVariable(&intrinsicParams, "distance");
-  LALInferenceRemoveVariable(&intrinsicParams, "rightascension");
-  LALInferenceRemoveVariable(&intrinsicParams, "declination");
-  LALInferenceRemoveVariable(&intrinsicParams, "polarisation");
-  LALInferenceRemoveVariable(&intrinsicParams, "time");
-  LALInferenceRemoveVariable(&intrinsicParams, "phase");
-  LALInferenceAddVariable(&intrinsicParams, "phase",&phi0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
-  //LALInferenceAddVariable(&intrinsicParams, "distance", &distMpc, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_OUTPUT);
   
   // TODO: add pointer to template function here.
   // (otherwise same parameters but different template will lead to no re-computation!!)
@@ -1762,10 +1704,6 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentP
         return(-DBL_MAX);
       
       if (dataPtr->modelDomain == LAL_SIM_DOMAIN_TIME) {
-        //	if (!timeDomainWarning) {
-        //	  timeDomainWarning = 1;
-        //	  fprintf(stderr, "WARNING: using time domain template with frequency domain likelihood (in %s, line %d)\n", __FILE__, __LINE__);
-        //	}
         LALInferenceExecuteFT(dataPtr);
         /* note that the dataPtr->modelParams "time" element may have changed here!! */
         /* (during "template()" computation)  */
@@ -1843,12 +1781,9 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentP
 	widths_array[j]=0;
       }
     }
-    //FILE *testout=fopen("test_likeliLAL.txt","w");
-    //fprintf(testout, "f PSD dataRe dataIm signalRe signalIm\n");
     /* determine frequency range & loop over frequency bins: */
     deltaT = dataPtr->timeData->deltaT;
     deltaF = 1.0 / (((double)dataPtr->timeData->data->length) * deltaT);
-    // printf("deltaF %g, Nt %d, deltaT %g\n", deltaF, dataPtr->timeData->data->length, dataPtr->timeData->deltaT);
     lower = (UINT4)ceil(dataPtr->fLow / deltaF);
     upper = (UINT4)floor(dataPtr->fHigh / deltaF);
     TwoDeltaToverN = 2.0 * deltaT / ((double) dataPtr->timeData->data->length);
@@ -1867,7 +1802,6 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentP
     /* Incremental values, using cos(theta) - 1 = -2*sin(theta/2)^2 */
     dim = -sin(twopit*deltaF);
     dre = -2.0*sin(0.5*twopit*deltaF)*sin(0.5*twopit*deltaF);
-
     /* Loop over freq domain */
     for (i=lower; i<=upper; ++i){
 
