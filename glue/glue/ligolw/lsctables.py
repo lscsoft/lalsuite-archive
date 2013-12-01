@@ -2841,6 +2841,7 @@ class SummValueTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (summ_value_id)"
 	next_id = SummValueID(0)
+	interncolumns = ("program", "process_id", "ifo", "name", "comment")
 
 
 class SummValue(object):
