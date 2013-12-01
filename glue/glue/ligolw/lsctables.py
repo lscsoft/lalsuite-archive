@@ -2856,27 +2856,43 @@ class SummValue(object):
 
 	@property
 	def start(self):
+		if self.start_time is None and self.start_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.start_time, self.start_time_ns)
 
 	@start.setter
 	def start(self, gps):
-		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+		if gps is None:
+			self.start_time = self.start_time_ns = None
+		else:
+			self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def end(self):
+		if self.end_time is None and self.end_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.end_time, self.end_time_ns)
 
 	@end.setter
 	def end(self, gps):
-		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+		if gps is None:
+			self.end_time = self.end_time_ns = None
+		else:
+			self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def segment(self):
-		return segments.segment(self.start, self.end)
+		start, end = self.start, self.end
+		if start is None and end is None:
+			return None
+		return segments.segment(start, end)
 
 	@segment.setter
 	def segment(self, seg):
-		self.start, self.end = seg
+		if seg is None:
+			self.start = self.end = None
+		else:
+			self.start, self.end = seg
 
 
 SummValueTable.RowType = SummValue
