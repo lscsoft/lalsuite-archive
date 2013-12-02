@@ -2494,7 +2494,6 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
     REAL8 sx = theEventTable->spin1x;
     REAL8 sy = theEventTable->spin1y;
     REAL8 sz = theEventTable->spin1z;
-    printf("spin1: %f\t%f\t%f\n", sx, sy, sz);
 
     REAL8 a_spin1 = sqrt(sx*sx + sy*sy + sz*sz);
 
@@ -2507,13 +2506,10 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
       phi_spin1 = atan2(sy, sx);
       if (phi_spin1 < 0.0) phi_spin1 += 2.0*M_PI;
     }
-    printf("aspin1: %f\ttheta1: %f\tphi1: %f\n", a_spin1, theta_spin1, phi_spin1);
-    printf("acos(-0) = %f\n", acos(-0));
 
     sx = theEventTable->spin2x;
     sy = theEventTable->spin2y;
     sz = theEventTable->spin2z;
-    printf("spin2: %f\t%f\t%f\n", sx, sy, sz);
 
     REAL8 a_spin2 = sqrt(sx*sx + sy*sy + sz*sz), theta_spin2, phi_spin2;
     if (a_spin2 == 0.0) {
@@ -2524,7 +2520,6 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
       phi_spin2 = atan2(sy, sx);
       if (phi_spin2 < 0.0) phi_spin2 += 2.0*M_PI;
     }
-    printf("aspin2: %f\ttheta2: %f\tphi2: %f\n", a_spin2, theta_spin2, phi_spin2);
 
     /* Check for presence of spin in the injection */
     if(a_spin1!=0.0 || a_spin2!=0.0) spinCheck=1;
