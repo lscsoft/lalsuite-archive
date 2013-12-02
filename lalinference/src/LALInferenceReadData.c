@@ -2174,6 +2174,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     REAL8 latitude=0.0;
     REAL8 polarization=0.0;
     REAL8 injtime=0.0;
+    REAL8 spin1, spin2;
     REAL8 m1=inj_table->mass1;
     REAL8 m2=inj_table->mass2;
    
@@ -2191,6 +2192,8 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     longitude=inj_table->longitude;
     latitude=inj_table->latitude;
     polarization=inj_table->polarization;
+    spin1 = inj_table->spin1z;
+    spin2 = inj_table->spin2z;
     injtime=(REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9;
     amp_order=(LALPNOrder) inj_table->amp_order;
 
@@ -2203,6 +2206,8 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     LALInferenceAddVariable(tmpdata->modelParams, "inclination",&inclination,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "massratio",&eta,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "distance",&distance,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceAddVariable(tmpdata->modelParams, "spin1",&spin1,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceAddVariable(tmpdata->modelParams, "spin2",&spin2,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_APPROXIMANT",&injapprox,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_PNORDER",&phase_order,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_AMPORDER",&amp_order,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
@@ -2489,6 +2494,7 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
     REAL8 sx = theEventTable->spin1x;
     REAL8 sy = theEventTable->spin1y;
     REAL8 sz = theEventTable->spin1z;
+    printf("spin1: %f\t%f\t%f\n", sx, sy, sz);
 
     REAL8 a_spin1 = sqrt(sx*sx + sy*sy + sz*sz);
 
@@ -2501,10 +2507,13 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
       phi_spin1 = atan2(sy, sx);
       if (phi_spin1 < 0.0) phi_spin1 += 2.0*M_PI;
     }
+    printf("aspin1: %f\ttheta1: %f\tphi1: %f\n", a_spin1, theta_spin1, phi_spin1);
+    printf("acos(-0) = %f\n", acos(-0));
 
     sx = theEventTable->spin2x;
     sy = theEventTable->spin2y;
     sz = theEventTable->spin2z;
+    printf("spin2: %f\t%f\t%f\n", sx, sy, sz);
 
     REAL8 a_spin2 = sqrt(sx*sx + sy*sy + sz*sz), theta_spin2, phi_spin2;
     if (a_spin2 == 0.0) {
@@ -2515,6 +2524,7 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
       phi_spin2 = atan2(sy, sx);
       if (phi_spin2 < 0.0) phi_spin2 += 2.0*M_PI;
     }
+    printf("aspin2: %f\ttheta2: %f\tphi2: %f\n", a_spin2, theta_spin2, phi_spin2);
 
     /* Check for presence of spin in the injection */
     if(a_spin1!=0.0 || a_spin2!=0.0) spinCheck=1;
@@ -2649,9 +2659,9 @@ void enforce_m1_larger_m2(SimInspiralTable* injEvent){
     REAL8 m1,m2,tmp;
     m1=injEvent->mass1;
     m2=injEvent->mass2;
-    fprintf(stdout, "Injtable has m1<m2. Flipping masses and spins in injection. Shifting phase by pi. \n");
     if (m1>=m2) return;
     else{        
+        fprintf(stdout, "Injtable has m1<m2. Flipping masses and spins in injection. Shifting phase by pi. \n");
         tmp=m1;
         injEvent->mass1=injEvent->mass2;
         injEvent->mass2=tmp;

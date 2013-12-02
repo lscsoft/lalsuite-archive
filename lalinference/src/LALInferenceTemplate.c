@@ -1802,10 +1802,19 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     
     spin1x = (a_spin1 * sin(theta_spin1) * cos(phi_spin1));
     spin1y = (a_spin1 * sin(theta_spin1) * sin(phi_spin1));
+    if ( theta_spin1 == acos(-1.0) ){
+      spin1x = 0.0;
+      spin1y = 0.0;
+    }
     spin1z = (a_spin1 * cos(theta_spin1));
     
     spin2x = (a_spin2 * sin(theta_spin2) * cos(phi_spin2));
     spin2y = (a_spin2 * sin(theta_spin2) * sin(phi_spin2));
+    if ( theta_spin2 == acos(-1.0) ){
+      //    if (abs(theta_spin2 - 3.14159) < 0.001 ){
+      spin2x = 0.0;
+      spin2y = 0.0;
+    }
     spin2z = (a_spin2 * cos(theta_spin2));
 
   } else if(frame==LALINFERENCE_FRAME_SYSTEM) {
