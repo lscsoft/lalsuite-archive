@@ -32,7 +32,6 @@ from glue import iterutils
 from glue import offsetvector
 from glue.ligolw import lsctables
 from glue.ligolw import utils as ligolw_utils
-from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 
 
@@ -211,27 +210,6 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None, superset_ok = False
 	tisitable.sync_next_id()
 	# get the id
 	return tisitable.get_time_slide_id(time_slide, create_new = create_new, superset_ok = superset_ok, nonunique_ok = nonunique_ok)
-
-
-#
-# =============================================================================
-#
-#                           Add Process Information
-#
-# =============================================================================
-#
-
-
-def append_process(xmldoc, comment = None, **kwargs):
-	return ligolw_process.register_to_xmldoc(
-		xmldoc,
-		program = u"ligolw_tisi",
-		paramdict = kwargs,
-		version = __version__,
-		cvs_repository = u"lscsoft",
-		cvs_entry_time = __date__,
-		comment = comment
-	)
 
 
 #
