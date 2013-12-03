@@ -1802,7 +1802,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     
     spin1x = (a_spin1 * sin(theta_spin1) * cos(phi_spin1));
     spin1y = (a_spin1 * sin(theta_spin1) * sin(phi_spin1));
-    if ( theta_spin1 == acos(-1.0) ){
+    if ( abs(theta_spin1 - 3.14159) < 0.0001 ){
       spin1x = 0.0;
       spin1y = 0.0;
     }
@@ -1810,8 +1810,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     
     spin2x = (a_spin2 * sin(theta_spin2) * cos(phi_spin2));
     spin2y = (a_spin2 * sin(theta_spin2) * sin(phi_spin2));
-    if ( theta_spin2 == acos(-1.0) ){
-      //    if (abs(theta_spin2 - 3.14159) < 0.001 ){
+    //    if ( theta_spin2 == acos(-1.0) ){
+   if ( abs(theta_spin2 - 3.14159) < 0.0001 ){
       spin2x = 0.0;
       spin2y = 0.0;
     }
@@ -1862,6 +1862,13 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
       lambda1 = XLALSimInspiralEOSLambda(equation_of_state, m1)/(m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI); /* gives lambda1/m1^5 (dimensionless) */
       lambda2 = XLALSimInspiralEOSLambda(equation_of_state, m2)/(m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI); /* gives lambda2/m2^5 (dimensionless) */
       // 	fprintf(stderr, "Equation of State (LalInfTemplate): %d\n", equation_of_state);
+  }   else if (LALInferenceCheckVariable(IFOdata->modelParams, "c0") && LALInferenceCheckVariable(IFOdata->modelParams, "c1") && LALInferenceCheckVariable(IFOdata->modelParams, "c2")) {
+       REAL8 c0, c1, c2;
+       c0 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "c0");     
+       c1 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "c1");     
+       c2 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "c2"); 
+       lambda1 = XLALLambdaQuadratic(c0, c1, c2, m1)/(m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI);
+       lambda2 = XLALLambdaQuadratic(c0, c1, c2, m2)/(m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI);
   }
   
   LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();

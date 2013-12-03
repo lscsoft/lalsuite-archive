@@ -92,6 +92,15 @@ REAL8 XLALSimInspiralEOSLambda(LALEquationOfState eos_type, REAL8 m_intr_msun){/
     else return lambda;
 }
 
+REAL8 XLALLambdaQuadratic(REAL8 c0, REAL8 c1, REAL8 c2, REAL8 mass) {
+    mass = mass*LAL_MTSUN_SI;
+    // [LAMBDA0] = SEC^5; [LAMBDA1] = SEC^4; [LAMBDA2] = SEC^3
+    REAL8 lambda = 1.0E-23*c0 + 1.0E-18*(mass-1.4*LAL_MTSUN_SI)*c1 + 1.0E-13*(mass-1.4*LAL_MTSUN_SI)*(mass-1.4*LAL_MTSUN_SI)*c2;
+    lambda = (lambda > 0.0) ? lambda : 0.0;
+    return lambda;
+}
+ 
+
 REAL8 XLALSimInspiralEOSQfromLambda(REAL8 lambda) {
     /* Quadrupole-monopole parameter calculated from love number;
        see http://arxiv.org/abs/1303.1528 */

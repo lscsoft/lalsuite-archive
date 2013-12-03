@@ -180,8 +180,8 @@ int XLALSimInspiralTaylorF2(
                    - lambda1 * chi1*chi1*chi1*chi1 * 24.L*(39927845.L/508032.L 
                 - 480043345.L/9144576.L*chi1 + 9860575.L/127008.L*chi1*chi1 - 421821905.L/2286144.L*chi1*chi1*chi1 + 4359700.L/35721.L*chi1*chi1*chi1*chi1 - 10578445.L/285768.L*chi1*chi1*chi1*chi1*chi1);
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_65PN:
-            pft13 = - lambda2 * chi2*chi2*chi2*chi2 * 24.L*(12.L - 11.L*chi2)*LAL_PI
-                    - lambda1 * chi1*chi1*chi1*chi1 * 24.L*(12.L - 11.L*chi1)*LAL_PI;
+            pft13 =  lambda2 * chi2*chi2*chi2*chi2 * 24.L*(12.L - 11.L*chi2)*LAL_PI
+                    + lambda1 * chi1*chi1*chi1*chi1 * 24.L*(12.L - 11.L*chi1)*LAL_PI;
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
             pft12 = - 5.L * lambda2 * chi2*chi2*chi2*chi2 * (3179.L - 919.L*chi2
                     - 2286.L*chi2*chi2 + 260.L*chi2*chi2*chi2)/28.L
