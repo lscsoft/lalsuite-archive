@@ -521,6 +521,8 @@ static int XLALSimIMRSpinEOBInitialConditions(
 
   /* Variable to keep track of whether the user requested the tortoise */
   int tmpTortoise;
+  
+  UINT4 SpinAlignedEOBversion;
 
   REAL8 mTotal;
   REAL8 eta;
@@ -588,6 +590,7 @@ static int XLALSimIMRSpinEOBInitialConditions(
      tmpS1Norm[i] /= mTotal * mTotal;
      tmpS2Norm[i] /= mTotal * mTotal;
   }
+  SpinAlignedEOBversion = params->seobCoeffs->SpinAlignedEOBversion;  
   /* We compute the ICs for the non-tortoise p, and convert at the end */
   tmpTortoise      = params->tortoise;
   params->tortoise = 0;
@@ -882,7 +885,7 @@ static int XLALSimIMRSpinEOBInitialConditions(
     polarData[2] = pSph[0];
     polarData[3] = pSph[2];
 
-    flux  = XLALInspiralSpinFactorizedFlux( &polarDynamics, omega, params, ham, lMax );
+    flux  = XLALInspiralSpinFactorizedFlux( &polarDynamics, omega, params, ham, lMax, SpinAlignedEOBversion );
     flux  = flux / eta;
 
     rDot  = - flux / dEdr;
