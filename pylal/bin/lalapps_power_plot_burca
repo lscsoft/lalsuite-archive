@@ -46,16 +46,11 @@ from pylal import git_version
 from pylal import rate
 from pylal import SnglBurstUtils
 from pylal import SimBurstUtils
-from pylal.xlal import inject
-from pylal.xlal import tools
+from pylal import inject
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
-tools.cached_detector.update({
-	"H1": tools.cached_detector["LHO_4k"],
-	"H2": tools.cached_detector["LHO_2k"],
-	"L1": tools.cached_detector["LLO_4k"]
-})
+dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -167,7 +162,7 @@ WHERE
 			self.bins.incdenominator((offsets[self.x_instrument], offsets[self.y_instrument]), float(abs(self.seglists.intersection(self.seglists.keys()))))
 		self.bins.logregularize()
 		zvals = self.bins.ratio()
-		rate.filter_array(zvals, rate.gaussian_window2d(3, 3))
+		rate.filter_array(zvals, rate.gaussian_window(3, 3))
 		xcoords, ycoords = self.bins.centres()
 		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(zvals)))
 		for offsets in self.tisi_rows:
@@ -248,8 +243,8 @@ def magnitude_a(burst):
 
 
 def magnitude_b(burst):
-	gmst = date.XLALGreenwichMeanSiderealTime(LIGOTimeGPS(burst.peak_time, burst.peak_time_ns))
-	fplus, fcross = inject.XLALComputeDetAMResponse(tools.cached_detector[burst.ifo].response, SimBurstUtils.MW_CENTER_J2000_RA_RAD, SimBurstUtils.MW_CENTER_J2000_DEC_RAD, 0.0, gmst)
+	gmst = date.XLALGreenwichMeanSiderealTime(burst.get_peak())
+	fplus, fcross = inject.XLALComputeDetAMResponse(inject.cached_detector[inject.prefix_to_name[burst.ifo]].response, SimBurstUtils.MW_CENTER_J2000_RA_RAD, SimBurstUtils.MW_CENTER_J2000_DEC_RAD, 0.0, gmst)
 	return (burst.ms_hrss**2.0 / (fplus**2.0 + fcross**2.0))**0.5
 
 
@@ -358,10 +353,10 @@ WHERE
 		xcoords, ycoords = self.background_bins.centres()
 
 		# prepare the data
-		rate.filter_array(self.foreground_bins.array, rate.gaussian_window2d(8, 8))
-		rate.filter_array(self.background_bins.array, rate.gaussian_window2d(8, 8))
-		rate.filter_array(self.coinc_injection_bins.array, rate.gaussian_window2d(8, 8))
-		rate.filter_array(self.incomplete_coinc_injection_bins.array, rate.gaussian_window2d(8, 8))
+		rate.filter_array(self.foreground_bins.array, rate.gaussian_window(8, 8))
+		rate.filter_array(self.background_bins.array, rate.gaussian_window(8, 8))
+		rate.filter_array(self.coinc_injection_bins.array, rate.gaussian_window(8, 8))
+		rate.filter_array(self.incomplete_coinc_injection_bins.array, rate.gaussian_window(8, 8))
 		self.foreground_bins.logregularize()
 		self.background_bins.logregularize()
 		self.coinc_injection_bins.logregularize()
@@ -495,10 +490,10 @@ WHERE
 		xcoords, ycoords = self.background_bins.centres()
 
 		# prepare the data
-		rate.filter_array(self.foreground_bins.array, rate.gaussian_window2d(8, 8))
-		rate.filter_array(self.background_bins.array, rate.gaussian_window2d(8, 8))
-		rate.filter_array(self.coinc_injection_bins.array, rate.gaussian_window2d(8, 8))
-		rate.filter_array(self.incomplete_coinc_injection_bins.array, rate.gaussian_window2d(8, 8))
+		rate.filter_array(self.foreground_bins.array, rate.gaussian_window(8, 8))
+		rate.filter_array(self.background_bins.array, rate.gaussian_window(8, 8))
+		rate.filter_array(self.coinc_injection_bins.array, rate.gaussian_window(8, 8))
+		rate.filter_array(self.incomplete_coinc_injection_bins.array, rate.gaussian_window(8, 8))
 		self.foreground_bins.logregularize()
 		self.background_bins.logregularize()
 		self.coinc_injection_bins.logregularize()

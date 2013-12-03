@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2013  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -31,10 +31,9 @@ import sys
 from glue import iterutils
 from glue import offsetvector
 from glue.ligolw import lsctables
-from glue.ligolw import utils
+from glue.ligolw import utils as ligolw_utils
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
-from pylal import llwapp
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -45,7 +44,7 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-#                              Time Slide Parsing
+#                             Command Line Parsing
 #
 # =============================================================================
 #
@@ -138,6 +137,15 @@ def parse_inspiral_num_slides_slidespec(slidespec):
 	return int(count), offsetvect
 
 
+#
+# =============================================================================
+#
+#                                     I/O
+#
+# =============================================================================
+#
+
+
 class DefaultContentHandler(lsctables.ligolw.LIGOLWContentHandler):
 	pass
 lsctables.use_in(DefaultContentHandler)
@@ -164,9 +172,45 @@ def load_time_slides(filename, verbose = False, gz = None, contenthandler = Defa
 	from scratch.  Instead, from the glue.ligolw package use
 	table.get_table(...).as_dict().
 	"""
-	time_slide_table = lsctables.table.get_table(utils.load_filename(filename, verbose = verbose, gz = gz, contenthandler = contenthandler), lsctables.TimeSlideTable.tableName)
+	time_slide_table = lsctables.TimeSlideTable.get_table(ligolw_utils.load_filename(filename, verbose = verbose, gz = gz, contenthandler = contenthandler))
 	time_slide_table.sync_next_id()
 	return time_slide_table.as_dict()
+
+
+def get_time_slide_id(xmldoc, time_slide, create_new = None, superset_ok = False, nonunique_ok = False):
+	"""
+	Return the time_slide_id corresponding to the offset vector
+	described by time_slide, a dictionary of instrument/offset pairs.
+
+	Example:
+
+	>>> get_time_slide_id(xmldoc, {"H1": 0, "L1": 0})
+	'time_slide:time_slide_id:10'
+
+	This function is a wrapper around the .get_time_slide_id() method
+	of the glue.ligolw.lsctables.TimeSlideTable class.  See the
+	documentation for that class for the meaning of the create_new,
+	superset_ok and nonunique_ok keyword arguments.
+
+	This function requires the document to contain exactly one
+	time_slide table.  If the document does not contain exactly one
+	time_slide table then ValueError is raised, unless the optional
+	create_new argument is not None.  In that case a new table is
+	created.  This effect of the create_new argument is in addition to
+	the affects described by the TimeSlideTable class.
+	"""
+	try:
+		tisitable = lsctables.TimeSlideTable.get_table(xmldoc)
+	except ValueError:
+		# table not found
+		if create_new is None:
+			raise
+		tisitable = lsctables.New(lsctables.TimeSlideTable)
+		xmldoc.childNodes[0].appendChild(tisitable)
+	# make sure the next_id attribute is correct
+	tisitable.sync_next_id()
+	# get the id
+	return tisitable.get_time_slide_id(time_slide, create_new = create_new, superset_ok = superset_ok, nonunique_ok = nonunique_ok)
 
 
 #
@@ -178,12 +222,16 @@ def load_time_slides(filename, verbose = False, gz = None, contenthandler = Defa
 #
 
 
-def append_process(doc, **kwargs):
-	process = llwapp.append_process(doc, program = u"ligolw_tisi", version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
-
-	ligolw_process.append_process_params(doc, process, [(u"--instrument", u"lstring", instrument) for instrument in kwargs["instrument"]])
-
-	return process
+def append_process(xmldoc, comment = None, **kwargs):
+	return ligolw_process.register_to_xmldoc(
+		xmldoc,
+		program = u"ligolw_tisi",
+		paramdict = kwargs,
+		version = __version__,
+		cvs_repository = u"lscsoft",
+		cvs_entry_time = __date__,
+		comment = comment
+	)
 
 
 #
@@ -335,53 +383,6 @@ def time_slide_list_merge(slides1, slides2):
 #
 # =============================================================================
 #
-#                           Time Slide Manipulation
-#
-# =============================================================================
-#
-
-
-def time_slide_component_vectors(offsetvectors, n):
-	"""
-	Given an iterable of time slide vectors, return the shortest list
-	of the unique n-instrument time slide vectors from which all the
-	vectors in the input list can be constructed.  This can be used to
-	determine the minimal set of n-instrument coincs required to
-	construct all of the coincs for all of the requested instrument and
-	offset combinations in the time slide list.
-
-	It is assumed that the coincs for the vector {"H1": 0, "H2": 10,
-	"L1": 20} can be constructed from the coincs for the vectors {"H1":
-	0, "H2": 10} and {"H2": 0, "L1": 10}, that is only the relative
-	offsets are significant in determining if two events are
-	coincident, not the absolute offsets.  This assumption is not true
-	for the standard inspiral pipeline, where the absolute offsets are
-	significant.
-	"""
-	#
-	# collect unique instrument set / deltas combinations
-	#
-
-	delta_sets = {}
-	for offsetvect in offsetvectors:
-		for instruments in iterutils.choices(sorted(offsetvect), n):
-			# NOTE:  the arithmetic used to construct the
-			# offsets *must* match the arithmetic used by
-			# offset_vector.deltas so that the results of the
-			# two can be compared to each other without worry
-			# of floating-point round off confusing things.
-			delta_sets.setdefault(instruments, set()).add(tuple(offsetvect[instrument] - offsetvect[instruments[0]] for instrument in instruments))
-
-	#
-	# translate into a list of normalized n-instrument offset vectors
-	#
-
-	return [offsetvector.offsetvector(zip(instruments, deltas)) for instruments, delta_set in delta_sets.items() for deltas in delta_set]
-
-
-#
-# =============================================================================
-#
 #                                    Other
 #
 # =============================================================================
@@ -390,7 +391,8 @@ def time_slide_component_vectors(offsetvectors, n):
 
 def display_component_offsets(component_offset_vectors, fileobj = sys.stderr):
 	"""
-	Print a summary of the output of time_slide_component_vectors().
+	Print a summary of the output of
+	glue.offsetvector.component_offsetvectors().
 	"""
 	#
 	# organize the information

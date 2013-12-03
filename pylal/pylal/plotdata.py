@@ -116,7 +116,9 @@ def plottimeseries(series, outfile, t0=0, zeroline=False, **kwargs):
 
     color = kwargs.pop("color", None)
     if isinstance(color, str):
-        color = [color]*len(serieslist)
+        color = color.split(',')
+        if len(color) == 1:
+            color = [color[0]]*len(serieslist)
     kwargs2 = dict()
     kwargs2.update(kwargs)
     if kwargs.has_key("marker"):
@@ -146,7 +148,7 @@ def plottimeseries(series, outfile, t0=0, zeroline=False, **kwargs):
         d = series.data.data
         if logy and ylim:
             numpy.putmask(d, d==0, ylim[0]-abs(ylim[0])*0.01)
-        plot.add_content(x, series.data.data, color=c,\
+        plot.add_content(x, d, color=c,\
                          label=plotutils.display_name(series.name), **kwargs)
         # find min/max and plot
         for i,name in enumerate(allnames):
@@ -178,9 +180,10 @@ def plottimeseries(series, outfile, t0=0, zeroline=False, **kwargs):
 
     # set logscale
     if logx:
-        plot.ax.set_xscale("log")
+        plot.ax.xaxis.set_scale("log")
     if logy:
-        plot.ax.set_yscale("log")
+        plot.ax.yaxis.set_scale("log")
+    plot.ax._update_transScale()
 
     # format axes
     if xlim:
@@ -218,7 +221,7 @@ def plotfrequencyseries(series, outfile, **kwargs):
         fmin = min(float(s.f0) for s in serieslist)
         fmax = max(float(s.f0 + s.data.length*s.deltaF) for s in serieslist)
         xlim = [fmin, fmax]
-
+        
     # get axis scales
     logx = kwargs.pop("logx", False)
     logy = kwargs.pop("logy", False)
@@ -271,7 +274,10 @@ def plotfrequencyseries(series, outfile, **kwargs):
                                                  plotutils.default_colors())):
         if color:
             c = color[serieslist.index(series)]
-        x = numpy.arange(series.data.length) * series.deltaF + series.f0 
+        if series.f_array is not None:
+            x = series.f_array
+        else:
+            x = numpy.arange(series.data.length) * series.deltaF + series.f0 
         x = x.astype(float)
         plot.add_content(x, series.data.data, color=c,
                          label=plotutils.display_name(series.name), **kwargs)
@@ -282,12 +288,17 @@ def plotfrequencyseries(series, outfile, **kwargs):
                     if color:
                         c = color[i]
                     series2 = serieslist[i]
-                    x2 = numpy.arange(series2.data.length) * series2.deltaF\
-                         + series2.f0 
+                    if series2.f_array is not None:
+                        x2 = series2.f_array
+                    else:
+                        x2 = numpy.arange(series2.data.length) * series2.deltaF\
+                            + series2.f0 
                     plot.ax.plot(x2, series2.data.data, color=c, **kwargs2)
-                    plot.ax.fill_between(x2, series.data.data,\
-                                         series2.data.data, alpha=0.1,\
-                                         color=c)
+                    # sanity check for malformed inputs
+                    if series.data.data.shape == series2.data.data.shape:
+                        plot.ax.fill_between(x2, series.data.data,\
+                                                 series2.data.data, alpha=0.1,\
+                                                 color=c)
 
     # finalize
     plot.finalize(loc=loc, alpha=alpha)
@@ -296,9 +307,10 @@ def plotfrequencyseries(series, outfile, **kwargs):
     
     # set logscale
     if logx:
-        plot.ax.set_xscale("log")
+        plot.ax.xaxis.set_scale("log")
     if logy:
-        plot.ax.set_yscale("log")
+        plot.ax.yaxis.set_scale("log")
+    plot.ax._update_transScale()
 
     # format axes
     if xlim:
@@ -346,7 +358,7 @@ def plotspectrogram(sequencelist, outfile, epoch=0, deltaT=1, f0=0, deltaF=1,\
         deltaT = map(float, deltaT)
     if not len(deltaT) == numseq:
         raise ValueError("Wrong number of deltaT arguments given.")
-    if not ydata:
+    if not ydata is None:
         if isinstance(f0, numbers.Number):
             f0 = [f0]*numseq
             f0 = map(float, f0)
@@ -368,7 +380,7 @@ def plotspectrogram(sequencelist, outfile, epoch=0, deltaT=1, f0=0, deltaF=1,\
         start = min(epoch)
         end   = max(e + l.length * dt\
                     for e,l,dt in zip(epoch, sequencelist, deltaT))
-    if ydata and not ylim:
+    if not ydata is None and not ylim:
         ylim = [ydata.min(), ydata.max()]
 
     # get axis scales
@@ -486,9 +498,10 @@ def plotspectrogram(sequencelist, outfile, epoch=0, deltaT=1, f0=0, deltaF=1,\
 
     # set logscale
     if logx:
-        plot.ax.set_xscale("log")
+        plot.ax.xaxis.set_scale("log")
     if logy:
-        plot.ax.set_yscale("log")
+        plot.ax.yaxis.set_scale("log")
+    plot.ax._update_transScale()
 
     # format axes
     if xlim:
@@ -518,7 +531,7 @@ def loginterpolate(sequence, y0, deltaY, N=None):
     ylin = numpy.arange(sequence.vectorLength)*deltaY + y0
     ymin = y0 and y0 or deltaY
     ymax = y0 + sequence.vectorLength * deltaY
-    ylog = numpy.logspace(numpy.log10(ymin), numpy.log10(ymax), num=N,\
+    ylog = numpy.logspace(numpy.log10(ymin*1.01), numpy.log10(ymax*0.99), num=N,\
                            endpoint=False)
 
     # make new sequence
@@ -526,7 +539,7 @@ def loginterpolate(sequence, y0, deltaY, N=None):
     TYPESTR  = seriesutils._typestr[datatype]
     func     = getattr(lal, "Create%sVectorSequence" % TYPESTR)
     out      = func(sequence.length, N)
-    
+
     # interpolate columnwise
     for i in range(sequence.length):
         intplt   = interpolate.interp1d(ylin, sequence.data[i,:])
@@ -575,16 +588,26 @@ def plothistogram(serieslist, outfile, nonzero=False, num_bins=100,\
     loc = kwargs.pop("loc", 0)
     alpha = kwargs.pop("alpha", 0.8)
 
+    # get colors to use
+    color = kwargs.pop("color", None)
+    if isinstance(color, str):
+        color = color.split(',')
+        if len(color) == 1:
+            color = [color[0]]*len(serieslist)
+
+
     #
     # plot
     #
 
     plot = plotutils.LineHistogram(xlabel, ylabel, title, subtitle)
 
-    for series in serieslist:
+    for i, series in enumerate(serieslist):
         data = series.data.data
         if nonzero:
             data = data[data!=0]
+        if color:
+            kwargs["color"] = color[i]
         plot.add_content(data, normalize=data.size, label=series.name, **kwargs)
     plot.finalize(loc=loc, alpha=alpha, logx=logx, logy=logy, bar=bar,\
                   xlim=xlim, num_bins=num_bins, cumulative=cumulative)

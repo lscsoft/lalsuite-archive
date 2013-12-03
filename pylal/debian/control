@@ -9,17 +9,25 @@ Build-Depends:
  python-all-dev,
  python-numpy,
  libframe-dev (>= 8.15),
- lal-dev (>= 6.8.0),
- lalburst-dev (>= 1.1.4),
- lalframe-dev (>= 1.0.7),
- lalinspiral-dev (>= 1.4.0),
- lalmetaio-dev (>= 1.0.5),
+ lal-dev (>= 6.11.0),
+ lalburst-dev (>= 1.2.0),
+ lalframe-dev (>= 1.0.10),
+ lalinspiral-dev (>= 1.5.0),
+ lalmetaio-dev (>= 1.1.0),
  debhelper (>= 7)
 Standards-Version: 3.9.3
 
 Package: python-pylal
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends},
+ lal,
+ lal-python,
+ lalburst,
+ lalburst-python,
+ lalframe,
+ lalframe-python,
+ lalinspiral,
+ lalinspiral-python,
  python-glue,
  python-glue-segments,
  python-matplotlib,

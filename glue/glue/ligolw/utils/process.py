@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2013  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -37,11 +37,18 @@ import time
 
 
 from glue import git_version
-from glue import gpstime
-from glue.ligolw import ligolw
-from glue.ligolw import table
-from glue.ligolw import lsctables
-from glue.ligolw import types as ligolwtypes
+from .. import ligolw
+from .. import lsctables
+from .. import types as ligolwtypes
+
+
+try:
+	from lal import UTCToGPS as _UTCToGPS
+except ImportError:
+	# lal is optional
+	# FIXME:  make it not optional
+	from glue import gpstime
+	_UTCToGPS = lambda utc: int(gpstime.GpsSecondsFromPyUTC(time.mktime(utc)))
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>, Larne Pekowsky <lppekows@physics.syr.edu>"
@@ -64,7 +71,7 @@ def get_username():
 	environment variable LOGNAME is tried, if that is not set the
 	environment variable USERNAME is tried, if that is not set the
 	password database is consulted (only on Unix systems, if the import
-	of the pwd module succedes), finally if that fails KeyError is
+	of the pwd module succeeds), finally if that fails KeyError is
 	raised.
 	"""
 	try:
@@ -94,7 +101,7 @@ def append_process(xmldoc, program = None, version = None, cvs_repository = None
 	See also register_to_xmldoc().
 	"""
 	try:
-		proctable = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+		proctable = lsctables.ProcessTable.get_table(xmldoc)
 	except ValueError:
 		proctable = lsctables.New(lsctables.ProcessTable)
 		xmldoc.childNodes[0].appendChild(proctable)
@@ -110,10 +117,10 @@ def append_process(xmldoc, program = None, version = None, cvs_repository = None
 	if cvs_entry_time is not None and cvs_entry_time != "":
 		try:
 			# try the git_version format first
-			process.cvs_entry_time = gpstime.GpsSecondsFromPyUTC(time.mktime(time.strptime(cvs_entry_time, "%Y-%m-%d %H:%M:%S +0000")))
+			process.cvs_entry_time = _UTCToGPS(time.strptime(cvs_entry_time, "%Y-%m-%d %H:%M:%S +0000"))
 		except ValueError:
 			# fall back to the old cvs format
-			process.cvs_entry_time = gpstime.GpsSecondsFromPyUTC(time.mktime(time.strptime(cvs_entry_time, "%Y/%m/%d %H:%M:%S")))
+			process.cvs_entry_time = _UTCToGPS(time.strptime(cvs_entry_time, "%Y/%m/%d %H:%M:%S"))
 	else:
 		process.cvs_entry_time = None
 	process.comment = comment
@@ -124,7 +131,7 @@ def append_process(xmldoc, program = None, version = None, cvs_repository = None
 	except KeyError:
 		process.username = None
 	process.unix_procid = os.getpid()
-	process.start_time = gpstime.GpsSecondsFromPyUTC(time.time())
+	process.start_time = _UTCToGPS(time.gmtime())
 	process.end_time = None
 	process.jobid = jobid
 	process.domain = domain
@@ -138,7 +145,7 @@ def set_process_end_time(process):
 	"""
 	Set the end time in a row in a process table to the current time.
 	"""
-	process.end_time = gpstime.GpsSecondsFromPyUTC(time.time())
+	process.end_time = _UTCToGPS(time.gmtime())
 	return process
 
 
@@ -151,7 +158,7 @@ def append_process_params(xmldoc, process, params):
 	See also process_params_from_dict(), register_to_xmldoc().
 	"""
 	try:
-		paramtable = table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
+		paramtable = lsctables.ProcessParamsTable.get_table(xmldoc)
 	except ValueError:
 		paramtable = lsctables.New(lsctables.ProcessParamsTable)
 		xmldoc.childNodes[0].appendChild(paramtable)
@@ -186,12 +193,12 @@ def get_process_params(xmldoc, program, param, require_unique_program = True):
 	require_unique_program is not True, then there must be at least one
 	program with the requested name otherwise ValueError is raised.
 	"""
-	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
+	process_ids = lsctables.ProcessTable.get_table(xmldoc).get_ids_by_program(program)
 	if len(process_ids) < 1:
 		raise ValueError("process table must contain at least one program named '%s'" % program)
 	elif require_unique_program and len(process_ids) != 1:
 		raise ValueError("process table must contain exactly one program named '%s'" % program)
-	return [row.pyvalue for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if (row.process_id in process_ids) and (row.param == param)]
+	return [row.pyvalue for row in lsctables.ProcessParamsTable.get_table(xmldoc) if (row.process_id in process_ids) and (row.param == param)]
 
 
 def doc_includes_process(xmldoc, program):
@@ -199,7 +206,7 @@ def doc_includes_process(xmldoc, program):
 	Return True if the process table in xmldoc includes entries for a
 	program named program.
 	"""
-	return program in table.get_table(xmldoc, lsctables.ProcessTable.tableName).getColumnByName("program")
+	return program in lsctables.ProcessTable.get_table(xmldoc).getColumnByName("program")
 
 
 def process_params_from_dict(paramdict):

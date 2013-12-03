@@ -2,14 +2,14 @@
 
 Name: 		python-pylal
 Summary:	Python LSC Algorithm Library
-Version:	0.2.0
+Version:	0.4.0
 Release:	1.lscsoft
 License:	See file LICENSE
 Group:		Development/Libraries
 Source:		pylal-%{version}.tar.gz
 Url:		http://www.lsc-group.phys.uwm.edu/daswg/projects/pylal.html
 BuildRoot:	%{_tmppath}/pylal-%{version}-root
-Requires:	python glue glue-segments lal lalmetaio lalframe lalsimulation lalinspiral lalburst numpy scipy python-matplotlib
+Requires:	python glue glue-segments lal lal-python lalframe lalframe-python lalsimulation lalsimulation-python lalinspiral lalinspiral-python lalburst lalburst-python numpy scipy python-matplotlib
 BuildRequires:  python-devel lal-devel lalmetaio-devel lalframe-devel lalsimulation-devel lalinspiral-devel lalburst-devel numpy pkgconfig
 Prefix:         %{_pylal_prefix}
 %description

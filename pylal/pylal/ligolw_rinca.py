@@ -32,17 +32,13 @@ import sys
 from glue import iterutils
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes import snglringdowntable
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-try:
-	all
-except NameError:
-	# Python < 2.5.x
-	from glue.iterutils import all as all
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -120,7 +116,7 @@ process_program_name = "ligolw_rinca"
 
 
 def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None, save_small_coincs = None, vetoes_name = None, coinc_end_time_segment = None, verbose = None):
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
+	process = ligolw_process.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
 		(u"--ds-sq-threshold", u"real_8", ds_sq_threshold)
@@ -189,7 +185,7 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		# extract the coalesced out segment lists from lalapps_ring
 		#
 
-		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
+		self.seglists = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
 		if vetoes is not None:
 			self.seglists -= vetoes
 
@@ -224,6 +220,15 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		coinc_ringdown.set_ifos(event.ifo for event in events)
 		coinc_ringdown.frequency = sum(event.snr * event.frequency for event in events) / sum(event.snr for event in events)
 		coinc_ringdown.quality = sum(event.snr * event.quality for event in events) / sum(event.snr for event in events)
+		coinc_ringdown.mass = None
+		coinc_ringdown.spin = None
+		coinc_ringdown.snr_sq = None
+		coinc_ringdown.choppedl_snr = None
+		coinc_ringdown.eff_coh_snr = None
+		coinc_ringdown.null_stat = None
+		coinc_ringdown.kappa = None
+		coinc_ringdown.snr_ratio = None
+		coinc_ringdown.combined_far = None
 		self.coinc_ringdown_table.append(coinc_ringdown)
 
 		#
@@ -462,7 +467,7 @@ def ligolw_rinca(
 	# remove time offsets from events
 	#
 
-	eventlists.remove_offsetdict()
+	del eventlists.offsetvector
 
 	#
 	# done

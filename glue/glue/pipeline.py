@@ -20,8 +20,9 @@ this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __author__ = 'Duncan Brown <duncan@gravity.phys.uwm.edu>'
-__date__ = '$Date$'
-__version__ = '$Revision$'
+from glue import git_version
+__date__ = git_version.date
+__version__ = git_version.id
 
 import os
 import sys
@@ -1394,12 +1395,12 @@ class CondorDAG:
     """
     Write all the nodes in the workflow to the DAX file.
     """
-    import Pegasus.DAX3
 
     if not self.__dax_file_path:
       # this workflow is not dax-compatible, so don't write a dax
       return
 
+    import Pegasus.DAX3
     # create the workflow object
     dax_name = os.path.split(self.__dax_file_path)[-1]
     dax_basename = '.'.join(dax_name.split('.')[0:-1])
@@ -1644,26 +1645,18 @@ class CondorDAG:
       print >> sitefile, """\
 <?xml version="1.0" encoding="UTF-8"?>
 <sitecatalog xmlns="http://pegasus.isi.edu/schema/sitecatalog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi.edu/schema/sc-3.0.xsd" version="3.0">
+xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi.edu/schema/sc-4.0.xsd" version="4.0">
   <site handle="local" arch="x86_64" os="LINUX">
     <grid type="gt2" contact="%s/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/> 
     <grid type="gt2" contact="%s/jobmanager-condor" scheduler="Condor" jobtype="compute" total-nodes="50"/>
-    <head-fs>
-      <scratch>
-        <shared>
-          <file-server protocol="file" url="file://" mount-point="%s">
-          </file-server>
-          <internal-mount-point mount-point="%s" free-size="null" total-size="null"/>
-        </shared>
-      </scratch>
-      <storage>
-        <shared>
-          <file-server protocol="file" url="file://" mount-point="%s">
-          </file-server>
-          <internal-mount-point mount-point="%s" free-size="null" total-size="null"/>
-        </shared>
-      </storage>
-    </head-fs>
+    <directory  path="%s" type="shared-scratch" free-size="null" total-size="null">
+        <file-server  operation="all" url="file://%s">
+        </file-server>
+    </directory>
+    <directory  path="%s" type="shared-storage" free-size="null" total-size="null">
+        <file-server  operation="all" url="file://%s">
+        </file-server>
+    </directory>
     <replica-catalog  type="LRC" url="rlsn://smarty.isi.edu">
     </replica-catalog>
 """ % (hostname,hostname,pwd,pwd,pwd,pwd)
@@ -1693,6 +1686,7 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
         pass
 
       print >> sitefile, """\
+    <profile namespace="env" key="JAVA_HEAPMAX">4096</profile>
     <profile namespace="pegasus" key="style">condor</profile>
     <profile namespace="condor" key="getenv">True</profile>
     <profile namespace="condor" key="should_transfer_files">YES</profile>
@@ -1731,8 +1725,12 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
 
     for node in self.__nodes:
         outfile.write("# Job %s\n" % node.get_name())
-        outfile.write("%s %s\n\n" % (node.job().get_executable(),
-            node.get_cmd_line()))
+        # Check if this is a DAGMAN Node
+        if isinstance(node,CondorDAGManNode):
+          outfile.write("condor_submit_dag %s\n\n" % (node.job().get_dag()))
+        else:
+          outfile.write("%s %s\n\n" % (node.job().get_executable(),
+              node.get_cmd_line()))
     outfile.close()
 
     os.chmod(outfilename, os.stat(outfilename)[0] | stat.S_IEXEC)
@@ -3608,7 +3606,7 @@ class LigolwSqliteJob(SqliteJob):
     Sets the --replace option. This will cause the job
     to overwrite existing databases rather than add to them.
     """
-    self.add_var_opt('replace')
+    self.add_opt('replace','')
 
 
 class LigolwSqliteNode(SqliteNode):

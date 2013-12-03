@@ -81,9 +81,9 @@ def parse_command_line():
         default=None, metavar="STATTYPE",
         help =
             "type of single-ifo statistic to be computed: " +
-            "allowed values are mean, snr_mean, snr, choppedl, " +
+            "allowed values are mean, snr_mean, snr, snr_sq, choppedl, choppedlforall, " +
             "snrchi, effective_snr, effsnrlike, newsnr, newsnrlike, " +
-            "highstat, eff_dist_ratio"
+            "highstat, ratio"
         )
     parser.add_option("", "--nlow", action = "store", type = "float", default = 4.,
         help =
@@ -133,13 +133,53 @@ def parse_command_line():
         default=None,
         help =
           "Tunable parameter used in the chopped-L test." +
-          "Required if choppedl is specified as statistic-type."
+          "Required if choppedl or choppedlforall is specified as statistic-type."
+          "Used for the ranking of double coincidences."
         )
     parser.add_option("", "--choplb", action="store", type="float",
         default=None,
         help =
           "Tunable parameter used in the chopped-L test." +
-          "Required if choppedl is specified as statistic-type."
+          "Required if choppedl or choppedlforall is specified as statistic-type."
+          "Used for the ranking of double coincidences."
+        )
+    parser.add_option("", "--choplc", action="store", type="float",
+        default=None,
+        help =
+          "Tunable parameter used in the chopped-L test." +
+          "Required if choppedlforall is specified as statistic-type."
+          "Used for the ranking of triple coincidences."
+        )
+    parser.add_option("", "--ratio-column", action="store", type="string",
+        default=None,
+        help =
+          "Column in the sngl-table to use in the ratio calculation." +
+          "Must be either eff_dist or snr. Required if ratio statistic"
+          "is specified as statistic-type."
+        )
+    parser.add_option("", "--ratio-default", action="store", type="float",
+        default=None,
+        help =
+          "Value to be used in the case that a coincidence does not contain" +
+          "one of the IFOs used in the ratio statistic. For example, for an"
+          "H1L1 coincidence, you would not be able to calculate an H1/H2"
+          "effective distance ratio. Thus, you may want to specify a"
+          "neutral default for this coincidence such as 1.0."
+          "Required if ratio statistic is specified as statistic-type."
+        )
+    parser.add_option("", "--ifo1", action="store", type="string",
+        default=None,
+        help =
+          "IFO used in the numerator if ratio statistic is specified." +
+          "Required if ratio statistic is specified as statistic-type."
+          "For example, H1, H2, L1, or V1."
+        )
+    parser.add_option("", "--ifo2", action="store", type="string",
+        default=None,
+        help =
+          "IFO used in the denominator if ratio statistic is specified." +
+          "Required if ratio statistic is specified as statistic-type."
+          "For example, H1, H2, L1, or V1."
         )
     (options, args) = parser.parse_args()
 
@@ -193,7 +233,8 @@ class CombiningFunctions:
     """
     def __init__( self, q = None, nlow = None, nhigh = None, rhoc = None, \
       durthresh = None, power = 2., hfac = 1., lfac = 1., vfac = 1., vsr = 2, param = None, \
-      chopla = None, choplb = None ):
+      chopla = None, choplb = None, choplc = None, rcolumn = None, \
+      rdefault = None, ifo1 = None, ifo2 = None ):
         """
         Sets outside variables.
         """
@@ -210,6 +251,11 @@ class CombiningFunctions:
         self.param = param
         self.chopla = chopla
         self.choplb = choplb
+        self.choplc = choplc
+        self.rcolumn = rcolumn
+        self.rdefault = rdefault
+        self.ifo1 = ifo1
+        self.ifo2 = ifo2
 
     def compute_mean( self, coinc_sngls ):
         """
@@ -236,6 +282,14 @@ class CombiningFunctions:
         else:
             return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * sngl.snr**self.power for sngl in coinc_sngls ))**(1./self.power)
 
+    def compute_snr_sq( self, coinc_sngls ):
+        """
+        Computes the sum of the squares of the snrs.
+        
+        @coinc_sngls: a list of sngl rows associated with *one* coincident event
+        """
+        return (sum( sngl.snr**2 for sngl in coinc_sngls ))
+
     def compute_chopped_l_snr( self, coinc_sngls ):
         """
         Computes a combined snr for triple/quadruple coincs and uses chopped-L test to compute snr for double coincs.
@@ -243,13 +297,39 @@ class CombiningFunctions:
         @coinc_sngls: a list of sngl rows associated with *one* coincident event
         """
         if len( coinc_sngls ) == 4:
-            return self.compute_combined_snr( coinc_sngls )
+            return ( self.compute_combined_snr( coinc_sngls ) )**2
         elif len( coinc_sngls ) == 3:
-            return self.compute_combined_snr( coinc_sngls )
+            return ( self.compute_combined_snr( coinc_sngls ) )**2
         elif len( coinc_sngls ) == 2:
             return min( sum( sngl.snr for sngl in coinc_sngls ), min(self.chopla * sngl.snr + self.choplb for sngl in coinc_sngls) )
         else:
             raise ValueError, "The compute_chopped_l_snr statistic can only be computed for doubles, triples, and quadruples."
+
+    def compute_chopped_l_snr_for_all( self, coinc_sngls ):
+        """
+        Computes chopped_l_snr for doubles. For triples, uses a 3d chopped-like statistic that weights triggers along
+        the axes amoung background triggers in the Gaussian spherical region at low SNR.
+
+        @coinc_sngls: a list of sngl rows associated with *one* coincident event
+        """
+        if len( coinc_sngls ) == 3:
+            ifo1_snr = None
+            ifo2_snr = None
+            ifo3_snr = None
+            min_snr = None
+            for sngl in coinc_sngls:
+                if sngl.ifo == 'H1':
+                    ifo1_snr = sngl.snr
+                elif sngl.ifo == 'L1':
+                    ifo2_snr = sngl.snr
+                else:
+                    ifo3_snr = sngl.snr
+            min_snr = min( ifo1_snr + ifo2_snr + self.choplc, ifo1_snr + ifo3_snr + self.choplc, ifo2_snr + ifo3_snr + self.choplc )
+            return ( min( numpy.sqrt( sum( sngl.snr**2 for sngl in coinc_sngls )), min_snr ) )**2
+        elif len( coinc_sngls ) == 2:
+            return self.compute_chopped_l_snr( coinc_sngls )
+        else:
+            raise ValueError, "The compute_chopped_l_snr_for_all statistic can only be computed for doubles and triples."
 
     def compute_combined_snrchi( self, coinc_sngls ):
         """
@@ -346,23 +426,38 @@ class CombiningFunctions:
         else:
             return (sum ( snglfac[i] * snglstat[i]**self.power for i in numpy.arange(n) ))**(1./self.power)
 
-    def compute_eff_dist_ratio( self, coinc_sngls ):
+    def compute_ratio( self, coinc_sngls ):
         """
-        Computes effective distance ratio (H1/H2) for coincidences that contain both a H1 trigger and
-        a H2 trigger.
-        Otherwise, set the value to 2.0.
+        Computes effective distance or SNR ratio (ifo1/ifo2) for coincidences that contain both an ifo1 trigger and
+        an ifo2 trigger.
+        Otherwise, set the value to the user-specified default.
         """
-        h1_eff_dist = None
-        h2_eff_dist = None
-        for sngl in coinc_sngls:
-            if sngl.ifo == 'H1':
-                h1_eff_dist = sngl.eff_dist
-            if sngl.ifo == 'H2':
-                h2_eff_dist = sngl.eff_dist
-        if h1_eff_dist and h2_eff_dist:
-            return (h1_eff_dist / h2_eff_dist)
+        if self.rcolumn == 'eff_dist':
+            ifo1_eff_dist = None
+            ifo2_eff_dist = None
+            for sngl in coinc_sngls:
+                if sngl.ifo == self.ifo1:
+                    ifo1_eff_dist = sngl.eff_dist
+                elif sngl.ifo == self.ifo2:
+                    ifo2_eff_dist = sngl.eff_dist
+            if ifo1_eff_dist and ifo2_eff_dist:
+                return (ifo1_eff_dist / ifo2_eff_dist)
+            else:
+                return self.rdefault
+        elif self.rcolumn == 'snr':
+            ifo1_snr = None
+            ifo2_snr = None
+            for sngl in coinc_sngls:
+                if sngl.ifo == self.ifo1:
+                    ifo1_snr = sngl.snr
+                elif sngl.ifo == self.ifo2:
+                    ifo2_snr = sngl.snr
+            if ifo1_snr and ifo2_snr:
+                return (ifo1_snr / ifo2_snr)
+            else:
+                return self.rdefault
         else:
-            return 2.0
+            raise ValueError, "The specied ratio column does not exist. Please use either eff_dist or snr."
 
 # =============================================================================
 #
@@ -408,7 +503,9 @@ create_column( connection, coinc_table, output_column )
 function_class = CombiningFunctions( q = opts.chisq_index, nlow = opts.nlow, nhigh = opts.nhigh, rhoc = opts.crossover_snr,
     durthresh = opts.duration_threshold, power = opts.snr_power, 
     hfac = opts.hanford_factor, lfac = opts.livingston_factor, vfac = opts.virgo_factor, vsr = opts.virgo_run,
-    param = opts.param, chopla = opts.chopla, choplb = opts.choplb )
+    param = opts.param, chopla = opts.chopla, choplb = opts.choplb,
+    choplc = opts.choplc,rcolumn = opts.ratio_column, rdefault = opts.ratio_default,
+    ifo1 = opts.ifo1, ifo2 = opts.ifo2 )
 opts.statistic_type = sqlutils.validate_option( opts.statistic_type )
 if opts.statistic_type == 'mean':
     function = 'compute_mean'
@@ -416,8 +513,12 @@ elif opts.statistic_type == 'snr_mean':
     function = 'compute_snr_weighted_mean'
 elif opts.statistic_type == 'snr':
     function = 'compute_combined_snr'
+elif opts.statistic_type == 'snr_sq':
+    function = 'compute_snr_sq'
 elif opts.statistic_type == 'choppedl':
     function = 'compute_chopped_l_snr'
+elif opts.statistic_type == 'choppedlforall':
+    function = 'compute_chopped_l_snr_for_all'
 elif opts.statistic_type == 'snrchi':
     function = 'compute_combined_snrchi'
 elif opts.statistic_type == 'effective_snr':
@@ -430,8 +531,8 @@ elif opts.statistic_type == 'newsnr':
     function = 'compute_combined_newsnr'
 elif opts.statistic_type == 'highstat':
     function = 'compute_highstat'
-elif opts.statistic_type == 'eff_dist_ratio':
-    function = 'compute_eff_dist_ratio'
+elif opts.statistic_type == 'ratio':
+    function = 'compute_ratio'
 
 # 2. initialize the apply_function class in sqlite
 

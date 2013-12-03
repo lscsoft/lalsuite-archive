@@ -166,7 +166,7 @@ lsctables.use_in(ContentHandler)
 #
 
 
-seglist = table.get_table(ligolw_add.ligolw_add(ligolw.Document(), filenames, verbose = options.verbose, contenthandler = ContentHandler), lsctables.SearchSummaryTable.tableName).get_inlist().coalesce()
+seglist = lsctables.SearchSummaryTable.get_table(ligolw_add.ligolw_add(ligolw.Document(), filenames, verbose = options.verbose, contenthandler = ContentHandler)).get_inlist().coalesce()
 
 
 #

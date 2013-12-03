@@ -465,7 +465,7 @@ for file_type in opts.file_type:
         for n, entry in enumerate(tmpltbank_cache):
             if opts.verbose:
                 print >> sys.stderr, "\t\tfile %i / %i\r" % (n+1, num_files),
-            tmpltbankfile = FileStats( entry.path() )
+            tmpltbankfile = FileStats( entry.path )
             tmpltbankfile.load_file()
             tmpltbankfile.get_ifos()
             tmpltbankfile.get_stats_list('event_id')
@@ -488,10 +488,10 @@ for file_type in opts.file_type:
     for n, entry in enumerate(selected_cache):
         if opts.verbose:
             print >> sys.stderr, "\t\tfile %i / %i\r" % (n+1, num_files),
-        if opts.force and not os.path.isfile(entry.path()):
-            print >> sys.stderr, "\nWarning: File %s not found. Skipping..." % entry.path()
+        if opts.force and not os.path.isfile(entry.path):
+            print >> sys.stderr, "\nWarning: File %s not found. Skipping..." % entry.path
             continue
-        inspfile = FileStats( entry.path() )
+        inspfile = FileStats( entry.path )
         inspfile.load_file()
         inspfile.compute_stats('snr')
         inspfile.get_seg_times()

@@ -40,15 +40,16 @@ import bisect
 import sys
 
 
+import lal
 from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
-from pylal import lalconstants
 from pylal import ligolw_burca
-from pylal import llwapp
+from pylal import ligolw_tisi
 from pylal import SimBurstUtils
 from pylal.xlal import tools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -170,17 +171,17 @@ class DocContents(object):
 		# locate the sngl_burst, time_slide and injection tables
 		#
 
-		self.snglbursttable = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+		self.snglbursttable = lsctables.SnglBurstTable.get_table(xmldoc)
 		try:
-			self.simbursttable = table.get_table(xmldoc, lsctables.SimBurstTable.tableName)
+			self.simbursttable = lsctables.SimBurstTable.get_table(xmldoc)
 		except ValueError:
 			self.simbursttable = None
 		try:
-			self.siminspiraltable = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
+			self.siminspiraltable = lsctables.SimInspiralTable.get_table(xmldoc)
 		except ValueError:
 			self.siminspiraltable = None
 		try:
-			timeslidetable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+			timeslidetable = lsctables.TimeSlideTable.get_table(xmldoc)
 		except ValueError:
 			timeslidetable = None
 		if timeslidetable is not None:
@@ -215,7 +216,7 @@ class DocContents(object):
 		#
 
 		if self.siminspiraltable is not None:
-			time_slide_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(self.seglists, 0.0), create_new = process, superset_ok = True, nonunique_ok = False)
+			time_slide_id = ligolw_tisi.get_time_slide_id(xmldoc, {}.fromkeys(self.seglists, 0.0), create_new = process, superset_ok = True, nonunique_ok = False)
 			for sim in self.siminspiraltable:
 				sim.time_slide_id = time_slide_id
 
@@ -226,11 +227,11 @@ class DocContents(object):
 		#
 
 		if self.simbursttable is not None:
-			self.sb_b_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, sb_b_def.search, sb_b_def.search_coinc_type, create_new = True, description = sb_b_def.description)
+			self.sb_b_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, sb_b_def.search, sb_b_def.search_coinc_type, create_new = True, description = sb_b_def.description)
 		else:
 			self.sb_b_coinc_def_id = None
 		if self.siminspiraltable is not None:
-			self.si_b_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, si_b_def.search, si_b_def.search_coinc_type, create_new = True, description = si_b_def.description)
+			self.si_b_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, si_b_def.search, si_b_def.search_coinc_type, create_new = True, description = si_b_def.description)
 		else:
 			self.si_b_coinc_def_id = None
 
@@ -242,7 +243,7 @@ class DocContents(object):
 		#
 
 		try:
-			b_b_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, b_b_def.search, b_b_def.search_coinc_type, create_new = False)
+			b_b_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, b_b_def.search, b_b_def.search_coinc_type, create_new = False)
 		except KeyError:
 			b_b_coinc_def_id = None
 			self.sb_c_e_coinc_def_id = None
@@ -251,14 +252,14 @@ class DocContents(object):
 			self.si_c_n_coinc_def_id = None
 		else:
 			if self.simbursttable is not None:
-				self.sb_c_e_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, sb_c_e_def.search, sb_c_e_def.search_coinc_type, create_new = True, description = sb_c_e_def.description)
-				self.sb_c_n_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, sb_c_n_def.search, sb_c_n_def.search_coinc_type, create_new = True, description = sb_c_n_def.description)
+				self.sb_c_e_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, sb_c_e_def.search, sb_c_e_def.search_coinc_type, create_new = True, description = sb_c_e_def.description)
+				self.sb_c_n_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, sb_c_n_def.search, sb_c_n_def.search_coinc_type, create_new = True, description = sb_c_n_def.description)
 			else:
 				self.sb_c_e_coinc_def_id = None
 				self.sb_c_n_coinc_def_id = None
 			if self.siminspiraltable is not None:
-				self.si_c_e_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, si_c_e_def.search, si_c_e_def.search_coinc_type, create_new = True, description = si_c_e_def.description)
-				self.si_c_n_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, si_c_n_def.search, si_c_n_def.search_coinc_type, create_new = True, description = si_c_n_def.description)
+				self.si_c_e_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, si_c_e_def.search, si_c_e_def.search_coinc_type, create_new = True, description = si_c_e_def.description)
+				self.si_c_n_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, si_c_n_def.search, si_c_n_def.search_coinc_type, create_new = True, description = si_c_n_def.description)
 			else:
 				self.si_c_e_coinc_def_id = None
 				self.si_c_n_coinc_def_id = None
@@ -268,7 +269,7 @@ class DocContents(object):
 		#
 
 		try:
-			self.coinctable = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+			self.coinctable = lsctables.CoincTable.get_table(xmldoc)
 		except ValueError:
 			self.coinctable = lsctables.New(lsctables.CoincTable)
 			xmldoc.childNodes[0].appendChild(self.coinctable)
@@ -279,7 +280,7 @@ class DocContents(object):
 		#
 
 		try:
-			self.coincmaptable = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+			self.coincmaptable = lsctables.CoincMapTable.get_table(xmldoc)
 		except ValueError:
 			self.coincmaptable = lsctables.New(lsctables.CoincMapTable)
 			xmldoc.childNodes[0].appendChild(self.coincmaptable)
@@ -391,12 +392,17 @@ def append_process(xmldoc, match_algorithm, comment):
 	"""
 	Convenience wrapper for adding process metadata to the document.
 	"""
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
-
-	params = [(u"--match-algorithm", u"lstring", match_algorithm)]
-	ligolw_process.append_process_params(xmldoc, process, params)
-
-	return process
+	return ligolw_process.register_to_xmldoc(
+		xmldoc,
+		program = process_program_name,
+		paramdict = {
+			"match_algorithm": match_algorithm
+		},
+		version = __version__,
+		cvs_repository = u"lscsoft",
+		cvs_entry_time = __date__,
+		comment = comment
+	)
 
 
 #
@@ -688,7 +694,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 	# instrument.  1.25 = add 25% for good luck (we're not being
 	# careful with asphericity here, so a bit of padding is needed
 	# anyway, just make sure it's enough).
-	burst_peak_time_window = lalconstants.LAL_REARTH_SI / lalconstants.LAL_C_SI * 1.25
+	burst_peak_time_window = lal.LAL_REARTH_SI / lal.LAL_C_SI * 1.25
 
 	# add the duration of the longest burst event (the most a burst
 	# event's peak time could differ from either the start or stop time

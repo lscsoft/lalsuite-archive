@@ -36,6 +36,7 @@ import numpy
 import copy
 import StringIO
 import lal
+import warnings
 
 from dateutil.relativedelta import relativedelta
 from matplotlib import use
@@ -55,7 +56,7 @@ from pylal.plotutils import display_name as latex
 from glue import markup
 from glue import segments
 from glue import segmentsUtils
-from glue.ligolw import table
+from glue.ligolw import table, lsctables
 
 LIGOTimeGPS = float
 
@@ -111,6 +112,7 @@ class SummaryTab(object):
         kwargs.setdefault("parent", None)
         kwargs.setdefault("state", None)
         kwargs.setdefault("information", None)
+        kwargs.setdefault("skip_summary", False)
 
         # set all other values
         for key,val in kwargs.iteritems():
@@ -259,7 +261,8 @@ class SummaryTab(object):
         try:
             idx = names.index(name)
         except ValueError,e:
-            raise RunTimeError("Parent tab has no child named \"%s\"." % name)
+            raise RuntimeError("Parent tab has no child named \"%s\". Valid "
+                               "children are: %s." % (name, ", ".join(names)))
         else:
             return self.children[idx]
         
@@ -422,6 +425,7 @@ class SummaryTab(object):
         else:
             tablink = rindex.sub("", tablink)
         self.ifobar = markup.page()
+        baselist.sort(key=lambda (a,b): a)
         for ifo,base in baselist:
             if ifo.upper() == thisifo.upper():
                 self.ifobar.h1(markup.oneliner.a(ifo, href=tablink))
@@ -485,7 +489,7 @@ class SummaryTab(object):
         with open(os.path.join(self.index, "index.html"), "w") as indexf:
             indexf.write(re.sub(" class=\"\"", "", str(page)))
 
-    def add_information(cp, cpsec):
+    def add_information(self, cp, cpsec):
         """
         Add an "Information" section to this SummaryTab.
 
@@ -498,9 +502,8 @@ class SummaryTab(object):
         if cp.has_option(cpsec, "html-information"):
             self.information = cp.get(cpsec, "html-information")
         else:
-            sys.stderr.write("Warning. No HTML information found for %s. "\
-                             "Please add this.\n" % self.name)
-            sys.stderr.flush()
+            warnings.warn("No HTML information found for %s. "
+                          "Please add this." % self.name)
 
 
 class SectionSummaryTab(SummaryTab):
@@ -523,6 +526,12 @@ class SectionSummaryTab(SummaryTab):
         # build ordered list of all tabs
         alltabs = []
         for tab in sectiontabs:
+            tab.children.sort(key=lambda t:
+                                  re.search('odc(.*)(overview|summary)',
+                                            t.name, re.I) and 3 or
+                                  re.search('odc', t.name, re.I) and 4 or
+                                  re.search('(overview|summary)', t.name, re.I)
+                                      and 2 or 1)
             alltabs.append(tab)
             if tab.name != "Summary":
                 alltabs.extend(tab.children)
@@ -606,28 +615,30 @@ class SectionSummaryTab(SummaryTab):
         div(self.frame, 0, self.name)
         if self.name == "Summary":
             order = ["Sensitivity", "Triggers", "Segments"]
-            self.children.sort(key=lambda x: x.name in order\
-                                             and order.index(x.name)+1 or 1000)
+            self.children.sort(key=lambda x: x.parent.name in order\
+                                             and order.index(x.parent.name)+1 or 1000)
             children = []
             for tab in self.children:
-                children.extend(tab.children)
+                children.append(tab)
         else:
             children = self.children
         n = len(children) > 1 and 2 or 1
-        
+
         self.frame.table(style="table-layout: fixed; width: 100%;")
         for i,tab in enumerate(children):
+            if self.name == "Summary" and tab.skip_summary:
+                continue
             if i % n == 0:
                 self.frame.tr()
             self.frame.td()
-            if (self.name == "Summary" and 
-                    re.match("[A-Z]{3}\Z", tab.parent.name) and
-                    not tab.name.startswith(tab.parent.name)):
-                self.frame.h3("%s: %s" % (tab.parent.name, tab.name),
-                              class_="summary")
+            if (self.name == "Summary"):
+                parent = tab.parent
+                self.frame.a(markup.oneliner.h2(parent.name, class_='summary'),
+                             href=parent.index, title=parent.name)
+                self.frame.a(href=parent.index, title=parent.name)
             else:
-                self.frame.h3(tab.name, class_="summary")
-            self.frame.a(href=tab.index, title=tab.name)
+                self.frame.a(href=tab.index, title=tab.name)
+                self.frame.h2(tab.name, class_="summary")
             self.frame.img(src=tab.plots[0][0], alt=tab.name, class_="full")
             self.frame.a.close()
             self.frame.td.close()
@@ -853,12 +864,23 @@ class SegmentSummaryTab(SummaryTab):
         self.frame.img(src=self.plots[0][0], alt=self.plots[0][1],class_="full")
         self.frame.a.close()
  
-        # construct livetime table
-        uptime = abs(self.span)
-        headers = ["Flags", "Livetime (s)", "Duty cycle (\%)"]
-        data    = [[flag, float(abs(self.segdict[flag])),\
-                    100*float(abs(self.segdict[flag]))/float(uptime)]\
-                   for flag in self.flags]
+        # construct livetime table, KLUDGE, the "now" time should be
+        # provided by when the calling script started
+        uptime = abs(self.span & segments.segment(self.span[0],float(lal.GPSTimeNow())))
+        headers = ["Flags", "Livetime (s)", "Duty cycle (\%)", "Relative duty cycle (\%)"]
+        data = []
+        for i,flag in enumerate(self.flags):
+            if i>0:
+                previousuptime = float(abs(self.segdict[self.flags[i-1]]))
+                if previousuptime == 0:
+                    previousuptime = numpy.inf
+                data.append([flag, float(abs(self.segdict[flag])),\
+                                 100*float(abs(self.segdict[flag]))/float(uptime),\
+                                 100*float(abs(self.segdict[flag]))/previousuptime])
+            else:
+                data.append([flag, float(abs(self.segdict[flag])),\
+                                 100*float(abs(self.segdict[flag]))/float(uptime),\
+                                 100*float(abs(self.segdict[flag]))/float(uptime)])
         self.frame.add(htmlutils.write_table(headers, data, {"table":"full"})())
         self.frame.div.close()
 
@@ -890,7 +912,7 @@ class SegmentSummaryTab(SummaryTab):
 
         # subplots
         if len(self.subplots):
-            div(self.frame, (0, 4), "Subplots", display=False)
+            div(self.frame, (0, 4), "Subplots", display=True)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
@@ -1061,7 +1083,10 @@ class DataSummaryTab(SummaryTab):
                 for channel in channels]
         for i,channel in enumerate(channels):
             data[i].name = channel
-        plotdata.plottimeseries(data, outfile, **kwargs)
+        try:
+            plotdata.plottimeseries(data, outfile, **kwargs)
+        except ValueError as err:
+            warnings.warn("ValueError: %s" % err.message)
         if subplot:
             self.subplots.append((outfile, desc))
         else:
@@ -1121,14 +1146,26 @@ class DataSummaryTab(SummaryTab):
  
         # get data
         if len(self.spectrogram[channel]):
-            data,epoch,deltaT,f0,deltaF = map(list,\
-                                              zip(*self.spectrogram[channel]))
+            data = []
+            epoch = []
+            deltaT = []
+            f0 = []
+            deltaF = []
+            f_array = self.spectrogram[channel][0]['f_array']
+            for i in range(len(self.spectrogram[channel])):
+                data.append(self.spectrogram[channel][i]['data'])
+                epoch.append(self.spectrogram[channel][i]['epoch'])
+                deltaT.append(self.spectrogram[channel][i]['deltaT'])
+                f0.append(self.spectrogram[channel][i]['f0'])
+                deltaF.append(self.spectrogram[channel][i]['deltaF'])
+
         else:
             data = []
             epoch = LIGOTimeGPS(self.start_time)
             deltaT = 1
             f0 = 0
             deltaF = 1
+            f_array = None
 
         # get ratio
         if ratio:
@@ -1152,7 +1189,7 @@ class DataSummaryTab(SummaryTab):
                 numpy.putmask(data[i].data, numpy.isnan(data[i].data), 1e100)
 
         plotdata.plotspectrogram(data, outfile, epoch=epoch, deltaT=deltaT,\
-                                 f0=f0, deltaF=deltaF, **kwargs)
+                                 f0=f0, deltaF=deltaF, ydata=f_array, **kwargs)
         if subplot:
             self.subplots.append((outfile, desc))
         else:
@@ -1174,19 +1211,23 @@ class DataSummaryTab(SummaryTab):
         @keyword **kwargs: other arguments to pass to
             plotdata.plotfrequencyseries
         """
-        if not channel:
-            channel = self.channels[0]
+        if channel:
+            channels = [channel]
+        else:
+            channels = self.channels
         desc = kwargs.pop("description", None)
-        serieslist = [self.spectrum[channel], self.minspectrum[channel],\
-                      self.maxspectrum[channel]]
-        if self.designspectrum.has_key(channel):
-            serieslist.append(self.designspectrum[channel])
-        if self.referencespectrum.has_key(channel):
-            serieslist.append(self.referencespectrum[channel])
+        serieslist = []
+        for channel in channels:
+            serieslist.extend([self.spectrum[channel],
+                               self.minspectrum[channel],\
+                               self.maxspectrum[channel]])
+            if self.designspectrum.has_key(channel):
+                serieslist.append(self.designspectrum[channel])
+            if self.referencespectrum.has_key(channel):
+                serieslist.append(self.referencespectrum[channel])
         if psd:
             for i,series in serieslist:
-                serieslist[i] =\
-                    seriesutils.fromarray(series.data.data**2,\
+                serieslist[i] = seriesutils.fromarray(series.data.data**2,\
                                           name=series.name, epoch=series.epoch,\
                                           deltaT=series.deltaF, f0=series.f0,\
                                           sampleUnits=series.sampleUnits,\
@@ -1219,7 +1260,7 @@ class DataSummaryTab(SummaryTab):
  
         # construct info table
         headers = ["Channel", "Sampling rate"]
-        data    = [[channel, self.sampling[channel]]\
+        data    = [[channel, channel in self.sampling and self.sampling[channel] or 'N/A']\
                    for channel in self.channels\
                    if not re.search("[-._](min|max)\Z", channel)]
         self.frame.add(htmlutils.write_table(headers, data, {"table":"full"})())
@@ -1237,7 +1278,7 @@ class DataSummaryTab(SummaryTab):
 
         # subplots
         if len(self.subplots):
-            div(self.frame, (0, 4), "Subplots", display=False)
+            div(self.frame, (0, 4), "Subplots", display=True)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
@@ -1272,6 +1313,21 @@ class RangeSummaryTab(DataSummaryTab):
     def add_source(self, sourcedict):
         self.sources.append(sourcedict)
         self.sources.sort(key=lambda s: (s["type"],s["name"]))
+
+    @property
+    def trigsegments(self):
+        """glue.segments.segmentlist describing the veto segments for
+        this Tab.
+        """
+        return self._trigsegments
+    @trigsegments.setter
+    def trigsegments(self, vetolist):
+        self._trigsegments =\
+            segments.segmentlist([segments.segment(map(float, s))\
+                                  for s in vetolist])
+    @trigsegments.deleter
+    def trigsegments(self):
+        del self._trigsegments
 
     def finalize(self):
         """
@@ -1320,7 +1376,7 @@ class RangeSummaryTab(DataSummaryTab):
 
         # subplots
         if len(self.subplots):
-            div(self.frame, (0, 4), "Subplots", display=False)
+            div(self.frame, (0, 4), "Subplots", display=True)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
@@ -1562,9 +1618,13 @@ class TriggerSummaryTab(SummaryTab):
                 self.frame.p("The full segment list can be downloaded from %s."\
                              % markup.oneliner.a("this file", href=trigfile),\
                              class_="line")
-            # FIXME write list of loudest triggers
-            self.triggers[chan].sort(key=lambda t: t.snr, reverse=True)
             trigs = table.new_from_template(self.triggers[chan])
+            # FIXME write list of loudest triggers
+            if re.search("sngl_inspiral", trigs.tableName, re.I):
+                self.triggers[chan].sort(key=lambda t: t.get_new_snr(),
+                                         reverse=True)
+            else:
+                self.triggers[chan].sort(key=lambda t: t.snr, reverse=True)
             trigs.extend(self.triggers[chan][:20])
             data = []
             data.append(plottriggers.get_column(trigs, "time"))
@@ -1580,6 +1640,9 @@ class TriggerSummaryTab(SummaryTab):
                 head.extend(["Template duration", "Chirp mass"])
             data.append(plottriggers.get_column(trigs, "snr"))
             head.append("SNR")
+            if re.search("sngl_inspiral", trigs.tableName, re.I):
+                data.append(trigs.get_column("new_snr"))
+                head.append("newSNR")
             data = map(list, zip(*data))
             self.frame.add(htmlutils.write_table(head,data,{"table":"full"})())
             self.frame.div.close()
@@ -1587,7 +1650,7 @@ class TriggerSummaryTab(SummaryTab):
 
         # subplots
         if len(self.subplots):
-            div(self.frame, (0, 4), "Subplots", display=False)
+            div(self.frame, (0, 4), "Subplots", display=True)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
@@ -1869,6 +1932,7 @@ class AuxTriggerSummaryTab(TriggerSummaryTab):
                       "Num. %s<br>coinc. with aux." % self.mainchannel,\
                       "Zero shift coinc. &sigma;"]
                 td = []
+                cellclasses = {"table":"full"}
                 for chan in self.channels:
                     if chan == self.mainchannel:
                         continue
@@ -1880,11 +1944,15 @@ class AuxTriggerSummaryTab(TriggerSummaryTab):
                         td[-1].extend(["-", "-"])
                     if (self.sigma.has_key(chan) and
                             self.sigma[chan].has_key(0.0)):
-                        td[-1].append("%.2f" % self.sigma[chan][0.0])
+                        sigmaStr = "%.2f" % self.sigma[chan][0.0]
+                        td[-1].append(sigmaStr)
+                        if self.sigma[chan][0.0] > 5:
+                            cellclasses[sigmaStr] = "red"
+                            cellclasses[chan] = "red"
                     else:
                         td[-1].append("-")
                 self.frame.add(htmlutils.write_table(th, td,
-                                                     {"table":"full"})())
+                                                     cellclasses)())
 
             self.frame.div.close()
 
@@ -1912,6 +1980,165 @@ class AuxTriggerSummaryTab(TriggerSummaryTab):
                 self.frame.add(htmlutils.write_table(th,td,{"table":"full"})())
             class_ = plotclass(len(self.auxplots[chan]))
             for p,d in self.auxplots[chan]:
+                self.frame.a(href=p, title=d, class_="fancybox-button", rel=class_)
+                self.frame.img(src=p, alt=d,  class_=class_)
+                self.frame.a.close()
+            self.frame.div.close()
+        self.frame.div.close()
+
+        # information
+        if self.information:
+            div(self.frame, (0, 3), "Information", display=True)
+            self.frame.add(self.information)
+            self.frame.div.close()
+
+        self.frame.div.close()
+
+        # deference
+        for attr in ["triggers", "coincs"]:
+            if hasattr(self, attr):
+                delattr(self, attr)
+
+class HvetoSummaryTab(TriggerSummaryTab):
+    """
+    Object representing a summary of auxiliary channel triggers.
+    """
+    def __init__(self, *args, **kwargs):
+        SummaryTab.__init__(self, *args, **kwargs)
+        self.triggers      = dict()
+        self.channels      = []
+        self.winnerchannels = []
+        self.mainchannel   = []
+        self.trigger_files = dict()
+        self.coincs        = dict()
+        self.numcoincs     = dict()
+        self.sigma         = dict()
+        self.auxplots      = dict()
+        self.rounds        = {}
+
+    def plothistogram(self, outfile, rnd, **kwargs):
+        """
+        Kludge, rnd=0 is all the rounds combined
+        """
+
+        desc = kwargs.pop("description", None)
+        if kwargs.get("cumulative", True) and not kwargs.has_key("normalize"):
+            kwargs["normalize"] = float(abs(self.span))
+        trigs = {}
+        segments_before = segments.segmentlist([])
+        for i in range(1,rnd):
+            segments_before |= self.rounds[i].veto_segments
+        segments_after = segments.segmentlist([])
+        if rnd:
+            segments_after |= segments_before
+            segments_after |= self.rounds[rnd].veto_segments
+        else:
+            for i in range(1,1+len(self.rounds)):
+                segments_after |= self.rounds[i].veto_segments
+        # KLUDGE: putting space in front of "before" so that it is sorted in legends above the "after" line
+        trigs[" before"] = lsctables.New(lsctables.SnglBurstTable)
+        trigs[" before"].extend([t for t in self.triggers[self.mainchannel] if t.peak_time not in segments_before])
+        trigs["after"] = lsctables.New(lsctables.SnglBurstTable)
+        trigs["after"].extend([t for t in self.triggers[self.mainchannel] if t.peak_time not in segments_after])
+        plottriggers.plothistogram(trigs, outfile,\
+                                   **kwargs)
+        self.auxplots[rnd].append((outfile, desc))
+
+    def plotcoincs(self, outfile, rnd, **kwargs):
+        """
+        Plot the coincident triggers between the given round
+        """
+        desc = kwargs.pop("description", None)
+        if kwargs.get("xcolumn", None) == "time":
+            kwargs.setdefault("xlim", [self.start_time, self.end_time])
+        if rnd:
+            auxchannelname = latex(self.rounds[rnd].channel)
+        else :
+            auxchannelname = "auxiliary"
+        kwargs.setdefault("title", "Coincident %s and %s (%s)"\
+                                   % (auxchannelname, latex(self.mainchannel),\
+                                      latex(self.etg)))
+        trigs = {}
+        if rnd:
+            trigs[auxchannelname] = self.rounds[rnd].vetoing_aux_trigs
+            trigs[self.mainchannel] = self.rounds[rnd].vetoed_h_trigs
+        else:
+            trigs[auxchannelname] = lsctables.New(lsctables.SnglBurstTable)
+            trigs[self.mainchannel] = lsctables.New(lsctables.SnglBurstTable)
+            for i in range(1,1+len(self.rounds)):
+                trigs[auxchannelname].extend(self.rounds[i].vetoing_aux_trigs)
+                trigs[self.mainchannel].extend(self.rounds[i].vetoed_h_trigs)
+        plottriggers.plottable(trigs, outfile, **kwargs)
+        self.auxplots[rnd].append((outfile, desc))
+        
+    def finalize(self):
+        """
+        Generate a glue.markup.page summarising the auxiliary channel triggers
+        for this AuxTriggerSummaryTab.
+        """
+        # opening
+        self.frame = markup.page()
+        div(self.frame, 0, self.name)
+        self.frame.p("This page summarise hveto with %s triggers."\
+                     % self.name, class_="line")
+
+        # summary
+        if self.mainchannel:
+            div(self.frame, (0, 1), "Summary")
+            if len(self.plots):
+                self.frame.a(href=self.plots[0][0], title=self.plots[0][1],\
+                             class_="fancybox-button", rel="full")
+                self.frame.img(src=self.plots[0][0], alt=self.plots[0][1],\
+                               class_="full")
+                self.frame.a.close()
+            # trig stats
+            th = ['Channel', 'Significance', 'T win.', 'SNR', 'Use %', 'Eff.', 'Deadtime',\
+                      'Eff./Deadtime', 'Cum. Eff.', 'Cum. Deadtime', 'Cum. Eff./Deadtime',\
+                      'Safety', 'Segments' ]
+            td = []
+            cellclasses = {"table":"full"}
+
+            # produce a row for each round
+            cumeff = 0
+            cumdt = 0
+            for i in sorted(self.rounds.keys()):  
+                # work the numbers
+                use = self.rounds[i].use_percentage
+                eff = self.rounds[i].efficiency[0]
+                dt  = self.rounds[i].deadtime[0]
+                edr = self.rounds[i].deadtime!=0\
+                      and round(eff/dt, 2) or 'N/A'
+                cumeff += eff
+                cumdt += dt
+                cumedr = cumeff/cumdt
+                # generate strings
+                use = '%s%%' % round(use, 2)
+                eff = '%s%%' % round(eff, 2)
+                dt  = '%s%%' % round(dt, 3)
+                cumeffstr = '%s%%' % round(cumeff, 2)
+                cumdtstr = '%s%%' % round(cumdt, 2)
+                cumedrstr = '%s%%' % round(cumedr, 2)
+
+                # work safety
+                safe = 'N/A'
+
+                # add to table
+                td.append([self.rounds[i].channel, round(self.rounds[i].significance, 2), self.rounds[i].dt, self.rounds[i].snr,\
+                      use, eff, dt, edr, cumeffstr, cumdtstr, cumedrstr, safe,\
+                      '<a href="%s" rel="external">link</a>' % self.rounds[i].veto_file])
+
+            self.frame.add(htmlutils.write_table(th, td,
+                                                 cellclasses)())
+
+            self.frame.div.close()
+
+        # channel information
+        div(self.frame, (0, 2), "Auxiliary channels", display=True)
+
+        for i,chan in enumerate(self.winnerchannels):
+            div(self.frame, (0, 2, i), chan, display=True)
+            class_ = plotclass(len(self.auxplots[i+1]))
+            for p,d in self.auxplots[i+1]:
                 self.frame.a(href=p, title=d, class_="fancybox-button", rel=class_)
                 self.frame.img(src=p, alt=d,  class_=class_)
                 self.frame.a.close()
@@ -2008,7 +2235,7 @@ class StateVectorSummaryTab(SegmentSummaryTab):
 
         # subplots
         if len(self.subplots):
-            div(self.frame, (0, 4), "Subplots", display=False)
+            div(self.frame, (0, 4), "Subplots", display=True)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
@@ -2037,10 +2264,10 @@ class GlossaryTab(SummaryTab):
         self.tabs = ""
         self.definitions = dict()
 
-    def add_entry(key, val):
+    def add_entry(self, key, val):
         self.definitions[key] = val
 
-    def add_entries(*args):
+    def add_entries(self, *args):
         for key,val in args:
             self.add_entry(key, val)
 
@@ -2235,8 +2462,8 @@ class OnlineSummaryTab(SummaryTab):
                     self.frame.div.close()
                 self.frame.div.close()
         if self.refresh:
-            self.frame.script("var t=%s; refreshImages(t);",\
-                             type="text/javascript")
+            self.frame.script("refreshImages(%s);" % self.refresh,
+                               type="text/javascript")
 
 # =============================================================================
 # Define run state object
@@ -2342,6 +2569,10 @@ def calendar_page(startdate, enddate, path=None, jobdir=".",\
     else:
         path = os.path.normpath(path)
         path = os.path.join(*re.split(os.path.sep, path)[-2:])
+        if re.match("\d+/", path):
+            path = os.path.join(*os.path.split(path)[1:])
+    if path == "/":
+         path = ""
 
     # loop over months
     i = 0

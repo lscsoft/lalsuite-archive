@@ -31,16 +31,9 @@ from glue import iterutils
 from glue import segments
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue.ligolw.utils import segments as ligolw_segments
-from pylal import llwapp
 from pylal import SnglInspiralUtils
-
-
-# FIXME:  remove when Python >= 2.5 required
-try:
-  any
-except NameError:
-  any = iterutils.any
 
 
 #
@@ -113,7 +106,7 @@ def get_thinca_zero_lag_segments(connection, program_name = "thinca"):
   # extract the raw rings indexed by instrument
 
   xmldoc = dbtables.get_xml(connection)
-  seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program_name)
+  seglists = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, program_name)
   xmldoc.unlink()
 
   # remove rings that are exact duplicates on the assumption that there are

@@ -17,7 +17,9 @@ You should have received a copy of the GNU General Public License along with
 this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-__version__ = '$Revision$'
+from glue import git_version
+__date__ = git_version.date
+__version__ = git_version.id
 
 import sys
 import os
@@ -201,11 +203,17 @@ def validateProxy(path):
         sys.exit(1)
 
     # make sure the proxy is RFC 3820 compliant
+    # or is an end-entity X.509 certificate
     try:
         proxy.get_ext("proxyCertInfo")
     except LookupError:
-        RFCproxyUsage()
-        sys.exit(1)
+        # it is not an RFC 3820 proxy so check
+        # if it is an old globus legacy proxy
+        subject = proxy.get_subject().as_text()
+        if re.search(r'.+CN=proxy$', subject):
+            # it is so print warning and exit
+            RFCproxyUsage()
+            sys.exit(1)
 
     # attempt to make sure the proxy is still good for more than 15 minutes
     try:
@@ -242,6 +250,7 @@ try again.
 
     # return True to indicate validated proxy
     return True
+ 
 
 def RFCproxyUsage():
     """
@@ -249,8 +258,9 @@ def RFCproxyUsage():
     a RFC 3820 compliant proxy certificate.
     """
     msg = """\
-Could not find a RFC 3820 compliant proxy credential.
-Please run 'grid-proxy-init -rfc' and try again.
+Could not find a valid proxy credential.
+LIGO users, please run 'ligo-proxy-init' and try again.
+Others, please run 'grid-proxy-init' and try again.
 """
 
     print >>sys.stderr, msg

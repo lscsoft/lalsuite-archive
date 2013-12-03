@@ -145,9 +145,9 @@ def fromLALCache(cache, channel, start=None, end=None, verbose=False):
   # loop over frames in cache
   for i,frame in enumerate(cache):
     # check for read access
-    if os.access(frame.path(), os.R_OK):
+    if os.access(frame.path, os.R_OK):
       # get data
-      frtime, frdata = fromframefile(frame.path(), channel, start=start,\
+      frtime, frdata = fromframefile(frame.path, channel, start=start,\
                                      end=end)
       # resize array and extend
       op = len(time[0])
@@ -164,7 +164,7 @@ def fromLALCache(cache, channel, start=None, end=None, verbose=False):
         sys.stdout.flush()
 
     else:
-      raise RuntimeError("Cannot read frame\n%s" % frame.path())
+      raise RuntimeError("Cannot read frame\n%s" % frame.path)
 
   if verbose: sys.stdout.write("\n")
 
@@ -593,7 +593,7 @@ def find_channels(name=[], ftype=[], ifo=[], not_name=[], not_ftype=[],\
       if time:
         frame = get_cache(time, time, ifo, type)
         if len(frame):
-          frame = frame[-1].path()
+          frame = frame[-1].path
       else:
         frame = get_latest_frame(ifo, type)
 
@@ -1008,11 +1008,11 @@ class FrameCacheEntry(LALCacheEntry):
     Return Find all files described by this FrameCacheEntry.
     """
 
-    filenames = glob.glob(os.path.join(self.path(),\
+    filenames = glob.glob(os.path.join(self.path,\
                                          '%s-%s*-%s.*' % (self.observatory,\
                                                            self.description,\
                                                            self.duration)))
-    cache = [e.path() for e in\
+    cache = [e.path for e in\
                  LALCache([LALCacheEntry.from_T050017(f) for f in filenames])\
              if e.observatory==self.observatory and\
                 e.description==self.description and\
@@ -1115,23 +1115,23 @@ def FrameCachetoLALCache(fcache):
 
 def LALCachetoFrameCache(lcache):
 
-  lcache.sort(key=lambda e: (e.path(),e.segment[0]))
+  lcache.sort(key=lambda e: (e.path,e.segment[0]))
   fcache = FrameCache()
 
   for e in lcache:
     matched = False
-    dir = os.path.split(e.path())[0]
+    dir = os.path.split(e.path)[0]
 
     # if path found in FrameCache try to coalesce with other entries
-    dirs = [d.path() for d in fcache]
+    dirs = [d.path for d in fcache]
     if dir in dirs:
-      pathentries = [fe for fe in fcache if fe.path()==dir]
+      pathentries = [fe for fe in fcache if fe.path==dir]
       # test current entry against other entries for the same path in the
       # new cache
       for i,pe in enumerate(pathentries):
         notdisjoint = e.segment[0] <= pe.segment[1]
         # if entries match in directory, duration, and are contiguous, append
-        if pe.path()==os.path.split(e.path())[0]\
+        if pe.path==os.path.split(e.path)[0]\
              and e.segment.__abs__() == pe.duration\
              and notdisjoint:
           seg = segments.segment(min(pe.segment[0], e.segment[0]),\
@@ -1142,12 +1142,12 @@ def LALCachetoFrameCache(lcache):
 
       # if we haven't matched the entry to anything already in the cache add now
       if not matched:
-        fe = FrameCacheEntry.from_T050017(e.path())
+        fe = FrameCacheEntry.from_T050017(e.path)
         fcache.append(fe)
 
     # if from a new directory add
     else:
-      fe = FrameCacheEntry.from_T050017(e.path())
+      fe = FrameCacheEntry.from_T050017(e.path)
       fcache.append(fe)
 
   return fcache
@@ -1303,8 +1303,8 @@ def get_control_channel(cache, superchannel, channel, start=None, end=None,\
 
   for frame in cache:
     # check for read access
-    if os.access(frame.path(), os.R_OK):
-      frtime, frdata = fromframefile(frame.path(), str(superchannel),\
+    if os.access(frame.path, os.R_OK):
+      frtime, frdata = fromframefile(frame.path, str(superchannel),\
                                      start=start, end=end)
       channels_list = parse_composite_channels(superchannel)
       chanIndex = channels_list.find(channel)
@@ -1313,6 +1313,6 @@ def get_control_channel(cache, superchannel, channel, start=None, end=None,\
       time = numpy.append(time, frtime)
       data = numpy.append(data, channelData)
     else:
-      raise RuntimeError("Cannot read frame\n%s" % frame.path())
+      raise RuntimeError("Cannot read frame\n%s" % frame.path)
 
   return time, data

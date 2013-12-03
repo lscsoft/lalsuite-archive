@@ -32,10 +32,10 @@ Library of utility code for LIGO Light Weight XML applications.
 import codecs
 import gzip
 try:
-	# >= 2.5.0
+	# Python >= 2.5.0
 	from hashlib import md5
 except ImportError:
-	# < 2.5.0
+	# Python < 2.5.0
 	from md5 import new as md5
 import warnings
 import os
@@ -46,14 +46,15 @@ import stat
 import sys
 
 try:
+	# Python >= 2.5.0
 	os.SEEK_SET
 except:
-	# pre Python 2.5.x is missing these symbols
+	# Python < 2.5.0
 	os.SEEK_SET, os.SEEK_CUR, os.SEEK_END = range(3)
 
 
 from glue import git_version
-from glue.ligolw import ligolw
+from .. import ligolw
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -71,11 +72,6 @@ __all__ = []
 #
 # =============================================================================
 #
-
-
-# FIXME:  remove, use parameter passed to load_*() functions instead
-ContentHandler = ligolw.DefaultLIGOLWContentHandler
-__orig_ContentHandler = ContentHandler	# to detect when ContentHandler symbol has been modified
 
 
 def measure_file_sizes(filenames, reverse = False):
@@ -108,6 +104,29 @@ def sort_files_by_size(filenames, verbose = False, reverse = False):
 		else:
 			print >>sys.stderr, "sorting files from smallest to largest ..."
 	return [filename for size, filename in measure_file_sizes(filenames, reverse = reverse)]
+
+
+def local_path_from_url(url):
+	"""
+	For URLs that point to locations in the local filesystem, extract
+	and return the filesystem path of the object to which they point.
+	As a special case pass-through, if the URL is None, the return
+	value is None.  Raises ValueError if the URL is not None and does
+	not point to a local file.
+
+	Example:
+
+	>>> print local_path_from_url(None)
+	None
+	>>> local_path_from_url("file:///home/me/somefile.xml.gz")
+	'/home/me/somefile.xml.gz'
+	"""
+	if url is None:
+		return None
+	scheme, host, path = urlparse.urlparse(url)[:3]
+	if scheme.lower() not in ("", "file") or host.lower() not in ("", "localhost"):
+		raise ValueError("%s is not a local file" % repr(url))
+	return path
 
 
 class RewindableInputFile(object):
@@ -286,17 +305,19 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 
 	Example:
 
+	>>> from glue.ligolw import ligolw
 	>>> import StringIO
 	>>> f = StringIO.StringIO('<?xml version="1.0" encoding="utf-8" ?><!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt"><LIGO_LW><Table Name="demo:table"><Column Name="name" Type="lstring"/><Column Name="value" Type="real8"/><Stream Name="demo:table" Type="Local" Delimiter=",">"mass",0.5,"velocity",34</Stream></Table></LIGO_LW>')
-	>>> xmldoc, digest = load_fileobj(f)
+	>>> xmldoc, digest = load_fileobj(f, contenthandler = ligolw.LIGOLWContentHandler)
 	>>> digest
 	'03d1f513120051f4dbf3e3bc58ddfaa6'
 
-	The optional contenthandler argument allows the SAX content handler
-	to be customized.  Previously, customization of the content handler
-	was accomplished by replacing the ContentHandler symbol in this
-	module with the custom handler.  That technique is now explictly
-	forbidden;  an assertion error is raised if this is detected.  See
+	The contenthandler argument specifies the SAX content handler to
+	use when parsing the document.  The contenthandler is a required
+	argument, but for (temporary) backwards compatibility if it is
+	omitted a default fallback is used and a warning is emitted.  See
+	the glue.ligolw package documentation for typical parsing scenario
+	involving a custom content handler.  See
 	glue.ligolw.ligolw.PartialLIGOLWContentHandler and
 	glue.ligolw.ligolw.FilteringLIGOLWContentHandler for examples of
 	custom content handlers used to load subsets of documents into
@@ -312,9 +333,10 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 			fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
+	# FIXME:  remove.  require contenthandler parameter
 	if contenthandler is None:
-		assert ContentHandler is __orig_ContentHandler
-		contenthandler = ContentHandler
+		contenthandler = ligolw.DefaultLIGOLWContentHandler
+		warnings.warn("contenthandler argument is required.  see https://www.lsc-group.phys.uwm.edu/daswg/projects/glue/doc/glue.ligolw.ligolw.LIGOLWContentHandler-class.html for more information", DeprecationWarning)
 	ligolw.make_parser(contenthandler(xmldoc)).parse(fileobj)
 	return xmldoc, md5obj.hexdigest()
 
@@ -329,7 +351,8 @@ def load_filename(filename, verbose = False, gz = None, xmldoc = None, contentha
 
 	Example:
 
-	>>> xmldoc = load_filename(name, verbose = True)
+	>>> from glue.ligolw import ligolw
+	>>> xmldoc = load_filename(name, contenthandler = ligolw.LIGOLWContentHandler, verbose = True)
 	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (filename and ("'%s'" % filename) or "stdin")
@@ -352,12 +375,13 @@ def load_url(url, verbose = False, gz = None, xmldoc = None, contenthandler = No
 
 	Example:
 
-	>>> xmldoc = load_url("file://localhost/tmp/data.xml")
+	>>> from glue.ligolw import ligolw
+	>>> xmldoc = load_url("file://localhost/tmp/data.xml", contenthandler = ligolw.LIGOLWContentHandler)
 	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (url and ("'%s'" % url) or "stdin")
 	if url is not None:
-		scheme, host, path, nul, nul, nul = urlparse.urlparse(url)
+		scheme, host, path = urlparse.urlparse(url)[:3]
 		if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
 			fileobj = open(path)
 		else:
@@ -471,10 +495,4 @@ def write_url(xmldoc, url, verbose = False, gz = False, xsl_file = None, trap_si
 
 	>>> write_url(xmldoc, "file:///data.xml")
 	"""
-	if url is None:
-		scheme, host, path = "", "", None
-	else:
-		scheme, host, path, nul, nul, nul = urlparse.urlparse(url)
-	if scheme.lower() not in ("", "file") or host.lower() not in ("", "localhost"):
-		raise ValueError("%s is not a local file" % repr(url))
-	return write_filename(xmldoc, path, verbose = verbose, gz = gz, xsl_file = xsl_file, trap_signals = trap_signals)
+	return write_filename(xmldoc, local_path_from_url(url), verbose = verbose, gz = gz, xsl_file = xsl_file, trap_signals = trap_signals)

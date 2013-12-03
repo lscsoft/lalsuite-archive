@@ -35,23 +35,16 @@ interested users.
 import numpy
 from xml import sax
 
-try:
-	any
-	all
-except NameError:
-	# Python < 2.5
-	from glue.iterutils import any, all
-
 
 from glue import git_version
 from glue import iterutils
 from glue import offsetvector
 from glue import segments
 from glue.lal import LIGOTimeGPS
-from glue.ligolw import ligolw
-from glue.ligolw import table
-from glue.ligolw import types as ligolwtypes
-from glue.ligolw import ilwd
+from . import ligolw
+from . import table
+from . import types as ligolwtypes
+from . import ilwd
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
@@ -227,13 +220,13 @@ def ifos_from_instrument_set(instruments):
 	Convert an iterable of instrument names into a value suitable for
 	storage in the "ifos" column found in many tables.  This function
 	is mostly for internal use by the .set_ifos() methods of the
-	corresponding row classes.  The input can be None or an interable
+	corresponding row classes.  The input can be None or an iterable
 	of zero or more instrument names, none of which may contain "," or
 	"+" characters.  The output is a single string containing the
 	instrument names concatenated using "," as a delimiter.
 	instruments will only be iterated over once and so can be a
 	generator expression.  Whitespace is allowed in instrument names
-	but may not be preserved.
+	but might not be preserved.
 
 	NOTE:  in the special case that there is 1 instrument name in the
 	iterable and it has an even number of characters > 2 in it, the
@@ -1077,6 +1070,127 @@ class SnglBurstTable(table.Table):
 	next_id = SnglBurstID(0)
 	interncolumns = ("process_id", "ifo", "search", "channel")
 
+	def get_column(self, column):
+		"""@returns: an array of column values for each row in the table
+
+		@param column:
+			name of column to return
+		@returntype:
+			numpy.ndarray
+		"""
+		if column.lower() == 'q':
+			return self.get_q
+		else:
+			return self.getColumnByName(column).asarray()
+
+	def get_peak(self):
+		"""@returns: the peak time of each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_peak() for row in self])
+
+	def get_start(self):
+		"""@returns: the start time of each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_start() for row in self])
+
+	def get_ms_start(self):
+		"""@returns: the start time of the most significant tile for
+		each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_ms_start() for row in self])
+
+	def get_stop(self):
+		"""@returns: the stop time of each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_stop() for row in self])
+
+	def get_ms_stop(self):
+		"""@returns: the stop time of the most significant tile for
+		each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_ms_stop() for row in self])
+
+	def get_q(self):
+		"""@returns: the Q of each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_q() for row in self])
+
+	def get_z(self):
+		"""@returns: the Z (Omega-Pipeline energy) of each row in the
+		table
+		@returntype: numpy.ndarray
+		"""
+		return numy.asarray([row.get_z() for row in self])
+
+	def get_period(self):
+		"""@returns: the period segment of each row in the table
+		@returntype: glue.segments.segmentlist
+		"""
+		return segments.segmentlist([row.get_period() for row in self])
+
+	def get_ms_period(self):
+		"""@returns: the period segment for the most significant tile
+		of each row in the table
+		@returntype: glue.segments.segmentlist
+		"""
+		return segments.segmentlist([row.get_ms_period() for row in self])
+
+	def get_band(self):
+		"""@returns: the frequency band of each row in the table
+		@returntype: glue.segments.segmentlist
+		"""
+		return segments.segmentlist([row.get_band() for row in self])
+
+	def get_ms_band(self):
+		"""@returns: the frequency band of the most significant tile
+		for each row in the table
+		"""
+		return segments.segmentlist([row.get_ms_band() for row in self])
+
+	def veto(self, seglist):
+		"""@returns: those rows of the table that don't lie within a
+		given seglist
+		"""
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_peak()
+			if time not in seglist:
+				keep.append(row)
+		return keep
+
+	def vetoed(self, seglist):
+		"""@returns: those rows of the table that lie within a given
+		seglist
+		"""
+		vetoed = table.new_from_template(self)
+		for row in self:
+			time = row.get_peak()
+			if time in seglist:
+				vetoed.append(row)
+		return vetoed
+
+	def veto_seglistdict(self, seglistdict):
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_peak()
+			if time not in seglistdict[row.ifo]:
+				keep.append(row)
+		return keep
+
+	def vetoed_seglistdict(self, seglistdict):
+		vetoed = table.new_from_template(self)
+		for row in self:
+			time = row.get_peak()
+			if time in seglistdict[row.ifo]:
+				vetoed.append(row)
+		return vetoed
+
 
 class SnglBurst(object):
 	__slots__ = SnglBurstTable.validcolumns.keys()
@@ -1104,7 +1218,7 @@ class SnglBurst(object):
 		self.peak_time, self.peak_time_ns = gps.seconds, gps.nanoseconds
 
 	def get_period(self):
-		start = LIGOTimeGPS(self.start_time, self.start_time_ns)
+		start = self.get_start()
 		return segments.segment(start, start + self.duration)
 
 	def set_period(self, period):
@@ -1136,7 +1250,7 @@ class SnglBurst(object):
 		self.ms_stop_time, self.ms_stop_time_ns = gps.seconds, gps.nanoseconds
 
 	def get_ms_period(self):
-		start = LIGOTimeGPS(self.ms_start_time, self.ms_start_time_ns)
+		start = self.get_ms_start()
 		return segments.segment(start, start + self.ms_duration)
 
 	def set_ms_period(self, period):
@@ -1149,6 +1263,16 @@ class SnglBurst(object):
 	def set_ms_band(self, band):
 		self.ms_flow = band[0]
 		self.ms_bandwidth = abs(band)
+
+	#
+	# Omega-Pipeline properties
+	#
+
+	def get_q(self):
+		return self.duration * 2 * numpy.pi**(1/2.) * self.central_freq
+
+	def get_z(self):
+		return self.snr ** 2 / 2.
 
 
 SnglBurstTable.RowType = SnglBurst
@@ -1302,6 +1426,12 @@ class SnglInspiralTable(table.Table):
 		"Gamma7": "real_4",
 		"Gamma8": "real_4",
 		"Gamma9": "real_4",
+		"spin1x": "real_4",
+		"spin1y": "real_4",
+		"spin1z": "real_4",
+		"spin2x": "real_4",
+		"spin2y": "real_4",
+		"spin2z": "real_4",
 		"event_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (event_id)"
@@ -1334,23 +1464,23 @@ class SnglInspiralTable(table.Table):
 				column[i] = mapping[old] = self.get_next_id()
 		return mapping
 
-	def get_column(self,column):
+	def get_column(self,column,fac=250.,index=6.):
 		if column == 'reduced_chisq':
 			return self.get_reduced_chisq()
 		if column == 'reduced_bank_chisq':
 			return self.get_reduced_bank_chisq()
 		if column == 'reduced_cont_chisq':
 			return self.get_reduced_cont_chisq()
-		if column == 'new_snr':
-			return self.get_new_snr()
-		if column == 'effective_snr':
-			return self.get_effective_snr()
 		if column == 'snr_over_chi':
 			return self.get_snr_over_chi()
+		if column == 'effective_snr':
+			return self.get_effective_snr(fac=fac)
+		if column == 'new_snr':
+			return self.get_new_snr(index=index)
 		if column == 'lvS5stat':
 			return self.get_lvS5stat()
-		elif column == 'chirp_distance':
-			return self.get_chirp_dist()
+		elif column == 'chirp_eff_distance':
+			return self.get_chirp_eff_dist()
 		else:
 			return self.getColumnByName(column).asarray()
 
@@ -1366,7 +1496,7 @@ class SnglInspiralTable(table.Table):
 	def get_reduced_cont_chisq(self):
 		return self.get_column('cont_chisq') / self.get_column('cont_chisq_dof')
 
-	def get_effective_snr(self, fac=250.0):    
+	def get_effective_snr(self, fac=250.0):
 		snr = self.get_column('snr')
 		rchisq = self.get_column('reduced_chisq')
 		return snr/ (1 + snr**2/fac)**(0.25) / rchisq**(0.25)
@@ -1411,10 +1541,10 @@ class SnglInspiralTable(table.Table):
 		numpy.putmask(contnewsnr, rchisq < 1, snr)
 		return contnewsnr
 
-	def get_chirp_distance(self,ref_mass = 1.40):
+	def get_chirp_eff_dist(self, ref_mass=1.4):
 		mchirp = self.get_column('mchirp')
 		eff_dist = self.get_column('eff_distance')
-		return eff_dist * (2.**(-1./5) * ref_mass / mchirp)**(5./6)
+		return SnglInspiral.chirp_distance(eff_dist, mchirp, ref_mass)
 
 	def get_snr_over_chi(self):
 		return self.get_column('snr')/self.get_column('chisq')**(1./2)
@@ -1503,11 +1633,42 @@ class SnglInspiral(object):
 	def set_end(self, gps):
 		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
+	def get_reduced_chisq(self):
+		return float(self.chisq)/ (2*self.chisq_dof - 2)
+
+	def get_reduced_bank_chisq(self):
+		return float(self.bank_chisq)/ self.bank_chisq_dof
+
+	def get_reduced_cont_chisq(self):
+		return float(self.cont_chisq)/ self.cont_chisq_dof
+
 	def get_effective_snr(self,fac=250.0):
-		return self.snr/ (1 + self.snr**2/fac)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25) 
+		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_chisq()**0.25
 	
+	def get_bank_effective_snr(self,fac=250.0):
+		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_bank_chisq()**0.25
+
+	def get_cont_effective_snr(self,fac=250.0):
+		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_cont_chisq()**0.25
+
 	def get_new_snr(self,index=6.0):
-		rchisq = self.chisq/(2*self.chisq_dof - 2)
+		rchisq = self.get_reduced_chisq()
+		nhigh = 2.
+		if rchisq > 1.:
+			return self.snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
+		else:
+			return self.snr
+
+	def get_bank_new_snr(self,index=6.0):
+		rchisq = self.get_reduced_bank_chisq()
+		nhigh = 2.
+		if rchisq > 1.:
+			return self.snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
+		else:
+			return self.snr
+
+	def get_cont_new_snr(self,index=6.0):
+		rchisq = self.get_reduced_cont_chisq()
 		nhigh = 2.
 		if rchisq > 1.:
 			return self.snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
@@ -1555,6 +1716,10 @@ class SnglInspiral(object):
 			cmp(self.mass2, other.mass2) or
 			cmp(self.search, other.search)
 		)
+
+	@staticmethod
+	def chirp_distance(dist, mchirp, ref_mass=1.4):
+		return dist * (2.**(-1./5) * ref_mass / mchirp)**(5./6)
 
 
 SnglInspiralTable.RowType = SnglInspiral
@@ -1703,9 +1868,12 @@ class CoincRingdownTable(table.Table):
 		"mass": "real_8",
 		"spin": "real_8",
 		"snr": "real_8",
+		"choppedl_snr": "real_8",
+		"snr_sq": "real_8",
 		"eff_coh_snr": "real_8",
 		"null_stat": "real_8",
 		"kappa": "real_8",
+		"snr_ratio": "real_8",
 		"false_alarm_rate": "real_8",
 		"combined_far": "real_8"
 	}
@@ -1871,9 +2039,11 @@ class MultiInspiralTable(table.Table):
 	                 "V1":"v"}
 
 	def get_column(self,column):
-		if column == 'new_snr':
+		if column == 'bestnr':
+			return self.get_bestnr()
+		elif column == 'new_snr':
 			return self.get_new_snr()
-		if column == "null_snr":
+		elif column == "null_snr":
 			return self.get_null_snr()
 		elif column == 'coinc_snr':
 			return self.get_coinc_snr()
@@ -2051,12 +2221,14 @@ class MultiInspiralTable(table.Table):
 		            for ifo in instruments)
 
 	def get_bestnr(self, index=4.0, nhigh=3.0, null_snr_threshold=4.25,\
-		null_grad_thresh=20., null_grad_val = 1./5.):
+		           null_grad_thresh=20., null_grad_val = 1./5.):
 		"""
 		Get the BestNR statistic for each row in the table
 		"""
-		return [row.get_bestnr(index=index,\
-		                       null_snr_threshold=null_snr_threshold)\
+		return [row.get_bestnr(index=index, nhigh=nhigh,
+		                       null_snr_threshold=null_snr_threshold,
+		                       null_grad_thresh=null_grad_thresh,
+		                       null_grad_val=null_grad_val)
 		        for row in self]
 
 	def getstat(self):
@@ -2311,19 +2483,18 @@ class MultiInspiral(object):
 		return slide_number
 
 	def get_bestnr(self, index=4.0, nhigh=3.0, null_snr_threshold=4.25,\
-		null_grad_thresh=20., null_grad_val = 1./5.):
+		           null_grad_thresh=20., null_grad_val = 1./5.):
 		"""
 		Return the BestNR statistic for this row.
 		"""
 		# weight SNR by chisq
-		bestnr = self.get_new_snr(index=index, nhigh=nhigh,\
-			 column="chisq")
+		bestnr = self.get_new_snr(index=index, nhigh=nhigh,
+		                          column="chisq")
 		if len(self.get_ifos()) < 3:
 			return bestnr
 		# recontour null SNR threshold for higher SNRs
 		if self.snr > null_grad_thresh:
-			null_snr_threshold += (self.snr - null_grad_thresh)\
-				* null_grad_val
+			null_snr_threshold += (self.snr - null_grad_thresh) * null_grad_val
 		# weight SNR by null SNR
 		if self.get_null_snr() > null_snr_threshold:
 			bestnr /= 1 + self.get_null_snr() - null_snr_threshold
@@ -2411,9 +2582,12 @@ class SimInspiralTable(table.Table):
 	interncolumns = ("process_id", "waveform", "source")
 
 	def get_column(self,column):
-		if 'chirp_dist' in column:
+		if column == 'chirp_dist' or column == 'chirp_distance':
+			return self.get_chirp_dist()
+		# be strict about formatting of chirp eff distance
+		if column[0:14] == 'chirp_eff_dist' and column[14:16] in ['_h','_l','_g','_t','_v'] and len(column) == 16:
 			site = column[-1]
-			return self.get_chirp_dist(site)
+			return self.get_chirp_eff_dist(site)
 		elif column == 'spin1':
 			return self.get_spin_mag(1)
 		elif column == 'spin2':
@@ -2421,14 +2595,19 @@ class SimInspiralTable(table.Table):
 		elif column == 'total_mass' or column == 'mtotal':
 			m1=self.getColumnByName('mass1').asarray()
 			m2=self.getColumnByName('mass2').asarray()
-			return m1+m2 
+			return m1+m2
 		else:
 			return self.getColumnByName(column).asarray()
 
-	def get_chirp_dist(self,site,ref_mass = 1.40):
+	def get_chirp_dist(self,ref_mass=1.4):
+		mchirp = self.get_column('mchirp')
+		dist = self.get_column('distance')
+		return SnglInspiral.chirp_distance(dist, mchirp, ref_mass)
+
+	def get_chirp_eff_dist(self,site,ref_mass=1.4):
 		mchirp = self.get_column('mchirp')
 		eff_dist = self.get_column('eff_dist_' + site)
-		return eff_dist * (2.**(-1./5) * ref_mass / mchirp)**(5./6)
+		return SnglInspiral.chirp_distance(eff_dist, mchirp, ref_mass)
 
 	def get_spin_mag(self,objectnumber):
 		sx = self.get_column('spin' + str(objectnumber) + 'x')
@@ -2453,7 +2632,7 @@ class SimInspiralTable(table.Table):
 		return keep
 
 	def vetoed(self, seglist):
-                """
+		"""
 		Return the inverse of what veto returns, i.e., return the triggers
 		that lie within a given seglist.
 		"""
@@ -2466,6 +2645,10 @@ class SimInspiralTable(table.Table):
 			else:
 				keep.append(row)
 		return vetoed
+
+	def get_end(self, site=None):
+		return numpy.asarray([row.get_end(site=site) for row in self])
+
 
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
@@ -2488,8 +2671,8 @@ class SimInspiral(object):
 	def get_eff_dist(self, instrument):
 		return getattr(self, "eff_dist_%s" % instrument[0].lower())
 
-	def get_chirp_dist(self,instrument,ref_mass = 1.40):
-		return self.get_eff_dist(instrument) * (2.**(-1./5) * ref_mass / self.mchirp)**(5./6)
+	def get_chirp_eff_dist(self, instrument, ref_mass = 1.4):
+		return SnglInspiral.chirp_distance(self.get_eff_dist(instrument), self.mchirp, ref_mass)
 
 	def get_spin_mag(self, objectnumber):
 		sx = getattr(self, "spin%dx" % objectnumber)
@@ -2658,10 +2841,59 @@ class SummValueTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (summ_value_id)"
 	next_id = SummValueID(0)
+	interncolumns = ("program", "process_id", "ifo", "name", "comment")
 
 
 class SummValue(object):
 	__slots__ = SummValueTable.validcolumns.keys()
+
+	@property
+	def instruments(self):
+		return instrument_set_from_ifos(self.ifo)
+
+	@instruments.setter
+	def instruments(self, instruments):
+		self.ifo = ifos_from_instrument_set(instruments)
+
+	@property
+	def start(self):
+		if self.start_time is None and self.start_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+	@start.setter
+	def start(self, gps):
+		if gps is None:
+			self.start_time = self.start_time_ns = None
+		else:
+			self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+
+	@property
+	def end(self):
+		if self.end_time is None and self.end_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
+
+	@end.setter
+	def end(self, gps):
+		if gps is None:
+			self.end_time = self.end_time_ns = None
+		else:
+			self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+
+	@property
+	def segment(self):
+		start, end = self.start, self.end
+		if start is None and end is None:
+			return None
+		return segments.segment(start, end)
+
+	@segment.setter
+	def segment(self, seg):
+		if seg is None:
+			self.start = self.end = None
+		else:
+			self.start, self.end = seg
 
 
 SummValueTable.RowType = SummValue
@@ -3474,6 +3706,26 @@ class SummMime(object):
 
 SummMimeTable.RowType = SummMime
 
+#
+# =============================================================================
+#
+#                            time_slide_segment_map:table
+#
+# =============================================================================
+#
+
+class TimeSlideSegmentMapTable(table.Table):
+	tableName = "time_slide_segment_map:table"
+	validcolumns = {
+		"segment_def_id": "ilwd:char",
+		"time_slide_id": "ilwd:char",
+	}
+
+class TimeSlideSegmentMap(object):
+	__slots__ = TimeSlideSegmentMapTable.validcolumns.keys()
+
+TimeSlideSegmentMapTable.RowType = TimeSlideSegmentMap
+
 
 #
 # =============================================================================
@@ -3525,7 +3777,8 @@ TableByName = {
 	table.StripTableName(DQSpecListTable.tableName): DQSpecListTable,
 	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable,
 	table.StripTableName(VetoDefTable.tableName): VetoDefTable,
-	table.StripTableName(SummMimeTable.tableName): SummMimeTable
+	table.StripTableName(SummMimeTable.tableName): SummMimeTable,
+	table.StripTableName(TimeSlideSegmentMapTable.tableName): TimeSlideSegmentMapTable
 }
 
 
@@ -3539,7 +3792,7 @@ TableByName = {
 
 
 #
-# Override portions of the ligolw.DefaultLIGOLWContentHandler class
+# Override portions of a ligolw.LIGOLWContentHandler class
 #
 
 
@@ -3569,4 +3822,5 @@ def use_in(ContentHandler):
 	ContentHandler.startTable = startTable
 
 
+# FIXME:  remove
 use_in(ligolw.DefaultLIGOLWContentHandler)

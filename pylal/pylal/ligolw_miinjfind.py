@@ -40,8 +40,8 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 
-from pylal import git_version, ligolw_thinca, llwapp, SimInspiralUtils,\
-                  MultiInspiralUtils
+from pylal import git_version, ligolw_thinca, ligolw_tisi, llwapp, \
+                  SimInspiralUtils, MultiInspiralUtils
 from pylal.xlal import tools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
@@ -128,7 +128,7 @@ class DocContents(object):
         # indicate time slide at which the injection was done
         #
 
-        self.tisi_id = llwapp.get_time_slide_id(
+        self.tisi_id = ligolw_tisi.get_time_slide_id(
                            xmldoc,
                            dict.fromkeys(seglists, 0.0),
                            create_new=process)
@@ -222,7 +222,8 @@ process_program_name = "ligolw_inspinjfind"
 def append_process(xmldoc, match_algorithm, time_window, loudest_by, comment):
     """Convenience wrapper for adding process metadata to the document.
     """
-    process = llwapp.append_process(xmldoc, program=process_program_name,
+    process = ligolw_process.append_process(xmldoc,
+                                    program=process_program_name,
                                     version=__version__,
                                     cvs_repository=u"lscsoft",
                                     cvs_entry_time=__date__, comment=comment)

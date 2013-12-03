@@ -37,7 +37,7 @@ mpl.use("AGG")
 from matplotlib import pyplot as plt
 from matplotlib import colors as mpl_colors
 from matplotlib import cm as mpl_cm
-
+from matplotlib.ticker import FormatStrFormatter,ScalarFormatter,AutoMinorLocator
 
 from scipy import stats
 
@@ -51,7 +51,7 @@ __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
 #List of parameters to plot/bin . Need to match (converted) column names.
-oneDMenu=['mtotal','m1','m2','mchirp','mc','chirpmass','distance','distMPC','dist','iota','psi','eta','q','asym_massratio','spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','costhetas','cosbeta','phi_orb']
+oneDMenu=['mtotal','m1','m2','mchirp','mc','chirpmass','distance','distMPC','dist','iota','psi','eta','q','asym_massratio','spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','costhetas','cosbeta','phi_orb', 'lambdat', 'dlambdat', 'lambda1', 'lambda2', 'lam_tilde', 'dlam_tilde']
 #List of parameter pairs to bin . Need to match (converted) column names.
 twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['chirpmass','eta'],['mc','q'],['mchirp','q'],['chirpmass','q'],['mc','asym_massratio'],['mchirp','asym_massratio'],['chirpmass','asym_massratio'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec'],['dist','cos(iota)'],['phi_orb','iota']]
 #Bin size/resolution for binning. Need to match (converted) column names.
@@ -63,7 +63,10 @@ paramNameLatexMap = {'m1': 'm_1', 'm2' : 'm_2', 'mtotal' : r'M_{\rm tot}', 'mchi
                      'a2': 'a_2', 'phi1': r'\phi_1', 'phi2': r'\phi_2', 'theta1': r'\theta_1', 'theta2': r'\theta_2',
                      'cos(tilt1)': r'\cos t_1', 'cos(tilt2)': r'\cos t_2', 'cos(thetas)': r'\cos \theta_s',
                      'cosbeta': r'\cos \beta', 'phi_orb': r'\phi_{\rm orb}', 'cos(beta)': r'\cos \beta',
-                     'cos(iota)': r'\cos \iota', 'tilt1': r't_1', 'tilt2': r't_2', 'ra': r'\alpha', 'dec': r'\delta'}
+                     'cos(iota)': r'\cos \iota', 'tilt1': r't_1', 'tilt2': r't_2', 'ra': r'\alpha', 'dec': r'\delta',
+                     'lambdat' : r'\tilde{\Lambda}', 'dlambdat': r'\delta \tilde{\Lambda}',
+                     'lambda1' : r'\lambda_1', 'lambda2': r'\lambda_2',
+                     'lam_tilde' : r'\tilde{\Lambda}', 'dlam_tilde': r'\delta \tilde{\Lambda}'}
 
 # Only these parameters, in this order appear in confidence level table.
 clTableParams = ['mchirp', 'mc', 'chirpmass', 'eta', 'm1', 'm2', 'distance', 'distMPC', 'dist', 'cos(iota)', 'a1', 'a2', 'costilt1', 'costilt2']
@@ -77,7 +80,7 @@ TwoDconfidenceLevels=OneDconfidenceLevels
 #2D plots list
 #twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra','dec'],['m1','dist'],['m2','dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'],['dist','cos(iota)']]
 twoDplots=[['m1','m2'],['mass1','mass2'],['RA','dec'],['ra','dec'],['cos(thetas)','cos(beta)'],['distance','iota'],['dist','iota'],['dist','cosiota'],['distance','cosiota'],['psi','iota'],['psi','distance'],['psi','phi0'],['dist','cos(iota)'],['phi_orb','iota'],['distance','inclination'],['dist','inclination']]
-allowed_params=['mtotal','m1','m2','mchirp','mc','chirpmass','q','asym_massratio','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','spin1','spin2','phi1','theta1','phi2','theta2','cos(iota)','cos(tilt1)','cos(tilt2)','tilt1','tilt2','cos(thetas)','cos(beta)','phi_orb','inclination', 'logl']
+allowed_params=['mtotal','m1','m2','mchirp','mc','chirpmass','q','asym_massratio','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','spin1','spin2','phi1','theta1','phi2','theta2','cos(iota)','cos(tilt1)','cos(tilt2)','tilt1','tilt2','cos(thetas)','cos(beta)','phi_orb','inclination', 'logl', 'lambdat', 'dlambdat', 'lambda1', 'lambda2', 'lam_tilde', 'dlam_tilde']
 
 def open_url(url,username,password):
 
@@ -148,7 +151,7 @@ def test_and_switch_param(common_output_table_header,test,switch):
 
     return
 
-def compare_plots_one_param_pdf(list_of_pos_by_name,param):
+def compare_plots_one_param_pdf(list_of_pos_by_name,param,analyicPDF=None):
     """
     Plots a gaussian kernel density estimate for a set
     of Posteriors onto the same axis.
@@ -162,7 +165,7 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
     from scipy import seterr as sp_seterr
 
     #Create common figure
-    myfig=plt.figure(figsize=(6,4),dpi=150)
+    myfig=plt.figure(figsize=(6,4.5),dpi=150)
 
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
@@ -203,7 +206,7 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
             plt.plot(ind,np.transpose(kdepdf),label=name)
         plt.grid()
         plt.legend()
-        plt.xlabel(param)
+        plt.xlabel(bppu.plot_label(param))
         plt.xlim(min_pos,max_pos)
         plt.ylabel('Probability Density')
         #plt.tight_layout()
@@ -212,11 +215,12 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
             injpar=injvals[0]
             if min(pos_samps)<injpar and max(pos_samps)>injpar:
                 plt.plot([injpar,injpar],[0,max(kdepdf)],'r-.',scalex=False,scaley=False)
-
+    if analyticPDF is not None:
+	plt.plot(ind,map(analyticPDF,ind),'r')
     #
     return myfig#,rkde
 #
-def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True):
+def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True,legend='right',analyticPDF=None):
 
 
     """
@@ -232,8 +236,18 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     from scipy import seterr as sp_seterr
 
     #Create common figure
-    myfig=plt.figure(figsize=(6,4),dpi=150)
-    myfig.add_axes([0.1,0.1,0.65,0.85])
+    myfig=plt.figure(figsize=(6,4.5),dpi=150)
+  #myfig.add_axes([0.1,0.1,0.65,0.85])
+  #myfig.add_axes([0.15,0.15,0.6,0.76])
+    axes=plt.Axes(myfig,[0.15,0.15,0.6,0.76])
+    myfig.add_axes(axes)
+    majorFormatterX=ScalarFormatter(useMathText=True)
+    majorFormatterX.format_data=lambda data:'%.6g'%(data)
+    majorFormatterY=ScalarFormatter(useMathText=True)
+    majorFormatterY.format_data=lambda data:'%.6g'%(data)
+    majorFormatterX.set_scientific(True)
+    majorFormatterY.set_scientific(True)
+
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
 
@@ -251,7 +265,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 
     for name,posterior in list_of_pos_by_name.items():
         colour=color_by_name[name]
-        myfig.gca(autoscale_on=True)
+        #myfig.gca(autoscale_on=True)
         if posterior[param].injval:
             injvals.append(posterior[param].injval)
 
@@ -262,9 +276,22 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 
         locmaxy=max(n)
         if locmaxy>max_y: max_y=locmaxy
-        (n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,histtype='step',label=name,normed=True,hold=True,color=color_by_name[name])#range=(min_pos,max_pos)
-
+#(n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,facecolor='white',label=name,normed=True,hold=True,color=color_by_name[name])#range=(min_pos,max_pos)
+        (n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,histtype='step',label=name,normed=True,hold=True,color=color_by_name[name])
         patch_list.append(patches[0])
+
+    Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
+    if Nchars>8:
+      Nticks=3
+    elif Nchars>5:
+      Nticks=4
+    elif Nchars>4:
+      Nticks=6
+    else:
+      Nticks=6
+    locatorX=mpl.ticker.MaxNLocator(nbins=Nticks)
+    locatorX.view_limits(bins[0],bins[-1])
+    axes.xaxis.set_major_locator(locatorX)
 
     plt.xlim(min_pos,max_pos)
     top_cl_intervals_list={}
@@ -289,10 +316,11 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 
     plt.grid()
     plt.xlim(min_pos,max_pos)
-    oned_legend=plt.figlegend(patch_list,pos_names,'right')
-    for text in oned_legend.get_texts():
+    if legend is not None:
+      oned_legend=plt.figlegend(patch_list,pos_names,'right')
+      for text in oned_legend.get_texts():
         text.set_fontsize('small')
-    plt.xlabel(param)
+    plt.xlabel(bppu.plot_label(param))
     plt.ylabel('Probability density')
     plt.draw()
     #plt.tight_layout()
@@ -303,7 +331,8 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
         plt.plot([injpar,injpar],[0,max_y],'r-.',scalex=False,scaley=False,linewidth=4,label='Injection')
 
     #
-    
+    if analyticPDF is not None:
+	plt.plot(posbins,map(analyticPDF,posbins),'r')
     return myfig,top_cl_intervals_list#,rkde
 
 #
@@ -330,7 +359,7 @@ def compute_ks_pvalue_matrix(list_of_pos_by_name, param):
 
     return matrix
         
-def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True):
+def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True,analyticCDF=None):
 
     """
     Plots a gaussian kernel density estimate for a set
@@ -345,7 +374,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     from scipy import seterr as sp_seterr
 
     #Create common figure
-    myfig=plt.figure(figsize=(6,4),dpi=150)
+    myfig=plt.figure(figsize=(6,4.5),dpi=150)
     myfig.add_axes([0.1,0.1,0.65,0.85])
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
@@ -363,7 +392,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
 
     for name,posterior in list_of_pos_by_name.items():
         colour=color_by_name[name]
-        myfig.gca(autoscale_on=True)
+        #myfig.gca(autoscale_on=True)
         if posterior[param].injval:
             injvals.append(posterior[param].injval)
 
@@ -402,7 +431,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     oned_legend=plt.figlegend(patch_list,pos_names,'right')
     for text in oned_legend.get_texts():
         text.set_fontsize('small')
-    plt.xlabel(param)
+    plt.xlabel(bppu.plot_label(param))
     plt.ylabel('Probability density')
     plt.draw()
     #plt.tight_layout()
@@ -411,11 +440,12 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
         injpar=injvals[0]
         #if min(pos_samps)<injpar and max(pos_samps)>injpar:
         plt.plot([injpar,injpar],[0,max_y],'r-.',scalex=False,scaley=False,linewidth=4,label='Injection')
-
+    if analyticCDF is not None:
+	plt.plot(posbins,map(analyticCDF,posbins),'r')
     return myfig,top_cl_intervals_list#,rkde
 
 
-def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,contour_figsize=(6,4),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True):
+def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,ldg_flag,contour_figsize=(6,4.5),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True,covarianceMatrices=None,meanVectors=None):
 
     injection=None
 
@@ -429,7 +459,11 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 sys.exit(1)
             else:
                 injection=injections[eventnum]
-
+    
+    #Create analytic likelihood functions if covariance matrices and mean vectors were given
+    analyticLikelihood = None
+    if covarianceMatrices and meanVectors:
+	analyticLikelihood = bppu.AnalyticLikelihood(covarianceMatrices, meanVectors)
     peparser=bppu.PEOutputParser('common')
     pos_list={}
     tp_list={}
@@ -558,7 +592,17 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         except:
             pass
 
-        pos_temp=bppu.Posterior((common_output_table_header,common_output_table_raw),SimInspiralTableEntry=injection)
+        try:
+            idx=common_output_table_header.index('f_ref')
+            injFrefs=np.unique(common_output_table_raw[:,idx])
+            if len(injFrefs) == 1:
+              injFref = injFrefs[0]
+              print "Using f_ref in results as injected value"
+        except:
+            injFref = None
+            pass
+
+        pos_temp=bppu.Posterior((common_output_table_header,common_output_table_raw),SimInspiralTableEntry=injection, injFref=injFref)
 
         if 'a1' in pos_temp.names and min(pos_temp['a1'].samples)[0] < 0:
           pos_temp.append_mapping('spin1', lambda a:a, 'a1')
@@ -665,12 +709,15 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                     cs_list=[]
 
                     slinestyles=['solid', 'dashed', 'dashdot', 'dotted']
+                    ldg='right'
+                    if not ldg_flag:
+                      ldg=None
 
-                    fig=bppu.plot_two_param_greedy_bins_contour(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition)
-
+                    fig=bppu.plot_two_param_kde_greedy_levels(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition,legend=ldg)
+                    #fig=bppu.plot_two_param_greedy_bins_contour(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition)
                     greedy2savepaths.append('%s-%s.png'%(pplst[0],pplst[1]))
-                    fig.savefig(os.path.join(outdir,'%s-%s.png'%(pplst[0],pplst[1])))
-                    fig.savefig(os.path.join(pdfdir,'%s-%s.pdf'%(pplst[0],pplst[1])))
+                    fig.savefig(os.path.join(outdir,'%s-%s.png'%(pplst[0],pplst[1])),bbox_inches='tight')
+                    fig.savefig(os.path.join(pdfdir,'%s-%s.pdf'%(pplst[0],pplst[1])),bbox_inches='tight')
 
 
             plt.clf()
@@ -685,10 +732,16 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             save_paths=[]
             cl_table_min_max_str='<tr><td> Min | Max </td>'
             for confidence_level in OneDconfidenceLevels:
-
+		if analyticLikelihood:
+		  pdf=analyticLikelihood.pdf(param)
+		  cdf=analyticLikelihood.cdf(param)
+		else:
+		  pdf=None
+		  cdf=None
+		  
                 cl_table_header+='<th colspan="2">%i%% (Lower|Upper)</th>'%(int(100*confidence_level))
-                hist_fig,cl_intervals=compare_plots_one_param_line_hist(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf)
-                hist_fig2,cl_intervals=compare_plots_one_param_line_hist_cum(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf)
+                hist_fig,cl_intervals=compare_plots_one_param_line_hist(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf,legend=ldg,analyticPDF=pdf)
+                hist_fig2,cl_intervals=compare_plots_one_param_line_hist_cum(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf,analyticCDF=cdf)
 
                 # Save confidence levels and uncertainty
                 confidence_levels[param]=[]
@@ -708,13 +761,13 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 if hist_fig is not None:
                     save_path=os.path.join(outdir,'%s_%i.png'%(param,int(100*confidence_level)))
                     save_path_pdf=os.path.join(pdfdir,'%s_%i.pdf'%(param,int(100*confidence_level)))
-                    hist_fig.savefig(save_path)
-                    hist_fig.savefig(save_path_pdf)
+                    hist_fig.savefig(save_path,bbox_inches='tight')
+                    hist_fig.savefig(save_path_pdf,bbox_inches='tight')
                     save_paths.append(save_path)
                     save_path=os.path.join(outdir,'%s_%i_cum.png'%(param,int(100*confidence_level)))
                     save_path_pdf=os.path.join(pdfdir,'%s_%i_cum.pdf'%(param,int(100*confidence_level)))
-                    hist_fig2.savefig(save_path)
-                    hist_fig2.savefig(save_path_pdf)
+                    hist_fig2.savefig(save_path,bbox_inches='tight')
+                    hist_fig2.savefig(save_path_pdf,bbox_inches='tight')
                     save_paths.append(save_path)
                 min_low,max_high=cl_intervals.values()[0]
                 for name,interval in cl_intervals.items():
@@ -855,7 +908,11 @@ if __name__ == '__main__':
     parser.add_option("--contour-height",dest="ch",default=6,help="Height (in inches) of contour plots (optional).")
     parser.add_option("--contour-plot-width",dest="cpw",default=0.5,help="Relative width of plot element 0.15<width<1 (optional).")
     parser.add_option("--contour-plot-height",dest="cph",default=0.76,help="Relative height of plot element 0.15<width<1 (optional).")
+    parser.add_option("--no-legend",dest="ldg_flag",action="store_false",default=True,help="Hide legend (optional).")
     parser.add_option("--ignore-missing-files",dest="readFileErr",default=False,action="store_true",help="Do not fail when files are missing (optional).")
+    parser.add_option("-c","--covarianceMatrix",dest="covarianceMatrices",action="append",default=None,help="CSV file containing covariance (must give accompanying mean vector CSV. Can add more than one matrix.")
+    parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
+    
     (opts,args)=parser.parse_args()
 
     if opts.outpath is None:
@@ -879,7 +936,7 @@ if __name__ == '__main__':
     if len(opts.pos_list)!=len(names):
         print "Either add names for all posteriors or dont put any at all!"
 
-    greedy2savepaths,oned_data,confidence_uncertainty,confidence_levels,max_logls=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr)
+    greedy2savepaths,oned_data,confidence_uncertainty,confidence_levels,max_logls=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,opts.ldg_flag,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr,covarianceMatrices=opts.covarianceMatrices,meanVectors=opts.meanVectors)
 
     ####Print Confidence Levels######
     output_confidence_levels_tex(confidence_levels,outpath)    

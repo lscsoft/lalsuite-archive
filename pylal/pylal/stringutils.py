@@ -194,6 +194,10 @@ def coinc_params_func(events, offsetvector, triangulators):
 #
 
 
+class StringCoincParamsDistributions(ligolw_burca_tailor.BurcaCoincParamsDistributions):
+	ligo_lw_name_suffix = u"pylal_ligolw_burca_tailor_coincparamsdistributions"
+
+
 def dt_binning(instrument1, instrument2):
 	dt = 0.005 + inject.light_travel_time(instrument1, instrument2)	# seconds
 	return rate.NDBins((rate.ATanBins(-dt, +dt, 801),))
@@ -201,7 +205,7 @@ def dt_binning(instrument1, instrument2):
 
 class DistributionsStats(object):
 	"""
-	A class used to populate a CoincParamsDistribution instance with
+	A class used to populate a StringCoincParamsDistributions instance with
 	the data from the outputs of ligolw_burca and ligolw_binjfind.
 	"""
 
@@ -237,10 +241,10 @@ class DistributionsStats(object):
 	}
 
 	filters = {
-		"H1_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
-		"H2_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
-		"L1_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
-		"V1_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
+		"H1_snr2_chi2": rate.gaussian_window(11, 11, sigma = 20),
+		"H2_snr2_chi2": rate.gaussian_window(11, 11, sigma = 20),
+		"L1_snr2_chi2": rate.gaussian_window(11, 11, sigma = 20),
+		"V1_snr2_chi2": rate.gaussian_window(11, 11, sigma = 20),
 		"H1_H2_dt": rate.gaussian_window(11, sigma = 20),
 		"H1_L1_dt": rate.gaussian_window(11, sigma = 20),
 		"H1_V1_dt": rate.gaussian_window(11, sigma = 20),
@@ -261,11 +265,11 @@ class DistributionsStats(object):
 		"L1_V1_df": rate.gaussian_window(11, sigma = 20),
 		# instrument group filter is a no-op, should produce a
 		# 1-bin top-hat window.
-		"instrumentgroup,rss_timing_residual": rate.gaussian_window2d(1e-100, 11, sigma = 20)
+		"instrumentgroup,rss_timing_residual": rate.gaussian_window(1e-100, 11, sigma = 20)
 	}
 
 	def __init__(self):
-		self.distributions = ligolw_burca_tailor.CoincParamsDistributions(**self.binnings)
+		self.distributions = StringCoincParamsDistributions(**self.binnings)
 
 	def add_noninjections(self, param_func, database, param_func_args = ()):
 		# iterate over burst<-->burst coincs
@@ -304,14 +308,14 @@ class DistributionsStats(object):
 
 		# construct the coinc generator.  note that H1+H2-only
 		# coincs are forbidden, which is affected here by removing
-		# that instrument combination from mu_conic
-		mu, tau = snglcoinc.slideless_coinc_generator_mu_tau(eventlists, segmentlists, delta_t)
-		zero_lag_offset_vector = dict((instrument, 0.0) for instrument in mu)
-		mu_coinc = snglcoinc.slideless_coinc_generator_rates(mu, tau)
-		if frozenset(("H1", "H2")) in mu_coinc:
-			del mu_coinc[frozenset(("H1", "H2"))]
-		coinc_generator = snglcoinc.slideless_coinc_generator(eventlists, mu_coinc, tau, lsctables.SnglBurst.get_peak)
-		toa_generator = dict((instruments, snglcoinc.slideless_coinc_generator_plausible_toas(instruments, tau)) for instruments in mu_coinc.keys())
+		# that instrument combination from the object's internal
+		# .rates dictionary
+		coinc_generator = snglcoinc.CoincSynthesizer(eventlists, seglists, delta_t)
+		if frozenset(("H1", "H2")) in coinc_generator.rates:
+			del coinc_generator.rates[frozenset(("H1", "H2"))]
+
+		# build a dictionary of time-of-arrival generators
+		toa_generator = dict((instruments, coinc_generator.plausible_toas(instruments)) for instruments in coinc_generator.rates.keys())
 
 		# how many coincs?  the expected number is obtained by
 		# multiplying the total zero-lag time for which at least
@@ -322,18 +326,22 @@ class DistributionsStats(object):
 		# mean number of background events to simulate.  the actual
 		# number simulated is a Poisson-distributed RV with that
 		# mean.
-		n_coincs, = scipy.stats.poisson.rvs(float(abs(segmentsUtils.vote(seglists.values(), 2))) * sum(mu_coinc.values()) * experiments)
+		n_coincs, = scipy.stats.poisson.rvs(float(abs(segmentsUtils.vote(seglists.values(), 2))) * sum(coinc_generator.rates.values()) * experiments)
 
 		# generate synthetic background coincs
-		for n, events in enumerate(coinc_generator):
+		zero_lag_offset_vector = dict((instrument, 0.0) for instrument in seglists)
+		for n, events in enumerate(coinc_generator.coincs(lsctables.SnglBurst.get_peak)):
+			# n = 1 on 2nd iteration, so placing this condition
+			# where it is in the loop causes the correct number
+			# of events to be added to the background
+			if n >= n_coincs:
+				break
 			# assign fake peak times
 			toas = toa_generator[frozenset(event.ifo for event in events)].next()
 			for event in events:
 				event.set_peak(toas[event.ifo])
 			# compute coincidence parameters
 			self.distributions.add_background(param_func(events, zero_lag_offset_vector, *param_func_args))
-			if n > n_coincs:
-				break
 
 		# restore original peak times
 		for event, peak_time in orig_peak_times.iteritems():
@@ -351,7 +359,24 @@ class DistributionsStats(object):
 
 
 #
-# Livetime
+# I/O
+#
+
+
+def load_likelihood_data(filenames, verbose = False):
+	return ligolw_burca_tailor.load_likelihood_data(filenames, StringCoincParamsDistributions, name = u"string_cusp_likelihood", verbose = verbose)
+
+
+def write_likelihood_data(filename, coincparamsdistributions, seglists, verbose = False):
+	utils.write_filename(ligolw_burca_tailor.gen_likelihood_control(coincparamsdistributions, seglists, name = u"string_cusp_likelihood"), filename, verbose = verbose, gz = (filename or "stdout").endswith(".gz"))
+
+
+#
+# =============================================================================
+#
+#                                   Livetime
+#
+# =============================================================================
 #
 
 
@@ -413,19 +438,6 @@ def time_slides_livetime_for_instrument_combo(seglists, time_slides, instruments
 
 
 #
-# I/O
-#
-
-
-def load_likelihood_data(filenames, verbose = False):
-	return ligolw_burca_tailor.load_likelihood_data(filenames, name = u"string_cusp_likelihood", verbose = verbose)
-
-
-def write_likelihood_data(filename, coincparamsdistributions, seglists, verbose = False):
-	utils.write_filename(ligolw_burca_tailor.gen_likelihood_control(coincparamsdistributions, seglists, name = u"string_cusp_likelihood"), filename, verbose = verbose, gz = (filename or "stdout").endswith(".gz"))
-
-
-#
 # =============================================================================
 #
 #                              Database Utilities
@@ -434,12 +446,12 @@ def write_likelihood_data(filename, coincparamsdistributions, seglists, verbose 
 #
 
 
-def create_recovered_likelihood_table(connection, bb_coinc_def_id):
+def create_recovered_likelihood_table(connection, coinc_def_id):
 	"""
 	Create a temporary table named "recovered_likelihood" containing
 	two columns:  "simulation_id", the simulation_id of an injection,
 	and "likelihood", the highest likelihood ratio at which that
-	injection was recovered by a coincidence of type bb_coinc_def_id.
+	injection was recovered by a coincidence of type coinc_def_id.
 	"""
 	cursor = connection.cursor()
 	cursor.execute("""
@@ -468,5 +480,84 @@ WHERE
 	coinc_event.coinc_def_id == ?
 GROUP BY
 	sim_burst.simulation_id
-	""", (bb_coinc_def_id,))
+	""", (coinc_def_id,))
 	cursor.close()
+
+
+def create_sim_burst_best_string_sngl_map(connection, coinc_def_id):
+	"""
+	Construct a sim_burst --> best matching coinc_event mapping.
+	"""
+	connection.cursor().execute("""
+CREATE TEMPORARY TABLE
+	sim_burst_best_string_sngl_map
+AS
+	SELECT
+		sim_burst.simulation_id AS simulation_id,
+		(
+			SELECT
+				sngl_burst.event_id
+			FROM
+				coinc_event_map AS a
+				JOIN coinc_event_map AS b ON (
+					b.coinc_event_id == a.coinc_event_id
+				)
+				JOIN coinc_event ON (
+					coinc_event.coinc_event_id == a.coinc_event_id
+				)
+				JOIN sngl_burst ON (
+					b.table_name == 'sngl_burst'
+					AND b.event_id == sngl_burst.event_id
+				)
+			WHERE
+				a.table_name == 'sim_burst'
+				AND a.event_id == sim_burst.simulation_id
+				AND coinc_event.coinc_def_id == ?
+			ORDER BY
+				(sngl_burst.chisq / sngl_burst.chisq_dof) / (sngl_burst.snr * sngl_burst.snr)
+			LIMIT 1
+		) AS event_id
+	FROM
+		sim_burst
+	WHERE
+		event_id IS NOT NULL
+	""", (coinc_def_id,))
+
+
+def create_sim_burst_best_string_coinc_map(connection, coinc_def_id):
+	"""
+	Construct a sim_burst --> best matching coinc_event mapping for
+	string cusp injections and coincs.
+	"""
+	# FIXME:  this hasn't finished being ported from the inspiral code
+	connection.cursor().execute("""
+CREATE TEMPORARY TABLE
+	sim_burst_best_string_coinc_map
+AS
+	SELECT
+		sim_burst.simulation_id AS simulation_id,
+		(
+			SELECT
+				coinc_inspiral.coinc_event_id
+			FROM
+				coinc_event_map AS a
+				JOIN coinc_event_map AS b ON (
+					b.coinc_event_id == a.coinc_event_id
+				)
+				JOIN coinc_inspiral ON (
+					b.table_name == 'coinc_event'
+					AND b.event_id == coinc_inspiral.coinc_event_id
+				)
+			WHERE
+				a.table_name == 'sim_burst'
+				AND a.event_id == sim_burst.simulation_id
+				AND coinc_event.coinc_def_id == ?
+			ORDER BY
+				(sngl_burst.chisq / sngl_burst.chisq_dof) / (sngl_burst.snr * sngl_burst.snr)
+			LIMIT 1
+		) AS coinc_event_id
+	FROM
+		sim_burst
+	WHERE
+		coinc_event_id IS NOT NULL
+	""", (coinc_def_id,))

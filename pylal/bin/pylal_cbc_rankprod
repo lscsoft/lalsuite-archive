@@ -225,7 +225,7 @@ def cumulate_histogram(bincounts, binedges, testval):
 
 
 def Message(opts, comments, msgstring):
-  print >>sys.stdout, msgstring
+  if not opts.quiet: print >>sys.stdout, msgstring
   comments += InspiralUtils.message(opts, msgstring)
   return comments
 
@@ -330,6 +330,9 @@ def parse_command_line():
     help="Sieve for unclustered coinc files to estimate total event rate")
   parser.add_option("-c","--coinc-pattern",action="store",type="string",
     help="Sieve for files containing coincs to be ranked (usually clustered)")
+  parser.add_option("-q","--exact-coinc-file-match",action="store_true",default=False,
+    help="Use exact match for coinc file pattern (default=False). Helpful if you want \
+to ensure only files at some given veto level are read in")
   parser.add_option("-i","--inj-pattern",action="store",type="string",
     help="Sieve for files containing injections (not implemented yet)")
   parser.add_option("-f","--coinc-file",action="store",type="string",
@@ -371,16 +374,18 @@ coinc events: use for closed-box")
 
   parser.add_option("-Z","--user-tag",action="store",type="string",default=None,
     help="a user tag for the output filenames")
-  parser.add_option("-G", "--ifo-tag",action="store",type="string",default=None,
+  parser.add_option("-G","--ifo-tag",action="store",type="string",default=None,
     help="sets the IFO tag for plots")
   parser.add_option("-O","--enable-output",action="store_true",default=True,
     help="enable the generation of the html and cache documents")
   parser.add_option("-o","--output-path",action="store",type="string",default="./",
     help="path for figures to be output to")
-  parser.add_option("", "--figure-resolution",action="store",type="int",default=50,
+  parser.add_option("",  "--figure-resolution",action="store",type="int",default=50,
     help="resolution of the figure thumbnails (50 dpi by default)")
   parser.add_option("-v","--verbose",action="store_true",default=False,
-    help="print extra information")
+    help="read xml files verbosely")
+  parser.add_option("-w","--quiet",action="store_true",default=False,
+    help="no messages to stderr")
 
   (opts,args) = parser.parse_args()
 
@@ -407,6 +412,8 @@ coinc events: use for closed-box")
       ( len(opts.trig_statistic_cut.split(",")) == len(opts.ifo_list.split(",")) ):
     raise ValueError, "If assigning different cuts to different ifos, there must be \
 exactly one cut value per ifo!"
+  if opts.enable_output and not opts.ifo_tag:
+    raise ValueError, "Cannot produce plot output without an ifo tag!"
 
   return opts, sys.argv[1:]
 
@@ -416,6 +423,9 @@ exactly one cut value per ifo!"
 
 opts, args = parse_command_line()
 opts = InspiralUtils.initialise(opts,__prog__,git_version.verbose_msg)
+# customize verbosity
+xmlVerbose = opts.verbose
+opts.verbose = False
 
 ifocolors = InspiralUtils.colors
 fnameList = []   # use for the cache file
@@ -458,7 +468,7 @@ def filter_files(opts, cache, pattern, ifos=None, exact=False):
   found, missed = fcache.checkfilesexist()
   flist = found.pfnlist()
   if not len(flist):
-    print >>sys.stderr, "WARNING: No file in %s matches the coinc_pattern '%s'." % (cache, pattern)
+    print >>sys.stderr, "WARNING: No file in %s matches the coinc_pattern '%s'." % (opts.cache_file, pattern)
   # filter files such that the start time is before the selected gps end time
   # and the end time is after the selected gps start time
   flist = [ file for file in flist if int(file.split("-")[-2]) <= opts.gps_end_time \
@@ -468,12 +478,12 @@ def filter_files(opts, cache, pattern, ifos=None, exact=False):
 
 
 if opts.raw_coinc_pattern:
-  rawcoincFiles = filter_files(opts, allCache, opts.raw_coinc_pattern, exact=True)
+  rawcoincFiles = filter_files(opts, allCache, opts.raw_coinc_pattern, \
+      exact=opts.exact_coinc_file_match)
 
 if opts.coinc_pattern:
-  # Specify exact match because otherwise THINCA_SECOND_H1L1_FULL_DATA would pick up
-  # *FULL_DATA_CAT_*_VETO as well
-  coincFiles = filter_files(opts, allCache, opts.coinc_pattern, exact=True)
+  coincFiles = filter_files(opts, allCache, opts.coinc_pattern, \
+      exact=opts.exact_coinc_file_match)
 
 if opts.coinc_file:
   coincFiles = [opts.coinc_file]
@@ -508,7 +518,7 @@ for ifo in ifos:
   else:
     comments = Message(opts, comments, "Reading "+str(len(trigFiles[ifo]))+" files for ifo "\
       +ifo+" with the pattern "+opts.trig_pattern)
-    snglTrigs = sniuls.ReadSnglInspiralFromFiles(trigFiles[ifo], verbose=opts.verbose)
+    snglTrigs = sniuls.ReadSnglInspiralFromFiles(trigFiles[ifo], verbose=xmlVerbose)
     if len(snglTrigs):
       snglTrigs.ifocut(ifo, inplace=True) # do this in case single-ifo triggers are being read in from COIREs
       comments += InspiralUtils.message(opts, "Read %d triggers from %s" % (len(snglTrigs), ifo) )
@@ -602,7 +612,7 @@ if not haveTrigs:
 if opts.combined_statistic:
   print >>sys.stdout, "Calculating all possible combined statistic values after cuts..."
   # use different width bins for different combined stats (sum vs sum-sq)
-  binwidths = {2:0.5, 1:0.1}
+  binwidths = {1:0.1, 2:0.5}
   power = powers[opts.combined_statistic]
   # bin the single-ifo statistics up
   snrWidth = 0.02 #has been tested against exact computation
@@ -636,6 +646,16 @@ if (opts.raw_coinc_pattern and len(rawcoincFiles)) or ((opts.coinc_pattern or op
   comments += InspiralUtils.message(opts, "")
   comments = Message(opts, comments, "Reading and ranking coincs...")
 
+def gather_coincs(opts, comments, cfiles):
+  # we don't use the coinc statistic calculated by the coiuls module .. for much .. except the plot of FAN vs statsq
+  coincs = coiuls.readCoincInspiralFromFiles(cfiles, coiuls.coincStatistic(opts.statistic))
+  coincs = coincs[0]
+  if opts.search_statistic_cut:
+    comments = Message(opts, comments, str(len(coincs))+" coincs were found before statistic cut")
+    coincs = cut_coincs(coincs, opts.statistic, opts.search_statistic_cut)
+    comments = Message(opts, comments, str(len(coincs))+" coincs survived search statistic cut")
+  return coincs, comments
+
 def cut_coincs(coincEvents, statname, cutval):
   cutCoincs = coiuls.coincInspiralTable()
   for coinc in coincEvents:
@@ -645,30 +665,34 @@ def cut_coincs(coincEvents, statname, cutval):
       cutCoincs.append(coinc)
   return cutCoincs
 
-def gather_coincs(opts, comments, cfiles):
-  # we don't use the coinc statistic calculated by the coiuls module .. for much .. except the plot of FAN vs statsq
-  coincs = coiuls.readCoincInspiralFromFiles(cfiles, coiuls.coincStatistic(opts.statistic))
-  coincs = coincs[0]
-  comments = Message(opts, comments, str(len(coincs))+" coincs were found before statistic cut")
-  coincs = cut_coincs(coincs, opts.statistic, opts.search_statistic_cut)
-  comments = Message(opts, comments, str(len(coincs))+" coincs survived search statistic cut")
-  return coincs, comments
+def coincs_in_exp_time(opts, comments, coincEvents):
+  coincsInTime = coiuls.coincInspiralTable()
+  for coinc in coincEvents:
+    # the get_time() function gets the first trig's end time
+    # first = alphabetically first by ifo!
+    if coinc.get_time() >= opts.gps_start_time and coinc.get_time() <= opts.gps_end_time:
+      coincsInTime.append(coinc)
+  comments = Message(opts, comments, str(len(coincsInTime))+" coincs lie within the specified GPS times")
+  return coincsInTime, comments
 
 rawCoincs = None
 if opts.raw_coinc_pattern:
   comments = Message(opts, comments, "Reading "+str(len(rawcoincFiles))+" unclustered files \
 with the pattern "+opts.raw_coinc_pattern)
   rawCoincs, comments = gather_coincs(opts, comments, rawcoincFiles)
+  rawCoincs, comments = coincs_in_exp_time(opts, comments, rawCoincs)
 
 coincEvents = None
 if opts.coinc_pattern:
   comments = Message(opts, comments, "Reading "+str(len(coincFiles))+" files \
 with the pattern "+opts.coinc_pattern)
   coincEvents, comments = gather_coincs(opts, comments, coincFiles)
+  coincEvents, comments = coincs_in_exp_time(opts, comments, coincEvents)
 
 if opts.coinc_file:
   comments = Message(opts, comments, "Reading coincs from "+opts.coinc_file)
   coincEvents, comments = gather_coincs(opts, comments, coincFiles)
+  coincEvents, comments = coincs_in_exp_time(opts, comments, coincEvents)
 
 # if there are no clustered coincs, use raw coincs instead
 if opts.raw_coinc_pattern and not coincEvents:
@@ -769,7 +793,7 @@ GPS start and end times and could be ranked -- IFAN and statistic vs FAN graphs 
 
   # make an IFAN graph
   if opts.display_coincs and coincsRanked:
-    xlab = r"Inverse FAN"
+    xlab = "Inverse FAN"
     ylab = "Cumulative number"
     points = "Coincident events"
     plot_one_thing(fig_num, numpy.array(sortedFANs)**-1, numpy.arange(1,len(sortedFANs)+1), plotcommand="loglog", \
@@ -777,20 +801,22 @@ GPS start and end times and could be ranked -- IFAN and statistic vs FAN graphs 
       plottit=opts.ifo_tag, figname="coinc_IFAN", figtag="coinc_ifan")
 
     # and make a FAN vs combined statistic-squared graph
-    sortedStatsq = [(coinc.stat)**2 for coinc in sortedCoincs]
-    xlab = r"Combined "+opts.statistic+" squared"
-    ylab = r"Estimated FAN"
-    plot_one_thing(fig_num, sortedStatsq, sortedFANs, plotcommand="semilogy", marker="bo", size=8, \
-      plotcolor="b", legtext=points, plotxlab=xlab, plotylab=ylab, plottit=opts.ifo_tag, \
-      figname="coinc_statsq_vs_FAN", figtag="statsq_vs_FAN")
+    if not opts.combined_statistic == "sum":
+      sortedStatsq = [(coinc.stat)**2 for coinc in sortedCoincs]
+      xlab = "Combined "+opts.statistic+" squared"
+      ylab = "Estimated FAN"
+      plot_one_thing(fig_num, sortedStatsq, sortedFANs, plotcommand="semilogy", marker="bo", size=8, \
+        plotcolor="b", legtext=points, plotxlab=xlab, plotylab=ylab, plottit=opts.ifo_tag, \
+        figname="coinc_statsq_vs_FAN", figtag="statsq_vs_FAN")
 
-    # make plot of FAN combined sum-statistic
-    sortedSumstat = [sum(getstat(trig,opts.statistic) for trig in coinc) for coinc in sortedCoincs]
-    xlab = r"Combined sum "+opts.statistic
-    ylab = r"Estimated FAN"
-    plot_one_thing(fig_num, sortedSumstat, sortedFANs, plotcommand="semilogy", marker="go", size=8, \
-      plotcolor="g", legtext=points, plotxlab=xlab, plotylab=ylab, plottit=opts.ifo_tag, \
-      figname="coinc_sumstat_vs_FAN", figtag="sumstat_vs_FAN")
+    # make plot of FAN vs combined sum-statistic
+    if not opts.combined_statistic == "sum-square":
+      sortedSumstat = [sum(getstat(trig,opts.statistic) for trig in coinc) for coinc in sortedCoincs]
+      xlab = "Combined sum "+opts.statistic
+      ylab = "Estimated FAN"
+      plot_one_thing(fig_num, sortedSumstat, sortedFANs, plotcommand="semilogy", marker="go", size=8, \
+        plotcolor="g", legtext=points, plotxlab=xlab, plotylab=ylab, plottit=opts.ifo_tag, \
+        figname="coinc_sumstat_vs_FAN", figtag="sumstat_vs_FAN")
 
     # and write details of the loudest 20 events
     for i,coinc in enumerate(sortedCoincs):
@@ -820,6 +846,8 @@ if opts.combined_statistic and numCoincs:
   plotFANs = plotFAPs*numCoincs
   name = opts.ifo_tag+"_"+opts.combined_statistic+"_"+opts.statistic+"_FAN"
   tag = opts.ifo_tag+"_combined_stat_vs_FAN"
+  print >>sys.stdout, 'Combined stat left bin edges:\n', combinedBins[:-1]
+  print >>sys.stdout, 'Estimated FAN values\n', plotFANs
   plot_one_thing(fig_num, combinedBins[:-1], plotFANs, plotcommand="semilogy", marker="^", size=8, \
     plotcolor="g", plotxlab="Combined "+opts.combined_statistic+" statistic value", plotylab=\
     "Estimated FAN", plottit="", figname=name, figtag=tag)

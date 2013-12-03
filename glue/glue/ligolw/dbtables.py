@@ -47,11 +47,11 @@ import warnings
 from glue import git_version
 from glue import offsetvector
 from glue import segments
-from glue.ligolw import ilwd
-from glue.ligolw import ligolw
-from glue.ligolw import table
-from glue.ligolw import lsctables
-from glue.ligolw import types as ligolwtypes
+from . import ilwd
+from . import ligolw
+from . import table
+from . import lsctables
+from . import types as ligolwtypes
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -147,15 +147,13 @@ def install_signal_trap(signums = (signal.SIGTERM, signal.SIGTSTP), retval = 1):
 	Note:  this function is called by get_connection_filename()
 	whenever it creates a scratch file.
 	"""
-	temporary_files_lock.acquire()
-	try:
+	with temporary_files_lock:
 		# ignore signums we've already replaced
 		signums = set(signums) - set(origactions)
 
 		def temporary_file_cleanup_on_signal(signum, frame):
-			temporary_files_lock.acquire()
-			temporary_files.clear()
-			temporary_files_lock.release()
+			with temporary_files_lock:
+				temporary_files.clear()
 			if callable(origactions[signum]):
 				# original action is callable, chain to it
 				return origactions[signum](signum, frame)
@@ -169,8 +167,6 @@ def install_signal_trap(signums = (signal.SIGTERM, signal.SIGTSTP), retval = 1):
 				# signal is not being ignored, so install our
 				# handler
 				signal.signal(signum, temporary_file_cleanup_on_signal)
-	finally:
-		temporary_files_lock.release()
 
 
 def uninstall_signal_trap(signums = None):
@@ -186,14 +182,11 @@ def uninstall_signal_trap(signums = None):
 	discard_connection_filename() whenever they remove a scratch file
 	and there are then no more scrach files in use.
 	"""
-	temporary_files_lock.acquire()
-	try:
+	with temporary_files_lock:
 		if signums is None:
 			signums = origactions.keys()
 		for signum in signums:
 			signal.signal(signum, origactions.pop(signum))
-	finally:
-		temporary_files_lock.release()
 
 
 #
@@ -207,12 +200,12 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 	working location for improved performance and reduced fileserver
 	load.
 	"""
-	def mktmp(path, verbose = False):
+	def mktmp(path, suffix = ".sqlite", verbose = False):
 		# make sure the clean-up signal traps are installed
 		install_signal_trap()
 		# create the remporary file and replace it's unlink()
 		# function
-		temporary_file = tempfile.NamedTemporaryFile(suffix = ".sqlite", dir = path)
+		temporary_file = tempfile.NamedTemporaryFile(suffix = suffix, dir = path)
 		def new_unlink(self, orig_unlink = temporary_file.unlink):
 			# also remove a -journal partner, ignore all errors
 			try:
@@ -222,11 +215,8 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 			orig_unlink(self)
 		temporary_file.unlink = new_unlink
 		filename = temporary_file.name
-		temporary_files_lock.acquire()
-		try:
+		with temporary_files_lock:
 			temporary_files[filename] = temporary_file
-		finally:
-			temporary_files_lock.release()
 		if verbose:
 			print >>sys.stderr, "using '%s' as workspace" % filename
 		# mkstemp() ignores umask, creates all files accessible
@@ -271,7 +261,9 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 	database_exists = os.access(filename, os.F_OK)
 
 	if tmp_path is not None:
-		target = mktmp(tmp_path, verbose = verbose)
+		# for suffix, can't use splitext() because it only keeps
+		# the last bit, e.g. won't give ".xml.gz" but just ".gz"
+		target = mktmp(tmp_path, suffix = ".".join(os.path.split(filename)[-1].split(".")[1:]), verbose = verbose)
 		if database_exists:
 			if replace_file:
 				# truncate database so that if this job
@@ -301,18 +293,14 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 							continue
 						if verbose:
 							print >>sys.stderr, "warning: attempt %d: %s: working with original file '%s'" % (i, errno.errorcode[e.errno], filename)
-						temporary_files_lock.acquire()
-						del temporary_files[target]
-						temporary_files_lock.release()
+						with temporary_files_lock:
+							del temporary_files[target]
 						target = filename
 					break
 	else:
-		temporary_files_lock.acquire()
-		try:
+		with temporary_files_lock:
 			if filename in temporary_files:
 				raise ValueError("file '%s' appears to be in use already as a temporary database file and is to be deleted" % filename)
-		finally:
-			temporary_files_lock.release()
 		target = filename
 		if database_exists and replace_file:
 			truncate(target, verbose = verbose)
@@ -411,16 +399,13 @@ def put_connection_filename(filename, working_filename, verbose = False):
 		# make the dummy file.  FIXME: this is stupid, find a
 		# better way to shut TemporaryFile up
 		try:
-			file(working_filename, "w").close()
+			open(working_filename, "w").close()
 		except:
 			pass
-		temporary_files_lock.acquire()
-		try:
+		with temporary_files_lock:
 			del temporary_files[working_filename]
-		finally:
-			temporary_files_lock.release()
 
-		# restore original handlers, and send outselves any trapped signals
+		# restore original handlers, and send ourselves any trapped signals
 		# in order
 		for sig, oldhandler in oldhandlers.iteritems():
 			signal.signal(sig, oldhandler)
@@ -429,9 +414,8 @@ def put_connection_filename(filename, working_filename, verbose = False):
 
 		# if there are no more temporary files in place, remove the
 		# temporary-file signal traps
-		temporary_files_lock.acquire()
-		no_more_files = not temporary_files
-		temporary_files_lock.release()
+		with temporary_files_lock:
+			no_more_files = not temporary_files
 		if no_more_files:
 			uninstall_signal_trap()
 
@@ -453,19 +437,15 @@ def discard_connection_filename(filename, working_filename, verbose = False):
 		if verbose:
 			print >>sys.stderr, "removing '%s' ..." % working_filename,
 		# remove reference to tempfile.TemporaryFile object
-		temporary_files_lock.acquire()
-		try:
+		with temporary_files_lock:
 			del temporary_files[working_filename]
-		finally:
-			temporary_files_lock.release()
 		if verbose:
 			print >>sys.stderr, "done."
 
 		# if there are no more temporary files in place, remove the
 		# temporary-file signal traps
-		temporary_files_lock.acquire()
-		no_more_files = not temporary_files
-		temporary_files_lock.release()
+		with temporary_files_lock:
+			no_more_files = not temporary_files
 		if no_more_files:
 			uninstall_signal_trap()
 
@@ -1068,7 +1048,7 @@ TableByName = {
 
 
 #
-# Override portions of the ligolw.DefaultLIGOLWContentHandler class
+# Override portions of a ligolw.LIGOLWContentHandler class
 #
 
 
@@ -1114,4 +1094,5 @@ def use_in(ContentHandler):
 	ContentHandler.startTable = startTable
 
 
+# FIXME:  remove
 use_in(ligolw.DefaultLIGOLWContentHandler)

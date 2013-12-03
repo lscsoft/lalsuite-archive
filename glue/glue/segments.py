@@ -44,12 +44,6 @@ glue.segmentsUtils
 
 from bisect import bisect_left, bisect_right
 from copy import copy as shallowcopy
-try:
-	all, any
-except NameError:
-	# python < 2.5.  FIXME:  delete when we can rely on at least
-	# version 2.5
-	from glue.iterutils import all, any
 
 
 from glue import git_version

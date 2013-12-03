@@ -41,7 +41,7 @@ from xml.sax.saxutils import unescape as xmlunescape
 
 
 from glue import git_version
-from glue.ligolw import types as ligolwtypes
+from . import types as ligolwtypes
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -284,19 +284,19 @@ class Element(object):
 		"""
 		pass
 
-	def write(self, file = sys.stdout, indent = u""):
+	def write(self, fileobj = sys.stdout, indent = u""):
 		"""
 		Recursively write an element and it's children to a file.
 		"""
-		file.write(self.start_tag(indent) + u"\n")
+		fileobj.write(self.start_tag(indent) + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
 				raise ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
-			c.write(file, indent + Indent)
+			c.write(fileobj, indent + Indent)
 		if self.pcdata:
-			file.write(xmlescape(self.pcdata))
-			file.write(u"\n")
-		file.write(self.end_tag(indent) + u"\n")
+			fileobj.write(xmlescape(self.pcdata))
+			fileobj.write(u"\n")
+		fileobj.write(self.end_tag(indent) + u"\n")
 
 
 def WalkChildren(elem):
@@ -333,13 +333,13 @@ class Comment(Element):
 	"""
 	tagName = u"Comment"
 
-	def write(self, file = sys.stdout, indent = u""):
+	def write(self, fileobj = sys.stdout, indent = u""):
 		if self.pcdata:
-			file.write(self.start_tag(indent))
-			file.write(xmlescape(self.pcdata))
-			file.write(self.end_tag(u"") + u"\n")
+			fileobj.write(self.start_tag(indent))
+			fileobj.write(xmlescape(self.pcdata))
+			fileobj.write(self.end_tag(u"") + u"\n")
 		else:
-			file.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+			fileobj.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
 
 
 class Param(Element):
@@ -439,11 +439,11 @@ class Column(Element):
 		"""
 		return u""
 
-	def write(self, file = sys.stdout, indent = u""):
+	def write(self, fileobj = sys.stdout, indent = u""):
 		"""
 		Recursively write an element and it's children to a file.
 		"""
-		file.write(self.start_tag(indent) + u"\n")
+		fileobj.write(self.start_tag(indent) + u"\n")
 
 
 class Array(Element):
@@ -473,13 +473,13 @@ class Dim(Element):
 	tagName = u"Dim"
 	validattributes = frozenset([u"Name", u"Unit", u"Start", u"Scale"])
 
-	def write(self, file = sys.stdout, indent = u""):
+	def write(self, fileobj = sys.stdout, indent = u""):
 		if self.pcdata:
-			file.write(self.start_tag(indent))
-			file.write(xmlescape(self.pcdata))
-			file.write(self.end_tag(u"") + u"\n")
+			fileobj.write(self.start_tag(indent))
+			fileobj.write(xmlescape(self.pcdata))
+			fileobj.write(self.end_tag(u"") + u"\n")
 		else:
-			file.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+			fileobj.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
 
 
 class Stream(Element):
@@ -551,13 +551,13 @@ class Time(Element):
 			raise ElementError("invalid Type for Time: '%s'" % attrs[u"Type"])
 		Element.__init__(self, attrs)
 
-	def write(self, file = sys.stdout, indent = u""):
+	def write(self, fileobj = sys.stdout, indent = u""):
 		if self.pcdata:
-			file.write(self.start_tag(indent))
-			file.write(xmlescape(self.pcdata))
-			file.write(self.end_tag(u"") + u"\n")
+			fileobj.write(self.start_tag(indent))
+			fileobj.write(xmlescape(self.pcdata))
+			fileobj.write(self.end_tag(u"") + u"\n")
 		else:
-			file.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+			fileobj.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
 
 
 class Document(Element):
@@ -567,17 +567,17 @@ class Document(Element):
 	tagName = u"Document"
 	validchildren = frozenset([u"LIGO_LW"])
 
-	def write(self, file = sys.stdout, xsl_file = None ):
+	def write(self, fileobj = sys.stdout, xsl_file = None ):
 		"""
 		Write the document.
 		"""
-		file.write(Header + u"\n")
+		fileobj.write(Header + u"\n")
 		if xsl_file is not None:
-			file.write(u'<?xml-stylesheet type="text/xsl" href="' + xsl_file + u'" ?>' + u"\n")
+			fileobj.write(u'<?xml-stylesheet type="text/xsl" href="' + xsl_file + u'" ?>' + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
 				raise ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
-			c.write(file)
+			c.write(fileobj)
 
 
 #
@@ -607,6 +607,9 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 	Those functions provide additional features such as support for
 	gzip'ed documents, MD5 hash computation, and Condor eviction
 	trapping to avoid writing broken documents to disk.
+
+	See also:  PartialLIGOLWContentHandler,
+	FilteringLIGOLWContentHandler.
 	"""
 
 	def __init__(self, document, start_handlers = {}):
@@ -691,6 +694,7 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 			self.current.appendData(xmlunescape(content))
 
 
+# FIXME:  remove
 class DefaultLIGOLWContentHandler(LIGOLWContentHandler):
 	pass
 
@@ -791,8 +795,7 @@ def make_parser(handler):
 	feature, but enabling validation can require the LIGO LW DTD to be
 	downloaded from the LDAS document server if the DTD is not included
 	inline in the XML.  This requires a working connection to the
-	internet, which would preclude the use of this library on slave
-	nodes in LSC computer clusters.
+	internet and the server to be up.
 	"""
 	parser = sax.make_parser()
 	parser.setContentHandler(handler)

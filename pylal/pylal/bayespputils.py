@@ -37,7 +37,7 @@ of the Bayesian parameter estimation codes.
 #standard library imports
 import os
 import sys
-from math import ceil,floor,sqrt,pi as pi_constant
+from math import cos,ceil,floor,sqrt,pi as pi_constant
 import xml
 from xml.dom import minidom
 from operator import itemgetter
@@ -52,6 +52,7 @@ from scipy import special
 from scipy import signal
 from numpy import linspace
 import random
+import socket
 
 from matplotlib.ticker import FormatStrFormatter,ScalarFormatter,AutoMinorLocator
 
@@ -63,20 +64,29 @@ fig_width = fig_width_pt*inches_per_pt  # width in inches
 fig_height = fig_width*golden_mean      # height in inches
 fig_size =  [fig_width,fig_height]
 matplotlib.rcParams.update(
-        {'axes.labelsize': 11,
-        'text.fontsize':   11,
-        'legend.fontsize': 11,
-        'xtick.labelsize': 11,
-        'ytick.labelsize': 11,
+        {'axes.labelsize': 16,
+        'text.fontsize':   16,
+        'legend.fontsize': 16,
+        'xtick.labelsize': 16,
+        'ytick.labelsize': 16,
         'text.usetex': False,
         'figure.figsize': fig_size,
         'font.family': "serif",
         'font.serif': ['Times','Palatino','New Century Schoolbook','Bookman','Computer Modern Roman','Times New Roman','Liberation Serif'],
         'font.weight':'normal',
-        'font.size':11,
+        'font.size':16,
         'savefig.dpi': 120
         })
 
+try:
+  hostname_short=socket.gethostbyaddr(socket.gethostname())[0].split('.',1)[1]
+except:
+  hostname_short='Unknown'
+if hostname_short=='ligo.caltech.edu' or hostname_short=='cluster.ldas.cit': #The CIT cluster has troubles with the default 'cm' font. 'custom' has the least troubles, but does not include \odot
+  matplotlib.rcParams.update(
+                             {'mathtext.fontset' : "custom",
+                             'mathtext.fallback_to_cm' : True
+                             }) 
 
 try:
     from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
@@ -177,165 +187,100 @@ border-bottom-style:double;
 """
 
 #===============================================================================
-# Functions used to parse injection structure.
+# Function used to generate plot labels.
 #===============================================================================
-def _inj_m1(inj):
-    """
-    Return the mapping of (mchirp,eta)->m1; m1>m2 i.e. return the greater of the mass 
-    components (m1) calculated from the chirp mass and the symmetric mass ratio.
-    
-    @type inj: glue.ligolw.lsctables.SimInspiral
-    @param inj: a custom type with the attributes 'mchirp' and 'eta'.
-    @rtype: number
-    """
-    (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
-    return mass1
-def _inj_m2(inj):
-    """
-    Return the mapping of (mchirp,eta)->m2; m1>m2 i.e. return the lesser of the mass 
-    components (m2) calculated from the chirp mass and the symmetric mass ratio.
-    
-    @type inj: glue.ligolw.lsctables.SimInspiral
-    @param inj: a custom type with the attributes 'mchirp' and 'eta'.
-    @rtype: number
-    """
-    (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
-    return mass2
+def plot_label(param):
+  """
+  A lookup table for plot labels.
+  """
+  m1_names = ['mass1', 'm1']
+  m2_names = ['mass2', 'm2']
+  mc_names = ['mc','mchirp','chirpmass']
+  eta_names = ['eta','massratio','sym_massratio']
+  q_names = ['q','asym_massratio']
+  iota_names = ['iota','incl','inclination']
+  dist_names = ['dist','distance']
+  ra_names = ['rightascension','ra']
+  dec_names = ['declination','dec']
+  phase_names = ['phi_orb', 'phi', 'phase']
 
-def _inj_q(inj):
-    """
-    Return the mapping of (mchirp,eta)->q; m1>m2 i.e. return the mass ratio q=m2/m1.
-    
-    @type inj: glue.ligolw.lsctables.SimInspiral
-    @param inj: a custom type with the attributes 'mchirp' and 'eta'.
-    @rtype: number 
-    """
-    (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
-    return mass2/mass1
+  labels={
+      'm1':r'$m_1\,(\mathrm{M}_\odot)$',
+      'm2':r'$m_2\,(\mathrm{M}_\odot)$',
+      'mc':r'$\mathcal{M}\,(\mathrm{M}_\odot)$',
+      'eta':r'$\eta$',
+      'q':r'$q$',
+      'mtotal':r'$M_\mathrm{total}\,(\mathrm{M}_\odot)$',
+      'spin1':r'$S_1$',
+      'spin2':r'$S_2$',
+      'a1':r'$a_1$',
+      'a2':r'$a_2$',
+      'theta1':r'$\theta_1\,(\mathrm{rad})$',
+      'theta2':r'$\theta_2\,(\mathrm{rad})$',
+      'phi1':r'$\phi_1\,(\mathrm{rad})$',
+      'phi2':r'$\phi_2\,(\mathrm{rad})$',
+      'chi':r'$\chi$',
+      'tilt1':r'$t_1\,(\mathrm{rad})$',
+      'tilt2':r'$t_2\,(\mathrm{rad})$',
+      'costilt1':r'$\mathrm{cos}(t_1)$',
+      'costilt2':r'$\mathrm{cos}(t_2)$',
+      'iota':r'$\iota\,(\mathrm{rad})$',
+      'cosiota':r'$\mathrm{cos}(\iota)$',
+      'time':r'$t_\mathrm{c}\,(\mathrm{s})$',
+      'dist':r'$d_\mathrm{L}\,(\mathrm{Mpc})$',
+      'ra':r'$\alpha$',
+      'dec':r'$\delta$',
+      'phase':r'$\phi\,(\mathrm{rad})$',
+      'psi':r'$\psi\,(\mathrm{rad})$',
+      'theta_jn':r'$\theta_\mathrm{JN}\,(\mathrm{rad})$',
+      'costheta_jn':r'$\mathrm{cos}(\theta_\mathrm{JN})$',
+      'beta':r'$\beta\,(\mathrm{rad})$',
+      'cosbeta':r'$\mathrm{cos}(\beta)$',
+      'phi_jl':r'$\phi_\mathrm{JL}\,(\mathrm{rad})$',
+      'phi12':r'$\phi_\mathrm{12}\,(\mathrm{rad})$',
+      'logl':r'$\mathrm{log}(\mathcal{L})$',
+      'h1_end_time':r'$t_\mathrm{H}$',
+      'l1_end_time':r'$t_\mathrm{L}$',
+      'v1_end_time':r'$t_\mathrm{V}$',
+      'h1l1_delay':r'$\Delta t_\mathrm{HL}$',
+      'h1v1_delay':r'$\Delta t_\mathrm{HV}$',
+      'l1v1_delay':r'$\Delta t_\mathrm{LV}$',
+      'lambdat' : r'$\tilde{\Lambda}$',
+      'dlambdat': r'$\delta \tilde{\Lambda}$',
+      'lambda1' : r'$\lambda_1$',
+      'lambda2': r'$\lambda_2$',
+      'lam_tilde' : r'$\tilde{\Lambda}$',
+      'dlam_tilde': r'$\delta \tilde{\Lambda}$'}
 
-def _inj_longitude(inj):
-    """
-    Return the mapping of longitude found in inj to the interval [0,2*pi).
-    
-    @type inj: glue.ligolw.lsctables.SimInspiral
-    @param inj: a custom type with the attribute 'longitude'.
-    @rtype: number
-    """
-    if inj.longitude>2*pi_constant or inj.longitude<0.0:
-        maplong=2*pi_constant*(((float(inj.longitude))/(2*pi_constant)) - floor(((float(inj.longitude))/(2*pi_constant))))
-        print "Warning: Injected longitude/ra (%s) is not within [0,2\pi)! Angles are assumed to be in radians so this will be mapped to [0,2\pi). Mapped value is: %s."%(str(inj.longitude),str(maplong))
-        return maplong
-    else:
-        return inj.longitude
+  # Handle cases where multiple names have been used
+  if param in m1_names:
+    param = 'm1'
+  elif param in m2_names:
+    param = 'm2'
+  elif param in mc_names:
+    param = 'mc'
+  elif param in eta_names:
+    param = 'eta'
+  elif param in q_names:
+    param = 'q'
+  elif param in iota_names:
+    param = 'iota'
+  elif param in dist_names:
+    param = 'dist'
+  elif param in ra_names:
+    param = 'ra'
+  elif param in dec_names:
+    param = 'dec'
+  elif param in phase_names:
+    param = 'phase'
 
-def _inj_a1(inj):
-    """
-    Return the magnitude of the spin 1 vector. Calculates the spin magnitude
-    from it's components.
-    
-    @type inj: glue.ligolw.lsctables.SimInspiral
-    @param inj: a custom type with the attribute 'spin1x','spin1y', and 'spin1z' (the spin components).
-    @rtype: number
-    """
-    x = inj.spin1x
-    y = inj.spin1y
-    z = inj.spin1z
-    return sqrt(x*x + y*y + z*z)
+  try:
+    label = labels[param]
+  except KeyError:
+    # Use simple string if no formated label is available for param
+    label = param
 
-def _inj_a2(inj):
-    """
-    Return the magnitude of the spin 2 vector. Calculates the spin magnitude
-    from it's components.
-    
-    @type inj: glue.ligolw.lsctables.SimInspiral
-    @param inj: a custom type with the attribute 'spin2x','spin2y', and 'spin2z' (the spin components).
-    @rtype: number
-    """
-    x = inj.spin2x
-    y = inj.spin2y
-    z = inj.spin2z
-    return sqrt(x*x + y*y + z*z)
-
-def _inj_theta1(inj):
-    x = inj.spin1x
-    y = inj.spin1y
-    z = inj.spin1z
-    if x == 0.0 and y == 0.0 and z == 0.0:
-        return None
-    else:
-        return np.arccos( z / sqrt(x*x+y*y+z*z) )
-
-def _inj_theta2(inj):
-    x = inj.spin2x
-    y = inj.spin2y
-    z = inj.spin2z
-    if x == 0.0 and y == 0.0 and z == 0.0:
-        return None
-    else:
-        return np.arccos( z / sqrt(x*x+y*y+z*z) )
-
-def _inj_phi1(inj):
-    x = inj.spin1x
-    y = inj.spin1y
-    z = inj.spin1z
-    if x == 0.0 and y == 0.0 and z == 0.0:
-        return None
-    else:
-        phi_mpi_to_pi = np.arctan2(y, x)
-        if phi_mpi_to_pi < 0.0:
-            return phi_mpi_to_pi + 2*pi_constant
-        else:
-            return phi_mpi_to_pi
-
-def _inj_phi2(inj):
-    x = inj.spin2x
-    y = inj.spin2y
-    z = inj.spin2z
-    if x == 0.0 and y == 0.0 and z == 0.0:
-        return None
-    else:
-        phi_mpi_to_pi = np.arctan2(y, x)
-        if phi_mpi_to_pi < 0.0:
-            return phi_mpi_to_pi + 2*pi_constant
-        else:
-            return phi_mpi_to_pi
-
-def _inj_tilt1(inj):
-    S1  = np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
-    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
-    tilt1 = array_ang_sep(L,S1)
-    if np.max(S1) == 0.0:
-        return None
-    else:
-        return tilt1
-
-def _inj_tilt2(inj):
-    S2  = np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
-    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
-    tilt2 = array_ang_sep(L,S2)
-    if np.max(S2) == 0.0:
-        return None
-    else:
-        return tilt2
-
-def _inj_thetas(inj):
-    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
-    S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
-    S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
-    J = L + S1 + S2
-
-    thetas = array_polar_ang(J)
-    return thetas
-    
-def _inj_beta(inj):
-    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
-    S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
-    S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
-    J = L + S1 + S2
-    
-    beta  = array_ang_sep(J,L)
-    return beta
-
+  return label
 
 #===============================================================================
 # Class definitions
@@ -348,7 +293,7 @@ class PosteriorOneDPDF(object):
     parameter (the Posterior class is per-Sampler oriented whereas this class represents
     the same one parameter in successive samples in the chain).
     """
-    def __init__(self,name,posterior_samples,injected_value=None,trigger_values=None,prior=None):
+    def __init__(self,name,posterior_samples,injected_value=None,injFref=None,trigger_values=None,prior=None):
         """
         Create an instance of PosteriorOneDPDF based on a table of posterior_samples.
 
@@ -362,6 +307,7 @@ class PosteriorOneDPDF(object):
         self.__name=name
         self.__posterior_samples=np.array(posterior_samples)
 
+        self.__injFref=injFref
         self.__injval=injected_value
         self.__trigvals=trigger_values
         self.__prior=prior
@@ -378,7 +324,7 @@ class PosteriorOneDPDF(object):
         """
         Container method . Returns posterior containing sample idx (allows slicing).
         """
-        return PosteriorOneDPDF(self.__name, self.__posterior_samples[idx], injected_value=self.__injval, trigger_values=self.__trigvals)
+        return PosteriorOneDPDF(self.__name, self.__posterior_samples[idx], injected_value=self.__injval, f_ref=self.__f_ref, trigger_values=self.__trigvals)
         
     @property
     def name(self):
@@ -558,7 +504,7 @@ class Posterior(object):
     """
     Data structure for a table of posterior samples .
     """
-    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None,SnglInpiralList=None,name=None,description=None,votfile=None):
+    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None,injFref=None,SnglInpiralList=None,name=None,description=None,votfile=None):
         """
         Constructor.
 
@@ -573,6 +519,7 @@ class Posterior(object):
         """
         common_output_table_header,common_output_table_raw =commonResultsFormatData
         self._posterior={}
+        self._injFref=injFref
         self._injection=SimInspiralTableEntry
         self._triggers=SnglInpiralList
         self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
@@ -580,9 +527,63 @@ class Posterior(object):
         
         common_output_table_header=[i.lower() for i in common_output_table_header]
         
+        # Define XML mapping
+        self._injXMLFuncMap={
+                            'mchirp':lambda inj:inj.mchirp,
+                            'chirpmass':lambda inj:inj.mchirp,
+                            'mc':lambda inj:inj.mchirp,
+                            'mass1':lambda inj:inj.mass1,
+                            'm1':lambda inj:inj.mass1,
+                            'mass2':lambda inj:inj.mass2,
+                            'm2':lambda inj:inj.mass2,
+                            'eta':lambda inj:inj.eta,
+                            'q':self._inj_q,
+                            'asym_massratio':self._inj_q,
+                            'massratio':lambda inj:inj.eta,
+                            'sym_massratio':lambda inj:inj.eta,
+                            'time': lambda inj:float(inj.get_end()),
+                            'end_time': lambda inj:float(inj.get_end()),
+                            'phi0':lambda inj:inj.phi0,
+                            'phi_orb': lambda inj: inj.coa_phase,
+                            'dist':lambda inj:inj.distance,
+                            'distance':lambda inj:inj.distance,
+                            'ra':self._inj_longitude,
+                            'rightascension':self._inj_longitude,
+                            'long':self._inj_longitude,
+                            'longitude':self._inj_longitude,
+                            'dec':lambda inj:inj.latitude,
+                            'declination':lambda inj:inj.latitude,
+                            'lat':lambda inj:inj.latitude,
+                            'latitude':lambda inj:inj.latitude,
+                            'psi': lambda inj: np.mod(inj.polarization, np.pi),
+                            'iota':lambda inj: inj.inclination,
+                            'inclination': lambda inj: inj.inclination,
+                            'spinchi': self._inj_spinchi,
+                            'f_ref': lambda inj: self._injFref,
+                            'a1': self._inj_a1,
+                            'a2': self._inj_a2,
+                            'theta1':self._inj_theta1,
+                            'theta2':self._inj_theta2,
+                            'phi1':self._inj_phi1,
+                            'phi2':self._inj_phi2,
+                            'tilt1':self._inj_tilt1,
+                            'tilt2':self._inj_tilt2,
+                            'costilt1': lambda inj: np.cos(_inj_tilt1),
+                            'costilt2': lambda inj: np.cos(_inj_tilt2),
+                            'cos(iota)': lambda inj: np.cos(inj.inclination),
+                            'theta_jn':self._inj_theta_jn,
+                            'beta':self._inj_beta,
+                            'polarisation':lambda inj:inj.polarization,
+                            'polarization':lambda inj:inj.polarization,
+                            'h1_end_time':lambda inj:float(inj.get_end('H')),
+                            'l1_end_time':lambda inj:float(inj.get_end('L')),
+                            'v1_end_time':lambda inj:float(inj.get_end('V')),
+                            'lal_amporder':lambda inj:inj.amp_order
+                           }
+
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
             
-            self._posterior[param_name]=PosteriorOneDPDF(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name),trigger_values=self._gettrigpar(param_name))
+            self._posterior[param_name]=PosteriorOneDPDF(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name),injFref=self._injFref,trigger_values=self._gettrigpar(param_name))
 
         if 'mchirp' in common_output_table_header and 'eta' in common_output_table_header \
         and (not 'm1' in common_output_table_header) and (not 'm2' in common_output_table_header):
@@ -760,59 +761,6 @@ class Posterior(object):
                     self[name].set_trigvals(new_trigvals)
 
 
-    _injXMLFuncMap={
-                        'mchirp':lambda inj:inj.mchirp,
-                        'chirpmass':lambda inj:inj.mchirp,
-                        'mc':lambda inj:inj.mchirp,
-                        'mass1':lambda inj:inj.mass1,
-                        'm1':lambda inj:inj.mass1,
-                        'mass2':lambda inj:inj.mass2,
-                        'm2':lambda inj:inj.mass2,
-                        'eta':lambda inj:inj.eta,
-                        'q':_inj_q,
-                        'asym_massratio':_inj_q,
-                        'massratio':lambda inj:inj.eta,
-                        'sym_massratio':lambda inj:inj.eta,
-                        'time': lambda inj:float(inj.get_end()),
-                        'end_time': lambda inj:float(inj.get_end()),
-                        'phi0':lambda inj:inj.phi0,
-                        'phi_orb': lambda inj: inj.coa_phase,
-                        'dist':lambda inj:inj.distance,
-                        'distance':lambda inj:inj.distance,
-                        'ra':_inj_longitude,
-                        'rightascension':_inj_longitude,
-                        'long':_inj_longitude,
-                        'longitude':_inj_longitude,
-                        'dec':lambda inj:inj.latitude,
-                        'declination':lambda inj:inj.latitude,
-                        'lat':lambda inj:inj.latitude,
-                        'latitude':lambda inj:inj.latitude,
-                        'psi': lambda inj: np.mod(inj.polarization, np.pi),
-                        'iota':lambda inj: inj.inclination,
-                        'inclination': lambda inj: inj.inclination,
-                        'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z),
-                        'f_lower': lambda inj: inj.f_lower,
-                        'a1': lambda inj: np.sqrt(inj.spin1x**2+inj.spin1y**2+inj.spin1z**2) ,
-                        'a2': lambda inj: np.sqrt(inj.spin2x**2+inj.spin2y**2+inj.spin2z**2) ,
-                        'theta1':_inj_theta1,
-                        'theta2':_inj_theta2,
-                        'phi1':_inj_phi1,
-                        'phi2':_inj_phi2,
-                        'tilt1':_inj_tilt1,
-                        'tilt2':_inj_tilt2,
-                        'costilt1': lambda inj: np.cos(_inj_tilt1),
-                        'costilt2': lambda inj: np.cos(_inj_tilt2),
-                        'cos(iota)': lambda inj: np.cos(inj.inclination),
-                        'thetas':_inj_thetas,
-                        'beta':_inj_beta,
-                        'polarisation':lambda inj:inj.polarization,
-                        'polarization':lambda inj:inj.polarization,
-                        'h1_end_time':lambda inj:float(inj.get_end('H')),
-                        'l1_end_time':lambda inj:float(inj.get_end('L')),
-                        'v1_end_time':lambda inj:float(inj.get_end('V')),
-                        'lal_amporder':lambda inj:inj.amp_order
-                       }
-
     def _getinjpar(self,paramname):
         """
         Map parameter names to parameters in a SimInspiralTable .
@@ -960,9 +908,11 @@ class Posterior(object):
         """
         Append posteriors pos1,pos2,...=func(post_names)
         """
+        # deepcopy 1D posteriors to ensure mapping function doesn't modify the originals
+        import copy
         #1D input
         if isinstance(post_names, str):
-            old_post = self[post_names]
+            old_post = copy.deepcopy(self[post_names])
             old_inj  = old_post.injval
             old_trigs  = old_post.trigvals
             if old_inj:
@@ -984,7 +934,7 @@ class Posterior(object):
                 self.append(new_post)
         #MultiD input
         else:
-            old_posts = [self[post_name] for post_name in post_names]
+            old_posts = [copy.deepcopy(self[post_name]) for post_name in post_names]
             old_injs = [post.injval for post in old_posts]
             old_trigs = [post.trigvals for post in old_posts]
             samps = func(*[post.samples for post in old_posts])
@@ -1236,6 +1186,9 @@ class Posterior(object):
         posterior samples must have a column named 'chain' so that the
         different chains can be separated.
         """
+        from numpy import seterr as np_seterr
+        np_seterr(all='raise')
+
         if "chain" in self.names:
             chains=np.unique(self["chain"].samples)
             chain_index=self.names.index("chain")
@@ -1250,7 +1203,11 @@ class Posterior(object):
             sigmaHat2=W + BoverN
             m=len(chainData)
             VHat=sigmaHat2 + BoverN/m
-            R = VHat/W
+            try:
+              R = VHat/W
+            except:
+              print "Error when computer Gelman-Rubin R statistic for %s.  This may be a fixed parameter"%pname
+              R = np.nan
             return R
         else:
             raise RuntimeError('could not find necessary column header "chain" in posterior samples')
@@ -1315,6 +1272,193 @@ class Posterior(object):
       parser=XMLParser(target=target)
       parser.feed(self._votfile)
       return parser.close()
+
+    #===============================================================================
+    # Functions used to parse injection structure.
+    #===============================================================================
+    def _inj_m1(self,inj):
+        """
+        Return the mapping of (mchirp,eta)->m1; m1>m2 i.e. return the greater of the mass 
+        components (m1) calculated from the chirp mass and the symmetric mass ratio.
+        
+        @type inj: glue.ligolw.lsctables.SimInspiral
+        @param inj: a custom type with the attributes 'mchirp' and 'eta'.
+        @rtype: number
+        """
+        (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
+        return mass1
+    def _inj_m2(self,inj):
+        """
+        Return the mapping of (mchirp,eta)->m2; m1>m2 i.e. return the lesser of the mass 
+        components (m2) calculated from the chirp mass and the symmetric mass ratio.
+        
+        @type inj: glue.ligolw.lsctables.SimInspiral
+        @param inj: a custom type with the attributes 'mchirp' and 'eta'.
+        @rtype: number
+        """
+        (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
+        return mass2
+
+    def _inj_q(self,inj):
+        """
+        Return the mapping of (mchirp,eta)->q; m1>m2 i.e. return the mass ratio q=m2/m1.
+        
+        @type inj: glue.ligolw.lsctables.SimInspiral
+        @param inj: a custom type with the attributes 'mchirp' and 'eta'.
+        @rtype: number 
+        """
+        (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
+        return mass2/mass1
+
+    def _inj_longitude(self,inj):
+        """
+        Return the mapping of longitude found in inj to the interval [0,2*pi).
+        
+        @type inj: glue.ligolw.lsctables.SimInspiral
+        @param inj: a custom type with the attribute 'longitude'.
+        @rtype: number
+        """
+        if inj.longitude>2*pi_constant or inj.longitude<0.0:
+            maplong=2*pi_constant*(((float(inj.longitude))/(2*pi_constant)) - floor(((float(inj.longitude))/(2*pi_constant))))
+            print "Warning: Injected longitude/ra (%s) is not within [0,2\pi)! Angles are assumed to be in radians so this will be mapped to [0,2\pi). Mapped value is: %s."%(str(inj.longitude),str(maplong))
+            return maplong
+        else:
+            return inj.longitude
+
+    def _inj_a1(self,inj):
+        """
+        Return the magnitude of the spin 1 vector. Calculates the spin magnitude
+        from it's components.
+        
+        @type inj: glue.ligolw.lsctables.SimInspiral
+        @param inj: a custom type with the attribute 'spin1x','spin1y', and 'spin1z' (the spin components).
+        @rtype: number
+        """
+        x = inj.spin1x
+        y = inj.spin1y
+        z = inj.spin1z
+        return sqrt(x*x + y*y + z*z)
+
+    def _inj_a2(self,inj):
+        """
+        Return the magnitude of the spin 2 vector. Calculates the spin magnitude
+        from it's components.
+        
+        @type inj: glue.ligolw.lsctables.SimInspiral
+        @param inj: a custom type with the attribute 'spin2x','spin2y', and 'spin2z' (the spin components).
+        @rtype: number
+        """
+        x = inj.spin2x
+        y = inj.spin2y
+        z = inj.spin2z
+        return sqrt(x*x + y*y + z*z)
+
+    def _inj_spinchi(self,inj):
+        spin1z = inj.spin1z
+        spin2z = inj.spin2z
+        eta = inj.eta
+        return (spin1z + spin2z) + sqrt(1-4*eta)*(spin1z - spin2z)
+
+    def _inj_theta1(self,inj):
+        x = inj.spin1x
+        y = inj.spin1y
+        z = inj.spin1z
+        if x == 0.0 and y == 0.0 and z == 0.0:
+            return None
+        else:
+            return np.arccos( z / sqrt(x*x+y*y+z*z) )
+
+    def _inj_theta2(self,inj):
+        x = inj.spin2x
+        y = inj.spin2y
+        z = inj.spin2z
+        if x == 0.0 and y == 0.0 and z == 0.0:
+            return None
+        else:
+            return np.arccos( z / sqrt(x*x+y*y+z*z) )
+
+    def _inj_phi1(self,inj):
+        x = inj.spin1x
+        y = inj.spin1y
+        z = inj.spin1z
+        if x == 0.0 and y == 0.0 and z == 0.0:
+            return None
+        else:
+            phi_mpi_to_pi = np.arctan2(y, x)
+            if phi_mpi_to_pi < 0.0:
+                return phi_mpi_to_pi + 2*pi_constant
+            else:
+                return phi_mpi_to_pi
+
+    def _inj_phi2(self,inj):
+        x = inj.spin2x
+        y = inj.spin2y
+        z = inj.spin2z
+        if x == 0.0 and y == 0.0 and z == 0.0:
+            return None
+        else:
+            phi_mpi_to_pi = np.arctan2(y, x)
+            if phi_mpi_to_pi < 0.0:
+                return phi_mpi_to_pi + 2*pi_constant
+            else:
+                return phi_mpi_to_pi
+
+    def _inj_tilt1(self,inj):
+        try:
+            f_ref = self._injFref
+            S1  = np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+            L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
+            tilt1 = array_ang_sep(L,S1)
+            if np.max(S1) == 0.0:
+                return 0.0
+            else:
+                return tilt1
+        except TypeError:
+            # Probably f_ref is None
+            return None
+
+    def _inj_tilt2(self,inj):
+        try:
+            f_ref = self._injFref
+            S2  = np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+            L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
+            tilt2 = array_ang_sep(L,S2)
+            if np.max(S2) == 0.0:
+                return 0.0
+            else:
+                return tilt2
+        except TypeError:
+            # If we get here, probably because f_ref is None
+            return None
+
+    def _inj_theta_jn(self, inj):
+        try:
+            f_ref = self._injFref
+            L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
+            S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+            S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+            J = L + S1 + S2
+
+            theta_jn = array_polar_ang(J)
+            return theta_jn
+        except TypeError:
+            # f_ref is probably None
+            return None
+        
+    def _inj_beta(self, inj):
+        try:
+            f_ref = self._injFref
+            L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
+            S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+            S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+            J = L + S1 + S2
+        
+            beta  = array_ang_sep(J,L)
+            return beta
+        except TypeError:
+            # f_ref is probably None
+            return None
+
 
 
 class KDTree(object):
@@ -1624,6 +1768,70 @@ class KDTreeVolume(object):
         else:
             return self._right.search(coordinates,boxing)
 
+    def fillNewTree(self,boxing = 64, isArea = False):
+        """
+        copies tree structure, but with KDSkeleton as the new nodes.
+        """
+        boxN = boxing
+        if len(self._objects) <= boxN:
+            newNode = KDSkeleton(self.bounds(), left_child = None , right_child = None)
+            if isArea:
+                newNode.setImportance(len(self._objects),skyArea(self.bounds()))
+            else:
+                newNode.setImportance(len(self._objects),self.volume())
+            return newNode
+        else:
+            if isArea:
+                newNode = KDSkeleton(self.bounds, left_child = self._left.fillNewTree(boxN,isArea=True), right_child = self._right.fillNewTree(boxN,isArea=True))
+                newNode.setImportance(len(self._objects),skyArea(self.bounds()))
+            else:
+                newNode = KDSkeleton(self.bounds, left_child = self._left.fillNewTree(boxN), right_child = self._right.fillNewTree(boxN))
+                newNode.setImportance(len(self._objects),self.volume())
+            newNode.setSplit(self._dimension,self._split_value)
+            return newNode
+
+class KDSkeleton(object):
+    """
+    object to store the structure of a kd tree
+    """
+
+    def __init__(self, bounding_box, left_child = None, right_child = None):
+        self._bounds = bounding_box
+        #self._names = coordinate_names
+        self._left = left_child
+        self._right = right_child
+        self._samples = 0
+        self._splitValue = None
+        self._splitDim = None
+        self._importance = None
+        self._volume = None
+
+    def addSample(self):
+        self._samples +=1
+
+    def bounds(self):
+        return self._bounds
+
+    def search(self,coordinates):
+        """
+        takes a set of coordinates and searches down through the tree untill it gets
+        to a box with less than 'boxing' objects in it and returns the box bounds,
+        number of objects in the box, and the weighting.
+        """
+        if self._left == None:
+            return self._bounds, self._samples, self._importance
+        elif coordinates[self._splitDim] < self._splitValue:
+            return self._left.search(coordinates)
+        else:
+            return self._right.search(coordinates)
+
+    def setImportance(self, sampleNumber, volume):
+        self._importance = sampleNumber/volume
+        self._volume = volume
+
+    def setSplit(self,dimension,value):
+        self._splitDim = dimension
+        self._splitValue = value
 
 
 class PosteriorSample(object):
@@ -2000,7 +2208,23 @@ def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,co
 
     return toppoints,injectionconfidence,reses,injection_area
 #
+#### functions used in 2stage kdtree 
 
+def skyArea(bounds):
+    return - (cos(pi_constant/2. - bounds[0][1])-cos(pi_constant/2. - bounds[1][1]))*(bounds[1][0] - bounds[0][0])
+
+def random_split(items, fraction):
+    size = int(len(items)*fraction)
+    random.shuffle(items)
+    return items[:size], items[size:]
+
+def addSample(tree,coordinates):
+    if tree._left == None:
+        tree.addSample()
+    elif coordinates[tree._splitDim] < tree._splitValue:
+        addSample(tree._left,coordinates)
+    else:
+        addSample(tree._right,coordinates)
 
 #
 #===============================================================================
@@ -2061,7 +2285,6 @@ def kdtree_bin_sky_volume(posterior,confidence_levels):
     
     return confidence_intervals
 
-
 def kdtree_bin_sky_area(posterior,confidence_levels,samples_per_bin=10):
     """
     takes samples and applies a KDTree to them to return confidence levels
@@ -2104,7 +2327,7 @@ def kdtree_bin_sky_area(posterior,confidence_levels,samples_per_bin=10):
     header=header.split()
     coord_names=["ra","dec"]
     initial_dimensions = [[0.,-pi/2.],[2.*pi, pi/2.]]
-    coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+    coordinatized_samples=[PosteriorSample(row, header, coord_names) for row in samples]
     tree=KDTreeVolume(coordinatized_samples,initial_dimensions)
 
     a=Harvester()
@@ -2291,6 +2514,121 @@ def kdtree_bin(posterior,coord_names,confidence_levels,initial_boundingbox = Non
                 break
 
     return confidence_intervals, b, initial_boundingbox,injInfo
+
+def kdtree_bin2Step(posterior,coord_names,confidence_levels,initial_boundingbox = None,samples_per_bin = 10,injCoords = None,alternate = False, fraction = 0.5, skyCoords=False):
+    """
+    input: posterior class instance, list of confidence levels, optional choice of inital parameter space, samples per box in kdtree
+    note initial_boundingbox is [[lowerbound of each param][upper bound of each param]], if not specified will just take limits of samples
+    fraction is proportion of samples used for making the tree structure.
+    returns: confidence_intervals, sorted list of kd objects, initial_boundingbox, injInfo
+    where injInfo is [bounding box injection is found within, samples in said box, weighting of box (in case of repeated samples),inj_confidence, inj_confidence_area]
+    """
+    confidence_levels.sort()
+
+    samples,header=posterior.samples()
+    numberSamples = len(samples)
+    if alternate == False:
+        samplesStructure, samplesFill = random_split(samples,fraction)
+    else:
+        samplesStructure = samples[:int(numberSamples*fraction)]
+        samplesFill = samples[int(numberSamples*fraction):]
+    samplesFillLen = len(samplesFill)
+    
+    header=header.split()
+    coordinatized_samples=[PosteriorSample(row, header, coord_names) for row in samplesStructure]
+    #if initial bounding box is not provided, create it using max/min of sample coords.
+    if skyCoords == True:
+        initial_boundingbox = [[0,-pi_constant/2.],[2*pi_constant,pi_constant/2.]]
+    if initial_boundingbox is None:
+        low=coordinatized_samples[0].coord()
+        high=coordinatized_samples[0].coord()
+        for obj in coordinatized_samples[1:]:
+            low=np.minimum(low,obj.coord())
+            high=np.maximum(high,obj.coord())
+        initial_boundingbox = [low,high]
+    tree=KDTreeVolume(coordinatized_samples,initial_boundingbox)
+    tree2fill = tree.fillNewTree(boxing=samples_per_bin, isArea = skyCoords)#set isArea True if looking at sky coords(modifies stored volume values
+
+    columns = []
+    for name in coord_names:
+        columns.append(header.index(name))
+
+    for sample in samplesFill:
+        tempSample=[]
+        for column in columns:
+            tempSample.append(sample[column])
+        addSample(tree2fill,tempSample)
+
+    def getValues(tree,listing):
+        if tree._left == None:
+            listing.append([tree.bounds(),tree._importance,tree._samples,tree._volume])
+        else:
+            getValues(tree._left,listing)
+            getValues(tree._right,listing)
+
+    listLeaves = []
+    getValues(tree2fill,listLeaves)
+
+    clSamples = []
+    for cl in confidence_levels:
+        clSamples.append(samplesFillLen*cl)
+    
+    sortedLeavesList = sorted(listLeaves, key=lambda importance: importance[1])
+    sortedLeavesList.reverse()
+    runningTotalSamples = 0
+    for i in range(len(sortedLeavesList)):
+        runningTotalSamples += sortedLeavesList[i][2]
+        sortedLeavesList[i].append(float(runningTotalSamples)/samplesFillLen,)
+
+
+    level = 0
+    countSamples = 0
+    volume = 0
+    lencl = len(clSamples)
+    #finds confidence levels
+    confidence_intervals={}
+    interpConfAreas = {}
+    countLeaves = 0
+    for leaf in sortedLeavesList:
+        countSamples += leaf[2]
+        countLeaves += 1
+        volume += leaf[3]
+        if level < lencl and countSamples >= clSamples[level]:
+            confidence_intervals[confidence_levels[level]]=(volume,float(countSamples)/samplesFillLen)
+            interpConfAreas[confidence_levels[level]] = volume-leaf[3]*(countSamples-clSamples[level])/leaf[2]
+            level +=1
+
+    if injCoords is not None:
+        injBound,injNum,injImportance = tree2fill.search(injCoords)                                                                                                              
+        injInfo = [injBound,injNum,injImportance]
+    else:
+        injInfo = None
+
+
+    #finds the confidence level of the injection and the volume of the associated contained region                                                         
+    inj_confidence = None
+    inj_confidence_area = None
+    if injInfo is not None:
+        print 'calculating cl'
+        acc_vol=0.
+        acc_cl=0.
+        for leaf in sortedLeavesList:
+            acc_vol+=leaf[3]
+            acc_cl+=leaf[2]
+            if leaf[1] <= injImportance:
+                inj_confidence = float(acc_cl)/samplesFillLen
+                inj_confidence_area = acc_vol
+                injInfo.append(inj_confidence)
+                injInfo.append(inj_confidence_area)
+                break
+
+    return sortedLeavesList, interpConfAreas, injInfo
+    #check that there is an injection value for all dimension names
+    def checkNone(listoParams):
+        for param in listoParams:
+            if posterior[param].injval is None:
+                return False
+        return True
 
 def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
     """
@@ -2676,11 +3014,11 @@ def rotate_vector(R, vec):
 #
 #
 
-def orbital_momentum(f_lower, mc, inclination):
+def orbital_momentum(fref, mc, inclination):
     """
     Calculate orbital angular momentum vector.
     """
-    Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * lalconstants.LAL_MTSUN_SI * f_lower, 1.0/3.0)
+    Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * lalconstants.LAL_MTSUN_SI * fref, 1.0/3.0)
     Lx, Ly, Lz = sph2cart(Lmag, inclination, 0.0)
     return np.hstack((Lx,Ly,Lz))
 #
@@ -2699,17 +3037,17 @@ def symm_tidal_params(lambda1,lambda2,eta):
     """
     Calculate best tidal parameters
     """
-    lam_tilde = (1./52.)*((1.+7.*eta-31.*eta*eta)*(lambda1+lambda2) + np.sqrt(1.-4.*eta)*(1.+9.*eta-11.*eta*eta)*(lambda1-lambda2))
-    dlam_tilde = (1.-4.*eta)*(1.-32132.*eta/2195.+43784.*eta*eta/2195.)*(lambda1+lambda2) + np.sqrt(1.-4.*eta)*(1.-36522.*eta/2195.+103658.*eta*eta/2195.-32084.*eta*eta*eta/2195.)*(lambda1-lambda2)
+    lam_tilde = (8./13.)*((1.+7.*eta-31.*eta*eta)*(lambda1+lambda2) + np.sqrt(1.-4.*eta)*(1.+9.*eta-11.*eta*eta)*(lambda1-lambda2))
+    dlam_tilde = (1./2.)*(np.sqrt(1.-4.*eta)*(1.-13272.*eta/1319.+8944.*eta*eta/1319.)*(lambda1+lambda2) + (1.-15910.*eta/1319.+32850.*eta*eta/1319.+3380.*eta*eta*eta/1319.)*(lambda1-lambda2))
     return lam_tilde, dlam_tilde
 
-def spin_angles(f_lower,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
+def spin_angles(fref,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
     """
     Calculate physical spin angles.
     """
     singleSpin = None in (a2,theta2,phi2)
     m1, m2 = mc2ms(mc,eta)
-    L  = orbital_momentum(f_lower, mc, incl)
+    L  = orbital_momentum(fref, mc, incl)
     S1 = component_momentum(m1, a1, theta1, phi1)
     if not singleSpin:
         S2 = component_momentum(m2, a2, theta2, phi2)
@@ -2721,9 +3059,52 @@ def spin_angles(f_lower,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None
         tilt2 = array_ang_sep(L,S2)
     else:
         tilt2 = None
-    thetas = array_polar_ang(J)
+    theta_jn = array_polar_ang(J)
     beta  = array_ang_sep(J,L)
-    return tilt1, tilt2, thetas, beta
+    return tilt1, tilt2, theta_jn, beta
+#
+#
+
+def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref):
+    """
+    Wrapper function for SimInspiralTransformPrecessingInitialConditions().
+    Vectorizes function for use in append_mapping() methods of the posterior class.
+    """
+    import lalsimulation as lalsim
+    transformFunc = lalsim.SimInspiralTransformPrecessingInitialConditions
+
+    # Convert component masses to SI units
+    m1_SI = m1*lalsim.lal.LAL_MSUN_SI
+    m2_SI = m2*lalsim.lal.LAL_MSUN_SI
+
+    # Flatten arrays
+    ins = [theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1_SI, m2_SI, fref]
+    try:
+      for p,param in enumerate(ins):
+        ins[p] = param.flatten()
+    except:
+      pass
+
+    results = np.array([transformFunc(t_jn, p_jl, t1, t2, p12, a1, a2, m1_SI, m2_SI, f) for (t_jn, p_jl, t1, t2, p12, a1, a2, m1_SI, m2_SI, f) in zip(*ins)])
+
+    iota = results[:,0].reshape(-1,1)
+    spin1x = results[:,1].reshape(-1,1)
+    spin1y = results[:,2].reshape(-1,1)
+    spin1z = results[:,3].reshape(-1,1)
+    spin2x = results[:,4].reshape(-1,1)
+    spin2y = results[:,5].reshape(-1,1)
+    spin2z = results[:,6].reshape(-1,1)
+    a1,theta1,phi1 = cart2sph(spin1x,spin1y,spin1z)
+    a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
+
+    mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
+    L  = orbital_momentum(fref, mc, iota)
+    S1 = m1*m1*np.hstack([spin1x,spin1y,spin1z])
+    S2 = m2*m2*np.hstack([spin2x,spin2y,spin2z])
+    J = L + S1 + S2
+    beta = array_ang_sep(J,L)
+
+    return iota, theta1, phi1, theta2, phi2, beta
 #
 #
 
@@ -2772,8 +3153,10 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     injpar=posterior[param].injval
     trigvals=posterior[param].trigvals
 
-    myfig=plt.figure(figsize=(4,3.5),dpi=200)
-    axes=plt.Axes(myfig,[0.2, 0.2, 0.7,0.7])
+  #myfig=plt.figure(figsize=(4,3.5),dpi=200)
+    myfig=plt.figure(figsize=(6,4.5),dpi=150)
+  #axes=plt.Axes(myfig,[0.2, 0.2, 0.7,0.7])
+    axes=plt.Axes(myfig,[0.15,0.15,0.6,0.76])
     myfig.add_axes(axes)
     majorFormatterX=ScalarFormatter(useMathText=True)
     majorFormatterX.format_data=lambda data:'%.6g'%(data)
@@ -2820,14 +3203,19 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
         x = np.linspace(xmin,xmax,2*len(bins))
         plt.plot(x, analyticPDF(x+offset), color='r', linewidth=2, linestyle='dashed')
         if analyticCDF:
-            D,p = stats.kstest(pos_samps.flatten(), analyticCDF)
-            plt.title("%s: ks p-value %.3f"%(param,p))
+            try:
+                D,p = stats.kstest(pos_samps.flatten()+offset, analyticCDF)
+                plt.title("%s: ks p-value %.3f"%(param,p))
+            except FloatingPointError:
+                print 'Underflow when calculating KS for %s, setting to 0'%(param)
+                p=0.0
 
     rbins=None
 
     if injpar is not None:
         if min(pos_samps)<injpar and max(pos_samps)>injpar:
-            plt.axvline(injpar, color='b', linestyle='-.')
+
+            plt.axvline(injpar, color='r', linestyle='-.', linewidth=4)
 
             #rkde=gkde.integrate_box_1d(min(pos[:,i]),getinjpar(injection,i))
             #print "r of injected value of %s (kde) = %f"%(param,rkde)
@@ -2851,7 +3239,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
                 plt.axvline(trigval, color=color, linestyle='-.')
     #
     plt.grid()
-    plt.xlabel(ax1_name)
+    plt.xlabel(plot_label(ax1_name))
     plt.ylabel('Probability Density')
 
     # For RA and dec set custom labels and for RA reverse
@@ -3035,6 +3423,181 @@ def getDecString(radians,accuracy='auto'):
     #    else: return(getDecString(sign*radians,accuracy='deg'))
       return(getDecString(sign*radians,accuracy='deg'))
 
+def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None):
+  """
+  Plots a 2D kernel density estimate of the 2-parameter marginal posterior.
+  
+  @param posterior: an instance of the Posterior class.
+  
+  @param plot2DkdeParams: a dict {param1Name:Nparam1Bins,param2Name:Nparam2Bins}
+  """
+  
+  from scipy import seterr as sp_seterr
+  confidence_levels=levels
+
+  # Reversed parameter order here for consistency with the other
+  # plotting functions
+  par2_name,par1_name=plot2DkdeParams.keys()
+  xbin=plot2DkdeParams[par1_name]
+  ybin=plot2DkdeParams[par2_name]
+  levels= levels
+  np.seterr(under='ignore')
+  sp_seterr(under='ignore')
+  
+  fig=plt.figure(1,figsize=figsize,dpi=dpi)
+  plt.clf()
+  axes=fig.add_axes(figposition)
+  name_list=[]
+  
+  #This fixes the precedence of line styles in the plot
+  if len(line_styles)<len(levels):
+    raise RuntimeError("Error: Need as many or more line styles to choose from as confidence levels to plot!")
+  
+  CSlst=[]
+  for name,posterior in posteriors_by_name.items():
+    print 'Plotting '+name
+    name_list.append(name)
+    par1_injvalue=posterior[par1_name].injval
+    par2_injvalue=posterior[par2_name].injval
+    
+    par_trigvalues1=posterior[par1_name].trigvals
+    par_trigvalues2=posterior[par2_name].trigvals
+    xdat=posterior[par1_name].samples
+    ydat=posterior[par2_name].samples
+    a=np.squeeze(posterior[par1_name].samples)
+    b=np.squeeze(posterior[par2_name].samples)
+    offset=0.0
+    if par1_name.find('time')!=-1:
+      offset=floor(min(a))
+      a=a-offset
+    if par1_injvalue:
+      par1_injvalue=par1_injvalue-offset
+      ax1_name=par1_name+' + %i'%(int(offset))
+    else: ax1_name=par1_name
+
+    if par2_name.find('time')!=-1:
+      offset=floor(min(b))
+      b=b-offset
+    if par2_injvalue:
+      par2_injvalue=par2_injvalue-offset
+      ax2_name=par2_name+' + %i'%(int(offset))
+    else: ax2_name=par2_name
+    
+    samp=np.transpose(np.column_stack((xdat,ydat)))
+    
+    kde=stats.kde.gaussian_kde(samp)
+    den=kde(samp)
+    #grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
+    Nx=50
+    Ny=50
+    xax = np.linspace(np.min(xdat),np.max(xdat),Nx)
+    yax = np.linspace(np.min(ydat),np.max(ydat),Ny)
+    x,y = np.meshgrid(xax,yax)
+    grid_coords = np.row_stack( (x.flatten(),y.flatten()) )
+    z = kde(grid_coords)
+    z = z.reshape(Nx,Ny)
+    densort=np.sort(den)[::-1]
+    values=[]
+    Npts=xdat.shape[0]
+    zvalues=[]
+    for level in levels:
+      ilevel = int(Npts*level + 0.5)
+      if ilevel >= Npts:
+	ilevel = Npts-1
+      zvalues.append(densort[ilevel])
+    CS=plt.contour(x, y, z, zvalues,colors=[colors_by_name[name]],linestyles=line_styles )
+    CSlst.append(CS)
+    
+    if par1_injvalue is not None and par2_injvalue is not None:
+      plt.plot([par1_injvalue],[par2_injvalue],'b*',scalex=False,scaley=False,markersize=12)
+      
+    if par_trigvalues1 is not None and par_trigvalues2 is not None:
+	par1IFOs = set([IFO for IFO in par_trigvalues1.keys()])
+	par2IFOs = set([IFO for IFO in par_trigvalues2.keys()])
+	IFOs = par1IFOs.intersection(par2IFOs)
+	for IFO in IFOs:
+	  if IFO=='H1': color = 'r'
+	  elif IFO=='L1': color = 'g'
+	  elif IFO=='V1': color = 'm'
+	  else: color = 'c'
+	plt.plot([par_trigvalues1[IFO]],[par_trigvalues2[IFO]],color=color,marker='o',scalex=False,scaley=False)
+	
+  plt.xlabel(plot_label(par1_name))
+  plt.ylabel(plot_label(par2_name))
+  plt.grid()
+  
+  if len(name_list)!=len(CSlst):
+    raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
+  
+  full_name_list=[]
+  dummy_lines=[]
+  for plot_name in name_list:
+    full_name_list.append(plot_name)
+  if len(confidence_levels)>1:
+    for ls_,cl in zip(line_styles[0:len(confidence_levels)],confidence_levels):
+      dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),ls=ls_,color='k'))
+      full_name_list.append('%s%%'%str(int(cl*100)))
+      
+  fig_actor_lst = [cs.collections[0] for cs in CSlst]
+  fig_actor_lst.extend(dummy_lines)
+  if legend is not None:
+    twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+    for text in twodcontour_legend.get_texts():
+      text.set_fontsize('small')
+
+  majorFormatterX=ScalarFormatter(useMathText=True)
+  majorFormatterX.format_data=lambda data:'%.4g'%(data)
+  majorFormatterY=ScalarFormatter(useMathText=True)
+  majorFormatterY.format_data=lambda data:'%.4g'%(data)
+  majorFormatterX.set_scientific(True)
+  majorFormatterY.set_scientific(True)
+  axes.xaxis.set_major_formatter(majorFormatterX)
+  axes.yaxis.set_major_formatter(majorFormatterY)
+  Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
+  if Nchars>8:
+    Nticks=3
+  elif Nchars>5:
+    Nticks=4
+  elif Nchars>4:
+    Nticks=5
+  else:
+    Nticks=6
+  locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks-1)
+  if par1_name=='rightascension' or par1_name=='ra':
+    (ramin,ramax)=plt.xlim()
+    locatorX=RALocator(min=ramin,max=ramax)
+    majorFormatterX=RAFormatter()
+  if par1_name=='declination' or par1_name=='dec':
+    (decmin,decmax)=plt.xlim()
+    locatorX=DecLocator(min=decmin,max=decmax)
+    majorFormatterX=DecFormatter()
+  axes.xaxis.set_major_formatter(majorFormatterX)
+  if par2_name=='rightascension' or par2_name=='ra':
+    (ramin,ramax)=plt.ylim()
+    locatorY=RALocator(ramin,ramax)
+    axes.yaxis.set_major_locator(locatorY)
+    majorFormatterY=RAFormatter()
+  if par2_name=='declination' or par2_name=='dec':
+    (decmin,decmax)=plt.ylim()
+    locatorY=DecLocator(min=decmin,max=decmax)
+    majorFormatterY=DecFormatter()
+    axes.yaxis.set_major_locator(locatorY)
+      
+  axes.yaxis.set_major_formatter(majorFormatterY)
+  #locatorX.view_limits(bins[0],bins[-1])
+  axes.xaxis.set_major_locator(locatorX)
+
+  fix_axis_names(plt,par1_name,par2_name)
+
+  if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+    xmin,xmax=plt.xlim()
+    if(xmin<0.0): xmin=0.0
+    if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
+    plt.xlim(xmax,xmin)
+
+  return fig
+
+
 def plot_two_param_kde(posterior,plot2DkdeParams):
     """
     Plots a 2D kernel density estimate of the 2-parameter marginal posterior.
@@ -3073,10 +3636,21 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     samp=np.transpose(np.column_stack((xdat,ydat)))
 
     kde=stats.kde.gaussian_kde(samp)
+    
     grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
 
     z = kde(grid_coords.T)
     z = z.reshape(Nx,Ny)
+    
+    values=[]
+    for level in levels:
+      ilevel = int(Npts*level + 0.5)
+      if ilevel >= Npts:
+	ilevel = Npts-1
+	zvalues.append(densort[ilevel])
+	
+	pp.contour(XS, YS, ZS, zvalues)
+    
     asp=xax.ptp()/yax.ptp()
 #    if(asp<0.8 or asp > 1.6): asp=1.4
     plt.imshow(z,extent=(xax[0],xax[-1],yax[0],yax[-1]),aspect=asp,origin='lower')
@@ -3096,8 +3670,8 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
             else: color = 'c'
             plt.plot([par_trigvalues1[IFO]],[par_trigvalues2[IFO]],color=color,marker='o',scalex=False,scaley=False)
 
-    plt.xlabel(par1_name)
-    plt.ylabel(par2_name)
+    plt.xlabel(plot_label(par1_name))
+    plt.ylabel(plot_label(par2_name))
     plt.grid()
 
     # For RA and dec set custom labels and for RA reverse
@@ -3201,22 +3775,24 @@ def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confide
         CSlst.append(CS)
     
     plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
-    plt.xlabel(par2_name)
-    plt.ylabel(par1_name)
+    plt.xlabel(plot_label(par2_name))
+    plt.ylabel(plot_label(par1_name))
     if len(name_list)!=len(CSlst):
         raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
     full_name_list=[]
     dummy_lines=[]
     for plot_name in name_list:
         full_name_list.append(plot_name)
-        for cl in confidence_levels+[1]:
-            dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),color='k'))
-            full_name_list.append('%s%%'%str(int(cl*100)))
+        if len(confidence_levels)>1:
+            for cl in confidence_levels+[1]:
+                dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),color='k'))
+                full_name_list.append('%s%%'%str(int(cl*100)))
         fig_actor_lst = [cs.collections[0] for cs in CSlst]
         fig_actor_lst.extend(dummy_lines)
-    if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
-    for text in twodcontour_legend.get_texts():
-        text.set_fontsize('small')
+    if legend is not None:
+      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+      for text in twodcontour_legend.get_texts():
+          text.set_fontsize('small')
     fix_axis_names(plt,par1_name,par2_name)
     return fig
 
@@ -3361,11 +3937,10 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
                 Hsum+=val
                 temp[max_i]=0
             Hlasts.append(Hlast)
-
         CS=plt.contour(yedges[:-1],xedges[:-1],H,Hlasts,colors=[colors_by_name[name]],linestyles=line_styles)
         plt.grid()
         if(par1_injvalue is not None and par2_injvalue is not None):
-            plt.plot([par2_injvalue],[par1_injvalue],'b*',scalex=False,scaley=False)
+            plt.plot([par2_injvalue],[par1_injvalue],'b*',scalex=False,scaley=False,markersize=12)
         if(par1_trigvalues is not None and par2_trigvalues is not None):
             par1IFOs = set([IFO for IFO in par1_trigvalues.keys()])
             par2IFOs = set([IFO for IFO in par2_trigvalues.keys()])
@@ -3412,8 +3987,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     	axes.xaxis.set_major_locator(locatorX)
 
     #plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
-    plt.xlabel(ax2_name)
-    plt.ylabel(ax1_name)
+    plt.xlabel(plot_label(ax2_name))
+    plt.ylabel(plot_label(ax1_name))
 
     if len(name_list)!=len(CSlst):
         raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
@@ -3422,17 +3997,18 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     for plot_name in name_list:
         full_name_list.append(plot_name)
-    for ls_,cl in zip(line_styles[0:len(confidence_levels)],confidence_levels):
-        dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),ls=ls_,color='k'))
-        full_name_list.append('%s%%'%str(int(cl*100)))
+    if len(confidence_levels)>1:
+      for ls_,cl in zip(line_styles[0:len(confidence_levels)],confidence_levels):
+          dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),ls=ls_,color='k'))
+          full_name_list.append('%s%%'%str(int(cl*100)))
 
     fig_actor_lst = [cs.collections[0] for cs in CSlst]
 
     fig_actor_lst.extend(dummy_lines)
 
-    if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
-
-    for text in twodcontour_legend.get_texts():
+    if legend is not None:
+      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+      for text in twodcontour_legend.get_texts():
         text.set_fontsize('small')
 
 
@@ -3535,8 +4111,8 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     myfig.add_axes(axes)
     
     #plt.clf()
-    plt.xlabel(ax2_name)
-    plt.ylabel(ax1_name)
+    plt.xlabel(plot_label(ax2_name))
+    plt.ylabel(plot_label(ax1_name))
 
     #bins=(par1pos_Nbins,par2pos_Nbins)
     bins=(50,50) # Matches plot_one_param_pdf
@@ -4036,7 +4612,7 @@ class PEOutputParser(object):
                 runfile.write('Chain '+str(i)+':\n')
                 runfile.writelines(runInfo)
                 print "Processing file %s to %s"%(infilename,outfile.name)
-                f_lower=self._find_infmcmc_f_lower(runInfo)
+                f_ref=self._find_infmcmc_f_ref(runInfo)
                 if oldMassConvention:
                     # Swap #1 for #2 because our old mass convention
                     # has m2 > m1, while the common convention has m1
@@ -4046,7 +4622,7 @@ class PEOutputParser(object):
                     for label in header:
                         outfile.write(label)
                         outfile.write(" ")
-                    outfile.write("f_lower")
+                    outfile.write("f_ref")
                     outfile.write(" ")
                     outfile.write("chain")
                     outfile.write("\n")
@@ -4070,9 +4646,9 @@ class PEOutputParser(object):
                                 # the input because we switched the
                                 # names above
                                 outfile.write(lineParams[header.index(label)])
-                                outfile.write(" ")
-                            outfile.write(f_lower)
-                            outfile.write(" ")
+                                outfile.write("\t")
+                            outfile.write(f_ref)
+                            outfile.write("\t")
                             outfile.write(str(i))
                             outfile.write("\n")
                         nRead=nRead+1
@@ -4181,6 +4757,47 @@ class PEOutputParser(object):
                     nskips[i] = None
         return nskips
 
+    def _find_infmcmc_f_ref(self, runInfo):
+        """
+        Searches through header to determine reference frequency of waveforms.
+        If no fRef given, calls _find_infmcmc_f_lower to get the lower frequency
+        bound, which is the default reference frequency for LALInference.
+        """
+        fRef = None
+        runInfoIter = iter(runInfo)
+        for line in runInfoIter:
+            headers=line.lstrip().lower().split()
+            try:
+                fRefColNum = headers.index('fRef')
+                info = runInfoIter.next().lstrip().lower().split()
+                fRef = info[fRefColNum]
+                break
+            except ValueError:
+                continue
+
+        # ***TEMPORARY*** If not in table, check command line.
+        #   ...This is messy, but the only option for dealing with old headers
+        if not fRef:
+          runInfoIter = iter(runInfo)
+          for line in runInfoIter:
+              headers=line.lstrip().lower().split()
+              try:
+                  if headers[0]=="command":
+                      try:
+                          fRefInd = headers.index('--fref')+1
+                          fRef = headers[fRefInd]
+                      except ValueError:
+                          pass
+                      break
+              except IndexError:
+                  continue
+
+        # If no fRef is found, use lower frequency bound
+        if not fRef:
+            fRef = self._find_infmcmc_f_lower(runInfo)
+
+        return fRef
+
     def _find_infmcmc_f_lower(self, runInfo):
         """
         Searches through header to determine starting frequency of waveforms.
@@ -4226,7 +4843,7 @@ class PEOutputParser(object):
             pos,bayesfactor=burnin(data,spin,deltaLogL,"posterior_samples.dat")
             return self._common_to_pos(open("posterior_samples.dat",'r'))
 
-    def _ns_to_pos(self,files,Nlive=None,Npost=10000):
+    def _ns_to_pos(self,files,Nlive=None,Npost=None):
         """
         Parser for nested sampling output.
         files : list of input NS files
@@ -4680,3 +5297,6 @@ def confidence_interval_uncertainty(cl, cl_bounds, posteriors):
     quant_uncertainty = float(_cl_count(largest_cl_bound, all_samples) - _cl_count(smallest_cl_bound, all_samples))/float(N)
 
     return (relative_change, frac_uncertainty, quant_uncertainty)
+
+
+

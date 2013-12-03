@@ -29,12 +29,10 @@ import sys
 
 
 from glue import segments
-from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
-from pylal import llwapp
 from pylal import snglcluster
 
 
@@ -56,11 +54,17 @@ process_program_name = "ligolw_bucluster"
 
 
 def append_process(xmldoc, cluster_algorithm, comment):
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
-
-	ligolw_process.append_process_params(xmldoc, process, [(u"--cluster-algorithm", u"lstring", cluster_algorithm)])
-
-	return process
+	return ligolw_process.register_to_xmldoc(
+		xmldoc,
+		program = process_program_name,
+		paramdict = {
+			"cluster_algorithm": cluster_algorithm
+		},
+		version = __version__,
+		cvs_repository = u"lscsoft",
+		cvs_entry_time = __date__,
+		comment = comment
+	)
 
 
 #
@@ -81,7 +85,9 @@ def append_process(xmldoc, cluster_algorithm, comment):
 
 def add_ms_columns(xmldoc):
 	# add columns if required
-	sngl_burst_table = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+	add_ms_columns_to_table(lsctables.SnglBurstTable.get_table(xmldoc))
+
+def add_ms_columns_to_table(sngl_burst_table):
 	added = False
 	for colname in ("peak_frequency", "ms_start_time", "ms_start_time_ns", "ms_duration", "ms_flow", "ms_bandwidth", "ms_hrss", "ms_snr", "ms_confidence"):
 		try:
@@ -246,6 +252,78 @@ def ExcessPowerClusterFunc(a, b):
 	return a
 
 
+def OmegaClusterFunc(a, b):
+	"""
+	Modify a in place to be a cluster constructed from a and b.  The
+	cluster's time-frequency tile is the smallest tile that contains
+	the original two tiles, and the "most signficiant" contributor for
+	the cluster is the tile whose boundaries are the SNR^{2} weighted
+	average boundaries of the two contributing tiles.  The "most
+	signficiant" contributor's h_{rss}, SNR, and confidence, are copied
+	verbatim from whichever of the two contributing tiles has the
+	highest confidence.  The modified event a is returned.
+	"""
+	#
+	# In the special case of the two events being the exact same
+	# time-frequency tile, simply preserve the one with the highest
+	# confidence and discard the other.
+	#
+
+	if a.get_period() == b.get_period() and a.get_band() == b.get_band():
+		if b.snr > a.snr:
+			return b
+		return a
+
+	#
+	# Compute the properties of the "most significant contributor"
+	#
+
+	if b.ms_snr > a.ms_snr:
+		a.ms_snr = b.ms_snr
+	a.set_ms_period(snglcluster.weighted_average_seg(a.get_ms_period(), a.snr**2.0, b.get_ms_period(), b.snr**2.0))
+	a.set_ms_band(snglcluster.weighted_average_seg(a.get_ms_band(), a.snr**2.0, b.get_ms_band(), b.snr**2.0))
+
+	#
+	# Compute the SNR squared weighted peak time and frequency (recall
+	# that the peak times have been converted to floats relative to
+	# epoch, and stored in the peak_time column).
+	#
+
+	a.peak_time = (a.snr**2.0 * a.peak_time + b.snr**2.0 * b.peak_time) / (a.snr**2.0 + b.snr**2.0)
+	a.peak_frequency = (a.snr**2.0 * a.peak_frequency + b.snr**2.0 * b.peak_frequency) / (a.snr**2.0 + b.snr**2.0)
+
+	#
+	# Compute the combined h_rss and SNR by summing the original ones.
+	# Note that no accounting of the overlap of the events is made, so
+	# these parameters are being horribly overcounted, but the SNR in
+	# particular must be summed like this in order to carry the
+	# information needed to continue computing the SNR squared weighted
+	# peak time and frequencies.
+	#
+
+	a.amplitude += b.amplitude
+	a.snr = math.sqrt(a.snr**2.0 + b.snr**2.0)
+
+	#
+	# The cluster's frequency band is the smallest band containing the
+	# bands of the two original events
+	#
+
+	a.set_band(snglcluster.smallest_enclosing_seg(a.get_band(), b.get_band()))
+
+	#
+	# The cluster's time interval is the smallest interval containing
+	# the intervals of the two original events
+	#
+
+	a.set_period(snglcluster.smallest_enclosing_seg(a.get_period(), b.get_period()))
+
+	#
+	# Success
+	#
+
+	return a
+
 #
 # =============================================================================
 #
@@ -284,7 +362,7 @@ def ligolw_bucluster(
 	#
 
 	try:
-		sngl_burst_table = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+		sngl_burst_table = lsctables.SnglBurstTable.get_table(xmldoc)
 	except ValueError:
 		# no-op:  document does not contain a sngl_burst table
 		if verbose:

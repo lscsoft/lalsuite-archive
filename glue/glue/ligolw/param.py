@@ -29,15 +29,21 @@ High-level support for Param elements.
 """
 
 
+import pickle
 import re
 import sys
 from xml.sax.saxutils import escape as xmlescape
 from xml.sax.xmlreader import AttributesImpl as Attributes
+try:
+	import yaml
+except ImportError:
+	# yaml serialization is optional
+	pass
 
 
 from glue import git_version
-from glue.ligolw import ligolw
-from glue.ligolw import types as ligolwtypes
+from . import ligolw
+from . import types as ligolwtypes
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -155,6 +161,63 @@ def get_pyvalue(xml, name):
 #
 # =============================================================================
 #
+#                        (De-)Serialization via Params
+#
+# =============================================================================
+#
+
+
+def pickle_to_param(obj, name):
+	"""
+	Return the top-level element of a document sub-tree containing the
+	pickled serialization of a Python object.
+	"""
+	return param.from_pyvalue(u"pickle:%s" % name, unicode(pickle.dumps(obj)))
+
+
+def pickle_from_param(elem, name):
+	"""
+	Retrieve a pickled Python object from the document tree rooted at
+	elem.
+	"""
+	return pickle.loads(str(param.get_pyvalue(elem, u"pickle:%s" % name)))
+
+
+def yaml_to_param(obj, name):
+	"""
+	Return the top-level element of a document sub-tree containing the
+	YAML serialization of a Python object.
+	"""
+	return param.from_pyvalue(u"yaml:%s" % name, unicode(yaml.dump(obj)))
+
+
+def yaml_from_param(elem, name):
+	"""
+	Retrieve a YAMLed Python object from the document tree rooted at
+	elem.
+	"""
+	return yaml.load(param.get_pyvalue(elem, u"yaml:%s" % name))
+
+
+try:
+	yaml
+except NameError:
+	# yaml module not loaded, disable (de-)serializers
+	def yaml_to_param(obj, name):
+		"""
+		Not available.  Install yaml to use.
+		"""
+		raise NameError("yaml not installed")
+	def yaml_from_param(elem, name):
+		"""
+		Not available.  Install yaml to use.
+		"""
+		raise NameError("yaml not installed")
+
+
+#
+# =============================================================================
+#
 #                               Element Classes
 #
 # =============================================================================
@@ -199,19 +262,19 @@ class Param(ligolw.Param):
 		# convert pcdata from string to native Python type
 		self.pcdata = self.pytype(self.pcdata.strip())
 
-	def write(self, file = sys.stdout, indent = u""):
-		file.write(self.start_tag(indent) + u"\n")
+	def write(self, fileobj = sys.stdout, indent = u""):
+		fileobj.write(self.start_tag(indent) + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
 				raise ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
-			c.write(file, indent + ligolw.Indent)
+			c.write(fileobj, indent + ligolw.Indent)
 		if self.pcdata is not None:
 			# we have to strip quote characters from string
 			# formats (see comment above)
-			file.write(indent + ligolw.Indent)
-			file.write(xmlescape(ligolwtypes.FormatFunc[self.getAttribute("Type")](self.pcdata).strip(u"\"")))
-			file.write(u"\n")
-		file.write(self.end_tag(indent) + u"\n")
+			fileobj.write(indent + ligolw.Indent)
+			fileobj.write(xmlescape(ligolwtypes.FormatFunc[self.getAttribute("Type")](self.pcdata).strip(u"\"")))
+			fileobj.write(u"\n")
+		fileobj.write(self.end_tag(indent) + u"\n")
 
 
 #
@@ -224,7 +287,7 @@ class Param(ligolw.Param):
 
 
 #
-# Override portions of ligolw.DefaultLIGOLWContentHandler class
+# Override portions of a ligolw.LIGOLWContentHandler class
 #
 
 
@@ -249,4 +312,5 @@ def use_in(ContentHandler):
 	ContentHandler.startParam = startParam
 
 
+# FIXME:  remove
 use_in(ligolw.DefaultLIGOLWContentHandler)

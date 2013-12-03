@@ -1,6 +1,5 @@
 /*
- *
- * Copyright (C) 2006  Kipp C. Cannon
+ * Copyright (C) 2006--2008.2010--2012  Kipp C. Cannon
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -61,8 +60,13 @@ static int segments_Segment_Check(PyObject *obj)
 
 PyObject *segments_Segment_New(PyTypeObject *type, PyObject *a, PyObject *b)
 {
-	PyObject *new = type->tp_alloc(type, 2);
+	PyObject *new;
 	int delta;
+	if(!type->tp_alloc) {
+		PyErr_SetObject(PyExc_TypeError, (PyObject *) type);
+		return NULL;
+	}
+	new = type->tp_alloc(type, 2);
 	if(new && PyObject_Cmp(a, b, &delta) >= 0) {
 		if(delta <= 0) {
 			PyTuple_SET_ITEM(new, 0, a);
@@ -223,14 +227,19 @@ static PyObject *disjoint(PyObject *self, PyObject *other)
 
 static PyObject *__and__(PyObject *self, PyObject *other)
 {
-	PyObject *sa = PyTuple_GET_ITEM(self, 0);
-	PyObject *sb = PyTuple_GET_ITEM(self, 1);
+	PyObject *sa, *sb;
 	PyObject *oa, *ob;
 	PyObject *a, *b;
+	if(!segments_Segment_Check(self)) {
+		PyErr_SetObject(PyExc_TypeError, self);
+		return NULL;
+	}
 	if(!segments_Segment_Check(other)) {
 		PyErr_SetObject(PyExc_TypeError, other);
 		return NULL;
 	}
+	sa = PyTuple_GET_ITEM(self, 0);
+	sb = PyTuple_GET_ITEM(self, 1);
 	oa = PyTuple_GET_ITEM(other, 0);
 	ob = PyTuple_GET_ITEM(other, 1);
 	if((PyObject_Compare(sb, oa) <= 0) || (PyObject_Compare(sa, ob) >= 0)) {
@@ -258,14 +267,19 @@ static PyObject *__and__(PyObject *self, PyObject *other)
 
 static PyObject *__or__(PyObject *self, PyObject *other)
 {
-	PyObject *sa = PyTuple_GET_ITEM(self, 0);
-	PyObject *sb = PyTuple_GET_ITEM(self, 1);
+	PyObject *sa, *sb;
 	PyObject *oa, *ob;
 	PyObject *a, *b;
+	if(!segments_Segment_Check(self)) {
+		PyErr_SetObject(PyExc_TypeError, self);
+		return NULL;
+	}
 	if(!segments_Segment_Check(other)) {
 		PyErr_SetObject(PyExc_TypeError, other);
 		return NULL;
 	}
+	sa = PyTuple_GET_ITEM(self, 0);
+	sb = PyTuple_GET_ITEM(self, 1);
 	oa = PyTuple_GET_ITEM(other, 0);
 	ob = PyTuple_GET_ITEM(other, 1);
 	if((PyObject_Compare(sb, oa) < 0) || (PyObject_Compare(sa, ob) > 0)) {
@@ -293,14 +307,19 @@ static PyObject *__or__(PyObject *self, PyObject *other)
 
 static PyObject *__sub__(PyObject *self, PyObject *other)
 {
-	PyObject *sa = PyTuple_GET_ITEM(self, 0);
-	PyObject *sb = PyTuple_GET_ITEM(self, 1);
+	PyObject *sa, *sb;
 	PyObject *oa, *ob;
 	PyObject *a, *b;
+	if(!segments_Segment_Check(self)) {
+		PyErr_SetObject(PyExc_TypeError, self);
+		return NULL;
+	}
 	if(!segments_Segment_Check(other)) {
 		PyErr_SetObject(PyExc_TypeError, other);
 		return NULL;
 	}
+	sa = PyTuple_GET_ITEM(self, 0);
+	sb = PyTuple_GET_ITEM(self, 1);
 	oa = PyTuple_GET_ITEM(other, 0);
 	ob = PyTuple_GET_ITEM(other, 1);
 	if((PyObject_Compare(sb, oa) <= 0) || (PyObject_Compare(sa, ob) >= 0)) {

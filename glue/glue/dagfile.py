@@ -51,14 +51,15 @@ This parses the file-like object passed to it and returns an instance of
 the DAG class representing the file's contents.  Once loaded, the nodes in
 the DAG can all be found in the .nodes dictionary, whose keys are the node
 names and whose values are the corresponding node objects.  Among each node
-object's attributes are sets .children and .parents containing the child
-and parent nodes for each node.  Note that every node must appear listed as
-a parent of each of its children, and vice versa.  The other attributes of
-a DAG instance contain information about the DAG, for example the CONFIG
-file or the DOT file, and so on.  All of the data for each node in the DAG,
-for example the node's VARS value, its initial working directory, and so
-on, can be found in the attributes of the nodes themselves.  A DAG is
-written to a file using the .write() method of the DAG object.
+object's attributes are sets .children and .parents containing references
+to the child and parent nodes (not their names) for each node.  Note that
+every node must appear listed as a parent of each of its children, and vice
+versa.  The other attributes of a DAG instance contain information about
+the DAG, for example the CONFIG file or the DOT file, and so on.  All of
+the data for each node in the DAG, for example the node's VARS value, its
+initial working directory, and so on, can be found in the attributes of the
+nodes themselves.  A DAG is written to a file using the .write() method of
+the DAG object.
 """
 
 
@@ -284,6 +285,10 @@ class DAG(object):
 	information.
 	"""
 
+	#
+	# lines in DAG files
+	#
+
 	dotpat = re.compile(r'^DOT\s+(?P<filename>\S+)(\s+(?P<options>.+))?', re.IGNORECASE)
 	jobpat = re.compile(r'^JOB\s+(?P<name>\S+)\s+(?P<filename>\S+)(\s+DIR\s+(?P<directory>\S+))?(\s+(?P<noop>NOOP))?(\s+(?P<done>DONE))?', re.IGNORECASE)
 	datapat = re.compile(r'^DATA\s+(?P<name>\S+)\s+(?P<filename>\S+)(\s+DIR\s+(?P<directory>\S+))?(\s+(?P<noop>NOOP))?(\s+(?P<done>DONE))?', re.IGNORECASE)
@@ -301,6 +306,16 @@ class DAG(object):
 	configpat = re.compile(r'^CONFIG\s+(?P<filename>\S+)', re.IGNORECASE)
 	nodestatuspat = re.compile(r'^NODE_STATUS_FILE\s+(?P<filename>\S+)(\s+(?P<updatetime>\S+))?', re.IGNORECASE)
 	jobstatepat = re.compile(r'^JOBSTATE_LOG\s+(?P<filename>\S+)', re.IGNORECASE)
+
+	#
+	# lines in rescue DAG files
+	#
+
+	donepat = re.compile(r'^DONE\s+(?P<name>\S+)', re.IGNORECASE)
+
+	#
+	# methods
+	#
 
 	def __init__(self):
 		# node name --> JOB object mapping
@@ -326,6 +341,18 @@ class DAG(object):
 		self.node_status_file_updatetime = None
 		# filename or None
 		self.jobstate_log = None
+
+	def reindex(self):
+		"""
+		Rebuild the .nodes index.  This is required if the names of
+		nodes are changed.
+		"""
+		# the .nodes object has its contents replaced instead of
+		# building a new object so that if external code is holding
+		# a reference to it that code sees the new index as well
+		nodes = dict((node.name, node) for node in self.nodes.values())
+		self.nodes.clear()
+		self.nodes.update(nodes)
 
 	@classmethod
 	def parse(cls, f, progress = None):
@@ -354,7 +381,9 @@ class DAG(object):
 		progress = progress_wrapper(f, progress)
 		self = cls()
 		arcs = []
-		for line in f:
+		for n, line in enumerate(f):
+			# lines are counted from 1, enumerate counts from 0
+			n += 1
 			# progress
 			progress += 1
 			# skip comments and blank lines
@@ -544,6 +573,11 @@ class DAG(object):
 		objects, make a deepcopy of the object that is returned
 		(see the copy module in the Python standard library for
 		more information).
+
+		Example:
+
+		>>> import copy
+		>>> dag = copy.deepcopy(DAG.select_nodes_by_name(dag, names_to_rerun | dag.get_all_parent_names(names_to_rerun)))
 		"""
 		self = cls()
 		self.nodes = dict((name, node) for name, node in dag.nodes.items() if name in nodenames)
@@ -560,9 +594,9 @@ class DAG(object):
 
 	def get_all_parent_names(self, names):
 		"""
-		Trace the DAG backward from the nodes whose names are
-		given, to the head nodes, and return the set of the names
-		of all nodes visited.
+		Trace the DAG backward from the parents of the nodes whose
+		names are given to the head nodes, inclusively, and return
+		the set of the names of all nodes visited.
 
 		Example:
 
@@ -578,9 +612,9 @@ class DAG(object):
 
 	def get_all_child_names(self, names):
 		"""
-		Trace the DAG forward from the nodes whose names are given,
-		to the leaf nodes, and return the set of the names of all
-		nodes visited.
+		Trace the DAG forward from the children of the nodes whose
+		names are given to the leaf nodes, inclusively, and return
+		the set of the names of all nodes visited.
 
 		Example:
 
@@ -625,10 +659,72 @@ class DAG(object):
 				if parent not in nodes:
 					raise ValueError("node %s has parent %s that is not in DAG" % (node.name, parent.name))
 
-	def write(self, f, progress = None):
+	def load_rescue(self, f, progress = None):
+		"""
+		Parse the file-like object f as a rescue DAG, using the
+		DONE lines therein to set the job states of this DAG.
+
+		In the past, rescue DAGs were full copies of the original
+		DAG with the word DONE added to the JOB lines of completed
+		jobs.  In version 7.7.2 of Condor, the default format of
+		rescue DAGs was changed to a condensed format consisting of
+		only the names of completed jobs and the number of retries
+		remaining for incomplete jobs.  Currently Condor still
+		supports the original rescue DAG format, but the user must
+		set the DAGMAN_WRITE_PARTIAL_RESCUE config variable to
+		false to obtain one.  This module does not directly support
+		the new format, however this method allows a new-style
+		rescue DAG to be parsed to set the states of the jobs in a
+		DAG.  This, in effect, converts a new-style rescue DAG to
+		an old-style rescue DAG, allowing the result to be
+		manipulated as before.
+
+		If the progress argument is not None, it should be a
+		callable object.  This object will be called periodically
+		and passed the f argument, the current line number, and a
+		boolean indicating if parsing is complete.  The boolean is
+		always False until parsing is complete, then the callable
+		will be invoked one last time with the final line count and
+		the boolean set to True.
+		"""
+		# set all jobs to "not done"
+		for job in self.nodes.values():
+			job.done = False
+		# now load rescue DAG, updating done and retries states
+		progress = progress_wrapper(f, progress)
+		for n, line in enumerate(f):
+			# lines are counted from 1, enumerate counts from 0
+			n += 1
+			# progress
+			progress += 1
+			# skip comments and blank lines
+			line = line.strip()
+			if not line or line.startswith("#"):
+				continue
+			# DONE ...
+			m = self.donepat.search(line)
+			if m is not None:
+				self.nodes[m.group("name")].done = True
+				continue
+			# RETRY ...
+			m = self.retrypat.search(line)
+			if m is not None:
+				node = self.nodes[m.group("name")]
+				node.retry = int(m.group("retries"))
+				node.retry_unless_exit_value = m.group("retry_unless_exit_value")
+				continue
+			# error
+			raise ValueError("line %d: invalid line in rescue file: %s" % (n, line))
+		# progress
+		del progress
+
+	def write(self, f, progress = None, rescue = None):
 		"""
 		Write the DAG to the file-like object f.  The object must
-		provide a .write() method.
+		provide a .write() method.  In the special case that the
+		optional rescue argument is not None (see below) then f can
+		be set to None and no DAG file will be written (just the
+		rescue DAG will be written).
 
 		If the progress argument is not None, it should be a
 		callable object.  This object will be called periodically
@@ -653,8 +749,32 @@ class DAG(object):
 		DAGs constructed by the .select_nodes_by_name() class
 		method.  If one wishes to check for broken parent/child
 		links before writing the DAG use the .check_edges() method.
+
+		If the optional rescue argument is not None, it must be a
+		file-like object providing a .write() method and the DONE
+		state of jobs will be written to this file instead of the
+		.dag (in the .dag all jobs will be marked not done).
+
+		Example:
+
+		>>> dag.write(open("pipeline.dag", "w"), rescue = open("pipeline.dag.rescue001", "w"))
+
+		NOTE:  it is left as an exercise for the calling code to
+		ensure the name chosen for the rescue file is consistent
+		with the naming convention assumed by condor_dagman when it
+		starts up.
 		"""
+		# initialize proegress report wrapper
 		progress = progress_wrapper(f, progress)
+
+		# if needed, create a dummy object to allow .write() method
+		# calls
+		if f is None and rescue is not None:
+			class nofile(object):
+				def write(self, *args):
+					pass
+			f = nofile()
+
 		# DOT ...
 		if self.dot is not None:
 			f.write("DOT %s" % self.dot)
@@ -695,7 +815,16 @@ class DAG(object):
 
 		# JOB/DATA/SUBDAG ... (and things that go with them)
 		for name, node in sorted(self.nodes.items()):
+			if rescue is not None:
+				if node.done:
+					rescue.write("DONE %s\n" % node.name)
+				# save done state, then clear
+				done = node.done
+				node.done = False
 			node.write(f, progress = progress)
+			if rescue is not None:
+				# restore done state
+				node.done = done
 
 		# PARENT ... CHILD ...
 		names = set(self.nodes)

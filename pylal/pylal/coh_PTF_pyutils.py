@@ -24,7 +24,7 @@ import glob
 import math
 import re
 
-from pylal import grbsummary, antenna, llwapp, InspiralUtils, SimInspiralUtils
+from pylal import grbsummary, antenna, InspiralUtils, SimInspiralUtils
 from pylal.xlal.constants import LAL_PI, LAL_MTSUN_SI
 
 from glue import segmentsUtils
@@ -145,6 +145,7 @@ def calculate_contours(q=4.0, n=3.0, null_thresh=6., null_grad_snr=20,\
             null_cont.append(null_thresh + (snr-null_grad_snr)*null_grad_val)
         else:
             null_cont.append(null_thresh)
+    null_cont = numpy.asarray(null_cont)
 
     return bank_conts,auto_conts,chi_conts,null_cont,snr_vals,colors
 
@@ -243,7 +244,7 @@ def append_process_params(xmldoc, args, version, date):
 
     # build and seed process params
     progName = args[0]
-    process = llwapp.append_process(xmldoc, program=progName,
+    process = ligolw_process.append_process(xmldoc, program=progName,
                                     version=version, cvs_repository='lscsoft',
                                     cvs_entry_time=date)
     params = []
@@ -371,6 +372,35 @@ def apply_snr_veto(mi_table, snr=6.0, return_index=False):
         return out
 
 
+def apply_chisq_veto(mi_table, snr=6.0, chisq_index=4.0, return_index=False):
+    """Veto events in a MultiInspiralTable based on their \f$\chi^2\f$
+    re-weighted coherent SNR.
+
+    @param mi_table
+        a MultiInspiralTable from which to veto events
+    @param snr
+        the value of coherent new SNR on which to threshold
+    @param chisq_index
+        the index \f$\iota\f$ used in the newSNR calculation:
+        \f[\rho_{\mbox{new}} =
+            \frac{\rho}{\left[\frac{1}{2}
+                \left(1 + \left(\frac{\chi^2}{n_\mbox{dof}}\right)^{\iota/3}
+                \right)\right]^{1/\iota}}
+        \f]
+    @param return_index
+        boolean to return the index array of non-vetoed elements rather
+        than a new table containing the elements themselves
+    """
+    new_snr = numpy.asarray(mi_table.get_new_snr(column="chisq"))
+    keep = new_snr >= snr
+    if return_index:
+        return keep
+    else:
+        out = table.new_from_template(mi_table)
+        out.extend(numpy.asarray(mi_table)[keep])
+        return out
+
+
 def apply_bank_veto(mi_table, snr=6.0, chisq_index=4.0, return_index=False):
     """Veto events in a MultiInspiralTable based on their bank chisq-
     weighted (new) coherent SNR.
@@ -455,38 +485,36 @@ def apply_sngl_snr_veto(mi_table, snrs=[4.0, 4.0], return_index=False):
         the indices of the original mi_table not vetoed if return_index=True
     """
     if len(mi_table) == 0:
-        return mi_table
+        if return_index:
+            return numpy.zeros(0).astype(bool)
+        else:
+            return mi_table
     # parse table
     ifos = lsctables.instrument_set_from_ifos(mi_table[0].ifos)
-    mi_time = numpy.asarray(mi_table.get_end()).astype(float)
-    mi_ra = numpy.asarray(mi_table.get_column("ra"))
-    mi_dec = numpy.asarray(mi_table.get_column("dec"))
-    mi_sngl_snr = numpy.asarray([numpy.asarray(mi_table.get_sngl_snr(ifo)) for
-                                 ifo in ifos])
-    mi_sigmasq = numpy.asarray([numpy.asarray(mi_table.get_sigmasq(ifo)) for
-                                ifo in ifos])
-    # make sure number of thresholds is relevant
+    if "H1" in ifos and "H2" in ifos:
+        ifos.remove("H2")
+    mi_sngl_snr = numpy.asarray([numpy.asarray(mi_table.get_sngl_snr(ifo))
+                                 for ifo in ifos])
     if len(snrs) > len(ifos):
         raise ValueError("%s single-detector thresholds given, but only %d "
                          "detectors found." % (len(snrs), len(ifos)))
-    # find most sensitive detectors for each event
-    sens = numpy.zeros((len(ifos), len(mi_table)))
-    keep = numpy.ones(len(mi_table)).astype(bool)
-    for i,ifo in enumerate(ifos):
-        sens[i,:] = map(lambda t: antenna.response(mi_time[t], mi_ra[t],
-                                                   mi_dec[t], 0, 0, "radians",
-                                                   ifo)[2],
-                        range(len(mi_table))) * mi_sigmasq[i,:]
-    sens_ifo = sens.argsort(axis=0)[::-1][:sens.shape[0]]
-    for i,snr in enumerate(snrs):
-        keep &= (mi_sngl_snr[sens_ifo[i,:],
-                 numpy.arange(sens.shape[1])] >= snr)
+    # set snrs
+    snr_array = numpy.zeros(len(ifos))
+    snr_array[:len(snrs)] = snrs
+    snr_array.sort()
+
+    # order sngl_snrs for each event
+    mi_sngl_snr.sort(axis=0)
+
+    # test thresholds
+    keep = (mi_sngl_snr.T > snr_array).all(axis=1)
     if return_index:
         return keep
     else:
         out = table.new_from_template(mi_table)
         out.extend(numpy.asarray(mi_table)[keep])
         return out
+
 
 def apply_null_snr_veto(mi_table, null_snr=6.0, snr=20.0, grad=0.2,\
                         return_index=False):

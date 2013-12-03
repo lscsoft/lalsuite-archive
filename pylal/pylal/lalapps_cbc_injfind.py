@@ -42,11 +42,12 @@ import sys
 
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import ligolw_thinca
 from pylal import ligolw_rinca
-from pylal import llwapp
+from pylal import ligolw_tisi
 from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal.xlal import tools
@@ -133,7 +134,7 @@ class DocContents(object):
 		# indicate time slide at which the injection was done
 		#
 
-		self.tisi_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(self.sngltable.getColumnByName("ifo"), 0.0), create_new = process)
+		self.tisi_id = ligolw_tisi.get_time_slide_id(xmldoc, {}.fromkeys(self.sngltable.getColumnByName("ifo"), 0.0), create_new = process)
 
 		#
 		# get coinc_definer row for sim_type <--> sngl_type
@@ -141,7 +142,7 @@ class DocContents(object):
 		# document doesn't have one
 		#
 
-		self.sb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, sbdef.search, sbdef.search_coinc_type, create_new = True, description = sbdef.description)
+		self.sb_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, sbdef.search, sbdef.search_coinc_type, create_new = True, description = sbdef.description)
 
 		#
 		# get coinc_def_id's for sngl_type <--> sngl_type, and
@@ -151,12 +152,12 @@ class DocContents(object):
 		#
 
 		try:
-			bb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, bbdef.search, bbdef.search_coinc_type, create_new = False)
+			bb_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, bbdef.search, bbdef.search_coinc_type, create_new = False)
 		except KeyError:
 			bb_coinc_def_id = None
 			self.scn_coinc_def_id = None
 		else:
-			self.scn_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scndef.search, scndef.search_coinc_type, create_new = True, description = scndef.description)
+			self.scn_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, scndef.search, scndef.search_coinc_type, create_new = True, description = scndef.description)
 
 		#
 		# get coinc table, create one if needed
@@ -229,10 +230,10 @@ class DocContents(object):
 		# this it is *impossible* for them to match one another.
 		#
 
- 		# FIXME I'll just make the windows 15 ms
+ 		# FIXME I'll just make the windows 1.0 s
 
-                self.search_time_window = .015
-                self.coinc_time_window = .015
+                self.search_time_window = 1.0
+                self.coinc_time_window = 1.0
 
 
 	def type_near_time(self, t):
@@ -295,7 +296,7 @@ def append_process(xmldoc, match_algorithm, comment):
 	"""
 	Convenience wrapper for adding process metadata to the document.
 	"""
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
+	process = ligolw_process.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [(u"--match-algorithm", u"lstring", match_algorithm)]
 	ligolw_process.append_process_params(xmldoc, process, params)
@@ -505,29 +506,29 @@ def lalapps_cbc_injfind(xmldoc, process, search, snglcomparefunc, nearcoinccompa
 		except ValueError:
 			print >>sys.stderr,"No SimInspiralTable, only SimRingdownTable present"
 			insp_simtable = None
-	if insp_simtable is not None:
-		if verbose:
-			print >> sys.stderr, "found SimInspiralTable, creating maps to SimRingdownTable"
-		# create an index of the sim_ringdown geocent_start_times
-		sim_ring_time_map = dict([ [(str(row.process_id), row.geocent_start_time), str(row.simulation_id)] for row in contents.simtable])
-		# create an index of the sim_ringdown's coinc_event_ids
-		sim_ring_ceid_map = dict([ [str(row.event_id), row.coinc_event_id] for row in contents.coincmaptable if row.table_name == "sim_ringdown" ])
-		# cycle over the sim_inspiral table, creating the maps
-		for this_sim_insp in insp_simtable:
-			if (str(this_sim_insp.process_id), this_sim_insp.geocent_end_time) in sim_ring_time_map:
-				this_sim_ring_id = sim_ring_time_map[( str(this_sim_insp.process_id), this_sim_insp.geocent_end_time )]
-			else:
-				continue
-			if str(this_sim_ring_id) in sim_ring_ceid_map:
-				this_ceid = sim_ring_ceid_map[ str(this_sim_ring_id) ]
-			else:
-				continue
-			# add to the coinc_event_map table
-			new_mapping = lsctables.CoincMap()
-			new_mapping.table_name = "sim_inspiral"
-			new_mapping.event_id = this_sim_insp.simulation_id
-			new_mapping.coinc_event_id = this_ceid
-			contents.coincmaptable.append(new_mapping)
+		if insp_simtable is not None:
+			if verbose:
+				print >> sys.stderr, "found SimInspiralTable, creating maps to SimRingdownTable"
+			# create an index of the sim_ringdown geocent_start_times
+			sim_ring_time_map = dict([ [(str(row.process_id), row.geocent_start_time), str(row.simulation_id)] for row in contents.simtable])
+			# create an index of the sim_ringdown's coinc_event_ids
+			sim_ring_ceid_map = dict([ [str(row.event_id), row.coinc_event_id] for row in contents.coincmaptable if row.table_name == "sim_ringdown" ])
+			# cycle over the sim_inspiral table, creating the maps
+			for this_sim_insp in insp_simtable:
+				if (str(this_sim_insp.process_id), this_sim_insp.geocent_end_time) in sim_ring_time_map:
+					this_sim_ring_id = sim_ring_time_map[( str(this_sim_insp.process_id), this_sim_insp.geocent_end_time )]
+				else:
+					continue
+				if str(this_sim_ring_id) in sim_ring_ceid_map:
+					this_ceid = sim_ring_ceid_map[ str(this_sim_ring_id) ]
+				else:
+					continue
+				# add to the coinc_event_map table
+				new_mapping = lsctables.CoincMap()
+				new_mapping.table_name = "sim_inspiral"
+				new_mapping.event_id = this_sim_insp.simulation_id
+				new_mapping.coinc_event_id = this_ceid
+				contents.coincmaptable.append(new_mapping)
 
 	#
 	# Restore the original event order.

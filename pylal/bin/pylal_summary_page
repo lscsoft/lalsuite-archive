@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python -u
 
 # Copyright (C) 2012 Duncan M. Macleod
 #
@@ -18,9 +18,8 @@
 
 """Interferometer summary information generator.
 
-This script generates a
-nested web page and content for reviewing interferometer performance
-and status.
+This script generates a nested web page and content for
+reviewing interferometer performance and status.
 
 Comments should be e-mailed to detchar+code@ligo.org.
 Bugs should be noted at https://bugs.ligo.org/redmine/projects/detchar/.
@@ -44,6 +43,10 @@ import getpass
 import numpy
 import inspect
 import glob
+import math
+import operator
+import warnings
+warnings.filterwarnings("ignore", "column name", UserWarning)
 
 from scipy import (stats, signal)
 from dateutil.relativedelta import relativedelta
@@ -52,13 +55,19 @@ if not os.getenv("DISPLAY", None):
     import matplotlib
     matplotlib.use("agg", warn=False)
 
+from collections import defaultdict
+from matplotlib import pyplot
+
 # import SwigLAL modules
 import lal
 import lalframe
 import lalsimulation
+import lalburst
 
 # import laldetchar
-from laldetchar.triggers import (omega, kw)
+import laldetchar
+from laldetchar import triggers
+from laldetchar.triggers import (omega, kw, daily_ihope, excesspower, trigfind)
 
 # import PyLAL modules
 from pylal import (git_version, seriesutils, plotutils, htmlutils,
@@ -67,15 +76,16 @@ from pylal import (git_version, seriesutils, plotutils, htmlutils,
 from pylal.dq import (dqSegmentUtils, dqTriggerUtils, stateutils, summary)
 
 # import GLUE modules
-from glue import (segmentsUtils, markup, GWDataFindClient, gpstime)
+from glue import (segmentsUtils, markup, datafind, gpstime)
 from glue.lal import Cache, CacheEntry
-from glue.ligolw import (ligolw, lsctables, table, utils as ligolw_utils)
+from glue.LDBDWClient import LDBDClientException
+from glue.ligolw import (ilwd, ligolw, lsctables, table, utils as ligolw_utils)
 from glue.segmentdb import segmentdb_utils
 from glue.segments import (segment as Segment, segmentlist as SegmentList,
                            segmentlistdict as SegmentListDict)
 
 # set metadata
-__author__  = "Duncan M. Macleod <duncan.macleod@ligo.org>"
+__author__  = "Duncan Macleod <duncan.macleod@ligo.org>"
 __version__ = git_version.id
 __date__    = git_version.date
 
@@ -90,6 +100,10 @@ LIGOTimeGPS = lal.LIGOTimeGPS
 re_cchar = re.compile("[\W_]+")
 re_state = re.compile("run-\w+-time")
 re_xml = re.compile("(xml|xml.gz)\Z")
+re_etg_kw = re.compile("\A(kw|kleinewelle)\Z", re.I)
+re_etg_omega = re.compile("\Aomega\Z", re.I)
+re_etg_di = re.compile("\Adaily*ihope\Z", re.I)
+re_etg_ep = re.compile("\A(ep|excesspower|gstlal_excesspower)\Z", re.I)
 
 # set plot formatting
 plotutils.set_rcParams()
@@ -97,7 +111,7 @@ plotutils.set_rcParams()
 
 #
 # =============================================================================
-# 
+#
 # utility functions
 #
 # =============================================================================
@@ -299,7 +313,7 @@ def parse_plot_section(cp, section, params):
         params.pop("xaxis", None)
         params.pop("yaxis", None)
         params.pop("coloraxis", None)
-    
+
     return params
 
 
@@ -349,12 +363,17 @@ def parse_tab_states(statelist, cp, sec):
     if len(runstates) == 0:
         runstates = ["all"]
     tabstatelist = list()
-    for state in statelist:
-        for i,runstate in enumerate(runstates):
+    for i,runstate in enumerate(runstates):
+        found = False
+        for state in statelist:
             if state.match(re_cchar.sub("_", runstate).lower()):
                 tabstatelist.append(state)
-                runstates.pop(i)
+                found = True
                 break
+        if not found:
+            raise ValueError("Run state '%s' not found in configuration"
+                             % runstate)
+
     return tabstatelist
 
 
@@ -448,8 +467,7 @@ def PyLALAddVectorSequence(*args):
     """
     datatype = seriesutils.typecode(type(args[0]))
     TYPESTR  = seriesutils._typestr[datatype]
-
-    data = numpy.concatenate(*(arg.data for arg in args), axis=0)
+    data = numpy.concatenate([arg.data for arg in args], axis=0)
     CreateVectorSequence = getattr(lal, "Create%sVectorSequence" % TYPESTR)
     out = CreateVectorSequence(*data.shape)
     out.data = data
@@ -499,15 +517,22 @@ def zpkresponse(zeros, poles, gain, f0=0, deltaF=1, length=100):
     @param f0
         minimum frequency
     @param deltaF
-        frequency step 
+        frequency step
     @param length
         number of frequency points to return
     """
-    lti   = signal.lti(numpy.asarray(zeros), numpy.asarray(poles), gain)
-    f     = (numpy.arange(length)*deltaF + f0)
-    fresp = map(lambda w: numpy.polyval(lti.num, w*1j)/\
-                          numpy.polyval(lti.den, w*1j), f)
-    fresp = numpy.asarray(fresp)
+    f = (numpy.arange(length)*deltaF + f0)
+    if not zeros or poles:
+        return numpy.ones_like(f) * gain
+    else:
+        lti   = signal.lti(numpy.asarray(zeros), numpy.asarray(poles), gain)
+        try:
+            fresp = map(lambda w: numpy.polyval(lti.num, w*1j)/\
+                                  numpy.polyval(lti.den, w*1j), f)
+        except TypeError:
+            fresp = map(lambda w: numpy.polyval(lti.num, w*1j)/\
+                                  numpy.polyval([lti.den], w*1j), f)
+        fresp = numpy.asarray(fresp)
     return abs(fresp)
 
 
@@ -515,7 +540,7 @@ def PyLALConcatenateTimeSeries(*serieslist, **kwargs):
     """@returns a new TimeSeries by contatenating the inputs.
 
     @param serieslist
-        all TimeSeries objects to concatenate 
+        all TimeSeries objects to concatenate
     """
     if len(serieslist) == 0:
         name = kwargs.pop("name", None)
@@ -550,20 +575,19 @@ def PyLALConcatenateTimeSeries(*serieslist, **kwargs):
 
     # loop over data appending in place
     tarray = numpy.arange(series.data.length) * deltaT + float(epoch)
-    
+
     idx = 0
     idx2 = 0
     for timeseries in serieslist:
        tepoch = float(epoch) + (float(timeseries.epoch-epoch)//deltaT*deltaT)
        idx  = numpy.nonzero(tarray==tepoch)[0][0]
        idx2 = idx + timeseries.data.length
-       if idx2 > series.data.length:
-           series.data.data[idx:] = timeseries.data.data
-       else:
-           series.data.data[idx:idx+timeseries.data.length] =\
-               timeseries.data.data
+       try:
+           series.data.data[idx:idx2] = timeseries.data.data
+       except ValueError as e:
+           warnings.warn("Caught ValueError: %s" % e)
+           break
        idx = idx2
-
     return series
 
 def parse_data_config(cp, cpsec, channels, prefix=""):
@@ -652,7 +676,10 @@ def parse_data_config(cp, cpsec, channels, prefix=""):
 
     # load spectr(um/ogram) params
     for p in ["time-step", "segment-length", "segment-overlap"]:
-        if cp.has_option(cpsec, "spectrum-%s" % p):
+        if numchannels == 1 and cp.has_section(channels[0]) and \
+                cp.has_option(channels[0], p):
+            x = cp.getfloat(channels[0], p)
+        elif cp.has_option(cpsec, "spectrum-%s" % p):
             x = cp.getfloat(cpsec, "spectrum-%s" % p)
         elif cp.has_option("spectrum", p):
             x = cp.getfloat("spectrum", p)
@@ -664,7 +691,7 @@ def parse_data_config(cp, cpsec, channels, prefix=""):
     return out
 #
 # =============================================================================
-# 
+#
 # data-acquisition functions
 #
 # =============================================================================
@@ -687,7 +714,17 @@ def get_segments(cp, flag, segment_summary, cache=None, buffer_=0, query=True):
          load new segments from SegDB or cache (True) or load only
          from existing global memory (False), default: True
     """
-    query_summary = segment_summary - G_SEGMENT_SUMMARY.get(flag, SegmentList())
+    global G_SEGMENTS, G_SEGMENT_SUMMARY
+
+    if isinstance(flag, basestring):
+        flags = flag.split(',')
+    else:
+        flags = flag
+
+    query_summary = (segment_summary -
+                     reduce(operator.and_,
+                            [G_SEGMENT_SUMMARY.get(f, SegmentList())
+                             for f in flags]))
     # FIXME: remove when SegmentLists play with lal.LIGOTimeGPS
     query_summary = SegmentList([Segment(map(float, seg)) for
                                    seg in query_summary])
@@ -696,7 +733,8 @@ def get_segments(cp, flag, segment_summary, cache=None, buffer_=0, query=True):
     if query:
         query_summary &= SegmentList([Segment(query_summary[0][0],
                                               float(lal.GPSTimeNow()))])
-        
+    new_segments = []
+    new_summary = []
     if query:
         # get cache
         if cache is not None:
@@ -712,46 +750,64 @@ def get_segments(cp, flag, segment_summary, cache=None, buffer_=0, query=True):
 
         # load segments from cache
         if segcache is not None:
-            desc = re_cchar.sub("_", parse_flag(name(flag)[1]))
-            segcache = segcache.sieve(segmentlist=query_summary,
-                                      description=desc)
-            new = read_segment_cache(segcache) & query_summary
-            print_verbose("Loaded %d new segments from cache for %s.\n"
-                          % (len(new), flag))
+            for f in flags:
+                desc = re_cchar.sub("_", parse_f(name(f)[1]))
+                segcache = segcache.sieve(segmentlist=query_summary,
+                                          description=desc)
+                new_segments.append(read_segment_cache(segcache) &
+                                    query_summary)
+                print_verbose("Loaded %d new segments from cache for %s.\n"
+                              % (len(new_segments[-1]), f))
         # load segments from the segment database
         else:
             qstart, qend = query_summary.extent()
-            new, new_summary = dqSegmentUtils.grab_segments(
-                                   qstart, qend, flag, segment_url,
-                                   segment_summary=True)
-            query_summary = new_summary
-            print_verbose("Loaded %d new segments from %s for %s.\n"
-                          % (len(new), segment_url, flag),
-                          verbose=abs(new_summary))
+            try: # FIXME: consider removing
+                new_segments, new_summary = dqSegmentUtils.grab_segments(
+                                               qstart, qend, flags, segment_url,
+                                               segment_summary=True)
+            except LDBDClientException as e:
+                print_verbose("WARNING: Caught LDBDClientException: %s\n" % e,
+                              stream=sys.stderr)
+                print_verbose("No segments have been loaded, but processing "
+                              "will continue.\n", stream=sys.stderr)
+                new_segments = new_summary = [SegmentList()]*len(flags)
+            for i,f in enumerate(flags):
+                print_verbose("Loaded %d new segments from %s for %s.\n"
+                              % (len(new_segments[i]), segment_url, f),
+                              verbose=query or abs(new_summary[i]))
     else:
-        new = SegmentList()
+        new_segments = [SegmentList()]*len(flags)
+        new_summary = [G_SEGMENT_SUMMARY.get(f, SegmentList()) for f in flags]
+
 
     # apply buffer
     if buffer_:
-        new = new.contract(buffer_)
+        new_segments = [sl.contract(buffer_) for sl in new_segments]
 
     # record these segments
-    if G_SEGMENTS.has_key(flag):
-        G_SEGMENT_SUMMARY[flag] += query_summary
-        G_SEGMENTS[flag] += new
-    else:
-        G_SEGMENT_SUMMARY[flag] = query_summary
-        G_SEGMENTS[flag]  = new
-    G_SEGMENT_SUMMARY[flag].coalesce()
-    G_SEGMENTS[flag].coalesce()
+    for f,new_segs,new_summ in zip(flags, new_segments, new_summary):
+        if G_SEGMENTS.has_key(f):
+            G_SEGMENT_SUMMARY[f] += new_summ
+            G_SEGMENTS[f] += new_segs
+        else:
+            G_SEGMENT_SUMMARY[f] = new_summ
+            G_SEGMENTS[f]  = new_segs
+        G_SEGMENT_SUMMARY[f].coalesce()
+        G_SEGMENTS[f].coalesce()
 
-    # return the required segments
-    out = segment_summary & G_SEGMENTS[flag]
-    if len(out):
-        minlength = (cp.has_option("segfind", "minimum-segment-length") and
-                     cp.getfloat("segfind", "minimum-segment-length") or 0)
-        out = type(out)([seg for seg in out if float(abs(seg)) >= minlength])
-    return out
+    out = []
+    for f in flags:
+        # return the required segments
+        out.append(segment_summary & G_SEGMENTS[f])
+        if len(out) and f != 'G1:HVETO:1':
+            minlength = (cp.has_option("segfind", "minimum-segment-length") and
+                         cp.getfloat("segfind", "minimum-segment-length") or 0)
+            out[-1] = type(out[-1])([seg for seg in out[-1] if
+                                 float(abs(seg)) >= minlength])
+    if isinstance(flag, basestring): 
+        return out[0]
+    else:
+        return out
 
 
 def get_state_segments(cp, state, veto_def_table, mode=0):
@@ -781,40 +837,44 @@ def get_state_segments(cp, state, veto_def_table, mode=0):
         vetoes = []
         for i,key in enumerate(keys):
             # get veto bit
-            append = key.startswith("-") and vetoes.append or flags.append
+            append = (key.startswith("-") or (i!=0 and divs[i-1] == "!") ) \
+                and vetoes.append or flags.append
             if key.lower() == "vetoes":
-                for v in veto_def_table:
-                    flag = "%s:%s:%d" % (v.ifo, v.name, v.version)
-                    append(flag)
-            elif re.match("cat/d", key, re.I):
-                cat = int(key[4])
-                for v in veto_def_table:
-                    if v.category == cat:
+                if veto_def_table:
+                    for v in veto_def_table:
                         flag = "%s:%s:%d" % (v.ifo, v.name, v.version)
                         append(flag)
-            elif re.match("ccat\d", key, re.I):
-                cat = int(key[4])
-                for v in veto_def_table:
-                    if v.category <= cat:
-                        flag = "%s:%s:%d" % (v.ifo, v.name, v.version)
-                        append(flag)
+            elif re.match("cat/d", key, re.I): 
+                if veto_def_table:
+                    cat = int(key[4])
+                    for v in veto_def_table:
+                        if v.category == cat:
+                            flag = "%s:%s:%d" % (v.ifo, v.name, v.version)
+                            append(flag)
+            elif re.match("ccat\d", key, re.I) :
+                if veto_def_table:
+                    cat = int(key[4])
+                    for v in veto_def_table:
+                        if v.category <= cat:
+                            flag = "%s:%s:%d" % (v.ifo, v.name, v.version)
+                            append(flag)
             else:
                 append(key)
         # read new segments
         newsegs = seg_sum_list
         for flag in vetoes:
+            # FIXME, hey! padding from the veto definer file is missing?!
             if not state.set:
                 load_archive_segments(cp, flag, seg_sum_list, mode=mode)
             newsegs -= get_segments(cp, flag, seg_sum_list)
         for flag in flags:
             if not state.set:
                 load_archive_segments(cp, flag, seg_sum_list, mode=mode)
-            get_segments(cp, flag, seg_sum_list)
             newsegs &= get_segments(cp, flag, seg_sum_list)
-        state.segments += newsegs
+        state.segments = newsegs
     else:
         # otherwise use all time
-        state.segments += seg_sum_list
+        state.segments = seg_sum_list
     # set state-specific variables restrictions
     cpsec = "state-%s" % (state.name)
     if cp.has_section(cpsec):
@@ -823,7 +883,6 @@ def get_state_segments(cp, state, veto_def_table, mode=0):
             if cp.has_option(cpsec, param):
                 setattr(state, param.replace("-", "_"),
                         cp.getfloat(cpsec, param))
-
     # apply minimum segment length
     state.segments.contract(state.segment_buffer)
     if state.minimum_segment_length:
@@ -835,7 +894,7 @@ def get_state_segments(cp, state, veto_def_table, mode=0):
 
 
 def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
-                 format="xml", query=True):
+                 query=True, **trigfind_args):
     """@returns a LIGOLw Table of triggers for the given channel
 
     @param cp
@@ -853,6 +912,8 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
     @param query
         search for new triggers (True), or find in memory (False)
     """
+    global G_TRIGGERS, G_CLUSTERED_TRIGGERS
+    etg = etg.lower()
     # add keys to global memory holder
     if not G_TRIGGERS.has_key(etg):
         G_TRIGGERS[etg] = dict()
@@ -863,11 +924,33 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
     if not G_CLUSTERED_TRIGGERS[etg].has_key(channel):
         G_CLUSTERED_TRIGGERS[etg][channel] = dict()
 
+    # get job latency
+    etgsec = re_cchar.sub("-", etg.lower())
+    if cp.has_option(etgsec, "latency"):
+        latency = cp.getfloat(etgsec, "latency")
+    else:
+        latency = 0
+
+    # get columns
+    columns = (cp.has_option(etgsec, "table-columns") and
+               cp.get(etgsec, "table-columns").split(",") or None)
+    if columns:
+        required = ["process_id", "search", "channel"]
+        for col in required:
+            if col not in columns:
+                columns.append(col)
+
     # construct query segments
-    query_segments = segment_list - SegmentList(G_TRIGGERS[etg][channel].keys())
+    span = SegmentList([Segment(0, NOW-latency)])
+    if cluster:
+        cachedSegments = SegmentList(G_CLUSTERED_TRIGGERS[etg][channel].keys()).coalesce()
+    else:
+        cachedSegments = SegmentList(G_TRIGGERS[etg][channel].keys()).coalesce()
+    query_segments = ((segment_list & span) - cachedSegments)
     query &= abs(query_segments) != 0
 
     if query:
+        span = query_segments.extent()
         # get cache
         if (not cp.has_option(etg.lower(), "skip-cache-file") and
                 cp.has_option("trigfind", "trigger-cache")):
@@ -879,49 +962,73 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
         ifo = channel.split(":",1)[0]
         etgsec = re_cchar.sub("-", etg.lower())
 
-        # get columns
-        columns = (cp.has_option(etgsec, "table-columns") and
-                   cp.get(etgsec, "table-columns").split(",") or None)
-        if columns:
-            required = ["search", "channel"]
-            for col in required:
-                if col not in columns:
-                    columns.append(col)
-    
+        trigtable = triggers.utils.new_ligolw_table(etg, columns=columns)
+
         # find trigger files
         if trigcache is not None:
             desc  = ("%s*%s"
                      % (re_cchar.sub("*", channel.split(':',1)[1].upper()),
                         etg))
             trigcache = trigcache.sieve(description=desc)
-        elif etg.lower() is not "hacr":
-            if etg.lower() == "dmtomega":
-                trigcache = omegautils.find_dmt_cache(span[0], span[1], ifo)
-            elif etg.lower() == "omega":
-                trigcache = omegautils.get_cache(span[0], span[1], ifo)
-            elif etg.lower() == "omegaspectrum":
-                trigcache = omegautils.get_spectrum_cache(span[0], span[1], ifo)
-            elif etg.lower() == "kw":
-                trigcache = kw.find_dmt_cache(span[0], span[1], ifo,
-                                               format=format)
+        elif etg.lower() != "hacr":
+            if etg.lower() in ['dmtomega', 'excesspower', 'omicron',
+                               'kw', 'kleinewelle']:
+                trigcache = trigfind.find_trigger_urls(channel, etg,
+                                                       span[0], span[1],
+                                                       **trigfind_args)
+            elif etg.lower() in ['omega', 'omegaspectrum']:
+                # get omega online cache parameters defaults
+                cachekwargs = dict()
+                if cp.has_option(etg.lower(), 'duration'):
+                    cachekwargs['duration'] = float(cp.get(etg.lower(),
+                                                           'duration'))
+                if cp.has_option(etg.lower(),'overlap'):
+                    cachekwargs['overlap'] = float(cp.get(etg.lower(),
+                                                          'overlap'))
+
+                # overrid defaulte settings with channel specific if provided
+                if cp.has_section('%s' %  channel):
+                    if cp.has_option(channel,'duration'):
+                        cachekwargs['duration'] = float(cp.get(channel,
+                                                               'duration'))
+                    if cp.has_option(channel,'overlap'):
+                        cachekwargs['overlap'] = float(cp.get(channel,
+                                                              'overlap'))
+              
+                # get cache
+                if etg.lower() == "omega":
+                    trigcache = omegautils.get_cache(span[0], span[1], ifo,
+                                                     channel, **cachekwargs)
+                elif etg.lower() == "omegaspectrum":
+                    trigcache = omegautils.get_cache(span[0], span[1], ifo,
+                                                     channel, mask='SPECTRUM',
+                                                     **cachekwargs)
+            elif etg.lower() in ["daily_ihope", "dailyihope", "ihopedaily",
+                                 "ihope_daily"]:
+                dicluster = (cp.has_option("daily_ihope", "clustering") and
+                             cp.get("daily_ihope", "clustering") or None)
+                trigcache = daily_ihope.find_daily_cache(
+                                span[0], span[1], ifo, clustering=dicluster,
+                                **trigfind_args)
             else:
                 raise NotImplementedError("A default file finder for %s has"
                                           "not been written yet." % etg)
 
         n = 0
         nc = 0
-        # load HACR triggers from database 
+        # load HACR triggers from database
         if not trigcache and etg.lower() == "hacr":
             host = cp.get("hacr", "host")
             # query once for the span
             trigtable = hacrutils.get_triggers(span[0], span[1], channel, host,
                                                columns=columns)
-            add_triggers(trigtable, channel, etg, span)
-            n += len(trigtable)
             if cluster:
                 trigtable = cluster_table(trigtable, cluster)
                 add_clustered_triggers(trigtable, channel, etg, span)
                 nc += len(trigtable)
+            else:
+                add_triggers(trigtable, channel, etg, span)
+                n += len(trigtable)
         # load files segment by segment in an attempt to speed up loading
         elif trigcache:
             trigcache,_ = trigcache.checkfilesexist(on_missing="warn")
@@ -929,34 +1036,38 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                 segcache = trigcache.sieve(segment=seg)
                 if len(segcache) == 0:
                     continue
-                if etg.lower() == "omega":
+                if etg.lower() == "omega" or etg.lower() == "omegaspectrum":
                     trigtable = omegautils.fromlalcache(segcache, start=seg[0],
-                                                        end=seg[1],
+                                                        end=seg[1],channel=channel,
                                                         columns=columns,
                                                         verbose=VERBOSE)
-                elif etg.lower() == "kw" or etg.lower() == "kleinewelle":
-                    trigtable = kw.from_lal_cache(segcache, start=seg[0],
-                                                  end=seg[1], ifo=ifo,
-                                                  channel=channel,
-                                                  columns=columns,
-                                                  verbose=VERBOSE)
+                elif etg.lower() in ['excesspower', 'daily_ihope', 'omicron']:
+                    trigtable = triggers.from_files(segcache, etg,
+                                                    columns=columns,
+                                                    start=seg[0], end=seg[1],
+                                                    verbose=VERBOSE)
                 else:
-                    trigtable = dqTriggerUtils.fromLALCache(segcache, etg=etg,
-                                                            start=seg[0],
-                                                            end=seg[1],
-                                                            columns=columns)
+                    trigtable = triggers.from_files(
+                                    segcache, etg, columns=columns,
+                                    channel=channel, start=seg[0], end=seg[1],
+                                    verbose=VERBOSE)
                 if etg.lower() == "excesspower":
                     for i,t in enumerate(trigtable):
                         if t.snr > 0:
                             trigtable[i].snr = t.snr**(1/2)
-                add_triggers(trigtable, channel, etg, seg)
-                n += len(trigtable)
+                        t.peak_frequency = t.central_freq
+                        t.set_ms_period(t.get_period())
+                        t.set_ms_band(t.get_band())
+                        t.ms_hrss = t.amplitude
+                        t.ms_snr = t.snr
+                        t.ms_confidence = t.confidence
                 if cluster:
                     trigtable = cluster_table(trigtable, cluster)
                     add_clustered_triggers(trigtable, channel, etg, seg)
                     nc += len(trigtable)
-        else:
-            trigtable = dqTriggerUtils.SnglTriggerTable(etg)
+                else:
+                    add_triggers(trigtable, channel, etg, seg)
+                    n += len(trigtable)
 
         if cluster:
             print_verbose("Loaded and clustered %d new triggers for %s.\n"
@@ -964,8 +1075,8 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
         else:
             print_verbose("Loaded %d new triggers for %s.\n" % (n, channel))
     else:
-        trigtable = dqTriggerUtils.SnglTriggerTable(etg)
- 
+        trigtable = triggers.utils.new_ligolw_table(etg, columns=columns)
+
 
     # FIXME: convert segments to floats
     segment_list = SegmentList([Segment(map(float, seg))\
@@ -996,7 +1107,7 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
 
 # get multiple channels from a single cache
 def get_multi_triggers(cp, channels, etg, segment_list, cluster=False,
-                       minsnr=0, format="xml", query=True):
+                       minsnr=0, query=True, **trigfind_args):
     """@returns an ordered list of LIGOLw Tables of triggers for each
     entry in the channels list.
 
@@ -1017,13 +1128,41 @@ def get_multi_triggers(cp, channels, etg, segment_list, cluster=False,
 
     """
     multi_enabled = ["kw", "kleinewelle"]
-    if query and etg.lower() in multi_enabled:
+    etg = etg.lower()
+    global_segments = SegmentList([])
+    for channel in channels:
+        try:
+            if cluster:
+                global_segments.extend(SegmentList(
+                                     G_CLUSTERED_TRIGGERS[etg][channel].keys()))
+            else:
+                global_segments.extend(SegmentList(
+                                           G_TRIGGERS[etg][channel].keys()))
+        except KeyError:
+            pass
+    global_segments.sort()
+    global_segments.coalesce()
+
+    # get job latency
+    etgsec = re_cchar.sub("-", etg.lower())
+    if cp.has_option(etgsec, "latency"):
+        latency = cp.getfloat(etgsec, "latency")
+    else:
+        latency = 0
+    span = SegmentList([Segment(0, NOW-latency)])
+    query_segments = ((segment_list & span) - global_segments).coalesce()
+
+    if query and abs(query_segments) > 0 and etg.lower() in multi_enabled:
         ifo = channels[0][:2]
-        span = segment_list.extent()
+        span = query_segments.extent()
         # get columns
-        etgsec = re_cchar.sub("-", etg.lower())
         columns = (cp.has_option(etgsec, "table-columns") and
                    cp.get(etgsec, "table-columns").split(",") or None)
+        if columns:
+            required = ["process_id", "search", "channel"]
+            for col in required:
+                if col not in columns:
+                    columns.append(col)
         # get cache
         if (not cp.has_option(etg.lower(), "skip-cache-file") and
                cp.has_option("trigfind", "trigger-cache")):
@@ -1037,24 +1176,24 @@ def get_multi_triggers(cp, channels, etg, segment_list, cluster=False,
         if not trigcache:
             if etg.lower() in ["kw", "kleinewelle"]:
                 trigcache = kw.find_dmt_cache(span[0], span[1], ifo,
-                                              format=format, check_files=True)
-        for seg in segment_list:
+                                              check_files=True, **trigfind_args)
+        for seg in query_segments:
             if etg.lower() in ["kw", "kleinewelle"]:
                 segcache = trigcache.sieve(segment=seg)
-                multi_trigs = kw.from_lal_cache(segcache, start=seg[0],
-                                                end=seg[1], ifo=ifo,
-                                                channel=channels,
-                                                columns=columns,
-                                                verbose=VERBOSE)
+                multi_trigs = triggers.from_files(segcache, etg, start=seg[0],
+                                                  end=seg[1], channel=channels,
+                                                  columns=columns,
+                                                  verbose=VERBOSE)
             # catalogue new triggers for each channel
             for channel in channels:
                 trigtable = multi_trigs[channel]
-                add_triggers(trigtable, channel, etg, seg)
-                n[channel] += len(trigtable)
                 if cluster:
                     trigtable = cluster_table(trigtable, cluster)
                     add_clustered_triggers(trigtable, channel, etg, seg)
                     nc[channel] += len(trigtable)
+                else:
+                    add_triggers(trigtable, channel, etg, seg)
+                    n[channel] += len(trigtable)
         for channel in channels:
             if cluster:
                 print_verbose("Loaded and clustered %d new triggers for "
@@ -1067,7 +1206,7 @@ def get_multi_triggers(cp, channels, etg, segment_list, cluster=False,
     out = []
     for channel in channels:
         out.append(get_triggers(cp, channel, etg, segment_list, cluster=cluster,
-                                minsnr=minsnr, format=format, query=query))
+                                minsnr=minsnr, query=query, **trigfind_args))
 
     return out
 
@@ -1101,11 +1240,13 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
     @param store
         store data in memory (True) or return without storing (False)
     """
+    global G_DATA
     if not G_DATA.has_key(channel):
         G_DATA[channel] = {}
     if len(segment_list) == 0:
         return []
-    query_segments = segment_list - SegmentList(G_DATA[channel].keys())
+    cached_segments = SegmentList(sorted(G_DATA[channel].keys())).coalesce()
+    query_segments = segment_list - cached_segments
     query_segments.coalesce()
     query &= float(abs(query_segments)) != 0
 
@@ -1114,7 +1255,7 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
         datacache = cp.get("datafind", "data-cache", raw=True)
     else:
         datacache = None
- 
+
     # get NDS info
     if usends:
         ndsserver = cp.get("datafind", "nds-server")
@@ -1137,14 +1278,37 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
                 server, port = cp.get("datafind", "datafind-server").split(":")
                 if not port:
                     port = None
-                connection = GWDataFindClient.GWDataFindHTTPConnection(
+                connection = datafind.GWDataFindHTTPConnection(
                                  host=server, port=port)
             else:
-                connection = GWDataFindClient.GWDataFindHTTPConnection()
-            datacache = connection.find_frame_urls(channel[0], frametype,
+                connection = datafind.GWDataFindHTTPConnection()
+            # KLUDGE for GEO trend files, 1 frame type,
+            # but three different frames with different data
+            if (channel[0] == "G" and
+                (frametype[0] == "T" or frametype[0] == "M")):
+                tmpcache = connection.find_frame_urls(channel[0], frametype[0],
+                                                       span[0], span[1],
+                                                       urltype="file",
+                                                       on_gaps="warn")
+                datacache = []
+                for cacheentry in tmpcache:
+                    if (len(frametype) == 1 and
+                        re.search("framedata",cacheentry.url)):
+                        datacache.append(cacheentry.url)
+                    if (re.search("RDS3",frametype) and
+                        re.search("RDS3",cacheentry.url)):
+                        datacache.append(cacheentry.url)
+                    if (re.search("RDS9",frametype) and
+                        re.search("RDS9",cacheentry.url)):
+                        datacache.append(cacheentry.url)
+                # convert to cache list format
+                datacache = Cache.from_urls(datacache)
+            # No kludge if not GEO trend files
+            else:
+                datacache = connection.find_frame_urls(channel[0], frametype,
                                                    span[0], span[1],
                                                    urltype="file",
-                                                   on_gaps="warn")       
+                                                   on_gaps="warn")
             connection.close()
 
         if datacache:
@@ -1160,10 +1324,10 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
             query_segments &= data_segments
 
         # loop over segments
-        for seg in query_segments:
-            if not usends and frametype == "T" and abs(seg) < 1:
+        for i,seg in enumerate(query_segments):
+            if not usends and frametype == ('T', 'H1_T') and abs(seg) < 1:
                 continue
-            elif not usends and frametype == "M" and abs(seg) < 60:
+            elif not usends and frametype in ('M', 'H1_M') and abs(seg) < 60:
                 continue
             # break data up into manageable chunks if using resampling.
             s = seg[0]
@@ -1194,7 +1358,7 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
                     if calibration:
                         series.data.data = calibration(series.data.data)
                     add_timeseries(series)
-        
+
                 # parse cache for this segment
                 if not usends:
                     segcache = datacache.sieve(segment=seg2)
@@ -1233,11 +1397,11 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
                             series.data.data = calibration(series.data.data)
                         add_timeseries(series)
                     s += dt
-            print_verbose("Data recovered from frames for [%d ... %d)\n"
-                          % (seg[0], seg[1]))
-    
+            print_verbose("Data recovered from frames for [%d ... %d) (%d/%d)\n"
+                          % (seg[0], seg[1], i+1, len(query_segments)))
+
     # grab the data we want
-    globsegs = SegmentList(G_DATA[channel].keys())
+    globsegs = SegmentList(sorted(G_DATA[channel].keys())).coalesce()
     globsegs.sort()
     serieslist = []
     if len(globsegs):
@@ -1246,6 +1410,7 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
         cut = getattr(lal, "Cut%sTimeSeries" % TYPESTR)
     else:
         return []
+
     for seg in (segment_list & globsegs):
         for gseg in globsegs:
             # if global segment is exactly what we want
@@ -1253,14 +1418,16 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
                 serieslist.append(G_DATA[channel][gseg])
                 if not store:
                     del G_DATA[channel][gseg]
-                    break
                 break
             # or if our segment is a subsegment of the global
             elif gseg.intersects(seg):
                 gseries = G_DATA[channel][gseg]
                 t = (numpy.arange(gseries.data.length) * gseries.deltaT +
                      float(gseries.epoch))
-                idx0 = int((t >= seg[0]).nonzero()[0][0])
+                try:
+                    idx0 = int((t >= seg[0]).nonzero()[0][0])
+                except IndexError:
+                    continue
                 n = int((min(seg[1], gseg[1]) - t[idx0]) / gseries.deltaT)
                 if n == gseries.data.length - 1:
                     serieslist.append(gseries)
@@ -1302,43 +1469,136 @@ def get_spectrum(cp, channel, *args, **kwargs):
     @param query
         search for new spectrogram (True), or find in memory (False)
     """
-    if G_SPECTRUM.has_key(channel):
-        return G_SPECTRUM[channel]
+    global G_SPECTRUM
+    # KLUDGE: skipping spectrum caching, as sometimes different segment lists can be requested
+    # if G_SPECTRUM.has_key(channel):
+    #     return G_SPECTRUM[channel]
 
     # get spectrogram
     sequencelist = get_spectrogram(cp, channel, *args, **kwargs)
 
     # take epoch from seglist
     epoch  = lal.LIGOTimeGPS(len(sequencelist) and args[3][0][0] or NOW)
-    # take f0 and deltaF from first spectrogram
-    f0     = len(sequencelist) and sequencelist[0][3] or 0
-    deltaF = len(sequencelist) and sequencelist[0][4] or 1
 
     # flatten spectrum
     if len(sequencelist):
-        spectrogram = numpy.concatenate(([s[0].data for s in sequencelist
-                                          if s[0].data.shape[0]]), axis=0)
+        f0 = sequencelist[0]['f0']
+        deltaF = sequencelist[0]['deltaF']
+        f_array = sequencelist[0]['f_array']
+        spectrogram = numpy.concatenate(([s['data'].data for s in sequencelist
+                                          if s['data'].data.shape[0]]), axis=0)
     else:
         seglen = args[2]
-        spectrogram = numpy.zeros((1,seglen//2+1))
+        f0 = 0
+        deltaF = 1
+        spectrogram = numpy.zeros((1, seglen//2+1))
+        f_array = numpy.zeros((1, seglen//2+1))[0]
 
     # take median
     out = []
     for p in [50, 5, 95]:
         array = numpy.array([stats.scoreatpercentile(spectrogram[:,i], p)
                              for i in range(spectrogram.shape[1])])
-        out.append(seriesutils.fromarray(array, name=channel, epoch=epoch,
+        # out.append(seriesutils.fromarray(array, name=channel, epoch=epoch,
+        #                                  deltaT=deltaF, f0=f0,
+        #                                  frequencyseries=True))
+        A = seriesutils.fromarray(array, name=channel, epoch=epoch,
                                          deltaT=deltaF, f0=f0,
-                                         frequencyseries=True))
+                                         frequencyseries=True)
+        A.f_array = f_array
+        out.append(A)
 
     G_SPECTRUM[channel] = out
     return out
 
 
+def build_omega_spectrogram(trigs, start, end, time_step, spectype='snr'):
+
+  """
+    Construct the two-dimensional spectrogram from a table of OmegaSpectrum
+    triggers
+  """
+
+  # get number of segments
+  numseg = float(end-start)//time_step
+
+  # set up data array
+  spectrogram = None
+
+  # loop over time steps and calculate spectrum
+  if verbose:
+    sys.stdout.write("Constructing %d segment spectrogram...    " % numseg)
+    sys.stdout.flush()
+
+  f = numpy.array([])
+  S = numpy.array([]) 
+
+  # Initialize iterators over spec triggers
+  trigStart = 0
+  trigStop = 0
+
+  for i in range(numseg):
+
+    # get data chunk
+    # f,S = MedianOmegaSpectrum(trigs, start+i*time_step, start+(i+1)*time_step)
+
+    # downselect triggers in time
+    span = Segment(start+i*time_step, start+(i+1)*time_step)
+    segtrigs = triggers.utils.new_ligolw_table('omegaspectrum')
+    if re.search("burst", segtrigs.tableName):
+        get_time = lambda t: t.get_peak()
+    else:
+        get_time = lambda t: t.get_end()
+    while trigStop<len(trigs)\
+          and get_time(trigs[trigStop]) < span[1]:
+      trigStop = trigStop + 1
+    while trigStart<len(trigs)\
+          and get_time(trigs[trigStart]) < span[0]:
+      trigStart = trigStart + 1
+    segtrigs.extend(t for t in trigs[trigStart:trigStop])
+
+    # get the median spectra out of downselected triggers
+    if len(f) == 0:
+      f = numpy.unique1d(segtrigs.get_column('peak_frequency'))
+    S = numpy.ones(len(f))
+    P = segtrigs.get_column(spectype)
+    if len(P) != 0:
+      for j,freq in enumerate(f):
+        S[j] = numpy.median(P[f == freq])
+      f,S = list(map(numpy.asarray, zip(*sorted(zip(f,S)))))
+
+    # set up spectrogram array for first time
+    if len(f) > 0 and (spectrogram is None or spectrogram.length == 0):
+        func = getattr(lal, "CreateREAL8VectorSequence")                                                                                     
+        spectrogram = func(int(numseg), int(len(f))) 
+        # fill with zeros on spectrogram creation  
+        for j in range(int(numseg)):
+            spectrogram.data[j,:] = numpy.zeros(len(f)).astype(float)
+
+    # append spectrum to spectrogram
+    if len(S) > 0:
+      spectrogram.data[i,:] = S.astype(float)
+    if verbose:
+      sys.stdout.write("\b\b\b%.2d%%" % int((i+1)/numseg*100))
+      sys.stdout.flush()
+
+  if verbose:
+   sys.stdout.write("\n")
+   sys.stdout.flush()
+
+  if spectrogram is not None:
+      spectrogram.epoch = lal.LIGOTimeGPS(start)
+      spectrogram.deltaT = time_step
+      spectrogram.f_array = f
+      spectrogram.name = str(Segment(start, end))
+      spectrogram.sampleUnits = lal.lalSecondUnit
+
+  return spectrogram
+
 def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
                     frametype=None, calibration=None, fresponse=None,
                     resample=None, usends=False, superchannel=None,
-                    query=True):
+                    query=True, spectype='snr'):
     """@returns a list of spectrograms for the given channel.
 
     @param cp
@@ -1365,26 +1625,34 @@ def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
         read data from NDS, rather than frames, default: False
     @param query
         search for new spectrogram (True), or find in memory (False)
+    @param spectype
+        Type of spectra to use, e.g. spectrum variance, kurtosis... only used for omegaspectra for the moment
     """
-    # shorten segment list to the correct size for the given step
+    global G_SPECTROGRAM,G_DATA
+    # shorten segment list to the correct size for the given step, 
     segment_list.coalesce()
     tmp = SegmentList()
     for seg in segment_list:
-        if abs(seg) < step:
-            continue
-        tmp.append(Segment(seg[0], seg[0] + abs(seg)//step*step))
-    segment_list = tmp
+        testseg = Segment(math.ceil(float(seg[0])/step)*step, math.floor(float(seg[1])/step)*step)
+        if abs(testseg) >= step:
+            tmp.append(testseg)
+    segment_list = tmp.coalesce()
 
     # check what segments we already have for this channel
     if not G_SPECTROGRAM.has_key(channel):
         G_SPECTROGRAM[channel] = {}
         segment_summary = SegmentList()
     else:
-        segment_summary = SegmentList(G_SPECTROGRAM[channel].keys())
+        segment_summary = SegmentList(sorted(G_SPECTROGRAM[channel].keys()))
         segment_summary.coalesce()
+    # KLUDGE! killing completely spectrogram caching
+    G_SPECTROGRAM[channel] = {}
+    segment_summary = SegmentList()
 
     # get new segments
     query_segments = segment_list - segment_summary
+
+    # check if there is anything new to query for
     query &= (abs(query_segments) != 0)
 
     # get cache
@@ -1398,43 +1666,68 @@ def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
         ndsserver = cp.get("datafind", "nds-server")
         ndsport = cp.getint("datafind", "nds-port")
 
-    # get data
-    store = G_DATA.has_key(channel)
-    serieslist = get_data(cp, channel, query_segments, frametype=frametype,
-                          calibration=calibration, usends=usends,
-                          resample=resample, superchannel=superchannel,
-                          query=query, store=store)
+    # If frametype looks like an etg name, get spectra from the etg
+    # files, otherwise read in data for frames and compute
+    # spectra. Using kludge to detect if frametype is a name of a
+    # known etg, just look for section named after it.
+    if cp.has_section(frametype):
+        trigs = get_triggers(cp, channel, frametype, query_segments)
+        for seg in query_segments:
+            spectrogram = build_omega_spectrogram(trigs, seg[0], seg[1], step,
+                                                  spectype=spectype)
+            if spectrogram is not None:
+                add_spectrogram(spectrogram, seg, channel, spectrogram.epoch,
+                                step, f_array = spectrogram.f_array)
+                print_verbose("%d-segment spectrogram generated for [%d ... %d)\n"
+                              % (spectrogram.length, seg[0], seg[1]))
+            else:
+                print_verbose("No data found for spectrogram in [%d ... %d)\n"
+                              % (seg[0], seg[1]))
 
-    # make spectrogram
-    for series in serieslist:
-         dt = series.deltaT
-         if not series.data.length >= step//dt:
-             print_verbose("Data segment at %d too short for spectrogram, "
-                           "skipping.\n" % (int(series.epoch)),
-                           stream=sys.stderr, verbose=True)
-             continue
-         out = seriesutils.compute_average_spectrogram(series, step//dt,
-                                                       seglen//dt, stride//dt)
-         spectrogram, deltaF, f0 = out
-         spectrogram.data = spectrogram.data**(1/2)
-         if fresponse:
-             if isinstance(fresponse, type(lambda:None)):
-                 spectrogram.data = fresponse(spectrogram.data)
-             elif hasattr(fresponse, "__contains__") and len(fresponse) == 3:
-                 zeros,poles,gain = fresponse
-                 fresponse = zpkresponse(zeros, poles, gain, f0=f0,
-                                         deltaF=deltaF,
-                                         length=spectrogram.vectorLength)
-                 spectrogram.data *= fresponse
-         seg = Segment(float(series.epoch),
-                       float(series.epoch + series.data.length * dt))
-         add_spectrogram(spectrogram, seg, series.name, series.epoch,
-                         step, f0, deltaF)
-         print_verbose("%d-segment spectrogram generated for [%d ... %d)\n"
-                        % (spectrogram.length, seg[0], seg[1]))
+    else:
+        # get data
+        #store = G_DATA.has_key(channel)
+        store = True
+        serieslist = get_data(cp, channel, query_segments, frametype=frametype,
+                              calibration=calibration, usends=usends,
+                              resample=resample, superchannel=superchannel,
+                              query=query, store=store)
+
+        # make spectrogram
+        for series in serieslist:
+             dt = series.deltaT
+             if not series.data or series.data.length < seglen//dt:
+                 print_verbose("Data segment at %d too short for spectrogram, "
+                               "skipping.\n" % (int(series.epoch)),
+                               stream=sys.stderr, verbose=True)
+                 continue
+
+             try:
+                 out = seriesutils.compute_average_spectrogram(series, step//dt,
+                                                               seglen//dt,
+                                                               stride//dt)
+             except ValueError:
+                 continue
+             spectrogram, deltaF, f0 = out
+             spectrogram.data = spectrogram.data**(1/2)
+             if fresponse is not None:
+                 if isinstance(fresponse, type(lambda:None)):
+                     spectrogram.data = fresponse(spectrogram.data)
+                 elif hasattr(fresponse, "__contains__") and len(fresponse) == 3:
+                     zeros,poles,gain = fresponse
+                     fresponse = zpkresponse(zeros, poles, gain, f0=f0,
+                                             deltaF=deltaF,
+                                             length=spectrogram.vectorLength)
+                     spectrogram.data *= fresponse
+             seg = Segment(float(series.epoch),
+                           float(series.epoch + series.data.length * dt))
+             add_spectrogram(spectrogram, seg, series.name, series.epoch,
+                             step, f0=f0, deltaF=deltaF)
+             print_verbose("%d-segment spectrogram generated for [%d ... %d)\n"
+                            % (spectrogram.length, seg[0], seg[1]))
 
     # return the correct data
-    globsegs = SegmentList(G_SPECTROGRAM[channel].keys())
+    globsegs = SegmentList(sorted(G_SPECTROGRAM[channel].keys())).coalesce()
     globsegs.sort()
     spectrograms = []
     for s in (segment_list & globsegs):
@@ -1445,7 +1738,7 @@ def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
             print_verbose("WARNING: Requested spectrogram segment %s not "
                           "found in global list\n" % (str(s)),
                           stream=sys.stderr)
-    return sorted(spectrograms, key=lambda s: float(s[1]))
+    return sorted(spectrograms, key=lambda s: float(s['epoch']))
 
 
 #
@@ -1459,7 +1752,7 @@ def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
 def add_triggers(trigtable, channel, etg, seg):
     """Append the given glue.ligolw.Table trigtable to the global trigger
     holder for the given channel and segment.
- 
+
     @param trigtable
         LIGOLw trigger table to store in memory
     @param channel
@@ -1469,7 +1762,9 @@ def add_triggers(trigtable, channel, etg, seg):
     @param seg
         valid GPS [start,stop) interval for this trigger table
     """
+    global G_TRIGGERS
     # add channel
+    etg = etg.lower()
     if not G_TRIGGERS.has_key(etg):
         G_TRIGGERS[etg] = dict()
     if not G_TRIGGERS[etg].has_key(channel):
@@ -1479,14 +1774,13 @@ def add_triggers(trigtable, channel, etg, seg):
     seg = Segment(seg[0], seg[1])
 
     # get segments for channel
-    seglist = SegmentList(G_TRIGGERS[etg][channel].keys())
+    seglist = SegmentList(sorted(G_TRIGGERS[etg][channel].keys()))
     seglist.coalesce()
 
     # if completely new, add it
     disjoint = all([seg.disjoint(gseg) for gseg in seglist])
     if len(seglist) == 0 or disjoint:
         G_TRIGGERS[etg][channel][seg] = trigtable
-        del trigtable
 
     # otherwise it must exist inside the extent, which means it probably touches
     # one of the existing segments
@@ -1496,7 +1790,8 @@ def add_triggers(trigtable, channel, etg, seg):
                 seg += gseg
                 G_TRIGGERS[etg][channel][seg] =\
                     G_TRIGGERS[etg][channel][gseg] + trigtable
-                del G_TRIGGERS[etg][channel][gseg]
+                if seg != gseg:
+                    del G_TRIGGERS[etg][channel][gseg]
                 trigtable = G_TRIGGERS[etg][channel][seg]
     return
 
@@ -1514,6 +1809,8 @@ def add_clustered_triggers(trigtable, channel, etg, seg):
     @param seg
         valid GPS [start,stop) interval for this trigger table
     """
+    global G_CLUSTERED_TRIGGERS
+    etg = etg.lower()
     # add channel
     if not G_CLUSTERED_TRIGGERS.has_key(etg):
         G_CLUSTERED_TRIGGERS[etg] = dict()
@@ -1521,24 +1818,25 @@ def add_clustered_triggers(trigtable, channel, etg, seg):
         G_CLUSTERED_TRIGGERS[etg][channel] = dict()
 
     # get segments for channel
-    seglist = SegmentList(G_CLUSTERED_TRIGGERS[etg][channel].keys())
+    seglist = SegmentList(sorted(G_CLUSTERED_TRIGGERS[etg][channel].keys()))
     seglist.coalesce()
 
     # if completely new, add it
     disjoint = all([seg.disjoint(gseg) for gseg in seglist])
     if len(seglist)==0 or disjoint:
         G_CLUSTERED_TRIGGERS[etg][channel][seg] = trigtable
-        del trigtable
 
     # otherwise it must touch at least one of the segments
     else:
         for gseg in seglist:
             if not gseg.disjoint(seg):
                 seg += gseg
-                G_CLUSTERED_TRIGGERS[etg][channel][seg] =\
-                    G_CLUSTERED_TRIGGERS[etg][channel][gseg] + trigtable
-                del G_CLUSTERED_TRIGGERS[etg][channel][gseg]
+                G_CLUSTERED_TRIGGERS[etg][channel][seg] = (
+                    G_CLUSTERED_TRIGGERS[etg][channel][gseg])
+                G_CLUSTERED_TRIGGERS[etg][channel][seg].extend(trigtable)
                 trigtable = G_CLUSTERED_TRIGGERS[etg][channel][seg]
+                if seg != gseg:
+                    del G_CLUSTERED_TRIGGERS[etg][channel][gseg]
     return
 
 
@@ -1547,6 +1845,7 @@ def add_timeseries(series):
 
     @param series: TimeSeries to store
     """
+    global G_DATA
     # add channel
     channel = series.name
     if not G_DATA.has_key(channel):
@@ -1557,7 +1856,7 @@ def add_timeseries(series):
     TYPESTR  = seriesutils._typestr[datatype]
 
     # get segments for channel
-    seglist = SegmentList(G_DATA[channel].keys())
+    seglist = SegmentList(sorted(G_DATA[channel].keys()))
     seglist.coalesce()
 
     # get segment for this timeseries
@@ -1566,7 +1865,7 @@ def add_timeseries(series):
 
     new = True
     resize = getattr(lal, "Resize%sTimeSeries" % TYPESTR)
-    for gseg in seglist:
+    for i,gseg in enumerate(seglist):
         # if it postpends an existing segment
         if gseg[1] == seg[0]:
             new = False
@@ -1574,10 +1873,9 @@ def add_timeseries(series):
             G_DATA[channel][seg] = G_DATA[channel][gseg]
             l1 = G_DATA[channel][seg].data.length
             l2 = series.data.length
-            resize(G_DATA[channel][seg], 0, l1+l2)
+            G_DATA[channel][seg] = resize(G_DATA[channel][seg], 0, l1+l2)
             G_DATA[channel][seg].data.data[l1:] = series.data.data
             series = G_DATA[channel][seg]
-            del G_DATA[channel][gseg]
         # if it prepends an existing segment
         if gseg[0] == seg[1]:
             new = False
@@ -1589,12 +1887,11 @@ def add_timeseries(series):
             G_DATA[channel][seg].data.data[l2:] =\
                 G_DATA[channel][gseg].data.data
             series = G_DATA[channel][seg]
-            del G_DATA[channel][gseg]
     if new:
         G_DATA[channel][seg] = series
 
 
-def add_spectrogram(sequence, seg, channel, epoch, deltaT, f0, deltaF):
+def add_spectrogram(sequence, seg, channel, epoch, deltaT, f0=0, deltaF=0, f_array=None):
     """Add a REAL4VectorSequence to the global data holder.
     """
     # add channel
@@ -1602,7 +1899,7 @@ def add_spectrogram(sequence, seg, channel, epoch, deltaT, f0, deltaF):
         G_SPECTROGRAM[channel] = dict()
 
     # get segments for channel
-    seglist = SegmentList(G_SPECTROGRAM[channel].keys())
+    seglist = SegmentList(sorted(G_SPECTROGRAM[channel].keys()))
     seglist.coalesce()
 
     # add segment
@@ -1613,25 +1910,31 @@ def add_spectrogram(sequence, seg, channel, epoch, deltaT, f0, deltaF):
             new = False
             seg += gseg
             G_SPECTROGRAM[channel][seg] = G_SPECTROGRAM[channel][gseg]
-            G_SPECTROGRAM[channel][seg][0] = PyLALAddVectorSequence(
-                                               G_SPECTROGRAM[channel][gseg][0],
+            G_SPECTROGRAM[channel][seg]['data'] = PyLALAddVectorSequence(
+                                               G_SPECTROGRAM[channel][gseg]['data'],
                                                sequence)
             del G_SPECTROGRAM[channel][gseg]
-            sequence = G_SPECTROGRAM[channel][seg]
+            sequence = G_SPECTROGRAM[channel][seg]['data']
         # if it prepends an existing segment
         if gseg[0] == seg[1]:
             new = False
             seg += gseg
             G_SPECTROGRAM[channel][seg] = G_SPECTROGRAM[channel][gseg]
-            G_SPECTROGRAM[channel][seg][1] = epoch
-            G_SPECTROGRAM[channel][seg][0] = PyLALAddVectorSequence(
+            G_SPECTROGRAM[channel][seg]['epoch'] = epoch
+            G_SPECTROGRAM[channel][seg]['data'] = PyLALAddVectorSequence(
                                                 sequence,
-                                                G_SPECTROGRAM[channel][gseg][0])
+                                                G_SPECTROGRAM[channel][gseg]['data'])
             del G_SPECTROGRAM[channel][gseg]
-            sequence = G_SPECTROGRAM[channel][seg]
+            sequence = G_SPECTROGRAM[channel][seg]['data']
 
     if new:
-        G_SPECTROGRAM[channel][seg] = (sequence, epoch, deltaT, f0, deltaF)
+        G_SPECTROGRAM[channel][seg] = {}
+        G_SPECTROGRAM[channel][seg]['data'] = sequence
+        G_SPECTROGRAM[channel][seg]['epoch'] = epoch
+        G_SPECTROGRAM[channel][seg]['deltaT'] = deltaT
+        G_SPECTROGRAM[channel][seg]['f0'] = f0
+        G_SPECTROGRAM[channel][seg]['deltaF'] = deltaF
+        G_SPECTROGRAM[channel][seg]['f_array'] = f_array
 
 
 #
@@ -1675,11 +1978,13 @@ def archive_data(filename, **hdfargs):
             h5group = hdf5utils._create_groups(h5file, group)
             for seg in G_SPECTROGRAM[channel].keys():
                 # format spectrogram data
-                sequence, epoch, deltaT, f0, deltaF =\
-                    G_SPECTROGRAM[channel][seg]
+                sequence = G_SPECTROGRAM[channel][seg]['data']
+                epoch = G_SPECTROGRAM[channel][seg]['epoch']
+                deltaT = G_SPECTROGRAM[channel][seg]['deltaT']
+                f0 = G_SPECTROGRAM[channel][seg]['f0']
+                deltaF = G_SPECTROGRAM[channel][seg]['deltaF']
                 metadata = {"epoch":float(epoch), "dx":deltaT,
                             "f0":f0, "dy":deltaF}
-
                 if sequence.length > 0 and sequence.vectorLength > 0:
                     hdf5utils.arrayToDataset(h5group, "-".join(map(str, seg)),
                                              sequence.data, metadata,
@@ -1706,7 +2011,7 @@ def archive_segments(outfile, param_dict):
         ifo, name, version = parse_flag_name(flag)
         seg_def_id = segmentdb_utils.add_to_segment_definer(xmldoc,
                                                             process.process_id,
-                                                            ifo, name, version) 
+                                                            ifo, name, version)
         segmentdb_utils.add_to_segment(xmldoc, process.process_id, seg_def_id,
                                        G_SEGMENTS[flag].coalesce())
         segmentdb_utils.add_to_segment_summary(
@@ -1729,13 +2034,16 @@ def archive_triggers(outdir, start, end, param_dict, clustered=False):
                     channel in G_TRIGGERS[etg].keys()]
 
     for etg,channel in channels:
+        if ((clustered and not len(G_CLUSTERED_TRIGGERS[etg][channel].keys()))
+            or (not clustered and not len(G_TRIGGERS[etg][channel].keys()))):
+            continue
         retg = re_cchar.sub("_", etg).upper()
         if clustered:
             retg = "%s_CLUSTERED" % retg
         rchannel = channel
         if re.match("[A-Z]\d:", channel):
             rchannel = rchannel[3:]
-        rchannel = re_cchar.sub("_", channel).upper()
+        rchannel = re_cchar.sub("_", rchannel).upper()
         outfile = os.path.join(outdir, "%s-%s_%s-%d-%d.xml.gz"
                                        % (ifo, rchannel, retg, int(start),
                                           int(end-start)))
@@ -1746,23 +2054,42 @@ def archive_triggers(outdir, start, end, param_dict, clustered=False):
                                                           version=__version__,
                                                           ifos=ifo)
         seg_table = lsctables.New(lsctables.SegmentTable)
-        for seg,trig_table in G_TRIGGERS[etg][channel].iteritems():
+        xmldoc.childNodes[-1].appendChild(seg_table)
+        global_triggers = (clustered and
+                           G_CLUSTERED_TRIGGERS[etg][channel].iteritems() or
+                           G_TRIGGERS[etg][channel].iteritems())
+        for i,(seg,trig_table) in enumerate(global_triggers):
             try:
                 event_table = table.get_table(xmldoc, trig_table.tableName)
-            except:
+            except ValueError:
                 event_table = table.new_from_template(trig_table)
-            xmldoc.childNodes[-1].appendChild(event_table)
-            seg = map(LIGOTimeGPS, seg)
+                xmldoc.childNodes[-1].appendChild(event_table)
+            except AttributeError:
+                warnings.warn("AttributeError caught when archiving triggers. "
+                              "%s table for %s has type %s instead of "
+                              "ligolw.Table" % (etg, seg, type(trig_table)))
+                continue
+            sid = ilwd.get_ilwdchar_class(table.StripTableName(
+                                              seg_table.tableName),
+                                          "process_id")
+            pid = ilwd.get_ilwdchar_class(table.StripTableName(
+                                              event_table.tableName),
+                                          "process_id")
+            seg = map(LIGOTimeGPS, map(float, seg))
             segment = lsctables.Segment()
             segment.start_time = seg[0].gpsSeconds
-            segment.start_time = seg[0].gpsNanoSeconds
+            segment.start_time_ns = seg[0].gpsNanoSeconds
             segment.end_time = seg[1].gpsSeconds
-            segment.end_time = seg[1].gpsNanoSeconds
-            segment.segment_id = seg_table.get_next_id()
+            segment.end_time_ns = seg[1].gpsNanoSeconds
+            segment.segment_id = sid(i)
+            segment.segment_def_id = None
+            segment.segment_def_cdb = None
+            segment.creator_db = None
             segment.process_id = process.process_id
             seg_table.append(segment)
+            # FIXME: store segment information in process_id
             for t in trig_table:
-                t.search = "%s [%s, %s)" % (etg, str(seg[0]), str(seg[1]))
+                t.process_id = pid(int(segment.segment_id))
             event_table.extend(trig_table)
         process.start_time = gpstime.GpsSecondsFromPyUTC(START)
         process.end_time = lal.GPSTimeNow().gpsSeconds
@@ -1807,7 +2134,7 @@ def load_archive_data(cp, channel, seglist, mode=0, verbose=False):
                                       start_date.day),
                                datadir, "*.hdf")
     elif mode == summary.SUMMARY_MODE_WEEK\
-    or mode == summary.SUMMAR_MODE_MONTH:
+    or mode == summary.SUMMARY_MODE_MONTH:
         globstr = os.path.join("archive_monthly",
                                "%d%.2d*" % (start_date.year, start_date.month),
                                datadir, "*.hdf")
@@ -1816,7 +2143,7 @@ def load_archive_data(cp, channel, seglist, mode=0, verbose=False):
                                datadir, "*.hdf")
     else:
         raise RuntimeError("Mode not recognised.")
-      
+
     # make cache
     cache = Cache.from_urls(glob.glob(globstr)).sieve(segmentlist=seglist)
 
@@ -1830,7 +2157,6 @@ def load_archive_data(cp, channel, seglist, mode=0, verbose=False):
     for e in cache:
         # open file
         f = e.path
-        h5file = hdf5utils.h5py.File(f, "r")
 
         # get segment
         seg = e.segment & span
@@ -1838,18 +2164,24 @@ def load_archive_data(cp, channel, seglist, mode=0, verbose=False):
         duration = float(abs(seg))
 
         # get data
-        if HDF_DATA_GROUP in list(h5file)\
-        and channel in list(h5file[HDF_DATA_GROUP]):
-            series = hdf5utils.readTimeSeries(f, channel,
-                                              group=HDF_DATA_GROUP,
-                                              start=start, duration=duration)
-            add_timeseries(series)
-            seg = Segment(float(series.epoch),
-                                   float(series.epoch + series.data.length
-                                                      * series.deltaT))
-            print_verbose("Data recovered from archive for %s: [%d ... %d)\n"
-                          % (channel, seg[0], seg[1]), verbose=verbose)
-        h5file.close()
+        try:
+            h5file = hdf5utils.h5py.File(f, 'r')
+        except hdf5utils.h5py.h5e.LowLevelIOError as e:
+            warnings.warn('Caught exception: %s' % str(e))
+            pass
+        else:
+            if HDF_DATA_GROUP in list(h5file)\
+            and channel in list(h5file[HDF_DATA_GROUP]):
+                series = hdf5utils.readTimeSeries(h5file, channel,
+                                                  group=HDF_DATA_GROUP,
+                                                  start=start,
+                                                  duration=duration)
+                add_timeseries(series)
+                seg = Segment(float(series.epoch),
+                              float(series.epoch + series.data.length
+                                                   * series.deltaT))
+                print_verbose("Data recovered from archive for %s: %s\n"
+                              % (channel, str(seg)), verbose=verbose)
 
     return
 
@@ -1880,7 +2212,7 @@ def load_archive_spectrogram(cp, channel, seglist, mode=0, verbose=False):
 
     # otherwise get start date
     start_date = datetime.datetime(*lal.GPSToUTC(int(start))[:6])
-    
+
     # get file for mode
     datadir = "data"
     if mode == summary.SUMMARY_MODE_GPS:
@@ -1892,7 +2224,7 @@ def load_archive_spectrogram(cp, channel, seglist, mode=0, verbose=False):
                                       start_date.day),
                                datadir, "*.hdf")
     elif mode == summary.SUMMARY_MODE_WEEK\
-    or mode == summary.SUMMAR_MODE_MONTH:
+    or mode == summary.SUMMARY_MODE_MONTH:
         globstr = os.path.join("archive_monthly",
                                "%d%.2d*" % (start_date.year, start_date.month),
                                datadir, "*.hdf")
@@ -1901,7 +2233,7 @@ def load_archive_spectrogram(cp, channel, seglist, mode=0, verbose=False):
                                datadir, "*.hdf")
     else:
         raise RuntimeError("Mode not recognised.")
-      
+
     # make cache
     cache = Cache.from_urls(glob.glob(globstr)).sieve(segmentlist=seglist)
 
@@ -1919,9 +2251,9 @@ def load_archive_spectrogram(cp, channel, seglist, mode=0, verbose=False):
 
         # load list of all spectrograms for this channel
         group = "%s/%s" % (HDF_SPECTROGRAM_GROUP, channel)
-        if group in list(h5file):
+        try:
             datasets = list(h5file[group])
-        else:
+        except KeyError:
             datasets = []
         datasegs = [map(float, s.split("-")) for s in datasets]
         datasegs = SegmentList(map(Segment, datasegs))
@@ -1936,8 +2268,8 @@ def load_archive_spectrogram(cp, channel, seglist, mode=0, verbose=False):
             spectrogram, epoch, deltaT, f0, deltaF = out
             seg = Segment(float(epoch),
                                    float(epoch + spectrogram.length*deltaT))
-            add_spectrogram(spectrogram, seg, channel, epoch, deltaT, f0,
-                            deltaF)
+            add_spectrogram(spectrogram, seg, channel, epoch, deltaT, f0=f0,
+                            deltaF=deltaF)
         h5file.close()
         if len(datasegs):
             seg = datasegs.extent()
@@ -1979,7 +2311,7 @@ def load_archive_spectrum(cp, channel, seglist, mode=0):
                                    % (start.year, start.month, start.day),
                                datadir, "*.hdf")
     elif mode == summary.SUMMARY_MODE_WEEK\
-    or mode == summary.SUMMAR_MODE_MONTH:
+    or mode == summary.SUMMARY_MODE_MONTH:
         globstr = os.path.join("archive_monthly",
                                "%d%.2d*" % (start.year, start.month),
                                datadir, "*.hdf")
@@ -1988,7 +2320,7 @@ def load_archive_spectrum(cp, channel, seglist, mode=0):
                                datadir, "*.hdf")
     else:
         raise RuntimeError("Mode not recognised.")
-      
+
     # make cache
     cache = Cache.from_urls(glob.glob(globstr)).sieve(segmentlist=seglist)
 
@@ -2042,7 +2374,7 @@ def load_archive_segments(cp, flag, seglist, mode=0, verbose=False):
                                    % (start.year, start.month, start.day),
                                datadir, "%s*.xml.gz" % tag)
     elif mode == summary.SUMMARY_MODE_WEEK\
-    or mode == summary.SUMMAR_MODE_MONTH:
+    or mode == summary.SUMMARY_MODE_MONTH:
         globstr = os.path.join("archive_daily",
                                "%d%.2d*" % (start.year, start.month),
                                datadir, "%s*.xml.gz" % tag)
@@ -2051,7 +2383,7 @@ def load_archive_segments(cp, flag, seglist, mode=0, verbose=False):
                                datadir, "%s*.xml.gz" % tag)
     else:
         raise RuntimeError("Mode not recognised.")
-      
+
     cache = Cache.from_urls(glob.glob(globstr)).sieve(segmentlist=seglist)
     if cache:
         ifo, name, version = parse_flag_name(flag)
@@ -2065,13 +2397,13 @@ def load_archive_segments(cp, flag, seglist, mode=0, verbose=False):
                                row.name == name and row.version == version]
                 seg_sum_table = table.get_table(
                                     xmldoc, lsctables.SegmentSumTable.tableName)
-                seg_sum_list = SegmentList() 
+                seg_sum_list = SegmentList()
                 for row in seg_sum_table:
                     if row.segment_def_id in seg_def_ids:
                         if hasattr(row, "start_time_ns"):
                             seg = Segment(map(float, row.get()))
                         else:
-                            seg = Segment(row.start_time, row.end_time) 
+                            seg = Segment(row.start_time, row.end_time)
                         seg_sum_list.append(seg)
                 seg_table = table.get_table(xmldoc,
                                             lsctables.SegmentTable.tableName)
@@ -2081,7 +2413,7 @@ def load_archive_segments(cp, flag, seglist, mode=0, verbose=False):
                         if hasattr(row, "start_time_ns"):
                             seg = Segment(map(float, row.get()))
                         else:
-                            seg = Segment(row.start_time, row.end_time) 
+                            seg = Segment(row.start_time, row.end_time)
                         seg_list.append(seg)
                 if G_SEGMENTS.has_key(flag):
                     G_SEGMENT_SUMMARY[flag].extend(seg_sum_list)
@@ -2094,10 +2426,11 @@ def load_archive_segments(cp, flag, seglist, mode=0, verbose=False):
 
 
 def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
-                          clustered=False):
+                          clustered=False, columns=[]):
     """Read the archive for the given channel, and load its triggers
     into global memory
     """
+    global G_TRIGGERS, G_CLUSTERED_TRIGGERS
     # add keys to global memory holder
     if not G_TRIGGERS.has_key(etg):
         G_TRIGGERS[etg] = dict()
@@ -2115,10 +2448,10 @@ def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
     # restrict archived data to NOW
     start,end = segment_list.extent()
     span = Segment(start, min(end, NOW))
-    segment_list &= SegmentList([span])
+    query_segments = segment_list & SegmentList([span])
 
     # restrict archived data to new segments
-    segment_list &= SegmentList(G_TRIGGERS[etg][channel].keys())
+    query_segments -= SegmentList(sorted(G_TRIGGERS[etg][channel].keys()))
 
     # otherwise get start date
     start = datetime.datetime(*lal.GPSToUTC(int(start))[:6])
@@ -2128,9 +2461,9 @@ def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
     if clustered:
         retg = "%s_CLUSTERED" % retg
     rchannel = channel
-    if re.match("[A-Z]\d:", channel):
+    if re.match("[A-Z]\d:", rchannel):
         rchannel = rchannel[3:]
-    rchannel = re_cchar.sub("_", channel).upper()
+    rchannel = re_cchar.sub("_", rchannel).upper()
     tag = "%s-%s_%s" % (ifo, rchannel, retg)
     datadir = "triggers"
     if mode == summary.SUMMARY_MODE_GPS:
@@ -2141,7 +2474,7 @@ def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
                                    % (start.year, start.month, start.day),
                                datadir, "%s*.xml.gz" % tag)
     elif mode == summary.SUMMARY_MODE_WEEK\
-    or mode == summary.SUMMAR_MODE_MONTH:
+    or mode == summary.SUMMARY_MODE_MONTH:
         globstr = os.path.join("archive_daily",
                                "%d%.2d*" % (start.year, start.month),
                                datadir, "%s*.xml.gz" % tag)
@@ -2151,9 +2484,20 @@ def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
     else:
         raise RuntimeError("Mode not recognised.")
 
-    cache = Cache.from_urls(glob.glob(globstr)).sieve(segmentlist=segment_list)
+    # get columns
+    etgsec = re_cchar.sub("-", etg.lower())
+    columns = (cp.has_option(etgsec, "table-columns") and
+               cp.get(etgsec, "table-columns").split(",") or None)
+    if columns:
+        required = ["process_id", "search", "channel"]
+        for col in required:
+            if col not in columns:
+                columns.append(col)
+
+
+    cache = Cache.from_urls(glob.glob(globstr)).sieve(
+                segmentlist=query_segments)
     if cache:
-        ifo, name, version = parse_flag_name(flag)
         for fp in cache.pfnlist():
             with open(fp, "r") as f:
                 xmldoc, digest = ligolw_utils.load_fileobj(
@@ -2164,14 +2508,6 @@ def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
                                     xmldoc, lsctables.SegmentTable.tableName)
                 except:
                     seg_table = []
-                archive_segments = SegmentList()
-                for row in seg_table:
-                    if hasattr(row, "start_time_ns"):
-                        seg = Segment(map(float, row.get()))
-                    else:
-                        seg = Segment(row.start_time, row.end_time)
-                    archive_segments.append(seg)
-                archive_segments.sort(key=lambda x: x[0])
                 # load trigger table
                 if etg.lower() in ["omega", "kw", "kleinewelle", "excesspower",
                                    "gstlal_excesspower"]:
@@ -2180,26 +2516,24 @@ def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
                     events.extend(table.get_table(
                                       xmldoc,
                                       lsctables.SnglBurstTable.tableName))
-                    event_time = numpy.asarray([e.get_end() for e in events])
-                    events.sort(key=lambda x: float(x.get_peak()))
                 elif re.search("(inspiral|ihope)", etg, re.I):
                     events = lsctables.New(lsctables.SnglInspiralTable,
-                                            columns=columns)
+                                           columns=columns)
                     events.extend(table.get_table(
-                                      xmldoc,
-                                      lsctables.SnglInspiralTable.tableName))
-                    event_time = numpy.asarray([e.get_end() for e in events])
-                    events.sort(key=lambda x: float(x.get_end()))
+                                     xmldoc,
+                                     lsctables.SnglInspiralTable.tableName))
                 # map triggers to segments
-                for seg in (archive_segments & segment_list):
-                    in_seg = ((event_time >= seg[0]) &
-                              (event_time < seg[1])).nonzero()
-                    s, e = (in_seg[0], in_seg[-1])
+                for row in seg_table:
+                    segment_events = lsctables.New(type(events),
+                                                   columns=columns)
+                    segment_events.extend(
+                        t for t in events if
+                        int(t.process_id) == int(row.segment_id))
                     if clustered:
-                        add_clustered_triggers(events[s:e], channel, etg, seg)
+                        add_clustered_triggers(segment_events, channel,
+                                               etg, row.get())
                     else:
-                        add_triggers(events[s:e], channel, etg, span)
-
+                        add_triggers(segment_events, channel, etg, row.get())
 
 #
 # =============================================================================
@@ -2216,7 +2550,7 @@ def cluster_table(trigtable, dt):
     tablecopy.extend(trigtable)
     if isinstance(trigtable, lsctables.SnglBurstTable):
         testfunc = ligolw_bucluster.ExcessPowerTestFunc
-        clusterfunc = ligolw_bucluster.ExcessPowerClusterFunc
+        clusterfunc = ligolw_bucluster.OmegaClusterFunc
         sortfunc = ligolw_bucluster.ExcessPowerSortFunc
         bailoutfunc = ligolw_bucluster.ExcessPowerBailoutFunc
     elif isinstance(trigtable, lsctables.SnglInspiralTable):
@@ -2227,7 +2561,7 @@ def cluster_table(trigtable, dt):
     snglcluster.cluster_events(tablecopy, testfunc, clusterfunc, sortfunc,
                                bailoutfunc, verbose=False)
     return tablecopy
-        
+
 # =============================================================================
 # Process segments
 # =============================================================================
@@ -2277,7 +2611,7 @@ def process_segments(tab, cp, cpsec, verbose=False,
 
     #
     # get archived segments
-    # 
+    #
 
     if cp.has_option(cpsec, "use-archive")\
     and (cp.get(cpsec, "use-archive").lower() in ["", "true"]):
@@ -2288,11 +2622,12 @@ def process_segments(tab, cp, cpsec, verbose=False,
 
     #
     # get new segments
-    # 
+    #
 
-    for flag,label in zip(flags, labels):
+    new_segments = SegmentListDict()
+    if htmlonly:
+        for flag,label in zip(flags, labels):
         # parse flag for composition
-        if htmlonly:
             name = re_cchar.sub("_", label.upper())
             if not name.startswith(tab.ifo):
                 name = "%s-%s" % (tab.ifo, name)
@@ -2300,24 +2635,27 @@ def process_segments(tab, cp, cpsec, verbose=False,
                                              % (name, tab.state.tag,
                                                 tab.start_time, abs(tab.span)))
             if os.path.isfile(f):
-                comp_segs = read_segment_file(f)
-            else:
-                comp_segs = SegmentList()
-        else:
+                tab.add_segments(label, read_segment_file(f))
+    else:
+        all_flags = []
+        for flag in flags:
+            all_flags.extend(re.split("[&!]", flag))
+        get_segments(cp, all_flags, tab.segments)
+        for flag,label in zip(flags, labels):
             divs = re.findall("[&!]", flag)
             comp_flags = re.split("[&!]", flag)
-            comp_segs  = tab.segments
+            comp_segs = SegmentList(tab.segments)
             for i,comp_flag in enumerate(comp_flags):
-                seglist = get_segments(cp, comp_flag, tab.segments)
+                seglist = get_segments(cp, comp_flag, tab.segments, query=False)
                 if len(divs) == 0:
                     comp_segs = seglist
                 elif i!=0 and divs[i-1] == "!":
                     comp_segs -= seglist
                 else:
                     comp_segs &= seglist
-        label = re.sub("&", " and ", label)
-        label = re.sub("!", " minus ", label)
-        tab.add_segments(label, comp_segs)
+            label = re.sub("&", " and ", label)
+            label = re.sub("!", " minus ", label)
+            tab.add_segments(label, comp_segs)
 
     #
     # make plots
@@ -2398,7 +2736,7 @@ def process_segments(tab, cp, cpsec, verbose=False,
                     outfile = os.path.join(tab.directory, basefile)
             else:
                 outfile = os.path.join(tab.directory, basefile)
- 
+
             # otherwise make it as normal
             if htmlonly or not dosubplots:
                 tab.subplots.append((outfile,\
@@ -2448,6 +2786,7 @@ def process_state_vector(tab, cp, cpsec, verbose=False, htmlonly=False,\
     @param htmlonly
         generate enough data for HTML only, default: False
     """
+    global G_SEGMENTS,G_SEGMENT_SUMMARY
     print_verbose("\n----------\nProcessing %s state vector for the %s "\
                   "state...\n" % (tab.name, tab.state.name),\
                   verbose=verbose, profile=False)
@@ -2461,7 +2800,7 @@ def process_state_vector(tab, cp, cpsec, verbose=False, htmlonly=False,\
 
     # get bits
     bitmask = [(int(bit), mask) for (bit,mask) in cp.items(cpsec) if
-               bit.isdigit()] 
+               bit.isdigit()]
     tab.add_bitmask(bitmask)
     compobits = [(bit,mask) for (bit,mask) in cp.items(cpsec) if
                  not bit.isdigit() and re.sub("[!,]", "", str(bit)).isdigit()]
@@ -2483,18 +2822,29 @@ def process_state_vector(tab, cp, cpsec, verbose=False, htmlonly=False,\
 
     # get new data
     if not htmlonly:
-        data = get_data(cp, channel, tab.segments, frametype=frametype)
-        segdict = SegmentListDict((flag, SegmentList([])) for
-                                  (bit, flag) in tab.bitmask.items())
+        # initialise empty segmentlists
+        for flag in tab.bitmask.values():
+            tab.add_segments(flag, [])
+
+        # get and parse data
+        data = get_data(cp, channel, tab.segments, frametype=frametype,
+                        store=False)
         for series in data:
             state_segs = stateutils.tosegmentlistdict(series,tab.bitmask)
             for bit in tab.bits:
                 flag = tab.bitmask[bit]
                 tab.add_segments(flag, state_segs[flag])
+                if (cp.has_option(cpsec, 'store-segments') and not
+                    G_SEGMENTS.has_key(flag)):
+                    G_SEGMENT_SUMMARY[flag] = SegmentList([tab.span])
+                    G_SEGMENTS[flag] = state_segs[flag]
+
         # restrict tab segments to available data
-        defstart = float(data[0].epoch)
-        defend = float(data[-1].epoch + data[-1].data.length * data[-1].deltaT)
-        tab.segments &= SegmentList([Segment(defstart, defend)])
+        if len(data):
+            defstart = float(data[0].epoch)
+            defend = float(data[-1].epoch +
+                           data[-1].data.length * data[-1].deltaT)
+            tab.segments &= SegmentList([Segment(defstart, defend)])
 
         # construct derived bits
         if len(tab.derived_bitmask.keys()):
@@ -2503,7 +2853,7 @@ def process_state_vector(tab, cp, cpsec, verbose=False, htmlonly=False,\
                 seglist = SegmentList(tab.segments)
                 for bit in bitset:
                     if bit.startswith("!"):
-                       seglist -= tab.segdict[tab.bitmask[int(bit[1:])]]
+                        seglist -= tab.segdict[tab.bitmask[int(bit[1:])]]
                     else:
                         seglist &= tab.segdict[tab.bitmask[bit]]
                 tab.add_segments(flag, seglist)
@@ -2585,7 +2935,7 @@ def process_state_vector(tab, cp, cpsec, verbose=False, htmlonly=False,\
                     outfile = os.path.join(tab.directory, basefile)
             else:
                 outfile = os.path.join(tab.directory, basefile)
-    
+
             # otherwise make it as normal
             if htmlonly or not dosubplots:
                 tab.subplots.append((outfile, plotparams.pop("description",\
@@ -2657,12 +3007,12 @@ def process_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
 
     #
     # get archived triggers
-    # 
+    #
 
     if (cp.has_option(cpsec, "use-archive") and
             (cp.get(cpsec, "use-archive").lower() in ["", "true"])):
         for channel in channels:
-            load_archive_triggers(cp, ifo, channel, etg, tab.segments,
+            load_archive_triggers(cp, ifo, channel, tab.etg, tab.segments,
                                   mode=tab.mode, clustered=tab.cluster)
         print_verbose("Archive triggers loaded.\n", verbose=verbose)
 
@@ -2676,10 +3026,16 @@ def process_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
 
     # get triggers
     if not htmlonly:
+        # get trigfind args
+        trigfind_args = dict()
+        etgsec = tab.etg.lower()
+        for opt,val in cp.items(etgsec)+cp.items(cpsec):
+            if opt.startswith("trigfind-"):
+                trigfind_args[opt[9:]] = val
         for chan in channels:
             trigtable = get_triggers(cp, chan, tab.etg, tab.segments,\
-                                     cluster=tab.cluster,\
-                                     minsnr=snr)
+                                     cluster=tab.cluster, minsnr=snr,
+                                     **trigfind_args)
             tab.add_triggers(chan, trigtable)
 
     print_verbose("All triggers loaded.\n", verbose=verbose)
@@ -2687,7 +3043,7 @@ def process_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
     #
     # plot triggers
     #
-    
+
     # get plot sections
     plots = [p for p in cp.items(cpsec) if p[0].startswith("plot-")]
 
@@ -2729,9 +3085,9 @@ def process_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
         subplot = cp.get(cpsec, "sub-plot")
         substart = tab.start_time
         deltas = subplot_durations(tab.start_time, tab.end_time, tab.mode)
+        plottag = re_cchar.sub("_", subplot[5:].upper())
 
         for dt in deltas:
-            plottag = re_cchar.sub("_", subplot[5:].upper())
             basefile = "%s-%s_%s_%s-%d-%d.png"\
                        % (tab.ifo, re_cchar.sub("_", tab.name.upper()),
                           tab.state.tag, plottag, substart, dt)
@@ -2764,7 +3120,7 @@ def process_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
                     outfile = os.path.join(tab.directory, basefile)
             else:
                 outfile = os.path.join(tab.directory, basefile)
-    
+
             # otherwise make it as normal
             if htmlonly or not dosubplots:
                 tab.subplots.append((outfile, plotparams.pop("description",\
@@ -2826,23 +3182,6 @@ def process_auxiliary_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
                    (cp.has_option(etgsec, "cluster-window") and
                     cp.getfloat(etgsec, "cluster-window")) or
                    False)
-    format = (cp.has_option(etgsec, "format") and cp.get(etgsec, "format") or
-              "xml")
-
-    #
-    # get archived triggers
-    # 
-
-    if (cp.has_option(cpsec, "use-archive") and
-            (cp.get(cpsec, "use-archive").lower() in ["", "true"])):
-        for channel in channels:
-            load_archive_triggers(cp, ifo, channel, etg, tab.segments,
-                                  mode=tab.mode, clustered=tab.cluster)
-        print_verbose("Archive triggers loaded.\n", verbose=verbose)
-
-    #
-    # get triggers
-    #
 
     # get SNR threshold
     snr = cp.has_option(cpsec, "snr-threshold")\
@@ -2856,18 +3195,43 @@ def process_auxiliary_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
              or "%s-channels" % tab.etg.lower()
     channels = [c for i,c in cp.items(auxsec) if c != tab.mainchannel]
     channels.sort()
+    if tab.mainchannel:
+        allchannels = [tab.mainchannel] + channels
+    else:
+        allchannels = channels
 
     # get coinc params
     if tab.mainchannel:
         dt = cp.getfloat(cpsec, "coincidence-window")
         shifts = map(float, cp.get(cpsec, "coincidence-time-slides").split(","))
-        allchannels = [tab.mainchannel] + channels
+
+    #
+    # get archived triggers
+    #
+
+    if (cp.has_option(cpsec, "use-archive") and
+            (cp.get(cpsec, "use-archive").lower() in ["", "true"])):
+        for channel in allchannels:
+            load_archive_triggers(cp, ifo, channel, tab.etg, tab.segments,
+                                  mode=tab.mode, clustered=tab.cluster)
+        print_verbose("Archive triggers loaded.\n", verbose=verbose)
+
+    #
+    # get triggers
+    #
+
+    # get trigfind args
+    trigfind_args = dict()
+    etgsec = re_cchar.sub("-", tab.etg.lower())
+    for opt,val in cp.items(etgsec)+cp.items(cpsec):
+        if opt.startswith("trigfind-"):
+            trigfind_args[opt[9:]] = val
 
     # get triggers
     if not htmlonly:
         trigtables = get_multi_triggers(cp, allchannels, tab.etg, tab.segments,
                                         cluster=tab.cluster,
-                                        minsnr=snr, format=format)
+                                        minsnr=snr, **trigfind_args)
         for chan,trigtable in zip(allchannels, trigtables):
             tab.add_triggers(chan, trigtable)
 
@@ -2890,10 +3254,10 @@ def process_auxiliary_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
     #
     # process and plot auxiliary
     #
-    
-    sigmaplot = None
 
-    for chan in channels:
+    sigmaplot = None
+    channelparams = parse_data_config(cp, cpsec, channels)
+    for chan, params in zip(channels, channelparams):
         tab.auxplots[chan] = list()
         for plot,_ in plots:
             # format plot
@@ -2927,12 +3291,11 @@ def process_auxiliary_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
                               % (tab.numcoincs[(chan, tab.mainchannel)],\
                                  tab.numcoincs[(tab.mainchannel, chan)],\
                                  chan, tab.mainchannel), verbose=verbose)
+                tab.plotcoincs(outfile, chan, **plotparams)
             elif re.search("slide", plot, re.I):
                 # find significance of coincidences
                 tab.compute_coinc_significance(chan, dt=dt, shifts=shifts)
                 tab.plotsigma(outfile, chan, **plotparams)
-            elif re.search("coinc", plot, re.I):
-                tab.plotcoincs(outfile, chan, **plotparams)
             elif re.search("hist", plot, re.I):
                 if len(tab.segments):
                     plotparams.setdefault("normalize", tab.segments.extent())
@@ -2957,7 +3320,7 @@ def process_auxiliary_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
                                             re_cchar.sub("_", name.upper()),\
                                             tab.state.tag, plottag,\
                                             tab.start_time, abs(tab.span)))
-        if htmlonly:
+        if htmlonly or not doplots:
             tab.plots.append((outfile, plotparams.pop("description", None)))
         else:
             plotparams = parse_plot_section(cp, cpsec,\
@@ -2971,6 +3334,661 @@ def process_auxiliary_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
     if not htmlonly:
         tab.finalize()
         tab.frametohtml()
+
+# =============================================================================
+# HVeto round class
+# =============================================================================
+
+class HVetoRound(object):
+
+  def __init__(self):
+    self.channel = None
+    self.etg = None
+    self.freqband = [0, numpy.inf]
+    self.veto_segments = SegmentList([])
+    self.significance = numpy.nan
+    self.fakesignificance = None
+    self.dt = None
+    self.snr = None
+    self.deadtime = [None]
+    self.efficiency = [None]
+    self.use_percentage = None
+    self.safety = [None]
+    self.veto_file = ""
+    self.vetoed_h_trigs = lsctables.New(lsctables.SnglBurstTable)
+    self.vetoing_aux_trigs = lsctables.New(lsctables.SnglBurstTable)
+
+
+def write_hveto_results(filename, rounds):
+
+  fobj = open(filename, 'w')
+
+  # write headers
+  fobj.write('#N channel significance t_win snr use deadtime safety file\n')
+
+  N = max(rounds.keys())
+
+  for i in range(1, N+1):
+    fobj.write(' '.join(map(str, [i, '%s;%s;%g-%gHz' % (rounds[i].channel,rounds[i].etg,\
+                                                        rounds[i].freqband[0],rounds[i].freqband[1]),\
+                                    rounds[i].significance,\
+                                    rounds[i].dt, rounds[i].snr,\
+                                    ','.join(map(str, rounds[i].efficiency)),\
+                                    ','.join(map(str, rounds[i].deadtime)),\
+                                    ','.join(map(str, rounds[i].safety)),\
+                                    os.path.abspath(rounds[i].veto_file)])))
+    fobj.write('\n')
+  fobj.close()
+
+def load_hveto_results(filename):
+
+  rounds = {}
+  with open(filename, 'r') as fobj:
+    for line in fobj:
+      if re_cchar.match(line): continue
+      i, c, sig, dt, snr, eff, deadtime, safety, f = line.split(' ')
+      i = int(i)
+      rounds[i] = HVetoRound()
+      csplit = c.split(';')
+      if len(csplit) > 2:
+        rounds[i].freqband = map(float, csplit[2][:-2].split('-'))
+      else:
+        rounds[i].freqband = [-numpy.inf, numpy.inf]
+      if len(csplit) > 1:
+        rounds[i].etg = csplit[1]
+      else:
+        rounds[i].etg = 'HACR'
+      rounds[i].channel       = csplit[0]
+      rounds[i].significance  = float(sig)
+      rounds[i].dt            = float(dt)
+      rounds[i].snr           = float(snr)
+      rounds[i].efficiency    = map(float, eff.split(','))
+      rounds[i].deadtime      = map(float, deadtime.split(','))
+      if safety=='None':
+        rounds[i].safety      = [None]
+      else:
+        rounds[i].safety      = map(float, safety.split(','))
+      rounds[i].veto_file     = f.rstrip('\n')
+      hveto_day_xml = ligolw_utils.load_filename(rounds[i].veto_file)
+      rounds[i].veto_segments = SegmentList([])
+      for seg in hveto_day_xml.childNodes[0].childNodes[-1]:
+          rounds[i].veto_segments.append(seg.get())
+      rounds[i].veto_segments.coalesce()
+
+  return rounds
+
+
+def write_round_xml( vetosegs, vetotrigs, winner, ifo):
+	"""
+	Write out the products from this round of hveto: veto segments and the vetoed triggers.
+	"""
+	# Create a new document
+	xmldoc = ligolw.Document()
+	xmldoc.appendChild( ligolw.LIGO_LW() )
+
+	# Append the process information
+	procrow = ligolw_utils.process.append_process( xmldoc )
+
+	# Add the vetoed triggers
+	xmldoc.childNodes[0].childNodes.append( vetotrigs )
+
+	# Append the veto segments
+	segl = SegmentListDict()
+	segl[ifo] = vetosegs
+	lwsegs = ligolw_utils.segments.LigolwSegments( xmldoc )
+	lwsegs.insert_from_segmentlistdict( segl, "hveto" )
+	lwsegs.finalize(procrow)
+	
+	return xmldoc
+
+def lalseg_from_seglist( segl ):
+	"""
+	Convert a glue.segments segmentlist to a LALSegList structure.
+	"""
+	lalsegl = lal.SegList()
+	lal.SegListInit( lalsegl )
+	for i, seg in enumerate(segl):
+		lalseg = lal.Seg()
+		lal.SegSet( lalseg,
+			lal.LIGOTimeGPS( float(seg[0]) ),
+			lal.LIGOTimeGPS( float(seg[1]) ),
+			i
+		)
+		lal.SegListAppend( lalsegl, lalseg )
+	return lalsegl
+
+def seglist_from_lalseg( lalsegl ):
+	"""
+	Convert a LALSegList structure to a glue.segmentlist.
+	"""
+	segl = segmentlist()
+	for i in range(lalsegl.length):
+		lalseg = lal.SegListGet( lalsegl, i )
+		segl.append( segment( lalseg.start, lalseg.end ) )
+	return segl
+
+def ghash_to_dict( ghash ):
+	"""
+	Convert a GHashTable into a python dictionary. Note that all the GHashTables in use by laldetchar map a string to a fixed type (e.g. double or string), so the dtype argument should match that.
+	"""
+	i = 0
+	keys = []
+	while True:
+		key = laldetchar.GetGHashTableKey( ghash, i )
+		if key is None: 
+			break
+		i += 1
+		keys.append( key )
+
+	dtype = laldetchar.GetGHashTableType( ghash )
+	if dtype == laldetchar.LALGTYPE_INT:
+		rfunc = laldetchar.GetGHashTblInt
+	elif dtype == laldetchar.LALGTYPE_DBL:
+		rfunc = laldetchar.GetGHashTblDbl
+	elif dtype == laldetchar.LALGTYPE_STR:
+		rfunc = laldetchar.GetGHashTblStr
+	else:
+		raise TypeError( "Don't have right function to retrieve key for LALGType=%i" % dtype )
+	return dict( [ (key, rfunc( ghash, key )) for key in keys ] )
+
+def lalburst_sb_to_glue_sb( sb_in, desired_columns ):
+	"""
+	Convert a lalburst SnglBurst structure to a SnglBurst row from glue.
+	"""
+	sb = lsctables.SnglBurstTable.RowType()
+	for att in desired_columns:
+		if att == "start_time":
+			start_time = float( sb_in.start_time )
+			sb.start_time = int(start_time) 
+			sb.start_time_ns = int(1e9*(start_time - int(start_time) ))
+			continue
+		elif att == "peak_time":
+			peak_time = float( sb_in.peak_time )
+			sb.peak_time = int(peak_time) 
+			sb.peak_time_ns = int(1e9*(peak_time - int(peak_time) ))
+			continue
+		elif att == "process_id":
+			sb.process_id = ilwd.ilwdchar( "process:process_id:%d" % getattr( sb_in, att ) )
+			continue
+		elif att == "event_id":
+			sb.event_id = ilwd.ilwdchar( "sngl_burst:sngl_burst_id:%d" % getattr( sb_in, att ) )
+			continue
+
+		try:
+			setattr( sb, att, getattr( sb_in, att ) )
+		except AttributeError:
+			pass
+	return sb
+
+def seq_to_sbtable( sblist, get_col=None ):
+	"""
+	Convert a GSequence of SnglBurst to a SnglBurstTable.
+	"""
+        desired_columns = ["peak_time_ns", "start_time_ns", "channel",
+	  "ifo", "peak_time", "start_time",
+	  "duration", "central_freq", "search",
+	  "bandwidth",  "snr"]
+	sbtable = lsctables.New(lsctables.SnglBurstTable,
+	  desired_columns)
+
+	sblistitr = laldetchar.GSequenceBegin( sblist )
+
+	col_ar = []
+	while sblistitr is not None:
+		next_sb = laldetchar.GetGSeqSnglBurst( sblistitr )
+		if next_sb is None:
+			break
+		if get_col is not None:
+			col_ar.append( getattr( next_sb, get_col ) )
+		sbtable.append( lalburst_sb_to_glue_sb(next_sb, desired_columns) )
+		sblistitr = laldetchar.GSequenceNext( sblistitr )
+
+	if get_col is not None:
+		return col_ar
+	return sbtable
+
+def get_chan_list( gseq ):
+	"""
+	Get a listing of the channels within a trigger sequence.
+	"""
+	# This is necessarily complicated because there is no "set" type in glib
+	# thus the closest thing is a hash. This retrieves the hash, then converts
+	# its keys into a proper set.
+	return set(ghash_to_dict( laldetchar.GetChannelList( gseq ) ).keys())
+
+def run_hveto(tab, trig_seq, twind, snr_thresh, sig_stop_thresh, verbose = False):
+    """
+    Actual hierarchical processing of trigger to make vetoes. Should
+    be spin-off with helper functions into a module or something.
+    """
+    # Type of coincidence:
+    # 0 -- Record all coincidences
+    # 1 -- Record one or no coincidence per reference trigger
+    # NOTE: I don't provide this as an option yet. The original algorithm only used
+    # type 1, and type 0 may not even work after all the tooling I've done. Fair
+    # warning.
+    coinc_type = 1
+
+
+
+    rnd = 1
+    livesegs = tab.segments
+    runseg = Segment(tab.start_time, tab.end_time)
+    runlive = livetime = float(abs(livesegs))
+    lalsegl = lalseg_from_seglist( livesegs )
+    ref_trigs = 0
+
+    sigdrop = None
+    round_winner, efficiency, deadtime = [], [], []
+    winner_docs = []
+
+    # Round loop
+    while True:
+            subround_winner = {}
+            subround_count = {}
+            subround_coinc = {}
+            print "Round %d" % rnd
+            for snr_t in snr_thresh:
+
+                # Mark triggers not meeting threshold criteria
+                laldetchar.DetCharPruneTrigs( trig_seq, lalsegl, snr_t, tab.mainchannel )
+
+                if laldetchar.CountUnmarkedSnglBurst( trig_seq ) <= 0:
+                    if verbose:
+                        print "No triggers remaining at current threshold. Moving on."
+                    continue
+
+                for wind in twind:
+                        if verbose:
+                                print "SNR threshold %f, time window %f" % (snr_t, wind)
+                        chancount = laldetchar.CreateGHashTable(laldetchar.LALGTYPE_INT)
+                        chancoinc = laldetchar.CreateGHashTable(laldetchar.LALGTYPE_INT)
+                        # TODO: Wrap this better
+                        laldetchar.DetCharScanTrigs( chancount, chancoinc, trig_seq, tab.mainchannel, wind, coinc_type )
+                        t_ratio = wind / livetime
+                        rnd_sig, winner = laldetchar.DetCharVetoRound( chancount, chancoinc, tab.mainchannel, t_ratio )
+                        if verbose:
+                                print "Subround winner %s (SNR: %f, wind: %f): %f" % (winner, snr_t, wind, rnd_sig)
+
+                        chancount = ghash_to_dict( chancount )
+                        subround_count[(snr_t, wind)] = chancount
+                        chancoinc = ghash_to_dict( chancoinc )
+                        subround_coinc[(snr_t, wind)] = chancoinc
+
+                        if chancoinc.has_key(winner):
+                                mu = t_ratio * chancount[winner] * chancount[tab.mainchannel]
+                                subround_winner[(snr_t, wind)] = (winner, rnd_sig, mu)
+                        #print chancount, chancoinc
+                        if verbose:
+                            print "Popping from window loop."
+                if verbose:
+                    print "Popping from threshold loop."
+
+            if verbose:
+                print  "Determining subround winner"
+            subround_winner = sorted(subround_winner.iteritems(), key=lambda tup: tup[1][1] )
+
+            if len(subround_winner) == 0:
+                if verbose:
+                    print "No triggers remain, exiting."
+                break
+            round_winner = subround_winner[-1]
+            snr_win, wind_win = round_winner[0]
+            winner, sig, mu = round_winner[1]
+
+            # Create veto segments
+            start = lal.LIGOTimeGPS(-wind_win/2.0)
+            stop = lal.LIGOTimeGPS(wind_win/2.0)
+            veto = lal.SegCreate( start, stop, rnd )
+
+            # We need a list of the reference channel triggers for plotting later
+            # TODO: Reenable for breakout
+            #all_ref_trigs = filter(lambda sb: sb.channel == tab.mainchannel, seq_to_sbtable( trig_seq ) )
+
+            print "Retrieving vetoed triggers from list."
+            vetoed_trigs = laldetchar.DetCharRemoveTrigs( trig_seq, veto, winner, tab.mainchannel, snr_win )
+            
+            print "Converting trigger format."
+            vetoed_trigs = seq_to_sbtable( vetoed_trigs )
+            # Number of reference channel triggers vetoed
+            n_trig_vetoed = len( filter(lambda sb: sb.channel == tab.mainchannel, vetoed_trigs ) )
+
+            print "Calculating veto segments."
+            # Remove vetoed winner triggers from livetime
+            vetosegs = SegmentList([])
+            fvetosegs = SegmentList([])
+            vetoed_h_trigs = lsctables.New(lsctables.SnglBurstTable)
+            vetoing_aux_trigs = lsctables.New(lsctables.SnglBurstTable)
+            for trig in vetoed_trigs:
+                    if trig.channel != winner and trig.channel != tab.mainchannel: 
+                        continue
+                    if trig.channel == tab.mainchannel:
+                        vetoed_h_trigs.append(trig)
+                        continue
+                    if trig.channel == winner:
+                        vetoing_aux_trigs.append(trig)
+                    vs = Segment( trig.get_peak() - wind_win/2.0, trig.get_peak() + wind_win/2.0 )
+                    fvs = Segment( float(trig.get_peak() - wind_win/2.0), float(trig.get_peak() + wind_win/2.0 ))
+                    vetosegs.append( vs )
+                    fvetosegs.append(fvs)
+            vetosegs.coalesce()
+            fvetosegs.coalesce()
+
+            # Remove vetoed time from livetime
+            deadt = float(abs(livesegs))
+            livesegs -= vetosegs
+            deadt -= float(abs(livesegs))
+
+            # Other information
+            if rnd == 1:
+                    # Lowest SNR and window, for the total reference channel count
+                    snr_l, wind_l = snr_thresh[0], twind[0]
+                    ref_trigs = subround_count[(snr_l, wind_l)][tab.mainchannel]
+                    efficiency.append( float(n_trig_vetoed)/ref_trigs*100 )
+                    inc_eff = efficiency[-1]
+                    deadtime.append( deadt/runlive*100 )
+            else:
+                    inc_eff = float(n_trig_vetoed)/ref_trigs*100
+                    efficiency.append( inc_eff )
+                    deadtime.append( deadt/runlive*100 )
+
+            print """
+    Round statistics:
+    \treference channel / winner: %s / %s
+    \tsnr threshold / time window: %f / %f
+    \tmu / significance: %f / %f
+    \tN_ref / vetoed = %d / %d
+    \tN_aux = %d
+    \tefficiency %% (rnd/cum): %f / %f
+    \tdeadtime %% (rnd/cum) %f / %f""" % ( tab.mainchannel, winner, snr_win, wind_win, mu, sig, ref_trigs, n_trig_vetoed, subround_count[(snr_l, wind_l)][winner], inc_eff, sum(efficiency), deadtime[-1], sum(deadtime) )
+
+
+            # We've dropped below the useful threshold, bail.
+            if sig < sig_stop_thresh:
+                print "Last round below significance threshold, we're done here."
+                break
+
+            # Write out vetoes and vetoed triggers
+            xmldoc = write_round_xml(vetosegs, vetoed_trigs, winner, tab.ifo)
+            fname = "%s/%s-HVETO_ROUND_%d-%d-%d.xml.gz" % (tab.directory, tab.ifo, rnd, int(runseg[0]), int(abs(runseg)))
+            ligolw_utils.write_filename( xmldoc, fname, gz=True, verbose=verbose )
+
+            # save round statistics
+            tab.rounds[rnd] = HVetoRound()
+            tab.rounds[rnd].channel = winner
+            tab.rounds[rnd].etg = tab.etg
+            tab.rounds[rnd].significance = sig
+            tab.rounds[rnd].dt = wind_win
+            tab.rounds[rnd].snr = snr_win
+            tab.rounds[rnd].efficiency = [inc_eff]
+            tab.rounds[rnd].deadtime = [deadtime[-1]]
+            tab.rounds[rnd].safter = [numpy.nan]
+            tab.rounds[rnd].veto_file = fname
+            tab.rounds[rnd].veto_segments = fvetosegs
+            tab.rounds[rnd].use_percentage = n_trig_vetoed/subround_count[(snr_win, wind_win)][winner]
+            tab.rounds[rnd].vetoing_aux_trigs = vetoing_aux_trigs
+            tab.rounds[rnd].vetoed_h_trigs = vetoed_h_trigs
+
+            # strip channel frequency range from winner channel name and record
+            tmp = winner.split(':')
+            tab.winnerchannels.append(tmp[0] + ':' + tmp[1]) 
+
+
+            # put segments into global holder for other parts of summary pages
+            hvetoflag='G1:HVETO:1'
+            if G_SEGMENTS.has_key(hvetoflag):
+                if abs(SegmentList([runseg]) & G_SEGMENT_SUMMARY[hvetoflag]) \
+                        != abs(SegmentList([runseg])) or \
+                        abs(SegmentList([runseg])) != abs(G_SEGMENT_SUMMARY[hvetoflag]):
+                    raise ValueError("Unconsistent processed time span for different rounds of hveto")
+                G_SEGMENTS[hvetoflag] |= fvetosegs
+            else:
+                G_SEGMENT_SUMMARY[hvetoflag] = SegmentList([runseg])
+                G_SEGMENTS[hvetoflag] = SegmentList([])
+                G_SEGMENTS[hvetoflag] |= fvetosegs
+
+            # Plots and the like
+            chansig = defaultdict(dict)
+
+            # Plot the vetoed reference channel tringgers
+            if vetoed_trigs is not None or len(vetoed_trigs) != 0:
+                    aux_trigs = filter(lambda sb: sb.channel == winner, vetoed_trigs)
+                    pname = "hveto_round_%d_summary.png" % rnd 
+                    #breakout.breakout_plot( all_ref_trigs, aux_trigs, tab.mainchannel, winner, livesegs, vetosegs, pname )
+
+            # Calculate the significance of each of the channels against the reference
+            # channel for each of the subrounds for the significance drop plot
+            for subrnd, coinctbl in subround_coinc.iteritems():
+                    ref_cnt = subround_count[subrnd][tab.mainchannel]
+                    snr_t_sub, twind_sub = subrnd
+                    for chan, coinc in coinctbl.iteritems():
+                            cnt = subround_count[subrnd][chan]
+                            mu = twind_sub*cnt*ref_cnt/livetime
+                            chansig[subrnd][chan] = laldetchar.DetCharHvetoSignificance( mu, coinc )
+
+
+            livetime = float(abs(livesegs))
+            print "Live time after round %d: %f" % (rnd, livetime)
+
+            #break
+            #if rnd_sig < sig_stop_thresh:
+            if sig < sig_stop_thresh:
+                break
+            else:
+                rnd +=  1
+    return 
+
+def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
+                               htmlonly=False):
+    """
+    Process some auxiliary channel triggers relative to an analysis channel.
+
+    @param tab
+        hveto object to process
+    @param cp
+        configuration file object
+    @param cpsec
+        name of INI section configuring this Tab
+    @param verbose
+        print verbose output, default: False
+    @param doplots
+        generate plots, default: True
+    @param htmlonly
+        generate enough data for HTML only, default: False
+    """
+    tab.etg = cp.has_option(cpsec, "trigger-generator")\
+              and cp.get(cpsec, "trigger-generator")\
+              or cpsec[12:].split()[0]
+    print_verbose("\n----------\nProcessing hveto using %s auxiliary channel triggers for "\
+                  "the %s state...\n" % (tab.etg, tab.state.name),\
+                  verbose=verbose, profile=False)
+
+    #
+    # setup
+    #
+
+    if not os.path.isdir(tab.directory):
+        os.makedirs(tab.directory)
+
+    etgsec = re_cchar.sub("-", tab.etg.lower())
+    tab.cluster = ((cp.has_option(cpsec, "cluster-window") and
+                    cp.getfloat(cpsec, "cluster-window")) or
+                   (cp.has_option(etgsec, "cluster-window") and
+                    cp.getfloat(etgsec, "cluster-window")) or
+                   False)
+
+    # get SNR threshold
+    snr = cp.has_option(cpsec, "snr-threshold")\
+          and cp.getfloat(cpsec, "snr-threshold") or 0
+
+    # get channels
+    tab.mainchannel = (cp.has_option(cpsec, "main-channel") and
+                       cp.get(cpsec, "main-channel")) or None
+    unsafechannels = cp.has_option(cpsec, 'unsafe-channels') and \
+                     [c for i,c in cp.items(cp.get(cpsec, 'unsafe-channels'))] or []
+    auxsec = cp.has_option(cpsec, "auxiliary-channels")\
+             and cp.get(cpsec, "auxiliary-channels")\
+             or "%s-channels" % tab.etg.lower()
+    channels = [c for i,c in cp.items(auxsec) if c != tab.mainchannel and c not in unsafechannels]
+    channels.sort()
+    if tab.mainchannel:
+        allchannels = [tab.mainchannel] + channels
+
+    # get coinc params
+    if cp.has_option(cpsec, "coincidence-windows"):
+        twind = map(float, cp.get(cpsec, "coincidence-windows").split(',') or None)
+    if cp.has_option(cpsec, "snr-aux-thresholds"):
+        snr_thresh = map(float, cp.get(cpsec, "snr-aux-thresholds").split(',') or None)
+    if cp.has_option(cpsec, "significance-threshold"):
+        sig_stop_thresh = cp.getfloat(cpsec, "significance-threshold")
+    freqbands = cp.has_option(cpsec, 'frequency-bands')\
+        and sorted(map(float, cp.get(cpsec, 'frequency-bands').split(',')))\
+        or False
+
+
+    #
+    # get triggers
+    #
+
+    # get trigfind args
+    trigfind_args = dict()
+    etgsec = re_cchar.sub("-", tab.etg.lower())
+    for opt,val in cp.items(etgsec)+cp.items(cpsec):
+        if opt.startswith("trigfind-"):
+            trigfind_args[opt[9:]] = val
+
+
+
+    #
+    # process hveto
+    #
+    # for long summaries pick-up hveto results form daily pages, otherwise run hveto
+    if tab.mode == summary.SUMMARY_MODE_MONTH:
+        start_date = datetime.datetime(*lal.GPSToUTC(int(tab.start_time))[:6])
+        globstr = os.path.join("archive_daily",
+                               "%d%.2d*"
+                               % (start_date.year, start_date.month),
+                               "analysis/hveto", "full_results.txt")
+        hveto_files = glob.glob(globstr)
+
+        tab.rounds[1] = HVetoRound()
+        tab.rounds[1].channel = 'N/A'
+        for filename in hveto_files:
+            print filename
+            rounds = load_hveto_results(filename)
+            for i in range(1,1+len(rounds)):
+                tab.rounds[1].veto_segments = tab.rounds[1].veto_segments or rounds[i].veto_segments
+        tab.rounds[1].use_percentage = numpy.nan
+        tab.rounds[1].efficiency = [numpy.nan]
+        tab.rounds[1].deadtime = [numpy.nan]
+        trigtable = get_triggers(cp, tab.mainchannel, tab.etg, tab.segments,
+                                 cluster=tab.cluster,
+                                 minsnr=snr, **trigfind_args)
+        tab.add_triggers(tab.mainchannel, trigtable)
+
+    else:
+        # get triggers
+        if not htmlonly:
+            trigtables = get_multi_triggers(cp, allchannels, tab.etg, tab.segments,
+                                            cluster=tab.cluster,
+                                            minsnr=snr, **trigfind_args)
+            trig_seq = None
+            swigtriglist = []
+            for chan,trigtable in zip(allchannels, trigtables):
+                tab.add_triggers(chan, trigtable)
+                # convert from glue SnglBurst to swig/lal SnglBurst
+                for trig in trigtable:
+                    swigtrig = lalburst.CreateSnglBurst()
+                    swigtrig.ifo = trig.ifo
+                    swigtrig.search = trig.search
+                    swigtrig.start_time = lal.LIGOTimeGPS(trig.start_time + 1e-9*trig.start_time_ns)
+                    swigtrig.peak_time = lal.LIGOTimeGPS(trig.peak_time + 1e-9*trig.peak_time_ns)
+                    swigtrig.central_freq = trig.peak_frequency
+                    if trig.channel != tab.mainchannel and freqbands:
+                        freq_extension = ''
+                        for iF in range(len(freqbands)-1):
+                            if trig.peak_frequency >= freqbands[iF] \
+                                    and trig.peak_frequency < freqbands[iF+1]:
+                                freq_extension = ':%g-%gHz' % (freqbands[iF], freqbands[iF+1])
+                        swigtrig.channel = trig.channel + freq_extension
+                    else:
+                        swigtrig.channel = trig.channel
+                    swigtrig.snr = trig.snr
+                    swigtriglist.append(swigtrig)
+                    trig_seq = laldetchar.PopulateTrigSequenceFromTrigList(trig_seq, swigtriglist[-1])
+                    
+        print_verbose("All triggers loaded.\n", verbose=verbose)
+
+        run_hveto(tab, trig_seq, twind, snr_thresh, sig_stop_thresh)
+
+    #
+    # plot triggers
+    #
+    # get plot sections
+    plots = [p for p in cp.items(cpsec) if p[0].startswith("plot-")]
+
+    # if we got no plots, pick up the defaults
+    if len(plots) == 0:
+        plots = [("plot-time-frequency-snr", "0")]
+
+    # sort plots by their given order
+    plots.sort(key=lambda o: o[1].isdigit() and (int(o[1])+1) or 1000)
+
+    #
+    # process and plot auxiliary
+    #
+
+    sigmaplot = None
+    # make plots for each winner channel (each round)
+    for chan, rnd in zip(["combined"] + tab.winnerchannels,  range(1+len(tab.winnerchannels))):
+        tab.auxplots[rnd] = list()
+        for plot,_ in plots:
+            # format plot
+            plottag = re_cchar.sub("_", plot[5:].upper())
+            outfile = os.path.join(tab.directory, "%s-HVETO_ROUND_%d_%s_%s_%s-%d-%d.png"\
+                                     % (tab.ifo, rnd,\
+                                         re_cchar.sub("_", chan[3:].upper()),\
+                                        tab.state.tag, plottag,\
+                                        tab.start_time, abs(tab.span)))
+            plotparams = parse_plot_section(cp, cpsec,\
+                                          plotutils.parse_plot_config(cp, plot))
+
+            # skip if htmlonly
+            if htmlonly or not doplots:
+                if re.search("slide", plot, re.I):
+                    sigmaplot = plot
+                tab.auxplots[rnd].append((outfile,\
+                                           plotparams.pop("description", None)))
+                continue
+
+            # process data
+            if re.search("coinc", plot, re.I):
+                # find coincs
+                tab.plotcoincs(outfile, rnd, **plotparams)
+            else:
+                tab.plothistogram(outfile, rnd, **plotparams)        
+        print_verbose("%d plots saved for %s.\n" % (len(plots), chan),\
+                      verbose=verbose)
+
+    #
+    # make summary plot
+    #
+    tab.plots.append((tab.auxplots[0][0][0], None))
+    
+
+    #
+    # write results
+    #
+
+    hveto_file = '%s/full_results.txt' % tab.directory
+    write_hveto_results(hveto_file, tab.rounds)
+
+
+    if not htmlonly:
+        tab.finalize()
+        tab.frametohtml()
+
+    return
 
 # =============================================================================
 # Acquire data
@@ -3013,6 +4031,10 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
     print_verbose("\n----------\nProcessing data for %s for the %s state...\n"\
                   % (tab.name, tab.state.name),\
                   verbose=verbose, profile=False)
+    
+    # skip adding to summary if requested
+    if cp.has_option(cpsec, "skip-summary"):
+        tab.skip_summary = cp.get(cpsec, "skip-summary")
 
     #
     # setup
@@ -3034,7 +4056,7 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
 
     # sort plots by their given order
     plots.sort(key=lambda o: o[1].isdigit() and (int(o[1])+1) or 1000)
-    
+
     dataplot        = any(re.search("timeseries", p[0], re.I) for p in plots)
     spectrumplot    = any(re.search("spectrum", p[0], re.I) for p in plots)
     spectrogramplot = any(re.search("spectrogram", p[0], re.I)\
@@ -3047,7 +4069,7 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
     if cp.has_option(cpsec, "use-archive") \
     and (cp.get(cpsec, "use-archive").lower() in ["", "true"]):
         for channel in channels:
-            if dataplot:
+            if dataplot or spectrogramplot or spectrumplot:
                 load_archive_data(cp, channel, tab.segments, mode=tab.mode,\
                                   verbose=verbose)
             if spectrogramplot or spectrumplot:
@@ -3089,7 +4111,11 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
                                  resample=params["resample"],\
                                  fresponse=params["frequency-response"])
                 for spectrum in spectrumlist:
-                    spectrum.name = params["label"]
+                    try:
+                        spectrum.name = params["label"]
+                    except TypeError as e:
+                        warnings.warn("Cannot set spectrum name to '%s'"
+                                      % params['label'])
                 tab.add_median_spectrum(params["label"], spectrumlist[0])
                 tab.add_min_spectrum(params["label"], spectrumlist[1])
                 tab.add_max_spectrum(params["label"], spectrumlist[2])
@@ -3103,7 +4129,7 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
 
     #
     # load references
-    # 
+    #
 
     if not htmlonly and (spectrumplot or spectrogramplot):
         if cp.has_option(cpsec, "design-curve"):
@@ -3112,14 +4138,23 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
             tab.add_design_spectrum(tab.channels[0], series)
         if cp.has_option(cpsec, "reference-curve"):
             if cp.has_option(cpsec, "reference-epoch"):
-                gps = lal.LIGOTimeGPS(cp.getfloat(cp.get(cpsec,\
-                                                         "reference-epoch")))
-                name = "Reference (%.2g)" % float(gps)
+                gps_range = SegmentList([Segment(map(float,cp.get(cpsec,\
+                                                         "reference-epoch").split(',')))])
+                name = "Reference (%s)" % cp.get(cpsec,"reference-epoch")
+                spectrumlist =\
+                    get_spectrum(cp, channel, params["time-step"],\
+                                     params["segment-length"],\
+                                     params["segment-overlap"], gps_range,\
+                                     frametype=params["frametype"],\
+                                     calibration=params["calibration"],\
+                                     resample=params["resample"],\
+                                     fresponse=params["frequency-response"])
+                series = spectrumlist[0]
             else:
                 gps = lal.LIGOTimeGPS(0)
                 name = "Reference"
-            series = get_reference_spectrum(cp.get(cpsec, "design-curve"),\
-                                            channels[0], name=name, gps=gps)
+                series = get_reference_spectrum(cp.get(cpsec, "design-curve"),\
+                                                    channels[0], name=name, gps=gps)
             tab.add_reference_spectrum(tab.channels[0], series)
 
     #
@@ -3127,30 +4162,49 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
     #
 
     for plot,_ in plots:
-        plottag = re_cchar.sub("_", plot[5:].upper())
-        outfile = os.path.join(tab.directory,
-                               "%s-%s_%s_%s-%d-%d.png"\
-                               % (ifo, re_cchar.sub("_", tab.name.upper()),\
-                                  tab.state.tag, plottag, tab.start_time,\
-                                  tab.end_time-tab.start_time))
         plotparams = parse_plot_section(cp, cpsec,\
                                         plotutils.parse_plot_config(cp, plot))
-        if htmlonly or not doplots:
-            tab.plots.append((outfile, plotparams.pop("description", None)))
+        # build a spectrogram plot for each channel
+        if re.search('spectrogram', plot, re.I):
+            ratioregex = re.compile("\w+-ratio", re.I)
+            match = re.search(ratioregex, plot)
+            ratio = match and match.group()[:-6] or None
+            for channel in tab.channels:
+                plottag = "%s_%s" % (re_cchar.sub('_', channel.upper()),
+                                     re_cchar.sub("_", plot[5:].upper()))
+                outfile = os.path.join(
+                              tab.directory,
+                              "%s-%s_%s_%s-%d-%d.png"\
+                              % (ifo, re_cchar.sub("_", tab.name.upper()),\
+                              tab.state.tag, plottag, tab.start_time,\
+                                  tab.end_time-tab.start_time))
+                if htmlonly or not doplots:
+                    tab.plots.append((outfile,
+                                      plotparams.pop('description', None)))
+                else:
+                    tab.plotspectrogram(outfile, ratio=ratio, channel=channel,
+                                        **plotparams)
+                    print_verbose("%s saved.\n" % outfile, verbose=verbose)
+        # otherwise build one plot with all channels
         else:
-            if re.search("hist", plot, re.I):
-                tab.plothistogram(outfile, **plotparams)
-            elif re.search("spectrum", plot, re.I):
-                psd = re.search("(power|psd)", plot, re.I)
-                tab.plotspectrum(outfile, psd=psd, **plotparams)
-            elif re.search("spectrogram", plot, re.I):
-                ratioregex = re.compile("\w+-ratio", re.I)
-                match = re.search(ratioregex, plot)
-                ratio = match and match.group()[:-6] or None
-                tab.plotspectrogram(outfile, ratio=ratio, **plotparams)
+            plottag = re_cchar.sub("_", plot[5:].upper())
+            outfile = os.path.join(
+                          tab.directory,
+                          "%s-%s_%s_%s-%d-%d.png"
+                              % (ifo, re_cchar.sub("_", tab.name.upper()),
+                          tab.state.tag, plottag, tab.start_time,
+                          tab.end_time-tab.start_time))
+            if htmlonly or not doplots:
+                tab.plots.append((outfile, plotparams.pop("description", None)))
             else:
-                tab.plottimeseries(outfile, **plotparams)
-            print_verbose("%s saved.\n" % outfile, verbose=verbose)
+                if re.search("hist", plot, re.I):
+                    tab.plothistogram(outfile, **plotparams)
+                elif re.search("spectrum", plot, re.I):
+                    psd = re.search("(power|psd)", plot, re.I)
+                    tab.plotspectrum(outfile, psd=psd, **plotparams)
+                else:
+                    tab.plottimeseries(outfile, **plotparams)
+                print_verbose("%s saved.\n" % outfile, verbose=verbose)
 
     #
     # subplots
@@ -3196,7 +4250,7 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
                     outfile = os.path.join(tab.directory, basefile)
             else:
                 outfile = os.path.join(tab.directory, basefile)
-    
+
             # otherwise make it as normal
             if htmlonly or not dosubplots:
                 tab.subplots.append((outfile, plotparams.pop("description",\
@@ -3219,6 +4273,7 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
                     plotparams.setdefault("xlim", [substart, substart+dt])
                     tab.plottimeseries(outfile, subplot=True, **plotparams)
             substart += dt
+            print_verbose(".",verbose=verbose)
         print_verbose("%d subplots saved.\n" % len(tab.subplots),\
                       verbose=verbose)
 
@@ -3230,7 +4285,7 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
 def get_reference_spectrum(descriptor, channel, name="Design", gps=0):
     """
     Load a design or reference spectrum from file or function.
- 
+
     @param descriptor: reference descriptor, either filename to read,
         type of PSD recognised as a lalsimulation.SimNoisePSD... function,
         or a string to be evaluated as a lambda function.
@@ -3250,26 +4305,33 @@ def get_reference_spectrum(descriptor, channel, name="Design", gps=0):
         deltaF = f[1]-f[0]
         spectrum = seriesutils.fromarray(S, name, lal.LIGOTimeGPS(gps),\
                                          f0, deltaF, lal.lalStrainUnit, True)
+        spectrum.f_array = f
         return spectrum
 
-    # otherwise we can try to use a function
+
     spec     = G_SPECTRUM[channel][0]
-    f        = numpy.arange(spec.data.length) * spec.deltaF + spec.f0
+    if spec.f_array is None:
+        f = numpy.arange(spec.data.length) * spec.deltaF + spec.f0
+    else:
+        f = spec.f_array.astype(float)
     datatype = seriesutils.typecode(type(spec))
     TYPESTR  = seriesutils._typestr[datatype]
     Create   = getattr(lal, "Create%sFrequencySeries" % TYPESTR)
     spectrum = Create(name, lal.LIGOTimeGPS(gps), spec.f0, spec.deltaF,\
                       spec.sampleUnits, f.size)
+    spectrum.f_array = f
+
+    # otherwise we can try to use a function
     if hasattr(lalsimulation, "SimNoisePSD%s" % descriptor):
         SimNoisePSD = getattr(lalsimulation, "SimNoisePSD%s" % descriptor)
-        psd = lambda f: f and SimNoisePSD(f)**(1/2) or 0
-        
+        asd = lambda f: f and SimNoisePSD(f)**(1/2) or 0
+
     elif descriptor.startswith("lambda"):
-        psd = eval(descriptor)
+        asd = eval(descriptor)
 
     for i,freq in enumerate(f):
         try:
-            spectrum.data.data[i] = float(psd(freq))
+            spectrum.data.data[i] = float(asd(freq))
         except OverflowError:
             print freq
             raise
@@ -3315,6 +4377,14 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
     print_verbose("\n----------\nProcessing range for %s for the %s state...\n"\
                   % (tab.name, tab.state.name), verbose=verbose, profile=False)
 
+    etg = cp.has_option(cpsec, "trigger-generator")\
+              and cp.get(cpsec, "trigger-generator") or cpsec[9:]
+    snr = cp.has_option(cpsec, "snr-threshold")\
+          and cp.getfloat(cpsec, "snr-threshold") or 0
+    tab.cluster = ((cp.has_option(cpsec, "cluster-window") and
+                    cp.getfloat(cpsec, "cluster-window")) or
+                   False)
+
     #
     # setup
     #
@@ -3329,7 +4399,7 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
     if rangechannels and not htmlonly:
 
         channelparams = parse_data_config(cp, cpsec, rangechannels)
-            
+
         for channel,params in zip(rangechannels, channelparams):
             serieslist = get_data(cp, channel, tab.segments,\
                                   frametype=params["frametype"],\
@@ -3347,14 +4417,15 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
     sources = parse_range_config(cp, cpsec)
     numburst = sum([True for s in sources if s["type"] == "burst"])
 
-    runsegs2 = tab.segments
-    if cp.has_option(cpsec, "use-archive") \
-    and (cp.get(cpsec, "use-archive").lower() in ["", "true"]):
-        for source in sources: 
-            load_archive_data(cp, source["name"], tab.segments, mode=tab.mode,\
-                             verbose=verbose)
-            if source["name"] in G_DATA.keys():
-                runsegs2 -= SegmentList(G_DATA[source["name"]].keys())
+    # FIXME: archive loading for range data is buggy
+    #runsegs2 = tab.segments
+    #if cp.has_option(cpsec, "use-archive") \
+    #and (cp.get(cpsec, "use-archive").lower() in ["", "true"]):
+    #    for source in sources:
+    #        load_archive_data(cp, source["name"], tab.segments, mode=tab.mode,\
+    #                         verbose=verbose)
+    #        if source["name"] in G_DATA.keys():
+    #            runsegs2 -= SegmentList(G_DATA[source["name"]].keys())
 
     #
     # calculate range from strain channel
@@ -3368,33 +4439,49 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
             tab.add_source(s)
 
         # get data
-        sequencelist = get_spectrogram(cp, strainchannel, params["time-step"],\
-                                       params["segment-length"],\
-                                       params["segment-overlap"], runsegs2,\
-                                       frametype=params["frametype"],\
-                                       calibration=params["calibration"],\
-                                       resample=params["resample"],\
+        sequencelist = get_spectrogram(cp, strainchannel, params["time-step"],
+                                       params["segment-length"],
+                                       params["segment-overlap"], tab.segments,
+                                       frametype=params["frametype"],
+                                       calibration=params["calibration"],
+                                       resample=params["resample"],
                                        fresponse=params["frequency-response"])
 
         for i,spectrogram in enumerate(sequencelist):
-            S,epoch,deltaT,f0,deltaF = spectrogram
+            S = spectrogram['data']
+            epoch = spectrogram['epoch']
+            deltaT = spectrogram['deltaT']
+            f0 = spectrogram['f0']
+            deltaF = spectrogram['deltaF']
+            f_array = spectrogram['f_array']
             print_verbose("Calculating range from %d spectra...    "\
                           % S.length, verbose=verbose)
-            seg = Segment(epoch, epoch + deltaT * S.length)
+            seg = Segment(float(epoch), float(epoch + deltaT * S.length))
             data = dict((s["name"], numpy.zeros(S.length)) for s in sources)
 
             # get triggers for burst range
             if numburst:
                 trigs = get_triggers(cp, strainchannel, etg,\
-                                     SegmentList(seg),\
-                                     cluster=cluster, minsnr=0)
+                                     SegmentList([seg]) & tab.trigsegments,\
+                                     cluster=tab.cluster, minsnr=snr)
                 trigtime = numpy.asarray(trigs.getColumnByName("peak_time")) + \
                        numpy.asarray(trigs.getColumnByName("peak_time_ns"))*1e-9
                 trigsnr  = trigs.getColumnByName("snr")
+                trigfreq = trigs.getColumnByName("peak_frequency")
+
+            # initialize triggers iterators to select slices of them (time sub sets)
+            trigStart = {}
+            trigStop = {}
+            for k,s in enumerate(sources):
+                trigStart[k] = 0
+                trigStop[k] = 0
 
             for j in range(S.length):
                 spectrum = S.data[j,:]**2
-                f = numpy.arange(spectrum.size) * deltaF + f0
+                if f_array is None:
+                    f = numpy.arange(spectrum.size) * deltaF + f0
+                else:
+                    f = f_array
                 span = Segment(seg[0]+j*deltaT, seg[0]+(j+1)*deltaT)
 
                 # loop over sources
@@ -3406,16 +4493,23 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
                                                      snr=s["snr"], m1=s["m1"],\
                                                      m2=s["m2"])
                     # calculate burst range
-                    elif s["type"] == burst:
+                    elif s["type"] == "burst":
                         sspan = Segment(span[1]-s['dt'], span[1])
-                        snrs  = trigsnr[(sspan[0] <= trigtime)\
-                                         & (trigtime < sspan[1])]
-                        rho = get_limiting_snr(snrs, sspan, s["far"], s["dt"],\
+                        while trigStop[k]<len(trigs)\
+                              and trigtime[trigStop[k]] < sspan[1]:
+                            trigStop[k] = trigStop[k] + 1
+                        while trigStart[k]<len(trigs)\
+                              and trigtime[trigStart[k]] < sspan[0]:
+                            trigStart[k] = trigStart[k] + 1
+                        snrs = [trigsnr[itrig] for itrig in numpy.arange(trigStart[k],trigStop[k])\
+                                    if s['fmin'] <= trigfreq[itrig] < s['fmax']\
+                                    and trigsnr[itrig] > s['snr']]
+                        rho = get_limiting_snr(snrs, s["far"], abs(SegmentList([sspan])&tab.segments),\
                                                s["snr"])
                         data[s["name"]][j] =\
                             rangeutils.burstrange(f, spectrum, rho,\
-                                                  s["energy"], fmin=["fmin"],\
-                                                  fmax=s["fmax"])
+                                                  s["energy"], fmin=s["fmin"],\
+                                                  fmax=s["fmax"], unit=s["unit"])
 
                 print_verbose("\b\b\b%.2d%%" % int((j+1)/S.length*100),\
                               verbose=verbose)
@@ -3525,7 +4619,7 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
                     outfile = os.path.join(tab.directory, basefile)
             else:
                 outfile = os.path.join(tab.directory, basefile)
-    
+
             # otherwise make it as normal
             if htmlonly or not dosubplots:
                 tab.subplots.append((outfile, plotparams.pop("description", None)))
@@ -3552,7 +4646,7 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
         tab.finalize()
         tab.frametohtml()
 
-def parse_range_config(cp, cpsec):
+def parse_range_config(cp, cpsec, typelist=None):
     """
     Parse the given configparser.configparser section cpsec for range
     source definitions, and load their parameters.
@@ -3561,6 +4655,8 @@ def parse_range_config(cp, cpsec):
          configuration file object
     @param cpsec
         name of INI section configuring this RangeSummaryTab.
+    @param typelist
+        list of source types to load (OPTIONAL)
 
     @return: list of parameter dicts for each range source
     @rtype: C{list} of C{dict}s.
@@ -3579,10 +4675,16 @@ def parse_range_config(cp, cpsec):
         else:
             source["name"] = cpsec[7:]
         source["type"] = type = cp.get(cpsec, "type").lower()
+        if typelist:
+            if type not in typelist: continue
+        if cp.has_option(cpsec, "unit"):
+            source["unit"] = cp.get(cpsec, "unit")
         if type == "inspiral":
             options = ["m1", "m2", "snr"]
         elif type == "burst":
-            options = ["fmin", "fmax", "snr", "dt", "energy"]
+            options = ["fmin", "fmax", "far", "dt", "energy", "snr"]
+        elif type == "squeezing":
+            options = ["fmin", "fmax"]
         for opt in options:
              source[opt] = cp.getfloat(cpsec, opt)
         out.append(source)
@@ -3604,7 +4706,7 @@ def get_limiting_snr(snr, far, dt, threshold=6):
     snr.sort()
     snr = snr[::-1]
     faridx = int(far*dt)-1
-    if snr.size <= faridx:
+    if len(snr) <= faridx:
         # if we don't have enough triggers use the trigger
         # reading snr threshold, it will give us a lower limit
         # on the range
@@ -3615,6 +4717,255 @@ def get_limiting_snr(snr, far, dt, threshold=6):
         rho = numpy.infty
 
     return rho
+
+
+# =============================================================================
+# Process squeezing
+# =============================================================================
+
+def process_squeezing(tab, cp, cpsec, verbose=False, doplots=True,\
+                          dosubplots=True, htmlonly=False):
+    """
+    Calculate the range information from a data channel in the frames
+
+    @param tab
+        RangeSummaryTab object to process
+    @param cp
+         configuration file object
+    @param cpsec
+        name of INI section configuring this Tab
+    @param verbose
+        print verbose output, default: False
+    @param doplots
+        generate plots, default: True
+    @param dosubplots
+        generate subplots, default: True
+    @param htmlonly
+        generate enough data for HTML only, default: False
+    """
+    if cp.has_option(cpsec, "channel"):
+        rangechannels = cp.get(cpsec, "channel").split(',')
+    elif cp.has_option(cpsec, "channels"):
+        rangechannels = cp.get(cpsec, "channels").split(',')
+    else:
+        rangechannels = []
+    if len(rangechannels)  != 4:
+        raise ValueError("Wrong number of channels in [%s]." % cpsec)
+    print_verbose("\n----------\nProcessing range for %s for the %s state...\n"\
+                  % (tab.name, tab.state.name), verbose=verbose, profile=False)
+
+
+    #
+    # setup
+    #
+
+    if not os.path.isdir(tab.directory):
+        os.makedirs(tab.directory)
+
+
+    #
+    # load archived data
+    #
+
+    params = parse_data_config(cp, cpsec, rangechannels)
+    sources = parse_range_config(cp, cpsec, typelist=["squeezing"])
+
+    #
+    # calculate squeezing from data
+    #
+
+    print_verbose("Loaded range parameters for %d source(s):\n"\
+                  % (len(sources)), verbose=verbose)
+    for s in sources:
+        print_verbose("%s (%s)\n" % (s["name"], s["type"]), verbose=verbose)
+        tab.add_source(s)
+
+    # get data
+    sequencelist = get_spectrogram(cp, rangechannels[0], params[0]["time-step"],
+                                   params[0]["segment-length"],
+                                   params[0]["segment-overlap"], tab.segments,
+                                   frametype=params[0]["frametype"],
+                                   calibration=params[0]["calibration"],
+                                   resample=params[0]["resample"],
+                                   fresponse=params[0]["frequency-response"])
+
+    serieslist = []
+    for i in numpy.arange(1,4):
+        serieslist.append(get_data(cp, rangechannels[i], tab.segments, frametype=params[i]["frametype"],
+                                   calibration=params[i]['calibration']))
+
+
+    for i,spectrogram in enumerate(sequencelist):
+        S = spectrogram['data']
+        epoch = spectrogram['epoch']
+        deltaT = spectrogram['deltaT']
+        f0 = spectrogram['f0']
+        deltaF = spectrogram['deltaF']
+        f_array = spectrogram['f_array']
+        print_verbose("Calculating range from %d spectra...    "\
+                      % S.length, verbose=verbose)
+        seg = Segment(float(epoch), float(epoch + deltaT * S.length))
+        data = dict((s["name"], numpy.zeros(S.length)) for s in sources)
+
+
+        for j in range(S.length):
+            spectrum = S.data[j,:]**2
+            if f_array is None:
+                f = numpy.arange(spectrum.size) * deltaF + f0
+            else:
+                f = f_array
+            span = Segment(seg[0]+j*deltaT, seg[0]+(j+1)*deltaT)
+
+            # compute squeezing parameters for this step
+            mediandata = []
+            for iParam in range(len(serieslist)):
+                if i < len(serieslist[iParam]):
+                    tParam = (numpy.arange(serieslist[iParam][i].data.length) * serieslist[iParam][i].deltaT +
+                              float(serieslist[iParam][i].epoch))
+                    mediandata.append(numpy.median(serieslist[iParam][i].data.data[(tParam>=seg[0]) & (tParam<seg[1])]))
+                else:
+                    mediandata.append(numpy.nan)
+
+            # loop over sources
+            for k,s in enumerate(sources):
+                if s["type"] == "squeezing":
+                    data[s["name"]][j] =\
+                        rangeutils.squeezing(f, spectrum,\
+                                                 dc=mediandata[0],\
+                                                 opgain=mediandata[1],\
+                                                 cavpf=mediandata[2],\
+                                                 fmin=s["fmin"],\
+                                                 fmax=s["fmax"])
+
+            print_verbose("\b\b\b%.2d%%" % int((j+1)/S.length*100),\
+                          verbose=verbose)
+        print_verbose("\n", verbose=verbose)
+
+        # store data
+        for s in sources:
+            series = seriesutils.fromarray(data[s["name"]], name=s["name"],\
+                                           epoch=epoch, deltaT=deltaT,\
+                                           f0=f0)
+            add_timeseries(series)
+
+    for s in sources:
+        serieslist = get_data(cp, s["name"], tab.segments, query=False)
+        series = PyLALConcatenateTimeSeries(*serieslist, name=s["name"],\
+                                      epoch=lal.LIGOTimeGPS(tab.start_time))
+        tab.add_timeseries(s["name"], series)
+
+
+    #
+    # plot
+    #
+
+    # get plot sections
+    plots = [p for p in cp.items(cpsec) if p[0].startswith("plot-")]
+
+    # if we got no plots, pick up the defaults
+    if len(plots) == 0:
+        plots = [("plot-timeseries", "0")]
+
+    # sort plots by their given order
+    plots.sort(key=lambda o: o[1].isdigit() and (int(o[1])+1) or 1000)
+
+    # sort plots by their given order
+    for plot,_ in plots:
+        plottag = re_cchar.sub("_", plot[5:].upper())
+        outfile = os.path.join(tab.directory, "%s-%s_%s_%s-%d-%d.png"\
+                                     % (tab.ifo,\
+                                         re_cchar.sub("_", tab.name.upper()),\
+                                        tab.state.tag, plottag,\
+                                        tab.start_time, abs(tab.span)))
+        plotparams = parse_plot_section(cp, cpsec,\
+                                        plotutils.parse_plot_config(cp, plot))
+        if htmlonly or not doplots:
+            tab.plots.append((outfile, plotparams.pop("description", None)))
+        else:
+            if re.search("hist", plot, re.I):
+                tab.plothistogram(outfile, **plotparams)
+            elif re.search("spectrum", plot, re.I):
+                psd = re.search("(power|psd)", plot, re.I)
+                tab.plotspectrum(outfile, psd=psd, **plotparams)
+            elif re.search("spectrogram", plot, re.I):
+                ratioregex = re.compile("\w+-ratio", re.I)
+                match = re.search(ratioregex, plot)
+                ratio = match and match.group()[:-6] or None
+                tab.plotspectrogram(outfile, ratio=ratio, **plotparams)
+            else:
+                tab.plottimeseries(outfile, **plotparams)
+            print_verbose("%s saved.\n" % outfile, verbose=verbose)
+
+    #
+    # subplots
+    #
+
+    if cp.has_option(cpsec, "sub-plot"):
+        subplot = cp.get(cpsec, "sub-plot")
+        subs   = tab.start_time
+        substart = tab.start_time
+        deltas = subplot_durations(tab.start_time, tab.end_time, tab.mode)
+
+        for dt in deltas:
+            plottag = re_cchar.sub("_", subplot[5:].upper())
+            basefile = "%s-%s_%s_%s-%d-%d.png"\
+                       % (tab.ifo, re_cchar.sub("_", tab.name.upper()),\
+                          tab.state.tag, plottag, substart, dt)
+            plotparams = plotutils.parse_plot_config(cp, subplot)
+            plotparams = parse_plot_section(cp, cpsec, plotparams)
+            d = datetime.datetime(*lal.GPSToUTC(int(substart))[:6])
+            # test if plot exists somewhere else
+            if tab.mode == summary.SUMMARY_MODE_WEEK\
+            or tab.mode == summary.SUMMARY_MODE_MONTH:
+                outdir = os.path.join("archive_daily", d.strftime("%Y%m%d"),\
+                                      *tab.directory.split(os.path.sep)[2:])
+                outfile = os.path.join(outdir, basefile)
+                if os.path.isfile(outfile):
+                    substart += dt
+                    tab.subplots.append((outfile,\
+                                         plotparams.pop("description", None)))
+                    continue
+                else:
+                    outfile = os.path.join(tab.directory, basefile)
+            elif tab.mode == summary.SUMMARY_MODE_YEAR:
+                outdir = os.path.join("archive_monthly", d.strftime("%Y%m"),\
+                                      *tab.directory.split(os.path.sep)[2:])
+                outfile = os.path.join(outdir, basefile)
+                if os.path.isfile(outfile):
+                    substart += dt
+                    tab.subplots.append((outfile,\
+                                         plotparams.pop("description", None)))
+                    continue
+                else:
+                    outfile = os.path.join(tab.directory, basefile)
+            else:
+                outfile = os.path.join(tab.directory, basefile)
+
+            # otherwise make it as normal
+            if htmlonly or not dosubplots:
+                tab.subplots.append((outfile, plotparams.pop("description", None)))
+            else:
+                if re.search("hist", subplot, re.I):
+                    tab.plothistogram(outfile, subplot=True, **plotparams)
+                elif re.search("spectrum", subplot, re.I):
+                    psd = re.search("(power|psd)", subplot, re.I)
+                    tab.plotspectrum(outfile, subplot=True, psd=psd, **plotparams)
+                elif re.search("spectrogram", subplot, re.I):
+                    ratioregex = re.compile("\w+-ratio", re.I)
+                    match = re.search(ratioregex, subplot)
+                    ratio = match and match.group()[:-6] or None
+                    plotparams.setdefault("xlim", [substart, substart+dt])
+                    tab.plotspectrogram(outfile, subplot=True, ratio=ratio,\
+                                        **plotparams)
+                else:
+                    plotparams.setdefault("xlim", [substart, substart+dt])
+                    tab.plottimeseries(outfile, subplot=True, **plotparams)
+            substart += dt
+        print_verbose("%d subplots saved.\n" % len(tab.subplots), verbose=verbose)
+
+    if not htmlonly:
+        tab.finalize()
+        tab.frametohtml()
 
 
 # =============================================================================
@@ -3680,7 +5031,7 @@ def parse_command_line():
     ropts.add_option("-i", "--ifo", action="store", default=None,\
                      metavar="IFO", help="interferometer")
     ropts.add_option("-f", "--config-file", action="store", type="string",\
-                     metavar="FILE", 
+                     metavar="FILE",
                      help="ini file for analysis, default: %default")
 
     #
@@ -3733,7 +5084,7 @@ def parse_command_line():
     oopts.add_option("-M", "--html-only", action="store_true", default=False,\
                      help="rerun HTML generation only, default: %default")
 
-    
+
     #
     # section options
     #
@@ -3767,7 +5118,7 @@ def parse_command_line():
                      default=True, dest="run_squeezing",\
                      help="skip squeezing summary, default: False")
     sopts.add_option("-T", "--skip-triggers", action="store_false",\
-                     default=True, dest="run_analysis_triggers",\
+                     default=True, dest="run_triggers",\
                      help="skip GW trigger summary, default: False")
     sopts.add_option("-A", "--skip-auxiliary-triggers", action="store_false",\
                      default=True, dest="run_auxiliary_triggers",\
@@ -3783,7 +5134,7 @@ def parse_command_line():
                      dest="run_hveto", help="skip HVeto, default: False")
     sopts.add_option("-E", "--skip-data", action="store_false", default=True,\
                      dest="run_data", help="skip frame data, default: False")
-    
+
 
     #
     # collect groups, parse, and return
@@ -3797,7 +5148,7 @@ def parse_command_line():
 
     # get args and begin sanity check
     opts, args = parser.parse_args()
-    
+
     # format options for ligolw output
     param_dict = dict()
     for key,val in opts.__dict__.items():
@@ -3805,7 +5156,7 @@ def parse_command_line():
             param_dict["skip_%s" % key.split("_", 1)[1]] = not val
         else:
             param_dict[key] = val
-    
+
     global PROFILE
     PROFILE = opts.profile
     global VERBOSE
@@ -3836,7 +5187,8 @@ def parse_command_line():
     opts.config_file.filename = os.path.abspath(config_file)
 
     # auto-disable based on configuration
-    if not opts.config_file.has_section("hveto"):
+    if len([s for s in opts.config_file.sections()\
+                            if re.match("hveto[- ]", s)]) == 0:
         opts.run_hveto = False
         sys.stderr.write("Auto-applying --skip-hveto based on configuration.\n")
         sys.stderr.flush()
@@ -3902,7 +5254,7 @@ def parse_command_line():
         else:
             raise optparse.OptionValueError("--year malformed. Please format"+\
                                             " as YYYY")
-        
+
     elif opts.gps_start_time or opts.gps_end_time:
         if not (opts.gps_start_time and opts.gps_end_time):
             raise optparse.OptionValueError("Please give both --gps-start-"+\
@@ -3914,7 +5266,7 @@ def parse_command_line():
                                       datetime.timedelta(days=1)).timetuple()))
     opts.gps_start_time = float(opts.gps_start_time)
     opts.gps_end_time = float(opts.gps_end_time)
-    
+
     span  = Segment(opts.gps_start_time, opts.gps_end_time)
 
     print_verbose("Command line read.\n", opts.verbose)
@@ -3965,7 +5317,7 @@ def parse_command_line():
 
 # =============================================================================
 # Run main function if command line
-# ============================================================================= 
+# =============================================================================
 
 if __name__=="__main__":
     start_job_timer()
@@ -4019,12 +5371,12 @@ if __name__=="__main__":
     #
     # setup shared resources
     #
-  
+
     # shared segment resources
     global G_SEGMENTS, G_SEGMENT_SUMMARY
     G_SEGMENTS        = SegmentListDict()
     G_SEGMENT_SUMMARY = SegmentListDict()
-    
+
     # shared trigger resources
     global G_TRIGGERS, G_CLUSTERED_TRIGGERS
     G_TRIGGERS                = dict()
@@ -4078,7 +5430,7 @@ if __name__=="__main__":
 
     #
     # load veto definer files and set run states
-    # 
+    #
 
     # make segments directory
     segdir = os.path.join(jobdir, "segments")
@@ -4088,10 +5440,18 @@ if __name__=="__main__":
     # load veto definer table
     veto_def_table = dict()
     if opts.run_vetoes and not opts.html_only:
+        # KLUDGE, hardcode hveto usage for "Cleaned" states
+        veto_def_table["Cleaned"] = lsctables.New(lsctables.VetoDefTable, ["ifo","name","version"])
+        tmp = lsctables.VetoDef()
+        tmp.ifo = "G1"
+        tmp.name = "HVETO"
+        tmp.version = 1
+        veto_def_table["Cleaned"].append(tmp)
+
         sections = [s for s in cp.sections() if s.startswith("vetoes")]
         for sec in sections:
             # load veto definer file
-            veto_def_file = scp(cp.get(sec, "veto-def-file"), segdir) 
+            veto_def_file = scp(cp.get(sec, "veto-def-file"), segdir)
             _tmp          = VetoDefUtils.ReadVetoDefFromFiles([veto_def_file])
             cats          = map(int, cp.get(sec, "veto-categories").split(","))
             veto_def_table[sec] = VetoDefUtils.ParseVetoDef(_tmp, ifo=ifo,\
@@ -4122,15 +5482,15 @@ if __name__=="__main__":
     # get state defining segments
     #
 
-
     #
     # generate summary tabs
     #
 
     valid_systems = ["ASC", "CPU", "DAQ", "HPI", "IFO", "IOO", "IOP", "ISI",\
-                     "LSC", "OMC", "PEM", "PSL", "SUS", "SQZ"]
+                     "LSC", "OMC", "PEM", "PSL", "SEI", "SUS", "SQZ", "IMC"]
     valid_parents = ["Summary", "Sensitivity", "Segments", "Triggers",\
-                     "Vetoes", "Misc."] + valid_systems
+                     "Vetoes", "Analysis", "Seismic", "Environment",
+                     "Misc."] + valid_systems
     valid_parents = natsort(valid_parents)
 
     # generate section summaries for each valid parent
@@ -4170,6 +5530,7 @@ if __name__=="__main__":
                 tab.state = state
                 tab.datadirectory = segdir
                 tab.segments = state.segments
+                tab.add_information(cp, cpsec)
                 process_segments(tab, cp, cpsec, verbose=verbose,\
                                  htmlonly=opts.html_only,\
                                  doplots=opts.run_plots,\
@@ -4178,10 +5539,86 @@ if __name__=="__main__":
             section_summary[parent].add_child(metatab)
 
     #
+    # process state vectors
+    #
+
+    if opts.run_state_vector:
+        sections = natsort([s for s in cp.sections()\
+                            if s.startswith("statevector-")])
+        for cpsec in sections:
+            run_states = parse_tab_states(statelist, cp, cpsec)
+            parent = find_tab_parent(cp, cpsec, valid_parents, default="Segments")
+            name = cp.has_option(cpsec, "name") and cp.get(cpsec, "name")\
+                   or cpsec[9:]
+            metatab = summary.MetaStateTab(name)
+            metatab.span = (start_time, end_time)
+            metatab.parent = section_summary[parent]
+            for state in run_states:
+                if state in veto_def_table.keys():
+                    vetotable = veto_def_table[state]
+                else:
+                    vetotable = None
+                if not opts.html_only:
+                    get_state_segments(cp, state, vetotable, mode=mode)
+                tab = summary.StateVectorSummaryTab(metatab.name)
+                tab.span = span
+                tab.parent = metatab
+                tab.directory = metatab.directory
+                tab.state = state
+                tab.datadirectory = segdir
+                tab.segments = state.segments
+                tab.add_information(cp, cpsec)
+                process_state_vector(tab, cp, cpsec,\
+                                    verbose=verbose,\
+                                    htmlonly=opts.html_only,\
+                                    doplots=opts.run_plots,\
+                                    dosubplots=opts.run_sub_plots)
+                metatab.add_child(tab)
+            section_summary[parent].add_child(metatab)
+
+    #
+    # process hveto
+    #
+    if opts.run_hveto:
+        sections = natsort([s for s in cp.sections()\
+                            if re.match("hveto[- ]", s)])
+        print sections
+        for cpsec in sections:
+            run_states = parse_tab_states(statelist, cp, cpsec)
+            parent = find_tab_parent(cp, cpsec, valid_parents, default="Triggers")
+            name = cp.has_option(cpsec, "name") and cp.get(cpsec, "name")\
+                   or cpsec[12:]
+            metatab = summary.MetaStateTab(name)
+            metatab.span = span
+            metatab.parent = section_summary[parent]
+            for state in run_states:
+                if state in veto_def_table.keys():
+                    vetotable = veto_def_table[run]
+                else:
+                    vetotable = None
+                if not opts.html_only:
+                    get_state_segments(cp, state, vetotable, mode=mode)
+                tab = summary.HvetoSummaryTab(metatab.name,\
+                                                   start_time=start_time,\
+                                                   end_time=end_time,\
+                                                   parent=metatab)
+                tab.directory = metatab.directory
+                tab.state = state
+                tab.segments = state.segments
+                tab.segments.contract(state.event_buffer)
+                tab.add_information(cp, cpsec)
+                process_hveto(tab, cp, cpsec,\
+                                  verbose=False,\
+                                  htmlonly=opts.html_only,\
+                                  doplots=opts.run_plots)
+                metatab.add_child(tab)
+            section_summary[parent].add_child(metatab)
+
+    #
     # process triggers
     #
 
-    if opts.run_analysis_triggers:
+    if opts.run_triggers:
         sections = natsort([s for s in cp.sections()\
                             if re.match("triggers[- ]", s)])
         for cpsec in sections:
@@ -4193,8 +5630,8 @@ if __name__=="__main__":
             metatab.span = span
             metatab.parent = section_summary[parent]
             for state in run_states:
-                if state in veto_def_table.keys():
-                    vetotable = veto_def_table[run]
+                if state.name in veto_def_table.keys():
+                    vetotable = veto_def_table[state.name]
                 else:
                     vetotable = None
                 if not opts.html_only:
@@ -4207,6 +5644,7 @@ if __name__=="__main__":
                 tab.state = state
                 tab.segments = state.segments
                 tab.segments.contract(state.event_buffer)
+                tab.add_information(cp, cpsec)
                 process_triggers(tab, cp, cpsec,\
                                  verbose=verbose,\
                                  htmlonly=opts.html_only,\
@@ -4245,47 +5683,11 @@ if __name__=="__main__":
                 tab.state = state
                 tab.segments = state.segments
                 tab.segments.contract(state.event_buffer)
+                tab.add_information(cp, cpsec)
                 process_auxiliary_triggers(tab, cp, cpsec,\
                                            verbose=verbose,\
                                            htmlonly=opts.html_only,\
                                            doplots=opts.run_plots)
-                metatab.add_child(tab)
-            section_summary[parent].add_child(metatab)
-
-    #
-    # process state vectors
-    #
-
-    if opts.run_state_vector:
-        sections = natsort([s for s in cp.sections()\
-                            if s.startswith("statevector-")])
-        for cpsec in sections:
-            run_states = parse_tab_states(statelist, cp, cpsec)
-            parent = find_tab_parent(cp, cpsec, valid_parents, default="Segments")
-            name = cp.has_option(cpsec, "name") and cp.get(cpsec, "name")\
-                   or cpsec[9:]
-            metatab = summary.MetaStateTab(name)
-            metatab.span = (start_time, end_time)
-            metatab.parent = section_summary[parent]
-            for state in run_states:
-                if state in veto_def_table.keys():
-                    vetotable = veto_def_table[state]
-                else:
-                    vetotable = None
-                if not opts.html_only:
-                    get_state_segments(cp, state, vetotable, mode=mode)
-                tab = summary.StateVectorSummaryTab(metatab.name)
-                tab.span = span
-                tab.parent = metatab
-                tab.directory = metatab.directory
-                tab.state = state
-                tab.datadirectory = segdir
-                tab.segments = state.segments
-                process_state_vector(tab, cp, cpsec,\
-                                    verbose=verbose,\
-                                    htmlonly=opts.html_only,\
-                                    doplots=opts.run_plots,\
-                                    dosubplots=opts.run_sub_plots)
                 metatab.add_child(tab)
             section_summary[parent].add_child(metatab)
 
@@ -4320,15 +5722,17 @@ if __name__=="__main__":
                 tab.directory = metatab.directory
                 tab.state = state
                 tab.segments = state.segments
+                tab.add_information(cp, cpsec)
                 process_data(tab, cp, cpsec, verbose=verbose,\
                              htmlonly=opts.html_only,\
                              doplots=opts.run_plots,\
                              dosubplots=opts.run_sub_plots)
                 metatab.add_child(tab)
+                metatab.skip_summary = tab.skip_summary
             section_summary[parent].add_child(metatab)
 
     #
-    # process data
+    # process range
     #
 
     if opts.run_range:
@@ -4338,6 +5742,45 @@ if __name__=="__main__":
             parent = find_tab_parent(cp, cpsec, valid_parents,
                                      default="Sensitivity")
             metatab = summary.MetaStateTab(cpsec[6:])
+            metatab.span = span
+            metatab.parent = section_summary[parent]
+            for state in run_states:
+                if not opts.html_only:
+                    get_state_segments(cp, state, None, mode=mode)
+                tab = summary.RangeSummaryTab(metatab.name)
+                tab.span = span
+                tab.parent = metatab
+                tab.directory = metatab.directory
+                tab.state = state
+                tab.segments = state.segments
+                # for range type, need to split segments and vetoes,
+                # segments are used for spectra and segment-vetoes for
+                # triggers only
+                if state.name in veto_def_table.keys():
+                    vetotable = veto_def_table[state.name]
+                else:
+                    vetotable = None
+                if not opts.html_only:
+                    get_state_segments(cp, state, vetotable, mode=mode)
+                tab.trigsegments = state.segments
+                tab.add_information(cp, cpsec)
+                process_range(tab, cp, cpsec, verbose=verbose,\
+                              htmlonly=opts.html_only,\
+                              doplots=opts.run_plots,\
+                              dosubplots=opts.run_sub_plots)
+                metatab.add_child(tab)
+            section_summary[parent].add_child(metatab)
+
+    #
+    # process squeezing
+    #
+    if opts.run_squeezing:
+        sections = natsort([s for s in cp.sections() if s.startswith("squeezing")])
+        for cpsec in sections:
+            run_states = parse_tab_states(statelist, cp, cpsec)
+            parent = find_tab_parent(cp, cpsec, valid_parents,
+                                     default="SQZ")
+            metatab = summary.MetaStateTab(cpsec)
             metatab.span = span
             metatab.parent = section_summary[parent]
             for state in run_states:
@@ -4353,7 +5796,8 @@ if __name__=="__main__":
                 tab.directory = metatab.directory
                 tab.state = state
                 tab.segments = state.segments
-                process_range(tab, cp, cpsec, verbose=verbose,\
+                tab.add_information(cp, cpsec)
+                process_squeezing(tab, cp, cpsec, verbose=verbose,\
                               htmlonly=opts.html_only,\
                               doplots=opts.run_plots,\
                               dosubplots=opts.run_sub_plots)
@@ -4365,7 +5809,8 @@ if __name__=="__main__":
     #
 
     # archive frame data
-    if opts.write_data and not opts.html_only:
+    if ((opts.run_data or opts.run_range) and
+            opts.write_data and not opts.html_only):
         print_verbose("\n----------\nWriting data to file...\n",\
                       verbose=verbose)
 
@@ -4378,7 +5823,8 @@ if __name__=="__main__":
         archive_data(h5filename)
 
     # archive segments
-    if opts.write_segments and not opts.html_only:
+    if ((opts.run_segments or opts.run_state_vector) and
+            opts.write_segments and not opts.html_only):
         filename = os.path.join(segdir, "%s-SUMMARY_PAGE_SEGMENTS-%d-%d.xml.gz"\
                                          % (ifo, start_time,\
                                             end_time-start_time))
@@ -4389,7 +5835,8 @@ if __name__=="__main__":
     trigdir = os.path.join(jobdir, "triggers")
     if not os.path.isdir(trigdir):
         os.makedirs(trigdir)
-    if opts.write_triggers and not opts.html_only:
+    if ((opts.run_triggers or opts.run_auxiliary_triggers) and
+            opts.write_triggers and not opts.html_only):
         archive_triggers(trigdir, start_time, end_time, param_dict, False)
         archive_triggers(trigdir, start_time, end_time, param_dict, True)
         print_verbose("Triggers archived in %s/.\n" % trigdir, verbose=verbose)
@@ -4407,7 +5854,7 @@ if __name__=="__main__":
 
     if not os.path.isdir("html"):
         os.mkdir("html")
- 
+
     # get html files
     css = cp.get("html", "style-sheet").split(",")
     for i,stylesheet in enumerate(css):
@@ -4431,7 +5878,7 @@ if __name__=="__main__":
                     and datetime.datetime.strptime(cp.get("calendar",\
                                                        "start-date"), "%Y%m%d")\
                     or datetime.datetime(*lal.GPSToUTC(int(start_time))[:6])
-        
+
         weekday   = cp.has_option("calendar", "start-of-week")\
                     and getattr(calendar,\
                                 cp.get("calendar","start-of-week").upper())
@@ -4483,7 +5930,7 @@ if __name__=="__main__":
     tab = summary.GlossaryTab("Glossary", span=span, directory=glosdir,\
                               mode=mode)
     if cp.has_section("glossary"):
-        tab.add_entries((key, val) for key,val in cp.items("glossary"))
+        tab.add_entries(*cp.items("glossary"))
     tab.write_menu(jobdir, startdate=startdate, weekday=weekday)
     tab.finalize()
     tab.write_ifo_links(baselist, ifo, tab.index)
@@ -4494,7 +5941,7 @@ if __name__=="__main__":
     if mode > summary.SUMMARY_MODE_GPS:
         refresh  = cp.has_option("html", "online-refresh")\
                    and cp.getfloat("html", "online-refresh") or None
-        ondir    = "online" 
+        ondir    = "online"
         if not os.path.isdir(ondir):
             os.mkdir(ondir)
         sections = [s for s in cp.sections() if re.match("online[-_ ]", s)]
@@ -4513,7 +5960,7 @@ if __name__=="__main__":
         tab.write_ifo_links(baselist, ifo, tab.index)
         tab.build(base=base, css=css, script=javascript)
         print_verbose("Online HTML written.\n", verbose=verbose)
-            
+
     #
     # collate tab pages
     #
@@ -4523,17 +5970,27 @@ if __name__=="__main__":
     tabs.mode    = mode
     tabs.write_menu(jobdir, startdate=startdate, weekday=weekday)
     for p in valid_parents:
-        if len(section_summary[p].children) != 0:
-            tabs.add_child(section_summary[p])
+        if len(section_summary[p].children) == 0:
+            continue
+        if cp.has_section('summary-tab') and cp.has_option('summary-tab', p):
+            summlist = cp.get('summary-tab', p).split(',')
+            for summname in summlist:
+                summtab = section_summary[p].get_child(summname)
+                tabs.add_child(summtab)
+        else:
+            summtab = section_summary[p].children[0]
+            if not summtab.skip_summary:
+                tabs.add_child(summtab)
 
-    summaries = [tabs]+tabs.children
-
+    section_summary_tabs = [p for p in section_summary.values() if
+                            len(p.children)!=0]
+    summaries = [tabs] + section_summary_tabs
     tabs.write_tabs(summaries)
     tabs.finalize()
     tabs.write_ifo_links(baselist, ifo, tabs.index)
     tabs.build(base=base, css=css, script=javascript)
     print_verbose("Summary HTML written.\n", verbose=verbose)
-    for tab in tabs.children:
+    for tab in section_summary_tabs:
         tab.mode    = mode
         tab.write_tabs(summaries)
         tab.write_menu(jobdir, startdate=startdate, weekday=weekday)

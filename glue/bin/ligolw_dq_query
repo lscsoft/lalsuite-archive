@@ -456,11 +456,6 @@ def setup_files(dir_name, options, times):
 #
 
 if __name__ == '__main__':
-    # We don't accept nanosecond resolution
-    del lsctables.SegmentTable.validcolumns['start_time_ns']
-    del lsctables.SegmentTable.validcolumns['end_time_ns']
-
-
     options, database_location, file_location, times  = parse_command_line()    
 
     # Ping the database and exit if requested

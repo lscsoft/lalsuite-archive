@@ -90,7 +90,7 @@ def write_table(headers, data, classdict={}):
          for i in range(len(headers)):
             page.tr(class_=rclass)
             page.th(str(headers[i]), class_=hclass)
-            page.td(str(data[i]), class_=dclass)
+            page.td(str(data[i]), class_=classdict.get(str(data[i]),dclass))
             page.tr.close()
 
     # otherwise print "standard" table with single header row and multiple data
@@ -110,7 +110,7 @@ def write_table(headers, data, classdict={}):
         for row in data:
             page.tr(class_=rclass)
             for item in map(str, row):
-                page.td(item, class_=dclass)
+                page.td(item, class_=classdict.get(item,dclass))
 
     page.table.close()
 
@@ -194,7 +194,7 @@ def write_glossary(entries, htag="h1",\
     # write heading and description
     getattr(page, htag)("Glossary", id_="%s_glossary" % htag)
     page.div(id_="div_glossary", style="display: block;",\
-             class_=classdict.get("div", ""))
+             class_=classdict.get("div", ""),  onclick="toggleVisible();")
     page.p("This section gives a glossary of terms relevant to this page.",\
            class_=classdict.get("p", ""))
     lvwiki = "https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/Acronyms"

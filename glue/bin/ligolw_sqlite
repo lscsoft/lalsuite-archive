@@ -45,6 +45,7 @@ from glue import git_version
 from glue.lal import CacheEntry
 from glue.ligolw import ligolw
 from glue.ligolw import dbtables
+from glue.ligolw.utils import local_path_from_url
 from glue.ligolw.utils import ligolw_sqlite
 
 
@@ -90,7 +91,7 @@ def parse_command_line():
 	parser.add_option("-x", "--extract", metavar = "filename", default = None, help = "Extract database contents to the given XML file, \"-\" == stdout (use \"./-\" if you want to write to a file named \"-\").  Extraction is done after any inserts.")
 	options, urls = parser.parse_args()
 
-	urls += [CacheEntry(line).url for cache in options.input_cache for line in file(cache)]
+	urls += [CacheEntry(line).url for cache in options.input_cache for line in open(cache)]
 
 	if not options.database:
 		raise ValueError, "missing required argument --database"
@@ -150,13 +151,13 @@ if __name__ == '__main__':
 			if options.verbose:
 				print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
 			if url.endswith(".sqlite"):
-				source_filename = dbtables.get_connection_filename(url, tmp_path = options.tmp_space, verbose = options.verbose)
+				source_filename = dbtables.get_connection_filename(local_path_from_url(url), tmp_path = options.tmp_space, verbose = options.verbose)
 				if options.verbose:
 					print >>sys.stderr, "reading '%s' ..." % source_filename
 				xmldoc = dbtables.get_xml(sqlite3.connect(source_filename))
 				ligolw_sqlite.insert_from_xmldoc(ContentHandler.connection, xmldoc, preserve_ids = options.preserve_ids, verbose = options.verbose)
 				xmldoc.unlink()
-				dbtables.discard_connection_filename(url, source_filename, verbose = options.verbose)
+				dbtables.discard_connection_filename(local_path_from_url(url), source_filename, verbose = options.verbose)
 			else:
 				ligolw_sqlite.insert_from_url(ContentHandler.connection, url, contenthandler = ContentHandler, preserve_ids = options.preserve_ids, verbose = options.verbose)
 		dbtables.build_indexes(ContentHandler.connection, options.verbose)

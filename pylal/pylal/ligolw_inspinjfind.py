@@ -42,10 +42,11 @@ import sys
 
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import ligolw_thinca
-from pylal import llwapp
+from pylal import ligolw_tisi
 from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal.xlal import tools
@@ -128,7 +129,7 @@ class DocContents(object):
 		# indicate time slide at which the injection was done
 		#
 
-		self.tisi_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(seglists, 0.0), create_new = process)
+		self.tisi_id = ligolw_tisi.get_time_slide_id(xmldoc, {}.fromkeys(seglists, 0.0), create_new = process)
 
 		#
 		# get coinc_definer row for sim_inspiral <--> sngl_inspiral
@@ -136,7 +137,7 @@ class DocContents(object):
 		# document doesn't have one
 		#
 
-		self.sb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, sbdef.search, sbdef.search_coinc_type, create_new = True, description = sbdef.description)
+		self.sb_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, sbdef.search, sbdef.search_coinc_type, create_new = True, description = sbdef.description)
 
 		#
 		# get coinc_def_id's for sngl_inspiral <--> sngl_inspiral, and
@@ -146,14 +147,14 @@ class DocContents(object):
 		#
 
 		try:
-			ii_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, bbdef.search, bbdef.search_coinc_type, create_new = False)
+			ii_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, bbdef.search, bbdef.search_coinc_type, create_new = False)
 		except KeyError:
 			ii_coinc_def_id = None
 			self.sce_coinc_def_id = None
 			self.scn_coinc_def_id = None
 		else:
-			self.sce_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scedef.search, scedef.search_coinc_type, create_new = True, description = scedef.description)
-			self.scn_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scndef.search, scndef.search_coinc_type, create_new = True, description = scndef.description)
+			self.sce_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, scedef.search, scedef.search_coinc_type, create_new = True, description = scedef.description)
+			self.scn_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, scndef.search, scndef.search_coinc_type, create_new = True, description = scndef.description)
 
 		#
 		# get coinc table, create one if needed
@@ -291,7 +292,7 @@ def append_process(xmldoc, match_algorithm, comment):
 	"""
 	Convenience wrapper for adding process metadata to the document.
 	"""
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
+	process = ligolw_process.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [(u"--match-algorithm", u"lstring", match_algorithm)]
 	ligolw_process.append_process_params(xmldoc, process, params)

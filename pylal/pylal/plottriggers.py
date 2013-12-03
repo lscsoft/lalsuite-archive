@@ -127,14 +127,16 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
         tables = {"_":lsctable}
     else:
         tables = lsctable
-    tablenames = sorted(tables.keys())
+    tablenames = tables.keys()
     tables     = [tables[n] for n in tablenames]
 
     # get axis limits
     xlim = kwargs.pop('xlim', None)
     ylim = kwargs.pop('ylim', None)
     zlim = kwargs.pop('zlim', None)
-    colorlim = kwargs.pop('colorlim', zlim)
+    colorlim = kwargs.pop('colorlim', None)
+    if zlim and not colorlim:
+        colorlim = zlim
 
     # set up columns
     columns = list(map(str.lower, [xcolumn, ycolumn]))
@@ -216,7 +218,7 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
         for j,column in enumerate(columns):
             if limits[j]:
                 plotted = plotted & (limits[j][0] <= data[i][j])\
-                                  & (limits[j][1] >  data[i][j])
+                                  & (limits[j][1] >=  data[i][j])
 
         # apply the limits
         if not isinstance(plotted, bool):
@@ -268,6 +270,8 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
             if c == "time":
                 lstr = lstr * unit + t0
             subtitle += " %s=%.2f" % (plotutils.display_name(c), lstr)
+    else:
+        loudest = None
 
     #
     # get parameters
@@ -288,15 +292,17 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     bbox_inches = kwargs.pop("bbox_inches", "tight")
 
     # get detchar plot params
-    dqstyle  = kwargs.pop("detchar", False)
-    dqthresh = float(kwargs.pop("dcthreshold", 10))
+    dqstyle  = (kwargs.pop("detchar", False) or
+                kwargs.pop('detchar_style', False))
+    dqthresh = (kwargs.pop('dcthreshold', False) or
+                kwargs.pop('detchar_style_threshold', 10))
 
     # get greyscale param
     greyscale = kwargs.pop("greyscale", False)
     if greyscale and not kwargs.has_key("cmap"):
         kwargs["cmap"] =\
             pylab.matplotlib.colors.LinearSegmentedColormap("clrs",\
-                                           pylab.matplotlib.cm.hot._segmentdata)
+                                        pylab.matplotlib.cm.hot_r._segmentdata)
     elif not kwargs.has_key("cmap"):
         kwargs["cmap"] = jet
 
@@ -353,6 +359,8 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     plotutils.set_minor_ticks(plot.ax)
 
     # save and close
+    if greyscale:
+        plot.ax.patch.set_facecolor("#E8E8E8")
     plot.savefig(outfile, bbox_inches=bbox_inches,\
                  bbox_extra_artists=plot.ax.texts)
     plot.close()
@@ -487,8 +495,15 @@ def plothistogram(lsctable, outfile, column="snr", numbins=100,\
                              label=name, **kwargs)
         plot.finalize(logcolor=logcolor, colorlabel=colorlabel, loc=loc)
     else:
+        color = kwargs.pop("color", None)
+        if isinstance(color, str):
+            color = color.split(',')
+            if len(color) == 1:
+                color = [color[0]]*len(serieslist)
         plot = plotutils.LineHistogram(xlabel, ylabel, title, subtitle)
         for i,name in enumerate(tablenames):
+            if color:
+                kwargs["color"] = color[i]
             plot.add_content(data[i], normalize=normalize[i], label=name,\
                              **kwargs)
         plot.finalize(loc=loc, logx=logx, logy=logy, bar=bar, num_bins=numbins,\
