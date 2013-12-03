@@ -118,7 +118,7 @@ XLALSpinAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
   eta = params->eobParams->eta;
   K = 1.4467 -  1.7152360250654402 * eta - 3.246255899738242 * eta * eta;
 
-  if ( values[0] <= (1.+sqrt(1-params->a * params->a))*(1.-K*eta) + 0.3 || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
+  if ( values[0] <= (1.+sqrt(1-params->a * params->a))*(1.-K*eta) + 0.1 || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
   {
     return 1;
   }
@@ -502,7 +502,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   tmpValues->data[3] = -0.000433854158413;
   tmpValues->data[4] = 4.84217964546/tmpValues->data[0]; // q=1
 #endif
-#if 1
+#if 0
   tmpValues->data[0] = 19.9982539582;
   tmpValues->data[3] = -0.000390702473305;
   tmpValues->data[4] = 4.71107185264/tmpValues->data[0]; // q=1, chi1=chi2=0.98
@@ -762,14 +762,29 @@ int XLALSimIMRSpinAlignedEOBWaveform(
    */
 
   /* Calculate nonspin and amplitude NQC coefficients from fits and interpolation table */
-  if ( XLALSimIMRGetEOBCalibratedSpinNQC( &nqcCoeffs, 2, 2, eta, a ) == XLAL_FAILURE )
+  switch ( SpinAlignedEOBversion )
   {
-    XLAL_ERROR( XLAL_EFUNC );
+     case 1:
+       if ( XLALSimIMRGetEOBCalibratedSpinNQC( &nqcCoeffs, 2, 2, eta, a ) == XLAL_FAILURE )
+       {
+         XLAL_ERROR( XLAL_EFUNC );
+       }
+       break;
+     case 2:
+       if ( XLALSimIMRGetEOBCalibratedSpinNQCv2( &nqcCoeffs, 2, 2, eta, a ) == XLAL_FAILURE )
+       {
+         XLAL_ERROR( XLAL_EFUNC );
+       }
+       break;
+     default:
+       XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+       XLAL_ERROR( XLAL_EINVAL );
+       break;
   }
 
   /* Calculate phase NQC coefficients */
   if ( XLALSimIMRSpinEOBCalculateNQCCoefficients( ampNQC, phaseNQC, &rHi, &prHi, omegaHi,
-          2, 2, timePeak, deltaTHigh/mTScaled, eta, a, &nqcCoeffs ) == XLAL_FAILURE )
+          2, 2, timePeak, deltaTHigh/mTScaled, eta, a, &nqcCoeffs, SpinAlignedEOBversion ) == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
   }
@@ -782,6 +797,10 @@ int XLALSimIMRSpinAlignedEOBWaveform(
        break;
      case 2:
      timewavePeak = 0.0;
+       break;
+     default:
+       XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+       XLAL_ERROR( XLAL_EINVAL );
        break;
   }
 
@@ -854,9 +873,9 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     timeshiftPeak = (timePeak - timewavePeak) > 0. ? (timePeak - timewavePeak) : 0.;
   }
 
-  printf("YP::timePeak and timewavePeak: %.16e and %.16e\n",timePeak,timewavePeak);
+  /*printf("YP::timePeak and timewavePeak: %.16e and %.16e\n",timePeak,timewavePeak);
   printf("YP::timeshiftPeak and combSize: %.16e and %.16e\n",timeshiftPeak,combSize);
-  printf("PK::chi and SpinAlignedEOBversion: %.16e and %u\n\n", chi,SpinAlignedEOBversion);
+  printf("PK::chi and SpinAlignedEOBversion: %.16e and %u\n\n", chi,SpinAlignedEOBversion);*/
 
   REAL8Vector *rdMatchPoint = XLALCreateREAL8Vector( 3 );
   if ( !rdMatchPoint )
