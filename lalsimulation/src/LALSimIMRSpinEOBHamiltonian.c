@@ -472,6 +472,8 @@ static int XLALSimIMRCalculateSpinEOBHCoeffs(
 
   REAL8 KK, k0, k1, k2, k3, k4, k5, k5l, k1p2, k1p3;
   REAL8 m1PlusEtaKK;
+
+  coeffs->SpinAlignedEOBversion = SpinAlignedEOBversion;
    
   /* Constants are fits taken from Eq. 37 */
   static const REAL8 c0  = 1.4467; /* needed to get the correct self-force results */
