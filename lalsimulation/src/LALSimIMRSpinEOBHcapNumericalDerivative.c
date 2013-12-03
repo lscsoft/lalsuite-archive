@@ -114,7 +114,7 @@ static int XLALSpinHcapNumericalDerivative(
 
   gsl_function F;
   INT4         gslStatus;
-
+  UINT4 SpinAlignedEOBversion;
   UINT4 i;
 
   REAL8Vector rVec, pVec;
@@ -156,6 +156,7 @@ static int XLALSpinHcapNumericalDerivative(
   mass1 = params.params->eobParams->m1;
   mass2 = params.params->eobParams->m2;
   eta   = params.params->eobParams->eta;
+  SpinAlignedEOBversion = params.params->seobCoeffs->SpinAlignedEOBversion;  
 
   /* Now calculate derivatives w.r.t. each parameter */
   for ( i = 0; i < 12; i++ )
@@ -264,7 +265,7 @@ static int XLALSpinHcapNumericalDerivative(
   rCrossV_z = values[0]*dvalues[1] - values[1]*dvalues[0];
 
   omega = sqrt( rCrossV_x*rCrossV_x + rCrossV_y*rCrossV_y + rCrossV_z*rCrossV_z ) / (r*r);
-  flux  = XLALInspiralSpinFactorizedFlux( &polarDynamics, omega, params.params, H/(mass1+mass2), lMax );
+  flux  = XLALInspiralSpinFactorizedFlux( &polarDynamics, omega, params.params, H/(mass1+mass2), lMax, SpinAlignedEOBversion );
 
   /* Looking at the non-spinning model, I think we need to divide the flux by eta */
   flux = flux / eta;
