@@ -1488,7 +1488,7 @@ UNUSED static int XLALSimIMREOBCalcPrecNoSpinFacWaveformCoefficients(
           const REAL8               m1,     /**< mass 1 */
           const REAL8               m2,     /**< mass 2 */
           const REAL8               eta,    /**< symmetric mass ratio */
-          const REAL8               a,      /**< Kerr spin parameter for test-particle terms */
+          UNUSED const REAL8        a,      /**< Kerr spin parameter for test-particle terms */
           const REAL8               chiS,   /**< (chi1+chi2)/2 */
           const REAL8               chiA,   /**< (chi1-chi2)/2 */
           const UINT4               SpinAlignedEOBversion  /**< 1 for SEOBNRv1; 2 for SEOBNRv2 */
@@ -1498,10 +1498,10 @@ UNUSED static int XLALSimIMREOBCalcPrecNoSpinFacWaveformCoefficients(
   REAL8 eta3 = eta2 * eta;
 
   REAL8 dM, dM2; //dM3;
-  REAL8 a2, a3;
+  //REAL8 a2, a3;
 
   /* Combination which appears a lot */
-  REAL8 m1Plus3eta, m1Plus3eta2, m1Plus3eta3;
+  REAL8 m1Plus3eta, m1Plus3eta2; //m1Plus3eta3;
 
   dM2 = 1. - 4.*eta;
  
@@ -1522,12 +1522,12 @@ UNUSED static int XLALSimIMREOBCalcPrecNoSpinFacWaveformCoefficients(
   //dM3 = dM2 * dM;
   REAL8 temp = chiS + chiA;
   temp *= 2;
-  a2 = a*a;
-  a3 = a2*a;
+  //a2 = a*a;
+  //a3 = a2*a;
 
   m1Plus3eta  = - 1. + 3.*eta;
   m1Plus3eta2 = m1Plus3eta * m1Plus3eta;
-  m1Plus3eta3 = m1Plus3eta * m1Plus3eta2;
+  //m1Plus3eta3 = m1Plus3eta * m1Plus3eta2;
 
   /* Initialize all coefficients to zero */
   /* This is important, as we will not set some if dM is zero */
