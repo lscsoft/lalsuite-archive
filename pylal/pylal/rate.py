@@ -1496,7 +1496,7 @@ def bins_from_xml(xml):
 	describing a binning, and construct and return a rate.NDBins object
 	from it.
 	"""
-	xml = table.get_table(xml, BinsTable.tableName)
+	xml = BinsTable.get_table(xml)
 	binnings = [None] * (len(xml) and (max(xml.getColumnByName("order")) + 1))
 	for row in xml:
 		if binnings[row.order] is not None:

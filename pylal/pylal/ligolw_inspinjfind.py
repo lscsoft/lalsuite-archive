@@ -40,7 +40,6 @@ import bisect
 import sys
 
 
-from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
@@ -109,8 +108,8 @@ class DocContents(object):
 		# locate the sngl_inspiral and sim_inspiral tables
 		#
 
-		self.snglinspiraltable = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-		self.siminspiraltable = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
+		self.snglinspiraltable = lsctables.SnglInspiralTable.get_table(xmldoc)
+		self.siminspiraltable = lsctables.SimInspiralTable.get_table(xmldoc)
 
 		#
 		# get out segment lists for programs that generated
@@ -118,7 +117,7 @@ class DocContents(object):
 		# construction)
 		#
 
-		seglists = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set(self.snglinspiraltable.getColumnByName("process_id"))).coalesce()
+		seglists = lsctables.SearchSummaryTable.get_table(xmldoc).get_out_segmentlistdict(set(self.snglinspiraltable.getColumnByName("process_id"))).coalesce()
 
 		#
 		# construct the zero-lag time slide needed to cover the
@@ -161,7 +160,7 @@ class DocContents(object):
 		#
 
 		try:
-			self.coinctable = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+			self.coinctable = lsctables.CoincTable.get_table(xmldoc)
 		except ValueError:
 			self.coinctable = lsctables.New(lsctables.CoincTable)
 			xmldoc.childNodes[0].appendChild(self.coinctable)
@@ -172,7 +171,7 @@ class DocContents(object):
 		#
 
 		try:
-			self.coincmaptable = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+			self.coincmaptable = lsctables.CoincMapTable.get_table(xmldoc)
 		except ValueError:
 			self.coincmaptable = lsctables.New(lsctables.CoincMapTable)
 			xmldoc.childNodes[0].appendChild(self.coincmaptable)
