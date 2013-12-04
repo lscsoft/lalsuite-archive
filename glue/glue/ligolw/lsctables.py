@@ -3310,6 +3310,25 @@ class TimeSlideTable(table.Table):
 			d[row.time_slide_id][row.instrument] = row.offset
 		return d
 
+	def append_offsetvector(self, offsetvect, process):
+		"""
+		Append rows describing an instrument --> offset mapping to
+		this table.  offsetvect is a dictionary mapping instrument
+		to offset.  process should be the row in the process table
+		on which the new time_slide table rows will be blamed (or
+		any object with a process_id attribute).  The return value
+		is the time_slide_id assigned to the new rows.
+		"""
+		time_slide_id = self.get_next_id()
+		for instrument, offset in offsetvect.items():
+			row = self.RowType()
+			row.process_id = process.process_id
+			row.time_slide_id = time_slide_id
+			row.instrument = instrument
+			row.offset = offset
+			self.append(row)
+		return time_slide_id
+
 	def get_time_slide_id(self, offsetdict, create_new = None, superset_ok = False, nonunique_ok = False):
 		"""
 		Return the time_slide_id corresponding to the offset vector
@@ -3366,18 +3385,8 @@ class TimeSlideTable(table.Table):
 		if create_new is None:
 			# and that's not OK
 			raise KeyError("%s not found" % repr(offsetdict))
-		# that's OK, create new vector
-		id = self.get_next_id()
-		for instrument, offset in offsetdict.items():
-			row = self.RowType()
-			row.process_id = create_new.process_id
-			row.time_slide_id = id
-			row.instrument = instrument
-			row.offset = offset
-			self.append(row)
-
-		# return new ID
-		return id
+		# that's OK, create new vector, return its ID
+		return self.append_offsetvector(offsetdict, create_new)
 
 
 class TimeSlide(object):
