@@ -421,6 +421,8 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
   UINT4 displayprogress=0;
   LALInferenceVariables *currentVars=XLALCalloc(1,sizeof(LALInferenceVariables));
   REAL8 kdupdate=0.;
+  UINT4 samplePrior=0; //If this flag is set to a positive integer, code will just draw this many samples from the prior
+  ProcessParamsTable *ppt=NULL;
   
   /* Default sample logging functions with and without XML */
   #ifdef HAVE_LIBLALXML
@@ -443,6 +445,12 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
 
   logLikelihoods=(REAL8 *)(*(REAL8Vector **)LALInferenceGetVariable(runState->algorithmParams,"logLikelihoods"))->data;
   
+  if((ppt=LALInferenceGetProcParamVal(runState->commandLine,"--sampleprior")))
+  {
+    samplePrior=atoi(ppt->value);
+    fprintf(stdout,"Generating %i samples from the prior\n",samplePrior);
+  }
+
   verbose=LALInferenceCheckVariable(runState->algorithmParams,"verbose");
   displayprogress=verbose;
   
@@ -472,7 +480,7 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
   LALInferenceAddVariable(runState->proposalArgs,"proposal_scale",&propScale,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
   
   /* Open output file */
-  ProcessParamsTable *ppt = NULL; 
+  ppt = NULL; 
   ppt=LALInferenceGetProcParamVal(runState->commandLine,"--outfile");
   if(!ppt){
     fprintf(stderr,"Must specify --outfile <filename.dat>\n");
@@ -665,7 +673,8 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
 	minpos=i;
     }
     logLmin=logLikelihoods[minpos];
-    
+    if(samplePrior) logLmin=-DBL_MAX;
+
     logZnew=incrementEvidenceSamples(runState, logLikelihoods[minpos], s);
     //deltaZ=logZnew-logZ; - set but not used
     H=mean(Harray,Nruns);
@@ -750,7 +759,7 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
       LALInferenceSetupkDTreeNSLivePoints( runState ); 
   }
   }
-  while( iter <= Nlive ||  dZ> TOLERANCE ); /* End of NS loop! */
+  while(samplePrior?((Nlive+iter)<samplePrior):( iter <= Nlive ||  dZ> TOLERANCE)); /* End of NS loop! */
     
     /* Sort the remaining points (not essential, just nice)*/
     for(i=0;i<Nlive-1;i++){
