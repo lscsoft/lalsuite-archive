@@ -24,7 +24,6 @@
 #
 
 
-import itertools
 import sys
 
 
@@ -276,6 +275,8 @@ def RowsFromOffsetDict(offsetvect, time_slide_id, process):
 	time_slide table.  process must be the row in the process table on
 	which the newly-constructed time_slide table rows are to be blamed.
 	"""
+	# FIXME:  remove when all occurances are replaced with
+	# glue.ligolw.lsctables.TimeSlideTable.append_offsetvector()
 	for instrument, offset in offsetvect.items():
 		row = lsctables.TimeSlide()
 		row.process_id = process.process_id
@@ -356,53 +357,3 @@ def time_slide_list_merge(slides1, slides2):
 	"""
 	deltas1 = set(frozenset(offsetvect1.deltas.items()) for offsetvect1 in slides1)
 	return slides1 + [offsetvect2 for offsetvect2 in slides2 if frozenset(offsetvect2.deltas.items()) not in deltas1]
-
-
-#
-# =============================================================================
-#
-#                                    Other
-#
-# =============================================================================
-#
-
-
-def display_component_offsets(component_offset_vectors, fileobj = sys.stderr):
-	"""
-	Print a summary of the output of
-	glue.offsetvector.component_offsetvectors().
-	"""
-	#
-	# organize the information
-	#
-	# groupby requires its input to be grouped (= sorted) by the
-	# grouping key (the instruments), so we have to do this first.
-	# after constructing the strings, we make sure the lists of offset
-	# strings are all the same length by appending empty strings as
-	# needed.  finally we transpose the whole mess so that it's stored
-	# as rows instead of columns.
-	#
-
-	l = sorted(component_offset_vectors, lambda a, b: cmp(sorted(a), sorted(b)))
-	l = [[", ".join("%s-%s" % (b, a) for a, b in zip(instruments[:-1], instruments[1:]))] + [", ".join("%.17g s" % (offset_vector[b] - offset_vector[a]) for a, b in zip(instruments[:-1], instruments[1:])) for offset_vector in offset_vectors] for instruments, offset_vectors in itertools.groupby(l, lambda v: sorted(v))]
-	n = max(len(offsets) for offsets in l)
-	for offsets in l:
-		offsets += [""] * (n - len(offsets))
-	l = zip(*l)
-
-	#
-	# find the width of the columns
-	#
-
-	width = max(max(len(s) for s in line) for line in l)
-	format = "%%%ds" % width
-
-	#
-	# print the offsets
-	#
-
-	lines = iter(l)
-	print >>fileobj, " | ".join(format % s for s in lines.next())
-	print >>fileobj, "-+-".join(["-" * width] * len(l[0]))
-	for line in lines:
-		print >>fileobj, " | ".join(format % s for s in line)
