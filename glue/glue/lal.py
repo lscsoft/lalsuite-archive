@@ -301,7 +301,7 @@ class LIGOTimeGPS(object):
 		nhi = self.__nanoseconds - nlo
 		slo = self.__seconds % 2**26
 		shi = self.__seconds - slo
-		olo = other % 2**(int(math.log(other, 2)) - 26)
+		olo = other % 2**(int(math.log(other, 2)) - 26) if other else 0
 		ohi = other - olo
 		product = LIGOTimeGPS(0)
 
