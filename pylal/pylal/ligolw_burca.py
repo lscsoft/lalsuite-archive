@@ -161,7 +161,7 @@ class ExcessPowerCoincTables(snglcoinc.CoincTables):
 
 		# find the multi_burst table or create one if not found
 		try:
-			self.multibursttable = lsctables.table.get_table(xmldoc, lsctables.MultiBurstTable.tableName)
+			self.multibursttable = lsctables.MultiBurstTable.get_table(xmldoc)
 		except ValueError:
 			self.multibursttable = lsctables.New(lsctables.MultiBurstTable, ("process_id", "duration", "central_freq", "bandwidth", "snr", "confidence", "amplitude", "coinc_event_id"))
 			xmldoc.childNodes[0].appendChild(self.multibursttable)
@@ -362,7 +362,7 @@ def ligolw_burca(
 		print >>sys.stderr, "indexing ..."
 	coinc_tables = CoincTables(xmldoc)
 	coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
-	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglBurstTable.tableName))
+	sngl_index = dict((row.event_id, row) for row in lsctables.SnglBurstTable.get_table(xmldoc))
 
 	#
 	# build the event list accessors, populated with events from those

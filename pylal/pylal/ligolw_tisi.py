@@ -24,7 +24,6 @@
 #
 
 
-import itertools
 import sys
 
 
@@ -32,7 +31,6 @@ from glue import iterutils
 from glue import offsetvector
 from glue.ligolw import lsctables
 from glue.ligolw import utils as ligolw_utils
-from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 
 
@@ -172,7 +170,7 @@ def load_time_slides(filename, verbose = False, gz = None, contenthandler = Defa
 	from scratch.  Instead, from the glue.ligolw package use
 	table.get_table(...).as_dict().
 	"""
-	time_slide_table = lsctables.table.get_table(ligolw_utils.load_filename(filename, verbose = verbose, gz = gz, contenthandler = contenthandler), lsctables.TimeSlideTable.tableName)
+	time_slide_table = lsctables.TimeSlideTable.get_table(ligolw_utils.load_filename(filename, verbose = verbose, gz = gz, contenthandler = contenthandler))
 	time_slide_table.sync_next_id()
 	return time_slide_table.as_dict()
 
@@ -200,7 +198,7 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None, superset_ok = False
 	the affects described by the TimeSlideTable class.
 	"""
 	try:
-		tisitable = lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+		tisitable = lsctables.TimeSlideTable.get_table(xmldoc)
 	except ValueError:
 		# table not found
 		if create_new is None:
@@ -211,27 +209,6 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None, superset_ok = False
 	tisitable.sync_next_id()
 	# get the id
 	return tisitable.get_time_slide_id(time_slide, create_new = create_new, superset_ok = superset_ok, nonunique_ok = nonunique_ok)
-
-
-#
-# =============================================================================
-#
-#                           Add Process Information
-#
-# =============================================================================
-#
-
-
-def append_process(xmldoc, comment = None, **kwargs):
-	return ligolw_process.register_to_xmldoc(
-		xmldoc,
-		program = u"ligolw_tisi",
-		paramdict = kwargs,
-		version = __version__,
-		cvs_repository = u"lscsoft",
-		cvs_entry_time = __date__,
-		comment = comment
-	)
 
 
 #
@@ -298,6 +275,8 @@ def RowsFromOffsetDict(offsetvect, time_slide_id, process):
 	time_slide table.  process must be the row in the process table on
 	which the newly-constructed time_slide table rows are to be blamed.
 	"""
+	# FIXME:  remove when all occurances are replaced with
+	# glue.ligolw.lsctables.TimeSlideTable.append_offsetvector()
 	for instrument, offset in offsetvect.items():
 		row = lsctables.TimeSlide()
 		row.process_id = process.process_id
@@ -378,53 +357,3 @@ def time_slide_list_merge(slides1, slides2):
 	"""
 	deltas1 = set(frozenset(offsetvect1.deltas.items()) for offsetvect1 in slides1)
 	return slides1 + [offsetvect2 for offsetvect2 in slides2 if frozenset(offsetvect2.deltas.items()) not in deltas1]
-
-
-#
-# =============================================================================
-#
-#                                    Other
-#
-# =============================================================================
-#
-
-
-def display_component_offsets(component_offset_vectors, fileobj = sys.stderr):
-	"""
-	Print a summary of the output of
-	glue.offsetvector.component_offsetvectors().
-	"""
-	#
-	# organize the information
-	#
-	# groupby requires its input to be grouped (= sorted) by the
-	# grouping key (the instruments), so we have to do this first.
-	# after constructing the strings, we make sure the lists of offset
-	# strings are all the same length by appending empty strings as
-	# needed.  finally we transpose the whole mess so that it's stored
-	# as rows instead of columns.
-	#
-
-	l = sorted(component_offset_vectors, lambda a, b: cmp(sorted(a), sorted(b)))
-	l = [[", ".join("%s-%s" % (b, a) for a, b in zip(instruments[:-1], instruments[1:]))] + [", ".join("%.17g s" % (offset_vector[b] - offset_vector[a]) for a, b in zip(instruments[:-1], instruments[1:])) for offset_vector in offset_vectors] for instruments, offset_vectors in itertools.groupby(l, lambda v: sorted(v))]
-	n = max(len(offsets) for offsets in l)
-	for offsets in l:
-		offsets += [""] * (n - len(offsets))
-	l = zip(*l)
-
-	#
-	# find the width of the columns
-	#
-
-	width = max(max(len(s) for s in line) for line in l)
-	format = "%%%ds" % width
-
-	#
-	# print the offsets
-	#
-
-	lines = iter(l)
-	print >>fileobj, " | ".join(format % s for s in lines.next())
-	print >>fileobj, "-+-".join(["-" * width] * len(l[0]))
-	for line in lines:
-		print >>fileobj, " | ".join(format % s for s in line)

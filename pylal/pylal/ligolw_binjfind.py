@@ -171,17 +171,17 @@ class DocContents(object):
 		# locate the sngl_burst, time_slide and injection tables
 		#
 
-		self.snglbursttable = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+		self.snglbursttable = lsctables.SnglBurstTable.get_table(xmldoc)
 		try:
-			self.simbursttable = table.get_table(xmldoc, lsctables.SimBurstTable.tableName)
+			self.simbursttable = lsctables.SimBurstTable.get_table(xmldoc)
 		except ValueError:
 			self.simbursttable = None
 		try:
-			self.siminspiraltable = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
+			self.siminspiraltable = lsctables.SimInspiralTable.get_table(xmldoc)
 		except ValueError:
 			self.siminspiraltable = None
 		try:
-			timeslidetable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+			timeslidetable = lsctables.TimeSlideTable.get_table(xmldoc)
 		except ValueError:
 			timeslidetable = None
 		if timeslidetable is not None:
@@ -269,7 +269,7 @@ class DocContents(object):
 		#
 
 		try:
-			self.coinctable = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+			self.coinctable = lsctables.CoincTable.get_table(xmldoc)
 		except ValueError:
 			self.coinctable = lsctables.New(lsctables.CoincTable)
 			xmldoc.childNodes[0].appendChild(self.coinctable)
@@ -280,7 +280,7 @@ class DocContents(object):
 		#
 
 		try:
-			self.coincmaptable = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+			self.coincmaptable = lsctables.CoincMapTable.get_table(xmldoc)
 		except ValueError:
 			self.coincmaptable = lsctables.New(lsctables.CoincMapTable)
 			xmldoc.childNodes[0].appendChild(self.coincmaptable)

@@ -16,6 +16,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#include <config.h>
 
 #include <time.h>
 #include <lal/Date.h>
@@ -40,8 +41,10 @@ XLALGPSTimeNow (
     )
 {
   time_t ticks = time(NULL);
+  struct tm tm;
 
-  gpstime->gpsSeconds = XLALUTCToGPS(gmtime(&ticks));
+  tm = *gmtime(&ticks);
+  gpstime->gpsSeconds = XLALUTCToGPS(&tm);
   gpstime->gpsNanoSeconds = 0;
 
   /*

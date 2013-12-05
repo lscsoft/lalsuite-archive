@@ -17,11 +17,12 @@
  * 02111-1307  USA
  */
 
+#include <config.h>
+
 #include <math.h>
 #include <lal/LALStdlib.h>
 #include <lal/Date.h>
 #include <lal/XLALError.h>
-
 
 #define SUCCESS              0
 #define FAIL_JULIAN_DAY      1
@@ -102,8 +103,11 @@ static int test(const struct tm *utc, double expected_julian_day, int expected_m
 	int modified_julian_day;
 	int result = 0;
 
-	if(lalDebugLevel)
-		fprintf(stderr, "Testing %s ...\n", asctime(utc));
+	if(lalDebugLevel) {
+		char buf[64];
+		strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", utc);
+		fprintf(stderr, "Testing %s ...\n", buf);
+	}
 
 	julian_day = XLALJulianDay(utc);
 	modified_julian_day = XLALModifiedJulianDay(utc);
@@ -128,7 +132,7 @@ static int test(const struct tm *utc, double expected_julian_day, int expected_m
 int main(void)
 {
 	time_t now;
-	struct tm utc;
+	struct tm tnow, utc;
 #if 0
 	REAL8 ref_julian_day;
 	REAL8 julian_day;
@@ -147,7 +151,8 @@ int main(void)
 	 */
 
 	time(&now);
-	if(test(localtime(&now), 0, 0, __LINE__))
+	tnow = *localtime(&now);
+	if(test(&tnow, 0, 0, __LINE__))
 		return 1;
 
 	/*

@@ -29,7 +29,6 @@ import sys
 
 
 from glue import segments
-from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
@@ -86,8 +85,7 @@ def append_process(xmldoc, cluster_algorithm, comment):
 
 def add_ms_columns(xmldoc):
 	# add columns if required
-	sngl_burst_table = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
-	add_ms_columns_to_table(sngl_burst_table)
+	add_ms_columns_to_table(lsctables.SnglBurstTable.get_table(xmldoc))
 
 def add_ms_columns_to_table(sngl_burst_table):
 	added = False
@@ -364,7 +362,7 @@ def ligolw_bucluster(
 	#
 
 	try:
-		sngl_burst_table = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+		sngl_burst_table = lsctables.SnglBurstTable.get_table(xmldoc)
 	except ValueError:
 		# no-op:  document does not contain a sngl_burst table
 		if verbose:

@@ -16,6 +16,9 @@ import sys
 import re
 import os
 import bisect
+import copy
+import time
+import pdb
 
 from glue.ligolw import dbtables
 from glue.ligolw import lsctables
@@ -518,6 +521,16 @@ def get_tables_in_database( connection ):
     sqlquery = 'SELECT name FROM sqlite_master WHERE type == "table"'
     return connection.cursor().execute(sqlquery).fetchall()
 
+def vacuum_database(connection, vacuum=None, verbose=None):
+    """
+    Remove empty space and defragment the database.
+    """
+    if vacuum:
+        if verbose:
+            print >> sys.stderr, "Start vacuuming database"
+        connection.execute("VACUUM")
+        if verbose:
+            print >> sys.stderr, "\tVacuuming database finished\n"
 
 def get_column_names_from_table( connection, table_name ):
     """
@@ -527,6 +540,24 @@ def get_column_names_from_table( connection, table_name ):
     column_names = [ name[1] for name in connection.cursor().execute( sqlquery).fetchall() ]
     
     return column_names
+
+def get_user_created_indices( connection, table_names ):
+    """
+    Get all index names and associated SQL CREATE statements associated with
+    tables in table_names. Return a list of (idx_name, sql) tuples.
+    """
+
+    sqlquery = """
+    SELECT name, tbl_name, sql
+    FROM sqlite_master
+    WHERE type = 'index' AND sql != 'None'
+    """
+    indices = []
+    for idx_name, tbl_name, sql in connection.execute(sqlquery):
+        if tbl_name in table_names:
+             indices.append( (idx_name, sql) )
+
+    return indices
 
 
 def convert_duration( duration, convert_to ):
@@ -703,9 +734,17 @@ class Summaries:
         """
         Sums the background durs for each time-slide (experiment_summ_id).
         """
-        for eid in self.frg_durs:
-            for this_esid in self.frg_durs[eid]:
-                self.bkg_durs[this_esid] = sum([self.frg_durs[eid][bkg_esid] for bkg_esid in self.frg_durs[eid].keys() if bkg_esid != this_esid and bkg_esid not in self.zero_lag_ids[eid]])
+        for eid, durs_dict in self.frg_durs.items():
+            culled_durs_dict = copy.deepcopy(durs_dict)
+            if eid in self.zero_lag_ids:
+                for frgd_esid in self.zero_lag_ids[eid]:
+                    del culled_durs_dict[frgd_esid]
+            tot_dur = sum( culled_durs_dict.values() )
+            for esid, duration in durs_dict.items():
+                if esid in culled_durs_dict.keys():
+                    self.bkg_durs[esid] = tot_dur - duration
+                else:
+                    self.bkg_durs[esid] = tot_dur
 
     def append_max_bkg_far(self, experiment_summ_id, ifo_group, max_bkg_far):
         """
@@ -1005,6 +1044,302 @@ def clean_metadata_using_end_time(connection, key_table, key_column, verbose = F
     # execute the script
     connection.cursor().executescript(sqlscript)
 
+
+def get_process_info(connection, verbose=False, debug=False):
+    """
+    Create a map between process_ids so duplicate entries in numerous ligolw_xml
+    tables can be removed without a loss of information. The tables the _pidmap_
+    is used to simplify are:
+
+    -- process, process_params
+    -- filter, summ_value, search_summary, search_summvars
+    -- sim_inspiral, sim_ringdown
+    -- time_slide
+    -- update the sim_proc_ids in the experiment_summary table
+    """
+    if verbose:
+        print >> sys.stdout, "\nCreate a map of process_ids for removal of duplicates"
+
+    # create function to concatenate 5 columns together per row
+    connection.create_function("concat_5cols", 5, concatenate)
+
+    # create the cursor object used to execute queries and commands
+    cursor = connection.cursor()
+
+    sqlscript = """
+    CREATE INDEX pp_pivp_idx ON process_params (process_id, value, param);
+
+    CREATE TEMP TABLE proc_params AS
+        SELECT
+            process.process_id AS proc_id,
+            process.program AS program,
+            group_concat(pp_table.value) AS value,
+            group_concat(pp_table.param) AS params,
+            concat_5cols(process.start_time, process.end_time, process.username,
+                process.node, process.version) AS process_info
+        FROM
+            process
+            JOIN process_params AS pp_table ON (
+                pp_table.process_id == process.process_id)
+        GROUP BY proc_id;
+
+    DROP INDEX pp_pivp_idx;
+    CREATE INDEX proc_params_idx ON proc_params (program, value, params, process_info);
+ 
+    CREATE TEMP TABLE _pidmap_ AS
+        SELECT
+            old_pp_table.proc_id AS old_pid,
+            MIN(new_pp_table.proc_id) AS new_pid,
+            old_pp_table.program AS program
+        FROM
+            proc_params AS old_pp_table
+            JOIN proc_params AS new_pp_table ON (
+                old_pp_table.value == new_pp_table.value
+                AND old_pp_table.process_info == new_pp_table.process_info
+                AND old_pp_table.params == new_pp_table.params
+                AND old_pp_table.program == new_pp_table.program)
+        GROUP BY old_pid;
+    
+    CREATE INDEX _pidmap_idx ON _pidmap_ (old_pid);
+
+    DROP INDEX proc_params_idx;
+    DROP TABLE proc_params; """
+    if debug:
+        print >> sys.stderr, sqlscript
+        print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
+    # execute SQL script
+    cursor.executescript( sqlscript )
+    # commit transactions to database and close the cursor
+    connection.commit()
+    cursor.close()
+    if debug:
+        print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+
+
+def get_pids_to_update(cursor, programs):
+    """
+    Make a tuple of the process_ids from the temp table '_pidmap_' that need to
+    be updated for a given list of programs.
+    """ 
+
+    sqlquery = """
+        SELECT DISTINCT old_pid 
+        FROM _pidmap_
+        WHERE new_pid != old_pid """
+    if not programs:
+        # get all process_ids regardless of program
+        process_ids = zip( *cursor.execute(sqlquery).fetchall() )
+    else:
+        process_ids = []
+        sqlquery += """
+            AND program = :1
+        """
+        # loop over the list of programs
+        for program in programs:
+            validate_option(program)
+            if (program,) in cursor.execute('SELECT DISTINCT program FROM _pidmap_'):
+                process_ids += zip( *cursor.execute(sqlquery, (program,)).fetchall() )
+
+    return process_ids
+
+
+def simplify_summ_tbls(connection, verbose=False, debug=False):
+    """
+    Delete duplicate information in summary tables according to the process_ids.
+    tbl_name: filter, summ_value, search_summary, search_summvars
+    """
+
+    # create the cursor object used to execute queries and commands
+    cursor = connection.cursor()
+
+    # check for duplicate entries from the process tbl
+    old_pids = get_pids_to_update(cursor, ['inspiral','ringdown'])
+
+    # check that at least one table in table_names is in the database
+    all_tables = zip(*get_tables_in_database(connection))[0]
+    table_names = ['filter','summ_value','search_summary','search_summvars']
+
+    if old_pids and set(table_names) & set(all_tables):
+        if verbose:
+            print >> sys.stdout, "\nDelete redundant rows in available summary tables"
+    
+        # get the non-auto-generated indices for the tables in table_names
+        relevant_indices = get_user_created_indices(connection, table_names)
+        # drop indices that will interfere with update & delete statements
+        for idx, sql in relevant_indices:
+            validate_option(idx)
+            cursor.execute('DROP INDEX %s' % idx)
+    
+        sqlscript = ""
+        # if a filter table exists, remove duplicate rows
+        if 'filter' in all_tables:
+            sqlscript += """
+            DELETE FROM filter
+                WHERE process_id NOT IN (
+                    SELECT DISTINCT new_pid 
+                    FROM _pidmap_
+                    WHERE program = 'inspiral' OR program = 'ringdown' ); """
+        # if a summ_value table exists, remove duplicate rows
+        if 'summ_value' in all_tables:
+            sqlscript += """
+            DELETE FROM summ_value
+                WHERE process_id NOT IN (
+                    SELECT DISTINCT new_pid 
+                    FROM _pidmap_
+                    WHERE program = 'inspiral' OR program = 'ringdown' ); """
+        # if a search_summary table exists, remove duplicate rows
+        if 'search_summary' in all_tables:
+            sqlscript += """
+            DELETE FROM search_summary
+                WHERE process_id NOT IN (
+                    SELECT DISTINCT new_pid 
+                    FROM _pidmap_
+                    WHERE program = 'inspiral' OR program = 'ringdown' ); """
+        # if a search_summvars table exists, remove duplicate rows
+        if 'search_summvars' in all_tables:
+            sqlscript += """
+            DELETE FROM search_summvars
+                WHERE process_id NOT IN (
+                    SELECT DISTINCT new_pid 
+                    FROM _pidmap_
+                    WHERE program = 'inspiral' OR program = 'ringdown' ); """
+        if debug:
+            print >> sys.stderr, sqlscript
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
+        # execute SQL script
+        cursor.executescript( sqlscript )
+        # commit transactions to database and close the cursor
+        connection.commit()
+        if debug:
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+    else:
+        if verbose:
+            if not set(table_names) & set(all_tables):
+                print >> sys.stdout, "This database lacks all filtering related summary tables."
+            else:
+                print >> sys.stdout, "The search & filter tables lack duplicates."
+    cursor.close()
+
+
+def update_pid_in_snglstbls(connection, verbose=False, debug=False):
+    """
+    Update process_ids for events in the sngl_inspiral &/or sngl_ringdown table.
+    This function does *not* remove duplicate events that have different
+    event_ids.
+    """
+
+    # create the cursor object used to execute queries and commands
+    cursor = connection.cursor()
+
+    # check for duplicate entries from the process tbl
+    old_pids = get_pids_to_update(cursor, ['inspiral','ringdown'])
+
+    # check that at least one table in table_names is in the database
+    all_tables = zip(*get_tables_in_database(connection))[0]
+    table_names = ['sngl_inspiral','sngl_ringdown']
+
+    if old_pids and set(table_names) & set(all_tables):
+        if verbose:
+            print >> sys.stdout, "\nUpdate process_ids in the sngl-ifo trigger tables"
+
+        # get the non-auto-generated indices for the tables in table_names
+        relevant_indices = get_user_created_indices(connection, table_names)
+        # drop indices that will interfere with update & delete statements
+        for idx, sql in relevant_indices:
+            validate_option(idx)
+            cursor.execute('DROP INDEX %s' % idx)
+
+        sqlscript = ""
+        # if a sngl_inspiral table exists, update process_id column
+        if 'sngl_inspiral' in all_tables:
+            sqlscript += """
+            UPDATE sngl_inspiral
+                SET process_id = (
+                    SELECT new_pid
+                    FROM _pidmap_
+                    WHERE process_id == old_pid
+                        AND program = 'inspiral'); """
+        # if a sngl_ringdown table exists, update process_id column
+        if 'sngl_ringdown' in all_tables:
+            sqlscript += """
+            UPDATE sngl_ringdown
+                SET process_id = (
+                    SELECT new_pid
+                    FROM _pidmap_
+                    WHERE process_id == old_pid
+                        AND program = 'ringdown'); """
+
+        if debug:
+            print >> sys.stderr, sqlscript
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
+        # execute SQL script
+        cursor.executescript( sqlscript )
+        # commit transactions to database and close the cursor
+        connection.commit()
+        if debug:
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+    else:
+        if verbose:
+            if not set(table_names) & set(all_tables):
+                print >> sys.stdout, "This database lacks a sngl_inspiral &/or sngl_ringdown table."
+            else:
+                print >> sys.stdout, "The sngl_inspiral & sngl_ringdown tables lack duplicates."
+    cursor.close()
+
+
+def simplify_proc_tbls(connection, verbose=False, debug=False):
+    """
+    Delete duplicate rows in the process & process params table.
+    The temp table _pidmap_ created by the get_process_info function is dropped.
+    """
+    if verbose:
+        print >> sys.stdout, "\nDeleting redundant rows in the process & process_params tables"
+ 
+    # create the cursor object used to execute queries and commands
+    cursor = connection.cursor()
+
+    # check for duplicate entries from the process tbl
+    old_pids = get_pids_to_update(cursor, [])
+
+    if old_pids:
+        # get the non-auto-generated indices for the tables in table_names
+        table_names = ['process','process_params']
+        relevant_indices = get_user_created_indices(connection, table_names)
+        # drop indices that will interfere with update & delete statements
+        for idx, sql in relevant_indices:
+            validate_option(idx)
+            cursor.execute('DROP INDEX %s' % idx)
+    
+        sqlscript = """
+        -- Remove redundant process rows
+        DELETE FROM process 
+            WHERE process_id IN (
+                SELECT DISTINCT old_pid 
+                FROM _pidmap_ 
+                WHERE old_pid != new_pid ); 
+        DELETE FROM process_params 
+            WHERE process_id IN (
+                SELECT DISTINCT old_pid 
+                FROM _pidmap_ 
+                WHERE old_pid != new_pid ); 
+        
+        DROP INDEX _pidmap_idx;
+        DROP TABLE _pidmap_; """
+        if debug:
+            print >> sys.stderr, sqlscript
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
+        # execute SQL script
+        cursor.executescript( sqlscript )
+        # commit transactions to database and close the cursor
+        connection.commit()
+        if debug:
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+    else:
+        if verbose:
+            print >> sys.stdout, "The process & process_params tables lack duplicates."
+    cursor.close()
+
+
 # =============================================================================
 #
 #                          Experiment Utilities
@@ -1107,6 +1442,203 @@ def clean_experiment_tables(connection, verbose = False):
         """
     connection.cursor().executescript(sqlscript)
 
+
+def simplify_expr_tbl(connection, verbose=False, debug=False):
+    """
+    Cleaning up the experiment table by removing duplicate rows and remapping
+    events to the appropriate experiment.
+    """
+
+    all_tables = zip(*get_tables_in_database(connection))[0]
+    table_names = ['experiment','experiment_summary']
+    # check that both tables in table_names exist in the database
+    if not set(table_names) - set(all_tables):
+        if verbose:
+            print >> sys.stdout, "\nCleaning experiment table..."
+    
+        # create function to concatenate columns together per row
+        connection.create_function("concat_7cols", 7, concatenate)
+    
+        # create the cursor object used to execute queries and commands
+        cursor = connection.cursor()
+
+        # get the non-auto-generated indices for the tables in table_names
+        relevant_indices = get_user_created_indices(connection, table_names)
+        # drop indices that will interfere with update & delete statements
+        for idx, sql in relevant_indices:
+            validate_option(idx)
+            cursor.execute('DROP INDEX %s' % idx)
+    
+        sqlscript = """
+        -- create map table to map experiment_ids that are to be kept
+        -- to experiment ids that are to be discarded, in the same manner
+        -- as done above
+        
+        CREATE TEMP TABLE expr_info AS
+            SELECT
+                expr.experiment_id AS eid,
+                concat_7cols(expr.search, expr.search_group, expr.instruments,
+                    expr.gps_start_time, expr.gps_end_time,
+                    expr.lars_id, expr.comments) AS info
+            FROM experiment AS expr;
+        
+        CREATE TEMP TABLE _eidmap_ AS
+            SELECT
+                old_exp.eid AS old_eid,
+                MIN(new_exp.eid) AS new_eid
+            FROM
+                expr_info AS old_exp
+                JOIN expr_info AS new_exp ON (
+                    old_exp.info == new_exp.info)
+            GROUP BY old_eid;
+        
+        DROP TABLE expr_info;
+        CREATE INDEX _eidmap_idx ON _eidmap_ (old_eid);
+    
+        -- delete the old ids from the experiment table
+        DELETE FROM experiment 
+            WHERE experiment_id NOT IN (
+                SELECT new_eid 
+                FROM _eidmap_ );
+        
+        -- update the experiment_ids in the experiment summary table
+        UPDATE experiment_summary
+            SET experiment_id = (
+                SELECT new_eid 
+                FROM _eidmap_
+                WHERE experiment_summary.experiment_id == old_eid);
+        
+        DROP INDEX _eidmap_idx;
+        DROP TABLE _eidmap_; """
+        if debug:
+            print >> sys.stderr, sqlscript
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
+        # execute SQL script
+        cursor.executescript( sqlscript )
+        # commit transactions to database and close the cursor
+        connection.commit()
+        cursor.close()
+        if debug:
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+    else:
+        if verbose:
+            print >> sys.stdout, "The database is lacks the experiment &/or experiment_summary table(s)."
+
+
+def simplify_exprsumm_tbl(connection, verbose=False, debug=False):
+    """
+    Cleaning up the experiment_summary and the experiment_map tables
+    by removing duplicate rows and remapping events to the appropriate
+    experiment.
+    """
+
+    all_tables = zip(*get_tables_in_database(connection))[0]
+    table_names = ['experiment_map','experiment_summary']
+    # check that both tables in table_names exist in the database
+    if not set(table_names) - set(all_tables):
+        if verbose:
+            print >> sys.stdout, "\nCleaning experiment_summary & experiment_map tables..."
+    
+        # create function to concatenate columns together per row
+        connection.create_function("concat_5cols", 5, concatenate)
+    
+        # create the cursor object used to execute queries and commands
+        cursor = connection.cursor()
+
+        # get the non-auto-generated indices for the tables in table_names
+        relevant_indices = get_user_created_indices(connection, table_names)
+        # drop indices that will interfere with update & delete statements
+        for idx, sql in relevant_indices:
+            validate_option(idx)
+            cursor.execute('DROP INDEX %s' % idx)
+    
+        sqlscript = """
+        -- experiment summary clean up
+        
+        -- create a table to map esids to be deleted to esids to be saved
+        CREATE TEMP TABLE expr_summ_info AS
+            SELECT
+                expr_summ.experiment_summ_id AS esid,
+                concat_5cols(expr_summ.experiment_id, expr_summ.time_slide_id, 
+                    expr_summ.veto_def_name, expr_summ.datatype, expr_summ.sim_proc_id) AS info
+            FROM experiment_summary AS expr_summ;
+    
+        CREATE INDEX expr_summ_info_idx ON expr_summ_info (info);
+        
+        CREATE TEMP TABLE _esidmap_ AS
+            SELECT
+                old_expsumm.esid AS old_esid,
+                MIN(new_expsumm.esid) AS new_esid
+            FROM
+                expr_summ_info AS old_expsumm
+                JOIN expr_summ_info AS new_expsumm ON (
+                    old_expsumm.info == new_expsumm.info)
+            GROUP BY old_esid;
+    
+        DROP INDEX expr_summ_info_idx;
+        DROP TABLE expr_summ_info;
+    
+        CREATE INDEX _esidmap_idx on _esidmap_ (old_esid);
+        CREATE INDEX es_dne_idx ON experiment_summary (duration,nevents);
+    
+        -- sum durations and nevents
+        CREATE TEMP TABLE sum_dur_nevents AS
+            SELECT
+                _esidmap_.new_esid AS esid, 
+                SUM(experiment_summary.duration) AS sum_dur, 
+                SUM(experiment_summary.nevents) AS sum_nevents
+            FROM _esidmap_
+                JOIN experiment_summary ON (
+                    _esidmap_.old_esid == experiment_summary.experiment_summ_id)
+            GROUP BY esid;
+    
+        DROP INDEX es_dne_idx;
+        CREATE INDEX sdn_esid_index ON sum_dur_nevents (esid);
+        
+        -- delete the old ids from the experiment_summary table
+        DELETE FROM experiment_summary
+            WHERE experiment_summ_id NOT IN (
+                SELECT DISTINCT new_esid
+                FROM _esidmap_ );
+        
+        -- update the durations and the nevents
+        UPDATE experiment_summary
+            SET duration = (
+                SELECT sum_dur
+                FROM sum_dur_nevents
+                WHERE sum_dur_nevents.esid == experiment_summary.experiment_summ_id),
+            nevents = (
+                SELECT sum_nevents
+                FROM sum_dur_nevents
+                WHERE sum_dur_nevents.esid == experiment_summary.experiment_summ_id);
+        
+        DROP INDEX sdn_esid_index;
+        DROP TABLE sum_dur_nevents;
+    
+        -- update the experiment_map table
+        UPDATE experiment_map
+            SET experiment_summ_id = (
+                SELECT new_esid 
+                FROM _esidmap_
+                WHERE experiment_map.experiment_summ_id == old_esid);
+        
+        DROP INDEX _esidmap_idx;
+        DROP TABLE _esidmap_; """
+        if debug:
+            print >> sys.stderr, sqlscript
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
+        # execute SQL script
+        cursor.executescript( sqlscript )
+        # commit transactions to database and close the cursor
+        connection.commit()
+        cursor.close()
+        if debug:
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+    else:
+        if verbose:
+            print >> sys.stdout, "The database is lacks the experiment_map &/or experiment_summary table(s)."
+
+
 # =============================================================================
 #
 #                          ExperimentSummary Utilities
@@ -1124,6 +1656,9 @@ def update_experiment_summ_nevents( connection, verbose = False ):
     """
     if verbose:
         print >> sys.stderr, "Updating nevents column in experiment_summary table..."
+
+    # Speedup measure: index may have been deleted during dbsimplify
+    connection.cursor().execute("CREATE INDEX IF NOT EXISTS em_esi_index ON experiment_map(experiment_summ_id)")
 
     sqlquery = """
         UPDATE experiment_summary
@@ -1332,8 +1867,11 @@ def write_newstyle_coinc_def_entry( connection, description, search = None, sear
     results = connection.cursor().execute( sqlquery, (description,) ).fetchall()
     if results == []:
         # none found, write new entry
-        this_id = get_next_id( connection, 'coinc_definer', 'coinc_def_id' )
         sqlquery = 'INSERT INTO coinc_definer (coinc_def_id, description, search, search_coinc_type) VALUES (?, ?, ?, ?)'
+        this_id = get_next_id( connection, 'coinc_definer', 'coinc_def_id' )
+        if not search_coinc_type:
+            # assign to the new coinc_definer row the largest+1 search_coinc_type INT
+            search_coinc_type = 1+connection.execute('SELECT MAX(search_coinc_type) FROM coinc_definer').fetchone()[0]
         connection.cursor().execute( sqlquery, (str(this_id), description, search, search_coinc_type) )
         connection.commit()
     else:
@@ -1424,6 +1962,77 @@ def delete_map( connection, map_label ):
                 coinc_event );
         """
     connection.cursor().executescript(sqlquery)
+
+def simplify_coincdef_tbl(connection, verbose=False, debug=False):
+    """
+    Remove duplicate entries in the coinc_definer table and update the coinc_event table
+    with new coinc_def_ids. 
+    """
+
+    all_tables = zip(*get_tables_in_database(connection))[0]
+    table_names = ['coinc_definer','coinc_event']
+    # check that both tables in table_names exist in the database
+    if not set(table_names) - set(all_tables):
+        if verbose:
+            print >> sys.stdout, "\nCleaning up the coinc_definer table..."
+    
+        # create the cursor object used to execute queries and commands
+        cursor = connection.cursor()
+
+        # get the non-auto-generated indices for the tables in table_names
+        relevant_indices = get_user_created_indices(connection, table_names)
+        # drop indices that will interfere with update & delete statements
+        for idx, sql in relevant_indices:
+            validate_option(idx)
+            cursor.execute('DROP INDEX %s' % idx)
+    
+        sqlscript = """
+        -- Create a table that maps the coinc_definer_ids of redundant entries
+        -- to those entries one is going to keep.
+        CREATE TEMP TABLE _cdidmap_ AS
+            SELECT
+                old_cd_table.coinc_def_id AS old_cdid,
+                MIN(new_cd_table.coinc_def_id) AS new_cdid
+            FROM
+                coinc_definer AS old_cd_table
+                JOIN coinc_definer AS new_cd_table ON (
+                    new_cd_table.search == old_cd_table.search
+                    AND new_cd_table.search_coinc_type == old_cd_table.search_coinc_type
+                    AND new_cd_table.description == old_cd_table.description
+                )
+            GROUP BY old_cdid;
+        
+        CREATE INDEX cdidmap_index ON _cdidmap_ (old_cdid);
+        
+        -- Update the coinc_event table with new coinc_def_ids
+        UPDATE coinc_event 
+            SET coinc_def_id = (
+                SELECT new_cdid 
+                FROM _cdidmap_ 
+                WHERE old_cdid == coinc_def_id);
+        
+        -- Remove redundant entries in the coinc_definer table
+        DELETE FROM coinc_definer
+            WHERE coinc_def_id NOT IN (
+                SELECT DISTINCT new_cdid 
+                FROM _cdidmap_ );
+        
+        DROP INDEX cdidmap_index;
+        DROP TABLE _cdidmap_; """
+        if debug:
+            print >> sys.stderr, sqlscript
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
+        # execute SQL script
+        cursor.executescript( sqlscript )
+        # commit transactions to database and close the cursor
+        connection.commit()
+        cursor.close()
+        if debug:
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+    else:
+        if verbose:
+            print >> sys.stdout, "This database lacks the coinc_event and coinc_definer tables."
+
 
 def delete_coinc_type( connection, map_label, coincTables ):
     """
@@ -1782,6 +2391,78 @@ def create_sim_rec_map_table(connection, simulation_table, recovery_table, map_l
         connection.cursor().execute(sqlquery)
 
 
+def simplify_sim_tbls(connection, verbose=False, debug=False):
+    """
+    Remove duplicates from simulation tables (sim_inspiral & sim_ringdown)
+    if those tables exist in the database. Also update the sim_proc_id column
+    in the experiment_summary table. 
+    """
+ 
+    # create the cursor object used to execute queries and commands
+    cursor = connection.cursor()
+
+    # check for duplicate entries from the process tbl
+    old_pids = get_pids_to_update(cursor, ['inspinj','rinj'])
+
+    # check whether there is a simulation table in the database
+    all_tables = zip(*get_tables_in_database(connection))[0]
+
+    if old_pids and [tbl for tbl in all_tables if 'sim_' in tbl]:
+        if verbose:
+            print >> sys.stdout, "\nCleaning simulation tables..."
+
+        # get the non-auto-generated indices for the tables in table_names
+        table_names = ['sim_inspiral','sim_ringdown','experiment_summary']
+        relevant_indices = get_user_created_indices(connection, table_names)
+        # drop indices that will interfere with update & delete statements
+        for idx, sql in relevant_indices:
+            validate_option(idx)
+            cursor.execute('DROP INDEX %s' % idx)
+
+        # if a sim_inspiral table exists, remove duplicate rows
+        sqlscript = ""
+        if 'sim_inspiral' in all_tables:
+            sqlscript += """
+            DELETE FROM sim_inspiral 
+                WHERE process_id NOT IN (
+                    SELECT DISTINCT new_pid 
+                    FROM _pidmap_
+                    WHERE program = 'inspinj'); """
+        # if a sim_ringdown table exists, remove duplicate rows
+        if ('sim_ringdown',) in all_tables:
+            sqlscript += """
+            DELETE FROM sim_ringdown
+                WHERE process_id NOT IN (
+                    SELECT DISTINCT new_pid 
+                    FROM _pidmap_
+                    WHERE program = 'rinj'); """
+        # if an experiment_summary table exists, update its sim_proc_id column
+        if 'experiment_summary' in all_tables:
+            sqlscript += """
+            -- Update sim_proc_ids in the experiment_summary table
+            UPDATE experiment_summary 
+                SET sim_proc_id = (
+                    SELECT DISTINCT new_pid 
+                    FROM _pidmap_ 
+                    WHERE old_pid == sim_proc_id ); """ 
+        if debug:
+            print >> sys.stderr, sqlscript
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
+        # execute SQL script
+        cursor.executescript( sqlscript )
+        # commit transactions to database and close the cursor
+        connection.commit()
+        if debug:
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+    else:
+        if verbose:
+            if not [tbl for tbl in all_tables if 'sim_' in tbl]:
+                print >> sys.stdout, "This database lacks a simulation table."
+            else:
+                print >> sys.stdout, "The simulation tables lack duplicates."
+    cursor.close()
+
+
 # =============================================================================
 #
 #                             Segment Utilities
@@ -1830,6 +2511,109 @@ class segdict_from_segment:
         """
         return LIGOTimeGPS(gpstime, gpstime_ns) in self.snglinst_segdict[instrument]
         
+
+def simplify_segments_tbls(connection, verbose=False, debug=False):
+    """
+    Removing duplicate row in the segment, segment_definer and segment_summary
+    tables as well as the associated entries in the process & process_params tables
+    """
+
+    all_tables = zip(*get_tables_in_database(connection))[0]
+    if 'segment' in all_tables:
+        if verbose:
+            print >> sys.stdout, "\nCleaning up the segments tables..."
+    
+        # create function to concatenate 2 columns together per row
+        connection.create_function("concat_2cols", 2, concatenate)
+    
+        # create the cursor object used to execute queries and commands
+        cursor = connection.cursor()
+
+        # get the non-auto-generated indices for the tables in table_names
+        table_names = ['process','process_params',
+            'segment','segment_definer','segment_summary']
+        relevant_indices = get_user_created_indices(connection, table_names)
+        # drop indices that will interfere with update & delete statements
+        for idx, sql in relevant_indices:
+            validate_option(idx)
+            cursor.execute('DROP INDEX %s' % idx)
+    
+        sqlscript = """
+        CREATE INDEX sd_pisdi_index ON segment_definer (process_id, segment_def_id);
+        CREATE INDEX ss_pisdi_index ON segment_summary (process_id, segment_def_id);
+    
+        CREATE TEMP TABLE segdef_summary AS
+            SELECT
+                segment_definer.process_id AS proc_id,
+                segment_definer.ifos AS ifo,
+                concat_2cols(segment_definer.name, segment_definer.version) AS cat_vers,
+                concat_2cols(segment_summary.start_time, segment_summary.end_time) AS times
+            FROM
+                segment_definer
+                JOIN segment_summary ON (
+                    segment_definer.process_id == segment_summary.process_id
+                    AND segment_definer.segment_def_id == segment_summary.segment_def_id)
+            GROUP BY proc_id;
+        
+        DROP INDEX sd_pisdi_index;
+        DROP INDEX ss_pisdi_index;
+    
+        CREATE TEMP TABLE _sdpid_map_ AS
+            SELECT
+                old_segs_tbl.proc_id AS old_pid,
+                MIN(new_segs_tbl.proc_id) AS new_pid
+            FROM
+                segdef_summary AS old_segs_tbl
+                JOIN segdef_summary AS new_segs_tbl ON (
+                    new_segs_tbl.ifo == old_segs_tbl.ifo
+                    AND new_segs_tbl.times == old_segs_tbl.times
+                    AND new_segs_tbl.cat_vers == old_segs_tbl.cat_vers )
+            GROUP BY old_pid;
+    
+        DROP TABLE segdef_summary;
+        CREATE INDEX sdpid_idx ON _sdpid_map_ (old_pid, new_pid);
+     
+        DELETE FROM segment 
+            WHERE process_id NOT IN (
+                SELECT DISTINCT new_pid	
+                FROM _sdpid_map_ );
+        DELETE FROM segment_definer 
+            WHERE process_id NOT IN (
+                SELECT DISTINCT new_pid	
+                FROM _sdpid_map_ );
+        DELETE FROM segment_summary
+            WHERE process_id NOT IN (
+                SELECT DISTINCT new_pid	
+                FROM _sdpid_map_ );
+    
+        DELETE FROM process
+            WHERE process_id IN (
+                SELECT old_pid	
+                FROM _sdpid_map_
+                WHERE old_pid != new_pid );
+        DELETE FROM process_params
+            WHERE process_id IN (
+                SELECT old_pid	
+                FROM _sdpid_map_
+                WHERE old_pid != new_pid );
+     
+        DROP INDEX sdpid_idx;
+        DROP TABLE _sdpid_map_; """
+    
+        if debug:
+            print >> sys.stderr, sqlscript
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
+        # execute SQL script
+        cursor.executescript( sqlscript )
+        # commit transactions to database and close the cursor
+        connection.commit()
+        cursor.close()
+        if debug:
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+    else:
+        if verbose:
+            print >> sys.stdout, "There are no segments tables in this database"
+
 
 # =============================================================================
 #
@@ -1900,4 +2684,201 @@ def get_instrument_sets_and_time_slide_ids( connection ):
         connection.cursor().execute(sqlquery) ]
 
     return instrument_set_time_slide_ids
+
+
+def simplify_timeslide_tbl(connection, verbose=False, debug=False):
+    """
+    Remove duplicate entries in the time_slide table and update entries in the
+    the time_slide_id column of both the experiment_summary and coinc_event
+    tables.
+    """
+
+    # create the cursor object used to execute queries and commands
+    cursor = connection.cursor()
+
+    # check for duplicate time_slide entries from the process tbl
+    old_pids = get_pids_to_update(cursor, ['ligolw_tisi'])
+
+    all_tables = zip(*get_tables_in_database(connection))[0]
+    if old_pids and 'time_slide' in all_tables:
+        if verbose:
+            print >> sys.stdout, "\nClean up the time_slide table ..."
+
+        # get the non-auto-generated indices for the tables in table_names
+        table_names = ['time_slide','experiment_summary','coinc_event']
+        relevant_indices = get_user_created_indices(connection, table_names)
+        # drop indices that will interfere with update & delete statements
+        for idx, sql in relevant_indices:
+            validate_option(idx)
+            cursor.execute('DROP INDEX %s' % idx)
+
+        sqlscript = """
+        -- Create a table that combines the information about a single time_slide into 
+        -- a single row.  This makes comparison between time_slides easier.
+
+        CREATE TEMP TABLE compact_time_slide AS
+            SELECT
+                time_slide_id AS tsid,
+                group_concat(instrument) AS ifos,
+                group_concat(offset) AS offset
+            FROM time_slide
+            GROUP BY time_slide_id;
+        
+        CREATE INDEX cts_io_idx ON compact_time_slide (ifos, offset);
+
+        -- Create a table that maps the time_slide_ids of redundant time_slide entries
+        -- to those entries one is going to keep.
+        CREATE TEMP TABLE _tsidmap_ AS
+            SELECT
+                old_ts_table.tsid AS old_tsid,
+                MIN(new_ts_table.tsid) AS new_tsid
+            FROM
+                compact_time_slide AS old_ts_table
+                JOIN compact_time_slide AS new_ts_table ON (
+                    new_ts_table.ifos == old_ts_table.ifos
+                    AND new_ts_table.offset == old_ts_table.offset)
+            GROUP BY old_tsid;
+
+        DROP INDEX cts_io_idx;
+        DROP TABLE compact_time_slide;
+        
+        CREATE INDEX _tsidmap_idx ON _tsidmap_ (old_tsid);
+        
+        -- Delete the redundant entries in the time_slide table
+        DELETE FROM time_slide 
+            WHERE process_id NOT IN (
+                SELECT DISTINCT new_pid 
+                FROM _pidmap_ 
+                WHERE program = 'ligolw_tisi');
+
+        UPDATE time_slide
+            SET time_slide_id = (
+                SELECT new_tsid 
+                FROM _tsidmap_
+                WHERE old_tsid = time_slide_id);
+        """
+
+        # if a coinc_event table exists, update its time_slide_id column
+        if 'coinc_event' in all_tables:
+            sqlscript += """
+            UPDATE coinc_event 
+                SET time_slide_id = (
+                    SELECT new_tsid 
+                    FROM _tsidmap_ 
+                    WHERE old_tsid == time_slide_id);
+            """
+        # if an experiment_summary table exists, update its time_slide_id column
+        if 'experiment_summary' in all_tables:
+            sqlscript += """
+            UPDATE experiment_summary
+                SET time_slide_id = (
+                    SELECT new_tsid 
+                    FROM _tsidmap_ 
+                    WHERE old_tsid == time_slide_id);
+            """
+        sqlscript += """
+        DROP INDEX _tsidmap_idx;
+        DROP TABLE _tsidmap_; """
+
+        if debug:
+            print >> sys.stderr, sqlscript
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
+        # execute SQL script
+        cursor.executescript( sqlscript )
+        # commit transactions to database
+        connection.commit()
+        if debug:
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+    else:
+        if verbose:
+            if 'time_slide' not in all_tables:
+                print >> sys.stdout, "There is no time_slide table in this database."
+            else:
+                print >> sys.stdout, "The time_slide table lacks any duplicates."
+    cursor.close()
+
+
+# =============================================================================
+#
+#                             VetoDefiner Utilities
+#
+# =============================================================================
+
+# Following utilities are specific to the veto_definer table
+
+def simplify_vetodef_tbl(connection, verbose=False, debug=False):
+    """
+    Cleaning up the veto_definer table as well as the associated
+    entries in the process & process_params tables  
+    """
+
+    all_tables = zip(*get_tables_in_database(connection))[0]
+    if 'veto_definer' in all_tables:
+        if verbose:
+            print >> sys.stdout, "\nCleaning up the veto_definer table..."
+
+        # create function to concatenate 7 columns together per row
+        connection.create_function("concat_7cols", 7, concatenate)
+
+        # create the cursor object used to execute queries and commands
+        cursor = connection.cursor()
+
+        # get the non-auto-generated indices for the tables in table_names
+        table_names = ['process','veto_definer']
+        relevant_indices = get_user_created_indices(connection, table_names)
+        # drop indices that will interfere with update & delete statements
+        for idx, sql in relevant_indices:
+            validate_option(idx)
+            cursor.execute('DROP INDEX %s' % idx)
+
+        sqlscript = """
+        CREATE TEMP TABLE veto_procinfo AS
+            SELECT
+                process_id,
+                concat_7cols(process.program, process.version, process.username,
+                    process.ifos, process.cvs_entry_time, process.cvs_repository, 
+                    process.comment) AS process_info
+            FROM process
+            WHERE
+                process.process_id IN (
+                    SELECT DISTINCT veto_definer.process_id
+                    FROM veto_definer )
+            GROUP BY process.process_id;
+
+        CREATE TEMP TABLE _veto_pidmap_ AS
+            SELECT
+                old_procinfo.process_id AS old_pid,
+                MIN(new_procinfo.process_id) AS new_pid
+            FROM
+                veto_procinfo AS old_procinfo
+                JOIN veto_procinfo AS new_procinfo ON (
+                    new_procinfo.process_info == old_procinfo.process_info)
+            GROUP BY old_pid;
+
+        DROP TABLE veto_procinfo;
+ 
+        DELETE FROM process
+            WHERE process_id IN (
+                SELECT old_pid
+                FROM _veto_pidmap_
+                WHERE old_pid != new_pid );
+        DELETE FROM veto_definer
+            WHERE process_id NOT IN (
+                SELECT DISTINCT new_pid
+                FROM _veto_pidmap_ );
+        
+        DROP TABLE _veto_pidmap_; """
+        if debug:
+            print >> sys.stderr, sqlscript
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
+        # execute SQL script
+        cursor.executescript( sqlscript )
+        # commit transactions to database and close the cursor
+        connection.commit()
+        cursor.close()
+        if debug:
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+    else:
+        if verbose:
+            print >> sys.stdout, "This database lacks a veto_definer table."
 

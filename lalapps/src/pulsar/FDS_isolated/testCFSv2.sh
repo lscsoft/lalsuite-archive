@@ -36,13 +36,6 @@ if [ -n "${LALPULSAR_DATADIR}" ]; then
     saf_code="${saf_code} -E ${LALPULSAR_DATADIR}"
     cfs_code="${cfs_code} -E ${LALPULSAR_DATADIR}"
     cfsv2_code="${cfsv2_code} -E ${LALPULSAR_DATADIR}"
-else
-    echo
-    echo "Need environment-variable LALPULSAR_DATADIR to be set to"
-    echo "your ephemeris-directory (e.g. /usr/local/share/lalpulsar)"
-    echo "This might indicate an incomplete LAL+LALPULSAR installation"
-    echo
-    exit 1
 fi
 
 ## without noise-weights, CFSv1 and CFSv2 should agree extremely well,
@@ -129,7 +122,7 @@ fi
 
 cmdline="$mfd_code $mfd_CL --randSeed=1"
 echo $cmdline;
-if ! eval "$cmdline &> /dev/null"; then
+if ! eval "$cmdline 2> /dev/null"; then
     echo "Error.. something failed when running '$mfd_code' ..."
     exit 1
 fi
@@ -160,7 +153,7 @@ fi
 cmdline="$cfs_code $cfs_CL  --outputFstat=$outfile_v1 --expLALDemod=0 --Fthreshold=0 --FreqBand=$cfs_FreqBand_v1"
 echo $cmdline;
 
-if ! eval "$cmdline &> /dev/null"; then
+if ! eval "$cmdline 2> /dev/null"; then
     echo "Error.. something failed when running '$cfs_code' ..."
     exit 1
 fi
@@ -173,7 +166,7 @@ echo
 outfile_v2NWon="Fstat_v2NWon.dat";
 cmdlineNoiseWeightsOn="$cfsv2_code $cfs_CL --outputFstat=$outfile_v2NWon --TwoFthreshold=0 --FreqBand=$cfs_FreqBand --UseNoiseWeights=true"
 echo $cmdlineNoiseWeightsOn;
-if ! eval "$cmdlineNoiseWeightsOn &> /dev/null"; then
+if ! eval "$cmdlineNoiseWeightsOn 2> /dev/null"; then
     echo "Error.. something failed when running '$cfs_code' ..."
     exit 1;
 fi
@@ -181,7 +174,7 @@ fi
 outfile_v2NWoff="Fstat_v2NWoff.dat";
 cmdlineNoiseWeightsOff="$cfsv2_code $cfs_CL --outputFstat=$outfile_v2NWoff --TwoFthreshold=0 --FreqBand=$cfs_FreqBand --UseNoiseWeights=false"
 echo $cmdlineNoiseWeightsOff;
-if ! eval "$cmdlineNoiseWeightsOff &> /dev/null"; then
+if ! eval "$cmdlineNoiseWeightsOff 2> /dev/null"; then
     echo "Error.. something failed when running '$cfs_code' ..."
     exit 1;
 fi

@@ -89,17 +89,22 @@ def parse_command_line():
 #
 
 
-def new_doc():
+def new_doc(comment = None, **kwargs):
 	doc = ligolw.Document()
 	doc.appendChild(ligolw.LIGO_LW())
-	proctable = lsctables.New(lsctables.ProcessTable)
-	doc.childNodes[0].appendChild(proctable)
-	procparamtable = lsctables.New(lsctables.ProcessParamsTable)
-	doc.childNodes[0].appendChild(procparamtable)
+	process = ligolw_process.register_to_xmldoc(
+		doc,
+		program = u"ligolw_tisi",
+		paramdict = kwargs,
+		version = __version__,
+		cvs_repository = u"lscsoft",
+		cvs_entry_time = __date__,
+		comment = comment
+	)
 	timeslidetable = lsctables.New(lsctables.TimeSlideTable)
 	doc.childNodes[0].appendChild(timeslidetable)
 
-	return doc
+	return doc, process
 
 
 #
@@ -200,7 +205,8 @@ time_slides = time_slides.values()
 if options.normalize:
 	if options.verbose:
 		print >>sys.stderr, "Normalizing the time slides ..."
-	time_slides = [offsetvect.normalize(**parse_normalize(options.normalize)) for offsetvect in time_slides]
+	constraints = parse_normalize(options.normalize)
+	time_slides = [offsetvect.normalize(**constraints) for offsetvect in time_slides]
 
 
 #
@@ -214,9 +220,8 @@ while filenames:
 	# Create an empty document, populate the process information.
 	#
 
-	xmldoc = new_doc()
-	timeslidetable = lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-	process = ligolw_tisi.append_process(xmldoc, **options.__dict__)
+	xmldoc, process = new_doc(**options.__dict__)
+	timeslidetable = lsctables.TimeSlideTable.get_table(xmldoc)
 
 	#
 	# How many slides will go into this file?
@@ -228,11 +233,14 @@ while filenames:
 	# Put them in.
 	#
 
-	while N:
-		offsetvect = time_slides.pop()
-		for row in ligolw_tisi.RowsFromOffsetDict(offsetvect, lsctables.TimeSlideTable.get_next_id(), process):
+	for offsetvect in time_slides[:N]:
+		# FIXME:  replace with
+		# timeslidetable.append_offsetvector(offsetvect, process)
+		# when we can rely on a new enough glue.  then delete
+		# RowsFromOffsetDict() from ligolw_tisi
+		for row in ligolw_tisi.RowsFromOffsetDict(offsetvect, timeslidetable.get_next_id(), process):
 			timeslidetable.append(row)
-		N -= 1
+	del time_slides[:N]
 
 	#
 	# Finish off the document.
@@ -246,3 +254,5 @@ while filenames:
 
 	filename = filenames.pop(0)
 	ligolw_utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
+
+assert not time_slides

@@ -154,7 +154,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		#
 
 		try:
-			self.coinc_inspiral_table = lsctables.table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
+			self.coinc_inspiral_table = lsctables.CoincInspiralTable.get_table(xmldoc)
 		except ValueError:
 			self.coinc_inspiral_table = lsctables.New(lsctables.CoincInspiralTable)
 			xmldoc.childNodes[0].appendChild(self.coinc_inspiral_table)
@@ -416,7 +416,7 @@ def ligolw_thinca(
 		print >>sys.stderr, "indexing ..."
 	coinc_tables = InspiralCoincTables(xmldoc, vetoes = veto_segments, program = trigger_program, likelihood_func = likelihood_func, likelihood_params_func = likelihood_params_func)
 	coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
-	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName))
+	sngl_index = dict((row.event_id, row) for row in lsctables.SnglInspiralTable.get_table(xmldoc))
 
 	#
 	# build the event list accessors, populated with events from those
@@ -433,7 +433,7 @@ def ligolw_thinca(
 	# set the \Delta t parameter on all the event lists
 	#
 
-	max_dt = inspiral_max_dt(lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName), thresholds)
+	max_dt = inspiral_max_dt(lsctables.SnglInspiralTable.get_table(xmldoc), thresholds)
 	if verbose:
 		print >>sys.stderr, "event bisection search window will be %.16g s" % max_dt
 	for eventlist in eventlists.values():
@@ -549,15 +549,15 @@ class sngl_inspiral_coincs(object):
 		# find all tables
 		#
 
-		self.process_table = lsctables.table.get_table(xmldoc, lsctables.ProcessTable.tableName)
-		self.process_params_table = lsctables.table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
-		self.search_summary_table = lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
-		self.sngl_inspiral_table = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-		self.coinc_def_table = lsctables.table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
-		self.coinc_event_table = lsctables.table.get_table(xmldoc, lsctables.CoincTable.tableName)
-		self.coinc_inspiral_table = lsctables.table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
-		self.coinc_event_map_table = lsctables.table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
-		self.time_slide_table = lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+		self.process_table = lsctables.ProcessTable.get_table(xmldoc)
+		self.process_params_table = lsctables.ProcessParamsTable.get_table(xmldoc)
+		self.search_summary_table = lsctables.SearchSummaryTable.get_table(xmldoc)
+		self.sngl_inspiral_table = lsctables.SnglInspiralTable.get_table(xmldoc)
+		self.coinc_def_table = lsctables.CoincDefTable.get_table(xmldoc)
+		self.coinc_event_table = lsctables.CoincTable.get_table(xmldoc)
+		self.coinc_inspiral_table = lsctables.CoincInspiralTable.get_table(xmldoc)
+		self.coinc_event_map_table = lsctables.CoincMapTable.get_table(xmldoc)
+		self.time_slide_table = lsctables.TimeSlideTable.get_table(xmldoc)
 
 		#
 		# index the process, process params, search_summary,

@@ -33,13 +33,6 @@ SFTdir="./testCFSv2_resamp_sfts"
 if [ -n "${LALPULSAR_DATADIR}" ]; then
     mfd_code="${mfd_code} -E ${LALPULSAR_DATADIR}"
     cfs_code="${cfs_code} -E ${LALPULSAR_DATADIR}"
-else
-    echo
-    echo "Need environment-variable LALPULSAR_DATADIR to be set to"
-    echo "your ephemeris-directory (e.g. /usr/local/share/lalpulsar)"
-    echo "This might indicate an incomplete LAL+LALPULSAR installation"
-    echo
-    exit 1
 fi
 
 # ---------- fixed parameter of our test-signal
@@ -152,7 +145,7 @@ outfile_RS="Fstat_RS.dat";
 
 cmdline="$cfs_code $cfs_CL  --outputFstat=$outfile_RS --useResamp=1"
 echo $cmdline;
-if ! eval "$cmdline &> /dev/null"; then
+if ! eval "$cmdline 2> /dev/null"; then
     echo "Error.. something failed when running '$cfs_code' ..."
     exit 1;
 fi

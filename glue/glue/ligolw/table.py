@@ -592,6 +592,31 @@ class Table(ligolw.Table, list):
 		self.columntypes = []
 		self.columnpytypes = []
 
+
+	#
+	# Table retrieval
+	#
+
+
+	@classmethod
+	def get_table(cls, xmldoc):
+		"""
+		Equivalent to the module-level function get_table(), but
+		uses the .tableName attribute of this class to provide the
+		name of the table to search for.  The Table parent class
+		does not provide a .tableName attribute, but sub-classes,
+		especially those in lsctables.py, do provide a value for
+		that attribute, and in those cases this class method
+		provides a cleaner way to retrieve them.
+
+		Example:
+
+		>>> from glue.ligolw import lsctables
+		>>> sngl_inspiral_table = lsctables.SnglInspiralTable.get_table(xmldoc)
+		"""
+		return get_table(xmldoc, cls.tableName)
+
+
 	#
 	# Column access
 	#

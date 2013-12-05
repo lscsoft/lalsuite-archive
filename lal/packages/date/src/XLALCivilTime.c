@@ -18,6 +18,8 @@
 *  MA  02111-1307  USA
 */
 
+#include <config.h>
+
 #include <math.h>
 #include <time.h>
 #include <string.h>
@@ -223,7 +225,7 @@ struct tm * XLALGPSToUTC(
   unixsec  = gpssec - leapsec + XLAL_EPOCH_GPS_TAI_UTC; /* get rid of leap seconds */
   unixsec += XLAL_EPOCH_UNIX_GPS; /* change to unix epoch */
   memset( utc, 0, sizeof( *utc ) ); /* blank out utc structure */
-  utc = gmtime_r( &unixsec, utc ); /* FIXME: use gmtime ?? */
+  memcpy( utc, gmtime( &unixsec ), sizeof( *utc ) );
   /* now check to see if we need to add a 60th second to UTC */
   if ( ( delta = delta_tai_utc( gpssec ) ) > 0 )
     utc->tm_sec += 1; /* delta only ever is one, right?? */
@@ -363,7 +365,7 @@ int XLALFillBrokenDownTime(struct tm *tm /**< Broken-down time struct. */) {
   }
 
   /* Convert 't2' back into a 'tm' struct. gmtime() will preserve the timezone. */
-  XLAL_CHECK( gmtime_r(&t1, tm) != NULL, XLAL_ESYS );
+  memcpy( tm, gmtime(&t1), sizeof(*tm) );
 
   /* Now call mktime() again to get time 't2', *twice* adjusted for the timezone. */
   time_t t2 = mktime(tm);
@@ -375,7 +377,7 @@ int XLALFillBrokenDownTime(struct tm *tm /**< Broken-down time struct. */) {
   t1 -= t2 - t1;
 
   /* Call gmtime() to convert the desired time 't1' back into a 'tm' struct. */
-  XLAL_CHECK( gmtime_r(&t1, tm) != NULL, XLAL_ESYS );
+  memcpy( tm, gmtime(&t1), sizeof(*tm) );
 
   /* Restore the daylight savings flag. */
   tm->tm_isdst = isdst;

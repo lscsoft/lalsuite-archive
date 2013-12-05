@@ -40,7 +40,6 @@ import bisect
 import sys
 
 
-from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
@@ -118,11 +117,11 @@ class DocContents(object):
 		# locate the sngl_inspiral and sim_inspiral tables
 		#
 
-		self.sngltable = table.get_table(xmldoc, sngl_type.tableName)
+		self.sngltable = sngl_type.get_table(xmldoc)
 		try:
-			self.simtable = table.get_table(xmldoc, sim_type.tableName)
+			self.simtable = sim_type.get_table(xmldoc)
 		except ValueError:
-			self.simtable = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
+			self.simtable = lsctables.SimInspiralTable.get_table(xmldoc)
 			print >>sys.stderr,"No SimRingdownTable, use SimInspiralTable instead!"
 
 		#
@@ -164,7 +163,7 @@ class DocContents(object):
 		#
 
 		try:
-			self.coinctable = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+			self.coinctable = lsctables.CoincTable.get_table(xmldoc)
 		except ValueError:
 			self.coinctable = lsctables.New(lsctables.CoincTable)
 			xmldoc.childNodes[0].appendChild(self.coinctable)
@@ -175,7 +174,7 @@ class DocContents(object):
 		#
 
 		try:
-			self.coincmaptable = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+			self.coincmaptable = lsctables.CoincMapTable.get_table(xmldoc)
 		except ValueError:
 			self.coincmaptable = lsctables.New(lsctables.CoincMapTable)
 			xmldoc.childNodes[0].appendChild(self.coincmaptable)
@@ -502,7 +501,7 @@ def lalapps_cbc_injfind(xmldoc, process, search, snglcomparefunc, nearcoinccompa
 		print >>sys.stderr, "Checking for both SimInspiralTable and SimRingdownTable"
 	if isinstance(contents.simtable, lsctables.SimRingdownTable):
 		try:
-			insp_simtable = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
+			insp_simtable = lsctables.SimInspiralTable.get_table(xmldoc)
 		except ValueError:
 			print >>sys.stderr,"No SimInspiralTable, only SimRingdownTable present"
 			insp_simtable = None

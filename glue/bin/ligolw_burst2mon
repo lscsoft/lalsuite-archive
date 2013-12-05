@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006,2013  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -27,19 +27,20 @@
 
 
 from optparse import OptionParser
-import os
-import socket
-import sys
-import time
 
 
 from glue import git_version
-from glue import segments
 from glue.ligolw import ligolw
-from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue.ligolw import utils
-from pylal.date import XLALUTCToGPS
+from glue.ligolw import utils as ligolw_utils
+from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import search_summary as ligolw_search_summary
+from glue.ligolw.utils import segments as ligolw_segments
+
+
+class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
+	pass
+lsctables.use_in(LIGOLWContentHandler)
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -59,9 +60,10 @@ __date__ = git_version.date
 parser = OptionParser(
 	version = "Name: %%prog\n%s" % git_version.verbose_msg
 )
-parser.add_option("-c", "--comment", metavar = "text", default = "", help = "set process comment")
-parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
-parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
+parser.add_option("-c", "--comment", metavar = "text", default = "", help = "Set process comment.")
+parser.add_option("-i", "--input", metavar = "filename", help = "Read from filename (default = stdin).")
+parser.add_option("-o", "--output", metavar = "filename", help = "Write to filename (default = stdout).")
+parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 options, args = parser.parse_args()
 del parser, args
 
@@ -75,7 +77,7 @@ del parser, args
 #
 
 
-indoc = utils.load_filename(options.input)
+indoc = ligolw_utils.load_filename(options.input, contenthandler = LIGOLWContentHandler, verbose = options.verbose)
 
 
 #
@@ -89,14 +91,7 @@ indoc = utils.load_filename(options.input)
 
 doc = ligolw.Document()
 doc.appendChild(ligolw.LIGO_LW())
-proctable = lsctables.New(lsctables.ProcessTable)
-doc.childNodes[0].appendChild(proctable)
-procparamtable = lsctables.New(lsctables.ProcessParamsTable)
-doc.childNodes[0].appendChild(procparamtable)
-searchsummtable = lsctables.New(lsctables.SearchSummaryTable)
-doc.childNodes[0].appendChild(searchsummtable)
-segtable = lsctables.New(lsctables.SegmentTable, columns = ["process_id", "segment_id", "start_time", "start_time_ns", "end_time", "end_time_ns", "active"])
-doc.childNodes[0].appendChild(segtable)
+process = ligolw_process.register_to_xmldoc(doc, "ligolw_burst2mon", options.__dict__, version = __version, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = options.comment)
 ligolwmontable = lsctables.New(lsctables.LIGOLWMonTable, columns = ["process_id", "time", "time_ns", "amplitude", "confidence", "frequency", "event_id"])
 doc.childNodes[0].appendChild(ligolwmontable)
 
@@ -104,69 +99,18 @@ doc.childNodes[0].appendChild(ligolwmontable)
 #
 # =============================================================================
 #
-#                           Add Process Information
+#                             Build Segment Tables
 #
 # =============================================================================
 #
 
 
-process = lsctables.Process()
-process.program = "ligolw_burst2mon"
-process.version = __version__
-process.cvs_repository = "lscsoft"
-process.cvs_entry_time = XLALUTCToGPS(time.strptime(__date__, "%Y/%m/%d %H:%M:%S")).seconds
-process.comment = options.comment
-process.is_online = 0
-process.node = socket.gethostbyaddr(socket.gethostname())[0]
-process.username = os.environ["LOGNAME"]
-process.unix_procid = os.getpid()
-process.start_time = XLALUTCToGPS(time.gmtime()).seconds
-process.end_time = 0
-process.jobid = 0
-process.domain = ""
-process.ifos = ""
-process.process_id = proctable.get_next_id()
-
-proctable.append(process)
-
-
-def add_param(name, type, value):
-	param = lsctables.ProcessParams()
-	param.program = process.program
-	param.process_id = process.process_id
-	param.param = str(name)
-	param.type = str(type)
-	param.value = str(value)
-	procparamtable.append(param)
-
-
-if options.comment:
-	add_param("--comment", "lstring", options.comment)
-if options.input != None:
-	add_param("--input", "lstring", options.input)
-if options.output != None:
-	add_param("--output", "lstring", options.output)
-
-
-#
-# =============================================================================
-#
-#                             Build Segment Table
-#
-# =============================================================================
-#
-
-
-seglist = table.get_table(indoc, lsctables.SearchSummaryTable.tableName).get_outlist().coalesce()
-
-
-for seg in seglist:
-	row = lsctables.Segment()
-	row.process_id = process.process_id
-	row.segment_id = segtable.get_next_id()
-	row.active = 1
-	row.set(seg)
-	segtable.append(row)
+seglists = lsctables.SearchSummaryTable.get_table(indoc).get_out_segmentlistdict(lsctables.ProcessTable.get_table(indoc).get_ids_by_program("power")).coalesce()
+segs = ligolw_segments.LigolwSegments(doc)
+segs.insert_from_segmentlistdict(seglists, "power", comment = options.comment)
+segs.optimize()
+segs.finalize(process)
+ligolw_search_summary.append_search_summary(doc, process, comment = options.comment, inseg = seglists.extent_all(), outseg = seglists.extent_all())
 
 
 #
@@ -178,7 +122,7 @@ for seg in seglist:
 #
 
 
-for burst in table.get_table(indoc, lsctables.SnglBurstTable.tableName).rows:
+for burst in lsctables.SnglBurstTable.get_table(indoc):
 	ligolwmon = lsctables.LIGOLWMon()
 	ligolwmon.process_id = process.process_id
 	ligolwmon.event_id = ligolwmontable.get_next_id()
@@ -192,38 +136,13 @@ for burst in table.get_table(indoc, lsctables.SnglBurstTable.tableName).rows:
 #
 # =============================================================================
 #
-#                        Add Search Summary Information
-#
-# =============================================================================
-#
-
-
-searchsumm = lsctables.SearchSummary()
-searchsumm.process_id = process.process_id
-searchsumm.shared_object = "standalone"
-searchsumm.lalwrapper_cvs_tag = ""
-searchsumm.lal_cvs_tag = ""
-searchsumm.comment = process.comment
-searchsumm.ifos = process.ifos
-searchsumm.set_in(seglist.extent())
-searchsumm.set_out(seglist.extent())
-searchsumm.nevents = ligolwmonids.n
-searchsumm.nnodes = 1
-
-
-searchsummtable.append(searchsumm)
-
-
-#
-# =============================================================================
-#
 #                                    Output
 #
 # =============================================================================
 #
 
 
-process.end_time = XLALUTCToGPS(time.gmtime()).seconds
+ligolw_process.set_process_end_time(process)
 
 
-utils.write_filename(doc, options.output, gz = (options.output or "stdout").endswith(".gz"))
+ligolw_utils.write_filename(doc, options.output, gz = (options.output or "stdout").endswith(".gz"), verbose = options.verbose)

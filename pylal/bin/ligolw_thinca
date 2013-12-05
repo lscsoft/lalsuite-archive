@@ -35,7 +35,7 @@ import sys
 from glue.lal import CacheEntry
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
-from glue.ligolw import utils
+from glue.ligolw import utils as ligolw_utils
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import segments as ligolw_segments
 from glue import segmentsUtils
@@ -193,11 +193,13 @@ if options.effective_snr == "gstlal":
 # Select event_comparefunc form
 #
 
+
 if options.exact_mass:
 	# Require exact mass coincidence
 	event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact
 else:
 	event_comparefunc = ligolw_thinca.inspiral_coinc_compare
+
 
 #
 # Select ntuple_comparefunc form
@@ -230,7 +232,7 @@ for n, filename in enumerate(filenames):
 
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
+	xmldoc = ligolw_utils.load_filename(filename, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
 	lsctables.table.InterningRowBuilder.strings.clear()
 
 	#
@@ -275,7 +277,7 @@ for n, filename in enumerate(filenames):
 	# IDs (unique within the output of lalapps_inspiral).
 	#
 
-	tbl = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	tbl = lsctables.SnglInspiralTable.get_table(xmldoc)
 	tbl.set_next_id(lsctables.SnglInspiralID(0))
 	for row in tbl:
 		row.event_id = tbl.get_next_id()
@@ -328,6 +330,6 @@ for n, filename in enumerate(filenames):
 	# Write back to disk, and clean up.
 	#
 
-	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
+	ligolw_utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	xmldoc.unlink()
 	lsctables.table.reset_next_ids(lsctables.TableByName.values())
