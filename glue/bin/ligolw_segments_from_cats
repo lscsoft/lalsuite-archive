@@ -111,6 +111,8 @@ def parse_command_line():
     parser.add_option("-c", "--cumulative-categories",   action = "store_true", help = "If set the category N files will contain all segments in categories <= N")
     parser.add_option("-p", "--separate-categories",     action = "store_true", help = "If set the category N files will contain only category N")
     parser.add_option("-i", "--individual-results",      action = "store_true", help = "If set include information on each veto individually.")
+    parser.add_option("-C", "--veto-categories", action="store", default=None, help="A comma separated list of all veto categories to consider. If not given then consider all categories in the veto-definer file.")
+    parser.add_option("-I", "--ifo-list", action="store", default=None, help="A comma separated list of all ifos to consider. If not given then consider all ifos in the veto-definer file.")
 
     # Time options
     parser.add_option("-s", "--gps-start-time", metavar = "gps_start_time", help = "Start of GPS time range")
@@ -290,8 +292,14 @@ if __name__ == '__main__':
     #
     # Get the set of veto categories and ifos for which we have segments 
     #
-    categories = [row[0] for row in veto_query_engine.query("select distinct(category) from veto_definer")]
-    ifos       = [row[0] for row in veto_query_engine.query("select distinct(ifo) from veto_definer")]
+    if options.veto_categories:
+        categories=[int(x) for x in options.veto_categories.split(",")]
+    else:
+        categories = [row[0] for row in veto_query_engine.query("select distinct(category) from veto_definer")]
+    if options.ifo_list:
+        ifos = [x for x in options.ifo_list.split(",")]
+    else:
+        ifos = [row[0] for row in veto_query_engine.query("select distinct(ifo) from veto_definer")]
 
     category_selection_operator = options.cumulative_categories and ' <= ' or ' = '
 
