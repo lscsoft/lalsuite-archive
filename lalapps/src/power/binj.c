@@ -81,7 +81,8 @@ enum population {
 	POPULATION_TARGETED,
 	POPULATION_ALL_SKY_SINEGAUSSIAN,
 	POPULATION_ALL_SKY_BTLWNB,
-	POPULATION_STRING_CUSP
+	POPULATION_STRING_CUSP,
+	POPULATION_STRING_KINK
 };
 
 
@@ -163,7 +164,7 @@ static void print_usage(void)
 "--max-amplitude value\n" \
 "--min-amplitude value\n" \
 "	Set the bounds of the injection ampltiudes.  These only affect\n" \
-"	string cusp injections.\n" \
+"	string cusp/kink injections.\n" \
 "\n" \
 "--max-bandwidth hertz\n" \
 "--min-bandwidth hertz\n" \
@@ -187,7 +188,7 @@ static void print_usage(void)
 "--min-frequency hertz\n" \
 "	Set the bounds of the injection frequencies.  These are the centre\n" \
 "	frequencies of sine-Gaussians and btlwnb waveforms, and the\n" \
-"	high-frequency cut-offs of string cusp waveforms.\n" \
+"	high-frequency cut-offs of string cusp/kink waveforms.\n" \
 "\n" \
 "--max-hrss value\n" \
 "--min-hrss value\n" \
@@ -204,7 +205,7 @@ static void print_usage(void)
 "\n" \
 "--population name\n" \
 "	Select the injection population to synthesize.  Allowed values are\n" \
-"	\"targeted\", \"string_cusp\", and \"all_sky_sinegaussian\",\n" \
+"	\"targeted\", \"string_cusp\", \"string_kink\", and \"all_sky_sinegaussian\",\n" \
 "	\"all_sky_btlwnb\".\n" \
 "\n" \
 "--q value\n" \
@@ -376,6 +377,8 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 			options.population = POPULATION_TARGETED;
 		else if(!strcmp(optarg, "string_cusp"))
 			options.population = POPULATION_STRING_CUSP;
+		else if(!strcmp(optarg, "string_kink"))
+			options.population = POPULATION_STRING_KINK;
 		else if(!strcmp(optarg, "all_sky_sinegaussian"))
 			options.population = POPULATION_ALL_SKY_SINEGAUSSIAN;
 		else if(!strcmp(optarg, "all_sky_btlwnb"))
@@ -511,6 +514,8 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 	case POPULATION_ALL_SKY_SINEGAUSSIAN:
 	case POPULATION_ALL_SKY_BTLWNB:
 	case POPULATION_STRING_CUSP:
+	case POPULATION_STRING_KINK:
+
 		break;
 
 	default:
@@ -810,7 +815,7 @@ static double ran_flat_log_discrete(gsl_rng *rng, double a, double b, double rat
  */
 
 
-static double random_string_cusp_fhigh(double flow, double fhigh, gsl_rng *rng)
+static double random_string_fhigh(double flow, double fhigh, gsl_rng *rng)
 {
 	const double thetasqmin = pow(fhigh, -2.0 / 3.0);
 	const double thetasqmax = pow(flow, -2.0 / 3.0);
@@ -818,7 +823,6 @@ static double random_string_cusp_fhigh(double flow, double fhigh, gsl_rng *rng)
 
 	return pow(thetasq, -3.0 / 2.0);
 }
-
 
 /*
  * Uniform sky location, and uniform polarization orientation.
@@ -838,18 +842,23 @@ static void random_location_and_polarization(double *ra, double *dec, double *ps
  */
 
 
-static SimBurst *random_string_cusp(double flow, double fhigh, double Alow, double Ahigh, gsl_rng *rng)
+static SimBurst *random_string(double flow, double fhigh, double Alow, double Ahigh, char* waveform_type, gsl_rng *rng)
 {
 	SimBurst *sim_burst = XLALCreateSimBurst();
 
 	if(!sim_burst)
 		return NULL;
 
-	strcpy(sim_burst->waveform, "StringCusp");
+	if(!strcmp(waveform_type,"cusp")) strcpy(sim_burst->waveform, "StringCusp");
+	else if(!strcmp(waveform_type,"kink")) strcpy(sim_burst->waveform, "StringKink");
+	else{
+	  XLALPrintError("Unknown waveform type\n");
+	  exit(1);
+	}
 
 	/* high frequency cut-off and amplitude */
 
-	sim_burst->frequency = random_string_cusp_fhigh(flow, fhigh, rng);
+	sim_burst->frequency = random_string_fhigh(flow, fhigh, rng);
 	sim_burst->amplitude = ran_flat_log(rng, Alow, Ahigh);
 
 	/* sky location and wave frame orientation */
@@ -865,7 +874,6 @@ static SimBurst *random_string_cusp(double flow, double fhigh, double Alow, doub
 
 	return sim_burst;
 }
-
 
 /* 
  * ============================================================================
@@ -1181,9 +1189,11 @@ int main(int argc, char *argv[])
 			break;
 
 		case POPULATION_STRING_CUSP:
-			*sim_burst = random_string_cusp(options.minf, options.maxf, options.minA, options.maxA, rng);
+		  *sim_burst = random_string(options.minf, options.maxf, options.minA, options.maxA, "cusp", rng);
 			break;
-
+		case POPULATION_STRING_KINK:
+		  *sim_burst = random_string(options.minf, options.maxf, options.minA, options.maxA, "kink", rng);
+			break;
 		default:
 			/* shouldn't get here, command line parsing code
 			 * should prevent it */
