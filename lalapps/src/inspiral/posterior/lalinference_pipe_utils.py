@@ -744,6 +744,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     end_time=event.trig_time
     node.set_trig_time(end_time)
     node.set_seed(random.randint(1,2**31))
+    node.set_priority(int(-round(40.*float(self.times.index(end_time))/float(len(self.times)-0.5))))
     if event.srate: node.set_srate(event.srate)
     if event.trigSNR: node.set_trigSNR(event.trigSNR)
     if self.dataseed:
