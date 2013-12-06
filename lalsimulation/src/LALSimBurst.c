@@ -686,7 +686,7 @@ int XLALSimBurstSineGaussian(
 /*
  * ============================================================================
  *
- *                                String Cusp
+ *                                String Cusp and String Kink
  *
  * ============================================================================
  */
@@ -773,6 +773,105 @@ int XLALGenerateStringCusp(
 		 * middle sample of the time series */
 
 		double amp = amplitude * pow((sqrt(1 + f_low * f_low / (f * f))), -8) * pow(f, -4.0 / 3.0) * (f > f_high ? exp(1 - f / f_high) : 1);
+
+		tilde_h->data->data[i] = amp * cexp(-I * LAL_PI * i * (length - 1) / length);
+	}
+
+	/* set DC and Nyquist to zero */
+
+	tilde_h->data->data[0] = tilde_h->data->data[tilde_h->data->length - 1] = 0;
+
+	/* transform to time domain */
+
+	i = XLALREAL8FreqTimeFFT(*hplus, tilde_h, plan);
+	XLALDestroyCOMPLEX16FrequencySeries(tilde_h);
+	XLALDestroyREAL8FFTPlan(plan);
+	if(i) {
+		XLALDestroyREAL8TimeSeries(*hplus);
+		XLALDestroyREAL8TimeSeries(*hcross);
+		*hplus = *hcross = NULL;
+		XLAL_ERROR(XLAL_EFUNC);
+	}
+
+	/* force the sample rate incase round-off has shifted it a bit */
+
+	(*hplus)->deltaT = (*hcross)->deltaT = delta_t;
+
+	/* apodize the time series */
+	/* FIXME:  use a Tukey window? */
+
+	for(i = (*hplus)->data->length - 1; i >= 0; i--)
+		(*hplus)->data->data[i] -= (*hplus)->data->data[0];
+
+	/* done */
+
+	return 0;
+}
+
+int XLALGenerateStringKink(
+	REAL8TimeSeries **hplus,
+	REAL8TimeSeries **hcross,
+	REAL8 amplitude,
+	REAL8 f_high,
+	REAL8 delta_t
+)
+{
+	COMPLEX16FrequencySeries *tilde_h;
+	REAL8FFTPlan *plan;
+	LIGOTimeGPS epoch;
+	int length;
+	int i;
+	/* low frequency cut-off in Hertz */
+	const double f_low = 1.0;
+
+	/* check input */
+
+	if(amplitude < 0 || f_high < f_low || delta_t <= 0) {
+		XLALPrintError("%s(): invalid input parameters\n", __func__);
+		*hplus = *hcross = NULL;
+		XLAL_ERROR(XLAL_EINVAL);
+	}
+
+	/* length of the injection time series is 15 / f_low, rounded to
+	 * the nearest odd integer */
+
+	length = (int) (15 / f_low / delta_t / 2.0);
+	length = 2 * length + 1;
+
+	/* the middle sample is t = 0 */
+
+	XLALGPSSetREAL8(&epoch, -(length - 1) / 2 * delta_t);
+
+	/* allocate time and frequency series and FFT plan */
+
+	*hplus = XLALCreateREAL8TimeSeries("string kink +", &epoch, 0.0, delta_t, &lalStrainUnit, length);
+	*hcross = XLALCreateREAL8TimeSeries("string kink x", &epoch, 0.0, delta_t, &lalStrainUnit, length);
+	tilde_h = XLALCreateCOMPLEX16FrequencySeries("string kink +", &epoch, 0.0, 1.0 / (length * delta_t), &lalDimensionlessUnit, length / 2 + 1);
+	plan = XLALCreateReverseREAL8FFTPlan(length, 0);
+	if(!*hplus || !*hcross || !tilde_h || !plan) {
+		XLALDestroyREAL8TimeSeries(*hplus);
+		XLALDestroyREAL8TimeSeries(*hcross);
+		XLALDestroyCOMPLEX16FrequencySeries(tilde_h);
+		XLALDestroyREAL8FFTPlan(plan);
+		*hplus = *hcross = NULL;
+		XLAL_ERROR(XLAL_EFUNC);
+	}
+	XLALUnitMultiply(&tilde_h->sampleUnits, &(*hplus)->sampleUnits, &lalSecondUnit);
+
+	/* zero the x time series, injection is done in + only */
+
+	memset((*hcross)->data->data, 0, (*hcross)->data->length * sizeof(*(*hcross)->data->data));
+
+	/* construct the waveform in the frequency domain */
+
+	for(i = 0; (unsigned) i < tilde_h->data->length; i++) {
+		double f = tilde_h->f0 + i * tilde_h->deltaF;
+
+		/* frequency-domain wave form.  includes taper factor above
+		 * h_high, and phase shift to put waveform's peak on the
+		 * middle sample of the time series */
+
+		double amp = amplitude * pow((sqrt(1 + f_low * f_low / (f * f))), -8) * pow(f, -5.0 / 3.0) * (f > f_high ? exp(1 - f / f_high) : 1);
 
 		tilde_h->data->data[i] = amp * cexp(-I * LAL_PI * i * (length - 1) / length);
 	}

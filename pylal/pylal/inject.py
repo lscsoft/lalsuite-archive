@@ -35,7 +35,7 @@ rather than importing xlal.inject directly.
 import math
 
 
-from lal import LAL_C_SI
+import lal
 from pylal import git_version
 from pylal.xlal.tools import *
 from pylal.xlal.inject import *

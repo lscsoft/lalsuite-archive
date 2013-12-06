@@ -73,6 +73,13 @@ int XLALGenerateStringCusp(
 	REAL8 delta_t
 );
 
+int XLALGenerateStringKink(
+	REAL8TimeSeries **hplus,
+	REAL8TimeSeries **hcross,
+	REAL8 amplitude,
+	REAL8 f_high,
+	REAL8 delta_t
+);
 
 int XLALSimBurstSineGaussian(
 	REAL8TimeSeries **hplus,
