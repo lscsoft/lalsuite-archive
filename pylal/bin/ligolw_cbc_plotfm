@@ -197,10 +197,10 @@ def parse_command_line():
         help = 
             "Required. Name of the type of mapping that was used for finding injections."
         )
-    parser.add_option( "-L", "--livetime-program", action = "store", type = "string", default = "thinca",
+    parser.add_option( "-L", "--livetime-program", action = "store", type = "string", default = "inspiral",
         help =
             "Name of program used to get the analysis segments. This is needed to figure out what instruments (if any) were on for missed injections. "
-            "Default is thinca."
+            "Default is inspiral."
         )
     parser.add_option( "", "--show-plot", action = "store_true", default = False,
         help = 
