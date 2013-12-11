@@ -315,6 +315,17 @@ SimBurst *XLALSimBurstTableFromLIGOLw(
 			row->duration = env.ligo_lw.table.elt[column_pos.duration].data.real_8;
 			row->frequency = env.ligo_lw.table.elt[column_pos.frequency].data.real_8;
 			row->amplitude = env.ligo_lw.table.elt[column_pos.amplitude].data.real_8;
+		} else if(!strcmp(row->waveform, "StringKink")) {
+			if(column_pos.duration < 0 || column_pos.frequency < 0 || column_pos.amplitude < 0) {
+				XLALDestroySimBurst(row);
+				XLALDestroySimBurstTable(head);
+				MetaioAbort(&env);
+				XLALPrintError("%s(): failure reading %s table: missing required column\n", __func__, table_name);
+				XLAL_ERROR_NULL(XLAL_EIO);
+			}
+			row->duration = env.ligo_lw.table.elt[column_pos.duration].data.real_8;
+			row->frequency = env.ligo_lw.table.elt[column_pos.frequency].data.real_8;
+			row->amplitude = env.ligo_lw.table.elt[column_pos.amplitude].data.real_8;
 		} else if(!strcmp(row->waveform, "SineGaussian")) {
 			if(column_pos.duration < 0 || column_pos.frequency < 0 || column_pos.bandwidth < 0 || column_pos.q < 0 || column_pos.pol_ellipse_angle < 0 || column_pos.pol_ellipse_e < 0 || column_pos.hrss < 0) {
 				XLALDestroySimBurst(row);
