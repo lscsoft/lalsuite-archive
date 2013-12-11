@@ -35,10 +35,10 @@ rather than importing xlal.inject directly.
 import math
 
 
-import lal
 from pylal import git_version
 from pylal.xlal.tools import *
 from pylal.xlal.inject import *
+from pylal.xlal import constants as XLALConstants
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -87,4 +87,4 @@ def light_travel_time(instrument1, instrument2):
 	input, and returns the time truncated to integer nanoseconds.
 	"""
 	dx = cached_detector[prefix_to_name[instrument1]].location - cached_detector[prefix_to_name[instrument2]].location
-	return math.sqrt((dx * dx).sum()) / LAL_C_SI
+	return math.sqrt((dx * dx).sum()) / XLALConstants.LAL_C_SI
