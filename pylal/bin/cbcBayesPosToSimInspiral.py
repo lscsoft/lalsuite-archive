@@ -181,18 +181,24 @@ if __name__ == "__main__":
         s1x, s1y, s1z = bppu.sph2cart(samples['a1'], samples['theta1'], samples['phi1'])
     elif 'spin1' in params:
         s1z = samples['spin1']
-        s1x = s1y = np.zeros_like(s1z)
+        s1x = np.zeros_like(s1z)
+        s1y = np.zeros_like(s1z)
     else:
-        s1x = s1y = s1z = np.zeros_like(m1)
+        s1x = np.zeros_like(m1)
+        s1y = np.zeros_like(m1)
+        s1z = np.zeros_like(m1)
 
 
     if 'a2' in params and 'theta2' in params and 'phi2' in params:
         s2x, s2y, s2z = bppu.sph2cart(samples['a2'], samples['theta2'], samples['phi2'])
     elif 'spin2' in params:
         s2z = samples['spin2']
-        s2x = s2y = np.zeros_like(s2z)
+        s2x = np.zeros_like(s2z)
+        s2y = np.zeros_like(s2z)
     else:
-        s2x = s2y = s2z = np.zeros_like(m2)
+        s2x = np.zeros_like(m2)
+        s2y = np.zeros_like(m2)
+        s2z = np.zeros_like(m2)
 
     system_frame_params = {
             'theta_jn',
@@ -213,13 +219,18 @@ if __name__ == "__main__":
                 samples['a1'],
                 samples['a2'],
                 m1, m2,
-                samples['f_ref']
-        )
+                samples['f_ref'])
+        inclination = inclination.flatten()
+        theta1 = theta1.flatten()
+        phi1 = phi1.flatten()
+        theta2 = theta2.flatten()
+        phi2 = phi2.flatten()
         s1x, s1y, s1z = bppu.sph2cart(samples['a1'], theta1, phi1)
         s2x, s2y, s2z = bppu.sph2cart(samples['a2'], theta2, phi2)
     else:
         inclination = samples['inclination']
 
+    print s1x.shape
     # Check if f_low is a parameter, if not take from command line options
     try:
         flow = samples['flow']
