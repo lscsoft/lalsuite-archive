@@ -208,12 +208,13 @@ static int XLALSpinAlignedHcapDerivative(
 
   //printf( "csi = %.16e, ham = %.16e ( tortoise = %d)\n", csi, H, params.params->tortoise );
   //exit(1);
-  //printf( "Hamiltonian = %e\n", H );
+  //if ( values[0] > 1.3 && values[0] < 3.9 ) printf( "r = %e\n", values[0] );
+  //if ( values[0] > 1.3 && values[0] < 3.9 ) printf( "Hamiltonian = %e\n", H );
   H = H * (mass1 + mass2);
 
 
-  //printf( "Cartesian derivatives:\n%.16e %.16e %.16e %.16e %.16e %.16e\n",
-  //    tmpDValues[3], tmpDValues[4], tmpDValues[5], -tmpDValues[0], -tmpDValues[1], -tmpDValues[2] );
+  /*if ( values[0] > 1.3 && values[0] < 3.9 ) printf( "Cartesian derivatives:\n%f %f %f %f %f %f\n",
+      tmpDValues[3], tmpDValues[4], tmpDValues[5], -tmpDValues[0], -tmpDValues[1], -tmpDValues[2] );*/
 
   /* Now calculate omega, and hence the flux */
   omega = tmpDValues[4] / r;
@@ -234,9 +235,9 @@ static int XLALSpinAlignedHcapDerivative(
   dvalues[2] = dvalues[2] * csi - ( values[2] / values[3] ) * flux / omega;
   dvalues[3] = - flux / omega;
 
-  //printf("Values:\n%.16e %.16e %.16e %.16e\n", values[0], values[1], values[2], values[3] );
+  //if ( values[0] > 1.3 && values[0] < 3.9 ) printf("Values:\n%f %f %f %f\n", values[0], values[1], values[2], values[3] );
 
-  //printf("Derivatives:\n%.16e %.16e %.16e %.16e\n", dvalues[0], r*dvalues[1], dvalues[2], dvalues[3] );
+  //if ( values[0] > 1.3 && values[0] < 3.9 ) printf("Derivatives:\n%f %f %f %f\n", dvalues[0], r*dvalues[1], dvalues[2], dvalues[3] );
 
   if ( isnan( dvalues[0] ) || isnan( dvalues[1] ) || isnan( dvalues[2] ) || isnan( dvalues[3] ) )
   {
