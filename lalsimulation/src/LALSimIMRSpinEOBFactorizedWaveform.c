@@ -69,7 +69,7 @@ static INT4 XLALSimIMRSpinEOBGetSpinFactorizedWaveform(
                                 const INT4            m,
                                 SpinEOBParams         * restrict params
                                 );
-
+#if 0
 static INT4 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
                                 COMPLEX16             * restrict hlm,
                                 REAL8Vector           * restrict values,
@@ -79,7 +79,7 @@ static INT4 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
                                 const INT4            m,
                                 SpinEOBParams         * restrict params
                                 );
-
+#endif
 static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
                                 COMPLEX16             * restrict hlm,
                                 REAL8Vector           * restrict values,
@@ -134,6 +134,7 @@ UNUSED static int XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients(
  * This function calculates hlm mode factorized-resummed waveform
  * for given dynamical variables.
  */
+#if 0
 static INT4 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform( 
                  COMPLEX16         * restrict hlm,    /**< OUTPUT, hlm waveforms */
                  REAL8Vector       * restrict values, /**< dyanmical variables */
@@ -619,7 +620,7 @@ static INT4 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 	}*/
 	return XLAL_SUCCESS;
 }
- 
+#endif 
 /**
  * This function calculates hlm mode factorized-resummed waveform
  * for given dynamical variables. This is optimized for flux calculation,

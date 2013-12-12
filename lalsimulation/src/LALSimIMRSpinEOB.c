@@ -27,28 +27,31 @@
  */
 
 
-#include <lal/LALSimInspiral.h>
+#include <math.h>
+#include <complex.h>
 #include <lal/LALSimIMR.h>
+#include <lal/LALSimInspiral.h>
+#include <lal/Date.h>
 #include <lal/TimeSeries.h>
 #include <lal/Units.h>
 #include <lal/LALAdaptiveRungeKutta4.h>
+#include <lal/SphericalHarmonics.h>
 #include <gsl/gsl_sf_gamma.h>
-
-#include <math.h>
-#include <complex.h>
 
 #include "LALSimIMREOBNRv2.h"
 #include "LALSimIMRSpinEOB.h"
 
-/* Include static functions */
-#include "LALSimIMRSpinEOBInitialConditions.c"
-#include "LALSimIMRSpinEOBFactorizedWaveform.c"
-#include "LALSimIMREOBFactorizedWaveform.c" 
+/* Include all the static function files we need */
+#include "LALSimIMREOBHybridRingdown.c"
+#include "LALSimIMREOBFactorizedWaveform.c"
 #include "LALSimIMREOBNewtonianMultipole.c"
-
-#include "LALSimIMRSpinEOBAuxFuncs.c"
 #include "LALSimIMREOBNQCCorrection.c"
+#include "LALSimIMRSpinEOBInitialConditions.c"
+#include "LALSimIMRSpinEOBAuxFuncs.c"
+#include "LALSimIMRSpinAlignedEOBHcapDerivative.c"
 #include "LALSimIMRSpinEOBHamiltonian.c"
+#include "LALSimIMRSpinEOBFactorizedWaveform.c"
+#include "LALSimIMRSpinEOBFactorizedFlux.c"
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -573,18 +576,29 @@ int XLALSimIMRSpinEOBWaveform(
   chiA = 0.5 * (spin1[2] - spin2[2]);
 
   /* Wrapper spin vectors used to calculate sigmas */
-  REAL8Vector s1Vec;
-  REAL8Vector s2Vec;
-  REAL8       s1Data[3], s2Data[3];
+  REAL8Vector s1Vec, s1VecOverMtMt;
+  REAL8Vector s2Vec, s2VecOverMtMt;
+  REAL8       s1Data[3], s2Data[3], s1DataNorm[3], s2DataNorm[3];
   REAL8       omega, v, ham;
+
+  s1VecOverMtMt.data   = s1DataNorm;
+  s2VecOverMtMt.data   = s2DataNorm;
 
   memcpy( s1Data, spin1, sizeof(s1Data) );
   memcpy( s2Data, spin2, sizeof(s2Data) );
+  memcpy( s1DataNorm, spin1, sizeof( s1DataNorm ) );
+  memcpy( s2DataNorm, spin2, sizeof( s2DataNorm ) );
 
   for( i = 0; i < 3; i++ )
   {
     s1Data[i] *= m1*m1;
     s2Data[i] *= m2*m2;
+  }
+
+  for ( i = 0; i < 3; i++ )
+  {
+    s1DataNorm[i] = s1Data[i]/mTotal/mTotal;
+    s2DataNorm[i] = s2Data[i]/mTotal/mTotal;
   }
 
   s1Vec.length = s2Vec.length = 3;
@@ -611,7 +625,10 @@ int XLALSimIMRSpinEOBWaveform(
   }
 
   seobParams.a = a = sigmaKerr->data[2];
-  
+  s1VecOverMtMt.length = s2VecOverMtMt.length = 3;
+  seobParams.s1Vec    = &s1VecOverMtMt;
+  seobParams.s2Vec    = &s2VecOverMtMt;
+
   /* Variables for the integrator */
   ark4GSLIntegrator       *integrator = NULL;
   REAL8Array              *dynamics   = NULL;
@@ -875,10 +892,11 @@ int XLALSimIMRSpinEOBWaveform(
     omega = XLALSimIMRSpinAlignedEOBCalcOmega( values->data, &seobParams );
     v = cbrt( omega );
 
-    ham = XLALSimIMRSpinEOBHamiltonian( eta, &cartPosVec, &cartMomVec, 
+    ham = XLALSimIMRSpinEOBHamiltonian( eta, &cartPosVec, &cartMomVec,
+                  &s1VecOverMtMt, &s2VecOverMtMt,
                   sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
 
-    status = XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform( &hLM, values, v, 
+    status = XLALSimIMRSpinEOBGetSpinFactorizedWaveform( &hLM, values, v, 
                   ham, 2, 2, &seobParams );
 
     hPlusTS->data->data[i]  = - 0.5 * amp * cos( 2.*vphi[i]) * cos(2.*alpha) * (1. + LNhz*LNhz) 

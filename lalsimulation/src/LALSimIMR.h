@@ -222,14 +222,17 @@ int XLALSimIMRSpinAlignedEOBWaveform(
 int XLALSimIMRSpinEOBWaveform(
         REAL8TimeSeries **hplus,
         REAL8TimeSeries **hcross,
-        LIGOTimeGPS     *tc,
+        //LIGOTimeGPS     *tc,
         const REAL8     phiC,
         const REAL8     deltaT,
-        const REAL8     m1,
-        const REAL8     m2,
+        const REAL8     m1SI,
+        const REAL8     m2SI,
         const REAL8     fMin,
         const REAL8     r,
         const REAL8     inc,
+        //const REAL8     spin1z,
+        //const REAL8     spin2z,
+        //UINT4           SpinAlignedEOBversion
         const REAL8     spin1[],
         const REAL8     spin2[]
      );
