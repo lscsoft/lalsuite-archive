@@ -3,11 +3,8 @@
 # as errors) flag, for just targets declared in this file.
 CFLAGS += -Wno-error
 
-if HAVE_PYTHON
 tigerdir = $(pkgpythondir)/tiger
 
 tiger_PYTHON = \
 	__init__.py \
 	postproc.py
-
-endif
