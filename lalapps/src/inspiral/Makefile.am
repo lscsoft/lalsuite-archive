@@ -167,7 +167,7 @@ dist_bin_SCRIPTS = \
 	lalapps_makeblindinj \
 	lalapps_makeblindinj_himass \
 	lalapps_cbc_code_compare \
-        lalapps_inspiral_ckpttest \
+	lalapps_inspiral_ckpttest \
 	followup/followup_InspiralDataMover.sh
 
 python_config.sed: Makefile
@@ -419,12 +419,14 @@ EXTRA_DIST = \
 	cbc_sbank_splitter.in \
 	$(DATA)
 
-AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_builddir)/src/lalapps -DPKG_DATA_DIR='"$(pkgdatadir)/"'
+AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_builddir)/src/lalapps -DPKG_DATA_DIR='"$(pkgdatadir)/"'
 LDADD = $(top_builddir)/src/lalapps/liblalapps.la
 
 CLEANFILES = \
 	$(bin_SCRIPTS) \
-	python_config.sed
+	python_config.sed \
+	ssipe_config.sed \
+	ihope_ssipe.ini
 
 MOSTLYCLEANFILES = \
 	*INSPIRAL*.xml \

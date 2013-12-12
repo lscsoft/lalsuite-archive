@@ -15,7 +15,7 @@ from glue import segments
 from glue.lal import Cache as LALCache
 from glue.lal import CacheEntry as LALCacheEntry
 
-from pylal import date,llwapp
+from pylal import date
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 from glue import git_version
@@ -447,7 +447,7 @@ def totrigxml(file, table, program=None, params=[]):
   if not program:
     program='pylal.dq.dqDataUtils.totrigxml'
 
-  process = llwapp.append_process(xmldoc, program=program,\
+  process = ligolw_process.append_process(xmldoc, program=program,\
                                   version=__version__,\
                                   cvs_repository = 'lscsoft',\
                                   cvs_entry_time = __date__)
@@ -458,7 +458,7 @@ def totrigxml(file, table, program=None, params=[]):
   xmldoc.childNodes[-1].appendChild(table)
 
   # write triggers to file object file
-  llwapp.set_process_end_time(process)
+  ligolw_process.set_process_end_time(process)
   utils.write_fileobj(xmldoc, file, gz=file.name.endswith('gz'))
 
 # =============================================================================
