@@ -114,11 +114,15 @@ XLALSpinAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
                           )
 {
   SpinEOBParams *params = (SpinEOBParams *)funcParams;
-  REAL8 K, eta;
-  eta = params->eobParams->eta;
+  REAL8 K, eta, chiK;
+  REAL8 rshift = 0.6;
+  eta  = params->eobParams->eta;
+  chiK = params->sigmaKerr->data[2] / (1.-2.*eta);
   K = 1.4467 -  1.7152360250654402 * eta - 3.246255899738242 * eta * eta;
 
-  if ( values[0] <= (1.+sqrt(1-params->a * params->a))*(1.-K*eta) + 0.1 || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
+  if ( chiK > 0.5 && chiK < 0.7 ) rshift = 0.5;
+
+  if ( values[0] <= (1.+sqrt(1-params->a * params->a))*(1.-K*eta) + rshift || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
   {
     return 1;
   }
@@ -813,7 +817,6 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     values->data[2] = prHi.data[i];
     values->data[3] = pPhiHi.data[i];
 
-    //printf("NQCs entering hNQC: %.16e, %.16e, %.16e, %.16e, %.16e, %.16e\n", nqcCoeffs.a1, nqcCoeffs.a2,nqcCoeffs.a3, nqcCoeffs.a3S, nqcCoeffs.a4, nqcCoeffs.a5 );
     if ( XLALSimIMREOBNonQCCorrection( &hNQC, values, omegaHi->data[i], &nqcCoeffs ) == XLAL_FAILURE )
     {
       XLAL_ERROR( XLAL_EFUNC );
@@ -835,6 +838,8 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     oldsigAmpSqHi = sigAmpSqHi;
   }
   //fclose(out);
+  /*printf("NQCs entering hNQC: %.16e, %.16e, %.16e, %.16e, %.16e, %.16e\n", nqcCoeffs.a1, nqcCoeffs.a2,nqcCoeffs.a3, nqcCoeffs.a3S, nqcCoeffs.a4, nqcCoeffs.a5 );
+  printf("NQCs entering hNQC: %.16e, %.16e, %.16e, %.16e\n", nqcCoeffs.b1, nqcCoeffs.b2,nqcCoeffs.b3, nqcCoeffs.b4 );*/
   if (timewavePeak < 1.0e-16 || peakCount == 0)
   {
     //printf("YP::warning: could not locate mode peak, use calibrated time shift of amplitude peak instead.\n");
