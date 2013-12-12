@@ -114,11 +114,15 @@ XLALSpinAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
                           )
 {
   SpinEOBParams *params = (SpinEOBParams *)funcParams;
-  REAL8 K, eta;
-  eta = params->eobParams->eta;
+  REAL8 K, eta, chiK;
+  REAL8 rshift = 0.6;
+  eta  = params->eobParams->eta;
+  chiK = params->sigmaKerr->data[2] / (1.-2.*eta);
   K = 1.4467 -  1.7152360250654402 * eta - 3.246255899738242 * eta * eta;
 
-  if ( values[0] <= (1.+sqrt(1-params->a * params->a))*(1.-K*eta) + 0.3 || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
+  if ( chiK > 0.5 && chiK < 0.7 ) rshift = 0.5;
+
+  if ( values[0] <= (1.+sqrt(1-params->a * params->a))*(1.-K*eta) + rshift || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
   {
     return 1;
   }
@@ -184,11 +188,11 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   REAL8       chiS, chiA;
 
   /* Wrapper spin vectors used to calculate sigmas */
-  REAL8Vector s1Vec;
-  REAL8Vector s2Vec;
+  REAL8Vector s1Vec, s1VecOverMtMt;
+  REAL8Vector s2Vec, s2VecOverMtMt;
   REAL8       spin1[3] = {0, 0, spin1z};
   REAL8       spin2[3] = {0, 0, spin2z};
-  REAL8       s1Data[3], s2Data[3];
+  REAL8       s1Data[3], s2Data[3], s1DataNorm[3], s2DataNorm[3];
 
   /* Parameters of the system */
   REAL8 m1, m2, mTotal, eta, mTScaled;
@@ -279,7 +283,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   /* TODO: Insert potentially necessary checks on the arguments */
 
   /* Calculate the time we will need to step back for ringdown */
-  tStepBack = 50. * mTScaled;
+  tStepBack = 100. * mTScaled;
   nStepBack = ceil( tStepBack / deltaT );
 
   /* Calculate the resample factor for attaching the ringdown */
@@ -360,15 +364,19 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   eobParams.eta = eta;
 
   s1Vec.length = s2Vec.length = 3;
+  s1VecOverMtMt.length = s2VecOverMtMt.length = 3;
   s1Vec.data   = s1Data;
   s2Vec.data   = s2Data;
+  s1VecOverMtMt.data   = s1DataNorm;
+  s2VecOverMtMt.data   = s2DataNorm;
 
   /* copy the spins into the appropriate vectors, and scale them by the mass */
   memcpy( s1Data, spin1, sizeof( s1Data ) );
   memcpy( s2Data, spin2, sizeof( s2Data ) );
+  memcpy( s1DataNorm, spin1, sizeof( s1DataNorm ) );
+  memcpy( s2DataNorm, spin2, sizeof( s2DataNorm ) );
 
   /* Calculate chiS and chiA */
-
 
   chiS = 0.5 * (spin1[2] + spin2[2]);
   chiA = 0.5 * (spin1[2] - spin2[2]);
@@ -378,7 +386,14 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     s1Data[i] *= m1*m1;
     s2Data[i] *= m2*m2;
   }
-
+ for ( i = 0; i < 3; i++ )
+  {
+    s1DataNorm[i] = s1Data[i]/mTotal/mTotal;
+    s2DataNorm[i] = s2Data[i]/mTotal/mTotal;
+  } 
+  seobParams.s1Vec    = &s1VecOverMtMt;
+  seobParams.s2Vec    = &s2VecOverMtMt;
+ 
   cartPosVec.length = cartMomVec.length = 3;
   cartPosVec.data = cartPosData;
   cartMomVec.data = cartMomData;
@@ -486,10 +501,31 @@ int XLALSimIMRSpinAlignedEOBWaveform(
 
   /* Taken from Andrea's code */
 /*  memset( tmpValues->data, 0, tmpValues->length*sizeof(tmpValues->data[0]));*/
-
-  /*tmpValues->data[0] = 19.9947984026;
+#if 0
+  tmpValues->data[0] = 19.9947984026;
   tmpValues->data[3] = -0.000433854158413;
-  tmpValues->data[4] = 4.84217964546/tmpValues->data[0];*/
+  tmpValues->data[4] = 4.84217964546/tmpValues->data[0]; // q=1
+#endif
+#if 0
+  tmpValues->data[0] = 19.9982539582;
+  tmpValues->data[3] = -0.000390702473305;
+  tmpValues->data[4] = 4.71107185264/tmpValues->data[0]; // q=1, chi1=chi2=0.98
+#endif
+#if 0
+  tmpValues->data[0] = 19.996332305;
+  tmpValues->data[3] = -0.000176807206312;
+  tmpValues->data[4] = 4.84719922687/tmpValues->data[0]; // q=8
+#endif
+#if 0
+  tmpValues->data[0] = 6.22645094958;
+  tmpValues->data[3] = -0.00851784427559;
+  tmpValues->data[4] = 3.09156589713/tmpValues->data[0]; // q=8 chi1=0.5 TEST DYNAMICS
+#endif
+#if 0
+  tmpValues->data[0] = 19.9996712714;
+  tmpValues->data[3] = -0.00016532905477;
+  tmpValues->data[4] = 4.77661989696/tmpValues->data[0]; // q=8 chi1=0.5
+#endif
 
   /* Now convert to Spherical */
   /* The initial conditions code returns Cartesian components of four vectors x, p, S1 and S2,
@@ -619,7 +655,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     cartMomVec.data[0] = values->data[2];
     cartMomVec.data[1] = values->data[3] / values->data[0];
 
-    ham = XLALSimIMRSpinEOBHamiltonian( eta, &cartPosVec, &cartMomVec, sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
+    ham = XLALSimIMRSpinEOBHamiltonian( eta, &cartPosVec, &cartMomVec, &s1VecOverMtMt, &s2VecOverMtMt, sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
 
     if ( XLALSimIMRSpinEOBGetSpinFactorizedWaveform( &hLM, values, v, ham, 2, 2, &seobParams )
            == XLAL_FAILURE )
@@ -730,21 +766,48 @@ int XLALSimIMRSpinAlignedEOBWaveform(
    */
 
   /* Calculate nonspin and amplitude NQC coefficients from fits and interpolation table */
-  if ( XLALSimIMRGetEOBCalibratedSpinNQC( &nqcCoeffs, 2, 2, eta, a ) == XLAL_FAILURE )
+  switch ( SpinAlignedEOBversion )
   {
-    XLAL_ERROR( XLAL_EFUNC );
+     case 1:
+       if ( XLALSimIMRGetEOBCalibratedSpinNQC( &nqcCoeffs, 2, 2, eta, a ) == XLAL_FAILURE )
+       {
+         XLAL_ERROR( XLAL_EFUNC );
+       }
+       break;
+     case 2:
+       if ( XLALSimIMRGetEOBCalibratedSpinNQCv2( &nqcCoeffs, 2, 2, eta, a ) == XLAL_FAILURE )
+       {
+         XLAL_ERROR( XLAL_EFUNC );
+       }
+       break;
+     default:
+       XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+       XLAL_ERROR( XLAL_EINVAL );
+       break;
   }
 
   /* Calculate phase NQC coefficients */
   if ( XLALSimIMRSpinEOBCalculateNQCCoefficients( ampNQC, phaseNQC, &rHi, &prHi, omegaHi,
-          2, 2, timePeak, deltaTHigh/mTScaled, eta, a, &nqcCoeffs ) == XLAL_FAILURE )
+          2, 2, timePeak, deltaTHigh/mTScaled, eta, a, &nqcCoeffs, SpinAlignedEOBversion ) == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
   }
 
   /* Calculate the time of amplitude peak. Despite the name, this is in fact the shift in peak time from peak orb freq time */
-  timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaT(2, 2, eta,  a);
- 
+  switch ( SpinAlignedEOBversion )
+  {
+     case 1:
+     timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaT(2, 2, eta,  a);
+       break;
+     case 2:
+     timewavePeak = 0.0;
+       break;
+     default:
+       XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+       XLAL_ERROR( XLAL_EINVAL );
+       break;
+  }
+
   /* Apply to the high sampled part */
   //out = fopen( "saWavesHi.dat", "w" );
   for ( i = 0; i < retLen; i++ )
@@ -754,7 +817,6 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     values->data[2] = prHi.data[i];
     values->data[3] = pPhiHi.data[i];
 
-    //printf("NQCs entering hNQC: %.16e, %.16e, %.16e, %.16e, %.16e, %.16e\n", nqcCoeffs.a1, nqcCoeffs.a2,nqcCoeffs.a3, nqcCoeffs.a3S, nqcCoeffs.a4, nqcCoeffs.a5 );
     if ( XLALSimIMREOBNonQCCorrection( &hNQC, values, omegaHi->data[i], &nqcCoeffs ) == XLAL_FAILURE )
     {
       XLAL_ERROR( XLAL_EFUNC );
@@ -762,7 +824,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
 
     hLM = sigReHi->data[i];
     hLM += I * sigImHi->data[i];
-    //fprintf( out, "%.16e %.16e %.16e %.16e %.16e\n", timeHi.data[i], hLM.re, hLM.im, hNQC.re, hNQC.im );
+    //fprintf( out, "%.16e %.16e %.16e %.16e %.16e\n", timeHi.data[i], creal(hLM), cimag(hLM), creal(hNQC), cimag(hNQC) );
 
     hLM *= hNQC;
     sigReHi->data[i] = (REAL4) creal(hLM);
@@ -776,9 +838,11 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     oldsigAmpSqHi = sigAmpSqHi;
   }
   //fclose(out);
+  /*printf("NQCs entering hNQC: %.16e, %.16e, %.16e, %.16e, %.16e, %.16e\n", nqcCoeffs.a1, nqcCoeffs.a2,nqcCoeffs.a3, nqcCoeffs.a3S, nqcCoeffs.a4, nqcCoeffs.a5 );
+  printf("NQCs entering hNQC: %.16e, %.16e, %.16e, %.16e\n", nqcCoeffs.b1, nqcCoeffs.b2,nqcCoeffs.b3, nqcCoeffs.b4 );*/
   if (timewavePeak < 1.0e-16 || peakCount == 0)
   {
-    /*printf("YP::warning: could not locate mode peak, use calibrated time shift of amplitude peak instead.\n");*/
+    //printf("YP::warning: could not locate mode peak, use calibrated time shift of amplitude peak instead.\n");
     /* NOTE: instead of looking for the actual peak, use the calibrated value,    */
     /*       ignoring the error in using interpolated NQC instead of iterated NQC */
     timewavePeak = timePeak - timewavePeak;
@@ -814,9 +878,9 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     timeshiftPeak = (timePeak - timewavePeak) > 0. ? (timePeak - timewavePeak) : 0.;
   }
 
-  printf("YP::timePeak and timewavePeak: %.16e and %.16e\n",timePeak,timewavePeak);
+  /*printf("YP::timePeak and timewavePeak: %.16e and %.16e\n",timePeak,timewavePeak);
   printf("YP::timeshiftPeak and combSize: %.16e and %.16e\n",timeshiftPeak,combSize);
-  printf("PK::chi and SpinAlignedEOBversion: %.16e and %u\n\n", chi,SpinAlignedEOBversion);
+  printf("PK::chi and SpinAlignedEOBversion: %.16e and %u\n\n", chi,SpinAlignedEOBversion);*/
 
   REAL8Vector *rdMatchPoint = XLALCreateREAL8Vector( 3 );
   if ( !rdMatchPoint )
@@ -832,7 +896,6 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   rdMatchPoint->data[0] = combSize < timePeak - timeshiftPeak ? timePeak - timeshiftPeak - combSize : 0;
   rdMatchPoint->data[1] = timePeak - timeshiftPeak;
   rdMatchPoint->data[2] = dynamicsHi->data[finalIdx];
-
   if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, 2,
               deltaTHigh, m1, m2, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2],
               &timeHi, rdMatchPoint, SpinAlignedEOBapproximant )
@@ -869,7 +932,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     cartMomVec.data[0] = values->data[2];
     cartMomVec.data[1] = values->data[3] / values->data[0];
 
-    ham = XLALSimIMRSpinEOBHamiltonian( eta, &cartPosVec, &cartMomVec, sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
+    ham = XLALSimIMRSpinEOBHamiltonian( eta, &cartPosVec, &cartMomVec, &s1VecOverMtMt, &s2VecOverMtMt, sigmaKerr, sigmaStar, seobParams.tortoise, &seobCoeffs );
 
     if ( XLALSimIMRSpinEOBGetSpinFactorizedWaveform( &hLM, values, v, ham, 2, 2, &seobParams )
            == XLAL_FAILURE )

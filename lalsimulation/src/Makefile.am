@@ -77,6 +77,7 @@ noinst_HEADERS = \
 	LALSimIMRSpinEOBAuxFuncs.c \
 	LALSimIMRSpinEOBFactorizedWaveform.c \
 	LALSimIMRSpinEOBFactorizedFlux.c \
+	LALSimIMRSpinEOB.c \
 	LALSimIMREOBFactorizedFlux.c \
 	LALSimNeutronStarEOSPiecewisePolytrope.c \
 	LALSimNeutronStarEOSTabular.c

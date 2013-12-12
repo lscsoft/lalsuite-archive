@@ -54,7 +54,8 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
                       const REAL8           omega,
                       SpinEOBParams         *ak,
                       const REAL8            H,
-                      const INT4             lMax
+                      const INT4             lMax,
+                      const UINT4            SpinAlignedEOBversion
                      );
 
 /*------------------------------------------------------------------------------------------
@@ -74,7 +75,8 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
                       const REAL8           omega,   /**< orbital frequency */
                       SpinEOBParams         *ak,     /**< physical parameters */
                       const REAL8            H,      /**< real Hamiltonian */
-                      const INT4             lMax    /**< upper limit of the summation over l */
+                      const INT4             lMax,   /**< upper limit of the summation over l */
+                      const UINT4            SpinAlignedEOBversion /**< 1 for SEOBNRv1, 2 for SEOBNRv2 */
                      )
 
 {
@@ -118,12 +120,24 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
       if ( l == 2 && m == 2 )
       {
         COMPLEX16 hNQC;
-        XLALSimIMRGetEOBCalibratedSpinNQC( &nqcCoeffs, l, m, ak->eobParams->eta, ak->a );    
+        switch ( SpinAlignedEOBversion )
+        {
+          case 1:
+            XLALSimIMRGetEOBCalibratedSpinNQC( &nqcCoeffs, l, m, ak->eobParams->eta, ak->a );
+            break;
+          case 2:
+            XLALSimIMRGetEOBCalibratedSpinNQCv2( &nqcCoeffs, l, m, ak->eobParams->eta, ak->a );
+            break;
+          default:
+            XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+            XLAL_ERROR( XLAL_EINVAL );
+            break;
+        } 
         XLALSimIMREOBNonQCCorrection( &hNQC, values, omega, &nqcCoeffs );
         /* Eq. 16 */
         hLM *= hNQC;
       }
-      // printf( "l = %d, m = %d, mag(hLM) = %.17e\n", l, m,  XLALCOMPLEX16Abs2( hLM ) );
+      //printf( "l = %d, m = %d, mag(hLM) = %.17e, omega = %.16e\n", l, m, sqrt(creal(hLM)*creal(hLM)+cimag(hLM)*cimag(hLM)), omega );
       /* Eq. 13 */
       flux += (REAL8)(m * m) * omegaSq * ( creal(hLM)*creal(hLM) + cimag(hLM)*cimag(hLM) );
     }

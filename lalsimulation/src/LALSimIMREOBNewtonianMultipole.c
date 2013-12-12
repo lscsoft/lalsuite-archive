@@ -192,7 +192,7 @@ XLALSimIMRSpinEOBFluxCalculateNewtonianMultipole(
                  COMPLEX16 *multipole, /**<< OUTPUT, Newtonian multipole */
                  REAL8 x,              /**<< Dimensionless parameter \f$\equiv v^2\f$ */
                  UNUSED REAL8 r,       /**<< Orbital separation (units of total mass M */
-                 REAL8 phi,            /**<< Orbital phase (in radians) */
+                 UNUSED REAL8 phi,     /**<< Orbital phase (in radians) */
                  UINT4  l,             /**<< Mode l */
                  INT4  m,              /**<< Mode m */
                  EOBParams *params     /**<< Pre-computed coefficients, parameters, etc. */

@@ -39,6 +39,10 @@ SpinEOBModes
  * k4 - \f$\Delta_4\f$ given in Eqn 5.81
  * b3 - \f$\omega^{fd}_2\f$ given in Eqn 5.40
  * bb3 - \f$\omega^{fd}_1\f$ given in Eqn 5.40
+ * d1 - SO calibration parameter of SEOBNRv1
+ * d1v2 - SO calibration parameter of SEOBNRv2
+ * dheffSS - SS calibration parameter of SEOBNRv1
+ * dheffSSv2 - SS calibration parameter of SEOBNRv2
  */
 
 typedef struct
@@ -54,6 +58,11 @@ tagSpinEOBHCoeffs
   double k5l;
   double b3;
   double bb3;
+  double d1;
+  double d1v2;
+  double dheffSS;
+  double dheffSSv2;
+  int    SpinAlignedEOBversion;
 }
 SpinEOBHCoeffs;
 
@@ -63,9 +72,10 @@ SpinEOBHCoeffs;
  * including mass ratio, masses, pre-computed coefficients for potential, flux and waveforms,
  * NQC coefficients and Newtonian multiple prefixes.
  * 2) seobCoeffs contans parameters for calculating the spin EOB Hamiltonian.
- * 3) sigmaStar and sigmaKerr are effective spins of the test-particle and background.
- * 4) a is the spin value being used for test-particle limit spin terms.
- * 5) alignedSpins and tortoise are controling flags.
+ * 3) s1Vec and s2Vec are individual spins, in unit of total mass.
+ * 4) sigmaStar and sigmaKerr are effective spins of the test-particle and background.
+ * 5) a is the spin value being used for test-particle limit spin terms.
+ * 6) alignedSpins and tortoise are controling flags.
  */
 
 typedef struct
@@ -73,6 +83,8 @@ tagSpinEOBParams
 {
   EOBParams               *eobParams;
   SpinEOBHCoeffs          *seobCoeffs;
+  REAL8Vector             *s1Vec;
+  REAL8Vector             *s2Vec;
   REAL8Vector             *sigmaStar;
   REAL8Vector             *sigmaKerr;
   REAL8                   a;
