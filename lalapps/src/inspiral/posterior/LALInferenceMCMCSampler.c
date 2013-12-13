@@ -1694,7 +1694,12 @@ void LALInferencePrintPTMCMCInjectionSample(LALInferenceRunState *runState) {
 
     LALInferenceSetVariable(runState->currentParams, "time", &injGPSTime);
     LALInferenceSetVariable(runState->currentParams, "distance", &dist);
-    LALInferenceSetVariable(runState->currentParams, "inclination", &inclination);
+    if (LALInferenceCheckVariable(runState->currentParams, "inclination")) {
+      LALInferenceSetVariable(runState->currentParams, "inclination", &inclination);
+    }
+    if (LALInferenceCheckVariable(runState->currentParams, "theta_JN")) {
+      LALInferenceSetVariable(runState->currentParams, "theta_JN", &inclination);
+    }
     LALInferenceSetVariable(runState->currentParams, "polarisation", &(psi));
     LALInferenceSetVariable(runState->currentParams, "declination", &dec);
     LALInferenceSetVariable(runState->currentParams, "rightascension", &ra);

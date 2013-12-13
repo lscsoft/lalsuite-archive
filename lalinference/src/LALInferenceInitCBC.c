@@ -177,7 +177,8 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
                (--eta VALUE)                   Trigger eta (symmetric mass ratio) to use.\n\
                (--q VALUE)                     Trigger q (asymmetric mass ratio) to use.\n\
                (--phase VALUE)                 Trigger phase to use.\n\
-               (--inclination VALUE)           Trigger inclination to use.\n\
+               (--inclination VALUE)           Trigger inclination (radiationa frame, L.N) to use.\n\
+               (--theta-jn VALUE)              Trigger inclination (system frame, J.N) to use.\n\
                (--distance VALUE)              Trigger distance to use.\n\
                (--rightascension VALUE)        Trigger RA.\n\
                (--declination VALUE)           Trigger declination.\n\
@@ -209,8 +210,10 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
                (--mtotalmax max)                       Maximum total mass (35.0).\n\
                (--a-min max)                           Minimum component spin (-1.0 for spin-aligned, 0.0 for precessing).\n\
                (--a-max max)                           Maximum component spin (1.0).\n\
-               (--inclination-min MIN                  Minimum inclination angle (0.0).\n\
-               (--inclination-max MAX)                 Maximum inclination angle (pi).\n\
+               (--inclination-min MIN                  Minimum inclination (radiationa frame, L.N) angle (0.0).\n\
+               (--inclination-max MAX)                 Maximum inclination (radiationa frame, L.N) angle (pi).\n\
+               (--theta-jn-max MIN)                    Minimum inclination (system frame, J.N) angle (pi).\n\
+               (--theta-jn-max MAX)                    Maximum inclination (system frame, J.N) angle (pi).\n\
                (--distance-min MIN)                    Minimum distance in Mpc (1).\n\
                (--distance-max MAX)                    Maximum distance in Mpc (100).\n\
                (--dt time)                             Width of time prior, centred around trigger (0.1s).\n\
@@ -230,7 +233,8 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
                (--fix-chirpmass)                        Do not allow chirpmass to vary.\n\
                (--fix-massratio, --fix-asym_massratio)  Do not allow mass ratio to vary.\n\
                (--fix-phase)                            Do not allow phase to vary.\n\
-               (--fix-inclination)                      Do not allow inclination to vary.\n\
+               (--fix-inclination)                      Do not allow inclination (radiationa frame, L.N) to vary.\n\
+               (--fix-theta-jn)                         Do not allow inclination (radiationa frame, L.N) to vary.\n\
                (--fix-distance)                         Do not allow distance to vary.\n\
                (--fix-rightascension)                   Do not allow RA to vary.\n\
                (--fix-declination)                      Do not allow declination to vary.\n\
@@ -609,7 +613,17 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
     a2max = a1max;
   }
 
-  ppt=LALInferenceGetProcParamVal(commandLine,"--iota-max");
+  ppt=LALInferenceGetProcParamVal(commandLine,"--inclination-min");
+  if (ppt) {
+    iotaMin = atof(ppt->value);
+  }
+  
+  ppt=LALInferenceGetProcParamVal(commandLine,"--theta-jn-min");
+  if (ppt) {
+    thetaJNmin = atof(ppt->value);
+  }
+  
+  ppt=LALInferenceGetProcParamVal(commandLine,"--inclination-max");
   if (ppt) {
     iotaMax = atof(ppt->value);
   }
