@@ -483,7 +483,7 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
           /* Replace the last two QNMs with pQNMs */
           /* We assume aligned/antialigned spins here */
           a  = (spin1[2] + spin2[2]) / 2. * (1.0 - 2.0 * eta) + (spin1[2] - spin2[2]) / 2. * (mass1 - mass2) / (mass1 + mass2);
-          NRPeakOmega22 = GetNRSpinPeakOmega( l, m, eta, a ) / mTot;
+          NRPeakOmega22 = GetNRSpinPeakOmegav2( l, m, eta, a ) / mTot;
           
           /* Define chi */
           chi = (spin1[2] + spin2[2]) / 2. + (spin1[2] - spin2[2]) / 2. * sqrt(1. - 4. * eta) / (1. - 2. * eta);
@@ -498,7 +498,7 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
             kt2 = -0.2 + pow(1. + 200. * pow(eta, 3./2.) / 9., 2./3.)/2.;
           }
           /*printf("a, chi and NRomega in QNM freq: %.16e %.16e %.16e %.16e %.16e %.16e\n",
-           * spin1[2],spin2[2],mTot/LAL_MTSUN_SI,a,chi,NRPeakOmega22*mTot);*/
+            spin1[2],spin2[2],mTot/LAL_MTSUN_SI,a,chi,NRPeakOmega22*mTot);*/
           modefreqs->data[6] = kk * ((2./3. * NRPeakOmega22/finalMass) + (1./3. * creal(modefreqs->data[0])) );
           modefreqs->data[6] += I * 3.5/0.9 * cimag(modefreqs->data[0]) / kt1;
 
@@ -511,13 +511,14 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
           if ( chi >= 0.8 )
           {
             sh = -9. * (eta - 0.25);
+            matchrange->data[0] -= sh;
             matchrange->data[1] -= sh;
           }
       }
-      /*for (j = 0; j < nmodes; j++)
+      for (j = 0; j < nmodes; j++)
       {
-        printf("QNM frequencies: %d %d %d %e %e\n",l,m,j,modefreqs->data[j].re*mTot,1./modefreqs->data[j].im/mTot);
-      }*/
+        //printf("QNM frequencies: %d %d %d %e %e\n",l,m,j,creal(modefreqs->data[j])*mTot,1./cimag(modefreqs->data[j])/mTot);
+      }
 
       /* Ringdown signal length: 10 times the decay time of the n=0 mode */
       Nrdwave = (INT4) (EOB_RD_EFOLDS / cimag(modefreqs->data[0]) / dt);
@@ -526,7 +527,7 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
       if ( matchrange->data[0] * mTot / dt < 5 || matchrange->data[1]*mTot/dt > matchrange->data[2] *mTot/dt - 2 )
       {
         XLALPrintError( "More inspiral points needed for ringdown matching.\n" );
-        //printf("%.16e,%.16e,%.16e\n",matchrange->data[0] * mTot / dt, matchrange->data[1]*mTot/dt, matchrange->data[2] *mTot/dt - 2);
+        printf("%.16e,%.16e,%.16e\n",matchrange->data[0] * mTot / dt, matchrange->data[1]*mTot/dt, matchrange->data[2] *mTot/dt - 2);
         XLALDestroyCOMPLEX16Vector( modefreqs );
         XLAL_ERROR( XLAL_EFAILED );
       }
