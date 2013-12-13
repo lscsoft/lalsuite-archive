@@ -212,7 +212,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
                (--a-max max)                           Maximum component spin (1.0).\n\
                (--inclination-min MIN                  Minimum inclination (radiationa frame, L.N) angle (0.0).\n\
                (--inclination-max MAX)                 Maximum inclination (radiationa frame, L.N) angle (pi).\n\
-               (--theta-jn-max MIN)                    Minimum inclination (system frame, J.N) angle (pi).\n\
+               (--theta-jn-min MIN)                    Minimum inclination (system frame, J.N) angle (pi).\n\
                (--theta-jn-max MAX)                    Maximum inclination (system frame, J.N) angle (pi).\n\
                (--distance-min MIN)                    Minimum distance in Mpc (1).\n\
                (--distance-max MAX)                    Maximum distance in Mpc (100).\n\
