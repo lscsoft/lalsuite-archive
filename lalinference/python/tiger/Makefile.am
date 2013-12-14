@@ -8,4 +8,3 @@ tigerdir = $(pkgpythondir)/tiger
 tiger_PYTHON = \
 	__init__.py \
 	postproc.py
-

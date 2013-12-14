@@ -40,7 +40,6 @@
 /* ---------- includes ---------- */
 #include <sys/stat.h>
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lalapps.h>
 #include <lal/AVFactories.h>
 #include <lal/SeqFactories.h>
@@ -1287,27 +1286,12 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
   XLALFree ( channelName );
 
   /* ----- handle transient-signal window if given ----- */
-  if ( !XLALUserVarWasSet ( &uvar->transientWindowType ) || !strcmp ( uvar->transientWindowType, "none") )
-    cfg->transientWindow.type = TRANSIENT_NONE;                /* default: no transient signal window */
-  else
-    {
-      if ( !strcmp ( uvar->transientWindowType, "rect" ) )
-       {
-         cfg->transientWindow.type = TRANSIENT_RECTANGULAR;              /* rectangular window [t0, t0+tau] */
-       }
-      else if ( !strcmp ( uvar->transientWindowType, "exp" ) )
-        {
-          cfg->transientWindow.type = TRANSIENT_EXPONENTIAL;            /* exponential decay window e^[-(t-t0)/tau for t>t0, 0 otherwise */
-        }
-      else
-        {
-          XLAL_ERROR ( XLAL_EINVAL, "Illegal transient window '%s' specified: valid are 'none', 'rect' or 'exp'\n", uvar->transientWindowType );
-        }
+  int twtype;
+  XLAL_CHECK ( (twtype = XLALParseTransientWindowName ( uvar->transientWindowType )) >= 0, XLAL_EFUNC );
+  cfg->transientWindow.type = twtype;
 
-      cfg->transientWindow.t0   = uvar->transientStartTime;
-      cfg->transientWindow.tau  = uvar->transientTauDays * LAL_DAYSID_SI;
-
-    } /* if transient window != none */
+  cfg->transientWindow.t0   = uvar->transientStartTime;
+  cfg->transientWindow.tau  = uvar->transientTauDays * LAL_DAYSID_SI;
 
   return XLAL_SUCCESS;
 
@@ -1608,8 +1592,7 @@ XLALLoadTransferFunctionFromActuation ( REAL8 actuationScale, /**< overall scale
       }
 
       /* now convert into transfer-function and (Re,Im): T = A^-1 */
-      data->data[i-startline].realf_FIXME =  cos(phi) / ( amp * actuationScale );
-      data->data[i-startline].imagf_FIXME = -sin(phi) / ( amp * actuationScale );
+      data->data[i-startline] = crectf( cos(phi) / ( amp * actuationScale ), -sin(phi) / ( amp * actuationScale ) );
 
     } /* for i < numlines */
 

@@ -7,7 +7,9 @@ AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
   lal.spec \
   lal.pc \
+  lal-uninstalled.pc \
   lalsupport.pc \
+  lalsupport-uninstalled.pc \
   Makefile \
   debian/Makefile \
   gnuscripts/Makefile \
@@ -93,10 +95,8 @@ AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
 
 AC_CANONICAL_HOST
 
-LALSUITE_ARG_VAR
 LALSUITE_CHECK_GIT_REPO
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
-LALSUITE_WITH_CFLAGS_LIBS
 
 # set library api info - liblal
 # 1. start with version information of "0:0:0" for each libtool library
@@ -182,8 +182,7 @@ lal_pthread_available="yes"
 AX_PTHREAD(,[lal_pthread_available="no"])
 if test "$lal_pthread_lock" = "true" ; then
   if test "$lal_pthread_available" = "yes" ; then
-    LALSUITE_ADD_LIBS(${PTHREAD_LIBS})
-    LALSUITE_ADD_CFLAGS(${PTHREAD_CFLAGS})
+    LALSUITE_ADD_FLAGS([C],[${PTHREAD_CFLAGS}],[${PTHREAD_LIBS}])
     CC="$PTHREAD_CC"
   else
     AC_MSG_ERROR([do not know how to compile posix threads])
@@ -191,7 +190,7 @@ if test "$lal_pthread_lock" = "true" ; then
 fi
 
 # check for programs
-LALSUITE_PROG_INSTALL
+AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_AWK
 AC_PROG_SED
@@ -206,18 +205,13 @@ LALSUITE_USE_LIBTOOL
 # set additional compiler flags
 AC_MSG_CHECKING([for additional compiler flags])
 case "${host_os}" in
-  solaris*) LALSUITE_ADD_CFLAGS(-D_POSIX_C_SOURCE=200112L)
+  solaris*) LALSUITE_ADD_FLAGS([C],[-D_POSIX_C_SOURCE=200112L],[])
   AC_MSG_RESULT([-D_POSIX_C_SOURCE=200112L]);;
   *) AC_MSG_RESULT([none]);;
 esac
 
-# initialise lalsupport libs
-LALSUPPORT_LIBADD=""
-
 # system library checks
 AC_CHECK_LIB([m],[sin])
-AC_CHECK_LIB([z],[compress],[LALSUPPORT_LIBADD="$LALSUPPORT_LIBADD -lz"],
-             [AC_MSG_ERROR([could not find the zlib library])])
 
 # check for platform specific libs
 case "${host_os}" in
@@ -227,7 +221,6 @@ esac
 # check for system headers files
 AC_HEADER_STDC
 AC_CHECK_HEADERS([sys/time.h unistd.h getopt.h malloc.h regex.h glob.h])
-AC_CHECK_HEADERS([zlib.h],,[AC_MSG_ERROR([could not find zlib.h])])
 AC_CHECK_HEADERS([stdint.h],,[AC_MSG_ERROR([could not find stdint.h])])
 AC_CHECK_HEADERS([inttypes.h],,[AC_MSG_ERROR([could not find inttypes.h])])
 AC_MSG_CHECKING([for gethostname prototype in unistd.h])
@@ -244,10 +237,17 @@ case "${host_os}" in
   solaris*) AC_CHECK_HEADERS([sunmath.h]);;
 esac
 
+# check for zlib libraries and headers
+PKG_CHECK_MODULES([ZLIB],[zlib],[true],[false])
+LALSUITE_PUSH_UVARS
+LALSUITE_ADD_FLAGS([C],[${ZLIB_CFLAGS}],[${ZLIB_LIBS}])
+AC_SEARCH_LIBS([compress],[],[:],[AC_MSG_ERROR([could not find the zlib library])])
+AC_CHECK_HEADER([zlib.h],[:],[AC_MSG_ERROR([could not find the zlib.h header])])
+LALSUITE_POP_UVARS
+
 # check for gsl
 PKG_CHECK_MODULES([GSL],[gsl],[true],[false])
-LALSUITE_ADD_CFLAGS(${GSL_CFLAGS})
-LALSUITE_ADD_LIBS(${GSL_LIBS})
+LALSUITE_ADD_FLAGS([C],[${GSL_CFLAGS}],[${GSL_LIBS}])
 AC_CHECK_LIB([gslcblas],[main])
 AC_CHECK_LIB([gsl],[gsl_strerror],,[AC_MSG_ERROR([could not find the gsl library])])
 LAL_CHECK_GSL_VERSION([1.9])
@@ -260,8 +260,7 @@ AC_CHECK_HEADERS([gsl/gsl_errno.h],,[AC_MSG_ERROR([could not find the gsl/gsl_er
 if test "${intelfft}" = "false" ; then
   fftw3="true"
   PKG_CHECK_MODULES([FFTW3],[fftw3 fftw3f],[true],[false])
-  LALSUITE_ADD_CFLAGS(${FFTW3_CFLAGS})
-  LALSUITE_ADD_LIBS(${FFTW3_LIBS})
+  LALSUITE_ADD_FLAGS([C],[${FFTW3_CFLAGS}],[${FFTW3_LIBS}])
   AC_CHECK_LIB([fftw3f],[fftwf_execute_dft],,[AC_MSG_ERROR([could not find the fftw3f library])],[-lm])
   AC_CHECK_LIB([fftw3],[fftw_execute_dft],,[AC_MSG_ERROR([could not find the fftw3 library])],[-lm])
 else
@@ -291,29 +290,32 @@ if test "${intelfft}" = "false" ; then
 fi
 
 # check for boinc
-if test "${boinc}" = "true" ; then
-  if test -n "${BOINC_PREFIX}" ; then
-    # do compilation checks with c++
-    AC_LANG_PUSH([C++])
+if test "x${boinc}" = xtrue; then
+  # do compilation checks with c++
+  AC_LANG_PUSH([C++])
 
-    # set boinc flags
-    BOINC_CFLAGS="-I${BOINC_PREFIX}/include"
-    BOINC_LIBS="-L${BOINC_PREFIX}/lib -lboinc_api -lboinc"
-    LALSUITE_ADD_CFLAGS(${BOINC_CFLAGS})
-    LALSUITE_ADD_LIBS(${BOINC_LIBS})
-
-    # check for boinc libraries
-    AC_CHECK_LIB([boinc],[boinc_fopen],[true],[boinc=false])
-    AC_CHECK_LIB([boinc_api],[boinc_finish],[true],[boinc=false],[-lboinc])
-
-    # check for boinc headers
-    AC_CHECK_HEADERS([boinc/boinc_api.h],,[boinc=false])
-
-    # go back to c
-    AC_LANG_POP([C++])
+  # set boinc flags
+  AC_ARG_VAR([BOINC_PREFIX],[BOINC installation directory (optional)])
+  AC_ARG_VAR([BOINC_EXTRA_CFLAGS],[extra BOINC compiler flags (optional)])
+  AC_ARG_VAR([BOINC_EXTRA_LIBS],[extra BOINC libraries (optional)])
+  AC_SUBST(BOINC_CFLAGS,"${BOINC_EXTRA_CFLAGS}")
+  AC_SUBST(BOINC_LIBS,"-lboinc_api -lboinc ${BOINC_EXTRA_LIBS}")
+  if test "x${BOINC_PREFIX}" != x; then
+    BOINC_CFLAGS="-I${BOINC_PREFIX}/include ${BOINC_CFLAGS}"
+    BOINC_LIBS="-L${BOINC_PREFIX}/lib ${BOINC_LIBS}"
   fi
+  LALSUITE_ADD_FLAGS([C],[${BOINC_CFLAGS}],[${BOINC_LIBS}])
+
+  # check for boinc libraries
+  AC_CHECK_LIB([boinc],[boinc_fopen],[:],[AC_MSG_ERROR([could not find the boinc library])])
+  AC_CHECK_LIB([boinc_api],[boinc_finish],[:],[AC_MSG_ERROR([could not find the boinc_api library])])
+
+  # check for boinc headers
+  AC_CHECK_HEADERS([boinc/boinc_api.h],[:],[AC_MSG_ERROR([could not find the boinc_api.h header])])
+
+  # go back to c
+  AC_LANG_POP([C++])
 fi
-LALSUITE_ENABLE_MODULE([BOINC],[boinc])
 
 # define what is being enabled
 if test "${cuda}" = "true"; then
@@ -331,11 +333,6 @@ fi
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG([XLAL LAL])
 
-# record the libraries needed for linking lal
-LAL_LIBADD="$LIBS"
-AC_SUBST(LAL_LIBADD)
-AC_SUBST(LALSUPPORT_LIBADD)
-
 # checks for typedefs, structures, and compiler characteristics
 AC_C_BIGENDIAN
 AC_C_CONST
@@ -345,6 +342,7 @@ AC_TYPE_SSIZE_T
 AC_HEADER_TIME
 
 # checks for library functions
+AC_CHECK_FUNCS([gmtime_r localtime_r])
 AC_CHECK_FUNCS([stat],,[AC_MSG_ERROR([could not find the stat() function])])
 AC_CHECK_FUNCS([getopt],,[AC_MSG_ERROR([could not find the getopt() function])])
 AC_CHECK_FUNCS([getopt_long],,[AC_MSG_ERROR([could not find the getopt_long() function])])
@@ -366,12 +364,10 @@ LALSUITE_ADD_GCC_FLAGS
 # RedHat-derived systems.
 AC_SUBST([pkgpythondir], ["\${pkgpyexecdir}"])
 
-# ensure CPPFLAGS/CFLAGS and LDFLAGS/LIBS are in correct order
-LALSUITE_ADD_CFLAGS()
-LALSUITE_ADD_LIBS()
-
 INCLUDEMKFILE=$srcdir/gnuscripts/include.mk
 AC_SUBST_FILE([INCLUDEMKFILE])
+
+# output
 AC_OUTPUT
 echo "
 ==================================================

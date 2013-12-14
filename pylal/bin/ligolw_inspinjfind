@@ -91,7 +91,7 @@ def parse_command_line():
 #
 
 
-ligolw_inspinjfind.table.RowBuilder = ligolw_inspinjfind.table.InterningRowBuilder
+lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 #
@@ -131,7 +131,7 @@ for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	xmldoc = utils.load_filename(filename, options.verbose)
-	ligolw_inspinjfind.table.InterningRowBuilder.strings.clear()
+	lsctables.table.InterningRowBuilder.strings.clear()
 
 	#
 	# have we already processed it?

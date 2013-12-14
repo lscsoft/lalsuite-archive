@@ -44,7 +44,6 @@
 // ---------- local macro definitions
 #define SQ(x) ( (x) * (x) )
 #define INIT_MEM(x) memset(&(x), 0, sizeof((x)))
-
 // ---------- local type definitions
 
 // ---------- empty initializers
@@ -219,30 +218,56 @@ XLALCWMakeFakeData ( SFTVector **SFTvect,
 
    /* ----- start-time and duration ----- */
   LIGOTimeGPS firstGPS = timestamps->data[0];
+  REAL8 firstGPS_REAL8 = XLALGPSGetREAL8 ( &firstGPS );
   LIGOTimeGPS lastGPS  = timestamps->data [ timestamps->length - 1 ];
-  REAL8 duration = XLALGPSDiff ( &lastGPS, &firstGPS ) + Tsft;
-  XLAL_CHECK ( duration >= Tsft, XLAL_EINVAL, "Requested duration=%.0f sec is less than Tsft =%.0f sec.\n\n", duration, Tsft);
+  REAL8 lastGPS_REAL8 = XLALGPSGetREAL8 ( &lastGPS );
+  XLALGPSAdd( &lastGPS, Tsft );
+  REAL8 duration = XLALGPSDiff ( &lastGPS, &firstGPS );
 
   REAL4TimeSeries *Tseries_sum = NULL;
+  XLAL_CHECK ( (Tseries_sum = XLALGenerateCWSignalTS ( &injectionSources->data[0], site, firstGPS, duration, fSamp, fMin, edat )) != NULL, XLAL_EFUNC );
+
   UINT4 numPulsars = injectionSources->length;
-  for ( UINT4 iInj = 0; iInj < numPulsars; iInj ++ )
+  for ( UINT4 iInj = 1; iInj < numPulsars; iInj ++ )
     {
+      // for all but the first time-series, we truncate any transient-CW timeseries to the actual support
+      // of the transient signal, in order to make the generation more efficient, these 'partial timeseries'
+      // will then be added to the full timeseries of the 1st signal (with iInj=0)
       const PulsarParams *pulsarParams = &( injectionSources->data[iInj] );
+      UINT4 t0, t1;
+      XLAL_CHECK ( XLALGetTransientWindowTimespan ( &t0, &t1, pulsarParams->Transient ) == XLAL_SUCCESS, XLAL_EFUNC );
 
-      REAL4TimeSeries *Tseries_i = NULL;
-      XLAL_CHECK ( (Tseries_i = XLALGenerateCWSignalTS ( pulsarParams, site, firstGPS, duration, fSamp, fMin, edat )) != NULL, XLAL_EFUNC );
+      // use latest possible start-time: max(t0,firstGPS), but not later than than lastGPS
+      LIGOTimeGPS signalStartGPS; INIT_MEM ( signalStartGPS );
+      if ( t0 <= firstGPS_REAL8 ) {
+        signalStartGPS = firstGPS;
+      } else if ( t0 >= lastGPS_REAL8 ) {
+        signalStartGPS = lastGPS;
+      }
+      else {
+        signalStartGPS.gpsSeconds = t0;
+      }
 
-      if ( Tseries_sum == NULL )
+      // use earliest possible end-time: min(t1,lastGPS), but not earlier than firstGPS
+      LIGOTimeGPS signalEndGPS; INIT_MEM ( signalEndGPS );
+      if ( t1 >= lastGPS_REAL8 ) {
+        signalEndGPS = lastGPS;
+      } else if ( t1 <= firstGPS_REAL8 ) {
+        signalEndGPS = firstGPS;
+      } else {
+        signalEndGPS.gpsSeconds = t1;
+      }
+      REAL8 signalDuration = XLALGPSDiff ( &signalEndGPS, &signalStartGPS );
+      XLAL_CHECK ( signalDuration >= 0, XLAL_EFAILED, "Something went wrong, got negative signal duration = %g\n", signalDuration );
+      if ( signalDuration > 0 )	// only need to do sth if transient-window had finite overlap with output TS
         {
-          Tseries_sum = Tseries_i;
-        }
-      else
-        {
+          REAL4TimeSeries *Tseries_i = NULL;
+          XLAL_CHECK ( (Tseries_i = XLALGenerateCWSignalTS ( pulsarParams, site, signalStartGPS, signalDuration, fSamp, fMin, edat )) != NULL, XLAL_EFUNC );
+
           XLAL_CHECK ( (Tseries_sum = XLALAddREAL4TimeSeries ( Tseries_sum, Tseries_i )) != NULL, XLAL_EFUNC );
           XLALDestroyREAL4TimeSeries ( Tseries_i );
         }
-
-    } // for iInj < numSources
+    } // for iInj = 1 ... (numPulsars-1)
 
   /* add Gaussian noise if requested */
   REAL8 sqrtSn = dataParams->detInfo.sqrtSn[0];
@@ -765,34 +790,26 @@ XLALReadPulsarParams ( PulsarParams *pulsarParams,	///< [out] pulsar parameters 
   REAL8 transientTauDays = 0; BOOLEAN have_transientTauDays;
   XLAL_CHECK ( XLALReadConfigREAL8Variable ( &transientTauDays, cfgdata, secName, "transientTauDays", &have_transientTauDays ) == XLAL_SUCCESS, XLAL_EFUNC );
 
-  if ( ! have_transientWindowType || !strcmp ( transientWindowType, "none") )
-    {
-      XLAL_CHECK ( !have_transientStartTime && !have_transientTauDays, XLAL_EINVAL );
-      pulsarParams->Transient.type = TRANSIENT_NONE;	/* default: no transient signal window */
-    }
-  else
-    {
-      if ( !strcmp ( transientWindowType, "rect" ) ) {
-        pulsarParams->Transient.type = TRANSIENT_RECTANGULAR;              /* rectangular window [t0, t0+tau] */
-      }
-      else if ( !strcmp ( transientWindowType, "exp" ) ) {
-        pulsarParams->Transient.type = TRANSIENT_EXPONENTIAL;            /* exponential decay window e^[-(t-t0)/tau for t>t0, 0 otherwise */
-      }
-      else {
-        XLAL_ERROR ( XLAL_EINVAL, "Illegal transient window '%s' specified: valid are {'none', 'rect' or 'exp'}\n", transientWindowType );
-      }
-      XLAL_CHECK ( (pulsarParams->Transient.type != TRANSIENT_NONE) && (have_transientStartTime && have_transientTauDays), XLAL_EINVAL );
+  int twtype = TRANSIENT_NONE;
+  if ( have_transientWindowType ) {
+    XLAL_CHECK ( (twtype = XLALParseTransientWindowName ( transientWindowType )) >= 0, XLAL_EFUNC );
+    XLALFree ( transientWindowType );
+  }
+  pulsarParams->Transient.type = twtype;
 
+  if ( pulsarParams->Transient.type != TRANSIENT_NONE )
+    {
+      XLAL_CHECK ( have_transientStartTime && have_transientTauDays, XLAL_EINVAL );
       XLAL_CHECK ( transientStartTime >= 0, XLAL_EDOM );
       XLAL_CHECK ( transientTauDays > 0, XLAL_EDOM );
 
       pulsarParams->Transient.t0   = (UINT4) transientStartTime;
       pulsarParams->Transient.tau  = (UINT4) ( transientTauDays * LAL_DAYSID_SI );
     } /* if transient window != none */
-
-  if ( have_transientWindowType ) {
-    XLALFree ( transientWindowType );
-  }
+  else
+    {
+      XLAL_CHECK ( !(have_transientStartTime || have_transientTauDays), XLAL_EINVAL );
+    }
 
   return XLAL_SUCCESS;
 } // XLALParsePulsarParams()
