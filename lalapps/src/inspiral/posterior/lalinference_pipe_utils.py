@@ -354,7 +354,7 @@ def get_xml_psds(psdxml,ifos,outpath,end_time=None):
   return out
   
 class LALInferencePipelineDAG(pipeline.CondorDAG):
-  def __init__(self,cp,dax=False):
+  def __init__(self,cp,dax=False,first_dag=True,previous_dag=None):
     self.subfiles=[]
     self.config=cp
     self.engine=cp.get('analysis','engine')
@@ -367,10 +367,20 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     mkdirs(self.basepath)
     self.posteriorpath=os.path.join(self.basepath,'posterior_samples')
     mkdirs(self.posteriorpath)
-    daglogdir=cp.get('paths','daglogdir')
-    mkdirs(daglogdir)
-    self.daglogfile=os.path.join(daglogdir,'lalinference_pipeline-'+str(uuid.uuid1())+'.log')
-    pipeline.CondorDAG.__init__(self,self.daglogfile,dax)
+    
+    if first_dag:
+      daglogdir=cp.get('paths','daglogdir')
+      mkdirs(daglogdir)
+      self.daglogfile=os.path.join(daglogdir,'lalinference_pipeline-'+str(uuid.uuid1())+'.log')
+      pipeline.CondorDAG.__init__(self,self.daglogfile,dax)
+    elif not first_dag and previous_dag is not None:
+      daglogdir=cp.get('paths','daglogdir')
+      mkdirs(daglogdir)
+      self.daglogfile=os.path.join(daglogdir,'lalinference_pipeline-'+str(uuid.uuid1())+'.log')
+      pipeline.CondorDAG.__init__(self,self.daglogfile,dax)
+      for node in previous_dag.get_nodes():
+        self.add_node(node)
+      
     if cp.has_option('paths','cachedir'):
       self.cachepath=cp.get('paths','cachedir')
     else:
@@ -744,7 +754,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     end_time=event.trig_time
     node.set_trig_time(end_time)
     node.set_seed(random.randint(1,2**31))
-    node.set_priority(int(-round(40.*float(self.times.index(end_time))/float(len(self.times)-0.5))))
+    node.set_priority(-20+int(round(40.*float(self.times.index(end_time))/float(len(self.times)-0.5))))
     if event.srate: node.set_srate(event.srate)
     if event.trigSNR: node.set_trigSNR(event.trigSNR)
     if self.dataseed:
