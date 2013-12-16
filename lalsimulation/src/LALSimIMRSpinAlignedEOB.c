@@ -1440,6 +1440,7 @@ int XLALSimIMRSpinEOBWaveform(
     cartPosVec.data[0] = values->data[0];
     cartMomVec.data[0] = values->data[2];
     cartMomVec.data[1] = values->data[3] / values->data[0];
+   
     
     omega = XLALSimIMRSpinAlignedEOBCalcOmega( values->data, &seobParams );
     v = cbrt( omega );
@@ -1450,7 +1451,7 @@ int XLALSimIMRSpinEOBWaveform(
 
     status = XLALSimIMRSpinEOBGetSpinFactorizedWaveform( &hLM, values, v, 
                   ham, 2, 2, &seobParams );
-
+    
     hPlusTS->data->data[i]  = - 0.5 * amp * cos( 2.*vphi[i]) * cos(2.*alpha) * (1. + LNhz*LNhz) 
                             + amp * sin(2.*vphi[i]) * sin(2.*alpha)*LNhz;
 
