@@ -151,6 +151,7 @@ XLALSpinAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
   K = 1.4467 -  1.7152360250654402 * eta - 3.246255899738242 * eta * eta;
 
   if ( chiK < 0.8 ) rshift = 0.5;
+  if ( chiK < 0.72) rshift = 0.45;
   if ( chiK > -0.8 && chiK < 0.7 ) rshift = 0.35;
 
   if ( values[0] <= (1.+sqrt(1-params->a * params->a))*(1.-K*eta) + rshift || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
@@ -1452,7 +1453,11 @@ int XLALSimIMRSpinEOBWaveform(
 
     status = XLALSimIMRSpinEOBGetSpinFactorizedWaveform( &hLM, values, v, 
                   ham, 2, 2, &seobParams );
-    
+    if ( status == XLAL_FAILURE )
+    {
+      XLAL_ERROR( XLAL_EFUNC );
+    }
+ 
     hPlusTS->data->data[i]  = - 0.5 * amp * cos( 2.*vphi[i]) * cos(2.*alpha) * (1. + LNhz*LNhz) 
                             + amp * sin(2.*vphi[i]) * sin(2.*alpha)*LNhz;
 
