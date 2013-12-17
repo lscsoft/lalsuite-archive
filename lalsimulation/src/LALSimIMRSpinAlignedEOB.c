@@ -152,7 +152,7 @@ XLALSpinAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
 
   if ( chiK < 0.8 ) rshift = 0.5;
   if ( chiK < 0.72) rshift = 0.45;
-  if ( chiK > -0.8 && chiK < 0.7 ) rshift = 0.35;
+  if ( chiK > -0.8 && chiK < 0.67 ) rshift = 0.35;
 
   if ( values[0] <= (1.+sqrt(1-params->a * params->a))*(1.-K*eta) + rshift || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
   {
