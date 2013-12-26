@@ -2264,7 +2264,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     LALEquationOfState equation_of_state = LAL_SIM_INSPIRAL_EOS_NONE;
     equation_of_state = inj_table->eos;
 
-    if (equation_of_state != LAL_SIM_INSPIRAL_EOS_NONE){
+//    if (equation_of_state != LAL_SIM_INSPIRAL_EOS_NONE){
       lambda1 = XLALSimInspiralEOSLambda(equation_of_state, m1)/(m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI); /* gives lambda1/m1^5 (dimensionless) */
       lambda2 = XLALSimInspiralEOSLambda(equation_of_state, m2)/(m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI); /* gives lambda2/m2^5 (dimensionless) */
       fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
@@ -2272,7 +2272,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
       LALInferenceAddVariable(tmpdata->modelParams, "LAL_SIM_INSPIRAL_EOS", &equation_of_state, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
       LALInferenceAddVariable(tmpdata->modelParams, "lambda1",&lambda1,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
       LALInferenceAddVariable(tmpdata->modelParams, "lambda2",&lambda2,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-    }
+//    }
     if ( (equation_of_state != LAL_SIM_INSPIRAL_EOS_NONE) + (LALInferenceGetProcParamVal(commandLine,"--inj-lambda1") || LALInferenceGetProcParamVal(commandLine,"--inj-lambd\
 a2")) + (LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT") || LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")) > 1) {                                          
       XLALPrintError("More than one ways to calculate the tidal terms has been used.\n");                                                                                     
