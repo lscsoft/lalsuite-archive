@@ -973,6 +973,12 @@ def cbcBayesPostProc(
             print "Bin size is not set for %s, skipping %s/%s binning."%(par2_name,par1_name,par2_name)
             continue
 
+        # Skip any fixed parameters to avoid matrix inversion problems
+        par1_pos=pos[par1_name].samples
+        par2_pos=pos[par2_name].samples
+        if (size(unique(par1_pos))<2 or size(unique(par2_pos))<2):
+            continue
+
         #print "Binning %s-%s to determine confidence levels ..."%(par1_name,par2_name)
         #Form greedy binning input structure
         greedy2Params={par1_name:par1_bin,par2_name:par2_bin}
