@@ -129,7 +129,7 @@ typedef enum tagParDistr {
 	
 static int parse_distr(char* opt){
 	
-	if( strstr(opt,"constant"))
+	if( strstr(opt,"constant")|| strstr(opt,"fixed"))
 		return 0;
 	else if( strstr(opt,"uniform"))
 		return 1;
@@ -187,7 +187,14 @@ struct options {
 	double maxsnr;
 	char ** ifonames;
 	int nIFO;
-
+  ParDistr polee_distr;
+  double minpolee;
+  double maxpolee;
+  double pol_ellipse_e;
+  ParDistr polea_distr;
+  double minpolea;
+  double maxpolea;
+  double pol_ellipse_angle;
 };
 
 
@@ -237,6 +244,14 @@ static struct options options_defaults(void)
 	defaults.maxsnr=XLAL_REAL8_FAIL_NAN;
 	defaults.ifonames=NULL;
 	defaults.nIFO=0;
+  defaults.polee_distr=NUM_ELEMENTS+1;
+  defaults.pol_ellipse_e=XLAL_REAL8_FAIL_NAN;
+  defaults.minpolee=XLAL_REAL8_FAIL_NAN;
+  defaults.maxpolee=XLAL_REAL8_FAIL_NAN;
+  defaults.polea_distr=NUM_ELEMENTS+1;
+  defaults.pol_ellipse_angle=XLAL_REAL8_FAIL_NAN;
+  defaults.minpolea=XLAL_REAL8_FAIL_NAN;
+  defaults.maxpolea=XLAL_REAL8_FAIL_NAN;
 	return defaults;
 }
 
@@ -339,6 +354,22 @@ static void print_usage(void)
 "[--q value ] For gaussian distribution of Q, mean of the distribution.\n  \t      If --q-distr constant, constant value of Q\n" \
 "[--q-stdev  value] For gaussian distribution of Q, standard deviation of the distribution.\n"\
 "\n" \
+"[--polar-angle-distr constant,uniform] \n"\
+"   Distribution of polar ellipse angle. Default: linearly polarized signals\n" \
+"   constant: all the signal have the same polar_ellipse_angle (requires --polar-ellipse-angle)\n" \
+"   uniform:  uniform distribution (requires --min-polar-angle and --max-polar-angle)\n" \
+"\n" \
+"[--max-polar-angle] value \n" \
+"[--min-polar-angle] value \n" \
+"	Set the bounds of the injection ellipse_polar_angle.\n" \
+"[--polar-eccentricity-distr constant,uniform] \n"\
+"   Distribution of polar ellipse eccentricity. Default: linearly polarized signals\n" \
+"   constant: all the signal have the same polar_ellipse_e (requires --polar-ellipse-e)\n" \
+"   uniform:  uniform distribution (requires --min-polar-eccentricity and --max-polar-eccentricity)\n" \
+"\n" \
+"[--max-polar-eccentricity] value \n" \
+"[--min-polar-eccentricity] value \n" \
+"	Set the bounds of the injection ellipse_polar_eccentricity.\n" \
 	); fprintf(stderr, 
 "--output filename\n" \
 "	Select output name (default is too hard to explain).\n" \
@@ -446,6 +477,15 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
     {"tau-distr",required_argument,NULL,1727},
     {"tau-stdev",required_argument,NULL,1728},
     {"tau",required_argument,NULL,1729},
+    {"min-polar-angle",required_argument,NULL,1731},
+    {"max-polar-angle",required_argument,NULL,1732},
+    {"polar-angle-distr",required_argument,NULL,1733},
+    {"polar-ellipse-angle",required_argument,NULL,1734},
+    {"min-polar-eccentricity",required_argument,NULL,1735},
+    {"max-polar-eccentricity",required_argument,NULL,1736},
+    {"polar-eccentricity-distr",required_argument,NULL,1737},
+    {"polar-ellipse-e",required_argument,NULL,1738},
+    
 		{NULL, 0, NULL, 0}
 	};
 	int optarg_len=0;
@@ -711,6 +751,38 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
         virgoPsdFileName = calloc( 1, optarg_len * sizeof(char) );
         memcpy( virgoPsdFileName, optarg, optarg_len * sizeof(char) );
         break;
+  case 1731:
+		options.minpolea= (REAL8) atof( optarg );
+		ADD_PROCESS_PARAM(process, "real_8");
+		break;
+  case 1732:
+		options.maxpolea= (REAL8) atof( optarg );
+		ADD_PROCESS_PARAM(process, "real_8");
+		break;
+  case 1733:
+		options.polea_distr=parse_distr(optarg);
+		ADD_PROCESS_PARAM(process, "int_4s");
+		break;
+  case 1734:
+		options.pol_ellipse_angle= (REAL8) atof( optarg );
+		ADD_PROCESS_PARAM(process, "real_8");
+		break;
+  case 1735:
+		options.minpolee= (REAL8) atof( optarg );
+		ADD_PROCESS_PARAM(process, "real_8");
+		break;
+  case 1736:
+		options.maxpolee= (REAL8) atof( optarg );
+		ADD_PROCESS_PARAM(process, "real_8");
+		break;
+  case 1737:
+		options.polee_distr=parse_distr(optarg);
+		ADD_PROCESS_PARAM(process, "int_4s");
+		break;
+  case 1738:
+		options.pol_ellipse_e= (REAL8) atof( optarg );
+		ADD_PROCESS_PARAM(process, "real_8");
+		break;  
 	case 0:
 		/* option sets a flag */
 		break;
@@ -1220,7 +1292,12 @@ static double draw_volume(gsl_rng *rng,double min,double max){
     proposed=1.0/(max*max*max)+(1.0/(min*min*min)- 1.0/(max*max*max))*gsl_rng_uniform(rng);
     proposed=1.0/cbrt(proposed);
     return proposed;
-    }
+}
+    
+static double draw_uniform_cos(gsl_rng *rng, double a, double b)
+{
+return acos(cos(a)+ (cos(b)-cos(a))*gsl_rng_uniform(rng));	
+}
 
 /* 
  * ============================================================================
@@ -1443,9 +1520,30 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 	 * polarization.  induces LAL's sine-Gaussian generator to produce
 	 * linearly polarized sine-Gaussians (+ would be a cosine
 	 * Gaussian). */
-
-	sim_burst->pol_ellipse_e = 1.0;
-	sim_burst->pol_ellipse_angle = LAL_PI_2;
+  /* pick a polar ellipse angle  and eccentricity */
+	switch (options->polee_distr){
+		case FIXED:
+			sim_burst->pol_ellipse_e = options->pol_ellipse_e;
+			break;
+		case UNIFORM:
+			sim_burst->pol_ellipse_e =draw_uniform(rng,options->minpolee,options->maxpolee);
+			break;
+    default:
+    // default are linelary polarized signals
+      sim_burst->pol_ellipse_e = 1.0;
+	}
+  switch (options->polea_distr){
+		case FIXED:
+			sim_burst->pol_ellipse_angle = options->pol_ellipse_angle;
+			break;
+		case UNIFORM:
+			sim_burst->pol_ellipse_angle =draw_uniform(rng,options->minpolea,options->maxpolea);
+			break;
+    default:
+      // default are linelary polarized signals
+      sim_burst->pol_ellipse_angle = LAL_PI_2;
+	}
+	
 
 	/* q and centre frequency.  three steps between minf and maxf */
 	switch (options->q_distr){
