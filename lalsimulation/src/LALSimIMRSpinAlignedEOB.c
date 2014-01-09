@@ -61,6 +61,8 @@
 #include "LALSimIMRSpinEOBFactorizedWaveform.c"
 #include "LALSimIMRSpinEOBFactorizedFlux.c"
 
+int debugPK = 1;
+
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
 #else
@@ -86,6 +88,7 @@ XLALEOBSpinStopCondition(double UNUSED t,
   r2 = values[0]*values[0] + values[1]*values[1] + values[2]*values[2];
   omega = sqrt( omega_x*omega_x + omega_y*omega_y + omega_z*omega_z )/r2;
 
+  /* Terminate when omega reaches peak, and separation is < 6M */
   //if ( omega < params->eobParams->omega )
   if ( r2 < 36. && omega < params->eobParams->omega )
   {
@@ -1070,28 +1073,124 @@ int XLALSimIMRSpinEOBWaveform(
         const REAL8     fMin,
         const REAL8     r,
         const REAL8     inc,
-        const REAL8     spin1[],
-        const REAL8     spin2[]
+        const REAL8     INspin1[],
+        const REAL8     INspin2[]
      )
 {
 
-  int i;
-  int status;
+  INT4 i;
+  INT4 status;
   LIGOTimeGPS tc = LIGOTIMEGPSZERO;
+  
+  /* Fix the underlying aligned spin EOB model */
   INT4 SpinAlignedEOBversion = 1;
 
+  /* Vector to store the initial parameters */
+  REAL8 spin1[3], spin2[3];
+  memcpy( spin1, INspin1, 3*sizeof(REAL8));
+  memcpy( spin2, INspin2, 3*sizeof(REAL8));
+  
   REAL8Vector *values = NULL;
+  
+  /* Allocate the values vector to contain the ICs */
+  /* For this model, it contains 12 dynamical variables: */
+  /* values[0-2]  - x (Cartesian separation vector) */
+  /* values[3-5]  - p (Cartesian momentum) */
+  /* values[6-8]  - spin of body 1 */
+  /* values[9-11] - spin of body 2 */
+  if ( !(values = XLALCreateREAL8Vector( 14 )) )
+  {
+    XLAL_ERROR(  XLAL_ENOMEM );
+  }
+  memset( values->data, 0, values->length * sizeof( REAL8 ));
+
+#if 1
+  values->data[0] = 15.87;
+  values->data[1] = 0.;
+  values->data[2] = 0.;
+  values->data[3] = -0.000521675194648;
+  values->data[4] = 0.278174373488;
+  values->data[5] = -0.00012666165246;
+  values->data[6] = -0.270452950188;
+  values->data[7] = -0.216802131414;
+  values->data[8] = 0.00133043857763;
+  values->data[9] = 0.;
+  values->data[10] = 0.;
+  values->data[11] = 0.;
+
+  for( i = 0; i < 3; i++ )
+  {
+    spin1[i] = values->data[i+6];
+    spin2[i] = values->data[i+9];
+  }
+#endif
+
+  /* EOB spin vectors used in the Hamiltonian */
+  REAL8Vector *sigmaStar = NULL;
+  REAL8Vector *sigmaKerr = NULL;
+  REAL8       a, tplspin;
+  REAL8       chiS, chiA;
+
+  /* Spins not scaled by the mass */
+  REAL8 mSpin1[3], mSpin2[3];
+  
+  /* Wrapper spin vectors used to calculate sigmas */
+  REAL8Vector s1Vec, s1VecOverMtMt;
+  REAL8Vector s2Vec, s2VecOverMtMt;
+  REAL8       s1Data[3], s2Data[3], s1DataNorm[3], s2DataNorm[3];
 
   /* Parameters of the system */
   REAL8 m1, m2, mTotal, eta, mTScaled;
   REAL8 amp0, amp;
-  REAL8 a, tplspin;
-  REAL8 chiS, chiA;
-  REAL8Vector *sigmaStar = NULL;
-  REAL8Vector *sigmaKerr = NULL;
+  REAL8 UNUSED sSub = 0.0;
 
-  /* Spins not scaled by the mass */
-  REAL8 mSpin1[3], mSpin2[3];
+  /* Dynamics of the system */
+  REAL8Vector UNUSED rVec, phiVec, prVec, pPhiVec;
+  REAL8       omega, v, ham;
+
+  /* Cartesian vectors needed to calculate Hamiltonian */
+  REAL8Vector cartPosVec, cartMomVec;
+  REAL8       cartPosData[3], cartMomData[3];
+
+  /* Signal mode */
+  COMPLEX16   hLM;
+  REAL8Vector UNUSED *sigReVec = NULL, *sigImVec = NULL;
+
+  /* Non-quasicircular correction */
+  EOBNonQCCoeffs UNUSED nqcCoeffs;
+  COMPLEX16      UNUSED   hNQC;
+  REAL8Vector    UNUSED   *ampNQC = NULL, *phaseNQC = NULL;
+
+  /* Ringdown freq used to check the sample rate */
+  COMPLEX16Vector UNUSED modefreqVec;
+  COMPLEX16       UNUSED modeFreq;
+
+  /* Spin-weighted spherical harmonics */
+  COMPLEX16 UNUSED MultSphHarmP;
+  COMPLEX16 UNUSED MultSphHarmM;
+
+  /* We will have to switch to a high sample rate for ringdown attachment */
+  //REAL8 deltaTHigh;
+  //UINT4 resampFac;
+  //UINT4 resampPwr;
+  //REAL8 resampEstimate;
+
+  /* How far will we have to step back to attach the ringdown? */
+  //REAL8 tStepBack;
+  //INT4  nStepBack;
+
+  /* Dynamics and details of the high sample rate part used to attach the ringdown */
+  //UINT4 hiSRndx;
+  //REAL8Vector timeHi, rHi, phiHi, prHi, pPhiHi;
+  //REAL8Vector *sigReHi = NULL, *sigImHi = NULL;
+  //REAL8Vector *omegaHi = NULL;
+
+  /* Indices of peak frequency and final point */
+  /* Needed to attach ringdown at the appropriate point */
+  UINT4 UNUSED peakIdx = 0, finalIdx = 0;
+
+  /* (2,2) and (2,-2) spherical harmonics needed in (h+,hx) */
+  REAL8 UNUSED y_1, y_2, z1, z2;
 
   /* Parameter structures containing important parameters for the model */
   SpinEOBParams           seobParams;
@@ -1099,6 +1198,26 @@ int XLALSimIMRSpinEOBWaveform(
   EOBParams               eobParams;
   FacWaveformCoeffs       hCoeffs;
   NewtonMultipolePrefixes prefixes;
+
+  /* Set up structures and calculate necessary PN parameters */
+  /* Due to precession, these need to get calculated in every step */
+  /* TODO: Only calculate non-spinning parts once */
+  memset( &seobParams, 0, sizeof(seobParams) );
+  memset( &seobCoeffs, 0, sizeof(seobCoeffs) );
+  memset( &eobParams, 0, sizeof(eobParams) );
+  memset( &hCoeffs, 0, sizeof( hCoeffs ) );
+  memset( &prefixes, 0, sizeof( prefixes ) );
+
+  /* Variables for the integrator */
+  ark4GSLIntegrator       *integrator = NULL;
+  REAL8Array              *dynamics   = NULL;
+  //REAL8Array              *dynamicsHi = NULL;
+  INT4                    retLen;
+  REAL8  UNUSED           tMax;
+
+  /* Accuracies of adaptive Runge-Kutta integrator */
+  const REAL8 EPS_ABS = 1.0e-9;
+  const REAL8 EPS_REL = 1.0e-8;
 
   if ( !(sigmaStar = XLALCreateREAL8Vector( 3 )) )
   {
@@ -1122,20 +1241,39 @@ int XLALSimIMRSpinEOBWaveform(
   eta    = m1 * m2 / (mTotal*mTotal);
 
   amp0 = mTotal * LAL_MRSUN_SI / r;
-  /* Calculate chiS and chiA */
-  /* Assuming we are in the minimally-rotating frame, such that the orbital
-   * angular momentum is along the z-axis at the initial time. */
-  chiS = 0.5 * (spin1[2] + spin2[2]);
-  chiA = 0.5 * (spin1[2] - spin2[2]);
+  //amp0 = 4. * mTotal * LAL_MRSUN_SI * eta / r;
+  
+  /* TODO: Insert potentially necessary checks on the arguments */
+
+  /* Calculate the time we will need to step back for ringdown */
+  //tStepBack = 100. * mTScaled;
+  //nStepBack = ceil( tStepBack / deltaT );
+
+  /* Calculate the resample factor for attaching the ringdown */
+  /* We want it to be a power of 2 */
+  /* If deltaT > Mtot/50, reduce deltaT by the smallest power of two for which deltaT < Mtot/50 */
+  //resampEstimate = 50. * deltaT / mTScaled;
+  //resampFac = 1;
+  //resampFac = 1 << (UINT4)ceil(log2(resampEstimate));
+  /*
+  if ( resampEstimate > 1. )
+  {
+    resampPwr = (UINT4)ceil( log2( resampEstimate ) );
+    while ( resampPwr-- )
+    {
+      resampFac *= 2u;
+    }
+  }*/
+    
 
   /* Wrapper spin vectors used to calculate sigmas */
-  REAL8Vector s1Vec, s1VecOverMtMt;
-  REAL8Vector s2Vec, s2VecOverMtMt;
-  REAL8       s1Data[3], s2Data[3], s1DataNorm[3], s2DataNorm[3];
-  REAL8       omega, v, ham;
-
+  s1VecOverMtMt.length = s2VecOverMtMt.length = 3;
   s1VecOverMtMt.data   = s1DataNorm;
   s2VecOverMtMt.data   = s2DataNorm;
+
+  s1Vec.length = s2Vec.length = 3;
+  s1Vec.data   = s1Data;
+  s2Vec.data   = s2Data;
 
   memcpy( s1Data, spin1, sizeof(s1Data) );
   memcpy( s2Data, spin2, sizeof(s2Data) );
@@ -1153,11 +1291,7 @@ int XLALSimIMRSpinEOBWaveform(
     s1DataNorm[i] = s1Data[i]/mTotal/mTotal;
     s2DataNorm[i] = s2Data[i]/mTotal/mTotal;
   }
-
-  s1Vec.length = s2Vec.length = 3;
-  s1Vec.data   = s1Data;
-  s2Vec.data   = s2Data;
-
+  
   /* Populate the initial structures */
   if ( XLALSimIMRSpinEOBCalculateSigmaStar( sigmaStar, m1, m2, 
                               &s1Vec, &s2Vec ) == XLAL_FAILURE )
@@ -1177,74 +1311,6 @@ int XLALSimIMRSpinEOBWaveform(
     XLAL_ERROR( XLAL_EFUNC );
   }
 
-  seobParams.a = a = sigmaKerr->data[2];
-  s1VecOverMtMt.length = s2VecOverMtMt.length = 3;
-  seobParams.s1Vec    = &s1VecOverMtMt;
-  seobParams.s2Vec    = &s2VecOverMtMt;
-
-  /* Variables for the integrator */
-  ark4GSLIntegrator       *integrator = NULL;
-  REAL8Array              *dynamics   = NULL;
-  INT4                    retLen;
-  /*REAL8  UNUSED           tMax;*/
-
-  /* Accuracies of adaptive Runge-Kutta integrator */
-  const REAL8 EPS_ABS = 1.0e-9;
-  const REAL8 EPS_REL = 1.0e-8;
-
-  /* Initialize parameters */
-/*
-  mTotal = m1 + m2;
-  mTScaled = mTotal * LAL_MTSUN_SI;
-  eta    = m1 * m2 / (mTotal*mTotal);
-
-  amp0 = 4. * mTotal * LAL_MRSUN_SI * eta / r;
-*/
-  /* Cartesian vectors needed to calculate Hamiltonian */
-  REAL8Vector cartPosVec, cartMomVec;
-  REAL8       cartPosData[3], cartMomData[3];
-
-  cartPosVec.length = cartMomVec.length = 3;
-  cartPosVec.data = cartPosData;
-  cartMomVec.data = cartMomData;
-  memset( cartPosData, 0, sizeof( cartPosData ) );
-  memset( cartMomData, 0, sizeof( cartMomData ) );
-
-  /* TODO: Insert potentially necessary checks on the arguments */
-
-  /* Allocate the values vector to contain the ICs */
-  /* For this model, it contains 12 dynamical variables: */
-  /* values[0-2]  - x (Cartesian separation vector) */
-  /* values[3-5]  - p (Cartesian momentum) */
-  /* values[6-8]  - spin of body 1 */
-  /* values[9-11] - spin of body 2 */
-  if ( !(values = XLALCreateREAL8Vector( 14 )) )
-  {
-    XLAL_ERROR(  XLAL_ENOMEM );
-  }
-  memset( values->data, 0, values->length * sizeof( REAL8 ));
-
-  /* Set up structures and calculate necessary PN parameters */
-  /* Due to precession, these need to get calculated in every step */
-  /* TODO: Only calculate non-spinning parts once */
-  memset( &seobParams, 0, sizeof(seobParams) );
-  memset( &seobCoeffs, 0, sizeof(seobCoeffs) );
-  memset( &eobParams, 0, sizeof(eobParams) );
-  memset( &hCoeffs, 0, sizeof( hCoeffs ) );
-  memset( &prefixes, 0, sizeof( prefixes ) );
-
-  seobParams.tortoise     = 1;
-  seobParams.sigmaStar    = sigmaStar;
-  seobParams.sigmaKerr    = sigmaKerr;
-  seobParams.seobCoeffs   = &seobCoeffs;
-  seobParams.eobParams    = &eobParams;
-  eobParams.hCoeffs       = &hCoeffs;
-  eobParams.prefixes      = &prefixes;
-
-  eobParams.m1  = m1;
-  eobParams.m2  = m2;
-  eobParams.eta = eta;
-
   memcpy( mSpin1, spin1, sizeof( mSpin1 ) );
   memcpy( mSpin2, spin2, sizeof( mSpin2 ) );
 
@@ -1255,23 +1321,39 @@ int XLALSimIMRSpinEOBWaveform(
   }
 
   /* Calculate the value of a */
-  /* XXX I am assuming that, since spins are aligned, it is okay to just use the z component XXX */
-  /* TODO: Check this is actually the way it works in LAL */
-  switch ( SpinAlignedEOBversion )
-  {
-     case 1:
-       tplspin = 0.0;
-       break;
-     case 2:
-       tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
-       break;
-     default:
-       XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
-       XLAL_ERROR( XLAL_EINVAL );
-       break;
-  }
+  seobParams.a = a = sqrt( sigmaKerr->data[0]*sigmaKerr->data[0] 
+		+ sigmaKerr->data[1]*sigmaKerr->data[1] 
+		+ sigmaKerr->data[2]*sigmaKerr->data[2] );
+  //sigmaKerr->data[2];
+  seobParams.s1Vec = &s1VecOverMtMt;
+  seobParams.s2Vec = &s2VecOverMtMt;
 
-  /* Populate the initial structures */
+  /* Cartesian vectors needed to calculate Hamiltonian */
+  cartPosVec.length = cartMomVec.length = 3;
+  cartPosVec.data = cartPosData;
+  cartMomVec.data = cartMomData;
+  memset( cartPosData, 0, sizeof( cartPosData ) );
+  memset( cartMomData, 0, sizeof( cartMomData ) );
+
+  /* TODO: Insert potentially necessary checks on the arguments */
+
+  //seobParams.alignedSpins = 1;
+  seobParams.tortoise     = 1;
+  seobParams.sigmaStar    = sigmaStar;
+  seobParams.sigmaKerr    = sigmaKerr;
+  seobParams.seobCoeffs   = &seobCoeffs;
+  seobParams.eobParams    = &eobParams;
+  eobParams.hCoeffs       = &hCoeffs;
+  eobParams.prefixes      = &prefixes;
+  seobCoeffs.SpinAlignedEOBversion = SpinAlignedEOBversion;
+  eobParams.m1  = m1;
+  eobParams.m2  = m2;
+  eobParams.eta = eta;
+
+  /* ************************************************* */
+  /* Populate the initial structures                   */
+  /* ************************************************* */
+  /* Pre-compute the Hamiltonian coefficients */
   if ( XLALSimIMRCalculateSpinEOBHCoeffs( &seobCoeffs, eta, a, 
                           SpinAlignedEOBversion ) == XLAL_FAILURE )
   {
@@ -1281,42 +1363,32 @@ int XLALSimIMRSpinEOBWaveform(
     XLAL_ERROR( XLAL_EFUNC );
   }
 
-  if ( XLALSimIMREOBCalcPrecNoSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta, 
-        tplspin, chiS, chiA, SpinAlignedEOBversion ) == XLAL_FAILURE )
+  /* Pre-compute the coefficients for the Newtonian factor of hLM */
+  if ( XLALSimIMREOBComputeNewtonMultipolePrefixes( &prefixes, eobParams.m1,
+			eobParams.m2 ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( sigmaKerr );
     XLALDestroyREAL8Vector( sigmaStar );
     XLALDestroyREAL8Vector( values );
     XLAL_ERROR( XLAL_EFUNC );
   }
+  
+  /* ************************************************* */
+  /* ***** Set up the INITIAL CONDITIONS               */
+  /* ************************************************* */
+  /*
+   * STEP 1) Solve for initial conditions
+   */
 
-  if ( XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta, 
-        tplspin, chiS, chiA, SpinAlignedEOBversion ) == XLAL_FAILURE )
-  {
-    XLALDestroyREAL8Vector( sigmaKerr );
-    XLALDestroyREAL8Vector( sigmaStar );
-    XLALDestroyREAL8Vector( values );
-    XLAL_ERROR( XLAL_EFUNC );
-  }
-
-  if ( XLALSimIMREOBComputeNewtonMultipolePrefixes( &prefixes, eobParams.m1, eobParams.m2 )
-         == XLAL_FAILURE )
-  {
-    XLALDestroyREAL8Vector( sigmaKerr );
-    XLALDestroyREAL8Vector( sigmaStar );
-    XLALDestroyREAL8Vector( values );
-    XLAL_ERROR( XLAL_EFUNC );
-  }
-
-  /* TODO: Set the initial conditions */
-
-  if ( XLALSimIMRSpinEOBInitialConditions( values, m1, m2, fMin, inc, mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
+  if ( XLALSimIMRSpinEOBInitialConditions( values, m1, m2, fMin, inc, 
+							mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
   }
   //exit(0);
   //YP::{x,y,z,px,py,pz,s1x,s1y,s1z,s2x,s2y,s2z} =
-  //{15.87, 0, 0, -0.000521675194648, 0.278174373488, -0.00012666165246, -0.270452950188, -0.216802131414, 0.00133043857763, 0, 0, 0};
+  //{15.87, 0, 0, -0.000521675194648, 0.278174373488, -0.00012666165246,
+  // -0.270452950188, -0.216802131414, 0.00133043857763, 0, 0, 0};
 #if 0
   values->data[0] = 0.;
   values->data[1] = 12.845228155660482;
@@ -1346,8 +1418,113 @@ int XLALSimIMRSpinEOBWaveform(
   values->data[11] = 0.;
 #endif
 
+  /* Assume that initial conditions are available at this point, to 
+   * compute the chiS and chiA parameters. 
+   * Calculate the values of chiS and chiA, as given in Eq.16 of 
+   * Precessing EOB paper. Assuming \vec{L} to be pointing in the 
+   * direction of \vec{r}\times\vec{p} */
+  REAL8 rcrossp[3], rcrosspMag, s1dotL, s2dotL;
+
+  rcrossp[0] = values->data[1]*values->data[5] - values->data[2]*values->data[4];
+  rcrossp[1] = values->data[2]*values->data[3] - values->data[0]*values->data[5];
+  rcrossp[2] = values->data[0]*values->data[4] - values->data[1]*values->data[3];
+  rcrosspMag = sqrt(rcrossp[0]*rcrossp[0] + rcrossp[1]*rcrossp[1] + 
+        rcrossp[2]*rcrossp[2]);
+  
+  rcrossp[0] /= rcrosspMag;
+  rcrossp[1] /= rcrosspMag;
+  rcrossp[2] /= rcrosspMag;
+
+  s1dotL = spin1[0]*rcrossp[0] + spin1[1]*rcrossp[1] + spin1[2]*rcrossp[2];
+  s2dotL = spin2[0]*rcrossp[0] + spin2[1]*rcrossp[1] + spin2[2]*rcrossp[2];
+
+  chiS = 0.5 * (s1dotL + s2dotL);
+  chiA = 0.5 * (s1dotL - s2dotL);
+  //chiS = 0.5 * (spin1[2] + spin2[2]);
+  //chiA = 0.5 * (spin1[2] - spin2[2]);
+
+  /* Compute the test-particle limit spin of the deformed-Kerr background */
+  /* TODO: Check this is actually the way it works in LAL */
+  switch ( SpinAlignedEOBversion )
+  {
+     case 1:
+       tplspin = 0.0;
+       break;
+     case 2:
+       tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
+       break;
+     default:
+       XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+       XLAL_ERROR( XLAL_EINVAL );
+       break;
+  }
+
+  /* ************************************************* */
+  /* Populate the Waveform initial structures          */
+  /* ************************************************* */
+#if 0
+  /* Pre-compute the non-spinning coefficients for hLM */
+  if ( XLALSimIMREOBCalcPrecNoSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta, 
+        tplspin, chiS, chiA, SpinAlignedEOBversion ) == XLAL_FAILURE )
+  {
+    XLALDestroyREAL8Vector( sigmaKerr );
+    XLALDestroyREAL8Vector( sigmaStar );
+    XLALDestroyREAL8Vector( values );
+    XLAL_ERROR( XLAL_EFUNC );
+  }
+
+  /* Pre-compute the spinning coefficients for hLM */
+  if ( XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta, 
+        tplspin, chiS, chiA, SpinAlignedEOBversion ) == XLAL_FAILURE )
+  {
+    XLALDestroyREAL8Vector( sigmaKerr );
+    XLALDestroyREAL8Vector( sigmaStar );
+    XLALDestroyREAL8Vector( values );
+    XLAL_ERROR( XLAL_EFUNC );
+  }
+#endif
+  
+  /* Pre-compute the non-spinning and spinning coefficients for hLM factors */
+  if ( XLALSimIMREOBCalcSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta, 
+        tplspin, chiS, chiA, SpinAlignedEOBversion ) == XLAL_FAILURE )
+  {
+    XLALDestroyREAL8Vector( sigmaKerr );
+    XLALDestroyREAL8Vector( sigmaStar );
+    XLALDestroyREAL8Vector( values );
+    XLAL_ERROR( XLAL_EFUNC );
+  }
+
+  if ( debugPK )
+  {
+	  /* Print out all mass parameters */
+	  printf("m1SI = %lf, m2SI = %lf, m1 = %lf, m2 = %lf\n",
+			(double) m1SI, (double) m2SI, (double) m1, (double) m2 );
+	  printf("mTotal = %lf, mTScaled = %lf, eta = %lf\n", 
+			(double) mTotal, (double) mTScaled, (double) eta );
+	  /* Print out all spin parameters */
+	  printf("spin1 = {%lf,%lf,%lf}, spin2 = {%lf,%lf,%lf}\n",
+			(double) spin1[0], (double) spin1[1], (double) spin1[2],
+			(double) spin2[0], (double) spin2[1], (double) spin2[2]);
+	  printf("mSpin1 = {%lf,%lf,%lf}, mSpin2 = {%lf,%lf,%lf}\n",
+			(double) mSpin1[0], (double) mSpin1[1], (double) mSpin1[2],
+			(double) mSpin2[0], (double) mSpin2[1], (double) mSpin2[2]);
+	  printf("s1Vec = {%lf,%lf,%lf}, s2Vec = {%lf,%lf,%lf}\n",
+			(double) seobParams.s1Vec->data[0], (double) seobParams.s1Vec->data[1],
+			(double) seobParams.s1Vec->data[2], (double) seobParams.s2Vec->data[0],
+			(double) seobParams.s2Vec->data[1], (double) seobParams.s2Vec->data[2]);
+	  printf("sigmaStar = {%lf,%lf,%lf}, sigmaKerr = {%lf,%lf,%lf}\n",
+			(double) sigmaStar->data[0], (double) sigmaStar->data[1], 
+			(double) sigmaStar->data[2], (double) sigmaKerr->data[0],
+			(double) sigmaKerr->data[1], (double) sigmaKerr->data[2]);
+	  printf("a = %lf, tplspin = %lf, chiS = %lf, chiA = %lf\n", 
+			(double) a, (double) tplspin, (double) chiS, (double) chiA);
+	  printf("a is used to compute Hamiltonian coefficients,\n tplspin and chiS and chiA for the multipole coefficients\n");
+	  
+  } 
+  
   /* Initialize the GSL integrator */
-  if (!(integrator = XLALAdaptiveRungeKutta4Init(14, XLALSpinHcapNumericalDerivative, XLALEOBSpinStopCondition, EPS_ABS, EPS_REL)))
+  if (!(integrator = XLALAdaptiveRungeKutta4Init(14, XLALSpinHcapNumericalDerivative,
+							XLALEOBSpinStopCondition, EPS_ABS, EPS_REL)))
   {
     XLALDestroyREAL8Vector( values );
     XLAL_ERROR( XLAL_EFUNC );
@@ -1355,7 +1532,8 @@ int XLALSimIMRSpinEOBWaveform(
 
   integrator->stopontestonly = 1;
 
-  retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data, 0., 20./mTScaled, deltaT/mTScaled, &dynamics );
+  retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data, 
+							0., 20./mTScaled, deltaT/mTScaled, &dynamics );
   if ( retLen == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
@@ -1390,7 +1568,6 @@ int XLALSimIMRSpinEOBWaveform(
   REAL8 vX, vY, vZ, rCrossV_x, rCrossV_y, rCrossV_z, vOmega;
   REAL8 magPosVec, LNhx, LNhy, LNhz, magL, alpha;
 
-  COMPLEX16   hLM;
   REAL8TimeSeries *hPlusTS  = XLALCreateREAL8TimeSeries( "H_PLUS", &tc, 0.0, deltaT, &lalStrainUnit, retLen );
   REAL8TimeSeries *hCrossTS = XLALCreateREAL8TimeSeries( "H_CROSS", &tc, 0.0, deltaT, &lalStrainUnit, retLen );
 
