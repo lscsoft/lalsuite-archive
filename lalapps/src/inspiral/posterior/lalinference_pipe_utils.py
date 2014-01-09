@@ -813,7 +813,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       
       
     if self.dataseed:
-      node.set_dataseed(self.dataseed+event.event_id+idx)
+      node.set_dataseed(self.dataseed+5*event.event_id+idx)
     gotdata=0
     for ifo in ifos:
       if event.timeslides.has_key(ifo):
