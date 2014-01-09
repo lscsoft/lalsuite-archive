@@ -59,8 +59,8 @@ class test_LIGOTimeGPS(unittest.TestCase):
 		for num, test in enumerate(tests):
 			try:
 				self.assertEqual(correct, lal.LIGOTimeGPS(*test))
-			except AssertionError, e:
-				raise AssertionError, "Test %d failed: " % (num) + str(e)
+			except AssertionError as e:
+				raise AssertionError("Test %d failed: " % (num) + str(e))
 
 	def test__float__(self):
 		self.assertEqual(100.5, float(lal.LIGOTimeGPS(100.5)))
@@ -105,14 +105,13 @@ class test_LIGOTimeGPS(unittest.TestCase):
 		}
 
 		for i in xrange(1000000):
-			key = random.choice(operators.keys())
-			op, pylalop = operators[key]
+			key, (op, pylalop) = random.choice(operators.items())
 			arg1 = randomLIGOTimeGPS() / 2
 			arg2 = randomLIGOTimeGPS() / 2
 			try:
 				self.assertEqual(op(arg1, arg2), pylalop(pylalLIGOTimeGPS(arg1), pylalLIGOTimeGPS(arg2)))
-			except AssertionError, s:
-				raise AssertionError, "%s(%s, %s) comparison failed: %s" % (key, str(arg1), str(arg2), str(s))
+			except AssertionError as s:
+				raise AssertionError("%s(%s, %s) comparison failed: %s" % (key, str(arg1), str(arg2), str(s)))
 
 		# FIXME:  div and mod tests fail, fix then enable
 		operators = {
@@ -122,16 +121,15 @@ class test_LIGOTimeGPS(unittest.TestCase):
 		}
 
 		for i in xrange(10000):
-			key = random.choice(operators.keys())
-			op, pylalop = operators[key]
+			key, (op, pylalop) = random.choice(operators.items())
 			arg1 = randomLIGOTimeGPS() / 100
 			arg2 = 100**(random.random() * 2 - 1)
 			try:
 				# FIXME:  max allowed discrepancy should be
 				# smaller
 				self.assertEqual(abs(op(arg1, arg2) - pylalop(pylalLIGOTimeGPS(arg1), arg2)) < 3e-8, True)
-			except AssertionError, s:
-				raise AssertionError, "%s(%s, %s) comparison failed: %s != %s" % (key, str(arg1), "%.17g" % arg2, str(op(arg1, arg2)), str(pylalop(pylalLIGOTimeGPS(arg1), arg2)))
+			except AssertionError as s:
+				raise AssertionError("%s(%s, %s) comparison failed: %s != %s" % (key, str(arg1), "%.17g" % arg2, str(op(arg1, arg2)), str(pylalop(pylalLIGOTimeGPS(arg1), arg2))))
 
 
 #
