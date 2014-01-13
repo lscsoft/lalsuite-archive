@@ -353,6 +353,7 @@ Nested sampling arguments:\n\
 	
 }
 
+void initStudentt(LALInferenceRunState *state);
 void initStudentt(LALInferenceRunState *state)
 {
     char help[]="\

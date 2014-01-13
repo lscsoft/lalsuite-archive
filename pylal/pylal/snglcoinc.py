@@ -1119,6 +1119,7 @@ class CoincSynthesizer(object):
 		# normalize (should be already, just be certain)
 		#
 
+		assert abs(P[-1][0] - 1.0) < 1e-14
 		for i in range(len(P)):
 			P[i][0] /= P[-1][0]
 		assert P[-1][0] == 1.0

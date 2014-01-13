@@ -64,17 +64,19 @@ parser = OptionParser(
             help="Waveform to use for injections"),
         Option("--snr-threshold", type=float, default=8.,
             help="Single-detector SNR threshold [default: %default]"),
-        Option("--min-triggers", type=int, default=3,
+        Option("--min-triggers", type=int, default=2,
             help="Emit coincidences only when at least this many triggers are found [default: %default]"),
         Option("-R", "--repeat-first-injection", type=int, default=None,
             help="Instead of performing each injection once, just perform the first injection this many times."),
         Option("--template-bank", metavar="TMPLTBANK.xml[.gz]",
-            help="Name of template bank file (required)")
+            help="Name of template bank file (required)"),
+        Option("--reference-psd", metavar="PSD.xml[.gz]",
+            help="Name of PSD file (required)")
     ]
 )
 opts, args = parser.parse_args()
 infilename = command.get_input_filename(parser, args)
-command.check_required_arguments(parser, opts, 'waveform', 'template_bank')
+command.check_required_arguments(parser, opts, 'waveform', 'template_bank', 'reference_psd')
 
 
 # Python standard library imports.
@@ -93,6 +95,7 @@ from glue.ligolw import lsctables
 from glue import segments
 import glue.lal
 import lal, lalsimulation
+import lal.series
 
 # BAYESTAR imports.
 from lalinference.bayestar import timing
@@ -178,6 +181,16 @@ out_xmldoc.childNodes[0].appendChild(coinc_map_table)
 coinc_table = lsctables.New(lsctables.CoincTable)
 out_xmldoc.childNodes[0].appendChild(coinc_table)
 
+# Create a CoincInspiral table.
+coinc_inspiral_table = lsctables.New(lsctables.CoincInspiralTable)
+out_xmldoc.childNodes[0].appendChild(coinc_inspiral_table)
+
+# Read PSD file.
+xmldoc = ligolw_utils.load_filename(opts.reference_psd)
+psds = lal.series.read_psd_xmldoc(xmldoc)
+psds = dict(
+    (key, timing.InterpolatedPSD(filter.abscissa(psd), psd.data.data))
+    for key, psd in psds.iteritems() if psd is not None)
 
 # Detector noise PSD model
 class psdfunc(object):
@@ -191,7 +204,7 @@ class psdfunc(object):
         else:
             return 0.
 
-psdfuncs = [np.vectorize(psdfunc(timing.get_noise_psd_func(ifo))) for ifo in opts.detector]
+psdfuncs = [np.vectorize(psdfunc(psds[ifo])) for ifo in opts.detector]
 
 # Compute horizon distances for each template, for each detector
 horizons_bank = [
@@ -248,10 +261,12 @@ def detect_sngls(ifos, data, horizons, templates):
         sngl_inspiral.ifo = ifo
         sngl_inspiral.mass1 = mass1
         sngl_inspiral.mass2 = mass2
+        sngl_inspiral.mtotal = mass1 + mass2
+        sngl_inspiral.mchirp = (mass1 * mass2)**0.6 * sngl_inspiral.mtotal**-0.2
         sngl_inspiral.end_time = tmax.gpsSeconds
         sngl_inspiral.end_time_ns = tmax.gpsNanoSeconds
         sngl_inspiral.snr = abs(rhomax)
-        sngl_inspiral.coa_phase = np.angle(rhomax)
+        sngl_inspiral.coa_phase = -np.angle(rhomax) # minus sign to match gstlal_inspiral phase convention
         sngl_inspiral.eff_distance = horizon / sngl_inspiral.snr
         yield sngl_inspiral
 
@@ -336,6 +351,22 @@ for i_sim_inspiral in range(n_injections):
     coinc.nevents = len(opts.detector)
     coinc.likelihood = None
     coinc_table.append(coinc)
+
+    # Add CoincInspiral table entry.
+    coinc_inspiral = lsctables.CoincInspiral()
+    coinc_inspiral.coinc_event_id = coinc.coinc_event_id
+    coinc_inspiral.snr = np.sqrt(np.sum(np.square([sngl_inspiral.snr
+        for sngl_inspiral in sngl_inspirals])))
+    coinc_inspiral.set_ifos([sngl_inspiral.ifo
+        for sngl_inspiral in sngl_inspirals])
+    coinc_inspiral.set_end(glue.lal.LIGOTimeGPS(float(np.mean([float(sngl_inspiral.get_end())
+        for sngl_inspiral in sngl_inspirals]))))
+    coinc_inspiral.false_alarm_rate = None
+    coinc_inspiral.combined_far = None
+    coinc_inspiral.mchirp = sngl_inspirals[0].mchirp
+    coinc_inspiral.mass = sngl_inspirals[0].mtotal
+    coinc_inspiral.minimum_duration = None
+    coinc_inspiral_table.append(coinc_inspiral)
 
     # Record all sngl_inspiral records and associate them with coincidences.
     for sngl_inspiral in sngl_inspirals:

@@ -4768,9 +4768,9 @@ class PEOutputParser(object):
         for line in runInfoIter:
             headers=line.lstrip().lower().split()
             try:
-                fRefColNum = headers.index('fRef')
+                fRefColNum = headers.index('fref') # strings get converted to all lower case
                 info = runInfoIter.next().lstrip().lower().split()
-                fRef = info[fRefColNum]
+                fRef = info[-1]#fRefColNum] # too many column names with spaces for this way to work. I just grab the last value. Hopefully we will update to xml output files and those messy headers will be gone.
                 break
             except ValueError:
                 continue
