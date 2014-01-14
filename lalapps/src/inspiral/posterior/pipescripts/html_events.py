@@ -62,12 +62,17 @@ list_of_htmlfiles = {}
 #html_files = {}
 
 def get_snr(filepath):
-    with open(filepath,'r') as f:
-        content = f.readlines()
-        E1 = content[0].split()[1]
-        E2 = content[1].split()[1]
-        E3 = content[2].split()[1]
-        NETWORK = content[3].split()[1]
+    if (os.path.isfile(filepath) and os.path.getsize(filepath) > 0):
+        with open(filepath,'r') as f:
+            content = f.readlines()
+            E1 = content[0].split()[1]
+            E2 = content[1].split()[1]
+            E3 = content[2].split()[1]
+            NETWORK = content[3].split()[1]
+    else:
+        print filepath+" does not exist or is empty. SNR is set to 0.0"
+        E1 = E2 = E3 = NETWORK = 0.0
+
     return ( E1, E2, E3, NETWORK )
 
 def dirname(directory):
@@ -154,7 +159,6 @@ def htmlappend(outname,text):
 
 def readlastline(fname):
     with open(fname, 'rb') as fh:
-        first = next(fh)
         offs = -100
         while True:
             fh.seek(offs, 2)
@@ -250,17 +254,46 @@ def create_injectionparams_table(params,f,indent=""):
     f.write(indent+"<p></p>")
 
 
+#check how many sections there will be
+sections = []
+for injection in os.listdir(projectpath):
+    sections.append(injection)
+Nsections=len(sections)
 
 text = ("  <body> \n"
         "    <h1> \n"
         "    "+dirname(projectpath)+" \n"
         "    </h1>\n" )
 
+text += ("   <div class=\"ppsection\">\n"
+         "    <h2>\n"
+         "      Table of contents <a name=\"toc\"></a> \n"
+         "    </h2>\n" )
+for i in sections:
+    strings = i.split("_")
+    name = strings[0]
+    percent = strings[1]
+    rest = ""
+    for part in strings[2:]:
+      rest += part
+    text += ("    <p><a href=\"#section"+str(i)+"\"> Injection: "+str(name)+", "+str(percent))
+    if rest != "":
+      text += (" ("+str(rest)+")</a></p>\n")
+    else:
+      text += ("</a></p>\n")
+
+
+text += ("   </div>\n")
+
 htmlappend(outputfile, text)
+
+
 
 ##This function adds a section to the page complete with table of htmls
 def runproject(projectpath,outputfile):
+    section=0
     for injection in os.listdir(projectpath):
+
         print injection
         for seed in os.listdir(os.path.join(projectpath,injection)):
             print "  "+seed
@@ -287,9 +320,9 @@ def runproject(projectpath,outputfile):
                 break
             with open(outputfile,'a') as f:
 
-                f.write("    <div class=\"ppsection\"> \n"
+                f.write("    <div class=\"ppsection\"> <a name=\"section"+str(injection)+"\"></a> \n"
                     "      <h2> \n"
-                    "        Injection ("+jobstring+")\n"
+                    "        Injection ("+jobstring+") <p><a href=\"#toc\">Back to t.o.c.</a></p> \n"
                     "      </h2> \n"
                     "      <p> Injection type: "+injection+" </p>\n"
                     "       \n")
@@ -363,7 +396,11 @@ def runproject(projectpath,outputfile):
             f.write("      <p></p>\n")
             f.write("    </div>\n")
 
+
+
             f.close()
+
+        section+=1
 
 runproject(projectpath, outputfile)
 

@@ -123,12 +123,17 @@ def readxml(xml):
     return processparameters
 
 def get_snr(filepath):
-    with open(filepath,'r') as f:
-        content = f.readlines()
-        E1 = content[0].split()[1]
-        E2 = content[1].split()[1]
-        E3 = content[2].split()[1]
-        NETWORK = content[3].split()[1]
+    if (os.path.isfile(filepath) and os.path.getsize(filepath) > 0):
+        with open(filepath,'r') as f:
+            content = f.readlines()
+            E1 = content[0].split()[1]
+            E2 = content[1].split()[1]
+            E3 = content[2].split()[1]
+            NETWORK = content[3].split()[1]
+    else:
+        print filepath+" does not exist or is empty. SNR is set to 0.0"
+        E1 = E2 = E3 = NETWORK = 0.0
+
     return ( E1, E2, E3, NETWORK )
 
 out = []
@@ -184,7 +189,7 @@ for seed in seeds:
 
             Bayesfile = "lalinferencenest_"+hypname+"_event"+str(event)+"-E1E2E3-"+gpstime+".0.0-"+str(event)+".dat_B.txt"
 
-            if os.path.isfile(os.path.join(bayesdir,Bayesfile)):
+            if (os.path.isfile(os.path.join(bayesdir,Bayesfile))and os.path.getsize(os.path.join(bayesdir,Bayesfile)) > 0):
                 with open(os.path.join(bayesdir,Bayesfile), "r") as f:
                     line = f.readline()
                     LogBayes = line.split()[0]
