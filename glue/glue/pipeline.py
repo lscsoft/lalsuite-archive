@@ -273,7 +273,7 @@ PEGASUS_PROPERTIES= """
   pegasus.catalog.replica.file=%s
 
   pegasus.transfer.force=true
-  pegasus.transfer.links=true
+  #pegasus.transfer.links=true
 
   dagman.retry=3
   dagman.maxpre=1
