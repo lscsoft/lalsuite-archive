@@ -376,7 +376,7 @@ def runproject(projectpath,outputfile):
                     if (os.path.isfile(snrfile)):
                         SNR = get_snr(snrfile)[3]
                         #print 'SNR=',SNR
-                        linkname = hyp+"_"+str(event)+" | "+SNR
+                        linkname = hyp+"_"+str(event)+" | "+str(SNR)
                     else:
                         linkname = eventname
                     html = os.path.join(injection,seed,hyp,eventname,"posplots.html")
@@ -387,7 +387,10 @@ def runproject(projectpath,outputfile):
                         if (os.path.isfile(os.path.join(rundir,injection,seed,hyp,"rundir","engine",Bfile))):
                             f.write("<td> <span style=\"color: #008000\">Finished</span> </td> ")
                         else:
-                            f.write("<td>"+"not finished"+"</td> ")
+                            if (jobstatus == 2):
+                                f.write("<td><span style=\"color: #800000\">Failed</span></td> ")
+                            else:
+                                f.write("<td>Not Finished</td> ")
                     else:
                         f.write("<td>"+link+"</td> ")
 
