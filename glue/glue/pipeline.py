@@ -757,7 +757,21 @@ class CondorDAGJob(CondorJob):
     self.__var_opts = []
     self.__arg_index = 0
     self.__var_args = []
+    self.__grid_site = None
     self.__bad_macro_chars = re.compile(r'[_-]')
+
+  def set_grid_site(self,site):
+    """
+    Set the grid site to run on. If not specified,
+    will not give hint to Pegasus
+    """
+    self.__grid_site=str(site)
+
+  def get_grid_site(self):
+    """
+    Return the grid site for this node
+    """
+    return self.__grid_site
 
   def add_var_opt(self, opt, short=False):
     """
@@ -911,7 +925,6 @@ class CondorDAGNode:
     self.__input_files = []
     self.__dax_collapse = None
     self.__vds_group = None
-    self.__grid_site = None
     if isinstance(job,CondorDAGJob) and job.get_universe()=='standard':
       self.__grid_start = 'none'
     else:
@@ -950,19 +963,6 @@ class CondorDAGNode:
     Return the pegasus profile dictionary for this node.
     """
     return self.__pegasus_profile
-
-  def set_grid_site(self,site):
-    """
-    Set the grid site to run on. If not specified,
-    will not give hint to Pegasus
-    """
-    self.__grid_site=str(site)
-
-  def get_grid_site(self):
-    """
-    Return the grid site for this node
-    """
-    return self.__grid_site
 
   def set_grid_start(self, gridstart):
     """
@@ -1842,8 +1842,8 @@ class CondorDAG:
             workflow_job.addArguments(job_arg[0], job_arg[1])
         
         # Check for desired grid site
-        if node.get_grid_site():
-            workflow_job.addProfile(Pegasus.DAX3.Profile('hints','executionPool',node.get_grid_site()))
+        if node.job().get_grid_site():
+            workflow_job.addProfile(Pegasus.DAX3.Profile('hints','executionPool',node.job().get_grid_site()))
 
         # write the executable into the dax
         job_executable = Pegasus.DAX3.Executable(
