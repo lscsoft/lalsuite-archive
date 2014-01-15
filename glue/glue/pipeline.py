@@ -2141,9 +2141,7 @@ class AnalysisJob:
       self.__channel = string.strip(self.__cp.get('input','channel'))
     except:
       self.__channel = None
-    if site=='bologna':
-        self.hints.append(('executionPool',site))
-    if site=='nikhef':
+    if site!='local':
         self.hints.append(('executionPool',site))
 
   def is_dax(self):
