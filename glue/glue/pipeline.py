@@ -911,6 +911,7 @@ class CondorDAGNode:
     self.__input_files = []
     self.__dax_collapse = None
     self.__vds_group = None
+    self.__grid_site = None
     if isinstance(job,CondorDAGJob) and job.get_universe()=='standard':
       self.__grid_start = 'none'
     else:
@@ -949,6 +950,19 @@ class CondorDAGNode:
     Return the pegasus profile dictionary for this node.
     """
     return self.__pegasus_profile
+
+  def set_grid_site(self,site):
+    """
+    Set the grid site to run on. If not specified,
+    will not give hint to Pegasus
+    """
+    self.__grid_site=str(site)
+
+  def get_grid_site(self):
+    """
+    Return the grid site for this node
+    """
+    return self.__grid_site
 
   def set_grid_start(self, gridstart):
     """
@@ -1827,14 +1841,10 @@ class CondorDAG:
           else:
             workflow_job.addArguments(job_arg[0], job_arg[1])
         
-        # Check for hints
-        try:
-            hints=node.job().hints
-            for hint,value in hints:
-                workflow_job.addProfile(Pegasus.DAX3.Profile('hints',hint,value))
-        except AttributeError:
-            pass
-            
+        # Check for desired grid site
+        if node.get_grid_site():
+            workflow_job.addProfile(Pegasus.DAX3.Profile('hints','executionPool',node.get_grid_site()))
+
         # write the executable into the dax
         job_executable = Pegasus.DAX3.Executable(
           namespace=executable_namespace,
@@ -2130,19 +2140,16 @@ class AnalysisJob:
   Describes a generic analysis job that filters LIGO data as configured by
   an ini file.
   """
-  def __init__(self,cp,dax=False,site='local'):
+  def __init__(self,cp,dax=False):
     """
     @param cp: ConfigParser object that contains the configuration for this job.
     """
     self.__cp = cp
     self.__dax = dax
-    self.hints=[]
     try:
       self.__channel = string.strip(self.__cp.get('input','channel'))
     except:
       self.__channel = None
-    if site!='local':
-        self.hints.append(('executionPool',site))
 
   def is_dax(self):
     """
