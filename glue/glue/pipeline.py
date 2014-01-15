@@ -911,7 +911,7 @@ class CondorDAGNode:
     self.__input_files = []
     self.__dax_collapse = None
     self.__vds_group = None
-    if isinstance(self,CondorDAGJob) and job.get_universe()=='standard':
+    if isinstance(job,CondorDAGJob) and job.get_universe()=='standard':
       self.__grid_start = 'none'
     else:
       self.__grid_start = None
