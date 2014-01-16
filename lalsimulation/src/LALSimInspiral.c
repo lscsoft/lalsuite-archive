@@ -3129,6 +3129,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
       spin_support=LAL_SIM_INSPIRAL_SINGLESPIN;
       break;
     case TaylorF2:
+    case TaylorF2Test:
     case TaylorF2RedSpin:
     case TaylorF2RedSpinTidal:
     case IMRPhenomB:
@@ -3137,6 +3138,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case TaylorR2F4:
     case IMRPhenomFB:
     case FindChirpSP:
+    case PPE:
       spin_support=LAL_SIM_INSPIRAL_ALIGNEDSPIN;
       break;
     case TaylorEt:
