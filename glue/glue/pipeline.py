@@ -1990,6 +1990,7 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
     <profile namespace="condor" key="should_transfer_files">YES</profile>
     <profile namespace="condor" key="when_to_transfer_output">ON_EXIT_OR_EVICT</profile>
   </site>
+
   <!-- Bologna cluster -->
   <site handle="bologna" arch="x86_64" os="LINUX">
     <grid type="cream" contact="https://ce01-lcg.cr.cnaf.infn.it:8443/ce-cream/services/CREAM2" scheduler="LSF" jobtype="compute" />
@@ -1997,8 +1998,6 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
     <directory type="shared-scratch" path="/storage/gpfs_virgo4/virgo4/"> 
         <file-server operation="all" url="srm://storm-fe-archive.cr.cnaf.infn.it:8444/srm/managerv2?SFN=/virgo4/"/> 
     </directory> 
-
-
     <profile namespace="pegasus" key="style">cream</profile>
     <profile namespace="globus" key="queue">virgo</profile>
     <!-- uncomment this and update to the pegasus install on the shared fs
@@ -2006,6 +2005,7 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
     <profile namespace="env" key="PEGASUS_HOME">/storage/gpfs_virgo3/virgo/pegasus-4.2.0-cvs</profile>
     -->
   </site>
+
   <!-- Nikhef Big Grid -->
   <site handle="nikhef" arch="x86_64" os="LINUX">
     <grid type="cream" contact="https://klomp.nikhef.nl:8443/ce-cream/services/CREAM2" scheduler="PBS" jobtype="compute" />
@@ -2019,6 +2019,18 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
     -->
     <profile namespace="pegasus" key="style">cream</profile>
     <profile namespace="globus" key="queue">medium</profile>
+  </site>
+
+  <!-- XSEDE Stampede Cluster at TACC -->
+  <!-- FIXME hardwired for Duncan -->
+  <site handle="stampede" arch="x86_64" os="LINUX">
+    <grid type="gt5" contact="login5.stampede.tacc.utexas.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary"/>
+    <grid type="gt5" contact="login5.stampede.tacc.utexas.edu/jobmanager-slurm" scheduler="unknown" jobtype="compute"/>
+    <directory type="shared-scratch" path="/scratch/02796/dabrown/workflow">
+      <file-server operation="all" url="gsiftp://gridftp.stampede.tacc.xsede.org/scratch/02796/dabrown/workflow"/>
+    </directory>
+    <profile namespace="env" key="PEGASUS_HOME">/home1/02796/dabrown/local/pegasus-4.3.1</profile>
+    <profile namespace="globus" key="rsl" >(jobtype=single)(count=1)(maxWallTime=10)(project=TG-PHY140012)</profile>
   </site>
 
 </sitecatalog>""" 
@@ -2075,7 +2087,7 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
     properties_string=PEGASUS_PROPERTIES
     if grid_site:
       exec_site=grid_site
-      dirs_entry='--relative-dir ' + os.path.basename(tmp_exec_dir) + ' --relative-submit-dir . --output-site local --staging-site bologna=bologna --staging-site nikhef=nikhef'
+      dirs_entry='--relative-dir ' + os.path.basename(tmp_exec_dir) + ' --relative-submit-dir . --output-site local --staging-site bologna=bologna --staging-site nikhef=nikhef --staging-site stampede=stampede'
       properties_string+='\n  pegasus.data.configuration=nonsharedfs\n'
     else:
       exec_site='local'
