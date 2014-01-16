@@ -51,9 +51,9 @@ __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
 #List of parameters to plot/bin . Need to match (converted) column names.
-oneDMenu=['mtotal','m1','m2','mchirp','mc','chirpmass','distance','distMPC','dist','iota','psi','eta','q','asym_massratio','spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','costhetas','cosbeta','phi_orb', 'lambdat', 'dlambdat', 'lambda1', 'lambda2', 'lam_tilde', 'dlam_tilde']
+oneDMenu=['mtotal','m1','m2','mchirp','mc','chirpmass','distance','distMPC','dist','iota','psi','eta','q','asym_massratio','spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','costhetas','cosbeta','phi_orb', 'lambdat', 'dlambdat', 'lambda1', 'lambda2', 'lam_tilde', 'dlam_tilde','theta_jn']
 #List of parameter pairs to bin . Need to match (converted) column names.
-twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['chirpmass','eta'],['mc','q'],['mchirp','q'],['chirpmass','q'],['mc','asym_massratio'],['mchirp','asym_massratio'],['chirpmass','asym_massratio'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec'],['dist','cos(iota)'],['phi_orb','iota']]
+twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['chirpmass','eta'],['mc','q'],['mchirp','q'],['chirpmass','q'],['mc','asym_massratio'],['mchirp','asym_massratio'],['chirpmass','asym_massratio'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec'],['dist','cos(iota)'],['phi_orb','iota'],['theta_jn','dist'],['spin1','spin2'],['spin1','mchirp'],['spin1','m1'],['a1','a2'],['a1','mchirp'],['a1','m1'],['tilt1','tilt2'],['tilt1','mchirp'],['tilt1','m1']]
 #Bin size/resolution for binning. Need to match (converted) column names.
 
 #Convert parameter names to LaTeX; if not mentioned here, just use parameter name.
@@ -69,18 +69,18 @@ paramNameLatexMap = {'m1': 'm_1', 'm2' : 'm_2', 'mtotal' : r'M_{\rm tot}', 'mchi
                      'lam_tilde' : r'\tilde{\Lambda}', 'dlam_tilde': r'\delta \tilde{\Lambda}'}
 
 # Only these parameters, in this order appear in confidence level table.
-clTableParams = ['mchirp', 'mc', 'chirpmass', 'eta', 'm1', 'm2', 'distance', 'distMPC', 'dist', 'cos(iota)', 'a1', 'a2', 'costilt1', 'costilt2']
+clTableParams = ['mchirp', 'mc', 'chirpmass', 'eta', 'q', 'm1', 'm2', 'distance', 'distMPC', 'dist', 'cos(iota)', 'iota', 'theta_jn', 'psi', 'ra', 'dec', 'time', 'phase', 'a1', 'a2', 'costilt1', 'costilt2']
 
-greedyBinSizes={'mc':0.001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.001,'asym_massratio':0.001,'iota':0.05,'time':1e-4,'distance':5.0,'dist':1.0,'mchirp':0.01,'chirpmass':0.01,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.005,'psi':0.1,'cos(iota)':0.01, 'cos(tilt1)':0.01, 'cos(tilt2)':0.01, 'tilt1':0.05, 'tilt2':0.05, 'cos(thetas)':0.01, 'cos(beta)':0.01,'phi_orb':0.2,'inclination':0.05}
+greedyBinSizes={'mc':0.001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.001,'asym_massratio':0.001,'iota':0.05,'time':1e-4,'distance':5.0,'dist':1.0,'mchirp':0.01,'chirpmass':0.01,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.005,'psi':0.1,'cos(iota)':0.01, 'cos(tilt1)':0.01, 'cos(tilt2)':0.01, 'tilt1':0.05, 'tilt2':0.05, 'cos(thetas)':0.01, 'cos(beta)':0.01,'phi_orb':0.2,'inclination':0.05,'theta_jn':0.05,'spin1':0.02,'spin2':0.02}
 
 #Confidence levels
-OneDconfidenceLevels=[0.9]
+OneDconfidenceLevels=[0.9]#[0.68,0.9,0.95,0.997]
 TwoDconfidenceLevels=OneDconfidenceLevels
 
 #2D plots list
 #twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra','dec'],['m1','dist'],['m2','dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'],['dist','cos(iota)']]
-twoDplots=[['m1','m2'],['mass1','mass2'],['RA','dec'],['ra','dec'],['cos(thetas)','cos(beta)'],['distance','iota'],['dist','iota'],['dist','cosiota'],['distance','cosiota'],['psi','iota'],['psi','distance'],['psi','phi0'],['dist','cos(iota)'],['phi_orb','iota'],['distance','inclination'],['dist','inclination']]
-allowed_params=['mtotal','m1','m2','mchirp','mc','chirpmass','q','asym_massratio','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','spin1','spin2','phi1','theta1','phi2','theta2','cos(iota)','cos(tilt1)','cos(tilt2)','tilt1','tilt2','cos(thetas)','cos(beta)','phi_orb','inclination', 'logl', 'lambdat', 'dlambdat', 'lambda1', 'lambda2', 'lam_tilde', 'dlam_tilde']
+twoDplots=[['m1','m2'],['mass1','mass2'],['RA','dec'],['ra','dec'],['cos(thetas)','cos(beta)'],['distance','iota'],['dist','iota'],['dist','cosiota'],['distance','cosiota'],['psi','iota'],['psi','distance'],['psi','phi0'],['dist','cos(iota)'],['phi_orb','iota'],['distance','inclination'],['dist','inclination'],['theta_jn','dist'],['spin1','spin2'],['spin1','mchirp'],['spin1','m1'],['a1','a2'],['a1','mchirp'],['a1','m1'],['tilt1','tilt2'],['tilt1','mchirp'],['tilt1','m1']]
+allowed_params=['mtotal','m1','m2','mchirp','mc','chirpmass','q','asym_massratio','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','spin1','spin2','phi1','theta1','phi2','theta2','cos(iota)','cos(tilt1)','cos(tilt2)','tilt1','tilt2','cos(thetas)','cos(beta)','phi_orb','inclination', 'logl', 'lambdat', 'dlambdat', 'lambda1', 'lambda2', 'lam_tilde', 'dlam_tilde','theta_jn']
 
 def open_url(url,username,password):
 
@@ -529,7 +529,8 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         test_and_switch_param(common_output_table_header,'RA','ra')
         test_and_switch_param(common_output_table_header,'rightascension','ra')
         test_and_switch_param(common_output_table_header,'declination','dec')
-
+        test_and_switch_param(common_output_table_header,'tilt_spin1','tilt1')
+        test_and_switch_param(common_output_table_header,'tilt_spin2','tilt2')
 
         if 'LI_MCMC' in name or 'FU_MCMC' in name:
 
@@ -560,21 +561,21 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         except:
             pass
 
-        try:
-            print "Converting tilt1 -> cos(tilt1)"
-            idx=common_output_table_header.index('tilt1')
-            common_output_table_header[idx]='cos(tilt1)'
-            common_output_table_raw[:,idx]=np.cos(common_output_table_raw[:,idx])
-        except:
-            pass
+        #try:
+        #    print "Converting tilt1 -> cos(tilt1)"
+        #    idx=common_output_table_header.index('tilt1')
+        #    common_output_table_header[idx]='cos(tilt1)'
+        #    common_output_table_raw[:,idx]=np.cos(common_output_table_raw[:,idx])
+        #except:
+        #    pass
 
-        try:
-            print "Converting tilt2 -> cos(tilt2)"
-            idx=common_output_table_header.index('tilt2')
-            common_output_table_header[idx]='cos(tilt2)'
-            common_output_table_raw[:,idx]=np.cos(common_output_table_raw[:,idx])
-        except:
-            pass
+        #try:
+        #    print "Converting tilt2 -> cos(tilt2)"
+        #    idx=common_output_table_header.index('tilt2')
+        #    common_output_table_header[idx]='cos(tilt2)'
+        #    common_output_table_raw[:,idx]=np.cos(common_output_table_raw[:,idx])
+        #except:
+        #    pass
 
         try:
             print "Converting thetas -> cos(thetas)"
@@ -722,7 +723,8 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
             plt.clf()
         oned_data={}
-        confidence_levels={}
+        #confidence_levels={}
+        confidence_levels=[{},{},{},{}]
         confidence_uncertainty={}
         for param in common_params:
             print "Plotting comparison for '%s'"%param
@@ -731,6 +733,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             cl_table={}
             save_paths=[]
             cl_table_min_max_str='<tr><td> Min | Max </td>'
+            level_index=0
             for confidence_level in OneDconfidenceLevels:
 		if analyticLikelihood:
 		  pdf=analyticLikelihood.pdf(param)
@@ -744,12 +747,16 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 hist_fig2,cl_intervals=compare_plots_one_param_line_hist_cum(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf,analyticCDF=cdf)
 
                 # Save confidence levels and uncertainty
-                confidence_levels[param]=[]
+                #confidence_levels[param]=[]
+                confidence_levels[level_index][param]=[]
+                
                 for name,pos in pos_list.items():
                     median=pos[param].median
                     low,high=cl_intervals[name]
-                    confidence_levels[param].append((name,low,median,high))
+                    #confidence_levels[param].append((name,low,median,high))
+                    confidence_levels[level_index][param].append((name,low,median,high))
                     
+                level_index=level_index+1
                 cl_bounds=[]
                 poses=[]
                 for name,pos in pos_list.items():
@@ -830,41 +837,78 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
 def output_confidence_levels_tex(clevels,outpath):
     """Outputs a LaTeX table of parameter and run medians and confidence levels."""
-    params=clevels.keys()
-
-    clevels_by_name={}
-    for param in clTableParams:
-        if param in params:
-            for name,low,med,high in clevels[param]:
-                if name in clevels_by_name:
-                    clevels_by_name[name].append((param,low,med,high))
-                else:
-                    clevels_by_name[name] = [(param,low,med,high)]
-
     outfile=open(os.path.join(outpath,'confidence_table.tex'), 'w')
-    try:
-        outfile.write(r'\begin{tabular}{|l||')
+    for level_index in range(len(OneDconfidenceLevels)):
+        params=clevels[level_index].keys()
+
+        clevels_by_name={}
         for param in clTableParams:
             if param in params:
-                outfile.write('c|')
-        outfile.write('}\n')
+                for name,low,med,high in clevels[level_index][param]:
+                    if name in clevels_by_name:
+                        clevels_by_name[name].append((param,low,med,high))
+                    else:
+                        clevels_by_name[name] = [(param,low,med,high)]
 
-        outfile.write(r'\hline ')
+        try:
+            outfile.write('confidence level %1.3g\n'%OneDconfidenceLevels[level_index])
+            outfile.write(r'\begin{tabular}{|l||')
+            for param in clTableParams:
+                if param in params:
+                    outfile.write('c|')
+            outfile.write('}\n')
+
+            outfile.write(r'\hline ')
+            for param in clTableParams:
+                if param in params:
+                    tparam=paramNameLatexMap.get(param,param)
+                    outfile.write(r'& $%s$ '%tparam)
+            outfile.write('\\\\ \n \\hline \\hline ')
+
+            for name,levels in clevels_by_name.items():
+                outfile.write(name)
+                for param,low,med,high in levels:
+                    outfile.write(r' & $%0.5g^{%0.5g}_{%0.5g}$ '%(med,high,low))
+                outfile.write('\\\\ \n')
+
+            outfile.write('\\hline \n \\end{tabular}')
+        finally:
+            outfile.write('\n\n')
+
+    outfile.close()
+
+def output_confidence_levels_dat(clevels,outpath):
+    """Outputs a LaTeX table of parameter and run medians and confidence levels."""
+    outfile=open(os.path.join(outpath,'confidence_table.dat'), 'w')
+    for level_index in range(len(OneDconfidenceLevels)):
+        params=clevels[level_index].keys()
+
+        clevels_by_name={}
         for param in clTableParams:
             if param in params:
-                tparam=paramNameLatexMap.get(param,param)
-                outfile.write(r'& $%s$ '%tparam)
-        outfile.write('\\\\ \n \\hline \\hline ')
+                for name,low,med,high in clevels[level_index][param]:
+                    if name in clevels_by_name:
+                        clevels_by_name[name].append((param,low,med,high))
+                    else:
+                        clevels_by_name[name] = [(param,low,med,high)]
 
-        for name,levels in clevels_by_name.items():
-            outfile.write(name)
-            for param,low,med,high in levels:
-                outfile.write(r' & $%0.3g^{%0.3g}_{%0.3g}$ '%(med,high,low))
-            outfile.write('\\\\ \n')
+        try:
+            outfile.write('%1.3g\t'%OneDconfidenceLevels[level_index])
+            for param in clTableParams:
+                if param in params:
+                    tparam=paramNameLatexMap.get(param,param)
+                    outfile.write('%s\t'%param)
+            outfile.write('\n') 
 
-        outfile.write('\\hline \n \\end{tabular}')
-    finally:
-        outfile.close()
+            for name,levels in clevels_by_name.items():
+                outfile.write(name)
+                for param,low,med,high in levels:
+                    outfile.write('\t%6.6g - %6.6g'%(low,high))
+                outfile.write('\n')
+        finally:
+            outfile.write('\n')
+
+    outfile.close()
 
 def output_confidence_uncertainty(cluncertainty, outpath):
     outfile=open(os.path.join(outpath, 'confidence_uncertainty.dat'), 'w')
@@ -940,6 +984,7 @@ if __name__ == '__main__':
 
     ####Print Confidence Levels######
     output_confidence_levels_tex(confidence_levels,outpath)    
+    output_confidence_levels_dat(confidence_levels,outpath)
     
     ####Save confidence uncertainty#####
     output_confidence_uncertainty(confidence_uncertainty,outpath)
