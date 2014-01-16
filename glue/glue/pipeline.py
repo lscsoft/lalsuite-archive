@@ -2003,6 +2003,7 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
     <!-- uncomment this and update to the pegasus install on the shared fs
     If not set , jobs will pull the pegasus worker package 
     <profile namespace="env" key="PEGASUS_HOME">/storage/gpfs_virgo3/virgo/pegasus-4.2.0-cvs</profile>
+    <profile namespace="pegasus" key="data.configuration">sharedfs</profile>
     -->
   </site>
 
@@ -2017,6 +2018,7 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
     If not set , jobs will pull the pegasus worker package 
     <profile namespace="env" key="PEGASUS_HOME">/storage/gpfs_virgo3/virgo/pegasus-4.2.0-cvs</profile>
     -->
+    <profile namespace="pegasus" key="data.configuration">nonsharedfs</profile>
     <profile namespace="pegasus" key="style">cream</profile>
     <profile namespace="globus" key="queue">medium</profile>
   </site>
@@ -2030,7 +2032,13 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
       <file-server operation="all" url="gsiftp://gridftp.stampede.tacc.xsede.org/scratch/02796/dabrown/workflow"/>
     </directory>
     <profile namespace="env" key="PEGASUS_HOME">/home1/02796/dabrown/local/pegasus-4.3.1</profile>
-    <profile namespace="globus" key="rsl" >(jobtype=single)(count=1)(maxWallTime=10)(project=TG-PHY140012)</profile>
+    <profile namespace="pegasus" key="data.configuration">sharedfs</profile>
+    <profile namespace="globus" key="queue">development</profile>
+    <profile namespace="globus" key="maxwalltime">90</profile>
+    <profile namespace="globus" key="host_count">1</profile>
+    <profile namespace="globus" key="count">1</profile>
+    <profile namespace="globus" key="jobtype">single</profile>
+    <profile namespace="globus" key="project">TG-PHY140012</profile>
   </site>
 
 </sitecatalog>""" 
@@ -2087,8 +2095,10 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
     properties_string=PEGASUS_PROPERTIES
     if grid_site:
       exec_site=grid_site
-      dirs_entry='--relative-dir ' + os.path.basename(tmp_exec_dir) + ' --relative-submit-dir . --output-site local --staging-site bologna=bologna --staging-site nikhef=nikhef --staging-site stampede=stampede'
-      properties_string+='\n  pegasus.data.configuration=nonsharedfs\n'
+      dirs_entry='--relative-dir ' + os.path.basename(tmp_exec_dir) + ' --relative-submit-dir . --output-site local'
+      exec_ssite_list = exec_site.split(',')
+      for site in exec_ssite_list:
+        dirs_entry += ' --staging-site %s=%s' % (site,site)
     else:
       exec_site='local'
       dirs_entry='--relative-dir .'
