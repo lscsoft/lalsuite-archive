@@ -20,13 +20,6 @@ check_PROGRAMS = testFstat_v3
 EXTRA_PROGRAMS = lalapps_CFSv3 eah_PredictFStat eah_ComputeFStatistic_v2 \
 		 lalapps_ComputeFStatistic_v2_SSE lalapps_ComputeFStatistic_v2_cuda
 
-# CFSv2 doesn't compile with Condor
-#if CONDOR_ENABLED
-#EXTRA_PROGRAMS += lalapps_ComputeFStatistic_v2
-#else
-#bin_PROGRAMS += lalapps_ComputeFStatistic_v2
-#endif
-
 LVsrc = ../GCT
 OPTsrc = ./OptimizedCFS
 
@@ -38,10 +31,6 @@ CFSsources = 	ComputeFStatistic.h	\
 		HeapToplist.c HeapToplist.h
 
 lalapps_ComputeFStatistic_SOURCES = ComputeFStatistic.c CFSLALDemod.c $(CFSsources)
-
-##lalapps_FrComputeFStatistic_SOURCES = FrComputeFStatistic.c FrComputeFStatistic.h	\
-##	rngmed.c rngmed.h clusters.c clusters.h  			\
-##	DopplerScan.c DopplerScan.h NeighboringGridPoints.c
 
 lalapps_FstatShapeTest_SOURCES = FstatShapeTest.c
 lalapps_FstatShapeTestLAL_SOURCES = FstatShapeTestLAL.c
@@ -99,10 +88,10 @@ lalapps_CFSv3_SOURCES = CFSv3.c Fstat_v3.c Fstat_v3.h
 testFstat_v3_SOURCES = testFstat_v3.c Fstat_v3.c Fstat_v3.h
 
 
-EXTRA_DIST = testFStat.sh testCFSv2.sh testGridv2.sh Fstats.ref1 Fstats.ref2 testPredictFStat.sh testCFSv2_resamp.sh
+EXTRA_DIST = testCFSv2.sh testGridv2.sh Fstats.ref1 Fstats.ref2 testPredictFStat.sh testCFSv2_resamp.sh
 
 
-TESTS = testFStat.sh testPredictFStat.sh testFstat_v3
+TESTS = testPredictFStat.sh testFstat_v3
 
 if !CONDOR_ENABLED
 TESTS += testCFSv2.sh testCFSv2_resamp.sh testGridv2.sh
