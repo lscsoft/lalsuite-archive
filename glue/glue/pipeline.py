@@ -1799,9 +1799,9 @@ class CondorDAG:
           for pfn_tuple in node.job().get_pfn_cache():
             workflow_pfn_dict[pfn_tuple[0]] = pfn_tuple
 
-          # set the storage and execute directory locations
-          pegasus_args = """-Dpegasus.dir.storage=%s """ % dax_subdir
+          # set the storage, execute, and output directory locations
           pegasus_args += """--dir %s """ % dax_subdir
+          pegasus_args += """--output-dir %s """ % dax_subdir
 
           # set the maxjobs categories for the subdax
           # FIXME pegasus should expose this in the dax, so it can
@@ -1821,7 +1821,7 @@ class CondorDAG:
           if node.get_static_pfn_cache():
             pegasus_args += " --cache " + node.get_static_pfn_cache() + " "
 
-          pegasus_args += "-vvvvvv"
+          pegasus_args += "--output-site local -vvvvvv"
           subdax.addArguments(pegasus_args)
 
           subdax_file = Pegasus.DAX3.File(subdax_name)
@@ -2013,17 +2013,17 @@ class CondorDAG:
     dag=self
     log_path=self.__log_file_path
     peg_fh = open("pegasus_submit_dax", "w")
+
     #set up site and dir options
     properties_string=PEGASUS_PROPERTIES
+    dirs_entry='--relative-dir .'
     if grid_site:
       exec_site=grid_site
-      dirs_entry='--relative-dir . --relative-submit-dir . --output-site local'
       exec_ssite_list = exec_site.split(',')
       for site in exec_ssite_list:
         dirs_entry += ' --staging-site %s=%s' % (site,site)
     else:
       exec_site='local'
-      dirs_entry='--relative-dir .'
     print >> peg_fh,PEGASUS_SCRIPT % ( tmp_exec_dir, os.getcwd(),
           dag.get_dax_file().replace('.dax','') + '-0.dag',
           dag.get_dax_file(), dirs_entry, exec_site )
