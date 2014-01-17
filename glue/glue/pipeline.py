@@ -1800,7 +1800,7 @@ class CondorDAG:
             workflow_pfn_dict[pfn_tuple[0]] = pfn_tuple
 
           # set the storage, execute, and output directory locations
-          pegasus_args += """--dir %s """ % dax_subdir
+          pegasus_args = """--dir %s """ % dax_subdir
           pegasus_args += """--output-dir %s """ % dax_subdir
 
           # set the maxjobs categories for the subdax
