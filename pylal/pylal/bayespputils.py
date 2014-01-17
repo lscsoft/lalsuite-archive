@@ -1156,7 +1156,7 @@ class Posterior(object):
         posterior_table=[]
         for param_name,one_pos in self:
             column=np.array(one_pos.samples)
-            header_string+=param_name+' '
+            header_string+=param_name+'\t'
             posterior_table.append(column)
         posterior_table=tuple(posterior_table)
         return np.column_stack(posterior_table),header_string
@@ -1172,7 +1172,7 @@ class Posterior(object):
         fobj=open(fname,'w')
 
         fobj.write(header_string+'\n')
-        np.savetxt(fobj,posterior_table)
+        np.savetxt(fobj,posterior_table,delimiter='\t')
         fobj.close()
 
         return
