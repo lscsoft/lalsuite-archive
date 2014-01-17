@@ -1968,117 +1968,6 @@ class CondorDAG:
     workflow.writeXML(f)
     f.close()
 
-    # write the site catalog file which is needed by the DAG
-    try:
-      sitefile = open( 'sites.xml', 'w' )
-      hostname = socket.gethostbyaddr(socket.gethostname())[0]
-      pwd = os.getcwd()
-      print >> sitefile, """\
-<?xml version="1.0" encoding="UTF-8"?>
-<sitecatalog xmlns="http://pegasus.isi.edu/schema/sitecatalog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi.edu/schema/sc-4.0.xsd" version="4.0">
-  <site handle="local" arch="x86_64" os="LINUX">
-    <grid type="gt2" contact="%s/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/> 
-    <grid type="gt2" contact="%s/jobmanager-condor" scheduler="Condor" jobtype="compute" total-nodes="50"/>
-    <directory  path="%s" type="shared-scratch" free-size="null" total-size="null">
-        <file-server  operation="all" url="file://%s">
-        </file-server>
-    </directory>
-    <directory  path="%s" type="shared-storage" free-size="null" total-size="null">
-        <file-server  operation="all" url="file://%s">
-        </file-server>
-    </directory>
-    <replica-catalog  type="LRC" url="rlsn://smarty.isi.edu">
-    </replica-catalog>
-""" % (hostname,hostname,pwd,pwd,pwd,pwd)
-      try:
-        print >> sitefile, """    <profile namespace="env" key="GLOBUS_LOCATION">%s</profile>""" % os.environ['GLOBUS_LOCATION']
-      except:
-        pass
-      try:
-        print >> sitefile, """    <profile namespace="env" key="LD_LIBRARY_PATH">%s</profile>""" % os.environ['LD_LIBRARY_PATH']
-      except:
-        pass
-      try:
-        print >> sitefile, """    <profile namespace="env" key="PYTHONPATH">%s</profile>""" % os.environ['PYTHONPATH']
-      except:
-        pass
-      try:
-        print >> sitefile, """    <profile namespace="env" key="PEGASUS_HOME">%s</profile>""" % os.environ['PEGASUS_HOME']
-      except:
-        pass
-      try:
-        print >> sitefile, """    <profile namespace="env" key="LIGO_DATAFIND_SERVER">%s</profile>""" % os.environ['LIGO_DATAFIND_SERVER']
-      except:
-        pass
-      try:
-        print >> sitefile, """    <profile namespace="env" key="S6_SEGMENT_SERVER">%s</profile>""" % os.environ['S6_SEGMENT_SERVER']
-      except:
-        pass
-
-      print >> sitefile, """\
-    <profile namespace="env" key="JAVA_HEAPMAX">4096</profile>
-    <profile namespace="pegasus" key="style">condor</profile>
-    <profile namespace="condor" key="getenv">True</profile>
-    <profile namespace="condor" key="should_transfer_files">YES</profile>
-    <profile namespace="condor" key="when_to_transfer_output">ON_EXIT_OR_EVICT</profile>
-  </site>
-
-  <!-- Bologna cluster -->
-  <site handle="bologna" arch="x86_64" os="LINUX">
-    <grid type="cream" contact="https://ce01-lcg.cr.cnaf.infn.it:8443/ce-cream/services/CREAM2" scheduler="LSF" jobtype="compute" />
-    <grid type="cream" contact="https://ce01-lcg.cr.cnaf.infn.it:8443/ce-cream/services/CREAM2" scheduler="LSF" jobtype="auxillary" />
-    <directory type="shared-scratch" path="/storage/gpfs_virgo4/virgo4/"> 
-        <file-server operation="all" url="srm://storm-fe-archive.cr.cnaf.infn.it:8444/srm/managerv2?SFN=/virgo4/"/> 
-    </directory> 
-    <profile namespace="pegasus" key="style">cream</profile>
-    <profile namespace="globus" key="queue">virgo</profile>
-    <!-- uncomment this and update to the pegasus install on the shared fs
-    If not set , jobs will pull the pegasus worker package 
-    <profile namespace="env" key="PEGASUS_HOME">/storage/gpfs_virgo3/virgo/pegasus-4.2.0-cvs</profile>
-    <profile namespace="pegasus" key="data.configuration">sharedfs</profile>
-    -->
-  </site>
-
-  <!-- Nikhef Big Grid -->
-  <site handle="nikhef" arch="x86_64" os="LINUX">
-    <grid type="cream" contact="https://klomp.nikhef.nl:8443/ce-cream/services/CREAM2" scheduler="PBS" jobtype="compute" />
-    <grid type="cream" contact="https://klomp.nikhef.nl:8443/ce-cream/services/CREAM2" scheduler="PBS" jobtype="auxillary" />
-    <directory type="shared-scratch" path="/">
-      <file-server operation="all" url="srm://tbn18.nikhef.nl:8446/srm/managerv2?SFN=/dpm/nikhef.nl/home/virgo/" />
-    </directory>
-    <!-- uncomment this and update to the pegasus install on the shared fs
-    If not set , jobs will pull the pegasus worker package 
-    <profile namespace="env" key="PEGASUS_HOME">/storage/gpfs_virgo3/virgo/pegasus-4.2.0-cvs</profile>
-    -->
-    <profile namespace="pegasus" key="data.configuration">nonsharedfs</profile>
-    <profile namespace="pegasus" key="style">cream</profile>
-    <profile namespace="globus" key="queue">medium</profile>
-  </site>
-
-  <!-- XSEDE Stampede Cluster at TACC -->
-  <!-- FIXME hardwired for Duncan -->
-  <site handle="stampede" arch="x86_64" os="LINUX">
-    <grid type="gt5" contact="login5.stampede.tacc.utexas.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary"/>
-    <grid type="gt5" contact="login5.stampede.tacc.utexas.edu/jobmanager-slurm" scheduler="unknown" jobtype="compute"/>
-    <directory type="shared-scratch" path="/scratch/02796/dabrown/workflow">
-      <file-server operation="all" url="gsiftp://gridftp.stampede.tacc.xsede.org/scratch/02796/dabrown/workflow"/>
-    </directory>
-    <profile namespace="env" key="PEGASUS_HOME">/home1/02796/dabrown/local/pegasus-4.3.1</profile>
-    <profile namespace="pegasus" key="data.configuration">sharedfs</profile>
-    <profile namespace="globus" key="queue">development</profile>
-    <profile namespace="globus" key="maxwalltime">90</profile>
-    <profile namespace="globus" key="host_count">1</profile>
-    <profile namespace="globus" key="count">1</profile>
-    <profile namespace="globus" key="jobtype">single</profile>
-    <profile namespace="globus" key="project">TG-PHY140012</profile>
-  </site>
-
-</sitecatalog>""" 
-      sitefile.close()
-    except:
-      pass
-
   def write_dag(self):
     """
     Write either a dag or a dax.
@@ -2128,7 +2017,7 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
     properties_string=PEGASUS_PROPERTIES
     if grid_site:
       exec_site=grid_site
-      dirs_entry='--relative-dir ' + os.path.basename(tmp_exec_dir) + ' --relative-submit-dir . --output-site local'
+      dirs_entry='--relative-dir . --relative-submit-dir . --output-site local'
       exec_ssite_list = exec_site.split(',')
       for site in exec_ssite_list:
         dirs_entry += ' --staging-site %s=%s' % (site,site)
@@ -2169,6 +2058,128 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
     #pegasus.transfer.symlink.impl=Symlink"""
 
     pegprop_fh.close()
+
+    # write the site catalog file which is needed by the DAG
+    sitefile = open( 'sites.xml', 'w' )
+    pwd = os.getcwd()
+    try:
+      hostname = socket.gethostbyaddr(socket.gethostname())[0]
+    except:
+      hostname = 'localhost'
+
+    print >> sitefile, """\
+<?xml version="1.0" encoding="UTF-8"?>
+<sitecatalog xmlns="http://pegasus.isi.edu/schema/sitecatalog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi.edu/schema/sc-4.0.xsd" version="4.0">
+  <site handle="local" arch="x86_64" os="LINUX">
+    <grid type="gt2" contact="%s/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/> 
+    <grid type="gt2" contact="%s/jobmanager-condor" scheduler="Condor" jobtype="compute" total-nodes="50"/>
+    <directory  path="%s" type="shared-scratch" free-size="null" total-size="null">
+        <file-server  operation="all" url="file://%s">
+        </file-server>
+    </directory>
+    <directory  path="%s" type="shared-storage" free-size="null" total-size="null">
+        <file-server  operation="all" url="file://%s">
+        </file-server>
+    </directory>
+    <replica-catalog  type="LRC" url="rlsn://smarty.isi.edu">
+    </replica-catalog>
+""" % (hostname,hostname,pwd,pwd,pwd,pwd)
+
+    try:
+      print >> sitefile, """    <profile namespace="env" key="GLOBUS_LOCATION">%s</profile>""" % os.environ['GLOBUS_LOCATION']
+    except:
+      pass
+    try:
+      print >> sitefile, """    <profile namespace="env" key="LD_LIBRARY_PATH">%s</profile>""" % os.environ['LD_LIBRARY_PATH']
+    except:
+      pass
+    try:
+      print >> sitefile, """    <profile namespace="env" key="PYTHONPATH">%s</profile>""" % os.environ['PYTHONPATH']
+    except:
+      pass
+    try:
+      print >> sitefile, """    <profile namespace="env" key="PEGASUS_HOME">%s</profile>""" % os.environ['PEGASUS_HOME']
+    except:
+      pass
+    try:
+      print >> sitefile, """    <profile namespace="env" key="LIGO_DATAFIND_SERVER">%s</profile>""" % os.environ['LIGO_DATAFIND_SERVER']
+    except:
+      pass
+    try:
+      print >> sitefile, """    <profile namespace="env" key="S6_SEGMENT_SERVER">%s</profile>""" % os.environ['S6_SEGMENT_SERVER']
+    except:
+      pass
+
+    print >> sitefile, """\
+    <profile namespace="env" key="JAVA_HEAPMAX">4096</profile>
+    <profile namespace="pegasus" key="style">condor</profile>
+    <profile namespace="condor" key="getenv">True</profile>
+    <profile namespace="condor" key="should_transfer_files">YES</profile>
+    <profile namespace="condor" key="when_to_transfer_output">ON_EXIT_OR_EVICT</profile>
+  </site>
+"""
+
+    print >> sitefile, """\
+  <!-- Bologna cluster -->
+  <site handle="bologna" arch="x86_64" os="LINUX">
+    <grid type="cream" contact="https://ce01-lcg.cr.cnaf.infn.it:8443/ce-cream/services/CREAM2" scheduler="LSF" jobtype="compute" />
+    <grid type="cream" contact="https://ce01-lcg.cr.cnaf.infn.it:8443/ce-cream/services/CREAM2" scheduler="LSF" jobtype="auxillary" />
+    <directory type="shared-scratch" path="/storage/gpfs_virgo4/virgo4/%s/"> 
+        <file-server operation="all" url="srm://storm-fe-archive.cr.cnaf.infn.it:8444/srm/managerv2?SFN=/virgo4/%s/"/> 
+    </directory> 
+    <profile namespace="pegasus" key="style">cream</profile>
+    <profile namespace="globus" key="queue">virgo</profile>
+    <!-- uncomment this and update to the pegasus install on the shared fs
+    If not set , jobs will pull the pegasus worker package 
+    <profile namespace="env" key="PEGASUS_HOME">/storage/gpfs_virgo3/virgo/pegasus-4.2.0-cvs</profile>
+    <profile namespace="pegasus" key="data.configuration">sharedfs</profile>
+    -->
+  </site>
+""" % (os.path.basename(tmp_exec_dir),os.path.basename(tmp_exec_dir))
+
+    print >> sitefile, """\
+  <!-- Nikhef Big Grid -->
+  <site handle="nikhef" arch="x86_64" os="LINUX">
+    <grid type="cream" contact="https://klomp.nikhef.nl:8443/ce-cream/services/CREAM2" scheduler="PBS" jobtype="compute" />
+    <grid type="cream" contact="https://klomp.nikhef.nl:8443/ce-cream/services/CREAM2" scheduler="PBS" jobtype="auxillary" />
+    <directory type="shared-scratch" path="/%s/">
+      <file-server operation="all" url="srm://tbn18.nikhef.nl:8446/srm/managerv2?SFN=/dpm/nikhef.nl/home/virgo/%s/" />
+    </directory>
+    <!-- uncomment this and update to the pegasus install on the shared fs
+    If not set , jobs will pull the pegasus worker package 
+    <profile namespace="env" key="PEGASUS_HOME">/storage/gpfs_virgo3/virgo/pegasus-4.2.0-cvs</profile>
+    -->
+    <profile namespace="pegasus" key="data.configuration">nonsharedfs</profile>
+    <profile namespace="pegasus" key="style">cream</profile>
+    <profile namespace="globus" key="queue">medium</profile>
+  </site>
+""" % (os.path.basename(tmp_exec_dir),os.path.basename(tmp_exec_dir))
+
+    print >> sitefile, """\
+  <!-- XSEDE Stampede Cluster at TACC -->
+  <!-- FIXME hardwired for Duncan -->
+  <site handle="stampede" arch="x86_64" os="LINUX">
+    <grid type="gt5" contact="login5.stampede.tacc.utexas.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary"/>
+    <grid type="gt5" contact="login5.stampede.tacc.utexas.edu/jobmanager-slurm" scheduler="unknown" jobtype="compute"/>
+    <directory type="shared-scratch" path="/scratch/02796/dabrown/workflow/%s">
+      <file-server operation="all" url="gsiftp://gridftp.stampede.tacc.xsede.org/scratch/02796/dabrown/workflow/%s"/>
+    </directory>
+    <profile namespace="env" key="PEGASUS_HOME">/home1/02796/dabrown/local/pegasus-4.3.1</profile>
+    <profile namespace="pegasus" key="data.configuration">sharedfs</profile>
+    <profile namespace="globus" key="queue">development</profile>
+    <profile namespace="globus" key="maxwalltime">90</profile>
+    <profile namespace="globus" key="host_count">1</profile>
+    <profile namespace="globus" key="count">1</profile>
+    <profile namespace="globus" key="jobtype">single</profile>
+    <profile namespace="globus" key="project">TG-PHY140012</profile>
+  </site>
+""" % (os.path.basename(tmp_exec_dir),os.path.basename(tmp_exec_dir))
+
+    print >> sitefile, """\
+</sitecatalog>""" 
+    sitefile.close()
+
     print
     print "Created a workflow file which can be submitted by executing"
     print """
