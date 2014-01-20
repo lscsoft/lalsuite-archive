@@ -1407,7 +1407,10 @@ class CondorDAGNode:
       m = pat.match(a)
       if m:
         arg_index = int(argpat.findall(a)[0])
-        cmd_list.append(("%s" % macros[arg_index], ""))
+        try:
+          cmd_list.append(("%s" % macros[arg_index], ""))
+        except IndexError:
+          cmd_list.append("")
       else:
         cmd_list.append(("%s" % a, ""))
 
@@ -1867,12 +1870,15 @@ class CondorDAG:
         node_file_dict = dict( input_node_file_dict.items() + output_node_file_dict.items() )
 
         for job_arg in cmd_line:
-          if node_file_dict.has_key(job_arg[0]):
-            workflow_job.addArguments(Pegasus.DAX3.File(os.path.basename(job_arg[0])))
-          elif node_file_dict.has_key(job_arg[1]):
-            workflow_job.addArguments(job_arg[0], Pegasus.DAX3.File(os.path.basename(job_arg[1])))
-          else:
-            workflow_job.addArguments(job_arg[0], job_arg[1])
+          try:
+            if node_file_dict.has_key(job_arg[0]):
+              workflow_job.addArguments(Pegasus.DAX3.File(os.path.basename(job_arg[0])))
+            elif node_file_dict.has_key(job_arg[1]):
+              workflow_job.addArguments(job_arg[0], Pegasus.DAX3.File(os.path.basename(job_arg[1])))
+            else:
+              workflow_job.addArguments(job_arg[0], job_arg[1])
+          except IndexError:
+            pass
         
         # Check for desired grid site
         if node.job().get_grid_site():
