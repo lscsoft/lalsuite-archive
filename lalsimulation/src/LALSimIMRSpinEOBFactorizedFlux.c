@@ -126,7 +126,8 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
             XLALSimIMRGetEOBCalibratedSpinNQC( &nqcCoeffs, l, m, ak->eobParams->eta, ak->a );
             break;
           case 2:
-            XLALSimIMRGetEOBCalibratedSpinNQCv2( &nqcCoeffs, l, m, ak->eobParams->eta, ak->a );
+            // XLALSimIMRGetEOBCalibratedSpinNQCv2( &nqcCoeffs, l, m, ak->eobParams->eta, ak->a );
+            XLALSimIMRGetEOBCalibratedSpinNQC3D( &nqcCoeffs, l, m, ak->eobParams->eta, ak->a, (ak->chi1 - ak->chi2)/2. );
             break;
           default:
             XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
