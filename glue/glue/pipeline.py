@@ -766,7 +766,7 @@ class CondorDAGJob(CondorJob):
     """
     self.__grid_site=str(site)
     if site != 'local':
-      self.set_executable_installed('False')
+      self.set_executable_installed(False)
 
   def get_grid_site(self):
     """
