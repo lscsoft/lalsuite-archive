@@ -39,6 +39,7 @@
 
 #ifndef _LALSIMIMRSPINEOBFACTORIZEDWAVEFORM_C
 #define _LALSIMIMRSPINEOBFACTORIZEDWAVEFORM_C
+#define UsePrecFunctions 0
 
 #include <complex.h>
 #include <lal/LALSimInspiral.h>
@@ -69,7 +70,7 @@ static INT4 XLALSimIMRSpinEOBGetSpinFactorizedWaveform(
                                 const INT4            m,
                                 SpinEOBParams         * restrict params
                                 );
-#if 0
+#if UsePrecFunctions
 static INT4 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
                                 COMPLEX16             * restrict hlm,
                                 REAL8Vector           * restrict values,
@@ -134,7 +135,7 @@ UNUSED static int XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients(
  * This function calculates hlm mode factorized-resummed waveform
  * for given dynamical variables.
  */
-#if 0
+#if UsePrecFunctions
 static INT4 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform( 
                  COMPLEX16         * restrict hlm,    /**< OUTPUT, hlm waveforms */
                  REAL8Vector       * restrict values, /**< dyanmical variables */
@@ -145,122 +146,213 @@ static INT4 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
                  SpinEOBParams     * restrict params  /**< Spin EOB parameters */
                  )
 {
+    if ( abs(m) > (INT4) l )
+    {
+      XLAL_ERROR( XLAL_EINVAL );
+    }
+    if ( m == 0 )
+    {
+      XLAL_ERROR( XLAL_EINVAL );
+    }
+
     /* Status of function calls */
     INT4 status;
     INT4 i;
+	
+	UINT4 SpinAlignedEOBversion = params->seobCoeffs->SpinAlignedEOBversion;
+	
+    REAL8 m1, m2, eta;	
+    REAL8 spin1[3], spin2[3];
+    REAL8 a, tplspin, chiS, chiA;
+    REAL8Vector s1Vec, s2Vec;
+    REAL8Vector *sigmaStar = NULL;
+    REAL8Vector *sigmaKerr = NULL;
 
-    REAL8 eta;	
-	REAL8 r, pp, Omega, v2, vh, vh3, k, hathatk, eulerlogxabs; //pr
-	REAL8 Slm, deltalm, rholm, rholmPwrl;
-        REAL8 auxflm = 0.0;
-	COMPLEX16 Tlm;
+    REAL8 r, ph, pp, Omega, v2, vh, vh3, k, hathatk, eulerlogxabs; //pr
+    REAL8 rcrossp[3], rcrosspMag;
+    REAL8 UNUSED ppvec[3], prvec[3];
+    REAL8 s1dotL, s2dotL;
+    REAL8 Slm, deltalm, rholm, rholmPwrl;
+    REAL8 auxflm = 0.0;
+    COMPLEX16 Tlm;
     COMPLEX16 hNewton;
-	gsl_sf_result lnr1, arg1, z2;
+    gsl_sf_result lnr1, arg1, z2;
 
     /* Non-Keplerian velocity */
     REAL8 vPhi, vPhi2;
 
-    /* Pre-computed coefficients */
+    /* Update the spin part of the waveform coefficients */
+    m1 = params->eobParams->m1;
+    m2 = params->eobParams->m2;
+    eta = params->eobParams->eta;
+
+    /* Check our eta was sensible */
+    if ( eta > 0.25 )
+    {
+      XLALPrintError("XLAL Error - %s: Eta seems to be > 0.25 - this isn't allowed!\n", __func__ );
+      XLAL_ERROR( XLAL_EINVAL );
+    }
+    /*else if ( eta == 0.25 && m % 2 )
+    {
+    // If m is odd and dM = 0, hLM will be zero 
+      memset( hlm, 0, sizeof( COMPLEX16 ) );
+      return XLAL_SUCCESS;
+    }*/
+    for( i = 0; i < 3; i++ )
+    {
+      spin1[i] = values->data[i+6];
+      spin2[i] = values->data[i+9];
+    }
+    s1Vec.data = spin1;
+    s2Vec.data = spin2;
+    s1Vec.length = s2Vec.length = 3;
+      
+    /* Populate the initial structures */
+    if ( XLALSimIMRSpinEOBCalculateSigmaStar( sigmaStar, m1, m2, 
+                              &s1Vec, &s2Vec ) == XLAL_FAILURE )
+    {
+      XLALDestroyREAL8Vector( sigmaKerr );
+      XLALDestroyREAL8Vector( sigmaStar );
+      XLALDestroyREAL8Vector( values );
+      XLAL_ERROR( XLAL_EFUNC );
+    }
+    
+    if ( XLALSimIMRSpinEOBCalculateSigmaKerr( sigmaKerr, m1, m2, 
+                              &s1Vec, &s2Vec ) == XLAL_FAILURE )
+    {
+      XLALDestroyREAL8Vector( sigmaKerr );
+      XLALDestroyREAL8Vector( sigmaStar );
+      XLALDestroyREAL8Vector( values );
+      XLAL_ERROR( XLAL_EFUNC );
+    }
+    /* Confirm with Yi */
+    params->a = a = sigmaKerr->data[2];
+    
+    /* Calculate the values of chiS and chiA, as given in Eq.16 of 
+     * Precessing EOB paper 
+     * Assuming \vec{L} to be pointing in the direction of \vec{r}\times\vec{p}
+     * */
+    rcrossp[0] = values->data[1]*values->data[5] - values->data[2]*values->data[4];
+    rcrossp[1] = values->data[2]*values->data[3] - values->data[0]*values->data[5];
+    rcrossp[2] = values->data[0]*values->data[4] - values->data[1]*values->data[3];
+    rcrosspMag = sqrt(rcrossp[0]*rcrossp[0] + rcrossp[1]*rcrossp[1] + 
+        rcrossp[2]*rcrossp[2]);
+    rcrossp[0] /= rcrosspMag;
+    rcrossp[1] /= rcrosspMag;
+    rcrossp[2] /= rcrosspMag;
+
+    s1dotL = spin1[0]*rcrossp[0] + spin1[1]*rcrossp[1] + spin1[2]*rcrossp[2];
+    s2dotL = spin2[0]*rcrossp[0] + spin2[1]*rcrossp[1] + spin2[2]*rcrossp[2];
+
+    chiS = 0.5 * (s1dotL + s2dotL);
+    chiA = 0.5 * (s1dotL - s2dotL);
+
+    /* Calculate the value of a */
+    switch ( SpinAlignedEOBversion )
+    {
+      case 1:
+        tplspin = 0.0;
+        break;
+      case 2:
+        tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
+        break;
+      default:
+        XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+        XLAL_ERROR( XLAL_EINVAL );
+        break;
+    }
+
+    /* Update the Spin-dependent waveform coefficients */
     FacWaveformCoeffs *hCoeffs = params->eobParams->hCoeffs;
+    status = XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients(
+        hCoeffs, m1, m2, eta, tplspin, chiS, chiA, 2 );
 
-	if ( abs(m) > (INT4) l )
-	{
-	  XLAL_ERROR( XLAL_EINVAL );
-	}
-        if ( m == 0 )
-	{
-	  XLAL_ERROR( XLAL_EINVAL );
-	}	
-
-        eta = params->eobParams->eta;
-
-        /* Check our eta was sensible */
-        if ( eta > 0.25 )
-        {
-          XLALPrintError("XLAL Error - %s: Eta seems to be > 0.25 - this isn't allowed!\n", __func__ );
-          XLAL_ERROR( XLAL_EINVAL );
-        }
-        /*else if ( eta == 0.25 && m % 2 )
-        {
-          // If m is odd and dM = 0, hLM will be zero 
-          memset( hlm, 0, sizeof( COMPLEX16 ) );
-          return XLAL_SUCCESS;
-        }*/
         
-	r	= values->data[0];
-	//pr	= values->data[2];
-	pp	= values->data[3];
+    /* Use the cartesian coordinates to get these ones */
+    r	= sqrt(values->data[0]*values->data[0]
+          + values->data[1]*values->data[1] + values->data[2]*values->data[2]);
+    ph  = values->data[12] + values->data[13];
+    //pr    = (values->data[0]*values->data[3] 
+    //+ values->data[1]*values->data[4] + values->data[2]*values->data[5])/r;
+    pp      = rcrosspMag;
+    //pp    = values->data[3];
 
-	v2	= v * v;
-        Omega   = v2 * v;
-        vh3     = Hreal * Omega;
-	vh	= cbrt(vh3);
-	eulerlogxabs = LAL_GAMMA + log( 2.0 * (REAL8)m * v );
+    v2	= v * v;
+    Omega   = v2 * v;
+    vh3     = Hreal * Omega;
+    vh	    = cbrt(vh3);
+    eulerlogxabs = LAL_GAMMA + log( 2.0 * (REAL8)m * v );
+       
+   /* Storing (r, phi, pr, pphi) in polar coordinates, from 
+    * the cartesian forms in values 
+    * */
+   REAL8 tmpValues[4];
+   tmpValues[0] = r; tmpValues[1] = 0.; tmpValues[2] = 0.; tmpValues[3] = pp;
 
-        /* Calculate the non-Keplerian velocity */
-        if ( params->alignedSpins )
-        {
-          vPhi = XLALSimIMRSpinAlignedEOBNonKeplerCoeff( values->data, params );
+   /* Calculate the non-Keplerian velocity */
+   if ( params->alignedSpins )
+   {
+     vPhi = XLALSimIMRSpinAlignedEOBNonKeplerCoeff( tmpValues, params );
 
-          if ( XLAL_IS_REAL8_FAIL_NAN( vPhi ) )
-          {
-            XLAL_ERROR( XLAL_EFUNC );
-          }
+     if ( XLAL_IS_REAL8_FAIL_NAN( vPhi ) )
+     {
+       XLAL_ERROR( XLAL_EFUNC );
+     }
 
-          vPhi  = r * cbrt(vPhi);
-          vPhi *= Omega;
-          vPhi2 = vPhi*vPhi;
-        }
-        else
-        {
-          vPhi = v;
-          vPhi2 = v2;
-        }
+     vPhi  = r * cbrt(vPhi);
+     vPhi *= Omega;
+     vPhi2 = vPhi*vPhi;
+   }
+   else
+   {
+     vPhi = v;
+     vPhi2 = v2;
+   }
 
-        /* Calculate the newtonian multipole, 1st term in Eq. 17, given by Eq. A1 */
-        status = XLALSimIMRSpinEOBCalculateNewtonianMultipole( &hNewton, vPhi2, r,
-                         values->data[1], (UINT4)l, m, params->eobParams );
-        if ( status == XLAL_FAILURE )
-        {
-          XLAL_ERROR( XLAL_EFUNC );
-        }
+   /* Calculate the newtonian multipole, 1st term in Eq. 17, given by Eq. A1 */
+   status = XLALSimIMRSpinEOBCalculateNewtonianMultipole( &hNewton, vPhi2, r,
+                    ph, (UINT4)l, m, params->eobParams );
+    if ( status == XLAL_FAILURE )
+    {
+      XLAL_ERROR( XLAL_EFUNC );
+    }
 
-        /* Calculate the source term, 2nd term in Eq. 17, given by Eq. A5 */
-	if ( ( (l+m)%2 ) == 0)
-	{ 
-	  Slm = (Hreal*Hreal - 1.)/(2.*eta) + 1.;
-	}
-	else
-	{
-	  Slm = v * pp;
-	}
+    /* Calculate the source term, 2nd term in Eq. 17, given by Eq. A5 */
+    if ( ( (l+m)%2 ) == 0)
+    { 
+      Slm = (Hreal*Hreal - 1.)/(2.*eta) + 1.;
+    }
+    else
+    {
+      Slm = v * pp;
+    }
         //printf( "Hreal = %e, Slm = %e, eta = %e\n", Hreal, Slm, eta );
 
         /* Calculate the Tail term, 3rd term in Eq. 17, given by Eq. A6 */	
-	k	= m * Omega;
-	hathatk = Hreal * k;
-	XLAL_CALLGSL( status = gsl_sf_lngamma_complex_e( l+1.0, -2.0*hathatk, &lnr1, &arg1 ) );
-	if (status != GSL_SUCCESS)
-	{
-	  XLALPrintError("XLAL Error - %s: Error in GSL function\n", __func__ );
+    k	= m * Omega;
+    hathatk = Hreal * k;
+    XLAL_CALLGSL( status = gsl_sf_lngamma_complex_e( l+1.0, -2.0*hathatk, &lnr1, &arg1 ) );
+    if (status != GSL_SUCCESS)
+    {
+      XLALPrintError("XLAL Error - %s: Error in GSL function\n", __func__ );
 	  XLAL_ERROR( XLAL_EFUNC );
-	}
-	XLAL_CALLGSL( status = gsl_sf_fact_e( l, &z2 ) );
-	if ( status != GSL_SUCCESS)
-	{
-	  XLALPrintError("XLAL Error - %s: Error in GSL function\n", __func__ );
-	  XLAL_ERROR( XLAL_EFUNC );
-	}
-	Tlm = cexp( ( lnr1.val + LAL_PI * hathatk ) + I * ( 
-				arg1.val + 2.0 * hathatk * log(4.0*k/sqrt(LAL_E)) ) );
-	Tlm /= z2.val;
+    }
+    XLAL_CALLGSL( status = gsl_sf_fact_e( l, &z2 ) );
+    if ( status != GSL_SUCCESS)
+    {
+      XLALPrintError("XLAL Error - %s: Error in GSL function\n", __func__ );
+  	  XLAL_ERROR( XLAL_EFUNC );
+    }
+    Tlm = cexp( ( lnr1.val + LAL_PI * hathatk ) + I * ( 
+    	arg1.val + 2.0 * hathatk * log(4.0*k/sqrt(LAL_E)) ) );
+    Tlm /= z2.val;
 
 
-        /* Calculate the residue phase and amplitude terms */
-        /* deltalm is the 4th term in Eq. 17, delta 22 given by Eq. A15, others  */
-        /* rholm is the 5th term in Eq. 17, given by Eqs. A8 - A14 */
-        /* auxflm is a special part of the 5th term in Eq. 17, given by Eq. A15 */
-        /* Actual values of the coefficients are defined in the next function of this file */
+    /* Calculate the residue phase and amplitude terms */
+    /* deltalm is the 4th term in Eq. 17, delta 22 given by Eq. A15, others  */
+    /* rholm is the 5th term in Eq. 17, given by Eqs. A8 - A14 */
+    /* auxflm is a special part of the 5th term in Eq. 17, given by Eq. A15 */
+    /* Actual values of the coefficients are defined in the next function of this file */
 	switch( l )
 	{
 	  case 2:
