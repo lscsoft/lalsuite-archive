@@ -88,6 +88,8 @@ tagSpinEOBParams
   REAL8Vector             *sigmaStar;
   REAL8Vector             *sigmaKerr;
   REAL8                   a;
+  REAL8                   chi1;
+  REAL8                   chi2;
   int                     alignedSpins;
   int                     tortoise;
 }
