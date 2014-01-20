@@ -151,10 +151,11 @@ XLALSpinAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
   K = 1.4467 -  1.7152360250654402 * eta - 3.246255899738242 * eta * eta;
 
   if ( chiK < 0.8 ) rshift = 0.5;
+  if ( chiK < 0.78) rshift = 0.475;
   if ( chiK < 0.72) rshift = 0.45;
   if ( chiK > -0.8 && chiK < 0.67 ) rshift = 0.35;
 
-  if ( values[0] <= (1.+sqrt(1-params->a * params->a))*(1.-K*eta) + rshift || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
+  if ( values[0] <= (1.+sqrt(1-params->a * params->a))*(1.-K*eta) + rshift+0.02 || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
   {
     return 1;
   }
@@ -471,6 +472,8 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   }
   a = sqrt( a );*/
   seobParams.a = a = sigmaKerr->data[2];
+  seobParams.chi1 = spin1[2];
+  seobParams.chi2 = spin2[2];
 
   /* Now compute the spinning H coefficients and store them in seobCoeffs */
   if ( XLALSimIMRCalculateSpinEOBHCoeffs( &seobCoeffs, eta, a, SpinAlignedEOBversion ) == XLAL_FAILURE )
@@ -807,7 +810,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
        }
        break;
      case 2:
-       if ( XLALSimIMRGetEOBCalibratedSpinNQCv2( &nqcCoeffs, 2, 2, eta, a ) == XLAL_FAILURE )
+       if ( XLALSimIMRGetEOBCalibratedSpinNQC3D( &nqcCoeffs, 2, 2, eta, a, chiA ) == XLAL_FAILURE )
        {
          XLAL_ERROR( XLAL_EFUNC );
        }
@@ -820,7 +823,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
 
   /* Calculate phase NQC coefficients */
   if ( XLALSimIMRSpinEOBCalculateNQCCoefficients( ampNQC, phaseNQC, &rHi, &prHi, omegaHi,
-          2, 2, timePeak, deltaTHigh/mTScaled, eta, a, &nqcCoeffs, SpinAlignedEOBversion ) == XLAL_FAILURE )
+          2, 2, timePeak, deltaTHigh/mTScaled, eta, a, chiA, &nqcCoeffs, SpinAlignedEOBversion ) == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
   }
