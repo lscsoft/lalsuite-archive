@@ -1035,7 +1035,7 @@ if __name__ == '__main__':
 
     if greedy2savepaths:
 
-        param_section=compare_page.add_section('2D greedy bin historgrams')
+        param_section=compare_page.add_section('2D greedy bin histograms')
         for plot_path in greedy2savepaths:
             temp,param_name=os.path.split(plot_path)
             param_name=param_name.split('.')[0]
