@@ -378,7 +378,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
 
     #Create common figure
     myfig=plt.figure(figsize=(6,4.5),dpi=150)
-    myfig.add_axes([0.1,0.1,0.65,0.85])
+    myfig.add_axes([0.15,0.15,0.6,0.76])
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
 
@@ -436,7 +436,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
       for text in oned_legend.get_texts():
           text.set_fontsize('small')
     plt.xlabel(bppu.plot_label(param))
-    plt.ylabel('Probability density')
+    plt.ylabel('Cumulative Probability')
     plt.draw()
     #plt.tight_layout()
     if injvals:
