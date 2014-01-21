@@ -209,7 +209,10 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param,analyicPDF=None):
         plt.xlabel(bppu.plot_label(param))
         plt.xlim(min_pos,max_pos)
         plt.ylabel('Probability Density')
-        #plt.tight_layout()
+        try:
+          plt.tight_layout()
+        except:
+          pass
         if injvals:
             print "Injection parameter is %f"%(float(injvals[0]))
             injpar=injvals[0]
@@ -359,7 +362,7 @@ def compute_ks_pvalue_matrix(list_of_pos_by_name, param):
 
     return matrix
         
-def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True,analyticCDF=None):
+def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True,analyticCDF=None,legend='auto'):
 
     """
     Plots a gaussian kernel density estimate for a set
@@ -428,9 +431,10 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     plt.grid()
     plt.xlim(min_pos,max_pos)
     plt.ylim(0,1)
-    oned_legend=plt.figlegend(patch_list,pos_names,'right')
-    for text in oned_legend.get_texts():
-        text.set_fontsize('small')
+    if legend:
+      oned_legend=plt.figlegend(patch_list,pos_names,'right')
+      for text in oned_legend.get_texts():
+          text.set_fontsize('small')
     plt.xlabel(bppu.plot_label(param))
     plt.ylabel('Probability density')
     plt.draw()
@@ -710,13 +714,17 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                     cs_list=[]
 
                     slinestyles=['solid', 'dashed', 'dashdot', 'dotted']
-                    ldg='right'
+                    ldg='auto'
                     if not ldg_flag:
                       ldg=None
 
                     fig=bppu.plot_two_param_kde_greedy_levels(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition,legend=ldg)
                     #fig=bppu.plot_two_param_greedy_bins_contour(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition)
                     greedy2savepaths.append('%s-%s.png'%(pplst[0],pplst[1]))
+                    try:
+                      plt.tight_layout()
+                    except:
+                      pass
                     fig.savefig(os.path.join(outdir,'%s-%s.png'%(pplst[0],pplst[1])),bbox_inches='tight')
                     fig.savefig(os.path.join(pdfdir,'%s-%s.pdf'%(pplst[0],pplst[1])),bbox_inches='tight')
 
@@ -744,7 +752,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 		  
                 cl_table_header+='<th colspan="2">%i%% (Lower|Upper)</th>'%(int(100*confidence_level))
                 hist_fig,cl_intervals=compare_plots_one_param_line_hist(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf,legend=ldg,analyticPDF=pdf)
-                hist_fig2,cl_intervals=compare_plots_one_param_line_hist_cum(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf,analyticCDF=cdf)
+                hist_fig2,cl_intervals=compare_plots_one_param_line_hist_cum(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf,analyticCDF=cdf,legend=ldg)
 
                 # Save confidence levels and uncertainty
                 #confidence_levels[param]=[]
@@ -768,6 +776,11 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 if hist_fig is not None:
                     save_path=os.path.join(outdir,'%s_%i.png'%(param,int(100*confidence_level)))
                     save_path_pdf=os.path.join(pdfdir,'%s_%i.pdf'%(param,int(100*confidence_level)))
+                    try:
+                      plt.tight_layout(hist_fig)
+                      plt.tight_layout(hist_fig2)
+                    except:
+                      pass
                     hist_fig.savefig(save_path,bbox_inches='tight')
                     hist_fig.savefig(save_path_pdf,bbox_inches='tight')
                     save_paths.append(save_path)
