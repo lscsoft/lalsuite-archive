@@ -1915,7 +1915,7 @@ class CondorDAG:
         
         # Check for desired grid site
         if node.job().get_grid_site():
-            workflow_job.addProfile(Pegasus.DAX3.Profile('hints','executionpool',node.job().get_grid_site()))
+            workflow_job.addProfile(Pegasus.DAX3.Profile('hints','executionPool',node.job().get_grid_site()))
 
         # write the executable into the dax
         job_executable = Pegasus.DAX3.Executable(
