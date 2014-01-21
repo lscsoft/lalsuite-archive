@@ -690,6 +690,9 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             color_idx_max=len(names_and_pos_folders)
             cmap_array=my_cm(np.array(range(cmap_size)))
             #cmap_array=['r','g','b','c','m','k','0.5','#ffff00']
+            ldg='auto'
+            if not ldg_flag:
+              ldg=None
             for name,infolder in names_and_pos_folders:
                 #color_by_name=cmap_array[color_idx]
                 color_by_name[name]=cmap_array[int(floor(color_idx*cmap_size/color_idx_max)),:]
@@ -714,9 +717,6 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                     cs_list=[]
 
                     slinestyles=['solid', 'dashed', 'dashdot', 'dotted']
-                    ldg='auto'
-                    if not ldg_flag:
-                      ldg=None
 
                     fig=bppu.plot_two_param_kde_greedy_levels(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition,legend=ldg)
                     #fig=bppu.plot_two_param_greedy_bins_contour(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition)
@@ -969,6 +969,7 @@ if __name__ == '__main__':
     parser.add_option("--ignore-missing-files",dest="readFileErr",default=False,action="store_true",help="Do not fail when files are missing (optional).")
     parser.add_option("-c","--covarianceMatrix",dest="covarianceMatrices",action="append",default=None,help="CSV file containing covariance (must give accompanying mean vector CSV. Can add more than one matrix.")
     parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
+    parser.add_option("--no2D",dest="no2d",action="store_true",default=False,help="Disable 2D plots")
     
     (opts,args)=parser.parse_args()
 
@@ -989,6 +990,9 @@ if __name__ == '__main__':
             names.append(str(i))
     else:
         names=opts.names
+
+    if opts.no2d:
+        twoDplots=[]
 
     if len(opts.pos_list)!=len(names):
         print "Either add names for all posteriors or dont put any at all!"
