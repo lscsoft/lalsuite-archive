@@ -541,6 +541,7 @@ class TigerRun:
 		self.subhyp = subhyp
 		self.bayesfiles = []
 		self.snrfiles = []
+		self.detectors = []
 		self.posteriorfiles = []
 		self.gps = []
 		self.nsources = 0
@@ -564,7 +565,7 @@ class TigerRun:
 			command+="/nest/"
 		elif self.engine == 'lalinference':
 			command+="/posterior_samples/"
-		command+="*H1L1V1*_B.txt | xargs -n1 basename`; do "
+		command+="*_B.txt | xargs -n1 basename`; do "
 		for sh in self.subhyp:
 			if self.engine == 'lalnest':
 				command+="test -f "+self.directory+"/"+sh
@@ -581,10 +582,16 @@ class TigerRun:
 		self.bayesfiles = array([k.strip('\n') for k in lines])
 		del lines
 
+		# GET DETECTOR INFORMATION
+		if self.engine == 'lalnest':
+			self.detectors = array([k.split('_')[2].split('.')[0] for k in self.bayesfiles])
+		elif self.engine == 'lalinference':
+			self.detectors = array([k.split('_')[1] for k in self.bayesfiles])
+
 		# GET POSTERIOR FILES
 		if self.engine == 'lalnest':
 			self.posteriorfiles = array([k.replace('_B.txt','') for k in self.bayesfiles])
-		if self.engine == 'lalinference':
+		elif self.engine == 'lalinference':
 			self.posteriorfiles = array([k.replace('_B.txt','') for k in self.bayesfiles])
 
 		# EXTRACT GPS TIMES
@@ -595,7 +602,10 @@ class TigerRun:
 		#self.gps=hstack((self.gps,gpstmp))
 
 		# GET SNR FILES
-		self.snrfiles = array(["snr_H1L1V1_"+item+".0.dat" for item in self.gps])
+		#snrfilename = "snr_%s_%.1f.dat"%(self.bayesfiles[k].split('_')[1],int(self.gps[k]))
+		#self.snrfiles = array(["snr_%s_%.1f.dat"%(self.bayesfiles[k].split('_')[1],int(self.gps[k])) for k in xrange(len(self.bayesfiles))])
+		self.snrfiles = array(["snr_%s_%.1f.dat"%(x,int(y)) for x,y in zip(self.detectors, self.gps)])
+		#self.snrfiles = array(["snr_H1L1V1_"+item+".0.dat" for item in self.gps])
 
 		self.nsources = len(self.bayesfiles)
 		stdout.write("... searching sources: %s\t%s - %d sources\n" % (self.cluster,self.directory, self.nsources))
@@ -647,7 +657,18 @@ class TigerRun:
 			if self.cluster != 'local':
 				command+="'"
 			p = Popen(command, stdout=PIPE, stderr=PIPE,shell=True)
-			self.snr = array([float(k.strip('Network:').strip()) for k in p.stdout.readlines() if k.find('Network')!=-1])
+			#self.snr = array([float(k.strip('Network:').strip()) for k in p.stdout.readlines() if k.find('Network')!=-1])
+			snrrawdata = p.stdout.readlines()
+			count = 0
+			for k in xrange(len(self.gps)):
+				ndet = len(self.detectors[k])/2
+				if ndet == 1:
+					self.snr.append(float(snrrawdata[count+ndet-1].strip('%s:'%(self.detectors[k])).strip()))
+					count+=1
+				else: 
+					self.snr.append(float(snrrawdata[count+ndet].strip('Network:').strip()))
+					count+=ndet+1
+			self.snr = array(self.snr)
 		stdout.write("... pulling SNRs: %s\t%s - %d sources\n" % (self.cluster,self.directory, len(self.snr)))
 
 	def pullposteriors(self):
@@ -1046,7 +1067,7 @@ def TigerCreateCumFreq(tigerrun, axis):
 	"""
 	CREATE CUMULATIVE FREQUENCY DIAGRAMS FROM A LIST OF TIGERRUNS
 	"""
-	xlim = [5.0,60.0]
+	xlim = [5.0,100.0]
 	snrrange = arange(xlim[0], xlim[1], 5.)
 	nsnrsteps = len(snrrange) 
 	freqs = zeros((nsnrsteps,tigerrun.nsubhyp)) 
@@ -1061,7 +1082,7 @@ def TigerCreateCumFreq(tigerrun, axis):
 
 	# CHECK IF TOTAL ADDS UP TO TOTAL NUMBER OF SOURCES
 	if sum(freqs[-1,:]) != tigerrun.nsources:
-			print "Total number of sources not correct; abort"
+			print "Total number of sources not correct; %i vs %i" %(sum(freqs[-1,:]),tigerrun.nsources)
 			exit(-1)
 
 	# PLOT CUMULATIVE HIGHEST BAYES SIGNAL VERSUS NOISE
