@@ -3423,7 +3423,7 @@ def getDecString(radians,accuracy='auto'):
     #    else: return(getDecString(sign*radians,accuracy='deg'))
       return(getDecString(sign*radians,accuracy='deg'))
 
-def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None):
+def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None,Npixels=50):
   """
   Plots a 2D kernel density estimate of the 2-parameter marginal posterior.
   
@@ -3488,10 +3488,34 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
     kde=stats.kde.gaussian_kde(samp)
     den=kde(samp)
     #grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
-    Nx=50
-    Ny=50
-    xax = np.linspace(np.min(xdat),np.max(xdat),Nx)
-    yax = np.linspace(np.min(ydat),np.max(ydat),Ny)
+    Nx=Npixels
+    Ny=Npixels
+    # Ugly hack to produce plots centred on the main mode:
+    # Choose 1%-99% percentile range of the samples
+    # Then zoom out by 0.95 to encompass the contour edges
+    xsorted=np.sort(xdat,axis=None)
+    ysorted=np.sort(ydat,axis=None)
+    imin=int(0.01*len(xsorted))
+    imax=int(0.99*len(xsorted))
+    xmax=xsorted[imax]
+    xmin=xsorted[imin]
+    ymax=ysorted[imax]
+    ymin=ysorted[imin]
+    xmid=0.5*(xmin+xmax)
+    ymid=0.5*(ymin+ymax)
+    xmin=xmid+(xmin-xmid)/0.95
+    xmax=xmid+(xmax-xmid)/0.95
+    ymin=ymid+(ymin-ymid)/0.95
+    ymax=ymid+(ymax-ymid)/0.95
+    xax=np.linspace(xmin,xmax,Nx)
+    yax=np.linspace(ymin,ymax,Ny)
+    #print 'Plot limits %f-%f x %f-%f'%(xmin,xmax,ymin,ymax)
+
+    # Original way which includes all samples
+    #xax = np.linspace(np.min(xdat),np.max(xdat),Nx)
+    #yax = np.linspace(np.min(ydat),np.max(ydat),Ny)
+
+    # Do the actual plotting
     x,y = np.meshgrid(xax,yax)
     grid_coords = np.row_stack( (x.flatten(),y.flatten()) )
     z = kde(grid_coords)
