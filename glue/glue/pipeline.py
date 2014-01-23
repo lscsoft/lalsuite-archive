@@ -286,7 +286,6 @@ pegasus.catalog.site.file=%s/sites.xml
 # If pegasus sees a pool attribute in the replica catalog associated with the
 # PFN that matches the execution pool, return the PFN as a file URL, so that
 # the transfer executable uses ln to link the input files.
-pegasus.transfer.force=true
 pegasus.transfer.links=true
 
 
@@ -319,10 +318,10 @@ pegasus.dir.useTimestamp=true
 
 
 ###############################################################################
-# FIXME: Check with Karan if these are still needed.
+# Directory Properties
 
+# Use directory labels for sub-workflows (needed for ihope)
 pegasus.dir.submit.subwf.labelbased=true
-pegasus.dir.submit.logs=%s
 
 
 """
