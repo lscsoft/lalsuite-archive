@@ -1389,7 +1389,7 @@ static SimBurst *random_string_cusp(double flow, double fhigh, double Alow, doub
  */
 
 
-static SimBurst *random_directed_btlwnb(double ra, double dec, double psi, double minf, double maxf, double minband, double maxband, double mindur, double maxdur, double minEoverr2, double maxEoverr2, gsl_rng *rng)
+static SimBurst *random_directed_btlwnb(double ra, double dec, double psi, double minf, double maxf, double minband, double maxband, double mindur, double maxdur, double minEoverr2, double maxEoverr2, struct options *options, gsl_rng *rng)
 {
 	REAL8TimeSeries *hplus, *hcross;
 	SimBurst *sim_burst = XLALCreateSimBurst();
@@ -1410,20 +1410,58 @@ static SimBurst *random_directed_btlwnb(double ra, double dec, double psi, doubl
 	sim_burst->waveform_number = floor(gsl_ran_flat(rng, 0, ULONG_MAX));
 
 	/* centre frequency.  three steps between minf and maxf */
-
-	sim_burst->frequency = ran_flat_log_discrete(rng, minf, maxf, pow(maxf / minf, 1.0 / 3.0));
+  switch (options->f_distr){
+		case FIXED:
+			sim_burst->frequency = options->f;
+			break;
+		case UNIFORM:
+			sim_burst->frequency=draw_uniform(rng,options->minf,options->maxf);
+			break;
+		case GAUSSIAN:
+			sim_burst->frequency=draw_gaussian(rng,options->f,options->f_stdev);
+			break;
+		case UNIFORM_LOG:
+			sim_burst->frequency=ran_flat_log(rng, options->minf, options->maxf);
+			break;
+		default:
+			fprintf(stderr,"unknown distribution of frequency. Known values are fixed, uniform, gaussian, log.\n");
+			exit(1);
+	}
+	//sim_burst->frequency = ran_flat_log_discrete(rng, minf, maxf, pow(maxf / minf, 1.0 / 3.0));
 
 	/* duration and bandwidth.  keep picking until a valid pair is
  	 * obtained (i.e. their product is >= 2 / \pi) */
 	do {
-		sim_burst->duration = ran_flat_log(rng, mindur, maxdur);
-		sim_burst->bandwidth = ran_flat_log(rng, minband, maxband);
+		sim_burst->duration = draw_uniform(rng, mindur, maxdur);
+		sim_burst->bandwidth = draw_uniform(rng, minband, maxband);
 	} while(sim_burst->bandwidth * sim_burst->duration < LAL_2_PI);
 
 	/* energy */
 
-	sim_burst->egw_over_rsquared = ran_flat_log(rng, minEoverr2, maxEoverr2) * pow(sim_burst->frequency / 100.0, 4.0);
-
+	sim_burst->egw_over_rsquared = 1e-10;//ran_flat_log(rng, minEoverr2, maxEoverr2) * pow(sim_burst->frequency / 100.0, 4.0);
+  
+  REAL8 rand_hrss;//= draw_volume(rng, options->minhrss,options->maxhrss);
+  switch (options->hrss_distr){
+			case FIXED:
+				rand_hrss = options->hrss;
+				break;
+			case UNIFORM:
+				rand_hrss=draw_uniform(rng,options->minhrss,options->maxhrss);
+				break;
+			case VOLUME:
+				rand_hrss=draw_volume(rng,options->minhrss,options->maxhrss);
+				break;
+			case GAUSSIAN:
+        rand_hrss=draw_gaussian(rng,options->hrss,options->hrss_stdev);
+				break;
+			case UNIFORM_LOG:
+				rand_hrss=ran_flat_log(rng, options->minhrss, options->maxhrss);
+				break;
+			default:
+				fprintf(stderr,"unknown distribution of hrss. Known values are fixed, uniform, gaussian, log, and volume.\n");
+				exit(1);	
+				
+		}
 	/* not sure if this makes sense.  these parameters are ignored by
 	 * the injection code, but post-processing tools sometimes wish to
 	 * know with what amplitude an injection should've been seen in an
@@ -1448,7 +1486,21 @@ static SimBurst *random_directed_btlwnb(double ra, double dec, double psi, doubl
 		XLALDestroySimBurst(sim_burst);
 		return NULL;
 	}
-	sim_burst->hrss = XLALMeasureHrss(hplus, hcross);
+	sim_burst->hrss = rand_hrss;//XLALMeasureHrss(hplus, hcross);
+  //printf("resulting hrss %.1e\n",XLALMeasureHrss(hplus, hcross));
+  sim_burst->egw_over_rsquared = 1e-10*pow(rand_hrss/XLALMeasureHrss(hplus, hcross),2.);
+  /*
+  XLALGenerateSimBurst(&hplus, &hcross, sim_burst, 1.0 / 8192);
+	if(!hplus || !hcross) {
+		XLALDestroyREAL8TimeSeries(hplus);
+		XLALDestroyREAL8TimeSeries(hcross);
+		XLALDestroySimBurst(sim_burst);
+		return NULL;
+	}
+  
+  REAL8 tmp=XLALMeasureHrss(hplus, hcross);
+  printf("got an hrss of %.1e, drawn was %.1e -- ratio %.5e\n",tmp,rand_hrss,tmp/rand_hrss);
+  */
 	XLALDestroyREAL8TimeSeries(hplus);
 	XLALDestroyREAL8TimeSeries(hcross);
 
@@ -1458,13 +1510,13 @@ static SimBurst *random_directed_btlwnb(double ra, double dec, double psi, doubl
 }
 
 
-static SimBurst *random_all_sky_btlwnb(double minf, double maxf, double minband, double maxband, double mindur, double maxdur, double minEoverr2, double maxEoverr2, gsl_rng *rng)
+static SimBurst *random_all_sky_btlwnb(double minf, double maxf, double minband, double maxband, double mindur, double maxdur, double minEoverr2, double maxEoverr2, struct options *options, gsl_rng *rng)
 {
 	double ra, dec, psi;
 
 	random_location_and_polarization(&ra, &dec, &psi, rng);
 
-	return random_directed_btlwnb(ra, dec, psi, minf, maxf, minband, maxband, mindur, maxdur, minEoverr2, maxEoverr2, rng);
+	return random_directed_btlwnb(ra, dec, psi, minf, maxf, minband, maxband, mindur, maxdur, minEoverr2, maxEoverr2, options, rng);
 }
 
 
@@ -1866,7 +1918,7 @@ int main(int argc, char *argv[])
 
 		switch(options.population) {
 		case POPULATION_TARGETED:
-			*sim_burst = random_directed_btlwnb(options.ra, options.dec, gsl_ran_flat(rng, 0, LAL_TWOPI), options.minf, options.maxf, options.minbandwidth, options.maxbandwidth, options.minduration, options.maxduration, options.minEoverr2, options.maxEoverr2, rng);
+			*sim_burst = random_directed_btlwnb(options.ra, options.dec, gsl_ran_flat(rng, 0, LAL_TWOPI), options.minf, options.maxf, options.minbandwidth, options.maxbandwidth, options.minduration, options.maxduration, options.minEoverr2, options.maxEoverr2,&options, rng);
 			break;
 
 		case POPULATION_ALL_SKY_SINEGAUSSIAN:
@@ -1876,7 +1928,7 @@ int main(int argc, char *argv[])
 			break;
 
 		case POPULATION_ALL_SKY_BTLWNB:
-			*sim_burst = random_all_sky_btlwnb(options.minf, options.maxf, options.minbandwidth, options.maxbandwidth, options.minduration, options.maxduration, options.minEoverr2, options.maxEoverr2, rng);
+			*sim_burst = random_all_sky_btlwnb(options.minf, options.maxf, options.minbandwidth, options.maxbandwidth, options.minduration, options.maxduration, options.minEoverr2, options.maxEoverr2, &options, rng);
 			break;
 
 		case POPULATION_STRING_CUSP:

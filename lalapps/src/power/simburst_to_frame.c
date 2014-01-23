@@ -110,18 +110,18 @@ static struct options parse_command_line(int *argc, char **argv[])
 	int option_index;
     UINT4 nchannels=0;
 	struct option long_options[] = {
-        {"simburst-file",required_argument,NULL,'0'},
+    {"simburst-file",required_argument,NULL,'0'},
 		{"help", no_argument, NULL, 'C'},
 		{"gps-start", required_argument,0,1728},
 		{"duration", required_argument,0,1729},
-        {"channels",required_argument,NULL,1732},
+    {"channels",required_argument,NULL,1732},
 		{"pad", required_argument, NULL, 1731},
-        {"ifos",required_argument,NULL,1730},
+    {"ifos",required_argument,NULL,1730},
 		{NULL, 0, NULL, 0}
 	};
 	do switch(c = getopt_long(*argc, *argv, "", long_options, &option_index)) {
     case '0':
-        options.simburst_file = optarg;
+    options.simburst_file = optarg;
 		break;
 	case 'C':
 		print_usage();
@@ -135,16 +135,16 @@ static struct options parse_command_line(int *argc, char **argv[])
 	case 1729:
 		options.mdc_duration=  atoi(optarg);
 		break;
-    case 1730:
-        ParseCharacterOptionString(optarg, &(options.ifonames), &(options.nIFO));
-        break;
-    case 1732:
-        ParseCharacterOptionString(optarg, &(options.channames), &nchannels);
-        break;
-    case 1731:
-        options.pad=atof(optarg);
-        break;
-        
+  case 1730:
+    ParseCharacterOptionString(optarg, &(options.ifonames), &(options.nIFO));
+    break;
+  case 1732:
+    ParseCharacterOptionString(optarg, &(options.channames), &nchannels);
+    break;
+  case 1731:
+    options.pad=atof(optarg);
+    break;
+      
 	case 0:
 		/* option sets a flag */
 		break;
