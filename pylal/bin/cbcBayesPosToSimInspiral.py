@@ -230,7 +230,6 @@ if __name__ == "__main__":
     else:
         inclination = samples['inclination']
 
-    print s1x.shape
     # Check if f_low is a parameter, if not take from command line options
     try:
         flow = samples['flow']
