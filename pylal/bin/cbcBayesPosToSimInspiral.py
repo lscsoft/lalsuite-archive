@@ -153,11 +153,6 @@ if __name__ == "__main__":
     opts, args = parser.parse_args()
     infilename = get_input_filename(parser, args)
 
-    xmldoc = ligolw.Document()
-    xmldoc.appendChild(ligolw.LIGO_LW())
-    sim_table = lsctables.New(lsctables.SimInspiralTable)
-    xmldoc.childNodes[0].appendChild(sim_table)
-
     # Read in ASCII table, assuming column names are the first line
     with open(infilename, 'r') as inp:
         params = inp.readline().split()
@@ -262,6 +257,12 @@ if __name__ == "__main__":
     injections['spin2y'] = s2y
     injections['spin2z'] = s2z
     injections['amp_order'] = [opts.amporder for i in xrange(N)]
+
+    # Create a new XML document
+    xmldoc = ligolw.Document()
+    xmldoc.appendChild(ligolw.LIGO_LW())
+    sim_table = lsctables.New(lsctables.SimInspiralTable)
+    xmldoc.childNodes[0].appendChild(sim_table)
 
     # Add empty rows to the sim_inspiral table
     for inj in xrange(N):
