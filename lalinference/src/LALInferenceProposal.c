@@ -398,7 +398,7 @@ void LALInferenceSetupDefaultNSProposal(LALInferenceRunState *runState, LALInfer
   */
 
   LALInferenceRandomizeProposalCycle(runState);
-
+  LALInferenceZeroProposalStats(runState);
 }
 
 
@@ -936,9 +936,8 @@ void LALInferenceDifferentialEvolutionNames(LALInferenceRunState *runState,
 
 
   size_t Ndim = 0;
-  const char *name = names[0];
   for(Ndim=0,i=0; names[i] != NULL; i++ ) {
-    if(LALInferenceCheckVariableNonFixed(proposedParams,name))
+    if(LALInferenceCheckVariableNonFixed(proposedParams,names[i]))
       Ndim++;
   }
   LALInferenceVariables **dePts = runState->differentialPoints;
@@ -959,18 +958,28 @@ void LALInferenceDifferentialEvolutionNames(LALInferenceRunState *runState,
   LALInferenceVariables *ptI = dePts[i];
   LALInferenceVariables *ptJ = dePts[j];
 
-  /* Scale is chosen uniform in log between 0.1 and 10 times the
+
+  REAL8 scale;
+
+  const REAL8 modeHoppingFrac = 0.5;
+  /* Some fraction of the time, we do a "mode hopping" jump,
+     where we jump exactly along the difference vector. */
+  if (gsl_rng_uniform(runState->GSLrandom) < modeHoppingFrac) {
+      scale = 1.0;
+  } else {
+  /* Otherwise scale is chosen uniform in log between 0.1 and 10 times the
      desired jump size. */
-  REAL8 scale = 2.38/sqrt(Ndim) * exp(log(0.1) + log(100.0)*gsl_rng_uniform(runState->GSLrandom));
+      scale = 2.38/sqrt(Ndim) * exp(log(0.1) + log(100.0)*gsl_rng_uniform(runState->GSLrandom));
+  }
+
 
   for (i = 0; names[i] != NULL; i++) {
-    if (!LALInferenceCheckVariable(proposedParams, names[i]) || !LALInferenceCheckVariable(ptJ, names[i]) || !LALInferenceCheckVariable(ptI, names[i])) {
+    if (!LALInferenceCheckVariableNonFixed(proposedParams, names[i]) || !LALInferenceCheckVariable(ptJ, names[i]) || !LALInferenceCheckVariable(ptI, names[i])) {
       /* Ignore variable if it's not in each of the params. */
     } else {
       REAL8 x = *((REAL8 *)LALInferenceGetVariable(proposedParams, names[i]));
       x += scale * (*((REAL8 *) LALInferenceGetVariable(ptJ, names[i])));
       x -= scale * (*((REAL8 *) LALInferenceGetVariable(ptI, names[i])));
-
       LALInferenceSetVariable(proposedParams, names[i], &x);
     }
   }
@@ -1463,6 +1472,7 @@ void LALInferenceSkyRingProposal(LALInferenceRunState *runState, LALInferenceVar
   intpart = (int)( gmst );
   decpart = gmst - (REAL8)intpart;
   gmst = decpart*LAL_TWOPI;
+  gmst = gmst < 0. ? gmst + LAL_TWOPI : gmst;
 
   /*
    line-of-sight vector
@@ -2442,6 +2452,12 @@ LALInferenceRotateSpins(LALInferenceRunState *runState, LALInferenceVariables *p
   const char *propName = rotateSpinsName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
   LALInferenceCopyVariables(runState->currentParams, proposedParams);
+  REAL8 iota=0.;
+
+  if(LALInferenceCheckVariable(proposedParams,"theta_JN"))
+    iota=*(REAL8 *)LALInferenceGetVariable(proposedParams,"theta_JN");
+  else
+    iota=*(REAL8 *)LALInferenceGetVariable(proposedParams,"inclination");
 
   REAL8 theta1 = 2.0*M_PI*gsl_rng_uniform(runState->GSLrandom);
   REAL8 theta2 = 2.0*M_PI*gsl_rng_uniform(runState->GSLrandom);
@@ -2449,13 +2465,11 @@ LALInferenceRotateSpins(LALInferenceRunState *runState, LALInferenceVariables *p
   REAL8 logPr = 0.0;
 
   if (LALInferenceCheckVariableNonFixed(proposedParams, "theta_spin1")) {
-    REAL8 theta, phi, iota;
+    REAL8 theta, phi;
     REAL8 s1[3], L[3], newS[3];
 
     theta = *(REAL8 *)LALInferenceGetVariable(proposedParams, "theta_spin1");
     phi = *(REAL8 *)LALInferenceGetVariable(proposedParams, "phi_spin1");
-
-    iota = *(REAL8 *)LALInferenceGetVariable(proposedParams, "inclination");
 
     s1[0] = cos(phi)*sin(theta);
     s1[1] = sin(phi)*sin(theta);
@@ -2481,13 +2495,11 @@ LALInferenceRotateSpins(LALInferenceRunState *runState, LALInferenceVariables *p
   }
 
   if (LALInferenceCheckVariableNonFixed(proposedParams, "theta_spin2")) {
-    REAL8 theta, phi, iota;
+    REAL8 theta, phi;
     REAL8 s2[3], L[3], newS[3];
 
     theta = *(REAL8 *)LALInferenceGetVariable(proposedParams, "theta_spin2");
     phi = *(REAL8 *)LALInferenceGetVariable(proposedParams, "phi_spin2");
-
-    iota = *(REAL8 *)LALInferenceGetVariable(proposedParams, "inclination");
 
     s2[0] = cos(phi)*sin(theta);
     s2[1] = sin(phi)*sin(theta);

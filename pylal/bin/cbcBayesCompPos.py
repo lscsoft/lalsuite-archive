@@ -209,7 +209,10 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param,analyicPDF=None):
         plt.xlabel(bppu.plot_label(param))
         plt.xlim(min_pos,max_pos)
         plt.ylabel('Probability Density')
-        #plt.tight_layout()
+        try:
+          plt.tight_layout()
+        except:
+          pass
         if injvals:
             print "Injection parameter is %f"%(float(injvals[0]))
             injpar=injvals[0]
@@ -359,7 +362,7 @@ def compute_ks_pvalue_matrix(list_of_pos_by_name, param):
 
     return matrix
         
-def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True,analyticCDF=None):
+def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True,analyticCDF=None,legend='auto'):
 
     """
     Plots a gaussian kernel density estimate for a set
@@ -375,7 +378,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
 
     #Create common figure
     myfig=plt.figure(figsize=(6,4.5),dpi=150)
-    myfig.add_axes([0.1,0.1,0.65,0.85])
+    myfig.add_axes([0.15,0.15,0.6,0.76])
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
 
@@ -428,11 +431,12 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     plt.grid()
     plt.xlim(min_pos,max_pos)
     plt.ylim(0,1)
-    oned_legend=plt.figlegend(patch_list,pos_names,'right')
-    for text in oned_legend.get_texts():
-        text.set_fontsize('small')
+    if legend:
+      oned_legend=plt.figlegend(patch_list,pos_names,'right')
+      for text in oned_legend.get_texts():
+          text.set_fontsize('small')
     plt.xlabel(bppu.plot_label(param))
-    plt.ylabel('Probability density')
+    plt.ylabel('Cumulative Probability')
     plt.draw()
     #plt.tight_layout()
     if injvals:
@@ -445,7 +449,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     return myfig,top_cl_intervals_list#,rkde
 
 
-def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,ldg_flag,contour_figsize=(6,4.5),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True,covarianceMatrices=None,meanVectors=None):
+def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,ldg_flag,contour_figsize=(4.5,4.5),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True,covarianceMatrices=None,meanVectors=None,Npixels2D=50):
 
     injection=None
 
@@ -680,16 +684,22 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
             #Assign some colours to each different analysis result
             color_by_name={}
+            hatches_by_name={}
             my_cm=mpl_cm.Dark2
             cmap_size=my_cm.N
             color_idx=0
             color_idx_max=len(names_and_pos_folders)
             cmap_array=my_cm(np.array(range(cmap_size)))
             #cmap_array=['r','g','b','c','m','k','0.5','#ffff00']
+            hatches=['/','\\','|','-','+','x','o','O','.','*']
+            ldg='auto'
+            if not ldg_flag:
+              ldg=None
             for name,infolder in names_and_pos_folders:
                 #color_by_name=cmap_array[color_idx]
                 color_by_name[name]=cmap_array[int(floor(color_idx*cmap_size/color_idx_max)),:]
                 color_idx+=1
+                hatches_by_name[name]=hatches[color_idx]
 
             for i,j in all_pairs(temp):#Iterate over all unique pairs in the set of common parameters
                 pplst=[i,j]
@@ -710,11 +720,8 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                     cs_list=[]
 
                     slinestyles=['solid', 'dashed', 'dashdot', 'dotted']
-                    ldg='right'
-                    if not ldg_flag:
-                      ldg=None
 
-                    fig=bppu.plot_two_param_kde_greedy_levels(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition,legend=ldg)
+                    fig=bppu.plot_two_param_kde_greedy_levels(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition,legend=ldg,line_styles=slinestyles,hatches_by_name=hatches_by_name,Npixels=Npixels2D)
                     #fig=bppu.plot_two_param_greedy_bins_contour(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition)
                     greedy2savepaths.append('%s-%s.png'%(pplst[0],pplst[1]))
                     fig.savefig(os.path.join(outdir,'%s-%s.png'%(pplst[0],pplst[1])),bbox_inches='tight')
@@ -744,7 +751,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 		  
                 cl_table_header+='<th colspan="2">%i%% (Lower|Upper)</th>'%(int(100*confidence_level))
                 hist_fig,cl_intervals=compare_plots_one_param_line_hist(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf,legend=ldg,analyticPDF=pdf)
-                hist_fig2,cl_intervals=compare_plots_one_param_line_hist_cum(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf,analyticCDF=cdf)
+                hist_fig2,cl_intervals=compare_plots_one_param_line_hist_cum(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf,analyticCDF=cdf,legend=ldg)
 
                 # Save confidence levels and uncertainty
                 #confidence_levels[param]=[]
@@ -768,6 +775,11 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 if hist_fig is not None:
                     save_path=os.path.join(outdir,'%s_%i.png'%(param,int(100*confidence_level)))
                     save_path_pdf=os.path.join(pdfdir,'%s_%i.pdf'%(param,int(100*confidence_level)))
+                    try:
+                      plt.tight_layout(hist_fig)
+                      plt.tight_layout(hist_fig2)
+                    except:
+                      pass
                     hist_fig.savefig(save_path,bbox_inches='tight')
                     hist_fig.savefig(save_path_pdf,bbox_inches='tight')
                     save_paths.append(save_path)
@@ -956,6 +968,8 @@ if __name__ == '__main__':
     parser.add_option("--ignore-missing-files",dest="readFileErr",default=False,action="store_true",help="Do not fail when files are missing (optional).")
     parser.add_option("-c","--covarianceMatrix",dest="covarianceMatrices",action="append",default=None,help="CSV file containing covariance (must give accompanying mean vector CSV. Can add more than one matrix.")
     parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
+    parser.add_option("--no2D",dest="no2d",action="store_true",default=False,help="Disable 2D plots")
+    parser.add_option("--npixels-2d",dest="npixels_2d",action="store",type="int",default=50,help="Number of pixels on a side of the 2D plots (default 50)",metavar="N")
     
     (opts,args)=parser.parse_args()
 
@@ -977,10 +991,13 @@ if __name__ == '__main__':
     else:
         names=opts.names
 
+    if opts.no2d:
+        twoDplots=[]
+
     if len(opts.pos_list)!=len(names):
         print "Either add names for all posteriors or dont put any at all!"
 
-    greedy2savepaths,oned_data,confidence_uncertainty,confidence_levels,max_logls=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,opts.ldg_flag,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr,covarianceMatrices=opts.covarianceMatrices,meanVectors=opts.meanVectors)
+    greedy2savepaths,oned_data,confidence_uncertainty,confidence_levels,max_logls=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,opts.ldg_flag,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr,covarianceMatrices=opts.covarianceMatrices,meanVectors=opts.meanVectors,Npixels2D=int(opts.npixels_2d))
 
     ####Print Confidence Levels######
     output_confidence_levels_tex(confidence_levels,outpath)    
@@ -1022,7 +1039,7 @@ if __name__ == '__main__':
 
     if greedy2savepaths:
 
-        param_section=compare_page.add_section('2D greedy bin historgrams')
+        param_section=compare_page.add_section('2D greedy bin histograms')
         for plot_path in greedy2savepaths:
             temp,param_name=os.path.split(plot_path)
             param_name=param_name.split('.')[0]

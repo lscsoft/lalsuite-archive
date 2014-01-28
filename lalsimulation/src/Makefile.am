@@ -82,7 +82,9 @@ noinst_HEADERS = \
 	LALSimIMRSpinEOBFactorizedFlux.c \
 	LALSimIMREOBFactorizedFlux.c \
 	LALSimNeutronStarEOSPiecewisePolytrope.c \
-	LALSimNeutronStarEOSTabular.c
+	LALSimNeutronStarEOSTabular.c \
+	LALSimIMRPhenomC_internals.c \
+	LALSimIMRPhenomP.c
 
 lib_LTLIBRARIES = liblalsimulation.la
 liblalsimulation_la_SOURCES = \
@@ -93,6 +95,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimIMRSpinAlignedEOB.c \
 	LALSimIMRPhenom.c \
 	LALSimIMRPhenomC.c \
+	LALSimIMRPhenomP.c \
 	LALSimIMRPSpinInspiralRD.c \
 	LALSimPhenSpinRingDown.c \
 	LALSimInspiralAlternativeTheories.c \

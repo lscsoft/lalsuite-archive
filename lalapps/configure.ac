@@ -117,6 +117,7 @@ if test "x$mpi" = "xtrue"; then
     AC_LANG([C])
     MPILIBS="${MPILIBS_SAVE}"
   ])
+  AC_LANG([C])
 fi
 LALSUITE_ENABLE_MODULE([MPI])
 
@@ -348,7 +349,7 @@ fi
 
 # check for lal libararies and headers
 LALSUITE_CHECK_LIB([LAL],[6.12.0],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.12.0],[LALOpenDataFile],[lal/FileIO.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.12.0],[XLALCacheImport],[lal/LALCache.h])
 LALSUITE_CHECK_OPT_LIB([LALFrame],[1.1.0],[LALFrOpen],[lal/LALFrameL.h])
 LALSUITE_CHECK_OPT_LIB([LALMetaIO],[1.2.0],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
 LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.3],[XLALXMLFilePrintElements],[lal/LALXML.h])
@@ -411,7 +412,7 @@ AC_SUBST([pkgpythondir], ["\${pkgpyexecdir}"])
 
 # output
 AC_OUTPUT
-echo "
+AC_MSG_NOTICE([
 ==================================================
 LALApps has now been successfully configured:
 
@@ -443,4 +444,4 @@ ${prefix}
 Now run 'make' to build LALApps,
 and run 'make install' to install LALApps.
 ==================================================
-"
+])

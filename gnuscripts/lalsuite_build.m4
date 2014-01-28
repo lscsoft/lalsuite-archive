@@ -1,7 +1,7 @@
 # -*- mode: autoconf; -*-
 # lalsuite_build.m4 - top level build macros
 #
-# serial 78
+# serial 80
 
 # not present in older versions of pkg.m4
 m4_pattern_allow([^PKG_CONFIG(_(PATH|LIBDIR|SYSROOT_DIR|ALLOW_SYSTEM_(CFLAGS|LIBS)))?$])
@@ -9,8 +9,6 @@ m4_pattern_allow([^PKG_CONFIG_(DISABLE_UNINSTALLED|TOP_BUILD_DIR|DEBUG_SPEW)$])
 
 # forbid LALSUITE_... from appearing in output (./configure)
 m4_pattern_forbid([^_?LALSUITE_[A-Z_]+$])
-# apart from LALSUITE_PKG_SUFFIX
-m4_pattern_allow([^LALSUITE_PKG_SUFFIX$])
 
 # list of user variables; see section 4.8.1 of the Autoconf manual
 m4_define([uvar_list],[CPPFLAGS CFLAGS CXXFLAGS FCFLAGS FFLAGS LDFLAGS])
@@ -297,7 +295,7 @@ AC_DEFUN([LALSUITE_PROG_COMPILERS],[
     AC_SUBST(CLANG_CXX)
 
     # define C99 constant and limit macros for C++ sources
-    LALSUITE_ADD_FLAGS([CXX],[-D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS],[])
+    CXXFLAGS="${CXXFLAGS} -D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS"
 
   ],[
     CXX=
@@ -392,8 +390,7 @@ AC_DEFUN([LALSUITE_CHECK_LIB],[
   m4_pushdef([uppercase],m4_translit([[$1]], [a-z], [A-Z]))
 
   # build pkg-config library name and version
-  AC_ARG_VAR([LALSUITE_PKG_SUFFIX],[suffix to add to LALSuite pkg-config library names])
-  lal_pkg="lowercase[]${LALSUITE_PKG_SUFFIX} >= $2"
+  lal_pkg="lowercase[] >= $2"
 
   # substitute required library version in pkg-config files
   AC_SUBST(uppercase[]_VERSION,[$2])
@@ -449,7 +446,7 @@ AC_DEFUN([LALSUITE_CHECK_LIB],[
 
       # if $1 is not installed, add .pc.in file to ./config.status dependencies
       lal_pkg_pcin_dir=`${PKG_CONFIG} --variable=abs_top_srcdir "${lal_pkg}"`
-      lal_pkg_pcin_file="${lal_pkg_pcin_dir}/lowercase[]${LALSUITE_PKG_SUFFIX}.pc.in"
+      lal_pkg_pcin_file="${lal_pkg_pcin_dir}/lowercase[]-uninstalled.pc.in"
       AS_IF([test ! -f "${lal_pkg_pcin_file}"],[
         AC_MSG_ERROR([could not find file ${lal_pkg_pcin_file}])
       ])

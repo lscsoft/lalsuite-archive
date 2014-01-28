@@ -42,6 +42,7 @@
 #include <lal/Window.h>
 #include "check_series_macros.h"
 
+
 /*
  * ============================================================================
  *
@@ -92,9 +93,6 @@ const LALDetector *XLALDetectorPrefixToLALDetector(
 	XLALPrintError("%s(): error: can't identify instrument from string \"%s\"\n", __func__, string);
 	XLAL_ERROR_NULL(XLAL_EDATA);
 }
-
-/* FIXME:  compatibility wrapper.  remove when not needed */
-const LALDetector *XLALInstrumentNameToLALDetector(const char *string) { return XLALDetectorPrefixToLALDetector(string); }
 
 
 /*
@@ -197,11 +195,11 @@ REAL8TimeSeries *XLALSimDetectorStrainREAL8TimeSeries(
 	REAL8 right_ascension,
 	REAL8 declination,
 	REAL8 psi,
-	LALDetector *detector
+	const LALDetector *detector
 )
 {
-	char name[13];	/* "?? injection" + terminator */
-	REAL8TimeSeries *h;
+	char *name;
+	REAL8TimeSeries *h = NULL;
 	unsigned i;
 
 	LAL_CHECK_VALID_SERIES(hplus, NULL);
@@ -210,13 +208,17 @@ REAL8TimeSeries *XLALSimDetectorStrainREAL8TimeSeries(
 
 	/* generate name */
 
-	sprintf(name, "%2s injection", detector->frDetector.prefix);
+	name = XLALMalloc(strlen(detector->frDetector.prefix) + 11);
+	if(!name)
+		goto error;
+	sprintf(name, "%s injection", detector->frDetector.prefix);
 
 	/* allocate output time series. */
 
 	h = XLALCreateREAL8TimeSeries(name, &hplus->epoch, hplus->f0, hplus->deltaT, &hplus->sampleUnits, hplus->data->length);
+	XLALFree(name);
 	if(!h)
-		XLAL_ERROR_NULL(XLAL_EFUNC);
+		goto error;
 
 	/* add the detector's geometric delay.  after this, epoch = the
 	 * time of the injection time series' first sample at the desired
@@ -230,8 +232,13 @@ REAL8TimeSeries *XLALSimDetectorStrainREAL8TimeSeries(
 		LIGOTimeGPS t = h->epoch;
 		double fplus, fcross;
 
+		/* time of sample in detector */
 		XLALGPSAdd(&t, i * h->deltaT);
+
+		/* detector's response at that time */
 		XLALComputeDetAMResponse(&fplus, &fcross, (const REAL4(*)[3])detector->response, right_ascension, declination, psi, XLALGreenwichMeanSiderealTime(&t));
+		if(XLAL_IS_REAL8_FAIL_NAN(fplus) || XLAL_IS_REAL8_FAIL_NAN(fcross))
+			goto error;
 
 		h->data->data[i] = fplus * hplus->data->data[i] + fcross * hcross->data->data[i];
 	}
@@ -239,6 +246,10 @@ REAL8TimeSeries *XLALSimDetectorStrainREAL8TimeSeries(
 	/* done */
 
 	return h;
+
+error:
+	XLALDestroyREAL8TimeSeries(h);
+	XLAL_ERROR_NULL(XLAL_EFUNC);
 }
 
 

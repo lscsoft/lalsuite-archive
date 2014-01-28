@@ -9,10 +9,6 @@ AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
 
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 
-# always prefer uninstalled LAL libraries
-LALSUITE_PKG_SUFFIX="-uninstalled"
-export LALSUITE_PKG_SUFFIX
-
 # provide LAL library enable/disable options
 LALSUITE_ENABLE_ALL_LAL
 doxygen=true
@@ -69,7 +65,7 @@ lalsuite_config_subdir([lalapps])
 
 AC_SUBST([ac_configure_args])
 AC_OUTPUT
-echo "
+AC_MSG_NOTICE([
 ==================================================
 LALSuite has now been successfully configured:
 
@@ -92,4 +88,4 @@ ${prefix}
 Now run 'make' to build LALSuite,
 and run 'make install' to install LALSuite.
 ==================================================
-"
+])

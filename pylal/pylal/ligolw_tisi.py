@@ -24,6 +24,7 @@
 #
 
 
+import itertools
 import sys
 
 
@@ -68,22 +69,22 @@ def parse_slidespec(slidespec):
 	try:
 		instrument, rangespec = slidespec.split("=")
 	except ValueError:
-		raise ValueError, "cannot parse time slide '%s'" % slidespec
+		raise ValueError("cannot parse time slide '%s'" % slidespec)
 	offsets = set()
 	for range in [s.strip() for s in rangespec.split(",")]:
 		try:
 			first, last, step = map(float, range.split(":"))
 		except ValueError:
-			raise ValueError, "malformed range '%s' in '%s'" % (range, rangespec)
+			raise ValueError("malformed range '%s' in '%s'" % (range, rangespec))
 		if step == 0:
 			if first != last:
-				raise ValueError, "divide by zero in range '%s'" % range
+				raise ValueError("divide by zero in range '%s'" % range)
 			offsets.add(first)
 			continue
 		if (last - first) / step < 0.0:
-			raise ValueError, "step has wrong sign in range '%s'" % range
-		i = 0
-		while True:
+			raise ValueError("step has wrong sign in range '%s'" % range)
+
+		for i in itertools.count():
 			x = first + i * step
 			if step > 0:
 				if not (first <= x <= last):
@@ -91,7 +92,6 @@ def parse_slidespec(slidespec):
 			elif not (last <= x <= first):
 				break
 			offsets.add(x)
-			i += 1
 	return instrument.strip(), sorted(offsets)
 
 

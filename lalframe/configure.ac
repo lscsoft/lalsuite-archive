@@ -127,7 +127,7 @@ AS_IF([test "${framel}" = "true"],[
 
 # check for lal libraries and headers
 LALSUITE_CHECK_LIB([LAL],[6.12.0],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.12.0],[LALOpenDataFile],[lal/FileIO.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.12.0],[XLALCacheImport],[lal/LALCache.h])
 
 # check for inotify
 if test "${inotify}" = "true"; then
@@ -153,7 +153,7 @@ AC_SUBST_FILE([LAL_HEADER_LINK])
 
 # output
 AC_OUTPUT
-echo "
+AC_MSG_NOTICE([
 ==================================================
 LALFrame has now been successfully configured:
 
@@ -169,7 +169,7 @@ ${prefix}
 Now run 'make' to build LALFrame,
 and run 'make install' to install LALFrame.
 ==================================================
-"
+])
 
 AS_IF([test "${FRAME_LIBRARY}" = "FrameC"],[
        echo "

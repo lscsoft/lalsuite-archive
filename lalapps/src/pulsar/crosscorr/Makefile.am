@@ -18,7 +18,7 @@ TESTS_ENVIRONMENT = \
 	LAL_DEBUG_LEVEL=memdbg; export LAL_DEBUG_LEVEL; \
 	LAL_DATA_PATH="$(LAL_DATA_PATH)"; export LAL_DATA_PATH;
 
-CLEANFILES = 
+CLEANFILES =
 
 ## make sure lalapps.la is rebuilt when appropriate
 BUILT_SOURCES =

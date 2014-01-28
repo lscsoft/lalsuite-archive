@@ -327,10 +327,12 @@ double XLALSimInspiralGetFinalFreq(
             {
                 /* Check that spins are zero */
                 if( !checkSpinsZero(S1x, S1y, S1z, S2x, S2y, S2z) )
+                {
                     XLALPrintError("Non-zero spins were given, but this is a non-spinning approximant.\n");
                     XLAL_ERROR(XLAL_EINVAL);
                 spin1[0] = 0.; spin1[1] = 0.; spin1[2] = 0.;
                 spin2[0] = 0.; spin2[1] = 0.; spin2[2] = 0.;
+                }
             }
             else
             {
@@ -351,8 +353,10 @@ double XLALSimInspiralGetFinalFreq(
         case IMRPhenomA:
             /* Check that spins are zero */
             if( !checkSpinsZero(S1x, S1y, S1z, S2x, S2y, S2z) )
+            {
                 XLALPrintError("Non-zero spins were given, but this is a non-spinning approximant.\n");
                 XLAL_ERROR(XLAL_EINVAL);
+            }
             freq = XLALSimIMRPhenomAGetFinalFreq(m1, m2);
             break;
 
@@ -2273,6 +2277,34 @@ int XLALSimInspiralChooseFDWaveform(
             }
             break;
 
+        case IMRPhenomP:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralFrameAxisIsDefault(
+                    XLALSimInspiralGetFrameAxis(waveFlags) ) ) /* Default is LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW : z-axis along direction of GW propagation (line of sight). */
+                ABORT_NONDEFAULT_FRAME_AXIS(waveFlags);
+            if( !XLALSimInspiralModesChoiceIsDefault(          /* Default is (2,2) or l=2 modes. */
+                    XLALSimInspiralGetModesChoice(waveFlags) ) )
+                ABORT_NONDEFAULT_MODES_CHOICE(waveFlags);
+            if( !checkTidesZero(lambda1, lambda2) )
+                ABORT_NONZERO_TIDES(waveFlags);
+            LNhatx = sin(i);
+            LNhaty = 0.;
+            LNhatz = cos(i);
+            /* Tranform to model parameters */
+            REAL8 chi_eff, chip, eta, thetaJ, phiJ, alpha0;
+            XLALSimIMRPhenomPCalculateModelParameters(
+                &chi_eff, &chip, &eta, &thetaJ, &phiJ, &alpha0,
+                m1, m2, f_min,
+                LNhatx, LNhaty, LNhatz,
+                S1x, S1y, S1z,
+                S2x, S2y, S2z);
+            /* Call the waveform driver routine */
+            ret = XLALSimIMRPhenomP(hptilde, hctilde,
+              chi_eff, chip, eta, thetaJ, phiJ,
+              m1+m2, r, alpha0, phiRef, deltaF, f_min, f_max);
+            if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
+            break;
+
         default:
             XLALPrintError("FD version of approximant not implemented in lalsimulation\n");
             XLAL_ERROR(XLAL_EINVAL);
@@ -2613,6 +2645,7 @@ int XLALSimInspiralImplementedFDApproximants(
         case IMRPhenomA:
         case IMRPhenomB:
         case IMRPhenomC:
+        case IMRPhenomP:
         //case TaylorR2F4:
         case TaylorF2:
         case TaylorF2Test:
@@ -2725,6 +2758,10 @@ int XLALGetApproximantFromString(const CHAR *inString)
   else if ( strstr(inString, "IMRPhenomC" ) )
   {
     return IMRPhenomC;
+  }
+  else if ( strstr(inString, "IMRPhenomP" ) )
+  {
+    return IMRPhenomP;
   }
   else if ( strstr(inString, "IMRPhenomFA" ) )
   {
@@ -2881,6 +2918,8 @@ char* XLALGetStringFromApproximant(Approximant approximant)
       return strdup("IMRPhenomB");
     case IMRPhenomC:
       return strdup("IMRPhenomC");
+    case IMRPhenomP:
+      return strdup("IMRPhenomP");
     case IMRPhenomFA:
       return strdup("IMRPhenomFA");
     case IMRPhenomFB:
@@ -3122,6 +3161,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case PhenSpinTaylor:
     case PhenSpinTaylorRD:
     case SpinTaylorT3:
+    case IMRPhenomP:
       spin_support=LAL_SIM_INSPIRAL_PRECESSINGSPIN;
       break;
     case SpinTaylorF2:
