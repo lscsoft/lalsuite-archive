@@ -68,7 +68,7 @@ siminspiral = lsctables.table.get_table(utils.load_filename(input_filename,
 	), lsctables.SimInspiralTable.tableName)
 
 # Choose detector
-detector = lalsimulation.XLALInstrumentNameToLALDetector(opts.instrument)
+detector = lalsimulation.XLALDetectorPrefixToLALDetector(opts.instrument)
 
 # Choose noise model function
 psdfunc = getattr(lalsimulation, "XLALSimNoisePSD" + opts.noise_model)
