@@ -42,8 +42,9 @@ glue.segmentsUtils
 """
 
 
-from bisect import bisect_left, bisect_right
-from copy import copy as shallowcopy
+from bisect import bisect_left as _bisect_left
+from bisect import bisect_right as _bisect_right
+from copy import copy as _shallowcopy
 
 
 from glue import git_version
@@ -507,7 +508,7 @@ class segmentlist(list):
 		"""
 		if isinstance(item, self.__class__):
 			return all(seg in self for seg in item)
-		i = bisect_left(self, item)
+		i = _bisect_left(self, item)
 		return ((i != 0) and (item in self[i-1])) or ((i != len(self)) and (item in self[i]))
 
 	# supplementary accessors
@@ -581,7 +582,7 @@ class segmentlist(list):
 			return self
 		i = 0
 		for seg in other:
-			i = j = bisect_right(self, seg, i)
+			i = j = _bisect_right(self, seg, i)
 			lo, hi = seg
 			if i and self[i - 1][1] >= lo:
 				i -= 1
@@ -690,7 +691,7 @@ class segmentlist(list):
 		other is not the null set, otherwise returns False.  The
 		algorithm is O(log n).  Requires the list to be coalesced.
 		"""
-		i = bisect_left(self, other)
+		i = _bisect_left(self, other)
 		return ((i != 0) and (other[0] < self[i-1][1])) or ((i != len(self)) and (other[1] > self[i][0]))
 
 	def intersects(self, other):
@@ -941,7 +942,7 @@ class segmentlistdict(dict):
 			keys = self
 		new = self.__class__()
 		for key in keys:
-			new[key] = shallowcopy(self[key])
+			new[key] = _shallowcopy(self[key])
 			dict.__setitem__(new.offsets, key, self.offsets[key])
 		return new
 
@@ -1053,7 +1054,7 @@ class segmentlistdict(dict):
 			if key in self:
 				self[key] |= value
 			else:
-				self[key] = shallowcopy(value)
+				self[key] = _shallowcopy(value)
 		return self
 
 	def __or__(self, other):
@@ -1078,7 +1079,7 @@ class segmentlistdict(dict):
 			if key in self:
 				self[key] ^= value
 			else:
-				self[key] = shallowcopy(value)
+				self[key] = _shallowcopy(value)
 		return self
 
 	def __xor__(self, other):
@@ -1158,7 +1159,7 @@ class segmentlistdict(dict):
 		"""
 		for key, value in other.iteritems():
 			if key not in self:
-				self[key] = shallowcopy(value)
+				self[key] = _shallowcopy(value)
 			else:
 				self[key].extend(value)
 
@@ -1197,7 +1198,7 @@ class segmentlistdict(dict):
 		new = self.__class__()
 		intersection = self.intersection(keys)
 		for key in keys:
-			dict.__setitem__(new, key, shallowcopy(intersection))
+			dict.__setitem__(new, key, _shallowcopy(intersection))
 			dict.__setitem__(new.offsets, key, self.offsets[key])
 		return new
 
@@ -1238,7 +1239,7 @@ class segmentlistdict(dict):
 		keys = set(keys)
 		if not keys:
 			return segmentlist()
-		seglist = shallowcopy(self[keys.pop()])
+		seglist = _shallowcopy(self[keys.pop()])
 		for key in keys:
 			seglist &= self[key]
 		return seglist
@@ -1251,7 +1252,7 @@ class segmentlistdict(dict):
 		keys = set(keys)
 		if not keys:
 			return segmentlist()
-		seglist = shallowcopy(self[keys.pop()])
+		seglist = _shallowcopy(self[keys.pop()])
 		for key in keys:
 			seglist |= self[key]
 		return seglist
