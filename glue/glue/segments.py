@@ -699,8 +699,8 @@ class segmentlist(list):
 		Returns True if the intersection of self and the
 		segmentlist other is not the null set, otherwise returns
 		False.  The algorithm is O(n), but faster than explicit
-		calculation of the intersection, i.e. by testing len(self &
-		other).  Requires both lists to be coalesced.
+		calculation of the intersection, i.e. by testing bool(self
+		& other).  Requires both lists to be coalesced.
 		"""
 		# if either has zero length, the answer is False
 		if not (self and other):
