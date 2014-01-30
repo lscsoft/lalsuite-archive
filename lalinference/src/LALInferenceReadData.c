@@ -1340,7 +1340,8 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	//LALGenerateInspiral(&status,&InjectGW,injTable,&InjParams);
 	//if(status.statusCode!=0) {fprintf(stderr,"Error generating injection!\n"); REPORTSTATUS(&status); }
 	/* Check for frequency domain injection (TF2 only at present) */
-	if(strstr(injTable->waveform,"TaylorF2")||strstr(injTable->waveform,"PPE"))
+    
+	if(strstr(injTable->waveform,"TaylorF2")||strstr(injTable->waveform,"PPE") || strstr(injTable->waveform,"IMRPhenom"))
 	{ fprintf(stdout,"Injecting TaylorF2 or TaylorF2Test in the frequency domain...\n");
 	 InjectTaylorF2(IFOdata, injTable, commandLine);
 	 return;
@@ -2406,8 +2407,6 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
       im = - sin(twopit * f);
       templateReal = (plainTemplateReal*re - plainTemplateImag*im);
       templateImag = (plainTemplateReal*im + plainTemplateImag*re);
-  
-  
 		//fprintf(outInj,"%lf %e %e %e\n",i*deltaF ,templateReal,templateImag,1.0/dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
       dataPtr->freqData->data->data[i] += crect( templateReal, templateImag );
    
