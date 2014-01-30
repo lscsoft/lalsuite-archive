@@ -234,6 +234,8 @@ REAL8 aPPE = 0.0;
 REAL8 alphaPPE = 0.0;
 REAL8 bPPE = 0.0;
 REAL8 betaPPE = 0.0;
+REAL8 betaStep = 0.0;
+REAL8 fStep = 0.0;
 REAL8 single_IFO_SNR_threshold=0.0;
 char ** ifonames=NULL;
 int numifos=0;
@@ -851,7 +853,9 @@ static void print_usage(char *program)
       " --aPPE value              amplitude exponent\n"\
       " --alphaPPE value          amplitude coefficient\n"\
       " --bPPE value              phase exponent\n"\
-      " --betaPPE value           phase coefficient\n");
+      " --betaPPE value           phase coefficient\n"\
+      " --betaStep value          phase coefficient\n"\
+      " --fStep value             phase coefficient\n");
   fprintf(stderr,
       "Output:\n"\
       " [--write-sim-ring]        Writes a sim_ringdown table\n\n");
@@ -1785,6 +1789,8 @@ int main( int argc, char *argv[] )
     {"alphaPPE",                required_argument, 0,                 1028},
     {"bPPE",                    required_argument, 0,                 1029},
     {"betaPPE",                 required_argument, 0,                 1030},
+    {"betaStep",                required_argument, 0,                 1036},
+    {"fStep",                   required_argument, 0,                 1037},
     {"ipn-file",                required_argument, 0,                '^'},
     {"spin-gaussian",           no_argument,       0,                 1002},
     {"stdev-spin1",             required_argument, 0,                 1003},
@@ -3077,6 +3083,20 @@ int main( int argc, char *argv[] )
               "float", "%le", betaPPE );
 	  break;
       
+       case 1036:
+            betaStep = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", betaStep );
+	  break;
+
+       case 1037:
+            fStep = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", fStep );
+	  break;
+
       case 'h':
         print_usage(argv[0]);
         exit( 0 );
@@ -4405,11 +4425,15 @@ int main( int argc, char *argv[] )
 	if (XLALSimInspiralTestGRParamExists(nonGRparams,"alphaPPE")) alphaPPE = XLALSimInspiralGetTestGRParam(nonGRparams,"alphaPPE");
 	if (XLALSimInspiralTestGRParamExists(nonGRparams,"bPPE")) bPPE = XLALSimInspiralGetTestGRParam(nonGRparams,"bPPE");
 	if (XLALSimInspiralTestGRParamExists(nonGRparams,"betaPPE")) betaPPE = XLALSimInspiralGetTestGRParam(nonGRparams,"betaPPE");
+	if (XLALSimInspiralTestGRParamExists(nonGRparams,"betaStep")) betaStep = XLALSimInspiralGetTestGRParam(nonGRparams,"betaStep");
+	if (XLALSimInspiralTestGRParamExists(nonGRparams,"fStep")) fStep = XLALSimInspiralGetTestGRParam(nonGRparams,"fStep");
 	
     simTable->aPPE = aPPE;
     simTable->alphaPPE = alphaPPE;
     simTable->bPPE = bPPE;
     simTable->betaPPE = betaPPE;
+    simTable->betaStep = betaStep;
+    simTable->fStep = fStep;
 	
     /* populate the sim_ringdown table */
     if ( writeSimRing )

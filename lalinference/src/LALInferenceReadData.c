@@ -1340,8 +1340,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	//LALGenerateInspiral(&status,&InjectGW,injTable,&InjParams);
 	//if(status.statusCode!=0) {fprintf(stderr,"Error generating injection!\n"); REPORTSTATUS(&status); }
 	/* Check for frequency domain injection (TF2 only at present) */
-    
-	if(strstr(injTable->waveform,"TaylorF2")||strstr(injTable->waveform,"PPE") || strstr(injTable->waveform,"IMRPhenom"))
+	if(strstr(injTable->waveform,"TaylorF2")||strstr(injTable->waveform,"PPE"))
 	{ fprintf(stdout,"Injecting TaylorF2 or TaylorF2Test in the frequency domain...\n");
 	 InjectTaylorF2(IFOdata, injTable, commandLine);
 	 return;
@@ -2220,11 +2219,17 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
 		LALInferenceAddVariable(tmpdata->modelParams, "bPPE",&bPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
 		REAL8 betaPPE=inj_table->betaPPE;
 		LALInferenceAddVariable(tmpdata->modelParams, "betaPPE",&betaPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+		REAL8 betaStep=inj_table->betaStep;
+		LALInferenceAddVariable(tmpdata->modelParams, "betaStep",&betaStep,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+		REAL8 fStep=inj_table->fStep;
+		LALInferenceAddVariable(tmpdata->modelParams, "fStep",&fStep,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
 		fprintf(stdout,"Injecting %s in the frequency domain...\n",inj_table->waveform);
 		fprintf(stdout,"adding aPPE=%1.3f in the injection\n",inj_table->aPPE);
 		fprintf(stdout,"adding alphaPPE=%1.3f in the injection\n",inj_table->alphaPPE);
 		fprintf(stdout,"adding bPPE=%1.3f in the injection\n",inj_table->bPPE);
-        fprintf(stdout,"adding betaPPE=%1.3f in the injection\n",inj_table->betaPPE);
+                fprintf(stdout,"adding betaPPE=%1.3f in the injection\n",inj_table->betaPPE);
+                fprintf(stdout,"adding betaStep=%1.3f in the injection\n",inj_table->betaStep);
+                fprintf(stdout,"adding fStep=%1.3f in the injection\n",inj_table->fStep);
 		
 		}	
     
@@ -2407,6 +2412,8 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
       im = - sin(twopit * f);
       templateReal = (plainTemplateReal*re - plainTemplateImag*im);
       templateImag = (plainTemplateReal*im + plainTemplateImag*re);
+  
+  
 		//fprintf(outInj,"%lf %e %e %e\n",i*deltaF ,templateReal,templateImag,1.0/dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
       dataPtr->freqData->data->data[i] += crect( templateReal, templateImag );
    

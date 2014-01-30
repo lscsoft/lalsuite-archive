@@ -1445,12 +1445,14 @@ SimInspiralTableFromLIGOLw (
     {"alphaPPE",       -1,65},
     {"bPPE",       -1,66},
     {"betaPPE",       -1,67},
-    {"numrel_mode_min",     -1, 68},
-    {"numrel_mode_max",     -1, 69},
-    {"numrel_data",         -1, 70},
-    {"amp_order",           -1, 71},
-    {"taper",               -1, 72},
-    {"bandpass",            -1, 73},
+    {"betaStep",       -1,68},
+    {"fStep",       -1,69},
+    {"numrel_mode_min",     -1, 70},
+    {"numrel_mode_max",     -1, 71},
+    {"numrel_data",         -1, 72},
+    {"amp_order",           -1, 73},
+    {"taper",               -1, 74},
+    {"bandpass",            -1, 75},
     {NULL,                   0, 0}
   };
 
@@ -1803,36 +1805,44 @@ SimInspiralTableFromLIGOLw (
         {
           thisSim->betaPPE = r4colData;
         }
-	else if ( tableDir[j].idx == 68 )
+        else if ( tableDir[j].idx == 68 )
+        {
+          thisSim->betaStep = r4colData;
+        }
+        else if ( tableDir[j].idx == 69 )
+        {
+          thisSim->fStep = r4colData;
+        }
+	else if ( tableDir[j].idx == 70 )
 	{
 	  thisSim->numrel_mode_min = i4colData;
 	}
-	else if ( tableDir[j].idx == 69 )
+	else if ( tableDir[j].idx == 71 )
 	{
 	  thisSim->numrel_mode_max = i4colData;
 	}
-	else if ( tableDir[j].idx == 70 )
+	else if ( tableDir[j].idx == 72 )
 	{
           snprintf(thisSim->numrel_data, LIGOMETA_STRING_MAX * sizeof(CHAR),
               "%s", env->ligo_lw.table.elt[tableDir[j].pos].data.lstring.data);
 	}
-        else if ( tableDir[j].idx == 71 )
+        else if ( tableDir[j].idx == 73 )
         {
             thisSim->amp_order = i4colData;
         }
-        else if ( tableDir[j].idx == 72 )
+        else if ( tableDir[j].idx == 74 )
         {
             snprintf(thisSim->taper, LIGOMETA_INSPIRALTAPER_MAX * sizeof(CHAR),
                     "%s", env->ligo_lw.table.elt[tableDir[j].pos].data.lstring.data);
         }
-        else if ( tableDir[j].idx == 73 )
+        else if ( tableDir[j].idx == 75 )
         {
             thisSim->bandpass = i4colData;
         }
-        else if ( tableDir[j].idx == 74 ) {
+        else if ( tableDir[j].idx == 76 ) {
         	thisSim->qmParameter1 = r4colData;
         }
-        else if ( tableDir[j].idx == 75 ) {
+        else if ( tableDir[j].idx == 77 ) {
         	thisSim->qmParameter2 = r4colData;
         }
         else

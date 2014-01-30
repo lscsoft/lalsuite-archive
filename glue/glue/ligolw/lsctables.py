@@ -2596,6 +2596,8 @@ class SimInspiralTable(table.Table):
                  "alphaPPE": "real_4",
                  "bPPE": "real_4",
                 "betaPPE": "real_4",
+                "betaStep": "real_4",
+                "fStep": "real_4",
     		"numrel_mode_min": "int_4s",
 		"numrel_mode_max": "int_4s",
 		"numrel_data": "lstring",

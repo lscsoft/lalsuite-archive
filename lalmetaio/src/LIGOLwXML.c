@@ -879,6 +879,8 @@ LALWriteLIGOLwXMLTable (
               tablePtr.simInspiralTable->alphaPPE,
               tablePtr.simInspiralTable->bPPE,
               tablePtr.simInspiralTable->betaPPE,
+              tablePtr.simInspiralTable->betaStep,
+              tablePtr.simInspiralTable->fStep,
 	      tablePtr.simInspiralTable->numrel_mode_min,
 	      tablePtr.simInspiralTable->numrel_mode_max,
 	      tablePtr.simInspiralTable->numrel_data,

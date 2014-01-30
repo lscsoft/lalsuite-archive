@@ -105,12 +105,22 @@ int XLALSimInspiralPPE(
 	REAL8 alphaPPE=0.0;
 	REAL8 bPPE=0.0;
 	REAL8 betaPPE=0.0;
+	REAL8 betaStep=0.0;
+	REAL8 fStep=0.0;
+        REAL8 vStep=0.0;
+
 	if (extraParams!=NULL) 
     {
         if (XLALSimInspiralTestGRParamExists(extraParams,"aPPE")) aPPE = XLALSimInspiralGetTestGRParam(extraParams,"aPPE");
         if (XLALSimInspiralTestGRParamExists(extraParams,"alphaPPE")) alphaPPE = XLALSimInspiralGetTestGRParam(extraParams,"alphaPPE");
         if (XLALSimInspiralTestGRParamExists(extraParams,"bPPE")) bPPE = XLALSimInspiralGetTestGRParam(extraParams,"bPPE");
         if (XLALSimInspiralTestGRParamExists(extraParams,"betaPPE")) betaPPE = XLALSimInspiralGetTestGRParam(extraParams,"betaPPE");
+        if (XLALSimInspiralTestGRParamExists(extraParams,"betaStep")) betaStep = XLALSimInspiralGetTestGRParam(extraParams,"betaStep");
+        if (XLALSimInspiralTestGRParamExists(extraParams,"fStep"))
+        {
+            fStep = XLALSimInspiralGetTestGRParam(extraParams,"fStep");
+            vStep = cbrt(piM*fStep);
+        }
     }
     /* Spin coefficients */
     REAL8 pn_beta = 0;
@@ -355,6 +365,10 @@ int XLALSimInspiralPPE(
 		if (betaPPE!=0.0) phasing+=betaPPE*pow(v,bPPE);
         amp = amp0 * sqrt(-dEnergy/flux) * v;
 		if (alphaPPE!=0.0) amp*=(1.0+alphaPPE*pow(v,aPPE));
+                if (betaStep!=0.0)
+                {
+                    if (v > vStep) phasing+=betaStep/v7;
+                }
         data[i] = amp * cos(phasing - LAL_PI_4)
                 - amp * sin(phasing - LAL_PI_4) * 1.0j;
     }
