@@ -604,9 +604,9 @@ class TimeSlideGraph(object):
 	def get_coincs(self, eventlists, event_comparefunc, thresholds, include_small_coincs = True, verbose = False):
 		if verbose:
 			print >>sys.stderr, "constructing coincs for target offset vectors ..."
-		for n, node in enumerate(self.head):
+		for n, node in enumerate(self.head, start = 1):
 			if verbose:
-				print >>sys.stderr, "%d/%d: %s" % (n + 1, len(self.head), str(node.offset_vector))
+				print >>sys.stderr, "%d/%d: %s" % (n, len(self.head), str(node.offset_vector))
 			if include_small_coincs:
 				# note that unused_coincs must be retrieved
 				# after the call to .get_coincs() because
