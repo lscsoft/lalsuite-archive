@@ -2156,25 +2156,37 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQC3D( EOBNonQCCoeffs * restrict
   cmax =  (chiA-chiAmed) * (chiA-chiAmin) / (chiAmax-chiAmed) / (chiAmax-chiAmin);
   cmed = -(chiA-chiAmax) * (chiA-chiAmin) / (chiAmax-chiAmed) / (chiAmed-chiAmin);
   cmin =  (chiA-chiAmax) * (chiA-chiAmed) / (chiAmax-chiAmin) / (chiAmed-chiAmin);
-
+  printf( "chi = %f\n",chi );
+  printf( "cAmax = %f, cAmed = %f, cAmin = %f, cA = %f\n",
+    chiAmax, chiAmed, chiAmin, chiA );
+  printf( "cmax = %f, cmed = %f, cmin = %f\n",
+    cmax, cmed, cmin );
+  
   nqcmax = chiAmaxCoeffs.a3S;
   nqcmed = chiAmedCoeffs.a3S;
   nqcmin = chiAminCoeffs.a3S;
   coeffs->a3S = cmax*nqcmax + cmed*nqcmed + cmin*nqcmin;
+  //printf( "a3max = %f, a3med = %f, a3min = %f, a3 = %f\n",
+  //  nqcmax, nqcmed, nqcmin, coeffs->a3S );
   nqcmax = chiAmaxCoeffs.a4;
   nqcmed = chiAmedCoeffs.a4;
   nqcmin = chiAminCoeffs.a4;
   coeffs->a4  = cmax*nqcmax + cmed*nqcmed + cmin*nqcmin;
+  //printf( "a4max = %f, a4med = %f, a4min = %f, a4 = %f\n",
+  //  nqcmax, nqcmed, nqcmin, coeffs->a4 );
   nqcmax = chiAmaxCoeffs.a5;
   nqcmed = chiAmedCoeffs.a5;
   nqcmin = chiAminCoeffs.a5;
   coeffs->a5  = cmax*nqcmax + cmed*nqcmed + cmin*nqcmin;
-  
-  /*printf( "cAmax = %.16e, cAmed = %.16e, cAmin = %.16e, cA = %.16e\n",
-    chiAmax, chiAmed, chiAmin, chiA );
-  printf( "a5max = %.16e, a5med = %.16e, a5min = %.16e, a5 = %.16e\n",
-    nqcmax, nqcmed, nqcmin, coeffs->a5 );*/
-
+  //printf( "a5max = %f, a5med = %f, a5min = %f, a5 = %f\n",
+  //  nqcmax, nqcmed, nqcmin, coeffs->a5 );
+   
+/*coeffs->a3S = 1775.87095769;
+coeffs->a4  = -5737.3899946;
+coeffs->a5  = 4641.54406645;
+coeffs->a3S = 5665.39993599;
+coeffs->a4  = -18576.8784995;
+coeffs->a5  = 15237.7821969;*/
   nqcmax = chiAmaxCoeffs.b3;
   nqcmed = chiAmedCoeffs.b3;
   nqcmin = chiAminCoeffs.b3;
@@ -2183,7 +2195,8 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQC3D( EOBNonQCCoeffs * restrict
   nqcmed = chiAmedCoeffs.b4;
   nqcmin = chiAminCoeffs.b4;
   coeffs->b4  = cmax*nqcmax + cmed*nqcmed + cmin*nqcmin;
-
+//coeffs->b3  = 2447.71718687;
+//coeffs->b4  = -3916.34664737;
   return XLAL_SUCCESS;
 }
 
@@ -2613,12 +2626,12 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
 //  coeffs->b3 = 41583.9402122;
 //  coeffs->b4 = 68359.70064;
 
-  /*printf( "NQC coefficients:\n" );
-  printf( "a1 = %.16e, a2 = %.16e, a3 = %.16e, a3s = %.16e, a4 = %.16e, a5 = %.16e\n",
+  printf( "NQC coefficients:\n" );
+  printf( "{%f,%f,%f,%f,%f,%f}\n",
     coeffs->a1, coeffs->a2, coeffs->a3, coeffs->a3S, coeffs->a4, coeffs->a5 );
 
-  printf( "b1 = %.16e, b2 = %.16e, b3 = %.16e, b4 = %.16e\n",
-    coeffs->b1, coeffs->b2, coeffs->b3, coeffs->b4 );*/
+  printf( "{%f,%f,%f,%f}\n",
+    coeffs->b1, coeffs->b2, coeffs->b3, coeffs->b4 );
 
   /* Free memory and exit */
   gsl_matrix_free( qMatrix );
