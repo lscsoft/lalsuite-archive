@@ -1876,7 +1876,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
 
     LALSimInspiralTestGRParam *nonGRparams=NULL;
     
-    const char list_extra_parameters[32][16] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep"}; 
+    const char *list_extra_parameters[32][16] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep"};
     
     for (UINT4 k=0; k<16; k++) 
     {
