@@ -87,7 +87,7 @@ static void write_log(SimInspiralTable **injs, struct options *options,char* fna
 static void print_usage(void)
 {
 	fprintf(stderr, 
-" lalapps_simburst_to_mdc --simburst-file simburst.xml --ifos [IFO1,IFO2,...IFON] [options]\n" \
+" lalapps_siminspiral_to_frame --siminspiral-file siminspiral.xml --ifos [IFO1,IFO2,...IFON] [options]\n" \
 "\n" \
 "Description:\n"\
 "Takes a siminspiral table and a list of ifos and create a frame file  with the\n"\
