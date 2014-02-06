@@ -4370,7 +4370,7 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     axes.xaxis.set_major_locator(locatorX)
 
     if par1_injvalue is not None and par2_injvalue is not None:
-        plt.plot([par1_injvalue],[par2_injvalue],'bo',scalex=False,scaley=False)
+        plt.plot([par2_injvalue],[par1_injvalue],'bo',scalex=False,scaley=False)
 
     if par1_trigvalues is not None and par2_trigvalues is not None:
         par1IFOs = set([IFO for IFO in par1_trigvalues.keys()])
@@ -4380,7 +4380,7 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
         elif IFO=='L1': color = 'g'
         elif IFO=='V1': color = 'm'
         else: color = 'c'
-        plt.plot([par1_trigvalues[IFO]],[par2_trigvalues[IFO]],color=color,marker='o',scalex=False,scaley=False)
+        plt.plot([par2_trigvalues[IFO]],[par1_trigvalues[IFO]],color=color,marker='o',scalex=False,scaley=False)
 
     # For RA and dec set custom labels and for RA reverse
     #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
