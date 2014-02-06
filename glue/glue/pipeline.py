@@ -2057,7 +2057,7 @@ class CondorDAG:
     sitefile = open( 'sites.xml', 'w' )
 
     # write the default properties
-    print >> pegprop_fh, PEGASUS_PROPERTIES % (os.getcwd(),log_path)
+    print >> pegprop_fh, PEGASUS_PROPERTIES % (os.getcwd())
 
     # set up site and dir options for pegasus-submit-dax
     dirs_entry='--relative-dir .'
