@@ -56,8 +56,8 @@ const char *gengetopt_args_info_full_help[] = {
   "      --normRMSoutput=filename  File for the output of the normalized RMS from \n                                  the non-slided data",
   "      --sftDir=path             Directory containing SFTs, e.g., /path/to/file \n                                  (conflicts with --sftFile/--timestampsFile)",
   "      --sftFile=path/filename   Path and filename of SFTs, e.g., \n                                  /path/to/file/sftdata.sft (one of \n                                  --sftDir/--timestampsFile)",
-  "      --ephemDir=directory      Path to ephemeris files, e.g. \n                                  /path/to/ephemeris/files [required]",
-  "      --ephemYear=STRING        Year or year range (e.g. 08-11) of ephemeris \n                                  files [required]",
+  "      --ephemEarth=path/filename\n                                Location of Earth ephemeris file  \n                                  (default=`earth00-19-DE405.dat.gz')",
+  "      --ephemSun=path/filename  Location of Sun ephemeris file  \n                                  (default=`sun00-19-DE405.dat.gz')",
   "      --gaussNoiseWithSFTgaps   Use the same gaps as SFTs that are read-in from \n                                  either --sftDir or --sftFile options (one is \n                                  required!), but create Gaussian noise with \n                                  noise equal to --avesqrtSh (option conflicts \n                                  with --timestampsFile)  (default=off)",
   "\nTwoSpect search parameters:",
   "      --Pmin=DOUBLE             Minimum period to be searched (in seconds) \n                                  [required]",
@@ -122,6 +122,7 @@ const char *gengetopt_args_info_full_help[] = {
   "      --printData               Print to ASCII files the data values  \n                                  (default=off)",
   "      --printUninitialized=INT  Print uninitialized values in TFdata_weighted \n                                  and TSofPowers vectors at n-th sky location \n                                  specified by option (if not enough sky \n                                  locations exist, then these vectors don't get \n                                  printed!)",
   "      --printSignalData=path/filename\n                                Print f0 and h0 per SFT of the signal, used \n                                  only with --injectionSources option  \n                                  (default=`./signal.dat')",
+  "      --printMarginalizedSignalData=path/filename\n                                Print f0 and h0 per SFT of the signal, used \n                                  only with --injectionSources option  \n                                  (default=`./signal.dat')",
   "      --randSeed=INT            Random seed value",
   "      --chooseSeed              The random seed value is chosen based on the \n                                  input search parameters  (default=off)",
     0
@@ -280,8 +281,8 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->normRMSoutput_given = 0 ;
   args_info->sftDir_given = 0 ;
   args_info->sftFile_given = 0 ;
-  args_info->ephemDir_given = 0 ;
-  args_info->ephemYear_given = 0 ;
+  args_info->ephemEarth_given = 0 ;
+  args_info->ephemSun_given = 0 ;
   args_info->gaussNoiseWithSFTgaps_given = 0 ;
   args_info->Pmin_given = 0 ;
   args_info->Pmax_given = 0 ;
@@ -339,6 +340,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->printData_given = 0 ;
   args_info->printUninitialized_given = 0 ;
   args_info->printSignalData_given = 0 ;
+  args_info->printMarginalizedSignalData_given = 0 ;
   args_info->randSeed_given = 0 ;
   args_info->chooseSeed_given = 0 ;
 }
@@ -378,10 +380,10 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->sftDir_orig = NULL;
   args_info->sftFile_arg = NULL;
   args_info->sftFile_orig = NULL;
-  args_info->ephemDir_arg = NULL;
-  args_info->ephemDir_orig = NULL;
-  args_info->ephemYear_arg = NULL;
-  args_info->ephemYear_orig = NULL;
+  args_info->ephemEarth_arg = gengetopt_strdup ("earth00-19-DE405.dat.gz");
+  args_info->ephemEarth_orig = NULL;
+  args_info->ephemSun_arg = gengetopt_strdup ("sun00-19-DE405.dat.gz");
+  args_info->ephemSun_orig = NULL;
   args_info->gaussNoiseWithSFTgaps_flag = 0;
   args_info->Pmin_orig = NULL;
   args_info->Pmax_orig = NULL;
@@ -455,6 +457,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->printUninitialized_orig = NULL;
   args_info->printSignalData_arg = gengetopt_strdup ("./signal.dat");
   args_info->printSignalData_orig = NULL;
+  args_info->printMarginalizedSignalData_arg = gengetopt_strdup ("./signal.dat");
+  args_info->printMarginalizedSignalData_orig = NULL;
   args_info->randSeed_orig = NULL;
   args_info->chooseSeed_flag = 0;
   
@@ -489,8 +493,8 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->normRMSoutput_help = gengetopt_args_info_full_help[21] ;
   args_info->sftDir_help = gengetopt_args_info_full_help[22] ;
   args_info->sftFile_help = gengetopt_args_info_full_help[23] ;
-  args_info->ephemDir_help = gengetopt_args_info_full_help[24] ;
-  args_info->ephemYear_help = gengetopt_args_info_full_help[25] ;
+  args_info->ephemEarth_help = gengetopt_args_info_full_help[24] ;
+  args_info->ephemSun_help = gengetopt_args_info_full_help[25] ;
   args_info->gaussNoiseWithSFTgaps_help = gengetopt_args_info_full_help[26] ;
   args_info->Pmin_help = gengetopt_args_info_full_help[28] ;
   args_info->Pmax_help = gengetopt_args_info_full_help[29] ;
@@ -548,8 +552,9 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->printData_help = gengetopt_args_info_full_help[87] ;
   args_info->printUninitialized_help = gengetopt_args_info_full_help[88] ;
   args_info->printSignalData_help = gengetopt_args_info_full_help[89] ;
-  args_info->randSeed_help = gengetopt_args_info_full_help[90] ;
-  args_info->chooseSeed_help = gengetopt_args_info_full_help[91] ;
+  args_info->printMarginalizedSignalData_help = gengetopt_args_info_full_help[90] ;
+  args_info->randSeed_help = gengetopt_args_info_full_help[91] ;
+  args_info->chooseSeed_help = gengetopt_args_info_full_help[92] ;
   
 }
 
@@ -713,10 +718,10 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->sftDir_orig));
   free_string_field (&(args_info->sftFile_arg));
   free_string_field (&(args_info->sftFile_orig));
-  free_string_field (&(args_info->ephemDir_arg));
-  free_string_field (&(args_info->ephemDir_orig));
-  free_string_field (&(args_info->ephemYear_arg));
-  free_string_field (&(args_info->ephemYear_orig));
+  free_string_field (&(args_info->ephemEarth_arg));
+  free_string_field (&(args_info->ephemEarth_orig));
+  free_string_field (&(args_info->ephemSun_arg));
+  free_string_field (&(args_info->ephemSun_orig));
   free_string_field (&(args_info->Pmin_orig));
   free_string_field (&(args_info->Pmax_orig));
   free_string_field (&(args_info->dfmin_orig));
@@ -759,6 +764,8 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->printUninitialized_orig));
   free_string_field (&(args_info->printSignalData_arg));
   free_string_field (&(args_info->printSignalData_orig));
+  free_string_field (&(args_info->printMarginalizedSignalData_arg));
+  free_string_field (&(args_info->printMarginalizedSignalData_orig));
   free_string_field (&(args_info->randSeed_orig));
   
   
@@ -882,10 +889,10 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "sftDir", args_info->sftDir_orig, 0);
   if (args_info->sftFile_given)
     write_into_file(outfile, "sftFile", args_info->sftFile_orig, 0);
-  if (args_info->ephemDir_given)
-    write_into_file(outfile, "ephemDir", args_info->ephemDir_orig, 0);
-  if (args_info->ephemYear_given)
-    write_into_file(outfile, "ephemYear", args_info->ephemYear_orig, 0);
+  if (args_info->ephemEarth_given)
+    write_into_file(outfile, "ephemEarth", args_info->ephemEarth_orig, 0);
+  if (args_info->ephemSun_given)
+    write_into_file(outfile, "ephemSun", args_info->ephemSun_orig, 0);
   if (args_info->gaussNoiseWithSFTgaps_given)
     write_into_file(outfile, "gaussNoiseWithSFTgaps", 0, 0 );
   if (args_info->Pmin_given)
@@ -1000,6 +1007,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "printUninitialized", args_info->printUninitialized_orig, 0);
   if (args_info->printSignalData_given)
     write_into_file(outfile, "printSignalData", args_info->printSignalData_orig, 0);
+  if (args_info->printMarginalizedSignalData_given)
+    write_into_file(outfile, "printMarginalizedSignalData", args_info->printMarginalizedSignalData_orig, 0);
   if (args_info->randSeed_given)
     write_into_file(outfile, "randSeed", args_info->randSeed_orig, 0);
   if (args_info->chooseSeed_given)
@@ -1306,18 +1315,6 @@ cmdline_parser_required2 (struct gengetopt_args_info *args_info, const char *pro
       error = 1;
     }
   
-  if (! args_info->ephemDir_given)
-    {
-      fprintf (stderr, "%s: '--ephemDir' option required%s\n", prog_name, (additional_error ? additional_error : ""));
-      error = 1;
-    }
-  
-  if (! args_info->ephemYear_given)
-    {
-      fprintf (stderr, "%s: '--ephemYear' option required%s\n", prog_name, (additional_error ? additional_error : ""));
-      error = 1;
-    }
-  
   if (! args_info->Pmin_given)
     {
       fprintf (stderr, "%s: '--Pmin' option required%s\n", prog_name, (additional_error ? additional_error : ""));
@@ -1362,6 +1359,11 @@ cmdline_parser_required2 (struct gengetopt_args_info *args_info, const char *pro
   if (args_info->printSignalData_given && ! args_info->injectionSources_given)
     {
       fprintf (stderr, "%s: '--printSignalData' option depends on option 'injectionSources'%s\n", prog_name, (additional_error ? additional_error : ""));
+      error = 1;
+    }
+  if (args_info->printMarginalizedSignalData_given && ! args_info->injectionSources_given)
+    {
+      fprintf (stderr, "%s: '--printMarginalizedSignalData' option depends on option 'injectionSources'%s\n", prog_name, (additional_error ? additional_error : ""));
       error = 1;
     }
 
@@ -1701,8 +1703,8 @@ cmdline_parser_internal (
         { "normRMSoutput",	1, NULL, 0 },
         { "sftDir",	1, NULL, 0 },
         { "sftFile",	1, NULL, 0 },
-        { "ephemDir",	1, NULL, 0 },
-        { "ephemYear",	1, NULL, 0 },
+        { "ephemEarth",	1, NULL, 0 },
+        { "ephemSun",	1, NULL, 0 },
         { "gaussNoiseWithSFTgaps",	0, NULL, 0 },
         { "Pmin",	1, NULL, 0 },
         { "Pmax",	1, NULL, 0 },
@@ -1760,6 +1762,7 @@ cmdline_parser_internal (
         { "printData",	0, NULL, 0 },
         { "printUninitialized",	1, NULL, 0 },
         { "printSignalData",	1, NULL, 0 },
+        { "printMarginalizedSignalData",	1, NULL, 0 },
         { "randSeed",	1, NULL, 0 },
         { "chooseSeed",	0, NULL, 0 },
         { 0,  0, 0, 0 }
@@ -2050,30 +2053,30 @@ cmdline_parser_internal (
               goto failure;
           
           }
-          /* Path to ephemeris files, e.g. /path/to/ephemeris/files.  */
-          else if (strcmp (long_options[option_index].name, "ephemDir") == 0)
+          /* Location of Earth ephemeris file.  */
+          else if (strcmp (long_options[option_index].name, "ephemEarth") == 0)
           {
           
           
-            if (update_arg( (void *)&(args_info->ephemDir_arg), 
-                 &(args_info->ephemDir_orig), &(args_info->ephemDir_given),
-                &(local_args_info.ephemDir_given), optarg, 0, 0, ARG_STRING,
+            if (update_arg( (void *)&(args_info->ephemEarth_arg), 
+                 &(args_info->ephemEarth_orig), &(args_info->ephemEarth_given),
+                &(local_args_info.ephemEarth_given), optarg, 0, "earth00-19-DE405.dat.gz", ARG_STRING,
                 check_ambiguity, override, 0, 0,
-                "ephemDir", '-',
+                "ephemEarth", '-',
                 additional_error))
               goto failure;
           
           }
-          /* Year or year range (e.g. 08-11) of ephemeris files.  */
-          else if (strcmp (long_options[option_index].name, "ephemYear") == 0)
+          /* Location of Sun ephemeris file.  */
+          else if (strcmp (long_options[option_index].name, "ephemSun") == 0)
           {
           
           
-            if (update_arg( (void *)&(args_info->ephemYear_arg), 
-                 &(args_info->ephemYear_orig), &(args_info->ephemYear_given),
-                &(local_args_info.ephemYear_given), optarg, 0, 0, ARG_STRING,
+            if (update_arg( (void *)&(args_info->ephemSun_arg), 
+                 &(args_info->ephemSun_orig), &(args_info->ephemSun_given),
+                &(local_args_info.ephemSun_given), optarg, 0, "sun00-19-DE405.dat.gz", ARG_STRING,
                 check_ambiguity, override, 0, 0,
-                "ephemYear", '-',
+                "ephemSun", '-',
                 additional_error))
               goto failure;
           
@@ -2830,6 +2833,20 @@ cmdline_parser_internal (
                 &(local_args_info.printSignalData_given), optarg, 0, "./signal.dat", ARG_STRING,
                 check_ambiguity, override, 0, 0,
                 "printSignalData", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Print f0 and h0 per SFT of the signal, used only with --injectionSources option.  */
+          else if (strcmp (long_options[option_index].name, "printMarginalizedSignalData") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->printMarginalizedSignalData_arg), 
+                 &(args_info->printMarginalizedSignalData_orig), &(args_info->printMarginalizedSignalData_given),
+                &(local_args_info.printMarginalizedSignalData_given), optarg, 0, "./signal.dat", ARG_STRING,
+                check_ambiguity, override, 0, 0,
+                "printMarginalizedSignalData", '-',
                 additional_error))
               goto failure;
           
