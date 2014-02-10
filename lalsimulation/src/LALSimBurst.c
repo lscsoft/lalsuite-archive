@@ -863,9 +863,8 @@ int XLALSimBurstSineGaussianF(
   Fmax=1.0/(2.0*deltaT);
   REAL8 Fmin= centre_frequency -6.0*sigma;
   /* if fmin <0 use 0 */
-  if (Fmin<0.0)
-  Fmin=0.0;
-  
+  if (Fmin<0.0 || Fmin >=Fmax)
+    Fmin=0.0;
   size_t lower =(size_t) ( Fmin/deltaF);    
   size_t upper= (size_t) ( Fmax/deltaF+1);
 
