@@ -808,6 +808,35 @@ UNUSED static inline REAL8 GetNRSpinPeakOmegaDot( INT4 UNUSED l, INT4 UNUSED m, 
 }
 
 /**
+ * The time difference between the orbital peak and the peak amplitude
+ * of the mode in question (currently only 2,2 implemented ).
+ */
+UNUSED static inline REAL8 XLALSimIMREOBGetNRSpinPeakDeltaTv2( 
+                 INT4 UNUSED l,    /**<< Mode l */
+                 INT4 UNUSED m,    /**<< Mode m */
+                 REAL8 UNUSED eta, /**<< Symmetric mass ratio */
+                 REAL8 chi1,       /**<< Dimensionless spin1 */
+                 REAL8 chi2       /**<< Dimensionless spin2 */
+                 )
+{
+  REAL8 chi, chichi;
+  chi    = (chi1+chi2)/2. + (chi1-chi2)/2.*sqrt(1-4.*eta)/(1-2.*eta);
+  chichi = chi*chi;
+  if ( chi > 0.8 ) 
+  {
+    return (0.75*eta*chi + sqrt(1.-4.*eta)) * (57.1755-48.0564*chi);
+  }
+  else if ( chi > 0.0 )
+  {
+    return (0.75*eta*chi + sqrt(1.-4.*eta)) * (2.5+10.*chichi+24.*chichi*chichi);
+  }
+  else
+  {
+    return 2.5 + (1.+chi) * (-2.5+2.5*sqrt(1.-4.*eta)); 
+  }
+}
+
+/**
  * Peak frequency predicted by fitting NR results (currently only 2,2 available).
  * Take from unpublished SEOBNRv2 results.
  */
@@ -2156,11 +2185,11 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQC3D( EOBNonQCCoeffs * restrict
   cmax =  (chiA-chiAmed) * (chiA-chiAmin) / (chiAmax-chiAmed) / (chiAmax-chiAmin);
   cmed = -(chiA-chiAmax) * (chiA-chiAmin) / (chiAmax-chiAmed) / (chiAmed-chiAmin);
   cmin =  (chiA-chiAmax) * (chiA-chiAmed) / (chiAmax-chiAmin) / (chiAmed-chiAmin);
-  printf( "chi = %f\n",chi );
+  /*printf( "chi = %f\n",chi );
   printf( "cAmax = %f, cAmed = %f, cAmin = %f, cA = %f\n",
     chiAmax, chiAmed, chiAmin, chiA );
   printf( "cmax = %f, cmed = %f, cmin = %f\n",
-    cmax, cmed, cmin );
+    cmax, cmed, cmin );*/
   
   nqcmax = chiAmaxCoeffs.a3S;
   nqcmed = chiAmedCoeffs.a3S;
@@ -2187,6 +2216,12 @@ coeffs->a5  = 4641.54406645;
 coeffs->a3S = 5665.39993599;
 coeffs->a4  = -18576.8784995;
 coeffs->a5  = 15237.7821969;*/
+/*coeffs->a3S = 10322.2486021;
+coeffs->a4  = -32666.5282038;
+coeffs->a5  = 25854.6695187;*/
+/*coeffs->a3S = 10319.795279;
+coeffs->a4  = -32671.950978;
+coeffs->a5  = 25869.632474;*/
   nqcmax = chiAmaxCoeffs.b3;
   nqcmed = chiAmedCoeffs.b3;
   nqcmin = chiAminCoeffs.b3;
@@ -2197,6 +2232,10 @@ coeffs->a5  = 15237.7821969;*/
   coeffs->b4  = cmax*nqcmax + cmed*nqcmed + cmin*nqcmin;
 //coeffs->b3  = 2447.71718687;
 //coeffs->b4  = -3916.34664737;
+//  coeffs->b3  = 80437.4825363;
+//  coeffs->b4  = -124963.109912;
+//  coeffs->b3  = 80675.052985;
+//  coeffs->b4  = -125321.741652;
   return XLAL_SUCCESS;
 }
 
