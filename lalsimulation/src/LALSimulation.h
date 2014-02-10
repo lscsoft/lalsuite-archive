@@ -22,6 +22,7 @@
 
 #include <lal/LALDatatypes.h>
 #include <lal/LALDetectors.h>
+#include <lal/LIGOMetadataTables.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -78,6 +79,12 @@ int XLALSimInjectDetectorStrainREAL4TimeSeries(
 	double psi,
 	LALDetector *detector,
 	const COMPLEX8FrequencySeries *response
+);
+
+int XLALInspiralInjectSignals(
+	REAL8TimeSeries *series,
+	const SimInspiralTable *sim_table,
+	const COMPLEX16FrequencySeries *response
 );
 
 #if 0

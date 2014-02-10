@@ -54,7 +54,8 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
 
     ProcessParamsTable *commandLine=runState->commandLine;
     LALInferenceIFOData *ifo=runState->data;
-    ProcessParamsTable *ppt=LALInferenceGetProcParamVal(commandLine,"--template");
+    ProcessParamsTable *ppt=NULL;
+    ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
 
     /* Print command line arguments if help requested */
     if(LALInferenceGetProcParamVal(runState->commandLine,"--help"))
@@ -90,7 +91,7 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
     fprintf(stderr, "Using noise-only likelihood.\n");
     runState->likelihood=&LALInferenceNoiseOnlyLogLikelihood;
    }  else if (ppt){
-     if(!strcmp("SineGauss",ppt->value) || !strcmp("SineGaussF",ppt->value)){
+     if(!strcmp("SineGaussian",ppt->value) || !strcmp("SineGaussianF",ppt->value)|| !strcmp("Gaussian",ppt->value)|| !strcmp("GaussianF",ppt->value)){
         runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_Burst;
         printf("setting Burst Likelihood ----- \n");
         }
@@ -1658,8 +1659,11 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_Burst(LALInferenceVariable
   /* loop over data (different interferometers): */
   dataPtr = data;
 REAL8 net_snr=0.0,ifo_snr=0.0;
-
+REAL8 wnorm=1.0;
   while (dataPtr != NULL) {
+    if (dataPtr->modelDomain == LAL_SIM_DOMAIN_FREQUENCY){
+       wnorm=sqrt(dataPtr->window->sumofsquares/dataPtr->window->data->length);
+     }
     ifo_snr=0.0;
     /* The parameters the Likelihood function can handle by itself   */
     /* (and which shouldn't affect the template function) are        */
@@ -1683,11 +1687,8 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
     /* wasn't allocated yet (as in the very 1st iteration).      */
 
     if (different) { /* template needs to be re-computed: */
-      //  printf("IM RECALCULATING THE TEMPLATE!\n");
-
       LALInferenceCopyVariables(&intrinsicParams, dataPtr->modelParams);
       LALInferenceAddVariable(dataPtr->modelParams, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-      //LALInferenceAddVariable(dataPtr->modelParams, "polarisation", &psi, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
 
       templt(dataPtr);
       dataPtr->template_counter++;
@@ -1734,6 +1735,14 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
     
     FplusScaled  = Fplus *hrss ;
     FcrossScaled = Fcross*hrss ;
+    if (LALInferenceCheckVariable(currentParams, "crazyInjectionHLSign") &&
+        *((INT4 *)LALInferenceGetVariable(currentParams, "crazyInjectionHLSign"))) {
+      if (strstr(dataPtr->name, "H") || strstr(dataPtr->name, "L")) {
+        FplusScaled *= -1.0;
+        FcrossScaled *= -1.0;
+      }
+    }
+
     dataPtr->fPlus = FplusScaled;
     dataPtr->fCross = FcrossScaled;
     dataPtr->timeshift = timeshift;
@@ -1752,7 +1761,7 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
        exp(-J*twopit*deltaF*(i-1))*(exp(-J*twopit*deltaF) - 1) .  This
        recurrance relation has the advantage that the error growth is
        O(sqrt(N)) for N repetitions. */
-    
+   // printf("time %lf psi %lf ra %lf dec %lf hrss %e Q %lf f %lf\n",(REAL8)GPSlal.gpsSeconds,psi,ra,dec,hrss,* (REAL8*) LALInferenceGetVariable(currentParams, "Q"),* (REAL8*) LALInferenceGetVariable(currentParams, "frequency"));
     /* Values for the first iteration: */
     re = cos(twopit*deltaF*lower);
     im = -sin(twopit*deltaF*lower);
@@ -1761,6 +1770,9 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
     dim = -sin(twopit*deltaF);
     dre = -2.0*sin(0.5*twopit*deltaF)*sin(0.5*twopit*deltaF);
     
+    //char fname[500];
+    // sprintf(fname,"%s_template.dat",dataPtr->name);
+    //FILE *testout=fopen(fname,"w");
     for (i=lower; i<=upper; ++i){
       /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
       plainTemplateReal = FplusScaled * creal(dataPtr->freqModelhPlus->data->data[i])  
@@ -1770,8 +1782,8 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
 
       /* do time-shifting...             */
       /* (also un-do 1/deltaT scaling): */
-      templateReal = (plainTemplateReal*re - plainTemplateImag*im) / deltaT; //salvo remove norm?
-      templateImag = (plainTemplateReal*im + plainTemplateImag*re) / deltaT; //salvo remove norm?
+      templateReal = (plainTemplateReal*re - plainTemplateImag*im) / deltaT/wnorm;//FIXME remove norm?
+      templateImag = (plainTemplateReal*im + plainTemplateImag*re) / deltaT/wnorm; //FIXME remove norm?
       dataReal     = creal(dataPtr->freqData->data->data[i]) / deltaT;
       dataImag     = cimag(dataPtr->freqData->data->data[i]) / deltaT;
       /* compute squared difference & 'chi-squared': */
@@ -1780,7 +1792,7 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
       diffSquared  = diffRe*diffRe + diffIm*diffIm ;  // ...squared difference of the 2 complex figures.
       REAL8 temp = ((TwoDeltaToverN * diffSquared) / dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
       ifo_snr+=TwoDeltaToverN*(templateReal*templateReal+templateImag*templateImag)/ dataPtr->oneSidedNoisePowerSpectrum->data->data[i];
-      //fprintf(testout,"%10.10e %10.10e %10.10e \n",f,deltaT*templateReal,deltaT*templateImag);
+      //fprintf(testout,"%10.10e %10.10e %10.10e \n",i*deltaF,deltaT*templateReal,deltaT*templateImag);
       chisquared  += temp;
       dataPtr->loglikelihood -= temp;
         /* Now update re and im for the next iteration. */
@@ -1804,8 +1816,8 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
   
   loglikeli = -1.0 * chisquared; // note (again): the log-likelihood is unnormalised!
   LALInferenceClearVariables(&intrinsicParams);
-  //printf("%.10e \n",loglikeli);
-  //exit(1);
+ //printf("%.10e \n",loglikeli);
+//  exit(1);
   return(loglikeli);
 }
 
@@ -3296,3 +3308,4 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentP
   LALInferenceClearVariables(&intrinsicParams);
   return(loglikeli);
 }
+

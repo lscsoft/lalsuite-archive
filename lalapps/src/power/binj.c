@@ -129,7 +129,7 @@ typedef enum tagParDistr {
 	
 static int parse_distr(char* opt){
 	
-	if( strstr(opt,"constant"))
+	if( strstr(opt,"constant")|| strstr(opt,"fixed"))
 		return 0;
 	else if( strstr(opt,"uniform"))
 		return 1;
@@ -156,6 +156,9 @@ struct options {
 	double minbandwidth;
 	double maxduration;
 	double minduration;
+  ParDistr tau_distr;
+  double tau_stdev;
+  double tau;
 	double maxEoverr2;
 	double minEoverr2;
 	double maxf;
@@ -184,7 +187,14 @@ struct options {
 	double maxsnr;
 	char ** ifonames;
 	int nIFO;
-
+  ParDistr polee_distr;
+  double minpolee;
+  double maxpolee;
+  double pol_ellipse_e;
+  ParDistr polea_distr;
+  double minpolea;
+  double maxpolea;
+  double pol_ellipse_angle;
 };
 
 
@@ -201,6 +211,9 @@ static struct options options_defaults(void)
 	defaults.minbandwidth = XLAL_REAL8_FAIL_NAN;
 	defaults.maxduration = XLAL_REAL8_FAIL_NAN;
 	defaults.minduration = XLAL_REAL8_FAIL_NAN;
+  defaults.tau=XLAL_REAL8_FAIL_NAN;
+  defaults.tau_stdev=-1.0;
+  defaults.tau_distr=FIXED;
 	defaults.maxEoverr2 = XLAL_REAL8_FAIL_NAN;
 	defaults.minEoverr2 = XLAL_REAL8_FAIL_NAN;
 	defaults.maxf = XLAL_REAL8_FAIL_NAN;
@@ -231,6 +244,14 @@ static struct options options_defaults(void)
 	defaults.maxsnr=XLAL_REAL8_FAIL_NAN;
 	defaults.ifonames=NULL;
 	defaults.nIFO=0;
+  defaults.polee_distr=NUM_ELEMENTS+1;
+  defaults.pol_ellipse_e=XLAL_REAL8_FAIL_NAN;
+  defaults.minpolee=XLAL_REAL8_FAIL_NAN;
+  defaults.maxpolee=XLAL_REAL8_FAIL_NAN;
+  defaults.polea_distr=NUM_ELEMENTS+1;
+  defaults.pol_ellipse_angle=XLAL_REAL8_FAIL_NAN;
+  defaults.minpolea=XLAL_REAL8_FAIL_NAN;
+  defaults.maxpolea=XLAL_REAL8_FAIL_NAN;
 	return defaults;
 }
 
@@ -265,8 +286,7 @@ static void print_usage(void)
 	); fprintf(stderr, 
 "--max-duration seconds\n" \
 "--min-duration seconds\n" \
-"	Set the bounds of the injection durations.  These only affect\n" \
-"	btlwnb waveforms.\n" \
+"	Set the bounds of the injection durations (btlwnb waveforms) or the min and max duration of Gaussians.\n" \
 "\n" \
 "--max-e-over-r2 value\n" \
 "--min-e-over-r2 value\n" \
@@ -292,7 +312,7 @@ static void print_usage(void)
 "[--f-stdev  hertz] For gaussian distribution of centre frequency, standard deviation of the distribution.\n" \
 "\n" \
 "[--hrss-distr constant,uniform,log,gaussian,volume] \n" \
-"   hrss distribution of SineGaussian injections:\n" \
+"   hrss distribution of (Sine)Gaussian injections:\n" \
 "   constant: all the signal have the same hrss (requires --hrss)\n" \
 "   uniform:  uniform distribution (requires --min-hrss and --max-hrss)\n" \
 "   log:      log distribution (requires --min-hrss and --max-hrss)\n" \
@@ -303,13 +323,13 @@ static void print_usage(void)
 "[--min-hrss value]\n" \
 "\n"\
 "	Set the bounds of the injection h_{rss} values.  These only affect\n" \
-"	sine-Gaussian injections.\n" \
+"	(sine)Gaussian injections.\n" \
 "\n" \
 "[--hrss value ] For gaussian distribution of hrss, mean of the distribution.\n"\
 "[--hrss-stdev value ] For gaussian distribution of hrss, standard deviation of the distribution.\n"\
 "\n" \
 "[--snr-distr uniform,log,volume] \n" \
-"   SNR distribution of SineGaussian injections (cannot be used together with --hrss* :\n" \
+"   SNR distribution of (Sine)Gaussian injections (cannot be used together with --hrss* :\n" \
 "   uniform:  uniform distribution (requires --min-snr and --max-snr)\n" \
 "   log:      log distribution (requires --min-snr and --max-snr)\n" \
 "   volume:   distribution uniform in volume (requires --min-snr and --max-snr)\n" \
@@ -318,7 +338,7 @@ static void print_usage(void)
 "[--min-hrss value]\n" \
 "\n"\
 "	Set the bounds of the injection h_{rss} values.  These only affect\n" \
-"	sine-Gaussian injections.\n" \
+"	(sine)Gaussian injections.\n" \
 "\n" \
 "[--q-distr constant,uniform,log,gaussian] \n" \
 "   Q distribution of SineGaussian injections:\n" \
@@ -334,13 +354,29 @@ static void print_usage(void)
 "[--q value ] For gaussian distribution of Q, mean of the distribution.\n  \t      If --q-distr constant, constant value of Q\n" \
 "[--q-stdev  value] For gaussian distribution of Q, standard deviation of the distribution.\n"\
 "\n" \
+"[--polar-angle-distr constant,uniform] \n"\
+"   Distribution of polar ellipse angle. Default: linearly polarized signals\n" \
+"   constant: all the signal have the same polar_ellipse_angle (requires --polar-ellipse-angle)\n" \
+"   uniform:  uniform distribution (requires --min-polar-angle and --max-polar-angle)\n" \
+"\n" \
+"[--max-polar-angle] value \n" \
+"[--min-polar-angle] value \n" \
+"	Set the bounds of the injection ellipse_polar_angle.\n" \
+"[--polar-eccentricity-distr constant,uniform] \n"\
+"   Distribution of polar ellipse eccentricity. Default: linearly polarized signals\n" \
+"   constant: all the signal have the same polar_ellipse_e (requires --polar-ellipse-e)\n" \
+"   uniform:  uniform distribution (requires --min-polar-eccentricity and --max-polar-eccentricity)\n" \
+"\n" \
+"[--max-polar-eccentricity] value \n" \
+"[--min-polar-eccentricity] value \n" \
+"	Set the bounds of the injection ellipse_polar_eccentricity.\n" \
 	); fprintf(stderr, 
 "--output filename\n" \
 "	Select output name (default is too hard to explain).\n" \
 "\n" \
 "--population name\n" \
 "	Select the injection population to synthesize.  Allowed values are\n" \
-"	\"targeted\", \"string_cusp\", \"all_sky_sinegaussian\",\n" \
+"	\"targeted\", \"string_cusp\", \"all_sky_sinegaussian\", \"all_sky_gaussian\",\n" \
 "	\"all_sky_sinegaussian_F\", \"all_sky_btlwnb\".\n" \
 "\n" \
 "--ra-dec ra,dec\n" \
@@ -438,6 +474,18 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 		{"time-slide-file", required_argument, NULL, 'W'},
 		{"jitter", required_argument, NULL, 'X'},
 		{"user-tag", required_argument, NULL, 'R'},
+    {"tau-distr",required_argument,NULL,1727},
+    {"tau-stdev",required_argument,NULL,1728},
+    {"tau",required_argument,NULL,1729},
+    {"min-polar-angle",required_argument,NULL,1731},
+    {"max-polar-angle",required_argument,NULL,1732},
+    {"polar-angle-distr",required_argument,NULL,1733},
+    {"polar-ellipse-angle",required_argument,NULL,1734},
+    {"min-polar-eccentricity",required_argument,NULL,1735},
+    {"max-polar-eccentricity",required_argument,NULL,1736},
+    {"polar-eccentricity-distr",required_argument,NULL,1737},
+    {"polar-ellipse-e",required_argument,NULL,1738},
+    
 		{NULL, 0, NULL, 0}
 	};
 	int optarg_len=0;
@@ -628,6 +676,18 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 		options.hrss_distr=parse_distr(optarg);
 		ADD_PROCESS_PARAM(process, "int_4s");
 		break;
+  case 1727:
+		options.tau_distr=parse_distr(optarg);
+		ADD_PROCESS_PARAM(process, "int_4s");
+		break;
+  case 1728:
+		options.tau_stdev=atof(optarg);
+		ADD_PROCESS_PARAM(process, "real_8");
+		break;
+  case 1729:
+		options.tau=atof(optarg);
+		ADD_PROCESS_PARAM(process, "real_8");
+		break;    
 	case 1712:
 		options.q_stdev = atof(optarg);
 		ADD_PROCESS_PARAM(process, "real_8");
@@ -691,6 +751,38 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
         virgoPsdFileName = calloc( 1, optarg_len * sizeof(char) );
         memcpy( virgoPsdFileName, optarg, optarg_len * sizeof(char) );
         break;
+  case 1731:
+		options.minpolea= (REAL8) atof( optarg );
+		ADD_PROCESS_PARAM(process, "real_8");
+		break;
+  case 1732:
+		options.maxpolea= (REAL8) atof( optarg );
+		ADD_PROCESS_PARAM(process, "real_8");
+		break;
+  case 1733:
+		options.polea_distr=parse_distr(optarg);
+		ADD_PROCESS_PARAM(process, "int_4s");
+		break;
+  case 1734:
+		options.pol_ellipse_angle= (REAL8) atof( optarg );
+		ADD_PROCESS_PARAM(process, "real_8");
+		break;
+  case 1735:
+		options.minpolee= (REAL8) atof( optarg );
+		ADD_PROCESS_PARAM(process, "real_8");
+		break;
+  case 1736:
+		options.maxpolee= (REAL8) atof( optarg );
+		ADD_PROCESS_PARAM(process, "real_8");
+		break;
+  case 1737:
+		options.polee_distr=parse_distr(optarg);
+		ADD_PROCESS_PARAM(process, "int_4s");
+		break;
+  case 1738:
+		options.pol_ellipse_e= (REAL8) atof( optarg );
+		ADD_PROCESS_PARAM(process, "real_8");
+		break;  
 	case 0:
 		/* option sets a flag */
 		break;
@@ -1200,7 +1292,12 @@ static double draw_volume(gsl_rng *rng,double min,double max){
     proposed=1.0/(max*max*max)+(1.0/(min*min*min)- 1.0/(max*max*max))*gsl_rng_uniform(rng);
     proposed=1.0/cbrt(proposed);
     return proposed;
-    }
+}
+    
+static double draw_uniform_cos(gsl_rng *rng, double a, double b)
+{
+return acos(cos(a)+ (cos(b)-cos(a))*gsl_rng_uniform(rng));	
+}
 
 /* 
  * ============================================================================
@@ -1292,7 +1389,7 @@ static SimBurst *random_string_cusp(double flow, double fhigh, double Alow, doub
  */
 
 
-static SimBurst *random_directed_btlwnb(double ra, double dec, double psi, double minf, double maxf, double minband, double maxband, double mindur, double maxdur, double minEoverr2, double maxEoverr2, gsl_rng *rng)
+static SimBurst *random_directed_btlwnb(double ra, double dec, double psi, double minf, double maxf, double minband, double maxband, double mindur, double maxdur, double minEoverr2, double maxEoverr2, struct options *options, gsl_rng *rng)
 {
 	REAL8TimeSeries *hplus, *hcross;
 	SimBurst *sim_burst = XLALCreateSimBurst();
@@ -1313,20 +1410,58 @@ static SimBurst *random_directed_btlwnb(double ra, double dec, double psi, doubl
 	sim_burst->waveform_number = floor(gsl_ran_flat(rng, 0, ULONG_MAX));
 
 	/* centre frequency.  three steps between minf and maxf */
-
-	sim_burst->frequency = ran_flat_log_discrete(rng, minf, maxf, pow(maxf / minf, 1.0 / 3.0));
+  switch (options->f_distr){
+		case FIXED:
+			sim_burst->frequency = options->f;
+			break;
+		case UNIFORM:
+			sim_burst->frequency=draw_uniform(rng,options->minf,options->maxf);
+			break;
+		case GAUSSIAN:
+			sim_burst->frequency=draw_gaussian(rng,options->f,options->f_stdev);
+			break;
+		case UNIFORM_LOG:
+			sim_burst->frequency=ran_flat_log(rng, options->minf, options->maxf);
+			break;
+		default:
+			fprintf(stderr,"unknown distribution of frequency. Known values are fixed, uniform, gaussian, log.\n");
+			exit(1);
+	}
+	//sim_burst->frequency = ran_flat_log_discrete(rng, minf, maxf, pow(maxf / minf, 1.0 / 3.0));
 
 	/* duration and bandwidth.  keep picking until a valid pair is
  	 * obtained (i.e. their product is >= 2 / \pi) */
 	do {
-		sim_burst->duration = ran_flat_log(rng, mindur, maxdur);
-		sim_burst->bandwidth = ran_flat_log(rng, minband, maxband);
+		sim_burst->duration = draw_uniform(rng, mindur, maxdur);
+		sim_burst->bandwidth = draw_uniform(rng, minband, maxband);
 	} while(sim_burst->bandwidth * sim_burst->duration < LAL_2_PI);
 
 	/* energy */
 
-	sim_burst->egw_over_rsquared = ran_flat_log(rng, minEoverr2, maxEoverr2) * pow(sim_burst->frequency / 100.0, 4.0);
-
+	sim_burst->egw_over_rsquared = 1e-10;//ran_flat_log(rng, minEoverr2, maxEoverr2) * pow(sim_burst->frequency / 100.0, 4.0);
+  
+  REAL8 rand_hrss;//= draw_volume(rng, options->minhrss,options->maxhrss);
+  switch (options->hrss_distr){
+			case FIXED:
+				rand_hrss = options->hrss;
+				break;
+			case UNIFORM:
+				rand_hrss=draw_uniform(rng,options->minhrss,options->maxhrss);
+				break;
+			case VOLUME:
+				rand_hrss=draw_volume(rng,options->minhrss,options->maxhrss);
+				break;
+			case GAUSSIAN:
+        rand_hrss=draw_gaussian(rng,options->hrss,options->hrss_stdev);
+				break;
+			case UNIFORM_LOG:
+				rand_hrss=ran_flat_log(rng, options->minhrss, options->maxhrss);
+				break;
+			default:
+				fprintf(stderr,"unknown distribution of hrss. Known values are fixed, uniform, gaussian, log, and volume.\n");
+				exit(1);	
+				
+		}
 	/* not sure if this makes sense.  these parameters are ignored by
 	 * the injection code, but post-processing tools sometimes wish to
 	 * know with what amplitude an injection should've been seen in an
@@ -1351,7 +1486,21 @@ static SimBurst *random_directed_btlwnb(double ra, double dec, double psi, doubl
 		XLALDestroySimBurst(sim_burst);
 		return NULL;
 	}
-	sim_burst->hrss = XLALMeasureHrss(hplus, hcross);
+	sim_burst->hrss = rand_hrss;//XLALMeasureHrss(hplus, hcross);
+  //printf("resulting hrss %.1e\n",XLALMeasureHrss(hplus, hcross));
+  sim_burst->egw_over_rsquared = 1e-10*pow(rand_hrss/XLALMeasureHrss(hplus, hcross),2.);
+  /*
+  XLALGenerateSimBurst(&hplus, &hcross, sim_burst, 1.0 / 8192);
+	if(!hplus || !hcross) {
+		XLALDestroyREAL8TimeSeries(hplus);
+		XLALDestroyREAL8TimeSeries(hcross);
+		XLALDestroySimBurst(sim_burst);
+		return NULL;
+	}
+  
+  REAL8 tmp=XLALMeasureHrss(hplus, hcross);
+  printf("got an hrss of %.1e, drawn was %.1e -- ratio %.5e\n",tmp,rand_hrss,tmp/rand_hrss);
+  */
 	XLALDestroyREAL8TimeSeries(hplus);
 	XLALDestroyREAL8TimeSeries(hcross);
 
@@ -1361,13 +1510,13 @@ static SimBurst *random_directed_btlwnb(double ra, double dec, double psi, doubl
 }
 
 
-static SimBurst *random_all_sky_btlwnb(double minf, double maxf, double minband, double maxband, double mindur, double maxdur, double minEoverr2, double maxEoverr2, gsl_rng *rng)
+static SimBurst *random_all_sky_btlwnb(double minf, double maxf, double minband, double maxband, double mindur, double maxdur, double minEoverr2, double maxEoverr2, struct options *options, gsl_rng *rng)
 {
 	double ra, dec, psi;
 
 	random_location_and_polarization(&ra, &dec, &psi, rng);
 
-	return random_directed_btlwnb(ra, dec, psi, minf, maxf, minband, maxband, mindur, maxdur, minEoverr2, maxEoverr2, rng);
+	return random_directed_btlwnb(ra, dec, psi, minf, maxf, minband, maxband, mindur, maxdur, minEoverr2, maxEoverr2, options, rng);
 }
 
 
@@ -1423,9 +1572,30 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 	 * polarization.  induces LAL's sine-Gaussian generator to produce
 	 * linearly polarized sine-Gaussians (+ would be a cosine
 	 * Gaussian). */
-
-	sim_burst->pol_ellipse_e = 1.0;
-	sim_burst->pol_ellipse_angle = LAL_PI_2;
+  /* pick a polar ellipse angle  and eccentricity */
+	switch (options->polee_distr){
+		case FIXED:
+			sim_burst->pol_ellipse_e = options->pol_ellipse_e;
+			break;
+		case UNIFORM:
+			sim_burst->pol_ellipse_e =draw_uniform(rng,options->minpolee,options->maxpolee);
+			break;
+    default:
+    // default are linelary polarized signals
+      sim_burst->pol_ellipse_e = 1.0;
+	}
+  switch (options->polea_distr){
+		case FIXED:
+			sim_burst->pol_ellipse_angle = options->pol_ellipse_angle;
+			break;
+		case UNIFORM:
+			sim_burst->pol_ellipse_angle =draw_uniform(rng,options->minpolea,options->maxpolea);
+			break;
+    default:
+      // default are linelary polarized signals
+      sim_burst->pol_ellipse_angle = LAL_PI_2;
+	}
+	
 
 	/* q and centre frequency.  three steps between minf and maxf */
 	switch (options->q_distr){
@@ -1443,7 +1613,7 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 		case UNIFORM_LOG:
 			sim_burst->q=ran_flat_log(rng, options->minq, options->maxq);
 			break;
-	    default:
+    default:
 			fprintf(stderr,"unknown distribution of q. Known values are fixed, uniform, gaussian, log.\n");
 			exit(1);
 	}
@@ -1464,7 +1634,24 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 			fprintf(stderr,"unknown distribution of frequency. Known values are fixed, uniform, gaussian, log.\n");
 			exit(1);
 	}
-
+  /* duration */
+  switch (options->tau_distr){
+		case FIXED:
+			sim_burst->duration = options->tau;
+			break;
+		case UNIFORM:
+			sim_burst->duration=draw_uniform(rng,options->minduration,options->maxduration);
+			break;
+		case GAUSSIAN:
+			sim_burst->duration=draw_gaussian(rng,options->tau,options->tau_stdev);
+			break;
+		case UNIFORM_LOG:
+			sim_burst->duration=ran_flat_log(rng, options->minduration, options->maxduration);
+			break;
+		default:
+			fprintf(stderr,"unknown distribution of duration tau. Known values are fixed, uniform, gaussian, log.\n");
+			exit(1);
+	}
 	/* hrss */
 
 	//sim_burst->hrss = ran_flat_log(rng, minhrsst, maxhrsst);// / duration_from_q_and_f(sim_burst->q, sim_burst->frequency);
@@ -1494,7 +1681,7 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 	}
 	else if (options->snr_distr< NUM_ELEMENTS){
 		/* Inject using distribution on snr */
-		sim_burst->hrss=10.0e-23;
+		sim_burst->hrss=1e-22 ;
 		/* adjust SNR to desired distribution using LALSimulation WF Generator */
 		{
 	    
@@ -1512,10 +1699,10 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 		psds        = (REAL8FrequencySeries **) LALCalloc(numifos+1, sizeof(REAL8FrequencySeries *));
 		REAL8    srate=8192.0;
 		/* Salvo: Use 60secs. May want to increase*/
-		REAL8 segment=60.0;
+		REAL8 segment=8.0;
 		size_t seglen=(size_t) segment*srate;
 		LIGOTimeGPS ttime;
-		memcpy(&ttime,&(sim_burst->time_geocent_gps.gpsSeconds),sizeof(LIGOTimeGPS));
+		memcpy(&ttime,&(sim_burst->time_geocent_gps),sizeof(LIGOTimeGPS));
 		
 		/* Fill psds and start_freqs */
 		/* If the user did not provide files for the PSDs, use XLALSimNoisePSD to fill in ligoPsd and virgoPsd */
@@ -1731,17 +1918,17 @@ int main(int argc, char *argv[])
 
 		switch(options.population) {
 		case POPULATION_TARGETED:
-			*sim_burst = random_directed_btlwnb(options.ra, options.dec, gsl_ran_flat(rng, 0, LAL_TWOPI), options.minf, options.maxf, options.minbandwidth, options.maxbandwidth, options.minduration, options.maxduration, options.minEoverr2, options.maxEoverr2, rng);
+			*sim_burst = random_directed_btlwnb(options.ra, options.dec, gsl_ran_flat(rng, 0, LAL_TWOPI), options.minf, options.maxf, options.minbandwidth, options.maxbandwidth, options.minduration, options.maxduration, options.minEoverr2, options.maxEoverr2,&options, rng);
 			break;
 
 		case POPULATION_ALL_SKY_SINEGAUSSIAN:
 		case POPULATION_ALL_SKY_SINEGAUSSIAN_F:
-        case POPULATION_ALL_SKY_GAUSSIAN:
+    case POPULATION_ALL_SKY_GAUSSIAN:
 			*sim_burst = random_all_sky_sineGaussian(rng, &options,tinj);
 			break;
 
 		case POPULATION_ALL_SKY_BTLWNB:
-			*sim_burst = random_all_sky_btlwnb(options.minf, options.maxf, options.minbandwidth, options.maxbandwidth, options.minduration, options.maxduration, options.minEoverr2, options.maxEoverr2, rng);
+			*sim_burst = random_all_sky_btlwnb(options.minf, options.maxf, options.minbandwidth, options.maxbandwidth, options.minduration, options.maxduration, options.minEoverr2, options.maxEoverr2, &options, rng);
 			break;
 
 		case POPULATION_STRING_CUSP:
@@ -1964,6 +2151,7 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
     REAL8 polarization=0.0;
     REAL8 injtime=0.0;
     REAL8 longitude;
+    //REAL8 duration=0.0;
 	LALSimulationBurstDomain modelDomain=LAL_SIM_BURST_DOMAIN_FREQUENCY;
 	REAL8 f_max;
 	Q=inj->q;
@@ -1975,22 +2163,24 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 	injtime=inj->time_geocent_gps.gpsSeconds + 1e-9*inj->time_geocent_gps.gpsNanoSeconds;
 	latitude=inj->dec;
 	longitude=inj->ra;
+  //duration=inj->duration;
 
 	const CHAR *WF=inj->waveform;
 
-	if(strstr(WF,"SineGaussianF"))
+	if(!strcmp(WF,"SineGaussianF")||!strcmp(WF,"GaussianF"))
 			modelDomain=LAL_SIM_BURST_DOMAIN_FREQUENCY;
 			
-	else if (strstr(WF,"SineGaussian") || strstr(WF,"Gaussian"))
+	else if (!strcmp(WF,"SineGaussian") ||!strcmp(WF,"Gaussian"))
             modelDomain=LAL_SIM_BURST_DOMAIN_TIME;
 			
     LIGOTimeGPS		    epoch;  
-    memcpy(&epoch,&(inj->time_geocent_gps.gpsSeconds),sizeof(LIGOTimeGPS));
     
     /* Hardcoded values of srate and segment length. If changed here they must also be changed in inspinj.c */
     REAL8 srate=8192.0;
-    REAL8 segment=60.0;
-    
+    REAL8 segment=8.0;
+    //REAL8 start=injtime-segment/2.;
+    memcpy(&epoch,&inj->time_geocent_gps,sizeof(LIGOTimeGPS));
+    XLALGPSAdd(&epoch, -segment/2.0);
     
     f_max=(srate/2.0-(1.0/segment));
     size_t seglen=(size_t) segment*srate;
@@ -2044,12 +2234,7 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 
     }
     else{
-        /* Otherwise use XLALGenerateSimBurst(
-	REAL8TimeSeries **hplus,
-	REAL8TimeSeries **hcross,
-	const SimBurst *sim_burst,
-	double delta_t;
- */
+        
         REAL8FFTPlan *timeToFreqFFTPlan = XLALCreateForwardREAL8FFTPlan((UINT4) seglen, 0 );
         REAL8TimeSeries *hplus=NULL; 
         REAL8TimeSeries *hcross=NULL; 
@@ -2060,29 +2245,48 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 																	&epoch,
 																	0.0,
 																	deltaT,
-																	&lalDimensionlessUnit,
+																	&lalStrainUnit,
 																	seglen);
         timeHplus=XLALCreateREAL8TimeSeries("timeModelhplus",
 																	&epoch,
 																	0.0,
 																	deltaT,
-																	&lalDimensionlessUnit,
+																	&lalStrainUnit,
 																	seglen);
-		 //XLALSimBurstSineGaussian(&hplus,&hcross,Q,centre_frequency,hrss, eccentricity,polar_angle,deltaT);
         XLALGenerateSimBurst(&hplus,&hcross,inj,deltaT);
         memset(timeHplus->data->data, 0, sizeof (REAL8)*timeHplus->data->length);
         memset(timeHcross->data->data, 0, sizeof (REAL8)*timeHcross->data->length);
-        memcpy(timeHplus->data->data, hplus->data->data,hplus->data->length*sizeof(REAL8));
-        memcpy(timeHcross->data->data, hcross->data->data ,hplus->data->length*sizeof(REAL8));
+        XLALGPSAddGPS(&hcross->epoch, &inj->time_geocent_gps);
+		    XLALGPSAddGPS(&hplus->epoch, &inj->time_geocent_gps);
+        XLALSimAddInjectionREAL8TimeSeries(timeHplus, hplus, NULL);
+        XLALSimAddInjectionREAL8TimeSeries(timeHcross, hcross, NULL);
         
         for (j=0; j<(UINT4) freqHplus->data->length; ++j) {
-                freqHplus->data->data[j]=0.0+I*0,0; 
-                freqHcross->data->data[j]=0.0+I*0,0;
+                freqHplus->data->data[j]=0.0; 
+                freqHcross->data->data[j]=0.0;
             }
-        
+        REAL8 padding=0.4;
+        REAL8Window *window;
+        window =XLALCreateTukeyREAL8Window(seglen,(REAL8)2.0*padding*srate/(REAL8)seglen);
+        REAL4 WinNorm = sqrt(window->sumofsquares/window->data->length);
+        if(!window) {
+          XLAL_ERROR(XLAL_EFUNC);
+        }
+       
+        for(j = 0; j < window->data->length; j++) {
+          timeHplus ->data->data[j] *= window->data->data[j];
+          timeHcross->data->data[j] *= window->data->data[j];
+        }
+        XLALDestroyREAL8Window(window);   
+         
         /* FFT into freqHplus and freqHcross */
         XLALREAL8TimeFreqFFT(freqHplus,timeHplus,timeToFreqFFTPlan);
         XLALREAL8TimeFreqFFT(freqHcross,timeHcross,timeToFreqFFTPlan);
+        
+        for (j=0; j<(UINT4) freqHplus->data->length; ++j) {
+            freqHplus->data->data[j]/=WinNorm; 
+            freqHcross->data->data[j]/=WinNorm;
+        }
         
         /* Clean... */
         if ( hplus ) XLALDestroyREAL8TimeSeries(hplus);
@@ -2123,7 +2327,6 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
     REAL8  plainTemplateReal,  plainTemplateImag,templateReal,templateImag;
     REAL8  newRe, newIm,temp;
     REAL8 this_snr=0.0;
- 
 
     for (j=lower; j<=(UINT4) upper; ++j){
       /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
@@ -2146,12 +2349,10 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
       re = newRe;
       im = newIm;
     }
-
     /* Clean */
     if (freqHcross) XLALDestroyCOMPLEX16FrequencySeries(freqHcross);
     if (freqHplus) XLALDestroyCOMPLEX16FrequencySeries(freqHplus);
     if (detector) free(detector);
-    
     return sqrt(this_snr*2.0);
   
 }

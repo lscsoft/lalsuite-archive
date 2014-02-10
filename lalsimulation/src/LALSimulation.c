@@ -41,6 +41,12 @@
 #include <lal/TimeFreqFFT.h>
 #include <lal/Window.h>
 #include "check_series_macros.h"
+#include <lal/LALSimInspiral.h>
+//#include <lal/LIGOLwXMLRead.h>
+//#include <lal/LIGOLwXMLInspiralRead.h>
+#include <lal/LIGOMetadataTables.h>
+#include <lal/LIGOMetadataUtils.h>
+#include <lal/LIGOMetadataInspiralUtils.h>
 
 /*
  * ============================================================================
@@ -716,6 +722,29 @@ static COMPLEX16 XLALComputeDetArmTransferFunction(double beta, double mu)
 	return ans;
 }
 
+static REAL8 fLow2fStart(REAL8 fLow, INT4 ampOrder, INT4 approximant)
+/*  Compute the minimum frequency for waveform generation */
+/*  using amplitude orders above Newtonian.  The waveform */
+/*  generator turns on all orders at the orbital          */
+/*  associated with fMin, so information from higher      */
+/*  orders is not included at fLow unless fMin is         */
+/*  sufficiently low.                                 
+ * Copied from LALInferenceTemplate.c to avoid including lalinference    */
+{
+  INT4 	MAX_NONPRECESSING_AMP_PN_ORDER =6; 
+  INT4	MAX_PRECESSING_AMP_PN_ORDER =3;
+  
+  if (ampOrder == -1) {
+      if (approximant == SpinTaylorT2 || approximant == SpinTaylorT4)
+          ampOrder = MAX_PRECESSING_AMP_PN_ORDER;
+      else
+          ampOrder = MAX_NONPRECESSING_AMP_PN_ORDER;
+  }
+
+    REAL8 fStart;
+    fStart = fLow * 2./(ampOrder+2);
+    return fStart;
+}
 
 static void getarm(double u[3], double alt, double azi, double lat, double lon)
 {
@@ -1629,5 +1658,114 @@ freereturn:
 
 	if (errnum)
 		XLAL_ERROR(errnum);
+	return 0;
+}
+
+/**
+ * Wrapper to iterate over the entries in a sim_inspiral linked list and
+ * inject them into a time series.  Passing NULL for the response disables
+ * it (input time series is strain).
+ * This function is an adaptation of XLALBurstInjectSignals
+ */
+int XLALInspiralInjectSignals(
+	REAL8TimeSeries *series,
+	const SimInspiralTable *sim_table,
+	const COMPLEX16FrequencySeries *response
+)
+{
+	/* to be deduced from the time series' channel name */
+	const LALDetector *detector;
+	/* FIXME:  fix the const entanglement so as to get rid of this */
+	LALDetector detector_copy;
+	/* skip injections whose geocentre times are more than this many
+	 * seconds outside of the target time series */
+	const double injection_window = 100.0;
+
+	/* turn the first two characters of the channel name into a
+	 * detector */
+
+	detector = XLALDetectorPrefixToLALDetector(series->name);
+	if(!detector)
+		XLAL_ERROR(XLAL_EFUNC);
+	XLALPrintInfo("%s(): channel name is '%s', instrument appears to be '%s'\n", __func__, series->name, detector->frDetector.prefix);
+	detector_copy = *detector;
+
+  /*Fix waveform flags and other amenities which are in common for all events  */ 
+  LALSimInspiralTestGRParam *nonGRparams = NULL;
+  LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
+  //LALSimInspiralSpinOrder spinO = -1;
+  //LALSimInspiralTidalOrder tideO = -1;
+  REAL8 lambda1 = 0.;
+  REAL8 lambda2 = 0.;
+  //XLALSimInspiralSetSpinOrder(waveFlags, 0);
+  //XLALSimInspiralSetTidalOrder(waveFlags, 0);
+  LALPNOrder order = XLALGetOrderFromString(sim_table->waveform);
+  INT4 amporder = sim_table->amp_order;
+  Approximant       approximant;        /* Get approximant value      */
+  approximant = XLALGetApproximantFromString(sim_table->waveform);
+  if( (int) approximant == XLAL_FAILURE)
+    exit(1);
+  REAL8 f_min = fLow2fStart(sim_table->f_lower, amporder, approximant);
+  REAL8 fref = 100.;
+	/* iterate over injections */
+	for(; sim_table; sim_table = sim_table->next) {
+    	/* + and x time series for injection waveform */
+	REAL8TimeSeries *hplus=NULL, *hcross=NULL;
+	/* injection time series as added to detector's */
+	REAL8TimeSeries *h;
+  LIGOTimeGPS time_geocent_gps;
+
+		/* skip injections whose "times" are too far outside of the
+		 * target time series */
+		time_geocent_gps = sim_table->geocent_end_time;
+		if(XLALGPSDiff(&series->epoch, &time_geocent_gps) > injection_window || XLALGPSDiff(&time_geocent_gps, &series->epoch) > (series->data->length * series->deltaT + injection_window))
+			continue;
+      
+		/* construct the h+ and hx time series for the injection
+		 * waveform. */
+    XLALSimInspiralChooseTDWaveform(&hplus, &hcross, sim_table->coa_phase,series->deltaT,
+                                      sim_table->mass1*LAL_MSUN_SI, sim_table->mass2*LAL_MSUN_SI, sim_table->spin1x,
+                                      sim_table->spin1y, sim_table->spin1z, sim_table->spin2x, sim_table->spin2y,
+                                      sim_table->spin2z, f_min, fref, sim_table->distance*LAL_PC_SI * 1.0e6,
+                                      sim_table->inclination, lambda1, lambda2, waveFlags,
+                                      nonGRparams, amporder, order, approximant);
+                                      
+      if(!hplus || !hcross) {
+        fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to produce waveform.\n");
+        exit(-1);
+      }
+
+		/* add the time of the injection at the geocentre to the
+		 * start times of the h+ and hx time series.  after this,
+		 * their epochs mark the start of those time series at the
+		 * geocentre. */
+
+		XLALGPSAddGPS(&hcross->epoch, &sim_table->geocent_end_time);
+		XLALGPSAddGPS(&hplus->epoch, &sim_table->geocent_end_time);
+
+		/* project the wave onto the detector to produce the strain
+		 * in the detector. */
+
+		h = XLALSimDetectorStrainREAL8TimeSeries(hplus, hcross, sim_table->longitude, sim_table->latitude, sim_table->polarization, &detector_copy);
+		XLALDestroyREAL8TimeSeries(hplus);
+		XLALDestroyREAL8TimeSeries(hcross);
+		if(!h)
+			XLAL_ERROR(XLAL_EFUNC);
+
+
+		/* add the injection strain time series to the detector
+		 * data */
+
+		if(XLALSimAddInjectionREAL8TimeSeries(series, h, response)) {
+			XLALDestroyREAL8TimeSeries(h);
+			XLAL_ERROR(XLAL_EFUNC);
+		}
+		XLALDestroyREAL8TimeSeries(h);
+	}
+
+  XLALSimInspiralDestroyWaveformFlags(waveFlags);
+  XLALSimInspiralDestroyTestGRParam(nonGRparams);
+	/* done */
+
 	return 0;
 }
