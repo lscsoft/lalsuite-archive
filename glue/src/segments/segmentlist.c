@@ -1334,7 +1334,7 @@ static PySequenceMethods as_sequence = {
 static struct PyMethodDef methods[] = {
 	{"extent", extent, METH_NOARGS, "Return the segment whose end-points denote the maximum and minimum extent of the segmentlist.  Does not require the segmentlist to be coalesced."},
 	{"find", find, METH_O, "Return the smallest i such that i is the index of an element that wholly contains item.  Raises ValueError if no such element exists.  Does not require the segmentlist to be coalesced."},
-	{"intersects", intersects, METH_O, "Returns True if the intersection of self and the segmentlist other is not the null set, otherwise returns False.  The algorithm is O(n), but faster than explicit calculation of the intersection, i.e. by testing len(self & other).  Requires both lists to be coalesced."},
+	{"intersects", intersects, METH_O, "Returns True if the intersection of self and the segmentlist other is not the null set, otherwise returns False.  The algorithm is O(n), but faster than explicit calculation of the intersection, i.e. by testing bool(self & other).  Requires both lists to be coalesced."},
 	{"intersects_segment", intersects_segment, METH_O, "Returns True if the intersection of self and the segment other is not the null set, otherwise returns False.  The algorithm is O(log n).  Requires the list to be coalesced."},
 	{"coalesce", coalesce, METH_NOARGS, "Sort the elements of a list into ascending order, and merge continuous segments into single segments.  This operation is O(n log n)."},
 	{"protract", protract, METH_O, "Execute the .protract() method on each segment in the list and coalesce the result.  Segmentlist is modified in place."},

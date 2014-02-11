@@ -149,7 +149,7 @@ def generate_html(outf, triggers, colors, options):
 
         print >>outf, '    <td>%s</td>' % (trig[0])
 
-        end_time_utc = os.popen('tconvert %d' % trig[1]).next().strip()
+        end_time_utc = os.popen('lalapps_tconvert %d' % trig[1]).next().strip()
         print >>outf, '    <td>%s</td>' % (end_time_utc)
 
         for res in trig[1:-1]:
@@ -454,8 +454,8 @@ if __name__ == '__main__':
     out_tmp = StringIO.StringIO()
    
     # Could these be done in Python?
-    start_time_str = os.popen('tconvert %d' % gps_start_time).next().strip()
-    end_time_str   = os.popen('tconvert %d' % gps_end_time).next().strip()
+    start_time_str = os.popen('lalapps_tconvert %d' % gps_start_time).next().strip()
+    end_time_str   = os.popen('lalapps_tconvert %d' % gps_end_time).next().strip()
 
     print >>out_tmp, "<h3>%s through %s</h3>" % (start_time_str, end_time_str)
 

@@ -871,3 +871,6 @@ class Cache(list):
 				raise ValueError("Why am I here? "\
 				      "Please file a bug report!")
 		return self.__class__(c_found), self.__class__(c_missed)
+
+	def __getslice__(self, i, j):
+		return self.__class__(super(Cache, self).__getslice__(i, j))

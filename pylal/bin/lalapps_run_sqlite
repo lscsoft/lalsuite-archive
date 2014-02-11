@@ -64,8 +64,8 @@ else:
 sql = [statement for statement in sql if statement]
 
 # Apply the SQL to all the databases sequentially
-for filename in databases:
-	if options.verbose: print >>sys.stderr, "Applying SQL to %s" % (filename,)
+for n, filename in enumerate(databases, 1):
+	if options.verbose: print >>sys.stderr, "%d/%d: Applying SQL to %s" % (n, len(databases), filename)
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
 	# also use the scratch space for sqlite's temp store, but don't try

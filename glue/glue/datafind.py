@@ -295,9 +295,11 @@ def validate_proxy(path):
     try:
         proxy.get_ext("proxyCertInfo")
     except LookupError:
-      raise RuntimeError("Could not find a RFC 3820 compliant proxy "
-                         "credential. Please run 'grid-proxy-init -rfc' "
-                         "and try again.")
+        subject = proxy.get_subject().as_text()
+        if re.search(r'.+CN=proxy$', subject):
+            raise RuntimeError("Could not find a RFC 3820 compliant proxy "
+                               "credential. Please run 'grid-proxy-init -rfc' "
+                               "and try again.")
 
     # attempt to make sure the proxy is still good for more than 15 minutes
     try:
