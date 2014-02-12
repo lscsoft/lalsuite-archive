@@ -22,7 +22,6 @@ __all__ = ["ProgressBar"]
 
 # TODO: Implement the context manager API
 #       (but wait until clusters have Python >= 2.5).
-# TODO: Is it better to print the progress bar to stderr or stdout?
 
 
 import math
