@@ -2635,12 +2635,12 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
 //  coeffs->b3 = 41583.9402122;
 //  coeffs->b4 = 68359.70064;
 
-  printf( "NQC coefficients:\n" );
+  /*printf( "NQC coefficients:\n" );
   printf( "{%f,%f,%f,%f,%f,%f}\n",
     coeffs->a1, coeffs->a2, coeffs->a3, coeffs->a3S, coeffs->a4, coeffs->a5 );
 
   printf( "{%f,%f,%f,%f}\n",
-    coeffs->b1, coeffs->b2, coeffs->b3, coeffs->b4 );
+    coeffs->b1, coeffs->b2, coeffs->b3, coeffs->b4 );*/
 
   /* Free memory and exit */
   gsl_matrix_free( qMatrix );
