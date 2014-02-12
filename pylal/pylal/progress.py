@@ -20,10 +20,6 @@ __author__ = "Leo Singer <leo.singer@ligo.org>"
 __all__ = ["ProgressBar"]
 
 
-# TODO: Implement the context manager API
-#       (but wait until clusters have Python >= 2.5).
-
-
 import math
 import os
 import sys
@@ -71,7 +67,22 @@ def getTerminalSize():
 
 
 class ProgressBar:
-    """Display a text progress bar."""
+    """Display a text progress bar.
+
+    A final line feed is printed when the ProgressBar is garbage collected.
+    Explicitly deleting the object can force a line feed when desired.  As
+    an alternative, using the ProgressBar as a context manager will ensure
+    a final line feed is printed when the code block within which the
+    ProgressBar is being used exits.
+
+    Example:
+
+    >>> with ProgressBar(max=3) as pb:
+    ...    pb.update(1)
+    ...    pb.update(2)
+    ...    pb.update(3)
+    ...
+    """
 
     def __init__(
             self, text='Working', max=1, value=0, textwidth=24, fid=None,
@@ -86,6 +97,7 @@ class ProgressBar:
         self.sequence = sequence
         self.twiddle_sequence = twiddle_sequence
         self.twiddle = 0
+        self.linefed = False
 
     def iterate(self, iterable, format="%s"):
         """Use as a target of a for-loop to issue a progress update for every
@@ -152,6 +164,7 @@ class ProgressBar:
         print >>self.fid, '\r\x1B[1m' + label + '\x1B[0m [' + barSymbols + \
             ']' + progressFractionText,
         self.fid.flush()
+        self.linefed = False
 
     def update(self, value=None, text=None):
         """Redraw the progress bar, optionally changing the value and text."""
@@ -165,20 +178,39 @@ class ProgressBar:
         elif self.text != old_text:
             print >>self.fid, self.text
 
+    def linefeed(self):
+        if not self.linefed:
+            print >>self.fid
+            self.fid.flush()
+            self.linefed = True
+
+    def __enter__(self):
+        self.show()
+        return self
+
+    def __exit__(self, exc_type, exc_value, tb):
+        try:
+            self.linefeed()
+        except:
+            pass
+
+    def __del__(self):
+        self.linefeed()
+
 
 def demo():
     """Demonstrate progress bar."""
     from time import sleep
     maxProgress = 1000
-    progressbar = ProgressBar(max=maxProgress)
-    for i in range(-100, maxProgress):
+    with ProgressBar(max=maxProgress) as progressbar:
+        for i in range(-100, maxProgress):
+            sleep(0.01)
+            progressbar.update(i)
+    progressbar2 = ProgressBar(max=maxProgress)
+    for s in progressbar2.iterate(range(maxProgress)):
         sleep(0.01)
-        progressbar.update(i)
-    for s in progressbar.iterate(range(maxProgress)):
+    for s in progressbar2.iterate(range(maxProgress), format='iteration %d'):
         sleep(0.01)
-    for s in progressbar.iterate(range(maxProgress), format='iteration %d'):
-        sleep(0.01)
-    print >>sys.stderr, ''
 
 
 if __name__ == '__main__':
