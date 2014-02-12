@@ -22,6 +22,7 @@ __all__ = ["ProgressBar"]
 
 import math
 import os
+import struct
 import sys
 
 
@@ -30,10 +31,10 @@ def getTerminalSize():
     """
     returns (lines:int, cols:int)
     """
-    import os
-    import struct
 
     def ioctl_GWINSZ(fd):
+        # These two imports are only present on POSIX systems, so they must be
+        # guarded by a try block.
         import fcntl
         import termios
         return struct.unpack("hh", fcntl.ioctl(fd, termios.TIOCGWINSZ, "1234"))
@@ -125,7 +126,6 @@ class ProgressBar:
 
     def show(self):
         """Redraw the text progress bar."""
-        from math import floor, ceil
 
         if len(self.text) > self.textwidth:
             label = self.text[0:self.textwidth]
@@ -144,7 +144,7 @@ class ProgressBar:
             pattern = self.twiddle_sequence[
                 self.twiddle % len(self.twiddle_sequence)]
             self.twiddle += 1
-            barSymbols = (pattern * int(ceil(barWidth/3.0)))[0:barWidth]
+            barSymbols = (pattern * int(math.ceil(barWidth/3.0)))[0:barWidth]
             progressFractionText = '   . %'
         else:
             progressFraction = float(self.value) / self.max
@@ -154,7 +154,7 @@ class ProgressBar:
             nBlocksInt = int(nBlocksInt)
 
             partialBlock = self.sequence[
-                int(floor(nBlocksFrac * len(self.sequence)))]
+                int(math.floor(nBlocksFrac * len(self.sequence)))]
 
             nBlanks = barWidth - nBlocksInt - 1
             barSymbols = (self.sequence[-1] * nBlocksInt) + partialBlock + \
