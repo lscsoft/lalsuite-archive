@@ -153,12 +153,15 @@ XLALSpinAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
   chiK = params->sigmaKerr->data[2] / (1.-2.*eta);
   K = 1.4467 -  1.7152360250654402 * eta - 3.246255899738242 * eta * eta;
 
-  if ( chiK < 0.8 ) rshift = 0.5;
-  if ( chiK < 0.78) rshift = 0.475;
+  if ( chiK < 0.82 ) rshift = 0.58;
+  if ( chiK < 0.8 ) rshift = 0.52;
+  if ( chiK < 0.78) rshift = 0.515;
+  if ( chiK < 0.76) rshift = 0.475;
   if ( chiK < 0.72) rshift = 0.45;
-  if ( chiK > -0.8 && chiK < 0.67 ) rshift = 0.35;
+  if ( chiK < 0.67) rshift = 0.38;
+  if ( chiK > -0.8 && chiK < 0.6 ) rshift = 0.35;
 
-  if ( values[0] <= (1.+sqrt(1-params->a * params->a))*(1.-K*eta) + rshift+0.02 || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
+  if ( values[0] <= (1.+sqrt(1-params->a * params->a))*(1.-K*eta) + rshift+0.02+0.0 || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
   {
     return 1;
   }
@@ -609,12 +612,12 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   //printf( "We think we hit the peak at time %e\n", dynamics->data[retLen-1] );
 
   /* TODO : Insert high sampling rate / ringdown here */
-  FILE *out = fopen( "saDynamics.dat", "w" );
+  /*FILE *out = fopen( "saDynamics.dat", "w" );
   for ( i = 0; i < retLen; i++ )
   {
     fprintf( out, "%.16e %.16e %.16e %.16e %.16e\n", dynamics->data[i], rVec.data[i], phiVec.data[i], prVec.data[i], pPhiVec.data[i] );
   }
-  fclose( out );
+  fclose( out );*/
 
   /*
    * STEP 3) Step back in time by tStepBack and volve EOB trajectory again 
@@ -625,9 +628,9 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   hiSRndx = retLen - nStepBack;
   deltaTHigh = deltaT / (REAL8)resampFac;
 
-  fprintf( stderr, "Stepping back %d points - we expect %d points at high SR\n", nStepBack, nStepBack*resampFac );
+  /*fprintf( stderr, "Stepping back %d points - we expect %d points at high SR\n", nStepBack, nStepBack*resampFac );
   fprintf( stderr, "Commencing high SR integration... from %.16e %.16e %.16e %.16e %.16e\n",
-     (dynamics->data)[hiSRndx],rVec.data[hiSRndx], phiVec.data[hiSRndx], prVec.data[hiSRndx], pPhiVec.data[hiSRndx] );
+     (dynamics->data)[hiSRndx],rVec.data[hiSRndx], phiVec.data[hiSRndx], prVec.data[hiSRndx], pPhiVec.data[hiSRndx] );*/
 
   values->data[0] = rVec.data[hiSRndx];
   values->data[1] = phiVec.data[hiSRndx];
@@ -653,12 +656,12 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   prHi.data   = dynamicsHi->data+3*retLen;
   pPhiHi.data = dynamicsHi->data+4*retLen;
 
-  out = fopen( "saDynamicsHi.dat", "w" );
+  /*out = fopen( "saDynamicsHi.dat", "w" );
   for ( i = 0; i < retLen; i++ )
   {
     fprintf( out, "%.16e %.16e %.16e %.16e %.16e\n", timeHi.data[i], rHi.data[i], phiHi.data[i], prHi.data[i], pPhiHi.data[i] );
   }
-  fclose( out );
+  fclose( out );*/
 
   /* Allocate the high sample rate vectors */
   sigReHi  = XLALCreateREAL8Vector( retLen + (UINT4)ceil( 20 / ( cimag(modeFreq) * deltaTHigh )) );
@@ -779,7 +782,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   gsl_interp_accel_free( acc );
   */
 
-  XLALPrintInfo( "Estimation of the peak is now at time %.16e\n", timePeak );
+  //XLALPrintInfo( "Estimation of the peak is now at time %.16e\n", timePeak );
 
   /* Having located the peak of orbital frequency, we set time and phase of coalescence */
   XLALGPSAdd( &tc, -mTScaled * (dynamics->data[hiSRndx] + timePeak));
@@ -838,7 +841,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
      timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaT(2, 2, eta,  a);
        break;
      case 2:
-     timewavePeak = 0.0;
+     timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaTv2(2, 2, eta, spin1z, spin2z );
        break;
      default:
        XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
@@ -934,7 +937,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   rdMatchPoint->data[0] = combSize < timePeak - timeshiftPeak ? timePeak - timeshiftPeak - combSize : 0;
   rdMatchPoint->data[1] = timePeak - timeshiftPeak;
   rdMatchPoint->data[2] = dynamicsHi->data[finalIdx];
-  printf("YP::comb range: %f, %f\n",rdMatchPoint->data[0],rdMatchPoint->data[1]);
+  //printf("YP::comb range: %f, %f\n",rdMatchPoint->data[0],rdMatchPoint->data[1]);
   if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, 2,
               deltaTHigh, m1, m2, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2],
               &timeHi, rdMatchPoint, SpinAlignedEOBapproximant )
@@ -1543,11 +1546,11 @@ int XLALSimIMRSpinEOBWaveform(
     XLAL_ERROR( XLAL_EFUNC );
   }
 
-  /*FILE *indat = fopen( "inputDynData.dat", "r" );
+  /*FILE *indat = fopen( "inputProcessedDynData.dat", "r" );
   i = 0;
   while ( !feof(indat) ) {
     fscanf(indat,"%e",dynamics->data+i);
-    i++
+    i++;
   }
   retLen = (i+1)/14;*/ 
 
@@ -1565,8 +1568,12 @@ int XLALSimIMRSpinEOBWaveform(
   REAL8 *s2Vecx = dynamics->data+10*retLen;
   REAL8 *s2Vecy = dynamics->data+11*retLen;
   REAL8 *s2Vecz = dynamics->data+12*retLen;
+  REAL8 *phiDMod= dynamics->data+13*retLen;
+  REAL8 *phiMod = dynamics->data+14*retLen;
   REAL8 *vphi   = dynamics->data+13*retLen;
 
+printf("%f %f\n",phiDMod[0],phiMod[0]);
+ 
   FILE *out = fopen( "seobDynamics.dat", "w" );
   for ( i = 0; i < retLen; i++ )
   {
