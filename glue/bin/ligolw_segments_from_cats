@@ -236,8 +236,8 @@ def kludge_get_column_info(connection, table_name):
     coldefs = re.match(dbtables._sql_create_table_pattern, statement).groupdict()["coldefs"]
     return [(coldef.groupdict()["name"], coldef.groupdict()["type"]) for coldef in re.finditer(dbtables._sql_coldef_pattern, coldefs) if coldef.groupdict()["name"].upper() not in ("PRIMARY", "UNIQUE", "CHECK")]
 
-
-
+class ContentHandler(ligolw.LIGOLWContentHandler):
+    connection = None
 
 
 #
@@ -264,7 +264,9 @@ if __name__ == '__main__':
     handle, temp_db    = tempfile.mkstemp(suffix='.sqlite')
     os.close(handle)
     target          = dbtables.get_connection_filename(temp_db, None, True, False)
-    veto_connection = ligolw_sqlite.setup(target)
+    veto_connection = sqlite3.connect(target)
+    dbtables.idmap_sync(veto_connection)
+
 
     # Create an engine to query veto information
     veto_query_engine = query_engine.SqliteQueryEngine(veto_connection)
@@ -281,7 +283,9 @@ if __name__ == '__main__':
         segment_connection   = segmentdb_utils.setup_database(db_location)
         segment_query_engine = query_engine.LdbdQueryEngine(segment_connection)
 
-    ligolw_sqlite.insert_from_urls(veto_connection, xml_files)
+    ContentHandler.connection = veto_connection
+    dbtables.use_in(ContentHandler)
+    ligolw_sqlite.insert_from_urls(veto_connection, xml_files, contenthandler=ContentHandler)
 
     # If we're working with DMT files make sure we have a segment table
     if file_location:

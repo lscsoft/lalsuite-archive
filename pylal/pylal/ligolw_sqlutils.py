@@ -598,7 +598,10 @@ def get_next_id(connection, table, id_column):
     """
     sqlquery = ' '.join(['SELECT', id_column, 'FROM', table ])
     ids = dict([ [int(ilwd.ilwdchar(this_id)), ilwd.ilwdchar(this_id)] for (this_id,) in connection.cursor().execute(sqlquery)])
-    new_id = ids[ max(ids.keys()) ] + 1
+    if ids == {}:
+        new_id = ilwd.ilwdchar(':'.join([table, id_column, '0']))
+    else:
+        new_id = ids[ max(ids.keys()) ] + 1
 
     return new_id
 
@@ -1871,7 +1874,10 @@ def write_newstyle_coinc_def_entry( connection, description, search = None, sear
         this_id = get_next_id( connection, 'coinc_definer', 'coinc_def_id' )
         if not search_coinc_type:
             # assign to the new coinc_definer row the largest+1 search_coinc_type INT
-            search_coinc_type = 1+connection.execute('SELECT MAX(search_coinc_type) FROM coinc_definer').fetchone()[0]
+            last_coinc_type = connection.execute('SELECT MAX(search_coinc_type) FROM coinc_definer').fetchone()[0]
+            if last_coinc_type is None:
+                last_coinc_type = 0
+            search_coinc_type = 1 + last_coinc_type
         connection.cursor().execute( sqlquery, (str(this_id), description, search, search_coinc_type) )
         connection.commit()
     else:
