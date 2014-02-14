@@ -1746,6 +1746,9 @@ class CondorDAG:
     Write all the nodes in the workflow to the DAX file.
     """
 
+    # keep track of if we are using stampede at TACC
+    using_stampede = False
+
     if not self.__dax_file_path:
       # this workflow is not dax-compatible, so don't write a dax
       return
@@ -1914,7 +1917,10 @@ class CondorDAG:
         
         # Check for desired grid site
         if node.job().get_grid_site():
-            workflow_job.addProfile(Pegasus.DAX3.Profile('hints','executionPool',node.job().get_grid_site()))
+            this_grid_site = node.job().get_grid_site()
+            workflow_job.addProfile(Pegasus.DAX3.Profile('hints','executionPool',this_grid_site))
+            if this_grid_site == 'stampede-dev' or 'stampede':
+              using_stampede = True
 
         # write the executable into the dax
         job_executable = Pegasus.DAX3.Executable(
@@ -1995,6 +2001,18 @@ class CondorDAG:
     # FIXME put all the executables in the workflow
     for exec_key in workflow_executable_dict.keys():
       workflow.addExecutable(workflow_executable_dict[exec_key])
+
+    # FIXME if we are running on stampede, add the mpi wrapper job
+    if using_stampede:
+      prod_mpiexec = Pegasus.DAX3.Executable(namespace="pegasus",
+        name="mpiexec", os="linux", arch="x86_64", installed="true")
+      prod_mpiexec.addPFN(Pegasus.DAX3.PFN("file:///home1/02796/dabrown/bin/mpi-cluster-wrapper-impi.sh","stampede"))
+      workflow.addExecutable(prod_mpiexec)
+
+      dev_mpiexec = Pegasus.DAX3.Executable(namespace="pegasus",
+        name="mpiexec", os="linux", arch="x86_64", installed="true")
+      dev_mpiexec.addPFN(Pegasus.DAX3.PFN("file:///home1/02796/dabrown/bin/mpi-cluster-wrapper-impi.sh","stampede-dev"))
+      workflow.addExecutable(dev_mpiexec)
 
     # FIXME put all the pfns in the workflow
     for pfn_key in workflow_pfn_dict.keys():
