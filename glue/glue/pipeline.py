@@ -2189,25 +2189,55 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
   </site>
 """ % (os.path.basename(tmp_exec_dir),os.path.basename(tmp_exec_dir))
 
-    print >> sitefile, """\
-  <!-- XSEDE Stampede Cluster at TACC -->
-  <!-- FIXME hardwired for Duncan -->
+    try:
+      stampede_home = subprocess.check_output(
+        ['gsissh','-o','BatchMode=yes','-p','2222','stampede.tacc.xsede.org','pwd'])
+      stampede_home = stampede_home.split('/')
+      stampede_magic_number = stampede_home[2]
+      stampede_username = stampede_home[3]
+      shared_scratch = "/work/%s/%s/ihope-workflow/%s" % (
+        stampede_magic_number,stampede_username,os.path.basename(tmp_exec_dir))
+
+      print >> sitefile, """\
+  <!-- XSEDE Stampede Cluster at TACC Development Queue -->
+  <site handle="stampede-dev" arch="x86_64" os="LINUX">
+     <grid type="gt5" contact="login5.stampede.tacc.utexas.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary"/>
+     <grid type="gt5" contact="login5.stampede.tacc.utexas.edu/jobmanager-slurm" scheduler="unknown" jobtype="compute"/>
+     <directory type="shared-scratch" path="%s">
+       <file-server operation="all" url="gsiftp://gridftp.stampede.tacc.xsede.org%s"/>
+     </directory>
+     <profile namespace="env" key="PEGASUS_HOME">/usr</profile>
+     <profile namespace="globus" key="queue">development</profile>
+     <profile namespace="globus" key="maxwalltime">180</profile>
+     <profile namespace="globus" key="host_count">1</profile>
+     <profile namespace="globus" key="count">16</profile>
+     <profile namespace="globus" key="jobtype">single</profile>
+     <profile namespace="globus" key="project">TG-PHY140012</profile>
+   </site>
+""" % (shared_scratch,shared_scratch)
+
+      print >> sitefile, """\
+  <!-- XSEDE Stampede Cluster at TACC Development Queue -->
   <site handle="stampede" arch="x86_64" os="LINUX">
-    <grid type="gt5" contact="login5.stampede.tacc.utexas.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary"/>
-    <grid type="gt5" contact="login5.stampede.tacc.utexas.edu/jobmanager-slurm" scheduler="unknown" jobtype="compute"/>
-    <directory type="shared-scratch" path="/scratch/02796/dabrown/workflow/%s">
-      <file-server operation="all" url="gsiftp://gridftp.stampede.tacc.xsede.org/scratch/02796/dabrown/workflow/%s"/>
-    </directory>
-    <profile namespace="env" key="PEGASUS_HOME">/home1/02796/dabrown/local/pegasus-4.3.1</profile>
-    <profile namespace="pegasus" key="data.configuration">sharedfs</profile>
-    <profile namespace="globus" key="queue">development</profile>
-    <profile namespace="globus" key="maxwalltime">90</profile>
-    <profile namespace="globus" key="host_count">1</profile>
-    <profile namespace="globus" key="count">1</profile>
-    <profile namespace="globus" key="jobtype">single</profile>
-    <profile namespace="globus" key="project">TG-PHY140012</profile>
-  </site>
-""" % (os.path.basename(tmp_exec_dir),os.path.basename(tmp_exec_dir))
+     <grid type="gt5" contact="login5.stampede.tacc.utexas.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary"/>
+     <grid type="gt5" contact="login5.stampede.tacc.utexas.edu/jobmanager-slurm" scheduler="unknown" jobtype="compute"/>
+     <directory type="shared-scratch" path="%s">
+       <file-server operation="all" url="gsiftp://gridftp.stampede.tacc.xsede.org%s"/>
+     </directory>
+     <profile namespace="env" key="PEGASUS_HOME">/usr</profile>
+     <profile namespace="globus" key="queue">development</profile>
+     <profile namespace="globus" key="maxwalltime">540</profile>
+     <profile namespace="globus" key="host_count">32</profile>
+     <profile namespace="globus" key="count">512</profile>
+     <profile namespace="globus" key="jobtype">single</profile>
+     <profile namespace="globus" key="project">TG-PHY140012</profile>
+   </site>
+""" % (shared_scratch,shared_scratch)
+
+    except:
+      print >> sitefile, """\
+  <!-- XSEDE Stampede Cluster disabled as gsissh to TACC failed-->
+"""
 
     print >> sitefile, """\
 </sitecatalog>""" 
