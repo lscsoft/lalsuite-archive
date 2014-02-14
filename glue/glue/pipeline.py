@@ -788,6 +788,7 @@ class CondorDAGJob(CondorJob):
     self.__var_args = []
     self.__grid_site = None
     self.__bad_macro_chars = re.compile(r'[_-]')
+    self.__dax_mpi_cluster = None
 
   def set_grid_site(self,site):
     """
@@ -803,6 +804,18 @@ class CondorDAGJob(CondorJob):
     Return the grid site for this node
     """
     return self.__grid_site
+
+  def set_dax_mpi_cluster(self,size):
+    """
+    Set the DAX collapse key for this node
+    """
+    self.__dax_mpi_cluster = size
+
+  def get_dax_mpi_cluster(self):
+    """
+    Get the DAX collapse key for this node
+    """
+    return self.__dax_mpi_cluster
 
   def add_var_opt(self, opt, short=False):
     """
@@ -1933,6 +1946,11 @@ class CondorDAG:
         job_executable.addPFN(Pegasus.DAX3.PFN(executable_path,"local"))
 
         workflow_executable_dict[executable_namespace + executable_base] = job_executable
+
+        # write the mpi cluster parameter for the job
+        if node.job().get_dax_mpi_cluster():
+          workflow_job.addProfile(Pegasus.DAX3.Profile("pegasus","job.aggregator","mpiexec"))
+          workflow_job.addProfile(Pegasus.DAX3.Profile("pegasus","clusters.size",str(node.job().get_dax_mpi_cluster())))
 
         # write the grid start parameter for this node
         # if the grid start is not None
