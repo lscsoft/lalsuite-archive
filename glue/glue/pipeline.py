@@ -2066,8 +2066,8 @@ class CondorDAG:
       exec_ssite_list = exec_site.split(',')
       for site in exec_ssite_list:
         dirs_entry += ' --staging-site %s=%s' % (site,site)
-        # if nikhef is being used, then we don't have a shared fs
-        if site == 'nikhef':
+        # if virgo sites are being used, then we don't have a shared fs
+        if site == 'nikhef' or site == 'bologna':
           print >> pegprop_fh, \
 """
 ###############################################################################
