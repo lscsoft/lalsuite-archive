@@ -16,27 +16,27 @@
 Text-mode progress bars
 """
 __copyright__ = "Copyright 2010, Leo Singer"
-__author__    = "Leo Singer <leo.singer@ligo.org>"
-__all__       = ["ProgressBar"]
-
-
-# TODO: Implement the context manager API (but wait until clusters have Python >= 2.5).
-# TODO: Is it better to print the progress bar to stderr or stdout?
+__author__ = "Leo Singer <leo.singer@ligo.org>"
+__all__ = ["ProgressBar"]
 
 
 import math
 import os
+import struct
 import sys
 
 
-# From http://stackoverflow.com/questions/566746/how-to-get-console-window-width-in-python
+# From http://stackoverflow.com/questions/566746
 def getTerminalSize():
     """
     returns (lines:int, cols:int)
     """
-    import os, struct
+
     def ioctl_GWINSZ(fd):
-        import fcntl, termios
+        # These two imports are only present on POSIX systems, so they must be
+        # guarded by a try block.
+        import fcntl
+        import termios
         return struct.unpack("hh", fcntl.ioctl(fd, termios.TIOCGWINSZ, "1234"))
     # try stdin, stdout, stderr
     for fd in (0, 1, 2):
@@ -68,9 +68,26 @@ def getTerminalSize():
 
 
 class ProgressBar:
-    """Display a text progress bar."""
+    """Display a text progress bar.
 
-    def __init__(self, text='Working', max=1, value=0, textwidth=24, fid=None, sequence=' .:!|', twiddle_sequence=(' ..', '. .', '.. ')):
+    A final line feed is printed when the ProgressBar is garbage collected.
+    Explicitly deleting the object can force a line feed when desired.  As
+    an alternative, using the ProgressBar as a context manager will ensure
+    a final line feed is printed when the code block within which the
+    ProgressBar is being used exits.
+
+    Example:
+
+    >>> with ProgressBar(max=3) as pb:
+    ...    pb.update(1)
+    ...    pb.update(2)
+    ...    pb.update(3)
+    ...
+    """
+
+    def __init__(
+            self, text='Working', max=1, value=0, textwidth=24, fid=None,
+            sequence=' .:!|', twiddle_sequence=(' ..', '. .', '.. ')):
         if fid is None:
             self.fid = sys.stderr
         self.isatty = os.isatty(self.fid.fileno())
@@ -81,6 +98,7 @@ class ProgressBar:
         self.sequence = sequence
         self.twiddle_sequence = twiddle_sequence
         self.twiddle = 0
+        self.linefed = False
 
     def iterate(self, iterable, format="%s"):
         """Use as a target of a for-loop to issue a progress update for every
@@ -108,7 +126,6 @@ class ProgressBar:
 
     def show(self):
         """Redraw the text progress bar."""
-        from math import floor, ceil
 
         if len(self.text) > self.textwidth:
             label = self.text[0:self.textwidth]
@@ -124,26 +141,32 @@ class ProgressBar:
         barWidth = terminalSize - self.textwidth - 10
 
         if self.value is None or self.value < 0:
-            pattern = self.twiddle_sequence[self.twiddle % len(self.twiddle_sequence)]
+            pattern = self.twiddle_sequence[
+                self.twiddle % len(self.twiddle_sequence)]
             self.twiddle += 1
-            barSymbols = (pattern * int(ceil(barWidth/3.0)))[0:barWidth]
+            barSymbols = (pattern * int(math.ceil(barWidth/3.0)))[0:barWidth]
             progressFractionText = '   . %'
         else:
             progressFraction = float(self.value) / self.max
 
-            nBlocksFrac, nBlocksInt = math.modf(max(0.0, min(1.0, progressFraction)) * barWidth)
+            nBlocksFrac, nBlocksInt = math.modf(
+                max(0.0, min(1.0, progressFraction)) * barWidth)
             nBlocksInt = int(nBlocksInt)
 
-            partialBlock = self.sequence[int(floor(nBlocksFrac * len(self.sequence)))]
+            partialBlock = self.sequence[
+                int(math.floor(nBlocksFrac * len(self.sequence)))]
 
             nBlanks = barWidth - nBlocksInt - 1
-            barSymbols = (self.sequence[-1] * nBlocksInt) + partialBlock + (self.sequence[0] * nBlanks)
+            barSymbols = (self.sequence[-1] * nBlocksInt) + partialBlock + \
+                (self.sequence[0] * nBlanks)
             progressFractionText = ('%.1f%%' % (100*progressFraction)).rjust(6)
 
-        print >>self.fid, '\r\x1B[1m' + label + '\x1B[0m [' + barSymbols + ']' + progressFractionText,
+        print >>self.fid, '\r\x1B[1m' + label + '\x1B[0m [' + barSymbols + \
+            ']' + progressFractionText,
         self.fid.flush()
+        self.linefed = False
 
-    def update(self, value = None, text = None):
+    def update(self, value=None, text=None):
         """Redraw the progress bar, optionally changing the value and text."""
         old_text = self.text
         if text is not None:
@@ -155,20 +178,39 @@ class ProgressBar:
         elif self.text != old_text:
             print >>self.fid, self.text
 
+    def linefeed(self):
+        if not self.linefed:
+            print >>self.fid
+            self.fid.flush()
+            self.linefed = True
+
+    def __enter__(self):
+        self.show()
+        return self
+
+    def __exit__(self, exc_type, exc_value, tb):
+        try:
+            self.linefeed()
+        except:
+            pass
+
+    def __del__(self):
+        self.linefeed()
+
 
 def demo():
     """Demonstrate progress bar."""
     from time import sleep
     maxProgress = 1000
-    progressbar = ProgressBar(max=maxProgress)
-    for i in range(-100,maxProgress):
+    with ProgressBar(max=maxProgress) as progressbar:
+        for i in range(-100, maxProgress):
+            sleep(0.01)
+            progressbar.update(i)
+    progressbar2 = ProgressBar(max=maxProgress)
+    for s in progressbar2.iterate(range(maxProgress)):
         sleep(0.01)
-        progressbar.update(i)
-    for s in progressbar.iterate(range(maxProgress)):
+    for s in progressbar2.iterate(range(maxProgress), format='iteration %d'):
         sleep(0.01)
-    for s in progressbar.iterate(range(maxProgress), format='iteration %d'):
-        sleep(0.01)
-    print >>sys.stderr, ''
 
 
 if __name__ == '__main__':

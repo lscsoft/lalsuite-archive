@@ -196,6 +196,16 @@ usertags = set(usertag[0] for usertag in connection.cursor().execute(sqlquery) )
 # determine single-ifo segments for each usertag
 ifo_segments = segments.segmentlistdict()
 datatypes = {}
+
+# FIXME: Not really sure why we're going round the houses to get FULL_DATA and
+# FIXME: PLAYGROUND. I guess the point is you want to see if a separate PLAYGROUND
+# FIXME: run was done and use it if so. Given that a -userTag command is pretty
+# FIXME: explicitly hardcoding lalapps_inspiral, I will set this to FULL_DATA if
+# FIXME: usertags returns garbage
+
+if not (set(usertags) & set(["FULL_DATA","PLAYGROUND"])):
+    usertags = ["FULL_DATA"]
+
 for tag in (set(usertags) & set(["FULL_DATA","PLAYGROUND"])):
     ifo_segments[tag] = compute_dur.get_single_ifo_segments(connection, program_name = livetime_program, usertag = tag)
     if tag == "FULL_DATA":

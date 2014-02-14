@@ -566,12 +566,14 @@ class Posterior(object):
                             'theta2':self._inj_theta2,
                             'phi1':self._inj_phi1,
                             'phi2':self._inj_phi2,
+                            'phi12':self._inj_phi12,
                             'tilt1':self._inj_tilt1,
                             'tilt2':self._inj_tilt2,
                             'costilt1': lambda inj: np.cos(_inj_tilt1),
                             'costilt2': lambda inj: np.cos(_inj_tilt2),
                             'cos(iota)': lambda inj: np.cos(inj.inclination),
                             'theta_jn':self._inj_theta_jn,
+                            'phi_jl':self._inj_phi_jl,
                             'beta':self._inj_beta,
                             'polarisation':lambda inj:inj.polarization,
                             'polarization':lambda inj:inj.polarization,
@@ -1156,7 +1158,7 @@ class Posterior(object):
         posterior_table=[]
         for param_name,one_pos in self:
             column=np.array(one_pos.samples)
-            header_string+=param_name+' '
+            header_string+=param_name+'\t'
             posterior_table.append(column)
         posterior_table=tuple(posterior_table)
         return np.column_stack(posterior_table),header_string
@@ -1172,7 +1174,7 @@ class Posterior(object):
         fobj=open(fname,'w')
 
         fobj.write(header_string+'\n')
-        np.savetxt(fobj,posterior_table)
+        np.savetxt(fobj,posterior_table,delimiter='\t')
         fobj.close()
 
         return
@@ -1409,7 +1411,7 @@ class Posterior(object):
             S1  = np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
             L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
             tilt1 = array_ang_sep(L,S1)
-            if np.max(S1) == 0.0:
+            if all([i==0.0 for i in S1]):
                 return 0.0
             else:
                 return tilt1
@@ -1423,15 +1425,16 @@ class Posterior(object):
             S2  = np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
             L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
             tilt2 = array_ang_sep(L,S2)
-            if np.max(S2) == 0.0:
-                return 0.0
+            if all([i==0.0 for i in S2]):
+              return 0.0
             else:
-                return tilt2
+              return tilt2
         except TypeError:
             # If we get here, probably because f_ref is None
             return None
 
     def _inj_theta_jn(self, inj):
+        # This is the angle between the injected J and the Z axis
         try:
             f_ref = self._injFref
             L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
@@ -1443,6 +1446,106 @@ class Posterior(object):
             return theta_jn
         except TypeError:
             # f_ref is probably None
+            return None
+    def _inj_phi12(self,inj):
+       # Calculate difference of spins' azimuthal angles in the L frame
+       import math 
+       try:
+         iota=inj.inclination
+         ci=np.cos(iota)
+         si=np.sin(iota)
+         s1x=inj.spin1x
+         s1y=inj.spin1y
+         s1z=inj.spin1z
+         s2x=inj.spin2x
+         s2y=inj.spin2y
+         s2z=inj.spin2z
+ 
+         f_ref = self._injFref
+         L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
+         S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+         S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+ 
+         J = L + S1 + S2
+ 
+         # Need to do rotations of XLALSimInspiralTransformPrecessingInitialConditioin inverse order to go in the L frame
+         # first rotation: bring J in the N-x plane, with negative x component
+         phi0=math.atan2(J[1],J[0])
+         phi0=np.pi-phi0
+ 
+         J=ROTATEZ(phi0,J[0],J[1],J[2])
+         L=ROTATEZ(phi0,L[0],L[1],L[2])
+         S1=ROTATEZ(phi0,S1[0],S1[1],S1[2])
+         S2=ROTATEZ(phi0,S2[0],S2[1],S2[2])
+ 
+         # now J in in the N-x plane and form an angle theta_jn with N, rotate by -theta_jn around y to have J along z
+         theta_jn= array_polar_ang(J)
+         J=ROTATEY(theta_jn,J[0],J[1],J[2])
+         L=ROTATEY(theta_jn,L[0],L[1],L[2])
+         S1=ROTATEY(theta_jn,S1[0],S1[1],S1[2])
+         S2=ROTATEY(theta_jn,S2[0],S2[1],S2[2])
+         # J should now be || z and L should have a azimuthal angle phi_jl
+         phi_jl=math.atan2(L[1],L[0])
+         phi_jl=np.pi-phi_jl
+         # bring L in the Z-X plane, with negative x
+         J=ROTATEZ(phi_jl,J[0],J[1],J[2])
+         L=ROTATEZ(phi_jl,L[0],L[1],L[2])
+         S1=ROTATEZ(phi_jl,S1[0],S1[1],S1[2])
+         S2=ROTATEZ(phi_jl,S2[0],S2[1],S2[2])
+ 
+         theta0=array_polar_ang(L)
+         J=ROTATEY(theta0,J[0],J[1],J[2])
+         L=ROTATEY(theta0,L[0],L[1],L[2])
+         S1=ROTATEY(theta0,S1[0],S1[1],S1[2])
+         S2=ROTATEY(theta0,S2[0],S2[1],S2[2])
+ 
+         # The last rotation is useless as it won't change the differenze in spins' azimuthal angles
+         phi1=math.atan2(S1[1],S1[0])
+         phi2=math.atan2(S2[1],S2[0])
+         if phi2 < phi1:
+                 phi12 = phi2 - phi1 + 2.*np.pi
+         else:
+                 phi12 = phi2 - phi1
+         return phi12
+ 
+       except TypeError:
+         return None
+ 
+    def _inj_phi_jl(self, inj):
+        """
+        Calculate the injected value of phi_jl. Start from the values 
+        of the spin and iota in the injection table and rotate the vectors
+        back in the frame where phi_JL is defined
+        """
+        import math
+
+        try:
+            f_ref = self._injFref
+            L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
+            S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+            S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+
+            J = L + S1 + S2
+            # Need to do the last two rotations of XLALSimInspiralTransformPrecessingInitialConditions to get phi_jl in the proper frame. We only rotate J and L as spins won't matter here
+            # first rotation: bring J in the N-x plane, with negative x component
+            phi0=math.atan2(J[1],J[0])
+            phi0=np.pi-phi0
+
+            J=ROTATEZ(phi0,J[0],J[1],J[2])
+            L=ROTATEZ(phi0,L[0],L[1],L[2])
+            # now J in in the N-x plane and form an angle theta_jn with N, rotate by -theta_jn around y to have J along z
+            theta_jn=array_polar_ang(J)
+            J=ROTATEY(theta_jn,J[0],J[1],J[2])
+            L=ROTATEY(theta_jn,L[0],L[1],L[2])
+            # J should now be || z and L should have a azimuthal angle phi_jl
+            phi_jl=math.atan2(L[1],L[0])
+            if phi_jl<0.:
+                phi_jl+=2.0*np.pi
+  
+            return phi_jl
+
+        except TypeError:
+             # f_ref is probably None
             return None
         
     def _inj_beta(self, inj):
@@ -3013,10 +3116,26 @@ def rotate_vector(R, vec):
     return newVec
 #
 #
+def ROTATEZ(angle, vx, vy, vz):
+    # This is the ROTATEZ in LALSimInspiral.c. 
+    tmp1 = vx*np.cos(angle) - vy*np.sin(angle);
+    tmp2 = vx*np.sin(angle) + vy*np.cos(angle);
+    return np.asarray([tmp1,tmp2,vz])
+    
+def ROTATEY(angle, vx, vy, vz):
+    # This is the ROTATEY in LALSimInspiral.c 
+    tmp1 = vx*np.cos(angle) + vz*np.sin(angle);
+    tmp2 = - vx*np.sin(angle) + vz*np.cos(angle);
+    return np.asarray([tmp1,vy,tmp2])
 
 def orbital_momentum(fref, mc, inclination):
     """
     Calculate orbital angular momentum vector.
+    Note: The units of Lmag are different than what used in lalsimulation. 
+    Mc must be called in units of Msun here. 
+
+    Note that if one wants to build J=L+S1+S2 with L returned by this function, S1 and S2
+    must not get the Msun^2 factor.
     """
     Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * lalconstants.LAL_MTSUN_SI * fref, 1.0/3.0)
     Lx, Ly, Lz = sph2cart(Lmag, inclination, 0.0)
@@ -3071,6 +3190,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
     Vectorizes function for use in append_mapping() methods of the posterior class.
     """
     import lalsimulation as lalsim
+    from numpy import shape
     transformFunc = lalsim.SimInspiralTransformPrecessingInitialConditions
 
     # Convert component masses to SI units
@@ -3079,32 +3199,70 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
 
     # Flatten arrays
     ins = [theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1_SI, m2_SI, fref]
-    try:
-      for p,param in enumerate(ins):
-        ins[p] = param.flatten()
-    except:
-      pass
+    if len(shape(ins))>1:
+        # ins is a list of lists (i.e. we are converting full posterior chains)
+        try:
+            for p,param in enumerate(ins):
+                ins[p] = param.flatten()
+        except:
+            pass
+ 
+        try:
+            results = np.array([transformFunc(t_jn, p_jl, t1, t2, p12, a1, a2, m1_SI, m2_SI, f) for (t_jn, p_jl, t1, t2, p12, a1, a2, m1_SI, m2_SI, f) in zip(*ins)])
+            iota = results[:,0].reshape(-1,1)
+            spin1x = results[:,1].reshape(-1,1)
+            spin1y = results[:,2].reshape(-1,1)
+            spin1z = results[:,3].reshape(-1,1)
+            spin2x = results[:,4].reshape(-1,1)
+            spin2y = results[:,5].reshape(-1,1)
+            spin2z = results[:,6].reshape(-1,1)
+            a1,theta1,phi1 = cart2sph(spin1x,spin1y,spin1z)
+            a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
 
-    results = np.array([transformFunc(t_jn, p_jl, t1, t2, p12, a1, a2, m1_SI, m2_SI, f) for (t_jn, p_jl, t1, t2, p12, a1, a2, m1_SI, m2_SI, f) in zip(*ins)])
+            mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
+            L  = orbital_momentum(fref, mc, iota)
+            S1 = m1*m1*np.hstack([spin1x,spin1y,spin1z])
+            S2 = m2*m2*np.hstack([spin2x,spin2y,spin2z])
+            J = L + S1 + S2
+            beta = array_ang_sep(J,L)
 
-    iota = results[:,0].reshape(-1,1)
-    spin1x = results[:,1].reshape(-1,1)
-    spin1y = results[:,2].reshape(-1,1)
-    spin1z = results[:,3].reshape(-1,1)
-    spin2x = results[:,4].reshape(-1,1)
-    spin2y = results[:,5].reshape(-1,1)
-    spin2z = results[:,6].reshape(-1,1)
-    a1,theta1,phi1 = cart2sph(spin1x,spin1y,spin1z)
-    a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
+            return iota, theta1, phi1, theta2, phi2, beta
+        except TypeError:
+         # Something went wrong, returning None
+          return None
+ 
+    elif len(shape(ins))<=1:
+       # ins is a list of floats (i.e. we are converting the injected values) or empty
+        try:
+            for p,param in enumerate(ins):
+                ins[p] = param
+        except:
+            pass
+ 
+        try:
+            results = np.array(transformFunc(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1_SI, m2_SI, fref))
+            iota = results[0]
+            spin1x = results[1]
+            spin1y = results[2]
+            spin1z = results[3]
+            spin2x = results[4]
+            spin2y = results[5]
+            spin2z = results[6]
+            a1,theta1,phi1 = cart2sph(spin1x,spin1y,spin1z)
+            a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
 
-    mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
-    L  = orbital_momentum(fref, mc, iota)
-    S1 = m1*m1*np.hstack([spin1x,spin1y,spin1z])
-    S2 = m2*m2*np.hstack([spin2x,spin2y,spin2z])
-    J = L + S1 + S2
-    beta = array_ang_sep(J,L)
+            mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
+            L  = orbital_momentum(fref, mc, iota)
+            S1 = m1*m1*np.hstack([spin1x,spin1y,spin1z])
+            S2 = m2*m2*np.hstack([spin2x,spin2y,spin2z])
+            J = L + S1 + S2
+            beta = array_ang_sep(J,L)
 
-    return iota, theta1, phi1, theta2, phi2, beta
+            return iota, theta1, phi1, theta2, phi2, beta
+
+        except TypeError:
+            # Something went wrong, returning None
+            return None
 #
 #
 
@@ -3423,7 +3581,7 @@ def getDecString(radians,accuracy='auto'):
     #    else: return(getDecString(sign*radians,accuracy='deg'))
       return(getDecString(sign*radians,accuracy='deg'))
 
-def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None):
+def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None,Npixels=50):
   """
   Plots a 2D kernel density estimate of the 2-parameter marginal posterior.
   
@@ -3488,10 +3646,34 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
     kde=stats.kde.gaussian_kde(samp)
     den=kde(samp)
     #grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
-    Nx=50
-    Ny=50
-    xax = np.linspace(np.min(xdat),np.max(xdat),Nx)
-    yax = np.linspace(np.min(ydat),np.max(ydat),Ny)
+    Nx=Npixels
+    Ny=Npixels
+    # Ugly hack to produce plots centred on the main mode:
+    # Choose 1%-99% percentile range of the samples
+    # Then zoom out by 0.95 to encompass the contour edges
+    xsorted=np.sort(xdat,axis=None)
+    ysorted=np.sort(ydat,axis=None)
+    imin=int(0.01*len(xsorted))
+    imax=int(0.99*len(xsorted))
+    xmax=xsorted[imax]
+    xmin=xsorted[imin]
+    ymax=ysorted[imax]
+    ymin=ysorted[imin]
+    xmid=0.5*(xmin+xmax)
+    ymid=0.5*(ymin+ymax)
+    xmin=xmid+(xmin-xmid)/0.95
+    xmax=xmid+(xmax-xmid)/0.95
+    ymin=ymid+(ymin-ymid)/0.95
+    ymax=ymid+(ymax-ymid)/0.95
+    xax=np.linspace(xmin,xmax,Nx)
+    yax=np.linspace(ymin,ymax,Ny)
+    #print 'Plot limits %f-%f x %f-%f'%(xmin,xmax,ymin,ymax)
+
+    # Original way which includes all samples
+    #xax = np.linspace(np.min(xdat),np.max(xdat),Nx)
+    #yax = np.linspace(np.min(ydat),np.max(ydat),Ny)
+
+    # Do the actual plotting
     x,y = np.meshgrid(xax,yax)
     grid_coords = np.row_stack( (x.flatten(),y.flatten()) )
     z = kde(grid_coords)
@@ -4188,7 +4370,7 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     axes.xaxis.set_major_locator(locatorX)
 
     if par1_injvalue is not None and par2_injvalue is not None:
-        plt.plot([par1_injvalue],[par2_injvalue],'bo',scalex=False,scaley=False)
+        plt.plot([par2_injvalue],[par1_injvalue],'bo',scalex=False,scaley=False)
 
     if par1_trigvalues is not None and par2_trigvalues is not None:
         par1IFOs = set([IFO for IFO in par1_trigvalues.keys()])
@@ -4198,7 +4380,7 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
         elif IFO=='L1': color = 'g'
         elif IFO=='V1': color = 'm'
         else: color = 'c'
-        plt.plot([par1_trigvalues[IFO]],[par2_trigvalues[IFO]],color=color,marker='o',scalex=False,scaley=False)
+        plt.plot([par2_trigvalues[IFO]],[par1_trigvalues[IFO]],color=color,marker='o',scalex=False,scaley=False)
 
     # For RA and dec set custom labels and for RA reverse
     #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
@@ -4768,9 +4950,9 @@ class PEOutputParser(object):
         for line in runInfoIter:
             headers=line.lstrip().lower().split()
             try:
-                fRefColNum = headers.index('fRef')
+                fRefColNum = headers.index('fref') # strings get converted to all lower case
                 info = runInfoIter.next().lstrip().lower().split()
-                fRef = info[fRefColNum]
+                fRef = info[-1]#fRefColNum] # too many column names with spaces for this way to work. I just grab the last value. Hopefully we will update to xml output files and those messy headers will be gone.
                 break
             except ValueError:
                 continue

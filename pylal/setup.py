@@ -212,9 +212,9 @@ class pylal_sdist(sdist.sdist):
 
 setup(
 	name = "pylal",
-	version = "0.4.0",
+	version = "0.5.0",
 	author = "Kipp Cannon and Nickolas Fotopoulos",
-	author_email = "lal-discuss@gravity.phys.uwm.edu",
+	author_email = "lal-discuss@ligo.org",
 	description = "Python LIGO Algorithm Library",
 	url = "http://www.lsc-group.phys.uwm.edu/daswg/",
 	license = "See file LICENSE",
