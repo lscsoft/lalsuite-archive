@@ -2173,11 +2173,6 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
     </directory> 
     <profile namespace="pegasus" key="style">cream</profile>
     <profile namespace="globus" key="queue">virgo</profile>
-    <!-- uncomment this and update to the pegasus install on the shared fs
-    If not set , jobs will pull the pegasus worker package 
-    <profile namespace="env" key="PEGASUS_HOME">/storage/gpfs_virgo3/virgo/pegasus-4.2.0-cvs</profile>
-    <profile namespace="pegasus" key="data.configuration">sharedfs</profile>
-    -->
   </site>
 """ % (os.path.basename(tmp_exec_dir),os.path.basename(tmp_exec_dir))
 
@@ -2189,10 +2184,6 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
     <directory type="shared-scratch" path="/%s/">
       <file-server operation="all" url="srm://tbn18.nikhef.nl:8446/srm/managerv2?SFN=/dpm/nikhef.nl/home/virgo/%s/" />
     </directory>
-    <!-- uncomment this and update to the pegasus install on the shared fs
-    If not set , jobs will pull the pegasus worker package 
-    <profile namespace="env" key="PEGASUS_HOME">/storage/gpfs_virgo3/virgo/pegasus-4.2.0-cvs</profile>
-    -->
     <profile namespace="pegasus" key="style">cream</profile>
     <profile namespace="globus" key="queue">medium</profile>
   </site>
