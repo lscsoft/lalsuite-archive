@@ -2148,9 +2148,18 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQC3D( EOBNonQCCoeffs * restrict
   }
   chiAmed = (chiAmax + chiAmin) / 2.0;
 
-  cmax =  (chiA-chiAmed) * (chiA-chiAmin) / (chiAmax-chiAmed) / (chiAmax-chiAmin);
-  cmed = -(chiA-chiAmax) * (chiA-chiAmin) / (chiAmax-chiAmed) / (chiAmed-chiAmin);
-  cmin =  (chiA-chiAmax) * (chiA-chiAmed) / (chiAmax-chiAmin) / (chiAmed-chiAmin);
+  if ( chiAmax < 1.0e-15 )
+  {
+    cmax = 1.0;
+    cmed = 0.0;
+    cmin = 0.0;
+  }
+  else
+  {
+    cmax =  (chiA-chiAmed) * (chiA-chiAmin) / (chiAmax-chiAmed) / (chiAmax-chiAmin);
+    cmed = -(chiA-chiAmax) * (chiA-chiAmin) / (chiAmax-chiAmed) / (chiAmed-chiAmin);
+    cmin =  (chiA-chiAmax) * (chiA-chiAmed) / (chiAmax-chiAmin) / (chiAmed-chiAmin);
+  }
   /*printf( "chi = %f\n",chi );
   printf( "cAmax = %f, cAmed = %f, cAmin = %f, cA = %f\n",
     chiAmax, chiAmed, chiAmin, chiA );
