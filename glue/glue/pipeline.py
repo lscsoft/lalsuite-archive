@@ -1932,7 +1932,7 @@ class CondorDAG:
         if node.job().get_grid_site():
             this_grid_site = node.job().get_grid_site()
             workflow_job.addProfile(Pegasus.DAX3.Profile('hints','executionPool',this_grid_site))
-            if this_grid_site == 'stampede-dev' or 'stampede':
+            if this_grid_site == 'stampede-dev' or this_grid_site=='stampede':
               using_stampede = True
 
         # write the executable into the dax
