@@ -16,6 +16,8 @@ then
   mkdir -p ${LOG_DIR}
 fi
 
+cp ./parser_*.ini ${RUN_DIR}/
+
 cd ${RUN_DIR}
 
 for inj in {MS1,H4,SQM3,PP}

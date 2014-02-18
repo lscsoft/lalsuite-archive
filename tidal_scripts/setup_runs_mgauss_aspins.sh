@@ -16,7 +16,7 @@ then
   mkdir -p ${LOG_DIR}
 fi
 
-cp ./parser_*.ini ${LOG_DIR}/
+cp ./parser_*.ini ${RUN_DIR}/
 
 cd ${RUN_DIR}
 
