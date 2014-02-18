@@ -2853,7 +2853,6 @@ void LALInferenceSetupSinGaussianProposal(LALInferenceRunState *runState, LALInf
     LALInferenceAddProposalToCycle(runState, differentialEvolutionFullName, &LALInferenceDifferentialEvolutionFull, BIGWEIGHT);
     LALInferenceAddProposalToCycle(runState, differentialEvolutionSineGaussIntrinsicName, &LALInferenceDifferentialEvolutionSineGaussIntrinsic, SMALLWEIGHT);
     LALInferenceAddProposalToCycle(runState, differentialEvolutionSineGaussExtrinsicName, &LALInferenceDifferentialEvolutionSineGaussExtrinsic, SMALLWEIGHT);
-
     //LALInferenceAddProposalToCycle(runState, differentialEvolutionExtrinsicName, &LALInferenceDifferentialEvolutionExtrinsic, SMALLWEIGHT);
     
     }
@@ -2943,20 +2942,18 @@ void LALInferenceHrssQJump(LALInferenceRunState *runState, LALInferenceVariables
 void LALInferenceDifferentialEvolutionSineGaussIntrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp) {
   const char *propName = differentialEvolutionSineGaussIntrinsicName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
-  const char *names[] = {"frequency", "Q", "eccentricity","polar_angle",NULL};  
+  const char *names[] = {"frequency", "Q", "alpha",NULL};  
   LALInferenceDifferentialEvolutionNames(runState, pp, names);
 }
 
 void LALInferenceDifferentialEvolutionSineGaussExtrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp) {
+
   const char *propName = differentialEvolutionSineGaussExtrinsicName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
-  const char *names[] = {"rightascension", "declination", "polarisation", "time","loghrss", NULL};
-  if (LALInferenceCheckVariable(pp, "hrss")) names[4]="hrss";
+  const char *names[] = {"rightascension", "declination", "polarisation", "loghrss", "phase", "time", NULL};
+  if (LALInferenceCheckVariable(pp, "hrss")) names[3]="hrss";
+  LALInferenceDifferentialEvolutionNames(runState, pp, names);
 
-  LALInferenceDifferentialEvolutionNames(runState, pp, names);
-  if (LALInferenceCheckVariable(pp, "hrss")) names[1]="hrss";
-  
-  LALInferenceDifferentialEvolutionNames(runState, pp, names);
 }
 
 void LALInferenceTimeFreqJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) {
@@ -2969,16 +2966,12 @@ void LALInferenceTimeFreqJump(LALInferenceRunState *runState, LALInferenceVariab
   int N=0;
   
   gsl_rng *rng = runState->GSLrandom;
-  
-  
 
   LALInferenceCopyVariables(runState->currentParams, proposedParams);
   
- // REAL8 freqpre,freqpost;
   t = *((REAL8 *) LALInferenceGetVariable(proposedParams, "time"));
   freq = *((REAL8 *) LALInferenceGetVariable(proposedParams, "frequency"));
   
-  //LALInferenceSetVariable(proposedParams, "time", &t);
   N=ceil(fabs(gsl_ran_gaussian(rng,4)));
   temp=gsl_ran_flat(rng,0,1);
   if (temp<0.5)
@@ -3024,11 +3017,6 @@ LALInferenceTimeDelaysJump(LALInferenceRunState *runState, LALInferenceVariables
   REAL8 realgpstime=*((REAL8 *) LALInferenceGetVariable(proposedParams, "time"));
   REAL8 freq=*((REAL8 *) LALInferenceGetVariable(proposedParams, "frequency"));
   REAL8 dist=1.0;
-  if (LALInferenceCheckVariable(proposedParams,"hrss"))
-    dist=*((REAL8 *) LALInferenceGetVariable(proposedParams, "hrss"));
-  else
-    dist=exp(*((REAL8 *) LALInferenceGetVariable(proposedParams, "loghrss")));
-  dist=dist/dist;
   
   //printf("enter with ra %lf dec %f dist %.5e",ra,dec,dist);
   //gsl_rng *rng = runState->GSLrandom;
