@@ -26,6 +26,11 @@
  *-----------------------------------------------------------------------
  */
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <metaio.h>
+
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALConstants.h>
@@ -40,28 +45,31 @@
 #endif
 
 /**
-\author Brown, D. A. and Goggin, L. M.
-\file
-
-\brief Routines to read the various ringdown search XML data into LAL structures.
-
-\heading{Description}
-
-\heading{Algorithm}
-
-None.
-
-\heading{Uses}
-Functions in the Metaio library:
-<ul>
-<li>MetaioFindColumn()</li>
-<li>MetaioGetRow()</li>
-<li>MetaioOpenTable()</li>
-<li>MetaioClose()</li>
-</ul>
-\heading{Notes}
-
-*/
+ * \author Brown, D. A. and Goggin, L. M.
+ * \file
+ *
+ * \brief Routines to read the various ringdown search XML data into LAL structures.
+ *
+ * ### Description ###
+ *
+ *
+ * ### Algorithm ###
+ *
+ * None.
+ *
+ * ### Uses ###
+ *
+ * Functions in the Metaio library:
+ * <ul>
+ * <li>MetaioFindColumn()</li>
+ * <li>MetaioGetRow()</li>
+ * <li>MetaioOpenTable()</li>
+ * <li>MetaioClose()</li>
+ * </ul>
+ *
+ * ### Notes ###
+ *
+ */
 
 
 #define XLAL_CLOBBER_EVENTS \

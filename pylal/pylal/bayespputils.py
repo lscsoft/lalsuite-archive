@@ -37,7 +37,7 @@ of the Bayesian parameter estimation codes.
 #standard library imports
 import os
 import sys
-from math import ceil,floor,sqrt,pi as pi_constant
+from math import cos,ceil,floor,sqrt,pi as pi_constant
 import xml
 from xml.dom import minidom
 from operator import itemgetter
@@ -578,12 +578,14 @@ class Posterior(object):
                             'theta2':self._inj_theta2,
                             'phi1':self._inj_phi1,
                             'phi2':self._inj_phi2,
+                            'phi12':self._inj_phi12,
                             'tilt1':self._inj_tilt1,
                             'tilt2':self._inj_tilt2,
                             'costilt1': lambda inj: np.cos(_inj_tilt1),
                             'costilt2': lambda inj: np.cos(_inj_tilt2),
                             'cos(iota)': lambda inj: np.cos(inj.inclination),
                             'theta_jn':self._inj_theta_jn,
+                            'phi_jl':self._inj_phi_jl,
                             'beta':self._inj_beta,
                             'polarisation':lambda inj:inj.polarization,
                             'polarization':lambda inj:inj.polarization,
@@ -1168,7 +1170,7 @@ class Posterior(object):
         posterior_table=[]
         for param_name,one_pos in self:
             column=np.array(one_pos.samples)
-            header_string+=param_name+' '
+            header_string+=param_name+'\t'
             posterior_table.append(column)
         posterior_table=tuple(posterior_table)
         return np.column_stack(posterior_table),header_string
@@ -1184,7 +1186,7 @@ class Posterior(object):
         fobj=open(fname,'w')
 
         fobj.write(header_string+'\n')
-        np.savetxt(fobj,posterior_table)
+        np.savetxt(fobj,posterior_table,delimiter='\t')
         fobj.close()
 
         return
@@ -1421,7 +1423,7 @@ class Posterior(object):
             S1  = np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
             L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
             tilt1 = array_ang_sep(L,S1)
-            if np.max(S1) == 0.0:
+            if all([i==0.0 for i in S1]):
                 return 0.0
             else:
                 return tilt1
@@ -1435,15 +1437,16 @@ class Posterior(object):
             S2  = np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
             L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
             tilt2 = array_ang_sep(L,S2)
-            if np.max(S2) == 0.0:
-                return 0.0
+            if all([i==0.0 for i in S2]):
+              return 0.0
             else:
-                return tilt2
+              return tilt2
         except TypeError:
             # If we get here, probably because f_ref is None
             return None
 
     def _inj_theta_jn(self, inj):
+        # This is the angle between the injected J and the Z axis
         try:
             f_ref = self._injFref
             L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
@@ -1455,6 +1458,106 @@ class Posterior(object):
             return theta_jn
         except TypeError:
             # f_ref is probably None
+            return None
+    def _inj_phi12(self,inj):
+       # Calculate difference of spins' azimuthal angles in the L frame
+       import math 
+       try:
+         iota=inj.inclination
+         ci=np.cos(iota)
+         si=np.sin(iota)
+         s1x=inj.spin1x
+         s1y=inj.spin1y
+         s1z=inj.spin1z
+         s2x=inj.spin2x
+         s2y=inj.spin2y
+         s2z=inj.spin2z
+ 
+         f_ref = self._injFref
+         L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
+         S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+         S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+ 
+         J = L + S1 + S2
+ 
+         # Need to do rotations of XLALSimInspiralTransformPrecessingInitialConditioin inverse order to go in the L frame
+         # first rotation: bring J in the N-x plane, with negative x component
+         phi0=math.atan2(J[1],J[0])
+         phi0=np.pi-phi0
+ 
+         J=ROTATEZ(phi0,J[0],J[1],J[2])
+         L=ROTATEZ(phi0,L[0],L[1],L[2])
+         S1=ROTATEZ(phi0,S1[0],S1[1],S1[2])
+         S2=ROTATEZ(phi0,S2[0],S2[1],S2[2])
+ 
+         # now J in in the N-x plane and form an angle theta_jn with N, rotate by -theta_jn around y to have J along z
+         theta_jn= array_polar_ang(J)
+         J=ROTATEY(theta_jn,J[0],J[1],J[2])
+         L=ROTATEY(theta_jn,L[0],L[1],L[2])
+         S1=ROTATEY(theta_jn,S1[0],S1[1],S1[2])
+         S2=ROTATEY(theta_jn,S2[0],S2[1],S2[2])
+         # J should now be || z and L should have a azimuthal angle phi_jl
+         phi_jl=math.atan2(L[1],L[0])
+         phi_jl=np.pi-phi_jl
+         # bring L in the Z-X plane, with negative x
+         J=ROTATEZ(phi_jl,J[0],J[1],J[2])
+         L=ROTATEZ(phi_jl,L[0],L[1],L[2])
+         S1=ROTATEZ(phi_jl,S1[0],S1[1],S1[2])
+         S2=ROTATEZ(phi_jl,S2[0],S2[1],S2[2])
+ 
+         theta0=array_polar_ang(L)
+         J=ROTATEY(theta0,J[0],J[1],J[2])
+         L=ROTATEY(theta0,L[0],L[1],L[2])
+         S1=ROTATEY(theta0,S1[0],S1[1],S1[2])
+         S2=ROTATEY(theta0,S2[0],S2[1],S2[2])
+ 
+         # The last rotation is useless as it won't change the differenze in spins' azimuthal angles
+         phi1=math.atan2(S1[1],S1[0])
+         phi2=math.atan2(S2[1],S2[0])
+         if phi2 < phi1:
+                 phi12 = phi2 - phi1 + 2.*np.pi
+         else:
+                 phi12 = phi2 - phi1
+         return phi12
+ 
+       except TypeError:
+         return None
+ 
+    def _inj_phi_jl(self, inj):
+        """
+        Calculate the injected value of phi_jl. Start from the values 
+        of the spin and iota in the injection table and rotate the vectors
+        back in the frame where phi_JL is defined
+        """
+        import math
+
+        try:
+            f_ref = self._injFref
+            L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
+            S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+            S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+
+            J = L + S1 + S2
+            # Need to do the last two rotations of XLALSimInspiralTransformPrecessingInitialConditions to get phi_jl in the proper frame. We only rotate J and L as spins won't matter here
+            # first rotation: bring J in the N-x plane, with negative x component
+            phi0=math.atan2(J[1],J[0])
+            phi0=np.pi-phi0
+
+            J=ROTATEZ(phi0,J[0],J[1],J[2])
+            L=ROTATEZ(phi0,L[0],L[1],L[2])
+            # now J in in the N-x plane and form an angle theta_jn with N, rotate by -theta_jn around y to have J along z
+            theta_jn=array_polar_ang(J)
+            J=ROTATEY(theta_jn,J[0],J[1],J[2])
+            L=ROTATEY(theta_jn,L[0],L[1],L[2])
+            # J should now be || z and L should have a azimuthal angle phi_jl
+            phi_jl=math.atan2(L[1],L[0])
+            if phi_jl<0.:
+                phi_jl+=2.0*np.pi
+  
+            return phi_jl
+
+        except TypeError:
+             # f_ref is probably None
             return None
         
     def _inj_beta(self, inj):
@@ -1780,6 +1883,70 @@ class KDTreeVolume(object):
         else:
             return self._right.search(coordinates,boxing)
 
+    def fillNewTree(self,boxing = 64, isArea = False):
+        """
+        copies tree structure, but with KDSkeleton as the new nodes.
+        """
+        boxN = boxing
+        if len(self._objects) <= boxN:
+            newNode = KDSkeleton(self.bounds(), left_child = None , right_child = None)
+            if isArea:
+                newNode.setImportance(len(self._objects),skyArea(self.bounds()))
+            else:
+                newNode.setImportance(len(self._objects),self.volume())
+            return newNode
+        else:
+            if isArea:
+                newNode = KDSkeleton(self.bounds, left_child = self._left.fillNewTree(boxN,isArea=True), right_child = self._right.fillNewTree(boxN,isArea=True))
+                newNode.setImportance(len(self._objects),skyArea(self.bounds()))
+            else:
+                newNode = KDSkeleton(self.bounds, left_child = self._left.fillNewTree(boxN), right_child = self._right.fillNewTree(boxN))
+                newNode.setImportance(len(self._objects),self.volume())
+            newNode.setSplit(self._dimension,self._split_value)
+            return newNode
+
+class KDSkeleton(object):
+    """
+    object to store the structure of a kd tree
+    """
+
+    def __init__(self, bounding_box, left_child = None, right_child = None):
+        self._bounds = bounding_box
+        #self._names = coordinate_names
+        self._left = left_child
+        self._right = right_child
+        self._samples = 0
+        self._splitValue = None
+        self._splitDim = None
+        self._importance = None
+        self._volume = None
+
+    def addSample(self):
+        self._samples +=1
+
+    def bounds(self):
+        return self._bounds
+
+    def search(self,coordinates):
+        """
+        takes a set of coordinates and searches down through the tree untill it gets
+        to a box with less than 'boxing' objects in it and returns the box bounds,
+        number of objects in the box, and the weighting.
+        """
+        if self._left == None:
+            return self._bounds, self._samples, self._importance
+        elif coordinates[self._splitDim] < self._splitValue:
+            return self._left.search(coordinates)
+        else:
+            return self._right.search(coordinates)
+
+    def setImportance(self, sampleNumber, volume):
+        self._importance = sampleNumber/volume
+        self._volume = volume
+
+    def setSplit(self,dimension,value):
+        self._splitDim = dimension
+        self._splitValue = value
 
 
 class PosteriorSample(object):
@@ -2231,7 +2398,23 @@ def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,co
 
     return toppoints,injectionconfidence,reses,injection_area
 #
+#### functions used in 2stage kdtree 
 
+def skyArea(bounds):
+    return - (cos(pi_constant/2. - bounds[0][1])-cos(pi_constant/2. - bounds[1][1]))*(bounds[1][0] - bounds[0][0])
+
+def random_split(items, fraction):
+    size = int(len(items)*fraction)
+    random.shuffle(items)
+    return items[:size], items[size:]
+
+def addSample(tree,coordinates):
+    if tree._left == None:
+        tree.addSample()
+    elif coordinates[tree._splitDim] < tree._splitValue:
+        addSample(tree._left,coordinates)
+    else:
+        addSample(tree._right,coordinates)
 
 #
 #===============================================================================
@@ -2294,7 +2477,6 @@ def kdtree_bin_sky_volume(posterior,confidence_levels):
                 break
     
     return confidence_intervals
-
 
 def kdtree_bin_sky_area(posterior,confidence_levels,samples_per_bin=10):
     """
@@ -2533,6 +2715,121 @@ def kdtree_bin(posterior,coord_names,confidence_levels,initial_boundingbox = Non
                 break
 
     return confidence_intervals, b, initial_boundingbox,injInfo
+
+def kdtree_bin2Step(posterior,coord_names,confidence_levels,initial_boundingbox = None,samples_per_bin = 10,injCoords = None,alternate = False, fraction = 0.5, skyCoords=False):
+    """
+    input: posterior class instance, list of confidence levels, optional choice of inital parameter space, samples per box in kdtree
+    note initial_boundingbox is [[lowerbound of each param][upper bound of each param]], if not specified will just take limits of samples
+    fraction is proportion of samples used for making the tree structure.
+    returns: confidence_intervals, sorted list of kd objects, initial_boundingbox, injInfo
+    where injInfo is [bounding box injection is found within, samples in said box, weighting of box (in case of repeated samples),inj_confidence, inj_confidence_area]
+    """
+    confidence_levels.sort()
+
+    samples,header=posterior.samples()
+    numberSamples = len(samples)
+    if alternate == False:
+        samplesStructure, samplesFill = random_split(samples,fraction)
+    else:
+        samplesStructure = samples[:int(numberSamples*fraction)]
+        samplesFill = samples[int(numberSamples*fraction):]
+    samplesFillLen = len(samplesFill)
+    
+    header=header.split()
+    coordinatized_samples=[PosteriorSample(row, header, coord_names) for row in samplesStructure]
+    #if initial bounding box is not provided, create it using max/min of sample coords.
+    if skyCoords == True:
+        initial_boundingbox = [[0,-pi_constant/2.],[2*pi_constant,pi_constant/2.]]
+    if initial_boundingbox is None:
+        low=coordinatized_samples[0].coord()
+        high=coordinatized_samples[0].coord()
+        for obj in coordinatized_samples[1:]:
+            low=np.minimum(low,obj.coord())
+            high=np.maximum(high,obj.coord())
+        initial_boundingbox = [low,high]
+    tree=KDTreeVolume(coordinatized_samples,initial_boundingbox)
+    tree2fill = tree.fillNewTree(boxing=samples_per_bin, isArea = skyCoords)#set isArea True if looking at sky coords(modifies stored volume values
+
+    columns = []
+    for name in coord_names:
+        columns.append(header.index(name))
+
+    for sample in samplesFill:
+        tempSample=[]
+        for column in columns:
+            tempSample.append(sample[column])
+        addSample(tree2fill,tempSample)
+
+    def getValues(tree,listing):
+        if tree._left == None:
+            listing.append([tree.bounds(),tree._importance,tree._samples,tree._volume])
+        else:
+            getValues(tree._left,listing)
+            getValues(tree._right,listing)
+
+    listLeaves = []
+    getValues(tree2fill,listLeaves)
+
+    clSamples = []
+    for cl in confidence_levels:
+        clSamples.append(samplesFillLen*cl)
+    
+    sortedLeavesList = sorted(listLeaves, key=lambda importance: importance[1])
+    sortedLeavesList.reverse()
+    runningTotalSamples = 0
+    for i in range(len(sortedLeavesList)):
+        runningTotalSamples += sortedLeavesList[i][2]
+        sortedLeavesList[i].append(float(runningTotalSamples)/samplesFillLen,)
+
+
+    level = 0
+    countSamples = 0
+    volume = 0
+    lencl = len(clSamples)
+    #finds confidence levels
+    confidence_intervals={}
+    interpConfAreas = {}
+    countLeaves = 0
+    for leaf in sortedLeavesList:
+        countSamples += leaf[2]
+        countLeaves += 1
+        volume += leaf[3]
+        if level < lencl and countSamples >= clSamples[level]:
+            confidence_intervals[confidence_levels[level]]=(volume,float(countSamples)/samplesFillLen)
+            interpConfAreas[confidence_levels[level]] = volume-leaf[3]*(countSamples-clSamples[level])/leaf[2]
+            level +=1
+
+    if injCoords is not None:
+        injBound,injNum,injImportance = tree2fill.search(injCoords)                                                                                                              
+        injInfo = [injBound,injNum,injImportance]
+    else:
+        injInfo = None
+
+
+    #finds the confidence level of the injection and the volume of the associated contained region                                                         
+    inj_confidence = None
+    inj_confidence_area = None
+    if injInfo is not None:
+        print 'calculating cl'
+        acc_vol=0.
+        acc_cl=0.
+        for leaf in sortedLeavesList:
+            acc_vol+=leaf[3]
+            acc_cl+=leaf[2]
+            if leaf[1] <= injImportance:
+                inj_confidence = float(acc_cl)/samplesFillLen
+                inj_confidence_area = acc_vol
+                injInfo.append(inj_confidence)
+                injInfo.append(inj_confidence_area)
+                break
+
+    return sortedLeavesList, interpConfAreas, injInfo
+    #check that there is an injection value for all dimension names
+    def checkNone(listoParams):
+        for param in listoParams:
+            if posterior[param].injval is None:
+                return False
+        return True
 
 def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
     """
@@ -2917,10 +3214,26 @@ def rotate_vector(R, vec):
     return newVec
 #
 #
+def ROTATEZ(angle, vx, vy, vz):
+    # This is the ROTATEZ in LALSimInspiral.c. 
+    tmp1 = vx*np.cos(angle) - vy*np.sin(angle);
+    tmp2 = vx*np.sin(angle) + vy*np.cos(angle);
+    return np.asarray([tmp1,tmp2,vz])
+    
+def ROTATEY(angle, vx, vy, vz):
+    # This is the ROTATEY in LALSimInspiral.c 
+    tmp1 = vx*np.cos(angle) + vz*np.sin(angle);
+    tmp2 = - vx*np.sin(angle) + vz*np.cos(angle);
+    return np.asarray([tmp1,vy,tmp2])
 
 def orbital_momentum(fref, mc, inclination):
     """
     Calculate orbital angular momentum vector.
+    Note: The units of Lmag are different than what used in lalsimulation. 
+    Mc must be called in units of Msun here. 
+
+    Note that if one wants to build J=L+S1+S2 with L returned by this function, S1 and S2
+    must not get the Msun^2 factor.
     """
     Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * lalconstants.LAL_MTSUN_SI * fref, 1.0/3.0)
     Lx, Ly, Lz = sph2cart(Lmag, inclination, 0.0)
@@ -2975,6 +3288,7 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
     Vectorizes function for use in append_mapping() methods of the posterior class.
     """
     import lalsimulation as lalsim
+    from numpy import shape
     transformFunc = lalsim.SimInspiralTransformPrecessingInitialConditions
 
     # Convert component masses to SI units
@@ -2983,32 +3297,70 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
 
     # Flatten arrays
     ins = [theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1_SI, m2_SI, fref]
-    try:
-      for p,param in enumerate(ins):
-        ins[p] = param.flatten()
-    except:
-      pass
+    if len(shape(ins))>1:
+        # ins is a list of lists (i.e. we are converting full posterior chains)
+        try:
+            for p,param in enumerate(ins):
+                ins[p] = param.flatten()
+        except:
+            pass
+ 
+        try:
+            results = np.array([transformFunc(t_jn, p_jl, t1, t2, p12, a1, a2, m1_SI, m2_SI, f) for (t_jn, p_jl, t1, t2, p12, a1, a2, m1_SI, m2_SI, f) in zip(*ins)])
+            iota = results[:,0].reshape(-1,1)
+            spin1x = results[:,1].reshape(-1,1)
+            spin1y = results[:,2].reshape(-1,1)
+            spin1z = results[:,3].reshape(-1,1)
+            spin2x = results[:,4].reshape(-1,1)
+            spin2y = results[:,5].reshape(-1,1)
+            spin2z = results[:,6].reshape(-1,1)
+            a1,theta1,phi1 = cart2sph(spin1x,spin1y,spin1z)
+            a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
 
-    results = np.array([transformFunc(t_jn, p_jl, t1, t2, p12, a1, a2, m1_SI, m2_SI, f) for (t_jn, p_jl, t1, t2, p12, a1, a2, m1_SI, m2_SI, f) in zip(*ins)])
+            mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
+            L  = orbital_momentum(fref, mc, iota)
+            S1 = m1*m1*np.hstack([spin1x,spin1y,spin1z])
+            S2 = m2*m2*np.hstack([spin2x,spin2y,spin2z])
+            J = L + S1 + S2
+            beta = array_ang_sep(J,L)
 
-    iota = results[:,0].reshape(-1,1)
-    spin1x = results[:,1].reshape(-1,1)
-    spin1y = results[:,2].reshape(-1,1)
-    spin1z = results[:,3].reshape(-1,1)
-    spin2x = results[:,4].reshape(-1,1)
-    spin2y = results[:,5].reshape(-1,1)
-    spin2z = results[:,6].reshape(-1,1)
-    a1,theta1,phi1 = cart2sph(spin1x,spin1y,spin1z)
-    a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
+            return iota, theta1, phi1, theta2, phi2, beta
+        except TypeError:
+         # Something went wrong, returning None
+          return None
+ 
+    elif len(shape(ins))<=1:
+       # ins is a list of floats (i.e. we are converting the injected values) or empty
+        try:
+            for p,param in enumerate(ins):
+                ins[p] = param
+        except:
+            pass
+ 
+        try:
+            results = np.array(transformFunc(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1_SI, m2_SI, fref))
+            iota = results[0]
+            spin1x = results[1]
+            spin1y = results[2]
+            spin1z = results[3]
+            spin2x = results[4]
+            spin2y = results[5]
+            spin2z = results[6]
+            a1,theta1,phi1 = cart2sph(spin1x,spin1y,spin1z)
+            a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
 
-    mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
-    L  = orbital_momentum(fref, mc, iota)
-    S1 = m1*m1*np.hstack([spin1x,spin1y,spin1z])
-    S2 = m2*m2*np.hstack([spin2x,spin2y,spin2z])
-    J = L + S1 + S2
-    beta = array_ang_sep(J,L)
+            mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
+            L  = orbital_momentum(fref, mc, iota)
+            S1 = m1*m1*np.hstack([spin1x,spin1y,spin1z])
+            S2 = m2*m2*np.hstack([spin2x,spin2y,spin2z])
+            J = L + S1 + S2
+            beta = array_ang_sep(J,L)
 
-    return iota, theta1, phi1, theta2, phi2, beta
+            return iota, theta1, phi1, theta2, phi2, beta
+
+        except TypeError:
+            # Something went wrong, returning None
+            return None
 #
 #
 
@@ -3328,7 +3680,7 @@ def getDecString(radians,accuracy='auto'):
     #    else: return(getDecString(sign*radians,accuracy='deg'))
       return(getDecString(sign*radians,accuracy='deg'))
 
-def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None):
+def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None,Npixels=50):
   """
   Plots a 2D kernel density estimate of the 2-parameter marginal posterior.
   
@@ -3393,10 +3745,34 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
     kde=stats.kde.gaussian_kde(samp)
     den=kde(samp)
     #grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
-    Nx=50
-    Ny=50
-    xax = np.linspace(np.min(xdat),np.max(xdat),Nx)
-    yax = np.linspace(np.min(ydat),np.max(ydat),Ny)
+    Nx=Npixels
+    Ny=Npixels
+    # Ugly hack to produce plots centred on the main mode:
+    # Choose 1%-99% percentile range of the samples
+    # Then zoom out by 0.95 to encompass the contour edges
+    xsorted=np.sort(xdat,axis=None)
+    ysorted=np.sort(ydat,axis=None)
+    imin=int(0.01*len(xsorted))
+    imax=int(0.99*len(xsorted))
+    xmax=xsorted[imax]
+    xmin=xsorted[imin]
+    ymax=ysorted[imax]
+    ymin=ysorted[imin]
+    xmid=0.5*(xmin+xmax)
+    ymid=0.5*(ymin+ymax)
+    xmin=xmid+(xmin-xmid)/0.95
+    xmax=xmid+(xmax-xmid)/0.95
+    ymin=ymid+(ymin-ymid)/0.95
+    ymax=ymid+(ymax-ymid)/0.95
+    xax=np.linspace(xmin,xmax,Nx)
+    yax=np.linspace(ymin,ymax,Ny)
+    #print 'Plot limits %f-%f x %f-%f'%(xmin,xmax,ymin,ymax)
+
+    # Original way which includes all samples
+    #xax = np.linspace(np.min(xdat),np.max(xdat),Nx)
+    #yax = np.linspace(np.min(ydat),np.max(ydat),Ny)
+
+    # Do the actual plotting
     x,y = np.meshgrid(xax,yax)
     grid_coords = np.row_stack( (x.flatten(),y.flatten()) )
     z = kde(grid_coords)
@@ -4093,7 +4469,7 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     axes.xaxis.set_major_locator(locatorX)
 
     if par1_injvalue is not None and par2_injvalue is not None:
-        plt.plot([par1_injvalue],[par2_injvalue],'bo',scalex=False,scaley=False)
+        plt.plot([par2_injvalue],[par1_injvalue],'bo',scalex=False,scaley=False)
 
     if par1_trigvalues is not None and par2_trigvalues is not None:
         par1IFOs = set([IFO for IFO in par1_trigvalues.keys()])
@@ -4103,7 +4479,7 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
         elif IFO=='L1': color = 'g'
         elif IFO=='V1': color = 'm'
         else: color = 'c'
-        plt.plot([par1_trigvalues[IFO]],[par2_trigvalues[IFO]],color=color,marker='o',scalex=False,scaley=False)
+        plt.plot([par2_trigvalues[IFO]],[par1_trigvalues[IFO]],color=color,marker='o',scalex=False,scaley=False)
 
     # For RA and dec set custom labels and for RA reverse
     #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
@@ -4673,9 +5049,9 @@ class PEOutputParser(object):
         for line in runInfoIter:
             headers=line.lstrip().lower().split()
             try:
-                fRefColNum = headers.index('fLow')
+                fRefColNum = headers.index('fref') # strings get converted to all lower case
                 info = runInfoIter.next().lstrip().lower().split()
-                fRef = info[fRefColNum]
+                fRef = info[-1]#fRefColNum] # too many column names with spaces for this way to work. I just grab the last value. Hopefully we will update to xml output files and those messy headers will be gone.
                 break
             except ValueError:
                 continue

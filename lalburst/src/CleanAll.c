@@ -44,54 +44,55 @@
  *-----------------------------------------------------------------------
  */
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/CLR.h>
 
 /**
-\author Sintes, A. M.
-
-\brief Gets data cleaned from line harmonic interference given  a time domain reference signal.
-
-\heading{Description}
-This routine cleans data in the time domain from line harmonic interference
-(from the first harmonic up to the Nyquist frequency). The inputs are:
-
-<tt>*in1</tt> the time domain data of type  \c REAL4TVectorCLR,
-containing also the interference fundamental frequency \f$f_0\f$ and the
-sampling spacing. This information is needed in order to obtain
-the total  number of harmonics contained in the data.
-<dl>
-<dt><tt>in1->length</tt></dt><dd> The number of elements in <tt>in1->data</tt> \f$=n\f$.</dd>
-<dt><tt>in1->data</tt></dt><dd>   The (real) time domain data,  \f$x(t)\f$.</dd>
-<dt><tt>in1->deltaT</tt></dt><dd> The sample spacing in seconds.</dd>
-<dt><tt>in1->fLine</tt></dt><dd>  The interference fundamental frequency \f$f_0\f$
-       (in Hz), e.g., 60 Hz.</dd>
-</dl>
-
-<tt>*in2</tt> the time domain reference signal (a complex vector).
-<dl>
-<dt><tt>in2->length</tt></dt><dd> The number of elements in
-            <tt>in2->data</tt> \f$=n\f$.</dd>
-<dt><tt>in2->data</tt></dt><dd>    The \f$M(t)\f$ complex data.</dd>
-</dl>
-
-The output <tt>*out</tt> is a real vector containing the clean data.
-<dl>
-<dt><tt>out->length</tt></dt><dd> The number of elements in
-            <tt>out->data</tt> \f$=n\f$.</dd>
-<dt><tt>out->data</tt></dt><dd>    The clean (real) time domain data.</dd>
-</dl>
-
-\heading{Algorithm}
-It takes the reference signal \f$M(t)\f$ and, for all possible harmonics
-\f$j\f$
-(\f$j=1,\ldots,\f$<tt>floor(1.0/fabs( 2.02* in1->deltaT * in1->fLine))</tt> ),
-from the fundamental frequency up to the Nyquist frequency,
-constructs \f$M(t)^j\f$,  performs a least-squares fit, i.e.,
-minimizes the power \f$\vert x(t) -\rho_j M(t)^j\vert^2\f$ with
-respect to \f$\rho_j\f$, and  subtracts \f$\rho_j M(t)^j\f$ from the
-original data, \f$x(t)\f$.
-*/
+ * \author Sintes, A. M.
+ *
+ * \brief Gets data cleaned from line harmonic interference given  a time domain reference signal.
+ *
+ * ### Description ###
+ *
+ * This routine cleans data in the time domain from line harmonic interference
+ * (from the first harmonic up to the Nyquist frequency). The inputs are:
+ *
+ * <tt>*in1</tt> the time domain data of type  \c REAL4TVectorCLR,
+ * containing also the interference fundamental frequency \f$f_0\f$ and the
+ * sampling spacing. This information is needed in order to obtain
+ * the total  number of harmonics contained in the data.
+ * <dl>
+ * <dt><tt>in1->length</tt></dt><dd> The number of elements in <tt>in1->data</tt> \f$=n\f$.</dd>
+ * <dt><tt>in1->data</tt></dt><dd>   The (real) time domain data,  \f$x(t)\f$.</dd>
+ * <dt><tt>in1->deltaT</tt></dt><dd> The sample spacing in seconds.</dd>
+ * <dt><tt>in1->fLine</tt></dt><dd>  The interference fundamental frequency \f$f_0\f$
+ * (in Hz), e.g., 60 Hz.</dd>
+ * </dl>
+ *
+ * <tt>*in2</tt> the time domain reference signal (a complex vector).
+ * <dl>
+ * <dt><tt>in2->length</tt></dt><dd> The number of elements in
+ * <tt>in2->data</tt> \f$=n\f$.</dd>
+ * <dt><tt>in2->data</tt></dt><dd>    The \f$M(t)\f$ complex data.</dd>
+ * </dl>
+ *
+ * The output <tt>*out</tt> is a real vector containing the clean data.
+ * <dl>
+ * <dt><tt>out->length</tt></dt><dd> The number of elements in
+ * <tt>out->data</tt> \f$=n\f$.</dd>
+ * <dt><tt>out->data</tt></dt><dd>    The clean (real) time domain data.</dd>
+ * </dl>
+ *
+ * ### Algorithm ###
+ *
+ * It takes the reference signal \f$M(t)\f$ and, for all possible harmonics
+ * \f$j\f$
+ * (\f$j=1,\ldots,\f$<tt>floor(1.0/fabs( 2.02* in1->deltaT * in1->fLine))</tt> ),
+ * from the fundamental frequency up to the Nyquist frequency,
+ * constructs \f$M(t)^j\f$,  performs a least-squares fit, i.e.,
+ * minimizes the power \f$\vert x(t) -\rho_j M(t)^j\vert^2\f$ with
+ * respect to \f$\rho_j\f$, and  subtracts \f$\rho_j M(t)^j\f$ from the
+ * original data, \f$x(t)\f$.
+ */
 void LALCleanAll (LALStatus     *status,/**< LAL status pointer */
                REAL4Vector      *out,  /**< clean data */
                COMPLEX8Vector   *in2,  /**< M(t), ref. interference */
@@ -159,21 +160,18 @@ void LALCleanAll (LALStatus     *status,/**< LAL status pointer */
   /*     Removing the fundamental harmonic         */
   /* -------------------------------------------   */
 
-  rhon.real_FIXME = 0.0;
-  rhon.imag_FIXME = 0.0;
+  rhon = 0.0;
   rhod    = 0.0;
 
   for (i=0; i<n; ++i) {
     mr = crealf(m[i]);
     mi = cimagf(m[i]);
 
-    rhon.real_FIXME +=  x[i]*mr;
-    rhon.imag_FIXME += -x[i]*mi;
+    rhon += crect( x[i]*mr, -x[i]*mi );
     rhod    +=  mr*mr + mi*mi;
   }
 
-  rho.real_FIXME = creal(rhon) / rhod;
-  rho.imag_FIXME = cimag(rhon) / rhod;
+  rho = (rhon / ((REAL8) rhod));
 
   for (i=0; i<n; ++i) {
     xc[i] = x[i] - 2.0*(creal(rho) * crealf(m[i]) - cimag(rho) * cimagf(m[i]) );
@@ -209,26 +207,22 @@ void LALCleanAll (LALStatus     *status,/**< LAL status pointer */
     }
 
     for(j=2; j<= maxH; ++j) {
-      rhon.real_FIXME = 0.0;
-      rhon.imag_FIXME = 0.0;
+      rhon = 0.0;
       rhod    = 0.0;
 
       for (i=0; i<n; ++i) {
 	/* calculation of m^j(t) for a fixed t */
 	amj = pow( ampM2->data[i], 0.5*j);
 	phj = j * phaM->data[i];
-	mj->data[i].real_FIXME = amj * cos(phj);
+	mj->data[i] = crect( amj * cos(phj), amj * sin(phj) );
 	mr =  creal(mj->data[i]);
-	mj->data[i].imag_FIXME = amj * sin(phj);
 	mi =  cimag(mj->data[i]);
 
-	rhon.real_FIXME +=  xc[i]*mr;
-	rhon.imag_FIXME += -xc[i]*mi;
+	rhon += crect( xc[i]*mr, -xc[i]*mi );
 	rhod    +=  mr*mr + mi*mi;
       }
 
-      rho.real_FIXME = creal(rhon) / rhod;
-      rho.imag_FIXME = cimag(rhon) / rhod;
+      rho = (rhon / ((REAL8) rhod));
 
      for (i=0; i<n; ++i) {
        xc[i] += - 2.0*(creal(rho) * creal(mj->data[i]) - cimag(rho) * cimag(mj->data[i]) );

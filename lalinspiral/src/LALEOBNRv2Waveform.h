@@ -36,7 +36,8 @@ extern "C" {
 
 #define LALEOB_MAX_MULTIPOLE 8
 
-/** \defgroup LALEOBNRv2Waveform_h Header LALEOBNRv2Waveform.h
+/**
+ * \defgroup LALEOBNRv2Waveform_h Header LALEOBNRv2Waveform.h
  * \ingroup pkg_CBC_NEW
  * \author Craig Robinson
  *
@@ -46,12 +47,12 @@ extern "C" {
 /*@{*/
 
 /**
- *  Structure containing the coefficients for EOBNRv2 A potential function.
- *  The elements in the structure are labelled as follows:
- *  aN, where a is denotes whether the parameter is in the numerator (n)
- *  or denominator (d); and N is the power of r which will multiply this
- *  coefficient. For example, the coefficient of r^5 in the numerator
- *  will be called n5.
+ * Structure containing the coefficients for EOBNRv2 A potential function.
+ * The elements in the structure are labelled as follows:
+ * aN, where a is denotes whether the parameter is in the numerator (n)
+ * or denominator (d); and N is the power of r which will multiply this
+ * coefficient. For example, the coefficient of r^5 in the numerator
+ * will be called n5.
  */
 typedef struct
 tagEOBACoefficients
@@ -68,9 +69,9 @@ tagEOBACoefficients
 EOBACoefficients;
 
 /**
- *  Structure containing the coefficients for calculating the factorized
- *  waveform. The coefficients are precomputed in the function
- *  XLALCalcFacWaveformCoefficients()
+ * Structure containing the coefficients for calculating the factorized
+ * waveform. The coefficients are precomputed in the function
+ * XLALCalcFacWaveformCoefficients()
  */
 typedef struct
 tagFacWaveformCoeffs
@@ -369,26 +370,26 @@ int XLALGetCalibratedNQCCoeffs( EOBNonQCCoeffs *coeffs,
                                 );
 
 int  XLALEOBNonQCCorrection(
-                      COMPLEX16      * restrict nqc,
-                      REAL8Vector    * restrict values,
+                      COMPLEX16      * _LAL_RESTRICT_ nqc,
+                      REAL8Vector    * _LAL_RESTRICT_ values,
                       const REAL8               omega,
-                      EOBNonQCCoeffs * restrict coeffs
+                      EOBNonQCCoeffs * _LAL_RESTRICT_ coeffs
                      );
 
 int XLALCalculateNQCCoefficients(
-                 REAL8Vector    * restrict amplitude,
-                 REAL8Vector    * restrict phase,
-                 REAL8Vector    * restrict q1,
-                 REAL8Vector    * restrict q2,
-                 REAL8Vector    * restrict q3,
-                 REAL8Vector    * restrict p1,
-                 REAL8Vector    * restrict p2,
+                 REAL8Vector    * _LAL_RESTRICT_ amplitude,
+                 REAL8Vector    * _LAL_RESTRICT_ phase,
+                 REAL8Vector    * _LAL_RESTRICT_ q1,
+                 REAL8Vector    * _LAL_RESTRICT_ q2,
+                 REAL8Vector    * _LAL_RESTRICT_ q3,
+                 REAL8Vector    * _LAL_RESTRICT_ p1,
+                 REAL8Vector    * _LAL_RESTRICT_ p2,
                  INT4                      l,
                  INT4                      m,
                  REAL8                     timePeak,
                  REAL8                     deltaT,
                  REAL8                     eta,
-                 EOBNonQCCoeffs * restrict coeffs );
+                 EOBNonQCCoeffs * _LAL_RESTRICT_ coeffs );
 
 REAL8 XLALGetNRPeakDeltaT( INT4 l, INT4 m, REAL8 eta );
 

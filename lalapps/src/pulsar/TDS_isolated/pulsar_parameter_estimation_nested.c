@@ -26,116 +26,118 @@ LALInference tools */
  * \author Matthew Pitkin, John Veitch, Colin Gill
  *
  * \brief Parameter estimation code for known pulsar searches using the nested sampling algorithm.
-
-\heading{Description}
-This code is used to perform parameter estimation and evidence calculation in targeted/semi-targeted searches for
-gravitational waves from known pulsars. It may also be used to follow-up on signal candidates from semi-coherent all-sky
-searches for unknown sources.
-
-It uses the Bayesian technique of 'Nested Sampling' to sample over a defined prior parameter space (unknown signal
-parameters such as the gravitational wave amplitude). These samples can then be used to create posterior probability
-density functions of the unknown parameters. The samples are also used to calculate the Bayesian evidence, also known as
-the marginal likelihood, for a given signal model. This can be compared with other models, in particular the model that
-the data is described by Gaussian noise alone.
-
-As input the code requires time domain data that has been heterodyned using the known (or close to) phase evolution of
-the pulsar. The time domain input should consist of a three column text file containing the GPS time stamp of the data
-point, the real part of the heterodyned data and the imaginary part of the heterodyned data, e.g.
-900000000.000000  1.867532e-24  -7.675329e-25
-900000060.000000  2.783651e-24  3.654386e-25
-...
-
-Most commonly such data will have a sample rate of 1/60 Hz, giving a bandwidth of the same amount, but the code can
-accept any rate, or downsample data (by averaging) by a given factor.
-
-The code also requires that you specify which parameters are to be searched over, and the prior ranges over these. Any
-of the signal parameters can be searched over, including frequency, sky position and binary system parameters, although
-the bandwidth of the data and search efficiency need to be taken into account.
-
-The 'Nested Sampling' algorithm (developed by [\ref Skilling2006]) used is that defined in LALinferenceNestedSampler
-(see [\ref VeitchVecchio2010]). It is essentially an efficient way to perform the integral
-\f[
-Z = \int^{\mathbf{\theta}} p(d|\mathbf{\theta}) p(\mathbf{\theta}) \mathrm{d}\mathbf{\theta},
-\f]
-where \f$ \mathbf{\theta} \f$ is a vector of parameters, \f$ p(d|\mathbf{\theta}) \f$ is the likelihood of the data
-given the parameters, and \f$ p(\mathbf{\theta}) \f$ is the prior on the parameters. It does this by changing the
-multi-dimensional integral over N parameters into a one-dimensional integral
-\f[
-Z = \int^X L(X) \mathrm{d}X \approx \sum_i L(X_i) \Delta{}X_i,
-\f]
-where \f$ L(X) \f$ is the likelihood, and \f$ X \f$ is the prior mass. The algorithm will draw a number (\f$ N \f$) of
-samples (live points) from the parameter priors, calculate the likelihood for each point and find the lowest likelihood
-value. The lowest likelihood value will be added to the summation in the above equation, with \f$ \log{\Delta{}X_i}
-\approx 1/N \f$ coming from the fact that the prior would be normalised to unity and therefore each point should occupy
-an equal fraction and at each iteration the prior volume will decrease geometrically (for \f$\log{\Delta{}X_0} = 0\f$).
-A new point is then drawn from the prior with the criterion that it has a higher likelihood than the previous lowest
-point and substitutes that point. To draw the new point a Markov Chain Monte Carlo (MCMC) procedure is used - there are
-two methods used to sample points within this: i) drawing from a proposal distributions based on the covariance matrix
-if the current live points (although to keep things computationally efficient this no updated at every iteration), ii)
-picking a point via differential evolution (two random live points are selected and a new point half way between the two
-is created). The probability of using either method is currently set at 80\% and 20\% respectively. The procedure is
-continued until a stopping criterion is reached, which in this case is that the remaining prior volume is less than the
-\c tolerance value set (see below). The implementation of this can be seen in [\ref VeitchVecchio2010].
-
-\heading{Usage}
-The usage format is given below and can also be found by running the code with
-\code
-lalapps_pulsar_parameter_estimation_nested --help
-\endcode
-
-An example of running the code on to search over the four unknown parameters \f$ h_0 \f$, \f$ \phi_0 \f$, \f$ \psi \f$
-and \f$ \cos{\iota} \f$, for pulsar J0534-2200, given heterodyned time domain data from the H1 detector in the file
-\c finehet_J0534-2200_H1, is:
-\code
-lalapps_pulsar_parameter_estimation_nested --detectors H1 --par-file
-J0534-2200.par --input-files finehet_J0534-2200_H1 --outfile ns_J0534-2200
---prior-file prior_J0534-2200.txt --ephem-earth
-lscsoft/share/lalpulsar/earth05-09.dat --ephem-sun
-lscsoft/share/lalpulsar/sun05-09.dat --model-type triaxial --Nlive 1000 --Nmcmc
-100 --Nruns 1 --tolerance 0.25
-\endcode
-The \c par-file is a TEMPO-style file containing the parameters of the pulsar used to perform the heterodyne (the
-frequency parameters are the rotation frequency and therefore not necessarily the gravitational wave frequency) e.g.
-\code
-RA      12:54:31.87523895
-DEC     -54:12:43.6572033
-PMRA    1.7
-PMDEC   2.8
-POSEPOCH 54320.8531
-F0  123.7896438753
-F1  4.592e-15
-PEPOCH 54324.8753
-\endcode
-The \c prior-file is a text file containing a list of the parameters to be searched over, the prior type ("uniform" or
-"gaussian" and their given lower/mean and upper/standard deviation ranges e.g.
-\code
-h0 uniform 0 1e-21
-phi0 uniform 0 6.283185307179586
-cosiota uniform -1 1
-psi uniform -0.785398163397448 0.785398163397448
-\endcode
-Note that if searching over frequency parameters the ranges specified in the \c prior-file should be given in terms of
-the pulsars rotation frequency and not necessarily the gravitational wave frequency e.g. for a triaxial star emitting
-gravitational waves at 100 Hz (which will be at twice the rotation frequency) if you wanted to search over 99.999 to
-100.001 Hz then you should used
-\code
-f0 49.9995 50.0005
-\endcode
-
-An example of running the code as above, but this time on fake data created using the Advanced LIGO design noise curves
-and with a signal injected into the data is:
-\code
-lalapps_pulsar_parameter_estimation_nested --fake-data AH1 --inject-file
-fake.par --par-file fake.par --outfile ns_fake --prior-file prior_fake.txt
---ephem-earth lscsoft/share/lalpulsar/earth05-09.dat --ephem-sun
-lscsoft/share/lalpulsar/sun05-09.dat --model-type triaxial --Nlive 1000 --Nmcmc
-100 --Nruns 1 --tolerance 0.25
-\endcode
-In this case the \c inject-file parameter file must contain the values of \c h0, \c phi0, \c psi and \c cosiota,
-otherwise these will be set to zero by default. The parameter files given for \c inject-file and \c par-file do not
-have to be the same - the injection can be offset from the 'heterodyned' values, which will be reflected in the data. If
-an \c inject-output file is also specified then the fake data containing the signal, and a fake signal-only data set,
-will be output.
+ *
+ * ### Description ###
+ *
+ * This code is used to perform parameter estimation and evidence calculation in targeted/semi-targeted searches for
+ * gravitational waves from known pulsars. It may also be used to follow-up on signal candidates from semi-coherent all-sky
+ * searches for unknown sources.
+ *
+ * It uses the Bayesian technique of 'Nested Sampling' to sample over a defined prior parameter space (unknown signal
+ * parameters such as the gravitational wave amplitude). These samples can then be used to create posterior probability
+ * density functions of the unknown parameters. The samples are also used to calculate the Bayesian evidence, also known as
+ * the marginal likelihood, for a given signal model. This can be compared with other models, in particular the model that
+ * the data is described by Gaussian noise alone.
+ *
+ * As input the code requires time domain data that has been heterodyned using the known (or close to) phase evolution of
+ * the pulsar. The time domain input should consist of a three column text file containing the GPS time stamp of the data
+ * point, the real part of the heterodyned data and the imaginary part of the heterodyned data, e.g.
+ * 900000000.000000  1.867532e-24  -7.675329e-25
+ * 900000060.000000  2.783651e-24  3.654386e-25
+ * ...
+ *
+ * Most commonly such data will have a sample rate of 1/60 Hz, giving a bandwidth of the same amount, but the code can
+ * accept any rate, or downsample data (by averaging) by a given factor.
+ *
+ * The code also requires that you specify which parameters are to be searched over, and the prior ranges over these. Any
+ * of the signal parameters can be searched over, including frequency, sky position and binary system parameters, although
+ * the bandwidth of the data and search efficiency need to be taken into account.
+ *
+ * The 'Nested Sampling' algorithm (developed by \cite Skilling2006) used is that defined in LALinferenceNestedSampler
+ * (see \cite VeitchVecchio2010). It is essentially an efficient way to perform the integral
+ * \f[
+ * Z = \int^{\mathbf{\theta}} p(d|\mathbf{\theta}) p(\mathbf{\theta}) \mathrm{d}\mathbf{\theta},
+ * \f]
+ * where \f$ \mathbf{\theta} \f$ is a vector of parameters, \f$ p(d|\mathbf{\theta}) \f$ is the likelihood of the data
+ * given the parameters, and \f$ p(\mathbf{\theta}) \f$ is the prior on the parameters. It does this by changing the
+ * multi-dimensional integral over N parameters into a one-dimensional integral
+ * \f[
+ * Z = \int^X L(X) \mathrm{d}X \approx \sum_i L(X_i) \Delta{}X_i,
+ * \f]
+ * where \f$ L(X) \f$ is the likelihood, and \f$ X \f$ is the prior mass. The algorithm will draw a number (\f$ N \f$) of
+ * samples (live points) from the parameter priors, calculate the likelihood for each point and find the lowest likelihood
+ * value. The lowest likelihood value will be added to the summation in the above equation, with \f$ \log{\Delta{}X_i}
+ * \approx 1/N \f$ coming from the fact that the prior would be normalised to unity and therefore each point should occupy
+ * an equal fraction and at each iteration the prior volume will decrease geometrically (for \f$\log{\Delta{}X_0} = 0\f$).
+ * A new point is then drawn from the prior with the criterion that it has a higher likelihood than the previous lowest
+ * point and substitutes that point. To draw the new point a Markov Chain Monte Carlo (MCMC) procedure is used - there are
+ * two methods used to sample points within this: i) drawing from a proposal distributions based on the covariance matrix
+ * if the current live points (although to keep things computationally efficient this no updated at every iteration), ii)
+ * picking a point via differential evolution (two random live points are selected and a new point half way between the two
+ * is created). The probability of using either method is currently set at 80\% and 20\% respectively. The procedure is
+ * continued until a stopping criterion is reached, which in this case is that the remaining prior volume is less than the
+ * \c tolerance value set (see below). The implementation of this can be seen in \cite VeitchVecchio2010.
+ *
+ * ### Usage ###
+ *
+ * The usage format is given below and can also be found by running the code with
+ * \code
+ * lalapps_pulsar_parameter_estimation_nested --help
+ * \endcode
+ *
+ * An example of running the code on to search over the four unknown parameters \f$ h_0 \f$, \f$ \phi_0 \f$, \f$ \psi \f$
+ * and \f$ \cos{\iota} \f$, for pulsar J0534-2200, given heterodyned time domain data from the H1 detector in the file
+ * \c finehet_J0534-2200_H1, is:
+ * \code
+ * lalapps_pulsar_parameter_estimation_nested --detectors H1 --par-file
+ * J0534-2200.par --input-files finehet_J0534-2200_H1 --outfile ns_J0534-2200
+ * --prior-file prior_J0534-2200.txt --ephem-earth
+ * lscsoft/share/lalpulsar/earth05-09.dat --ephem-sun
+ * lscsoft/share/lalpulsar/sun05-09.dat --model-type triaxial --Nlive 1000 --Nmcmc
+ * 100 --Nruns 1 --tolerance 0.25
+ * \endcode
+ * The \c par-file is a TEMPO-style file containing the parameters of the pulsar used to perform the heterodyne (the
+ * frequency parameters are the rotation frequency and therefore not necessarily the gravitational wave frequency) e.g.
+ * \code
+ * RA      12:54:31.87523895
+ * DEC     -54:12:43.6572033
+ * PMRA    1.7
+ * PMDEC   2.8
+ * POSEPOCH 54320.8531
+ * F0  123.7896438753
+ * F1  4.592e-15
+ * PEPOCH 54324.8753
+ * \endcode
+ * The \c prior-file is a text file containing a list of the parameters to be searched over, the prior type ("uniform" or
+ * "gaussian" and their given lower/mean and upper/standard deviation ranges e.g.
+ * \code
+ * h0 uniform 0 1e-21
+ * phi0 uniform 0 6.283185307179586
+ * cosiota uniform -1 1
+ * psi uniform -0.785398163397448 0.785398163397448
+ * \endcode
+ * Note that if searching over frequency parameters the ranges specified in the \c prior-file should be given in terms of
+ * the pulsars rotation frequency and not necessarily the gravitational wave frequency e.g. for a triaxial star emitting
+ * gravitational waves at 100 Hz (which will be at twice the rotation frequency) if you wanted to search over 99.999 to
+ * 100.001 Hz then you should used
+ * \code
+ * f0 49.9995 50.0005
+ * \endcode
+ *
+ * An example of running the code as above, but this time on fake data created using the Advanced LIGO design noise curves
+ * and with a signal injected into the data is:
+ * \code
+ * lalapps_pulsar_parameter_estimation_nested --fake-data AH1 --inject-file
+ * fake.par --par-file fake.par --outfile ns_fake --prior-file prior_fake.txt
+ * --ephem-earth lscsoft/share/lalpulsar/earth05-09.dat --ephem-sun
+ * lscsoft/share/lalpulsar/sun05-09.dat --model-type triaxial --Nlive 1000 --Nmcmc
+ * 100 --Nruns 1 --tolerance 0.25
+ * \endcode
+ * In this case the \c inject-file parameter file must contain the values of \c h0, \c phi0, \c psi and \c cosiota,
+ * otherwise these will be set to zero by default. The parameter files given for \c inject-file and \c par-file do not
+ * have to be the same - the injection can be offset from the 'heterodyned' values, which will be reflected in the data. If
+ * an \c inject-output file is also specified then the fake data containing the signal, and a fake signal-only data set,
+ * will be output.
  */
 
 #include "pulsar_parameter_estimation_nested.h"
@@ -203,19 +205,22 @@ LALStringVector *corlist = NULL;
 " --randomseed        seed for random number generator\n"\
 "\n"\
 " MCMC proposal parameters:\n"\
-" --covariance        (REAL8) relative weigth of using covariance matrix\n\
+" --covariance        (UINT4) relative weight of using covariance matrix\n\
                      of the live points as the proposal (DEFAULT = 14,\n\
                      e.g. 70%%)\n"\
 " --temperature       (REAL8) temperature for covariance proposal\n\
                      distribution (DEFAULT = 0.1)\n"\
-" --kDTree            (REAL8) relative weigth of using a k-D tree of the live\n\
+" --kDTree            (UINT4) relative weight of using a k-D tree of the live\n\
                      points to use as a proposal (DEFAULT = 3, e.g. 15%%)\n"\
 " --kDNCell           (INT4) maximum number of samples in a k-D tree cell\n"\
 " --kDUpdateFactor    (REAL8) how often the k-D tree gets updated as a\n\
                      factor of the number of live points\n"\
-" --diffev            (REAL8) relative weight of using differential evolution\n\
+" --diffev            (UINT4) relative weight of using differential evolution\n\
                      of the live points as the proposal (DEFAULT = 3, e.g.\n\
                      15%%)\n"\
+" --freqBinJump       (UINT4) relative weight of using jumps to adjacent\n\
+                     frequency bins as a proposal (DEFAULT = 0, e.g. this is\n\
+                     not required unless searching over frequency)\n"\
 "\n"\
 " Signal injection parameters:\n"\
 " --inject-file       a pulsar parameter (par) file containing the parameters\n\
@@ -278,6 +283,9 @@ LALStringVector *corlist = NULL;
 " --oldChunks        Set if using fixed chunk sizes for dividing the data as\n\
                     in the old code, rather than the calculating chunks\n\
                     using the change point method.\n"\
+" --jones-model      Set if using both 1 and 2 multiples of the frequency and\n\
+                    requiring the use of the original signal model parameters\n\
+                    from Jones, MNRAS, 402 (2010).\n"\
 "\n"
 
 INT4 main( INT4 argc, CHAR *argv[] ){
@@ -359,7 +367,8 @@ INT4 main( INT4 argc, CHAR *argv[] ){
 /*                      INITIALISATION FUNCTIONS                              */
 /******************************************************************************/
 
-/** \brief Initialises the nested sampling algorithm control
+/**
+ * \brief Initialises the nested sampling algorithm control
  *
  * Memory is allocated for the parameters, priors and proposals. The nested sampling control parameters are set: the
  * number of live points \c Nlive, the number of points for each MCMC \c Nmcmc, the number of independent runs within
@@ -467,7 +476,8 @@ void initialiseAlgorithm( LALInferenceRunState *runState )
   return;
 }
 
-/** \brief Reads in the input gravitational wave data files, or creates fake data sets.
+/**
+ * \brief Reads in the input gravitational wave data files, or creates fake data sets.
  *
  * The function will check whether data files are being input of fake data is to be generated. If using real data the \c
  * detectors command line input must list the names of the detectors from which each of the data sets comes, with names
@@ -493,11 +503,11 @@ void initialiseAlgorithm( LALInferenceRunState *runState )
  * type, which is specified by the number of frequency harmonics given by the \c harmonics command line argument. This
  * should be a list of comma separated values giving the frequency of the signal harmonics to be included. E.g.
  * <ol>
- * <li>For a model with \f$l=m=2\f$ (i.e. a triaxial star with a signal defined in e.g. [\ref DupuisWoan2005]), which
+ * <li>For a model with \f$l=m=2\f$ (i.e. a triaxial star with a signal defined in e.g. \cite DupuisWoan2005), which
  * purely emits at twice the rotation frequency, the \c harmonics input would just be \c 2. This requires that for each
  * specified detector there is <b>one</b> input file containing data heterodyned at twice the rotation frequency of the
  * pulsar.</li>
- * <li>For a model including the two harmonics \f$l=2\f$, \f$m=1,2\f$ (see e.g. [\ref Jones2010]), which produces
+ * <li>For a model including the two harmonics \f$l=2\f$, \f$m=1,2\f$ (see e.g. \cite Jones2010), which produces
  * emission at both the rotation frequency <i>and</i> twice the rotation frequency, the \c harmonics input would be \c
  * 1,2. This requires that for each specified detector there are two input files containing data heterodyned and the
  * rotation frequency <i>and</i> twice the rotation frequency (these must be in the same order as the harmonics
@@ -1173,7 +1183,8 @@ detectors specified (no. dets =\%d)\n", ml, ml, numDets);
 }
 
 
-/** \brief Reads in the parameters of the pulsar being searched for
+/**
+ * \brief Reads in the parameters of the pulsar being searched for
  *
  * This function reads in a pulsars parameters from the specified TEMPO-style .par file given by \c par-file using \c
  * XLALReadTEMPOParFile. This file must be specified and should contain at least the pulsars frequency, right
@@ -1227,6 +1238,7 @@ void setupFromParFile( LALInferenceRunState *runState )
   ProcessParamsTable *ppt = NULL;
   UINT4 mmfactor = 0;
   REAL8 mm = 0;
+  REAL8 DeltaT = 0.; /* maximum data time span */
 
   ppt = LALInferenceGetProcParamVal( runState->commandLine, "--par-file" );
   if( ppt == NULL ) { fprintf(stderr,"Must specify --par-file!\n"); exit(1); }
@@ -1260,6 +1272,10 @@ void setupFromParFile( LALInferenceRunState *runState )
   while( data ){
     REAL8Vector *freqFactors = NULL;
     UINT4 j = 0;
+    REAL8 dt = XLALGPSGetREAL8( &data->dataTimes->data[data->dataTimes->length-1] ) -
+      XLALGPSGetREAL8( &data->dataTimes->data[0] );
+
+    if ( dt > DeltaT ){ DeltaT = dt; }
 
     freqFactors = *(REAL8Vector **)LALInferenceGetVariable( data->dataParams,
                                                             "freqfactors" );
@@ -1268,6 +1284,13 @@ void setupFromParFile( LALInferenceRunState *runState )
       UINT4 i = 0;
       LALInferenceVariableItem *scaleitem = scaletemp->head;
       REAL8Vector *dts = NULL, *bdts = NULL;
+
+      /* check whether using original Jones (2010) signal model */
+      if ( freqFactors->length == 2 && LALInferenceGetProcParamVal( runState->commandLine, "--jones-model" ) ){
+        UINT4 jones = 1;
+        LALInferenceAddVariable( data->dataParams, "jones-model", &jones, LALINFERENCE_UINT4_t,
+                                 LALINFERENCE_PARAM_FIXED );
+      }
 
       dts = get_ssb_delay( pulsar, data->dataTimes, data->ephem, data->tdat, data->ttype, data->detector, 0. );
 
@@ -1324,11 +1347,16 @@ void setupFromParFile( LALInferenceRunState *runState )
     }
   }
 
+  /* set frequency bin step from longest data time span */
+  REAL8 df = 1./(2.*DeltaT);
+  LALInferenceAddVariable( runState->currentParams, "df", &df, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );
+
   return;
 }
 
 
-/** \brief Sets the time vs polarisation angle antenna response lookup table
+/**
+ * \brief Sets the time vs polarisation angle antenna response lookup table
  *
  * This function sets up a lookup table in time vs. polarisation angle \f$\psi\f$ for each detector from which data
  * exists (either real or fake). The time ranges over one sidereal day and the polarisation angle range from
@@ -1445,8 +1473,8 @@ void setupLookupTables( LALInferenceRunState *runState, LALSource *source ){
 }
 
 
-/** \brief Set up all the allowed variables for a known pulsar search
- *
+/**
+ * \brief Set up all the allowed variables for a known pulsar search
  * This functions sets up all possible variables that are possible in a known pulsar search. Parameter values read in
  * from a .par file and passed in via the \c pars variable will be set. Scale factors will be initialised for all
  * variables (so that they exist) although they will be set to 1.
@@ -1468,11 +1496,11 @@ void add_initial_variables( LALInferenceVariables *ini,  LALInferenceVariables *
   add_variable_scale( ini, scaleFac, "cosiota", pars.cosiota );
   add_variable_scale( ini, scaleFac, "psi", pars.psi );
 
-  /* amplitude model parameters for l=2, m=1 and 2 harmonic emission */
-  /* add_variable_scale( ini, scaleFac, "I21", pars.I21 );
+  /* amplitude model parameters for l=2, m=1 and 2 harmonic emission from Jones (2010) */
+  add_variable_scale( ini, scaleFac, "I21", pars.I21 );
   add_variable_scale( ini, scaleFac, "I31", pars.I31 );
   add_variable_scale( ini, scaleFac, "lambda", pars.lambda );
-  add_variable_scale( ini, scaleFac, "costheta", pars.costheta ); */
+  add_variable_scale( ini, scaleFac, "costheta", pars.costheta );
 
   /* amplitude model parameters in phase and amplitude form */
   add_variable_scale( ini, scaleFac, "C22", pars.C22 );
@@ -1489,6 +1517,7 @@ void add_initial_variables( LALInferenceVariables *ini,  LALInferenceVariables *
   add_variable_scale( ini, scaleFac, "f4", pars.f4 );
   add_variable_scale( ini, scaleFac, "f5", pars.f5 );
   add_variable_scale( ini, scaleFac, "pepoch", pars.pepoch );
+  add_variable_scale( ini, scaleFac, "cgw", pars.cgw );
 
   /* sky position */
   add_variable_scale( ini, scaleFac, "ra", pars.ra );
@@ -1542,7 +1571,8 @@ void add_initial_variables( LALInferenceVariables *ini,  LALInferenceVariables *
 }
 
 
-/** \brief Adds variables, scale factors and priors
+/**
+ * \brief Adds variables, scale factors and priors
  *
  * This function adds a variable with a name and a value. For all parameters a scale factor and scale minimum range will
  * be set. These are just initialised to 1 and 0 respectively and will be set in \c initialisePrior for any parameters
@@ -1570,7 +1600,8 @@ void add_variable_scale( LALInferenceVariables *var, LALInferenceVariables *scal
 }
 
 
-/** \brief Sets up the parameters to be searched over and their prior ranges
+/**
+ * \brief Sets up the parameters to be searched over and their prior ranges
  *
  * This function sets up any parameters that you require the code to search over and specifies the prior range and type
  * for each. This information is contained in a prior file specified by the command line argument \c prior-file. This
@@ -1579,11 +1610,11 @@ void add_variable_scale( LALInferenceVariables *var, LALInferenceVariables *scal
  * mean, of the prior, for "uniform" and "gaussian" priors respectively; and the fourth has the upper limit, or standard
  * deviation, for "uniform" and "gaussian" priors respectively. E.g.
  * \code
- h0 uniform 0 1e-21
- phi0 uniform 0 6.6.283185307179586
- cosiota uniform -1 1
- psi uniform -0.785398163397448 0.785398163397448
- \endcode
+ * h0 uniform 0 1e-21
+ * phi0 uniform 0 6.6.283185307179586
+ * cosiota uniform -1 1
+ * psi uniform -0.785398163397448 0.785398163397448
+ * \endcode
  *
  * Any parameter specified in the file will have its vary type set to \c LALINFERENCE_PARAM_LINEAR, (except
  * \f$\phi_0\f$, which if it is defined to have a prior covering \f$2\pi\f$ wraps around at the edges of its range and
@@ -1686,6 +1717,14 @@ void initialisePrior( LALInferenceRunState *runState )
       if ( scale/LAL_TWOPI > 0.99 && scale/LAL_TWOPI < 1.01 ) { phidef = 1; }
     }
 
+    /* if a (fractional) gravitational wave speed is specified then check it's between 0 and 1 */
+    if( !strcmp(tempPar, "cgw") ){
+      if( high > 1. || high <= 0. || low > 1. || low <= 0. || low > high ){
+        fprintf(stderr, "Error... The GW speed range is non-physical.\n");
+        exit(3);
+      }
+    }
+
     /* if psi is covering the range -pi/4 to pi/4, i.e. as used in the triaxial
      * model, set psidef, so re-parameterisation can take place */
     //if( !strcmp(tempPar, "psi") )
@@ -1750,7 +1789,7 @@ void initialisePrior( LALInferenceRunState *runState )
 
   /* If source physical parameters (rather than amplitude/phase parameters) have been defined in the prior file then
    * convert to amplitude/phase parameters. Only do this for the l=m=2 model of emission at 2f for a triaxial star.
-   * For other modes the phase/amplitude parameters most be defined in the prior file. */
+   * For other modes the phase/amplitude parameters must be defined in the prior file. */
   REAL8Vector *freqFactors = *(REAL8Vector **)LALInferenceGetVariable( data->dataParams, "freqfactors" );
 
   if ( freqFactors->length == 1 && freqFactors->data[0] == 2. ){
@@ -1869,73 +1908,32 @@ void initialisePrior( LALInferenceRunState *runState )
     }
   }
 
-  /* if phi0 and psi have been given in the prop-file and defined at the limits of their range (for a triaxial star, so
-   * -pi/4 <= psi <= pi/4 and 0 <= phi0 <= 2pi) then remove them and add the phi0' and psi' coordinates */
-  //if( phidef && psidef && !strcmp( "triaxial", *(CHAR **)LALInferenceGetVariable( runState->data->dataParams,
-  //                                       "modeltype" ) ) ){
-  //  LALInferenceIFOData *datatemp = data;
-  //
-  //  REAL8 phi0 = *(REAL8*)LALInferenceGetVariable( runState->currentParams, "phi0" );
-  //  REAL8 phi0scale = *(REAL8*)LALInferenceGetVariable( data->dataParams, "phi0_scale" );
-  //  REAL8 phi0min = *(REAL8*)LALInferenceGetVariable( data->dataParams, "phi0_scale_min" );
-  //  REAL8 psi = *(REAL8*)LALInferenceGetVariable( runState->currentParams,  "psi" );
-  //  REAL8 psiscale = *(REAL8*)LALInferenceGetVariable( data->dataParams, "psi_scale" );
-  //  REAL8 psimin = *(REAL8*)LALInferenceGetVariable( data->dataParams, "psi_scale_min" );
-  //  REAL8 theta = atan2(1.,2.);
-  //  REAL8 primemin = -LAL_PI_2*cos(theta);
-  //  REAL8 primescale = 2.*fabs(primemin);
-  //  REAL8 phi0prime = 0., psiprime = 0.;
-  //
-  //  phi0 = phi0*phi0scale + phi0min;
-  //  psi = psi*psiscale + psimin;
-  //
-  //  /* convert to phi0' and psi' */
-  //  phi0_psi_transform( phi0, psi, &phi0prime, &psi );
-  //
-  //  /* scale phi0' and psi' */
-  //  phi0prime = (phi0prime - primemin)/primescale;
-  //  psiprime = (psiprime - primemin)/primescale;
-  //
-  //  /* remove phi0 and psi */
-  //  LALInferenceRemoveVariable( runState->currentParams, "phi0" );
-  //  LALInferenceRemoveVariable( runState->currentParams, "psi" );
-  //
-  //  /* add new variables */
-  //  LALInferenceAddVariable( runState->currentParams, "phi0prime", &phi0prime, LALINFERENCE_REAL8_t,
-  //                           LALINFERENCE_PARAM_CIRCULAR );
-  //
-  //  LALInferenceAddVariable( runState->currentParams, "psiprime", &psiprime, LALINFERENCE_REAL8_t,
-  //                           LALINFERENCE_PARAM_CIRCULAR );
-  //
-  //  /* remove old scale factors and add new ones */
-  //  while( datatemp ){
-  //    LALInferenceRemoveVariable( datatemp->dataParams, "phi0_scale" );
-  //    LALInferenceRemoveVariable( datatemp->dataParams, "phi0_scale_min" );
-  //
-  //    LALInferenceRemoveVariable( datatemp->dataParams, "psi_scale" );
-  //    LALInferenceRemoveVariable( datatemp->dataParams, "psi_scale_min" );
-  //
-  //    LALInferenceAddVariable( datatemp->dataParams, "phi0prime_scale", &primescale, LALINFERENCE_REAL8_t,
-  //                             LALINFERENCE_PARAM_FIXED );
-  //    LALInferenceAddVariable( datatemp->dataParams, "phi0prime_scale_min", &primemin, LALINFERENCE_REAL8_t,
-  //                             LALINFERENCE_PARAM_FIXED );
-  //    LALInferenceAddVariable( datatemp->dataParams, "psiprime_scale", &primescale, LALINFERENCE_REAL8_t,
-  //                             LALINFERENCE_PARAM_FIXED );
-  //    LALInferenceAddVariable( datatemp->dataParams, "psiprime_scale_min", &primemin, LALINFERENCE_REAL8_t,
-  //                             LALINFERENCE_PARAM_FIXED );
-  //
-  //    datatemp = datatemp->next;
-  //  }
-  //
-  //  /* change prior */
-  //  low = 0.;
-  //  high = 1.;
-  //  LALInferenceRemoveMinMaxPrior( runState->priorArgs, "phi0" );
-  //  LALInferenceAddMinMaxPrior( runState->priorArgs, "phi0prime", &low, &high, LALINFERENCE_REAL8_t );
-  //
-  //  LALInferenceRemoveMinMaxPrior( runState->priorArgs, "psi" );
-  //  LALInferenceAddMinMaxPrior( runState->priorArgs, "psiprime", &low, &high, LALINFERENCE_REAL8_t );
-  //}
+  if( freqFactors->length == 2 ){
+    if( LALInferenceGetProcParamVal( runState->commandLine, "--jones-model" ) ){
+      /* if using Jones (2010) model then remove superfluous parameters */
+      remove_variable_and_prior( runState, data, "h0" );
+      remove_variable_and_prior( runState, data, "C22" );
+      remove_variable_and_prior( runState, data, "C21" );
+      remove_variable_and_prior( runState, data, "phi22" );
+      remove_variable_and_prior( runState, data, "phi21" );
+    }
+    else if( LALInferenceGetVariableVaryType( runState->currentParams, "phi22" ) == LALINFERENCE_PARAM_FIXED &&
+      *(REAL8*)LALInferenceGetVariable( runState->currentParams, "phi22" ) == 0. &&
+      ( LALInferenceGetVariableVaryType( runState->currentParams, "phi21" ) == LALINFERENCE_PARAM_CIRCULAR ||
+        LALInferenceGetVariableVaryType( runState->currentParams, "phi21" ) == LALINFERENCE_PARAM_LINEAR ) ){
+      /* check if using a prior range that corresponds to a biaxial star */
+      remove_variable_and_prior( runState, data, "phi22" );
+
+      /* add biaxial variable */
+      LALInferenceIFOData *datatemp = data;
+      while( datatemp ){
+        UINT4 biaxial = 1;
+        LALInferenceAddVariable( datatemp->dataParams, "biaxial", &biaxial, LALINFERENCE_UINT4_t,
+                                 LALINFERENCE_PARAM_FIXED );
+        datatemp = datatemp->next;
+      }
+    }
+  }
 
   /* now check for a parameter correlation coefficient matrix file */
   ppt = LALInferenceGetProcParamVal( runState->commandLine, "--cor-file" );
@@ -1963,16 +1961,17 @@ void initialisePrior( LALInferenceRunState *runState )
 }
 
 
-/** \brief Initialise the MCMC proposal distribution for sampling new points
+/**
+ * \brief Initialise the MCMC proposal distribution for sampling new points
  *
  * There are various proposal distributions that can be used to sample new live points via an MCMC. A combination of
  * different ones can be used to help efficiency for awkward posterior distributions. Here the proposals that can be
  * used are:
- *   \c covariance Drawing from a multi-variate Gaussian described by the covariance matrix of the current live points,
+ * \c covariance Drawing from a multi-variate Gaussian described by the covariance matrix of the current live points,
  * with the spread of the distribution controlled by the \c temperature. One parameter is evolved during a single draw.
- *   \c diffev Drawing a new point by differential evolution of two randomly chosen live points. All parameters are
+ * \c diffev Drawing a new point by differential evolution of two randomly chosen live points. All parameters are
  * evolved during a single draw.
- *   \c kDTree Drawing points from a distributions created from a k-D tree of the current live points, with
+ * \c kDTree Drawing points from a distributions created from a k-D tree of the current live points, with
  * probabilities of each leaf being inversely their volume. All parameters are evolved during a single draw.
  *
  * Note: also add ability to jump between frequency modes.
@@ -1980,10 +1979,10 @@ void initialisePrior( LALInferenceRunState *runState )
  * This function sets up the relative weights with which each of above distributions is used.
  *
  * \param runState [in] A pointer to the run state
-*/
+ */
 void initialiseProposal( LALInferenceRunState *runState ){
   ProcessParamsTable *ppt = NULL;
-  UINT4 covfrac = 0, defrac = 0, kdfrac = 0;
+  UINT4 covfrac = 0, defrac = 0, kdfrac = 0, freqfrac = 0;
   REAL8 temperature = 0.;
   const CHAR *defaultPropName = NULL;
   defaultPropName = XLALStringDuplicate( "none" );
@@ -1999,6 +1998,9 @@ void initialiseProposal( LALInferenceRunState *runState ){
   ppt = LALInferenceGetProcParamVal( runState->commandLine, "--kDTree" );
   if( ppt ) { kdfrac = atoi( ppt->value ); }
   else { kdfrac = 3; } /* default value */
+
+  ppt = LALInferenceGetProcParamVal( runState->commandLine, "--freqBinJump" );
+  if( ppt ) { freqfrac = atoi( ppt->value ); }
 
   if( !covfrac && !defrac && !kdfrac ){
     XLALPrintError("All proposal weights are zero!\n");
@@ -2034,6 +2036,10 @@ void initialiseProposal( LALInferenceRunState *runState ){
     LALInferenceSetupkDTreeNSLivePoints( runState );
   }
 
+  if ( freqfrac ){
+    LALInferenceAddProposalToCycle( runState, frequencyBinJumpName, &LALInferenceFrequencyBinJump, freqfrac );
+  }
+
   LALInferenceRandomizeProposalCycle( runState );
   /* set temperature */
   ppt = LALInferenceGetProcParamVal( runState->commandLine, "--temperature" );
@@ -2052,7 +2058,8 @@ void initialiseProposal( LALInferenceRunState *runState ){
 }
 
 
-/** \brief Adds a correlation matrix for a multi-variate Gaussian prior
+/**
+ * \brief Adds a correlation matrix for a multi-variate Gaussian prior
  *
  * If a TEMPO-style parameter correlation coefficient file has been given, then this function will use it to set the
  * prior distribution for the given parameters. It is assumed that the equivalent par file contained standard
@@ -2148,7 +2155,8 @@ void add_correlation_matrix( LALInferenceVariables *ini, LALInferenceVariables *
 /*                       SOFTWARE INJECTION FUNCTIONS                         */
 /******************************************************************************/
 
-/** \brief Inject a simulated signal into the data
+/**
+ * \brief Inject a simulated signal into the data
  *
  * This function will create an simulated signal (of the required model) to inject into the data from multiple
  * detectors. The parameters of the signal to be injected must be specified in a TEMPO-stype .par file given with the
@@ -2161,7 +2169,7 @@ void add_correlation_matrix( LALInferenceVariables *ini, LALInferenceVariables *
  * The injected signal can be output if \c inject-output is set. Two files will be output: one containing the signal
  * only, and one containing the signal plus noise. These will both be in the format of a standard data input file. The
  * files will have names given by the \c inject-output value, with a prefix of the detector name, and a suffix of of \c
-_* signal_only, respectively.
+ * _* signal_only, respectively.
  *
  * \param runState [in] the program information structure
  *
@@ -2398,7 +2406,8 @@ void injectSignal( LALInferenceRunState *runState ){
 /*                            HELPER FUNCTIONS                                */
 /******************************************************************************/
 
-/** \brief Split the data into segments
+/**
+ * \brief Split the data into segments
  *
  * This function is deprecated to \c chop_n_merge, but gives the functionality of the old code.
  *
@@ -2459,7 +2468,8 @@ UINT4Vector *get_chunk_lengths( LALInferenceIFOData *data, INT4 chunkMax ){
 
 /* function to use change point analysis to chop up and remerge the data to find stationary chunks (i.e. lengths of data
  * which look like they have the same statistics e.g. the same standard deviation) */
-/** \brief Chops and remerges data into stationary segments
+/**
+ * \brief Chops and remerges data into stationary segments
  *
  * This function finds segments of data that appear to be stationary (have the same standard deviation).
  *
@@ -2543,7 +2553,8 @@ UINT4Vector *chop_n_merge( LALInferenceIFOData *data, INT4 chunkMin, INT4 chunkM
 }
 
 
-/** \brief Subtract the running median from complex data
+/**
+ * \brief Subtract the running median from complex data
  *
  * This function uses \c gsl_stats_median_from_sorted_data to subtract a running median, calculated from the 30
  * consecutive point around a set point, from the data. At the start of the data running median is calculated from
@@ -2609,7 +2620,8 @@ COMPLEX16Vector *subtract_running_median( COMPLEX16Vector *data ){
 }
 
 
-/** \brief Chops the data into stationary segments based on Bayesian change point analysis
+/**
+ * \brief Chops the data into stationary segments based on Bayesian change point analysis
  *
  * This function splits data into two (and recursively runs on those two segments) if it is found that the odds ratio
  * for them being from two independent Gaussian distributions is greater than a certain threshold.
@@ -2682,14 +2694,15 @@ UINT4Vector *chop_data( COMPLEX16Vector *data, INT4 chunkMin ){
 }
 
 
-/** \brief Find a change point in complex data
+/**
+ * \brief Find a change point in complex data
  *
- * This function is based in the Bayesian Blocks algorithm of [\ref Scargle1998] that finds "change points" in data -
+ * This function is based in the Bayesian Blocks algorithm of \cite Scargle1998 that finds "change points" in data -
  * points at which the statistics of the data change. It is based on calculating evidence, or odds, ratios. The
  * function first computes the marginal likelihood (or evidence) that the whole of the data is described by a single
  * Gaussian (with mean of zero). This comes from taking a Gaussian likelihood function and analytically marginalising
- * over the standard deviation (using a prior on the standard deviation of \f$1/\sigma\f$), giving (see [\ref
- * DupuisWoan2005]) a Students-t distribution (see
+ * over the standard deviation (using a prior on the standard deviation of \f$1/\sigma\f$), giving (see
+ * [\cite DupuisWoan2005]) a Students-t distribution (see
  * <a href="https://wiki.ligo.org/foswiki/pub/CW/PulsarParameterEstimationNestedSampling/studentst.pdf">here</a>).
  * Following this the data is split into two segments (with lengths greater than, or equal to the minimum chunk length)
  * for all possible combinations, and the joint evidence for each of the two segments consisting of independent
@@ -2787,7 +2800,8 @@ UINT4 find_change_point( COMPLEX16Vector *data, REAL8 *logodds, INT4 minlength )
 }
 
 
-/** \brief Chop up the data into chunks smaller the the maximum allowed length
+/**
+ * \brief Chop up the data into chunks smaller the the maximum allowed length
  *
  * This function chops any chunks that are greater than \c chunkMax into chunks smaller than, or equal to \c chunkMax,
  * and greater than \c chunkMin. On some occasions this might result in a segment smaller than \c chunkMin, but these
@@ -2859,7 +2873,8 @@ void rechop_data( UINT4Vector *chunkIndex, INT4 chunkMax, INT4 chunkMin ){
 }
 
 
-/** \brief Merge adjacent segments
+/**
+ * \brief Merge adjacent segments
  *
  * This function will attempt to remerge adjacent segments if statistically favourable (as calculated by the odds
  * ratio). For each pair of adjacent segments the joint likelihood of them being from two independent distributions is
@@ -2933,7 +2948,8 @@ void merge_data( COMPLEX16Vector *data, UINT4Vector *segs ){
 }
 
 
-/** \brief Calculates the sum of the square of the data
+/**
+ * \brief Calculates the sum of the square of the data
  *
  * This function calculates the sum of the square of the data:
  * \f[
@@ -2987,7 +3003,8 @@ void sumData( LALInferenceRunState *runState ){
 }
 
 
-/** \brief Creates a lookup table of the detector antenna pattern
+/**
+ * \brief Creates a lookup table of the detector antenna pattern
  *
  * This function creates a 2D lookup table of the 'plus' and 'cross' antenna patterns for a given detector orientation
  * and source sky position. The lookup table spans one sidereal day in time (this being the period over which the
@@ -3034,7 +3051,8 @@ void response_lookup_table( REAL8 t0, LALDetAndSource detNSource, INT4 timeSteps
 }
 
 
-/** \brief Rescale the values output by the Nested Sampling algorithm
+/**
+ * \brief Rescale the values output by the Nested Sampling algorithm
  *
  * This function reads in the file of samples output from the Nested Sampling algorithm (in the file specified by \c
  * outfile) and scales them back to their true values. It removes the string variable "model" from the output and shifts
@@ -3233,7 +3251,8 @@ void rescaleOutput( LALInferenceRunState *runState ){
 }
 
 
-/** \brief Counts the number of comma separated values in a string
+/**
+ * \brief Counts the number of comma separated values in a string
  *
  * This function counts the number of comma separated values in a given input string.
  *
@@ -3263,7 +3282,8 @@ INT4 count_csv( CHAR *csvline ){
 }
 
 
-/** \brief Checks if a given parameter is recognised
+/**
+ * \brief Checks if a given parameter is recognised
  *
  * This function checks whether a given parameter is one of the defined amplitude (\c amppars), frequency (\c freqpars),
  * sky location (\c skypars) or binary system (\c binpars) parameters given in the header file.
@@ -3287,7 +3307,8 @@ INT4 recognised_parameter( CHAR *parname ){
 }
 
 
-/** \brief Calculates the optimal matched filter signal-to-noise ratio for a given signal
+/**
+ * \brief Calculates the optimal matched filter signal-to-noise ratio for a given signal
  *
  * This function calculates the optimal matched filter signal-to-noise ratio (SNR) of a given signal model for a set of
  * detector data via:
@@ -3361,7 +3382,8 @@ REAL8 calculate_time_domain_snr( LALInferenceIFOData *data ){
 }
 
 
-/** \brief Get the signal-to-noise ratio of the maximum likelihood signal
+/**
+ * \brief Get the signal-to-noise ratio of the maximum likelihood signal
  *
  * The function uses the signal with the highest likelihood (which will be the final point in the live points array) and
  * calculates the optimal signal-to-noise ratio (SNR) for it. This is output to a file based on the \c outfile value,
@@ -3462,13 +3484,13 @@ void get_loudest_snr( LALInferenceRunState *runState ){
 }
 
 
-/** \brief Automatically set the solar system ephemeris file based on environment variables and data time span
+/**
+ * \brief Automatically set the solar system ephemeris file based on environment variables and data time span
  *
  * This function will attempt to find Earth and Sun ephemeris files based on LAL environment variables (as set up by
  * <code> lalpulsar-user-env.(c)sh </code>) and a given start and end GPS time (presumably taken from the data that is
  * to be analysed). It requires \c LALPULSAR is installed and the \c LALPULSAR_PREFIX variable is set, which should mean
  * that ephemeris files are installed in the directory \c ${LALPULSAR_PREFIX}/share/lalpulsar/.
- *
  *
  * \param efile [in] a string that will return the Earth ephemeris file
  * \param sfile [in] a string that will return the Sun ephemeris file
@@ -3573,9 +3595,65 @@ TimeCorrectionType XLALAutoSetEphemerisFiles( CHAR *efile, CHAR *sfile, CHAR *tf
 }
 
 
+/**
+ * \brief Remove a variable from the current parameters and remove it's scaling and prior values
+ *
+ * This function will clear out a variable from the \c currentParams and also remove it's scale
+ * factors and prior ranges.
+ *
+ * \param runState [in] The analysis information structure
+ * \param data [in] The IFO data structure
+ * \param var [in] The variable to remove
+ *
+ */
+void remove_variable_and_prior( LALInferenceRunState *runState, LALInferenceIFOData *data, const CHAR *var ){
+  /* remove variable from currentParams */
+  if( LALInferenceCheckVariable( runState->currentParams, var ) ){
+    LALInferenceRemoveVariable( runState->currentParams, var );
+  }
+  else{
+    fprintf(stderr, "Error... variable %s cannot be removed as it does not exist!\n", var);
+    exit(3);
+  }
+
+  /* remove variable scale parameters from data */
+  LALInferenceIFOData *datatemp = data;
+  while ( datatemp ){
+    CHAR *varscale = XLALStringDuplicate( var );
+    varscale = XLALStringAppend( varscale, "_scale" );
+
+    if( LALInferenceCheckVariable( datatemp->dataParams, varscale ) ){
+      LALInferenceRemoveVariable( datatemp->dataParams, varscale );
+    }
+    else{
+      fprintf(stderr, "Error... variable %s cannot be removed as it does not exist!\n", varscale);
+      exit(3);
+    }
+
+    varscale = XLALStringAppend( varscale, "_min" );
+    if( LALInferenceCheckVariable( datatemp->dataParams, varscale ) ){
+      LALInferenceRemoveVariable( datatemp->dataParams, varscale );
+    }
+    else{
+      fprintf(stderr, "Error... variable %s cannot be removed as it does not exist!\n", varscale);
+      exit(3);
+    }
+
+    datatemp = datatemp->next;
+  }
+
+  /* remove prior */
+  if ( LALInferenceCheckGaussianPrior( runState->priorArgs, var ) ){
+    LALInferenceRemoveGaussianPrior( runState->priorArgs, var );
+  }
+  else { LALInferenceRemoveMinMaxPrior( runState->priorArgs, var ); }
+}
+
+
 /*----------------------- END OF HELPER FUNCTIONS ----------------------------*/
 
-/** \brief Read in an ascii text file of nested samples, convert to posterior samples and create k-d tree
+/**
+ * \brief Read in an ascii text file of nested samples, convert to posterior samples and create k-d tree
  *
  * This function reads in an ascii file of nested samples, converted them into posterior samples and them add them to a
  * k-d tree. The file name containing the samples must have been given as the command line argument \c sample-file and

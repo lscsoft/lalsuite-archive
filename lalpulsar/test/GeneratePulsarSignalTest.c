@@ -26,33 +26,34 @@
 /* 09/07/05 gam; Add Dterms parameter to LALFastGeneratePulsarSFTs; use this to fill in SFT bins with fake data as per LALDemod else fill in bin with zero */
 
 /**
-\author Mendell, G.
-\file
-\ingroup GeneratePulsarSignal_h
-
-\heading{Usage}
-\code
-GeneratePulsarSignalTest
-\endcode
-
-No command line options are currently supported. However, preprocessor flags
-can be set to print output for debugging purposes.
-
-\heading{Description}
-
-This test program calls and compares the output from LALGeneratePulsarSignal()
-and LALSignalToSFTs() with the output from LALComputeSkyAndZeroPsiAMResponse()
-and LALFastGeneratePulsarSFTs() for a variety of signal parameters.
-
-The current code only compares the modulus of the output SFTs,
-not the phases.
-
-\heading{Notes}
-
-See the pulsar search code in lalapps for more
-example uses of the functions tested by this code.
-
-*/
+ * \author Mendell, G.
+ * \file
+ * \ingroup GeneratePulsarSignal_h
+ *
+ * ### Usage ###
+ *
+ * \code
+ * GeneratePulsarSignalTest
+ * \endcode
+ *
+ * No command line options are currently supported. However, preprocessor flags
+ * can be set to print output for debugging purposes.
+ *
+ * ### Description ###
+ *
+ * This test program calls and compares the output from LALGeneratePulsarSignal()
+ * and LALSignalToSFTs() with the output from LALComputeSkyAndZeroPsiAMResponse()
+ * and LALFastGeneratePulsarSFTs() for a variety of signal parameters.
+ *
+ * The current code only compares the modulus of the output SFTs,
+ * not the phases.
+ *
+ * ### Notes ###
+ *
+ * See the pulsar search code in lalapps for more
+ * example uses of the functions tested by this code.
+ *
+ */
 
 /** \name Error Codes */
 /*@{*/
@@ -88,7 +89,6 @@ example uses of the functions tested by this code.
 /* #define INCLUDE_RANDVAL_MISMATCH */
 
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -681,8 +681,7 @@ void RunGeneratePulsarSignalTest(LALStatus *status)
        /* 09/07/05 gam; Initialize fastOutputSFTs since only 2*Dterms bins are changed by LALFastGeneratePulsarSFTs */
        for (i = 0; i < numSFTs; i++) {
           for(j=0;j<nBinsSFT;j++) {
-             fastOutputSFTs->data[i].data->data[j].realf_FIXME = 0.0;
-             fastOutputSFTs->data[i].data->data[j].imagf_FIXME = 0.0;
+             fastOutputSFTs->data[i].data->data[j] = 0.0;
           }
        }
 

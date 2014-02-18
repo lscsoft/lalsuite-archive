@@ -17,7 +17,8 @@
  *  MA  02111-1307  USA
  */
 
-/** \author Chris Messenger, Reinhard Prix, Pinkesh Patel, Xavier Siemens, Holger Pletsch
+/**
+ * \author Chris Messenger, Reinhard Prix, Pinkesh Patel, Xavier Siemens, Holger Pletsch
  * \ingroup pulsarCoherent
  * \file
  * \brief
@@ -30,7 +31,6 @@
 #define __USE_ISOC99 1
 #include <math.h>
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/ExtrapolatePulsarSpins.h>
 #include <lal/FindRoot.h>
 
@@ -88,23 +88,20 @@
 static const REAL8 inv_fact[NUM_FACT] = { 1.0, 1.0, (1.0/2.0), (1.0/6.0), (1.0/24.0), (1.0/120.0), (1.0/720.0) };
 static LALUnit empty_LALUnit;
 
-/* empty initializers  */
-static const LALStatus empty_status;
-static const AMCoeffs empty_AMCoeffs;
-
 /*---------- internal prototypes ----------*/
 int finite(double x);
 
 /*==================== FUNCTION DEFINITIONS ====================*/
 
 
-/** Function to compute a vector of Fstatistic values for a number of frequency bins.
-    The output, i.e. fstatVector must be properly allocated
-    before this function is called.  The values of the start frequency, the step size
-    in the frequency and the number of frequency values for which the Fstatistic is
-    to be calculated are read from fstatVector.  The other parameters are not checked and
-    they must be correctly set outside this function.
-*/
+/**
+ * Function to compute a vector of Fstatistic values for a number of frequency bins.
+ * The output, i.e. fstatVector must be properly allocated
+ * before this function is called.  The values of the start frequency, the step size
+ * in the frequency and the number of frequency values for which the Fstatistic is
+ * to be calculated are read from fstatVector.  The other parameters are not checked and
+ * they must be correctly set outside this function.
+ */
 void ComputeFStatFreqBand_RS ( LALStatus *status,				/**< pointer to LALStatus structure */
 			       REAL4FrequencySeries *fstatVector, 		/**< [out] Vector of Fstat values */
 			       const PulsarDopplerParams *doppler,		/**< parameter-space point to compute F for */
@@ -415,10 +412,8 @@ void ComputeFStatFreqBand_RS ( LALStatus *status,				/**< pointer to LALStatus s
 
     /*  add to summed Faf and Fbf and normalise by dt */
     for (j=0;j<numSamples;j++) {
-      Faf_resampled->data[j].realf_FIXME += crealf(outa->data[j])*dt;
-      Faf_resampled->data[j].imagf_FIXME += cimagf(outa->data[j])*dt;
-      Fbf_resampled->data[j].realf_FIXME += crealf(outb->data[j])*dt;
-      Fbf_resampled->data[j].imagf_FIXME += cimagf(outb->data[j])*dt;
+      Faf_resampled->data[j] += (outa->data[j] * ((REAL4) dt));
+      Fbf_resampled->data[j] += (outb->data[j] * ((REAL4) dt));
     }
 
     /* compute single-IFO F-stats, if requested */
@@ -438,10 +433,8 @@ void ComputeFStatFreqBand_RS ( LALStatus *status,				/**< pointer to LALStatus s
 
        /* normalize by dt */
        for (UINT4 l=0; l < numSamples; l++) {
-         outaSingle->data[l].realf_FIXME = outa->data[l].realf_FIXME*dt;
-         outaSingle->data[l].imagf_FIXME = outa->data[l].imagf_FIXME*dt;
-         outbSingle->data[l].realf_FIXME = outb->data[l].realf_FIXME*dt;
-         outbSingle->data[l].imagf_FIXME = outb->data[l].imagf_FIXME*dt;
+         outaSingle->data[l] = (outa->data[l] * ((REAL4) dt));
+         outbSingle->data[l] = (outb->data[l] * ((REAL4) dt));
        }
 
        /* the complex FFT output is shifted such that the heterodyne frequency is at DC */
@@ -463,9 +456,9 @@ void ComputeFStatFreqBand_RS ( LALStatus *status,				/**< pointer to LALStatus s
        UINT4 numFreqBins = (fstatVector->data->length)/(numDetectors + 1);
        for (UINT4 m = 0; m < numFreqBins; m++) {
          UINT4 idy = m + offset_single;
-         fstatVector->data->data[((i+1)*numFreqBins) + m] = DdX_inv * (  BdX * (SQ(outaSingle->data[idy].realf_FIXME) + SQ(outaSingle->data[idy].imagf_FIXME) )
-                                  + AdX * ( SQ(outbSingle->data[idy].realf_FIXME) + SQ(outbSingle->data[idy].imagf_FIXME) )
-                                  - 2.0 * CdX *( outaSingle->data[idy].realf_FIXME * outbSingle->data[idy].realf_FIXME + outaSingle->data[idy].imagf_FIXME * outbSingle->data[idy].imagf_FIXME )
+         fstatVector->data->data[((i+1)*numFreqBins) + m] = DdX_inv * (  BdX * (SQ(crealf(outaSingle->data[idy])) + SQ(cimagf(outaSingle->data[idy])) )
+                                  + AdX * ( SQ(crealf(outbSingle->data[idy])) + SQ(cimagf(outbSingle->data[idy])) )
+                                  - 2.0 * CdX *( crealf(outaSingle->data[idy]) * crealf(outbSingle->data[idy]) + cimagf(outaSingle->data[idy]) * cimagf(outbSingle->data[idy]) )
                                    );
        } /* end loop over samples */
     } /* if returnSingleF */
@@ -536,7 +529,8 @@ void ComputeFStatFreqBand_RS ( LALStatus *status,				/**< pointer to LALStatus s
 
 
 
-/** Turn the given multiSFTvector into multiple long COMPLEX8TimeSeries, properly dealing with gaps.
+/**
+ * Turn the given multiSFTvector into multiple long COMPLEX8TimeSeries, properly dealing with gaps.
  * Memory allocation for the output MultiCOMPLEX8TimeSeries is done within this function.
  *
  * NOTE : We enforce that each detectors timeseries has <b>equal</b> start times and time spans.
@@ -611,9 +605,10 @@ MultiCOMPLEX8TimeSeries *XLALMultiSFTVectorToCOMPLEX8TimeSeries (
 
 
 
-/** Finds the earliest timestamp in a multi-SFT data structure
+/**
+ * Finds the earliest timestamp in a multi-SFT data structure
  *
-*/
+ */
 int XLALEarliestMultiSFTsample ( LIGOTimeGPS *out,              /**< [out] earliest GPS time */
 				 MultiSFTVector *multisfts      /**< [in] multi SFT vector */
 				 )
@@ -660,9 +655,9 @@ int XLALEarliestMultiSFTsample ( LIGOTimeGPS *out,              /**< [out] earli
 
 } /* XLALEarliestMultiSFTsample() */
 
-/** Find the time of the end of the latest SFT in a multi-SFT data structure
- *
-*/
+/**
+ * Find the time of the end of the latest SFT in a multi-SFT data structure
+ */
 int XLALLatestMultiSFTsample ( LIGOTimeGPS *out,              /**< [out] latest GPS time */
 			       MultiSFTVector *multisfts      /**< [in] multi SFT vector */
 			       )
@@ -722,9 +717,9 @@ int XLALLatestMultiSFTsample ( LIGOTimeGPS *out,              /**< [out] latest 
 } /* XLALLatestMultiSFTsample() */
 
 
-/** Computed the weighted timeseries Fa(t) = x(t).a(t) and Fb(t) = x(t).b(t) for a multi-detector timeseries
- *
-*/
+/**
+ * Computed the weighted timeseries Fa(t) = x(t).a(t) and Fb(t) = x(t).b(t) for a multi-detector timeseries
+ */
 int XLALAntennaWeightCOMPLEX8TimeSeries (
             COMPLEX8TimeSeries **Faoft,                   /**< [out] the timeseries weighted by a(t) */
 					  COMPLEX8TimeSeries **Fboft,                   /**< [out] the timeseries weighted by b(t) */
@@ -774,10 +769,8 @@ int XLALAntennaWeightCOMPLEX8TimeSeries (
       UINT4 time_index = start_index + k;
 
       /* weight the complex timeseries by the antenna patterns */
-      (*Faoft)->data->data[time_index].realf_FIXME = a*crealf(timeseries->data->data[time_index]);
-      (*Faoft)->data->data[time_index].imagf_FIXME = a*cimagf(timeseries->data->data[time_index]);
-      (*Fboft)->data->data[time_index].realf_FIXME = b*crealf(timeseries->data->data[time_index]);
-      (*Fboft)->data->data[time_index].imagf_FIXME = b*cimagf(timeseries->data->data[time_index]);
+      (*Faoft)->data->data[time_index] = (((REAL4) a) * timeseries->data->data[time_index]);
+      (*Fboft)->data->data[time_index] = (((REAL4) b) * timeseries->data->data[time_index]);
 
       }
 
@@ -788,9 +781,9 @@ int XLALAntennaWeightCOMPLEX8TimeSeries (
 
 }
 
-/** Computed the weighted timeseries Fa(t) = x(t).a(t) and Fb(t) = x(t).b(t) for a multi-detector timeseries
- *
-*/
+/**
+ * Computed the weighted timeseries Fa(t) = x(t).a(t) and Fb(t) = x(t).b(t) for a multi-detector timeseries
+ */
 int XLALAntennaWeightMultiCOMPLEX8TimeSeries (
                  MultiCOMPLEX8TimeSeries **Faoft,                        /**< [out] the timeseries weighted by a(t) */
 					       MultiCOMPLEX8TimeSeries **Fboft,                        /**< [out] the timeseries weighted by b(t) */
@@ -854,9 +847,9 @@ int XLALAntennaWeightMultiCOMPLEX8TimeSeries (
 
 }
 
-/** Performs barycentric resampling on a multi-detector timeseries
- *
-*/
+/**
+ * Performs barycentric resampling on a multi-detector timeseries
+ */
 int XLALBarycentricResampleMultiCOMPLEX8TimeSeries ( MultiCOMPLEX8TimeSeries **Faoft_RS,                         /**< [out] the resampled timeseries Fa(t_SSB) */
 						     MultiCOMPLEX8TimeSeries **Fboft_RS,                         /**< [out] the resampled timeseries Fb(t_SSB) */
 						     const MultiCOMPLEX8TimeSeries *Faoft,                       /**< [in] the detector frame timeseries Fa(t) */
@@ -987,11 +980,11 @@ int XLALBarycentricResampleMultiCOMPLEX8TimeSeries ( MultiCOMPLEX8TimeSeries **F
 
 }
 
-/**  Performs barycentric resampling on a COMPLEX8TimeSeries
- *
+/**
+ * Performs barycentric resampling on a COMPLEX8TimeSeries
  * We expect that the output timeseries has already been allocated correctly.
  *
-*/
+ */
 int XLALBarycentricResampleCOMPLEX8TimeSeries ( COMPLEX8TimeSeries **Faoft_RS,                         /**< [out] the resampled timeseries Fa(t_SSB) */
 						COMPLEX8TimeSeries **Fboft_RS,                         /**< [out] the resampled timeseries Fb(t_SSB) */
 						const COMPLEX8TimeSeries *Faoft,                       /**< [in] the input detector frame timeseries Fa(t) */
@@ -1170,10 +1163,8 @@ int XLALBarycentricResampleCOMPLEX8TimeSeries ( COMPLEX8TimeSeries **Faoft_RS,  
       sin_cos_2PI_LUT ( &sinphase, &cosphase, -cycles );
 
       /* printf("j = %d t = %6.12f tb = %6.12f tDiff = %6.12f\n",j,detectortimes->data[k],start_SSB + idx*deltaT_SSB,tDiff); */
-      (*Faoft_RS)->data->data[idx].realf_FIXME = out_FaFb[0]->data[k]*cosphase - out_FaFb[1]->data[k]*sinphase;
-      (*Faoft_RS)->data->data[idx].imagf_FIXME = out_FaFb[1]->data[k]*cosphase + out_FaFb[0]->data[k]*sinphase;
-      (*Fboft_RS)->data->data[idx].realf_FIXME = out_FaFb[2]->data[k]*cosphase - out_FaFb[3]->data[k]*sinphase;
-      (*Fboft_RS)->data->data[idx].imagf_FIXME = out_FaFb[3]->data[k]*cosphase + out_FaFb[2]->data[k]*sinphase;
+      (*Faoft_RS)->data->data[idx] = crectf( out_FaFb[0]->data[k]*cosphase - out_FaFb[1]->data[k]*sinphase, out_FaFb[1]->data[k]*cosphase + out_FaFb[0]->data[k]*sinphase );
+      (*Fboft_RS)->data->data[idx] = crectf( out_FaFb[2]->data[k]*cosphase - out_FaFb[3]->data[k]*sinphase, out_FaFb[3]->data[k]*cosphase + out_FaFb[2]->data[k]*sinphase );
 
     }
 
@@ -1195,9 +1186,9 @@ int XLALBarycentricResampleCOMPLEX8TimeSeries ( COMPLEX8TimeSeries **Faoft_RS,  
 
 }
 
-/** Find the earliest timestamp in a multi-SSB data structure
- *
-*/
+/**
+ * Find the earliest timestamp in a multi-SSB data structure
+ */
 int XLALEarliestMultiSSBtime ( LIGOTimeGPS *out,              /**< output earliest GPS time */
 			       const MultiSSBtimes *multiSSB,      /**< input multi SSB SFT-midpoint timestamps */
 			       const REAL8 Tsft                    /**< the length of an SFT */
@@ -1260,9 +1251,9 @@ int XLALEarliestMultiSSBtime ( LIGOTimeGPS *out,              /**< output earlie
 
 } /* XLALEarliestMultiSSBtime() */
 
-/** Find the latest timestamp in a multi-SSB data structure
- *
-*/
+/**
+ * Find the latest timestamp in a multi-SSB data structure
+ */
 int XLALLatestMultiSSBtime ( LIGOTimeGPS *out,                   /**< output latest GPS time */
 			     const MultiSSBtimes *multiSSB,      /**< input multi SSB SFT-midpoint timestamps */
 			     const REAL8 Tsft                    /**< the length of an SFT */
@@ -1325,9 +1316,9 @@ int XLALLatestMultiSSBtime ( LIGOTimeGPS *out,                   /**< output lat
 
 } /* XLALLatestMultiSSBtime() */
 
-/** Find the latest timestamp in a multi-SSB data structure
- *
-*/
+/**
+ * Find the latest timestamp in a multi-SSB data structure
+ */
 int XLALGSLInterpolateREAL8Vector( REAL8Vector **yi,
 				   REAL8Vector *xi,
 				   gsl_spline *spline
@@ -1358,9 +1349,9 @@ int XLALGSLInterpolateREAL8Vector( REAL8Vector **yi,
 }
 
 
-/** Find the latest timestamp in a multi-SSB data structure
- *
-*/
+/**
+ * Find the latest timestamp in a multi-SSB data structure
+ */
 int XLALGSLInitInterpolateREAL8Vector( gsl_spline **spline,
 				       REAL8Vector *x,
 				       REAL8Vector *y
@@ -1383,9 +1374,9 @@ int XLALGSLInitInterpolateREAL8Vector( gsl_spline **spline,
 
 }
 
-/** Shifts an FFT output vector such that the Niquest frequency is the central bin
- *
-*/
+/**
+ * Shifts an FFT output vector such that the Niquest frequency is the central bin
+ */
 int XLALFFTShiftCOMPLEX8Vector(COMPLEX8Vector **x)
 {
   UINT4 N = (*x)->length;
@@ -1421,8 +1412,8 @@ int XLALFFTShiftCOMPLEX8Vector(COMPLEX8Vector **x)
 
 }
 
-/** Multi-detector wrapper for XLALFrequencyShiftCOMPLEX8TimeSeries
- *
+/**
+ * Multi-detector wrapper for XLALFrequencyShiftCOMPLEX8TimeSeries
  * NOTE: this <b>modifies</b> the MultiCOMPLEX8Timeseries in place
  */
 int
@@ -1453,7 +1444,8 @@ XLALFrequencyShiftMultiCOMPLEX8TimeSeries ( MultiCOMPLEX8TimeSeries **x,	/**< [i
 
 } /* XLALFrequencyShiftMultiCOMPLEX8TimeSeries() */
 
-/** Freq-shift the given COMPLEX8Timeseries by an amount of 'shift' Hz,
+/**
+ * Freq-shift the given COMPLEX8Timeseries by an amount of 'shift' Hz,
  * using the time-domain expression y(t) = x(t) * e^(-i 2pi df t),
  * which shifts x(f) into y(f) = x(f - df)
  *
@@ -1489,8 +1481,7 @@ XLALFrequencyShiftCOMPLEX8TimeSeries ( COMPLEX8TimeSeries **x,	        /**< [in/
       /* apply the phase shift */
       yRe = fact_re * crealf((*x)->data->data[k]) - fact_im * cimagf((*x)->data->data[k]);
       yIm = fact_re * cimagf((*x)->data->data[k]) + fact_im * crealf((*x)->data->data[k]);
-      (*x)->data->data[k].realf_FIXME = yRe;
-      (*x)->data->data[k].imagf_FIXME = yIm;
+      (*x)->data->data[k] = crectf( yRe, yIm );
 
     } /* for k < numBins */
 
@@ -1501,7 +1492,8 @@ XLALFrequencyShiftCOMPLEX8TimeSeries ( COMPLEX8TimeSeries **x,	        /**< [in/
 
 } /* XLALFrequencyShiftCOMPLEX8TimeSeries() */
 
-/** Apply a spin-down correction to the Fa and Fb complex timeseries
+/**
+ * Apply a spin-down correction to the Fa and Fb complex timeseries
  * using the time-domain expression y(t) = x(t) * e^(-i 2pi sum f_k * (t-tref)^(k+1)),
  *
  * NOTE: this <b>modifies</b> the COMPLEX8TimeSeries Fa and Fb in place
@@ -1591,10 +1583,8 @@ XLALSpinDownCorrectionMultiFaFb ( MultiCOMPLEX8TimeSeries **Fa,	                
 	REAL8 Fbre = crealf((*Fb)->data[i]->data->data[k])*cosphase - cimagf((*Fb)->data[i]->data->data[k])*sinphase;
 	REAL8 Fbim = cimagf((*Fb)->data[i]->data->data[k])*cosphase + crealf((*Fb)->data[i]->data->data[k])*sinphase;
 
-	(*Fa)->data[i]->data->data[k].realf_FIXME = Fare;
-	(*Fa)->data[i]->data->data[k].imagf_FIXME = Faim;
-	(*Fb)->data[i]->data->data[k].realf_FIXME = Fbre;
-	(*Fb)->data[i]->data->data[k].imagf_FIXME = Fbim;
+	(*Fa)->data[i]->data->data[k] = crectf( Fare, Faim );
+	(*Fb)->data[i]->data->data[k] = crectf( Fbre, Fbim );
 
       } /* (i<numDetectors) */
 
@@ -1610,7 +1600,8 @@ XLALSpinDownCorrectionMultiFaFb ( MultiCOMPLEX8TimeSeries **Fa,	                
 
 /* ===== Object creation/destruction functions ===== */
 
-/** Destroy a MultiCOMPLEX8TimeSeries structure.
+/**
+ * Destroy a MultiCOMPLEX8TimeSeries structure.
  * Note, this is "NULL-robust" in the sense that it will not crash
  * on NULL-entries anywhere in this struct, so it can be used
  * for failure-cleanup even on incomplete structs
@@ -1641,7 +1632,8 @@ XLALDestroyMultiCOMPLEX8TimeSeries ( MultiCOMPLEX8TimeSeries *multiTimes )
 
 } /* XLALDestroyMultiCOMPLEX8TimeSeries() */
 
-/** Duplicates a MultiCOMPLEX8TimeSeries structure.
+/**
+ * Duplicates a MultiCOMPLEX8TimeSeries structure.
  * Allocates memory and copies contents.
  */
 MultiCOMPLEX8TimeSeries *
@@ -1676,7 +1668,8 @@ XLALDuplicateMultiCOMPLEX8TimeSeries ( MultiCOMPLEX8TimeSeries *multiTimes )
 
 } /* XLALDuplicateMultiCOMPLEX8TimeSeries() */
 
-/** Duplicates a COMPLEX8TimeSeries structure.
+/**
+ * Duplicates a COMPLEX8TimeSeries structure.
  * Allocates memory and copies contents.
  */
 COMPLEX8TimeSeries *
@@ -1706,10 +1699,12 @@ XLALDuplicateCOMPLEX8TimeSeries ( COMPLEX8TimeSeries *times )
 
 } /* XLALDuplicateCOMPLEX8TimeSeries() */
 
-/** Destruction of a ComputeFBuffer *contents*,
+/**
+ * Destruction of a ComputeFBuffer *contents*,
  * i.e. the multiSSB and multiAMcoeff, while the
  * buffer-container is not freed (which is why it's passed
- * by value and not by reference...) */
+ * by value and not by reference...)
+ */
 void
 XLALEmptyComputeFBuffer_RS ( ComputeFBuffer_RS *buffer)
 {

@@ -40,14 +40,13 @@ import bisect
 import sys
 
 
-from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import ligolw_thinca
 from pylal import ligolw_rinca
 from pylal import ligolw_tisi
-from pylal import llwapp
 from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal.xlal import tools
@@ -118,11 +117,11 @@ class DocContents(object):
 		# locate the sngl_inspiral and sim_inspiral tables
 		#
 
-		self.sngltable = table.get_table(xmldoc, sngl_type.tableName)
+		self.sngltable = sngl_type.get_table(xmldoc)
 		try:
-			self.simtable = table.get_table(xmldoc, sim_type.tableName)
+			self.simtable = sim_type.get_table(xmldoc)
 		except ValueError:
-			self.simtable = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
+			self.simtable = lsctables.SimInspiralTable.get_table(xmldoc)
 			print >>sys.stderr,"No SimRingdownTable, use SimInspiralTable instead!"
 
 		#
@@ -142,7 +141,7 @@ class DocContents(object):
 		# document doesn't have one
 		#
 
-		self.sb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, sbdef.search, sbdef.search_coinc_type, create_new = True, description = sbdef.description)
+		self.sb_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, sbdef.search, sbdef.search_coinc_type, create_new = True, description = sbdef.description)
 
 		#
 		# get coinc_def_id's for sngl_type <--> sngl_type, and
@@ -152,19 +151,19 @@ class DocContents(object):
 		#
 
 		try:
-			bb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, bbdef.search, bbdef.search_coinc_type, create_new = False)
+			bb_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, bbdef.search, bbdef.search_coinc_type, create_new = False)
 		except KeyError:
 			bb_coinc_def_id = None
 			self.scn_coinc_def_id = None
 		else:
-			self.scn_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scndef.search, scndef.search_coinc_type, create_new = True, description = scndef.description)
+			self.scn_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, scndef.search, scndef.search_coinc_type, create_new = True, description = scndef.description)
 
 		#
 		# get coinc table, create one if needed
 		#
 
 		try:
-			self.coinctable = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+			self.coinctable = lsctables.CoincTable.get_table(xmldoc)
 		except ValueError:
 			self.coinctable = lsctables.New(lsctables.CoincTable)
 			xmldoc.childNodes[0].appendChild(self.coinctable)
@@ -175,7 +174,7 @@ class DocContents(object):
 		#
 
 		try:
-			self.coincmaptable = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+			self.coincmaptable = lsctables.CoincMapTable.get_table(xmldoc)
 		except ValueError:
 			self.coincmaptable = lsctables.New(lsctables.CoincMapTable)
 			xmldoc.childNodes[0].appendChild(self.coincmaptable)
@@ -296,7 +295,7 @@ def append_process(xmldoc, match_algorithm, comment):
 	"""
 	Convenience wrapper for adding process metadata to the document.
 	"""
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
+	process = ligolw_process.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [(u"--match-algorithm", u"lstring", match_algorithm)]
 	ligolw_process.append_process_params(xmldoc, process, params)
@@ -502,7 +501,7 @@ def lalapps_cbc_injfind(xmldoc, process, search, snglcomparefunc, nearcoinccompa
 		print >>sys.stderr, "Checking for both SimInspiralTable and SimRingdownTable"
 	if isinstance(contents.simtable, lsctables.SimRingdownTable):
 		try:
-			insp_simtable = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
+			insp_simtable = lsctables.SimInspiralTable.get_table(xmldoc)
 		except ValueError:
 			print >>sys.stderr,"No SimInspiralTable, only SimRingdownTable present"
 			insp_simtable = None

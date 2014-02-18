@@ -35,7 +35,8 @@
 
 /* ----- local type definitions ---------- */
 
-/** Generic ephemeris-vector type, holding one timeseries of pos, vel, acceleration.
+/**
+ * Generic ephemeris-vector type, holding one timeseries of pos, vel, acceleration.
  * This is used for the generic ephemeris-reader XLAL-function, at the end the resulting
  * ephemeris-data  will be stored in the 'old type \a EphemerisData for backwards compatibility.
  */
@@ -58,7 +59,8 @@ int XLALCheckEphemerisRanges ( const EphemerisVector *ephemEarth, REAL8 avg[3], 
 
 /* ========== exported API ========== */
 
-/** An XLAL interface for reading a time correction file containing a table
+/**
+ * An XLAL interface for reading a time correction file containing a table
  * of values for converting between Terrestrial Time TT (or TDT) to either
  * TDB (i.e. the file contains time corrections related to the Einstein delay)
  * or Teph (a time system from Irwin and Fukushima, 1999, closely related to
@@ -90,9 +92,15 @@ XLALInitTimeCorrections ( const CHAR *timeCorrectionFile /**< File containing Ea
   if ( !timeCorrectionFile )
     XLAL_ERROR_NULL( XLAL_EINVAL, "Invalid NULL input for 'timeCorrectionFile'\n" );
 
+  char *fname_path;
+  XLAL_CHECK_NULL ( (fname_path = XLALPulsarFileResolvePath ( timeCorrectionFile )) != NULL, XLAL_EINVAL );
+
   /* read in file with XLALParseDataFile to ignore comment header lines */
-  if ( XLALParseDataFile ( &flines, timeCorrectionFile ) != XLAL_SUCCESS )
+  if ( XLALParseDataFile ( &flines, fname_path ) != XLAL_SUCCESS ) {
+    XLALFree ( fname_path );
     XLAL_ERROR_NULL ( XLAL_EFUNC );
+  }
+  XLALFree ( fname_path );
 
   /* prepare output ephemeris struct for returning */
   TimeCorrectionData *tdat;
@@ -146,7 +154,8 @@ XLALInitTimeCorrections ( const CHAR *timeCorrectionFile /**< File containing Ea
 
 } /* XLALInitTimeCorrections() */
 
-/** Destructor for TimeCorrectionData struct, NULL robust.
+/**
+ * Destructor for TimeCorrectionData struct, NULL robust.
  * \ingroup LALBarycenter_h
  */
 void
@@ -164,7 +173,8 @@ XLALDestroyTimeCorrectionData ( TimeCorrectionData *tcd )
 
 } /* XLALDestroyTimeCorrectionData() */
 
-/** XLAL interface to reading ephemeris files 'earth' and 'sun', and return
+/**
+ * XLAL interface to reading ephemeris files 'earth' and 'sun', and return
  * ephemeris-data in old backwards-compatible type \a EphemerisData
  *
  * These ephemeris data files contain arrays
@@ -284,7 +294,8 @@ XLALInitBarycenter ( const CHAR *earthEphemerisFile,         /**< File containin
 } /* XLALInitBarycenter() */
 
 
-/** Destructor for EphemerisData struct, NULL robust.
+/**
+ * Destructor for EphemerisData struct, NULL robust.
  * \ingroup LALBarycenter_h
  */
 void
@@ -334,7 +345,8 @@ XLALCreateEphemerisVector ( UINT4 length )
 
 } /* XLALCreateEphemerisVector() */
 
-/** Destructor for EphemerisVector, NULL robust.
+/**
+ * Destructor for EphemerisVector, NULL robust.
  */
 void
 XLALDestroyEphemerisVector ( EphemerisVector *ephemV )
@@ -352,13 +364,25 @@ XLALDestroyEphemerisVector ( EphemerisVector *ephemV )
 } /* XLALDestroyEphemerisVector() */
 
 
-/** XLAL function to read ephemeris-data from one file, returning a EphemerisVector.
+/** Simple wrapper to XLALFileResolvePathLong(), using hardcoded fallbackdir=PKG_DATA_DIR
+ */
+char *
+XLALPulsarFileResolvePath ( const char *fname	  //!< [in] filename or file-path to resolve
+                            )
+{
+  return XLALFileResolvePathLong ( fname, PKG_DATA_DIR );
+} // XLALPulsarFileResolvePath()
+
+/**
+ * XLAL function to read ephemeris-data from one file, returning a EphemerisVector.
  * This is a helper-function to XLALInitBarycenter().
  *
  * NOTE: This function tries to read ephemeris from "<fname>" first, if that fails it also tries
  * to read "<fname>.gz" instead. This allows us to handle gzip-compressed ephemeris-files without having
  * to worry about the detailed filename extension used in the case of compression.
  *
+ * NOTE2: files are searches first locally, then in LAL_DATA_PATH, and finally in PKG_DATA_DIR
+ * using XLALPulsarFileResolvePath()
  */
 EphemerisVector *
 XLALReadEphemerisFile ( const CHAR *fname )
@@ -366,29 +390,29 @@ XLALReadEphemerisFile ( const CHAR *fname )
   /* check input consistency */
   XLAL_CHECK_NULL ( fname != NULL, XLAL_EINVAL );
 
-  // check if either "<fname>" or "<fname>.gz" can be opened for reading
-  int len = strlen(fname) + strlen(".gz") + 1;
-  char *fname_open = XLALMalloc ( len );
-  XLAL_CHECK_NULL ( fname_open != NULL, XLAL_ENOMEM, "XLALMalloc(%d) failed.\n", len );
+  char *fname_path = NULL;
 
-  sprintf ( fname_open, "%s", fname );
-  FILE *fp;
-  if ( (fp = LALOpenDataFile (fname_open)) == NULL )
+  // first check if "<fname>" can be resolved ...
+  if ( (fname_path = XLALPulsarFileResolvePath ( fname )) == NULL )
     {
-      sprintf ( fname_open, "%s.gz", fname );
-      if ( (fp = LALOpenDataFile (fname_open)) == NULL )
+      // if not, check if we can find "<fname>.gz" instead ...
+      char *fname_gz;
+      XLAL_CHECK_NULL ( (fname_gz = XLALMalloc ( strlen(fname) + strlen(".gz") + 1 )) != NULL, XLAL_ENOMEM );
+      sprintf ( fname_gz, "%s.gz", fname );
+      if ( (fname_path = XLALPulsarFileResolvePath ( fname_gz )) == NULL )
         {
-          XLALPrintError ( "Failed to open either '%s' or '%s' for reading\n", fname, fname_open );
-          XLALFree ( fname_open );
-          XLAL_ERROR_NULL ( XLAL_EIO );
-        } // if fopen(fname.gz) failed
-    } // if fopen(fname) failed
-  fclose ( fp );
+          XLALFree ( fname_gz );
+          XLAL_ERROR_NULL ( XLAL_EINVAL, "Failed to find ephemeris-file '%s[.gz]'\n", fname );
+        } // if 'fname_gz' could not be resolved
+      XLALFree ( fname_gz );
+    } // if 'fname' couldn't be resolved
 
-  /* read in file with XLALParseDataFile to ignore comment header lines */
+  // if we're here, it means we found it
+
+  // read in whole file (compressed or not) with XLALParseDataFile(), which ignores comment header lines
   LALParsedDataFile *flines = NULL;
-  XLAL_CHECK_NULL ( XLALParseDataFile ( &flines, fname_open ) == XLAL_SUCCESS, XLAL_EFUNC );
-  XLALFree ( fname_open );
+  XLAL_CHECK_NULL ( XLALParseDataFile ( &flines, fname_path ) == XLAL_SUCCESS, XLAL_EFUNC );
+  XLALFree ( fname_path );
 
   UINT4 numLines = flines->lines->nTokens;
 
@@ -486,7 +510,8 @@ XLALReadEphemerisFile ( const CHAR *fname )
 } /* XLALReadEphemerisFile() */
 
 
-/** Function to check rough consistency of ephemeris-data with being an actual
+/**
+ * Function to check rough consistency of ephemeris-data with being an actual
  * 'Earth' ephemeris: ie check position, velocity and acceleration are within
  * reasonable ranges {avg +- range}. where 'avg' and 'range' are 3-D arrays
  * with [0]=position, [1]=velocity and [2]=acceleration
@@ -539,7 +564,8 @@ XLALCheckEphemerisRanges ( const EphemerisVector *ephemV, REAL8 avg[3], REAL8 ra
 
 /* ============================= deprecated LAL interface ============================== */
 
-/** \ingroup LALBarycenter_h
+/**
+ * \ingroup LALBarycenter_h
  * \brief [DEPRECATED] Reads Earth and Sun ephemeris files. Simple wrapper around XLALInitBarycenter()
  * \deprecated Use XLALInitBarycenter() instead.
  */

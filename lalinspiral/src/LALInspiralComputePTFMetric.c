@@ -18,83 +18,79 @@
 */
 
 /**
+ * \author Yi Pan, Duncan Brown
+ * \file
+ * \ingroup LALInspiralBank_h
+ *
+ * \brief Module to compute the components of the metric which is used to describe
+ * distances on Physical Template Family signal manifold.
+ *
+ * ### Prototypes ###
+ *
+ * <tt>XLALInspiralComputePTFIntrinsicMetric()</tt>:
+ * <ul>
+ * <li> <tt>metric,</tt> Output, the metric at the lattice point defined by \c params
+ * </li><li> <tt>psd,</tt> Input, the power spectral density of the data
+ * </li><li> <tt>params,</tt> Input, the parameters where metric must be computed
+ * in the computation of the metric.</li>
+ * </ul>
+ *
+ * <tt>XLALInspiralComputePTFFullMetric()</tt>:
+ * <ul>
+ * <li> <tt>metric,</tt> Output, the metric at the lattice point defined by \c params
+ * </li><li> <tt>psd,</tt> Input, the power spectral density of the data
+ * </li><li> <tt>params,</tt> Input, the parameters where metric must be computed
+ * in the computation of the metric.</li>
+ * </ul>
+ *
+ * <tt>XLALInspiralComputePTFWaveform()</tt>:
+ * <ul>
+ * <li> <tt>ptfwave,</tt> Output, the waveform at the lattice point defined
+ * by \c params
+ * </li><li> <tt>params,</tt> Input, the parameters where metric must be computed
+ * in the computation of the metric.</li>
+ * </ul>
+ *
+ * <tt>XLALInspiralComputePTFWDeriv()</tt>:
+ * <ul>
+ * <li> <tt>Wderiv,</tt> Output, the time derivative of waveform at the lattice
+ * point defined by \c params
+ * </li><li> <tt>psd,</tt>  Input, the power spectral density of the data
+ * </li><li> <tt>params,</tt> Input, the parameters where metric must be computed
+ * in the computation of the metric
+ * </li><li> <tt>paramid,</tt> Input, id of the parameter to take derivative on
+ * </li><li> <tt>initdelta,</tt> Input, initial difference in parameters
+ * </li><li> <tt>tolerance,</tt> Input, stop iteration when difference between two
+ * bisections is smaller than tolerance.</li>
+ * </ul>
+ *
+ * <tt>XLALInspiralComputePTFQDeriv()</tt>:
+ * <ul>
+ * <li> <tt>Qderiv,</tt> Output, the time derivative of Q at the lattice point
+ * defined by \c params
+ * </li><li> <tt>params,</tt> Input, the parameters where metric must be computed
+ * in the computation of the metric.</li>
+ * </ul>
+ *
+ * ### Description ###
+ *
+ * We calculate the components of the metric using the procedure outlined
+ * by Yi.
+ *
+ * ### Algorithm ###
+ *
+ *
+ * ### Uses ###
+ *
+ * \code
+ * LALMalloc
+ * LALFree
+ * \endcode
+ *
+ * ### Notes ###
+ *
+ */
 
-\author Yi Pan, Duncan Brown
-\file
-\ingroup LALInspiralBank_h
-
-\brief Module to compute the components of the metric which is used to describe
-distances on Physical Template Family signal manifold.
-
-\heading{Prototypes}
-
-<tt>XLALInspiralComputePTFIntrinsicMetric()</tt>:
-<ul>
-   <li> <tt>metric,</tt> Output, the metric at the lattice point defined by \c params
-   </li><li> <tt>psd,</tt> Input, the power spectral density of the data
-   </li><li> <tt>params,</tt> Input, the parameters where metric must be computed
-   in the computation of the metric.</li>
-</ul>
-
-
-<tt>XLALInspiralComputePTFFullMetric()</tt>:
-<ul>
-   <li> <tt>metric,</tt> Output, the metric at the lattice point defined by \c params
-   </li><li> <tt>psd,</tt> Input, the power spectral density of the data
-   </li><li> <tt>params,</tt> Input, the parameters where metric must be computed
-   in the computation of the metric.</li>
-</ul>
-
-
-<tt>XLALInspiralComputePTFWaveform()</tt>:
-<ul>
-   <li> <tt>ptfwave,</tt> Output, the waveform at the lattice point defined
-   by \c params
-   </li><li> <tt>params,</tt> Input, the parameters where metric must be computed
-   in the computation of the metric.</li>
-</ul>
-
-
-<tt>XLALInspiralComputePTFWDeriv()</tt>:
-<ul>
-   <li> <tt>Wderiv,</tt> Output, the time derivative of waveform at the lattice
-   point defined by \c params
-   </li><li> <tt>psd,</tt>  Input, the power spectral density of the data
-   </li><li> <tt>params,</tt> Input, the parameters where metric must be computed
-   in the computation of the metric
-   </li><li> <tt>paramid,</tt> Input, id of the parameter to take derivative on
-   </li><li> <tt>initdelta,</tt> Input, initial difference in parameters
-   </li><li> <tt>tolerance,</tt> Input, stop iteration when difference between two
-   bisections is smaller than tolerance.</li>
-</ul>
-
-
-<tt>XLALInspiralComputePTFQDeriv()</tt>:
-<ul>
-   <li> <tt>Qderiv,</tt> Output, the time derivative of Q at the lattice point
-   defined by \c params
-   </li><li> <tt>params,</tt> Input, the parameters where metric must be computed
-   in the computation of the metric.</li>
-</ul>
-
-\heading{Description}
-We calculate the components of the metric using the procedure outlined
-by Yi.
-
-\heading{Algorithm}
-
-\heading{Uses}
-
-\code
-LALMalloc
-LALFree
-\endcode
-
-\heading{Notes}
-
-*/
-
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <stdlib.h>
 #include <lal/LALStdlib.h>
 #include <stdio.h>
@@ -297,26 +293,19 @@ INT4 XLALInspiralComputePTFIntrinsicMetric (
 
   for (k = 0; k < N / 2 + 1; ++k)
   {
-    fsig0->data[k].real_FIXME = 0.0;
-    fsig0->data[k].imag_FIXME = 0.0;
-    fsig1->data[k].real_FIXME = 0.0;
-    fsig1->data[k].imag_FIXME = 0.0;
+    fsig0->data[k] = 0.0;
+    fsig1->data[k] = 0.0;
     for (i = 0; i < 5; ++i)
     {
-      fsig0->data[k].real_FIXME += P[i] * creal(Qtilde[i].data[k]);
-      fsig0->data[k].imag_FIXME += P[i] * cimag(Qtilde[i].data[k]);
+      fsig0->data[k] += (((REAL8) P[i]) * Qtilde[i].data[k]);
     }
-    fsig1->data[k].real_FIXME =   cimag(fsig0->data[k]);
-    fsig1->data[k].imag_FIXME = - creal(fsig0->data[k]);
+    fsig1->data[k] = crect( cimag(fsig0->data[k]), - creal(fsig0->data[k]) );
   }
-  fsig1->data[0].real_FIXME		= creal(fsig0->data[0]);
-  fsig1->data[0].imag_FIXME		= cimag(fsig0->data[0]);
-  fsig1->data[N / 2].real_FIXME = creal(fsig0->data[N / 2]);
-  fsig1->data[N / 2].imag_FIXME = cimag(fsig0->data[N / 2]);
+  fsig1->data[0] = fsig0->data[0];
+  fsig1->data[N/2] = fsig0->data[N / 2];
   for (k = 0; k < N / 2 + 1; ++k)
   {
-    fsig->data[k].real_FIXME = cos(phi0) * creal(fsig0->data[k]) + sin(phi0) * creal(fsig1->data[k]);
-    fsig->data[k].imag_FIXME = cos(phi0) * cimag(fsig0->data[k]) + sin(phi0) * cimag(fsig1->data[k]);
+    fsig->data[k] = crect( cos(phi0) * creal(fsig0->data[k]) + sin(phi0) * creal(fsig1->data[k]), cos(phi0) * cimag(fsig0->data[k]) + sin(phi0) * cimag(fsig1->data[k]) );
   }
 
   /* Waveform derivatives */
@@ -327,34 +316,26 @@ INT4 XLALInspiralComputePTFIntrinsicMetric (
   for (k = 0; k < N / 2 + 1; ++k)
   {
     /* t0 */
-    derivs->data[k].real_FIXME = - LAL_TWOPI * deltaF * k * cimag(fsig->data[k]);
-    derivs->data[k].imag_FIXME =   LAL_TWOPI * deltaF * k * creal(fsig->data[k]);
+    derivs->data[k] = crect( - LAL_TWOPI * deltaF * k * cimag(fsig->data[k]), LAL_TWOPI * deltaF * k * creal(fsig->data[k]) );
     /* phi0 */
-    derivs->data[N / 2 + 1 + k].real_FIXME = - sin(phi0) * creal(fsig0->data[k]) + cos(phi0) * creal(fsig1->data[k]);
-    derivs->data[N / 2 + 1 + k].imag_FIXME = - sin(phi0) * cimag(fsig0->data[k]) + cos(phi0) * cimag(fsig1->data[k]);
+    derivs->data[N/2+1+k] = crect( - sin(phi0) * creal(fsig0->data[k]) + cos(phi0) * creal(fsig1->data[k]), - sin(phi0) * cimag(fsig0->data[k]) + cos(phi0) * cimag(fsig1->data[k]) );
     /* Theta */
-    derivs->data[N + 2 + k].real_FIXME = 0.0;
-    derivs->data[N + 2 + k].imag_FIXME = 0.0;
+    derivs->data[N+2+k] = 0.0;
     for (i = 0; i < 5; ++i)
     {
-      derivs->data[N + 2 + k].real_FIXME += PdTh[i] * creal(Qtilde[i].data[k]);
-      derivs->data[N + 2 + k].imag_FIXME += PdTh[i] * cimag(Qtilde[i].data[k]);
+      derivs->data[N+2+k] += (((REAL8) PdTh[i]) * Qtilde[i].data[k]);
     }
     /* Phi */
-    derivs->data[3 * N / 2 + 3 + k].real_FIXME = 0.0;
-    derivs->data[3 * N / 2 + 3 + k].imag_FIXME = 0.0;
+    derivs->data[3*N/2+3+k] = 0.0;
     for (i = 0; i < 5; ++i)
     {
-      derivs->data[3 * N / 2 + 3 + k].real_FIXME += PdPh[i] * creal(Qtilde[i].data[k]);
-      derivs->data[3 * N / 2 + 3 + k].imag_FIXME += PdPh[i] * cimag(Qtilde[i].data[k]);
+      derivs->data[3*N/2+3+k] += (((REAL8) PdPh[i]) * Qtilde[i].data[k]);
     }
     /* Psi */
-    derivs->data[2 * N + 4 + k].real_FIXME = 0.0;
-    derivs->data[2 * N + 4 + k].imag_FIXME = 0.0;
+    derivs->data[2*N+4+k] = 0.0;
     for (i = 0; i < 5; ++i)
     {
-      derivs->data[2 * N + 4 + k].real_FIXME += PdPs[i] * creal(Qtilde[i].data[k]);
-      derivs->data[2 * N + 4 + k].imag_FIXME += PdPs[i] * cimag(Qtilde[i].data[k]);
+      derivs->data[2*N+4+k] += (((REAL8) PdPs[i]) * Qtilde[i].data[k]);
     }
   }
 
@@ -369,15 +350,10 @@ INT4 XLALInspiralComputePTFIntrinsicMetric (
     }
     for (k = 0; k < N / 2 + 1; ++k)
     {
-      derivs->data[i * (N / 2 + 1) + k].real_FIXME = cos(phi0) * creal(intrinsicderiv->data[k])
-        + sin(phi0) * cimag(intrinsicderiv->data[k]);
-      derivs->data[i * (N / 2 + 1) + k].imag_FIXME = cos(phi0) * cimag(intrinsicderiv->data[k])
-        - sin(phi0) * creal(intrinsicderiv->data[k]);
+      derivs->data[i*(N/2+1)+k] = crect( cos(phi0) * creal(intrinsicderiv->data[k]) + sin(phi0) * cimag(intrinsicderiv->data[k]), cos(phi0) * cimag(intrinsicderiv->data[k]) - sin(phi0) * creal(intrinsicderiv->data[k]) );
     }
-    derivs->data[i * (N / 2 + 1)].real_FIXME = (cos(phi0) + sin(phi0)) * creal(intrinsicderiv->data[0]);
-    derivs->data[i * (N / 2 + 1)].imag_FIXME = (cos(phi0) + sin(phi0)) * cimag(intrinsicderiv->data[0]);
-    derivs->data[i * (N / 2 + 1) + N / 2].real_FIXME = (cos(phi0) + sin(phi0)) * creal(intrinsicderiv->data[N / 2]);
-    derivs->data[i * (N / 2 + 1) + N / 2].imag_FIXME = (cos(phi0) + sin(phi0)) * cimag(intrinsicderiv->data[N / 2]);
+    derivs->data[i*(N/2+1)] = crect( (cos(phi0) + sin(phi0)) * creal(intrinsicderiv->data[0]), (cos(phi0) + sin(phi0)) * cimag(intrinsicderiv->data[0]) );
+    derivs->data[i*(N/2+1)+N/2] = crect( (cos(phi0) + sin(phi0)) * creal(intrinsicderiv->data[N / 2]), (cos(phi0) + sin(phi0)) * cimag(intrinsicderiv->data[N / 2]) );
   }
 
 
@@ -420,14 +396,7 @@ INT4 XLALInspiralComputePTFIntrinsicMetric (
     {
       for (k = 0; k < N / 2 + 1; ++k)
       {
-        tempnormtilde->data[k].real_FIXME =
-          ( creal(derivs->data[i * (N/2+1) + k]) * creal(derivs->data[j * (N/2+1) + k])
-            + cimag(derivs->data[i * (N/2+1) + k]) * cimag(derivs->data[j * (N/2+1) + k]))
-          * invpsd->data[k];
-        tempnormtilde->data[k].imag_FIXME =
-          ( cimag(derivs->data[i * (N/2+1) + k]) * creal(derivs->data[j * (N/2+1) + k])
-            - creal(derivs->data[i * (N/2+1) + k]) * cimag(derivs->data[j * (N/2+1) + k]))
-          * invpsd->data[k];
+        tempnormtilde->data[k] = crect( ( creal(derivs->data[i * (N/2+1) + k]) * creal(derivs->data[j * (N/2+1) + k]) + cimag(derivs->data[i * (N/2+1) + k]) * cimag(derivs->data[j * (N/2+1) + k])) * invpsd->data[k], ( cimag(derivs->data[i * (N/2+1) + k]) * creal(derivs->data[j * (N/2+1) + k]) - creal(derivs->data[i * (N/2+1) + k]) * cimag(derivs->data[j * (N/2+1) + k])) * invpsd->data[k] );
       }
       /* Inverse Fourier of tempnorm */
       XLALREAL8ReverseFFT(tempnorm, tempnormtilde, revPlan);
@@ -938,14 +907,8 @@ INT4 XLALInspiralComputePTFWDeriv (
 	    invpsd = 0.;
 	  else
 		invpsd = 1.0 / psd->data->data[k];
-	  derivpowertilde->data[k].real_FIXME =
-				(creal(derivtilde->data[k]) * creal(derivtilde->data[k])
-				+cimag(derivtilde->data[k]) * cimag(derivtilde->data[k])) * invpsd;
-	  derivpowertilde->data[k].imag_FIXME = 0;
-	  derivdiffpowertilde->data[k].real_FIXME =
-				(creal(derivdifftilde->data[k]) * creal(derivdifftilde->data[k])
-				+cimag(derivdifftilde->data[k]) * cimag(derivdifftilde->data[k])) * invpsd;
-	  derivdiffpowertilde->data[k].imag_FIXME = 0;
+	  derivpowertilde->data[k] = crect( (creal(derivtilde->data[k]) * creal(derivtilde->data[k]) +cimag(derivtilde->data[k]) * cimag(derivtilde->data[k])) * invpsd, 0 );
+	  derivdiffpowertilde->data[k] = crect( (creal(derivdifftilde->data[k]) * creal(derivdifftilde->data[k]) +cimag(derivdifftilde->data[k]) * cimag(derivdifftilde->data[k])) * invpsd, 0 );
 	}
 
 	/* Inverse Fourier of derivdifftilde */
@@ -961,8 +924,7 @@ INT4 XLALInspiralComputePTFWDeriv (
 	{
 	  for (k = 0; k < N / 2 + 1; ++k)
 	  {
-	    Wderiv->data[k].real_FIXME = creal(derivtilde->data[k]);
-		Wderiv->data[k].imag_FIXME = cimag(derivtilde->data[k]);
+	    Wderiv->data[k] = derivtilde->data[k];
 	  }
 	  break;
 	}

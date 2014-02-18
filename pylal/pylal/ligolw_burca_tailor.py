@@ -40,11 +40,11 @@ from glue.ligolw import array
 from glue.ligolw import param
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import date
 from pylal import git_version
 from pylal import inject
-from pylal import llwapp
 from pylal import rate
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
@@ -217,6 +217,9 @@ class CoincParamsFilterThread(threading.Thread):
 
 		self.binnedarray.array /= numpy.sum(self.binnedarray.array)
 		rate.to_moving_mean_density(self.binnedarray, self.filter)
+
+		# guard against round-off in FFT convolution
+		numpy.clip(self.binnedarray.array, 0, float("inf"), self.binnedarray.array)
 
 		if self.verbose:
 			self.stderr.acquire()
@@ -627,7 +630,7 @@ def gen_likelihood_control(coinc_params_distributions, seglists, name = u"ligolw
 
 	node.appendChild(coinc_params_distributions.to_xml(process, name))
 
-	llwapp.set_process_end_time(process)
+	ligolw_process.set_process_end_time(process)
 
 	return xmldoc
 
@@ -674,7 +677,7 @@ process_program_name = "ligolw_burca_tailor"
 
 
 def append_process(xmldoc, **kwargs):
-	return llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
+	return ligolw_process.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
 
 
 #

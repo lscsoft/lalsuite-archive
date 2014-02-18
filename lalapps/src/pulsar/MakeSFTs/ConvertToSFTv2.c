@@ -24,14 +24,13 @@
  * \file
  * \ingroup pulsarApps
  * \brief Code to convert given input-SFTs (v1 or v2) to v2-SFTs with given extra-comment,
- *        and write them out following the SFTv2 naming conventions (see LIGO-T040164-01-Z)
+ * and write them out following the SFTv2 naming conventions (see LIGO-T040164-01-Z)
  */
 
 /* ---------- includes ---------- */
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lalapps.h>
 
 #include <lal/UserInput.h>
@@ -316,8 +315,7 @@ applyFactor2SFTs ( LALStatus *status, SFTVector *SFTs, REAL8 factor )
 
       for ( k=0; k < numBins; k ++ )
 	{
-	  thisSFT->data->data[k].realf_FIXME *= factor;
-	  thisSFT->data->data[k].imagf_FIXME *= factor;
+	  thisSFT->data->data[k] *= ((REAL4) factor);
 	} /* for k < numBins */
 
     } /* for i < numSFTs */

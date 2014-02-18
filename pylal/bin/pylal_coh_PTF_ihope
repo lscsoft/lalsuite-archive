@@ -58,7 +58,7 @@ from glue import segments
 from glue import segmentsUtils
 from glue import pipeline
 from glue import lal as cache
-from glue import GWDataFindClient
+from glue import datafind
 from glue.ligolw import lsctables
 
 # set plotting backend
@@ -1110,8 +1110,8 @@ def check_grid_proxy():
     datafind jobs.
     """
     # find certificates
-    cert, key = GWDataFindClient.find_credential()
-    GWDataFindClient.validate_proxy(cert)
+    cert, key = datafind.find_credential()
+    datafind.validate_proxy(cert)
     
     # load certificate
     proxy = M2Crypto.X509.load_cert(cert)

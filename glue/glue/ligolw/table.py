@@ -515,10 +515,10 @@ class TableStream(ligolw.Stream):
 		# call parent's _end_of_rows() hook.
 		self.parentNode._end_of_rows()
 
-	def write(self, file = sys.stdout, indent = u""):
+	def write(self, fileobj = sys.stdout, indent = u""):
 		# retrieve the .write() method of the file object to avoid
 		# doing the attribute lookup in loops
-		w = file.write
+		w = fileobj.write
 		# loop over parent's rows.  This is complicated because we
 		# need to not put a delimiter at the end of the last row
 		# unless it ends with a null token
@@ -552,15 +552,6 @@ class TableStream(ligolw.Stream):
 				# token is present
 				w(rowdumper.delimiter)
 		w(u"\n" + self.end_tag(indent) + u"\n")
-
-	# FIXME: This function is for the metaio library:  metaio cares
-	# what order the attributes of XML tags come in.  This function
-	# will be removed when the metaio library is fixed.
-	def start_tag(self, indent):
-		"""
-		Generate the element start tag.
-		"""
-		return indent + u"<%s Name=\"%s\" Type=\"%s\" Delimiter=\"%s\">" % (self.tagName, self.getAttribute("Name"), self.getAttribute("Type"), self.getAttribute("Delimiter"))
 
 
 #
@@ -600,6 +591,31 @@ class Table(ligolw.Table, list):
 		self.columnnames = []
 		self.columntypes = []
 		self.columnpytypes = []
+
+
+	#
+	# Table retrieval
+	#
+
+
+	@classmethod
+	def get_table(cls, xmldoc):
+		"""
+		Equivalent to the module-level function get_table(), but
+		uses the .tableName attribute of this class to provide the
+		name of the table to search for.  The Table parent class
+		does not provide a .tableName attribute, but sub-classes,
+		especially those in lsctables.py, do provide a value for
+		that attribute, and in those cases this class method
+		provides a cleaner way to retrieve them.
+
+		Example:
+
+		>>> from glue.ligolw import lsctables
+		>>> sngl_inspiral_table = lsctables.SnglInspiralTable.get_table(xmldoc)
+		"""
+		return get_table(xmldoc, cls.tableName)
+
 
 	#
 	# Column access

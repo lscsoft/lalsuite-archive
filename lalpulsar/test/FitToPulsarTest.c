@@ -18,49 +18,48 @@
 */
 
 /**
-\author Dupuis, R. J.
-\file
-\ingroup pulsarTODO
-
-Calculates the best fit parameters for a GW signal originating from a
-non-precessing pulsar.
-
-\heading{Prototypes}
-
-
-\code
-void
-LALFineFitToPulsar      (            LALStatus            *status,
-                                FineFitOutput        *output,
-                                FineFitInput         *input,
-                                FineFitParams        *params )
-\endcode
-
-\heading{Description}
-
-This routine calculates the best fit of parameters by minimizing \f$\chi^2\f$ by going through
-fixed grid for \f$\iota, \psi, \phi_{0}\f$ and  \f$h_{0}\f$.  The best fit parameters
-returned by <tt>LALCoarseFitToPulsar()</tt> are then used as initial parameters for
-<tt>LALFineFitToPulsar()</tt>.
-
-The function <tt>LALFineFitToPulsar()</tt> refines the fit using the Levenberg-Marquardt method for nonlinear fitting. This is
-done by calculating the Hessian and the gradient of \f$\chi^2\f$ ...
-
-\heading{Algorithm}
-To be completed.
-
-\heading{Uses}
-\code
-LALSCreateVector()
-LALSDestroyVector()
-LALComputeDetAMResponse()
-\endcode
-
-\heading{Notes}
-
-
-
-*/
+ * \author Dupuis, R. J.
+ * \file
+ * \ingroup pulsarTODO
+ *
+ * Calculates the best fit parameters for a GW signal originating from a
+ * non-precessing pulsar.
+ *
+ * ### Prototypes ###
+ *
+ * \code
+ * void
+ * LALFineFitToPulsar      (            LALStatus            *status,
+ * FineFitOutput        *output,
+ * FineFitInput         *input,
+ * FineFitParams        *params )
+ * \endcode
+ *
+ * ### Description ###
+ *
+ * This routine calculates the best fit of parameters by minimizing \f$\chi^2\f$ by going through
+ * fixed grid for \f$\iota, \psi, \phi_{0}\f$ and  \f$h_{0}\f$.  The best fit parameters
+ * returned by <tt>LALCoarseFitToPulsar()</tt> are then used as initial parameters for
+ * <tt>LALFineFitToPulsar()</tt>.
+ *
+ * The function <tt>LALFineFitToPulsar()</tt> refines the fit using the Levenberg-Marquardt method for nonlinear fitting. This is
+ * done by calculating the Hessian and the gradient of \f$\chi^2\f$ ...
+ *
+ * ### Algorithm ###
+ *
+ * To be completed.
+ *
+ * ### Uses ###
+ *
+ * \code
+ * LALSCreateVector()
+ * LALSDestroyVector()
+ * LALComputeDetAMResponse()
+ * \endcode
+ *
+ * ### Notes ###
+ *
+ */
 
 /******* INCLUDE STANDARD LIBRARY HEADERS; ************/
 /* note LALStdLib.h already includes stdio.h and stdarg.h */
@@ -69,7 +68,6 @@ LALComputeDetAMResponse()
 /******* INCLUDE ANY LDAS LIBRARY HEADERS ************/
 
 /******* INCLUDE ANY LAL HEADERS ************/
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdlib.h>
 #include <lal/FitToPulsar.h>
 
@@ -196,42 +194,29 @@ LALCoarseFitToPulsar    (       LALStatus            *status,
      {
        cosIota = params->meshCosIota[0] + iCosIota*params->meshCosIota[1];
        cosIota2 = 1.0 + cosIota*cosIota;
-       Xp.real_FIXME = cosIota2 * cos2phase;
-       Xp.imag_FIXME = cosIota2 * sin2phase;
+       Xp = crect( cosIota2 * cos2phase, cosIota2 * sin2phase );
 
        Y = 2.0*cosIota;
 
-       Xc.real_FIXME = Y*sin2phase;
-       Xc.imag_FIXME = -Y*cos2phase;
+       Xc = crect( Y*sin2phase, -Y*cos2phase );
 
        sumAB = 0.0;
        sumAA = 0.0;
        sumBB = 0.0;
-       eh0.real_FIXME=0.0;
-       eh0.imag_FIXME=0.0;
+       eh0 = 0.0;
 
        for (i = 0; i < n; i++)
        {
-         B.real_FIXME = creal(input->B->data[i]);
-         B.imag_FIXME = cimag(input->B->data[i]);
+         B = input->B->data[i];
 
-         A.real_FIXME = Fp->data[i]*creal(Xp) + Fc->data[i]*creal(Xc);
-         A.imag_FIXME = Fp->data[i]*cimag(Xp) + Fc->data[i]*cimag(Xc);
+         A = crect( Fp->data[i]*creal(Xp) + Fc->data[i]*creal(Xc), Fp->data[i]*cimag(Xp) + Fc->data[i]*cimag(Xc) );
 
          sumBB += (creal(B)*creal(B) + cimag(B)*cimag(B)) / var->data[i];
          sumAA += (creal(A)*creal(A) + cimag(A)*cimag(A)) / var->data[i];
          sumAB += (creal(B)*creal(A) + cimag(B)*cimag(A)) / var->data[i];
 
          /**** calculate error on h0 **********/
-         eh0.real_FIXME += (Fp->data[i]*cosIota2*cos2phase
-                + 2.0*Fc->data[i]*cosIota*sin2phase)
-                * (Fp->data[i]*cosIota2*cos2phase
-                + 2.0*Fc->data[i]*cosIota*sin2phase) / creal(input->var->data[i]);
-
-         eh0.imag_FIXME += (Fp->data[i]*cosIota2*sin2phase
-                - 2.0*Fc->data[i]*cosIota*cos2phase)
-                * (Fp->data[i]*cosIota2*sin2phase
-                - 2.0*Fc->data[i]*cosIota*cos2phase) / cimag(input->var->data[i]);
+         eh0 += crect( (Fp->data[i]*cosIota2*cos2phase + 2.0*Fc->data[i]*cosIota*sin2phase) * (Fp->data[i]*cosIota2*cos2phase + 2.0*Fc->data[i]*cosIota*sin2phase) / creal(input->var->data[i]), (Fp->data[i]*cosIota2*sin2phase - 2.0*Fc->data[i]*cosIota*cos2phase) * (Fp->data[i]*cosIota2*sin2phase - 2.0*Fc->data[i]*cosIota*cos2phase) / cimag(input->var->data[i]) );
         }
 
         for (iH0 = 0; iH0 < params->meshH0[2]; iH0++)
@@ -290,32 +275,35 @@ LALCoarseFitToPulsar    (       LALStatus            *status,
 
 }
 /**
-\author Dupuis, R.J.
-\file
-
-\brief This test program demonstrates the correct usage of the functions
-\c LALCoarseFitToPulsar and \c LALFineFitToPulsar.
-
-\heading{Usage}
-\code
-FitToPulsarTest
-\endcode
-
-\heading{Description}
-To be completed.
-\heading{Exit codes}
-
-
-\heading{Uses}
-\code
-LALCoarseFitToPulsar()
-LALFineFitToPulsar()
-\endcode
-
-\heading{Notes}
-
-
-*/
+ * \author Dupuis, R.J.
+ * \file
+ *
+ * \brief This test program demonstrates the correct usage of the functions
+ * \c LALCoarseFitToPulsar and \c LALFineFitToPulsar.
+ *
+ * ### Usage ###
+ *
+ * \code
+ * FitToPulsarTest
+ * \endcode
+ *
+ * ### Description ###
+ *
+ * To be completed.
+ *
+ * ### Exit codes ###
+ *
+ *
+ * ### Uses ###
+ *
+ * \code
+ * LALCoarseFitToPulsar()
+ * LALFineFitToPulsar()
+ * \endcode
+ *
+ * ### Notes ###
+ *
+ */
 
 /******* INCLUDE STANDARD LIBRARY HEADERS; ************/
 /* note LALStdLib.h already includes stdio.h and stdarg.h */
@@ -426,12 +414,8 @@ int main(void)
     input.t[i].gpsSeconds = FITTOPULSARTEST_T0 + 60*i;
     input.t[i].gpsNanoSeconds = 0;
 
-    input.B->data[i].real_FIXME =  pResponseSeries.pPlus->data->data[i]*h0*(1.0 + cosIota*cosIota)*cos2phase
-                         + 2.0*pResponseSeries.pCross->data->data[i]*h0*cosIota*sin2phase;
-    input.B->data[i].imag_FIXME =  pResponseSeries.pPlus->data->data[i]*h0*(1.0 + cosIota*cosIota)*sin2phase
-                         - 2.0*pResponseSeries.pCross->data->data[i]*h0*cosIota*cos2phase;
-    input.var->data[i].real_FIXME = noise->data[FITTOPULSARTEST_LENGTH-i-1]*noise->data[FITTOPULSARTEST_LENGTH-i-1];
-    input.var->data[i].imag_FIXME = noise->data[i]*noise->data[i];
+    input.B->data[i] = crect( pResponseSeries.pPlus->data->data[i]*h0*(1.0 + cosIota*cosIota)*cos2phase + 2.0*pResponseSeries.pCross->data->data[i]*h0*cosIota*sin2phase, pResponseSeries.pPlus->data->data[i]*h0*(1.0 + cosIota*cosIota)*sin2phase - 2.0*pResponseSeries.pCross->data->data[i]*h0*cosIota*cos2phase );
+    input.var->data[i] = crect( noise->data[FITTOPULSARTEST_LENGTH-i-1]*noise->data[FITTOPULSARTEST_LENGTH-i-1], noise->data[i]*noise->data[i] );
   }
 
   input.B->length = FITTOPULSARTEST_LENGTH;

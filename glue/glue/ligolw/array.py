@@ -50,7 +50,6 @@ from xml.sax.xmlreader import AttributesImpl as Attributes
 
 
 from glue import git_version
-from glue import iterutils
 from . import ligolw
 from . import tokenizer
 from . import types as ligolwtypes

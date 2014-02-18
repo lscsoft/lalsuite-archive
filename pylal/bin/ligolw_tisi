@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2013  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -32,11 +32,11 @@ import sys
 
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
-from glue.ligolw import utils
+from glue.ligolw import utils as ligolw_utils
+from glue.ligolw.utils import process as ligolw_process
 from glue import offsetvector
 from pylal import git_version
 from pylal import ligolw_tisi
-from pylal import llwapp
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -51,6 +51,10 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
+
+
+def parse_normalize(normalize):
+	return dict((name.strip(), float(offset)) for name, offset in map(lambda s: s.split("="), normalize))
 
 
 def parse_command_line():
@@ -69,8 +73,8 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	try:
-		options.normalize = dict((name.strip(), float(offset)) for name, offset in map(lambda s: s.split("="), options.normalize))
-	except Exception, e:
+		parse_normalize(options.normalize)
+	except Exception as e:
 		raise ValueError("unable to parse --normalize arguments: %s" % str(e))
 
 	return options, (filenames or [None])
@@ -85,17 +89,22 @@ def parse_command_line():
 #
 
 
-def new_doc():
+def new_doc(comment = None, **kwargs):
 	doc = ligolw.Document()
 	doc.appendChild(ligolw.LIGO_LW())
-	proctable = lsctables.New(lsctables.ProcessTable)
-	doc.childNodes[0].appendChild(proctable)
-	procparamtable = lsctables.New(lsctables.ProcessParamsTable)
-	doc.childNodes[0].appendChild(procparamtable)
+	process = ligolw_process.register_to_xmldoc(
+		doc,
+		program = u"ligolw_tisi",
+		paramdict = kwargs,
+		version = __version__,
+		cvs_repository = u"lscsoft",
+		cvs_entry_time = __date__,
+		comment = comment
+	)
 	timeslidetable = lsctables.New(lsctables.TimeSlideTable)
 	doc.childNodes[0].appendChild(timeslidetable)
 
-	return doc
+	return doc, process
 
 
 #
@@ -196,7 +205,8 @@ time_slides = time_slides.values()
 if options.normalize:
 	if options.verbose:
 		print >>sys.stderr, "Normalizing the time slides ..."
-	time_slides = [offsetvect.normalize(**options.normalize) for offsetvect in time_slides]
+	constraints = parse_normalize(options.normalize)
+	time_slides = [offsetvect.normalize(**constraints) for offsetvect in time_slides]
 
 
 #
@@ -210,9 +220,8 @@ while filenames:
 	# Create an empty document, populate the process information.
 	#
 
-	xmldoc = new_doc()
-	timeslidetable = lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-	process = ligolw_tisi.append_process(xmldoc, **options.__dict__)
+	xmldoc, process = new_doc(**options.__dict__)
+	timeslidetable = lsctables.TimeSlideTable.get_table(xmldoc)
 
 	#
 	# How many slides will go into this file?
@@ -224,21 +233,26 @@ while filenames:
 	# Put them in.
 	#
 
-	while N:
-		offsetvect = time_slides.pop()
-		for row in ligolw_tisi.RowsFromOffsetDict(offsetvect, lsctables.TimeSlideTable.get_next_id(), process):
+	for offsetvect in time_slides[:N]:
+		# FIXME:  replace with
+		# timeslidetable.append_offsetvector(offsetvect, process)
+		# when we can rely on a new enough glue.  then delete
+		# RowsFromOffsetDict() from ligolw_tisi
+		for row in ligolw_tisi.RowsFromOffsetDict(offsetvect, timeslidetable.get_next_id(), process):
 			timeslidetable.append(row)
-		N -= 1
+	del time_slides[:N]
 
 	#
 	# Finish off the document.
 	#
 
-	llwapp.set_process_end_time(process)
+	ligolw_process.set_process_end_time(process)
 
 	#
 	# Write.
 	#
 
 	filename = filenames.pop(0)
-	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
+	ligolw_utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
+
+assert not time_slides

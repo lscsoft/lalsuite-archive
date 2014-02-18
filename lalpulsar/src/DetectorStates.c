@@ -31,19 +31,14 @@
 #define FALSE (1==0)
 
 /*----- Macros ----- */
-/** convert GPS-time to REAL8 */
-#define GPS2REAL8(gps) (1.0 * (gps).gpsSeconds + 1.e-9 * (gps).gpsNanoSeconds )
-
-#define MYMAX(x,y) ( (x) > (y) ? (x) : (y) )
-#define MYMIN(x,y) ( (x) < (y) ? (x) : (y) )
 #define SQUARE(x) ((x) * (x))
+#define INIT_MEM(x) memset(&(x), 0, sizeof((x)))
 
 /*----- SWITCHES -----*/
 
 /*---------- internal types ----------*/
 
 /*---------- empty initializers ---------- */
-static const LALStatus empty_LALStatus;
 const MultiDetectorInfo empty_MultiDetectorInfo;
 
 /*---------- Global variables ----------*/
@@ -54,7 +49,8 @@ int XLALFillDetectorTensor (DetectorState *detState, const LALDetector *detector
 /*==================== FUNCTION DEFINITIONS ====================*/
 
 
-/** \deprecated Use XLALGetDetectorStates() instead
+/**
+ * \deprecated Use XLALGetDetectorStates() instead
  */
 void
 LALGetDetectorStates (LALStatus *status,			/**< pointer to LALStatus structure */
@@ -89,7 +85,8 @@ LALGetDetectorStates (LALStatus *status,			/**< pointer to LALStatus structure *
 } /* LALGetDetectorStates() */
 
 
-/** Function to compute the LWL detector-tensor for the given \a detector in
+/**
+ * Function to compute the LWL detector-tensor for the given \a detector in
  * SSB-fixed cartesian coordinates at time tgps.
  * The coordinates used are: EQUATORIAL for Earth-based detectors, but ECLIPTIC for LISA.
  * RETURN: 0 = OK, -1 = ERROR
@@ -173,7 +170,8 @@ XLALFillDetectorTensor (DetectorState *detState,	/**< [out,in]: detector state: 
 
 } /* XLALFillDetectorTensor() */
 
-/** Compute the "squared-tensor" v x v for given vector v,
+/**
+ * Compute the "squared-tensor" v x v for given vector v,
  * the result is returned in a "detectorTensor" struct
  */
 int
@@ -195,7 +193,8 @@ XLALTensorSquareVector3 ( SymmTensor3 *vxv, REAL4 v[3] )
 
 } /* XLALTensorSquareVector3() */
 
-/** Compute the symmetrized tensor product T = v x w + w x v
+/**
+ * Compute the symmetrized tensor product T = v x w + w x v
  */
 int
 XLALSymmetricTensorProduct3 ( SymmTensor3 *vxw, REAL4 v[3], REAL4 w[3] )
@@ -216,7 +215,8 @@ XLALSymmetricTensorProduct3 ( SymmTensor3 *vxw, REAL4 v[3], REAL4 w[3] )
 
 } /* XLALSymmTensorProduct() */
 
-/** Convenience function for adding two SymmTensor3s: aT + bT
+/**
+ * Convenience function for adding two SymmTensor3s: aT + bT
  * NOTE: it *is* safe to have sum point to the same tensor-struct as either aT or bT.
  */
 int
@@ -238,7 +238,8 @@ XLALAddSymmTensor3s ( SymmTensor3 *sum, const SymmTensor3 *aT, const SymmTensor3
 
 } /* XLALAddSymmTensor3s() */
 
-/** Convenience function for subtracting two SymmTensor3s: aT - bT
+/**
+ * Convenience function for subtracting two SymmTensor3s: aT - bT
  * NOTE: it *is* safe to have diff point to the same tensor-struct as either aT or bT.
  */
 int
@@ -260,7 +261,8 @@ XLALSubtractSymmTensor3s ( SymmTensor3 *diff, const SymmTensor3 *aT, const SymmT
 
 } /* XLALSubtractSymmTensor3s() */
 
-/** Convenience function for multiplying a SymmTensor3 by a scalar factor.
+/**
+ * Convenience function for multiplying a SymmTensor3 by a scalar factor.
  * NOTE: it *is* safe to have aT and mult point to the same tensor-struct
  */
 int
@@ -282,7 +284,8 @@ XLALScaleSymmTensor3 ( SymmTensor3 *mult, const SymmTensor3 *aT, REAL4 factor )
 
 } /* XLALScaleSymmTensor3() */
 
-/** Contract two symmetric tensors over both indices T1 : T2
+/**
+ * Contract two symmetric tensors over both indices T1 : T2
  */
 REAL4
 XLALContractSymmTensor3s ( const SymmTensor3 *T1, const SymmTensor3 *T2 )
@@ -306,7 +309,8 @@ XLALContractSymmTensor3s ( const SymmTensor3 *T1, const SymmTensor3 *T2 )
 
 /* ===== Multi-IFO versions of some of the above functions ===== */
 
-/** Deprecated LAL wrapper to XLALGetMultiDetectorStates().
+/**
+ * Deprecated LAL wrapper to XLALGetMultiDetectorStates().
  * Get the detector-time series for the given MultiSFTVector.
  * (see LALGetDetectorStates() for more comments).
  *
@@ -420,7 +424,8 @@ LALDestroyDetectorStateSeries (LALStatus *status,		/**< pointer to LALStatus str
   RETURN (status);
 } /* LALDestroyDetectorStateSeries() */
 
-/** Helper function to get rid of a multi-IFO DetectorStateSeries
+/**
+ * Helper function to get rid of a multi-IFO DetectorStateSeries
  * Note, this is "NULL-robust" in the sense that it will not crash
  * on NULL-entries anywhere in this struct, so it can be used
  * for failure-cleanup even on incomplete structs.
@@ -449,8 +454,10 @@ XLALDestroyMultiDetectorStateSeries ( MultiDetectorStateSeries *mdetStates )
 } /* XLALDestroyMultiDetectorStateSeries() */
 
 
-/** Helper funxtion to copy velocity, time and position vectors out of the
-    multi-detector state series */
+/**
+ * Helper funxtion to copy velocity, time and position vectors out of the
+ * multi-detector state series
+ */
 void LALGetMultiDetectorVelTimePos(LALStatus                *status,
 				   REAL8VectorSequence      **outVel,
 				   REAL8VectorSequence      **outPos,
@@ -520,7 +527,8 @@ void LALGetMultiDetectorVelTimePos(LALStatus                *status,
   /* normal exit */
   RETURN (status);
 }
-/** Simple creator function for MultiLALDetector with numDetectors entries
+/**
+ * Simple creator function for MultiLALDetector with numDetectors entries
  */
 MultiLALDetector *
 XLALCreateMultiLALDetector ( UINT4 numDetectors )
@@ -543,7 +551,8 @@ XLALCreateMultiLALDetector ( UINT4 numDetectors )
 
 } /* XLALCreateMultiLALDetector() */
 
-/** Corresponding destructor function for MultiLALDetector.
+/**
+ * Corresponding destructor function for MultiLALDetector.
  * As usual this allows NULL input.
  */
 void
@@ -562,7 +571,8 @@ XLALDestroyMultiLALDetector ( MultiLALDetector *multiIFO )
 } /* XLALDestroyMultiLALDetector() */
 
 
-/** Given a multi-SFT vector, return a MultiLALDetector vector holding the multi-IFO detector infos
+/**
+ * Given a multi-SFT vector, return a MultiLALDetector vector holding the multi-IFO detector infos
  */
 MultiLALDetector *
 XLALExtractMultiLALDetectorFromSFTs ( const MultiSFTVector *multiSFTs )
@@ -629,7 +639,8 @@ XLALCreateDetectorStateSeries ( UINT4 length )		/**< number of entries */
 } /* XLALCreateDetectorStateSeries() */
 
 
-/** Get the 'detector state' (ie detector-tensor, position, velocity, etc) for the given
+/**
+ * Get the 'detector state' (ie detector-tensor, position, velocity, etc) for the given
  * vector of timestamps, shifted by a common time-shift \a tOffset.
  *
  * This function just calls LALBarycenterEarth() and LALBarycenter() for the
@@ -742,8 +753,8 @@ XLALGetDetectorStates ( const LIGOTimeGPSVector *timestamps,	/**< array of GPS t
 } /* XLALGetDetectorStates() */
 
 
-/** Get the detector-time series for the given MultiLIGOTimeGPSVector.
- *
+/**
+ * Get the detector-time series for the given MultiLIGOTimeGPSVector.
  * NOTE: contrary to the deprecated LALGetMultiDetectorStates() interface, this
  * function computes detector-states at the given timestamps shifted by tOffset
  *
@@ -913,8 +924,8 @@ XLALParseMultiDetectorInfo ( MultiDetectorInfo *detInfo,        /**< [out] parse
 
 /**
  * Extract multi detector-info from a given multi SFTCatalog view,
- * only number of IFOs and LALDetector site information is filled in.
- * (ie no noise sqrtSX, or weights)
+ * only number of IFOs and LALDetector site information is filled in,
+ * other fields will be initialized to 0 (ie no noise sqrtSX, or weights)
  */
 int
 XLALMultiDetectorInfoFromMultiSFTCatalogView ( MultiDetectorInfo *multiDetInfo,		//!< [out] list of detectors found in catalog
@@ -927,6 +938,8 @@ XLALMultiDetectorInfoFromMultiSFTCatalogView ( MultiDetectorInfo *multiDetInfo,	
   XLAL_CHECK ( multiView->length > 0, XLAL_EINVAL );
 
   UINT4 numIFOs = multiView->length;
+
+  INIT_MEM ( (*multiDetInfo) );
 
   multiDetInfo->length = numIFOs;
   for ( UINT4 X=0; X < numIFOs; X ++ )

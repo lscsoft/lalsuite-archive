@@ -46,56 +46,57 @@
  *-----------------------------------------------------------------------
  */
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/CLR.h>
 
 
 /**
-\author Sintes, A. M.
-
-\brief Generates a reference interference signal.
-
-\heading{Description}
-Given the complex vector  <tt>*in1</tt> of length \f$n/2+1\f$, containing
-the Fourier transform of the data \f$\tilde x(\nu)\f$,
-<dl>
-<dt><tt>in1->length</tt></dt><dd> The number of elements in
-            <tt>in1->data</tt> \f$=n/2+1\f$.</dd>
-<dt><tt>in1->data</tt></dt><dd>   The data \f$\tilde x(\nu)\f$,</dd>
-</dl>
- and given another vector <tt>*par</tt> containing the  information related
-to the harmonics from which we want to construct the reference signal
-(i.e., indices, and  initial and final frequency bin locations),
-<dl>
-<dt><tt>par->length</tt></dt><dd> The number of elements in <tt>par->data</tt>.
-       This is equal to three times the number of harmonics that will be
-        used to construct the reference signal \f$M(t)\f$.</dd>
-<dt><tt>par->data</tt></dt><dd>    \f$\{ k,\nu_{ik}, \nu_{fk} \} \f$,
-      e.g.,  \f$\{3, 9868, 9894, 5, 16449, 16487, 9, 29607, 29675\ldots\}\f$,</dd>
-</dl>
-it  generates the time domain
-\f$M(t)\f$ reference interference signal, <tt>*out</tt>. This is a complex
-vector of length \f$n\f$.
-<dl>
-<dt><tt>out->length</tt></dt><dd> The number of elements in
-            <tt>out->data</tt> \f$=n\f$.</dd>
-<dt><tt>out->data</tt></dt><dd>   \f$M(t)\f$ complex data.</dd>
-</dl>
-\f$M(t)\f$ corresponds to a nearly monochromatic function near the
-frequency  \f$f_0\f$, that is implicit in the information
-given in <tt>*par</tt>.
-
-\heading{Algorithm}
-Described before.
-
-\heading{Notes}
-
-The harmonics selected to construct the reference signal
-should not be (if possible) buried with other strong lines,
- such as violin modes. Choose the strongest harmonics, those
-that clearly stand over the noise level.
-
-*/
+ * \author Sintes, A. M.
+ *
+ * \brief Generates a reference interference signal.
+ *
+ * ### Description ###
+ *
+ * Given the complex vector  <tt>*in1</tt> of length \f$n/2+1\f$, containing
+ * the Fourier transform of the data \f$\tilde x(\nu)\f$,
+ * <dl>
+ * <dt><tt>in1->length</tt></dt><dd> The number of elements in
+ * <tt>in1->data</tt> \f$=n/2+1\f$.</dd>
+ * <dt><tt>in1->data</tt></dt><dd>   The data \f$\tilde x(\nu)\f$,</dd>
+ * </dl>
+ * and given another vector <tt>*par</tt> containing the  information related
+ * to the harmonics from which we want to construct the reference signal
+ * (i.e., indices, and  initial and final frequency bin locations),
+ * <dl>
+ * <dt><tt>par->length</tt></dt><dd> The number of elements in <tt>par->data</tt>.
+ * This is equal to three times the number of harmonics that will be
+ * used to construct the reference signal \f$M(t)\f$.</dd>
+ * <dt><tt>par->data</tt></dt><dd>    \f$\{ k,\nu_{ik}, \nu_{fk} \} \f$,
+ * e.g.,  \f$\{3, 9868, 9894, 5, 16449, 16487, 9, 29607, 29675\ldots\}\f$,</dd>
+ * </dl>
+ * it  generates the time domain
+ * \f$M(t)\f$ reference interference signal, <tt>*out</tt>. This is a complex
+ * vector of length \f$n\f$.
+ * <dl>
+ * <dt><tt>out->length</tt></dt><dd> The number of elements in
+ * <tt>out->data</tt> \f$=n\f$.</dd>
+ * <dt><tt>out->data</tt></dt><dd>   \f$M(t)\f$ complex data.</dd>
+ * </dl>
+ * \f$M(t)\f$ corresponds to a nearly monochromatic function near the
+ * frequency  \f$f_0\f$, that is implicit in the information
+ * given in <tt>*par</tt>.
+ *
+ * ### Algorithm ###
+ *
+ * Described before.
+ *
+ * ### Notes ###
+ *
+ * The harmonics selected to construct the reference signal
+ * should not be (if possible) buried with other strong lines,
+ * such as violin modes. Choose the strongest harmonics, those
+ * that clearly stand over the noise level.
+ *
+ */
 void LALRefInterference (LALStatus    *status,/**< LAL status pointer */
 		   COMPLEX8Vector     *out,   /**<  M(t), size n */
 		   COMPLEX8Vector     *in1,   /**<  x(f), size n/2+1 */
@@ -216,16 +217,13 @@ void LALRefInterference (LALStatus    *status,/**< LAL status pointer */
 
   /* Build z_k(nu) */
   for (i=0; i< binini; ++i) {
-    zf->data[i].realf_FIXME = 0.0;
-    zf->data[i].imagf_FIXME = 0.0;
+    zf->data[i] = 0.0;
   }
   for (i=binini; i< binfin+1; ++i) {
-    zf->data[i].realf_FIXME = crealf(x[i]);
-    zf->data[i].imagf_FIXME = cimagf(x[i]);
+    zf->data[i] = x[i];
   }
   for (i=binfin+1; i< n; ++i) {
-    zf->data[i].realf_FIXME = 0.0;
-    zf->data[i].imagf_FIXME = 0.0;
+    zf->data[i] = 0.0;
   }
 
   /* Calculate z_k(t) by performing FFTs */
@@ -255,14 +253,12 @@ void LALRefInterference (LALStatus    *status,/**< LAL status pointer */
   ampB = pow(mod2,inv2k);
   phB  = phaseI*invk;
 
-  b1t->data[0].real_FIXME = ampB * cos(phB);
-  b1t->data[0].imag_FIXME = ampB * sin(phB);
+  b1t->data[0] = crect( ampB * cos(phB), ampB * sin(phB) );
 
   invarb->data[0] = px*mod2;
   sden->data[0]   = invarb->data[0];
 
-  snum->data[0].realf_FIXME = creal(b1t->data[0]) * invarb->data[0];
-  snum->data[0].imagf_FIXME = cimag(b1t->data[0]) * invarb->data[0];
+  snum->data[0] = crectf( creal(b1t->data[0]) * invarb->data[0], cimag(b1t->data[0]) * invarb->data[0] );
 
 
   for (i=1; i< n; ++i) {
@@ -288,14 +284,12 @@ void LALRefInterference (LALStatus    *status,/**< LAL status pointer */
 
     ampB = pow(mod2,inv2k);
 
-    b1t->data[i].real_FIXME = ampB * cos(phB);
-    b1t->data[i].imag_FIXME = ampB * sin(phB);
+    b1t->data[i] = crect( ampB * cos(phB), ampB * sin(phB) );
 
     invarb->data[i] = px*mod2;
     sden->data[i] = invarb->data[i];
 
-    snum->data[i].realf_FIXME = creal(b1t->data[i]) * invarb->data[i];
-    snum->data[i].imagf_FIXME = cimag(b1t->data[i]) * invarb->data[i];
+    snum->data[i] = crectf( creal(b1t->data[i]) * invarb->data[i], cimag(b1t->data[i]) * invarb->data[i] );
   }
 
   /* ----------------------------------------------   */
@@ -332,16 +326,13 @@ void LALRefInterference (LALStatus    *status,/**< LAL status pointer */
 
     /* Build z_k(nu) */
     for (i=0; i< binini; ++i) {
-      zf->data[i].realf_FIXME = 0.0;
-      zf->data[i].imagf_FIXME = 0.0;
+      zf->data[i] = 0.0;
     }
     for (i=binini; i< binfin+1; ++i) {
-      zf->data[i].realf_FIXME = crealf(x[i]);
-      zf->data[i].imagf_FIXME = cimagf(x[i]);
+      zf->data[i] = x[i];
     }
     for (i=binfin+1; i< n; ++i) {
-      zf->data[i].realf_FIXME = 0.0;
-      zf->data[i].imagf_FIXME = 0.0;
+      zf->data[i] = 0.0;
     }
 
     /* Calculate z_k(t) by performing FFTs */
@@ -370,8 +361,7 @@ void LALRefInterference (LALStatus    *status,/**< LAL status pointer */
     ampB = pow(mod2,inv2k);
     phB = phaseI*invk;
 
-    bt->data[0].real_FIXME = ampB * cos(phB);
-    bt->data[0].imag_FIXME = ampB * sin(phB);
+    bt->data[0] = crect( ampB * cos(phB), ampB * sin(phB) );
 
     /* initialize calculation of Lambda_k */
     br =  creal(bt->data[0]);
@@ -379,8 +369,7 @@ void LALRefInterference (LALStatus    *status,/**< LAL status pointer */
     dr =  creal(b1t->data[0]);
     di =  cimag(b1t->data[0]);
 
-    lambdan.real_FIXME =  br*dr + bi*di;
-    lambdan.imag_FIXME = -dr*bi + br*di;
+    lambdan = crect( br*dr + bi*di, -dr*bi + br*di );
     lambdad    =  br*br + bi*bi;
 
     /* inverse of the variance of beta */
@@ -408,8 +397,7 @@ void LALRefInterference (LALStatus    *status,/**< LAL status pointer */
 
       ampB = pow(mod2,inv2k);
 
-      bt->data[i].real_FIXME = ampB * cos(phB);
-      bt->data[i].imag_FIXME = ampB * sin(phB);
+      bt->data[i] = crect( ampB * cos(phB), ampB * sin(phB) );
 
       /* for the calculation of Lambda_k */
       br =  creal(bt->data[i]);
@@ -417,8 +405,7 @@ void LALRefInterference (LALStatus    *status,/**< LAL status pointer */
       dr =  creal(b1t->data[i]);
       di =  cimag(b1t->data[i]);
 
-      lambdan.real_FIXME +=  br*dr + bi*di;
-      lambdan.imag_FIXME += -dr*bi + br*di;
+      lambdan += crect( br*dr + bi*di, -dr*bi + br*di );
       lambdad    +=  br*br + bi*bi;
 
       /* inverse of the variance of beta */
@@ -426,14 +413,12 @@ void LALRefInterference (LALStatus    *status,/**< LAL status pointer */
     }
 
     /* update  sden and snum */
-    lambda.real_FIXME = creal(lambdan)/lambdad;
-    lambda.imag_FIXME = cimag(lambdan)/lambdad;
+    lambda = (lambdan / ((REAL8) lambdad));
 
     for(i=0; i< n; ++i) {
       br =  creal(bt->data[i]);
       bi =  cimag(bt->data[i]);
-      snum->data[i].realf_FIXME += (br*creal(lambda) - bi*cimag(lambda)) * invarb->data[i];
-      snum->data[i].imagf_FIXME += (br*cimag(lambda) + bi*creal(lambda)) * invarb->data[i];
+      snum->data[i] += crectf( (br*creal(lambda) - bi*cimag(lambda)) * invarb->data[i], (br*cimag(lambda) + bi*creal(lambda)) * invarb->data[i] );
       sden->data[i]    += invarb->data[i];
     }
 
@@ -444,8 +429,7 @@ void LALRefInterference (LALStatus    *status,/**< LAL status pointer */
   /* -------------------------------------------   */
 
   for(i=0; i< n; ++i){
-    m[i].realf_FIXME = crealf(snum->data[i]) / sden->data[i] ;
-    m[i].imagf_FIXME = cimagf(snum->data[i]) / sden->data[i] ;
+    m[i] = (snum->data[i] / ((REAL4) sden->data[i]));
   }
   /* -------------------------------------------   */
 

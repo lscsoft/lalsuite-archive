@@ -207,10 +207,11 @@ static REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS 
 	return out;
 }
 
-/** Parse the command line looking for options of the kind --ifo H1 --H1-channel H1:LDAS_STRAIN --H1-cache H1.cache --H1-flow 40.0 --H1-fhigh 4096.0 --H1-timeslide 100.0 ...
-    It is necessary to use this method instead of the old method for the pipeline to work in DAX mode. Warning: do not mix options between
-    the old and new style.
-*/
+/**
+ * Parse the command line looking for options of the kind --ifo H1 --H1-channel H1:LDAS_STRAIN --H1-cache H1.cache --H1-flow 40.0 --H1-fhigh 4096.0 --H1-timeslide 100.0 ...
+ * It is necessary to use this method instead of the old method for the pipeline to work in DAX mode. Warning: do not mix options between
+ * the old and new style.
+ */
 static INT4 getDataOptionsByDetectors(ProcessParamsTable *commandLine, char ***ifos, char ***caches, char ***channels, char ***flows , char ***fhighs, char ***timeslides, UINT4 *N)
 {
     /* Check that the input has no lists with [ifo,ifo] */
@@ -289,7 +290,7 @@ static INT4 getDataOptionsByDetectors(ProcessParamsTable *commandLine, char ***i
 (--srate rate)                  Downsample data to rate in Hz (4096.0,)\n\
 (--injectionsrate rate)         Downsample injection signal to rate in Hz (--srate)\n\
 (--IFO1-flow freq1 [--IFO2-flow freq2 ...])      Specify lower frequency cutoff for overlap integral (40.0)\n\
-(--IFO1-fhigh freq1 [--IFO2-fhigh freq2 ...])     Specify higher frequency cutoff for overlap integral (2048.0)\n\
+(--IFO1-fhigh freq1 [--IFO2-fhigh freq2 ...])     Specify higher frequency cutoff for overlap integral (Nyquist freq 0.5*srate)\n\
 (--IFO1-channel chan1 [--IFO2-channel chan2 ...])   Specify channel names when reading cache files\n\
 (--dataseed number)             Specify random seed to use when generating data\n\
 (--lalinspiralinjection)      Enables injections via the LALInspiral package\n\
@@ -389,33 +390,33 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     LALDetector dE1,dE2,dE3;
     /* response of the detectors */
     dE1.type = dE2.type = dE3.type = LALDETECTORTYPE_IFODIFF;
-    dE1.location[0] = dE2.location[0] = dE3.location[0] = 4.5464e6;
-    dE1.location[1] = dE2.location[1] = dE3.location[1] = 8.4299e5;
-    dE1.location[2] = dE2.location[2] = dE3.location[2] = 4.3786e6;
+    dE1.location[0] = dE2.location[0] = dE3.location[0] = 4.546374099002599e6;
+    dE1.location[1] = dE2.location[1] = dE3.location[1] = 8.42989697626334e5;
+    dE1.location[2] = dE2.location[2] = dE3.location[2] = 4.378576962409281e6;
     sprintf(dE1.frDetector.name,"ET-1");
     sprintf(dE1.frDetector.prefix,"E1");
-    dE1.response[0][0] = 0.1666;
-    dE1.response[1][1] = -0.2484;
-    dE1.response[2][2] = 0.0818;
-    dE1.response[0][1] = dE1.response[1][0] = -0.2188;
-    dE1.response[0][2] = dE1.response[2][0] = -0.1300;
-    dE1.response[1][2] = dE1.response[2][1] = 0.2732;
+    dE1.response[0][0] = 0.166589852497480;
+    dE1.response[1][1] = -0.248382035405337;
+    dE1.response[2][2] = 0.081792182907857;
+    dE1.response[0][1] = dE1.response[1][0] = -0.218849471235102 ;
+    dE1.response[0][2] = dE1.response[2][0] = -0.129963871963915;
+    dE1.response[1][2] = dE1.response[2][1] = 0.273214957676611;
     sprintf(dE2.frDetector.name,"ET-2");
     sprintf(dE2.frDetector.prefix,"E2");
-    dE2.response[0][0] = -0.1992;
-    dE2.response[1][1] = 0.4234;
-    dE2.response[2][2] = 0.0818;
-    dE2.response[0][1] = dE2.response[1][0] = -0.0702;
-    dE2.response[0][2] = dE2.response[2][0] = 0.2189;
-    dE2.response[1][2] = dE2.response[2][1] = -0.0085;
+    dE2.response[0][0] = -0.199221201378560;
+    dE2.response[1][1] = 0.423356724499319;
+    dE2.response[2][2]=-0.224135523120759;
+    dE2.response[0][1] = dE2.response[1][0] = -0.070223802479191;
+    dE2.response[0][2] = dE2.response[2][0] = 0.218900453442919;
+    dE2.response[1][2] = dE2.response[2][1] = -0.008534697228688;
     sprintf(dE3.frDetector.name,"ET-3");
     sprintf(dE3.frDetector.prefix,"E3");
-    dE3.response[0][0] = 0.0326;
-    dE3.response[1][1] = -0.1750;
-    dE3.response[2][2] = 0.1423;
-    dE3.response[0][1] = dE3.response[1][0] = 0.2891;
-    dE3.response[0][2] = dE3.response[2][0] = -0.0889;
-    dE3.response[1][2] = dE3.response[2][1] = -0.2647;  
+    dE3.response[0][0] = 0.032631348881079;
+    dE3.response[1][1] = -0.174974689093981 ;
+    dE3.response[2][2] = 0.142343340212902;
+    dE3.response[0][1] = dE3.response[1][0] = 0.289073273714293;
+    dE3.response[0][2] = dE3.response[2][0] = -0.088936581479004;
+    dE3.response[1][2] = dE3.response[2][1] = -0.264680260447922;
 
     //TEMPORARY. JUST FOR CHECKING USING SPINSPIRAL PSD
     char **spinspiralPSD=NULL;
@@ -724,7 +725,10 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
                         (--dataseed 0 uses a non-reproducible number from the system clock, and no parallel run is then possible.)\n" );
                 exit(-1);
             }
-            datarandparam=XLALCreateRandomParams(dataseed?dataseed+(int)i:dataseed);
+            /* Offset the seed in a way that depends uniquely on the IFO name */
+            int ifo_salt=0;
+            ifo_salt+=(int)IFOnames[i][0]+(int)IFOnames[i][1];
+            datarandparam=XLALCreateRandomParams(dataseed?dataseed+(int)ifo_salt:dataseed);
             if(!datarandparam) XLAL_ERROR_NULL(XLAL_EFUNC);
 
             IFOdata[i].oneSidedNoisePowerSpectrum=(REAL8FrequencySeries *)
@@ -1063,6 +1067,11 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
         makeWhiteData(&(IFOdata[i]));
 
+      /* Store ASD of noise spectrum to whiten glitch model */
+      IFOdata[i].noiseASD=(REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("asd",&GPSstart,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
+      for(j=0;j<IFOdata[i].oneSidedNoisePowerSpectrum->data->length;j++)
+        IFOdata[i].noiseASD->data->data[j]=sqrt(IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]);
+
         if (LALInferenceGetProcParamVal(commandLine, "--spinspiralPSD")) {
             FILE *in;
             //char fileNameIn[256];
@@ -1316,7 +1325,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	//LALGenerateInspiral(&status,&InjectGW,injTable,&InjParams);
 	//if(status.statusCode!=0) {fprintf(stderr,"Error generating injection!\n"); REPORTSTATUS(&status); }
 	/* Check for frequency domain injection (TF2 only at present) */
-	if(strstr(injTable->waveform,"TaylorF2") || strstr(injTable->waveform,"IMRPhenomB")  )
+	if(strstr(injTable->waveform,"TaylorF2")||strstr(injTable->waveform,"IMRPhenom"))
 	{ printf("Injecting in the frequency domain...\n");
 	 InjectFD(IFOdata, injTable, commandLine);
 	 return;
@@ -1469,7 +1478,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
         fprintf(stdout,"lambda2 set to %f\n",lambda2);
       }
 
-      REAL8 fref = 0.;
+      REAL8 fref = 100.;
       if(LALInferenceGetProcParamVal(commandLine,"--inj-fref")) {
         fref = atoi(LALInferenceGetProcParamVal(commandLine,"--inj-fref")->value);
       }
@@ -1521,7 +1530,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       for(i=0;i<signalvecREAL8->data->length;i++){
         if(isnan(signalvecREAL8->data->data[i])) signalvecREAL8->data->data[i]=0.0;
       }
-      
+
       if(signalvecREAL8->data->length > thisData->timeData->data->length-(UINT4)ceil((2.0*padding+2.0)/thisData->timeData->deltaT)){
         fprintf(stderr, "WARNING: waveform length = %u is longer than thisData->timeData->data->length = %d minus the window width = %d and the 2.0 seconds after tc (total of %d points available).\n", signalvecREAL8->data->length, thisData->timeData->data->length, (INT4)ceil((2.0*padding)/thisData->timeData->deltaT) , thisData->timeData->data->length-(INT4)ceil((2.0*padding+2.0)/thisData->timeData->deltaT));
         fprintf(stderr, "The waveform injected is %f seconds long. Consider increasing the %f seconds segment length (--seglen) to be greater than %f. (in %s, line %d)\n",signalvecREAL8->data->length * thisData->timeData->deltaT , thisData->timeData->data->length * thisData->timeData->deltaT, signalvecREAL8->data->length * thisData->timeData->deltaT + 2.0*padding + 2.0, __FILE__, __LINE__);
@@ -1711,18 +1720,9 @@ LALInferenceLALFindChirpInjectSignals (
   printf("computing waveform for %s\n",LALInference_detector->frDetector.name);
 
   /* set up units for the transfer function */
-  {
-    RAT4 negOne = { -1, 0 };
-    LALUnit unit;
-    LALUnitPair pair;
-    pair.unitOne = &lalADCCountUnit;
-    pair.unitTwo = &lalStrainUnit;
-    LALUnitRaise( status->statusPtr, &unit, pair.unitTwo, &negOne );
-    CHECKSTATUSPTR( status );
-    pair.unitTwo = &unit;
-    LALUnitMultiply( status->statusPtr, &(detector.transfer->sampleUnits),
-        &pair );
-    CHECKSTATUSPTR( status );
+  if (XLALUnitDivide( &(detector.transfer->sampleUnits),
+                      &lalADCCountUnit, &lalStrainUnit ) == NULL) {
+    ABORTXLAL(status);
   }
 
   /* invert the response function to get the transfer function */
@@ -2131,11 +2131,13 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
     REAL8 polarization=0.0;
     REAL8 injtime=0.0;
     REAL8 previous_max_snr=0.0,previous_min_snr=10E9; 
-	UINT4 best_ifo_snr=0, worst_ifo_snr=0;
-	UINT4 snr_index=0;
+    UINT4 best_ifo_snr=0, worst_ifo_snr=0;
+    UINT4 snr_index=0;
     LALInferenceIFOData *thisData=NULL;
+    LALInferenceFrame frame = LALINFERENCE_FRAME_SYSTEM;
+    
     tmpdata->modelParams=XLALCalloc(1,sizeof(LALInferenceVariables));
-	modelParams=tmpdata->modelParams;
+    modelParams=tmpdata->modelParams;
     memset(modelParams,0,sizeof(LALInferenceVariables));
 
     enforce_m1_larger_m2(inj_table);
@@ -2155,14 +2157,23 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
     LALInferenceAddVariable(tmpdata->modelParams, "declination",&latitude,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);  
     LALInferenceAddVariable(tmpdata->modelParams, "polarisation",&polarization,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);  
     LALInferenceAddVariable(tmpdata->modelParams, "time",&injtime,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-    LALInferenceAddVariable(tmpdata->modelParams, "inclination",&inclination,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "massratio",&eta,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "distance",&distance,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-    LALInferenceAddVariable(tmpdata->modelParams, "LAL_APPROXIMANT",&injapprox,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(tmpdata->modelParams, "LAL_APPROXIMANT",&injapprox,LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_PNORDER",&phase_order,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_AMPORDER",&amp_order,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
-    fprintf(stdout, "WARNING: injection from FD WF doesn't yet support spins. Will inject with spin=0!!!!!\n");
-      REAL8 lambda1 = 0.;
+
+    if (LALInferenceGetProcParamVal(commandLine,"--radiation-frame")){
+      frame = LALINFERENCE_FRAME_RADIATION;
+      LALInferenceAddVariable(tmpdata->modelParams, "LALINFERENCE_FRAME", &frame, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+      LALInferenceAddVariable(tmpdata->modelParams, "inclination",&inclination,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+    }
+    else{
+      frame = LALINFERENCE_FRAME_SYSTEM;
+      LALInferenceAddVariable(tmpdata->modelParams, "LALINFERENCE_FRAME", &frame, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+      LALInferenceAddVariable(tmpdata->modelParams, "theta_JN",&inclination,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+    }
+    REAL8 lambda1 = 0.;
       if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")) {
         lambda1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")->value);
         fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
@@ -2304,15 +2315,7 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
     dataPtr->fPlus = FplusScaled;
     dataPtr->fCross = FcrossScaled;
     dataPtr->timeshift = timeshift;
-    
-   /* REAL8 ci=cos(*(REAL8*)LALInferenceGetVariable(currentParams,"inclination"));
-    double plusCoef  = -0.5 * (1.0 + ci*ci);
-   
-    REAL8 atan_phase=atan2(-Fcross*ci,Fplus*(ci*ci+1.0)/2.0);
-    REAL8 mu_i=sqrt(Fplus*Fplus*(0.5*(1.0+ci*ci))*(0.5*(1.0+ci*ci)) +Fcross* Fcross*ci*ci);
-    REAL8 true_amp,true_pha;
-    
-    REAL8 tmp_re ,tmp_im;*/
+
   char InjFileName[50];
           sprintf(InjFileName,"injection_%s.dat",dataPtr->name);
           FILE *outInj=fopen(InjFileName,"w");
@@ -2344,10 +2347,8 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
       im = - sin(twopit * f);
       templateReal = (plainTemplateReal*re - plainTemplateImag*im);
       templateImag = (plainTemplateReal*im + plainTemplateImag*re);
-      
-      //fprintf(outInj,"%lf %e %e %e %e %e\n",i*deltaF ,templateReal,tmp_re,templateImag,tmp_im, sqrt(dataPtr->oneSidedNoisePowerSpectrum->data->data[i]));
-        fprintf(outInj,"%lf %e %e %e %e %e\n",i*deltaF ,creal(dataPtr->freqData->data->data[i]),cimag(dataPtr->freqData->data->data[i]),templateReal,templateImag,1.0/dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
-        dataPtr->noff->data->data[i]= crect(creal( dataPtr->freqData->data->data[i]),cimag(dataPtr->freqData->data->data[i]));
+      //fprintf(outInj,"%lf %e %e %e %e %e\n",i*deltaF ,creal(dataPtr->freqData->data->data[i]),cimag(dataPtr->freqData->data->data[i]),templateReal,templateImag,1.0/dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
+      dataPtr->noff->data->data[i]= crect(creal( dataPtr->freqData->data->data[i]),cimag(dataPtr->freqData->data->data[i])); 
       dataPtr->freqData->data->data[i] += crect( templateReal, templateImag );
    
       temp = ((2.0/( deltaT*(double) dataPtr->timeData->data->length) * (templateReal*templateReal+templateImag*templateImag)) / dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
@@ -2458,8 +2459,10 @@ static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , REAL8 trigtime){
     fclose(snrout);
 }
 
-/** Fill the variables passed in vars with the parameters of the injection passed in event
-    will over-write and destroy any existing parameters. Param vary type will be fixed */
+/**
+ * Fill the variables passed in vars with the parameters of the injection passed in event
+ * will over-write and destroy any existing parameters. Param vary type will be fixed
+ */
 void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInferenceVariables *vars)
 {
     UINT4 spinCheck=0;
@@ -2467,8 +2470,6 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
 	XLALPrintError("Encountered NULL variables pointer");
    	XLAL_ERROR_VOID(XLAL_EINVAL);
 	}
-    /* Destroy existing parameters */
-    if(vars->head!=NULL) LALInferenceClearVariables(vars);
     enforce_m1_larger_m2(theEventTable);
     REAL8 q = theEventTable->mass2 / theEventTable->mass1;
     if (q > 1.0) q = 1.0/q;
@@ -2530,11 +2531,12 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
     LALInferenceAddVariable(vars, "time", &injGPSTime, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "distance", &dist, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "inclination", &inclination, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "theta_JN", &inclination, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "polarisation", &(psi), LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "phase", &phase, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "declination", &dec, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "rightascension", &ra, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    LALInferenceAddVariable(vars, "LAL_APPROXIMANT", &injapprox, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "LAL_APPROXIMANT", &injapprox, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "LAL_PNORDER",&order,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "LAL_AMPORDER", &(theEventTable->amp_order), LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     if(spinCheck){
@@ -2632,7 +2634,13 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState)
     }
     REAL8 injPrior = runState->prior(runState,runState->currentParams);
     LALInferenceAddVariable(runState->currentParams,"logPrior",&injPrior,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
-    REAL8 injL = runState->likelihood(runState->currentParams, runState->data, runState->templt);
+    int errnum=0;
+    REAL8 injL=0.;
+    XLAL_TRY(injL = runState->likelihood(runState->currentParams, runState->data, runState->templt), errnum);
+    if(errnum){
+        fprintf(stderr,"ERROR: Cannot print injection sample. Received error code %s\n",XLALErrorString(errnum));
+    }
+
     LALInferenceAddVariable(runState->currentParams,"logL",(void *)&injL,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
     if(LALInferenceCheckVariable(runState->algorithmParams,"logZnoise")){
         REAL8 tmp=injL-*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams,"logZnoise");
@@ -2925,9 +2933,10 @@ void enforce_m1_larger_m2(SimInspiralTable* injEvent){
     REAL8 m1,m2,tmp;
     m1=injEvent->mass1;
     m2=injEvent->mass2;
-    fprintf(stdout, "Injtable has m1<m2. Flipping masses and spins in injection. Shifting phase by pi. \n");
+   
     if (m1>=m2) return;
-    else{        
+    else{
+        fprintf(stdout, "Injtable has m1<m2. Flipping masses and spins in injection. Shifting phase by pi. \n");
         tmp=m1;
         injEvent->mass1=injEvent->mass2;
         injEvent->mass2=tmp;

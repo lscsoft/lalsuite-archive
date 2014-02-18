@@ -311,7 +311,7 @@ def add_metadata(xmldoc, metadata_cache, verbose = False):
 
 
 def initialize_process(xmldoc, comment = u""):
-	return llwapp.append_process(xmldoc, program = u"ligolw_thinca_to_coinc", version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
+	return ligolw_process.append_process(xmldoc, program = u"ligolw_thinca_to_coinc", version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 
 #
@@ -1643,7 +1643,7 @@ for (tag, veto_category), url_pairs in url_categories.items():
 		if metadata_cache is not None:
 			add_metadata(xmldoc, metadata_cache, verbose = options.verbose)
 
-		llwapp.set_process_end_time(process)
+		ligolw_process.set_process_end_time(process)
 
 		if output_template:
 			output = output_template % n

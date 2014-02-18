@@ -91,6 +91,96 @@ void LALInferenceInitCBCTemplate(LALInferenceRunState *runState)
   return;
 }
 
+/* Setup the glitch model */
+void LALInferenceInitGlitchVariables(LALInferenceRunState *runState)
+{
+  ProcessParamsTable    *commandLine   = runState->commandLine;
+  LALInferenceIFOData   *dataPtr       = runState->data;
+  LALInferenceVariables *priorArgs     = runState->priorArgs;
+  LALInferenceVariables *proposalArgs  = runState->proposalArgs;
+  LALInferenceVariables *currentParams = runState->currentParams;
+
+  UINT4 i,nifo;
+  UINT4 n = (UINT4)dataPtr->timeData->data->length;
+  UINT4 gflag  = 1;
+  REAL8 gmin   = 0.0;
+  REAL8 gmax   = 15.0;
+
+  //over-ride default gmax from command line
+  if(LALInferenceGetProcParamVal(commandLine, "--glitchNmax"))
+    gmax = (REAL8)atoi(LALInferenceGetProcParamVal(commandLine, "--glitchNmax")->value);
+
+  //count interferometers in network before allocating memory
+  //compute imin,imax for each IFO -- may be different
+  nifo=0;
+  dataPtr = runState->data;
+  while (dataPtr != NULL)
+  {
+    dataPtr = dataPtr->next;
+    nifo++;
+  }
+  dataPtr = runState->data;
+
+  UINT4Vector *gsize  = XLALCreateUINT4Vector(nifo);
+  //Meyer?? REAL8Vector *gprior = XLALCreateREAL8Vector((int)gmax+1);
+
+  //Morlet??
+  gsl_matrix *mAmp = gsl_matrix_alloc(nifo,(int)(gmax));
+  gsl_matrix *mf0  = gsl_matrix_alloc(nifo,(int)(gmax));
+  gsl_matrix *mQ   = gsl_matrix_alloc(nifo,(int)(gmax));
+  gsl_matrix *mt0  = gsl_matrix_alloc(nifo,(int)(gmax));
+  gsl_matrix *mphi = gsl_matrix_alloc(nifo,(int)(gmax));
+
+  double Amin,Amax;
+  double Qmin,Qmax;
+  double f_min,f_max;
+  double tmin,tmax;
+  double pmin,pmax;
+
+  REAL8 TwoDeltaToverN = 2.0 * dataPtr->timeData->deltaT / ((double) dataPtr->timeData->data->length);
+  Amin = 1.0   / sqrt(TwoDeltaToverN);
+  Amax = 100.0 / sqrt(TwoDeltaToverN);
+
+  Qmin = 3.0;
+  Qmax = 30.0;
+  tmin = 0.0;
+  tmax = dataPtr->timeData->data->length*dataPtr->timeData->deltaT;
+  f_min = dataPtr->fLow;
+  f_max = dataPtr->fHigh;
+  pmin = 0.0;
+  pmax = LAL_TWOPI;
+
+  gsl_matrix  *gFD       = gsl_matrix_alloc(nifo,(int)n); //store the Fourier-domain glitch signal
+  gsl_matrix  *gpower    = gsl_matrix_alloc(nifo,(int)n); //store the (normalized) wavelet power in each pixel
+  REAL8Vector *maxpower  = XLALCreateREAL8Vector(nifo);   //store the maximum power in any pixel for each ifo (for rejection sampling proposed wavelets)
+
+  for(i=0; i<nifo; i++) gsize->data[i]=0;
+
+  //Morlet wavelet parameters
+  LALInferenceAddVariable(currentParams, "morlet_FD",  &gFD,  LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(currentParams, "morlet_Amp", &mAmp, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(currentParams, "morlet_f0" , &mf0,  LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(currentParams, "morlet_Q"  , &mQ,   LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(currentParams, "morlet_t0" , &mt0,  LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(currentParams, "morlet_phi", &mphi, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_LINEAR);
+
+  LALInferenceAddVariable(currentParams, "glitch_size",   &gsize, LALINFERENCE_UINT4Vector_t, LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(currentParams, "glitchFitFlag", &gflag, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+
+  LALInferenceAddMinMaxPrior(priorArgs, "morlet_Amp_prior", &Amin, &Amax, LALINFERENCE_REAL8_t);
+  LALInferenceAddMinMaxPrior(priorArgs, "morlet_f0_prior" , &f_min, &f_max, LALINFERENCE_REAL8_t);
+  LALInferenceAddMinMaxPrior(priorArgs, "morlet_Q_prior"  , &Qmin, &Qmax, LALINFERENCE_REAL8_t);
+  LALInferenceAddMinMaxPrior(priorArgs, "morlet_t0_prior" , &tmin, &tmax, LALINFERENCE_REAL8_t);
+  LALInferenceAddMinMaxPrior(priorArgs, "morlet_phi_prior", &pmin, &pmax, LALINFERENCE_REAL8_t);
+
+  LALInferenceAddMinMaxPrior(priorArgs, "glitch_dim", &gmin, &gmax, LALINFERENCE_REAL8_t);
+
+  //Meyer-wavelet based proposal distribution
+  LALInferenceAddVariable(proposalArgs, "glitch_max_power", &maxpower, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(proposalArgs, "glitch_power", &gpower, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED);
+
+}
+
 void LALInferenceRegisterUniformVariableREAL8(LALInferenceRunState *state, LALInferenceVariables *var, const char name[VARNAME_MAX], REAL8 startval, REAL8 min, REAL8 max, LALInferenceParamVaryType varytype)
 {
   char minopt[VARNAME_MAX+7];
@@ -155,7 +245,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
                                                                            SpinQuadTaylor, SpinTaylorFrameless, SpinTaylorT4, \n\
                                                                            PhenSpinTaylorRD, NumRel.\n\
                                                default modeldomain=\"frequency\": TaylorF1, TaylorF2, TaylorF2RedSpin, \n\
-                                                                                TaylorF2RedSpinTidal, IMRPhenomA, IMRPhenomB.\n\
+                                                                                TaylorF2RedSpinTidal, IMRPhenomA, IMRPhenomB, IMRPhenomP.\n\
                (--amporder PNorder)            Specify a PN order in amplitude to use (defaults: LALSimulation: max available; LALInspiral: newtownian).\n\
                (--fref fRef)                   Specify a reference frequency at which parameters are defined (default 0).\n\
                (--tidal)                       Enables tidal corrections, only with LALSimulation.\n\
@@ -214,6 +304,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
                (--distance-min MIN)                    Minimum distance in Mpc (1).\n\
                (--distance-max MAX)                    Maximum distance in Mpc (100).\n\
                (--dt time)                             Width of time prior, centred around trigger (0.1s).\n\
+               (--malmquistPrior)              Rejection sample based on SNR of template \n\
                Equation of state parameters:\n\
                (--lambda1-min)                         Minimum lambda1 (0).\n\
                (--lambda1-max)                         Maximum lambda1 (3000).\n\
@@ -265,6 +356,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
   int errnum;
   SimInspiralTable *injTable=NULL;
   LALInferenceVariables *priorArgs=state->priorArgs;
+  LALInferenceVariables *proposalArgs=state->proposalArgs;
   state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
   LALInferenceVariables *currentParams=state->currentParams;
   ProcessParamsTable *commandLine=state->commandLine;
@@ -273,9 +365,9 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
   LALPNOrder PhaseOrder=-1;
   LALPNOrder AmpOrder=-1;
   Approximant approx=NumApproximants;
-  REAL8 fRef = 0.0;
+  REAL8 fRef = 100.0;
   LALInferenceApplyTaper bookends = LALINFERENCE_TAPER_NONE;
-  LALInferenceFrame frame = LALINFERENCE_FRAME_RADIATION;
+  LALInferenceFrame frame = LALINFERENCE_FRAME_SYSTEM;
   UINT4 analytic=0;
   LALInferenceIFOData *dataPtr;
   LALSimulationDomain modelDomain;
@@ -340,6 +432,12 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
   else if (LALInferenceGetProcParamVal(commandLine, "--rosenbrockLikelihood"))
   {
     return(LALInferenceInitVariablesReviewEvidence_banana(state));
+  }
+
+  if(LALInferenceGetProcParamVal(commandLine,"--malmquistPrior"))
+  {
+    UINT4 malmquistflag=1;
+    LALInferenceAddVariable(currentParams, "malmquistPrior",&malmquistflag,LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
   }
 
   if(LALInferenceGetProcParamVal(commandLine,"--skyLocPrior")){
@@ -749,9 +847,9 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
     LALInferenceAddVariable(currentParams, "newswitch", &newswitch, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
   }
 
-  ppt=LALInferenceGetProcParamVal(commandLine, "--system-frame");
+  ppt=LALInferenceGetProcParamVal(commandLine, "--radiation-frame");
   if(ppt){
-    frame = LALINFERENCE_FRAME_SYSTEM;
+    frame = LALINFERENCE_FRAME_RADIATION;
   }
   LALInferenceAddVariable(currentParams, "LALINFERENCE_FRAME", &frame, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
 
@@ -761,7 +859,8 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
   UINT4 nscale_block; //number of noise parameters per IFO (1 per frequency block)
   UINT4 nscale_bin;   //number of Fourier bins in each noise block
   REAL8 nscale_dflog; //logarithmic spacing for noise parameters
-
+  REAL8 nscale_min;   //minimum value for psd scale parameter
+  REAL8 nscale_max;   //maximum value for psd scale parameters
   UINT4 nscale_dim;   //total dimension of noise model (params X detectors)
   UINT4 nscale_flag;  //flag to tell likelihood function if psd fitting is in use
 
@@ -948,7 +1047,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
       {
         printf(" %f-%f ",gsl_matrix_get(bands_min,i,j)*df,gsl_matrix_get(bands_max,i,j)*df);
       }
-
+      printf("\n");
       dataPtr = dataPtr->next;
       i++;
     }
@@ -956,8 +1055,8 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
     nscale_bin   = (f_max+1-f_min)/nscale_block;
     nscale_dflog = log( (double)(f_max+1)/(double)f_min )/(double)nscale_block;
 
-    //nscale_min   = 0.00;
-    //nscale_max   = 10.0;
+    nscale_min   = 1.0e-1;
+    nscale_max   = 1.0e+1;
     nscale_dim   = nscale_block*nifo;
     nscale_flag  = 1;
 
@@ -966,20 +1065,14 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
     nscale_sigma = XLALCreateREAL8Vector(nscale_block);
     for(i=0; i<nscale_block; i++)
     {
-      nscale_prior->data[i] = 1.0/sqrt( f_min*exp( (double)(i+1)*nscale_dflog ) );
+      nscale_prior->data[i] = 1.0/sqrt( gsl_matrix_get(bands_max,0,i)-gsl_matrix_get(bands_min,0,i) );
       nscale_sigma->data[i] = nscale_prior->data[i]/sqrt((double)(nifo*nscale_block));
-
     }
 
     gsl_matrix *nscale = gsl_matrix_alloc(nifo,nscale_block);
-    gsl_matrix *nstore = gsl_matrix_alloc(nifo,nscale_block);
-
     gsl_matrix_set_all(nscale, 1.0);
-    gsl_matrix_set_all(nstore, 1.0);
-
 
     LALInferenceAddVariable(currentParams, "psdscale", &nscale, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_LINEAR);
-    LALInferenceAddVariable(currentParams, "psdstore", &nstore, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(currentParams, "logdeltaf", &nscale_dflog, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
     LALInferenceAddVariable(currentParams, "psdBandsMin", &bands_min, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED);
@@ -987,13 +1080,13 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
 
     //Set up noise priors
     LALInferenceAddVariable(priorArgs,      "psddim",   &nscale_dim,  LALINFERENCE_INT4_t,  LALINFERENCE_PARAM_FIXED);
-    //LALInferenceAddMinMaxPrior(priorArgs,   "psdscale", &nscale_min,  &nscale_max,   LALINFERENCE_REAL8_t);
+    LALInferenceAddMinMaxPrior(priorArgs,   "psdrange", &nscale_min,  &nscale_max,   LALINFERENCE_REAL8_t);
     LALInferenceAddVariable(priorArgs,      "psdsigma", &nscale_prior, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED);
 
     //Store meta data for noise model in proposal
-    LALInferenceAddVariable(state->proposalArgs, "psdblock", &nscale_block, LALINFERENCE_INT4_t,  LALINFERENCE_PARAM_FIXED);
-    LALInferenceAddVariable(state->proposalArgs, "psdbin",   &nscale_bin,   LALINFERENCE_INT4_t,  LALINFERENCE_PARAM_FIXED);
-    LALInferenceAddVariable(state->proposalArgs, "psdsigma", &nscale_sigma, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(proposalArgs, "psdblock", &nscale_block, LALINFERENCE_INT4_t,  LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(proposalArgs, "psdbin",   &nscale_bin,   LALINFERENCE_INT4_t,  LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(proposalArgs, "psdsigma", &nscale_sigma, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED);
 
 
   }//End of noise model initialization
@@ -1161,8 +1254,16 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
   }//End of line-removal initialization
    
   LALInferenceAddVariable(currentParams, "removeLinesFlag", &lines_flag, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
-  /*********************************************************************************/
+  if(LALInferenceGetProcParamVal(commandLine, "--glitchFit")) LALInferenceInitGlitchVariables(state);
 
+  UINT4 signal_flag=1;
+  ppt = LALInferenceGetProcParamVal(commandLine, "--noiseonly");
+  if(ppt)signal_flag=0;
+  LALInferenceAddVariable(currentParams, "signalModelFlag", &signal_flag,  LALINFERENCE_INT4_t,  LALINFERENCE_PARAM_FIXED);
+
+  //Only add waveform parameters to model if needed
+  if(signal_flag)
+  {
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixMc");
     if(ppt){
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "chirpmass", start_mc, mcMin, mcMax, LALINFERENCE_PARAM_FIXED);
@@ -1191,26 +1292,32 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
       }
     }
   
-  ppt=LALInferenceGetProcParamVal(commandLine,"--fixTime");
-  if(ppt){
-    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "time", timeParam, timeMin, timeMax, LALINFERENCE_PARAM_FIXED);
-    if(lalDebugLevel>0) fprintf(stdout,"time fixed and set to %f\n",timeParam);
-  }else{
-    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "time", timeParam, timeMin, timeMax, LALINFERENCE_PARAM_LINEAR);
-  }
-
-  if(!LALInferenceGetProcParamVal(commandLine,"--margphi")){
-    ppt=LALInferenceGetProcParamVal(commandLine,"--fixPhi");
-    if(ppt){
-      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "phase", start_phase, phiMin, phiMax, LALINFERENCE_PARAM_FIXED);
-      if(lalDebugLevel>0) fprintf(stdout,"phase fixed and set to %f\n",start_phase);
-    }else{
-      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "phase", start_phase, phiMin, phiMax, LALINFERENCE_PARAM_CIRCULAR);
+    if(!LALInferenceGetProcParamVal(commandLine,"--margtime") && !LALInferenceGetProcParamVal(commandLine, "--margtimephi")){
+      ppt=LALInferenceGetProcParamVal(commandLine,"--fixTime");
+      if(ppt){
+        LALInferenceRegisterUniformVariableREAL8(state, currentParams, "time", timeParam, timeMin, timeMax, LALINFERENCE_PARAM_FIXED);
+        if(lalDebugLevel>0) fprintf(stdout,"time fixed and set to %f\n",timeParam);
+      }else{
+        LALInferenceRegisterUniformVariableREAL8(state, currentParams, "time", timeParam, timeMin, timeMax, LALINFERENCE_PARAM_LINEAR);
+      }
+    } else {
+      LALInferenceAddMinMaxPrior(currentParams, "time" , &timeMin, &timeMax, LALINFERENCE_REAL8_t);
+//      LALInferenceAddVariable(currentParams, "time_prior_low", &timeMin, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+//      LALInferenceAddVariable(currentParams, "time_prior_high", &timeMax, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     }
-  }
+
+    if(!LALInferenceGetProcParamVal(commandLine,"--margphi") && !LALInferenceGetProcParamVal(commandLine, "--margtimephi")){
+      ppt=LALInferenceGetProcParamVal(commandLine,"--fixPhi");
+      if(ppt){
+	LALInferenceRegisterUniformVariableREAL8(state, currentParams, "phase", start_phase, phiMin, phiMax, LALINFERENCE_PARAM_FIXED);
+	if(lalDebugLevel>0) fprintf(stdout,"phase fixed and set to %f\n",start_phase);
+      }else{
+	LALInferenceRegisterUniformVariableREAL8(state, currentParams, "phase", start_phase, phiMin, phiMax, LALINFERENCE_PARAM_CIRCULAR);
+      }
+    }
   
   if(LALInferenceGetProcParamVal(commandLine,"--use-logdistance")){
-    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "distance", log(start_dist), log(Dmin), log(Dmax), LALInferenceGetProcParamVal(commandLine,"--fixDist")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "logdistance", log(start_dist), log(Dmin), log(Dmax), LALInferenceGetProcParamVal(commandLine,"--fixDist")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
   } else {
     LALInferenceRegisterUniformVariableREAL8(state, currentParams, "distance", start_dist, Dmin, Dmax, LALInferenceGetProcParamVal(commandLine,"--fixDist")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
   }
@@ -1221,41 +1328,94 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
   
   LALInferenceRegisterUniformVariableREAL8(state, currentParams, "polarisation", start_psi, psiMin, psiMax, LALInferenceGetProcParamVal(commandLine,"--fixPsi")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
   
-  if(frame==LALINFERENCE_FRAME_RADIATION){
-    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "inclination", start_iota, iotaMin, iotaMax, LALInferenceGetProcParamVal(commandLine,"--fixIota")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
-    
-  } else if(frame==LALINFERENCE_FRAME_SYSTEM){
-    
-    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "theta_JN", start_theta_JN, thetaJNmin, thetaJNmax, LALInferenceGetProcParamVal(commandLine,"--fixThetaJN")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
-
-    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "phi_JL", start_phi_JL, phiJLmin, phiJLmax, LALInferenceGetProcParamVal(commandLine,"--fixPhiJL")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_CIRCULAR);
-
-  }
-
   /* Check for spin disabled */
   ppt=LALInferenceGetProcParamVal(commandLine, "--noSpin");
-  if (!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--diable-spin");
+  if (!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--disable-spin");
   if (ppt) noSpin=1;
   
   /* Check for aligned spin */
   ppt=LALInferenceGetProcParamVal(commandLine, "--spinAligned");
   if (!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--aligned-spin");
-  if(ppt) spinAligned=1;
+  if(ppt){
+    spinAligned=1;
+    if(lalDebugLevel>0) fprintf(stdout,"Running with spin1 and spin2 aligned to the orbital angular momentum.\n");
+  }
   
   /* Check for single spin */
   ppt=LALInferenceGetProcParamVal(commandLine,"--singleSpin");
-  if(ppt) singleSpin=1;
+  if(ppt){
+    singleSpin=1;
+    fprintf(stdout,"Running with second spin set to 0\n");
+  }
   
-  if((approx==SpinTaylor || approx==SpinTaylorFrameless || approx==PhenSpinTaylorRD || approx==SpinTaylorT4 || approx==SpinTaylorF2) && !noSpin){
-    if(frame==LALINFERENCE_FRAME_RADIATION) {
+  if(frame==LALINFERENCE_FRAME_SYSTEM){
+
+    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "theta_JN", start_theta_JN, thetaJNmin, thetaJNmax, LALInferenceGetProcParamVal(commandLine,"--fixThetaJN")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
+    if (XLALSimInspiralGetSpinSupportFromApproximant(approx)==LAL_SIM_INSPIRAL_PRECESSINGSPIN && !(noSpin || spinAligned))
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "phi_JL", start_phi_JL, phiJLmin, phiJLmax, LALInferenceGetProcParamVal(commandLine,"--fixPhiJL")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_CIRCULAR);
+
+  }
+  else if(frame==LALINFERENCE_FRAME_RADIATION){
+    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "inclination", start_iota, iotaMin, iotaMax, LALInferenceGetProcParamVal(commandLine,"--fixIota")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
+  }
+
+  if(XLALSimInspiralGetSpinSupportFromApproximant(approx)==LAL_SIM_INSPIRAL_PRECESSINGSPIN && !noSpin){
+    if (frame==LALINFERENCE_FRAME_SYSTEM) {
+
+      if(spinAligned && !(LALInferenceGetProcParamVal(commandLine,"--a-min"))) a1min=-1.0;
+
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "a_spin1", start_a_spin1, a1min, a1max,\
+      LALInferenceGetProcParamVal(commandLine,"--fixA1")? LALINFERENCE_PARAM_FIXED: LALINFERENCE_PARAM_LINEAR);
+
+      LALInferenceParamVaryType spin2vary=LALInferenceGetProcParamVal(commandLine,"--fixA2")? LALINFERENCE_PARAM_FIXED: LALINFERENCE_PARAM_LINEAR;
+      if (singleSpin){
+        /* If single spin is used, spin2 magnitude and angles must be pinned to 0. Set magnitude=0 here*/
+        start_a_spin2=0.0;
+        spin2vary=LALINFERENCE_PARAM_FIXED;
+      }
+      else if(spinAligned){
+        /* If spin aligned, the spin range goes between [-1 and 1]*/
+        a2min=-1.0;
+      }
+
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "a_spin2", start_a_spin2, a2min, a2max,spin2vary);
+
+      LALInferenceParamVaryType tilt1Vary=LALINFERENCE_PARAM_LINEAR;
+      LALInferenceParamVaryType tilt2Vary=LALINFERENCE_PARAM_LINEAR;
+      LALInferenceParamVaryType phi12Vary=LALINFERENCE_PARAM_LINEAR;
+
+      /* Check if only spin1 is being used and/or if spins are aligned*/
+      if(singleSpin || spinAligned){
+        /* Both casees requires tilt2 and phi12 to be pinned */
+        tilt2Vary=LALINFERENCE_PARAM_FIXED;
+        phi12Vary=LALINFERENCE_PARAM_FIXED;
+        start_tilt_spin2 = 0.0;
+        start_phi_12 = 0.0;
+        if (spinAligned){
+          /* spinAligned also require tilt1 to be pinned*/
+          tilt1Vary=LALINFERENCE_PARAM_FIXED;
+          start_tilt_spin1 = 0.0;
+          }
+        }
+
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "tilt_spin1", start_tilt_spin1, tilt1min,\
+	  tilt1max, LALInferenceGetProcParamVal(commandLine,"--fixTilt1")?LALINFERENCE_PARAM_FIXED: tilt1Vary);
+
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "phi12", start_phi_12, phi12min,\
+	  phi12max, LALInferenceGetProcParamVal(commandLine,"--fixPhi12")?LALINFERENCE_PARAM_FIXED: phi12Vary);
+
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "tilt_spin2", start_tilt_spin2, tilt2min,\
+	  tilt2max, LALInferenceGetProcParamVal(commandLine,"--fixTilt2")?LALINFERENCE_PARAM_FIXED: tilt2Vary);
+
+    }
+    else if(frame==LALINFERENCE_FRAME_RADIATION) {
       if(spinAligned && !(LALInferenceGetProcParamVal(commandLine,"--a-min"))) a1min=-1.0;
      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "a_spin1", start_a_spin1, a1min, a1max, LALInferenceGetProcParamVal(commandLine,"--fixA1")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
      
       if(spinAligned) fprintf(stdout,"Running with spin1 aligned to the orbital angular momentum.\n");
       else {
-	LALInferenceRegisterUniformVariableREAL8(state,currentParams,"theta_spin1", start_theta_spin1, theta1min, theta1max, LALInferenceGetProcParamVal(commandLine,"--fixTheta1")? LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
-
-	LALInferenceRegisterUniformVariableREAL8(state,currentParams,"phi_spin1", start_phi_spin1, phi1min, phi1max, LALInferenceGetProcParamVal(commandLine,"--fixPhi1")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
+        LALInferenceRegisterUniformVariableREAL8(state,currentParams,"theta_spin1", start_theta_spin1, theta1min, theta1max, LALInferenceGetProcParamVal(commandLine,"--fixTheta1")? LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
+        LALInferenceRegisterUniformVariableREAL8(state,currentParams,"phi_spin1", start_phi_spin1, phi1min, phi1max, LALInferenceGetProcParamVal(commandLine,"--fixPhi1")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
  
       }
       if(singleSpin) fprintf(stdout,"Running with first spin set to 0\n");
@@ -1273,48 +1433,14 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
         }
       }
     }
-    else if (frame==LALINFERENCE_FRAME_SYSTEM) {
-     
-      if(spinAligned && !(LALInferenceGetProcParamVal(commandLine,"--a-min"))) a1min=-1.0;
-     
-      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "a_spin1", start_a_spin1, a1min, a1max,\
-      LALInferenceGetProcParamVal(commandLine,"--fixA1")? LALINFERENCE_PARAM_FIXED: LALINFERENCE_PARAM_LINEAR);
-
-      if(LALInferenceGetProcParamVal(commandLine, "--singleSpin")) {
-	fprintf(stdout,"Running with second spin set to 0\n");
-      }
-      else {
-        if(spinAligned) a2min=-1.0;
-	LALInferenceRegisterUniformVariableREAL8(state, currentParams, "a_spin2", start_a_spin2, a2min, a2max,\
-	    LALInferenceGetProcParamVal(commandLine,"--fixA2")? LALINFERENCE_PARAM_FIXED: LALINFERENCE_PARAM_LINEAR);
-      }
-      
-      LALInferenceParamVaryType tiltVary=LALINFERENCE_PARAM_LINEAR;
-      if(spinAligned){
-        if(lalDebugLevel>0) fprintf(stdout,"Running with spin1 and spin2 aligned to the orbital angular momentum.\n");
-	tiltVary=LALINFERENCE_PARAM_FIXED;
-        start_tilt_spin1 = 0.0;
-        start_tilt_spin2 = 0.0;
-        start_phi_12 = 0.0;
-      }
-      
-      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "tilt_spin1", start_tilt_spin1, tilt1min,\
-	  tilt1max, LALInferenceGetProcParamVal(commandLine,"--fixTilt1")?LALINFERENCE_PARAM_FIXED: tiltVary);
-      
-      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "phi12", start_phi_12, phi12min,\
-	  phi12max, LALInferenceGetProcParamVal(commandLine,"--fixPhi12")?LALINFERENCE_PARAM_FIXED: tiltVary);
-      
-      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "tilt_spin2", start_tilt_spin2, tilt2min,\
-	  tilt2max, LALInferenceGetProcParamVal(commandLine,"--fixTilt2")?LALINFERENCE_PARAM_FIXED: tiltVary);
-      
-    } else {
+     else {
       XLALPrintError("Error: unknown frame %i\n",frame);
       XLAL_ERROR_NULL(XLAL_EINVAL);
     }
   }
 
   /* Spin-aligned-only templates */
-  if((approx==TaylorF2 || approx==TaylorF2RedSpin || approx==TaylorF2RedSpinTidal || approx==IMRPhenomB || approx==SEOBNRv1) && spinAligned){
+  if(XLALSimInspiralGetSpinSupportFromApproximant(approx)==LAL_SIM_INSPIRAL_ALIGNEDSPIN && spinAligned){
 
     if(!(ppt=LALInferenceGetProcParamVal(commandLine,"--a-min"))) a2min=a1min=-1.0;
     else a2min=a1min=atof(ppt->value);
@@ -1378,6 +1504,14 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
      fprintf(stdout,"\n\n---\t\t ---\n");
      fprintf(stdout,"Templates will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i tidal order %i, in the %s domain.\n",approx,XLALGetStringFromApproximant(approx),PhaseOrder,AmpOrder,(int) spinO, (int) tideO, modelDomain==LAL_SIM_DOMAIN_TIME?"time":"frequency");
      fprintf(stdout,"---\t\t ---\n\n");
+  }//end of signal only flag
+  else
+  {
+    /* Print info about orders and waveflags used for templates */
+    fprintf(stdout,"\n\n------\n");
+    fprintf(stdout,"Noise only run\n");
+    fprintf(stdout,"------\n\n");
+  }
   return(currentParams);
 }
 
@@ -1619,4 +1753,92 @@ static void print_flags_orders_warning(SimInspiralTable *injt, ProcessParamsTabl
     else
        XLALPrintWarning("WARNING: You did not set the tidal order. Injection and template will use default values (%i). You change that using --inj-tidalOrder (set injection value) and --tidalOrder (set template value).\n",default_tideO); 
     return;    
+}
+
+void LALInferenceCheckOptionsConsistency(ProcessParamsTable *commandLine)
+
+{ /*
+  Go through options and check for possible errors and inconsistencies (e.g. seglen < 0 )
+  
+  */
+  
+  ProcessParamsTable *ppt=NULL,*ppt2=NULL;
+  REAL8 tmp=0.0;
+  INT4 itmp=0;
+  
+  ppt=LALInferenceGetProcParamVal(commandLine,"--help");
+  if (ppt)
+    return;
+    
+  // Check PSDlength > 0
+  ppt=LALInferenceGetProcParamVal(commandLine,"--psdlength");
+  if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--PSDlength");
+  tmp=atof(ppt->value);
+  if (tmp<0.0){
+    fprintf(stderr,"ERROR: PSD length must be positive. Exiting...\n");
+    exit(1);
+  }
+  // Check seglen > 0
+  ppt=LALInferenceGetProcParamVal(commandLine,"--seglen");
+  if (!ppt){
+    XLALPrintError("Must provide segment length with --seglen. Exiting...");
+    exit(1);
+  }
+  tmp=atof(ppt->value);
+  if (tmp<0.0){
+    fprintf(stderr,"ERROR: seglen must be positive. Exiting...\n");
+    exit(1);
+  }
+
+  
+  /* Flags consistency */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--disable-spin");
+  ppt2=LALInferenceGetProcParamVal(commandLine,"--noSpin");
+  if (ppt || ppt2){
+    ppt2=LALInferenceGetProcParamVal(commandLine,"--system-frame");
+    if (ppt2){
+      fprintf(stderr,"--system-frame and --disable-spin are incompatible options. If you do not want to use a spinning template remove --system-frame. Exiting\n");
+    }
+    ppt2=LALInferenceGetProcParamVal(commandLine,"--spinO");
+    if (ppt2){
+      itmp=atoi(ppt2->value);
+      if (itmp>0 || itmp==-1)
+        XLALPrintWarning("--spinO > 0 or -1 will be ignored due to --disable-spin. If you want to include spin terms in the template, remove --disable-spin\n");
+        exit(1);
+      }
+    if (!ppt2){
+      XLALPrintWarning("--spinO defaulted to -1. This will be ignored due to --disable-spin. If you want to include spin terms in the template, remove --disable-spin\n");
+      }
+  }
+  
+  /* lalinference_nest only checks */
+  // Check live points
+  ppt=LALInferenceGetProcParamVal(commandLine,"--nlive");
+  if (ppt){
+    itmp=atoi(ppt->value);
+    if (itmp<0){
+      fprintf(stderr,"ERROR: nlive must be positive. Exiting...\n");
+      exit(1);
+    }
+    if (itmp<100){
+      XLALPrintWarning("WARNING: Using %d live points. This is very little and may lead to unreliable results. Consider increasing.\n",itmp);
+    }
+    if (itmp>5000){
+      XLALPrintWarning("WARNING: Using %d live points. This is a very large number and may lead to very long runs. Consider decreasing.\n",itmp);
+    }
+  }
+  // Check nmcmc points
+  ppt=LALInferenceGetProcParamVal(commandLine,"--nmcmc");
+  if (ppt){
+    itmp=atoi(ppt->value);
+    if (itmp<0){
+      fprintf(stderr,"ERROR: nmcmc must be positive (or omitted). Exiting...\n");
+      exit(1);
+    }
+    if (itmp<100){
+      XLALPrintWarning("WARNING: Using %d nmcmc. This is very little and may lead to unreliable results. Consider increasing.\n",itmp);
+    }
+  }
+  
+  return;
 }

@@ -25,15 +25,16 @@
 
 
 try:
-	from fpconst import PosInf, NegInf
+	from fpconst import NaN, PosInf
 except ImportError:
 	# fpconst is not part of the standard library and might not be
 	# available
+	NaN = float("nan")
 	PosInf = float("+inf")
-	NegInf = float("-inf")
 import math
 import sys
 import traceback
+import warnings
 
 
 from pylal import git_version
@@ -84,21 +85,20 @@ __date__ = git_version.date
 #     1 + (Lambda - 1) * P(coinc is g.w.)                 P(noise params)
 #
 # Differentiating w.r.t. Lambda shows the derivative is always positive, so
-# this is a monotonically increasing function of Lambda --> thresholding on
-# Lambda is equivalent to thresholding on P(coinc is a g.w. | its
-# parameters).  The limits:  Lambda=0 --> P(coinc is a g.w. | its
-# parameters)=0, Lambda=+inf --> P(coinc is a g.w. | its
-# parameters)=P(coinc is g.w.), Lambda=0/0 --> P(coinc is a g.w. | its
-# parameters)=0/0.  We interpret the last case to be 0.
+# thresholding on Lambda is equivalent to thresholding on P(coinc is a g.w.
+# | its parameters).  The limits:  Lambda=0 --> P(coinc is a g.w. | its
+# parameters)=0, Lambda=+inf --> P(coinc is a g.w. | its parameters)=1.  We
+# interpret Lambda=0/0 to mean P(coinc is a g.w. | its parameters)=0 since
+# although it can't be noise it's definitely not a g.w..  We do not protect
+# against NaNs in the Lambda = +inf/+inf case.
 
 
-#
-# Class for computing foreground likelihoods from the measurements in a
-# BurcaCoincParamsDistributions instance.
-#
-
-
-class Likelihood(object):
+class LikelihoodRatio(object):
+	"""
+	Class for computing signal hypothesis / noise hypothesis likelihood
+	ratios from the measurements in a
+	snglcoinc.CoincParamsDistributions instance.
+	"""
 	def __init__(self, coinc_param_distributions):
 		# check input
 		if set(coinc_param_distributions.background_rates) != set(coinc_param_distributions.injection_rates):
@@ -111,60 +111,15 @@ class Likelihood(object):
 		self.background_rates = dict((name, rate.InterpBinnedArray(binnedarray)) for name, binnedarray in coinc_param_distributions.background_rates.items())
 		self.injection_rates = dict((name, rate.InterpBinnedArray(binnedarray)) for name, binnedarray in coinc_param_distributions.injection_rates.items())
 
-	def set_P_gw(self, P):
-		self.P_gw = P
-
 	def P(self, params):
 		if params is None:
 			return None, None
 		P_bak = 1.0
 		P_inj = 1.0
 		for name, value in params.items():
-			P_bak *= float(self.background_rates[name](*value))
-			P_inj *= float(self.injection_rates[name](*value))
+			P_bak *= self.background_rates[name](*value)
+			P_inj *= self.injection_rates[name](*value)
 		return P_bak, P_inj
-
-	def __call__(self, params):
-		"""
-		Compute the likelihood that the coincident n-tuple of
-		events is the result of a gravitational wave:  the
-		probability that the hypothesis "the events are a
-		gravitational wave" is correct, in the context of the
-		measured background and foreground distributions, and the
-		intrinsic rate of gravitational wave coincidences.  offsets
-		is a dictionary of instrument --> offset mappings to be
-		used to time shift the events before comparison.
-		"""
-		P_bak, P_inj = self.P(params)
-		if P_bak is None and P_inj is None:
-			return None
-		return (P_inj * self.P_gw) / (P_bak + (P_inj - P_bak) * self.P_gw)
-
-
-class Confidence(Likelihood):
-	def __call__(self, params):
-		"""
-		Compute the confidence that the list of events are the
-		result of a gravitational wave:  -ln[1 - P(gw)], where
-		P(gw) is the likelihood returned by the Likelihood class.
-		A set of events very much like gravitational waves will
-		have a likelihood of being a gravitational wave very close
-		to 1, so 1 - P is a small positive number, and so -ln of
-		that is a large positive number.
-		"""
-		P_bak, P_inj = self.P(params)
-		if P_bak is None and P_inj is None:
-			return None
-		return  math.log(P_bak + (P_inj - P_bak) * self.P_gw) - math.log(P_inj) - math.log(self.P_gw)
-
-
-class LikelihoodRatio(Likelihood):
-	def set_P_gw(self, P):
-		"""
-		Raises NotImplementedError.  The likelihood ratio is
-		computed without using this parameter.
-		"""
-		raise NotImplementedError
 
 	def __call__(self, params):
 		"""
@@ -183,18 +138,21 @@ class LikelihoodRatio(Likelihood):
 		if P_bak is None and P_inj is None:
 			return None
 		if P_bak == 0.0 and P_inj == 0.0:
-			# this can happen.  "correct" answer is 0, not NaN,
-			# because if a tuple of events has been found in a
-			# region of parameter space where the probability
-			# of an injection occuring is 0 then there is no
-			# way this is an injection.  there is also,
-			# aparently, no way it's a noise event, but that's
-			# irrelevant because we are supposed to be
-			# computing something that is a monotonically
-			# increasing function of the probability that an
-			# event tuple is a gravitational wave, which is 0
-			# in this part of the parameter space.
+			# "correct" answer is 0, not NaN, because if a
+			# tuple of events has been found in a region of
+			# parameter space where the probability of an
+			# injection occuring is 0 then there is no way this
+			# is an injection.  there is also, aparently, no
+			# way it's a noise event, but that's irrelevant
+			# because we are supposed to be computing something
+			# that is a monotonically increasing function of
+			# the probability that an event tuple is a
+			# gravitational wave, which is 0 in this part of
+			# the parameter space.
 			return 0.0
+		if math.isinf(P_bak) and math.isinf(P_inj):
+			warnings.warn("inf/inf encountered")
+			return NaN
 		try:
 			return  P_inj / P_bak
 		except ZeroDivisionError:

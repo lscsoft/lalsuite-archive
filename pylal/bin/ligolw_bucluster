@@ -33,9 +33,9 @@ from glue.lal import CacheEntry
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import ligolw_bucluster
-from pylal import llwapp
 
 
 lsctables.use_in(ligolw.LIGOLWContentHandler)
@@ -167,7 +167,7 @@ for filename in filenames:
 	# Finish process information
 	#
 
-	llwapp.set_process_end_time(process)
+	ligolw_process.set_process_end_time(process)
 
 	#
 	# Write document

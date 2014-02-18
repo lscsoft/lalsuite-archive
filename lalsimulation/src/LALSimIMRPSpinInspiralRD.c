@@ -71,7 +71,7 @@ typedef struct tagLALSimInspiralPhenSpinTaylorT4Coeffs {
   REAL8 eta; ///< symmetric mass ratio
   REAL8 m1ByM; ///< m1 / M
   REAL8 m2ByM; ///< m2 / M
-  REAL8 dt;
+  REAL8 dt; ///< UNDOCUMENTED
   REAL8 wdotnewt; ///< leading order coefficient of wdot = \f$\dot{\omega}\f$
   REAL8 wdotcoeff[LAL_MAX_PN_ORDER]; ///< coeffs. of PN corrections to wdot
   REAL8 wdotlogcoeff; ///< coefficient of log term in wdot
@@ -103,10 +103,10 @@ typedef struct tagLALSimInspiralPhenSpinTaylorT4Coeffs {
   REAL8 wdottidal6pn;	///< next to leading order tidal correction
   REAL8 Etidal5pn; ///< leading order tidal correction to energy
   REAL8 Etidal6pn; ///< next to leading order tidal correction to energy
-  REAL8 S1dot15, S2dot15;
-  REAL8 Sdot2S1S2,Sdot2LS1LS2;
-  REAL8 S1dot2LS1LS1,S2dot2LS2LS2;
-  REAL8 S1dot25, S2dot25;
+  REAL8 S1dot15, S2dot15;  ///< UNDOCUMENTED
+  REAL8 Sdot2S1S2,Sdot2LS1LS2;  ///< UNDOCUMENTED
+  REAL8 S1dot2LS1LS1,S2dot2LS2LS2;  ///< UNDOCUMENTED
+  REAL8 S1dot25, S2dot25;  ///< UNDOCUMENTED
   REAL8 fStart; ///< starting GW frequency of integration
   REAL8 fEnd; ///< ending GW frequency of integration
 } LALSimInspiralPhenSpinTaylorT4Coeffs;
@@ -156,15 +156,15 @@ static REAL8 fracRD(REAL8 LNhS1, REAL8 LNhS2, REAL8 S1S1, REAL8 S1S2, REAL8 S2S2
 /**
  * Convenience function to set up XLALSimInspiralSpinTaylotT4Coeffs struct
  */
-static INT4 XLALSimIMRPhenSpinParamsSetup(LALSimInspiralPhenSpinTaylorT4Coeffs  *params, /** PN params [returned] */
-                                         REAL8 dt,                                      /** Sampling in secs */
-                                         REAL8 fStart,                                  /** Starting frequency of integration*/
-                                         REAL8 fEnd,                                    /** Ending frequency of integration*/
-                                         REAL8 mass1,                                   /** Mass 1 in solar mass units */
-                                         REAL8 mass2,                                   /** Mass 2 in solar mass units */
-                                         LALSimInspiralSpinOrder spinO,                 /** Spin interaction */
-                                         LALSimInspiralTestGRParam *testGR,             /** Test GR param */
-                                         UINT4 order                                    /** twice PN Order in Phase */
+static INT4 XLALSimIMRPhenSpinParamsSetup(LALSimInspiralPhenSpinTaylorT4Coeffs  *params, /**< PN params [returned] */
+                                         REAL8 dt,                                      /**< Sampling in secs */
+                                         REAL8 fStart,                                  /**< Starting frequency of integration*/
+                                         REAL8 fEnd,                                    /**< Ending frequency of integration*/
+                                         REAL8 mass1,                                   /**< Mass 1 in solar mass units */
+                                         REAL8 mass2,                                   /**< Mass 2 in solar mass units */
+                                         LALSimInspiralSpinOrder spinO,                 /**< Spin interaction */
+                                         LALSimInspiralTestGRParam *testGR,             /**< Test GR param */
+                                         UINT4 order                                    /**< twice PN Order in Phase */
 )
 {
   /* Zero the coefficients */
@@ -206,8 +206,8 @@ static INT4 XLALSimIMRPhenSpinParamsSetup(LALSimInspiralPhenSpinTaylorT4Coeffs  
     case 5:
       params->Ecoeff[5]     = 0.;
       params->wdotcoeff[5]  = XLALSimInspiralTaylorT4Phasing_5PNCoeff(params->eta);
-      params->ESO25s1     = XLALSimInspiralPNEnergy_5PNSOCoeffs1(params->m1ByM);
-      params->ESO25s2     = XLALSimInspiralPNEnergy_5PNSOCoeffs1(params->m1ByM);
+      params->ESO25s1     = XLALSimInspiralPNEnergy_5PNSOCoeff(params->m1ByM);
+      params->ESO25s2     = XLALSimInspiralPNEnergy_5PNSOCoeff(params->m1ByM);
       params->wdotSO25s1  = XLALSimInspiralTaylorT4Phasing_5PNSLCoeff(params->m1ByM);
       params->wdotSO25s2  = XLALSimInspiralTaylorT4Phasing_5PNSLCoeff(params->m2ByM);
       params->S1dot25     = XLALSimInspiralSpinDot_5PNCoeff(params->m1ByM);
@@ -863,10 +863,11 @@ static INT4 XLALSimInspiralSpinTaylorT4Engine(REAL8TimeSeries **omega,      /**<
                                              REAL8TimeSeries **S2y,        /**< "    "    "  y component [returned]*/
                                              REAL8TimeSeries **S2z,        /**< "    "    "  z component [returned]*/
                                              REAL8TimeSeries **Energy,     /**< Energy                   [returned]*/
-                                             const REAL8 yinit[],
-                                             const INT4  lengthH,
-                                             const Approximant approx,     /** Allow to choose w/o ringdown */
-                                             LALSimInspiralPhenSpinTaylorT4Coeffs *params)
+                                             const REAL8 yinit[],          /**< UNDOCUMENTED */
+                                             const INT4  lengthH,          /**< UNDOCUMENTED */
+                                             const Approximant approx,     /**< Allow to choose w/o ringdown */
+                                             LALSimInspiralPhenSpinTaylorT4Coeffs *params /**< UNDOCUMENTED */
+                                             )
 {
   UINT4 idx;
   INT4 jdx;
@@ -995,7 +996,8 @@ static INT4 XLALSimInspiralComputeInclAngle(REAL8 ciota, LALSimInspiralInclAngle
 
 } /* End of XLALSimInspiralComputeInclAngle*/
 
-/** The following lines are necessary in the case L is initially parallel to
+/**
+ * The following lines are necessary in the case L is initially parallel to
  * N so that alpha is undefined at the beginning but different from zero at the first
  * step (this happens if the spins are not aligned with L).
  * Such a discontinuity of alpha would induce
@@ -1004,7 +1006,7 @@ static INT4 XLALSimInspiralComputeInclAngle(REAL8 ciota, LALSimInspiralInclAngle
  * case alpha can be safely set to the previous value, just before L becomes parallel
  * to N. In the case L stays all the time parallel to N than alpha can be
  * safely set to zero, as it is.
- **/
+ */
 
 static INT4 XLALSimInspiralComputeAlpha(LALSimInspiralPhenSpinTaylorT4Coeffs params, REAL8 LNhx, REAL8 LNhy, REAL8 S1x, REAL8 S1y, REAL8 S2x, REAL8 S2y,REAL8 *alpha){
   if ((LNhy*LNhy+LNhx*LNhx)==0.) {
@@ -1025,31 +1027,32 @@ static INT4 XLALSimInspiralComputeAlpha(LALSimInspiralPhenSpinTaylorT4Coeffs par
   return XLAL_SUCCESS;
 } /*End of XLALSimInspiralComputeAlpha*/
 
-/** Here we use the following convention:
- *  the coordinates of the spin vectors spin1,2 and the inclination
- *  variable refers to different physical parameters according to the value of
- *  axisChoice:
- *  * LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L: inclination denotes the angle
- *            between the view direction N and the initial L
- *            (initial L//z, N in the x-z plane) and the spin
- *            coordinates are given with respect to initial L.
- *  * LAL_SIM_INSPIRAL_FRAME_AXIS_TOTAL_J:   inclination denotes the angle
- *            between the view direction and J (J is constant during the
- *            evolution, J//z, both N and initial L are in the x-z plane)
- *            and the spin coordinates are given wrt initial L.
- *  * LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW:     inclination denotes the angle
- *            between the initial L and N (N//z, initial L in the x-z plane)
- *            and the spin coordinates are given with respect to N.
+/**
+ * Here we use the following convention:
+ * the coordinates of the spin vectors spin1,2 and the inclination
+ * variable refers to different physical parameters according to the value of
+ * axisChoice:
+ * * LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L: inclination denotes the angle
+ * between the view direction N and the initial L
+ * (initial L//z, N in the x-z plane) and the spin
+ * coordinates are given with respect to initial L.
+ * * LAL_SIM_INSPIRAL_FRAME_AXIS_TOTAL_J:   inclination denotes the angle
+ * between the view direction and J (J is constant during the
+ * evolution, J//z, both N and initial L are in the x-z plane)
+ * and the spin coordinates are given wrt initial L.
+ * * LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW:     inclination denotes the angle
+ * between the initial L and N (N//z, initial L in the x-z plane)
+ * and the spin coordinates are given with respect to N.
  *
- *   In order to reproduce the results of the SpinTaylor code View must be chosen.
- *   The spin magnitude are normalized to the individual mass^2, i.e.
- *   they are dimension-less.
- *   The modulus of the initial angular momentum is fixed by m1,m2 and
- *   initial frequency.
- *   The polarization angle is not used here, it enters the pattern
- *   functions along with the angles marking the sky position of the
- *   source.
- **/
+ * In order to reproduce the results of the SpinTaylor code View must be chosen.
+ * The spin magnitude are normalized to the individual mass^2, i.e.
+ * they are dimension-less.
+ * The modulus of the initial angular momentum is fixed by m1,m2 and
+ * initial frequency.
+ * The polarization angle is not used here, it enters the pattern
+ * functions along with the angles marking the sky position of the
+ * source.
+ */
 
 /*static void rotateX(REAL8 phi,REAL8 *vx, REAL8 *vy, REAL8 *vz){
   REAL8 tmp[3]={*vx,*vy,*vz};
@@ -1194,7 +1197,7 @@ static INT4 XLALSimIMRPhenSpinInspiralSetAxis(REAL8 mass1, /* in MSun units */
 
 /**
  * PhenSpin Initialization
- **/
+ */
 
 static INT4 XLALSimIMRPhenSpinInitialize(REAL8 mass1,                              /* in Msun units */
                                         REAL8 mass2,                              /* in Msun units */
@@ -1631,15 +1634,15 @@ INT4 XLALSimIMRPhenSpinFinalMassSpin(REAL8 *finalMass,
 } /* End of XLALSimIMRPhenSpinFinalMassSpin*/
 
 static INT4 XLALSimIMRHybridRingdownWave(
-    REAL8Vector                 *rdwave1,   /**<< Real part of ringdown */
-    REAL8Vector                 *rdwave2,   /**<< Imaginary part of ringdown */
-    const REAL8                 dt,         /**<< Sampling interval */
-    const REAL8                 mass1,      /**<< First component mass (in Solar masses) */
-    const REAL8                 mass2,      /**<< Second component mass (in Solar masses) */
-    REAL8VectorSequence         *inspwave1, /**<< Values and derivatives of real part of inspiral waveform */
-    REAL8VectorSequence         *inspwave2, /**<< Values and derivatives of Imaginary part of inspiral waveform */
-    COMPLEX16Vector             *modefreqs, /**<< Complex frequencies of ringdown (scaled by total mass) */
-    REAL8Vector                 *matchrange /**<< Times which determine the comb size for ringdown attachment */
+    REAL8Vector                 *rdwave1,   /**< Real part of ringdown */
+    REAL8Vector                 *rdwave2,   /**< Imaginary part of ringdown */
+    const REAL8                 dt,         /**< Sampling interval */
+    const REAL8                 mass1,      /**< First component mass (in Solar masses) */
+    const REAL8                 mass2,      /**< Second component mass (in Solar masses) */
+    REAL8VectorSequence         *inspwave1, /**< Values and derivatives of real part of inspiral waveform */
+    REAL8VectorSequence         *inspwave2, /**< Values and derivatives of Imaginary part of inspiral waveform */
+    COMPLEX16Vector             *modefreqs, /**< Complex frequencies of ringdown (scaled by total mass) */
+    REAL8Vector                 *matchrange /**< Times which determine the comb size for ringdown attachment */
 )
 {
 
@@ -1908,7 +1911,7 @@ static INT4 XLALUpSampling(REAL8Vector* vHi, REAL8 dtHi, REAL8Vector* v, REAL8 d
 
 /**
  * Driver routine for generating PhenSpinRD waveforms
- **/
+ */
 
 INT4 XLALSimIMRPhenSpinInspiralRDGenerator(REAL8TimeSeries **hPlus,               /**< +-polarization waveform [returned] */
                                           REAL8TimeSeries **hCross,              /**< x-polarization waveform [returned] */

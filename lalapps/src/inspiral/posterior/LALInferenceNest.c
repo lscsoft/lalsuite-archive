@@ -73,7 +73,8 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
 	char help[]="\
 Initialisation arguments:\n\
 (--verbose [N])\tOutput more info. N=1: errors, N=2 (default): warnings, N=3: info \n\
-(--randomseed seed           Random seed for Nested Sampling)\n\n";
+(--randomseed seed           Random seed for Nested Sampling)\
+(--resume)\tAllow non-condor checkpointing every 4 hours. If give will check for OUTFILE_resume and continue if possible\n\n";
 	LALInferenceRunState *irs=NULL;
 	LALInferenceIFOData *ifoPtr, *ifoListStart;
 	ProcessParamsTable *ppt=NULL;
@@ -82,8 +83,6 @@ Initialisation arguments:\n\
 	FILE *devrandom;
 	
 	irs = XLALCalloc(1, sizeof(LALInferenceRunState));
-	/* read data from files: */
-	fprintf(stdout, " readData(): started.\n");
 	irs->commandLine=commandLine;
 	
 	/* Initialise parameters structure */
@@ -121,6 +120,10 @@ Initialisation arguments:\n\
 	}
 	
   /*This is in common for both CBC and burst injections */
+	LALInferenceCheckOptionsConsistency(commandLine);
+  /* read data from files: */
+	fprintf(stdout, " readData(): started.\n");
+
 	irs->data = LALInferenceReadData(commandLine);
 
 	/* (this will already initialise each LALIFOData's following elements:  */
@@ -244,10 +247,8 @@ Nested sampling arguments:\n\
 (--Nruns R)\tNumber of parallel samples from logt to use(1)\n\
 (--tolerance dZ)\tTolerance of nested sampling algorithm (0.1)\n\
 (--randomseed seed)\tRandom seed of sampling distribution\n\
-(--iotaDistance FRAC)\tPTMCMC: Use iota-distance jump FRAC of the time\n\
-(--covarianceMatrix)\tPTMCMC: Propose jumps from covariance matrix of current live points\n\
-(--differential-evolution)\tPTMCMC:Use differential evolution jumps\n\
 (--prior_distr )\t Set the prior to use (for the moment the only possible choice is SkyLoc which will use the sky localization project prior. All other values or skipping this option select LALInferenceInspiralPriorNormalised)\n\n\
+(--sampleprior N)\t For Testing: Draw N samples from the prior, will not perform the nested sampling integral\n\
   ---------------------------------------------------------------------------------------------------\n\
   --- Noise Model -----------------------------------------------------------------------------------\n\
   ---------------------------------------------------------------------------------------------------\n\

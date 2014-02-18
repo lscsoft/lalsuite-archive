@@ -40,13 +40,12 @@ import bisect
 import sys
 
 
-from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import ligolw_thinca
 from pylal import ligolw_tisi
-from pylal import llwapp
 from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal.xlal import tools
@@ -109,8 +108,8 @@ class DocContents(object):
 		# locate the sngl_inspiral and sim_inspiral tables
 		#
 
-		self.snglinspiraltable = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-		self.siminspiraltable = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
+		self.snglinspiraltable = lsctables.SnglInspiralTable.get_table(xmldoc)
+		self.siminspiraltable = lsctables.SimInspiralTable.get_table(xmldoc)
 
 		#
 		# get out segment lists for programs that generated
@@ -118,7 +117,7 @@ class DocContents(object):
 		# construction)
 		#
 
-		seglists = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set(self.snglinspiraltable.getColumnByName("process_id"))).coalesce()
+		seglists = lsctables.SearchSummaryTable.get_table(xmldoc).get_out_segmentlistdict(set(self.snglinspiraltable.getColumnByName("process_id"))).coalesce()
 
 		#
 		# construct the zero-lag time slide needed to cover the
@@ -137,7 +136,7 @@ class DocContents(object):
 		# document doesn't have one
 		#
 
-		self.sb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, sbdef.search, sbdef.search_coinc_type, create_new = True, description = sbdef.description)
+		self.sb_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, sbdef.search, sbdef.search_coinc_type, create_new = True, description = sbdef.description)
 
 		#
 		# get coinc_def_id's for sngl_inspiral <--> sngl_inspiral, and
@@ -147,21 +146,21 @@ class DocContents(object):
 		#
 
 		try:
-			ii_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, bbdef.search, bbdef.search_coinc_type, create_new = False)
+			ii_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, bbdef.search, bbdef.search_coinc_type, create_new = False)
 		except KeyError:
 			ii_coinc_def_id = None
 			self.sce_coinc_def_id = None
 			self.scn_coinc_def_id = None
 		else:
-			self.sce_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scedef.search, scedef.search_coinc_type, create_new = True, description = scedef.description)
-			self.scn_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scndef.search, scndef.search_coinc_type, create_new = True, description = scndef.description)
+			self.sce_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, scedef.search, scedef.search_coinc_type, create_new = True, description = scedef.description)
+			self.scn_coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, scndef.search, scndef.search_coinc_type, create_new = True, description = scndef.description)
 
 		#
 		# get coinc table, create one if needed
 		#
 
 		try:
-			self.coinctable = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+			self.coinctable = lsctables.CoincTable.get_table(xmldoc)
 		except ValueError:
 			self.coinctable = lsctables.New(lsctables.CoincTable)
 			xmldoc.childNodes[0].appendChild(self.coinctable)
@@ -172,7 +171,7 @@ class DocContents(object):
 		#
 
 		try:
-			self.coincmaptable = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+			self.coincmaptable = lsctables.CoincMapTable.get_table(xmldoc)
 		except ValueError:
 			self.coincmaptable = lsctables.New(lsctables.CoincMapTable)
 			xmldoc.childNodes[0].appendChild(self.coincmaptable)
@@ -292,7 +291,7 @@ def append_process(xmldoc, match_algorithm, comment):
 	"""
 	Convenience wrapper for adding process metadata to the document.
 	"""
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
+	process = ligolw_process.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [(u"--match-algorithm", u"lstring", match_algorithm)]
 	ligolw_process.append_process_params(xmldoc, process, params)

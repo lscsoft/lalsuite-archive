@@ -18,7 +18,6 @@
  *  MA  02111-1307  USA
  */
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/DopplerScan.h>
 #include <lal/PulsarCrossCorr.h>
 #include <gsl/gsl_permutation.h>
@@ -137,13 +136,15 @@ void LALCreateSFTPairsIndicesFrom2SFTvectors(LALStatus          *status,
 } /* CreateSFTPairsIndicesFrom2SFTvectors */
 
 
-/** Correlate a single pair of SFT at a parameter space point. This function calculates Y_alpha
- *  according to Eqn 4.1 in Dhurandar et al 2008, where
- *  Y_alpha = (xI* xJ)/Delta T^2
- *  sft1 and sft2 have been normalised by LALNormalizeSFT in pulsar_crosscorr.c, so they are actually
- *  sft1 = xI/sqrt(psd1), sft2 = xJ/sqrt(psd2)
- *  Therefore, when calculating the output, we need to have
- *  out = sft1*sqrt(psd1)*sft2*sqrt(psd2)/Delta T^2 */
+/**
+ * Correlate a single pair of SFT at a parameter space point. This function calculates Y_alpha
+ * according to Eqn 4.1 in Dhurandar et al 2008, where
+ * Y_alpha = (xI* xJ)/Delta T^2
+ * sft1 and sft2 have been normalised by LALNormalizeSFT in pulsar_crosscorr.c, so they are actually
+ * sft1 = xI/sqrt(psd1), sft2 = xJ/sqrt(psd2)
+ * Therefore, when calculating the output, we need to have
+ * out = sft1*sqrt(psd1)*sft2*sqrt(psd2)/Delta T^2
+ */
 void LALCorrelateSingleSFTPair(LALStatus                *status,
 			       COMPLEX16                *out,
 			       COMPLEX8FrequencySeries  *sft1,
@@ -180,8 +181,7 @@ void LALCorrelateSingleSFTPair(LALStatus                *status,
   re2 = crealf(sft2->data->data[bin2]);
   im2 = cimagf(sft2->data->data[bin2]);
 
-  out->real_FIXME = (deltaF * deltaF * sqrt(psd1->data->data[bin1] * psd2->data->data[bin2])) * (re1*re2 + im1*im2);
-  out->imag_FIXME = (deltaF * deltaF * sqrt(psd1->data->data[bin1] * psd2->data->data[bin2])) * (re1*im2 - re2*im1);
+  *(out) = crect( (deltaF * deltaF * sqrt(psd1->data->data[bin1] * psd2->data->data[bin2])) * (re1*re2 + im1*im2), (deltaF * deltaF * sqrt(psd1->data->data[bin1] * psd2->data->data[bin2])) * (re1*im2 - re2*im1) );
 
 /*
 printf("bin1 bin2 %d %d\n", bin1, bin2);
@@ -358,8 +358,7 @@ void LALCalculateAveUalpha(LALStatus *status,
   im = - 0.1 * sin(deltaPhi) * ((beamfnsI.a * beamfnsJ.a) + (beamfnsI.b * beamfnsJ.b));
 
   /*calculate Ualpha*/
-  out->real_FIXME = re/(sigmasq);
-  out->imag_FIXME = -im/(sigmasq);
+  *(out) = crect( re/(sigmasq), -im/(sigmasq) );
 
   DETATCHSTATUSPTR (status);
 
@@ -415,11 +414,9 @@ void LALCalculateUalpha(LALStatus *status,
 	          - (sin(deltaPhi) * (FplusI*FplusJ*amplitudes.Aplussq + FcrossI*FcrossJ * amplitudes.Acrosssq)) );
 
   /*calculate estimators*/
-  gplus->real_FIXME = 0.25*cos(deltaPhi)*FplusI*FplusJ;
-  gplus->imag_FIXME = 0.25*(-sin(deltaPhi))*FplusI*FplusJ;
+  *(gplus) = crect( 0.25*cos(deltaPhi)*FplusI*FplusJ, 0.25*(-sin(deltaPhi))*FplusI*FplusJ );
 
-  gcross->real_FIXME = 0.25*cos(deltaPhi)*FcrossI*FcrossJ;
-  gcross->imag_FIXME = 0.25*(-sin(deltaPhi))*FcrossI*FcrossJ;
+  *(gcross) = crect( 0.25*cos(deltaPhi)*FcrossI*FcrossJ, 0.25*(-sin(deltaPhi))*FcrossI*FcrossJ );
 
 
   }
@@ -443,8 +440,7 @@ void LALCalculateUalpha(LALStatus *status,
 
 
   /*calculate Ualpha*/
-  out->real_FIXME = re/(sigmasq);
-  out->imag_FIXME = -im/(sigmasq);
+  *(out) = crect( re/(sigmasq), -im/(sigmasq) );
 
 
 

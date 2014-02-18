@@ -21,7 +21,7 @@
 
 /*
  * Functions to calculate the so-called F-statistic for a given point in parameter-space,
- * following the equations in \ref JKS98.
+ * following the equations in \cite JKS98.
  *
  * This code is partly a descendant of an earlier implementation found in
  * LALDemod.[ch] by Jolien Creighton, Maria Alessandra Papa, Reinhard Prix, Steve Berukoff, Xavier Siemens, Bruce Allen
@@ -34,7 +34,6 @@
 #define __USE_ISOC99 1
 #include <math.h>
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/ExtrapolatePulsarSpins.h>
 #include <lal/FindRoot.h>
 
@@ -111,14 +110,15 @@ static double gsl_E_solver ( REAL8 E, void *par )
 /*==================== FUNCTION DEFINITIONS ====================*/
 
 
-/** Function to compute a vector of Fstatistic values for a number of frequency bins.
-    This function is simply a wrapper for ComputeFstat() which is called repeatedly for
-    every frequency value.  The output, i.e. fstatVector must be properly allocated
-    before this function is called.  The values of the start frequency, the step size
-    in the frequency and the number of frequency values for which the Fstatistic is
-    to be calculated are read from fstatVector.  The other parameters are not checked and
-    they must be correctly set outside this function.
-*/
+/**
+ * Function to compute a vector of Fstatistic values for a number of frequency bins.
+ * This function is simply a wrapper for ComputeFstat() which is called repeatedly for
+ * every frequency value.  The output, i.e. fstatVector must be properly allocated
+ * before this function is called.  The values of the start frequency, the step size
+ * in the frequency and the number of frequency values for which the Fstatistic is
+ * to be calculated are read from fstatVector.  The other parameters are not checked and
+ * they must be correctly set outside this function.
+ */
 void ComputeFStatFreqBand ( LALStatus *status,				/**< pointer to LALStatus structure */
 			    REAL4FrequencySeries *fstatVector, 		/**< [out] Vector of Fstat values */
 			    const PulsarDopplerParams *doppler,		/**< parameter-space point to compute F for */
@@ -154,9 +154,11 @@ void ComputeFStatFreqBand ( LALStatus *status,				/**< pointer to LALStatus stru
       ABORT (status, COMPUTEFSTATC_EINPUT, COMPUTEFSTATC_MSGEINPUT );
     }
 
-  /** something to improve/cleanup -- the start frequency is available both
-      from the fstatvector and from the input doppler point -- they could be inconsistent
-      or the user of this function could misunderstand */
+/**
+ * something to improve/cleanup -- the start frequency is available both
+ * from the fstatvector and from the input doppler point -- they could be inconsistent
+ * or the user of this function could misunderstand
+ */
 
   /* a check that the f0 values from thisPoint and fstatVector are
      at least close to each other -- this is only meant to catch
@@ -194,9 +196,10 @@ void ComputeFStatFreqBand ( LALStatus *status,				/**< pointer to LALStatus stru
 
 
 
-/** Function to compute (multi-IFO) F-statistic for given parameter-space point \a doppler,
- *  normalized SFT-data (normalized by <em>double-sided</em> PSD Sn), noise-weights
- *  and detector state-series
+/**
+ * Function to compute (multi-IFO) F-statistic for given parameter-space point \a doppler,
+ * normalized SFT-data (normalized by <em>double-sided</em> PSD Sn), noise-weights
+ * and detector state-series
  *
  * NOTE: for better efficiency some quantities that need to be recomputed only for different
  * sky-positions are buffered in \a cfBuffer if given.
@@ -452,12 +455,10 @@ ComputeFStat ( LALStatus *status,				/**< pointer to LALStatus structure */
         } /* if returnSingleF */
 
       /* Fa = sum_X Fa_X */
-      retF.Fa.real_FIXME += creal(FcX.Fa);
-      retF.Fa.imag_FIXME += cimag(FcX.Fa);
+      retF.Fa += FcX.Fa;
 
       /* Fb = sum_X Fb_X */
-      retF.Fb.real_FIXME += creal(FcX.Fb);
-      retF.Fb.imag_FIXME += cimag(FcX.Fb);
+      retF.Fb += FcX.Fb;
 
     } /* for  X < numDetectors */
 
@@ -498,7 +499,8 @@ ComputeFStat ( LALStatus *status,				/**< pointer to LALStatus structure */
 } /* ComputeFStat() */
 
 
-/** Revamped version of LALDemod() (based on TestLALDemod() in CFS).
+/**
+ * Revamped version of LALDemod() (based on TestLALDemod() in CFS).
  * Compute JKS's Fa and Fb, which are ingredients for calculating the F-statistic.
  */
 int
@@ -590,10 +592,8 @@ XLALComputeFaFb ( Fcomponents *FaFb,		      	/**< [out] Fa,Fb (and possibly atom
     if ( fkdot[spdnOrder] )
       break;
 
-  Fa.real_FIXME = 0.0f;
-  Fa.imag_FIXME = 0.0f;
-  Fb.real_FIXME = 0.0f;
-  Fb.imag_FIXME = 0.0f;
+  Fa = 0.0;
+  Fb = 0.0;
 
   a_al = amcoe->a->data;	/* point to beginning of alpha-arrays */
   b_al = amcoe->b->data;
@@ -745,15 +745,11 @@ XLALComputeFaFb ( Fcomponents *FaFb,		      	/**< [out] Fa,Fb (and possibly atom
       a_alpha = (*a_al);
       b_alpha = (*b_al);
 
-      Fa_alpha.realf_FIXME = a_alpha * realQXP;
-      Fa_alpha.imagf_FIXME = a_alpha * imagQXP;
-      Fa.real_FIXME += crealf(Fa_alpha);
-      Fa.imag_FIXME += cimagf(Fa_alpha);
+      Fa_alpha = crectf( a_alpha * realQXP, a_alpha * imagQXP );
+      Fa += crect( crealf(Fa_alpha), cimagf(Fa_alpha) );
 
-      Fb_alpha.realf_FIXME = b_alpha * realQXP;
-      Fb_alpha.imagf_FIXME = b_alpha * imagQXP;
-      Fb.real_FIXME += crealf(Fb_alpha);
-      Fb.imag_FIXME += cimagf(Fb_alpha);
+      Fb_alpha = crectf( b_alpha * realQXP, b_alpha * imagQXP );
+      Fb += crect( crealf(Fb_alpha), cimagf(Fb_alpha) );
 
       /* store per-SFT F-stat 'atoms' for transient-CW search */
       if ( params->returnAtoms )
@@ -762,10 +758,8 @@ XLALComputeFaFb ( Fcomponents *FaFb,		      	/**< [out] Fa,Fb (and possibly atom
 	  FaFb->multiFstatAtoms->data[0]->data[alpha].a2_alpha   = a_alpha * a_alpha;
 	  FaFb->multiFstatAtoms->data[0]->data[alpha].b2_alpha   = b_alpha * b_alpha;
 	  FaFb->multiFstatAtoms->data[0]->data[alpha].ab_alpha   = a_alpha * b_alpha;
-	  FaFb->multiFstatAtoms->data[0]->data[alpha].Fa_alpha.realf_FIXME   = norm * crealf(Fa_alpha);
-	  FaFb->multiFstatAtoms->data[0]->data[alpha].Fa_alpha.imagf_FIXME   = norm * cimagf(Fa_alpha);
-	  FaFb->multiFstatAtoms->data[0]->data[alpha].Fb_alpha.realf_FIXME   = norm * crealf(Fb_alpha);
-	  FaFb->multiFstatAtoms->data[0]->data[alpha].Fb_alpha.imagf_FIXME   = norm * cimagf(Fb_alpha);
+	  FaFb->multiFstatAtoms->data[0]->data[alpha].Fa_alpha = (((REAL4) norm) * Fa_alpha);
+	  FaFb->multiFstatAtoms->data[0]->data[alpha].Fb_alpha = (((REAL4) norm) * Fb_alpha);
 	}
 
       /* advance pointers over alpha */
@@ -778,17 +772,16 @@ XLALComputeFaFb ( Fcomponents *FaFb,		      	/**< [out] Fa,Fb (and possibly atom
     } /* for alpha < numSFTs */
 
   /* return result */
-  FaFb->Fa.real_FIXME = norm * creal(Fa);
-  FaFb->Fa.imag_FIXME = norm * cimag(Fa);
-  FaFb->Fb.real_FIXME = norm * creal(Fb);
-  FaFb->Fb.imag_FIXME = norm * cimag(Fb);
+  FaFb->Fa = (((REAL8) norm) * Fa);
+  FaFb->Fb = (((REAL8) norm) * Fb);
 
   return XLAL_SUCCESS;
 
 } /* XLALComputeFaFb() */
 
 
-/** Revamped version of XLALComputeFaFb() for the case where a and b
+/**
+ * Revamped version of XLALComputeFaFb() for the case where a and b
  * are complex.
  * Compute JKS's Fa and Fb, which are ingredients for
  * calculating the F-statistic.
@@ -866,10 +859,8 @@ XLALComputeFaFbCmplx ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
     if ( fkdot[spdnOrder] )
       break;
 
-  Fa.real_FIXME = 0.0f;
-  Fa.imag_FIXME = 0.0f;
-  Fb.real_FIXME = 0.0f;
-  Fb.imag_FIXME = 0.0f;
+  Fa = 0.0;
+  Fb = 0.0;
 
   a_al = amcoe->a->data;	/* point to beginning of alpha-arrays */
   b_al = amcoe->b->data;
@@ -1021,12 +1012,10 @@ XLALComputeFaFbCmplx ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
       b_alpha = (*b_al);
 
       /* Fa contains complex conjugate of a */
-      Fa.real_FIXME += crealf(a_alpha) * realQXP + cimagf(a_alpha) * imagQXP;
-      Fa.imag_FIXME += crealf(a_alpha) * imagQXP - cimagf(a_alpha) * realQXP;
+      Fa += crect( crealf(a_alpha) * realQXP + cimagf(a_alpha) * imagQXP, crealf(a_alpha) * imagQXP - cimagf(a_alpha) * realQXP );
 
       /* Fb contains complex conjugate of b */
-      Fb.real_FIXME += crealf(b_alpha) * realQXP + cimagf(b_alpha) * imagQXP;
-      Fb.imag_FIXME += crealf(b_alpha) * imagQXP - cimagf(b_alpha) * realQXP;
+      Fb += crect( crealf(b_alpha) * realQXP + cimagf(b_alpha) * imagQXP, crealf(b_alpha) * imagQXP - cimagf(b_alpha) * realQXP );
 
       /* advance pointers over alpha */
       a_al ++;
@@ -1038,17 +1027,16 @@ XLALComputeFaFbCmplx ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
     } /* for alpha < numSFTs */
 
   /* return result */
-  FaFb->Fa.real_FIXME = norm * creal(Fa);
-  FaFb->Fa.imag_FIXME = norm * cimag(Fa);
-  FaFb->Fb.real_FIXME = norm * creal(Fb);
-  FaFb->Fb.imag_FIXME = norm * cimag(Fb);
+  FaFb->Fa = (((REAL8) norm) * Fa);
+  FaFb->Fb = (((REAL8) norm) * Fb);
 
   return XLAL_SUCCESS;
 
 } /* XLALComputeFaFbCmplx() */
 
 
-/** Modified version of ComputeFaFb() based on Xavies trick:
+/**
+ * Modified version of ComputeFaFb() based on Xavies trick:
  * need sufficiently oversampled SFTs and uses ZERO Dterms.
  * Compute JKS's Fa and Fb, which are ingredients for calculating the F-statistic.
  */
@@ -1123,10 +1111,8 @@ XLALComputeFaFbXavie ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
     if ( fkdot[spdnOrder] )
       break;
 
-  Fa.real_FIXME = 0.0f;
-  Fa.imag_FIXME = 0.0f;
-  Fb.real_FIXME = 0.0f;
-  Fb.imag_FIXME = 0.0f;
+  Fa = 0.0;
+  Fb = 0.0;
 
   a_al = amcoe->a->data;	/* point to beginning of alpha-arrays */
   b_al = amcoe->b->data;
@@ -1214,10 +1200,8 @@ XLALComputeFaFbXavie ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
       a_alpha = (*a_al);
       b_alpha = (*b_al);
 
-      Fa.real_FIXME += a_alpha * realQXP;
-      Fa.imag_FIXME += a_alpha * imagQXP;
-      Fb.real_FIXME += b_alpha * realQXP;
-      Fb.imag_FIXME += b_alpha * imagQXP;
+      Fa += crect( a_alpha * realQXP, a_alpha * imagQXP );
+      Fb += crect( b_alpha * realQXP, b_alpha * imagQXP );
 
       /* advance pointers over alpha */
       a_al ++;
@@ -1229,10 +1213,8 @@ XLALComputeFaFbXavie ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
     } /* for alpha < numSFTs */
 
   /* return result */
-  FaFb->Fa.real_FIXME = creal(Fa);
-  FaFb->Fa.imag_FIXME = cimag(Fa);
-  FaFb->Fb.real_FIXME = creal(Fb);
-  FaFb->Fb.imag_FIXME = cimag(Fb);
+  FaFb->Fa = Fa;
+  FaFb->Fb = Fb;
 
   return XLAL_SUCCESS;
 
@@ -1244,9 +1226,9 @@ XLALComputeFaFbXavie ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
  * the binary orbital motion *added* to it.
  *
  * NOTE: the output vector 'tSSBOut' can be passed either
- *    - unallocated (where it must be (*tSSBOut)==NULL), and it gets allocated here, or
- *    - it can also contain a pre-existing vector, which must then be consistent (same vector lenghts)
- *      than the input SSB-vectors.
+ * - unallocated (where it must be (*tSSBOut)==NULL), and it gets allocated here, or
+ * - it can also contain a pre-existing vector, which must then be consistent (same vector lenghts)
+ * than the input SSB-vectors.
  * This is intended to minimize unnecessary repeated memory allocs+frees on successive binary templates.
  *
  * NOTE2: it is allowed to pass the same in- and output-vectors, i.e. (*tSSBOut) = tSSBIn,
@@ -1378,9 +1360,9 @@ XLALAddBinaryTimes ( SSBtimes **tSSBOut,			/**< [out] SSB timings tSSBIn with bi
  * the binary orbital motion *added* to it.
  *
  * NOTE: the output vector 'multiSSBOut' can be passed either
- *    - unallocated (where it must be (*multiSSBOut)==NULL), and it gets allocated here, or
- *    - it can also contain a pre-existing vector, which must then be consistent (same vector lenghts)
- *      than the input SSB-vectors.
+ * - unallocated (where it must be (*multiSSBOut)==NULL), and it gets allocated here, or
+ * - it can also contain a pre-existing vector, which must then be consistent (same vector lenghts)
+ * than the input SSB-vectors.
  * This is intended to minimize unnecessary repeated memory allocs+frees on successive binary templates.
  *
  * NOTE2: it is allowed to pass the same in- and output-vectors, i.e. (*multiSSBOut) = multiSSBIn,
@@ -1388,7 +1370,7 @@ XLALAddBinaryTimes ( SSBtimes **tSSBOut,			/**< [out] SSB timings tSSBIn with bi
  *
  */
 int
-XLALAddMultiBinaryTimes ( MultiSSBtimes **multiSSBOut,
+XLALAddMultiBinaryTimes ( MultiSSBtimes **multiSSBOut,		/**< [out] output SSB times */
                           const MultiSSBtimes *multiSSBIn,	/**< [in] SSB-timings for all input detector-state series */
                           const BinaryOrbitParams *binaryparams	/**< [in] source binary orbit parameters, NULL = isolated system */
                           )
@@ -1428,7 +1410,8 @@ XLALAddMultiBinaryTimes ( MultiSSBtimes **multiSSBOut,
 } /* XLALAddMultiBinaryTimes() */
 
 
-/** Duplicate (ie allocate + copy) an input SSBtimes structure.
+/**
+ * Duplicate (ie allocate + copy) an input SSBtimes structure.
  * This can be useful for creating a copy before adding binary-orbital corrections in XLALAddBinaryTimes()
  */
 SSBtimes *
@@ -1464,7 +1447,8 @@ XLALDuplicateSSBtimes ( const SSBtimes *tSSB )
 } /* XLALDuplicateSSBtimes() */
 
 
-/** Duplicate (ie allocate + copy) an input MultiSSBtimes structure.
+/**
+ * Duplicate (ie allocate + copy) an input MultiSSBtimes structure.
  */
 MultiSSBtimes *
 XLALDuplicateMultiSSBtimes ( const MultiSSBtimes *multiSSB )
@@ -1491,11 +1475,12 @@ XLALDuplicateMultiSSBtimes ( const MultiSSBtimes *multiSSB )
 
 } /* XLALDuplicateMultiSSBtimes() */
 
-/** For a given DetectorStateSeries, calculate the time-differences
- *  \f$\Delta T_\alpha\equiv T(t_\alpha) - T_0\f$, and their
- *  derivatives \f$\dot{T}_\alpha \equiv d T / d t (t_\alpha)\f$.
+/**
+ * For a given DetectorStateSeries, calculate the time-differences
+ * \f$\Delta T_\alpha\equiv T(t_\alpha) - T_0\f$, and their
+ * derivatives \f$\dot{T}_\alpha \equiv d T / d t (t_\alpha)\f$.
  *
- *  \note The return-vector is allocated here
+ * \note The return-vector is allocated here
  *
  */
 SSBtimes *
@@ -1624,7 +1609,8 @@ XLALGetSSBtimes ( const DetectorStateSeries *DetectorStates,	/**< [in] detector-
 
 } /* XLALGetSSBtimes() */
 
-/** Multi-IFO version of LALGetSSBtimes().
+/**
+ * Multi-IFO version of LALGetSSBtimes().
  * Get all SSB-timings for all input detector-series.
  *
  * NOTE: this functions *allocates* the output-vector,
@@ -1665,7 +1651,8 @@ XLALGetMultiSSBtimes ( const MultiDetectorStateSeries *multiDetStates, /**< [in]
 
 /* ===== Object creation/destruction functions ===== */
 
-/** Destroy a MultiSSBtimes structure.
+/**
+ * Destroy a MultiSSBtimes structure.
  * Note, this is "NULL-robust" in the sense that it will not crash
  * on NULL-entries anywhere in this struct, so it can be used
  * for failure-cleanup even on incomplete structs
@@ -1701,10 +1688,12 @@ XLALDestroyMultiSSBtimes ( MultiSSBtimes *multiSSB )
 } /* XLALDestroyMultiSSBtimes() */
 
 
-/** Destruction of a ComputeFBuffer *contents*,
+/**
+ * Destruction of a ComputeFBuffer *contents*,
  * i.e. the multiSSB and multiAMcoeff, while the
  * buffer-container is not freed (which is why it's passed
- * by value and not by reference...) */
+ * by value and not by reference...)
+ */
 void
 XLALEmptyComputeFBuffer ( ComputeFBuffer *cfb)
 {
@@ -1721,7 +1710,8 @@ XLALEmptyComputeFBuffer ( ComputeFBuffer *cfb)
 
 /* ===== General internal helper functions ===== */
 
-/** Calculate sin(x) and cos(x) to roughly 1e-7 precision using
+/**
+ * Calculate sin(x) and cos(x) to roughly 1e-7 precision using
  * a lookup-table and Taylor-expansion.
  *
  * NOTE: this function will fail for arguments larger than
@@ -1800,7 +1790,8 @@ sin_cos_2PI_LUT (REAL4 *sin2pix, REAL4 *cos2pix, REAL8 x)
 
 
 
-/** Parameter-estimation: based on large parts on Yousuke's notes and implemention (in CFSv1),
+/**
+ * Parameter-estimation: based on large parts on Yousuke's notes and implemention (in CFSv1),
  * extended for error-estimation.
  */
 void
@@ -2057,7 +2048,8 @@ LALEstimatePulsarAmplitudeParams (LALStatus * status,			/**< pointer to LALStatu
 
 } /* LALEstimatePulsarAmplitudeParams() */
 
-/** Function to allocate a 'FstatAtomVector' struct of num timestamps, pre-initialized to zero!
+/**
+ * Function to allocate a 'FstatAtomVector' struct of num timestamps, pre-initialized to zero!
  */
 FstatAtomVector *
 XLALCreateFstatAtomVector ( UINT4 num )
@@ -2083,7 +2075,8 @@ XLALCreateFstatAtomVector ( UINT4 num )
 
 } /* XLALCreateFstatAtomVector() */
 
-/** Function to destroy an FstatAtomVector
+/**
+ * Function to destroy an FstatAtomVector
  */
 void
 XLALDestroyFstatAtomVector ( FstatAtomVector *atoms )
@@ -2099,7 +2092,8 @@ XLALDestroyFstatAtomVector ( FstatAtomVector *atoms )
 } /* XLALDestroyFstatAtomVector() */
 
 
-/** Function to destroy a multi-FstatAtom struct
+/**
+ * Function to destroy a multi-FstatAtom struct
  */
 void
 XLALDestroyMultiFstatAtomVector ( MultiFstatAtomVector *multiFstatAtoms )
@@ -2119,9 +2113,10 @@ XLALDestroyMultiFstatAtomVector ( MultiFstatAtomVector *multiFstatAtoms )
 } /* XLALDestroyMultiFstatAtoms() */
 
 
-/** Convert amplitude-params from 'physical' coordinates {h0, cosi, psi, phi0} into
+/**
+ * Convert amplitude-params from 'physical' coordinates {h0, cosi, psi, phi0} into
  * 'canonical' coordinates A^mu = {A1, A2, A3, A4}. The equations are found in
- * \ref JKS98 or \ref Prix07 Eq.(2).
+ * \cite JKS98 or \cite Prix07 Eq.(2).
  *
  */
 int
@@ -2146,9 +2141,10 @@ XLALAmplitudeParams2Vect ( PulsarAmplitudeVect A_Mu,		/**< [out] canonical ampli
 } /* XLALAmplitudeParams2Vect() */
 
 
-/** Compute amplitude params \f$A^{\tilde{\mu}} = \{h_0,cosi,\psi,\phi_0\}\f$ from amplitude-vector \f$A^\mu\f$
+/**
+ * Compute amplitude params \f$A^{\tilde{\mu}} = \{h_0,cosi,\psi,\phi_0\}\f$ from amplitude-vector \f$A^\mu\f$
  * Adapted from algorithm in LALEstimatePulsarAmplitudeParams().
-*/
+ */
 int
 XLALAmplitudeVect2Params ( PulsarAmplitudeParams *Amp,	  /**< [out] output physical amplitude parameters {h0,cosi,psi,phi} */
                            const PulsarAmplitudeVect A_Mu /**< [in] input canonical amplitude vector A^mu = {A1,A2,A3,A4} */

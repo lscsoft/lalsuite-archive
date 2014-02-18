@@ -46,7 +46,13 @@ except ImportError:
 import itertools
 import math
 import numpy
-from scipy import interpolate
+import scipy
+if map(int, scipy.__version__.strip().split(".")) >= (0, 9):
+	from scipy.interpolate import interp1d, interp2d, LinearNDInterpolator
+else:
+	# pre 0.9 had busted/missing interpolation code.  replacements are
+	# provided below
+	pass
 from scipy.signal import signaltools
 
 
@@ -1047,7 +1053,7 @@ class InterpBinnedArray(object):
 	"""
 	Wrapper constructing a scipy.interpolate interpolator from the
 	contents of a BinnedArray.  Only piecewise linear interpolators are
-	supported.  In 1 or 2 dimensions, scipy.interpolate.interp1d or
+	supported.  In 1 and 2 dimensions, scipy.interpolate.interp1d and
 	.interp2d is used, respectively.  In more than 2 dimensions
 	scipy.interpolate.LinearNDInterpolator is used.
 	"""
@@ -1096,21 +1102,57 @@ class InterpBinnedArray(object):
 		# build the interpolator from the co-ordinates and array
 		# data
 		if len(coords) == 1:
-			#self.interp = interpolate.interp1d(coords[0], z, kind = "linear", bounds_error = False, fill_value = fill_value)
-			self.interp = interpolate.UnivariateSpline(coords[0], z, k = 1)
+			try:
+				interp1d
+			except NameError:
+				# FIXME:  remove when we can rely on a new-enough scipy
+				lo, hi = coords[0][0], coords[0][-1]
+				def interp(x):
+					if not lo < x < hi:
+						return fill_value
+					i = coords[0].searchsorted(x)
+					return z[i - 1] + (x - coords[0][i - 1]) / (coords[0][i] - coords[0][i - 1]) * (z[i] - z[i - 1])
+				self.interp = interp
+			else:
+				self.interp = interp1d(coords[0], z, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
 		elif len(coords) == 2:
-			#self.interp = interpolate.interp2d(coords[0], coords[1], z, kind = "linear", bounds_error = False, fill_value = fill_value)
-			self.interp = interpolate.RectBivariateSpline(coords[0], coords[1], z, kx = 1, ky = 1)
+			try:
+				interp2d
+			except NameError:
+				# FIXME:  remove when we can rely on a new-enough scipy
+				lox, hix = coords[0][0], coords[0][-1]
+				loy, hiy = coords[1][0], coords[1][-1]
+				def interp(x, y):
+					if not (lox < x < hix and loy < y < hiy):
+						return fill_value
+					i = coords[0].searchsorted(x)
+					j = coords[1].searchsorted(y)
+					return z[i - 1, j - 1] + (x - coords[0][i - 1]) / (coords[0][i] - coords[0][i - 1]) * (z[i, j - 1] - z[i - 1, j - 1]) + (y - coords[1][j - 1]) / (coords[1][j] - coords[1][j - 1]) * (z[i - 1, j] - z[i - 1, j - 1])
+				self.interp = interp
+			else:
+				self.interp = interp2d(coords[0], coords[1], z, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
 		else:
-			self.interp = interpolate.LinearNDInterpolator(list(itertools.product(*coords)), z.flat, fill_value = fill_value)
+			try:
+				LinearNDInterpolator
+			except NameError:
+				# FIXME:  remove when we can rely on a new-enough scipy
+				def interp(*coords):
+					try:
+						return binnedarray[coords]
+					except IndexError:
+						return fill_value
+				self.interp = interp
+			else:
+				self.interp = LinearNDInterpolator(list(itertools.product(*coords)), z.flat, fill_value = fill_value)
+
 
 	def __call__(self, *coords):
 		"""
-		Evaluate the interpolator at the given co-ordinates.  The
-		return value is array-like.
+		Evaluate the interpolator at the given co-ordinates.
 		"""
-		return self.interp(*coords)
-
+		# interpolators return an array-like thing that we convert
+		# to a scalar here
+		return float(self.interp(*coords))
 
 
 #
@@ -1454,7 +1496,7 @@ def bins_from_xml(xml):
 	describing a binning, and construct and return a rate.NDBins object
 	from it.
 	"""
-	xml = table.get_table(xml, BinsTable.tableName)
+	xml = BinsTable.get_table(xml)
 	binnings = [None] * (len(xml) and (max(xml.getColumnByName("order")) + 1))
 	for row in xml:
 		if binnings[row.order] is not None:

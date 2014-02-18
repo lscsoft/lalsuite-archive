@@ -12,8 +12,8 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw.utils import process as ligolw_process
 from pylal import ligolw_tisi
-from pylal import llwapp
 from pylal import ligolw_cafe
 from glue import pipeline
 import ConfigParser
@@ -86,7 +86,7 @@ class Tisi(object):
 				for row in ligolw_tisi.RowsFromOffsetDict(offsetdict, id, process):
 					timeslidetable.append(row)
 				N -= 1
-			llwapp.set_process_end_time(process)
+			ligolw_process.set_process_end_time(process)
 			self.filename = self.filenames.pop(0)
 			utils.write_filename(doc, self.filename, options.verbose, gz = (self.filename or "stdout").endswith(".gz"))
 

@@ -18,13 +18,14 @@
  */
 
 /*********************************************************************************/
-/** \author R. Prix
+/**
+ * \author R. Prix
  * \file
  * \brief
  * Some helper functions useful for "transient CWs", mostly applying transient window
  * functions.
  *
- *********************************************************************************/
+ */
 
 #ifndef _TRANSIENTCW_UTILS_H
 #define _TRANSIENTCW_UTILS_H
@@ -70,7 +71,8 @@ typedef struct tagtransientWindowRange_t
   UINT4 dtau;			/**< stepsize to search tau-range with, in seconds */
 } transientWindowRange_t;
 
-/** Struct holding a transient-window "F-statistic map" over start-time and timescale {t0, tau}.
+/**
+ * Struct holding a transient-window "F-statistic map" over start-time and timescale {t0, tau}.
  * This contains a 2D matrix F_mn, with m = index over start-times t0, and n = index over timescales tau,
  * in steps of dt0 in [t0, t0+t0Band], and dtau in [tau, tau+tauBand] as defined in transientWindowRange.
  *
@@ -100,6 +102,8 @@ extern const transientWindowRange_t empty_transientWindowRange;
 extern const transientFstatMap_t empty_transientFstatMap;
 
 /* ---------- exported API prototypes ---------- */
+int XLALParseTransientWindowName ( const char *windowName );
+
 int XLALGetTransientWindowTimespan ( UINT4 *t0, UINT4 *t1, transientWindow_t transientWindow );
 
 int XLALApplyTransientWindow ( REAL4TimeSeries *series, transientWindow_t TransientWindowParams );
@@ -139,8 +143,8 @@ FstatAtomVector *XLALmergeMultiFstatAtomsBinned ( const MultiFstatAtomVector *mu
 
 /* ---------- INLINE function definitions ---------- */
 
-/** Function to compute the value of a rectangular transient-window at a given timestamp.
- *
+/**
+ * Function to compute the value of a rectangular transient-window at a given timestamp.
  * This is the central function defining the rectangular window properties.
  */
 static inline REAL8
@@ -156,7 +160,8 @@ XLALGetRectangularTransientWindowValue ( UINT4 timestamp,	/**< timestamp for whi
 
 } /* XLALGetRectangularTransientWindowValue() */
 
-/** Function to compute the value of an exponential transient-window at a given timestamp.
+/**
+ * Function to compute the value of an exponential transient-window at a given timestamp.
  *
  * This is the central function defining the exponential window properties.
  */
@@ -181,7 +186,8 @@ XLALGetExponentialTransientWindowValue ( UINT4 timestamp,	/**< timestamp for whi
 
 } /* XLALGetExponentialTransientWindowValue() */
 
-/** Function to compute the value of a given transient-window function at a given timestamp.
+/**
+ * Function to compute the value of a given transient-window function at a given timestamp.
  *
  * This is a simple wrapper to the actual window-defining functions
  */

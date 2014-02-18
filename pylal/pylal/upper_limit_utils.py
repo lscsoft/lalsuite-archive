@@ -1,6 +1,4 @@
 import numpy
-from scipy import random
-from scipy import interpolate
 import bisect
 import sys
 
@@ -8,10 +6,6 @@ from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from pylal.xlal import constants
 from pylal import rate
-
-import matplotlib
-matplotlib.use("agg")
-from matplotlib import pyplot
 
 
 def margLikelihoodMonteCarlo(VTs, lambs, mu, mcerrs=None):
