@@ -507,6 +507,7 @@ class CondorDAGJob(CondorJob):
     CondorJob.set_notification(self, 'never')
     self.__var_opts = []
     self.__have_var_args = 0
+    self.__var_cmds = []
     self.__bad_macro_chars = re.compile(r'[_-]')
 
   def create_node(self):
@@ -518,7 +519,6 @@ class CondorDAGJob(CondorJob):
     input/output.
     """
     return CondorDAGNode(self)
-
 
   def add_var_opt(self, opt, short=False):
     """
@@ -543,6 +543,16 @@ class CondorDAGJob(CondorJob):
     if not self.__have_var_args:
       self.add_arg('$(macroarguments)')
       self.__have_var_args = 1
+
+  def add_var_condor_cmd(self, command):
+    """
+    Add a condor command to the submit file that allows variable (macro)
+    arguments to be passes to the executable.
+    """
+    if command not in self.__var_cmds:
+        self.__var_cmds.append(command)
+        macro = self.__bad_macro_chars.sub( r'', command )
+        self.add_condor_cmd(command, '$(macro' + macro + ')')
 
 
 class CondorDAGManJob:
@@ -924,6 +934,21 @@ class CondorDAGNode:
     associated with the underlying job template.
     """
     return self.__opts
+
+  def add_var_condor_cmd(self, command, value):
+    """
+    Add a variable (macro) condor command for this node. If the command
+    specified does not exist in the CondorJob, it is added so the submit file
+    will be correct.
+    PLEASE NOTE: AS with other add_var commands, the variable must be set for
+    all nodes that use the CondorJob instance.
+    @param command: command name
+    @param value: Value of the command for this node in the DAG/DAX.
+    """
+    macro = self.__bad_macro_chars.sub( r'', command )
+    self.__macros['macro' + macro] = value
+    self.__job.add_var_condor_cmd(command)
+    
 
   def add_var_opt(self,opt,value,short=False):
     """
