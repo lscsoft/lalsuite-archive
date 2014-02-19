@@ -46,7 +46,7 @@
 //#include <lal/LIGOLwXMLInspiralRead.h>
 #include <lal/LIGOMetadataTables.h>
 #include <lal/LIGOMetadataUtils.h>
-#include <lal/LIGOMetadataInspiralUtils.h>
+//#include <lal/LIGOMetadataInspiralUtils.h>
 
 /*
  * ============================================================================
