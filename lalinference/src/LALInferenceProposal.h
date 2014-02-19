@@ -297,12 +297,13 @@ void LALInferencePrintProposalTracking(FILE *fp, LALInferenceVariables *propArgs
 
 
 
-void NSWrapMCMCSinGaussProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
-void LALInferenceSetupSinGaussianProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+void NSWrapMCMCSineGaussProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+void LALInferenceSetupSineGaussianProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 void LALInferenceHrssQJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 void LALInferenceTimeFreqJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 void LALInferenceDifferentialEvolutionSineGaussIntrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp) ;
 void LALInferenceDifferentialEvolutionSineGaussExtrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp) ;
+void LALInferenceBurstSkyRingProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
 void LALInferenceTimeDelaysJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) ;
 

@@ -1191,7 +1191,7 @@ static double sequence_arithmetic_next(double low, double high, double delta)
  * Repeating geometric sequence.
  */
 
-
+/*
 static double sequence_geometric_next(double low, double high, double ratio)
 {
 	static unsigned i = 0;
@@ -1206,7 +1206,7 @@ static double sequence_geometric_next(double low, double high, double ratio)
 	}
 
 	return x;
-}
+}*/
 
 
 #if 0
@@ -1262,19 +1262,19 @@ static double ran_flat_log(gsl_rng *rng, double a, double b)
  * minimum ratio.
  */
 
-
+/*
 static double ran_flat_log_discrete(gsl_rng *rng, double a, double b, double ratio)
 {
 	static double factor = 0.0;
 	double x = sequence_geometric_next(a, b / ratio, ratio);
 
 	if(x == a)
-		/* sequence has looped.  must happen first time through */
+		// sequence has looped.  must happen first time through 
 		factor = ran_flat_log(rng, 1.0, ratio);
 
 	return x * factor;
 }
-
+*/
 static double draw_uniform(gsl_rng *rng, double a, double b)
 {
 return a+ (b-a)*gsl_rng_uniform(rng);	
@@ -1293,12 +1293,12 @@ static double draw_volume(gsl_rng *rng,double min,double max){
     proposed=1.0/cbrt(proposed);
     return proposed;
 }
-    
+   /* 
 static double draw_uniform_cos(gsl_rng *rng, double a, double b)
 {
 return acos(cos(a)+ (cos(b)-cos(a))*gsl_rng_uniform(rng));	
 }
-
+*/
 /* 
  * ============================================================================
  *
@@ -1394,6 +1394,11 @@ static SimBurst *random_directed_btlwnb(double ra, double dec, double psi, doubl
 	REAL8TimeSeries *hplus, *hcross;
 	SimBurst *sim_burst = XLALCreateSimBurst();
 
+  (void) minf;
+  (void) maxf;
+  (void) minEoverr2;
+  (void) maxEoverr2;
+  
 	if(!sim_burst)
 		return NULL;
 

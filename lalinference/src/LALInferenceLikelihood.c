@@ -2,7 +2,7 @@
  *  LALInferenceLikelihood.c:  Bayesian Followup likelihood functions
  *
  *  Copyright (C) 2009 Ilya Mandel, Vivien Raymond, Christian Roever,
- *  Marc van der Sluys and John Veitch, Will M. Farr
+ *  Marc van der Sluys and John Veitch, Will M. Farr, Salvatore Vitale
  *
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -58,11 +58,12 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
                  (--margtime)                     Using marginalised time likelihood.\n\
                  (--margtimephi)                  Using marginalised in time and phase likelihood\n";
 
+
     ProcessParamsTable *commandLine=runState->commandLine;
     LALInferenceIFOData *ifo=runState->data;
     ProcessParamsTable *ppt=NULL;
     ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
-
+  
     /* Print command line arguments if help requested */
     if(LALInferenceGetProcParamVal(runState->commandLine,"--help"))
     {
@@ -93,14 +94,22 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
     LALInferenceAddVariable(runState->algorithmParams,"logZnoise",&noiseZ,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
     fprintf(stdout,"Student-t Noise evidence %lf\n",noiseZ);
 
-   } else if (LALInferenceGetProcParamVal(commandLine, "--noiseonly")) {
-    fprintf(stderr, "Using noise-only likelihood.\n");
-    runState->likelihood=&LALInferenceNoiseOnlyLogLikelihood;
-   }  else if (ppt){
+   } else if (LALInferenceGetProcParamVal(commandLine, "--margphi")) {
+    fprintf(stderr, "Using marginalised phase likelihood.\n");
+    runState->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood;
+   } else if (LALInferenceGetProcParamVal(commandLine, "--margtime")) {
+    fprintf(stderr, "Using marginalised time likelihood.\n");
+    runState->likelihood=&LALInferenceMarginalisedTimeLogLikelihood;
+   } else if (LALInferenceGetProcParamVal(commandLine, "--margtimephi")) {
+     UINT4 margphi = 1;
+     fprintf(stderr, "Using marginalised in time and phase likelihood.\n");
+     runState->likelihood=&LALInferenceMarginalisedTimeLogLikelihood;
+     LALInferenceAddVariable(runState->currentParams, "margtimephi", &margphi, LALINFERENCE_UINT4_t,LALINFERENCE_PARAM_FIXED);
+   } else if(ppt){
      if(!strcmp("SineGaussian",ppt->value) || !strcmp("SineGaussianF",ppt->value)|| !strcmp("Gaussian",ppt->value)|| !strcmp("GaussianF",ppt->value)){
         runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_Burst;
         printf("setting Burst Likelihood ----- \n");
-        }
+      }
       else if(!strcmp("RingdownF",ppt->value))
       {
           runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_RD;
@@ -115,18 +124,8 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
         runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_BestIFO;
       else if(LALInferenceGetProcParamVal(commandLine,"--powerburst"))
         runState->likelihood=&LALInferenceExtraPowerLogLikelihood;
-   } else if (LALInferenceGetProcParamVal(commandLine, "--margphi")) {
-    fprintf(stderr, "Using marginalised phase likelihood.\n");
-    runState->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood;
-   } else if (LALInferenceGetProcParamVal(commandLine, "--margtime")) {
-    fprintf(stderr, "Using marginalised time likelihood.\n");
-    runState->likelihood=&LALInferenceMarginalisedTimeLogLikelihood;
-   } else if (LALInferenceGetProcParamVal(commandLine, "--margtimephi")) {
-     UINT4 margphi = 1;
-     fprintf(stderr, "Using marginalised in time and phase likelihood.\n");
-     runState->likelihood=&LALInferenceMarginalisedTimeLogLikelihood;
-     LALInferenceAddVariable(runState->currentParams, "margtimephi", &margphi, LALINFERENCE_UINT4_t,LALINFERENCE_PARAM_FIXED);
-   } else {
+   } 
+    else {
     runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
    }
 
@@ -224,169 +223,6 @@ INT4 LALInferenceLineSwitch(INT4 lineFlag, INT4 Nlines, INT4 *lines_array, INT4 
  */
 REAL8 LALInferenceZeroLogLikelihood(LALInferenceVariables UNUSED *currentParams, LALInferenceIFOData UNUSED *data, LALInferenceTemplateFunction UNUSED template) {
   return 0.0;
-}
-
-REAL8 LALInferenceNoiseOnlyLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData *data, LALInferenceTemplateFunction UNUSED template)
-/***************************************************************/
-/* (log-) likelihood function.                                 */
-/* Returns the non-normalised logarithmic likelihood           */
-/* for noise-only models of the data                           */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Required (`currentParams') parameters are:                  */
-/*   - "psdscale"  (gslMatrix)                                 */
-/***************************************************************/
-{
-  double diffRe, diffIm, diffSquared;
-  double dataReal, dataImag;
-  REAL8 loglikeli;
-  int i, j, lower, upper, ifo;
-  LALInferenceIFOData *dataPtr;
-  double chisquared;
-  double deltaT, TwoDeltaToverN, deltaF;
-
-  //noise model meta parameters
-  gsl_matrix *lines   = NULL;//pointer to matrix holding line centroids
-  gsl_matrix *widths  = NULL;//pointer to matrix holding line widths
-  gsl_matrix *nparams = NULL;//pointer to matrix holding noise parameters
-
-  gsl_matrix *psdBandsMin  = NULL;//pointer to matrix holding min frequencies for psd model
-  gsl_matrix *psdBandsMax = NULL;//pointer to matrix holding max frequencies for psd model
-
-  int Nblock = 1;            //number of frequency blocks per IFO
-  int Nlines = 1;            //number of lines to be removed
-  int psdFlag;               //flag for including psd fitting
-  int lineFlag;              //flag for excluding lines from integration
-
-  //line removal parameters
-  lineFlag = *((INT4 *)LALInferenceGetVariable(currentParams, "removeLinesFlag"));
-  if(lineFlag)
-  {
-    //Add line matrices to variable lists
-    lines  = *(gsl_matrix **)LALInferenceGetVariable(currentParams, "line_center");
-    widths = *(gsl_matrix **)LALInferenceGetVariable(currentParams, "line_width");
-    Nlines = (int)lines->size2;
-  }
-  int lines_array[Nlines];
-  int widths_array[Nlines];
-
-  //check if psd parameters are included in the model
-  psdFlag = *((INT4 *)LALInferenceGetVariable(currentParams, "psdScaleFlag"));
-  if(psdFlag)
-  {
-    //if so, store current noise parameters in easily accessible matrix
-    nparams = *((gsl_matrix **)LALInferenceGetVariable(currentParams, "psdscale"));
-    Nblock = (int)nparams->size2;
-
-    psdBandsMin = *((gsl_matrix **)LALInferenceGetVariable(currentParams, "psdBandsMin"));
-    psdBandsMax = *((gsl_matrix **)LALInferenceGetVariable(currentParams, "psdBandsMax"));
-
-  }
-  double alpha[Nblock];
-  double lnalpha[Nblock];
-
-  double psdBandsMin_array[Nblock];
-  double psdBandsMax_array[Nblock];
-
-  chisquared = 0.0;
-  /* loop over data (different interferometers): */
-  dataPtr = data;
-  ifo=0;
-
-  while (dataPtr != NULL) {
-    /* The parameters the Likelihood function can handle by itself   */
-    /* (and which shouldn't affect the template function) are        */
-    /* sky location (ra, dec), polarisation and signal arrival time. */
-    /* Note that the template function shifts the waveform to so that*/
-    /* t_c corresponds to the "time" parameter in                    */
-    /* IFOdata->modelParams (set, e.g., from the trigger value).     */
-
-    /* Reset log-likelihood */
-    dataPtr->loglikelihood = 0.0;
-
-    /* determine frequency range & loop over frequency bins: */
-    deltaT = dataPtr->timeData->deltaT;
-    deltaF = 1.0 / (((double)dataPtr->timeData->data->length) * deltaT);
-
-    lower = (UINT4)ceil(dataPtr->fLow / deltaF);
-    upper = (UINT4)floor(dataPtr->fHigh / deltaF);
-    TwoDeltaToverN = 2.0 * deltaT / ((double) dataPtr->timeData->data->length);
-
-    //Set up noise PSD meta parameters
-    for(i=0; i<Nblock; i++)
-    {
-      if(psdFlag)
-      {
-        alpha[i]   = gsl_matrix_get(nparams,ifo,i);
-        lnalpha[i] = log(alpha[i]);
-
-        psdBandsMin_array[i] = gsl_matrix_get(psdBandsMin,ifo,i);
-        psdBandsMax_array[i] = gsl_matrix_get(psdBandsMax,ifo,i);
-
-      }
-      else
-      {
-        alpha[i]=1.0;
-        lnalpha[i]=0.0;
-      }
-    }
-
-    //Set up psd line arrays
-    for(j=0;j<Nlines;j++)
-    {
-      if(lineFlag)
-      {
-
-        //find range of fourier fourier bins which are excluded from integration
-        lines_array[j]  = (int)gsl_matrix_get(lines,ifo,j);
-        widths_array[j] = (int)gsl_matrix_get(widths,ifo,j);
-      }
-      else
-      {
-        lines_array[j]=0;
-        widths_array[j]=0;
-      }
-    }
-
-    for (i=lower; i<=upper; ++i)
-    {
-
-      dataReal     = creal(dataPtr->freqData->data->data[i]) / deltaT;
-      dataImag     = cimag(dataPtr->freqData->data->data[i]) / deltaT;
-      
-      /* compute squared difference & 'chi-squared': */
-      diffRe       = dataReal;         // Difference in real parts...
-      diffIm       = dataImag;         // ...and imaginary parts, and...
-      diffSquared  = diffRe*diffRe + diffIm*diffIm ;  // ...squared difference of the 2 complex figures.
-      
-      REAL8 temp = ((TwoDeltaToverN * diffSquared) / dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
-
-      /* Add noise PSD parameters to the model */
-      if(psdFlag)
-      {
-        for(j=0; j<Nblock; j++)
-        {
-            if (i >= psdBandsMin_array[j] && i <= psdBandsMax_array[j])
-            {
-                temp  /= alpha[j];
-                temp  += lnalpha[j];
-            }
-        }
-      }
-
-      /*only sum over bins which are outside of excluded regions */
-      if(LALInferenceLineSwitch(lineFlag, Nlines, lines_array, widths_array, i))
-      {
-        chisquared  += temp;
-        dataPtr->loglikelihood -= temp;
-      }
-      
-     }
-    ifo++; //increment IFO counter for noise parameters
-    dataPtr = dataPtr->next;
-  }
-
-  loglikeli = -1.0 * chisquared; // note (again): the log-likelihood is unnormalised!
-  return(loglikeli);
 }
 
 REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData * data,       LALInferenceTemplateFunction templt)
@@ -1697,8 +1533,8 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_Burst(LALInferenceVariable
   LALStatus status;
   memset(&status,0,sizeof(status));
   LALInferenceVariables intrinsicParams;
-
-  logDistFlag=LALInferenceCheckVariable(currentParams, "logdistance");
+  REAL8 mc;
+  
   if(LALInferenceCheckVariable(currentParams,"logmc")){
     mc=exp(*(REAL8 *)LALInferenceGetVariable(currentParams,"logmc"));
     LALInferenceAddVariable(currentParams,"chirpmass",&mc,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);

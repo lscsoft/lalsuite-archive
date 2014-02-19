@@ -130,7 +130,7 @@ Parameter arguments:\n\
 	}
     
     int burst_inj=0;
-    state->proposal=&NSWrapMCMCSinGaussProposal;
+    state->proposal=&NSWrapMCMCSineGaussProposal;
     
     /* We may have used a CBC injection... test */
     ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
@@ -670,7 +670,7 @@ LALInferenceVariables * LALInferenceInitHMNSVariables(LALInferenceRunState *stat
     //state->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood_HMNS;
 
     /* Use sine-Gaussian proposal (should be good for bursts...) */
-    state->proposal=&NSWrapMCMCSinGaussProposal;
+    state->proposal=&NSWrapMCMCSineGaussProposal;
     /* Prior Ranges */
 	REAL8 starttime;
 	REAL8 loghrssmin=log(1e-25);  /* amplitude parameter */
@@ -906,7 +906,7 @@ LALInferenceVariables * LALInferenceInitRDVariables(LALInferenceRunState *state)
 	  state->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood_RD;
 	}
     */
-    state->proposal=&NSWrapMCMCSinGaussProposal;
+    state->proposal=&NSWrapMCMCSineGaussProposal;
     /* Prior Ranges */
 	REAL8 starttime;
 	REAL8 loghrssmin=log(1e-25);  /* amplitude parameter */

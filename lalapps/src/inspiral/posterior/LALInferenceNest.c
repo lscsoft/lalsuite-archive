@@ -292,7 +292,7 @@ Nested sampling arguments:\n\
   if(ppt) {
     if(XLALCheckBurstApproximantFromString(ppt->value))
     // SALVO: giving the same basic jump proposal to all the burst signals. When we have more ad hoc functions we can differentiate here
-      runState->proposal=&NSWrapMCMCSinGaussProposal;
+      runState->proposal=&NSWrapMCMCSineGaussProposal;
   }
   REAL8 temp=1.0;
   LALInferenceAddVariable(runState->proposalArgs,"temperature",&temp,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
@@ -504,7 +504,7 @@ Arguments for each section follow:\n\n";
     // SALVO: We may want different if else for differnt templates in the future
     if(XLALCheckBurstApproximantFromString(ppt->value)){
       fprintf(stdout,"--- Setting burst jump proposal \n");
-      LALInferenceSetupSinGaussianProposal(state,state->currentParams);
+      LALInferenceSetupSineGaussianProposal(state,state->currentParams);
     }
   }
 	else 
