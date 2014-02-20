@@ -130,6 +130,7 @@ LALInferenceAddProposalToCycle(LALInferenceRunState *runState, const char *propN
   LALInferenceProposalFunction *cycle = NULL;
   LALInferenceVariables *propArgs = runState->proposalArgs;
   LALInferenceVariables *propStats = runState->proposalStats;
+  UINT4 i;
 
   /* Quit without doing anything if weight = 0. */
   if (weight == 0) {
@@ -138,46 +139,24 @@ LALInferenceAddProposalToCycle(LALInferenceRunState *runState, const char *propN
 
   if (LALInferenceCheckVariable(propArgs, cycleArrayName) && LALInferenceCheckVariable(propArgs, cycleArrayLengthName)) {
     /* Have all the data in proposal args. */
-    UINT4 i;
 
     length = *((UINT4 *)LALInferenceGetVariable(propArgs, cycleArrayLengthName));
     cycle = *((LALInferenceProposalFunction **)LALInferenceGetVariable(propArgs, cycleArrayName));
-
-    cycle = XLALRealloc(cycle, (length+weight)*sizeof(LALInferenceProposalFunction));
-    if (cycle == NULL) {
-      XLALError(fname, __FILE__, __LINE__, XLAL_ENOMEM);
-      exit(1);
-    }
-
-    for (i = length; i < length + weight; i++) {
-      cycle[i] = prop;
-    }
-
-    length += weight;
-
-    LALInferenceSetVariable(propArgs, cycleArrayLengthName, &length);
-    LALInferenceSetVariable(propArgs, cycleArrayName, (void *)&cycle);
-  } else {
-    /* There are no data in proposal args.  Set some. */
-    UINT4 i;
-
-    length = weight;
-
-    cycle = XLALMalloc(length*sizeof(LALInferenceProposalFunction));
-    if (cycle == NULL) {
-      XLALError(fname, __FILE__, __LINE__, XLAL_ENOMEM);
-      exit(1);
-    }
-
-    for (i = 0; i < length; i++) {
-      cycle[i] = prop;
-    }
-
-    LALInferenceAddVariable(propArgs, cycleArrayLengthName, &length,
-LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_LINEAR);
-    LALInferenceAddVariable(propArgs, cycleArrayName, (void *)&cycle,
-LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_LINEAR);
   }
+  
+  cycle = XLALRealloc(cycle, (length+weight)*sizeof(LALInferenceProposalFunction));
+  if (cycle == NULL) {
+    XLALError(fname, __FILE__, __LINE__, XLAL_ENOMEM);
+    exit(1);
+  }
+  for (i = length; i < length + weight; i++) {
+    cycle[i] = prop;
+  }
+
+  length += weight;
+
+  LALInferenceAddVariable(propArgs, cycleArrayLengthName, &length, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(propArgs, cycleArrayName, (void *)&cycle, LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_LINEAR);
 
   /* If propStats is not NULL, add counters for proposal function if they aren't already there */
   if(propStats){
@@ -914,6 +893,8 @@ void LALInferenceDifferentialEvolutionNames(LALInferenceRunState *runState,
                                             LALInferenceVariables *proposedParams,
                                             const char **names) {
   size_t i,j;
+
+  LALInferenceCopyVariables(runState->currentParams, proposedParams);
   if (names == NULL) {
 
     size_t N = LALInferenceGetVariableDimension(runState->currentParams) + 1; /* More names than we need. */
@@ -2603,6 +2584,17 @@ void LALInferenceDistanceQuasiGibbsProposal(LALInferenceRunState *runState, LALI
     XLAL_ERROR_VOID(XLAL_FAILURE, "could not find 'distance' or 'logdistance' in current params");
   }
 
+  /* Get the prior range in d */
+  REAL8 dMin, dMax;
+  if (distParam == USES_DISTANCE_VARIABLE) {
+    LALInferenceGetMinMaxPrior(runState->priorArgs, "distance", &dMin, &dMax);
+  } else {
+    REAL8 logDMin, logDMax;
+    LALInferenceGetMinMaxPrior(runState->priorArgs, "logdistance", &logDMin, &logDMax);
+    dMin = exp(logDMin);
+    dMax = exp(logDMax);
+  }
+
   REAL8 d0;
   if (distParam == USES_DISTANCE_VARIABLE) {
     d0 = *(REAL8 *)LALInferenceGetVariable(proposedParams, "distance");
@@ -2658,8 +2650,6 @@ void LALInferenceDistanceQuasiGibbsProposal(LALInferenceRunState *runState, LALI
                          sigma2, weirdProposalCount);
     }
     if (distParam == USES_DISTANCE_VARIABLE) {
-      REAL8 dMax, dMin;
-      LALInferenceGetMinMaxPrior(runState->priorArgs, "distance", &dMin, &dMax);
       REAL8 dNew = dMin + (dMax-dMin)*gsl_rng_uniform(runState->GSLrandom);
 
       LALInferenceSetVariable(proposedParams, "distance", &dNew);
@@ -2667,7 +2657,10 @@ void LALInferenceDistanceQuasiGibbsProposal(LALInferenceRunState *runState, LALI
       return;
     } else {
       REAL8 logDMin, logDMax;
-      LALInferenceGetMinMaxPrior(runState->priorArgs, "logdistance", &logDMin, &logDMax);
+
+      logDMin = log(dMin);
+      logDMax = log(dMax);
+
       REAL8 logDNew = logDMin + (logDMax - logDMin)*gsl_rng_uniform(runState->GSLrandom);
 
       LALInferenceSetVariable(proposedParams, "logdistance", &logDNew);
@@ -2678,9 +2671,14 @@ void LALInferenceDistanceQuasiGibbsProposal(LALInferenceRunState *runState, LALI
 
   REAL8 sigma = sqrt(sigma2);
 
-  /* Draw new u from Gaussian, convert to d. */
-  REAL8 uNew = mu + sigma*gsl_ran_ugaussian(runState->GSLrandom);
-  REAL8 dNew = 1.0/uNew;
+  /* Ensure that we don't jump outside the distance limits dMin and
+     dMax. */
+  REAL8 dNew;
+  do {
+    /* Draw new u from Gaussian, convert to d. */
+    REAL8 uNew = mu + sigma*gsl_ran_ugaussian(runState->GSLrandom);
+    dNew = 1.0/uNew;
+  } while (dNew < dMin || dNew > dMax);
 
   if (distParam == USES_DISTANCE_VARIABLE) {
     LALInferenceSetVariable(proposedParams, "distance", &dNew);

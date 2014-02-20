@@ -1197,6 +1197,9 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     if(fLows) XLALFree(fLows);
     if(fHighs) XLALFree(fHighs);
 
+    LALSimInspiralWaveformCache *cache=XLALCreateSimInspiralWaveformCache();
+    for(i=0;i<Nifo;i++) IFOdata[i].waveformCache=cache;
+
     return headIFO;
 }
 
@@ -1725,18 +1728,9 @@ LALInferenceLALFindChirpInjectSignals (
   printf("computing waveform for %s\n",LALInference_detector->frDetector.name);
 
   /* set up units for the transfer function */
-  {
-    RAT4 negOne = { -1, 0 };
-    LALUnit unit;
-    LALUnitPair pair;
-    pair.unitOne = &lalADCCountUnit;
-    pair.unitTwo = &lalStrainUnit;
-    LALUnitRaise( status->statusPtr, &unit, pair.unitTwo, &negOne );
-    CHECKSTATUSPTR( status );
-    pair.unitTwo = &unit;
-    LALUnitMultiply( status->statusPtr, &(detector.transfer->sampleUnits),
-        &pair );
-    CHECKSTATUSPTR( status );
+  if (XLALUnitDivide( &(detector.transfer->sampleUnits),
+                      &lalADCCountUnit, &lalStrainUnit ) == NULL) {
+    ABORTXLAL(status);
   }
 
   /* invert the response function to get the transfer function */
