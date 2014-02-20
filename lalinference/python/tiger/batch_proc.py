@@ -4,8 +4,14 @@
 """
 Created on Tue Feb 18 22:20:43 2014
 
-@author: michalis agathos
+@author: Michalis Agathos, Tjonnie Li
 """
+
+__author__ = "Michalis Agathos, Tjonnie Li"
+__credits__ = ["Michalis Agathos", "Tjonnie Li"]
+__maintainer__ = "Michalis Agathos, Tjonnie Li"
+__email__ = "michalis.agathos@ligo.org, tjonnie.li@ligo.org"
+__status__ = "Production"
 
 ###########################################
 #
@@ -41,7 +47,8 @@ from pylab import *
 
 from scipy import stats
 from scipy import integrate
-import cPickle
+from cPickle import dump, load
+from ConfigParser import SafeConfigParser
 
 #from sklearn.neighbors import KernelDensity
 #from scipy.stats import gaussian_kde
@@ -619,6 +626,36 @@ def readBatches(fname):
     return batches, list(set(labels))
     
 
+def loadfrompickle(filename):
+	"""
+	LOAD FROM PICKLE
+	"""
+	print '... Loading file from pickle',filename
+	fp = open(filename,'rb')
+	return load(fp)
+
+def savetopickle(self,dest):
+	"""
+	Pull data from remote or local locations
+	"""
+
+	# SAVING TO PICKLE
+	f = open(dest,'wb')
+	dump(self,f,2)
+
+def loadconfigfile(configfile):
+	"""
+	Load configuration file
+	"""
+
+	# CONFIGURATION FILE: CHECKING FILE
+	if access(configfile, R_OK): 
+		config = SafeConfigParser()
+		config.read(configfile)
+	else:
+		exit("Configuration file: checking file - file does not exist. Abort script\n")
+
+	return config
 
 ''' TIGER RELATED FUNCTIONS''' 
 
@@ -635,16 +672,17 @@ if __name__ == "__main__":
 
   # ARGPARSER IS ONLY AVAILABLE IN v2.7 OR HIGHER WHICH CANNOT BE FOUND ON ALL CLUSTERS
   parser = op.OptionParser()
+  parser.add_option("--individual", action="store_true", dest="individual", help="output individual posteriors",default=False)
+  parser.add_option("-a", "--animate", action="store_true", dest="animate", help="compile posterior PDFs into an animated plot", default=False)
   parser.add_option("-b", "--batchfile", type='str', dest="batchfile",  help="File containing the list of batch info: cluster seed location xmlfile, nlive")
+  parser.add_option("-B", "--BayesCut", type='float', dest="Bcut", default=0.0, help="Bayes factor cutoff (0.0)")
+  parser.add_option("-c", "--config", type='str', dest="configfile", help="File containing configuration options", metavar="FILE",default="")
+  parser.add_option("-e", "--eventplot", action="store_true", dest="eventplot", help="plot sample of posterior points (mpl v1.3)", default=False)
+  parser.add_option("-k", "--kde", type='choice', dest="kde", help="Choose kde to use", choices=["GAUSS"], metavar="NAME",default=["GAUSS"])
+  parser.add_option("-n", "--nMax", type='int', dest="nMax", help="number of sources to consider, 0 to plot all sources in range",default=0)
   parser.add_option("-o", "--output", type='str', dest="outputfolder", help="outputfolder", metavar="FOLDER",default=".")
   parser.add_option("-s", "--seed", type='int', dest="seed", help="seed number for RNG", metavar="INT", default=1234)
-  parser.add_option("-n", "--nMax", type='int', dest="nMax", help="number of sources to consider, 0 to plot all sources in range",default=0)
-  parser.add_option("--individual", action="store_true", dest="individual", help="output individual posteriors",default=False)
-  parser.add_option("-B", "--BayesCut", type='float', dest="Bcut", default=0.0, help="Bayes factor cutoff (0.0)")
   parser.add_option("-S", "--SNRCut", type='float', dest="SNRcut", default=0.0, help="SNR cutoff (0.0)")
-  parser.add_option("-e", "--eventplot", action="store_true", dest="eventplot", help="plot sample of posterior points (mpl v1.3)", default=False)
-  parser.add_option("-a", "--animate", action="store_true", dest="animate", help="compile posterior PDFs into an animated plot", default=False)
-  parser.add_option("-k", "--kde", type='choice', dest="kde", help="Choose kde to use", choices=("GAUSS", ) metavar="NAME",default=".")
 
   (args, dumm) = parser.parse_args()
 
@@ -673,6 +711,7 @@ if __name__ == "__main__":
   plotIndividual = args.individual
   eplot = args.eventplot
   animate = args.animate
+  configfile = args.configfile
   
   batches, labels = readBatches(batchfile)
   
