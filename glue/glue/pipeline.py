@@ -2101,8 +2101,11 @@ class CondorDAG:
       exec_site=grid_site
       exec_ssite_list = exec_site.split(',')
       for site in exec_ssite_list:
-        dirs_entry += ' --staging-site %s=%s' % (site,site)
         # if virgo sites are being used, then we don't have a shared fs
+        if site == 'nikhef':
+          dirs_entry += ' --staging-site nikhef=nikhef-srm'
+        else:
+          dirs_entry += ' --staging-site %s=%s' % (site,site)
         if site == 'nikhef' or site == 'bologna':
           print >> pegprop_fh, \
 """
@@ -2217,11 +2220,14 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
   <site handle="nikhef" arch="x86_64" os="LINUX">
     <grid type="cream" contact="https://klomp.nikhef.nl:8443/ce-cream/services/CREAM2" scheduler="PBS" jobtype="compute" />
     <grid type="cream" contact="https://klomp.nikhef.nl:8443/ce-cream/services/CREAM2" scheduler="PBS" jobtype="auxillary" />
+    <profile namespace="pegasus" key="style">cream</profile>
+    <profile namespace="globus" key="queue">medium</profile>
+  </site>
+  <!-- Nikhef Stage in Site -->
+  <site handle="nikhef-srm" arch="x86_64" os="LINUX">
     <directory type="shared-scratch" path="/%s/">
       <file-server operation="all" url="srm://tbn18.nikhef.nl:8446/srm/managerv2?SFN=/dpm/nikhef.nl/home/virgo/%s/" />
     </directory>
-    <profile namespace="pegasus" key="style">cream</profile>
-    <profile namespace="globus" key="queue">medium</profile>
   </site>
 """ % (os.path.basename(tmp_exec_dir),os.path.basename(tmp_exec_dir))
 
