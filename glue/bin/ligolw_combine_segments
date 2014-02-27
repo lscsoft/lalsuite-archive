@@ -62,14 +62,15 @@ if __name__ == '__main__':
     # table #FIXME do I really need to propagate this?
     try:
         tmp_doc = ligolw.Document()
-        ligolw_add.ligolw_add(tmp_doc, arg)
-        #proc_table = lsctables.ProcessTable.get_table(tmp_doc)
-        #param_table = lsctables.ProcessParamsTable.get_table(tmp_doc)
-        #lwdoc.appendChild(proc_table)
-        #lwdoc.appendChild(param_table)
+        ligolw_add.ligolw_add(tmpdoc, arg)
+        proc_table = lsctables.ProcessTable.get_table(tmp_doc)
+        param_table = lsctables.ProcessParamsTable.get_table(tmp_doc)
+        lwdoc.appendChild(proc_table)
+        lwdoc.appendChild(param_table)
         veto_table = lsctables.VetoDefTable.get_table(tmp_doc)
         lwdoc.appendChild(veto_table)
     except:
+        # This is a *serious* error, should fail here, not skip
         print('No process table found in input files, ignoring.....')
 
     # Register ourselves
