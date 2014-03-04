@@ -1,53 +1,14 @@
-from pylab import *
-
+import matplotlib as mpl
 import argparse
 from optparse import OptionParser
 import os
 import sys
 import random as rand
+mpl.use('Agg')
+from pylab import *
 py_version = sys.version_info[:2]
 np_version = np.__version__
 
-'''
-parser = OptionParser()
-
-
-parser.add_option('-i', '--ifos', nargs=3, type=str, metavar='FILE', dest='ifos', help='List of IFOs to be considered') # FIXME: Variable length???
-parser.add_option('-s', '--segfiles', nargs=3, type=str, metavar='FILE', dest='segf', help='path to the segment files for IFOS in the order entered above')
-parser.add_option('-v', '--vetofiles', nargs=3, type=str, metavar='FILE', dest='vetof', help='path to the veto files for H1, L1, V1 in this order')
-parser.add_option('-o', '--outfile', nargs=1, type=str, metavar='FILE', dest='outf', help='path to the output file')
-parser.add_option('-l', '--length', nargs=1, type=float, metavar='FLOAT', dest='length', help='length of signal segments in seconds', default=45.0)
-#parser.add_option('-d', '--doubles', type=
-
-(options, args) = parser.parse_args()
-
-outfile = str(options.outf)
-segfiles = options.segf
-vetofiles = options.vetof
-ifos = options.ifos
-nifos = len(ifos)
-seglen = options.length
-
-
-#parser = argparse.ArgumentParser(description='Find data segments on single/double/triple HLV time free of vetoes.')
-#parser.add_argument('integers', metavar='N', type=int, nargs='+', help='an integer for the accumulator')
-#parser.add_argument('--sum', dest='accumulate', action='store_const', const=sum, default=max, help='sum the integers (default: find the max)')
-
-#args = parser.parse_args()
-
-# Read segments data in rawlist and only keep long enough segments in fitlist for each of the IFOs
-
-rawlist = []
-fitlist = []
-for i in arange(nifos):
-  ifoname = ifos[i]
-  tmpdata = genfromtxt(segfiles[i], dtype=int)
-  rawlist.append(tmpdata) # use the IFO class!
-  fitlist.append(tmpdata[where(tmpdata[:,2] - tmpdata[:,1] > seglen)[0]])
-
-singlelist = fitlist
-
-'''
 
 class IFO:
   '''An interferometer. Can also refer to multiple interferometers to host doubles, triples etc.'''
@@ -57,20 +18,21 @@ class IFO:
 
     if type(segments) is str:
       print "Reading segments for " + self._name + ""
-      self._segments = self.readSegments(segments)
+      self._allsegments = self.readSegments(segments)
     elif type(segments) is ndarray:
-      self._segments = segmentData(list(segments))
+      self._allsegments = segmentData(list(segments))
     elif  isinstance(segments, segmentData):
-      self._segments = segments
+      self._allsegments = segments
     else:
       print "Cannot recognize segments!"
       return -1
+    self._segments = self._allsegments.fits(self._minlen)
 
     if type(vetoes) is str:
       print "Reading veto segments for " + self._name + ""
       self._vetoes = self.readSegments(vetoes)
     elif type(vetoes) is ndarray:
-      self._vetoes = segmentData(list(segments))
+      self._vetoes = segmentData(list(vetoes))
     elif isinstance(vetoes, segmentData):
       self._vetoes = vetoes
     else:
@@ -78,11 +40,12 @@ class IFO:
       return -1
 
     self.setUnvetoed()
-    print "Number of unvetoed segments that fit: " + str(len(self._unvetoed._seglist))
+    print "Number of unvetoed segments that fit: " + str(self._unvetoed.length())
 
   def setUnvetoed(self):
     '''This is getting a list of unvetoed segments that fit the minimum length'''
-    self._unvetoed = self._segments.fits(self._minlen).getUnvetoed(self._vetoes).fits(self._minlen)
+    self._unvetoed = self._segments.getUnvetoed(self._vetoes).fits(self._minlen)
+    #self._unvetoed = self._segments.fits(self._minlen).getUnvetoed(self._vetoes).fits(self._minlen)
 
   def readSegments(self, segfname):
     print "Reading " + segfname
@@ -92,14 +55,15 @@ class IFO:
   def printUnvetoedToFile(self, outname):
     self._unvetoed.printToFile(outname)
 
-  def getTrigTimes(self, n, outfile=None):
+  def getTrigTimes(self, n=None, outfile=None):
     '''Returns a list of gps times on which injections can be made'''
     trigtimes = []
     l = self._minlen
     for seg in self._unvetoed._seglist:
       t = seg[1]
       while t + l <= seg[2]:
-        trigtimes.append(t + l - 2)
+        trigtimes.append(t + seg[3]/2)
+#        trigtimes.append(t + l - 2)
         t += l
     
     if outfile is None:
@@ -107,13 +71,33 @@ class IFO:
     else:
       savetxt(outfile, array(trigtimes), fmt='%i')
 
+  def plotCumulativeDurations(self, outfile, maxdur=None):
+    print "Plotting segment lengths distribution to file " + outfile
+    fig = figure()
+    ax = fig.add_subplot(111)
+    ax.set_xlabel("segment length")
+    ax.set_ylabel("# segments")
+    sdur = array(self._segments._seglist)[:,-1]
+    udur = array(self._unvetoed._seglist)[:,-1]
+    if maxdur is not None:
+      sdur = sdur[where(sdur <= maxdur)[0]]
+      udur = udur[where(udur <= maxdur)[0]]
+    ax.set_ylim((0,max([len(udur),len(sdur)])))
+    ax.set_title("Segment length distribution for " + self._name)
+    ax.hist(sdur, bins=sort(sdur), cumulative=True, histtype='stepfilled', alpha=0.3, label="All segments (" + str(self._segments.length()) + ")")
+    ax.hist(udur, bins=sort(udur), cumulative=True, histtype='stepfilled', alpha=0.3, label="Unvetoed segments (" + str(self._unvetoed.length()) + ")")
+    ax.legend()
+    fig.savefig(outfile)
+    
+
+
 class segment:
   '''A time segment in an IFO'''
 
   def __init__(self, data, gpsstart=None, gpsend=None):
     '''Creates a segment'''
     if gpsstart is not None and gpsend is not None:
-      self._id = data
+      self._id = data[0]
       self._start = gpsstart
       self._end = gpsend
       self._len = max(gpsend-gpsstart, 0)
@@ -149,7 +133,7 @@ class segment:
     '''Intersects with another segment'''
     newstart = max(self._start, other._start)
     newend = min(self._end, other._end)
-    newseg = segment(self._id, newstart, newend)
+    newseg = segment([self._id], newstart, newend)
     return newseg
 
   def toArray(self):
@@ -169,6 +153,9 @@ class segmentData:
     self._start = gpsstart
     self._end = gpsend
 
+  def length(self):
+    return len(self._seglist)
+  
   def fits(self, minlen):
     '''Returns the list of segments that fit a minimum required length.'''
     data = array(self._seglist)
@@ -225,14 +212,30 @@ class segmentData:
     print "Printing segment list to file " + outfile
     savetxt(outfile, array(self._seglist), fmt='%i')
     
+  def plotCumulativeDurations(self, outfile, maxdur=None):
+    print "Plotting segment lengths distribution to file " + outfile
+    fig = figure()
+    ax = fig.add_subplot(111)
+    ax.set_xlabel("segment length")
+    ax.set_ylabel("# segments")
+    dur = array(self._seglist)[:,-1]
+    if maxdur is not None:
+      dur = dur[where(dur <= maxdur)[0]]
+    ax.hist(dur, bins=sort(dur), cumulative=True, histtype='stepfilled', alpha=0.3)
+    fig.savefig(outfile)
+    
+    
 
 
-def getDoubles(ifo1, ifo2):
-  '''Combines 2 interferometer objects into a new one, taking intersection of segments and union of vetoes'''
+def getDoubles(ifo1, ifo2, unvetoed=False):
+  '''
+  Combines 2 interferometer objects into a new one, taking intersection of segments and union of vetoes
+  Setting unvetoed=True will speed up the calculations by ignoring small/vetoed segments. Use with caution!
+  '''
   name1 = ifo1._name
   name2 = ifo2._name
-  seg1 = ifo1._segments
-  seg2 = ifo2._segments
+  seg1 = ifo1._allsegments
+  seg2 = ifo2._allsegments
   vet1 = ifo1._vetoes
   vet2 = ifo2._vetoes
   unv1 = ifo1._unvetoed
@@ -241,9 +244,11 @@ def getDoubles(ifo1, ifo2):
   minl2 = ifo2._minlen
   
   name12 = ifo1._name + ifo2._name
-  seg12 = seg1.intersectSegments(seg2)
+  if unvetoed:
+    seg12 = unv1.intersectSegments(unv2)
+  else:
+    seg12 = seg1.intersectSegments(seg2)
   vet12 = vet1.unionSegments(vet2)
-#  unv12 = unv1.intersectSegments(unv2)
   minl12 = max(minl1, minl2)
 
   ifo12 = IFO(name12, seg12, vet12, minl12)
@@ -251,8 +256,82 @@ def getDoubles(ifo1, ifo2):
   return ifo12
   
 
-def getTriples(ifo1, ifo2, ifo3):
+def getTriples(ifo1, ifo2, ifo3, unvetoed=False):
   '''Combines 3 IFO objects into one'''
-  ifo12 = getDoubles(ifo1, ifo2)
-  ifo123 = getDoubles(ifo12, ifo3)
+  ifo12 = getDoubles(ifo1, ifo2, unvetoed)
+  ifo123 = getDoubles(ifo12, ifo3, unvetoed)
   return ifo123
+  
+  
+if __name__ == "__main__":
+
+###########################################
+#
+#  Parse arguments (argparser)
+#
+###########################################
+
+  #parser = OptionParser()
+  parser = argparse.ArgumentParser(description="Reads segment files and outputs unvetoed injection times.")
+  
+  
+  parser.add_argument('-i', '--ifos', nargs=3, type=str, metavar='IFO', dest='ifos', help='List of IFOs to be considered') # FIXME: Variable length???
+  parser.add_argument('-s', '--segfiles', nargs=3, type=str, metavar='FILE', dest='segf', help='path to the segment files for IFOS in the order entered above')
+  parser.add_argument('-v', '--vetofiles', nargs=3, type=str, metavar='FILE', dest='vetof', help='path to the veto files for IFOS in the order entered above')
+  parser.add_argument('-o', '--outfile', nargs=1, type=str, metavar='FILE', dest='outf', help='path to the output file')
+  parser.add_argument('-l', '--length', nargs=1, type=float, metavar='FLOAT', dest='length', help='length of signal segments in seconds', default=45.0)
+  parser.add_argument('-P', '--psdlength', type=float, metavar='FLOAT', dest='psdlength', help='minimum length for calculating PSD in seconds', default=1024.0)
+  parser.add_argument('-p', '--plot', action="store_true", dest="plotsegdist", help="plot cumulative segment length distribution", default=False)
+  parser.add_argument('-n', '--notriple', action="store_true", dest="notriple", help="restrict to doubles", default=False)
+  #parser.add_argument('-d', '--doubles', type=
+  
+  args = parser.parse_args()
+  
+  outfile = str(args.outf)
+  segfiles = args.segf
+  vetofiles = args.vetof
+  ifos = args.ifos
+  nifos = len(ifos)
+  seglen = args.length
+  psdlen = args.psdlength
+  plotsegdist = args.plotsegdist
+  notriple = args.notriple
+  maxplot = 5000
+  
+  #parser = argparse.ArgumentParser(description='Find data segments on single/double/triple HLV time free of vetoes.')
+  #parser.add_argument('integers', metavar='N', type=int, nargs='+', help='an integer for the accumulator')
+  #parser.add_argument('--sum', dest='accumulate', action='store_const', const=sum, default=max, help='sum the integers (default: find the max)')
+  
+  #args = parser.parse_args()
+  
+  # Read segments data in rawlist and only keep long enough segments in fitlist for each of the IFOs
+  
+  minlen = psdlen
+  
+  IFOlist = []
+  for i in arange(nifos):
+    IFOlist.append(IFO(ifos[i], segfiles[i], vetofiles[i], minlen))
+    
+  doubleIFOs = []
+  doubleIFOs.append( getDoubles(IFOlist[0], IFOlist[1], unvetoed=True) )
+  doubleIFOs.append( getDoubles(IFOlist[1], IFOlist[2], unvetoed=True) )
+  doubleIFOs.append( getDoubles(IFOlist[0], IFOlist[2], unvetoed=True) )
+  if not notriple:     #FIXME: put this 2 lines above if necessary
+    tripleIFO = getDoubles(doubleIFOs[0], IFOlist[2])
+
+  for double in doubleIFOs:
+    double.getTrigTimes(outfile='injtimes_' + double._name + '_' + str(double._minlen) +'.dat')
+    if plotsegdist:
+        double.plotCumulativeDurations('doubleseg_' + double._name +'.png', maxplot)
+  if not notriple: 
+    tripleIFO.getTrigTimes(outfile='injtimes_' + tripleIFO._name + '_' + str(tripleIFO._minlen) +'.dat')
+    if plotsegdist:
+      tripleIFO.plotCumulativeDurations('tripleseg_' + tripleIFO._name +'.png', maxplot)
+
+
+  
+
+  
+  
+  
+
