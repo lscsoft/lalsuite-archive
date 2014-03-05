@@ -3,7 +3,7 @@ import argparse
 from optparse import OptionParser
 import os
 import sys
-import random as rand
+import random as rd
 mpl.use('Agg')
 from pylab import *
 py_version = sys.version_info[:2]
@@ -40,7 +40,7 @@ class IFO:
       return -1
 
     self.setUnvetoed()
-    print "Number of unvetoed segments that fit: " + str(self._unvetoed.length())
+    print "Number of unvetoed segments that fit " + str(self._minlen) + ": " + str(self._unvetoed.length())
 
   def setUnvetoed(self):
     '''This is getting a list of unvetoed segments that fit the minimum length'''
@@ -55,19 +55,25 @@ class IFO:
   def printUnvetoedToFile(self, outname):
     self._unvetoed.printToFile(outname)
 
-  def getTrigTimes(self, n=None, outfile=None):
+  def getTrigTimes(self, interval=None, rmargin=2, n=None, outfile=None):
     '''Returns a list of gps times on which injections can be made'''
     trigtimes = []
-    l = self._minlen
+    if interval is None:
+      l = self._minlen
+    else:
+      l = interval
     for seg in self._unvetoed._seglist:
-      t = seg[1]
+      #print seg
+      t = int(seg[1])
       while t + l <= seg[2]:
-        trigtimes.append(t + seg[3]/2)
-#        trigtimes.append(t + l - 2)
+#        trigtimes.append(t + seg[3]/2)
+        trigtimes.append(t + l - rmargin)
         t += l
     
+    if n is not None:
+      trigtimes = trigtimes[:n]
     if outfile is None:
-      return trigtimes
+      return array(trigtimes)
     else:
       savetxt(outfile, array(trigtimes), fmt='%i')
 
@@ -128,6 +134,9 @@ class segment:
         newlist.append(newseg.toArray())
     return newlist
 
+  def hasTime(self, time):
+    '''Checks if time is in (open) segment'''
+    return (time > self._start and time < self._end)
 
   def intersectWith(self, other):
     '''Intersects with another segment'''
@@ -183,7 +192,7 @@ class segmentData:
     t1 = start
     for i in (arange(len(times))):
       t2 = times[i,0]
-      if t2 > t1:
+      if t2 > t1 and t1 >= start and t2 <= end:
         newseg = array([c, t1, t2, t2-t1]) #FIXME: check c initial value
         notlist.append(newseg)
         c += 1
@@ -195,7 +204,6 @@ class segmentData:
 
   def getUnvetoed(self, vetodata):
     '''Returns a segmentData object with unvetoed segments'''
-    newdata = []
     noveto = vetodata.notSegments(self._start, self._end)
     unvetoed = self.intersectSegments(noveto)
     return unvetoed
@@ -207,6 +215,15 @@ class segmentData:
     end = max(self._end, other._end)
     united = self.notSegments(start, end).intersectSegments(other.notSegments(start, end)).notSegments(start, end)
     return united
+
+  def hasTime(self, time):
+    '''Checks whether time is in the segments'''
+    has = False
+    for s in self._seglist:
+      has = has or s.hasTime(time)
+      if has:
+        return True
+    return False
 
   def printToFile(self, outfile):
     print "Printing segment list to file " + outfile
@@ -243,7 +260,7 @@ def getDoubles(ifo1, ifo2, unvetoed=False):
   minl1 = ifo1._minlen
   minl2 = ifo2._minlen
   
-  name12 = ifo1._name + ifo2._name
+  name12 = name1 + name2
   if unvetoed:
     seg12 = unv1.intersectSegments(unv2)
   else:
@@ -263,6 +280,41 @@ def getTriples(ifo1, ifo2, ifo3, unvetoed=False):
   return ifo123
   
   
+def generateTimeslides(tdict, n, ref=None, outfolder=None):
+  '''
+     Generate a list of injection times and timeslides, 
+     given a dictionary of (single) injection times
+  '''
+  ifos = tdict.keys()
+  nifo = len(ifos)
+  if ref is None:
+    ref = ifos[0]
+  injtimes = []
+  injdict = {k: [] for k in tdict.keys()}
+  slidedict = {k: [] for k in tdict.keys()}
+  for i in arange(n):
+    for ifo in ifos:
+      injdict[ifo].append(rd.sample(tdict[ifo], 1)[0]) 
+  
+  injtimes = injdict[ref]
+  for ifo in ifos:
+    slidedict[ifo] = array(injdict[ifo]) - array(injdict[ref])
+  
+  if outfolder is None:
+    return injtimes, slidedict
+  else:
+    label=''.join(ifos) + '_' + str(n)
+    injtimesfile = os.path.join(outfolder,'injtimes_'+label+'.dat')
+    slidefile = open(os.path.join(outfolder,'timeslides_'+label+'.dat'), 'w')
+    header = " ".join(ifos)
+    slidefile.write('# '+header+'\n')
+    slidedata = array(slidedict.values()).T
+    print injtimes
+    print slidedict
+    savetxt(injtimesfile, array(injtimes), fmt='%i')
+    savetxt(slidefile, slidedata, delimiter=' ', fmt='%i')
+    slidefile.close()
+
 if __name__ == "__main__":
 
 ###########################################
@@ -276,14 +328,16 @@ if __name__ == "__main__":
   
   
   parser.add_argument('-i', '--ifos', nargs=3, type=str, metavar='IFO', dest='ifos', help='List of IFOs to be considered') # FIXME: Variable length???
-  parser.add_argument('-s', '--segfiles', nargs=3, type=str, metavar='FILE', dest='segf', help='path to the segment files for IFOS in the order entered above')
-  parser.add_argument('-v', '--vetofiles', nargs=3, type=str, metavar='FILE', dest='vetof', help='path to the veto files for IFOS in the order entered above')
-  parser.add_argument('-o', '--outfile', nargs=1, type=str, metavar='FILE', dest='outf', help='path to the output file')
-  parser.add_argument('-l', '--length', nargs=1, type=float, metavar='FLOAT', dest='length', help='length of signal segments in seconds', default=45.0)
-  parser.add_argument('-P', '--psdlength', type=float, metavar='FLOAT', dest='psdlength', help='minimum length for calculating PSD in seconds', default=1024.0)
-  parser.add_argument('-p', '--plot', action="store_true", dest="plotsegdist", help="plot cumulative segment length distribution", default=False)
+  parser.add_argument('-l', '--length', type=int, metavar='INT', dest='length', help='length of signal segments in seconds', default=45.0)
   parser.add_argument('-n', '--notriple', action="store_true", dest="notriple", help="restrict to doubles", default=False)
-  #parser.add_argument('-d', '--doubles', type=
+  parser.add_argument('-N', '--Ninj', type=int, dest="Ninj", help="# injections", default=1000)
+  parser.add_argument('--nodouble', action="store_true", dest="nodouble", help="restrict to sinles", default=False)
+  parser.add_argument('-o', '--outfile', type=str, metavar='FILE', dest='outf', help='path to the output file')
+  parser.add_argument('-P', '--psdlength', type=int, metavar='INT', dest='psdlength', help='minimum length for calculating PSD in seconds', default=1024)
+  parser.add_argument('-p', '--plot', action="store_true", dest="plotsegdist", help="plot cumulative segment length distribution", default=False)
+  parser.add_argument('-s', '--segfiles', nargs=3, type=str, metavar='FILE', dest='segf', help='path to the segment files for IFOS in the order entered above')
+  parser.add_argument('-t', '--timeslides', action="store_true", dest="timeslides", help="enable timeslides", default=False)
+  parser.add_argument('-v', '--vetofiles', nargs=3, type=str, metavar='FILE', dest='vetof', help='path to the veto files for IFOS in the order entered above')
   
   args = parser.parse_args()
   
@@ -292,10 +346,13 @@ if __name__ == "__main__":
   vetofiles = args.vetof
   ifos = args.ifos
   nifos = len(ifos)
+  Ninj = args.Ninj
   seglen = args.length
   psdlen = args.psdlength
   plotsegdist = args.plotsegdist
+  nodouble = args.nodouble
   notriple = args.notriple
+  timeslides = args.timeslides
   maxplot = 5000
   
   #parser = argparse.ArgumentParser(description='Find data segments on single/double/triple HLV time free of vetoes.')
@@ -305,33 +362,37 @@ if __name__ == "__main__":
   #args = parser.parse_args()
   
   # Read segments data in rawlist and only keep long enough segments in fitlist for each of the IFOs
-  
-  minlen = psdlen
+  timesdict = {}
+  minlen = max(psdlen, seglen)
+  print minlen, psdlen, seglen
   
   IFOlist = []
   for i in arange(nifos):
     IFOlist.append(IFO(ifos[i], segfiles[i], vetofiles[i], minlen))
+    if timeslides:
+      timesdict[ifos[i]] = IFOlist[-1].getTrigTimes(interval=seglen)
+      print i, ifos[i]
+      print shape(timesdict[ifos[i]])
+  
+  if not nodouble:
+    doubleIFOs = []
+    doubleIFOs.append( getDoubles(IFOlist[0], IFOlist[1], unvetoed=True) )
+    doubleIFOs.append( getDoubles(IFOlist[1], IFOlist[2], unvetoed=True) )
+    doubleIFOs.append( getDoubles(IFOlist[0], IFOlist[2], unvetoed=True) )
+    if not notriple:     #FIXME: put this 2 lines above if necessary
+      tripleIFO = getDoubles(doubleIFOs[0], IFOlist[2])
+  
+    for double in doubleIFOs:
+      double.getTrigTimes(outfile='injtimes_' + double._name + '_' + str(double._minlen) +'.dat')
+      if plotsegdist:
+          double.plotCumulativeDurations('doubleseg_' + double._name +'.png', maxplot)
+    if not notriple: 
+      tripleIFO.getTrigTimes(outfile='injtimes_' + tripleIFO._name + '_' + str(tripleIFO._minlen) +'.dat')
+      if plotsegdist:
+        tripleIFO.plotCumulativeDurations('tripleseg_' + tripleIFO._name +'.png', maxplot)
+
+  
+  if timeslides:
+    generateTimeslides(timesdict, Ninj, ref='H1', outfolder='./timeslides')
     
-  doubleIFOs = []
-  doubleIFOs.append( getDoubles(IFOlist[0], IFOlist[1], unvetoed=True) )
-  doubleIFOs.append( getDoubles(IFOlist[1], IFOlist[2], unvetoed=True) )
-  doubleIFOs.append( getDoubles(IFOlist[0], IFOlist[2], unvetoed=True) )
-  if not notriple:     #FIXME: put this 2 lines above if necessary
-    tripleIFO = getDoubles(doubleIFOs[0], IFOlist[2])
-
-  for double in doubleIFOs:
-    double.getTrigTimes(outfile='injtimes_' + double._name + '_' + str(double._minlen) +'.dat')
-    if plotsegdist:
-        double.plotCumulativeDurations('doubleseg_' + double._name +'.png', maxplot)
-  if not notriple: 
-    tripleIFO.getTrigTimes(outfile='injtimes_' + tripleIFO._name + '_' + str(tripleIFO._minlen) +'.dat')
-    if plotsegdist:
-      tripleIFO.plotCumulativeDurations('tripleseg_' + tripleIFO._name +'.png', maxplot)
-
-
-  
-
-  
-  
-  
 
