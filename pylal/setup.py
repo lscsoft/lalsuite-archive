@@ -674,6 +674,7 @@ setup(
 		os.path.join("bin", "cbcBayesDIEvidence.py"),
 		os.path.join("bin", "cbcBayesInjProc.py"),
 		os.path.join("bin", "cbcBayesThermoInt.py"),
+		os.path.join("bin", "cbcBayesPPAnalysis.py"),
 		os.path.join("bin", "pulsarBayesPostProc.py"),
 		os.path.join("bin", "processing_kdtreeSky.py"),
 		os.path.join("bin", "ligo_channel_query"),
