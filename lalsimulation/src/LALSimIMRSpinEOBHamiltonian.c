@@ -718,6 +718,52 @@ XLALSimIMRSpinAlignedEOBNonKeplerCoeff(
 
   return 1.0/(omegaCirc*omegaCirc*r3);
 }
+
+
+
+/**
+ * Function to calculate the non-Keplerian coefficient for the spin-aligned EOB model.
+ * radius \f$r\f$ times the cuberoot of the returned number is \f$r_\Omega\f$ defined in Eq. A2.
+ * i.e. the function returns \f$(r_{\Omega} / r)^3\f$.
+ * This is the generic precessing version
+ */
+static REAL8 UNUSED
+XLALSimIMRSpinEOBNonKeplerCoeff(
+                      const REAL8           values[],   /**<< Dynamical variables */
+                      SpinEOBParams         *funcParams /**<< EOB parameters */
+                      )
+{
+
+  REAL8 omegaCirc;
+
+  REAL8 tmpValues[4];
+
+  REAL8 r3;
+
+  /* We need to find the values of omega assuming pr = 0 */
+  memcpy( tmpValues, values, sizeof(tmpValues) );
+  tmpValues[0] = sqrt(values[0]*values[0]+values[1]*values[1]+values[2]*values[2]);
+  tmpValues[1] = 0.0;
+  tmpValues[2] = 0.0;
+  tmpValues[3] = sqrt( (values[0]*values[4] - values[1]*values[3])
+                      *(values[0]*values[4] - values[1]*values[3])
+                      +(values[2]*values[3] - values[0]*values[5])
+                      *(values[2]*values[3] - values[0]*values[5])
+                      +(values[1]*values[5] - values[2]*values[4])
+                      *(values[1]*values[5] - values[2]*values[4]) ); 
+
+  omegaCirc = XLALSimIMRSpinAlignedEOBCalcOmega( tmpValues, funcParams );
+  if ( XLAL_IS_REAL8_FAIL_NAN( omegaCirc ) )
+  {
+    XLAL_ERROR_REAL8( XLAL_EFUNC );
+  }
+
+  r3 = tmpValues[0]*tmpValues[0]*tmpValues[0];
+
+  return 1.0/(omegaCirc*omegaCirc*r3);
+}
+
+
   
 /* Wrapper for GSL to call the Hamiltonian function */
 static double GSLSpinAlignedHamiltonianWrapper( double x, void *params )
