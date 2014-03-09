@@ -40,6 +40,7 @@
 #ifndef _LALSIMIMRSPINEOBFACTORIZEDWAVEFORM_C
 #define _LALSIMIMRSPINEOBFACTORIZEDWAVEFORM_C
 #define UsePrecFunctions 0
+#define YPPrecWave 0
 
 #include <complex.h>
 #include <lal/LALSimInspiral.h>
@@ -2749,11 +2750,22 @@ static INT4 XLALSimIMRSpinEOBGetSpinFactorizedWaveform(
           memset( hlm, 0, sizeof( COMPLEX16 ) );
           return XLAL_SUCCESS;
         }*/
-        
+       
+        // YP: !!!!! SEOBNRv3devel temporary change !!!!! 
 	r	= values->data[0];
 	//pr	= values->data[2];
 	pp	= values->data[3];
-
+        #if YPPrecWave
+        r       = sqrt(values->data[0]*values->data[0]+values->data[1]*values->data[1]+values->data[2]*values->data[2]);
+        pp      = sqrt( (values->data[0]*values->data[4] - values->data[1]*values->data[3])
+                       *(values->data[0]*values->data[4] - values->data[1]*values->data[3])
+                       +(values->data[2]*values->data[3] - values->data[0]*values->data[5])
+                       *(values->data[2]*values->data[3] - values->data[0]*values->data[5])
+                       +(values->data[1]*values->data[5] - values->data[2]*values->data[4])
+                       *(values->data[1]*values->data[5] - values->data[2]*values->data[4]) );
+        #endif
+        // YP: !!!!! SEOBNRv3devel temporary change !!!!! 
+	
 	v2	= v * v;
         Omega   = v2 * v;
         vh3     = Hreal * Omega;
@@ -2763,8 +2775,13 @@ static INT4 XLALSimIMRSpinEOBGetSpinFactorizedWaveform(
         /* Calculate the non-Keplerian velocity */
         if ( params->alignedSpins )
         {
-          vPhi = XLALSimIMRSpinAlignedEOBNonKeplerCoeff( values->data, params );
-
+        // YP: !!!!! SEOBNRv3devel temporary change !!!!! 
+	  vPhi = XLALSimIMRSpinAlignedEOBNonKeplerCoeff( values->data, params );
+          #if YPPrecWave 
+       	  vPhi = XLALSimIMRSpinEOBNonKeplerCoeff( values->data, params );
+          #endif
+        // YP: !!!!! SEOBNRv3devel temporary change !!!!! 
+	 
           if ( XLAL_IS_REAL8_FAIL_NAN( vPhi ) )
           {
             XLAL_ERROR( XLAL_EFUNC );
@@ -2781,8 +2798,14 @@ static INT4 XLALSimIMRSpinEOBGetSpinFactorizedWaveform(
         }
 
         /* Calculate the newtonian multipole, 1st term in Eq. 17, given by Eq. A1 */
+        // YP: !!!!! SEOBNRv3devel temporary change !!!!! 
         status = XLALSimIMRSpinEOBCalculateNewtonianMultipole( &hNewton, vPhi2, r,
                          values->data[1], (UINT4)l, m, params->eobParams );
+        #if YPPrecWave
+        status = XLALSimIMRSpinEOBCalculateNewtonianMultipole( &hNewton, vPhi2, r,
+                         values->data[12]+values->data[13], (UINT4)l, m, params->eobParams );
+        #endif
+        // YP: !!!!! SEOBNRv3devel temporary change !!!!! 
         if ( status == XLAL_FAILURE )
         {
           XLAL_ERROR( XLAL_EFUNC );
@@ -3107,13 +3130,13 @@ static INT4 XLALSimIMRSpinEOBGetSpinFactorizedWaveform(
         /*if (r > 8.5)
 	{
 	  printf("YP::dynamics variables in waveform: %i, %i, %e, %e\n",l,m,r,pp); 
-	  printf( "rholm^l = %.16e, Tlm = %.16e + i %.16e, \nSlm = %.16e, hNewton = %.16e + i %.16e, delta = %.16e\n", rholmPwrl, Tlm.re, Tlm.im, Slm, hNewton.re, hNewton.im, deltalm );}*/
+	  printf( "rholm^l = %.16e, Tlm = %.16e + i %.16e, \nSlm = %.16e, hNewton = %.16e + i %.16e, delta = %.16e\n", rholmPwrl, creal(Tlm), cimag(Tlm), Slm, creal(hNewton), cimag(hNewton), deltalm );}*/
         /* Put all factors in Eq. 17 together */
 	*hlm = Tlm * cexp(I * deltalm) * Slm * rholmPwrl;
         *hlm *= hNewton;
 	/*if (r > 8.5)
 	{
-	  printf("YP::FullWave: %.16e,%.16e, %.16e\n",hlm->re,hlm->im,sqrt(hlm->re*hlm->re+hlm->im*hlm->im));
+	  printf("YP::FullWave: %.16e,%.16e, %.16e\n",creal(*hlm),cimag(*hlm),sqrt(creal(*hlm)*creal(*hlm)+cimag(*hlm)*cimag(*hlm)));
 	}*/
 	return XLAL_SUCCESS;
 }
