@@ -496,14 +496,16 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
             kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
             kt1 = -0.125 + sqrt(1. + 200. * pow(eta,2) / 3.)/2.;
             kt2 = -0.2 + pow(1. + 200. * pow(eta, 3./2.) / 9., 2./3.)/2.;
+            kt1 = 0.5 * sqrt(1.+6.*eta*eta/0.09) - 0.125;
+            kt2 = 0.5 * pow(1.+0.5*eta*sqrt(eta)/0.0225,2./3.) - 0.2;
           }
           /*printf("a, chi and NRomega in QNM freq: %.16e %.16e %.16e %.16e %.16e %.16e\n",
             spin1[2],spin2[2],mTot/LAL_MTSUN_SI,a,chi,NRPeakOmega22*mTot);*/
-          modefreqs->data[6] = kk * ((2./3. * NRPeakOmega22/finalMass) + (1./3. * creal(modefreqs->data[0])) );
-          modefreqs->data[6] += I * 3.5/0.9 * cimag(modefreqs->data[0]) / kt1;
+          modefreqs->data[6] = (2./3. * NRPeakOmega22/finalMass) + (1./3. * creal(modefreqs->data[0]));
+          modefreqs->data[6] += I * 3.5/0.9 * cimag(modefreqs->data[0]);
 
-          modefreqs->data[7] = kk * ((3./4. * NRPeakOmega22/finalMass) + (1./4. * creal(modefreqs->data[0])) / 2.);
-          modefreqs->data[7] += I * 3.5 * cimag(modefreqs->data[0]) / kt2;
+          modefreqs->data[7] = (3./4. * NRPeakOmega22/finalMass) + (1./4. * creal(modefreqs->data[0])) / 2.;
+          modefreqs->data[7] += I * 3.5 * cimag(modefreqs->data[0]);
     
           /* For extreme chi (>= 0.8), the ringdown attachment should end
            * slightly before the value given passed to this function. sh
@@ -511,9 +513,18 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
           if ( chi >= 0.8 )
           {
             sh = -9. * (eta - 0.25);
-            matchrange->data[0] -= sh;
-            matchrange->data[1] -= sh;
-          }
+            matchrange->data[0] -= (1.+2.*exp(-(chi-0.85)*(chi-0.85)/0.05/0.05)) * (1.+1./(1.+exp((eta-0.01)/0.001))) * sh;
+            matchrange->data[1] -= (1.+2.*exp(-(chi-0.85)*(chi-0.85)/0.05/0.05)) * (1.+1./(1.+exp((eta-0.01)/0.001))) * sh;
+            if ( eta < 10./121. )
+            {
+              modefreqs->data[4] = 0.4*(1.+kk)*creal(modefreqs->data[6]) 
+                                 + I*cimag(modefreqs->data[6])/(1.5*kt1*exp(-(eta-0.005)/0.03));
+              modefreqs->data[5] = 0.4*(1.+kk)*creal(modefreqs->data[7]) 
+                                 + I*cimag(modefreqs->data[7])/(2.5*kt2*exp(-(eta-0.005)/0.03));
+            }
+            modefreqs->data[6] = kk*creal(modefreqs->data[6]) + I*cimag(modefreqs->data[6])/kt1;
+            modefreqs->data[7] = kk*creal(modefreqs->data[7]) + I*cimag(modefreqs->data[7])/kt2;
+	  }
       }
       for (j = 0; j < nmodes; j++)
       {
