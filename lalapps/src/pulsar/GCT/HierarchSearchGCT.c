@@ -170,7 +170,7 @@ int compareCoarseGridUindex( const void *a, const void *b );
 int compareFineGridNC( const void *a,const void *b );
 int compareFineGridsumTwoF( const void *a,const void *b );
 
-SFTCatalogSequence *XLALSetUpStacksFromSegmentList ( const SFTCatalog *SFTCatalog, const LALSegList *segList );
+SFTCatalogSequence *XLALSetUpStacksFromSegmentList ( const SFTCatalog *catalog, const LALSegList *segList );
 
 int XLALExtrapolateToplistPulsarSpins ( toplist_t *list,
 					const LIGOTimeGPS usefulParamsRefTime,
@@ -912,7 +912,7 @@ int MAIN( int argc, char *argv[]) {
   thisPoint.refTime = tMidGPS; /* midpoint of data spanned */
 
   /* binary orbit and higher spindowns not considered */
-  thisPoint.orbit = NULL;
+  thisPoint.asini = 0 /* isolated pulsar */;
   INIT_MEM ( thisPoint.fkdot );
 
   /*---------- set up stuff for semi-coherent part ---------*/
@@ -1447,9 +1447,9 @@ int MAIN( int argc, char *argv[]) {
                   return(HIERARCHICALSEARCH_ECG);
                 }
 
-                if (U1idx + finegrid.freqlength >= Fstat_res->numFreqBins) {
+                if (U1idx + finegrid.freqlength - 1 >= Fstat_res->numFreqBins) {
                   fprintf(stderr,"ERROR: Stepped outside the coarse grid (%d:%d:%d:%d)! \n",
-                          U1idx, finegrid.freqlength, U1idx + finegrid.freqlength, Fstat_res->numFreqBins);
+                          U1idx, finegrid.freqlength, U1idx + finegrid.freqlength - 1, Fstat_res->numFreqBins);
                   return(HIERARCHICALSEARCH_ECG);
                 }
 

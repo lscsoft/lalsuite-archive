@@ -205,7 +205,7 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 		install_signal_trap()
 		# create the remporary file and replace it's unlink()
 		# function
-		temporary_file = tempfile.NamedTemporaryFile(suffix = suffix, dir = path)
+		temporary_file = tempfile.NamedTemporaryFile(suffix = suffix, dir = path if path != "_CONDOR_SCRATCH_DIR" else os.getenv("_CONDOR_SCRATCH_DIR"))
 		def new_unlink(self, orig_unlink = temporary_file.unlink):
 			# also remove a -journal partner, ignore all errors
 			try:
