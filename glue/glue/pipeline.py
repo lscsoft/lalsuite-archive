@@ -509,17 +509,6 @@ class CondorDAGJob(CondorJob):
     self.__have_var_args = 0
     self.__bad_macro_chars = re.compile(r'[_-]')
 
-  def create_node(self):
-    """
-    Create a condor node from this job. This provides a basic interface to
-    the CondorDAGNode class. Most jobs in a workflow will subclass the 
-    CondorDAGNode class and overwrite this to give more details when
-    initializing the node. However, this will work fine for jobs with very simp
-    input/output.
-    """
-    return CondorDAGNode(self)
-
-
   def add_var_opt(self, opt, short=False):
     """
     Add a variable (or macro) option to the condor job. The option is added
@@ -561,16 +550,6 @@ class CondorDAGManJob:
     self.__dag_directory= dir
     self.__pegasus_exec_dir = None
     self.__pfn_cache = []
-
-  def create_node(self):
-    """
-    Create a condor node from this job. This provides a basic interface to
-    the CondorDAGManNode class. Most jobs in a workflow will subclass the 
-    CondorDAGManNode class and overwrite this to give more details when
-    initializing the node. However, this will work fine for jobs with very simp
-    input/output.
-    """
-    return CondorDAGManNode(self)
 
   def set_dag_directory(self, dir):
     """
