@@ -2277,25 +2277,25 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
 
   if (strstr(inj_table->waveform,"TaylorF2Test")){ 
   REAL8 dchi0=inj_table->dchi0;
-  LALInferenceAddVariable(tmpdata->modelParams, "dchi0",&dchi0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(IFOdata->modelParams, "dchi0",&dchi0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   REAL8 dchi1=inj_table->dchi1;
-  LALInferenceAddVariable(tmpdata->modelParams, "dchi1",&dchi1,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(IFOdata->modelParams, "dchi1",&dchi1,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   REAL8 dchi2=inj_table->dchi2;
-  LALInferenceAddVariable(tmpdata->modelParams, "dchi2",&dchi2,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(IFOdata->modelParams, "dchi2",&dchi2,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   REAL8 dchi3=inj_table->dchi3;
-  LALInferenceAddVariable(tmpdata->modelParams, "dchi3",&dchi3,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(IFOdata->modelParams, "dchi3",&dchi3,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   REAL8 dchi4=inj_table->dchi4;
-  LALInferenceAddVariable(tmpdata->modelParams, "dchi4",&dchi4,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(IFOdata->modelParams, "dchi4",&dchi4,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   REAL8 dchi5=inj_table->dchi5;
-  LALInferenceAddVariable(tmpdata->modelParams, "dchi5",&dchi5,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(IFOdata->modelParams, "dchi5",&dchi5,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   REAL8 dchi5l=inj_table->dchi5l;
-  LALInferenceAddVariable(tmpdata->modelParams, "dchi5l",&dchi5l,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(IFOdata->modelParams, "dchi5l",&dchi5l,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   REAL8 dchi6=inj_table->dchi6;
-  LALInferenceAddVariable(tmpdata->modelParams, "dchi6",&dchi6,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(IFOdata->modelParams, "dchi6",&dchi6,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   REAL8 dchi6l=inj_table->dchi6l;
-  LALInferenceAddVariable(tmpdata->modelParams, "dchi6l",&dchi6l,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(IFOdata->modelParams, "dchi6l",&dchi6l,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   REAL8 dchi7=inj_table->dchi7;
-  LALInferenceAddVariable(tmpdata->modelParams, "dchi7",&dchi7,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(IFOdata->modelParams, "dchi7",&dchi7,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   fprintf(stdout,"Injecting %s in the frequency domain...\n",inj_table->waveform);
   fprintf(stdout,"adding dchi0=%1.3f in the injection\n",inj_table->dchi0);
   fprintf(stdout,"adding dchi1=%1.3f in the injection\n",inj_table->dchi1);
@@ -2312,17 +2312,17 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
 
   if (strstr(inj_table->waveform,"PPE")){ 
   REAL8 aPPE=inj_table->aPPE;
-  LALInferenceAddVariable(tmpdata->modelParams, "aPPE",&aPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(IFOdata->modelParams, "aPPE",&aPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   REAL8 alphaPPE=inj_table->alphaPPE;
-  LALInferenceAddVariable(tmpdata->modelParams, "alphaPPE",&alphaPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(IFOdata->modelParams, "alphaPPE",&alphaPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   REAL8 bPPE=inj_table->bPPE;
-  LALInferenceAddVariable(tmpdata->modelParams, "bPPE",&bPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(IFOdata->modelParams, "bPPE",&bPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   REAL8 betaPPE=inj_table->betaPPE;
-  LALInferenceAddVariable(tmpdata->modelParams, "betaPPE",&betaPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(IFOdata->modelParams, "betaPPE",&betaPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   REAL8 betaStep=inj_table->betaStep;
-  LALInferenceAddVariable(tmpdata->modelParams, "betaStep",&betaStep,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(IFOdata->modelParams, "betaStep",&betaStep,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   REAL8 fStep=inj_table->fStep;
-  LALInferenceAddVariable(tmpdata->modelParams, "fStep",&fStep,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(IFOdata->modelParams, "fStep",&fStep,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   fprintf(stdout,"Injecting %s in the frequency domain...\n",inj_table->waveform);
   fprintf(stdout,"adding aPPE=%1.3f in the injection\n",inj_table->aPPE);
   fprintf(stdout,"adding alphaPPE=%1.3f in the injection\n",inj_table->alphaPPE);
