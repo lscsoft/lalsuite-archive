@@ -143,6 +143,28 @@ if __name__ == '__main__':
         row.segment_id = seg_table.get_next_id()
         seg_table.append(row)
     lwdoc.appendChild(seg_table)      
+
+    # FIXME: Segment utils currently writes tables in non-standard format.
+    #        until this is fixed, we need some additional hacking to make files
+    #        compatible.
+
+    # Need to add values to process table
+    values = {}
+    values["process"] = {}
+    values["process"]["domain"] = None
+    values["process"]["jobid"] = None
+    values["process"]["is_online"] = False
+
+    processTab = lsctables.table.get_table(doc, lsctables.ProcessTable.tableName)
+    for column_name in values["process"]:
+        try:
+            column = processTab.appendColumn(column_name)
+        except ValueError:
+            # Column already present
+            continue
+        # Set values
+        for i in range(len(processTab)):
+            column[i] = values["process"][column_name]
     
     utils.write_filename(doc, opt.output, gz=opt.output.endswith('gz'))
 
