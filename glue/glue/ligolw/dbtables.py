@@ -233,7 +233,7 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 			print >>sys.stderr, "'%s' exists, truncating ..." % filename,
 		try:
 			fd = os.open(filename, os.O_WRONLY | os.O_TRUNC)
-		except Exception, e:
+		except Exception as e:
 			if verbose:
 				print >>sys.stderr, "cannot truncate '%s': %s" % (filename, str(e))
 			return
@@ -254,7 +254,7 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 			# don't preserve them if the destination file
 			# already exists?
 			shutil.copystat(srcname, dstname)
-		except Exception, e:
+		except Exception as e:
 			if verbose:
 				print >>sys.stderr, "warning: ignoring failure to copy permission bits from '%s' to '%s': %s" % (filename, target, str(e))
 
@@ -277,7 +277,7 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 				while True:
 					try:
 						cpy(filename, target, verbose = verbose)
-					except IOError, e:
+					except IOError as e:
 						import errno
 						import time
 						if e.errno not in (errno.EPERM, errno.ENOSPC):
@@ -762,7 +762,7 @@ class DBTable(table.Table):
 		}[connection_db_type(self.connection)]
 		try:
 			statement = "CREATE TABLE IF NOT EXISTS " + self.dbtablename + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, ToSQLType[t]), self.dbcolumnnames, self.dbcolumntypes))
-		except KeyError, e:
+		except KeyError as e:
 			raise ValueError("column type '%s' not supported" % str(e))
 		if self.constraints is not None:
 			statement += ", " + self.constraints

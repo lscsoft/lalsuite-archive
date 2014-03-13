@@ -90,7 +90,7 @@ def parse_command_line():
 	# turn row requests into a segment list
 	try:
 		options.rows = segmentsUtils.from_range_strings(options.rows.split(","))
-	except ValueError, e:
+	except ValueError as e:
 		raise ValueError, "invalid rowspec: %s" % str(e)
 
 	# success

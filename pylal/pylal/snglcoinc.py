@@ -299,7 +299,7 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 
 	try:
 		threshold_data = thresholds[(eventlista.instrument, eventlistb.instrument)]
-	except KeyError, e:
+	except KeyError as e:
 		raise KeyError("no coincidence thresholds provided for instrument pair %s, %s" % e.args[0])
 	light_travel_time = inject.light_travel_time(eventlista.instrument, eventlistb.instrument)
 
