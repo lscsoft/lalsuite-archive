@@ -91,7 +91,7 @@ def parse_command_line():
 	try:
 		options.rows = segmentsUtils.from_range_strings(options.rows.split(","))
 	except ValueError as e:
-		raise ValueError, "invalid rowspec: %s" % str(e)
+		raise ValueError("invalid rowspec: %s" % str(e))
 
 	# success
 	return options, (urls or [None])
@@ -152,7 +152,7 @@ def print_array(array_elem):
 			print options.delimiter.join(map(repr, row))
 	else:
 		# a three or more dimensional array
-		raise ValueError, "array has more than 2 dimensions"
+		raise ValueError("array has more than 2 dimensions")
 
 
 #

@@ -847,8 +847,7 @@ class Cache(list):
 		  "ignore": do nothing
 		'''  
 		if on_missing not in ("warn", "error", "ignore"):
-			raise ValueError("on_missing must be \"warn\", " \
-			      "\"error\", or \"ignore\".")
+			raise ValueError("on_missing must be \"warn\", \"error\", or \"ignore\".")
 		
 		c_found = []
 		c_missed = []
