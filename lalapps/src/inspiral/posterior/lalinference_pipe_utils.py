@@ -169,7 +169,7 @@ def getcoincid(connection, sim_id, ifos = 'H1,L1'):
     result= connection.cursor().execute(squery).fetchall()
     return result
 
-def get_injections_pipedown(database_connection, output_inj_file, sim_tag = ['ALLINJ'], dumpfile=None, gpsstart=None, gpsend=None):
+def get_injections_pipedown(database_connection, output_inj_file, sim_tag = ['ALLINJ'], dumpfile=None, gpsstart=None, gpsend=None, min_dist=0, max_dist=None):
 	"""
 	Returns a list of event objects.
 	Must specify output_inj_file to tell the code where to save the
@@ -230,6 +230,13 @@ def get_injections_pipedown(database_connection, output_inj_file, sim_tag = ['AL
 		if len(coinc)>0:
 			finalinj.append(inj)
 			coinc_id_map[inj.simulation_id]=coinc[0]
+        
+        if min_dist:
+          filtinj3=filter(lambda x:x.distance>min_dist, finalinj)
+          finalinj=filtinj3
+        if max_dist:
+          filtinj3=filter(lambda x:x.distance<max_dist, finalinj)
+          finalinj=filtinj3
 	print 'Dumping trigger information for %i injections'%(len(finalinj))
 	if dumpfile is not None:
 		fh=open(dumpfile,'w')
@@ -576,13 +583,16 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
 	events=get_timeslides_pipedown(db_connection, gpsstart=gpsstart, gpsend=gpsend,dumpfile=timeslidedump,max_cfar=maxcfar)
       elif self.config.has_option('input','pipedown-injections'):
         injtypes=ast.literal_eval(self.config.get('input','pipedown-injections'))
+        mindist=0
+        if self.config.has_option('input','pipedown-injections-distane-min'):
+          mindist=self.config.getfloat('input','pipedown-injections-distane-min')
         if self.config.has_option('input','injection-file'):
           print 'ERROR: Trying to overwrite existing injection file %s. please remove this file before trying again. Aborting.'
           sys.exit(1)
         else:
           injfile=os.path.join(self.config.get('paths','basedir'),'filtered_injections.xml')
           self.config.set('input','injection-file',injfile)
-        events=get_injections_pipedown(db_connection, injfile, sim_tag = injtypes, gpsstart=gpsstart, gpsend=gpsend, dumpfile=timeslidedump)
+        events=get_injections_pipedown(db_connection, injfile, sim_tag = injtypes, gpsstart=gpsstart, gpsend=gpsend, dumpfile=timeslidedump, min_dist=mindist)
       else:
 	events=get_zerolag_pipedown(db_connection, gpsstart=gpsstart, gpsend=gpsend, dumpfile=timeslidedump,max_cfar=maxcfar)
     if(selected_events is not None):
