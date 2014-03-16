@@ -841,7 +841,7 @@ for instrument in plots:
 			else:
 				plot.finish()
 				fig = plot.fig
-		except ValueError, e:
+		except ValueError as e:
 			print >>sys.stderr, "can't finish %s plot %d: %s" % (instrument, options.plot[n], str(e))
 		else:
 			if options.verbose:
@@ -867,7 +867,7 @@ for n, plot in enumerate(coincplots):
 		else:
 			plot.finish()
 			fig = plot.fig
-	except ValueError, e:
+	except ValueError as e:
 		print >>sys.stderr, "can't finish coinc plot %d: %s" % (options.coinc_plot[n], str(e))
 	else:
 		if options.verbose:

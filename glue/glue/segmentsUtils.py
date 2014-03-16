@@ -159,11 +159,11 @@ def fromsegwizard(file, coltype = int, strict = True):
 				break
 		if strict:
 			if abs(seg) != duration:
-				raise ValueError, "segment '%s' has incorrect duration" % line
+				raise ValueError("segment '%s' has incorrect duration" % line)
 			if format is None:
 				format = this_line_format
 			elif format != this_line_format:
-				raise ValueError, "segment '%s' format mismatch" % line
+				raise ValueError("segment '%s' format mismatch" % line)
 		l.append(seg)
 	return l
 
@@ -249,7 +249,7 @@ def from_range_strings(ranges, boundtype = int):
 			segs[i] = segments.segment(parts, parts)
 			continue
 		if len(parts) != 2:
-			raise ValueError, range
+			raise ValueError(range)
 		if parts[0] == "":
 			parts[0] = segments.NegInfinity
 		else:
@@ -294,7 +294,7 @@ def to_range_strings(seglist):
 		elif (seg[0] is not segments.NegInfinity) and (seg[1] is not segments.PosInfinity):
 			ranges[i] = "%s:%s" % (str(seg[0]), str(seg[1]))
 		else:
-			raise ValueError, seg
+			raise ValueError(seg)
 
 	# success
 	return ranges

@@ -70,9 +70,9 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	if options.match_algorithm is None:
-		raise ValueError, "missing required --match-algorithm option"
+		raise ValueError("missing required --match-algorithm option")
 	if options.match_algorithm not in ("inspiral"):
-		raise ValueError, "unrecognized match algorithm \"%s\"" % options.match_algorithm
+		raise ValueError("unrecognized match algorithm \"%s\"" % options.match_algorithm)
 
 	return options, (filenames or [None])
 
