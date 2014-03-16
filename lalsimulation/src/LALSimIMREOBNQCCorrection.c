@@ -1560,7 +1560,7 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2( EOBNonQCCoeffs * restrict
 
 UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2chiAmax( EOBNonQCCoeffs * restrict coeffs,                                                             INT4 UNUSED l,                                                             INT4 UNUSED m,                                                             REAL8 eta,                                                             REAL8 a )
 {
-  const unsigned int   qdim = 21;
+  const unsigned int   qdim = 98;
   const unsigned int   adim = 81;
   UINT4 i;
   /* REAL8 eta2 = eta*eta;*/
@@ -2136,7 +2136,7 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2chiAmax( EOBNonQCCoeffs * r
 
 UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2chiAmed( EOBNonQCCoeffs * restrict coeffs,                                                             INT4 UNUSED l,                                                             INT4 UNUSED m,                                                             REAL8 eta,                                                             REAL8 a )
 {
-  const unsigned int   qdim = 21;
+  const unsigned int   qdim = 98;
   const unsigned int   adim = 81;
   UINT4 i;
   /* REAL8 eta2 = eta*eta;*/
@@ -2712,7 +2712,7 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2chiAmed( EOBNonQCCoeffs * r
 
 UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2chiAmin( EOBNonQCCoeffs * restrict coeffs,                                                             INT4 UNUSED l,                                                             INT4 UNUSED m,                                                             REAL8 eta,                                                             REAL8 a )
 {
-  const unsigned int   qdim = 21;
+  const unsigned int   qdim = 98;
   const unsigned int   adim = 81;
   UINT4 i;
   /* REAL8 eta2 = eta*eta;*/
