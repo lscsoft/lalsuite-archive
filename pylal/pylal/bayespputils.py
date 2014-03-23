@@ -3221,8 +3221,8 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
 
             mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
             L  = orbital_momentum(fref, mc, iota)
-            S1 = m1*m1*np.hstack([spin1x,spin1y,spin1z])
-            S2 = m2*m2*np.hstack([spin2x,spin2y,spin2z])
+            S1 = np.hstack([m1*m1*spin1x,m1*m1*spin1y,m1*m1*spin1z])
+            S2 = np.hstack([m2*m2*spin2x,m2*m2*spin2y,m2*m2*spin2z])
             J = L + S1 + S2
             beta = array_ang_sep(J,L)
 
