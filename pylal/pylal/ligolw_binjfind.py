@@ -298,7 +298,7 @@ class DocContents(object):
 			try:
 				self.coincs[row.coinc_event_id].append(index[row.event_id])
 			except KeyError:
-				continue
+				pass
 		del index
 		# sort the event list for each coin by peak time and
 		# convert to tuples for speed
