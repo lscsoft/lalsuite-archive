@@ -36,7 +36,7 @@ import sys
 
 
 from glue.ligolw import lsctables
-from glue.ligolw import utils
+from glue.ligolw import utils as ligolw_utils
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import ligolw_inspinjfind
@@ -123,14 +123,14 @@ nearcoinccomparefunc = {"inspiral": cf.NearCoincCompare}[options.match_algorithm
 #
 
 
-for n, filename in enumerate(filenames):
+for n, filename in enumerate(filenames, start = 1):
 	#
 	# load the document
 	#
 
 	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, options.verbose)
+		print >>sys.stderr, "%d/%d:" % (n, len(filenames)),
+	xmldoc = ligolw_utils.load_filename(filename, contenthandler = ligolw_inspinjfind.LIGOLWContentHandler, verbose = options.verbose)
 	lsctables.table.InterningRowBuilder.strings.clear()
 
 	#
@@ -169,6 +169,6 @@ for n, filename in enumerate(filenames):
 	# done
 	#
 
-	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
+	ligolw_utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	xmldoc.unlink()
 	lsctables.table.reset_next_ids(lsctables.TableByName.values())

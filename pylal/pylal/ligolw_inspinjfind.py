@@ -40,6 +40,7 @@ import bisect
 import sys
 
 
+from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
@@ -78,6 +79,20 @@ def sngl_inspiral___cmp__(self, other):
 
 
 lsctables.SnglInspiral.__cmp__ = sngl_inspiral___cmp__
+
+
+#
+# =============================================================================
+#
+#                           Typical Content Handler
+#
+# =============================================================================
+#
+
+
+class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
+	pass
+lsctables.use_in(LIGOLWContentHandler)
 
 
 #
