@@ -49,7 +49,6 @@ from pylal import git_version
 from pylal import ligolw_thinca
 from pylal import ligolw_tisi
 from pylal import SimInspiralUtils
-from pylal import SnglInspiralUtils
 from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
@@ -311,41 +310,6 @@ def append_process(xmldoc, match_algorithm, comment):
 	ligolw_process.append_process_params(xmldoc, process, params)
 
 	return process
-
-
-#
-# =============================================================================
-#
-#                 Injection <--> Inspiral Event Comparison Tests
-#
-# =============================================================================
-#
-
-class CompareFunctions:
-	"""
-	Class to store different compare functions. Any extra args needed by the called
-	functions are created when the function is initialized.
-	"""
-	def __init__( self, twindow = 9.0 ):
-		"""
-		Any extra variables needed by the compare functions.
-
-		@twindow: the default time window, in seconds, to use for InspiralSnglCompare and NearCoincCompare
-		"""
-		self.twindow = LIGOTimeGPS( int(twindow), (twindow % 1)*1e9 )
-
-	def InspiralSnglCompare(self, sim, inspiral):
-		"""
-		Return False if the peak time of the sim is within self.twindow seconds of the inspiral event.
-		"""
-		return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = self.twindow)
-
-
-	def NearCoincCompare(self, sim, inspiral):
-		"""
-		Return False if the peak time of the sim is within self.twindow seconds of the inspiral event.
-		"""
-		return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = self.twindow)
 
 
 #
