@@ -201,31 +201,24 @@ class DocContents(object):
 		# for now this is ignored.
 		#
 
-		# index sngl_inspiral table
-		index = {}
-		for row in self.snglinspiraltable:
-			index[row.event_id] = row
+		# index the sngl_inspiral table
+		index = dict((row.event_id, row) for row in self.snglinspiraltable)
 		# find IDs of inspiral<-->inspiral coincs
-		self.coincs = {}
-		for coinc in self.coinctable:
-			if coinc.coinc_def_id == ii_coinc_def_id:
-				self.coincs[coinc.coinc_event_id] = []
+		self.sngls = dict((row.coinc_event_id, []) for row in self.coinctable if row.coinc_def_id == ii_coinc_def_id)
 		# construct event list for each inspiral<-->inspiral coinc
 		for row in self.coincmaptable:
-			if row.coinc_event_id in self.coincs:
-				self.coincs[row.coinc_event_id].append(index[row.event_id])
+			try:
+				self.sngls[row.coinc_event_id].append(index[row.event_id])
+			except KeyError:
+				pass
 		del index
-		# sort each event list by end time and convert to tuples
-		# for speed
-		for coinc_event_id in self.coincs.keys():
-			events = self.coincs[coinc_event_id]
-			events.sort(lambda a, b: cmp(a.end_time, b.end_time) or cmp(a.end_time_ns, b.end_time_ns))
-			self.coincs[coinc_event_id] = tuple(events)
-		# convert dictionary to a list
-		self.coincs = self.coincs.items()
+		# construct a sngl-->coincs look-up table
+		self.coincs = dict((event.event_id, set()) for events in self.sngls.values() for event in events)
+		for row in self.coincmaptable:
+			if row.event_id in self.coincs and row.coinc_event_id in self.sngls:
+				self.coincs[row.event_id].add(row.coinc_event_id)
 
 		#
-		# FIXME Is this true for inspirals too?
 		# sort sngl_inspiral table by end time, and sort the coincs
 		# list by the end time of the first (earliest) event in
 		# each coinc (recall that the event tuple for each coinc
@@ -233,7 +226,6 @@ class DocContents(object):
 		#
 
 		self.snglinspiraltable.sort(lambda a, b: cmp(a.end_time, b.end_time) or cmp(a.end_time_ns, b.end_time_ns))
-		self.coincs.sort(lambda (id_a, a), (id_b, b): cmp(a[0].end_time, b[0].end_time) or cmp(a[0].end_time_ns, b[0].end_time_ns))
 
 		#
 		# set the window for inspirals_near_endtime().  this window
@@ -256,13 +248,16 @@ class DocContents(object):
 		"""
 		Return a list of the (coinc_event_id, event list) tuples in
 		which at least one inspiral event's end time is within
-		self.coinc_end_time_window of t.
+		self.end_time_bisect_window of t.
 		"""
 		# FIXME:  this test does not consider the time slide
 		# offsets that should be applied to the coinc, but for now
 		# injections are done at zero lag so this isn't a problem
 		# yet
-		return [(coinc_event_id, inspirals) for coinc_event_id, inspirals in self.coincs if (t - self.coinc_end_time_window <= inspirals[-1].get_end()) and (inspirals[0].get_end() <= t + self.coinc_end_time_window)]
+		coinc_event_ids = set()
+		for event in self.inspirals_near_endtime(t):
+			coinc_event_ids |= self.coincs[event.event_id]
+		return [(coinc_event_id, self.sngls[coinc_event_id]) for coinc_event_id in coinc_event_ids]
 
 	def sort_triggers_by_id(self):
 		"""
