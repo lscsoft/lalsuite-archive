@@ -146,11 +146,11 @@ def hrss_in_instrument(sim, instrument, offsetvector):
 
 def string_amplitude_in_instrument(sim, instrument, offsetvector):
 	"""
-	Given a string cusp injection and an instrument, compute and return
-	the amplitude of the injection as should be observed in the
-	instrument.
+	Given a string cusp (or kink) injection and an instrument, 
+	compute and return the amplitude of the injection as should
+	be observed in the instrument.
 	"""
-	assert sim.waveform == "StringCusp"
+	assert (sim.waveform == "StringCusp" or sim.waveform == "StringKink")
 
 	# antenna response factors
 

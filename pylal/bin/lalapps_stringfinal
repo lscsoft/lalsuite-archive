@@ -341,7 +341,7 @@ WHERE
 		self.zero_lag.sort()
 		self.zero_lag = numpy.array(self.zero_lag, dtype = "double")
 		background_x = numpy.array(self.background[::-1], dtype = "double")
-
+		
 		#
 		# convert counts to rates and their uncertainties
 		#
