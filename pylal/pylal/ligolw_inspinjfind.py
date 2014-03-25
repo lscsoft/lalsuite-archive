@@ -129,6 +129,12 @@ class DocContents(object):
 		self.siminspiraltable = lsctables.SimInspiralTable.get_table(xmldoc)
 
 		#
+		# get the offset vectors from the document
+		#
+
+		self.offsetvectors = lsctables.TimeSlideTable.get_table(xmldoc).as_dict()
+
+		#
 		# get out segment lists for programs that generated
 		# triggers (currently only used for time_slide vector
 		# construction)
@@ -217,6 +223,8 @@ class DocContents(object):
 		for row in self.coincmaptable:
 			if row.event_id in self.coincs and row.coinc_event_id in self.sngls:
 				self.coincs[row.event_id].add(row.coinc_event_id)
+		# create a coinc_event_id to offset vector look-up table
+		self.coincoffsets = dict((row.coinc_event_id, self.offsetvectors[row.time_slide_id]) for row in self.coinctable if row.coinc_def_id == ii_coinc_def_id)
 
 		#
 		# sort sngl_inspiral table by end time, and sort the coincs
