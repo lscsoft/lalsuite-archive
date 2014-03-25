@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2010  Kipp Cannon
+# Copyright (C) 2010,2013  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -34,7 +34,7 @@ from PIL import Image
 
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
-from glue.ligolw import utils
+from glue.ligolw import utils as ligolw_utils
 from glue.ligolw.utils import process as ligolw_process
 import lalburst
 import lalmetaio
@@ -121,7 +121,7 @@ if options.verbose:
 xmldoc = ligolw.Document()
 xmldoc.appendChild(ligolw.LIGO_LW())
 process = ligolw_process.register_to_xmldoc(xmldoc, u"lalapps_binj_pic", options.options_dict, version = git_version.version)
-time_slide_table = xmldoc.childNodes[-1].appendChild(lsctables.table.get_table(utils.load_filename(options.time_slide_xml, verbose = options.verbose, contenthandler = LIGOLWContentHandler), lsctables.TimeSlideTable.tableName))
+time_slide_table = xmldoc.childNodes[-1].appendChild(lsctables.TimeSlideTable.get_table(ligolw_utils.load_filename(options.time_slide_xml, verbose = options.verbose, contenthandler = LIGOLWContentHandler)))
 time_slide_id = time_slide_table[0].time_slide_id
 if options.verbose:
 	print >>sys.stderr, "associating injections with time slide ID \"%s\":  %s" % (time_slide_id, time_slide_table.as_dict()[time_slide_id])
@@ -181,4 +181,4 @@ for filename in filenames:
 		print >>sys.stderr
 
 
-utils.write_filename(xmldoc, options.output, gz = (options.output or "stdout").endswith(".gz"), verbose = options.verbose)
+ligolw_utils.write_filename(xmldoc, options.output, gz = (options.output or "stdout").endswith(".gz"), verbose = options.verbose)

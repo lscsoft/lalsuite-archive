@@ -616,10 +616,8 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     
   binNum = 0
   for bin in massBins:
-    maxSNR[bin[0]] = max([trigSNR[slideID][bin[0]].max() for slideID in \
-                     range(numSlides) if len(trigSNR[slideID][bin[0]]) ])
-    maxBestNR[bin[0]] = max([trigBestNR[slideID][bin[0]].max() for slideID in \
-                     range(numSlides) if len(trigBestNR[slideID][bin[0]]) ])
+    maxSNR[bin[0]]    = max([trigSNR[slideID][bin[0]].max() if len(trigSNR[slideID][bin[0]]) else 0 for slideID in range(numSlides) ])
+    maxBestNR[bin[0]] = max([trigBestNR[slideID][bin[0]].max() if len(trigSNR[slideID][bin[0]]) else 0 for slideID in range(numSlides) ])
  
     if (totalTrials % 2):
       medianSNR[bin[0]] = (fullTimeBinVetoMaxSNR[binNum])\

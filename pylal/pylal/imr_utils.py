@@ -294,7 +294,7 @@ def compute_search_volume_in_bins(found, total, ndbins, sim_to_bins_function):
 	errors = rate.BinnedArray(rate.NDBins(ndbins[1:]))
 
 	# integrate efficiency to obtain volume
-	vol.array = (eff.array.T * 4. * numpy.pi * r**2 * dx).sum(-1)
+	vol.array = numpy.trapz(eff.array.T * 4. * numpy.pi * r**2, r, dx)
 
 	# propagate errors in eff to errors in V
         errors.array = numpy.sqrt(( (4*numpy.pi *r**2 *err.array.T *dx)**2 ).sum(-1))
@@ -307,7 +307,7 @@ def guess_nd_bins(sims, bin_dict = {"distance": (200, rate.LinearBins)}):
 	Given a dictionary of bin counts and bin objects keyed by sim
 	attribute, come up with a sensible NDBins scheme
 	"""
-	return rate.NDBins([bintup[1](min([getattr(sim, attr) for sim in sims]), max([getattr(sim, attr) for sim in sims]) + sys.float_info.epsilon, bintup[0]) for attr, bintup in bin_dict.items()])
+	return rate.NDBins([bintup[1](min([getattr(sim, attr) for sim in sims]), max([getattr(sim, attr) for sim in sims]) + sys.float_info.min, bintup[0]) for attr, bintup in bin_dict.items()])
 
 
 def guess_distance_mass1_mass2_bins_from_sims(sims, mass1bins = 11, mass2bins = 11, distbins = 200):

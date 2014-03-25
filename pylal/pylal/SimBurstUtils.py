@@ -294,7 +294,7 @@ WHERE
 		self.window_size_y /= math.sqrt(2)
 		if self.window_size_x > 100 or self.window_size_y > 100:
 			# program will take too long to run
-			raise ValueError, "smoothing filter too large (not enough injections)"
+			raise ValueError("smoothing filter too large (not enough injections)")
 
 		print >>sys.stderr, "The smoothing window for %s is %g x %g bins" % ("+".join(self.instruments), self.window_size_x, self.window_size_y),
 		print >>sys.stderr, "which is %g%% x %g%% of the binning" % (100.0 * self.window_size_x / binning[0].n, 100.0 * self.window_size_y / binning[1].n)

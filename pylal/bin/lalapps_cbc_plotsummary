@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2009-2011  Kipp Cannon, Chad Hanna
+# Copyright (C) 2009-2013  Kipp Cannon, Chad Hanna
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -61,7 +61,6 @@ import sys
 from pylal import SimBurstUtils	# this must come before the dbtables import (sigh, I know, I *know*)
 from glue import iterutils
 from glue import segments
-from glue.ligolw import table
 from glue.ligolw import dbtables
 from glue.ligolw.utils import segments as ligolw_segments
 from glue import lal
@@ -151,23 +150,23 @@ class CoincDatabase(object):
 
 		# find the tables
 		try:
-			self.sngl_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.SnglInspiralTable.tableName)
+			self.sngl_inspiral_table = dbtables.lsctables.SnglInspiralTable.get_table(xmldoc)
 		except ValueError:
 			self.sngl_inspiral_table = None
 		try:
-			self.sim_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.SimInspiralTable.tableName)
+			self.sim_inspiral_table = dbtables.lsctables.SimInspiralTable.get_table(xmldoc)
 		except ValueError:
 			self.sim_inspiral_table = None
 		try:
-			self.coinc_def_table = table.get_table(xmldoc, dbtables.lsctables.CoincDefTable.tableName)
-			self.coinc_table = table.get_table(xmldoc, dbtables.lsctables.CoincTable.tableName)
-			self.time_slide_table = table.get_table(xmldoc, dbtables.lsctables.TimeSlideTable.tableName)
+			self.coinc_def_table = dbtables.lsctables.CoincDefTable.get_table(xmldoc)
+			self.coinc_table = dbtables.lsctables.CoincTable.get_table(xmldoc)
+			self.time_slide_table = dbtables.lsctables.TimeSlideTable.get_table(xmldoc)
 		except ValueError:
 			self.coinc_def_table = None
 			self.coinc_table = None
 			self.time_slide_table = None
 		try:
-			self.coinc_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.CoincInspiralTable.tableName)
+			self.coinc_inspiral_table = dbtables.lsctables.CoincInspiralTable.get_table(xmldoc)
 		except ValueError:
 			self.coinc_inspiral_table = None
 

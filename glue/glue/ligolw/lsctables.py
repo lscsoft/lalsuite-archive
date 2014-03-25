@@ -40,7 +40,11 @@ from glue import git_version
 from glue import iterutils
 from glue import offsetvector
 from glue import segments
-from glue.lal import LIGOTimeGPS
+try:
+	from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+except ImportError:
+	# pylal is optional
+	from glue.lal import LIGOTimeGPS
 from . import ligolw
 from . import table
 from . import types as ligolwtypes
@@ -81,8 +85,7 @@ class TableRow(object):
 	def __getstate__(self):
 		return dict((key, getattr(self, key)) for key in self.__slots__ if hasattr(self, key))
 	def __setstate__(self, state):
-		for key, value in state.items():
-			setattr(self, key, value)
+		self.__init__(**state)
 
 
 def New(Type, columns = None, **kwargs):
@@ -241,7 +244,7 @@ def ifos_from_instrument_set(instruments):
 	if instruments is None:
 		return None
 	instruments = sorted(instrument.strip() for instrument in instruments)
-	if any(map(lambda instrument: u"," in instrument or u"+" in instrument, instruments)):
+	if any(u"," in instrument or u"+" in instrument for instrument in instruments):
 		raise ValueError(instruments)
 	if len(instruments) == 1 and len(instruments[0]) > 2 and not len(instruments[0]) % 2:
 		# special case disambiguation.  FIXME:  remove when
@@ -914,6 +917,7 @@ class ExperimentMap(object):
 
 ExperimentMapTable.RowType = ExperimentMap
 
+
 #
 # =============================================================================
 #
@@ -1001,6 +1005,7 @@ class GDSTrigger(object):
 		self.bandwidth = abs(band)
 
 GDSTriggerTable.RowType = GDSTrigger
+
 
 #
 # =============================================================================
@@ -1825,6 +1830,7 @@ class SnglRingdownTable(table.Table):
 	def get_start(self):
 		return [row.get_start() for row in self]
 
+
 class SnglRingdown(object):
 	__slots__ = SnglRingdownTable.validcolumns.keys()
 
@@ -1846,6 +1852,7 @@ class SnglRingdown(object):
 
 
 SnglRingdownTable.RowType = SnglRingdown
+
 
 #
 # =============================================================================
@@ -2310,6 +2317,7 @@ class MultiInspiralTable(table.Table):
 		numpy.putmask(newsnr, rchisq < 1, snr)
 		return newsnr
 
+
 class MultiInspiral(object):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
 	instrument_id = MultiInspiralTable.instrument_id
@@ -2499,6 +2507,7 @@ class MultiInspiral(object):
 		if self.get_null_snr() > null_snr_threshold:
 			bestnr /= 1 + self.get_null_snr() - null_snr_threshold
 		return bestnr
+
 
 MultiInspiralTable.RowType = MultiInspiral
 
@@ -2841,6 +2850,7 @@ class SummValueTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (summ_value_id)"
 	next_id = SummValueID(0)
+	interncolumns = ("program", "process_id", "ifo", "name", "comment")
 
 
 class SummValue(object):
@@ -2856,27 +2866,43 @@ class SummValue(object):
 
 	@property
 	def start(self):
+		if self.start_time is None and self.start_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.start_time, self.start_time_ns)
 
 	@start.setter
 	def start(self, gps):
-		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+		if gps is None:
+			self.start_time = self.start_time_ns = None
+		else:
+			self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def end(self):
+		if self.end_time is None and self.end_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.end_time, self.end_time_ns)
 
 	@end.setter
 	def end(self, gps):
-		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+		if gps is None:
+			self.end_time = self.end_time_ns = None
+		else:
+			self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def segment(self):
-		return segments.segment(self.start, self.end)
+		start, end = self.start, self.end
+		if start is None and end is None:
+			return None
+		return segments.segment(start, end)
 
 	@segment.setter
 	def segment(self, seg):
-		self.start, self.end = seg
+		if seg is None:
+			self.start = self.end = None
+		else:
+			self.start, self.end = seg
 
 
 SummValueTable.RowType = SummValue
@@ -3288,6 +3314,25 @@ class TimeSlideTable(table.Table):
 			d[row.time_slide_id][row.instrument] = row.offset
 		return d
 
+	def append_offsetvector(self, offsetvect, process):
+		"""
+		Append rows describing an instrument --> offset mapping to
+		this table.  offsetvect is a dictionary mapping instrument
+		to offset.  process should be the row in the process table
+		on which the new time_slide table rows will be blamed (or
+		any object with a process_id attribute).  The return value
+		is the time_slide_id assigned to the new rows.
+		"""
+		time_slide_id = self.get_next_id()
+		for instrument, offset in offsetvect.items():
+			row = self.RowType()
+			row.process_id = process.process_id
+			row.time_slide_id = time_slide_id
+			row.instrument = instrument
+			row.offset = offset
+			self.append(row)
+		return time_slide_id
+
 	def get_time_slide_id(self, offsetdict, create_new = None, superset_ok = False, nonunique_ok = False):
 		"""
 		Return the time_slide_id corresponding to the offset vector
@@ -3344,18 +3389,8 @@ class TimeSlideTable(table.Table):
 		if create_new is None:
 			# and that's not OK
 			raise KeyError("%s not found" % repr(offsetdict))
-		# that's OK, create new vector
-		id = self.get_next_id()
-		for instrument, offset in offsetdict.items():
-			row = self.RowType()
-			row.process_id = create_new.process_id
-			row.time_slide_id = id
-			row.instrument = instrument
-			row.offset = offset
-			self.append(row)
-
-		# return new ID
-		return id
+		# that's OK, create new vector, return its ID
+		return self.append_offsetvector(offsetdict, create_new)
 
 
 class TimeSlide(object):

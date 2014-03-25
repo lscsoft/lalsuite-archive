@@ -240,11 +240,16 @@ if __name__ == "__main__":
         cert_file, key_file = None,None
 
     # connection to server
-    server, port = opts.server.split(':',1)
-    if port == "":
+    try:
+        server, port = opts.server.split(':',1)
+    except ValueError:
+        server = opts.server
         port = None
     else:
-        port = int(port)
+        if port == "":
+            port = None
+        else:
+            port = int(port)
 
     # open connection    
     if cert_file and key_file:

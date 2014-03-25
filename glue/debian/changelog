@@ -1,3 +1,9 @@
+glue (1.46) unstable; urgency=low
+
+  * ER5 release of glue. 
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Tue, Dec 3 2013 4:00:00 -0500
+
 glue (1.45.1) unstable; urgency=low
 
   * ER4 release of glue, with spec file match. 

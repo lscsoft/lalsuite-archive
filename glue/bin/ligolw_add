@@ -88,7 +88,7 @@ def parse_command_line():
 	urls += [CacheEntry(line).url for cache in options.input_cache for line in file(cache)]
 
 	if len(urls) < 1:
-		raise ValueError, "no input files!"
+		raise ValueError("no input files!")
 
 	return options, urls
 
@@ -129,7 +129,7 @@ def update_lfn_table(xmldoc, pathname, start_time = None, end_time = None, comme
 	else:
 		# already has an LFN table, are the columns OK?
 		if set(cols) != set(lfn_table.columnnames):
-			raise Exception, "document contains an LFN table with columns %s, but columns %s are required" % (", ".join(lfn_table.columnnames), ", ".join(cols))
+			raise Exception("document contains an LFN table with columns %s, but columns %s are required" % (", ".join(lfn_table.columnnames), ", ".join(cols)))
 	pathname = os.path.basename(pathname)
 	# add a row to the LFN table for every process in every process
 	# table
@@ -192,7 +192,7 @@ xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, non_lsc_tables_ok = opti
 
 if options.add_lfn_table:
 	if not options.output:
-		raise Exception, "cannot add LFN table when no output filename is given"
+		raise Exception("cannot add LFN table when no output filename is given")
 	update_lfn_table(xmldoc, options.output, options.lfn_start_time, options.lfn_end_time, options.lfn_comment)
 
 

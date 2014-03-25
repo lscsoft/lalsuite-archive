@@ -284,19 +284,19 @@ class Element(object):
 		"""
 		pass
 
-	def write(self, file = sys.stdout, indent = u""):
+	def write(self, fileobj = sys.stdout, indent = u""):
 		"""
 		Recursively write an element and it's children to a file.
 		"""
-		file.write(self.start_tag(indent) + u"\n")
+		fileobj.write(self.start_tag(indent) + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
 				raise ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
-			c.write(file, indent + Indent)
+			c.write(fileobj, indent + Indent)
 		if self.pcdata:
-			file.write(xmlescape(self.pcdata))
-			file.write(u"\n")
-		file.write(self.end_tag(indent) + u"\n")
+			fileobj.write(xmlescape(self.pcdata))
+			fileobj.write(u"\n")
+		fileobj.write(self.end_tag(indent) + u"\n")
 
 
 def WalkChildren(elem):
@@ -333,13 +333,13 @@ class Comment(Element):
 	"""
 	tagName = u"Comment"
 
-	def write(self, file = sys.stdout, indent = u""):
+	def write(self, fileobj = sys.stdout, indent = u""):
 		if self.pcdata:
-			file.write(self.start_tag(indent))
-			file.write(xmlescape(self.pcdata))
-			file.write(self.end_tag(u"") + u"\n")
+			fileobj.write(self.start_tag(indent))
+			fileobj.write(xmlescape(self.pcdata))
+			fileobj.write(self.end_tag(u"") + u"\n")
 		else:
-			file.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+			fileobj.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
 
 
 class Param(Element):
@@ -439,11 +439,11 @@ class Column(Element):
 		"""
 		return u""
 
-	def write(self, file = sys.stdout, indent = u""):
+	def write(self, fileobj = sys.stdout, indent = u""):
 		"""
 		Recursively write an element and it's children to a file.
 		"""
-		file.write(self.start_tag(indent) + u"\n")
+		fileobj.write(self.start_tag(indent) + u"\n")
 
 
 class Array(Element):
@@ -473,13 +473,13 @@ class Dim(Element):
 	tagName = u"Dim"
 	validattributes = frozenset([u"Name", u"Unit", u"Start", u"Scale"])
 
-	def write(self, file = sys.stdout, indent = u""):
+	def write(self, fileobj = sys.stdout, indent = u""):
 		if self.pcdata:
-			file.write(self.start_tag(indent))
-			file.write(xmlescape(self.pcdata))
-			file.write(self.end_tag(u"") + u"\n")
+			fileobj.write(self.start_tag(indent))
+			fileobj.write(xmlescape(self.pcdata))
+			fileobj.write(self.end_tag(u"") + u"\n")
 		else:
-			file.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+			fileobj.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
 
 
 class Stream(Element):
@@ -551,13 +551,13 @@ class Time(Element):
 			raise ElementError("invalid Type for Time: '%s'" % attrs[u"Type"])
 		Element.__init__(self, attrs)
 
-	def write(self, file = sys.stdout, indent = u""):
+	def write(self, fileobj = sys.stdout, indent = u""):
 		if self.pcdata:
-			file.write(self.start_tag(indent))
-			file.write(xmlescape(self.pcdata))
-			file.write(self.end_tag(u"") + u"\n")
+			fileobj.write(self.start_tag(indent))
+			fileobj.write(xmlescape(self.pcdata))
+			fileobj.write(self.end_tag(u"") + u"\n")
 		else:
-			file.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+			fileobj.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
 
 
 class Document(Element):
@@ -567,17 +567,17 @@ class Document(Element):
 	tagName = u"Document"
 	validchildren = frozenset([u"LIGO_LW"])
 
-	def write(self, file = sys.stdout, xsl_file = None ):
+	def write(self, fileobj = sys.stdout, xsl_file = None ):
 		"""
 		Write the document.
 		"""
-		file.write(Header + u"\n")
+		fileobj.write(Header + u"\n")
 		if xsl_file is not None:
-			file.write(u'<?xml-stylesheet type="text/xsl" href="' + xsl_file + u'" ?>' + u"\n")
+			fileobj.write(u'<?xml-stylesheet type="text/xsl" href="' + xsl_file + u'" ?>' + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
 				raise ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
-			c.write(file)
+			c.write(fileobj)
 
 
 #

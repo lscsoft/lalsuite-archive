@@ -29,7 +29,6 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
-from pylal import llwapp
 from pylal import SnglInspiralUtils
 from pylal import snglcluster
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -73,7 +72,7 @@ def get_tables(doc):
 #
 
 def append_process(doc, **kwargs):
-  process = llwapp.append_process(
+  process = ligolw_process.append_process(
     doc, program = "ligolw_sicluster", version = git_version.verbose_msg,
     cvs_repository = "lscsoft", cvs_entry_time = git_version.date,
     comment = kwargs["comment"])
@@ -161,6 +160,6 @@ def ligolw_sicluster(doc, **kwargs):
     ligolw_search_summary.append_search_summary(doc, process, inseg = inseg, outseg = outseg, 
       nevents = len(snglinspiraltable))
   if process:
-    llwapp.set_process_end_time(process)
+    ligolw_process.set_process_end_time(process)
 
   return doc

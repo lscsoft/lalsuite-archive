@@ -211,6 +211,25 @@ class test_segment(unittest.TestCase):
 		)
 		map(lambda i, r, a: self.assertEqual((i, r), (i, a.contract(2))), xrange(len(results)), results, set2())
 
+	def test_typesafety(self):
+		x = "segments.segment(10, 20)"
+		y = "(20, 30)"
+		z = "None"
+
+		for op in ("|", "&", "-", "^"):
+			for arg1, arg2 in (
+				(x, z), (z, x)
+			):
+				expr = "%s %s %s" % (arg1, op, arg2)
+				try:
+					eval(expr)
+				except TypeError:
+					pass
+				else:
+					raise AssertionError("%s did not raise TypeError" % expr)
+		# FIXME:  this doesn't work, should it?
+		#self.assertEqual(eval("%s | %s" % (x, y)), segments.segmentlist([segments.segment(10, 30)]))
+
 
 class test_segmentlist(unittest.TestCase):
 	def test__sub__(self):
@@ -338,21 +357,25 @@ class test_segmentlist(unittest.TestCase):
 			except AssertionError, e:
 				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
 
-
 	def test_typesafety(self):
-		x = "segments.segmentlist([segments.segment(0, 10), segments.segment(20, 30)])"
-		y = "segments.segment(10, 20)"
-		z = "[(10, 20)]"
+		w = "segments.segmentlist([segments.segment(0, 10), segments.segment(20, 30)])"
+		x = "segments.segment(10, 20)"
+		y = "[(10, 20)]"
+		z = "None"
 
 		for op in ("|", "&", "-", "^"):
-			for expr in ("%s %s %s" % (x, op, y), "%s %s %s" % (y, op, x)):
+			for arg1, arg2 in (
+				(w, x), (x, w),
+				(w, z), (z, w)
+			):
+				expr = "%s %s %s" % (arg1, op, arg2)
 				try:
 					eval(expr)
 				except TypeError:
 					pass
 				else:
 					raise AssertionError("%s did not raise TypeError" % expr)
-		self.assertEqual(eval("%s | %s" % (x, z)), segments.segmentlist([segments.segment(0, 30)]))
+		self.assertEqual(eval("%s | %s" % (w, y)), segments.segmentlist([segments.segment(0, 30)]))
 
 
 class test_segmentlistdict(unittest.TestCase):
