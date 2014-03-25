@@ -164,6 +164,9 @@ class RewindableInputFile(object):
 		self.buf = buffer(" " * buffer_size)
 		# flag indicating a .seek()-based EOF test is in progress
 		self.gzip_hack_pretend_to_be_at_eof = False
+		# avoid attribute look-ups
+		self._next = self.fileobj.next
+		self._read = self.fileobj.read
 
 	def __iter__(self):
 		return self
@@ -175,7 +178,7 @@ class RewindableInputFile(object):
 			buf = self.buf[-self.reuse:]
 			self.reuse = 0
 		else:
-			buf = self.fileobj.next()
+			buf = self._next()
 			self.buf = (self.buf + buf)[-len(self.buf):]
 		return buf
 
@@ -184,7 +187,7 @@ class RewindableInputFile(object):
 			return buffer()
 		if self.reuse:
 			if self.reuse < 0:
-				buf = self.fileobj.read(size - self.reuse)
+				buf = self._read(size - self.reuse)
 				self.buf = (self.buf + buf)[-len(self.buf):]
 				buf = buf[-self.reuse:]
 				self.reuse = 0
@@ -197,7 +200,7 @@ class RewindableInputFile(object):
 				if len(buf) < size:
 					buf += self.read(size - len(buf))
 		else:
-			buf = self.fileobj.read(size)
+			buf = self._read(size)
 			self.buf = (self.buf + buf)[-len(self.buf):]
 		return buf
 
@@ -225,7 +228,7 @@ class RewindableInputFile(object):
 			# check to see if we are at EOF by seeing if we can
 			# read 1 character.  save it in the internal buffer
 			# to not loose it.
-			c = self.fileobj.read(1)
+			c = self._read(1)
 			self.buf = (self.buf + c)[-len(self.buf):]
 			self.reuse += len(c)
 			if c:
@@ -247,26 +250,31 @@ class MD5File(object):
 		else:
 			self.md5obj = md5obj
 		self.pos = 0
+		# avoid attribute look-ups
+		self._next = self.fileobj.next
+		self._read = self.fileobj.read
+		self._write = self.fileobj.write
+		self._update = self.md5obj.update
 
 	def __iter__(self):
 		return self
 
 	def next(self):
-		buf = self.fileobj.next()
-		self.md5obj.update(buf)
+		buf = self._next()
+		self._update(buf)
 		self.pos += len(buf)
 		return buf
 
 	def read(self, size = None):
-		buf = self.fileobj.read(size)
-		self.md5obj.update(buf)
+		buf = self._read(size)
+		self._update(buf)
 		self.pos += len(buf)
 		return buf
 
 	def write(self, buf):
 		self.pos += len(buf)
-		self.md5obj.update(buf)
-		return self.fileobj.write(buf)
+		self._update(buf)
+		return self._write(buf)
 
 	def tell(self):
 		try:
