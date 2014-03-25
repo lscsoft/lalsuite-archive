@@ -364,24 +364,32 @@ def add_sim_inspiral_coinc(contents, sim, inspirals):
 
 def find_exact_coinc_matches(coincs, sim, comparefunc):
 	"""
-	Return a list of the coinc_event_ids of the inspiral<-->inspiral coincs
-	in which all inspiral events match sim.
+	Return a set of the coinc_event_ids of the inspiral<-->inspiral
+	coincs in which all inspiral events match sim.
 	"""
+	# comparefunc is True --> inspiral does not match sim
+	# any(...) --> at least one inspiral does not match sim
+	# not any(...) --> all inspirals match sim
+	#
 	# FIXME:  this test does not consider the time slide offsets that
 	# should be applied to the coinc, but for now injections are done
 	# at zero lag so this isn't a problem yet
-	return [coinc_event_id for coinc_event_id, inspirals in coincs if True not in [bool(comparefunc(sim, inspiral)) for inspiral in inspirals]]
+	return set(coinc_event_id for coinc_event_id, inspirals in coincs if not any(comparefunc(sim, inspiral) for inspiral in inspirals))
 
 
 def find_near_coinc_matches(coincs, sim, comparefunc):
 	"""
-	Return a list of the coinc_event_ids of the inspiral<-->inspiral coincs
-	in which at least one inspiral event matches sim.
+	Return a set of the coinc_event_ids of the inspiral<-->inspiral
+	coincs in which at least one inspiral event matches sim.
 	"""
+	# comparefunc is True --> inspiral does not match sim
+	# all(...) --> no inspirals match sim
+	# not all(...) --> at least one inspiral matches sim
+	#
 	# FIXME:  this test does not consider the time slide offsets that
 	# should be applied to the coinc, but for now injections are done
 	# at zero lag so this isn't a problem yet
-	return [coinc_event_id for coinc_event_id, inspirals in coincs if False in [bool(comparefunc(sim, inspiral)) for inspiral in inspirals]]
+	return set(coinc_event_id for coinc_event_id, inspirals in coincs if not all(comparefunc(sim, inspiral) for inspiral in inspirals))
 
 
 def add_sim_coinc_coinc(contents, sim, coinc_event_ids, coinc_def_id):
@@ -456,7 +464,7 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 			coincs = contents.coincs_near_endtime(sim.get_end())
 			exact_coinc_event_ids = find_exact_coinc_matches(coincs, sim, snglcomparefunc)
 			near_coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc)
-			assert set(exact_coinc_event_ids).issubset(set(near_coinc_event_ids))
+			assert exact_coinc_event_ids.issubset(near_coinc_event_ids)
 			if exact_coinc_event_ids:
 				add_sim_coinc_coinc(contents, sim, exact_coinc_event_ids, contents.sce_coinc_def_id)
 			if near_coinc_event_ids:
