@@ -108,11 +108,12 @@ InspiralSICoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type 
 InspiralSCNearCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 2, description = u"sim_inspiral<-->coinc_event coincidences (nearby)")
 InspiralSCExactCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 3, description = u"sim_inspiral<-->coinc_event coincidences (exact)")
 
+
 class DocContents(object):
 	"""
 	A wrapper interface to the XML document.
 	"""
-	def __init__(self, xmldoc, bbdef, sbdef, scedef, scndef, process):
+	def __init__(self, xmldoc, bbdef, sbdef, scedef, scndef, process, end_time_bisect_window):
 		#
 		# store the process row
 		#
@@ -240,18 +241,15 @@ class DocContents(object):
 		# this it is *impossible* for them to match one another.
 		#
 
- 		# FIXME I'll just make the windows one second
-
-                self.inspiral_end_time_window = 1.0
-                self.coinc_end_time_window = 1.0
+                self.end_time_bisect_window = LIGOTimeGPS(end_time_bisect_window)
 
 
 	def inspirals_near_endtime(self, t):
 		"""
 		Return a list of the inspiral events whose peak times are
-		within self.inspiral_end_time_window of t.
+		within self.end_time_bisect_window of t.
 		"""
-		return self.snglinspiraltable[bisect.bisect_left(self.snglinspiraltable, t - self.inspiral_end_time_window):bisect.bisect_right(self.snglinspiraltable, t + self.inspiral_end_time_window)]
+		return self.snglinspiraltable[bisect.bisect_left(self.snglinspiraltable, t - self.end_time_bisect_window):bisect.bisect_right(self.snglinspiraltable, t + self.end_time_bisect_window)]
 
 	def coincs_near_endtime(self, t):
 		"""
@@ -452,7 +450,7 @@ def add_sim_coinc_coinc(contents, sim, coinc_event_ids, coinc_def_id):
 #
 
 
-def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefunc, verbose = False):
+def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefunc, end_time_bisect_window = 1.0, verbose = False):
 	#
 	# Analyze the document's contents.
 	#
@@ -465,7 +463,7 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 	scedef = {"inspiral": InspiralSCExactCoincDef}[search]
 	scndef = {"inspiral": InspiralSCNearCoincDef}[search]
 
-	contents = DocContents(xmldoc = xmldoc, bbdef = bbdef, sbdef = sbdef, scedef = scedef, scndef = scndef, process = process)
+	contents = DocContents(xmldoc = xmldoc, bbdef = bbdef, sbdef = sbdef, scedef = scedef, scndef = scndef, process = process, end_time_bisect_window = end_time_bisect_window)
 	N = len(contents.siminspiraltable)
 
 	#
