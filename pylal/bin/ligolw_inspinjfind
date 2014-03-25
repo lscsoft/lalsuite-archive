@@ -65,6 +65,7 @@ def parse_command_line():
 	parser.add_option("-f", "--force", action = "store_true", help = "Process even if file has already been processed.")
 	parser.add_option("--comment", metavar = "text", help = "Set the comment string to be written to the process table (default = None).")
 	parser.add_option("-c", "--match-algorithm", metavar = "[inspiral]", default = "inspiral", help = "Set the algorithm used to match event candidates with injections (default = \"inspiral\").")
+	parser.add_option("-r", "--revert", action = "store_true", help = "Revert a previously-processed XML file to its pre-ligolw_inspinjfind state, allowing it to be re-processed.  This is achieved by removing ligolw_inspinjfind's entries from the process metadata tables, removing injection-related entries from the coinc_definer table, and removing all coincs created by ligolw_inspinjfind.  NOTE:  generally this is only possible if ligolw_inspinjfind was the last transformation applied to the file, otherwise data that has been added subsequently might be broken due to dangling cross-references to deleted data.  It is left as an exercise to the user to ensure that reverting the file is sensible.")
 	parser.add_option("-w", "--time-window", metavar = "seconds", type = 'float', default = 9., help = "Set the time window used by the \"inspiral\" match algorithm (default = 9.0).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
@@ -137,36 +138,43 @@ for n, filename in enumerate(filenames, start = 1):
 	lsctables.table.InterningRowBuilder.strings.clear()
 
 	#
-	# have we already processed it?
+	# process
 	#
 
-	if ligolw_process.doc_includes_process(xmldoc, ligolw_inspinjfind.process_program_name):
-		if options.verbose:
-			print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
-		if not options.force:
+	if options.revert:
+		ligolw_inspinjfind.revert(xmldoc, verbose = options.verbose)
+	else:
+		#
+		# have we already processed it?
+		#
+
+		if ligolw_process.doc_includes_process(xmldoc, ligolw_inspinjfind.process_program_name):
 			if options.verbose:
-				print >>sys.stderr, "skipping (use --force to force)"
-			continue
-		if options.verbose:
-			print >>sys.stderr, "continuing by --force"
+				print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
+			if not options.force:
+				if options.verbose:
+					print >>sys.stderr, "skipping (use --force to force)"
+				continue
+			if options.verbose:
+				print >>sys.stderr, "continuing by --force"
 
-	#
-	# add process metadata to document
-	#
+		#
+		# add process metadata to document
+		#
 
-	process = ligolw_inspinjfind.append_process(xmldoc, match_algorithm = options.match_algorithm, comment = options.comment)
+		process = ligolw_inspinjfind.append_process(xmldoc, match_algorithm = options.match_algorithm, comment = options.comment)
 
-	#
-	# run inspinjfind algorithm
-	#
+		#
+		# run inspinjfind algorithm
+		#
 
-	ligolw_inspinjfind.ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefunc, end_time_bisect_window = 1.5 * options.time_window, verbose = options.verbose)
+		ligolw_inspinjfind.ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefunc, end_time_bisect_window = 1.5 * options.time_window, verbose = options.verbose)
 
-	#
-	# close out the process metadata
-	#
+		#
+		# close out the process metadata
+		#
 
-	ligolw_process.set_process_end_time(process)
+		ligolw_process.set_process_end_time(process)
 
 	#
 	# done

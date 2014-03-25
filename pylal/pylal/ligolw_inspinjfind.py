@@ -40,6 +40,7 @@ import bisect
 import sys
 
 
+from glue import iterutils
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw.utils import coincs as ligolw_coincs
@@ -515,3 +516,52 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 	#
 
 	return xmldoc
+
+
+#
+# =============================================================================
+#
+#                                    Revert
+#
+# =============================================================================
+#
+
+
+def revert(xmldoc, program = process_program_name, verbose = False):
+	#
+	# remove entries from process metadata tables
+	#
+
+	if verbose:
+		print >>sys.stderr, "removing process metadata ..."
+	process_table = lsctables.ProcessTable.get_table(xmldoc)
+	# IDs of things to delete
+	process_ids = process_table.get_ids_by_program(program)
+	iterutils.inplace_filter((lambda row: row.process_id not in process_ids), process_table)
+	iterutils.inplace_filter((lambda row: row.process_id not in process_ids), lsctables.ProcessParamsTable.get_table(xmldoc))
+
+	#
+	# remove coinc_event and coinc_event_map entries
+	#
+
+	if verbose:
+		print >>sys.stderr, "removing coincs ..."
+	coinc_event_table = lsctables.CoincTable.get_table(xmldoc)
+	# IDs of things to delete
+	coinc_ids = frozenset(row.coinc_event_id for row in coinc_event_table if row.process_id in process_ids)
+	iterutils.inplace_filter((lambda row: row.coinc_event_id not in coinc_ids), coinc_event_table)
+	iterutils.inplace_filter((lambda row: row.coinc_event_id not in coinc_ids), lsctables.CoincMapTable.get_table(xmldoc))
+	# IDs of things to keep
+	time_slide_ids = frozenset(row.time_slide_id for row in coinc_event_table)
+	coinc_def_ids = frozenset(row.coinc_def_id for row in coinc_event_table)
+
+	#
+	# remove time_slide and coinc_definer entries
+	#
+
+	if verbose:
+		print >>sys.stderr, "removing coinc metadata ..."
+	# coinc types to delete
+	coinc_defs = frozenset((row.search, row.search_coinc_type) for row in (InspiralSICoincDef, InspiralSCNearCoincDef, InspiralSCExactCoincDef))
+	iterutils.inplace_filter((lambda row: row.process_id not in process_ids or row.time_slide_id in time_slide_ids), lsctables.TimeSlideTable.get_table(xmldoc))
+	iterutils.inplace_filter((lambda row: (row.search, row.search_coinc_type) not in coinc_defs or row.coinc_def_id in coinc_def_ids), lsctables.CoincDefTable.get_table(xmldoc))
