@@ -48,6 +48,7 @@ from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import ligolw_thinca
 from pylal import ligolw_tisi
+from pylal import progress
 from pylal import SimInspiralUtils
 from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -429,33 +430,29 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 	scndef = {"inspiral": InspiralSCNearCoincDef}[search]
 
 	contents = DocContents(xmldoc = xmldoc, bbdef = bbdef, sbdef = sbdef, scedef = scedef, scndef = scndef, process = process, end_time_bisect_window = end_time_bisect_window)
-	N = len(contents.siminspiraltable)
 
 	#
 	# Find sim_inspiral <--> sngl_inspiral coincidences.
 	#
 
-	if verbose:
-		print >>sys.stderr, "constructing %s:" % sbdef.description
-	for n, sim in enumerate(contents.siminspiraltable):
-		if verbose:
-			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
+	progressbar = progress.ProgressBar(max = len(contents.siminspiraltable), textwidth = 35, text = sbdef.description) if verbose else None
+	for sim in contents.siminspiraltable:
+		if progressbar is not None:
+			progressbar.increment()
 		inspirals = find_sngl_inspiral_matches(contents, sim, snglcomparefunc)
 		if inspirals:
 			add_sim_inspiral_coinc(contents, sim, inspirals)
-	if verbose:
-		print >>sys.stderr, "\t100.0%"
+	del progressbar
 
 	#
 	# Find sim_inspiral <--> coinc_event coincidences.
 	#
 
 	if contents.scn_coinc_def_id:
-		if verbose:
-			print >>sys.stderr, "constructing %s:" % (scndef.description)
-		for n, sim in enumerate(contents.siminspiraltable):
-			if verbose:
-				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
+		progressbar = progress.ProgressBar(max = len(contents.siminspiraltable), textwidth = 35, text = scndef.description) if verbose else None
+		for sim in contents.siminspiraltable:
+			if progressbar is not None:
+				progressbar.increment()
 			coincs = contents.coincs_near_endtime(sim.get_end())
 			exact_coinc_event_ids = find_exact_coinc_matches(coincs, sim, snglcomparefunc)
 			near_coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc)
@@ -464,8 +461,7 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 				add_sim_coinc_coinc(contents, sim, exact_coinc_event_ids, contents.sce_coinc_def_id)
 			if near_coinc_event_ids:
 				add_sim_coinc_coinc(contents, sim, near_coinc_event_ids, contents.scn_coinc_def_id)
-		if verbose:
-			print >>sys.stderr, "\t100.0%"
+		del progressbar
 
 	#
 	# Restore the original event order.
