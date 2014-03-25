@@ -49,11 +49,11 @@ from pylal import ligolw_thinca
 from pylal import ligolw_tisi
 from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
-from pylal.xlal import tools
+from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
-lsctables.CoincMapTable.RowType = lsctables.CoincMap = tools.CoincMap
+lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
