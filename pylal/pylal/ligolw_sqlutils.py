@@ -2703,7 +2703,7 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
     cursor = connection.cursor()
 
     # check for duplicate time_slide entries from the process tbl
-    old_pids = get_pids_to_update(cursor, ['ligolw_tisi'])
+    old_pids = get_pids_to_update(cursor, ['ligolw_tisi','pycbc_timeslides'])
 
     all_tables = zip(*get_tables_in_database(connection))[0]
     if old_pids and 'time_slide' in all_tables:
@@ -2755,7 +2755,7 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
             WHERE process_id NOT IN (
                 SELECT DISTINCT new_pid 
                 FROM _pidmap_ 
-                WHERE program = 'ligolw_tisi');
+                WHERE program IN ('ligolw_tisi','pycbc_timeslides'));
 
         UPDATE time_slide
             SET time_slide_id = (
