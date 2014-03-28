@@ -48,7 +48,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
   LALInferenceVariableItem *item=params->head;
   LALInferenceVariables *priorParams=runState->priorArgs;
   REAL8 min=-INFINITY, max=INFINITY;
-  REAL8 logmc=0.0;
+  REAL8 mc=0.0;
   REAL8 m1=0.0,m2=0.0,q=0.0,eta=0.0;
   //REAL8 tmp=0.;
   /* Check boundaries */
@@ -111,31 +111,30 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
     }
   }
 
-  /*if(LALInferenceCheckVariable(params,"a_spin1") && LALInferenceCheckVariable(params,"a_spin2")){
-
-    if(*(REAL8 *)LALInferenceGetVariable(params,"a_spin2") > *(REAL8 *)LALInferenceGetVariable(params,"a_spin1")){
-      tmp = *(REAL8 *)LALInferenceGetVariable(params,"a_spin1");
-      *(REAL8 *)LALInferenceGetVariable(params,"a_spin1") = *(REAL8 *)LALInferenceGetVariable(params,"a_spin2");
-      *(REAL8 *)LALInferenceGetVariable(params,"a_spin2") = tmp;
-    }
-  }*/
   if(LALInferenceCheckVariable(params,"logmc")) {
-    logmc=*(REAL8 *)LALInferenceGetVariable(params,"logmc");
-    /* Assume jumping in log(Mc), so use prior that works out to p(Mc) ~ Mc^-11/6 */
-    logPrior+=-(5./6.)*logmc;
+    mc=exp(*(REAL8 *)LALInferenceGetVariable(params,"logmc"));
   } else if(LALInferenceCheckVariable(params,"chirpmass")) {
-    logmc=log(*(REAL8 *)LALInferenceGetVariable(params,"chirpmass"));
-    /* Assume jumping in Mc, so can implement the Mc^-11/6 directly. */
-    logPrior+=-(11./6.)*logmc;
+    mc=(*(REAL8 *)LALInferenceGetVariable(params,"chirpmass"));
   }
 
   if(LALInferenceCheckVariable(params,"asym_massratio")) {
-        q=*(REAL8 *)LALInferenceGetVariable(params,"asym_massratio");
-        LALInferenceMcQ2Masses(exp(logmc),q,&m1,&m2);
-    }
-  else if(LALInferenceCheckVariable(params,"massratio")) {
+    q=*(REAL8 *)LALInferenceGetVariable(params,"asym_massratio");
+    LALInferenceMcQ2Masses(mc,q,&m1,&m2);
+  } else if(LALInferenceCheckVariable(params,"massratio")) {
     eta=*(REAL8 *)LALInferenceGetVariable(params,"massratio");
-    LALInferenceMcEta2Masses(exp(logmc),eta,&m1,&m2);
+    LALInferenceMcEta2Masses(mc,eta,&m1,&m2);
+  }
+
+  if(LALInferenceCheckVariable(params,"logmc")) {
+    if(LALInferenceCheckVariable(params,"asym_massratio"))
+      logPrior+=log(m1*m1);
+    else
+      logPrior+=log(((m1+m2)*(m1+m2)*(m1+m2))/(m1-m2));
+  } else if(LALInferenceCheckVariable(params,"chirpmass")) {
+    if(LALInferenceCheckVariable(params,"asym_massratio"))
+      logPrior+=log(m1*m1/mc);
+    else
+      logPrior+=log(((m1+m2)*(m1+m2))/((m1-m2)*pow(eta,3.0/5.0)));
   }
 
   /* Check for component masses in range, if specified */
@@ -149,7 +148,13 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
        || *(REAL8 *)LALInferenceGetVariable(priorParams,"component_max") < m2)
       return -DBL_MAX;
 
-  if(LALInferenceCheckVariable(priorParams,"malmquist") && !within_malmquist(runState, params))
+  if(LALInferenceCheckVariable(priorParams,"MTotMax"))
+    if(*(REAL8 *)LALInferenceGetVariable(priorParams,"MTotMax") < m1+m2)
+      return -DBL_MAX;
+
+  if(LALInferenceCheckVariable(priorParams,"malmquist") &&
+        LALInferenceCheckVariable(priorParams,"malmquist") &&
+        !within_malmquist(runState, params))
       return -DBL_MAX;
 
   return(logPrior);
@@ -2717,7 +2722,8 @@ UINT4 within_malmquist(LALInferenceRunState *runState, LALInferenceVariables *pa
         ifo = ifo->next;
     }
 
-    REAL8 *SNRs = LALInferenceNetworkSNR(params, runState->data, runState->templt);
+    REAL8 *SNRs = XLALMalloc(nifo * sizeof(REAL8));
+    LALInferenceNetworkSNR(params, runState->data, runState->templt, SNRs);
     REAL8 loudest_snr=0.0, second_loudest_snr=0.0, network_snr=0.0;
     for (i=0; i<nifo; i++) {
         if (SNRs[i] > second_loudest_snr) {

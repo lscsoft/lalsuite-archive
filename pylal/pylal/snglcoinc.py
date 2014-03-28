@@ -299,7 +299,7 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 
 	try:
 		threshold_data = thresholds[(eventlista.instrument, eventlistb.instrument)]
-	except KeyError, e:
+	except KeyError as e:
 		raise KeyError("no coincidence thresholds provided for instrument pair %s, %s" % e.args[0])
 	light_travel_time = inject.light_travel_time(eventlista.instrument, eventlistb.instrument)
 
@@ -1776,9 +1776,11 @@ class CoincParamsDistributions(object):
 		"""
 		if params is None:
 			return None
+		# move attribute look-ups out of loop
+		__getitem__ = self.background_pdf_interp.__getitem__
 		P = 1.0
 		for name, value in params.items():
-			P *= self.background_pdf_interp[name](*value)
+			P *= __getitem__(name)(*value)
 		return P
 
 	def lnP_noise(self, *args, **kwargs):
@@ -1818,9 +1820,11 @@ class CoincParamsDistributions(object):
 		"""
 		if params is None:
 			return None
+		# move attribute look-ups out of loop
+		__getitem__ = self.injection_pdf_interp.__getitem__
 		P = 1.0
 		for name, value in params.items():
-			P *= self.injection_pdf_interp[name](*value)
+			P *= __getitem__(name)(*value)
 		return P
 
 	def lnP_signal(self, *args, **kwargs):

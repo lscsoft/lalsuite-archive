@@ -1968,6 +1968,14 @@ class CondorDAG:
               workflow_job.addArguments(Pegasus.DAX3.File(os.path.basename(job_arg[0])))
             elif node_file_dict.has_key(job_arg[1]):
               workflow_job.addArguments(job_arg[0], Pegasus.DAX3.File(os.path.basename(job_arg[1])))
+            elif len(job_arg[1].split(' ')) != 1:
+                args = [job_arg[0]]
+                for arg in job_arg[1].split(' '):
+                    if node_file_dict.has_key(arg):
+                        args.append(Pegasus.DAX3.File(os.path.basename(arg)))
+                    else:
+                        args.append(arg)       
+                workflow_job.addArguments(*args)
             else:
               workflow_job.addArguments(job_arg[0], job_arg[1])
           except IndexError:

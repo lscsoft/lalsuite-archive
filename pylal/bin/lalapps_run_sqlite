@@ -42,7 +42,7 @@ def parse_command_line():
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 	if bool(options.sql) + bool(options.sql_file) != 1:
-		raise ValueError, "must set exactly one of --sql or --sql-file"
+		raise ValueError("must set exactly one of --sql or --sql-file")
 	return options, (filenames or [])
 
 

@@ -94,7 +94,7 @@ def parse_command_line():
 	urls += [CacheEntry(line).url for cache in options.input_cache for line in open(cache)]
 
 	if not options.database:
-		raise ValueError, "missing required argument --database"
+		raise ValueError("missing required argument --database")
 
 	return options, (urls or [None])
 

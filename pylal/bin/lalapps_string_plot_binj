@@ -539,7 +539,7 @@ while len(plots):
 		print >>sys.stderr, "finishing plot group %d ..." % n
 	try:
 		figs = plot.finish()
-	except ValueError, e:
+	except ValueError as e:
 		print >>sys.stderr, "can't finish plot group %d: %s" % (n, str(e))
 	else:
 		for f, fig in enumerate(figs):
