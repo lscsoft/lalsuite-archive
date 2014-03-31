@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2012  Kipp Cannon
+# Copyright (C) 2006--2014  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -33,9 +33,9 @@ constructing a parser.
 """
 
 
-import re
 import sys
 from xml import sax
+from xml.sax.xmlreader import AttributesImpl
 from xml.sax.saxutils import escape as xmlescape
 from xml.sax.saxutils import unescape as xmlunescape
 
@@ -84,6 +84,46 @@ class ElementError(Exception):
 	pass
 
 
+class attributeproxy(property):
+	def __init__(self, name, enc = unicode, dec = unicode, default = None, doc = None):
+		# define get/set/del implementations, relying on Python's
+		# closure mechanism to remember values for name, default,
+		# etc.
+		def getter(self):
+			try:
+				val = self.getAttribute(name)
+			except KeyError:
+				if default is not None:
+					return default
+				raise AttributeError("attribute '%s' is not set" % name)
+			return dec(val)
+		def setter(self, value):
+			self.setAttribute(name, enc(value))
+		def deleter(self):
+			self.removeAttribute(name)
+		# construct a default documentation string if needed
+		if doc is None:
+			doc = "The \"%s\" attribute." % name
+			if default is not None:
+				doc += "  Default is \"%s\" if not set." % str(default)
+		# initialize the property object
+		super(attributeproxy, self).__init__(getter, setter, deleter, doc)
+		# documentation is not inherited, need to set it explicitly
+		self.__doc__ = doc
+		# record default attribute.  if no value is supplied,
+		# AttributeError will be raised on attempts to retrieve it
+		if default is not None:
+			self._default = default
+
+	@property
+	def default(self):
+		"""
+		Default value.  AttributeError is raised if no default
+		value is set.
+		"""
+		return self._default
+
+
 class Element(object):
 	"""
 	Base class for all element types.  This class is inspired by the
@@ -109,21 +149,20 @@ class Element(object):
 	validattributes = frozenset()
 	validchildren = frozenset()
 
-	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
+	def __init__(self, attrs = None):
 		"""
 		Construct an element.  The argument is a
 		sax.xmlreader.AttributesImpl object (see the xml.sax
 		documentation, but it's basically a dictionary-like thing)
 		used to set the element attributes.
 		"""
-		# must use .keys(), cannot iterate over AttributesImpl
-		# objects like you can with dictionaries.  you get a
-		# KeyError if you try
-		for key in attrs.keys():
-			if key not in self.validattributes:
-				raise ElementError("%s does not have attribute '%s'" % (self.tagName, key))
 		self.parentNode = None
-		self.attributes = attrs.copy()
+		if attrs is None:
+			self.attributes = AttributesImpl({})
+		elif set(attrs.keys()) <= self.validattributes:
+			self.attributes = attrs
+		else:
+			raise ElementError("%s element does not have attribute(s) %s" % (self.tagName, ", ".join("'%s'" % key for key in set(attrs.keys()) - self.validattributes)))
 		self.childNodes = []
 		self.pcdata = None
 
@@ -326,6 +365,9 @@ class LIGO_LW(Element):
 	validchildren = frozenset([u"LIGO_LW", u"Comment", u"Param", u"Table", u"Array", u"Stream", u"IGWDFrame", u"AdcData", u"AdcInterval", u"Time", u"Detector"])
 	validattributes = frozenset([u"Name", u"Type"])
 
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type")
+
 
 class Comment(Element):
 	"""
@@ -415,6 +457,9 @@ class Table(Element):
 					raise ElementError("only one Stream allowed in Table")
 				nstream += 1
 
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type")
+
 
 class Column(Element):
 	"""
@@ -445,6 +490,10 @@ class Column(Element):
 		"""
 		fileobj.write(self.start_tag(indent) + u"\n")
 
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type")
+	Unit = attributeproxy(u"Unit")
+
 
 class Array(Element):
 	"""
@@ -465,13 +514,17 @@ class Array(Element):
 					raise ElementError("only one Stream allowed in Array")
 				nstream += 1
 
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type")
+	Unit = attributeproxy(u"Unit")
+
 
 class Dim(Element):
 	"""
 	Dim element.
 	"""
 	tagName = u"Dim"
-	validattributes = frozenset([u"Name", u"Unit", u"Start", u"Scale"])
+	validattributes = frozenset([u"Name", u"Scale", u"Start", u"Unit"])
 
 	def write(self, fileobj = sys.stdout, indent = u""):
 		if self.pcdata:
@@ -481,13 +534,18 @@ class Dim(Element):
 		else:
 			fileobj.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
 
+	Name = attributeproxy(u"Name")
+	Scale = attributeproxy(u"Scale", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
+	Start = attributeproxy(u"Start", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
+	Unit = attributeproxy(u"Unit")
+
 
 class Stream(Element):
 	"""
 	Stream element.
 	"""
 	tagName = u"Stream"
-	validattributes = frozenset([u"Name", u"Type", u"Delimiter", u"Encoding", u"Content"])
+	validattributes = frozenset([u"Content", u"Delimiter", u"Encoding", u"Name", u"Type"])
 
 	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
 		attrs = attrs.copy()
@@ -495,9 +553,15 @@ class Stream(Element):
 			attrs._attrs[u"Type"] = u"Local"
 		if not attrs.has_key(u"Delimiter"):
 			attrs._attrs[u"Delimiter"] = u","
-		if attrs[u"Type"] not in [u"Remote", u"Local"]:
+		if attrs[u"Type"] not in (u"Remote", u"Local"):
 			raise ElementError("invalid Type for Stream: '%s'" % attrs[u"Type"])
-		Element.__init__(self, attrs)
+		super(Stream, self).__init__(attrs)
+
+	Content = attributeproxy(u"Content")
+	Delimiter = attributeproxy(u"Delimiter", default = u",")
+	Encoding = attributeproxy(u"Encoding")
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type", default = u"Local")
 
 
 class IGWDFrame(Element):
@@ -508,6 +572,8 @@ class IGWDFrame(Element):
 	validchildren = frozenset([u"Comment", u"Param", u"Time", u"Detector", u"AdcData", u"LIGO_LW", u"Stream", u"Array", u"IGWDFrame"])
 	validattributes = frozenset([u"Name"])
 
+	Name = attributeproxy(u"Name")
+
 
 class Detector(Element):
 	"""
@@ -516,6 +582,8 @@ class Detector(Element):
 	tagName = u"Detector"
 	validchildren = frozenset([u"Comment", u"Param", u"LIGO_LW"])
 	validattributes = frozenset([u"Name"])
+
+	Name = attributeproxy(u"Name")
 
 
 class AdcData(Element):
@@ -526,6 +594,8 @@ class AdcData(Element):
 	validchildren = frozenset([u"AdcData", u"Comment", u"Param", u"Time", u"LIGO_LW", u"Array"])
 	validattributes = frozenset([u"Name"])
 
+	Name = attributeproxy(u"Name")
+
 
 class AdcInterval(Element):
 	"""
@@ -533,7 +603,11 @@ class AdcInterval(Element):
 	"""
 	tagName = u"AdcInterval"
 	validchildren = frozenset([u"AdcData", u"Comment", u"Time"])
-	validattributes = frozenset([u"Name", u"StartTime", u"DeltaT"])
+	validattributes = frozenset([u"DeltaT", u"Name", u"StartTime"])
+
+	DeltaT = attributeproxy(u"DeltaT", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
+	Name = attributeproxy(u"Name")
+	StartTime = attributeproxy(u"StartTime")
 
 
 class Time(Element):
@@ -543,13 +617,10 @@ class Time(Element):
 	tagName = u"Time"
 	validattributes = frozenset([u"Name", u"Type"])
 
-	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
-		attrs = attrs.copy()
-		if not attrs.has_key(u"Type"):
-			attrs._attrs[u"Type"] = u"ISO-8601"
-		if attrs[u"Type"] not in ligolwtypes.TimeTypes:
-			raise ElementError("invalid Type for Time: '%s'" % attrs[u"Type"])
-		Element.__init__(self, attrs)
+	def __init__(self, *args):
+		super(Time, self).__init__(*args)
+		if self.Type not in ligolwtypes.TimeTypes:
+			raise ElementError("invalid Type for Time: '%s'" % self.Type)
 
 	def write(self, fileobj = sys.stdout, indent = u""):
 		if self.pcdata:
@@ -558,6 +629,9 @@ class Time(Element):
 			fileobj.write(self.end_tag(u"") + u"\n")
 		else:
 			fileobj.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type", default = u"ISO-8601")
 
 
 class Document(Element):
@@ -680,7 +754,7 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 			start_handler = self._startElementHandlers[(uri, localname)]
 		except KeyError:
 			raise ElementError("unknown element %s for namespace %s" % (localname, uri or NameSpace))
-		attrs = sax.xmlreader.AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
+		attrs = AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
 		self.current = self.current.appendChild(start_handler(self.current, attrs))
 
 	def endElementNS(self, (uri, localname), qname):
@@ -727,7 +801,7 @@ class PartialLIGOLWContentHandler(DefaultLIGOLWContentHandler):
 		self.depth = 0
 
 	def startElementNS(self, (uri, localname), qname, attrs):
-		filter_attrs = sax.xmlreader.AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
+		filter_attrs = AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
 		if self.depth > 0 or self.element_filter(localname, filter_attrs):
 			super(PartialLIGOLWContentHandler, self).startElementNS((uri, localname), qname, attrs)
 			self.depth += 1
@@ -766,7 +840,7 @@ class FilteringLIGOLWContentHandler(DefaultLIGOLWContentHandler):
 		self.depth = 0
 
 	def startElementNS(self, (uri, localname), qname, attrs):
-		filter_attrs = sax.xmlreader.AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
+		filter_attrs = AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
 		if self.depth > 0 or not self.element_filter(localname, filter_attrs):
 			self.depth += 1
 		else:
