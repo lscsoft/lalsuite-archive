@@ -172,7 +172,7 @@ def pickle_to_param(obj, name):
 	Return the top-level element of a document sub-tree containing the
 	pickled serialization of a Python object.
 	"""
-	return param.from_pyvalue(u"pickle:%s" % name, unicode(pickle.dumps(obj)))
+	return from_pyvalue(u"pickle:%s" % name, unicode(pickle.dumps(obj)))
 
 
 def pickle_from_param(elem, name):
@@ -180,7 +180,7 @@ def pickle_from_param(elem, name):
 	Retrieve a pickled Python object from the document tree rooted at
 	elem.
 	"""
-	return pickle.loads(str(param.get_pyvalue(elem, u"pickle:%s" % name)))
+	return pickle.loads(str(get_pyvalue(elem, u"pickle:%s" % name)))
 
 
 def yaml_to_param(obj, name):
@@ -188,7 +188,7 @@ def yaml_to_param(obj, name):
 	Return the top-level element of a document sub-tree containing the
 	YAML serialization of a Python object.
 	"""
-	return param.from_pyvalue(u"yaml:%s" % name, unicode(yaml.dump(obj)))
+	return from_pyvalue(u"yaml:%s" % name, unicode(yaml.dump(obj)))
 
 
 def yaml_from_param(elem, name):
@@ -196,7 +196,7 @@ def yaml_from_param(elem, name):
 	Retrieve a YAMLed Python object from the document tree rooted at
 	elem.
 	"""
-	return yaml.load(param.get_pyvalue(elem, u"yaml:%s" % name))
+	return yaml.load(get_pyvalue(elem, u"yaml:%s" % name))
 
 
 try:
@@ -266,7 +266,7 @@ class Param(ligolw.Param):
 		fileobj.write(self.start_tag(indent) + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
-				raise ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
+				raise ligolw.ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
 			c.write(fileobj, indent + ligolw.Indent)
 		if self.pcdata is not None:
 			# we have to strip quote characters from string
