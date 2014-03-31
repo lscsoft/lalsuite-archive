@@ -82,11 +82,11 @@ def build_COMPLEX16FrequencySeries(series, comment = None):
 	data = series.data
 	data = numpy.row_stack((numpy.arange(0, len(data)) * series.deltaF, numpy.real(data), numpy.imag(data)))
 	a = ligolwarray.from_array(series.name, data, dim_names = (u"Frequency", u"Frequency,Real,Imaginary"))
-	a.setAttribute(u"Unit", unicode(series.sampleUnits))
+	a.Unit = series.sampleUnits
 	dim0 = a.getElementsByTagName(ligolw.Dim.tagName)[0]
-	dim0.setAttribute(u"Unit", unicode(LALUnit("s^-1")))
-	dim0.setAttribute(u"Start", ligolwtypes.FormatFunc[u"real_8"](series.f0))
-	dim0.setAttribute(u"Scale", ligolwtypes.FormatFunc[u"real_8"](series.deltaF))
+	dim0.Unit = LALUnit("s^-1")
+	dim0.Start = series.f0
+	dim0.Scale = series.deltaF
 	elem.appendChild(a)
 	return elem
 
@@ -97,13 +97,13 @@ def parse_COMPLEX16FrequencySeries(elem):
 	dims = a.getElementsByTagName(ligolw.Dim.tagName)
 	f0 = param.get_param(elem, u"f0")
 	return COMPLEX16FrequencySeries(
-		name = a.getAttribute(u"Name"),
+		name = a.Name,
 		# FIXME:  make Time class smart so we don't have to parse
 		# it by hand
 		epoch = LIGOTimeGPS(t.pcdata),
 		f0 = f0.pcdata * float(LALUnit(f0.Unit) / LALUnit("s^-1")),
-		deltaF = float(dims[0].getAttribute(u"Scale")) * float(LALUnit(dims[0].getAttribute(u"Unit")) / LALUnit("s^-1")),
-		sampleUnits = LALUnit(a.getAttribute(u"Unit")),
+		deltaF = dims[0].Scale * float(LALUnit(dims[0].Unit) / LALUnit("s^-1")),
+		sampleUnits = LALUnit(a.Unit),
 		data = a.array[1] + 1j * a.array[2]
 	)
 
@@ -124,11 +124,11 @@ def build_COMPLEX16TimeSeries(series, comment = None):
 	data = series.data
 	data = numpy.row_stack((numpy.arange(0, len(data)) * series.deltaT, numpy.real(data), numpy.imag(data)))
 	a = ligolwarray.from_array(series.name, data, dim_names = (u"Time", u"Time,Real,Imaginary"))
-	a.setAttribute(u"Unit", unicode(series.sampleUnits))
+	a.Unit = series.sampleUnits
 	dim0 = a.getElementsByTagName(ligolw.Dim.tagName)[0]
-	dim0.setAttribute(u"Unit", unicode(LALUnit("s")))
-	dim0.setAttribute(u"Start", ligolwtypes.FormatFunc[u"real_8"](series.f0))
-	dim0.setAttribute(u"Scale", ligolwtypes.FormatFunc[u"real_8"](series.deltaT))
+	dim0.Unit = LALUnit("s")
+	dim0.Start = series.f0
+	dim0.Scale = series.deltaT
 	elem.appendChild(a)
 	return elem
 
@@ -139,13 +139,13 @@ def parse_COMPLEX16TimeSeries(elem):
 	dims = a.getElementsByTagName(ligolw.Dim.tagName)
 	f0 = param.get_param(elem, u"f0")
 	return COMPLEX16TimeSeries(
-		name = a.getAttribute(u"Name"),
+		name = a.Name,
 		# FIXME:  make Time class smart so we don't have to parse
 		# it by hand
 		epoch = LIGOTimeGPS(t.pcdata),
 		f0 = f0.pcdata * float(LALUnit(f0.Unit) / LALUnit("s^-1")),
-		deltaT = float(dims[0].getAttribute(u"Scale")) * float(LALUnit(dims[0].getAttribute(u"Unit")) / LALUnit("s")),
-		sampleUnits = LALUnit(a.getAttribute(u"Unit")),
+		deltaT = dims[0].Scale * float(LALUnit(dims[0].Unit) / LALUnit("s")),
+		sampleUnits = LALUnit(a.Unit),
 		data = a.array[1] + 1j * a.array[2]
 	)
 
@@ -166,11 +166,11 @@ def build_REAL8FrequencySeries(series, comment = None):
 	data = series.data
 	data = numpy.row_stack((numpy.arange(0, len(data)) * series.deltaF, data))
 	a = ligolwarray.from_array(series.name, data, dim_names = (u"Frequency", u"Frequency,Real"))
-	a.setAttribute(u"Unit", unicode(series.sampleUnits))
+	a.Unit = series.sampleUnits
 	dim0 = a.getElementsByTagName(ligolw.Dim.tagName)[0]
-	dim0.setAttribute(u"Unit", unicode(LALUnit("s^-1")))
-	dim0.setAttribute(u"Start", ligolwtypes.FormatFunc[u"real_8"](series.f0))
-	dim0.setAttribute(u"Scale", ligolwtypes.FormatFunc[u"real_8"](series.deltaF))
+	dim0.Unit = LALUnit("s^-1")
+	dim0.Start = series.f0
+	dim0.Scale = series.deltaF
 	elem.appendChild(a)
 	return elem
 
@@ -181,13 +181,13 @@ def parse_REAL8FrequencySeries(elem):
 	dims = a.getElementsByTagName(ligolw.Dim.tagName)
 	f0 = param.get_param(elem, u"f0")
 	return REAL8FrequencySeries(
-		name = a.getAttribute(u"Name"),
+		name = a.Name,
 		# FIXME:  make Time class smart so we don't have to parse
 		# it by hand
 		epoch = LIGOTimeGPS(t.pcdata),
 		f0 = f0.pcdata * float(LALUnit(f0.Unit) / LALUnit("s^-1")),
-		deltaF = float(dims[0].getAttribute(u"Scale")) * float(LALUnit(dims[0].getAttribute(u"Unit")) / LALUnit("s^-1")),
-		sampleUnits = LALUnit(a.getAttribute(u"Unit")),
+		deltaF = dims[0].Scale * float(LALUnit(dims[0].Unit) / LALUnit("s^-1")),
+		sampleUnits = LALUnit(a.Unit),
 		data = a.array[1]
 	)
 
@@ -208,11 +208,11 @@ def build_REAL8TimeSeries(series, comment = None):
 	data = series.data
 	data = numpy.row_stack((numpy.arange(0, len(data)) * series.deltaT, data))
 	a = ligolwarray.from_array(series.name, data, dim_names = (u"Time", u"Time,Real"))
-	a.setAttribute(u"Unit", unicode(series.sampleUnits))
+	a.Unit = series.sampleUnits
 	dim0 = a.getElementsByTagName(ligolw.Dim.tagName)[0]
-	dim0.setAttribute(u"Unit", unicode(LALUnit("s")))
-	dim0.setAttribute(u"Start", ligolwtypes.FormatFunc[u"real_8"](series.f0))
-	dim0.setAttribute(u"Scale", ligolwtypes.FormatFunc[u"real_8"](series.deltaT))
+	dim0.Unit = LALUnit("s")
+	dim0.Start = series.f0
+	dim0.Scale = series.deltaT
 	elem.appendChild(a)
 	return elem
 
@@ -223,13 +223,13 @@ def parse_REAL8TimeSeries(elem):
 	dims = a.getElementsByTagName(ligolw.Dim.tagName)
 	f0 = param.get_param(elem, u"f0")
 	return REAL8TimeSeries(
-		name = a.getAttribute(u"Name"),
+		name = a.Name,
 		# FIXME:  make Time class smart so we don't have to parse
 		# it by hand
 		epoch = LIGOTimeGPS(t.pcdata),
 		f0 = f0.pcdata * float(LALUnit(f0.Unit) / LALUnit("s^-1")),
-		deltaT = float(dims[0].getAttribute(u"Scale")) * float(LALUnit(dims[0].getAttribute(u"Unit")) / LALUnit("s")),
-		sampleUnits = LALUnit(a.getAttribute(u"Unit")),
+		deltaT = dims[0].Scale * float(LALUnit(dims[0].Unit) / LALUnit("s")),
+		sampleUnits = LALUnit(a.Unit),
 		data = a.array[1]
 	)
 
