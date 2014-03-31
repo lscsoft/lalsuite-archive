@@ -32,6 +32,7 @@ from numpy import mean,std,median,min,max,\
      abs,array,log,floor,power,arange,\
      floor,ceil,searchsorted,empty,isnan,\
      interp,zeros,arctan,pi,ones,size
+from numpy.ma import masked_array
 from pylal import frutils
 from sys import stderr,stdout,exit
 import optparse
@@ -422,10 +423,16 @@ myFigure=pylab.figure(figsize=(xRes/myDPI,yRes/myDPI),dpi=myDPI)
 # Figure of PD beam time on
 #
 mySubPlot=pylab.subplot(1,3,1)
-myHandles.append(pylab.imshow(beamLocationHistData.transpose(),\
+# Setup Mask for "not paint" zero time bins
+myColorMap=matplotlib.cm.jet
+myColorMap.set_bad('w',0.0)
+maskedBeamLocationHistData=masked_array(beamLocationHistData,
+                                        beamLocationHistData<=0.0)
+myHandles.append(pylab.imshow(maskedBeamLocationHistData.transpose(),\
                               interpolation='nearest',\
                               extent=bBox,\
                               aspect='auto',\
+                              cmap=myColorMap,\
                               origin='lower'))
 myYaw=interp(gpsT0,myData["time"],myData["yaw"])
 myPitch=interp(gpsT0,myData["time"],myData["pitch"])
@@ -436,7 +443,7 @@ myPitchPlusDT=interp(gpsT0+minDT,myData["time"],myData["pitch"])
 starSize=75
 myBeam=interp(gpsT0,myData["time"],myData["beam"])
 mySubPlot.annotate('*',xy=(myYaw,myPitch),xycoords='data',\
-                   size=starSize,color='white')
+                   size=starSize,color='red')
 pylab.title("Beam Time on PD (%s,%s,%s)"%(gpsT0,float(gps_frontHistory),float(gps_backHistory)))
 #Need to determine colorbar range
 CB1=pylab.colorbar(orientation='horizontal')
@@ -454,7 +461,7 @@ myHandles.append(pylab.imshow(beamMedianHistData.transpose(),\
                               aspect='auto',\
                               origin='lower'))
 mySubPlot2.annotate('*',xy=(myYaw,myPitch),xycoords='data',\
-                   size=starSize,color='white')
+                   size=starSize,color='red')
 prevFig=myHandles[-1]
 pylab.title("Median Beam Intensity on PD (%s,%s,%s)"%(gpsT0,float(gps_frontHistory),float(gps_backHistory)))
 #Need to determine colorbar range
