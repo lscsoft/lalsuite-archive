@@ -1,14 +1,17 @@
 all : glue_ligolw_ilwd_verify iterutils_verify lal_verify ligolw_test01 ligolw_test02 ligolw_test03a ligolw_test03b ligolw_test03c ligolw_sqlite_test offsetvector_verify segmentsUtils_verify segments_verify
+	@echo "All Tests Passed"
 
 define printpassfail
 	{ echo "Pass" ; true ; } || { echo "Fail" ; false ; }
 endef
 
+SERVEFILESPORT := 16543
+
 define servefiles
-	{ python -c "import SocketServer, SimpleHTTPServer ; SocketServer.TCPServer(('127.0.0.1', 16543), SimpleHTTPServer.SimpleHTTPRequestHandler).serve_forever()" & sleep 1 ; }
+	{ python -c "import SocketServer, SimpleHTTPServer ; SocketServer.TCPServer(('127.0.0.1', $(SERVEFILESPORT)), SimpleHTTPServer.SimpleHTTPRequestHandler).serve_forever()" & sleep 1 ; }
 endef
 define stopservefiles
-	{ killall python ; sleep 1 ; }
+	{ killall python ; sleep 1 ; true ; }
 endef
 
 glue_ligolw_ilwd_verify :
@@ -55,8 +58,8 @@ ligolw_test03b :
 ligolw_test03c :
 	@echo "=== start ligolw_test03c ===>"
 	# test reading compressed and non-compressed files from http:// URLs
-	$(servefiles) && { ligolw_print http://127.0.0.1:16543/inspiral_event_id_test_in1.xml.gz >/dev/null && $(printpassfail) ; } ; $(stopservefiles)
-	$(servefiles) && { ligolw_print http://127.0.0.1:16543/inspiral_event_id_test_in2.xml >/dev/null && $(printpassfail) ; } ; $(stopservefiles)
+	$(servefiles) && { ligolw_print http://127.0.0.1:$(SERVEFILESPORT)/inspiral_event_id_test_in1.xml.gz >/dev/null && $(printpassfail) ; } ; $(stopservefiles)
+	$(servefiles) && { ligolw_print http://127.0.0.1:$(SERVEFILESPORT)/inspiral_event_id_test_in2.xml >/dev/null && $(printpassfail) ; } ; $(stopservefiles)
 	@echo "<=== end ligolw_test03c ==="
 
 ligolw_test04 :
