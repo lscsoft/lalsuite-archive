@@ -518,15 +518,10 @@ class Stream(Element):
 	tagName = u"Stream"
 	validattributes = frozenset([u"Content", u"Delimiter", u"Encoding", u"Name", u"Type"])
 
-	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
-		attrs = attrs.copy()
-		if not attrs.has_key(u"Type"):
-			attrs._attrs[u"Type"] = u"Local"
-		if not attrs.has_key(u"Delimiter"):
-			attrs._attrs[u"Delimiter"] = u","
-		if attrs[u"Type"] not in (u"Remote", u"Local"):
-			raise ElementError("invalid Type for Stream: '%s'" % attrs[u"Type"])
-		super(Stream, self).__init__(attrs)
+	def __init__(self, *args):
+		super(Stream, self).__init__(*args)
+		if self.Type not in (u"Remote", u"Local"):
+			raise ElementError("invalid Type for Stream: '%s'" % self.Type)
 
 	Content = attributeproxy(u"Content")
 	Delimiter = attributeproxy(u"Delimiter", default = u",")
