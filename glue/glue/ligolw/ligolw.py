@@ -390,43 +390,14 @@ class Param(Element):
 	"""
 	tagName = u"Param"
 	validchildren = frozenset([u"Comment"])
-	validattributes = frozenset([u"Name", u"Type", u"Start", u"Scale", u"Unit", u"DataUnit"])
+	validattributes = frozenset([u"DataUnit", u"Name", u"Scale", u"Start", u"Type", u"Unit"])
 
-	def get_unit(self):
-		"""
-		Retrieve the value of the "Unit" attribute.
-		"""
-		return self.getAttribute(u"Unit")
-
-	def set_unit(self, value):
-		"""
-		Set the value of the "Unit" attribute.
-		"""
-		self.setAttribute(u"Unit", unicode(value))
-
-	def del_unit(self):
-		"""
-		Remove the "Unit" attribute.
-		"""
-		self.removeAttribute(u"Unit")
-
-	def get_dataunit(self):
-		"""
-		Retrieve the value of the "DataUnit" attribute.
-		"""
-		return self.getAttribute(u"DataUnit")
-
-	def set_dataunit(self, value):
-		"""
-		Set the value of the "DataUnit" attribute.
-		"""
-		self.setAttribute(u"DataUnit", unicode(value))
-
-	def del_dataunit(self):
-		"""
-		Remove the "DataUnit" attribute.
-		"""
-		self.removeAttribute(u"DataUnit")
+	DataUnit = attributeproxy(u"DataUnit")
+	Name = attributeproxy(u"Name")
+	Scale = attributeproxy(u"Scale")
+	Start = attributeproxy(u"Start")
+	Type = attributeproxy(u"Type")
+	Unit = attributeproxy(u"Unit")
 
 
 class Table(Element):

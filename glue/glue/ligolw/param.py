@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2009,2012--2014  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -92,7 +92,8 @@ def getParamsByName(elem, name):
 	"""
 	Return a list of params with name name under elem.
 	"""
-	return elem.getElements(lambda e: (e.tagName == ligolw.Param.tagName) and (CompareParamNames(e.getAttribute("Name"), name) == 0))
+	name = StripParamName(name)
+	return elem.getElements(lambda e: (e.tagName == ligolw.Param.tagName) and (e.Name == name))
 
 
 #
@@ -109,19 +110,20 @@ def new_param(name, type, value, start = None, scale = None, unit = None, dataun
 	Construct a LIGO Light Weight XML Param document subtree.  FIXME:
 	document keyword arguments.
 	"""
+	elem = Param()
+	elem.Name = name
+	elem.Type = type
+	elem.pcdata = value
 	# FIXME:  I have no idea how most of the attributes should be
 	# encoded, I don't even know what they're supposed to be.
-	attrs = {u"Name": u"%s:param" % name, u"Type": type}
-	if start is not None:
-		attrs[u"Start"] = unicode(start)
-	if scale is not None:
-		attrs[u"Scale"] = ligolwtypes.FormatFunc["real_8"](scale)
-	elem = Param(Attributes(attrs))
-	elem.pcdata = value
-	if unit is not None:
-		elem.set_unit(unit)
 	if dataunit is not None:
-		elem.set_dataunit(dataunit)
+		elem.DataUnit = dataunit
+	if scale is not None:
+		elem.Scale = scale
+	if start is not None:
+		elem.Start = start
+	if unit is not None:
+		elem.Unit = unit
 	if comment is not None:
 		elem.appendChild(ligolw.Comment())
 		elem.childNodes[-1].pcdata = comment
@@ -145,7 +147,7 @@ def from_pyvalue(name, value, **kwargs):
 	from an instance of a Python builtin type.  See new_param() for a
 	description of the valid keyword arguments.
 	"""
-	return new_param(name, ligolwtypes.FromPyType[value.__class__], value, **kwargs)
+	return new_param(name, ligolwtypes.FromPyType[type(value)], value, **kwargs)
 
 
 def get_pyvalue(xml, name):
@@ -246,24 +248,19 @@ class Param(ligolw.Param):
 	High-level Param element.  The value is stored in the pcdata
 	attribute as the native Python type rather than as a string.
 	"""
-	def __init__(self, *attrs):
+	def __init__(self, *args):
 		"""
 		Initialize a new Param element.
 		"""
-		ligolw.Param.__init__(self, *attrs)
-		try:
-			t = self.getAttribute("Type")
-		except KeyError:
-			# default
-			t = u"lstring"
-		self.pytype = ligolwtypes.ToPyType[t]
+		super(Param, self).__init__(*args)
+		self.pytype = ligolwtypes.ToPyType[self.Type]
 
 	def endElement(self):
 		# convert pcdata from string to native Python type
 		self.pcdata = self.pytype(self.pcdata.strip())
 
 	def write(self, fileobj = sys.stdout, indent = u""):
-		fileobj.write(self.start_tag(indent) + u"\n")
+		fileobj.write(self.start_tag(indent))
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
 				raise ligolw.ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
@@ -271,10 +268,12 @@ class Param(ligolw.Param):
 		if self.pcdata is not None:
 			# we have to strip quote characters from string
 			# formats (see comment above)
-			fileobj.write(indent + ligolw.Indent)
-			fileobj.write(xmlescape(ligolwtypes.FormatFunc[self.getAttribute("Type")](self.pcdata).strip(u"\"")))
-			fileobj.write(u"\n")
-		fileobj.write(self.end_tag(indent) + u"\n")
+			fileobj.write(xmlescape(ligolwtypes.FormatFunc[self.Type](self.pcdata).strip(u"\"")))
+		fileobj.write(self.end_tag(u"") + u"\n")
+
+	Name = ligolw.attributeproxy(u"Name", enc = (lambda name: u"%s:param" % name), dec = StripParamName)
+	Scale = ligolw.attributeproxy(u"Scale", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
+	Type = ligolw.attributeproxy(u"Type", default = u"lstring")
 
 
 #

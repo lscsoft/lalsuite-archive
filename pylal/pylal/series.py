@@ -101,7 +101,7 @@ def parse_COMPLEX16FrequencySeries(elem):
 		# FIXME:  make Time class smart so we don't have to parse
 		# it by hand
 		epoch = LIGOTimeGPS(t.pcdata),
-		f0 = f0.pcdata * float(LALUnit(f0.get_unit()) / LALUnit("s^-1")),
+		f0 = f0.pcdata * float(LALUnit(f0.Unit) / LALUnit("s^-1")),
 		deltaF = float(dims[0].getAttribute(u"Scale")) * float(LALUnit(dims[0].getAttribute(u"Unit")) / LALUnit("s^-1")),
 		sampleUnits = LALUnit(a.getAttribute(u"Unit")),
 		data = a.array[1] + 1j * a.array[2]
@@ -143,7 +143,7 @@ def parse_COMPLEX16TimeSeries(elem):
 		# FIXME:  make Time class smart so we don't have to parse
 		# it by hand
 		epoch = LIGOTimeGPS(t.pcdata),
-		f0 = f0.pcdata * float(LALUnit(f0.get_unit()) / LALUnit("s^-1")),
+		f0 = f0.pcdata * float(LALUnit(f0.Unit) / LALUnit("s^-1")),
 		deltaT = float(dims[0].getAttribute(u"Scale")) * float(LALUnit(dims[0].getAttribute(u"Unit")) / LALUnit("s")),
 		sampleUnits = LALUnit(a.getAttribute(u"Unit")),
 		data = a.array[1] + 1j * a.array[2]
@@ -185,7 +185,7 @@ def parse_REAL8FrequencySeries(elem):
 		# FIXME:  make Time class smart so we don't have to parse
 		# it by hand
 		epoch = LIGOTimeGPS(t.pcdata),
-		f0 = f0.pcdata * float(LALUnit(f0.get_unit()) / LALUnit("s^-1")),
+		f0 = f0.pcdata * float(LALUnit(f0.Unit) / LALUnit("s^-1")),
 		deltaF = float(dims[0].getAttribute(u"Scale")) * float(LALUnit(dims[0].getAttribute(u"Unit")) / LALUnit("s^-1")),
 		sampleUnits = LALUnit(a.getAttribute(u"Unit")),
 		data = a.array[1]
@@ -227,7 +227,7 @@ def parse_REAL8TimeSeries(elem):
 		# FIXME:  make Time class smart so we don't have to parse
 		# it by hand
 		epoch = LIGOTimeGPS(t.pcdata),
-		f0 = f0.pcdata * float(LALUnit(f0.get_unit()) / LALUnit("s^-1")),
+		f0 = f0.pcdata * float(LALUnit(f0.Unit) / LALUnit("s^-1")),
 		deltaT = float(dims[0].getAttribute(u"Scale")) * float(LALUnit(dims[0].getAttribute(u"Unit")) / LALUnit("s")),
 		sampleUnits = LALUnit(a.getAttribute(u"Unit")),
 		data = a.array[1]
