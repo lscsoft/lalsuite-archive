@@ -564,7 +564,7 @@ void XLALDestroyREAL8FFTPlan( REAL8FFTPlan *plan );
  * - [\c XLAL_ENOMEM] Insufficient storage space is available.
  * .
  */
-int XLALREAL8ForwardFFT( COMPLEX16Vector *output, REAL8Vector *input,
+int XLALREAL8ForwardFFT( COMPLEX16Vector *output, const REAL8Vector *input,
     const REAL8FFTPlan *plan );
 
 /**
@@ -601,7 +601,7 @@ int XLALREAL8ForwardFFT( COMPLEX16Vector *output, REAL8Vector *input,
  * component of the input data, z[N/2], is not purely real.
  * .
  */
-int XLALREAL8ReverseFFT( REAL8Vector *output, COMPLEX16Vector *input,
+int XLALREAL8ReverseFFT( REAL8Vector *output, const COMPLEX16Vector *input,
     const REAL8FFTPlan *plan );
 
 /**
@@ -630,7 +630,7 @@ int XLALREAL8ReverseFFT( REAL8Vector *output, COMPLEX16Vector *input,
  * - [\c XLAL_ENOMEM] Insufficient storage space is available.
  * .
  */
-int XLALREAL8VectorFFT( REAL8Vector *output, REAL8Vector *input,
+int XLALREAL8VectorFFT( REAL8Vector *output, const REAL8Vector *input,
     const REAL8FFTPlan *plan );
 
 /**
@@ -655,7 +655,7 @@ int XLALREAL8VectorFFT( REAL8Vector *output, REAL8Vector *input,
  * - [\c XLAL_ENOMEM] Insufficient storage space is available.
  * .
  */
-int XLALREAL8PowerSpectrum( REAL8Vector *spec, REAL8Vector *data,
+int XLALREAL8PowerSpectrum( REAL8Vector *spec, const REAL8Vector *data,
     const REAL8FFTPlan *plan );
 
 /*
