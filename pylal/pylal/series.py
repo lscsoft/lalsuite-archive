@@ -272,7 +272,7 @@ def read_psd_xmldoc(xmldoc):
 	from a dictionary of PSDs.  Interprets an empty freuency series for an
 	instrument as None.
 	"""
-	result = dict((param.get_pyvalue(elem, u"instrument"), parse_REAL8FrequencySeries(elem)) for elem in xmldoc.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"REAL8FrequencySeries")
+	result = dict((param.get_pyvalue(elem, u"instrument"), parse_REAL8FrequencySeries(elem)) for elem in xmldoc.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"REAL8FrequencySeries")
 	# Interpret empty frequency series as None
 	for instrument in result:
 		if len(result[instrument].data) == 0:
