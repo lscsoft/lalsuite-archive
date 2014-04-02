@@ -595,6 +595,9 @@ static int XLALSimIMRSpinEOBInitialConditions(
   tmpTortoise      = params->tortoise;
   params->tortoise = 0;
 
+  EOBNonQCCoeffs *nqcCoeffs = NULL;
+  nqcCoeffs = params->nqcCoeffs;
+
   /* STEP 1) Rotate to LNhat0 along z-axis and N0 along x-axis frame, where LNhat0 and N0 are initial normal to 
    *         orbital plane and initial orbital separation;
    */
@@ -885,7 +888,7 @@ static int XLALSimIMRSpinEOBInitialConditions(
     polarData[2] = pSph[0];
     polarData[3] = pSph[2];
 
-    flux  = XLALInspiralSpinFactorizedFlux( &polarDynamics, omega, params, ham, lMax, SpinAlignedEOBversion );
+    flux  = XLALInspiralSpinFactorizedFlux( &polarDynamics, nqcCoeffs, omega, params, ham, lMax, SpinAlignedEOBversion );
     flux  = flux / eta;
 
     rDot  = - flux / dEdr;
