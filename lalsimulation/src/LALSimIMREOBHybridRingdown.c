@@ -510,6 +510,12 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
           /* For extreme chi (>= 0.8), the ringdown attachment should end
            * slightly before the value given passed to this function. sh
            * gives exactly how long before. */
+          if ( chi >= 0.7 )
+          {
+            sh = -9. * (eta - 0.25);
+            matchrange->data[0] -= (1.+2.*exp(-(chi-0.85)*(chi-0.85)/0.05/0.05)) * (1.+1./(1.+exp((eta-0.01)/0.001))) * sh;
+            matchrange->data[1] -= (1.+2.*exp(-(chi-0.85)*(chi-0.85)/0.05/0.05)) * (1.+1./(1.+exp((eta-0.01)/0.001))) * sh;
+          } 
           if ( chi >= 0.8 )
           {
             sh = -9. * (eta - 0.25);
@@ -525,6 +531,19 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
             modefreqs->data[6] = kk*creal(modefreqs->data[6]) + I*cimag(modefreqs->data[6])/kt1;
             modefreqs->data[7] = kk*creal(modefreqs->data[7]) + I*cimag(modefreqs->data[7])/kt2;
 	  }
+/*
+modefreqs->data[7] = 0.38068371/mTot + I/1.4677128/mTot; 
+modefreqs->data[6] = 0.37007703/mTot + I/1.3359367/mTot; 
+modefreqs->data[5] = 0.36980703/mTot + I/1.7791212/mTot; 
+modefreqs->data[4] = 0.3595034/mTot + I/2.6989764/mTot; 
+printf("sh = %f\n",sh);
+printf("PeakOmega = %f, mTot = %f\n",NRPeakOmega22,mTot);
+printf("w0 = %f, t0 = %f\n",creal(modefreqs->data[0])*mTot, 1./cimag(modefreqs->data[0])/mTot);
+printf("w1 = %f, t1 = %f\n",creal(modefreqs->data[7])*mTot, 1./cimag(modefreqs->data[7])/mTot);
+printf("w2 = %f, t2 = %f\n",creal(modefreqs->data[6])*mTot, 1./cimag(modefreqs->data[6])/mTot);
+printf("w3 = %f, t3 = %f\n",creal(modefreqs->data[5])*mTot, 1./cimag(modefreqs->data[5])/mTot);
+printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[4])*mTot, 1./cimag(modefreqs->data[4])/mTot);
+*/
       }
       for (j = 0; j < nmodes; j++)
       {
