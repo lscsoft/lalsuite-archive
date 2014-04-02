@@ -54,6 +54,7 @@ int UsePrec = 0;
 
 static REAL8 XLALInspiralSpinFactorizedFlux(
                       REAL8Vector           *values,
+                      EOBNonQCCoeffs        *nqcCoeffs,
                       const REAL8           omega,
                       SpinEOBParams         *ak,
                       const REAL8            H,
@@ -74,11 +75,12 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
  */
 
 static REAL8 XLALInspiralSpinFactorizedFlux(
-                      REAL8Vector           *values, /**< dynamical variables */
-                      const REAL8           omega,   /**< orbital frequency */
-                      SpinEOBParams         *ak,     /**< physical parameters */
-                      const REAL8            H,      /**< real Hamiltonian */
-                      const INT4             lMax,   /**< upper limit of the summation over l */
+                      REAL8Vector           *values,    /**< dynamical variables */
+                      EOBNonQCCoeffs        *nqcCoeffs, /**< pre-computed NQC coefficients */
+                      const REAL8           omega,      /**< orbital frequency */
+                      SpinEOBParams         *ak,        /**< physical parameters */
+                      const REAL8            H,         /**< real Hamiltonian */
+                      const INT4             lMax,      /**< upper limit of the summation over l */
                       const UINT4            SpinAlignedEOBversion /**< 1 for SEOBNRv1, 2 for SEOBNRv2 */
                      )
 
@@ -90,7 +92,7 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
   COMPLEX16 hLM;
   INT4 l, m;
 
-  EOBNonQCCoeffs nqcCoeffs;
+  //EOBNonQCCoeffs nqcCoeffs;
 
 #ifndef LAL_NDEBUG
   if ( !values || !ak )
@@ -185,7 +187,7 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
       if ( l == 2 && m == 2 )
       {
         COMPLEX16 hNQC;
-        switch ( SpinAlignedEOBversion )
+        /*switch ( SpinAlignedEOBversion )
         {
           case 1:
             XLALSimIMRGetEOBCalibratedSpinNQC( &nqcCoeffs, l, m, ak->eobParams->eta, ak->a );
@@ -198,8 +200,8 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
             XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
             XLAL_ERROR( XLAL_EINVAL );
             break;
-        } 
-        XLALSimIMREOBNonQCCorrection( &hNQC, values, omega, &nqcCoeffs );
+        }*/ 
+        XLALSimIMREOBNonQCCorrection( &hNQC, values, omega, nqcCoeffs );
         /* Eq. 16 */
         hLM *= hNQC;
       }
