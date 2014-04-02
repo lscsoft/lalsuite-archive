@@ -134,10 +134,14 @@ static int XLALSpinAlignedHcapDerivative(
   /* The error in a derivative as measured by GSL */
   REAL8 absErr;
 
+  /* Declare NQC coefficients */
+  EOBNonQCCoeffs *nqcCoeffs = NULL;
+
   /* Set up pointers for GSL */ 
   params.values  = cartValues;
   params.params  = (SpinEOBParams *)funcParams;
-
+  nqcCoeffs = params.params->nqcCoeffs;
+  
   s1Vec = params.params->s1Vec;
   s2Vec = params.params->s2Vec;
   sKerr = params.params->sigmaKerr;
@@ -218,7 +222,7 @@ static int XLALSpinAlignedHcapDerivative(
 
   /* Now calculate omega, and hence the flux */
   omega = tmpDValues[4] / r;
-  flux  = XLALInspiralSpinFactorizedFlux( &polarDynamics, omega, params.params, H/(mass1+mass2), lMax, SpinAlignedEOBversion );
+  flux  = XLALInspiralSpinFactorizedFlux( &polarDynamics, nqcCoeffs, omega, params.params, H/(mass1+mass2), lMax, SpinAlignedEOBversion );
 
   /* Looking at the non-spinning model, I think we need to divide the flux by eta */
   flux = flux / eta;
