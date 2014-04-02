@@ -83,6 +83,7 @@ tagSpinEOBParams
 {
   EOBParams               *eobParams;
   SpinEOBHCoeffs          *seobCoeffs;
+  EOBNonQCCoeffs          *nqcCoeffs;
   REAL8Vector             *s1Vec;
   REAL8Vector             *s2Vec;
   REAL8Vector             *sigmaStar;
