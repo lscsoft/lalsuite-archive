@@ -115,7 +115,63 @@ class progress_wrapper(object):
 
 class JOB(object):
 	"""
-	Representation of a JOB node in a Condor DAG.
+	Representation of a JOB node in a Condor DAG.  JOB objects have the
+	following attributes corresponding to information in the DAG file:
+
+	.name
+		The name of the node in the DAG.
+
+	.filename
+		The name of the submit file for the JOB.
+
+	.directory
+		The initial working directory for the JOB.  Set to None to
+		omit from DAG (job's working directory will be chosen by
+		Condor).
+
+	.done
+		Boolean indicating if the JOB is done or not.  See
+		DAG.load_rescue() for more information.
+
+	.noop
+		Boolean indicating if the JOB is a no-op or not.
+
+	.vars
+		A dictionary of the name-->value pairs in the VARS line for
+		the JOB.  Leave empty to omit VARS from DAG.
+
+	.retry
+		The number of retries for the job.  Set to None to omit
+		from DAG.
+
+	.retry_unless_exit_value
+		The value of the UNLESS-EXIT suffix of the RETRY line.
+		Set to None to omit from DAG.
+
+	.priority
+	.category
+		The PRIORITY value and CATEGORY name for the node in the
+		DAG.  Set to None to omit from the DAG.
+
+	.parents
+	.children
+		Sets of the parent and child nodes of JOB.  The sets
+		contain references to the node objects, not their names.
+
+	.prescript
+	.prescriptargs
+	.postscript
+	.postscriptargs
+		The names and lists of arguments of the PRE and POST
+		scripts.  Set to None to omit from DAG.
+
+	.abort_dag_on_abortexitvalue
+	.abort_dag_on_dagreturnvalue
+		The ABORT-DAG-ON abort exit value and DAG return value for
+		the JOB.  Set to None to omit from DAG.
+
+	For more information about the function of these parameters, refer
+	to the Condor documentation.
 	"""
 	keyword = "JOB"
 
@@ -358,7 +414,7 @@ class DAG(object):
 	def parse(cls, f, progress = None):
 		"""
 		Parse the file-like object f as a Condor DAG file.  Return
-		a DAG object.  The file object must be iterable, yieling
+		a DAG object.  The file object must be iterable, yielding
 		one line of text of the DAG file in each iteration.
 
 		If the progress argument is not None, it should be a
@@ -372,7 +428,7 @@ class DAG(object):
 		Example:
 
 		>>> def progress(f, n, done):
-		...	print "reading %s: %d lines\r" % (f.name, n),
+		...	print "reading %s: %d lines\\r" % (f.name, n),
 		...	if done:
 		...		print
 		...
@@ -640,7 +696,7 @@ class DAG(object):
 
 		>>> try:
 		...	dag.check_edges()
-		... except ValueError, e:
+		... except ValueError as e:
 		...	print "edges are broken: %s" % str(e)
 		... else:
 		...	print "all edges are OK"
@@ -737,7 +793,7 @@ class DAG(object):
 		Example:
 
 		>>> def progress(f, n, done):
-		...	print "writing %s: %d lines\r" % (f.name, n),
+		...	print "writing %s: %d lines\\r" % (f.name, n),
 		...	if done:
 		...		print
 		...
