@@ -200,13 +200,11 @@ class Element(object):
 		"""
 		for i, childNode in enumerate(self.childNodes):
 			if childNode is refchild:
-				break
-		else:
-			raise ValueError(refchild)
-		self.childNodes.insert(i, newchild)
-		newchild.parentNode = self
-		self._verifyChildren(i)
-		return newchild
+				self.childNodes.insert(i, newchild)
+				newchild.parentNode = self
+				self._verifyChildren(i)
+				return newchild
+		raise ValueError(refchild)
 
 	def removeChild(self, child):
 		"""
@@ -217,10 +215,10 @@ class Element(object):
 		"""
 		for i, childNode in enumerate(self.childNodes):
 			if childNode is child:
-				self.childNodes.pop(i)
-				break
-		child.parentNode = None
-		return child
+				del self.childNodes[i]
+				child.parentNode = None
+				return child
+		raise ValueError(child)
 
 	def unlink(self):
 		"""
@@ -243,14 +241,12 @@ class Element(object):
 		# not something equivalent to it.
 		for i, childNode in enumerate(self.childNodes):
 			if childNode is oldchild:
-				break
-		else:
-			raise ValueError(oldchild)
-		self.childNodes[i].parentNode = None
-		self.childNodes[i] = newchild
-		newchild.parentNode = self
-		self._verifyChildren(i)
-		return newchild
+				self.childNodes[i].parentNode = None
+				self.childNodes[i] = newchild
+				newchild.parentNode = self
+				self._verifyChildren(i)
+				return newchild
+		raise ValueError(oldchild)
 
 	def getElements(self, filter):
 		"""
