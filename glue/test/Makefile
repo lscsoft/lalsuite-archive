@@ -1,7 +1,14 @@
-all : glue_ligolw_ilwd_verify iterutils_verify lal_verify ligolw_test01 ligolw_test02 ligolw_test03 ligolw_sqlite_test offsetvector_verify segmentsUtils_verify segments_verify
+all : glue_ligolw_ilwd_verify iterutils_verify lal_verify ligolw_test01 ligolw_test02 ligolw_test03a ligolw_test03b ligolw_test03c ligolw_sqlite_test offsetvector_verify segmentsUtils_verify segments_verify
 
 define printpassfail
 	{ echo "Pass" ; true ; } || { echo "Fail" ; false ; }
+endef
+
+define servefiles
+	{ python -c "import SocketServer, SimpleHTTPServer ; SocketServer.TCPServer(('127.0.0.1', 16543), SimpleHTTPServer.SimpleHTTPRequestHandler).serve_forever()" & sleep 1 ; }
+endef
+define stopservefiles
+	{ killall python ; sleep 1 ; }
 endef
 
 glue_ligolw_ilwd_verify :
@@ -21,26 +28,41 @@ lal_verify :
 
 ligolw_test01 :
 	@echo "=== start test01 ===>"
+	# test reading array data from a file
 	python ligo_lw_test_01.py && $(printpassfail)
 	@echo "<=== end test01 ==="
 
 ligolw_test02 :
-	# confirm that ligolw_add refuses to process old-style inspiral files
 	@echo "=== start test02 ===>"
+	# confirm that ligolw_add refuses to process old-style inspiral files
 	sh ligo_lw_test_02.sh && $(printpassfail)
 	@echo "<=== end test02 ==="
 
-ligolw_test03 :
+ligolw_test03a :
+	@echo "=== start ligolw_test03a ===>"
 	# test reading compressed and non-compressed files from stdin
-	@echo "=== start ligo_lw_test_03 ===>"
 	{ cat inspiral_event_id_test_in1.xml.gz | ligolw_print >/dev/null ; } && $(printpassfail)
 	{ cat inspiral_event_id_test_in2.xml | ligolw_print >/dev/null ; } && $(printpassfail)
-	@echo "<=== end ligo_lw_test_03 ==="
+	@echo "<=== end ligolw_test03a ==="
+
+ligolw_test03b :
+	@echo "=== start ligolw_test03b ===>"
+	# test reading compressed and non-compressed files
+	ligolw_print inspiral_event_id_test_in1.xml.gz >/dev/null && $(printpassfail)
+	ligolw_print inspiral_event_id_test_in2.xml >/dev/null && $(printpassfail)
+	@echo "<=== end ligolw_test03b ==="
+
+ligolw_test03c :
+	@echo "=== start ligolw_test03c ===>"
+	# test reading compressed and non-compressed files from http:// URLs
+	$(servefiles) && { ligolw_print http://127.0.0.1:16543/inspiral_event_id_test_in1.xml.gz >/dev/null && $(printpassfail) ; } ; $(stopservefiles)
+	$(servefiles) && { ligolw_print http://127.0.0.1:16543/inspiral_event_id_test_in2.xml >/dev/null && $(printpassfail) ; } ; $(stopservefiles)
+	@echo "<=== end ligolw_test03c ==="
 
 ligolw_test04 :
-	@echo "=== start test04 ===>"
+	@echo "=== start ligolw_test04 ===>"
 	sh ligo_lw_test_04.sh && $(printpassfail)
-	@echo "<=== end test04 ==="
+	@echo "<=== end ligolw_test04 ==="
 
 ligolw_sqlite_test :
 	@echo "=== start ligolw_sqlite_test ===>"

@@ -238,7 +238,7 @@ class test_ulutils(unittest.TestCase):
         '''
         exes = numpy.arange(-10,10,0.01)
         post = numpy.exp(-exes**2/2)
-        lo, hi = upper_limit_utils.confidence_interval(exes, post, 0.9)
+        lo, hi = upper_limit_utils.confidence_interval_min_width(exes, post, 0.9)
         lo2 = upper_limit_utils.compute_lower_limit(exes, post, 0.95)
         hi2 = upper_limit_utils.compute_upper_limit(exes, post, 0.95)
 

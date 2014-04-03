@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2014  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -251,10 +251,22 @@ class MD5File(object):
 			self.md5obj = md5obj
 		self.pos = 0
 		# avoid attribute look-ups
-		self._next = self.fileobj.next
-		self._read = self.fileobj.read
-		self._write = self.fileobj.write
-		self._update = self.md5obj.update
+		try:
+			self._next = self.fileobj.next
+		except AttributeError:
+			pass
+		try:
+			self._read = self.fileobj.read
+		except AttributeError:
+			pass
+		try:
+			self._write = self.fileobj.write
+		except AttributeError:
+			pass
+		try:
+			self._update = self.md5obj.update
+		except AttributeError:
+			pass
 
 	def __iter__(self):
 		return self

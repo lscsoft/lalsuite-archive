@@ -57,6 +57,18 @@ def margLikelihood(VTs, lambs, mu, calerr=0, mcerrs=None):
     return likely
 
 
+def integral_element(mu, pdf):
+    '''
+    Returns an array of elements of the integrand dP = p(mu) dmu
+    for a density p(mu) defined at sample values mu ; samples need 
+    not be equally spaced.  Uses a simple trapezium rule.  
+    Number of dP elements is 1 - (number of mu samples).
+    '''
+    dmu = mu[1:] - mu[:-1]
+    bin_mean = (pdf[1:] + pdf[:-1]) /2
+    return dmu * bin_mean
+
+
 def normalize_pdf(mu, pofmu):
     """
     Takes a function pofmu defined at rate sample values mu and 
@@ -64,16 +76,13 @@ def normalize_pdf(mu, pofmu):
     arrays or lists of the same length. 
     """
     if min(pofmu) < 0:
-        raise ValueError, "Probabilities cannot be negative, please don't \
+        raise ValueError, "Probabilities cannot be negative, don't \
         ask me to normalize a function with negative values!"
-    if min(mu) < 0:
-        raise ValueError, "Rates cannot be negative, please don't \
+    if min(mu) < 0:  # maybe not necessary ?
+        raise ValueError, "Rates cannot be negative, don't \
         ask me to normalize a function over a negative domain!"
-    # simple trapezoidal integral
-    dmu = mu[1:] - mu[:-1]
-    mean_in_bin = (pofmu[1:] + pofmu[:-1]) /2
-    dp = dmu*mean_in_bin
 
+    dp = integral_element(mu, pofmu)
     return mu, pofmu/sum(dp)
 
 
@@ -81,20 +90,17 @@ def compute_upper_limit(mu_in, post, alpha = 0.9):
     """
     Returns the upper limit mu_high of confidence level alpha for a
     posterior distribution post on the given parameter mu.
+    The posterior need not be normalized.
     """
-    # simple trapezoidal integral
-    dmu = mu_in[1:] - mu_in[:-1]
-    mean_post = (post[1:] + post[:-1]) /2
-    dp = dmu*mean_post
-
     if 0 < alpha < 1:
+        dp = integral_element(mu_in, post)
         high_idx = bisect.bisect_left( dp.cumsum()/dp.sum(), alpha )
         # if alpha is in (0,1] and post is non-negative, bisect_left
         # will always return an index in the range of mu since
         # post.cumsum()/post.sum() will always begin at 0 and end at 1
         mu_high = mu_in[high_idx]
     elif alpha == 1:
-        mu_high = numpy.max(mu_in[post>0])
+        mu_high = numpy.max(mu_in[post > 0])
     else:
         raise ValueError, "Confidence level must be in (0,1]."
 
@@ -105,30 +111,27 @@ def compute_lower_limit(mu_in, post, alpha = 0.9):
     """
     Returns the lower limit mu_low of confidence level alpha for a
     posterior distribution post on the given parameter mu.
+    The posterior need not be normalized.
     """
-    # simple trapezoidal integral
-    dmu = mu_in[1:] - mu_in[:-1]
-    mean_post = (post[1:] + post[:-1]) /2
-    dp = dmu*mean_post
-
     if 0 < alpha < 1:
+        dp = integral_element(mu_in, post)
         low_idx = bisect.bisect_right( dp.cumsum()/dp.sum(), 1-alpha )
         # if alpha is in [0,1) and post is non-negative, bisect_right
         # will always return an index in the range of mu since
         # post.cumsum()/post.sum() will always begin at 0 and end at 1
         mu_low = mu_in[low_idx]
     elif alpha == 1:
-        mu_low = numpy.min(mu_in[post>0])
+        mu_low = numpy.min(mu_in[post > 0])
     else:
         raise ValueError, "Confidence level must be in (0,1]."
 
     return mu_low
 
 
-def confidence_interval( mu, post, alpha = 0.9 ):
+def confidence_interval_min_width( mu, post, alpha = 0.9 ):
     '''
-    Returns the minimal-width confidence interval [mu_low,mu_high] of
-    confidence level alpha for a distribution post on the parameter mu.
+    Returns the minimal-width confidence interval [mu_low, mu_high] of
+    confidence level alpha for a posterior distribution post on the parameter mu.
     '''
     if not 0 < alpha < 1:
         raise ValueError, "Confidence level must be in (0,1)."
@@ -147,6 +150,70 @@ def confidence_interval( mu, post, alpha = 0.9 ):
         if mh - ml < mu_high - mu_low:
             mu_low = ml
             mu_high = mh
+
+    return mu_low, mu_high
+
+
+def hpd_coverage(mu, pdf, thresh):
+    '''
+    Integrates a pdf over mu taking only bins where 
+    the mean over the bin is above a given threshold
+    This gives the coverage of the HPD interval for 
+    the given threshold.  
+    '''
+    dp = integral_element(mu, pdf)
+    bin_mean = (pdf[1:] + pdf[:-1]) /2
+
+    return dp[bin_mean > thresh].sum()
+
+
+def hpd_threshold(mu_in, post, alpha, tol):
+    '''
+    For a PDF post over samples mu_in, find a density 
+    threshold such that the region having higher density 
+    has coverage of at least alpha, and less than alpha
+    plus a given tolerance.
+    '''
+    norm_post = normalize_pdf(mu_in, post)
+    # initialize bisection search
+    p_minus = 0.0
+    p_plus = max(post)
+    while abs(hpd_coverage(mu_in, post, p_minus)-hpd_coverage(mu_in, post, p_plus)) >= tol:
+        test = (p_minus + p_plus) /2
+        if hpd_coverage(mu_in, post, test) >= alpha: # test value was too low or just right
+            p_minus = p_test
+        else:                                        # test value was too high
+            p_plus = p_test
+    # p_minus never goes above the required threshold and p_plus never goes below 
+    # thus on exiting p_minus is at or below the required threshold and the 
+    # difference in coverage is within tolerance 
+
+    return p_minus
+
+
+def hpd_credible_interval(mu_in, post, alpha = 0.9, tolerance = 1e-3):
+    '''
+    Returns the minimum and maximum rate values of the HPD
+    (Highest Posterior Density) credible interval for a posterior
+    post defined at the sample values mu_in.  Samples need not be
+    uniformly spaced and posterior need not be normalized.
+
+    Will not return a correct credible interval if the posterior
+    is multimodal and the correct interval is not contiguous; 
+    in this case will over-cover by including the whole range from 
+    minimum to maximum mu.
+    '''
+    if alpha == 1:
+        nonzero_samples = mu_in[post > 0]
+        mu_low = numpy.min(nonzero_samples)
+        mu_high = numpy.max(nonzero_samples)
+    elif 0 < alpha < 1:
+        # determine the highest PDF for which the region with 
+        # higher density has sufficient coverage
+        pthresh = hpd_threshold(mu_in, post, alpha, tol = tolerance)
+        samples_over_threshold = mu_in[post > pthresh]
+        mu_low = numpy.min(samples_over_threshold)
+        mu_high = numpy.max(samples_over_threshold)
 
     return mu_low, mu_high
 
