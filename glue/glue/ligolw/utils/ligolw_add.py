@@ -131,7 +131,7 @@ def compare_table_cols(a, b):
 	(ignoring order) according to LIGO LW name conventions, return True
 	otherwise.
 	"""
-	return cmp(sorted((table.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in a.getElementsByTagName(ligolw.Column.tagName)), sorted((table.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in b.getElementsByTagName(ligolw.Column.tagName)))
+	return cmp(sorted((col.Name, col.Type) for col in a.getElementsByTagName(ligolw.Column.tagName)), sorted((col.Name, col.Type) for col in b.getElementsByTagName(ligolw.Column.tagName)))
 
 
 def merge_compatible_tables(elem):
@@ -146,13 +146,13 @@ def merge_compatible_tables(elem):
 		if tables:
 			dest = tables.pop(0)
 			for src in tables:
-				if table.CompareTableNames(src.getAttribute("Name"), dest.getAttribute("Name")):
+				if src.Name != dest.Name:
 					# src and dest have different names
 					continue
 				# src and dest have the same names
 				if compare_table_cols(dest, src):
 					# but they have different columns
-					raise ValueError("document contains %s tables with incompatible columns" % dest.getAttribute("Name"))
+					raise ValueError("document contains %s tables with incompatible columns" % dest.Name)
 				# and the have the same columns
 				# copy src rows to dest
 				for row in src:

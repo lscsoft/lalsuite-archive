@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2014  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -103,7 +103,8 @@ def getArraysByName(elem, name):
 	"""
 	Return a list of arrays with name name under elem.
 	"""
-	return elem.getElements(lambda e: (e.tagName == ligolw.Array.tagName) and (CompareArrayNames(e.getAttribute("Name"), name) == 0))
+	name = StripArrayName(name)
+	return elem.getElements(lambda e: (e.tagName == ligolw.Array.tagName) and (e.Name == name))
 
 
 #
@@ -120,17 +121,19 @@ def from_array(name, array, dim_names = None):
 	Construct a LIGO Light Weight XML Array document subtree from a
 	numpy array object.
 	"""
-	doc = Array(Attributes({u"Name": u"%s:array" % name, u"Type": ligolwtypes.FromNumPyType[str(array.dtype)]}))
+	# Type must be set for .__init__();  easier to set Name afterwards
+	# to take advantage of encoding handled by attribute proxy
+	doc = Array(Attributes({u"Type": ligolwtypes.FromNumPyType[str(array.dtype)]}))
+	doc.Name = name
 	s = list(array.shape)
 	s.reverse()
 	for n, dim in enumerate(s):
-		attrs = {}
+		child = ligolw.Dim()
 		if dim_names is not None:
-			attrs[u"Name"] = dim_names[n]
-		child = ligolw.Dim(Attributes(attrs))
+			child.Name = dim_names[n]
 		child.pcdata = unicode(dim)
 		doc.appendChild(child)
-	child = ArrayStream(Attributes({u"Type": u"Local", u"Delimiter": u" "}))
+	child = ArrayStream(Attributes({u"Type": ArrayStream.Type.default, u"Delimiter": ArrayStream.Delimiter.default}))
 	doc.appendChild(child)
 	doc.array = array
 	return doc
@@ -163,9 +166,11 @@ class ArrayStream(ligolw.Stream):
 	array attribute, and knows how to turn the parent's array attribute
 	back into a character stream.
 	"""
-	def __init__(self, attrs):
-		ligolw.Stream.__init__(self, attrs)
-		self._tokenizer = tokenizer.Tokenizer(self.getAttribute(u"Delimiter"))
+	def __init__(self, *args):
+		super(ArrayStream, self).__init__(*args)
+		self._tokenizer = tokenizer.Tokenizer(self.Delimiter)
+
+	Delimiter = ligolw.attributeproxy(u"Delimiter", default = u" ")
 
 	def config(self, parentNode):
 		# some initialization that can only be done once parentNode
@@ -186,7 +191,7 @@ class ArrayStream(ligolw.Stream):
 		# stream tokenizer uses delimiter to identify end of each
 		# token, so add a final delimiter to induce the last token
 		# to get parsed.
-		self.appendData(self.getAttribute(u"Delimiter"))
+		self.appendData(self.Delimiter)
 		if self._index != len(self._array_view):
 			raise ValueError("length of Stream (%d elements) does not match array size (%d elements)" % (self._index, len(self._array_view)))
 		del self._array_view
@@ -194,9 +199,9 @@ class ArrayStream(ligolw.Stream):
 
 	def write(self, fileobj = sys.stdout, indent = u""):
 		# avoid symbol and attribute look-ups in inner loop
-		delim = self.getAttribute(u"Delimiter")
+		delim = self.Delimiter
 		linefmtfunc = lambda seq: xmlescape(delim.join(seq))
-		elemfmtfunc = ligolwtypes.FormatFunc[self.parentNode.getAttribute(u"Type")]
+		elemfmtfunc = ligolwtypes.FormatFunc[self.parentNode.Type]
 		elems = self.parentNode.array.T.flat
 		nextelem = elems.next
 		linelen = self.parentNode.array.shape[0]
@@ -223,13 +228,13 @@ class Array(ligolw.Array):
 	"""
 	High-level Array element.
 	"""
-	def __init__(self, *attrs):
+	def __init__(self, *args):
 		"""
 		Initialize a new Array element.
 		"""
-		ligolw.Array.__init__(self, *attrs)
-		self.pytype = ligolwtypes.ToPyType[self.getAttribute(u"Type")]
-		self.arraytype = ligolwtypes.ToNumPyType[self.getAttribute(u"Type")]
+		super(Array, self).__init__(*args)
+		self.pytype = ligolwtypes.ToPyType[self.Type]
+		self.arraytype = ligolwtypes.ToNumPyType[self.Type]
 		self.array = None
 
 	def get_shape(self):
@@ -242,6 +247,8 @@ class Array(ligolw.Array):
 		s = [int(c.pcdata) for c in self.getElementsByTagName(ligolw.Dim.tagName)]
 		s.reverse()
 		return tuple(s)
+
+	Name = ligolw.attributeproxy(u"Name", enc = (lambda name: u"%s:array" % name), dec = StripArrayName)
 
 
 	#

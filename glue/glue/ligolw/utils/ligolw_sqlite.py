@@ -239,7 +239,7 @@ def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose 
 			# target database, and save in XML tree
 			#
 
-			name = dbtables.table.StripTableName(tbl.getAttribute("Name"))
+			name = tbl.Name
 			try:
 				cls = dbtables.TableByName[name]
 			except KeyError:
