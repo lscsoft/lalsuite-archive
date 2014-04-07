@@ -7,10 +7,10 @@ endef
 
 SERVEFILESPORT := 16543
 
-define servefiles
+define servefilesstart
 	{ python -c "import SocketServer, SimpleHTTPServer ; SocketServer.TCPServer(('127.0.0.1', $(SERVEFILESPORT)), SimpleHTTPServer.SimpleHTTPRequestHandler).serve_forever()" & sleep 1 ; }
 endef
-define stopservefiles
+define servefilesstop
 	{ killall python ; sleep 1 ; true ; }
 endef
 
@@ -58,8 +58,8 @@ ligolw_test03b :
 ligolw_test03c :
 	@echo "=== start ligolw_test03c ===>"
 	# test reading compressed and non-compressed files from http:// URLs
-	$(servefiles) && { ligolw_print http://127.0.0.1:$(SERVEFILESPORT)/inspiral_event_id_test_in1.xml.gz >/dev/null && $(printpassfail) ; } ; $(stopservefiles)
-	$(servefiles) && { ligolw_print http://127.0.0.1:$(SERVEFILESPORT)/inspiral_event_id_test_in2.xml >/dev/null && $(printpassfail) ; } ; $(stopservefiles)
+	$(servefilesstart) && { ligolw_print http://127.0.0.1:$(SERVEFILESPORT)/inspiral_event_id_test_in1.xml.gz >/dev/null && $(printpassfail) ; } ; $(servefilesstop)
+	$(servefilesstart) && { ligolw_print http://127.0.0.1:$(SERVEFILESPORT)/inspiral_event_id_test_in2.xml >/dev/null && $(printpassfail) ; } ; $(servefilesstop)
 	@echo "<=== end ligolw_test03c ==="
 
 ligolw_test04 :
