@@ -138,7 +138,7 @@ class RewindableInputFile(object):
 	# then we weren't at EOF so call .seek() with original position and
 	# keep going.  ?!
 
-	def __init__(self, fileobj, buffer_size = 16384):
+	def __init__(self, fileobj, buffer_size = 1024):
 		# the real source of data
 		self.fileobj = fileobj
 		# how many octets of the internal buffer to return before
@@ -175,12 +175,14 @@ class RewindableInputFile(object):
 				self.buf = (self.buf + buf)[-len(self.buf):]
 				buf = buf[-self.reuse:]
 				self.reuse = 0
+			# size is None --> condition is False
 			elif 0 <= size < self.reuse:
 				buf = self.buf[-self.reuse:-self.reuse + size]
 				self.reuse -= size
 			else:
 				buf = self.buf[-self.reuse:]
 				self.reuse = 0
+				# size is None --> condition is False
 				if len(buf) < size:
 					buf += self.read(size - len(buf))
 		else:
