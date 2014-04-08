@@ -361,14 +361,14 @@ def load_filename(filename, verbose = False, gz = None, xmldoc = None, contentha
 	>>> xmldoc = load_filename(name, contenthandler = ligolw.LIGOLWContentHandler, verbose = True)
 	"""
 	if verbose:
-		print >>sys.stderr, "reading %s ..." % (filename and ("'%s'" % filename) or "stdin")
+		print >>sys.stderr, "reading %s ..." % (("'%s'" % filename) if filename is not None else "stdin")
 	if filename is not None:
 		fileobj = open(filename, "rb")
 	else:
 		fileobj = sys.stdin
 	xmldoc, hexdigest = load_fileobj(fileobj, gz = gz, xmldoc = xmldoc, contenthandler = contenthandler)
 	if verbose:
-		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, filename or "")
+		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (filename if filename is not None else ""))
 	return xmldoc
 
 
@@ -385,7 +385,7 @@ def load_url(url, verbose = False, gz = None, xmldoc = None, contenthandler = No
 	>>> xmldoc = load_url("file://localhost/tmp/data.xml", contenthandler = ligolw.LIGOLWContentHandler)
 	"""
 	if verbose:
-		print >>sys.stderr, "reading %s ..." % (url and ("'%s'" % url) or "stdin")
+		print >>sys.stderr, "reading %s ..." % (("'%s'" % url) if url is not None else "stdin")
 	if url is not None:
 		scheme, host, path = urlparse.urlparse(url)[:3]
 		if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
@@ -396,7 +396,7 @@ def load_url(url, verbose = False, gz = None, xmldoc = None, contenthandler = No
 		fileobj = sys.stdin
 	xmldoc, hexdigest = load_fileobj(fileobj, gz = gz, xmldoc = xmldoc, contenthandler = contenthandler)
 	if verbose:
-		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, url or "")
+		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (url if url is not None else ""))
 	return xmldoc
 
 
@@ -471,7 +471,7 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, xsl_file = Non
 	>>> write_filename(xmldoc, "data.xml")
 	"""
 	if verbose:
-		print >>sys.stderr, "writing %s ..." % (filename and ("'%s'" % filename) or "stdout")
+		print >>sys.stderr, "writing %s ..." % (("'%s'" % filename) if filename is not None else "stdout")
 	if filename is not None:
 		if not gz and filename.endswith(".gz"):
 			warnings.warn("filename '%s' ends in '.gz' but file is not being gzip-compressed" % filename, UserWarning)
@@ -481,7 +481,7 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, xsl_file = Non
 	hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, xsl_file = xsl_file, trap_signals = trap_signals)
 	fileobj.close()
 	if verbose:
-		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, filename or "")
+		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (filename if filename is not None else ""))
 
 
 def write_url(xmldoc, url, verbose = False, gz = False, xsl_file = None, trap_signals = (signal.SIGTERM, signal.SIGTSTP)):
