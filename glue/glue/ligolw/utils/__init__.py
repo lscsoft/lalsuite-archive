@@ -347,7 +347,7 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 	return xmldoc, md5obj.hexdigest()
 
 
-def load_filename(filename, verbose = False, gz = None, xmldoc = None, contenthandler = None):
+def load_filename(filename, verbose = False, **kwargs):
 	"""
 	Parse the contents of the file identified by filename, and return
 	the contents as a LIGO Light Weight document tree.  stdin is parsed
@@ -367,13 +367,13 @@ def load_filename(filename, verbose = False, gz = None, xmldoc = None, contentha
 		fileobj = open(filename, "rb")
 	else:
 		fileobj = sys.stdin
-	xmldoc, hexdigest = load_fileobj(fileobj, gz = gz, xmldoc = xmldoc, contenthandler = contenthandler)
+	xmldoc, hexdigest = load_fileobj(fileobj, **kwargs)
 	if verbose:
 		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (filename if filename is not None else ""))
 	return xmldoc
 
 
-def load_url(url, verbose = False, gz = None, xmldoc = None, contenthandler = None):
+def load_url(url, verbose = False, **kwargs):
 	"""
 	Parse the contents of file at the given URL and return the contents
 	as a LIGO Light Weight document tree.  Any source from which
@@ -398,19 +398,21 @@ def load_url(url, verbose = False, gz = None, xmldoc = None, contenthandler = No
 			fileobj = urllib2.urlopen(url)
 	else:
 		fileobj = sys.stdin
-	xmldoc, hexdigest = load_fileobj(fileobj, gz = gz, xmldoc = xmldoc, contenthandler = contenthandler)
+	xmldoc, hexdigest = load_fileobj(fileobj, **kwargs)
 	if verbose:
 		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (url if url is not None else ""))
 	return xmldoc
 
 
-def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None, trap_signals = (signal.SIGTERM, signal.SIGTSTP)):
+def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = (signal.SIGTERM, signal.SIGTSTP), **kwargs):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
-	given file object.  The file object need not be seekable.  The
-	output data is gzip compressed on the fly if gz is True.  The
-	return value is a string containing the hex digits of the MD5
-	digest of the output bytestream.
+	given file object.  Internally, the .write() method of the xmldoc
+	object is invoked and any additional keyword arguments are passed
+	to that method.  The file object need not be seekable.  The output
+	data is gzip compressed on the fly if gz is True.  The return value
+	is a string containing the hex digits of the MD5 digest of the
+	output bytestream.
 
 	This function traps the signals in the trap_signals iterable during
 	the write process (the default is signal.SIGTERM and
@@ -445,7 +447,7 @@ def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None, trap_signals = (
 	if gz:
 		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
 	fileobj = codecs.EncodedFile(fileobj, "unicode_internal", "utf_8")
-	xmldoc.write(fileobj, xsl_file = xsl_file)
+	xmldoc.write(fileobj, **kwargs)
 	fileobj.flush()
 	del fileobj
 
@@ -460,7 +462,7 @@ def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None, trap_signals = (
 	return md5obj.hexdigest()
 
 
-def write_filename(xmldoc, filename, verbose = False, gz = False, xsl_file = None, trap_signals = (signal.SIGTERM, signal.SIGTSTP)):
+def write_filename(xmldoc, filename, verbose = False, gz = False, **kwargs):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
 	file name filename.  Friendly verbosity messages are printed while
@@ -482,13 +484,13 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, xsl_file = Non
 		fileobj = open(filename, "w")
 	else:
 		fileobj = sys.stdout
-	hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, xsl_file = xsl_file, trap_signals = trap_signals)
+	hexdigest = write_fileobj(xmldoc, fileobj, **kwargs)
 	fileobj.close()
 	if verbose:
 		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (filename if filename is not None else ""))
 
 
-def write_url(xmldoc, url, verbose = False, gz = False, xsl_file = None, trap_signals = (signal.SIGTERM, signal.SIGTSTP)):
+def write_url(xmldoc, url, **kwargs):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
 	URL name url.
@@ -503,4 +505,4 @@ def write_url(xmldoc, url, verbose = False, gz = False, xsl_file = None, trap_si
 
 	>>> write_url(xmldoc, "file:///data.xml")
 	"""
-	return write_filename(xmldoc, local_path_from_url(url), verbose = verbose, gz = gz, xsl_file = xsl_file, trap_signals = trap_signals)
+	return write_filename(xmldoc, local_path_from_url(url), **kwargs)
