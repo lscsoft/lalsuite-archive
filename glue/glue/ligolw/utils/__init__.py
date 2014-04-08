@@ -350,10 +350,11 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 def load_filename(filename, verbose = False, gz = None, xmldoc = None, contenthandler = None):
 	"""
 	Parse the contents of the file identified by filename, and return
-	the contents as a LIGO Light Weight document tree.  Helpful
-	verbosity messages are printed to stderr if verbose is True.  All
-	other parameters are passed verbatim to load_fileobj(), see that
-	function for more information.
+	the contents as a LIGO Light Weight document tree.  stdin is parsed
+	if filename is None.  Helpful verbosity messages are printed to
+	stderr if verbose is True.  All other keyword arguments are passed
+	to load_fileobj(), see that function for more information.  In
+	particular note that a content handler must be specified.
 
 	Example:
 
@@ -374,10 +375,13 @@ def load_filename(filename, verbose = False, gz = None, xmldoc = None, contentha
 
 def load_url(url, verbose = False, gz = None, xmldoc = None, contenthandler = None):
 	"""
-	This function has the same behaviour as load_filename() but accepts
-	a URL instead of a filename.  Any source from which Python's
-	urllib2 library can read data is acceptable.  stdin is parsed if
-	the URL is None.
+	Parse the contents of file at the given URL and return the contents
+	as a LIGO Light Weight document tree.  Any source from which
+	Python's urllib2 library can read data is acceptable.  stdin is
+	parsed if url is None.  Helpful verbosity messages are printed to
+	stderr if verbose is True.  All other keyword arguments are passed
+	to load_fileobj(), see that function for more information.  In
+	particular note that a content handler must be specified.
 
 	Example:
 
@@ -463,8 +467,8 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, xsl_file = Non
 	doing so if verbose is True.  The output data is gzip compressed on
 	the fly if gz is True.
 
-	See write_fileobj() for information about signal trapping during
-	the write process.
+	Internally, write_fileobj() is used to perform the write.  All
+	additional keyword arguments are passed to write_fileobj().
 
 	Example:
 
@@ -487,16 +491,14 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, xsl_file = Non
 def write_url(xmldoc, url, verbose = False, gz = False, xsl_file = None, trap_signals = (signal.SIGTERM, signal.SIGTSTP)):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
-	URL name url.  Friendly verbosity messages are printed while doing
-	so if verbose is True.  The output data is gzip compressed on the
-	fly if gz is True.
-
-	See write_fileobj() for information about signal trapping during
-	the write process.
+	URL name url.
 
 	NOTE:  only URLs that point to local files can be written to at
-	this time.
-	
+	this time.  Internally, write_filename() is used to perform the
+	write.  All additional keyword arguments are passed to that
+	function.  The implementation might change in the future,
+	especially if support for other types of URLs is ever added.
+
 	Example:
 
 	>>> write_url(xmldoc, "file:///data.xml")
