@@ -1848,7 +1848,7 @@ class CoincParamsDistributions(object):
 		serialization.
 		"""
 		name = u"%s:%s" % (name, self.ligo_lw_name_suffix)
-		xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == name]
+		xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == name]
 		if len(xml) != 1:
 			raise ValueError("XML tree must contain exactly one %s element named %s" % (ligolw.LIGO_LW.tagName, name))
 		return xml[0]
@@ -1874,7 +1874,7 @@ class CoincParamsDistributions(object):
 
 		# reconstruct the BinnedArray objects
 		def reconstruct(xml, prefix, target_dict):
-			for name in [elem.getAttribute(u"Name").split(u":")[1] for elem in xml.childNodes if elem.getAttribute(u"Name").startswith(u"%s:" % prefix)]:
+			for name in [elem.Name.split(u":")[1] for elem in xml.childNodes if elem.Name.startswith(u"%s:" % prefix)]:
 				target_dict[str(name)] = rate.binned_array_from_xml(xml, u"%s:%s" % (prefix, name))
 		reconstruct(xml, u"zero_lag", self.zero_lag_rates)
 		reconstruct(xml, u"zero_lag_pdf", self.zero_lag_pdf)
