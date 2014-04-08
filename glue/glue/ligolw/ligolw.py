@@ -603,13 +603,13 @@ class Document(Element):
 	tagName = u"Document"
 	validchildren = frozenset([u"LIGO_LW"])
 
-	def write(self, fileobj = sys.stdout, xsl_file = None ):
+	def write(self, fileobj = sys.stdout, xsl_file = None):
 		"""
 		Write the document.
 		"""
 		fileobj.write(Header + u"\n")
 		if xsl_file is not None:
-			fileobj.write(u'<?xml-stylesheet type="text/xsl" href="' + xsl_file + u'" ?>' + u"\n")
+			fileobj.write(u'<?xml-stylesheet type="text/xsl" href="%s" ?>\n' % xsl_file)
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
 				raise ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
