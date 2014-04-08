@@ -74,36 +74,20 @@ __all__ = []
 #
 
 
-def measure_file_sizes(filenames, reverse = False):
-	"""
-	From a list of file names, return a list of (size, name) tuples
-	sorted in ascending order by size (or descending order if reverse
-	is set to True).
-	"""
-	l = []
-	for filename in filenames:
-		if filename is None:
-			# used internally by most ligolw codes to indicate
-			# stdin
-			l.append((0, None))
-		else:
-			l.append((os.stat(filename)[stat.ST_SIZE], filename))
-	l.sort(reverse = reverse)
-	return l
-
-
 def sort_files_by_size(filenames, verbose = False, reverse = False):
 	"""
-	Return a new list of the file names sorted in order of smallest
-	file to largest file (or largest to smallest if reverse is set to
-	True).
+	Return a list of the filenames sorted in order from smallest file
+	to largest file (or largest to smallest if reverse is set to True).
+	If a filename in the list is None (used by many glue.ligolw based
+	codes to indicate stdin), its size is treated as 0.  The filenames
+	may be any sequence, including generator expressions.
 	"""
 	if verbose:
 		if reverse:
 			print >>sys.stderr, "sorting files from largest to smallest ..."
 		else:
 			print >>sys.stderr, "sorting files from smallest to largest ..."
-	return [filename for size, filename in measure_file_sizes(filenames, reverse = reverse)]
+	return sorted(filenames, key = (lambda filename: os.stat(filename)[stat.ST_SIZE] if filename is not None else 0), reverse = reverse)
 
 
 def local_path_from_url(url):
