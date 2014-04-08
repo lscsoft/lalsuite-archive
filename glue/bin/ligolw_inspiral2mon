@@ -145,4 +145,4 @@ for inspiral in lsctables.SnglInspiralTable.get_table(indoc):
 ligolw_process.set_process_end_time(process)
 
 
-ligolw_utils.write_filename(doc, (options.output or "stdout").endswith(".gz"), verbose = options.verbose)
+ligolw_utils.write_filename(doc, options.output, gz = (options.output or "stdout").endswith(".gz"), verbose = options.verbose)
