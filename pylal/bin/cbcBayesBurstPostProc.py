@@ -1282,7 +1282,8 @@ if __name__=='__main__':
                         # Turn of ACF?
                         noacf=opts.noacf,
                         #Turn on 2D kdes
-                        twodkdeplots=opts.twodkdeplots,
+                        #twodkdeplots=opts.twodkdeplots,
+                        twodkdeplots=False,
                         #Turn on R convergence tests
                         RconvergenceTests=opts.RconvergenceTests,
                         # Also save PDFs?
