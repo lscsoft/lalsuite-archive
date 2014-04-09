@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2014  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -74,36 +74,20 @@ __all__ = []
 #
 
 
-def measure_file_sizes(filenames, reverse = False):
-	"""
-	From a list of file names, return a list of (size, name) tuples
-	sorted in ascending order by size (or descending order if reverse
-	is set to True).
-	"""
-	l = []
-	for filename in filenames:
-		if filename is None:
-			# used internally by most ligolw codes to indicate
-			# stdin
-			l.append((0, None))
-		else:
-			l.append((os.stat(filename)[stat.ST_SIZE], filename))
-	l.sort(reverse = reverse)
-	return l
-
-
 def sort_files_by_size(filenames, verbose = False, reverse = False):
 	"""
-	Return a new list of the file names sorted in order of smallest
-	file to largest file (or largest to smallest if reverse is set to
-	True).
+	Return a list of the filenames sorted in order from smallest file
+	to largest file (or largest to smallest if reverse is set to True).
+	If a filename in the list is None (used by many glue.ligolw based
+	codes to indicate stdin), its size is treated as 0.  The filenames
+	may be any sequence, including generator expressions.
 	"""
 	if verbose:
 		if reverse:
 			print >>sys.stderr, "sorting files from largest to smallest ..."
 		else:
 			print >>sys.stderr, "sorting files from smallest to largest ..."
-	return [filename for size, filename in measure_file_sizes(filenames, reverse = reverse)]
+	return sorted(filenames, key = (lambda filename: os.stat(filename)[stat.ST_SIZE] if filename is not None else 0), reverse = reverse)
 
 
 def local_path_from_url(url):
@@ -164,6 +148,9 @@ class RewindableInputFile(object):
 		self.buf = buffer(" " * buffer_size)
 		# flag indicating a .seek()-based EOF test is in progress
 		self.gzip_hack_pretend_to_be_at_eof = False
+		# avoid attribute look-ups
+		self._next = self.fileobj.next
+		self._read = self.fileobj.read
 
 	def __iter__(self):
 		return self
@@ -175,7 +162,7 @@ class RewindableInputFile(object):
 			buf = self.buf[-self.reuse:]
 			self.reuse = 0
 		else:
-			buf = self.fileobj.next()
+			buf = self._next()
 			self.buf = (self.buf + buf)[-len(self.buf):]
 		return buf
 
@@ -184,7 +171,7 @@ class RewindableInputFile(object):
 			return buffer()
 		if self.reuse:
 			if self.reuse < 0:
-				buf = self.fileobj.read(size - self.reuse)
+				buf = self._read(size - self.reuse)
 				self.buf = (self.buf + buf)[-len(self.buf):]
 				buf = buf[-self.reuse:]
 				self.reuse = 0
@@ -197,7 +184,7 @@ class RewindableInputFile(object):
 				if len(buf) < size:
 					buf += self.read(size - len(buf))
 		else:
-			buf = self.fileobj.read(size)
+			buf = self._read(size)
 			self.buf = (self.buf + buf)[-len(self.buf):]
 		return buf
 
@@ -225,7 +212,7 @@ class RewindableInputFile(object):
 			# check to see if we are at EOF by seeing if we can
 			# read 1 character.  save it in the internal buffer
 			# to not loose it.
-			c = self.fileobj.read(1)
+			c = self._read(1)
 			self.buf = (self.buf + c)[-len(self.buf):]
 			self.reuse += len(c)
 			if c:
@@ -247,26 +234,43 @@ class MD5File(object):
 		else:
 			self.md5obj = md5obj
 		self.pos = 0
+		# avoid attribute look-ups
+		try:
+			self._next = self.fileobj.next
+		except AttributeError:
+			pass
+		try:
+			self._read = self.fileobj.read
+		except AttributeError:
+			pass
+		try:
+			self._write = self.fileobj.write
+		except AttributeError:
+			pass
+		try:
+			self._update = self.md5obj.update
+		except AttributeError:
+			pass
 
 	def __iter__(self):
 		return self
 
 	def next(self):
-		buf = self.fileobj.next()
-		self.md5obj.update(buf)
+		buf = self._next()
+		self._update(buf)
 		self.pos += len(buf)
 		return buf
 
 	def read(self, size = None):
-		buf = self.fileobj.read(size)
-		self.md5obj.update(buf)
+		buf = self._read(size)
+		self._update(buf)
 		self.pos += len(buf)
 		return buf
 
 	def write(self, buf):
 		self.pos += len(buf)
-		self.md5obj.update(buf)
-		return self.fileobj.write(buf)
+		self._update(buf)
+		return self._write(buf)
 
 	def tell(self):
 		try:

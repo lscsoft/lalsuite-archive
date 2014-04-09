@@ -8,13 +8,13 @@ __title__ = "Loudest Event rate interval Monte Carlo simulator"
 import sys
 import warnings
 
+from matplotlib import use 
+use("Agg")
+from matplotlib import pyplot as plt
+
 import math
 import numpy
-with warnings.catch_warnings():
-  warnings.simplefilter("ignore")
-  import matplotlib as mpl
-  mpl.use("Agg")
-  #from matplotlib import pyplot as plt
+
 import random
 
 from optparse import *
@@ -75,12 +75,15 @@ def parse_command_line():
       help="Tag string for output plots" )
 
   parser.add_option( "-o", "--output-path", action="store", type="string", default=False,\
-      help="Where to output plots to (path ending in a backslash)" )
+      help="Directory to output plots to (trailing backslash will be added if absent)" )
 
   (options,args) = parser.parse_args()
 
   if (options.make_plots or options.posterior_plots) and not options.output_path:
     raise ValueError, "You must specify an output-path to get plots."
+
+  if options.output_path and not options.output_path.endswith("/"):
+    options.output_path = options.output_path+"/"
 
   return options, sys.argv[1:]
 
@@ -111,7 +114,7 @@ def FAN_from_FAP(pF):
 def FAP_from_FAN(nF):
   return 1 - numpy.exp(-nF)
 
-def volume_above_rhoC(rhoC, sensemon=20):
+def volume_above_rhoC(rhoC, sensemon):
   radius = sensemon*(8*numpy.sqrt(2)/rhoC)
   vol = 4*math.pi*radius**3/3
   return vol
@@ -121,9 +124,7 @@ def exact_Lambda(rhoC, FAN, index):
   return (3./index) / (rhoC * FAN)
 
 
-###################################
 ############ MAIN #################
-###################################
 
 opts, args = parse_command_line()
 
@@ -132,15 +133,16 @@ errorflag =  (opts.lambda_error or (opts.lambda_bias-1))
 
 Ttot = 1./2  # half a year
 Ti = Ttot/opts.ntimes
-Rsense = opts.sensemon_range 
+Rsense = opts.sensemon_range
 trueRate = opts.astro_rate /10**6  # unit conversion, boo
 minrhoC = 8
 volume_8 = volume_above_rhoC(minrhoC, sensemon=Rsense) 
 signalrate_8 = volume_8 * trueRate # signals per year above rhoC = 8
 
-if opts.verbose:
+if True or opts.verbose:
   print "Sensemon range is", Rsense, "Mpc"
   print "Input astrophysical rate is", trueRate, "per Mpc^3 per yr"
+  print "Expected signal number at rhoC=8 is", Ttot*signalrate_8
   print "Splitting", Ttot, "years science run into", opts.ntimes, "analysis times"
   print "Expected loudest event FAR from noise in each time is", 1./Ti, "/yr"
   print " "
@@ -266,21 +268,21 @@ for nmc in range(opts.n_montecarlo):
   if opts.posterior_plots:
     junk, plotlikely = ululs.normalize_pdf(mu, likely)
     junk, plotsingl = ululs.normalize_pdf(mu, likely_single)
-    mpl.pyplot.semilogx( mu, plotlikely/10**6, 'r-', label=str(opts.ntimes)+" analysis times" )
+    plt.semilogx( mu, plotlikely/10**6, 'r-', label=str(opts.ntimes)+" analysis times" )
     if errorflag:
       junk, plotestl = ululs.normalize_pdf(mu, likely_Lerr)
-      mpl.pyplot.semilogx( mu, plotestl/10**6, 'm-', label=str(opts.ntimes)+" times with Lambda errors" )
-    mpl.pyplot.semilogx( mu, plotsingl/10**6, 'g-', label="Single analysis" )
-    ylims = mpl.pyplot.ylim()
-    mpl.pyplot.semilogx( trueRate*numpy.array([1,1]), 1.2*numpy.array(ylims), "k--", label="Astrophysical rate" )
-    mpl.pyplot.ylim(ylims)
-    mpl.pyplot.xlim(trueRate/10**3, trueRate*10**4)
-    mpl.pyplot.xlabel("Rate (Mpc^-3 yr^-1)", size="large")
-    mpl.pyplot.ylabel(r"Posterior pdf (Mpc^3 Myr)", size="large")
-    mpl.pyplot.legend(loc="center right")
-    mpl.pyplot.title( "MC trial %2d, loudest event SNR = %3g" % (nmc+1, max(rhoCs)) )
-    mpl.pyplot.savefig(opts.output_path+"_ntimes_"+str(opts.ntimes)+"_"+opts.user_tag+"_posterior_trial_"+str(nmc+1)+".png")
-    mpl.pyplot.close()
+      plt.semilogx( mu, plotestl/10**6, 'm-', label=str(opts.ntimes)+" times with Lambda errors" )
+    plt.semilogx( mu, plotsingl/10**6, 'g-', label="Single analysis" )
+    ylims = plt.ylim()
+    plt.semilogx( trueRate*numpy.array([1,1]), 1.2*numpy.array(ylims), "k--", label="Astrophysical rate" )
+    plt.ylim(ylims)
+    plt.xlim(trueRate/10**3, trueRate*10**4)
+    plt.xlabel("Rate (Mpc^-3 yr^-1)", size="large")
+    plt.ylabel(r"Posterior pdf (Mpc^3 Myr)", size="large")
+    plt.legend(loc="center right")
+    plt.title( "MC trial %2d, loudest event SNR = %3g" % (nmc+1, max(rhoCs)) )
+    plt.savefig(opts.output_path+"_ntimes_"+str(opts.ntimes)+"_"+opts.user_tag+"_posterior_trial_"+str(nmc+1)+".png")
+    plt.close()
 
 #split_logratios = numpy.log(numpy.array(peakRate_split)/numpy.
 if errorflag:
@@ -289,8 +291,14 @@ if errorflag:
   print "Geometric mean scaling of most likely rate due to Lambda errors is", numpy.exp(numpy.mean(Lambdaerr_logratios))
   print "MC standard deviation of fractional error (log of scaling factor) is", numpy.std(Lambdaerr_logratios)
 
+print " "
+print "Median peak posterior rate:", numpy.median(peakRate_split)
+print "Geometric mean peak posterior rate:", numpy.exp(numpy.mean(numpy.log(peakRate_split)))
+print "Std of log peak posterior rate:", numpy.std(numpy.log(peakRate_split))
+
+
 if opts.make_plots:
-  output_prefix = opts.output_path+"ratemc"+"_ntimes_"+str(opts.ntimes)+"_"+opts.user_tag
+  output_prefix = opts.output_path+"ratemc_"+opts.user_tag
 
   # most likely rate values vs. rhoC of loudest event in single analysis
   rhoCbins = rate.LogarithmicBins(min(singlerhoC), max(singlerhoC), 15)
@@ -320,45 +328,45 @@ if opts.make_plots:
       meansplot_Lerr.append(numpy.mean(ratesinBin_Lerr))
       stdevplot_Lerr.append(numpy.std(ratesinBin_Lerr))
 
-  mpl.pyplot.errorbar(snrplot, meansplot_singl, yerr=stdevplot_singl, marker="+", linestyle="None", color="b", label="Single analysis")
-  mpl.pyplot.errorbar(snrplot, meansplot, yerr=stdevplot, marker="o", linestyle="None", color="g", label="Split analysis (MC mean/std)")
+  plt.errorbar(snrplot, meansplot_singl, yerr=stdevplot_singl, marker="+", linestyle="None", color="b", label="Single analysis")
+  plt.errorbar(snrplot, meansplot, yerr=stdevplot, marker="o", linestyle="None", color="g", label="Split analysis (MC mean/std)")
   if errorflag:
-    mpl.pyplot.errorbar(snrplot, meansplot_Lerr, yerr=stdevplot_Lerr, marker="x", linestyle="None", color="m", label="Split analysis, Lambda errors")
-  xlims = mpl.pyplot.xlim()
-  mpl.pyplot.plot(numpy.array([8,300]), trueRate*numpy.array([1,1]), "k--", label="Astrophysical rate")
-  mpl.pyplot.loglog()
-  mpl.pyplot.xlim(8,300)
-  mpl.pyplot.ylim(trueRate*0.01, trueRate*10000)
-  mpl.pyplot.xlabel("Loudest combined SNR in single analysis", size="large")
-  mpl.pyplot.ylabel(r"Most likely posterior rate (/Mpc^3 /yr)", size="large")
-  mpl.pyplot.legend(loc = "upper left")
-  mpl.pyplot.title(str(opts.ntimes)+" analysis times")
-  mpl.pyplot.savefig(output_prefix+"_rate_vs_rhoC.png")
-  mpl.pyplot.close()
+    plt.errorbar(snrplot, meansplot_Lerr, yerr=stdevplot_Lerr, marker="x", linestyle="None", color="m", label="Split analysis, Lambda errors")
+  xlims = plt.xlim()
+  plt.plot(numpy.array([8,300]), trueRate*numpy.array([1,1]), "k--", label="Astrophysical rate")
+  plt.loglog()
+  plt.xlim(8,1.4*max(snrplot))
+  plt.ylim(trueRate*0.01, trueRate*10000)
+  plt.xlabel("Loudest combined SNR in single analysis", size="large")
+  plt.ylabel(r"Most likely posterior rate (/Mpc^3 /yr)", size="large")
+  plt.legend(loc = "upper left")
+  plt.title(str(opts.ntimes)+" analysis times")
+  plt.savefig(output_prefix+"_rate_vs_rhoC.png")
+  plt.close()
 
   # UL*(VT for single analysis) vs. FAP of loudest single event
   # this is "effective numerator" for the single analysis
   # and allows us to factor out the dependence of volume on loudest event SNR
-  #mpl.pyplot.plot(singleFAP, numpy.array(UL90_single)*numpy.array(singleVT), "b+", label="Single analysis")
-  #mpl.pyplot.errorbar(fapplot, effnumplot, effnumstdplot, marker="o", linestyle="None", color="g", label="Split analysis (MC mean/std)")
+  #plt.plot(singleFAP, numpy.array(UL90_single)*numpy.array(singleVT), "b+", label="Single analysis")
+  #plt.errorbar(fapplot, effnumplot, effnumstdplot, marker="o", linestyle="None", color="g", label="Split analysis (MC mean/std)")
   #if errorflag:
-  #  mpl.pyplot.errorbar(fapplot, effnumplot_Lerr, effnumstdplot_Lerr, marker="x", linestyle="None", color="m", label="Split analysis w/ Lambda errors")
-  #mpl.pyplot.xlabel("Loudest event FAP", size="large")
-  #mpl.pyplot.ylabel(r"90%UL * VT(single analysis)", size="large") 
-  #mpl.pyplot.legend()
-  #mpl.pyplot.title(str(opts.ntimes)+" analysis times")
-  #mpl.pyplot.savefig(output_prefix+"_effnum_vs_FAP.png")
-  #mpl.pyplot.close()
+  #  plt.errorbar(fapplot, effnumplot_Lerr, effnumstdplot_Lerr, marker="x", linestyle="None", color="m", label="Split analysis w/ Lambda errors")
+  #plt.xlabel("Loudest event FAP", size="large")
+  #plt.ylabel(r"90%UL * VT(single analysis)", size="large") 
+  #plt.legend()
+  #plt.title(str(opts.ntimes)+" analysis times")
+  #plt.savefig(output_prefix+"_effnum_vs_FAP.png")
+  #plt.close()
 
   # UL values vs. SNR of loudest event in single analysis
-  #mpl.pyplot.plot([rhoC_from_FAR(FAN_from_FAP(pF)/Ttot,opts.far_index) for pF in singleFAP], UL90_single, "b+", label="Single analysis")
-  #mpl.pyplot.errorbar([rhoC_from_FAR(FAN_from_FAP(pF)/Ttot,opts.far_index) for pF in fapplot], meansplot, yerr=stdevplot, marker="o", linestyle="None", color="g", label="Split analysis times (MC mean/stdev)")
-  #mpl.pyplot.xlabel("Loudest event combined SNR", size="large")
-  #mpl.pyplot.ylabel(r"90% upper limit", size="large")
-  #mpl.pyplot.legend(loc="upper left")
-  #mpl.pyplot.title(str(opts.ntimes)+" analysis times")
-  #mpl.pyplot.savefig(output_prefix+"_ul_vs_rhoC.png")
-  #mpl.pyplot.close()
+  #plt.plot([rhoC_from_FAR(FAN_from_FAP(pF)/Ttot,opts.far_index) for pF in singleFAP], UL90_single, "b+", label="Single analysis")
+  #plt.errorbar([rhoC_from_FAR(FAN_from_FAP(pF)/Ttot,opts.far_index) for pF in fapplot], meansplot, yerr=stdevplot, marker="o", linestyle="None", color="g", label="Split analysis times (MC mean/stdev)")
+  #plt.xlabel("Loudest event combined SNR", size="large")
+  #plt.ylabel(r"90% upper limit", size="large")
+  #plt.legend(loc="upper left")
+  #plt.title(str(opts.ntimes)+" analysis times")
+  #plt.savefig(output_prefix+"_ul_vs_rhoC.png")
+  #plt.close()
 
 
 exit()

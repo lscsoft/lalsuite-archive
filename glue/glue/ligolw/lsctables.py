@@ -112,7 +112,7 @@ def New(Type, columns = None, **kwargs):
 		for key, value in new.validcolumns.items():
 			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": value})))
 	new._end_of_columns()
-	new.appendChild(table.TableStream(sax.xmlreader.AttributesImpl({u"Name": Type.tableName})))
+	new.appendChild(table.TableStream(sax.xmlreader.AttributesImpl({u"Name": Type.tableName, u"Delimiter": table.TableStream.Delimiter.default, u"Type": table.TableStream.Type.default})))
 	return new
 
 
@@ -121,9 +121,7 @@ def IsTableElement(Type, elem):
 	Convenience function to check that an element is a Table of type
 	Type.
 	"""
-	if elem.tagName != ligolw.Table.tagName:
-		return False
-	return table.CompareTableNames(elem.getAttribute(u"Name"), Type.tableName) == 0
+	return elem.tagName == ligolw.Table.tagName and elem.Name == table.StripTableName(Type.tableName)
 
 
 def IsTableProperties(Type, tagname, attrs):
@@ -148,10 +146,7 @@ def HasNonLSCTables(elem):
 	Return True if the document tree below elem contains non-LSC
 	tables, otherwise return False.
 	"""
-	for t in elem.getElementsByTagName(ligolw.Table.tagName):
-		if table.StripTableName(t.getAttribute(u"Name")) not in TableByName:
-			return True
-	return False
+	return any(t.Name not in TableByName for t in elem.getElementsByTagName(ligolw.Table.tagName))
 
 
 def instrument_set_from_ifos(ifos):

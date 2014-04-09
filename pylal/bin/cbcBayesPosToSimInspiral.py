@@ -29,6 +29,7 @@ from optparse import Option, OptionParser
 import numpy as np
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
+from glue.ligolw import ilwd
 from pylal import bayespputils as bppu
 
 # Create a datatype for all relavent fields to be filled in the sim_inspiral table
@@ -171,6 +172,9 @@ if __name__ == "__main__":
     # Determine all mass parameterizations
     mc, eta, m1, m2, mtotal = compute_mass_parameterizations(samples)
 
+    # Get cycle numbers as simulation_ids
+    ids = samples['cycle'].astype(int)
+
     # Compute cartesian spins
     if 'a1' in params and 'theta1' in params and 'phi1' in params:
         s1x, s1y, s1z = bppu.sph2cart(samples['a1'], samples['theta1'], samples['phi1'])
@@ -270,6 +274,11 @@ if __name__ == "__main__":
         row = sim_table.RowType()
         for slot in row.__slots__: setattr(row, slot, 0)
         sim_table.append(row)
+
+    # Fill in IDs
+    for i,row in enumerate(sim_table):
+        row.process_id = ilwd.ilwdchar("process:process_id:{}".format(i))
+        row.simulation_id = ilwd.ilwdchar("sim_inspiral:simulation_id:{}".format(ids[i]))
 
     # Fill rows
     for field in injections.dtype.names:
