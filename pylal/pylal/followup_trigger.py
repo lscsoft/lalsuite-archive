@@ -116,21 +116,21 @@ class FollowupTrigger:
 
     # setting the color definition and the stages of the pipeline
     self.colors = {'H1':'r','H2':'b','L1':'g','V1':'m','G1':'c'}
-    self.stageLabels = ['INSPIRAL_FIRST']
+    self.stageLabels = [('MATCHEDFILTER',['INSPIRAL'])]
     if do_slides:
-      self.stageLabels.append('THINCA_1')
+      self.stageLabels.append(('COINCIDENCE-SLID',['THINCA_1','THINCA_SLIDES']))
     else:
-      self.stageLabels.append('THINCA_0')
+      self.stageLabels.append(('COINCIDENCE',['THINCA_0','THINCA_ZEROLAG']))
 
-    self.orderLabels = copy.deepcopy(self.stageLabels)
+    self.orderLabels = ['MATCHEDFILTER']
     if do_slides:
-      self.orderLabels.extend( [ 'THINCA_1_CAT_1',\
-          'THINCA_1_CAT_2', 'THINCA_1_CAT_3',\
-          'THINCA_1_CAT_4', 'THINCA_1_CAT_5'] )
+      self.orderLabels.extend( [ 'COINCIDENCE-SLID_CAT_1',\
+          'COINCIDENCE-SLID_CAT_2', 'COINCIDENCE-SLID_CAT_3',\
+          'COINCIDENCE-SLID_CAT_4', 'COINCIDENCE-SLID_CAT_5'] )
     else:
-      self.orderLabels.extend( [ 'THINCA_0_CAT_1','THINCA_0_CAT_2', \
-                                 'THINCA_0_CAT_3','THINCA_0_CAT_4', \
-                                 'THINCA_0_CAT_5'] )
+      self.orderLabels.extend( [ 'COINCIDENCE_CAT_1','COINCIDENCE_CAT_2', \
+                                 'COINCIDENCE_CAT_3','COINCIDENCE_CAT_4', \
+                                 'COINCIDENCE_CAT_5'] )
 
     # set arguments from the options
     self.opts = opts
@@ -187,12 +187,14 @@ class FollowupTrigger:
       
     # splitting up the cache for the different stages
     self.trigger_cache = {}
-    for stage in self.stageLabels:
-      pattern = stage
-      self.trigger_cache[stage] = self.cache.sieve(description=pattern)
+    for stageName, stagePatterns in self.stageLabels:
+      sievedFiles = []
+      for pattern in stagePatterns:
+          sievedFiles.extend(self.cache.sieve(description=pattern))
+      self.trigger_cache[stageName] = sievedFiles
       if self.opts.verbose:
-        print "%d files found for stage %s" % (len(self.trigger_cache[stage]),\
-                                               stage)
+        print "%d files found for stage %s" %\
+                                (len(self.trigger_cache[stageName]), stageName)
 
 
     # generating a dictionary for injection followups
@@ -290,17 +292,16 @@ class FollowupTrigger:
     any 'FOUND' file in the cache.
     """
 
-    # default value
-    # FIXME: No default value
-    self.injection_window = 0.050
+    # FIXME: This value should now be provided to minifollowups!!
+    #        Ssipe output does come through here, but will not get the correct
+    #        value (as SIRE files are not doing actual injection finding).
 
     # get the process params table from one of the COIRE files
     found_cache = self.cache.sieve(description = "FOUND")
     if len(found_cache)==0:
-      # obviously no injections are being used. setting this window to zero
-      self.injection_window = 0
+      self.injection_window = 0.1
       print "INFO: No FOUND files found, so setting the injection window"\
-            " to zero."
+            " to default value."
       return
       
     coire_file = found_cache.checkfilesexist()[0].pfnlist()[0]
@@ -389,6 +390,16 @@ class FollowupTrigger:
       injection_id = pieces[index-1]
         
     return injection_id
+
+  def check_injection_id(self, cache_entry, tag):
+      """
+      The above relies on a very specific naming convention, here we check if
+      the injection tag is present in the files' description.
+      """
+      if tag in cache_entry.description:
+          return True
+      else:
+          return False
   
   # -----------------------------------------------------
   def find_injection_id(self, injection):
@@ -1265,7 +1276,7 @@ class FollowupTrigger:
         if (self.followup_time in c.segment) or ((self.followup_time-2048) in c.segment) or ((self.followup_time+2048) in c.segment):
           if not self.injection_id or \
                  (self.injection_id and \
-                  self.get_injection_id(url = c.url) == self.injection_id):
+                  self.check_injection_id(c, self.injection_id)):
             trig_cache.append( c )
         
       # check if the pfnlist is empty. `
@@ -1278,7 +1289,7 @@ class FollowupTrigger:
         continue
 
       # call the function to create the timeseries
-      if stage in ('THINCA_0','THINCA_1'):
+      if stage in ('COINCIDENCE','COINCIDENCE-SLID'):
         # ... need to loop over the four categories
         for cat in [1,2,3,4,5]:
           select_list=self.select_category(file_list, cat)
