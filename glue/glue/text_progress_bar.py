@@ -53,11 +53,6 @@ def getTerminalSize():
             os.close(fd)
     except:
         pass
-    # try `stty size`
-    try:
-        return tuple(int(x) for x in os.popen("stty size", "r").read().split())
-    except:
-        pass
     # try environment variables
     try:
         return tuple(int(os.getenv(var)) for var in ("LINES", "COLUMNS"))
