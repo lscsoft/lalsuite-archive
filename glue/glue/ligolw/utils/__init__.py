@@ -484,7 +484,7 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, **kwargs):
 		fileobj = open(filename, "w")
 	else:
 		fileobj = sys.stdout
-	hexdigest = write_fileobj(xmldoc, fileobj, **kwargs)
+	hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, **kwargs)
 	fileobj.close()
 	if verbose:
 		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (filename if filename is not None else ""))
