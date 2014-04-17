@@ -903,6 +903,40 @@ def cbcBayesPostProc(
     html_ogci_write+='</table>'
     html_ogci.write(html_ogci_write)
 
+    cornerdir=os.path.join(outdir,'corner')
+    if not os.path.isdir(cornerdir):
+        os.makedirs(cornerdir)
+
+    #===============================#
+    # Corner plots
+    #===============================#
+
+    massParams=['mtotal','m1','m2','mc']
+    distParams=['distance','distMPC','dist']
+    incParams=['iota','inclination','theta_jn']
+    polParams=['psi','polarisation','polarization']
+    skyParams=['ra','rightascension','declination','dec']
+    timeParams=['time']
+    spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','chi','effectivespin','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
+    intrinsicParams=massParams+spinParams
+    extrinsicParams=incParams+distParams+polParams+skyParams
+    myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=intrinsicParams)
+    html_corner=''
+    if myfig:
+      html_corner='<table>'
+      html_corner+='<tr><td width="100%"><img width="100%" src="corner/intrinsic.png"/></td></tr>'
+      myfig.savefig(os.path.join(cornerdir,'intrinsic.png'))
+      myfig.savefig(os.path.join(cornerdir,'intrinsic.pdf'))
+    myfig=bppu.plot_corner(pos,[0.67,0.9,0.95],parnames=extrinsicParams)
+    if myfig:
+      myfig.savefig(os.path.join(cornerdir,'extrinsic.png'))
+      myfig.savefig(os.path.join(cornerdir,'extrinsic.pdf'))
+      html_corner+='<tr><td width="100%"><img width="100%" src="corner/extrinsic.png"/></td></tr>'
+      html_corner+='</table>'
+
+    if html_corner!='':
+      html_co=html.add_section('Corner plots')
+      html_co.write(html_corner)
     #==================================================================#
     #2D posteriors
     #==================================================================#
@@ -1085,6 +1119,7 @@ def cbcBayesPostProc(
                 myfig.savefig(twoDKdePath)
                 if(savepdfs): myfig.savefig(twoDKdePath.replace('.png','.pdf'))
                 plt.close(myfig)
+
 
     #Finish off the BCI table and write it into the etree
     html_tcig_write+='</table>'

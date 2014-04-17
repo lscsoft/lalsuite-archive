@@ -3581,6 +3581,29 @@ def getDecString(radians,accuracy='auto'):
     #    else: return(getDecString(sign*radians,accuracy='deg'))
       return(getDecString(sign*radians,accuracy='deg'))
 
+def plot_corner(posterior,levels,parnames=None):
+  """
+  Make a corner plot using the triangle module
+  (See http://github.com/dfm/triangle.py)
+  @param posterior: The Posterior object
+  @param levels: a list of confidence levels
+  @param parnames: list of parameters to include
+  """
+  try:
+    import triangle
+  except ImportError:
+    print 'Cannot load triangle module. Try running\n\t$ pip install triangle_plot'
+    return None
+  parnames=filter(lambda x: x in posterior.names, parnames)
+  data = np.hstack([posterior[p].samples for p in parnames])
+  if posterior.injection:
+    injvals=[posterior[p].injval for p in parnames]
+    myfig=triangle.corner(data,labels=parnames,truths=injvals,quantiles=levels)
+  else:
+    myfig=triangle.corner(data,labels=parnames,quantiles=levels)
+  return(myfig)
+
+
 def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None,Npixels=50):
   """
   Plots a 2D kernel density estimate of the 2-parameter marginal posterior.
