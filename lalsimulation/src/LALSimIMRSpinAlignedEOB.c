@@ -144,30 +144,12 @@ XLALEOBSpinAlignedStopCondition(double UNUSED t,  /**< UNUSED */
  */
 static int
 XLALSpinAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
-                           const double values[], /**< dynamical variable values */
+                           const double UNUSED values[], /**< dynamical variable values */
                            double dvalues[],      /**< dynamical variable time derivative values */
-                           void *funcParams       /**< physical parameters */
+                           void UNUSED *funcParams       /**< physical parameters */
                           )
 {
-  SpinEOBParams *params = (SpinEOBParams *)funcParams;
-  REAL8 K, eta, chiK;
-  REAL8 rshift = 0.6;
-  eta  = params->eobParams->eta;
-  chiK = params->sigmaKerr->data[2] / (1.-2.*eta);
-  K = 1.4467 -  1.7152360250654402 * eta - 3.246255899738242 * eta * eta;
-  if ( chiK >= 0.82) rshift = 0.5; 
-  if ( chiK < 0.82 ) rshift = 0.27;
-  if ( chiK < 0.8 ) rshift = 0.33;
-  if ( chiK < 0.78) rshift = 0.4;
-  if ( chiK < 0.76) rshift = 0.45;
-  if ( chiK < 0.72) rshift = 0.32;
-  if ( chiK < 0.67) rshift = 0.33;
-  if ( chiK > -0.8 && chiK < 0.6 ) rshift = 0.35;
-
-  if ( chiK > 0.82 && chiK <=0.9) rshift *= 0.3 + 8.*eta; 
-  if ( chiK > 0.9) rshift *= 0.3 + 12.*eta;
- 
-  if ( values[0] <= (1.+sqrt(1-params->a * params->a))*(1.-K*eta) + rshift || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
+  if ( dvalues[2] >= 0. || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
   {
     return 1;
   }
