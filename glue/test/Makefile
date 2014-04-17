@@ -38,7 +38,7 @@ ligolw_test01 :
 ligolw_test02 :
 	@echo "=== start test02 ===>"
 	# confirm that ligolw_add refuses to process old-style inspiral files
-	sh ligo_lw_test_02.sh && $(printpassfail)
+	! ligolw_add --verbose inspiral_event_id_test_in?.xml* && $(printpassfail)
 	@echo "<=== end test02 ==="
 
 ligolw_test03a :
