@@ -328,7 +328,7 @@ class Element(object):
 			if c.tagName not in self.validchildren:
 				raise ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
 			c.write(fileobj, indent + Indent)
-		if self.pcdata:
+		if self.pcdata is not None:
 			fileobj.write(xmlescape(self.pcdata))
 			fileobj.write(u"\n")
 		fileobj.write(self.end_tag(indent) + u"\n")
