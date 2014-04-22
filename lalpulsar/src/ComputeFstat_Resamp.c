@@ -31,17 +31,17 @@
 #define COMPUTEFSTATRSC_ENONULL         2
 #define COMPUTEFSTATRSC_EINPUT          3
 #define COMPUTEFSTATRSC_EMEM            4
-#define COMPUTEFSTATRSC_EXLAL		5
-#define COMPUTEFSTATRSC_EIEEE		6
+#define COMPUTEFSTATRSC_EXLAL           5
+#define COMPUTEFSTATRSC_EIEEE           6
 #define COMPUTEFSTATRSC_MSGENULL        "Arguments contained an unexpected null pointer"
 #define COMPUTEFSTATRSC_MSGENONULL      "Output pointer is non-NULL"
 #define COMPUTEFSTATRSC_MSGEINPUT       "Invalid input"
 #define COMPUTEFSTATRSC_MSGEMEM         "Out of memory. Bad."
-#define COMPUTEFSTATRSC_MSGEXLAL	"XLAL function call failed"
-#define COMPUTEFSTATRSC_MSGEIEEE	"Floating point failure"
+#define COMPUTEFSTATRSC_MSGEXLAL        "XLAL function call failed"
+#define COMPUTEFSTATRSC_MSGEIEEE        "Floating point failure"
 
-#define NhalfPosDC(N) ((UINT4)(ceil ( ((N)/2.0 - 1e-6 ))))	/* round up */
-#define NhalfNeg(N) ((UINT4)( (N) - NhalfPosDC(N) ))		/* round down (making sure N+ + N- = (N-1) */
+#define NhalfPosDC(N) ((UINT4)(ceil ( ((N)/2.0 - 1e-6 ))))      /* round up */
+#define NhalfNeg(N) ((UINT4)( (N) - NhalfPosDC(N) ))            /* round down (making sure N+ + N- = (N-1) */
 
 /* Struct holding buffered ComputeFStat()-internal quantities to avoid unnecessarily
  * recomputing things that depend ONLY on the skyposition and detector-state series (but not on the spins).
@@ -54,7 +54,6 @@ struct tagComputeFBuffer_RS {
   MultiSSBtimes *multiSSB;
   MultiSSBtimes *multiBinary;
   MultiAMCoeffs *multiAMcoef;
-  MultiCmplxAMCoeffs *multiCmplxAMcoef;
   MultiCOMPLEX8TimeSeries *multiTimeseries;                   /* the buffered unweighted multi-detector timeseries */
   MultiCOMPLEX8TimeSeries *multiFa_resampled;                 /* the buffered multi-detector resampled timeseries weighted by a(t) */
   MultiCOMPLEX8TimeSeries *multiFb_resampled;                 /* the buffered multi-detector resampled timeseries weighted by b(t) */
@@ -82,8 +81,6 @@ XLALEmptyComputeFBuffer_RS ( ComputeFBuffer_RS *buffer)
   buffer->multiBinary = NULL;
   if ( buffer->multiAMcoef) XLALDestroyMultiAMCoeffs( buffer->multiAMcoef );
   buffer->multiAMcoef = NULL;
-  if ( buffer->multiCmplxAMcoef) XLALDestroyMultiCmplxAMCoeffs( buffer->multiCmplxAMcoef );
-  buffer->multiCmplxAMcoef = NULL;
   if ( buffer->multiTimeseries) XLALDestroyMultiCOMPLEX8TimeSeries( buffer->multiTimeseries );
   buffer->multiTimeseries = NULL;
   if ( buffer->multiFa_resampled) XLALDestroyMultiCOMPLEX8TimeSeries( buffer->multiFa_resampled );
@@ -106,9 +103,9 @@ XLALEmptyComputeFBuffer_RS ( ComputeFBuffer_RS *buffer)
    they must be correctly set outside this function.
 */
 static
-void ComputeFStatFreqBand_RS ( LALStatus *status,				/* pointer to LALStatus structure */
+void ComputeFStatFreqBand_RS ( LALStatus *status,                               /* pointer to LALStatus structure */
                                REAL4FrequencySeries *fstatVector,               /* [out] Vector of Fstat values */
-                               const PulsarDopplerParams *doppler,		/* parameter-space point to compute F for */
+                               const PulsarDopplerParams *doppler,              /* parameter-space point to compute F for */
                                MultiSFTVector *multiSFTs,                       /* normalized (by DOUBLE-sided Sn!) data-SFTs of all IFOs */
                                const MultiNoiseWeights *multiWeights,           /* noise-weights of all SFTs */
                                ComputeFParams *params                           /* addition computational params */
@@ -261,7 +258,7 @@ void ComputeFStatFreqBand_RS ( LALStatus *status,				/* pointer to LALStatus str
     if ( (multiSSB = XLALGetMultiSSBtimes ( cfBuffer->multiDetStates, skypos, doppler->refTime, params->SSBprec )) == NULL )
     {
       XLALPrintError("XLALGetMultiSSBtimes() failed with error = %d\n\n", xlalErrno );
-      ABORT ( status, COMPUTEFSTATC_EXLAL, COMPUTEFSTATC_MSGEXLAL );
+      ABORT ( status, COMPUTEFSTATRSC_EXLAL, COMPUTEFSTATRSC_MSGEXLAL );
     }
 
     /* compute the AM parameters for each detector */
@@ -532,11 +529,11 @@ void ComputeFStatFreqBand_RS ( LALStatus *status,				/* pointer to LALStatus str
 /////////////////////////////////////////////////////////////////
 
 struct tagFstatInputData_Resamp {
-  MultiSFTVector *multiSFTs;			// Input multi-detector SFTs
-  MultiDetectorStateSeries *multiDetStates;	// Multi-detector state series
-  ComputeFParams params;			// Additional parameters for ComputeFStat() and ComputeFStatFreqBand_RS()
-  ComputeFBuffer buffer;			// Internal buffer for ComputeFStat()
-  REAL4 *Fout;					// Output array of *F* values passed to ComputeFStatFreqBand_RS()
+  MultiSFTVector *multiSFTs;                    // Input multi-detector SFTs
+  MultiDetectorStateSeries *multiDetStates;     // Multi-detector state series
+  ComputeFParams params;                        // Additional parameters for ComputeFStat() and ComputeFStatFreqBand_RS()
+  ComputeFBuffer buffer;                        // Internal buffer for ComputeFStat()
+  REAL4 *Fout;                                  // Output array of *F* values passed to ComputeFStatFreqBand_RS()
 };
 
 static inline void
@@ -587,10 +584,7 @@ XLALSetupFstat_Resamp(
   resamp->params.Dterms = OptimisedHotloopDterms;   // Use fixed Dterms for single frequency bin demodulation
   resamp->params.SSBprec = SSBprec;
   resamp->params.buffer = NULL;
-  resamp->params.bufferedRAA = 0;
   resamp->params.edat = edat;
-  resamp->params.upsampling = 1;
-  resamp->params.useRAA = 0;
 
   // Initialise output array of *F* values to NULL
   resamp->Fout = NULL;
@@ -727,13 +721,7 @@ ComputeFstat_Resamp_demod:
 
     // Call ComputeFStat()
     Fcomponents Fcomp;
-    {
-      LALStatus status = empty_status;
-      LocalComputeFStat(&status, &Fcomp, &thisPoint, resamp->multiSFTs, common->multiWeights, resamp->multiDetStates, &resamp->params, &resamp->buffer);
-      if (status.statusCode) {
-        XLAL_ERROR(XLAL_EFAILED, "LocalComputeFStat() failed: %s (statusCode=%i)", status.statusDescription, status.statusCode);
-      }
-    }
+    XLAL_CHECK ( ComputeFStat( &Fcomp, &thisPoint, resamp->multiSFTs, common->multiWeights, resamp->multiDetStates, &resamp->params, &resamp->buffer) == XLAL_SUCCESS, XLAL_EFUNC );
 
     // Return multi-detector 2F
     if (whatToCompute & FSTATQ_2F) {
@@ -767,9 +755,7 @@ ComputeFstat_Resamp_demod:
   } // for k < Fstats->numFreqBins
 
   // Return amplitude modulation coefficients
-  if (resamp->buffer.multiCmplxAMcoef != NULL) {
-    Fstats->Mmunu = resamp->buffer.multiCmplxAMcoef->Mmunu;
-  } else if (resamp->buffer.multiAMcoef != NULL) {
+  if (resamp->buffer.multiAMcoef != NULL) {
     Fstats->Mmunu.Ad = resamp->buffer.multiAMcoef->Mmunu.Ad;
     Fstats->Mmunu.Bd = resamp->buffer.multiAMcoef->Mmunu.Bd;
     Fstats->Mmunu.Cd = resamp->buffer.multiAMcoef->Mmunu.Cd;

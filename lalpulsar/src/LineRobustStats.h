@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 David Keitel
+ * Copyright (C) 2011-2014 David Keitel
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -18,19 +18,16 @@
  */
 
 /**
+ * \defgroup LineRobustStats_h Header LineRobustStats.h
+ * \ingroup pkg_pulsarCommon
  * \author David Keitel
- * \date 2011
- * \ingroup pulsarCoherent
- * \file
- * \brief Header-file defining functions related to GCT Line Veto followups
  *
- * This code is partly based on work done by
- * Reinhard Prix, Maria Alessandra Papa, M. Siddiqi
- *
+ * \brief Functions to compute line-robust CW statistics
  */
+/*@{*/
 
-#ifndef _LINEVETO_H  /* Double-include protection. */
-#define _LINEVETO_H
+#ifndef _LINEROBUSTSTATS_H  /* Double-include protection. */
+#define _LINEROBUSTSTATS_H
 
 /* C++ protection. */
 #ifdef  __cplusplus
@@ -40,16 +37,13 @@ extern "C" {
 /*---------- exported INCLUDES ----------*/
 
 /* lal includes */
-#include <lal/ExtrapolatePulsarSpins.h>
-#include <lal/ComputeFstat.h>
+#include <lal/LALStdlib.h>
+#include <lal/PulsarDataTypes.h>
 #include <lal/StringVector.h>
-
-/* lalapps includes */
-#include <lalapps.h>
+#include <lal/LALConstants.h>
+#include <math.h>
 
 /* additional includes */
-#include "GCTtoplist.h"
-#include "../hough/src2/HoughFStatToplist.h"
 
 /*---------- exported DEFINES ----------*/
 
@@ -67,27 +61,6 @@ typedef struct tagLVcomponents {
 extern const LVcomponents empty_LVcomponents;
 
 /*---------- exported prototypes [API] ----------*/
-int
-XLALComputeExtraStatsForToplist ( toplist_t *list,
-				  const char *listEntryTypeName,
-				  const FstatInputDataVector *Fstat_in_vec,
-				  const LALStringVector *detectorIDs,
-				  const LIGOTimeGPSVector *startTstack,
-				  const LIGOTimeGPS refTimeGPS,
-				  const char* outputSingleSegStats );
-
-int
-XLALComputeExtraStatsSemiCoherent ( LVcomponents *lineVeto,
-				    const PulsarDopplerParams *dopplerParams,
-				    const FstatInputDataVector *Fstat_in_vec,
-				    const LALStringVector *detectorIDs,
-				    const LIGOTimeGPSVector *startTstack,
-				    FILE *singleSegStatsFile );
-
-REAL8
-XLALComputeFstatFromAtoms ( const MultiFstatAtomVector *multiFstatAtoms,
-			    const INT4 X );
-
 REAL4
 XLALComputeLineVeto ( const REAL4 TwoF,
 		      const REAL4Vector *TwoFX,
@@ -103,15 +76,7 @@ XLALComputeLineVetoArray ( const REAL4 TwoF,
                            const REAL8 *loglX,
                            const BOOLEAN useAllTerms );
 
-LALStringVector *
-XLALGetDetectorIDs ( LALStringVector *IFOList, const SFTCatalog *SFTcatalog );
-
-/* these functions operate on the module-local lookup-table for logarithms,
- * which will dynamically be generated on first use of XLALFastLog(), and can
- * be destroyed at any time using XLALDestroyLogLUT()
- */
-REAL8 XLALFastLog ( REAL8 x );
-void XLALDestroyLogLUT( void );
+// @}
 
 #ifdef  __cplusplus
 }

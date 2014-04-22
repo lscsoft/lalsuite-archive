@@ -38,6 +38,7 @@ lalpulsarinclude_HEADERS = \
 	LALPulsarVCSInfo.h \
 	LALXMGRInterface.h \
 	LFTandTSutils.h \
+	LineRobustStats.h \
 	LISAspecifics.h \
 	LUT.h \
 	LatticeCovering.h \
@@ -84,6 +85,7 @@ liblalpulsar_la_SOURCES = \
 	DopplerScan.c \
 	DriveHough.c \
 	ExtrapolatePulsarSpins.c \
+	CWFastMath.c \
 	FitToPulsar.c \
 	FlatLatticeTiling.c \
 	FlatMesh.c \
@@ -105,6 +107,7 @@ liblalpulsar_la_SOURCES = \
 	LALPulsarVCSInfo.c \
 	LALXMGRInterface.c \
 	LFTandTSutils.c \
+	LineRobustStats.c \
 	LISAspecifics.c \
 	LatticeCovering.c \
 	NDParamPLUT.c \

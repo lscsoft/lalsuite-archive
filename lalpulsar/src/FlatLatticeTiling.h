@@ -72,54 +72,38 @@ size_t XLALGetFlatLatticeDimensions(
   );
 
 ///
-/// Return the current lattice tiling parameter-space point
-///
-gsl_vector* XLALGetFlatLatticePoint(
-  const FlatLatticeTiling* tiling,              ///< [in] Tiling state
-  gsl_vector* point
-  );
-
-///
 /// Return the current number of flat lattice tiling parameter-space points
 ///
-unsigned long XLALGetFlatLatticePointCount(
+UINT8 XLALGetFlatLatticePointCount(
   const FlatLatticeTiling* tiling               ///< [in] Tiling state
   );
 
 ///
 /// Calculate the total number of flat lattice tiling parameter-space points
 ///
-unsigned long XLALCountFlatLatticePoints(
+UINT8 XLALCountFlatLatticePoints(
   FlatLatticeTiling* tiling                     ///< [in] Tiling state
   );
 
 ///
-/// Return the increment vectors which are used to generate the lattice.
+/// Set the parameter-space bounds on dimension \f$n\f$ of the flat lattice tiling.
 ///
-gsl_matrix* XLALGetFlatLatticeIncrements(
-  const FlatLatticeTiling* tiling               ///< [in] Tiling state
-  );
-
-///
-/// Set a parameter-space bound on the \f$n\f$th dimension of the flat lattice tiling.
-///
-/// Each parameter-space dimension may have multiple pairs of lower and upper bounds. The bounds \f$b_n\f$
-/// given the current parameter-space point \f$x = (x_0,\cdots,x_{n-1})\f$ are specified by the expression
+/// The lower/upper bound \f$X_n\f$ is specified by
 /// \f[
-/// b_n - a_n = c_N \left[ \sum_{i=0}^{N-1} c_i \prod_{j=0}^{n-1} (x_j - a_j)^{m_{ni+j}} \right]^{m_{nN}}
+/// X_n - a_n = \sum_{k=0}^{P-1} c_{N,k} \left[ \sum_{j=0}^{N-1} c_{j,k} \prod_{i=0}^{n-1} (x_i - a_i)^{m_{nj+i,k}} \right]^{m_{nN,k}}
 /// \f]
-/// where \f$a = (a_0,\cdots,a_n)\f$ is a vector of \f$n + 1 > 0\f$ offsets, \f$c = (c_0,\cdots,c_N)\f$ is a
-/// vector of \f$N + 1 > 0\f$ coefficients, and \f$m = (m_0,\cdots,m_{nM})\f$ is a vector of \f$nM + 1 > 0\f$
-/// exponents.
+/// where \f$x = (x_0,\cdots,x_{n-1})\f$ is the current parameter-space point, \f$a\f$ is a vector of \f$n + 1 > 0\f$ offsets,
+/// \f$c\f$ is a matrix of \f$N + 1 \times P\f$ coefficients, and \f$m\f$ is a matrix of \f$nM + 1 \times P\f$ exponents.
+/// Note that \f$x^m \rightarrow 0\f$ if the result is not finite and real-valued.
 ///
 int XLALSetFlatLatticeBound(
   FlatLatticeTiling* tiling,                    ///< [in] Tiling state
   const size_t dimension,                       ///< [in] Dimension on which bound applies (\f$n\f$)
   const gsl_vector* a,                          ///< [in] Vector of offsets (\f$a\f$)
-  const gsl_matrix* c_lower,                    ///< [in] Column vectors of coefficients (\f$c\f$) for the lower bound of each bound pair
-  const gsl_matrix* m_lower,                    ///< [in] Column vectors of exponents (\f$m\f$) for the lower bound of each bound pair
-  const gsl_matrix* c_upper,                    ///< [in] Column vectors of coefficients (\f$c\f$) for the upper bound of each bound pair
-  const gsl_matrix* m_upper                     ///< [in] Column vectors of exponents (\f$m\f$) for the upper bound of each bound pair
+  const gsl_matrix* c_lower,                    ///< [in] Matrix of coefficients (\f$c\f$) for the lower bound
+  const gsl_matrix* m_lower,                    ///< [in] Matrix of exponents (\f$m\f$) for the lower bound
+  const gsl_matrix* c_upper,                    ///< [in] Matrix of coefficients (\f$c\f$) for the upper bound
+  const gsl_matrix* m_upper                     ///< [in] Matrix of exponents (\f$m\f$) for the upper bound
   );
 
 ///
@@ -156,12 +140,25 @@ int XLALSetFlatLatticeTypeAndMetric(
   );
 
 ///
-/// Move to the next point in the flat lattice tiling parameter space.
-/// Returns the index of the lowest dimension where the point has changed,
-/// or a negative number when the template bank is exhausted.
+/// Move to the next point in the flat lattice tiling parameter space. Returns a
+/// positive number while the template bank is being generated, or -1 once the
+/// template bank is exhausted. Optionally, return the current flat lattice point.
 ///
 int XLALNextFlatLatticePoint(
-  FlatLatticeTiling* tiling                     ///< [in] Tiling state
+  FlatLatticeTiling* tiling,                    ///< [in] Tiling state
+  gsl_vector* curr_point                        ///< [in/out] Current flat lattice point
+  );
+
+///
+/// Fast-forward the flat lattice tiling through the highest tiled dimension of
+/// the parameter space, so that then calling XLALNextFlatticePoint() will
+/// advance the next highest tiled dimension. Optionally, return the count of
+/// and spacing between the points fast-forwarded over.
+///
+int XLALFastForwardFlatLatticeTiling(
+  FlatLatticeTiling* tiling,                    ///< [in] Tiling state
+  UINT8 *point_count,                           ///< [in/out] Count of points fast-forwarded over
+  double *point_spacing                         ///< [in/out] Spacing between points fast-forwarded over
   );
 
 ///

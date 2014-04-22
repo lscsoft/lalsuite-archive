@@ -35,11 +35,10 @@
 /* ---------- Includes -------------------- */
 #include <lal/Segments.h>
 #include <lal/LALString.h>
+#include <lal/LineRobustStats.h>
+#include <RecalcToplistStats.h>
 
 #include "HierarchSearchGCT.h"
-#include <lal/TransientCW_utils.h> /* for XLALFastNegExp */
-
-#include "LineVeto.h"
 
 #ifdef GC_SSE2_OPT
 #include <gc_hotloop_sse2.h>
@@ -1715,9 +1714,6 @@ int MAIN( int argc, char *argv[]) {
 
   XLALDestroyREAL8Vector ( usefulParams.LVloglX );
 
-  XLALDestroyExpLUT(); /* lookup table for fast exponential function, used in computeLV case */
-  XLALDestroyLogLUT(); /* lookup table for fast logarithm function, used in computeLV case */
-
   LAL_CALL (LALDestroyUserVars(&status), &status);
 
   XLALFree ( VCSInfoString );
@@ -1763,8 +1759,8 @@ void SetUpSFTs( LALStatus *status,			/**< pointer to LALStatus structure */
   ATTATCHSTATUSPTR (status);
 
   /* get sft catalog */
-  constraints.startTime = &(in->minStartTimeGPS);
-  constraints.endTime = &(in->maxEndTimeGPS);
+  constraints.minStartTime = &(in->minStartTimeGPS);
+  constraints.maxEndTime = &(in->maxEndTimeGPS);
   TRY( LALSFTdataFind( status->statusPtr, &catalog, in->sftbasename, &constraints), status);
 
   /* check CRC sums of SFTs */
@@ -1927,7 +1923,7 @@ void SetUpSFTs( LALStatus *status,			/**< pointer to LALStatus structure */
   /* fill detector name vector with all detectors present in any data sements */
   in->detectorIDs = NULL;
   for (k = 0; k < in->nStacks; k++) {
-    if ( ( in->detectorIDs = XLALGetDetectorIDs ( in->detectorIDs, catalogSeq.data + k ) ) == NULL ) {
+    if ( ( in->detectorIDs = XLALGetDetectorIDsFromSFTCatalog ( in->detectorIDs, catalogSeq.data + k ) ) == NULL ) {
       ABORT ( status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
     }
   }
@@ -2007,10 +2003,7 @@ void SetUpSFTs( LALStatus *status,			/**< pointer to LALStatus structure */
 
     } else {			// use demodulation
 
-      // determine which amplitude modulation coefficient type to use
-      const DemodAMType demodAM = DEMODAM_LONG_WAVELENGTH;
-
-      (*p_Fstat_in_vec)->data[k] = XLALSetupFstat_Demod( &multiSFTs, &multiNoiseWeights, in->edat, in->SSBprec, demodAM, in->Dterms );
+      (*p_Fstat_in_vec)->data[k] = XLALSetupFstat_Demod( &multiSFTs, &multiNoiseWeights, in->edat, in->SSBprec, in->Dterms, DEMODHL_BEST );
       if ( (*p_Fstat_in_vec)->data[k] == NULL ) {
         XLALPrintError("%s: XLALSetupFstat_Demod() failed with errno=%d", __func__, xlalErrno);
         ABORT ( status, HIERARCHICALSEARCH_EXLAL, HIERARCHICALSEARCH_MSGEXLAL );
@@ -2296,7 +2289,7 @@ void UpdateSemiCohToplists ( LALStatus *status,
       line.LV *= NSegmentsInv; /* normalize by number of segments */
 
       if ( xlalErrno != 0 ) {
-        XLALPrintError ("%s line %d : XLALComputeLineVeto() failed with xlalErrno = %d.\n\n", __func__, __LINE__, xlalErrno );
+        XLALPrintError ("%s line %d : XLALComputeLineVetoArray() failed with xlalErrno = %d.\n\n", __func__, __LINE__, xlalErrno );
         ABORT ( status, HIERARCHICALSEARCH_EXLAL, HIERARCHICALSEARCH_MSGEXLAL );
       }
       if ( line.LV < -LAL_REAL4_MAX*0.1 )

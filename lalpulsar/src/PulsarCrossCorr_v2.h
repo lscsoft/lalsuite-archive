@@ -105,16 +105,16 @@ extern "C" {
 
 int XLALGetDopplerShiftedFrequencyInfo
 (
-   REAL8Vector         *shiftedFreqs,
-   UINT4Vector         *lowestBins,
+   REAL8Vector        *shiftedFreqs,
+   UINT4Vector          *lowestBins,
    REAL8Vector         *kappaValues,
-   REAL8Vector         *signalPhases,
-   UINT4               numBins,
-   PulsarDopplerParams *dopp,
-   SFTIndexList        *sfts,
-   MultiSFTVector      *inputSFTs,
-   MultiSSBtimes       *multiTimes,
-   REAL8               Tsft
+   REAL8Vector        *signalPhases,
+   UINT4                    numBins,
+   PulsarDopplerParams        *dopp,
+   SFTIndexList               *sfts,
+   MultiSFTVector        *inputSFTs,
+   MultiSSBtimes        *multiTimes,
+   REAL8                       Tsft
    )
   ;
 

@@ -31,6 +31,38 @@ from . import sky_map
 import lal, lalsimulation
 
 
+def emcee_sky_map(logl, logp, xmin, xmax, nside):
+    # Set up sampler
+    import emcee
+    ntemps = 20
+    nwalkers = 100
+    nburnin = 1000
+    niter = 10000
+    ndim = len(xmin)
+    sampler = emcee.PTSampler(
+        ntemps=ntemps, nwalkers=nwalkers, dim=ndim, logl=logl, logp=logp)
+
+    # Draw initial state from multivariate uniform distribution
+    p0 = np.random.uniform(xmin, xmax, (ntemps, nwalkers, ndim))
+
+    # Burn in
+    p0, logp0, logl0 = sampler.run_mcmc(p0, nburnin, storechain=False)
+
+    # Collect samples. The .copy() is important because PTSampler.sample()
+    # reuses p on every iteration.
+    ra, sin_dec = np.vstack([
+        p[0, :, :2].copy() for p, _, _
+        in sampler.sample(p0, logp0, logl0, niter, storechain=False)]).T
+
+    # Bin samples
+    theta = np.arccos(sin_dec)
+    phi = ra
+    prob = postprocess.adaptive_healpix_histogram(theta, phi, 30, nside=nside)
+
+    # Done!
+    return prob
+
+
 def ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_low, min_distance=None, max_distance=None, prior_distance_power=None, method="toa_phoa_snr", psds=None, nside=-1, chain_dump=None):
     """Convenience function to produce a sky map from LIGO-LW rows. Note that
     min_distance and max_distance should be in Mpc."""
@@ -122,15 +154,7 @@ def ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_
     elif method == "toa_phoa_snr":
         prob = sky_map.toa_phoa_snr(gmst, toas, phoas, snrs, w_toas, w1s, w2s, responses, locations, horizons, min_distance, max_distance, prior_distance_power, nside=nside)
     elif method == "toa_mcmc":
-        import emcee
-
-        ntemps = 20
-        nwalkers = 100
-        ndim = 2
-        sampler = emcee.PTSampler(
-            ntemps=ntemps,
-            nwalkers=nwalkers,
-            dim=ndim,
+        prob = emcee_sky_map(
             logl=(lambda args: sky_map.log_posterior_toa(*args,
                 gmst=gmst,
                 toas=toas,
@@ -139,27 +163,12 @@ def ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_
             logp=(lambda (ra, sin_dec):
                 1 if 0 <= ra < 2*np.pi
                 and -1 <= sin_dec <= 1
-                else -np.inf))
-        p0 = np.random.uniform(
-            [0, -1],
-            [2*np.pi, 1], (ntemps, nwalkers, ndim))
-        sampler.run_mcmc(p0, 1000)
-        if chain_dump is not None:
-            np.save(chain_dump, sampler.chain)
-        ra, sin_dec = np.concatenate(sampler.chain[0, :, 100:]).T
-        theta = np.arccos(sin_dec)
-        phi = ra
-        prob = postprocess.adaptive_healpix_histogram(theta, phi, 30, nside=nside)
+                else -np.inf),
+            xmin=[0, -1],
+            xmax=[2*np.pi, 1],
+            nside=nside)
     elif method == "toa_snr_mcmc":
-        import emcee
-
-        ntemps = 20
-        nwalkers = 100
-        ndim = 5
-        sampler = emcee.PTSampler(
-            ntemps=ntemps,
-            nwalkers=nwalkers,
-            dim=ndim,
+        prob = emcee_sky_map(
             logl=(lambda args: sky_map.log_posterior_toa_snr(*args,
                 gmst=gmst,
                 toas=toas,
@@ -175,17 +184,36 @@ def ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_
                 and min_distance <= distance <= max_distance
                 and 0 <= u <= 1
                 and 0 <= twopsi < 2*np.pi
-                else -np.inf))
-        p0 = np.random.uniform(
-            [0, -1, min_distance, 0, 0],
-            [2*np.pi, 1, max_distance, 1, 2*np.pi], (ntemps, nwalkers, ndim))
-        sampler.run_mcmc(p0, 1000)
-        if chain_dump is not None:
-            np.save(chain_dump, sampler.chain)
-        ra, sin_dec, _, _, _ = np.concatenate(sampler.chain[0, :, 100:]).T
-        theta = np.arccos(sin_dec)
-        phi = ra
-        prob = postprocess.adaptive_healpix_histogram(theta, phi, 30, nside=nside)
+                else -np.inf),
+            xmin=[0, -1, min_distance, 0, 0],
+            xmax=[2*np.pi, 1, max_distance, 1, 2*np.pi],
+            nside=nside)
+    elif method == "toa_phoa_snr_mcmc":
+        max_abs_t = 0.5 * lal.LAL_REARTH_SI / lal.LAL_C_SI
+        prob = emcee_sky_map(
+            logl=(lambda args: sky_map.log_posterior_toa_phoa_snr(*args,
+                gmst=gmst,
+                toas=toas,
+                phoas=phoas,
+                snrs=snrs,
+                w_toas=w_toas,
+                w1s=w1s,
+                w2s=w2s,
+                responses=responses,
+                locations=locations,
+                horizons=horizons,
+                prior_distance_power=prior_distance_power)),
+            logp=(lambda (ra, sin_dec, distance, u, twopsi, t):
+                1 if 0 <= ra < 2*np.pi
+                and -1 <= sin_dec <= 1
+                and min_distance <= distance <= max_distance
+                and -1 <= u <= 1
+                and 0 <= twopsi < 2*np.pi
+                and -max_abs_t <= t <= max_abs_t
+                else -np.inf),
+            xmin=[0, -1, min_distance, -1, 0, -max_abs_t],
+            xmax=[2*np.pi, 1, max_distance, 1, 2*np.pi, max_abs_t],
+            nside=nside)
     else:
         raise ValueError("Unrecognized method: %s" % method)
     end_time = time.time()

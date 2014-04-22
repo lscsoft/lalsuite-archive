@@ -128,7 +128,7 @@ if __name__ == "__main__":
         # load the document
         if options.verbose:
             sys.stderr.write("%d/%d:" % (n + 1, len(filenames)))
-        xmldoc = utils.load_filename(filename, options.verbose)
+        xmldoc = utils.load_filename(filename, verbose = options.verbose)
         ligolw_miinjfind.table.InterningRowBuilder.strings.clear()
 
         # have we already processed it?
@@ -160,7 +160,7 @@ if __name__ == "__main__":
         ligolw_process.set_process_end_time(process)
 
         # done
-        utils.write_filename(xmldoc, filename, options.verbose,
+        utils.write_filename(xmldoc, filename, verbose = options.verbose,
                              gz=(filename or "stdout").endswith(".gz"))
         xmldoc.unlink()
         lsctables.table.reset_next_ids(lsctables.TableByName.values())

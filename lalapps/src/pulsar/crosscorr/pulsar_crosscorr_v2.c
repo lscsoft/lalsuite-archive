@@ -35,6 +35,7 @@
 #include <lal/SFTutils.h>
 #include <lal/LogPrintf.h>
 #include <lal/DopplerScan.h>
+#include <lal/DetectorStates.h>
 #include <lal/ExtrapolatePulsarSpins.h>
 #include <lal/LALInitBarycenter.h>
 #include <lal/NormalizeSFTRngMed.h>
@@ -73,7 +74,7 @@ typedef struct{
   REAL8   mismatchT;          /**< mismatch for spacing in time of periapse passage */
   REAL8   mismatchP;          /**< mismatch for spacing in period */
   INT4    numCand;            /**< number of candidates to keep in output toplist */
-  CHAR    *toplistFilename;   /**< output filename containing candidates in toplist */    
+  CHAR    *toplistFilename;   /**< output filename containing candidates in toplist */
 } UserInput_t;
 
 /* struct to store useful variables */
@@ -106,7 +107,7 @@ int main(int argc, char *argv[]){
   MultiPSDVector *multiPSDs = NULL;
   MultiNoiseWeights *multiWeights = NULL;
   MultiLIGOTimeGPSVector *multiTimes = NULL;
-  MultiLALDetector *multiDetectors = NULL;
+  MultiLALDetector multiDetectors;
   MultiDetectorStateSeries *multiStates = NULL;
   MultiAMCoeffs *multiCoeffs = NULL;
   SFTIndexList *sftIndices = NULL;
@@ -230,8 +231,9 @@ int main(int argc, char *argv[]){
   /* FIXME: need to correct fMin and fMax for Doppler shift, rngmedian bins and spindown range */
   /* this is essentially just a place holder for now */
   /* FIXME: this running median buffer is overkill, since the running median block need not be centered on the search frequency */
-  fMin = uvar.fStart - 0.5 * uvar.rngMedBlock * deltaF;
-  fMax = uvar.fStart + 0.5 * uvar.rngMedBlock * deltaF + uvar.fBand;
+  REAL8 vMax=(LAL_TWOPI * uvar.orbitAsiniSec /uvar.orbitPSec + LAL_TWOPI * LAL_REARTH_SI / (LAL_DAYSID_SI * LAL_C_SI)); /*calculate the maximum relative velocity in speed of light*/
+  fMin = uvar.fStart * (1 - vMax) - 0.5 * uvar.rngMedBlock * deltaF;
+  fMax = uvar.fStart * (1 + vMax) + 0.5 * uvar.rngMedBlock * deltaF + uvar.fBand;
 
   /* read the SFTs*/
   if ((inputSFTs = XLALLoadMultiSFTs ( config.catalog, fMin, fMax)) == NULL){
@@ -258,13 +260,13 @@ int main(int argc, char *argv[]){
   }
 
   /* read the detector information from the SFTs */
-  if ((multiDetectors = XLALExtractMultiLALDetectorFromSFTs ( inputSFTs )) == NULL){
-    LogPrintf ( LOG_CRITICAL, "%s: XLALExtractMultiLALDetectorFromSFTs() failed with errno=%d\n", __func__, xlalErrno );
+  if ( XLALMultiLALDetectorFromMultiSFTs ( &multiDetectors, inputSFTs ) != XLAL_SUCCESS){
+    LogPrintf ( LOG_CRITICAL, "%s: XLALMultiLALDetectorFromMultiSFTs() failed with errno=%d\n", __func__, xlalErrno );
     XLAL_ERROR( XLAL_EFUNC );
   }
 
   /* Find the detector state for each SFT */
-  if ((multiStates = XLALGetMultiDetectorStates ( multiTimes, multiDetectors, config.edat, 0.0 )) == NULL){
+  if ((multiStates = XLALGetMultiDetectorStates ( multiTimes, &multiDetectors, config.edat, 0.0 )) == NULL){
     LogPrintf ( LOG_CRITICAL, "%s: XLALGetMultiDetectorStates() failed with errno=%d\n", __func__, xlalErrno );
     XLAL_ERROR( XLAL_EFUNC );
   }
@@ -317,14 +319,14 @@ int main(int argc, char *argv[]){
   minBinaryTemplate.period = uvar.orbitPSec;
   minBinaryTemplate.fkdot[0] = uvar.fStart;
   /*fill in maxBinaryParams*/
-  XLALGPSSetREAL8( &maxBinaryTemplate.tp, uvar.orbitTimeAsc);
+  XLALGPSSetREAL8( &maxBinaryTemplate.tp, uvar.orbitTimeAsc + uvar.orbitTimeAscBand);
   maxBinaryTemplate.argp = 0.0;
   maxBinaryTemplate.asini = uvar.orbitAsiniSec + uvar.orbitAsiniSecBand;
   maxBinaryTemplate.ecc = 0.0;
   maxBinaryTemplate.period = uvar.orbitPSec;
   maxBinaryTemplate.fkdot[0] = uvar.fStart + uvar.fBand;
   /*fill in thisBinaryTemplate*/
-  XLALGPSSetREAL8( &maxBinaryTemplate.tp, uvar.orbitTimeAsc);
+  XLALGPSSetREAL8( &thisBinaryTemplate.tp, uvar.orbitTimeAsc);
   thisBinaryTemplate.argp = 0.0;
   thisBinaryTemplate.asini = 0.5*(minBinaryTemplate.asini + maxBinaryTemplate.asini);
   thisBinaryTemplate.ecc = 0.0;
@@ -341,7 +343,7 @@ int main(int argc, char *argv[]){
   XLALGPSSetREAL8(&dopplerpos.refTime, uvar.refTime);
   dopplerpos.Alpha = uvar.alphaRad;
   dopplerpos.Delta = uvar.deltaRad;
-  dopplerpos.fkdot[0] = uvar.fStart;
+  dopplerpos.fkdot[0] = uvar.fStart - sqrt(uvar.mismatchF / diagff);/*minus a  frequency spacing for testing convenience to search at true parameter, may need to modify*/
   /* set all spindowns to zero */
   for (k=1; k < PULSAR_MAX_SPINS; k++)
     dopplerpos.fkdot[k] = 0.0;
@@ -412,7 +414,7 @@ int main(int argc, char *argv[]){
 	    XLAL_ERROR( XLAL_EFUNC );
 	  }
 	}
-      
+
 
       if ( (XLALGetDopplerShiftedFrequencyInfo( shiftedFreqs, lowestBins, kappaValues, signalPhases, uvar.numBins, &dopplerpos, sftIndices, inputSFTs, multiBinaryTimes, Tsft )  != XLAL_SUCCESS ) ) {
 	LogPrintf ( LOG_CRITICAL, "%s: XLALGetDopplerShiftedFrequencyInfo() failed with errno=%d\n", __func__, xlalErrno );
@@ -424,7 +426,7 @@ int main(int argc, char *argv[]){
 	XLAL_ERROR( XLAL_EFUNC );
       }
 
-      /* fill candidate struct and insert into toplist if necessary */      
+      /* fill candidate struct and insert into toplist if necessary */
       thisCandidate.freq = dopplerpos.fkdot[0];
       thisCandidate.tp = XLALGPSGetREAL8( &dopplerpos.tp );
       thisCandidate.argp = dopplerpos.argp;
@@ -433,7 +435,7 @@ int main(int argc, char *argv[]){
       thisCandidate.period = dopplerpos.period;
       thisCandidate.rho = ccStat;
       thisCandidate.evSquared = evSquared;
-      thisCandidate.estSens = estSens;
+      thisCandidate.estSens = estSens * estSens;
 
       insert_into_crossCorrBinary_toplist(ccToplist, thisCandidate);
 
@@ -443,7 +445,7 @@ int main(int argc, char *argv[]){
   /* write candidates to file */
   sort_crossCorrBinary_toplist( ccToplist );
   /* add error checking */
-  
+
   final_write_crossCorrBinary_toplist_to_file( ccToplist, uvar.toplistFilename, &checksum);
 
 
@@ -458,7 +460,6 @@ int main(int argc, char *argv[]){
   XLALDestroySFTIndexList( sftIndices );
   XLALDestroyMultiAMCoeffs ( multiCoeffs );
   XLALDestroyMultiDetectorStateSeries ( multiStates );
-  XLALDestroyMultiLALDetector( multiDetectors );
   XLALDestroyMultiTimestamps ( multiTimes );
   XLALDestroyMultiNoiseWeights ( multiWeights );
   XLALDestroyMultiPSDVector ( multiPSDs );
@@ -526,7 +527,7 @@ int XLALInitUserVars (UserInput_t *uvar)
   /* initialize number of candidates in toplist -- default is just to return the single best candidate */
   uvar->numCand = 1;
   uvar->toplistFilename = XLALStringDuplicate("toplist_crosscorr.dat");
-  
+
 
   /* register  user-variables */
   XLALregBOOLUserStruct ( help, 	   'h',  UVAR_HELP, "Print this message");
@@ -578,15 +579,15 @@ int XLALInitializeConfigVars (ConfigVariables *config, const UserInput_t *uvar)
   /* set sft catalog constraints */
   constraints.detector = NULL;
   constraints.timestamps = NULL;
-  constraints.startTime = &startTime;
-  constraints.endTime = &endTime;
-  XLALGPSSet( constraints.startTime, uvar->startTime, 0);
-  XLALGPSSet( constraints.endTime, uvar->endTime,0);
+  constraints.minStartTime = &startTime;
+  constraints.maxEndTime = &endTime;
+  XLALGPSSet( constraints.minStartTime, uvar->startTime, 0);
+  XLALGPSSet( constraints.maxEndTime, uvar->endTime,0);
 
   /* This check doesn't seem to work, since XLALGPSSet doesn't set its
      first argument.
 
-     if ( (constraints.startTime == NULL)&& (constraints.endTime == NULL) ) {
+     if ( (constraints.minStartTime == NULL)&& (constraints.maxEndTime == NULL) ) {
      LogPrintf ( LOG_CRITICAL, "%s: XLALGPSSet() failed with errno=%d\n", __func__, xlalErrno );
      XLAL_ERROR( XLAL_EFUNC );
      }
@@ -627,7 +628,7 @@ int GetNextCrossCorrTemplate(BOOLEAN *binaryParamsFlag, PulsarDopplerParams *dop
   REAL8 new_asini = dopplerpos->asini;
   REAL8 new_tp = XLALGPSGetREAL8(&(dopplerpos->tp));
   REAL8 tp_hi = XLALGPSGetREAL8(&(maxBinaryTemplate->tp));
-  
+
   /* basic sanity checks */
   if (binaryTemplateSpacings == NULL)
     return -1;
@@ -640,8 +641,8 @@ int GetNextCrossCorrTemplate(BOOLEAN *binaryParamsFlag, PulsarDopplerParams *dop
 
   /* check spacings not negative */
 
-  if (new_freq <= maxBinaryTemplate->fkdot[0])    /*loop over f at first*/
-    {	      
+  if (new_freq < maxBinaryTemplate->fkdot[0])    /*loop over f at first*/
+    {
       new_freq = dopplerpos->fkdot[0] + binaryTemplateSpacings->fkdot[0];
       dopplerpos->fkdot[0] = new_freq;
       *binaryParamsFlag = FALSE;
@@ -649,7 +650,7 @@ int GetNextCrossCorrTemplate(BOOLEAN *binaryParamsFlag, PulsarDopplerParams *dop
     }
   else
     {
-      if (new_asini <= maxBinaryTemplate->asini)  /*after looping all f, initialize f and loop over a_p*/
+      if (new_asini < maxBinaryTemplate->asini)  /*after looping all f, initialize f and loop over a_p*/
 	{
 	  new_asini = dopplerpos->asini + binaryTemplateSpacings->asini;
 	  dopplerpos->asini = new_asini;
@@ -660,7 +661,7 @@ int GetNextCrossCorrTemplate(BOOLEAN *binaryParamsFlag, PulsarDopplerParams *dop
 	}
       else
 	{
-	  if (new_tp <= tp_hi)                    /*after looping the plane of f and a_p, initialize f, a_p and loop over T*/
+	  if (new_tp < tp_hi)                    /*after looping the plane of f and a_p, initialize f, a_p and loop over T*/
 	    {
 	      new_tp = XLALGPSGetREAL8(XLALGPSAddGPS(&(dopplerpos->tp), &(binaryTemplateSpacings->tp)));
 	      XLALGPSSetREAL8(&(dopplerpos->tp),new_tp);

@@ -141,6 +141,44 @@ int XLALSimInspiralTaylorF2(
     REAL8 qm_def1 = 1; /* The QM deformability parameters */
     REAL8 qm_def2 = 1; /* This is 1 for black holes and larger for neutron stars */
 
+    /* Validate expansion order arguments.
+     * This must be done here instead of in the OpenMP parallel loop
+     * because when OpenMP parallelization is turned on, early exits
+     * from loops (via return or break statements) are not permitted.
+     */
+
+    /* Validate phase PN order. */
+    switch (phaseO)
+    {
+        case -1:
+        case 7:
+        case 6:
+        case 5:
+        case 4:
+        case 3:
+        case 2:
+        case 0:
+            break;
+        default:
+            XLAL_ERROR(XLAL_ETYPE, "Invalid phase PN order %s", phaseO);
+    }
+
+    /* Validate amplitude PN order. */
+    switch (amplitudeO)
+    {
+        case -1:
+        case 7:
+        case 6:
+        case 5:
+        case 4:
+        case 3:
+        case 2:
+        case 0:
+            break;
+        default:
+            XLAL_ERROR(XLAL_ETYPE, "Invalid amplitude PN order %s", amplitudeO);
+    }
+
     switch( spinO )
     {
         case LAL_SIM_INSPIRAL_SPIN_ORDER_ALL:
@@ -177,10 +215,7 @@ int XLALSimInspiralTaylorF2(
         case LAL_SIM_INSPIRAL_SPIN_ORDER_0PN:
             break;
         default:
-            XLALPrintError("XLAL Error - %s: Invalid spin PN order %s\n",
-                    __func__, spinO );
-            XLAL_ERROR(XLAL_EINVAL);
-            break;
+            XLAL_ERROR(XLAL_EINVAL, "Invalid spin PN order %s", spinO);
     }
 
     /* Tidal coefficients for phasing, fluz, and energy */
@@ -200,10 +235,7 @@ int XLALSimInspiralTaylorF2(
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
             break;
         default:
-            XLALPrintError("XLAL Error - %s: Invalid tidal PN order %s\n",
-                    __func__, tideO );
-            XLAL_ERROR(XLAL_EINVAL);
-            break;
+            XLAL_ERROR(XLAL_EINVAL, "Invalid tidal PN order %s", tideO);
     }
 
     /* flux coefficients */
@@ -255,10 +287,12 @@ int XLALSimInspiralTaylorF2(
     /* Fill with non-zero vals from fStart to f_max */
     iStart = (size_t) ceil(fStart / deltaF);
     data = htilde->data->data;
+
+    #pragma omp parallel for
     for (i = iStart; i < n; i++) {
         const REAL8 f = i * deltaF;
         const REAL8 v = cbrt(piM*f);
-	const REAL8 logv = log(v);
+        const REAL8 logv = log(v);
         const REAL8 v2 = v * v;
         const REAL8 v3 = v * v2;
         const REAL8 v4 = v * v3;
@@ -291,10 +325,6 @@ int XLALSimInspiralTaylorF2(
                 phasing += pfa2 * v2;
             case 0:
                 phasing += 1.;
-                break;
-            default:
-                XLALDestroyCOMPLEX16FrequencySeries(htilde);
-                XLAL_ERROR(XLAL_ETYPE);
         }
         switch (amplitudeO)
         {
@@ -317,10 +347,6 @@ int XLALSimInspiralTaylorF2(
             case 0:
                 flux += 1.;
                 dEnergy += 1.;
-                break;
-            default:
-                XLALDestroyCOMPLEX16FrequencySeries(htilde);
-                XLAL_ERROR(XLAL_ETYPE);
         }
 
         switch( spinO )
@@ -339,12 +365,7 @@ int XLALSimInspiralTaylorF2(
             case LAL_SIM_INSPIRAL_SPIN_ORDER_1PN:
             case LAL_SIM_INSPIRAL_SPIN_ORDER_05PN:
             case LAL_SIM_INSPIRAL_SPIN_ORDER_0PN:
-                break;
-            default:
-                XLALPrintError("XLAL Error - %s: Invalid spin PN order %s\n",
-                        __func__, spinO );
-                XLAL_ERROR(XLAL_EINVAL);
-                break;
+                ;
         }
 
         switch( tideO )
@@ -355,12 +376,7 @@ int XLALSimInspiralTaylorF2(
             case LAL_SIM_INSPIRAL_TIDAL_ORDER_5PN:
                 phasing += pft10 * v10;
             case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
-                break;
-            default:
-                XLALPrintError("XLAL Error - %s: Invalid tidal PN order %s\n",
-                        __func__, tideO );
-                XLAL_ERROR(XLAL_EINVAL);
-                break;
+                ;
         }
 
         phasing *= pfaN / v5;

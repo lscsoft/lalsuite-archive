@@ -41,10 +41,12 @@ def get_mean_logl(filename):
             except ValueError:
                 pass
 
-        data=np.loadtxt(filename, dtype=[(n, np.float) for n in line], skiprows=skip)
-        N=data.shape[0]
+    col = line.index('logl')
 
-        return np.mean(data['logl'][N/2:])
+    data=np.loadtxt(filename, skiprows=skip, usecols=(col,))
+    N=data.shape[0]
+
+    return np.mean(data[N/2:])
 
 def thermo_integrands(logls, betas):
     """Returns arrays of betas, <log(L)>*d(beta), <log(L)>*d(beta2)

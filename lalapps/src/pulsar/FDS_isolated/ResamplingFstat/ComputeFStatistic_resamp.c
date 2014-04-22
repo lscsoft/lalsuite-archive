@@ -159,7 +159,7 @@ typedef struct tagComputeFParams {
 typedef struct {
   PulsarDopplerParams doppler;		/**< Doppler params of this 'candidate' */
   Fcomponents  Fstat;			/**< the Fstat-value (plus Fa,Fb) for this candidate */
-  CmplxAntennaPatternMatrix Mmunu;		/**< antenna-pattern matrix Mmunu = 0.5* Sinv*Tsft * [ Ad, Cd; Cd; Bd ] */
+  AntennaPatternMatrix Mmunu;		/**< antenna-pattern matrix Mmunu = 0.5* Sinv*Tsft * [ Ad, Cd; Cd; Bd ] */
 } FstatCandidate;
 
 /**
@@ -946,8 +946,8 @@ InitFStat ( LALStatus *status, ConfigVariables *cfg )
     }
   minStartTimeGPS.gpsSeconds = uvar_minStartTime;
   maxEndTimeGPS.gpsSeconds = uvar_maxEndTime;
-  constraints.startTime = &minStartTimeGPS;
-  constraints.endTime = &maxEndTimeGPS;
+  constraints.minStartTime = &minStartTimeGPS;
+  constraints.maxEndTime = &maxEndTimeGPS;
 
   /* get full SFT-catalog of all matching (multi-IFO) SFTs */
   LogPrintf (LOG_DEBUG, "Finding all SFTs to load ... ");

@@ -74,36 +74,20 @@ __all__ = []
 #
 
 
-def measure_file_sizes(filenames, reverse = False):
-	"""
-	From a list of file names, return a list of (size, name) tuples
-	sorted in ascending order by size (or descending order if reverse
-	is set to True).
-	"""
-	l = []
-	for filename in filenames:
-		if filename is None:
-			# used internally by most ligolw codes to indicate
-			# stdin
-			l.append((0, None))
-		else:
-			l.append((os.stat(filename)[stat.ST_SIZE], filename))
-	l.sort(reverse = reverse)
-	return l
-
-
 def sort_files_by_size(filenames, verbose = False, reverse = False):
 	"""
-	Return a new list of the file names sorted in order of smallest
-	file to largest file (or largest to smallest if reverse is set to
-	True).
+	Return a list of the filenames sorted in order from smallest file
+	to largest file (or largest to smallest if reverse is set to True).
+	If a filename in the list is None (used by many glue.ligolw based
+	codes to indicate stdin), its size is treated as 0.  The filenames
+	may be any sequence, including generator expressions.
 	"""
 	if verbose:
 		if reverse:
 			print >>sys.stderr, "sorting files from largest to smallest ..."
 		else:
 			print >>sys.stderr, "sorting files from smallest to largest ..."
-	return [filename for size, filename in measure_file_sizes(filenames, reverse = reverse)]
+	return sorted(filenames, key = (lambda filename: os.stat(filename)[stat.ST_SIZE] if filename is not None else 0), reverse = reverse)
 
 
 def local_path_from_url(url):
@@ -154,7 +138,7 @@ class RewindableInputFile(object):
 	# then we weren't at EOF so call .seek() with original position and
 	# keep going.  ?!
 
-	def __init__(self, fileobj, buffer_size = 16384):
+	def __init__(self, fileobj, buffer_size = 1024):
 		# the real source of data
 		self.fileobj = fileobj
 		# how many octets of the internal buffer to return before
@@ -191,12 +175,14 @@ class RewindableInputFile(object):
 				self.buf = (self.buf + buf)[-len(self.buf):]
 				buf = buf[-self.reuse:]
 				self.reuse = 0
+			# size is None --> condition is False
 			elif 0 <= size < self.reuse:
 				buf = self.buf[-self.reuse:-self.reuse + size]
 				self.reuse -= size
 			else:
 				buf = self.buf[-self.reuse:]
 				self.reuse = 0
+				# size is None --> condition is False
 				if len(buf) < size:
 					buf += self.read(size - len(buf))
 		else:
@@ -361,13 +347,14 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 	return xmldoc, md5obj.hexdigest()
 
 
-def load_filename(filename, verbose = False, gz = None, xmldoc = None, contenthandler = None):
+def load_filename(filename, verbose = False, **kwargs):
 	"""
 	Parse the contents of the file identified by filename, and return
-	the contents as a LIGO Light Weight document tree.  Helpful
-	verbosity messages are printed to stderr if verbose is True.  All
-	other parameters are passed verbatim to load_fileobj(), see that
-	function for more information.
+	the contents as a LIGO Light Weight document tree.  stdin is parsed
+	if filename is None.  Helpful verbosity messages are printed to
+	stderr if verbose is True.  All other keyword arguments are passed
+	to load_fileobj(), see that function for more information.  In
+	particular note that a content handler must be specified.
 
 	Example:
 
@@ -375,23 +362,26 @@ def load_filename(filename, verbose = False, gz = None, xmldoc = None, contentha
 	>>> xmldoc = load_filename(name, contenthandler = ligolw.LIGOLWContentHandler, verbose = True)
 	"""
 	if verbose:
-		print >>sys.stderr, "reading %s ..." % (filename and ("'%s'" % filename) or "stdin")
+		print >>sys.stderr, "reading %s ..." % (("'%s'" % filename) if filename is not None else "stdin")
 	if filename is not None:
 		fileobj = open(filename, "rb")
 	else:
 		fileobj = sys.stdin
-	xmldoc, hexdigest = load_fileobj(fileobj, gz = gz, xmldoc = xmldoc, contenthandler = contenthandler)
+	xmldoc, hexdigest = load_fileobj(fileobj, **kwargs)
 	if verbose:
-		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, filename or "")
+		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (filename if filename is not None else ""))
 	return xmldoc
 
 
-def load_url(url, verbose = False, gz = None, xmldoc = None, contenthandler = None):
+def load_url(url, verbose = False, **kwargs):
 	"""
-	This function has the same behaviour as load_filename() but accepts
-	a URL instead of a filename.  Any source from which Python's
-	urllib2 library can read data is acceptable.  stdin is parsed if
-	the URL is None.
+	Parse the contents of file at the given URL and return the contents
+	as a LIGO Light Weight document tree.  Any source from which
+	Python's urllib2 library can read data is acceptable.  stdin is
+	parsed if url is None.  Helpful verbosity messages are printed to
+	stderr if verbose is True.  All other keyword arguments are passed
+	to load_fileobj(), see that function for more information.  In
+	particular note that a content handler must be specified.
 
 	Example:
 
@@ -399,7 +389,7 @@ def load_url(url, verbose = False, gz = None, xmldoc = None, contenthandler = No
 	>>> xmldoc = load_url("file://localhost/tmp/data.xml", contenthandler = ligolw.LIGOLWContentHandler)
 	"""
 	if verbose:
-		print >>sys.stderr, "reading %s ..." % (url and ("'%s'" % url) or "stdin")
+		print >>sys.stderr, "reading %s ..." % (("'%s'" % url) if url is not None else "stdin")
 	if url is not None:
 		scheme, host, path = urlparse.urlparse(url)[:3]
 		if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
@@ -408,19 +398,21 @@ def load_url(url, verbose = False, gz = None, xmldoc = None, contenthandler = No
 			fileobj = urllib2.urlopen(url)
 	else:
 		fileobj = sys.stdin
-	xmldoc, hexdigest = load_fileobj(fileobj, gz = gz, xmldoc = xmldoc, contenthandler = contenthandler)
+	xmldoc, hexdigest = load_fileobj(fileobj, **kwargs)
 	if verbose:
-		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, url or "")
+		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (url if url is not None else ""))
 	return xmldoc
 
 
-def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None, trap_signals = (signal.SIGTERM, signal.SIGTSTP)):
+def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = (signal.SIGTERM, signal.SIGTSTP), **kwargs):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
-	given file object.  The file object need not be seekable.  The
-	output data is gzip compressed on the fly if gz is True.  The
-	return value is a string containing the hex digits of the MD5
-	digest of the output bytestream.
+	given file object.  Internally, the .write() method of the xmldoc
+	object is invoked and any additional keyword arguments are passed
+	to that method.  The file object need not be seekable.  The output
+	data is gzip compressed on the fly if gz is True.  The return value
+	is a string containing the hex digits of the MD5 digest of the
+	output bytestream.
 
 	This function traps the signals in the trap_signals iterable during
 	the write process (the default is signal.SIGTERM and
@@ -455,7 +447,7 @@ def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None, trap_signals = (
 	if gz:
 		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
 	fileobj = codecs.EncodedFile(fileobj, "unicode_internal", "utf_8")
-	xmldoc.write(fileobj, xsl_file = xsl_file)
+	xmldoc.write(fileobj, **kwargs)
 	fileobj.flush()
 	del fileobj
 
@@ -470,49 +462,47 @@ def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None, trap_signals = (
 	return md5obj.hexdigest()
 
 
-def write_filename(xmldoc, filename, verbose = False, gz = False, xsl_file = None, trap_signals = (signal.SIGTERM, signal.SIGTSTP)):
+def write_filename(xmldoc, filename, verbose = False, gz = False, **kwargs):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
 	file name filename.  Friendly verbosity messages are printed while
 	doing so if verbose is True.  The output data is gzip compressed on
 	the fly if gz is True.
 
-	See write_fileobj() for information about signal trapping during
-	the write process.
+	Internally, write_fileobj() is used to perform the write.  All
+	additional keyword arguments are passed to write_fileobj().
 
 	Example:
 
 	>>> write_filename(xmldoc, "data.xml")
 	"""
 	if verbose:
-		print >>sys.stderr, "writing %s ..." % (filename and ("'%s'" % filename) or "stdout")
+		print >>sys.stderr, "writing %s ..." % (("'%s'" % filename) if filename is not None else "stdout")
 	if filename is not None:
 		if not gz and filename.endswith(".gz"):
 			warnings.warn("filename '%s' ends in '.gz' but file is not being gzip-compressed" % filename, UserWarning)
 		fileobj = open(filename, "w")
 	else:
 		fileobj = sys.stdout
-	hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, xsl_file = xsl_file, trap_signals = trap_signals)
+	hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, **kwargs)
 	fileobj.close()
 	if verbose:
-		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, filename or "")
+		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (filename if filename is not None else ""))
 
 
-def write_url(xmldoc, url, verbose = False, gz = False, xsl_file = None, trap_signals = (signal.SIGTERM, signal.SIGTSTP)):
+def write_url(xmldoc, url, **kwargs):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
-	URL name url.  Friendly verbosity messages are printed while doing
-	so if verbose is True.  The output data is gzip compressed on the
-	fly if gz is True.
-
-	See write_fileobj() for information about signal trapping during
-	the write process.
+	URL name url.
 
 	NOTE:  only URLs that point to local files can be written to at
-	this time.
-	
+	this time.  Internally, write_filename() is used to perform the
+	write.  All additional keyword arguments are passed to that
+	function.  The implementation might change in the future,
+	especially if support for other types of URLs is ever added.
+
 	Example:
 
 	>>> write_url(xmldoc, "file:///data.xml")
 	"""
-	return write_filename(xmldoc, local_path_from_url(url), verbose = verbose, gz = gz, xsl_file = xsl_file, trap_signals = trap_signals)
+	return write_filename(xmldoc, local_path_from_url(url), **kwargs)

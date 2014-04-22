@@ -1,4 +1,4 @@
-# Copyright (C) 2011  Kipp Cannon
+# Copyright (C) 2011--2014  Kipp Cannon
 # Copyright (C) 2004--2006  Brian Moe
 #
 # This program is free software; you can redistribute it and/or modify it

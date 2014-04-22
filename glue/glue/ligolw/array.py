@@ -83,8 +83,6 @@ def StripArrayName(name):
 	Return the significant portion of an array name according to LIGO
 	LW naming conventions.
 	"""
-	if name.lower() != name:
-		warnings.warn("array name \"%s\" is not lower case" % name)
 	try:
 		return ArrayPattern.search(name).group("Name")
 	except AttributeError:

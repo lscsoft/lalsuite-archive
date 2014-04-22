@@ -153,7 +153,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
       return -DBL_MAX;
 
   if(LALInferenceCheckVariable(priorParams,"malmquist") &&
-        LALInferenceCheckVariable(priorParams,"malmquist") &&
+        *(UINT4 *)LALInferenceGetVariable(priorParams,"malmquist") &&
         !within_malmquist(runState, params))
       return -DBL_MAX;
 
@@ -624,6 +624,11 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
     if(LALInferenceCheckVariable(priorParams,"MTotMax"))
         if(*(REAL8 *)LALInferenceGetVariable(priorParams,"MTotMax") < m1+m2)
             return 0;
+
+    if(LALInferenceCheckVariable(priorParams,"malmquist") &&
+        *(UINT4 *)LALInferenceGetVariable(priorParams,"malmquist") &&
+        !within_malmquist(runState, params))
+      return 0;
 
     return 1;
 }
@@ -2263,12 +2268,12 @@ static double qInnerIntegrand(double M2, void *viData) {
   }
 }
 
-#define SQR(x) ((x)*(x))
+#define LALINFERENCE_PRIOR_SQR(x) ((x)*(x))
 
 static double etaInnerIntegrand(double M2, void *viData) {
   innerData *iData = (innerData *)viData;
   double Mc = pow(M2*iData->M1, 3.0/5.0)/pow(M2+iData->M1, 1.0/5.0);
-  double eta = M2*iData->M1/SQR(M2+iData->M1);
+  double eta = M2*iData->M1/LALINFERENCE_PRIOR_SQR(M2+iData->M1);
   if (Mc < iData->McMin || Mc > iData->McMax || eta < iData->massRatioMin || eta > iData->massRatioMax) {
     return 0.0;
   } else {
@@ -2276,7 +2281,7 @@ static double etaInnerIntegrand(double M2, void *viData) {
   }
 }
 
-#undef SQR
+#undef LALINFERENCE_PRIOR_SQR
 
 typedef struct {
     gsl_integration_workspace *wsInner;
@@ -2292,7 +2297,7 @@ typedef struct {
     gsl_function innerIntegrand;
 } outerData;
 
-#define MIN(x, y) ((x) < (y) ? (x) : (y))
+#define LALINFERENCE_PRIOR_MIN(x, y) ((x) < (y) ? (x) : (y))
 
 static double outerIntegrand(double M1, void *voData) {
 
@@ -2311,13 +2316,13 @@ static double outerIntegrand(double M1, void *voData) {
 
     f.params = &iData;
 
-    gsl_integration_qag(&f, oData->MMin, MIN(M1, oData->MTotMax-M1), oData->epsabs, oData->epsrel,
+    gsl_integration_qag(&f, oData->MMin, LALINFERENCE_PRIOR_MIN(M1, oData->MTotMax-M1), oData->epsabs, oData->epsrel,
                         oData->wsInnerSize, GSL_INTEG_GAUSS61, oData->wsInner, &result, &err);
 
     return result;
 }
 
-#undef MIN
+#undef LALINFERENCE_PRIOR_MIN
 
 REAL8 LALInferenceComputePriorMassNorm(const double MMin, const double MMax, const double MTotMax,
                     const double McMin, const double McMax,

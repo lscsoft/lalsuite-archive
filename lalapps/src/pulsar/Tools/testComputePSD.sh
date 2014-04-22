@@ -1,7 +1,8 @@
 #!/bin/sh
 
-## run all LALApps programs with memory debugging
-export LAL_DEBUG_LEVEL="${LAL_DEBUG_LEVEL},memdbg"
+## set LAL debug level
+echo "Setting LAL_DEBUG_LEVEL=${LAL_DEBUG_LEVEL:-msglvl1,memdbg}"
+export LAL_DEBUG_LEVEL
 
 LC_ALL_BAK=${LC_ALL}
 
@@ -16,7 +17,7 @@ if [ -z "${srcdir}" ]; then
 fi
 
 builddir="./";
-injectdir="./Injections/"
+injectdir="../Injections/"
 
 if [ -z "${LAL_DATA_PATH}" ]; then
     echo
@@ -126,7 +127,6 @@ fi
 
 ## clean up files
 if [ -z "$NOCLEANUP" ]; then
-    rm $outPSD
     rm $outSFT
     rm $outPSD_band
     rm $outPSD_full

@@ -27,16 +27,16 @@
 /* Also returns the signal phase according to eqn 2.4 */
 int XLALGetDopplerShiftedFrequencyInfo
   (
-   REAL8Vector         *shiftedFreqs, /**< Output list of shifted frequencies */
-   UINT4Vector         *lowestBins,   /**< Output list of bin indices */
-   REAL8Vector         *kappaValues,  /**< Output list of bin offsets */
-   REAL8Vector         *signalPhases, /**< Output list of signal phases */
-   UINT4               numBins,       /**< Number of frequency bins to use */
-   PulsarDopplerParams *dopp,         /**< Doppler parameters for signal */
-   SFTIndexList        *sftIndices,   /**< List of indices for SFTs */
-   MultiSFTVector      *inputSFTs,    /**< SFT data (needed for f0) */
-   MultiSSBtimes       *multiTimes,   /**< SSB or Binary times */
-   REAL8               Tsft           /**< SFT duration */
+   REAL8Vector        *shiftedFreqs, /**< Output list of shifted frequencies */
+   UINT4Vector          *lowestBins, /**< Output list of bin indices */
+   REAL8Vector         *kappaValues, /**< Output list of bin offsets */
+   REAL8Vector        *signalPhases, /**< Output list of signal phases */
+   UINT4                    numBins, /**< Number of frequency bins to use */
+   PulsarDopplerParams        *dopp, /**< Doppler parameters for signal */
+   SFTIndexList         *sftIndices, /**< List of indices for SFTs */
+   MultiSFTVector        *inputSFTs, /**< SFT data (needed for f0) */
+   MultiSSBtimes        *multiTimes, /**< SSB or Binary times */
+   REAL8                       Tsft  /**< SFT duration */
   )
 {
   UINT8 numSFTs;
@@ -343,7 +343,7 @@ int XLALCalculatePulsarCrossCorrStatistic
     }
 
     UINT4 lowestBin1 = lowestBins->data[sftNum1];
-    XLAL_CHECK ( (lowestBin1 + numBins - 1 < lenDataArray1),
+    XLAL_CHECK ( ((lowestBin1 + numBins - 1) < lenDataArray1),
 		 XLAL_EINVAL,
 		 "Loop would run off end of array:\n lowestBin1=%d, numBins=%d, len(dataArray1)=%d\n",
 		 lowestBin1, numBins, lenDataArray1 );
@@ -353,7 +353,7 @@ int XLALCalculatePulsarCrossCorrStatistic
       /* Normalized sinc, i.e., sin(pi*x)/(pi*x) */
       INT4 ccSign = baseCCSign;
       UINT4 lowestBin2 = lowestBins->data[sftNum2];
-      XLAL_CHECK ( (lowestBin2 + numBins - 1 < lenDataArray2),
+      XLAL_CHECK ( ((lowestBin2 + numBins - 1) < lenDataArray2),
 		   XLAL_EINVAL,
 		   "Loop would run off end of array:\n lowestBin2=%d, numBins=%d, len(dataArray2)=%d\n",
 		   lowestBin2, numBins, lenDataArray2 );

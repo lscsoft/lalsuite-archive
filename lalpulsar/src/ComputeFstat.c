@@ -32,6 +32,7 @@
 #include <gsl/gsl_linalg.h>
 
 #include <lal/ComputeFstat.h>
+#include <lal/Factorial.h>
 #include <lal/ComplexFFT.h>
 #include <lal/TimeSeries.h>
 #include <lal/LALComputeAM.h>
@@ -47,9 +48,6 @@
 #else
 #define UNUSED
 #endif
-
-#define NUM_FACT 7
-static const REAL8 inv_fact[NUM_FACT] = { 1.0, 1.0, (1.0/2.0), (1.0/6.0), (1.0/24.0), (1.0/120.0), (1.0/720.0) };
 
 static const LALStatus empty_status;
 
@@ -68,10 +66,10 @@ SetupFstat_Common(
 
 // Common input data for F-statistic algorithms
 typedef struct {
-  UINT4 numDetectors;					// Number of detectors
-  CHAR detectorNames[PULSAR_MAX_DETECTORS][3];		// Names of detectors
-  REAL8 Fnorm;						// F-statistic normalisation factor
-  MultiNoiseWeights *multiWeights;			// Multi-detector noise weights
+  UINT4 numDetectors;                                   // Number of detectors
+  CHAR detectorNames[PULSAR_MAX_DETECTORS][3];          // Names of detectors
+  REAL8 Fnorm;                                          // F-statistic normalisation factor
+  MultiNoiseWeights *multiWeights;                      // Multi-detector noise weights
 } FstatInputData_Common;
 
 // Input data specific to F-statistic algorithms
@@ -80,9 +78,9 @@ typedef struct tagFstatInputData_Resamp FstatInputData_Resamp;
 
 // Internal definition of input data structure
 struct tagFstatInputData {
-  FstatInputData_Common common;				// Common input data
-  FstatInputData_Demod* demod;				// Demodulation input data
-  FstatInputData_Resamp* resamp;			// Resampling input data
+  FstatInputData_Common common;                         // Common input data
+  FstatInputData_Demod* demod;                          // Demodulation input data
+  FstatInputData_Resamp* resamp;                        // Resampling input data
 };
 
 ///// Include F-statistic algorithm implementations /////
@@ -487,7 +485,7 @@ XLALEstimatePulsarAmplitudeParams(
   const LIGOTimeGPS* FaFb_refTime,
   const COMPLEX16 Fa,
   const COMPLEX16 Fb,
-  const CmplxAntennaPatternMatrix *Mmunu
+  const AntennaPatternMatrix *Mmunu
   )
 {
 
@@ -516,6 +514,11 @@ XLALEstimatePulsarAmplitudeParams(
   int signum;
 
   XLAL_CHECK ( pulsarParams != NULL, XLAL_EFAULT );
+  XLAL_CHECK ( FaFb_refTime != NULL, XLAL_EFAULT );
+  XLAL_CHECK ( isfinite(creal(Fa)) && isfinite(cimag(Fb)), XLAL_EDOM,
+               "Fa = (%g, %g) is not finite", creal(Fa), cimag(Fa) );
+  XLAL_CHECK ( isfinite(creal(Fb)) && isfinite(cimag(Fb)), XLAL_EDOM,
+               "Fb = (%g, %g) is not finite", creal(Fb), cimag(Fb) );
   XLAL_CHECK ( Mmunu != NULL, XLAL_EFAULT );
 
   Ad = Mmunu->Ad;
@@ -524,7 +527,7 @@ XLALEstimatePulsarAmplitudeParams(
   Ed = Mmunu->Ed;
   Dd = Ad * Bd - Cd * Cd - Ed * Ed;
 
-  normAmu = 2.0 / sqrt(2.0 * Mmunu->Sinv_Tsft);	/* generally *very* small!! */
+  normAmu = 2.0 / sqrt(2.0 * Mmunu->Sinv_Tsft); /* generally *very* small!! */
 
   /* ----- GSL memory allocation ----- */
   XLAL_CHECK ( ( x_mu = gsl_vector_calloc (4) ) != NULL, XLAL_ENOMEM );
@@ -537,10 +540,10 @@ XLALEstimatePulsarAmplitudeParams(
   XLAL_CHECK ( ( tmp2 = gsl_matrix_calloc (4, 4) ) != NULL, XLAL_ENOMEM );
 
   /* ----- fill vector x_mu */
-  gsl_vector_set (x_mu, 0,   creal(Fa) );	/* x_1 */
+  gsl_vector_set (x_mu, 0,   creal(Fa) );       /* x_1 */
   gsl_vector_set (x_mu, 1,   creal(Fb) );        /* x_2 */
-  gsl_vector_set (x_mu, 2, - cimag(Fa) );	/* x_3 */
-  gsl_vector_set (x_mu, 3, - cimag(Fb) );	/* x_4 */
+  gsl_vector_set (x_mu, 2, - cimag(Fa) );       /* x_3 */
+  gsl_vector_set (x_mu, 3, - cimag(Fb) );       /* x_4 */
 
   /* ----- fill matrix M^{mu,nu} [symmetric: use UPPER HALF ONLY!!]*/
   gsl_matrix_set (M_Mu_Nu, 0, 0,   Bd / Dd );
@@ -577,7 +580,7 @@ XLALEstimatePulsarAmplitudeParams(
   disc = sqrt ( SQ(Asq) - 4.0 * SQ(Da) );
 
   Ap2  = 0.5 * ( Asq + disc );
-  aPlus = sqrt(Ap2);		/* not yet normalized */
+  aPlus = sqrt(Ap2);            /* not yet normalized */
 
   Ac2 = 0.5 * ( Asq - disc );
   aCross = sqrt( Ac2 );
@@ -589,8 +592,8 @@ XLALEstimatePulsarAmplitudeParams(
   b2 =   A3h + beta * A2h;
   b3 = - A1h + beta * A4h ;
 
-  psi  = 0.5 * atan ( b1 /  b2 );	/* in [-pi/4,pi/4] (gauge used also by TDS) */
-  phi0 =       atan ( b2 / b3 );	/* in [-pi/2,pi/2] */
+  psi  = 0.5 * atan ( b1 /  b2 );       /* in [-pi/4,pi/4] (gauge used also by TDS) */
+  phi0 =       atan ( b2 / b3 );        /* in [-pi/2,pi/2] */
 
   /* Fix remaining sign-ambiguity by checking sign of reconstructed A1 */
   A1check = aPlus * cos(phi0) * cos(2.0*psi) - aCross * sin(phi0) * sin(2*psi);
@@ -635,28 +638,28 @@ XLALEstimatePulsarAmplitudeParams(
     REAL8 A4hat = - aCross * sinphi0 * sin2psi + h0 * cosphi0 * cos2psi;
 
     /* ----- A1 =   aPlus * cosphi0 * cos2psi - aCross * sinphi0 * sin2psi; ----- */
-    gsl_matrix_set (Jh_Mu_nu, 0, 0,   A1h / h0 );	/* dA1/h0 */
+    gsl_matrix_set (Jh_Mu_nu, 0, 0,   A1h / h0 );       /* dA1/h0 */
     gsl_matrix_set (Jh_Mu_nu, 0, 1,   A1hat );          /* dA1/dcosi */
-    gsl_matrix_set (Jh_Mu_nu, 0, 2,   A3h );		/* dA1/dphi0 */
-    gsl_matrix_set (Jh_Mu_nu, 0, 3, - 2.0 * A2h );	/* dA1/dpsi */
+    gsl_matrix_set (Jh_Mu_nu, 0, 2,   A3h );            /* dA1/dphi0 */
+    gsl_matrix_set (Jh_Mu_nu, 0, 3, - 2.0 * A2h );      /* dA1/dpsi */
 
     /* ----- A2 =   aPlus * cosphi0 * sin2psi + aCross * sinphi0 * cos2psi; ----- */
-    gsl_matrix_set (Jh_Mu_nu, 1, 0,   A2h / h0 );	/* dA2/h0 */
+    gsl_matrix_set (Jh_Mu_nu, 1, 0,   A2h / h0 );       /* dA2/h0 */
     gsl_matrix_set (Jh_Mu_nu, 1, 1,   A2hat );          /* dA2/dcosi */
-    gsl_matrix_set (Jh_Mu_nu, 1, 2,   A4h );		/* dA2/dphi0 */
-    gsl_matrix_set (Jh_Mu_nu, 1, 3,   2.0 * A1h );	/* dA2/dpsi */
+    gsl_matrix_set (Jh_Mu_nu, 1, 2,   A4h );            /* dA2/dphi0 */
+    gsl_matrix_set (Jh_Mu_nu, 1, 3,   2.0 * A1h );      /* dA2/dpsi */
 
     /* ----- A3 = - aPlus * sinphi0 * cos2psi - aCross * cosphi0 * sin2psi; ----- */
-    gsl_matrix_set (Jh_Mu_nu, 2, 0,   A3h / h0 );	/* dA3/h0 */
+    gsl_matrix_set (Jh_Mu_nu, 2, 0,   A3h / h0 );       /* dA3/h0 */
     gsl_matrix_set (Jh_Mu_nu, 2, 1,   A3hat );          /* dA3/dcosi */
-    gsl_matrix_set (Jh_Mu_nu, 2, 2, - A1h );		/* dA3/dphi0 */
-    gsl_matrix_set (Jh_Mu_nu, 2, 3, - 2.0 * A4h );	/* dA3/dpsi */
+    gsl_matrix_set (Jh_Mu_nu, 2, 2, - A1h );            /* dA3/dphi0 */
+    gsl_matrix_set (Jh_Mu_nu, 2, 3, - 2.0 * A4h );      /* dA3/dpsi */
 
     /* ----- A4 = - aPlus * sinphi0 * sin2psi + aCross * cosphi0 * cos2psi; ----- */
-    gsl_matrix_set (Jh_Mu_nu, 3, 0,   A4h / h0 );	/* dA4/h0 */
+    gsl_matrix_set (Jh_Mu_nu, 3, 0,   A4h / h0 );       /* dA4/h0 */
     gsl_matrix_set (Jh_Mu_nu, 3, 1,   A4hat );          /* dA4/dcosi */
-    gsl_matrix_set (Jh_Mu_nu, 3, 2, - A2h );		/* dA4/dphi0 */
-    gsl_matrix_set (Jh_Mu_nu, 3, 3,   2.0 * A3h );	/* dA4/dpsi */
+    gsl_matrix_set (Jh_Mu_nu, 3, 2, - A2h );            /* dA4/dphi0 */
+    gsl_matrix_set (Jh_Mu_nu, 3, 3,   2.0 * A3h );      /* dA4/dpsi */
   }
 
   /* ----- compute inverse matrices Jh^{-1} by LU-decomposition ----- */
@@ -821,3 +824,59 @@ XLALAmplitudeVect2Params(
   return XLAL_SUCCESS;
 
 }
+
+
+/** XLAL function to compute single-or multi-IFO Fstat from multi-IFO Atoms: */
+REAL8 XLALComputeFstatFromAtoms ( const MultiFstatAtomVector *multiFstatAtoms,   /**< multi-detector atoms */
+				  const INT4                 X                   /**< detector number, give -1 for multi-Fstat */
+				  )
+{
+  /* check input parameters and report errors */
+  XLAL_CHECK_REAL8 ( multiFstatAtoms && multiFstatAtoms->data && multiFstatAtoms->data[0]->data, XLAL_EFAULT, "Empty pointer as input parameter." );
+  XLAL_CHECK_REAL8 ( multiFstatAtoms->length > 0, XLAL_EBADLEN, "Input MultiFstatAtomVector has zero length. (i.e., no detectors)" );
+  XLAL_CHECK_REAL8 ( X >= -1, XLAL_EDOM, "Invalid detector number X=%d. Only nonnegative numbers, or -1 for multi-F, are allowed.", X );
+  XLAL_CHECK_REAL8 ( ( X < 0 ) || ( (UINT4)(X) <= multiFstatAtoms->length-1 ), XLAL_EDOM, "Requested X=%d, but FstatAtoms only have length %d.", X, multiFstatAtoms->length );
+
+  /* internal detector index Y to do both single- and multi-F case */
+  UINT4 Y, Ystart, Yend;
+  if ( X == -1 ) { /* loop through all detectors to get multi-Fstat */
+    Ystart = 0;
+    Yend   = multiFstatAtoms->length-1;
+  }
+  else { /* just compute single-Fstat for 1 IFO */
+    Ystart = X;
+    Yend   = X;
+  }
+
+  /* set up temporary Fatoms and matrix elements for summations */
+  REAL8 mmatrixA = 0.0, mmatrixB = 0.0, mmatrixC = 0.0;
+  REAL8 F = 0.0;
+  COMPLEX8 Fa, Fb;
+  Fa = 0.0;
+  Fb = 0.0;
+
+  for (Y = Ystart; Y <= Yend; Y++) {  /* loop through detectors */
+
+    UINT4 alpha, numSFTs;
+    numSFTs = multiFstatAtoms->data[Y]->length;
+    XLAL_CHECK_REAL8 ( numSFTs > 0, XLAL_EDOM, "Input FstatAtomVector has zero length. (i.e., no timestamps for detector X=%d)", Y );
+
+    for ( alpha = 0; alpha < numSFTs; alpha++) { /* loop through SFTs */
+      FstatAtom *thisAtom = &multiFstatAtoms->data[Y]->data[alpha];
+      /* sum up matrix elements and Fa, Fb */
+      mmatrixA += thisAtom->a2_alpha;
+      mmatrixB += thisAtom->b2_alpha;
+      mmatrixC += thisAtom->ab_alpha;
+      Fa += thisAtom->Fa_alpha;
+      Fb += thisAtom->Fb_alpha;
+    } /* loop through SFTs */
+
+  } /* loop through detectors */
+
+  /* compute determinant and final Fstat (not twoF!) */
+  REAL8 Dinv = 1.0 / ( mmatrixA * mmatrixB - SQ(mmatrixC) );
+  F = Dinv * ( mmatrixB * ( SQ(crealf(Fa)) + SQ(cimagf(Fa)) ) + mmatrixA * ( SQ(crealf(Fb)) + SQ(cimagf(Fb)) ) - 2.0 * mmatrixC * (crealf(Fa)*crealf(Fb) + cimagf(Fa)*cimagf(Fb)) );
+
+  return(F);
+
+} /* XLALComputeFstatFromAtoms() */
