@@ -3433,7 +3433,10 @@ void LALInferenceSetupSineGaussianProposal(LALInferenceRunState *runState, LALIn
          LALInferenceAddProposalToCycle(runState, TimeDelaysJumpName, &LALInferenceTimeDelaysJump,SMALLWEIGHT );    
           
     }
-LALInferenceAddProposalToCycle(runState,BurstChangeSkyRingProposalName,&LALInferenceBurstChangeSkyRingProposal,BIGWEIGHT);
+   if (LALInferenceGetProcParamVal(runState->commandLine,"--proposal-changering")) {
+   printf("Adding change ring proposal\n");
+   LALInferenceAddProposalToCycle(runState,BurstChangeSkyRingProposalName,&LALInferenceBurstChangeSkyRingProposal,SMALLWEIGHT);
+   }
   /********** TURNED OFF - very small acceptance with nested sampling, slows everything down ****************/
   /*
   if (!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-kdtree")) {
