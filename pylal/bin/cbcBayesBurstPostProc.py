@@ -58,8 +58,11 @@ from glue.ligolw import table
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
-
-os.environ['PATH'] = os.environ['PATH'] + ':/usr/texbin'
+try:
+  os.environ['PATH'] = os.environ['PATH'] + ':/usr/texbin'
+except:
+  os.environ['PATH'] =':/usr/texbin'
+print os.environ['PATH']
 __author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
@@ -557,19 +560,21 @@ def cbcBayesBurstPostProc(
     html_stats.write(str(pos))
     statfilename=os.path.join(outdir,"summary_statistics.dat")
     statout=open(statfilename,"w")
-    statout.write("\tmaxL\tstdev\tmean\tmedian\tstacc\tinjection\tvalue\n")
+    statout.write("\tmaxP\tmaxL\tstdev\tmean\tmedian\tstacc\tinjection\tvalue\n")
     
     for statname,statoned_pos in pos:
 
       statmax_pos,max_i=pos._posMode()
       statmaxL=statoned_pos.samples[max_i][0]
+      statmax_pos,max_j=pos._posMap()
+      statmaxP=statoned_pos.samples[max_j][0]
       statmean=str(statoned_pos.mean)
       statstdev=str(statoned_pos.stdev)
       statmedian=str(squeeze(statoned_pos.median))
       statstacc=str(statoned_pos.stacc)
       statinjval=str(statoned_pos.injval)
       
-      statarray=[str(i) for i in [statname,statmaxL,statstdev,statmean,statmedian,statstacc,statinjval]]
+      statarray=[str(i) for i in [statname,statmaxP,statmaxL,statstdev,statmean,statmedian,statstacc,statinjval]]
       statout.write("\t".join(statarray))
       statout.write("\n")
       
@@ -1237,6 +1242,9 @@ if __name__=='__main__':
         #    for ti in timeParams:
         #        twoDGreedyMenu.append([bu,ti])
         twoDGreedyMenu.append(['alpha','phi_orb'])
+        twoDGreedyMenu.append(['alpha','psi'])
+        twoDGreedyMenu.append(['phi_orb','psi'])
+
  
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.

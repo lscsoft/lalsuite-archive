@@ -834,8 +834,9 @@ int XLALSimBurstSineGaussianF(
 	/* rss of plus and cross polarizations */
 	const double hplusrss  = hrss * cos(alpha);
 	const double hcrossrss = hrss * sin(alpha);
-	const double cgrss = sqrt((Q / (4.0 * centre_frequency * LAL_SQRT_PI)) * (1.0 + exp(-Q * Q)));
-	const double sgrss = sqrt((Q / (4.0 * centre_frequency *LAL_SQRT_PI)) * (1.0 - exp(-Q * Q)));
+        const double ctwophi=cos(2.0*phi0);
+	const double cgrss = sqrt((Q / (4.0 * centre_frequency * LAL_SQRT_PI)) * (1.0 +ctwophi* exp(-Q * Q)));
+	const double sgrss = sqrt((Q / (4.0 * centre_frequency *LAL_SQRT_PI)) * (1.0 - ctwophi*exp(-Q * Q)));
 	/* "peak" amplitudes of plus and cross */
 	const double h0plus  = hplusrss / cgrss;
 	const double h0cross = hcrossrss / sgrss;

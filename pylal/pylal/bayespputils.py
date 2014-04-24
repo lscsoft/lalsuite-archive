@@ -535,6 +535,7 @@ class Posterior(object):
         self._injection=SimInspiralTableEntry
         self._triggers=SnglInpiralList
         self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
+        self._logpaliases=['logp', 'logP','prior','Prior']
         self._votfile=votfile
         
         common_output_table_header=[i.lower() for i in common_output_table_header]
@@ -624,6 +625,18 @@ class Posterior(object):
                 
         if not logLFound:
             raise RuntimeError("No likelihood/posterior values found!")
+
+        self._logP=None
+        for logpalias in self._logpaliases:
+        
+            if logpalias in common_output_table_header:
+                try:
+                    self._logP=self._posterior[logpalias].samples
+                except KeyError:
+                    print "No '%s' column in input table!"%logpalias
+                    continue
+                if not 'log' in logpalias:
+                  self._logP=[np.log(i) for i in self._logP]
 
         if name is not None:
             self.__name=name
@@ -1135,6 +1148,25 @@ class Posterior(object):
                 max_i=i
         return max_pos,max_i
 
+    def _posMap(self):
+        """
+        Find the sample with maximum a posteriori probability. Returns value
+        of posterior and index of sample .
+        """
+        logl_vals=self._logL
+        if self._logP is not None:
+          logp_vals=self._logP
+        else:
+          return None
+        
+        max_i=0
+        max_pos=logl_vals[0]+logp_vals[0]
+        for i in range(len(logl_vals)):
+            if logl_vals[i]+logp_vals[i] > max_pos:
+                max_pos=logl_vals[i]+logp_vals[i]
+                max_i=i
+        return max_pos,max_i
+
     def _print_table_row(self,name,entries):
         """
         Print a html table row representation of
@@ -1160,6 +1192,18 @@ class Posterior(object):
             maxLvals[param_name]=self._posterior[param_name].samples[max_i][0]
 
         return (max_pos,maxLvals)
+
+    @property
+    def maxP(self):
+        """
+        Return the maximum a posteriori probability and the corresponding
+        set of parameters.
+        """
+        maxPvals={}
+        max_pos,max_i=self._posMap()
+        for param_name in self.names:
+            maxPvals[param_name]=self._posterior[param_name].samples[max_i][0]
+        return (max_pos,maxPvals)
 
     def samples(self):
         """
@@ -1233,7 +1277,7 @@ class Posterior(object):
         """
         return_val='<table border="1" id="statstable"><tr><th/>'
 
-        column_names=['maxL','stdev','mean','median','stacc','injection value']
+        column_names=['maxP','maxL','stdev','mean','median','stacc','injection value']
         IFOs = []
         if self._triggers is not None:
             IFOs = [trig.ifo for trig in self._triggers]
@@ -1247,8 +1291,10 @@ class Posterior(object):
 
         for name,oned_pos in self:
 
-            max_pos,max_i=self._posMode()
+            max_like,max_i=self._posMode()
             maxL=oned_pos.samples[max_i][0]
+            max_post,max_j=self._posMap()
+            maxP=oned_pos.samples[max_j][0]
             mean=str(oned_pos.mean)
             stdev=str(oned_pos.stdev)
             median=str(np.squeeze(oned_pos.median))
@@ -1256,7 +1302,7 @@ class Posterior(object):
             injval=str(oned_pos.injval)
             trigvals=oned_pos.trigvals
 
-            row = [maxL,stdev,mean,median,stacc,injval]
+            row = [maxP,maxL,stdev,mean,median,stacc,injval]
             if self._triggers is not None:
                 for IFO in IFOs:
                     try:
@@ -5603,6 +5649,7 @@ class BurstPosterior(object):
         self._injection=SimBurstTableEntry
         self._triggers=SnglBurstList
         self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
+        self._logpaliases=['logp', 'logP','prior','Prior']
         self._votfile=votfile
         
         common_output_table_header=[i.lower() for i in common_output_table_header]
@@ -5654,10 +5701,21 @@ class BurstPosterior(object):
                     print "No '%s' column in input table!"%loglalias
                     continue
                 logLFound=True
-                
+         
         if not logLFound:
             raise RuntimeError("No likelihood/posterior values found!")
 
+        self._logP=None
+        for logpalias in self._logpaliases:
+        
+            if logpalias in common_output_table_header:
+                try:
+                    self._logP=self._posterior[logpalias].samples
+                except KeyError:
+                    print "No '%s' column in input table!"%logpalias
+                    continue
+                if not 'log' in logpalias:
+                  self._logP=[np.log(i) for i in self._logP]
         if name is not None:
             self.__name=name
             
@@ -6168,6 +6226,25 @@ class BurstPosterior(object):
                 max_i=i
         return max_pos,max_i
 
+    def _posMap(self):
+        """
+        Find the sample with maximum a posteriori probability. Returns value
+        of posterior and index of sample .
+        """
+        logl_vals=self._logL
+        if self._logP is not None:
+          logp_vals=self._logP
+        else:
+          return None
+        
+        max_i=0
+        max_pos=logl_vals[0]+logp_vals[0]
+        for i in range(len(logl_vals)):
+            if logl_vals[i]+logp_vals[i] > max_pos:
+                max_pos=logl_vals[i]+logp_vals[i]
+                max_i=i
+        return max_pos,max_i
+
     def _print_table_row(self,name,entries):
         """
         Print a html table row representation of
@@ -6193,6 +6270,21 @@ class BurstPosterior(object):
             maxLvals[param_name]=self._posterior[param_name].samples[max_i][0]
 
         return (max_pos,maxLvals)
+
+
+    @property
+    def maxP(self):
+        """
+        Return the maximum a posteriori probability and the corresponding
+        set of parameters.
+        """
+        maxPvals={}
+        max_pos,max_i=self._posMap()
+        for param_name in self.names:
+            maxPvals[param_name]=self._posterior[param_name].samples[max_i][0]
+
+        return (max_pos,maxPvals)
+ 
 
     def samples(self):
         """
@@ -6266,7 +6358,7 @@ class BurstPosterior(object):
         """
         return_val='<table border="1" id="statstable"><tr><th/>'
 
-        column_names=['maxL','stdev','mean','median','stacc','injection value']
+        column_names=['maxP','maxL','stdev','mean','median','stacc','injection value']
         IFOs = []
         if self._triggers is not None:
             IFOs = [trig.ifo for trig in self._triggers]
@@ -6280,8 +6372,10 @@ class BurstPosterior(object):
 
         for name,oned_pos in self:
 
-            max_pos,max_i=self._posMode()
+            max_like,max_i=self._posMode()
             maxL=oned_pos.samples[max_i][0]
+            max_post,max_j=self._posMap()
+            maxP=oned_pos.samples[max_j][0]
             mean=str(oned_pos.mean)
             stdev=str(oned_pos.stdev)
             median=str(np.squeeze(oned_pos.median))
@@ -6289,7 +6383,7 @@ class BurstPosterior(object):
             injval=str(oned_pos.injval)
             trigvals=oned_pos.trigvals
 
-            row = [maxL,stdev,mean,median,stacc,injval]
+            row = [maxP,maxL,stdev,mean,median,stacc,injval]
             if self._triggers is not None:
                 for IFO in IFOs:
                     try:
