@@ -959,18 +959,20 @@ def cbcBayesBurstPostProc(
         #= Plot 2D histograms of greedily binned points =#
 
         #greedy2ContourPlot=bppu.plot_two_param_greedy_bins_contour({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
-        greedy2ContourPlot=bppu.plot_two_param_kde_greedy_levels({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
-        greedy2contourpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2contour.png'%(par1_name,par2_name))
-        greedy2ContourPlot.savefig(greedy2contourpath)
-        if(savepdfs): greedy2ContourPlot.savefig(greedy2contourpath.replace('.png','.pdf'))
-        plt.close(greedy2ContourPlot)
-
-        greedy2HistFig=bppu.plot_two_param_greedy_bins_hist(pos,greedy2Params,confidence_levels)
-        greedy2histpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name))
-        greedy2HistFig.savefig(greedy2histpath)
-        if(savepdfs): greedy2HistFig.savefig(greedy2histpath.replace('.png','.pdf'))
-        plt.close(greedy2HistFig)
-
+        try:
+          greedy2ContourPlot=bppu.plot_two_param_kde_greedy_levels({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
+          greedy2contourpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2contour.png'%(par1_name,par2_name))
+          greedy2ContourPlot.savefig(greedy2contourpath)
+          if(savepdfs): greedy2ContourPlot.savefig(greedy2contourpath.replace('.png','.pdf'))
+          plt.close(greedy2ContourPlot)
+        
+          greedy2HistFig=bppu.plot_two_param_greedy_bins_hist(pos,greedy2Params,confidence_levels)
+          greedy2histpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name))
+          greedy2HistFig.savefig(greedy2histpath)
+          if(savepdfs): greedy2HistFig.savefig(greedy2histpath.replace('.png','.pdf'))
+          plt.close(greedy2HistFig)
+        except:
+          pass
         greedyFile = open(os.path.join(twobinsdir,'%s_%s_greedy_stats.txt'%(par1_name,par2_name)),'w')
 
         #= Write out statistics for greedy bins
@@ -1214,7 +1216,7 @@ if __name__=='__main__':
     timeParams=['time']
    
     burstParams=['frequency','loghrss','q','hrss']
-    phaseParams=['phase']
+    phaseParams=['phase','phi_orb']
     #endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
     endTimeParams=[]
     #statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1']
@@ -1225,6 +1227,7 @@ if __name__=='__main__':
     from itertools import combinations
     for ifo1,ifo2 in combinations(ifos_menu,2):
       oneDMenu.append(ifo1+ifo2+'_delay')
+    
     #oneDMenu=[]
     twoDGreedyMenu=[]
     if not opts.no2D:
@@ -1236,10 +1239,12 @@ if __name__=='__main__':
         #for bu in burstParams:
         #    for ti in timeParams:
         #        twoDGreedyMenu.append([bu,ti])
-  
+    twoDGreedyMenu.append(['phi_orb','psi'])
+    twoDGreedyMenu.append(['alpha','psi'])
+    twoDGreedyMenu.append(['phi_orb','alpha'])
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'time':1e-4,'ra':0.05,'dec':0.05,'polarisation':0.04,'rightascension':0.05,'declination':0.05, 'loghrss':0.01,'frequency':1.,'q':0.1}
+    greedyBinSizes={'time':1e-4,'ra':0.05,'dec':0.05,'polarisation':0.04,'rightascension':0.05,'declination':0.05, 'loghrss':0.01,'frequency':0.5,'q':0.05,'phase':0.1,'phi_orb':0.1,'psi':0.04,'polarization':0.04,'alpha':0.01}
     #for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
     #    greedyBinSizes[derived_time]=greedyBinSizes['time']
     #if not opts.no2D:

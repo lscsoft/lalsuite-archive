@@ -86,13 +86,14 @@ const char *const extrinsicParamProposalName = "ExtrinsicParamProposal";
 const char *const KDNeighborhoodProposalName = "KDNeighborhood";
 const char *const HrssQJumpName = "HrssQ";
 const char *const TimeFreqJumpName = "TimeFreq";
+const char *const TimePhaseFreqJumpName="TimePhaseFreq";
 const char *const differentialEvolutionSineGaussIntrinsicName="differentialEvolutionSineGaussIntrinsicName";
 const char *const differentialEvolutionSineGaussExtrinsicName="differentialEvolutionSineGaussExtrinsicName";
 const char *const TimeDelaysJumpName="TimeDelays";
 const char *const frequencyBinJumpName = "FrequencyBin";
 const char *const GlitchMorletJumpName = "glitchMorletJump";
 const char *const GlitchMorletReverseJumpName = "glitchMorletReverseJump";
-
+const char *const BurstChangeSkyRingProposalName="BurstChangeRingJump";
 static int
 same_detector_location(LALInferenceIFOData *d1, LALInferenceIFOData *d2) {
   UINT4 i;
@@ -3386,7 +3387,7 @@ void LALInferenceSetupSineGaussianProposal(LALInferenceRunState *runState, LALIn
       LALInferenceAddProposalToCycle(runState, skyReflectDetPlaneName, &LALInferenceSkyReflectDetPlane, TINYWEIGHT);
     }
     if (nDet>=2 && !LALInferenceGetProcParamVal(runState->commandLine,"--noProposalSkyRing")) {
-      LALInferenceAddProposalToCycle(runState, BurstskyRingProposalName, &LALInferenceBurstSkyRingProposal, SMALLWEIGHT);
+      LALInferenceAddProposalToCycle(runState, BurstskyRingProposalName, &LALInferenceBurstSkyRingProposal, BIGWEIGHT);
     }
     if(LALInferenceGetProcParamVal(runState->commandLine,"--proposal-drawprior"))
       LALInferenceAddProposalToCycle(runState, drawApproxPriorName, &LALInferenceDrawApproxPrior, TINYWEIGHT);
@@ -3421,13 +3422,18 @@ void LALInferenceSetupSineGaussianProposal(LALInferenceRunState *runState, LALIn
 
   if (LALInferenceGetProcParamVal(runState->commandLine,"--proposal-timefreq")) {
          printf("Adding timeFreq jump\n");
-        LALInferenceAddProposalToCycle(runState, TimeFreqJumpName, &LALInferenceTimeFreqJump,SMALLWEIGHT );
+        LALInferenceAddProposalToCycle(runState, TimeFreqJumpName, &LALInferenceTimeFreqJump,TINYWEIGHT );
     }
+    if (LALInferenceGetProcParamVal(runState->commandLine,"--proposal-timephasefreq")) {
+         printf("Adding TimePhaseFreq jump\n");      
+      LALInferenceAddProposalToCycle(runState,TimePhaseFreqJumpName, &LALInferenceTimePhaseFreqJump,TINYWEIGHT );
+      }
     if (LALInferenceGetProcParamVal(runState->commandLine,"--proposal-timedelay") && nDet >= 3 ) {        
         printf("Adding time delay jump\n");
          LALInferenceAddProposalToCycle(runState, TimeDelaysJumpName, &LALInferenceTimeDelaysJump,SMALLWEIGHT );    
+          
     }
-
+LALInferenceAddProposalToCycle(runState,BurstChangeSkyRingProposalName,&LALInferenceBurstChangeSkyRingProposal,BIGWEIGHT);
   /********** TURNED OFF - very small acceptance with nested sampling, slows everything down ****************/
   /*
   if (!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-kdtree")) {
@@ -3548,6 +3554,56 @@ void LALInferenceTimeFreqJump(LALInferenceRunState *runState, LALInferenceVariab
   timeprime= t+ ((REAL8) N)/freq;
   // freqpost = *((REAL8 *) LALInferenceGetVariable(proposedParams, "frequency"));
   LALInferenceSetVariable(proposedParams, "time", &timeprime);
+  //printf("jumping from %10.5f to %10.5f N %d jump %10.5f \n",time, timeprime,N,N/freq);
+  
+  LALInferenceSetLogProposalRatio(runState, 0.0);
+
+  /* Probably not needed, but play it safe. */
+  LALInferenceCyclicReflectiveBound(proposedParams, runState->priorArgs);
+}
+
+void LALInferenceTimePhaseFreqJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) {
+  
+  /* do a jump that keeps constant 2*Pi*f0*t + phase */
+  
+  const char *propName = TimePhaseFreqJumpName;
+  LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
+  REAL8 timeprime,t,freq,phase,phaseprime,freqprime,dphase;
+
+  REAL8 temp = 1.0;
+  int N=0;
+  
+  gsl_rng *rng = runState->GSLrandom;
+
+  LALInferenceCopyVariables(runState->currentParams, proposedParams);
+  
+  t = *((REAL8 *) LALInferenceGetVariable(proposedParams, "time"));
+  freq = *((REAL8 *) LALInferenceGetVariable(proposedParams, "frequency"));
+  phase = *((REAL8 *) LALInferenceGetVariable(proposedParams, "phase"));
+  
+  temp=gsl_ran_flat(rng,0,1);
+  dphase=gsl_ran_flat(rng,0,1)*LAL_TWOPI;
+  if (temp<0.5)
+    phaseprime=phase+dphase;
+  else
+    phaseprime=phase-dphase;
+    dphase*=-1.0;
+    
+  N=floor(fabs(gsl_ran_gaussian(rng,4)));
+  temp=gsl_ran_flat(rng,0,1);
+  if (temp<0.5)
+  timeprime= t- ((REAL8) N)/freq;
+  else
+  timeprime= t+ ((REAL8) N)/freq;
+  
+  //f t  =  f' (t+dt) +dphi/2pi
+  
+  freqprime= (freq*t-dphase/LAL_TWOPI)/timeprime;
+  
+  // freqpost = *((REAL8 *) LALInferenceGetVariable(proposedParams, "frequency"));
+  LALInferenceSetVariable(proposedParams, "time", &timeprime);
+  LALInferenceSetVariable(proposedParams, "frequency", &freqprime);
+  LALInferenceSetVariable(proposedParams, "phase", &phaseprime);
   //printf("jumping from %10.5f to %10.5f N %d jump %10.5f \n",time, timeprime,N,N/freq);
   
   LALInferenceSetLogProposalRatio(runState, 0.0);
@@ -3894,4 +3950,296 @@ void LALInferenceBurstSkyRingProposal(LALInferenceRunState *runState, LALInferen
   pReverse = cos(dec);
   gsl_matrix_free(IFO);
   LALInferenceSetLogProposalRatio(runState, log(pReverse/pForward));
+}
+
+
+void LALInferenceBurstChangeSkyRingProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams)
+{
+  UINT4 i,j,l,ifo,nifo;
+  LALStatus status;
+  memset(&status,0,sizeof(status));
+  const char *propName = BurstChangeSkyRingProposalName;
+  LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
+  LALInferenceCopyVariables(runState->currentParams, proposedParams);
+
+  LIGOTimeGPS GPSlal;
+
+  LALInferenceIFOData *dataPtr;
+  dataPtr = runState->data;
+  REAL8 dL;
+  if (LALInferenceCheckVariable(proposedParams, "hrss"))
+    dL= 1.0/ *(REAL8 *)LALInferenceGetVariable(proposedParams, "hrss");
+  else
+    dL=1.0/exp(*(REAL8 *)LALInferenceGetVariable(proposedParams, "loghrss"));
+  
+  REAL8 ra       = *(REAL8 *)LALInferenceGetVariable(proposedParams, "rightascension");
+  REAL8 dec      = *(REAL8 *)LALInferenceGetVariable(proposedParams, "declination");
+  REAL8 psi      = *(REAL8 *)LALInferenceGetVariable(proposedParams, "polarisation");
+  REAL8 baryTime = *(REAL8 *)LALInferenceGetVariable(proposedParams, "time");
+  REAL8 freq = *(REAL8 *)LALInferenceGetVariable(proposedParams, "frequency");
+
+  //REAL8 newRA, newDec, newTime, newPsi, newDL;
+
+  XLALGPSSetREAL8(&GPSlal, baryTime);
+  REAL8 gmst=XLALGreenwichMeanSiderealTime(&GPSlal);
+
+  REAL8 IFO1[3],IFO2[3];
+  REAL8 IFOX[3];
+
+  /*
+   Store location for each detector
+   */
+  nifo=0;
+  while(dataPtr != NULL)
+  {
+    dataPtr = dataPtr->next;
+    nifo++;
+  }
+
+  gsl_matrix *IFO = gsl_matrix_alloc(nifo,3);
+
+  dataPtr = runState->data;
+  for(ifo=0; ifo<nifo; ifo++)
+  {
+    memcpy(IFOX, dataPtr->detector->location, 3*sizeof(REAL8));
+    for(i=0; i<3; i++) gsl_matrix_set(IFO,ifo,i,IFOX[i]);
+    dataPtr=dataPtr->next;
+  }
+
+  /*
+   Randomly select two detectors from the network
+   -this assumes there are no co-located detectors
+   */
+  i=j=0;
+  while(i==j)
+  {
+    i=gsl_rng_uniform_int(runState->GSLrandom, nifo);
+    j=gsl_rng_uniform_int(runState->GSLrandom, nifo);
+  }
+
+  for(l=0; l<3; l++)
+  {
+    IFO1[l]=gsl_matrix_get(IFO,i,l);
+    IFO2[l]=gsl_matrix_get(IFO,j,l);
+  }
+
+  /*
+   detector axis
+   */
+  REAL8 normalize;
+  REAL8 n[3];
+  REAL8 ifo_dist[3];
+  normalize=0.0;
+  for(i=0; i<3; i++)
+  {
+    n[i]  = IFO1[i]-IFO2[i];
+    ifo_dist[i]=n[i];
+    normalize += n[i]*n[i];
+  }
+  normalize = 1./sqrt(normalize);
+  for(i=0; i<3; i++) n[i] *= normalize;
+
+  REAL8 theta_euler=acos(n[2]);
+  REAL8 phi_euler=atan2(n[1],n[0]);
+  REAL8 ifo_dist_norm=norm(ifo_dist);
+  
+  gsl_matrix *rot = gsl_matrix_alloc(3,3);
+  /*[[sin(phi_euler),-cos(phi_euler),0.0],
+   * [cos(theta_euler)*cos(phi_euler),cos(theta_euler)*sin(phi_euler),-sin(theta_euler)]
+   * [sin(theta_euler)*cos(phi_euler),sin(theta_euler)*sin(phi_euler),cos(theta_euler)]]*/
+  
+  gsl_matrix_set(rot,0,0,sin(phi_euler));
+  gsl_matrix_set(rot,0,1,-cos(phi_euler));
+  gsl_matrix_set(rot,0,2,0.0);
+  gsl_matrix_set(rot,1,0,cos(phi_euler)*cos(theta_euler));
+  gsl_matrix_set(rot,1,1,sin(phi_euler)*cos(theta_euler));
+  gsl_matrix_set(rot,1,2,-sin(theta_euler));
+  gsl_matrix_set(rot,2,0,cos(phi_euler)*sin(theta_euler));
+  gsl_matrix_set(rot,2,1,sin(phi_euler)*sin(theta_euler));
+  gsl_matrix_set(rot,2,2,cos(theta_euler));
+
+  REAL8 dt= XLALArrivalTimeDiff(IFO1,IFO2,ra,dec,&GPSlal);
+  
+  /* Position vector in earth coordinates */
+  
+  REAL8 p[3],p_ifo_frame[3];
+  SkyPosition currentEqu, currentGeo, newEqu, newGeo;
+  currentEqu.latitude = dec;
+  currentEqu.longitude = ra;
+  currentEqu.system = COORDINATESYSTEM_EQUATORIAL;
+  currentGeo.system = COORDINATESYSTEM_GEOGRAPHIC;
+  LALEquatorialToGeographic(&status, &currentGeo, &currentEqu, &GPSlal);
+
+  sph_to_cart(p, currentGeo.latitude, currentGeo.longitude);
+  //printf("original p %lf %lf %lf\n",p[0],p[1],p[2]);
+
+  REAL8 tmp=0.0;
+  
+  for (i=0;i<3;i++){
+    tmp=0.0;
+    for (l=0;l<3;l++)  
+      tmp+=gsl_matrix_get(rot,i,l)*p[l];
+    p_ifo_frame[i]=tmp;
+  }
+  /*printf("original p ifo %lf %lf %lf\n",p_ifo_frame[0],p_ifo_frame[1],p_ifo_frame[2]);
+  printf("-------------Real initial theta is %lf\n",acos(p_ifo_frame[2]));
+  printf("Theoretical theta is %lf\n", acos(-LAL_C_SI/ifo_dist_norm*dt));
+  printf("initial dt = %lf\n",dt);
+  */
+  
+  REAL8 sign1=gsl_rng_uniform(runState->GSLrandom)<0.5?+1.0:-1.0;
+  
+  INT4 N=floor(sign1*3.0*gsl_rng_uniform(runState->GSLrandom)); 
+
+  dt+=((REAL8) N)/freq;
+  if (fabs(LAL_C_SI*dt)>ifo_dist_norm){
+    //printf("too large time delay. Freq was %lf\n",freq);
+    LALInferenceSetLogProposalRatio(runState, log(0.0));
+    return;
+    }
+  //printf("shifting of %d cylcles, new dt should be %lf\n",N,dt);
+  
+  REAL8 theta_prime=acos(-LAL_C_SI/ifo_dist_norm*dt);
+  REAL8 phi_prime=LAL_TWOPI*gsl_rng_uniform(runState->GSLrandom);
+  //printf("thetap %lf phip %lf\n",theta_prime,phi_prime);
+  //printf("ifo_dist_norm, dt %lf %lf %lf\n",ifo_dist_norm,dt,-LAL_C_SI/ifo_dist_norm*dt);
+  
+  /*p_ifo_frame[0]= sin(theta_prime)*cos(phi_prime);
+  p_ifo_frame[1]= sin(theta_prime)*sin(phi_prime);
+  p_ifo_frame[2]= cos(theta_prime);
+  */
+  sph_to_cart(p_ifo_frame, LAL_PI/2. -theta_prime, phi_prime);
+  
+  INT4 s;
+  
+  gsl_matrix *rot_inv = gsl_matrix_alloc(3,3);
+  gsl_permutation *perm = gsl_permutation_alloc (3);
+  gsl_linalg_LU_decomp (rot, perm, &s);
+	// Invert the matrix m
+	gsl_linalg_LU_invert (rot, perm, rot_inv);
+  //printf("new p ifo %lf %lf %lf\n",p_ifo_frame[0],p_ifo_frame[1],p_ifo_frame[2]);
+  REAL8 new_p[3];
+  for (i=0;i<3;i++){
+    tmp=0.0;
+    for (l=0;l<3;l++)  
+      tmp+=gsl_matrix_get(rot_inv,i,l)*p_ifo_frame[l];
+    new_p[i]=tmp;
+  }
+  
+  //printf("new p %lf %lf %lf\n",p[0],p[1],p[2]);
+  REAL8 new_longi,new_lati;
+  
+  cart_to_sph(new_p,&new_lati,&new_longi);
+  
+  newEqu.system = COORDINATESYSTEM_EQUATORIAL;
+  newGeo.system = COORDINATESYSTEM_GEOGRAPHIC;
+  newGeo.latitude = new_lati;
+  newGeo.longitude = new_longi;
+  
+  LALGeographicToEquatorial(&status, &newEqu, &newGeo, &GPSlal);
+  
+  //printf("orig ra %lf dec %lf . New ra %lf,dec %lf\n",ra,dec,newEqu.longitude,newEqu.latitude);
+  REAL8 newRA=newEqu.longitude;
+  REAL8 newDec=newEqu.latitude;
+  
+  /*
+   compute new geocenter time using
+   fixed arrival time at IFO1 (arbitrary)
+   */
+  REAL8 tx; //old time shift = k * n
+  REAL8 ty; //new time shift = k'* n
+  tx=ty=0;
+  for(i=0; i<3; i++)
+  {
+    tx += -IFO1[i]*p[i] /LAL_C_SI;
+    ty += -IFO1[i]*new_p[i]/LAL_C_SI;
+  }
+  REAL8 newTime = tx + baryTime - ty;
+
+  XLALGPSSetREAL8(&GPSlal, newTime);
+  REAL8 newGmst=XLALGreenwichMeanSiderealTime(&GPSlal);
+
+  /*
+   draw new polarisation angle uniformally
+   for now
+   MARK: Need to be smarter about psi in sky-ring jump
+   */
+  REAL8 newPsi = LAL_PI*gsl_rng_uniform(runState->GSLrandom);
+
+  /*
+   compute new luminosity distance,
+   maintaining F+^2 + Fx^2 across the network
+   */
+  REAL8 Fx,Fy;
+  REAL8 Fp,Fc;
+  Fx=0;Fy=0;
+
+  dataPtr = runState->data;
+  while(dataPtr != NULL)
+  {
+    XLALComputeDetAMResponse(&Fp, &Fc, (const REAL4(*)[3])dataPtr->detector->response, ra, dec, psi, gmst);
+    Fx += Fp*Fp+Fc*Fc;
+
+    XLALComputeDetAMResponse(&Fp, &Fc, (const REAL4(*)[3])dataPtr->detector->response, newRA, newDec, newPsi, newGmst);
+    Fy += Fp*Fp+Fc*Fc;
+
+    dataPtr = dataPtr->next;
+  }
+  
+  REAL8 newDL = dL*sqrt(Fy/Fx);
+  newDL=1./newDL;
+  
+  if (LALInferenceCheckVariable(proposedParams, "hrss"))
+    LALInferenceSetVariable(proposedParams, "hrss",       &newDL);
+  else{
+    newDL=log(newDL);
+    LALInferenceSetVariable(proposedParams, "loghrss",       &newDL);
+  }
+    /*
+   update new parameters and exit.  woo!
+   */
+  
+  LALInferenceSetVariable(proposedParams, "polarisation",   &newPsi);
+  LALInferenceSetVariable(proposedParams, "rightascension", &newRA);
+  LALInferenceSetVariable(proposedParams, "declination",    &newDec);
+  LALInferenceSetVariable(proposedParams, "time",           &newTime);
+
+  REAL8 pForward, pReverse;
+  pForward = cos(newDec);
+  pReverse = cos(dec);
+  LALInferenceSetLogProposalRatio(runState, log(pReverse/pForward));
+  /* check 
+  currentEqu.latitude = dec;
+  currentEqu.longitude = ra;
+  LALEquatorialToGeographic(&status, &currentGeo, &currentEqu, &GPSlal);
+
+  sph_to_cart(p, currentGeo.latitude, currentGeo.longitude);
+  
+  gsl_matrix_set(rot,0,0,sin(phi_euler));
+  gsl_matrix_set(rot,0,1,-cos(phi_euler));
+  gsl_matrix_set(rot,0,2,0.0);
+  gsl_matrix_set(rot,1,0,cos(phi_euler)*cos(theta_euler));
+  gsl_matrix_set(rot,1,1,sin(phi_euler)*cos(theta_euler));
+  gsl_matrix_set(rot,1,2,-sin(theta_euler));
+  gsl_matrix_set(rot,2,0,cos(phi_euler)*sin(theta_euler));
+  gsl_matrix_set(rot,2,1,sin(phi_euler)*sin(theta_euler));
+  gsl_matrix_set(rot,2,2,cos(theta_euler));
+   
+  for (i=0;i<3;i++){
+    tmp=0.0;
+    for (l=0;l<3;l++)  
+      tmp+=gsl_matrix_get(rot,i,l)*p[l];
+    p_ifo_frame[i]=tmp;
+  }
+    printf("newnew p ifo %lf %lf %lf\n",p_ifo_frame[0],p_ifo_frame[1],p_ifo_frame[2]);
+
+  printf("Real new theta is %lf\n",acos(p_ifo_frame[2]));
+  printf("Theoretical new theta is %lf\n", acos(-LAL_C_SI/ifo_dist_norm*dt));
+  */
+  
+  gsl_matrix_free(rot_inv);
+  gsl_permutation_free(perm);
+  gsl_matrix_free(IFO);
+  gsl_matrix_free(rot);
+  //LALInferenceSetLogProposalRatio(runState, log(pReverse/pForward));
 }

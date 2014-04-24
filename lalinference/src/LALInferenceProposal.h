@@ -301,12 +301,13 @@ void NSWrapMCMCSineGaussProposal(LALInferenceRunState *runState, LALInferenceVar
 void LALInferenceSetupSineGaussianProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 void LALInferenceHrssQJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 void LALInferenceTimeFreqJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+void LALInferenceTimePhaseFreqJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 void LALInferenceDifferentialEvolutionSineGaussIntrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp) ;
 void LALInferenceDifferentialEvolutionSineGaussExtrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp) ;
 void LALInferenceBurstSkyRingProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
 void LALInferenceTimeDelaysJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) ;
-
+void LALInferenceBurstChangeSkyRingProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
 /*@}*/
 
