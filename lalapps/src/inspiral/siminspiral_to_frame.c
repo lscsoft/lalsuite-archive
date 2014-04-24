@@ -75,7 +75,7 @@ static struct options options_defaults(void)
 	defaults.mdc_duration=-1;
 	defaults.siminspiral_file=NULL;
     defaults.pad=-1;
-    
+   defaults.time_step=0.0; 
     return defaults;
 }
 

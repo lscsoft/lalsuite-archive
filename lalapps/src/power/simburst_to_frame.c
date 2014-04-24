@@ -66,13 +66,13 @@ static struct options options_defaults(void)
 
 	defaults.output = NULL;
 	defaults.ifonames=NULL;
-    defaults.channames=NULL;
+        defaults.channames=NULL;
 	defaults.nIFO=-1;
 	defaults.mdc_gps_start=-1;
 	defaults.mdc_duration=-1;
 	defaults.simburst_file=NULL;
-    defaults.pad=-1;
-    
+        defaults.pad=-1;
+        defaults.time_step=0.0;
     return defaults;
 }
 

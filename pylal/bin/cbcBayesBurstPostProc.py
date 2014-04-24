@@ -1214,14 +1214,14 @@ if __name__=='__main__':
     polParams=['psi','polarisation','polarization']
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
-   
+    ellParams=['alpha']
     burstParams=['frequency','loghrss','q','hrss']
     phaseParams=['phase','phi_orb']
     #endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
     endTimeParams=[]
     #statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1']
     statsParams=['logl']
-    oneDMenu=polParams + skyParams + timeParams + statsParams+burstParams
+    oneDMenu=polParams + skyParams + timeParams + statsParams+burstParams+ellParams+phaseParams
    
     ifos_menu=['h1','l1','v1']
     from itertools import combinations
@@ -1239,6 +1239,7 @@ if __name__=='__main__':
         #for bu in burstParams:
         #    for ti in timeParams:
         #        twoDGreedyMenu.append([bu,ti])
+
     twoDGreedyMenu.append(['phi_orb','psi'])
     twoDGreedyMenu.append(['alpha','psi'])
     twoDGreedyMenu.append(['phi_orb','alpha'])
@@ -1286,7 +1287,8 @@ if __name__=='__main__':
                         # Turn of ACF?
                         noacf=opts.noacf,
                         #Turn on 2D kdes
-                        twodkdeplots=opts.twodkdeplots,
+                        #twodkdeplots=opts.twodkdeplots,
+                        twodkdeplots=False,
                         #Turn on R convergence tests
                         RconvergenceTests=opts.RconvergenceTests,
                         # Also save PDFs?
