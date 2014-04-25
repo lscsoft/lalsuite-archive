@@ -498,6 +498,7 @@ tagLALInferenceIFOData
   INT4 template_counter;
   INT4 likelihood_counter;
   struct tagLALInferenceIFOData      *next;     /** A pointer to the next set of data for linked list */
+  REAL8 currentSNR;
 
 } LALInferenceIFOData;
 

@@ -106,7 +106,7 @@ LALInferenceVariables * LALInferenceInitBurstVariables(LALInferenceRunState *sta
 	REAL8 endtime=-1;
 	REAL8 endtime_from_inj=-1;
 	ProcessParamsTable *ppt=NULL;
-    
+    ProcessParamsTable *ppt2=NULL;
     REAL8 tmpMax, tmpVal,tmpMin;
 	memset(currentParams,0,sizeof(LALInferenceVariables));
 	memset(&status,0,sizeof(LALStatus));
@@ -265,19 +265,25 @@ Parameter arguments:\n\
     REAL8 startloghrss=loghrssmin+gsl_rng_uniform(GSLrandom)*(loghrssmax-loghrssmin);
     REAL8 startdur=durmin+gsl_rng_uniform(GSLrandom)*(durmax-durmin);
     
-    if(!LALInferenceCheckVariable(currentParams,"time")){
-        ppt=LALInferenceGetProcParamVal(commandLine,"--t");
-        if (ppt) {
-            endtime=atof(ppt->value);
-            fprintf(stdout,"Fixing time to %lf\n",endtime);
-            LALInferenceAddVariable(currentParams, "time",&endtime   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-        }
-        else{
-            LALInferenceAddVariable(currentParams, "time",            &endtime   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR); 
-        }
-    }
-    tmpMin=endtime-0.5*dt; tmpMax=endtime+0.5*dt;
+    if(!LALInferenceGetProcParamVal(commandLine,"--margtime") && !LALInferenceGetProcParamVal(commandLine, "--margtimephi")){
+      if(!LALInferenceCheckVariable(currentParams,"time")){
+          ppt=LALInferenceGetProcParamVal(commandLine,"--t");
+          if (ppt) {
+              endtime=atof(ppt->value);
+              fprintf(stdout,"Fixing time to %lf\n",endtime);
+              LALInferenceAddVariable(currentParams, "time",&endtime   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+          }
+          else{
+              LALInferenceAddVariable(currentParams, "time",            &endtime   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR); 
+          }
+      }
+      tmpMin=endtime-0.5*dt; tmpMax=endtime+0.5*dt;
     LALInferenceAddMinMaxPrior(priorArgs, "time",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);	
+    }
+    else{
+      tmpMin=endtime-0.5*dt; tmpMax=endtime+0.5*dt;
+      LALInferenceAddMinMaxPrior(currentParams, "time",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);	
+    }
 
     if(!LALInferenceCheckVariable(currentParams,"rightascension")){
         ppt=LALInferenceGetProcParamVal(commandLine,"--ra");
@@ -352,18 +358,24 @@ Parameter arguments:\n\
     
     ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
     if (!strcmp("SineGaussian",ppt->value)||!strcmp("SineGaussianF",ppt->value)){
-      tmpVal=0.0;
-      if(!LALInferenceCheckVariable(currentParams,"phase")) {
-          ppt=LALInferenceGetProcParamVal(commandLine,"--phase");
-        if (ppt){
-              tmpVal=atof(ppt->value);
-              fprintf(stderr,"Fixing phase angle to %lf in template \n",tmpVal);
-              LALInferenceAddVariable(currentParams, "phase",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);}
-        else
-              LALInferenceAddVariable(currentParams, "phase",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+      ppt=LALInferenceGetProcParamVal(commandLine,"--margphi");
+      ppt2=LALInferenceGetProcParamVal(commandLine,"--margtimephi");
+      if (ppt || ppt2)
+        printf("Marginalizing over phase\n");
+      else{
+        tmpVal=0.0;
+        if(!LALInferenceCheckVariable(currentParams,"phase")) {
+            ppt=LALInferenceGetProcParamVal(commandLine,"--phase");
+          if (ppt){
+                tmpVal=atof(ppt->value);
+                fprintf(stderr,"Fixing phase angle to %lf in template \n",tmpVal);
+                LALInferenceAddVariable(currentParams, "phase",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);}
+          else
+                LALInferenceAddVariable(currentParams, "phase",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+        }
+        tmpMin=0.0; tmpMax=LAL_TWOPI;
+        LALInferenceAddMinMaxPrior(priorArgs, "phase",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
       }
-      tmpMin=0.0; tmpMax=LAL_TWOPI;
-      LALInferenceAddMinMaxPrior(priorArgs, "phase",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
     }
     
     ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
