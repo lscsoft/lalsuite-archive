@@ -154,6 +154,7 @@ class ProgressBar:
             nBlanks = barWidth - nBlocksInt - 1
             barSymbols = (self.sequence[-1] * nBlocksInt) + partialBlock + \
                 (self.sequence[0] * nBlanks)
+            barSymbols = barSymbols[:barWidth]
             progressFractionText = ('%.1f%%' % (100*progressFraction)).rjust(6)
 
         print >>self.fid, '\r\x1B[1m' + label + '\x1B[0m [' + barSymbols + \
