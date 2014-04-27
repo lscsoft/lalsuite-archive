@@ -667,6 +667,7 @@ printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[4])*mTot, 1./cimag(modefreqs->
 
       /* Generate full waveforms, by stitching inspiral and ring-down waveforms */
       UINT4 attachIdx = matchrange->data[1] * mTot / dt;
+      //UINT4 attachIdx = round( matchrange->data[1] * mTot / dt );
       for (j = 1; j < Nrdwave; ++j)
       {
 	    signal1->data[j + attachIdx] = rdwave1->data[j];
