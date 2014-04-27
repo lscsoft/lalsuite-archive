@@ -328,7 +328,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
       resampFac *= 2u;
     }
   }
-  
+
 
   /* Allocate the values vector to contain the initial conditions */
   /* Since we have aligned spins, we can use the 4-d vector as in the non-spin case */
@@ -957,6 +957,8 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   #if debugOutput
   printf("YP::comb range: %f, %f\n",rdMatchPoint->data[0],rdMatchPoint->data[1]);
   #endif
+  //rdMatchPoint->data[0] -= fmod( rdMatchPoint->data[0], deltaTHigh/mTScaled ); 
+  //rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], deltaTHigh/mTScaled ); 
   if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, 2,
               deltaTHigh, m1, m2, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2],
               &timeHi, rdMatchPoint, SpinAlignedEOBapproximant )
