@@ -264,7 +264,7 @@ Parameter arguments:\n\
     REAL8 startq=qmin+gsl_rng_uniform(GSLrandom)*(qmax-qmin);
     REAL8 startloghrss=loghrssmin+gsl_rng_uniform(GSLrandom)*(loghrssmax-loghrssmin);
     REAL8 startdur=durmin+gsl_rng_uniform(GSLrandom)*(durmax-durmin);
-    
+    REAL8 starthrsss=hrssmin+gsl_rng_uniform(GSLrandom)*(hrssmax-hrssmin);
     if(!LALInferenceGetProcParamVal(commandLine,"--margtime") && !LALInferenceGetProcParamVal(commandLine, "--margtimephi")){
       if(!LALInferenceCheckVariable(currentParams,"time")){
           ppt=LALInferenceGetProcParamVal(commandLine,"--t");
@@ -409,10 +409,18 @@ Parameter arguments:\n\
       }
       LALInferenceAddVariable(currentParams, "loghrss",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);   
       }
-      else
-        LALInferenceAddVariable(currentParams, "loghrss",     &startloghrss,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+      else{
+        if (LALInferenceGetProcParamVal(commandLine,"--use-hrss")){
+          LALInferenceAddVariable(currentParams, "hrss",     &starthrsss,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+          LALInferenceAddMinMaxPrior(priorArgs, "hrss",     &hrssmin, &hrssmax,   LALINFERENCE_REAL8_t);
+        }
+        else{
+          LALInferenceAddVariable(currentParams, "loghrss",     &startloghrss,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+          LALInferenceAddMinMaxPrior(priorArgs, "loghrss",     &loghrssmin, &loghrssmax,   LALINFERENCE_REAL8_t);
+        }
+      }
     }
-    LALInferenceAddMinMaxPrior(priorArgs, "loghrss",     &loghrssmin, &loghrssmax,   LALINFERENCE_REAL8_t);
+    
         
     tmpVal=LAL_PI/2.0;
     if(!LALInferenceCheckVariable(currentParams,"alpha")){

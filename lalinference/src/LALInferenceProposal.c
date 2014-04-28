@@ -3792,9 +3792,9 @@ void LALInferenceBurstSkyRingProposal(LALInferenceRunState *runState, LALInferen
   dataPtr = runState->data;
   REAL8 dL;
   if (LALInferenceCheckVariable(proposedParams, "hrss"))
-    dL= 1.0/ *(REAL8 *)LALInferenceGetVariable(proposedParams, "hrss");
+    dL= *(REAL8 *)LALInferenceGetVariable(proposedParams, "hrss");
   else
-    dL=1.0/exp(*(REAL8 *)LALInferenceGetVariable(proposedParams, "loghrss"));
+    dL= exp(*(REAL8 *)LALInferenceGetVariable(proposedParams, "loghrss"));
   REAL8 baryTime;
   REAL8 ra       = *(REAL8 *)LALInferenceGetVariable(proposedParams, "rightascension");
   REAL8 dec      = *(REAL8 *)LALInferenceGetVariable(proposedParams, "declination");
@@ -3808,6 +3808,16 @@ void LALInferenceBurstSkyRingProposal(LALInferenceRunState *runState, LALInferen
     baryTime = XLALGPSGetREAL8(&(runState->data->epoch));
   }
   REAL8 newRA, newDec, newTime, newPsi, newDL;
+  
+  /*ra=LAL_PI;
+  dec=LAL_PI/4.;
+  baryTime=939936910.0;
+  psi=0.;
+  char SnrName[200]="RingOut_dec45.txt";
+  FILE * snrout = fopen(SnrName,"a");
+  fprintf(snrout,"%lf %lf ",ra,dec);
+  */
+
 
   XLALGPSSetREAL8(&GPSlal, baryTime);
   REAL8 gmst=XLALGreenwichMeanSiderealTime(&GPSlal);
@@ -3952,12 +3962,12 @@ void LALInferenceBurstSkyRingProposal(LALInferenceRunState *runState, LALInferen
 
     dataPtr = dataPtr->next;
   }
-  newDL = dL*sqrt(Fy/Fx);
+  newDL = dL*sqrt(Fx/Fy);
 
   /*
    update new parameters and exit.  woo!
    */
-  newDL=1.0/newDL;
+  
   if (LALInferenceCheckVariable(proposedParams, "hrss"))
     LALInferenceSetVariable(proposedParams, "hrss",       &newDL);
   else{
@@ -3972,6 +3982,8 @@ void LALInferenceBurstSkyRingProposal(LALInferenceRunState *runState, LALInferen
   REAL8 pForward, pReverse;
   pForward = cos(newDec);
   pReverse = cos(dec);
+  //fprintf(snrout,"%lf %lf\n",newRA,newDec);
+  //fclose(snrout);
   gsl_matrix_free(IFO);
   LALInferenceSetLogProposalRatio(runState, log(pReverse/pForward));
 }
@@ -4008,6 +4020,16 @@ void LALInferenceBurstChangeSkyRingProposal(LALInferenceRunState *runState, LALI
     baryTime = XLALGPSGetREAL8(&(runState->data->epoch));
   }
   REAL8 freq = *(REAL8 *)LALInferenceGetVariable(proposedParams, "frequency");
+/*
+  ra=LAL_PI;
+  dec=LAL_PI/2.-0.01;
+  baryTime=939936910.0;
+  psi=0.;
+  freq=300.;
+  char SnrName[200]="out.txt";
+  FILE * snrout = fopen(SnrName,"a");
+  fprintf(snrout,"%lf %lf ",ra,dec);
+  */
 
   //REAL8 newRA, newDec, newTime, newPsi, newDL;
 
@@ -4268,6 +4290,10 @@ void LALInferenceBurstChangeSkyRingProposal(LALInferenceRunState *runState, LALI
   printf("Theoretical new theta is %lf\n", acos(-LAL_C_SI/ifo_dist_norm*dt));
   */
   
+  /*
+  fprintf(snrout,"%lf %lf\n",newRA,newDec);
+  fclose(snrout);
+  */
   gsl_matrix_free(rot_inv);
   gsl_permutation_free(perm);
   gsl_matrix_free(IFO);
