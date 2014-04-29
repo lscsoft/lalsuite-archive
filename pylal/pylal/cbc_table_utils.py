@@ -83,12 +83,23 @@ def depopulate_sngl_inspiral(xmldoc, verbose = False):
         non_coincs = set(sngls_tbl_eid) - coinc_map_tbl_eid
         if verbose:
             print >> sys.stderr, "%i single-ifo inspiral triggers not associated with a "\
-                % len(non_coincs) + "coincident event have been removed."
+                % len(non_coincs) + "coincident event are being removed."
 
         coinc_sngls_tbl = xmldoc.childNodes[0].insertBefore( lsctables.New(lsctables.SnglInspiralTable), sngls_tbl)
+        if verbose:
+            print >> sys.stderr, "Creating mapping dictionary."
+        # Create a mapping dictionary
+        sngls_tbl_dict = {}
+        for idx, eid in enumerate(sngls_tbl_eid):
+            sngls_tbl_dict[eid] = idx
+        if verbose:
+            print >> sys.stderr, "Creating new table."
+        # Create the new coincident sngls table
         for idx, event_id in enumerate(coinc_map_tbl_eid):
-            coinc_sngls_tbl.insert( idx, sngls_tbl[sngls_tbl_eid.index(event_id)] )
+            coinc_sngls_tbl.insert( idx, sngls_tbl[sngls_tbl_dict[event_id]] )
         xmldoc.childNodes[0].removeChild(sngls_tbl)
+    if verbose:
+        print >> sys.stderr, "Done removing non-coincident events."
 
 
 def remove_process_rows(xmldoc, process_ids, verbose = False):
