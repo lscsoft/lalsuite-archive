@@ -531,6 +531,8 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
             modefreqs->data[6] = kk*creal(modefreqs->data[6]) + I*cimag(modefreqs->data[6])/kt1;
             modefreqs->data[7] = kk*creal(modefreqs->data[7]) + I*cimag(modefreqs->data[7])/kt2;
 	  }
+          matchrange->data[0] -= fmod( matchrange->data[0], dt/mTot); 
+          matchrange->data[1] -= fmod( matchrange->data[1], dt/mTot); 
 /*
 modefreqs->data[7] = 0.38068371/mTot + I/1.4677128/mTot; 
 modefreqs->data[6] = 0.37007703/mTot + I/1.3359367/mTot; 
@@ -666,8 +668,8 @@ printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[4])*mTot, 1./cimag(modefreqs->
        */
 
       /* Generate full waveforms, by stitching inspiral and ring-down waveforms */
-      UINT4 attachIdx = matchrange->data[1] * mTot / dt;
-      //UINT4 attachIdx = round( matchrange->data[1] * mTot / dt );
+      //UINT4 attachIdx = matchrange->data[1] * mTot / dt;
+      UINT4 attachIdx = round( matchrange->data[1] * mTot / dt );
       for (j = 1; j < Nrdwave; ++j)
       {
 	    signal1->data[j + attachIdx] = rdwave1->data[j];
