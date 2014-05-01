@@ -33,6 +33,7 @@ constructing a parser.
 """
 
 
+import datetime
 import sys
 from xml import sax
 from xml.sax.xmlreader import AttributesImpl
@@ -584,13 +585,59 @@ class Time(Element):
 		if self.Type not in ligolwtypes.TimeTypes:
 			raise ElementError("invalid Type for Time: '%s'" % self.Type)
 
-	def write(self, fileobj = sys.stdout, indent = u""):
-		if self.pcdata:
-			fileobj.write(self.start_tag(indent))
-			fileobj.write(xmlescape(self.pcdata))
-			fileobj.write(self.end_tag(u"") + u"\n")
+	def endElement(self):
+		if self.Type == u"ISO-8601":
+			import dateutil.parser
+			self.pcdata = dateutil.parser.parse(self.pcdata)
+		elif self.Type == u"GPS":
+			try:
+				# FIXME:  switch to lal.LIGOTimeGPS when it
+				# can type-cast strings
+				from pylal.xlal.datatypes import LIGOTimeGPS
+			except ImportError:
+				from glue.lal import LIGOTimeGPS
+			self.pcdata = LIGOTimeGPS(self.pcdata)
+		elif self.Type == u"Unix":
+			self.pcdata = float(self.pcdata)
 		else:
-			fileobj.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+			# unsupported time type.  not impossible that
+			# calling code has overridden TimeTypes set in
+			# glue.ligolw.types;  just accept it as a string
+			pass
+
+	def write(self, fileobj = sys.stdout, indent = u""):
+		fileobj.write(self.start_tag(indent))
+		if self.pcdata is not None:
+			if self.Type == u"ISO-8601":
+				fileobj.write(xmlescape(unicode(self.pcdata.isoformat())))
+			elif self.Type == u"GPS":
+				fileobj.write(xmlescape(unicode(self.pcdata)))
+			elif self.Type == u"Unix":
+				fileobj.write(xmlescape(u"%.16g" % self.pcdata))
+			else:
+				# unsupported time type.  not impossible.
+				# assume correct thing to do is cast to
+				# unicode and let calling code figure out
+				# how to ensure that does the correct
+				# thing.
+				fileobj.write(xmlescape(unicode(self.pcdata)))
+		fileobj.write(self.end_tag(u"") + u"\n")
+
+	@classmethod
+	def now(cls, Name = None):
+		self = cls()
+		if Name is not None:
+			self.Name = Name
+		self.pcdata = datetime.datetime.utcnow()
+		return self
+
+	@classmethod
+	def from_gps(cls, gps, Name = None):
+		self = cls(AttributesImpl({u"Type": u"GPS"}))
+		if Name is not None:
+			self.Name = Name
+		self.pcdata = gps
+		return self
 
 	Name = attributeproxy(u"Name")
 	Type = attributeproxy(u"Type", default = u"ISO-8601")
