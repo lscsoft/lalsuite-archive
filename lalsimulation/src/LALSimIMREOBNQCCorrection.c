@@ -898,10 +898,10 @@ UNUSED static inline REAL8 XLALSimIMREOBGetNRSpinPeakDeltaTv2(
  */
 UNUSED static inline REAL8 GetNRSpinPeakOmegav2( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 a )
 {
-  /* Fit for HOMs missing */
-  return 0.43747541927878864 + (-0.10933208665273314 - 0.007325831113333813 * a/(1.0-2.0*eta)) 
-       * log( 2.0803657591886267 - a * (1.376497141999324 - 11.513558950322647 
-       * (eta - 0.25) ) - 9.681916048928946 * (eta - 0.25));
+  REAL8 chi = a/(1.0 - 2.0*eta);
+  return 0.43747541927878864 + (-0.10933208665273314 - 0.007325831113333813*chi)*log(
+            4.500844771420863 - 9.681916048928946*eta +
+            chi*(-4.254886879579986 + 11.513558950322647*eta));
 }
 
 /**

@@ -494,9 +494,7 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
           if ( chi >= 0.8 )
           {
             kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
-            kt1 = -0.125 + sqrt(1. + 200. * pow(eta,2) / 3.)/2.;
-            kt2 = -0.2 + pow(1. + 200. * pow(eta, 3./2.) / 9., 2./3.)/2.;
-            kt1 = 0.5 * sqrt(1.+6.*eta*eta/0.09) - 0.125;
+            kt1 = 0.5 * sqrt(1.+800.0*eta*eta/3.0) - 0.125;
             kt2 = 0.5 * pow(1.+0.5*eta*sqrt(eta)/0.0225,2./3.) - 0.2;
           }
           /*printf("a, chi and NRomega in QNM freq: %.16e %.16e %.16e %.16e %.16e %.16e\n",
@@ -541,10 +539,10 @@ modefreqs->data[4] = 0.3595034/mTot + I/2.6989764/mTot;
 printf("sh = %f\n",sh);
 printf("PeakOmega = %f, mTot = %f\n",NRPeakOmega22,mTot);
 printf("w0 = %f, t0 = %f\n",creal(modefreqs->data[0])*mTot, 1./cimag(modefreqs->data[0])/mTot);
-printf("w1 = %f, t1 = %f\n",creal(modefreqs->data[7])*mTot, 1./cimag(modefreqs->data[7])/mTot);
-printf("w2 = %f, t2 = %f\n",creal(modefreqs->data[6])*mTot, 1./cimag(modefreqs->data[6])/mTot);
-printf("w3 = %f, t3 = %f\n",creal(modefreqs->data[5])*mTot, 1./cimag(modefreqs->data[5])/mTot);
-printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[4])*mTot, 1./cimag(modefreqs->data[4])/mTot);
+printf("w1 = %f, t1 = %f\n",creal(modefreqs->data[6])*mTot, 1./cimag(modefreqs->data[6])/mTot);
+printf("w2 = %f, t2 = %f\n",creal(modefreqs->data[7])*mTot, 1./cimag(modefreqs->data[7])/mTot);
+printf("w3 = %f, t3 = %f\n",creal(modefreqs->data[4])*mTot, 1./cimag(modefreqs->data[4])/mTot);
+printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[5])*mTot, 1./cimag(modefreqs->data[5])/mTot);
 */
       }
       for (j = 0; j < nmodes; j++)
