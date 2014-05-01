@@ -260,7 +260,7 @@ def make_psd_xmldoc(psddict, xmldoc = None, root_name = u"psd"):
 	"""
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
-	lw = xmldoc.appendChild(ligolw.LIGO_LW(Attributes({u"Name": name})))
+	lw = xmldoc.appendChild(ligolw.LIGO_LW(Attributes({u"Name": root_name})))
 	for instrument, psd in psddict.items():
 		fs = lw.appendChild(build_REAL8FrequencySeries(psd))
 		if instrument is not None:
