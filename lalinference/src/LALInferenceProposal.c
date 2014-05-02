@@ -3402,7 +3402,7 @@ void LALInferenceSetupSineGaussianProposal(LALInferenceRunState *runState, LALIn
       LALInferenceAddProposalToCycle(runState, skyReflectDetPlaneName, &LALInferenceSkyReflectDetPlane, TINYWEIGHT);
     }
     if (nDet>=2 && !LALInferenceGetProcParamVal(runState->commandLine,"--noProposalSkyRing")) {
-      LALInferenceAddProposalToCycle(runState, BurstskyRingProposalName, &LALInferenceBurstSkyRingProposal, BIGWEIGHT);
+      LALInferenceAddProposalToCycle(runState, BurstskyRingProposalName, &LALInferenceBurstSkyRingProposal, SMALLWEIGHT);
     }
     if(LALInferenceGetProcParamVal(runState->commandLine,"--proposal-drawprior"))
       LALInferenceAddProposalToCycle(runState, drawApproxPriorName, &LALInferenceDrawApproxPrior, TINYWEIGHT);
@@ -3963,21 +3963,23 @@ void LALInferenceBurstSkyRingProposal(LALInferenceRunState *runState, LALInferen
     dataPtr = dataPtr->next;
   }
   newDL = dL*sqrt(Fx/Fy);
-
+   
   /*
    update new parameters and exit.  woo!
    */
-  
+  /*
   if (LALInferenceCheckVariable(proposedParams, "hrss"))
     LALInferenceSetVariable(proposedParams, "hrss",       &newDL);
   else{
     newDL=log(newDL);
     LALInferenceSetVariable(proposedParams, "loghrss",       &newDL);
-  }
-  LALInferenceSetVariable(proposedParams, "polarisation",   &newPsi);
+  }*/
+  dL=newDL;
+  //LALInferenceSetVariable(proposedParams, "polarisation",   &newPsi);
   LALInferenceSetVariable(proposedParams, "rightascension", &newRA);
   LALInferenceSetVariable(proposedParams, "declination",    &newDec);
-  if(timeflag) LALInferenceSetVariable(proposedParams, "time",           &newTime);
+  timeflag+=1;
+  //if(timeflag) LALInferenceSetVariable(proposedParams, "time",           &newTime);
   
   REAL8 pForward, pReverse;
   pForward = cos(newDec);
@@ -3991,7 +3993,8 @@ void LALInferenceBurstSkyRingProposal(LALInferenceRunState *runState, LALInferen
 
 void LALInferenceBurstChangeSkyRingProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams)
 {
-  UINT4 i,j,l,ifo,nifo,timeflag=0;
+  UINT4 i,j,l,ifo,nifo;
+  //,timeflag=0;
   LALStatus status;
   memset(&status,0,sizeof(status));
   const char *propName = BurstChangeSkyRingProposalName;
@@ -4013,7 +4016,7 @@ void LALInferenceBurstChangeSkyRingProposal(LALInferenceRunState *runState, LALI
   REAL8 psi      = *(REAL8 *)LALInferenceGetVariable(proposedParams, "polarisation");
     if(LALInferenceCheckVariable(proposedParams,"time")){
     baryTime = *(REAL8 *)LALInferenceGetVariable(proposedParams, "time");
-    timeflag=1;
+    //timeflag=1;
   }
   else
   {
@@ -4241,22 +4244,24 @@ void LALInferenceBurstChangeSkyRingProposal(LALInferenceRunState *runState, LALI
   
   REAL8 newDL = dL*sqrt(Fy/Fx);
   newDL=1./newDL;
-  
+  /*
   if (LALInferenceCheckVariable(proposedParams, "hrss"))
     LALInferenceSetVariable(proposedParams, "hrss",       &newDL);
   else{
     newDL=log(newDL);
     LALInferenceSetVariable(proposedParams, "loghrss",       &newDL);
   }
+  */
     /*
    update new parameters and exit.  woo!
    */
   
-  LALInferenceSetVariable(proposedParams, "polarisation",   &newPsi);
+  //LALInferenceSetVariable(proposedParams, "polarisation",   &newPsi);
   LALInferenceSetVariable(proposedParams, "rightascension", &newRA);
   LALInferenceSetVariable(proposedParams, "declination",    &newDec);
-  if (timeflag) LALInferenceSetVariable(proposedParams, "time",           &newTime);
-
+  //if (timeflag) LALInferenceSetVariable(proposedParams, "time",           &newTime);
+  newTime+=newDL+newPsi;
+  
   REAL8 pForward, pReverse;
   pForward = cos(newDec);
   pReverse = cos(dec);
