@@ -183,22 +183,6 @@ def RemoveElements(doc, specs):
 #
 # =============================================================================
 #
-#                                    Output
-#
-# =============================================================================
-#
-
-
-def write_filename(filename):
-	if filename:
-		doc.write(file(filename, "w"))
-	else:
-		doc.write(sys.stdout)
-
-
-#
-# =============================================================================
-#
 #                                     Main
 #
 # =============================================================================
@@ -219,5 +203,5 @@ for n, filename in enumerate(filenames):
 		RemoveColumns(doc, options.delete_column)
 	if options.delete_element:
 		RemoveElements(doc, options.delete_element)
-	utils.write_filename(doc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
+	utils.write_filename(doc, filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	doc.unlink()

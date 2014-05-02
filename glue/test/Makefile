@@ -1,4 +1,4 @@
-all : glue_ligolw_ilwd_verify iterutils_verify lal_verify ligolw_test01 ligolw_test02 ligolw_test03a ligolw_test03b ligolw_test03c ligolw_sqlite_test offsetvector_verify segmentsUtils_verify segments_verify
+all : glue_ligolw_ilwd_verify iterutils_verify lal_verify ligolw_test01 ligolw_test02 ligolw_test03a ligolw_test03b ligolw_test03c ligolw_test04 ligolw_test05 ligolw_sqlite_test offsetvector_verify segmentsUtils_verify segments_verify
 	@echo "All Tests Passed"
 
 define printpassfail
@@ -38,7 +38,7 @@ ligolw_test01 :
 ligolw_test02 :
 	@echo "=== start test02 ===>"
 	# confirm that ligolw_add refuses to process old-style inspiral files
-	sh ligo_lw_test_02.sh && $(printpassfail)
+	! ligolw_add --verbose inspiral_event_id_test_in?.xml* && $(printpassfail)
 	@echo "<=== end test02 ==="
 
 ligolw_test03a :
@@ -64,8 +64,14 @@ ligolw_test03c :
 
 ligolw_test04 :
 	@echo "=== start ligolw_test04 ===>"
-	sh ligo_lw_test_04.sh && $(printpassfail)
+	{ ligolw_cut --delete-table sngl_inspiral <inspiral_event_id_test_in1.xml.gz | cmp ligolw_cut_proof.xml ; } && $(printpassfail)
 	@echo "<=== end ligolw_test04 ==="
+
+ligolw_test05 :
+	@echo "=== start ligolw_test05 ===>"
+	# make sure XML writing code compresses files
+	FILENAME=$(shell mktemp --suffix .xml.gz) && { ligolw_add --output $${FILENAME} ligolw_sqlite_test_input.xml.gz && gunzip --test $${FILENAME} && $(printpassfail) ; } ; rm -f $${FILENAME}
+	@echo "<=== end ligolw_test05 ==="
 
 ligolw_sqlite_test :
 	@echo "=== start ligolw_sqlite_test ===>"

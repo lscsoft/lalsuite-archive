@@ -36,7 +36,7 @@ def edges(bins):
 
 
 def get_bins(file,bin_type):
-	xmldoc = utils.load_filename(file, gz = (file or "stdin").endswith(".gz")).childNodes[0]
+	xmldoc = utils.load_filename(file).childNodes[0]
 	mbins = xmldoc.getChildrenByAttributes({"Name":"mass_bins:%s" % bin_type})
 	m1bins = xmldoc.getChildrenByAttributes({"Name":"mass1_bins:%s" % bin_type})
 	m2bins = xmldoc.getChildrenByAttributes({"Name":"mass2_bins:%s" % bin_type})
@@ -61,7 +61,7 @@ def get_bins(file,bin_type):
 def get_data(file,tablename):
 	"""Read in data produced by lalapps_cbc_svim"""
 
-	xmldoc = utils.load_filename(file, gz = (file or "stdin").endswith(".gz"))
+	xmldoc = utils.load_filename(file)
 	xmldoc = xmldoc.childNodes[0]
 	table_node = xmldoc.getChildrenByAttributes({"Name":"binned_array:%s" % tablename})
 	if len(table_node) != 1:

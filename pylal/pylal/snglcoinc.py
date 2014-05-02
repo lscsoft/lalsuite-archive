@@ -62,9 +62,9 @@ from glue.ligolw import array as ligolw_array
 from glue.ligolw import param as ligolw_param
 from glue.ligolw import table as ligolw_table
 from glue.ligolw import lsctables
+from glue.text_progress_bar import ProgressBar
 from pylal import git_version
 from pylal import inject
-from pylal import progress
 from pylal import rate
 
 
@@ -1730,7 +1730,7 @@ class CoincParamsDistributions(object):
 		self.injection_pdf.clear()
 		N = len(self.zero_lag_rates) + len(self.background_rates) + len(self.injection_rates)
 		threads = []
-		progressbar = progress.ProgressBar(text = "Computing Parameter PDFs") if verbose else None
+		progressbar = ProgressBar(text = "Computing Parameter PDFs") if verbose else None
 		for key, (msg, rates_dict, pdf_dict) in itertools.chain(
 				zip(self.zero_lag_rates, itertools.repeat(("zero lag", self.zero_lag_rates, self.zero_lag_pdf))),
 				zip(self.background_rates, itertools.repeat(("background", self.background_rates, self.background_pdf))),

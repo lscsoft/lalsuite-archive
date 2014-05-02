@@ -477,10 +477,7 @@ if not opts.inspiral_xml_file:
 
 opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 
-extension = opts.inspiral_xml_file.split('.')[-1]
-if extension == 'gz': gz = True
-else: gz = False
-doc = utils.load_filename(opts.inspiral_xml_file,None,gz)
+doc = utils.load_filename(opts.inspiral_xml_file)
 proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
 
 plotsnrchisq(opts,args,str(opts.gps),opts.frame_file,opts.output_path,proc,opts.user_tag)

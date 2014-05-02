@@ -109,7 +109,7 @@ for n, filename in enumerate(filenames):
 
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, options.verbose, gz = filename.endswith(".gz"))
+	xmldoc = utils.load_filename(filename, verbose = options.verbose)
 	lsctables.table.InterningRowBuilder.strings.clear()
 
 	# Add an entry to the process table
@@ -138,6 +138,6 @@ for n, filename in enumerate(filenames):
 
 	# Write back to disk, and clean up
 
-	utils.write_filename(xmldoc, filename, options.verbose, gz = filename.endswith(".gz"))
+	utils.write_filename(xmldoc, filename, verbose = options.verbose, gz = filename.endswith(".gz"))
 	xmldoc.unlink()
 	lsctables.table.reset_next_ids(lsctables.TableByName.values())

@@ -741,6 +741,13 @@ class DBTable(table.Table):
 		# pre-allocate a cursor for internal queries
 		self.cursor = self.connection.cursor()
 
+	def copy(self, *args, **kwargs):
+		"""
+		This method is not implemented.  See
+		glue.ligolw.table.Table for more information.
+		"""
+		raise NotImplemented
+
 	def _end_of_columns(self):
 		table.Table._end_of_columns(self)
 		# dbcolumnnames and types have the "not loaded" columns

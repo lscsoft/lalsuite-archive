@@ -188,7 +188,7 @@ else:
 # Load input xmldoc
 #
 
-xmldoc = utils.load_filename(filename[0], options.verbose)
+xmldoc = utils.load_filename(filename[0], verbose = options.verbose)
 
 lsctables.table.InterningRowBuilder.strings.clear()
 
@@ -275,6 +275,6 @@ ligolw_process.set_process_end_time(process)
 # Write back to disk, and clean up.
 #
 output_filename = re.sub('LLWADD','THINCA',filename[0])
-utils.write_filename(xmldoc, output_filename, options.verbose, gz = (output_filename or "stdout").endswith(".gz"))
+utils.write_filename(xmldoc, output_filename, verbose = options.verbose, gz = (output_filename or "stdout").endswith(".gz"))
 xmldoc.unlink()
 

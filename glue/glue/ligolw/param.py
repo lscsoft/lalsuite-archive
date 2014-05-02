@@ -256,8 +256,9 @@ class Param(ligolw.Param):
 		self.pytype = ligolwtypes.ToPyType[self.Type]
 
 	def endElement(self):
-		# convert pcdata from string to native Python type
-		self.pcdata = self.pytype(self.pcdata.strip())
+		if self.pcdata is not None:
+			# convert pcdata from string to native Python type
+			self.pcdata = self.pytype(self.pcdata.strip())
 
 	def write(self, fileobj = sys.stdout, indent = u""):
 		fileobj.write(self.start_tag(indent))

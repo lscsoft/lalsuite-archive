@@ -5025,12 +5025,13 @@ class PEOutputParser(object):
             pos,bayesfactor=burnin(data,spin,deltaLogL,"posterior_samples.dat")
             return self._common_to_pos(open("posterior_samples.dat",'r'))
 
-    def _ns_to_pos(self,files,Nlive=None,Npost=None):
+    def _ns_to_pos(self,files,Nlive=None,Npost=None,posfilename='posterior_samples.dat'):
         """
         Parser for nested sampling output.
         files : list of input NS files
         Nlive : Number of live points
         Npost : Desired number of posterior samples
+        posfilename : Posterior output file name (default: 'posterior_samples.dat')
         """
         try:
             from lalapps.nest2pos import draw_N_posterior_many,draw_posterior_many
@@ -5040,9 +5041,7 @@ class PEOutputParser(object):
 
         if Nlive is None:
             raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
-                       
-        posfilename='posterior_samples.dat'
-       
+     
         #posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t
         #psi \t iota \t likelihood \n')
         # get parameter list
