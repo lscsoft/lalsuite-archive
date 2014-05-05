@@ -926,7 +926,9 @@ int XLALSimIMRSpinAlignedEOBWaveform(
    * 13.5 */
   if( SpinAlignedEOBversion == 2 )
   {
-    combSize = (spin1[2] == 0. && spin2[2] == 0.) ? 11. : (( chi >= 0.8 ) ? 13.5 : 12.);
+    combSize = (spin1[2] == 0. && spin2[2] == 0.) ? 11. : (( eta > 10./121. && chi >= 0.8 ) ? 8.5 : 12.);
+    if ( (eta > 30./31./31. && eta <= 10./121. && chi >= 0.8) || (eta <= 30./31./31. && chi >= 0.8 && chi < 0.9) )
+      combSize = 13.5; 
   }
 
   REAL8 timeshiftPeak;
