@@ -1158,9 +1158,11 @@ void LALInferenceTemplateSineGaussian(LALInferenceIFOData *IFOdata)
       /*Always calculate the template at fixed hrss of 1. That will avoid recalculation of the template unless Q, f, polar_angle, polar_eccentricity are varied */
       hrss=1.0;
       
-      polar_angle=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "polar_angle"); 
-      eccentricity=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "eccentricity"); 
-      
+      REAL8 alpha=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "alpha"); 
+      //polar_angle=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "polar_angle"); 
+      //eccentricity=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "eccentricity"); 
+      polar_angle=alpha;
+      eccentricity=1.0;
       XLALSimBurstSineGaussian(&hplus,&hcross, Q, centre_frequency,hrss,eccentricity,polar_angle,IFOdata->timeData->deltaT);
    
    REAL8 instant= (IFOdata->timeData->epoch.gpsSeconds-hplus->epoch.gpsSeconds + 1e-9*(IFOdata->timeData->epoch.gpsNanoSeconds-hplus->epoch.gpsNanoSeconds));
