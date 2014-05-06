@@ -239,8 +239,8 @@ static struct options options_defaults(void)
 	defaults.f=XLAL_REAL8_FAIL_NAN;
 	defaults.hrss=XLAL_REAL8_FAIL_NAN;
 	//defaults.snr_distr=NUM_ELEMENTS+1;
-	defaults.minsnr=XLAL_REAL8_FAIL_NAN;
-	defaults.maxsnr=XLAL_REAL8_FAIL_NAN;
+	defaults.minsnr=.0;
+	defaults.maxsnr=0.;
 	defaults.ifonames=NULL;
 	defaults.nIFO=0;
   defaults.polee_distr=NUM_ELEMENTS+1;
@@ -871,7 +871,7 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 		fprintf(stderr, "Did not provide hrss-distr. Using default distribution of hrss (uniform in volume) \n");
 		
 	}
-	if (options.minsnr!=XLAL_REAL8_FAIL_NAN && options.maxsnr!=XLAL_REAL8_FAIL_NAN){
+	if (options.minsnr>0. && options.maxsnr>0.){
 		
 		 /* Check that each ifo has its PSD file or fakePSD */
     char *tmp, *ifo;
@@ -1275,7 +1275,7 @@ static double draw_gaussian(gsl_rng *rng, double mu, double sigma)
 }
 
 static double draw_volume(gsl_rng *rng,double min,double max){
-    
+    /* p(1/hrss^3) = constant */
     REAL8 proposed=0.0;
     
     proposed=1.0/(max*max*max)+(1.0/(min*min*min)- 1.0/(max*max*max))*gsl_rng_uniform(rng);
@@ -1545,22 +1545,25 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 {
 	SimBurst *sim_burst = XLALCreateSimBurst();
   REAL8 this_snr;
+  int idx=0;
+  int max_i=1000;
+  if(!sim_burst)
+      return NULL;
+  XLALINT8NSToGPS(&(sim_burst)->time_geocent_gps, tinj);
+
+  if (options->population==POPULATION_ALL_SKY_SINEGAUSSIAN)
+    strcpy(sim_burst->waveform, "SineGaussian");
+  else if (options->population==POPULATION_ALL_SKY_SINEGAUSSIAN_F)
+    strcpy(sim_burst->waveform, "SineGaussianF");
+  else if (options->population==POPULATION_ALL_SKY_GAUSSIAN)
+    strcpy(sim_burst->waveform, "Gaussian");
+  else{
+    fprintf(stderr,"Unrecognized population %d. Exiting\n",options->population);
+    exit(1);
+  }
   
   while(1){
-    if(!sim_burst)
-      return NULL;
-    XLALINT8NSToGPS(&(sim_burst)->time_geocent_gps, tinj);
-      
-      if (options->population==POPULATION_ALL_SKY_SINEGAUSSIAN)
-      strcpy(sim_burst->waveform, "SineGaussian");
-    else if (options->population==POPULATION_ALL_SKY_SINEGAUSSIAN_F)
-      strcpy(sim_burst->waveform, "SineGaussianF");
-      else if (options->population==POPULATION_ALL_SKY_GAUSSIAN)
-          strcpy(sim_burst->waveform, "Gaussian");
-      else{
-          fprintf(stderr,"Unrecognized population %d. Exiting\n",options->population);
-          exit(1);
-          }
+          
     /* sky location and wave frame orientation */
 
     random_location_and_polarization(&sim_burst->ra, &sim_burst->dec, &sim_burst->psi, rng);
@@ -1578,7 +1581,7 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
         sim_burst->pol_ellipse_e =draw_uniform(rng,options->minpolee,options->maxpolee);
         break;
       default:
-      // default are linelary polarized signals
+      // default are linealry polarized signals
         sim_burst->pol_ellipse_e = 1.0;
     }
     switch (options->polea_distr){
@@ -1676,11 +1679,9 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
           
       }
     }
-    if (options->minsnr!=XLAL_REAL8_FAIL_NAN && options->maxsnr !=XLAL_REAL8_FAIL_NAN){
+    if (options->minsnr>0.&& options->maxsnr>0.){
       
       /* Check if SNR is inside range, otherwise redraw al parameters  */
-      {
-        
       char *ifo;
       REAL8 *start_freqs;
       REAL8FrequencySeries **psds;
@@ -1759,14 +1760,19 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
       if (start_freqs) LALFree(start_freqs);
       /* Done */
       
-      if (options->minsnr <=this_snr && options->maxsnr>=this_snr)
+      if (options->minsnr <=this_snr && options->maxsnr>=this_snr){
+        printf("-------------accepted %lf\n",this_snr);
         break;
-      }  
-        
       }
+      else
+        printf("rejected %lf\n",this_snr);
+      idx+=1;
+      if (idx>=max_i) printf("");
+      }
+      else
+        break;
   }
 	/* done */
-
 	return sim_burst;
 }
 

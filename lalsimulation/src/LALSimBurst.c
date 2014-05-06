@@ -693,8 +693,6 @@ int XLALSimBurstSineGaussian(
         // Now update re and im for the next iteration. 
         newRe = re + re*dre - im*dim;
         newIm = im + re*dim + im*dre;
-        //if (i==(UINT4)((*hplus)->data->length-1))
-        //printf("%d %.14e %.14e %.14e %.14e\n",i,re,cos(phi),im,sin(phi));
         re = newRe;
         im = newIm;
         //
