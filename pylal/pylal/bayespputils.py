@@ -5225,14 +5225,17 @@ class PEOutputParser(object):
             pos=draw_posterior_many(inarrays,[Nlive for f in files],logLcol=logLcol)
         else:
             pos=draw_N_posterior_many(inarrays,[Nlive for f in files],Npost,logLcol=logLcol)
-
+        
+        prec=14
+        outformat = '%%.%de' % prec
+        
         with open(posfilename,'w') as posfile:
             
             posfile.write(outpars)
-        
             for row in pos:
                 for i in row:
-                    posfile.write('%.12g\t' %(i))
+                    outval = outformat % i
+                    posfile.write('%s\t'%(outval))
                 posfile.write('\n')
         
         with open(posfilename,'r') as posfile:
