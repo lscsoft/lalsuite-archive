@@ -3967,19 +3967,18 @@ void LALInferenceBurstSkyRingProposal(LALInferenceRunState *runState, LALInferen
   /*
    update new parameters and exit.  woo!
    */
-  /*
+  
   if (LALInferenceCheckVariable(proposedParams, "hrss"))
     LALInferenceSetVariable(proposedParams, "hrss",       &newDL);
   else{
     newDL=log(newDL);
     LALInferenceSetVariable(proposedParams, "loghrss",       &newDL);
-  }*/
+  }
   dL=newDL;
-  //LALInferenceSetVariable(proposedParams, "polarisation",   &newPsi);
+  LALInferenceSetVariable(proposedParams, "polarisation",   &newPsi);
   LALInferenceSetVariable(proposedParams, "rightascension", &newRA);
   LALInferenceSetVariable(proposedParams, "declination",    &newDec);
-  timeflag+=1;
-  //if(timeflag) LALInferenceSetVariable(proposedParams, "time",           &newTime);
+  if(timeflag) LALInferenceSetVariable(proposedParams, "time",           &newTime);
   
   REAL8 pForward, pReverse;
   pForward = cos(newDec);
@@ -3994,7 +3993,7 @@ void LALInferenceBurstSkyRingProposal(LALInferenceRunState *runState, LALInferen
 void LALInferenceBurstChangeSkyRingProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams)
 {
   UINT4 i,j,l,ifo,nifo;
-  //,timeflag=0;
+  UINT4 timeflag=0;
   LALStatus status;
   memset(&status,0,sizeof(status));
   const char *propName = BurstChangeSkyRingProposalName;
@@ -4007,16 +4006,16 @@ void LALInferenceBurstChangeSkyRingProposal(LALInferenceRunState *runState, LALI
   dataPtr = runState->data;
   REAL8 dL;
   if (LALInferenceCheckVariable(proposedParams, "hrss"))
-    dL= 1.0/ *(REAL8 *)LALInferenceGetVariable(proposedParams, "hrss");
+    dL=  *(REAL8 *)LALInferenceGetVariable(proposedParams, "hrss");
   else
-    dL=1.0/exp(*(REAL8 *)LALInferenceGetVariable(proposedParams, "loghrss"));
+    dL= exp(*(REAL8 *)LALInferenceGetVariable(proposedParams, "loghrss"));
   REAL8 baryTime;
   REAL8 ra       = *(REAL8 *)LALInferenceGetVariable(proposedParams, "rightascension");
   REAL8 dec      = *(REAL8 *)LALInferenceGetVariable(proposedParams, "declination");
   REAL8 psi      = *(REAL8 *)LALInferenceGetVariable(proposedParams, "polarisation");
     if(LALInferenceCheckVariable(proposedParams,"time")){
     baryTime = *(REAL8 *)LALInferenceGetVariable(proposedParams, "time");
-    //timeflag=1;
+    timeflag=1;
   }
   else
   {
@@ -4240,27 +4239,26 @@ void LALInferenceBurstChangeSkyRingProposal(LALInferenceRunState *runState, LALI
     Fy += Fp*Fp+Fc*Fc;
 
     dataPtr = dataPtr->next;
-  }
+  } 
+  REAL8 newDL = dL*sqrt(Fx/Fy);
+   
   
-  REAL8 newDL = dL*sqrt(Fy/Fx);
-  newDL=1./newDL;
-  /*
   if (LALInferenceCheckVariable(proposedParams, "hrss"))
     LALInferenceSetVariable(proposedParams, "hrss",       &newDL);
   else{
     newDL=log(newDL);
     LALInferenceSetVariable(proposedParams, "loghrss",       &newDL);
   }
-  */
+  
     /*
    update new parameters and exit.  woo!
    */
   
-  //LALInferenceSetVariable(proposedParams, "polarisation",   &newPsi);
+  LALInferenceSetVariable(proposedParams, "polarisation",   &newPsi);
   LALInferenceSetVariable(proposedParams, "rightascension", &newRA);
   LALInferenceSetVariable(proposedParams, "declination",    &newDec);
-  //if (timeflag) LALInferenceSetVariable(proposedParams, "time",           &newTime);
-  newTime+=newDL+newPsi;
+  if (timeflag) LALInferenceSetVariable(proposedParams, "time",           &newTime);
+  //newTime+=newDL+newPsi;
   
   REAL8 pForward, pReverse;
   pForward = cos(newDec);
