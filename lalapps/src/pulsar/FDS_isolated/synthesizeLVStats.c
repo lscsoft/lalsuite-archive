@@ -82,8 +82,6 @@
 #define FALSE (1==0)
 
 /*----- Macros ----- */
-#define INIT_MEM(x) memset(&(x), 0, sizeof((x)))
-
 
 /* ---------- local types ---------- */
 
@@ -170,10 +168,6 @@ int write_LV_candidate_to_fp ( FILE *fp, const LVcomponents *LVstat, const Pulsa
 /*---------- Global variables ----------*/
 extern int vrbflg;		/**< defined in lalapps.c */
 
-/*---------- empty initializers ---------- */
-ConfigVariables empty_ConfigVariables;
-UserInput_t empty_UserInput;
-
 /*----------------------------------------------------------------------*/
 /* Main Function starts here */
 /*----------------------------------------------------------------------*/
@@ -183,8 +177,8 @@ UserInput_t empty_UserInput;
  */
 int main(int argc,char *argv[])
 {
-  UserInput_t uvar = empty_UserInput;
-  ConfigVariables cfg = empty_ConfigVariables;		/**< various derived configuration settings */
+  UserInput_t XLAL_INIT_DECL(uvar);
+  ConfigVariables XLAL_INIT_DECL(cfg);
 
   vrbflg = 1;	/* verbose error-messages */
   LogSetLevel(lalDebugLevel);
@@ -280,10 +274,10 @@ int main(int argc,char *argv[])
   INT4 i;
   for ( i=0; i < uvar.numDraws; i ++ )
     {
-      InjParams_t injParamsDrawn = empty_InjParams_t;
+      InjParams_t XLAL_INIT_DECL(injParamsDrawn);
 
       /* ----- generate signal random draws from ranges and generate Fstat atoms */
-      multiAMBuffer_t multiAMBuffer = empty_multiAMBuffer;      /* prepare AM-buffer */
+      multiAMBuffer_t XLAL_INIT_DECL(multiAMBuffer);      /* prepare AM-buffer */
       MultiFstatAtomVector *multiAtoms;
 
       multiAtoms = XLALSynthesizeTransientAtoms ( &injParamsDrawn, cfg.skypos, cfg.AmpPrior, cfg.transientInjectRange, cfg.multiDetStates, cfg.SignalOnly, &multiAMBuffer, cfg.rng, lineX);
@@ -841,8 +835,8 @@ write_LV_candidate_to_fp ( FILE *fp, const LVcomponents *LVstat, const PulsarDop
     XLAL_ERROR ( XLAL_EFAULT);
   }
 
-  PulsarDopplerParams dopplerParams = empty_PulsarDopplerParams;
-  INIT_MEM( dopplerParams.fkdot );
+  PulsarDopplerParams XLAL_INIT_DECL(dopplerParams);
+  XLAL_INIT_MEM( dopplerParams.fkdot );
   if ( dopplerParams_in == NULL ) { /* just write zeros */
     dopplerParams.Alpha = 0.0;
     dopplerParams.Delta = 0.0;

@@ -92,33 +92,31 @@ lalapps_synthesizeLVStats_SOURCES = synthesizeLVStats.c
 lalapps_CFSv3_SOURCES = CFSv3.c
 
 EXTRA_DIST = \
-	testCFSv2.sh \
-	testGridv2.sh \
 	Fstats.ref1 \
 	Fstats.ref2 \
 	testPredictFStat.sh \
+	testCFSv2.sh \
+	testCFSv2_grids.sh \
 	testCFSv2_resamp.sh \
-	testCFSv2_binary.sh \
-	testCFSv2_FLTgrids.sh
+	testCFSv2_binary.sh
 
 EXTRA_DIST += \
 	testCFSv2.dat.ref.gz \
-	testGridv2_grid0.dat.ref.gz \
-	testGridv2_grid1.dat.ref.gz \
-	testGridv2_grid2.dat.ref.gz \
-	testGridv2_grid6.dat.ref.gz \
-	testCFSv2_FLTgrids_8.dat.ref.gz \
-	testCFSv2_FLTgrids_9.dat.ref.gz
+	testCFSv2_grid0.dat.ref.gz \
+	testCFSv2_grid1.dat.ref.gz \
+	testCFSv2_grid2.dat.ref.gz \
+	testCFSv2_grid6.dat.ref.gz \
+	testCFSv2_grid8.dat.ref.gz \
+	testCFSv2_grid9.dat.ref.gz
 
 TESTS = testPredictFStat.sh
 
 if !CONDOR_ENABLED
 TESTS += \
 	testCFSv2.sh \
+	testCFSv2_grids.sh \
 	testCFSv2_resamp.sh \
-	testGridv2.sh \
-	testCFSv2_binary.sh \
-	testCFSv2_FLTgrids.sh
+	testCFSv2_binary.sh
 endif
 
 TESTS_ENVIRONMENT = \

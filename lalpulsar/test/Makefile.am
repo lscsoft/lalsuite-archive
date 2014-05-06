@@ -12,7 +12,6 @@ check_PROGRAMS = \
 	ExtrapolatePulsarSpinsTest \
 	FitToPulsarTest \
 	FlatMeshTest \
-	FoldAmplitudesTest \
 	GeneralMeshTest \
 	GeneralMetricTest \
 	GeneratePulsarSignalTest \
@@ -22,7 +21,6 @@ check_PROGRAMS = \
 	XLALComputeAMTest \
 	PtoleMeshTest \
 	PtoleMetricTest \
-	PulsarCatTest \
 	SFTfileIOTest \
 	SimulateTaylorCWTest \
 	SkyMetricTest \

@@ -25,6 +25,7 @@
 #include <lal/CWFastMath.h>
 #include <lal/DetectorStates.h>
 #include <lal/LISAspecifics.h>
+#include <lal/ConfigFile.h>
 
 /*---------- local DEFINES ----------*/
 #define TRUE (1==1)
@@ -32,7 +33,6 @@
 
 /*----- Macros ----- */
 #define SQUARE(x) ((x) * (x))
-#define INIT_MEM(x) memset(&(x), 0, sizeof((x)))
 
 /*----- SWITCHES -----*/
 
@@ -752,34 +752,36 @@ XLALGetMultiDetectorStates( const MultiLIGOTimeGPSVector *multiTS, /**< [in] mul
  * for detectors \f$X=1\ldots N\f$, where here we assume equal number of SFTs per detector
  * such that \f$S^{-1} = \frac{1}{N}\sum_{X=0}^{N-1} S_X^{-1}\f$.
  *
- * returns MultiNoiseFloor struct 'multiNoiseFloor'.
+ * \note input of length(sqrtSX)=1 < numDetectors is valid: use that single number for all detectors,
+ *  otherwise we enforce length(sqrtSX) == numDetectors.
+ *
+ * returns result in MultiNoiseFloor struct 'multiNoiseFloor'.
  */
 int
 XLALParseMultiNoiseFloor ( MultiNoiseFloor *multiNoiseFloor,	/**< [out] parsed multi-IFO noise floor info */
-                           const LALStringVector *sqrtSX	/**< [in] string-list of \f$\sqrt{S_X}\f$ for detectors \f$X\f$ */
+                           const LALStringVector *sqrtSX,	/**< [in] string-list of \f$\sqrt{S_X}\f$ for detectors \f$X\f$ */
+                           UINT4 numDetectors			/**< [in] number of detectors. NOTE: length[sqrtSX] must be EITHER =numDetectors OR =1 */
                            )
 {
   XLAL_CHECK ( multiNoiseFloor != NULL, XLAL_EINVAL );
   XLAL_CHECK ( sqrtSX != NULL, XLAL_EINVAL );
-  UINT4 numDet = sqrtSX->length;
-  XLAL_CHECK ( (numDet > 0) && (numDet <= PULSAR_MAX_DETECTORS), XLAL_EINVAL );
+  XLAL_CHECK ( (numDetectors > 0) && (numDetectors <= PULSAR_MAX_DETECTORS), XLAL_EINVAL );
+  UINT4 numSqrtSX = sqrtSX->length;
+  XLAL_CHECK ( (numSqrtSX == numDetectors) || (numSqrtSX == 1), XLAL_EINVAL );
 
   /* initialize empty return struct */
-  multiNoiseFloor->length = numDet;
+  multiNoiseFloor->length = numDetectors;
 
   /* parse input strings and fill multiNoiseFloor */
-  REAL8 calSInvNdet = 0;
-  for ( UINT4 X = 0; X < numDet; X ++ )
+  for ( UINT4 X = 0; X < numDetectors; X ++ )
     {
-      const char *sqrtSnStr = sqrtSX->data[X];
+      UINT4 X0 = X % numSqrtSX;		// always = 0 if (numSqrtSX == 1), otherwise = X if (numSqrtSX==numDetectors)
+      const char *sqrtSnStr = sqrtSX->data[X0];
       REAL8 sqrtSn;
-      XLAL_CHECK ( sscanf ( sqrtSnStr , "%lf", &sqrtSn ) == 1, XLAL_EINVAL, "Failed to parse '%s' into REAL8\n", sqrtSnStr );
+      XLAL_CHECK ( XLALParseStringValueToREAL8 ( &sqrtSn, sqrtSnStr ) == XLAL_SUCCESS, XLAL_EFUNC );
       XLAL_CHECK ( sqrtSn >= 0, XLAL_EDOM );
       multiNoiseFloor->sqrtSn[X] = sqrtSn;
-      calSInvNdet += 1 / SQUARE ( sqrtSn );
-    } /* for X < numDet */
-
-  multiNoiseFloor->sqrtSnTotal = sqrt ( numDet / calSInvNdet );	// SnTotal = harmonicMean{S_X} assuming equal number of SFT per detector
+    } /* for X < numDetectors */
 
   return XLAL_SUCCESS;
 

@@ -385,6 +385,11 @@ class ProcessParams(object):
 			return None
 		return ligolwtypes.ToPyType[self.type or "lstring"](self.value)
 
+	@pyvalue.setter
+	def pyvalue(self, value):
+		self.type = ligolwtypes.FromPyType[type(value)]
+		self.value = ligolwtypes.FormatFunc[self.type](value)
+
 
 ProcessParamsTable.RowType = ProcessParams
 

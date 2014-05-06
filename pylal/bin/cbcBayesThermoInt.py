@@ -7,6 +7,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as pp
 import numpy as np
+import scipy.integrate as si
 
 def extract_temp(filename):
     """Extracts the PTMCMC temperature from the header lines of the
@@ -48,22 +49,6 @@ def get_mean_logl(filename):
 
     return np.mean(data[N/2:])
 
-def thermo_integrands(logls, betas):
-    """Returns arrays of betas, <log(L)>*d(beta), <log(L)>*d(beta2)
-    for the evidence calculation.  The log-evidence is given by
-    sum(<log(L)>d(beta)), while the second version of this is computed
-    with half the number of integration points, and can be used to
-    estimate the error in the evidence computation."""
-    inds=np.argsort(betas)[::-1]
-
-    sorted_logls=logls[inds]
-    sorted_betas=betas[inds]
-
-    dbetas=np.diff(np.concatenate((sorted_betas, [0.0])))
-    dbetas2=np.diff(np.concatenate((sorted_betas[::2], [0.0])))
-
-    return sorted_betas, -sorted_logls*dbetas, -sorted_logls[::2]*dbetas2
-
 if __name__=='__main__':
     # Custom usage and help message
     usage = """%s [-h] [--plotfile FILE] [--evfile FILE] OUTPUT_FILE [OUTPUT_FILE ...]
@@ -86,15 +71,29 @@ positional arguments:
     betas = np.array([1.0/extract_temp(f) for f in args])
     logls = np.array([get_mean_logl(f) for f in args])
 
-    betas, integrands, integrands2 = thermo_integrands(logls, betas)
+    inds = np.argsort(betas)[::-1]
 
-    evidence = np.sum(integrands)
-    devidence = np.abs(evidence - np.sum(integrands2))
+    betas = betas[inds]
+    logls = logls[inds]
 
-    pp.plot(betas, integrands/evidence)
+    # Now extend to infinite temperature by copying the last <log(L)>.
+    # This works as long as the chains have extended to high enough
+    # temperature to sample the prior.
+    ebetas = np.concatenate((betas, [0.0]))
+    elogls = np.concatenate((logls, [logls[-1]]))
+
+    ebetas2 = np.concatenate((betas[::2], [0.0]))
+    elogls2 = np.concatenate((logls[::2], [logls[::2][-1]]))
+
+    evidence = si.trapz(elogls, ebetas)
+    evidence2 = si.trapz(elogls2, ebetas2)
+
+    devidence = np.abs(evidence - evidence2)
+
+    pp.plot(betas, betas*logls)
     pp.xscale('log')
     pp.xlabel(r'$\beta$')
-    pp.ylabel(r'$\frac{1}{\ln Z} \left \langle \log \mathcal{L} \right\rangle_\beta d\beta$')
+    pp.ylabel(r'$\beta \left\langle \ln \mathcal{L} \right\rangle$')
     pp.savefig(options.plotfile)
 
     with open(options.evfile, 'w') as out:

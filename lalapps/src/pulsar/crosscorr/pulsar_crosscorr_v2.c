@@ -87,9 +87,6 @@ typedef struct{
 #define FALSE (1==0)
 #define MAXFILENAMELENGTH 512
 
-/* empty user input struct for initialization */
-UserInput_t empty_UserInput;
-
 /* local function prototypes */
 int XLALInitUserVars ( UserInput_t *uvar );
 int XLALInitializeConfigVars (ConfigVariables *config, const UserInput_t *uvar);
@@ -99,7 +96,7 @@ int GetNextCrossCorrTemplate(BOOLEAN *binaryParamsFlag, PulsarDopplerParams *dop
 
 int main(int argc, char *argv[]){
 
-  UserInput_t uvar = empty_UserInput;
+  UserInput_t XLAL_INIT_DECL(uvar);
   static ConfigVariables config;
 
   /* sft related variables */
@@ -117,10 +114,10 @@ int main(int argc, char *argv[]){
   REAL8Vector *kappaValues = NULL;
   REAL8Vector *signalPhases = NULL;
 
-  PulsarDopplerParams dopplerpos = empty_PulsarDopplerParams;
+  PulsarDopplerParams XLAL_INIT_DECL(dopplerpos);
   PulsarDopplerParams thisBinaryTemplate, binaryTemplateSpacings;
   PulsarDopplerParams minBinaryTemplate, maxBinaryTemplate;
-  SkyPosition skyPos = empty_SkyPosition;
+  SkyPosition XLAL_INIT_DECL(skyPos);
   MultiSSBtimes *multiSSBTimes = NULL;
   MultiSSBtimes *multiBinaryTimes = NULL;
 
@@ -219,9 +216,9 @@ int main(int argc, char *argv[]){
   /*   fdotsMax->length = N_SPINDOWN_DERIVS; */
   /*   fdotsMax->data = (REAL8 *)LALCalloc(fdotsMax->length, sizeof(REAL8)); */
 
-  /*   INIT_MEM(spinRange_startTime); */
-  /*   INIT_MEM(spinRange_endTime); */
-  /*   INIT_MEM(spinRange_refTime); */
+  /*   XLAL_INIT_MEM(spinRange_startTime); */
+  /*   XLAL_INIT_MEM(spinRange_endTime); */
+  /*   XLAL_INIT_MEM(spinRange_refTime); */
 
   /*   spinRange_refTime.refTime = refTime; */
   /*   spinRange_refTime.fkdot[0] = uvar_f0; */
@@ -231,9 +228,9 @@ int main(int argc, char *argv[]){
   /* FIXME: need to correct fMin and fMax for Doppler shift, rngmedian bins and spindown range */
   /* this is essentially just a place holder for now */
   /* FIXME: this running median buffer is overkill, since the running median block need not be centered on the search frequency */
-  REAL8 vMax=(LAL_TWOPI * uvar.orbitAsiniSec /uvar.orbitPSec + LAL_TWOPI * LAL_REARTH_SI / (LAL_DAYSID_SI * LAL_C_SI)); /*calculate the maximum relative velocity in speed of light*/
+  REAL8 vMax = LAL_TWOPI * uvar.orbitAsiniSec /uvar.orbitPSec + LAL_TWOPI * LAL_REARTH_SI / (LAL_DAYSID_SI * LAL_C_SI) + LAL_TWOPI * LAL_AU_SI/(LAL_YRSID_SI * LAL_C_SI); /*calculate the maximum relative velocity in speed of light*/
   fMin = uvar.fStart * (1 - vMax) - 0.5 * uvar.rngMedBlock * deltaF;
-  fMax = uvar.fStart * (1 + vMax) + 0.5 * uvar.rngMedBlock * deltaF + uvar.fBand;
+  fMax = (uvar.fStart + uvar.fBand) * (1 + vMax) + 0.5 * uvar.rngMedBlock * deltaF;
 
   /* read the SFTs*/
   if ((inputSFTs = XLALLoadMultiSFTs ( config.catalog, fMin, fMax)) == NULL){
@@ -242,7 +239,7 @@ int main(int argc, char *argv[]){
   }
 
   /* calculate the psd and normalize the SFTs */
-  if (( multiPSDs =  XLALNormalizeMultiSFTVect ( inputSFTs, uvar.rngMedBlock )) == NULL){
+  if (( multiPSDs =  XLALNormalizeMultiSFTVect ( inputSFTs, uvar.rngMedBlock, NULL )) == NULL){
     LogPrintf ( LOG_CRITICAL, "%s: XLALNormalizeMultiSFTVect() failed with errno=%d\n", __func__, xlalErrno );
     XLAL_ERROR( XLAL_EFUNC );
   }
@@ -307,10 +304,10 @@ int main(int argc, char *argv[]){
     XLAL_ERROR( XLAL_EFUNC );
   }
   /*initialize binary parameters structure*/
-  minBinaryTemplate=empty_PulsarDopplerParams;
-  maxBinaryTemplate=empty_PulsarDopplerParams;
-  thisBinaryTemplate=empty_PulsarDopplerParams;
-  binaryTemplateSpacings=empty_PulsarDopplerParams;
+  XLAL_INIT_MEM(minBinaryTemplate);
+  XLAL_INIT_MEM(maxBinaryTemplate);
+  XLAL_INIT_MEM(thisBinaryTemplate);
+  XLAL_INIT_MEM(binaryTemplateSpacings);
   /*fill in minbinaryOrbitParams*/
   XLALGPSSetREAL8( &minBinaryTemplate.tp, uvar.orbitTimeAsc);
   minBinaryTemplate.argp = 0.0;
@@ -421,7 +418,7 @@ int main(int argc, char *argv[]){
 	XLAL_ERROR( XLAL_EFUNC );
       }
 
-      if ( (XLALCalculatePulsarCrossCorrStatistic( &ccStat, &evSquared, curlyGUnshifted, signalPhases, lowestBins, kappaValues, uvar.numBins, sftPairs, sftIndices, inputSFTs, Tsft )  != XLAL_SUCCESS ) ) {
+      if ( (XLALCalculatePulsarCrossCorrStatistic( &ccStat, &evSquared, curlyGUnshifted, signalPhases, lowestBins, kappaValues, uvar.numBins, sftPairs, sftIndices, inputSFTs, multiWeights)  != XLAL_SUCCESS ) ) {
 	LogPrintf ( LOG_CRITICAL, "%s: XLALCalculateAveCrossCorrStatistic() failed with errno=%d\n", __func__, xlalErrno );
 	XLAL_ERROR( XLAL_EFUNC );
       }
@@ -580,14 +577,14 @@ int XLALInitializeConfigVars (ConfigVariables *config, const UserInput_t *uvar)
   constraints.detector = NULL;
   constraints.timestamps = NULL;
   constraints.minStartTime = &startTime;
-  constraints.maxEndTime = &endTime;
+  constraints.maxStartTime = &endTime;
   XLALGPSSet( constraints.minStartTime, uvar->startTime, 0);
-  XLALGPSSet( constraints.maxEndTime, uvar->endTime,0);
+  XLALGPSSet( constraints.maxStartTime, uvar->endTime,0);
 
   /* This check doesn't seem to work, since XLALGPSSet doesn't set its
      first argument.
 
-     if ( (constraints.minStartTime == NULL)&& (constraints.maxEndTime == NULL) ) {
+     if ( (constraints.minStartTime == NULL)&& (constraints.maxStartTime == NULL) ) {
      LogPrintf ( LOG_CRITICAL, "%s: XLALGPSSet() failed with errno=%d\n", __func__, xlalErrno );
      XLAL_ERROR( XLAL_EFUNC );
      }

@@ -31,7 +31,6 @@ test/ExtrapolatePulsarSpinsTest
 test/FileIOTest
 test/FitToPulsarTest
 test/FlatMeshTest
-test/FoldAmplitudesTest
 test/GeneralMeshTest
 test/GeneralMetricTest
 test/GeneratePulsarSignalTest
@@ -52,7 +51,6 @@ test/OutHistogram.asc
 test/OutHough.asc
 test/PtoleMeshTest
 test/PtoleMetricTest
-test/PulsarCatTest
 test/ResampleTest
 test/SFTCleanTest
 test/SFTfileIOTest

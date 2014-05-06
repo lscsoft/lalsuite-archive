@@ -27,7 +27,6 @@
 #define FALSE (1==0)
 
 /*----- Macros ----- */
-#define INIT_MEM(x) memset(&(x), 0, sizeof((x)))
 
 /*----- SWITCHES -----*/
 
@@ -43,7 +42,7 @@
 /** XLAL function to go through a (Hough or GCT) toplist and compute line-robust statistics for each candidate */
 int XLALComputeExtraStatsForToplist ( toplist_t *list,                                        /**< list of cancidates with f, sky position etc. - no output so far */
 				      const char *listEntryTypeName,                          /**< type of toplist entries, give as name string */
-				      const FstatInputDataVector *Fstat_in_vec,               /**< vector of input data for XLALComputeFstat() */
+				      const FstatInputVector *Fstat_in_vec,               /**< vector of input data for XLALComputeFstat() */
 				      const LALStringVector *detectorIDs,                     /**< detector name vector with all detectors present in any data sements */
 				      const LIGOTimeGPSVector *startTstack,                   /**< starting GPS time of each stack */
 				      const LIGOTimeGPS refTimeGPS,                           /**< reference time for fkdot values in toplist */
@@ -67,7 +66,7 @@ int XLALComputeExtraStatsForToplist ( toplist_t *list,                          
   XLAL_CHECK ( listEntryType != 0, XLAL_EBADLEN, "Unsupported entry type for input toplist! Supported types currently are: GCTtop, HoughFStat." );
 
   /* set up temporary variables and structs */
-  PulsarDopplerParams candidateDopplerParams = empty_PulsarDopplerParams; /* struct containing sky position, frequency and fdot for the current candidate */
+  PulsarDopplerParams XLAL_INIT_DECL(candidateDopplerParams); /* struct containing sky position, frequency and fdot for the current candidate */
   UINT4 X;
 
   /* initialize doppler parameters */
@@ -76,7 +75,7 @@ int XLALComputeExtraStatsForToplist ( toplist_t *list,                          
   UINT4 numDetectors = detectorIDs->length;
 
   /* initialise LVcomponents structure and allocate memory */
-  LVcomponents   lineVeto = empty_LVcomponents; /* struct containing multi-detector Fstat, single-detector Fstats, Line Veto stat */
+  LVcomponents   XLAL_INIT_DECL(lineVeto); /* struct containing multi-detector Fstat, single-detector Fstats, Line Veto stat */
   XLAL_CHECK ( (lineVeto.TwoFX = XLALCreateREAL4Vector ( numDetectors )) != NULL, XLAL_EFUNC, "Failed call to XLALCreateREAL4Vector( %d ).", numDetectors );
 
   UINT4 j;
@@ -178,7 +177,7 @@ int XLALComputeExtraStatsForToplist ( toplist_t *list,                          
  */
 int XLALComputeExtraStatsSemiCoherent ( LVcomponents *lineVeto,                                 /**< [out] structure containing multi TwoF, single TwoF, LV stat */
 					const PulsarDopplerParams *dopplerParams,               /**< sky position, frequency and fdot for a given candidate */
-					const FstatInputDataVector *Fstat_in_vec,               /**< vector of input data for XLALComputeFstat() */
+					const FstatInputVector *Fstat_in_vec,               /**< vector of input data for XLALComputeFstat() */
 					const LALStringVector *detectorIDs,                     /**< detector name vector with all detectors present in any data sements */
 					const LIGOTimeGPSVector *startTstack,                   /**< starting GPS time of each stack */
 					FILE *singleSegStatsFile                                /**< pointer to file to output Fstats for each segment individually */
@@ -211,10 +210,10 @@ int XLALComputeExtraStatsSemiCoherent ( LVcomponents *lineVeto,                 
   XLAL_CHECK ( ( twoFXseg = XLALCreateREAL4Vector ( numDetectors )) != NULL, XLAL_EFUNC, "Failed call to XLALCreateREAL4Vector( %d ).", numDetectors );
 
   /* internal dopplerParams structure, for extrapolating to correct reftimes for each segment */
-  PulsarDopplerParams dopplerParams_temp = empty_PulsarDopplerParams; /* struct containing sky position, frequency and fdot for the current candidate */
+  PulsarDopplerParams XLAL_INIT_DECL(dopplerParams_temp); /* struct containing sky position, frequency and fdot for the current candidate */
   dopplerParams_temp.Alpha = dopplerParams->Alpha;
   dopplerParams_temp.Delta = dopplerParams->Delta;
-  INIT_MEM( dopplerParams_temp.fkdot );
+  XLAL_INIT_MEM( dopplerParams_temp.fkdot );
 
   /* compute single- and multi-detector Fstats for each data segment and sum up */
   UINT4 k;

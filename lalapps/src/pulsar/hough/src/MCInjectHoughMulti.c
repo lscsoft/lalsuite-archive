@@ -84,9 +84,6 @@
 #define TRUE (1==1)
 #define FALSE (1==0)
 
-
-static REAL8Vector empty_REAL8Vector;
-
 /******************************************/
 void ComputeFoft_NM(LALStatus   *status,
                  REAL8Vector          *foft,
@@ -140,7 +137,8 @@ int main(int argc, char *argv[]){
   UINT4     binsSFT;
 
   /* vector of weights */
-  REAL8Vector      weightsV, weightsNoise,  weightsAM = empty_REAL8Vector;
+  REAL8Vector      weightsV, weightsNoise;
+  REAL8Vector XLAL_INIT_DECL(weightsAM);
   REAL8      alphaPeak, meanN, sigmaN, significance;
   
   REAL4TimeSeries   *signalTseries = NULL;
@@ -390,7 +388,7 @@ int main(int argc, char *argv[]){
 
     if ( LALUserVarWasSet( &uvar_endTime ) ) {
       XLALGPSSetREAL8(&endTimeGPS, uvar_endTime);
-      constraints.maxEndTime = &endTimeGPS;
+      constraints.maxStartTime = &endTimeGPS;
     }
 
    if ( LALUserVarWasSet( &uvar_timeStampsFile ) ) {

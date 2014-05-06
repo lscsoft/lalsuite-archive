@@ -65,7 +65,7 @@ int main(int argc, char **argv)
     SFTVector *sft_vect = NULL;
     INT4 i,j,k,l;
     INT4 numBins, nSFT;
-    SFTConstraints constraints=empty_SFTConstraints;
+    SFTConstraints XLAL_INIT_DECL(constraints);
     LIGOTimeGPS startTime, endTime; 
     REAL8 avg =0;
     REAL4 *timeavg =NULL;
@@ -126,7 +126,7 @@ int main(int argc, char **argv)
     
     endTime.gpsSeconds = endGPS;
     endTime.gpsNanoSeconds = 0;
-    constraints.maxEndTime = &endTime;/*cg; This line puts the end time into the structure constraints*/
+    constraints.maxStartTime = &endTime;/*cg; This line puts the end time into the structure constraints*/
     constraints.detector = IFO;/*cg; this adds the interferometer into the contraints structure*/
     LALSFTdataFind ( &status, &catalog, SFTpatt, &constraints );/*cg; creates SFT catalog, uses the constraints structure*/
 

@@ -90,10 +90,10 @@ int main(int argc,char *argv[])
 {
   FILE *fp = NULL;
   LALStatus status = blank_status;	/* initialize status */
-  SFTConstraints constraints = empty_SFTConstraints;
+  SFTConstraints XLAL_INIT_DECL(constraints);
   SFTCatalog *catalog = NULL;
-  LIGOTimeGPS start = empty_LIGOTimeGPS;
-  LIGOTimeGPS end = empty_LIGOTimeGPS;
+  LIGOTimeGPS XLAL_INIT_DECL(start);
+  LIGOTimeGPS XLAL_INIT_DECL(end);
   INT4 i;
 
   vrbflg = 0;	/* verbose error-messages */
@@ -117,7 +117,7 @@ int main(int argc,char *argv[])
   start.gpsSeconds = (INT4)uvar_tstart;
   end.gpsSeconds = (INT4)uvar_tstart + (INT4)uvar_duration;
   constraints.minStartTime = &start;
-  constraints.maxEndTime = &end;
+  constraints.maxStartTime = &end;
   LALSFTdataFind(&status,&catalog,uvar_sftdir,&constraints);
   
   /* output timestamps to file */
