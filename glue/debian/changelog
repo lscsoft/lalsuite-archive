@@ -1,3 +1,9 @@
+glue (1.46.2-1) unstable; urgency=low
+
+  * Making new version to match tag number.
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Tue, 6 May 2014 14:14:00 -0500
+
 glue (1.46.1-1) unstable; urgency=low
 
   * Adding glue.datafind to debian package. 
