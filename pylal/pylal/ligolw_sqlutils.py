@@ -1213,8 +1213,18 @@ def simplify_summ_tbls(connection, verbose=False, debug=False):
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
+
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+
+        # Now put the indexes back in
+        for idx, sql in relevant_indices:
+            cursor.execute(sql)
+        connection.commit()
+
+        if debug:
+            print >> sys.stderr, "Indexes readded at: %s" % str(time.localtime()[3:6])
+
     else:
         if verbose:
             if not set(table_names) & set(all_tables):
@@ -1281,6 +1291,13 @@ def update_pid_in_snglstbls(connection, verbose=False, debug=False):
         connection.commit()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+        # Now put the indexes back in
+        for idx, sql in relevant_indices:
+            cursor.execute(sql)
+        connection.commit()
+
+        if debug:
+            print >> sys.stderr, "Indexes readded at: %s" % str(time.localtime()[3:6])
     else:
         if verbose:
             if not set(table_names) & set(all_tables):
@@ -1337,6 +1354,15 @@ def simplify_proc_tbls(connection, verbose=False, debug=False):
         connection.commit()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+
+        # Now put the indexes back in
+        for idx, sql in relevant_indices:
+            cursor.execute(sql)
+        connection.commit()
+
+        if debug:
+            print >> sys.stderr, "Indexes readded at: %s" % str(time.localtime()[3:6])
+
     else:
         if verbose:
             print >> sys.stdout, "The process & process_params tables lack duplicates."
@@ -1523,6 +1549,15 @@ def simplify_expr_tbl(connection, verbose=False, debug=False):
         cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+
+        # Now put the indexes back in
+        for idx, sql in relevant_indices:
+            cursor.execute(sql)
+        connection.commit()
+
+        if debug:
+            print >> sys.stderr, "Indexes readded at: %s" % str(time.localtime()[3:6])
+
     else:
         if verbose:
             print >> sys.stdout, "The database is lacks the experiment &/or experiment_summary table(s)."
@@ -1637,6 +1672,15 @@ def simplify_exprsumm_tbl(connection, verbose=False, debug=False):
         cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+
+        # Now put the indexes back in
+        for idx, sql in relevant_indices:
+            cursor.execute(sql)
+        connection.commit()
+
+        if debug:
+            print >> sys.stderr, "Indexes readded at: %s" % str(time.localtime()[3:6])
+
     else:
         if verbose:
             print >> sys.stdout, "The database is lacks the experiment_map &/or experiment_summary table(s)."
@@ -2035,6 +2079,15 @@ def simplify_coincdef_tbl(connection, verbose=False, debug=False):
         cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+
+        # Now put the indexes back in
+        for idx, sql in relevant_indices:
+            cursor.execute(sql)
+        connection.commit()
+
+        if debug:
+            print >> sys.stderr, "Indexes readded at: %s" % str(time.localtime()[3:6])
+
     else:
         if verbose:
             print >> sys.stdout, "This database lacks the coinc_event and coinc_definer tables."
@@ -2460,6 +2513,15 @@ def simplify_sim_tbls(connection, verbose=False, debug=False):
         connection.commit()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+
+        # Now put the indexes back in
+        for idx, sql in relevant_indices:
+            cursor.execute(sql)
+        connection.commit()
+
+        if debug:
+            print >> sys.stderr, "Indexes readded at: %s" % str(time.localtime()[3:6])
+
     else:
         if verbose:
             if not [tbl for tbl in all_tables if 'sim_' in tbl]:
@@ -2616,6 +2678,15 @@ def simplify_segments_tbls(connection, verbose=False, debug=False):
         cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+
+        # Now put the indexes back in
+        for idx, sql in relevant_indices:
+            cursor.execute(sql)
+        connection.commit()
+
+        if debug:
+            print >> sys.stderr, "Indexes readded at: %s" % str(time.localtime()[3:6])
+
     else:
         if verbose:
             print >> sys.stdout, "There are no segments tables in this database"
@@ -2795,6 +2866,15 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
         connection.commit()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+
+        # Now put the indexes back in
+        for idx, sql in relevant_indices:
+            cursor.execute(sql)
+        connection.commit()
+
+        if debug:
+            print >> sys.stderr, "Indexes readded at: %s" % str(time.localtime()[3:6])
+
     else:
         if verbose:
             if 'time_slide' not in all_tables:
@@ -2884,6 +2964,15 @@ def simplify_vetodef_tbl(connection, verbose=False, debug=False):
         cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+
+        # Now put the indexes back in
+        for idx, sql in relevant_indices:
+            cursor.execute(sql)
+        connection.commit()
+
+        if debug:
+            print >> sys.stderr, "Indexes readded at: %s" % str(time.localtime()[3:6])
+
     else:
         if verbose:
             print >> sys.stdout, "This database lacks a veto_definer table."
