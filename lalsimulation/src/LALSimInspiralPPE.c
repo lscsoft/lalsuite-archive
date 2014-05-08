@@ -101,27 +101,61 @@ int XLALSimInspiralPPE(
                      + 75703.L/2.L * eta - 14809.L * eta*eta);
 	
 	/* PPE parameters */
-	REAL8 aPPE=0.0;
-	REAL8 alphaPPE=0.0;
-	REAL8 bPPE=0.0;
-	REAL8 betaPPE=0.0;
 	REAL8 betaStep=0.0;
 	REAL8 fStep=0.0;
         REAL8 vStep=0.0;
 
-	if (extraParams!=NULL) 
-    {
-        if (XLALSimInspiralTestGRParamExists(extraParams,"aPPE")) aPPE = XLALSimInspiralGetTestGRParam(extraParams,"aPPE");
-        if (XLALSimInspiralTestGRParamExists(extraParams,"alphaPPE")) alphaPPE = XLALSimInspiralGetTestGRParam(extraParams,"alphaPPE");
-        if (XLALSimInspiralTestGRParamExists(extraParams,"bPPE")) bPPE = XLALSimInspiralGetTestGRParam(extraParams,"bPPE");
-        if (XLALSimInspiralTestGRParamExists(extraParams,"betaPPE")) betaPPE = XLALSimInspiralGetTestGRParam(extraParams,"betaPPE");
-        if (XLALSimInspiralTestGRParamExists(extraParams,"betaStep")) betaStep = XLALSimInspiralGetTestGRParam(extraParams,"betaStep");
-        if (XLALSimInspiralTestGRParamExists(extraParams,"fStep"))
-        {
-            fStep = XLALSimInspiralGetTestGRParam(extraParams,"fStep");
-            vStep = cbrt(piM*fStep);
-        }
-    }
+	REAL8 *aPPElist=NULL;
+	UINT4 aPPElistCounter = 0;
+	REAL8 *alphaPPElist=NULL;
+	UINT4 alphaPPElistCounter = 0;
+	REAL8 *bPPElist=NULL;
+	UINT4 bPPElistCounter = 0;
+	REAL8 *betaPPElist=NULL;
+	UINT4 betaPPElistCounter = 0;
+	char incrPPEParam[64]; /* PARAMETER TO STORE NEXT PPE PARAMETER TO SEARCH FOR */
+
+	if (extraParams!=NULL) {
+		// FETCH PPE PARAMETERS. INCREMENT NAME (append number at the back) IF
+		// PREVIOUS PARAMETER EXISTS.  DYNAMICALLY CREATE LIST TO STORE THESE PPE
+		// PARAMETERS
+
+		sprintf(incrPPEParam,"%s","aPPE");
+		while(XLALSimInspiralTestGRParamExists(extraParams, incrPPEParam)){
+			aPPElist = realloc(aPPElist, sizeof(REAL8)*(aPPElistCounter+1)); /* INCREASE THE SIZE OF THE LIST */
+			aPPElist[aPPElistCounter] = XLALSimInspiralGetTestGRParam(extraParams,incrPPEParam); /* SET THE VALUE IN THE LIST */
+			sprintf(incrPPEParam, "%s%d","aPPE",++aPPElistCounter); /* CREATE NEW VARIABLE NAME IN PREPARATION OF THE NEXT ITERATION */
+		} 
+
+		sprintf(incrPPEParam,"%s","alphaPPE");
+		while(XLALSimInspiralTestGRParamExists(extraParams, incrPPEParam)){
+			alphaPPElist = realloc(alphaPPElist, sizeof(REAL8)*(alphaPPElistCounter+1)); /* INCREASE THE SIZE OF THE LIST */
+			alphaPPElist[alphaPPElistCounter] = XLALSimInspiralGetTestGRParam(extraParams,incrPPEParam); /* SET THE VALUE IN THE LIST */
+			sprintf(incrPPEParam, "%s%d","alphaPPE",++alphaPPElistCounter); /* CREATE NEW VARIABLE NAME IN PREPARATION OF THE NEXT ITERATION */
+		} 
+
+		sprintf(incrPPEParam,"%s","bPPE");
+		while(XLALSimInspiralTestGRParamExists(extraParams, incrPPEParam)){
+			bPPElist = realloc(bPPElist, sizeof(REAL8)*(bPPElistCounter+1)); /* INCREASE THE SIZE OF THE LIST */
+			bPPElist[bPPElistCounter] = XLALSimInspiralGetTestGRParam(extraParams,incrPPEParam); /* SET THE VALUE IN THE LIST */
+			sprintf(incrPPEParam, "%s%d","bPPE",++bPPElistCounter); /* CREATE NEW VARIABLE NAME IN PREPARATION OF THE NEXT ITERATION */
+		} 
+
+		sprintf(incrPPEParam,"%s","betaPPE");
+		while(XLALSimInspiralTestGRParamExists(extraParams, incrPPEParam)){
+			betaPPElist = realloc(betaPPElist, sizeof(REAL8)*(betaPPElistCounter+1)); /* INCREASE THE SIZE OF THE LIST */
+			betaPPElist[betaPPElistCounter] = XLALSimInspiralGetTestGRParam(extraParams,incrPPEParam); /* SET THE VALUE IN THE LIST */
+			sprintf(incrPPEParam, "%s%d","betaPPE",++betaPPElistCounter); /* CREATE NEW VARIABLE NAME IN PREPARATION OF THE NEXT ITERATION */
+		} 
+
+		if (XLALSimInspiralTestGRParamExists(extraParams,"betaStep")) betaStep = XLALSimInspiralGetTestGRParam(extraParams,"betaStep");
+		if (XLALSimInspiralTestGRParamExists(extraParams,"fStep"))
+		{
+			fStep = XLALSimInspiralGetTestGRParam(extraParams,"fStep");
+			vStep = cbrt(piM*fStep);
+		}
+	}
+
     /* Spin coefficients */
     REAL8 pn_beta = 0;
     REAL8 pn_sigma = 0;
@@ -177,7 +211,7 @@ int XLALSimInspiralPPE(
             break;
     }
 
-    /* Tidal coefficients for phasing, fluz, and energy */
+    /* Tidal coefficients for phasing, flux, and energy */
     REAL8 pft10 = 0.;
     REAL8 pft12 = 0.;
     switch( tideO )
@@ -362,9 +396,39 @@ int XLALSimInspiralPPE(
         dEnergy *= dETaN * v;
         // Note the factor of 2 b/c phic is orbital phase
         phasing += shft * f - 2.*phic;
-		if (betaPPE!=0.0) phasing+=betaPPE*pow(v,bPPE);
+		if (bPPElistCounter == betaPPElistCounter) {
+			UINT4 j;
+			for(j=0; j<bPPElistCounter; j++){
+				phasing+=betaPPElist[j]*pow(v,bPPElist[j]);
+			}
+		} else {
+			free(bPPElist);
+			free(betaPPElist);
+			free(aPPElist);
+			free(alphaPPElist);
+			XLALPrintError("XLAL Error - %s: Unequal number of bPPE (%d) and betaPPE (%d) coefficients\n",
+					__func__, bPPElistCounter, betaPPElistCounter );
+			XLAL_ERROR(XLAL_EINVAL);
+		}
+
         amp = amp0 * sqrt(-dEnergy/flux) * v;
-		if (alphaPPE!=0.0) amp*=(1.0+alphaPPE*pow(v,aPPE));
+		if (aPPElistCounter == alphaPPElistCounter){
+			UINT4 j;
+			REAL8 tmpAmpPPEFactor = 0.0;
+			for (j = 0; j<aPPElistCounter; j++){
+				tmpAmpPPEFactor+=alphaPPElist[j]*pow(v,aPPElist[j]);
+			}
+			amp*=(1.0+tmpAmpPPEFactor);
+		} else {
+			free(bPPElist);
+			free(betaPPElist);
+			free(aPPElist);
+			free(alphaPPElist);
+			XLALPrintError("XLAL Error - %s: Unequal number of aPPE (%d) and alphaPPE (%d) coefficients\n",
+					__func__, aPPElistCounter, alphaPPElistCounter );
+			XLAL_ERROR(XLAL_EINVAL);
+		}
+
                 if (betaStep!=0.0)
                 {
                     if (v > vStep) phasing+=betaStep/v7;
@@ -374,6 +438,10 @@ int XLALSimInspiralPPE(
     }
 
     *htilde_out = htilde;
+		free(bPPElist);
+		free(betaPPElist);
+		free(aPPElist);
+		free(alphaPPElist);
     return XLAL_SUCCESS;
 }
 

@@ -332,6 +332,10 @@ static INT4 getDataOptionsByDetectors(ProcessParamsTable *commandLine, char ***i
 (--inj-lambda2)                 value of lambda1 to be injected, LALSimulation only (0)\n\
 (--inj-spinOrder PNorder)           Specify twice the PN order (e.g. 5 <==> 2.5PN) of spin effects to use, only for LALSimulation (default: -1 <==> Use all spin effects).\n\
 (--inj-tidalOrder PNorder)          Specify twice the PN order (e.g. 10 <==> 5PN) of tidal effects to use, only for LALSimulation (default: -1 <==> Use all tidal effects).\n\
+(--inj-aPPE#)                   Specify PPE a parameter in injection (for PPE waveform only)\n\
+(--inj-alphaPPE#)                   Specify PPE alpha parameter in injection (for PPE waveform only)\n\
+(--inj-bPPE#)                   Specify PPE b parameter in injection (for PPE waveform only)\n\
+(--inj-betaPPE#)                   Specify PPE beta parameter in injection (for PPE waveform only)\n\
 (--snrpath) 			Set a folder where to write a file with the SNRs being injected\n\
 (--0noise)                      Sets the noise realisation to be identically zero (for the fake caches above only)\n"
 
@@ -2310,28 +2314,77 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   
   }
 
-  if (strstr(inj_table->waveform,"PPE")){ 
-  REAL8 aPPE=inj_table->aPPE;
-  LALInferenceAddVariable(IFOdata->modelParams, "aPPE",&aPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-  REAL8 alphaPPE=inj_table->alphaPPE;
-  LALInferenceAddVariable(IFOdata->modelParams, "alphaPPE",&alphaPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-  REAL8 bPPE=inj_table->bPPE;
-  LALInferenceAddVariable(IFOdata->modelParams, "bPPE",&bPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-  REAL8 betaPPE=inj_table->betaPPE;
-  LALInferenceAddVariable(IFOdata->modelParams, "betaPPE",&betaPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-  REAL8 betaStep=inj_table->betaStep;
-  LALInferenceAddVariable(IFOdata->modelParams, "betaStep",&betaStep,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-  REAL8 fStep=inj_table->fStep;
-  LALInferenceAddVariable(IFOdata->modelParams, "fStep",&fStep,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-  fprintf(stdout,"Injecting %s in the frequency domain...\n",inj_table->waveform);
-  fprintf(stdout,"adding aPPE=%1.3f in the injection\n",inj_table->aPPE);
-  fprintf(stdout,"adding alphaPPE=%1.3f in the injection\n",inj_table->alphaPPE);
-  fprintf(stdout,"adding bPPE=%1.3f in the injection\n",inj_table->bPPE);
-              fprintf(stdout,"adding betaPPE=%1.3f in the injection\n",inj_table->betaPPE);
-              fprintf(stdout,"adding betaStep=%1.3f in the injection\n",inj_table->betaStep);
-              fprintf(stdout,"adding fStep=%1.3f in the injection\n",inj_table->fStep);
-  
-  }  
+  if (strstr(inj_table->waveform,"PPE"))
+  {
+      REAL8 aPPE=inj_table->aPPE;
+      LALInferenceAddVariable(IFOdata->modelParams, "aPPE",&aPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+      REAL8 alphaPPE=inj_table->alphaPPE;
+      LALInferenceAddVariable(IFOdata->modelParams, "alphaPPE",&alphaPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+      REAL8 bPPE=inj_table->bPPE;
+      LALInferenceAddVariable(IFOdata->modelParams, "bPPE",&bPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+      REAL8 betaPPE=inj_table->betaPPE;
+      LALInferenceAddVariable(IFOdata->modelParams, "betaPPE",&betaPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+      REAL8 betaStep=inj_table->betaStep;
+      LALInferenceAddVariable(IFOdata->modelParams, "betaStep",&betaStep,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+      REAL8 fStep=inj_table->fStep;
+      LALInferenceAddVariable(IFOdata->modelParams, "fStep",&fStep,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+      fprintf(stdout,"Injecting %s in the frequency domain...\n",inj_table->waveform);
+      fprintf(stdout,"adding aPPE=%1.3f in the injection\n",inj_table->aPPE);
+      fprintf(stdout,"adding alphaPPE=%1.3f in the injection\n",inj_table->alphaPPE);
+      fprintf(stdout,"adding bPPE=%1.3f in the injection\n",inj_table->bPPE);
+      fprintf(stdout,"adding betaPPE=%1.3f in the injection\n",inj_table->betaPPE);
+      fprintf(stdout,"adding betaStep=%1.3f in the injection\n",inj_table->betaStep);
+      fprintf(stdout,"adding fStep=%1.3f in the injection\n",inj_table->fStep);
+      /* amplitude parameters */
+      char aPPEparam[64]="";
+      char alphaPPEparam[64]="";
+      /* phase parameters */
+      char bPPEparam[64]="";
+      char betaPPEparam[64]="";
+      /* command line strings */
+      char aPPECL[64]="";
+      char alphaPPECL[64]="";
+      char bPPECL[64]="";
+      char betaPPECL[64]="";
+      int counters[4]={0};
+      do
+      {
+          sprintf(aPPECL, "%s%d","--inj-aPPE",++counters[0]);
+          sprintf(aPPEparam, "%s%d","aPPE",counters[0]);
+          if(LALInferenceGetProcParamVal(commandLine, aPPECL))
+          {
+              REAL8 aPPE_inj= atof(LALInferenceGetProcParamVal(commandLine,aPPECL)->value);
+              LALInferenceAddVariable(IFOdata->modelParams, aPPEparam,&aPPE_inj,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+              fprintf(stdout,"adding %s=%1.3f in the injection\n",aPPEparam,aPPE_inj);
+          }
+
+          sprintf(alphaPPECL, "%s%d","--inj-alphaPPE",++counters[1]);
+          sprintf(alphaPPEparam, "%s%d","alphaPPE",counters[1]);
+          if(LALInferenceGetProcParamVal(commandLine, alphaPPECL))
+          {
+              REAL8 alphaPPE_inj= atof(LALInferenceGetProcParamVal(commandLine,alphaPPECL)->value);
+              LALInferenceAddVariable(IFOdata->modelParams, alphaPPEparam,&alphaPPE_inj,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+              fprintf(stdout,"adding %s=%1.3f in the injection\n",alphaPPEparam,alphaPPE_inj);
+          }
+          sprintf(bPPECL, "%s%d","--inj-bPPE",++counters[2]);
+          sprintf(bPPEparam, "%s%d","bPPE",counters[2]);
+          if(LALInferenceGetProcParamVal(commandLine, bPPECL))
+          {
+              REAL8 bPPE_inj= atof(LALInferenceGetProcParamVal(commandLine,bPPECL)->value);
+              LALInferenceAddVariable(IFOdata->modelParams, bPPEparam,&bPPE_inj,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+              fprintf(stdout,"adding %s=%1.3f in the injection\n",bPPEparam,bPPE_inj);
+          }
+          sprintf(betaPPECL, "%s%d","--inj-betaPPE",++counters[3]);
+          sprintf(betaPPEparam, "%s%d","betaPPE",counters[3]);
+          if(LALInferenceGetProcParamVal(commandLine, betaPPECL))
+          {
+              REAL8 betaPPE_inj= atof(LALInferenceGetProcParamVal(commandLine,betaPPECL)->value);
+              LALInferenceAddVariable(IFOdata->modelParams, betaPPEparam,&betaPPE_inj,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+              fprintf(stdout,"adding %s=%1.3f in the injection\n",betaPPEparam,betaPPE_inj);
+          }
+      } while((LALInferenceGetProcParamVal(commandLine, aPPECL))||(LALInferenceGetProcParamVal(commandLine, alphaPPECL))||(LALInferenceGetProcParamVal(commandLine, bPPECL))||(LALInferenceGetProcParamVal(commandLine, betaPPECL)));
+        if ((counters[0]!=counters[1])||(counters[2]!=counters[3])) {fprintf(stderr,"Unequal number of PPE parameters in injection detected! Check your command line!"); exit(-1);}
+  }
 
   REAL8 a1=0.0,theta1=0.0,phi1=0.0,a2=0.0,theta2=0.0,phi2=0.0;
   int spin_aligned=0;

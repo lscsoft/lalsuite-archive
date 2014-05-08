@@ -600,7 +600,25 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
 			XLALSimInspiralAddTestGRParam(&nonGRparams,list_extra_parameters[k],*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,list_extra_parameters[k]));
 		}
     }
-    
+  char aPPEparam[64]="";
+  char alphaPPEparam[64]="";
+  /* phase parameters */
+  char bPPEparam[64]="";
+  char betaPPEparam[64]="";
+  int counters[4]={0};
+  do
+  {
+      sprintf(aPPEparam, "%s%d","aPPE",++counters[0]);
+      if(LALInferenceCheckVariable(IFOdata->modelParams,aPPEparam)) XLALSimInspiralAddTestGRParam(&nonGRparams,aPPEparam,*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,aPPEparam));
+      sprintf(alphaPPEparam, "%s%d","alphaPPE",++counters[1]);
+      if(LALInferenceCheckVariable(IFOdata->modelParams,alphaPPEparam)) XLALSimInspiralAddTestGRParam(&nonGRparams,alphaPPEparam,*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,alphaPPEparam));
+      sprintf(bPPEparam, "%s%d","bPPE",++counters[2]);
+      if(LALInferenceCheckVariable(IFOdata->modelParams,bPPEparam)) XLALSimInspiralAddTestGRParam(&nonGRparams,bPPEparam,*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,bPPEparam));
+      sprintf(betaPPEparam, "%s%d","betaPPE",++counters[3]);
+      if(LALInferenceCheckVariable(IFOdata->modelParams,betaPPEparam)) XLALSimInspiralAddTestGRParam(&nonGRparams,betaPPEparam,*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,betaPPEparam));
+      
+  } while((LALInferenceCheckVariable(IFOdata->modelParams,aPPEparam))||(LALInferenceCheckVariable(IFOdata->modelParams,alphaPPEparam))||(LALInferenceCheckVariable(IFOdata->modelParams,bPPEparam))||(LALInferenceCheckVariable(IFOdata->modelParams,betaPPEparam)));
+
 	XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformFromCache(&hptilde, &hctilde, phi0,
             deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
             spin2x, spin2y, spin2z, f_start, f_max, distance, inclination,lambda1, lambda2, IFOdata->waveFlags, nonGRparams, amporder, order,
