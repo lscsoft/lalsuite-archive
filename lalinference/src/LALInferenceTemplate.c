@@ -3,8 +3,8 @@
  *  template functions. Temporary GeneratePPN
  *
  *  Copyright (C) 2009 Ilya Mandel, Vivien Raymond, Christian Roever,
- *  Marc van der Sluys, John Veitch, Will M. Farr and Salvatore Vitale
- *
+ *  Marc van der Sluys, John Veitch, Will M. Farr, Salvatore Vitale
+ *  Walter Del Pozzo, Tjonnie Li
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by

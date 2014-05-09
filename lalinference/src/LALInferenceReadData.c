@@ -2,8 +2,8 @@
  *  LALInferenceReadData.c:  Bayesian Followup functions
  *
  *  Copyright (C) 2009,2012 Ilya Mandel, Vivien Raymond, Christian
- *  Roever, Marc van der Sluys, John Veitch, Salvatore Vitale, and
- *  Will M. Farr
+ *  Roever, Marc van der Sluys, John Veitch, Salvatore Vitale,
+ *  Will M. Farr, Walter Del Pozzo, Tjonnie Li
  *
  *
  *  This program is free software; you can redistribute it and/or modify
