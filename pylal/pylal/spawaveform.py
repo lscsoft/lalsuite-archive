@@ -54,23 +54,31 @@ __date__ = git_version.date
 #
 
 
-def imrchirptime(m1, m2, fLower, chi, ringdown_padding = 250.):
+def imrchirptime(m1, m2, fLower, chi, a = 0.98, e_folds = 10):
 	"""
-	An approximate IMR chirptime
+	An approximate IMR chirptime in seconds.
+
 	FIXME this should be replaced by something better
 
-	1) compute the SPA chirptime up to ringdown frequency at 3.5 PN
-	2) then add 250 M
+	1) compute the SPA chirptime up to ringdown frequency at 3.5 PN, verify that it is nonnegative
+	2) then add efolds worth of ringdown time
+
+	ringdown formula is: 4. * e_folds * (1. - a / (m1+m2))**(-9.0/20.0) * 5e-6
 
 	@param m1 Mass 1
 	@param m2 Mass 2
 	@param fLower the starting frequency
-	@param the effective spin parameter from computechi()
-	@ringdown_padding The padding (in units of M) to apply for the ringdown signal, default 250.
+	@param chi the effective spin parameter from computechi()
+	@param e_folds The number of efolds to use in the ringdown signal duration, default 10
+	@param a The dimensionless spin of the final black hole, default 0.98
 	"""
 
 	fFinal = imrffinal(m1, m2, chi, 'ringdown')
-	return chirptime(m1, m2, 7, fLower, fFinal, chi) + (m1+m2) * ringdown_padding * 5e-6 # add 250 M
+	assert (fFinal > fLower) # demand that the low frequency comes before the ringdown frequency
+	ringdown_time = 4. * e_folds * (1. - a / (m1+m2))**(-9.0/20.0) * 5e-6
+	inspiral_time = chirptime(m1, m2, 7, fLower, fFinal, chi)
+	assert (inspiral_time > 0) # demand positive inspiral times
+	return inspiral_time + ringdown_time
 
 
 def eta(m1, m2):
