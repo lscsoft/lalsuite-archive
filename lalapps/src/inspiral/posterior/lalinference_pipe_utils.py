@@ -418,7 +418,6 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       self.dataseed=None
     # Set up necessary job files.
     self.datafind_job = pipeline.LSCDataFindJob(self.cachepath,self.logpath,self.config,dax=self.is_dax())
-    self.datafind_job.set_universe('vanilla')
     self.datafind_job.add_opt('url-type','file')
     self.datafind_job.set_sub_file(os.path.join(self.basepath,'datafind.sub'))
     # Need to create a job file for each IFO combination
@@ -919,11 +918,15 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
       self.binary=cp.get('condor','lalinferencebambi')
       universe="vanilla"
       self.write_sub_file=self.__write_sub_file_mcmc_mpi
-    else:
+    elif self.engine=='lalinferencenest':
       exe=cp.get('condor',self.engine)
-      if self.site is not None and self.self!='local':
+      if site is not None and site!='local':
         universe='vanilla'
       else: universe="standard"
+    else:
+      print 'LALInferencePipe: Unknown engine node type %s!'%(self.engine)
+      sys.exit(1)
+      
     pipeline.CondorDAGJob.__init__(self,universe,exe)
     pipeline.AnalysisJob.__init__(self,cp,dax=dax)
     # Set grid site if needed
@@ -968,7 +971,7 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
       self.set_universe('vanilla')
     else:
       self.set_universe('standard')
-    pipeline.CondorDAGJob.set_grid_site(site)
+    pipeline.CondorDAGJob.set_grid_site(self,site)
  
   def __write_sub_file_mcmc_mpi(self):
     """

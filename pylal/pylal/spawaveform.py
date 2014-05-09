@@ -54,6 +54,25 @@ __date__ = git_version.date
 #
 
 
+def imrchirptime(m1, m2, fLower, chi, ringdown_padding = 250.):
+	"""
+	An approximate IMR chirptime
+	FIXME this should be replaced by something better
+
+	1) compute the SPA chirptime up to ringdown frequency at 3.5 PN
+	2) then add 250 M
+
+	@param m1 Mass 1
+	@param m2 Mass 2
+	@param fLower the starting frequency
+	@param the effective spin parameter from computechi()
+	@ringdown_padding The padding (in units of M) to apply for the ringdown signal, default 250.
+	"""
+
+	fFinal = imrffinal(m1, m2, chi, 'ringdown')
+	return chirptime(m1, m2, 7, fLower, fFinal, chi) + (m1+m2) * ringdown_padding * 5e-6 # add 250 M
+
+
 def eta(m1, m2):
 	"""
 	Compute the symmetric mass ratio, eta.
