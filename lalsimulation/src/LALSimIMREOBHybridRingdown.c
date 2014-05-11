@@ -502,11 +502,11 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
             spin1[2],spin2[2],mTot/LAL_MTSUN_SI,a,chi,NRPeakOmega22*mTot);*/
           sh = 0.;
           //freq7sav = modefreqs->data[7]; 
-          modefreqs->data[7] = (2./3. * NRPeakOmega22/finalMass) + (1./3. * creal(modefreqs->data[0])) / 2.;
+          modefreqs->data[7] = (2./3. * NRPeakOmega22/finalMass) + (1./3. * creal(modefreqs->data[0]));
           modefreqs->data[7] += I * 3.5/0.9 * cimag(modefreqs->data[0]);
           modefreqs->data[6] = (3./4. * NRPeakOmega22/finalMass) + (1./4. * creal(modefreqs->data[0]));
           modefreqs->data[6] += I * 3.5 * cimag(modefreqs->data[0]);
-     
+
           /* For extreme chi (>= 0.8), the ringdown attachment should end
            * slightly before the value given passed to this function. sh
            * gives exactly how long before. */
@@ -569,7 +569,7 @@ printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[5])*mTot, 1./cimag(modefreqs->
       }
       for (j = 0; j < nmodes; j++)
       {
-        //printf("QNM frequencies: %d %d %d %e %e\n",l,m,j,creal(modefreqs->data[j])*mTot,1./cimag(modefreqs->data[j])/mTot);
+        //printf("QNM frequencies: %d %d %d %f %f\n",l,m,j,creal(modefreqs->data[j])*mTot,1./cimag(modefreqs->data[j])/mTot);
       }
 
       /* Ringdown signal length: 10 times the decay time of the n=0 mode */
