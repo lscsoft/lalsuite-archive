@@ -54,7 +54,7 @@ __date__ = git_version.date
 #
 
 
-def imrchirptime(m1, m2, fLower, chi, a = 0.98, e_folds = 10):
+def imrchirptime(m1, m2, fLower, chi, a_hat = 0.98, e_folds = 10):
 	"""
 	An approximate IMR chirptime in seconds.
 
@@ -65,7 +65,7 @@ def imrchirptime(m1, m2, fLower, chi, a = 0.98, e_folds = 10):
 
 	Ringdown decay time forumla in solar masses is:
 
-	tau = 2 * (m1+m2) * 5e-6 * (0.7 + 1.4187 * (1-a)**-0.4990) / (1.5251 - 1.1568 * (1-a)**0.1292)
+	tau = 2 * (m1+m2) * 5e-6 * (0.7 + 1.4187 * (1-a_hat)**-0.4990) / (1.5251 - 1.1568 * (1-a_hat)**0.1292)
 
 	from (7-9) of LIGO-P1300156.  
 
@@ -74,13 +74,13 @@ def imrchirptime(m1, m2, fLower, chi, a = 0.98, e_folds = 10):
 	@param fLower the starting frequency
 	@param chi the effective spin parameter from computechi()
 	@param e_folds The number of efolds to use in the ringdown signal duration, default 10
-	@param a The dimensionless spin of the final black hole, default 0.98
+	@param a_hat The dimensionless spin of the final black hole, default 0.98
 	"""
 
-	assert (a < 0.9999999999999999) # demand spin less than 1 (or approximately the closest floating point representation of 1)
+	assert (a_hat < 0.9999999999999999) # demand spin less than 1 (or approximately the closest floating point representation of 1)
 	fFinal = imrffinal(m1, m2, chi, 'ringdown')
 	assert (fFinal > fLower) # demand that the low frequency comes before the ringdown frequency
-	tau = 2 * (m1+m2) * 5e-6 * (0.7 + 1.4187 * (1-a)**-0.4990) / (1.5251 - 1.1568 * (1-a)**0.1292)
+	tau = 2 * (m1+m2) * 5e-6 * (0.7 + 1.4187 * (1-a_hat)**-0.4990) / (1.5251 - 1.1568 * (1-a_hat)**0.1292)
 	inspiral_time = chirptime(m1, m2, 7, fLower, fFinal, chi)
 	assert (inspiral_time > 0) # demand positive inspiral times
 	return inspiral_time + e_folds * tau
