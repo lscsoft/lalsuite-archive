@@ -65,7 +65,7 @@ def imrchirptime(m1, m2, fLower, chi, a = 0.98, e_folds = 10):
 
 	Ringdown decay time forumla in solar masses is:
 
-	tau = 2 * (m1+m1) * 5e-6 * (0.7 + 1.4187 * (1-a)**-0.4990) / (1.5251 - 1.1568 * (1-a)**0.1292)
+	tau = 2 * (m1+m2) * 5e-6 * (0.7 + 1.4187 * (1-a)**-0.4990) / (1.5251 - 1.1568 * (1-a)**0.1292)
 
 	from (7-9) of LIGO-P1300156.  
 
@@ -80,7 +80,7 @@ def imrchirptime(m1, m2, fLower, chi, a = 0.98, e_folds = 10):
 	assert (a < 0.9999999999999999) # demand spin less than 1 (or approximately the closest floating point representation of 1)
 	fFinal = imrffinal(m1, m2, chi, 'ringdown')
 	assert (fFinal > fLower) # demand that the low frequency comes before the ringdown frequency
-	tau = 2 * (m1+m1) * 5e-6 * (0.7 + 1.4187 * (1-a)**-0.4990) / (1.5251 - 1.1568 * (1-a)**0.1292)
+	tau = 2 * (m1+m2) * 5e-6 * (0.7 + 1.4187 * (1-a)**-0.4990) / (1.5251 - 1.1568 * (1-a)**0.1292)
 	inspiral_time = chirptime(m1, m2, 7, fLower, fFinal, chi)
 	assert (inspiral_time > 0) # demand positive inspiral times
 	return inspiral_time + e_folds * tau
