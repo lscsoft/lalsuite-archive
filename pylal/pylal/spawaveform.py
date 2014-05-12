@@ -63,11 +63,11 @@ def imrchirptime(m1, m2, fLower, chi, a = 0.98, e_folds = 10):
 	1) compute the SPA chirptime up to ringdown frequency at 3.5 PN, verify that it is nonnegative
 	2) then add efolds worth of ringdown time
 
-	Ringdown decay time forumla is:
+	Ringdown decay time forumla in solar masses is:
 
 	tau = 2 * (m1+m1) * 5e-6 * (0.7 + 1.4187 * (1-a)**-0.4990) / (1.5251 - 1.1568 * (1-a)**0.1292)
 
-	from (7-9) of LIGO-P1300156
+	from (7-9) of LIGO-P1300156.  
 
 	@param m1 Mass 1
 	@param m2 Mass 2
