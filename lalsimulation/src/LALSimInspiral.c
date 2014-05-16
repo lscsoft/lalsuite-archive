@@ -1889,7 +1889,7 @@ int XLALSimInspiralChooseTDWaveform(
             // NB: f_max = 0 will generate up to the ringdown cut-off frequency
             ret = XLALSimIMRPhenomBGenerateTD(hplus, hcross, phiRef, deltaT,
                     m1, m2, XLALSimIMRPhenomBComputeChi(m1, m2, S1z, S2z),
-                    f_min, 0., r, i);
+                    f_min, 0., r, i, nonGRparams);
             break;
 
         case PhenSpinTaylor:
@@ -2241,7 +2241,7 @@ int XLALSimInspiralChooseFDWaveform(
             /* Call the waveform driver routine */
             ret = XLALSimIMRPhenomBGenerateFD(hptilde, phiRef, deltaF, m1, m2,
                     XLALSimIMRPhenomBComputeChi(m1, m2, S1z, S2z),
-                    f_min, f_max, r);
+                    f_min, f_max, r, nonGRparams);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             /* The above returns h(f) for optimal orientation (i=0, Fp=1, Fc=0)
              * To get generic polarizations we multiply by incl. dependence

@@ -64,9 +64,9 @@ static size_t NextPow2(const size_t n);
 static REAL8 LorentzianFn(const REAL8 freq, const REAL8 fRing, const REAL8 sigma);
 
 static int IMRPhenomAGenerateFD(COMPLEX16FrequencySeries **htilde, const REAL8 phi0, const REAL8 deltaF, const REAL8 m1, const REAL8 m2, const REAL8 f_min, const REAL8 f_max, const REAL8 distance, const BBHPhenomParams *params);
-static int IMRPhenomBGenerateFD(COMPLEX16FrequencySeries **htilde, const REAL8 phi0, const REAL8 deltaF, const REAL8 m1, const REAL8 m2, const REAL8 chi, const REAL8 f_min, const REAL8 f_max, const REAL8 distance, const BBHPhenomParams *params);
+static int IMRPhenomBGenerateFD(COMPLEX16FrequencySeries **htilde, const REAL8 phi0, const REAL8 deltaF, const REAL8 m1, const REAL8 m2, const REAL8 chi, const REAL8 f_min, const REAL8 f_max, const REAL8 distance, const BBHPhenomParams *params, const LALSimInspiralTestGRParam *nonGRparams);
 static int IMRPhenomAGenerateTD(REAL8TimeSeries **h, const REAL8 phiPeak, const REAL8 deltaT, const REAL8 m1, const REAL8 m2, const REAL8 f_min, const REAL8 f_max, const REAL8 distance, const BBHPhenomParams *params);
-static int IMRPhenomBGenerateTD(REAL8TimeSeries **h, const REAL8 phiPeak, const REAL8 deltaT, const REAL8 m1, const REAL8 m2, const REAL8 chi, const REAL8 f_min, const REAL8 f_max, const REAL8 distance, const BBHPhenomParams *params);
+static int IMRPhenomBGenerateTD(REAL8TimeSeries **h, const REAL8 phiPeak, const REAL8 deltaT, const REAL8 m1, const REAL8 m2, const REAL8 chi, const REAL8 f_min, const REAL8 f_max, const REAL8 distance, const BBHPhenomParams *params, const LALSimInspiralTestGRParam *nonGRparams);
 static int FDToTD(REAL8TimeSeries **signalTD, const COMPLEX16FrequencySeries *signalFD, const REAL8 totalMass, const REAL8 deltaT, const REAL8 f_min, const REAL8 f_max, const REAL8 f_min_wide, const REAL8 f_max_wide);
 static size_t find_instant_freq(const REAL8TimeSeries *hp, const REAL8TimeSeries *hc, const REAL8 target, const size_t start);
 static size_t find_peak_amp(const REAL8TimeSeries *hp, const REAL8TimeSeries *hc);
@@ -284,7 +284,8 @@ int XLALSimIMRPhenomBGenerateTD(
     const REAL8 f_min,        /**< starting GW frequency (Hz) */
     const REAL8 f_max,        /**< end GW frequency; 0 defaults to ringdown cutoff freq */
     const REAL8 distance,     /**< distance of source (m) */
-    const REAL8 inclination   /**< inclination of source (rad) */
+    const REAL8 inclination,   /**< inclination of source (rad) */
+    const LALSimInspiralTestGRParam *nonGRparams
 ) {
   BBHPhenomParams *params;
   size_t cut_ind, peak_ind;
@@ -322,7 +323,7 @@ int XLALSimIMRPhenomBGenerateTD(
   }
 
   /* generate plus */
-  IMRPhenomBGenerateTD(hplus, 0., deltaT, m1, m2, chi, f_min, f_max_prime, distance, params);
+  IMRPhenomBGenerateTD(hplus, 0., deltaT, m1, m2, chi, f_min, f_max_prime, distance, params, nonGRparams);
   if (!(*hplus)) {
       XLALFree(params);
       XLAL_ERROR(XLAL_EFUNC);
@@ -330,7 +331,7 @@ int XLALSimIMRPhenomBGenerateTD(
 
   /* generate hcross, which is hplus w/ GW phase shifted by pi/2
    * <==> orb. phase shifted by pi/4 */
-  IMRPhenomBGenerateTD(hcross, LAL_PI_4, deltaT, m1, m2, chi, f_min, f_max_prime, distance, params);
+  IMRPhenomBGenerateTD(hcross, LAL_PI_4, deltaT, m1, m2, chi, f_min, f_max_prime, distance, params, nonGRparams);
   XLALFree(params);
   if (!(*hcross)) {
       XLALDestroyREAL8TimeSeries(*hplus);
@@ -377,7 +378,8 @@ int XLALSimIMRPhenomBGenerateFD(
     const REAL8 chi,                   /**< mass-weighted aligned-spin parameter */
     const REAL8 f_min,                 /**< starting GW frequency (Hz) */
     const REAL8 f_max,                 /**< end frequency; 0 defaults to ringdown cutoff freq */
-    const REAL8 distance               /**< distance of source (m) */
+    const REAL8 distance,               /**< distance of source (m) */
+    const LALSimInspiralTestGRParam *nonGRparams
 ) {
   BBHPhenomParams *params;
   int status;
@@ -412,7 +414,7 @@ int XLALSimIMRPhenomBGenerateFD(
       XLAL_ERROR(XLAL_EDOM);
   }
 
-  status = IMRPhenomBGenerateFD(htilde, phi0, deltaF, m1, m2, chi, f_min, f_max_prime, distance, params);
+  status = IMRPhenomBGenerateFD(htilde, phi0, deltaF, m1, m2, chi, f_min, f_max_prime, distance, params, nonGRparams);
   LALFree(params);
   return status;
 }
@@ -722,7 +724,8 @@ static int IMRPhenomBGenerateFD(
     const REAL8 f_min,                 /**< start frequency */
     const REAL8 f_max,                 /**< end frequency */
     const REAL8 distance,              /**< distance of source */
-    const BBHPhenomParams *params      /**< from ComputeIMRPhenomBParams */
+    const BBHPhenomParams *params,      /**< from ComputeIMRPhenomBParams */
+    const LALSimInspiralTestGRParam  *nonGRparams
 ) {
   static LIGOTimeGPS ligotimegps_zero = {0, 0};
   size_t i;
@@ -789,13 +792,27 @@ static int IMRPhenomBGenerateFD(
       ampEff = w2 * LorentzianFn(f, fRing, sigma);
     else /* fMerg < f <= fRing */
       ampEff = w1 * pow(f / fMerg, mergPower) * (1. + epsilon_1 * v + epsilon_2 * v2);
+      REAL8 dphi0=0.0,dphi1=0.0,dphi2=0.0,dphi3=0.0,dphi4=0.0,dphi5=0.0,dphi6=0.0,dphi7=0.0,dphi8=0.0;
+      if (nonGRparams!=NULL)
+      {
+          //printf("Adding test params shifts %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf\n",XLALSimInspiralGetTestGRParam(extraParams,"dchi0"),XLALSimInspiralGetTestGRParam(extraParams,"dchi1"),XLALSimInspiralGetTestGRParam(extraParams,"dchi2"),XLALSimInspiralGetTestGRParam(extraParams,"dchi3"),XLALSimInspiralGetTestGRParam(extraParams,"dchi4"),XLALSimInspiralGetTestGRParam(extraParams,"dchi5"),XLALSimInspiralGetTestGRParam(extraParams,"dchi5l"),XLALSimInspiralGetTestGRParam(extraParams,"dchi6"),XLALSimInspiralGetTestGRParam(extraParams,"dchi6l"),XLALSimInspiralGetTestGRParam(extraParams,"dchi7"));
+          if (XLALSimInspiralTestGRParamExists(nonGRparams,"dchi0")) dphi0 = XLALSimInspiralGetTestGRParam(nonGRparams,"dchi0");
+          if (XLALSimInspiralTestGRParamExists(nonGRparams,"dchi1")) dphi1 = XLALSimInspiralGetTestGRParam(nonGRparams,"dchi1");
+          if (XLALSimInspiralTestGRParamExists(nonGRparams,"dchi2")) dphi2 = XLALSimInspiralGetTestGRParam(nonGRparams,"dchi2");
+          if (XLALSimInspiralTestGRParamExists(nonGRparams,"dchi3")) dphi3 = XLALSimInspiralGetTestGRParam(nonGRparams,"dchi3");
+          if (XLALSimInspiralTestGRParamExists(nonGRparams,"dchi4")) dphi4 = XLALSimInspiralGetTestGRParam(nonGRparams,"dchi4");
+          if (XLALSimInspiralTestGRParamExists(nonGRparams,"dchi5")) dphi5 = XLALSimInspiralGetTestGRParam(nonGRparams,"dchi5");
+          if (XLALSimInspiralTestGRParamExists(nonGRparams,"dchi6")) dphi6 = XLALSimInspiralGetTestGRParam(nonGRparams,"dchi6");
+          if (XLALSimInspiralTestGRParamExists(nonGRparams,"dchi7")) dphi7 = XLALSimInspiralGetTestGRParam(nonGRparams,"dchi7");
+          if (XLALSimInspiralTestGRParamExists(nonGRparams,"dchi8")) dphi8 = XLALSimInspiralGetTestGRParam(nonGRparams,"dchi8");
+      }
 
     /* now compute the phase */
     psiEff = -2.*phi0
-      + 3./(128.*eta*v5)*(1 + params->psi2*v2
-      + params->psi3*v3 + params->psi4*v4
-      + params->psi5*v5 + params->psi6*v6
-      + params->psi7*v7 + params->psi8*v8);
+      + 3./(128.*eta*v5)*(1*(1.0+dphi0) + dphi1*v +params->psi2*v2*(1.0+dphi2)
+      + params->psi3*v3*(1.0+dphi3) + params->psi4*v4*(1.0+dphi4)
+      + params->psi5*v5*(1.0+dphi5) + params->psi6*v6*(1.0+dphi6)
+      + params->psi7*v7*(1.0+dphi7) + params->psi8*v8*(1.0+dphi8));
 
     /* generate the waveform */
     ((*htilde)->data->data)[i] = amp0 * ampEff * cos(psiEff);
@@ -836,7 +853,7 @@ static int IMRPhenomAGenerateTD(REAL8TimeSeries **h, const REAL8 phi0, const REA
 /**
  * Private function to generate time-domain waveforms given coefficients
  */
-static int IMRPhenomBGenerateTD(REAL8TimeSeries **h, const REAL8 phi0, const REAL8 deltaT, const REAL8 m1, const REAL8 m2, const REAL8 chi, const REAL8 f_min, const REAL8 f_max, const REAL8 distance, const BBHPhenomParams *params) {
+static int IMRPhenomBGenerateTD(REAL8TimeSeries **h, const REAL8 phi0, const REAL8 deltaT, const REAL8 m1, const REAL8 m2, const REAL8 chi, const REAL8 f_min, const REAL8 f_max, const REAL8 distance, const BBHPhenomParams *params, const LALSimInspiralTestGRParam *nonGRparams) {
   REAL8 deltaF;
   COMPLEX16FrequencySeries *htilde=NULL;
   /* We will generate the waveform from a frequency which is lower than the
@@ -850,7 +867,7 @@ static int IMRPhenomBGenerateTD(REAL8TimeSeries **h, const REAL8 phi0, const REA
   deltaF = 1. / (deltaT * NextPow2(EstimateIMRLength(m1, m2, f_min_wide, deltaT)));
 
   /* generate in frequency domain */
-  if (IMRPhenomBGenerateFD(&htilde, phi0, deltaF, m1, m2, chi, f_min_wide, f_max_wide, distance, params)) XLAL_ERROR(XLAL_EFUNC);
+  if (IMRPhenomBGenerateFD(&htilde, phi0, deltaF, m1, m2, chi, f_min_wide, f_max_wide, distance, params, nonGRparams)) XLAL_ERROR(XLAL_EFUNC);
 
   /* convert to time domain */
   FDToTD(h, htilde, m1 + m2, deltaT, f_min, f_max, f_min_wide, f_max_wide);

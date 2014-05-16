@@ -266,6 +266,7 @@ int XLALSimInspiralTaylorF2Test(
     /* Fill with non-zero vals from fStart to f_max */
     iStart = (size_t) ceil(fStart / deltaF);
     data = htilde->data->data;
+
     for (i = iStart; i < n; i++) {
         const REAL8 f = i * deltaF;
         const REAL8 v = cbrt(piM*f);

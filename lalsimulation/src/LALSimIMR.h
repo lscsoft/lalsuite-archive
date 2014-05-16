@@ -132,7 +132,8 @@ int XLALSimIMRPhenomBGenerateFD(
     const REAL8 chi,                   /**< mass-weighted aligned-spin parameter */
     const REAL8 f_min,                 /**< starting GW frequency (Hz) */
     const REAL8 f_max,                 /**< end frequency; 0 defaults to ringdown cutoff freq */
-    const REAL8 distance               /**< distance of source (m) */
+    const REAL8 distance,               /**< distance of source (m) */
+    const LALSimInspiralTestGRParam *nonGRparams
 );
 
 /**
@@ -156,7 +157,8 @@ int XLALSimIMRPhenomBGenerateTD(
     const REAL8 f_min,        /**< starting GW frequency (Hz) */
     const REAL8 f_max,        /**< end frequency; 0 defaults to ringdown cutoff freq */
     const REAL8 distance,     /**< distance of source (m) */
-    const REAL8 inclination   /**< inclination of source (rad) */
+    const REAL8 inclination,   /**< inclination of source (rad) */
+    const LALSimInspiralTestGRParam *nonGRparams
 );
 
 /**
