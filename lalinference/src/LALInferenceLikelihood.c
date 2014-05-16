@@ -91,7 +91,7 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
     fprintf(stderr, "Using noise-only likelihood.\n");
     runState->likelihood=&LALInferenceNoiseOnlyLogLikelihood;
    }  else if (ppt){
-     if(!strcmp("SineGaussian",ppt->value) || !strcmp("SineGaussianF",ppt->value)|| !strcmp("Gaussian",ppt->value)|| !strcmp("GaussianF",ppt->value)){
+     if(!strcmp("SineGaussian",ppt->value) || !strcmp("DampedSinusoid",ppt->value)|| !strcmp("DampedSinusoidF",ppt->value) || !strcmp("SineGaussianF",ppt->value)|| !strcmp("Gaussian",ppt->value)|| !strcmp("GaussianF",ppt->value)){
         runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_Burst;
         printf("setting Burst Likelihood ----- \n");
         }

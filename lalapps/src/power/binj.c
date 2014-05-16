@@ -114,7 +114,8 @@ enum population {
     POPULATION_ALL_SKY_GAUSSIAN,
 	POPULATION_ALL_SKY_SINEGAUSSIAN_F,
 	POPULATION_ALL_SKY_BTLWNB,
-	POPULATION_STRING_CUSP
+	POPULATION_STRING_CUSP,
+        POPULATION_ALL_SKY_DAMPEDSINUSOID
 };
 
 typedef enum tagParDistr {
@@ -583,6 +584,8 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 			options.population = POPULATION_ALL_SKY_SINEGAUSSIAN;
         else if(!strcmp(optarg, "all_sky_gaussian"))
 			options.population = POPULATION_ALL_SKY_GAUSSIAN;
+                else if(!strcmp(optarg, "all_sky_DampedSinusoid"))
+                       options.population = POPULATION_ALL_SKY_DAMPEDSINUSOID;
 		else if(!strcmp(optarg, "all_sky_btlwnb"))
 			options.population = POPULATION_ALL_SKY_BTLWNB;
 		else {
@@ -996,6 +999,7 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 	case POPULATION_ALL_SKY_BTLWNB:
 	case POPULATION_STRING_CUSP:
 	case POPULATION_ALL_SKY_SINEGAUSSIAN_F:
+        case POPULATION_ALL_SKY_DAMPEDSINUSOID:
 		break;
 
 	default:
@@ -1560,6 +1564,8 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 		strcpy(sim_burst->waveform, "SineGaussianF");
     else if (options->population==POPULATION_ALL_SKY_GAUSSIAN)
         strcpy(sim_burst->waveform, "Gaussian");
+    else if (options->population==POPULATION_ALL_SKY_DAMPEDSINUSOID)
+        strcpy(sim_burst->waveform, "DampedSinusoid");
     else{
         fprintf(stderr,"Unrecognized population %d. Exiting\n",options->population);
         exit(1);
@@ -1923,7 +1929,8 @@ int main(int argc, char *argv[])
 
 		case POPULATION_ALL_SKY_SINEGAUSSIAN:
 		case POPULATION_ALL_SKY_SINEGAUSSIAN_F:
-    case POPULATION_ALL_SKY_GAUSSIAN:
+                case POPULATION_ALL_SKY_GAUSSIAN:
+                case POPULATION_ALL_SKY_DAMPEDSINUSOID:
 			*sim_burst = random_all_sky_sineGaussian(rng, &options,tinj);
 			break;
 
@@ -2170,7 +2177,7 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 	if(!strcmp(WF,"SineGaussianF")||!strcmp(WF,"GaussianF"))
 			modelDomain=LAL_SIM_BURST_DOMAIN_FREQUENCY;
 			
-	else if (!strcmp(WF,"SineGaussian") ||!strcmp(WF,"Gaussian"))
+	else if (!strcmp(WF,"SineGaussian") ||!strcmp(WF,"Gaussian") ||!strcmp(WF,"DampedSinusoid"))
             modelDomain=LAL_SIM_BURST_DOMAIN_TIME;
 			
     LIGOTimeGPS		    epoch;  

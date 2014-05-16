@@ -3079,10 +3079,10 @@ LALInferenceTimeDelaysJump(LALInferenceRunState *runState, LALInferenceVariables
   REAL8 Gamma=delta/eta_xy;
   REAL8 zeta=eta_xz/eta_xy;
   
-  REAL8 gamma=(delta_xy[1]*eta_xz/eta_xy - delta_xy[2])/delta_xy[0];
+  REAL8 gama=(delta_xy[1]*eta_xz/eta_xy - delta_xy[2])/delta_xy[0];
   REAL8 epsilon= (chi12-delta/eta_xy*delta_xy[1])/delta_xy[0];
-  REAL8 A=1.0+zeta*zeta+gamma*gamma;
-  REAL8 B=2.0*(epsilon*gamma-Gamma*zeta);
+  REAL8 A=1.0+zeta*zeta+gama*gama;
+  REAL8 B=2.0*(epsilon*gama-Gamma*zeta);
   REAL8 C=-(dist*dist-Gamma*Gamma -epsilon*epsilon + ((REAL8) N_geo)*((REAL8) N_geo)*LAL_C_SI*LAL_C_SI/freq/freq);
   
   if ((B*B-4.0*A*C)<0){
@@ -3096,7 +3096,7 @@ LALInferenceTimeDelaysJump(LALInferenceRunState *runState, LALInferenceVariables
   //REAL8 pz_two= (-B - sdeterminant)/2.0/A;
   //printf("roots are %lf %lf\n",pz_one,pz_two);
   REAL8 pz=pz_one;
-  REAL8 px=pz*gamma + epsilon;
+  REAL8 px=pz*gama + epsilon;
   REAL8 py=Gamma-pz*zeta;
 
   //printf("new  %f %f %f\n",px,py,pz);
