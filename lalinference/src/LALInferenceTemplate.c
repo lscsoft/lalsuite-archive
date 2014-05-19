@@ -1862,13 +1862,16 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
       lambda1 = XLALSimInspiralEOSLambda(equation_of_state, m1)/(m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI); /* gives lambda1/m1^5 (dimensionless) */
       lambda2 = XLALSimInspiralEOSLambda(equation_of_state, m2)/(m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI); /* gives lambda2/m2^5 (dimensionless) */
       // 	fprintf(stderr, "Equation of State (LalInfTemplate): %d\n", equation_of_state);
-  }   else if (LALInferenceCheckVariable(IFOdata->modelParams, "c0") && LALInferenceCheckVariable(IFOdata->modelParams, "c1") && LALInferenceCheckVariable(IFOdata->modelParams, "c2")) {
+  }   else if (LALInferenceCheckVariable(IFOdata->modelParams, "c0") && LALInferenceCheckVariable(IFOdata->modelParams, "c1")) {
        REAL8 c0, c1, c2;
        c0 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "c0");     
-       c1 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "c1");     
-       c2 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "c2"); 
+       c1 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "c1");
+       /* if c2 is not registered as variable then use linear approximation (c2=0) */     
+       if ( LALInferenceCheckVariable(IFOdata->modelParams, "c2") ) {
+         c2 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "c2"); 
+	 } else { c2 = 0.0; }
        lambda1 = XLALLambdaQuadratic(c0, c1, c2, m1)/(m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI);
-       lambda2 = XLALLambdaQuadratic(c0, c1, c2, m2)/(m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI);
+       lambda2 = XLALLambdaQuadratic(c0, c1, c2, m2)/(m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI); 	   
   }
   
   LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
