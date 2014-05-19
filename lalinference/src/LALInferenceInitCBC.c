@@ -220,9 +220,9 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
                (--dt time)                             Width of time prior, centred around trigger (0.1s).\n\
                Equation of state parameters:\n\
                (--lambda1-min)                         Minimum lambda1 (0).\n\
-               (--lambda1-max)                         Maximum lambda1 (3000).\n\
+               (--lambda1-max)                         Maximum lambda1 (5E-23 s^5).\n\
                (--lambda2-min)                         Minimum lambda2 (0).\n\
-               (--lambda2-max)                         Maximum lambda2 (3000).\n\
+               (--lambda2-max)                         Maximum lambda2 (5E-23 s^5).\n\
                (--lambdaT-min)                         Minimum lambdaT (0).\n\
                (--lambdaT-max)                         Maximum lambdaT (3000).\n\
                (--dLambdaT-min)                        Minimum dLambdaT (-500).\n\
@@ -316,9 +316,9 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
   REAL8 phi2min=0.0,phi2max=LAL_TWOPI;
   REAL8 dt=0.1;            /* Width of time prior */
   REAL8 lambda1Min=0.0;
-  REAL8 lambda1Max=3000.0;
+  REAL8 lambda1Max=5.0;
   REAL8 lambda2Min=0.0;
-  REAL8 lambda2Max=3000.0;
+  REAL8 lambda2Max=5.0;
   REAL8 lambdaTMin=0.0;
   REAL8 lambdaTMax=3000.0;
   REAL8 dLambdaTMin=-500.0;
@@ -1384,6 +1384,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
     LALInferenceRegisterUniformVariableREAL8(state, currentParams, "dLambdaT", 0.0, dLambdaTMin, dLambdaTMax, LALINFERENCE_PARAM_LINEAR);
     
   } else if(LALInferenceGetProcParamVal(commandLine,"--tidal")){
+    fprintf(stdout, "Template uses lambda1 and lambda2 as free parameters in [%f,%f]x10^{-23} [s^5].\n", lambda1Min, lambda1Max);
     LALInferenceRegisterUniformVariableREAL8(state, currentParams, "lambda1", 0.0, lambda1Min, lambda1Max, LALINFERENCE_PARAM_LINEAR);
     LALInferenceRegisterUniformVariableREAL8(state, currentParams, "lambda2", 0.0, lambda2Min, lambda2Max, LALINFERENCE_PARAM_LINEAR);
     

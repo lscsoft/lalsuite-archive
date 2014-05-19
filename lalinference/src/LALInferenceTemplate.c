@@ -1845,9 +1845,19 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   distance	= LAL_PC_SI * 1.0e6;        /* distance (1 Mpc) in units of metres */
 	
   REAL8 lambda1 = 0.;
-  if(LALInferenceCheckVariable(IFOdata->modelParams, "lambda1")) lambda1 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "lambda1");
+  if(LALInferenceCheckVariable(IFOdata->modelParams, "lambda1")) {
+    lambda1 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "lambda1");
+    // fprintf(stdout, "sampled lambda1=%f  (m1=%f)\n", lambda1, m1);
+    lambda1 *= 1E-23/(m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI);
+    // fprintf(stdout, "dimensionless lambda1=%f\n", lambda1);
+  }
   REAL8 lambda2 = 0.;
-  if(LALInferenceCheckVariable(IFOdata->modelParams, "lambda2")) lambda2 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "lambda2");
+  if(LALInferenceCheckVariable(IFOdata->modelParams, "lambda2")) {
+    lambda2 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "lambda2");
+    // fprintf(stdout, "sampled lambda2=%f (m2=%f)\n", lambda2, m2);
+    lambda2 *= 1E-23/(m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI);
+    // fprintf(stdout, "dimensionless lambda2=%f\n", lambda2);
+  }
   REAL8 lambdaT = 0.;
   REAL8 dLambdaT = 0.;
   REAL8 sym_mass_ratio_eta = 0.;
