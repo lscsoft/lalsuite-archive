@@ -1389,10 +1389,12 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
     
   }
   else if(LALInferenceGetProcParamVal(commandLine,"--tidal-lin")){
+	  fprintf(stdout, "Running with linearized EOS model, c0 in [%f,%f]x10^{-23} [s^5], c1 in [%f,%f]x10^{-18} [s^4]\n", c0Min, c0Max, c1Min, c1Max);
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "c0", start_c0, c0Min, c0Max, LALINFERENCE_PARAM_LINEAR);
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "c1", start_c1, c1Min, c1Max, LALINFERENCE_PARAM_LINEAR);
    }
   else if(LALInferenceGetProcParamVal(commandLine,"--tidal-quad")){
+	  fprintf(stdout, "Running with quadratic EOS model, c0 in [%f,%f]x10^{-23} [s^5], c1 in [%f,%f]x10^{-18} [s^4], c2 in [%f,%f]x10^{-13} [s^3]\n", c0Min, c0Max, c1Min, c1Max, c2Min, c2Max);
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "c0", start_c0, c0Min, c0Max, LALINFERENCE_PARAM_LINEAR);
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "c1", start_c1, c1Min, c1Max, LALINFERENCE_PARAM_LINEAR);
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "c2", start_c2, c2Min, c2Max, LALINFERENCE_PARAM_LINEAR);
