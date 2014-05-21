@@ -1446,13 +1446,12 @@ def marginalize_ratios(likelihood, dim):
 
 
 from glue.ligolw import ligolw
-from glue.ligolw import array
-from glue.ligolw import param
-from glue.ligolw import table
+from glue.ligolw import array as ligolw_array
+from glue.ligolw import table as ligolw_table
 from glue.ligolw import lsctables
 
 
-class BinsTable(table.Table):
+class BinsTable(ligolw_table.Table):
 	"""
 	LIGO Light Weight XML table defining a binning.
 	"""
@@ -1520,7 +1519,7 @@ def binned_array_to_xml(binnedarray, name):
 	"""
 	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_rate_binnedarray" % name})
 	xml.appendChild(bins_to_xml(binnedarray.bins))
-	xml.appendChild(array.from_array(u"array", binnedarray.array))
+	xml.appendChild(ligolw_array.from_array(u"array", binnedarray.array))
 	return xml
 
 
@@ -1531,7 +1530,7 @@ def binned_array_from_xml(xml, name):
 	return a new rate.BinnedArray object from the data contained
 	therein.
 	"""
-	xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedarray" % name]
+	xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"%s:pylal_rate_binnedarray" % name]
 	try:
 		xml, = xml
 	except ValueError:
@@ -1541,7 +1540,7 @@ def binned_array_from_xml(xml, name):
 	# large) array that would otherwise accompany this step
 	binnedarray = BinnedArray(NDBins())
 	binnedarray.bins = bins_from_xml(xml)
-	binnedarray.array = array.get_array(xml, u"array").array
+	binnedarray.array = ligolw_array.get_array(xml, u"array").array
 	return binnedarray
 
 
@@ -1562,7 +1561,7 @@ def binned_ratios_from_xml(xml, name):
 	return a new rate.BinnedRatios object from the data contained
 	therein.
 	"""
-	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedratios" % name]
+	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"%s:pylal_rate_binnedratios" % name]
 	ratios = BinnedRatios(NDBins())
 	ratios.numerator = binned_array_from_xml(xml, u"numerator")
 	ratios.denominator = binned_array_from_xml(xml, u"denominator")

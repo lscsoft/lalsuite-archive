@@ -103,7 +103,7 @@ def parse_command_line():
 
 
 def binned_ratios_extractor(xmldoc):
-	for name in [elem.getAttribute(u"Name").replace(u":pylal_rate_binnedratios", u"") for elem in xmldoc.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute("Name") and "pylal_rate_binnedratios" in elem.getAttribute("Name")]:
+	for name in [elem.Name.replace(u":pylal_rate_binnedratios", u"") for elem in xmldoc.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute("Name") and "pylal_rate_binnedratios" in elem.Name]:
 		yield name, rate.binned_ratios_from_xml(xmldoc, name)
 
 class Summaries(object):

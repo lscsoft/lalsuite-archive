@@ -10,6 +10,8 @@
     <Param Name="CalLineFreq" Type="double">1144.3</Param>
     <Param Name="CalLineAmplASQ" Type="double">0.069182</Param>
     <Param Name="CalLineAmplEXC" Type="double">0.16</Param>
+    <!-- verify that empty Param elements are allowed -->
+    <Param Name="Empty" Type="double"></Param>
     <Table Name="DARMChannels">
       <Column Name="ChannelName" Type="string"/>
       <Column Name="RefValue" Type="float"/>

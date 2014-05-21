@@ -62,9 +62,9 @@ from glue.ligolw import array as ligolw_array
 from glue.ligolw import param as ligolw_param
 from glue.ligolw import table as ligolw_table
 from glue.ligolw import lsctables
+from glue.text_progress_bar import ProgressBar
 from pylal import git_version
 from pylal import inject
-from pylal import progress
 from pylal import rate
 
 
@@ -1730,7 +1730,7 @@ class CoincParamsDistributions(object):
 		self.injection_pdf.clear()
 		N = len(self.zero_lag_rates) + len(self.background_rates) + len(self.injection_rates)
 		threads = []
-		progressbar = progress.ProgressBar(text = "Computing Parameter PDFs") if verbose else None
+		progressbar = ProgressBar(text = "Computing Parameter PDFs") if verbose else None
 		for key, (msg, rates_dict, pdf_dict) in itertools.chain(
 				zip(self.zero_lag_rates, itertools.repeat(("zero lag", self.zero_lag_rates, self.zero_lag_pdf))),
 				zip(self.background_rates, itertools.repeat(("background", self.background_rates, self.background_pdf))),
@@ -1848,7 +1848,7 @@ class CoincParamsDistributions(object):
 		serialization.
 		"""
 		name = u"%s:%s" % (name, self.ligo_lw_name_suffix)
-		xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == name]
+		xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == name]
 		if len(xml) != 1:
 			raise ValueError("XML tree must contain exactly one %s element named %s" % (ligolw.LIGO_LW.tagName, name))
 		return xml[0]
@@ -1874,7 +1874,7 @@ class CoincParamsDistributions(object):
 
 		# reconstruct the BinnedArray objects
 		def reconstruct(xml, prefix, target_dict):
-			for name in [elem.getAttribute(u"Name").split(u":")[1] for elem in xml.childNodes if elem.getAttribute(u"Name").startswith(u"%s:" % prefix)]:
+			for name in [elem.Name.split(u":")[1] for elem in xml.childNodes if elem.Name.startswith(u"%s:" % prefix)]:
 				target_dict[str(name)] = rate.binned_array_from_xml(xml, u"%s:%s" % (prefix, name))
 		reconstruct(xml, u"zero_lag", self.zero_lag_rates)
 		reconstruct(xml, u"zero_lag_pdf", self.zero_lag_pdf)

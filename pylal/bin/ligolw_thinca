@@ -330,6 +330,6 @@ for n, filename in enumerate(filenames):
 	# Write back to disk, and clean up.
 	#
 
-	ligolw_utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
+	ligolw_utils.write_filename(xmldoc, filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	xmldoc.unlink()
 	lsctables.table.reset_next_ids(lsctables.TableByName.values())

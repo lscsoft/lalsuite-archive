@@ -8,7 +8,7 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.46
+Version:	1.46.2
 Release:	1.lscsoft
 License:	None
 Group:		Development/Libraries
@@ -48,7 +48,7 @@ rm -rf %{buildroot}
         --skip-build \
         --root=%{buildroot} \
         --prefix=%{_glue_prefix}
-rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.6/site-packages/glue-1.46-py2.6.egg-info
+rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.6/site-packages/glue-1.46.2-py2.6.egg-info
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -94,6 +94,12 @@ rm -rf $RPM_BUILD_ROOT
 %{glue_python_sitearch}/glue/git_version.pyc
 
 %changelog
+* Tue May 6 2014 Ryan Fisher <rpfisher@syr.edu>
+- Version update to match git tag.
+
+* Tue May 6 2014 Ryan Fisher <rpfisher@syr.edu>
+- Sub-version release to add datafind to debian package.
+
 * Tue Dec 3  2013 Ryan Fisher <rpfisher@syr.edu>
 - ER5 release.
 

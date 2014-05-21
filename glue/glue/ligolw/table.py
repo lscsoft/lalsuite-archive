@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2014  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -142,7 +142,8 @@ def getColumnsByName(elem, name):
 	Return a list of Column elements named name under elem.  The name
 	comparison is done with CompareColumnNames().
 	"""
-	return elem.getElements(lambda e: (e.tagName == ligolw.Column.tagName) and (CompareColumnNames(e.getAttribute("Name"), name) == 0))
+	name = StripColumnName(name)
+	return elem.getElements(lambda e: (e.tagName == ligolw.Column.tagName) and (e.Name == name))
 
 
 #
@@ -204,7 +205,8 @@ def getTablesByName(elem, name):
 	Return a list of Table elements named name under elem.  The name
 	comparison is done using CompareTableNames().
 	"""
-	return elem.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (CompareTableNames(e.getAttribute("Name"), name) == 0))
+	name = StripTableName(name)
+	return elem.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (e.Name == name))
 
 
 #
@@ -218,23 +220,11 @@ def getTablesByName(elem, name):
 
 def new_from_template(template):
 	"""
-	Construct a new Table document subtree whose structure is the same
-	as the template table, that is it has the same columns etc..  The
-	rows are not copied.  Note that a fair amount of metadata is shared
-	between the original and new tables.  In particular, a copy of the
-	Table object itself is created (but with no rows), and copies of
-	the child nodes are created.  All other object references are
-	shared between the two instances, such as the RowType attribute on
-	the Table object.
+	Deprecated legacy wrapper of .copy() method of Table instances.
 	"""
-	new = copy.copy(template)
-	new.childNodes = map(copy.copy, template.childNodes)
-	for child in new.childNodes:
-		child.parentNode = new
-	del new[:]
-	new._end_of_columns()
-	new._end_of_rows()
-	return new
+	import warnings
+	warnings.warn("glue.ligolw.table.new_from_template() is deprecated.  Use .copy() method of Table instances instead.", DeprecationWarning)
+	return template.copy()
 
 
 def get_table(xmldoc, name):
@@ -324,9 +314,7 @@ class Column(ligolw.Column):
 	High-level column element that provides list-like access to the
 	values in a column.
 	"""
-	def __init__(self, attrs):
-		ligolw.Column.__init__(self, attrs)
-		self.asattribute = StripColumnName(self.getAttribute("Name"))
+	Name = ligolw.attributeproxy(u"Name", dec = StripColumnName)
 
 	def __len__(self):
 		"""
@@ -339,18 +327,18 @@ class Column(ligolw.Column):
 		Retrieve the value in this column in row i.
 		"""
 		if isinstance(i, slice):
-			return map(lambda r: getattr(r, self.asattribute), self.parentNode[i])
+			return map(lambda r: getattr(r, self.Name), self.parentNode[i])
 		else:
-			return getattr(self.parentNode[i], self.asattribute)
+			return getattr(self.parentNode[i], self.Name)
 
 	def __setitem__(self, i, value):
 		"""
 		Set the value in this column in row i.
 		"""
 		if isinstance(i, slice):
-			map(lambda r: setattr(r, self.asattribute, value), self.parentNode[i])
+			map(lambda r: setattr(r, self.Name, value), self.parentNode[i])
 		else:
-			setattr(self.parentNode[i], self.asattribute, value)
+			setattr(self.parentNode[i], self.Name, value)
 
 	def __iter__(self):
 		"""
@@ -358,7 +346,7 @@ class Column(ligolw.Column):
 		column.
 		"""
 		for row in self.parentNode:
-			yield getattr(row, self.asattribute)
+			yield getattr(row, self.Name)
 
 	def count(self, value):
 		"""
@@ -366,7 +354,7 @@ class Column(ligolw.Column):
 		"""
 		n = 0
 		for row in self.parentNode:
-			if getattr(row, self.asattribute) == value:
+			if getattr(row, self.Name) == value:
 				n += 1
 		return n
 
@@ -376,7 +364,7 @@ class Column(ligolw.Column):
 		equal to value.
 		"""
 		for i in xrange(len(self.parentNode)):
-			if getattr(self.parentNode[i], self.asattribute) == value:
+			if getattr(self.parentNode[i], self.Name) == value:
 				return i
 		raise ValueError(value)
 
@@ -386,7 +374,7 @@ class Column(ligolw.Column):
 		a row containing val in this column.
 		"""
 		for i in xrange(len(self.parentNode)):
-			if getattr(self.parentNode[i], self.asattribute) == value:
+			if getattr(self.parentNode[i], self.Name) == value:
 				return True
 		return False
 
@@ -396,10 +384,10 @@ class Column(ligolw.Column):
 		creates a copy of the data, so modifications made to the
 		array will *not* be recorded in the original document.
 		"""
-		if self.getAttribute("Type") not in ligolwtypes.NumericTypes:
+		if self.Type not in ligolwtypes.NumericTypes:
 			raise TypeError("Column '%s' does not have numeric type" % self.getAttribute("Name"))
 		import numpy
-		return numpy.fromiter(self, dtype = ligolwtypes.ToNumPyType[self.getAttribute("Type")])
+		return numpy.fromiter(self, dtype = ligolwtypes.ToNumPyType[self.Type])
 
 
 #
@@ -467,9 +455,9 @@ class TableStream(ligolw.Stream):
 	that it appends into the list-like parent element, and knows how to
 	turn the parent's rows back into a character stream.
 	"""
-	def __init__(self, attrs):
-		ligolw.Stream.__init__(self, attrs)
-		self._tokenizer = tokenizer.Tokenizer(self.getAttribute("Delimiter"))
+	def __init__(self, *args):
+		super(TableStream, self).__init__(*args)
+		self._tokenizer = tokenizer.Tokenizer(self.Delimiter)
 		self._rowbuilder = None
 
 	def config(self, parentNode):
@@ -511,7 +499,7 @@ class TableStream(ligolw.Stream):
 		# to get parsed but only if there's something other than
 		# whitespace left in the tokenizer's buffer.
 		if not self._tokenizer.data.isspace():
-			self.appendData(self.getAttribute("Delimiter"))
+			self.appendData(self.Delimiter)
 		# call parent's _end_of_rows() hook.
 		self.parentNode._end_of_rows()
 
@@ -523,7 +511,7 @@ class TableStream(ligolw.Stream):
 		# need to not put a delimiter at the end of the last row
 		# unless it ends with a null token
 		w(self.start_tag(indent))
-		rowdumper = tokenizer.RowDumper(self.parentNode.columnnames, [ligolwtypes.FormatFunc[coltype] for coltype in self.parentNode.columntypes], self.getAttribute("Delimiter"))
+		rowdumper = tokenizer.RowDumper(self.parentNode.columnnames, [ligolwtypes.FormatFunc[coltype] for coltype in self.parentNode.columntypes], self.Delimiter)
 		rowdumper.dump(self.parentNode)
 		try:
 			line = rowdumper.next()
@@ -583,14 +571,16 @@ class Table(ligolw.Table, list):
 	RowType = TableRow
 	next_id = None
 
-	def __init__(self, *attrs):
+	def __init__(self, *args):
 		"""
 		Initialize
 		"""
-		ligolw.Table.__init__(self, *attrs)
+		super(Table, self).__init__(*args)
 		self.columnnames = []
 		self.columntypes = []
 		self.columnpytypes = []
+
+	Name = ligolw.attributeproxy(u"Name", enc = (lambda name: u"%s:table" % name), dec = StripTableName)
 
 
 	#
@@ -615,6 +605,27 @@ class Table(ligolw.Table, list):
 		>>> sngl_inspiral_table = lsctables.SnglInspiralTable.get_table(xmldoc)
 		"""
 		return get_table(xmldoc, cls.tableName)
+
+	def copy(self):
+		"""
+		Construct and return a new Table document subtree whose
+		structure is the same as this table, that is it has the
+		same columns etc..  The rows are not copied.  Note that a
+		fair amount of metadata is shared between the original and
+		new tables.  In particular, a copy of the Table object
+		itself is created (but with no rows), and copies of the
+		child nodes are created.  All other object references are
+		shared between the two instances, such as the RowType
+		attribute on the Table object.
+		"""
+		new = copy.copy(self)
+		new.childNodes = map(copy.copy, self.childNodes)
+		for child in new.childNodes:
+			child.parentNode = new
+		del new[:]
+		new._end_of_columns()
+		new._end_of_rows()
+		return new
 
 
 	#
@@ -660,6 +671,8 @@ class Table(ligolw.Table, list):
 		>>> col = process_table.appendColumn("program")
 		>>> col.getAttribute("Name")
 		'process:program'
+		>>> col.Name
+		'program'
 		"""
 		try:
 			self.getColumnByName(name)
@@ -689,22 +702,20 @@ class Table(ligolw.Table, list):
 		del self.columntypes[:]
 		del self.columnpytypes[:]
 		for child in self.getElementsByTagName(ligolw.Column.tagName):
-			colname = StripColumnName(child.getAttribute("Name"))
-			llwtype = child.getAttribute("Type")
 			if self.validcolumns is not None:
 				try:
-					if self.validcolumns[colname] != llwtype:
-						raise ligolw.ElementError("invalid type '%s' for Column '%s' in Table '%s', expected type '%s'" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"), self.validcolumns[colname]))
+					if self.validcolumns[child.Name] != child.Type:
+						raise ligolw.ElementError("invalid type '%s' for Column '%s' in Table '%s', expected type '%s'" % (child.Type, child.getAttribute("Name"), self.getAttribute("Name"), self.validcolumns[child.Name]))
 				except KeyError:
 					raise ligolw.ElementError("invalid Column '%s' for Table '%s'" % (child.getAttribute("Name"), self.getAttribute("Name")))
-			if colname in self.columnnames:
+			if child.Name in self.columnnames:
 				raise ligolw.ElementError("duplicate Column '%s' in Table '%s'" % (child.getAttribute("Name"), self.getAttribute("Name")))
-			self.columnnames.append(colname)
-			self.columntypes.append(llwtype)
+			self.columnnames.append(child.Name)
+			self.columntypes.append(child.Type)
 			try:
-				self.columnpytypes.append(ligolwtypes.ToPyType[llwtype])
+				self.columnpytypes.append(ligolwtypes.ToPyType[child.Type])
 			except KeyError:
-				raise ligolw.ElementError("unrecognized Type '%s' for Column '%s' in Table '%s'" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name")))
+				raise ligolw.ElementError("unrecognized Type '%s' for Column '%s' in Table '%s'" % (child.Type, child.getAttribute("Name"), self.getAttribute("Name")))
 
 	def _verifyChildren(self, i):
 		"""
@@ -716,6 +727,7 @@ class Table(ligolw.Table, list):
 		if child.tagName == ligolw.Column.tagName:
 			self._update_column_info()
 		elif child.tagName == ligolw.Stream.tagName:
+			# require agreement of non-stripped strings
 			if child.getAttribute("Name") != self.getAttribute("Name"):
 				raise ligolw.ElementError("Stream name '%s' does not match Table name '%s'" % (child.getAttribute("Name"), self.getAttribute("Name")))
 
