@@ -362,6 +362,10 @@ class LIGO_LW(Element):
 	validchildren = frozenset([u"LIGO_LW", u"Comment", u"Param", u"Table", u"Array", u"Stream", u"IGWDFrame", u"AdcData", u"AdcInterval", u"Time", u"Detector"])
 	validattributes = frozenset([u"Name", u"Type"])
 
+	def appendData(self, content):
+		# discard.  this element doesn't hold text
+		pass
+
 	Name = attributeproxy(u"Name")
 	Type = attributeproxy(u"Type")
 
@@ -405,6 +409,10 @@ class Table(Element):
 	validchildren = frozenset([u"Comment", u"Column", u"Stream"])
 	validattributes = frozenset([u"Name", u"Type"])
 
+	def appendData(self, content):
+		# discard.  this element doesn't hold text
+		pass
+
 	def _verifyChildren(self, i):
 		ncomment = 0
 		ncolumn = 0
@@ -446,6 +454,10 @@ class Column(Element):
 		s += u"/>"
 		return s
 
+	def appendData(self, content):
+		# discard.  this element doesn't hold text
+		pass
+
 	def end_tag(self, indent):
 		"""
 		Generate the string for the element's end tag.
@@ -470,6 +482,10 @@ class Array(Element):
 	tagName = u"Array"
 	validchildren = frozenset([u"Dim", u"Stream"])
 	validattributes = frozenset([u"Name", u"Type", u"Unit"])
+
+	def appendData(self, content):
+		# discard.  this element doesn't hold text
+		pass
 
 	def _verifyChildren(self, i):
 		nstream = 0
@@ -535,6 +551,10 @@ class IGWDFrame(Element):
 	validchildren = frozenset([u"Comment", u"Param", u"Time", u"Detector", u"AdcData", u"LIGO_LW", u"Stream", u"Array", u"IGWDFrame"])
 	validattributes = frozenset([u"Name"])
 
+	def appendData(self, content):
+		# discard.  this element doesn't hold text
+		pass
+
 	Name = attributeproxy(u"Name")
 
 
@@ -545,6 +565,10 @@ class Detector(Element):
 	tagName = u"Detector"
 	validchildren = frozenset([u"Comment", u"Param", u"LIGO_LW"])
 	validattributes = frozenset([u"Name"])
+
+	def appendData(self, content):
+		# discard.  this element doesn't hold text
+		pass
 
 	Name = attributeproxy(u"Name")
 
@@ -557,6 +581,10 @@ class AdcData(Element):
 	validchildren = frozenset([u"AdcData", u"Comment", u"Param", u"Time", u"LIGO_LW", u"Array"])
 	validattributes = frozenset([u"Name"])
 
+	def appendData(self, content):
+		# discard.  this element doesn't hold text
+		pass
+
 	Name = attributeproxy(u"Name")
 
 
@@ -567,6 +595,10 @@ class AdcInterval(Element):
 	tagName = u"AdcInterval"
 	validchildren = frozenset([u"AdcData", u"Comment", u"Time"])
 	validattributes = frozenset([u"DeltaT", u"Name", u"StartTime"])
+
+	def appendData(self, content):
+		# discard.  this element doesn't hold text
+		pass
 
 	DeltaT = attributeproxy(u"DeltaT", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
 	Name = attributeproxy(u"Name")
@@ -771,10 +803,7 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 		self.current = self.current.parentNode
 
 	def characters(self, content):
-		# Discard character data for all elements except those for
-		# which it is meaningful.
-		if self.current.tagName in (Comment.tagName, Dim.tagName, Param.tagName, Stream.tagName, Time.tagName):
-			self.current.appendData(xmlunescape(content))
+		self.current.appendData(xmlunescape(content))
 
 
 # FIXME:  remove
