@@ -33,9 +33,9 @@
 #include <time.h>
 #include <ctype.h>
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif
+// #ifdef _OPENMP
+// #include <omp.h>
+// #endif
 
 static ssize_t str2network(LALDetector network[], size_t net_size, char *str);
 static double rchisq_2(gsl_rng *rng, double lambda);
@@ -47,15 +47,15 @@ static void simulate(size_t *num_found, LALDetector *network, size_t network_siz
   const double rho_thresh_2=rho_thresh*rho_thresh;
   memset(num_found, 0, dist_bins * sizeof(*num_found));
 
-#pragma omp parallel
+// #pragma omp parallel
   {
     /*Create and seed random number generator*/
     gsl_rng *rng=gsl_rng_alloc(gsl_rng_mt19937);
-#ifdef _OPENMP
-    gsl_rng_set(rng, omp_get_thread_num()*time(NULL));//Seed with thread number.
-#else
+// #ifdef _OPENMP
+//     gsl_rng_set(rng, omp_get_thread_num()*time(NULL));//Seed with thread number.
+// #else
     gsl_rng_set(rng, time(NULL));
-#endif
+// #endif
 
     /* create per-thread workspace */
     double *lambda_const = NULL;
@@ -67,7 +67,7 @@ static void simulate(size_t *num_found, LALDetector *network, size_t network_siz
 
     size_t j, k, l;
 
-#pragma omp for schedule(static)
+// #pragma omp for schedule(static)
     for(k=0; k<samples; ++k){
       /* draw orientations and determine network response */
       const double lon=twopi*gsl_rng_uniform(rng);
@@ -110,7 +110,7 @@ static void simulate(size_t *num_found, LALDetector *network, size_t network_siz
       }
     }
 
-#pragma omp critical
+// #pragma omp critical
     for(j = 0; j < dist_bins; ++j) {
       num_found[j] += threadTotals[j];
     }
