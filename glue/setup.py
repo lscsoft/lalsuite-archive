@@ -100,7 +100,7 @@ class glue_install(install.install):
     else:
       glue_pythonpath = self.install_platlib + ":" + self.install_purelib
 
-    glue_prefix = remove_root(self.prefix,self.root)
+    glue_prefix = remove_root(self.install_platbase,self.root)
     glue_install_scripts = remove_root(self.install_scripts,self.root)
     glue_pythonpath = remove_root(glue_pythonpath,self.root)
     glue_install_platlib = remove_root(self.install_platlib,self.root)
