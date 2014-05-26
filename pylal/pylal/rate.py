@@ -1338,8 +1338,29 @@ def filter_array(a, window, cyclic = False):
 			window_slices.append(slice(first, first + n))
 		else:
 			window_slices.append(slice(0, window.shape[d]))
-	# FIXME:  in numpy >= 1.7.0 there is copyto().  is that better?
-	a.flat = signaltools.fftconvolve(a, window[window_slices], mode = "same").flat
+	window = window[window_slices]
+
+	# this loop works around dynamic range limits in the FFT
+	# convolution code.  we move data 4 orders of magnitude at a time
+	# from the original array into a work space, convolve the work
+	# space with the filter, zero the workspace in any elements that
+	# are more than 14 orders of magnitude below the maximum value in
+	# the result, and add the result to the total.
+	result = numpy.zeros_like(a)
+	while a.any():
+		workspace = numpy.copy(a)
+		cutoff = abs(workspace[abs(workspace) > 0]).min() * 1e4
+		a[abs(a) <= cutoff] = 0.
+		workspace[abs(workspace) > cutoff] = 0.
+
+		# FIXME:  in numpy >= 1.7.0 there is copyto().  is that
+		# better than assigning to .flat?
+		workspace.flat = signaltools.fftconvolve(workspace, window, mode = "same").flat
+
+		workspace[abs(workspace) < abs(workspace).max() * 1e-14] = 0.
+		result += workspace
+	a.flat = result.flat
+
 	return a
 
 
