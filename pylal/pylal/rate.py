@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2013  Kipp Cannon
+# Copyright (C) 2006--2014  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -152,6 +152,22 @@ class Bins(object):
 		boundaries of the bins.
 		"""
 		raise NotImplementedError
+
+	def randcentre(self, n = 1.):
+		"""
+		Generator yielding a sequence of x, ln(P(x)) tuples where x
+		is a randomly-chosen bin centre and P(x) is the PDF from
+		which x has been drawn evaluated at x.  The CDF from which
+		the bin centres are drawn goes as [bin index]^{n}.  For
+		more information, see glue.iterutils.randindex.
+		"""
+		x = tuple(self.centres())
+		ln_dx = tuple(numpy.log(self.upper() - self.lower()))
+		isinf = math.isinf
+		for i, ln_Pi in iterutils.randindex(0, len(x), n = n):
+			if isinf(ln_dx[i]):
+				continue
+			yield x[i], ln_Pi - ln_dx[i]
 
 
 class LinearBins(Bins):
@@ -791,6 +807,25 @@ class NDBins(tuple):
 			result = reduce(numpy.outer, volumes)
 			result.shape = tuple(len(v) for v in volumes)
 			return result
+
+	def randcentre(self, ns = None):
+		"""
+		Generator yielding a sequence of (x0, x1, ...), ln(P(x0,
+		x1, ...)) tuples where (x0, x1, ...) is a randomly-chosen
+		bin centre in the N-dimensional binning and P(x0, x1, ...)
+		is the PDF from which the co-ordinate tuple has been drawn
+		evaluated at those co-ordinates.  If ns is not None it must
+		be a sequence of floats whose length matches the dimension
+		of the binning.  The floats will set the exponents, in
+		order, of the CDFs for the generators used for each
+		co-ordinate.  For more information, see Bins.randcentre().
+		"""
+		if ns is None:
+			ns = (1.,) * len(self)
+		bingens = tuple(iter(binning.randcentre(n)).next for binning, n in zip(self, ns))
+		while 1:
+			seq = sum((bingen() for bingen in bingens), ())
+			yield seq[0::2], sum(seq[1::2])
 
 
 #
