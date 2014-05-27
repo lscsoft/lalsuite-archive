@@ -1106,7 +1106,7 @@ static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
         /*if (r > 8.5)
 	{
 	  printf("YP::dynamics variables in waveform: %i, %i, %e, %e\n",l,m,r,pp); 
-	  printf( "rholm^l = %.16e, Tlm = %.16e + i %.16e, \nSlm = %.16e, hNewton = %.16e + i %.16e, delta = %.16e\n", rholmPwrl, Tlm, 0, Slm, hNewton.re, hNewton.im, deltalm );}*/
+	  printf( "rholm^l = %.16e, Tlm = %.16e + i %.16e, \nSlm = %.16e, hNewton = %.16e + i %.16e\n", rholmPwrl, Tlm, 0., Slm, creal(hNewton), cimag(hNewton) );}*/
         /* Put all factors in Eq. 17 together */
 	*hlm = Tlm * Slm * rholmPwrl;
         *hlm *= hNewton;
@@ -1142,7 +1142,7 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
   REAL8 eta3 = eta2 * eta;
 
   REAL8 dM, dM2; //dM3;
-  REAL8 a2, a3;
+  REAL8 aDelta, a2, a3;
 
   /* Combination which appears a lot */
   REAL8 m1Plus3eta, m1Plus3eta2, m1Plus3eta3;
@@ -1165,6 +1165,7 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
   }
   //dM3 = dM2 * dM;
 
+  aDelta = 0.; // a value in delta_lm is 0 in both SEOBNRv1 and SEOBNRv2
   a2 = a*a;
   a3 = a2*a;
 
@@ -1181,14 +1182,14 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
      Eqs. 20 and 21 of DIN and Eqs. 27a and 27b of PBFRT for delta */
 
   coeffs->delta22vh3 = 7./3.;
-  coeffs->delta22vh6 = (-4.*a)/3. + (428.*LAL_PI)/105.;
-  coeffs->delta22v8 = (20.*a)/63.;
+  coeffs->delta22vh6 = (-4.*aDelta)/3. + (428.*LAL_PI)/105.;
+  coeffs->delta22v8 = (20.*aDelta)/63.;
   coeffs->delta22vh9 = -2203./81. + (1712.*LAL_PI*LAL_PI)/315.;
   coeffs->delta22v5  = - 24.*eta;
   coeffs->delta22v6 = 0.0;
   if ( SpinAlignedEOBversion == 2 && chiS+chiA*dM/(1.-2.*eta) > 0. )
   {
-     coeffs->delta22v6  = -580. * eta * (chiS+chiA*dM/(1.-2.*eta));
+     coeffs->delta22v6  = -540. * eta * (chiS+chiA*dM/(1.-2.*eta));
   }
 
   coeffs->rho22v2   = -43./42. + (55.*eta)/84.;
@@ -1240,8 +1241,8 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
   if ( dM2 )
   {
     coeffs->delta21vh3 = 2./3.;
-    coeffs->delta21vh6 = (-17.*a)/35. + (107.*LAL_PI)/105.;
-    coeffs->delta21vh7 = (3.*a2)/140.;
+    coeffs->delta21vh6 = (-17.*aDelta)/35. + (107.*LAL_PI)/105.;
+    coeffs->delta21vh7 = (3.*aDelta*aDelta)/140.;
     coeffs->delta21vh9 = -272./81. + (214.*LAL_PI*LAL_PI)/315.;
     coeffs->delta21v5  = - 493. * eta /42.;
 
@@ -1307,7 +1308,7 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
   if ( dM2 )
   {
     coeffs->delta33vh3 = 13./10.;
-    coeffs->delta33vh6 = (-81.*a)/20. + (39.*LAL_PI)/7.;
+    coeffs->delta33vh6 = (-81.*aDelta)/20. + (39.*LAL_PI)/7.;
     coeffs->delta33vh9 = -227827./3000. + (78.*LAL_PI*LAL_PI)/7.;
     coeffs->delta33v5  = - 80897.*eta / 2430.;
 
@@ -1330,8 +1331,8 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
   }
 
   coeffs->delta32vh3 = (10. + 33.*eta)/(-15.*m1Plus3eta);
-  coeffs->delta32vh4 = 4.*a;
-  coeffs->delta32vh6 = (-136.*a)/45. + (52.*LAL_PI)/21.;
+  coeffs->delta32vh4 = 4.*aDelta;
+  coeffs->delta32vh6 = (-136.*aDelta)/45. + (52.*LAL_PI)/21.;
   coeffs->delta32vh9 = -9112./405. + (208.*LAL_PI*LAL_PI)/63.;
 
   coeffs->rho32v   = (4.*chiS*eta)/(-3.*m1Plus3eta);
@@ -1353,8 +1354,8 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
   if ( dM2 )
   {
     coeffs->delta31vh3 = 13./30.;
-    coeffs->delta31vh6 = (61.*a)/20. + (13.*LAL_PI)/21.;
-    coeffs->delta31vh7 = (-24.*a2)/5.;
+    coeffs->delta31vh6 = (61.*aDelta)/20. + (13.*LAL_PI)/21.;
+    coeffs->delta31vh7 = (-24.*aDelta*aDelta)/5.;
     coeffs->delta31vh9 = -227827./81000. + (26.*LAL_PI*LAL_PI)/63.;
     coeffs->delta31v5  = - 17.*eta/10.; 
  
@@ -1381,7 +1382,7 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
      Eqs. 25 - 28 of DIN and Eqs. 27f - 27i of PBFRT for delta */
   
   coeffs->delta44vh3 = (112. + 219.*eta)/(-120.*m1Plus3eta);
-  coeffs->delta44vh6 = (-464.*a)/75. + (25136.*LAL_PI)/3465.;
+  coeffs->delta44vh6 = (-464.*aDelta)/75. + (25136.*LAL_PI)/3465.;
 
   coeffs->rho44v2 = (1614. - 5870.*eta + 2625.*eta2)/(1320.*m1Plus3eta);
   coeffs->rho44v3 = (chiA*(10. - 39.*eta)*dM + chiS*(10. - 41.*eta
@@ -1396,7 +1397,7 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
   if ( dM2 )
   {
     coeffs->delta43vh3 = (486. + 4961.*eta)/(810.*(1. - 2.*eta));
-    coeffs->delta43vh4 = (11.*a)/4.;
+    coeffs->delta43vh4 = (11.*aDelta)/4.;
     coeffs->delta43vh6 = 1571.*LAL_PI/385.;
 
     //coeffs->rho43v   = (5.*(chiA - chiS*dM)*eta)/(8.*dM*(-1. + 2.*eta));
@@ -1415,7 +1416,7 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
   }
 
   coeffs->delta42vh3 = (7.*(1. + 6.*eta))/(-15.*m1Plus3eta);
-  coeffs->delta42vh6 = (212.*a)/75. + (6284.*LAL_PI)/3465.;
+  coeffs->delta42vh6 = (212.*aDelta)/75. + (6284.*LAL_PI)/3465.;
 
   coeffs->rho42v2  = (1146. - 3530.*eta + 285.*eta2)/(1320.*m1Plus3eta);
   coeffs->rho42v3  = (chiA*(10. - 21.*eta)*dM + chiS*(10. - 59.*eta
@@ -1429,7 +1430,7 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
   if ( dM2 )
   {
     coeffs->delta41vh3 = (2. + 507.*eta)/(10.*(1. - 2.*eta));
-    coeffs->delta41vh4 = (11.*a)/12.;
+    coeffs->delta41vh4 = (11.*aDelta)/12.;
     coeffs->delta41vh6 = 1571.*LAL_PI/3465.;
 
     //coeffs->rho41v   = (5.*(chiA - chiS*dM)*eta)/(8.*dM*(-1. + 2.*eta));
@@ -1460,7 +1461,7 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
   }
 
   coeffs->delta54vh3 = 8./15.;
-  coeffs->delta54vh4 = 12.*a/5.;
+  coeffs->delta54vh4 = 12.*aDelta/5.;
 
   coeffs->rho54v2 = (-17448. + 96019.*eta - 127610.*eta2
                         + 33320.*eta3)/(13650.*(1. - 5.*eta + 5.*eta2));
@@ -1478,7 +1479,7 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
   }
 
   coeffs->delta52vh3 = 4./15.;
-  coeffs->delta52vh4 = 6.*a/5.;
+  coeffs->delta52vh4 = 6.*aDelta/5.;
 
   coeffs->rho52v2 = (-15828. + 84679.*eta - 104930.*eta2
                         + 21980.*eta3)/(13650.*(1. - 5.*eta + 5.*eta2));
@@ -2237,7 +2238,7 @@ UNUSED static int XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients(
   //coeffs->delta22v6 = 0.0;
   if ( SpinAlignedEOBversion == 2 && chiS+chiA*dM/(1.-2.*eta) > 0. )
   {
-     coeffs->delta22v6S  = -580. * eta * (chiS+chiA*dM/(1.-2.*eta));
+     coeffs->delta22v6S  = -540. * eta * (chiS+chiA*dM/(1.-2.*eta));
   }
 
   //coeffs->rho22v2   = -43./42. + (55.*eta)/84.;
@@ -3129,14 +3130,17 @@ static INT4 XLALSimIMRSpinEOBGetSpinFactorizedWaveform(
 
         /*if (r > 8.5)
 	{
-	  printf("YP::dynamics variables in waveform: %i, %i, %e, %e\n",l,m,r,pp); 
-	  printf( "rholm^l = %.16e, Tlm = %.16e + i %.16e, \nSlm = %.16e, hNewton = %.16e + i %.16e, delta = %.16e\n", rholmPwrl, creal(Tlm), cimag(Tlm), Slm, creal(hNewton), cimag(hNewton), deltalm );}*/
+	  printf("YP::dynamics variables in waveform: %i, %i, %e, %e, %e\n",l,m,r,pp,values->data[1]); 
+	  printf( "rholm^l = %.16e, Tlm = %.16e + i %.16e, |Tlm| = %.16e \nSlm = %.16e, hNewton = %.16e + i %.16e, delta = %.16e\n", rholmPwrl, creal(Tlm), cimag(Tlm), cabs(Tlm), Slm, creal(hNewton), cimag(hNewton), deltalm );
+          printf("delta22 coeffs: vh3C = %.16e, vh6C = %.16e, vh9C = %.16e, v5C = %.16e, v6C = %.16e, v8C = %.16e\n",hCoeffs->delta22vh3,hCoeffs->delta22vh6,hCoeffs->delta22vh9,hCoeffs->delta22v5,hCoeffs->delta22v6,hCoeffs->delta22v8);
+          printf("hNewt amp = %.16e, arg = %.16e\n",cabs(hNewton),carg(hNewton));
+        }*/
         /* Put all factors in Eq. 17 together */
 	*hlm = Tlm * cexp(I * deltalm) * Slm * rholmPwrl;
         *hlm *= hNewton;
 	/*if (r > 8.5)
 	{
-	  printf("YP::FullWave: %.16e,%.16e, %.16e\n",creal(*hlm),cimag(*hlm),sqrt(creal(*hlm)*creal(*hlm)+cimag(*hlm)*cimag(*hlm)));
+	  printf("YP::FullWave: Reh = %.16e, Imh = %.16e, hAmp = %.16e, hPhi = %.16e\n",creal(*hlm),cimag(*hlm),cabs(*hlm),carg(*hlm));
 	}*/
 	return XLAL_SUCCESS;
 }
