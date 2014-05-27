@@ -446,20 +446,22 @@ UNUSED static int  XLALSimIMREOBNonQCCorrection(
 
   rOmega = r * omega;
   rOmegaSq = rOmega*rOmega;
-
+/*printf("a1 = %.16e, a2 = %.16e, a3 = %.16e, a3S = %.16e, a4 = %.16e, a5 = %.16e\n",coeffs->a1,coeffs->a2,coeffs->a3,coeffs->a3S, coeffs->a4,coeffs->a5);
+printf("b1 = %.16e, b2 = %.16e, b3 = %.16e, b4 = %.16e\n",coeffs->b1,coeffs->b2,coeffs->b3,coeffs->b4);*/
   /* In EOBNRv2, coeffs->a3S, coeffs->a4 and coeffs->a5 are set to zero */
   /* through XLALSimIMREOBGetCalibratedNQCCoeffs() */
   /* and XLALSimIMREOBCalculateNQCCoefficients() */
   mag = 1. + (p*p / rOmegaSq) * ( coeffs->a1
      + coeffs->a2 / r + ( coeffs->a3 + coeffs->a3S) / (r*sqrtR)
      + coeffs->a4 / (r*r) + coeffs->a5 / (r*r*sqrtR));
-
+//printf("NQC INFO mag = %.16e, r = %.16e, p = %.16e\n",mag,r,p);
   phase = coeffs->b1 * p / rOmega + p*p*p/rOmega * ( coeffs->b2
      + coeffs->b3 / sqrtR + coeffs->b4 / r );
 
   *nqc = mag * cos(phase);
   *nqc += I * mag * sin(phase);
-
+/*printf("r = %.16e, pr = %.16e, omega = %.16e\n",r,p,omega);
+printf("NQC mag = %.16e, arg = %.16e\n",mag,phase);*/
   return XLAL_SUCCESS;
 
 }
@@ -3447,6 +3449,9 @@ coeffs->a5  = 25869.632474;*/
 /*coeffs->a3S = -145.193303874;
 coeffs->a4 = 322.844528702;
 coeffs->a5 = -157.092596165;*/
+/*coeffs->a3S = 2278.91726941;
+coeffs->a4 = -7128.39166422;
+coeffs->a5 = 5583.15077297;*/
 
   nqcmax = chiAmaxCoeffs.b3;
   nqcmed = chiAmedCoeffs.b3;
@@ -3884,6 +3889,8 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
      coeffs->b4  = gsl_vector_get( bCoeff, 1 );
      break;
    case 2:
+//     coeffs->b3  = gsl_vector_get( bCoeff, 0 );
+//     coeffs->b4  = gsl_vector_get( bCoeff, 1 );
      break;
    default:
      XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
@@ -3892,6 +3899,8 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
   }
   coeffs->b3  *= 1.0;
   coeffs->b4  *= 1.0;
+//  coeffs->b3  = -778.891568845; 
+//  coeffs->b4  = 1237.46952422;
 //  coeffs->b3  = -876.669217307; 
 //  coeffs->b4  = 1386.13223658;
 //  coeffs->b3 = 41583.9402122;
