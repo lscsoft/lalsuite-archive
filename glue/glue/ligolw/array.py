@@ -75,7 +75,7 @@ __date__ = git_version.date
 #
 
 
-ArrayPattern = re.compile(r"(?P<Name>[a-z0-9_:]+):array\Z")
+ArrayPattern = re.compile(r"(?P<Name>[a-zA-Z0-9_:]+):array\Z")
 
 
 def StripArrayName(name):
