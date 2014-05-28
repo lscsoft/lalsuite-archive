@@ -304,7 +304,6 @@ EmissionTime;
 /// internal (opaque) buffer type for optimized Barycentering function
 typedef struct tagBarycenterBuffer BarycenterBuffer;
 
-
 /* Function prototypes. */
 int XLALBarycenterEarth ( EarthState *earth, const LIGOTimeGPS *tGPS, const EphemerisData *edat);
 int XLALBarycenter ( EmissionTime *emit, const BarycenterInput *baryinput, const EarthState *earth);
@@ -330,6 +329,7 @@ void observatoryEarth( REAL8 obsearth[3],
                        REAL8 deps );
 
 // deprecated LAL interface
+
 void LALBarycenterEarth ( LALStatus *status, EarthState *earth, const LIGOTimeGPS *tGPS, const EphemerisData *edat);
 void LALBarycenter ( LALStatus *status, EmissionTime *emit, const BarycenterInput *baryinput, const EarthState *earth);
 

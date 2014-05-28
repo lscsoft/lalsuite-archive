@@ -535,7 +535,7 @@ def exttrig_dataquery(grb_name, grb_time, grb_ra, grb_dec, offset, config_file, 
     row.det_peak_int = None
     row.det_snr = ''
     row.email_time = 0 
-    row.event_dec = 0.0
+    row.event_dec = float(grb_dec)
     row.event_dec_err = 0.0
     row.event_epoch = ''
     row.event_err_type = ''
@@ -552,7 +552,7 @@ def exttrig_dataquery(grb_name, grb_time, grb_ra, grb_dec, offset, config_file, 
     row.notice_time = 0
     row.notice_type = ''
     row.notice_url = ''
-    row.obs_fov_dec = float(grb_dec)
+    row.obs_fov_dec = 0.0
     row.obs_fov_dec_width = 0.0
     row.obs_fov_ra = 0.0
     row.obs_fov_ra_width = 0.0

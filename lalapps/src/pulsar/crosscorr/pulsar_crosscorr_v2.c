@@ -129,7 +129,7 @@ int main(int argc, char *argv[]){
   REAL8 diagff = 0; /*diagonal metric components*/
   REAL8 diagaa = 0;
   REAL8 diagTT = 0;
-  REAL8 diagpp = 0;
+  REAL8 diagpp = 1;
   REAL8 ccStat = 0;
   REAL8 evSquared=0;
   REAL8 estSens=0; /*estimated sensitivity(4.13)*/
@@ -188,8 +188,7 @@ int main(int argc, char *argv[]){
   /* if (!(LALUserVarWasSet (&uvar_fResolution))) { */
   /*   uvar_fResolution = 1/tObs; */
   /* } */
-
-
+  LogPrintf (LOG_CRITICAL, "starting time\n", 0);/*for debug convenience to record calculating time*/
 
   /* { */
   /*   /\* block for calculating frequency range to read from SFTs *\/ */
@@ -474,6 +473,10 @@ int main(int argc, char *argv[]){
   /* check memory leaks if we forgot to de-allocate anything */
   LALCheckMemoryLeaks();
 
+  LogPrintf (LOG_CRITICAL, "The metric element g_ff=%.9f\n", diagff);
+  LogPrintf (LOG_CRITICAL, "The metric element g_aa=%.9f\n", diagaa);
+  LogPrintf (LOG_CRITICAL, "The metric element g_TT=%.9f\n", diagTT);
+  LogPrintf (LOG_CRITICAL, "End time\n", 0);/*for debug convenience to record calculating time*/
   return 0;
 
 } /* main */

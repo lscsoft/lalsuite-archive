@@ -31,7 +31,7 @@ extern "C" {
 
 #ifndef CMDLINE_PARSER_VERSION
 /** @brief the program version */
-#define CMDLINE_PARSER_VERSION "1.2.0"
+#define CMDLINE_PARSER_VERSION "1.2.2"
 #endif
 
 /** @brief Where the command line options are stored */
@@ -72,9 +72,6 @@ struct gengetopt_args_info
   int blksize_arg;	/**< @brief Blocksize for running median to determine expected noise of input SFTs (default='101').  */
   char * blksize_orig;	/**< @brief Blocksize for running median to determine expected noise of input SFTs original value given at command line.  */
   const char *blksize_help; /**< @brief Blocksize for running median to determine expected noise of input SFTs help description.  */
-  char * sftType_arg;	/**< @brief SFT type of either 'standard' (v2 SFTs; FFT coefficients * dt/RMS(window weights)) or 'vladimir' (Vladimir's Hann windowed SFT version; FFT coefficients * 2*dt) (default='standard').  */
-  char * sftType_orig;	/**< @brief SFT type of either 'standard' (v2 SFTs; FFT coefficients * dt/RMS(window weights)) or 'vladimir' (Vladimir's Hann windowed SFT version; FFT coefficients * 2*dt) original value given at command line.  */
-  const char *sftType_help; /**< @brief SFT type of either 'standard' (v2 SFTs; FFT coefficients * dt/RMS(window weights)) or 'vladimir' (Vladimir's Hann windowed SFT version; FFT coefficients * 2*dt) help description.  */
   char * outdirectory_arg;	/**< @brief Output directory (default='output').  */
   char * outdirectory_orig;	/**< @brief Output directory original value given at command line.  */
   const char *outdirectory_help; /**< @brief Output directory help description.  */
@@ -220,6 +217,8 @@ struct gengetopt_args_info
   double templateTestDf_arg;	/**< @brief The template test modulation depth; templateTest flag is required.  */
   char * templateTestDf_orig;	/**< @brief The template test modulation depth; templateTest flag is required original value given at command line.  */
   const char *templateTestDf_help; /**< @brief The template test modulation depth; templateTest flag is required help description.  */
+  int bruteForceTemplateTest_flag;	/**< @brief Test a number of different templates using templateTest parameters (default=off).  */
+  const char *bruteForceTemplateTest_help; /**< @brief Test a number of different templates using templateTest parameters help description.  */
   int ULsolver_arg;	/**< @brief Solver function for the upper limit calculation: 0=gsl_ncx2cdf_float_withouttinyprob_solver, 1=gsl_ncx2cdf_withouttinyprob_solver, 2=gsl_ncx2cdf_float_solver, 3=gsl_ncx2cdf_solver, 4=ncx2cdf_float_withouttinyprob_withmatlabchi2cdf_solver, 5=ncx2cdf_withouttinyprob_withmatlabchi2cdf_solver (default='0').  */
   char * ULsolver_orig;	/**< @brief Solver function for the upper limit calculation: 0=gsl_ncx2cdf_float_withouttinyprob_solver, 1=gsl_ncx2cdf_withouttinyprob_solver, 2=gsl_ncx2cdf_float_solver, 3=gsl_ncx2cdf_solver, 4=ncx2cdf_float_withouttinyprob_withmatlabchi2cdf_solver, 5=ncx2cdf_withouttinyprob_withmatlabchi2cdf_solver original value given at command line.  */
   const char *ULsolver_help; /**< @brief Solver function for the upper limit calculation: 0=gsl_ncx2cdf_float_withouttinyprob_solver, 1=gsl_ncx2cdf_withouttinyprob_solver, 2=gsl_ncx2cdf_float_solver, 3=gsl_ncx2cdf_solver, 4=ncx2cdf_float_withouttinyprob_withmatlabchi2cdf_solver, 5=ncx2cdf_withouttinyprob_withmatlabchi2cdf_solver help description.  */
@@ -248,9 +247,6 @@ struct gengetopt_args_info
   const char *printUsedSFTtimes_help; /**< @brief Output a list <GPS sec> <GPS nanosec> of SFT start times of the SFTs passing tests help description.  */
   int printData_flag;	/**< @brief Print to ASCII files the data values (default=off).  */
   const char *printData_help; /**< @brief Print to ASCII files the data values help description.  */
-  int printUninitialized_arg;	/**< @brief Print uninitialized values in TFdata_weighted and TSofPowers vectors at n-th sky location specified by option (if not enough sky locations exist, then these vectors don't get printed!).  */
-  char * printUninitialized_orig;	/**< @brief Print uninitialized values in TFdata_weighted and TSofPowers vectors at n-th sky location specified by option (if not enough sky locations exist, then these vectors don't get printed!) original value given at command line.  */
-  const char *printUninitialized_help; /**< @brief Print uninitialized values in TFdata_weighted and TSofPowers vectors at n-th sky location specified by option (if not enough sky locations exist, then these vectors don't get printed!) help description.  */
   char * printSignalData_arg;	/**< @brief Print f0 and h0 per SFT of the signal, used only with --injectionSources option (default='./signal.dat').  */
   char * printSignalData_orig;	/**< @brief Print f0 and h0 per SFT of the signal, used only with --injectionSources option original value given at command line.  */
   const char *printSignalData_help; /**< @brief Print f0 and h0 per SFT of the signal, used only with --injectionSources option help description.  */
@@ -276,7 +272,6 @@ struct gengetopt_args_info
   unsigned int IFO_given ;	/**< @brief Whether IFO was given.  */
   unsigned int avesqrtSh_given ;	/**< @brief Whether avesqrtSh was given.  */
   unsigned int blksize_given ;	/**< @brief Whether blksize was given.  */
-  unsigned int sftType_given ;	/**< @brief Whether sftType was given.  */
   unsigned int outdirectory_given ;	/**< @brief Whether outdirectory was given.  */
   unsigned int outfilename_given ;	/**< @brief Whether outfilename was given.  */
   unsigned int configCopy_given ;	/**< @brief Whether configCopy was given.  */
@@ -329,6 +324,7 @@ struct gengetopt_args_info
   unsigned int templateTestF_given ;	/**< @brief Whether templateTestF was given.  */
   unsigned int templateTestP_given ;	/**< @brief Whether templateTestP was given.  */
   unsigned int templateTestDf_given ;	/**< @brief Whether templateTestDf was given.  */
+  unsigned int bruteForceTemplateTest_given ;	/**< @brief Whether bruteForceTemplateTest was given.  */
   unsigned int ULsolver_given ;	/**< @brief Whether ULsolver was given.  */
   unsigned int dopplerMultiplier_given ;	/**< @brief Whether dopplerMultiplier was given.  */
   unsigned int IHSonly_given ;	/**< @brief Whether IHSonly was given.  */
@@ -342,7 +338,6 @@ struct gengetopt_args_info
   unsigned int printSFTtimes_given ;	/**< @brief Whether printSFTtimes was given.  */
   unsigned int printUsedSFTtimes_given ;	/**< @brief Whether printUsedSFTtimes was given.  */
   unsigned int printData_given ;	/**< @brief Whether printData was given.  */
-  unsigned int printUninitialized_given ;	/**< @brief Whether printUninitialized was given.  */
   unsigned int printSignalData_given ;	/**< @brief Whether printSignalData was given.  */
   unsigned int printMarginalizedSignalData_given ;	/**< @brief Whether printMarginalizedSignalData was given.  */
   unsigned int randSeed_given ;	/**< @brief Whether randSeed was given.  */
@@ -539,7 +534,6 @@ int cmdline_parser_required (struct gengetopt_args_info *args_info,
   const char *prog_name);
 
 extern const char *cmdline_parser_IFO_values[];  /**< @brief Possible values for IFO. */
-extern const char *cmdline_parser_sftType_values[];  /**< @brief Possible values for sftType. */
 extern const char *cmdline_parser_FFTplanFlag_values[];  /**< @brief Possible values for FFTplanFlag. */
 extern const char *cmdline_parser_ULsolver_values[];  /**< @brief Possible values for ULsolver. */
 

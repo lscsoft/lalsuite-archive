@@ -72,6 +72,17 @@
 
 /* ----- internal prototype ---------- */
 int compare_ephemeris ( const EphemerisData *edat1, const EphemerisData *edat2 );
+REAL8 relerr(REAL8 x, REAL8 xapprox);
+
+inline REAL8 relerr ( REAL8 x, REAL8 xapprox )
+{
+  REAL8 abserr = fabs ( x - xapprox );
+  REAL8 absmean = 0.5 * fabs( x + xapprox );
+  if ( absmean > 10 * LAL_REAL8_EPS )
+    return abserr / absmean;
+  else
+    return abserr;
+}
 
 int diffEmissionTime  ( EmissionTime  *diff, const EmissionTime *emit1, const EmissionTime *emit2 );
 int absmaxEmissionTime ( EmissionTime *absmax, const EmissionTime *demit1, const EmissionTime *demit2 );

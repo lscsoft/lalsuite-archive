@@ -48,7 +48,6 @@
 #endif
 
 /* ---------- Defines -------------------- */
-/* #define OUTPUT_TIMING 1 */
 /* #define DIAGNOSISMODE 1 */
 #define NUDGE	10*LAL_REAL8_EPS
 
@@ -82,7 +81,9 @@ int global_argc;
 #define FDOT            0.0       /**< Default value of first spindown */
 #define DFDOT           0.0       /**< Default range of first spindown parameter */
 #define F2DOT           0.0       /**< Default value of second spindown */
+#define F3DOT           0.0       /**< Default value of third spindown */
 #define DF2DOT          0.0       /**< Default range of second spindown parameter */
+#define DF3DOT          0.0       /**< Default range of third spindown parameter */
 #define SKYREGION       "allsky" /**< default sky region to search over -- just a single point*/
 #define DTERMS          8    /**< Default number of dirichlet kernel terms for calculating Fstat */
 
@@ -140,8 +141,10 @@ typedef struct {
   REAL8 dFreqStack;                /**< frequency resolution of Fstat calculation */
   REAL8 df1dot;                    /**< coarse grid resolution in spindown */
   REAL8 df2dot;                    /**< coarse grid resolution in 2nd spindown */
+  REAL8 df3dot;                    /**< coarse grid resolution in 3rd spindown */
   UINT4 extraBinsFstat;            /**< Extra bins required for Fstat calculation */
   SSBprecision SSBprec;            /**< SSB transform precision */
+  FstatMethodType Fmethod;         //!< which Fstat-method/algorithm to use
   BOOLEAN useResamp;               /**< user-input switch whether to use resampling */
   BOOLEAN useWholeSFTs;            /**< special switch: load all given frequency bins from SFTs */
   REAL8 mismatch1;                 /**< 'mismatch1' user-input needed here internally ... */
@@ -151,13 +154,38 @@ typedef struct {
 } UsefulStageVariables;
 
 
+/**
+ * Struct holding various timing measurements and relevant search parameters.
+ * This is used to fit timing-models with measured times to predict search run-times
+ */
+typedef struct
+{
+  UINT4 Nseg;			///< number of semi-coherent segments
+  UINT4 Ndet;			///< number of detectors
+  UINT4 Tcoh;			///< length of coherent segments in seconds
+  UINT4 Nsft;			///< total number of SFTs
+
+  UINT4 NFreqCo;		///< total number of frequency bins computed in coarse grid (including sidebands!)
+  UINT4 Nco;			///< number of coarse-grid Fstat templates ('coherent')
+  UINT4 Nic;			///< number of fine-grid templates ('incoherent')
+
+  REAL8 c0ic;			///< incoherent time per segment per (fine-grid) template (should be a constant)
+
+  REAL8 c1co;			///< coherent time per segment per (coarse-grid) template (fct of search parameters)
+  REAL8 c0Demod;		///< coherent time per SFT per template, should be constant for 'Demod' Fstat methods
+
+  FstatMethodType FstatMethod;	///< Fstat-method used */
+
+} timingInfo_t;
+
+
 /* ------------------------ Functions -------------------------------- */
 void SetUpSFTs( LALStatus *status, FstatInputVector** p_Fstat_in_vec, UsefulStageVariables *in );
 void PrintFstatVec( LALStatus *status, FstatResults *in, FILE *fp, PulsarDopplerParams *thisPoint,
                     LIGOTimeGPS refTime, INT4 stackIndex);
 void PrintCatalogInfo( LALStatus *status, const SFTCatalog *catalog, FILE *fp );
 void PrintStackInfo( LALStatus *status, const SFTCatalogSequence *catalogSeq, FILE *fp );
-void UpdateSemiCohToplists ( LALStatus *status, toplist_t *list1, toplist_t *list2, FineGrid *in, REAL8 f1dot_fg, REAL8 f2dot_fg, UsefulStageVariables *usefulparams, REAL4 NSegmentsInv, REAL4 *NSegmentsInvX );
+void UpdateSemiCohToplists ( LALStatus *status, toplist_t *list1, toplist_t *list2, FineGrid *in, REAL8 f1dot_fg, REAL8 f2dot_fg, REAL8 f3dot_fg, UsefulStageVariables *usefulparams, REAL4 NSegmentsInv, REAL4 *NSegmentsInvX, BOOLEAN have_f3dot );
 void GetSegsPosVelAccEarthOrb( LALStatus *status, REAL8VectorSequence **posSeg,
                                REAL8VectorSequence **velSeg, REAL8VectorSequence **accSeg,
                                UsefulStageVariables *usefulparams );
@@ -173,6 +201,8 @@ SFTCatalogSequence *XLALSetUpStacksFromSegmentList ( const SFTCatalog *catalog, 
 int XLALExtrapolateToplistPulsarSpins ( toplist_t *list,
 					const LIGOTimeGPS usefulParamsRefTime,
 					const LIGOTimeGPS finegridRefTime);
+
+static int write_TimingInfo ( const CHAR *fname, const timingInfo_t *ti );
 
 /* ---------- Global variables -------------------- */
 LALStatus *global_status; /* a global pointer to MAIN()s head of the LALStatus structure */
@@ -215,9 +245,6 @@ int MAIN( int argc, char *argv[]) {
   /* Total observation time */
   REAL8 tObs;
 
-  /* Total number of SFTs */
-  UINT4 nSFTs;
-
   /* SFT related stuff */
   static LIGOTimeGPS minStartTimeGPS, maxStartTimeGPS;
 
@@ -234,7 +261,7 @@ int MAIN( int argc, char *argv[]) {
   static SemiCoherentParams semiCohPar;
 
   /* coarse grid */
-  CoarseGrid coarsegrid;
+  CoarseGrid XLAL_INIT_DECL(coarsegrid);
   REAL8 dFreqStack; /* frequency resolution of Fstat calculation */
   REAL8 df1dot;  /* coarse grid resolution in spindown */
   UINT4 nf1dot;  /* number of coarse-grid spindown values */
@@ -242,6 +269,9 @@ int MAIN( int argc, char *argv[]) {
   REAL8 df2dot;  /* coarse grid resolution in 2nd spindown */
   UINT4 nf2dot;  /* number of coarse-grid 2nd spindown values */
   UINT4 if2dot;  /* counter for coarse-grid 2nd spindown values */
+  REAL8 df3dot;  /* coarse grid resolution in 3rd spindown */
+  UINT4 nf3dot;  /* number of coarse-grid 3rd spindown values */
+  UINT4 if3dot;  /* counter for coarse-grid 3rd spindown values */
 
   /* fine grid */
   FineGrid finegrid;
@@ -249,16 +279,19 @@ int MAIN( int argc, char *argv[]) {
   REAL8 gammaRefine, sigmasq;  /* refinement factor and variance */
   UINT4 nf2dots_fg=1;          /* number of second spindown values */
   REAL8 gamma2Refine, sigma4;  /* 2nd spindown refinement factor and 4th moment */
-
+  UINT4 nf3dots_fg=1;          /* number of third spindown values */
+  REAL8 gamma3Refine=1;  /* 3rd spindown refinement */
+  
   /* GCT helper variables */
-  UINT4 if1dot_fg, if2dot_fg;
+  UINT4 if1dot_fg, if2dot_fg, if3dot_fg;
   UINT4 ifreq;
   INT4  U1idx;
   REAL8 myf0, freq_event, f1dot_event;
   REAL8 dfreq_fg, df1dot_fg, freqmin_fg, f1dotmin_fg, freqband_fg;
   REAL8 df2dot_fg, f2dotmin_fg;
+  REAL8 df3dot_fg, f3dotmin_fg;
   REAL8 u1start, u1win, u1winInv;
-  REAL8 freq_fg, f1dot_fg, f2dot_fg, f1dot_event_fg;
+  REAL8 freq_fg, f1dot_fg, f2dot_fg, f3dot_fg, f1dot_event_fg;
   REAL8 A1, B1;
   // currently unused: REAL8 A2;
   REAL8 B2; /* GCT helper variables for faster calculation of u1 or u2 */
@@ -309,7 +342,6 @@ int MAIN( int argc, char *argv[]) {
   BOOLEAN uvar_printCand1 = FALSE;      /* if 1st stage candidates are to be printed */
   BOOLEAN uvar_printFstat1 = FALSE;
   BOOLEAN uvar_semiCohToplist = TRUE; /* if overall first stage candidates are to be output */
-  BOOLEAN uvar_useResamp = FALSE;      /* use resampling to compute F-statistic instead of SFT method */
   BOOLEAN uvar_SignalOnly = FALSE;     /* if Signal-only case (for SFT normalization) */
   BOOLEAN uvar_recalcToplistStats = FALSE; /* Do additional analysis for all toplist candidates, output F, FXvector for postprocessing */
   BOOLEAN uvar_computeLV = FALSE;          /* In Fstat loop, get single-IFO F-stats [and, in future, compute Line Veto stat] */
@@ -324,12 +356,15 @@ int MAIN( int argc, char *argv[]) {
   REAL8 uvar_f1dotBand = DFDOT; /* range of first spindown parameter */
   REAL8 uvar_f2dot = F2DOT;     /* second spindown value */
   REAL8 uvar_f2dotBand = DF2DOT; /* range of second spindown parameter */
+  REAL8 uvar_f3dot = F3DOT;     /* second spindown value */
+  REAL8 uvar_f3dotBand = DF3DOT; /* range of second spindown parameter */
   REAL8 uvar_Freq = FSTART;
   REAL8 uvar_FreqBand = FBAND;
 
   REAL8 uvar_dFreq = 0;
   REAL8 uvar_df1dot = 0; /* coarse grid frequency and spindown resolution */
   REAL8 uvar_df2dot = 0; /* coarse grid second spindown resolution */
+  REAL8 uvar_df3dot = 0; /* coarse grid third spindown resolution */
 
   REAL8 uvar_ThrF = FSTATTHRESHOLD; /* threshold of Fstat to select peaks */
   REAL8 uvar_mismatch1 = MISMATCH; /* metric mismatch for first stage coarse grid */
@@ -347,7 +382,7 @@ int MAIN( int argc, char *argv[]) {
   INT4  uvar_nStacksMax = 1;
   CHAR *uvar_segmentList = NULL;	/**< ALTERNATIVE: file containing a pre-computed segment list of tuples (startGPS endGPS duration[h] NumSFTs) */
 
-  INT4 uvar_Dterms = OptimisedHotloopDterms;
+  INT4 uvar_Dterms = DTERMS;
   INT4 uvar_SSBprecision = SSBPREC_RELATIVISTIC;
   INT4 uvar_gammaRefine = 1;
   INT4 uvar_gamma2Refine = 1;
@@ -370,6 +405,9 @@ int MAIN( int argc, char *argv[]) {
   CHAR *uvar_outputTiming = NULL;
 
   BOOLEAN uvar_useWholeSFTs = 0;
+  CHAR *uvar_FstatMethod = XLALStringDuplicate("DemodBest");
+
+  timingInfo_t XLAL_INIT_DECL(timing);
 
   global_status = &status;
 
@@ -425,6 +463,9 @@ int MAIN( int argc, char *argv[]) {
   LAL_CALL( LALRegisterREALUserVar(   &status, "f2dot",        0,  UVAR_OPTIONAL, "2nd spindown parameter", &uvar_f2dot), &status);
   LAL_CALL( LALRegisterREALUserVar(   &status, "df2dot",       0,  UVAR_OPTIONAL, "2nd spindown resolution (default \\propto 1/Tstack^3)", &uvar_df2dot), &status);
   LAL_CALL( LALRegisterREALUserVar(   &status, "f2dotBand",    0,  UVAR_OPTIONAL, "2nd spindown Range", &uvar_f2dotBand), &status);
+  LAL_CALL( LALRegisterREALUserVar(   &status, "f3dot",        0,  UVAR_OPTIONAL, "3rd spindown parameter", &uvar_f3dot), &status);
+  LAL_CALL( LALRegisterREALUserVar(   &status, "df3dot",       0,  UVAR_OPTIONAL, "3rd spindown resolution (default \\propto 1/Tstack^4)", &uvar_df3dot), &status);
+  LAL_CALL( LALRegisterREALUserVar(   &status, "f3dotBand",    0,  UVAR_OPTIONAL, "3rd spindown Range", &uvar_f3dotBand), &status);  
   LAL_CALL( LALRegisterREALUserVar(   &status, "peakThrF",     0,  UVAR_OPTIONAL, "Fstat Threshold", &uvar_ThrF), &status);
   LAL_CALL( LALRegisterREALUserVar(   &status, "mismatch1",   'm', UVAR_OPTIONAL, "1st stage mismatch", &uvar_mismatch1), &status);
   LAL_CALL( LALRegisterINTUserVar (   &status, "gridType1",    0,  UVAR_OPTIONAL, "0=flat,1=isotropic,2=metric,3=file", &uvar_gridType1),  &status);
@@ -441,7 +482,6 @@ int MAIN( int argc, char *argv[]) {
   LAL_CALL( LALRegisterREALUserVar(   &status, "minStartTime1",0,  UVAR_OPTIONAL, "1st stage: Only use SFTs with timestamps starting from (including) this GPS time", &uvar_minStartTime1), &status);
   LAL_CALL( LALRegisterREALUserVar(   &status, "maxStartTime1",0,  UVAR_OPTIONAL, "1st stage: Only use SFTs with timestamps up to (excluding) this GPS time",   &uvar_maxStartTime1),   &status);
   LAL_CALL( LALRegisterBOOLUserVar(   &status, "printFstat1",  0,  UVAR_OPTIONAL, "Print 1st stage Fstat vectors", &uvar_printFstat1), &status);
-  LAL_CALL( LALRegisterBOOLUserVar(   &status, "useResamp",    0,  UVAR_OPTIONAL, "Use resampling to compute F-statistic", &uvar_useResamp), &status);
   LAL_CALL( LALRegisterBOOLUserVar(   &status, "SignalOnly",  'S', UVAR_OPTIONAL, "Signal only flag", &uvar_SignalOnly), &status);
 
   LAL_CALL( LALRegisterINTUserVar(    &status, "nStacksMax",   0,  UVAR_OPTIONAL, "Maximum No. of segments", &uvar_nStacksMax ),&status);
@@ -452,6 +492,7 @@ int MAIN( int argc, char *argv[]) {
   LAL_CALL( LALRegisterREALUserVar(   &status, "LVrho",        0, UVAR_OPTIONAL,  "LineVeto: Prior rho_max_line, must be >=0", &uvar_LVrho), &status);
   LAL_CALL( LALRegisterLISTUserVar(   &status, "LVlX",         0, UVAR_OPTIONAL,  "LineVeto: line-to-gauss prior ratios lX for different detectors X, length must be numDetectors. Defaults to lX=1,1,..", &uvar_LVlX), &status);
 
+  LAL_CALL( LALRegisterSTRINGUserVar( &status, "FstatMethod",  0, UVAR_OPTIONAL, XLALFstatMethodHelpString(), &uvar_FstatMethod ), &status);
   /* developer user variables */
   LAL_CALL( LALRegisterINTUserVar(    &status, "blocksRngMed", 0, UVAR_DEVELOPER, "RngMed block size", &uvar_blocksRngMed), &status);
   LAL_CALL( LALRegisterINTUserVar (   &status, "SSBprecision", 0, UVAR_DEVELOPER, "Precision for SSB transform.", &uvar_SSBprecision),    &status);
@@ -482,7 +523,7 @@ int MAIN( int argc, char *argv[]) {
   }
 
   LogPrintfVerbatim( LOG_DEBUG, "Code-version: %s\n", VCSInfoString );
-  LogPrintfVerbatim( LOG_DEBUG, "CFS Hotloop variant: %s\n", OptimisedHotloopSource );
+  // LogPrintfVerbatim( LOG_DEBUG, "CFS Hotloop variant: %s\n", OptimisedHotloopSource );
 
   if ( uvar_version )
     {
@@ -526,6 +567,11 @@ int MAIN( int argc, char *argv[]) {
     fprintf(stderr, "Invalid value of F-statistic threshold\n");
     return( HIERARCHICALSEARCH_EBAD );
   }
+  
+  if ( uvar_f3dotBand != 0 && ( !LALUserVarWasSet(&uvar_gammaRefine) || !LALUserVarWasSet(&uvar_gammaRefine) || uvar_gammaRefine != 1 || uvar_gamma2Refine != 1 )){
+	fprintf(stderr, "Search over 3rd spindown is available only with gammaRefine AND gamma2Refine manually set to 1!\n");
+	return( HIERARCHICALSEARCH_EVAL );
+  }
 
   /* 2F threshold for semicoherent stage */
 #ifndef EXP_NO_NUM_COUNT
@@ -540,7 +586,7 @@ int MAIN( int argc, char *argv[]) {
     fprintf(stderr, "Toplist sorting by LV-stat only possible if --computeLV given.\n");
     return( HIERARCHICALSEARCH_EBAD );
   }
-  
+
   // compute single-IFO F-statistics for line veto
   if ( uvar_computeLV ) {
     Fstat_what |= FSTATQ_2F_PER_DET;
@@ -616,20 +662,6 @@ int MAIN( int argc, char *argv[]) {
       LALFree(fnamelog);
 
     } /* end of logging */
-
-  /* prepare timing-file: write header-line with columns headings */
-  if ( uvar_outputTiming )
-    {
-      FILE *timing_fp;
-      if ( (timing_fp = fopen ( uvar_outputTiming, "ab" )) == NULL ) {
-        XLALPrintError ("Failed to open timing file '%s' for writing/appending.\n", uvar_outputTiming );
-        return HIERARCHICALSEARCH_EFILE;
-      }
-      /* write column headings */
-      fprintf ( timing_fp, "%10s %10s %10s %7s %7s    %9s %9s %9s %9s    %10s %10s\n",
-                "%% Ncoarse", "NSB", "Nfine", "Nsft", "Nseg", "tauWU[s]", "tauCo[s]", "tauIc[s]", "tauLV[s]", "c0co[s]", "c0ic[s]" );
-      fclose ( timing_fp );
-    } /* if outputTiming */
 
   /* initializations of coarse and fine grids */
   coarsegrid.TwoF=NULL;
@@ -712,9 +744,11 @@ int MAIN( int argc, char *argv[]) {
   usefulParams.spinRange_refTime.fkdot[0] = uvar_Freq; /* frequency */
   usefulParams.spinRange_refTime.fkdot[1] = uvar_f1dot;  /* 1st spindown */
   usefulParams.spinRange_refTime.fkdot[2] = uvar_f2dot;  /* 2nd spindown */
+  usefulParams.spinRange_refTime.fkdot[3] = uvar_f3dot;  /* 3rd spindown */  
   usefulParams.spinRange_refTime.fkdotBand[0] = uvar_FreqBand; /* frequency range */
   usefulParams.spinRange_refTime.fkdotBand[1] = uvar_f1dotBand; /* spindown range */
   usefulParams.spinRange_refTime.fkdotBand[2] = uvar_f2dotBand; /* spindown range */
+  usefulParams.spinRange_refTime.fkdotBand[3] = uvar_f3dotBand; /* spindown range */
 
   usefulParams.edat = edat;
   usefulParams.minStartTimeGPS = minStartTimeGPS;
@@ -724,7 +758,14 @@ int MAIN( int argc, char *argv[]) {
   usefulParams.SignalOnly = uvar_SignalOnly;
   usefulParams.dopplerMax = uvar_dopplerMax;
   usefulParams.SSBprec = uvar_SSBprecision;
-  usefulParams.useResamp = uvar_useResamp;
+
+  if ( XLALParseFstatMethodString ( &usefulParams.Fmethod, uvar_FstatMethod ) != XLAL_SUCCESS ) {
+    XLALPrintError ("XLALParseFstatMethodString() failed.\n");
+    return( HIERARCHICALSEARCH_EBAD );
+  }
+  LogPrintf (LOG_NORMAL, "FstatMethod used: '%s'\n", XLALGetFstatMethodName( usefulParams.Fmethod ) );
+  usefulParams.useResamp = XLALFstatMethodClassIsResamp ( usefulParams.Fmethod );
+
   usefulParams.useWholeSFTs = uvar_useWholeSFTs;
   usefulParams.mismatch1 = uvar_mismatch1;
 
@@ -773,6 +814,20 @@ int MAIN( int argc, char *argv[]) {
   else {
     usefulParams.df2dot = 0;
   }
+  
+  /* set Fstat 3rd spindown resolution (coarse grid) */
+  if ( LALUserVarWasSet(&uvar_f3dotBand) ) {
+    if ( LALUserVarWasSet(&uvar_df3dot) ) {
+      usefulParams.df3dot = uvar_df3dot;
+    }
+    else {
+      XLALPrintError("--df3dot is required if --f3dotBand is given\n");
+      return( HIERARCHICALSEARCH_EBAD );
+    }
+  }
+  else {
+    usefulParams.df3dot = 0;
+  }
 
   /* for 1st stage: read sfts, calculate detector states */
   LogPrintf( LOG_NORMAL,"Reading input data ... ");
@@ -788,7 +843,6 @@ int MAIN( int argc, char *argv[]) {
   endTstack = usefulParams.endTstack;
   tMidGPS = usefulParams.spinRange_midTime.refTime;
   refTimeGPS = usefulParams.spinRange_refTime.refTime;
-  nSFTs = usefulParams.nSFTs;
   fprintf(stderr, "%% --- GPS reference time = %.4f ,  GPS data mid time = %.4f\n",
           XLALGPSGetREAL8(&refTimeGPS), XLALGPSGetREAL8(&tMidGPS) );
 
@@ -805,7 +859,8 @@ int MAIN( int argc, char *argv[]) {
   dFreqStack = usefulParams.dFreqStack;
   df1dot = usefulParams.df1dot;
   df2dot = usefulParams.df2dot;
-  LogPrintf(LOG_NORMAL, "dFreqStack = %e, df1dot = %e, df2dot = %e\n", dFreqStack, df1dot, df2dot);
+  df3dot = usefulParams.df3dot;
+  LogPrintf(LOG_NORMAL, "dFreqStack = %e, df1dot = %e, df2dot = %e, df3dot = %e\n", dFreqStack, df1dot, df2dot, df3dot);
 
   /* number of coarse grid spindown values */
   if ( df1dot == 0 ) {
@@ -862,6 +917,13 @@ int MAIN( int argc, char *argv[]) {
     gamma2Refine = sqrt( 2100.0 * (sigma4 - sigmasq*sigmasq) );
   }
 
+  /* number of coarse grid 3rd spindown values */
+  if ( df3dot == 0 ) {
+    nf3dot = 1;
+  } else {
+    nf3dot = (UINT4) floor( usefulParams.spinRange_midTime.fkdotBand[3] / uvar_df3dot + NUDGE) + 1;
+  }
+  
   /**** debugging information ******/
   /* print some debug info about spinrange */
   LogPrintf(LOG_DETAIL, "Frequency and spindown range at refTime (%d): [%f,%f], [%e,%e], [%e,%e]\n",
@@ -871,8 +933,10 @@ int MAIN( int argc, char *argv[]) {
             usefulParams.spinRange_refTime.fkdot[1],
             usefulParams.spinRange_refTime.fkdot[1] + usefulParams.spinRange_refTime.fkdotBand[1],
             usefulParams.spinRange_refTime.fkdot[2],
-            usefulParams.spinRange_refTime.fkdot[2] + usefulParams.spinRange_refTime.fkdotBand[2]);
-
+            usefulParams.spinRange_refTime.fkdot[2] + usefulParams.spinRange_refTime.fkdotBand[2],
+			usefulParams.spinRange_refTime.fkdot[3],
+            usefulParams.spinRange_refTime.fkdot[3] + usefulParams.spinRange_refTime.fkdotBand[3]);
+  
   LogPrintf(LOG_DETAIL, "Frequency and spindown range at startTime (%d): [%f,%f], [%e,%e], [%e,%e]\n",
             usefulParams.spinRange_startTime.refTime.gpsSeconds,
             usefulParams.spinRange_startTime.fkdot[0],
@@ -880,7 +944,10 @@ int MAIN( int argc, char *argv[]) {
             usefulParams.spinRange_startTime.fkdot[1],
             usefulParams.spinRange_startTime.fkdot[1] + usefulParams.spinRange_startTime.fkdotBand[1],
             usefulParams.spinRange_startTime.fkdot[2],
-            usefulParams.spinRange_startTime.fkdot[2] + usefulParams.spinRange_startTime.fkdotBand[2]);
+            usefulParams.spinRange_startTime.fkdot[2] + usefulParams.spinRange_startTime.fkdotBand[2],
+            usefulParams.spinRange_startTime.fkdot[3],
+            usefulParams.spinRange_startTime.fkdot[3] + usefulParams.spinRange_startTime.fkdotBand[3]);
+  
 
   LogPrintf(LOG_DETAIL, "Frequency and spindown range at midTime (%d): [%f,%f], [%e,%e], [%e,%e]\n",
             usefulParams.spinRange_midTime.refTime.gpsSeconds,
@@ -889,7 +956,9 @@ int MAIN( int argc, char *argv[]) {
             usefulParams.spinRange_midTime.fkdot[1],
             usefulParams.spinRange_midTime.fkdot[1] + usefulParams.spinRange_midTime.fkdotBand[1],
             usefulParams.spinRange_midTime.fkdot[2],
-            usefulParams.spinRange_midTime.fkdot[2] + usefulParams.spinRange_midTime.fkdotBand[2]);
+            usefulParams.spinRange_midTime.fkdot[2] + usefulParams.spinRange_midTime.fkdotBand[2],
+			usefulParams.spinRange_midTime.fkdot[3],
+            usefulParams.spinRange_midTime.fkdot[3] + usefulParams.spinRange_midTime.fkdotBand[3]);
 
   LogPrintf(LOG_DETAIL, "Frequency and spindown range at endTime (%d): [%f,%f], [%e,%e], [%e,%e]\n",
             usefulParams.spinRange_endTime.refTime.gpsSeconds,
@@ -898,11 +967,13 @@ int MAIN( int argc, char *argv[]) {
             usefulParams.spinRange_endTime.fkdot[1],
             usefulParams.spinRange_endTime.fkdot[1] + usefulParams.spinRange_endTime.fkdotBand[1],
             usefulParams.spinRange_endTime.fkdot[2],
-            usefulParams.spinRange_endTime.fkdot[2] + usefulParams.spinRange_endTime.fkdotBand[2]);
+            usefulParams.spinRange_endTime.fkdot[2] + usefulParams.spinRange_endTime.fkdotBand[2],
+            usefulParams.spinRange_endTime.fkdot[3],
+            usefulParams.spinRange_endTime.fkdot[3] + usefulParams.spinRange_endTime.fkdotBand[3]);
 
   /* print debug info about stacks */
-  fprintf(stderr, "%% --- Setup, N = %d, T = %.0f s, Tobs = %.0f s, gammaRefine = %.0f, gamma2Refine = %.0f\n",
-          nStacks, tStack, tObs, gammaRefine, gamma2Refine);
+  fprintf(stderr, "%% --- Setup, N = %d, T = %.0f s, Tobs = %.0f s, gammaRefine = %.0f, gamma2Refine = %.0f, gamma3Refine = %.0f\n",
+          nStacks, tStack, tObs, gammaRefine, gamma2Refine, gamma3Refine);
 
 
   /*---------- set up F-statistic calculation stuff ---------*/
@@ -940,13 +1011,23 @@ int MAIN( int argc, char *argv[]) {
   const UINT4 numDetectors = detectorIDs->length;
 
   /* assemble column headings string for output file */
-  char colum_headings_string_base[] = "freq alpha delta f1dot f2dot nc <2F>";
+  CHAR colum_headings_string_base[256];
+  if (XLALUserVarWasSet(&uvar_f3dot)) {
+		sprintf(colum_headings_string_base,"freq alpha delta f1dot f2dot f3dot nc <2F>");
+  }
+  else {
+		sprintf(colum_headings_string_base,"freq alpha delta f1dot f2dot nc <2F>");
+  }
+  
   UINT4 column_headings_string_length = sizeof(colum_headings_string_base);
   if ( uvar_computeLV ) {
     column_headings_string_length += 3 + numDetectors*8; /* 3 for " LV" and 8 per detector for " <2F_XY>" */
   }
   if ( uvar_recalcToplistStats ) {
     column_headings_string_length += 6 + numDetectors*9; /* 6 for " <2Fr>" and 9 per detector for " <2Fr_XY>" */
+    if (XLALUserVarWasSet(&uvar_f3dot)){
+		column_headings_string_length += 1;
+	}
   }
   char column_headings_string[column_headings_string_length];
   XLAL_INIT_MEM( column_headings_string );
@@ -1072,18 +1153,18 @@ int MAIN( int argc, char *argv[]) {
       XLALNextDopplerSkyPos(&dopplerpos, &thisScan);
   }
 
+  // timing values
+  REAL8 costFstat = 0, costIncoh = 0, costLoop = 0, costToplist = 0;
 
-  /* timing */
-  REAL8 timeStart = 0.0, timeEnd = 0.0;
-  REAL8 coherentTime = 0.0, incoherentTime = 0.0, vetoTime = 0.0;
-  REAL8 timeStamp1 = 0.0, timeStamp2 = 0.0;
-  if ( uvar_outputTiming )
-    timeStart = XLALGetTimeOfDay();
+  REAL8 timeLoopStart = XLALGetTimeOfDay();
+  REAL8 timeFstatStart, timeFstatEnd;
+  REAL8 timeIncohStart, timeIncohEnd;
+  REAL8 timeToplistStart, timeToplistEnd;
+  REAL8 timeLoopEnd;
 
   /* ################## loop over SKY coarse-grid points ################## */
   while(thisScan.state != STATE_FINISHED)
     {
-
       SHOW_PROGRESS(dopplerpos.Alpha, dopplerpos.Delta,
                     skyGridCounter * nf1dot + f1dotGridCounter,
                     thisScan.numSkyGridPoints * nf1dot, uvar_Freq, uvar_FreqBand);
@@ -1131,8 +1212,13 @@ int MAIN( int argc, char *argv[]) {
 
         while ( if2dot < nf2dot ) {
 
+        /* ################## loop over coarse-grid F3DOT values ################## */
+        if3dot = 0;
+
+        while ( if3dot < nf3dot ) {
+
           /* show progress */
-          LogPrintf( LOG_NORMAL, "Coarse grid sky:%d/%d f1dot:%d/%d f2dot:%d/%d\n", skyGridCounter+1, thisScan.numSkyGridPoints, ifdot+1, nf1dot, if2dot+1, nf2dot );
+          LogPrintf( LOG_NORMAL, "Coarse grid sky:%d/%d f1dot:%d/%d f2dot:%d/%d f3dot:%d/%d\n", skyGridCounter+1, thisScan.numSkyGridPoints, ifdot+1, nf1dot, if2dot+1, nf2dot, if3dot+1, nf3dot );
 
           /* ------------- Set up coarse grid --------------------------------------*/
           coarsegrid.freqlength = (UINT4) (binsFstat1);
@@ -1201,6 +1287,13 @@ int MAIN( int argc, char *argv[]) {
           /* adjust f2dotmin_fg, so that f2dot finegrid is centered around coarse-grid f2dot point */
           f2dotmin_fg = (usefulParams.spinRange_midTime.fkdot[2] + if2dot * df2dot) - df2dot_fg * floor(nf2dots_fg / 2.0);
 
+          /* fine-grid f3dot resolution */
+          nf3dots_fg = 1;
+          df3dot_fg = 1;  /* 3rd spindown fine-grid  stepsize */
+
+          /* adjust f3dotmin_fg, so that f3dot finegrid is centered around coarse-grid f3dot point */
+          f3dotmin_fg = (usefulParams.spinRange_midTime.fkdot[3] + if3dot * df3dot) - df3dot_fg * floor(nf3dots_fg / 2.0);
+
           /* total number of fine-grid points */
           finegrid.length = finegrid.freqlength;
 
@@ -1210,8 +1303,8 @@ int MAIN( int argc, char *argv[]) {
           }
           if(!oldfg) {
             oldfg = finegrid.length;
-            LogPrintfVerbatim(LOG_NORMAL, "FG:%ld  f1dotmin_fg:%.13g df1dot_fg:%.13g f2dotmin_fg:%.13g df2dot_fg:%.13g\n",
-                              finegrid.length,f1dotmin_fg,df1dot_fg,f2dotmin_fg,df2dot_fg);
+            LogPrintfVerbatim(LOG_NORMAL, "FG:%ld  f1dotmin_fg:%.13g df1dot_fg:%.13g f2dotmin_fg:%.13g df2dot_fg:%.13g f3dotmin_fg:%.13g df3dot_fg:%.13g\n",
+                              finegrid.length,f1dotmin_fg,df1dot_fg,f2dotmin_fg,df2dot_fg,f3dotmin_fg,df3dot_fg);
           }
           if((coarsegrid.length != oldcg) || (finegrid.length != oldfg)) {
             LogPrintfVerbatim(LOG_CRITICAL, "ERROR: Grid-sizes disagree!\nPrevious CG:%d FG:%ld, currently CG:%d FG:%ld\n",
@@ -1257,6 +1350,12 @@ int MAIN( int argc, char *argv[]) {
               /* get the 2nd spindown of this fine-grid point */
               f2dot_fg = f2dotmin_fg + if2dot_fg * df2dot_fg;
 
+            /* ---------- Walk through fine grid f3dot --------------- */
+            for( if3dot_fg = 0; if3dot_fg < nf3dots_fg; if3dot_fg++ ) {
+
+              /* get the 3rd spindown of this fine-grid point */
+              f3dot_fg = f3dotmin_fg + if3dot_fg * df3dot_fg;
+
               /* initialize the entire finegrid ( 2F-sum and number count set to 0 ) */
               memset( finegrid.nc, 0, finegrid.length * sizeof(FINEGRID_NC_T) );
               memset( finegrid.sumTwoF, 0, finegrid.length * sizeof(REAL4) );
@@ -1264,7 +1363,7 @@ int MAIN( int argc, char *argv[]) {
                 memset( finegrid.sumTwoFX, 0, finegrid.numDetectors * finegrid.freqlengthAL * sizeof(REAL4) );
 
               /* compute F-statistic values for coarse grid the first time through fine grid fdots loop */
-              const BOOLEAN doComputeFstats = ( (if1dot_fg == 0) && (if2dot_fg == 0) );
+              const BOOLEAN doComputeFstats = ( (if1dot_fg == 0) && (if2dot_fg == 0) && (if3dot_fg == 0));
 
               /* #########################################################################*/
               /* ------------- MAIN LOOP over Segments for F-statistic -------------------*/
@@ -1332,6 +1431,9 @@ int MAIN( int argc, char *argv[]) {
                 /* Set spindown value for Fstat calculation */
                 thisPoint.fkdot[2] = usefulParams.spinRange_midTime.fkdot[2] + if2dot * df2dot;
 
+                /* Set spindown value for Fstat calculation */
+                thisPoint.fkdot[3] = usefulParams.spinRange_midTime.fkdot[3] + if3dot * df3dot;
+
                 /* Frequency at the segment's midpoint for later use */
                 f1dot_event = thisPoint.fkdot[1] + thisPoint.fkdot[2] * timeDiffSeg;
                 myf0 = thisPoint.fkdot[0] + thisPoint.fkdot[1] * timeDiffSeg +
@@ -1349,13 +1451,11 @@ int MAIN( int argc, char *argv[]) {
                    U2idx = 0;
                 */
 
-                /* timing */
-                if ( uvar_outputTiming )
-                  timeStamp1 = XLALGetTimeOfDay();
-
                 /* ----------------------------------------------------------------- */
                 /************************ Compute F-Statistic ************************/
                 if (doComputeFstats) { /* if first time through fine grid fdots loop */
+
+                  timeFstatStart = XLALGetTimeOfDay();
 
                   const int retn = XLALComputeFstat(&Fstat_res, Fstat_in_vec->data[k], &thisPoint, dFreqStack, binsFstat1, Fstat_what);
                   if ( retn != XLAL_SUCCESS ) {
@@ -1424,19 +1524,14 @@ int MAIN( int argc, char *argv[]) {
                   /* --- Holger: This is not needed in U1-only case. Sort the coarse grid in Uindex --- */
                   /* qsort(coarsegrid.list, (size_t)coarsegrid.length, sizeof(CoarseGridPoint), compareCoarseGridUindex); */
 
-                }
+                  timeFstatEnd = XLALGetTimeOfDay();
+                  costFstat += (timeFstatEnd - timeFstatStart);
+
+                } // if (doComputeFstats)
                 /* -------------------- END Compute F-Statistic -------------------- */
 
-                /* timing */
-                if ( uvar_outputTiming ) {
-                  timeStamp2 = XLALGetTimeOfDay();
-                  if (doComputeFstats) {
-                    coherentTime += timeStamp2 - timeStamp1;
-                  }
-                  timeStamp1 = timeStamp2;
-                }
-
                 /* -------------------- Map fine grid to coarse grid -------------------- */
+                timeIncohStart = XLALGetTimeOfDay();
 
                 /* get the frequency of this fine-grid point at mid point of segment */
                 /* OLD: ifreq_fg = 0; freq_tmp = finegrid.freqmin_fg + ifreq_fg * finegrid.dfreq_fg + f1dot_tmp * timeDiffSeg; */
@@ -1503,26 +1598,30 @@ int MAIN( int argc, char *argv[]) {
                 }
 #endif // GC_SSE2_OPT
 
-                /* timing */
-                if ( uvar_outputTiming ) {
-                  timeStamp2 = XLALGetTimeOfDay();
-                  incoherentTime += timeStamp2 - timeStamp1;
-                }
+                timeIncohEnd = XLALGetTimeOfDay();
+                costIncoh += (timeIncohEnd - timeIncohStart);
 
               } /* end: ------------- MAIN LOOP over Segments --------------------*/
 
               /* ############################################################### */
 
+              timeToplistStart = XLALGetTimeOfDay();
+
               if( uvar_semiCohToplist ) {
                 /* this is necessary here, because UpdateSemiCohToplists() might set
                    a checkpoint that needs some information from here */
-                LAL_CALL( UpdateSemiCohToplists (&status, semiCohToplist, semiCohToplist2, &finegrid, f1dot_fg, f2dot_fg, &usefulParams, NSegmentsInv, usefulParams.NSegmentsInvX ), &status);
+                LAL_CALL( UpdateSemiCohToplists (&status, semiCohToplist, semiCohToplist2, &finegrid, f1dot_fg, f2dot_fg, f3dot_fg, &usefulParams, NSegmentsInv, usefulParams.NSegmentsInvX, XLALUserVarWasSet(&uvar_f3dot) ), &status);
               }
+              timeToplistEnd = XLALGetTimeOfDay();
+              costToplist += ( timeToplistEnd - timeToplistStart );
 
             } /* for( if1dot_fg = 0; if1dot_fg < nf1dots_fg; if1dot_fg++ ) */
           } /* for( if2dot_fg = 0; if2dot_fg < nf2dots_fg; if2dot_fg++ ) */
+          } /* for( if3dot_fg = 0; if3dot_fg < nf3dots_fg; if3dot_fg++ ) */
           /* ---------- END walk through fine grid fdots --------------- */
+          if3dot++;  /* Increment if3dot counter */
 
+        } /* ########## End of loop over coarse-grid f3dot values (if3dot) ########## */
           if2dot++;  /* Increment if2dot counter */
 
         } /* ########## End of loop over coarse-grid f2dot values (if2dot) ########## */
@@ -1557,6 +1656,8 @@ int MAIN( int argc, char *argv[]) {
 
     } /* ######## End of while loop over 1st stage SKY coarse-grid points ############ */
   /*---------------------------------------------------------------------------------*/
+  timeLoopEnd = XLALGetTimeOfDay();
+  costLoop = (timeLoopEnd - timeLoopStart);
 
   /* now that we have the final toplist, translate all pulsar parameters to correct reftime */
   xlalErrno = 0;
@@ -1568,20 +1669,12 @@ int MAIN( int argc, char *argv[]) {
     return(HIERARCHICALSEARCH_EXLAL);
   }
 
-  /* timing */
-  if ( uvar_outputTiming )
-    timeEnd = XLALGetTimeOfDay();
-
   LogPrintf( LOG_NORMAL, "Finished main analysis.\n");
 
   /* Also compute F, FX (for line veto statistics) for all candidates in final toplist */
   if ( uvar_recalcToplistStats ) {
 
     LogPrintf( LOG_NORMAL, "Recalculating statistics for the final toplist...\n");
-
-    /* timing */
-    if ( uvar_outputTiming )
-      timeStamp1 = XLALGetTimeOfDay();
 
     /* need pre-sorted toplist to have right segment-Fstat file numbers (do not rely on this feature, could be messed up by precision issues in sorting!) */
     if ( uvar_outputSingleSegStats )
@@ -1602,43 +1695,36 @@ int MAIN( int argc, char *argv[]) {
                    HIERARCHICALSEARCH_EXLAL, "XLALComputeExtraStatsForToplist() failed for 2nd toplist with xlalErrno = %d.\n\n", xlalErrno
                    );
 
-    /* timing */
-    if ( uvar_outputTiming ) {
-      timeStamp2 = XLALGetTimeOfDay();
-      vetoTime = timeStamp2 - timeStamp1;
-    }
-
     LogPrintf( LOG_NORMAL, "Finished recalculating toplist statistics.\n");
 
   }
 
   if ( uvar_outputTiming )
     {
-      FILE *timing_fp;
-      if ( ( timing_fp = fopen ( uvar_outputTiming, "ab" )) == NULL ) {
-        XLALPrintError ("%s: failed to open timing-file '%s' for appending.\n", __func__, uvar_outputTiming );
-        return HIERARCHICALSEARCH_EFILE;
-      }
-      REAL8 tauWU = timeEnd - timeStart;
+      timing.Nseg = coarsegrid.nStacks;
+      timing.Ndet = coarsegrid.numDetectors;
+      timing.Tcoh = usefulParams.tStack;
+      timing.Nsft = usefulParams.nSFTs;
 
-      /* compute fundamental timing-model constants:
-       * 'tauF0' = Fstat time per template per SFT,
-       * 'tauS0' = time to add one per-segment F-stat value per fine-grid point
-       */
-      REAL8 Ncoarse = thisScan.numSkyGridPoints * nf1dot * nf2dot * ( binsFstatSearch + 2 * semiCohPar.extraBinsFstat);	// includes GCSideband bins
-      REAL8 NSB     = thisScan.numSkyGridPoints * nf1dot * nf2dot * 2 * semiCohPar.extraBinsFstat;	// pure coarse GCSideband template count
+      timing.NFreqCo = coarsegrid.freqlength;		// includes Fstat sideband bins
+      timing.Nco = thisScan.numSkyGridPoints * timing.NFreqCo * nf1dot * nf2dot;
+
       REAL8 nf1dot_fine = nf1dot * nf1dots_fg;	// 'nf1dots_fg' is the number of fine-grid points *per coarse-grid point*!
       REAL8 nf2dot_fine = nf2dot * nf2dots_fg;	// 'nf1dots_fg' is the number of fine-grid points *per coarse-grid point*!
-      REAL8 Nfine   = thisScan.numSkyGridPoints * binsFstatSearch * nf1dot_fine * nf2dot_fine;	// doesn't include F-stat sideband bins
-      REAL8 c0co    = coherentTime / ( Ncoarse * nSFTs );
-      // Note: we use (total-FstatTime) instead of incoherentTime to ensure accurate prediction power
-      // whatever extra time isn't captured by incoherentTime+coherentTime also needs to be accounted as 'incoherent time'
-      // in our model...
-      REAL8 c0ic   = (tauWU - coherentTime) / ( Nfine * nStacks );
+      timing.Nic = thisScan.numSkyGridPoints * binsFstatSearch * nf1dot_fine * nf2dot_fine;	// excludes F-stat sideband bins
 
-      fprintf ( timing_fp, "%10.3g %10.3g %10.3g %7d %7d    %9.3g %9.3g %9.3g %9.3g    %10.3g %10.3g\n",
-                Ncoarse, NSB, Nfine, nSFTs, nStacks, tauWU, coherentTime, incoherentTime, vetoTime, c0co, c0ic );
-      fclose ( timing_fp );
+      timing.c0ic = (costLoop - costFstat) / (1.0 * timing.Nseg * timing.Nic);	// safe estimate: everything except coherent time
+      timing.c1co = costFstat / (1.0 * timing.Nseg * timing.Nco);
+
+      LogPrintf ( LOG_DEBUG, "costLoop = %.1e s, costCoh = %.1e s, costIncoh = %.1e s, costToplist = %.1e s (missing = %.1e s)\n\n",
+                  costLoop, costFstat, costIncoh, costToplist, costLoop - costFstat - costIncoh - costToplist );
+
+      timing.c0Demod = timing.c1co * timing.Nseg / timing.Nsft;
+      timing.FstatMethod = usefulParams.Fmethod;
+
+      if ( uvar_outputTiming ) {
+        XLAL_CHECK ( write_TimingInfo ( uvar_outputTiming, &timing ) == XLAL_SUCCESS, XLAL_EFUNC );
+      }
     } // if uvar_outputTiming
 
   LogPrintf ( LOG_DEBUG, "Writing output ... ");
@@ -1945,26 +2031,12 @@ void SetUpSFTs( LALStatus *status,			/**< pointer to LALStatus structure */
   for (UINT4 X = 0; X < numDetectors; X++) {
     in->NSegmentsInvX[X] = 0;
   }
+
+  FstatExtraParams XLAL_INIT_DECL(extraParams);
+  extraParams.SSBprec = in->SSBprec;
+  extraParams.Dterms = in->Dterms;
+
   for (k = 0; k < in->nStacks; k++) {
-
-    /* ----- create Fstat input data struct ----- */
-    if ( in->useResamp ) {	// use resampling
-
-      (*p_Fstat_in_vec)->data[k] = XLALCreateFstatInput_Resamp();
-      if ( (*p_Fstat_in_vec)->data[k] == NULL ) {
-        XLALPrintError("%s: XLALCreateFstatInput_Resamp() failed with errno=%d", __func__, xlalErrno);
-        ABORT ( status, HIERARCHICALSEARCH_EXLAL, HIERARCHICALSEARCH_MSGEXLAL );
-      }
-
-    } else {			// use demodulation
-
-      (*p_Fstat_in_vec)->data[k] = XLALCreateFstatInput_Demod( in->Dterms, DEMODHL_BEST );
-      if ( (*p_Fstat_in_vec)->data[k] == NULL ) {
-        XLALPrintError("%s: XLALCreateFstatInput_Demod() failed with errno=%d", __func__, xlalErrno);
-        ABORT ( status, HIERARCHICALSEARCH_EXLAL, HIERARCHICALSEARCH_MSGEXLAL );
-      }
-
-    }
 
     /* if single-only flag is given, assume a PSD with sqrt(S) = 1.0 */
     MultiNoiseFloor assumeSqrtSX, *p_assumeSqrtSX;
@@ -1979,11 +2051,14 @@ void SetUpSFTs( LALStatus *status,			/**< pointer to LALStatus structure */
     }
 
     PulsarParamsVector *injectSources = NULL;
-    MultiNoiseFloor *p_injectSqrtSX = NULL;
-    if ( XLALSetupFstatInput( (*p_Fstat_in_vec)->data[k], &catalogSeq.data[k], freqmin, freqmax,
-                                  injectSources, p_injectSqrtSX, p_assumeSqrtSX,
-                                  in->blocksRngMed, in->edat, in->SSBprec, 0 ) != XLAL_SUCCESS ) {
-      XLALPrintError("%s: XLALSetupFstatInput() failed with errno=%d", __func__, xlalErrno);
+    MultiNoiseFloor *injectSqrtSX = NULL;
+
+    /* ----- create Fstat input data struct ----- */
+    (*p_Fstat_in_vec)->data[k] = XLALCreateFstatInput ( &catalogSeq.data[k], freqmin, freqmax,
+                                                        injectSources, injectSqrtSX, p_assumeSqrtSX, in->blocksRngMed,
+                                                        in->edat, in->Fmethod, &extraParams );
+    if ( (*p_Fstat_in_vec)->data[k] == NULL ) {
+      XLALPrintError("%s: XLALCreateFstatInput() failed with errno=%d", __func__, xlalErrno);
       ABORT ( status, HIERARCHICALSEARCH_EXLAL, HIERARCHICALSEARCH_MSGEXLAL );
     }
 
@@ -2261,9 +2336,11 @@ void UpdateSemiCohToplists ( LALStatus *status,
                              FineGrid *in,
                              REAL8 f1dot_fg,
                              REAL8 f2dot_fg,
+							 REAL8 f3dot_fg,
                              UsefulStageVariables *usefulparams,
                              REAL4 NSegmentsInv,
-                             REAL4 *NSegmentsInvX
+                             REAL4 *NSegmentsInvX,
+							 BOOLEAN have_f3dot
                              )
 {
 
@@ -2288,6 +2365,7 @@ void UpdateSemiCohToplists ( LALStatus *status,
     line.Delta = in->delta;
     line.F1dot = f1dot_fg;
     line.F2dot = f2dot_fg;
+	line.F3dot = f3dot_fg;
     line.nc = in->nc[ifreq_fg];
     line.sumTwoF = in->sumTwoF[ifreq_fg]; /* here it's still the summed 2F value over segments, not the average */
     line.numDetectors = in->numDetectors;
@@ -2296,7 +2374,8 @@ void UpdateSemiCohToplists ( LALStatus *status,
       line.sumTwoFXrecalc[X] = 0.0;
     }
     line.sumTwoFrecalc = -1.0; /* initialise this to -1.0, so that it only gets written out by print_gctFStatline_to_str if later overwritten in recalcToplistStats step */
-
+    line.have_f3dot = have_f3dot;
+    
     if ( in->sumTwoFX ) { /* if we already have FX values from the main loop, insert these, and calculate LV-stat here */
       for (UINT4 X = 0; X < in->numDetectors; X++)
         line.sumTwoFX[X] = in->sumTwoFX[FG_FX_INDEX(*in, X, ifreq_fg)]; /* here it's still the summed 2F value over segments, not the average */
@@ -2634,7 +2713,7 @@ XLALSetUpStacksFromSegmentList ( const SFTCatalog *catalog,	/**< complete list o
  * XLAL function to extrapolate the pulsar spin parameters of all toplist candidates
  * from reftime of the input toplist ('inRefTime') to a user-specified output reftime 'outRefTime'
  */
-int XLALExtrapolateToplistPulsarSpins ( toplist_t *list,              /**< [out/in] toplist with GCTtopOutputEntry items, 'Freq,F1dot,F2dot' fields will be overwritten  */
+int XLALExtrapolateToplistPulsarSpins ( toplist_t *list,              /**< [out/in] toplist with GCTtopOutputEntry items, 'Freq,F1dot,F2dot,F3dot' fields will be overwritten  */
 					const LIGOTimeGPS outRefTime, /**< reference time as requested for the final candidate output */
 					const LIGOTimeGPS inRefTime   /**< reference time of the input toplist */
 				        )
@@ -2661,6 +2740,7 @@ int XLALExtrapolateToplistPulsarSpins ( toplist_t *list,              /**< [out/
       fkdot[0] = elem->Freq;
       fkdot[1] = elem->F1dot;
       fkdot[2] = elem->F2dot;
+	  fkdot[3] = elem->F3dot;
       /* propagate fkdot to reference-time  */
       if ( XLALExtrapolatePulsarSpins( fkdot, fkdot, deltaTau ) != XLAL_SUCCESS )
         {
@@ -2671,8 +2751,44 @@ int XLALExtrapolateToplistPulsarSpins ( toplist_t *list,              /**< [out/
       elem->Freq  = fkdot[0];
       elem->F1dot = fkdot[1];
       elem->F2dot = fkdot[2];
+	  elem->F3dot = fkdot[3];
     }
 
   return XLAL_SUCCESS;
 
 } /* XLALExtrapolateToplistPulsarSpins() */
+
+
+/**
+ * Function to append one timing-info line to output file.
+ *
+ */
+static int
+write_TimingInfo ( const CHAR *fname, const timingInfo_t *ti )
+{
+  /* input sanity */
+  if ( !fname || !ti ) {
+    XLALPrintError ("%s: invalid NULL input 'fp' | 'ti'\n", __func__ );
+    XLAL_ERROR ( XLAL_EINVAL );
+  }
+
+  FILE *fp;
+  if ( (fp = fopen ( fname,"rb" )) == NULL )
+    {
+      XLAL_CHECK ( (fp = fopen( fname, "wb" )) != NULL, XLAL_ESYS, "Failed to open new timing-file '%s' for writing\n", fname );
+      fprintf ( fp, "%2s%6s %6s %10s %6s %10s %10s %10s %10s %10s %10s %15s\n",
+                "%%", "Nseg", "Ndet", "Tcoh[s]", "Nsft", "NFreqCo", "Nco", "Nic", "c0ic[s]", "c1co[s]", "c0Demod[s]", "FstatMethod" );
+    }
+  else
+    {
+      fclose(fp);
+      XLAL_CHECK ( (fp = fopen( fname, "ab" )) != NULL, XLAL_ESYS, "Failed to open existing timing-file '%s' for appending\n", fname );
+    }
+
+  fprintf ( fp, "%8d %6d %10d %6d %10d %10d %10d %10.1e %10.1e %10.1e %15s\n",
+            ti->Nseg, ti->Ndet, ti->Tcoh, ti->Nsft, ti->NFreqCo, ti->Nco, ti->Nic, ti->c0ic, ti->c1co, ti->c0Demod, XLALGetFstatMethodName(ti->FstatMethod) );
+
+  fclose ( fp );
+  return XLAL_SUCCESS;
+
+} // write_TimingInfo()

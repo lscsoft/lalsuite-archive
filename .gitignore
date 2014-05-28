@@ -5,6 +5,7 @@
 .dirstamp
 /Makefile
 /Makefile.in
+/_build/
 /_inst/
 TAGS
 aclocal.m4
@@ -15,3 +16,4 @@ config.log
 config.status
 configure
 lalsuite-*.tar.gz
+tags
