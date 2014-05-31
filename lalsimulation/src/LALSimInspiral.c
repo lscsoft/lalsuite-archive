@@ -1908,7 +1908,7 @@ int XLALSimInspiralChooseTDWaveform(
 
     /* SEOBNR flag for model version. 1 for SEOBNRv1, 2 for SEOBNRv2 */
     UINT4 SpinAlignedEOBversion;
-    REAL8 spin1[3], spin2[3];
+    //REAL8 spin1[3], spin2[3];
     //LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
 
     /* General sanity check the input parameters - only give warnings! */
@@ -2207,13 +2207,15 @@ int XLALSimInspiralChooseTDWaveform(
             if( f_ref != 0.)
                 XLALPrintWarning("XLAL Warning - %s: This approximant does use f_ref. The reference phase will be defined at coalescence.\n", __func__);
             /* Call the waveform driver routine */
-            spin1[0] = S1x; spin1[1] = S1y; spin1[2] = S1z;
-            spin2[0] = S2x; spin2[1] = S2y; spin2[2] = S2z;
+            //spin1[0] = S1x; spin1[1] = S1y; spin1[2] = S1z;
+            //spin2[0] = S2x; spin2[1] = S2y; spin2[2] = S2z;
             //ret = XLALSimIMRSpinEOBWaveform(hplus, hcross, &epoch, phiRef, 
             //        deltaT, m1, m2, f_min, r, i, spin1, spin2);
             SpinAlignedEOBversion = 2;
-            ret = XLALSimIMRSpinEOBWaveform(hplus, hcross, phiRef, 
-                    deltaT, m1, m2, f_min, r, i, spin1, spin2 );
+            ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef, 
+                    deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion);
+            //ret = XLALSimIMRSpinEOBWaveform(hplus, hcross, phiRef, 
+            //        deltaT, m1, m2, f_min, r, i, spin1, spin2 );
             break;
 
         default:
