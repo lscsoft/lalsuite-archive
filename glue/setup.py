@@ -116,7 +116,8 @@ class glue_install(install.install):
     glue_install_platlib = remove_root(self.install_platlib,self.root)
     
     log.info("creating glue-user-env.sh script")
-    env_file = open(os.path.join('etc','glue-user-env.sh'),'w')
+    shenv = os.path.join('etc','glue-user-env.sh')
+    env_file = open(shenv, 'w')
     env_file.write("# Source this file to access GLUE\n")
     env_file.write("GLUE_PREFIX=%s\n" % glue_prefix)
     env_file.write("export GLUE_PREFIX\n")
@@ -128,7 +129,8 @@ class glue_install(install.install):
     env_file.close()
 
     log.info("creating glue-user-env.csh script")
-    env_file = open(os.path.join('etc','glue-user-env.csh'),'w')
+    cshenv = os.path.join('etc','glue-user-env.csh')
+    env_file = open(cshenv, 'w')
     env_file.write("# Source this file to access GLUE\n")
     env_file.write("setenv GLUE_PREFIX %s\n" % glue_prefix)
     env_file.write("setenv PATH %s:${PATH}\n" % glue_install_scripts)
@@ -153,6 +155,17 @@ class glue_install(install.install):
 
     # now run the installer
     install.install.run(self)
+
+    # announce the environment script
+    print("\n" + '-' * 79)
+    print("GLUE has been installed.")
+    print("If you are running csh, you can set your environment by "
+          "running:\n")
+    print("source %s\n" % os.path.join(self.install_base, cshenv))
+    print("Otherwise, you can run:\n")
+    print("source %s" % os.path.join(self.install_base, shenv))
+    print("\n" + '-' * 79)
+
 
 class glue_clean(clean.clean):
   def finalize_options (self):
