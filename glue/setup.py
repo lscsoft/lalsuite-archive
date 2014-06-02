@@ -18,9 +18,19 @@ if version_info < (2, 4):
   print >> sys.stderr, "Glue requires at least version 2.4"
   sys.exit(1)
 
-from distutils.core import setup, Extension
+try:
+    from setuptools import setup
+except ImportError as e:
+    if os.path.basename(os.path.dirname(__file__)).startswith('pip-'):
+        e.args = ('setuptools module not found, cannot proceed with pip '
+                  'install',)
+        raise
+    from distutils.core import setup
+    from distutils.command import install
+else:
+    from setuptools.command import install
+from distutils.core import Extension
 from distutils.command import build_py
-from distutils.command import install
 from distutils.command import sdist
 from distutils.command import clean
 from distutils import log
