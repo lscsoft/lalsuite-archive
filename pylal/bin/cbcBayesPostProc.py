@@ -927,7 +927,7 @@ def cbcBayesPostProc(
       html_corner+='<tr><td width="100%"><img width="100%" src="corner/intrinsic.png"/></td></tr>'
       myfig.savefig(os.path.join(cornerdir,'intrinsic.png'))
       myfig.savefig(os.path.join(cornerdir,'intrinsic.pdf'))
-    myfig=bppu.plot_corner(pos,[0.67,0.9,0.95],parnames=extrinsicParams)
+    myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=extrinsicParams)
     if myfig:
       myfig.savefig(os.path.join(cornerdir,'extrinsic.png'))
       myfig.savefig(os.path.join(cornerdir,'extrinsic.pdf'))
