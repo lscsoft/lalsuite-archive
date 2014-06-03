@@ -300,6 +300,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
                (--lambdaT-max)                         Maximum lambdaT (3000).\n\
                (--dLambdaT-min)                        Minimum dLambdaT (-500).\n\
                (--dLambdaT-max)                        Maximum dLambdaT (500).\n\
+               (--marginal-d)                          Returns Dl samples from the marginalised likelihood rather than the posterior.\n\
                \n\
                ------------------------------------------------------------------------------------------------------------------\n\
                --- Fix Parameters   ---------------------------------------------------------------------------------------------\n\
@@ -406,7 +407,11 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
   {
     return(LALInferenceInitVariablesReviewEvidence_banana(state));
   }
-
+  if(LALInferenceGetProcParamVal(commandLine,"--marginal-d"))
+    {
+        UINT4 marginal_distance = 1;
+        LALInferenceAddVariable(state->priorArgs, "MARGINAL_DISTANCE", &marginal_distance, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+    }
   if(LALInferenceGetProcParamVal(commandLine,"--malmquistPrior"))
   {
     UINT4 malmquistflag=1;

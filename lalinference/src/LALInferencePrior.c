@@ -1555,7 +1555,7 @@ LALInferenceVariableItem *item=params->head;
                         norm = +1.09861228867-log(max*max*max-min*min*min);
                         LALInferenceAddVariable(priorParams, "distance_norm", &norm, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
                     }
-                    logPrior += 2.0*log(*(REAL8 *)LALInferenceGetVariable(params,"distance"))+norm;
+                    if (!LALInferenceCheckVariable(priorParams, "MARGINAL_DISTANCE")) logPrior += 2.0*log(*(REAL8 *)LALInferenceGetVariable(params,"distance"))+norm;
                     //printf("logPrior@%s=%f\n",item->name,logPrior);
                 }
                 else if(!strcmp(item->name, "logdistance")){
@@ -1567,7 +1567,7 @@ LALInferenceVariableItem *item=params->head;
                         norm = 1.38629436112-log(max*max*max*max-min*min*min*min);
                         LALInferenceAddVariable(priorParams, "logdistance_norm", &norm, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
                     }
-                    logPrior += 3.0* *(REAL8 *)LALInferenceGetVariable(params,"logdistance")+norm;
+                    if (!LALInferenceCheckVariable(priorParams, "MARGINAL_DISTANCE")) logPrior += 3.0* *(REAL8 *)LALInferenceGetVariable(params,"logdistance")+norm;
                     //printf("logPrior@%s=%f\n",item->name,logPrior);
                 }
                 else if(!strcmp(item->name, "fLow")){
