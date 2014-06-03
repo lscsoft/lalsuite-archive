@@ -3189,7 +3189,12 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
     Wrapper function for SimInspiralTransformPrecessingInitialConditions().
     Vectorizes function for use in append_mapping() methods of the posterior class.
     """
-    import lalsimulation as lalsim
+    try:
+      import lalsimulation as lalsim
+    except ImportError:
+      print 'bayespputils.py: Cannot import lalsimulation SWIG bindings to calculate physical to radiation'
+      print 'frame angles, did you remember to use --enable-swig-python when ./configuring lalsimulation?'
+      return None
     from numpy import shape
     transformFunc = lalsim.SimInspiralTransformPrecessingInitialConditions
 
