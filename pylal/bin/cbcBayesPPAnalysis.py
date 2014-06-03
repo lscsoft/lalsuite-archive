@@ -178,7 +178,9 @@ def output_html(outdir, ks_pvalues):
         out.write(html)
 
 if __name__ == '__main__':
-    parser = optparse.OptionParser()
+    USAGE='''%prog [options] posfile1.dat posfile2.dat ...
+	            Generate PP analysis for a set of injections. posfiles must be in same order as injections.'''
+    parser = optparse.OptionParser(USAGE)
     parser.add_option('--injXML', action='store', type='string', dest='injxml', 
                       help='sim_inspiral XML file for injections')
     parser.add_option('--outdir', action='store', type='string',
@@ -209,30 +211,31 @@ if __name__ == '__main__':
         pass
 
     pvalues = { }
-    for element in os.listdir(options.postdir):
-        directory = os.path.join(options.postdir, element)
-        if os.path.isdir(directory):
-            try:
-                psamples = read_posterior_samples(os.path.join(directory, options.postsamples))
-                index = int(element)
-                true_params = injs[index]
-            except:
-                # Couldn't read the posterior samples or the XML.
-                continue
+    posfiles=args
+    for index,posfile in enumerate(posfiles): #element in os.listdir(options.postdir):
+	    #directory = os.path.join(options.postdir, element)
+	    #if os.path.isdir(directory):
+	    try:
+	      psamples = read_posterior_samples(posfile)
+	      #index = int(element)
+	      true_params = injs[index]
+	    except:
+	      # Couldn't read the posterior samples or the XML.
+	      continue
 
-            for par in parameters:
-                try:
-                    samples = psamples[par]
-                    true_value = posterior_name_to_sim_inspiral_extractor[par](true_params)
-                    p = fractional_rank(true_value, samples)
-                    
-                    try:
-                        pvalues[par].append(p)
-                    except:
-                        pvalues[par] = [p]
-                except:
-                    # Couldn't read samples for parameter or injection
-                    continue
+	    for par in parameters:
+	      try:
+		samples = psamples[par]
+		true_value = posterior_name_to_sim_inspiral_extractor[par](true_params)
+		p = fractional_rank(true_value, samples)
+
+		try:
+		  pvalues[par].append(p)
+		except:
+		  pvalues[par] = [p]
+	      except:
+		# Couldn't read samples for parameter or injection
+		continue
 
     # Generate plots, K-S tests
     ks_pvalues = {}
