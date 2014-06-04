@@ -298,7 +298,7 @@ REAL8 drawRedshift(LALCosmologicalParameters *params, double zmin, double zmax)
     {
         test = XLALUniformDeviate(randParams);
         z = zmin+(zmax-zmin) * XLALUniformDeviate(randParams);
-        p=XLALUniformComovingVolumeDistribution(params, z, zmax);
+        p=XLALUniformComovingVolumeDistribution(params, z, -1.0);
     } while (test>p);
     return z;
 }
@@ -3603,7 +3603,6 @@ int main( int argc, char *argv[] )
     if (dDistr==starFormationRate  || dDistr==uniformVolume)
     {
       redshift = drawRedshift(omega,minZ,maxZ);
-
       minMass1 = redshift_mass(minMass10, redshift);
       maxMass1 = redshift_mass(maxMass10, redshift);
       meanMass1 = redshift_mass(meanMass10, redshift);
