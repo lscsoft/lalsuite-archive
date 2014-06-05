@@ -3600,12 +3600,13 @@ def plot_corner(posterior,levels,parnames=None):
     print 'Cannot load triangle module. Try running\n\t$ pip install triangle_plot'
     return None
   parnames=filter(lambda x: x in posterior.names, parnames)
+  labels = [plot_label(parname) for parname in parnames]
   data = np.hstack([posterior[p].samples for p in parnames])
   if posterior.injection:
     injvals=[posterior[p].injval for p in parnames]
-    myfig=triangle.corner(data,labels=parnames,truths=injvals,quantiles=levels)
+    myfig=triangle.corner(data,labels=labels,truths=injvals,quantiles=levels)
   else:
-    myfig=triangle.corner(data,labels=parnames,quantiles=levels)
+    myfig=triangle.corner(data,labels=labels,quantiles=levels)
   return(myfig)
 
 
