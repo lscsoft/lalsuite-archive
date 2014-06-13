@@ -50,6 +50,11 @@ from glue.ligolw import ligolw
 from glue.ligolw.utils import ligolw_add
 
 
+# DB content handler for reading xml input files
+class ContentHandler(ligolw.LIGOLWContentHandler):
+        pass
+lsctables.use_in(ContentHandler)
+
 
 ##########################################################
 class FollowupTrigger:
@@ -586,18 +591,46 @@ class FollowupTrigger:
     @param number:       the consecutive number for this inspiral followup
     @param slideDict: A dictionary of ifo keyed slide times if using slides
     """
-    
+    # create the small and large segments for storing triggers
+    seg_small =  segments.segment(self.followup_time - self.injection_window, \
+                                  self.followup_time + self.injection_window)
+    seg_large =  segments.segment(self.followup_time - self.time_window, \
+                                  self.followup_time + self.time_window)
+    if abs(seg_small) > abs(seg_large):
+      err_msg = "Injection window must be smaller than time_window."
+      err_msg = "Got injection window = %f and time window = %g." \
+                 %(self.injection_window,self.time_window)
+      raise ValueError(err_msg)
+   
     # read the file(s) and get the desired sngl_inspiral rows
     if self.verbose:
       print "Processing INSPIRAL triggers from files ", trigger_files
       
-    sngls = SnglInspiralUtils.ReadSnglInspiralFromFiles( \
-              trigger_files, verbose=False)
+    # Memory usage here can balloon, so read in files one-by-one and only keep
+    # triggers within time_window
+    sngls = lsctables.New(lsctables.SnglInspiralTable, \
+      columns=lsctables.SnglInspiralTable.loadcolumns)
 
-    xmldoc = ligolw_add.ligolw_add(ligolw.Document(), trigger_files,\
-               non_lsc_tables_ok=False, verbose=False)
+    for file in trigger_files:
+      xmldoc = utils.load_filename(file, verbose=self.verbose, 
+                                   contenthandler=ContentHandler)
+      try:
+        sngl_table = table.get_table(xmldoc,
+                                     lsctables.SnglInspiralTable.tableName)
+      except ValueError: # Some files have no sngl table. That's okay
+        xmldoc.unlink() # Free memory
+        continue
+      if slideDict: # If time slide, slide the triggers
+        for event in sngl_table:
+          event.set_end( event.get_end() + slideDict[event.ifo] )
+      # Remove triggers not within time window
+      sngl_table = sngl_table.vetoed(seg_large)
 
-    sngls_tbl = SnglInspiralUtils.ReadSnglInspiralsForPipelineStage(xmldoc, slideDict, stage)
+      # Add to full list
+      if sngl_table:
+        sngls.extend(sngl_table)
+      
+      xmldoc.unlink() # Free memory
 
     # create a figure and initialize some lists
     fig=pylab.figure()
@@ -605,26 +638,16 @@ class FollowupTrigger:
     loudest_details = {}
     no_triggers_found = True
 
-    if len(sngls_tbl) == 0:
-      self.put_text( 'No sngl_inspiral triggers in %s' % str(trigger_files))
+    if len(sngls) == 0:
+      self.put_text( 'No triggers/coincidences found within time window')
     else:
-      if slideDict:
-        for event in sngls_tbl:
-          event.set_end( event.get_end() + slideDict[event.ifo] )
-
-      # create the small and large segments
-      seg_small =  segments.segment(self.followup_time - self.injection_window, \
-                                    self.followup_time + self.injection_window)
-      seg_large =  segments.segment(self.followup_time - self.time_window, \
-                                    self.followup_time + self.time_window)
-
       # loop over the IFOs
       for ifo in self.colors.keys():
         # get the singles for this ifo
-        sngls_ifo = sngls_tbl.ifocut(ifo)
+        sngls_ifo = sngls.ifocut(ifo)
 
         # select the triggers within a given time window
-        selected_large = sngls_ifo.vetoed(seg_large)
+        selected_large = sngls_ifo
         time_large = [ float(sel.get_end()) - self.followup_time \
                       for sel in selected_large ]
         selected_small = sngls_ifo.vetoed(seg_small)
