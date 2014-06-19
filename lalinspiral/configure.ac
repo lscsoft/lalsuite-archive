@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([lalinspiral],[1.5.3.1],[lal-discuss@ligo.org])
+AC_INIT([LALInspiral],[1.5.3.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h src/LALInspiralConfig.h])
 AC_CONFIG_SRCDIR([src/LALInspiral.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -9,17 +9,16 @@ AC_CONFIG_FILES([ \
   lalinspiral.pc \
   lalinspiral-uninstalled.pc \
   Makefile \
-  gnuscripts/Makefile \
   debian/Makefile \
   include/Makefile \
   include/lal/Makefile \
+  src/LALInspiralVCSInfo.c \
+  src/LALInspiralVCSInfo.h \
   src/Makefile \
   python/Makefile \
   python/__init__.py \
   python/sbank/Makefile \
   swig/Makefile \
-  swig/octave/Makefile \
-  swig/python/Makefile \
   test/Makefile
 ])
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
@@ -129,23 +128,28 @@ LALSUITE_CHECK_LIB([LALSimulation],[1.1.0],[XLALSimDetectorStrainREAL8TimeSeries
 LALSUITE_CHECK_LIB([LALFrame],[1.1.0],[LALFrOpen],[lal/LALFrameL.h])
 
 # configure SWIG wrapping modules
-LALSUITE_USE_SWIG([XLAL LAL])
-
-# add gcc specific flags
-LALSUITE_ADD_GCC_FLAGS
+LALSUITE_USE_SWIG
 
 # define if CUDA is enabled
 if test "${cuda}" = "true"; then
   AC_DEFINE([LALINSPIRAL_CUDA_ENABLED],[1],[Define if using cuda library])
 fi
 
+# add gcc specific flags
+LALSUITE_ADD_GCC_FLAGS
+
+# add extra preprocessor flags
+AM_CPPFLAGS="\$(TEST_CPPFLAGS) ${AM_CPPFLAGS}"
+AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
+AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
+
+# force headers to be installed in ${includedir}/lal, ignoring library name
+AC_SUBST([pkgincludedir], ["\${includedir}/lal"])
+
 # force all python modules into the exec dir to prevent mixed C and
 # pure-python library code from being split across lib and lib64 on
 # RedHat-derived systems.
 AC_SUBST([pkgpythondir], ["\${pkgpyexecdir}"])
-
-LAL_HEADER_LINK=${ac_aux_dir}/header-link.mk
-AC_SUBST_FILE([LAL_HEADER_LINK])
 
 # output
 AC_OUTPUT
@@ -154,8 +158,9 @@ AC_MSG_NOTICE([
 LALInspiral has now been successfully configured:
 
 * CUDA support is $CUDA_ENABLE_VAL
-* SWIG wrapping module for Octave is $SWIG_OCTAVE_ENABLE_VAL
-* SWIG wrapping module for Python is $SWIG_PYTHON_ENABLE_VAL
+* SWIG binding generation is $SWIG_GENERATE_ENABLE_VAL
+* SWIG bindings for Octave are $SWIG_BUILD_OCTAVE_ENABLE_VAL
+* SWIG bindings for Python are $SWIG_BUILD_PYTHON_ENABLE_VAL
 
 and will be installed under the directory:
 

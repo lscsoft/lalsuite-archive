@@ -1,5 +1,6 @@
-AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -DPKG_DATA_DIR='"$(pkgdatadir)/"' @AM_CPPFLAGS@
-LDADD = $(top_builddir)/src/lalapps/liblalapps.la
+LDADD =
+BUILT_SOURCES =
+include $(top_srcdir)/gnuscripts/lalapps.am
 
 if LALFRAME
 if LALBURST
@@ -124,6 +125,3 @@ MOSTLYCLEANFILES = \
 	tsaMap* \
 	Candidate* \
 	Pre-*
-
-BUILT_SOURCES =
-include $(top_srcdir)/gnuscripts/vcsID.common

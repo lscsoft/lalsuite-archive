@@ -1,9 +1,10 @@
+LDADD =
+BUILT_SOURCES =
+include $(top_srcdir)/gnuscripts/lalapps.am
+
 SUBDIRS = \
 	SPINspiral \
 	mpi
-
-LDADD = $(top_builddir)/src/lalapps/liblalapps.la
-AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_builddir)/src/lalapps -DPKG_DATA_DIR='"$(pkgdatadir)/"' @AM_CPPFLAGS@
 
 if LALINSPIRAL
 if LALFRAME
@@ -132,7 +133,3 @@ lalapps_merge_nested_sampling_runs: $(srcdir)/merge_nested_sampling_runs.in pyth
 CLEANFILES = \
 	$(bin_SCRIPTS) \
 	python_config.sed
-
-BUILT_SOURCES =
-include $(top_srcdir)/gnuscripts/vcsID.common
-

@@ -1,4 +1,6 @@
-## Process this file with automake to produce Makefile.in
+LDADD =
+BUILT_SOURCES =
+include $(top_srcdir)/gnuscripts/lalapps.am
 
 ## sources
 STOCH_SRCS       = data_input.c data_input.h \
@@ -55,9 +57,6 @@ pkgpython_PYTHON = stochastic.py
 endif
 endif
 
-AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_builddir)/src/lalapps -DPKG_DATA_DIR='"$(pkgdatadir)/"' @AM_CPPFLAGS@
-LDADD             = $(top_builddir)/src/lalapps/liblalapps.la
-
 if LALSTOCHASTIC
 EXTRA_DIST        = stochastic.py stochastic_pipe.in stochastic_bayes.in
 endif
@@ -81,6 +80,3 @@ lalapps_stochastic_bayes: $(srcdir)/stochastic_bayes.in python_config.sed
 	$(AM_V_GEN)sed -f python_config.sed $(srcdir)/stochastic_bayes.in > \
 		lalapps_stochastic_bayes
 	@chmod +x lalapps_stochastic_bayes
-
-BUILT_SOURCES =
-include $(top_srcdir)/gnuscripts/vcsID.common
