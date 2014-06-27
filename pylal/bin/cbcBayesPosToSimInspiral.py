@@ -6,6 +6,7 @@
 #       Copyright 2013
 #       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
+#       John Veitch <john.veitch@ligo.org>
 #
 #
 #       This program is free software; you can redistribute it and/or modify
@@ -81,7 +82,7 @@ def standardize_param_names(params):
     standardize_param_name(params, ['d', 'dist'], 'distance')
     standardize_param_name(params, ['ra'], 'longitude')
     standardize_param_name(params, ['dec'], 'latitude')
-    standardize_param_name(params, ['iota'], 'inclination')
+    standardize_param_name(params, ['iota','inclination'], 'theta_jn')
     standardize_param_name(params, ['phi', 'phase'], 'phi_orb')
     standardize_param_name(params, ['psi', 'polarisation'], 'polarization')
 
@@ -173,7 +174,7 @@ if __name__ == "__main__":
     mc, eta, m1, m2, mtotal = compute_mass_parameterizations(samples)
 
     # Get cycle numbers as simulation_ids
-    ids = samples['cycle'].astype(int)
+    ids = range(N)
 
     # Compute cartesian spins
     if 'a1' in params and 'theta1' in params and 'phi1' in params:
@@ -199,14 +200,14 @@ if __name__ == "__main__":
         s2y = np.zeros_like(m2)
         s2z = np.zeros_like(m2)
 
-    system_frame_params = {
-            'theta_jn',
-            'phi_jl',
-            'tilt1', 'tilt2',
-            'phi12',
-            'a1','a2',
-            'f_ref'
-    }
+    system_frame_params = set([ \
+            'theta_jn', \
+            'phi_jl', \
+            'tilt1', 'tilt2', \
+            'phi12', \
+            'a1','a2', \
+            'f_ref' \
+    ])
 
     if set(params).intersection(system_frame_params) == system_frame_params:
         inclination, theta1, phi1, theta2, phi2, _ = bppu.physical2radiationFrame(
@@ -227,7 +228,7 @@ if __name__ == "__main__":
         s1x, s1y, s1z = bppu.sph2cart(samples['a1'], theta1, phi1)
         s2x, s2y, s2z = bppu.sph2cart(samples['a2'], theta2, phi2)
     else:
-        inclination = samples['inclination']
+        inclination = samples['theta_jn']
 
     print s1x.shape
     # Check if f_low is a parameter, if not take from command line options

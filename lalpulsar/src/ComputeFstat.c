@@ -70,8 +70,6 @@ struct tagFstatInput {
 };
 
 // ----- internal prototypes
-static REAL8 ComputeFstatFromFaFb ( COMPLEX16 Fa, COMPLEX16 Fb, REAL8 A, REAL8 B, REAL8 C, REAL8 E, REAL8 Dinv );
-
 // ---------- Check for various computer architectures ---------- //
 
 #if defined(HAVE_SSE) || defined(__SSE__)
@@ -565,8 +563,10 @@ XLALComputeFstat ( FstatResults **Fstats,	  	///< [in/out] Address of a pointer 
       // Enlarge multi-detector Fa & Fb array
       if ( (whatToCompute & FSTATQ_FAFB) && moreFreqBins )
         {
-          (*Fstats)->FaFb = XLALRealloc( (*Fstats)->FaFb, numFreqBins * sizeof((*Fstats)->FaFb[0]) );
-          XLAL_CHECK ( (*Fstats)->FaFb != NULL, XLAL_EINVAL, "Failed to (re)allocate (*Fstats)->FaFb to length %u", numFreqBins );
+          (*Fstats)->Fa = XLALRealloc( (*Fstats)->Fa, numFreqBins * sizeof((*Fstats)->Fa[0]) );
+          XLAL_CHECK ( (*Fstats)->Fa != NULL, XLAL_EINVAL, "Failed to (re)allocate (*Fstats)->Fa to length %u", numFreqBins );
+          (*Fstats)->Fb = XLALRealloc( (*Fstats)->Fb, numFreqBins * sizeof((*Fstats)->Fb[0]) );
+          XLAL_CHECK ( (*Fstats)->Fb != NULL, XLAL_EINVAL, "Failed to (re)allocate (*Fstats)->Fb to length %u", numFreqBins );
         }
 
       // Enlarge 2F per detector arrays
@@ -584,8 +584,10 @@ XLALComputeFstat ( FstatResults **Fstats,	  	///< [in/out] Address of a pointer 
         {
           for ( UINT4 X = 0; X < numDetectors; ++X )
             {
-              (*Fstats)->FaFbPerDet[X] = XLALRealloc ( (*Fstats)->FaFbPerDet[X], numFreqBins*sizeof((*Fstats)->FaFbPerDet[X][0]) );
-              XLAL_CHECK( (*Fstats)->FaFbPerDet[X] != NULL, XLAL_EINVAL, "Failed to (re)allocate (*Fstats)->FaFbPerDet[%u] to length %u", X, numFreqBins );
+              (*Fstats)->FaPerDet[X] = XLALRealloc ( (*Fstats)->FaPerDet[X], numFreqBins*sizeof((*Fstats)->FaPerDet[X][0]) );
+              XLAL_CHECK( (*Fstats)->FaPerDet[X] != NULL, XLAL_EINVAL, "Failed to (re)allocate (*Fstats)->FaPerDet[%u] to length %u", X, numFreqBins );
+              (*Fstats)->FbPerDet[X] = XLALRealloc ( (*Fstats)->FbPerDet[X], numFreqBins*sizeof((*Fstats)->FbPerDet[X][0]) );
+              XLAL_CHECK( (*Fstats)->FbPerDet[X] != NULL, XLAL_EINVAL, "Fbiled to (re)allocate (*Fstats)->FbPerDet[%u] to length %u", X, numFreqBins );
             }
         }
 
@@ -694,11 +696,13 @@ XLALDestroyFstatResults ( FstatResults* Fstats  ///< [in] #FstatResults structur
   }
 
   XLALFree ( Fstats->twoF );
-  XLALFree ( Fstats->FaFb );
+  XLALFree ( Fstats->Fa );
+  XLALFree ( Fstats->Fb );
   for ( UINT4 X = 0; X < PULSAR_MAX_DETECTORS; ++X )
     {
       XLALFree ( Fstats->twoFPerDet[X] );
-      XLALFree ( Fstats->FaFbPerDet[X] );
+      XLALFree ( Fstats->FaPerDet[X] );
+      XLALFree ( Fstats->FbPerDet[X] );
       if ( Fstats->multiFatoms != NULL )
         {
           for ( UINT4 n = 0; n < Fstats->internalalloclen; ++n )
@@ -758,8 +762,8 @@ XLALAdd4ToFstatResults ( FstatResults* Fstats    ///< [in/out] #FstatResults str
 int
 XLALEstimatePulsarAmplitudeParams ( PulsarCandidate *pulsarParams,	///< [in,out] Pulsar candidate parameters.
                                     const LIGOTimeGPS* FaFb_refTime,	///< [in] Reference time of \f$F_a\f$ and \f$F_b\f$, may differ from pulsar candidate reference time.
-                                    const COMPLEX16 Fa,			///< [in] Complex \f$\mathcal{F}\f$-statistic amplitude \f$F_a\f$.
-                                    const COMPLEX16 Fb,			///< [in] Complex \f$\mathcal{F}\f$-statistic amplitude \f$F_b\f$.
+                                    const COMPLEX8 Fa,			///< [in] Complex \f$\mathcal{F}\f$-statistic amplitude \f$F_a\f$.
+                                    const COMPLEX8 Fb,			///< [in] Complex \f$\mathcal{F}\f$-statistic amplitude \f$F_b\f$.
                                     const AntennaPatternMatrix *Mmunu	///< [in] Antenna pattern matrix \f$M_{\mu\nu}\f$.
                                     )
 {
@@ -1110,16 +1114,16 @@ XLALAmplitudeVect2Params ( PulsarAmplitudeParams *Amp,		///< [out] Physical ampl
 ///
 /// Compute single-or multi-IFO Fstat '2F' from multi-IFO 'atoms'
 ///
-REAL8
+REAL4
 XLALComputeFstatFromAtoms ( const MultiFstatAtomVector *multiFstatAtoms,   ///< [in] Multi-detector atoms
                             const INT4                 X                   ///< [in] Detector number, give -1 for multi-Fstat
                             )
 {
   // ----- check input parameters and report errors
-  XLAL_CHECK_REAL8 ( multiFstatAtoms && multiFstatAtoms->data && multiFstatAtoms->data[0]->data, XLAL_EFAULT, "Empty pointer as input parameter." );
-  XLAL_CHECK_REAL8 ( multiFstatAtoms->length > 0, XLAL_EBADLEN, "Input MultiFstatAtomVector has zero length. (i.e., no detectors)" );
-  XLAL_CHECK_REAL8 ( X >= -1, XLAL_EDOM, "Invalid detector number X=%d. Only nonnegative numbers, or -1 for multi-F, are allowed.", X );
-  XLAL_CHECK_REAL8 ( ( X < 0 ) || ( (UINT4)(X) <= multiFstatAtoms->length-1 ), XLAL_EDOM, "Requested X=%d, but FstatAtoms only have length %d.", X, multiFstatAtoms->length );
+  XLAL_CHECK_REAL4 ( multiFstatAtoms && multiFstatAtoms->data && multiFstatAtoms->data[0]->data, XLAL_EFAULT, "Empty pointer as input parameter." );
+  XLAL_CHECK_REAL4 ( multiFstatAtoms->length > 0, XLAL_EBADLEN, "Input MultiFstatAtomVector has zero length. (i.e., no detectors)" );
+  XLAL_CHECK_REAL4 ( X >= -1, XLAL_EDOM, "Invalid detector number X=%d. Only nonnegative numbers, or -1 for multi-F, are allowed.", X );
+  XLAL_CHECK_REAL4 ( ( X < 0 ) || ( (UINT4)(X) <= multiFstatAtoms->length-1 ), XLAL_EDOM, "Requested X=%d, but FstatAtoms only have length %d.", X, multiFstatAtoms->length );
 
   // internal detector index Y to do both single- and multi-F case
   UINT4 Y, Ystart, Yend;
@@ -1133,8 +1137,8 @@ XLALComputeFstatFromAtoms ( const MultiFstatAtomVector *multiFstatAtoms,   ///< 
   }
 
   // set up temporary Fatoms and matrix elements for summations
-  REAL8 mmatrixA = 0.0, mmatrixB = 0.0, mmatrixC = 0.0;
-  REAL8 twoF = 0.0;
+  REAL4 mmatrixA = 0.0, mmatrixB = 0.0, mmatrixC = 0.0;
+  REAL4 twoF = 0.0;
   COMPLEX8 Fa, Fb;
   Fa = 0.0;
   Fb = 0.0;
@@ -1143,7 +1147,7 @@ XLALComputeFstatFromAtoms ( const MultiFstatAtomVector *multiFstatAtoms,   ///< 
     {
       UINT4 alpha, numSFTs;
       numSFTs = multiFstatAtoms->data[Y]->length;
-      XLAL_CHECK_REAL8 ( numSFTs > 0, XLAL_EDOM, "Input FstatAtomVector has zero length. (i.e., no timestamps for detector X=%d)", Y );
+      XLAL_CHECK_REAL4 ( numSFTs > 0, XLAL_EDOM, "Input FstatAtomVector has zero length. (i.e., no timestamps for detector X=%d)", Y );
 
       for ( alpha = 0; alpha < numSFTs; alpha++ ) /* loop through SFTs */
         {
@@ -1159,9 +1163,9 @@ XLALComputeFstatFromAtoms ( const MultiFstatAtomVector *multiFstatAtoms,   ///< 
     } // loop through detectors
 
   // compute determinant and final Fstat (not twoF!)
-  REAL8 Dinv = 1.0 / ( mmatrixA * mmatrixB - SQ(mmatrixC) );
+  REAL4 Dinv = 1.0 / ( mmatrixA * mmatrixB - SQ(mmatrixC) );
 
-  twoF = ComputeFstatFromFaFb ( Fa, Fb, mmatrixA, mmatrixB, mmatrixC, 0, Dinv );
+  twoF = XLALComputeFstatFromFaFb ( Fa, Fb, mmatrixA, mmatrixB, mmatrixC, 0, Dinv );
 
   return twoF;
 
@@ -1172,22 +1176,22 @@ XLALComputeFstatFromAtoms ( const MultiFstatAtomVector *multiFstatAtoms,   ///< 
 /// Simple helper function which computes \f$2\mathcal{F}\f$ from given \f$F_a\f$ and \f$F_b\f$, and antenna-pattern
 /// coefficients \f$(A,B,C,E)\f$ with inverse determinant \f$\text{Dinv} = 1/D\f$ where \f$D = A * B - C^2 - E^2\f$.
 ///
-static REAL8
-ComputeFstatFromFaFb ( COMPLEX16 Fa, COMPLEX16 Fb, REAL8 A, REAL8 B, REAL8 C, REAL8 E, REAL8 Dinv )
+REAL4
+XLALComputeFstatFromFaFb ( COMPLEX8 Fa, COMPLEX8 Fb, REAL4 A, REAL4 B, REAL4 C, REAL4 E, REAL4 Dinv )
 {
-  REAL8 Fa_re = creal(Fa);
-  REAL8 Fa_im = cimag(Fa);
-  REAL8 Fb_re = creal(Fb);
-  REAL8 Fb_im = cimag(Fb);
+  REAL4 Fa_re = creal(Fa);
+  REAL4 Fa_im = cimag(Fa);
+  REAL4 Fb_re = creal(Fb);
+  REAL4 Fb_im = cimag(Fb);
 
-  REAL8 F = Dinv * (  B * ( SQ(Fa_re) + SQ(Fa_im) )
+  REAL4 F = Dinv * (  B * ( SQ(Fa_re) + SQ(Fa_im) )
                       + A * ( SQ(Fb_re) + SQ(Fb_im) )
                       - 2.0 * C * (   Fa_re * Fb_re + Fa_im * Fb_im )
                       - 2.0 * E * ( - Fa_re * Fb_im + Fa_im * Fb_re )		// nonzero only in RAA case where Ed!=0
                       );
   return 2*F;
 
-} // ComputeFstatFromFaFb()
+} // XLALComputeFstatFromFaFb()
 
 ///
 /// Return true if given #FstatMethodType corresponds to a valid and *available* Fstat method, false otherwise
