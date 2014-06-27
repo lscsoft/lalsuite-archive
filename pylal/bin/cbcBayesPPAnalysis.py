@@ -135,7 +135,7 @@ def read_posterior_samples(f):
 
     return data
 
-def output_html(outdir, ks_pvalues):
+def output_html(outdir, ks_pvalues, injnum):
     """Outputs the HTML page summarizing the results.
 
     """
@@ -153,6 +153,9 @@ def output_html(outdir, ks_pvalues):
 
     <body>
 
+	<p>This page was generated with the output of ${injnum} simulations.</p>
+	${linkstr}
+	<br>
     <table border="1"> 
     <tr>
     <th> Parameter </th> <th> K-S p-value </th> <th> p-p Plot </th> <th> Links </th>
@@ -167,9 +170,17 @@ def output_html(outdir, ks_pvalues):
 
     """)
 
+	# If this script is run with lalinference_pp_pipe then the following directory structure should exist
+	links="<ul>"
+	if os.path.isdir(os.path.join(outdir,'prior')):
+		links+='<li><a href="prior/">Prior Samples used in this test</a>'
+    if os.path.isdir(os.path.join(outdir,'injections')):
+		links+='<li><a href="injections/">Posteriors for each injection</a>'
+    links+='</ul>'
+
     tablerows = []
     for par, pv in ks_pvalues.items():
-        tablerows.append(table_row_template.substitute(name=par, pvalue=str(pv)))
+        tablerows.append(table_row_template.substitute(name=par, pvalue=str(pv), injnum=str(injnum), linkstr=links))
     tablerows = '\n'.join(tablerows)
 
     html = html_template.substitute(tablerows=tablerows)
@@ -212,6 +223,7 @@ if __name__ == '__main__':
 
     pvalues = { }
     posfiles=args
+	Ninj=0
     for index,posfile in enumerate(posfiles): #element in os.listdir(options.postdir):
 	    #directory = os.path.join(options.postdir, element)
 	    #if os.path.isdir(directory):
@@ -219,6 +231,7 @@ if __name__ == '__main__':
 	      psamples = read_posterior_samples(posfile)
 	      #index = int(element)
 	      true_params = injs[index]
+	      Ninj+=1
 	    except:
 	      # Couldn't read the posterior samples or the XML.
 	      continue
@@ -245,4 +258,5 @@ if __name__ == '__main__':
         ks_pvalues[par] = pp_kstest_pvalue(ps)
         np.savetxt(os.path.join(options.outdir, par + '-ps.dat'), np.reshape(ps, (-1, 1)))
 
-    output_html(options.outdir, ks_pvalues)
+    output_html(options.outdir, ks_pvalues, Ninj )
+
