@@ -278,8 +278,8 @@ if __name__ == "__main__":
 
     # Fill in IDs
     for i,row in enumerate(sim_table):
-        row.process_id = ilwd.ilwdchar("process:process_id:{}".format(i))
-        row.simulation_id = ilwd.ilwdchar("sim_inspiral:simulation_id:{}".format(ids[i]))
+        row.process_id = ilwd.ilwdchar("process:process_id:{0:d}".format(i))
+        row.simulation_id = ilwd.ilwdchar("sim_inspiral:simulation_id:{0:d}".format(ids[i]))
 
     # Fill rows
     for field in injections.dtype.names:
