@@ -202,7 +202,7 @@ def plot_label(param):
   dist_names = ['dist','distance']
   ra_names = ['rightascension','ra']
   dec_names = ['declination','dec']
-  phase_names = ['phi_orb', 'phi', 'phase']
+  phase_names = ['phi_orb', 'phi', 'phase', 'phi0']
 
   labels={
       'm1':r'$m_1\,(\mathrm{M}_\odot)$',
