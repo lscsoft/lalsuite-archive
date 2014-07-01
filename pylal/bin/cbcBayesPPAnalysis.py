@@ -180,10 +180,10 @@ def output_html(outdir, ks_pvalues, injnum):
 
     tablerows = []
     for par, pv in ks_pvalues.items():
-        tablerows.append(table_row_template.substitute(name=par, pvalue=str(pv), injnum=str(injnum), linkstr=links))
+        tablerows.append(table_row_template.substitute(name=par, pvalue=str(pv)))
     tablerows = '\n'.join(tablerows)
 
-    html = html_template.substitute(tablerows=tablerows)
+    html = html_template.substitute(tablerows=tablerows, injnum=str(injnum), linkstr=links))
 
     with open(os.path.join(outdir, 'index.html'), 'w') as out:
         out.write(html)
