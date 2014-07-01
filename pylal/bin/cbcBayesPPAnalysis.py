@@ -223,7 +223,7 @@ if __name__ == '__main__':
 
     pvalues = { }
     posfiles=args
-	Ninj=0
+    Ninj=0
     for index,posfile in enumerate(posfiles): #element in os.listdir(options.postdir):
 	    #directory = os.path.join(options.postdir, element)
 	    #if os.path.isdir(directory):
