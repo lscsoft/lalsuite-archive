@@ -170,12 +170,12 @@ def output_html(outdir, ks_pvalues, injnum):
 
     """)
 
-	# If this script is run with lalinference_pp_pipe then the following directory structure should exist
-	links="<ul>"
-	if os.path.isdir(os.path.join(outdir,'prior')):
-		links+='<li><a href="prior/">Prior Samples used in this test</a>'
+    # If this script is run with lalinference_pp_pipe then the following directory structure should exist
+    links="<ul>"
+    if os.path.isdir(os.path.join(outdir,'prior')):
+        links+='<li><a href="prior/">Prior Samples used in this test</a>'
     if os.path.isdir(os.path.join(outdir,'injections')):
-		links+='<li><a href="injections/">Posteriors for each injection</a>'
+        links+='<li><a href="injections/">Posteriors for each injection</a>'
     links+='</ul>'
 
     tablerows = []
