@@ -197,8 +197,6 @@ if __name__ == '__main__':
     parser.add_option('--outdir', action='store', type='string',
                       help='output directory')
 
-    parser.add_option('--postdir', action='store', type='string', default='.', 
-                      help='directory holding post-processing results')
     parser.add_option('--postsamples', action='store', type='string', 
                       default='posterior_samples.dat', 
                       help='filename for posterior samples files')
@@ -224,9 +222,7 @@ if __name__ == '__main__':
     pvalues = { }
     posfiles=args
     Ninj=0
-    for index,posfile in enumerate(posfiles): #element in os.listdir(options.postdir):
-	    #directory = os.path.join(options.postdir, element)
-	    #if os.path.isdir(directory):
+    for index,posfile in enumerate(posfiles):
 	    try:
 	      psamples = read_posterior_samples(posfile)
 	      #index = int(element)
