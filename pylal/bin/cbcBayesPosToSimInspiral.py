@@ -83,7 +83,7 @@ def standardize_param_names(params):
     standardize_param_name(params, ['ra'], 'longitude')
     standardize_param_name(params, ['dec'], 'latitude')
     standardize_param_name(params, ['iota'], 'inclination')
-    standardize_param_name(params, ['phi', 'phase'], 'phi_orb')
+    standardize_param_name(params, ['phi', 'phase', 'phi0'], 'phi_orb')
     standardize_param_name(params, ['psi', 'polarisation'], 'polarization')
 
 
