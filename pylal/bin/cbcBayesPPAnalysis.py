@@ -183,7 +183,7 @@ def output_html(outdir, ks_pvalues, injnum):
         tablerows.append(table_row_template.substitute(name=par, pvalue=str(pv)))
     tablerows = '\n'.join(tablerows)
 
-    html = html_template.substitute(tablerows=tablerows, injnum=str(injnum), linkstr=links))
+    html = html_template.substitute(tablerows=tablerows, injnum=str(injnum), linkstr=links)
 
     with open(os.path.join(outdir, 'index.html'), 'w') as out:
         out.write(html)
