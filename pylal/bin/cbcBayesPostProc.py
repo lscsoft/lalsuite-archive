@@ -407,6 +407,13 @@ def cbcBayesPostProc(
     if('theta_spin1' in pos.names): pos.append_mapping('theta1',lambda a:a,'theta_spin1')
     if('theta_spin2' in pos.names): pos.append_mapping('theta2',lambda a:a,'theta_spin2')
 
+    # Ensure that both theta_jn and inclination are output for runs
+    # with zero tilt (for runs with tilt, this will be taken care of
+    # below when the old spin angles are computed as functions of the
+    # new ones
+    if ('theta_jn' in pos.names) and (not 'tilt1' in pos.names) and (not 'tilt2' in pos.names):
+        pos.append_mapping('iota', lambda t:t, 'theta_jn')
+
     # Compute time delays from sky position
     try:
         if ('ra' in pos.names or 'rightascension' in pos.names) \
@@ -1285,7 +1292,7 @@ if __name__=='__main__':
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
     spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costheta_jn','cosbeta','tilt1','tilt2','phi_jl','theta_jn','phi12']
-    phaseParams=['phase']
+    phaseParams=['phase', 'phi0']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
     ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
     tigerParams=['dphi%i'%(i) for i in range(7)] + ['dphi%il'%(i) for i in [5,6] ]

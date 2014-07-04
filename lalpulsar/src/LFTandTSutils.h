@@ -73,54 +73,32 @@ typedef struct tagVectorComparison
 
 /*---------- exported prototypes [API] ----------*/
 
-COMPLEX8TimeSeries *XLALSFTVectorToCOMPLEX8TimeSeries ( SFTVector *sfts, const LIGOTimeGPS *start_in, const LIGOTimeGPS *end_in );
+COMPLEX8TimeSeries *XLALSFTVectorToCOMPLEX8TimeSeries ( const SFTVector *sfts, const LIGOTimeGPS *start_in, const LIGOTimeGPS *end_in );
+MultiCOMPLEX8TimeSeries *XLALMultiSFTVectorToCOMPLEX8TimeSeries ( const MultiSFTVector *multisfts );
 SFTtype *XLALSFTVectorToLFT ( SFTVector *sfts, REAL8 upsampling );
 
 int XLALReorderFFTWtoSFT (COMPLEX8Vector *X);
 int XLALReorderSFTtoFFTW (COMPLEX8Vector *X);
 int XLALTimeShiftSFT ( SFTtype *sft, REAL8 shift );
 
-MultiCOMPLEX8TimeSeries *XLALMultiSFTVectorToCOMPLEX8TimeSeries ( MultiSFTVector *multisfts );
-
-int XLALAntennaWeightCOMPLEX8TimeSeries ( COMPLEX8TimeSeries **Faoft, COMPLEX8TimeSeries **Fboft,
-                                          const COMPLEX8TimeSeries *timeseries,
-                                          const AMCoeffs *AMcoef,
-                                          const SFTVector *sfts );
-
-int XLALAntennaWeightMultiCOMPLEX8TimeSeries ( MultiCOMPLEX8TimeSeries **Faoft, MultiCOMPLEX8TimeSeries **Fboft,
-                                               const MultiCOMPLEX8TimeSeries *multiTimeseries,
-                                               const MultiAMCoeffs *multiAMcoef,
-                                               const MultiSFTVector *multisfts );
-
-int XLALBarycentricResampleMultiCOMPLEX8TimeSeries ( MultiCOMPLEX8TimeSeries **Faoft_RS, MultiCOMPLEX8TimeSeries **Fboft_RS,
-                                                     const MultiCOMPLEX8TimeSeries *Faoft, const MultiCOMPLEX8TimeSeries *Fboft,
-                                                     const MultiSSBtimes *multiSSB,
-                                                     const MultiSFTVector *multiSFTs,
-                                                     const REAL8 deltaF );
-
-int XLALBarycentricResampleCOMPLEX8TimeSeries ( COMPLEX8TimeSeries **Faoft_RS, COMPLEX8TimeSeries **Fboft_RS,
-                                                const COMPLEX8TimeSeries *Faoft, const COMPLEX8TimeSeries *Fboft,
-                                                const SSBtimes *SSB,
-                                                const SFTVector *SFTs );
-
 int XLALGSLInterpolateREAL8Vector ( REAL8Vector **yi, REAL8Vector *xi, gsl_spline *spline );
 
 int XLALGSLInitInterpolateREAL8Vector ( gsl_spline **spline, REAL8Vector *x, REAL8Vector *y );
 
-int XLALFFTShiftCOMPLEX8Vector ( COMPLEX8Vector **x );
+int XLALFrequencyShiftMultiCOMPLEX8TimeSeries ( MultiCOMPLEX8TimeSeries *x, const REAL8 shift );
+int XLALFrequencyShiftCOMPLEX8TimeSeries ( COMPLEX8TimeSeries *x, const REAL8 shift );
 
-int XLALFrequencyShiftMultiCOMPLEX8TimeSeries ( MultiCOMPLEX8TimeSeries **x, const REAL8 shift );
+int XLALSpinDownCorrectionMultiTS ( MultiCOMPLEX8TimeSeries *multiTS, const PulsarDopplerParams *doppler );
 
-int XLALFrequencyShiftCOMPLEX8TimeSeries ( COMPLEX8TimeSeries **x, const REAL8 shift );
-
-int XLALSpinDownCorrectionMultiFaFb ( MultiCOMPLEX8TimeSeries **Fa, MultiCOMPLEX8TimeSeries **Fb, const PulsarDopplerParams *doppler );
-
-void XLALDestroyMultiCOMPLEX8TimeSeries ( MultiCOMPLEX8TimeSeries *multiTimes );
 COMPLEX8TimeSeries *XLALDuplicateCOMPLEX8TimeSeries ( COMPLEX8TimeSeries *times );
 MultiCOMPLEX8TimeSeries *XLALDuplicateMultiCOMPLEX8TimeSeries ( MultiCOMPLEX8TimeSeries *multiTimes );
+int XLALCopyMultiCOMPLEX8TimeSeries ( MultiCOMPLEX8TimeSeries *multiTimesOut, MultiCOMPLEX8TimeSeries *multiTimesIn );
+int XLALCopyCOMPLEX8TimeSeries ( COMPLEX8TimeSeries *ts_out, COMPLEX8TimeSeries *ts_in );
+
+void XLALDestroyMultiCOMPLEX8TimeSeries ( MultiCOMPLEX8TimeSeries *multiTimes );
 
 int XLALSincInterpolateCOMPLEX8TimeSeries ( COMPLEX8Vector **y_out, const REAL8Vector *t_out, const COMPLEX8TimeSeries *ts_in, UINT4 Dterms );
-int XLALDirichletInterpolateCOMPLEX8FrequencySeries ( COMPLEX8Vector **y_out, const REAL8Vector *f_out, const COMPLEX8FrequencySeries *fs_in, UINT4 Dterms );
+int XLALDirichletInterpolateCOMPLEX8FrequencySeries ( COMPLEX8Vector *y_out, const REAL8Vector *f_out, const COMPLEX8FrequencySeries *fs_in, UINT4 Dterms );
 SFTtype *XLALDirichletInterpolateSFT ( const SFTtype *sft_in, REAL8 f0Out, REAL8 dfOut, UINT4 numBinsOut, UINT4 Dterms );
 
 int XLALCompareCOMPLEX8Vectors ( VectorComparison *result, const COMPLEX8Vector *x, const COMPLEX8Vector *y, const VectorComparison *tol );

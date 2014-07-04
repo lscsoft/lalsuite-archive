@@ -116,16 +116,24 @@ void LALInferenceInitGlitchVariables(LALInferenceRunState *runState, LALInferenc
   gsl_matrix *mQ   = gsl_matrix_alloc(nifo,(int)(gmax));
   gsl_matrix *mt0  = gsl_matrix_alloc(nifo,(int)(gmax));
   gsl_matrix *mphi = gsl_matrix_alloc(nifo,(int)(gmax));
+  gsl_matrix_set_all(mAmp, 0.0);
+  gsl_matrix_set_all(mf0,  0.0);
+  gsl_matrix_set_all(mQ,   0.0);
+  gsl_matrix_set_all(mt0,  0.0);
+  gsl_matrix_set_all(mphi, 0.0);
 
   double Amin,Amax;
   double Qmin,Qmax;
   double f_min,f_max;
   double tmin,tmax;
   double pmin,pmax;
+  double Anorm;
 
   REAL8 TwoDeltaToverN = 2.0 * dataPtr->timeData->deltaT / ((double) dataPtr->timeData->data->length);
-  Amin = 1.0   / sqrt(TwoDeltaToverN);
-  Amax = 100.0 / sqrt(TwoDeltaToverN);
+
+  Anorm = sqrt(TwoDeltaToverN);
+  Amin = 10.0/Anorm;
+  Amax = 10000.0/Anorm;
 
   Qmin = 3.0;
   Qmax = 30.0;
@@ -160,6 +168,8 @@ void LALInferenceInitGlitchVariables(LALInferenceRunState *runState, LALInferenc
   LALInferenceAddMinMaxPrior(priorArgs, "morlet_phi_prior", &pmin, &pmax, LALINFERENCE_REAL8_t);
 
   LALInferenceAddMinMaxPrior(priorArgs, "glitch_dim", &gmin, &gmax, LALINFERENCE_REAL8_t);
+
+  LALInferenceAddVariable(priorArgs, "glitch_norm", &Anorm, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
   //Meyer-wavelet based proposal distribution
   LALInferenceAddVariable(proposalArgs, "glitch_max_power", &maxpower, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED);
@@ -726,6 +736,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
   if((ppt=LALInferenceGetProcParamVal(commandLine,"--dist"))) start_dist=atof(ppt->value);
   if((ppt=LALInferenceGetProcParamVal(commandLine,"--Dmin"))) Dmin=atof(ppt->value);
   if((ppt=LALInferenceGetProcParamVal(commandLine,"--Dmax"))) Dmax=atof(ppt->value);
+
   
   if((ppt=LALInferenceGetProcParamVal(commandLine,"--psi")))  start_psi=atof(ppt->value);
   if((ppt=LALInferenceGetProcParamVal(commandLine,"--dec")))  start_dec=atof(ppt->value);
@@ -1183,7 +1194,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
   }//End of line-removal initialization
    
   LALInferenceAddVariable(currentParams, "removeLinesFlag", &lines_flag, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
-  if(LALInferenceGetProcParamVal(commandLine, "--glitchFit")) LALInferenceInitGlitchVariables(state, state->currentParams);
+  if(LALInferenceGetProcParamVal(commandLine, "--glitchFit")) LALInferenceInitGlitchVariables(state, currentParams);
 
   UINT4 signal_flag=1;
   ppt = LALInferenceGetProcParamVal(commandLine, "--noiseonly");
@@ -1250,6 +1261,9 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
     }
   
   if(LALInferenceGetProcParamVal(commandLine,"--use-logdistance")){
+    /* Check for distance priors on command line */
+    if((ppt=LALInferenceGetProcParamVal(commandLine,"--distance-max"))) Dmax=atof(ppt->value);
+    if((ppt=LALInferenceGetProcParamVal(commandLine,"--distance-min"))) Dmin=atof(ppt->value);
     LALInferenceRegisterUniformVariableREAL8(state, currentParams, "logdistance", log(start_dist), log(Dmin), log(Dmax), LALInferenceGetProcParamVal(commandLine,"--fixDist")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
   } else {
     LALInferenceRegisterUniformVariableREAL8(state, currentParams, "distance", start_dist, Dmin, Dmax, LALInferenceGetProcParamVal(commandLine,"--fixDist")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
@@ -1355,8 +1369,7 @@ LALInferenceVariables *LALInferenceInitVariablesReviewEvidence(LALInferenceRunSt
             memset(&tempParams,0,sizeof(tempParams));
             LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
     }
-        state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
-        LALInferenceVariables *currentParams=state->currentParams;
+        LALInferenceVariables *currentParams = XLALCalloc(1,sizeof(LALInferenceVariables));
 	i=0;
 
 	struct varSettings {const char *name; REAL8 val, min, max;};
@@ -1406,8 +1419,7 @@ LALInferenceVariables *LALInferenceInitVariablesReviewEvidence_bimod(LALInferenc
     memset(&tempParams,0,sizeof(tempParams));
     LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
   }
-  state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
-  LALInferenceVariables *currentParams=state->currentParams;
+  LALInferenceVariables *currentParams = XLALCalloc(1,sizeof(LALInferenceVariables));
   i=0;
   
   struct varSettings {const char *name; REAL8 val, min, max;};
@@ -1456,8 +1468,7 @@ LALInferenceVariables *LALInferenceInitVariablesReviewEvidence_banana(LALInferen
     memset(&tempParams,0,sizeof(tempParams));
     LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
   }
-  state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
-  LALInferenceVariables *currentParams=state->currentParams;
+  LALInferenceVariables *currentParams = XLALCalloc(1,sizeof(LALInferenceVariables));
   i=0;
   
   struct varSettings {const char *name; REAL8 val, min, max;};
