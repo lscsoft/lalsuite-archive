@@ -377,12 +377,10 @@ class Comment(Element):
 	tagName = u"Comment"
 
 	def write(self, fileobj = sys.stdout, indent = u""):
+		fileobj.write(self.start_tag(indent))
 		if self.pcdata is not None:
-			fileobj.write(self.start_tag(indent))
 			fileobj.write(xmlescape(self.pcdata))
-			fileobj.write(self.end_tag(u"") + u"\n")
-		else:
-			fileobj.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+		fileobj.write(self.end_tag(u"") + u"\n")
 
 
 class Param(Element):
@@ -511,12 +509,10 @@ class Dim(Element):
 	validattributes = frozenset([u"Name", u"Scale", u"Start", u"Unit"])
 
 	def write(self, fileobj = sys.stdout, indent = u""):
+		fileobj.write(self.start_tag(indent))
 		if self.pcdata is not None:
-			fileobj.write(self.start_tag(indent))
 			fileobj.write(xmlescape(self.pcdata))
-			fileobj.write(self.end_tag(u"") + u"\n")
-		else:
-			fileobj.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+		fileobj.write(self.end_tag(u"") + u"\n")
 
 	Name = attributeproxy(u"Name")
 	Scale = attributeproxy(u"Scale", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
