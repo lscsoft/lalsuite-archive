@@ -796,14 +796,23 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 		except KeyError:
 			raise ElementError("unknown element %s for namespace %s" % (localname, uri or NameSpace))
 		attrs = AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
-		self.current = self.current.appendChild(start_handler(self.current, attrs))
+		try:
+			self.current = self.current.appendChild(start_handler(self.current, attrs))
+		except Exception as e:
+			raise type(e)("line %d: %s" % (self._locator.getLineNumber(), str(e)))
 
 	def endElementNS(self, (uri, localname), qname):
-		self.current.endElement()
+		try:
+			self.current.endElement()
+		except Exception as e:
+			raise type(e)("line %d: %s" % (self._locator.getLineNumber(), str(e)))
 		self.current = self.current.parentNode
 
 	def characters(self, content):
-		self.current.appendData(xmlunescape(content))
+		try:
+			self.current.appendData(xmlunescape(content))
+		except Exception as e:
+			raise type(e)("line %d: %s" % (self._locator.getLineNumber(), str(e)))
 
 
 # FIXME:  remove
