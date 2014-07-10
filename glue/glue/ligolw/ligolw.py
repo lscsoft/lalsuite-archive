@@ -849,6 +849,10 @@ class PartialLIGOLWContentHandler(LIGOLWContentHandler):
 			self.depth -= 1
 			super(PartialLIGOLWContentHandler, self).endElementNS(*args)
 
+	def characters(self, content):
+		if self.depth > 0:
+			super(PartialLIGOLWContentHandler, self).characters(content)
+
 
 class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
 	"""
@@ -879,16 +883,20 @@ class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
 
 	def startElementNS(self, (uri, localname), qname, attrs):
 		filter_attrs = AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
-		if self.depth > 0 or not self.element_filter(localname, filter_attrs):
-			self.depth += 1
-		else:
+		if self.depth == 0 and self.element_filter(localname, filter_attrs):
 			super(FilteringLIGOLWContentHandler, self).startElementNS((uri, localname), qname, attrs)
+		else:
+			self.depth += 1
 
 	def endElementNS(self, *args):
-		if self.depth > 0:
-			self.depth -= 1
-		else:
+		if self.depth == 0:
 			super(FilteringLIGOLWContentHandler, self).endElementNS(*args)
+		else:
+			self.depth -= 1
+
+	def characters(self, content):
+		if self.depth == 0:
+			super(FilteringLIGOLWContentHandler, self).characters(content)
 
 
 #
