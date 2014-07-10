@@ -299,7 +299,7 @@ class Element(object):
 		"""
 		Add characters to the element's pcdata.
 		"""
-		if self.pcdata:
+		if self.pcdata is not None:
 			self.pcdata += content
 		else:
 			self.pcdata = content
@@ -377,7 +377,7 @@ class Comment(Element):
 	tagName = u"Comment"
 
 	def write(self, fileobj = sys.stdout, indent = u""):
-		if self.pcdata:
+		if self.pcdata is not None:
 			fileobj.write(self.start_tag(indent))
 			fileobj.write(xmlescape(self.pcdata))
 			fileobj.write(self.end_tag(u"") + u"\n")
@@ -511,7 +511,7 @@ class Dim(Element):
 	validattributes = frozenset([u"Name", u"Scale", u"Start", u"Unit"])
 
 	def write(self, fileobj = sys.stdout, indent = u""):
-		if self.pcdata:
+		if self.pcdata is not None:
 			fileobj.write(self.start_tag(indent))
 			fileobj.write(xmlescape(self.pcdata))
 			fileobj.write(self.end_tag(u"") + u"\n")
