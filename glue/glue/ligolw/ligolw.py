@@ -811,7 +811,7 @@ class DefaultLIGOLWContentHandler(LIGOLWContentHandler):
 	pass
 
 
-class PartialLIGOLWContentHandler(DefaultLIGOLWContentHandler):
+class PartialLIGOLWContentHandler(LIGOLWContentHandler):
 	"""
 	LIGO LW content handler object that loads only those parts of the
 	document matching some criteria.  Useful, for example, when one
@@ -850,7 +850,7 @@ class PartialLIGOLWContentHandler(DefaultLIGOLWContentHandler):
 			super(PartialLIGOLWContentHandler, self).endElementNS(*args)
 
 
-class FilteringLIGOLWContentHandler(DefaultLIGOLWContentHandler):
+class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
 	"""
 	LIGO LW content handler that loads everything but those parts of a
 	document that match some criteria.  Useful, for example, when one
