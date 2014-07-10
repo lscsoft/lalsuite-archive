@@ -678,6 +678,10 @@ class Document(Element):
 	tagName = u"Document"
 	validchildren = frozenset([u"LIGO_LW"])
 
+	def appendData(self, content):
+		# discard.  this element doesn't hold text
+		pass
+
 	def write(self, fileobj = sys.stdout, xsl_file = None):
 		"""
 		Write the document.
