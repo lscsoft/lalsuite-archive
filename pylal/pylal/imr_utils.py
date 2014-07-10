@@ -23,10 +23,12 @@ from glue.ligolw import table
 from pylal import db_thinca_rings
 from pylal import rate
 import numpy
+import math
 import copy
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process
+from lalsimulation import SimInspiralTaylorF2ReducedSpinComputeChi, SimIMRPhenomBComputeChi
 
 try:
 	import sqlite3
@@ -326,12 +328,12 @@ def guess_distance_spin1z_spin2z_bins_from_sims(sims, spin1bins = 11, spin2bins 
 	return guess_nd_bins(sims, bin_dict = {"distance": (distbins, rate.LinearBins), "spin1z": (spin1bins, rate.LinearBins), "spin2z": (spin2bins, rate.LinearBins)})
 
 
-def guess_distance_phenomb_spin_parameter_bins_from_sims(sims, chibins = 11, distbins = 200):
+def guess_distance_effective_spin_parameter_bins_from_sims(sims, chibins = 11, distbins = 200):
 	"""
-	Given a list of the injections, guess at the chi and distance
-	bins.
+	Given a list of the injections, guess at the chi = (m1*s1z +
+	m2*s2z)/(m1+m2) and distance bins.
 	"""
-	dist_chi_vals = map(sim_to_distance_phenomb_spin_parameter_bins_function, sims)
+	dist_chi_vals = map(sim_to_distance_effective_spin_parameter_bins_function, sims)
 
 	distances = [tup[0] for tup in dist_chi_vals]
 	chis = [tup[1] for tup in dist_chi_vals]
@@ -389,12 +391,41 @@ def sim_to_distance_spin1z_spin2z_bins_function(sim):
 	return (sim.distance, sim.spin1z, sim.spin2z)
 
 
-def sim_to_distance_phenomb_spin_parameter_bins_function(sim):
+def sim_to_distance_effective_spin_parameter_bins_function(sim):
 	"""
-	create a function to map a sim to a distance, aligned spin parameter (a.k.a. chi) NDBins based object
+	Map a sim_inspiral row to a distance, "chi" spin parameter
+	bin. For IMR waveforms, "chi" refers to the effective spin,
+
+	   chi = (m1*s1z + m2*s2z)/(m1 + m2)
+
+	where s1z, s2z are the components of the spins along the
+	direction of the total angular momentum. For inspiral
+	waveforms, "chi" refers to the reduced spin,
+
+	   chi_red = chi_eff - 76.*eta/113.
+
+	Some waveforms, e.g., SpinTaylorT4, use different coordinate
+	conventions and require a coordinate transformation before
+	applying these definitions.
 	"""
 
-	return (sim.distance, (sim.mass1*sim.spin1z + sim.mass2*sim.spin2z)/(sim.mass1 + sim.mass2))
+	if sim.waveform.startswith("SpinTaylorT4"):
+		chi1 = sim.spin1x * math.sin(sim.inclination) + sim.spin1z * math.cos(sim.inclination)
+		chi2 = sim.spin2x * math.sin(sim.inclination) + sim.spin2z * math.cos(sim.inclination)
+		chi = SimInspiralTaylorF2ReducedSpinComputeChi(sim.mass1, sim.mass2, chi1, chi2)
+
+	elif sim.waveform.startswith("SpinTaylorT5"):
+		chi1 = sim.spin1z
+		chi2 = sim.spin2z
+		chi = SimInspiralTaylorF2ReducedSpinComputeChi(sim.mass1, sim.mass2, chi1, chi2)
+
+	elif sim.waveform.startswith("IMRPhenomB") or sim.waveform.startswith("IMRPhenomC"):
+		chi = SimIMRPhenomBComputeChi(sim.mass1, sim.mass2, sim.spin1z, sim.spin2z)
+
+	else:
+		raise ValueError(sim.waveform)
+
+	return (sim.distance, chi)
 
 
 def sim_to_distance_mass_ratio_bins_function(sim):
