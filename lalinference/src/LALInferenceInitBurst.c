@@ -444,7 +444,7 @@ Parameter arguments:\n\
             LALInferenceAddVariable(currentParams, "alpha",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     }
     /* 0 to Pi/2 will cover all possible positive combination of cross and plus */
-    tmpMin=0.0; tmpMax=LAL_PI/2.0;
+    tmpMin=0.0; tmpMax=LAL_PI*2.0;
     LALInferenceAddMinMaxPrior(priorArgs, "alpha",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
 
     /* Needs two condition: must be a burst template and the burst injection must have been provided to do those checks*/
