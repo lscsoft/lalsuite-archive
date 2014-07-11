@@ -1,4 +1,4 @@
-all : glue_ligolw_ilwd_verify iterutils_verify lal_verify ligolw_test01 ligolw_test02 ligolw_test03a ligolw_test03b ligolw_test03c ligolw_test04 ligolw_test05 ligolw_sqlite_test offsetvector_verify segmentsUtils_verify segments_verify
+check : glue_ligolw_ilwd_verify iterutils_verify lal_verify ligolw_test01 ligolw_test03a ligolw_test03b ligolw_test03c ligolw_test04 ligolw_test05 ligolw_sqlite_test offsetvector_verify segmentsUtils_verify segments_verify
 	@echo "All Tests Passed"
 
 define printpassfail
@@ -30,16 +30,10 @@ lal_verify :
 	@echo "<=== end lal_verify ==="
 
 ligolw_test01 :
-	@echo "=== start test01 ===>"
+	@echo "=== start ligolw_test01 ===>"
 	# test reading array data from a file
 	python ligo_lw_test_01.py && $(printpassfail)
-	@echo "<=== end test01 ==="
-
-ligolw_test02 :
-	@echo "=== start test02 ===>"
-	# confirm that ligolw_add refuses to process old-style inspiral files
-	! ligolw_add --verbose inspiral_event_id_test_in?.xml* && $(printpassfail)
-	@echo "<=== end test02 ==="
+	@echo "<=== end ligolw_test01 ==="
 
 ligolw_test03a :
 	@echo "=== start ligolw_test03a ===>"

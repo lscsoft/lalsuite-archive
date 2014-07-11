@@ -1446,29 +1446,6 @@ class SnglInspiralTable(table.Table):
 	next_id = SnglInspiralID(1)
 	interncolumns = ("process_id", "ifo", "search", "channel")
 
-	def updateKeyMapping(self, mapping):
-		# hacked version of stock .updateKeyMapping() method that
-		# can detect lalapps_thinca-style event IDs, to prevent
-		# accidentally ligolw_adding old-style thinca documents.
-		#
-		# FIXME: remove this method when we can be certain nobody
-		# is trying to run ligolw_add on lalapps_thinca files
-		if self.next_id is None:
-			raise ValueError(self)
-		try:
-			column = self.getColumnByName(self.next_id.column_name)
-		except KeyError:
-			# table is missing its ID column, this is a no-op
-			return mapping
-		for i, old in enumerate(column):
-			if int(old) >= 100000000000000000:
-				raise ValueError("ligolw_add does not support lalapps_thinca documents;  convert to coinc tables format and try again")
-			if old in mapping:
-				column[i] = mapping[old]
-			else:
-				column[i] = mapping[old] = self.get_next_id()
-		return mapping
-
 	def get_column(self,column,fac=250.,index=6.):
 		if column == 'reduced_chisq':
 			return self.get_reduced_chisq()
