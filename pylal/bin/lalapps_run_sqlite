@@ -81,7 +81,7 @@ for n, filename in enumerate(databases, 1):
 		@dbtables.use_in
 		class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 			connection = connection
-		ligolw_sqlite.insert_from_url(LIGOLWContentHandler.connection, filename, contenthandler = LIGOLWContentHandler, preserve_ids = True, verbose = options.verbose)
+		ligolw_sqlite.insert_from_url(filename, contenthandler = LIGOLWContentHandler, preserve_ids = True, verbose = options.verbose)
 		del LIGOLWContentHandler
 	else:
 		# assume it's an SQLite file

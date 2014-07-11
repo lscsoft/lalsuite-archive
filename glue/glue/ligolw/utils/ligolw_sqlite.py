@@ -73,10 +73,7 @@ __date__ = git_version.date
 
 def setup(target, check_same_thread = True):
 	connection = sqlite3.connect(target, check_same_thread = check_same_thread)
-	dbtables.DBTable_set_connection(connection)
-
 	dbtables.idmap_sync(connection)
-
 	return connection
 
 
@@ -109,26 +106,20 @@ def update_ids(connection, xmldoc, verbose = False):
 	dbtables.idmap_reset(connection)
 
 
-def insert_from_url(connection, url, preserve_ids = False, verbose = False, contenthandler = None):
+def insert_from_url(url, preserve_ids = False, verbose = False, contenthandler = None):
 	"""
 	Parse and insert the LIGO Light Weight document at the URL into the
-	database the at the given connection.  If preserve_ids is False
-	(default), then row IDs are modified during the insert process to
-	prevent collisions with IDs already in the database.  If
-	preserve_ids is True then IDs are not modified;  this will result
-	in database consistency violations if any of the IDs of
+	database with which the content handler is associated.  If
+	preserve_ids is False (default), then row IDs are modified during
+	the insert process to prevent collisions with IDs already in the
+	database.  If preserve_ids is True then IDs are not modified;  this
+	will result in database consistency violations if any of the IDs of
 	newly-inserted rows collide with row IDs already in the database,
 	and is generally only sensible when inserting a document into an
 	empty database.  If verbose is True then progress reports will be
-	printed to stderr.  contenthandler allows a custom XML SAX content
-	handler to be provided.
+	printed to stderr.  See glue.ligolw.dbtables.use_in() for more
+	information about constructing a suitable content handler class.
 	"""
-	# FIXME:  remove the connection parameter, replace it with a
-	# mandatory content handler.  or should this function create its
-	# own content handler if one isn't provided?
-	if contenthandler is not None:
-		assert contenthandler.connection is connection
-
 	#
 	# enable/disable ID remapping
 	#
@@ -137,11 +128,11 @@ def insert_from_url(connection, url, preserve_ids = False, verbose = False, cont
 
 	if not preserve_ids:
 		try:
-			dbtables.idmap_create(connection)
+			dbtables.idmap_create(contenthandler.connection)
 		except sqlite3.OperationalError:
 			# assume table already exists
 			pass
-		dbtables.idmap_sync(connection)
+		dbtables.idmap_sync(contenthandler.connection)
 		dbtables.DBTable.append = dbtables.DBTable._remapping_append
 	else:
 		dbtables.DBTable.append = dbtables.DBTable._append
@@ -167,7 +158,7 @@ def insert_from_url(connection, url, preserve_ids = False, verbose = False, cont
 		#
 
 		if not preserve_ids:
-			update_ids(connection, xmldoc, verbose = verbose)
+			update_ids(contenthandler.connection, xmldoc, verbose = verbose)
 
 	finally:
 		dbtables.DBTable.append = orig_DBTable_append
@@ -177,7 +168,7 @@ def insert_from_url(connection, url, preserve_ids = False, verbose = False, cont
 	# retains
 	#
 
-	connection.commit()
+	contenthandler.connection.commit()
 	xmldoc.unlink()
 
 
@@ -277,7 +268,7 @@ def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose 
 	xmldoc.unlink()
 
 
-def insert_from_urls(connection, urls, **kwargs):
+def insert_from_urls(urls, contenthandler, **kwargs):
 	"""
 	Iterate over a sequence of URLs, calling insert_from_url() on each,
 	then build the indexes indicated by the metadata in lsctables.py.
@@ -293,13 +284,13 @@ def insert_from_urls(connection, urls, **kwargs):
 	for n, url in enumerate(urls, 1):
 		if verbose:
 			print >>sys.stderr, "%d/%d:" % (n, len(urls)),
-		insert_from_url(connection, url, **kwargs)
+		insert_from_url(url, contenthandler = contenthandler, **kwargs)
 
 	#
 	# done.  build indexes
 	#
 
-	dbtables.build_indexes(connection, verbose)
+	dbtables.build_indexes(kwargs["contenthandler"].connection, verbose)
 
 
 #

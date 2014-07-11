@@ -84,15 +84,6 @@ def connection_db_type(connection):
 	raise TypeError(connection)
 
 
-def DBTable_set_connection(connection):
-	"""
-	Set the Python DB-API 2.0 compatible connection the DBTable class
-	will use.
-	"""
-	warnings.warn("DBTable_set_connection() function is deprecated;  use a LIGOLWContentHandler subclass with a \"connection\" attribute instead.  see glue.ligolw.dbtables.use_in() for more information.", DeprecationWarning)
-	DBTable.connection = connection
-
-
 #
 # Module-level variable used to hold references to
 # tempfile.NamedTemporaryFiles objects to prevent them from being deleted
@@ -686,17 +677,6 @@ class DBTable(table.Table):
 	necessarily work with the database-backed version of the class.
 	Your mileage may vary.
 	"""
-	#
-	# When instances of this class are created, they initialize their
-	# connection attributes from the value of this class attribute.
-	#
-	# NOTE:  this is deprecated;  this class attribute will be removed,
-	# and the connection parameter of the __init__() method will be the
-	# only way to pass this information to the class in the future.
-	#
-
-	connection = None
-
 	def __new__(cls, *args, **kwargs):
 		# does this class already have table-specific metadata?
 		if not hasattr(cls, "tableName"):
@@ -1087,15 +1067,10 @@ def use_in(ContentHandler):
 	ContentHandler = lsctables.use_in(ContentHandler)
 
 	def startTable(self, parent, attrs):
-		try:
-			connection = self.connection
-		except AttributeError:
-			warnings.warn("use of \"DBTable.connection\" class attribute to provide database connection information at DBTable instance creation time is deprecated;  use a LIGOLWContentHandler subclass with a \"connection\" attribute instead.  see glue.ligolw.dbtables.use_in() for more information.", DeprecationWarning)
-			connection = DBTable.connection
 		name = table.StripTableName(attrs[u"Name"])
 		if name in TableByName:
-			return TableByName[name](attrs, connection = connection)
-		return DBTable(attrs, connection = connection)
+			return TableByName[name](attrs, connection = self.connection)
+		return DBTable(attrs, connection = self.connection)
 
 	ContentHandler.startTable = startTable
 
