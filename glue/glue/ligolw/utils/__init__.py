@@ -360,10 +360,6 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 			fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
-	# FIXME:  remove.  require contenthandler parameter
-	if contenthandler is None:
-		contenthandler = ligolw.DefaultLIGOLWContentHandler
-		warnings.warn("contenthandler argument is required.  see https://www.lsc-group.phys.uwm.edu/daswg/projects/glue/doc/glue.ligolw.ligolw.LIGOLWContentHandler-class.html for more information", DeprecationWarning)
 	ligolw.make_parser(contenthandler(xmldoc)).parse(fileobj)
 	return xmldoc, md5obj.hexdigest()
 

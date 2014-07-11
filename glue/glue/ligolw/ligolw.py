@@ -815,11 +815,6 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 			raise type(e)("line %d: %s" % (self._locator.getLineNumber(), str(e)))
 
 
-# FIXME:  remove
-class DefaultLIGOLWContentHandler(LIGOLWContentHandler):
-	pass
-
-
 class PartialLIGOLWContentHandler(LIGOLWContentHandler):
 	"""
 	LIGO LW content handler object that loads only those parts of the
