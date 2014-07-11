@@ -1073,7 +1073,7 @@ def use_in(ContentHandler):
 
 	>>> import sqlite3
 	>>> from glue.ligolw import ligolw
-	>>> def MyContentHandler(ligolw.LIGOLWContentHandler):
+	>>> class MyContentHandler(ligolw.LIGOLWContentHandler):
 	...	def __init__(self, *args):
 	...		super(MyContentHandler, self).__init__(*args)
 	...		self.connection = sqlite3.connection()
