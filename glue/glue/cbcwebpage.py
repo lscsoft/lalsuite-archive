@@ -131,24 +131,6 @@ def script_dict(fname):
 	return (script, [tog])
 
 
-def copy_ihope_style(stylefile="cbcwebpage.css", base_dir="."):
-
-	# FIXME this is a stupid way to find the path... changes to build scripts, set env var?
-	path = which('ligo_data_find')
-	if path: path = os.path.split(path)[0]
-	else: 
-		print >>sys.stderr, "COULD NOT FIND STYLE FILES %s IN %s, ABORTING" % (stylefile, path)
-		raise ValueError
-		sys.exit(1)
-	out = path.replace('bin','etc') + '/' + stylefile
-	if not os.path.isfile(out):
-		print >>sys.stderr, "COULD NOT FIND STYLE FILES %s IN %s, ABORTING" % (stylefile, path)
-		raise ValueError
-		sys.exit(1)
-	shutil.copy(out, base_dir)
-	
-	return os.path.split(out.rstrip('/'))[1]
-
 def which(prog):
 	which = subprocess.Popen(['which',prog], stdout=subprocess.PIPE)
 	out = which.stdout.read().strip()
@@ -355,10 +337,9 @@ class _section(markup.page):
 # MAIN CBC WEB PAGE CLASS 
 class cbcpage(markup.page):
 
-	def __init__(self, title="cbc web page", path='./', css=None, script=None, pagenum=1, verbose=False):
+	def __init__(self, title="cbc web page", path='./', css="//www.lsc-group.phys.uwm.edu/cgit/lalsuite/plain/glue/etc/cbcwebpage.css", script=None, pagenum=1, verbose=False):
 		"""
 		"""
-		if not css: css = copy_ihope_style(base_dir=path)
 		scdict = script_dict(fname='%s/%s' % (path,"toggle.js"))
 		if not script: script = scdict[0]
 		self.front = ""
@@ -384,7 +365,7 @@ class cbcpage(markup.page):
 		self.section_ids = []
 
 		self.tables = 1
-		self.fnames = scriptfiles + [css]	
+		self.fnames = scriptfiles
 
 	def add_subpage(self, tag, title, link_text=None):
 		""" 

@@ -22,6 +22,28 @@ Aligned spin bank generator.
 
 
 from __future__ import division
+import warnings
+
+def _warning(
+    message,
+    category = UserWarning,
+    filename = '',
+    lineno = -1):
+    print(message)
+
+warnings.showwarning = _warning
+
+warnings.warn("""DEPRECATION WARNING:
+THE FOLLOWING CODE HAS BEEN DEPRECATED AND MOVED INTO THE PYCBC PACKAGE. IT WILL BE REMOVED FROM PYLAL AT SOME POINT IN THE NEAR FUTURE.
+
+FOR NOW PLEASE CONSULT:
+
+https://ldas-jobs.ligo.caltech.edu/~cbc/docs/pycbc/tmpltbank.html
+
+FOR INSTRUCTIONS OF HOW TO USE THE REPLACEMENTS IN PYCBC. PYCBC BUILD INSTRUCTIONS ARE HERE
+
+https://ldas-jobs.ligo.caltech.edu/~cbc/docs/pycbc/index.html""", DeprecationWarning)
+
 import matplotlib
 matplotlib.use('Agg')
 import pylab

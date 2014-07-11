@@ -20,12 +20,13 @@
  *  MA  02111-1307  USA
  */
 
-/** \author R. Prix, J. T. Whelan
+/**
+ * \author R. Prix, J. T. Whelan
  * \ingroup pulsarCoherent
  * \file
  * \brief
  * Functions to calculate the so-called F-statistic for a given point in parameter-space,
- * following the equations in \ref JKS98.
+ * following the equations in \cite JKS98.
  *
  * This code is partly a descendant of an earlier implementation found in
  * LALDemod.[ch] by Jolien Creighton, Maria Alessandra Papa, Reinhard Prix, Steve Berukoff, Xavier Siemens, Bruce Allen
@@ -41,7 +42,6 @@
 /*---------- INCLUDES ----------*/
 #include <math.h>
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/AVFactories.h>
 #include <lal/ComputeFstat.h>
 #include <lal/LogPrintf.h>
@@ -88,9 +88,7 @@ static const REAL4 inv_fact[PULSAR_MAX_SPINS] = { 1.0, 1.0, (1.0/2.0), (1.0/6.0)
 
 /* empty initializers  */
 static const LALStatus empty_LALStatus;
-static const AMCoeffs empty_AMCoeffs;
 static const PulsarSpinsREAL4 empty_PulsarSpinsREAL4;
-static const FcomponentsREAL4 empty_FcomponentsREAL4;
 const ComputeFBufferREAL4 empty_ComputeFBufferREAL4;
 const ComputeFBufferREAL4V empty_ComputeFBufferREAL4V;
 
@@ -107,8 +105,8 @@ void init_sin_cos_LUT_REAL4(void);
 
 /*==================== FUNCTION DEFINITIONS ====================*/
 
-/** REAL4 and GPU-ready version of ComputeFStatFreqBand(), extended to loop over segments as well.
- *
+/**
+ * REAL4 and GPU-ready version of ComputeFStatFreqBand(), extended to loop over segments as well.
  * Computes a vector of Fstatistic values for a number of frequency bins, for each segment
  */
 int
@@ -303,8 +301,9 @@ XLALComputeFStatFreqBandVectorCPU (   REAL4FrequencySeriesVector *fstatBandV, 		
 
 } /* XLALComputeFStatFreqBandVector() */
 
-/** Host-bound 'driver' function for the central F-stat computation
- *  of a single F-stat value for one parameter-space point.
+/**
+ * Host-bound 'driver' function for the central F-stat computation
+ * of a single F-stat value for one parameter-space point.
  *
  * This is a GPU-adapted replacement for ComputeFstat(), and implements a 'wrapper'
  * around the core F-stat routines that can be executed as kernels on a GPU device.
@@ -420,7 +419,8 @@ XLALDriverFstatREAL4 ( REAL4 *Fstat,	                 		/**< [out] Fstatistic va
 } /* XLALDriverFstatREAL4() */
 
 
-/** This function computes a multi-IFO F-statistic value for given frequency (+fkdots),
+/**
+ * This function computes a multi-IFO F-statistic value for given frequency (+fkdots),
  * antenna-pattern functions, SSB-timings and data ("SFTs").
  *
  * It is *only* using single-precision quantities. The aim is that this function can easily
@@ -517,7 +517,8 @@ XLALCoreFstatREAL4 (REAL4 *Fstat,				/**< [out] multi-IFO F-statistic value 'F' 
 
 
 
-/** Revamped version of LALDemod() (based on TestLALDemod() in CFS).
+/**
+ * Revamped version of LALDemod() (based on TestLALDemod() in CFS).
  * Compute JKS's Fa and Fb, which are ingredients for calculating the F-statistic.
  *
  * Note: this is a single-precision version aimed for GPU parallelization.
@@ -583,10 +584,8 @@ XLALComputeFaFbREAL4 ( FcomponentsREAL4 *FaFb,		/**< [out] single-IFO Fa/Fb for 
   tau = 1.0f / df;
   Freq = f0 + df;
 
-  Fa.realf_FIXME = 0.0f;
-  Fa.imagf_FIXME = 0.0f;
-  Fb.realf_FIXME = 0.0f;
-  Fb.imagf_FIXME = 0.0f;
+  Fa = 0.0;
+  Fb = 0.0;
 
   /* convenient shortcuts, pointers to beginning of alpha-arrays */
   a_al = amcoe->a->data;
@@ -706,10 +705,12 @@ XLALComputeFaFbREAL4 ( FcomponentsREAL4 *FaFb,		/**< [out] single-IFO Fa/Fb for 
 
       /* if no danger of denominator -> 0 */
 #ifdef __GNUC__
-	/** somehow the branch prediction of gcc-4.1.2 terribly failes
-	    with the current case distinction in the hot-loop,
-	    having a severe impact on runtime of the E@H Linux App.
-	    So let's allow to give gcc a hint which path has a higher probablility */
+/**
+ * somehow the branch prediction of gcc-4.1.2 terribly failes
+ * with the current case distinction in the hot-loop,
+ * having a severe impact on runtime of the E@H Linux App.
+ * So let's allow to give gcc a hint which path has a higher probablility
+ */
       if (__builtin_expect((kappa_star > LD_SMALL4) && (kappa_star < 1.0 - LD_SMALL4), (0==0)))
 #else
       if ( ( kappa_star > LD_SMALL4 ) && (kappa_star < 1.0 - LD_SMALL4) )
@@ -801,11 +802,9 @@ XLALComputeFaFbREAL4 ( FcomponentsREAL4 *FaFb,		/**< [out] single-IFO Fa/Fb for 
       a_alpha = (*a_al);
       b_alpha = (*b_al);
 
-      Fa.realf_FIXME += a_alpha * realQXP;
-      Fa.imagf_FIXME += a_alpha * imagQXP;
+      Fa += crectf( a_alpha * realQXP, a_alpha * imagQXP );
 
-      Fb.realf_FIXME += b_alpha * realQXP;
-      Fb.imagf_FIXME += b_alpha * imagQXP;
+      Fb += crectf( b_alpha * realQXP, b_alpha * imagQXP );
 
 
       /* advance pointers over alpha */
@@ -821,10 +820,8 @@ XLALComputeFaFbREAL4 ( FcomponentsREAL4 *FaFb,		/**< [out] single-IFO Fa/Fb for 
     } /* for alpha < numSFTs */
 
   /* return result */
-  FaFb->Fa.realf_FIXME = norm * crealf(Fa);
-  FaFb->Fa.imagf_FIXME = norm * cimagf(Fa);
-  FaFb->Fb.realf_FIXME = norm * crealf(Fb);
-  FaFb->Fb.imagf_FIXME = norm * cimagf(Fb);
+  FaFb->Fa = (((REAL4) norm) * Fa);
+  FaFb->Fb = (((REAL4) norm) * Fb);
 
   return XLAL_SUCCESS;
 
@@ -832,10 +829,11 @@ XLALComputeFaFbREAL4 ( FcomponentsREAL4 *FaFb,		/**< [out] single-IFO Fa/Fb for 
 
 
 
-/** Destroy a MultiSSBtimesREAL4 structure.
- *  Note, this is "NULL-robust" in the sense that it will not crash
- *  on NULL-entries anywhere in this struct, so it can be used
- *  for failure-cleanup even on incomplete structs
+/**
+ * Destroy a MultiSSBtimesREAL4 structure.
+ * Note, this is "NULL-robust" in the sense that it will not crash
+ * on NULL-entries anywhere in this struct, so it can be used
+ * for failure-cleanup even on incomplete structs
  */
 void
 XLALDestroyMultiSSBtimesREAL4 ( MultiSSBtimesREAL4 *multiSSB )
@@ -861,10 +859,11 @@ XLALDestroyMultiSSBtimesREAL4 ( MultiSSBtimesREAL4 *multiSSB )
 } /* XLALDestroyMultiSSBtimesREAL4() */
 
 
-/** Destroy a SSBtimesREAL4 structure.
- *  Note, this is "NULL-robust" in the sense that it will not crash
- *  on NULL-entries anywhere in this struct, so it can be used
- *  for failure-cleanup even on incomplete structs
+/**
+ * Destroy a SSBtimesREAL4 structure.
+ * Note, this is "NULL-robust" in the sense that it will not crash
+ * on NULL-entries anywhere in this struct, so it can be used
+ * for failure-cleanup even on incomplete structs
  */
 void
 XLALDestroySSBtimesREAL4 ( SSBtimesREAL4 *tSSB )
@@ -888,7 +887,8 @@ XLALDestroySSBtimesREAL4 ( SSBtimesREAL4 *tSSB )
 } /* XLALDestroySSBtimesREAL4() */
 
 
-/** Multi-IFO version of LALGetSSBtimesREAL4().
+/**
+ * Multi-IFO version of LALGetSSBtimesREAL4().
  * Get all SSB-timings for all input detector-series in REAL4 representation.
  *
  */
@@ -945,8 +945,8 @@ XLALGetMultiSSBtimesREAL4 ( const MultiDetectorStateSeries *multiDetStates, 	/**
 
 
 
-/** XLAL REAL4-version of LALGetSSBtimes()
- *
+/**
+ * XLAL REAL4-version of LALGetSSBtimes()
  */
 SSBtimesREAL4 *
 XLALGetSSBtimesREAL4 ( const DetectorStateSeries *DetectorStates,	/**< [in] detector-states at timestamps t_i */
@@ -1034,10 +1034,12 @@ XLALGetSSBtimesREAL4 ( const DetectorStateSeries *DetectorStates,	/**< [in] dete
 
 
 
-/** Destruction of a ComputeFBufferREAL4 *contents*,
+/**
+ * Destruction of a ComputeFBufferREAL4 *contents*,
  * i.e. the multiSSB and multiAMcoeff, while the
  * buffer-container is not freed (which is why it's passed
- * by value and not by reference...) */
+ * by value and not by reference...)
+ */
 void
 XLALEmptyComputeFBufferREAL4 ( ComputeFBufferREAL4 *cfb)
 {
@@ -1056,10 +1058,12 @@ XLALEmptyComputeFBufferREAL4 ( ComputeFBufferREAL4 *cfb)
 
 
 
-/** Destruction of a ComputeFBufferREAL4V *contents*,
+/**
+ * Destruction of a ComputeFBufferREAL4V *contents*,
  * i.e. the arrays of multiSSB and multiAMcoeff, while the
  * buffer-container is not freed (which is why it's passed
- * by value and not by reference...) */
+ * by value and not by reference...)
+ */
 void
 XLALEmptyComputeFBufferREAL4V ( ComputeFBufferREAL4V *cfbv )
 {

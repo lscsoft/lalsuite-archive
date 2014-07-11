@@ -24,7 +24,7 @@ import glob
 import math
 import re
 
-from pylal import grbsummary, antenna, llwapp, InspiralUtils, SimInspiralUtils
+from pylal import grbsummary, antenna, InspiralUtils, SimInspiralUtils
 from pylal.xlal.constants import LAL_PI, LAL_MTSUN_SI
 
 from glue import segmentsUtils
@@ -244,7 +244,7 @@ def append_process_params(xmldoc, args, version, date):
 
     # build and seed process params
     progName = args[0]
-    process = llwapp.append_process(xmldoc, program=progName,
+    process = ligolw_process.append_process(xmldoc, program=progName,
                                     version=version, cvs_repository='lscsoft',
                                     cvs_entry_time=date)
     params = []

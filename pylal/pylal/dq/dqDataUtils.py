@@ -27,7 +27,6 @@ from glue.ligolw import ligolw,table,lsctables,utils
 from glue.ligolw.utils import process as ligolw_process
 from glue import segments
 
-from pylal import llwapp
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal import constants as XLALConstants
 from pylal.dq import dqTriggerUtils

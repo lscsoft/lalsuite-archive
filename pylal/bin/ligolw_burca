@@ -40,7 +40,6 @@ from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import inject
 from pylal import ligolw_burca
-from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
@@ -316,7 +315,7 @@ for n, filename in enumerate(filenames):
 	# Close out the process table.
 	#
 
-	llwapp.set_process_end_time(process)
+	ligolw_process.set_process_end_time(process)
 
 	#
 	# Write back to disk, and clean up.

@@ -55,8 +55,8 @@ Example:
 >>> 
 >>> # retrieve the process and sngl_inspiral tables.  these are list-like
 >>> # objects of rows.  the row objects' attributes are the column names
->>> process_table = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
->>> sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+>>> process_table = lsctables.ProcessTable.get_table(xmldoc)
+>>> sngl_inspiral_table = lsctables.SnglInspiralTable.get_table(xmldoc)
 >>> 
 >>> # fix the mtotal column in the sngl_inspiral table
 >>> for row in sngl_inspiral_table:

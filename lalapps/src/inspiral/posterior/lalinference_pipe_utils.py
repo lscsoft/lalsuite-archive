@@ -277,6 +277,8 @@ def chooseEngineNode(name):
     return LALInferenceNestNode
   if name=='lalinferencemcmc':
     return LALInferenceMCMCNode
+  if name=='lalinferencebambi' or name=='lalinferencebambimpi':
+    return LALInferenceBAMBINode
   return EngineNode
 
 def scan_timefile(timefile):
@@ -473,6 +475,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       for event in self.events: self.add_full_analysis_lalinferencenest(event)
     elif self.engine=='lalinferencemcmc':
       for event in self.events: self.add_full_analysis_lalinferencemcmc(event)
+    elif self.engine=='lalinferencebambi' or self.engine=='lalinferencebambimpi':
+      for event in self.events: self.add_full_analysis_lalinferencebambi(event)
 
     self.dagfilename="lalinference_%s-%s"%(self.config.get('input','gps-start-time'),self.config.get('input','gps-end-time'))
     self.set_dag_file(os.path.join(self.basepath,self.dagfilename))
@@ -742,6 +746,28 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         if self.config.getboolean('analysis','upload-to-gracedb'):
           self.add_gracedb_log_node(respagenode,event.GID)
 
+  def add_full_analysis_lalinferencebambi(self,event):
+    """
+    Generate an end-to-end analysis of a given event
+    For LALInferenceBAMBI.
+    """
+    evstring=str(event.event_id)
+    if event.trig_time is not None:
+        evstring=str(event.trig_time)+'-'+str(event.event_id)
+    enginenodes=[]
+    enginenodes.append(self.add_engine_node(event))
+    myifos=enginenodes[0].get_ifos()
+    pagedir=os.path.join(self.webdir,evstring,myifos)
+    mkdirs(pagedir)
+    respagenode=self.add_results_page_node(outdir=pagedir)
+    respagenode.set_bayes_coherent_noise(enginenodes[0].get_B_file())
+    respagenode.set_header_file(enginenodes[0].get_header_file())
+    map(respagenode.add_engine_parent, enginenodes)
+    if event.GID is not None:
+      if self.config.has_option('analysis','upload-to-gracedb'):
+        if self.config.getboolean('analysis','upload-to-gracedb'):
+          self.add_gracedb_log_node(respagenode,event.GID)
+
   def add_science_segments(self):
     # Query the segment database for science segments and
     # add them to the pool of segments
@@ -935,15 +961,21 @@ class EngineJob(pipeline.CondorDAGJob):
       #universe="parallel"
       universe="vanilla"
       self.write_sub_file=self.__write_sub_file_mcmc_mpi
+    elif self.engine=='lalinferencebambimpi':
+      exe=cp.get('condor','mpirun')
+      self.binary=cp.get('condor','lalinferencebambi')
+      universe="vanilla"
+      self.write_sub_file=self.__write_sub_file_mcmc_mpi
     else:
       exe=cp.get('condor',self.engine)
       universe="standard"
     pipeline.CondorDAGJob.__init__(self,universe,exe)
     # Set the options which are always used
     self.set_sub_file(submitFile)
-    if self.engine=='lalinferencemcmc':
+    if self.engine=='lalinferencemcmc' or self.engine=='lalinferencebambimpi':
       #openmpipath=cp.get('condor','openmpi')
       self.machine_count=cp.get('mpi','machine-count')
+      self.machine_memory=cp.get('mpi','machine-memory')
       #self.add_condor_cmd('machine_count',machine_count)
       #self.add_condor_cmd('environment','CONDOR_MPI_PATH=%s'%(openmpipath))
       try:
@@ -954,7 +986,7 @@ class EngineJob(pipeline.CondorDAGJob):
         self.add_condor_cmd('Requirements','CAN_RUN_MULTICORE')
         self.add_condor_cmd('+RequiresMultipleCores','True')
       self.add_condor_cmd('request_cpus',self.machine_count)
-      self.add_condor_cmd('request_memory',str(float(self.machine_count)*512))
+      self.add_condor_cmd('request_memory',str(float(self.machine_count)*float(self.machine_memory)))
       self.add_condor_cmd('getenv','true')
       if cp.has_option('condor','queue'):
         self.add_condor_cmd('+'+cp.get('condor','queue'),'True')
@@ -988,7 +1020,6 @@ class EngineJob(pipeline.CondorDAGJob):
     subfile=open(subfilepath,'w')
     subfile.write(outstring)
     subfile.close()
-      
  
 class EngineNode(pipeline.CondorDAGNode):
   new_id = itertools.count().next
@@ -1261,6 +1292,28 @@ class LALInferenceMCMCNode(EngineNode):
   def get_pos_file(self):
     return self.posfile
 
+class LALInferenceBAMBINode(EngineNode):
+  def __init__(self,li_job):
+    EngineNode.__init__(self,li_job)
+    self.engine='lalinferencebambi'
+    self.outfilearg='outfile'
+
+  def set_output_file(self,filename):
+    self.fileroot=filename+'_'
+    self.posfile=self.fileroot+'post_equal_weights.dat'
+    self.paramsfile=self.fileroot+'params.txt'
+    self.Bfilename=self.fileroot+'evidence.dat'
+    self.headerfile=self.paramsfile
+    self.add_file_opt(self.outfilearg,self.fileroot)
+
+  def get_B_file(self):
+    return self.Bfilename
+
+  def get_pos_file(self):
+    return self.posfile
+
+  def get_header_file(self):
+    return self.headerfile
 
 class ResultsPageJob(pipeline.CondorDAGJob):
   def __init__(self,cp,submitFile,logdir):
@@ -1320,6 +1373,9 @@ class ResultsPageNode(pipeline.CondorDAGNode):
         self.add_var_arg('--snr '+snrfile)
     def set_snr_file(self,snrfile):
         self.add_var_arg('--snr '+snrfile)
+    def set_header_file(self,headerfile):
+        self.add_var_arg('--header '+headerfile)
+        
 class CoherenceTestJob(pipeline.CondorDAGJob):
     """
     Class defining the coherence test job to be run as part of a pipeline.
@@ -1382,7 +1438,10 @@ class MergeNSJob(pipeline.CondorDAGJob):
       self.set_stdout_file(os.path.join(logdir,'merge-$(cluster)-$(process).out'))
       self.set_stderr_file(os.path.join(logdir,'merge-$(cluster)-$(process).err'))
       self.add_condor_cmd('getenv','True')
-      self.add_opt('Nlive',cp.get('engine','nlive'))
+      if cp.has_option('engine','nlive'):
+        self.add_opt('Nlive',cp.get('engine','nlive'))
+      elif cp.has_option('engine','Nlive'):
+        self.add_opt('Nlive',cp.get('engine','Nlive'))
       if cp.has_option('merge','npos'):
       	self.add_opt('npos',cp.get('merge','npos'))
 

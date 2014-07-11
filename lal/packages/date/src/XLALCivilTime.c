@@ -18,15 +18,21 @@
 *  MA  02111-1307  USA
 */
 
+#include <config.h>
 #include <math.h>
 #include <time.h>
 #include <string.h>
 #include <lal/LALStdlib.h>
 #include <lal/Date.h>
 
+#ifndef HAVE_GMTIME_R
+#define gmtime_r(timep, result) memcpy((result), gmtime(timep), sizeof(struct tm))
+#endif
+
 #include "XLALLeapSeconds.h" /* contains the leap second table */
 
-/** \defgroup XLALCivilTime_c CivilTime
+/**
+ * \defgroup XLALCivilTime_c CivilTime
  * \ingroup Date_h
  * \author Chin, D. W. and Creighton, J. D. E.
  *
@@ -42,8 +48,8 @@
  * different reference epoch, which is called the UNIX epoch.
  *
  * The tricky bits are:
- *   - What about time zones?
- *   - What about leap seconds?
+ * - What about time zones?
+ * - What about leap seconds?
  *
  * This code does not deal with time zones at all.  All civil time structures
  * are taken to be in Coordinated Universal Time or UTC.  The user must convert
@@ -174,8 +180,10 @@ int XLALLeapSecondsUTC( const struct tm *utc /**< [In] UTC as a broken down time
 }
 
 
-/** Returns the GPS seconds since the GPS epoch for a
- * specified UTC time structure. */
+/**
+ * Returns the GPS seconds since the GPS epoch for a
+ * specified UTC time structure.
+ */
 INT4 XLALUTCToGPS( const struct tm *utc /**< [In] UTC time in a broken down time structure. */ )
 {
   time_t unixsec;
@@ -202,8 +210,10 @@ INT4 XLALUTCToGPS( const struct tm *utc /**< [In] UTC time in a broken down time
 }
 
 
-/** Returns a pointer to a tm structure representing the time
- * specified in seconds since the GPS epoch.  */
+/**
+ * Returns a pointer to a tm structure representing the time
+ * specified in seconds since the GPS epoch.
+ */
 struct tm * XLALGPSToUTC(
     struct tm *utc, /**< [Out] Pointer to tm struct where result is stored. */
     INT4 gpssec /**< [In] Seconds since the GPS epoch. */
@@ -218,7 +228,7 @@ struct tm * XLALGPSToUTC(
   unixsec  = gpssec - leapsec + XLAL_EPOCH_GPS_TAI_UTC; /* get rid of leap seconds */
   unixsec += XLAL_EPOCH_UNIX_GPS; /* change to unix epoch */
   memset( utc, 0, sizeof( *utc ) ); /* blank out utc structure */
-  utc = gmtime_r( &unixsec, utc ); /* FIXME: use gmtime ?? */
+  utc = gmtime_r( &unixsec, utc );
   /* now check to see if we need to add a 60th second to UTC */
   if ( ( delta = delta_tai_utc( gpssec ) ) > 0 )
     utc->tm_sec += 1; /* delta only ever is one, right?? */
@@ -226,10 +236,11 @@ struct tm * XLALGPSToUTC(
 }
 
 
-/** Returns the Julian Day (JD) corresponding to the date given in a broken
+/**
+ * Returns the Julian Day (JD) corresponding to the date given in a broken
  * down time structure.
  *
- * See \ref esaa1992 and \ref green1985 for details.  First, some
+ * See \cite esaa1992 and \cite green1985 for details.  First, some
  * definitions:
  *
  * Mean Julian Year = 365.25 days
@@ -247,9 +258,9 @@ struct tm * XLALGPSToUTC(
  * Julian Epoch = J2000.0 + (JD - 2451545) / 365.25, i.e., number of years
  * elapsed since J2000.0.
  *
- * One algorithm for computing the Julian Day is from \ref vfp1979 based
- * on a formula in \ref esaa1992 where the algorithm is due to
- * \ref fvf1968 and ``compactified'' by P. M. Muller and R. N. Wimberly.
+ * One algorithm for computing the Julian Day is from \cite vfp1979 based
+ * on a formula in \cite esaa1992 where the algorithm is due to
+ * \cite fvf1968 and ``compactified'' by P. M. Muller and R. N. Wimberly.
  * The formula is
  *
  * \f[
@@ -298,12 +309,13 @@ REAL8 XLALJulianDay( const struct tm *utc /**< [In] UTC time in a broken down ti
 }
 
 
-/** Returns the Modified Julian Day (MJD) corresponding to the date given
+/**
+ * Returns the Modified Julian Day (MJD) corresponding to the date given
  * in a broken down time structure.
  *
  * Note:
- *   - By convention, MJD is an integer.
- *   - MJD number starts at midnight rather than noon.
+ * - By convention, MJD is an integer.
+ * - MJD number starts at midnight rather than noon.
  *
  * If you want a Modified Julian Day that has a fractional part, simply use
  * the macro:
@@ -321,15 +333,16 @@ INT4 XLALModifiedJulianDay( const struct tm *utc /**< [In] UTC time in a broken 
   return mjd;
 }
 
-/** Fill in missing fields of a C 'tm' broken-down time struct.
+/**
+ * Fill in missing fields of a C 'tm' broken-down time struct.
  *
- *  We want to use the C time functions in to fill in values for 'tm_wday' and
- *  'tm_yday', and normalise the ranges of the other members. mktime() does this,
- *  but it also assumes local time, so that the 'tm' struct members are adjusted
- *  according to the timezone. timegm() would be a more appropriate, but it seems
- *  that it is not portable (BSD/Mac, but not standard GNU); neither is using the
- *  'timezone' variable to get the correct offset (works on GNU but not BSD/Mac!)
- *  The method used here (idea from somewhere on the internet) should be safe.
+ * We want to use the C time functions in to fill in values for 'tm_wday' and
+ * 'tm_yday', and normalise the ranges of the other members. mktime() does this,
+ * but it also assumes local time, so that the 'tm' struct members are adjusted
+ * according to the timezone. timegm() would be a more appropriate, but it seems
+ * that it is not portable (BSD/Mac, but not standard GNU); neither is using the
+ * 'timezone' variable to get the correct offset (works on GNU but not BSD/Mac!)
+ * The method used here (idea from somewhere on the internet) should be safe.
  */
 int XLALFillBrokenDownTime(struct tm *tm /**< Broken-down time struct. */) {
 
@@ -354,7 +367,7 @@ int XLALFillBrokenDownTime(struct tm *tm /**< Broken-down time struct. */) {
     isdst = tm->tm_isdst;
   }
 
-  /* Convert 't2' back into a 'tm' struct. gmtime() will preserve the timezone. */
+  /* Convert 't2' back into a 'tm' struct. gmtime_r() will preserve the timezone. */
   XLAL_CHECK( gmtime_r(&t1, tm) != NULL, XLAL_ESYS );
 
   /* Now call mktime() again to get time 't2', *twice* adjusted for the timezone. */
@@ -366,7 +379,7 @@ int XLALFillBrokenDownTime(struct tm *tm /**< Broken-down time struct. */) {
      from 't1', which is now the desired time in UTC. */
   t1 -= t2 - t1;
 
-  /* Call gmtime() to convert the desired time 't1' back into a 'tm' struct. */
+  /* Call gmtime_r() to convert the desired time 't1' back into a 'tm' struct. */
   XLAL_CHECK( gmtime_r(&t1, tm) != NULL, XLAL_ESYS );
 
   /* Restore the daylight savings flag. */

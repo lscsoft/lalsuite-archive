@@ -30,9 +30,9 @@ import sys
 
 
 from glue.ligolw import lsctables
+from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
-from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal import tools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -76,26 +76,20 @@ lsctables.SnglBurst.__cmp__ = sngl_burst___cmp__
 process_program_name = "ligolw_burca"
 
 
-def append_process(xmldoc, **kwargs):
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
+def append_process(xmldoc, comment = None, **kwargs):
+	paramdict = kwargs.copy()
+	if paramdict["coincidence_algorithm"] in ("stringcusp",):
+		paramdict["thresholds"] = [u"%s,%s=%s" % (a, b, ",".join(map(str, value))) for (a, b), value in paramdict["thresholds"].items() if a < b]
 
-	params = [
-		(u"--coincidence-algorithm", u"lstring", kwargs["coincidence_algorithm"])
-	]
-	if "stringcusp_params" in kwargs:
-		params += [(u"--stringcusp-params", u"lstring", kwargs["stringcusp_params"])]
-	if "force" in kwargs and kwargs["force"]:
-		params += [(u"--force", None, None)]
-	if kwargs["coincidence_algorithm"] in ("stringcusp",):
-		for (a, b), value in kwargs["thresholds"].items():
-			if a < b:
-				params += [(u"--thresholds", u"lstring", u"%s,%s=%s" % (a, b, ",".join(map(str, value))))]
-	if "coincidence_segments" in kwargs and kwargs["coincidence_segments"] is not None:
-		params += [(u"--coincidence-segments", u"lstring", kwargs["coincidence_segments"])]
-
-	ligolw_process.append_process_params(xmldoc, process, params)
-
-	return process
+	return ligolw_process.append_process(
+		xmldoc,
+		program = process_program_name,
+		paramdict = paramdict,
+		version = __version__,
+		cvs_repository = u"lscsoft",
+		cvs_entry_time = __date__,
+		comment = comment
+	)
 
 
 #
@@ -167,7 +161,7 @@ class ExcessPowerCoincTables(snglcoinc.CoincTables):
 
 		# find the multi_burst table or create one if not found
 		try:
-			self.multibursttable = lsctables.table.get_table(xmldoc, lsctables.MultiBurstTable.tableName)
+			self.multibursttable = lsctables.MultiBurstTable.get_table(xmldoc)
 		except ValueError:
 			self.multibursttable = lsctables.New(lsctables.MultiBurstTable, ("process_id", "duration", "central_freq", "bandwidth", "snr", "confidence", "amplitude", "coinc_event_id"))
 			xmldoc.childNodes[0].appendChild(self.multibursttable)
@@ -367,8 +361,8 @@ def ligolw_burca(
 	if verbose:
 		print >>sys.stderr, "indexing ..."
 	coinc_tables = CoincTables(xmldoc)
-	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
-	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglBurstTable.tableName))
+	coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
+	sngl_index = dict((row.event_id, row) for row in lsctables.SnglBurstTable.get_table(xmldoc))
 
 	#
 	# build the event list accessors, populated with events from those
@@ -397,7 +391,7 @@ def ligolw_burca(
 	# remove time offsets from events
 	#
 
-	eventlists.remove_offsetdict()
+	del eventlists.offsetvector
 
 	#
 	# done

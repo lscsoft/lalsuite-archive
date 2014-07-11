@@ -23,7 +23,8 @@ This package includes ways of determining the correct LIGO_LW table
 for a given trigger generator, and a few helper functions.
 """
 #
-#\heading{Synopsis}
+# ### Synopsis ###
+#
 #~~~
 #from laldetchar.triggers import utils
 #~~~
@@ -65,7 +66,8 @@ SNGL_RING_REGEX = re.compile('ringdown', re.I)
 def _which_etg(etg):
     """Find the correct trigger generator name based on the input
 
-    \heading{Example:}
+    ### Example: ###
+
     \code
     >>> which_etg("EP")
     'excesspower'
@@ -99,7 +101,8 @@ def _which_etg(etg):
 def which_table(etg):
     """Find the correct table to use for a given trigger generator
 
-    \heading{Example:}
+    ### Example: ###
+
     @code
     >>> which_table("ExcessPower")
     'sngl_burst'
@@ -208,7 +211,8 @@ def time_column(table, ifo=None):
         return numpy.asarray(map(func_name, table))
 
 
-def from_ligolw(filepath, table_name, columns=None, start=None, end=None):
+def from_ligolw(filepath, table_name, columns=None, start=None, end=None,
+                **kwargs):
     """Load a LIGO_LW table from a file.
 
     @param filepath
@@ -259,6 +263,7 @@ def from_ascii(filepath, etg, columns=None, start=None, end=None, **kwargs):
         minimum GPS time for returned triggers
     @param end
         maximum GPS time for returned triggers
+    @param kwargs UNDOCUMENTED
 
     @returns a LIGO_LW table containing the triggers
     """
@@ -291,6 +296,7 @@ def from_root(filepath, etg, columns=None, start=None, end=None, **kwargs):
         minimum GPS time for returned triggers
     @param end
         maximum GPS time for returned triggers
+    @param kwargs UNDOCUMENTED
 
     @returns a `LIGO_LW` table containing the triggers
     """
@@ -309,4 +315,4 @@ def from_root(filepath, etg, columns=None, start=None, end=None, **kwargs):
     return out
 
 # close doxygen
-#@}
+##@}

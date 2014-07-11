@@ -18,72 +18,68 @@
 */
 
 /**
+ * \author Yi Pan
+ * \file
+ *
+ * \brief Module to compute the ring-down waveform as linear combination
+ * of quasi-normal-modes decaying waveforms, which can be attached to
+ * the inspiral part of the compat binary coalescing waveform.
+ *
+ * ### Prototypes ###
+ *
+ * <tt>XLALXLALInspiralRingdownWave()</tt>
+ * <ul>
+ * <li> <tt>rdwave1,</tt> Output, the real part of the ring-down waveform
+ * </li><li> <tt>rdwave2,</tt> Output, the imaginary part of the ring-down waveform
+ * </li><li> <tt>params,</tt> Input, the parameters where ring-down waveforms are computed
+ * </li><li> <tt>inspwave1,</tt> Input, the real part of the ring-down waveform
+ * </li><li> <tt>inspwave2,</tt> Input, the real part of the ring-down waveform
+ * </li><li> <tt>modefreqs,</tt> Input, the frequencies of the quasi-normal-modes
+ * </li><li> <tt>nmode,</tt> Input, the number of quasi-normal-modes to be combined.</li>
+ * </ul>
+ *
+ * <tt>XLALGenerateWaveDerivatives()</tt>
+ * <ul>
+ * <li> <tt>dwave,</tt> Output, time derivative of the input waveform
+ * </li><li> <tt>ddwave,</tt> Output, two time derivative of the input waveform
+ * </li><li> <tt>wave,</tt> Input, waveform to be differentiated in time
+ * </li><li> <tt>params,</tt> Input, the parameters of the input waveform.</li>
+ * </ul>
+ *
+ * <tt>XLALGenerateQNMFreq()</tt>
+ * <ul>
+ * <li> <tt>ptfwave,</tt> Output, the frequencies of the quasi-normal-modes
+ * </li><li> <tt>params,</tt> Input, the parameters of the binary system
+ * </li><li> <tt>l,</tt> Input, the l of the modes
+ * </li><li> <tt>m,</tt> Input, the m of the modes
+ * </li><li> <tt>nmodes,</tt> Input, the number of overtones considered.</li>
+ * </ul>
+ *
+ * <tt>XLALFinalMassSpin()</tt>
+ * <ul>
+ * <li> <tt>finalMass,</tt> Output, the mass of the final Kerr black hole
+ * </li><li> <tt>finalSpin,</tt>  Input, the spin of the final Kerr balck hole
+ * </li><li> <tt>params,</tt> Input, the parameters of the binary system.</li>
+ * </ul>
+ *
+ * ### Description ###
+ *
+ * Generating ring-down waveforms.
+ *
+ * ### Algorithm ###
+ *
+ *
+ * ### Uses ###
+ *
+ * \code
+ * LALMalloc
+ * LALFree
+ * \endcode
+ *
+ * ### Notes ###
+ *
+ */
 
-\author Yi Pan
-\file
-
-\brief Module to compute the ring-down waveform as linear combination
-of quasi-normal-modes decaying waveforms, which can be attached to
-the inspiral part of the compat binary coalescing waveform.
-
-\heading{Prototypes}
-
-
-<tt>XLALXLALInspiralRingdownWave()</tt>
-<ul>
-   <li> <tt>rdwave1,</tt> Output, the real part of the ring-down waveform
-   </li><li> <tt>rdwave2,</tt> Output, the imaginary part of the ring-down waveform
-   </li><li> <tt>params,</tt> Input, the parameters where ring-down waveforms are computed
-   </li><li> <tt>inspwave1,</tt> Input, the real part of the ring-down waveform
-   </li><li> <tt>inspwave2,</tt> Input, the real part of the ring-down waveform
-   </li><li> <tt>modefreqs,</tt> Input, the frequencies of the quasi-normal-modes
-   </li><li> <tt>nmode,</tt> Input, the number of quasi-normal-modes to be combined.</li>
-</ul>
-
-
-<tt>XLALGenerateWaveDerivatives()</tt>
-<ul>
-   <li> <tt>dwave,</tt> Output, time derivative of the input waveform
-   </li><li> <tt>ddwave,</tt> Output, two time derivative of the input waveform
-   </li><li> <tt>wave,</tt> Input, waveform to be differentiated in time
-   </li><li> <tt>params,</tt> Input, the parameters of the input waveform.</li>
-</ul>
-
-
-<tt>XLALGenerateQNMFreq()</tt>
-<ul>
-   <li> <tt>ptfwave,</tt> Output, the frequencies of the quasi-normal-modes
-   </li><li> <tt>params,</tt> Input, the parameters of the binary system
-   </li><li> <tt>l,</tt> Input, the l of the modes
-   </li><li> <tt>m,</tt> Input, the m of the modes
-   </li><li> <tt>nmodes,</tt> Input, the number of overtones considered.</li>
-</ul>
-
-
-<tt>XLALFinalMassSpin()</tt>
-<ul>
-   <li> <tt>finalMass,</tt> Output, the mass of the final Kerr black hole
-   </li><li> <tt>finalSpin,</tt>  Input, the spin of the final Kerr balck hole
-   </li><li> <tt>params,</tt> Input, the parameters of the binary system.</li>
-</ul>
-
-\heading{Description}
-Generating ring-down waveforms.
-
-\heading{Algorithm}
-
-\heading{Uses}
-
-\code
-LALMalloc
-LALFree
-\endcode
-
-\heading{Notes}
-
-*/
-
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <stdlib.h>
 #include <lal/LALStdlib.h>
 #include <lal/AVFactories.h>
@@ -683,11 +679,10 @@ INT4 XLALGenerateQNMFreq(
   /* QNM frequencies from the fitting given in PRD73, 064030 */
   for (i = 0; i < nmodes; ++i)
   {
-	modefreqs->data[i].realf_FIXME = BCWre[i][0] + BCWre[i][1] * pow(1.- finalSpin, BCWre[i][2]);
-	modefreqs->data[i].imagf_FIXME = crealf(modefreqs->data[i]) / 2
-			     / (BCWim[i][0] + BCWim[i][1] * pow(1.- finalSpin, BCWim[i][2]));
-	modefreqs->data[i].realf_FIXME *= 1./ finalMass / (totalMass * LAL_MTSUN_SI);
-	modefreqs->data[i].imagf_FIXME *= 1./ finalMass / (totalMass * LAL_MTSUN_SI);
+	REAL8 real_part = BCWre[i][0] + BCWre[i][1] * pow(1.- finalSpin, BCWre[i][2]);
+	REAL8 imag_part = real_part / 2 / (BCWim[i][0] + BCWim[i][1] * pow(1.- finalSpin, BCWim[i][2]));
+	modefreqs->data[i] = crectf(real_part, imag_part);
+	modefreqs->data[i] *= ((REAL4) 1./ finalMass / (totalMass * LAL_MTSUN_SI));
   }
   return errcode;
 }
@@ -696,7 +691,7 @@ INT4 XLALGenerateQNMFreq(
 /**
  * As with the above function, this generates the quasinormal mode frequencies for a black
  * hole ringdown. However, this function is more general than the other function, which
- * only works for the (2,2) mode, and only the first three overtones. 
+ * only works for the (2,2) mode, and only the first three overtones.
  */
 INT4 XLALGenerateQNMFreqV2(
         COMPLEX8Vector          *modefreqs,
@@ -908,16 +903,17 @@ INT4 XLALGenerateQNMFreqV2(
     gsl_spline_init( spline, afinallist, reomegaqnm[i], 50 );
     gsl_interp_accel_reset( acc );
     
-    modefreqs->data[i].realf_FIXME = gsl_spline_eval( spline, finalSpin, acc );
+    REAL8 real_part = gsl_spline_eval( spline, finalSpin, acc );
 
     gsl_spline_init( spline, afinallist, imomegaqnm[i], 50 );
     gsl_interp_accel_reset( acc );
 
-    modefreqs->data[i].imagf_FIXME = gsl_spline_eval( spline, finalSpin, acc );
+    REAL8 imag_part = gsl_spline_eval( spline, finalSpin, acc );
+
+    modefreqs->data[i] = crectf(real_part, imag_part);
 
     /* Scale by the appropriate mass factors */
-    modefreqs->data[i].realf_FIXME *= 1./ finalMass / (totalMass * LAL_MTSUN_SI);
-    modefreqs->data[i].imagf_FIXME *= 1./ finalMass / (totalMass * LAL_MTSUN_SI);
+    modefreqs->data[i] *= ((REAL4) 1./ finalMass / (totalMass * LAL_MTSUN_SI));
   }
 
   /* Free memory and exit */

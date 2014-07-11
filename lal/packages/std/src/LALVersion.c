@@ -30,16 +30,16 @@
 #include <lal/LALStdio.h>
 #include <lal/LALVersion.h>
 #include <lal/LALVCSInfo.h>
+#include <lal/LALBuildInfo.h>
 
 const char *const lalVersion = LAL_VERSION;
 const int lalVersionMajor = LAL_VERSION_MAJOR;
 const int lalVersionMinor = LAL_VERSION_MINOR;
 const int lalVersionMicro = LAL_VERSION_MICRO;
 const int lalVersionDevel = LAL_VERSION_DEVEL;
-const char *const lalConfigureArgs = LAL_CONFIGURE_ARGS;
-const char *const lalConfigureDate = LAL_CONFIGURE_DATE;
 
-/** \ingroup LALVersion_h
+/**
+ * \ingroup LALVersion_h
  * Routine that returns the version of LAL.
  * This function writes a version message into the string buffer of specified
  * size (and is truncated if the buffer is too small).  Configuration information

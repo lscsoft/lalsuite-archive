@@ -40,7 +40,7 @@ import sys
 from glue import lal
 from glue import segments
 from glue.ligolw import dbtables
-from glue.ligolw import utils
+from glue.ligolw import utils as ligolw_utils
 from pylal import git_version
 from pylal import rate
 from pylal import SimBurstUtils
@@ -487,7 +487,7 @@ if options.plot is not None:
 #
 
 
-for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
+for n, filename in enumerate(ligolw_utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)

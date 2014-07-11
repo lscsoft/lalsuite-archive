@@ -22,6 +22,7 @@ Auxiliary functions for running and postprocessing HACR pipeline code.
 from __future__ import division
 
 import MySQLdb
+import sys
 import re
 import datetime
 

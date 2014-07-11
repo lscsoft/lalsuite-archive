@@ -6,6 +6,49 @@ from glue.ligolw import ilwd
 from pylal import ligolw_sqlutils as sqlutils
 from pylal import ligolw_dataUtils as dataUtils
 
+def make_rec_sngls_table( connection, sims_tbl, sngls_tbl ):
+    cursor = connection.cursor()
+    # the style of the 'usertag' param is different between inspiral & ringdown
+    style = {}
+    if sims_tbl == 'sim_inspiral':
+        style['param_style'] = '--userTag'
+    elif sims_tbl == 'sim_ringdown':
+        style['param_style'] = '-userTag'
+    
+    # construct temp indices to make table queries faster
+    make_idxs = """
+    CREATE INDEX pp_idx ON process_params (process_id, value, param);
+    CREATE INDEX sngls_idx ON """ + sngls_tbl + " (process_id, event_id);"
+    cursor.executescript( make_idxs )
+
+    # copy all sngl-ifo triggers from simulation runs into new table
+    sqlcommand = """
+    CREATE TEMP TABLE rec_sngls AS
+        SELECT
+            pp_sim.process_id AS sim_proc_id,
+            sngls_tbl.*
+        FROM """ + sngls_tbl + """ AS sngls_tbl
+            JOIN process_params AS pp_trig, process_params AS pp_sim ON (
+                pp_trig.process_id = sngls_tbl.process_id
+                AND pp_trig.value = pp_sim.value
+            )
+        WHERE
+            pp_sim.param = :param_style
+            AND pp_sim.process_id IN (
+                SELECT DISTINCT process_id
+                FROM """ + sims_tbl + """
+            ) """
+    cursor.execute( sqlcommand, style )
+
+    # drop temp indices
+    drop_idxs = """
+    DROP INDEX pp_idx;
+    DROP INDEX sngls_idx; """
+    cursor.executescript( drop_idxs )
+    # commit changes and close the cursor object
+    connection.commit()
+    cursor.close()
+
 
 def dbinjfind( connection, simulation_table, recovery_table, match_criteria, rough_match = None, rejection_criteria = [], rough_rejection = None, verbose = False ):
 
@@ -23,17 +66,7 @@ def dbinjfind( connection, simulation_table, recovery_table, match_criteria, rou
     # create a temporary table to store the eligible foreground events that can be matched
     if verbose:
         print >> sys.stdout, "Getting eligible events..."
-    sqlquery = ''.join(['''
-        CREATE TEMP TABLE rec_sngls AS
-            SELECT
-                experiment_summary.sim_proc_id AS sim_proc_id,
-                ''', recovery_table, '''.*
-            FROM
-            ''', recovery_table, '''
-            ''', sqlutils.join_experiment_tables_to_sngl_table( recovery_table ), '''
-            WHERE
-                experiment_summary.datatype == "simulation"''' ])
-    connection.cursor().execute(sqlquery)
+    make_rec_sngls_table( connection, simulation_table, recovery_table )
 
     # if using rough match, create an index for it
     rough_match_test = ''
@@ -52,7 +85,8 @@ def dbinjfind( connection, simulation_table, recovery_table, match_criteria, rou
     if rejection_criteria != []:
         if verbose:
             print >> sys.stdout, "Applying rejection test to eligible events..."
-        # if comparing to all_data for rejection, create a temp table of all data events
+        # If comparing to all_data for rejection, create a temp table of all data events
+        # This rejection test only uses the single-ifo triggers from coincident events
         sqlquery = ''.join(['''
             CREATE TEMP TABLE all_data_sngls AS
                 SELECT
@@ -142,7 +176,7 @@ def dbinjfind( connection, simulation_table, recovery_table, match_criteria, rou
 def strlst_is_subset(stringA, stringB):
     return set(stringA.split(',')).issubset(set(stringB.split(',')))
 
-def write_coincidences(connection, map_label, process_id, verbose = False):
+def write_coincidences(connection, map_label, search, process_id, verbose = False):
     """
     Writes coincidences to coinc_event_map table.
     """
@@ -192,7 +226,7 @@ def write_coincidences(connection, map_label, process_id, verbose = False):
     sim_sngls = [(ilwd.ilwdchar(sim_id), ilwd.ilwdchar(eid)) for sim_id, eid in connection.cursor().execute( sqlquery ).fetchall()]
 
     # create a new coinc_def id for this map label, if it already doesn't exist
-    coinc_def_id = sqlutils.write_newstyle_coinc_def_entry( connection, map_label )
+    coinc_def_id = sqlutils.write_newstyle_coinc_def_entry( connection, map_label, search=search )
 
     # get the time_slide id
     # XXX: NOTE: We are assuming that all simulation entries have the same time_slide id

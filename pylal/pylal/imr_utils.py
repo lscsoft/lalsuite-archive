@@ -294,7 +294,7 @@ def compute_search_volume_in_bins(found, total, ndbins, sim_to_bins_function):
 	errors = rate.BinnedArray(rate.NDBins(ndbins[1:]))
 
 	# integrate efficiency to obtain volume
-	vol.array = (eff.array.T * 4. * numpy.pi * r**2 * dx).sum(-1)
+	vol.array = numpy.trapz(eff.array.T * 4. * numpy.pi * r**2, r, dx)
 
 	# propagate errors in eff to errors in V
         errors.array = numpy.sqrt(( (4*numpy.pi *r**2 *err.array.T *dx)**2 ).sum(-1))

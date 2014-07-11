@@ -308,14 +308,14 @@ class DistributionsStats(object):
 
 		# construct the coinc generator.  note that H1+H2-only
 		# coincs are forbidden, which is affected here by removing
-		# that instrument combination from mu_conic
-		mu, tau = snglcoinc.slideless_coinc_generator_mu_tau(eventlists, segmentlists, delta_t)
-		zero_lag_offset_vector = dict((instrument, 0.0) for instrument in mu)
-		mu_coinc = snglcoinc.slideless_coinc_generator_rates(mu, tau)
-		if frozenset(("H1", "H2")) in mu_coinc:
-			del mu_coinc[frozenset(("H1", "H2"))]
-		coinc_generator = snglcoinc.slideless_coinc_generator(eventlists, mu_coinc, tau, lsctables.SnglBurst.get_peak)
-		toa_generator = dict((instruments, snglcoinc.slideless_coinc_generator_plausible_toas(instruments, tau)) for instruments in mu_coinc.keys())
+		# that instrument combination from the object's internal
+		# .rates dictionary
+		coinc_generator = snglcoinc.CoincSynthesizer(eventlists, seglists, delta_t)
+		if frozenset(("H1", "H2")) in coinc_generator.rates:
+			del coinc_generator.rates[frozenset(("H1", "H2"))]
+
+		# build a dictionary of time-of-arrival generators
+		toa_generator = dict((instruments, coinc_generator.plausible_toas(instruments)) for instruments in coinc_generator.rates.keys())
 
 		# how many coincs?  the expected number is obtained by
 		# multiplying the total zero-lag time for which at least
@@ -326,10 +326,11 @@ class DistributionsStats(object):
 		# mean number of background events to simulate.  the actual
 		# number simulated is a Poisson-distributed RV with that
 		# mean.
-		n_coincs, = scipy.stats.poisson.rvs(float(abs(segmentsUtils.vote(seglists.values(), 2))) * sum(mu_coinc.values()) * experiments)
+		n_coincs, = scipy.stats.poisson.rvs(float(abs(segmentsUtils.vote(seglists.values(), 2))) * sum(coinc_generator.rates.values()) * experiments)
 
 		# generate synthetic background coincs
-		for n, events in enumerate(coinc_generator):
+		zero_lag_offset_vector = dict((instrument, 0.0) for instrument in seglists)
+		for n, events in enumerate(coinc_generator.coincs(lsctables.SnglBurst.get_peak)):
 			# n = 1 on 2nd iteration, so placing this condition
 			# where it is in the loop causes the correct number
 			# of events to be added to the background

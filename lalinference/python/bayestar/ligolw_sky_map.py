@@ -25,12 +25,13 @@ __author__ = "Leo Singer <leo.singer@ligo.org>"
 import time
 import numpy as np
 from . import filter
+from . import postprocess
 from . import timing
 from . import sky_map
 import lal, lalsimulation
 
 
-def ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_low, min_distance=None, max_distance=None, prior_distance_power=None, method="toa_snr", reference_frequency=None, psds=None, nside=-1):
+def ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_low, min_distance=None, max_distance=None, prior_distance_power=None, method="toa_phoa_snr", reference_frequency=None, psds=None, nside=-1, chain_dump=None):
     """Convenience function to produce a sky map from LIGO-LW rows. Note that
     min_distance and max_distance should be in Mpc."""
 
@@ -67,6 +68,9 @@ def ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_
     # to keep numbers small.
     toas = 1e-9 * (toas_ns - mean_toa_ns)
 
+    # Retrieve phases on arrival from table.
+    phoas = np.asarray([sngl_inspiral.coa_phase for sngl_inspiral in sngl_inspirals])
+
     # Power spectra for each detector.
     if psds is None:
         psds = [timing.get_noise_psd_func(ifo) for ifo in ifos]
@@ -84,8 +88,11 @@ def ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_
     w_toas = [1/np.square(signal_model.get_toa_uncert(np.abs(snr)))
         for signal_model, snr in zip(signal_models, snrs)]
 
+    w1s = [signal_model.get_sn_moment(1) for signal_model in signal_models]
+    w2s = [signal_model.get_sn_moment(2) for signal_model in signal_models]
+
     # Look up physical parameters for detector.
-    detectors = [lalsimulation.InstrumentNameToLALDetector(str(ifo))
+    detectors = [lalsimulation.DetectorPrefixToLALDetector(str(ifo))
         for ifo in ifos]
     responses = [det.response for det in detectors]
     locations = [det.location for det in detectors]
@@ -113,9 +120,47 @@ def ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_
     # Time and run sky localization.
     start_time = time.time()
     if method == "toa":
-        prob = sky_map.tdoa(gmst, toas, w_toas, locations, nside=nside)
+        prob = sky_map.toa(gmst, toas, w_toas, locations, nside=nside)
     elif method == "toa_snr":
-        prob = sky_map.tdoa_snr(gmst, toas, snrs, w_toas, responses, locations, horizons, min_distance, max_distance, prior_distance_power, nside=nside)
+        prob = sky_map.toa_snr(gmst, toas, snrs, w_toas, responses, locations, horizons, min_distance, max_distance, prior_distance_power, nside=nside)
+    elif method == "toa_phoa_snr":
+        prob = sky_map.toa_phoa_snr(gmst, toas, phoas, snrs, w_toas, w1s, w2s, responses, locations, horizons, min_distance, max_distance, prior_distance_power, nside=nside)
+    elif method == "toa_snr_mcmc":
+        import emcee
+
+        ntemps = 20
+        nwalkers = 100
+        ndim = 5
+        sampler = emcee.PTSampler(
+            ntemps=ntemps,
+            nwalkers=nwalkers,
+            dim=ndim,
+            logl=(lambda args: sky_map.log_posterior_toa_snr(*args,
+                gmst=gmst,
+                toas=toas,
+                snrs=snrs,
+                w_toas=w_toas,
+                responses=responses,
+                locations=locations,
+                horizons=horizons,
+                prior_distance_power=prior_distance_power)),
+            logp=(lambda (ra, sin_dec, distance, u, twopsi):
+                1 if 0 <= ra < 2*np.pi
+                and -1 <= sin_dec <= 1
+                and min_distance <= distance <= max_distance
+                and 0 <= u <= 1
+                and 0 <= twopsi < 2*np.pi
+                else -np.inf))
+        p0 = np.random.uniform(
+            [0, -1, min_distance, 0, 0],
+            [2*np.pi, 1, max_distance, 1, 2*np.pi], (ntemps, nwalkers, ndim))
+        sampler.run_mcmc(p0, 1000)
+        if chain_dump is not None:
+            np.save(chain_dump, sampler.chain)
+        ra, sin_dec, _, _, _ = np.concatenate(sampler.chain[0, :, 100:]).T
+        theta = np.arccos(sin_dec)
+        phi = ra
+        prob = postprocess.adaptive_healpix_histogram(theta, phi)
     else:
         raise ValueError("Unrecognized method: %s" % method)
     end_time = time.time()

@@ -28,7 +28,8 @@ from glue import segmentsUtils
 from glue import lal
 from glue import iterutils
 
-from pylal import db_thinca_rings
+from pylal import ligolw_cbc_compute_durations as compute_dur
+from pylal import llwapp
 from pylal import rate
 from pylal import InspiralUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -146,41 +147,31 @@ class upper_limit(object):
 
   def get_segments(self, connection):
     '''Retrieve raw single IFO segments from the database and apply vetoes.'''
-    if self.opts.verbose: print >>sys.stdout,"\nQuerying database for single IFO zero lag segments..."
-    self.segments = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)  #Get raw zero lag segments
 
     if self.opts.verbose:
-      for ifo in self.segments:
+      print >>sys.stdout,"\nQuerying database for single IFO segments..."
+    self.segments = compute_dur.get_single_ifo_segments(
+      connection,
+      program_name = self.opts.livetime_program,
+      usertag = "FULL_DATA")
+    if self.opts.verbose:
+      for ifo in self.segments.keys():
         print "\t%s was on for %d seconds" % (ifo,abs(self.segments[ifo]))
 
-    if self.opts.verbose: print >>sys.stdout,"\nApplying vetoes to single IFO zero lag segments..."
-
-    if self.opts.veto_segments_name is None:
-      veto_segments = segments.segmentlistdict()
+    # getting vetoes
+    xmldoc = dbtables.get_xml(connection)
+    veto_segments = compute_dur.get_veto_segments(xmldoc, self.opts.verbose)
+    if self.opts.veto_segments_name:
+        veto_segments = veto_segments[self.opts.veto_segments_name]
     else:
-      #FIXME super hack to work around missing nanoseconds column in veto definer
-      try:
-        veto_segments = db_thinca_rings.get_veto_segments(connection, self.opts.veto_segments_name)
-      except AttributeError:
-        # will get an AttributeError if using newer format veto segment file because
-        # the new format does not include _ns; if so, remove the _ns columns from the
-        # segment table and reset the definitions of lsctables.Segment.get and lsctables.Segment.set
-        from glue.lal import LIGOTimeGPS
-        del lsctables.SegmentTable.validcolumns['start_time_ns']
-        del lsctables.SegmentTable.validcolumns['end_time_ns']
-        def get_segment(self):
-          return segments.segment(LIGOTimeGPS(self.start_time, 0), LIGOTimeGPS(self.end_time, 0))
-        def set_segment(self, segment):
-          self.start_time = segment[0].seconds
-          self.end_time = segment[1].seconds
-        lsctables.Segment.get = get_segment
-        lsctables.Segment.set = set_segment
-        veto_segments = db_thinca_rings.get_veto_segments(connection, self.opts.veto_segments_name)
+        veto_segments = veto_segments.values()[0]
 
-    self.segments -= veto_segments
-
+    # applying vetoes
     if self.opts.verbose:
-      for ifo in self.segments:
+      print >>sys.stdout,"\nApplying vetoes to single IFO zero lag segments..."
+    self.segments -= veto_segments
+    if self.opts.verbose:
+      for ifo in self.segments.keys():
         print "\t%s was on for %d seconds (after vetoes)" % (ifo,abs(self.segments[ifo]))
 
     return self.segments
@@ -188,18 +179,27 @@ class upper_limit(object):
 
   def get_zero_lag_segments(self):
     '''Compute multi-ifo (coincident) segment list from single ifo segments.'''
-    if self.opts.verbose: print >>sys.stdout,"\nForming coincident segments from single IFO segments..."
-
+    if self.opts.verbose:
+      print >>sys.stdout,"\nForming coincident segments from single IFO segments..."
+  
     self.zero_lag_segments = segments.segmentlistdict()
-    for inst in self.instruments:
-      self.zero_lag_segments[inst] = self.segments.intersection(inst) - self.segments.union(set(self.segments.keys()) - inst)
-      if self.opts.verbose:
-        print >>sys.stdout,"\t%s were on for %d seconds (includes playground)" % (','.join(sorted(list(inst))),abs(self.zero_lag_segments[inst]))
+    on_ifos_dict, excluded_ifos_dict = compute_dur.get_allifo_combos(self.segments, 2)
 
-      if not self.opts.include_play: #subtract playground segments
-        self.zero_lag_segments[inst] -= segmentsUtils.S2playground(self.zero_lag_segments[inst].extent())
-        if self.opts.verbose:
-          print >>sys.stdout,"\t%s were on for %d seconds (excludes playground)" % (','.join(sorted(list(inst))),abs(self.zero_lag_segments[inst]))
+    for on_ifos_key, combo in on_ifos_dict.items():
+      ifos = frozenset(lsctables.instrument_set_from_ifos(on_ifos_key))
+      self.zero_lag_segments[ifos] = self.segments.intersection( combo )
+  
+      excluded_ifos = excluded_ifos_dict[on_ifos_key]
+      self.zero_lag_segments[ifos] -= self.segments.union( excluded_ifos )
+  
+      if not self.opts.include_play: # subtract playground segments 
+        self.zero_lag_segments[ifos] -= segmentsUtils.S2playground(self.segments.extent_all())
+        play_status = 'excludes playground'
+      else:
+        play_status = 'includes playground'
+  
+      if self.opts.verbose:
+        print >> sys.stdout,"\t%s were on for %d seconds (%s)" % ( on_ifos_key, float(abs(self.zero_lag_segments[ifos])), play_status )
 
     return self.zero_lag_segments
 
@@ -296,18 +296,20 @@ class upper_limit(object):
 
       self.far = {}
 
-      # far option takes precedence
-      if self.opts.far:
-          for inst in self.instruments:
-              self.far[inst] = self.opts.far
-
-      # use expected-loudest-event for closed box
+      # far option takes precedence for closed box
+      if self.opts.far and not self.opts.open_box:
+        for inst in self.instruments:
+          self.far[inst] = self.opts.far
+      # if no far specified, use expected-loudest-event for closed box
       elif not self.opts.open_box:
-          for inst in self.instruments:
-              self.far[inst] = 1./self.livetime[inst]
-
-      # use true loudest event for open box
-      else:
+        for inst in self.instruments:
+          if inst in self.livetime.keys():
+            self.far[inst] = 1./self.livetime[inst]
+      # for open box use true loudest event
+      if self.opts.open_box:
+        if self.opts.include_play:
+          datatype = "all_data"
+        else:
 
           if self.opts.include_play:
               datatype = "all_data"
@@ -428,8 +430,8 @@ class upper_limit(object):
       pyplot.xlabel("FAN")
       pyplot.ylabel("VT")
       pyplot.title("Volume Derivative at the FAN=%.3f"%FAN)
-      pyplot.gca().set_xscale("log", nonposx='clip')
-      pyplot.gca().set_yscale("log", nonposy='clip')
+      #pyplot.gca().set_xscale("log", nonposx='clip')
+      #pyplot.gca().set_yscale("log", nonposy='clip')
       name = InspiralUtils.set_figure_tag(tag+"_BIN_"+str(j), open_box = opts.open_box)
       fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
       fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
@@ -583,8 +585,8 @@ will compute the search volume using all injections with at least one component 
   # tell svim where to find injections, segments, and triggers
   parser.add_option("--sim-table", default = "sim_inspiral", metavar = "TBL", help = "Set the name of the table containing information regarding the injected signal parameters.", choices = ["sim_inspiral", "sim_ringdown"])
   parser.add_option("--coinc-table", default = "coinc_inspiral", metavar = "TBL", help = "Set the name of the table containing information regarding coincident triggers.", choices = ["coinc_inspiral", "coinc_ringdown"])
-  parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
-  parser.add_option("--veto-segments-name", default = "VETO_CAT4_CUMULATIVE", help = "Set the name of the veto segments to use from the XML document.")
+  parser.add_option("--livetime-program", default = None, metavar = "name", type="string", help = "Set the name of the program whose segments or rings will be extracted from the search_summary table: usually thinca or inspiral.")
+  parser.add_option("--veto-segments-name", default = None, metavar = "name", type="string", help = "Set the name of the veto segments to use from the XML document.")
 
   #
   # The code supports five mass binning modes.
@@ -646,6 +648,10 @@ will compute the search volume using all injections with at least one component 
   parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory used as work area for the database file.  The database file will be worked on in this directory then moved to the final location when complete.  Intended to improve performance in a networked environment: eg local disk with higher available bandwidth than the filesystem where the database lives.")
 
   opts, filenames = parser.parse_args()
+
+  if opts.livetime_program is None:
+    print >>sys.stderr, "Error: no livetime-program option was given, exiting!"
+    sys.exit(1)
 
   if opts.instruments is not None:
     opts.instruments = frozenset(lsctables.instrument_set_from_ifos(opts.instruments))
@@ -796,7 +802,7 @@ if opts.plot_volume_vs_far:
 # FAR for the given mass bin
 #
 for bin_type in UL.mass_bins:
-  for instruments in UL.instruments:
+  for instruments in UL.far.keys():
     # initialize plotting util helper
     __prog__ = "lalapps_cbc_svim_by_" + bin_type.lower()
     opts.ifo_times = "".join(sorted(list(instruments)))

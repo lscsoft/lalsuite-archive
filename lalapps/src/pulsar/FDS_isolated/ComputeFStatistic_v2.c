@@ -23,19 +23,19 @@
  */
 
 /*********************************************************************************/
-/** \author R. Prix, I. Gholami, Y. Ioth, Papa, X. Siemens, C. Messenger, K. Wette
+/**
+ * \author R. Prix, I. Gholami, Y. Ioth, Papa, X. Siemens, C. Messenger, K. Wette
  * \file
  * \ingroup pulsarApps
  * \brief
  * Calculate the F-statistic for a given parameter-space of pulsar GW signals.
- * Implements the so-called "F-statistic" as introduced in \ref JKS98.
+ * Implements the so-called "F-statistic" as introduced in \cite JKS98.
  *
  * This code is a descendant of an earlier implementation 'ComputeFStatistic.[ch]'
  * by Bruce Allen, Bernd Machenschalk, David Hammer, Jolien Creighton, Maria Alessandra Papa,
  * Reinhard Prix, Xavier Siemens, Scott Koranda, Yousuke Itoh
  *
- *
- *********************************************************************************/
+ */
 #include "config.h"
 
 /* System includes */
@@ -51,7 +51,7 @@
 int finite(double);
 
 /* LAL-includes */
-#define LAL_USE_OLD_COMPLEX_STRUCTS
+#include <lal/LALString.h>
 #include <lal/AVFactories.h>
 #include <lal/GSLSupport.h>
 #include <lal/LALInitBarycenter.h>
@@ -81,8 +81,6 @@ int finite(double);
 /*---------- DEFINES ----------*/
 
 #define MAXFILENAMELENGTH 256   /* Maximum # of characters of a SFT filename */
-
-#define EPHEM_YEARS  "00-19-DE405"	/**< default range: override with --ephemYear */
 
 #define TRUE (1==1)
 #define FALSE (1==0)
@@ -128,7 +126,8 @@ typedef struct {
   REAL4 LVstat;				/**< Line Veto statistic */
 } FstatCandidate;
 
-/** moving 'Scanline window' of candidates on the scan-line,
+/**
+ * moving 'Scanline window' of candidates on the scan-line,
  * which is used to find local 1D maxima.
  */
 typedef struct
@@ -138,7 +137,8 @@ typedef struct
   FstatCandidate *center;		/**< pointer to middle candidate in window */
 } scanlineWindow_t;
 
-/** Struct holding various timing measurements and relevant search parameters.
+/**
+ * Struct holding various timing measurements and relevant search parameters.
  * This is used to fit timing-models with measured times to predict search run-times
  */
 typedef struct
@@ -157,7 +157,8 @@ typedef struct
   REAL8 tauTransMarg;		/**< time to marginalize the Fstat-map to compute transient-search Bayes [s] */
 } timingInfo_t;
 
-/** Enum for which statistic is used to "rank" significance of candidates
+/**
+ * Enum for which statistic is used to "rank" significance of candidates
  */
 typedef enum {
   RANKBY_F  = 0, 	/**< rank candidates by F-statistic */
@@ -166,7 +167,8 @@ typedef enum {
 } RankingStat_t;
 
 
-/** Configuration settings required for and defining a coherent pulsar search.
+/**
+ * Configuration settings required for and defining a coherent pulsar search.
  * These are 'pre-processed' settings, which have been derived from the user-input.
  */
 typedef struct {
@@ -243,8 +245,8 @@ typedef struct {
 
   /* --- */
   REAL8 TwoFthreshold;		/**< output threshold on 2F */
-  CHAR *ephemDir;		/**< directory to look for ephemeris files */
-  CHAR *ephemYear;		/**< date-range string on ephemeris-files to use */
+  CHAR *ephemEarth;		/**< Earth ephemeris file to use */
+  CHAR *ephemSun;		/**< Sun ephemeris file to use */
 
   INT4  gridType;		/**< type of template grid in parameter space */
   INT4  metricType;		/**< type of metric to use in metric template grids */
@@ -332,7 +334,6 @@ void Freemem(LALStatus *,  ConfigVariables *cfg);
 
 void checkUserInputConsistency (LALStatus *, const UserInput_t *uvar);
 int outputBeamTS( const CHAR *fname, const AMCoeffs *amcoe, const DetectorStateSeries *detStates );
-void InitEphemeris (LALStatus *, EphemerisData *edat, const CHAR *ephemDir, const CHAR *ephemYear, BOOLEAN isLISA);
 void getUnitWeights ( LALStatus *, MultiNoiseWeights **multiWeights, const MultiSFTVector *multiSFTs );
 
 int write_FstatCandidate_to_fp ( FILE *fp, const FstatCandidate *thisFCand );
@@ -723,8 +724,8 @@ int main(int argc,char *argv[])
       if ( uvar.SignalOnly )
 	{
 	  REAL8 norm = 1.0 / sqrt( 0.5 * GV.Tsft );
-	  Fstat.Fa.real_FIXME *= norm;  Fstat.Fa.imag_FIXME *= norm;
-	  Fstat.Fb.real_FIXME *= norm;  Fstat.Fb.imag_FIXME *= norm;
+	  Fstat.Fa *= norm;
+	  Fstat.Fb *= norm;
 	  Fstat.F *= norm * norm;
 	  Fstat.F += 2;		/* compute E[2F]:= 4 + SNR^2 */
 	  UINT4 X, numDet = Fstat.numDetectors;
@@ -743,10 +744,8 @@ int main(int argc,char *argv[])
 		  FstatAtomVector *thisAtomList = Fstat.multiFstatAtoms->data[X];
 		  for ( alpha=0; alpha < thisAtomList->length; alpha ++ )
 		    {
-		      thisAtomList->data[alpha].Fa_alpha.realf_FIXME *= norm;
-		      thisAtomList->data[alpha].Fa_alpha.imagf_FIXME *= norm;
-		      thisAtomList->data[alpha].Fb_alpha.realf_FIXME *= norm;
-		      thisAtomList->data[alpha].Fb_alpha.imagf_FIXME *= norm;
+		      thisAtomList->data[alpha].Fa_alpha *= ((REAL4) norm);
+		      thisAtomList->data[alpha].Fb_alpha *= ((REAL4) norm);
 		    } /* for alpha < numSFTs */
 		} /* for X < numDet */
 	    } /* if outputFstatAtoms */
@@ -1168,12 +1167,8 @@ initUserVars (LALStatus *status, UserInput_t *uvar)
   uvar->Dterms 	= 16;
 #endif
 
-  uvar->ephemYear = LALCalloc (1, strlen(EPHEM_YEARS)+1);
-  strcpy (uvar->ephemYear, EPHEM_YEARS);
-
-#define DEFAULT_EPHEMDIR "env LAL_DATA_PATH"
-  uvar->ephemDir = LALCalloc (1, strlen(DEFAULT_EPHEMDIR)+1);
-  strcpy (uvar->ephemDir, DEFAULT_EPHEMDIR);
+  uvar->ephemEarth = XLALStringDuplicate("earth00-19-DE405.dat.gz");
+  uvar->ephemSun = XLALStringDuplicate("sun00-19-DE405.dat.gz");
 
   uvar->SignalOnly = FALSE;
   uvar->UseNoiseWeights = TRUE;
@@ -1290,8 +1285,10 @@ initUserVars (LALStatus *status, UserInput_t *uvar)
   LALregSTRINGUserStruct(status,skyRegion, 	'R', UVAR_OPTIONAL, "ALTERNATIVE: Sky-region by polygon of form '(ra1,dec1),(ra2,dec2),(ra3,dec3),...' or 'allsky'");
   LALregSTRINGUserStruct(status,DataFiles, 	'D', UVAR_REQUIRED, "File-pattern specifying (also multi-IFO) input SFT-files");
   LALregSTRINGUserStruct(status,IFO, 		'I', UVAR_OPTIONAL, "Detector: 'G1', 'L1', 'H1', 'H2' ...(useful for single-IFO v1-SFTs only!)");
-  LALregSTRINGUserStruct(status,ephemDir, 	'E', UVAR_OPTIONAL, "Directory where Ephemeris files are located");
-  LALregSTRINGUserStruct(status,ephemYear, 	'y', UVAR_OPTIONAL, "Year (or range of years) of ephemeris files to be used");
+
+  LALregSTRINGUserStruct(status,ephemEarth, 	 0,  UVAR_OPTIONAL, "Earth ephemeris file to use");
+  LALregSTRINGUserStruct(status,ephemSun, 	 0,  UVAR_OPTIONAL, "Sun ephemeris file to use");
+
   LALregBOOLUserStruct(status, 	SignalOnly, 	'S', UVAR_OPTIONAL, "Signal only flag");
   LALregBOOLUserStruct(status, 	UseNoiseWeights,'W', UVAR_OPTIONAL, "Use SFT-specific noise weights");
 
@@ -1375,61 +1372,6 @@ initUserVars (LALStatus *status, UserInput_t *uvar)
   RETURN (status);
 } /* initUserVars() */
 
-/** Load Ephemeris from ephemeris data-files  */
-void
-InitEphemeris (LALStatus * status,	/**< pointer to LALStatus structure */
-	       EphemerisData *edat,	/**< [out] the ephemeris-data */
-	       const CHAR *ephemDir,	/**< directory containing ephems */
-	       const CHAR *ephemYear,	/**< which years do we need? */
-	       BOOLEAN isLISA		/**< hack this function for LISA ephemeris */
-	       )
-{
-#define FNAME_LENGTH 1024
-  CHAR EphemEarth[FNAME_LENGTH];	/* filename of earth-ephemeris data */
-  CHAR EphemSun[FNAME_LENGTH];	/* filename of sun-ephemeris data */
-
-  INITSTATUS(status);
-  ATTATCHSTATUSPTR (status);
-
-  ASSERT ( edat, status, COMPUTEFSTATISTIC_ENULL, COMPUTEFSTATISTIC_MSGENULL );
-  ASSERT ( ephemYear, status, COMPUTEFSTATISTIC_ENULL, COMPUTEFSTATISTIC_MSGENULL );
-
-  if ( ephemDir )
-    {
-      if ( isLISA )
-	snprintf(EphemEarth, FNAME_LENGTH, "%s/ephemMLDC.dat", ephemDir);
-      else
-	snprintf(EphemEarth, FNAME_LENGTH, "%s/earth%s.dat", ephemDir, ephemYear);
-
-      snprintf(EphemSun, FNAME_LENGTH, "%s/sun%s.dat", ephemDir, ephemYear);
-    }
-  else
-    {
-      if ( isLISA )
-	snprintf(EphemEarth, FNAME_LENGTH, "ephemMLDC.dat");
-      else
-	snprintf(EphemEarth, FNAME_LENGTH, "earth%s.dat", ephemYear);
-      snprintf(EphemSun, FNAME_LENGTH, "sun%s.dat",  ephemYear);
-    }
-
-  EphemEarth[FNAME_LENGTH-1]=0;
-  EphemSun[FNAME_LENGTH-1]=0;
-
-  /* NOTE: the 'ephiles' are ONLY ever used in LALInitBarycenter, which is
-   * why we can use local variables (EphemEarth, EphemSun) to initialize them.
-   */
-  edat->ephiles.earthEphemeris = EphemEarth;
-  edat->ephiles.sunEphemeris = EphemSun;
-
-  TRY (LALInitBarycenter(status->statusPtr, edat), status);
-
-  DETATCHSTATUSPTR ( status );
-  RETURN ( status );
-
-} /* InitEphemeris() */
-
-
-
 /** Initialized Fstat-code: handle user-input and set everything up.
  * NOTE: the logical *order* of things in here is very important, so be careful
  */
@@ -1487,20 +1429,11 @@ InitFStat ( LALStatus *status, ConfigVariables *cfg, const UserInput_t *uvar )
   XLALGPSAdd(&endTime, cfg->Tsft);	/* add on Tsft to last SFT start-time */
 
   { /* ----- load ephemeris-data ----- */
-    CHAR *ephemDir;
-    BOOLEAN isLISA = FALSE;
-
-    cfg->ephemeris = LALCalloc(1, sizeof(EphemerisData));
-    if ( LALUserVarWasSet ( &uvar->ephemDir ) )
-      ephemDir = uvar->ephemDir;
-    else
-      ephemDir = NULL;
-
-    /* hack: if first SFT's detector is LISA, we load MLDC-ephemeris instead of 'earth' files */
-    if ( catalog->data[0].header.name[0] == 'Z' )
-      isLISA = TRUE;
-
-    TRY( InitEphemeris (status->statusPtr, cfg->ephemeris, ephemDir, uvar->ephemYear, isLISA ), status);
+    cfg->ephemeris = XLALInitBarycenter( uvar->ephemEarth, uvar->ephemSun );
+    if ( !cfg->ephemeris ) {
+      XLALPrintError("XLALInitBarycenter failed: could not load Earth ephemeris '%s' and Sun ephemeris '%s'\n", uvar->ephemEarth, uvar->ephemSun);
+      ABORT ( status,  COMPUTEFSTATISTIC_EINPUT,  COMPUTEFSTATISTIC_MSGEINPUT);
+    }
   }
 
   /* ----- get reference-times (from user if given, use startTime otherwise): ----- */
@@ -1833,17 +1766,11 @@ InitFStat ( LALStatus *status, ConfigVariables *cfg, const UserInput_t *uvar )
 
 
   /* ----- transient-window related parameters ----- */
-  if ( !XLALUserVarWasSet ( &uvar->transient_WindowType ) || !strcmp ( uvar->transient_WindowType, "none") )
-    cfg->transientWindowRange.type = TRANSIENT_NONE;		/* default: no transient signal window */
-  else if ( !strcmp ( uvar->transient_WindowType, "rect" ) )
-    cfg->transientWindowRange.type = TRANSIENT_RECTANGULAR;		/* rectangular window [t0, t0+tau] */
-  else if ( !strcmp ( uvar->transient_WindowType, "exp" ) )
-    cfg->transientWindowRange.type = TRANSIENT_EXPONENTIAL;		/* exponential window starting at t0, charact. time tau */
-  else
-    {
-      XLALPrintError ("%s: Illegal transient window '%s' specified: valid are 'none', 'rect' or 'exp'\n", __func__, uvar->transient_WindowType);
-      ABORT (status, COMPUTEFSTATC_EINPUT, COMPUTEFSTATC_MSGEINPUT);
-    }
+  int twtype;
+  if ( (twtype = XLALParseTransientWindowName ( uvar->transient_WindowType )) < 0 ) {
+    ABORT (status, COMPUTEFSTATISTIC_EXLAL, COMPUTEFSTATISTIC_MSGEXLAL );
+  }
+  cfg->transientWindowRange.type = twtype;
 
   /* make sure user doesn't set window=none but sets window-parameters => indicates she didn't mean 'none' */
   if ( cfg->transientWindowRange.type == TRANSIENT_NONE )
@@ -1955,7 +1882,8 @@ InitFStat ( LALStatus *status, ConfigVariables *cfg, const UserInput_t *uvar )
 
 } /* InitFStat() */
 
-/** Produce a log-string describing the present run-setup
+/**
+ * Produce a log-string describing the present run-setup
  */
 void
 getLogString ( LALStatus *status, CHAR **logstr, const ConfigVariables *cfg )
@@ -2029,7 +1957,8 @@ getLogString ( LALStatus *status, CHAR **logstr, const ConfigVariables *cfg )
 
 
 /***********************************************************************/
-/** Log the all relevant parameters of the present search-run to a log-file.
+/**
+ * Log the all relevant parameters of the present search-run to a log-file.
  * The name of the log-file is log_fname
  * <em>NOTE:</em> Currently this function only logs the user-input and code-versions.
  */
@@ -2092,9 +2021,7 @@ Freemem(LALStatus *status,  ConfigVariables *cfg)
     LALFree ( cfg->searchRegion.skyRegionString );
 
   /* Free ephemeris data */
-  LALFree(cfg->ephemeris->ephemE);
-  LALFree(cfg->ephemeris->ephemS);
-  LALFree(cfg->ephemeris);
+  XLALDestroyEphemerisData ( cfg->ephemeris );
 
   if ( cfg->VCSInfoString )
     XLALFree ( cfg->VCSInfoString );
@@ -2111,19 +2038,14 @@ Freemem(LALStatus *status,  ConfigVariables *cfg)
 
 
 /*----------------------------------------------------------------------*/
-/** Some general consistency-checks on user-input.
+/**
+ * Some general consistency-checks on user-input.
  * Throws an error plus prints error-message if problems are found.
  */
 void
 checkUserInputConsistency (LALStatus *status, const UserInput_t *uvar)
 {
   INITSTATUS(status);
-
-  if (uvar->ephemYear == NULL)
-    {
-      XLALPrintError ("\nNo ephemeris year specified (option 'ephemYear')\n\n");
-      ABORT (status, COMPUTEFSTATISTIC_EINPUT, COMPUTEFSTATISTIC_MSGEINPUT);
-    }
 
   /* check that only alpha OR RA has been set */
   if ( LALUserVarWasSet(&uvar->Alpha) && (LALUserVarWasSet(&uvar->RA)) )
@@ -2357,7 +2279,8 @@ outputBeamTS( const CHAR *fname, const AMCoeffs *amcoe, const DetectorStateSerie
   return 0;
 } /* outputBeamTS() */
 
-/** write full 'PulsarCandidate' (i.e. Doppler params + Amplitude params + error-bars + Fa,Fb, F, + A,B,C,D
+/**
+ * write full 'PulsarCandidate' (i.e. Doppler params + Amplitude params + error-bars + Fa,Fb, F, + A,B,C,D
  * RETURN 0 = OK, -1 = ERROR
  */
 int
@@ -2462,7 +2385,8 @@ compareFstatCandidates_LV ( const void *candA, const void *candB )
 
 } /* compareFstatCandidates_LV() */
 
-/** write one 'FstatCandidate' (i.e. only Doppler-params + Fstat) into file 'fp'.
+/**
+ * write one 'FstatCandidate' (i.e. only Doppler-params + Fstat) into file 'fp'.
  * Return: 0 = OK, -1 = ERROR
  */
 int
@@ -2507,7 +2431,8 @@ write_FstatCandidate_to_fp ( FILE *fp, const FstatCandidate *thisFCand )
  *
  * --------------------------------------------------------------------------------*/
 
-/** Create a scanline window, with given windowWings >= 0.
+/**
+ * Create a scanline window, with given windowWings >= 0.
  * Note: the actual window-size is 1 + 2 * windowWings
  */
 scanlineWindow_t *
@@ -2548,7 +2473,8 @@ XLALDestroyScanlineWindow ( scanlineWindow_t *scanlineWindow )
 
 } /* XLALDestroyScanlineWindow() */
 
-/** Advance by pushing a new candidate into the scanline-window
+/**
+ * Advance by pushing a new candidate into the scanline-window
  */
 int
 XLALAdvanceScanlineWindow ( const FstatCandidate *nextCand, scanlineWindow_t *scanWindow )
@@ -2568,7 +2494,8 @@ XLALAdvanceScanlineWindow ( const FstatCandidate *nextCand, scanlineWindow_t *sc
 
 } /* XLALAdvanceScanlineWindow() */
 
-/** check wether central candidate in Scanline-window is a local maximum
+/**
+ * check wether central candidate in Scanline-window is a local maximum
  */
 BOOLEAN
 XLALCenterIsLocalMax ( const scanlineWindow_t *scanWindow, const UINT4 rankingStatistic )
@@ -2608,7 +2535,8 @@ XLALCenterIsLocalMax ( const scanlineWindow_t *scanWindow, const UINT4 rankingSt
 
 } /* XLALCenterIsLocalMax() */
 
-/** Mini helper-function: append string 'str2' to string 'str1',
+/**
+ * Mini helper-function: append string 'str2' to string 'str1',
  * returns pointer to new concatenated string
  */
 CHAR *append_string ( CHAR *str1, const CHAR *str2 )
@@ -2637,7 +2565,8 @@ CHAR *append_string ( CHAR *str1, const CHAR *str2 )
 
 } /* append_string() */
 
-/** Function to append one timing-info line to open output file.
+/**
+ * Function to append one timing-info line to open output file.
  *
  * NOTE: called with NULL timing pointer writes header-comment line.
  */
@@ -2667,7 +2596,8 @@ write_TimingInfo_to_fp ( FILE * fp, const timingInfo_t *ti )
 } /* write_TimingInfo_to_fp() */
 
 #ifdef HIGHRES_TIMING
-/** Return process User CPU time used.
+/**
+ * Return process User CPU time used.
  */
 REAL8
 XLALGetUserCPUTime ( void )

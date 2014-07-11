@@ -1,8 +1,10 @@
 SUBDIRS = \
-	triggers
+	triggers \
+	hveto
 
 pkgpython_PYTHON = \
 	__init__.py \
+	dqsegs.py \
 	git_version.py
 
 EXTRA_DIST = \

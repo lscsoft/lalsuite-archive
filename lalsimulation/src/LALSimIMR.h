@@ -30,7 +30,7 @@ extern "C" {
 #endif
 
 /**
- * The number of e-folds of ringdown which should be attached for 
+ * The number of e-folds of ringdown which should be attached for
  * EOBNR models
  */
 #define EOB_RD_EFOLDS 10.0
@@ -40,9 +40,9 @@ extern "C" {
  * phenomenological waveform IMRPhenomA in the frequency domain.
  *
  * Reference:
- *   - Waveform: Eq.(4.13) and (4.16) of http://arxiv.org/pdf/0710.2335
- *   - Coefficients: Eq.(4.18) of http://arxiv.org/pdf/0710.2335 and
- *                   Table I of http://arxiv.org/pdf/0712.0343
+ * - Waveform: Eq.(4.13) and (4.16) of http://arxiv.org/pdf/0710.2335
+ * - Coefficients: Eq.(4.18) of http://arxiv.org/pdf/0710.2335 and
+ * Table I of http://arxiv.org/pdf/0712.0343
  *
  * All input parameters should be SI units.
  */
@@ -62,9 +62,9 @@ int XLALSimIMRPhenomAGenerateFD(
  * phenomenological waveform IMRPhenomA in the time domain.
  *
  * Reference:
- *   - Waveform: Eq.(4.13) and (4.16) of http://arxiv.org/pdf/0710.2335
- *   - Coefficients: Eq.(4.18) of http://arxiv.org/pdf/0710.2335 and
- *                   Table I of http://arxiv.org/pdf/0712.0343
+ * - Waveform: Eq.(4.13) and (4.16) of http://arxiv.org/pdf/0710.2335
+ * - Coefficients: Eq.(4.18) of http://arxiv.org/pdf/0710.2335 and
+ * Table I of http://arxiv.org/pdf/0712.0343
  *
  * All input parameters should be in SI units. Angles should be in radians.
  */
@@ -94,12 +94,32 @@ double XLALSimIMRPhenomBComputeChi(
 );
 
 /**
+ * Compute the default final frequency 
+ */
+double XLALSimIMRPhenomAGetFinalFreq(
+    const REAL8 m1,
+    const REAL8 m2
+);
+
+double XLALSimIMRPhenomBGetFinalFreq(
+    const REAL8 m1,
+    const REAL8 m2,
+    const REAL8 chi
+);
+
+double XLALSimIMRPhenomCGetFinalFreq(
+    const REAL8 m1,
+    const REAL8 m2,
+    const REAL8 chi
+);
+
+/**
  * Driver routine to compute the spin-aligned, inspiral-merger-ringdown
  * phenomenological waveform IMRPhenomB in the frequency domain.
  *
  * Reference: http://arxiv.org/pdf/0909.2867
- *   - Waveform: Eq.(1)
- *   - Coefficients: Eq.(2) and Table I
+ * - Waveform: Eq.(1)
+ * - Coefficients: Eq.(2) and Table I
  *
  * All input parameters should be in SI units. Angles should be in radians.
  */
@@ -120,8 +140,8 @@ int XLALSimIMRPhenomBGenerateFD(
  * phenomenological waveform IMRPhenomB in the time domain.
  *
  * Reference: http://arxiv.org/pdf/0909.2867
- *   - Waveform: Eq.(1)
- *   - Coefficients: Eq.(2) and Table I
+ * - Waveform: Eq.(1)
+ * - Coefficients: Eq.(2) and Table I
  *
  * All input parameters should be in SI units. Angles should be in radians.
  */
@@ -144,8 +164,8 @@ int XLALSimIMRPhenomBGenerateTD(
  * phenomenological waveform IMRPhenomC in the frequency domain.
  *
  * Reference: http://arxiv.org/abs/1005.3306
- *   - Waveform: Eq.(5.1) - (5.13)
- *   - Coefficients: Eq.(5.14) and Table II
+ * - Waveform: Eq.(5.1) - (5.13)
+ * - Coefficients: Eq.(5.14) and Table II
  *
  * All input parameters should be in SI units. Angles should be in radians.
  */
@@ -159,6 +179,62 @@ int XLALSimIMRPhenomCGenerateFD(
     const REAL8 f_min,                 /**< starting GW frequency (Hz) */
     const REAL8 f_max,                 /**< end frequency; 0 defaults to ringdown cutoff freq */
     const REAL8 distance               /**< distance of source (m) */
+);
+
+/**
+ * Driver routine to compute the plus and cross polarizations for the IMRPhenomP model
+ * for precessing binaries in the frequency domain.
+ *
+ * This function takes effective model parameters that should be computed with
+ * XLALSimIMRPhenomPCalculateModelParameters().
+ *
+ * Reference: http://arxiv.org/abs/1308.3271
+ *
+ */
+
+int XLALSimIMRPhenomP(
+  COMPLEX16FrequencySeries **hptilde,   /**< Output: Frequency-domain waveform h+ */
+  COMPLEX16FrequencySeries **hctilde,   /**< Output: Frequency-domain waveform hx */
+  const REAL8 chi_eff,                  /**< Effective aligned spin */
+  const REAL8 chip,                     /**< Effective spin in the orbital plane */
+  const REAL8 eta,                      /**< Symmetric mass-ratio */
+  const REAL8 thetaJ,                   /**< Angle between J0 and line of sight (z-direction) */
+  const REAL8 phiJ,                     /**< Angle of J0 in the plane of the sky */
+  const REAL8 Mtot_SI,                  /**< Total mass of binary (kg) */
+  const REAL8 distance,                 /**< Distance of source (m) */
+  const REAL8 alpha0,                   /**< Initial value of alpha angle */
+  const REAL8 phic,                     /**< Orbital coalescence phase (rad) */
+  const REAL8 deltaF,                   /**< Sampling frequency (Hz) */
+  const REAL8 f_min,                    /**< Starting GW frequency (Hz) */
+  const REAL8 f_max                    	/**< End frequency; 0 defaults to ringdown cutoff freq */
+);
+
+/**
+ * Function that transforms from the LAL frame to model effective parameters for the IMRPhenomP model.
+ *
+ * Reference: http://arxiv.org/abs/1308.3271
+ *
+ */
+
+int XLALSimIMRPhenomPCalculateModelParameters(
+    REAL8 *chi_eff,                 /**< Output: Effective aligned spin */
+    REAL8 *chip,                    /**< Output: Effective spin in the orbital plane */
+    REAL8 *eta,                     /**< Output: Symmetric mass-ratio */
+    REAL8 *thetaJ,                  /**< Output: Angle between J0 and line of sight (z-direction) */
+    REAL8 *phiJ,                    /**< Output: Angle of J0 in the plane of the sky */
+    REAL8 *alpha0,                  /**< Output: Initial value of alpha angle */
+    const REAL8 m1_SI,              /**< Mass of companion 1 (kg) */
+    const REAL8 m2_SI,              /**< Mass of companion 2 (kg) */
+    const REAL8 f_min,              /**< Starting GW frequency (Hz) */
+    const REAL8 lnhatx,             /**< Initial value of LNhatx: orbital angular momentum unit vector */
+    const REAL8 lnhaty,             /**< Initial value of LNhaty */
+    const REAL8 lnhatz,             /**< Initial value of LNhatz */
+    const REAL8 s1x,                /**< Initial value of s1x: dimensionless spin of BH 1 */
+    const REAL8 s1y,                /**< Initial value of s1y: dimensionless spin of BH 1 */
+    const REAL8 s1z,                /**< Initial value of s1z: dimensionless spin of BH 1 */
+    const REAL8 s2x,                /**< Initial value of s2x: dimensionless spin of BH 2 */
+    const REAL8 s2y,                /**< Initial value of s2y: dimensionless spin of BH 2 */
+    const REAL8 s2z                	/**< Initial value of s2z: dimensionless spin of BH 2 */
 );
 
 /**
@@ -219,7 +295,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
      );
 
 /**
- * Routine to compute the mass and spin of the final black hole given 
+ * Routine to compute the mass and spin of the final black hole given
  * the masses, spins, binding energy, and orbital angular momentum vector.
  */
 int XLALSimIMRPhenSpinFinalMassSpin(REAL8 *finalMass,

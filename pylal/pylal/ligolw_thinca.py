@@ -1,4 +1,4 @@
-# Copyright (C) 2008--2012  Kipp Cannon, Drew G. Keppel
+# Copyright (C) 2008--2013  Kipp Cannon, Drew G. Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -32,11 +32,11 @@ import sys
 from glue import iterutils
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
-from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
+from glue.ligolw.utils import coincs as ligolw_coincs
+from glue import offsetvector
 import lal
 from pylal import git_version
-from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -111,48 +111,6 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 #
 # =============================================================================
 #
-#                           Add Process Information
-#
-# =============================================================================
-#
-
-
-process_program_name = "ligolw_thinca"
-
-
-def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, exact_mass = None, effective_snr_factor = None, vetoes_name = None, trigger_program = None, effective_snr = None, coinc_end_time_segment = None, verbose = None):
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
-
-	params = [
-		(u"--e-thinca-parameter", u"real_8", e_thinca_parameter)
-	]
-	if comment is not None:
-		params += [(u"--comment", u"lstring", comment)]
-	if force is not None:
-		params += [(u"--force", None, None)]
-	if effective_snr_factor is not None:
-		params += [(u"--effective-snr-factor", u"real_8", effective_snr_factor)]
-	if vetoes_name is not None:
-		params += [(u"--vetoes-name", u"lstring", vetoes_name)]
-	if trigger_program is not None:
-		params += [(u"--trigger-program", u"lstring", trigger_program)]
-	if effective_snr is not None:
-		params += [(u"--effective-snr", u"lstring", effective_snr)]
-	if coinc_end_time_segment is not None:
-		params += [(u"--coinc-end-time-segment", u"lstring", coinc_end_time_segment)]
-	if exact_mass is not None:
-		params += [(u"--exact-mass", None, None)]
-	if verbose is not None:
-		params += [(u"--verbose", None, None)]
-
-	ligolw_process.append_process_params(xmldoc, process, params)
-
-	return process
-
-
-#
-# =============================================================================
-#
 #                          CoincTables Customizations
 #
 # =============================================================================
@@ -196,7 +154,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		#
 
 		try:
-			self.coinc_inspiral_table = lsctables.table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
+			self.coinc_inspiral_table = lsctables.CoincInspiralTable.get_table(xmldoc)
 		except ValueError:
 			self.coinc_inspiral_table = lsctables.New(lsctables.CoincInspiralTable)
 			xmldoc.childNodes[0].appendChild(self.coinc_inspiral_table)
@@ -253,8 +211,8 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		#
 
 		tstart = coinc_inspiral.get_end()
-		instruments = set([event.ifo for event in events])
-		instruments |= set([instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs])
+		instruments = set(event.ifo for event in events)
+		instruments |= set(instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs)
 		coinc.set_instruments(instruments)
 
 		#
@@ -457,8 +415,8 @@ def ligolw_thinca(
 	if verbose:
 		print >>sys.stderr, "indexing ..."
 	coinc_tables = InspiralCoincTables(xmldoc, vetoes = veto_segments, program = trigger_program, likelihood_func = likelihood_func, likelihood_params_func = likelihood_params_func)
-	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
-	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName))
+	coinc_def_id = ligolw_coincs.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
+	sngl_index = dict((row.event_id, row) for row in lsctables.SnglInspiralTable.get_table(xmldoc))
 
 	#
 	# build the event list accessors, populated with events from those
@@ -475,7 +433,7 @@ def ligolw_thinca(
 	# set the \Delta t parameter on all the event lists
 	#
 
-	max_dt = inspiral_max_dt(lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName), thresholds)
+	max_dt = inspiral_max_dt(lsctables.SnglInspiralTable.get_table(xmldoc), thresholds)
 	if verbose:
 		print >>sys.stderr, "event bisection search window will be %.16g s" % max_dt
 	for eventlist in eventlists.values():
@@ -508,7 +466,7 @@ def ligolw_thinca(
 	# remove time offsets from events
 	#
 
-	eventlists.remove_offsetdict()
+	del eventlists.offsetvector
 
 	#
 	# done
@@ -591,15 +549,15 @@ class sngl_inspiral_coincs(object):
 		# find all tables
 		#
 
-		self.process_table = lsctables.table.get_table(xmldoc, lsctables.ProcessTable.tableName)
-		self.process_params_table = lsctables.table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
-		self.search_summary_table = lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
-		self.sngl_inspiral_table = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-		self.coinc_def_table = lsctables.table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
-		self.coinc_event_table = lsctables.table.get_table(xmldoc, lsctables.CoincTable.tableName)
-		self.coinc_inspiral_table = lsctables.table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
-		self.coinc_event_map_table = lsctables.table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
-		self.time_slide_table = lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+		self.process_table = lsctables.ProcessTable.get_table(xmldoc)
+		self.process_params_table = lsctables.ProcessParamsTable.get_table(xmldoc)
+		self.search_summary_table = lsctables.SearchSummaryTable.get_table(xmldoc)
+		self.sngl_inspiral_table = lsctables.SnglInspiralTable.get_table(xmldoc)
+		self.coinc_def_table = lsctables.CoincDefTable.get_table(xmldoc)
+		self.coinc_event_table = lsctables.CoincTable.get_table(xmldoc)
+		self.coinc_inspiral_table = lsctables.CoincInspiralTable.get_table(xmldoc)
+		self.coinc_event_map_table = lsctables.CoincMapTable.get_table(xmldoc)
+		self.time_slide_table = lsctables.TimeSlideTable.get_table(xmldoc)
 
 		#
 		# index the process, process params, search_summary,
@@ -638,6 +596,19 @@ class sngl_inspiral_coincs(object):
 		coincs in the source XML document.
 		"""
 		return self.coinc_def.coinc_def_id
+
+	def sngl_inspirals(self, coinc_event_id):
+		"""
+		Return a list of the sngl_inspiral rows that participated
+		in the coincidence given by coinc_event_id.
+		"""
+		return [self.sngl_inspiral_index[row.event_id] for row in self.coinc_event_map_index[coinc_event_id]]
+
+	def offset_vector(self, time_slide_id):
+		"""
+		Return the offsetvector given by time_slide_id.
+		"""
+		return offsetvector.offsetvector((row.instrument, row.offset) for row in self.time_slide_index[time_slide_id])
 
 	def __getitem__(self, coinc_event_id):
 		"""
@@ -718,21 +689,3 @@ class sngl_inspiral_coincs(object):
 			yield (coinc_event_id, self[coinc_event_id])
 
 	iteritems = items
-
-	def column_index(self, table_name, column_name):
-		"""
-		Return a dictionary mapping coinc_event_id to the values in
-		the given column in the given table.
-
-		Example:
-
-		>>> print coincs.column_index("coinc_event", "likelihood")
-
-		Only columns in the coinc_event and coinc_inspiral tables
-		can be retrieved this way.
-		"""
-		if not lsctables.table.CompareTableNames(table_name, lsctables.CoincTable.tableName):
-			return dict(zip(self.coinc_event_table.getColumnByName("coinc_event_id"), self.coinc_event_table.getColumnByName(column_name)))
-		elif not lsctables.table.CompareTableNames(table_name, lsctables.CoincInspiralTable.tableName):
-			return dict(zip(self.coinc_inspiral_table.getColumnByName("coinc_event_id"), self.coinc_inspiral_table.getColumnByName(column_name)))
-		raise ValueError(table_name)

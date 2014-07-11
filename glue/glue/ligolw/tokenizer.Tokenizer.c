@@ -1,6 +1,5 @@
 /*
- *
- * Copyright (C) 2006  Kipp C. Cannon
+ * Copyright (C) 2006-2009,2011  Kipp C. Cannon
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -225,8 +224,7 @@ static const Py_UNICODE *pyunicode_strchr(const Py_UNICODE *s, Py_UNICODE c)
 
 
 /*
- * Unescape a string.  This does not recognize the octal escape codes that
- * metaio understands.
+ * Unescape a string.
  */
 
 

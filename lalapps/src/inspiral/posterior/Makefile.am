@@ -1,6 +1,9 @@
-SUBDIRS = SPINspiral mpi
+SUBDIRS = \
+	SPINspiral \
+	mpi
 
 LDADD = $(top_builddir)/src/lalapps/liblalapps.la
+AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_builddir)/src/lalapps -DPKG_DATA_DIR='"$(pkgdatadir)/"' @AM_CPPFLAGS@
 
 if LALINSPIRAL
 if LALFRAME
@@ -16,38 +19,44 @@ lalapps_inspnest_SOURCES = \
 	nest_calc.h \
 	LALInspiralMCMC.h \
 	LALInspiralMCMCUser.h
-endif
+endif # metaio
 
 if LALPULSAR
 if LALINFERENCE
 pulsar_progs = lalinference_nest ChiSquare_test #lalinference_mcmcmpi
 ChiSquare_test_SOURCES = ChiSquare_test.c
 lalinference_nest_SOURCES = LALInferenceNest.c
-
 if HAVE_BAMBI
+if !HAVE_BAMBI_MPI
 pulsar_progs += lalinference_bambi
 lalinference_bambi_SOURCES = LALInferenceBAMBI.c
 lalinference_bambi_LDADD = ${BAMBI_LIBS}
-endif
+endif # bambi_mpi
+endif # bambi
 
-endif
-
-endif
+endif # lalinference
+endif # lalpulsar
 
 frame_progs = \
 	lalapps_followupMcmc
 lalapps_followupMcmc_SOURCES = \
 	followupMcmc.c
 
-endif
-endif
+endif # lalframe
+endif # lalinspiral
 
+#bayesline_SOURCES = \
+#	BayesLine.c
 
-bin_PROGRAMS = $(metaio_progs) $(frame_progs) $(pulsar_progs) $(mpi_progs)
+bin_PROGRAMS = \
+	$(metaio_progs) \
+	$(frame_progs) \
+	$(pulsar_progs) \
+	$(mpi_progs)
+#	bayesline
 
-noinst_PROGRAMS = $(td_test_progs)
-
-AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_builddir)/src/lalapps -DPKG_DATA_DIR='"$(pkgdatadir)/"'
+noinst_PROGRAMS = \
+	$(td_test_progs)
 
 if HAVE_PYTHON
 bin_SCRIPTS = \
