@@ -402,9 +402,11 @@ def sim_to_distance_effective_spin_parameter_bins_function(sim):
 	direction of the total angular momentum. For inspiral
 	waveforms, "chi" refers to the reduced spin,
 
-	   chi_red = chi_eff - 76.*eta/113.
+	   chi_red = chi_s + delta*chi_a - 76.*eta/113*chi_s,
 
-	Some waveforms, e.g., SpinTaylorT4, use different coordinate
+	where chi_s and chi_a are the symmetric and anti-symmetric
+	combinations of the spins, and delta=(m1-m2)/(m1+m2). Some
+	waveforms, e.g., SpinTaylorT4, use different coordinate
 	conventions and require a coordinate transformation before
 	applying these definitions.
 	"""
