@@ -406,7 +406,8 @@ def ligolw_thinca(
 	trigger_program = u"inspiral",
 	likelihood_func = None,
 	likelihood_params_func = None,
-	verbose = False
+	verbose = False,
+	max_dt = None
 ):
 	#
 	# prepare the coincidence table interface.
@@ -433,7 +434,8 @@ def ligolw_thinca(
 	# set the \Delta t parameter on all the event lists
 	#
 
-	max_dt = inspiral_max_dt(lsctables.SnglInspiralTable.get_table(xmldoc), thresholds)
+	if max_dt is None:
+		max_dt = inspiral_max_dt(lsctables.SnglInspiralTable.get_table(xmldoc), thresholds)
 	if verbose:
 		print >>sys.stderr, "event bisection search window will be %.16g s" % max_dt
 	for eventlist in eventlists.values():
