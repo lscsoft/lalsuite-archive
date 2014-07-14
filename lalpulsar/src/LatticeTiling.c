@@ -158,7 +158,7 @@ static void LT_GetBounds(
 
   // Set default padding to metric ellipse bounding box in this dimension,
   // for tiled dimensions, otherwise zero for non-tiled dimensions
-  double lower_pad = bound->tiled ? gsl_vector_get(tiling->phys_bbox, dimension) : 0.0;
+  double lower_pad = 0.5 * gsl_vector_get(tiling->phys_bbox, dimension);
   double upper_pad = lower_pad;
 
   // Compute lower parameter space bound
@@ -485,7 +485,7 @@ gsl_vector* XLALMetricEllipseBoundingBox(
   // Compute bounding box, and reverse diagonal scaling
   for (size_t i = 0; i < n; ++i) {
     const double norm_i = gsl_matrix_get(metric, i, i);
-    const double bounding_box_i = sqrt(norm_i * max_mismatch * gsl_matrix_get(inverse, i, i));
+    const double bounding_box_i = 2.0 * sqrt(max_mismatch * gsl_matrix_get(inverse, i, i) / norm_i);
     gsl_vector_set(bounding_box, i, bounding_box_i);
   }
 
@@ -736,7 +736,7 @@ void XLALDestroyLatticeTiling(
 
 }
 
-size_t XLALGetLatticeTotalDimensions(
+size_t XLALLatticeTotalDimensions(
   const LatticeTiling* tiling
   )
 {
@@ -748,7 +748,7 @@ size_t XLALGetLatticeTotalDimensions(
 
 }
 
-size_t XLALGetLatticeTiledDimensions(
+size_t XLALLatticeTiledDimensions(
   const LatticeTiling* tiling
   )
 {
@@ -761,7 +761,7 @@ size_t XLALGetLatticeTiledDimensions(
 
 }
 
-uint64_t XLALGetLatticePointCount(
+uint64_t XLALLatticePointCount(
   const LatticeTiling* tiling
   )
 {
@@ -822,6 +822,10 @@ int XLALSetLatticeBound(
   XLAL_CHECK(data_lower != NULL, XLAL_EFAULT);
   XLAL_CHECK(data_upper != NULL, XLAL_EFAULT);
 
+  // Check that bound has not already been set
+  XLAL_CHECK(tiling->bounds[dimension].func == NULL, XLAL_EINVAL,
+             "Dimension #%i has already been bounded", dimension);
+
   // Determine if this dimension is tiled
   const bool tiled = (memcmp(data_lower, data_upper, data_len) != 0);
 
@@ -864,16 +868,16 @@ int XLALSetLatticeConstantBound(
   XLAL_CHECK(isfinite(bound2), XLAL_EINVAL);
 
   // Allocate memory
-  double* data_lower = XLALMalloc(sizeof(*data_lower));
+  const size_t data_len = sizeof(double);
+  double* data_lower = XLALMalloc(data_len);
   XLAL_CHECK(data_lower != NULL, XLAL_ENOMEM);
-  double* data_upper = XLALMalloc(sizeof(*data_lower));
+  double* data_upper = XLALMalloc(data_len);
   XLAL_CHECK(data_upper != NULL, XLAL_ENOMEM);
 
   // Set the parameter-space bound
   *data_lower = GSL_MIN(bound1, bound2);
   *data_upper = GSL_MAX(bound1, bound2);
-  XLAL_CHECK(XLALSetLatticeBound(tiling, dimension, ConstantBound,
-                                 sizeof(*data_lower), data_lower, data_upper) == XLAL_SUCCESS, XLAL_EFUNC);
+  XLAL_CHECK(XLALSetLatticeBound(tiling, dimension, ConstantBound, data_len, data_lower, data_upper) == XLAL_SUCCESS, XLAL_EFUNC);
 
   return XLAL_SUCCESS;
 

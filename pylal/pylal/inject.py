@@ -34,8 +34,8 @@ import math
 
 
 from lal import ComputeDetAMResponse as XLALComputeDetAMResponse
-from lal import LAL_C_SI as _LAL_C_SI
-from lal import lalCachedDetectors as _lalCachedDetectors
+from lal import C_SI as _LAL_C_SI
+from lal import CachedDetectors as _lalCachedDetectors
 from pylal import git_version
 
 
