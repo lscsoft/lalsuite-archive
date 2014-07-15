@@ -2,7 +2,7 @@
  *  LALInferenceProposal.c:  Bayesian Followup, jump proposals.
  *
  *  Copyright (C) 2011 Ilya Mandel, Vivien Raymond, Christian Roever,
- *  Marc van der Sluys, John Veitch, Will M. Farr
+ *  Marc van der Sluys, John Veitch, Will M. Farr, Walter Del Pozzo
  *
  *
  *  This program is free software; you can redistribute it and/or modify
