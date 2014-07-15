@@ -82,8 +82,8 @@ def standardize_param_names(params):
     standardize_param_name(params, ['d', 'dist'], 'distance')
     standardize_param_name(params, ['ra'], 'longitude')
     standardize_param_name(params, ['dec'], 'latitude')
-    standardize_param_name(params, ['iota','inclination'], 'theta_jn')
-    standardize_param_name(params, ['phi', 'phase'], 'phi_orb')
+    standardize_param_name(params, ['iota'], 'inclination')
+    standardize_param_name(params, ['phi', 'phase', 'phi0'], 'phi_orb')
     standardize_param_name(params, ['psi', 'polarisation'], 'polarization')
 
 
@@ -278,8 +278,8 @@ if __name__ == "__main__":
 
     # Fill in IDs
     for i,row in enumerate(sim_table):
-        row.process_id = ilwd.ilwdchar("process:process_id:{}".format(i))
-        row.simulation_id = ilwd.ilwdchar("sim_inspiral:simulation_id:{}".format(ids[i]))
+        row.process_id = ilwd.ilwdchar("process:process_id:{0:d}".format(i))
+        row.simulation_id = ilwd.ilwdchar("sim_inspiral:simulation_id:{0:d}".format(ids[i]))
 
     # Fill rows
     for field in injections.dtype.names:

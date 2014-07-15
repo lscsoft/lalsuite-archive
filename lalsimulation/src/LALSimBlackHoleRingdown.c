@@ -11,8 +11,9 @@
 
 #include <lal/LALSimBlackHoleRingdown.h>
 
+/* note: use double-precision variables, but demand single-precision accuracy */
 #define EPS LAL_REAL4_EPS
-#define TINY LAL_REAL8_MIN
+#define TINY LAL_REAL4_MIN
 #define MAXITER 16384
 
 #ifdef __GNUC__
@@ -871,7 +872,7 @@ INT4 XLALSimIMREOBFinalMassSpin(
   static const REAL8 s4v2 = -0.27506210736300474;
   static const REAL8 t0v2 = -2.649826989941522;
   static const REAL8 t3v2 = 3.910637513328723;
-  static const REAL8 t2v2 = 16.* (-0.17958273605461628 - 0.015625*t3v2);
+  static const REAL8 t2v2 = -3.850983155206041;
 
 
   REAL8 totalMass;

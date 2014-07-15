@@ -139,6 +139,11 @@ int XLALSFTAdd ( SFTtype *a, const SFTtype *b );
 int XLALEarliestMultiSFTsample ( LIGOTimeGPS *out, const MultiSFTVector *multisfts );
 int XLALLatestMultiSFTsample ( LIGOTimeGPS *out, const MultiSFTVector *multisfts );
 
+// resizing SFTs
+int XLALMultiSFTVectorResizeBand ( MultiSFTVector *multiSFTs, REAL8 f0, REAL8 Band );
+int XLALSFTVectorResizeBand ( SFTVector *SFTs, REAL8 f0, REAL8 Band );
+int XLALSFTResizeBand ( SFTtype *SFT, REAL8 f0, REAL8 Band );
+
 // destructors
 void XLALDestroyPSDVector ( PSDVector *vect );
 void XLALDestroyMultiSFTVector ( MultiSFTVector *multvect );
@@ -154,6 +159,9 @@ XLALGetDetectorIDsFromSFTCatalog ( LALStringVector *IFOList, const SFTCatalog *S
 SFTCatalog *XLALAddToFakeSFTCatalog( SFTCatalog *catalog, const CHAR *detector, const LIGOTimeGPSVector *timestamps );
 SFTCatalog *XLALMultiAddToFakeSFTCatalog( SFTCatalog *catalog, const LALStringVector *detectors, const MultiLIGOTimeGPSVector *timestamps );
 int XLALCopySFT ( SFTtype *dest, const SFTtype *src );
+
+SFTVector *XLALExtractSFTVectorWithTimestamps ( const SFTVector *sfts, const LIGOTimeGPSVector *timestamps );
+MultiSFTVector *XLALExtractMultiSFTVectorWithMultiTimestamps ( const MultiSFTVector *multiSFTs, const MultiLIGOTimeGPSVector *multiTimestamps );
 
 /*@}*/
 

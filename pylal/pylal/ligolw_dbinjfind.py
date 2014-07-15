@@ -6,48 +6,25 @@ from glue.ligolw import ilwd
 from pylal import ligolw_sqlutils as sqlutils
 from pylal import ligolw_dataUtils as dataUtils
 
-def make_rec_sngls_table( connection, sims_tbl, sngls_tbl ):
-    cursor = connection.cursor()
-    # the style of the 'usertag' param is different between inspiral & ringdown
-    style = {}
-    if sims_tbl == 'sim_inspiral':
-        style['param_style'] = '--userTag'
-    elif sims_tbl == 'sim_ringdown':
-        style['param_style'] = '-userTag'
-    
-    # construct temp indices to make table queries faster
-    make_idxs = """
-    CREATE INDEX pp_idx ON process_params (process_id, value, param);
-    CREATE INDEX sngls_idx ON """ + sngls_tbl + " (process_id, event_id);"
-    cursor.executescript( make_idxs )
-
-    # copy all sngl-ifo triggers from simulation runs into new table
-    sqlcommand = """
-    CREATE TEMP TABLE rec_sngls AS
-        SELECT
-            pp_sim.process_id AS sim_proc_id,
-            sngls_tbl.*
-        FROM """ + sngls_tbl + """ AS sngls_tbl
-            JOIN process_params AS pp_trig, process_params AS pp_sim ON (
-                pp_trig.process_id = sngls_tbl.process_id
-                AND pp_trig.value = pp_sim.value
-            )
+def make_rec_sngls_table( connection, recovery_table ):
+    """
+    Makes a temporary table containing events from the given recovery table
+    that could potentially be injections --- i.e., events from the "simulation"
+    datatype --- and the process id of the injection jobs that created them.
+    This allows for quick matching between injections and single events later
+    on.
+    """
+    sqlquery = ''.join(['''
+        CREATE TEMP TABLE rec_sngls AS
+            SELECT
+                experiment_summary.sim_proc_id AS sim_proc_id,
+            ''', recovery_table, '''.*
+        FROM
+            ''', recovery_table, '''
+        ''', sqlutils.join_experiment_tables_to_sngl_table( recovery_table ), '''
         WHERE
-            pp_sim.param = :param_style
-            AND pp_sim.process_id IN (
-                SELECT DISTINCT process_id
-                FROM """ + sims_tbl + """
-            ) """
-    cursor.execute( sqlcommand, style )
-
-    # drop temp indices
-    drop_idxs = """
-    DROP INDEX pp_idx;
-    DROP INDEX sngls_idx; """
-    cursor.executescript( drop_idxs )
-    # commit changes and close the cursor object
-    connection.commit()
-    cursor.close()
+            experiment_summary.datatype == "simulation"''' ])
+    connection.cursor().execute(sqlquery)
 
 
 def dbinjfind( connection, simulation_table, recovery_table, match_criteria, rough_match = None, rejection_criteria = [], rough_rejection = None, verbose = False ):
@@ -66,7 +43,7 @@ def dbinjfind( connection, simulation_table, recovery_table, match_criteria, rou
     # create a temporary table to store the eligible foreground events that can be matched
     if verbose:
         print >> sys.stdout, "Getting eligible events..."
-    make_rec_sngls_table( connection, simulation_table, recovery_table )
+    make_rec_sngls_table( connection, recovery_table )
 
     # if using rough match, create an index for it
     rough_match_test = ''

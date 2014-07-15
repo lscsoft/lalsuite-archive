@@ -3,6 +3,7 @@ import sys
 import numpy
 import copy
 import pickle
+import tempfile
 
 def ROC(clean_ranks, glitch_ranks):
   """
@@ -250,7 +251,6 @@ def WriteMVSCTriggers(MVSCTriggers, output_filename, Classified = False):
   If Classified = False, triggers are treated as unclassfied and saved in the input file for MVSC.
   If Classified = True, triggers as saved in the same format as output of MVSC.   
   """   
-  n_triggers = len(MVSCTriggers)
   if not Classified:
     Unclassified_variables = list(MVSCTriggers.dtype.names)
     for var in ['index', 'i', 'w', 'glitch-rank']:
@@ -264,7 +264,7 @@ def WriteMVSCTriggers(MVSCTriggers, output_filename, Classified = False):
         formats.append('g8')
       
     #formats = ['g8' for a in range(len(Unclassified_variables) - 1)] + ['i']
-    Triggers = numpy.empty((n_triggers,), dtype={'names': Unclassified_variables,'formats':formats})
+    Triggers = numpy.empty(MVSCTriggers.shape, dtype={'names': Unclassified_variables,'formats':formats})
     
     for variable in Unclassified_variables:
       Triggers[variable] = MVSCTriggers[variable]
@@ -283,21 +283,28 @@ def WriteMVSCTriggers(MVSCTriggers, output_filename, Classified = False):
     second_line = " ".join(list(Triggers.dtype.names)[:-1])
     file.write(first_line + "\n")
     file.write(second_line + "\n")
-  
-  for i in range(n_triggers):
-    line = " ".join(["%0.3f" % (var) for var in Triggers[i]])
+	
+  # check if Triggers contain a single row. This case requires special handling.
+  if len(Triggers.shape):
+    for i in range(len(Triggers)):
+      line = " ".join(["%0.3f" % (var) for var in Triggers[i]])
+      file.write(line + "\n")
+    file.close()
+  else:
+    line = " ".join(["%0.3f" % (Triggers[var]) for var in list(Triggers.dtype.names)])
     file.write(line + "\n")
+    file.close()
+ 
+  
 
-  file.close()    
-  
-  
 def ReadMVSCTriggers(files, Classified=True):
 
   """
   Reads in MVSC triggers from files. MVSC triggers are storead in the 2-D array.
-  The rows of the array are labelled by the names of the variables, which are read off of the first line of the input file.
+  The rows of the array are labelled by the names of the variables, which are read off of the first(or second) line of the input file,
+  depending on whether the triggers were classifed or not.
   The columns are populated by the values of the corresponding variables. 
-  Every line (except the first) of the input file(s) corresponds to a column (or a MVSC trigger) in the array. 
+  Every line (except the first 1 or 2 lines) of the input file(s) corresponds to a column (or a MVSC trigger) in the array. 
   """
   if Classified == True:
     varline = 0
@@ -308,25 +315,36 @@ def ReadMVSCTriggers(files, Classified=True):
   if len(files)==0:
     print "Error: Empty input file list."
     sys.exit(1)
-	
-  for (i,f) in enumerate(files):
-    flines = open(f).readlines()
-    variables = flines[varline].split()
-    if Classified == False:
-      variables.append("i")
-    formats = []
-    for var in variables:
-      if var in ['GPS_s', 'GPS_ms', 'i', 'index']:
-        formats.append('i')
-      else:
-        formats.append('g8')
-    #formats = ['i','i']+['g8' for a in range(len(variables)-2)]
-    if i > 0:
-      MVSCTriggers  = numpy.concatenate((MVSCTriggers ,numpy.loadtxt(f,skiprows=nskiplines, dtype={'names': variables,'formats':formats})),axis=0)
+  flines = open(files[0]).readlines()
+  variables = flines[varline].split()
+  if Classified == False:
+	variables.append("i")
+  formats = []
+  for var in variables:
+    if var in ['GPS_s', 'GPS_ms', 'i', 'index']:
+      formats.append('i')
     else:
-      MVSCTriggers  = numpy.loadtxt(f,skiprows=nskiplines, dtype={'names': variables,'formats':formats})
-        
+      formats.append('g8')
+
+  for file in files[1:]:
+    flines.extend(open(file).readlines()[nskiplines:])
+
+  
+  tmpfile = tempfile.TemporaryFile()
+  tmpfile.writelines(flines)
+  tmpfile.seek(0)
+  if not (len(flines) == nskiplines): # combined file contains triggers
+    trigs = numpy.loadtxt(tmpfile,skiprows=nskiplines, dtype={'names': variables,'formats':formats})
+    if not trigs.shape: # single row loaded from file, requires reshaping of the array
+      trigs = trigs.reshape((1,))
+    MVSCTriggers  = trigs
+  else: # no triggers in the file, create empty array
+    MVSCTriggers = numpy.empty((0,), dtype={'names': variables,'formats':formats})
+			
+  tmpfile.close()      
   return MVSCTriggers  
+
+  
 
 
 def LoadOVL(filename):

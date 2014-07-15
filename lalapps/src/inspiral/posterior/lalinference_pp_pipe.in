@@ -57,10 +57,11 @@ else:
   main_cp.set('paths','daglogdir',os.path.join(os.path.abspath(opts.run_path),'main'))
   daglogdir=os.path.abspath(opts.run_path)
 
+webdir=main_cp.get('ppanalysis','webdir')
 priordir=os.path.join(rundir,'prior')
 maindir=os.path.join(rundir,'main')
-priorwebdir=os.path.join(priordir,'resultspage')
-mainwebdir=os.path.join(maindir,'resultspage')
+priorwebdir=os.path.join(webdir,'prior')
+mainwebdir=os.path.join(webdir,'injections')
 prior_cp.set('paths','basedir',priordir)
 main_cp.set('paths','basedir',maindir)
 prior_cp.set('paths','webdir',priorwebdir)
@@ -82,6 +83,9 @@ elif prior_cp.get('analysis','engine')=='lalinferencemcmc':
   prior_cp.set('engine','Neff',str(opts.trials))
   prior_cp.set('engine','zeroLogLike','')
 elif prior_cp.get('analysis','engine')=='lalinferencebambi':
+  prior_cp.set('engine','zeroLogLike','')
+  prior_cp.set('engine','nlive',str(opts.trials))
+elif prior_cp.get('analysis','engine')=='lalinferencebambimpi':
   prior_cp.set('engine','zeroLogLike','')
   prior_cp.set('engine','nlive',str(opts.trials))
 

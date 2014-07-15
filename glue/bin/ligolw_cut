@@ -110,7 +110,7 @@ class ElementFilter(object):
 
 class ContentHandler(ligolw.FilteringLIGOLWContentHandler):
 	def __init__(self, xmldoc):
-		ligolw.FilteringLIGOLWContentHandler.__init__(self, xmldoc, ElementFilter(options.delete_table).element_filter)
+		super(ContentHandler, self).__init__(xmldoc, ElementFilter(options.delete_table).element_filter)
 
 
 table.use_in(ContentHandler)

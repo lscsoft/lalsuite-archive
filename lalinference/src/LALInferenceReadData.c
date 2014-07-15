@@ -2742,6 +2742,7 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState)
 
     /* Save old variables */
     LALInferenceCopyVariables(runState->currentParams,&backup);
+    //LALInferenceClearVariables(runState->currentParams);
     LALPNOrder *order=LALInferenceGetVariable(&backup,"LAL_PNORDER");
     Approximant *approx=LALInferenceGetVariable(&backup,"LAL_APPROXIMANT");
     /* Fill named variables */
