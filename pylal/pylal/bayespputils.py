@@ -3199,8 +3199,8 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
     transformFunc = lalsim.SimInspiralTransformPrecessingInitialConditions
 
     # Convert component masses to SI units
-    m1_SI = m1*lalsim.lal.LAL_MSUN_SI
-    m2_SI = m2*lalsim.lal.LAL_MSUN_SI
+    m1_SI = m1*lalconstants.LAL_MSUN_SI
+    m2_SI = m2*lalconstants.LAL_MSUN_SI
 
     # Flatten arrays
     ins = [theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1_SI, m2_SI, fref]
