@@ -9,6 +9,8 @@ import matplotlib.pyplot as pp
 import numpy as np
 import scipy.integrate as si
 
+matplotlib.rcParams['text.usetex'] = True
+
 def extract_temp(filename):
     """Extracts the PTMCMC temperature from the header lines of the
     given file."""
