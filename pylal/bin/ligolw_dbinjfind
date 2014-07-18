@@ -117,7 +117,7 @@ def parse_command_line():
         )
     parser.add_option("-S", "--search", action = "store", type = "string", default = None,
         help = 
-            "Define the search type (ala 'inspiral','ringdown', etc) which then will be stored in the search column of the coinc_definer table."
+            "Define the search type (ala 'inspiral','ringdown', etc) which then will be stored in the search column of the coinc_definer table. This is strictly for labelling purposes, and it not required."
         )
 
     (options, args) = parser.parse_args()
@@ -155,7 +155,6 @@ else:
         shutil.copy(opts.input, opts.output)
         working_filename = opts.output
     connection = sqlite3.connect( working_filename )
-dbtables.DBTable_set_connection( connection )
 
 # check if the given map_label already exists in the database
 if opts.verbose:
@@ -166,19 +165,25 @@ if opts.map_label in sqlutils.get_map_labels(connection):
     else:
         # get all of the coinc types
         coinc_types = sqlutils.get_coinc_types(connection)
-        # check if the same tables are mapped for this coinc-type
-        newSimSngls = set([opts.recovery_table, opts.simulation_table])
-        newCoincSimSngls = set([opts.recovery_table, opts.simulation_table, 'coinc_event'])
-        for thisCoincType in [newSimSngls, newCoincSimSngls]:
-            if thisCoincType in coinc_types[opts.map_label]:
-                if opts.clear_coinc_type:
-                    if opts.verbose:
-                        print >> sys.stdout, "Found coinc-type %s with map-label %s; deleting..." %( ','.join(sorted(thisCoincType)), opts.map_label )
-                    sqlutils.delete_coinc_type( connection, opts.map_label, thisCoincType )
-                elif opts.force:
-                    print >> sys.stderr, "WARNING: Coinc type %s with map %s already in the database." %(','.join(sorted(thisCoincType)), opts.map_label)
-                else:
-                    raise ValueError, "Coinc type %s with map %s already in the database. To process anyway, re-run with --force option on." %(','.join(thisCoincType), opts.map_label)
+        # if the map isn't in coinc_types, means that the map label
+        # was previously used, but no mappings were actually drawn
+        if opts.map_label not in coinc_types:
+            print >> sys.stderr, "WARNING: map label %s is already in the database, but has no associated coincs. I will continue to use this label." %(opts.map_label)
+
+        else:
+            # check if the same tables are mapped for this coinc-type
+            newSimSngls = set([opts.recovery_table, opts.simulation_table])
+            newCoincSimSngls = set([opts.recovery_table, opts.simulation_table, 'coinc_event'])
+            for thisCoincType in [newSimSngls, newCoincSimSngls]:
+                if thisCoincType in coinc_types[opts.map_label]:
+                    if opts.clear_coinc_type:
+                        if opts.verbose:
+                            print >> sys.stdout, "Found coinc-type %s with map-label %s; deleting..." %( ','.join(sorted(thisCoincType)), opts.map_label )
+                        sqlutils.delete_coinc_type( connection, opts.map_label, thisCoincType )
+                    elif opts.force:
+                        print >> sys.stderr, "WARNING: Coinc type %s with map %s already in the database." %(','.join(sorted(thisCoincType)), opts.map_label)
+                    else:
+                        raise ValueError, "Coinc type %s with map %s already in the database. To process anyway, re-run with --force option on." %(','.join(thisCoincType), opts.map_label)
 
 
 # Add program to process and process params table

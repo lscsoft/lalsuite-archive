@@ -18,7 +18,7 @@
 */
 
 /**
- * \author UTB Relativity Group; contact whelan@phys.utb.edu
+ * \author UTB Relativity Group; contact john.whelan@ligo.org
  * \file
  * \ingroup OverlapReductionFunction_c
  *
@@ -440,7 +440,7 @@ int main( int argc, char *argv[] )
              f, overlap.data->data[i], overlapVal);
     }
     if ( (overlap.data->data[i] - overlapVal) &&
-         abs((overlap.data->data[i] - overlapVal)/overlapVal)
+         fabsf((overlap.data->data[i] - overlapVal)/overlapVal)
          > OVERLAPREDUCTIONFUNCTIONTESTC_TOL )
     {
       printf("  FAIL: Valid data test #1 (coincident, coaligned IFOs)\n");
@@ -471,8 +471,8 @@ int main( int argc, char *argv[] )
              f, overlap.data->data[i], expectedOutputDataData[i]);
     }
     if ( (overlap.data->data[i] - expectedOutputDataData[i]) &&
-         abs((overlap.data->data[i] - expectedOutputDataData[i])
-	     / expectedOutputDataData[i])
+         fabsf((overlap.data->data[i] - expectedOutputDataData[i])
+	       / expectedOutputDataData[0])
 	 > OVERLAPREDUCTIONFUNCTIONTESTC_TOL )
     {
       printf("  FAIL: Valid data test #2 (coaligned, non-coincident IFOs)\n");
@@ -503,7 +503,7 @@ int main( int argc, char *argv[] )
              f, overlap.data->data[i], overlapVal);
     }
     if ( (overlap.data->data[i] - overlapVal) &&
-         abs(overlap.data->data[i] - overlapVal)
+         fabsf(overlap.data->data[i] - overlapVal)
 	 > OVERLAPREDUCTIONFUNCTIONTESTC_TOL )
     {
       printf("  FAIL: Valid data test #3 (misaligned IFOs)\n");

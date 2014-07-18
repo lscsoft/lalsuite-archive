@@ -13,11 +13,13 @@ AC_CONFIG_FILES([ \
   include/Makefile \
   include/lal/Makefile \
   python/Makefile \
-  python/__init__.py \
+  python/lalmetaio/Makefile \
+  python/lalmetaio/__init__.py \
   src/LALMetaIOVCSInfo.c \
   src/LALMetaIOVCSInfo.h \
   src/Makefile \
   swig/Makefile \
+  test/Makefile \
 ])
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
 
@@ -105,8 +107,10 @@ LALSUITE_USE_SWIG
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
 
+# link any executables against LALMetaIO library
+AC_SUBST([LDADD], ["\$(top_builddir)/src/liblalmetaio.la"])
+
 # add extra preprocessor flags
-AM_CPPFLAGS="\$(TEST_CPPFLAGS) ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
 

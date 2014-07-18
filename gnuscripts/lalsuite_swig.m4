@@ -2,7 +2,7 @@
 # lalsuite_swig.m4 - SWIG configuration
 # Author: Karl Wette, 2011--2014
 #
-# serial 60
+# serial 64
 
 AC_DEFUN([_LALSUITE_CHECK_SWIG_VERSION],[
   # $0: check the version of $1, and store it in ${swig_version}
@@ -190,14 +190,14 @@ AC_DEFUN([LALSUITE_USE_SWIG],[
     # SWIG sources, if distributed, have new timestamps
     AC_CONFIG_COMMANDS([swig_depfiles],[
       AS_IF([test "${swig_generate}" = true],[
-        test -f "swig/swig_preproc.deps" || echo '#empty' > "swig/swig_preproc.deps"
+        test -f "swig/swiglal_preproc.deps" || echo '#empty' > "swig/swiglal_preproc.deps"
       ])
       for file in ${swig_dep_files}; do
         depfile="${srcdir}/swig/${file}"
         AS_IF([test "${swig_generate}" = true],[
           test -f "swig/${file}" || echo '#empty' > "swig/${file}"
         ],[test -f "${depfile}"],[
-          srcfilename=`${SED} -n -e '1{s/:.*$//p}' "${depfile}"`
+          srcfilename=`cat "${depfile}" | ${SED} -n -e '1p' | ${SED} -e 's/:.*$//'`
           srcfile="${srcdir}/swig/${srcfilename}"
           AS_IF([test -f "${srcfile}"],[
             touch "${srcfile}"
@@ -231,7 +231,7 @@ AC_DEFUN([LALSUITE_USE_SWIG_LANGUAGE],[
   AS_IF([test "${swig_build_]lowercase[}" = true],[
     $2
     swig_build=true
-    swig_dep_files="${swig_dep_files} swig_[]lowercase[].deps"
+    swig_dep_files="${swig_dep_files} swiglal_[]lowercase[].deps"
   ])
   m4_popdef([uppercase])
   m4_popdef([lowercase])
@@ -319,7 +319,7 @@ AC_DEFUN([LALSUITE_USE_SWIG_OCTAVE],[
     AC_LANG_PUSH([C++])
     _LALSUITE_SWIG_CHECK_COMPILER_FLAGS([SWIG_OCTAVE_CXXFLAGS],[
       -Wno-uninitialized -Wno-unused-variable -Wno-unused-but-set-variable
-      -fno-strict-aliasing -g -O0
+      -Wno-tautological-compare -fno-strict-aliasing -g -O0
     ])
     AC_LANG_POP([C++])
 
@@ -413,7 +413,7 @@ EOD`]
     AC_LANG_PUSH([C])
     _LALSUITE_SWIG_CHECK_COMPILER_FLAGS([SWIG_PYTHON_CFLAGS],[
       -Wno-uninitialized -Wno-unused-variable -Wno-unused-but-set-variable
-      -fno-strict-aliasing -g
+      -Wno-tautological-compare -fno-strict-aliasing -g
     ])
     AC_LANG_POP([C])
 
@@ -465,19 +465,6 @@ EOD`]
     ])
     LALSUITE_POP_UVARS
     AC_LANG_POP([C])
-
-    # check for IPython
-    AC_SUBST([SWIG_IPYTHON_CMD],[])
-    AC_MSG_CHECKING([for IPython])
-    ipython_cmd="from IPython.frontend.terminal.ipapp import launch_new_instance"
-    ${PYTHON} -c "${ipython_cmd}" >/dev/null 2>&1
-    AS_IF([test $? -eq 0],[
-      SWIG_IPYTHON_CMD="-c '${ipython_cmd}; launch_new_instance()'"
-      AC_MSG_RESULT([yes])
-    ])
-    AS_IF([test "x${SWIG_IPYTHON_CMD}" = x],[
-      AC_MSG_RESULT([no])
-    ])
 
   ])
   # end $0

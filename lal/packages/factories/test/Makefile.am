@@ -1,22 +1,23 @@
-include $(top_srcdir)/gnuscripts/lallibs_header_links.am
+EXTRA_DIST =
+include $(top_srcdir)/gnuscripts/lalsuite_test.am
+include $(top_srcdir)/gnuscripts/lalsuite_header_links.am
 
-TEST_CPPFLAGS = -DTEST_DATA_DIR='"$(abs_srcdir)/"'
-LDADD = \
-	$(top_builddir)/lib/lal/liblal.la \
-	$(top_builddir)/lib/lalsupport/src/liblalsupport.la
+# Add compiled test programs to this variable
+test_programs += ArrayFactoriesTest
+test_programs += ArraySequenceFactoriesTest
+test_programs += StringVectorTest
+test_programs += VectorFactoriesTest
+test_programs += VectorSequenceFactoriesTest
 
-noinst_HEADERS = \
+# Add shell, Python, etc. test scripts to this variable
+test_scripts +=
+
+# Add any helper programs required by tests to this variable
+test_helpers +=
+
+EXTRA_DIST += \
 	ArrayFactoriesTest_source.c \
 	ArraySequenceFactoriesTest_source.c \
 	VectorFactoriesTest_source.c \
-	VectorSequenceFactoriesTest_source.c
-
-check_PROGRAMS = \
-	ArrayFactoriesTest \
-	ArraySequenceFactoriesTest \
-	VectorFactoriesTest \
-	StringVectorTest \
-	VectorSequenceFactoriesTest
-
-TESTS = \
-	$(check_PROGRAMS)
+	VectorSequenceFactoriesTest_source.c \
+	$(END_OF_LIST)

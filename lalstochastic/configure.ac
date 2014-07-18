@@ -12,6 +12,9 @@ AC_CONFIG_FILES([ \
   debian/Makefile \
   include/Makefile \
   include/lal/Makefile \
+  python/Makefile \
+  python/lalstochastic/Makefile \
+  python/lalstochastic/__init__.py \
   src/LALStochasticVCSInfo.c \
   src/LALStochasticVCSInfo.h \
   src/Makefile \
@@ -103,8 +106,10 @@ LALSUITE_USE_SWIG
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
 
+# link any executables against LALStochastic library
+AC_SUBST([LDADD], ["\$(top_builddir)/src/liblalstochastic.la"])
+
 # add extra preprocessor flags
-AM_CPPFLAGS="\$(TEST_CPPFLAGS) ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
 

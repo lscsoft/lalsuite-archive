@@ -10,17 +10,17 @@ AC_CONFIG_FILES([ \
   lalinference-uninstalled.pc \
   Makefile \
   debian/Makefile \
-  bin/Makefile \
   include/Makefile \
   include/lal/Makefile \
   src/LALInferenceVCSInfo.c \
   src/LALInferenceVCSInfo.h \
   src/Makefile \
   python/Makefile \
-  python/__init__.py \
-  python/bayestar/Makefile \
+  python/lalinference/Makefile \
+  python/lalinference/__init__.py \
+  python/lalinference/bayestar/Makefile \
   swig/Makefile \
-  test/Makefile
+  test/Makefile \
 ])
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
 
@@ -192,8 +192,10 @@ AS_IF(
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
 
+# link any executables against LALInference library
+AC_SUBST([LDADD], ["\$(top_builddir)/src/liblalinference.la"])
+
 # add extra preprocessor flags
-AM_CPPFLAGS="\$(TEST_CPPFLAGS) ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
 

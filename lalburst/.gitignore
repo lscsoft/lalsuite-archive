@@ -3,6 +3,8 @@
 *.log
 *.o
 *.pc
+*.pyc
+*.pyo
 .deps
 .libs
 /_build/
@@ -20,8 +22,11 @@ lalburst-user-env.sh
 lalburst-user-env.shell
 lalburst.spec
 libtool
-python/__init__.py
-python/git_version.py
+octave/
+python/lalburst/__init__.py
+python/lalburst/_lalburst*
+python/lalburst/git_version.py
+python/lalburst/lalburst.py
 src/LALBurstBuildInfo.c
 src/LALBurstConfig.h
 src/LALBurstVCSInfo.c
@@ -32,9 +37,7 @@ src/config.h.in
 src/git_version
 src/stamp-h1
 src/stamp-h2
-swig/octave/
-swig/python/
-swig/swig_*
+swig/swiglal*
 test/CLRTest
 test/CLRoutdata.asc
 test/TfrPswvTest

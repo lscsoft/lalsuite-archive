@@ -16,11 +16,11 @@ AC_CONFIG_FILES([ \
   src/LALDetCharVCSInfo.h \
   src/Makefile \
   python/Makefile \
-  python/__init__.py \
-  python/triggers/Makefile \
-  python/hveto/Makefile \
+  python/laldetchar/Makefile \
+  python/laldetchar/__init__.py \
+  python/laldetchar/triggers/Makefile \
+  python/laldetchar/hveto/Makefile \
   swig/Makefile \
-  bin/Makefile \
   test/Makefile
 ])
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
@@ -121,8 +121,10 @@ LALSUITE_USE_SWIG
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
 
+# link any executables against LALDetChar library
+AC_SUBST([LDADD], ["\$(top_builddir)/src/liblaldetchar.la"])
+
 # add extra preprocessor flags
-AM_CPPFLAGS="\$(TEST_CPPFLAGS) ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
 

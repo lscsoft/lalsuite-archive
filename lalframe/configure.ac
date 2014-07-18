@@ -16,8 +16,9 @@ AC_CONFIG_FILES([ \
   src/LALFrameVCSInfo.h \
   src/Makefile \
   python/Makefile \
-  python/__init__.py \
-  python/utils/Makefile \
+  python/lalframe/Makefile \
+  python/lalframe/__init__.py \
+  python/lalframe/utils/Makefile \
   swig/Makefile \
   test/Makefile
 ])
@@ -61,9 +62,6 @@ LALSUITE_ENABLE_GCC_FLAGS
 
 # enable SWIG wrapping modules
 LALSUITE_ENABLE_SWIG
-
-# allow use of either FrameC or FrameL
-LALFRAME_WITH_FRAME_LIBRARY
 
 # define version/configure info
 LALSUITE_VERSION_CONFIGURE_INFO
@@ -150,8 +148,10 @@ LALSUITE_USE_SWIG
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
 
+# link any executables against LALFrame library
+AC_SUBST([LDADD], ["\$(top_builddir)/src/liblalframe.la"])
+
 # add extra preprocessor flags
-AM_CPPFLAGS="\$(TEST_CPPFLAGS) ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
 

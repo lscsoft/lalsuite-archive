@@ -18,7 +18,7 @@
 */
 
 /**
- * \author UTB Relativity Group; contact whelan@phys.utb.edu
+ * \author UTB Relativity Group; contact john.whelan@ligo.org
  * \file
  * \ingroup StochasticOmegaGW_c
  *
@@ -101,6 +101,7 @@
  * LALSPrintFrequencySeries
  * LALSDestroyVector()
  * LALCheckMemoryLeaks()
+ * fabsf()
  * \endcode
  *
  * ### Notes ###

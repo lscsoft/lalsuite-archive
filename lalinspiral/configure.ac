@@ -16,8 +16,9 @@ AC_CONFIG_FILES([ \
   src/LALInspiralVCSInfo.h \
   src/Makefile \
   python/Makefile \
-  python/__init__.py \
-  python/sbank/Makefile \
+  python/lalinspiral/Makefile \
+  python/lalinspiral/__init__.py \
+  python/lalinspiral/sbank/Makefile \
   swig/Makefile \
   test/Makefile
 ])
@@ -138,8 +139,10 @@ fi
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
 
+# link any executables against LALInspiral library
+AC_SUBST([LDADD], ["\$(top_builddir)/src/liblalinspiral.la"])
+
 # add extra preprocessor flags
-AM_CPPFLAGS="\$(TEST_CPPFLAGS) ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
 
