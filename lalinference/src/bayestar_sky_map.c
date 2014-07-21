@@ -86,10 +86,9 @@
 #include "logaddexp.h"
 
 
-/* Custom GSL error handler that simply prints the error message.
- * Guaranteed to be reentrant as long as the GSL stream handler is. */
+/* Custom, reentrant GSL error handler that simply prints the error message. */
 static void
-my_gsl_error (const char * reason, const char * file, int line, int gsl_errno)
+my_gsl_error (const char *reason, const char *file, int line, int gsl_errno)
 {
     (void)gsl_errno;
     fprintf(stderr, "gsl: %s:%d: %s: %s\n", file, line, "ERROR", reason);
@@ -203,7 +202,6 @@ static int bayestar_sky_map_toa_not_normalized_log(
     const double *w_toas /* Input: sum-of-squares weights, (1/TOA variance)^2. */
 ) {
     long nside;
-    long i;
 
     /* Determine the lateral HEALPix resolution. */
     nside = npix2nside(npix);
@@ -211,7 +209,7 @@ static int bayestar_sky_map_toa_not_normalized_log(
         GSL_ERROR("output is not a valid HEALPix array", GSL_EINVAL);
 
     /* Loop over pixels. */
-    for (i = 0; i < npix; i ++)
+    for (long i = 0; i < npix; i ++)
     {
         /* Determine polar coordinates of this pixel. */
         double theta, phi;
@@ -298,6 +296,9 @@ static double *bayestar_sky_map_toa_adapt_resolution(
             goto fail;
         }
         exp_normalize(my_npix, P, my_pix_perm);
+
+        my_maxpix = indexof_confidence_level(my_npix, P,
+            autoresolution_confidence_level, my_pix_perm);
     }
 
     *npix = my_npix;

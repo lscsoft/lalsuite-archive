@@ -1141,22 +1141,56 @@ fail:
 
 
 static PyMethodDef methods[] = {
-    {"toa", (PyCFunction)sky_map_toa, METH_VARARGS | METH_KEYWORDS, "fill me in"},
-    {"toa_snr", (PyCFunction)sky_map_toa_snr, METH_VARARGS | METH_KEYWORDS, "fill me in"},
-    {"toa_phoa_snr", (PyCFunction)sky_map_toa_phoa_snr, METH_VARARGS | METH_KEYWORDS, "fill me in"},
-    {"log_posterior_toa", (PyCFunction)log_posterior_toa, METH_VARARGS | METH_KEYWORDS, "fill me in"},
-    {"log_posterior_toa_snr", (PyCFunction)log_posterior_toa_snr, METH_VARARGS | METH_KEYWORDS, "fill me in"},
-    {"log_posterior_toa_phoa_snr", (PyCFunction)log_posterior_toa_phoa_snr, METH_VARARGS | METH_KEYWORDS, "fill me in"},
+    {"toa", (PyCFunction)sky_map_toa,
+        METH_VARARGS | METH_KEYWORDS, "fill me in"},
+    {"toa_snr", (PyCFunction)sky_map_toa_snr,
+        METH_VARARGS | METH_KEYWORDS, "fill me in"},
+    {"toa_phoa_snr", (PyCFunction)sky_map_toa_phoa_snr,
+        METH_VARARGS | METH_KEYWORDS, "fill me in"},
+    {"log_posterior_toa", (PyCFunction)log_posterior_toa,
+        METH_VARARGS | METH_KEYWORDS, "fill me in"},
+    {"log_posterior_toa_snr", (PyCFunction)log_posterior_toa_snr,
+        METH_VARARGS | METH_KEYWORDS, "fill me in"},
+    {"log_posterior_toa_phoa_snr", (PyCFunction)log_posterior_toa_phoa_snr,
+        METH_VARARGS | METH_KEYWORDS, "fill me in"},
     {NULL, NULL, 0, NULL}
 };
 
 
+static const char modulename[] = "sky_map";
+
+
+#if PY_MAJOR_VERSION >= 3
+static PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    modulename, NULL, -1, methods
+};
+#endif
+
+
+#if PY_MAJOR_VERSION < 3
 PyMODINIT_FUNC initsky_map(void); /* Silence -Wmissing-prototypes */
-PyMODINIT_FUNC initsky_map(void) {
+PyMODINIT_FUNC initsky_map(void)
+#else
+PyMODINIT_FUNC PyInit_sky_map(void); /* Silence -Wmissing-prototypes */
+PyMODINIT_FUNC PyInit_sky_map(void)
+#endif
+{
+    import_array();
+
     premalloced_type.tp_new = PyType_GenericNew;
     if (PyType_Ready(&premalloced_type) < 0)
+    {
+#if PY_MAJOR_VERSION < 3
         return;
+#else
+        return NULL;
+#endif
+    }
 
-    Py_InitModule("sky_map", methods);
-    import_array();
+#if PY_MAJOR_VERSION < 3
+    Py_InitModule(modulename, methods);
+#else
+    return PyModule_Create(moduledef);
+#endif
 }

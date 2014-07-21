@@ -62,7 +62,7 @@ parser = OptionParser(
             help="Trigger interpolation window [default: %default]"),
         Option("--waveform",
             help="Waveform to use for injections"),
-        Option("--snr-threshold", type=float, default=8.,
+        Option("--snr-threshold", type=float, default=4.,
             help="Single-detector SNR threshold [default: %default]"),
         Option("--min-triggers", type=int, default=2,
             help="Emit coincidences only when at least this many triggers are found [default: %default]"),
@@ -298,11 +298,10 @@ def inject(hplus, hcross, ifo, psd):
 
     # Project injection for this detector.
     detector = lalsimulation.DetectorPrefixToLALDetector(ifo)
-    h = lalsimulation.SimDetectorStrainREAL8TimeSeries(hplus, hcross,
-        ra, dec, psi, detector)
-
-    # Add injection to data
-    x = lal.AddREAL8TimeSeries(x, h)
+    lalsimulation.SimInjectDetectorStrainREAL8TimeSeries(
+        x, hplus, hcross,
+        ra, dec, psi,
+        detector, None)
 
     # Done!
     return x
