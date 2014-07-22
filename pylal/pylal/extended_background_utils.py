@@ -26,7 +26,7 @@ def max_dt (row, eMatch):
     x = (a23 * a23 - a22 * a33) * a22;
     denom = (a12*a23 - a22*a13) * (a12*a23 - a22*a13) - (a23*a23 - a22*a33) * (a12*a12 - a22*a11);
 
-    return math.sqrt( x / denom ) + 2. * lal.LAL_REARTH_SI / lal.LAL_C_SI;
+    return math.sqrt( x / denom ) + 2. * lal.REARTH_SI / lal.C_SI;
 
 def find_slide_coincs(htrigs, ltrigs, min_mchirp, max_mchirp, 
     ethinca, slide, threshold):
