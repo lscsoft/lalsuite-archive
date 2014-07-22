@@ -16,7 +16,8 @@ static BinaryPulsarParams empty_BinaryPulsarParams;
 /*                            MODEL FUNCTIONS                                 */
 /******************************************************************************/
 
-/** \brief Defines the pulsar model/template to use
+/**
+ * \brief Defines the pulsar model/template to use
  *
  * This function is the wrapper for functions defining the pulsar model template to be used in the analysis. It also
  * uses \c rescale_parameter to scale any parameters back to their true values for use in the model and places them into
@@ -50,17 +51,29 @@ void get_pulsar_model( LALInferenceIFOData *data ){
   //  pars.phi0 = rescale_parameter( data, "phi0" );
   //}
 
-  /*pinned superfluid parameters*/
-  //pars.I21 = rescale_parameter( data, "I21" );
-  //pars.I31 = rescale_parameter( data, "I31" );
-  //pars.r = rescale_parameter( data, "r" );
-  //pars.lambda = rescale_parameter( data, "lambda" );
-  //pars.costheta = rescale_parameter( data, "costheta" );
+  if( LALInferenceCheckVariable( data->dataParams, "jones-model" ) ){
+    /* use parameterisation from Ian Jones's original model */
+    pars.I21 = rescale_parameter( data, "I21" );
+    pars.I31 = rescale_parameter( data, "I31" );
+    pars.lambda = rescale_parameter( data, "lambda" );
+    pars.costheta = rescale_parameter( data, "costheta" );
+    pars.phi0 = rescale_parameter( data, "phi0" );
 
-  pars.C21 = rescale_parameter( data, "C21" );
-  pars.C22 = rescale_parameter( data, "C22" );
-  pars.phi21 = rescale_parameter( data, "phi21" );
-  pars.phi22 = rescale_parameter( data, "phi22" );
+    invert_source_params( &pars );
+  }
+  else{
+    pars.C21 = rescale_parameter( data, "C21" );
+    pars.C22 = rescale_parameter( data, "C22" );
+    pars.phi21 = rescale_parameter( data, "phi21" );
+
+    if( LALInferenceCheckVariable( data->dataParams, "biaxial" ) ){
+      /* use complex amplitude parameterisation, but set up for a biaxial star */
+      pars.phi22 = 2.*pars.phi21;
+    }
+    else{
+      pars.phi22 = rescale_parameter( data, "phi22" );
+    }
+  }
 
   /* set the potentially variable parameters */
   pars.pepoch = rescale_parameter( data, "pepoch" );
@@ -77,6 +90,9 @@ void get_pulsar_model( LALInferenceIFOData *data ){
   pars.f3 = rescale_parameter( data, "f3" );
   pars.f4 = rescale_parameter( data, "f4" );
   pars.f5 = rescale_parameter( data, "f5" );
+
+  /* speed of GWs as a fraction of speed of light LAL_C_SI */
+  pars.cgw = rescale_parameter( data, "cgw" );
 
   /* check if there are binary parameters */
   if( LALInferenceCheckVariable(data->modelParams, "model") ){
@@ -130,7 +146,8 @@ void get_pulsar_model( LALInferenceIFOData *data ){
 }
 
 
-/** \brief Rescale parameter back to its true value
+/**
+ * \brief Rescale parameter back to its true value
  *
  * This function will rescale a parameter to its true value using the scale factor and minimum scale value.
  *
@@ -158,7 +175,8 @@ REAL8 rescale_parameter( LALInferenceIFOData *data, const CHAR *parname ){
 }
 
 
-/** \brief Generate the model of the neutron star signal
+/**
+ * \brief Generate the model of the neutron star signal
  *
  * The function requires that the pulsar model is set using the \c model-type command line argument (this is set in \c
  * main, and if not specified defaults to a \c triaxial model). Currently the model can be \c triaxial for quadrupole
@@ -266,7 +284,7 @@ void pulsar_model( BinaryPulsarParams params, LALInferenceIFOData *data ){
 
             dphit = -fmod(dphi->data[i] - data->timeData->data->data[i], 1.);
 
-            expp = cexp( dphit );
+            expp = cexp( LAL_TWOPI * I * dphit );
 
             M = data->compModelData->data->data[i];
 
@@ -282,7 +300,8 @@ void pulsar_model( BinaryPulsarParams params, LALInferenceIFOData *data ){
 }
 
 
-/** \brief The phase evolution of a source
+/**
+ * \brief The phase evolution of a source
  *
  * This function will calculate the phase evolution of a source at a particular sky location as observed at Earth. The
  * phase evolution is described by a Taylor expansion:
@@ -356,14 +375,16 @@ REAL8Vector *get_phase_model( BinaryPulsarParams params, LALInferenceIFOData *da
   }
 
   for( i=0; i<length; i++){
-    REAL8 realT = XLALGPSGetREAL8( &data->dataTimes->data[i] );/*time of data*/
+    REAL8 realT = XLALGPSGetREAL8( &data->dataTimes->data[i] ); /*time of data*/
 
-    T0 = params.pepoch;/*time of ephem info*/
+    T0 = params.pepoch; /*time of ephem info*/
 
-    DT = realT - T0;/*time diff between data and ephem info*/
+    DT = realT - T0; /*time diff between data and ephem info*/
 
     if ( params.model != NULL ) { deltat = DT + dts->data[i] + bdts->data[i]; }
     else { deltat = DT + dts->data[i]; }
+
+    deltat /= (1.-params.cgw); /* correct for speed of GW compared to speed of light */
 
     /* work out phase */
     deltat2 = deltat*deltat;
@@ -386,7 +407,8 @@ REAL8Vector *get_phase_model( BinaryPulsarParams params, LALInferenceIFOData *da
 }
 
 
-/** \brief Computes the delay between a GPS time at Earth and the solar system barycentre
+/**
+ * \brief Computes the delay between a GPS time at Earth and the solar system barycentre
  *
  * This function calculate the time delay between a GPS time at a specific location (e.g. a gravitational wave detector)
  * on Earth and the solar system barycentre. The delay consists of three components: the geometric time delay (Roemer
@@ -491,7 +513,8 @@ REAL8Vector *get_ssb_delay( BinaryPulsarParams pars, LIGOTimeGPSVector *datatime
 }
 
 
-/** \brief Computes the delay between a pulsar in a binary system and the barycentre of the system
+/**
+ * \brief Computes the delay between a pulsar in a binary system and the barycentre of the system
  *
  * This function uses \c XLALBinaryPulsarDeltaT to calculate the time delay between for a pulsar in a binary system
  * between the time at the pulsar and the time at the barycentre of the system. This includes Roemer delays and
@@ -536,11 +559,12 @@ REAL8Vector *get_bsb_delay( BinaryPulsarParams pars, LIGOTimeGPSVector *datatime
 }
 
 
-/** \brief The amplitude model of a complex heterodyned triaxial neutron star
+/**
+ * \brief The amplitude model of a complex heterodyned triaxial neutron star
  *
- * This function calculates the complex heterodyned time series model for a triaxial neutron star (see [\ref
- * DupuisWoan2005]). It is defined as:
- * \f{eqnarray*}{
+ * This function calculates the complex heterodyned time series model for a triaxial neutron star (see
+ * [\cite DupuisWoan2005]). It is defined as:
+ * \f{eqnarray}{
  * y(t) & = & \frac{h_0}{2} \left( \frac{1}{2}F_+(t,\psi)
  * (1+\cos^2\iota)\exp{i\phi_0} - iF_{\times}(t,\psi)\cos{\iota}\exp{i\phi_0}
  * \right),
@@ -549,7 +573,7 @@ REAL8Vector *get_bsb_delay( BinaryPulsarParams pars, LIGOTimeGPSVector *datatime
  *
  * The antenna pattern functions are contained in a 2D lookup table, so within this function the correct value for the
  * given time and \f$\psi\f$ are interpolated from this lookup table using bilinear interpolation (e.g.):
- * \f{eqnarray*}{
+ * \f{eqnarray}{
  * F_+(\psi, t) = F_+(\psi_i, t_j)(1-\psi)(1-t) + F_+(\psi_{i+1}, t_j)\psi(1-t)
  * + F_+(\psi_i, t_{j+1})(1-\psi)t + F_+(\psi_{i+1}, t_{j+1})\psi{}t,
  * \f}
@@ -650,7 +674,8 @@ void get_triaxial_amplitude_model( BinaryPulsarParams pars, LALInferenceIFOData 
 }
 
 
-/** \brief The amplitude model of a complex heterodyned signal from a NS rotating about the pinning axis of its pinned
+/**
+ * \brief The amplitude model of a complex heterodyned signal from a NS rotating about the pinning axis of its pinned
  * superfluid component.
  *
  * This function calculates the complex heterodyned time series model for a triaxial neutron star rotating about the
@@ -663,7 +688,7 @@ void get_triaxial_amplitude_model( BinaryPulsarParams pars, LALInferenceIFOData 
  * As for the standard triaxial model, the antenna pattern functions are contained in a 2D lookup table, so within this
  * function the correct value for the given time and \f$\psi\f$ are interpolated from this lookup table using bilinear
  * interpolation (e.g.):
- * \f{eqnarray*}{
+ * \f{eqnarray}{
  * F_+(\psi, t) = F_+(\psi_i, t_j)(1-\psi)(1-t) + F_+(\psi_{i+1}, t_j)\psi(1-t)
  * + F_+(\psi_i, t_{j+1})(1-\psi)t + F_+(\psi_{i+1}, t_{j+1})\psi{}t,
  * \f}
@@ -829,7 +854,8 @@ void get_pinsf_amplitude_model( BinaryPulsarParams pars, LALInferenceIFOData *da
 }
 
 
-/** \brief The amplitude model of a complex heterodyned signal from the \f$l=2, m=1,2\f$ harmonics of a rotating neutron
+/**
+ * \brief The amplitude model of a complex heterodyned signal from the \f$l=2, m=1,2\f$ harmonics of a rotating neutron
  * star.
  *
  * This function calculates the complex heterodyned time series model for a rotating neutron star. It will currently
@@ -840,7 +866,7 @@ void get_pinsf_amplitude_model( BinaryPulsarParams pars, LALInferenceIFOData *da
  *
  * The antenna pattern functions are contained in a 2D lookup table, so within this function the correct value for the
  * given time and \f$\psi\f$ is interpolated from this lookup table using bilinear interpolation (e.g.):
- * \f{eqnarray*}{
+ * \f{eqnarray}{
  * F_+(\psi, t) = F_+(\psi_i, t_j)(1-\psi)(1-t) + F_+(\psi_{i+1}, t_j)\psi(1-t)
  * + F_+(\psi_i, t_{j+1})(1-\psi)t + F_+(\psi_{i+1}, t_{j+1})\psi{}t,
  * \f}
@@ -907,7 +933,7 @@ void get_amplitude_model( BinaryPulsarParams pars, LALInferenceIFOData *data ){
       /* the l=2, m=1 harmonic at the rotation frequency */
       expPhi = cexp( I * pars.phi21 );
       Cplus = -0.25 * pars.C21 * siniota * pars.cosiota * expPhi;
-      Ccross = -0.25 * I * pars.C21 * siniota * expPhi;
+      Ccross = 0.25 * I * pars.C21 * siniota * expPhi;
     }
     else if( freqFactors->data[j] == 2. ){
       /* the l=2, m=2 harmonic at twice the rotation frequency */
@@ -960,15 +986,15 @@ void get_amplitude_model( BinaryPulsarParams pars, LALInferenceIFOData *data ){
 }
 
 
-/** \brief Calculate the natural logarithm of the evidence that the data consists of only Gaussian noise
- *
+/**
+ * \brief Calculate the natural logarithm of the evidence that the data consists of only Gaussian noise
  * The function will calculate the natural logarithm of the evidence that the data (from one or more detectors) consists
  * of stationary segments/chunks described by a Gaussian with zero mean and unknown variance.
  *
  * The evidence is obtained from the joint likelihood given in \c pulsar_log_likelihood with the model term \f$y\f$ set
  * to zero.
  *
- * \param runData [in] The algorithm run state
+ * \param runState [in] The algorithm run state
  *
  * \return The natural logarithm of the noise only evidence
  */
@@ -1036,15 +1062,16 @@ REAL8 noise_only_model( LALInferenceRunState *runState ){
 }
 
 
-/** \brief Calculate the phase mismatch between two vectors of phases
+/**
+ * \brief Calculate the phase mismatch between two vectors of phases
  *
  * The function will calculate phase mismatch between two vectors of phases (with phases given in cycles rather than
  * radians).
  *
  * The mismatch is calculated as:
  * \f[
-   M = 1-\frac{1}{T}\int_0^T \cos{2\pi(\phi_1 - \phi_2)} dt.
- \f]
+ * M = 1-\frac{1}{T}\int_0^T \cos{2\pi(\phi_1 - \phi_2)} dt.
+ * \f]
  * In the function the integral is performed using the trapezium rule.
  *
  * PARAM phi1 [in] First phase vector
@@ -1092,7 +1119,8 @@ REAL8 get_phase_mismatch( REAL8Vector *phi1, REAL8Vector *phi2, LIGOTimeGPSVecto
 }
 
 
-/** \brief Get the position and velocity of the Earth at a given time
+/**
+ * \brief Get the position and velocity of the Earth at a given time
  *
  * This function will get the position and velocity of the Earth from the ephemeris data at the time t. It will be
  * returned in an EarthState structure. This is based on the start of the XLALBarycenterEarth function.
@@ -1146,7 +1174,8 @@ edat->nentriesE * edat->dtEtable );
 
 
 /*----------------- FUNCTIONS TO CONVERT BETWEEN PARAMETERS ------------------*/
-/** \brief Convert \f$\phi_0\f$ and \f$\psi\f$ to a new coordinate system
+/**
+ * \brief Convert \f$\phi_0\f$ and \f$\psi\f$ to a new coordinate system
  *
  * This function will convert the initial phase \f$\phi_0\f$ and polarisation angle \f$\psi\f$ into a new coordinate
  * system. As they are currently defined when \f$\psi\f$ wraps around at the limits of its range (\f$ \pm \pi/4 \f$
@@ -1154,11 +1183,11 @@ edat->nentriesE * edat->dtEtable );
  * \f$\phi_0\f$. A new coordinate system that is uni-modal and wraps around at the edges without introduction any phase
  * shift is given by:
  * \f[
- \left( \begin{array}{c} {\phi'}_0 \\ {\psi}' \end{array} \right) =
- \left( \begin{array}{cc} \sin{\theta} & \cos{\theta} \\ -\sin{\theta} &
-\cos{\theta} \end{array} \right)
- \left( \begin{array}{c} \phi_0 \\ \psi \end{array} \right),
- \f]
+ * \left( \begin{array}{c} {\phi'}_0 \\ {\psi}' \end{array} \right) =
+ * \left( \begin{array}{cc} \sin{\theta} & \cos{\theta} \\ -\sin{\theta} &
+ * \cos{\theta} \end{array} \right)
+ * \left( \begin{array}{c} \phi_0 \\ \psi \end{array} \right),
+ * \f]
  * where \f$\theta = \arctan{(1/2)}\f$.
  *
  * NOTE: This may want to be moved into LALInference at some point.
@@ -1189,21 +1218,22 @@ void phi0_psi_transform( REAL8 phi0, REAL8 psi, REAL8 *phi0prime, REAL8 *psiprim
 }
 
 
-/** \brief Convert new \f${\phi'}_0\f$ and \f$\psi'\f$ coordinate system back
+/**
+ * \brief Convert new \f${\phi'}_0\f$ and \f$\psi'\f$ coordinate system back
  * to \f$\phi_0\f$ and \f$\psi\f$
  *
  * This function will convert the new parameters \f${\phi'}_0\f$ and \f$\psi'\f$, defined in \c phi0_psi_transform()
  * into the original \f$\phi_0\f$ and \f$\psi\f$ coordinates. This is done through the inverse transform:
- \f{eqnarray*}{
- \left( \begin{array}{c} {\phi}_0 \\ {\psi} \end{array} \right) & = &
- \left( \begin{array}{cc} \sin{\theta} & \cos{\theta} \\ -\sin(\theta) &
-\cos{\theta} \end{array} \right)^{-1}
- \left( \begin{array}{c} {\phi'}_0 \\ {\psi'} \end{array} \right), \\
- & = & \left( \begin{array}{cc} \frac{1}{2\sin{\theta}} &
--\frac{1}{2\sin{\theta}} \\ \frac{1}{2\cos{\theta}} &
-\frac{1}{2\cos{\theta}} \end{array} \right)
- \left( \begin{array}{c} {\phi'}_0 \\ {\psi'} \end{array} \right),
- \f}
+ * \f{eqnarray}{
+ * \left( \begin{array}{c} {\phi}_0 \\ {\psi} \end{array} \right) & = &
+ * \left( \begin{array}{cc} \sin{\theta} & \cos{\theta} \\ -\sin(\theta) &
+ * \cos{\theta} \end{array} \right)^{-1}
+ * \left( \begin{array}{c} {\phi'}_0 \\ {\psi'} \end{array} \right), \\
+ * & = & \left( \begin{array}{cc} \frac{1}{2\sin{\theta}} &
+ * -\frac{1}{2\sin{\theta}} \\ \frac{1}{2\cos{\theta}} &
+ * \frac{1}{2\cos{\theta}} \end{array} \right)
+ * \left( \begin{array}{c} {\phi'}_0 \\ {\psi'} \end{array} \right),
+ * \f}
  * where \f$\theta = \arctan{(1/2)}\f$.
  *
  * The \f${\phi'}_0\f$ and \f$\psi'\f$ should both be in the range \f$ \pm (\pi/2)\cos{\theta}\f$, which will return
@@ -1253,49 +1283,44 @@ void inverse_phi0_psi_transform( REAL8 phi0prime, REAL8 psiprime, REAL8 *phi0, R
 }
 
 
-/** \brief Convert sources parameters into amplitude and phase notation parameters
+/**
+ * \brief Convert sources parameters into amplitude and phase notation parameters
  *
  * Convert the physical source parameters into the amplitude and phase notation given in Eqns
  * 76-79 of LIGO T1200265-v3.
  */
 void invert_source_params( BinaryPulsarParams *params ){
-  /* if h0 is defined then we have a triaxial source (l=m=2) emitting just at twice the rotation frequency */
-  if ( !params->C22 && !params->phi22 ){
-    params->C22 = params->h0 / 2.;
-    params->phi22 = params->phi0 - LAL_PI;
-  }
-  /* otherwise we have a more general source model that can include m=1,2 emission */
-  else if ( !params->C22 && !params->C21 && !params->phi22 && !params->phi21 ) {
-    REAL8 sinlambda, coslambda, sinlambda2, coslambda2, sin2lambda;
-    REAL8 sintheta, costheta, costheta2, sintheta2, sin2theta;
+  REAL8 sinlambda, coslambda, sinlambda2, coslambda2, sin2lambda;
+  REAL8 theta, sintheta, costheta, costheta2, sintheta2, sin2theta;
+  REAL8 phi0 = params->phi0;
 
-    sinlambda = sin( params->lambda );
-    coslambda = cos( params->lambda );
-    sin2lambda = sin( 2. * params->lambda );
-    sinlambda2 = SQUARE( sinlambda );
-    coslambda2 = SQUARE( coslambda );
+  sinlambda = sin( params->lambda );
+  coslambda = cos( params->lambda );
+  sin2lambda = sin( 2. * params->lambda );
+  sinlambda2 = SQUARE( sinlambda );
+  coslambda2 = SQUARE( coslambda );
 
-    sintheta = sin( acos( params->costheta ) );
-    costheta = params->costheta;
-    sin2theta = sin( 2. * acos( params->costheta ) );
-    sintheta2 = SQUARE( sintheta );
-    costheta2 = SQUARE( costheta );
+  theta = acos( params->costheta );
+  sintheta = sin( theta );
+  costheta = params->costheta;
+  sin2theta = sin( 2. * theta );
+  sintheta2 = SQUARE( sintheta );
+  costheta2 = SQUARE( costheta );
 
-    REAL8 A22 = params->I21 * ( sinlambda2 - coslambda2 * costheta2 ) - params->I31 * sintheta2;
-    REAL8 B22 = params->I21 * sin2lambda * costheta;
-    REAL8 A222 = SQUARE( A22 );
-    REAL8 B222 = SQUARE( B22 );
+  REAL8 A22 = params->I21 * ( sinlambda2 - coslambda2 * costheta2 ) - params->I31 * sintheta2;
+  REAL8 B22 = params->I21 * sin2lambda * costheta;
+  REAL8 A222 = SQUARE( A22 );
+  REAL8 B222 = SQUARE( B22 );
 
-    REAL8 A21 = params->I21 * sin2lambda * sintheta;
-    REAL8 B21 = sin2theta * ( params->I21 * coslambda2 - params->I31 );
-    REAL8 A212 = SQUARE( A21 );
-    REAL8 B212 = SQUARE( B21 );
+  REAL8 A21 = params->I21 * sin2lambda * sintheta;
+  REAL8 B21 = sin2theta * ( params->I21 * coslambda2 - params->I31 );
+  REAL8 A212 = SQUARE( A21 );
+  REAL8 B212 = SQUARE( B21 );
 
-    params->C22 = 2.*sqrt( A222 + B222 );
-    params->C21 = 2.*sqrt( A212 + B212 );
+  params->C22 = 2.*sqrt( A222 + B222 );
+  params->C21 = 2.*sqrt( A212 + B212 );
 
-    params->phi22 = atan2( B22, A22 );
-    params->phi21 = atan2( B21, A21 );
-  }
+  params->phi22 = fmod( phi0 - atan2( B22, A22 ), LAL_TWOPI );
+  params->phi21 = fmod( ( phi0/2. ) - atan2( B21, A21 ), LAL_TWOPI );
 }
 

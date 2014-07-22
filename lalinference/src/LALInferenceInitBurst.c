@@ -117,7 +117,7 @@ LALInferenceVariables * LALInferenceInitBurstVariables(LALInferenceRunState *sta
 	REAL8 endtime=-1;
 	REAL8 endtime_from_inj=-1;
 	ProcessParamsTable *ppt=NULL;
-    
+    ProcessParamsTable *ppt2=NULL;
     REAL8 tmpMax, tmpVal,tmpMin;
 	memset(currentParams,0,sizeof(LALInferenceVariables));
 	memset(&status,0,sizeof(LALStatus));
@@ -141,7 +141,7 @@ Parameter arguments:\n\
 	}
     
     int burst_inj=0;
-    state->proposal=&NSWrapMCMCSinGaussProposal;
+    state->proposal=&NSWrapMCMCSineGaussProposal;
     
     /* We may have used a CBC injection... test */
     ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
@@ -275,20 +275,26 @@ Parameter arguments:\n\
     REAL8 startq=qmin+gsl_rng_uniform(GSLrandom)*(qmax-qmin);
     REAL8 startloghrss=loghrssmin+gsl_rng_uniform(GSLrandom)*(loghrssmax-loghrssmin);
     REAL8 startdur=durmin+gsl_rng_uniform(GSLrandom)*(durmax-durmin);
-    
-    if(!LALInferenceCheckVariable(currentParams,"time")){
-        ppt=LALInferenceGetProcParamVal(commandLine,"--t");
-        if (ppt) {
-            endtime=atof(ppt->value);
-            fprintf(stdout,"Fixing time to %lf\n",endtime);
-            LALInferenceAddVariable(currentParams, "time",&endtime   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-        }
-        else{
-            LALInferenceAddVariable(currentParams, "time",            &endtime   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR); 
-        }
-    }
-    tmpMin=endtime-0.5*dt; tmpMax=endtime+0.5*dt;
+    REAL8 starthrsss=hrssmin+gsl_rng_uniform(GSLrandom)*(hrssmax-hrssmin);
+    if(!LALInferenceGetProcParamVal(commandLine,"--margtime") && !LALInferenceGetProcParamVal(commandLine, "--margtimephi")){
+      if(!LALInferenceCheckVariable(currentParams,"time")){
+          ppt=LALInferenceGetProcParamVal(commandLine,"--t");
+          if (ppt) {
+              endtime=atof(ppt->value);
+              fprintf(stdout,"Fixing time to %lf\n",endtime);
+              LALInferenceAddVariable(currentParams, "time",&endtime   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+          }
+          else{
+              LALInferenceAddVariable(currentParams, "time",            &endtime   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR); 
+          }
+      }
+      tmpMin=endtime-0.5*dt; tmpMax=endtime+0.5*dt;
     LALInferenceAddMinMaxPrior(priorArgs, "time",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);	
+    }
+    else{
+      tmpMin=endtime-0.5*dt; tmpMax=endtime+0.5*dt;
+      LALInferenceAddMinMaxPrior(currentParams, "time",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);	
+    }
 
     if(!LALInferenceCheckVariable(currentParams,"rightascension")){
         ppt=LALInferenceGetProcParamVal(commandLine,"--ra");
@@ -362,19 +368,25 @@ Parameter arguments:\n\
     }
     
     ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
-    if (!strcmp("SineGaussian",ppt->value)||!strcmp("SineGaussianF",ppt->value)|| !strcmp("DampedSinusoid",ppt->value) || !strcmp("DampedSinusoidF",ppt->value)){
-      tmpVal=0.0;
-      if(!LALInferenceCheckVariable(currentParams,"phase")) {
-          ppt=LALInferenceGetProcParamVal(commandLine,"--phase");
-        if (ppt){
-              tmpVal=atof(ppt->value);
-              fprintf(stderr,"Fixing phase angle to %lf in template \n",tmpVal);
-              LALInferenceAddVariable(currentParams, "phase",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);}
-        else
-              LALInferenceAddVariable(currentParams, "phase",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+    if (!strcmp("SineGaussian",ppt->value)||!strcmp("SineGaussianF",ppt->value) || !strcmp("DampedSinusoid",ppt->value) || !strcmp("DampedSinusoidF",ppt->value)){
+      ppt=LALInferenceGetProcParamVal(commandLine,"--margphi");
+      ppt2=LALInferenceGetProcParamVal(commandLine,"--margtimephi");
+      if (ppt || ppt2)
+        printf("Marginalizing over phase\n");
+      else{
+        tmpVal=0.0;
+        if(!LALInferenceCheckVariable(currentParams,"phase")) {
+            ppt=LALInferenceGetProcParamVal(commandLine,"--phase");
+          if (ppt){
+                tmpVal=atof(ppt->value);
+                fprintf(stderr,"Fixing phase angle to %lf in template \n",tmpVal);
+                LALInferenceAddVariable(currentParams, "phase",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);}
+          else
+                LALInferenceAddVariable(currentParams, "phase",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+        }
+        tmpMin=0.0; tmpMax=LAL_TWOPI;
+        LALInferenceAddMinMaxPrior(priorArgs, "phase",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
       }
-      tmpMin=0.0; tmpMax=LAL_TWOPI;
-      LALInferenceAddMinMaxPrior(priorArgs, "phase",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
     }
     
     ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
@@ -408,10 +420,18 @@ Parameter arguments:\n\
       }
       LALInferenceAddVariable(currentParams, "loghrss",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);   
       }
-      else
-        LALInferenceAddVariable(currentParams, "loghrss",     &startloghrss,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+      else{
+        if (LALInferenceGetProcParamVal(commandLine,"--use-hrss")){
+          LALInferenceAddVariable(currentParams, "hrss",     &starthrsss,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+          LALInferenceAddMinMaxPrior(priorArgs, "hrss",     &hrssmin, &hrssmax,   LALINFERENCE_REAL8_t);
+        }
+        else{
+          LALInferenceAddVariable(currentParams, "loghrss",     &startloghrss,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+          LALInferenceAddMinMaxPrior(priorArgs, "loghrss",     &loghrssmin, &loghrssmax,   LALINFERENCE_REAL8_t);
+        }
+      }
     }
-    LALInferenceAddMinMaxPrior(priorArgs, "loghrss",     &loghrssmin, &loghrssmax,   LALINFERENCE_REAL8_t);
+    
         
     tmpVal=LAL_PI/2.0;
     if(!LALInferenceCheckVariable(currentParams,"alpha")){
@@ -435,7 +455,7 @@ Parameter arguments:\n\
             LALInferenceAddVariable(currentParams, "alpha",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     }
     /* 0 to Pi/2 will cover all possible positive combination of cross and plus */
-    tmpMin=0.0; tmpMax=LAL_PI/2.0;
+    tmpMin=0.0; tmpMax=LAL_PI*2.0;
     LALInferenceAddMinMaxPrior(priorArgs, "alpha",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
 
     /* Needs two condition: must be a burst template and the burst injection must have been provided to do those checks*/
@@ -681,7 +701,7 @@ LALInferenceVariables * LALInferenceInitHMNSVariables(LALInferenceRunState *stat
     //state->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood_HMNS;
 
     /* Use sine-Gaussian proposal (should be good for bursts...) */
-    state->proposal=&NSWrapMCMCSinGaussProposal;
+    state->proposal=&NSWrapMCMCSineGaussProposal;
     /* Prior Ranges */
 	REAL8 starttime;
 	REAL8 loghrssmin=log(1e-25);  /* amplitude parameter */
@@ -930,7 +950,7 @@ LALInferenceVariables * LALInferenceInitRDVariables(LALInferenceRunState *state)
 	  state->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood_RD;
 	}
     */
-    state->proposal=&NSWrapMCMCSinGaussProposal;
+    state->proposal=&NSWrapMCMCSineGaussProposal;
     /* Prior Ranges */
 	REAL8 starttime;
 	REAL8 loghrssmin=log(1e-25);  /* amplitude parameter */

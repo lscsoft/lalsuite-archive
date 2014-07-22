@@ -36,13 +36,6 @@ from glue.ligolw.utils import segments as ligolw_segments
 from pylal import SnglInspiralUtils
 
 
-# FIXME:  remove when Python >= 2.5 required
-try:
-  any
-except NameError:
-  any = iterutils.any
-
-
 #
 # =============================================================================
 #

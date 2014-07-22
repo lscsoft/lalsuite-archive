@@ -42,16 +42,16 @@ extern "C" {
 #include <lal/LALBarycenter.h>
 #include <lal/PulsarDataTypes.h>
 #include <lal/ComputeFstat.h>
-
-#include "DopplerScan.h"
+#include <lal/DopplerScan.h>
 
 /*---------- DEFINES ----------*/
 
 /*---------- external types ----------*/
 
 /* ==================== FULL MULTIDIMENSIONAL-GRID types ==================== */
-/** Structure describing a region in paramter-space (a,d,f,f1dot,..).
- *  Currently this is simply a direct product of skyRegion x FreqBand x f1dotBand.
+/**
+ * Structure describing a region in paramter-space (a,d,f,f1dot,..).
+ * Currently this is simply a direct product of skyRegion x FreqBand x f1dotBand.
  */
 
 /** initialization struct for full InitDopplerScan() [UNDER CONSTRUCTION] */

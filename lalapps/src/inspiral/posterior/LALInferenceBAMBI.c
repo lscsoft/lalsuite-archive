@@ -38,6 +38,10 @@
 #include <lal/LALInferenceProposal.h>
 #include <lal/LALInferenceInit.h>
 
+#ifdef PARALLEL
+#include <mpi.h>
+#endif
+
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
 #else
@@ -58,23 +62,25 @@ void initStudentt(LALInferenceRunState *state);
 
 /******** Defined for BAMBI (start) **********/
 
+#define BAMBI_STRLEN 200
+
 extern float *omicron,tol,thL[3],logLRange;
 extern double *maxsigma,logZero;
 extern int nNN,nNNerr,totpar,loglcalls,ncheck,myid,nproc;
-extern char root[100],networkinputs[100];
+extern char *root,*networkinputs;
 extern bool likenetinit,converged,lastconverged,netres,firstrun,discardpts;
 extern int ignoredbambicalls,counter;
 extern size_t nlayers,nnodes[10];
 extern int doBAMBI,useNN,whitenin,whitenout,resume;
 
 void BAMBIRun(int mmodal, int ceff, int nlive, double tol, double efr, int ndims, int nPar, int nClsPar,
-    int maxModes, int updInt, double Ztol, char root[], int seed, int *pWrap, int fb, int resume, int outfile,
+    int maxModes, int updInt, double Ztol, char *root, int seed, int *pWrap, int fb, int resume, int outfile,
     int initMPI, double logZero, int maxiter, void (*LogLike)(double *, int *, int *, double *, void *),
     void (*dumper)(int *, int *, int *, double **, double **, double **, double *, double *, double *, void *),
     int (*bambi)(int *, int *, double **, double *), void *context);
 
 extern void NESTRUN(int *mmodal, int *ceff, int *nlive, double *tol, double *efr, int *ndims, int *nPar, int *nClsPar,
-    int *maxModes, int *updInt, double *Ztol, char root[], int *seed, int *pWrap, int *fb, int *resume, int *outfile,
+    int *maxModes, int *updInt, double *Ztol, char *root, int *seed, int *pWrap, int *fb, int *resume, int *outfile,
     int *initMPI, double *logZero, int *maxiter, void (*LogLike)(double *, int *, int *, double *, void *),
     void (*dumper)(int *, int *, int *, double **, double **, double **, double *, double *, double *, void *),
     int (*bambi)(int *, int *, double **, double *), void *context);
@@ -83,22 +89,21 @@ void LogLike(double *Cube, int *ndim, int *npars, double *lnew, void *context);
 int bambi(int *ndata, int *ndim, double **BAMBIData, double *lowlike);
 void dumper(int *nSamples, int *nlive, int *nPar, double **physLive, double **posterior, double **paramConstr, double *maxLogLike, double *logZ, double *logZerr, void *context);
 void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState);
-//char root[100],networkinputs[100];
 
 /******** Defined for BAMBI (end) **********/
 
 LALInferenceRunState *runStateGlobal;
 
 void BAMBIRun(int mmodal, int ceff, int nlive, double tol2, double efr, int ndims, int nPar, int nClsPar,
-int maxModes, int updInt, double Ztol, char root2[], int seed, int *pWrap, int fb, int resume2, int outfile,
+int maxModes, int updInt, double Ztol, char *root2, int seed, int *pWrap, int fb, int resume2, int outfile,
 int initMPI, double logZero2, int maxiter, void (*LogLike2)(double *, int *, int *, double *, void *),
 void (*dumper2)(int *, int *, int *, double **, double **, double **, double *, double *, double *, void *),
 int (*bambi2)(int *, int *, double **, double *), void *context)
 {
     int i;
-    char rootformn[100];
+    char rootformn[BAMBI_STRLEN];
     strcpy(rootformn, root2);
-    for (i = strlen(rootformn); i < 100; i++) rootformn[i] = ' ';
+    for (i = strlen(rootformn); i < BAMBI_STRLEN; i++) rootformn[i] = ' ';
 
     // Do "nm libbambi.a | grep nestrun" to find the name of the function to put here.
     // Remove one leading underscore for the name.
@@ -143,7 +148,7 @@ void dumper(UNUSED int *nSamples, UNUSED int *nlive, UNUSED int *nPar, UNUSED do
     char **info = (char **)context;
     char *root2=&info[0][0];
     char *header=&info[1][0];
-    char outfile[100];
+    char outfile[BAMBI_STRLEN];
     FILE *fileout;
 
     /* Write evidence to file for use by post-processing */
@@ -161,6 +166,14 @@ void dumper(UNUSED int *nSamples, UNUSED int *nlive, UNUSED int *nPar, UNUSED do
         fprintf(fileout,"%s\n",header);
         fclose(fileout);
     }
+
+    /* Prints stats file with template and likelihood evaluation counts */
+    /*sprintf(outfile,"%srunstats.txt",root2);
+    fileout=fopen(outfile,"w");
+    fprintf(fileout,"IFO templates likelihoods\n");
+    for(LALInferenceIFOData *p=runStateGlobal->data;p;p=p->next)
+        fprintf(fileout,"%s: %u %u\n",p->name,p->templa_counter,p->likeli_counter);
+    fclose(fileout);*/
 }
 
 void getphysparams(double *Cube, UNUSED int *ndim, UNUSED int *nPar, void *context)
@@ -197,6 +210,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 {
     UINT4 Nlive=*(UINT4 *)LALInferenceGetVariable(runState->algorithmParams,"Nlive");
     REAL8 eff=*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams,"eff");
+    REAL8 MNTol=*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams,"evidencetol");
     UINT4 Ntrain;
     REAL8 logZnoise;
     UINT4 verbose=0,resval=1;
@@ -259,9 +273,12 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
         Ntrain=50;
 
     REAL8 tmin,tmax,tmid;
-    LALInferenceGetMinMaxPrior(runState->priorArgs, "time", (void *)&tmin, (void *)&tmax);
-    tmid=(tmax+tmin)/2.0;
-    LALInferenceAddVariable(runState->priorArgs,"trigtime",&tmid,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
+    if (LALInferenceCheckVariable(runState->priorArgs,"time"))
+    {
+        LALInferenceGetMinMaxPrior(runState->priorArgs, "time", (void *)&tmin, (void *)&tmax);
+        tmid=(tmax+tmin)/2.0;
+        LALInferenceAddVariable(runState->priorArgs,"trigtime",&tmid,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
+    }
 
     runStateGlobal = runState;
 
@@ -270,7 +287,17 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
     LALInferenceVariableItem *item=runState->currentParams->head;
     for(;item;item=item->next)
     {
-        if(item->vary==LALINFERENCE_PARAM_LINEAR || item->vary==LALINFERENCE_PARAM_CIRCULAR) ND++;
+        if(item->vary==LALINFERENCE_PARAM_LINEAR || item->vary==LALINFERENCE_PARAM_CIRCULAR)
+        {
+            if (item->type == LALINFERENCE_gslMatrix_t)
+            {
+                gsl_matrix *nparams = *((gsl_matrix **)item->value);
+                INT4 numdims = nparams->size1 * nparams->size2;
+                ND += numdims;
+            }
+            else
+                ND++;
+        }
     }
 
     if( ND==0 )
@@ -285,16 +312,22 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
     }
 
     int mmodal = 0;
+    int maxModes = 1;
+    ppt=LALInferenceGetProcParamVal(runState->commandLine,"--multimodal");
+    if(ppt){
+        mmodal = 1;
+        maxModes = atoi(ppt->value);
+    }
     int ceff = 0;
     int nlive = Nlive;
     double efr = eff;
-    double mntol = 0.5;
+    double mntol = MNTol;
     int ndims = ND;
     int nPar = ndims + 3;
+    if (LALInferenceCheckVariable(runState->currentParams,"fRef")) nPar++;  // add space for fRef
     int nClsPar = fmin(2,ND);
     int updInt = Ntrain;
     double Ztol = -1.e90;
-    int maxModes = 1;
     int pWrap[ndims];
     item=runState->currentParams->head;
     int k = -1;
@@ -302,28 +335,56 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
     {
         if(item->vary==LALINFERENCE_PARAM_LINEAR || item->vary==LALINFERENCE_PARAM_CIRCULAR)
         {
-            k++;
-            if(item->vary==LALINFERENCE_PARAM_CIRCULAR)
-                pWrap[k] = 1;
+            if (item->type == LALINFERENCE_gslMatrix_t)
+            {
+                gsl_matrix *nparams = *((gsl_matrix **)item->value);
+                INT4 numdims = nparams->size1 * nparams->size2;
+                INT4 kk;
+                if (item->vary==LALINFERENCE_PARAM_CIRCULAR)
+                {
+                    for (kk=0;kk<numdims;kk++)
+                    {
+                        k++;
+                        pWrap[k] = 1;
+                    }
+                }
+                else
+                {
+                    for (kk=0;kk<numdims;kk++)
+                    {
+                        k++;
+                        pWrap[k] = 0;
+                    }
+                }
+            }
             else
-                pWrap[k] = 0;
+            {
+                k++;
+                if(item->vary==LALINFERENCE_PARAM_CIRCULAR)
+                    pWrap[k] = 1;
+                else
+                    pWrap[k] = 0;
+            }
         }
     }
-    for( int j = 0; j < 100; j++ )
-        root[j] = outfilestr[j];
+    root=(char *)malloc(BAMBI_STRLEN*sizeof(char));
+    networkinputs=(char *)malloc(BAMBI_STRLEN*sizeof(char));
+    strcpy(root,outfilestr);
     if (netfilestr!=NULL)
-        for( int j = 0; j < 100; j++ )
-            networkinputs[j] = netfilestr[j];
+        strcpy(networkinputs,netfilestr);
     int rseed = -1;
     int fb = verbose;
     int bresume = resval;
     int outfile = 1;
     int initMPI = 0;
+#ifdef PARALLEL
+    initMPI = 1;
+#endif
     logZero = -DBL_MAX;
     int maxiter = 0;
     char **info;
     info=(char **)malloc(3*sizeof(char *));
-    info[0]=(char *)malloc(100*sizeof(char));
+    info[0]=(char *)malloc(BAMBI_STRLEN*sizeof(char));
     info[1]=(char *)malloc(150*sizeof(char));
     info[2]=(char *)malloc(5*sizeof(char));
     strcpy(&info[0][0],outfilestr);
@@ -333,7 +394,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 
     /* Read injection XML file for parameters if specified */
     /* Used to print injection likelihood and prior */
-    ppt=LALInferenceGetProcParamVal(runState->commandLine,"--inj");
+    /*ppt=LALInferenceGetProcParamVal(runState->commandLine,"--inj");
     if(ppt){
       SimInspiralTable *injTable=NULL;
       SimInspiralTableFromLIGOLw(&injTable,ppt->value,0,0);
@@ -345,9 +406,9 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
       if(ppt){
         int event= atoi(ppt->value);
         int i=0;
-        while(i<event) {i++; injTable=injTable->next;} /* select event */
+        while(i<event) {i++; injTable=injTable->next;} // select event
        LALInferenceVariables tempParams;
-    //memset(&tempParams,0,sizeof(tempParams));
+    memset(&tempParams,0,sizeof(tempParams));
     LALInferenceInjectionToVariables(injTable,&tempParams);
     LALInferenceVariableItem *node=NULL;
     item=runState->currentParams->head;
@@ -355,10 +416,6 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
       node=LALInferenceGetItem(&tempParams,item->name);
       if(node) {
         LALInferenceSetVariable(runState->currentParams,node->name,node->value);
-        /*if(strstr(node->name,"LAL")==NULL)
-        fprintf(stdout,"Injection variable %s = %g\n",node->name,*(double *)(node->value));
-        else
-        fprintf(stdout,"Injection variable %s = %d\n",node->name,*(int *)(node->value));*/
       }
     }
     double linj,pinj,lz;
@@ -375,12 +432,12 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
     fprintf(finj,"Noise log-evidence value = %g\n",lz);
     fclose(finj);
       }
-    }
+    }*/
 
     BAMBIRun(mmodal, ceff, nlive, mntol, efr, ndims, nPar, nClsPar, maxModes, updInt, Ztol, root, rseed, pWrap, fb,
     bresume, outfile, initMPI, logZero, maxiter, LogLike, dumper, bambi, context);
 
-    free(info[1]);free(info[0]);free(info);
+    free(info[1]);free(info[0]);free(info);free(root);free(networkinputs);
 }
 
 
@@ -443,7 +500,8 @@ Initialisation arguments:\n\
                 return(irs);
         }
     else
-    {
+    {   
+        LALInferenceCheckOptionsConsistency(commandLine);
         fprintf(stdout, " readData(): started.\n");
             irs->data = LALInferenceReadData(commandLine);
     }
@@ -534,7 +592,10 @@ void initializeMN(LALInferenceRunState *runState)
                ---------------------------------------------------------------------------------------------------\n\
                --Nlive N                        Number of live points to use.\n\
                (--Ntrain N)                     Number of training points to use for NN (default=Nlive).\n\
-               (--eff e)                        Target efficiency (0.5)\n\
+               (--eff e)                        Target efficiency (0.1)\n\
+               (--tol tol)                      Tolerance on evidence calculation (0.5)\n\
+               (--multimodal maxModes)          Enables multimodal sampling with specified maximum number of modes\n\
+                                                  (default is turned off with 1 mode)\
                (--progress)                     Produce progress information.\n\
                (--noresume)                     Do not resume on previous run.\n\
                (--BAMBI)                        Use BAMBI instead of just MultiNest\n\
@@ -556,7 +617,7 @@ void initializeMN(LALInferenceRunState *runState)
                                                 Default prior is currently the S6 prior.\n\
                (--S6Prior)                      Use prior from S6 analysis.\n\
                (--skyLocPrior)                  Use prior from sky localisation project.\n\
-               (--AnalyticPrior)                   Use prior for analytic likelihood tests.\n\
+               (--AnalyticPrior)                Use prior for analytic likelihood tests.\n\
                \n\
                ---------------------------------------------------------------------------------------------------\n\
                --- Output ----------------------------------------------------------------------------------------\n\
@@ -588,50 +649,6 @@ void initializeMN(LALInferenceRunState *runState)
     runState->algorithm=&LALInferenceMultiNestAlgorithm;
 
 
-    /* Choose the template generator for inspiral signals */
-    /*runState->template=&LALInferenceTemplateLAL;
-      if(LALInferenceGetProcParamVal(commandLine,"--LALSimulation")){
-        runState->template=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
-        fprintf(stdout,"Template function called is \"LALInferenceTemplateXLALSimInspiralChooseWaveform\"\n");
-      }else{
-            ppt=LALInferenceGetProcParamVal(commandLine,"--approximant");
-        if(ppt){
-              if(strstr(ppt->value,"TaylorF2") || strstr(ppt->value,"TaylorF2RedSpin")) {
-                runState->template=&LALInferenceTemplateLAL;
-                fprintf(stdout,"Template function called is \"LALInferenceTemplateLAL\"\n");
-              }else if(strstr(ppt->value,"35phase_25amp")) {
-                runState->template=&LALInferenceTemplate3525TD;
-                fprintf(stdout,"Template function called is \"LALInferenceTemplate3525TD\"\n");
-              }else{
-                runState->template=&LALInferenceTemplateLALGenerateInspiral;
-                fprintf(stdout,"Template function called is \"LALInferenceTemplateLALGenerateInspiral\"\n");
-              }
-        }
-      }*/
-
-
-    /* Set up the loglike function */
-    /*if (LALInferenceGetProcParamVal(commandLine,"--tdlike")) {
-        fprintf(stderr, "Computing likelihood in the time domain.\n");
-        runState->likelihood=&LALInferenceTimeDomainLogLikelihood;
-    } else */
-    if (LALInferenceGetProcParamVal(commandLine, "--zeroLogLike")) {
-        /* Use zero log(L) */
-        runState->likelihood=&LALInferenceZeroLogLikelihood;
-    } else if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood")) {
-        runState->likelihood=&LALInferenceCorrelatedAnalyticLogLikelihood;
-    } else if (LALInferenceGetProcParamVal(commandLine, "--bimodalGaussianLikelihood")) {
-        runState->likelihood=&LALInferenceBimodalCorrelatedAnalyticLogLikelihood;
-    } else if (LALInferenceGetProcParamVal(commandLine, "--rosenbrockLikelihood")) {
-        runState->likelihood=&LALInferenceRosenbrockLogLikelihood;
-    } else if (LALInferenceGetProcParamVal(commandLine, "--studentTLikelihood")) {
-        fprintf(stderr, "Using Student's T Likelihood.\n");
-        runState->likelihood=&LALInferenceFreqDomainStudentTLogLikelihood;
-    } else {
-        runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
-    }
-
-
     /* Set up the prior function */
     if(LALInferenceGetProcParamVal(commandLine,"--skyLocPrior")){
         runState->prior=&LALInferenceInspiralSkyLocPrior;
@@ -647,10 +664,19 @@ void initializeMN(LALInferenceRunState *runState)
         runState->CubeToPrior = &LALInferenceInspiralPriorNormalisedCubeToPrior;
     }
 
+    if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood") ||
+        LALInferenceGetProcParamVal(commandLine, "--bimodalGaussianLikelihood") ||
+        LALInferenceGetProcParamVal(commandLine, "--rosenbrockLikelihood"))
+    {
+        runState->prior = &LALInferenceAnalyticNullPrior;
+        runState->CubeToPrior = &LALInferenceAnalyticCubeToPrior;
+    }
+
 
     /* Number of live points */
     //printf("set number of live points.\n");
     ppt=LALInferenceGetProcParamVal(commandLine,"--Nlive");
+    if (!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--nlive");
     if(ppt)
         tmpi=atoi(ppt->value);
     else {
@@ -663,11 +689,20 @@ void initializeMN(LALInferenceRunState *runState)
     /* Target efficiency */
     ppt=LALInferenceGetProcParamVal(commandLine,"--eff");
     if(ppt)
-        tmpd=atof(ppt->value);
+        tmpd=fabs(atof(ppt->value));
     else {
-        tmpd=0.5;
+        tmpd=0.1;
     }
     LALInferenceAddVariable(runState->algorithmParams,"eff",&tmpd, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
+
+    /* Tolerance of evidence calculation */
+    ppt=LALInferenceGetProcParamVal(commandLine,"--tol");
+    if(ppt)
+	tmpd=fabs(atof(ppt->value));
+    else {
+	tmpd=0.5;
+    }
+    LALInferenceAddVariable(runState->algorithmParams,"evidencetol",&tmpd, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
 
     /* Number of training points */
     ppt=LALInferenceGetProcParamVal(commandLine,"--Ntrain");
@@ -764,18 +799,18 @@ Arguments for each section follow:\n\n";
     /* Review task needs special priors */
     if(LALInferenceGetProcParamVal(procParams,"--correlatedGaussianLikelihood"))
         LALInferenceInitVariablesReviewEvidence(state);
-        else if(LALInferenceGetProcParamVal(procParams,"--bimodalGaussianLikelihood"))
-            LALInferenceInitVariablesReviewEvidence_bimod(state);
-        else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood"))
-            LALInferenceInitVariablesReviewEvidence_banana(state);
+    else if(LALInferenceGetProcParamVal(procParams,"--bimodalGaussianLikelihood"))
+        LALInferenceInitVariablesReviewEvidence_bimod(state);
+    else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood"))
+        LALInferenceInitVariablesReviewEvidence_banana(state);
     else
         LALInferenceInitCBCVariables(state);
 
-    /* Check for student-t and apply */
-    initStudentt(state);
+    /* Choose the likelihood */
+    LALInferenceInitLikelihood(state);
 
     /* Exit if help requested */
-        if(LALInferenceGetProcParamVal(state->commandLine,"--help")) exit(0);
+    if(LALInferenceGetProcParamVal(state->commandLine,"--help")) exit(0);
 
     /* Call MultiNest algorithm */
     state->algorithm(state);

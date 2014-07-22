@@ -24,7 +24,6 @@ import urllib2
 from glue import pipeline
 from glue import segmentsUtils
 from glue.segments import segment, segmentlist
-from glue.iterutils import any
 
 from pylal import git_version
 from pylal import KW_veto_utils

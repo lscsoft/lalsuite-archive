@@ -16,7 +16,7 @@ import sys
 
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
-from glue.ligolw import utils
+from glue.ligolw import utils as ligolw_utils
 from pylal import git_version
 
 
@@ -76,7 +76,7 @@ for filename in filenames:
 	# load file
 	#
 
-	xmldoc = utils.load_filename(filename, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
+	xmldoc = ligolw_utils.load_filename(filename, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
 
 	#
 	# add domain, jobid, and is_online columns to process table
@@ -172,4 +172,4 @@ for filename in filenames:
 	# write file
 	#
 
-	utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"), verbose = options.verbose)
+	ligolw_utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"), verbose = options.verbose)

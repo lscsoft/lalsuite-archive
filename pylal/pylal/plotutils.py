@@ -1647,6 +1647,11 @@ class ColorbarScatterPlot(BasicPlot):
                 x_vals, y_vals, c_vals = map(numpy.asarray, zip(*zipped))
             if logcolor:
                 plot_kwargs.setdefault("norm",pylab.matplotlib.colors.LogNorm())
+            try:
+                p = self.ax.scatter(x_vals, y_vals, c=c_vals, **plot_kwargs)
+            except ValueError:
+                plot_kwargs['visible'] = False
+                p = self.ax.scatter([1], [1], c=[1], **plot_kwargs)
             p = self.ax.scatter(x_vals, y_vals, c=c_vals, **plot_kwargs)
 
         if colorbar and p is not None:

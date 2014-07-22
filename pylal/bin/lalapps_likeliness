@@ -26,8 +26,6 @@
 #
 
 
-import bisect
-from new import instancemethod
 from optparse import OptionParser
 try:
 	import sqlite3
@@ -37,12 +35,11 @@ except ImportError:
 import sys
 
 
-from glue import segments
 from glue import iterutils
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
-from glue.ligolw import utils
+from glue.ligolw import utils as ligolw_utils
 from pylal import db_thinca_rings
 from pylal import git_version
 from pylal import ligolw_sqlutils as sqlutils
@@ -287,7 +284,7 @@ class Summaries(object):
 				tablename = "".join(key1)+"-"+"".join(key2)
 				xmldoc.childNodes[-1].appendChild(rate.binned_ratios_to_xml(self.sngl_1D_bins[key1][key2], tablename))
 		
-		utils.write_filename(xmldoc, filename, gz=filename.endswith(".gz"), verbose=options.verbose)
+		ligolw_utils.write_filename(xmldoc, filename, gz=filename.endswith(".gz"), verbose=options.verbose)
 
 	def input_bins(self, filenames):
 		#
@@ -295,7 +292,7 @@ class Summaries(object):
 		#
 		missing = 0
 		for filename in filenames:
-			xmldoc = utils.load_filename(filename, verbose=options.verbose, contenthandler=StatsContentHandler)
+			xmldoc = ligolw_utils.load_filename(filename, verbose=options.verbose, contenthandler=StatsContentHandler)
 			for name, ratios in binned_ratios_extractor(xmldoc):
 				if '-vs-' in name:
 					ifo,key1,junk,key2 = name.split('-')
@@ -795,7 +792,7 @@ else:
 #		if options.verbose:
 #			print >>sys.stderr, "\textracting all dbls ..."
 #		likelihood_bins.rings = db_thinca_rings.get_thinca_rings_by_available_instruments(connection)
-#		likelihood_bins.offset_vectors = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.TimeSlideTable.tableName).as_dict()
+#		likelihood_bins.offset_vectors = lsctables.TimeSlideTable.get_table(dbtables.get_xml(connection)).as_dict()
 #		connection.create_function("calc_delta_t", 7, likelihood_bins.calc_delta_t)
 #		for ifos in list(iterutils.choices(likelihood_bins.ifos, 2)):
 #			if options.verbose:
@@ -875,7 +872,7 @@ for n, filename in enumerate(filenames):
 #	if options.verbose:
 #		print >>sys.stderr, "\textracting all dbls ..."
 #	likelihood_bins.rings = db_thinca_rings.get_thinca_rings_by_available_instruments(connection)
-#	likelihood_bins.offset_vectors = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.TimeSlideTable.tableName).as_dict()
+#	likelihood_bins.offset_vectors = lsctables.TimeSlideTable.get_table(dbtables.get_xml(connection)).as_dict()
 #	connection.create_function("calc_delta_t", 7, likelihood_bins.calc_delta_t)
 #	for ifos in list(iterutils.choices(likelihood_bins.ifos, 2)):
 #		if options.verbose:

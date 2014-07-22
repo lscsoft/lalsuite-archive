@@ -33,8 +33,6 @@ extern "C" {
 const LALDetector *XLALDetectorPrefixToLALDetector(
 	const char *string
 );
-/* FIXME:  compatibility wrapper.  remove when not needed */
-const LALDetector *XLALInstrumentNameToLALDetector(const char *string);
 
 
 REAL8TimeSeries *XLALSimDetectorStrainREAL8TimeSeries(
@@ -43,7 +41,7 @@ REAL8TimeSeries *XLALSimDetectorStrainREAL8TimeSeries(
 	REAL8 right_ascension,
 	REAL8 declination,
 	REAL8 psi,
-	LALDetector *detector
+	const LALDetector *detector
 );
 
 
@@ -85,6 +83,28 @@ int XLALInspiralInjectSignals(
 	REAL8TimeSeries *series,
 	const SimInspiralTable *sim_table,
 	const COMPLEX16FrequencySeries *response
+);
+
+int XLALSimInjectLWLDetectorStrainREAL8TimeSeries(
+	REAL8TimeSeries *target,
+	const REAL8TimeSeries *hplus,
+	const REAL8TimeSeries *hcross,
+	double ra,
+	double dec,
+	double psi,
+	LALDetector *detector,
+	const COMPLEX16FrequencySeries *response
+);
+
+int XLALSimInjectLWLDetectorStrainREAL4TimeSeries(
+	REAL4TimeSeries *target,
+	const REAL4TimeSeries *hplus,
+	const REAL4TimeSeries *hcross,
+	double ra,
+	double dec,
+	double psi,
+	LALDetector *detector,
+	const COMPLEX8FrequencySeries *response
 );
 
 #if 0

@@ -18,7 +18,8 @@
  *  MA  02111-1307  USA
  */
 
-/** \author R. Prix, J. T. Whelan
+/**
+ * \author R. Prix, J. T. Whelan
  * \file
  * \brief
  * LISA-specific implementations for Fstat/continuous-wave searches on LISA TDI observables.
@@ -29,7 +30,6 @@
 #include <math.h>
 #include <string.h>
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALError.h>
 #include <ComputeFstat.h>
 
@@ -62,7 +62,8 @@ static REAL4 safe_sinc ( REAL4 x );
 /*==================== FUNCTION DEFINITIONS ====================*/
 
 
-/** Set up the \em LALDetector struct representing LISA X, Y, Z TDI observables.
+/**
+ * Set up the \em LALDetector struct representing LISA X, Y, Z TDI observables.
  * INPUT: channelNum = '1', '2', '3', '4', '5', '6', '7', '8', '9': detector-tensor corresponding to TDIs X, Y, Z, Y-Z, Z-X, X-Y, A, E, T respectively.
  * return -1 on ERROR, 0 if OK
  */
@@ -145,7 +146,8 @@ XLALcreateLISA (LALDetector *Detector,	/**< [out] LALDetector */
 } /* XLALcreateLISA() */
 
 
-/** Precompute the arm-geometry for LISA, which is later used
+/**
+ * Precompute the arm-geometry for LISA, which is later used
  * for assembling the RAA detector-tensor (which depends on
  * frequency and skyposition
  */
@@ -576,7 +578,8 @@ XLALgetLISADetectorTensorRAA ( CmplxDetectorTensor *detT, 	/**< [out]: LISA LWL 
 } /* XLALgetCmplxLISADetectorTensor() */
 
 
-/** return a rigid-adiabatic-approximation (RAA) two-arm IFO detector tensor for LISA, given 'armA' and 'armB'
+/**
+ * return a rigid-adiabatic-approximation (RAA) two-arm IFO detector tensor for LISA, given 'armA' and 'armB'
  * This implements LISA RAA-tensor using spacecraft-orbits described by Eq.(2.1) in LISA-MLCD
  * 'challenge1.pdf' document, see http://astrogravs.nasa.gov/docs/mldc/round1.html
  *
@@ -614,8 +617,7 @@ XLALgetLISAtwoArmRAAIFO ( CmplxDetectorTensor *detT, 	/**< [out]: two-arm IFO de
   eta = pifL_c * (1.0f + kdotnA);
   sinc_eta = safe_sinc ( eta );
 
-  coeffAA.realf_FIXME = 0.25f * cospha * sinc_eta;
-  coeffAA.imagf_FIXME = 0.25f * sinpha * sinc_eta;
+  coeffAA = crectf( 0.25f * cospha * sinc_eta, 0.25f * sinpha * sinc_eta );
 
   /* second term */
   sin_cos_LUT (&sinpha, &cospha, pifL_3c * ( - 3.0f - (kdotnA + 2.0f * kdotnB) ) );
@@ -623,8 +625,7 @@ XLALgetLISAtwoArmRAAIFO ( CmplxDetectorTensor *detT, 	/**< [out]: two-arm IFO de
   eta = pifL_c * (1.0f - kdotnA);
   sinc_eta = safe_sinc ( eta );
 
-  coeffAA.realf_FIXME += 0.25f * cospha * sinc_eta;
-  coeffAA.imagf_FIXME += 0.25f * sinpha * sinc_eta;
+  coeffAA += crectf( 0.25f * cospha * sinc_eta, 0.25f * sinpha * sinc_eta );
 
   /* ----- calculate coefficient in front of (1/2)*(nB x nB) */
 
@@ -634,8 +635,7 @@ XLALgetLISAtwoArmRAAIFO ( CmplxDetectorTensor *detT, 	/**< [out]: two-arm IFO de
   eta = pifL_c * (1.0f - kdotnB);
   sinc_eta = safe_sinc ( eta );
 
-  coeffBB.realf_FIXME = 0.25f * cospha * sinc_eta;
-  coeffBB.imagf_FIXME = 0.25f * sinpha * sinc_eta;
+  coeffBB = crectf( 0.25f * cospha * sinc_eta, 0.25f * sinpha * sinc_eta );
 
   /* second term */
   sin_cos_LUT (&sinpha, &cospha, pifL_3c * ( - 3.0f + (2.0f * kdotnA + kdotnB) ) );
@@ -643,8 +643,7 @@ XLALgetLISAtwoArmRAAIFO ( CmplxDetectorTensor *detT, 	/**< [out]: two-arm IFO de
   eta = pifL_c * (1.0f + kdotnB);
   sinc_eta = safe_sinc ( eta );
 
-  coeffBB.realf_FIXME += 0.25f * cospha * sinc_eta;
-  coeffBB.imagf_FIXME += 0.25f * sinpha * sinc_eta;
+  coeffBB += crectf( 0.25f * cospha * sinc_eta, 0.25f * sinpha * sinc_eta );
 
   /* now we can express the detector tensor in the rigid adiabatic approximation (RAA):
    * detT = coeffAA * basisA - coeffBB * basisB
@@ -665,7 +664,8 @@ XLALgetLISAtwoArmRAAIFO ( CmplxDetectorTensor *detT, 	/**< [out]: two-arm IFO de
 } /* XLALgetLISAtwoArmRAAIFO() */
 
 #define SINC_SAFETY 1e-5
-/** Unnormalized sinc(x) = sin(x) / x. Correctly handle the limit x->0
+/**
+ * Unnormalized sinc(x) = sin(x) / x. Correctly handle the limit x->0
  * where sinc(x) = 1
  */
 static REAL4 safe_sinc ( REAL4 x )

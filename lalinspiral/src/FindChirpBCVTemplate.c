@@ -28,38 +28,35 @@
  */
 
 /**
+ * \author Brown, D. A., Messaritaki, E., and Woods, D.
+ * \file
+ * \ingroup FindChirpBCV_h
+ *
+ * \brief Provides functions to create BCV detection templates in a form that can be
+ * used by the <tt>FindChirpBCVFilter()</tt> function.
+ *
+ * ### Prototypes ###
+ *
+ * The function <tt>LALFindChirpBCVTemplate()</tt> creates the BCV
+ * template as described by the algorithm below.
+ *
+ * ### Algorithm ###
+ *
+ * Blah.
+ *
+ * ### Uses ###
+ *
+ * \code
+ * LALCalloc()
+ * LALFree()
+ * LALCreateVector()
+ * LALDestroyVector()
+ * \endcode
+ *
+ * ### Notes ###
+ *
+ */
 
-\author Brown, D. A., Messaritaki, E., and Woods, D.
-\file
-\ingroup FindChirpBCV_h
-
-\brief Provides functions to create BCV detection templates in a form that can be
-used by the <tt>FindChirpBCVFilter()</tt> function.
-
-\heading{Prototypes}
-
-The function <tt>LALFindChirpBCVTemplate()</tt> creates the BCV
-template as described by the algorithm below.
-
-\heading{Algorithm}
-
-Blah.
-
-\heading{Uses}
-\code
-LALCalloc()
-LALFree()
-LALCreateVector()
-LALDestroyVector()
-\endcode
-
-\heading{Notes}
-
-
-
-*/
-
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdlib.h>
 #include <lal/AVFactories.h>
 #include <lal/LALInspiral.h>
@@ -223,8 +220,7 @@ LALFindChirpBCVTemplate (
       }
 
       /* compute sine and cosine of psi1 */
-      expPsi[k].imagf_FIXME =   -sin(psi1);
-      expPsi[k].realf_FIXME =   cos(psi1);
+      expPsi[k] = crectf( cos(psi1), -sin(psi1) );
       /* very expensive computation method */
     }
 

@@ -29,12 +29,10 @@ import sys
 
 
 from glue import segments
-from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
-from pylal import llwapp
 from pylal import snglcluster
 
 
@@ -56,11 +54,17 @@ process_program_name = "ligolw_bucluster"
 
 
 def append_process(xmldoc, cluster_algorithm, comment):
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
-
-	ligolw_process.append_process_params(xmldoc, process, [(u"--cluster-algorithm", u"lstring", cluster_algorithm)])
-
-	return process
+	return ligolw_process.register_to_xmldoc(
+		xmldoc,
+		program = process_program_name,
+		paramdict = {
+			"cluster_algorithm": cluster_algorithm
+		},
+		version = __version__,
+		cvs_repository = u"lscsoft",
+		cvs_entry_time = __date__,
+		comment = comment
+	)
 
 
 #
@@ -81,8 +85,7 @@ def append_process(xmldoc, cluster_algorithm, comment):
 
 def add_ms_columns(xmldoc):
 	# add columns if required
-	sngl_burst_table = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
-	add_ms_columns_to_table(sngl_burst_table)
+	add_ms_columns_to_table(lsctables.SnglBurstTable.get_table(xmldoc))
 
 def add_ms_columns_to_table(sngl_burst_table):
 	added = False
@@ -359,7 +362,7 @@ def ligolw_bucluster(
 	#
 
 	try:
-		sngl_burst_table = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+		sngl_burst_table = lsctables.SnglBurstTable.get_table(xmldoc)
 	except ValueError:
 		# no-op:  document does not contain a sngl_burst table
 		if verbose:

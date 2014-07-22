@@ -30,7 +30,6 @@
 #define __USE_ISOC99 1
 #include <math.h>
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/ExtrapolatePulsarSpins.h>
 
 #include <lal/AVFactories.h>
@@ -79,9 +78,6 @@
 static const REAL4 inv_fact[PULSAR_MAX_SPINS] = { 1.0, 1.0, (1.0/2.0), (1.0/6.0), (1.0/24.0), (1.0/120.0), (1.0/720.0) };
 static int firstcall = TRUE; /* for sin/cos lookup table initialization */
 
-/* empty initializers  */
-static const LALStatus empty_status;
-
 
 /*---------- internal prototypes ----------*/
 void
@@ -107,14 +103,15 @@ LocalComputeFStatFreqBand ( LALStatus *status,
 /*==================== FUNCTION DEFINITIONS ====================*/
 
 
-/** Function to compute a vector of Fstatistic values for a number of frequency bins.
-    This function is simply a wrapper for LocalComputeFstat() which is called repeatedly for
-    every frequency value.  The output, i.e. fstatVector must be properly allocated
-    before this function is called.  The values of the start frequency, the step size
-    in the frequency and the number of frequency values for which the Fstatistic is 
-    to be calculated are read from fstatVector.  The other parameters are not checked and 
-    they must be correctly set outside this function. 
-*/
+/**
+ * Function to compute a vector of Fstatistic values for a number of frequency bins.
+ * This function is simply a wrapper for LocalComputeFstat() which is called repeatedly for
+ * every frequency value.  The output, i.e. fstatVector must be properly allocated
+ * before this function is called.  The values of the start frequency, the step size
+ * in the frequency and the number of frequency values for which the Fstatistic is
+ * to be calculated are read from fstatVector.  The other parameters are not checked and
+ * they must be correctly set outside this function.
+ */
 void LocalComputeFStatFreqBand ( LALStatus *status, 		/**< pointer to LALStatus structure */
 				 REAL4FrequencySeries *fstatVector, /**< [out] Vector of Fstat values */
 				 const PulsarDopplerParams *doppler,/**< parameter-space point to compute F for */
@@ -163,9 +160,11 @@ void LocalComputeFStatFreqBand ( LALStatus *status, 		/**< pointer to LALStatus 
     }
   }
 
-  /** something to improve/cleanup -- the start frequency is available both 
-      from the fstatvector and from the input doppler point -- they could be inconsistent
-      or the user of this function could misunderstand */
+/**
+ * something to improve/cleanup -- the start frequency is available both
+ * from the fstatvector and from the input doppler point -- they could be inconsistent
+ * or the user of this function could misunderstand
+ */
 
   /* copy values from 'doppler' to local variable 'thisPoint' */
   thisPoint = *doppler;
@@ -194,9 +193,10 @@ void LocalComputeFStatFreqBand ( LALStatus *status, 		/**< pointer to LALStatus 
 
 
 
-/** Function to compute (multi-IFO) F-statistic for given parameter-space point ::doppler,
- *  normalized SFT-data (normalized by <em>double-sided</em> PSD Sn), noise-weights
- *  and detector state-series
+/**
+ * Function to compute (multi-IFO) F-statistic for given parameter-space point ::doppler,
+ * normalized SFT-data (normalized by <em>double-sided</em> PSD Sn), noise-weights
+ * and detector state-series
  *
  * NOTE: for better efficiency some quantities that need to be recomputed only for different
  * sky-positions are buffered in \a cfBuffer if given.
@@ -366,12 +366,10 @@ LocalComputeFStat ( LALStatus *status, 		/**< pointer to LALStatus structure */
         } /* if returnSingleF */
 
       /* Fa = sum_X Fa_X */
-      retF.Fa.real_FIXME += creal(FcX.Fa);
-      retF.Fa.imag_FIXME += cimag(FcX.Fa);
+      retF.Fa += FcX.Fa;
 
       /* Fb = sum_X Fb_X */ 		  
-      retF.Fb.real_FIXME += creal(FcX.Fb);
-      retF.Fb.imag_FIXME += cimag(FcX.Fb);
+      retF.Fb += FcX.Fb;
   		  
     } /* for  X < numDetectors */
  
@@ -402,7 +400,8 @@ LocalComputeFStat ( LALStatus *status, 		/**< pointer to LALStatus structure */
 } /* LocalComputeFStat() */
 
 
-/** Revamped version of LALDemod() (based on TestLALDemod() in CFS).
+/**
+ * Revamped version of LALDemod() (based on TestLALDemod() in CFS).
  * Compute JKS's Fa and Fb, which are ingredients for calculating the F-statistic.
  */
 static int
@@ -465,10 +464,8 @@ LocalXLALComputeFaFb ( Fcomponents *FaFb,
     if ( fkdot[spdnOrder] != 0.0 )
       break;
 
-  Fa.real_FIXME = 0.0f;
-  Fa.imag_FIXME = 0.0f;
-  Fb.real_FIXME = 0.0f;
-  Fb.imag_FIXME = 0.0f;
+  Fa = 0.0;
+  Fb = 0.0;
 
   a_al = amcoe->a->data;	/* point to beginning of alpha-arrays */
   b_al = amcoe->b->data;
@@ -575,7 +572,7 @@ LocalXLALComputeFaFb ( Fcomponents *FaFb,
 
 	/* if no danger of denominator -> 0 */
 #ifdef __GNUC__
-	/** somehow the branch prediction of gcc-4.1.2 terribly failes
+	/*  somehow the branch prediction of gcc-4.1.2 terribly failes
 	    with the current case distinction in the hot-loop,
 	    having a severe impact on runtime of the E@H Linux App.
 	    So let's allow to give gcc a hint which path has a higher probablility */
@@ -628,11 +625,9 @@ LocalXLALComputeFaFb ( Fcomponents *FaFb,
       a_alpha = (*a_al);
       b_alpha = (*b_al);
 
-      Fa.real_FIXME += a_alpha * realQXP;
-      Fa.imag_FIXME += a_alpha * imagQXP;
+      Fa += crect( a_alpha * realQXP, a_alpha * imagQXP );
       
-      Fb.real_FIXME += b_alpha * realQXP;
-      Fb.imag_FIXME += b_alpha * imagQXP;
+      Fb += crect( b_alpha * realQXP, b_alpha * imagQXP );
 
 
       /* advance pointers over alpha */
@@ -645,10 +640,8 @@ LocalXLALComputeFaFb ( Fcomponents *FaFb,
     } /* for alpha < numSFTs */
 
   /* return result */
-  FaFb->Fa.real_FIXME = norm * creal(Fa);
-  FaFb->Fa.imag_FIXME = norm * cimag(Fa);
-  FaFb->Fb.real_FIXME = norm * creal(Fb);
-  FaFb->Fb.imag_FIXME = norm * cimag(Fb);
+  FaFb->Fa = (((REAL8) norm) * Fa);
+  FaFb->Fb = (((REAL8) norm) * Fb);
 
   return XLAL_SUCCESS;
 

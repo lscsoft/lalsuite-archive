@@ -77,7 +77,6 @@ int main(void) {fputs("disabled, no gsl or no lal frame library support.\n", std
 #include <getopt.h>
 #include <stdarg.h>
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALDatatypes.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALStdio.h>
@@ -1679,12 +1678,12 @@ int CreateSFT(struct CommandLineArgsTag CLA)
 #ifdef PSS_ENABLED
 
 /**
-  returns
-  -1 if out of memory
-  -2 if some computation failes
-  -3 if input parameters are invalid
-   0 otherwise (all went well)
-*/
+ * returns
+ * -1 if out of memory
+ * -2 if some computation failes
+ * -3 if input parameters are invalid
+ * 0 otherwise (all went well)
+ */
 int PSSTDCleaningREAL8(REAL8TimeSeries *LALTS, REAL4 highpassFrequency, INT4 extendTimeseries) {
   UINT4 samples;                /**< number of samples in the timeseries */
   PSSTimeseries *originalTS;    /**< the timeseries converted to a PSS timeseries */
@@ -2061,8 +2060,7 @@ int WriteVersion2SFT(struct CommandLineArgsTag CLA)
     singleDeltaT = (REAL4)(dataSingle.deltaT/winFncRMS); /* include 1 over window function RMS */
     for (k=0; k<nBins; k++)
     {
-      oneSFT->data->data[k].realf_FIXME = singleDeltaT*crealf(fftDataSingle->data[k+firstbin]);
-      oneSFT->data->data[k].imagf_FIXME = singleDeltaT*cimagf(fftDataSingle->data[k+firstbin]);
+      oneSFT->data->data[k] = (((REAL4) singleDeltaT) * fftDataSingle->data[k+firstbin]);
       /* 06/26/07 gam; use finite to check that data does not contains a non-FINITE (+/- Inf, NaN) values */
       #if CHECKFORINFINITEANDNANS
         if (!finite(crealf(oneSFT->data->data[k])) || !finite(cimagf(oneSFT->data->data[k]))) {
@@ -2084,8 +2082,7 @@ int WriteVersion2SFT(struct CommandLineArgsTag CLA)
     doubleDeltaT = (REAL8)(dataDouble.deltaT/winFncRMS); /* include 1 over window function RMS */
     for (k=0; k<nBins; k++)
     {
-      oneSFT->data->data[k].realf_FIXME = doubleDeltaT*creal(fftDataDouble->data[k+firstbin]);
-      oneSFT->data->data[k].imagf_FIXME = doubleDeltaT*cimag(fftDataDouble->data[k+firstbin]);
+      oneSFT->data->data[k] = crectf( doubleDeltaT*creal(fftDataDouble->data[k+firstbin]), doubleDeltaT*cimag(fftDataDouble->data[k+firstbin]) );
       /* 06/26/07 gam; use finite to check that data does not contains a non-FINITE (+/- Inf, NaN) values */
       #if CHECKFORINFINITEANDNANS
         if (!finite(crealf(oneSFT->data->data[k])) || !finite(cimagf(oneSFT->data->data[k]))) {

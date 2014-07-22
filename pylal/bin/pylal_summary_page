@@ -76,7 +76,7 @@ from pylal import (git_version, seriesutils, plotutils, htmlutils,
 from pylal.dq import (dqSegmentUtils, dqTriggerUtils, stateutils, summary)
 
 # import GLUE modules
-from glue import (segmentsUtils, markup, GWDataFindClient, gpstime)
+from glue import (segmentsUtils, markup, datafind, gpstime)
 from glue.lal import Cache, CacheEntry
 from glue.LDBDWClient import LDBDClientException
 from glue.ligolw import (ilwd, ligolw, lsctables, table, utils as ligolw_utils)
@@ -1278,10 +1278,10 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
                 server, port = cp.get("datafind", "datafind-server").split(":")
                 if not port:
                     port = None
-                connection = GWDataFindClient.GWDataFindHTTPConnection(
+                connection = datafind.GWDataFindHTTPConnection(
                                  host=server, port=port)
             else:
-                connection = GWDataFindClient.GWDataFindHTTPConnection()
+                connection = datafind.GWDataFindHTTPConnection()
             # KLUDGE for GEO trend files, 1 frame type,
             # but three different frames with different data
             if (channel[0] == "G" and
@@ -1571,6 +1571,9 @@ def build_omega_spectrogram(trigs, start, end, time_step, spectype='snr'):
     if len(f) > 0 and (spectrogram is None or spectrogram.length == 0):
         func = getattr(lal, "CreateREAL8VectorSequence")                                                                                     
         spectrogram = func(int(numseg), int(len(f))) 
+        # fill with zeros on spectrogram creation  
+        for j in range(int(numseg)):
+            spectrogram.data[j,:] = numpy.zeros(len(f)).astype(float)
 
     # append spectrum to spectrogram
     if len(S) > 0:
@@ -2131,7 +2134,7 @@ def load_archive_data(cp, channel, seglist, mode=0, verbose=False):
                                       start_date.day),
                                datadir, "*.hdf")
     elif mode == summary.SUMMARY_MODE_WEEK\
-    or mode == summary.SUMMAR_MODE_MONTH:
+    or mode == summary.SUMMARY_MODE_MONTH:
         globstr = os.path.join("archive_monthly",
                                "%d%.2d*" % (start_date.year, start_date.month),
                                datadir, "*.hdf")
@@ -2221,7 +2224,7 @@ def load_archive_spectrogram(cp, channel, seglist, mode=0, verbose=False):
                                       start_date.day),
                                datadir, "*.hdf")
     elif mode == summary.SUMMARY_MODE_WEEK\
-    or mode == summary.SUMMAR_MODE_MONTH:
+    or mode == summary.SUMMARY_MODE_MONTH:
         globstr = os.path.join("archive_monthly",
                                "%d%.2d*" % (start_date.year, start_date.month),
                                datadir, "*.hdf")
@@ -2308,7 +2311,7 @@ def load_archive_spectrum(cp, channel, seglist, mode=0):
                                    % (start.year, start.month, start.day),
                                datadir, "*.hdf")
     elif mode == summary.SUMMARY_MODE_WEEK\
-    or mode == summary.SUMMAR_MODE_MONTH:
+    or mode == summary.SUMMARY_MODE_MONTH:
         globstr = os.path.join("archive_monthly",
                                "%d%.2d*" % (start.year, start.month),
                                datadir, "*.hdf")
@@ -2371,7 +2374,7 @@ def load_archive_segments(cp, flag, seglist, mode=0, verbose=False):
                                    % (start.year, start.month, start.day),
                                datadir, "%s*.xml.gz" % tag)
     elif mode == summary.SUMMARY_MODE_WEEK\
-    or mode == summary.SUMMAR_MODE_MONTH:
+    or mode == summary.SUMMARY_MODE_MONTH:
         globstr = os.path.join("archive_daily",
                                "%d%.2d*" % (start.year, start.month),
                                datadir, "%s*.xml.gz" % tag)
@@ -2471,7 +2474,7 @@ def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
                                    % (start.year, start.month, start.day),
                                datadir, "%s*.xml.gz" % tag)
     elif mode == summary.SUMMARY_MODE_WEEK\
-    or mode == summary.SUMMAR_MODE_MONTH:
+    or mode == summary.SUMMARY_MODE_MONTH:
         globstr = os.path.join("archive_daily",
                                "%d%.2d*" % (start.year, start.month),
                                datadir, "%s*.xml.gz" % tag)
@@ -3288,12 +3291,11 @@ def process_auxiliary_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
                               % (tab.numcoincs[(chan, tab.mainchannel)],\
                                  tab.numcoincs[(tab.mainchannel, chan)],\
                                  chan, tab.mainchannel), verbose=verbose)
+                tab.plotcoincs(outfile, chan, **plotparams)
             elif re.search("slide", plot, re.I):
                 # find significance of coincidences
                 tab.compute_coinc_significance(chan, dt=dt, shifts=shifts)
                 tab.plotsigma(outfile, chan, **plotparams)
-            elif re.search("coinc", plot, re.I):
-                tab.plotcoincs(outfile, chan, **plotparams)
             elif re.search("hist", plot, re.I):
                 if len(tab.segments):
                     plotparams.setdefault("normalize", tab.segments.extent())
@@ -3343,8 +3345,8 @@ class HVetoRound(object):
     self.channel = None
     self.etg = None
     self.freqband = [0, numpy.inf]
-    self.veto_segments = SegmentList()
-    self.significance = None
+    self.veto_segments = SegmentList([])
+    self.significance = numpy.nan
     self.fakesignificance = None
     self.dt = None
     self.snr = None
@@ -3352,7 +3354,9 @@ class HVetoRound(object):
     self.efficiency = [None]
     self.use_percentage = None
     self.safety = [None]
-    self.veto_file = None
+    self.veto_file = ""
+    self.vetoed_h_trigs = lsctables.New(lsctables.SnglBurstTable)
+    self.vetoing_aux_trigs = lsctables.New(lsctables.SnglBurstTable)
 
 
 def write_hveto_results(filename, rounds):
@@ -3375,6 +3379,43 @@ def write_hveto_results(filename, rounds):
                                     os.path.abspath(rounds[i].veto_file)])))
     fobj.write('\n')
   fobj.close()
+
+def load_hveto_results(filename):
+
+  rounds = {}
+  with open(filename, 'r') as fobj:
+    for line in fobj:
+      if re_cchar.match(line): continue
+      i, c, sig, dt, snr, eff, deadtime, safety, f = line.split(' ')
+      i = int(i)
+      rounds[i] = HVetoRound()
+      csplit = c.split(';')
+      if len(csplit) > 2:
+        rounds[i].freqband = map(float, csplit[2][:-2].split('-'))
+      else:
+        rounds[i].freqband = [-numpy.inf, numpy.inf]
+      if len(csplit) > 1:
+        rounds[i].etg = csplit[1]
+      else:
+        rounds[i].etg = 'HACR'
+      rounds[i].channel       = csplit[0]
+      rounds[i].significance  = float(sig)
+      rounds[i].dt            = float(dt)
+      rounds[i].snr           = float(snr)
+      rounds[i].efficiency    = map(float, eff.split(','))
+      rounds[i].deadtime      = map(float, deadtime.split(','))
+      if safety=='None':
+        rounds[i].safety      = [None]
+      else:
+        rounds[i].safety      = map(float, safety.split(','))
+      rounds[i].veto_file     = f.rstrip('\n')
+      hveto_day_xml = ligolw_utils.load_filename(rounds[i].veto_file)
+      rounds[i].veto_segments = SegmentList([])
+      for seg in hveto_day_xml.childNodes[0].childNodes[-1]:
+          rounds[i].veto_segments.append(seg.get())
+      rounds[i].veto_segments.coalesce()
+
+  return rounds
 
 
 def write_round_xml( vetosegs, vetotrigs, winner, ifo):
@@ -3515,74 +3556,11 @@ def get_chan_list( gseq ):
 	# its keys into a proper set.
 	return set(ghash_to_dict( laldetchar.GetChannelList( gseq ) ).keys())
 
-
-def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
-                               htmlonly=False):
+def run_hveto(tab, trig_seq, twind, snr_thresh, sig_stop_thresh, verbose = False):
     """
-    Process some auxiliary channel triggers relative to an analysis channel.
-
-    @param tab
-        hveto object to process
-    @param cp
-        configuration file object
-    @param cpsec
-        name of INI section configuring this Tab
-    @param verbose
-        print verbose output, default: False
-    @param doplots
-        generate plots, default: True
-    @param htmlonly
-        generate enough data for HTML only, default: False
+    Actual hierarchical processing of trigger to make vetoes. Should
+    be spin-off with helper functions into a module or something.
     """
-    tab.etg = cp.has_option(cpsec, "trigger-generator")\
-              and cp.get(cpsec, "trigger-generator")\
-              or cpsec[12:].split()[0]
-    print_verbose("\n----------\nProcessing hveto using %s auxiliary channel triggers for "\
-                  "the %s state...\n" % (tab.etg, tab.state.name),\
-                  verbose=verbose, profile=False)
-
-    #
-    # setup
-    #
-
-    if not os.path.isdir(tab.directory):
-        os.makedirs(tab.directory)
-
-    etgsec = re_cchar.sub("-", tab.etg.lower())
-    tab.cluster = ((cp.has_option(cpsec, "cluster-window") and
-                    cp.getfloat(cpsec, "cluster-window")) or
-                   (cp.has_option(etgsec, "cluster-window") and
-                    cp.getfloat(etgsec, "cluster-window")) or
-                   False)
-
-    # get SNR threshold
-    snr = cp.has_option(cpsec, "snr-threshold")\
-          and cp.getfloat(cpsec, "snr-threshold") or 0
-
-    # get channels
-    tab.mainchannel = (cp.has_option(cpsec, "main-channel") and
-                       cp.get(cpsec, "main-channel")) or None
-    unsafechannels = cp.has_option(cpsec, 'unsafe-channels') and \
-                     [c for i,c in cp.items(cp.get(cpsec, 'unsafe-channels'))] or []
-    auxsec = cp.has_option(cpsec, "auxiliary-channels")\
-             and cp.get(cpsec, "auxiliary-channels")\
-             or "%s-channels" % tab.etg.lower()
-    channels = [c for i,c in cp.items(auxsec) if c != tab.mainchannel and c not in unsafechannels]
-    channels.sort()
-    if tab.mainchannel:
-        allchannels = [tab.mainchannel] + channels
-
-    # get coinc params
-    if cp.has_option(cpsec, "coincidence-windows"):
-        twind = map(float, cp.get(cpsec, "coincidence-windows").split(',') or None)
-    if cp.has_option(cpsec, "snr-aux-thresholds"):
-        snr_thresh = map(float, cp.get(cpsec, "snr-aux-thresholds").split(',') or None)
-    if cp.has_option(cpsec, "significance-threshold"):
-        sig_stop_thresh = cp.getfloat(cpsec, "significance-threshold")
-    freqbands = cp.has_option(cpsec, 'frequency-bands')\
-        and sorted(map(float, cp.get(cpsec, 'frequency-bands').split(',')))\
-        or False
-
     # Type of coincidence:
     # 0 -- Record all coincidences
     # 1 -- Record one or no coincidence per reference trigger
@@ -3591,53 +3569,8 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
     # warning.
     coinc_type = 1
 
-    #
-    # get triggers
-    #
-
-    # get trigfind args
-    trigfind_args = dict()
-    etgsec = re_cchar.sub("-", tab.etg.lower())
-    for opt,val in cp.items(etgsec)+cp.items(cpsec):
-        if opt.startswith("trigfind-"):
-            trigfind_args[opt[9:]] = val
-
-    # get triggers
-    if not htmlonly:
-        trigtables = get_multi_triggers(cp, allchannels, tab.etg, tab.segments,
-                                        cluster=tab.cluster,
-                                        minsnr=snr, **trigfind_args)
-        trig_seq = None
-        swigtriglist = []
-        for chan,trigtable in zip(allchannels, trigtables):
-            tab.add_triggers(chan, trigtable)
-            # convert from glue SnglBurst to swig/lal SnglBurst
-            for trig in trigtable:
-                swigtrig = lalburst.CreateSnglBurst()
-                swigtrig.ifo = trig.ifo
-                swigtrig.search = trig.search
-                swigtrig.start_time = lal.LIGOTimeGPS(trig.start_time + 1e-9*trig.start_time_ns)
-                swigtrig.peak_time = lal.LIGOTimeGPS(trig.peak_time + 1e-9*trig.peak_time_ns)
-                swigtrig.central_freq = trig.peak_frequency
-                if trig.channel != tab.mainchannel and freqbands:
-                    freq_extension = ''
-                    for iF in range(len(freqbands)-1):
-                        if trig.peak_frequency >= freqbands[iF] \
-                                and trig.peak_frequency < freqbands[iF+1]:
-                            freq_extension = '_%g-%gHz' % (freqbands[iF], freqbands[iF+1])
-                    swigtrig.channel = trig.channel + freq_extension
-                else:
-                    swigtrig.channel = trig.channel
-                swigtrig.snr = trig.snr
-                swigtriglist.append(swigtrig)
-                trig_seq = laldetchar.PopulateTrigSequenceFromTrigList(trig_seq, swigtriglist[-1])
-
-    print_verbose("All triggers loaded.\n", verbose=verbose)
 
 
-    #
-    # process and plot auxiliary
-    #
     rnd = 1
     livesegs = tab.segments
     runseg = Segment(tab.start_time, tab.end_time)
@@ -3724,9 +3657,16 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             # Remove vetoed winner triggers from livetime
             vetosegs = SegmentList([])
             fvetosegs = SegmentList([])
+            vetoed_h_trigs = lsctables.New(lsctables.SnglBurstTable)
+            vetoing_aux_trigs = lsctables.New(lsctables.SnglBurstTable)
             for trig in vetoed_trigs:
-                    if trig.channel != winner: continue
-                    #trig = lalburst_sb_to_glue_sb( trig )
+                    if trig.channel != winner and trig.channel != tab.mainchannel: 
+                        continue
+                    if trig.channel == tab.mainchannel:
+                        vetoed_h_trigs.append(trig)
+                        continue
+                    if trig.channel == winner:
+                        vetoing_aux_trigs.append(trig)
                     vs = Segment( trig.get_peak() - wind_win/2.0, trig.get_peak() + wind_win/2.0 )
                     fvs = Segment( float(trig.get_peak() - wind_win/2.0), float(trig.get_peak() + wind_win/2.0 ))
                     vetosegs.append( vs )
@@ -3769,7 +3709,7 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                 break
 
             # Write out vetoes and vetoed triggers
-            xmldoc = write_round_xml( vetosegs, vetoed_trigs, winner, tab.ifo)
+            xmldoc = write_round_xml(vetosegs, vetoed_trigs, winner, tab.ifo)
             fname = "%s/%s-HVETO_ROUND_%d-%d-%d.xml.gz" % (tab.directory, tab.ifo, rnd, int(runseg[0]), int(abs(runseg)))
             ligolw_utils.write_filename( xmldoc, fname, gz=True, verbose=verbose )
 
@@ -3785,6 +3725,14 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             tab.rounds[rnd].safter = [numpy.nan]
             tab.rounds[rnd].veto_file = fname
             tab.rounds[rnd].veto_segments = fvetosegs
+            tab.rounds[rnd].use_percentage = n_trig_vetoed/subround_count[(snr_win, wind_win)][winner]
+            tab.rounds[rnd].vetoing_aux_trigs = vetoing_aux_trigs
+            tab.rounds[rnd].vetoed_h_trigs = vetoed_h_trigs
+
+            # strip channel frequency range from winner channel name and record
+            tmp = winner.split(':')
+            tab.winnerchannels.append(tmp[0] + ':' + tmp[1]) 
+
 
             # put segments into global holder for other parts of summary pages
             hvetoflag='G1:HVETO:1'
@@ -3793,12 +3741,11 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                         != abs(SegmentList([runseg])) or \
                         abs(SegmentList([runseg])) != abs(G_SEGMENT_SUMMARY[hvetoflag]):
                     raise ValueError("Unconsistent processed time span for different rounds of hveto")
-                G_SEGMENTS[hvetoflag] += fvetosegs
+                G_SEGMENTS[hvetoflag] |= fvetosegs
             else:
                 G_SEGMENT_SUMMARY[hvetoflag] = SegmentList([runseg])
-                G_SEGMENTS[hvetoflag]  = fvetosegs
-            G_SEGMENT_SUMMARY[hvetoflag].coalesce()
-            G_SEGMENTS[hvetoflag].coalesce()
+                G_SEGMENTS[hvetoflag] = SegmentList([])
+                G_SEGMENTS[hvetoflag] |= fvetosegs
 
             # Plots and the like
             chansig = defaultdict(dict)
@@ -3829,6 +3776,150 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                 break
             else:
                 rnd +=  1
+    return 
+
+def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
+                               htmlonly=False):
+    """
+    Process some auxiliary channel triggers relative to an analysis channel.
+
+    @param tab
+        hveto object to process
+    @param cp
+        configuration file object
+    @param cpsec
+        name of INI section configuring this Tab
+    @param verbose
+        print verbose output, default: False
+    @param doplots
+        generate plots, default: True
+    @param htmlonly
+        generate enough data for HTML only, default: False
+    """
+    tab.etg = cp.has_option(cpsec, "trigger-generator")\
+              and cp.get(cpsec, "trigger-generator")\
+              or cpsec[12:].split()[0]
+    print_verbose("\n----------\nProcessing hveto using %s auxiliary channel triggers for "\
+                  "the %s state...\n" % (tab.etg, tab.state.name),\
+                  verbose=verbose, profile=False)
+
+    #
+    # setup
+    #
+
+    if not os.path.isdir(tab.directory):
+        os.makedirs(tab.directory)
+
+    etgsec = re_cchar.sub("-", tab.etg.lower())
+    tab.cluster = ((cp.has_option(cpsec, "cluster-window") and
+                    cp.getfloat(cpsec, "cluster-window")) or
+                   (cp.has_option(etgsec, "cluster-window") and
+                    cp.getfloat(etgsec, "cluster-window")) or
+                   False)
+
+    # get SNR threshold
+    snr = cp.has_option(cpsec, "snr-threshold")\
+          and cp.getfloat(cpsec, "snr-threshold") or 0
+
+    # get channels
+    tab.mainchannel = (cp.has_option(cpsec, "main-channel") and
+                       cp.get(cpsec, "main-channel")) or None
+    unsafechannels = cp.has_option(cpsec, 'unsafe-channels') and \
+                     [c for i,c in cp.items(cp.get(cpsec, 'unsafe-channels'))] or []
+    auxsec = cp.has_option(cpsec, "auxiliary-channels")\
+             and cp.get(cpsec, "auxiliary-channels")\
+             or "%s-channels" % tab.etg.lower()
+    channels = [c for i,c in cp.items(auxsec) if c != tab.mainchannel and c not in unsafechannels]
+    channels.sort()
+    if tab.mainchannel:
+        allchannels = [tab.mainchannel] + channels
+
+    # get coinc params
+    if cp.has_option(cpsec, "coincidence-windows"):
+        twind = map(float, cp.get(cpsec, "coincidence-windows").split(',') or None)
+    if cp.has_option(cpsec, "snr-aux-thresholds"):
+        snr_thresh = map(float, cp.get(cpsec, "snr-aux-thresholds").split(',') or None)
+    if cp.has_option(cpsec, "significance-threshold"):
+        sig_stop_thresh = cp.getfloat(cpsec, "significance-threshold")
+    freqbands = cp.has_option(cpsec, 'frequency-bands')\
+        and sorted(map(float, cp.get(cpsec, 'frequency-bands').split(',')))\
+        or False
+
+
+    #
+    # get triggers
+    #
+
+    # get trigfind args
+    trigfind_args = dict()
+    etgsec = re_cchar.sub("-", tab.etg.lower())
+    for opt,val in cp.items(etgsec)+cp.items(cpsec):
+        if opt.startswith("trigfind-"):
+            trigfind_args[opt[9:]] = val
+
+
+
+    #
+    # process hveto
+    #
+    # for long summaries pick-up hveto results form daily pages, otherwise run hveto
+    if tab.mode == summary.SUMMARY_MODE_MONTH:
+        start_date = datetime.datetime(*lal.GPSToUTC(int(tab.start_time))[:6])
+        globstr = os.path.join("archive_daily",
+                               "%d%.2d*"
+                               % (start_date.year, start_date.month),
+                               "analysis/hveto", "full_results.txt")
+        hveto_files = glob.glob(globstr)
+
+        tab.rounds[1] = HVetoRound()
+        tab.rounds[1].channel = 'N/A'
+        for filename in hveto_files:
+            print filename
+            rounds = load_hveto_results(filename)
+            for i in range(1,1+len(rounds)):
+                tab.rounds[1].veto_segments = tab.rounds[1].veto_segments or rounds[i].veto_segments
+        tab.rounds[1].use_percentage = numpy.nan
+        tab.rounds[1].efficiency = [numpy.nan]
+        tab.rounds[1].deadtime = [numpy.nan]
+        trigtable = get_triggers(cp, tab.mainchannel, tab.etg, tab.segments,
+                                 cluster=tab.cluster,
+                                 minsnr=snr, **trigfind_args)
+        tab.add_triggers(tab.mainchannel, trigtable)
+
+    else:
+        # get triggers
+        if not htmlonly:
+            trigtables = get_multi_triggers(cp, allchannels, tab.etg, tab.segments,
+                                            cluster=tab.cluster,
+                                            minsnr=snr, **trigfind_args)
+            trig_seq = None
+            swigtriglist = []
+            for chan,trigtable in zip(allchannels, trigtables):
+                tab.add_triggers(chan, trigtable)
+                # convert from glue SnglBurst to swig/lal SnglBurst
+                for trig in trigtable:
+                    swigtrig = lalburst.CreateSnglBurst()
+                    swigtrig.ifo = trig.ifo
+                    swigtrig.search = trig.search
+                    swigtrig.start_time = lal.LIGOTimeGPS(trig.start_time + 1e-9*trig.start_time_ns)
+                    swigtrig.peak_time = lal.LIGOTimeGPS(trig.peak_time + 1e-9*trig.peak_time_ns)
+                    swigtrig.central_freq = trig.peak_frequency
+                    if trig.channel != tab.mainchannel and freqbands:
+                        freq_extension = ''
+                        for iF in range(len(freqbands)-1):
+                            if trig.peak_frequency >= freqbands[iF] \
+                                    and trig.peak_frequency < freqbands[iF+1]:
+                                freq_extension = ':%g-%gHz' % (freqbands[iF], freqbands[iF+1])
+                        swigtrig.channel = trig.channel + freq_extension
+                    else:
+                        swigtrig.channel = trig.channel
+                    swigtrig.snr = trig.snr
+                    swigtriglist.append(swigtrig)
+                    trig_seq = laldetchar.PopulateTrigSequenceFromTrigList(trig_seq, swigtriglist[-1])
+                    
+        print_verbose("All triggers loaded.\n", verbose=verbose)
+
+        run_hveto(tab, trig_seq, twind, snr_thresh, sig_stop_thresh)
 
     #
     # plot triggers
@@ -3848,14 +3939,14 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
     #
 
     sigmaplot = None
-    channelparams = parse_data_config(cp, cpsec, channels)
-    for chan, params in zip(channels, channelparams):
-        tab.auxplots[chan] = list()
+    # make plots for each winner channel (each round)
+    for chan, rnd in zip(["combined"] + tab.winnerchannels,  range(1+len(tab.winnerchannels))):
+        tab.auxplots[rnd] = list()
         for plot,_ in plots:
             # format plot
             plottag = re_cchar.sub("_", plot[5:].upper())
-            outfile = os.path.join(tab.directory, "%s-%s_%s_%s-%d-%d.png"\
-                                     % (tab.ifo,\
+            outfile = os.path.join(tab.directory, "%s-HVETO_ROUND_%d_%s_%s_%s-%d-%d.png"\
+                                     % (tab.ifo, rnd,\
                                          re_cchar.sub("_", chan[3:].upper()),\
                                         tab.state.tag, plottag,\
                                         tab.start_time, abs(tab.span)))
@@ -3866,46 +3957,24 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             if htmlonly or not doplots:
                 if re.search("slide", plot, re.I):
                     sigmaplot = plot
-                tab.auxplots[chan].append((outfile,\
+                tab.auxplots[rnd].append((outfile,\
                                            plotparams.pop("description", None)))
                 continue
 
             # process data
-            if re.search("slide", plot, re.I):
-                # find significance of coincidences
-                tab.compute_coinc_significance(chan, dt=dt, shifts=shifts)
-                sigmaplot = plot
             if re.search("coinc", plot, re.I):
                 # find coincs
-                tab.get_coincs(chan, tab.mainchannel, dt=dt)
-                tab.get_coincs(tab.mainchannel, chan, dt=dt)
-                print_verbose("(%d,%d) coincs in (%s,%s).\n"\
-                              % (tab.numcoincs[(chan, tab.mainchannel)],\
-                                 tab.numcoincs[(tab.mainchannel, chan)],\
-                                 chan, tab.mainchannel), verbose=verbose)
-            elif re.search("slide", plot, re.I):
-                # find significance of coincidences
-                tab.compute_coinc_significance(chan, dt=dt, shifts=shifts)
-                tab.plotsigma(outfile, chan, **plotparams)
-            elif re.search("coinc", plot, re.I):
-                tab.plotcoincs(outfile, chan, **plotparams)
-            elif re.search("hist", plot, re.I):
-                if len(tab.segments):
-                    plotparams.setdefault("normalize", tab.segments.extent())
-                tab.plothistogram(outfile, chan, **plotparams)
-            elif re.search("rate", plot, re.I):
-                tab.plotrate(outfile, channels=chan, **plotparams)
-            elif re.search("auto", plot, re.I):
-                tab.plotautocorrleation(outfile, channels=chan, **plotparams)
+                tab.plotcoincs(outfile, rnd, **plotparams)
             else:
-                tab.plottable(outfile, chan, **plotparams)        
+                tab.plothistogram(outfile, rnd, **plotparams)        
         print_verbose("%d plots saved for %s.\n" % (len(plots), chan),\
                       verbose=verbose)
 
     #
     # make summary plot
     #
-    tab.plots.append((tab.auxplots[channels[0]][0][0], None))
+    tab.plots.append((tab.auxplots[0][0][0], None))
+    
 
     #
     # write results
@@ -4750,9 +4819,12 @@ def process_squeezing(tab, cp, cpsec, verbose=False, doplots=True,\
             # compute squeezing parameters for this step
             mediandata = []
             for iParam in range(len(serieslist)):
-                tParam = (numpy.arange(serieslist[iParam][i].data.length) * serieslist[iParam][i].deltaT +
-                          float(serieslist[iParam][i].epoch))
-                mediandata.append(numpy.median(serieslist[iParam][i].data.data[(tParam>=seg[0]) & (tParam<seg[1])]))
+                if i < len(serieslist[iParam]):
+                    tParam = (numpy.arange(serieslist[iParam][i].data.length) * serieslist[iParam][i].deltaT +
+                              float(serieslist[iParam][i].epoch))
+                    mediandata.append(numpy.median(serieslist[iParam][i].data.data[(tParam>=seg[0]) & (tParam<seg[1])]))
+                else:
+                    mediandata.append(numpy.nan)
 
             # loop over sources
             for k,s in enumerate(sources):
@@ -5901,10 +5973,14 @@ if __name__=="__main__":
         if len(section_summary[p].children) == 0:
             continue
         if cp.has_section('summary-tab') and cp.has_option('summary-tab', p):
-            summtab = section_summary[p].get_child(cp.get('summary-tab', p))
+            summlist = cp.get('summary-tab', p).split(',')
+            for summname in summlist:
+                summtab = section_summary[p].get_child(summname)
+                tabs.add_child(summtab)
         else:
             summtab = section_summary[p].children[0]
-        tabs.add_child(summtab)
+            if not summtab.skip_summary:
+                tabs.add_child(summtab)
 
     section_summary_tabs = [p for p in section_summary.values() if
                             len(p.children)!=0]

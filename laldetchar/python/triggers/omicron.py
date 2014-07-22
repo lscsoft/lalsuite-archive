@@ -18,7 +18,8 @@
 """Read Omicron events from ROOT files
 """
 #
-# \heading{Synopsis}
+# ### Synopsis ###
+#
 # ~~~
 # from laldetchar.triggers import omicron
 # ~~~
@@ -248,8 +249,6 @@ def from_root(filename, columns=None, start=None, end=None,
         GPS start time after which to restrict returned events
     @param end
         GPS end time before which to restrict returned
-    @param ifo
-        observatory that produced the given data
     @param channel
         source channel that produced the given data
     @param columns

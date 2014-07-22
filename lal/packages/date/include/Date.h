@@ -45,20 +45,21 @@ extern "C"
  * \addtogroup Date_h
  * \author D.W. Chin, J.D.E. Creighton and Kipp Cannon
  * \brief Provides routines for manipulating date and time information.
-
-\heading{Synopsis}
-\code
-#include <lal/Date.h>
-\endcode
-
-This header covers routines for manipulating date and time
-information.  The various time systems are discussed in [\ref esaa1992].
-
-*/
+ *
+ * ### Synopsis ###
+ *
+ * \code
+ * #include <lal/Date.h>
+ * \endcode
+ *
+ * This header covers routines for manipulating date and time
+ * information.  The various time systems are discussed in \cite esaa1992.
+ *
+ */
 /*@{*/
 
-/** The UNIX time of the GPS origin epoch.
- *
+/**
+ * The UNIX time of the GPS origin epoch.
  * 1980 6 JAN 0h UTC is 3657 days after 1970 1 JAN 0h UTC:
  * 8 standard years of 365 days = 2920 days
  * 2 leap years of 366 days = 734 days
@@ -70,9 +71,9 @@ information.  The various time systems are discussed in [\ref esaa1992].
  * \c time_t \c t and a broken down time \c struct \c tm \c utc as
  * \code
  * t = utc.tm_sec + utc.tm_min*60 + utc.tm_hour*3600
- *     + utc.tm_yday*86400 + (utc.tm_year-70)*31536000
- *     + ((utc.tm_year-69)/4)*86400 - ((utc.tm_year-1)/100)*86400
- *     + ((utc.tm_year+299)/400)*86400;
+ * + utc.tm_yday*86400 + (utc.tm_year-70)*31536000
+ * + ((utc.tm_year-69)/4)*86400 - ((utc.tm_year-1)/100)*86400
+ * + ((utc.tm_year+299)/400)*86400;
  * \endcode
  * so if you were to set \c utc.tm_sec=utc.tm_min=utc.tm_hour=0,
  * \c utc.tm_yday=5, and \c utc.tm_year=80, then you get
@@ -88,7 +89,8 @@ information.  The various time systems are discussed in [\ref esaa1992].
 #define XLAL_MJD_REF 2400000.5                  /**< Reference Julian Day for Mean Julian Day. */
 #define XLAL_MODIFIED_JULIEN_DAY(utc) (XLALJulianDay(utc)-XLAL_MJD_REF) /**< Modified Julian Day for specified civil time structure. */
 
-/** This structure stores pointers to a ::LALDetector and a
+/**
+ * This structure stores pointers to a ::LALDetector and a
  * ::LIGOTimeGPS. Its sole purpose is to aggregate these
  * structures for passing to functions.
  */
@@ -104,7 +106,7 @@ LALPlaceAndGPS;
 
 /* ---------- Function prototypes : see respective source.c files for doxygen documentation ---------- */
 
-#ifndef SWIG // exclude from SWIG interface
+#ifndef SWIG /* exclude from SWIG interface */
 
 /* Converts GPS time to nano seconds stored as an INT8. */
 INT8 XLALGPSToINT8NS( const LIGOTimeGPS *epoch );
@@ -121,11 +123,13 @@ LIGOTimeGPS * XLALGPSSetREAL8( LIGOTimeGPS *epoch, REAL8 t );
 /* Returns GPS time as a REAL8. */
 REAL8 XLALGPSGetREAL8( const LIGOTimeGPS *epoch );
 
-/** Breaks the GPS time into REAL8 integral and fractional parts,
+/**
+ * Breaks the GPS time into REAL8 integral and fractional parts,
  * each of which has the same sign as the epoch.  Returns the
  * fractional part, and stores the integral part (as a REAL8)
  * in the object pointed to by iptr.  Like the standard C math
- * library function modf(). */
+ * library function modf().
+ */
 REAL8 XLALGPSModf( REAL8 *iptr, const LIGOTimeGPS *epoch );
 
 /* Adds dt to a GPS time. */
@@ -152,16 +156,16 @@ int XLALStrToGPS(LIGOTimeGPS *t, const char *nptr, char **endptr);
 /* Return a string containing the ASCII base 10 representation of a LIGOTimeGPS. */
 char *XLALGPSToStr(char *, const LIGOTimeGPS *t);
 
-#endif // !SWIG
+#endif /* !SWIG */
 
-#ifdef SWIG // SWIG interface directives
+#ifdef SWIG /* SWIG interface directives */
 SWIGLAL(NEW_EMPTY_ARGUMENT(LIGOTimeGPS*, gpstime));
 #endif
 
 /* This function returns the current GPS time according to the system clock */
 LIGOTimeGPS* XLALGPSTimeNow( LIGOTimeGPS *gpstime );
 
-#ifdef SWIG // SWIG interface directives
+#ifdef SWIG /* SWIG interface directives */
 SWIGLAL_CLEAR(NEW_EMPTY_ARGUMENT(LIGOTimeGPS*, gpstime));
 #endif
 
@@ -177,7 +181,7 @@ int XLALLeapSecondsUTC( const struct tm *utc );
 /* Returns the GPS seconds since the GPS epoch for a specified UTC time structure. */
 INT4 XLALUTCToGPS( const struct tm *utc );
 
-#ifdef SWIG // SWIG interface directives
+#ifdef SWIG /* SWIG interface directives */
 SWIGLAL(EMPTY_ARGUMENT(struct tm*, utc));
 #endif
 
@@ -185,7 +189,7 @@ SWIGLAL(EMPTY_ARGUMENT(struct tm*, utc));
  * specified in seconds since the GPS epoch.  */
 struct tm* XLALGPSToUTC( struct tm *utc, INT4 gpssec );
 
-#ifdef SWIG // SWIG interface directives
+#ifdef SWIG /* SWIG interface directives */
 SWIGLAL_CLEAR(EMPTY_ARGUMENT(struct tm*, utc));
 #endif
 

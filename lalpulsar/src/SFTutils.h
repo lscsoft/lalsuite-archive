@@ -31,7 +31,6 @@ extern "C" {
  * \date 2005
  * \brief Utility functions for handling of SFTtype and SFTVectors
  *
- *
  * The helper functions XLALCreateSFT(), XLALDestroySFT(), XLALCreateSFTVector()
  * and XLALDestroySFTVector() respectively allocate and free SFT-structs and SFT-vectors.
  * Similarly, XLALCreateTimestampVector() and XLALDestroyTimestampVector() allocate and free
@@ -96,7 +95,9 @@ extern const MultiNoiseWeights empty_MultiNoiseWeights;
 
 
 // ---------- obsolete LAL-API was moved into external file
+#ifndef SWIG /* exclude from SWIG interface */
 #include "SFTutils-LAL.h"
+#endif
 // ------------------------------
 
 /*---------- exported prototypes [API] ----------*/
@@ -122,6 +123,8 @@ MultiLIGOTimeGPSVector *XLALExtractMultiTimestampsFromSFTs ( const MultiSFTVecto
 
 LIGOTimeGPSVector *XLALTimestampsFromSFTCatalog ( const SFTCatalog *catalog );
 MultiLIGOTimeGPSVector *XLALTimestampsFromMultiSFTCatalogView ( const MultiSFTCatalogView *multiView );
+
+LIGOTimeGPSVector *XLALTimestampsFromSegmentFile( const char *filename, REAL8 Tsft, REAL8 Toverlap, INT4 adjustSegExtraTime, INT4 synchronize );
 
 void XLALDestroyTimestampVector (LIGOTimeGPSVector *vect);
 void XLALDestroyMultiTimestamps ( MultiLIGOTimeGPSVector *multiTS );

@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2007  Kipp C. Cannon
+ * Copyright (C) 2007,2009,2011-2013  Kipp C. Cannon
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the

@@ -301,7 +301,7 @@ class LIGOTimeGPS(object):
 		nhi = self.__nanoseconds - nlo
 		slo = self.__seconds % 2**26
 		shi = self.__seconds - slo
-		olo = other % 2**(int(math.log(other, 2)) - 26)
+		olo = other % 2**(int(math.log(other, 2)) - 26) if other else 0
 		ohi = other - olo
 		product = LIGOTimeGPS(0)
 
@@ -310,27 +310,27 @@ class LIGOTimeGPS(object):
 		addend -= float(gps_addend)
 		product += gps_addend
 
-		addend = (nlo * ohi + nhi * olo) * 1e-9
+		addend += (nlo * ohi + nhi * olo) * 1e-9
 		gps_addend = LIGOTimeGPS(addend)
 		addend -= float(gps_addend)
 		product += gps_addend
 
-		addend = nhi * ohi * 1e-9
+		addend += nhi * ohi * 1e-9
 		gps_addend = LIGOTimeGPS(addend)
 		addend -= float(gps_addend)
 		product += gps_addend
 
-		addend = slo * olo
+		addend += slo * olo
 		gps_addend = LIGOTimeGPS(addend)
 		addend -= float(gps_addend)
 		product += gps_addend
 
-		addend = slo * ohi + shi * olo
+		addend += slo * ohi + shi * olo
 		gps_addend = LIGOTimeGPS(addend)
 		addend -= float(gps_addend)
 		product += gps_addend
 
-		addend = shi * ohi
+		addend += shi * ohi
 		gps_addend = LIGOTimeGPS(addend)
 		addend -= float(gps_addend)
 		product += gps_addend
@@ -871,3 +871,6 @@ class Cache(list):
 				raise ValueError("Why am I here? "\
 				      "Please file a bug report!")
 		return self.__class__(c_found), self.__class__(c_missed)
+
+	def __getslice__(self, i, j):
+		return self.__class__(super(Cache, self).__getslice__(i, j))
