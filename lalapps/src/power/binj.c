@@ -369,9 +369,9 @@ static void print_usage(void)
 "	Select output name (default is too hard to explain).\n" \
 "\n" \
 "--population name\n" \
-"	Select the injection population to synthesize.  Allowed values are\n" \
+"	Select the injection population to synthesize.  Allowed values are\n" 
 "	\"targeted\", \"string_cusp\", \"all_sky_sinegaussian\", \"all_sky_gaussian\",\n" \
-"	\"all_sky_sinegaussian_F\", \"all_sky_btlwnb\".\n" \
+"	\"all_sky_sinegaussian_F\", \"all_sky_btlwnb\", \"all_sky_DampedSinusoid\".\n" \
 "\n" \
 "--ra-dec ra,dec\n" \
 "	Set the right-ascension and declination of the sky location from which\n" \
@@ -1561,6 +1561,8 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
     strcpy(sim_burst->waveform, "SineGaussianF");
   else if (options->population==POPULATION_ALL_SKY_GAUSSIAN)
     strcpy(sim_burst->waveform, "Gaussian");
+  else if (options->population==POPULATION_ALL_SKY_DAMPEDSINUSOID)
+    strcpy(sim_burst->waveform, "DampedSinusoid");
   else{
     fprintf(stderr,"Unrecognized population %d. Exiting\n",options->population);
     exit(1);
