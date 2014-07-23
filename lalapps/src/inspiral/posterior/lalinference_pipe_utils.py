@@ -836,8 +836,6 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     elif len(ifos)==1:
       thisifo=ifos[0]
       idx=self.ifos.index(thisifo)
-      
-      
     if self.dataseed:
       node.set_dataseed(self.dataseed+5*event.event_id+idx)
     gotdata=0
@@ -864,13 +862,13 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       if len(ifos)==0: node.ifos=node.cachefiles.keys()
       else: node.ifos=ifos
       node.timeslides=dict([ (ifo,0) for ifo in node.ifos])
-      gotdata=1
+      gotdata=len(node.ifos)
     if self.config.has_option('lalinference','psd-xmlfile'):
       psdpath=os.path.realpath(self.config.get('lalinference','psd-xmlfile'))
       node.psds=get_xml_psds(psdpath,ifos,os.path.join(self.basepath,'PSDs'),end_time=end_time) 
       if len(ifos)==0: node.ifos=node.cachefiles.keys()
       else: node.ifos=ifos
-      gotdata=1
+      gotdata=len(node.ifos)
     if self.config.has_option('input','gid'):
       if os.path.isfile(os.path.join(self.basepath,'psd.xml.gz')):
         psdpath=os.path.join(self.basepath,'psd.xml.gz')
@@ -889,20 +887,20 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         node.cachefiles[ifo]=os.path.join(self.basepath,node.cachefiles[ifo])
         node.add_input_file(os.path.join(self.basepath,node.psds[ifo]))
         node.psds[ifo]=os.path.join(self.basepath,node.psds[ifo])
+      node.timeslides=dict([ (ifo,0) for ifo in node.ifos])
       if len(ifos)==0: node.ifos=node.cachefiles.keys()
       else: node.ifos=ifos
-      node.timeslides=dict([ (ifo,0) for ifo in node.ifos])
-      gotdata=1
+      gotdata=len(node.ifos)
     else:
       # Add the nodes it depends on
       for seg in node.scisegs.values():
         dfnode=seg.get_df_node()
         if dfnode is not None and dfnode not in self.get_nodes():
     	  self.add_node(dfnode)
-    if gotdata:
+    if gotdata==len(ifos) and gotdata>0:
       self.add_node(node)
     else:
-      'Print no data found for time %f'%(end_time)
+      print 'no data found for time %f'%(end_time)
       return None
     if extra_options is not None:
       for opt in extra_options.keys():
