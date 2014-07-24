@@ -88,6 +88,7 @@ typedef enum {
    EOBNRv2,		/**< UNDOCUMENTED */
    EOBNRv2HM,		/**< UNDOCUMENTED */
    SEOBNRv1,		/**< Spin-aligned EOBNR model */
+   HGimri,		/**< */
    IMRPhenomA,		/**< Time domain (non-spinning) inspiral-merger-ringdown waveforms generated from the inverse FFT of IMRPhenomFA  */
    IMRPhenomB,		/**< Time domain (non-precessing spins) inspiral-merger-ringdown waveforms generated from the inverse FFT of IMRPhenomFB */
    IMRPhenomFA,		/**< Frequency domain (non-spinning) inspiral-merger-ringdown templates of Ajith et al [Ajith_2007kx] with phenomenological coefficients defined in the Table I of [Ajith_2007xh]*/
@@ -1649,6 +1650,18 @@ int XLALSimInspiralTaylorEtPNGenerator(
 	       	int phaseO                /**< twice post-Newtonian phase order */
 		);
 
+int XLALimriGenerator(
+		REAL8TimeSeries **hplus,
+		REAL8TimeSeries **hcross,
+		REAL8 phiRef,
+		REAL8 deltaT,
+		REAL8 m1,
+		REAL8 m2,
+		REAL8 f_min,
+		REAL8 r,
+		REAL8 i,
+		REAL8 S1z);
+
 /**
  * Driver routine to compute the post-Newtonian inspiral waveform.
  *
@@ -1691,7 +1704,6 @@ int XLALSimInspiralTaylorEtPNRestricted(
 	       	REAL8 i,                  /**< inclination of source (rad) */
 	       	int O                     /**< twice post-Newtonian phase order */
 		);
-
 
 /**
  * Structure for passing around PN phasing coefficients.

@@ -86,6 +86,18 @@ static int checkSpinsZero(REAL8 s1x, REAL8 s1y, REAL8 s1z,
         return 1;
 }
 
+/* Internal utility function to check that the second body's spin components are zero.
+   Returns 1 if all components are zero, otherwise returns 0 */
+static int checkCOSpinZero(REAL8 s2x, REAL8 s2y, REAL8 s2z);
+
+static int checkCOSpinZero(REAL8 s2x, REAL8 s2y, REAL8 s2z)
+{
+    if (s2x != 0. || s2y != 0. || s2z != 0.)
+	return 0;
+    else
+	return 1;
+}
+
 /* Internal utility function to check transverse spins are zero
    returns 1 if x and y components of spins are zero, otherwise returns 0 */
 static int checkTransverseSpinsZero(REAL8 s1x, REAL8 s1y, REAL8 s2x, REAL8 s2y);
@@ -146,6 +158,17 @@ static int checkTidesZero(REAL8 lambda1, REAL8 lambda2)
 	do {\
 	XLALSimInspiralDestroyWaveformFlags(waveFlags);\
 	XLALPrintError("XLAL Error - %s: Non-zero spins were given, but this is a non-spinning approximant.\n", __func__);\
+	XLAL_ERROR(XLAL_EINVAL);\
+	} while (0)
+
+/**
+ * Macro procedure for aborting if non-zero spin2
+ * components given to central-spin-only approximant
+ */
+#define ABORT_NONZERO_SPIN2(waveFlags)\
+	do {\
+	XLALSimInspiralDestroyWaveformFlags(waveFlags);\
+	XLALPrintError("XLAL Error - %s: Non-zero CO spin given, but this approximant does not support this case.\n", __func__);\
 	XLAL_ERROR(XLAL_EINVAL);\
 	} while (0)
 
@@ -1929,6 +1952,16 @@ int XLALSimInspiralChooseTDWaveform(
                     deltaT, m1, m2, f_min, r, i, S1z, S2z);
             break;
 
+	case HGimri:
+	     /* Waveform-specific sanity checks */
+	     if( !checkTidesZero(lambda1, lambda2) )
+		 ABORT_NONZERO_TIDES(waveFlags);
+	     if( !checkCOSpinZero(S2x, S2y, S2z) )
+		 ABORT_NONZERO_SPIN2(waveFlags);
+	     /* Call the waveform driver */
+	     ret = XLALimriGenerator(hplus, hcross, phiRef, deltaT, m1, m2, f_min, r, i, S1z);
+	     break;
+
         default:
             XLALPrintError("TD version of approximant not implemented in lalsimulation\n");
             XLAL_ERROR(XLAL_EINVAL);
@@ -2709,6 +2742,10 @@ int XLALGetApproximantFromString(const CHAR *inString)
   else if ( strstr(inString, "SEOBNRv1" ) )
   {
     return SEOBNRv1;
+  }
+  else if ( strstr(inString, "HGimri" ) )
+  {
+    return HGimri;
   }
   else if ( strstr(inString, "EOBNRv2HM" ) )
   {

@@ -39,7 +39,8 @@ bin_PROGRAMS = \
 	lalsim-ns-mass-radius \
 	lalsim-ns-params \
 	lalsim-sgwb \
-	lalsim-unicorn
+	lalsim-unicorn \
+	#lalsim-imri
 
 lalsimulationincludedir = $(includedir)/lal
 lalsimulationinclude_HEADERS = \
@@ -118,6 +119,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralTaylorLength.c \
 	LALSimInspiralWaveformCache.c \
 	LALSimInspiralWaveformTaper.c \
+	LALSimInspiralHG.c \
 	LALSimulation.c \
 	LALSimulationVCSInfo.c \
 	LALSimNeutronStarEOS.c \
@@ -144,6 +146,7 @@ lalsim_ns_params_SOURCES = ns-params.c
 lalsim_sgwb_SOURCES = sgwb.c
 lalsim_unicorn_SOURCES = unicorn.c
 lalsim_detector_noise_SOURCES = detector_noise.c
+#lalsim_imri_SOURCES = LALSimInspiralHG.c
 
 MOSTLYCLEANFILES = \
 	lalsimulation-user-env.shell \
