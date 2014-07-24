@@ -119,7 +119,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralTaylorLength.c \
 	LALSimInspiralWaveformCache.c \
 	LALSimInspiralWaveformTaper.c \
-	LALSimInspiralHG.c \
+	LALSimInspiralHGimri.c \
 	LALSimulation.c \
 	LALSimulationVCSInfo.c \
 	LALSimNeutronStarEOS.c \
