@@ -1066,11 +1066,17 @@ INT4 XLALimriGenerator(
 	F.function = &XLALInitialP;
 	F.params = &p0Params;
 
-	REAL8 Z1 = 1. + pow((1.-a*a),1./3.)*(pow(1.+a, 1./3.)+pow(1.-a, 1./3.));
-	REAL8 Z2 = sqrt(3.*a*a + Z1*Z1);
 	REAL8 p0 = 0.;
-	REAL8 p_low = 3. + Z2 - (a/fabs(a))*sqrt((3. - Z1)*(3. + Z1 + 2.*Z2)); //ISCO
-	REAL8 p_high = 500.;
+	REAL8 p_high = 1000.;
+	REAL8 p_low = 0.;
+
+	if (a==0.) p_low = 6.; //ISCO
+	else {
+		REAL8 Z1 = 1. + pow((1.-a*a),1./3.)*(pow(1.+a, 1./3.)+pow(1.-a, 1./3.));
+		REAL8 Z2 = sqrt(3.*a*a + Z1*Z1);
+		p_low = 3. + Z2 - (a/fabs(a))*sqrt((3. - Z1)*(3. + Z1 + 2.*Z2));
+		}
+
 
 	T = gsl_root_fsolver_brent;
 	s = gsl_root_fsolver_alloc(T);
