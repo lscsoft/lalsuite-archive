@@ -255,6 +255,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
                                                                                 TaylorF2RedSpinTidal, IMRPhenomA, IMRPhenomB, IMRPhenomP.\n\
                (--amporder PNorder)            Specify a PN order in amplitude to use (defaults: LALSimulation: max available; LALInspiral: newtownian).\n\
                (--fref fRef)                   Specify a reference frequency at which parameters are defined (default 0).\n\
+               (--fmax fMax)                   Specify a maximum frequency for the template and likelihood calculation (default 0).\n\
                (--tidal)                       Enables tidal corrections, only with LALSimulation.\n\
                (--tidalT)                      Enables reparmeterized tidal corrections, only with LALSimulation.\n\
                (--spinOrder PNorder)           Specify twice the PN order (e.g. 5 <==> 2.5PN) of spin effects to use, only for LALSimulation (default: -1 <==> Use all spin effects).\n\
@@ -374,6 +375,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
   LALPNOrder AmpOrder=-1;
   Approximant approx=NumApproximants;
   REAL8 fRef = 100.0;
+  REAL8 fMax = 0.0;
   LALInferenceApplyTaper bookends = LALINFERENCE_TAPER_NONE;
   LALInferenceFrame frame = LALINFERENCE_FRAME_SYSTEM;
   UINT4 analytic=0;
@@ -524,6 +526,9 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
 
   ppt=LALInferenceGetProcParamVal(commandLine, "--fref");
   if (ppt) fRef = atof(ppt->value);
+
+  ppt=LALInferenceGetProcParamVal(commandLine, "--fmax");
+  if (ppt) fMax = atof(ppt->value);
 
   ppt=LALInferenceGetProcParamVal(commandLine,"--modeldomain");
   if(ppt){
@@ -766,6 +771,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
   LALInferenceAddVariable(currentParams, "LAL_AMPORDER",     &AmpOrder,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
 
   LALInferenceAddVariable(currentParams, "fRef", &fRef, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(currentParams, "fMax", &fMax, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
   REAL8 fLow = state->data->fLow;
   ppt=LALInferenceGetProcParamVal(commandLine,"--varyFlow");

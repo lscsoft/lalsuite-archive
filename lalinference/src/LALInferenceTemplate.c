@@ -473,6 +473,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
 
   f_start = fLow2fStart(f_low, amporder, approximant);
   f_max = 0.0; /* for freq domain waveforms this will stop at ISCO. Previously found using IFOdata->fHigh causes NaNs in waveform (see redmine issue #750)*/
+  if (LALInferenceCheckVariable(IFOdata->modelParams, "fMax")) f_max = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "fMax");
 
   int aligned_spins=0;
   /* We first check if we are deadling with a spin-aligned only template, for which we use "spin1" and "spin2" names */
