@@ -351,7 +351,16 @@ int XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
                          )
 {
   int status; /* used throughout */
-
+    //debugPK
+	FILE *fout;
+	static int iii = 0; char fname[200]; char iiiStr[20];
+	strcpy( fname, "/home/prayush/research/SEOBNRv2-3/integrator_studies/RawIntegratorOutput.dat");
+	snprintf( iiiStr, 20, "%d", iii );
+	strcat( fname, iiiStr );
+	fout = fopen( fname,"w+"); 
+    fprintf(stdout, "Integrator output statement accepted. iii = %d\n", ++iii-1);
+    fflush(stdout);
+    
 	/* needed for the integration */
   size_t dim, bufferlength, cnt, retries;
 	REAL8 t, tnew, h0;
@@ -403,7 +412,8 @@ int XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
 
 	/* note: for speed, this replaces the single CALLGSL wrapper applied before each GSL call */
 	XLAL_BEGINGSL;
-
+  //debugPK
+  double errlevels* = NULL; errlevels = calloc( dim * sizeof(double) );
   while(1) {
 
      if (!integrator->stopontestonly && t >= tend) {
@@ -446,6 +456,13 @@ int XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
     }
 
     tnew = t + h0;
+    
+    //debugPK : Store the desired error levels
+    for(double errlevel=0,unsigned int i=0; i < dim; i++){
+      errlevels[i] = 0;
+      errcode = gsl_odeiv2_control_errlevel(integrator->control, y, dydt_out, h0, (const size_t) i, &errlevel);
+      errlevels[i] = errlevel;
+    }
 
     /* call the GSL error-checking function */
     status = gsl_odeiv_control_hadjust(integrator->control,integrator->step,y,yerr,dydt_out,&h0);
@@ -483,9 +500,32 @@ int XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
     /* copy time and state into interpolation buffers */
     buffers->data[cnt] = t;
     for(unsigned int i=1;i<=dim;i++) buffers->data[i*bufferlength + cnt] = y[i-1]; /* y does not have time */
+    //debugPK
+        //printf("%.4f\t%.4f\t%.4f\n", 
+        //    y[0], dydt_out[1], dydt_out[3]); fflush(NULL);
+    fprintf(fout, "#\t t\t y[%d]\t dydt[%d]\n", (int) dim, (int) dim);
+    fprintf(fout, "%.12e\t", t);
+    for(unsigned int i=0; i<dim; i++){
+      fprintf(fout, "%.12e\t", y[i]);
+    }
+    for(unsigned int i=0; i < dim; i++){
+      fprintf(fout, "%.12e\t", dydt_out[i]);
+    }
+    for(unsigned int i=0; i < dim; i++){
+      fprintf(fout, "%.12e\t", yerr[i]);
+    }
+    for(double errlevel=0,unsigned int i=0; i < dim; i++){
+      fprintf(fout, "%.12e\t", errlevel);
+    }
+
+
+    fprintf(fout, "\n");
+    fflush(fout);
+	
   }
 	XLAL_ENDGSL;
-
+	//debugPK
+	fclose(fout);
 	/* copy the final state into yinit */
 
 	memcpy(yinit,y,dim*sizeof(REAL8));
