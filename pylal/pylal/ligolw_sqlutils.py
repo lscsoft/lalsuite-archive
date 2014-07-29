@@ -1211,7 +1211,7 @@ def simplify_summ_tbls(connection, verbose=False, debug=False):
             print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
-        # commit transactions to database and close the cursor
+        # commit transactions to database
         connection.commit()
 
         if debug:
@@ -1287,7 +1287,7 @@ def update_pid_in_snglstbls(connection, verbose=False, debug=False):
             print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
-        # commit transactions to database and close the cursor
+        # commit transactions to database
         connection.commit()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
@@ -1546,7 +1546,6 @@ def simplify_expr_tbl(connection, verbose=False, debug=False):
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
-        cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
 
@@ -1669,7 +1668,6 @@ def simplify_exprsumm_tbl(connection, verbose=False, debug=False):
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
-        cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
 
@@ -2076,7 +2074,6 @@ def simplify_coincdef_tbl(connection, verbose=False, debug=False):
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
-        cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
 
@@ -2673,9 +2670,8 @@ def simplify_segments_tbls(connection, verbose=False, debug=False):
             print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
-        # commit transactions to database and close the cursor
+        # commit transactions to database
         connection.commit()
-        cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
 
@@ -2686,6 +2682,8 @@ def simplify_segments_tbls(connection, verbose=False, debug=False):
 
         if debug:
             print >> sys.stderr, "Indexes readded at: %s" % str(time.localtime()[3:6])
+
+        cursor.close()
 
     else:
         if verbose:
@@ -2959,9 +2957,8 @@ def simplify_vetodef_tbl(connection, verbose=False, debug=False):
             print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
-        # commit transactions to database and close the cursor
+        # commit transactions to database
         connection.commit()
-        cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
 
@@ -2972,6 +2969,8 @@ def simplify_vetodef_tbl(connection, verbose=False, debug=False):
 
         if debug:
             print >> sys.stderr, "Indexes readded at: %s" % str(time.localtime()[3:6])
+
+        cursor.close()
 
     else:
         if verbose:

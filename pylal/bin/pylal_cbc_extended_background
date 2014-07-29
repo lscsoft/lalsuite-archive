@@ -1,0 +1,335 @@
+#!/usr/bin/env python
+""" This program calculates an extended background
+estimate from ihope results where chisq is calculated at the first stage.
+Results are output in the current directory
+"""
+import optparse
+import glob
+import numpy
+import copy
+
+from numpy import sqrt
+from itertools import chain, combinations
+from glue.ligolw import ligolw, lsctables, utils
+from glue import segments
+
+class AutoVivification(dict):
+    """Implementation of perl's autovivification feature."""
+    def __getitem__(self, item):
+        try:
+            return dict.__getitem__(self, item)
+        except KeyError:
+            value = self[item] = type(self)()
+            return value
+
+def get_name_from_cat(cl):
+    if cl == 2:
+        return 'CAT_2'
+    elif cl == 3:
+        return 'CAT_3'
+    elif cl == 4:
+        return 'CAT_4'
+    else:
+        return None
+
+def get_cat_from_name(fname):
+    if fname.find("CAT_4") != -1 or fname.find("CATEGORY_4") != -1:
+        return 4
+    elif fname.find("CAT_3") != -1 or fname.find("CATEGORY_3") != -1:
+        return 3
+    elif fname.find("CAT_2") != -1 or fname.find("CATEGORY_2") != -1:
+        return 2
+    else:
+        return None 
+
+def gather_zerofar(file_glob):
+    """ Check for zero far events in the loudest events summaries
+     
+     This function looks through the loudest event summaries for zero far
+     events. This includes doubles and triples. For triples it takes the 
+     loudest two component single triggers, as we calculate the background 
+     only from double coicidences. 
+     
+     A loudest_event table is returned with only the zero far events. Only the
+     data for the two loudest single detector events is kept. 
+    """
+
+    input_files = glob.glob(file_glob)
+
+    output_doc=ligolw.Document()
+    output_doc.appendChild(ligolw.LIGO_LW())
+
+    events = {}
+    cats = []
+    
+    # Read through the glob of loudest event summaries and look for zer far
+    # events.
+    zerofar_table =  None
+    for fname in input_files:
+        cat_level = get_cat_from_name(fname)
+    
+        xmldoc = utils.load_filename(fname, gz=fname.endswith("gz") )
+        loudest = lsctables.table.get_table(xmldoc, "loudest_events")
+
+        if zerofar_table is None:
+        # hack to create an empty table of this custom table type
+            zerofar_table = copy.deepcopy(loudest)
+            while len(zerofar_table) > 0:
+                del zerofar_table[0]
+
+        # If we find a zero far event store the single triggers into a group
+        # indexed by the coinc event id
+        for event in loudest:
+            if event.combined_far == 0:
+                if event.coinc_event_id not in events:
+                    events[event.coinc_event_id] = [event]
+                else:
+                    events[event.coinc_event_id].append(event)
+                cats.append(cat_level)
+                
+    print "There are %s zero far events" % len(events)
+    
+    # We only caculate coincs from double events
+    # so if it was a triple we go through and remove the quitest 
+    # detector. 
+    for id_val in events:
+        sngl_snr = []
+        event_group = events[id_val]
+        for event in event_group:
+            sngl_snr.append(event.sngl_snr)
+        max_index1 = sngl_snr.index(max(sngl_snr))
+        sngl_snr[max_index1] = -1
+        max_ifo1 = event_group[max_index1]
+
+        max_index2 = sngl_snr.index(max(sngl_snr))
+        max_ifo2 = event_group[max_index2]  
+
+        zerofar_table.append(max_ifo1)
+        zerofar_table.append(max_ifo2)
+          
+    return zerofar_table, cats
+
+def create_combined_trig_files(base, ifos, cats, new_snr_cut):
+    """ Do a cut by new snr of the single detector triggers for each CAT level
+    """
+    from pylal import gatherloudtrigs
+    
+    trig_dat = AutoVivification()
+    
+    for ifo in ifos:
+        fnames =  glob.glob(base + "/full_data/" + ifo + "-INSPIRAL_FIRST_FULL_DATA*.xml.gz")
+        veto_files = glob.glob(base + "/segments/" + str(ifo) + "-CATEGORY_*_VETO_SEGS-*.txt")
+        trigs, livetime = gatherloudtrigs.get_loud_trigs(fnames, veto_files, new_snr_cut)
+        for trig, lv, vf in zip(trigs, livetime, veto_files):
+            cat_level = get_cat_from_name(vf)
+            trig_dat[cat_level][ifo] = (trig, lv)           
+    return trig_dat
+
+
+def calc_background_coincs(ztrig, cats, single_trigs, ethinca, slide, 
+                           veto_window, param_range, coinc_threshold):
+    """ Get the background coincidences for each zero far trigger.
+    """
+    from pylal import extended_background_utils as loud_event_coincs
+    trig_csnrs = []
+    trig_vcsnrs = []
+    for ind in range(len(ztrig)/2):
+        t1 = ztrig[ind*2]
+        t2 = ztrig[ind*2+1]
+        
+        cat = cats[ind*2]
+    
+        d1_trigs, lv1 = single_trigs[cat][ztrig[0].sngl_ifo]
+        d2_trigs, lv2 = single_trigs[cat][ztrig[1].sngl_ifo]
+        
+        mchirp = 0.5 * (t1.sngl_mchirp + t2.sngl_mchirp)
+        
+        mchirp_bins = loud_event_coincs.parse_mchirp_bins(param_range)
+        min_mchirp, max_mchirp = loud_event_coincs.get_mchirp_bin(mchirp, mchirp_bins)
+        
+        # We only consider coics above this threshold
+        threshold = t1.snr * coinc_threshold
+        
+        print "Trigger at snr %s " % t1.snr
+        print "Using threshold at snr %s" % threshold
+        
+        # Get the list of coincs
+        coincs =  loud_event_coincs.find_slide_coincs(d1_trigs, d2_trigs, 
+                            min_mchirp, max_mchirp, ethinca, slide, threshold)
+             
+        # Get the list of coincs after removing those caused by
+        # events around the zero far trigger
+        veto_start = t1.end_time - veto_window
+        veto_end = t1.end_time + veto_window
+        veto_coincs = loud_event_coincs.get_veto_coincs(coincs, veto_start, veto_end)
+        
+        coinc_snr = coincs.get_new_snr()
+        veto_coinc_snr = veto_coincs.get_new_snr()
+        
+        # Now that we have the coincs, calculate the new snr values
+        csnr = []
+        vcsnr = []
+        for i in range(len(coinc_snr)/2):
+            csnr.append(sqrt(coinc_snr[i*2]**2 + coinc_snr[i*2+1]**2))
+            
+        for i in range(len(veto_coinc_snr)/2):
+            vcsnr.append(sqrt(veto_coinc_snr[i*2]**2 + veto_coinc_snr[i*2+1]**2))
+        
+        # Get the livetime before and after considering the time removed
+        # around the trigger.    
+        bkgtime = loud_event_coincs.get_background_livetime(lv1, lv2, slide)
+        vbkgtime = loud_event_coincs.get_background_livetime(lv1, lv2, slide, veto_window)
+            
+        trig_csnrs.append((csnr, bkgtime))
+        trig_vcsnrs.append((vcsnr, vbkgtime))
+    
+    return trig_csnrs, trig_vcsnrs
+    
+def all_subsets(ss):
+  return chain(*map(lambda x: combinations(ss, x), range(0, len(ss)+1)))
+  
+def find(l, s):
+    for i in range(len(l)):
+        if l[i].find(s)!=-1:
+            return l[i]
+    return None
+    
+def make_result_pages(result_database, zerofar_trigs, cats,
+                      param_ranges, bgtrigs, vbgtrigs):
+    """Create a result page for each zero far event
+    """
+    from pylal import lalapps_cbc_plotrates
+    from pylal import extended_background_utils as loud_event_coincs
+    from itertools import combinations
+  
+    #Standard Args passed to lalapps_cbc_plotrates
+    sargs = []
+    sargs += ['-d', 'coinc_inspiral']
+    sargs += ['-o', './']
+    sargs += ['-s', 'snr:Threshold $\\rho_c$']
+    sargs += ['-f', 'all_data']
+    sargs += ['-p', 'mchirp']
+    sargs += ['--lin-x']
+    sargs += ['--nbins', '50']
+    sargs += ['-a', '8']
+    sargs += ['-b', '13.5']
+    sargs += ['-A', '1e-6']
+    sargs += ['-K']
+    sargs += ['--x-power', '1.']
+    sargs += ['-S', '5']
+    sargs += ['--single-table', 'sngl_inspiral']
+    sargs += ['--plot-special-window', '7.0']
+    sargs += ['--dpi', '400', '--verbose']
+
+    for i in range(len(zerofar_trigs)/2):
+        print i, len(zerofar_trigs)/2 , "HI", range(len(zerofar_trigs)/2)
+        t1 = zerofar_trigs[i*2]
+        t2 = zerofar_trigs[i*2+1]
+        cat_level = cats[i*2] 
+        
+        # Store the background new snr values into text files that the 
+        # plotting program understands. The first line is the livetime
+        # in seconds. The remaining lines are the new snr values of 
+        # coincs.
+        unique_str = get_name_from_cat(cat_level) + '_' + str(i)
+        
+        bg_file = 'LOUD_EVENT_BACKGROUND_' + unique_str + '.txt'
+        vbg_file = 'LOUD_EVENT_VETOBACKGROUND_' + unique_str + '.txt'       
+        background, livetime = bgtrigs[i]
+        vbackground, vlivetime = vbgtrigs[i]        
+        numpy.savetxt(bg_file, numpy.append(numpy.array(livetime), background))
+        numpy.savetxt(vbg_file, numpy.append(numpy.array(vlivetime), vbackground))
+                
+        # Get the database that contains the trigger results
+        dat_name = find(glob.glob(result_database), get_name_from_cat(cat_level))
+        pargs = [dat_name]
+        
+        ifos = t1.ifos.split(',')
+        extra_instr = t1.ifos.split(',') + ['V1', 'L1', 'H1']
+        
+        ifo1 = t1.sngl_ifo
+        ifo2 = t2.sngl_ifo
+        
+        extra_instr.remove(ifo1)
+        extra_instr.remove(ifo2)
+        
+        # We need to grab coincs from all combinations of times, so we
+        # construct the instrument sets             
+        instrument_set = all_subsets(extra_instr)
+        coinc_set = ""
+        for on in instrument_set:
+            print on, instrument_set
+            on_ifos = [ifo1,ifo2] + list(on)
+            on_str = ','.join(on_ifos)
+        
+            if coinc_set == "":
+                pass
+            else:
+                coinc_set += ";"
+         
+            coinc_set += "[" + ifo1 + "," + ifo2 + " in " + on_str + "]"
+               
+        mchirp = 0.5 * (t1.sngl_mchirp + t2.sngl_mchirp)
+        mchirp_bins = loud_event_coincs.parse_mchirp_bins(param_ranges)
+        min_mchirp, max_mchirp = loud_event_coincs.get_mchirp_bin(mchirp, mchirp_bins)
+        mchirp_bin_str = '[' + str(min_mchirp) + ',' + str(max_mchirp) + ')'
+               
+        # Event specific arguments
+        args = pargs + sargs + ['-q', mchirp_bin_str]
+        args += ['--include-only-coincs', coinc_set]
+        args += ['--plot-special-time', str(t1.end_time)]
+        args += ['-u',  unique_str]
+        args += ['--add-background-file', bg_file]
+        args += ['--add-special-background-file', vbg_file]
+        
+        # Make plot
+        print args
+        lalapps_cbc_plotrates.main(args)      
+
+def main():
+    parser = optparse.OptionParser()
+    parser.add_option("--loudest-event-glob",action="store",type="string",
+            default=None, help="glob of xml files with the loudest event summaries")            
+    parser.add_option("-c","--new-snr-cut",action="store",type="float",
+        default="6.0", help="new snr threshold to retain triggers")
+    parser.add_option("-e","--e-thinca-parameter", dest="ethinca", action="store",type="float",
+        default=0.5, help="ethinca threshold")      
+    parser.add_option("--coinc-threshold",action="store",type="float",
+         help="Fraction of event SNR to start looking for coinc triggers")       
+    parser.add_option("-v","--veto-window",action="store",type="float",
+        help="The amount of time before and after a trigger to veto")
+    parser.add_option("--param-ranges",action="store",type="string",
+        default=0, help="the mchirp bins, ex. '[0,1.3);(1.3,3]'")
+    parser.add_option("-s","--slide-step",action="store",type="float",
+        default=5, help="time slide step in seconds")
+    parser.add_option("--ihope-base-dir", action="store",type="string",
+        help="The ihope base directory. Should be of the form /path/to/dir/GPSSTART-GPSEND")
+                
+    (opts,args) = parser.parse_args()
+            
+    print "Getting zero far triggers"
+    zerofar_trigs, cats = gather_zerofar(opts.loudest_event_glob)
+    
+    if zerofar_trigs is None:
+        print "No zero far triggers found"
+        exit()
+        
+    print "Collect the sngl ifo triggers above threshold"
+    ifos = set(list(zerofar_trigs.getColumnByName('sngl_ifo')))
+    single_trigs = create_combined_trig_files(opts.ihope_base_dir, ifos, set(cats), opts.new_snr_cut)
+    
+    print "Calculating the background coincidences" 
+    bgtrigs, vbgtrigs = calc_background_coincs(zerofar_trigs, cats, 
+                           single_trigs, opts.ethinca, opts.slide_step, 
+                           opts.veto_window, opts.param_ranges, 
+                           opts.coinc_threshold)
+    
+    print "Making the result pages"
+    results_glob = opts.ihope_base_dir + "/pipedown/*FULL_DATA*CLUSTERED_CBC_RESULTS*sqlite"
+    make_result_pages(results_glob, zerofar_trigs, cats, 
+                      opts.param_ranges, bgtrigs, vbgtrigs)
+    
+if __name__ == "__main__":
+    main()
+
+

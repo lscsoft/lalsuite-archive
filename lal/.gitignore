@@ -11,6 +11,7 @@
 .deps
 .dvi-dep
 .libs
+.python_wrapper
 /_build/
 /_inst/
 /lal-*/

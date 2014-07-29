@@ -7,6 +7,7 @@
 *.pyo
 .deps
 .libs
+.python_wrapper
 /_build/
 /_inst/
 /lalstochastic-*/
