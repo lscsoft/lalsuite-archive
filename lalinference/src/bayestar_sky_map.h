@@ -69,8 +69,11 @@
 #ifndef BAYESTAR_SKY_MAP_H
 #define BAYESTAR_SKY_MAP_H
 
+/* exclude from SWIG interface and C++ code */
+/* FIXME: maybe use GSL vector and matrix types that SWIG can wrap easily */
+#if !defined(SWIG) && !defined(__cplusplus)
 
-#include <lal/LALAtomicDatatypes.h>
+#include <complex.h>
 
 
 /* Perform sky localization based on TDOAs, PHOAs, and amplitude. */
@@ -85,7 +88,7 @@ double *bayestar_sky_map_toa_phoa_snr(
     unsigned int nifos,             /* Number of detectors */
     unsigned long nsamples,         /* Length of autocorrelation sequence */
     double sample_rate,             /* Sample rate in seconds */
-    const COMPLEX16 **acors,        /* Autocorrelation sequences */
+    const double complex **acors,   /* Autocorrelation sequences */
     const float (**responses)[3],   /* Detector responses */
     const double **locations,       /* Barycentered Cartesian geographic detector positions (m) */
     const double *horizons,         /* SNR=1 horizon distances for each detector */
@@ -108,7 +111,7 @@ double bayestar_log_likelihood_toa_snr(
     unsigned int nifos,             /* Number of detectors */
     unsigned long nsamples,         /* Length of autocorrelation sequence */
     double sample_rate,             /* Sample rate in seconds */
-    const COMPLEX16 **acors,        /* Autocorrelation sequences */
+    const double complex **acors,   /* Autocorrelation sequences */
     const float (**responses)[3],   /* Detector responses */
     const double **locations,       /* Barycentered Cartesian geographic detector positions (m) */
     const double *horizons,         /* SNR=1 horizon distances for each detector */
@@ -130,7 +133,7 @@ double bayestar_log_likelihood_toa_phoa_snr(
     unsigned int nifos,             /* Number of detectors */
     unsigned long nsamples,         /* Length of autocorrelation sequence */
     double sample_rate,             /* Sample rate in seconds */
-    const COMPLEX16 **acors,        /* Autocorrelation sequences */
+    const double complex **acors,   /* Autocorrelation sequences */
     const float (**responses)[3],   /* Detector responses */
     const double **locations,       /* Barycentered Cartesian geographic detector positions (m) */
     const double *horizons,         /* SNR=1 horizon distances for each detector */
@@ -143,5 +146,7 @@ double bayestar_log_likelihood_toa_phoa_snr(
 /* Unit test suite. Return EXIT_SUCCESS if tests passed,
  * or otherwise EXIT_FAILURE. */
 int bayestar_test(void);
+
+#endif /* !defined(SWIG) && !defined(__cplusplus) */
 
 #endif /* BAYESTAR_SKY_MAP_H */
