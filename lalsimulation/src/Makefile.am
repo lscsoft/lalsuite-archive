@@ -111,6 +111,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralTaylorF2.c \
 	LALSimInspiralTaylorF2ReducedSpin.c \
 	LALSimInspiralTaylorF2ReducedSpinMetric.c \
+	LALSimIMRPhenomBMetric.c \
 	LALSimInspiralTaylorF2ReducedSpinTidal.c \
 	LALSimInspiralTaylorT1.c \
 	LALSimInspiralTaylorT2.c \
