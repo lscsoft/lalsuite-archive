@@ -407,6 +407,13 @@ def cbcBayesPostProc(
     if('theta_spin1' in pos.names): pos.append_mapping('theta1',lambda a:a,'theta_spin1')
     if('theta_spin2' in pos.names): pos.append_mapping('theta2',lambda a:a,'theta_spin2')
 
+    # Ensure that both theta_jn and inclination are output for runs
+    # with zero tilt (for runs with tilt, this will be taken care of
+    # below when the old spin angles are computed as functions of the
+    # new ones
+    if ('theta_jn' in pos.names) and (not 'tilt1' in pos.names) and (not 'tilt2' in pos.names):
+        pos.append_mapping('iota', lambda t:t, 'theta_jn')
+
     # Compute time delays from sky position
     try:
         if ('ra' in pos.names or 'rightascension' in pos.names) \
@@ -903,6 +910,40 @@ def cbcBayesPostProc(
     html_ogci_write+='</table>'
     html_ogci.write(html_ogci_write)
 
+    cornerdir=os.path.join(outdir,'corner')
+    if not os.path.isdir(cornerdir):
+        os.makedirs(cornerdir)
+
+    #===============================#
+    # Corner plots
+    #===============================#
+
+    massParams=['mtotal','m1','m2','mc']
+    distParams=['distance','distMPC','dist']
+    incParams=['iota','inclination','theta_jn']
+    polParams=['psi','polarisation','polarization']
+    skyParams=['ra','rightascension','declination','dec']
+    timeParams=['time']
+    spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','chi','effectivespin','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
+    intrinsicParams=massParams+spinParams
+    extrinsicParams=incParams+distParams+polParams+skyParams
+    myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=intrinsicParams)
+    html_corner=''
+    if myfig:
+      html_corner='<table>'
+      html_corner+='<tr><td width="100%"><img width="100%" src="corner/intrinsic.png"/></td></tr>'
+      myfig.savefig(os.path.join(cornerdir,'intrinsic.png'))
+      myfig.savefig(os.path.join(cornerdir,'intrinsic.pdf'))
+    myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=extrinsicParams)
+    if myfig:
+      myfig.savefig(os.path.join(cornerdir,'extrinsic.png'))
+      myfig.savefig(os.path.join(cornerdir,'extrinsic.pdf'))
+      html_corner+='<tr><td width="100%"><img width="100%" src="corner/extrinsic.png"/></td></tr>'
+      html_corner+='</table>'
+
+    if html_corner!='':
+      html_co=html.add_section('Corner plots')
+      html_co.write(html_corner)
     #==================================================================#
     #2D posteriors
     #==================================================================#
@@ -1086,6 +1127,7 @@ def cbcBayesPostProc(
                 if(savepdfs): myfig.savefig(twoDKdePath.replace('.png','.pdf'))
                 plt.close(myfig)
 
+
     #Finish off the BCI table and write it into the etree
     html_tcig_write+='</table>'
     html_tcig.write(html_tcig_write)
@@ -1250,7 +1292,7 @@ if __name__=='__main__':
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
     spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costheta_jn','cosbeta','tilt1','tilt2','phi_jl','theta_jn','phi12']
-    phaseParams=['phase']
+    phaseParams=['phase', 'phi0']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
     ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
     tigerParams=['dphi%i'%(i) for i in range(7)] + ['dphi%il'%(i) for i in [5,6] ]

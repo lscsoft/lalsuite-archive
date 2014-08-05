@@ -33,6 +33,7 @@ constructing a parser.
 """
 
 
+import datetime
 import sys
 from xml import sax
 from xml.sax.xmlreader import AttributesImpl
@@ -298,7 +299,7 @@ class Element(object):
 		"""
 		Add characters to the element's pcdata.
 		"""
-		if self.pcdata:
+		if self.pcdata is not None:
 			self.pcdata += content
 		else:
 			self.pcdata = content
@@ -361,6 +362,10 @@ class LIGO_LW(Element):
 	validchildren = frozenset([u"LIGO_LW", u"Comment", u"Param", u"Table", u"Array", u"Stream", u"IGWDFrame", u"AdcData", u"AdcInterval", u"Time", u"Detector"])
 	validattributes = frozenset([u"Name", u"Type"])
 
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
+
 	Name = attributeproxy(u"Name")
 	Type = attributeproxy(u"Type")
 
@@ -372,12 +377,10 @@ class Comment(Element):
 	tagName = u"Comment"
 
 	def write(self, fileobj = sys.stdout, indent = u""):
-		if self.pcdata:
-			fileobj.write(self.start_tag(indent))
+		fileobj.write(self.start_tag(indent))
+		if self.pcdata is not None:
 			fileobj.write(xmlescape(self.pcdata))
-			fileobj.write(self.end_tag(u"") + u"\n")
-		else:
-			fileobj.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+		fileobj.write(self.end_tag(u"") + u"\n")
 
 
 class Param(Element):
@@ -403,6 +406,10 @@ class Table(Element):
 	tagName = u"Table"
 	validchildren = frozenset([u"Comment", u"Column", u"Stream"])
 	validattributes = frozenset([u"Name", u"Type"])
+
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
 
 	def _verifyChildren(self, i):
 		ncomment = 0
@@ -445,6 +452,10 @@ class Column(Element):
 		s += u"/>"
 		return s
 
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
+
 	def end_tag(self, indent):
 		"""
 		Generate the string for the element's end tag.
@@ -470,6 +481,10 @@ class Array(Element):
 	validchildren = frozenset([u"Dim", u"Stream"])
 	validattributes = frozenset([u"Name", u"Type", u"Unit"])
 
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
+
 	def _verifyChildren(self, i):
 		nstream = 0
 		for child in self.childNodes:
@@ -494,12 +509,10 @@ class Dim(Element):
 	validattributes = frozenset([u"Name", u"Scale", u"Start", u"Unit"])
 
 	def write(self, fileobj = sys.stdout, indent = u""):
-		if self.pcdata:
-			fileobj.write(self.start_tag(indent))
+		fileobj.write(self.start_tag(indent))
+		if self.pcdata is not None:
 			fileobj.write(xmlescape(self.pcdata))
-			fileobj.write(self.end_tag(u"") + u"\n")
-		else:
-			fileobj.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+		fileobj.write(self.end_tag(u"") + u"\n")
 
 	Name = attributeproxy(u"Name")
 	Scale = attributeproxy(u"Scale", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
@@ -534,6 +547,10 @@ class IGWDFrame(Element):
 	validchildren = frozenset([u"Comment", u"Param", u"Time", u"Detector", u"AdcData", u"LIGO_LW", u"Stream", u"Array", u"IGWDFrame"])
 	validattributes = frozenset([u"Name"])
 
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
+
 	Name = attributeproxy(u"Name")
 
 
@@ -544,6 +561,10 @@ class Detector(Element):
 	tagName = u"Detector"
 	validchildren = frozenset([u"Comment", u"Param", u"LIGO_LW"])
 	validattributes = frozenset([u"Name"])
+
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
 
 	Name = attributeproxy(u"Name")
 
@@ -556,6 +577,10 @@ class AdcData(Element):
 	validchildren = frozenset([u"AdcData", u"Comment", u"Param", u"Time", u"LIGO_LW", u"Array"])
 	validattributes = frozenset([u"Name"])
 
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
+
 	Name = attributeproxy(u"Name")
 
 
@@ -566,6 +591,10 @@ class AdcInterval(Element):
 	tagName = u"AdcInterval"
 	validchildren = frozenset([u"AdcData", u"Comment", u"Time"])
 	validattributes = frozenset([u"DeltaT", u"Name", u"StartTime"])
+
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
 
 	DeltaT = attributeproxy(u"DeltaT", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
 	Name = attributeproxy(u"Name")
@@ -584,13 +613,59 @@ class Time(Element):
 		if self.Type not in ligolwtypes.TimeTypes:
 			raise ElementError("invalid Type for Time: '%s'" % self.Type)
 
-	def write(self, fileobj = sys.stdout, indent = u""):
-		if self.pcdata:
-			fileobj.write(self.start_tag(indent))
-			fileobj.write(xmlescape(self.pcdata))
-			fileobj.write(self.end_tag(u"") + u"\n")
+	def endElement(self):
+		if self.Type == u"ISO-8601":
+			import dateutil.parser
+			self.pcdata = dateutil.parser.parse(self.pcdata)
+		elif self.Type == u"GPS":
+			try:
+				# FIXME:  switch to lal.LIGOTimeGPS when it
+				# can type-cast strings
+				from pylal.xlal.datatypes import LIGOTimeGPS
+			except ImportError:
+				from glue.lal import LIGOTimeGPS
+			self.pcdata = LIGOTimeGPS(self.pcdata)
+		elif self.Type == u"Unix":
+			self.pcdata = float(self.pcdata)
 		else:
-			fileobj.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+			# unsupported time type.  not impossible that
+			# calling code has overridden TimeTypes set in
+			# glue.ligolw.types;  just accept it as a string
+			pass
+
+	def write(self, fileobj = sys.stdout, indent = u""):
+		fileobj.write(self.start_tag(indent))
+		if self.pcdata is not None:
+			if self.Type == u"ISO-8601":
+				fileobj.write(xmlescape(unicode(self.pcdata.isoformat())))
+			elif self.Type == u"GPS":
+				fileobj.write(xmlescape(unicode(self.pcdata)))
+			elif self.Type == u"Unix":
+				fileobj.write(xmlescape(u"%.16g" % self.pcdata))
+			else:
+				# unsupported time type.  not impossible.
+				# assume correct thing to do is cast to
+				# unicode and let calling code figure out
+				# how to ensure that does the correct
+				# thing.
+				fileobj.write(xmlescape(unicode(self.pcdata)))
+		fileobj.write(self.end_tag(u"") + u"\n")
+
+	@classmethod
+	def now(cls, Name = None):
+		self = cls()
+		if Name is not None:
+			self.Name = Name
+		self.pcdata = datetime.datetime.utcnow()
+		return self
+
+	@classmethod
+	def from_gps(cls, gps, Name = None):
+		self = cls(AttributesImpl({u"Type": u"GPS"}))
+		if Name is not None:
+			self.Name = Name
+		self.pcdata = gps
+		return self
 
 	Name = attributeproxy(u"Name")
 	Type = attributeproxy(u"Type", default = u"ISO-8601")
@@ -602,6 +677,10 @@ class Document(Element):
 	"""
 	tagName = u"Document"
 	validchildren = frozenset([u"LIGO_LW"])
+
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
 
 	def write(self, fileobj = sys.stdout, xsl_file = None):
 		"""
@@ -717,17 +796,23 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 		except KeyError:
 			raise ElementError("unknown element %s for namespace %s" % (localname, uri or NameSpace))
 		attrs = AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
-		self.current = self.current.appendChild(start_handler(self.current, attrs))
+		try:
+			self.current = self.current.appendChild(start_handler(self.current, attrs))
+		except Exception as e:
+			raise type(e)("line %d: %s" % (self._locator.getLineNumber(), str(e)))
 
 	def endElementNS(self, (uri, localname), qname):
-		self.current.endElement()
+		try:
+			self.current.endElement()
+		except Exception as e:
+			raise type(e)("line %d: %s" % (self._locator.getLineNumber(), str(e)))
 		self.current = self.current.parentNode
 
 	def characters(self, content):
-		# Discard character data for all elements except those for
-		# which it is meaningful.
-		if self.current.tagName in (Comment.tagName, Dim.tagName, Param.tagName, Stream.tagName, Time.tagName):
+		try:
 			self.current.appendData(xmlunescape(content))
+		except Exception as e:
+			raise type(e)("line %d: %s" % (self._locator.getLineNumber(), str(e)))
 
 
 # FIXME:  remove
@@ -735,7 +820,7 @@ class DefaultLIGOLWContentHandler(LIGOLWContentHandler):
 	pass
 
 
-class PartialLIGOLWContentHandler(DefaultLIGOLWContentHandler):
+class PartialLIGOLWContentHandler(LIGOLWContentHandler):
 	"""
 	LIGO LW content handler object that loads only those parts of the
 	document matching some criteria.  Useful, for example, when one
@@ -773,8 +858,12 @@ class PartialLIGOLWContentHandler(DefaultLIGOLWContentHandler):
 			self.depth -= 1
 			super(PartialLIGOLWContentHandler, self).endElementNS(*args)
 
+	def characters(self, content):
+		if self.depth > 0:
+			super(PartialLIGOLWContentHandler, self).characters(content)
 
-class FilteringLIGOLWContentHandler(DefaultLIGOLWContentHandler):
+
+class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
 	"""
 	LIGO LW content handler that loads everything but those parts of a
 	document that match some criteria.  Useful, for example, when one
@@ -803,16 +892,20 @@ class FilteringLIGOLWContentHandler(DefaultLIGOLWContentHandler):
 
 	def startElementNS(self, (uri, localname), qname, attrs):
 		filter_attrs = AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
-		if self.depth > 0 or not self.element_filter(localname, filter_attrs):
-			self.depth += 1
-		else:
+		if self.depth == 0 and self.element_filter(localname, filter_attrs):
 			super(FilteringLIGOLWContentHandler, self).startElementNS((uri, localname), qname, attrs)
+		else:
+			self.depth += 1
 
 	def endElementNS(self, *args):
-		if self.depth > 0:
-			self.depth -= 1
-		else:
+		if self.depth == 0:
 			super(FilteringLIGOLWContentHandler, self).endElementNS(*args)
+		else:
+			self.depth -= 1
+
+	def characters(self, content):
+		if self.depth == 0:
+			super(FilteringLIGOLWContentHandler, self).characters(content)
 
 
 #

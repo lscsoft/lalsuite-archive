@@ -1495,18 +1495,7 @@ class CoincParamsFilterThread(threading.Thread):
 	def run(self):
 		with self.cpu:
 			if self.kernel is not None:
-				# FIXME:  this algorithm should be implemented
-				# in a resuable function
-				result = numpy.zeros_like(self.binnedarray.array)
-				while self.binnedarray.array.any():
-					workspace = numpy.copy(self.binnedarray.array)
-					cutoff = abs(workspace[abs(workspace) > 0]).min() * 1e4
-					self.binnedarray.array[abs(self.binnedarray.array) <= cutoff] = 0.
-					workspace[abs(workspace) > cutoff] = 0.
-					rate.filter_array(workspace, self.kernel)
-					workspace[abs(workspace) < abs(workspace).max() * 1e-14] = 0.
-					result += workspace
-				self.binnedarray.array = result
+				rate.filter_array(self.binnedarray.array, self.kernel)
 			self.binnedarray.to_pdf()
 		if self.progressbar is not None:
 			with self.progresslock:

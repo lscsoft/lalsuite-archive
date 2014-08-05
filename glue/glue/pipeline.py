@@ -51,6 +51,10 @@ try:
 except:
   pass
 
+import StringIO
+import ConfigParser
+
+
 # Some scripts that are used to set up a pegasus DAX
 PEGASUS_SCRIPT="""
 #!/bin/bash
@@ -4287,4 +4291,18 @@ class LigolwSqliteNode(SqliteNode):
     else:
       raise ValueError, "no output xml file or database specified"
 
-
+class DeepCopyableConfigParser(ConfigParser.SafeConfigParser):
+    """
+    The standard SafeConfigParser no longer supports deepcopy() as of python
+    2.7 (see http://bugs.python.org/issue16058). This subclass restores that
+    functionality.
+    """
+    def __deepcopy__(self, memo):
+        # http://stackoverflow.com/questions/23416370
+        # /manually-building-a-deep-copy-of-a-configparser-in-python-2-7
+        config_string = StringIO.StringIO()
+        self.write(config_string)
+        config_string.seek(0)
+        new_config = self.__class__()
+        new_config.readfp(config_string)
+        return new_config

@@ -18,6 +18,9 @@ ligolw_param.use_in(ContentHandler)
 xmldoc = ligolw_utils.load_filename("ligo_lw_test_01.xml", contenthandler = ContentHandler, verbose = True)
 ligolw_utils.write_filename(xmldoc, "/dev/null")
 
+t, = xmldoc.getElementsByTagName(ligolw.Time.tagName)
+print >>sys.stderr, "%s: %s" % (t.Name, t.pcdata)
+
 for n, a in enumerate(xmldoc.getElementsByTagName(ligolw.Array.tagName)):
 	print >>sys.stderr, "found %s array '%s'" % ("x".join(map(str, a.array.shape)), a.Name)
 	fig = figure.Figure()

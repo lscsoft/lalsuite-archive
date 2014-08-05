@@ -202,7 +202,7 @@ def plot_label(param):
   dist_names = ['dist','distance']
   ra_names = ['rightascension','ra']
   dec_names = ['declination','dec']
-  phase_names = ['phi_orb', 'phi', 'phase']
+  phase_names = ['phi_orb', 'phi', 'phase', 'phi0']
 
   labels={
       'm1':r'$m_1\,(\mathrm{M}_\odot)$',
@@ -3189,13 +3189,18 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
     Wrapper function for SimInspiralTransformPrecessingInitialConditions().
     Vectorizes function for use in append_mapping() methods of the posterior class.
     """
-    import lalsimulation as lalsim
+    try:
+      import lalsimulation as lalsim
+    except ImportError:
+      print 'bayespputils.py: Cannot import lalsimulation SWIG bindings to calculate physical to radiation'
+      print 'frame angles, did you remember to use --enable-swig-python when ./configuring lalsimulation?'
+      return None
     from numpy import shape
     transformFunc = lalsim.SimInspiralTransformPrecessingInitialConditions
 
     # Convert component masses to SI units
-    m1_SI = m1*lalsim.lal.LAL_MSUN_SI
-    m2_SI = m2*lalsim.lal.LAL_MSUN_SI
+    m1_SI = m1*lalconstants.LAL_MSUN_SI
+    m2_SI = m2*lalconstants.LAL_MSUN_SI
 
     # Flatten arrays
     ins = [theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1_SI, m2_SI, fref]
@@ -3580,6 +3585,30 @@ def getDecString(radians,accuracy='auto'):
     #    if abs(fmod(mins,60.0))>=0.5 and abs(fmod(mins,60)-60)>=0.5: return(getDecString(sign*radians,accuracy='arcmin'))
     #    else: return(getDecString(sign*radians,accuracy='deg'))
       return(getDecString(sign*radians,accuracy='deg'))
+
+def plot_corner(posterior,levels,parnames=None):
+  """
+  Make a corner plot using the triangle module
+  (See http://github.com/dfm/triangle.py)
+  @param posterior: The Posterior object
+  @param levels: a list of confidence levels
+  @param parnames: list of parameters to include
+  """
+  try:
+    import triangle
+  except ImportError:
+    print 'Cannot load triangle module. Try running\n\t$ pip install triangle_plot'
+    return None
+  parnames=filter(lambda x: x in posterior.names, parnames)
+  labels = [plot_label(parname) for parname in parnames]
+  data = np.hstack([posterior[p].samples for p in parnames])
+  if posterior.injection:
+    injvals=[posterior[p].injval for p in parnames]
+    myfig=triangle.corner(data,labels=labels,truths=injvals,quantiles=levels)
+  else:
+    myfig=triangle.corner(data,labels=labels,quantiles=levels)
+  return(myfig)
+
 
 def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None,Npixels=50):
   """

@@ -18,16 +18,26 @@ if version_info < (2, 4):
   print >> sys.stderr, "Glue requires at least version 2.4"
   sys.exit(1)
 
-from distutils.core import setup, Extension
+try:
+    from setuptools import setup
+except ImportError as e:
+    if os.path.basename(os.path.dirname(__file__)).startswith('pip-'):
+        e.args = ('setuptools module not found, cannot proceed with pip '
+                  'install',)
+        raise
+    from distutils.core import setup
+    from distutils.command import install
+else:
+    from setuptools.command import install
+from distutils.core import Extension
 from distutils.command import build_py
-from distutils.command import install
 from distutils.command import sdist
 from distutils.command import clean
 from distutils import log
 
 from misc import generate_vcs_info as gvcsi
 
-ver = "1.46"
+ver = "1.46.2"
 
 def remove_root(path,root):
   if root:
@@ -100,47 +110,62 @@ class glue_install(install.install):
     else:
       glue_pythonpath = self.install_platlib + ":" + self.install_purelib
 
-    glue_prefix = remove_root(self.prefix,self.root)
+    glue_prefix = remove_root(self.install_platbase,self.root)
     glue_install_scripts = remove_root(self.install_scripts,self.root)
     glue_pythonpath = remove_root(glue_pythonpath,self.root)
     glue_install_platlib = remove_root(self.install_platlib,self.root)
     
     log.info("creating glue-user-env.sh script")
-    env_file = open(os.path.join('etc','glue-user-env.sh'),'w')
-    print >> env_file, "# Source this file to access GLUE"
-    print >> env_file, "GLUE_PREFIX=" + glue_prefix
-    print >> env_file, "export GLUE_PREFIX"
-    print >> env_file, "PATH=" + glue_install_scripts + ":${PATH}"
-    print >> env_file, "PYTHONPATH=" + glue_pythonpath + ":${PYTHONPATH}"
-    print >> env_file, "LD_LIBRARY_PATH=" + glue_install_platlib + ":${LD_LIBRARY_PATH}"
-    print >> env_file, "DYLD_LIBRARY_PATH=" + glue_install_platlib + ":${DYLD_LIBRARY_PATH}"
-    print >> env_file, "export PATH PYTHONPATH LD_LIBRARY_PATH DYLD_LIBRARY_PATH"
+    shenv = os.path.join('etc','glue-user-env.sh')
+    env_file = open(shenv, 'w')
+    env_file.write("# Source this file to access GLUE\n")
+    env_file.write("GLUE_PREFIX=%s\n" % glue_prefix)
+    env_file.write("export GLUE_PREFIX\n")
+    env_file.write("PATH=" + glue_install_scripts + ":${PATH}\n")
+    env_file.write("PYTHONPATH=" + glue_pythonpath + ":${PYTHONPATH}\n")
+    env_file.write("LD_LIBRARY_PATH=" + glue_install_platlib + ":${LD_LIBRARY_PATH}\n")
+    env_file.write("DYLD_LIBRARY_PATH=" + glue_install_platlib + ":${DYLD_LIBRARY_PATH}\n")
+    env_file.write("export PATH PYTHONPATH LD_LIBRARY_PATH DYLD_LIBRARY_PATH\n")
     env_file.close()
 
     log.info("creating glue-user-env.csh script")
-    env_file = open(os.path.join('etc','glue-user-env.csh'),'w')
-    print >> env_file, "# Source this file to access GLUE"
-    print >> env_file, "setenv GLUE_PREFIX " + glue_prefix
-    print >> env_file, "setenv PATH " + glue_install_scripts + ":${PATH}"
-    print >> env_file, "if ( $?PYTHONPATH ) then"
-    print >> env_file, "  setenv PYTHONPATH " + glue_pythonpath + ":${PYTHONPATH}"
-    print >> env_file, "else"
-    print >> env_file, "  setenv PYTHONPATH " + glue_pythonpath
-    print >> env_file, "endif"
-    print >> env_file, "if ( $?LD_LIBRARY_PATH ) then"
-    print >> env_file, "  setenv LD_LIBRARY_PATH " + glue_install_platlib + ":${LD_LIBRARY_PATH}"
-    print >> env_file, "else"
-    print >> env_file, "  setenv LD_LIBRARY_PATH " + glue_install_platlib
-    print >> env_file, "endif"
-    print >> env_file, "if ( $?DYLD_LIBRARY_PATH ) then"
-    print >> env_file, "  setenv DYLD_LIBRARY_PATH " + glue_install_platlib + ":${DYLD_LIBRARY_PATH}"
-    print >> env_file, "else"
-    print >> env_file, "  setenv DYLD_LIBRARY_PATH " + glue_install_platlib
-    print >> env_file, "endif"
+    cshenv = os.path.join('etc','glue-user-env.csh')
+    env_file = open(cshenv, 'w')
+    env_file.write("# Source this file to access GLUE\n")
+    env_file.write("setenv GLUE_PREFIX %s\n" % glue_prefix)
+    env_file.write("setenv PATH %s:${PATH}\n" % glue_install_scripts)
+    env_file.write("if ( $?PYTHONPATH ) then\n")
+    env_file.write("  setenv PYTHONPATH %s:${PYTHONPATH}\n" % glue_pythonpath)
+    env_file.write("else\n")
+    env_file.write("  setenv PYTHONPATH %s\n" % glue_pythonpath)
+    env_file.write("endif\n")
+    env_file.write("if ( $?LD_LIBRARY_PATH ) then\n")
+    env_file.write("  setenv LD_LIBRARY_PATH %s:${LD_LIBRARY_PATH}\n"
+                   % glue_install_platlib)
+    env_file.write("else\n")
+    env_file.write("  setenv LD_LIBRARY_PATH %s\n" % glue_install_platlib)
+    env_file.write("endif\n")
+    env_file.write("if ( $?DYLD_LIBRARY_PATH ) then\n")
+    env_file.write("  setenv DYLD_LIBRARY_PATH %s:${DYLD_LIBRARY_PATH}"
+                   % glue_install_platlib)
+    env_file.write("else\n")
+    env_file.write("  setenv DYLD_LIBRARY_PATH %s\n" % glue_install_platlib)
+    env_file.write("endif\n")
     env_file.close()
 
     # now run the installer
     install.install.run(self)
+
+    # announce the environment script
+    print("\n" + '-' * 79)
+    print("GLUE has been installed.")
+    print("If you are running csh, you can set your environment by "
+          "running:\n")
+    print("source %s\n" % os.path.join(self.install_base, cshenv))
+    print("Otherwise, you can run:\n")
+    print("source %s" % os.path.join(self.install_base, shenv))
+    print("\n" + '-' * 79)
+
 
 class glue_clean(clean.clean):
   def finalize_options (self):

@@ -72,9 +72,7 @@ def build_COMPLEX16FrequencySeries(series, comment = None):
 	elem = ligolw.LIGO_LW(Attributes({u"Name": u"COMPLEX16FrequencySeries"}))
 	if comment is not None:
 		elem.appendChild(ligolw.Comment()).pcdata = comment
-	# FIXME:  make Time class smart so we don't have to build it by
-	# hand
-	elem.appendChild(ligolw.Time(Attributes({u"Name": u"epoch", u"Type": u"GPS"}))).pcdata = unicode(series.epoch)
+	elem.appendChild(ligolw.Time.from_gps(series.epoch, Name = u"epoch"))
 	elem.appendChild(ligolw_param.from_pyvalue(u"f0", series.f0, unit = LALUnit("s^-1")))
 	data = series.data
 	data = numpy.row_stack((numpy.arange(0, len(data)) * series.deltaF, numpy.real(data), numpy.imag(data)))
@@ -114,9 +112,7 @@ def build_COMPLEX16TimeSeries(series, comment = None):
 	elem = ligolw.LIGO_LW(Attributes({u"Name": u"COMPLEX16TimeSeries"}))
 	if comment is not None:
 		elem.appendChild(ligolw.Comment()).pcdata = comment
-	# FIXME:  make Time class smart so we don't have to build it by
-	# hand
-	elem.appendChild(ligolw.Time(Attributes({u"Name": u"epoch", u"Type": u"GPS"}))).pcdata = unicode(series.epoch)
+	elem.appendChild(ligolw.Time.from_gps(series.epoch, Name = u"epoch"))
 	elem.appendChild(ligolw_param.from_pyvalue(u"f0", series.f0, unit = LALUnit("s^-1")))
 	data = series.data
 	data = numpy.row_stack((numpy.arange(0, len(data)) * series.deltaT, numpy.real(data), numpy.imag(data)))
@@ -156,9 +152,7 @@ def build_REAL8FrequencySeries(series, comment = None):
 	elem = ligolw.LIGO_LW(Attributes({u"Name": u"REAL8FrequencySeries"}))
 	if comment is not None:
 		elem.appendChild(ligolw.Comment()).pcdata = comment
-	# FIXME:  make Time class smart so we don't have to build it by
-	# hand
-	elem.appendChild(ligolw.Time(Attributes({u"Name": u"epoch", u"Type": u"GPS"}))).pcdata = unicode(series.epoch)
+	elem.appendChild(ligolw.Time.from_gps(series.epoch, Name = u"epoch"))
 	elem.appendChild(ligolw_param.from_pyvalue(u"f0", series.f0, unit = LALUnit("s^-1")))
 	data = series.data
 	data = numpy.row_stack((numpy.arange(0, len(data)) * series.deltaF, data))
@@ -198,9 +192,7 @@ def build_REAL8TimeSeries(series, comment = None):
 	elem = ligolw.LIGO_LW(Attributes({u"Name": u"REAL8TimeSeries"}))
 	if comment is not None:
 		elem.appendChild(ligolw.Comment()).pcdata = comment
-	# FIXME:  make Time class smart so we don't have to build it by
-	# hand
-	elem.appendChild(ligolw.Time(Attributes({u"Name": u"epoch", u"Type": u"GPS"}))).pcdata = unicode(series.epoch)
+	elem.appendChild(ligolw.Time.from_gps(series.epoch, Name = u"epoch"))
 	elem.appendChild(ligolw_param.from_pyvalue(u"f0", series.f0, unit = LALUnit("s^-1")))
 	data = series.data
 	data = numpy.row_stack((numpy.arange(0, len(data)) * series.deltaT, data))

@@ -75,7 +75,7 @@ __date__ = git_version.date
 #
 
 
-ArrayPattern = re.compile(r"(?P<Name>[a-z0-9_:]+):array\Z")
+ArrayPattern = re.compile(r"(?P<Name>[a-zA-Z0-9_:]+):array\Z")
 
 
 def StripArrayName(name):
@@ -240,11 +240,9 @@ class Array(ligolw.Array):
 		Return a tuple of this array's dimensions.  This is done by
 		querying the Dim children.  Note that once it has been
 		created, it is also possible to examine an Array object's
-		array attribute directly, and doing that is much faster.
+		.array attribute directly, and doing that is much faster.
 		"""
-		s = [int(c.pcdata) for c in self.getElementsByTagName(ligolw.Dim.tagName)]
-		s.reverse()
-		return tuple(s)
+		return tuple(int(c.pcdata) for c in self.getElementsByTagName(ligolw.Dim.tagName))[::-1]
 
 	Name = ligolw.attributeproxy(u"Name", enc = (lambda name: u"%s:array" % name), dec = StripArrayName)
 
