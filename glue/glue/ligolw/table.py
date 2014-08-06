@@ -920,6 +920,8 @@ def use_in(ContentHandler):
 	ContentHandler.startStream = startStream
 	ContentHandler.startTable = startTable
 
+	return ContentHandler
+
 
 # FIXME:  remove
 use_in(ligolw.DefaultLIGOLWContentHandler)
