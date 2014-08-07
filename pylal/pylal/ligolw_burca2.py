@@ -28,6 +28,8 @@ import sys
 import traceback
 
 
+from glue.ligolw import lsctables
+from glue.text_progress_bar import ProgressBar
 from pylal import git_version
 
 
@@ -105,6 +107,37 @@ WHERE
 
 	connection.commit()
 	cursor.close()
+
+
+def assign_likelihood_ratios_xml(xmldoc, coinc_def_id, offset_vectors, vetoseglists, events_func, veto_func, likelihood_ratio_func, likelihood_params_func, verbose = False, params_func_extra_args = ()):
+	"""
+	Assigns likelihood ratio values to coincidences (XML version).
+	"""
+	#
+	# Iterate over all coincs, assigning likelihood ratios.
+	#
+
+	coinc_event_table = lsctables.CoincTable.get_table(xmldoc)
+
+	if verbose:
+		progressbar = ProgressBar("computing likelihood ratios", max = len(coinc_event_table))
+	else:
+		progressbar = None
+
+	for coinc_event in coinc_event_table:
+		if progressbar is not None:
+			progressbar.increment()
+		if coinc_event.coinc_def_id != coinc_def_id:
+			continue
+		coinc_event.likelihood = likelihood_ratio_func(likelihood_params_func([event for event in events_func(None, coinc_event.coinc_event_id) if veto_func(event, vetoseglists)], offset_vectors[coinc_event.time_slide_id], *params_func_extra_args))
+
+	del progressbar
+
+	#
+	# Done
+	#
+
+	return
 
 
 #
