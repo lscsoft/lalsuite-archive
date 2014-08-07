@@ -927,14 +927,20 @@ def cbcBayesPostProc(
     spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','chi','effectivespin','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
     intrinsicParams=massParams+spinParams
     extrinsicParams=incParams+distParams+polParams+skyParams
-    myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=intrinsicParams)
+    try:
+      myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=intrinsicParams)
+    except:
+      myfig=None
     html_corner=''
     if myfig:
       html_corner='<table>'
       html_corner+='<tr><td width="100%"><img width="100%" src="corner/intrinsic.png"/></td></tr>'
       myfig.savefig(os.path.join(cornerdir,'intrinsic.png'))
       myfig.savefig(os.path.join(cornerdir,'intrinsic.pdf'))
-    myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=extrinsicParams)
+    try:
+      myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=extrinsicParams)
+    except:
+      myfig=None
     if myfig:
       myfig.savefig(os.path.join(cornerdir,'extrinsic.png'))
       myfig.savefig(os.path.join(cornerdir,'extrinsic.pdf'))
