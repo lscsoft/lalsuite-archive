@@ -301,6 +301,8 @@ def use_in(ContentHandler):
 	ContentHandler.startStream = startStream
 	ContentHandler.startArray = startArray
 
+	return ContentHandler
+
 
 # FIXME:  remove
 use_in(ligolw.DefaultLIGOLWContentHandler)
