@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+import mimetypes
 from optparse import OptionParser
 try:
         import sqlite3
@@ -24,7 +25,9 @@ except ImportError:
         from pysqlite2 import dbapi2 as sqlite3
 import sys
 
+from glue.ligolw import ligolw
 from glue.ligolw import dbtables
+from glue.ligolw.utils import ligolw_sqlite
 from pylal import git_version
 
 __author__ = "Chad Hanna <channa@ligo.caltech.edu>"
@@ -34,7 +37,7 @@ __date__ = git_version.date
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "Name: %%prog\n%s" % git_version.verbose_msg, usage = "%prog (--sql CODE|--sql-file FILENAME) [options] database1.sqlite database2.sqlite ..."
+		version = "Name: %%prog\n%s" % git_version.verbose_msg, usage = "%prog (--sql CODE|--sql-file FILENAME) [options] database1.sqlite database2.xml ..."
 	)
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-c", "--sql", metavar = "code", help = "Execute this SQL code.")
@@ -65,20 +68,57 @@ sql = [statement for statement in sql if statement]
 
 # Apply the SQL to all the databases sequentially
 for n, filename in enumerate(databases, 1):
-	if options.verbose: print >>sys.stderr, "%d/%d: Applying SQL to %s" % (n, len(databases), filename)
-	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
-	connection = sqlite3.connect(working_filename)
+	#
+	# access the document
+	#
+
+	if options.verbose:
+		print >>sys.stderr, "%d/%d:" % (n, len(databases)),
+	if mimetypes.guess_type(filename)[0] == "application/xml":
+		# load XML file into in-ram database for processing
+		working_filename = None
+		connection = sqlite3.connect(":memory:")
+		@dbtables.use_in
+		class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
+			connection = connection
+		ligolw_sqlite.insert_from_url(filename, contenthandler = LIGOLWContentHandler, preserve_ids = True, verbose = options.verbose)
+		del LIGOLWContentHandler
+	else:
+		# assume it's an SQLite file
+		working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
+		connection = sqlite3.connect(working_filename)
 	# also use the scratch space for sqlite's temp store, but don't try
 	# to do so if the working filename is the same as the original
 	# filename as that most likely indicates some problem was found
 	# with the scratch space like that it's full
 	if options.tmp_space is not None and working_filename != filename:
 		dbtables.set_temp_store_directory(connection, options.tmp_space, verbose = options.verbose)
+
+	#
+	# apply SQL
+	#
+
+	if options.verbose:
+		print >>sys.stderr, "Executing SQL ..."
 	cursor = connection.cursor()
 	for statement in sql:
-		if options.verbose: print >>sys.stderr, "Executing:\n%s" % statement
+		if options.verbose:
+			print >>sys.stderr, statement
 		cursor.execute(statement)
 		connection.commit()
 	cursor.close()
-	connection.close()
-	dbtables.put_connection_filename(filename, working_filename, verbose = options.verbose)
+	if options.verbose:
+		print >>sys.stderr, "... Done."
+
+	#
+	# commit changes
+	#
+
+	if mimetypes.guess_type(filename)[0] == "application/xml":
+		# overwrite XML file with in-ram database' contents
+		ligolw_sqlite.extract(connection, filename, verbose = options.verbose)
+		connection.close()
+	else:
+		# return SQLite file
+		connection.close()
+		dbtables.put_connection_filename(filename, working_filename, verbose = options.verbose)
