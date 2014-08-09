@@ -5,6 +5,7 @@ include $(top_srcdir)/gnuscripts/lalsuite_test.am
 test_programs += EOBNRv2Test
 test_programs += GRFlagsTest
 test_programs += PhenomPTest
+test_programs += PNCoefficients
 test_programs += PrecessWaveformEOBNRTest
 test_programs += PrecessWaveformIMRPhenomBTest
 test_programs += PrecessWaveformTest
