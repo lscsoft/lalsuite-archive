@@ -206,6 +206,48 @@ XLALSimInspiralPNFlux_4PNCoeff(
 }
 
 static REAL8 UNUSED
+XLALSimInspiralPNFlux_4PNS1S2Coeff(
+    REAL8 eta)
+{
+    return -103./48./eta;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralPNFlux_4PNS1S2LCoeff(
+    REAL8 eta)
+{
+    return 289./48./eta;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralPNFlux_4PNQM2SCoeff(
+    REAL8 mByM)
+{
+    return -1./mByM/mByM;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralPNFlux_4PNQM2SOCoeff(
+    REAL8 mByM)
+{
+    return 3./mByM/mByM;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralPNFlux_4PNSelf2SCoeff(
+    REAL8 mByM)
+{
+    return 7./96./mByM/mByM;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralPNFlux_4PNSelf2SOCoeff(
+    REAL8 mByM)
+{
+    return -1./96./mByM/mByM;
+}
+
+static REAL8 UNUSED
 XLALSimInspiralPNFlux_5PNCoeff(
 	REAL8 eta)
 {
