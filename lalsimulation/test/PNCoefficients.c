@@ -82,6 +82,8 @@ static int compare_phasing_to_dtdv(
     ret += compare(phasing->v[3], pfac(3)*dtdv->v[3], 3, 0);
     ret += compare(phasing->v[4], pfac(4)*dtdv->v[4], 4, 0);
     /* The 2.5 pN term is anomalous - it integrates to a log term */
+    ret += compare(phasing->v[5], (-40./9.)*dtdv->v[5], 5, 0);
+    ret += compare(phasing->vlogv[5], (-40./3.)*dtdv->v[5], 5, 1);
     /* The 3 pN term has an extra piece coming from the log */
     ret += compare(phasing->v[6], pfac(6)*dtdv->v[6] + logpfac(6)*dtdv->vlogv[6], 6, 0);
     ret += compare(phasing->vlogv[6], pfac(6)*dtdv->vlogv[6], 6, 1);
