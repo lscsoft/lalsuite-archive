@@ -3806,7 +3806,7 @@ def use_in(ContentHandler):
 	>>> from glue.ligolw import lsctables
 	>>> lsctables.use_in(MyContentHandler)
 	"""
-	table.use_in(ContentHandler)
+	ContentHandler = table.use_in(ContentHandler)
 
 	def startTable(self, parent, attrs, __orig_startTable = ContentHandler.startTable):
 		name = table.StripTableName(attrs[u"Name"])
@@ -3815,6 +3815,8 @@ def use_in(ContentHandler):
 		return __orig_startTable(self, parent, attrs)
 
 	ContentHandler.startTable = startTable
+
+	return ContentHandler
 
 
 # FIXME:  remove
