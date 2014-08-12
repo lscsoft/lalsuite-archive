@@ -346,8 +346,13 @@ XLALSimInspiralPNPhasing_F2(
     const REAL8 eta = m1*m2/mtot/mtot;
     const REAL8 m1M = m1/mtot;
     const REAL8 m2M = m2/mtot;
-    const REAL8 xs = 0.5L * (chi1L + chi2L);
-    const REAL8 xa = 0.5L * (chi1L - chi2L);
+    /* Use the spin-orbit variables from arXiv:1303.7412, Eq. 3.9
+     * We write dSigmaL for their (\delta m/m) * \Sigma_\ell
+     * There's a division by mtotal^2 in both the energy and flux terms
+     * We just absorb the division by mtotal^2 into SL and dSigmaL
+     */
+    const REAL8 SL = m1M*m1M*chi1L + m2M*m2M*chi2L;
+    const REAL8 dSigmaL = d*(m2M*chi2L - m1M*chi1L);
 
     const REAL8 pfaN = 3.L/(128.L * eta);
 
@@ -372,8 +377,6 @@ XLALSimInspiralPNPhasing_F2(
     pfa->v[7] = LAL_PI * 5.L/756.L * ( 15419335.L/336.L
                      + 75703.L/2.L * eta - 14809.L * eta*eta);
 
-    /* Spin-orbit terms - can be derived from arXiv:1303.7412, Eq. 3.15-16 */
-    const REAL8 pn_gamma = (732985.L/2268.L - 24260.L/81.L * eta - 340.L/9.L * eta * eta ) * xs + (732985.L/2268.L +140.L/9.0L * eta) * xa * d;
 
     /* Compute 2.0PN SS, QM, and self-spin */
     // See Eq. (6.24) in arXiv:0810.5336
@@ -384,22 +387,22 @@ XLALSimInspiralPNPhasing_F2(
     pn_sigma -= (240.L*qm_def1 - 7.L)/96.0L * m1M * m1M * chi1sq;
     pn_sigma -= (240.L*qm_def2 - 7.L)/96.0L * m2M * m2M * chi2sq;
 
+    /* Spin-orbit terms - can be derived from arXiv:1303.7412, Eq. 3.15-16 */
+    const REAL8 pn_gamma = (554345.L/1134.L + 110.L*eta/9.L)*SL + (13915.L/84.L - 10.L*eta/3.)*dSigmaL; 
     switch( spinO )
     {
         case LAL_SIM_INSPIRAL_SPIN_ORDER_ALL:
         case LAL_SIM_INSPIRAL_SPIN_ORDER_35PN:
-            pfa->v[7] += (m1M * (-8980424995.L/762048.L + 6586595.L*eta/756.L - 305.L*eta*eta/36.L) + d * (170978035.L/48384.L - 2876425.L*eta/672.L - 4735.L*eta*eta/144.L) ) * m1M * chi1L;
-            pfa->v[7] += (m2M * (-8980424995.L/762048.L + 6586595.L*eta/756.L - 305.L*eta*eta/36.L) - d * (170978035.L/48384.L - 2876425.L*eta/672.L - 4735.L*eta*eta/144.L) ) * m2M * chi2L;
+            pfa->v[7] += (-8980424995.L/762048.L + 6586595.L*eta/756.L - 305.L*eta*eta/36.L)*SL - (170978035.L/48384.L - 2876425.L*eta/672.L - 4735.L*eta*eta/144.L) * dSigmaL;
         case LAL_SIM_INSPIRAL_SPIN_ORDER_3PN:
-            pfa->v[6] += LAL_PI * (260.L*m1M + 1490.L/3.L) * m1M * chi1L;
-            pfa->v[6] += LAL_PI * (260.L*m2M + 1490.L/3.L) * m2M * chi2L;
+            pfa->v[6] += LAL_PI * (3760.L*SL + 1490.L*dSigmaL)/3.L;
         case LAL_SIM_INSPIRAL_SPIN_ORDER_25PN:
             pfa->v[5] += -1.L * pn_gamma;
             pfa->vlogv[5] += -3.L * pn_gamma;
         case LAL_SIM_INSPIRAL_SPIN_ORDER_2PN:
             pfa->v[4] += -10.L * pn_sigma;
         case LAL_SIM_INSPIRAL_SPIN_ORDER_15PN:
-            pfa->v[3] += 4.L * ( (113.L/12.L- 19.L/3.L * eta) * xs + 113.L/12.L * d * xa);
+            pfa->v[3] += 188.L*SL/3.L + 25.L*dSigmaL;
         case LAL_SIM_INSPIRAL_SPIN_ORDER_1PN:
         case LAL_SIM_INSPIRAL_SPIN_ORDER_05PN:
         case LAL_SIM_INSPIRAL_SPIN_ORDER_0PN:
