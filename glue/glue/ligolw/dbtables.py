@@ -1084,7 +1084,7 @@ def use_in(ContentHandler):
 	Multiple database files can be in use at once by creating a content
 	handler class for each one.
 	"""
-	lsctables.use_in(ContentHandler)
+	ContentHandler = lsctables.use_in(ContentHandler)
 
 	def startTable(self, parent, attrs):
 		try:
@@ -1098,6 +1098,8 @@ def use_in(ContentHandler):
 		return DBTable(attrs, connection = connection)
 
 	ContentHandler.startTable = startTable
+
+	return ContentHandler
 
 
 # FIXME:  remove

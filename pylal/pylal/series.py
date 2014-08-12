@@ -64,6 +64,17 @@ __date__ = git_version.date
 
 
 #
+# content handler suitable for loading series data
+#
+
+
+class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
+	pass
+ligolw_array.use_in(LIGOLWContentHandler)
+ligolw_param.use_in(LIGOLWContentHandler)
+
+
+#
 # COMPLEX16FrequencySeries
 #
 
