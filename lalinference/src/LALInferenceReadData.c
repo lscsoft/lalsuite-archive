@@ -2775,7 +2775,7 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
     char **mdc_caches=NULL;
     char **mdc_channels=NULL;
     ProcessParamsTable * ppt=commandLine; 
-
+    
     UINT4 nIFO=0;
     int i=0;
     UINT4 j=0;
@@ -2855,7 +2855,6 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
     REAL8TimeSeries * timeData=NULL;
     REAL8TimeSeries * windTimeData=(REAL8TimeSeries *)XLALCreateREAL8TimeSeries("WindMDCdata",&epoch,0.0,deltaT,&lalDimensionlessUnit,(size_t)seglen);
     COMPLEX16FrequencySeries* injF=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("injF",&IFOdata->timeData->epoch,0.0,IFOdata->freqData->deltaF,&lalDimensionlessUnit,	IFOdata->freqData->data->length);
-    
     if(!injF) {
       XLALPrintError("Unable to allocate memory for injection buffer\n");
       XLAL_ERROR_VOID(XLAL_EFUNC);
@@ -2871,16 +2870,18 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
     /* Inject into FD data stream and calculate optimal SNR */
     while(data){
         tmp=0.0;
-        
+        /*char outname[50]="";
+        sprintf(outname,"MDC_time_%s_%d",data->name,epoch.gpsSeconds);
+        FILE * out = fopen(outname,"w");      */
         /* Read MDC frame */
         timeData=readTseries(mdc_caches[i],mdc_channels[i],epoch,SegmentLength);
         /* downsample */ 
         XLALResampleREAL8TimeSeries(timeData,1.0/SampleRate);	 
         /* window timeData and store it in windTimeData */
         XLALDDVectorMultiply(windTimeData->data,timeData->data,IFOdata->window->data);
-
-        /*for(j=0;j< timeData->data->length;j++) 
-            fprintf(out,"%lf %10.10e %10.10e %10.10e \n",epoch.gpsSeconds + j*deltaT,data->timeData->data->data[j],data->timeData->data->data[j]+timeData->data->data[j],timeData->data->data[j]);
+        /*
+        for(j=0;j< timeData->data->length;j++) 
+            fprintf(out,"%lf %10.10e %10.10e %10.10e \n",epoch.gpsSeconds + j*deltaT,data->timeData->data->data[j],data->timeData->data->data[j]+prefactor*timeData->data->data[j],prefactor*timeData->data->data[j]);
         fclose(out);
         */
 
