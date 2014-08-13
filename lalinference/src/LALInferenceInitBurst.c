@@ -69,12 +69,23 @@ void LALInferenceInitBurstTemplate(LALInferenceRunState *runState)
         runState->templt=&LALInferenceTemplateGaussian;
         runState->data->modelDomain=LAL_SIM_DOMAIN_TIME;
     }
+    else if(!strcmp("DampedSinusoid",ppt->value)){
+        printf("Using LALInferenceTemplateDampedSinusoid: congratulations!\n");
+        runState->templt=&LALInferenceTemplateDampedSinusoid;
+        runState->data->modelDomain=LAL_SIM_DOMAIN_TIME;
+    }
+    else if(!strcmp("DampedSinusoidF",ppt->value)){
+        printf("Using LALInferenceTemplateDampedSinusoidF: congratulations!\n");
+        runState->templt=&LALInferenceTemplateDampedSinusoidF;
+        runState->data->modelDomain=LAL_SIM_DOMAIN_FREQUENCY;
+    }
     else if(!strcmp("BestIFO",ppt->value))
         runState->templt=&LALInferenceTemplateBestIFO;
     else if(!strcmp("RingdownF",ppt->value)){
         printf("Using LALInferenceTemplateXLALSimRingdown: congratulations!\n");
         runState->templt=&LALInferenceTemplateXLALSimRingdown;
-        runState->data->modelDomain=LAL_SIM_DOMAIN_FREQUENCY;}
+        runState->data->modelDomain=LAL_SIM_DOMAIN_FREQUENCY;
+    }
     else if(!strcmp("HMNS",ppt->value)){
         printf("Using LALInferenceTemplateHMNS\n");
         runState->templt=&LALInferenceTemplateHMNS;
@@ -236,7 +247,7 @@ Parameter arguments:\n\
     ppt=LALInferenceGetProcParamVal(commandLine,"--hrssmax");
     if (ppt){ loghrssmax=log(atof(ppt->value)); fprintf(stdout,"Setting max prior for loghrss to %f\n",log(atof(ppt->value)));}    
     ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
-    if (!strcmp("SineGaussian",ppt->value) || !strcmp("SineGaussianF",ppt->value)){
+    if (!strcmp("SineGaussian",ppt->value) || !strcmp("SineGaussianF",ppt->value)|| !strcmp("DampedSinusoid",ppt->value) || !strcmp("DampedSinusoidF",ppt->value)){
       ppt=LALInferenceGetProcParamVal(commandLine,"--qmin");
       if (ppt){ qmin=atof(ppt->value); fprintf(stdout,"Setting min prior for Q to %f\n",atof(ppt->value));}
       ppt=LALInferenceGetProcParamVal(commandLine,"--qmax");
@@ -322,7 +333,7 @@ Parameter arguments:\n\
     LALInferenceAddMinMaxPrior(priorArgs, "polarisation",     &psimin, &psimax,   LALINFERENCE_REAL8_t);
     
     ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
-    if (!strcmp("SineGaussian",ppt->value) || !strcmp("SineGaussianF",ppt->value)){
+    if (!strcmp("SineGaussian",ppt->value) || !strcmp("SineGaussianF",ppt->value)|| !strcmp("DampedSinusoid",ppt->value) || !strcmp("DampedSinusoidF",ppt->value)){
       if(!LALInferenceCheckVariable(currentParams,"frequency")){
           ppt=LALInferenceGetProcParamVal(commandLine,"--freq");
           if (ppt) {
@@ -357,7 +368,7 @@ Parameter arguments:\n\
     }
     
     ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
-    if (!strcmp("SineGaussian",ppt->value)||!strcmp("SineGaussianF",ppt->value)){
+    if (!strcmp("SineGaussian",ppt->value)||!strcmp("SineGaussianF",ppt->value) || !strcmp("DampedSinusoid",ppt->value) || !strcmp("DampedSinusoidF",ppt->value)){
       ppt=LALInferenceGetProcParamVal(commandLine,"--margphi");
       ppt2=LALInferenceGetProcParamVal(commandLine,"--margtimephi");
       if (ppt || ppt2)

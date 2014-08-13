@@ -143,6 +143,31 @@ int XLALSimBurstGaussianF(
   REAL8 deltaT
 );
 
+int XLALSimBurstDampedSinusoid(
+        REAL8TimeSeries **hplus,
+        REAL8TimeSeries **hcross,
+        REAL8 Q,
+        REAL8 centre_frequency,
+        REAL8 hrss,
+        REAL8 eccentricity,
+        REAL8 polarization,
+        REAL8 delta_t
+);
+
+int XLALSimBurstDampedSinusoidF(
+        COMPLEX16FrequencySeries **hplus,
+        COMPLEX16FrequencySeries **hcross,
+        REAL8 Q,
+        REAL8 centre_frequency,
+        REAL8 hrss,
+        REAL8 alpha,
+//      REAL8 phi0,
+        REAL8 deltaF,
+    REAL8 deltaT
+);
+
+
+
 REAL8 XLALMeasureHPeak(const REAL8TimeSeries *);
 REAL8 XLALMeasureIntS1S2DT(const REAL8TimeSeries *, const REAL8TimeSeries *);
 REAL8 XLALMeasureHrss(const REAL8TimeSeries *, const REAL8TimeSeries *);
@@ -163,7 +188,9 @@ typedef enum {
    SineGaussian,
    GaussianF,
    Gaussian,
-   RingodownF,
+   RingdownF,
+   DampedSinusoidF,
+   DampedSinusoid,
    HMNS,
    NumBurstApproximants	/**< Number of elements in enum, useful for checking bounds */
  } BurstApproximant;

@@ -310,7 +310,7 @@ Nested sampling arguments:\n\
   }
   ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
   if(ppt) {
-    if(!strcmp("SineGaussianF",ppt->value) || !strcmp("SineGaussian",ppt->value)|| !strcmp("Gaussian",ppt->value)|| !strcmp("GaussianF",ppt->value)){
+    if(!strcmp("SineGaussianF",ppt->value) || !strcmp("SineGaussian",ppt->value)|| !strcmp("Gaussian",ppt->value)|| !strcmp("GaussianF",ppt->value) || !strcmp("DampedSinusoid",ppt->value)|| !strcmp("DampedSinusoidF",ppt->value)){
     runState->prior = &LALInferenceSinGaussPrior;
     XLALPrintInfo("Using (Sine)Gaussian(F) prior\n");
     }
@@ -456,7 +456,7 @@ Arguments for each section follow:\n\n";
     initVarsFunc=&LALInferenceInitVariablesReviewEvidence_bimod;
   else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood"))
     initVarsFunc=&LALInferenceInitVariablesReviewEvidence_banana;
-  else if(!strcmp("SineGaussian",ppt->value) || !strcmp("Gaussian",ppt->value)|| !strcmp("SineGaussianF",ppt->value)|| !strcmp("GaussianF",ppt->value)){
+  else if(!strcmp("SineGaussian",ppt->value) || !strcmp("Gaussian",ppt->value)|| !strcmp("DampedSinusoid",ppt->value)|| !strcmp("DampedSinusoidF",ppt->value) ||!strcmp("SineGaussianF",ppt->value)|| !strcmp("GaussianF",ppt->value)){
 	    fprintf(stdout,"--- Calling burst init variables \n");
 	    initVarsFunc=&LALInferenceInitBurstVariables;
 	}

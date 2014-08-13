@@ -281,7 +281,7 @@ void LALInferenceTemplateGaussian(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateHMNS(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateGaussianF(LALInferenceIFOData *IFOdata);
-
+void LALInferenceTemplateDampedSinusoidF(LALInferenceIFOData *IFOdata);
 /*@}*/
 
 #endif

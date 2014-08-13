@@ -106,7 +106,7 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
      runState->likelihood=&LALInferenceMarginalisedTimeLogLikelihood;
      LALInferenceAddVariable(runState->currentParams, "margtimephi", &margphi, LALINFERENCE_UINT4_t,LALINFERENCE_PARAM_FIXED);
    }*/ else if(ppt){
-     if(!strcmp("SineGaussian",ppt->value) || !strcmp("SineGaussianF",ppt->value)|| !strcmp("Gaussian",ppt->value)|| !strcmp("GaussianF",ppt->value)){
+     if(!strcmp("SineGaussian",ppt->value) || !strcmp("SineGaussianF",ppt->value)|| !strcmp("Gaussian",ppt->value)|| !strcmp("GaussianF",ppt->value) || !strcmp("DampedSinusoid",ppt->value)|| !strcmp("DampedSinusoidF",ppt->value) ){
         if(LALInferenceGetProcParamVal(commandLine,"--margphi") && !strcmp("SineGaussianF",ppt->value)){
            runState->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood_Burst;
            printf("setting Burst MargPhi Likelihood ----- \n");
