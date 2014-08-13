@@ -301,6 +301,42 @@ static int test_consistency(
     return ret;
 }
 
+static int test_tidal(
+    const REAL8 m2M,
+    const REAL8 lambda2
+    )
+{
+    REAL8 m1M = 1.L-m2M;
+    REAL8 eta = m1M*m2M;
+
+    REAL8 chi1 = m1M;
+    REAL8 chi2 = m2M;
+
+    REAL8 energy2 = XLALSimInspiralPNEnergy_2PNCoeff(eta);
+    REAL8 flux2 = XLALSimInspiralPNFlux_2PNCoeff(eta);
+    REAL8 energy10 = XLALSimInspiralPNEnergy_10PNTidalCoeff(chi1, chi2, lambda2);
+    REAL8 flux10 = XLALSimInspiralPNFlux_10PNTidalCoeff(chi2, lambda2);
+    REAL8 energy12 = XLALSimInspiralPNEnergy_12PNTidalCoeff(chi1, chi2, lambda2);
+    REAL8 flux12 = XLALSimInspiralPNFlux_12PNTidalCoeff(chi2, lambda2);
+
+    REAL8 dtdv2 = 2.L*energy2 - flux2;
+    REAL8 dtdv10 = 6.L*energy10 - flux10;
+    REAL8 dtdv12 = (7.L*energy12 - flux12) - flux2*dtdv10 - flux10*dtdv2;
+
+    REAL8 calc_phasing10 = 4.L*dtdv10;
+    REAL8 calc_phasing12 = (10.L/7.L)*dtdv12;
+
+    REAL8 phasing10 = XLALSimInspiralTaylorF2Phasing_10PNTidalCoeff(chi2, lambda2);
+    REAL8 phasing12 = XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(chi2, lambda2);
+
+    int ret = 0;
+    ret += compare(calc_phasing10, phasing10, 10, 0);
+    ret += compare(calc_phasing12, phasing12, 12, 0);
+
+    return ret;
+}
+
+
 int main (int argc, char **argv)
 {
     /* Ignore unused parameters. */
@@ -324,6 +360,17 @@ int main (int argc, char **argv)
     ret += test_consistency(0.5, 0.9, -0.9, 2., 2.);
     ret += test_consistency(0.9, 0.9, -0.9, 3., 3.);
     ret += test_consistency(0.01, 0.9, -0.9, 4., 4.);
+
+    fprintf(stdout, "Testing tidal terms.\n");
+    ret += test_tidal(0.5, 0.);
+    ret += test_tidal(0.5, 10.);
+    ret += test_tidal(0.5, 9241.);
+    ret += test_tidal(0.1, 0.);
+    ret += test_tidal(0.1, 10.);
+    ret += test_tidal(0.86, 9241.);
+    ret += test_tidal(0.86, 0.);
+    ret += test_tidal(0.86, 10.);
+    ret += test_tidal(0.1, 9241.);
 
     if (ret == 0)
     {
