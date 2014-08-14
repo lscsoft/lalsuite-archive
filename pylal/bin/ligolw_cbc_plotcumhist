@@ -171,7 +171,7 @@ def plotcumhist(figure_number, zero_lag_list, slide_dict, nbins, ranking_stat,
 
             # hist of the zero lag
             if zero_lag_list != []:
-                zero_dist, _ = numpy.histogram(zero_lag_list, bins, new=True)
+                zero_dist, _ = numpy.histogram(zero_lag_list, bins)
                 if rank_by == 'MIN':
                     cum_dist_zero = zero_dist.cumsum()
                 else:
@@ -187,7 +187,7 @@ def plotcumhist(figure_number, zero_lag_list, slide_dict, nbins, ranking_stat,
             if any(slide_dict.values()):
                 cum_dist_slide = []
                 for slide_list in slide_dict.values():
-                    num_slide, _ = numpy.histogram(slide_list, bins, new=True)
+                    num_slide, _ = numpy.histogram(slide_list, bins)
                     if rank_by == 'MIN':
                         cum_dist_slide.append( num_slide.cumsum() )
                     else:

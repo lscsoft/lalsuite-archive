@@ -684,12 +684,7 @@ class VerticalBarHistogram(BasicPlot):
             plot_kwargs.setdefault("color", c)
 
             # make histogram
-            npv = [int(v) for v in numpy.version.version.split('.')]
-            if npv[1] < 3:
-                y, x = numpy.histogram(data_set, bins=bins, normed=normed,\
-                                       new=True)
-            else:
-                y, x = numpy.histogram(data_set, bins=bins, normed=normed)
+            y, x = numpy.histogram(data_set, bins=bins, normed=normed)
             x = x[:-1]
 
             # mask zeros for logy
@@ -804,7 +799,7 @@ class CumulativeHistogramPlot(BasicPlot):
         for data_set, plot_kwargs in \
             itertools.izip(self.fg_data_sets, self.fg_kwarg_sets):
             # make histogram
-            y, x = numpy.histogram(data_set, bins=bins, new=True)
+            y, x = numpy.histogram(data_set, bins=bins)
             y = y[::-1].cumsum()[::-1]
             x = x[:-1]
 
@@ -1877,12 +1872,7 @@ class LineHistogram(BasicPlot):
             itertools.izip(self.data_sets, self.normalize_values,\
                            self.kwarg_sets):
             # make histogram
-            npv = [int(v) for v in numpy.version.version.split('.')]
-            if npv[1] < 3:
-                y, x = numpy.histogram(data_set, bins=bins, normed=False,\
-                                       new=True)
-            else:
-                y, x = numpy.histogram(data_set, bins=bins, normed=False)
+            y, x = numpy.histogram(data_set, bins=bins, normed=False)
             y = y.astype(float)
             x = x[:-1]
 
