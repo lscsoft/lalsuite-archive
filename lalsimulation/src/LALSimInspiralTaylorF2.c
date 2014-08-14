@@ -34,7 +34,9 @@
 #include <lal/XLALError.h>
 #include "LALSimInspiralPNCoefficients.c"
 
-/* REVIEW: Add brief description of this function */
+/* This function allows SWIG to wrap the TaylorF2 phasing coefficients
+ * for use in external Python code
+ */
 int XLALSimInspiralTaylorF2AlignedPhasing(
         PNPhasingSeries **pn,
         const REAL8 m1,
@@ -76,6 +78,8 @@ int XLALSimInspiralTaylorF2AlignedPhasing(
  * See arXiv:0810.5336 and arXiv:astro-ph/0504538 for spin corrections
  * to the phasing.
  * See arXiv:1303.7412 for spin-orbit phasing corrections at 3 and 3.5PN order
+ *
+ * The spin and tidal order enums are defined in LALSimInspiralWaveformFlags.h
  */
 int XLALSimInspiralTaylorF2(
         COMPLEX16FrequencySeries **htilde_out, /**< FD waveform */
@@ -171,12 +175,11 @@ int XLALSimInspiralTaylorF2(
             XLAL_ERROR(XLAL_ETYPE, "Invalid amplitude PN order %s", amplitudeO);
     }
 
-    /* Tidal coefficients for phasing */
     REAL8 pft10 = 0.;
     REAL8 pft12 = 0.;
     switch( tideO )
     {
-	case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:  /* REVIEW: what are the following numbers? Where are they defined? */
+	    case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
             pft12 = pfaN * ( XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m1OverM, lambda1)
                             + XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m2OverM, lambda2) );
@@ -189,7 +192,7 @@ int XLALSimInspiralTaylorF2(
             XLAL_ERROR(XLAL_EINVAL, "Invalid tidal PN order %s", tideO);
     }
 
-    /* REVIEW: The following coefficients are only used for the amplitude, right?  */
+    /* The flux and energy coefficients below are used to compute SPA amplitude corrections */
 
     /* flux coefficients */
     const REAL8 FTaN = XLALSimInspiralPNFlux_0PNCoeff(eta);
@@ -270,19 +273,10 @@ int XLALSimInspiralTaylorF2(
         ref_phasing += pfa2 * v2ref;
         ref_phasing += pfaN;
 
-	/* REVIEW: Why this extra switch? Aren't the tidal contribution set to 0 anyway if the tidal order isn't requested?
-	 * (There isn't a phaseO switch for the same reason.)
-	 * */
-        switch( tideO )
-        {
-            case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
-            case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
-                ref_phasing += pft12 * v12ref;
-            case LAL_SIM_INSPIRAL_TIDAL_ORDER_5PN:
-                ref_phasing += pft10 * v10ref;
-            case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
-                ;
-        }
+        /* Tidal terms in reference phasing */
+        ref_phasing += pft12 * v12ref;
+        ref_phasing += pft10 * v10ref;
+
         ref_phasing /= v5ref;
     } /* End of if(f_ref != 0) block */
 
@@ -314,6 +308,10 @@ int XLALSimInspiralTaylorF2(
         phasing += pfa2 * v2;
         phasing += pfaN;
 
+        /* Tidal terms in phasing */
+        phasing += pft12 * v12;
+        phasing += pft10 * v10;
+
     /* WARNING! Amplitude orders beyond 0 have NOT been reviewed!
      * Use at your own risk. The default is to turn them off.
      * These do not currently include spin corrections.
@@ -343,18 +341,6 @@ int XLALSimInspiralTaylorF2(
             case 0:
                 flux += 1.;
                 dEnergy += 1.;
-        }
-
-	/* Same as above, why this switch? */
-        switch( tideO )
-        {
-            case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
-            case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
-                phasing += pft12 * v12;
-            case LAL_SIM_INSPIRAL_TIDAL_ORDER_5PN:
-                phasing += pft10 * v10;
-            case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
-                ;
         }
 
         phasing /= v5;
