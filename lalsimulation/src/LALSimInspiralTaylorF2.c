@@ -34,6 +34,7 @@
 #include <lal/XLALError.h>
 #include "LALSimInspiralPNCoefficients.c"
 
+/* REVIEW: Add brief description of this function */
 int XLALSimInspiralTaylorF2AlignedPhasing(
         PNPhasingSeries **pn,
         const REAL8 m1,
@@ -175,7 +176,7 @@ int XLALSimInspiralTaylorF2(
     REAL8 pft12 = 0.;
     switch( tideO )
     {
-        case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
+	case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:  /* REVIEW: what are the following numbers? Where are they defined? */
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
             pft12 = pfaN * ( XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m1OverM, lambda1)
                             + XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m2OverM, lambda2) );
@@ -187,6 +188,8 @@ int XLALSimInspiralTaylorF2(
         default:
             XLAL_ERROR(XLAL_EINVAL, "Invalid tidal PN order %s", tideO);
     }
+
+    /* REVIEW: The following coefficients are only used for the amplitude, right?  */
 
     /* flux coefficients */
     const REAL8 FTaN = XLALSimInspiralPNFlux_0PNCoeff(eta);
@@ -267,6 +270,9 @@ int XLALSimInspiralTaylorF2(
         ref_phasing += pfa2 * v2ref;
         ref_phasing += pfaN;
 
+	/* REVIEW: Why this extra switch? Aren't the tidal contribution set to 0 anyway if the tidal order isn't requested?
+	 * (There isn't a phaseO switch for the same reason.)
+	 * */
         switch( tideO )
         {
             case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
@@ -308,9 +314,11 @@ int XLALSimInspiralTaylorF2(
         phasing += pfa2 * v2;
         phasing += pfaN;
 
-        switch (amplitudeO)
+        /* WARNING!
+	 * Amplitude orders beyond 0 have NOT been reviewed! Use them at your own risk */
+	switch (amplitudeO)
         {
-            case -1:
+	    case -1: // REVIEW: Does that mean that the "default" amplitude is the highest-order amplitude? We shouldn't do that as that is not reviewed.
             case 7:
                 flux += FTa7 * v7;
             case 6:
@@ -331,6 +339,7 @@ int XLALSimInspiralTaylorF2(
                 dEnergy += 1.;
         }
 
+	/* Same as above, why this switch? */
         switch( tideO )
         {
             case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
