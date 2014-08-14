@@ -314,11 +314,16 @@ int XLALSimInspiralTaylorF2(
         phasing += pfa2 * v2;
         phasing += pfaN;
 
-        /* WARNING!
-	 * Amplitude orders beyond 0 have NOT been reviewed! Use them at your own risk */
+    /* WARNING! Amplitude orders beyond 0 have NOT been reviewed!
+     * Use at your own risk. The default is to turn them off.
+     * These do not currently include spin corrections.
+     * Note that these are not higher PN corrections to the amplitude.
+     * They are the corrections to the leading-order amplitude arising
+     * from the stationary phase approximation. See for instance
+     * Eq 6.9 of arXiv:0810.5336
+     */
 	switch (amplitudeO)
         {
-	    case -1: // REVIEW: Does that mean that the "default" amplitude is the highest-order amplitude? We shouldn't do that as that is not reviewed.
             case 7:
                 flux += FTa7 * v7;
             case 6:
@@ -334,6 +339,7 @@ int XLALSimInspiralTaylorF2(
             case 2:
                 flux += FTa2 * v2;
                 dEnergy += dETa1 * v2;
+            case -1: /* Default to no SPA amplitude corrections */
             case 0:
                 flux += 1.;
                 dEnergy += 1.;
