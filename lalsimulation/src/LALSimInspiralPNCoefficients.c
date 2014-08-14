@@ -326,19 +326,23 @@ XLALSimInspiralPNFlux_12PNTidalCoeff(
 	return (-70.4 - 180.3*chi2 + 450.1*chi2*chi2 - 217.0*chi2*chi2*chi2)/2.8 * chi2*chi2*chi2*chi2 * lambda2;
 }
 
+/* The phasing function for TaylorF2 frequency-domain waveform.
+ * This function is tested in ../test/PNCoefficients.c for consistency
+ * with the energy and flux in this file.
+ */
 static void UNUSED
 XLALSimInspiralPNPhasing_F2(
 	PNPhasingSeries *pfa,
-	const REAL8 m1,
-	const REAL8 m2,
-	const REAL8 chi1L,
-	const REAL8 chi2L,
-	const REAL8 chi1sq,
-	const REAL8 chi2sq,
-	const REAL8 chi1dotchi2,
-	const REAL8 qm_def1,
-	const REAL8 qm_def2,
-	const LALSimInspiralSpinOrder spinO
+	const REAL8 m1, /**< Mass of body 1, in Msol */
+	const REAL8 m2, /**< Mass of body 2, in Msol */
+	const REAL8 chi1L, /**< Component of dimensionless spin 1 along Lhat */
+	const REAL8 chi2L, /**< Component of dimensionless spin 2 along Lhat */
+	const REAL8 chi1sq, /**< Magnitude of dimensionless spin 1 */
+	const REAL8 chi2sq, /**< Magnitude of dimensionless spin 2 */
+	const REAL8 chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
+	const REAL8 qm_def1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
+	const REAL8 qm_def2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
+	const LALSimInspiralSpinOrder spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
 	)
 {
     const REAL8 mtot = m1 + m2;
