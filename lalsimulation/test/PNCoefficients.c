@@ -62,7 +62,14 @@ static int compare_dtdv(
     return ret;
 }
 
-/* The factor to go from dtdv to phasing */
+/* *
+ * The factor to go from dtdv to phasing.
+ * Derived from the stationary phase approximation,
+ * Psi(f) = 2 Phi_orb - 2 Pi f t,
+ * where f = v^3 / Pi,
+ * Phi_orb = int v^3 dt/dv dv,
+ *       t = int dt / dv dv
+ * */
 static REAL8 pfac(int n) { return 40./(n-5.)/(n-8.); }
 
 /* The factor to go from a dt/dv log term to non-log phasing */
@@ -116,7 +123,7 @@ static REAL8 sum(
  *
  * Then
  *
- * T_i = (1+i/2)*E_i - F_i - \sum_{j=1}^{i-1} F_j T_{k-j}
+ * T_i = (1+i/2)*E_i - F_i - \sum_{j=1}^{i-1} F_j T_{i-j}
  *
  * This doesn't handle terms involving log(v), so we'll treat them separately.
  * Be careful with the dE/dv, which causes the log and non-log terms to mix.
@@ -164,7 +171,7 @@ static void dtdv_from_energy_flux(
     flux[6] += XLALSimInspiralPNFlux_6PNSOCoeff(m1M)*S1L + XLALSimInspiralPNFlux_6PNSOCoeff(m2M)*S2L;
     flux[7] += XLALSimInspiralPNFlux_7PNSOCoeff(m1M)*S1L + XLALSimInspiralPNFlux_7PNSOCoeff(m2M)*S2L;
 
-    /* FIXME: Change this when the log convention in fixed in flux
+    /* FIXME: Change this when the log convention is fixed in flux
      Needed because the flux term currently multiplies log(16v^2) */
     REAL8 flux6l = 2.*XLALSimInspiralPNFlux_6PNLogCoeff(eta);
     flux[6] += XLALSimInspiralPNFlux_6PNLogCoeff(eta)*log(16.);
@@ -300,6 +307,9 @@ static int test_consistency(
 
     return ret;
 }
+
+/* Testing tidal coefficients. Since they are symmetric with respect to both objects
+ * it is sufficient to test only one non-zero coefficient (lambda2 below).  */
 
 static int test_tidal(
     const REAL8 m2M,
