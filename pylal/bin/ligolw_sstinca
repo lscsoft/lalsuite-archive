@@ -70,6 +70,46 @@ lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = ligolw_thinca.SnglInspiral
 
 
+# TEMPORARILY HERE UNTIL A PERMANENT HOME FOUND
+
+
+def separate_coinc_noncoinc_sngls(xmldoc, verbose = False):
+    """
+    FIXME
+    """
+    sngls_tbl = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+    sngls_tbl_eid = sngls_tbl.getColumnByName("event_id")
+
+    coinc_map_tbl = lsctables.table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+
+    # Create a mapping dictionary
+    sngls_tbl_dict = {}
+    for idx, eid in enumerate(sngls_tbl_eid):
+        sngls_tbl_dict[eid] = sngls_tbl[idx]
+
+    if len(coinc_map_tbl) == 0:
+        coinc_map_coinc_eids = []
+        coinc_map_sngl_eids = []
+        non_coincs = set(sngls_tbl_eid)
+    else:
+        coinc_map_sngl_eids = coinc_map_tbl.getColumnByName("event_id")
+        coinc_map_coinc_eids = coinc_map_tbl.getColumnByName("coinc_event_id")
+        non_coincs = set(sngls_tbl_eid) - set(coinc_map_sngl_eids)
+
+    non_coinc_sngls = []
+    for eid in non_coincs:
+        non_coinc_sngls.append(sngls_tbl_dict[eid])
+
+    coinc_sngls = {}
+    for sngl_eid, coinc_eid in zip(coinc_map_sngl_eids, coinc_map_coinc_eids):
+        if not coinc_sngls.has_key(coinc_eid):
+            coinc_sngls[coinc_eid] = [sngls_tbl_dict[sngl_eid]]
+        else:
+            coinc_sngls[coinc_eid].append(sngls_tbl_dict[sngl_eid])
+
+    return coinc_sngls.values(), non_coinc_sngls
+
+
 #
 # =============================================================================
 #
@@ -98,6 +138,7 @@ def parse_command_line():
 	parser.add_option("--depop-sngl-inspiral", action = "store_true", help = "Removes all the rows in the sngl_inspiral table that are not associated with a coincident event.")
 	parser.add_option("--drop-veto-info", action = "store_true", help = "Remove the segment, segment_definer, veto_definer and segment_summary tables from the xmldoc as well as the associated rows in the process and process_params tables.")
 	parser.add_option("--make-expr-tables", action = "store_true", help = "Make and populate the set of experiment tables needed for the pipedown post-processing pipeline.")
+	parser.add_option("--likelihood-output-file", action="store", metavar="FILENAME", default=None, help="If provided, write the details of the single inspiral triggers into a gstlal-style likelihood output xml file. This can then be used in the gstlal post-processing code")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filename = parser.parse_args()
 
@@ -241,6 +282,62 @@ ligolw_thinca.ligolw_thinca(
 	trigger_program = options.trigger_program,
 	verbose = options.verbose
 )
+
+if options.likelihood_output_file is not None:
+    from gstlal import far
+    coinc_sngls, non_coinc_sngls = separate_coinc_noncoinc_sngls(xmldoc)
+    print len(non_coinc_sngls), len(coinc_sngls)
+    coinc_params_distributions = far.ThincaCoincParamsDistributions()
+
+    for event in coinc_sngls:
+        # NOTE: We could use this to feed gstlal *other* chisqs
+        # GSTLAL wants chisq / DOF
+        old_chisqs = []
+        for sngl in event:
+            old_chisqs.append(sngl.chisq)
+            sngl.chisq = sngl.chisq / ((sngl.chisq_dof - 1.) * 2.)
+        coinc_params_distributions.add_zero_lag(\
+                   coinc_params_distributions.coinc_params(event, None))
+        for chisq, sngl in zip(old_chisqs, event):
+            sngl.chisq = chisq
+
+    for event in non_coinc_sngls:
+        # NOTE: We could use this to feed gstlal *other* chisqs
+        # GSTLAL wants chisq / DOF
+        old_chisq = event.chisq
+        event.chisq = event.chisq / ((event.chisq_dof - 1.) * 2.)
+        coinc_params_distributions.add_background(\
+                   coinc_params_distributions.coinc_params((event,), None))
+        event.chisq = old_chisq
+
+    # Output
+    xmldoc2 = ligolw.Document()
+    xmldoc2.appendChild(ligolw.LIGO_LW())
+    process = ligolw_process.register_to_xmldoc(xmldoc2,
+                                             u"gstlal_inspiral", paramdict={})
+    # Don't know if this needs editing
+    search_summary = lsctables.table.get_table(xmldoc,
+                                        lsctables.SearchSummaryTable.tableName)
+    seglists = search_summary.get_in_segmentlistdict()
+    seglists.coalesce()
+    xmldoc2.childNodes[-1].appendChild(search_summary)
+    node = xmldoc2.childNodes[-1]
+    assert node.tagName == ligolw.LIGO_LW.tagName
+    if coinc_params_distributions is not None:
+        coinc_params_distributions.process_id = process.process_id
+        node.appendChild(coinc_params_distributions.to_xml(\
+                                                 u"gstlal_inspiral_likelihood"))
+
+    llwsegments = ligolw_segments.LigolwSegments(xmldoc2)
+    llwsegments.insert_from_segmentlistdict(seglists,
+                      u"gstlal_inspiral_likelihood:segments", comment=None)
+    llwsegments.finalize(process)
+    ligolw_process.set_process_end_time(process)
+    output_filename = options.likelihood_output_file
+    utils.write_filename(xmldoc2, output_filename,
+                gz = (output_filename or "stdout").endswith(".gz"),
+                verbose=options.verbose, trap_signals=None)
+        
 
 # 
 # Clean out rows in sngl_inspiral table not associated with coinc table
