@@ -175,6 +175,9 @@ int XLALSimInspiralTaylorF2(
             XLAL_ERROR(XLAL_ETYPE, "Invalid amplitude PN order %s", amplitudeO);
     }
 
+    /* Generate tidal terms separately.
+     * Enums specifying tidal order are in LALSimInspiralWaveformFlags.h
+     */
     REAL8 pft10 = 0.;
     REAL8 pft12 = 0.;
     switch( tideO )
