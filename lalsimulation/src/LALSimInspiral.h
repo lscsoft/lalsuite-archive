@@ -2200,19 +2200,15 @@ int XLALSimInspiralTaylorF2RedSpinMetricMChirpEtaChi(
  * Compute the template-space metric of the IMRPhenomB templates in
  * Mchirp-eta-chi parameter space.
  */
-int XLALSimIMRPhenomBMetricMChirpEtaChi(
-    REAL8 *gamma00,  /**< template metric coeff. 00 in mChirp-eta-chi */
-    REAL8 *gamma01,  /**< template metric coeff. 01/10 in mChirp-eta-chi */
-    REAL8 *gamma02,  /**< template metric coeff. 02/20 in mChirp-eta-chi */
-    REAL8 *gamma11,  /**< template metric coeff. 11 in mChirp-eta-chi */
-    REAL8 *gamma12,  /**< template metric coeff. 12/21 in mChirp-eta-chi */
-    REAL8 *gamma22,  /**< template metric coeff. 22 in mChirp-eta-chi */
-    const REAL8 mc,     /**< chirp mass (in solar mass) */
-    const REAL8 eta,    /**< symmetric mass ratio */
-    const REAL8 chi,    /**< reduced-spin parameter */
-    const REAL8 fLow,   /**< low-frequency cutoff (Hz) */
+int XLALSimIMRPhenomBMetricTheta0Theta3(
+    REAL8 *gamma00,  /**< template metric coeff. 00 in PN Chirp Time */
+    REAL8 *gamma01,  /**< template metric coeff. 01/10 PN Chirp Time */
+    REAL8 *gamma11,  /**< template metric coeff. 11 in PN Chirp Time */
+    const REAL8 Mass,     /**< Total Mass of the system */
+    const REAL8 eta,    /**< Symmetric mass ratio */
+    const REAL8 flow,   /**< low-frequency cutoff (Hz) */
     const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
-);
+) ;
 
 /**
  * Compute the Fisher information matrix of "reduced-spin" PN templates in
