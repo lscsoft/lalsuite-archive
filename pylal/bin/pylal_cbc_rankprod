@@ -282,7 +282,7 @@ def plot_rainbow_hists(fig_num,statvals,paramvals,statname="new_snr",paramname="
   pyplot.figure(fig_num)
   labels = [r"%.2f - %.2f" % pair for pair in zip(paramBins.lower(), paramBins.upper())]
   for i in range(num_bins):
-    counts, edges = numpy.histogram(numpy.array(statvals)[paramIndices == i], bins=20, new=True)
+    counts, edges = numpy.histogram(numpy.array(statvals)[paramIndices == i], bins=20)
     cum_counts = counts[::-1].cumsum()[::-1]
     pyplot.semilogy(edges[:-1], cum_counts, linewidth=2, color=histcolours[i], label=labels[i])
   pyplot.legend()
@@ -623,7 +623,7 @@ if opts.combined_statistic:
   for ifo in ifos:
     snrbins[ifo] = numpy.arange(min(statlist[ifo]), max(statlist[ifo])+snrWidth, snrWidth)
     midbins[ifo] = 0.5*(snrbins[ifo][1:]+snrbins[ifo][:-1])
-    snrhist[ifo], junk = numpy.histogram(statlist[ifo], bins=snrbins[ifo], new=True)
+    snrhist[ifo], junk = numpy.histogram(statlist[ifo], bins=snrbins[ifo])
   mincombstat = sum([min(snrbins[ifo])**power for ifo in ifos])
   maxcombstat = sum([max(snrbins[ifo])**power for ifo in ifos])
   combinedBins = numpy.arange(mincombstat, maxcombstat+combinedstatWidth, combinedstatWidth)

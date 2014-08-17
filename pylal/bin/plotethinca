@@ -672,7 +672,7 @@ for ifos in combis:
 
     if len(slide_ethinca[ifos]):
       eps = slide_ethinca[ifos]
-      slide_counts, bin_edges = histogram(eps, bins=opts.num_bins, range=[0, ep_max], new=True)
+      slide_counts, bin_edges = histogram(eps, bins=opts.num_bins, range=[0, ep_max])
 
       if len(coinc_ethinca[ifos]):  
       # do some normalization of the slide counts 
@@ -691,7 +691,7 @@ for ifos in combis:
 
     if len(coinc_ethinca[ifos]):
       eps = coinc_ethinca[ifos]
-      inj_counts, bin_edges = histogram(eps, bins=opts.num_bins, range=[0, ep_max], new=True)
+      inj_counts, bin_edges = histogram(eps, bins=opts.num_bins, range=[0, ep_max])
 
       left = bin_edges[0:-1] + 0.05*width
       bar(left, inj_counts, color=inj_color, width=0.9*width, label='injections', alpha=0.6)
