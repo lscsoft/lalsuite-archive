@@ -378,8 +378,8 @@ XLALSimInspiralPNPhasing_F2(
                  - eta*eta*eta * 127825.L/1296.L;
     pfa->v[6] += (-6848.L/21.L)*log(4.);
     pfa->vlogv[6] = -6848.L/21.L;
-    pfa->v[7] = LAL_PI * 5.L/756.L * ( 15419335.L/336.L
-                     + 75703.L/2.L * eta - 14809.L * eta*eta);
+    pfa->v[7] = LAL_PI * ( 77096675.L/254016.L
+                     + 378515.L/1512.L * eta - 74045.L/756.L * eta*eta);
 
 
     /* Compute 2.0PN SS, QM, and self-spin */
