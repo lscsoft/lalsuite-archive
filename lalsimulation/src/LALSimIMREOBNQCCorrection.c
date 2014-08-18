@@ -872,13 +872,16 @@ UNUSED static inline REAL8 GetNRSpinPeakOmegaDot( INT4 UNUSED l, INT4 UNUSED m, 
 UNUSED static inline REAL8 XLALSimIMREOBGetNRSpinPeakDeltaTv2(
                  INT4 UNUSED l,    /**<< Mode l */
                  INT4 UNUSED m,    /**<< Mode m */
-                 REAL8 UNUSED eta, /**<< Symmetric mass ratio */
+                 REAL8 UNUSED m1,  /**<< mass 1 */
+                 REAL8 UNUSED m2,  /**<< mass 22 */
                  REAL8 chi1,       /**<< Dimensionless spin1 */
-                 REAL8 chi2       /**<< Dimensionless spin2 */
+                 REAL8 chi2        /**<< Dimensionless spin2 */
                  )
 {
   REAL8 chi, chichi;
-  chi    = (chi1+chi2)/2. + (chi1-chi2)/2.*sqrt(1-4.*eta)/(1-2.*eta);
+  REAL8 eta = m1*m2 / ((m1+m2)*(m1+m2));
+  chi    = (chi1+chi2)/2. + (chi1-chi2)/2.*((m1-m2)/(m1+m2))/(1-2.*eta);
+    
   chichi = chi*chi;
   if ( chi > 0.8 )
   {
@@ -901,9 +904,37 @@ UNUSED static inline REAL8 XLALSimIMREOBGetNRSpinPeakDeltaTv2(
 UNUSED static inline REAL8 GetNRSpinPeakOmegav2( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 a )
 {
   REAL8 chi = a/(1.0 - 2.0*eta);
-  return 0.43747541927878864 + (-0.10933208665273314 - 0.007325831113333813*chi)*log(
+  REAL8 eta2= eta*eta;
+  if ( eta > 50./51./51. )
+  {
+    return 0.43747541927878864 + (-0.10933208665273314 - 0.007325831113333813*chi)*log(
             4.500844771420863 - 9.681916048928946*eta +
             chi*(-4.254886879579986 + 11.513558950322647*eta));
+  }
+  else
+  {
+    return 1.5609526077704716 - 122.25721149839733 * eta +
+           3586.2192688666914 * eta2 - 13869.506144441548 * eta*eta2 +
+           (eta - 0.25) * (1651.5823693445805 * (-0.01922337588094282 + eta) *
+           (-0.01922337536857659 + eta) + 66.87492814925524 * chi *
+           (0.0003695381704106058 - 0.03844675124951941 * eta + eta2)) *
+           log(5600.67382718678 - 5555.824895398546 * chi) +
+           (-1412.8186461833657 + 67.66455403259023 * chi) * (eta - 0.001) *
+           (0.0003695381704106056 - 0.038446751249519406 * eta + eta2) *
+           log(0.5680439481719505 - 0.36813967358200156 * chi) +
+           0.012328326527732041 * log(4.500844771420863 - 9.681916048928946 * eta + 
+           chi * (-4.254886879579986 + 11.513558950322647 * eta)) +
+           0.0008260634258180991 * chi * log(4.500844771420863 -9.681916048928946 * eta +
+           chi * (-4.254886879579986 + 11.513558950322647 * eta)) -
+           12.6575493872956 * eta * log(4.500844771420863 -
+           9.681916048928946 * eta + chi * (-4.254886879579986 + 11.513558950322647 * eta)) -
+           0.8481231078533651 * chi * eta * log(4.500844771420863 - 
+           9.681916048928946 * eta + chi * (-4.254886879579986 + 11.513558950322647 * eta)) +
+           329.2228595635586 * eta2 * log(4.500844771420863 - 9.681916048928946 * eta +
+           chi * (-4.254886879579986 + 11.513558950322647 * eta)) +
+           22.05968203526603 * chi * eta2 * log(4.500844771420863 -9.681916048928946 * eta +
+           chi * (-4.254886879579986 + 11.513558950322647 * eta));
+  }
 }
 
 /**
@@ -912,17 +943,25 @@ UNUSED static inline REAL8 GetNRSpinPeakOmegav2( INT4 UNUSED l, INT4 UNUSED m, R
  */
 UNUSED static inline REAL8 GetNRSpinPeakOmegaDotv2( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 UNUSED a )
 {
-  REAL8 an = a/(1.0-2.0*eta);
+  REAL8 chi = a/(1.0-2.0*eta);
+  REAL8 eta2= eta*eta;
   /* Fit for HOMs missing */
-  return -0.000016000256004096065 * (0.011334382589915553 + 0.0002412377539787519 * an)
-       - 0.00099601593625498 * (0.01790260950222435 + 0.0187545997359713 * an)
-       + (0.01790260950222435 + 0.0187545997359713 * an) * eta
-       + 1.0000160002560041 * (-0.011209791668429111 + (0.004086795897856442
-       + 0.0006333925136134383 * an) * log( 68.47466578101876 - 58.30148755701496 * an))
-       + eta*eta * (16.000256004096066 * (0.011334382589915553 + 0.0002412377539787519 * an)
-       - 3.9840637450199203 * (0.01790260950222435 + 0.0187545997359713 * an) - 16.000256004096066
-       * (-0.011209791668429111 + (0.004086795897856442 + 0.0006333925136134383 * an)
-       * log( 68.47466578101876 - 58.30148755701496 * an )));
+  if (chi < 0.8 )
+  {
+    return -0.07086074186161867 * chi * (-0.26367236731979804 + eta) *
+           (-0.0010019969893089581 + eta) + 0.2893863668183948 *
+           (-0.16845695144529893 + eta) * (0.23032241797163952 + eta) +
+           (0.004086861548547749 - 0.06538978477676398 * eta2 +
+           chi * (0.0006334026884930817 - 0.010134443015889307 * eta2)) *
+           log(68.47466578101876 - 58.30148755701496 * chi);
+  }
+  else
+  {
+    return -0.10069512275335238 * (-0.46107388514323044 + eta) *
+           (0.2832795481380979 + eta) + 0.2614619716504706 * chi *
+           (-0.24838163750494138 + eta) * (0.320112993649413 + eta) +
+           chi * chi * (0.010000160002560042 - 0.16000256004096067 * eta2);
+  }
 }
 
 /**
@@ -3301,8 +3340,18 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2chiAmin( EOBNonQCCoeffs * r
  * the peak amplitude and frequency agree well with the NR-fits predicted values,
  * and to get exact NR-fits predicted values, corrections on these numbers are ~1%.
  */
-UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQC3D( EOBNonQCCoeffs * restrict coeffs,                                                      INT4 UNUSED l,                                                      INT4 UNUSED m,                                                      REAL8 eta,                                                      REAL8 a,                                                      REAL8 chiA )
+UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQC3D(
+                        EOBNonQCCoeffs * restrict coeffs,
+                        INT4 UNUSED l,
+                        INT4 UNUSED m,
+                        REAL8 m1,
+                        REAL8 m2,
+                        REAL8 a,
+                        REAL8 chiAin )
 {
+
+  REAL8 eta = m1*m2/((m1+m2)*(m1+m2));
+
 #if OLDNSNQC
   const unsigned int nsqdim = 101;
 
@@ -3363,7 +3412,12 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQC3D( EOBNonQCCoeffs * restrict
   coeffs->b1 = - coeffs->b1;
   coeffs->b2 = - coeffs->b2;
 
-  REAL8 dM  = sqrt( 1.0 - 4.0 * eta );
+  REAL8 dM  = fabs(m1 - m2)/(m1+m2);
+  REAL8 chiA = chiAin;
+  if ( m2 > m1 )
+  {
+    chiA = -chiA;
+  }
   REAL8 chi = a / ( 1.0 - 2.0 * eta );
   REAL8 chiAmax, chiAmed, chiAmin;
   REAL8 cmax, cmed, cmin;
@@ -3498,9 +3552,11 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
                  INT4                      m,           /**<< Mode index m */
                  REAL8                     timePeak,    /**<< Time of peak orbital frequency */
                  REAL8                     deltaT,      /**<< Sampling interval */
-                 REAL8                     eta,         /**<< Symmetric mass ratio */
+                 REAL8                     m1,          /**<< Component mass 1 */
+                 REAL8                     m2,          /**<< Component mass 2 */
                  REAL8                     a,           /**<< Normalized spin of deformed-Kerr */
-                 REAL8                     chiA,        /**<< Assymetric dimensionless spin combination */
+                 REAL8                     chiA,        /**<< Assymmetric dimensionless spin combination */
+                 REAL8                     chiS,        /**<< Symmetric dimensionless spin combination */
                  EOBNonQCCoeffs * restrict coeffs,      /**<< OUTPUT, NQC coefficients */
                  UINT4                     SpinAlignedEOBversion  /**<< 1 for SEOBNRv1, 2 for SEOBNRv2 */
 )
@@ -3524,6 +3580,7 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
   REAL8Vector *q5LM  = NULL; 
   REAL8Vector *qNSLM = NULL;
 
+  REAL8 eta = (m1*m2)/((m1+m2)*(m1+m2));
   REAL8 amp, aDot, aDDot;
   REAL8 omega, omegaDot;
 
@@ -3534,6 +3591,8 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
   REAL8 nromega, nromegaDot;
 
   REAL8 nrDeltaT, nrTimePeak;
+  REAL8 chi1 = chiS + chiA;
+  REAL8 chi2 = chiS - chiA;
 
   /* Stuff for finding numerical derivatives */
   gsl_spline    *spline = NULL;
@@ -3605,7 +3664,7 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
      break;
    case 2:
      // if ( XLALSimIMRGetEOBCalibratedSpinNQCv2( coeffs, l, m, eta, a ) == XLAL_FAILURE )
-     if ( XLALSimIMRGetEOBCalibratedSpinNQC3D( coeffs, l, m, eta, a, chiA ) == XLAL_FAILURE )
+     if ( XLALSimIMRGetEOBCalibratedSpinNQC3D( coeffs, l, m, m1, m2, a, chiA ) == XLAL_FAILURE )
      {
        XLALDestroyREAL8Vector( timeVec );
        XLALDestroyREAL8Vector( q3 );
@@ -3692,7 +3751,21 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
 
   /* The time we want to take as the peak time depends on l and m */
   /* Calculate the adjustment we need to make here */
-  nrDeltaT   = XLALSimIMREOBGetNRSpinPeakDeltaT( l, m, eta, a );
+  switch ( SpinAlignedEOBversion )
+  {
+   case 1:
+     nrDeltaT   = XLALSimIMREOBGetNRSpinPeakDeltaT( l, m, eta, a );
+     break;
+   case 2: 
+     nrDeltaT   = XLALSimIMREOBGetNRSpinPeakDeltaTv2( l, m, m1, m2, chi1, chi2 );
+     break;
+   default:
+     XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+     XLAL_ERROR( XLAL_EINVAL );
+     break;
+  }
+
+
   if ( XLAL_IS_REAL8_FAIL_NAN( nrDeltaT ) )
   {
     XLALDestroyREAL8Vector( timeVec );
@@ -3892,8 +3965,8 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
      coeffs->b4  = gsl_vector_get( bCoeff, 1 );
      break;
    case 2:
-//     coeffs->b3  = gsl_vector_get( bCoeff, 0 );
-//     coeffs->b4  = gsl_vector_get( bCoeff, 1 );
+     //coeffs->b3  = gsl_vector_get( bCoeff, 0 );
+     //coeffs->b4  = gsl_vector_get( bCoeff, 1 );
      break;
    default:
      XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);

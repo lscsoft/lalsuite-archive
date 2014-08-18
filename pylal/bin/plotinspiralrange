@@ -108,7 +108,7 @@ def plotinspiralrange_histogram(opts):
     Range = inspiralSumm[ifo].getColumnByName('value').asarray()
     startTimeSec = inspiralSumm[ifo].getColumnByName('start_time').asarray()
     style = colors[ifo]
-    num[ifo], bins = numpy.histogram(Range, bins, new=True)
+    num[ifo], bins = numpy.histogram(Range, bins)
     bins = bins[:-1]
 
   for ifo in inspiralSumm.keys():

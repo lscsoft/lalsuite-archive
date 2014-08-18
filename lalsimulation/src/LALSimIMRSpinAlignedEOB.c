@@ -307,6 +307,15 @@ int XLALSimIMRSpinAlignedEOBWaveform(
 
   amp0 = mTotal * LAL_MRSUN_SI / r;
 
+  if (pow(LAL_PI*fMin*mTScaled,-2./3.) < 10.0)
+  {
+    printf(" ==========\n");
+    printf("|| WARNING: Waveform generation may fail due to high starting frequency.\n");
+    printf("|| The starting frequency corresponds to a small initial radius of %.2fM.\n",pow(LAL_PI*fMin*mTScaled,-2./3.));
+    printf("|| We recommend a lower starting frequency that corresponds to an estimated starting radius > 10M.\n");
+    printf(" ==========\n");
+  }
+ 
   /* TODO: Insert potentially necessary checks on the arguments */
 
   /* Calculate the time we will need to step back for ringdown */
@@ -505,7 +514,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
        }
        break;
      case 2:
-       if ( XLALSimIMRGetEOBCalibratedSpinNQC3D( &nqcCoeffs, 2, 2, eta, a, chiA ) == XLAL_FAILURE )
+       if ( XLALSimIMRGetEOBCalibratedSpinNQC3D( &nqcCoeffs, 2, 2, m1, m2, a, chiA ) == XLAL_FAILURE )
        {
          XLAL_ERROR( XLAL_EFUNC );
        }
@@ -630,6 +639,12 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   fclose( out );
   #endif
 
+  if (tStepBack > retLen*deltaT)
+  {
+    tStepBack = 0.5*retLen*deltaT; //YPnote: if 100M of step back > actual time of evolution, step back 50% of the later
+    nStepBack = ceil( tStepBack / deltaT );
+  }
+ 
   /*
    * STEP 3) Step back in time by tStepBack and volve EOB trajectory again 
    *         using high sampling rate, stop at 0.3M out of the "EOB horizon".
@@ -703,7 +718,9 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     values->data[2] = prHi.data[i];
     values->data[3] = pPhiHi.data[i];
 
-    omegaHi->data[i] = omega = XLALSimIMRSpinAlignedEOBCalcOmega( values->data, &seobParams );
+    omega = XLALSimIMRSpinAlignedEOBCalcOmega( values->data, &seobParams );
+    if (omega < 1.0e-15) omega = 1.0e-9; //YPnote: make sure omega>0 during very-late evolution when numerical errors are huge.
+    omegaHi->data[i] = omega;            //YPnote: omega<0 is extremely rare and had only happenned after relevant time interval.  
     v = cbrt( omega );
 
     /* Calculate the value of the Hamiltonian */
@@ -844,7 +861,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
 
   /* Calculate phase NQC coefficients */
   if ( XLALSimIMRSpinEOBCalculateNQCCoefficients( ampNQC, phaseNQC, &rHi, &prHi, omegaHi,
-          2, 2, timePeak, deltaTHigh/mTScaled, eta, a, chiA, &nqcCoeffs, SpinAlignedEOBversion ) == XLAL_FAILURE )
+          2, 2, timePeak, deltaTHigh/mTScaled, m1, m2, a, chiA, chiS, &nqcCoeffs, SpinAlignedEOBversion ) == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
   }
@@ -856,7 +873,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
      timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaT(2, 2, eta,  a);
        break;
      case 2:
-     timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaTv2(2, 2, eta, spin1z, spin2z );
+     timewavePeak = XLALSimIMREOBGetNRSpinPeakDeltaTv2(2, 2, m1, m2, spin1z, spin2z );
        break;
      default:
        XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
@@ -865,7 +882,9 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   }
 
   /* Apply to the high sampled part */
-  //out = fopen( "saWavesHi.dat", "w" );
+  #if debugOutput
+  out = fopen( "saWavesHi.dat", "w" );
+  #endif 
   for ( i = 0; i < retLen; i++ )
   {
     values->data[0] = rHi.data[i];
@@ -880,7 +899,9 @@ int XLALSimIMRSpinAlignedEOBWaveform(
 
     hLM = sigReHi->data[i];
     hLM += I * sigImHi->data[i];
-    //fprintf( out, "%.16e %.16e %.16e %.16e %.16e\n", timeHi.data[i], creal(hLM), cimag(hLM), creal(hNQC), cimag(hNQC) );
+    #if debugOutput
+    fprintf( out, "%.16e %.16e %.16e %.16e %.16e\n", timeHi.data[i], creal(hLM), cimag(hLM), creal(hNQC), cimag(hNQC) );
+    #endif
 
     hLM *= hNQC;
     sigReHi->data[i] = (REAL4) creal(hLM);
@@ -893,8 +914,8 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     }
     oldsigAmpSqHi = sigAmpSqHi;
   }
-  //fclose(out);
   #if debugOutput
+  fclose(out);
   printf("NQCs entering hNQC: %f, %f, %f, %f, %f, %f\n", nqcCoeffs.a1, nqcCoeffs.a2,nqcCoeffs.a3, nqcCoeffs.a3S, nqcCoeffs.a4, nqcCoeffs.a5 );
   printf("NQCs entering hNQC: %f, %f, %f, %f\n", nqcCoeffs.b1, nqcCoeffs.b2,nqcCoeffs.b3, nqcCoeffs.b4 );
   #endif
@@ -919,7 +940,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   
   /* Attach the ringdown at the time of amplitude peak */
   REAL8 combSize = 7.5; /* Eq. 34 */
-  REAL8 chi = (spin1[2] + spin2[2]) / 2. + (spin1[2] - spin2[2]) / 2. * sqrt(1. - 4. * eta) / (1. - 2. * eta);
+  REAL8 chi = (spin1[2] + spin2[2]) / 2. + ((spin1[2] - spin2[2]) / 2.) * ((m1 - m2)/(m1+m2)) / (1. - 2. * eta);
 
   /* Modify the combsize for SEOBNRv2 */
   /* If chi1=chi2=0, comb = 11. if chi < 0.8, comb = 12. if chi >= 0.8, comb =
@@ -1835,7 +1856,7 @@ printf("times, deltaT = %.16e, mTScaled = %.16e, dt = %.16e\n",deltaT,mTScaled,d
        }
        break;
      case 2:
-       if ( XLALSimIMRGetEOBCalibratedSpinNQC3D( &nqcCoeffs, 2, 2, eta, a, chiA ) == XLAL_FAILURE )
+       if ( XLALSimIMRGetEOBCalibratedSpinNQC3D( &nqcCoeffs, 2, 2, m1, m2, a, chiA ) == XLAL_FAILURE )
        {
          XLAL_ERROR( XLAL_EFUNC );
        }

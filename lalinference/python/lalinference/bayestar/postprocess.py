@@ -101,10 +101,10 @@ class _HEALPixNode(object):
         m = np.empty(npix)
         for ipix, child in enumerate(self.children):
             child._flat_bitmap(0, order, ipix, m)
-        return hp.reorder(m, n2r=True)
+        return m
 
 
-def adaptive_healpix_histogram(theta, phi, max_samples_per_pixel, nside=-1, max_nside=-1):
+def adaptive_healpix_histogram(theta, phi, max_samples_per_pixel, nside=-1, max_nside=-1, nest=False):
     """Adaptively histogram the posterior samples represented by the
     (theta, phi) points using a recursively subdivided HEALPix tree. Nodes are
     subdivided until each leaf contains no more than max_samples_per_pixel
@@ -137,16 +137,111 @@ def adaptive_healpix_histogram(theta, phi, max_samples_per_pixel, nside=-1, max_
 
     # If requested, resample the tree to the output resolution.
     if nside != -1:
-        p = hp.ud_grade(p, nside)
+        p = hp.ud_grade(p, nside, order_in='NESTED', order_out='NESTED')
 
     # Normalize.
     p /= np.sum(p)
+
+    if not nest:
+        p = hp.reorder(p, n2r=True)
 
     # Done!
     return p
 
 
-def flood_fill(nside, ipix, m):
+def _interpolate_level(m):
+    """Recursive multi-resolution interpolation. Modifies `m` in place."""
+    # Determine resolution.
+    npix = len(m)
+
+    if npix > 12:
+        # Determine which pixels comprise multi-pixel tiles.
+        ipix = np.flatnonzero(
+            (m[0::4] == m[1::4]) &
+            (m[0::4] == m[2::4]) &
+            (m[0::4] == m[3::4]))
+
+        if len(ipix):
+            ipix = (4 * ipix +
+                np.expand_dims(np.arange(4, dtype=np.intp), 1)).T.flatten()
+
+            nside = hp.npix2nside(npix)
+
+            # Downsample.
+            m_lores = hp.ud_grade(
+                m, nside // 2, order_in='NESTED', order_out='NESTED')
+
+            # Interpolate recursively.
+            _interpolate_level(m_lores)
+
+            # Record interpolated multi-pixel tiles.
+            m[ipix] = hp.get_interp_val(
+                m_lores, *hp.pix2ang(nside, ipix, nest=True), nest=True)
+
+
+def interpolate_nested(m, nest=False):
+    """
+    Apply bilinear interpolation to a multiresolution HEALPix map, assuming
+    that runs of pixels containing identical values are nodes of the tree. This
+    smooths out the stair-step effect that may be noticeable in contour plots.
+
+    Here is how it works. Consider a coarse tile surrounded by base tiles, like
+    this:
+
+                +---+---+
+                |   |   |
+                +-------+
+                |   |   |
+        +---+---+---+---+---+---+
+        |   |   |       |   |   |
+        +-------+       +-------+
+        |   |   |       |   |   |
+        +---+---+---+---+---+---+
+                |   |   |
+                +-------+
+                |   |   |
+                +---+---+
+
+    The value within the central coarse tile is computed by downsampling the
+    sky map (averaging the fine tiles), upsampling again (with bilinear
+    interpolation), and then finally copying the interpolated values within the
+    coarse tile back to the full-resolution sky map. This process is applied
+    recursively at all successive HEALPix resolutions.
+
+    Note that this method suffers from a minor discontinuity artifact at the
+    edges of regions of coarse tiles, because it temporarily treats the
+    bordering fine tiles as constant. However, this artifact seems to have only
+    a minor effect on generating contour plots.
+
+    Parameters
+    ----------
+
+    m: `~numpy.ndarray`
+        a HEALPix array
+
+    nest: bool, default: False
+        Whether the input array is stored in the `NESTED` indexing scheme (True)
+        or the `RING` indexing scheme (False).
+
+    """
+    # Convert to nest indexing if necessary, and make sure that we are working
+    # on a copy.
+    if nest:
+        m = m.copy()
+    else:
+        m = hp.reorder(m, r2n=True)
+
+    _interpolate_level(m)
+
+    # Convert to back ring indexing if necessary
+    if not nest:
+        m = hp.reorder(m, n2r=True)
+
+    # Done!
+    return m
+
+
+def flood_fill(nside, ipix, m, nest=False):
     """Stack-based flood fill algorithm in HEALPix coordinates.
     Based on <http://en.wikipedia.org/w/index.php?title=Flood_fill&oldid=566525693#Alternative_implementations>.
     """
@@ -160,7 +255,7 @@ def flood_fill(nside, ipix, m):
             # Fill in this pixel.
             m[ipix] = False
             # Find the pixels neighbors.
-            neighbors = hp.get_all_neighbours(nside, ipix)
+            neighbors = hp.get_all_neighbours(nside, ipix, nest=nest)
             # All pixels have up to 8 neighbors. If a pixel has less than 8
             # neighbors, then some entries of the array are set to -1. We
             # have to skip those.
@@ -169,7 +264,7 @@ def flood_fill(nside, ipix, m):
             stack.extend(neighbors)
 
 
-def count_modes(m):
+def count_modes(m, nest=False):
     """Count the number of modes in a binary HEALPix image by repeatedly
     applying the flood-fill algorithm.
 
@@ -179,7 +274,7 @@ def count_modes(m):
     for nmodes in xrange(npix):
         nonzeroipix = np.flatnonzero(m)
         if len(nonzeroipix):
-            flood_fill(nside, nonzeroipix[0], m)
+            flood_fill(nside, nonzeroipix[0], m, nest=nest)
         else:
             break
     return nmodes
@@ -193,11 +288,15 @@ def indicator(n, i):
     return m
 
 
-def angle_distance(theta0, phi0, theta1, phi1):
-    """Angular separation in radians between two points on the unit sphere."""
+def cos_angle_distance(theta0, phi0, theta1, phi1):
+    """Cosine of angular separation in radians between two points on the unit sphere."""
     cos_angle_distance = (np.cos(phi1 - phi0) * np.sin(theta0) * np.sin(theta1)
         + np.cos(theta0) * np.cos(theta1))
-    return np.arccos(np.clip(cos_angle_distance, -1, 1))
+    return np.clip(cos_angle_distance, -1, 1)
+
+def angle_distance(theta0, phi0, theta1, phi1):
+    """Angular separation in radians between two points on the unit sphere."""
+    return np.arccos(cos_angle_distance(theta0, phi0, theta1, phi1))
 
 
 # Class to hold return value of find_injection method
@@ -205,7 +304,7 @@ FoundInjection = collections.namedtuple('FoundInjection',
     'searched_area searched_prob offset searched_modes contour_areas contour_modes')
 
 
-def find_injection(sky_map, true_ra, true_dec, contours=(), modes=False):
+def find_injection(sky_map, true_ra, true_dec, contours=(), modes=False, nest=False):
     """
     Given a sky map and the true right ascension and declination (in radians),
     find the smallest area in deg^2 that would have to be searched to find the
@@ -227,10 +326,10 @@ def find_injection(sky_map, true_ra, true_dec, contours=(), modes=False):
     # Find the HEALPix pixel index of the mode of the posterior and of the
     # true sky location.
     mode_pix = np.argmax(sky_map)
-    true_pix = hp.ang2pix(nside, true_theta, true_phi)
+    true_pix = hp.ang2pix(nside, true_theta, true_phi, nest=nest)
 
     # Compute spherical polar coordinates of true location.
-    mode_theta, mode_phi = hp.pix2ang(nside, mode_pix)
+    mode_theta, mode_phi = hp.pix2ang(nside, mode_pix, nest=nest)
 
     # Sort the pixels in the sky map by descending posterior probability and
     # form the cumulative sum.  Record the total value.
@@ -263,8 +362,8 @@ def find_injection(sky_map, true_ra, true_dec, contours=(), modes=False):
 
     if modes:
         # Count up the number of modes in each of the given contours.
-        searched_modes = count_modes(indicator(npix, indices[:idx+1]))
-        contour_modes = [count_modes(indicator(npix, indices[:i+1]))
+        searched_modes = count_modes(indicator(npix, indices[:idx+1]), nest=nest)
+        contour_modes = [count_modes(indicator(npix, indices[:i+1]), nest=nest)
             for i in ipix]
     else:
         searched_modes = None
