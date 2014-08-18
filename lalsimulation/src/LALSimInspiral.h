@@ -56,6 +56,7 @@ typedef enum {
                          * the waveform given by \c TaylorT1 approximant (see \cite dis2000 for details);
                          * Outputs a frequency-domain wave. */
    TaylorF2,		/**< The standard stationary phase approximation; Outputs a frequency-domain wave. */
+   TaylorF2Accelerated, /**< MKL-accelerated TaylorF2; Outputs a frequency-domain wave. */
    TaylorR2F4,		/**< A frequency domain model closely related to TaylorT4 */
    TaylorF2RedSpin,		/**< TaylorF2 waveforms for non-precessing spins, defined in terms of a single (reduced-spin) parameter [Ajith_2011ec]*/
    TaylorF2RedSpinTidal,	/**< TaylorF2 waveforms for non-precessing spins, defined in terms of a single (reduced-spin) parameter [Ajith_2011ec] plus tidal terms (http://arxiv.org/abs/1101.1673) */
@@ -1779,6 +1780,28 @@ int XLALSimInspiralTaylorF2AlignedPhasing(
  * set to -1, then the highest implemented order is used.
  */
 int XLALSimInspiralTaylorF2(
+		COMPLEX16FrequencySeries **htilde, /**< FD waveform */
+		const REAL8 phi_ref,            /**< orbital reference phase (rad) */
+		const REAL8 deltaF,             /**< frequency resolution */
+		const REAL8 m1_SI,              /**< mass of companion 1 (kg) */
+		const REAL8 m2_SI,              /**< mass of companion 2 (kg) */
+		const REAL8 S1z,                /**<   z component of the spin of companion 1 */
+		const REAL8 S2z,                /**<   z component of the spin of companion 2  */
+		const REAL8 fStart,             /**< start GW frequency (Hz) */
+		const REAL8 fEnd,               /**< highest GW frequency (Hz) of waveform generation - if 0, end at Schwarzschild ISCO */
+        const REAL8 f_ref,              /**< Reference GW frequency at which phi_ref is defined */
+		const REAL8 r,                  /**< distance of source (m) */
+        const REAL8 quadparam1,                /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
+        const REAL8 quadparam2,                /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
+		const REAL8 lambda1,            /**< (tidal deformation of body 1)/(mass of body 1)^5 */
+		const REAL8 lambda2,            /**< (tidal deformation of body 2)/(mass of body 2)^5 */
+		const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
+		LALSimInspiralTidalOrder tideO, /**< twice PN order of tidal effects */
+		const INT4 phaseO,              /**< twice PN phase order */
+		const INT4 amplitudeO           /**< twice PN amplitude order */
+		);
+
+int XLALSimInspiralTaylorF2Accelerated(
 		COMPLEX16FrequencySeries **htilde, /**< FD waveform */
 		const REAL8 phi_ref,            /**< orbital reference phase (rad) */
 		const REAL8 deltaF,             /**< frequency resolution */
