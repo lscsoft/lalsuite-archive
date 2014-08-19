@@ -122,7 +122,7 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Inspiral(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666);
+	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666);	// AJITH: Why is this called one_third? This is two_third right? 
 	REAL8 theta3_pow_six = pow(theta3,6);
 	return (0.03580722744181748*sqrt(theta0_pow_one_third/pow(theta3,1.6666666666666667))*pow(theta3/(flow*theta0),0.8333333333333334)*
      (1.*theta0_pow_one_third*pow((f*theta3)/(flow*theta0),0.6666666666666666) + 
@@ -1901,16 +1901,13 @@ static REAL8 MetricCoeffs(REAL8Vector *Amp, REAL8Vector *dPsii, REAL8Vector *dPs
     REAL8 gij_3 = 0.;
     REAL8 gij   = 0.;
     for (;k--;) {
-        gij_1 += df*((Amp->data[k]*Amp->data[k]*dPsii->data[k]*dPsij->data[k]
-                + dAi->data[k]*dAj->data[k])/(2.0*Sh->data[k]*hSqr));
-
-        gij_2 += df*((Amp->data[k]*dAi->data[k])/(Sh->data[k]*hSqr));
-
-        gij_3 += df*((Amp->data[k]*dAj->data[k])/(Sh->data[k]*hSqr));
-
+        gij_1 += (Amp->data[k]*Amp->data[k]*dPsii->data[k]*dPsij->data[k]
+                + dAi->data[k]*dAj->data[k])/(2.0*Sh->data[k]);
+        gij_2 += Amp->data[k]*dAi->data[k]/Sh->data[k];
+        gij_3 += Amp->data[k]*dAj->data[k]/Sh->data[k];
     }
-
-    gij =  gij_1 - (gij_2*gij_3)/2.0 ;
+	
+    gij =  df*gij_1/hSqr - df*df*(gij_2*gij_3)/(2.0*hSqr*hSqr) ;
     return gij;
 
 	}
@@ -1942,6 +1939,7 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
     const REAL8 flow,   /**< low-frequency cutoff (Hz) */
     const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
 ) {
+
     REAL8Vector *Amp=NULL, *dATheta0=NULL, *dATheta3=NULL;
     REAL8Vector *dAT0=NULL, *dAPhi=NULL, *dPhaseTheta0=NULL;
     REAL8Vector *dPhaseTheta3=NULL, *dPhaseT0=NULL, *dPhasePhi=NULL;
@@ -1951,21 +1949,25 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
     const REAL8 theta3 = ChirpTime_theta3(Mass,eta,flow);
 
     /* Compute the transition frequencies */
-
     const REAL8 fMerg  = TransitionFrequencies_fmerg(theta0,theta3,flow);	/**Frequency at which inspiral part transitions to merger part of the waveform*/
     const REAL8 fRing  = TransitionFrequencies_fring(theta0,theta3,flow);	/**Frequency at which merger part transitions to ringdown part of the waveform*/ 
     const REAL8 fCut   = TransitionFrequencies_fcut(theta0,theta3,flow);	/**Frequency at which ringdown part of the waveform is terminated*/ 
 
+	/* make sure that the flow is lower than the fCut */
+	if (fCut < flow) {
+        XLALPrintError("IMRPhenomB fCut is less than the flow chosen");
+        XLAL_ERROR(XLAL_EDOM);
+    }
 
     REAL8 df = Sh->deltaF;
     REAL8 hSqr = 0.;
     int s = 0;
 
-
     /* create a view of the PSD between flow and fCut */
     size_t nBins = (fCut - flow) / df;
     size_t k = nBins;
     REAL8Vector Shdata = {nBins, Sh->data->data}; /* copy the Vector, including its pointer to the actual data */
+
     /* drop low-frequency samples */
     Shdata.length = nBins;  /* drop high-frequency samples */
 
@@ -1980,10 +1982,13 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
     dPhaseT0 = XLALCreateREAL8Vector(nBins);
     dPhasePhi = XLALCreateREAL8Vector(nBins);
 
+	/* derivative of the ampl w.r.t t0 and phi0 are zero. Fill these vectors with zero */ 
+	memset(dAT0->data, 0, nBins*sizeof(REAL8));
+	memset(dAPhi->data, 0, nBins*sizeof(REAL8));
 
-    /* create a frequency vector from fLow to fCut with frequency resolution df */
-    if (flow<=fCut){
+    /* compute derivatives of the amplitude and phase of the waveform */
     for (;k--;) {
+
         const REAL8 f = flow + k * df;
 	
         dPhaseTheta0->data[k] = XLALSimIMRPhenomBPhase_Der_theta0(f,theta0,theta3,flow);
@@ -1991,42 +1996,39 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
         dPhaseT0->data[k] = LAL_TWOPI * f;
         dPhasePhi->data[k] = 1.;
 
-        dAT0->data[k] = 0.;
-        dAPhi->data[k] = 0.;
+		if (f <= fMerg){
 
-	if (f <= fMerg){
-        /* compute the inspiral amplitude of the frequency-domain waveform */
-        Amp->data[k] = XLALSimIMRPhenomBAmplitude_Inspiral(f,theta0,theta3,flow);
+        	/* inspiral amplitude of the waveform */
+        	Amp->data[k] = XLALSimIMRPhenomBAmplitude_Inspiral(f,theta0,theta3,flow);
 
-        /* compute the inspiral waveform deratives with respect to the parameters */
-        dATheta0->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta0_Inspiral(f,theta0,theta3,flow);
-        dATheta3->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta3_Inspiral(f,theta0,theta3,flow);
+        	/* inspiral waveform deratives with respect to the parameters */
+        	dATheta0->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta0_Inspiral(f,theta0,theta3,flow);
+        	dATheta3->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta3_Inspiral(f,theta0,theta3,flow);
 
-	}
+		}
+		else if ((fMerg<f) && (f<=fRing)){
 
-	else if ((fMerg<f)&&(f<=fRing)){
-        /* compute the merger amplitude of the frequency-domain waveform */
-        Amp->data[k] = XLALSimIMRPhenomBAmplitude_Merger(f,theta0,theta3,flow);
+        	/* merger amplitude of the frequency-domain waveform */
+        	Amp->data[k] = XLALSimIMRPhenomBAmplitude_Merger(f,theta0,theta3,flow);
 
-        /* compute the merger waveform deratives with respect to the parameters */
-        dATheta0->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta0_Merger(f,theta0,theta3,flow);
-        dATheta3->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta3_Merger(f,theta0,theta3,flow);
-	}
+        	/* merger waveform deratives with respect to the parameters */
+        	dATheta0->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta0_Merger(f,theta0,theta3,flow);
+        	dATheta3->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta3_Merger(f,theta0,theta3,flow);
+		}
 
-	else{
-        /* compute the ringdown amplitude of the frequency-domain waveform */
-        Amp->data[k] = XLALSimIMRPhenomBAmplitude_Ringdown(f,theta0,theta3,flow);
+		else{
+        	/* ringdown amplitude of the frequency-domain waveform */
+        	Amp->data[k] = XLALSimIMRPhenomBAmplitude_Ringdown(f,theta0,theta3,flow);
 
-        /* compute the ringdown waveform deratives with respect to the parameters */
-        dATheta0->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta0_Ringdown(f,theta0,theta3,flow);
-        dATheta3->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta3_Ringdown(f,theta0,theta3,flow);
-	}
+        	/* ringdown waveform deratives with respect to the parameters */
+        	dATheta0->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta0_Ringdown(f,theta0,theta3,flow);
+        	dATheta3->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta3_Ringdown(f,theta0,theta3,flow);
+		}
 
-	hSqr += Amp->data[k] * Amp->data[k] / Shdata.data[k];
+		hSqr += Amp->data[k] * Amp->data[k] / Shdata.data[k];
 	
-    }}
+    }
 	hSqr = hSqr*df;
-
 
     /* allocate memory, and initialize the Fisher matrix */
     gsl_matrix * g = gsl_matrix_calloc (4, 4);
@@ -2036,7 +2038,6 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
     gsl_matrix_set (g, 0,1, MetricCoeffs(Amp, dPhaseTheta0, dPhaseTheta3, dATheta0, dATheta3, &Shdata, hSqr, df));
     gsl_matrix_set (g, 0,2, MetricCoeffs(Amp, dPhaseTheta0, dPhaseT0, dATheta0, dAT0, &Shdata, hSqr, df));
     gsl_matrix_set (g, 0,3, MetricCoeffs(Amp, dPhaseTheta0, dPhasePhi, dATheta0, dAPhi, &Shdata, hSqr, df));
-
 
     gsl_matrix_set (g, 1,0, gsl_matrix_get(g, 0,1));
     gsl_matrix_set (g, 1,1, MetricCoeffs(Amp, dPhaseTheta3, dPhaseTheta3, dATheta3, dATheta3, &Shdata, hSqr, df));
