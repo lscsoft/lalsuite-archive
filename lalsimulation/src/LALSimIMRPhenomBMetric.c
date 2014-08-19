@@ -29,20 +29,6 @@
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_permutation.h>
 
-/* Computed in Mathematica with N[\[Pi]^2, 35] */
-#define Pi_p2 9.8696044010893586188344909998761511
-#define Pi_p3 31.006276680299820175476315067101395
-#define Pi_p4 97.409091034002437236440332688705111
-#define Pi_p5 306.01968478528145326274131004343561
-#define Pi_p4by3 4.6011511144704899609836928301589280
-#define Pi_p5by3 6.7388085956981412852178979102191822
-#define Pi_p10by3 45.411541289455155012188835024560824
-#define Pi_p7by3 14.454942539276981063196177096150014
-#define Pi_p1by3 1.4645918875615232630201425272637904
-#define Pi_p2by3 2.1450293971110256000774441009412356
-#define Pi_11by3 66.509374974201175524807943232081902
-#define tenbyPi_p2by3 2.1638812222639821850478371484217674
-#define twoPi_p2by3 3.4050219214767547368607032470366207
 
 #define PI 3.1415926535897932384626433832795029
 
@@ -55,54 +41,63 @@
 
 
 static REAL8 ChirpTime_theta0(
-	const REAL8 mass,
-	const REAL8 eta,
-	const REAL8 f_low){
+	const REAL8 mass,	/**< Total Mass of system */
+	const REAL8 eta,	/**< Symmetric mass ratio of system */
+	const REAL8 f_low	/**< Lower Frequency Cut-off */
+	){
 	REAL8 pi;
 	pi = PI;
-	return (5.0/(128.0*eta*pow(pi*mass*LAL_MTSUN_SI*f_low,5.0/3.0)));
+	return 5.0/(128.0*eta*pow(pi*mass*LAL_MTSUN_SI*f_low,5.0/3.0));
 	}
 
 static REAL8 ChirpTime_theta3(
-	const REAL8 mass,
-	const REAL8 eta,
-	const REAL8 f_low){
+	const REAL8 mass,	/**< Total Mass of system */
+	const REAL8 eta,	/**< Symmetric mass ratio of system */
+	const REAL8 f_low	/**< Lower Frequency Cut-off */
+	){
 	REAL8 pi;
 	pi = PI;
-	return (pow(pi,1.0/3.0)/(4.0*eta*pow(mass*LAL_MTSUN_SI*f_low,2.0/3.0)));
+	return pow(pi,1.0/3.0)/(4.0*eta*pow(mass*LAL_MTSUN_SI*f_low,2.0/3.0));
 	}
 /**
 *******************************************************************************************************************************
 */
 /**
-* Function to calculate the transition frequencies of IMRPhenomB waveform. F_merg, F_ring and F_cut
+* Function to calculate the transition frequencies of IMRPhenomB waveform. F_merg, F_ring and F_cut.
+
+	F_merg = Frequency at which waveform transitions from inspiral to merger mode.
+	F_ring = Frequency at which waveform transitions from merger to ringdown mode.
+	F_cut = Frequency at which IMRPhenomB waveform is terminated.
 */
 
 static REAL8 TransitionFrequencies_fmerg(
-	const REAL8 theta0,
-	const REAL8 theta3,
-	const REAL8 f_low)
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 f_low	/**< Lower Frequency Cut-off */
+	)
 	{
-	return ((1.3270087368763253*f_low*theta0)/theta3 + (20.106192982974676*f_low*theta0*(0. - (1388.908285838913*pow(theta0,2))/pow(theta3,5) - (1.9634062693265484*pow(theta0,1.3333333333333333))/pow(theta3,3.3333333333333335) + (3.7378874416543857*pow(theta0,0.6666666666666666))/pow(theta3,1.6666666666666667)))/theta3);
+	return (1.3270087368763253*f_low*theta0)/theta3 + (20.106192982974676*f_low*theta0*(0. - (1388.908285838913*pow(theta0,2))/pow(theta3,5) - (1.9634062693265484*pow(theta0,1.3333333333333333))/pow(theta3,3.3333333333333335) + (3.7378874416543857*pow(theta0,0.6666666666666666))/pow(theta3,1.6666666666666667)))/theta3;
 
 
 }
 
 static REAL8 TransitionFrequencies_fring(
-	const REAL8 theta0,
-	const REAL8 theta3,
-	const REAL8 f_low)
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 f_low	/**< Lower Frequency Cut-off */
+	)
 	{
-	return ((3.719645701850315*f_low*theta0)/theta3 + (20.106192982974676*f_low*theta0*(0. + (455.39646148015123*pow(theta0,2))/pow(theta3,5) - (0.8397543046176621*pow(theta0,1.3333333333333333))/pow(theta3,3.3333333333333335) + (0.8530966599534362*pow(theta0,0.6666666666666666))/pow(theta3,1.6666666666666667)))/theta3);
+	return (3.719645701850315*f_low*theta0)/theta3 + (20.106192982974676*f_low*theta0*(0. + (455.39646148015123*pow(theta0,2))/pow(theta3,5) - (0.8397543046176621*pow(theta0,1.3333333333333333))/pow(theta3,3.3333333333333335) + (0.8530966599534362*pow(theta0,0.6666666666666666))/pow(theta3,1.6666666666666667)))/theta3;
 
 }
 
 static REAL8 TransitionFrequencies_fcut(
-	const REAL8 theta0,
-	const REAL8 theta3,
-	const REAL8 f_low)
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 f_low	/**< Lower Frequency Cut-off */
+	)
 	{
-	return ((6.506364049290605*f_low*theta0)/theta3 + (20.106192982974676*f_low*theta0*(0. + (963.986488648419*pow(theta0,2))/pow(theta3,5) - (9.15298466960777*pow(theta0,1.3333333333333333))/pow(theta3,3.3333333333333335) - (0.7731297368250576*pow(theta0,0.6666666666666666))/pow(theta3,1.6666666666666667)))/theta3);
+	return (6.506364049290605*f_low*theta0)/theta3 + (20.106192982974676*f_low*theta0*(0. + (963.986488648419*pow(theta0,2))/pow(theta3,5) - (9.15298466960777*pow(theta0,1.3333333333333333))/pow(theta3,3.3333333333333335) - (0.7731297368250576*pow(theta0,0.6666666666666666))/pow(theta3,1.6666666666666667)))/theta3;
 }
 
 /**
@@ -122,10 +117,11 @@ static REAL8 TransitionFrequencies_fcut(
  */
 
 static REAL8 XLALSimIMRPhenomBAmplitude_Inspiral(
-	const REAL8 f,
-	const REAL8 theta0,
-	const REAL8 theta3,
-	const REAL8 flow){
+	const REAL8 f,		/**<Fourier Frequency*/
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 flow	/**< Lower Frequency Cut-off */
+	){
 	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666);
 	REAL8 theta3_pow_six = pow(theta3,6);
 	return (0.03580722744181748*sqrt(theta0_pow_one_third/pow(theta3,1.6666666666666667))*pow(theta3/(flow*theta0),0.8333333333333334)*
@@ -141,10 +137,11 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Inspiral(
 	}
 
 static REAL8 XLALSimIMRPhenomBAmplitude_Merger(
-	const REAL8 f,
-	const REAL8 theta0,
-	const REAL8 theta3,
-	const REAL8 flow){
+	const REAL8 f,		/**<Fourier Frequency*/
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 flow	/**< Lower Frequency Cut-off */
+	){
 	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666);
 	REAL8 theta0_pow_2 = pow(theta0,2);
 	REAL8 theta0_pow_133 = pow(theta0,1.3333333333333333);
@@ -178,10 +175,11 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Merger(
 	}
 
 static REAL8 XLALSimIMRPhenomBAmplitude_Ringdown(
-	const REAL8 f,
-	const REAL8 theta0,
-	const REAL8 theta3,
-	const REAL8 flow){
+	const REAL8 f,		/**<Fourier Frequency*/
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 flow	/**< Lower Frequency Cut-off */
+	){
 	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666);
 	REAL8 theta0_pow_2 = pow(theta0,2);
 	REAL8 theta0_pow_133 = pow(theta0,1.3333333333333333);
@@ -244,10 +242,11 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Ringdown(
 *Derivative of inspiral part of IMRPhenomB amplitude w.r.t theta0
 */
 static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta0_Inspiral(
-	const REAL8 f,
-	const REAL8 theta0,
-	const REAL8 theta3,
-	const REAL8 flow){
+	const REAL8 f,		/**<Fourier Frequency*/
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 flow	/**< Lower Frequency Cut-off */
+	){
 	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666);
 	REAL8 theta3_pow_33 = pow(theta3,3.3333333333333335);
 	REAL8 theta3_pow_166 = pow(theta3,1.6666666666666667);
@@ -270,10 +269,11 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta0_Inspiral(
 *Derivative of merger part of IMRPhenomB amplitude w.r.t theta0
 */
 static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta0_Merger(
-	const REAL8 f,
-	const REAL8 theta0,
-	const REAL8 theta3,
-	const REAL8 flow){
+	const REAL8 f,		/**<Fourier Frequency*/
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 flow	/**< Lower Frequency Cut-off */
+	){
 	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666);
 	REAL8 theta0_pow_2 = pow(theta0,2);
 	REAL8 theta0_pow_133 = pow(theta0,1.3333333333333333);
@@ -502,10 +502,11 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta0_Merger(
 
 
 static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta0_Ringdown(
-	const REAL8 f,
-	const REAL8 theta0,
-	const REAL8 theta3,
-	const REAL8 flow){
+	const REAL8 f,		/**<Fourier Frequency*/
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 flow	/**< Lower Frequency Cut-off */
+	){
 	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666);
 	REAL8 theta0_pow_2 = pow(theta0,2);
 	REAL8 theta0_pow_133 = pow(theta0,1.3333333333333333);
@@ -1017,10 +1018,11 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta0_Ringdown(
  */
 
 static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta3_Inspiral(
-	const REAL8 f,
-	const REAL8 theta0,
-	const REAL8 theta3,
-	const REAL8 flow){
+	const REAL8 f,		/**<Fourier Frequency*/
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 flow	/**< Lower Frequency Cut-off */
+	){
 	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666) ;
 	REAL8 theta0_pow_2 = pow(theta0,2);
 	REAL8 theta0_pow_133 = pow(theta0,1.3333333333333333);
@@ -1047,10 +1049,11 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta3_Inspiral(
 
 
 static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta3_Merger(
-	const REAL8 f,
-	const REAL8 theta0,
-	const REAL8 theta3,
-	const REAL8 flow){
+	const REAL8 f,		/**<Fourier Frequency*/
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 flow	/**< Lower Frequency Cut-off */
+	){
 	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666) ;
 	REAL8 theta0_pow_2 = pow(theta0,2);
 	REAL8 theta0_pow_133 = pow(theta0,1.3333333333333333);
@@ -1275,10 +1278,11 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta3_Merger(
 
 
 static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta3_Ringdown(
-	const REAL8 f,
-	const REAL8 theta0,
-	const REAL8 theta3,
-	const REAL8 flow){
+	const REAL8 f,		/**<Fourier Frequency*/
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 flow	/**< Lower Frequency Cut-off */
+	){
 	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666) ;
 	REAL8 theta0_pow_2 = pow(theta0,2);
 	REAL8 theta0_pow_133 = pow(theta0,1.3333333333333333);
@@ -1796,10 +1800,11 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta3_Ringdown(
 */
 
 static REAL8 XLALSimIMRPhenomBPhase_Der_theta0(
-	const REAL8 f,
-	const REAL8 theta0,
-	const REAL8 theta3,
-	const REAL8 flow){
+	const REAL8 f,		/**<Fourier Frequency*/
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 flow	/**< Lower Frequency Cut-off */
+	){
 	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666) ;
 	REAL8 theta0_pow_2 = pow(theta0,2);
 	REAL8 theta0_pow_133 = pow(theta0,1.3333333333333333);
@@ -1833,10 +1838,11 @@ static REAL8 XLALSimIMRPhenomBPhase_Der_theta0(
 
 
 static REAL8 XLALSimIMRPhenomBPhase_Der_theta3(
-	const REAL8 f,
-	const REAL8 theta0,
-	const REAL8 theta3,
-	const REAL8 flow){
+	const REAL8 f,		/**<Fourier Frequency*/
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 flow	/**< Lower Frequency Cut-off */
+	){
 	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666) ;
 	REAL8 theta0_pow_2 = pow(theta0,2);
 	REAL8 theta0_pow_133 = pow(theta0,1.3333333333333333);
@@ -1893,21 +1899,19 @@ static REAL8 MetricCoeffs(REAL8Vector *Amp, REAL8Vector *dPsii, REAL8Vector *dPs
     REAL8 gij_1 = 0.;
     REAL8 gij_2 = 0.;
     REAL8 gij_3 = 0.;
+    REAL8 gij   = 0.;
     for (;k--;) {
-        gij_1 += df*(Amp->data[k]*Amp->data[k]*dPsii->data[k]*dPsij->data[k]
-                + dAi->data[k]*dAj->data[k])/(2.0*Sh->data[k]*hSqr);
+        gij_1 += df*((Amp->data[k]*Amp->data[k]*dPsii->data[k]*dPsij->data[k]
+                + dAi->data[k]*dAj->data[k])/(2.0*Sh->data[k]*hSqr));
+
+        gij_2 += df*((Amp->data[k]*dAi->data[k])/(Sh->data[k]*hSqr));
+
+        gij_3 += df*((Amp->data[k]*dAj->data[k])/(Sh->data[k]*hSqr));
+
     }
 
-    for (;k--;) {
-        gij_2 += df*(Amp->data[k]*dAi->data[k])/(Sh->data[k]*hSqr);
-    }
-
-
-    for (;k--;) {
-        gij_3 += df*(Amp->data[k]*dAj->data[k])/(Sh->data[k]*hSqr);
-    }
-
-    return (gij_1 - (gij_2*gij_3)/2.0 );
+    gij =  gij_1 - (gij_2*gij_3)/2.0 ;
+    return gij;
 
 	}
 /**
@@ -1938,70 +1942,66 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
     const REAL8 flow,   /**< low-frequency cutoff (Hz) */
     const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
 ) {
-    printf("starting calculating the metric");
-    REAL8Vector *Amp=NULL, *dA_theta0=NULL, *dA_theta3=NULL;
-    REAL8Vector *dA_t0=NULL, *dA_phi=NULL, *dPhase_theta0=NULL;
-    REAL8Vector *dPhase_theta3=NULL, *dPhase_t0=NULL, *dPhase_phi=NULL;
+    REAL8Vector *Amp=NULL, *dATheta0=NULL, *dATheta3=NULL;
+    REAL8Vector *dAT0=NULL, *dAPhi=NULL, *dPhaseTheta0=NULL;
+    REAL8Vector *dPhaseTheta3=NULL, *dPhaseT0=NULL, *dPhasePhi=NULL;
+
+    /* compute the chirp-time co-ordinates */
+    const REAL8 theta0 = ChirpTime_theta0(Mass,eta,flow);
+    const REAL8 theta3 = ChirpTime_theta3(Mass,eta,flow);
+
+    /* Compute the transition frequencies */
+
+    const REAL8 fMerg  = TransitionFrequencies_fmerg(theta0,theta3,flow);	/**Frequency at which inspiral part transitions to merger part of the waveform*/
+    const REAL8 fRing  = TransitionFrequencies_fring(theta0,theta3,flow);	/**Frequency at which merger part transitions to ringdown part of the waveform*/ 
+    const REAL8 fCut   = TransitionFrequencies_fcut(theta0,theta3,flow);	/**Frequency at which ringdown part of the waveform is terminated*/ 
 
 
-    REAL8 theta0, theta3;
-    REAL8 fMerg, fRing, fCut;
-
-    const REAL8 df = Sh->deltaF;
+    REAL8 df = Sh->deltaF;
     REAL8 hSqr = 0.;
     int s = 0;
 
-    /* compute the chirp-time co-ordinates */
-    theta0 = ChirpTime_theta0(Mass,eta,flow);
-    theta3 = ChirpTime_theta3(Mass,eta,flow);
-
-    /* Compute the transition frequencies */
-    fMerg = TransitionFrequencies_fmerg(theta0,theta3,flow);	/**Frequency at which inspiral part transitions to merger part of the waveform*/
-    fRing = TransitionFrequencies_fring(theta0,theta3,flow);	/**Frequency at which merger part transitions to ringdown part of the waveform*/ 
-    fCut = TransitionFrequencies_fcut(theta0,theta3,flow);	/**Frequency at which ringdown part of the waveform is terminated*/ 
-
-    printf("The Transition frequencies are fMerg = %f, fRing = %f , fCut = %f",fMerg,fRing,fCut);
 
     /* create a view of the PSD between flow and fCut */
     size_t nBins = (fCut - flow) / df;
     size_t k = nBins;
-    REAL8Vector Shdata = {nBins, Sh->data->data + (size_t) (flow / df)}; /* copy the Vector, including its pointer to the actual data */
+    REAL8Vector Shdata = {nBins, Sh->data->data}; /* copy the Vector, including its pointer to the actual data */
     /* drop low-frequency samples */
     Shdata.length = nBins;  /* drop high-frequency samples */
 
     /* allocate memory for various vectors */
     Amp = XLALCreateREAL8Vector(nBins);
-    dA_theta0 = XLALCreateREAL8Vector(nBins);
-    dA_theta3 = XLALCreateREAL8Vector(nBins);
-    dA_t0 = XLALCreateREAL8Vector(nBins);
-    dA_phi = XLALCreateREAL8Vector(nBins);
-    dPhase_theta0 = XLALCreateREAL8Vector(nBins);
-    dPhase_theta3 = XLALCreateREAL8Vector(nBins);
-    dPhase_t0 = XLALCreateREAL8Vector(nBins);
-    dPhase_phi = XLALCreateREAL8Vector(nBins);
+    dATheta0 = XLALCreateREAL8Vector(nBins);
+    dATheta3 = XLALCreateREAL8Vector(nBins);
+    dAT0 = XLALCreateREAL8Vector(nBins);
+    dAPhi = XLALCreateREAL8Vector(nBins);
+    dPhaseTheta0 = XLALCreateREAL8Vector(nBins);
+    dPhaseTheta3 = XLALCreateREAL8Vector(nBins);
+    dPhaseT0 = XLALCreateREAL8Vector(nBins);
+    dPhasePhi = XLALCreateREAL8Vector(nBins);
 
-	printf("About to create amplitude, phase and it's derivatives vectors");
 
     /* create a frequency vector from fLow to fCut with frequency resolution df */
     if (flow<=fCut){
     for (;k--;) {
         const REAL8 f = flow + k * df;
 	
-        dPhase_theta0->data[k] = XLALSimIMRPhenomBPhase_Der_theta0(f,theta0,theta3,flow);
-        dPhase_theta3->data[k] = XLALSimIMRPhenomBPhase_Der_theta3(f,theta0,theta3,flow);
-        dPhase_t0->data[k] = LAL_TWOPI * f;
-        dPhase_phi->data[k] = 1.;
+        dPhaseTheta0->data[k] = XLALSimIMRPhenomBPhase_Der_theta0(f,theta0,theta3,flow);
+        dPhaseTheta3->data[k] = XLALSimIMRPhenomBPhase_Der_theta3(f,theta0,theta3,flow);
+        dPhaseT0->data[k] = LAL_TWOPI * f;
+        dPhasePhi->data[k] = 1.;
 
-        dA_t0->data[k] = 0.;
-        dA_phi->data[k] = 0.;
+        dAT0->data[k] = 0.;
+        dAPhi->data[k] = 0.;
 
 	if (f <= fMerg){
         /* compute the inspiral amplitude of the frequency-domain waveform */
         Amp->data[k] = XLALSimIMRPhenomBAmplitude_Inspiral(f,theta0,theta3,flow);
 
         /* compute the inspiral waveform deratives with respect to the parameters */
-        dA_theta0->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta0_Inspiral(f,theta0,theta3,flow);
-        dA_theta3->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta3_Inspiral(f,theta0,theta3,flow);
+        dATheta0->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta0_Inspiral(f,theta0,theta3,flow);
+        dATheta3->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta3_Inspiral(f,theta0,theta3,flow);
+
 	}
 
 	else if ((fMerg<f)&&(f<=fRing)){
@@ -2009,8 +2009,8 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
         Amp->data[k] = XLALSimIMRPhenomBAmplitude_Merger(f,theta0,theta3,flow);
 
         /* compute the merger waveform deratives with respect to the parameters */
-        dA_theta0->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta0_Merger(f,theta0,theta3,flow);
-        dA_theta3->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta3_Merger(f,theta0,theta3,flow);
+        dATheta0->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta0_Merger(f,theta0,theta3,flow);
+        dATheta3->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta3_Merger(f,theta0,theta3,flow);
 	}
 
 	else{
@@ -2018,50 +2018,51 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
         Amp->data[k] = XLALSimIMRPhenomBAmplitude_Ringdown(f,theta0,theta3,flow);
 
         /* compute the ringdown waveform deratives with respect to the parameters */
-        dA_theta0->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta0_Ringdown(f,theta0,theta3,flow);
-        dA_theta3->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta3_Ringdown(f,theta0,theta3,flow);
+        dATheta0->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta0_Ringdown(f,theta0,theta3,flow);
+        dATheta3->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta3_Ringdown(f,theta0,theta3,flow);
 	}
-	/* compute the square of the template norm */
-        hSqr += Amp->data[k] * Amp->data[k] / Shdata.data[k];
+
+	hSqr += Amp->data[k] * Amp->data[k] / Shdata.data[k];
+	
     }}
-    hSqr *= 4 * df;
-	printf("Finished Creating amplitude, phase and it's derivatives vectors. Norm is %f", hSqr);
+	hSqr = hSqr*df;
+
 
     /* allocate memory, and initialize the Fisher matrix */
     gsl_matrix * g = gsl_matrix_calloc (4, 4);
 
     /* compute the components of the Fisher matrix in coordinates mc, eta, chi, t0, phi0 */
-    gsl_matrix_set (g, 0,0, MetricCoeffs(Amp, dPhase_theta0, dPhase_theta0, dA_theta0, dA_theta0, &Shdata, hSqr, df));
-    gsl_matrix_set (g, 0,1, MetricCoeffs(Amp, dPhase_theta0, dPhase_theta3, dA_theta0, dA_theta3, &Shdata, hSqr, df));
-    gsl_matrix_set (g, 0,2, MetricCoeffs(Amp, dPhase_theta0, dPhase_t0, dA_theta0, dA_t0, &Shdata, hSqr, df));
-    gsl_matrix_set (g, 0,3, MetricCoeffs(Amp, dPhase_theta0, dPhase_phi, dA_theta0, dA_phi, &Shdata, hSqr, df));
+    gsl_matrix_set (g, 0,0, MetricCoeffs(Amp, dPhaseTheta0, dPhaseTheta0, dATheta0, dATheta0, &Shdata, hSqr, df));
+    gsl_matrix_set (g, 0,1, MetricCoeffs(Amp, dPhaseTheta0, dPhaseTheta3, dATheta0, dATheta3, &Shdata, hSqr, df));
+    gsl_matrix_set (g, 0,2, MetricCoeffs(Amp, dPhaseTheta0, dPhaseT0, dATheta0, dAT0, &Shdata, hSqr, df));
+    gsl_matrix_set (g, 0,3, MetricCoeffs(Amp, dPhaseTheta0, dPhasePhi, dATheta0, dAPhi, &Shdata, hSqr, df));
 
 
     gsl_matrix_set (g, 1,0, gsl_matrix_get(g, 0,1));
-    gsl_matrix_set (g, 1,1, MetricCoeffs(Amp, dPhase_theta3, dPhase_theta3, dA_theta3, dA_theta3, &Shdata, hSqr, df));
-    gsl_matrix_set (g, 1,2, MetricCoeffs(Amp, dPhase_theta3, dPhase_t0, dA_theta3, dA_t0, &Shdata, hSqr, df));
-    gsl_matrix_set (g, 1,3, MetricCoeffs(Amp, dPhase_theta3, dPhase_phi, dA_theta3, dA_phi, &Shdata, hSqr, df));
+    gsl_matrix_set (g, 1,1, MetricCoeffs(Amp, dPhaseTheta3, dPhaseTheta3, dATheta3, dATheta3, &Shdata, hSqr, df));
+    gsl_matrix_set (g, 1,2, MetricCoeffs(Amp, dPhaseTheta3, dPhaseT0, dATheta3, dAT0, &Shdata, hSqr, df));
+    gsl_matrix_set (g, 1,3, MetricCoeffs(Amp, dPhaseTheta3, dPhasePhi, dATheta3, dAPhi, &Shdata, hSqr, df));
 
     gsl_matrix_set (g, 2,0, gsl_matrix_get(g, 0,2));
     gsl_matrix_set (g, 2,1, gsl_matrix_get(g, 1,2));
-    gsl_matrix_set (g, 2,2, MetricCoeffs(Amp, dPhase_t0, dPhase_t0, dA_t0, dA_t0, &Shdata, hSqr, df));
-    gsl_matrix_set (g, 2,3, MetricCoeffs(Amp, dPhase_t0, dPhase_phi, dA_t0, dA_phi, &Shdata, hSqr, df));
+    gsl_matrix_set (g, 2,2, MetricCoeffs(Amp, dPhaseT0, dPhaseT0, dAT0, dAT0, &Shdata, hSqr, df));
+    gsl_matrix_set (g, 2,3, MetricCoeffs(Amp, dPhaseT0, dPhasePhi, dAT0, dAPhi, &Shdata, hSqr, df));
 
     gsl_matrix_set (g, 3,0, gsl_matrix_get(g, 0,3));
     gsl_matrix_set (g, 3,1, gsl_matrix_get(g, 1,3));
     gsl_matrix_set (g, 3,2, gsl_matrix_get(g, 2,3));
-    gsl_matrix_set (g, 3,3, MetricCoeffs(Amp, dPhase_phi, dPhase_phi, dA_phi,dA_phi, &Shdata, hSqr, df));
-	printf("Finished Computing Fisher Matrix");
+    gsl_matrix_set (g, 3,3, MetricCoeffs(Amp, dPhasePhi, dPhasePhi, dAPhi,dAPhi, &Shdata, hSqr, df));
+
     /* free the memory */
     XLALDestroyREAL8Vector(Amp);
-    XLALDestroyREAL8Vector(dA_theta0);
-    XLALDestroyREAL8Vector(dA_theta3);
-    XLALDestroyREAL8Vector(dA_t0);
-    XLALDestroyREAL8Vector(dA_phi);
-    XLALDestroyREAL8Vector(dPhase_theta0);
-    XLALDestroyREAL8Vector(dPhase_theta3);
-    XLALDestroyREAL8Vector(dPhase_t0);
-    XLALDestroyREAL8Vector(dPhase_phi);
+    XLALDestroyREAL8Vector(dATheta0);
+    XLALDestroyREAL8Vector(dATheta3);
+    XLALDestroyREAL8Vector(dAT0);
+    XLALDestroyREAL8Vector(dAPhi);
+    XLALDestroyREAL8Vector(dPhaseTheta0);
+    XLALDestroyREAL8Vector(dPhaseTheta3);
+    XLALDestroyREAL8Vector(dPhaseT0);
+    XLALDestroyREAL8Vector(dPhasePhi);
 
     {
     /* Form submatrices g1, g2, g3, g4, defined as:

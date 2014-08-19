@@ -2208,7 +2208,8 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
     const REAL8 eta,    /**< Symmetric mass ratio */
     const REAL8 flow,   /**< low-frequency cutoff (Hz) */
     const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
-) ;
+);
+
 
 /**
  * Compute the Fisher information matrix of "reduced-spin" PN templates in
