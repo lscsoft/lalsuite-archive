@@ -21,7 +21,6 @@
 
 #include <stdlib.h>
 #include <math.h>
-#include <mkl_vml_functions.h>
 #include <lal/Date.h>
 #include <lal/FrequencySeries.h>
 #include <lal/LALConstants.h>
@@ -30,6 +29,9 @@
 #include <lal/Units.h>
 #include <lal/XLALError.h>
 #include "LALSimInspiralPNCoefficients.c"
+
+#define MKL_Complex16 COMPLEX16
+#include <mkl_vml_functions.h>
 
 
 /**
@@ -210,10 +212,11 @@ int XLALSimInspiralTaylorF2Accelerated(
 
     REAL8 *workspace;
     wfLen = n; /* With smart indexing, we can reduce this */
-    workspace = (REAL8 *) malloc(3*wfLen*sizeof(REAL8));
+    workspace = (REAL8 *) malloc(4*wfLen*sizeof(REAL8));
     REAL8 *work_v3 = workspace;
     REAL8 *work_v = workspace + wfLen;
     REAL8 *work_logv = workspace + 2*wfLen;
+    REAL8 *work_phasing = workspace + 3*wfLen;
     
     const REAL8 vStep = piM*deltaF;
     for (i = iStart; i < n; i++)
@@ -260,10 +263,14 @@ int XLALSimInspiralTaylorF2Accelerated(
         dEnergy = dETaN * v;
         // Note the factor of 2 b/c phi_ref is orbital phase
         phasing += shft * f - 2.*phi_ref - ref_phasing - LAL_PI_4;
+        work_phasing[i] = phasing;
         amp = amp0 * sqrt(-dEnergy/flux) * v;
-        data[i] = amp*(cos(phasing) - 1.0j*sin(phasing));
+        data[i] = amp;
+        /* data[i] = amp*(cos(phasing) - 1.0j*sin(phasing)); */
     }
-    
+
+    /*vzCIS(wfLen, work_phasing, data);*/
+
     /* Note: The cos and sin could probably be done faster using vzCIS 
      * which does vzCIS z => exp(i*z), then doing a vetor mul (vzMul?) by amp
      * But I don't want to dig into the MKL complex structure right now
