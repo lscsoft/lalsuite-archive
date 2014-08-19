@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # read in all the first stage triggers, make a cut on new_snr, create the summary files,
-# and calculate the livetime. 
+# and calculate the livetime.
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
@@ -14,19 +14,18 @@ import sys
 
 def get_loud_trigs(fList, veto_file, new_snr_cut):
     """ Return a list(s) of single inspiral triggers that are above the
-        new snr threshold for every combination of file in the file list 
-        and application of veto in the veto file list. 
+        new snr threshold for every combination of file in the file list
+        and application of veto in the veto file list.
     """
     trigs = lsctables.New(lsctables.SnglInspiralTable)
     searched_segs = segments.segmentlist()
-    for fname in fList: 
-      xmldoc = utils.load_filename(fname, gz=True)
-      tbl = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-      trigs.extend([tbl[i] for i in (tbl.get_new_snr() > new_snr_cut).nonzero()[0]])
-      
-      search_summary = lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
-      searched_segs += search_summary.get_outlist()
-    
+    for fname in fList:
+        xmldoc = utils.load_filename(fname, gz=True)
+        tbl = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+        trigs.extend([tbl[i] for i in (tbl.get_new_snr() > new_snr_cut).nonzero()[0]])
+        search_summary = lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
+        searched_segs += search_summary.get_outlist()
+
     if isinstance(veto_file, list):
         # If we have multiple veto files, return results for applying each one
         lt = []
@@ -36,17 +35,17 @@ def get_loud_trigs(fList, veto_file, new_snr_cut):
             trig_sub = trigs.veto(veto_segs)
             searched_segs -= veto_segs
             livetime = abs(searched_segs)
-            
+
             lt.append(livetime)
-            tg.append(trig_sub)      
+            tg.append(trig_sub)
         return tg, lt
-    else: 
+    else:
         veto_segs = segmentsUtils.fromsegwizard(open(veto_file))
         trigs = trigs.veto(veto_segs)
         searched_segs -= veto_segs
-        livetime = abs(searched_segs)  
-        return trigs, livetime 
-    
+        livetime = abs(searched_segs)
+        return trigs, livetime
+
 if __name__ == "__main__":
     parser = optparse.OptionParser()
 
@@ -67,24 +66,24 @@ if __name__ == "__main__":
 
     if opts.input_glob:
       fList = glob.glob(opts.input_glob)
-    else: 
+    else:
       print >>sys.stderr, "Must specify a GLOB of input files "
       sys.exit(1)
 
     if not opts.output_file:
       print >>sys.stderr, "Must specify an output file"
       sys.exit(1)
-      
+
     if not opts.veto_file:
       print >>sys.stderr, "Must specify a veto file"
       sys.exit(1)
-      
+
     trigs, livetime = get_loud_trigs(fList, opts.veto_file, opts.new_snr_cut)
-    
+
     output_doc=ligolw.Document()
     output_doc.appendChild(ligolw.LIGO_LW())
 
-    proc_id = process.register_to_xmldoc(output_doc, 
+    proc_id = process.register_to_xmldoc(output_doc,
                 "get_loud_trigs", opts.__dict__, comment="", ifos=[""],
                 version=git_version.id, cvs_repository=git_version.branch,
                 cvs_entry_time=git_version.date).process_id
