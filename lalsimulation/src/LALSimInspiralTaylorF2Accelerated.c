@@ -31,8 +31,8 @@
 #include "LALSimInspiralPNCoefficients.c"
 
 #define MKL_Complex16 COMPLEX16
+#include <mkl_vml_defines.h>
 #include <mkl_vml_functions.h>
-
 
 /**
  * NOTE: This is a work in progress. Right now it's just a proof of concept
@@ -226,8 +226,8 @@ int XLALSimInspiralTaylorF2Accelerated(
         work_v3[i] = vStep*i;
     }
 
-    vdCbrt(wfLen, work_v3, work_v);
-    vdLn(wfLen, work_v, work_logv);
+    vmdCbrt(wfLen, work_v3, work_v, VML_EP);
+    vmdLn(wfLen, work_v, work_logv, VML_EP);
 
     for (i = iStart; i < n; i++)
     {
@@ -264,8 +264,8 @@ int XLALSimInspiralTaylorF2Accelerated(
         work_amp[i] = ampfac / v7; /* Square of the amplitude */
     }
 
-    vzCIS(wfLen, work_phasing, data);
-    vdSqrt(wfLen, work_amp, work_amp); 
+    vmzCIS(wfLen, work_phasing, data, VML_EP);
+    vmdSqrt(wfLen, work_amp, work_amp, VML_EP); 
 
     for (i=iStart;i<n;i++)
     {
