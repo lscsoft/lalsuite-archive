@@ -169,6 +169,7 @@ int XLALSimInspiralTaylorF2Accelerated(
 
     /* extrinsic parameters */
     amp0 = -4. * m1 * m2 / r * LAL_MRSUN_SI * LAL_MTSUN_SI * sqrt(LAL_PI/12.L);
+    const REAL8 ampfac = amp0*amp0 * (-dETaN/FTaN);
     shft = LAL_TWOPI * (tC.gpsSeconds + 1e-9 * tC.gpsNanoSeconds);
 
     /* Fill with non-zero vals from fStart to f_max */
@@ -212,12 +213,13 @@ int XLALSimInspiralTaylorF2Accelerated(
 
     REAL8 *workspace;
     wfLen = n; /* With smart indexing, we can reduce this */
-    workspace = (REAL8 *) malloc(4*wfLen*sizeof(REAL8));
+    workspace = (REAL8 *) malloc(5*wfLen*sizeof(REAL8));
     REAL8 *work_v3 = workspace;
     REAL8 *work_v = workspace + wfLen;
     REAL8 *work_logv = workspace + 2*wfLen;
     REAL8 *work_phasing = workspace + 3*wfLen;
-    
+    REAL8 *work_amp = workspace + 4*wfLen;
+
     const REAL8 vStep = piM*deltaF;
     for (i = iStart; i < n; i++)
     {
@@ -242,9 +244,6 @@ int XLALSimInspiralTaylorF2Accelerated(
         const REAL8 v12 = v2 * v10;
         const REAL8 logv = work_logv[i];
         REAL8 phasing = 0.;
-        REAL8 dEnergy = 0.;
-        REAL8 flux = 0.;
-        REAL8 amp;
 
         phasing += pfa7 * v7;
         phasing += (pfa6 + pfl6 * logv) * v6;
@@ -259,23 +258,20 @@ int XLALSimInspiralTaylorF2Accelerated(
         phasing += pft10 * v10;
 
         phasing /= v5;
-        flux = FTaN * v10;
-        dEnergy = dETaN * v;
         // Note the factor of 2 b/c phi_ref is orbital phase
         phasing += shft * f - 2.*phi_ref - ref_phasing - LAL_PI_4;
-        work_phasing[i] = phasing;
-        amp = amp0 * sqrt(-dEnergy/flux) * v;
-        data[i] = amp;
-        /* data[i] = amp*(cos(phasing) - 1.0j*sin(phasing)); */
+        work_phasing[i] = -phasing; /* We need e^(-i Psi) */
+        work_amp[i] = ampfac / v7; /* Square of the amplitude */
     }
 
-    /*vzCIS(wfLen, work_phasing, data);*/
+    vzCIS(wfLen, work_phasing, data);
+    vdSqrt(wfLen, work_amp, work_amp); 
 
-    /* Note: The cos and sin could probably be done faster using vzCIS 
-     * which does vzCIS z => exp(i*z), then doing a vetor mul (vzMul?) by amp
-     * But I don't want to dig into the MKL complex structure right now
-     */
-    
+    for (i=iStart;i<n;i++)
+    {
+        data[i] *= work_amp[i];        
+    }
+
     *htilde_out = htilde;
     free((void *) workspace);
     return XLAL_SUCCESS;
