@@ -2877,6 +2877,7 @@ int XLALSimInspiralImplementedFDApproximants(
         case IMRPhenomP:
         //case TaylorR2F4:
         case TaylorF2:
+        case TaylorF2Accelerated:
         case SpinTaylorF2:
         case TaylorF2RedSpin:
         case TaylorF2RedSpinTidal:
@@ -2913,6 +2914,10 @@ int XLALGetApproximantFromString(const CHAR *inString)
   else if ( strstr(inString, "TaylorF2" ) )
   {
     return TaylorF2;
+  }
+  else if ( strstr(inString, "TaylorF2Accelerated" ) )
+  {
+    return TaylorF2Accelerated;
   }
   else if ( strstr(inString, "TaylorR2F4" ) )
   {
@@ -3111,6 +3116,8 @@ char* XLALGetStringFromApproximant(Approximant approximant)
       return strdup("TaylorF2RedSpin");
     case TaylorF2:
       return strdup("TaylorF2");
+    case TaylorF2Accelerated:
+      return strdup("TaylorF2Accelerated");
     case PhenSpinTaylor:
       return strdup("PhenSpinTaylor");
     case TaylorR2F4:
@@ -3369,6 +3376,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
       spin_support=LAL_SIM_INSPIRAL_SINGLESPIN;
       break;
     case TaylorF2:
+    case TaylorF2Accelerated:
     case TaylorF2RedSpin:
     case TaylorF2RedSpinTidal:
     case IMRPhenomB:
@@ -3413,6 +3421,7 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case TaylorT3:
     case TaylorF1:
     case TaylorF2:
+    case TaylorF2Accelerated:
     case TaylorR2F4:
     case TaylorF2RedSpin:
     case TaylorF2RedSpinTidal:
