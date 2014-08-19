@@ -13,14 +13,17 @@ from itertools import chain, combinations
 from glue.ligolw import ligolw, lsctables, utils
 from glue import segments
 
-class AutoVivification(dict):
-    """Implementation of perl's autovivification feature."""
-    def __getitem__(self, item):
-        try:
-            return dict.__getitem__(self, item)
-        except KeyError:
-            value = self[item] = type(self)()
-            return value
+from pylal import gatherloudtrigs
+from pylal import extended_background_utils as loud_event_coincs
+
+#class AutoVivification(dict):
+#    """Implementation of perl's autovivification feature."""
+#    def __getitem__(self, item):
+#        try:
+#            return dict.__getitem__(self, item)
+#        except KeyError:
+#            value = self[item] = type(self)()
+#            return value
 
 def get_name_from_cat(cl):
     if cl == 2:
@@ -110,20 +113,26 @@ def gather_zerofar(file_glob):
 
     return zerofar_table, cats
 
-def create_combined_trig_files(base, ifos, cats, new_snr_cut):
-    """ Do a cut by new snr of the single detector triggers for each CAT level
+def create_combined_trig_files(base, ifos, cats=[], new_snr_cut=0.):
     """
-    from pylal import gatherloudtrigs
-
-    trig_data = AutoVivification()
-
+    Return a dictionary containing, for each ifo, the single detector
+    full data triggers above the specified newsnr cut, and the single
+    detector livetime, both after applying vetoes at each cumulative CAT
+    level specified in cats.
+    If cats is empty, return all CAT levels for which a
+    {ifo}-COMBINED_CAT_*_VETO_SEGS-*.txt file exists.
+    """
+    trig_data = {}
     for ifo in ifos:
-        fnames =  glob.glob(base + "/full_data/" + ifo + "-INSPIRAL_FIRST_FULL_DATA*.xml.gz")
-        veto_files = glob.glob(base + "/segments/" + str(ifo) + "-CATEGORY_*_VETO_SEGS-*.txt")
+        trig_data[ifo] = {}
+        fnames =  glob.glob(base + "/full_data/" + str(ifo) + "-INSPIRAL_FIRST_FULL_DATA*.xml.gz")
+        veto_files = glob.glob(base + "/segments/" + str(ifo) + "-COMBINED_CAT_*_VETO_SEGS-*.txt")
         trigs, livetime = gatherloudtrigs.get_loud_trigs(fnames, veto_files, new_snr_cut)
         for trig, lv, vf in zip(trigs, livetime, veto_files):
             cat_level = get_cat_from_name(vf)
-            trig_data[cat_level][ifo] = (trig, lv)
+            if (len(cats) == 0) or (cat_level in cats):
+                trig_data[ifo][cat_level] = (trig, lv)
+            else: continue
     return trig_data
 
 
@@ -131,7 +140,6 @@ def calc_background_coincs(ztrig, cats, single_trigs, ethinca, slide,
                            veto_window, param_range, coinc_threshold):
     """ Get the background coincidences for each zero far trigger.
     """
-    from pylal import extended_background_utils as loud_event_coincs
     trig_csnrs = []
     trig_vcsnrs = []
     for ind in range(len(ztrig)/2):
@@ -140,8 +148,8 @@ def calc_background_coincs(ztrig, cats, single_trigs, ethinca, slide,
 
         cat = cats[ind*2]
 
-        d1_trigs, lv1 = single_trigs[cat][ztrig[0].sngl_ifo]
-        d2_trigs, lv2 = single_trigs[cat][ztrig[1].sngl_ifo]
+        d1_trigs, lv1 = single_trigs[ztrig[0].sngl_ifo][cat]
+        d2_trigs, lv2 = single_trigs[ztrig[1].sngl_ifo][cat]
 
         mchirp = 0.5 * (t1.sngl_mchirp + t2.sngl_mchirp)
         mchirp_bins = loud_event_coincs.parse_mchirp_bins(param_range)
@@ -198,7 +206,6 @@ def make_result_pages(result_database, zerofar_trigs, cats,
     """Create a result page for each zero far event
     """
     from pylal import lalapps_cbc_plotrates
-    from pylal import extended_background_utils as loud_event_coincs
     from itertools import combinations
 
     #Standard Args passed to lalapps_cbc_plotrates

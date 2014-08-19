@@ -32,19 +32,15 @@ def get_loud_trigs(fList, veto_file, new_snr_cut):
         tg = []
         for vf in veto_file:
             veto_segs = segmentsUtils.fromsegwizard(open(vf))
-            trig_sub = trigs.veto(veto_segs)
-            searched_segs -= veto_segs
-            livetime = abs(searched_segs)
-
-            lt.append(livetime)
-            tg.append(trig_sub)
+            segs_after_veto = searched_segs - veto_segs
+            tg.append(trigs.veto(veto_segs))
+            lt.append(abs(segs_after_veto))
         return tg, lt
     else:
         veto_segs = segmentsUtils.fromsegwizard(open(veto_file))
-        trigs = trigs.veto(veto_segs)
-        searched_segs -= veto_segs
-        livetime = abs(searched_segs)
-        return trigs, livetime
+        segs_after_veto = searched_segs - veto_segs
+        return trigs.veto(veto_segs), abs(segs_after_veto)
+
 
 if __name__ == "__main__":
     parser = optparse.OptionParser()
