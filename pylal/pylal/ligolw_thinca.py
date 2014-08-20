@@ -460,9 +460,9 @@ def ligolw_thinca(
 	#
 
 	for node, coinc in time_slide_graph.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose):
-		ntuple = tuple(sngl_index[id] for id in coinc)
-		if not ntuple_comparefunc(ntuple, node.offset_vector):
-			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
+		coinc = tuple(sngl_index[event_id] for event_id in coinc)
+		if not ntuple_comparefunc(coinc, node.offset_vector):
+			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, coinc, effective_snr_factor)
 
 	#
 	# remove time offsets from events
