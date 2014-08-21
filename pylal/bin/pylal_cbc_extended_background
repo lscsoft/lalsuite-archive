@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 """ This program calculates an extended background
 estimate from ihope results where chisq is calculated at the first stage.
 Results are output in the current directory
@@ -195,7 +195,7 @@ def find(l, s):
     return None
     
 def make_result_pages(result_database, zerofar_trigs, cats,
-                      param_ranges, bgtrigs, vbgtrigs):
+                      param_ranges, bgtrigs, vbgtrigs, xmin):
     """Create a result page for each zero far event
     """
     from pylal import lalapps_cbc_plotrates
@@ -211,8 +211,7 @@ def make_result_pages(result_database, zerofar_trigs, cats,
     sargs += ['-p', 'mchirp']
     sargs += ['--lin-x']
     sargs += ['--nbins', '50']
-    sargs += ['-a', '8']
-    sargs += ['-b', '13.5']
+    sargs += ['-a', xmin]
     sargs += ['-A', '1e-6']
     sargs += ['-K']
     sargs += ['--x-power', '1.']
@@ -294,6 +293,8 @@ def main():
         default="6.0", help="new snr threshold to retain triggers")
     parser.add_option("-e","--e-thinca-parameter", dest="ethinca", action="store",type="float",
         default=0.5, help="ethinca threshold")      
+    parser.add_option("-a","--xmin",action="store",type="float",
+        help="Set a minimum value for the x-axis")
     parser.add_option("--coinc-threshold",action="store",type="float",
          help="Fraction of event SNR to start looking for coinc triggers")       
     parser.add_option("-v","--veto-window",action="store",type="float",
@@ -327,7 +328,7 @@ def main():
     print "Making the result pages"
     results_glob = opts.ihope_base_dir + "/pipedown/*FULL_DATA*CLUSTERED_CBC_RESULTS*sqlite"
     make_result_pages(results_glob, zerofar_trigs, cats, 
-                      opts.param_ranges, bgtrigs, vbgtrigs)
+                      opts.param_ranges, bgtrigs, vbgtrigs, opts.xmin)
     
 if __name__ == "__main__":
     main()
