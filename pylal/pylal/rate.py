@@ -965,8 +965,8 @@ class BinnedArray(object):
 		"""
 		Convert into a probability density.
 		"""
-		self.array /= self.array.sum()  # sum = 1
-		self.to_density()
+		self.array /= self.array.sum()  # make sum = 1
+		self.to_density()	# make integral = 1
 
 	def logregularize(self, epsilon = 2**-1074):
 		"""
