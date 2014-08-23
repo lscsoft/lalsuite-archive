@@ -281,7 +281,7 @@ class MD5File(object):
 			# some streams that don't support seeking, like
 			# stdin, report IOError.  the things returned by
 			# urllib don't have a .tell() method at all.  fake
-			# it without our own count of bytes
+			# it with our own count of bytes
 			return self.pos
 
 	def flush(self):
