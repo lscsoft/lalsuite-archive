@@ -224,12 +224,13 @@ class RewindableInputFile(object):
 
 
 class MD5File(object):
-	def __init__(self, fileobj, md5obj = None):
+	def __init__(self, fileobj, md5obj = None, closable = True):
 		self.fileobj = fileobj
 		if md5obj is None:
 			self.md5obj = md5()
 		else:
 			self.md5obj = md5obj
+		self.closable = closable
 		self.pos = 0
 		# avoid attribute look-ups
 		try:
@@ -283,7 +284,11 @@ class MD5File(object):
 		return self.fileobj.flush()
 
 	def close(self):
-		return self.fileobj.close()
+		if self.closable:
+			return self.fileobj.close()
+		else:
+			# at least make sure we're flushed
+			self.flush()
 
 	def __enter__(self):
 		return self
@@ -444,14 +449,11 @@ def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = (signal.SIGTERM, s
 			signal.signal(sig, newsigterm)
 
 	# write the document
-	fileobj = MD5File(fileobj)
-	md5obj = fileobj.md5obj
-	if gz:
-		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
-	fileobj = codecs.getwriter("utf_8")(fileobj)
-	xmldoc.write(fileobj, **kwargs)
-	fileobj.flush()
-	del fileobj
+	with MD5File(fileobj, closable = False) as fileobj:
+		md5obj = fileobj.md5obj
+		with fileobj if not gz else gzip.GzipFile(mode = "wb", fileobj = fileobj) as fileobj:
+			with codecs.getwriter("utf_8")(fileobj) as fileobj:
+				xmldoc.write(fileobj, **kwargs)
 
 	# restore original handlers, and send outselves any trapped signals
 	# in order
