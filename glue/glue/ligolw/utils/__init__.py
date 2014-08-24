@@ -215,6 +215,13 @@ class RewindableInputFile(object):
 	def close(self):
 		return self.fileobj.close()
 
+	def __enter__(self):
+		return self
+
+	def __exit__(self, *args):
+		self.close()
+		return False
+
 
 class MD5File(object):
 	def __init__(self, fileobj, md5obj = None):
@@ -277,6 +284,13 @@ class MD5File(object):
 
 	def close(self):
 		return self.fileobj.close()
+
+	def __enter__(self):
+		return self
+
+	def __exit__(self, *args):
+		self.close()
+		return False
 
 
 def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
