@@ -31,12 +31,7 @@ Library of utility code for LIGO Light Weight XML applications.
 
 import codecs
 import gzip
-try:
-	# Python >= 2.5.0
-	from hashlib import md5
-except ImportError:
-	# Python < 2.5.0
-	from md5 import new as md5
+from hashlib import md5
 import warnings
 import os
 import urllib2
@@ -44,13 +39,6 @@ import urlparse
 import signal
 import stat
 import sys
-
-try:
-	# Python >= 2.5.0
-	os.SEEK_SET
-except:
-	# Python < 2.5.0
-	os.SEEK_SET, os.SEEK_CUR, os.SEEK_END = range(3)
 
 
 from glue import git_version
