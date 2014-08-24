@@ -446,7 +446,7 @@ def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = (signal.SIGTERM, s
 	md5obj = fileobj.md5obj
 	if gz:
 		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
-	fileobj = codecs.EncodedFile(fileobj, "unicode_internal", "utf_8")
+	fileobj = codecs.getwriter("utf_8")(fileobj)
 	xmldoc.write(fileobj, **kwargs)
 	fileobj.flush()
 	del fileobj
