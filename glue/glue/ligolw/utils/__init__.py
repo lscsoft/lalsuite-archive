@@ -331,11 +331,11 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 	"""
 	fileobj = MD5File(fileobj)
 	md5obj = fileobj.md5obj
-	if gz != False:
+	if gz or gz is None:
 		fileobj = RewindableInputFile(fileobj)
 		magic = fileobj.read(2)
 		fileobj.seek(0, os.SEEK_SET)
-		if gz == True or magic == '\037\213':
+		if gz or magic == '\037\213':
 			fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
