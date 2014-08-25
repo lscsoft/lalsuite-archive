@@ -103,9 +103,401 @@ static REAL8 TransitionFrequencies_fcut(
 /**
 *******************************************************************************************************************************
 */
+/**
+*Define the Normalization constants and it's derivatives required for Merger and Ringdown parts of the IMRPhenomB amplitude and the amplitude derivatives
+*/
+
+static REAL8 XLALSimIMRPhenomBNormalization_Merger(
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 flow	/**< Lower Frequency Cut-off */
+	){
+	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
+	REAL8	theta0_pow_2 = pow(theta0,2);
+	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
+	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
+	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
+	REAL8	theta3_pow_5 = pow(theta3,5);
+
+	return ((4.465858060541566*theta3_pow_166 + 9.415904762816128*
+      pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+        (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+        (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
+      (1.*theta0_pow_one_third - 0.09249341147745196*theta3_pow_166))/
+   ((4.465858060541567 - 3.1035196288177636*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
+       1.*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*theta3_pow_166)*flow/flow);
+
+	}
 
 
+static REAL8 XLALSimIMRPhenomBNormalization_Ringdown(
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 flow	/**< Lower Frequency Cut-off */
+	){
+	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
+	REAL8	theta0_pow_2 = pow(theta0,2);
+	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
+	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
+	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
+	REAL8	theta3_pow_5 = pow(theta3,5);
+	REAL8	theta3_pow_6 = pow(theta3,6); 
 
+
+	return ((-37427.24274521482*flow*theta0*(1.*theta0_pow_2 - 0.10972122263753406*theta0_pow_133*theta3_pow_166 + 
+       0.004234161619441117*theta0_pow_one_third*theta3_pow_33 - 0.00016457382536589995*theta3_pow_5)*
+     pow((flow*theta0*(-27925.658030729737*theta0_pow_2 - 39.476625355061934*theta0_pow_133*theta3_pow_166 + 
+           75.15468625054058*theta0_pow_one_third*theta3_pow_33 + 1.3270087368763253*theta3_pow_5))/theta3_pow_6,
+      0.6666666666666666)*(0.4742887882827215*theta3_pow_166 + 
+       1.*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
+        (1.*theta0_pow_one_third - 0.09249341147745196*theta3_pow_166))*
+     (4.465858060541567 - 3.1035196288177636*pow(theta3/(flow*theta0),0.3333333333333333)*
+        pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+              17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+         0.3333333333333333) + 1.*pow(theta3/(flow*theta0),0.6666666666666666)*
+        pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+              17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+         0.6666666666666666)))/((4.465858060541567 - 3.1035196288177636*
+        pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
+       1.*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,7.666666666666667)*
+     pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+           17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+      0.6666666666666666)));
+	}
+
+
+static REAL8 XLALSimIMRPhenomBNormalization_Merger_Der_theta0(
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 flow	/**< Lower Frequency Cut-off */
+	){
+	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
+	REAL8	theta0_pow_2 = pow(theta0,2);
+	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
+	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
+	REAL8	theta3_pow_333 = pow(theta0,0.3333333333333333);
+	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
+	REAL8	theta3_pow_5 = pow(theta3,5);
+
+	return ((4.895281031102956e9*theta0_pow_2*theta0_pow_2 + 1.384025938152937e7*pow(theta0,3.3333333333333335)*theta3_pow_166 - 
+     2.6338983161110472e7*pow(theta0,2.6666666666666665)*theta3_pow_33 + 
+     theta0_pow_2*(-502488.4903868959 - 2.348553100590565e6*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+           (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+           (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
+        1.088074683997717e6*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+           (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+           (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*theta3_pow_5 + 
+     theta0_pow_133*(-223233.04749560714 + 308517.60984538106*
+         pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+           (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+           (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
+        49038.08804007761*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+           (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+           (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,6.666666666666667) + 
+     theta0_pow_one_third*(1008.9019847050173 + 3804.589089140962*
+         pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+           (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+           (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
+        1999.603615336666*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+           (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+           (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,8.333333333333334) + 
+     (242.52837069765866 - 241.8810122753211*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+           (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+           (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
+        19.288678319713693*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+           (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+           (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*theta3_pow_5*theta3_pow_5)/
+   (theta3_pow_333*pow(4.465858060541567 - 3.1035196288177636*
+        pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
+       1.*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666),2)*
+     pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+       (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+       (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*pow(theta3,11.666666666666666))*flow/flow);
+
+	}
+
+
+static REAL8 XLALSimIMRPhenomBNormalization_Merger_Der_theta3(
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 flow	/**< Lower Frequency Cut-off */
+	){
+	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
+	REAL8	theta0_pow_2 = pow(theta0,2);
+	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
+	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
+	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
+	REAL8	theta3_pow_5 = pow(theta3,5);
+
+
+	return ((theta0_pow_one_third*(theta0_pow_2*theta0_pow_2*(5.7243785765757225e10 - 
+          9.222397892093138e9*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+             (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+             (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333)) + 
+       pow(theta0,3.3333333333333335)*(-2.49898008123127e9 - 2.60741677822487e7*
+           pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+             (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+             (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333))*theta3_pow_166 + 
+       pow(theta0,2.6666666666666665)*(-2.6290334909565797e8 + 4.962096787529522e7*
+           pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+             (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+             (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333))*theta3_pow_33 + 
+       theta0_pow_2*(5.089018756458765e6 + 946656.3339471949*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+             (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+             (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
+          4.424524562888101e6*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+             (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+             (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*theta3_pow_5 + 
+       theta0_pow_133*(407146.9153272246 + 420556.8533427301*
+           pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+             (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+             (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
+          581227.5406935291*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+             (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+             (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,6.666666666666667) + 
+       theta0_pow_one_third*(2267.989778592834 - 1900.7071254856517*
+           pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+             (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+             (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
+          7167.603692829992*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+             (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+             (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,8.333333333333334) + 
+       (-48.22169579928426 - 456.90801416377934*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+             (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+             (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
+          455.68843209859017*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+             (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+             (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,10)))/
+   (pow(4.465858060541567 - 3.1035196288177636*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
+       1.*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
+          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
+          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666),2)*pow(theta3,7.666666666666667)*
+     (-21044.06493695328*theta0_pow_2 - 29.748579838281113*theta0_pow_133*theta3_pow_166 + 
+       56.63465820688478*theta0_pow_one_third*theta3_pow_33 + 1.*theta3_pow_5))*flow/flow);
+
+	}
+
+static REAL8 XLALSimIMRPhenomBNormalization_Ringdown_Der_theta0(
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 flow	/**< Lower Frequency Cut-off */
+	){
+	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
+	REAL8	theta0_pow_2 = pow(theta0,2);
+	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
+	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
+	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
+	REAL8	theta3_pow_5 = pow(theta3,5);
+	REAL8	theta3_pow_6 = pow(theta3,6); 
+
+	REAL8	norm_merg, norm_merg_theta0, norm_ring, norm_ring_theta0;
+
+	norm_merg 	=	XLALSimIMRPhenomBNormalization_Merger(theta0,theta3,flow);
+	norm_ring 	=	XLALSimIMRPhenomBNormalization_Ringdown(theta0,theta3,flow);
+	norm_merg_theta0 =	XLALSimIMRPhenomBNormalization_Merger_Der_theta0(theta0,theta3,flow);
+
+	norm_ring_theta0 = ((4.81006881704554e8*flow*flow*theta0*(pow(theta0,5.333333333333333)*theta3_pow_166*
+        (-0.26666856187261073 + 0.23761962032750067*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) - 0.09341639683655707*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666)) + pow(theta0,3.3333333333333335)*pow(theta3,6.666666666666667)*
+        (-0.0001659902885655082 + 0.00011805488681116238*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) - 0.00003890933319150247*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666)) + theta0_pow_133*pow(theta3,11.666666666666666)*
+        (-4.783524166754698e-9 + 3.2568071954548985e-9*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) - 1.0276508948991564e-9*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666)) + pow(theta3,15)*(3.274130801749477e-12 - 
+          2.2753363570435764e-12*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) + 7.331470811126562e-13*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666)) + theta0_pow_one_third*pow(theta3,13.333333333333334)*
+        (1.3583519401264653e-10 - 9.672943317645832e-11*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) + 3.1918941998055616e-11*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666)) + theta0_pow_2*pow(theta3,10)*
+        (1.0819756796833929e-7 - 7.68710402064183e-8*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) + 2.5310253760475244e-8*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666)) + pow(theta0,2.6666666666666665)*pow(theta3,8.333333333333334)*
+        (1.7420618880578452e-6 - 1.3563925798001168e-6*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) + 4.840150926665589e-7*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666)) + pow(theta0,4)*theta3_pow_5*
+        (0.0013337043441791188 - 0.0009363229675156456*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) + 0.00030474967286614414*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666)) + pow(theta0,4.666666666666667)*theta3_pow_33*
+        (0.009194574209833916 - 0.007414061611724472*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) + 0.002718981485432563*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666)) + pow(theta0,6)*(3.091747888067239 - 
+          2.6260550705381083*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) + 1.*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926418*theta0_pow_133*theta3_pow_166 + 
+                 17.152526078154914*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666))))/
+   (pow(theta3,12)*(1.*theta0_pow_2 - 0.0018440070919485247*theta0_pow_133*theta3_pow_166 + 
+       0.0018733054209087634*theta0_pow_one_third*theta3_pow_33 + 0.00040623943233705464*theta3_pow_5)*
+     pow((flow*theta0*(-27925.658030729737*theta0_pow_2 - 39.476625355061934*theta0_pow_133*theta3_pow_166 + 
+           75.15468625054058*theta0_pow_one_third*theta3_pow_33 + 1.3270087368763253*theta3_pow_5))/theta3_pow_6,
+      0.3333333333333333)*pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 
+           16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+           17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+      0.6666666666666666)));
+
+	return (norm_merg*norm_ring_theta0 + (norm_ring/norm_merg)*norm_merg_theta0);
+
+	}
+
+static REAL8 XLALSimIMRPhenomBNormalization_Ringdown_Der_theta3(
+	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+	const REAL8 flow	/**< Lower Frequency Cut-off */
+	){
+	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
+	REAL8	theta0_pow_2 = pow(theta0,2);
+	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
+	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
+	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
+	REAL8	theta3_pow_5 = pow(theta3,5);
+	REAL8	theta3_pow_6 = pow(theta3,6); 
+
+	REAL8	norm_merg, norm_merg_theta3, norm_ring, norm_ring_theta3;
+
+	norm_merg 	=	XLALSimIMRPhenomBNormalization_Merger(theta0,theta3,flow);
+	norm_ring 	=	XLALSimIMRPhenomBNormalization_Ringdown(theta0,theta3,flow);
+	norm_merg_theta3 =	XLALSimIMRPhenomBNormalization_Merger_Der_theta3(theta0,theta3,flow);
+
+	norm_ring_theta3 = ((flow*flow*theta0_pow_2*(pow(theta0,6)*(-2.974304021311726e9 + 
+          2.6411329904792056e9*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) - 1.0360148221328855e9*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666)) + pow(theta0,4.666666666666667)*theta3_pow_33*
+        (-8.483236005024768e6 + 7.12717031472055e6*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) - 2.69338389090502e6*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666)) + theta0_pow_2*theta0_pow_2*theta3_pow_5*
+        (-1.388190823915925e6 + 976106.5716062305*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) - 318186.7317364536*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666)) + pow(theta0,2.6666666666666665)*pow(theta3,8.333333333333334)*
+        (-1362.9020402713631 + 1122.416311616068*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) - 418.13575617334664*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666)) + theta0_pow_2*pow(theta3,10)*
+        (-106.62180006288368 + 76.11616463511724*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) - 25.17663731273577*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666)) + theta0_pow_one_third*pow(theta3,13.333333333333334)*
+        (-0.07943941508018493 + 0.05800974078945667*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) - 0.01959503179167246*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666)) + pow(theta3,15)*(-0.0015748794472423468 + 
+          0.0010944524459305302*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) - 0.0003526487913167943*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666)) + theta0_pow_133*pow(theta3,11.666666666666666)*
+        (4.140774893012413 - 2.7964683432051944*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) + 0.8749200456549843*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666)) + pow(theta0,3.3333333333333335)*pow(theta3,6.666666666666667)*
+        (163931.3511918715 - 117171.0388392613*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) + 38800.79496271701*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666)) + pow(theta0,5.333333333333333)*theta3_pow_166*
+        (2.387674490408703e8 - 2.2882156955475348e8*pow(theta3/(flow*theta0),0.3333333333333333)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.3333333333333333) + 9.399432106728905e7*pow(theta3/(flow*theta0),0.6666666666666666)*
+           pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+                 17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+            0.6666666666666666))))/
+   (theta3_pow_6*theta3_pow_5*theta3*theta3*(1.*theta0_pow_2 - 0.0018440070919485247*theta0_pow_133*theta3_pow_166 + 
+       0.0018733054209087634*theta0_pow_one_third*theta3_pow_33 + 0.00040623943233705464*theta3_pow_5)*
+     pow((flow*theta0*(-27925.658030729737*theta0_pow_2 - 39.476625355061934*theta0_pow_133*theta3_pow_166 + 
+           75.15468625054058*theta0_pow_one_third*theta3_pow_33 + 1.3270087368763253*theta3_pow_5))/theta3_pow_6,
+      0.3333333333333333)*pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 
+           16.884262106926414*theta0_pow_133*theta3_pow_166 + 
+           17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
+      0.6666666666666666)));
+
+	return (norm_merg*norm_ring_theta3 + (norm_ring/norm_merg)*norm_merg_theta3);
+
+	}
 
 
 /**
@@ -122,17 +514,20 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Inspiral(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8 theta3_pow_six = pow(theta3,6);
-	return (0.03580722744181748*sqrt(theta0_pow_one_third/pow(theta3,1.6666666666666667))*pow(theta3/(flow*theta0),0.8333333333333334)*
-     (1.*theta0_pow_one_third*pow((f*theta3)/(flow*theta0),0.6666666666666666) + 
-       pow(theta3,1.6666666666666667)*(0.4742887882827214 - 0.09249341147745196*pow((f*theta3)/(flow*theta0),0.6666666666666666))))/
-   (f*pow(theta3,1.6666666666666667)*pow((flow*theta0*(-27925.658030729737*pow(theta0,2) - 
-           39.476625355061934*pow(theta0,1.3333333333333333)*pow(theta3,1.6666666666666667) + 
-           75.15468625054058*theta0_pow_one_third*pow(theta3,3.3333333333333335) + 1.3270087368763253*pow(theta3,5)))/theta3_pow_six,
-      0.16666666666666666)*pow((f*theta3_pow_six)/
-       (-21044.06493695328*flow*pow(theta0,3) - 29.748579838281113*flow*pow(theta0,2.3333333333333335)*pow(theta3,1.6666666666666667) + 
-         56.63465820688478*flow*pow(theta0,1.6666666666666667)*pow(theta3,3.3333333333333335) + 1.*flow*theta0*pow(theta3,5)),0.16666666666666666));
+	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
+	REAL8	theta3_pow_333 = pow(theta0,0.3333333333333333);
+	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
+
+
+	REAL8 coef1, coef2, amp;
+
+	coef1 = 0.016200730203430484*sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334);
+	coef2 = (0.0341579447030346*sqrt(theta0_pow_one_third/theta3_pow_166)*sqrt(theta3/(flow*theta0)))/
+    (flow*theta3_pow_333*pow(theta3,0.6666666666666666)) - 
+   (0.00315938483464183*sqrt(theta0_pow_one_third/theta3_pow_166)*theta3*sqrt(theta3/(flow*theta0)))/(flow*theta0);
+
+	amp = coef1*pow(f,-7.0/6.0) + coef2*pow(f,-1.0/2.0);
+	return amp;
 
 	}
 
@@ -142,36 +537,26 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Merger(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8 theta0_pow_2 = pow(theta0,2);
-	REAL8 theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8 theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8 theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8 theta3_pow_5 = pow(theta3,5);
+	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
+	REAL8	theta0_pow_2 = pow(theta0,2);
+	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
+	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
+	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
+	REAL8	theta3_pow_5 = pow(theta3,5);
 
-	return ((-1.4770805194721893e-6*sqrt(theta0_pow_one_third/theta3_pow_166)*theta3_pow_33*
-     pow(theta3/(flow*theta0),1.8333333333333333)*(1.*theta0_pow_one_third*
-        pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666) + 
-       (0.4742887882827214 - 0.09249341147745196*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-             (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-             (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*theta3_pow_166)*
-     (4.465858060541567 - 3.1035196288177636*pow((f*theta3)/(flow*theta0),0.3333333333333333) + 1.*pow((f*theta3)/(flow*theta0),0.6666666666666666)))/
-   ((4.465858060541567 - 3.1035196288177636*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-       1.*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*
-     (1.*theta0_pow_2 + 0.001413632771396877*theta0_pow_133*theta3_pow_166 - 
-       0.0026912413726415843*theta0_pow_one_third*theta3_pow_33 - 0.00004751933635426132*theta3_pow_5)*
-     pow((flow*theta0*(-27925.658030729737*theta0_pow_2 - 39.476625355061934*theta0_pow_133*theta3_pow_166 + 
-           75.15468625054058*theta0_pow_one_third*theta3_pow_33 + 1.3270087368763253*theta3_pow_5))/pow(theta3,6),
-      0.16666666666666666)*pow((f*pow(theta3,6))/
-       (-21044.06493695328*flow*pow(theta0,3) - 29.748579838281113*flow*pow(theta0,2.3333333333333335)*theta3_pow_166 + 
-         56.63465820688478*flow*pow(theta0,1.6666666666666667)*theta3_pow_33 + 1.*flow*theta0*theta3_pow_5),0.6666666666666666)));
+	REAL8 coef1, coef2, coef3, amp, norm_merger;
 
+	coef1 = (0.016200730203430484*sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334))/
+   sqrt((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
+        ((-1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
+          (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3);
+	coef2 = coef1*(-0.694943633842542*theta3)/(flow*theta0*pow(theta3/(flow*theta0),0.6666666666666666));
+	coef3 = coef1*(0.2239211337314047*theta3)/(flow*theta0*pow(theta3/(flow*theta0),0.3333333333333333));
+
+	norm_merger = XLALSimIMRPhenomBNormalization_Merger(theta0,theta3,flow);
+
+	amp = norm_merger*(coef1*pow(f,-2.0/3.0) + coef2*pow(f,-1.0/3.0) + coef3);
+	return amp;
 	}
 
 static REAL8 XLALSimIMRPhenomBAmplitude_Ringdown(
@@ -180,47 +565,33 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Ringdown(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8 theta0_pow_2 = pow(theta0,2);
-	REAL8 theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8 theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8 theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8 theta3_pow_5 = pow(theta3,5);
-	REAL8 theta3_pow_6 = pow(theta3,6);
+	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
+	REAL8	theta0_pow_2 = pow(theta0,2);
+	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
+	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
+	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
+	REAL8	theta3_pow_5 = pow(theta3,5);
+	REAL8	theta3_pow_6 = pow(theta3,6); 
 
-	return ((0.009420555376788691*flow*pow(theta0,0.3333333333333333)*pow(theta0_pow_one_third/theta3_pow_166,1.5)*theta3*
-     pow(1.*theta0_pow_2 - 0.10972122263753406*theta0_pow_133*theta3_pow_166 + 
-       0.004234161619441117*theta0_pow_one_third*theta3_pow_33 - 0.00016457382536589995*theta3_pow_5,2)*
-     (0.4742887882827215*theta3_pow_166 + 1.*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
-        (1.*theta0_pow_one_third - 0.09249341147745196*theta3_pow_166))*
-     (4.465858060541567 - 3.1035196288177636*pow(theta3/(flow*theta0),0.3333333333333333)*
-        pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
-              17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
-         0.3333333333333333) + 1.*pow(theta3/(flow*theta0),0.6666666666666666)*
-        pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
-              17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
-         0.6666666666666666)))/((4.465858060541567 - 3.1035196288177636*
-        pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-       1.*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*
-     pow(theta3/(flow*theta0),0.16666666666666666)*sqrt((flow*theta0*
+	REAL8 amp, waveform, norm_ringdown;
+
+	norm_ringdown = XLALSimIMRPhenomBNormalization_Ringdown(theta0,theta3,flow);
+
+	waveform = ((0.002578426293574129*sqrt(theta0_pow_one_third/theta3_pow_166)*theta3_pow_6*theta3*
+     (-11300.842322830984*theta0_pow_2 + 1239.942236495006*theta0_pow_133*theta3_pow_166 - 
+       47.849592830686746*theta0_pow_one_third*theta3_pow_33 + 1.8598228509251575*theta3_pow_5))/
+   (pow(theta3/(flow*theta0),0.16666666666666666)*pow((flow*theta0*
          (-27925.658030729737*theta0_pow_2 - 39.476625355061934*theta0_pow_133*theta3_pow_166 + 
-           75.15468625054058*theta0_pow_one_third*theta3_pow_33 + 1.3270087368763253*theta3_pow_5))/theta3_pow_6)*
-     pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
-           17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
-      0.6666666666666666)*(8.638197637157656e-9*pow(f,2)*pow(theta3,12) + 
-       f*flow*theta0*theta3_pow_6*(-0.00015818767039890933*theta0_pow_2 + 
-          2.916991860744045e-7*theta0_pow_133*theta3_pow_166 - 
-          2.963338204792056e-7*theta0_pow_one_third*theta3_pow_33 - 6.426206942557403e-8*theta3_pow_5) + 
-       pow(flow,2)*theta0_pow_2*(1.*pow(theta0,4) - 0.06319178654351876*pow(theta0,3.3333333333333335)*theta3_pow_166 + 
-          0.00837150705535333*pow(theta0,2.6666666666666665)*theta3_pow_33 + 0.00023636648033447988*theta0_pow_2*theta3_pow_5 + 
-          0.000016361044697260936*theta0_pow_133*pow(theta3,6.666666666666667) + 
-          7.178925895994797e-7*theta0_pow_one_third*pow(theta3,8.333333333333334) + 1.2698581923826034e-7*pow(theta3,10)))));
+           75.15468625054058*theta0_pow_one_third*theta3_pow_33 + 1.3270087368763253*theta3_pow_5))/theta3_pow_6,
+      1.1666666666666667)*(3.1927259301371995e7*pow(1.*flow*pow(theta0,3) - 
+          0.10972122263753407*flow*pow(theta0,2.3333333333333335)*theta3_pow_166 + 
+          0.004234161619441117*flow*pow(theta0,1.6666666666666667)*theta3_pow_33 - 0.00016457382536589995*flow*theta0*theta3_pow_5,2) + 
+       pow(f*theta3_pow_6 + flow*(-9156.289138283713*pow(theta0,3) + 
+            16.884262106926414*pow(theta0,2.3333333333333335)*theta3_pow_166 - 
+            17.15252607815491*pow(theta0,1.6666666666666667)*theta3_pow_33 - 3.719645701850315*theta0*theta3_pow_5),2))));
+
+	amp = norm_ringdown*waveform;
+	return amp;
 
 	}
 /**
@@ -247,21 +618,17 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta0_Inspiral(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8 theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8 theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8 theta3_pow_5 = pow(theta3,5);
-	REAL8 theta3_pow_6 = pow(theta3,6);
+	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
+	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
 
-	return ((0.7899601461412372*pow(theta0_pow_one_third/theta3_pow_166,1.5)*pow(theta3/(flow*theta0),0.8333333333333334)*
-     pow((flow*theta0*(-27925.658030729737*pow(theta0,2) - 39.476625355061934*pow(theta0,1.3333333333333333)*theta3_pow_166 + 
-           75.15468625054058*theta0_pow_one_third*theta3_pow_33 + 1.3270087368763253*theta3_pow_5))/theta3_pow_6,
-      0.8333333333333334)*pow((f*theta3_pow_6)/
-       (-21044.06493695328*flow*pow(theta0,3) - 29.748579838281113*flow*pow(theta0,2.3333333333333335)*theta3_pow_166 + 
-         56.63465820688478*flow*pow(theta0,1.6666666666666667)*theta3_pow_33 + 1.*flow*theta0*theta3_pow_5),0.8333333333333334)*
-     (-0.017078972351517306*theta0_pow_one_third*pow((f*theta3)/(flow*theta0),0.6666666666666666) + 
-       theta3_pow_166*(-0.008100365101715244 + 0.003685948973748802*pow((f*theta3)/(flow*theta0),0.6666666666666666))))/
-   (pow(f,2)*pow(theta0,1.6666666666666667)));
+
+	REAL8 coef1, coef2, amp;
+
+	coef1 = (-0.008100365101715244*sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334))/theta0;
+	coef2 = (-0.017078972351517306*pow(theta0_pow_one_third/theta3_pow_166,1.5)*pow(theta3/(flow*theta0),1.5)*
+     (1.*theta0_pow_one_third - 0.21581796011405455*theta3_pow_166))/pow(theta0,1.6666666666666667);
+	amp = coef1*pow(f,-7.0/6.0) + coef2*pow(f,-1.0/2.0);
+	return amp;
 
 	}
 
@@ -274,224 +641,43 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta0_Merger(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8 theta0_pow_2 = pow(theta0,2);
-	REAL8 theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8 theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8 theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8 theta3_pow_5 = pow(theta3,5);
-	REAL8 theta3_pow_6 = pow(theta3,6);
-	REAL8 theta3_pow_433 = pow(theta3,4.333333333333333);
+	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
+	REAL8	theta0_pow_2 = pow(theta0,2);
+	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
+	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
+	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
+	REAL8	theta3_pow_5 = pow(theta3,5);
+	REAL8	theta3_pow_6 = pow(theta3,6); 
 
-	return ((1.2075798420906887*sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334)*
-     (flow*theta0*pow((f*theta3)/(flow*theta0),0.6666666666666666)*
-        (5679.875272238851*pow(theta0,6.666666666666667) - 765.9461020324092*pow(theta0,6)*theta3_pow_166 - 
-          41.34268940762763*pow(theta0,5.333333333333333)*theta3_pow_33 + 
-          pow(theta0,4.666666666666667)*(4.946675698819638 - 1.2531591850457166e-15*
-              pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-             0.3156166343015503*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*theta3_pow_5 + 
-          pow(theta0,4)*(0.7880669667388006 - 0.19926726282829244*
-              pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
-             0.05756694741917788*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,6.666666666666667) + 
-          pow(theta0,3.3333333333333335)*(-0.008900892505028683 - 
-             0.00006636530752624308*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
-             0.0015733337431065527*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,8.333333333333334) + 
-          pow(theta0,2.6666666666666665)*(-0.003037565997277338 + 
-             0.0007427911992329659*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-             0.0002636629301773663*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,10) + 
-          theta0_pow_2*(-0.00003856500755870379 + 9.624879739594921e-6*
-              pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-             0.000029880034039211766*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,11.666666666666666) + 
-          theta0_pow_133*(2.940967874617337e-6 - 
-             5.645669708682708e-7*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
-             2.715041311884738e-7*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,13.333333333333334) + 
-          theta0_pow_one_third*(8.121326836363954e-8 - 
-             1.0993408890779027e-8*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
-             5.298340829647092e-8*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,15) + 
-          (5.49309992153288e-10 - 2.1089956641718695e-11*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
-             6.486870852376095e-10*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,16.666666666666668)) + 
-       f*(pow(theta0,6)*pow(theta3,2.6666666666666665)*(619.3767965838991 - 227.63323909215356*pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          pow(theta0,5.333333333333333)*theta3_pow_433*
-           (37.079136752763475 - 14.637392421800635*pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          pow(theta0,6.666666666666667)*theta3*(-4933.991451827581 + 1907.766165619042*pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          pow(theta0,4)*pow(theta3,7.666666666666667)*(-0.6357989885982566 + 
-             0.14108921353624862*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-             0.04983928024275761*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666) + 
-             0.2332628570793198*pow((f*theta3)/(flow*theta0),0.3333333333333333) - 
-             0.046301917990925284*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333) - 
-             0.01922745269684038*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          pow(theta0,3.3333333333333335)*pow(theta3,9.333333333333334)*
-           (0.007196281693249607 - 0.0007968481598400191*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-             0.0017121231425072405*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666) - 
-             0.0026443991938723582*pow((f*theta3)/(flow*theta0),0.3333333333333333) + 
-             0.0005283731581482105*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333) - 
-             0.0007510402043826716*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          theta0_pow_133*pow(theta3,14.333333333333334)*
-           (-2.488922199889174e-6 + 4.480844874143279e-7*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-             2.289460224383871e-7*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666) + 
-             9.453903467320014e-7*pow((f*theta3)/(flow*theta0),0.3333333333333333) - 
-             1.6234044336877867e-7*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333) - 
-             8.674408721170095e-8*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          theta0_pow_one_third*pow(theta3,16)*(-7.130054830506004e-8 + 
-             8.54951535252515e-9*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-             4.638038101847089e-8*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666) + 
-             2.7762818696940254e-8*pow((f*theta3)/(flow*theta0),0.3333333333333333) - 
-             3.047904416115698e-9*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333) - 
-             1.80247868331797e-8*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          pow(theta3,17.666666666666668)*(-5.089859760706991e-10 + 
-             1.954177480823683e-11*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-             6.010679469890016e-10*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666) + 
-             2.0500352702158878e-10*pow((f*theta3)/(flow*theta0),0.3333333333333333) - 
-             7.870811669266348e-12*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333) - 
-             2.4209124593887647e-10*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          theta0_pow_2*pow(theta3,12.666666666666666)*(0.00003208729522008504 - 
-             5.789060657922041e-6*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
-             0.000025265930118383232*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666) - 
-             0.000012042483508440517*pow((f*theta3)/(flow*theta0),0.3333333333333333) + 
-             1.5754282231413067e-6*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333) + 
-             9.591342850168162e-6*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          pow(theta0,2.6666666666666665)*pow(theta3,11)*(0.0024750907705611983 - 
-             0.0005440374976117498*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
-             0.0002265509868677819*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666) - 
-             0.0009148466027326221*pow((f*theta3)/(flow*theta0),0.3333333333333333) + 
-             0.00018426723476536554*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333) + 
-             0.00008695646595002697*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          pow(theta0,4.666666666666667)*theta3_pow_6*(-4.010822872230533 + 
-             0.15780831715077542*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
-             0.3290036561140074*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666) + 
-             1.4770278609866396*pow((f*theta3)/(flow*theta0),0.3333333333333333) - 
-             0.101696355122387*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333) + 
-             0.14134646915458632*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333)))))/
-   (pow(flow,2)*pow(theta0,3)*pow(4.465858060541567 - 3.1035196288177636*
-        pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-       1.*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666),2)*
-     pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-       (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-       (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*pow(theta3,5.666666666666667)*
-     pow((f*theta3)/(flow*theta0),0.6666666666666666)*pow(1.*theta0_pow_2 + 
-       0.001413632771396877*theta0_pow_133*theta3_pow_166 - 
-       0.0026912413726415843*theta0_pow_one_third*theta3_pow_33 - 0.00004751933635426132*theta3_pow_5,2)*
-     pow((flow*theta0*(-27925.658030729737*theta0_pow_2 - 39.476625355061934*theta0_pow_133*theta3_pow_166 + 
-           75.15468625054058*theta0_pow_one_third*theta3_pow_33 + 1.3270087368763253*theta3_pow_5))/theta3_pow_6,
-      0.16666666666666666)*pow((f*theta3_pow_6)/
-       (-21044.06493695328*flow*pow(theta0,3) - 29.748579838281113*flow*pow(theta0,2.3333333333333335)*theta3_pow_166 + 
-         56.63465820688478*flow*pow(theta0,1.6666666666666667)*theta3_pow_33 + 1.*flow*theta0*theta3_pow_5),0.6666666666666666)));
+	REAL8 coef1, coef2, coef3, amp_theta0, amp, norm_merger, norm_merger_der; 
+
+	coef1 = (sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334)*
+     (-0.03240146040686097*theta0_pow_2 - 0.000038169805226880874*theta0_pow_133*theta3_pow_166 + 
+       0.0000581334338539683*theta0_pow_one_third*theta3_pow_33 + 7.698479477214536e-7*theta3_pow_5))/
+   (sqrt((flow*theta0*(-27925.658030729737*theta0_pow_2 - 39.476625355061934*theta0_pow_133*theta3_pow_166 + 
+           75.15468625054058*theta0_pow_one_third*theta3_pow_33 + 1.3270087368763253*theta3_pow_5))/theta3_pow_6)*
+     (1.*pow(theta0,3) + 0.001413632771396877*pow(theta0,2.3333333333333335)*theta3_pow_166 - 
+       0.0026912413726415843*pow(theta0,1.6666666666666667)*theta3_pow_33 - 0.00004751933635426132*theta0*theta3_pow_5));
+
+	coef2 = coef1*((-0.810767572816299*pow(theta3/(flow*theta0),0.3333333333333333)*
+     (1.*theta0_pow_2 + 0.0012116852326258948*theta0_pow_133*theta3_pow_166 - 
+       0.0019223152661725599*theta0_pow_one_third*theta3_pow_33 - 0.000027153906488149293*theta3_pow_5))/
+   (1.*theta0_pow_2 + 0.0011780273094973974*theta0_pow_133*theta3_pow_166 - 
+     0.0017941609150943893*theta0_pow_one_third*theta3_pow_33 - 0.00002375966817713066*theta3_pow_5));
+
+	coef3 = coef1*((0.29856151164187295*pow(theta3/(flow*theta0),0.6666666666666666)*
+     (1.*theta0_pow_2 + 0.0012369286749722673*theta0_pow_133*theta3_pow_166 - 
+       0.002018431029481188*theta0_pow_one_third*theta3_pow_33 - 0.000029699585221413194*theta3_pow_5))/
+   (1.*theta0_pow_2 + 0.0011780273094973974*theta0_pow_133*theta3_pow_166 - 
+     0.0017941609150943893*theta0_pow_one_third*theta3_pow_33 - 0.00002375966817713066*theta3_pow_5));
+
+	norm_merger = XLALSimIMRPhenomBNormalization_Merger(theta0,theta3,flow);
+	norm_merger_der = XLALSimIMRPhenomBNormalization_Merger_Der_theta0(theta0,theta3,flow);
+
+	amp_theta0 = norm_merger*(coef3 + coef1*pow(f,-2.0/3.0) + coef2*pow(f,-1.0/3.0));
+	amp = norm_merger_der*XLALSimIMRPhenomBAmplitude_Merger(f,theta0,theta3,flow)/norm_merger;
+
+	return amp+amp_theta0 ;
 
 	}
 
@@ -507,496 +693,61 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta0_Ringdown(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8 theta0_pow_2 = pow(theta0,2);
-	REAL8 theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8 theta0_pow_333 = pow(theta0,0.3333333333333333);
-	REAL8 theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8 theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8 theta3_pow_5 = pow(theta3,5);
+	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
+	REAL8	theta0_pow_2 = pow(theta0,2);
+	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
+	REAL8	theta0_pow_333 = pow(theta0,3.3333333333333335);
+	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
+	REAL8	theta0_pow_266 = pow(theta0,2.6666666666666665);
+	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
+	REAL8	theta3_pow_5 = pow(theta3,5);
+	REAL8	theta3_pow_6 = theta3_pow_5*theta3;
+	REAL8	theta3_pow_666 = pow(theta3,6.666666666666667);
+	REAL8	theta3_pow_833 = pow(theta3,8.333333333333334);
+	REAL8	theta3_pow_116 = pow(theta3,11.666666666666666);
+	REAL8	theta3_pow_133 = pow(theta3,13.333333333333334);
+ 
+	REAL8 norm_ringdown, norm_ringdown_der, amp, amp_theta0;
 
+	norm_ringdown = XLALSimIMRPhenomBNormalization_Ringdown(theta0,theta3,flow);
+	norm_ringdown_der = XLALSimIMRPhenomBNormalization_Ringdown_Der_theta0(theta0,theta3,flow);
 
-	return ((0.004050182550857621*pow((1.8598228509251575*flow*theta0)/theta3 + 
-        (20.106192982974676*flow*theta0*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-             (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2)*
-      sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334)*
-      ((0.23164787794751399*pow((3.719645701850315*flow*theta0)/theta3 + 
-             (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                  (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                  (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333)*theta3)/
-         (flow*theta0_pow_2*pow(theta3/(flow*theta0),0.6666666666666666)) - 
-        (0.14928075582093644*pow((3.719645701850315*flow*theta0)/theta3 + 
-             (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                  (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                  (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*theta3)/
-         (flow*theta0_pow_2*pow(theta3/(flow*theta0),0.3333333333333333)) - 
-        (0.23164787794751399*((3.719645701850315*flow)/theta3 + (20.106192982974676*flow*theta0*
-                (0. + (910.7929229603025*theta0)/theta3_pow_5 - (1.1196724061568828*theta0_pow_333)/theta3_pow_33 + 
-                  0.5687311066356241/(theta0_pow_333*theta3_pow_166)))/theta3 + 
-             (20.106192982974676*flow*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                  (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                  (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3)*pow(theta3/(flow*theta0),0.3333333333333333))
-          /pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666) + 
-        (0.14928075582093644*((3.719645701850315*flow)/theta3 + (20.106192982974676*flow*theta0*
-                (0. + (910.7929229603025*theta0)/theta3_pow_5 - (1.1196724061568828*theta0_pow_333)/theta3_pow_33 + 
-                  0.5687311066356241/(theta0_pow_333*theta3_pow_166)))/theta3 + 
-             (20.106192982974676*flow*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                  (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                  (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3)*pow(theta3/(flow*theta0),0.6666666666666666))
-          /pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333))*
-      (1. + 0.1352425763914989*(-1.4419642857142858 + (15.589913515794665*theta0_pow_one_third)/theta3_pow_166)*
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))/
-    ((0.25*pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2) + 
-        pow(f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-             (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-               (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-               (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,2))*
-      pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-      sqrt((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      (1. - 0.694943633842542*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333) + 
-        0.2239211337314047*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))\
-    - (0.0033751521257146845*pow((1.8598228509251575*flow*theta0)/theta3 + 
-        (20.106192982974676*flow*theta0*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-             (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2)*
-      sqrt(theta0_pow_one_third/theta3_pow_166)*theta3*
-      (1. - 0.694943633842542*pow((3.719645701850315*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333)*
-         pow(theta3/(flow*theta0),0.3333333333333333) + 0.2239211337314047*
-         pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-         pow(theta3/(flow*theta0),0.6666666666666666))*(1. + 0.1352425763914989*
-         (-1.4419642857142858 + (15.589913515794665*theta0_pow_one_third)/theta3_pow_166)*
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))/
-    (flow*theta0_pow_2*(0.25*pow((1.8598228509251575*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2) + 
-        pow(f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-             (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-               (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-               (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,2))*
-      pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-      sqrt((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*pow(theta3/(flow*theta0),0.16666666666666666)*
-      (1. - 0.694943633842542*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333) + 
-        0.2239211337314047*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))\
-    - (0.0020250912754288105*pow((1.8598228509251575*flow*theta0)/theta3 + 
-        (20.106192982974676*flow*theta0*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-             (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2)*
-      ((1.3270087368763253*flow)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (2777.816571677826*theta0)/theta3_pow_5 - (2.617875025768731*theta0_pow_333)/theta3_pow_33 + 
-             2.4919249611029235/(theta0_pow_333*theta3_pow_166)))/theta3 + 
-        (20.106192982974676*flow*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-             (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334)*
-      (1. - 0.694943633842542*pow((3.719645701850315*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333)*
-         pow(theta3/(flow*theta0),0.3333333333333333) + 0.2239211337314047*
-         pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-         pow(theta3/(flow*theta0),0.6666666666666666))*(1. + 0.1352425763914989*
-         (-1.4419642857142858 + (15.589913515794665*theta0_pow_one_third)/theta3_pow_166)*
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))/
-    ((0.25*pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2) + 
-        pow(f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-             (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-               (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-               (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,2))*
-      pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-      pow((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3,1.5)*
-      (1. - 0.694943633842542*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333) + 
-        0.2239211337314047*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))\
-    - (0.002700121700571747*pow((1.8598228509251575*flow*theta0)/theta3 + 
-        (20.106192982974676*flow*theta0*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-             (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2)*
-      ((3.719645701850315*flow)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (910.7929229603025*theta0)/theta3_pow_5 - (1.1196724061568828*theta0_pow_333)/theta3_pow_33 + 
-             0.5687311066356241/(theta0_pow_333*theta3_pow_166)))/theta3 + 
-        (20.106192982974676*flow*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-             (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334)*
-      (1. - 0.694943633842542*pow((3.719645701850315*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333)*
-         pow(theta3/(flow*theta0),0.3333333333333333) + 0.2239211337314047*
-         pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-         pow(theta3/(flow*theta0),0.6666666666666666))*(1. + 0.1352425763914989*
-         (-1.4419642857142858 + (15.589913515794665*theta0_pow_one_third)/theta3_pow_166)*
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))/
-    ((0.25*pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2) + 
-        pow(f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-             (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-               (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-               (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,2))*
-      pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,1.6666666666666667)*
-      sqrt((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      (1. - 0.694943633842542*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333) + 
-        0.2239211337314047*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))\
-    + (0.008100365101715242*((1.8598228509251575*flow)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1124.1155729879047*theta0)/theta3_pow_5 + (82.22622336941672*theta0_pow_333)/theta3_pow_33 - 
-             1.5865623383204817/(theta0_pow_333*theta3_pow_166)))/theta3 + 
-        (20.106192982974676*flow*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-             (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      ((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334)*
-      (1. - 0.694943633842542*pow((3.719645701850315*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333)*
-         pow(theta3/(flow*theta0),0.3333333333333333) + 0.2239211337314047*
-         pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-         pow(theta3/(flow*theta0),0.6666666666666666))*(1. + 0.1352425763914989*
-         (-1.4419642857142858 + (15.589913515794665*theta0_pow_one_third)/theta3_pow_166)*
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))/
-    ((0.25*pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2) + 
-        pow(f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-             (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-               (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-               (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,2))*
-      pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-      sqrt((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      (1. - 0.694943633842542*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333) + 
-        0.2239211337314047*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))\
-    - (0.004050182550857621*(0.5*((1.8598228509251575*flow)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. - (1124.1155729879047*theta0)/theta3_pow_5 + 
-                (82.22622336941672*theta0_pow_333)/theta3_pow_33 - 
-                1.5865623383204817/(theta0_pow_333*theta3_pow_166)))/theta3 + 
-           (20.106192982974676*flow*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-         ((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3) + 
-        2.*((-3.719645701850315*flow)/theta3 - (20.106192982974676*flow*theta0*
-              (0. + (910.7929229603025*theta0)/theta3_pow_5 - (1.1196724061568828*theta0_pow_333)/theta3_pow_33 + 
-                0.5687311066356241/(theta0_pow_333*theta3_pow_166)))/theta3 - 
-           (20.106192982974676*flow*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-         (f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3))*
-      pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2)*
-      sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334)*
-      (1. - 0.694943633842542*pow((3.719645701850315*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333)*
-         pow(theta3/(flow*theta0),0.3333333333333333) + 0.2239211337314047*
-         pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-         pow(theta3/(flow*theta0),0.6666666666666666))*(1. + 0.1352425763914989*
-         (-1.4419642857142858 + (15.589913515794665*theta0_pow_one_third)/theta3_pow_166)*
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))/
-    (pow(0.25*pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2) + 
-        pow(f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-             (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-               (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-               (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,2),2)*
-      pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-      sqrt((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      (1. - 0.694943633842542*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333) + 
-        0.2239211337314047*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))\
-    + (0.0013500608502858735*pow((1.8598228509251575*flow*theta0)/theta3 + 
-        (20.106192982974676*flow*theta0*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-             (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2)*pow(theta3/(flow*theta0),0.8333333333333334)*
-      (1. - 0.694943633842542*pow((3.719645701850315*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333)*
-         pow(theta3/(flow*theta0),0.3333333333333333) + 0.2239211337314047*
-         pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-         pow(theta3/(flow*theta0),0.6666666666666666))*(1. + 0.1352425763914989*
-         (-1.4419642857142858 + (15.589913515794665*theta0_pow_one_third)/theta3_pow_166)*
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))/
-    (theta0_pow_333*(0.25*pow((1.8598228509251575*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2) + 
-        pow(f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-             (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-               (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-               (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,2))*
-      pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-      sqrt((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      sqrt(theta0_pow_one_third/theta3_pow_166)*theta3_pow_166*
-      (1. - 0.694943633842542*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333) + 
-        0.2239211337314047*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))\
-    - (0.004050182550857621*pow((1.8598228509251575*flow*theta0)/theta3 + 
-        (20.106192982974676*flow*theta0*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-             (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2)*
-      sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334)*
-      (1. - 0.694943633842542*pow((3.719645701850315*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333)*
-         pow(theta3/(flow*theta0),0.3333333333333333) + 0.2239211337314047*
-         pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-         pow(theta3/(flow*theta0),0.6666666666666666))*(1. + 0.1352425763914989*
-         (-1.4419642857142858 + (15.589913515794665*theta0_pow_one_third)/theta3_pow_166)*
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666))*
-      ((-0.23164787794751399*((((1.3270087368763253*flow)/theta3 + 
-                  (20.106192982974676*flow*theta0*(0. - (2777.816571677826*theta0)/theta3_pow_5 - 
-                       (2.617875025768731*theta0_pow_333)/theta3_pow_33 + 
-                       2.4919249611029235/(theta0_pow_333*theta3_pow_166)))/theta3 + 
-                  (20.106192982974676*flow*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                       (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                       (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0) - 
-             (1.*((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                     (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                       (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                       (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0_pow_2)))/
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666) + 
-        (0.14928075582093644*((((1.3270087368763253*flow)/theta3 + 
-                  (20.106192982974676*flow*theta0*(0. - (2777.816571677826*theta0)/theta3_pow_5 - 
-                       (2.617875025768731*theta0_pow_333)/theta3_pow_33 + 
-                       2.4919249611029235/(theta0_pow_333*theta3_pow_166)))/theta3 + 
-                  (20.106192982974676*flow*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                       (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                       (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0) - 
-             (1.*((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                     (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                       (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                       (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0_pow_2)))/
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333)))/
-    ((0.25*pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2) + 
-        pow(f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-             (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-               (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-               (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,2))*
-      pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-      sqrt((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      pow(1. - 0.694943633842542*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333) + 
-        0.2239211337314047*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666),2))
-     + (0.004050182550857621*pow((1.8598228509251575*flow*theta0)/theta3 + 
-        (20.106192982974676*flow*theta0*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-             (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2)*
-      sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334)*
-      (1. - 0.694943633842542*pow((3.719645701850315*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333)*
-         pow(theta3/(flow*theta0),0.3333333333333333) + 0.2239211337314047*
-         pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-         pow(theta3/(flow*theta0),0.6666666666666666))*(0. + (1.4056133797311472*
-           pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                    (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                      (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                      (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666))/
-         (theta0_pow_333*theta3_pow_166) + 
-        (0.09016171759433259*(-1.4419642857142858 + (15.589913515794665*theta0_pow_one_third)/theta3_pow_166)*
-           ((((1.3270087368763253*flow)/theta3 + (20.106192982974676*flow*theta0*
-                     (0. - (2777.816571677826*theta0)/theta3_pow_5 - (2.617875025768731*theta0_pow_333)/theta3_pow_33 + 
-                       2.4919249611029235/(theta0_pow_333*theta3_pow_166)))/theta3 + 
-                  (20.106192982974676*flow*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                       (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                       (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0) - 
-             (1.*((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                     (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                       (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                       (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0_pow_2)))/
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333)))/
-    ((0.25*pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2) + 
-        pow(f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-             (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-               (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-               (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,2))*
-      pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-      sqrt((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      (1. - 0.694943633842542*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333) + 
-        0.2239211337314047*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666))));
-
+	amp_theta0 = ((-6.309330788947024e-11*flow*sqrt(theta0_pow_one_third/theta3_pow_166)*theta3_pow_6*theta3_pow_5*
+     pow(theta3/(flow*theta0),1.8333333333333333)*(f*f*theta3_pow_6*theta3_pow_6*
+        (1.2340282338796662e-9*theta0_pow_2*theta0_pow_2 - 2.2527748592813595e-10*theta0_pow_333*theta3_pow_166 + 
+          1.3866741910127907e-11*theta0_pow_266*theta3_pow_33 - 4.791014881221891e-13*theta0_pow_2*theta3_pow_5 - 
+          1.586443026896594e-14*theta0_pow_133*theta3_pow_666 + 
+          7.894767665826844e-16*theta0_pow_one_third*theta3_pow_833 + 6.433761654177981e-18*theta3_pow_5*theta3_pow_5) + 
+       f*flow*theta0*theta3_pow_6*(-0.00009039295451366248*theta0_pow_2*theta0_pow_2*theta0_pow_2 + 
+          0.000011606998252519058*pow(theta0,5.333333333333333)*theta3_pow_166 - 
+          4.790497433533833e-7*pow(theta0,4.666666666666667)*theta3_pow_33 + 3.402203750822557e-10*theta0_pow_2*theta0_pow_2*theta3_pow_5 + 
+          2.814424003062018e-9*theta0_pow_333*theta3_pow_666 - 
+          1.3775867112252942e-10*theta0_pow_266*theta3_pow_833 + 3.1444151526879723e-12*theta0_pow_2*theta3_pow_5*theta3_pow_5 + 
+          1.3374286585876486e-13*theta0_pow_133*theta3_pow_116 - 
+          8.86454266853857e-15*theta0_pow_one_third*theta3_pow_133 - 1.196565694184624e-16*theta3_pow_5*theta3_pow_5*theta3_pow_5) + 
+       pow(flow,2)*theta0_pow_2*(1.*pow(theta0,8) - 0.1760878215836856*pow(theta0,7.333333333333333)*theta3_pow_166 + 
+          0.016434354889891443*pow(theta0,6.666666666666667)*theta3_pow_33 - 0.0008012371590087298*theta0_pow_2*theta0_pow_2*theta0_pow_2*theta3_pow_5 + 
+          2.396325173672129e-6*pow(theta0,5.333333333333333)*theta3_pow_666 + 
+          4.292406610607157e-7*pow(theta0,4.666666666666667)*theta3_pow_833 - 1.9043032274546434e-8*theta0_pow_2*theta0_pow_2*theta3_pow_5*theta3_pow_5 - 
+          5.531895676049336e-9*theta0_pow_333*theta3_pow_116 + 
+          2.628835629389233e-10*theta0_pow_266*theta3_pow_133 - 2.269291512881063e-12*theta0_pow_2*theta3_pow_5*theta3_pow_5*theta3_pow_5 - 
+          2.610954820376939e-13*theta0_pow_133*pow(theta3,16.666666666666668) + 
+          2.3048547012029015e-14*theta0_pow_one_third*pow(theta3,18.333333333333332) + 3.78318037515207e-16*theta3_pow_5*theta3_pow_5*theta3_pow_5*theta3_pow_5)))/
+   (pow(1.*theta0_pow_2 + 0.001413632771396877*theta0_pow_133*theta3_pow_166 - 
+       0.0026912413726415843*theta0_pow_one_third*theta3_pow_33 - 0.00004751933635426132*theta3_pow_5,2)*
+     pow((flow*theta0*(-27925.658030729737*theta0_pow_2 - 39.476625355061934*theta0_pow_133*theta3_pow_166 + 
+           75.15468625054058*theta0_pow_one_third*theta3_pow_33 + 1.3270087368763253*theta3_pow_5))/theta3_pow_6,
+      0.16666666666666666)*pow(8.638197637157656e-9*f*f*theta3_pow_6*theta3_pow_6 + 
+       f*flow*theta0*theta3_pow_6*(-0.00015818767039890933*theta0_pow_2 + 
+          2.916991860744045e-7*theta0_pow_133*theta3_pow_166 - 
+          2.963338204792056e-7*theta0_pow_one_third*theta3_pow_33 - 6.426206942557403e-8*theta3_pow_5) + 
+       pow(flow,2)*theta0_pow_2*(1.*theta0_pow_2*theta0_pow_2 - 0.06319178654351876*theta0_pow_333*theta3_pow_166 + 
+          0.00837150705535333*theta0_pow_266*theta3_pow_33 + 0.00023636648033447988*theta0_pow_2*theta3_pow_5 + 
+          0.000016361044697260936*theta0_pow_133*theta3_pow_666 + 
+          7.178925895994797e-7*theta0_pow_one_third*theta3_pow_833 + 1.2698581923826034e-7*theta3_pow_5*theta3_pow_5),2)));
+	
+	amp = XLALSimIMRPhenomBAmplitude_Ringdown(f,theta0,theta3,flow);
+	return (norm_ringdown*amp_theta0 + (norm_ringdown_der*amp/norm_ringdown));
 	}
 
 
@@ -1023,27 +774,16 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta3_Inspiral(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666) ;
-	REAL8 theta0_pow_2 = pow(theta0,2);
-	REAL8 theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8 theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8 theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8 theta3_pow_5 = pow(theta3,5);
-	REAL8 theta3_pow_6 = pow(theta3,6);
+	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
+	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
 
-	return ((1.0482840157135205*pow(theta0_pow_one_third/theta3_pow_166,1.5)*pow(theta3/(flow*theta0),0.8333333333333334)*
-     (-0.03415794470303461*pow(theta0,2.6666666666666665) - 0.0021545433464636586*theta0_pow_2*theta3_pow_166 + 
-       0.00008894980069607421*theta0_pow_133*theta3_pow_33 + 
-       7.291607649570083e-6*theta0_pow_one_third*theta3_pow_5 + 1.0008791375326495e-7*pow(theta3,6.666666666666667)))/
-   (flow*pow(theta0,1.6666666666666667)*pow((f*theta3)/(flow*theta0),0.3333333333333333)*
-     (1.*theta0_pow_2 + 0.001413632771396877*theta0_pow_133*theta3_pow_166 - 
-       0.0026912413726415843*theta0_pow_one_third*theta3_pow_33 - 0.00004751933635426132*theta3_pow_5)*
-     pow((flow*theta0*(-27925.658030729737*theta0_pow_2 - 39.476625355061934*theta0_pow_133*theta3_pow_166 + 
-           75.15468625054058*theta0_pow_one_third*theta3_pow_33 + 1.3270087368763253*theta3_pow_5))/theta3_pow_6,
-      0.16666666666666666)*pow((f*theta3_pow_6)/
-       (-21044.06493695328*flow*pow(theta0,3) - 29.748579838281113*flow*pow(theta0,2.3333333333333335)*theta3_pow_166 + 
-         56.63465820688478*flow*pow(theta0,1.6666666666666667)*theta3_pow_33 + 1.*flow*theta0*theta3_pow_5),0.16666666666666666)));
+	REAL8 amp, coef1;
 
+	coef1 = (-0.03415794470303461*pow(theta0_pow_one_third/theta3_pow_166,1.5)*sqrt(theta3/(flow*theta0))*
+     (1.*theta0_pow_one_third + 0.06166227431830129*theta3_pow_166))/(flow*pow(theta0,1.6666666666666667));
+
+	amp = coef1*pow(f,-1.0/2.0);
+	return amp;
 	}
 
 
@@ -1054,224 +794,45 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta3_Merger(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666) ;
-	REAL8 theta0_pow_2 = pow(theta0,2);
-	REAL8 theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8 theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8 theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8 theta3_pow_5 = pow(theta3,5);
-	REAL8 theta3_pow_6 = pow(theta3,6);
-	REAL8 theta3_pow_433 = pow(theta3,4.333333333333333);
+	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
+	REAL8	theta0_pow_2 = pow(theta0,2);
+	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
+	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
+	REAL8	theta3_pow_5 = pow(theta3,5);
+	REAL8	theta3_pow_433 = pow(theta3,4.333333333333333);
+	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
+	REAL8	theta3_pow_6 = theta3_pow_5*theta3;
 
-	return ((1.2075798420906887*pow(theta0_pow_one_third/theta3_pow_166,1.5)*pow(theta3/(flow*theta0),0.8333333333333334)*
-     (flow*theta0*pow((f*theta3)/(flow*theta0),0.6666666666666666)*
-        (-5679.875272238851*pow(theta0,6.666666666666667) + 1162.9703542376096*pow(theta0,6)*theta3_pow_166 + 
-          31.27924094532669*pow(theta0,5.333333333333333)*theta3_pow_33 + 
-          pow(theta0,4.666666666666667)*(-7.418126007613035 - 1.3624844617530238*
-              pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-             0.15780831715077337*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*theta3_pow_5 + 
-          pow(theta0,4)*(-1.2092118855254956 + 0.4756365645206837*
-              pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-             0.059016986975879586*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,6.666666666666667) + 
-          pow(theta0,3.3333333333333335)*(0.013526374411924266 + 
-             0.0074439277732643114*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
-             0.0014087812645133934*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,8.333333333333334) + 
-          pow(theta0,2.6666666666666665)*(0.004449887760107708 - 
-             0.001616617648769473*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
-             0.00028514041283810563*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,10) + 
-          theta0_pow_2*(0.0000507674754375469 - 0.000031829922080411194*
-              pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
-             0.00003583945987914098*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,11.666666666666666) + 
-          theta0_pow_133*(-3.5093860094614663e-6 + 
-             9.301502070644329e-7*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-             3.311123783005197e-7*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,13.333333333333334) + 
-          theta0_pow_one_third*(-7.471855301676302e-8 + 
-             1.9629223385873027e-8*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-             4.9920326925092795e-8*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,15) + 
-          (-2.74654996076644e-10 + 1.0544978320859357e-11*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-             3.2434354261880464e-10*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666))*pow(theta3,16.666666666666668)) + 
-       f*(pow(theta0,6.666666666666667)*theta3*(4933.99145182758 - 1907.766165619043*pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          pow(theta0,5.333333333333333)*theta3_pow_433*
-           (-30.08560730938491 + 12.38397363287465*pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          pow(theta0,6)*pow(theta3,2.6666666666666665)*(-895.2862731349995 + 316.5353597648054*pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          pow(theta0,4.666666666666667)*theta3_pow_6*(5.728341530684689 + 
-             0.7890415857538726*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-             2.784798188990482e-16*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666) - 
-             2.0304378160924874*pow((f*theta3)/(flow*theta0),0.3333333333333333) - 
-             0.20339271024477312*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333) - 
-             0.03533661728864687*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          pow(theta0,2.6666666666666665)*pow(theta3,11)*(-0.00345657478857744 + 
-             0.0011512976258003765*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-             0.00024147662671382614*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666) + 
-             0.0012310952930591349*pow((f*theta3)/(flow*theta0),0.3333333333333333) - 
-             0.00037993544403006817*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333) - 
-             0.00009176572821711631*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          theta0_pow_2*pow(theta3,12.666666666666666)*(-0.00004056732258965515 + 
-             0.0000212203134718764*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-             0.0000294073951671988*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666) + 
-             0.000014774873950192115*pow((f*theta3)/(flow*theta0),0.3333333333333333) - 
-             6.54760647865073e-6*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333) - 
-             0.000010925784240633347*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          pow(theta3,17.666666666666668)*(3.181162350441869e-10 - 
-             1.2213609255148012e-11*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
-             3.7566746686812603e-10*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666) - 
-             1.4350246891511216e-10*pow((f*theta3)/(flow*theta0),0.3333333333333333) + 
-             5.509568168486442e-12*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333) + 
-             1.694638721572135e-10*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          theta0_pow_one_third*pow(theta3,16)*(6.678708722112878e-8 - 
-             1.4550919658935874e-8*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
-             4.4251712119489984e-8*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666) - 
-             2.6308514673204913e-8*pow((f*theta3)/(flow*theta0),0.3333333333333333) + 
-             4.981645788551246e-9*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333) + 
-             1.733889817978917e-8*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          theta0_pow_133*pow(theta3,14.333333333333334)*
-           (2.883940764059753e-6 - 7.021442300484052e-7*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
-             2.7037039429341645e-7*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666) - 
-             1.0726711799197896e-6*pow((f*theta3)/(flow*theta0),0.3333333333333333) + 
-             2.442022560910192e-7*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333) + 
-             1.0009163348477206e-7*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          pow(theta0,3.3333333333333335)*pow(theta3,9.333333333333334)*
-           (-0.010410730897900558 - 0.00433014190900034*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-             0.00036027869742454396*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666) + 
-             0.003680142346518517*pow((f*theta3)/(flow*theta0),0.3333333333333333) + 
-             0.0011236189933541154*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333) + 
-             0.00008328163095897728*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-          pow(theta0,4)*pow(theta3,7.666666666666667)*(0.9284709688342044 - 
-             0.33315030033688475*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) - 
-             0.050846976001507276*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666) - 
-             0.327566104759257*pow((f*theta3)/(flow*theta0),0.3333333333333333) + 
-             0.10818684535444212*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333) + 
-             0.019552147198332412*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-                (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-                (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*
-              pow((f*theta3)/(flow*theta0),0.3333333333333333)))))/
-   (pow(flow,2)*pow(theta0,2.6666666666666665)*pow(4.465858060541567 - 
-       3.1035196288177636*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-       1.*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666),2)*
-     pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-       (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-       (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*theta3_pow_5*
-     pow((f*theta3)/(flow*theta0),0.6666666666666666)*pow(1.*theta0_pow_2 + 
-       0.001413632771396877*theta0_pow_133*theta3_pow_166 - 
-       0.0026912413726415843*theta0_pow_one_third*theta3_pow_33 - 0.00004751933635426132*theta3_pow_5,2)*
-     pow((flow*theta0*(-27925.658030729737*theta0_pow_2 - 39.476625355061934*theta0_pow_133*theta3_pow_166 + 
-           75.15468625054058*theta0_pow_one_third*theta3_pow_33 + 1.3270087368763253*theta3_pow_5))/theta3_pow_6,
-      0.16666666666666666)*pow((f*theta3_pow_6)/
-       (-21044.06493695328*flow*pow(theta0,3) - 29.748579838281113*flow*pow(theta0,2.3333333333333335)*theta3_pow_166 + 
-         56.63465820688478*flow*pow(theta0,1.6666666666666667)*theta3_pow_33 + 1.*flow*theta0*theta3_pow_5),0.6666666666666666)));
+	REAL8 coef1, coef2, coef3, amp, amp_theta3, norm_merger, norm_merger_der; 
+
+	coef1 = (sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334)*
+     (0.04860219061029145*theta0_pow_2 + 0.000049620746794945154*theta0_pow_133*theta3_pow_166 - 
+       0.00005813343385396831*theta0_pow_one_third*theta3_pow_33 - 3.8492397386072687e-7*theta3_pow_5))/
+   (sqrt((flow*theta0*(-27925.658030729737*theta0_pow_2 - 39.476625355061934*theta0_pow_133*theta3_pow_166 + 
+           75.15468625054058*theta0_pow_one_third*theta3_pow_33 + 1.3270087368763253*theta3_pow_5))/theta3_pow_6)*
+     (1.*theta0_pow_2*theta3 + 0.001413632771396877*theta0_pow_133*pow(theta3,2.6666666666666665) - 
+       0.0026912413726415843*theta0_pow_one_third*theta3_pow_433 - 0.00004751933635426132*theta3_pow_6));
+
+	coef2 = coef1*(pow(theta3/(flow*theta0),0.3333333333333333)*(-0.77215959315838*theta0_pow_2 - 
+       0.0008186625792278745*theta0_pow_133*theta3_pow_166 + 
+       0.0010390339216949634*theta0_pow_one_third*theta3_pow_33 + 9.173127856615659e-6*theta3_pow_5))/
+   (1.*theta0_pow_2 + 0.0010209570015644114*theta0_pow_133*theta3_pow_166 - 
+     0.001196107276729593*theta0_pow_one_third*theta3_pow_33 - 7.919889392376888e-6*theta3_pow_5);
+
+	coef3 = coef1*(pow(theta3/(flow*theta0),0.6666666666666666)*(0.27368138567171685*theta0_pow_2 + 
+       0.0002989565721371088*theta0_pow_133*theta3_pow_166 - 
+       0.0004017505462045103*theta0_pow_one_third*theta3_pow_33 - 4.138004760792837e-6*theta3_pow_5))/
+   (1.*theta0_pow_2 + 0.0010209570015644114*theta0_pow_133*theta3_pow_166 - 
+     0.001196107276729593*theta0_pow_one_third*theta3_pow_33 - 7.919889392376888e-6*theta3_pow_5);
+
+	norm_merger = XLALSimIMRPhenomBNormalization_Merger(theta0,theta3,flow);
+	norm_merger_der = XLALSimIMRPhenomBNormalization_Merger_Der_theta3(theta0,theta3,flow);
+
+
+	amp_theta3 = norm_merger*(coef1*pow(f,-2.0/3.0) + coef2*pow(f,-1.0/3.0) + coef3);
+	amp = amp_theta3 + (norm_merger_der*XLALSimIMRPhenomBAmplitude_Merger(f,theta0,theta3,flow))/norm_merger;
+	
+	return amp;
 
 	}
 
@@ -1283,501 +844,64 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta3_Ringdown(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666) ;
-	REAL8 theta0_pow_2 = pow(theta0,2);
-	REAL8 theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8 theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8 theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8 theta3_pow_5 = pow(theta3,5);
-	REAL8 theta3_pow_6 = pow(theta3,6);
-	REAL8 theta3_pow_433 = pow(theta3,4.333333333333333);
+	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
+	REAL8	theta0_pow_2 = pow(theta0,2);
+	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
+	REAL8	theta0_pow_333 = pow(theta0,3.3333333333333335);
+	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
+	REAL8	theta0_pow_266 = pow(theta0,2.6666666666666665);
+	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
+	REAL8	theta3_pow_5 = pow(theta3,5);
+	REAL8	theta3_pow_6 = theta3_pow_5*theta3;
+	REAL8	theta3_pow_666 = pow(theta3,6.666666666666667);
+	REAL8	theta3_pow_833 = pow(theta3,8.333333333333334);
+	REAL8	theta3_pow_116 = pow(theta3,11.666666666666666);
+	REAL8	theta3_pow_133 = pow(theta3,13.333333333333334);
 
-	return ((0.004050182550857621*pow((1.8598228509251575*flow*theta0)/theta3 + 
-        (20.106192982974676*flow*theta0*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-             (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2)*
-      sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334)*
-      ((-0.23164787794751399*pow((3.719645701850315*flow*theta0)/theta3 + 
-             (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                  (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                  (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333))/
-         (flow*theta0*pow(theta3/(flow*theta0),0.6666666666666666)) + 
-        (0.14928075582093644*pow((3.719645701850315*flow*theta0)/theta3 + 
-             (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                  (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                  (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666))/
-         (flow*theta0*pow(theta3/(flow*theta0),0.3333333333333333)) - 
-        (0.23164787794751399*((-3.719645701850315*flow*theta0)/pow(theta3,2) - 
-             (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                  (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                  (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/pow(theta3,2) + 
-             (20.106192982974676*flow*theta0*(0. - (2276.9823074007563*theta0_pow_2)/theta3_pow_6 + 
-                  (2.799181015392207*theta0_pow_133)/theta3_pow_433 - 
-                  (1.4218277665890604*theta0_pow_one_third)/pow(theta3,2.6666666666666665)))/theta3)*pow(theta3/(flow*theta0),0.3333333333333333))
-          /pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666) + 
-        (0.14928075582093644*((-3.719645701850315*flow*theta0)/pow(theta3,2) - 
-             (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                  (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                  (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/pow(theta3,2) + 
-             (20.106192982974676*flow*theta0*(0. - (2276.9823074007563*theta0_pow_2)/theta3_pow_6 + 
-                  (2.799181015392207*theta0_pow_133)/theta3_pow_433 - 
-                  (1.4218277665890604*theta0_pow_one_third)/pow(theta3,2.6666666666666665)))/theta3)*pow(theta3/(flow*theta0),0.6666666666666666))
-          /pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333))*
-      (1. + 0.1352425763914989*(-1.4419642857142858 + (15.589913515794665*theta0_pow_one_third)/theta3_pow_166)*
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))/
-    ((0.25*pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2) + 
-        pow(f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-             (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-               (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-               (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,2))*
-      pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-      sqrt((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      (1. - 0.694943633842542*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333) + 
-        0.2239211337314047*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))\
-    + (0.0033751521257146845*pow((1.8598228509251575*flow*theta0)/theta3 + 
-        (20.106192982974676*flow*theta0*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-             (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2)*
-      sqrt(theta0_pow_one_third/theta3_pow_166)*
-      (1. - 0.694943633842542*pow((3.719645701850315*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333)*
-         pow(theta3/(flow*theta0),0.3333333333333333) + 0.2239211337314047*
-         pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-         pow(theta3/(flow*theta0),0.6666666666666666))*(1. + 0.1352425763914989*
-         (-1.4419642857142858 + (15.589913515794665*theta0_pow_one_third)/theta3_pow_166)*
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))/
-    (flow*theta0*(0.25*pow((1.8598228509251575*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2) + 
-        pow(f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-             (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-               (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-               (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,2))*
-      pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-      sqrt((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*pow(theta3/(flow*theta0),0.16666666666666666)*
-      (1. - 0.694943633842542*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333) + 
-        0.2239211337314047*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))\
-    - (0.0020250912754288105*((-1.3270087368763253*flow*theta0)/pow(theta3,2) - 
-        (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-             (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/pow(theta3,2) + 
-        (20.106192982974676*flow*theta0*(0. + (6944.541429194564*theta0_pow_2)/theta3_pow_6 + 
-             (6.544687564421828*theta0_pow_133)/theta3_pow_433 - 
-             (6.22981240275731*theta0_pow_one_third)/pow(theta3,2.6666666666666665)))/theta3)*
-      pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2)*
-      sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334)*
-      (1. - 0.694943633842542*pow((3.719645701850315*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333)*
-         pow(theta3/(flow*theta0),0.3333333333333333) + 0.2239211337314047*
-         pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-         pow(theta3/(flow*theta0),0.6666666666666666))*(1. + 0.1352425763914989*
-         (-1.4419642857142858 + (15.589913515794665*theta0_pow_one_third)/theta3_pow_166)*
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))/
-    ((0.25*pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2) + 
-        pow(f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-             (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-               (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-               (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,2))*
-      pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-      pow((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3,1.5)*
-      (1. - 0.694943633842542*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333) + 
-        0.2239211337314047*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))\
-    - (0.002700121700571747*((-3.719645701850315*flow*theta0)/pow(theta3,2) - 
-        (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-             (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/pow(theta3,2) + 
-        (20.106192982974676*flow*theta0*(0. - (2276.9823074007563*theta0_pow_2)/theta3_pow_6 + 
-             (2.799181015392207*theta0_pow_133)/theta3_pow_433 - 
-             (1.4218277665890604*theta0_pow_one_third)/pow(theta3,2.6666666666666665)))/theta3)*
-      pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2)*
-      sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334)*
-      (1. - 0.694943633842542*pow((3.719645701850315*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333)*
-         pow(theta3/(flow*theta0),0.3333333333333333) + 0.2239211337314047*
-         pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-         pow(theta3/(flow*theta0),0.6666666666666666))*(1. + 0.1352425763914989*
-         (-1.4419642857142858 + (15.589913515794665*theta0_pow_one_third)/theta3_pow_166)*
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))/
-    ((0.25*pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2) + 
-        pow(f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-             (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-               (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-               (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,2))*
-      pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,1.6666666666666667)*
-      sqrt((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      (1. - 0.694943633842542*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333) + 
-        0.2239211337314047*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))\
-    + (0.008100365101715242*((-1.8598228509251575*flow*theta0)/pow(theta3,2) - 
-        (20.106192982974676*flow*theta0*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-             (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/pow(theta3,2) + 
-        (20.106192982974676*flow*theta0*(0. + (2810.2889324697617*theta0_pow_2)/theta3_pow_6 - 
-             (205.5655584235418*theta0_pow_133)/theta3_pow_433 + 
-             (3.966405845801204*theta0_pow_one_third)/pow(theta3,2.6666666666666665)))/theta3)*
-      ((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334)*
-      (1. - 0.694943633842542*pow((3.719645701850315*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333)*
-         pow(theta3/(flow*theta0),0.3333333333333333) + 0.2239211337314047*
-         pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-         pow(theta3/(flow*theta0),0.6666666666666666))*(1. + 0.1352425763914989*
-         (-1.4419642857142858 + (15.589913515794665*theta0_pow_one_third)/theta3_pow_166)*
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))/
-    ((0.25*pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2) + 
-        pow(f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-             (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-               (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-               (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,2))*
-      pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-      sqrt((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      (1. - 0.694943633842542*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333) + 
-        0.2239211337314047*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))\
-    - (0.004050182550857621*(0.5*((-1.8598228509251575*flow*theta0)/pow(theta3,2) - 
-           (20.106192982974676*flow*theta0*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/pow(theta3,2) + 
-           (20.106192982974676*flow*theta0*(0. + (2810.2889324697617*theta0_pow_2)/theta3_pow_6 - 
-                (205.5655584235418*theta0_pow_133)/theta3_pow_433 + 
-                (3.966405845801204*theta0_pow_one_third)/pow(theta3,2.6666666666666665)))/theta3)*
-         ((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3) + 
-        2.*((3.719645701850315*flow*theta0)/pow(theta3,2) + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/pow(theta3,2) - 
-           (20.106192982974676*flow*theta0*(0. - (2276.9823074007563*theta0_pow_2)/theta3_pow_6 + 
-                (2.799181015392207*theta0_pow_133)/theta3_pow_433 - 
-                (1.4218277665890604*theta0_pow_one_third)/pow(theta3,2.6666666666666665)))/theta3)*
-         (f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3))*
-      pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2)*
-      sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334)*
-      (1. - 0.694943633842542*pow((3.719645701850315*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333)*
-         pow(theta3/(flow*theta0),0.3333333333333333) + 0.2239211337314047*
-         pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-         pow(theta3/(flow*theta0),0.6666666666666666))*(1. + 0.1352425763914989*
-         (-1.4419642857142858 + (15.589913515794665*theta0_pow_one_third)/theta3_pow_166)*
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))/
-    (pow(0.25*pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2) + 
-        pow(f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-             (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-               (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-               (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,2),2)*
-      pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-      sqrt((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      (1. - 0.694943633842542*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333) + 
-        0.2239211337314047*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))\
-    - (0.0033751521257146845*theta0_pow_one_third*pow((1.8598228509251575*flow*theta0)/theta3 + 
-        (20.106192982974676*flow*theta0*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-             (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2)*pow(theta3/(flow*theta0),0.8333333333333334)*
-      (1. - 0.694943633842542*pow((3.719645701850315*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333)*
-         pow(theta3/(flow*theta0),0.3333333333333333) + 0.2239211337314047*
-         pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-         pow(theta3/(flow*theta0),0.6666666666666666))*(1. + 0.1352425763914989*
-         (-1.4419642857142858 + (15.589913515794665*theta0_pow_one_third)/theta3_pow_166)*
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))/
-    ((0.25*pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2) + 
-        pow(f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-             (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-               (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-               (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,2))*
-      pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-      sqrt((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3,2.6666666666666665)*
-      (1. - 0.694943633842542*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333) + 
-        0.2239211337314047*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666)))\
-    - (0.004050182550857621*pow((1.8598228509251575*flow*theta0)/theta3 + 
-        (20.106192982974676*flow*theta0*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-             (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2)*
-      sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334)*
-      (1. - 0.694943633842542*pow((3.719645701850315*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333)*
-         pow(theta3/(flow*theta0),0.3333333333333333) + 0.2239211337314047*
-         pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-         pow(theta3/(flow*theta0),0.6666666666666666))*(1. + 0.1352425763914989*
-         (-1.4419642857142858 + (15.589913515794665*theta0_pow_one_third)/theta3_pow_166)*
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666))*
-      ((-0.23164787794751399*(((1.3270087368763253*flow*theta0)/theta3 + 
-                (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                     (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                     (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)/(flow*theta0) + 
-             (((-1.3270087368763253*flow*theta0)/pow(theta3,2) - 
-                  (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                       (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                       (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/pow(theta3,2) + 
-                  (20.106192982974676*flow*theta0*(0. + (6944.541429194564*theta0_pow_2)/theta3_pow_6 + 
-                       (6.544687564421828*theta0_pow_133)/theta3_pow_433 - 
-                       (6.22981240275731*theta0_pow_one_third)/pow(theta3,2.6666666666666665)))/theta3)*theta3)/(flow*theta0)))/
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666) + 
-        (0.14928075582093644*(((1.3270087368763253*flow*theta0)/theta3 + 
-                (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                     (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                     (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)/(flow*theta0) + 
-             (((-1.3270087368763253*flow*theta0)/pow(theta3,2) - 
-                  (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                       (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                       (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/pow(theta3,2) + 
-                  (20.106192982974676*flow*theta0*(0. + (6944.541429194564*theta0_pow_2)/theta3_pow_6 + 
-                       (6.544687564421828*theta0_pow_133)/theta3_pow_433 - 
-                       (6.22981240275731*theta0_pow_one_third)/pow(theta3,2.6666666666666665)))/theta3)*theta3)/(flow*theta0)))/
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333)))/
-    ((0.25*pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2) + 
-        pow(f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-             (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-               (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-               (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,2))*
-      pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-      sqrt((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      pow(1. - 0.694943633842542*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333) + 
-        0.2239211337314047*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666),2))
-     + (0.004050182550857621*pow((1.8598228509251575*flow*theta0)/theta3 + 
-        (20.106192982974676*flow*theta0*(0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-             (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-             (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2)*
-      sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334)*
-      (1. - 0.694943633842542*pow((3.719645701850315*flow*theta0)/theta3 + 
-           (20.106192982974676*flow*theta0*(0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.3333333333333333)*
-         pow(theta3/(flow*theta0),0.3333333333333333) + 0.2239211337314047*
-         pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-                (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-                (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-         pow(theta3/(flow*theta0),0.6666666666666666))*(0. - (3.5140334493278687*theta0_pow_one_third*
-           pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                    (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                      (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                      (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666))/
-         pow(theta3,2.6666666666666665) + (0.09016171759433259*
-           (-1.4419642857142858 + (15.589913515794665*theta0_pow_one_third)/theta3_pow_166)*
-           (((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                   (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                     (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                     (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)/(flow*theta0) + 
-             (((-1.3270087368763253*flow*theta0)/pow(theta3,2) - 
-                  (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                       (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                       (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/pow(theta3,2) + 
-                  (20.106192982974676*flow*theta0*(0. + (6944.541429194564*theta0_pow_2)/theta3_pow_6 + 
-                       (6.544687564421828*theta0_pow_133)/theta3_pow_433 - 
-                       (6.22981240275731*theta0_pow_one_third)/pow(theta3,2.6666666666666665)))/theta3)*theta3)/(flow*theta0)))/
-         pow((((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-                  (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333)))/
-    ((0.25*pow((1.8598228509251575*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-              (0. - (562.0577864939523*theta0_pow_2)/theta3_pow_5 + 
-                (61.669667527062536*theta0_pow_133)/theta3_pow_33 - 
-                (2.3798435074807225*theta0_pow_one_third)/theta3_pow_166))/theta3,2) + 
-        pow(f - (3.719645701850315*flow*theta0)/theta3 - (20.106192982974676*flow*theta0*
-             (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - 
-               (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-               (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,2))*
-      pow((3.719645701850315*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. + (455.39646148015123*theta0_pow_2)/theta3_pow_5 - (0.8397543046176621*theta0_pow_133)/theta3_pow_33 + 
-             (0.8530966599534362*theta0_pow_one_third)/theta3_pow_166))/theta3,0.6666666666666666)*
-      sqrt((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
-           (0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-             (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*
-      (1. - 0.694943633842542*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.3333333333333333) + 
-        0.2239211337314047*pow((((1.3270087368763253*flow*theta0)/theta3 + 
-               (20.106192982974676*flow*theta0*(0. - (1388.908285838913*theta0_pow_2)/theta3_pow_5 - 
-                    (1.9634062693265484*theta0_pow_133)/theta3_pow_33 + 
-                    (3.7378874416543857*theta0_pow_one_third)/theta3_pow_166))/theta3)*theta3)/(flow*theta0),0.6666666666666666))));
+	REAL8 norm_ringdown, norm_ringdown_der, amp, amp_theta3;
 
+	norm_ringdown = XLALSimIMRPhenomBNormalization_Ringdown(theta0,theta3,flow);
+	norm_ringdown_der = XLALSimIMRPhenomBNormalization_Ringdown_Der_theta3(theta0,theta3,flow);
+
+	amp_theta3 = ((1.0148182623362965e-28*theta3_pow_5*theta3*theta3*theta3*(f*f*theta3_pow_6*theta3_pow_6*
+        (7.672203604734464e8*theta0_pow_2*theta0_pow_2 - 2.255052633647948e8*theta0_pow_333*theta3_pow_166 + 
+          1.9955946557482686e7*theta0_pow_266*theta3_pow_33 - 847297.3107922212*theta0_pow_2*theta3_pow_5 - 
+          17276.761525970855*theta0_pow_133*theta3_pow_666 + 
+          948.924678555601*theta0_pow_one_third*theta3_pow_833 + 1.*theta3_pow_5*theta3_pow_5) + 
+       f*flow*theta0*theta3_pow_6*(-9.834848034582369e13*theta0_pow_2*theta0_pow_2*theta0_pow_2 + 
+          1.3397946998688654e13*pow(theta0,5.333333333333333)*theta3_pow_166 - 
+          5.98715176465292e11*pow(theta0,4.666666666666667)*theta3_pow_33 + 1.275067347466667e10*theta0_pow_2*theta0_pow_2*theta3_pow_5 + 
+          2.3522458859953704e9*theta0_pow_333*theta3_pow_666 - 
+          1.726276444423315e8*theta0_pow_266*theta3_pow_833 + 6.218755128271468e6*theta0_pow_2*theta3_pow_5*theta3_pow_5 + 
+          116529.57602908649*theta0_pow_133*theta3_pow_116 - 
+          9022.053218358858*theta0_pow_one_third*theta3_pow_133 - 52.075039825904355*theta3_pow_5*theta3_pow_5*theta3_pow_5) + 
+       pow(flow,2)*theta0_pow_2*(1.154623349117609e18*theta0_pow_2*theta0_pow_2*theta0_pow_2*theta0_pow_2 - 
+          2.0514900773449933e17*pow(theta0,7.333333333333333)*theta3_pow_166 + 
+          1.8907897656948656e16*pow(theta0,6.666666666666667)*theta3_pow_33 - 9.780388431773455e14*theta0_pow_2*theta0_pow_2*theta0_pow_2*theta3_pow_5 + 
+          7.589655976348427e12*pow(theta0,5.333333333333333)*theta3_pow_666 + 
+          4.0039626591207336e11*pow(theta0,4.666666666666667)*theta3_pow_833 - 4.233637953066569e10*theta0_pow_2*theta0_pow_2*theta3_pow_5*theta3_pow_5 - 
+          4.087882103027116e9*theta0_pow_333*theta3_pow_116 + 
+          3.0551750956245e8*theta0_pow_266*theta3_pow_133 - 8.532293257209271e6*theta0_pow_2*theta3_pow_5*theta3_pow_5*theta3_pow_5 - 
+          200782.79369336233*theta0_pow_133*pow(theta3,16.666666666666668) + 
+          21313.235117101256*theta0_pow_one_third*pow(theta3,18.333333333333332) + 191.10649228449162*theta3_pow_5*theta3_pow_5*theta3_pow_5*theta3_pow_5)))/
+   (pow(flow,2)*pow(theta0_pow_one_third/theta3_pow_166,2.5)*pow(theta3/(flow*theta0),1.1666666666666667)*
+     pow(1.*theta0_pow_2 + 0.001413632771396877*theta0_pow_133*theta3_pow_166 - 
+       0.0026912413726415843*theta0_pow_one_third*theta3_pow_33 - 0.00004751933635426132*theta3_pow_5,2)*
+     pow((flow*theta0*(-27925.658030729737*theta0_pow_2 - 39.476625355061934*theta0_pow_133*theta3_pow_166 + 
+           75.15468625054058*theta0_pow_one_third*theta3_pow_33 + 1.3270087368763253*theta3_pow_5))/theta3_pow_6,
+      0.16666666666666666)*pow(8.638197637157656e-9*f*f*theta3_pow_6*theta3_pow_6 + 
+       f*flow*theta0*theta3_pow_6*(-0.00015818767039890933*theta0_pow_2 + 
+          2.916991860744045e-7*theta0_pow_133*theta3_pow_166 - 
+          2.963338204792056e-7*theta0_pow_one_third*theta3_pow_33 - 6.426206942557403e-8*theta3_pow_5) + 
+       pow(flow,2)*theta0_pow_2*(1.*theta0_pow_2*theta0_pow_2 - 0.06319178654351876*theta0_pow_333*theta3_pow_166 + 
+          0.00837150705535333*theta0_pow_266*theta3_pow_33 + 0.00023636648033447988*theta0_pow_2*theta3_pow_5 + 
+          0.000016361044697260936*theta0_pow_133*theta3_pow_666 + 
+          7.178925895994797e-7*theta0_pow_one_third*theta3_pow_833 + 1.2698581923826034e-7*theta3_pow_5*theta3_pow_5),2)));
+
+	amp = norm_ringdown*amp_theta3 + (norm_ringdown_der*XLALSimIMRPhenomBAmplitude_Ringdown(f,theta0,theta3,flow)/norm_ringdown);
+
+	return amp;
+	
 	}
 
 
@@ -1805,29 +929,37 @@ static REAL8 XLALSimIMRPhenomBPhase_Der_theta0(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666) ;
-	REAL8 theta0_pow_2 = pow(theta0,2);
-	REAL8 theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8 theta0_pow_333 = pow(theta0,0.3333333333333333);
-	REAL8 theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8 theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8 theta3_pow_5 = pow(theta3,5);
+	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
+	REAL8	theta0_pow_2 = pow(theta0,2);
+	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
+	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
+	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
+	REAL8	theta3_pow_5 = pow(theta3,5);
+	REAL8	theta3_pow_433 = pow(theta3,4.333333333333333);
 
-	
-	return ((f*flow*theta0_pow_333*theta3*(theta0_pow_2*(2.788900203576317e6 - 6.066903031167111e6*pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-        theta0_pow_one_third*theta3_pow_33*
-         (1966.605170475875 - 2664.8290736333274*pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-        theta3_pow_5*(-5.163501364588971e-16 - 0.1101206717478258*pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-        theta0_pow_133*theta3_pow_166*
-         (-162863.73257070832 + 323306.03356978495*pow((f*theta3)/(flow*theta0),0.3333333333333333))) + 
-     pow(f,2)*pow(theta3,2)*(99788.95476309484*theta0_pow_one_third*theta3_pow_166 + 
-        theta3_pow_33*(2556.3746770489315 - 1837.6085067194897*pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-        theta0_pow_133*(-3.2789137589417063e6 + 776165.1005429972*pow((f*theta3)/(flow*theta0),0.3333333333333333))) + 
-     pow(flow,2)*theta0_pow_133*(-496796.31530040567*theta0_pow_2*pow((f*theta3)/(flow*theta0),0.6666666666666666) + 
-        30750.248778482557*theta0_pow_133*theta3_pow_166*pow((f*theta3)/(flow*theta0),0.6666666666666666) - 
-        433.96861359260686*theta0_pow_one_third*theta3_pow_33*pow((f*theta3)/(flow*theta0),0.6666666666666666) + 
-        theta3_pow_5*(0.6000000000000003 + 0.13291697653291518*pow((f*theta3)/(flow*theta0),0.6666666666666666))))/
-   (pow(flow,2)*pow(theta0,3)*theta3_pow_33*pow((f*theta3)/(flow*theta0),1.6666666666666667)));
+	REAL8 coef_k_0, coef_k_1, coef_k_2, coef_k_3, coef_k_4, coef_k_5, coef_k_6, coef_k_7, phase; 
+
+	coef_k_0 = (0.6000000000000003*theta3_pow_166)/(pow(theta0,1.6666666666666667)*pow(theta3/(flow*theta0),1.6666666666666667));
+	coef_k_1 = 0.0;
+	coef_k_2 = (-496796.3153004055*flow*theta0_pow_133)/theta3_pow_433 + 
+   (30750.248778482535*flow*theta0_pow_one_third)/pow(theta3,2.6666666666666665) - (433.96861359260646*flow)/theta3 + 
+   (0.13291697653291495*flow*pow(theta3,0.6666666666666666))/theta0_pow_one_third;
+	coef_k_3 = (flow*pow(theta3/(flow*theta0),0.3333333333333333)*(2.788900203576315e6*theta0_pow_133 - 
+       162863.7325707082*theta0_pow_one_third*theta3_pow_166 + 1966.6051704758727*theta3_pow_33))/
+   theta3_pow_433;
+	coef_k_4 = (flow*pow(theta3/(flow*theta0),0.6666666666666666)*(-6.066903031167109e6*theta0_pow_2 + 
+       323306.0335697849*theta0_pow_133*theta3_pow_166 - 
+       2664.8290736333292*theta0_pow_one_third*theta3_pow_33 - 0.1101206717478259*theta3_pow_5))/
+   (theta0_pow_one_third*theta3_pow_433);
+	coef_k_5 = 0.0;
+	coef_k_6 = (flow*pow(theta3/(flow*theta0),1.3333333333333333)*(-3.2789137589417044e6*theta0_pow_133 + 
+       99788.95476309463*theta0_pow_one_third*theta3_pow_166 + 2556.3746770489306*theta3_pow_33))/
+   theta3_pow_433;
+	coef_k_7 = (776165.1005429976*flow*pow(theta3/(flow*theta0),1.6666666666666667)*
+     (1.*theta0_pow_133 - 0.0023675484834784735*theta3_pow_33))/theta3_pow_433;
+
+	phase = coef_k_0*pow(f,-5.0/3.0) + coef_k_2*pow(f,-1.0) + coef_k_3*pow(f,-2.0/3.0) + coef_k_4*pow(f,-1.0/3.0) + coef_k_6*pow(f,1.0/3.0) + coef_k_7*pow(f,2.0/3.0) + coef_k_5 + coef_k_1;
+	return phase; 
 
 	}
 
@@ -1843,32 +975,39 @@ static REAL8 XLALSimIMRPhenomBPhase_Der_theta3(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8 theta0_pow_one_third = pow(theta0,0.6666666666666666) ;
-	REAL8 theta0_pow_2 = pow(theta0,2);
-	REAL8 theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8 theta0_pow_333 = pow(theta0,0.3333333333333333);
-	REAL8 theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8 theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8 theta3_pow_5 = pow(theta3,5);
-	REAL8 theta3_pow_433 = pow(theta3,4.333333333333333);
+	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
+	REAL8	theta0_pow_2 = pow(theta0,2);
+	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
+	REAL8	theta0_pow_333 = pow(theta0,0.3333333333333333);
+	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
+	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
+	REAL8	theta3_pow_5 = pow(theta3,5);
+	REAL8	theta3_pow_433 = pow(theta3,4.333333333333333);
+	REAL8	theta3_pow_533 = pow(theta3,5.333333333333333);
 
-	
-	return ((pow(flow,2)*theta0_pow_133*pow((f*theta3)/(flow*theta0),0.6666666666666666)*
-      (922621.7284150389*theta0_pow_2 - 49200.398045572096*theta0_pow_133*theta3_pow_166 + 
-        433.9686135926066*theta0_pow_one_third*theta3_pow_33 + 0.26583395306582985*theta3_pow_5) + 
-     pow(f,2)*pow(theta3,2)*(theta0_pow_133*
-         (9.836741276825117e6 - 3.1046604021719885e6*pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-        theta3_pow_33*(-2556.374677048931 + 1837.6085067194917*pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-        theta0_pow_one_third*theta3_pow_166*
-         (-399155.8190523791 + 107462.71729917094*pow((f*theta3)/(flow*theta0),0.3333333333333333))) + 
-     f*flow*theta0_pow_333*theta3*(theta0_pow_133*theta3_pow_166*
-         (285011.5319987395 - 646612.06713957*pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-        theta3_pow_5*(-1.5000000000000007 + 0.4404826869913037*pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-        theta0_pow_one_third*theta3_pow_33*
-         (-1966.605170475874 + 2664.829073633325*pow((f*theta3)/(flow*theta0),0.3333333333333333)) + 
-        theta0_pow_2*(-5.577800407152632e6 + 1.3347186668567646e7*pow((f*theta3)/(flow*theta0),0.3333333333333333))))/
-   (pow(flow,2)*theta0_pow_2*theta3_pow_433*pow((f*theta3)/(flow*theta0),1.6666666666666667)));
+	REAL8 coef_k_0, coef_k_1, coef_k_2, coef_k_3, coef_k_4, coef_k_5, coef_k_6, coef_k_7, phase; 
 
+	coef_k_0 = 0;
+	coef_k_1 = 0;
+	coef_k_2 = (922621.7284150383*flow*pow(theta0,2.3333333333333335))/theta3_pow_533 - 
+   (49200.39804557207*flow*pow(theta0,1.6666666666666667))/pow(theta3,3.6666666666666665) + (433.9686135926065*flow*theta0)/pow(theta3,2) + 
+   (0.2658339530658298*flow*theta0_pow_333)/pow(theta3,0.3333333333333333);
+	coef_k_3 = (flow*theta0_pow_333*pow(theta3/(flow*theta0),0.3333333333333333)*
+     (-5.577800407152631e6*theta0_pow_2 + 285011.53199873934*theta0_pow_133*theta3_pow_166 - 
+       1966.6051704758727*theta0_pow_one_third*theta3_pow_33 - 1.4999999999999998*theta3_pow_5))/theta3_pow_533;
+	coef_k_4 = (flow*theta0_pow_333*pow(theta3/(flow*theta0),0.6666666666666666)*
+     (1.3347186668567639e7*theta0_pow_2 - 646612.0671395698*theta0_pow_133*theta3_pow_166 + 
+       2664.8290736333274*theta0_pow_one_third*theta3_pow_33 + 0.4404826869913036*theta3_pow_5))/theta3_pow_533;
+	coef_k_5 = 0.0;
+	coef_k_6 = (pow(theta3/(flow*theta0),0.3333333333333333)*(9.836741276825111e6*theta0_pow_133 - 
+       399155.8190523788*theta0_pow_one_third*theta3_pow_166 - 2556.3746770489283*theta3_pow_33))/
+   theta3_pow_433;
+	coef_k_7 = (pow(theta3/(flow*theta0),0.6666666666666666)*(-3.1046604021719894e6*theta0_pow_133 + 
+       107462.71729917097*theta0_pow_one_third*theta3_pow_166 + 1837.6085067194913*theta3_pow_33))/
+   theta3_pow_433;
+
+	phase = coef_k_0*pow(f,-5.0/3.0) + coef_k_2*pow(f,-1.0) + coef_k_3*pow(f,-2.0/3.0) + coef_k_4*pow(f,-1.0/3.0) + coef_k_6*pow(f,1.0/3.0) + coef_k_7*pow(f,2.0/3.0) + coef_k_5 + coef_k_1;
+	return phase; 
 	}
 
 
@@ -2113,4 +1252,5 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
 
     return XLAL_SUCCESS;
 }
+
 
