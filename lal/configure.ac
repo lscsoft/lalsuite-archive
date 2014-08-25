@@ -137,6 +137,7 @@ AC_SUBST([LIBAGE_SUPPORT],[0])
 AC_SUBST([LIBVERSION_SUPPORT],[${LIBCURRENT_SUPPORT}:${LIBREVISION_SUPPORT}:${LIBAGE_SUPPORT}])
 
 LAL_ENABLE_INTELFFT
+LAL_ENABLE_FFTW3_MEMALIGN
 
 LALSUITE_WITH_CUDA
 LALSUITE_WITH_NVCC_CFLAGS
@@ -257,16 +258,16 @@ else
   else
     AC_CHECK_LIB([pthread],[pthread_create],,[AC_MSG_ERROR([could not find the pthread library])])
   fi
-  AC_CHECK_LIB([guide],[__kmp_abort],,[AC_MSG_ERROR([could not find the guide library included with Intel MKL])])
+  # AC_CHECK_LIB([guide],[__kmp_abort],,[AC_MSG_ERROR([could not find the guide library included with Intel MKL])])
   AC_CHECK_HEADERS([pthread.h],,[AC_MSG_ERROR([could not find the pthread.h header])])
   if test "${enable_static}" = "yes"; then
     if test "${enable_shared}" = "yes" ; then
       LAL_INTEL_FFT_LIBS_MSG_ERROR
     else
-      AC_CHECK_LIB([mkl_ia32],[DftiCreateDescriptor],,[AC_MSG_ERROR([could not find the Intel FFT library])])
+      AC_CHECK_LIB([mkl_rt],[DftiCreateDescriptor],,[AC_MSG_ERROR([could not find the Intel FFT library])])
     fi
   else
-    AC_CHECK_LIB([mkl],[DftiCreateDescriptor],,[AC_MSG_ERROR([could not find the Intel FFT library])])
+    AC_CHECK_LIB([mkl_rt],[DftiCreateDescriptor],,[AC_MSG_ERROR([could not find the Intel FFT library])])
   fi
   AC_CHECK_HEADERS([mkl_dfti.h],,[AC_MSG_ERROR([could not find the Intel FFT header])])
 fi
@@ -310,6 +311,9 @@ if test "${cuda}" = "true"; then
 fi
 if test "${fftw3}" = "true"; then
   AC_DEFINE([LAL_FFTW3_ENABLED],[1],[Define if using fftw3 library])
+  if test "${fftw3_memalign}" = "true"; then
+    AC_DEFINE([LAL_FFTW3_MEMALIGN_ENABLED],[1],[Define if using fftw3 library])
+  fi
 fi
 if test "${boinc}" = "true"; then
   AC_DEFINE([LAL_BOINC_ENABLED],[1],[Define if using boinc library])
@@ -334,6 +338,7 @@ AC_CHECK_FUNCS([stat],,[AC_MSG_ERROR([could not find the stat() function])])
 AC_CHECK_FUNCS([getopt],,[AC_MSG_ERROR([could not find the getopt() function])])
 AC_CHECK_FUNCS([getopt_long],,[AC_MSG_ERROR([could not find the getopt_long() function])])
 AC_CHECK_FUNCS([putenv])
+AC_CHECK_FUNCS([posix_memalign])
 
 # set package documentation install path
 pkgdocdir="\${prefix}/share/doc/${PACKAGE}-${VERSION}"

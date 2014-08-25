@@ -1,5 +1,5 @@
 /*
-*  Copyright (C) 2007 Jolien Creighton, Kipp Cannon
+*  Copyright (C) 2007 Jolien Creighton, Kipp Cannon, Josh Willis
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -46,6 +46,26 @@ void XLALFree(void *p);
 #endif /* SWIG */
 /*@}*/
 
+/** \addtogroup LALMalloc_h */ /*@{ */
+/* presently these are only here if needed */
+#ifdef LAL_FFTW3_MEMALIGN_ENABLED
+#define LAL_MEM_ALIGNMENT 0x40
+int XLALIsMemoryAligned(void *ptr);
+void *XLALMallocAlignedLong(size_t size, const char *file, int line);
+void *XLALMallocAligned(size_t size);
+void *XLALCallocAlignedLong(size_t nelem, size_t elsize, const char *file, int line);
+void *XLALCallocAligned(size_t nelem, size_t elsize);
+void *XLALReallocAlignedLong(void *ptr, size_t size, const char *file, int line);
+void *XLALReallocAligned(void *ptr, size_t size);
+void XLALFreeAligned(void *ptr);
+#ifndef SWIG    /* exclude from SWIG interface */
+#define LAL_IS_MEMORY_ALIGNED(ptr) (((size_t)(ptr) % LAL_MEM_ALIGNMENT) == 0)
+#define XLALMallocAligned(size) XLALMallocAlignedLong(size, __FILE__, __LINE__)
+#define XLALCallocAligned(nelem, elsize) XLALCallocAlignedLong(nelem, elsize, __FILE__, __LINE__)
+#define XLALReallocAligned(ptr, size) XLALReallocAlignedLong(ptr, size, __FILE__, __LINE__)
+#endif /* SWIG */
+#endif /* LAL_FFTW3_MEMALIGN_ENABLED */
+/*@}*/
 
 #if defined NDEBUG || defined LAL_NDEBUG
 
