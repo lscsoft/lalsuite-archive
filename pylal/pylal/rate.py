@@ -563,7 +563,7 @@ class ATanBins(Bins):
 		return x
 
 
-class ATanLogarithmicBins(Bins):
+class ATanLogarithmicBins(IrregularBins):
 	"""
 	Provides the same binning as the ATanBins class but in the
 	logarithm of the variable.  The min and max parameters set the
@@ -586,49 +586,41 @@ class ATanLogarithmicBins(Bins):
 		 7.69668960e+00,   1.65808715e+01,   3.16227766e+01,
 		 6.03104608e+01,   1.29925988e+02,   3.99988563e+02,
 		 3.89945831e+03,   1.38573971e+08])
+
+	It is relatively easy to choose limits and a count of bins that
+	result in numerical overflows and underflows when computing bin
+	boundaries.  When this happens, one or more bins at the ends of the
+	binning ends up with identical upper and lower boundaries (either
+	0, or +inf), and this class behaves as though those bins simply
+	don't exist.  That is, the actual number of bins can be less than
+	the number requested.  len() returns the actual number of bins ---
+	how large an array the binning corresponds to.
 	"""
 	def __init__(self, min, max, n):
-		Bins.__init__(self, min, max, n)
-		self.mid = (math.log(self.min) + math.log(self.max)) / 2.0
-		self.scale = math.pi / float(math.log(self.max) - math.log(self.min))
+		self.mid = (math.log(min) + math.log(max)) / 2.0
+		self.scale = math.pi / (math.log(max) - math.log(min))
 		self.delta = 1.0 / n
+		boundaries = numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(n)) / self.scale + self.mid
+		with numpy.errstate(over = "ignore"):
+			boundaries = numpy.exp(boundaries)
+		boundaries = numpy.hstack((boundaries, [PosInf, 0.]))
+		keepers = boundaries[:-1] != boundaries[1:]
+		super(ATanLogarithmicBins, self).__init__(boundaries[keepers])
+		self.keepers = keepers[:-1]
+		self._real_min = min
+		self._real_max = max
+		self._real_n = n
 
-	def __getitem__(self, x):
-		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
-		# map log(x) to the domain [0, 1]
-		try:
-			x = math.log(x)
-		except OverflowError:
-			# overflow errors come from 0 and inf.  0 is mapped
-			# to zero so that's a no-op;  inf maps to 1
-			if x != 0:
-				x = 1
-		else:
-			x = math.atan(float(x - self.mid) * self.scale) / math.pi + 0.5
-		if x < 1:
-			return int(math.floor(x / self.delta))
-		# x == 1, special "measure zero" corner case
-		return len(self) - 1
-
-	def lower(self):
-		return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(len(self))) / self.scale + self.mid)
+	#def lower(self):
+	#	return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(self._real_n)) / self.scale + self.mid)[self.keepers]
 
 	def centres(self):
-		return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(len(self)) + 0.5)) / self.scale + self.mid)
+		centres = numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(self._real_n) + 0.5)) / self.scale + self.mid
+		with numpy.errstate(over = "ignore"):
+			return numpy.exp(centres)[self.keepers]
 
-	def upper(self):
-		return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(len(self)) + 1)) / self.scale + self.mid)
+	#def upper(self):
+	#	return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(self._real_n) + 1)) / self.scale + self.mid)[self.keepers]
 
 
 class Categories(Bins):
@@ -1539,10 +1531,15 @@ def bins_to_xml(bins):
 			ATanBins: "atan",
 			ATanLogarithmicBins: "atanlog",
 			LogarithmicPlusOverflowBins: "logplusoverflow"
-		}[bin.__class__]
-		row.min = bin.min
-		row.max = bin.max
-		row.n = len(bin)
+		}[type(bin)]
+		if isinstance(bin, ATanLogarithmicBins):
+			row.min = bin._real_min
+			row.max = bin._real_max
+			row.n = bin._real_n
+		else:
+			row.min = bin.min
+			row.max = bin.max
+			row.n = len(bin)
 		xml.append(row)
 	return xml
 
