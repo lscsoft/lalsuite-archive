@@ -170,6 +170,83 @@ class Bins(object):
 			yield x[i], ln_Pi - ln_dx[i]
 
 
+class IrregularBins(Bins):
+	"""
+	Bins with arbitrary, irregular spacing.  We only require strict
+	monotonicity of the bin boundaries.  N boundaries define N-1 bins.
+
+	Example:
+
+	>>> x = IrregularBins([0.0, 11.0, 15.0, numpy.inf])
+	>>> len(x)
+	3
+	>>> x[1]
+	0
+	>>> x[1.5]
+	0
+	>>> x[13]
+	1
+	>>> x[25]
+	2
+	"""
+	def __init__(self, boundaries):
+		"""
+		Initialize a set of custom bins with the bin boundaries.
+		This includes all left edges plus the right edge.  The
+		boundaries must be monotonic and there must be at least two
+		elements.
+		"""
+		# check pre-conditions
+		if len(boundaries) < 2:
+			raise ValueError("less than two boundaries provided")
+		boundaries = numpy.array(boundaries)
+		if (boundaries[:-1] > boundaries[1:]).any():
+			raise ValueError("non-monotonic boundaries provided")
+
+		self.boundaries = boundaries
+		self.n = len(boundaries) - 1
+		self.min = boundaries[0]
+		self.max = boundaries[-1]
+
+	def __cmp__(self, other):
+		"""
+		Two binnings are the same if they are instances of the same
+		class, and have the same boundaries.
+		"""
+		if not isinstance(other, type(self)):
+			return -1
+		return cmp(len(self), len(other)) or (self.boundaries != other.boundaries).any()
+
+	def __getitem__(self, x):
+		if isinstance(x, slice):
+			if x.step is not None:
+				raise NotImplementedError(x)
+			if x.start is None:
+				start = 0
+			else:
+				start = self[x.start]
+			if x.stop is None:
+				stop = len(self)
+			else:
+				stop = self[x.stop]
+			return slice(start, stop)
+		if x < self.min or x > self.max:
+			raise IndexError(x)
+		# special measure-zero edge case
+		if x == self.max:
+			return len(self.boundaries) - 2
+		return bisect.bisect_right(self.boundaries, x) - 1
+
+	def lower(self):
+		return self.boundaries[:-1]
+
+	def upper(self):
+		return self.boundaries[1:]
+
+	def centres(self):
+		return (self.lower() + self.upper()) / 2.0
+
+
 class LinearBins(Bins):
 	"""
 	Linearly-spaced bins.  There are n bins of equal size, the first
@@ -550,83 +627,6 @@ class ATanLogarithmicBins(Bins):
 
 	def upper(self):
 		return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(len(self)) + 1)) / self.scale + self.mid)
-
-
-class IrregularBins(Bins):
-	"""
-	Bins with arbitrary, irregular spacing.  We only require strict
-	monotonicity of the bin boundaries.  N boundaries define N-1 bins.
-
-	Example:
-
-	>>> x = IrregularBins([0.0, 11.0, 15.0, numpy.inf])
-	>>> len(x)
-	3
-	>>> x[1]
-	0
-	>>> x[1.5]
-	0
-	>>> x[13]
-	1
-	>>> x[25]
-	2
-	"""
-	def __init__(self, boundaries):
-		"""
-		Initialize a set of custom bins with the bin boundaries.
-		This includes all left edges plus the right edge.  The
-		boundaries must be monotonic and there must be at least two
-		elements.
-		"""
-		# check pre-conditions
-		if len(boundaries) < 2:
-			raise ValueError("less than two boundaries provided")
-		boundaries = numpy.array(boundaries)
-		if (boundaries[:-1] > boundaries[1:]).any():
-			raise ValueError("non-monotonic boundaries provided")
-
-		self.boundaries = boundaries
-		self.n = len(boundaries) - 1
-		self.min = boundaries[0]
-		self.max = boundaries[-1]
-
-	def __cmp__(self, other):
-		"""
-		Two binnings are the same if they are instances of the same
-		class, and have the same boundaries.
-		"""
-		if not isinstance(other, type(self)):
-			return -1
-		return cmp(len(self), len(other)) or (self.boundaries != other.boundaries).any()
-
-	def __getitem__(self, x):
-		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
-		if x < self.min or x > self.max:
-			raise IndexError(x)
-		# special measure-zero edge case
-		if x == self.max:
-			return len(self.boundaries) - 2
-		return bisect.bisect_right(self.boundaries, x) - 1
-
-	def lower(self):
-		return self.boundaries[:-1]
-
-	def upper(self):
-		return self.boundaries[1:]
-
-	def centres(self):
-		return (self.lower() + self.upper()) / 2.0
 
 
 class Categories(Bins):
