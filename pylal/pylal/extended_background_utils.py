@@ -166,7 +166,7 @@ def get_background_livetime(lt1, lt2, slide_step, veto_window=0):
     """
     lt1 = float(lt1)
     lt2 = float(lt2)
-    slide_setp = float(slide_step)
+    slide_step = float(slide_step)
     veto_window = float(veto_window)
     return (lt1 - veto_window*2) * (lt2 - veto_window*2) / slide_step
 

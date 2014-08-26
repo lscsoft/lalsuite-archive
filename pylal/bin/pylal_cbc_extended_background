@@ -10,30 +10,24 @@ import copy
 
 from numpy import sqrt
 from itertools import chain, combinations
+from operator import attrgetter
 from glue.ligolw import ligolw, lsctables, utils
 from glue import segments
 
 from pylal import gatherloudtrigs
 from pylal import extended_background_utils as loud_event_coincs
 
-#class AutoVivification(dict):
-#    """Implementation of perl's autovivification feature."""
-#    def __getitem__(self, item):
-#        try:
-#            return dict.__getitem__(self, item)
-#        except KeyError:
-#            value = self[item] = type(self)()
-#            return value
 
-def get_name_from_cat(cl):
-    if cl == 2:
-        return 'CAT_2'
-    elif cl == 3:
-        return 'CAT_3'
-    elif cl == 4:
-        return 'CAT_4'
-    else:
-        return None
+name_from_cat = {2:'CAT_2', 3:'CAT_3', 4:'CAT_4'}
+#def get_name_from_cat(cl):
+#    if cl == 2:
+#        return 'CAT_2'
+#    elif cl == 3:
+#        return 'CAT_3'
+#    elif cl == 4:
+#        return 'CAT_4'
+#    else:
+#        return None
 
 def get_cat_from_name(fname):
     if fname.find("CAT_4") != -1 or fname.find("CATEGORY_4") != -1:
@@ -68,21 +62,23 @@ def gather_zerofar(file_glob):
 
     # Read through the glob of loudest event summaries and look for zero far
     # events.
-    zerofar_table =  None
+    have_zerofar_table = False
     for fname in input_files:
         cat_level = get_cat_from_name(fname)
 
         xmldoc = utils.load_filename(fname, gz=fname.endswith("gz") )
         loudest = lsctables.table.get_table(xmldoc, "loudest_events")
 
-        if zerofar_table is None:
         # hack to create an empty table of this custom table type
+        if have_zerofar_table is False:
             zerofar_table = copy.deepcopy(loudest)
+            have_zerofar_table = True
             while len(zerofar_table) > 0:
                 del zerofar_table[0]
 
-        # If we find a zero far event store the single triggers into a group
-        # indexed by the coinc event id
+        # If we find a zero far event make a list of entries (one for 
+        # each sngl trigger), store the lists in a dictionary indexed by 
+        # coinc event id
         for event in loudest:
             if event.combined_far == 0:
                 if event.coinc_event_id not in events:
@@ -93,25 +89,30 @@ def gather_zerofar(file_glob):
 
     print "There are %s zero far events" % len(events)
 
-    # We only calculate coincs from double events
-    # so if it was a triple we go through and remove the quietest
-    # detector.
-    for id_val in events:
-        sngl_snr = []
-        event_group = events[id_val]
-        for event in event_group:
-            sngl_snr.append(event.sngl_snr)
-        max_index1 = sngl_snr.index(max(sngl_snr))
-        sngl_snr[max_index1] = -1
-        max_ifo1 = event_group[max_index1]
-
-        max_index2 = sngl_snr.index(max(sngl_snr))
-        max_ifo2 = event_group[max_index2]
-
-        zerofar_table.append(max_ifo1)
-        zerofar_table.append(max_ifo2)
-
+    # We currently only calculate coincs from double events so for 
+    # triples (quadruples, ..) we remove all but the 2 loudest detectors
+    for event_trigs in events.itervalues():
+        # sort in descending order of SNR, take the last 2
+        event_trigs.sort(key=attrgetter('sngl_snr'), reverse=True)
+        print 'Sorted trigger SNRs :', [trg.sngl_snr for trg in event_trigs]
+        for trg in event_trigs[0:2]:
+            zerofar_table.append(trg)
+    #for id_val in events:
+    #    sngl_snr = []
+    #    event_group = events[id_val]
+    #    for event in event_group:
+    #        sngl_snr.append(event.sngl_snr)
+    #    max_index1 = sngl_snr.index(max(sngl_snr))
+    #    sngl_snr[max_index1] = -1
+    #    max_ifo1 = event_group[max_index1]
+    #
+    #    max_index2 = sngl_snr.index(max(sngl_snr))
+    #    max_ifo2 = event_group[max_index2]
+    #
+    #    zerofar_table.append(max_ifo1)
+    #    zerofar_table.append(max_ifo2)
     return zerofar_table, cats
+
 
 def create_combined_trig_files(base, ifos, cats=[], new_snr_cut=0.):
     """
@@ -119,7 +120,7 @@ def create_combined_trig_files(base, ifos, cats=[], new_snr_cut=0.):
     full data triggers above the specified newsnr cut, and the single
     detector livetime, both after applying vetoes at each cumulative CAT
     level specified in cats.
-    If cats is empty, return all CAT levels for which a
+    If cats is empty, apply all CAT vetoes for which a
     {ifo}-COMBINED_CAT_*_VETO_SEGS-*.txt file exists.
     """
     trig_data = {}
@@ -138,18 +139,21 @@ def create_combined_trig_files(base, ifos, cats=[], new_snr_cut=0.):
 
 def calc_background_coincs(ztrig, cats, single_trigs, ethinca, slide,
                            veto_window, param_range, coinc_threshold):
-    """ Get the background coincidences for each zero far trigger.
+    """
+    Get the background coincidences for each zero-FAR event.  Each event
+    has two corresponding triggers in the lists ztrig and cats which must 
+    be consecutive entries.
     """
     trig_csnrs = []
     trig_vcsnrs = []
     for ind in range(len(ztrig)/2):
         t1 = ztrig[ind*2]
         t2 = ztrig[ind*2+1]
-
         cat = cats[ind*2]
 
         d1_trigs, lv1 = single_trigs[ztrig[0].sngl_ifo][cat]
         d2_trigs, lv2 = single_trigs[ztrig[1].sngl_ifo][cat]
+        print 'ifos', ztrig[0].sngl_ifo, ztrig[1].sngl_ifo, 'at cat', cat, 'veto'
 
         mchirp = 0.5 * (t1.sngl_mchirp + t2.sngl_mchirp)
         mchirp_bins = loud_event_coincs.parse_mchirp_bins(param_range)
@@ -186,6 +190,7 @@ def calc_background_coincs(ztrig, cats, single_trigs, ethinca, slide,
         # around the trigger
         bkgtime = loud_event_coincs.get_background_livetime(lv1, lv2, slide)
         vbkgtime = loud_event_coincs.get_background_livetime(lv1, lv2, slide, veto_window)
+        print 'background livetime for slide step', slide, 'is', bkgtime, vbkgtime, 'before/after vetoing candidate time'
 
         trig_csnrs.append((csnr, bkgtime))
         trig_vcsnrs.append((vcsnr, vbkgtime))
@@ -195,14 +200,21 @@ def calc_background_coincs(ztrig, cats, single_trigs, ethinca, slide,
 def all_subsets(ss):
   return chain(*map(lambda x: combinations(ss, x), range(0, len(ss)+1)))
 
-def find(l, s):
-    for i in range(len(l)):
-        if l[i].find(s)!=-1:
-            return l[i]
-    return None
+def find_in_list(l, s):
+    """
+    For each string in a sequence of strings l, identify the
+    first that contains the string s and return that entry.
+    If no string contains s, return None.
+    """
+    outstr = None
+    for str in l:
+        if str.find(s) != -1:
+            outstr = str
+            break
+    return outstr
 
-def make_result_pages(result_database, zerofar_trigs, cats,
-                      param_ranges, bgtrigs, vbgtrigs, xmin):
+def make_result_pages(opts, result_database, zerofar_trigs, cats,
+                      bgtrigs, vbgtrigs):
     """Create a result page for each zero far event
     """
     from pylal import lalapps_cbc_plotrates
@@ -210,20 +222,16 @@ def make_result_pages(result_database, zerofar_trigs, cats,
 
     #Standard Args passed to lalapps_cbc_plotrates
     sargs = []
-    sargs += ['-d', 'coinc_inspiral']
-    sargs += ['-o', './']
-    sargs += ['-s', 'snr:Threshold $\\rho_c$']
-    sargs += ['-f', 'all_data']
-    sargs += ['-p', 'mchirp']
+    sargs += ['--data-table', 'coinc_inspiral']
+    sargs += ['--single-table', 'sngl_inspiral']
+    sargs += ['--output-path', './']
+    sargs += ['--statistic', 'snr:Threshold $\\rho_c$']
+    sargs += ['--foreground-datatype', 'all_data']
+    sargs += ['--param-name', 'mchirp']  #FIXME do not hardcode
     sargs += ['--lin-x']
     sargs += ['--nbins', '50']
-    sargs += ['-a', xmin]
-    sargs += ['-A', '1e-6']
-    sargs += ['-K']
-    sargs += ['--x-power', '1.']
-    sargs += ['-S', '5']
-    sargs += ['--single-table', 'sngl_inspiral']
-    sargs += ['--plot-special-window', '7.0']
+    sargs += ['--plot-significance-bands']
+    sargs += ['--max-sigma', '5']
     sargs += ['--dpi', '400', '--verbose']
 
     for i in range(len(zerofar_trigs)/2):
@@ -236,18 +244,17 @@ def make_result_pages(result_database, zerofar_trigs, cats,
         # plotting program understands. The first line is the livetime
         # in seconds. The remaining lines are the new snr values of
         # coincs.
-        unique_str = get_name_from_cat(cat_level) + '_' + str(i)
+        veto_event_tag = name_from_cat[cat_level] + '_' + str(i)
 
-        bg_file = 'LOUD_EVENT_BACKGROUND_' + unique_str + '.txt'
-        vbg_file = 'LOUD_EVENT_VETOBACKGROUND_' + unique_str + '.txt'
+        bg_file = 'LOUD_EVENT_BACKGROUND_' + veto_event_tag + '.txt'
+        vbg_file = 'LOUD_EVENT_VETOBACKGROUND_' + veto_event_tag + '.txt'
         background, livetime = bgtrigs[i]
         vbackground, vlivetime = vbgtrigs[i]
         numpy.savetxt(bg_file, numpy.append(numpy.array(livetime), background))
         numpy.savetxt(vbg_file, numpy.append(numpy.array(vlivetime), vbackground))
 
         # Get the database that contains the trigger results
-        dat_name = find(glob.glob(result_database), get_name_from_cat(cat_level))
-        pargs = [dat_name]
+        dat_name = find_in_list(glob.glob(result_database), name_from_cat[cat_level])
 
         ifos = t1.ifos.split(',')
         extra_instr = t1.ifos.split(',') + ['V1', 'L1', 'H1']
@@ -275,15 +282,18 @@ def make_result_pages(result_database, zerofar_trigs, cats,
             coinc_set += "[" + ifo1 + "," + ifo2 + " in " + on_str + "]"
 
         mchirp = 0.5 * (t1.sngl_mchirp + t2.sngl_mchirp)
-        mchirp_bins = loud_event_coincs.parse_mchirp_bins(param_ranges)
+        mchirp_bins = loud_event_coincs.parse_mchirp_bins(opts.param_ranges)
         min_mchirp, max_mchirp = loud_event_coincs.get_mchirp_bin(mchirp, mchirp_bins)
         mchirp_bin_str = '[' + str(min_mchirp) + ',' + str(max_mchirp) + ')'
 
         # Event specific arguments
-        args = pargs + sargs + ['-q', mchirp_bin_str]
+        args = [dat_name] + sargs 
+        args += ['--param-ranges', mchirp_bin_str]
         args += ['--include-only-coincs', coinc_set]
         args += ['--plot-special-time', str(t1.end_time)]
-        args += ['-u',  unique_str]
+        args += ['--plot-special-window', str(opts.veto_window)]
+        args += ['--xmin', opts.xmin]
+        args += ['--user-tag', veto_event_tag]
         args += ['--add-background-file', bg_file]
         args += ['--add-special-background-file', vbg_file]
 
@@ -294,14 +304,18 @@ def make_result_pages(result_database, zerofar_trigs, cats,
 def main():
     parser = optparse.OptionParser()
     parser.add_option("--loudest-event-glob",
-                    action="store", type="string", default=None, 
-                    help="glob of xml files with the loudest event summaries. Default=None")
+                    action="store", type="string",
+                    help="Glob of xml files with the loudest event summaries. REQUIRED")
     parser.add_option("-c","--new-snr-cut",
                     action="store", type="float", default=6., 
-                    help="new snr threshold to retain single-ifo triggers. Default=6.0")
+                    help="newSNR threshold to retain single-ifo triggers. Default=6.0")
     parser.add_option("-e","--e-thinca-parameter", 
                     dest="ethinca", action="store", type="float", default=0.5, 
-                    help="ethinca threshold for coincidence test. Default=0.5")
+                    help="Ethinca threshold for coincidence test. Default=0.5")
+    parser.add_option("-a","--xmin", action="store", type="float", default=8.,
+                    help="Set a minimum value for the x-axis. Typically will be "
+                         "close to the combined SNR value at the trigger generation "
+                         "threshold. Default=8.")
     parser.add_option("--coinc-threshold",
                     action="store", type="float",
                     help="Fraction of the zero-FAR event combined SNR above which to"
@@ -319,17 +333,21 @@ def main():
     parser.add_option("--ihope-base-dir",
                     action="store", type="string",
                     help="The ihope base directory to obtain trigger files for the analysis. "
-                    "Should be of the form '/path/to/dir/GPSSTART-GPSEND'. REQUIRED")
+                         "Should be of the form '/path/to/dir/GPSSTART-GPSEND'. REQUIRED")
 
     (opts,args) = parser.parse_args()
 
-    print "Getting zero far triggers"
+    # Check options
+    if opts.loudest_event_glob is None:
+        raise ValueError("Cannot proceed without a loudest-event glob!")
+
+    print "Getting zero-FAR triggers"
     zerofar_trigs, cats = gather_zerofar(opts.loudest_event_glob)
     if zerofar_trigs is None:
-        print "No zero far triggers found"
+        print "No zero-FAR triggers found, exiting ..."
         exit()
 
-    print "Collect the sngl ifo triggers above threshold"
+    print "Collecting the sngl ifo triggers above threshold"
     ifos = set(list(zerofar_trigs.getColumnByName('sngl_ifo')))
     single_trigs = create_combined_trig_files(opts.ihope_base_dir, ifos, set(cats), opts.new_snr_cut)
 
@@ -341,8 +359,8 @@ def main():
 
     print "Making the result pages"
     results_glob = opts.ihope_base_dir + "/pipedown/*FULL_DATA*CLUSTERED_CBC_RESULTS*sqlite"
-    make_result_pages(results_glob, zerofar_trigs, cats,
-                      opts.param_ranges, bgtrigs, vbgtrigs)
+    make_result_pages(opts, results_glob, zerofar_trigs, cats,
+                      bgtrigs, vbgtrigs)
 
 if __name__ == "__main__":
     main()

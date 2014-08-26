@@ -222,15 +222,15 @@ def parse_command_line(argv = None):
             )
     parser.add_option( "-S", "--max-sigma", type = 'int', default = 5,
         help =
-            "Maximum number of significance bands to plot."
+            "Maximum number of significance bands to plot. Default=5"
             )
-    parser.add_option( "-E", "--extrapolate", default = None, metavar = "Gauusian|Power|erfc",
+    parser.add_option( "-E", "--extrapolate", default = None, metavar = "Gaussian|Power|erfc",
         help =
-            "Extrapolate the background using a the given model out to the largest foreground statistic. If this is beyond the measured background, the probabibilty density beyond the loudest background point will be calculated using this extrapolation. Options for models are 'Gaussian', 'Power', or 'erfc'. If 'Gaussian' or 'Power' a least-squares fit is done to both the non-cumulative and the cumulative histograms: for 'Gaussian' y = A*exp(-B*x**(2./x-power)) is fit; if 'Power', y = A*x**B is fit. If 'erfc', a Gauusian is fitted to the non-cumulative histogram to get sigmasq and the scalling factor A. These values are then used in the complitmentary error function y = A*\int{dx*exp(-x^2/2*sigmasq)} to extrapolate the cumulative distribution."
+            "Extrapolate the background using a the given model out to the largest foreground statistic. If this is beyond the measured background, the probability density beyond the loudest background point will be calculated using this extrapolation. Options for models are 'Gaussian', 'Power', or 'erfc'. If 'Gaussian' or 'Power' a least-squares fit is done to both the non-cumulative and the cumulative histograms: for 'Gaussian' y = A*exp(-B*x**(2./x-power)) is fit; if 'Power', y = A*x**B is fit. If 'erfc', a Gaussian is fitted to the non-cumulative histogram to get sigmasq and the scalling factor A. These values are then used in the complitmentary error function y = A*\int{dx*exp(-x^2/2*sigmasq)} to extrapolate the cumulative distribution."
             )
-    parser.add_option( "-P", "--x-power", type = "float", default = None,
+    parser.add_option( "-P", "--x-power", type = "float", default = 1.,
         help =
-            "What power the x-axis is plotted in. This is only needed when doing a Gaussian fit. When fitting a gaussian to the data, the natural log of the Gaussian is taken so that the actual fitted equation is log(y) = Beta[1] + Beta[2]*x**(2/fit-power). For example, if you are plotting linearly in your statistic, then fit-power should be 1. If, however, you are plotting against the statistic squared, then x-power would be 2, and thus the fit would be log(y) = Beta[1] + Beta[2]*x."
+            "Power of the combined statistic to use when fitting a gaussian to the data and binning for the non-cumulative plot.  The natural log of the Gaussian is taken so that the actual fitted equation is log(y) = Beta[1] + Beta[2]*x**(2/x-power). For example, if plotting linearly in your statistic, x-power should be 1. If plotting against the statistic squared, then x-power would be 2, thus the fit would be log(y) = Beta[1] + Beta[2]*x. Default=1."
             )
     parser.add_option( "", "--min-x-fit", type = 'float', default = None,
         help =

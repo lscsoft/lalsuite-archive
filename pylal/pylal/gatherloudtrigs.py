@@ -33,12 +33,14 @@ def get_loud_trigs(fList, veto_file, new_snr_cut):
         for vf in veto_file:
             veto_segs = segmentsUtils.fromsegwizard(open(vf))
             segs_after_veto = searched_segs - veto_segs
+            print vf, 'livetime', abs(segs_after_veto)
             tg.append(trigs.veto(veto_segs))
             lt.append(abs(segs_after_veto))
         return tg, lt
     else:
         veto_segs = segmentsUtils.fromsegwizard(open(veto_file))
         segs_after_veto = searched_segs - veto_segs
+        print veto_file, 'livetime', abs(segs_after_veto)
         return trigs.veto(veto_segs), abs(segs_after_veto)
 
 
