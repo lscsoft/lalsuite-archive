@@ -47,7 +47,7 @@ import itertools
 import math
 import numpy
 import scipy
-if map(int, scipy.__version__.strip().split(".")) >= (0, 9):
+if map(int, scipy.__version__.strip().split(".")) >= [0, 9]:
 	from scipy.interpolate import interp1d, interp2d, LinearNDInterpolator
 else:
 	# pre 0.9 had busted/missing interpolation code.  replacements are
