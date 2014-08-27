@@ -47,11 +47,13 @@ import itertools
 import math
 import numpy
 import scipy
-if map(int, scipy.__version__.strip().split(".")) >= [0, 9]:
+__numpy__version__ = tuple(map(int, numpy.__version__.strip().split(".")))
+__scipy__version__ = tuple(map(int, scipy.__version__.strip().split(".")))
+if __scipy__version__ >= (0, 9) and __numpy__version__ >= (1, 7):
 	from scipy.interpolate import interp1d, interp2d, LinearNDInterpolator
 else:
-	# pre 0.9 had busted/missing interpolation code.  replacements are
-	# provided below
+	# pre scipy/numpy 0.9/1.7 had busted/missing interpolation code.
+	# replacements are provided below
 	pass
 from scipy.signal import signaltools
 
@@ -1095,7 +1097,7 @@ class InterpBinnedArray(object):
 	def __init__(self, binnedarray, fill_value = 0.0):
 		# the upper and lower boundaries of the binnings are added
 		# as additional co-ordinates with the array being assumed
-		# to equal fill_value at those points.  this solve the
+		# to equal fill_value at those points.  this solves the
 		# problem of providing a valid function in the outer halves
 		# of the first and last bins.
 
