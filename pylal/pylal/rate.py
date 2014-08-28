@@ -1134,11 +1134,13 @@ class InterpBinnedArray(object):
 
 	Two dimensions
 
-	>>> x = BinnedArray(NDBins((LinearBins(-0.5, 1.5, 2), LinearBins(-0.5, 1.5, 2))))
+	>>> x = BinnedArray(NDBins((LinearBins(-0.5, 2.5, 3), LinearBins(-0.5, 1.5, 2))))
 	>>> x[0, 0] = 0
 	>>> x[0, 1] = 1
 	>>> x[1, 0] = 2
 	>>> x[1, 1] = 4
+	>>> x[2, 0] = 2
+	>>> x[2, 1] = 4
 	>>> y = InterpBinnedArray(x)
 	>>> y(0, 0)
 	0.0
@@ -1147,6 +1149,10 @@ class InterpBinnedArray(object):
 	>>> y(1, 0)
 	2.0
 	>>> y(1, 1)
+	4.0
+	>>> y(2, 0)
+	2.0
+	>>> y(2, 1)
 	4.0
 	>>> y(0, 0.5)
 	0.5
