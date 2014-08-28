@@ -314,13 +314,13 @@ class LinearPlusOverflowBins(Bins):
 	>>> X = LinearPlusOverflowBins(1.0, 25.0, 5)
 
 	>>> X.centres()
-	array([-Inf,   5.,  13.,  21.,  Inf])
+	array([-inf,   5.,  13.,  21.,  inf])
 
 	>>> X.lower()
-	array([-Inf,   1.,   9.,  17.,  25.])
+	array([-inf,   1.,   9.,  17.,  25.])
 
 	>>> X.upper()
-	array([  1.,   9.,  17.,  25.,  Inf])
+	array([  1.,   9.,  17.,  25.,  inf])
 
 	>>> X[float("-inf")]
 	0
@@ -440,7 +440,7 @@ class LogarithmicPlusOverflowBins(Bins):
 
 	Example:
 
-	>>> x = rate.LogarithmicPlusOverflowBins(1.0, 25.0, 5)
+	>>> x = LogarithmicPlusOverflowBins(1.0, 25.0, 5)
 	>>> x[0]
 	0
 	>>> x[1]
@@ -456,9 +456,9 @@ class LogarithmicPlusOverflowBins(Bins):
 	>>> x.lower()
 	array([  0.        ,   1.        ,   2.92401774,   8.54987973,  25.        ])
 	>>> x.upper()
-	array([  1.        ,   2.92401774,   8.54987973,  25.        ,          Inf])
+	array([  1.        ,   2.92401774,   8.54987973,  25.        ,          inf])
 	>>> x.centres()
-	array([  0.        ,   1.70997595,   5.        ,  14.62008869,          Inf])
+	array([  0.        ,   1.70997595,   5.        ,  14.62008869,          inf])
 	"""
 	def __init__(self, min, max, n):
 		if n < 3:
@@ -638,11 +638,11 @@ class Categories(Bins):
 	...	set((frozenset(("H1", "L1")), frozenset(("H1", "V1")))),
 	...	set((frozenset(("H1", "L1", "V1")),))
 	... ])
-	>>> print categories[set(("H1", "L1"))]
+	>>> categories[set(("H1", "L1"))]
 	0
-	>>> print categories[set(("H1", "V1"))]
+	>>> categories[set(("H1", "V1"))]
 	0
-	>>> print categories[set(("H1", "L1", "V1"))]
+	>>> categories[set(("H1", "L1", "V1"))]
 	1
 
 	Example with continuous values:
@@ -652,11 +652,14 @@ class Categories(Bins):
 	...	segmentlist([segment(1, 3), segment(5, 7)]),
 	...	segmentlist([segment(0, PosInfinity)])
 	... ])
-	>>> print categories[2]
+	>>> categories[2]
 	0
-	>>> print categories[4]
+	>>> categories[4]
 	1
-	>>> print categories[-1]
+	>>> categories[-1]
+	Traceback (most recent call last):
+	  File "<stdin>", line 1, in <module>
+	    raise IndexError(value)
 	IndexError: -1
 
 	This last example demonstrates the behaviour when the intersection
@@ -722,7 +725,7 @@ class NDBins(tuple):
 	>>> x[1, 1:5]
 	(0, slice(0, 1, None))
 	>>> x.centres()
-	(array([  5.,  13.,  21.]), array([  1.70997595,   5.,  14.62008869]))
+	(array([  5.,  13.,  21.]), array([  1.70997595,   5.        ,  14.62008869]))
 
 	Note that the co-ordinates to be converted must be a tuple, even if
 	it is only a 1-dimensional co-ordinate.
@@ -744,10 +747,11 @@ class NDBins(tuple):
 
 		Example:
 
+		>>> x = NDBins((LinearBins(1, 25, 3), LogarithmicBins(1, 25, 3)))
 		>>> x[1, 1]
 		(0, 0)
-		>>> x[1]
-		<pylal.rate.LinearBins object at 0xb5cfa9ac>
+		>>> type(x[1])
+		<class 'pylal.rate.LogarithmicBins'>
 
 		When used to convert co-ordinates to bin indices, each
 		co-ordinate can be anything the corresponding Bins instance
@@ -887,7 +891,9 @@ class BinnedArray(object):
 	providing a subclass of the array object, so the array data is made
 	available as the "array" attribute of this class.
 
-	Example:
+	Examples:
+
+	Note that even for 1 dimensional arrays the index must be a tuple.
 
 	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)))
 	>>> x.array
@@ -897,7 +903,27 @@ class BinnedArray(object):
 	>>> x.array
 	array([ 2.,  0.,  0.,  0.,  0.])
 
-	Note that even for 1 dimensional arrays the index must be a tuple.
+	Note the relationship between the binning limits, the bin centres,
+	and the co-ordinates of the BinnedArray
+
+	>>> x = BinnedArray(NDBins((LinearBins(-0.5, 1.5, 2), LinearBins(-0.5, 1.5, 2))))
+	>>> x.bins.centres()
+	(array([ 0.,  1.]), array([ 0.,  1.]))
+	>>> x[0, 0] = 0
+	>>> x[0, 1] = 1
+	>>> x[1, 0] = 2
+	>>> x[1, 1] = 4
+	>>> x.array
+	array([[ 0.,  1.],
+	       [ 2.,  4.]])
+	>>> x[0, 0]
+	0.0
+	>>> x[0, 1]
+	1.0
+	>>> x[1, 0]
+	2.0
+	>>> x[1, 1]
+	4.0
 	"""
 	def __init__(self, bins, array = None, dtype = "double"):
 		self.bins = bins
@@ -1420,8 +1446,7 @@ def to_moving_mean_density(binned_array, filterdata, cyclic = False):
 	array([ 0.,  0.,  1.,  0.,  0.])
 	>>> to_moving_mean_density(x, tophat_window(3))
 	>>> x.array
-	array([ 0.        ,  0.16666667,  0.16666667,  0.16666667,  0.
-	])
+	array([ 0.        ,  0.16666667,  0.16666667,  0.16666667,  0.        ])
 
 	Explanation.  There are five bins spanning the interval [0, 10],
 	making each bin 2 "units" in size.  A single count is placed at
