@@ -1136,8 +1136,6 @@ class InterpBinnedArray(object):
 	2.5
 	>>> y(1, 0.5)
 	3.0
-	>>> y(0.5, 0.5)
-	1.5
 
 	BUGS:  Due to bugs in some versions of scipy and numpy, if an old
 	version of scipy and/or numpy is detected this code falls back to
@@ -1222,7 +1220,7 @@ class InterpBinnedArray(object):
 					return z[i, j] + (1. - dx) * (z[i - 1, j] - z[i, j]) + (1. - dy) * (z[i, j - 1] - z[i, j])
 				self.interp = interp
 			else:
-				self.interp = interp2d(coords[0], coords[1], z, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
+				self.interp = interp2d(coords[0], coords[1], z.T, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
 		else:
 			try:
 				LinearNDInterpolator
