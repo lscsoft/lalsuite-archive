@@ -2000,7 +2000,7 @@ def main(argv = None):
             comments += '<tr><td>%.2f</td><td>%s</td><td>%s</td><td>%.2f</td><td>%.2f</td></tr>' %( le.data.get_value('end_time'), printutils.format_end_time_in_utc(int(le.data.get_value('end_time'))), le.data.get_value('ifos'), le.data.get_value('mtotal'), le.data.get_value('stat') ) 
         comments += '</table>\n'
         if plot_fg:
-            comments += "<br />%s livetime: %.2f %s<br />\n" % (fg_datatype.replace('_', '-').title(), T_fg, opts.time_units)
+            comments += "<br />%s livetime: %.3f %s<br />\n" % (fg_datatype.replace('_', '-').title(), T_fg, opts.time_units)
             comments += "<b>Loudest %s event%s:</b><br />\n" % (fg_datatype, len(loudest_events) > 1 and 's' or '')
             comments += '<table cellpadding="5", border="1">\n'
             comments += '<tr><th>End Time</th><th>UTC</th><th>ifos</th><th>Total Mass</th><th>%s</th><th>Measured FAR</th>%s<th>Probability given background</tr>\n' % (stat_label.replace(r'$', ''), opts.extrapolate is not None and '<th>Estimated FAR</th>' or '')

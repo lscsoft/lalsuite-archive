@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# read in the summary files and make coincidences etc..
+# read in the summary files and make coincidences etc.
 from glue.ligolw import ligolw, lsctables, utils
 from pylal.tools import XLALCalculateEThincaParameter
 from glue import segments, lal, git_version
@@ -58,7 +58,7 @@ def find_slide_coincs(htrigs, ltrigs, min_mchirp, max_mchirp,
     # first detector's triggers. Initially, this is all of them.
     loc = numpy.arange(0, len(ltrigs))
 
-    # Sort the first detectors triggers by new snr
+    # Sort the first detector's triggers by newsnr ascending
     stats = []
     htrigs.sort(lambda a, b: cmp(a.get_new_snr(), b.get_new_snr()), reverse=True)
 
@@ -92,12 +92,16 @@ def find_slide_coincs(htrigs, ltrigs, min_mchirp, max_mchirp,
         # and are within the mchirp bin. We calculate ethinca only for these.
         good = goods & (td <=h_max_td) & (lt_mcl >= 2*min_mchirp - h_mchirp) & (lt_mcl <= 2*max_mchirp - h_mchirp)
 
-        # For each remaining triggers we calculate the ethinca test and add them
+        # For each remaining trigger we calculate the ethinca test and add
         # to the list of coincs if they pass
         for lind, ns in zip(loc[good], num_slides[good]):
 
-            # Get the actual single inspiral trigger and shift it to the right
-            # time side so that we can perform coincidence
+            # don't allow zerolag or offsets too close to it!
+            if abs(slide * ns) < 0.1:
+                continue
+
+            # Get the single inspiral trigger and apply the time offset
+            # so that we can perform coincidence
             l = ltrigs[lind]
             l_end_old = l.get_end()
             l_end_tmp = l_end_old + float( slide * ns )
@@ -108,18 +112,22 @@ def find_slide_coincs(htrigs, ltrigs, min_mchirp, max_mchirp,
             # If we pass coincidence we add the first and second detector
             # trigger pair to the output list
             if epar < ethinca:
+                # This should never happen
+                if abs(slide*ns) < 0.1:
+                    print 'I USED ZEROLAG!!'
+                    exit(1)
                 hcopy = copy.deepcopy(h)
-                l.set_end(h.get_end())
+                l.set_end(h.get_end())  #FIXME explain what this is
                 lcopy = copy.deepcopy(l)
-                hcopy.event_id = lsctables.SnglInspiralID(num_trig)
+                hcopy.event_id = lsctables.SnglInspiralID(num_trig)  #FIXME explain
                 lcopy.event_id = lsctables.SnglInspiralID(num_trig)
                 num_trig += 1
                 coinc_sngls.append(hcopy)
                 coinc_sngls.append(lcopy)
             l.set_end(l_end_old)
 
-        #We set the list of second triggers to consider to the reduced set
-        #that were still above the coinc new snr threshold
+        # Finally set the list of second triggers to consider to the reduced
+        # set that are still above the coinc new snr threshold
         loc = loc[goods]
 
         # No more triggers to consider
