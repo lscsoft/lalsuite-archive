@@ -232,12 +232,12 @@ class IrregularBins(Bins):
 			else:
 				stop = self[x.stop]
 			return slice(start, stop)
-		if x < self.min or x > self.max:
-			raise IndexError(x)
+		if self.min <= x < self.max:
+			return bisect.bisect_right(self.boundaries, x) - 1
 		# special measure-zero edge case
 		if x == self.max:
 			return len(self.boundaries) - 2
-		return bisect.bisect_right(self.boundaries, x) - 1
+		raise IndexError(x)
 
 	def lower(self):
 		return self.boundaries[:-1]
