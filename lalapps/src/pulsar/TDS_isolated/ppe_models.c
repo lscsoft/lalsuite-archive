@@ -7,10 +7,9 @@
  */
 
 #include "ppe_models.h"
+#include <lal/CWFastMath.h>
 
 #define SQUARE(x) ( (x) * (x) );
-
-static BinaryPulsarParams empty_BinaryPulsarParams;
 
 /******************************************************************************/
 /*                            MODEL FUNCTIONS                                 */
@@ -31,7 +30,7 @@ static BinaryPulsarParams empty_BinaryPulsarParams;
  * \sa pulsar_model
  */
 void get_pulsar_model( LALInferenceIFOData *data ){
-  BinaryPulsarParams pars = empty_BinaryPulsarParams; /* initialise as empty */
+  BinaryPulsarParams XLAL_INIT_DECL(pars); /* initialise as empty */
 
   /* set model parameters (including rescaling) */
   //pars.h0 = rescale_parameter( data, "h0" );
@@ -196,7 +195,6 @@ REAL8 rescale_parameter( LALInferenceIFOData *data, const CHAR *parname ){
  * \param data [in] The data structure containing the detector data and additional info
  *
  * \sa get_amplitude_model
- * \sa get_amplitude_model
  * \sa get_phase_model
  */
 void pulsar_model( BinaryPulsarParams params, LALInferenceIFOData *data ){
@@ -282,7 +280,7 @@ void pulsar_model( BinaryPulsarParams params, LALInferenceIFOData *data ){
             REAL8 dphit;
             COMPLEX16 expp;
 
-            dphit = -fmod(dphi->data[i] - data->timeData->data->data[i], 1.);
+            dphit = fmod(dphi->data[i] - data->timeData->data->data[i], 1.);
 
             expp = cexp( LAL_TWOPI * I * dphit );
 
@@ -450,6 +448,10 @@ REAL8Vector *get_ssb_delay( BinaryPulsarParams pars, LIGOTimeGPSVector *datatime
   /* copy barycenter and ephemeris data */
   bary = (BarycenterInput*)XLALCalloc( 1, sizeof(BarycenterInput) );
   memcpy( &bary->site, detector, sizeof(LALDetector) );
+
+  bary->site.location[0] /= LAL_C_SI;
+  bary->site.location[1] /= LAL_C_SI;
+  bary->site.location[2] /= LAL_C_SI;
 
   bary->alpha = pars.ra;
   bary->delta = pars.dec;
@@ -737,7 +739,7 @@ void get_pinsf_amplitude_model( BinaryPulsarParams pars, LALInferenceIFOData *da
   ePhi = cexp( pars.phi0 * I );
   e2Phi = cexp( 2. * pars.phi0 * I );
 
-  sin_cos_LUT( &sinlambda, &coslambda, pars.lambda );
+  XLAL_CHECK_VOID( XLALSinCosLUT( &sinlambda, &coslambda, pars.lambda ) == XLAL_SUCCESS, XLAL_EFUNC );
 
   /* f^2 / r */
   f2_r = pars.f0 * pars.f0 / pars.dist;
@@ -1099,7 +1101,7 @@ REAL8 get_phase_mismatch( REAL8Vector *phi1, REAL8Vector *phi2, LIGOTimeGPSVecto
   for( i = 0; i < phi1->length-1; i++ ){
     if ( i == 0 ){
       dp1 = fmod( phi1->data[i] - phi2->data[i], 1. );
-      sin_cos_2PI_LUT( &sp, &cp1, dp1 );
+      XLAL_CHECK_REAL8( XLALSinCos2PiLUT( &sp, &cp1, dp1 ) == XLAL_SUCCESS, XLAL_EFUNC );
     }
     else{
       dp1 = dp2;
@@ -1110,7 +1112,7 @@ REAL8 get_phase_mismatch( REAL8Vector *phi1, REAL8Vector *phi2, LIGOTimeGPSVecto
 
     dt = XLALGPSGetREAL8(&t->data[i+1]) - XLALGPSGetREAL8(&t->data[i]);
 
-    sin_cos_2PI_LUT( &sp, &cp2, dp2 );
+    XLAL_CHECK_REAL8( XLALSinCos2PiLUT( &sp, &cp2, dp2 ) == XLAL_SUCCESS, XLAL_EFUNC );
 
     mismatch += (cp1 + cp2) * dt;
   }

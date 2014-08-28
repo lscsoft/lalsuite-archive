@@ -34,8 +34,8 @@
 #include <lal/LALBarycenter.h>
 #include <lal/PulsarDataTypes.h>
 #include <lal/ComputeSky.h>
-#include <lal/ComputeSkyBinary.h>
 #include <lal/Window.h>
+#include <lal/SFTutils.h>
 
 /* C++ protection. */
 #ifdef  __cplusplus
@@ -274,10 +274,17 @@ extern "C" {
 /**
  * Input parameters to GeneratePulsarSignal(), defining the source and the time-series
  */
+#ifndef SWIG   /* exclude from SWIG interface; nested struct */
 typedef struct tagPulsarSignalParams {
   /* source-parameters */
   PulsarSourceParams pulsar;		/**< the actual pulsar-source */
-  const BinaryOrbitParams *orbit;	/**< and its binary orbit (NULL if isolated pulsar) */
+  struct {
+    LIGOTimeGPS tp;         /**< time of observed periapsis passage (in SSB) */
+    REAL8 argp;             /**< argument of periapsis (radians) */
+    REAL8 asini;            /**< projected, normalized orbital semi-major axis (s) */
+    REAL8 ecc;              /**< orbital eccentricity */
+    REAL8 period;           /**< orbital period (sec) */
+  } orbit;
 
   /* characterize the detector */
   const COMPLEX8FrequencySeries *transfer;/**< detector transfer function (NULL if not used) */
@@ -292,10 +299,14 @@ typedef struct tagPulsarSignalParams {
   UINT4 dtDelayBy2; 		/**< half-interval for the Doppler delay look-up table for LALPulsarSimulateCoherentGW() */
   UINT4 dtPolBy2; 		/**< half-interval for the polarisation response look-up table for LALPulsarSimulateCoherentGW() */
 } PulsarSignalParams;
+#endif   /* SWIG */
 
 /**
  * Parameters defining the SFTs to be returned from LALSignalToSFTs().
  */
+#ifdef SWIG /* SWIG interface directives */
+SWIGLAL(IMMUTABLE_MEMBERS(tagSFTParams, timestamps, noiseSFTs, window));
+#endif /* SWIG */
 typedef struct tagSFTParams {
   REAL8 Tsft;			 /**< length of each SFT in seconds */
   const LIGOTimeGPSVector *timestamps; /**< timestamps to produce SFTs for (can be NULL) */
@@ -331,12 +342,6 @@ typedef struct tagSkyConstAndZeroPsiAMResponse {
 } SkyConstAndZeroPsiAMResponse;
 
 /*---------- Global variables ----------*/
-/** \name Empty init-structs for the types defined in here */
-/*@{*/
-extern const PulsarSignalParams empty_PulsarSignalParams;
-extern const SFTParams empty_SFTParams;
-extern const SFTandSignalParams empty_SFTandSignalParams;
-/*@}*/
 
 /* ---------- Function prototypes ---------- */
 REAL4TimeSeries *XLALGeneratePulsarSignal ( const PulsarSignalParams *params );

@@ -165,7 +165,7 @@ void GetPeakGramFromMultSFTVector_NondestroyPg1(LALStatus *status, HOUGHPeakGram
 
 void PrintLogFile (LALStatus *status, CHAR *dir, CHAR *basename, CHAR *skyfile, LALStringVector *linefiles, CHAR *executable );
 
-int CreateSkypatchDirs(CHAR *filestats, CHAR *base, INT4 index);
+int CreateSkypatchDirs(CHAR *filestats, CHAR *base, INT4 ind);
 
 int PrintHistogram(UINT8Vector *hist, CHAR *fnameOut, REAL8 minSignificance, REAL8 maxSignificance);
 
@@ -173,7 +173,7 @@ int PrintHmap2m_file(HOUGHMapTotal *ht, CHAR *fnameOut, INT4 iHmap);
 
 int PrintHmap2file(HOUGHMapTotal *ht, CHAR *fnameOut, INT4 iHmap);
 
-int OpenExtraInfoFiles(CHAR *fileMaps, FILE **fp1_ptr, CHAR *filehisto, CHAR *dirname, CHAR *basename, INT4 index);
+int OpenExtraInfoFiles(CHAR *fileMaps, FILE **fp1_ptr, CHAR *filehisto, CHAR *dirname, CHAR *basename, INT4 ind);
 
 int PrintExtraInfo(CHAR *fileMaps, FILE **fp1_ptr, INT4 iHmap, HOUGHMapTotal *ht, REAL8UnitPolarCoor *sourceLocation, HoughStats *stats, INT8 fBinSearch, REAL8 deltaF);
 
@@ -510,12 +510,12 @@ int main(int argc, char *argv[]){
 
     if ( LALUserVarWasSet( &uvar_startTime ) ) {
       XLALGPSSetREAL8(&startTimeGPS, uvar_startTime);
-      constraints.startTime = &startTimeGPS;
+      constraints.minStartTime = &startTimeGPS;
     }
 
     if ( LALUserVarWasSet( &uvar_endTime ) ) {
       XLALGPSSetREAL8(&endTimeGPS, uvar_endTime);
-      constraints.endTime = &endTimeGPS;
+      constraints.maxStartTime = &endTimeGPS;
     }
 
     if ( LALUserVarWasSet( &uvar_timeStampsFile ) ) {
@@ -1719,8 +1719,8 @@ void SetUpSkyPatches(LALStatus           *status,		/**< pointer to LALStatus str
                      INT4                partitionIndex)/**< Index [0,numSkyPartitions-1] of sky-partition to generate */
 {
 
-  DopplerSkyScanInit scanInit = empty_DopplerSkyScanInit;   /* init-structure for DopperScanner */
-  DopplerSkyScanState thisScan = empty_DopplerSkyScanState; /* current state of the Doppler-scan */
+  DopplerSkyScanInit XLAL_INIT_DECL(scanInit);   /* init-structure for DopperScanner */
+  DopplerSkyScanState XLAL_INIT_DECL(thisScan); /* current state of the Doppler-scan */
   UINT4 nSkyPatches, skyCounter;
   PulsarDopplerParams dopplerpos;	  
   

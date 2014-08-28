@@ -37,7 +37,7 @@
 /**
  * \author Reinhard Prix
  * \file
- * \ingroup ComputeFstat_h
+ * \ingroup ComputeFstat_OldDemodAPI_h
  * \brief Tests for XLALAdd[Multi]BinaryTimes()
  *
  * We simply compare the results to the old+obsolete LAL functions LALGet[Multi]Binarytimes(),
@@ -53,10 +53,9 @@
 
 // ----- macros
 #define GPS2REAL8(gps) (1.0 * (gps).gpsSeconds + 1.e-9 * (gps).gpsNanoSeconds )
-#define INIT_MEM(x) memset(&(x), 0, sizeof((x)))
 
 // ----- global variables
-static REAL8 p,q,r;          /* binary time delay coefficients (need to be global so that the LAL root finding procedure can see them) */
+static REAL8 A,B;          /* binary time delay coefficients (need to be global so that the LAL root finding procedure can see them) */
 
 // local types
 typedef struct
@@ -65,10 +64,19 @@ typedef struct
   INT4 randSeed;	/**< allow user to specify random-number seed for reproducible noise-realizations */
 } UserInput_t;
 
+/* Type defining the orbital parameters of a binary pulsar */
+typedef struct tagBinaryOrbitParams {
+  LIGOTimeGPS tp;         /* time of observed periapsis passage (in SSB) */
+  REAL8 argp;             /* argument of periapsis (radians) */
+  REAL8 asini;            /* projected, normalized orbital semi-major axis (s) */
+  REAL8 ecc;              /* orbital eccentricity */
+  REAL8 period;           /* orbital period (sec) */
+} BinaryOrbitParams;
+
 /* ----- internal prototypes ---------- */
 static void LALGetBinarytimes (LALStatus *, SSBtimes *tBinary, const SSBtimes *tSSB, const DetectorStateSeries *DetectorStates, const BinaryOrbitParams *binaryparams, LIGOTimeGPS refTime);
 static void LALGetMultiBinarytimes (LALStatus *, MultiSSBtimes **multiBinary, const MultiSSBtimes *multiSSB, const MultiDetectorStateSeries *multiDetStates, const BinaryOrbitParams *binaryparams, LIGOTimeGPS refTime);
-static void EccentricAnomoly(LALStatus *status, REAL8 *tr, REAL8 lE, void *tr0);
+static void EccentricAnomoly(LALStatus *status, REAL8 *tr, REAL8 lE, void *x0);
 
 int XLALCompareSSBtimes ( REAL8 *err_DeltaT, REAL8 *err_Tdot, const SSBtimes *t1, const SSBtimes *t2 );
 int XLALCompareMultiSSBtimes ( REAL8 *err_DeltaT, REAL8 *err_Tdot, const MultiSSBtimes *m1, const MultiSSBtimes *m2 );
@@ -78,14 +86,13 @@ int XLALCompareMultiSSBtimes ( REAL8 *err_DeltaT, REAL8 *err_Tdot, const MultiSS
 int
 main ( int argc, char *argv[] )
 {
-  LALStatus status;
-  UserInput_t uvar_s;
+  LALStatus XLAL_INIT_DECL(status);
+  UserInput_t XLAL_INIT_DECL(uvar_s);
   UserInput_t *uvar = &uvar_s;
 
-  INIT_MEM ( status );
-  INIT_MEM ( uvar_s );
+  struct tms buf;
+  uvar->randSeed = times(&buf);
 
-  uvar->randSeed = 1;
   // ---------- register all our user-variable ----------
   XLALregBOOLUserStruct (  help,                'h', UVAR_HELP    , "Print this help/usage message");
   XLALregINTUserStruct (   randSeed,             's', UVAR_OPTIONAL, "Specify random-number seed for reproducible noise.");
@@ -132,14 +139,13 @@ main ( int argc, char *argv[] )
   const char *sites[3] = { "H1", "L1", "V1" };
   UINT4 numDetectors = sizeof( sites ) / sizeof ( sites[0] );
 
-  MultiLALDetector *multiIFO = XLALCreateMultiLALDetector ( numDetectors );
-  XLAL_CHECK ( multiIFO != NULL, XLAL_EFUNC, "XLALCreateMultiLALDetector(%d) failed.\n", numDetectors );
-
+  MultiLALDetector multiIFO;
+  multiIFO.length = numDetectors;
   for ( UINT4 X = 0; X < numDetectors; X ++ )
     {
       LALDetector *det = XLALGetSiteInfo ( sites[X] );
       XLAL_CHECK ( det != NULL, XLAL_EFUNC, "XLALGetSiteInfo ('%s') failed for detector X=%d\n", sites[X], X );
-      multiIFO->data[X] = (*det);	 // struct copy
+      multiIFO.sites[X] = (*det);	 // struct copy
       XLALFree ( det );
     }
 
@@ -161,7 +167,7 @@ main ( int argc, char *argv[] )
     } /* for X < numIFOs */
 
   // generate detector-states
-  MultiDetectorStateSeries *multiDetStates = XLALGetMultiDetectorStates ( multiTS, multiIFO, edat, 0 );
+  MultiDetectorStateSeries *multiDetStates = XLALGetMultiDetectorStates ( multiTS, &multiIFO, edat, 0 );
   XLAL_CHECK ( multiDetStates != NULL, XLAL_EFUNC, "XLALGetMultiDetectorStates() failed.\n");
 
   // generate isolated-NS SSB times
@@ -175,7 +181,15 @@ main ( int argc, char *argv[] )
 
   // ----- step 2: compute test-result using new XLALAddMultiBinaryTimes()
   MultiSSBtimes *multiBinary_test = NULL;
-  XLAL_CHECK ( XLALAddMultiBinaryTimes ( &multiBinary_test, multiSSBIn, &orbit ) == XLAL_SUCCESS, XLAL_EFUNC );
+  PulsarDopplerParams doppler;
+  memset(&doppler, 0, sizeof(doppler));
+  doppler.fkdot[0] = 100;
+  doppler.tp = orbit.tp;
+  doppler.argp = orbit.argp;
+  doppler.asini = orbit.asini;
+  doppler.ecc = orbit.ecc;
+  doppler.period = orbit.period;
+  XLAL_CHECK ( XLALAddMultiBinaryTimes ( &multiBinary_test, multiSSBIn, &doppler ) == XLAL_SUCCESS, XLAL_EFUNC );
 
   // ----- step 3: compare results
   REAL8 err_DeltaT, err_Tdot;
@@ -196,7 +210,6 @@ main ( int argc, char *argv[] )
   XLALDestroyMultiSSBtimes ( multiSSBIn );
   XLALDestroyMultiTimestamps ( multiTS );
   XLALDestroyMultiDetectorStateSeries ( multiDetStates );
-  XLALDestroyMultiLALDetector ( multiIFO );
 
   // check for memory-leaks
   LALCheckMemoryLeaks();
@@ -282,6 +295,20 @@ XLALCompareSSBtimes ( REAL8 *err_DeltaT, REAL8 *err_Tdot, const SSBtimes *t1, co
 
 // ---------- obsolete LAL functions LALGet[Multi]Binarytimes() kept here for comparison purposes
 
+#define COMPUTEFSTATC_ENULL 		1
+#define COMPUTEFSTATC_ENONULL 		2
+#define COMPUTEFSTATC_EINPUT   		3
+#define COMPUTEFSTATC_EMEM   		4
+#define COMPUTEFSTATC_EXLAL		5
+#define COMPUTEFSTATC_EIEEE		6
+
+#define COMPUTEFSTATC_MSGENULL 		"Arguments contained an unexpected null pointer"
+#define COMPUTEFSTATC_MSGENONULL 	"Output pointer is non-NULL"
+#define COMPUTEFSTATC_MSGEINPUT   	"Invalid input"
+#define COMPUTEFSTATC_MSGEMEM   	"Out of memory. Bad."
+#define COMPUTEFSTATC_MSGEXLAL		"XLAL function call failed"
+#define COMPUTEFSTATC_MSGEIEEE		"Floating point failure"
+
 /**
  * For a given OrbitalParams, calculate the time-differences
  * \f$\Delta T_\alpha\equiv T(t_\alpha) - T_0\f$, and their
@@ -340,9 +367,10 @@ LALGetBinarytimes (LALStatus *status,				/**< pointer to LALStatus structure */
   refTimeREAL8 = GPS2REAL8(refTime);
 
   /* compute p, q and r coeeficients */
-  p = (LAL_TWOPI/Porb)*cosw*asini*sqrt(1.0-e*e);
-  q = (LAL_TWOPI/Porb)*sinw*asini;
-  r = (LAL_TWOPI/Porb)*sinw*asini*ome;
+  A  = (LAL_TWOPI/Porb)*cosw*asini*sqrt(1.0-e*e) - e;
+  B  = (LAL_TWOPI/Porb)*sinw*asini;
+  REAL8 tp = GPS2REAL8(binaryparams->tp);
+  REAL8 Tp = tp  + asini*sinw*ome;
 
   /* Calculate the required accuracy for the root finding procedure in the main loop */
   acc = LAL_TWOPI*(REAL8)EA_ACC/Porb;   /* EA_ACC is defined above and represents the required timing precision in seconds (roughly) */
@@ -356,10 +384,9 @@ LALGetBinarytimes (LALStatus *status,				/**< pointer to LALStatus structure */
 
       /* define fractional orbit in SSB frame since periapsis (enforce result 0->1) */
       /* the result of fmod uses the dividend sign hence the second procedure */
-      {
-	REAL8 temp = fmod((tSSB_now - GPS2REAL8(binaryparams->tp)),Porb)/(REAL8)Porb;
-	fracorb = temp - (REAL8)floor(temp);
-      }
+      REAL8 temp = fmod((tSSB_now - Tp),Porb)/(REAL8)Porb;
+      fracorb = temp - (REAL8)floor(temp);
+      REAL8 x0 = fracorb * LAL_TWOPI;
 
       /* compute eccentric anomaly using a root finding procedure */
       input.function = EccentricAnomoly;     /* This is the name of the function we must solve to find E */
@@ -368,16 +395,16 @@ LALGetBinarytimes (LALStatus *status,				/**< pointer to LALStatus structure */
       input.xacc = acc;                      /* The accuracy of the root finding procedure */
 
       /* expand domain until a root is bracketed */
-      LALDBracketRoot(status->statusPtr,&input,&fracorb);
+      LALDBracketRoot(status->statusPtr,&input,&x0);
 
       /* bisect domain to find eccentric anomoly E corresponding to the SSB time of the midpoint of this SFT */
-      LALDBisectionFindRoot(status->statusPtr,&E,&input,&fracorb);
+      LALDBisectionFindRoot(status->statusPtr,&E,&input,&x0);
 
       /* use our value of E to compute the additional binary time delay */
       tBinary->DeltaT->data[i] = tSSB->DeltaT->data[i] - ( asini*sinw*(cos(E)-e) + asini*cosw*sqrt(1.0-e*e)*sin(E) );
 
       /* combine with Tdot (dtSSB_by_dtdet) -> dtbin_by_dtdet */
-      tBinary->Tdot->data[i] = tSSB->Tdot->data[i] * ( (1.0 - e*cos(E))/(1.0 + p*cos(E) - q*sin(E)) );
+      tBinary->Tdot->data[i] = tSSB->Tdot->data[i] * ( (1.0 - e*cos(E))/(1.0 + A*cos(E) - B*sin(E)) );
 
     } /* for i < numSteps */
 
@@ -394,14 +421,14 @@ LALGetBinarytimes (LALStatus *status,				/**< pointer to LALStatus structure */
 static void EccentricAnomoly(LALStatus *status,
 			     REAL8 *tr,
 			     REAL8 lE,
-			     void *tr0
+			     void *x0
 			     )
 {
   INITSTATUS(status);
-  ASSERT(tr0,status, 1, "Null pointer");
+  ASSERT(x0,status, 1, "Null pointer");
 
   /* this is the function relating the observed time since periapse in the SSB to the true eccentric anomoly E */
-  *tr = *(REAL8 *)tr0*(-1.0) + (lE + (p*sin(lE)) + q*(cos(lE) - 1.0) + r)/(REAL8)LAL_TWOPI;
+  (*tr) = - (*(REAL8 *)x0) + (lE + A*sin(lE) + B*(cos(lE) - 1.0));
 
   RETURN(status);
 }

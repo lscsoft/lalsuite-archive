@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([lalapps],[6.14.0.1],[lal-discuss@ligo.org])
+AC_INIT([LALApps],[6.14.0.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/lalapps/lalapps.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -9,10 +9,11 @@ AC_CONFIG_FILES([\
   lalapps.spec \
   debian/Makefile \
   doc/Makefile \
-  gnuscripts/Makefile \
   man/Makefile \
   src/Makefile \
   src/lalapps/Makefile \
+  src/lalapps/LALAppsVCSInfo.c \
+  src/lalapps/LALAppsVCSInfo.h \
   src/calibration/Makefile \
   src/frametools/Makefile \
   src/findchirp/Makefile \
@@ -22,8 +23,6 @@ AC_CONFIG_FILES([\
   src/string/Makefile \
   src/pulsar/Makefile \
   src/pulsar/FDS_isolated/Makefile \
-  src/pulsar/FDS_isolated/OptimizedCFS/Makefile \
-  src/pulsar/FDS_isolated/ResamplingFstat/Makefile \
   src/pulsar/Injections/Makefile \
   src/pulsar/hough/Makefile \
   src/pulsar/hough/src/Makefile \
@@ -33,6 +32,7 @@ AC_CONFIG_FILES([\
   src/pulsar/TimingTests/Makefile \
   src/pulsar/TDS_isolated/Makefile \
   src/pulsar/CreateEphemeris/Makefile \
+  src/pulsar/Tools/Makefile \
   src/inspiral/Makefile \
   src/inspiral/posterior/Makefile \
   src/inspiral/posterior/SPINspiral/Makefile \
@@ -54,6 +54,8 @@ AC_CONFIG_FILES([\
 AM_INIT_AUTOMAKE([1.11 foreign color-tests parallel-tests -Wno-unsupported])
 
 AC_CANONICAL_HOST
+
+LALSUITE_ARG_VAR
 
 LALSUITE_CHECK_GIT_REPO
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
@@ -126,8 +128,7 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_AWK
 AC_PROG_SED
-AM_PATH_PYTHON([2.6],,[:])
-AM_CONDITIONAL([HAVE_PYTHON],[test "$PYTHON" != :])
+LALSUITE_CHECK_PYTHON([2.6])
 
 # check for condor_compile
 AC_ENABLE_SHARED
@@ -177,6 +178,7 @@ PKG_CHECK_MODULES([GSL],[gsl],[true],[false])
 LALSUITE_ADD_FLAGS([C],[${GSL_CFLAGS}],[${GSL_LIBS}])
 AC_CHECK_LIB([gslcblas],[main],,[AC_MSG_ERROR([could not find the gsl library])])
 AC_CHECK_LIB([gsl],[gsl_version],,[AC_MSG_ERROR([could not find the gsl library])])
+LALSUITE_CHECK_GSL_VERSION([1.13])
 LALSUITE_ENABLE_FAST_GSL
 
 # check for gsl headers
@@ -254,6 +256,7 @@ LALSUITE_ENABLE_MODULE([METAIO])
 
 # check for libxml2
 if test "$lalxml" = "true"; then
+  AC_SEARCH_LIBS([lzma_code],[lzma])
   PKG_CHECK_MODULES([LIBXML2],[libxml-2.0 >= 2.6],[true],[false])
   lal_pre_libxml2_LIBS="$LIBS"
   LALSUITE_ADD_FLAGS([C],[],[${LIBXML2_LIBS}])
@@ -356,7 +359,7 @@ LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.3],[XLALXMLFilePrintElements],[lal/LALXML.h
 LALSUITE_CHECK_OPT_LIB([LALSimulation],[1.1.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
 LALSUITE_CHECK_OPT_LIB([LALBurst],[1.2.0],[XLALEPSearch],[lal/EPSearch.h])
 LALSUITE_CHECK_OPT_LIB([LALInspiral],[1.5.0],[LALInspiralParameterCalc],[lal/LALInspiral.h])
-LALSUITE_CHECK_OPT_LIB([LALPulsar],[1.9.0],[XLALComputeFaFb],[lal/ComputeFstat.h])
+LALSUITE_CHECK_OPT_LIB([LALPulsar],[1.9.0],[XLALComputeFstat],[lal/ComputeFstat.h])
 LALSUITE_CHECK_OPT_LIB([LALInference],[1.3.0],[LALInferenceAddVariable],[lal/LALInference.h])
 LALSUITE_CHECK_OPT_LIB([LALStochastic],[1.1.4],[LALStochasticOptimalFilter],[lal/StochasticCrossCorrelation.h])
 
@@ -383,9 +386,6 @@ AC_CHECK_FUNCS([setenv])
 # set prefix
 AC_DEFINE_UNQUOTED([PREFIX],["$prefix"],[Install prefix])
 
-# add gcc specific flags
-LALSUITE_ADD_GCC_FLAGS
-
 # define if CUDA is enabled
 if test "${cuda}" = "true"; then
   AC_DEFINE([LALAPPS_CUDA_ENABLED],[1],[Define if using cuda library])
@@ -405,10 +405,28 @@ if test "${static_binaries}" = "true"; then
   AC_DISABLE_SHARED
 fi
 
+# add gcc specific flags
+LALSUITE_ADD_GCC_FLAGS
+
+# link any executables against LALApps library
+AC_SUBST([LDADD], ["\$(top_builddir)/src/lalapps/liblalapps.la"])
+
+# add extra preprocessor flags
+AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
+AM_CPPFLAGS="-I\$(top_builddir)/src/lalapps ${AM_CPPFLAGS}"
+AM_CPPFLAGS="-I\$(top_srcdir)/src/lalapps ${AM_CPPFLAGS}"
+AM_CPPFLAGS="-I\$(top_srcdir)/src ${AM_CPPFLAGS}"
+
 # force all python modules into the exec dir to prevent mixed C and
 # pure-python library code from being split across lib and lib64 on
 # RedHat-derived systems.
 AC_SUBST([pkgpythondir], ["\${pkgpyexecdir}"])
+
+# get the glue and pylal prefixes from the environment
+AC_SUBST([GLUE_PREFIX])
+AM_CONDITIONAL([HAVE_GLUE_PREFIX], [test ! -z "$GLUE_PREFIX"])
+AC_SUBST([PYLAL_PREFIX])
+AM_CONDITIONAL([HAVE_PYLAL_PREFIX], [test ! -z "$PYLAL_PREFIX"])
 
 # output
 AC_OUTPUT
@@ -416,6 +434,7 @@ AC_MSG_NOTICE([
 ==================================================
 LALApps has now been successfully configured:
 
+* Python support is $PYTHON_ENABLE_VAL
 * FFTW library support is $FFTW_ENABLE_VAL
 * Frame library support is $FRAME_ENABLE_VAL
 * MetaIO library support is $METAIO_ENABLE_VAL

@@ -1,6 +1,6 @@
 # lal.m4 - lal specific macros
 #
-# serial 18
+# serial 19
 
 AC_DEFUN([LAL_ENABLE_DEBUG],
 [AC_ARG_ENABLE(
@@ -11,6 +11,17 @@ AC_DEFUN([LAL_ENABLE_DEBUG],
     [no],AC_DEFINE(LAL_NDEBUG, 1, Suppress debugging code),
     AC_MSG_ERROR(bad value for ${enableval} for --enable-debug))
   ], )
+])
+
+AC_DEFUN([LAL_ENABLE_FFTW3_MEMALIGN],
+[AC_ARG_ENABLE(
+  [fftw3_memalign],
+  AC_HELP_STRING([--enable-fftw3-memalign],[use aligned memory optimizations with fftw3 [default=no]]),
+  AS_CASE(["${enableval}"],
+    [yes],[fftw3_memalign=true],
+    [no],[fftw3_memalign=false],
+    AC_MSG_ERROR([bad value for ${enableval} for --enable-fftw3-memalign])
+  ),[fftw3_memalign=false])
 ])
 
 AC_DEFUN([LAL_ENABLE_INTELFFT],
@@ -84,36 +95,4 @@ AC_DEFUN([LAL_INTEL_FFT_LIBS_MSG_ERROR],
  echo "* Please see the instructions in the file INSTALL.           *"
  echo "**************************************************************"
 AC_MSG_ERROR([Intel FFT must use either static or shared libraries])
-])
-
-AC_DEFUN([LAL_CHECK_GSL_VERSION],
-[
-  lal_min_gsl_version=ifelse([$1], ,1.0,$1)
-  AC_MSG_CHECKING(for GSL version >= $lal_min_gsl_version)
-  AC_TRY_RUN([
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <gsl/gsl_version.h>
-int main(void)
-{
-  int required_major, required_minor;
-  int major, minor;
-  char required_version[] = "$lal_min_gsl_version";
-  char version[] = GSL_VERSION;
-  if ( strcmp(GSL_VERSION, gsl_version) ) {
-    printf("error\n*** mismatch between header and library versions of GSL\n" );
-    printf("\n*** header  has version %s\n", GSL_VERSION);
-    printf("\n*** library has version %s\n", gsl_version);
-    exit(1);
-  }
-  sscanf(required_version, "%d.%d", &required_major, &required_minor);
-  sscanf(version, "%d.%d", &major, &minor);
-  if ( major < required_major || (major == required_major && minor < required_minor) ) {
-    printf("no\n*** found version %s of GSL but minimum version is %d.%d\n", GSL_VERSION, required_major, required_minor );
-    exit(1);
-  }
-  return 0;
-}
-  ], [AC_MSG_RESULT(yes)], [AC_MSG_ERROR(could not find required version of GSL)], [echo $ac_n "cross compiling; assumed OK... $ac_c"])
 ])

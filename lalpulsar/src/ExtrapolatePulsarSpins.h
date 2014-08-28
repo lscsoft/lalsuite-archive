@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2014 Karl Wette
  * Copyright (C) 2005, 2006 Reinhard Prix
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -63,7 +64,7 @@ extern "C" {
  *
  * This ensures that the range will be correctly extrapolated even if \f$\tau_1 < \tau_0\f$, i.e. \f$\Delta\tau < 0\f$.
  *
- * The initial-phase extrapolation in LALExtrapolatePulsarPhase() proceeds in the other direction, extrapolating
+ * The initial-phase extrapolation in XLALExtrapolatePulsarPhase() proceeds in the other direction, extrapolating
  * \f$\phi(\tau_0)\f$ to \f$\phi(\tau_1)\f$, where the spins are given at \f$\tau_1\f$, i.e. \f$f^{(k)}(\tau_1)\f$.
  *
  * By using the above equations, one can arrive at the following expression
@@ -108,15 +109,21 @@ extern "C" {
 /*---------- exported Global variables ----------*/
 
 /*---------- exported prototypes [API] ----------*/
-void LALExtrapolatePulsarSpinRange( LALStatus *, PulsarSpinRange *range1, LIGOTimeGPS epoch1,  const PulsarSpinRange *range0 );
-
-void LALExtrapolatePulsarSpins (LALStatus *, PulsarSpins fkdot1, LIGOTimeGPS epoch1, const PulsarSpins fkdot0, LIGOTimeGPS epoch0 );
-
-void LALExtrapolatePulsarPhase (LALStatus *, REAL8 *phi1, PulsarSpins fkdot1, LIGOTimeGPS epoch1, REAL8 phi0, LIGOTimeGPS epoch0 );
+int XLALExtrapolatePulsarSpinRange(  PulsarSpinRange *range1, const PulsarSpinRange *range0, const REAL8 dtau );
 
 int XLALExtrapolatePulsarSpins ( PulsarSpins fkdotOut, const PulsarSpins fkdotIn, REAL8 DeltaTau );
 
+int XLALExtrapolatePulsarPhase ( REAL8 *phi1, PulsarSpins fkdot1, LIGOTimeGPS epoch1, REAL8 phi0, LIGOTimeGPS epoch0 );
+
+int XLALCWSignalCoveringBand( REAL8 *minCoverFreq, REAL8 *maxCoverFreq, const LIGOTimeGPS *time1, const LIGOTimeGPS *time2,
+                              const PulsarSpinRange *spinRange, const REAL8 binaryMaxAsini, const REAL8 binaryMinPeriod );
+
 /*@}*/
+
+/** \cond DONT_DOXYGEN */
+void LALExtrapolatePulsarSpinRange( LALStatus *, PulsarSpinRange *range1, LIGOTimeGPS epoch1,  const PulsarSpinRange *range0 );
+void LALExtrapolatePulsarSpins (LALStatus *, PulsarSpins fkdot1, LIGOTimeGPS epoch1, const PulsarSpins fkdot0, LIGOTimeGPS epoch0 );
+/** \endcond */
 
 #ifdef  __cplusplus
 }

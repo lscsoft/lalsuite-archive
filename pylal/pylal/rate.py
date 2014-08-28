@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2013  Kipp Cannon
+# Copyright (C) 2006--2014  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -152,6 +152,22 @@ class Bins(object):
 		boundaries of the bins.
 		"""
 		raise NotImplementedError
+
+	def randcentre(self, n = 1.):
+		"""
+		Generator yielding a sequence of x, ln(P(x)) tuples where x
+		is a randomly-chosen bin centre and P(x) is the PDF from
+		which x has been drawn evaluated at x.  The CDF from which
+		the bin centres are drawn goes as [bin index]^{n}.  For
+		more information, see glue.iterutils.randindex.
+		"""
+		x = tuple(self.centres())
+		ln_dx = tuple(numpy.log(self.upper() - self.lower()))
+		isinf = math.isinf
+		for i, ln_Pi in iterutils.randindex(0, len(x), n = n):
+			if isinf(ln_dx[i]):
+				continue
+			yield x[i], ln_Pi - ln_dx[i]
 
 
 class LinearBins(Bins):
@@ -792,6 +808,25 @@ class NDBins(tuple):
 			result.shape = tuple(len(v) for v in volumes)
 			return result
 
+	def randcentre(self, ns = None):
+		"""
+		Generator yielding a sequence of (x0, x1, ...), ln(P(x0,
+		x1, ...)) tuples where (x0, x1, ...) is a randomly-chosen
+		bin centre in the N-dimensional binning and P(x0, x1, ...)
+		is the PDF from which the co-ordinate tuple has been drawn
+		evaluated at those co-ordinates.  If ns is not None it must
+		be a sequence of floats whose length matches the dimension
+		of the binning.  The floats will set the exponents, in
+		order, of the CDFs for the generators used for each
+		co-ordinate.  For more information, see Bins.randcentre().
+		"""
+		if ns is None:
+			ns = (1.,) * len(self)
+		bingens = tuple(iter(binning.randcentre(n)).next for binning, n in zip(self, ns))
+		while 1:
+			seq = sum((bingen() for bingen in bingens), ())
+			yield seq[0::2], sum(seq[1::2])
+
 
 #
 # =============================================================================
@@ -930,8 +965,8 @@ class BinnedArray(object):
 		"""
 		Convert into a probability density.
 		"""
-		self.array /= self.array.sum()  # sum = 1
-		self.to_density()
+		self.array /= self.array.sum()  # make sum = 1
+		self.to_density()	# make integral = 1
 
 	def logregularize(self, epsilon = 2**-1074):
 		"""
@@ -1303,8 +1338,29 @@ def filter_array(a, window, cyclic = False):
 			window_slices.append(slice(first, first + n))
 		else:
 			window_slices.append(slice(0, window.shape[d]))
-	# FIXME:  in numpy >= 1.7.0 there is copyto().  is that better?
-	a.flat = signaltools.fftconvolve(a, window[window_slices], mode = "same").flat
+	window = window[window_slices]
+
+	# this loop works around dynamic range limits in the FFT
+	# convolution code.  we move data 4 orders of magnitude at a time
+	# from the original array into a work space, convolve the work
+	# space with the filter, zero the workspace in any elements that
+	# are more than 14 orders of magnitude below the maximum value in
+	# the result, and add the result to the total.
+	result = numpy.zeros_like(a)
+	while a.any():
+		workspace = numpy.copy(a)
+		cutoff = abs(workspace[abs(workspace) > 0]).min() * 1e4
+		a[abs(a) <= cutoff] = 0.
+		workspace[abs(workspace) > cutoff] = 0.
+
+		# FIXME:  in numpy >= 1.7.0 there is copyto().  is that
+		# better than assigning to .flat?
+		workspace.flat = signaltools.fftconvolve(workspace, window, mode = "same").flat
+
+		workspace[abs(workspace) < abs(workspace).max() * 1e-14] = 0.
+		result += workspace
+	a.flat = result.flat
+
 	return a
 
 
@@ -1446,13 +1502,12 @@ def marginalize_ratios(likelihood, dim):
 
 
 from glue.ligolw import ligolw
-from glue.ligolw import array
-from glue.ligolw import param
-from glue.ligolw import table
+from glue.ligolw import array as ligolw_array
+from glue.ligolw import table as ligolw_table
 from glue.ligolw import lsctables
 
 
-class BinsTable(table.Table):
+class BinsTable(ligolw_table.Table):
 	"""
 	LIGO Light Weight XML table defining a binning.
 	"""
@@ -1520,7 +1575,7 @@ def binned_array_to_xml(binnedarray, name):
 	"""
 	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_rate_binnedarray" % name})
 	xml.appendChild(bins_to_xml(binnedarray.bins))
-	xml.appendChild(array.from_array(u"array", binnedarray.array))
+	xml.appendChild(ligolw_array.from_array(u"array", binnedarray.array))
 	return xml
 
 
@@ -1531,7 +1586,7 @@ def binned_array_from_xml(xml, name):
 	return a new rate.BinnedArray object from the data contained
 	therein.
 	"""
-	xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedarray" % name]
+	xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"%s:pylal_rate_binnedarray" % name]
 	try:
 		xml, = xml
 	except ValueError:
@@ -1541,7 +1596,7 @@ def binned_array_from_xml(xml, name):
 	# large) array that would otherwise accompany this step
 	binnedarray = BinnedArray(NDBins())
 	binnedarray.bins = bins_from_xml(xml)
-	binnedarray.array = array.get_array(xml, u"array").array
+	binnedarray.array = ligolw_array.get_array(xml, u"array").array
 	return binnedarray
 
 
@@ -1562,7 +1617,7 @@ def binned_ratios_from_xml(xml, name):
 	return a new rate.BinnedRatios object from the data contained
 	therein.
 	"""
-	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedratios" % name]
+	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"%s:pylal_rate_binnedratios" % name]
 	ratios = BinnedRatios(NDBins())
 	ratios.numerator = binned_array_from_xml(xml, u"numerator")
 	ratios.denominator = binned_array_from_xml(xml, u"denominator")

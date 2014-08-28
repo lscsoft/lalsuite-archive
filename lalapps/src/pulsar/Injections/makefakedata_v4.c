@@ -208,10 +208,6 @@ typedef struct
 
 // ----- global variables ----------
 
-// ----- empty structs for initializations
-static const UserVariables_t empty_UserVariables;
-static const ConfigVars_t empty_GV;
-
 // ---------- local prototypes ----------
 int XLALInitUserVars ( UserVariables_t *uvar, int argc, char *argv[] );
 int XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar );
@@ -219,8 +215,6 @@ int XLALWriteMFDlog ( const char *logfile, const ConfigVars_t *cfg );
 COMPLEX8FrequencySeries *XLALLoadTransferFunctionFromActuation ( REAL8 actuationScale, const CHAR *fname );
 int XLALFreeMem ( ConfigVars_t *cfg );
 
-extern void write_timeSeriesR4 (FILE *fp, const REAL4TimeSeries *series);
-extern void write_timeSeriesR8 (FILE *fp, const REAL8TimeSeries *series);
 BOOLEAN is_directory ( const CHAR *fname );
 int XLALIsValidDescriptionField ( const char *desc );
 
@@ -230,13 +224,13 @@ int XLALIsValidDescriptionField ( const char *desc );
 int
 main(int argc, char *argv[])
 {
-  ConfigVars_t GV = empty_GV;
-  PulsarSignalParams params = empty_PulsarSignalParams;
+  ConfigVars_t XLAL_INIT_DECL(GV);
+  PulsarSignalParams XLAL_INIT_DECL(params);
   REAL4TimeSeries *Tseries = NULL;
   UINT4 i_chunk, numchunks;
   FILE *fpSingleSFT = NULL;
   size_t len;
-  UserVariables_t uvar = empty_UserVariables;
+  UserVariables_t XLAL_INIT_DECL(uvar);
 
 
   /* ------------------------------
@@ -265,7 +259,11 @@ main(int argc, char *argv[])
 
   params.pulsar.f0		   = GV.pulsar.Doppler.fkdot[0];
   params.pulsar.spindown           = GV.spindown;
-  params.orbit                     = GV.pulsar.Doppler.orbit;
+  params.orbit.tp                  = GV.pulsar.Doppler.tp;
+  params.orbit.argp                = GV.pulsar.Doppler.argp;
+  params.orbit.asini               = GV.pulsar.Doppler.asini;
+  params.orbit.ecc                 = GV.pulsar.Doppler.ecc;
+  params.orbit.period              = GV.pulsar.Doppler.period;
 
   /* detector params */
   params.transfer = GV.transfer;	/* detector transfer function (NULL if not used) */
@@ -363,19 +361,10 @@ main(int argc, char *argv[])
       /* output ASCII time-series if requested */
       if ( uvar.TDDfile )
 	{
-	  FILE *fp;
 	  CHAR *fname = XLALCalloc (1, len = strlen(uvar.TDDfile) + 10 );
           XLAL_CHECK ( fname != NULL, XLAL_ENOMEM, "XLALCalloc(1,%d) failed\n", len );
 	  sprintf (fname, "%s.%02d", uvar.TDDfile, i_chunk);
-
-	  if ( (fp = fopen (fname, "w")) == NULL)
-	    {
-	      perror ("Error opening outTDDfile for writing");
-              XLAL_ERROR ( XLAL_EIO, "Failed to fopen TDDfile = '%s' for writing\n", fname );
-	    }
-
-	  write_timeSeriesR4(fp, Tseries);
-	  fclose(fp);
+	  XLAL_CHECK ( XLALdumpREAL4TimeSeries ( fname, Tseries ) == XLAL_SUCCESS, XLAL_EFUNC );
 	  XLALFree (fname);
 	} /* if outputting ASCII time-series */
 
@@ -447,7 +436,7 @@ main(int argc, char *argv[])
       SFTVector *SFTs = NULL;
       if (uvar.outSFTbname)
 	{
-	  SFTParams sftParams = empty_SFTParams;
+	  SFTParams XLAL_INIT_DECL(sftParams);
 	  LIGOTimeGPSVector ts;
 	  SFTVector noise;
 
@@ -586,7 +575,6 @@ main(int argc, char *argv[])
 int
 XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
 {
-  int len;
   XLAL_CHECK ( cfg != NULL, XLAL_EINVAL, "Invalid NULL input 'cfg'\n" );
   XLAL_CHECK ( uvar != NULL, XLAL_EINVAL, "Invalid NULL input 'uvar'\n");
 
@@ -837,8 +825,8 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
 
       if ( lalDebugLevel )
 	{
-	  if ( abs(cfg->fmin_eff - uvar->fmin)> LAL_REAL8_EPS
-	       || abs(cfg->fBand_eff - uvar->Band) > LAL_REAL8_EPS )
+	  if ( fabs(cfg->fmin_eff - uvar->fmin)> LAL_REAL8_EPS
+	       || fabs(cfg->fBand_eff - uvar->Band) > LAL_REAL8_EPS )
 	    printf("\nWARNING: for SFT-creation we had to adjust (fmin,Band) to"
 		   " fmin_eff=%.20g and Band_eff=%.20g\n\n", cfg->fmin_eff, cfg->fBand_eff);
 	}
@@ -913,8 +901,8 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
     if ( uvar->noiseSFTs )
       {
 	REAL8 fMin, fMax;
-	SFTConstraints constraints = empty_SFTConstraints;
-	LIGOTimeGPS minStartTime, maxEndTime;
+	SFTConstraints XLAL_INIT_DECL(constraints);
+	LIGOTimeGPS minStartTime, maxStartTime;
         BOOLEAN have_window = XLALUserVarWasSet ( &uvar->window );
 
         /* user must specify the window function used for the noiseSFTs */
@@ -928,9 +916,9 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
 	if ( haveStart && haveDuration )
 	  {
 	    XLALGPSSetREAL8 ( &minStartTime, uvar->startTime );
-	    constraints.startTime = &minStartTime;
-	    XLALGPSSetREAL8 ( &maxEndTime, uvar->startTime + uvar->duration );
-	    constraints.endTime = &maxEndTime;
+	    constraints.minStartTime = &minStartTime;
+	    XLALGPSSetREAL8 ( &maxStartTime, uvar->startTime + uvar->duration );
+	    constraints.maxStartTime = &maxStartTime;
             XLALPrintWarning ( "\nWARNING: only noise-SFTs between GPS [%d, %d] will be used!\n", uvar->startTime, uvar->startTime + uvar->duration );
 	  } /* if start+duration given */
 	if ( cfg->timestamps )
@@ -1119,7 +1107,6 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
     BOOLEAN set5 = XLALUserVarWasSet(&uvar->orbitTpSSBsec);
     BOOLEAN set6 = XLALUserVarWasSet(&uvar->orbitTpSSBnan);
     BOOLEAN set7 = XLALUserVarWasSet(&uvar->orbitTpSSBMJD);
-    BinaryOrbitParams *orbit = NULL;
 
     if (set1 || set2 || set3 || set4 || set5 || set6 || set7)
     {
@@ -1129,20 +1116,18 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
       if ( (uvar->orbitEcc < 0) || (uvar->orbitEcc > 1) ) {
         XLAL_ERROR ( XLAL_EINVAL, "\nEccentricity = %g has to lie within [0, 1]\n\n", uvar->orbitEcc );
       }
-      orbit = XLALCalloc ( 1, len = sizeof(BinaryOrbitParams) );
-      XLAL_CHECK ( orbit != NULL, XLAL_ENOMEM, "XLALCalloc (1, %d) failed.\n", len );
 
       if ( set7 && (!set5 && !set6) )
 	{
 	  /* convert MJD peripase to GPS using Matt Pitkins code found at lal/packages/pulsar/src/BinaryPulsarTimeing.c */
 	  REAL8 GPSfloat;
 	  GPSfloat = XLALTTMJDtoGPS(uvar->orbitTpSSBMJD);
-	  XLALGPSSetREAL8(&(orbit->tp),GPSfloat);
+	  XLALGPSSetREAL8(&(cfg->pulsar.Doppler.tp),GPSfloat);
 	}
       else if ( set5 && !set7 )
 	{
-	  orbit->tp.gpsSeconds = uvar->orbitTpSSBsec;
-	  orbit->tp.gpsNanoSeconds = uvar->orbitTpSSBnan;
+	  cfg->pulsar.Doppler.tp.gpsSeconds = uvar->orbitTpSSBsec;
+	  cfg->pulsar.Doppler.tp.gpsNanoSeconds = uvar->orbitTpSSBnan;
 	}
       else if ((set7 && set5) || (set7 && set6))
 	{
@@ -1150,15 +1135,14 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
 	}
 
       /* fill in orbital parameter structure */
-      orbit->period = uvar->orbitPeriod;
-      orbit->asini = uvar->orbitasini;
-      orbit->argp = uvar->orbitArgp;
-      orbit->ecc = uvar->orbitEcc;
+      cfg->pulsar.Doppler.period = uvar->orbitPeriod;
+      cfg->pulsar.Doppler.asini = uvar->orbitasini;
+      cfg->pulsar.Doppler.argp = uvar->orbitArgp;
+      cfg->pulsar.Doppler.ecc = uvar->orbitEcc;
 
-      cfg->pulsar.Doppler.orbit = orbit;     /* struct copy */
     } /* if one or more orbital parameters were set */
     else
-      cfg->pulsar.Doppler.orbit = NULL;
+      cfg->pulsar.Doppler.asini = 0 /* isolated pulsar */;
   } /* END: binary orbital params */
 
 
@@ -1424,8 +1408,6 @@ XLALFreeMem ( ConfigVars_t *cfg )
 
   /* free spindown-vector (REAL8) */
   XLALDestroyREAL8Vector ( cfg->spindown );
-
-  XLALFree ( cfg->pulsar.Doppler.orbit );
 
   /* free noise-SFTs */
   XLALDestroySFTVector( cfg->noiseSFTs );

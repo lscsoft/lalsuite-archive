@@ -111,12 +111,12 @@ def LALmetadata(array_elem):
 	f0 = float(param_elem[0].pcdata)
 
 	dim_elem = array_elem.getElementsByTagName(ligolw.Dim.tagName)
-	xaxis = dim_elem[0].getAttribute("Name")
-	xunit = dim_elem[0].getAttribute("Unit")
+	xaxis = dim_elem[0].Name
+	xunit = dim_elem[0].Unit
 	y_is_complex = dim_elem[1].pcdata == "3"
 
-	name = array_elem.getAttribute("Name")
-	yunit = array_elem.getAttribute("Unit")
+	name = array_elem.Name
+	yunit = array_elem.Unit
 
 	return {"comment": comment, "epoch": epoch, "f0": f0, "xaxis": xaxis, "xunit": xunit, "y_is_complex": y_is_complex, "name": name, "yunit": yunit}
 
@@ -181,7 +181,7 @@ for filename in filenames:
 
 	for n, a in enumerate(xmldoc.getElementsByTagName(ligolw.Array.tagName)):
 		if options.verbose:
-			print "\tfound %s array \"%s\" ..." % ("x".join(map(str, a.array.shape)), a.getAttribute("Name"))
+			print "\tfound %s array \"%s\" ..." % ("x".join(map(str, a.array.shape)), a.Name)
 
 		metadata = LALmetadata(a)
 

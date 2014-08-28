@@ -26,6 +26,27 @@
 
 #include <lal/LALInference.h>
 
+
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(
+	FUNCTION_POINTER(
+			 LALInferenceUndecomposedFreqDomainLogLikelihood,
+			 LALInferenceNoiseOnlyLogLikelihood,
+			 LALInferenceZeroLogLikelihood,
+			 LALInferenceFreqDomainLogLikelihood,
+			 LALInferenceNullLogLikelihood,
+			 LALInferenceFreqDomainStudentTLogLikelihood,
+			 LALInferenceCorrelatedAnalyticLogLikelihood,
+			 LALInferenceBimodalCorrelatedAnalyticLogLikelihood,
+			 LALInferenceRosenbrockLogLikelihood,
+			 LALInferenceMarginalisedPhaseLogLikelihood,
+			 LALInferenceMarginalisedTimeLogLikelihood
+			 )
+);
+#endif
+
+
+
 /**
  * \defgroup LALInferenceLikelihood_h Header LALInferenceLikelihood.h
  * \ingroup pkg_LALInference
@@ -67,6 +88,9 @@
  *   - "time"            (REAL8, GPS sec.)                     
  ***************************************************************/
 REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData *data, 
+                              LALInferenceTemplateFunction templt);
+
+REAL8 LALInferenceROQLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData * data,
                               LALInferenceTemplateFunction templt);
 
 /**
@@ -229,6 +253,9 @@ LALInferenceVariables LALInferenceGetInstrinsicParams(LALInferenceVariables *cur
 /** Switch for controlling the removal of lines */
 INT4 LALInferenceLineSwitch(INT4 lineFlag, INT4 Nlines, INT4 *lines_array, INT4 *widths_array, INT4 i);
 
+/** Calculate the SNR across the network */
+void LALInferenceNetworkSNR(LALInferenceVariables *currentParams, LALInferenceIFOData * data, 
+                              LALInferenceTemplateFunction templt, REAL8 *SNRs);
 /*@}*/
 
 #endif

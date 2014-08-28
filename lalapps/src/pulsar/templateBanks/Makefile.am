@@ -1,7 +1,5 @@
-## Process this file with automake to produce Makefile.in
-
-AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -DPKG_DATA_DIR='"$(pkgdatadir)/"' @AM_CPPFLAGS@
-LDADD = $(top_builddir)/src/lalapps/liblalapps.la
+BUILT_SOURCES =
+include $(top_srcdir)/gnuscripts/lalapps.am
 
 bin_PROGRAMS =  lalapps_skynet \
 		lalapps_getMetric \
@@ -22,11 +20,7 @@ EXTRA_DIST =
 TESTS =
 
 TESTS_ENVIRONMENT = \
-	LAL_DEBUG_LEVEL=memdbg; export LAL_DEBUG_LEVEL; \
+	LAL_DEBUG_LEVEL=msglvl1,memdbg; export LAL_DEBUG_LEVEL; \
 	LAL_DATA_PATH="$(LAL_DATA_PATH)"; export LAL_DATA_PATH;
 
 CLEANFILES =
-
-## make sure lalapps.la is rebuilt when appropriate
-BUILT_SOURCES =
-include $(top_srcdir)/gnuscripts/vcsID.common

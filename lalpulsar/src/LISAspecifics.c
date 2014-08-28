@@ -30,10 +30,9 @@
 #include <math.h>
 #include <string.h>
 
+#include <lal/LISAspecifics.h>
 #include <lal/LALError.h>
-#include <ComputeFstat.h>
-
-#include "LISAspecifics.h"
+#include <lal/CWFastMath.h>
 
 /*---------- local DEFINES ----------*/
 #define TRUE (1==1)
@@ -48,9 +47,6 @@
 /*----- SWITCHES -----*/
 
 /*---------- internal types ----------*/
-
-/*---------- empty initializers ---------- */
-const LALDetector empty_LALDetector;
 
 /*---------- Global variables ----------*/
 
@@ -72,7 +68,7 @@ XLALcreateLISA (LALDetector *Detector,	/**< [out] LALDetector */
 		CHAR channelNum		/**< [in] which TDI observable: '1' = X, '2'= Y, '3' = Z, '4' = Y-Z, '5' = Z-X, '6' = X-Y, '7' = A, '8' = E, '9' = T */
 		)
 {
-  LALDetector Detector1 = empty_LALDetector;
+  LALDetector XLAL_INIT_DECL(Detector1);
 
   if ( !Detector )
     return -1;
@@ -179,13 +175,13 @@ XLALprecomputeLISAarms ( DetectorState *detState )
     REAL8 tGPS = GPS2REAL8( detState->tGPS ) - LISA_TIME_ORIGIN;
 
     alpha_t = Om * tGPS + kappa;
-    sin_cos_LUT (&sin_alpha, &cos_alpha, alpha_t);
+    XLAL_CHECK( XLALSinCosLUT (&sin_alpha, &cos_alpha, alpha_t) == XLAL_SUCCESS, XLAL_EFUNC );
 
     for ( i = 0; i < 3; i ++ )
       {
 	REAL4 beta = 2.0 * i * LAL_PI / 3.0  + lambda;	/* relative orbital phase in constellation */
 	REAL4 sin_beta, cos_beta;
-	sin_cos_LUT ( &sin_beta, &cos_beta, beta );
+	XLAL_CHECK( XLALSinCosLUT ( &sin_beta, &cos_beta, beta ) == XLAL_SUCCESS, XLAL_EFUNC );
 
 	x[i] = detState->earthState.posNow[0] + ae * ( sin_alpha * cos_alpha * sin_beta  - ( 1.0f + SQ(sin_alpha)) * cos_beta );
 	y[i] = detState->earthState.posNow[1] + ae * ( sin_alpha * cos_alpha * cos_beta  - ( 1.0f + SQ(cos_alpha)) * sin_beta );
@@ -612,7 +608,7 @@ XLALgetLISAtwoArmRAAIFO ( CmplxDetectorTensor *detT, 	/**< [out]: two-arm IFO de
   /* ----- calculate complex coefficient in front of basis-tensor (1/2)*(nA x nA) ----- */
 
   /* first term */
-  sin_cos_LUT (&sinpha, &cospha, pifL_3c * ( 3.0f - (kdotnA + 2.0f * kdotnB) ) );
+  XLAL_CHECK( XLALSinCosLUT (&sinpha, &cospha, pifL_3c * ( 3.0f - (kdotnA + 2.0f * kdotnB) ) ) == XLAL_SUCCESS, XLAL_EFUNC );
 
   eta = pifL_c * (1.0f + kdotnA);
   sinc_eta = safe_sinc ( eta );
@@ -620,7 +616,7 @@ XLALgetLISAtwoArmRAAIFO ( CmplxDetectorTensor *detT, 	/**< [out]: two-arm IFO de
   coeffAA = crectf( 0.25f * cospha * sinc_eta, 0.25f * sinpha * sinc_eta );
 
   /* second term */
-  sin_cos_LUT (&sinpha, &cospha, pifL_3c * ( - 3.0f - (kdotnA + 2.0f * kdotnB) ) );
+  XLAL_CHECK( XLALSinCosLUT (&sinpha, &cospha, pifL_3c * ( - 3.0f - (kdotnA + 2.0f * kdotnB) ) ) == XLAL_SUCCESS, XLAL_EFUNC );
 
   eta = pifL_c * (1.0f - kdotnA);
   sinc_eta = safe_sinc ( eta );
@@ -630,7 +626,7 @@ XLALgetLISAtwoArmRAAIFO ( CmplxDetectorTensor *detT, 	/**< [out]: two-arm IFO de
   /* ----- calculate coefficient in front of (1/2)*(nB x nB) */
 
   /* first term */
-  sin_cos_LUT (&sinpha, &cospha, pifL_3c * ( 3.0f + (2.0f * kdotnA + kdotnB) ) );
+  XLAL_CHECK( XLALSinCosLUT (&sinpha, &cospha, pifL_3c * ( 3.0f + (2.0f * kdotnA + kdotnB) ) ) == XLAL_SUCCESS, XLAL_EFUNC );
 
   eta = pifL_c * (1.0f - kdotnB);
   sinc_eta = safe_sinc ( eta );
@@ -638,7 +634,7 @@ XLALgetLISAtwoArmRAAIFO ( CmplxDetectorTensor *detT, 	/**< [out]: two-arm IFO de
   coeffBB = crectf( 0.25f * cospha * sinc_eta, 0.25f * sinpha * sinc_eta );
 
   /* second term */
-  sin_cos_LUT (&sinpha, &cospha, pifL_3c * ( - 3.0f + (2.0f * kdotnA + kdotnB) ) );
+  XLAL_CHECK( XLALSinCosLUT (&sinpha, &cospha, pifL_3c * ( - 3.0f + (2.0f * kdotnA + kdotnB) ) ) == XLAL_SUCCESS, XLAL_EFUNC );
 
   eta = pifL_c * (1.0f + kdotnB);
   sinc_eta = safe_sinc ( eta );
@@ -673,7 +669,7 @@ static REAL4 safe_sinc ( REAL4 x )
   REAL4 sinx, cosx;
   if ( (x > SINC_SAFETY) || ( x < -SINC_SAFETY ) )
     {
-      sin_cos_LUT ( &sinx, &cosx, x );
+      XLAL_CHECK( XLALSinCosLUT ( &sinx, &cosx, x ) == XLAL_SUCCESS, XLAL_EFUNC );
       return (sinx / x );
     }
   else

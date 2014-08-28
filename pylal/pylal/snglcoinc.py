@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2010  Kipp Cannon, Drew G. Keppel, Jolien Creighton
+# Copyright (C) 2006--2013  Kipp Cannon, Drew G. Keppel, Jolien Creighton
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -31,6 +31,14 @@ Light Weight XML documents.
 
 
 import bisect
+try:
+	from fpconst import NaN, NegInf, PosInf
+except ImportError:
+	# fpconst is not part of the standard library and might not be
+	# available
+	NaN = float("nan")
+	NegInf = float("-inf")
+	PosInf = float("+inf")
 import itertools
 import math
 import numpy
@@ -42,15 +50,22 @@ except ImportError:
 	speed_of_light = float(speed_of_light)
 import scipy.optimize
 import sys
+import threading
+import warnings
 
 
 from glue import iterutils
 from glue import offsetvector
 from glue import segmentsUtils
-from glue.ligolw import table
+from glue.ligolw import ligolw
+from glue.ligolw import array as ligolw_array
+from glue.ligolw import param as ligolw_param
+from glue.ligolw import table as ligolw_table
 from glue.ligolw import lsctables
+from glue.text_progress_bar import ProgressBar
 from pylal import git_version
 from pylal import inject
+from pylal import rate
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -206,7 +221,7 @@ def make_eventlists(xmldoc, EventListType, event_table_name, process_ids = None)
 	the events, a maximum allowed time window, and the name of the
 	program that generated the events.
 	"""
-	return EventListDict(EventListType, table.get_table(xmldoc, event_table_name), process_ids = process_ids)
+	return EventListDict(EventListType, ligolw_table.get_table(xmldoc, event_table_name), process_ids = process_ids)
 
 
 #
@@ -284,8 +299,8 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 
 	try:
 		threshold_data = thresholds[(eventlista.instrument, eventlistb.instrument)]
-	except KeyError, e:
-		raise KeyError, "no coincidence thresholds provided for instrument pair %s, %s" % e.args[0]
+	except KeyError as e:
+		raise KeyError("no coincidence thresholds provided for instrument pair %s, %s" % e.args[0])
 	light_travel_time = inject.light_travel_time(eventlista.instrument, eventlistb.instrument)
 
 	# for each event in the shortest list
@@ -1408,3 +1423,616 @@ class TOATriangulator(object):
 
 		# done
 		return n, t0 + toa, chi2 / len(self.sigmas), dt
+
+
+#
+# =============================================================================
+#
+#                     Coincidence Parameter Distributions
+#
+# =============================================================================
+#
+
+
+#
+# A look-up table used to convert instrument names to powers of 2.  Why?
+# To create a bidirectional mapping between combinations of instrument
+# names and integers so we can use a pylal.rate style binning for the
+# instrument combinations.  This has to be used because pylal.rate's native
+# Categories binning cannot be serialized to XML.
+#
+# FIXME:  allow pylal.rate's Categories binning to be serialized to XML and
+# get rid of this crap
+#
+
+
+class InstrumentCategories(dict):
+	def __init__(self):
+		# FIXME:  we decided that the coherent and null stream
+		# naming convention would look like
+		#
+		# H1H2:LSC-STRAIN_HPLUS, H1H2:LSC-STRAIN_HNULL
+		#
+		# and so on.  i.e., the +, x and null streams from a
+		# coherent network would be different channels from a
+		# single instrument whose name would be the mash-up of the
+		# names of the instruments in the network.  that is
+		# inconsisntent with the "H1H2+", "H1H2-" shown here, so
+		# this needs to be fixed but I don't know how.  maybe it'll
+		# go away before it needs to be fixed.
+		self.update(dict((instrument, 1 << n) for n, instrument in enumerate(("G1", "H1", "H2", "H1H2+", "H1H2-", "L1", "V1"))))
+
+	def max(self):
+		return sum(self.values())
+
+	def category(self, instruments):
+		return sum(self[instrument] for instrument in instruments)
+
+	def instruments(self, category):
+		return set(instrument for instrument, factor in self.items() if category & factor)
+
+
+#
+# threading.Thread sub-class for filtering parameter distributions
+#
+
+
+class CoincParamsFilterThread(threading.Thread):
+	"""
+	For internal use by the CoincParamsDistributions class.
+	"""
+	# allow at most 5 threads
+	cpu = threading.Semaphore(5)
+	# allow at most one to update a progressbar
+	progresslock = threading.Lock()
+
+	def __init__(self, binnedarray, kernel, progressbar = None):
+		super(CoincParamsFilterThread, self).__init__()
+		self.binnedarray = binnedarray
+		self.kernel = kernel
+		self.progressbar = progressbar
+
+	def run(self):
+		with self.cpu:
+			if self.kernel is not None:
+				rate.filter_array(self.binnedarray.array, self.kernel)
+			self.binnedarray.to_pdf()
+		if self.progressbar is not None:
+			with self.progresslock:
+				self.progressbar.increment()
+
+
+#
+# A class for measuring parameter distributions
+#
+
+
+class CoincParamsDistributions(object):
+	"""
+	A class for histograming the parameters of coincidences (or of
+	single events).  It is assumed there is a fixed, pre-determined,
+	set of parameters that one wishes to histogram, and that each
+	parameter has a name.  To use this, it must be sub-classed and the
+	derived class must provide dictionaries of binnings and smoothing
+	filters.  The binnings is a dictionary mapping parameter names to
+	rate.NDBins instances describing the binning to be used for each
+	paramter.  The filters is a dictionary mapping parameter names to
+	numpy.ndarray instances that will be used to smooth bin count data
+	in the histograms.  Subclasses must also provide a .coinc_params()
+	static method that will transform a list of single-instrument
+	events into a dictionary mapping paramter name to parameter value.
+
+	This class maintains three sets of histograms, one set for noise
+	(or "background") events, one set for signal (or "injection")
+	events and one set for observed (or "zero lag") events.  The bin
+	counts are floating point values (not integers).
+	"""
+	#
+	# sub-classes may override the following
+	#
+
+	ligo_lw_name_suffix = u"pylal_snglcoinc_coincparamsdistributions"
+
+	#
+	# Default content handler for loading CoincParamsDistributions
+	# objects from XML documents
+	#
+
+	class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
+		pass
+	ligolw_array.use_in(LIGOLWContentHandler)
+	lsctables.use_in(LIGOLWContentHandler)
+	ligolw_param.use_in(LIGOLWContentHandler)
+
+	#
+	# sub-classes must override the following
+	#
+
+	binnings = {}
+
+	filters = {}
+
+	@staticmethod
+	def coinc_params(*args, **kwargs):
+		"""
+		Given a sequence of single-instrument events (rows from an
+		event table) that form a coincidence, compute and return a
+		dictionary mapping parameter name to parameter values,
+		suitable for being passed to one of the .add_*() methods.
+		This function may return None.
+		"""
+		raise NotImplementedError("subclass must implement .coinc_params() method")
+
+	#
+	# begin implementation
+	#
+
+	def __init__(self, process_id = None):
+		if not self.binnings:
+			raise NotImplementedError("subclass must provide dictionary of binnings")
+		self.zero_lag_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
+		self.background_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
+		self.injection_rates = dict((param, rate.BinnedArray(binning)) for param, binning in self.binnings.items())
+		self.zero_lag_pdf = {}
+		self.background_pdf = {}
+		self.injection_pdf = {}
+		self.zero_lag_pdf_interp = {}
+		self.background_pdf_interp = {}
+		self.injection_pdf_interp = {}
+		self.process_id = process_id
+
+	def _rebuild_interpolators(self):
+		"""
+		Initialize the interp dictionaries from the discretely
+		sampled PDF data.  For internal use only.
+		"""
+		self.zero_lag_pdf_interp.clear()
+		self.background_pdf_interp.clear()
+		self.injection_pdf_interp.clear()
+		for key, binnedarray in self.zero_lag_pdf.items():
+			self.zero_lag_pdf_interp[key] = rate.InterpBinnedArray(binnedarray)
+		for key, binnedarray in self.background_pdf.items():
+			self.background_pdf_interp[key] = rate.InterpBinnedArray(binnedarray)
+		for key, binnedarray in self.injection_pdf.items():
+			self.injection_pdf_interp[key] = rate.InterpBinnedArray(binnedarray)
+
+	@staticmethod
+	def addbinnedarrays(rate_target_dict, rate_source_dict, pdf_target_dict, pdf_source_dict):
+		"""
+		For internal use.
+		"""
+		weight_target = {}
+		weight_source = {}
+		for name, binnedarray in rate_source_dict.items():
+			if name in rate_target_dict:
+				weight_target[name] = rate_target_dict[name].array.sum()
+				weight_source[name] = rate_source_dict[name].array.sum()
+				rate_target_dict[name] += binnedarray
+			else:
+				rate_target_dict[name] = binnedarray.copy()
+		for name, binnedarray in pdf_source_dict.items():
+			if name in pdf_target_dict:
+				binnedarray = binnedarray.copy()
+				binnedarray.array *= weight_source[name]
+				pdf_target_dict[name].array *= weight_target[name]
+				pdf_target_dict[name] += binnedarray
+				pdf_target_dict[name].array /= weight_source[name] + weight_target[name]
+			else:
+				pdf_target_dict[name] = binnedarray.copy()
+
+	def __iadd__(self, other):
+		if type(other) != type(self):
+			raise TypeError(other)
+
+		self.addbinnedarrays(self.zero_lag_rates, other.zero_lag_rates, self.zero_lag_pdf, other.zero_lag_pdf)
+		self.addbinnedarrays(self.background_rates, other.background_rates, self.background_pdf, other.background_pdf)
+		self.addbinnedarrays(self.injection_rates, other.injection_rates, self.injection_pdf, other.injection_pdf)
+
+		#
+		# rebuild interpolators
+		#
+
+		self._rebuild_interpolators()
+
+		#
+		# done
+		#
+
+		return self
+
+	def copy(self):
+		new = type(self)(process_id = self.process_id)
+		new += self
+		return new
+
+	def add_zero_lag(self, param_dict, weight = 1.0):
+		"""
+		Increment a bin in one or more of the observed data (or
+		"zero lag") histograms by weight (default 1).  The names of
+		the histograms to increment, and the parameters identifying
+		the bin in each histogram, are given by the param_dict
+		dictionary.
+
+		The param_dict is allowed to be None.  Then this method is
+		a no-op.
+		"""
+		for param, value in (param_dict or {}).items():
+			try:
+				self.zero_lag_rates[param][value] += weight
+			except IndexError:
+				# param value out of range
+				pass
+
+	def add_background(self, param_dict, weight = 1.0):
+		"""
+		Increment a bin in one or more of the noise (or
+		"background") histograms by weight (default 1).  The names
+		of the histograms to increment, and the parameters
+		identifying the bin in each histogram, are given by the
+		param_dict dictionary.
+
+		The param_dict is allowed to be None.  Then this method is
+		a no-op.
+		"""
+		for param, value in (param_dict or {}).items():
+			try:
+				self.background_rates[param][value] += weight
+			except IndexError:
+				# param value out of range
+				pass
+
+	def add_injection(self, param_dict, weight = 1.0):
+		"""
+		Increment a bin in one or more of the signal (or
+		"injection") histograms by weight (default 1).  The names
+		of the histograms to increment, and the parameters
+		identifying the bin in each histogram, are given by the
+		param_dict dictionary.
+
+		The param_dict is allowed to be None.  Then this method is
+		a no-op.
+		"""
+		for param, value in (param_dict or {}).items():
+			try:
+				self.injection_rates[param][value] += weight
+			except IndexError:
+				# param value out of range
+				pass
+
+	def finish(self, verbose = False, filterthread = CoincParamsFilterThread):
+		"""
+		Populate the discrete PDF dictionaries from the contents of
+		the rates dictionaries, and then the PDF interpolator
+		dictionaries from the discrete PDFs.  The raw bin counts
+		from the rates dictionaries are copied verbatim, smoothed
+		using the dictionary of filters carried by this class
+		instance, and converted to normalized PDFs using the bin
+		volumes.  Finally the dictionary of PDF interpolators is
+		populated from the discretely sampled PDF data.
+		"""
+		#
+		# convert raw bin counts into normalized PDFs
+		#
+
+		self.zero_lag_pdf.clear()
+		self.background_pdf.clear()
+		self.injection_pdf.clear()
+		N = len(self.zero_lag_rates) + len(self.background_rates) + len(self.injection_rates)
+		threads = []
+		progressbar = ProgressBar(text = "Computing Parameter PDFs") if verbose else None
+		for key, (msg, rates_dict, pdf_dict) in itertools.chain(
+				zip(self.zero_lag_rates, itertools.repeat(("zero lag", self.zero_lag_rates, self.zero_lag_pdf))),
+				zip(self.background_rates, itertools.repeat(("background", self.background_rates, self.background_pdf))),
+				zip(self.injection_rates, itertools.repeat(("injections", self.injection_rates, self.injection_pdf)))
+		):
+			assert numpy.isfinite(rates_dict[key].array).all() and (rates_dict[key].array >= 0).all(), "%s %s counts are not valid" % (key, msg)
+			pdf_dict[key] = rates_dict[key].copy()
+			threads.append(filterthread(pdf_dict[key], self.filters[key] if key in self.filters else None, progressbar = progressbar))
+		if verbose:
+			progressbar.max = len(threads)
+			progressbar.show()
+		for thread in threads:
+			thread.start()
+		while threads:
+			threads.pop(0).join()
+
+		#
+		# rebuild interpolators
+		#
+
+		self._rebuild_interpolators()
+
+	def P_noise(self, params):
+		"""
+		From a parameter value dictionary as returned by
+		self.coinc_params(), compute and return the noise
+		probability density at that point in parameter space.  If
+		params is None, the return value is None.
+
+		The .finish() method must have been invoked before this
+		method does meaningful things.  No attempt is made to
+		ensure the .finish() method has been invoked nor, if it has
+		been invoked, that no manipulations have occured that might
+		require it to be re-invoked (e.g., the contents of the
+		parameter distributions have been modified and require
+		re-normalization).
+
+		This default implementation assumes the individual PDFs
+		containined in the noise dictionary are for
+		statistically-independent random variables, and computes
+		and returns their product.  Sub-classes that require more
+		sophisticated calculations can override this method.
+		"""
+		if params is None:
+			return None
+		# move attribute look-ups out of loop
+		__getitem__ = self.background_pdf_interp.__getitem__
+		P = 1.0
+		for name, value in params.items():
+			P *= __getitem__(name)(*value)
+		return P
+
+	def lnP_noise(self, *args, **kwargs):
+		"""
+		Return ln(self.P_noise).
+		"""
+		P = self.P_noise(*args, **kwargs)
+		try:
+			return math.log(P)
+		except ValueError:
+			return NegInf
+		except TypeError:
+			if P is None:
+				return None
+			raise
+
+	def P_signal(self, params):
+		"""
+		From a parameter value dictionary as returned by
+		self.coinc_params(), compute and return the signal
+		probability density at that point in parameter space.  If
+		params is None, the return value is None.
+
+		The .finish() method must have been invoked before this
+		method does meaningful things.  No attempt is made to
+		ensure the .finish() method has been invoked nor, if it has
+		been invoked, that no manipulations have occured that might
+		require it to be re-invoked (e.g., the contents of the
+		parameter distributions have been modified and require
+		re-normalization).
+
+		This default implementation assumes the individual PDFs
+		containined in the signal dictionary are for
+		statistically-independent random variables, and computes
+		and returns their product.  Sub-classes that require more
+		sophisticated calculations can override this method.
+		"""
+		if params is None:
+			return None
+		# move attribute look-ups out of loop
+		__getitem__ = self.injection_pdf_interp.__getitem__
+		P = 1.0
+		for name, value in params.items():
+			P *= __getitem__(name)(*value)
+		return P
+
+	def lnP_signal(self, *args, **kwargs):
+		"""
+		Return ln(self.P_signal).
+		"""
+		P = self.P_signal(*args, **kwargs)
+		try:
+			return math.log(P)
+		except ValueError:
+			return NegInf
+		except TypeError:
+			if P is None:
+				return None
+			raise
+
+	def get_xml_root(self, xml, name):
+		"""
+		Sub-classes can use this in their overrides of the
+		.from_xml() method to find the root element of the XML
+		serialization.
+		"""
+		name = u"%s:%s" % (name, self.ligo_lw_name_suffix)
+		xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == name]
+		if len(xml) != 1:
+			raise ValueError("XML tree must contain exactly one %s element named %s" % (ligolw.LIGO_LW.tagName, name))
+		return xml[0]
+
+	@classmethod
+	def from_xml(cls, xml, name):
+		"""
+		In the XML document tree rooted at xml, search for the
+		serialized CoincParamsDistributions object named name, and
+		deserialize it.  The return value is a two-element tuple.
+		The first element is the deserialized
+		CoincParamsDistributions object, the second is the process
+		ID recorded when it was written to XML.
+		"""
+		# create an instance
+		self = cls()
+
+		# find the root element of the XML serialization
+		xml = self.get_xml_root(xml, name)
+
+		# retrieve the process ID
+		self.process_id = ligolw_param.get_pyvalue(xml, u"process_id")
+
+		# reconstruct the BinnedArray objects
+		def reconstruct(xml, prefix, target_dict):
+			for name in [elem.Name.split(u":")[1] for elem in xml.childNodes if elem.Name.startswith(u"%s:" % prefix)]:
+				target_dict[str(name)] = rate.binned_array_from_xml(xml, u"%s:%s" % (prefix, name))
+		reconstruct(xml, u"zero_lag", self.zero_lag_rates)
+		reconstruct(xml, u"zero_lag_pdf", self.zero_lag_pdf)
+		reconstruct(xml, u"background", self.background_rates)
+		reconstruct(xml, u"background_pdf", self.background_pdf)
+		reconstruct(xml, u"injection", self.injection_rates)
+		reconstruct(xml, u"injection_pdf", self.injection_pdf)
+
+		#
+		# rebuild interpolators
+		#
+
+		self._rebuild_interpolators()
+
+		#
+		# done
+		#
+
+		return self
+
+	def to_xml(self, name):
+		"""
+		Serialize this CoincParamsDistributions object to an XML
+		fragment and return the root element of the resulting XML
+		tree.  The .process_id attribute of process will be
+		recorded in the serialized XML, and the object will be
+		given the name name.
+		"""
+		xml = ligolw.LIGO_LW({u"Name": u"%s:%s" % (name, self.ligo_lw_name_suffix)})
+		xml.appendChild(ligolw_param.new_param(u"process_id", u"ilwd:char", self.process_id))
+		def store(xml, prefix, source_dict):
+			for name, binnedarray in sorted(source_dict.items()):
+				xml.appendChild(rate.binned_array_to_xml(binnedarray, u"%s:%s" % (prefix, name)))
+		store(xml, u"zero_lag", self.zero_lag_rates)
+		store(xml, u"zero_lag_pdf", self.zero_lag_pdf)
+		store(xml, u"background", self.background_rates)
+		store(xml, u"background_pdf", self.background_pdf)
+		store(xml, u"injection", self.injection_rates)
+		store(xml, u"injection_pdf", self.injection_pdf)
+
+		return xml
+
+	@classmethod
+	def from_filenames(cls, filenames, name, verbose = False, contenthandler = None):
+		"""
+		Convenience function to deserialize
+		CoincParamsDistributions objects from a collection of XML
+		files and return their sum.  The return value is a
+		two-element tuple.  The first element is the deserialized
+		and summed CoincParamsDistributions object, the second is a
+		segmentlistdict indicating the interval of time spanned by
+		the out segments in the search_summary rows matching the
+		process IDs that were attached to the
+		CoincParamsDistributions objects in the XML.
+		"""
+		if contenthandler is None:
+			contenthandler = cls.LIGOLWContentHandler
+		self = None
+		for n, filename in enumerate(filenames):
+			if verbose:
+				print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+			xmldoc = utils.load_filename(filename, verbose = verbose, contenthandler = contenthandler)
+			if self is None:
+				self = cls.from_xml(xmldoc, name)
+				seglists = lsctables.SearchSummaryTable.get_table(xmldoc).get_out_segmentlistdict(set([self.process_id])).coalesce()
+			else:
+				other = cls.from_xml(xmldoc, name)
+				self += other
+				seglists |= lsctables.SearchSummaryTable.get_table(xmldoc).get_out_segmentlistdict(set([other.process_id])).coalesce()
+				del other
+			xmldoc.unlink()
+		return self, seglists
+
+
+#
+# Likelihood Ratio
+#
+
+
+# starting from Bayes' theorem:
+#
+# P(coinc is a g.w. | its parameters)
+#     P(those parameters | a coinc known to be a g.w.) * P(coinc is g.w.)
+#   = -------------------------------------------------------------------
+#                                P(parameters)
+#
+#     P(those parameters | a coinc known to be a g.w.) * P(coinc is g.w.)
+#   = -------------------------------------------------------------------
+#     P(noise params) * P(coinc is not g.w.) + P(inj params) * P(coinc is g.w.)
+#
+#                       P(inj params) * P(coinc is g.w.)
+#   = -------------------------------------------------------------------
+#     P(noise params) * [1 - P(coinc is g.w.)] + P(inj params) * P(coinc is g.w.)
+#
+#                        P(inj params) * P(coinc is g.w.)
+#   = ----------------------------------------------------------------------
+#     P(noise params) + [P(inj params) - P(noise params)] * P(coinc is g.w.)
+#
+# this last form above is used below to compute the LHS
+#
+#          [P(inj params) / P(noise params)] * P(coinc is g.w.)
+#   = --------------------------------------------------------------
+#     1 + [[P(inj params) / P(noise params)] - 1] * P(coinc is g.w.)
+#
+#          Lambda * P(coinc is g.w.)                       P(inj params)
+#   = -----------------------------------  where Lambda = ---------------
+#     1 + (Lambda - 1) * P(coinc is g.w.)                 P(noise params)
+#
+# Differentiating w.r.t. Lambda shows the derivative is always positive, so
+# thresholding on Lambda is equivalent to thresholding on P(coinc is a g.w.
+# | its parameters).  The limits:  Lambda=0 --> P(coinc is a g.w. | its
+# parameters)=0, Lambda=+inf --> P(coinc is a g.w. | its parameters)=1.  We
+# interpret Lambda=0/0 to mean P(coinc is a g.w. | its parameters)=0 since
+# although it can't be noise it's definitely not a g.w..  We do not protect
+# against NaNs in the Lambda = +inf/+inf case.
+
+
+class LikelihoodRatio(object):
+	"""
+	Class for computing signal hypothesis / noise hypothesis likelihood
+	ratios from the measurements in a
+	snglcoinc.CoincParamsDistributions instance.
+	"""
+	def __init__(self, coinc_param_distributions):
+		self.P_noise = coinc_param_distributions.P_noise
+		self.P_signal = coinc_param_distributions.P_signal
+
+	def __call__(self, *args, **kwargs):
+		"""
+		Compute the likelihood ratio for the hypothesis that the
+		list of events are the result of a gravitational wave.  The
+		likelihood ratio is the ratio P(inj params) / P(noise
+		params).  The probability that the events are the result of
+		a gravitiational wave is a monotonically increasing
+		function of the likelihood ratio, so ranking events from
+		"most like a gravitational wave" to "least like a
+		gravitational wave" can be performed by calculating the
+		likelihood ratios, which has the advantage of not requiring
+		a prior probability to be provided (knowing how many
+		gravitational waves you've actually detected).
+
+		The arguments are passed verbatim to the .P_noise and
+		.P_signal() methods of the
+		snglcoinc.CoincParamsDistributions instance with which this
+		object is associated.
+		"""
+		P_noise = self.P_noise(*args, **kwargs)
+		P_signal = self.P_signal(*args, **kwargs)
+		if P_noise is None and P_signal is None:
+			return None
+		if P_noise == 0.0 and P_signal == 0.0:
+			# "correct" answer is 0, not NaN, because if a
+			# tuple of events has been found in a region of
+			# parameter space where the probability of an
+			# injection occuring is 0 then there is no way this
+			# is an injection.  there is also, aparently, no
+			# way it's a noise event, which is puzzling, but
+			# that's irrelevant because we are supposed to be
+			# computing something that is a monotonically
+			# increasing function of the probability that an
+			# event tuple is a gravitational wave, which is 0
+			# in this part of the parameter space.
+			return 0.0
+		if math.isinf(P_noise) and math.isinf(P_signal):
+			warnings.warn("inf/inf encountered")
+			return NaN
+		try:
+			return  P_signal / P_noise
+		except ZeroDivisionError:
+			# P_noise == 0.0, P_signal != 0.0.  this is a
+			# "guaranteed detection", not a failure
+			return PosInf

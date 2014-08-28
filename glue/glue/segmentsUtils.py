@@ -123,11 +123,11 @@ def fromsegwizard(file, coltype = int, strict = True):
 	cannot be parsed (which is consumed).  The segmentlist will be
 	created with segment whose boundaries are of type coltype, which
 	should raise ValueError if it cannot convert its string argument.
-	Both two-column and four-column segwizard files are recognized, but
-	the entire file must be in the same format, which is decided by the
-	first parsed line.  If strict is True and the file is in
-	four-column format, then each segment's duration is checked against
-	that column in the input file.
+	Two-column, three-column, and four-column segwizard files are
+	recognized, but the entire file must be in the same format, which
+	is decided by the first parsed line.  If strict is True and the
+	file is in three- or four-column format, then each segment's
+	duration is checked against that column in the input file.
 
 	NOTE:  the output is a segmentlist as described by the file;  if
 	the segments in the input file are not coalesced or out of order,
@@ -136,6 +136,7 @@ def fromsegwizard(file, coltype = int, strict = True):
 	"""
 	commentpat = re.compile(r"\s*([#;].*)?\Z", re.DOTALL)
 	twocolsegpat = re.compile(r"\A\s*([\d.+-eE]+)\s+([\d.+-eE]+)\s*\Z")
+	threecolsegpat = re.compile(r"\A\s*([\d.+-eE]+)\s+([\d.+-eE]+)\s+([\d.+-eE]+)\s*\Z")
 	fourcolsegpat = re.compile(r"\A\s*([\d]+)\s+([\d.+-eE]+)\s+([\d.+-eE]+)\s+([\d.+-eE]+)\s*\Z")
 	format = None
 	l = segments.segmentlist()
@@ -151,19 +152,25 @@ def fromsegwizard(file, coltype = int, strict = True):
 			this_line_format = 4
 		except ValueError:
 			try:
-				[tokens] = twocolsegpat.findall(line)
+				[tokens] = threecolsegpat.findall(line)
 				seg = segments.segment(map(coltype, tokens[0:2]))
-				duration = abs(seg)
-				this_line_format = 2
+				duration = coltype(tokens[2])
+				this_line_format = 3
 			except ValueError:
-				break
+				try:
+					[tokens] = twocolsegpat.findall(line)
+					seg = segments.segment(map(coltype, tokens[0:2]))
+					duration = abs(seg)
+					this_line_format = 2
+				except ValueError:
+					break
 		if strict:
 			if abs(seg) != duration:
-				raise ValueError, "segment '%s' has incorrect duration" % line
+				raise ValueError("segment '%s' has incorrect duration" % line)
 			if format is None:
 				format = this_line_format
 			elif format != this_line_format:
-				raise ValueError, "segment '%s' format mismatch" % line
+				raise ValueError("segment '%s' format mismatch" % line)
 		l.append(seg)
 	return l
 
@@ -249,7 +256,7 @@ def from_range_strings(ranges, boundtype = int):
 			segs[i] = segments.segment(parts, parts)
 			continue
 		if len(parts) != 2:
-			raise ValueError, range
+			raise ValueError(range)
 		if parts[0] == "":
 			parts[0] = segments.NegInfinity
 		else:
@@ -294,7 +301,7 @@ def to_range_strings(seglist):
 		elif (seg[0] is not segments.NegInfinity) and (seg[1] is not segments.PosInfinity):
 			ranges[i] = "%s:%s" % (str(seg[0]), str(seg[1]))
 		else:
-			raise ValueError, seg
+			raise ValueError(seg)
 
 	# success
 	return ranges

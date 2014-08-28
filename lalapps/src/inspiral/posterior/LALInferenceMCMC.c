@@ -2,7 +2,7 @@
  *  LALInferenceMCMC.c:  Bayesian Followup function testing site
  *
  *  Copyright (C) 2011 Ilya Mandel, Vivien Raymond, Christian Roever,
- *  Marc van der Sluys, John Veitch and Will M. Farr
+ *  Marc van der Sluys, John Veitch, Will M. Farr, and Ben Farr
  *
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -94,7 +94,20 @@ void LALInferenceInitMCMCState(LALInferenceRunState *state)
   /* Initialize variable that will store the name of the last proposal function used */
   const char *initPropName = "INITNAME";
   LALInferenceAddVariable(state->proposalArgs, LALInferenceCurrentProposalName, &initPropName, LALINFERENCE_string_t, LALINFERENCE_PARAM_LINEAR);
-  
+
+  /* If using a malmquist prior, force a strict prior window on distance for starting point, otherwise
+   * the approximate prior draws are very unlikely to be within the malmquist prior */
+  REAL8 dist_low, dist_high;
+  REAL8 restricted_dist_low = 10.0;
+  REAL8 restricted_dist_high = 100.0;
+  INT4 changed_dist = 0;
+  if (LALInferenceCheckVariable(state->priorArgs, "malmquist") && LALInferenceCheckVariableNonFixed(currentParams, "distance")) {
+      changed_dist = 1;
+      LALInferenceGetMinMaxPrior(state->priorArgs, "distance", &dist_low, &dist_high);
+      LALInferenceRemoveMinMaxPrior(state->priorArgs, "distance");
+      LALInferenceAddMinMaxPrior(state->priorArgs, "distance", &restricted_dist_low, &restricted_dist_high, LALINFERENCE_REAL8_t);
+  }
+
   /* If the currentParams are not in the prior, overwrite and pick paramaters from the priors. OVERWRITE EVEN USER CHOICES.
    *     (necessary for complicated prior shapes where LALInferenceCyclicReflectiveBound() is not enough */
   while(state->prior(state, currentParams)<=-DBL_MAX){
@@ -109,6 +122,12 @@ void LALInferenceInitMCMCState(LALInferenceRunState *state)
    *     prior-supported volume. */
   LALInferenceCyclicReflectiveBound(currentParams, priorArgs);
   
+  /* Replace distance prior if changed for initial sample draw */
+  if (changed_dist) {
+      LALInferenceRemoveMinMaxPrior(state->priorArgs, "distance");
+      LALInferenceAddMinMaxPrior(state->priorArgs, "distance", &dist_low, &dist_high, LALINFERENCE_REAL8_t);
+  }
+
   /* Init covariance matrix, if specified.  The given file
    *     should contain the desired covariance matrix for the jump
    *     proposal, in row-major (i.e. C) order. */
@@ -234,6 +253,18 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
 {
   LALInferenceRunState *irs=NULL;
   LALInferenceIFOData *ifoPtr, *ifoListStart;
+  unsigned int n_basis, n_samples, time_steps;
+  n_basis = 965;//TODO: have it read from file or from command line.
+  
+  ProcessParamsTable *ppt=NULL;
+  FILE *tempfp;
+  if(LALInferenceGetProcParamVal(commandLine,"--roqtime_steps")){
+    ppt=LALInferenceGetProcParamVal(commandLine,"--roqtime_steps");
+    tempfp = fopen (ppt->value,"r");
+    fscanf (tempfp, "%u", &time_steps);
+    fscanf (tempfp, "%u", &n_basis);
+    fscanf (tempfp, "%u", &n_samples);
+  }  
 
   MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
 
@@ -254,6 +285,10 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
     LALInferenceInjectInspiralSignal(irs->data,commandLine);
     fprintf(stdout, " ==== LALInferenceInjectInspiralSignal(): finished. ====\n");
 
+    fprintf(stdout, " ==== LALInferenceSetupROQ(): started. ====\n");
+    LALInferenceSetupROQ(irs->data,commandLine);
+    fprintf(stdout, " ==== LALInferenceSetupROQ(): finished. ====\n");
+    
     ifoPtr = irs->data;
     ifoListStart = irs->data;
     while (ifoPtr != NULL) {
@@ -269,6 +304,12 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
           ifoPtr->timeModelhCross=ifoPtrCompare->timeModelhCross;
           ifoPtr->freqModelhCross=ifoPtrCompare->freqModelhCross;
           ifoPtr->modelParams=ifoPtrCompare->modelParams;
+          if (ifoPtr->roqData){
+            ifoPtr->roqData->hplus = ifoPtrCompare->roqData->hplus;
+            ifoPtr->roqData->hcross = ifoPtrCompare->roqData->hcross;
+            ifoPtr->roqData->hstrain = ifoPtrCompare->roqData->hstrain;
+            ifoPtr->roqData->amp_squared = ifoPtrCompare->roqData->amp_squared;
+          }
           foundIFOwithSameSampleRate=1;
           break;
         }
@@ -300,6 +341,12 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
                                                                      &lalDimensionlessUnit,
                                                                      ifoPtr->freqData->data->length);
         ifoPtr->modelParams = XLALCalloc(1, sizeof(LALInferenceVariables));
+        if (ifoPtr->roqData){
+          ifoPtr->roqData->hplus = gsl_vector_complex_calloc(n_basis);
+          ifoPtr->roqData->hcross = gsl_vector_complex_calloc(n_basis);
+          ifoPtr->roqData->hstrain = gsl_vector_complex_calloc(n_basis);
+          ifoPtr->roqData->amp_squared = XLALCalloc(1, sizeof(REAL8));
+        }
       }
       ifoPtr = ifoPtr->next;
     }
@@ -467,6 +514,7 @@ void initializeMCMC(LALInferenceRunState *runState)
 //    runState->likelihood=&LALInferenceTimeDomainLogLikelihood;
 //  } else
 
+  UINT4 malmquist = 0;
   if(LALInferenceGetProcParamVal(commandLine,"--skyLocPrior")){
     runState->prior=&LALInferenceInspiralSkyLocPrior;
   } else if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood") || 
@@ -476,10 +524,37 @@ void initializeMCMC(LALInferenceRunState *runState)
     runState->prior=&LALInferenceAnalyticNullPrior;
   } else if (LALInferenceGetProcParamVal(commandLine, "--nullprior")) {
     runState->prior=&LALInferenceNullPrior;
+  } else if (LALInferenceGetProcParamVal(commandLine, "--malmquistprior")) {
+    printf("Using malmquist prior.\n");
+    malmquist = 1;
+    LALInferenceAddVariable(runState->priorArgs, "malmquist", &malmquist, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+    runState->prior=&LALInferenceInspiralPrior;
   } else {
     runState->prior=&LALInferenceInspiralPriorNormalised;
   }
   //runState->prior=PTUniformGaussianPrior;
+
+  if (malmquist) {
+      REAL8 malmquist_loudest = 0.0;
+      REAL8 malmquist_second_loudest = 5.0;
+      REAL8 malmquist_network = 0.0;
+
+      ppt=LALInferenceGetProcParamVal(commandLine,"--malmquist-loudest-snr");
+      if(ppt)
+          malmquist_loudest = atof(ppt->value);
+
+      ppt=LALInferenceGetProcParamVal(commandLine,"--malmquist-second-loudest-snr");
+      if(ppt)
+          malmquist_second_loudest = atof(ppt->value);
+
+      ppt=LALInferenceGetProcParamVal(commandLine,"--malmquist-network-snr");
+      if(ppt)
+          malmquist_network = atof(ppt->value);
+
+      LALInferenceAddVariable(runState->priorArgs, "malmquist_loudest_snr", &malmquist_loudest, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+      LALInferenceAddVariable(runState->priorArgs, "malmquist_second_loudest_snr", &malmquist_second_loudest, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+      LALInferenceAddVariable(runState->priorArgs, "malmquist_network_snr", &malmquist_network, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  }
 
   ppt=LALInferenceGetProcParamVal(commandLine,"--verbose");
   if(ppt) {
@@ -802,7 +877,7 @@ int main(int argc, char *argv[]){
                           LALINFERENCE_PARAM_FIXED);
 
   /* Set up currentParams with variables to be used */
-  LALInferenceInitCBCVariables(runState);
+  runState->currentParams = LALInferenceInitCBCVariables(runState);
 
   /* Choose the likelihood */
   LALInferenceInitLikelihood(runState);

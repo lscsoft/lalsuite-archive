@@ -216,7 +216,7 @@ int main(int argc,char *argv[])
   procparams.processParamsTable = NULL;
   process.processTable = XLALCreateProcessTableRow();
   XLALGPSTimeNow(&(process.processTable->start_time));
-  if(XLALPopulateProcessTable(process.processTable, PROGRAM_NAME, LALAPPS_VCS_IDENT_ID, LALAPPS_VCS_IDENT_STATUS, LALAPPS_VCS_IDENT_DATE, 0))
+  if(XLALPopulateProcessTable(process.processTable, PROGRAM_NAME, lalAppsVCSIdentId, lalAppsVCSIdentStatus, lalAppsVCSIdentDate, 0))
     exit(1);
 
   /****** ReadCommandLine ******/
@@ -1024,9 +1024,11 @@ REAL8TimeSeries *ReadData(struct CommandLineArgsTag CLA){
       }
 
       /* cast to double precision */
-      ht = XLALCreateREAL8TimeSeries(ht_V->name, &ht_V->epoch, ht_V->f0, ht_V->deltaT, &ht_V->sampleUnits, ht_V->data->length);
-      for(p = 0; p < ht_V->data->length; p++)
-        ht->data->data[p] = ht_V->data->data[p];
+      ht = XLALConvertREAL4TimeSeriesToREAL8(ht_V);
+      if(!ht) {
+        XLALFrStreamClose(stream);
+        XLAL_ERROR_NULL(XLAL_EFUNC);
+      }
 
       /* clean up */
       XLALDestroyREAL4TimeSeries(ht_V);

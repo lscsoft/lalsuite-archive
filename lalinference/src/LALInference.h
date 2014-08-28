@@ -58,6 +58,7 @@
 #include <lal/Window.h>
 #include <lal/LALString.h>
 #include <lal/LALSimInspiral.h>
+#include <lal/LALSimInspiralWaveformCache.h>
 
 #include <lal/SFTutils.h>
 #include <lal/SFTfileIO.h>
@@ -79,6 +80,7 @@
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_statistics.h>
+#include <gsl/gsl_complex_math.h>
 #include <sys/time.h>
 
 //...other includes
@@ -466,7 +468,7 @@ tagLALInferenceIFOData
      model in freqModel... or timeModel....  When a jump is accepted,
      that value is copied into acceptedloglikelihood, which is the
      quantity that is actually output in the output files. */
-  REAL8                      nullloglikelihood, loglikelihood, acceptedloglikelihood; 
+  REAL8                      nullloglikelihood, loglikelihood, acceptedloglikelihood, currentSNR, acceptedSNR; 
   REAL8                      fPlus, fCross; /** Detector responses */
   REAL8                      timeshift;     /** What is this? */
   COMPLEX16FrequencySeries  *freqData,      /** Buffer for frequency domain data */
@@ -497,10 +499,30 @@ tagLALInferenceIFOData
   REAL8  injtime;
   INT4 template_counter;
   INT4 likelihood_counter;
+  LALSimInspiralWaveformFlags *waveFlags;   /** A pointer to the WF flag. Will store here tide and spin order, as well as frame */
+  LALSimInspiralWaveformCache *waveformCache;   /** Waveform cache */
+  struct tagLALInferenceROQData       *roqData; /** ROQ data */
   struct tagLALInferenceIFOData      *next;     /** A pointer to the next set of data for linked list */
   REAL8 currentSNR;
 
 } LALInferenceIFOData;
+/**
+ * Structure to contain Reduced Order Quadrature quantities
+ */
+typedef struct
+tagLALInferenceROQData
+{
+  gsl_matrix_complex *weights; /** weights for the likelihood: NOTE: needs to be stored from data read from command line */
+  gsl_vector_complex *hplus; /** waveform at frequency nodes. */
+  gsl_vector_complex *hcross;
+  gsl_vector_complex *hstrain;
+  gsl_vector         *frequencyNodes; /** empirical frequency nodes for the likelihood. NOTE: needs to be stored from data read from command line */
+  double int_f_7_over_3; /** /int_{fmin}^{fmax} df f^(-7/3)/psd...for <h|h> part of the likelihood */
+  //double *h_dot_h; /** <h|h> */
+  REAL8* amp_squared;
+  REAL8 trigtime;
+  REAL8 time_weights_width;
+} LALInferenceROQData;
 
 typedef struct 
 tagLALInferenceBestIFO

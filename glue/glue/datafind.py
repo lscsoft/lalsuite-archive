@@ -44,6 +44,7 @@ _url_prefix = "/LDR/services/data/v1"
 class GWDataFindHTTPConnection(httplib.HTTPConnection):
     """Connection to LIGO data replicator service using HTTP.
     """
+    LIGOTimeGPSType = lal.LIGOTimeGPS
     def __init__(self, host=None, **kwargs):
         """Connect to the LDR host using HTTPS. Default host is
         defined by the %s environment variable.
@@ -181,8 +182,9 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
             elif on_missing == "error":
                 raise RuntimeError("No files found!")
         # verify urltype is what we want
-        cache = lal.Cache(e for e in map(lal.CacheEntry.from_T050017, urllist)
-                          if not urltype or e.scheme == urltype)
+        cache = lal.Cache(e for e in
+                 [lal.CacheEntry.from_T050017(x, coltype=self.LIGOTimeGPSType)
+                  for x in urllist] if not urltype or e.scheme == urltype)
         return cache
 
     def find_latest(self, site, frametype, urltype=None, on_missing="warn"):
@@ -211,7 +213,8 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
                 sys.stderr.write("No files found!\n")
             elif on_missing == "error":
                 raise RuntimeError("No files found!")
-        return lal.Cache(map(lal.CacheEntry.from_T050017, urllist))
+        return lal.Cache([lal.CacheEntry.from_T050017(x,
+                         coltype=self.LIGOTimeGPSType) for x in urllist])
 
     def find_frame_urls(self, site, frametype, gpsstart, gpsend,
                         match=None, urltype=None, on_gaps="warn"):
@@ -246,7 +249,8 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
         response = self._requestresponse("GET", url)
         urllist  = decode(response.read())
 
-        out = lal.Cache(map(lal.CacheEntry.from_T050017, urllist))
+        out = lal.Cache([lal.CacheEntry.from_T050017(x,
+                         coltype=self.LIGOTimeGPSType) for x in urllist])
 
         if on_gaps == "ignore":
             return out

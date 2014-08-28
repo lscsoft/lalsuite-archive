@@ -3,7 +3,7 @@
 # Based on generateGitID.sh by Reinhard Prix
 #
 # Copyright (C) 2012-2013 Karl Wette <karl.wette@ligo.org>
-# Copyright (C) 2009-2013, Adam Mercer <adam.mercer@ligo.org>
+# Copyright (C) 2009-2014, Adam Mercer <adam.mercer@ligo.org>
 # Copyright (C) 2009,2010, Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>
 # Copyright (C) 2008,2009, John T. Whelan <john.whelan@ligo.org>
 # Copyright (C) 2008, Reinhard Prix <reinhard.ligo.org>
@@ -162,10 +162,10 @@ def get_vcs_info(repo_dir, git_path='git'):
 
   return info
 
-def generate_vcs_info(dst_file, src_file, git_path='git'):
+def generate_vcs_info(pkg_name, dst_file, src_file, git_path='git'):
   """
-  Generates a version info file 'dst_file' from a template 'src_file',
-  by running 'git_path' on the repository containing 'src_file'.
+  Generates a version info file 'dst_file' from a template 'src_file' for
+  'pkg_name', by running 'git_path' on the repository containing 'src_file'.
   Returns True if 'dst_file' was modified, False otherwise.
   """
 
@@ -182,7 +182,19 @@ def generate_vcs_info(dst_file, src_file, git_path='git'):
   info = get_vcs_info(repo_dir, git_path)
 
   # construct dictionary of replacements
+  if pkg_name.lower() == 'lalapps':
+    pkg_vcs_info_header = '%sVCSInfo.h' % pkg_name
+    pkg_config_header = 'config.h'
+  else:
+    pkg_vcs_info_header = 'lal/%sVCSInfo.h' % pkg_name
+    pkg_config_header = 'lal/%sConfig.h' % pkg_name
   replacements = {
+    '@PACKAGE_NAME@' : pkg_name,
+    '@PACKAGE_NAME_UCASE@' : pkg_name.upper(),
+    '@PACKAGE_NAME_LCASE@' : pkg_name.lower(),
+    '@PACKAGE_NAME_NOLAL@' : re.sub(r'^LAL', '', pkg_name),
+    '@PACKAGE_VCS_INFO_HEADER@' : pkg_vcs_info_header,
+    '@PACKAGE_CONFIG_HEADER@' : pkg_config_header,
     '@ID@' : info.id,
     '@DATE@' : info.date,
     '@BRANCH@' : info.branch,
@@ -224,7 +236,7 @@ def generate_vcs_info(dst_file, src_file, git_path='git'):
 if __name__ == "__main__":
 
   # usage information
-  usage = '%prog [--git-path=/path/to/git] [--am-v-gen=$(AM_V_GEN)] output_file source_file'
+  usage = '%prog [--git-path=/path/to/git] [--am-v-gen=$(AM_V_GEN)] package_name output_file source_file'
 
   # define option parser
   parser = optparse.OptionParser(usage=usage)
@@ -237,17 +249,18 @@ if __name__ == "__main__":
   am_v_gen = opts.am_v_gen
 
   # check for positional arguments
-  if (len(args) != 2):
+  if (len(args) != 3):
     parser.error('incorrect number of command line options specified')
-  dst_file = args[0]
-  src_file = args[1]
+  pkg_name = args[0]
+  dst_file = args[1]
+  src_file = args[2]
 
   # generate version info
-  modified = generate_vcs_info(dst_file, src_file, git_path)
+  modified = generate_vcs_info(pkg_name, dst_file, src_file, git_path)
 
   # print generation message
   if modified and len(am_v_gen) > 0:
     prefix = re.findall("[ ]*GEN[ ]*", am_v_gen)
-    print '%s %s' % (prefix[0], dst_file)
+    print('%s %s' % (prefix[0], dst_file))
 
 # vim: syntax=python tw=72 ts=2 et

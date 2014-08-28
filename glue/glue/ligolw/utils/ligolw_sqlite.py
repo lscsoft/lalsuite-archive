@@ -52,11 +52,6 @@ from .. import dbtables
 from .. import utils
 
 
-# FIXME: remove this hack when the SnglInspiralTable class uses the
-# standard ID generator by default.
-dbtables.lsctables.SnglInspiralTable.next_id = dbtables.lsctables.SnglInspiralID(0)
-
-
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
@@ -239,7 +234,7 @@ def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose 
 			# target database, and save in XML tree
 			#
 
-			name = dbtables.table.StripTableName(tbl.getAttribute("Name"))
+			name = tbl.Name
 			try:
 				cls = dbtables.TableByName[name]
 			except KeyError:

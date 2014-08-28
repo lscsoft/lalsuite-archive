@@ -1,20 +1,27 @@
 # -*- mode: autoconf; -*-
 # lalsuite_build.m4 - top level build macros
 #
-# serial 80
+# serial 90
 
 # not present in older versions of pkg.m4
 m4_pattern_allow([^PKG_CONFIG(_(PATH|LIBDIR|SYSROOT_DIR|ALLOW_SYSTEM_(CFLAGS|LIBS)))?$])
 m4_pattern_allow([^PKG_CONFIG_(DISABLE_UNINSTALLED|TOP_BUILD_DIR|DEBUG_SPEW)$])
 
 # forbid LALSUITE_... from appearing in output (./configure)
-m4_pattern_forbid([^_?LALSUITE_[A-Z_]+$])
+#m4_pattern_forbid([^_?LALSUITE_[A-Z_]+$])
 
 # list of user variables; see section 4.8.1 of the Autoconf manual
 m4_define([uvar_list],[CPPFLAGS CFLAGS CXXFLAGS FCFLAGS FFLAGS LDFLAGS])
 # prefix used to save/restore user variables in
 m4_define([uvar_orig_prefix],[lalsuite_uvar_])
 m4_define([uvar_prefix],uvar_orig_prefix)
+
+AC_DEFUN([LALSUITE_ARG_VAR],[
+  AC_ARG_VAR(LAL_DATA_PATH,[Location of LAL data files])
+  AC_ARG_VAR(LAL_OCTAVE_PATH,[Location of LAL octave files])
+  AC_ARG_VAR(LAL_PYTHON_PATH,[Location of LAL python files])
+  AC_ARG_VAR(LALSUITE_BUILD,[Set if part of lalsuite build])
+])
 
 m4_append([AC_INIT],[
   # just after AC_INIT:
@@ -23,30 +30,6 @@ m4_append([AC_INIT],[
     uvar_prefix[]uvar="${uvar}"
   ])
   m4_pushdef([uvar_prefix],uvar_prefix[]p_)
-])
-
-AC_DEFUN([_LALSUITE_PRE_PROG_COMPILERS],[
-  # $0: just before LALSUITE_PROG_COMPILERS:
-  # save current values of user variables, then unset them
-  m4_foreach_w([uvar],uvar_list,[
-    uvar_prefix[]uvar="${uvar}"
-    AS_UNSET(uvar)
-  ])
-  m4_pushdef([uvar_prefix],uvar_prefix[]p_)
-  # end $0
-])
-
-AC_DEFUN([_LALSUITE_POST_PROG_COMPILERS],[
-  # $0: just after LALSUITE_PROG_COMPILERS:
-  # save current values of user variables, as set
-  # during compiler configuration
-  m4_popdef([uvar_prefix])
-  m4_foreach_w([uvar],uvar_list,[
-    lalsuite_compiler_[]uvar="${uvar}"
-   _AS_ECHO_LOG([compiler configuration set uvar=${uvar}])
-    uvar="${uvar_prefix[]uvar}"
-  ])
-  # end $0
 ])
 
 m4_rename([AC_OUTPUT],[lalsuite_AC_OUTPUT])
@@ -60,7 +43,7 @@ AC_DEFUN([AC_OUTPUT],[
   # prepend compiler configuration e.g. CFLAGS to AM_CFLAGS,
   # then restore original user-supplied values of user variables
   m4_foreach_w([uvar],uvar_list,[
-    AC_SUBST(AM_[]uvar,"${lalsuite_compiler_[]uvar} ${AM_[]uvar} ${sys_[]uvar}")
+    AC_SUBST(AM_[]uvar,"${AM_[]uvar} ${sys_[]uvar}")
     uvar="${uvar_prefix[]uvar}"
   ])
   # call original AC_OUTPUT
@@ -98,6 +81,9 @@ AC_DEFUN([LALSUITE_POP_UVARS],[
 AC_DEFUN([LALSUITE_ADD_FLAGS],[
   # $0: prepend flags to AM_CPPFLAGS/AM_$1FLAGS/AM_LDFLAGS/LIBS,
   # and update values of CPPFLAGS/$1FLAGS/LDFLAGS for Autoconf tests
+  # - arg 1: prefix of the compiler flag variable, e.g. C for CFLAGS, CXX for CXXFLAGS
+  # - arg 2: compiler flags
+  # - arg 3: linker flags
   m4_ifval([$1],[m4_ifval([$2],[
     pre_AM_CPPFLAGS=
     pre_sys_CPPFLAGS=
@@ -182,6 +168,8 @@ AC_DEFUN([LALSUITE_ADD_FLAGS],[
 
 AC_DEFUN([LALSUITE_ADD_PATH],[
   # $0: prepend path to $1, removing duplicates, first value taking precedence
+  # - arg 1: name of path variable
+  # - arg 2: path to prepend
   tokens=$2
   tokens=`echo ${tokens} ${$1} | sed 's/:/ /g'`
   $1=
@@ -200,8 +188,8 @@ AC_DEFUN([LALSUITE_ADD_PATH],[
 ])
 
 AC_DEFUN([LALSUITE_CHECK_GIT_REPO],[
-  # check for git
-  AC_PATH_PROGS(GIT,[git],[false])
+  # $0: check for git
+  AC_PATH_PROGS([GIT],[git],[false])
   # check whether building from a git repository
   have_git_repo=no
   AS_IF([test "x${GIT}" != xfalse],[
@@ -215,21 +203,15 @@ AC_DEFUN([LALSUITE_CHECK_GIT_REPO],[
     AC_MSG_RESULT([${have_git_repo}])
   ])
   # conditional for git and building from a git repository
-  AM_CONDITIONAL(HAVE_GIT_REPO,[test "x${have_git_repo}" = xyes])
-  # command line for version information generation script
-  AM_COND_IF(HAVE_GIT_REPO,[
-    m4_pattern_allow([AM_DEFAULT_VERBOSITY])
-    m4_pattern_allow([AM_V_GEN])
-    AC_SUBST([genvcsinfo_],["\$(genvcsinfo_\$(AM_DEFAULT_VERBOSITY))"])
-    AC_SUBST([genvcsinfo_0],["--am-v-gen='\$(AM_V_GEN)'"])
-    GENERATE_VCS_INFO="\$(PYTHON) \$(top_srcdir)/../gnuscripts/generate_vcs_info.py --git-path='\$(GIT)' \$(genvcsinfo_\$(V))"
-  ],[GENERATE_VCS_INFO=false])
-  AC_SUBST(GENERATE_VCS_INFO)
+  AM_CONDITIONAL([HAVE_GIT_REPO],[test "x${have_git_repo}" = xyes])
+  # end $0
 ])
 
 AC_DEFUN([LALSUITE_VERSION_CONFIGURE_INFO],[
   # $0: define version/configure info
   m4_pushdef([uppercase],m4_translit(AC_PACKAGE_NAME, [a-z], [A-Z]))
+  m4_pushdef([lowercase],m4_translit(AC_PACKAGE_NAME, [A-Z], [a-z]))
+  m4_pushdef([withoutlal],m4_bpatsubst(AC_PACKAGE_NAME, [^LAL], []))
   version_major=`echo "$VERSION" | cut -d. -f1`
   version_minor=`echo "$VERSION" | cut -d. -f2`
   version_micro=`echo "$VERSION" | cut -d. -f3`
@@ -244,18 +226,25 @@ AC_DEFUN([LALSUITE_VERSION_CONFIGURE_INFO],[
   AC_DEFINE_UNQUOTED(uppercase[_VERSION_DEVEL],[$version_devel],AC_PACKAGE_NAME[ Version Devel Number])
   AC_SUBST([ac_configure_args])
   AC_SUBST([configure_date])
+  AC_SUBST([PACKAGE_NAME_UCASE],uppercase)
+  AC_SUBST([PACKAGE_NAME_LCASE],lowercase)
+  AC_SUBST([PACKAGE_NAME_NOLAL],withoutlal)
   m4_popdef([uppercase])
+  m4_popdef([lowercase])
+  m4_popdef([withoutlal])
   # end $0
 ])
 
 AC_DEFUN([LALSUITE_REQUIRE_CXX],[
-  # require a C++ compiler
+  # $0: require a C++ compiler
   lalsuite_require_cxx=true
+  # end $0
 ])
 
 AC_DEFUN([LALSUITE_REQUIRE_F77],[
-  # require an F77 compiler
+  # $0: require an F77 compiler
   lalsuite_require_f77=true
+  # end $0
 ])
 
 # because we want to conditionally decide whether to check for
@@ -269,7 +258,36 @@ m4_foreach([lang],[[C++],[Fortran 77],[Fortran]],[
   m4_defun([AC_LANG_PREPROC(]lang[)],[])
 ])
 
+AC_DEFUN([_LALSUITE_PRE_PROG_COMPILERS],[
+  # $0: just before LALSUITE_PROG_COMPILERS:
+  # save current values of user variables, then unset them
+  LALSUITE_PUSH_UVARS
+  LALSUITE_CLEAR_UVARS
+  # end $0
+])
+
+AC_DEFUN([_LALSUITE_POST_PROG_COMPILERS],[
+  # $0: just after LALSUITE_PROG_COMPILERS:
+  # save values of user variables set during compiler configuration,
+  # restore previous values of user variables, then add compiler values
+  # of user variables to then using LALSUITE_ADD_FLAGS
+  m4_foreach_w([uvar],uvar_list,[
+    lalsuite_compiler_[]uvar="${uvar}"
+  ])
+  LALSUITE_POP_UVARS
+  LALSUITE_ADD_FLAGS([C],[${lalsuite_compiler_CPPFLAGS} ${lalsuite_compiler_CFLAGS}],[${lalsuite_compiler_LDFLAGS}])
+  AS_IF([test "${lalsuite_require_cxx}" = true],[
+    LALSUITE_ADD_FLAGS([CXX],[${lalsuite_compiler_CXXFLAGS}],[])
+  ])
+  AS_IF([test "${lalsuite_require_f77}" = true],[
+    LALSUITE_ADD_FLAGS([FC],[${lalsuite_compiler_FCFLAGS}],[])
+    LALSUITE_ADD_FLAGS([F],[${lalsuite_compiler_FFLAGS}],[])
+  ])
+  # end $0
+])
+
 AC_DEFUN([LALSUITE_PROG_COMPILERS],[
+  # $0: check for C/C++/Fortran compilers
   AC_REQUIRE([_LALSUITE_PRE_PROG_COMPILERS])
 
   # check for C99 compiler
@@ -314,36 +332,79 @@ AC_DEFUN([LALSUITE_PROG_COMPILERS],[
   # end $0
 ])
 
-AC_DEFUN([LALSUITE_USE_LIBTOOL],
-[## $0: Generate a libtool script for use in configure tests
-AC_REQUIRE([LT_INIT])
-LT_OUTPUT
-m4_append([AC_LANG(C)],
-[ac_link="./libtool --mode=link --tag=CC $ac_link"
-])[]dnl
-AC_PROVIDE_IFELSE([AC_PROG_CXX],
-[m4_append([AC_LANG(C++)],
-[ac_link="./libtool --mode=link --tag=CXX $ac_link"
-])])[]dnl
-AC_LANG(_AC_LANG)[]dnl
-]) # LALSUITE_USE_LIBTOOL
+AC_DEFUN([LALSUITE_REQUIRE_PYTHON],[
+  # $0: require Python version $1 or later
+  AS_IF([test "x${lalsuite_require_pyvers}" = x],[
+    lalsuite_require_pyvers="$1"
+  ],[
+    AS_VERSION_COMPARE([${lalsuite_require_pyvers}],[$1],[
+      lalsuite_require_pyvers="$1"
+    ])
+  ])
+  # end $0
+])
 
-AC_DEFUN([LALSUITE_MULTILIB_LIBTOOL_HACK],
-[## $0: libtool incorrectly determine library path on SL6
-case "${host}" in
-  x86_64-*-linux-gnu*)
-    case `cat /etc/redhat-release 2> /dev/null` in
-      "Scientific Linux"*|"CentOS"*)
-        AC_MSG_NOTICE([hacking round broken libtool multilib support on RedHat systems])
-        lt_cv_sys_lib_dlsearch_path_spec="/lib64 /usr/lib64"
-        ;;
-    esac
-    ;;
-esac
-]) # LALSUITE_MULTILIB_LIBTOOL_HACK
+AC_DEFUN([LALSUITE_CHECK_PYTHON],[
+  # $0: check for Python
+  lalsuite_pyvers="$1"
+  AS_IF([test "x${lalsuite_require_pyvers}" != x],[
+    AS_VERSION_COMPARE([${lalsuite_pyvers}],[${lalsuite_require_pyvers}],[
+      lalsuite_pyvers="${lalsuite_require_pyvers}"
+    ])
+  ])
+  AS_IF([test "x${PYTHON}" != xfalse],[
+    AM_PATH_PYTHON([${lalsuite_pyvers}],,[
+      AS_IF([test "x${lalsuite_require_pyvers}" = x],[
+        PYTHON=false
+      ],[
+        AC_MSG_ERROR([Python version ${lalsuite_pyvers} or higher is required])
+      ])
+    ])
+  ])
+  AM_CONDITIONAL([HAVE_PYTHON],[test "x${PYTHON}" != xfalse])
+  AM_COND_IF([HAVE_PYTHON],[
+    AC_SUBST([python_prefix], [`${PYTHON} -c 'import sys; print(sys.prefix)' 2>/dev/null`])
+    AC_SUBST([python_exec_prefix], [`${PYTHON} -c 'import sys; print(sys.exec_prefix)' 2>/dev/null`])
+    PYTHON_ENABLE_VAL=ENABLED
+  ],[
+    PYTHON_ENABLE_VAL=DISABLED
+  ])
+  # end $0
+])
 
-# store configure flags for 'make distcheck'
+AC_DEFUN([LALSUITE_USE_LIBTOOL],[
+  # $0: Generate a libtool script for use in configure tests
+  AC_REQUIRE([LT_INIT])
+  LT_OUTPUT
+  m4_append([AC_LANG(C)],[
+    ac_link="./libtool --mode=link --tag=CC $ac_link"
+  ])
+  AC_PROVIDE_IFELSE([AC_PROG_CXX],[
+    m4_append([AC_LANG(C++)],[
+      ac_link="./libtool --mode=link --tag=CXX $ac_link"
+    ])
+  ])
+  AC_LANG(_AC_LANG)
+  # end $0
+])
+
+AC_DEFUN([LALSUITE_MULTILIB_LIBTOOL_HACK],[
+  # $0: libtool incorrectly determine library path on SL6
+  case "${host}" in
+    x86_64-*-linux-gnu*)
+      case `cat /etc/redhat-release 2> /dev/null` in
+        "Scientific Linux"*|"CentOS"*)
+          AC_MSG_NOTICE([hacking round broken libtool multilib support on RedHat systems])
+          lt_cv_sys_lib_dlsearch_path_spec="/lib64 /usr/lib64"
+          ;;
+      esac
+      ;;
+  esac
+  # end $0
+])
+
 AC_DEFUN([LALSUITE_DISTCHECK_CONFIGURE_FLAGS],[
+  # $0: store configure flags for 'make distcheck'
   DISTCHECK_CONFIGURE_FLAGS=
   for arg in ${ac_configure_args}; do
     case ${arg} in
@@ -365,6 +426,7 @@ AC_DEFUN([LALSUITE_DISTCHECK_CONFIGURE_FLAGS],[
     esac
   done
   AC_SUBST(DISTCHECK_CONFIGURE_FLAGS)
+  # end $0
 ])
 
 AC_DEFUN([LALSUITE_ENABLE_MODULE],[
@@ -385,94 +447,76 @@ AC_DEFUN([LALSUITE_ENABLE_MODULE],[
 
 AC_DEFUN([LALSUITE_CHECK_LIB],[
   # $0: check for LAL library
-  AC_REQUIRE([PKG_PROG_PKG_CONFIG])
+  # - arg 1: name of LAL library
+  # - arg 2: minimum version required
+  # - arg 3: library function to check for
+  # - arg 4: library header to check for
   m4_pushdef([lowercase],m4_translit([[$1]], [A-Z], [a-z]))
   m4_pushdef([uppercase],m4_translit([[$1]], [a-z], [A-Z]))
-
-  # build pkg-config library name and version
-  lal_pkg="lowercase[] >= $2"
 
   # substitute required library version in pkg-config files
   AC_SUBST(uppercase[]_VERSION,[$2])
 
   # set up pkg-config environment
-  export PKG_CONFIG_PATH
-  AS_UNSET([PKG_CONFIG_DISABLE_UNINSTALLED])
   AS_UNSET([PKG_CONFIG_ALLOW_SYSTEM_CFLAGS])
   AS_UNSET([PKG_CONFIG_ALLOW_SYSTEM_LIBS])
 
-  # check for $1
-  AC_MSG_CHECKING([for ${lal_pkg}])
-  lal_pkg_errors=`${PKG_CONFIG} --print-errors --cflags "${lal_pkg}" 2>&1 >/dev/null`
-  AS_IF([test "x${lal_pkg_errors}" = x],[
-    lowercase=true
-    AC_MSG_RESULT([yes])
+  # prepend to CFLAGS, CPPFLAGS, LDFLAGS, LIBS, LAL_DATA_PATH, LAL_OCTAVE_PATH, LAL_PYTHON_PATH
+  PKG_CHECK_MODULES(uppercase, [lowercase >= $2], [lowercase="true"], [lowercase="false"])
+  PKG_CHECK_VAR(uppercase[]_DATA_PATH, [lowercase >= $2], uppercase[]_DATA_PATH,,)
+  PKG_CHECK_VAR(uppercase[]_OCTAVE_PATH, [lowercase >= $2], uppercase[]_OCTAVE_PATH,,)
+  PKG_CHECK_VAR(uppercase[]_PYTHON_PATH, [lowercase >= $2], uppercase[]_PYTHON_PATH,,)
+  if test "$lowercase" = "true"; then
+    LALSUITE_ADD_FLAGS([C],$[]uppercase[]_CFLAGS,$[]uppercase[]_LIBS)
+    LALSUITE_ADD_PATH(LAL_DATA_PATH,"$[]uppercase[]_DATA_PATH")
+    LALSUITE_ADD_PATH(LAL_OCTAVE_PATH,"$[]uppercase[]_OCTAVE_PATH")
+    LALSUITE_ADD_PATH(LAL_PYTHON_PATH,"$[]uppercase[]_PYTHON_PATH")
+  fi
 
-    # define that we have $1 in the configuration header
-    AC_DEFINE([HAVE_LIB]uppercase,[1],[Define to 1 if you have the $1 library])
-
-    # add $1 to list of LALSuite libraries
-    lalsuite_libs="${lalsuite_libs} lowercase"
-
-    # add $1 compiler and linker flags to CPPFLAGS/CFLAGS/LDFLAGS/LIBS
-    LALSUITE_ADD_FLAGS([C],[`${PKG_CONFIG} --cflags "${lal_pkg}"`],[`${PKG_CONFIG} --libs "${lal_pkg}"`])
-
-    # add system include flags to LAL_SYSTEM_INCLUDES: get $1 include flags with system flags,
-    # then add any flags not already in CPPFLAGS or LAL_SYSTEM_INCLUDES to LAL_SYSTEM_INCLUDES
+  # add system include flags to LAL_SYSTEM_INCLUDES
+  if test -n "$PKG_CONFIG"; then
+    # use pkg-config to get system paths
     PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1
     export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS
-    for flag in `${PKG_CONFIG} --cflags-only-I "${lal_pkg}"`; do
-      AS_CASE([" ${CPPFLAGS} ${LAL_SYSTEM_INCLUDES} "],
+    for flag in `$PKG_CONFIG --cflags-only-I "lowercase >= $2"`; do
+      AS_CASE([" $CPPFLAGS $LAL_SYSTEM_INCLUDES "],
         [*" ${flag} "*],[:],
-        [LAL_SYSTEM_INCLUDES="${LAL_SYSTEM_INCLUDES} ${flag}"]
+        [LAL_SYSTEM_INCLUDES="$LAL_SYSTEM_INCLUDES $flag"]
       )
     done
     AS_UNSET([PKG_CONFIG_ALLOW_SYSTEM_CFLAGS])
-    AC_SUBST([LAL_SYSTEM_INCLUDES])
+  else
+    # use standard include paths
+    save_IFS="$IFS"
+    IFS=:
+    for flag in "$C_INCLUDE_PATH:CPLUS_INCLUDE_PATH:/usr/include" ; do
+      test -n "$flag" && flag="-I$flag"
+      AS_CASE([" $CPPFLAGS $LAL_SYSTEM_INCLUDES "],
+        [*" ${flag} "*],[:],
+        [LAL_SYSTEM_INCLUDES="$LAL_SYSTEM_INCLUDES $flag"]
+      )
+    done
+    IFS="$save_IFS"
+  fi
+  AC_SUBST([LAL_SYSTEM_INCLUDES])
 
-    # add $1 data path to LAL_DATA_PATH
-    LALSUITE_ADD_PATH(LAL_DATA_PATH,`${PKG_CONFIG} --variable=LAL_DATA_PATH "${lal_pkg}"`)
-    AC_SUBST([LAL_DATA_PATH])
-
-    # add $1 Octave extension path to LAL_OCTAVE_PATH
-    LALSUITE_ADD_PATH(LAL_OCTAVE_PATH,`${PKG_CONFIG} --variable=LAL_OCTAVE_PATH "${lal_pkg}"`)
-    AC_SUBST([LAL_OCTAVE_PATH])
-
-    # add $1 Python extension path to LAL_PYTHON_PATH
-    LALSUITE_ADD_PATH(LAL_PYTHON_PATH,`${PKG_CONFIG} --variable=LAL_PYTHON_PATH "${lal_pkg}"`)
-    AC_SUBST([LAL_PYTHON_PATH])
-
-    AS_IF([${PKG_CONFIG} --uninstalled "${lal_pkg}"],[
-
-      # if $1 is not installed, add .pc.in file to ./config.status dependencies
-      lal_pkg_pcin_dir=`${PKG_CONFIG} --variable=abs_top_srcdir "${lal_pkg}"`
-      lal_pkg_pcin_file="${lal_pkg_pcin_dir}/lowercase[]-uninstalled.pc.in"
-      AS_IF([test ! -f "${lal_pkg_pcin_file}"],[
-        AC_MSG_ERROR([could not find file ${lal_pkg_pcin_file}])
-      ])
-      CONFIG_STATUS_DEPENDENCIES="${CONFIG_STATUS_DEPENDENCIES} ${lal_pkg_pcin_file}"
-      AC_SUBST([CONFIG_STATUS_DEPENDENCIES])
-
-    ],[
-
-      # if $1 is installed, check linking, headers, and VCS info consistency
-      AC_CHECK_LIB(lowercase,[$3],[:],[AC_MSG_ERROR([could not link against the $1 library])])
-      AC_CHECK_HEADERS([$4],[:],[AC_MSG_ERROR([could not find the $1 header $4])])
-      AS_IF([test x`${PKG_CONFIG} --variable=no_header_library_mismatch_check "${lal_pkg}"` != xyes],[
-        LALSUITE_HEADER_LIBRARY_MISMATCH_CHECK([$1])
-      ])
-
-    ])
-
-  ],[
-    lowercase=false
-    AC_MSG_RESULT([no])
-    AC_MSG_ERROR([could not find the $1 library
-
-${lal_pkg_errors}
-])
-  ])
-
+  if test "$LALSUITE_BUILD" = "true"; then
+    if test "$lowercase" = "false"; then
+      # should never get here: bug in build system
+      AC_MSG_ERROR([could not find the $1 library])
+    fi
+  else
+    AC_CHECK_LIB(lowercase,[$3],,[AC_MSG_ERROR([could not find the $1 library])])
+    AC_CHECK_HEADERS([$4],,[AC_MSG_ERROR([could not find the $4 header])])
+    if test "$1" != "LALSupport"; then
+      LALSUITE_HEADER_LIBRARY_MISMATCH_CHECK([$1])
+    fi
+  fi
+  AC_DEFINE([HAVE_LIB]uppercase,[1],[Define to 1 if you have the $1 library])
+  # add $1 to list of LALSuite libraries
+  lalsuite_libs="${lalsuite_libs} lowercase"
+  lowercase="true"
+  LALSUITE_ENABLE_MODULE($1)
   m4_popdef([lowercase])
   m4_popdef([uppercase])
   # end $0
@@ -480,6 +524,10 @@ ${lal_pkg_errors}
 
 AC_DEFUN([LALSUITE_CHECK_OPT_LIB],[
   # $0: check for optional LAL library
+  # - arg 1: name of LAL library
+  # - arg 2: minimum version required
+  # - arg 3: library function to check for
+  # - arg 4: library header to check for
   m4_pushdef([lowercase],m4_translit([[$1]], [A-Z], [a-z]))
   m4_pushdef([uppercase],m4_translit([[$1]], [a-z], [A-Z]))
 
@@ -497,29 +545,26 @@ AC_DEFUN([LALSUITE_CHECK_OPT_LIB],[
 ])
 
 AC_DEFUN([LALSUITE_HEADER_LIBRARY_MISMATCH_CHECK],[
-AC_MSG_CHECKING([whether $1 headers match the library])
-lib_structure=`echo $1 | sed 's/LAL/lal/'`VCSInfo
-header_structure=`echo $1 | sed 's/LAL/lal/'`HeaderVCSInfo
-AC_RUN_IFELSE(
-  [AC_LANG_SOURCE([[
+  # $0: check for version mismatch between library $1 and its headers
+  AC_MSG_CHECKING([whether $1 headers match the library])
+  lib_structure=`echo $1 | sed 's/LAL/lal/'`VCSInfo
+  header_structure=`echo $1 | sed 's/LAL/lal/'`VCSInfoHeader
+  AC_RUN_IFELSE([
+    AC_LANG_SOURCE([[
 #include <string.h>
 #include <stdlib.h>
-#include <lal/$1VCSInfo.h>
+#include <lal/$1VCSInfoHeader.h>
 int main(void) { exit(XLALVCSInfoCompare(&$lib_structure, &$header_structure) ? 1 : 0); }
-  ]])],
-  [
+    ]])
+  ],[
     AC_MSG_RESULT(yes)
-  ],
-  [
+  ],[
     AC_MSG_RESULT(no)
-    AC_MSG_ERROR([Your $1 headers do not match your
-library. Check config.log for details.
-])
-  ],
-  [
+    AC_MSG_ERROR([Your $1 headers do not match your library. Check config.log for details.])
+  ],[
     AC_MSG_WARN([cross compiling: not checking])
-  ]
-)
+  ])
+  # end $0
 ])
 
 AC_DEFUN([LALSUITE_CHECK_LIBRARY_FOR_SUPPORT],[
@@ -831,17 +876,62 @@ AC_ARG_WITH(
   LALSUITE_ENABLE_MODULE([CUDA])
 ])
 
-AC_DEFUN([LALSUITE_ENABLE_FAST_GSL],
-[AC_ARG_ENABLE(
-  [fast_gsl],
-  AC_HELP_STRING([--enable-fast-gsl],[enable fast/inline GSL code [default=no]]),
-  AS_CASE(["${enableval}"],
-    [yes],[AC_DEFINE([HAVE_INLINE],[1],[Define to 1 to use inline code])
-           AC_DEFINE([GSL_C99_INLINE],[1],[Define to 1 to use GSL C99 inline code])
-           AC_DEFINE([GSL_RANGE_CHECK_OFF],[1],[Define to 1 to turn GSL range checking off])],
-    [no],,
-    AC_MSG_ERROR([bad value ${enableval} for --enable-fast-gsl]))
+
+AC_DEFUN([LALSUITE_CHECK_GSL_VERSION],[
+  # $0: check for GSL version
+  lal_min_gsl_version=m4_normalize([$1])
+  AC_MSG_CHECKING(for GSL version >= $lal_min_gsl_version)
+  AC_TRY_RUN([
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <gsl/gsl_version.h>
+int main(void)
+{
+  int required_major, required_minor;
+  int major, minor;
+  char required_version[] = "$lal_min_gsl_version";
+  char version[] = GSL_VERSION;
+  if ( strcmp(GSL_VERSION, gsl_version) ) {
+    printf("error\n*** mismatch between header and library versions of GSL\n" );
+    printf("\n*** header  has version %s\n", GSL_VERSION);
+    printf("\n*** library has version %s\n", gsl_version);
+    exit(1);
+  }
+  sscanf(required_version, "%d.%d", &required_major, &required_minor);
+  sscanf(version, "%d.%d", &major, &minor);
+  if ( major < required_major || (major == required_major && minor < required_minor) ) {
+    printf("no\n*** found version %s of GSL but minimum version is %d.%d\n", GSL_VERSION, required_major, required_minor );
+    exit(1);
+  }
+  return 0;
+}
+  ],[
+    AC_MSG_RESULT([yes])
+  ],[
+    AC_MSG_ERROR([could not find required version of GSL])
+  ],[
+    AC_MSG_WARN([cross compiling; assumed OK...])
+  ])
+  # end $0
+])
+
+AC_DEFUN([LALSUITE_ENABLE_FAST_GSL],[
+  # $0: enable/disable fast/inline GSL code
+  AC_ARG_ENABLE(
+    [fast_gsl],
+    AC_HELP_STRING([--enable-fast-gsl],[enable fast/inline GSL code [default=no]]),
+    AS_CASE(["${enableval}"],
+      [yes],[
+        AC_DEFINE([HAVE_INLINE],[1],[Define to 1 to use inline code])
+        AC_DEFINE([GSL_C99_INLINE],[1],[Define to 1 to use GSL C99 inline code])
+        AC_DEFINE([GSL_RANGE_CHECK_OFF],[1],[Define to 1 to turn GSL range checking off])
+      ],
+      [no],[:],
+      AC_MSG_ERROR([bad value ${enableval} for --enable-fast-gsl])
+    )
   )
+  # end $0
 ])
 
 AC_DEFUN([LALSUITE_ENABLE_OSX_VERSION_CHECK],
@@ -865,8 +955,8 @@ AS_IF([test "x${osx_version_check}" = "xtrue"],[
       MACOSX_VERSION=`$SW_VERS -productVersion`
       AC_MSG_RESULT([$MACOSX_VERSION])])
     AS_CASE(["$MACOSX_VERSION"],
-      [10.0*|10.1*|10.2*|10.3*],AC_MSG_ERROR([This version of Mac OS X is not supported]),
-      [10.4*|10.5*|10.6*|10.7*|10.8*|10.9*],,
+      [10.0*|10.1|10.1.*|10.2*|10.3*],AC_MSG_ERROR([This version of Mac OS X is not supported]),
+      [10.4*|10.5*|10.6*|10.7*|10.8*|10.9*|10.10*],,
       AC_MSG_WARN([Unknown Mac OS X version]))
 ])])])
 

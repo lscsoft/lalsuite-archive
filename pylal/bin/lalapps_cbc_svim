@@ -417,21 +417,25 @@ class upper_limit(object):
       tag = "%s-VOLUME_DERIVATIVE_FIT" % ("".join(sorted(list(instruments))),)
       coeffs = upper_limit_utils.log_volume_derivative_fit(numpy.log(fans), vtmp)
       volDeriv[mbin] = coeffs[0]/FAN
+
       if self.opts.verbose:
         print >> sys.stdout, "mass bin %s" %str(mbin)
         print >> sys.stdout, "vols = ", vtmp
         print >> sys.stdout, "\tLambda = d logV/d FAN = %f" % (volDeriv[mbin],)
 
-      if vtmp.max() == 0: continue
-      pyplot.errorbar(fans,vtmp,yerr=v2tmp,color='k')
-      pyplot.plot(fans,numpy.exp(coeffs[0]*numpy.log(fans)+coeffs[1]),lw=2,label="%s\nlambda=%.3f"%(label,volDeriv[mbin],))
+      if vtmp.max() == 0:
+        print >> sys.stdout, "All estimated volumes were zero for", bin_type, "bin", str(mbin), "in", tag
+        print >> sys.stdout, "- not making a plot!"
+        continue
 
+      pyplot.errorbar(fans,vtmp,yerr=v2tmp,color='k')
+      pyplot.plot(fans,numpy.exp(coeffs[0]*numpy.log(fans)+coeffs[1]),lw=2,label="%s\nLambda=%.3f"%(label,volDeriv[mbin],))
       pyplot.legend(loc="lower left")
       pyplot.xlabel("FAN")
       pyplot.ylabel("VT")
-      pyplot.title("Volume Derivative at the FAN=%.3f"%FAN)
-      #pyplot.gca().set_xscale("log", nonposx='clip')
-      #pyplot.gca().set_yscale("log", nonposy='clip')
+      pyplot.title("Volume derivative at FAN = %.3f" % FAN)
+      pyplot.gca().set_xscale("log", nonposx='clip')
+      pyplot.gca().set_yscale("log", nonposy='clip')
       name = InspiralUtils.set_figure_tag(tag+"_BIN_"+str(j), open_box = opts.open_box)
       fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
       fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
@@ -773,8 +777,8 @@ if opts.plot_volume_vs_far:
             pyplot.figure(1)
             pyplot.axvline(UL.far[instr],ls='--',c='k')
             tag = "%s-VOLUME_VS_FAR_BINNED_BY_%s_%s" % ("".join(sorted(list(instr))),bin_type.upper(),opts.user_tag)
-            pyplot.xlabel("False Alarm Rate ($yr^{-1}$)")
-            pyplot.ylabel("Mean Sensitive 4-Volume ($Mpc^3 yr$)")
+            pyplot.xlabel("False Alarm Rate (yr$^{-1}$)")
+            pyplot.ylabel("Mean Sensitive 4-Volume (Mpc$^3\,$yr)")
             pyplot.semilogx()
             pyplot.grid()
             pyplot.xlim(min(fars), max(fars))
@@ -786,8 +790,8 @@ if opts.plot_volume_vs_far:
             pyplot.figure(2)
             pyplot.axvline(UL.far[instr],ls='--',c='k')
             tag = "%s-RANGE_VS_FAR_BINNED_BY_%s_%s" % ("".join(sorted(list(instr))),bin_type.upper(),opts.user_tag)
-            pyplot.xlabel("False Alarm Rate ($yr^{-1}$)")
-            pyplot.ylabel("Mean Sensitive Distance ($Mpc$)")
+            pyplot.xlabel("False Alarm Rate (yr$^{-1}$)")
+            pyplot.ylabel("Mean Sensitive Distance (Mpc)")
             pyplot.semilogx()
             pyplot.grid()
             pyplot.xlim(min(fars), max(fars))

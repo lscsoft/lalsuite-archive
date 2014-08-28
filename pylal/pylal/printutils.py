@@ -819,10 +819,14 @@ def printmissed(connection, simulation_table, recovery_table, map_label, livetim
     usertags = set(usertag[0] for usertag in connection.cursor().execute(sqlquery) )
     
     # Get the single-ifo science segments after CAT-1 vetoes
-    if "FULL_DATA" in usertags:
+    try:
+        if "FULL_DATA" in usertags:
+            tag = "FULL_DATA"
+        else:
+            tag = list(usertags)[0]
+    except IndexError:
+        # This is hacky anyway, so let's just take a guess
         tag = "FULL_DATA"
-    else:
-        tag = list(usertags)[0]
     ifo_segments = compute_dur.get_single_ifo_segments(connection, program_name = livetime_program, usertag = tag)
     if ifo_segments == {}:
         raise ValueError, "Cannot find any analysis segments using %s as a livetime program; cannot get missed injections." % livetime_program

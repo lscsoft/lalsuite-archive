@@ -1,259 +1,327 @@
-/*
- * Copyright (C) 2005 Reinhard Prix
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with with program; see the file COPYING. If not, write to the
- *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- *  MA  02111-1307  USA
- */
-#ifndef _COMPUTEFSTAT_H  /* Double-include protection. */
+//
+// Copyright (C) 2012, 2013, 2014 David Keitel, Bernd Machenschalk, Reinhard Prix, Karl Wette
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with with program; see the file COPYING. If not, write to the
+// Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+// MA  02111-1307  USA
+//
+
+#ifndef _COMPUTEFSTAT_H
 #define _COMPUTEFSTAT_H
 
-/* C++ protection. */
+#include <lal/LALStdlib.h>
+#include <lal/PulsarDataTypes.h>
+#include <lal/LALComputeAM.h>
+#include <lal/ComplexAM.h>
+#include <lal/SSBtimes.h>
+#include <lal/CWMakeFakeData.h>
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-/**
- * \defgroup ComputeFstat_h Header ComputeFstat.h
- * \ingroup pkg_pulsarCoh
- * \author Reinhard Prix
- * \date 2005
- * \brief Header-file defining the API for the F-statistic functions.
- *
- * This code is (partly) a descendant of an earlier implementation found in
- * LALDemod.[ch] by Jolien Creighton, Maria Alessandra Papa, Reinhard Prix, Steve Berukoff, Xavier Siemens, Bruce Allen
- * ComputSky.[ch] by Jolien Creighton, Reinhard Prix, Steve Berukoff
- * LALComputeAM.[ch] by Jolien Creighton, Maria Alessandra Papa, Reinhard Prix, Steve Berukoff, Xavier Siemens
- *
- */
-/*@{*/
+///
+/// \defgroup ComputeFstat_h Header ComputeFstat.h
+/// \ingroup pkg_pulsarCoh
+/// \authors Badri Krishnan, Bernd Machenschalk, Chris Messenger, David Keitel, Holger Pletsch,
+///          John T. Whelan, Karl Wette, Pinkesh Patel, Reinhard Prix, Xavier Siemens
+///
+/// \brief The \f$\mathcal{F}\f$-statistic.
+///
+/// This module provides a API for computing the \f$\mathcal{F}\f$-statistic \cite JKS98, using
+/// various different methods.  All data required to compute the \f$\mathcal{F}\f$-statistic are
+/// contained in the opaque structure \c FstatInput, which is shared by all methods. A function
+/// XLALCreateFstatInput() is provided for creating an \c FstatInput structure configured
+/// for the particular method.  The \c FstatInput structure is passed to the function
+/// XLALComputeFstat(), which computes the \f$\mathcal{F}\f$-statistic using the chosen method, and
+/// fills a \c FstatResults structure with the results.
+///
+/// \note The \f$\mathcal{F}\f$-statistic method codes are partly descended from earlier
+/// implementations found in:
+/// - <tt>LALDemod.[ch]</tt> by Jolien Creighton, Maria Alessandra Papa, Reinhard Prix, Steve
+///   Berukoff, Xavier Siemens, Bruce Allen
+/// - <tt>ComputeSky.[ch]</tt> by Jolien Creighton, Reinhard Prix, Steve Berukoff
+/// - <tt>LALComputeAM.[ch]</tt> by Jolien Creighton, Maria Alessandra Papa, Reinhard Prix, Steve
+///   Berukoff, Xavier Siemens
+/// - <tt>ComputeFStatistic_resamp.c</tt> by Pinkesh Patel, Xavier Siemens, Reinhard Prix, Iraj
+///   Gholami, Yousuke Itoh, Maria Alessandra Papa
+///
 
-/*---------- exported INCLUDES ----------*/
-#include <lal/LALComputeAM.h>
-#include <lal/ComplexAM.h>
+// @{
 
-#include <lal/PulsarDataTypes.h>
-#include <lal/DetectorStates.h>
-#include <gsl/gsl_vector.h>
+///
+/// XLALComputeFstat() input data structure. Encapsulates all data, buffers, etc. used by the
+/// \f$\mathcal{F}\f$-statistic methods.
+///
+typedef struct tagFstatInput FstatInput;
 
-/*---------- exported DEFINES ----------*/
+///
+/// A vector of XLALComputeFstat() input data structures, for e.g. computing the
+/// \f$\mathcal{F}\f$-statistic for multiple segments.
+///
+typedef struct tagFstatInputVector {
+#ifdef SWIG // SWIG interface directives
+  SWIGLAL(ARRAY_1D(FstatInputVector, FstatInput*, data, UINT4, length));
+#endif // SWIG
+  UINT4 length;                     ///< Number of elements in array.
+  FstatInput **data;                ///< Pointer to the data array.
+} FstatInputVector;
 
-/** \name Error codes */
-/*@{*/
-#define COMPUTEFSTATC_ENULL 		1
-#define COMPUTEFSTATC_ENONULL 		2
-#define COMPUTEFSTATC_EINPUT   		3
-#define COMPUTEFSTATC_EMEM   		4
-#define COMPUTEFSTATC_EXLAL		5
-#define COMPUTEFSTATC_EIEEE		6
+///
+/// Bit-field of \f$\mathcal{F}\f$-statistic quantities which can be computed by XLALComputeFstat().
+/// Not all options are supported by all \f$\mathcal{F}\f$-statistic methods.
+///
+typedef enum tagFstatQuantities {
+  FSTATQ_NONE           = 0x00,
+  FSTATQ_2F             = 0x01,         ///< Compute multi-detector \f$2\mathcal{F}\f$.
+  FSTATQ_FAFB           = 0x02,         ///< Compute multi-detector \f$F_a\f$ and \f$F_b\f$.
+  FSTATQ_2F_PER_DET     = 0x04,         ///< Compute \f$2\mathcal{F}\f$ for each detector.
+  FSTATQ_FAFB_PER_DET   = 0x08,         ///< Compute \f$F_a\f$ and \f$F_b\f$ for each detector.
+  FSTATQ_ATOMS_PER_DET  = 0x10,         ///< Compute per-SFT \f$\mathcal{F}\f$-statistic atoms for each detector (\a Demod only).
+  FSTATQ_LAST           = 0x20
+} FstatQuantities;
 
-#define COMPUTEFSTATC_MSGENULL 		"Arguments contained an unexpected null pointer"
-#define COMPUTEFSTATC_MSGENONULL 	"Output pointer is non-NULL"
-#define COMPUTEFSTATC_MSGEINPUT   	"Invalid input"
-#define COMPUTEFSTATC_MSGEMEM   	"Out of memory. Bad."
-#define COMPUTEFSTATC_MSGEXLAL		"XLAL function call failed"
-#define COMPUTEFSTATC_MSGEIEEE		"Floating point failure"
-/*@}*/
+///
+/// Different methods available to compute the F-statistic, falling into two broad classes:
+/// * \a Demod: Dirichlet kernel-based demodulation \cite Williams1999
+/// * \a Resamp: FFT-based resampling \cite JKS98
+///
+typedef enum tagFstatMethodType {
 
-/*---------- exported types ----------*/
+  /// \cond DONT_DOXYGEN
+  // Overall/demod start marker; set to 1 to allow range-check without warnings
+  FMETHOD_START = 1, FMETHOD_DEMOD_START = FMETHOD_START,
+  /// \endcond
 
-/**
- * Simple container for two REAL8-vectors, namely the SSB-timings DeltaT_alpha  and Tdot_alpha,
- * with one entry per SFT-timestamp. These are required input for XLALNewDemod().
- * We also store the SSB reference-time tau0.
- */
-typedef struct tagSSBtimes {
-  LIGOTimeGPS refTime;		/**< reference-time 'tau0' */
-  REAL8Vector *DeltaT;		/**< Time-difference of SFT-alpha - tau0 in SSB-frame */
-  REAL8Vector *Tdot;		/**< dT/dt : time-derivative of SSB-time wrt local time for SFT-alpha */
-} SSBtimes;
+  FMETHOD_DEMOD_GENERIC,	///< \a Demod: generic C hotloop, works for any number of Dirichlet kernel terms \f$\text{Dterms}\f$
+  FMETHOD_DEMOD_OPTC,		///< \a Demod: gptimized C hotloop using Akos' algorithm, only works for \f$\text{Dterms} \lesssim 20\f$
+  FMETHOD_DEMOD_SSE,		///< \a Demod: SSE hotloop with precalc divisors, uses fixed \f$\text{Dterms} = 8\f$
+  FMETHOD_DEMOD_ALTIVEC,	///< \a Demod: Altivec hotloop variant, uses fixed \f$\text{Dterms} = 8\f$
 
-/** Multi-IFO container for SSB timings */
-typedef struct tagMultiSSBtimes {
-  UINT4 length;		/**< number of IFOs */
-  SSBtimes **data;	/**< array of SSBtimes (pointers) */
-} MultiSSBtimes;
+  /// \cond DONT_DOXYGEN
+  // Demod end marker, resamp start marker
+  FMETHOD_DEMOD_END, FMETHOD_RESAMP_START = FMETHOD_DEMOD_END,
+  /// \endcond
 
-/** one F-statistic 'atom', ie the elementary per-SFT quantities required to compute F, for one detector X */
+  FMETHOD_RESAMP_GENERIC,	///< \a Resamp: generic implementation
+
+  /// \cond DONT_DOXYGEN
+  // Resamp/overall end marker
+  FMETHOD_RESAMP_END, FMETHOD_END = FMETHOD_RESAMP_END
+  /// \endcond
+
+} FstatMethodType;
+
+///
+/// Determine if #FstatMethodType value \c x belongs to the \a Demod class
+///
+#define XLALFstatMethodClassIsDemod(x)  ( ((x) > FMETHOD_DEMOD_START )  && ((x) < FMETHOD_DEMOD_END ) )
+
+///
+/// Determine if #FstatMethodType value \c x belongs to the \a Resamp class
+///
+#define XLALFstatMethodClassIsResamp(x) ( ((x) > FMETHOD_RESAMP_START ) && ((x) < FMETHOD_RESAMP_END ) )
+
+///
+/// Provide a 'best guess' of the fastest available \a Demod method variant. Useful as a user default value.
+///
+extern const int FMETHOD_DEMOD_BEST;
+
+///
+/// Provide a 'best guess' of the fastest available \a Resamp method variant. Useful as a user default value.
+///
+extern const int FMETHOD_RESAMP_BEST;
+
+///
+/// Struct for collecting 'lower-level' tuning and method-specific parameters to be passed to the
+/// \f$\mathcal{F}\f$-statistic setup function.
+///
+typedef struct tagFstatExtraParams {
+  UINT4 randSeed;                 ///< Random-number seed value used for fake Gaussian noise generation.
+  SSBprecision SSBprec;           ///< Barycentric transformation precision.
+  UINT4 Dterms;                   ///< Number of Dirichlet kernel terms, used by some \a Demod methods; see #FstatMethodType
+} FstatExtraParams;
+
+///
+/// An \f$\mathcal{F}\f$-statistic 'atom', i.e. the elementary per-SFT quantities required to compute the
+/// \f$\mathcal{F}\f$-statistic, for one detector X.
+///
 typedef struct tagFstatAtom {
-  UINT4 timestamp;		/**< SFT GPS timestamp t_i in seconds */
-  REAL8 a2_alpha;		/**< antenna-pattern factor a^2(X,t_i) */
-  REAL8 b2_alpha;		/**< antenna-pattern factor b^2(X,t_i) */
-  REAL8 ab_alpha;		/**< antenna-pattern factor a*b(X,t_i) */
-  COMPLEX8 Fa_alpha;		/**< Fa^X(t_i) */
-  COMPLEX8 Fb_alpha;		/**< Fb^X(t_i) */
+  UINT4 timestamp;                      ///< SFT GPS timestamp \f$t_i\f$ in seconds.
+  REAL4 a2_alpha;                       ///< Antenna-pattern factor \f$a^2(X,t_i)\f$.
+  REAL4 b2_alpha;                       ///< Antenna-pattern factor \f$b^2(X,t_i)\f$.
+  REAL4 ab_alpha;                       ///< Antenna-pattern factor \f$a*b(X,t_i)\f$.
+  COMPLEX8 Fa_alpha;                    ///< \f$Fa^X(t_i)\f$.
+  COMPLEX8 Fb_alpha;                    ///< \f$Fb^X(t_i)\f$.
 } FstatAtom;
 
-/** vector of F-statistic 'atoms', ie all per-SFT quantities required to compute F, for one detector X */
+///
+/// A vector of \f$\mathcal{F}\f$-statistic 'atoms', i.e. all per-SFT quantities required to compute
+/// the \f$\mathcal{F}\f$-statistic, for one detector X.
+///
 typedef struct tagFstatAtomVector {
-  UINT4 length;			/**< number of per-SFT 'atoms' */
-  FstatAtom *data;		/** FstatAtoms array of given length */
-  UINT4 TAtom;			/**< time-baseline of F-stat atoms (typically Tsft) */
+#ifdef SWIG // SWIG interface directives
+  SWIGLAL(ARRAY_1D(FstatAtomVector, FstatAtom, data, UINT4, length));
+#endif // SWIG
+  UINT4 length;                         ///< Number of per-SFT 'atoms'.
+  FstatAtom *data;                      ///< Array of #FstatAtom pointers of given length.
+  UINT4 TAtom;                          ///< Time-baseline of 'atoms', typically \f$T_{\mathrm{sft}}\f$.
 } FstatAtomVector;
 
-/** multi-detector version of FstatAtoms type */
+///
+/// A multi-detector vector of #FstatAtomVector.
+///
 typedef struct tagMultiFstatAtomVector {
-  UINT4 length;			/**< number of detectors */
-  FstatAtomVector **data;	/**< array of FstatAtom (pointers), one for each detector X */
+#ifdef SWIG // SWIG interface directives
+  SWIGLAL(ARRAY_1D(MultiFstatAtomVector, FstatAtomVector*, data, UINT4, length));
+#endif // SWIG
+  UINT4 length;                         ///< Number of detectors.
+  FstatAtomVector **data;               ///< Array of #FstatAtomVector pointers, one for each detector X.
 } MultiFstatAtomVector;
 
-/** Type containing F-statistic proper plus the two complex amplitudes Fa and Fb (for ML-estimators) */
-typedef struct tagFcomponents {
-  REAL8 F;				/**< F-statistic value */
-  REAL8 FX[PULSAR_MAX_DETECTORS];		/**< vector of single-detector F-statistic values (array of fixed size) */
-  UINT4 numDetectors;			/**< number of detectors = effective vector length. numDetectors=0 should make all code ignore the FX field. */
-  LIGOTimeGPS refTime;			/**< 'internal' refTime used to compute the F-statistic: only relevant for phase of complex amplitudes {Fa,Fb} */
-  COMPLEX16 Fa;				/**< complex amplitude Fa */
-  COMPLEX16 Fb;				/**< complex amplitude Fb */
-  MultiFstatAtomVector *multiFstatAtoms;/**< per-IFO, per-SFT arrays of F-stat 'atoms', ie quantities required to compute F-stat */
-} Fcomponents;
+///
+/// XLALComputeFstat() computed results structure.
+///
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(IMMUTABLE_MEMBERS(tagFstatResults, internalalloclen));
+SWIGLAL(ARRAY_MULTIPLE_LENGTHS(tagFstatResults, numFreqBins, numDetectors));
+#endif // SWIG
+typedef struct tagFstatResults {
 
-/** The precision in calculating the barycentric transformation */
-typedef enum {
-  SSBPREC_NEWTONIAN,		/**< simple Newtonian: \f$\tau = t + \vec{r}\cdot\vec{n}/c\f$ */
-  SSBPREC_RELATIVISTIC,		/**< detailed relativistic: \f$\tau=\tau(t; \vec{n}, \vec{r})\f$ */
-  SSBPREC_RELATIVISTICOPT,  	/**< optimized relativistic, numerically equivalent to #SSBPREC_RELATIVISTIC, but faster */
-  SSBPREC_LAST			/**< end marker */
-} SSBprecision;
+  /// Doppler parameters, including the starting frequency, at which the \f$2\mathcal{F}\f$ were
+  /// computed.
+  PulsarDopplerParams doppler;
 
-/** [opaque] type holding a ComputeFBuffer for use in the resampling F-stat codes */
-typedef struct tagComputeFBuffer_RS ComputeFBuffer_RS;
+  /// Spacing in frequency between each computed \f$\mathcal{F}\f$-statistic.
+  REAL8 dFreq;
 
-/** Extra parameters controlling the actual computation of F */
-typedef struct tagComputeFParams {
-  UINT4 Dterms;		/**< how many terms to keep in the Dirichlet kernel (~16 is usually fine) */
-  REAL8 upsampling;	/**< frequency-upsampling applied to SFTs ==> dFreq != 1/Tsft ... */
-  SSBprecision SSBprec; /**< whether to use full relativist SSB-timing, or just simple Newtonian */
-  BOOLEAN useRAA;        /**< whether to use the frequency- and sky-position-dependent rigid adiabatic response tensor and not just the long-wavelength approximation */
-  BOOLEAN bufferedRAA;	/**< approximate RAA by assuming constant response over (small) frequency band */
-  ComputeFBuffer_RS *buffer; /**< buffer for storing pre-resampled timeseries (used for resampling implementation) */
-  const EphemerisData *edat;   /**< ephemeris data for re-computing multidetector states */
-  BOOLEAN returnAtoms;	/**< whether or not to return the 'FstatAtoms' used to compute the F-statistic */
-  BOOLEAN returnSingleF; /**< in multi-detector case, whether or not to also return the single-detector Fstats computed from the atoms */
-} ComputeFParams;
+  /// Number of frequencies at which the \f$2\mathcal{F}\f$ were computed.
+  UINT4 numFreqBins;
 
+  /// Number of detectors over which the \f$2\mathcal{F}\f$ were computed.  Valid range is 1 to
+  /// #PULSAR_MAX_DETECTORS.
+  UINT4 numDetectors;
 
-/**
- * Struct holding buffered ComputeFStat()-internal quantities to avoid unnecessarily
- * recomputing things that depend ONLY on the skyposition and detector-state series (but not on the spins).
- * For the first call of ComputeFStat() the pointer-entries should all be NULL.
- */
-typedef struct tagComputeFBuffer {
-  const MultiDetectorStateSeries *multiDetStates;/**< buffer for each detStates (store pointer) and skypos */
-  REAL8 Alpha, Delta;				/**< skyposition of candidate */
-  MultiSSBtimes *multiSSB;
-  MultiSSBtimes *multiBinary;
-  MultiAMCoeffs *multiAMcoef;
-  MultiCmplxAMCoeffs *multiCmplxAMcoef;
-} ComputeFBuffer;
+  /// Names of detectors over which the \f$2\mathcal{F}\f$ were computed.  Valid range is 1 to
+  /// #PULSAR_MAX_DETECTORS.
+  CHAR detectorNames[PULSAR_MAX_DETECTORS][3];
 
-  /** Struct containing vectors of multi- and single-IFO F-stats over a frequency range and full search parameter info in dopplerParams */
-typedef struct tagMultiFstatFrequencySeries {
-  PulsarDopplerParams doppler;	/**< full info about {sky position, fkdot, refTime, .. and *frequency band*} for which these F values are computed */
-  REAL4Vector *F;		/**< 1D array of multi-IFO  F-stat values over {frequencies} */
-  REAL4VectorSequence *FX;	/**< 2D array of single-IFO F-stat values over {detectors, frequencies}, ordered as (det1bin1,det1bin2,..,det1binN,det2bin1,...detMbinN) */
-} MultiFstatFrequencySeries;
+  /// Antenna pattern matrix \f$M_{\mu\nu}\f$, used in computing \f$2\mathcal{F}\f$.
+  AntennaPatternMatrix Mmunu;
 
-/* macro to index arrays in the MultiFstatFrequencySeries->FX structure */
-#define FX_INDEX(FX, iDet, iFreq)          \
-  ( ( (iDet) * (FX)->vectorLength ) + (iFreq) )
+  /// Bit-field of which \f$\mathcal{F}\f$-statistic quantities were computed.
+  FstatQuantities whatWasComputed;
 
-/*---------- exported Global variables ----------*/
-/* empty init-structs for the types defined in here */
-extern const SSBtimes empty_SSBtimes;
-extern const MultiSSBtimes empty_MultiSSBtimes;
-extern const Fcomponents empty_Fcomponents;
-extern const ComputeFParams empty_ComputeFParams;
-extern const ComputeFBuffer empty_ComputeFBuffer;
+  /// If #whatWasComputed & FSTATQ_2F is true, the multi-detector \f$2\mathcal{F}\f$ values computed
+  /// at #numFreqBins frequencies spaced #dFreq apart.  This array should not be accessed if
+  /// #whatWasComputed & FSTATQ_2F is false.
+#ifdef SWIG // SWIG interface directives
+  SWIGLAL(ARRAY_1D(FstatResults, REAL4, twoF, UINT4, numFreqBins));
+#endif // SWIG
+  REAL4 *twoF;
 
-/*---------- exported prototypes [API] ----------*/
-int
-XLALComputeFaFb ( Fcomponents *FaFb,
-		  const SFTVector *sfts,
-		  const PulsarSpins fkdot,
-		  const SSBtimes *tSSB,
-		  const AMCoeffs *amcoe,
-		  const ComputeFParams *params);
+  /// If #whatWasComputed & FSTATQ_PARTS is true, the multi-detector \f$F_a\f$ and \f$F_b\f$
+  /// computed at #numFreqBins frequencies spaced #dFreq apart.  This array should not be accessed
+  /// if #whatWasComputed & FSTATQ_PARTS is false.
+#ifdef SWIG // SWIG interface directives
+  SWIGLAL(ARRAY_1D(FstatResults, COMPLEX8, Fa, UINT4, numFreqBins));
+  SWIGLAL(ARRAY_1D(FstatResults, COMPLEX8, Fb, UINT4, numFreqBins));
+#endif // SWIG
+  COMPLEX8 *Fa;
+  COMPLEX8 *Fb;
 
-int
-XLALComputeFaFbXavie ( Fcomponents *FaFb,
-		       const SFTVector *sfts,
-		       const PulsarSpins fkdot,
-		       const SSBtimes *tSSB,
-		       const AMCoeffs *amcoe,
-		       const ComputeFParams *params);
-int
-XLALComputeFaFbCmplx ( Fcomponents *FaFb,
-		       const SFTVector *sfts,
-		       const PulsarSpins fkdot,
-		       const SSBtimes *tSSB,
-		       const CmplxAMCoeffs *amcoe,
-		       const ComputeFParams *params);
+  /// If #whatWasComputed & FSTATQ_2F_PER_DET is true, the \f$2\mathcal{F}\f$ values computed at
+  /// #numFreqBins frequencies spaced #dFreq apart, and for #numDetectors detectors.  Only the first
+  /// #numDetectors entries will be valid.  This array should not be accessed if #whatWasComputed &
+  /// FSTATQ_2F_PER_DET is false.
+#ifdef SWIG // SWIG interface directives
+  SWIGLAL(ARRAY_1D_PTR_1D(FstatResults, REAL4, twoFPerDet, UINT4, numDetectors, numFreqBins));
+#endif // SWIG
+  REAL4 *twoFPerDet[PULSAR_MAX_DETECTORS];
 
-int XLALAddBinaryTimes ( SSBtimes **tSSBOut, const SSBtimes *tSSBIn, const BinaryOrbitParams *binaryparams );
-int XLALAddMultiBinaryTimes ( MultiSSBtimes **multiSSBOut, const MultiSSBtimes *multiSSBIn, const BinaryOrbitParams *binaryparams );
-SSBtimes *XLALDuplicateSSBtimes ( const SSBtimes *tSSB );
-MultiSSBtimes *XLALDuplicateMultiSSBtimes ( const MultiSSBtimes *multiSSB );
+  /// If #whatWasComputed & FSTATQ_PARTS_PER_DET is true, the \f$F_a\f$ and \f$F_b\f$ values
+  /// computed at #numFreqBins frequencies spaced #dFreq apart, and for #numDetectors detectors.
+  /// This array should not be accessed if #whatWasComputed & FSTATQ_PARTS_PER_DET is false.
+#ifdef SWIG // SWIG interface directives
+  SWIGLAL(ARRAY_1D_PTR_1D(FstatResults, COMPLEX8, FaPerDet, UINT4, numDetectors, numFreqBins));
+  SWIGLAL(ARRAY_1D_PTR_1D(FstatResults, COMPLEX8, FaPerDet, UINT4, numDetectors, numFreqBins));
+#endif // SWIG
+  COMPLEX8 *FaPerDet[PULSAR_MAX_DETECTORS];
+  COMPLEX8 *FbPerDet[PULSAR_MAX_DETECTORS];
 
-SSBtimes *XLALGetSSBtimes ( const DetectorStateSeries *DetectorStates, SkyPosition pos, LIGOTimeGPS refTime, SSBprecision precision );
-MultiSSBtimes *XLALGetMultiSSBtimes ( const MultiDetectorStateSeries *multiDetStates, SkyPosition skypos, LIGOTimeGPS refTime, SSBprecision precision);
+  /// If #whatWasComputed & FSTATQ_ATOMS_PER_DET is true, the per-SFT \f$\mathcal{F}\f$-statistic
+  /// multi-atoms computed at #numFreqBins frequencies spaced #dFreq apart.  This array should not
+  /// be accessed if #whatWasComputed & FSTATQ_ATOMS_PER_DET is false.
+#ifdef SWIG // SWIG interface directives
+  SWIGLAL(ARRAY_1D(FstatResults, MultiFstatAtomVector*, multiFatoms, UINT4, numFreqBins));
+#endif // SWIG
+  MultiFstatAtomVector** multiFatoms;
 
+  /// \cond DONT_DOXYGEN
+  UINT4 internalalloclen;
+  /// \endcond
 
-void ComputeFStat ( LALStatus *, Fcomponents *Fstat,
-		    const PulsarDopplerParams *doppler,
-		    const MultiSFTVector *multiSFTs,
-		    const MultiNoiseWeights *multiWeights,
-		    const MultiDetectorStateSeries *multiDetStates,
-		    const ComputeFParams *params,
-		    ComputeFBuffer *cfBuffer );
+} FstatResults;
 
-void ComputeFStatFreqBand ( LALStatus *status,
-			    REAL4FrequencySeries *FstatVector,
-			    const PulsarDopplerParams *doppler,
-			    const MultiSFTVector *multiSFTs,
-			    const MultiNoiseWeights *multiWeights,
-			    const MultiDetectorStateSeries *multiDetStates,
-			    const ComputeFParams *params);
+// ---------- API function prototypes ----------
+const CHAR *XLALGetFstatMethodName ( FstatMethodType i);
+int XLALFstatMethodIsAvailable ( FstatMethodType i );
+const CHAR *XLALFstatMethodHelpString ( void );
+int XLALParseFstatMethodString ( FstatMethodType *Fmethod, const char *s );
 
-void
-LALEstimatePulsarAmplitudeParams (LALStatus * status,
-				  PulsarCandidate *pulsarParams,
-				  const Fcomponents *Fstat,
-				  const CmplxAntennaPatternMatrix *Mmunu
-				  );
+FstatInputVector* XLALCreateFstatInputVector ( const UINT4 length );
+void XLALDestroyFstatInputVector ( FstatInputVector* input );
+FstatAtomVector* XLALCreateFstatAtomVector ( const UINT4 length );
+void XLALDestroyFstatAtomVector ( FstatAtomVector *atoms );
+MultiFstatAtomVector* XLALCreateMultiFstatAtomVector ( const UINT4 length );
+void XLALDestroyMultiFstatAtomVector ( MultiFstatAtomVector *atoms );
 
-FstatAtomVector * XLALCreateFstatAtomVector ( UINT4 num );
+FstatInput *
+XLALCreateFstatInput ( const SFTCatalog *SFTcatalog, const REAL8 minCoverFreq, const REAL8 maxCoverFreq,
+                       const PulsarParamsVector *injectSources, const MultiNoiseFloor *injectSqrtSX,
+                       const MultiNoiseFloor *assumeSqrtSX, const UINT4 runningMedianWindow,
+                       const EphemerisData *ephemerides,
+                       const FstatMethodType FstatMethod, const FstatExtraParams *extraParams );
+
+const MultiLALDetector* XLALGetFstatInputDetectors ( const FstatInput* input );
+const MultiLIGOTimeGPSVector* XLALGetFstatInputTimestamps ( const FstatInput* input );
+const MultiNoiseWeights* XLALGetFstatInputNoiseWeights ( const FstatInput* input );
+const MultiDetectorStateSeries* XLALGetFstatInputDetectorStates ( const FstatInput* input );
+
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(INOUT_STRUCTS(FstatResults**, Fstats));
+#endif
+int XLALComputeFstat ( FstatResults **Fstats, FstatInput *input, const PulsarDopplerParams *doppler,
+                       const REAL8 dFreq, const UINT4 numFreqBins, const FstatQuantities whatToCompute );
+
+void XLALDestroyFstatInput ( FstatInput* input );
+void XLALDestroyFstatResults ( FstatResults* Fstats );
+int XLALAdd4ToFstatResults ( FstatResults* Fstats );
+
+int XLALEstimatePulsarAmplitudeParams ( PulsarCandidate *pulsarParams, const LIGOTimeGPS* FaFb_refTime,
+                                        const COMPLEX8 Fa, const COMPLEX8 Fb, const AntennaPatternMatrix *Mmunu );
 
 int XLALAmplitudeParams2Vect ( PulsarAmplitudeVect A_Mu, const PulsarAmplitudeParams Amp );
-int XLALAmplitudeVect2Params ( PulsarAmplitudeParams *Amp, const PulsarAmplitudeVect A_Mu );
+int XLALAmplitudeVect2Params( PulsarAmplitudeParams *Amp, const PulsarAmplitudeVect A_Mu );
 
-/* destructors */
-void XLALDestroyMultiSSBtimes ( MultiSSBtimes *multiSSB );
-void XLALEmptyComputeFBuffer ( ComputeFBuffer *cfb );
+REAL4 XLALComputeFstatFromAtoms ( const MultiFstatAtomVector *multiFstatAtoms, const INT4 X );
+REAL4 XLALComputeFstatFromFaFb ( COMPLEX8 Fa, COMPLEX8 Fb, REAL4 A, REAL4 B, REAL4 C, REAL4 E, REAL4 Dinv );
 
-void XLALDestroyFstatAtomVector ( FstatAtomVector *atoms );
-void XLALDestroyMultiFstatAtomVector ( MultiFstatAtomVector *multiAtoms );
-
-/* helpers */
-int sin_cos_LUT (REAL4 *sinx, REAL4 *cosx, REAL8 x);
-int sin_cos_2PI_LUT (REAL4 *sin2pix, REAL4 *cos2pix, REAL8 x);
-
-/*@}*/
+// @}
 
 #ifdef  __cplusplus
 }
 #endif
-/* C++ protection. */
 
-#endif  /* Double-include protection. */
+#endif // _COMPUTEFSTAT_H

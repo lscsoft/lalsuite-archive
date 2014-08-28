@@ -2,7 +2,7 @@
  *  LALInferenceMCMC.c:  Bayesian Followup, MCMC algorithm.
  *
  *  Copyright (C) 2009, 2012 Ilya Mandel, Vivien Raymond, Christian
- *  Roever, Marc van der Sluys, John Veitch and Will M. Farr
+ *  Roever, Marc van der Sluys, John Veitch, Will M. Farr, and Ben Farr
  *
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -318,7 +318,7 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
   INT4 aclCheckCounter=1;
   INT4 iEff=0;
   REAL8 ladderMin,ladderMax;
-  REAL8 timestamp,timestamp_epoch;
+  REAL8 timestamp,timestamp_epoch=0.0;
   struct timeval tv;
 
   LALInferenceMCMCRunPhase *runPhase_p = XLALCalloc(sizeof(LALInferenceMCMCRunPhase), 1);
@@ -475,20 +475,33 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
         !LALInferenceGetProcParamVal(runState->commandLine, "--malmquistPrior")) ) {
     LALInferenceIFOData *headData = runState->data;
     REAL8 d = *(REAL8 *)LALInferenceGetVariable(runState->currentParams, "distance");
-    REAL8 bigD = 1.0 / 0.0;
+    REAL8 bigD = INFINITY;
+
+    /* Don't store to cache, since distance scaling won't work */
+    LALSimInspiralWaveformCache *cache = headData->waveformCache;
+    while (headData != NULL) {
+      headData->waveformCache = NULL;
+      headData = headData->next;
+    }
+    headData = runState->data;
 
     LALInferenceSetVariable(runState->currentParams, "distance", &bigD);
-
     nullLikelihood = runState->likelihood(runState->currentParams, runState->data, runState->templt);
 
     while (headData != NULL) {
       headData->nullloglikelihood = headData->loglikelihood;
+      headData->waveformCache = cache;
       headData = headData->next;
     }
 
     LALInferenceSetVariable(runState->currentParams, "distance", &d);
   } else {
     nullLikelihood = 0.0;
+    LALInferenceIFOData *headData = runState->data;
+    while (headData != NULL) {
+      headData->nullloglikelihood = 0.0;
+      headData = headData->next;
+    }
   }
 
   //null log likelihood logic doesn't work with noise parameters
@@ -830,6 +843,16 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
         headIFO = headIFO->next;
       }
 
+      REAL8 networkSNR = 0.0;
+      headIFO = runState->data;
+      while (headIFO != NULL) {
+        fprintf(chainoutput, "%f\t", headIFO->acceptedSNR);
+        networkSNR += headIFO->acceptedSNR * headIFO->acceptedSNR;
+        headIFO = headIFO->next;
+      }
+      networkSNR = sqrt(networkSNR);
+      fprintf(chainoutput, "%f\t", networkSNR);
+
       if (benchmark) {
         gettimeofday(&tv, NULL);
         timestamp = tv.tv_sec + tv.tv_usec/1E6 - timestamp_epoch;
@@ -1007,6 +1030,7 @@ void PTMCMCOneStep(LALInferenceRunState *runState)
     LALInferenceIFOData *headData = runState->data;
     while (headData != NULL) {
       headData->acceptedloglikelihood = headData->loglikelihood;
+      headData->acceptedSNR = headData->currentSNR;
       headData = headData->next;
     }
     runState->currentPrior = logPriorProposed;
@@ -1604,7 +1628,7 @@ void LALInferencePrintPTMCMCHeaderFile(LALInferenceRunState *runState, FILE *cha
   UINT4 benchmark=0;
   if(LALInferenceGetProcParamVal(runState->commandLine,"--benchmark")) benchmark=1;
 
-    fprintf(chainoutput, "  LALInference version:%s,%s,%s,%s,%s\n", LALAPPS_VCS_ID,LALAPPS_VCS_DATE,LALAPPS_VCS_BRANCH,LALAPPS_VCS_AUTHOR,LALAPPS_VCS_STATUS);
+    fprintf(chainoutput, "  LALInference version:%s,%s,%s,%s,%s\n", lalAppsVCSId,lalAppsVCSDate,lalAppsVCSBranch,lalAppsVCSAuthor,lalAppsVCSStatus);
     fprintf(chainoutput,"  %s\n",str);
     fprintf(chainoutput, "%10s  %10s  %6s  %20s  %6s %8s   %6s  %10s  %12s  %9s  %9s  %8s %8s\n",
         "nIter","Nburn","seed","null likelihood","Ndet","nCorr","nTemps","Tchain","Network SNR","Waveform","pN order","Npar","fRef");
@@ -1632,6 +1656,15 @@ void LALInferencePrintPTMCMCHeaderFile(LALInferenceRunState *runState, FILE *cha
       fprintf(chainoutput, "\t");
       headIFO = headIFO->next;
     }
+    headIFO = runState->data;
+    while (headIFO != NULL) {
+      fprintf(chainoutput, "SNR");
+      fprintf(chainoutput, "%s",headIFO->name);
+      fprintf(chainoutput, "\t");
+      headIFO = headIFO->next;
+    }
+    fprintf(chainoutput, "SNR\t");
+
     if (benchmark)
       fprintf(chainoutput, "timestamp\t");
     fprintf(chainoutput,"\n");
@@ -1658,6 +1691,7 @@ static void setIFOAcceptedLikelihoods(LALInferenceRunState *runState) {
 
   for (ifo = data; ifo != NULL; ifo = ifo->next) {
     ifo->acceptedloglikelihood = ifo->loglikelihood;
+    ifo->acceptedSNR = ifo->currentSNR;
   }
 }
 
@@ -1785,7 +1819,7 @@ void LALInferencePrintPTMCMCInjectionSample(LALInferenceRunState *runState) {
     }
 
     LALInferenceSetVariable(runState->currentParams, "distance", &dist);
-    LALInferenceSetVariable(runState->currentParams, "inclination", &inclination);
+    LALInferenceSetVariable(runState->currentParams, "theta_JN", &inclination);
     LALInferenceSetVariable(runState->currentParams, "polarisation", &(psi));
     LALInferenceSetVariable(runState->currentParams, "declination", &dec);
     LALInferenceSetVariable(runState->currentParams, "rightascension", &ra);
@@ -1923,7 +1957,7 @@ void LALInferenceMCMCResumeRead(LALInferenceRunState *runState, FILE *resumeFile
   char *last_line = NULL;
   long flen, line_length;
   int cycle;
-  float logl, logp;  
+  float loglike, logprior;  
 
   fseek(resumeFile, 0L, SEEK_END);
   flen = ftell(resumeFile);
@@ -1946,7 +1980,7 @@ void LALInferenceMCMCResumeRead(LALInferenceRunState *runState, FILE *resumeFile
   /* Go to the beginning of the last line. */
   fseek(resumeFile, -line_length, SEEK_END);
 
-  fscanf(resumeFile, "%d %f %f", &cycle, &logl, &logp);
+  fscanf(resumeFile, "%d %f %f", &cycle, &loglike, &logprior);
 
   LALInferenceReadSampleNonFixed(resumeFile, runState->currentParams);
 }

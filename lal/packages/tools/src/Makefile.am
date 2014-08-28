@@ -1,4 +1,4 @@
-AM_CPPFLAGS = -I$(top_builddir)/include -I$(srcdir)/../include @AM_CPPFLAGS@
+include $(top_srcdir)/gnuscripts/lalsuite_header_links.am
 
 noinst_LTLIBRARIES = libtools.la
 
@@ -12,7 +12,6 @@ libtools_la_SOURCES = \
 	CreateDetector.c \
 	DetResponse.c \
 	EllipsoidOverlapTools.c \
-	FlatLatticeTiling.c \
 	FrequencySeries.c \
 	LALCosmologyCalculator.c \
 	ResampleTimeSeries.c \

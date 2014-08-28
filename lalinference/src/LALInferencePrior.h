@@ -27,6 +27,16 @@
 #include <lal/LALInference.h>
 #include <lal/LALInferenceNestedSampler.h>
 
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(
+    FUNCTION_POINTER(
+        LALInferenceInspiralSkyLocPrior,
+        LALInferenceInspiralPriorNormalised,
+        LALInferenceAnalyticNullPrior
+    )
+);
+#endif
+
 /**
  * \defgroup LALInferencePrior_h Header LALInferencePrior.h
  * \ingroup pkg_LALInference
@@ -188,6 +198,9 @@ void LALInferenceDrawNameFromPrior( LALInferenceVariables *output,
                                     LALInferenceVariables *priorArgs, 
                                     char *name, LALInferenceVariableType type, 
                                     gsl_rng *rdm );
+
+/* Switch reads true if parameters lie within Malmquist prior */
+UINT4 within_malmquist(LALInferenceRunState *runState, LALInferenceVariables *params);
 
 /** Prior that is 1 everywhere in component mass space. */
 REAL8 LALInferenceAnalyticNullPrior(LALInferenceRunState *runState, LALInferenceVariables *params);

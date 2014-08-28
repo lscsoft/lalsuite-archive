@@ -112,7 +112,7 @@ def New(Type, columns = None, **kwargs):
 		for key, value in new.validcolumns.items():
 			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": value})))
 	new._end_of_columns()
-	new.appendChild(table.TableStream(sax.xmlreader.AttributesImpl({u"Name": Type.tableName})))
+	new.appendChild(table.TableStream(sax.xmlreader.AttributesImpl({u"Name": Type.tableName, u"Delimiter": table.TableStream.Delimiter.default, u"Type": table.TableStream.Type.default})))
 	return new
 
 
@@ -121,9 +121,7 @@ def IsTableElement(Type, elem):
 	Convenience function to check that an element is a Table of type
 	Type.
 	"""
-	if elem.tagName != ligolw.Table.tagName:
-		return False
-	return table.CompareTableNames(elem.getAttribute(u"Name"), Type.tableName) == 0
+	return elem.tagName == ligolw.Table.tagName and elem.Name == table.StripTableName(Type.tableName)
 
 
 def IsTableProperties(Type, tagname, attrs):
@@ -148,10 +146,7 @@ def HasNonLSCTables(elem):
 	Return True if the document tree below elem contains non-LSC
 	tables, otherwise return False.
 	"""
-	for t in elem.getElementsByTagName(ligolw.Table.tagName):
-		if table.StripTableName(t.getAttribute(u"Name")) not in TableByName:
-			return True
-	return False
+	return any(t.Name not in TableByName for t in elem.getElementsByTagName(ligolw.Table.tagName))
 
 
 def instrument_set_from_ifos(ifos):
@@ -389,6 +384,11 @@ class ProcessParams(object):
 		if self.value is None:
 			return None
 		return ligolwtypes.ToPyType[self.type or "lstring"](self.value)
+
+	@pyvalue.setter
+	def pyvalue(self, value):
+		self.type = ligolwtypes.FromPyType[type(value)]
+		self.value = ligolwtypes.FormatFunc[self.type](value)
 
 
 ProcessParamsTable.RowType = ProcessParams
@@ -1445,29 +1445,6 @@ class SnglInspiralTable(table.Table):
 	# fixed in LAL and then this can be put back to 0 for cleanliness.
 	next_id = SnglInspiralID(1)
 	interncolumns = ("process_id", "ifo", "search", "channel")
-
-	def updateKeyMapping(self, mapping):
-		# hacked version of stock .updateKeyMapping() method that
-		# can detect lalapps_thinca-style event IDs, to prevent
-		# accidentally ligolw_adding old-style thinca documents.
-		#
-		# FIXME: remove this method when we can be certain nobody
-		# is trying to run ligolw_add on lalapps_thinca files
-		if self.next_id is None:
-			raise ValueError(self)
-		try:
-			column = self.getColumnByName(self.next_id.column_name)
-		except KeyError:
-			# table is missing its ID column, this is a no-op
-			return mapping
-		for i, old in enumerate(column):
-			if int(old) >= 100000000000000000:
-				raise ValueError("ligolw_add does not support lalapps_thinca documents;  convert to coinc tables format and try again")
-			if old in mapping:
-				column[i] = mapping[old]
-			else:
-				column[i] = mapping[old] = self.get_next_id()
-		return mapping
 
 	def get_column(self,column,fac=250.,index=6.):
 		if column == 'reduced_chisq':
@@ -3844,7 +3821,7 @@ def use_in(ContentHandler):
 	>>> from glue.ligolw import lsctables
 	>>> lsctables.use_in(MyContentHandler)
 	"""
-	table.use_in(ContentHandler)
+	ContentHandler = table.use_in(ContentHandler)
 
 	def startTable(self, parent, attrs, __orig_startTable = ContentHandler.startTable):
 		name = table.StripTableName(attrs[u"Name"])
@@ -3853,6 +3830,8 @@ def use_in(ContentHandler):
 		return __orig_startTable(self, parent, attrs)
 
 	ContentHandler.startTable = startTable
+
+	return ContentHandler
 
 
 # FIXME:  remove

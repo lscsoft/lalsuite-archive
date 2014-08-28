@@ -9,7 +9,7 @@ __version__ = '$Revision$'
 ##############################################################################
 # import standard modules and append the lalapps prefix to the python path
 import os, sys, copy, shutil, glob
-import ConfigParser
+from ConfigParser import NoSectionError
 import optparse
 import tempfile
 import urllib
@@ -21,7 +21,12 @@ from glue import segments
 from glue import segmentsUtils
 from glue import pipeline
 from glue import lal
-import inspiral
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import segments as ligolw_segments
+from lalapps import inspiral
 
 ##############################################################################
 # Functions used in setting up the dag:
@@ -333,6 +338,9 @@ def veto_segments(ifo, config, categories, generateVetoes):
       combinedFile = ifo + "-COMBINED_CAT_" + str(category) + "_VETO_SEGS-" + \
           str(start) + "-" + \
           str(end - start) + ".txt"
+      combinedFileXML = ifo + "-COMBINED_CAT_" + str(category) + "_VETO_SEGS-" + \
+          str(start) + "-" + \
+          str(end - start) + ".xml"
       vetoFiles[category] = combinedFile
 
       if generateVetoes: 
@@ -340,6 +348,32 @@ def veto_segments(ifo, config, categories, generateVetoes):
         vetoSegs = segmentsUtils.fromsegwizard(open(vetoFile)).coalesce()
         vetoSegs |= previousSegs
         segmentsUtils.tosegwizard(file(combinedFile,"w"), vetoSegs)
+
+        # create segment xml file
+        xmldoc = ligolw.Document()
+        xmldoc.appendChild(ligolw.LIGO_LW())
+        xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessTable))
+        xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessParamsTable))
+
+        # add process table
+        process = ligolw_process.append_process(xmldoc, program=__name__, version=__version__)
+
+        gpssegs = segments.segmentlist()
+        for seg in vetoSegs:
+          gpssegs.append(segments.segment(lsctables.LIGOTimeGPS(seg[0]), lsctables.LIGOTimeGPS(seg[1])))
+
+        # add segment table
+        segments_tables = ligolw_segments.LigolwSegments(xmldoc)
+        segments_tables.add(ligolw_segments.LigolwSegmentList(active=gpssegs, instruments=set([ifo])))
+        segments_tables.coalesce()
+        segments_tables.optimize()
+        segments_tables.finalize(process)
+
+        # write file
+        ligolw_process.set_process_end_time(process)
+        fp = open(combinedFileXML, 'w')
+        utils.write_fileobj(xmldoc, fp, gz=False)
+        fp.close()
 
     else: vetoFiles[category] = vetoFile
 
@@ -478,8 +512,12 @@ def findSegmentsToAnalyze(config, ifo, veto_categories, generate_segments=True,\
   # file names
   segFile = ifo + "-SELECTED_SEGS-" + str(start) + "-" + \
       str(end - start) + ".txt"
+  segFileXML = ifo + "-SELECTED_SEGS-" + str(start) + "-" + \
+      str(end - start) + ".xml"
   missedFile = ifo + "-MISSED_SEGS-" + str(start) + "-" + \
       str(end - start) + ".txt"
+  missedFileXML = ifo + "-MISSED_SEGS-" + str(start) + "-" + \
+      str(end - start) + ".xml"
 
   if generate_segments:
     print "Generating science segments for " + ifo + " ...",
@@ -508,6 +546,8 @@ def findSegmentsToAnalyze(config, ifo, veto_categories, generate_segments=True,\
       segmentsUtils.tosegwizard(file(missedFile,"w"), missedSegs)
       print "Writing " + ifo + " segments which cannot be analyzed to file " \
           + missedFile
+      print "Writing " + ifo + " segments which cannot be analyzed to file " \
+          + missedFileXML
       print "Not analyzing %d s, representing %.2f percent of time" %  \
          (missedSegs.__abs__(),
          100. * missedSegs.__abs__() / max(analyzedSegs.__abs__(), 0.1) )
@@ -515,8 +555,37 @@ def findSegmentsToAnalyze(config, ifo, veto_categories, generate_segments=True,\
     else: analyzedSegs = sciSegs
 
     segmentsUtils.tosegwizard(file(segFile,"w"), analyzedSegs)
+
+    # create segment xml file
+    xmldoc = ligolw.Document()
+    xmldoc.appendChild(ligolw.LIGO_LW())
+    xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessTable))
+    xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessParamsTable))
+
+    # add process table
+    process = ligolw_process.append_process(xmldoc, program=__name__, version=__version__)
+
+    gpssegs = segments.segmentlist()
+    for seg in analyzedSegs:
+      gpssegs.append(segments.segment(lsctables.LIGOTimeGPS(seg[0]), lsctables.LIGOTimeGPS(seg[1])))
+
+    # add segment table
+    segments_tables = ligolw_segments.LigolwSegments(xmldoc)
+    segments_tables.add(ligolw_segments.LigolwSegmentList(active=gpssegs, instruments=set([ifo])))
+    segments_tables.coalesce()
+    segments_tables.optimize()
+    segments_tables.finalize(process)
+
+    # write file
+    ligolw_process.set_process_end_time(process)
+    fp = open(segFileXML, 'w')
+    utils.write_fileobj(xmldoc, fp, gz=False)
+    fp.close()
+
     print "Writing " + ifo + " segments of total time " + \
         str(analyzedSegs.__abs__()) + "s to file: " + segFile
+    print "Writing " + ifo + " segments of total time " + \
+        str(analyzedSegs.__abs__()) + "s to file: " + segFileXML
     print "done"
 
   if data_quality_vetoes: 
@@ -562,7 +631,7 @@ def slide_sanity(config, playOnly = False):
 def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
     tmpltBank = False, playOnly = False, vetoCat = None, vetoFiles = None, \
     dax = False, tmpltbankCache = None, local_exec_dir = None, \
-    data_checkpoint = False):
+    data_checkpoint = False, static_pfn_cache=None, reuse_data=False):
   """
   run lalapps_inspiral_hipe and add job to dag
   hipeDir   = directory in which to run inspiral hipe
@@ -703,12 +772,12 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
         hipecp.set("condor","inspinj",executable)
     hipecp.remove_section(hipeDir)
     hipecp.set("input","injection-seed",injSeed)
-    hipecp.set("input", "num-slides", 0)
+    hipecp.set("input", "num-slides", "0")
     # set any extra inspiral arguments for the injection
     try:
       for item in config.items('-'.join([hipeDir,"inspiral"])):
         hipecp.set("inspiral",item[0],item[1])
-    except ConfigParser.NoSectionError:
+    except NoSectionError:
       pass
   else:
     # add the time slide to the ini file
@@ -797,14 +866,14 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
   make_external_call(hipeCommand)
 
   # link datafind
-  if not dataFind and not tmpltBank and not vetoCat > 1:
+  if not dax and not dataFind and not tmpltBank and not vetoCat > 1:
     try:
       os.rmdir("cache")
       os.symlink("../datafind/cache", "cache")
     except: pass
 
   # symlink in the template banks needed by the inspiral jobs
-  if tmpltbankCache:
+  if not dax and tmpltbankCache:
     symlinkedCache = symlink_tmpltbank(tmpltbankCache, hipeDir)
 
   iniBase = iniFile.rstrip("ini")
@@ -817,6 +886,14 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
 
   hipeJob = pipeline.CondorDAGManJob(hipeDag, hipeDir, hipeDax)
   hipeNode = pipeline.CondorDAGManNode(hipeJob)
+
+  # pass a static pfn cache if we are given one
+  if static_pfn_cache:
+    hipeNode.set_static_pfn_cache(static_pfn_cache)
+
+  # set the reuse data option
+  if reuse_data:
+    hipeNode.set_reduce_dax = reuse_data
 
   # grab the tmpltbank from hipecp file if provided in input section
   if hipecp.has_section("input") and \
@@ -1224,7 +1301,7 @@ def hwinj_page_setup(cp,ifos,veto_categories,hw_inj_dir):
     hwInjNode.set_end(cp.get("input","gps-end-time"))
 
     hwInjNode.set_input_cache(os.path.join('full_data', cacheFile))
-    hwInjNode.set_cache_string('*COIRE_SECOND*')
+    hwInjNode.set_cache_string('*SIRE_FIRST*')
 
     hwInjNode.set_source_xml(os.path.join(hw_inj_dir,cp.get("hardware-injections", "hwinj-def-file")))
     hwInjNode.set_segment_dir(hw_inj_dir)
@@ -1505,7 +1582,7 @@ def omega_scan_setup(cp,ifos):
 # This function will...
 
 def create_frame_pfn_file(ifos, gpsstart, gpsend, server='internal_ldr_port'):
-	namer = "frame-cache_"+str(gpsstart)+"-"+ \
+	namer = "pegasus-pfn-cache-"+str(gpsstart)+"-"+ \
 		str(gpsend)
 	gwfname = namer+".pfn" # physical file location file
 	# Deletes the gwfname file if it exists prior to the execution of this

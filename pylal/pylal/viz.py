@@ -816,9 +816,9 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None, xli
 
 
     if len(bins) != 0:
-      ydata, xdata = numpy.histogram(data, bins, new=True)
+      ydata, xdata = numpy.histogram(data, bins)
     else:
-      ydata, xdata = numpy.histogram(data, nbins, new=True)
+      ydata, xdata = numpy.histogram(data, nbins)
     xdata = xdata[:-1]
 
     width = xdata[1] - xdata[0]
@@ -1032,14 +1032,14 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
 
   # hist of the zero lag:
   if trigs:
-    zero_dist, _ = numpy.histogram(snr, bins, new=True)
+    zero_dist, _ = numpy.histogram(snr, bins)
     cum_dist_zero = zero_dist[::-1].cumsum()[::-1]
 
   # hist of the slides:
   if slide_trig_list:
     cum_dist_slide = []
     for slide_snr in slide_snr_list:
-      num_slide, _ = numpy.histogram(slide_snr, bins, new=True)
+      num_slide, _ = numpy.histogram(slide_snr, bins)
       cum_slide = num_slide[::-1].cumsum()[::-1]
       cum_dist_slide.append(cum_slide)
     cum_dist_slide = numpy.array(cum_dist_slide)
@@ -1150,14 +1150,14 @@ def histstat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
 
   # hist of the zero lag:
   if trigs:
-    hist_zero, _ = numpy.histogram(snr, bins, new=True)
+    hist_zero, _ = numpy.histogram(snr, bins)
 
   # hist of the slides:
   if slide_trigs:
     slide_dist = []
     hist_slide = []
     for slide_snr in slide_snr_list:
-      num_slide, _ = numpy.histogram(slide_snr, bins, new=True)
+      num_slide, _ = numpy.histogram(slide_snr, bins)
       hist_slide.append(num_slide)
     hist_slide = numpy.array(hist_slide)
     slide_mean = hist_slide.mean(axis=0)
@@ -1249,8 +1249,8 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
       if step == 0:
         bins = array([missedVal[0]/2.0, missedVal[0], missedVal[0] * 3.0/2.0])
         plotbins = bins[0:-1] + missedVal[0]/4.0
-    num_found, _ = numpy.histogram(foundVal, bins, new=True)
-    num_missed, _ = numpy.histogram(missedVal, bins, new=True)
+    num_found, _ = numpy.histogram(foundVal, bins)
+    num_missed, _ = numpy.histogram(missedVal, bins)
 
     fig_num = gcf().number
     figure(fig_num)
@@ -1341,9 +1341,9 @@ def histdiff(table1, table2, col_name, plot_type, hist_num,
   if hist_width[0] and hist_width[1]:
     bins = numpy.linspace(hist_width[0], hist_width[1], nbins + 1,
                           endpoint=True)
-    height, _ = numpy.histogram(tmp_diff, bins=bins, new=True)
+    height, _ = numpy.histogram(tmp_diff, bins=bins)
   else:
-    height, bins = numpy.histogram(tmp_diff, bins=nbins, new=True)
+    height, bins = numpy.histogram(tmp_diff, bins=nbins)
   bins = bins[:-1]
 
   fig_num = gcf().number

@@ -457,7 +457,7 @@ setup(
 			library_dirs = gsl_pkg_config.libdirs + lalsimulation_pkg_config.libdirs + lal_pkg_config.libdirs,
 			runtime_library_dirs = gsl_pkg_config.libdirs + lalsimulation_pkg_config.libdirs + lal_pkg_config.libdirs,
 			libraries = gsl_pkg_config.libs + lalsimulation_pkg_config.libs + lal_pkg_config.libs,
-			extra_compile_args = ["-std=c99", "-ffast-math", "-mfpmath=387", "-O3", "-Wno-unknown-pragmas"] + gsl_pkg_config.extra_cflags + lalsimulation_pkg_config.extra_cflags + lal_pkg_config.extra_cflags,  # , "-fopenmp"
+			extra_compile_args = ["-std=c99", "-ffast-math", "-O3", "-Wno-unknown-pragmas"] + gsl_pkg_config.extra_cflags + lalsimulation_pkg_config.extra_cflags + lal_pkg_config.extra_cflags,  # , "-fopenmp"
 			#extra_link_args=['-fopenmp']
 		),
 		Extension(
@@ -613,6 +613,7 @@ setup(
 		os.path.join("bin", "ligolw_cbc_plotfm"),
 		os.path.join("bin", "ligolw_cbc_plotvt"),
 		os.path.join("bin", "lalapps_cbc_plotrates"),
+                os.path.join("bin", "pylal_cbc_extended_background"),
 		os.path.join("bin", "ligolw_cbc_compute_durations"),
 		os.path.join("bin", "ligolw_cbc_repop_coinc"),
 		os.path.join("bin", "ligolw_segments_compat"),
@@ -675,6 +676,8 @@ setup(
 		os.path.join("bin", "cbcBayesDIEvidence.py"),
 		os.path.join("bin", "cbcBayesInjProc.py"),
 		os.path.join("bin", "cbcBayesThermoInt.py"),
+		os.path.join("bin", "cbcBayesPPAnalysis.py"),
+        os.path.join("bin", "cbcBayesPosToSimInspiral.py"),
 		os.path.join("bin", "pulsarBayesPostProc.py"),
 		os.path.join("bin", "processing_kdtreeSky.py"),
 		os.path.join("bin", "ligo_channel_query"),

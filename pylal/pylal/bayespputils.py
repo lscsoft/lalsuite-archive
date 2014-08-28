@@ -214,7 +214,7 @@ def plot_label(param):
   dist_names = ['dist','distance']
   ra_names = ['rightascension','ra']
   dec_names = ['declination','dec']
-  phase_names = ['phi_orb', 'phi', 'phase']
+  phase_names = ['phi_orb', 'phi', 'phase', 'phi0']
 
   labels={
       'm1':r'$m_1\,(\mathrm{M}_\odot)$',
@@ -645,6 +645,153 @@ class Posterior(object):
             self.__description=description
 
         return
+
+    def extend_posterior(self):
+      """
+      Add some usefule derived parameters (such as tilt angles, time delays, etc) in the Posterior object
+      """
+      injection=self._injection
+      pos=self
+      # Generate component mass posterior samples (if they didnt exist already)
+      if 'mc' in pos.names:
+          mchirp_name = 'mc'
+      elif 'chirpmass' in pos.names:
+          mchirp_name = 'chirpmass'
+      else:
+          mchirp_name = 'mchirp'
+
+      if 'asym_massratio' in pos.names:
+          q_name = 'asym_massratio'
+      else:
+          q_name = 'q'
+
+      if 'sym_massratio' in pos.names:
+          eta_name= 'sym_massratio'
+      elif 'massratio' in pos.names:
+          eta_name= 'massratio'
+      else:
+          eta_name='eta'
+
+      if (mchirp_name in pos.names and eta_name in pos.names) and \
+      ('mass1' not in pos.names or 'm1' not in pos.names) and \
+      ('mass2' not in pos.names or 'm2' not in pos.names):
+
+          pos.append_mapping(('m1','m2'),mc2ms,(mchirp_name,eta_name))
+
+      if (mchirp_name in pos.names and q_name in pos.names) and \
+      ('mass1' not in pos.names or 'm1' not in pos.names) and \
+      ('mass2' not in pos.names or 'm2' not in pos.names):
+
+          pos.append_mapping(('m1','m2'),q2ms,(mchirp_name,q_name))
+          pos.append_mapping('eta',q2eta,(mchirp_name,q_name))
+
+      if ('spin1' in pos.names and 'm1' in pos.names) and \
+       ('spin2' in pos.names and 'm2' in pos.names):
+         pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','spin1','m2','spin2'))
+
+      if('a_spin1' in pos.names): pos.append_mapping('a1',lambda a:a,'a_spin1')
+      if('a_spin2' in pos.names): pos.append_mapping('a2',lambda a:a,'a_spin2')
+      if('phi_spin1' in pos.names): pos.append_mapping('phi1',lambda a:a,'phi_spin1')
+      if('phi_spin2' in pos.names): pos.append_mapping('phi2',lambda a:a,'phi_spin2')
+      if('theta_spin1' in pos.names): pos.append_mapping('theta1',lambda a:a,'theta_spin1')
+      if('theta_spin2' in pos.names): pos.append_mapping('theta2',lambda a:a,'theta_spin2')
+
+      # Ensure that both theta_jn and inclination are output for runs
+      # with zero tilt (for runs with tilt, this will be taken care of
+      # below when the old spin angles are computed as functions of the
+      # new ones
+      if ('theta_jn' in pos.names) and (not 'tilt1' in pos.names) and (not 'tilt2' in pos.names):
+          pos.append_mapping('iota', lambda t:t, 'theta_jn')
+
+      # Compute time delays from sky position
+      try:
+          if ('ra' in pos.names or 'rightascension' in pos.names) \
+          and ('declination' in pos.names or 'dec' in pos.names) \
+          and 'time' in pos.names:
+              from pylal import xlal,inject
+              from pylal.xlal import datatypes
+              from pylal import date
+              from pylal.date import XLALTimeDelayFromEarthCenter
+              from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+              import itertools
+              from numpy import array
+              detMap = {'H1': 'LHO_4k', 'H2': 'LHO_2k', 'L1': 'LLO_4k',
+                      'G1': 'GEO_600', 'V1': 'VIRGO', 'T1': 'TAMA_300'}
+              if 'ra' in pos.names:
+                  ra_name='ra'
+              else: ra_name='rightascension'
+              if 'dec' in pos.names:
+                  dec_name='dec'
+              else: dec_name='declination'
+              ifo_times={}
+              my_ifos=['H1','L1','V1']
+              for ifo in my_ifos:
+                  inj_time=None
+                  if injection:
+                      inj_time=float(injection.get_end(ifo[0]))
+                  location=inject.cached_detector[detMap[ifo]].location
+                  ifo_times[ifo]=array(map(lambda ra,dec,time: array([time[0]+XLALTimeDelayFromEarthCenter(location,ra[0],dec[0],LIGOTimeGPS(float(time[0])))]), pos[ra_name].samples,pos[dec_name].samples,pos['time'].samples))
+                  loc_end_time=PosteriorOneDPDF(ifo.lower()+'_end_time',ifo_times[ifo],injected_value=inj_time)
+                  pos.append(loc_end_time)
+              for ifo1 in my_ifos:
+                  for ifo2 in my_ifos:
+                      if ifo1==ifo2: continue
+                      delay_time=ifo_times[ifo2]-ifo_times[ifo1]
+                      if injection:
+                          inj_delay=float(injection.get_end(ifo2[0])-injection.get_end(ifo1[0]))
+                      else:
+                          inj_delay=None
+                      time_delay=PosteriorOneDPDF(ifo1.lower()+ifo2.lower()+'_delay',delay_time,inj_delay)
+                      pos.append(time_delay)
+      except ImportError:
+          print 'Warning: Could not import lal python bindings, check you ./configured with --enable-swig-python'
+          print 'This means I cannot calculate time delays'
+
+      #Calculate new spin angles
+      new_spin_params = ['tilt1','tilt2','theta_jn','beta']
+      if not set(new_spin_params).issubset(set(pos.names)):
+          old_params = ['f_ref',mchirp_name,'eta','iota','a1','theta1','phi1']
+          if 'a2' in pos.names: old_params += ['a2','theta2','phi2']
+          try:
+              pos.append_mapping(new_spin_params, spin_angles, old_params)
+          except KeyError:
+              print "Warning: Cannot find spin parameters.  Skipping spin angle calculations."
+
+      #Calculate new tidal parameters
+      new_tidal_params = ['lam_tilde','dlam_tilde']
+      old_tidal_params = ['lambda1','lambda2','eta']
+      if 'lambda1' in pos.names or 'lambda2' in pos.names:
+          try:
+              pos.append_mapping(new_tidal_params, symm_tidal_params, old_tidal_params)
+          except KeyError:
+              print "Warning: Cannot find tidal parameters.  Skipping tidal calculations."
+
+      #If new spin params present, calculate old ones
+      old_spin_params = ['iota', 'theta1', 'phi1', 'theta2', 'phi2', 'beta']
+      new_spin_params = ['theta_jn', 'phi_jl', 'tilt1', 'tilt2', 'phi12', 'a1', 'a2', 'm1', 'm2', 'f_ref']
+      if set(new_spin_params).issubset(set(pos.names)) and not set(old_spin_params).issubset(set(pos.names)):
+        pos.append_mapping(old_spin_params, physical2radiationFrame, new_spin_params)
+
+      #Calculate spin magnitudes for aligned runs
+      if 'spin1' in pos.names:
+          inj_a1 = inj_a2 = None
+          if injection:
+              inj_a1 = sqrt(injection.spin1x*injection.spin1x + injection.spin1y*injection.spin1y + injection.spin1z*injection.spin1z)
+              inj_a2 = sqrt(injection.spin2x*injection.spin2x + injection.spin2y*injection.spin2y + injection.spin2z*injection.spin2z)
+
+          try:
+              a1_samps = abs(pos['spin1'].samples)
+              a1_pos = PosteriorOneDPDF('a1',a1_samps,injected_value=inj_a1)
+              pos.append(a1_pos)
+          except KeyError:
+              print "Warning: problem accessing spin1 values."
+
+          try:
+              a2_samps = abs(pos['spin2'].samples)
+              a2_pos = PosteriorOneDPDF('a2',a2_samps,injected_value=inj_a2)
+              pos.append(a2_pos)
+          except KeyError:
+              print "Warning: no spin2 values found."
 
     def bootstrap(self):
         """
@@ -3333,13 +3480,18 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
     Wrapper function for SimInspiralTransformPrecessingInitialConditions().
     Vectorizes function for use in append_mapping() methods of the posterior class.
     """
-    import lalsimulation as lalsim
+    try:
+      import lalsimulation as lalsim
+    except ImportError:
+      print 'bayespputils.py: Cannot import lalsimulation SWIG bindings to calculate physical to radiation'
+      print 'frame angles, did you remember to use --enable-swig-python when ./configuring lalsimulation?'
+      return None
     from numpy import shape
     transformFunc = lalsim.SimInspiralTransformPrecessingInitialConditions
 
     # Convert component masses to SI units
-    m1_SI = m1*lalsim.lal.LAL_MSUN_SI
-    m2_SI = m2*lalsim.lal.LAL_MSUN_SI
+    m1_SI = m1*lalconstants.LAL_MSUN_SI
+    m2_SI = m2*lalconstants.LAL_MSUN_SI
 
     # Flatten arrays
     ins = [theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1_SI, m2_SI, fref]
@@ -3365,8 +3517,8 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
 
             mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
             L  = orbital_momentum(fref, mc, iota)
-            S1 = m1*m1*np.hstack([spin1x,spin1y,spin1z])
-            S2 = m2*m2*np.hstack([spin2x,spin2y,spin2z])
+            S1 = np.hstack([m1*m1*spin1x,m1*m1*spin1y,m1*m1*spin1z])
+            S2 = np.hstack([m2*m2*spin2x,m2*m2*spin2y,m2*m2*spin2z])
             J = L + S1 + S2
             beta = array_ang_sep(J,L)
 
@@ -3725,6 +3877,30 @@ def getDecString(radians,accuracy='auto'):
     #    if abs(fmod(mins,60.0))>=0.5 and abs(fmod(mins,60)-60)>=0.5: return(getDecString(sign*radians,accuracy='arcmin'))
     #    else: return(getDecString(sign*radians,accuracy='deg'))
       return(getDecString(sign*radians,accuracy='deg'))
+
+def plot_corner(posterior,levels,parnames=None):
+  """
+  Make a corner plot using the triangle module
+  (See http://github.com/dfm/triangle.py)
+  @param posterior: The Posterior object
+  @param levels: a list of confidence levels
+  @param parnames: list of parameters to include
+  """
+  try:
+    import triangle
+  except ImportError:
+    print 'Cannot load triangle module. Try running\n\t$ pip install triangle_plot'
+    return None
+  parnames=filter(lambda x: x in posterior.names, parnames)
+  labels = [plot_label(parname) for parname in parnames]
+  data = np.hstack([posterior[p].samples for p in parnames])
+  if posterior.injection:
+    injvals=[posterior[p].injval for p in parnames]
+    myfig=triangle.corner(data,labels=labels,truths=injvals,quantiles=levels)
+  else:
+    myfig=triangle.corner(data,labels=labels,quantiles=levels)
+  return(myfig)
+
 
 def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None,Npixels=50):
   """
@@ -5047,7 +5223,7 @@ class PEOutputParser(object):
                 ntots.append(ntot)
                 if nDownsample is None:
                     try:
-                        nonParams = ["logpost", "cycle", "logprior", "logl", "loglh1", "logll1", "loglv1"]
+                        nonParams = ["logpost", "cycle", "logprior", "logl", "loglh1", "logll1", "loglv1", "timestamp", "snrh1", "snrl1", "snrv1", "snr", "time_mean", "time_maxl"]
                         nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
                         paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
                         samps = np.array(lines).astype(float)
@@ -5170,12 +5346,13 @@ class PEOutputParser(object):
             pos,bayesfactor=burnin(data,spin,deltaLogL,"posterior_samples.dat")
             return self._common_to_pos(open("posterior_samples.dat",'r'))
 
-    def _ns_to_pos(self,files,Nlive=None,Npost=None):
+    def _ns_to_pos(self,files,Nlive=None,Npost=None,posfilename='posterior_samples.dat'):
         """
         Parser for nested sampling output.
         files : list of input NS files
         Nlive : Number of live points
         Npost : Desired number of posterior samples
+        posfilename : Posterior output file name (default: 'posterior_samples.dat')
         """
         try:
             from lalapps.nest2pos import draw_N_posterior_many,draw_posterior_many
@@ -5185,9 +5362,7 @@ class PEOutputParser(object):
 
         if Nlive is None:
             raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
-                       
-        posfilename='posterior_samples.dat'
-       
+     
         #posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t
         #psi \t iota \t likelihood \n')
         # get parameter list

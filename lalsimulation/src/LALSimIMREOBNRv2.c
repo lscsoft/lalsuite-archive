@@ -1575,6 +1575,9 @@ XLALSimIMREOBNRv2Generator(
      rdMatchPoint->data[1] = timePeak + nrPeakDeltaT;
      rdMatchPoint->data[2] = dynamicsHi->data[finalIdx];
 
+     rdMatchPoint->data[0] -= fmod( rdMatchPoint->data[0], dt/m );
+     rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], dt/m );
+
      xlalStatus = XLALSimIMREOBHybridAttachRingdown(sigReHi, sigImHi,
                    modeL, modeM, dt, mass1, mass2, 0, 0, 0, 0, 0, 0, &tVecHi, rdMatchPoint, EOBNRv2 );
      if (xlalStatus != XLAL_SUCCESS )
@@ -1637,10 +1640,12 @@ XLALSimIMREOBNRv2Generator(
        *h_lms = XLALSphHarmTimeSeriesAddMode(*h_lms, sigMode, modeL, modeM);
      }
 
+     XLALDestroyCOMPLEX16TimeSeries( sigMode );
+
   } /* End loop over modes */
 
-  /* clip the parts below f_min */
-  if (flag_fLower_extend == 1)
+  /* If returning polarizations, clip the parts below f_min */
+  if (flag_fLower_extend == 1 && hplus && hcross)
   {
     if ( cos(inclination) < 0.0 )
     {
@@ -1663,7 +1668,6 @@ XLALSimIMREOBNRv2Generator(
   XLALDestroyREAL8Array( dynamicsHi );
   XLALDestroyREAL8Vector ( sigReHi );
   XLALDestroyREAL8Vector ( sigImHi );
-  XLALDestroyCOMPLEX16TimeSeries( sigMode );
   XLALDestroyREAL8Vector ( phseHi );
   XLALDestroyREAL8Vector ( omegaHi );
   XLALDestroyREAL8Vector( ampNQC );

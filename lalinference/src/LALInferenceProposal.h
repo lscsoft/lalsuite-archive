@@ -25,6 +25,15 @@
 
 #include <lal/LALInference.h>
 
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(
+	FUNCTION_POINTER(
+			 NSWrapMCMCLALProposal
+			 )
+);
+#endif
+
+
 /**
  * \defgroup LALInferenceProposal_h Header LALInferenceProposal.h
  * \ingroup pkg_LALInference
@@ -103,16 +112,26 @@ extern const char *const skyLocWanderJumpName;
 extern const char *const differentialEvolutionFullName;
 extern const char *const differentialEvolutionIntrinsicName;
 extern const char *const differentialEvolutionExtrinsicName;
+extern const char *const ensembleStretchFullName;
+extern const char *const ensembleStretchIntrinsicName;
+extern const char *const ensembleStretchExtrinsicName;
 extern const char *const drawApproxPriorName;
 extern const char *const skyReflectDetPlaneName;
+extern const char *const skyRingProposalName;
+extern const char *const PSDFitJumpName;
 extern const char *const rotateSpinsName;
 extern const char *const polarizationPhaseJumpName;
-extern const char *const distanceQuasiGibbsProposalName;
+extern const char *const polarizationCorrPhaseJumpName;
 extern const char *const extrinsicParamProposalName;
 extern const char *const KDNeighborhoodProposalName;
 extern const char *const HrssQJumpName;
 extern const char *const differentialEvolutionSineGaussName;
 extern const char *const frequencyBinJumpName;
+extern const char *const GlitchMorletJumpName;
+extern const char *const GlitchMorletReverseJumpName;
+extern const char *const ensembleWalkFullName;
+extern const char *const ensembleWalkIntrinsicName;
+extern const char *const ensembleWalkExtrinsicName;
 
 /**
  * The name of the variable that will store the name of the current
@@ -244,14 +263,6 @@ void LALInferencePSDFitJump(LALInferenceRunState *runState, LALInferenceVariable
 void LALInferenceRotateSpins(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
 /**
- * Samples from the analytic likelihood distribution on u = 1/d with
- * all other variables fixed.  This behaves similarly to a Gibbs
- * sampler for distance (though a Gibbs sampler would sample from the
- * posterior* in d, not the likelihood in u = 1/d).
- */
-void LALInferenceDistanceQuasiGibbsProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
-
-/**
  * Uses a kD tree containing the previously-output points to propose
  * the next sample.  The proposal chooses a stored point at random,
  * finds the kD cell that contains this point and about 64 others,
@@ -294,9 +305,6 @@ int LALInferencePrintProposalTrackingHeader(FILE *fp,LALInferenceVariables *para
 
 /** Output proposal tracking information to file *fp */
 void LALInferencePrintProposalTracking(FILE *fp, LALInferenceVariables *propArgs, LALInferenceVariables *theta, LALInferenceVariables *theta_prime);
-
-
-
 void NSWrapMCMCSineGaussProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 void LALInferenceSetupSineGaussianProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 void LALInferenceHrssQJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
@@ -308,7 +316,16 @@ void LALInferenceBurstSkyRingProposal(LALInferenceRunState *runState, LALInferen
 
 void LALInferenceTimeDelaysJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) ;
 void LALInferenceBurstChangeSkyRingProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+/** Ensemble stretch moves - see http://dx.doi.org/10.2140/camcos.2010.5.65 */
+void LALInferenceEnsembleStretchFull(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+void LALInferenceEnsembleStretchIntrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp);
+void LALInferenceEnsembleStretchExtrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp);
+void LALInferenceEnsembleStretchNames(LALInferenceRunState *runState, LALInferenceVariables *ppi, const char **names);
 
+void LALInferenceEnsembleWalkFull(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+void LALInferenceEnsembleWalkIntrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp);
+void LALInferenceEnsembleWalkExtrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp);
+void LALInferenceEnsembleWalkNames(LALInferenceRunState *runState, LALInferenceVariables *ppi, const char **names);
 /*@}*/
 
 #endif

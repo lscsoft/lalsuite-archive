@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Karl Wette
+ * Copyright (C) 2012, 2014 Karl Wette
  * Copyright (C) 2008, 2009 Reinhard Prix
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -28,6 +28,7 @@
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_integration.h>
+#include <gsl/gsl_eigen.h>
 
 #include <lal/FlatPulsarMetric.h>
 #include <lal/PulsarTimes.h>
@@ -47,7 +48,6 @@
  */
 
 /*---------- SCALING FACTORS ----------*/
-
 /** shortcuts for integer powers */
 #define POW2(a)  ( (a) * (a) )
 #define POW3(a)  ( (a) * (a) * (a) )
@@ -190,7 +190,10 @@ typedef enum {
 /** parameters for metric-integration */
 typedef struct
 {
-  int errnum;			/**< store XLAL error of any failures within integrator */
+  int errnum;				/**< store XLAL error of any failures within integrator */
+  double epsrel;			/**< relative error tolerance for GSL integration routines */
+  double epsabs;			/**< absolute error tolerance for GSL integration routines */
+  double Tseg;				/**< length of integration time segments for phase integrals */
   DetectorMotionType detMotionType;	/**< which detector-motion to use in metric integration */
   DopplerCoordinateID deriv1, deriv2;	/**< the two components of the derivative-product Phi_i_Phi_j to compute*/
   DopplerCoordinateID deriv;		/**< component for single phase-derivative Phi_i compute */
@@ -205,16 +208,6 @@ typedef struct
   BOOLEAN approxPhase;			/**< use an approximate phase-model, neglecting Roemer delay in spindown coordinates (or orders \>= 1) */
 } intparams_t;
 
-
-/*---------- empty initializers ---------- */
-static const LALStatus empty_status;
-static const EmissionTime empty_EmissionTime;
-static const intparams_t empty_intparams;
-static const PulsarTimesParamStruc empty_PulsarTimesParamStruc;
-
-const PosVel3D_t empty_PosVel3D_t;
-const DopplerMetricParams empty_DopplerMetricParams;
-const DopplerCoordinateSystem empty_DopplerCoordinateSystem;
 
 /*---------- Global variables ----------*/
 
@@ -231,7 +224,7 @@ double CW_am1_am2_Phi_i_Phi_j ( double tt, void *params );
 double CWPhaseDeriv_i ( double tt, void *params );
 
 double XLALAverage_am1_am2_Phi_i_Phi_j ( const intparams_t *params, double *relerr_max );
-double CWPhase_cov_Phi_ij ( const MultiDetectorInfo *detInfo, const intparams_t *params, double *relerr_max );
+double CWPhase_cov_Phi_ij ( const MultiLALDetector *multiIFO, const MultiNoiseFloor *multiNoiseFloor, const intparams_t *params, double *relerr_max );
 
 UINT4 findHighestGCSpinOrder ( const DopplerCoordinateSystem *coordSys );
 
@@ -250,27 +243,15 @@ XLALAverage_am1_am2_Phi_i_Phi_j ( const intparams_t *params, double *relerr_max 
 {
   intparams_t par = (*params);	/* struct-copy, as the 'deriv' field has to be changeable */
   gsl_function integrand;
-  double epsrel = 1e-4;
-  /* NOTE: this level of accuracy should be compatible with AM-coefficients involved
-   * which are computed in REAL4 precision. We therefor cannot go lower than this it seems,
-   * otherwise the gsl-integration fails to converge in some cases.
-   */
-  double epsabs = 0;
+  double epsrel = params->epsrel;
+  double epsabs = params->epsabs;
   const size_t limit = 64;
   gsl_integration_workspace *wksp = NULL;
   int stat;
 
   integrand.params = (void*)&par;
 
-  /* compute <q_1 q_2 phi_i phi_j> as an integral from tt=0 to tt=1 */
-
-  /* NOTE: this numerical integration runs into problems when integrating over
-   * several days (~O(5d)), as the integrands are oscillatory functions on order of ~1/4d
-   * and convergence degrades.
-   * As a solution, we split the integral into N segments of 1/4 day duration, and compute
-   * the final integral as a sum over partial integrals
-   */
-  REAL8 Tseg = 0.25 * LAL_DAYSID_SI;
+  REAL8 Tseg = params->Tseg;
   UINT4 Nseg = (UINT4) ceil ( params->Tspan / Tseg );
   UINT4 n;
   REAL8 dT = 1.0 / Nseg;
@@ -284,6 +265,7 @@ XLALAverage_am1_am2_Phi_i_Phi_j ( const intparams_t *params, double *relerr_max 
 
   const double scale12 = GET_SCALE(par.deriv1) * GET_SCALE(par.deriv2);
 
+  /* compute <q_1 q_2 phi_i phi_j> as an integral from tt=0 to tt=1 */
   integrand.function = &CW_am1_am2_Phi_i_Phi_j;
   for (n=0; n < Nseg; n ++ )
     {
@@ -433,12 +415,12 @@ CWPhaseDeriv_i ( double tt, void *params )
   vect3D_t nDeriv_i;	/* derivative of sky-pos vector wrt i */
 
   /* positions/velocities at time tt: */
-  PosVel3D_t spin_posvel = empty_PosVel3D_t;
-  PosVel3D_t orbit_posvel = empty_PosVel3D_t;
-  PosVel3D_t posvel = empty_PosVel3D_t;
+  PosVel3D_t XLAL_INIT_DECL(spin_posvel);
+  PosVel3D_t XLAL_INIT_DECL(orbit_posvel);
+  PosVel3D_t XLAL_INIT_DECL(posvel);
 
   /* orbit position in ecliptic plane */
-  vect3D_t ecl_orbit_pos = empty_vect3D_t;
+  vect3D_t XLAL_INIT_DECL(ecl_orbit_pos);
 
   /* get skypos-vector */
   const REAL8 cosa = cos(par->dopplerPoint->Alpha);
@@ -637,8 +619,8 @@ XLALDetectorPosVel ( PosVel3D_t *spin_posvel,		/**< [out] instantaneous sidereal
                      )
 {
   EarthState earth;
-  BarycenterInput baryinput = empty_BarycenterInput;
-  EmissionTime emit = empty_EmissionTime;
+  BarycenterInput XLAL_INIT_DECL(baryinput);
+  EmissionTime XLAL_INIT_DECL(emit);
   PosVel3D_t Det_wrt_Earth;
   PosVel3D_t PtoleOrbit;
   PosVel3D_t Spin_z, Spin_xy;
@@ -753,10 +735,10 @@ XLALPtolemaicPosVel ( PosVel3D_t *posvel,		/**< [out] instantaneous position and
 		      const LIGOTimeGPS *tGPS		/**< [in] GPS time */
 		      )
 {
-  PulsarTimesParamStruc times = empty_PulsarTimesParamStruc;
+  PulsarTimesParamStruc XLAL_INIT_DECL(times);
   REAL8 phiOrb;   /* Earth orbital revolution angle, in radians. */
   REAL8 sinOrb, cosOrb;
-  LALStatus status = empty_status;
+  LALStatus XLAL_INIT_DECL(status);
 
   if ( !posvel || !tGPS ) {
     XLALPrintError ( "%s: Illegal NULL pointer passed!\n", __func__);
@@ -792,11 +774,26 @@ XLALPtolemaicPosVel ( PosVel3D_t *posvel,		/**< [out] instantaneous position and
 
 /**
  * Compute a pure phase-deriv covariance \f$[\phi_i, \phi_j] = \langle phi_i phi_j\rangle - \langle phi_i\rangle\langle phi_j\rangle\f$
- * which gives a component of the "phase metric"
+ * which gives a component of the "phase metric".
+ *
+ * NOTE: for passing unit noise-weights, set MultiNoiseFloor->length=0 (but multiNoiseFloor==NULL is invalid)
  */
 double
-CWPhase_cov_Phi_ij ( const MultiDetectorInfo *detInfo, const intparams_t *params, double* relerr_max )
+CWPhase_cov_Phi_ij ( const MultiLALDetector *multiIFO,		//!< [in] detectors to use
+                     const MultiNoiseFloor *multiNoiseFloor,	//!< [in] corresponding noise floors for weights, NULL means unit-weights
+                     const intparams_t *params,			//!< [in] integration parameters
+                     double* relerr_max				//!< [in] maximal error for integration
+                     )
 {
+  XLAL_CHECK_REAL8 ( multiIFO != NULL, XLAL_EINVAL );
+  UINT4 numDet = multiIFO->length;
+  XLAL_CHECK_REAL8 ( numDet > 0, XLAL_EINVAL );
+
+  // either no noise-weights given (multiNoiseFloor->length=0) or same number of detectors
+  XLAL_CHECK_REAL8 ( multiNoiseFloor != NULL, XLAL_EINVAL );
+  BOOLEAN haveNoiseWeights = (multiNoiseFloor->length > 0);
+  XLAL_CHECK_REAL8 ( !haveNoiseWeights || (multiNoiseFloor->length == numDet), XLAL_EINVAL );
+
   gsl_function integrand;
 
   intparams_t par = (*params);	/* struct-copy, as the 'deriv' field has to be changeable */
@@ -811,25 +808,12 @@ CWPhase_cov_Phi_ij ( const MultiDetectorInfo *detInfo, const intparams_t *params
 
   integrand.params = (void*)&par;
 
-
-  double epsrel = 1e-6;
-  /* NOTE: this level of accuracy is only achievable *without* AM-coefficients involved
-   * which are computed in REAL4 precision. For the current function this is OK, as this
-   * function is only supposed to compute *pure* phase-derivate covariances.
-   */
-
-  /* NOTE: this numerical integration still runs into problems when integrating over
-   * long durations (~O(23d)), as the integrands are oscillatory functions on order of ~1d
-   * and convergence degrades.
-   * As a solution, we split the integral into N segments of 1 day duration, and compute
-   * the final integral as a sum over partial integrals
-   */
-  REAL8 Tseg = LAL_DAYSID_SI;
+  REAL8 Tseg = params->Tseg;
   UINT4 Nseg = (UINT4) ceil ( params->Tspan / Tseg );
-  UINT4 n;
   REAL8 dT = 1.0 / Nseg;
 
-  double epsabs = 1e-3; 	/* we need an abs-cutoff as well, as epsrel can be too restrictive for small integrals */
+  double epsrel = params->epsrel;
+  double epsabs = params->epsabs;
   double abserr, maxrelerr = 0;
   const size_t limit = 64;
   gsl_integration_workspace *wksp = NULL;
@@ -846,16 +830,16 @@ CWPhase_cov_Phi_ij ( const MultiDetectorInfo *detInfo, const intparams_t *params
 
   // loop over detectors
   REAL8 total_weight = 0;
-  for (UINT4 det = 0; det < detInfo->length; ++det) {
+  for (UINT4 X = 0; X < numDet; X ++) {
 
     // set detector for phase integrals
-    par.site = &detInfo->sites[det];
+    par.site = &multiIFO->sites[X];
 
     // accumulate detector weights
-    const REAL8 weight = detInfo->detWeights[det];
+    const REAL8 weight = haveNoiseWeights ? multiNoiseFloor->sqrtSn[X] : 1.0;
     total_weight += weight;
 
-    for (n=0; n < Nseg; n ++ ) {
+    for (UINT4 n=0; n < Nseg; n ++ ) {
 
       REAL8 ti = 1.0 * n * dT;
       REAL8 tf = MYMIN( (n+1.0) * dT, 1.0 );
@@ -904,12 +888,10 @@ CWPhase_cov_Phi_ij ( const MultiDetectorInfo *detInfo, const intparams_t *params
 
     } /* for i < Nseg */
 
-  } // for det < detInfo->length
+  } // for X < numDet
 
   // raise error if no detector weights were given
-  if (total_weight == 0) {
-    XLAL_ERROR( XLAL_EDOM, "Detectors weights are all zero!" );
-  }
+  XLAL_CHECK_REAL8 (total_weight > 0, XLAL_EDOM, "Detectors noise-floors given but all zero!" );
 
   // normalise by total weight
   const REAL8 inv_total_weight = 1.0 / total_weight;
@@ -956,9 +938,7 @@ XLALDopplerPhaseMetric ( const DopplerMetricParams *metricParams,  	/**< input p
 			 )
 {
   gsl_matrix *g_ij = NULL;
-  intparams_t intparams = empty_intparams;
-  UINT4 i, j;
-  REAL8 gg;
+  intparams_t XLAL_INIT_DECL(intparams);
 
   /* ---------- sanity/consistency checks ---------- */
   XLAL_CHECK_NULL ( metricParams != NULL, XLAL_EINVAL );
@@ -971,7 +951,7 @@ XLALDopplerPhaseMetric ( const DopplerMetricParams *metricParams,  	/**< input p
   const DopplerCoordinateSystem *coordSys = &(metricParams->coordSys);
   // ----- check that {n2x_equ, n2y_equ} are not used at the equator (delta=0), as metric is undefined there
   BOOLEAN have_n2xy = 0;
-  for ( i = 0; i < dim; i ++ ) {
+  for ( UINT4 i = 0; i < dim; i ++ ) {
     if ( (coordSys->coordIDs[i] == DOPPLERCOORD_N2X_EQU) || ( coordSys->coordIDs[i] == DOPPLERCOORD_N2Y_EQU) ) {
       have_n2xy = 1;
     }
@@ -1006,6 +986,21 @@ XLALDopplerPhaseMetric ( const DopplerMetricParams *metricParams,  	/**< input p
   intparams.amcomp1 = AMCOMP_NONE;
   intparams.amcomp2 = AMCOMP_NONE;
 
+  /* NOTE: this level of accuracy is only achievable *without* AM-coefficients involved
+   * which are computed in REAL4 precision. For the current function this is OK, as this
+   * function is only supposed to compute *pure* phase-derivate covariances.
+   */
+  intparams.epsrel = 1e-6;
+  /* we need an abs-cutoff as well, as epsrel can be too restrictive for small integrals */
+  intparams.epsabs = 1e-3;
+  /* NOTE: this numerical integration still runs into problems when integrating over
+   * long durations (~O(23d)), as the integrands are oscillatory functions on order of ~1d
+   * and convergence degrades.
+   * As a solution, we split the integral into N segments of 1 day duration, and compute
+   * the final integral as a sum over partial integrals
+   */
+  intparams.Tseg = LAL_DAYSID_SI;
+
   /* if using 'global correlation' frequency variables, determine the highest spindown order: */
   UINT4 maxorder = findHighestGCSpinOrder ( coordSys );
 
@@ -1024,35 +1019,89 @@ XLALDopplerPhaseMetric ( const DopplerMetricParams *metricParams,  	/**< input p
             (n < intparams.rOrb_n->length -1 ) ? ", " : " ]\n" );
 #endif
 
-  /* ---------- compute components of the phase-metric ---------- */
   double maxrelerr = 0, err;
-  for ( i=0; i < dim; i ++ )
-    {
-      for ( j = 0; j <= i; j ++ )
-	{
-	  /* g_ij */
-	  intparams.deriv1 = coordSys->coordIDs[i];
-	  intparams.deriv2 = coordSys->coordIDs[j];
-	  gg = CWPhase_cov_Phi_ij ( &metricParams->detInfo, &intparams, &err );	/* [Phi_i, Phi_j] */
-          maxrelerr = MYMAX ( maxrelerr, err );
-	  if ( xlalErrno ) {
-	    XLALPrintError ("\n%s: Integration of g_ij (i=%d, j=%d) failed. errno = %d\n", __func__, i, j, xlalErrno );
-	    XLAL_ERROR_NULL( XLAL_EFUNC );
-	  }
-	  gsl_matrix_set (g_ij, i, j, gg);
-	  gsl_matrix_set (g_ij, j, i, gg);
 
-	} /* for j <= i */
+  /*** try to compute a metric with less than nonposEigValThresh non-positive eigenvalues ***/
+  gsl_vector* eval = NULL;
+  gsl_eigen_symm_workspace* eval_wksp = NULL;
+  if (metricParams->nonposEigValThresh > 0) {
+    XLAL_CHECK_NULL( (eval = gsl_vector_alloc(dim)) != NULL, XLAL_ENOMEM );
+    XLAL_CHECK_NULL( (eval_wksp = gsl_eigen_symm_alloc(dim)) != NULL, XLAL_ENOMEM );
+  }
+  const int max_eigvaltries = 32;
+  int eigvaltries;
+  for (eigvaltries = 0; eigvaltries < max_eigvaltries; ++eigvaltries) {
+
+    XLALPrintInfo("%s(): trying (%i<%i) to compute phase metric with epsrel=%g, epsabs=%g, Tseg=%g\n",
+                  __func__, eigvaltries, max_eigvaltries, intparams.epsrel, intparams.epsabs, intparams.Tseg);
+
+    /* ---------- compute components of the phase-metric ---------- */
+    for ( UINT4 i = 0; i < dim; i ++ ) {
+      for ( UINT4 j = 0; j <= i; j ++ ) {
+
+        /* g_ij */
+        intparams.deriv1 = coordSys->coordIDs[i];
+        intparams.deriv2 = coordSys->coordIDs[j];
+        REAL8 gg = CWPhase_cov_Phi_ij ( &metricParams->multiIFO, &metricParams->multiNoiseFloor, &intparams, &err );	/* [Phi_i, Phi_j] */
+        maxrelerr = MYMAX ( maxrelerr, err );
+        if ( xlalErrno ) {
+          XLALPrintError ("\n%s: Integration of g_ij (i=%d, j=%d) failed. errno = %d\n", __func__, i, j, xlalErrno );
+          XLAL_ERROR_NULL( XLAL_EFUNC );
+        }
+        gsl_matrix_set (g_ij, i, j, gg);
+        gsl_matrix_set (g_ij, j, i, gg);
+
+      } /* for j <= i */
 
     } /* for i < dim */
+
+    /* if nonposEigValThresh == 0, do not check eigenvalues */
+    if (metricParams->nonposEigValThresh == 0) {
+      break;
+    }
+
+    /* diagonally normalise g_ij (for numerical stability), compute eigenvalues,
+       then check there are less than nonposEigValThresh non-positive eigenvalues */
+    gsl_matrix* g_diagnorm_ij = XLALDiagNormalizeMetric(g_ij);
+    XLAL_CHECK_NULL( g_diagnorm_ij != NULL, XLAL_EFUNC );
+    XLAL_CHECK_NULL( gsl_eigen_symm(g_diagnorm_ij, eval, eval_wksp) == 0, XLAL_ESYS );
+    gsl_matrix_free(g_diagnorm_ij);
+    UINT4 nonposEigVals = 0;
+    for (UINT4 i = 0; i < dim; i ++ ) {
+      if (gsl_vector_get(eval, i) <= 0) {
+        ++nonposEigVals;
+      }
+    }
+    if (lalDebugLevel & LALINFOBIT) {
+      fprintf(stdout, "%s(): phase metric eigenvalues:", __func__);
+      XLALfprintfGSLvector(stdout, "%0.4e", eval);
+    }
+    if (nonposEigVals < metricParams->nonposEigValThresh) {
+      break;
+    }
+
+    /* non-positive eigenvalue condition failed; try decreasing error tolerances;
+       don't do this too quickly, since too-stringent tolerances will just make
+       GSL integration fail to converge */
+    intparams.epsrel /= 2;
+    intparams.epsabs /= 2;
+    /* try also reducing the length of integration time segments, but stop at 1800s */
+    intparams.Tseg = MYMAX(1800, intparams.Tseg / 2);
+
+  }
 
   if ( relerr_max )
     (*relerr_max) = maxrelerr;
 
   /* free memory */
   XLALDestroyVect3Dlist ( intparams.rOrb_n );
+  if (eval) gsl_vector_free(eval);
+  if (eval_wksp) gsl_eigen_symm_free(eval_wksp);
 
-  return g_ij;
+  if (eigvaltries < max_eigvaltries)
+    return g_ij;
+
+  XLAL_ERROR_NULL( XLAL_ETOL,  "Could not compute metric with less than %i non-positive eigenvalues", metricParams->nonposEigValThresh );
 
 } /* XLALDopplerPhaseMetric() */
 
@@ -1280,6 +1329,8 @@ XLALDopplerFstatMetricCoh ( const DopplerMetricParams *metricParams,  	/**< inpu
 
 /**
  * Function to the compute the FmetricAtoms_t, from which the F-metric and Fisher-matrix can be computed.
+ *
+ * NOTE: if MultiNoiseFloor.length=0, unit noise weights are assumed.
  */
 FmetricAtoms_t*
 XLALComputeAtomsForFmetric ( const DopplerMetricParams *metricParams,  	/**< input parameters determining the metric calculation */
@@ -1287,9 +1338,9 @@ XLALComputeAtomsForFmetric ( const DopplerMetricParams *metricParams,  	/**< inp
 			     )
 {
   FmetricAtoms_t *ret;		/* return struct */
-  intparams_t intparams = empty_intparams;
+  intparams_t XLAL_INIT_DECL(intparams);
 
-  UINT4 dim, numDet, i=-1, j=-1, X;		/* index counters */
+  UINT4 dim, i=-1, j=-1, X;		/* index counters */
   REAL8 A, B, C;			/* antenna-pattern coefficients (gsl-integrated) */
 
   const DopplerCoordinateSystem *coordSys;
@@ -1302,9 +1353,14 @@ XLALComputeAtomsForFmetric ( const DopplerMetricParams *metricParams,  	/**< inp
     XLALPrintError ("\n%s: Illegal NULL pointer passed!\n\n", __func__);
     XLAL_ERROR_NULL( XLAL_EINVAL );
   }
+  UINT4 numDet = metricParams->multiIFO.length;
+  XLAL_CHECK_NULL ( numDet >= 1, XLAL_EINVAL );
   XLAL_CHECK_NULL ( XLALSegListIsInitialized ( &(metricParams->segmentList) ), XLAL_EINVAL, "Passed un-initialzied segment list 'metricParams->segmentList'\n");
   UINT4 Nseg = metricParams->segmentList.length;
   XLAL_CHECK_NULL ( Nseg == 1, XLAL_EINVAL, "Segment list must only contain Nseg=1 segments, got Nseg=%d", Nseg );
+
+  BOOLEAN haveNoiseWeights = (metricParams->multiNoiseFloor.length > 0);
+  XLAL_CHECK_NULL ( !haveNoiseWeights || metricParams->multiNoiseFloor.length == numDet, XLAL_EINVAL );
 
   LIGOTimeGPS *startTime = &(metricParams->segmentList.segs[0].start);
   LIGOTimeGPS *endTime   = &(metricParams->segmentList.segs[0].end);
@@ -1313,7 +1369,6 @@ XLALComputeAtomsForFmetric ( const DopplerMetricParams *metricParams,  	/**< inp
   const LIGOTimeGPS *refTime   = &(metricParams->signalParams.Doppler.refTime);
 
   dim = metricParams->coordSys.dim;	/* shorthand: number of Doppler dimensions */
-  numDet = metricParams->detInfo.length;
   coordSys = &(metricParams->coordSys);
 
   /* ----- create output structure ---------- */
@@ -1330,6 +1385,20 @@ XLALComputeAtomsForFmetric ( const DopplerMetricParams *metricParams,  	/**< inp
   intparams.Tspan = Tspan;
   intparams.edat = edat;
 
+  /* NOTE: this level of accuracy should be compatible with AM-coefficients involved
+   * which are computed in REAL4 precision. We therefor cannot go lower than this it seems,
+   * otherwise the gsl-integration fails to converge in some cases.
+   */
+  intparams.epsrel = 1e-4;
+  intparams.epsabs = 0;
+  /* NOTE: this numerical integration runs into problems when integrating over
+   * several days (~O(5d)), as the integrands are oscillatory functions on order of ~1/4d
+   * and convergence degrades.
+   * As a solution, we split the integral into N segments of 1/4 day duration, and compute
+   * the final integral as a sum over partial integrals
+   */
+  intparams.Tseg = 0.25 * LAL_DAYSID_SI;
+
   /* if using 'global correlation' frequency variables, determine the highest spindown order: */
   UINT4 maxorder = findHighestGCSpinOrder ( coordSys );
 
@@ -1344,10 +1413,10 @@ XLALComputeAtomsForFmetric ( const DopplerMetricParams *metricParams,  	/**< inp
   A = B = C = 0;
   for ( X = 0; X < numDet; X ++ )
     {
-      REAL8 weight = metricParams->detInfo.detWeights[X];
+      REAL8 weight = haveNoiseWeights ? metricParams->multiNoiseFloor.sqrtSn[X] : 1.0;
       sum_weights += weight;
       REAL8 av, relerr;
-      intparams.site = &(metricParams->detInfo.sites[X]);
+      intparams.site = &(metricParams->multiIFO.sites[X]);
 
       intparams.deriv1 = DOPPLERCOORD_NONE;
       intparams.deriv2 = DOPPLERCOORD_NONE;
@@ -1403,9 +1472,9 @@ XLALComputeAtomsForFmetric ( const DopplerMetricParams *metricParams,  	/**< inp
 
 	  for ( X = 0; X < numDet; X ++ )
 	    {
-	      REAL8 weight = metricParams->detInfo.detWeights[X];
+	      REAL8 weight = haveNoiseWeights ? metricParams->multiNoiseFloor.sqrtSn[X] : 1.0;
 	      REAL8 av, relerr;
-	      intparams.site = &(metricParams->detInfo.sites[X]);
+	      intparams.site = &(metricParams->multiIFO.sites[X]);
 
 	      /* ------------------------------ */
 	      intparams.deriv1 = coordSys->coordIDs[i];
@@ -2421,7 +2490,7 @@ gsl_matrix* XLALNaturalizeMetric(
     case DOPPLERCOORD_N3OX_ECL:
     case DOPPLERCOORD_N3OY_ECL:
       {
-        REAL8 cosdD = cos ( metricParams->detInfo.sites[0].frDetector.vertexLatitudeRadians );
+        REAL8 cosdD = cos ( metricParams->multiIFO.sites[0].frDetector.vertexLatitudeRadians );
         scale = LAL_TWOPI * Freq * rEarth_c * cosdD;
       }
       break;

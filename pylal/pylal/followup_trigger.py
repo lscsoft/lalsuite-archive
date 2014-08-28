@@ -50,6 +50,11 @@ from glue.ligolw import ligolw
 from glue.ligolw.utils import ligolw_add
 
 
+# DB content handler for reading xml input files
+class ContentHandler(ligolw.LIGOLWContentHandler):
+        pass
+lsctables.use_in(ContentHandler)
+
 
 ##########################################################
 class FollowupTrigger:
@@ -116,21 +121,21 @@ class FollowupTrigger:
 
     # setting the color definition and the stages of the pipeline
     self.colors = {'H1':'r','H2':'b','L1':'g','V1':'m','G1':'c'}
-    self.stageLabels = ['INSPIRAL_FIRST']
+    self.stageLabels = [('MATCHEDFILTER',['INSPIRAL'])]
     if do_slides:
-      self.stageLabels.append('THINCA_1')
+      self.stageLabels.append(('COINCIDENCE-SLID',['THINCA_1','THINCA_SLIDES']))
     else:
-      self.stageLabels.append('THINCA_0')
+      self.stageLabels.append(('COINCIDENCE',['THINCA_0','THINCA_ZEROLAG']))
 
-    self.orderLabels = copy.deepcopy(self.stageLabels)
+    self.orderLabels = ['MATCHEDFILTER']
     if do_slides:
-      self.orderLabels.extend( [ 'THINCA_1_CAT_1',\
-          'THINCA_1_CAT_2', 'THINCA_1_CAT_3',\
-          'THINCA_1_CAT_4', 'THINCA_1_CAT_5'] )
+      self.orderLabels.extend( [ 'COINCIDENCE-SLID_CAT_1',\
+          'COINCIDENCE-SLID_CAT_2', 'COINCIDENCE-SLID_CAT_3',\
+          'COINCIDENCE-SLID_CAT_4', 'COINCIDENCE-SLID_CAT_5'] )
     else:
-      self.orderLabels.extend( [ 'THINCA_0_CAT_1','THINCA_0_CAT_2', \
-                                 'THINCA_0_CAT_3','THINCA_0_CAT_4', \
-                                 'THINCA_0_CAT_5'] )
+      self.orderLabels.extend( [ 'COINCIDENCE_CAT_1','COINCIDENCE_CAT_2', \
+                                 'COINCIDENCE_CAT_3','COINCIDENCE_CAT_4', \
+                                 'COINCIDENCE_CAT_5'] )
 
     # set arguments from the options
     self.opts = opts
@@ -187,12 +192,14 @@ class FollowupTrigger:
       
     # splitting up the cache for the different stages
     self.trigger_cache = {}
-    for stage in self.stageLabels:
-      pattern = stage
-      self.trigger_cache[stage] = self.cache.sieve(description=pattern)
+    for stageName, stagePatterns in self.stageLabels:
+      sievedFiles = []
+      for pattern in stagePatterns:
+          sievedFiles.extend(self.cache.sieve(description=pattern))
+      self.trigger_cache[stageName] = sievedFiles
       if self.opts.verbose:
-        print "%d files found for stage %s" % (len(self.trigger_cache[stage]),\
-                                               stage)
+        print "%d files found for stage %s" %\
+                                (len(self.trigger_cache[stageName]), stageName)
 
 
     # generating a dictionary for injection followups
@@ -290,17 +297,16 @@ class FollowupTrigger:
     any 'FOUND' file in the cache.
     """
 
-    # default value
-    # FIXME: No default value
-    self.injection_window = 0.050
+    # FIXME: This value should now be provided to minifollowups!!
+    #        Ssipe output does come through here, but will not get the correct
+    #        value (as SIRE files are not doing actual injection finding).
 
     # get the process params table from one of the COIRE files
     found_cache = self.cache.sieve(description = "FOUND")
     if len(found_cache)==0:
-      # obviously no injections are being used. setting this window to zero
-      self.injection_window = 0
+      self.injection_window = 0.1
       print "INFO: No FOUND files found, so setting the injection window"\
-            " to zero."
+            " to default value."
       return
       
     coire_file = found_cache.checkfilesexist()[0].pfnlist()[0]
@@ -389,6 +395,16 @@ class FollowupTrigger:
       injection_id = pieces[index-1]
         
     return injection_id
+
+  def check_injection_id(self, cache_entry, tag):
+      """
+      The above relies on a very specific naming convention, here we check if
+      the injection tag is present in the files' description.
+      """
+      if tag in cache_entry.description:
+          return True
+      else:
+          return False
   
   # -----------------------------------------------------
   def find_injection_id(self, injection):
@@ -575,18 +591,46 @@ class FollowupTrigger:
     @param number:       the consecutive number for this inspiral followup
     @param slideDict: A dictionary of ifo keyed slide times if using slides
     """
-    
+    # create the small and large segments for storing triggers
+    seg_small =  segments.segment(self.followup_time - self.injection_window, \
+                                  self.followup_time + self.injection_window)
+    seg_large =  segments.segment(self.followup_time - self.time_window, \
+                                  self.followup_time + self.time_window)
+    if abs(seg_small) > abs(seg_large):
+      err_msg = "Injection window must be smaller than time_window."
+      err_msg = "Got injection window = %f and time window = %g." \
+                 %(self.injection_window,self.time_window)
+      raise ValueError(err_msg)
+   
     # read the file(s) and get the desired sngl_inspiral rows
     if self.verbose:
       print "Processing INSPIRAL triggers from files ", trigger_files
       
-    sngls = SnglInspiralUtils.ReadSnglInspiralFromFiles( \
-              trigger_files, verbose=False)
+    # Memory usage here can balloon, so read in files one-by-one and only keep
+    # triggers within time_window
+    sngls = lsctables.New(lsctables.SnglInspiralTable, \
+      columns=lsctables.SnglInspiralTable.loadcolumns)
 
-    xmldoc = ligolw_add.ligolw_add(ligolw.Document(), trigger_files,\
-               non_lsc_tables_ok=False, verbose=False)
+    for file in trigger_files:
+      xmldoc = utils.load_filename(file, verbose=self.verbose, 
+                                   contenthandler=ContentHandler)
+      try:
+        sngl_table = table.get_table(xmldoc,
+                                     lsctables.SnglInspiralTable.tableName)
+      except ValueError: # Some files have no sngl table. That's okay
+        xmldoc.unlink() # Free memory
+        continue
+      if slideDict: # If time slide, slide the triggers
+        for event in sngl_table:
+          event.set_end( event.get_end() + slideDict[event.ifo] )
+      # Remove triggers not within time window
+      sngl_table = sngl_table.vetoed(seg_large)
 
-    sngls_tbl = SnglInspiralUtils.ReadSnglInspiralsForPipelineStage(xmldoc, slideDict, stage)
+      # Add to full list
+      if sngl_table:
+        sngls.extend(sngl_table)
+      
+      xmldoc.unlink() # Free memory
 
     # create a figure and initialize some lists
     fig=pylab.figure()
@@ -594,26 +638,16 @@ class FollowupTrigger:
     loudest_details = {}
     no_triggers_found = True
 
-    if len(sngls_tbl) == 0:
-      self.put_text( 'No sngl_inspiral triggers in %s' % str(trigger_files))
+    if len(sngls) == 0:
+      self.put_text( 'No triggers/coincidences found within time window')
     else:
-      if slideDict:
-        for event in sngls_tbl:
-          event.set_end( event.get_end() + slideDict[event.ifo] )
-
-      # create the small and large segments
-      seg_small =  segments.segment(self.followup_time - self.injection_window, \
-                                    self.followup_time + self.injection_window)
-      seg_large =  segments.segment(self.followup_time - self.time_window, \
-                                    self.followup_time + self.time_window)
-
       # loop over the IFOs
       for ifo in self.colors.keys():
         # get the singles for this ifo
-        sngls_ifo = sngls_tbl.ifocut(ifo)
+        sngls_ifo = sngls.ifocut(ifo)
 
         # select the triggers within a given time window
-        selected_large = sngls_ifo.vetoed(seg_large)
+        selected_large = sngls_ifo
         time_large = [ float(sel.get_end()) - self.followup_time \
                       for sel in selected_large ]
         selected_small = sngls_ifo.vetoed(seg_small)
@@ -1265,7 +1299,7 @@ class FollowupTrigger:
         if (self.followup_time in c.segment) or ((self.followup_time-2048) in c.segment) or ((self.followup_time+2048) in c.segment):
           if not self.injection_id or \
                  (self.injection_id and \
-                  self.get_injection_id(url = c.url) == self.injection_id):
+                  self.check_injection_id(c, self.injection_id)):
             trig_cache.append( c )
         
       # check if the pfnlist is empty. `
@@ -1278,7 +1312,7 @@ class FollowupTrigger:
         continue
 
       # call the function to create the timeseries
-      if stage in ('THINCA_0','THINCA_1'):
+      if stage in ('COINCIDENCE','COINCIDENCE-SLID'):
         # ... need to loop over the four categories
         for cat in [1,2,3,4,5]:
           select_list=self.select_category(file_list, cat)

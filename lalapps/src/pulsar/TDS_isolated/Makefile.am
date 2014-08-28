@@ -1,7 +1,7 @@
-# Makefile for TDS_isolated
+BUILT_SOURCES =
+include $(top_srcdir)/gnuscripts/lalapps.am
 
-AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -DPKG_DATA_DIR='"$(pkgdatadir)/"' @AM_CPPFLAGS@
-LDADD = $(top_builddir)/src/lalapps/liblalapps.la
+# Makefile for TDS_isolated
 
 if LALFRAME
 frame_progs = \
@@ -63,9 +63,5 @@ EXTRA_DIST = \
 	pulsar_pipeline_utils.py
 
 TESTS_ENVIRONMENT = \
-	LAL_DEBUG_LEVEL=memdbg; export LAL_DEBUG_LEVEL; \
+	LAL_DEBUG_LEVEL=msglvl1,memdbg; export LAL_DEBUG_LEVEL; \
 	LAL_DATA_PATH="$(LAL_DATA_PATH)"; export LAL_DATA_PATH;
-
-## make sure lalapps.la is rebuilt when appropriate
-BUILT_SOURCES =
-include $(top_srcdir)/gnuscripts/vcsID.common
