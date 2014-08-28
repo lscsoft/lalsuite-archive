@@ -1111,6 +1111,39 @@ class InterpBinnedArray(object):
 	supported.  In 1 and 2 dimensions, scipy.interpolate.interp1d and
 	.interp2d is used, respectively.  In more than 2 dimensions
 	scipy.interpolate.LinearNDInterpolator is used.
+
+	Example:
+
+	>>> x = BinnedArray(NDBins((LinearBins(-0.5, 1.5, 2), LinearBins(-0.5, 1.5, 2))))
+	>>> x[0, 0] = 0
+	>>> x[0, 1] = 1
+	>>> x[1, 0] = 2
+	>>> x[1, 1] = 4
+	>>> y = InterpBinnedArray(x)
+	>>> y(0, 0)
+	0.0
+	>>> y(0, 1)
+	1.0
+	>>> y(1, 0)
+	2.0
+	>>> y(1, 1)
+	4.0
+	>>> y(0, 0.5)
+	0.5
+	>>> y(0.5, 0)
+	1.0
+	>>> y(0.5, 1)
+	2.5
+	>>> y(1, 0.5)
+	3.0
+	>>> y(0.5, 0.5)
+	1.5
+
+	BUGS:  Due to bugs in some versions of scipy and numpy, if an old
+	version of scipy and/or numpy is detected this code falls back to
+	home-grown piece-wise linear interpolator code for 1- and 2
+	dimensions that is slow, and in 3- and higher dimensions the
+	fall-back is to nearest-neighbour "interpolation".
 	"""
 	def __init__(self, binnedarray, fill_value = 0.0):
 		# the upper and lower boundaries of the binnings are added
@@ -1182,7 +1215,11 @@ class InterpBinnedArray(object):
 						return fill_value
 					i = coords[0].searchsorted(x)
 					j = coords[1].searchsorted(y)
-					return z[i - 1, j - 1] + (x - coords[0][i - 1]) / (coords[0][i] - coords[0][i - 1]) * (z[i, j - 1] - z[i - 1, j - 1]) + (y - coords[1][j - 1]) / (coords[1][j] - coords[1][j - 1]) * (z[i - 1, j] - z[i - 1, j - 1])
+					dx = (x - coords[0][i - 1]) / (coords[0][i] - coords[0][i - 1])
+					dy = (y - coords[1][j - 1]) / (coords[1][j] - coords[1][j - 1])
+					if dx + dy <= 1.:
+						return z[i - 1, j - 1] + dx * (z[i, j - 1] - z[i - 1, j - 1]) + dy * (z[i - 1, j] - z[i - 1, j - 1])
+					return z[i, j] + (1. - dx) * (z[i - 1, j] - z[i, j]) + (1. - dy) * (z[i, j - 1] - z[i, j])
 				self.interp = interp
 			else:
 				self.interp = interp2d(coords[0], coords[1], z, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
