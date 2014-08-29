@@ -2948,18 +2948,59 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
   return(loglikeli);
 }
 
-static double logaddexp(double x, double y) {
-  if (x == -INFINITY && y == -INFINITY) {
-    /* 0 + 0 == 0 */
-    return -INFINITY;
-  } else if (x > y) {
-    return x + log1p(exp(y-x));
-  } else {
-    return y + log1p(exp(x-y));
-  }
-}
+/** Integrate interpolated log, returns the mean index in *imax if it
+ * is not a NULL pointer.  Stores the mean index in *imean (can be
+ * fractional).
+ * 
+ * The method used is the trapezoid method, which is quadratically
+ * accurate.
+ */
+static double integrate_interpolated_log(double h, double *log_ys, size_t n, double *imean, size_t *imax) {
+  size_t i;
+  double log_integral = -INFINITY;
+  double max=-INFINITY;
+  size_t imax_l=0;
+  double log_imean_l=-INFINITY;
+  double log_h = log(h);
+  
+  for (i = 1; i < n-1; i++) {
+    log_integral = logaddexp(log_integral, log_ys[i]);
+    log_imean_l = logaddexp(log_imean_l, log(i) + log_ys[i]);
 
-static double log_quadratic_integral_log(double h, double lx0, double lx1, double lx2) {
+    if (log_ys[i] > max) {
+      max = log_ys[i];
+      imax_l = i;
+    }
+  }
+
+  log_integral = logaddexp(log_integral, log(0.5) + log_ys[0]);
+  log_integral = logaddexp(log_integral, log(0.5) + log_ys[n-1]);
+
+  /* No contribution to mean index from i = 0 term! */
+  log_imean_l = logaddexp(log_imean_l, log(0.5) + log(n-1) + log_ys[n-1]);
+
+  log_integral += log_h;
+  log_imean_l += log_h;
+
+  if (log_ys[0] > max) {
+    max = log_ys[0];
+    imax_l = 0;
+  }
+
+  if (log_ys[n-1] > max) {
+    max = log_ys[n-1];
+    imax_l = n-1;
+  }    
+
+  log_imean_l -= log_integral;
+
+  if(imean) *imean=exp(log_imean_l);
+  if(imax) *imax=imax_l;
+
+  return log_integral;
+}
+/*
+static double log_quadratic_integral_log(double h, double lx0, double lx1, double lx2){
   double a = (lx0 - 2.0*lx1 + lx2)/(2.0*h*h);
   double b = -(3.0*lx0 - 4.0*lx1 + lx2)/(2.0*h);
   double c = lx0;
@@ -2988,54 +3029,7 @@ static double log_quadratic_integral_log(double h, double lx0, double lx1, doubl
     }
   }
 }
-
-/** Integrate interpolated log, returns the mean index in *imax if it is not a NULL pointer
- * Stores the mean index in *imean (can be fractional)
- */
-static double integrate_interpolated_log(double h, double *log_ys, size_t n, double *imean, size_t *imax) {
-  size_t i;
-  double log_integral = -INFINITY;
-  double max=-INFINITY;
-  size_t imax_l=0;
-  double log_imean_l=-INFINITY;
-  double thislogL;
-
-  for (i = 0; i < n-2; i++) {
-    double l0, l1, l2;
-
-    l0 = log_ys[i];
-    l1 = log_ys[i+1];
-    l2 = log_ys[i+2];
-    
-    thislogL=log_quadratic_integral_log(h, l0, l1, l2);
-    if (thislogL>max)
-    {
-        max=thislogL;
-        imax_l=i;
-    }
-    log_imean_l=logaddexp(log_imean_l, log((double)i)+thislogL);
-
-    log_integral = logaddexp(log_integral, thislogL);
-
-  }
-  thislogL = log_quadratic_integral_log(h, log_ys[n-2], log_ys[n-1], log_ys[0]);
-  log_integral = logaddexp(log_integral, thislogL);
-  if (thislogL>max)
-  {
-      max=thislogL;
-      imax_l=i;
-  }
-  log_imean_l=logaddexp(log_imean_l, log((double)i)+thislogL);
-
-  log_integral-=log(2.0);
-
-  log_imean_l-=log_integral+log(2.0);
-  if(imean) *imean=exp(log_imean_l);
-  if(imax) *imax=imax_l;
-
-  return log_integral;
-}
-
+*/
 REAL8 LALInferenceMarginalisedTimeLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData * data, 
                               LALInferenceTemplateFunction templt)
 /***************************************************************/
@@ -3443,58 +3437,6 @@ REAL8 LALInferenceMarginalisedTimeLogLikelihood(LALInferenceVariables *currentPa
 
   LALInferenceClearVariables(&intrinsicParams);
   return(loglike);
-}
-
-/** Integrate interpolated log, returns the mean index in *imax if it
- * is not a NULL pointer.  Stores the mean index in *imean (can be
- * fractional).
- * 
- * The method used is the trapezoid method, which is quadratically
- * accurate.
- */
-static double integrate_interpolated_log(double h, double *log_ys, size_t n, double *imean, size_t *imax) {
-  size_t i;
-  double log_integral = -INFINITY;
-  double max=-INFINITY;
-  size_t imax_l=0;
-  double log_imean_l=-INFINITY;
-  double log_h = log(h);
-  
-  for (i = 1; i < n-1; i++) {
-    log_integral = logaddexp(log_integral, log_ys[i]);
-    log_imean_l = logaddexp(log_imean_l, log(i) + log_ys[i]);
-
-    if (log_ys[i] > max) {
-      max = log_ys[i];
-      imax_l = i;
-    }
-  }
-
-  log_integral = logaddexp(log_integral, log(0.5) + log_ys[0]);
-  log_integral = logaddexp(log_integral, log(0.5) + log_ys[n-1]);
-
-  /* No contribution to mean index from i = 0 term! */
-  log_imean_l = logaddexp(log_imean_l, log(0.5) + log(n-1) + log_ys[n-1]);
-
-  log_integral += log_h;
-  log_imean_l += log_h;
-
-  if (log_ys[0] > max) {
-    max = log_ys[0];
-    imax_l = 0;
-  }
-
-  if (log_ys[n-1] > max) {
-    max = log_ys[n-1];
-    imax_l = n-1;
-  }    
-
-  log_imean_l -= log_integral;
-
-  if(imean) *imean=exp(log_imean_l);
-  if(imax) *imax=imax_l;
-
-  return log_integral;
 }
 
 void LALInferenceNetworkSNR(LALInferenceVariables *currentParams, LALInferenceIFOData * data, 

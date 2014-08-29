@@ -97,9 +97,6 @@ const char *const BurstChangeSkyRingProposalName="BurstChangeRingJump";
 const char *const ensembleWalkFullName = "EnsembleWalkFull";
 const char *const ensembleWalkIntrinsicName = "EnsembleWalkIntrinsic";
 const char *const ensembleWalkExtrinsicName = "EnsembleWalkExtrinsic";
-
-
->>>>>>> master
 static int
 same_detector_location(LALInferenceIFOData *d1, LALInferenceIFOData *d2) {
   UINT4 i;
@@ -1731,7 +1728,6 @@ void LALInferenceSkyRingProposal(LALInferenceRunState *runState, LALInferenceVar
 
   LALInferenceIFOData *dataPtr;
   dataPtr = runState->data;
-  REAL8 baryTime;
   REAL8 dL       = *(REAL8 *)LALInferenceGetVariable(proposedParams, "distance");
   REAL8 ra       = *(REAL8 *)LALInferenceGetVariable(proposedParams, "rightascension");
   REAL8 dec      = *(REAL8 *)LALInferenceGetVariable(proposedParams, "declination");

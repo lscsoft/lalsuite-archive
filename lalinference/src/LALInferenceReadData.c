@@ -435,7 +435,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     REAL8 scalefactor=1;
     //SimInspiralTable *injTable=NULL;
     RandomParams *datarandparam;
-    UINT4 event=0;
+    //UINT4 event=0;
     int globFrames=0; // 0 = no, 1 = will search for frames in PWD
     char *chartmp=NULL;
     char **channels=NULL;
@@ -1429,7 +1429,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	//CoherentGW InjectGW;
 	//PPNParamStruc InjParams;
 	LIGOTimeGPS injstart;
-	REAL8 SNR=0,NetworkSNR=0, previous_snr=0.0; 
+	REAL8 SNR=0,NetworkSNR=0;
 	DetectorResponse det;
 	memset(&injstart,0,sizeof(LIGOTimeGPS));
 	//memset(&InjParams,0,sizeof(PPNParamStruc));
@@ -1763,7 +1763,8 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       thisData=thisData->next;
     }
      if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
-      PrintSNRsToFile(IFOdata , injTable);
+      REAL8 trigtime=(REAL8) injTable->geocent_end_time.gpsSeconds + (REAL8) injTable->geocent_end_time.gpsNanoSeconds*1.0e-9;
+      PrintSNRsToFile(IFOdata , trigtime);
     }
 
     NetworkSNR=sqrt(NetworkSNR);
@@ -2528,7 +2529,8 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   printf("injected Network SNR %.1f \n",sqrt(NetSNR));
 
   if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
-  PrintSNRsToFile(IFOdata , inj_table);
+    REAL8 trigtime=(REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9;
+    PrintSNRsToFile(IFOdata , trigtime);
   }
   XLALDestroyCOMPLEX16FrequencySeries(freqModelhCross);
   XLALDestroyCOMPLEX16FrequencySeries(freqModelhPlus);
@@ -2537,7 +2539,7 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   }
 
 
-  static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , SimInspiralTable *inj_table){
+  static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , REAL8 trigtime){
     char SnrName[200];
     char ListOfIFOs[10]="";
     REAL8 NetSNR=0.0;
@@ -2551,7 +2553,7 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
     nIFO++;
         }
 
-    sprintf(SnrName,"%s/snr_%s_%10.1f.dat",SNRpath,ListOfIFOs,(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
+    sprintf(SnrName,"%s/snr_%s_%10.1f.dat",SNRpath,ListOfIFOs,trigtime);
     //(void) ListOfIFOs;
     //(void) inj_table;
     //sprintf(SnrName,"%s/snr_IMR.dat",SNRpath);
@@ -2677,6 +2679,7 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState)
     ProcessParamsTable *ppt=LALInferenceGetProcParamVal(runState->commandLine,"--inj");
     LALInferenceVariables backup;
     LALInferenceVariables injparams;
+    Approximant *approx=NULL;
     memset(&injparams,0,sizeof(LALInferenceVariables));
     memset(&backup,0,sizeof(LALInferenceVariables));
     char *fname=NULL;
@@ -2715,7 +2718,7 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState)
         LALInferenceCopyVariables(runState->currentParams,&backup);
         //LALInferenceClearVariables(runState->currentParams);
         LALPNOrder *order=LALInferenceGetVariable(&backup,"LAL_PNORDER");
-        Approximant *approx=LALInferenceGetVariable(&backup,"LAL_APPROXIMANT");
+        approx=LALInferenceGetVariable(&backup,"LAL_APPROXIMANT");
         /* Fill named variables */
         LALInferenceInjectionToVariables(theEventTable,runState->currentParams);
         if(order && approx){
@@ -2877,7 +2880,8 @@ static void LALInferenceSetGPSTrigtime(LIGOTimeGPS *GPStrig, ProcessParamsTable 
         }
         if(!LALInferenceGetProcParamVal(commandLine,"--segment-start")){
                 XLALPrintError("Error: No trigger time specifed and no injection given \n");
-                XLAL_ERROR_NULL(XLAL_EINVAL);
+                //XLAL_ERROR_NULL(XLAL_EINVAL);
+                exit(1);
         }
     
       }
@@ -2986,10 +2990,11 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
 //FIXME CHECK WNORM
     /* Inject into FD data stream and calculate optimal SNR */
     while(data){
-        tmp=0.0;
+        LALCache *mdc_cache=NULL;
+        mdc_cache  = XLALCacheImport(mdc_caches[i] );
         
         /* Read MDC frame */
-        timeData=readTseries(mdc_caches[i],mdc_channels[i],epoch,SegmentLength);
+        timeData=readTseries(mdc_cache,mdc_channels[i],epoch,SegmentLength);
         /* downsample */ 
         XLALResampleREAL8TimeSeries(timeData,1.0/SampleRate);	 
         /* window timeData and store it in windTimeData */
@@ -3029,7 +3034,7 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
         ppt = LALInferenceGetProcParamVal(commandLine,"--snrpath");
         SNRpath = calloc(strlen(ppt->value)+1,sizeof(char));
         memcpy(SNRpath,ppt->value,strlen(ppt->value)+1);
-        fprintf(stdout,"Writing SNRs in %s\n",SNRpath)     ;
+        fprintf(stdout,"Writing SNRs in %s\n",SNRpath);
         PrintSNRsToFile(IFOdata , trigtime);
     }
 
