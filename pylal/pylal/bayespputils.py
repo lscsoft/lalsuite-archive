@@ -96,7 +96,7 @@ except ImportError:
 
 #local application/library specific imports
 import pylal
-from pylal import lalconstants
+import lal
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import git_version
@@ -3284,7 +3284,7 @@ def orbital_momentum(fref, mc, inclination):
     Note that if one wants to build J=L+S1+S2 with L returned by this function, S1 and S2
     must not get the Msun^2 factor.
     """
-    Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * lalconstants.LAL_MTSUN_SI * fref, 1.0/3.0)
+    Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * lal.MTSUN_SI * fref, 1.0/3.0)
     Lx, Ly, Lz = sph2cart(Lmag, inclination, 0.0)
     return np.hstack((Lx,Ly,Lz))
 #
@@ -3346,8 +3346,8 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
     transformFunc = lalsim.SimInspiralTransformPrecessingInitialConditions
 
     # Convert component masses to SI units
-    m1_SI = m1*lalconstants.LAL_MSUN_SI
-    m2_SI = m2*lalconstants.LAL_MSUN_SI
+    m1_SI = m1*lal.MSUN_SI
+    m2_SI = m2*lal.MSUN_SI
 
     # Flatten arrays
     ins = [theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1_SI, m2_SI, fref]

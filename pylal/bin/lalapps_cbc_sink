@@ -18,7 +18,7 @@ from glue import lal
 from glue import iterutils
 
 from pylal import upper_limit_utils
-from pylal.xlal import constants
+import lal as constants
 
 from pylal import git_version
 __author__ = "Stephen Privitera <sprivite@caltech.edu>, Chad Hanna <channa@perimeterinstitute.ca>, Kipp Cannon <kipp.cannon@ligo.org>"
@@ -325,7 +325,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
 
      m1range = [numpy.min(bins.lower()[0]), numpy.max(bins.upper()[0])]
      m2range = [numpy.min(bins.lower()[1]), numpy.max(bins.upper()[1])]
-     livetime = total_lt.array[0,0]*constants.LAL_YRJUL_SI/(24.0*3600)
+     livetime = total_lt.array[0,0]*constants.YRJUL_SI/(24.0*3600)
 
      def finish_m1m2plot(m1range,m2range,xtick_locs,xtick_strings,ytick_locs,ytick_strings,tag,open_box):
        pyplot.xlim(m1range)
@@ -385,7 +385,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      pyplot.bar(left, top, width, bottom = bottom_prior, color='gray')
      pyplot.gca().semilogy()
      pyplot.gca().set_ylim([opts.rate_min,opts.rate_max])
-     #pyplot.title("Combined 90%s Upper Limit (%.1f days livetime)"%('%',total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=18)
+     #pyplot.title("Combined 90%s Upper Limit (%.1f days livetime)"%('%',total_lt.array[0]*constants.YRJUL_SI/(3600*24)),fontsize=18)
      pyplot.xticks(tick_locs,tick_strings)
      pyplot.xlim([numpy.min(left - width/2),numpy.max(left+width+width/2)])
      if bin_type != "BNS_BBH":
@@ -403,7 +403,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      pyplot.grid()
      pyplot.xticks(tick_locs,tick_strings)
      pyplot.xlim([numpy.min(left - width/2),numpy.max(left+width+width/2)])
-     #pyplot.title("%s Search Range (%.1f days livetime)"%(combined_ifos,total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=18)
+     #pyplot.title("%s Search Range (%.1f days livetime)"%(combined_ifos,total_lt.array[0]*constants.YRJUL_SI/(3600*24)),fontsize=18)
      if bin_type != "BNS_BBH":
        pyplot.xlabel(bin_type.replace('_',' ') + " (M$_{\odot}$)",fontsize=axis_font_size)
      pyplot.ylabel('Range (Mpc)',fontsize=axis_font_size)
@@ -443,7 +443,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
         else:
           row.mass_bin = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
       row.sensitivity_VT = "%.3g" % (total_vol[mbin],)
-      row.livetime = "%f" % (total_lt[mbin]*constants.LAL_YRJUL_SI/(3600*24),)
+      row.livetime = "%f" % (total_lt[mbin]*constants.YRJUL_SI/(3600*24),)
       row.avg_reach = "%.1f" % ((total_vol[mbin]/total_lt[mbin] /(4*numpy.pi/3) )**(1./3),)
       row.uncombined_upper_limit = "%.3g" % (uncombined_upper_limit[mbin],)
       row.combined_upper_limit = "%.3g" % (combined_upper_limit[mbin],)
