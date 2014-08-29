@@ -201,19 +201,11 @@ static REAL8 XLALSimIMRPhenomBNormalization_Merger_Der_theta0(
         49038.08804007761*recurring_expr_1*recurring_expr_1)*theta3_pow_33*theta3_pow_33 + 
      theta0_pow_one_third*(1008.9019847050173 + 3804.589089140962*
          recurring_expr_1 - 
-        1999.603615336666*recurring_expr_1*recurring_expr_1)*pow(theta3,8.333333333333334) + 
+        1999.603615336666*recurring_expr_1*recurring_expr_1)*theta3_pow_33*theta3_pow_33*theta3_pow_166 + 
      (242.52837069765866 - 241.8810122753211*recurring_expr_1 + 
         19.288678319713693*recurring_expr_1*recurring_expr_1)*theta3_pow_5*theta3_pow_5)/
-   (theta3_pow_333*pow(4.465858060541567 - 3.1035196288177636*
-        pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.3333333333333333) + 
-       1.*pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-          (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-          (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666),2)*
-     pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
-       (39.476625355061934*theta0_pow_133)/theta3_pow_33 + 
-       (75.15468625054058*theta0_pow_one_third)/theta3_pow_166,0.6666666666666666)*pow(theta3,11.666666666666666))*flow/flow);
+   (theta3_pow_333*pow(4.465858060541567 - 3.1035196288177636*recurring_expr_1 + 
+       1.*recurring_expr_1*recurring_expr_1,2)*recurring_expr_1*recurring_expr_1*theta3_pow_33*theta3_pow_33*theta3_pow_33*theta3_pow_166)*flow/flow);
 
 	}
 
@@ -249,7 +241,7 @@ static REAL8 XLALSimIMRPhenomBNormalization_Merger_Der_theta3(
           581227.5406935291*recurring_expr_1*recurring_expr_1)*theta3_pow_33*theta3_pow_33 + 
        theta0_pow_one_third*(2267.989778592834 - 1900.7071254856517*
            recurring_expr_1 - 
-          7167.603692829992*recurring_expr_1*recurring_expr_1)*pow(theta3,8.333333333333334) + 
+          7167.603692829992*recurring_expr_1*recurring_expr_1)*theta3_pow_33*theta3_pow_33*theta3_pow_166 + 
        (-48.22169579928426 - 456.90801416377934*recurring_expr_1 + 
           455.68843209859017*recurring_expr_1*recurring_expr_1)*theta3_pow_5*theta3_pow_5))/
    (pow(4.465858060541567 - 3.1035196288177636*recurring_expr_1 + 
@@ -258,6 +250,7 @@ static REAL8 XLALSimIMRPhenomBNormalization_Merger_Der_theta3(
        56.63465820688478*theta0_pow_one_third*theta3_pow_33 + 1.*theta3_pow_5))*flow/flow);
 
 	}
+
 
 static REAL8 XLALSimIMRPhenomBNormalization_Ringdown_Der_theta0(
 	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
@@ -290,28 +283,28 @@ static REAL8 XLALSimIMRPhenomBNormalization_Ringdown_Der_theta0(
            recurring_expr_1*recurring_expr_1) + theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta3_pow_33*theta3_pow_33*
         (-0.0001659902885655082 + 0.00011805488681116238*theta0theta3_comb*
            recurring_expr_1 - 0.00003890933319150247*theta0theta3_comb*theta0theta3_comb*
-           recurring_expr_1*recurring_expr_1) + theta0_pow_133*pow(theta3,11.666666666666666)*
+           recurring_expr_1*recurring_expr_1) + theta0_pow_133*theta3_pow_33*theta3_pow_33*theta3_pow_33*theta3_pow_166*
         (-4.783524166754698e-9 + 3.2568071954548985e-9*theta0theta3_comb*
            recurring_expr_1 - 1.0276508948991564e-9*theta0theta3_comb*theta0theta3_comb*
-           recurring_expr_1*recurring_expr_1) + pow(theta3,15)*(3.274130801749477e-12 - 
+           recurring_expr_1*recurring_expr_1) + theta3_pow_5*theta3_pow_5*theta3_pow_5*(3.274130801749477e-12 - 
           2.2753363570435764e-12*theta0theta3_comb*
            recurring_expr_1 + 7.331470811126562e-13*theta0theta3_comb*theta0theta3_comb*
-           recurring_expr_1*recurring_expr_1) + theta0_pow_one_third*pow(theta3,13.333333333333334)*
+           recurring_expr_1*recurring_expr_1) + theta0_pow_one_third*theta3_pow_33*theta3_pow_33*theta3_pow_33*theta3_pow_33*
         (1.3583519401264653e-10 - 9.672943317645832e-11*theta0theta3_comb*
            recurring_expr_1 + 3.1918941998055616e-11*theta0theta3_comb*theta0theta3_comb*
            recurring_expr_1*recurring_expr_1) + theta0_pow_2*theta3_pow_5*theta3_pow_5*
         (1.0819756796833929e-7 - 7.68710402064183e-8*theta0theta3_comb*
            recurring_expr_1 + 2.5310253760475244e-8*theta0theta3_comb*theta0theta3_comb*
-           recurring_expr_1*recurring_expr_1) + theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*pow(theta3,8.333333333333334)*
+           recurring_expr_1*recurring_expr_1) + theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta3_pow_33*theta3_pow_33*theta3_pow_166*
         (1.7420618880578452e-6 - 1.3563925798001168e-6*theta0theta3_comb*
            recurring_expr_1 + 4.840150926665589e-7*theta0theta3_comb*theta0theta3_comb*
-           recurring_expr_1*recurring_expr_1) + pow(theta0,4)*theta3_pow_5*
+           recurring_expr_1*recurring_expr_1) + theta0_pow_2*theta0_pow_2*theta3_pow_5*
         (0.0013337043441791188 - 0.0009363229675156456*theta0theta3_comb*
            recurring_expr_1 + 0.00030474967286614414*theta0theta3_comb*theta0theta3_comb*
            recurring_expr_1*recurring_expr_1) + theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta3_pow_33*
         (0.009194574209833916 - 0.007414061611724472*theta0theta3_comb*
            recurring_expr_1 + 0.002718981485432563*theta0theta3_comb*theta0theta3_comb*
-           recurring_expr_1*recurring_expr_1) + pow(theta0,6)*(3.091747888067239 - 
+           recurring_expr_1*recurring_expr_1) + theta0_pow_2*theta0_pow_2*theta0_pow_2*(3.091747888067239 - 
           2.6260550705381083*theta0theta3_comb*
            recurring_expr_1 + 1.*theta0theta3_comb*theta0theta3_comb*
            recurring_expr_1*recurring_expr_1)))/
@@ -363,19 +356,19 @@ static REAL8 XLALSimIMRPhenomBNormalization_Ringdown_Der_theta3(
            recurring_expr_1*recurring_expr_1) + theta0_pow_2*theta0_pow_2*theta3_pow_5*
         (-1.388190823915925e6 + 976106.5716062305*theta0theta3_comb*
            recurring_expr_1 - 318186.7317364536*theta0theta3_comb*theta0theta3_comb*
-           recurring_expr_1*recurring_expr_1) + theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*pow(theta3,8.333333333333334)*
+           recurring_expr_1*recurring_expr_1) + theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta3_pow_33*theta3_pow_33*theta3_pow_166*
         (-1362.9020402713631 + 1122.416311616068*theta0theta3_comb*
            recurring_expr_1 - 418.13575617334664*theta0theta3_comb*theta0theta3_comb*
-           recurring_expr_1*recurring_expr_1) + theta0_pow_2*pow(theta3,10)*
+           recurring_expr_1*recurring_expr_1) + theta0_pow_2*theta3_pow_5*theta3_pow_5*
         (-106.62180006288368 + 76.11616463511724*theta0theta3_comb*
            recurring_expr_1 - 25.17663731273577*theta0theta3_comb*theta0theta3_comb*
-           recurring_expr_1*recurring_expr_1) + theta0_pow_one_third*pow(theta3,13.333333333333334)*
+           recurring_expr_1*recurring_expr_1) + theta0_pow_one_third*theta3_pow_33*theta3_pow_33*theta3_pow_33*theta3_pow_33*
         (-0.07943941508018493 + 0.05800974078945667*theta0theta3_comb*
            recurring_expr_1 - 0.01959503179167246*theta0theta3_comb*theta0theta3_comb*
-           recurring_expr_1*recurring_expr_1) + pow(theta3,15)*(-0.0015748794472423468 + 
+           recurring_expr_1*recurring_expr_1) + theta3_pow_5*theta3_pow_5*theta3_pow_5*(-0.0015748794472423468 + 
           0.0010944524459305302*theta0theta3_comb*
            recurring_expr_1 - 0.0003526487913167943*theta0theta3_comb*theta0theta3_comb*
-           recurring_expr_1*recurring_expr_1) + theta0_pow_133*pow(theta3,11.666666666666666)*
+           recurring_expr_1*recurring_expr_1) + theta0_pow_133*theta3_pow_33*theta3_pow_33*theta3_pow_33*theta3_pow_166*
         (4.140774893012413 - 2.7964683432051944*theta0theta3_comb*
            recurring_expr_1 + 0.8749200456549843*theta0theta3_comb*theta0theta3_comb*
            recurring_expr_1*recurring_expr_1) + theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta3_pow_33*theta3_pow_33*
@@ -434,7 +427,8 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Merger(
 	const REAL8 f,		/**<Fourier Frequency*/
 	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
-	const REAL8 flow	/**< Lower Frequency Cut-off */
+	const REAL8 flow,	/**< Lower Frequency Cut-off */
+	const REAL8 norm_merger
 	){
 	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
 	REAL8	theta0_pow_2 = pow(theta0,2);
@@ -443,7 +437,7 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Merger(
 	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
 	REAL8	theta3_pow_5 = pow(theta3,5);
 
-	REAL8 coef1, coef2, coef3, amp, norm_merger;
+	REAL8 coef1, coef2, coef3, amp;
 
 	coef1 = (0.016200730203430484*sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334))/
    sqrt((1.3270087368763253*flow*theta0)/theta3 + (20.106192982974676*flow*theta0*
@@ -452,7 +446,6 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Merger(
 	coef2 = coef1*(-0.694943633842542*theta3)/(flow*theta0*cbrt(theta3/(flow*theta0))*cbrt(theta3/(flow*theta0)));
 	coef3 = coef1*(0.2239211337314047*theta3)/(flow*theta0*cbrt(theta3/(flow*theta0)));
 
-	norm_merger = XLALSimIMRPhenomBNormalization_Merger(theta0,theta3,flow);
 
 	amp = norm_merger*(coef1*pow(f,-2.0/3.0) + coef2*pow(f,-1.0/3.0) + coef3);
 	return amp;
@@ -462,7 +455,8 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Ringdown(
 	const REAL8 f,		/**<Fourier Frequency*/
 	const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
-	const REAL8 flow	/**< Lower Frequency Cut-off */
+	const REAL8 flow,	/**< Lower Frequency Cut-off */
+	const REAL8 norm_ringdown
 	){
 	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
 	REAL8	theta0_pow_2 = pow(theta0,2);
@@ -472,9 +466,7 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Ringdown(
 	REAL8	theta3_pow_5 = pow(theta3,5);
 	REAL8	theta3_pow_6 = pow(theta3,6); 
 
-	REAL8 amp, waveform, norm_ringdown;
-
-	norm_ringdown = XLALSimIMRPhenomBNormalization_Ringdown(theta0,theta3,flow);
+	REAL8 amp, waveform;
 
 	waveform = ((0.002578426293574129*sqrt(theta0_pow_one_third/theta3_pow_166)*theta3_pow_6*theta3*
      (-11300.842322830984*theta0_pow_2 + 1239.942236495006*theta0_pow_133*theta3_pow_166 - 
@@ -1058,7 +1050,7 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
 		else if ((fMerg<f) && (f<=fRing)){
 
         	/* merger amplitude of the frequency-domain waveform */
-        	Amp->data[k] = XLALSimIMRPhenomBAmplitude_Merger(f,theta0,theta3,flow);
+        	Amp->data[k] = XLALSimIMRPhenomBAmplitude_Merger(f,theta0,theta3,flow, norm_merg);
 
         	/* merger waveform deratives with respect to the parameters */
         	dATheta0->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta0_Merger(f,theta0,theta3,flow, norm_merg, norm_merg_theta0, Amp->data[k]);
@@ -1067,7 +1059,7 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
 
 		else{
         	/* ringdown amplitude of the frequency-domain waveform */
-        	Amp->data[k] = XLALSimIMRPhenomBAmplitude_Ringdown(f,theta0,theta3,flow);
+        	Amp->data[k] = XLALSimIMRPhenomBAmplitude_Ringdown(f,theta0,theta3,flow, norm_ringdown);
 
         	/* ringdown waveform deratives with respect to the parameters */
         	dATheta0->data[k] = XLALSimIMRPhenomBAmplitude_Der_theta0_Ringdown(f,theta0,theta3,flow, norm_ringdown, norm_ringdown_theta0, Amp->data[k]);
