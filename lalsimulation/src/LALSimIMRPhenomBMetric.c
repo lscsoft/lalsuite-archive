@@ -76,7 +76,7 @@ static REAL8 TransitionFrequencies_fmerg(
 	const REAL8 f_low	/**< Lower Frequency Cut-off */
 	)
 	{
-	return (1.3270087368763253*f_low*theta0)/theta3 + (20.106192982974676*f_low*theta0*(0. - (1388.908285838913*pow(theta0,2))/pow(theta3,5) - (1.9634062693265484*pow(theta0,1.3333333333333333))/pow(theta3,3.3333333333333335) + (3.7378874416543857*pow(theta0,0.6666666666666666))/pow(theta3,1.6666666666666667)))/theta3;
+	return (1.3270087368763253*f_low*theta0)/theta3 + (20.106192982974676*f_low*theta0*(0. - (1388.908285838913*(theta0*theta0))/(theta3*theta3*theta3*theta3*theta3) - (1.9634062693265484*pow(theta0,1.3333333333333333))/(cbrt(theta3)*theta3*theta3*theta3) + (3.7378874416543857*pow(theta0,0.6666666666666666))/(cbrt(theta3*theta3)*theta3)))/theta3;
 
 
 }
@@ -87,7 +87,7 @@ static REAL8 TransitionFrequencies_fring(
 	const REAL8 f_low	/**< Lower Frequency Cut-off */
 	)
 	{
-	return (3.719645701850315*f_low*theta0)/theta3 + (20.106192982974676*f_low*theta0*(0. + (455.39646148015123*pow(theta0,2))/pow(theta3,5) - (0.8397543046176621*pow(theta0,1.3333333333333333))/pow(theta3,3.3333333333333335) + (0.8530966599534362*pow(theta0,0.6666666666666666))/pow(theta3,1.6666666666666667)))/theta3;
+	return (3.719645701850315*f_low*theta0)/theta3 + (20.106192982974676*f_low*theta0*(0. + (455.39646148015123*(theta0*theta0))/(theta3*theta3*theta3*theta3*theta3) - (0.8397543046176621*pow(theta0,1.3333333333333333))/(cbrt(theta3)*theta3*theta3*theta3) + (0.8530966599534362*pow(theta0,0.6666666666666666))/(cbrt(theta3*theta3)*theta3)))/theta3;
 
 }
 
@@ -97,7 +97,7 @@ static REAL8 TransitionFrequencies_fcut(
 	const REAL8 f_low	/**< Lower Frequency Cut-off */
 	)
 	{
-	return (6.506364049290605*f_low*theta0)/theta3 + (20.106192982974676*f_low*theta0*(0. + (963.986488648419*pow(theta0,2))/pow(theta3,5) - (9.15298466960777*pow(theta0,1.3333333333333333))/pow(theta3,3.3333333333333335) - (0.7731297368250576*pow(theta0,0.6666666666666666))/pow(theta3,1.6666666666666667)))/theta3;
+	return (6.506364049290605*f_low*theta0)/theta3 + (20.106192982974676*f_low*theta0*(0. + (963.986488648419*(theta0*theta0))/(theta3*theta3*theta3*theta3*theta3) - (9.15298466960777*pow(theta0,1.3333333333333333))/pow(theta3,3.3333333333333335) - (0.7731297368250576*pow(theta0,0.6666666666666666))/(cbrt(theta3*theta3)*theta3)))/theta3;
 }
 
 /**
@@ -112,12 +112,12 @@ static REAL8 XLALSimIMRPhenomBNormalization_Merger(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8	theta0_pow_2 = pow(theta0,2);
-	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8	theta3_pow_5 = pow(theta3,5);
+	REAL8	theta0_pow_2 = theta0*theta0;
+	REAL8	theta0_pow_one_third = cbrt(theta0_pow_2);
+	REAL8	theta0_pow_133 = theta0_pow_one_third*theta0_pow_one_third;
+	REAL8	theta3_pow_33 = cbrt(theta3)*theta3*theta3*theta3;
+	REAL8	theta3_pow_166 = cbrt(theta3*theta3)*theta3;
+	REAL8	theta3_pow_5 = theta3*theta3*theta3*theta3*theta3;
 
 	return ((4.465858060541566*theta3_pow_166 + 9.415904762816128*
       pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
@@ -139,13 +139,13 @@ static REAL8 XLALSimIMRPhenomBNormalization_Ringdown(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8	theta0_pow_2 = pow(theta0,2);
-	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8	theta3_pow_5 = pow(theta3,5);
-	REAL8	theta3_pow_6 = pow(theta3,6); 
+	REAL8	theta0_pow_2 = theta0*theta0;
+	REAL8	theta0_pow_one_third = cbrt(theta0_pow_2);
+	REAL8	theta0_pow_133 = theta0_pow_one_third*theta0_pow_one_third;
+	REAL8	theta3_pow_33 = cbrt(theta3)*theta3*theta3*theta3;
+	REAL8	theta3_pow_166 = cbrt(theta3*theta3)*theta3;
+	REAL8	theta3_pow_5 = theta3*theta3*theta3*theta3*theta3;
+	REAL8	theta3_pow_6 = theta3_pow_5*theta3; 
 
 	/*Recurring Expression*/
 	REAL8	recurring_expr_1 = pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
@@ -160,7 +160,7 @@ static REAL8 XLALSimIMRPhenomBNormalization_Ringdown(
       0.6666666666666666)*(0.4742887882827215*theta3_pow_166 + 
        1.*recurring_expr_1*recurring_expr_1*
         (1.*theta0_pow_one_third - 0.09249341147745196*theta3_pow_166))*
-     (4.465858060541567 - 3.1035196288177636*pow(theta3/(flow*theta0),0.3333333333333333)*
+     (4.465858060541567 - 3.1035196288177636*cbrt(theta3/(flow*theta0))*
         pow((flow*theta0*(9156.289138283713*theta0_pow_2 - 16.884262106926414*theta0_pow_133*theta3_pow_166 + 
               17.15252607815491*theta0_pow_one_third*theta3_pow_33 + 3.719645701850315*theta3_pow_5))/theta3_pow_6,
          0.3333333333333333) + 1.*pow(theta3/(flow*theta0),0.6666666666666666)*
@@ -179,13 +179,13 @@ static REAL8 XLALSimIMRPhenomBNormalization_Merger_Der_theta0(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8	theta0_pow_2 = pow(theta0,2);
-	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8	theta3_pow_333 = pow(theta0,0.3333333333333333);
-	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8	theta3_pow_5 = pow(theta3,5);
+	REAL8	theta0_pow_2 = theta0*theta0;
+	REAL8	theta0_pow_one_third = cbrt(theta0_pow_2);
+	REAL8	theta0_pow_133 = theta0_pow_one_third*theta0_pow_one_third;
+	REAL8	theta3_pow_33 = cbrt(theta3)*theta3*theta3*theta3;
+	REAL8	theta3_pow_333 = cbrt(theta0);
+	REAL8	theta3_pow_166 = cbrt(theta3*theta3)*theta3;
+	REAL8	theta3_pow_5 = theta3*theta3*theta3*theta3*theta3;
 
 	/*Some Recurring Expressions*/
 	REAL8 recurring_expr_1 = pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
@@ -215,12 +215,12 @@ static REAL8 XLALSimIMRPhenomBNormalization_Merger_Der_theta3(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8	theta0_pow_2 = pow(theta0,2);
-	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8	theta3_pow_5 = pow(theta3,5);
+	REAL8	theta0_pow_2 = theta0*theta0;
+	REAL8	theta0_pow_one_third = cbrt(theta0_pow_2);
+	REAL8	theta0_pow_133 = theta0_pow_one_third*theta0_pow_one_third;
+	REAL8	theta3_pow_33 = cbrt(theta3)*theta3*theta3*theta3;
+	REAL8	theta3_pow_166 = cbrt(theta3*theta3)*theta3;
+	REAL8	theta3_pow_5 = theta3*theta3*theta3*theta3*theta3;
 
 	/*Some Recurring Expressions*/
 	REAL8	recurring_expr_1 = pow(1.3270087368763253 - (27925.658030729737*theta0_pow_2)/theta3_pow_5 - 
@@ -260,14 +260,14 @@ static REAL8 XLALSimIMRPhenomBNormalization_Ringdown_Der_theta0(
 	const REAL8 norm_ring, /**< Normalization for ringdown waveform */
 	const REAL8 norm_merg_theta0 /**< Derviative of norm_merg w.r.t theta0*/
 	){
-	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8	theta0_pow_2 = pow(theta0,2);
-	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8	theta3_pow_5 = pow(theta3,5);
-	REAL8	theta3_pow_6 = pow(theta3,6);
-	REAL8	theta0theta3_comb = pow(theta3/(flow*theta0),0.3333333333333333); 
+	REAL8	theta0_pow_2 = theta0*theta0;
+	REAL8	theta0_pow_one_third = cbrt(theta0_pow_2);
+	REAL8	theta0_pow_133 = theta0_pow_one_third*theta0_pow_one_third;
+	REAL8	theta3_pow_33 = cbrt(theta3)*theta3*theta3*theta3;
+	REAL8	theta3_pow_166 = cbrt(theta3*theta3)*theta3;
+	REAL8	theta3_pow_5 = theta3*theta3*theta3*theta3*theta3;
+	REAL8	theta3_pow_6 = theta3_pow_5*theta3;
+	REAL8	theta0theta3_comb = cbrt(theta3/(flow*theta0)); 
 
 	REAL8	norm_ring_theta0;
 
@@ -329,14 +329,14 @@ static REAL8 XLALSimIMRPhenomBNormalization_Ringdown_Der_theta3(
 	const REAL8 norm_ring, /**< Normalization for ringdown waveform */
 	const REAL8 norm_merg_theta3 /**< Derviative of norm_merg w.r.t theta0*/
 	){
-	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8	theta0_pow_2 = pow(theta0,2);
-	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8	theta3_pow_5 = pow(theta3,5);
-	REAL8	theta3_pow_6 = pow(theta3,6);
-	REAL8	theta0theta3_comb = pow(theta3/(flow*theta0),0.3333333333333333); 
+	REAL8	theta0_pow_2 = theta0*theta0;
+	REAL8	theta0_pow_one_third = cbrt(theta0_pow_2);
+	REAL8	theta0_pow_133 = theta0_pow_one_third*theta0_pow_one_third;
+	REAL8	theta3_pow_33 = cbrt(theta3)*theta3*theta3*theta3;
+	REAL8	theta3_pow_166 = cbrt(theta3*theta3)*theta3;
+	REAL8	theta3_pow_5 = theta3*theta3*theta3*theta3*theta3;
+	REAL8	theta3_pow_6 = theta3_pow_5*theta3;
+	REAL8	theta0theta3_comb = cbrt(theta3/(flow*theta0)); 
 
 	REAL8	norm_ring_theta3;
 
@@ -406,9 +406,9 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Inspiral(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8	theta3_pow_333 = pow(theta0,0.3333333333333333);
-	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
+	REAL8	theta0_pow_one_third = cbrt(theta0*theta0);
+	REAL8	theta3_pow_333 = cbrt(theta0);
+	REAL8	theta3_pow_166 = cbrt(theta3*theta3)*theta3;
 
 
 	REAL8 coef1, coef2, amp;
@@ -430,12 +430,12 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Merger(
 	const REAL8 flow,	/**< Lower Frequency Cut-off */
 	const REAL8 norm_merger
 	){
-	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8	theta0_pow_2 = pow(theta0,2);
-	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8	theta3_pow_5 = pow(theta3,5);
+	REAL8	theta0_pow_2 = theta0*theta0;
+	REAL8	theta0_pow_one_third = cbrt(theta0_pow_2);
+	REAL8	theta0_pow_133 = theta0_pow_one_third*theta0_pow_one_third;
+	REAL8	theta3_pow_33 = cbrt(theta3)*theta3*theta3*theta3;
+	REAL8	theta3_pow_166 = cbrt(theta3*theta3)*theta3;
+	REAL8	theta3_pow_5 = theta3*theta3*theta3*theta3*theta3;
 
 	REAL8 coef1, coef2, coef3, amp;
 
@@ -447,7 +447,7 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Merger(
 	coef3 = coef1*(0.2239211337314047*theta3)/(flow*theta0*cbrt(theta3/(flow*theta0)));
 
 
-	amp = norm_merger*(coef1*pow(f,-2.0/3.0) + coef2*pow(f,-1.0/3.0) + coef3);
+	amp = norm_merger*(coef1*cbrt(1/(f*f)) + coef2*cbrt(1/f) + coef3);
 	return amp;
 	}
 
@@ -458,13 +458,13 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Ringdown(
 	const REAL8 flow,	/**< Lower Frequency Cut-off */
 	const REAL8 norm_ringdown
 	){
-	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8	theta0_pow_2 = pow(theta0,2);
-	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8	theta3_pow_5 = pow(theta3,5);
-	REAL8	theta3_pow_6 = pow(theta3,6); 
+	REAL8	theta0_pow_2 = theta0*theta0;
+	REAL8	theta0_pow_one_third = cbrt(theta0_pow_2);
+	REAL8	theta0_pow_133 = theta0_pow_one_third*theta0_pow_one_third;
+	REAL8	theta3_pow_33 = cbrt(theta3)*theta3*theta3*theta3;
+	REAL8	theta3_pow_166 = cbrt(theta3*theta3)*theta3;
+	REAL8	theta3_pow_5 = theta3*theta3*theta3*theta3*theta3;
+	REAL8	theta3_pow_6 = theta3_pow_5*theta3; 
 
 	REAL8 amp, waveform;
 
@@ -474,12 +474,12 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Ringdown(
    (pow(theta3/(flow*theta0),0.16666666666666666)*pow((flow*theta0*
          (-27925.658030729737*theta0_pow_2 - 39.476625355061934*theta0_pow_133*theta3_pow_166 + 
            75.15468625054058*theta0_pow_one_third*theta3_pow_33 + 1.3270087368763253*theta3_pow_5))/theta3_pow_6,
-      1.1666666666666667)*(3.1927259301371995e7*pow(1.*flow*pow(theta0,3) - 
-          0.10972122263753407*flow*pow(theta0,2.3333333333333335)*theta3_pow_166 + 
-          0.004234161619441117*flow*pow(theta0,1.6666666666666667)*theta3_pow_33 - 0.00016457382536589995*flow*theta0*theta3_pow_5,2) + 
-       pow(f*theta3_pow_6 + flow*(-9156.289138283713*pow(theta0,3) + 
-            16.884262106926414*pow(theta0,2.3333333333333335)*theta3_pow_166 - 
-            17.15252607815491*pow(theta0,1.6666666666666667)*theta3_pow_33 - 3.719645701850315*theta0*theta3_pow_5),2))));
+      1.1666666666666667)*(3.1927259301371995e7*pow(1.*flow*theta0_pow_2*theta0 - 
+          0.10972122263753407*flow*theta0_pow_2*cbrt(theta0)*theta3_pow_166 + 
+          0.004234161619441117*flow*theta0*cbrt(theta0_pow_2)*theta3_pow_33 - 0.00016457382536589995*flow*theta0*theta3_pow_5,2) + 
+       pow(f*theta3_pow_6 + flow*(-9156.289138283713*theta0_pow_2*theta0 + 
+            16.884262106926414*theta0_pow_2*cbrt(theta0)*theta3_pow_166 - 
+            17.15252607815491*theta0*cbrt(theta0_pow_2)*theta3_pow_33 - 3.719645701850315*theta0*theta3_pow_5),2))));
 
 	amp = norm_ringdown*waveform;
 	return amp;
@@ -509,15 +509,15 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta0_Inspiral(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
+	REAL8	theta0_pow_one_third = cbrt(theta0*theta0);
+	REAL8	theta3_pow_166 = cbrt(theta3*theta3)*theta3;
 
 
 	REAL8 coef1, coef2, amp;
 
 	coef1 = (-0.008100365101715244*sqrt(theta0_pow_one_third/theta3_pow_166)*pow(theta3/(flow*theta0),0.8333333333333334))/theta0;
 	coef2 = (-0.017078972351517306*pow(theta0_pow_one_third/theta3_pow_166,1.5)*pow(theta3/(flow*theta0),1.5)*
-     (1.*theta0_pow_one_third - 0.21581796011405455*theta3_pow_166))/pow(theta0,1.6666666666666667);
+     (1.*theta0_pow_one_third - 0.21581796011405455*theta3_pow_166))/(theta0*cbrt(theta0*theta0));
 	amp = coef1*pow(f,-7.0/6.0) + coef2*pow(f,-1.0/2.0);
 	return amp;
 
@@ -535,13 +535,13 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta0_Merger(
 	const REAL8 norm_merg_theta0,
 	const REAL8 amp_merger
 	){
-	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8	theta0_pow_2 = pow(theta0,2);
-	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8	theta3_pow_5 = pow(theta3,5);
-	REAL8	theta3_pow_6 = pow(theta3,6); 
+	REAL8	theta0_pow_2 = theta0*theta0;
+	REAL8	theta0_pow_one_third = cbrt(theta0_pow_2);
+	REAL8	theta0_pow_133 = theta0_pow_one_third*theta0_pow_one_third;
+	REAL8	theta3_pow_33 = cbrt(theta3)*theta3*theta3*theta3;
+	REAL8	theta3_pow_166 = cbrt(theta3*theta3)*theta3;
+	REAL8	theta3_pow_5 = theta3*theta3*theta3*theta3*theta3;
+	REAL8	theta3_pow_6 = theta3_pow_5*theta3; 
 
 	REAL8	coef1, coef2, coef3, amp_theta0, amp; 
 
@@ -550,23 +550,23 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta0_Merger(
        0.0000581334338539683*theta0_pow_one_third*theta3_pow_33 + 7.698479477214536e-7*theta3_pow_5))/
    (sqrt((flow*theta0*(-27925.658030729737*theta0_pow_2 - 39.476625355061934*theta0_pow_133*theta3_pow_166 + 
            75.15468625054058*theta0_pow_one_third*theta3_pow_33 + 1.3270087368763253*theta3_pow_5))/theta3_pow_6)*
-     (1.*pow(theta0,3) + 0.001413632771396877*pow(theta0,2.3333333333333335)*theta3_pow_166 - 
-       0.0026912413726415843*pow(theta0,1.6666666666666667)*theta3_pow_33 - 0.00004751933635426132*theta0*theta3_pow_5));
+     (1.*theta0_pow_2*theta0 + 0.001413632771396877*theta0_pow_2*cbrt(theta0)*theta3_pow_166 - 
+       0.0026912413726415843*theta0*cbrt(theta0_pow_2)*theta3_pow_33 - 0.00004751933635426132*theta0*theta3_pow_5));
 
-	coef2 = coef1*((-0.810767572816299*pow(theta3/(flow*theta0),0.3333333333333333)*
+	coef2 = coef1*((-0.810767572816299*cbrt(theta3/(flow*theta0))*
      (1.*theta0_pow_2 + 0.0012116852326258948*theta0_pow_133*theta3_pow_166 - 
        0.0019223152661725599*theta0_pow_one_third*theta3_pow_33 - 0.000027153906488149293*theta3_pow_5))/
    (1.*theta0_pow_2 + 0.0011780273094973974*theta0_pow_133*theta3_pow_166 - 
      0.0017941609150943893*theta0_pow_one_third*theta3_pow_33 - 0.00002375966817713066*theta3_pow_5));
 
-	coef3 = coef1*((0.29856151164187295*pow(theta3/(flow*theta0),0.6666666666666666)*
+	coef3 = coef1*((0.29856151164187295*cbrt(theta3/(flow*theta0))*cbrt(theta3/(flow*theta0))*
      (1.*theta0_pow_2 + 0.0012369286749722673*theta0_pow_133*theta3_pow_166 - 
        0.002018431029481188*theta0_pow_one_third*theta3_pow_33 - 0.000029699585221413194*theta3_pow_5))/
    (1.*theta0_pow_2 + 0.0011780273094973974*theta0_pow_133*theta3_pow_166 - 
      0.0017941609150943893*theta0_pow_one_third*theta3_pow_33 - 0.00002375966817713066*theta3_pow_5));
 
 
-	amp_theta0 = norm_merg*(coef3 + coef1*pow(f,-2.0/3.0) + coef2*pow(f,-1.0/3.0));
+	amp_theta0 = norm_merg*(coef3 + coef1*cbrt(1/(f*f)) + coef2*cbrt(1/f));
 	amp = norm_merg_theta0*amp_merger/norm_merg;
 
 	return amp+amp_theta0 ;
@@ -588,19 +588,19 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta0_Ringdown(
 	const REAL8 norm_ringdown_theta0,
 	const REAL8 amp_ringdown
 	){
-	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8	theta0_pow_2 = pow(theta0,2);
-	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
+	REAL8	theta0_pow_2 = theta0*theta0;
+	REAL8	theta0_pow_one_third = cbrt(theta0_pow_2);
+	REAL8	theta0_pow_133 = theta0_pow_one_third*theta0_pow_one_third;
 	REAL8	theta0_pow_333 = theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third;
-	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
+	REAL8	theta3_pow_33 = cbrt(theta3)*theta3*theta3*theta3;
 	REAL8	theta0_pow_266 = theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third;
-	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8	theta3_pow_5 = pow(theta3,5);
+	REAL8	theta3_pow_166 = cbrt(theta3*theta3)*theta3;
+	REAL8	theta3_pow_5 = theta3*theta3*theta3*theta3*theta3;
 	REAL8	theta3_pow_6 = theta3_pow_5*theta3;
 	REAL8	theta3_pow_666 = theta3_pow_33*theta3_pow_33;
-	REAL8	theta3_pow_833 = pow(theta3,8.333333333333334);
-	REAL8	theta3_pow_116 = pow(theta3,11.666666666666666);
-	REAL8	theta3_pow_133 = pow(theta3,13.333333333333334);
+	REAL8	theta3_pow_833 = theta3_pow_33*theta3_pow_33*theta3_pow_166;
+	REAL8	theta3_pow_116 = theta3_pow_833*theta3_pow_33;
+	REAL8	theta3_pow_133 = theta3_pow_116*theta3_pow_166;
  
 	REAL8	amp_theta0;
 
@@ -618,14 +618,14 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta0_Ringdown(
           1.3775867112252942e-10*theta0_pow_266*theta3_pow_833 + 3.1444151526879723e-12*theta0_pow_2*theta3_pow_5*theta3_pow_5 + 
           1.3374286585876486e-13*theta0_pow_133*theta3_pow_116 - 
           8.86454266853857e-15*theta0_pow_one_third*theta3_pow_133 - 1.196565694184624e-16*theta3_pow_5*theta3_pow_5*theta3_pow_5) + 
-       pow(flow,2)*theta0_pow_2*(1.*pow(theta0,8) - 0.1760878215836856*pow(theta0,7.333333333333333)*theta3_pow_166 + 
-          0.016434354889891443*pow(theta0,6.666666666666667)*theta3_pow_33 - 0.0008012371590087298*theta0_pow_2*theta0_pow_2*theta0_pow_2*theta3_pow_5 + 
+       flow*flow*theta0_pow_2*(1.*theta0_pow_2*theta0_pow_2*theta0_pow_2*theta0_pow_2 - 0.1760878215836856*theta0_pow_2*theta0_pow_2*theta0_pow_2*theta0*cbrt(theta0)*theta3_pow_166 + 
+          0.016434354889891443*theta0_pow_2*theta0_pow_2*theta0_pow_2*cbrt(theta0_pow_2)*theta3_pow_33 - 0.0008012371590087298*theta0_pow_2*theta0_pow_2*theta0_pow_2*theta3_pow_5 + 
           2.396325173672129e-6*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta3_pow_666 + 
           4.292406610607157e-7*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta3_pow_833 - 1.9043032274546434e-8*theta0_pow_2*theta0_pow_2*theta3_pow_5*theta3_pow_5 - 
           5.531895676049336e-9*theta0_pow_333*theta3_pow_116 + 
           2.628835629389233e-10*theta0_pow_266*theta3_pow_133 - 2.269291512881063e-12*theta0_pow_2*theta3_pow_5*theta3_pow_5*theta3_pow_5 - 
-          2.610954820376939e-13*theta0_pow_133*pow(theta3,16.666666666666668) + 
-          2.3048547012029015e-14*theta0_pow_one_third*pow(theta3,18.333333333333332) + 3.78318037515207e-16*theta3_pow_5*theta3_pow_5*theta3_pow_5*theta3_pow_5)))/
+          2.610954820376939e-13*theta0_pow_133*theta3_pow_133*theta3_pow_33 + 
+          2.3048547012029015e-14*theta0_pow_one_third*theta3_pow_133*theta3_pow_33*theta3_pow_166 + 3.78318037515207e-16*theta3_pow_5*theta3_pow_5*theta3_pow_5*theta3_pow_5)))/
    (pow(1.*theta0_pow_2 + 0.001413632771396877*theta0_pow_133*theta3_pow_166 - 
        0.0026912413726415843*theta0_pow_one_third*theta3_pow_33 - 0.00004751933635426132*theta3_pow_5,2)*
      pow((flow*theta0*(-27925.658030729737*theta0_pow_2 - 39.476625355061934*theta0_pow_133*theta3_pow_166 + 
@@ -634,7 +634,7 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta0_Ringdown(
        f*flow*theta0*theta3_pow_6*(-0.00015818767039890933*theta0_pow_2 + 
           2.916991860744045e-7*theta0_pow_133*theta3_pow_166 - 
           2.963338204792056e-7*theta0_pow_one_third*theta3_pow_33 - 6.426206942557403e-8*theta3_pow_5) + 
-       pow(flow,2)*theta0_pow_2*(1.*theta0_pow_2*theta0_pow_2 - 0.06319178654351876*theta0_pow_333*theta3_pow_166 + 
+       flow*flow*theta0_pow_2*(1.*theta0_pow_2*theta0_pow_2 - 0.06319178654351876*theta0_pow_333*theta3_pow_166 + 
           0.00837150705535333*theta0_pow_266*theta3_pow_33 + 0.00023636648033447988*theta0_pow_2*theta3_pow_5 + 
           0.000016361044697260936*theta0_pow_133*theta3_pow_666 + 
           7.178925895994797e-7*theta0_pow_one_third*theta3_pow_833 + 1.2698581923826034e-7*theta3_pow_5*theta3_pow_5),2)));
@@ -667,13 +667,13 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta3_Inspiral(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
+	REAL8	theta0_pow_one_third = cbrt(theta0*theta0);
+	REAL8	theta3_pow_166 = cbrt(theta3*theta3)*theta3;
 
 	REAL8 amp, coef1;
 
 	coef1 = (-0.03415794470303461*pow(theta0_pow_one_third/theta3_pow_166,1.5)*sqrt(theta3/(flow*theta0))*
-     (1.*theta0_pow_one_third + 0.06166227431830129*theta3_pow_166))/(flow*pow(theta0,1.6666666666666667));
+     (1.*theta0_pow_one_third + 0.06166227431830129*theta3_pow_166))/(flow*theta0*cbrt(theta0*theta0));
 
 	amp = coef1*pow(f,-1.0/2.0);
 	return amp;
@@ -690,13 +690,13 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta3_Merger(
 	const REAL8 norm_merger_theta3,
 	const REAL8 amp_merger
 	){
-	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8	theta0_pow_2 = pow(theta0,2);
-	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8	theta3_pow_5 = pow(theta3,5);
-	REAL8	theta3_pow_433 = pow(theta3,4.333333333333333);
-	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
+	REAL8	theta0_pow_2 = theta0*theta0;
+	REAL8	theta0_pow_one_third = cbrt(theta0_pow_2);
+	REAL8	theta0_pow_133 = theta0_pow_one_third*theta0_pow_one_third;
+	REAL8	theta3_pow_166 = cbrt(theta3*theta3)*theta3;
+	REAL8	theta3_pow_5 = theta3*theta3*theta3*theta3*theta3;
+	REAL8	theta3_pow_433 = cbrt(theta3)*theta3*theta3*theta3*theta3;
+	REAL8	theta3_pow_33 = cbrt(theta3)*theta3*theta3*theta3;
 	REAL8	theta3_pow_6 = theta3_pow_5*theta3;
 
 	REAL8 coef1, coef2, coef3, amp, amp_theta3; 
@@ -706,22 +706,22 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta3_Merger(
        0.00005813343385396831*theta0_pow_one_third*theta3_pow_33 - 3.8492397386072687e-7*theta3_pow_5))/
    (sqrt((flow*theta0*(-27925.658030729737*theta0_pow_2 - 39.476625355061934*theta0_pow_133*theta3_pow_166 + 
            75.15468625054058*theta0_pow_one_third*theta3_pow_33 + 1.3270087368763253*theta3_pow_5))/theta3_pow_6)*
-     (1.*theta0_pow_2*theta3 + 0.001413632771396877*theta0_pow_133*pow(theta3,2.6666666666666665) - 
+     (1.*theta0_pow_2*theta3 + 0.001413632771396877*theta0_pow_133*theta3*theta3*cbrt(theta3*theta3) - 
        0.0026912413726415843*theta0_pow_one_third*theta3_pow_433 - 0.00004751933635426132*theta3_pow_6));
 
-	coef2 = coef1*(pow(theta3/(flow*theta0),0.3333333333333333)*(-0.77215959315838*theta0_pow_2 - 
+	coef2 = coef1*(cbrt(theta3/(flow*theta0))*(-0.77215959315838*theta0_pow_2 - 
        0.0008186625792278745*theta0_pow_133*theta3_pow_166 + 
        0.0010390339216949634*theta0_pow_one_third*theta3_pow_33 + 9.173127856615659e-6*theta3_pow_5))/
    (1.*theta0_pow_2 + 0.0010209570015644114*theta0_pow_133*theta3_pow_166 - 
      0.001196107276729593*theta0_pow_one_third*theta3_pow_33 - 7.919889392376888e-6*theta3_pow_5);
 
-	coef3 = coef1*(pow(theta3/(flow*theta0),0.6666666666666666)*(0.27368138567171685*theta0_pow_2 + 
+	coef3 = coef1*(cbrt(theta3/(flow*theta0))*cbrt(theta3/(flow*theta0))*(0.27368138567171685*theta0_pow_2 + 
        0.0002989565721371088*theta0_pow_133*theta3_pow_166 - 
        0.0004017505462045103*theta0_pow_one_third*theta3_pow_33 - 4.138004760792837e-6*theta3_pow_5))/
    (1.*theta0_pow_2 + 0.0010209570015644114*theta0_pow_133*theta3_pow_166 - 
      0.001196107276729593*theta0_pow_one_third*theta3_pow_33 - 7.919889392376888e-6*theta3_pow_5);
 
-	amp_theta3 = norm_merger*(coef1*pow(f,-2.0/3.0) + coef2*pow(f,-1.0/3.0) + coef3);
+	amp_theta3 = norm_merger*(coef1*cbrt(1/(f*f)) + coef2*cbrt(1/f) + coef3);
 	amp = amp_theta3 + (norm_merger_theta3*amp_merger)/norm_merger;
 	
 	return amp;
@@ -739,19 +739,19 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta3_Ringdown(
 	const REAL8 norm_ringdown_theta3,
 	const REAL8 amp_ringdown
 	){
-	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8	theta0_pow_2 = pow(theta0,2);
-	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
+	REAL8	theta0_pow_2 = theta0*theta0;
+	REAL8	theta0_pow_one_third = cbrt(theta0_pow_2);
+	REAL8	theta0_pow_133 = theta0_pow_one_third*theta0_pow_one_third;
 	REAL8	theta0_pow_333 = theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third;
-	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
+	REAL8	theta3_pow_33 = cbrt(theta3)*theta3*theta3*theta3;
 	REAL8	theta0_pow_266 = theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third;
-	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8	theta3_pow_5 = pow(theta3,5);
+	REAL8	theta3_pow_166 = cbrt(theta3*theta3)*theta3;
+	REAL8	theta3_pow_5 = theta3*theta3*theta3*theta3*theta3;
 	REAL8	theta3_pow_6 = theta3_pow_5*theta3;
 	REAL8	theta3_pow_666 = theta3_pow_33*theta3_pow_33;
-	REAL8	theta3_pow_833 = pow(theta3,8.333333333333334);
-	REAL8	theta3_pow_116 = pow(theta3,11.666666666666666);
-	REAL8	theta3_pow_133 = pow(theta3,13.333333333333334);
+	REAL8	theta3_pow_833 = theta3_pow_33*theta3_pow_33*theta3_pow_166;
+	REAL8	theta3_pow_116 = theta3_pow_833*theta3_pow_33;
+	REAL8	theta3_pow_133 = theta3_pow_116*theta3_pow_166;
 
 	REAL8	amp, amp_theta3;
 
@@ -768,16 +768,16 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta3_Ringdown(
           1.726276444423315e8*theta0_pow_266*theta3_pow_833 + 6.218755128271468e6*theta0_pow_2*theta3_pow_5*theta3_pow_5 + 
           116529.57602908649*theta0_pow_133*theta3_pow_116 - 
           9022.053218358858*theta0_pow_one_third*theta3_pow_133 - 52.075039825904355*theta3_pow_5*theta3_pow_5*theta3_pow_5) + 
-       pow(flow,2)*theta0_pow_2*(1.154623349117609e18*theta0_pow_2*theta0_pow_2*theta0_pow_2*theta0_pow_2 - 
-          2.0514900773449933e17*pow(theta0,7.333333333333333)*theta3_pow_166 + 
-          1.8907897656948656e16*pow(theta0,6.666666666666667)*theta3_pow_33 - 9.780388431773455e14*theta0_pow_2*theta0_pow_2*theta0_pow_2*theta3_pow_5 + 
+       flow*flow*theta0_pow_2*(1.154623349117609e18*theta0_pow_2*theta0_pow_2*theta0_pow_2*theta0_pow_2 - 
+          2.0514900773449933e17*theta0_pow_2*theta0_pow_2*theta0_pow_2*theta0*cbrt(theta0)*theta3_pow_166 + 
+          1.8907897656948656e16*theta0_pow_2*theta0_pow_2*theta0_pow_2*cbrt(theta0_pow_2)*theta3_pow_33 - 9.780388431773455e14*theta0_pow_2*theta0_pow_2*theta0_pow_2*theta3_pow_5 + 
           7.589655976348427e12*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta3_pow_666 + 
           4.0039626591207336e11*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta0_pow_one_third*theta3_pow_833 - 4.233637953066569e10*theta0_pow_2*theta0_pow_2*theta3_pow_5*theta3_pow_5 - 
           4.087882103027116e9*theta0_pow_333*theta3_pow_116 + 
           3.0551750956245e8*theta0_pow_266*theta3_pow_133 - 8.532293257209271e6*theta0_pow_2*theta3_pow_5*theta3_pow_5*theta3_pow_5 - 
-          200782.79369336233*theta0_pow_133*pow(theta3,16.666666666666668) + 
-          21313.235117101256*theta0_pow_one_third*pow(theta3,18.333333333333332) + 191.10649228449162*theta3_pow_5*theta3_pow_5*theta3_pow_5*theta3_pow_5)))/
-   (pow(flow,2)*pow(theta0_pow_one_third/theta3_pow_166,2.5)*pow(theta3/(flow*theta0),1.1666666666666667)*
+          200782.79369336233*theta0_pow_133*theta3_pow_133*theta3_pow_33 + 
+          21313.235117101256*theta0_pow_one_third*theta3_pow_133*theta3_pow_33*theta3_pow_166 + 191.10649228449162*theta3_pow_5*theta3_pow_5*theta3_pow_5*theta3_pow_5)))/
+   (flow*flow*pow(theta0_pow_one_third/theta3_pow_166,2.5)*pow(theta3/(flow*theta0),1.1666666666666667)*
      pow(1.*theta0_pow_2 + 0.001413632771396877*theta0_pow_133*theta3_pow_166 - 
        0.0026912413726415843*theta0_pow_one_third*theta3_pow_33 - 0.00004751933635426132*theta3_pow_5,2)*
      pow((flow*theta0*(-27925.658030729737*theta0_pow_2 - 39.476625355061934*theta0_pow_133*theta3_pow_166 + 
@@ -786,7 +786,7 @@ static REAL8 XLALSimIMRPhenomBAmplitude_Der_theta3_Ringdown(
        f*flow*theta0*theta3_pow_6*(-0.00015818767039890933*theta0_pow_2 + 
           2.916991860744045e-7*theta0_pow_133*theta3_pow_166 - 
           2.963338204792056e-7*theta0_pow_one_third*theta3_pow_33 - 6.426206942557403e-8*theta3_pow_5) + 
-       pow(flow,2)*theta0_pow_2*(1.*theta0_pow_2*theta0_pow_2 - 0.06319178654351876*theta0_pow_333*theta3_pow_166 + 
+       flow*flow*theta0_pow_2*(1.*theta0_pow_2*theta0_pow_2 - 0.06319178654351876*theta0_pow_333*theta3_pow_166 + 
           0.00837150705535333*theta0_pow_266*theta3_pow_33 + 0.00023636648033447988*theta0_pow_2*theta3_pow_5 + 
           0.000016361044697260936*theta0_pow_133*theta3_pow_666 + 
           7.178925895994797e-7*theta0_pow_one_third*theta3_pow_833 + 1.2698581923826034e-7*theta3_pow_5*theta3_pow_5),2)));
@@ -822,36 +822,37 @@ static REAL8 XLALSimIMRPhenomBPhase_Der_theta0(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8	theta0_pow_2 = pow(theta0,2);
-	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8	theta3_pow_5 = pow(theta3,5);
-	REAL8	theta3_pow_433 = pow(theta3,4.333333333333333);
+	REAL8	theta0_pow_2 = theta0*theta0;
+	REAL8	theta0_pow_one_third = cbrt(theta0_pow_2);
+	REAL8	theta0_pow_133 = theta0_pow_one_third*theta0_pow_one_third;
+	REAL8	theta3_pow_33 = cbrt(theta3)*theta3*theta3*theta3;
+	REAL8	theta3_pow_166 = cbrt(theta3*theta3)*theta3;
+	REAL8	theta3_pow_5 = theta3*theta3*theta3*theta3*theta3;
+	REAL8	theta3_pow_433 = cbrt(theta3)*theta3*theta3*theta3*theta3;
+	REAL8	theta3_theta0_cbrt = cbrt(theta3/(flow*theta0)); 
 
 	REAL8 coef_k_0, coef_k_1, coef_k_2, coef_k_3, coef_k_4, coef_k_5, coef_k_6, coef_k_7, phase; 
 
-	coef_k_0 = (0.6000000000000003*theta3_pow_166)/(pow(theta0,1.6666666666666667)*pow(theta3/(flow*theta0),1.6666666666666667));
+	coef_k_0 = (0.6000000000000003*theta3_pow_166)/(theta0*cbrt(theta0_pow_2)*pow(theta3/(flow*theta0),1.6666666666666667));
 	coef_k_1 = 0.0;
 	coef_k_2 = (-496796.3153004055*flow*theta0_pow_133)/theta3_pow_433 + 
-   (30750.248778482535*flow*theta0_pow_one_third)/pow(theta3,2.6666666666666665) - (433.96861359260646*flow)/theta3 + 
-   (0.13291697653291495*flow*pow(theta3,0.6666666666666666))/theta0_pow_one_third;
-	coef_k_3 = (flow*pow(theta3/(flow*theta0),0.3333333333333333)*(2.788900203576315e6*theta0_pow_133 - 
+   (30750.248778482535*flow*theta0_pow_one_third)/(theta3*theta3*cbrt(theta3*theta3)) - (433.96861359260646*flow)/theta3 + 
+   (0.13291697653291495*flow*cbrt(theta3*theta3))/theta0_pow_one_third;
+	coef_k_3 = (flow*theta3_theta0_cbrt*(2.788900203576315e6*theta0_pow_133 - 
        162863.7325707082*theta0_pow_one_third*theta3_pow_166 + 1966.6051704758727*theta3_pow_33))/
    theta3_pow_433;
-	coef_k_4 = (flow*pow(theta3/(flow*theta0),0.6666666666666666)*(-6.066903031167109e6*theta0_pow_2 + 
+	coef_k_4 = (flow*theta3_theta0_cbrt*theta3_theta0_cbrt*(-6.066903031167109e6*theta0_pow_2 + 
        323306.0335697849*theta0_pow_133*theta3_pow_166 - 
        2664.8290736333292*theta0_pow_one_third*theta3_pow_33 - 0.1101206717478259*theta3_pow_5))/
    (theta0_pow_one_third*theta3_pow_433);
 	coef_k_5 = 0.0;
-	coef_k_6 = (flow*pow(theta3/(flow*theta0),1.3333333333333333)*(-3.2789137589417044e6*theta0_pow_133 + 
+	coef_k_6 = (flow*theta3_theta0_cbrt*(theta3/(flow*theta0))*(-3.2789137589417044e6*theta0_pow_133 + 
        99788.95476309463*theta0_pow_one_third*theta3_pow_166 + 2556.3746770489306*theta3_pow_33))/
    theta3_pow_433;
 	coef_k_7 = (776165.1005429976*flow*pow(theta3/(flow*theta0),1.6666666666666667)*
      (1.*theta0_pow_133 - 0.0023675484834784735*theta3_pow_33))/theta3_pow_433;
 
-	phase = coef_k_0*pow(f,-5.0/3.0) + coef_k_2*pow(f,-1.0) + coef_k_3*pow(f,-2.0/3.0) + coef_k_4*pow(f,-1.0/3.0) + coef_k_6*pow(f,1.0/3.0) + coef_k_7*pow(f,2.0/3.0) + coef_k_5 + coef_k_1;
+	phase = coef_k_0*cbrt(1/(f*f*f*f*f)) + coef_k_2/f + coef_k_3*cbrt(1/(f*f)) + coef_k_4*cbrt(1/f) + coef_k_6*cbrt(f) + coef_k_7*cbrt(f*f) + coef_k_5 + coef_k_1;
 	return phase; 
 
 	}
@@ -868,38 +869,39 @@ static REAL8 XLALSimIMRPhenomBPhase_Der_theta3(
 	const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
 	const REAL8 flow	/**< Lower Frequency Cut-off */
 	){
-	REAL8	theta0_pow_one_third = pow(theta0,0.6666666666666666);
-	REAL8	theta0_pow_2 = pow(theta0,2);
-	REAL8	theta0_pow_133 = pow(theta0,1.3333333333333333);
-	REAL8	theta0_pow_333 = pow(theta0,0.3333333333333333);
-	REAL8	theta3_pow_33 = pow(theta3,3.3333333333333335);
-	REAL8	theta3_pow_166 = pow(theta3,1.6666666666666667);
-	REAL8	theta3_pow_5 = pow(theta3,5);
-	REAL8	theta3_pow_433 = pow(theta3,4.333333333333333);
+	REAL8	theta0_pow_2 = theta0*theta0;
+	REAL8	theta0_pow_one_third = cbrt(theta0_pow_2);
+	REAL8	theta0_pow_133 = theta0_pow_one_third*theta0_pow_one_third;
+	REAL8	theta0_pow_333 = cbrt(theta0);
+	REAL8	theta3_pow_33 = cbrt(theta3)*theta3*theta3*theta3;
+	REAL8	theta3_pow_166 = cbrt(theta3*theta3)*theta3;
+	REAL8	theta3_pow_5 = theta3*theta3*theta3*theta3*theta3;
+	REAL8	theta3_pow_433 = cbrt(theta3)*theta3*theta3*theta3*theta3;
 	REAL8	theta3_pow_533 = pow(theta3,5.333333333333333);
+	REAL8	theta3_theta0_cbrt = cbrt(theta3/(flow*theta0)); 
 
 	REAL8 coef_k_0, coef_k_1, coef_k_2, coef_k_3, coef_k_4, coef_k_5, coef_k_6, coef_k_7, phase; 
 
 	coef_k_0 = 0;
 	coef_k_1 = 0;
-	coef_k_2 = (922621.7284150383*flow*pow(theta0,2.3333333333333335))/theta3_pow_533 - 
-   (49200.39804557207*flow*pow(theta0,1.6666666666666667))/pow(theta3,3.6666666666666665) + (433.9686135926065*flow*theta0)/pow(theta3,2) + 
+	coef_k_2 = (922621.7284150383*flow*theta0_pow_2*cbrt(theta0))/theta3_pow_533 - 
+   (49200.39804557207*flow*theta0*cbrt(theta0_pow_2))/pow(theta3,3.6666666666666665) + (433.9686135926065*flow*theta0)/pow(theta3,2) + 
    (0.2658339530658298*flow*theta0_pow_333)/pow(theta3,0.3333333333333333);
-	coef_k_3 = (flow*theta0_pow_333*pow(theta3/(flow*theta0),0.3333333333333333)*
+	coef_k_3 = (flow*theta0_pow_333*theta3_theta0_cbrt*
      (-5.577800407152631e6*theta0_pow_2 + 285011.53199873934*theta0_pow_133*theta3_pow_166 - 
        1966.6051704758727*theta0_pow_one_third*theta3_pow_33 - 1.4999999999999998*theta3_pow_5))/theta3_pow_533;
-	coef_k_4 = (flow*theta0_pow_333*pow(theta3/(flow*theta0),0.6666666666666666)*
+	coef_k_4 = (flow*theta0_pow_333*theta3_theta0_cbrt*theta3_theta0_cbrt*
      (1.3347186668567639e7*theta0_pow_2 - 646612.0671395698*theta0_pow_133*theta3_pow_166 + 
        2664.8290736333274*theta0_pow_one_third*theta3_pow_33 + 0.4404826869913036*theta3_pow_5))/theta3_pow_533;
 	coef_k_5 = 0.0;
-	coef_k_6 = (pow(theta3/(flow*theta0),0.3333333333333333)*(9.836741276825111e6*theta0_pow_133 - 
+	coef_k_6 = (theta3_theta0_cbrt*(9.836741276825111e6*theta0_pow_133 - 
        399155.8190523788*theta0_pow_one_third*theta3_pow_166 - 2556.3746770489283*theta3_pow_33))/
    theta3_pow_433;
-	coef_k_7 = (pow(theta3/(flow*theta0),0.6666666666666666)*(-3.1046604021719894e6*theta0_pow_133 + 
+	coef_k_7 = (theta3_theta0_cbrt*theta3_theta0_cbrt*(-3.1046604021719894e6*theta0_pow_133 + 
        107462.71729917097*theta0_pow_one_third*theta3_pow_166 + 1837.6085067194913*theta3_pow_33))/
    theta3_pow_433;
 
-	phase = coef_k_0*pow(f,-5.0/3.0) + coef_k_2*pow(f,-1.0) + coef_k_3*pow(f,-2.0/3.0) + coef_k_4*pow(f,-1.0/3.0) + coef_k_6*pow(f,1.0/3.0) + coef_k_7*pow(f,2.0/3.0) + coef_k_5 + coef_k_1;
+	phase = coef_k_0*cbrt(1/(f*f*f*f*f)) + coef_k_2/f + coef_k_3*cbrt(1/(f*f)) + coef_k_4*cbrt(1/f) + coef_k_6*cbrt(f) + coef_k_7*cbrt(f*f) + coef_k_5 + coef_k_1;
 	return phase; 
 	}
 
