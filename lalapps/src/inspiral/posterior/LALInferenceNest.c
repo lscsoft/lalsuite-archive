@@ -45,15 +45,11 @@
 
 LALInferenceRunState *initialize(ProcessParamsTable *commandLine);
 void initializeNS(LALInferenceRunState *runState);
-<<<<<<< HEAD
 //void initVariables(LALInferenceRunState *state);
 
 //void initStudentt(LALInferenceRunState *state);
 // static void mc2masses(double mc, double eta, double *m1, double *m2);
-=======
 void initializeMalmquistPrior(LALInferenceRunState *runState);
-
->>>>>>> master
 void LogNSSampleAsMCMCSampleToArray(LALInferenceRunState *state, LALInferenceVariables *vars);                             
 void LogNSSampleAsMCMCSampleToFile(LALInferenceRunState *state, LALInferenceVariables *vars);                              
 
@@ -194,14 +190,9 @@ Initialisation arguments:\n\
       }
       ifoPtr = ifoPtr->next;
     }
-    ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
-    if(!strcmp("BestIFO",ppt->value)){
-      irs->currentLikelihood=LALInferenceNullLogLikelihoodBestIFO(irs->data);
-      printf("Using bestIFO null logl\n");}
-    else
-      irs->currentLikelihood=LALInferenceNullLogLikelihood(irs->data);
+    irs->currentLikelihood=LALInferenceNullLogLikelihood(irs->data);
       
-      printf("Injection Null Log Likelihood: %g\n", irs->currentLikelihood);
+    printf("Injection Null Log Likelihood: %g\n", irs->currentLikelihood);
 	}
 	else
 	{
@@ -360,8 +351,6 @@ Nested sampling arguments:\n\
     }
   }
 
-<<<<<<< HEAD
-=======
     /* Check whether to use the SkyLocalization prior. Otherwise uses the default LALInferenceInspiralPriorNormalised. That should probably be replaced with a swhich over the possible priors. */
     ppt=LALInferenceGetProcParamVal(commandLine,"--prior");
     if(ppt){
@@ -373,8 +362,6 @@ Nested sampling arguments:\n\
     }
     /* For Compatibility with MCMC command line */
     if(LALInferenceGetProcParamVal(commandLine,"--malmquist-prior")) initializeMalmquistPrior(runState);
-	
->>>>>>> master
 	/* Set up the prior for analytic tests if needed */
 	if(LALInferenceGetProcParamVal(commandLine,"--correlatedGaussianLikelihood")){
 		runState->prior=LALInferenceAnalyticNullPrior;

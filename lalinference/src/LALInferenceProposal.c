@@ -70,6 +70,7 @@ const char *const differentialEvolutionFullName = "DifferentialEvolutionFull";
 const char *const differentialEvolutionMassesName = "DifferentialEvolutionMasses";
 const char *const differentialEvolutionSpinsName = "DifferentialEvolutionSpins";
 const char *const differentialEvolutionPhysicalSpinsName = "DifferentialEvolutionPhysicalSpins";
+const char *const differentialEvolutionIntrinsicName = "DifferentialEvolutionIntrinsic";
 const char *const differentialEvolutionExtrinsicName = "DifferentialEvolutionExtrinsic";
 const char *const ensembleStretchFullName = "EnsembleStretchFull";
 const char *const ensembleStretchIntrinsicName = "EnsembleStretchIntrinsic";

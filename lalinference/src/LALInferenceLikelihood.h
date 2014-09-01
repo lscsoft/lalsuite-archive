@@ -163,7 +163,6 @@ REAL8 LALInferenceComputeFrequencyDomainOverlap(LALInferenceIFOData * data,
  * Used for normalising.
  */
 REAL8 LALInferenceNullLogLikelihood(LALInferenceIFOData *data);
-REAL8 LALInferenceNullLogLikelihoodBestIFO(LALInferenceIFOData *data);
 
 /***********************************************************//**
  * Student-t (log-) likelihood function                        
@@ -231,8 +230,8 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_RD(LALInferenceVariables *
 REAL8 LALInferenceMarginalisedPhaseLogLikelihood_RD(LALInferenceVariables *currentParams, LALInferenceIFOData * data,LALInferenceTemplateFunction templt);
 REAL8 LALInferenceMarginalisedPhaseLogLikelihood_HMNS(LALInferenceVariables *currentParams, LALInferenceIFOData * data,LALInferenceTemplateFunction templt);
 
-REAL8 LALInferenceMarginalisedPhaseLogLikelihood_Burst(LALInferenceVariables *currentParams, LALInferenceIFOData * data,LALInferenceTemplateFunction templt);
-REAL8 LALInferenceMarginalisedTimeLogLikelihood_Burst(LALInferenceVariables *currentParams, LALInferenceIFOData * data, LALInferenceTemplateFunction templt);
+//REAL8 LALInferenceMarginalisedPhaseLogLikelihood_Burst(LALInferenceVariables *currentParams, LALInferenceIFOData * data,LALInferenceTemplateFunction templt);
+//REAL8 LALInferenceMarginalisedTimeLogLikelihood_Burst(LALInferenceVariables *currentParams, LALInferenceIFOData * data, LALInferenceTemplateFunction templt);
 /**
  * Returns the log-likelihood marginalised over the time dimension.
  * The boundaries of the time marginalization are the data segment;
