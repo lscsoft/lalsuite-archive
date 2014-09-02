@@ -147,7 +147,7 @@ def get_mchirp_bin(mchirp, mchirp_bins):
     for mchirp_low, mchirp_high in mchirp_bins:
         if mchirp >= mchirp_low and mchirp <= mchirp_high:
             return mchirp_low, mchirp_high
-        else: return None, None
+    return None, None
 
 def get_veto_coincs(coincs, veto_start, veto_end):
     # Create a segment to veto the time given
