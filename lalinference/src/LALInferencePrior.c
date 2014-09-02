@@ -3212,7 +3212,7 @@ REAL8 LALInferenceCubeToPowerPrior(double p, double r, double x1, double x2)
     return pow(r * pow(x2, pp) + (1.0 - r) * pow(x1, pp), 1.0 / pp);
 }
 
-REAL8 LALInferenceSinGaussPrior(LALInferenceRunState *runState, LALInferenceVariables *params)
+REAL8 LALInferenceSineGaussianPrior(LALInferenceRunState *runState, LALInferenceVariables *params)
 {
   REAL8 logPrior=0.0;
   (void)runState;

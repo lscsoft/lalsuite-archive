@@ -328,17 +328,22 @@ Nested sampling arguments:\n\
   runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
 
   /* Check whether to use the SkyLocalization prior. Otherwise uses the default LALInferenceInspiralPriorNormalised. That should probably be replaced with a swhich over the possible priors. */
-  ppt=LALInferenceGetProcParamVal(commandLine,"--prior_distr");
-  if(ppt){
-    if (!strcmp(ppt->value,"SkyLoc")) runState->prior = &LALInferenceInspiralSkyLocPrior;
-  }
-  else{
+    ppt=LALInferenceGetProcParamVal(commandLine,"--prior");
+    if(ppt){
+      if(!strcmp(ppt->value,"SkyLoc")) runState->prior = &LALInferenceInspiralSkyLocPrior;
+      if(!strcmp(ppt->value,"malmquist")) initializeMalmquistPrior(runState);
+    }
+    else{
       runState->prior = &LALInferenceInspiralPriorNormalised;
-  }
+    }
+    /* For Compatibility with MCMC command line */
+    if(LALInferenceGetProcParamVal(commandLine,"--malmquist-prior")) initializeMalmquistPrior(runState);
+  
+  /* Overwrite prior choice if Burst templates are used */
   ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
   if(ppt) {
     if(!strcmp("SineGaussianF",ppt->value) || !strcmp("SineGaussian",ppt->value)|| !strcmp("Gaussian",ppt->value)|| !strcmp("GaussianF",ppt->value) || !strcmp("DampedSinusoid",ppt->value)|| !strcmp("DampedSinusoidF",ppt->value)){
-    runState->prior = &LALInferenceSinGaussPrior;
+    runState->prior = &LALInferenceSineGaussianPrior;
     XLALPrintInfo("Using (Sine)Gaussian(F) prior\n");
     }
     else if (!strcmp("RingdownF",ppt->value)){
@@ -351,17 +356,6 @@ Nested sampling arguments:\n\
     }
   }
 
-    /* Check whether to use the SkyLocalization prior. Otherwise uses the default LALInferenceInspiralPriorNormalised. That should probably be replaced with a swhich over the possible priors. */
-    ppt=LALInferenceGetProcParamVal(commandLine,"--prior");
-    if(ppt){
-      if(!strcmp(ppt->value,"SkyLoc")) runState->prior = &LALInferenceInspiralSkyLocPrior;
-      if(!strcmp(ppt->value,"malmquist")) initializeMalmquistPrior(runState);
-    }
-    else{
-      runState->prior = &LALInferenceInspiralPriorNormalised;
-    }
-    /* For Compatibility with MCMC command line */
-    if(LALInferenceGetProcParamVal(commandLine,"--malmquist-prior")) initializeMalmquistPrior(runState);
 	/* Set up the prior for analytic tests if needed */
 	if(LALInferenceGetProcParamVal(commandLine,"--correlatedGaussianLikelihood")){
 		runState->prior=LALInferenceAnalyticNullPrior;

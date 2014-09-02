@@ -230,7 +230,7 @@ REAL8 LALInferenceComputePriorMassNorm(const double MMin, const double MMax, con
  */
 REAL8 LALInferenceFlatBoundedPrior(LALInferenceRunState *runState, LALInferenceVariables *params);
 
-REAL8 LALInferenceSinGaussPrior(LALInferenceRunState *runState, LALInferenceVariables *params);
+REAL8 LALInferenceSineGaussianPrior(LALInferenceRunState *runState, LALInferenceVariables *params);
 REAL8 LALInferenceRingdownPrior(LALInferenceRunState *runState, LALInferenceVariables *params);
 REAL8 LALInferenceHMNSPrior(LALInferenceRunState *runState, LALInferenceVariables *params);
 
