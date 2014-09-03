@@ -298,8 +298,6 @@ if options.likelihood_output_file is not None:
             sngl.chisq = sngl.chisq / ((sngl.chisq_dof - 1.) * 2.)
         coinc_params_distributions.add_zero_lag(\
                    coinc_params_distributions.coinc_params(event, None))
-        for chisq, sngl in zip(old_chisqs, event):
-            sngl.chisq = chisq
 
     for event in non_coinc_sngls:
         # NOTE: We could use this to feed gstlal *other* chisqs
@@ -308,7 +306,6 @@ if options.likelihood_output_file is not None:
         event.chisq = event.chisq / ((event.chisq_dof - 1.) * 2.)
         coinc_params_distributions.add_background(\
                    coinc_params_distributions.coinc_params((event,), None))
-        event.chisq = old_chisq
 
     # Output
     xmldoc2 = ligolw.Document()
