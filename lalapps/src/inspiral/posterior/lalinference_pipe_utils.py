@@ -771,8 +771,6 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     self.add_node(mergenode)
     # Call finalize to build final list of available data
     enginenodes[0].finalize()
-    respagenode.set_bayes_coherent_noise(mergenode.get_B_file())
-    respagenode.set_snr_path(enginenodes[0].get_snr_file())
     if event.GID is not None:
       if self.config.has_option('analysis','upload-to-gracedb'):
         if self.config.getboolean('analysis','upload-to-gracedb'):
@@ -782,11 +780,11 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
           zipfilename='postproc_'+evstring+'.tar.gz'
         else:
           zipfilename=None
-        respagenode=self.add_results_page_node(resjob=self.cotest_results_page_job,outdir=pagedir,parent=mergenode,gzip_output=zipfilename)
+        respagenode=self.add_results_page_node(resjob=self.cotest_results_page_job,outdir=pagedir,parent=mergenode,gzip_output=zipfilename)  
         if (self.config.has_option('input','injection-file') or self.config.has_option('input','burst-injection-file')) and event.event_id is not None:
-        if self.config.has_option('input','injection-file'):
+          if self.config.has_option('input','injection-file'):
             respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
-        else:
+          else:
             respagenode.set_injection(self.config.get('input','burst-injection-file'),event.event_id)
         mkdirs(os.path.join(self.basepath,'coherence_test'))
         par_mergenodes=[]
@@ -804,7 +802,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             pzipfilename='postproc_'+evstring+'_'+ifo+'.tar.gz'
             subresnode=self.add_results_page_node(outdir=presultsdir,parent=pmergenode, gzip_output=pzipfilename)
             subresnode.set_bayes_coherent_noise(pmergenode.get_B_file())
-            subresnode.set_snr_path(cotest_nodes[0].get_snr_file())
+            subresnode.set_snr_file(cotest_nodes[0].get_snr_file())
             if self.config.has_option('input','injection-file') and event.event_id is not None:
                 subresnode.set_injection(self.config.get('input','injection-file'),event.event_id)
             if self.config.has_option('input','burst-injection-file') and event.event_id is not None:
@@ -822,6 +820,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
           zipfilename=None
         respagenode=self.add_results_page_node(outdir=pagedir,parent=mergenode,gzip_output=zipfilename)
     respagenode.set_bayes_coherent_noise(mergenode.get_B_file())
+    respagenode.set_snr_file(enginenodes[0].get_snr_file())
     if self.config.has_option('input','injection-file') and event.event_id is not None:
         respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
     if event.GID is not None:
@@ -951,6 +950,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     roqeventpath=os.path.join(self.preengine_job.roqpath,str(event.event_id))
     if self.config.has_option('lalinference','roq'):
       mkdirs(roqeventpath)
+    node.set_trig_time(end_time)
     prenode.set_trig_time(end_time)
     randomseed=random.randint(1,2**31)
     node.set_seed(randomseed)
@@ -1361,7 +1361,7 @@ class EngineNode(pipeline.CondorDAGNode):
 
   def get_trig_time(self): return self.__trigtime
  
-  def add_fake_ifo_data(self,ifo,sciseg,fake_cache_name,timeslide=0):
+  def add_fake_ifo_data(self,ifo,sciseg,fake_cache_name,mdccache=None,mdcchannel=None,timeslide=0):
     """
     Dummy method to set up fake data without needing to run datafind
     """
@@ -1371,6 +1371,10 @@ class EngineNode(pipeline.CondorDAGNode):
     self.timeslides[ifo]=timeslide
     self.channels[ifo]=fake_cache_name
     self.fakedata=True
+    if mdcchannel:
+      self.mdcchannels[ifo]=mdcchannel
+    if mdccache:
+      self.mdccaches[ifo]=mdccache
     return 1
   
   def add_ifo_data(self,ifo,sciseg,channelname,mdccache=None,mdcchannel=None,timeslide=0):
