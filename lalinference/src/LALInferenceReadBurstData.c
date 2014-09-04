@@ -318,13 +318,17 @@ void LALInferenceBurstInjectionToVariables(SimBurst *theEventTable, LALInference
     LALInferenceAddVariable(vars, "frequency", &f0, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "time", &injGPSTime, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "hrss", &hrss, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    LALInferenceAddVariable(vars, "polar_angle", &pol_angle, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    LALInferenceAddVariable(vars, "eccentricity", &eccentricity, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    
     LALInferenceAddVariable(vars, "polarisation", &(psi), LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "declination", &dec, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "rightascension", &ra, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "loghrss", &loghrss, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars,"duration",&duration,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    
+    eccentricity=1.0;
+    LALInferenceAddVariable(vars, "polar_angle", &pol_angle, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "eccentricity", &eccentricity, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "alpha", &pol_angle, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 }
 
 static void PrintBurstSNRsToFile(LALInferenceIFOData *IFOdata ,REAL8 injtime){
@@ -383,13 +387,13 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
     tmpdata->modelParams=XLALCalloc(1,sizeof(LALInferenceVariables));
     modelParams=tmpdata->modelParams;
     memset(modelParams,0,sizeof(LALInferenceVariables));
-
+    REAL8 zero=0.0;
     Q=inj_table->q;
     centre_frequency=inj_table->frequency;
     hrss=inj_table->hrss;
     polarization=inj_table->psi;
     polar_angle=inj_table->pol_ellipse_angle;
-    eccentricity=inj_table->pol_ellipse_e; // salvo
+    eccentricity=1.0;//inj_table->pol_ellipse_e; // Salvo -- May need FIXME
     loghrss=log(hrss);
     injtime=inj_table->time_geocent_gps.gpsSeconds + 1e-9*inj_table->time_geocent_gps.gpsNanoSeconds;
     latitude=inj_table->dec;
@@ -403,7 +407,8 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
     LALInferenceAddVariable(tmpdata->modelParams, "polar_angle",&polar_angle,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
     LALInferenceAddVariable(tmpdata->modelParams, "eccentricity",&eccentricity,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "frequency",&centre_frequency,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-    
+    LALInferenceAddVariable(tmpdata->modelParams, "alpha",&polar_angle,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+    LALInferenceAddVariable(tmpdata->modelParams, "phase",&zero,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
       
     COMPLEX16FrequencySeries *freqModelhCross=NULL;
    freqModelhCross=XLALCreateCOMPLEX16FrequencySeries("freqDatahC",&(tmpdata->timeData->epoch),0.0,tmpdata->freqData->deltaF,&lalDimensionlessUnit,tmpdata->freqData->data->length);
@@ -414,10 +419,8 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
     tmpdata->freqModelhPlus=freqModelhPlus;
     tmpdata->freqModelhCross=freqModelhCross;
     
-      tmpdata->modelDomain = LAL_SIM_DOMAIN_FREQUENCY;
+    tmpdata->modelDomain = LAL_SIM_DOMAIN_FREQUENCY;
     LALInferenceTemplateSineGaussianF(tmpdata);
-    
-     
     LALInferenceVariables *currentParams=IFOdata->modelParams;
        
     double Fplus, Fcross;
@@ -475,8 +478,7 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
                                (const REAL4(*)[3]) dataPtr->detector->response,
              ra, dec, psi, gmst);
       /* signal arrival time (relative to geocenter); */
-      timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
-                                               ra, dec, &GPSlal);
+      timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location, ra, dec, &GPSlal);
       dataPtr->injtime=injtime;
       /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
       /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
@@ -498,7 +500,7 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
        char TInjFileName[50];
       sprintf(TInjFileName,"TD_injection_%s.dat",dataPtr->name);
       FILE *outTInj=fopen(TInjFileName,"w");
-      
+      printf("injecting with q=%lf f=%lf psi=%lf alpha=%lf time=%9.9f modelTime=%9.9f delay=%.6f ra=%f dec %f\n",Q,centre_frequency,psi,polar_angle, injtime, (*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time")),timedelay, ra, dec);
        /* determine frequency range & loop over frequency bins: */
       deltaT = dataPtr->timeData->deltaT;
       deltaF = 1.0 / (((double)dataPtr->timeData->data->length) * deltaT);
