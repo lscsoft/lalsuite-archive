@@ -25,7 +25,8 @@ import math
 import re
 
 from pylal import grbsummary, antenna, InspiralUtils, SimInspiralUtils
-from pylal.xlal.constants import LAL_PI, LAL_MTSUN_SI
+from lal import PI as LAL_PI
+from lal import MTSUN_SI as LAL_MTSUN_SI
 
 from glue import segmentsUtils
 from glue.ligolw import lsctables, table

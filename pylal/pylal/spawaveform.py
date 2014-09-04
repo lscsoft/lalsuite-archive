@@ -35,8 +35,8 @@ rather than importing _spawaveform directly.
 import math
 
 
+import lal
 from pylal import git_version
-from pylal.xlal import constants as lalconstants
 from pylal._spawaveform import *
 
 
@@ -97,7 +97,7 @@ def chirpmass(m1, m2):
 	"""
 	Compute the chirp mass in seconds.
 	"""
-	return lalconstants.LAL_MTSUN_SI * (m1+m2) * eta(m1, m2)**.6
+	return lal.MTSUN_SI * (m1+m2) * eta(m1, m2)**.6
 
 
 def ms2taus(m1, m2, f0 = 40.0):
@@ -121,4 +121,4 @@ def taus2ms(tau0, tau3, f0 = 40.0):
 	m1 = (1. + abs(1. - 4.*eta)**.5) * M / 2.
 	m2 = M - m1
 
-	return m1 / lalconstants.LAL_MTSUN_SI, m2 / lalconstants.LAL_MTSUN_SI
+	return m1 / lal.MTSUN_SI, m2 / lal.MTSUN_SI

@@ -47,11 +47,13 @@ import itertools
 import math
 import numpy
 import scipy
-if map(int, scipy.__version__.strip().split(".")) >= (0, 9):
+__numpy__version__ = tuple(map(int, numpy.__version__.strip().split(".")))
+__scipy__version__ = tuple(map(int, scipy.__version__.strip().split(".")))
+if __scipy__version__ >= (0, 9) and __numpy__version__ >= (1, 7):
 	from scipy.interpolate import interp1d, interp2d, LinearNDInterpolator
 else:
-	# pre 0.9 had busted/missing interpolation code.  replacements are
-	# provided below
+	# pre scipy/numpy 0.9/1.7 had busted/missing interpolation code.
+	# replacements are provided below
 	pass
 from scipy.signal import signaltools
 
@@ -170,6 +172,83 @@ class Bins(object):
 			yield x[i], ln_Pi - ln_dx[i]
 
 
+class IrregularBins(Bins):
+	"""
+	Bins with arbitrary, irregular spacing.  We only require strict
+	monotonicity of the bin boundaries.  N boundaries define N-1 bins.
+
+	Example:
+
+	>>> x = IrregularBins([0.0, 11.0, 15.0, numpy.inf])
+	>>> len(x)
+	3
+	>>> x[1]
+	0
+	>>> x[1.5]
+	0
+	>>> x[13]
+	1
+	>>> x[25]
+	2
+	"""
+	def __init__(self, boundaries):
+		"""
+		Initialize a set of custom bins with the bin boundaries.
+		This includes all left edges plus the right edge.  The
+		boundaries must be monotonic and there must be at least two
+		elements.
+		"""
+		# check pre-conditions
+		if len(boundaries) < 2:
+			raise ValueError("less than two boundaries provided")
+		boundaries = numpy.array(boundaries)
+		if (boundaries[:-1] > boundaries[1:]).any():
+			raise ValueError("non-monotonic boundaries provided")
+
+		self.boundaries = boundaries
+		self.n = len(boundaries) - 1
+		self.min = boundaries[0]
+		self.max = boundaries[-1]
+
+	def __cmp__(self, other):
+		"""
+		Two binnings are the same if they are instances of the same
+		class, and have the same boundaries.
+		"""
+		if not isinstance(other, type(self)):
+			return -1
+		return cmp(len(self), len(other)) or (self.boundaries != other.boundaries).any()
+
+	def __getitem__(self, x):
+		if isinstance(x, slice):
+			if x.step is not None:
+				raise NotImplementedError(x)
+			if x.start is None:
+				start = 0
+			else:
+				start = self[x.start]
+			if x.stop is None:
+				stop = len(self)
+			else:
+				stop = self[x.stop]
+			return slice(start, stop)
+		if self.min <= x < self.max:
+			return bisect.bisect_right(self.boundaries, x) - 1
+		# special measure-zero edge case
+		if x == self.max:
+			return len(self.boundaries) - 2
+		raise IndexError(x)
+
+	def lower(self):
+		return self.boundaries[:-1]
+
+	def upper(self):
+		return self.boundaries[1:]
+
+	def centres(self):
+		return (self.lower() + self.upper()) / 2.0
+
+
 class LinearBins(Bins):
 	"""
 	Linearly-spaced bins.  There are n bins of equal size, the first
@@ -235,13 +314,13 @@ class LinearPlusOverflowBins(Bins):
 	>>> X = LinearPlusOverflowBins(1.0, 25.0, 5)
 
 	>>> X.centres()
-	array([-Inf,   5.,  13.,  21.,  Inf])
+	array([-inf,   5.,  13.,  21.,  inf])
 
 	>>> X.lower()
-	array([-Inf,   1.,   9.,  17.,  25.])
+	array([-inf,   1.,   9.,  17.,  25.])
 
 	>>> X.upper()
-	array([  1.,   9.,  17.,  25.,  Inf])
+	array([  1.,   9.,  17.,  25.,  inf])
 
 	>>> X[float("-inf")]
 	0
@@ -361,7 +440,7 @@ class LogarithmicPlusOverflowBins(Bins):
 
 	Example:
 
-	>>> x = rate.LogarithmicPlusOverflowBins(1.0, 25.0, 5)
+	>>> x = LogarithmicPlusOverflowBins(1.0, 25.0, 5)
 	>>> x[0]
 	0
 	>>> x[1]
@@ -377,9 +456,9 @@ class LogarithmicPlusOverflowBins(Bins):
 	>>> x.lower()
 	array([  0.        ,   1.        ,   2.92401774,   8.54987973,  25.        ])
 	>>> x.upper()
-	array([  1.        ,   2.92401774,   8.54987973,  25.        ,          Inf])
+	array([  1.        ,   2.92401774,   8.54987973,  25.        ,          inf])
 	>>> x.centres()
-	array([  0.        ,   1.70997595,   5.        ,  14.62008869,          Inf])
+	array([  0.        ,   1.70997595,   5.        ,  14.62008869,          inf])
 	"""
 	def __init__(self, min, max, n):
 		if n < 3:
@@ -484,7 +563,7 @@ class ATanBins(Bins):
 		return x
 
 
-class ATanLogarithmicBins(Bins):
+class ATanLogarithmicBins(IrregularBins):
 	"""
 	Provides the same binning as the ATanBins class but in the
 	logarithm of the variable.  The min and max parameters set the
@@ -507,126 +586,41 @@ class ATanLogarithmicBins(Bins):
 		 7.69668960e+00,   1.65808715e+01,   3.16227766e+01,
 		 6.03104608e+01,   1.29925988e+02,   3.99988563e+02,
 		 3.89945831e+03,   1.38573971e+08])
+
+	It is relatively easy to choose limits and a count of bins that
+	result in numerical overflows and underflows when computing bin
+	boundaries.  When this happens, one or more bins at the ends of the
+	binning ends up with identical upper and lower boundaries (either
+	0, or +inf), and this class behaves as though those bins simply
+	don't exist.  That is, the actual number of bins can be less than
+	the number requested.  len() returns the actual number of bins ---
+	how large an array the binning corresponds to.
 	"""
 	def __init__(self, min, max, n):
-		Bins.__init__(self, min, max, n)
-		self.mid = (math.log(self.min) + math.log(self.max)) / 2.0
-		self.scale = math.pi / float(math.log(self.max) - math.log(self.min))
+		self.mid = (math.log(min) + math.log(max)) / 2.0
+		self.scale = math.pi / (math.log(max) - math.log(min))
 		self.delta = 1.0 / n
+		boundaries = numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(n)) / self.scale + self.mid
+		with numpy.errstate(over = "ignore"):
+			boundaries = numpy.exp(boundaries)
+		boundaries = numpy.hstack((boundaries, [PosInf, 0.]))
+		keepers = boundaries[:-1] != boundaries[1:]
+		super(ATanLogarithmicBins, self).__init__(boundaries[keepers])
+		self.keepers = keepers[:-1]
+		self._real_min = min
+		self._real_max = max
+		self._real_n = n
 
-	def __getitem__(self, x):
-		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
-		# map log(x) to the domain [0, 1]
-		try:
-			x = math.log(x)
-		except OverflowError:
-			# overflow errors come from 0 and inf.  0 is mapped
-			# to zero so that's a no-op;  inf maps to 1
-			if x != 0:
-				x = 1
-		else:
-			x = math.atan(float(x - self.mid) * self.scale) / math.pi + 0.5
-		if x < 1:
-			return int(math.floor(x / self.delta))
-		# x == 1, special "measure zero" corner case
-		return len(self) - 1
-
-	def lower(self):
-		return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(len(self))) / self.scale + self.mid)
+	#def lower(self):
+	#	return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(self._real_n)) / self.scale + self.mid)[self.keepers]
 
 	def centres(self):
-		return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(len(self)) + 0.5)) / self.scale + self.mid)
+		centres = numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(self._real_n) + 0.5)) / self.scale + self.mid
+		with numpy.errstate(over = "ignore"):
+			return numpy.exp(centres)[self.keepers]
 
-	def upper(self):
-		return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(len(self)) + 1)) / self.scale + self.mid)
-
-
-class IrregularBins(Bins):
-	"""
-	Bins with arbitrary, irregular spacing.  We only require strict
-	monotonicity of the bin boundaries.  N boundaries define N-1 bins.
-
-	Example:
-
-	>>> x = IrregularBins([0.0, 11.0, 15.0, numpy.inf])
-	>>> len(x)
-	3
-	>>> x[1]
-	0
-	>>> x[1.5]
-	0
-	>>> x[13]
-	1
-	>>> x[25]
-	2
-	"""
-	def __init__(self, boundaries):
-		"""
-		Initialize a set of custom bins with the bin boundaries.
-		This includes all left edges plus the right edge.  The
-		boundaries must be monotonic and there must be at least two
-		elements.
-		"""
-		# check pre-conditions
-		if len(boundaries) < 2:
-			raise ValueError("less than two boundaries provided")
-		boundaries = numpy.array(boundaries)
-		if (boundaries[:-1] > boundaries[1:]).any():
-			raise ValueError("non-monotonic boundaries provided")
-
-		self.boundaries = boundaries
-		self.n = len(boundaries) - 1
-		self.min = boundaries[0]
-		self.max = boundaries[-1]
-
-	def __cmp__(self, other):
-		"""
-		Two binnings are the same if they are instances of the same
-		class, and have the same boundaries.
-		"""
-		if not isinstance(other, type(self)):
-			return -1
-		return cmp(len(self), len(other)) or (self.boundaries != other.boundaries).any()
-
-	def __getitem__(self, x):
-		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
-		if x < self.min or x > self.max:
-			raise IndexError(x)
-		# special measure-zero edge case
-		if x == self.max:
-			return len(self.boundaries) - 2
-		return bisect.bisect_right(self.boundaries, x) - 1
-
-	def lower(self):
-		return self.boundaries[:-1]
-
-	def upper(self):
-		return self.boundaries[1:]
-
-	def centres(self):
-		return (self.lower() + self.upper()) / 2.0
+	#def upper(self):
+	#	return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(self._real_n) + 1)) / self.scale + self.mid)[self.keepers]
 
 
 class Categories(Bins):
@@ -644,11 +638,11 @@ class Categories(Bins):
 	...	set((frozenset(("H1", "L1")), frozenset(("H1", "V1")))),
 	...	set((frozenset(("H1", "L1", "V1")),))
 	... ])
-	>>> print categories[set(("H1", "L1"))]
+	>>> categories[set(("H1", "L1"))]
 	0
-	>>> print categories[set(("H1", "V1"))]
+	>>> categories[set(("H1", "V1"))]
 	0
-	>>> print categories[set(("H1", "L1", "V1"))]
+	>>> categories[set(("H1", "L1", "V1"))]
 	1
 
 	Example with continuous values:
@@ -658,11 +652,14 @@ class Categories(Bins):
 	...	segmentlist([segment(1, 3), segment(5, 7)]),
 	...	segmentlist([segment(0, PosInfinity)])
 	... ])
-	>>> print categories[2]
+	>>> categories[2]
 	0
-	>>> print categories[4]
+	>>> categories[4]
 	1
-	>>> print categories[-1]
+	>>> categories[-1]
+	Traceback (most recent call last):
+	  File "<stdin>", line 1, in <module>
+	    raise IndexError(value)
 	IndexError: -1
 
 	This last example demonstrates the behaviour when the intersection
@@ -728,7 +725,7 @@ class NDBins(tuple):
 	>>> x[1, 1:5]
 	(0, slice(0, 1, None))
 	>>> x.centres()
-	(array([  5.,  13.,  21.]), array([  1.70997595,   5.,  14.62008869]))
+	(array([  5.,  13.,  21.]), array([  1.70997595,   5.        ,  14.62008869]))
 
 	Note that the co-ordinates to be converted must be a tuple, even if
 	it is only a 1-dimensional co-ordinate.
@@ -750,10 +747,11 @@ class NDBins(tuple):
 
 		Example:
 
+		>>> x = NDBins((LinearBins(1, 25, 3), LogarithmicBins(1, 25, 3)))
 		>>> x[1, 1]
 		(0, 0)
-		>>> x[1]
-		<pylal.rate.LinearBins object at 0xb5cfa9ac>
+		>>> type(x[1])
+		<class 'pylal.rate.LogarithmicBins'>
 
 		When used to convert co-ordinates to bin indices, each
 		co-ordinate can be anything the corresponding Bins instance
@@ -893,7 +891,9 @@ class BinnedArray(object):
 	providing a subclass of the array object, so the array data is made
 	available as the "array" attribute of this class.
 
-	Example:
+	Examples:
+
+	Note that even for 1 dimensional arrays the index must be a tuple.
 
 	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)))
 	>>> x.array
@@ -903,7 +903,27 @@ class BinnedArray(object):
 	>>> x.array
 	array([ 2.,  0.,  0.,  0.,  0.])
 
-	Note that even for 1 dimensional arrays the index must be a tuple.
+	Note the relationship between the binning limits, the bin centres,
+	and the co-ordinates of the BinnedArray
+
+	>>> x = BinnedArray(NDBins((LinearBins(-0.5, 1.5, 2), LinearBins(-0.5, 1.5, 2))))
+	>>> x.bins.centres()
+	(array([ 0.,  1.]), array([ 0.,  1.]))
+	>>> x[0, 0] = 0
+	>>> x[0, 1] = 1
+	>>> x[1, 0] = 2
+	>>> x[1, 1] = 4
+	>>> x.array
+	array([[ 0.,  1.],
+	       [ 2.,  4.]])
+	>>> x[0, 0]
+	0.0
+	>>> x[0, 1]
+	1.0
+	>>> x[1, 0]
+	2.0
+	>>> x[1, 1]
+	4.0
 	"""
 	def __init__(self, bins, array = None, dtype = "double"):
 		self.bins = bins
@@ -1091,11 +1111,68 @@ class InterpBinnedArray(object):
 	supported.  In 1 and 2 dimensions, scipy.interpolate.interp1d and
 	.interp2d is used, respectively.  In more than 2 dimensions
 	scipy.interpolate.LinearNDInterpolator is used.
+
+	Example:
+
+	One dimension
+
+	>>> x = BinnedArray(NDBins((LinearBins(-0.5, 2.5, 3),)))
+	>>> x[0,] = 0
+	>>> x[1,] = 1
+	>>> x[2,] = 3
+	>>> y = InterpBinnedArray(x)
+	>>> y(0)
+	0.0
+	>>> y(1)
+	1.0
+	>>> y(2)
+	3.0
+	>>> y(0.5)
+	0.5
+	>>> y(1.5)
+	2.0
+
+	Two dimensions
+
+	>>> x = BinnedArray(NDBins((LinearBins(-0.5, 2.5, 3), LinearBins(-0.5, 1.5, 2))))
+	>>> x[0, 0] = 0
+	>>> x[0, 1] = 1
+	>>> x[1, 0] = 2
+	>>> x[1, 1] = 4
+	>>> x[2, 0] = 2
+	>>> x[2, 1] = 4
+	>>> y = InterpBinnedArray(x)
+	>>> y(0, 0)
+	0.0
+	>>> y(0, 1)
+	1.0
+	>>> y(1, 0)
+	2.0
+	>>> y(1, 1)
+	4.0
+	>>> y(2, 0)
+	2.0
+	>>> y(2, 1)
+	4.0
+	>>> y(0, 0.5)
+	0.5
+	>>> y(0.5, 0)
+	1.0
+	>>> y(0.5, 1)
+	2.5
+	>>> y(1, 0.5)
+	3.0
+
+	BUGS:  Due to bugs in some versions of scipy and numpy, if an old
+	version of scipy and/or numpy is detected this code falls back to
+	home-grown piece-wise linear interpolator code for 1- and 2
+	dimensions that is slow, and in 3- and higher dimensions the
+	fall-back is to nearest-neighbour "interpolation".
 	"""
 	def __init__(self, binnedarray, fill_value = 0.0):
 		# the upper and lower boundaries of the binnings are added
 		# as additional co-ordinates with the array being assumed
-		# to equal fill_value at those points.  this solve the
+		# to equal fill_value at those points.  this solves the
 		# problem of providing a valid function in the outer halves
 		# of the first and last bins.
 
@@ -1162,10 +1239,14 @@ class InterpBinnedArray(object):
 						return fill_value
 					i = coords[0].searchsorted(x)
 					j = coords[1].searchsorted(y)
-					return z[i - 1, j - 1] + (x - coords[0][i - 1]) / (coords[0][i] - coords[0][i - 1]) * (z[i, j - 1] - z[i - 1, j - 1]) + (y - coords[1][j - 1]) / (coords[1][j] - coords[1][j - 1]) * (z[i - 1, j] - z[i - 1, j - 1])
+					dx = (x - coords[0][i - 1]) / (coords[0][i] - coords[0][i - 1])
+					dy = (y - coords[1][j - 1]) / (coords[1][j] - coords[1][j - 1])
+					if dx + dy <= 1.:
+						return z[i - 1, j - 1] + dx * (z[i, j - 1] - z[i - 1, j - 1]) + dy * (z[i - 1, j] - z[i - 1, j - 1])
+					return z[i, j] + (1. - dx) * (z[i - 1, j] - z[i, j]) + (1. - dy) * (z[i, j - 1] - z[i, j])
 				self.interp = interp
 			else:
-				self.interp = interp2d(coords[0], coords[1], z, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
+				self.interp = interp2d(coords[0], coords[1], z.T, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
 		else:
 			try:
 				LinearNDInterpolator
@@ -1426,8 +1507,7 @@ def to_moving_mean_density(binned_array, filterdata, cyclic = False):
 	array([ 0.,  0.,  1.,  0.,  0.])
 	>>> to_moving_mean_density(x, tophat_window(3))
 	>>> x.array
-	array([ 0.        ,  0.16666667,  0.16666667,  0.16666667,  0.
-	])
+	array([ 0.        ,  0.16666667,  0.16666667,  0.16666667,  0.        ])
 
 	Explanation.  There are five bins spanning the interval [0, 10],
 	making each bin 2 "units" in size.  A single count is placed at
@@ -1537,10 +1617,15 @@ def bins_to_xml(bins):
 			ATanBins: "atan",
 			ATanLogarithmicBins: "atanlog",
 			LogarithmicPlusOverflowBins: "logplusoverflow"
-		}[bin.__class__]
-		row.min = bin.min
-		row.max = bin.max
-		row.n = len(bin)
+		}[type(bin)]
+		if isinstance(bin, ATanLogarithmicBins):
+			row.min = bin._real_min
+			row.max = bin._real_max
+			row.n = bin._real_n
+		else:
+			row.min = bin.min
+			row.max = bin.max
+			row.n = len(bin)
 		xml.append(row)
 	return xml
 

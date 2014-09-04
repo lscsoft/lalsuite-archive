@@ -1577,7 +1577,7 @@ XLALSimIMREOBNRv2Generator(
 
      rdMatchPoint->data[0] -= fmod( rdMatchPoint->data[0], dt/m );
      rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], dt/m );
-
+ 
      xlalStatus = XLALSimIMREOBHybridAttachRingdown(sigReHi, sigImHi,
                    modeL, modeM, dt, mass1, mass2, 0, 0, 0, 0, 0, 0, &tVecHi, rdMatchPoint, EOBNRv2 );
      if (xlalStatus != XLAL_SUCCESS )
@@ -1657,7 +1657,7 @@ XLALSimIMREOBNRv2Generator(
     }
     *hplus = XLALResizeREAL8TimeSeries(*hplus, cut_ind, (*hplus)->data->length - cut_ind);
     *hcross = XLALResizeREAL8TimeSeries(*hcross, cut_ind, (*hcross)->data->length - cut_ind);
-    if (!(*hplus) || !(*hcross))
+     if (!(*hplus) || !(*hcross))
       XLAL_ERROR(XLAL_EFUNC);
   }
 

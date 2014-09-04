@@ -34,7 +34,7 @@ from pylal import rate
 from pylal import InspiralUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
-from pylal.xlal import constants
+import lal as constants
 from pylal import upper_limit_utils
 from pylal import imr_utils
 
@@ -123,7 +123,7 @@ class upper_limit(object):
       self.livetime = {}
       for inst in self.instruments:
           # compute live time in years from zero lag segments
-          self.livetime[inst] = abs(self.zero_lag_segments[inst].coalesce()).seconds/float(constants.LAL_YRJUL_SI)
+          self.livetime[inst] = abs(self.zero_lag_segments[inst].coalesce()).seconds/float(constants.YRJUL_SI)
 
       return
 

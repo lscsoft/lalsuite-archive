@@ -34,7 +34,7 @@ from pylal import git_version
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as pl
-from pylal.xlal import constants
+import lal as lalconstants
 from pylal import grbsummary
 from optparse import OptionParser
 #########################################################################
@@ -116,7 +116,7 @@ if len(trigs)<1:
 
 f=opts.frequency
 dynamic_range = 1e20
-distNorm = 2.0 * dynamic_range * constants.LAL_MRSUN_SI / (1e6 * constants.LAL_PC_SI)
+distNorm = 2.0 * dynamic_range * lalconstants.MRSUN_SI / (1e6 * lalconstants.PC_SI)
 
 ##########################################################################
 # Getting the distance
@@ -136,7 +136,7 @@ for ifo in ifos:
     m = m1 + m2
     mu = m1*m2 / m
     sigmasq = getattr(trig,'sigmasq_%s' % ifoAtt[ifo])
-    norm = ((5.0*mu) / 96.0 )**(0.5) * (m/((numpy.pi)**2.0))**(1.0/3.0) * (constants.LAL_MTSUN_SI)**(-1.0/6.0) * (f**(1.0/3.0))
+    norm = ((5.0*mu) / 96.0 )**(0.5) * (m/((numpy.pi)**2.0))**(1.0/3.0) * (lalconstants.MTSUN_SI)**(-1.0/6.0) * (f**(1.0/3.0))
     d = 4.0*(distNorm**2.0) * norm * (sigmasq**(0.5)) / 8.0
     Distance[ifo].append(d)
     mass[ifo].append( m1 )
