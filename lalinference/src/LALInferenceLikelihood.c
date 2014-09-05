@@ -97,7 +97,7 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
     LALInferenceAddVariable(runState->algorithmParams,"logZnoise",&noiseZ,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
     fprintf(stdout,"Student-t Noise evidence %lf\n",noiseZ);
 
-   }/* else if (LALInferenceGetProcParamVal(commandLine, "--margphi")) {
+   }else if (LALInferenceGetProcParamVal(commandLine, "--margphi")) {
     fprintf(stderr, "Using marginalised phase likelihood.\n");
     runState->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--margtime")) {
@@ -108,28 +108,8 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
      fprintf(stderr, "Using marginalised in time and phase likelihood.\n");
      runState->likelihood=&LALInferenceMarginalisedTimeLogLikelihood;
      LALInferenceAddVariable(runState->currentParams, "margtimephi", &margphi, LALINFERENCE_UINT4_t,LALINFERENCE_PARAM_FIXED);
-   }*/ 
-    else if(ppt){
-     if(!strcmp("SineGaussian",ppt->value) || !strcmp("SineGaussianF",ppt->value)|| !strcmp("Gaussian",ppt->value)|| !strcmp("GaussianF",ppt->value) || !strcmp("DampedSinusoid",ppt->value)|| !strcmp("DampedSinusoidF",ppt->value) ){
-        if(LALInferenceGetProcParamVal(commandLine,"--margphi") && !strcmp("SineGaussianF",ppt->value)){
-           runState->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood;
-           printf("setting Burst MargPhi Likelihood ----- \n");
-        }
-        else if (LALInferenceGetProcParamVal(commandLine, "--margtime")) {
-          fprintf(stderr, "Using Burst marginalised time likelihood.\n");
-          runState->likelihood=&LALInferenceMarginalisedTimeLogLikelihood;
-       } else if (LALInferenceGetProcParamVal(commandLine, "--margtimephi")) {
-           UINT4 margphi = 1;
-           fprintf(stderr, "Using Burst marginalised in time and phase likelihood.\n");
-           runState->likelihood=&LALInferenceMarginalisedTimeLogLikelihood;
-           LALInferenceAddVariable(runState->currentParams, "margtimephi", &margphi, LALINFERENCE_UINT4_t,LALINFERENCE_PARAM_FIXED);
-      }
-        else{      
-        runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
-        printf("setting Burst Likelihood ----- \n");
-        }
-      }
-      else if(!strcmp("RingdownF",ppt->value))
+   }
+    else if(!strcmp("RingdownF",ppt->value))
       {
           runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_RD;
           if(LALInferenceGetProcParamVal(commandLine,"--margphi")){
@@ -137,11 +117,8 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
             runState->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood_RD;
           }
       }
-      else if(!strcmp("HMNS",ppt->value) )
-        runState->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood_HMNS;
       else if(LALInferenceGetProcParamVal(commandLine,"--powerburst"))
         runState->likelihood=&LALInferenceExtraPowerLogLikelihood;
-   } 
     else if (LALInferenceGetProcParamVal(commandLine, "--roq")) {
      fprintf(stderr, "Using ROQ likelihood.\n");
      runState->likelihood=&LALInferenceROQLogLikelihood;
@@ -584,7 +561,6 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   dec       = *(REAL8*) LALInferenceGetVariable(currentParams, "declination");    /* radian      */
   psi       = *(REAL8*) LALInferenceGetVariable(currentParams, "polarisation");   /* radian      */
   GPSdouble = *(REAL8*) LALInferenceGetVariable(currentParams, "time");           /* GPS seconds */
-
   /* figure out GMST: */
   XLALGPSSetREAL8(&GPSlal, GPSdouble);
   gmst=XLALGreenwichMeanSiderealTime(&GPSlal);
@@ -620,10 +596,20 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
 						LALInferenceRemoveVariable(dataPtr->modelParams, "time");
 				}
 				else timeTmp = GPSdouble;
-        if (LALInferenceCheckVariable(currentParams,"time")) LALInferenceRemoveVariable(currentParams, "time");
+        
+        UINT4 add_time=0;
+        LALInferenceVariableType time_var_type;
+        if (LALInferenceCheckVariable(currentParams,"time")){ 
+          time_var_type=LALInferenceCheckVariableNonFixed(currentParams,"time")?LALINFERENCE_PARAM_LINEAR:LALINFERENCE_PARAM_FIXED;
+          LALInferenceRemoveVariable(currentParams, "time");
+          add_time=1;
+        }
 				LALInferenceCopyVariables(currentParams, dataPtr->modelParams);
 				LALInferenceAddVariable(dataPtr->modelParams, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
 				templt(dataPtr);
+        if (add_time==1)
+          LALInferenceAddVariable(currentParams,"time",&GPSdouble, LALINFERENCE_REAL8_t,time_var_type);
+        
 				if(XLALGetBaseErrno()==XLAL_FAILURE) /* Template generation failed in a known way, set -Inf likelihood */
 						return(-DBL_MAX);
 				if (dataPtr->modelDomain == LAL_SIM_DOMAIN_TIME) {
@@ -799,6 +785,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
     dataPtr = dataPtr->next;
   }
   loglikeli = -1.0 * chisquared; // note (again): the log-likelihood is unnormalised!
+  //printf("%10.10f\n",loglikeli);
   return(loglikeli);
 }
 

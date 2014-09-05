@@ -232,7 +232,6 @@ REAL8 LALInferenceFlatBoundedPrior(LALInferenceRunState *runState, LALInferenceV
 
 REAL8 LALInferenceSineGaussianPrior(LALInferenceRunState *runState, LALInferenceVariables *params);
 REAL8 LALInferenceRingdownPrior(LALInferenceRunState *runState, LALInferenceVariables *params);
-REAL8 LALInferenceHMNSPrior(LALInferenceRunState *runState, LALInferenceVariables *params);
 
 /** Prior that converts from a Cube parameter in [0,1] to the flat prior bounded by x1 and x2.
 */

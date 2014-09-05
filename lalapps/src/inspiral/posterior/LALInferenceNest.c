@@ -350,10 +350,6 @@ Nested sampling arguments:\n\
     runState->prior = &LALInferenceRingdownPrior;
     XLALPrintInfo("Using Ringdown prior\n");
     }
-    else if (!strcmp("HMNS",ppt->value)){
-    runState->prior = &LALInferenceHMNSPrior;
-    XLALPrintInfo("Using HMNS prior\n");
-    }
   }
 
 	/* Set up the prior for analytic tests if needed */
@@ -488,21 +484,14 @@ Arguments for each section follow:\n\n";
     initVarsFunc=&LALInferenceInitVariablesReviewEvidence_bimod;
   else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood"))
     initVarsFunc=&LALInferenceInitVariablesReviewEvidence_banana;
-  else if(!strcmp("SineGaussian",ppt->value) || !strcmp("Gaussian",ppt->value)|| !strcmp("DampedSinusoid",ppt->value)|| !strcmp("DampedSinusoidF",ppt->value) ||!strcmp("SineGaussianF",ppt->value)|| !strcmp("GaussianF",ppt->value)){
-	    fprintf(stdout,"--- Calling burst init variables \n");
-	    initVarsFunc=&LALInferenceInitBurstVariables;
-	}
 	else if(!strcmp("RingdownF",ppt->value) ){
+      /* First check for ringdown since I'm not yes sure it will work with the initBurst*/
 	     fprintf(stdout,"--- Calling RD init function \n");
 	    initVarsFunc=&LALInferenceInitRDVariables;
 	}
-	else if(!strcmp("HMNS",ppt->value) ){
-	     fprintf(stdout,"--- Calling HMNS init function \n");
-	    initVarsFunc=&LALInferenceInitHMNSVariables;
-	}
-	else if(!strcmp("BestIFO",LALInferenceGetProcParamVal(procParams,"--approx")->value)){
-	    fprintf(stdout,"--- Calling bestIFO init function \n");
-	    initVarsFunc=&LALInferenceInitBestIFOVariables;
+  else if(XLALCheckBurstApproximantFromString(ppt->value)){
+	    fprintf(stdout,"--- Calling burst init variables \n");
+	    initVarsFunc=&LALInferenceInitBurstVariables;
 	}
 	else{
 		printf("Using default CBC init!\n");

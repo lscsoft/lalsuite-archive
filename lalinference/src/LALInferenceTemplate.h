@@ -40,7 +40,8 @@ SWIGLAL(
         LALInferenceTemplateSinc,
         LALInferenceTemplateSineGaussian,
         LALInferenceTemplateStatPhase,
-        LALInferenceTemplateXLALSimInspiralChooseWaveform
+        LALInferenceTemplateXLALSimInspiralChooseWaveform,
+        LALInferenceTemplateXLALSimBurstChooseWaveform
     )
 );
 #endif
@@ -203,7 +204,7 @@ void LALInferenceTemplateASinOmegaT(LALInferenceIFOData *IFOdata);
  *
  */
 void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOdata);
-
+void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceIFOData *IFOdata);
 /**
  * Template function for "PhenSpinTaylorRingDown" waveforms.
  * (untested!)
@@ -213,7 +214,6 @@ void LALInferenceTemplateBestIFO(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateSineGaussianF(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateGaussian(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata);
-void LALInferenceTemplateHMNS(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateGaussianF(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateDampedSinusoidF(LALInferenceIFOData *IFOdata);
 /*@}*/

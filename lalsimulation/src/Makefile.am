@@ -53,6 +53,7 @@ pkginclude_HEADERS = \
 	LALSimInspiralPrecess.h \
 	LALSimInspiralWaveformFlags.h \
 	LALSimInspiralTestGRParams.h \
+	LALSimBurstExtraParams.h \
 	LALSimIMR.h \
 	LALSimInspiral.h \
 	LALSimInspiralSphHarmSeries.h \
@@ -104,6 +105,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimPhenSpinRingDown.c \
 	LALSimInspiralWaveformFlags.c \
 	LALSimInspiralTestGRParams.c \
+	LALSimBurstExtraParams.c \
 	LALSimInspiralPrecess.c \
 	LALSimInspiral.c \
 	LALSimInspiralSphHarmSeries.c \

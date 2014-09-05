@@ -226,7 +226,6 @@ REAL8 LALInferenceRDMarginalisedPhaseLogLikelihood(LALInferenceVariables *curren
 REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData * data,LALInferenceTemplateFunction templt);
 REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_RD(LALInferenceVariables *currentParams, LALInferenceIFOData * data,LALInferenceTemplateFunction templt);
 REAL8 LALInferenceMarginalisedPhaseLogLikelihood_RD(LALInferenceVariables *currentParams, LALInferenceIFOData * data,LALInferenceTemplateFunction templt);
-REAL8 LALInferenceMarginalisedPhaseLogLikelihood_HMNS(LALInferenceVariables *currentParams, LALInferenceIFOData * data,LALInferenceTemplateFunction templt);
 /**
  * Returns the log-likelihood marginalised over the time dimension.
  * The boundaries of the time marginalization are the data segment;

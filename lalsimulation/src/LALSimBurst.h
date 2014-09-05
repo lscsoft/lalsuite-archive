@@ -30,6 +30,7 @@
 
 #include <gsl/gsl_rng.h>
 #include <lal/LALDatatypes.h>
+#include <lal/LALSimBurstExtraParams.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -174,12 +175,10 @@ REAL8 XLALMeasureHrss(const REAL8TimeSeries *, const REAL8TimeSeries *);
 REAL8 XLALMeasureIntHDotSquaredDT(const COMPLEX16FrequencySeries *);
 REAL8 XLALMeasureEoverRsquared(REAL8TimeSeries *, REAL8TimeSeries *);
 
-/** Enumeration to specify time or frequency domain */
 typedef enum {
   LAL_SIM_BURST_DOMAIN_TIME,
   LAL_SIM_BURST_DOMAIN_FREQUENCY
  } LALSimulationBurstDomain;
-
 
 /** Enum that specifies the PN approximant to be used in computing the waveform.
 */
@@ -191,10 +190,48 @@ typedef enum {
    RingdownF,
    DampedSinusoidF,
    DampedSinusoid,
-   HMNS,
    NumBurstApproximants	/**< Number of elements in enum, useful for checking bounds */
  } BurstApproximant;
 
+int XLALSimBurstImplementedTDApproximants( 
+BurstApproximant approximant /**< Burst approximant (see enum in LALSimBurst.h) */
+    );
+int XLALSimBurstImplementedFDApproximants( 
+BurstApproximant approximant /**< Burst approximant (see enum in LALSimBurst.h) */
+    );    
+    /** Enumeration to specify time or frequency domain */
+int XLALSimBurstChooseFDWaveform(
+    COMPLEX16FrequencySeries **hptilde,     /**< FD plus polarization */
+    COMPLEX16FrequencySeries **hctilde,     /**< FD cross polarization */
+    REAL8 deltaF,                           /**< sampling interval (Hz) */
+    REAL8 deltaT,                           /**< time step corresponding to consec */
+    REAL8 f0,                               /**< central frequency (Hz) */
+    REAL8 q,                                /**< Q (==sqrt(2) \pi f0 tau ) [dless]*/
+    REAL8 tau,                              /**< Duration [s] */
+    REAL8 f_min,                            /**< starting GW frequency (Hz) */
+    REAL8 f_max,                            /**< ending GW frequency (Hz) (0 for Nyquist) */
+    REAL8 hrss,                             /**< hrss [strain] */
+    REAL8 polar_angle,                      /**< Polar_ellipse_angle as defined in the burst table. Together with polar_ellipse_eccentricity below will fix the ratio of + vs x aplitude. Some WFs uses a single parameter alpha for this. Alpha is passed through extraParams*/
+    REAL8 polar_ecc,                        /**< See above */
+    LALSimBurstExtraParam *extraParams, /**< Linked list of non-GR parameters. Pass in NULL (or None in python) to neglect these */
+    BurstApproximant approximant                 /**< Burst approximant  */
+    );
+    
+int XLALSimBurstChooseTDWaveform(
+    REAL8TimeSeries **hplus,                    /**< +-polarization waveform */
+    REAL8TimeSeries **hcross,                   /**< x-polarization waveform */
+    REAL8 deltaT,                           /**< time step corresponding to consec */
+    REAL8 f0,                               /**< central frequency (Hz) */
+    REAL8 q,                                /**< Q (==sqrt(2) \pi f0 tau ) [dless]*/
+    REAL8 tau,                              /**< Duration [s] */
+    REAL8 f_min,                            /**< starting GW frequency (Hz) */
+    REAL8 f_max,                            /**< ending GW frequency (Hz) (0 for Nyquist) */
+    REAL8 hrss,                             /**< hrss [strain] */
+    REAL8 polar_angle,                      /**< Polar_ellipse_angle as defined in the burst table. Together with polar_ellipse_eccentricity below will fix the ratio of + vs x aplitude. Some WFs uses a single parameter alpha for this. Alpha is passed through extraParams*/
+    REAL8 polar_ecc,                        /**< See above */
+    LALSimBurstExtraParam *extraParams, /**< Linked list of non-GR parameters. Pass in NULL (or None in python) to neglect these */
+    BurstApproximant approximant                 /**< Burst approximant  */
+    );
 /** 
  * XLAL function to determine burst approximant from a string.  The string need not 
  * match exactly, only contain a member of the BurstApproximant enum.

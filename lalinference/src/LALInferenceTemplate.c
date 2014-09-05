@@ -1464,53 +1464,6 @@ void LALInferenceDumptemplateTimeDomain(LALInferenceVariables *currentParams, LA
   fprintf(stdout, " wrote (time-domain) template to CSV file \"%s\".\n", filename);
 }
 
-
-void LALInferenceTemplateBestIFO(LALInferenceIFOData *IFOdata)
-/*****************************************************/
-/* Sine-Gaussian (burst) template.                   */
-/* Signal is (by now?) linearly polarised,           */
-/* i.e., the cross-waveform remains zero.            */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* The (plus-) waveform is:                          */
-/*   a * exp(-((t-mu)/sigma)^2) * sin(2*pi*f*t-phi)  */
-/* Note that by setting f=0, phi=pi/2 you also get   */
-/* a `pure' Gaussian template.                       */
-/*                                                   */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * ************************************/
-/* Required (`IFOdata->modelParams') parameters are:                                    */
-/*   - "time"       (the "mu" parameter of the Gaussian part; REAL8, GPS sec.)          */
-/*   - "sigma"      (width, the "sigma" parameter of the Gaussian part; REAL8, seconds) */
-/*   - "frequency"  (frequency of the sine part; REAL8, Hertz)                          */
-/*   - "phase"      (phase (at above "mu"); REAL8, radians)                             */
-/*   - "amplitude"  (amplitude, REAL8)                                                  */
-/****************************************************************************************/
-{
-  
-
-      REAL8TimeSeries *hplus=NULL;  /**< +-polarization waveform */
-      //    REAL8TimeSeries       *signalvecREAL8=NULL;
-    
-      REAL8 padding=0.4; // hard coded value found in LALInferenceReadData(). Padding (in seconds) for the tuckey window.
-  UINT8 windowshift=(UINT8) ceil(padding/IFOdata->timeData->deltaT);
-  UINT4 i;
-     
-   REAL8 instant= (IFOdata->timeData->epoch.gpsSeconds-hplus->epoch.gpsSeconds + 1e-9*(IFOdata->timeData->epoch.gpsNanoSeconds-hplus->epoch.gpsNanoSeconds));
-	
-    /* write template (time axis) location in "->modelParams" so that     */
-    /* template corresponds to stored parameter values                    */
-    /* and other functions may time-shift template to where they want it: */
-    
-    instant=instant+(INT8)windowshift*IFOdata->timeData->deltaT; //leave enough room for the tuckey windowing of the data.
-    LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
-     for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i){
-    IFOdata->freqModelhPlus->data->data[i]  = crect(0.0,0.0);
-    IFOdata->freqModelhCross->data->data[i] = crect(0.0,0.0);
-  }
- 
- IFOdata->modelDomain = LAL_SIM_DOMAIN_FREQUENCY;
-  return;
-}
-
 void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
 /********************************************************************************************/
 /* XLALSimRingdown wrapper                                                                  */
@@ -1626,120 +1579,297 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
     return;
 }
 
-void LALInferenceTemplateHMNS(LALInferenceIFOData *IFOdata)
-/********************************************************************************************/
-/* XLALSimBurst wrapper with l=m=2 inclination dependence for circ sine gaussians           */
-/*  Required (`IFOdata->modelParams') parameters are:										*/
-/*   - "time" 	        (coalescence time, or equivalent/analog/similar; REAL8, GPS sec.)	*/
-/*   - "hrss"           (RSS amplitude of GW signal)                                        */
-/*   - "frequency"      (central frequency of ringdown signal)								*/
-/*   - "Q"              (quality factor = frequency / bandwidth i    					    */
-/********************************************************************************************/
+void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceIFOData *IFOdata)
+/*************************************************************************************************************************/
+/* Wrapper for LALSimulation waveforms:						                                                             */
+/* XLALSimBurstChooseFDWaveform() and XLALSimBurstChooseTDWaveform().                                              */
+/*                                                                                                                       */
+/*  IFOdata->modelParams parameters are:										                                         */
+/*  - "name" description; type OPTIONAL (default value)										                             */
+/*										                                                                                 */
+/*   MODEL PARAMETERS										                                                             */
+/*                                                                                */
+/*************************************************************************************************************************/
 {
-    COMPLEX16FrequencySeries *hptilde=NULL;
-    COMPLEX16FrequencySeries *hctilde=NULL;
-    REAL8 deltaF = IFOdata->freqData->deltaF;
-    REAL8 deltaT = IFOdata->timeData->deltaT;
-    //REAL8 f_min, f_max;
-    //f_min = IFOdata->fLow;
-    //f_max = IFOdata->fHigh;
 
-    REAL8 instant, frequency, quality, inclination, hrss;
+  BurstApproximant approximant = (BurstApproximant) 0;
+  
+  unsigned long	i;
+  static int sizeWarning = 0;
+  int ret=0;
+  INT4 errnum=0;
+  REAL8 instant;
+  
+  
+  REAL8TimeSeries *hplus=NULL;  /**< +-polarization waveform [returned] */
+  REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform [returned] */
+  COMPLEX16FrequencySeries *hptilde=NULL, *hctilde=NULL;
+  REAL8 phi0, deltaT,deltaF, 
+  freq=0.0,
+  quality=0.0,
+  duration=0.0,
+  f_low, f_max,
+  hrss=1.0,
+  polar_ecc=1.0,polar_angle=LAL_PI/2.,alpha=LAL_PI/2.; 
+  LALSimBurstExtraParam *extraParams = NULL;
+  
+  if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_APPROXIMANT"))
+    approximant = *(BurstApproximant*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_APPROXIMANT");
+  else {
+    XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBurstChooseWaveform(): (INT4) \"LAL_APPROXIMANT\" parameter not provided!\n");
+    XLAL_ERROR_VOID(XLAL_EDATA);
+  }
+	
+  if(LALInferenceCheckVariable(IFOdata->modelParams,"frequency"))
+    {
+      freq=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "frequency");
+  } 
 
-    unsigned i;
+  if(LALInferenceCheckVariable(IFOdata->modelParams,"Q"))
+    {
+      quality=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "Q");
+  }
+  if(LALInferenceCheckVariable(IFOdata->modelParams,"duration"))
+    {
+      duration=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "duration");
+  } 
+/*
+  if(LALInferenceCheckVariable(IFOdata->modelParams,"hrss"))
+    {
+      hrss=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "hrss");
+  } else if (LALInferenceCheckVariable(IFOdata->modelParams,"loghrss"))
+      hrss=exp(*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "hrss"));
+*/
+  if(LALInferenceCheckVariable(IFOdata->modelParams,"alpha"))
+    {
+      alpha=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "alpha");
+      if (!extraParams) extraParams=XLALSimBurstCreateExtraParam("alpha",alpha);
+      else XLALSimBurstAddExtraParam(&extraParams,"alpha",alpha);
+      polar_angle=alpha;
+  } 
+  
+  if(LALInferenceCheckVariable(IFOdata->modelParams,"phase"))
+    {
+      phi0=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phase");
+      if (!extraParams) extraParams=XLALSimBurstCreateExtraParam("phase",phi0);
+      else XLALSimBurstAddExtraParam(&extraParams,"phase",phi0);
+  }
 
-	INT4 errnum=0;
-    int ret=0;
-
-    inclination = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "inclination"); 
-    frequency = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "frequency");
-    quality = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "Q");
-    hrss = exp(*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "loghrss"));
+  /* If someone wants to use old parametrization, allow for */
+  if(LALInferenceCheckVariable(IFOdata->modelParams,"polar_angle"))
+    polar_angle=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "polar_angle");
+  if(LALInferenceCheckVariable(IFOdata->modelParams,"polar_eccentricity"))
+    polar_ecc=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "polar_eccentricity");
     
-    /* **************************************************************************** */
-    /* Frequency domain ringdown */
-
-    static REAL8 previous_frequency;
-    static REAL8 previous_quality;
-    static REAL8 previous_inclination;
-    static REAL8 previous_hrss;
-
-    IFOdata->modelDomain = LAL_SIM_DOMAIN_FREQUENCY;
-
-    double cosi = cos(inclination);
-    double plusCoef  = -0.5 * (1.0 + cosi*cosi);
-    double crossCoef = cosi;
     
+  /* Check if fLow is a model parameter, otherwise use data structure definition */
+  if(LALInferenceCheckVariable(IFOdata->modelParams, "fLow"))
+    f_low = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "fLow");
+  else
+    f_low = IFOdata->fLow /** 0.9 */;
 
-    /* Only regenerate waveform for new frequency, quality, ... */
-    if(previous_frequency != frequency || previous_quality != quality || previous_hrss != hrss){
+  f_max = 0.0; /* for freq domain waveforms this will stop at Nyquist of lower, if the WF allows.*/
 
-        /* Generate Waveform */
-        XLAL_TRY(ret=XLALSimBurstSineGaussianF(&hptilde, &hctilde, quality,
-                    frequency, hrss, 0.0, 0.0, deltaF, deltaT), errnum);
-        if(ret || errnum) fprintf(stderr,"ERROR generating SineGaussianF template\n");
 
-        previous_hrss=hrss;
-        previous_frequency=frequency;
-        previous_quality=quality;
-
-        if (hptilde==NULL || hptilde->data==NULL || hptilde->data->data==NULL ||
-                hctilde==NULL || hctilde->data==NULL ||
-                hctilde->data->data==NULL ) {
-            XLALPrintError(" ERROR in LALInferenceTemplateHMNS(): encountered unallocated 'h(p,c)tilde'.\n"); 
-            XLAL_ERROR_VOID(XLAL_EFAULT);
-        }
-
-        /* point to data structure in waveform */
-        COMPLEX16 *dataPtrp = hptilde->data->data;
-        COMPLEX16 *dataPtrc = hctilde->data->data;
-
-        if (IFOdata->freqData==NULL) {
-            XLALPrintError(" ERROR in LALInferenceTemplateHMNS(): encountered unallocated 'freqData'.\n");
-            XLAL_ERROR_VOID(XLAL_EFAULT);
-        }
-
-        /* populate model in IFOdata with real/imag parts of hplus and hcross */
-        for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
-            dataPtrp = hptilde->data->data;
-            dataPtrc = hptilde->data->data;
-            if(i < hptilde->data->length){
-                IFOdata->freqModelhPlus->data->data[i] = dataPtrp[i];
-                IFOdata->freqModelhCross->data->data[i] = dataPtrc[i];
-            }
-            else{
-                IFOdata->freqModelhPlus->data->data[i]= crect(0.0,0.0); 
-                IFOdata->freqModelhCross->data->data[i]= crect(0.0,0.0); 
-            }
-        }
-    }
-    else{
-        /* Do not recompute the waveform if only inclination has changed. The
-         * test assumes that deltaF, f_min and f_max did not change !*/
-        double previous_cosi = cos(previous_inclination);
-
-        plusCoef  /= (-0.5 * (1.0 + previous_cosi*previous_cosi));
-        crossCoef /= (previous_cosi);
-
-        for (i=0; i<IFOdata->freqModelhCross->data->length; ++i) {
-            IFOdata->freqModelhPlus->data->data[i]  *= plusCoef;
-            IFOdata->freqModelhCross->data->data[i] *= crossCoef;
-        }
-
+  if (IFOdata->timeData==NULL) {
+    XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'timeData'.\n");
+    XLAL_ERROR_VOID(XLAL_EFAULT);
+  }
+  deltaT = IFOdata->timeData->deltaT;
+  
+  if(IFOdata->modelDomain == LAL_SIM_DOMAIN_FREQUENCY) {
+    if (IFOdata->freqData==NULL) {
+      XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'freqData'.\n");
+      XLAL_ERROR_VOID(XLAL_EFAULT);
     }
 
-    previous_inclination = inclination;
+    deltaF = IFOdata->freqData->deltaF;
+    
+	/*Create BurstExtra params here and set depending on approx or let chooseFD do that*/ 
+  
+  
+  XLAL_TRY(ret=XLALSimBurstChooseFDWaveform(&hptilde, &hctilde, deltaF,deltaT,freq,quality,duration,f_low,f_max,hrss,polar_angle,polar_ecc,extraParams,approximant), errnum);
+  if (ret == XLAL_FAILURE)
+      {
+        XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBurstChooseWaveform(). errnum=%d\n",errnum );
+        return;
+      }
+	if (hptilde==NULL || hptilde->data==NULL || hptilde->data->data==NULL ) {
+	  XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBurstChooseWaveform: encountered unallocated 'hptilde'.\n");
+	  XLAL_ERROR_VOID(XLAL_EFAULT);
+	}
+	if (hctilde==NULL || hctilde->data==NULL || hctilde->data->data==NULL ) {
+	  XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBurstChooseWaveform: encountered unallocated 'hctilde'.\n");
+	  XLAL_ERROR_VOID(XLAL_EFAULT);
+	}
+      
+	COMPLEX16 *dataPtr = hptilde->data->data;
 
-	instant= (IFOdata->timeData->epoch.gpsSeconds +
-			1e-9*IFOdata->timeData->epoch.gpsNanoSeconds);
+    for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
+      dataPtr = hptilde->data->data;
+      if(i < hptilde->data->length){
+        IFOdata->freqModelhPlus->data->data[i] = dataPtr[i];
+      }else{
+        IFOdata->freqModelhPlus->data->data[i] = 0.0;
+      }
+    }
+    for (i=0; i<IFOdata->freqModelhCross->data->length; ++i) {
+      dataPtr = hctilde->data->data;
+      if(i < hctilde->data->length){
+        IFOdata->freqModelhCross->data->data[i] = dataPtr[i];
+      }else{
+        IFOdata->freqModelhCross->data->data[i] = 0.0;
+      }
+    }
+    
+    
+    /* Destroy the extra params */
+    XLALSimBurstDestroyExtraParam(extraParams);
+    
+    instant= (IFOdata->timeData->epoch.gpsSeconds + 1e-9*IFOdata->timeData->epoch.gpsNanoSeconds);
+    LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);    
+  }
+ else {
+    /*Time domain WF*/
 
-    LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
+    XLAL_TRY(ret=XLALSimBurstChooseTDWaveform(&hplus, &hcross,deltaT,freq,quality,duration,f_low,f_max,hrss,polar_angle,polar_ecc,extraParams,approximant), errnum);
+    XLALSimBurstDestroyExtraParam(extraParams);
+    if (ret == XLAL_FAILURE || hplus == NULL || hcross == NULL)
+      {
+        XLALPrintError(" ERROR in XLALSimBurstChooseTDWaveform(): error generating waveform. errnum=%d\n",errnum );
+        for (i=0; i<IFOdata->timeData->data->length; i++){
+          IFOdata->timeModelhPlus->data->data[i] = 0.0;
+          IFOdata->timeModelhCross->data->data[i] = 0.0;
+        }
+        return;
+      }
 
-    if ( hptilde ) XLALDestroyCOMPLEX16FrequencySeries(hptilde);
-    if ( hctilde ) XLALDestroyCOMPLEX16FrequencySeries(hctilde);
+    /* The following complicated mess is a result of the following considerations:
+       
+       1) The discrete time samples of the template and the timeModel
+       buffers will not, in general line up.
 
-    /* **************************************************************************** */
+       2) The likelihood function will timeshift the template in the
+       frequency domain to align it properly with the desired tc in
+       each detector (these are different because the detectors
+       receive the signal at different times).  Because this
+       timeshifting is done in the frequency domain, the effective
+       time-domain template is periodic.  We want to avoid the
+       possibility of non-zero template samples wrapping around from
+       the start/end of the buffer, since real templates are not
+       periodic!
 
+       3) If the template apporaches the ends of the timeModel buffer,
+       then it should be tapered in the same way as the timeData
+       (currently 0.4 seconds, hard-coded! Tukey window; see
+       LALInferenceReadData.c, near line 233) so that template and
+       signal in the data match.  However, as an optimization, we
+       perform only one tapering and FFT-ing in the likelihood
+       function; subsequent timeshifts for the different detectors
+       will cause the tapered regions of the template and data to
+       become mis-aligned.
 
-    return;
+       The algorthim we use is the following:
+
+       1) Inject the template to align with the nearest sample in the
+       timeModel buffer to the desired geocent_end time.
+
+       2) Check whether either the start or the end of the template
+       overlaps the tapered region, plus a safety buffer corresponding
+       to a conservative estimate of the largest geocenter <-->
+       detector timeshift.
+       
+         a) If there is no overlap at the start or end of the buffer,
+         we're done.
+
+	 b) If there is an overlap, issue one warning per process
+	 (which can be disabled by setting the LAL debug level) about
+	 a too-short segment length, and return.
+*/
+
+    size_t waveLength = hplus->data->length;
+    size_t bufLength = IFOdata->timeData->data->length;
+
+    /* 2*Rearth/(c*deltaT)---2 is safety factor---is the maximum time
+       shift for any earth-based detector. */
+    size_t maxShift = (size_t)lround(4.255e-2/hplus->deltaT); 
+
+    /* Taper 0.4 seconds at start and end (hard-coded! in
+       LALInferenceReadData.c, around line 233). */
+    size_t taperLength = (size_t)lround(0.4/hplus->deltaT); 
+
+    /* Within unsafeLength of ends of buffer, possible danger of
+       wrapping and/or tapering interactions. */
+    size_t unsafeLength = taperLength + maxShift;
+
+    REAL8 desiredTc = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "time");
+    REAL8 tStart = XLALGPSGetREAL8(&(IFOdata->timeModelhPlus->epoch));
+    REAL8 tEnd = tStart + IFOdata->timeModelhPlus->deltaT * IFOdata->timeModelhPlus->data->length;
+
+    if (desiredTc < tStart || desiredTc > tEnd) {
+      XLALDestroyREAL8TimeSeries(hplus);
+      XLALDestroyREAL8TimeSeries(hcross);
+
+      XLAL_PRINT_ERROR("desired tc (%.4f) outside data buffer\n", desiredTc);
+      XLAL_ERROR_VOID(XLAL_EDOM);
+    }
+
+    /* The nearest sample in model buffer to the desired tc. */
+    size_t tcSample = (size_t)lround((desiredTc - XLALGPSGetREAL8(&(IFOdata->timeModelhPlus->epoch)))/IFOdata->timeModelhPlus->deltaT);
+
+    /* The acutal coalescence time that corresponds to the buffer
+       sample on which the waveform's tC lands. */
+    REAL8 injTc = XLALGPSGetREAL8(&(IFOdata->timeModelhPlus->epoch)) + tcSample*IFOdata->timeModelhPlus->deltaT;
+
+    /* The sample at which the waveform reaches tc. */
+    size_t waveTcSample = (size_t)lround(-XLALGPSGetREAL8(&(hplus->epoch))/hplus->deltaT);
+
+    /* 1 + (number of samples post-tc in waveform) */
+    size_t wavePostTc = waveLength - waveTcSample;
+
+    size_t bufStartIndex = (tcSample >= waveTcSample ? tcSample - waveTcSample : 0);
+    size_t bufEndIndex = (wavePostTc + tcSample <= bufLength ? wavePostTc + tcSample : bufLength);
+    size_t bufWaveLength = bufEndIndex - bufStartIndex;
+    size_t waveStartIndex = (tcSample >= waveTcSample ? 0 : waveTcSample - tcSample);    
+
+    if (bufStartIndex < unsafeLength || (bufLength - bufEndIndex) <= unsafeLength) {
+      /* The waveform could be timeshifted into a region where it will
+	 be tapered improperly, or even wrap around from the periodic
+	 timeshift.  Issue warning. */
+      if (!sizeWarning) {
+	fprintf(stderr, "WARNING: Generated template is too long to guarantee that it will not\n");
+	fprintf(stderr, "WARNING:  (a) lie in a tapered region of the time-domain buffer\n");
+	fprintf(stderr, "WARNING:  (b) wrap periodically when timeshifted in likelihood computation\n");
+	fprintf(stderr, "WARNING: Either of these may cause differences between the template and the\n");
+	fprintf(stderr, "WARNING: correct GW waveform in each detector.\n");
+	fprintf(stderr, "WARNING: Parameter estimation will continue, but you should consider\n");
+	fprintf(stderr, "WARNING: increasing the data segment length (using the --seglen) option.\n");
+	sizeWarning = 1;
+
+      }
+    }
+
+    /* Clear IFOdata buffers */
+    memset(IFOdata->timeModelhPlus->data->data, 0, sizeof(REAL8)*IFOdata->timeModelhPlus->data->length);
+    memset(IFOdata->timeModelhCross->data->data, 0, sizeof(REAL8)*IFOdata->timeModelhCross->data->length);
+    
+    /* Inject */
+    memcpy(IFOdata->timeModelhPlus->data->data + bufStartIndex,
+	   hplus->data->data + waveStartIndex,
+	   bufWaveLength*sizeof(REAL8));
+    memcpy(IFOdata->timeModelhCross->data->data + bufStartIndex,
+	   hcross->data->data + waveStartIndex,
+	   bufWaveLength*sizeof(REAL8));
+
+    LALInferenceSetVariable(IFOdata->modelParams, "time", &injTc);
+  }
+  
+  
+  if ( hplus ) XLALDestroyREAL8TimeSeries(hplus);
+  if ( hcross ) XLALDestroyREAL8TimeSeries(hcross);
+  if ( hptilde ) XLALDestroyCOMPLEX16FrequencySeries(hptilde);
+  if ( hctilde ) XLALDestroyCOMPLEX16FrequencySeries(hctilde);
+  
+  return;
 }
+
