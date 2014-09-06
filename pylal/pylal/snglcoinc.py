@@ -1473,36 +1473,6 @@ class InstrumentCategories(dict):
 
 
 #
-# threading.Thread sub-class for filtering parameter distributions
-#
-
-
-class CoincParamsFilterThread(threading.Thread):
-	"""
-	For internal use by the CoincParamsDistributions class.
-	"""
-	# allow at most 5 threads
-	cpu = threading.Semaphore(5)
-	# allow at most one to update a progressbar
-	progresslock = threading.Lock()
-
-	def __init__(self, binnedarray, kernel, progressbar = None):
-		super(CoincParamsFilterThread, self).__init__()
-		self.binnedarray = binnedarray
-		self.kernel = kernel
-		self.progressbar = progressbar
-
-	def run(self):
-		with self.cpu:
-			if self.kernel is not None:
-				rate.filter_array(self.binnedarray.array, self.kernel)
-			self.binnedarray.to_pdf()
-		if self.progressbar is not None:
-			with self.progresslock:
-				self.progressbar.increment()
-
-
-#
 # A class for measuring parameter distributions
 #
 
@@ -1513,14 +1483,21 @@ class CoincParamsDistributions(object):
 	single events).  It is assumed there is a fixed, pre-determined,
 	set of parameters that one wishes to histogram, and that each
 	parameter has a name.  To use this, it must be sub-classed and the
-	derived class must provide dictionaries of binnings and smoothing
-	filters.  The binnings is a dictionary mapping parameter names to
-	rate.NDBins instances describing the binning to be used for each
-	paramter.  The filters is a dictionary mapping parameter names to
-	numpy.ndarray instances that will be used to smooth bin count data
-	in the histograms.  Subclasses must also provide a .coinc_params()
-	static method that will transform a list of single-instrument
-	events into a dictionary mapping paramter name to parameter value.
+	derived class must provide dictionaries of binnings and functions
+	for performing the kernel density estimation transform to obtain
+	PDFs from histograms of counts.  The binnings is a dictionary
+	mapping parameter names to rate.NDBins instances describing the
+	binning to be used for each paramter.  The pdf_from_rates_func
+	dictionary maps parameter names to functions to smooth and
+	normalize bin count data into PDFs.  As a special case, a default
+	function is provided and will be used for any parameters whose
+	names do not appear in the pdf_from_rates_func dictionary.  The
+	default function looks for a smoothing filter in the filters
+	dictionary, applies it if found, then invokes the .to_pdf() method
+	of the binned array object.  Subclasses must also provide a
+	.coinc_params() static method that will transform a list of
+	single-instrument events into a dictionary mapping paramter name to
+	parameter value.
 
 	This class maintains three sets of histograms, one set for noise
 	(or "background") events, one set for signal (or "injection")
@@ -1550,6 +1527,7 @@ class CoincParamsDistributions(object):
 
 	binnings = {}
 
+	pdf_from_rates_func = {}
 	filters = {}
 
 	@staticmethod
@@ -1699,7 +1677,16 @@ class CoincParamsDistributions(object):
 				# param value out of range
 				pass
 
-	def finish(self, verbose = False, filterthread = CoincParamsFilterThread):
+	def default_pdf_from_rates(self, key, pdf_dict):
+		"""
+		For internal use by the CoincParamsDistributions class.
+		"""
+		binnedarray = pdf_dict[key]
+		if key in self.filters:
+			rate.filter_array(binnedarray.array, self.filters[key])
+		binnedarray.to_pdf()
+
+	def finish(self, verbose = False):
 		"""
 		Populate the discrete PDF dictionaries from the contents of
 		the rates dictionaries, and then the PDF interpolator
@@ -1717,9 +1704,7 @@ class CoincParamsDistributions(object):
 		self.zero_lag_pdf.clear()
 		self.background_pdf.clear()
 		self.injection_pdf.clear()
-		N = len(self.zero_lag_rates) + len(self.background_rates) + len(self.injection_rates)
-		threads = []
-		progressbar = ProgressBar(text = "Computing Parameter PDFs") if verbose else None
+		progressbar = ProgressBar(text = "Computing Parameter PDFs", max = len(self.zero_lag_rates) + len(self.background_rates) + len(self.injection_rates)) if verbose else None
 		for key, (msg, rates_dict, pdf_dict) in itertools.chain(
 				zip(self.zero_lag_rates, itertools.repeat(("zero lag", self.zero_lag_rates, self.zero_lag_pdf))),
 				zip(self.background_rates, itertools.repeat(("background", self.background_rates, self.background_pdf))),
@@ -1727,14 +1712,14 @@ class CoincParamsDistributions(object):
 		):
 			assert numpy.isfinite(rates_dict[key].array).all() and (rates_dict[key].array >= 0).all(), "%s %s counts are not valid" % (key, msg)
 			pdf_dict[key] = rates_dict[key].copy()
-			threads.append(filterthread(pdf_dict[key], self.filters[key] if key in self.filters else None, progressbar = progressbar))
-		if verbose:
-			progressbar.max = len(threads)
-			progressbar.show()
-		for thread in threads:
-			thread.start()
-		while threads:
-			threads.pop(0).join()
+			try:
+				pdf_from_rates_func = self.pdf_from_rates_func[key]
+			except KeyError:
+				pdf_from_rates_func = self.default_pdf_from_rates
+			if pdf_from_rates_func is not None:
+				pdf_from_rates_func(key, pdf_dict)
+			if progressbar is not None:
+				progressbar.increment()
 
 		#
 		# rebuild interpolators
