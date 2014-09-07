@@ -19,15 +19,6 @@ from pylal import extended_background_utils as loud_event_coincs
 
 
 name_from_cat = {2:'CAT_2', 3:'CAT_3', 4:'CAT_4'}
-#def get_name_from_cat(cl):
-#    if cl == 2:
-#        return 'CAT_2'
-#    elif cl == 3:
-#        return 'CAT_3'
-#    elif cl == 4:
-#        return 'CAT_4'
-#    else:
-#        return None
 
 def get_cat_from_name(fname):
     if fname.find("CAT_4") != -1 or fname.find("CATEGORY_4") != -1:
@@ -94,23 +85,9 @@ def gather_zerofar(file_glob):
     for event_trigs in events.itervalues():
         # sort in descending order of SNR, take the last 2
         event_trigs.sort(key=attrgetter('sngl_snr'), reverse=True)
-        print 'Sorted trigger SNRs :', [trg.sngl_snr for trg in event_trigs]
+        #print 'Sorted trigger SNRs :', [trg.sngl_snr for trg in event_trigs]
         for trg in event_trigs[0:2]:
             zerofar_table.append(trg)
-    #for id_val in events:
-    #    sngl_snr = []
-    #    event_group = events[id_val]
-    #    for event in event_group:
-    #        sngl_snr.append(event.sngl_snr)
-    #    max_index1 = sngl_snr.index(max(sngl_snr))
-    #    sngl_snr[max_index1] = -1
-    #    max_ifo1 = event_group[max_index1]
-    #
-    #    max_index2 = sngl_snr.index(max(sngl_snr))
-    #    max_ifo2 = event_group[max_index2]
-    #
-    #    zerofar_table.append(max_ifo1)
-    #    zerofar_table.append(max_ifo2)
     return zerofar_table, cats
 
 
@@ -319,7 +296,7 @@ def main():
     parser.add_option("--coinc-threshold",
                     action="store", type="float",
                     help="Fraction of the zero-FAR event combined SNR above which to"
-                         "start looking for coinc triggers. REQUIRED")
+                         " start looking for coinc triggers. REQUIRED")
     parser.add_option("-v","--veto-window",
                     action="store", type="float",
                     help="The amount of time before and after a zero-FAR trigger to veto. REQUIRED")
