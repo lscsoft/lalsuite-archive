@@ -804,6 +804,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             fprintf(stderr,"Padding is negative or 2*padding is bigger than the whole segment. Consider reducing it using --padding or ingrease --seglen. Exiting\n");
             exit(1);
             }
+        IFOdata[i].padding=padding;
         IFOdata[i].window=XLALCreateTukeyREAL8Window(seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen);
         if(!IFOdata[i].window) XLAL_ERROR_NULL(XLAL_EFUNC);
     }
