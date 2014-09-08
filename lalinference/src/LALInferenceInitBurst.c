@@ -48,7 +48,7 @@ void LALInferenceInitBurstTemplate(LALInferenceRunState *runState)
   ProcessParamsTable *commandLine=runState->commandLine;
   /* Print command line arguments if help requested */
   
-  runState->templt=&LALInferenceTemplateSineGaussianF;
+  runState->templt=&LALInferenceTemplateXLALSimBurstChooseWaveform;
   runState->data->template_counter=0;
   
   ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
@@ -96,26 +96,27 @@ void LALInferenceInitBurstTemplate(LALInferenceRunState *runState)
 /* Includes specification of prior ranges */
 
 LALInferenceVariables * LALInferenceInitBurstVariables(LALInferenceRunState *state)
-{   printf("---------------------------------Using LALInferenceBurstVariables!\n");
+{   
+  fprintf(stderr,"Using LALInferenceBurstVariables!\n");
 
-    LALStatus status;
-    SimBurst *BinjTable=NULL;
-     SimInspiralTable *inj_table=NULL;
+  LALStatus status;
+  SimBurst *BinjTable=NULL;
+  SimInspiralTable *inj_table=NULL;
 	LALInferenceVariables *priorArgs=state->priorArgs;
 	state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
 	LALInferenceVariables *currentParams=state->currentParams;
 	ProcessParamsTable *commandLine=state->commandLine;
 	REAL8 endtime=-1;
 	REAL8 endtime_from_inj=-1;
-	ProcessParamsTable *ppt=NULL;
-    ProcessParamsTable *ppt2=NULL;
-    REAL8 tmpMax, tmpVal,tmpMin;
+  ProcessParamsTable *ppt=NULL;
+  ProcessParamsTable *ppt2=NULL;
+  REAL8 tmpMax, tmpVal,tmpMin;
 	memset(currentParams,0,sizeof(LALInferenceVariables));
 	memset(&status,0,sizeof(LALStatus));
 	INT4 event=0;	
 	INT4 i=0;
   BurstApproximant approx = (BurstApproximant) 0;
-    char *pinned_params=NULL;
+  char *pinned_params=NULL;
 	char help[]="\
 Parameter arguments:\n\
 (--inj injections.xml)\tSimInspiral or SimBurst Injection XML file to use\n\
@@ -132,31 +133,29 @@ Parameter arguments:\n\
 		return 0;
 	}
     
-    int burst_inj=0;
-    state->proposal=&NSWrapMCMCSineGaussProposal;
-    
-    /* We may have used a CBC injection... test */
-    ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
-    if (ppt)
-        endtime=atof(ppt->value);
-    ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
-    if (ppt) {
-        
-        BinjTable=XLALSimBurstTableFromLIGOLw(LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
-        if (BinjTable){
-          burst_inj=1;
-          ppt=LALInferenceGetProcParamVal(commandLine,"--event");
-          if(ppt){
-            event = atoi(ppt->value);
-            while(i<event) {i++; BinjTable = BinjTable->next;}
-          }
-          else
-            fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
-          endtime_from_inj=XLALGPSGetREAL8(&(BinjTable->time_geocent_gps));
-          
+  int burst_inj=0;
+  state->proposal=&NSWrapMCMCSineGaussProposal;
+  
+  /* We may have used a CBC injection... test */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
+  if (ppt)
+      endtime=atof(ppt->value);
+  ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
+  if (ppt) {
+    BinjTable=XLALSimBurstTableFromLIGOLw(LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
+    if (BinjTable){
+      burst_inj=1;
+      ppt=LALInferenceGetProcParamVal(commandLine,"--event");
+      if(ppt){
+        event = atoi(ppt->value);
+        while(i<event) {i++; BinjTable = BinjTable->next;}
       }
+      else
+        fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
+      endtime_from_inj=XLALGPSGetREAL8(&(BinjTable->time_geocent_gps));
+    }
     else{
-	    SimInspiralTableFromLIGOLw(&inj_table,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
+      SimInspiralTableFromLIGOLw(&inj_table,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
       if (inj_table){
         ppt=LALInferenceGetProcParamVal(commandLine,"--event");
         if(ppt){
@@ -167,47 +166,45 @@ Parameter arguments:\n\
           endtime_from_inj=XLALGPSGetREAL8(&(inj_table->geocent_end_time));
         }
         else
-          fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
-        }
+            fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
       }
     }
-    if(!(BinjTable || inj_table || endtime )){
-      printf("Did not provide --trigtime or an xml file and event... Exiting.\n");
-      exit(1);
-    }
-    if (endtime_from_inj!=endtime){
-      if(endtime_from_inj>0 && endtime>0)
-        fprintf(stderr,"WARNING!!! You set trigtime %lf with --trigtime but event %i seems to trigger at time %lf\n",endtime,event,endtime_from_inj);
+  }
+  if(!(BinjTable || inj_table || endtime )){
+    printf("Did not provide --trigtime or an xml file and event... Exiting.\n");
+    exit(1);
+  }
+  if (endtime_from_inj!=endtime){
+    if(endtime_from_inj>0 && endtime>0)
+      fprintf(stderr,"WARNING!!! You set trigtime %lf with --trigtime but event %i seems to trigger at time %lf\n",endtime,event,endtime_from_inj);
       else if(endtime_from_inj>0)
-        endtime=endtime_from_inj;
-    }
-    
-    fprintf(stdout,"Set trigtime %9.9f for template\n",endtime);
-    
-    if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
-      pinned_params=ppt->value;
-      LALInferenceVariables tempParams;
-      memset(&tempParams,0,sizeof(tempParams));
-      char **strings=NULL;
-      UINT4 N;
-      LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
-      LALInferenceBurstInjectionToVariables(BinjTable,&tempParams);
+    endtime=endtime_from_inj;
+  }
+        
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
+    pinned_params=ppt->value;
+    LALInferenceVariables tempParams;
+    memset(&tempParams,0,sizeof(tempParams));
+    char **strings=NULL;
+    UINT4 N;
+    LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
+    LALInferenceBurstInjectionToVariables(BinjTable,&tempParams);
 
-      LALInferenceVariableItem *node=NULL;
-      while(N>0){
-        N--;
-        char *name=strings[N];
-        node=LALInferenceGetItem(&tempParams,name);
-        if(node) {LALInferenceAddVariable(currentParams,node->name,node->value,node->type,node->vary); printf("pinned %s \n",node->name);}
-        else {fprintf(stderr,"Error: Cannot pin parameter %s. No such parameter found in injection!\n",node->name);}
-      }
+    LALInferenceVariableItem *node=NULL;
+    while(N>0){
+      N--;
+      char *name=strings[N];
+      node=LALInferenceGetItem(&tempParams,name);
+      if(node) {LALInferenceAddVariable(currentParams,node->name,node->value,node->type,node->vary); printf("pinned %s \n",node->name);}
+      else {fprintf(stderr,"Error: Cannot pin parameter %s. No such parameter found in injection!\n",node->name);}
     }
-    state->data->likelihood_counter=0;
-    gsl_rng *GSLrandom=state->GSLrandom;
-   
-    /* This flag was added to account for the broken Big Dog
- *      injection, which had the opposite sign in H and L compared
- *           to Virgo. */
+  }
+  state->data->likelihood_counter=0;
+  gsl_rng *GSLrandom=state->GSLrandom;
+ 
+  /* This flag was added to account for the broken Big Dog
+  *      injection, which had the opposite sign in H and L compared
+  *           to Virgo. */
   if (LALInferenceGetProcParamVal(commandLine, "--crazyInjectionHLSign")) {
     INT4 flag = 1;
     LALInferenceAddVariable(currentParams, "crazyInjectionHLSign", &flag, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
@@ -238,7 +235,8 @@ Parameter arguments:\n\
     REAL8 hrssmin=1.e-23, hrssmax=1.0e-21;
     REAL8 loghrssmin=log(hrssmin),loghrssmax=log(hrssmax);
     REAL8 dt=0.1;
-    
+    REAL8 timeMin=endtime-0.5*dt; 
+    REAL8 timeMax=endtime+0.5*dt;
     /* With these settings should be ok to run at 1024Hz of srate */
 
     ppt=LALInferenceGetProcParamVal(commandLine,"--loghrssmin");
@@ -279,16 +277,14 @@ Parameter arguments:\n\
     REAL8 startloghrss=loghrssmin+gsl_rng_uniform(GSLrandom)*(loghrssmax-loghrssmin);
     REAL8 startdur=durmin+gsl_rng_uniform(GSLrandom)*(durmax-durmin);
     REAL8 starthrsss=hrssmin+gsl_rng_uniform(GSLrandom)*(hrssmax-hrssmin);
-    
-    REAL8 timeMin=endtime-0.5*dt; 
-    REAL8 timeMax=endtime+0.5*dt;
+    REAL8 startime=timeMin+gsl_rng_uniform(GSLrandom)*(timeMax-timeMin);
 
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixTime");
     if(ppt){
       LALInferenceRegisterUniformVariableREAL8(state, currentParams, "time", endtime, timeMin, timeMax, LALINFERENCE_PARAM_FIXED);
       if(lalDebugLevel>0) fprintf(stdout,"time fixed and set to %f\n",endtime);
     }else{
-      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "time", endtime, timeMin, timeMax, LALINFERENCE_PARAM_LINEAR);
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "time", startime, timeMin, timeMax, LALINFERENCE_PARAM_LINEAR);
     }
     
     /* If we are marginalising over the time, remove that variable from the model (having set the prior above) */
@@ -442,13 +438,13 @@ Parameter arguments:\n\
     tmpVal=LAL_PI/2.0;
     if(!LALInferenceCheckVariable(currentParams,"alpha")){
         ppt=LALInferenceGetProcParamVal(commandLine,"--cross_only");
-        if (ppt){printf("Fixing alpha to Pi/2 in template ---> only SineGaussian will be used\n");
+        if (ppt){printf("Fixing alpha to Pi/2 in template ---> only cross polarization will be used\n");
             LALInferenceAddVariable(currentParams, "alpha",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
         }
         ppt=LALInferenceGetProcParamVal(commandLine,"--plus_only");
         if (ppt){
             tmpVal=0.0;
-            printf("Fixing alpha to 0 in template ---> only CosineGaussian will be used\n");
+            printf("Fixing alpha to 0 in template ---> only plus polarization will be used\n");
             LALInferenceAddVariable(currentParams, "alpha",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
         }
         ppt=LALInferenceGetProcParamVal(commandLine,"--alpha");
@@ -491,7 +487,8 @@ Parameter arguments:\n\
 
 /* Setup variables for ringdown template generation */
 LALInferenceVariables * LALInferenceInitRDVariables(LALInferenceRunState *state)
-{   printf("Using LALInferenceInitRDVariables: congratulations!\n");
+{   
+  printf("Using LALInferenceInitRDVariables: congratulations!\n");
 	LALStatus status;
 	LALInferenceVariables *priorArgs=state->priorArgs;
 	state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
