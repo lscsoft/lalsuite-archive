@@ -462,6 +462,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   double deltaT, TwoDeltaToverN, deltaF, twopit=0.0, re, im, dre, dim, newRe, newIm;
   double timeTmp;
   double mc;
+  REAL4 WinNorm = sqrt(data->window->sumofsquares/data->window->data->length);
   LALStatus status;
   memset(&status,0,sizeof(status));
   /* Burst templates are generated at hrss=1, thus need to rescale amplitude */
@@ -550,10 +551,10 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   }
 
   if(LALInferenceCheckVariable(currentParams, "loghrss")){
-    amp_prefactor = exp(*(REAL8*)LALInferenceGetVariable(currentParams,"loghrss"));
+    amp_prefactor = exp(*(REAL8*)LALInferenceGetVariable(currentParams,"loghrss"))/WinNorm;
   }
   else if (LALInferenceCheckVariable(currentParams, "hrss")){
-    amp_prefactor = (*(REAL8*)LALInferenceGetVariable(currentParams,"hrss"));
+    amp_prefactor = (*(REAL8*)LALInferenceGetVariable(currentParams,"hrss"))/WinNorm;
   }
 
   /* determine source's sky location & orientation parameters: */
@@ -1673,7 +1674,8 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentP
   for(i=0;i<=Nifos;i++) generatedFreqModels[i]=NULL;
   /* Burst templates are generated at hrss=1, thus need to rescale amplitude */
   double amp_prefactor=1.0;
-  
+  REAL4 WinNorm = sqrt(data->window->sumofsquares/data->window->data->length);
+
   //noise model meta parameters
   gsl_matrix *lines   = NULL;//pointer to matrix holding line centroids
   gsl_matrix *widths  = NULL;//pointer to matrix holding line widths
@@ -1727,10 +1729,10 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentP
     LALInferenceAddVariable(currentParams,"distance",&distMpc,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
   }
   if(LALInferenceCheckVariable(currentParams, "loghrss")){
-    amp_prefactor = exp(*(REAL8*)LALInferenceGetVariable(currentParams,"loghrss"));
+    amp_prefactor = exp(*(REAL8*)LALInferenceGetVariable(currentParams,"loghrss"))/WinNorm;
   }
   else if (LALInferenceCheckVariable(currentParams, "hrss")){
-    amp_prefactor = (*(REAL8*)LALInferenceGetVariable(currentParams,"hrss"));
+    amp_prefactor = (*(REAL8*)LALInferenceGetVariable(currentParams,"hrss"))/WinNorm;
   }
   
   if(LALInferenceCheckVariable(currentParams,"logmc")){
@@ -2820,6 +2822,7 @@ REAL8 LALInferenceMarginalisedTimeLogLikelihood(LALInferenceVariables *currentPa
   int margphi;
   /* Burst templates are generated at hrss=1, thus need to rescale amplitude */
   double amp_prefactor=1.0;  
+  REAL4 WinNorm = sqrt(data->window->sumofsquares/data->window->data->length);
 
   if(data==NULL) {XLAL_ERROR_REAL8(XLAL_EINVAL,"ERROR: Encountered NULL data pointer in likelihood\n");}
 
@@ -2902,10 +2905,10 @@ REAL8 LALInferenceMarginalisedTimeLogLikelihood(LALInferenceVariables *currentPa
     LALInferenceAddVariable(currentParams,"chirpmass",&mc,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
   }
   if(LALInferenceCheckVariable(currentParams, "loghrss")){
-    amp_prefactor = exp(*(REAL8*)LALInferenceGetVariable(currentParams,"loghrss"));
+    amp_prefactor = exp(*(REAL8*)LALInferenceGetVariable(currentParams,"loghrss"))/WinNorm;
   }
   else if (LALInferenceCheckVariable(currentParams, "hrss")){
-    amp_prefactor = (*(REAL8*)LALInferenceGetVariable(currentParams,"hrss"));
+    amp_prefactor = (*(REAL8*)LALInferenceGetVariable(currentParams,"hrss"))/WinNorm;
   }
   
   /* determine source's sky location & orientation parameters: */
