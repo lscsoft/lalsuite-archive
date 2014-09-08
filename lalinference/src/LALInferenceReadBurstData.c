@@ -383,7 +383,7 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
     REAL8 polarization=0.0;
     REAL8 injtime=0.0;
     REAL8 longitude;
-	//LALInferenceIFOData *thisData=NULL;
+    BurstApproximant approx = XLALGetBurstApproximantFromString(inj_table->waveform);
     tmpdata->modelParams=XLALCalloc(1,sizeof(LALInferenceVariables));
     modelParams=tmpdata->modelParams;
     memset(modelParams,0,sizeof(LALInferenceVariables));
@@ -407,9 +407,11 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
     LALInferenceAddVariable(tmpdata->modelParams, "polar_angle",&polar_angle,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
     LALInferenceAddVariable(tmpdata->modelParams, "eccentricity",&eccentricity,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "frequency",&centre_frequency,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    /* Note: having set eccentricty=1. above, and alpha=polar_angle here below, we are de facto working with a single parameter to weight the energy in + and x. If your favorite template needs polar_ecc and polar_angle you cannot use this function as it is. */
     LALInferenceAddVariable(tmpdata->modelParams, "alpha",&polar_angle,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
     LALInferenceAddVariable(tmpdata->modelParams, "phase",&zero,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
-      
+    LALInferenceAddVariable(tmpdata->modelParams, "LAL_APPROXIMANT", &approx,        LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+
     COMPLEX16FrequencySeries *freqModelhCross=NULL;
    freqModelhCross=XLALCreateCOMPLEX16FrequencySeries("freqDatahC",&(tmpdata->timeData->epoch),0.0,tmpdata->freqData->deltaF,&lalDimensionlessUnit,tmpdata->freqData->data->length);
     COMPLEX16FrequencySeries *freqModelhPlus=NULL;
@@ -420,7 +422,7 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
     tmpdata->freqModelhCross=freqModelhCross;
     
     tmpdata->modelDomain = LAL_SIM_DOMAIN_FREQUENCY;
-    LALInferenceTemplateSineGaussianF(tmpdata);
+    LALInferenceTemplateXLALSimBurstChooseWaveform(tmpdata);
     LALInferenceVariables *currentParams=IFOdata->modelParams;
        
     double Fplus, Fcross;
@@ -500,7 +502,6 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
        char TInjFileName[50];
       sprintf(TInjFileName,"TD_injection_%s.dat",dataPtr->name);
       FILE *outTInj=fopen(TInjFileName,"w");
-      printf("injecting with q=%lf f=%lf psi=%lf alpha=%lf time=%9.9f modelTime=%9.9f delay=%.6f ra=%f dec %f\n",Q,centre_frequency,psi,polar_angle, injtime, (*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time")),timedelay, ra, dec);
        /* determine frequency range & loop over frequency bins: */
       deltaT = dataPtr->timeData->deltaT;
       deltaF = 1.0 / (((double)dataPtr->timeData->data->length) * deltaT);
@@ -530,7 +531,7 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
         chisquared  += temp;
         fprintf(outInj,"%lf %10.10e %10.10e\n",f,templateReal,templateImag);
       }
-      printf("Injected SNR %.1f in IFO %s\n",sqrt(2.0*chisquared),dataPtr->name);
+      fprintf(stderr,"Injected SNR %.1f in IFO %s\n",sqrt(2.0*chisquared),dataPtr->name);
       NetSNR+=2.0*chisquared;
       dataPtr->SNR=sqrt(2.0*chisquared);
        
@@ -558,15 +559,15 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
     
     }
     
-      LALInferenceClearVariables(&intrinsicParams);
-      printf("injected Network SNR %.1f \n",sqrt(NetSNR)); 
+    LALInferenceClearVariables(&intrinsicParams);
+    printf("injected Network SNR %.1f \n",sqrt(NetSNR)); 
     NetSNR=sqrt(NetSNR); 
 
-      if (!(BurstSNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
-          PrintBurstSNRsToFile(IFOdata ,injtime);
-      }
+    if (!(BurstSNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
+        PrintBurstSNRsToFile(IFOdata ,injtime);
+    }
           
     XLALDestroyCOMPLEX16FrequencySeries(freqModelhCross);
-      XLALDestroyCOMPLEX16FrequencySeries(freqModelhPlus);
+    XLALDestroyCOMPLEX16FrequencySeries(freqModelhPlus);
 
 }
