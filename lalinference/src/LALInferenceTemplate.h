@@ -38,7 +38,6 @@ SWIGLAL(
         LALInferenceTemplateNullTimedomain,
         LALInferenceTemplatePSTRD,
         LALInferenceTemplateSinc,
-        LALInferenceTemplateSineGaussian,
         LALInferenceTemplateStatPhase,
         LALInferenceTemplateXLALSimInspiralChooseWaveform,
         LALInferenceTemplateXLALSimBurstChooseWaveform
@@ -133,8 +132,6 @@ void LALInferenceTemplateROQ(LALInferenceIFOData *IFOdata);
 
 void LALInferenceTemplateROQ_amp_squared(LALInferenceIFOData *IFOdata);
 
-void LALInferenceTemplateSineGaussian(LALInferenceIFOData *IFOdata);
-
 
 /**
  * Damped Sinusoid template.
@@ -210,11 +207,7 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceIFOData *IFOdata
  * (untested!)
  */
 void LALInferenceTemplatePSTRD(LALInferenceIFOData *IFOdata);
-void LALInferenceTemplateBestIFO(LALInferenceIFOData *IFOdata);
-void LALInferenceTemplateSineGaussianF(LALInferenceIFOData *IFOdata);
-void LALInferenceTemplateGaussian(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata);
-void LALInferenceTemplateGaussianF(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateDampedSinusoidF(LALInferenceIFOData *IFOdata);
 /*@}*/
 
