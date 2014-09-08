@@ -867,11 +867,13 @@ int XLALSimBurstSineGaussianF(
   REAL8 Fmax=centre_frequency + 6.0*sigma;
   /* if fmax > nyquist use nyquist */
   if (Fmax>(1.0/(2.0*deltaT))) 
-  Fmax=1.0/(2.0*deltaT);
+    Fmax=1.0/(2.0*deltaT);
+  
   REAL8 Fmin= centre_frequency -6.0*sigma;
   /* if fmin <0 use 0 */
   if (Fmin<0.0 || Fmin >=Fmax)
     Fmin=0.0;
+  
   size_t lower =(size_t) ( Fmin/deltaF);    
   size_t upper= (size_t) ( Fmax/deltaF+1);
 
@@ -901,7 +903,6 @@ int XLALSimBurstSineGaussianF(
   REAL8 cp=cos(phi0);
   REAL8 sp=sin(phi0);
   
-  //FILE * testout = fopen("cippa2.txt","w");
   for(i = lower; i < upper; i++) {
     f=((REAL8 ) i )*deltaF;
     phi2minus= (f-centre_frequency )*(f-centre_frequency );
@@ -909,7 +910,6 @@ int XLALSimBurstSineGaussianF(
     hptilde->data->data[i] = h0plus * tau*ephimin*(cp+1.0j*sp)/LAL_2_SQRTPI;
     hctilde->data->data[i] = h0cross *tau*ephimin*(-1.0j*cp+sp)/LAL_2_SQRTPI;
   }
-  //fclose(testout);
 
   *hplus=hptilde;
   *hcross=hctilde;
@@ -1311,11 +1311,6 @@ int XLALSimBurstDampedSinusoidF(
 
 
 }
-
-
-
-
-
 
 int XLALGetBurstApproximantFromString(const CHAR *inString)
 {
