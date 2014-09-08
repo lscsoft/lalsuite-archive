@@ -503,6 +503,7 @@ tagLALInferenceIFOData
   LALSimInspiralWaveformCache *waveformCache;   /** Waveform cache */
   struct tagLALInferenceROQData       *roqData; /** ROQ data */
   struct tagLALInferenceIFOData      *next;     /** A pointer to the next set of data for linked list */
+  REAL8 padding;
 
 } LALInferenceIFOData;
 /**
