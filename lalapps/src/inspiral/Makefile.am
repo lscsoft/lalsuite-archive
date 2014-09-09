@@ -229,6 +229,7 @@ pkgdata_DATA = \
 	s6_foreground_V1-raw-cbc.txt \
 	s6_foreground_V1-raw-seismic-cbc.txt \
 	s6_foreground_V1_hoft_cbc.txt \
+        s6d_ihope_ssipe.ini \
 	ratioTest.pickle \
 	remove_h1h2.sql \
 	cluster.sql \
