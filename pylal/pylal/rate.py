@@ -1429,17 +1429,37 @@ def filter_array(a, window, cyclic = False):
 	# the result, and add the result to the total.
 	result = numpy.zeros_like(a)
 	while a.any():
+		# copy contents of input array to work space
 		workspace = numpy.copy(a)
-		cutoff = abs(workspace[abs(workspace) > 0]).min() * 1e4
-		a[abs(a) <= cutoff] = 0.
-		workspace[abs(workspace) > cutoff] = 0.
 
-		# FIXME:  in numpy >= 1.7.0 there is copyto().  is that
-		# better than assigning to .flat?
-		workspace.flat = signaltools.fftconvolve(workspace, window, mode = "same").flat
+		# mask = indexes of elements of work space not more than 4
+		# orders of magnitude larger than the smallest non-zero
+		# element.  these are the elements to be processed in this
+		# iteration
+		abs_workspace = abs(workspace)
+		mask = abs_workspace <= abs_workspace[abs_workspace > 0].min() * 1e4
+		del abs_workspace
 
-		workspace[abs(workspace) < abs(workspace).max() * 1e-14] = 0.
+		# zero the masked elements in the input array, zero
+		# everything except the masked elements in the work space
+		a[mask] = 0.
+		workspace[~mask] = 0.
+		del mask
+
+		# convolve the work space with the kernel
+		workspace = signaltools.fftconvolve(workspace, window, mode = "same")
+
+		# determine the largest value in the work space, and set to
+		# zero anything more than 14 orders of magnitude smaller
+		abs_workspace = abs(workspace)
+		workspace[abs_workspace < abs_workspace.max() * 1e-14] = 0.
+		del abs_workspace
+
+		# sum what remains into the result
 		result += workspace
+		del workspace
+	# overwrite the input with the result
+	# FIXME:  in numpy >= 1.7.0 there is a copyto() function
 	a.flat = result.flat
 
 	return a
