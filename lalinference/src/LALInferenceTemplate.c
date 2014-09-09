@@ -1226,9 +1226,15 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceIFOData *IFOdata
 /*                                                                                                                       */
 /*  IFOdata->modelParams parameters are:										                                         */
 /*  - "name" description; type OPTIONAL (default value)										                             */
-/*										                                                                                 */
-/*   MODEL PARAMETERS										                                                             */
-/*                                                                                */
+/*   "LAL_APPROXIMANT" burst approximant, BurstApproximant */
+/*	"frequency" central frequency, REAL8                                                                          */
+/*   "Q" quality, REAL8 (optional, depending on the WF)                                              */
+/*   "duration" duration, REAL8 (optional, depending on the WF)                                      */
+/*   "alpha"  ellipticity, REAL8 (optional, depending on the WF)                                     */
+/*   "phase" phase, REAL8 (optional)                                                                 */
+/*   "polar_angle" ellipticity polar angle, REAL8 (optional, together with polar_eccentricity may replace alpha)*/
+/*   "polar_eccentricity" ellipticity ellipse eccentricity, REAL8 (optional)                                     */
+/*                                                                                                                      */
 /*************************************************************************************************************************/
 {
 
