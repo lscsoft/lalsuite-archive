@@ -599,7 +599,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
 				else timeTmp = GPSdouble;
         
         UINT4 add_time=0;
-        LALInferenceVariableType time_var_type;
+        LALInferenceParamVaryType time_var_type;
         if (LALInferenceCheckVariable(currentParams,"time")){ 
           time_var_type=LALInferenceCheckVariableNonFixed(currentParams,"time")?LALINFERENCE_PARAM_LINEAR:LALINFERENCE_PARAM_FIXED;
           LALInferenceRemoveVariable(currentParams, "time");
