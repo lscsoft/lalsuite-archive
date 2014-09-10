@@ -322,7 +322,7 @@ int main(int argc, char **argv)
     inj=injs;
     
     CHAR frameType[256];
-    sprintf(frameType,inj->waveform);
+    sprintf(frameType,"%s",inj->waveform);
     
     /* Create a string with the first char of the IFO name to use as prefix for the frame name */
     char IFOs[10]="";

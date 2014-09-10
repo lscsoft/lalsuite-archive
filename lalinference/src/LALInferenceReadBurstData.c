@@ -78,11 +78,6 @@ static void PrintBurstSNRsToFile(LALInferenceIFOData *IFOdata , REAL8 trigtime);
 void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, ProcessParamsTable *commandLine);
 char *BurstSNRpath = NULL;
 
-static const LALUnit strainPerCount={0,{0,0,0,0,0,1,-1},{0,0,0,0,0,0,0}};
- struct fvec {
-	REAL8 f;
-	REAL8 x;
-};
 
 typedef void (NoiseFunc)(LALStatus *statusPtr,REAL8 *psd,REAL8 f);
 
