@@ -78,13 +78,13 @@ int XLALSimInjectDetectorStrainREAL4TimeSeries(
 	LALDetector *detector,
 	const COMPLEX8FrequencySeries *response
 );
-
+/*
 int XLALInspiralInjectSignals(
 	REAL8TimeSeries *series,
 	const SimInspiralTable *sim_table,
 	const COMPLEX16FrequencySeries *response
 );
-
+*/
 int XLALSimInjectLWLDetectorStrainREAL8TimeSeries(
 	REAL8TimeSeries *target,
 	const REAL8TimeSeries *hplus,
