@@ -207,7 +207,7 @@ def write_coincidences(connection, map_label, search, process_id, verbose = Fals
 
     # get the time_slide id
     # XXX: NOTE: We are assuming that all simulation entries have the same time_slide id
-    sqlquery = 'SELECT DISTINCT time_slide_id FROM experiment_summary WHERE datatype == "simulation"'
+    sqlquery = 'SELECT DISTINCT time_slide_id FROM experiment_summary WHERE datatype LIKE "simulation%"'
     time_slide_id = connection.cursor().execute(sqlquery).fetchall()
     if len(time_slide_id) > 1:
         raise ValueError, "more than one time_slide_id found for the simulation datatype"
