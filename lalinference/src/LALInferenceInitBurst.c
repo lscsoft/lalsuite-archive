@@ -53,34 +53,19 @@ void LALInferenceInitBurstTemplate(LALInferenceRunState *runState)
   
   ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
   if(ppt) {
-    if(!strcmp("SineGaussianF",ppt->value)){
-        runState->templt=&LALInferenceTemplateXLALSimBurstChooseWaveform;
-        runState->data->modelDomain=LAL_SIM_DOMAIN_FREQUENCY;
-    }
-    else if(!strcmp("SineGaussian",ppt->value)){
-        runState->templt=&LALInferenceTemplateXLALSimBurstChooseWaveform;
-        runState->data->modelDomain=LAL_SIM_DOMAIN_TIME;
-    }
-    else if(!strcmp("GaussianF",ppt->value)){
-        runState->templt=&LALInferenceTemplateXLALSimBurstChooseWaveform;
-        runState->data->modelDomain=LAL_SIM_DOMAIN_FREQUENCY;
-    }
-    else if(!strcmp("Gaussian",ppt->value)){
-        runState->templt=&LALInferenceTemplateXLALSimBurstChooseWaveform;
-        runState->data->modelDomain=LAL_SIM_DOMAIN_TIME;
-    }
-    else if(!strcmp("DampedSinusoidF",ppt->value)){
-        runState->templt=&LALInferenceTemplateXLALSimBurstChooseWaveform;
-        runState->data->modelDomain=LAL_SIM_DOMAIN_FREQUENCY;
-    }
-    else if(!strcmp("DampedSinusoid",ppt->value)){
-        runState->templt=&LALInferenceTemplateXLALSimBurstChooseWaveform;
-        runState->data->modelDomain=LAL_SIM_DOMAIN_TIME;
-    }
-    else if(!strcmp("RingdownF",ppt->value)){
+    if(!strcmp("RingdownF",ppt->value)){
+        /* Need to decide if we are keeping this*/
         printf("Using LALInferenceTemplateXLALSimRingdown: congratulations!\n");
         runState->templt=&LALInferenceTemplateXLALSimRingdown;
         runState->data->modelDomain=LAL_SIM_DOMAIN_FREQUENCY;
+    }
+    else if(XLALSimBurstImplementedFDApproximants(XLALGetBurstApproximantFromString(ppt->value))){
+        runState->templt=&LALInferenceTemplateXLALSimBurstChooseWaveform;
+        runState->data->modelDomain=LAL_SIM_DOMAIN_FREQUENCY;
+    }
+    else if(XLALSimBurstImplementedTDApproximants(XLALGetBurstApproximantFromString(ppt->value))){
+        runState->templt=&LALInferenceTemplateXLALSimBurstChooseWaveform;
+        runState->data->modelDomain=LAL_SIM_DOMAIN_TIME;
     }
     else {
       XLALPrintError("Error: unknown template %s\n",ppt->value);
@@ -90,7 +75,6 @@ void LALInferenceInitBurstTemplate(LALInferenceRunState *runState)
   }
   return;
 }
-
 
 /* Setup the variables to control Burst template generation */
 /* Includes specification of prior ranges */
