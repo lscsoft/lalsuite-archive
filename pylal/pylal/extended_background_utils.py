@@ -117,9 +117,9 @@ def find_slide_coincs(htrigs, ltrigs, min_mchirp, max_mchirp,
                     print 'I USED ZEROLAG!!'
                     exit(1)
                 hcopy = copy.deepcopy(h)
-                l.set_end(h.get_end())  #FIXME explain what this is
+                l.set_end(h.get_end())
                 lcopy = copy.deepcopy(l)
-                hcopy.event_id = lsctables.SnglInspiralID(num_trig)  #FIXME explain
+                hcopy.event_id = lsctables.SnglInspiralID(num_trig)
                 lcopy.event_id = lsctables.SnglInspiralID(num_trig)
                 num_trig += 1
                 coinc_sngls.append(hcopy)
