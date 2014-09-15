@@ -1017,10 +1017,16 @@ int XLALSimInspiralChooseTDWaveform(
     REAL8 s2z,                  /**< z-component of the dimensionless spin of object 2 */
     REAL8 f_min,                /**< starting GW frequency (Hz) */
     REAL8 f_ref,                /**< reference GW frequency (Hz) */
+    REAL8 f_max,                /**< ending GW frequency (Hz) */
     REAL8 r,                    /**< distance of source (m) */
     REAL8 i,                    /**< inclination of source (rad) */
+    REAL8 psi,                  /**< rotation of Lhat in plane of sky (rad) */
+    REAL8 quadparam1,           /**< quadrupole deformability parameter of mass1 (dimensionless) */
+    REAL8 quadparam2,           /**< quadrupole deformability parameter of mass2 (dimensionless) */
     REAL8 lambda1,              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2,              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
+    REAL8 eccentricity,         /**< eccentricity of the orbit */
+    REAL8 arg_periapsis,        /**< argument of periapsis */
     LALSimInspiralWaveformFlags *waveFlags, /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
     LALSimInspiralTestGRParam *nonGRparams, /**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,             /**< twice post-Newtonian amplitude order */
@@ -1049,12 +1055,17 @@ int XLALSimInspiralChooseFDWaveform(
     REAL8 S2y,                                  /**< y-component of the dimensionless spin of object 2 */
     REAL8 S2z,                                  /**< z-component of the dimensionless spin of object 2 */
     REAL8 f_min,                                /**< starting GW frequency (Hz) */
-    REAL8 f_max,                                /**< ending GW frequency (Hz) */
     REAL8 f_ref,                                /**< Reference GW frequency (Hz) */
+    REAL8 f_max,                                /**< ending GW frequency (Hz) */
     REAL8 r,                                    /**< distance of source (m) */
     REAL8 i,                                    /**< inclination of source (rad) */
+    REAL8 psi,                                  /**< rotation of Lhat in plane of sky (rad) */
+    REAL8 quadparam1,                           /**< quadrupole deformability parameter of mass1 (dimensionless) */
+    REAL8 quadparam2,                           /**< quadrupole deformability parameter of mass2 (dimensionless) */
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
+    REAL8 eccentricity,                         /**< eccentricity of the orbit */
+    REAL8 arg_periapsis,                        /**< argument of periapsis */
     LALSimInspiralWaveformFlags *waveFlags,     /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
