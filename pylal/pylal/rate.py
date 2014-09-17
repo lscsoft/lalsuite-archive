@@ -60,6 +60,10 @@ from scipy.signal import signaltools
 
 from glue import iterutils
 from glue import segments
+from glue.ligolw import ligolw
+from glue.ligolw import array as ligolw_array
+from glue.ligolw import table as ligolw_table
+from glue.ligolw import lsctables
 import lal
 from pylal import git_version
 
@@ -825,6 +829,71 @@ class NDBins(tuple):
 			seq = sum((bingen() for bingen in bingens), ())
 			yield seq[0::2], sum(seq[1::2])
 
+	class BinsTable(ligolw_table.Table):
+		"""
+		LIGO Light Weight XML table defining a binning.
+		"""
+		tableName = "pylal_rate_bins:table"
+		validcolumns = {
+			"order": "int_4u",
+			"type": "lstring",
+			"min": "real_8",
+			"max": "real_8",
+			"n": "int_4u"
+		}
+
+	def to_xml(self):
+		"""
+		Construct a LIGO Light Weight XML table representation of the
+		NDBins instance.
+		"""
+		xml = lsctables.New(self.BinsTable)
+		for order, binning in enumerate(self):
+			row = xml.RowType()
+			row.order = order
+			row.type = {
+				LinearBins: "lin",
+				LinearPlusOverflowBins: "linplusoverflow",
+				LogarithmicBins: "log",
+				ATanBins: "atan",
+				ATanLogarithmicBins: "atanlog",
+				LogarithmicPlusOverflowBins: "logplusoverflow"
+			}[type(binning)]
+			if isinstance(binning, ATanLogarithmicBins):
+				row.min = binning._real_min
+				row.max = binning._real_max
+				row.n = binning._real_n
+			else:
+				row.min = binning.min
+				row.max = binning.max
+				row.n = len(binning)
+			xml.append(row)
+		return xml
+
+	@classmethod
+	def from_xml(cls, xml):
+		"""
+		From the XML document tree rooted at xml, retrieve the table
+		describing a binning, and construct and return a rate.NDBins object
+		from it.
+		"""
+		xml = cls.BinsTable.get_table(xml)
+		binnings = [None] * (len(xml) and (max(xml.getColumnByName("order")) + 1))
+		for row in xml:
+			if binnings[row.order] is not None:
+				raise ValueError("duplicate binning for dimension %d" % row.order)
+			binnings[row.order] = {
+				"lin": LinearBins,
+				"linplusoverflow": LinearPlusOverflowBins,
+				"log": LogarithmicBins,
+				"atan": ATanBins,
+				"atanlog": ATanLogarithmicBins,
+				"logplusoverflow": LogarithmicPlusOverflowBins
+			}[row.type](row.min, row.max, row.n)
+		if None in binnings:
+			raise ValueError("no binning for dimension %d" % binnings.find(None))
+		return cls(binnings)
+
 
 #
 # =============================================================================
@@ -997,6 +1066,36 @@ class BinnedArray(object):
 		self.array[self.array <= 0] = epsilon
 		return self
 
+	def to_xml(self, name):
+		"""
+		Retrun an XML document tree describing a rate.BinnedArray object.
+		"""
+		xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_rate_binnedarray" % name})
+		xml.appendChild(self.bins.to_xml())
+		xml.appendChild(ligolw_array.from_array(u"array", self.array))
+		return xml
+
+	@classmethod
+	def from_xml(cls, xml, name):
+		"""
+		Search for the description of a rate.BinnedArray object named
+		"name" in the XML document tree rooted at xml, and construct and
+		return a new rate.BinnedArray object from the data contained
+		therein.
+		"""
+		xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"%s:pylal_rate_binnedarray" % name]
+		try:
+			xml, = xml
+		except ValueError:
+			raise ValueError("document must contain exactly 1 BinnedArray named '%s'" % name)
+		# an empty binning is used for the initial object creation instead
+		# of using the real binning to avoid the creation of a (possibly
+		# large) array that would otherwise accompany this step
+		self = cls(NDBins())
+		self.bins = NDBins.from_xml(xml)
+		self.array = ligolw_array.get_array(xml, u"array").array
+		return self
+
 
 class BinnedRatios(object):
 	"""
@@ -1093,6 +1192,31 @@ class BinnedRatios(object):
 		"""
 		self.numerator.to_pdf()
 		self.denominator.to_pdf()
+
+	def to_xml(self, name):
+		"""
+		Return an XML document tree describing a rate.BinnedRatios object.
+		"""
+		xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_rate_binnedratios" % name})
+		xml.appendChild(self.numerator.to_xml(u"numerator"))
+		xml.appendChild(self.denominator.to_xml(u"denominator"))
+		return xml
+
+	@classmethod
+	def from_xml(cls, xml, name):
+		"""
+		Search for the description of a rate.BinnedRatios object named
+		"name" in the XML document tree rooted at xml, and construct and
+		return a new rate.BinnedRatios object from the data contained
+		therein.
+		"""
+		xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"%s:pylal_rate_binnedratios" % name]
+		self = cls(NDBins())
+		self.numerator = BinnedArray.from_xml(xml, u"numerator")
+		self.denominator = BinnedArray.from_xml(xml, u"denominator")
+		# normally they share a single NDBins instance
+		self.denominator.bins = self.numerator.bins
+		return self
 
 
 #
@@ -1590,142 +1714,3 @@ def marginalize_ratios(likelihood, dim):
 	# normally they share an NDBins instance
 	result.denominator.bins = result.numerator.bins
 	return result
-
-
-#
-# =============================================================================
-#
-#                                     I/O
-#
-# =============================================================================
-#
-
-
-from glue.ligolw import ligolw
-from glue.ligolw import array as ligolw_array
-from glue.ligolw import table as ligolw_table
-from glue.ligolw import lsctables
-
-
-class BinsTable(ligolw_table.Table):
-	"""
-	LIGO Light Weight XML table defining a binning.
-	"""
-	tableName = "pylal_rate_bins:table"
-	validcolumns = {
-		"order": "int_4u",
-		"type": "lstring",
-		"min": "real_8",
-		"max": "real_8",
-		"n": "int_4u"
-	}
-
-
-def bins_to_xml(bins):
-	"""
-	Construct a LIGO Light Weight XML table representation of the
-	NDBins instance bins.
-	"""
-	xml = lsctables.New(BinsTable)
-	for order, bin in enumerate(bins):
-		row = xml.RowType()
-		row.order = order
-		row.type = {
-			LinearBins: "lin",
-			LinearPlusOverflowBins: "linplusoverflow",
-			LogarithmicBins: "log",
-			ATanBins: "atan",
-			ATanLogarithmicBins: "atanlog",
-			LogarithmicPlusOverflowBins: "logplusoverflow"
-		}[type(bin)]
-		if isinstance(bin, ATanLogarithmicBins):
-			row.min = bin._real_min
-			row.max = bin._real_max
-			row.n = bin._real_n
-		else:
-			row.min = bin.min
-			row.max = bin.max
-			row.n = len(bin)
-		xml.append(row)
-	return xml
-
-
-def bins_from_xml(xml):
-	"""
-	From the XML document tree rooted at xml, retrieve the table
-	describing a binning, and construct and return a rate.NDBins object
-	from it.
-	"""
-	xml = BinsTable.get_table(xml)
-	binnings = [None] * (len(xml) and (max(xml.getColumnByName("order")) + 1))
-	for row in xml:
-		if binnings[row.order] is not None:
-			raise ValueError("duplicate binning for dimension %d" % row.order)
-		binnings[row.order] = {
-			"lin": LinearBins,
-			"linplusoverflow": LinearPlusOverflowBins,
-			"log": LogarithmicBins,
-			"atan": ATanBins,
-			"atanlog": ATanLogarithmicBins,
-			"logplusoverflow": LogarithmicPlusOverflowBins
-		}[row.type](row.min, row.max, row.n)
-	if None in binnings:
-		raise ValueError("no binning for dimension %d" % binnings.find(None))
-	return NDBins(binnings)
-
-
-def binned_array_to_xml(binnedarray, name):
-	"""
-	Retrun an XML document tree describing a rate.BinnedArray object.
-	"""
-	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_rate_binnedarray" % name})
-	xml.appendChild(bins_to_xml(binnedarray.bins))
-	xml.appendChild(ligolw_array.from_array(u"array", binnedarray.array))
-	return xml
-
-
-def binned_array_from_xml(xml, name):
-	"""
-	Search for the description of a rate.BinnedArray object named
-	"name" in the XML document tree rooted at xml, and construct and
-	return a new rate.BinnedArray object from the data contained
-	therein.
-	"""
-	xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"%s:pylal_rate_binnedarray" % name]
-	try:
-		xml, = xml
-	except ValueError:
-		raise ValueError("document must contain exactly 1 BinnedArray named '%s'" % name)
-	# an empty binning is used for the initial object creation instead
-	# of using the real binning to avoid the creation of a (possibly
-	# large) array that would otherwise accompany this step
-	binnedarray = BinnedArray(NDBins())
-	binnedarray.bins = bins_from_xml(xml)
-	binnedarray.array = ligolw_array.get_array(xml, u"array").array
-	return binnedarray
-
-
-def binned_ratios_to_xml(ratios, name):
-	"""
-	Return an XML document tree describing a rate.BinnedRatios object.
-	"""
-	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_rate_binnedratios" % name})
-	xml.appendChild(binned_array_to_xml(ratios.numerator, u"numerator"))
-	xml.appendChild(binned_array_to_xml(ratios.denominator, u"denominator"))
-	return xml
-
-
-def binned_ratios_from_xml(xml, name):
-	"""
-	Search for the description of a rate.BinnedRatios object named
-	"name" in the XML document tree rooted at xml, and construct and
-	return a new rate.BinnedRatios object from the data contained
-	therein.
-	"""
-	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"%s:pylal_rate_binnedratios" % name]
-	ratios = BinnedRatios(NDBins())
-	ratios.numerator = binned_array_from_xml(xml, u"numerator")
-	ratios.denominator = binned_array_from_xml(xml, u"denominator")
-	# normally they share a single NDBins instance
-	ratios.denominator.bins = ratios.numerator.bins
-	return ratios

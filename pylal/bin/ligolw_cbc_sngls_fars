@@ -207,15 +207,15 @@ class Summaries(object):
 		for key1 in self.sngl_bins.keys():
 			for key2 in self.sngl_bins[key1].keys():
 				tablename = "".join(key1) + "--" + "-".join(key2)
-				xmldoc.childNodes[-1].appendChild(rate.binned_ratios_to_xml(self.sngl_bins[key1][key2], tablename))
+				xmldoc.childNodes[-1].appendChild(self.sngl_bins[key1][key2].to_xml(tablename))
 		for key1 in self.sngl_1D_bins.keys():
 			for key2 in self.sngl_1D_bins[key1].keys():
 				tablename = "".join(key1) + "--" + "".join(key2)
-				xmldoc.childNodes[-1].appendChild(rate.binned_ratios_to_xml(self.sngl_1D_bins[key1][key2], tablename))
+				xmldoc.childNodes[-1].appendChild(self.sngl_1D_bins[key1][key2].to_xml(tablename))
 		for key1 in self.final_stats.keys():
 			for key2 in self.final_stats[key1].keys():
 				tablename = "".join(key2) + "--" + "".join(key1)
-				xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(self.final_stats[key1][key2], tablename))
+				xmldoc.childNodes[-1].appendChild(self.final_stats[key1][key2].to_xml(tablename))
 		if options.output_dir:
 			options.output_dir + "/"
 		utils.write_filename(xmldoc, options.output_dir + "likelihood_snr_chisq.xml.gz", gz = True, verbose = True)

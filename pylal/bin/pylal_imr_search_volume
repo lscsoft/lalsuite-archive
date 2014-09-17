@@ -88,25 +88,25 @@ for instruments, total_injections in IMR.total_injections_by_instrument_set.item
 				errors[(m2,m1)] = errors[(m1,m2)]
 
 	lw = xmldoc.appendChild(ligolw.LIGO_LW())
-	lw.appendChild(rate.binned_array_to_xml(mass_volume, "mass1_mass2_volume"))
-	lw.appendChild(rate.binned_array_to_xml(errors, "mass1_mass2_volume_error"))
+	lw.appendChild(mass_volume.to_xml("mass1_mass2_volume"))
+	lw.appendChild(errors.to_xml("mass1_mass2_volume_error"))
 
 	errorsvolpercent = errors
 	errorsvolpercent.array = (errors.array / mass_volume.array)*100.0
 	# write the volume to disk
-	lw.appendChild(rate.binned_array_to_xml(errorsvolpercent, "mass1_mass2_volume_error_percent"))
+	lw.appendChild(errorsvolpercent.to_xml("mass1_mass2_volume_error_percent"))
 	# we are done with the volume so we can overwrite the array with the range
 	mass_volume.array = (mass_volume.array / (4.0/3.0 * numpy.pi))**(1./3.)
 
-	lw.appendChild(rate.binned_array_to_xml(mass_volume, "mass1_mass2_range"))
+	lw.appendChild(mass_volume.to_xml("mass1_mass2_range"))
 	errorsdistance = errors
 	errorsdistancepercent = errors
 	errorsdistance.array = (errors.array)*(1./3.)
-	lw.appendChild(rate.binned_array_to_xml(errorsdistance, "mass1_mass2_range_error"))
+	lw.appendChild(errorsdistance.to_xml("mass1_mass2_range_error"))
 
 	errorsdistancepercent.array = (errorsdistance.array / mass_volume.array)*100.0
 
-	lw.appendChild(rate.binned_array_to_xml(errorsdistancepercent, "mass1_mass2_range_error_percent"))
+	lw.appendChild(errorsdistancepercent.to_xml("mass1_mass2_range_error_percent"))
 
 	# Then do spins - this can fail since many runs have spin set to 0.  Trap the error, print the traceback, but move on
 	# FIXME disabled for now until it can be made to work reliably
@@ -115,10 +115,10 @@ for instruments, total_injections in IMR.total_injections_by_instrument_set.item
 		spin_volume, _unused_errors = imr_utils.compute_search_volume_in_bins(found_below_far, total_injections, dist_s1_s2_bins, imr_utils.sim_to_distance_spin1z_spin2z_bins_function) #FIXME use errors?
 		# write the volume to disk
 		lw = xmldoc.appendChild(ligolw.LIGO_LW())
-		lw.appendChild(rate.binned_array_to_xml(spin_volume, "spin1z_spin2z_volume"))
+		lw.appendChild(spin_volume.to_xml("spin1z_spin2z_volume"))
 		# we are done with the volume so we can overwrite the array with the range
 		spin_volume.array = (spin_volume.array / (4.0/3.0 * numpy.pi))**(1./3.)
-		lw.appendChild(rate.binned_array_to_xml(spin_volume, "spin1z_spin2z_range"))
+		lw.appendChild(spin_volume.to_xml("spin1z_spin2z_range"))
 
 	# write the file
 	utils.write_filename(xmldoc, "%s-%s.xml" % (options.output_name_tag, "".join(sorted(list(instruments)))))

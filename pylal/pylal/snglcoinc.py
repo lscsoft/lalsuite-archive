@@ -1849,7 +1849,7 @@ class CoincParamsDistributions(object):
 		# reconstruct the BinnedArray objects
 		def reconstruct(xml, prefix, target_dict):
 			for name in [elem.Name.split(u":")[1] for elem in xml.childNodes if elem.Name.startswith(u"%s:" % prefix)]:
-				target_dict[str(name)] = rate.binned_array_from_xml(xml, u"%s:%s" % (prefix, name))
+				target_dict[str(name)] = rate.BinnedArray.from_xml(xml, u"%s:%s" % (prefix, name))
 		reconstruct(xml, u"zero_lag", self.zero_lag_rates)
 		reconstruct(xml, u"zero_lag_pdf", self.zero_lag_pdf)
 		reconstruct(xml, u"background", self.background_rates)
@@ -1881,7 +1881,7 @@ class CoincParamsDistributions(object):
 		xml.appendChild(ligolw_param.new_param(u"process_id", u"ilwd:char", self.process_id))
 		def store(xml, prefix, source_dict):
 			for name, binnedarray in sorted(source_dict.items()):
-				xml.appendChild(rate.binned_array_to_xml(binnedarray, u"%s:%s" % (prefix, name)))
+				xml.appendChild(binnedarray.to_xml(u"%s:%s" % (prefix, name)))
 		store(xml, u"zero_lag", self.zero_lag_rates)
 		store(xml, u"zero_lag_pdf", self.zero_lag_pdf)
 		store(xml, u"background", self.background_rates)
