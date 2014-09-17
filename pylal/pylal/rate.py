@@ -1228,7 +1228,7 @@ class BinnedRatios(object):
 #
 
 
-class InterpBinnedArray(object):
+def InterpBinnedArray(binnedarray, fill_value = 0.0):
 	"""
 	Wrapper constructing a scipy.interpolate interpolator from the
 	contents of a BinnedArray.  Only piecewise linear interpolators are
@@ -1293,106 +1293,96 @@ class InterpBinnedArray(object):
 	dimensions that is slow, and in 3- and higher dimensions the
 	fall-back is to nearest-neighbour "interpolation".
 	"""
-	def __init__(self, binnedarray, fill_value = 0.0):
-		# the upper and lower boundaries of the binnings are added
-		# as additional co-ordinates with the array being assumed
-		# to equal fill_value at those points.  this solves the
-		# problem of providing a valid function in the outer halves
-		# of the first and last bins.
+	# the upper and lower boundaries of the binnings are added as
+	# additional co-ordinates with the array being assumed to equal
+	# fill_value at those points.  this solves the problem of providing
+	# a valid function in the outer halves of the first and last bins.
 
-		# coords[0] = co-ordinates along 1st dimension,
-		# coords[1] = co-ordinates along 2nd dimension,
-		# ...
-		coords = tuple(numpy.hstack((l[0], c, u[-1])) for l, c, u in zip(binnedarray.bins.lower(), binnedarray.bins.centres(), binnedarray.bins.upper()))
+	# coords[0] = co-ordinates along 1st dimension,
+	# coords[1] = co-ordinates along 2nd dimension,
+	# ...
+	coords = tuple(numpy.hstack((l[0], c, u[-1])) for l, c, u in zip(binnedarray.bins.lower(), binnedarray.bins.centres(), binnedarray.bins.upper()))
 
-		# pad the contents of the binned array with 1 element of
-		# fill_value on each side in each dimension
+	# pad the contents of the binned array with 1 element of fill_value
+	# on each side in each dimension
+	try:
+		z = numpy.pad(binnedarray.array, [(1, 1)] * len(binnedarray.array.shape), mode = "constant", constant_values = [(fill_value, fill_value)] * len(binnedarray.array.shape))
+	except AttributeError:
+		# numpy < 1.7 didn't have pad().  FIXME:  remove when we
+		# can rely on a newer numpy
+		z = numpy.empty(tuple(l + 2 for l in binnedarray.array.shape))
+		z.fill(fill_value)
+		z[(slice(1, -1),) * len(binnedarray.array.shape)] = binnedarray.array
+
+	# if any co-ordinates are infinite, remove them.  also remove
+	# degenerate co-ordinates from ends
+	slices = []
+	for c in coords:
+		finite_indexes, = numpy.isfinite(c).nonzero()
+		assert len(finite_indexes) != 0
+
+		lo, hi = finite_indexes.min(), finite_indexes.max()
+
+		while lo < hi and c[lo + 1] == c[lo]:
+			lo += 1
+		while lo < hi and c[hi - 1] == c[hi]:
+			hi -= 1
+		assert lo < hi
+
+		slices.append(slice(lo, hi + 1))
+	coords = tuple(c[s] for c, s in zip(coords, slices))
+	z = z[slices]
+
+	# build the interpolator from the co-ordinates and array data.
+	# scipy/numpy interpolators return an array-like thing so we have
+	# to wrap them, in turn, in a float cast
+	if len(coords) == 1:
 		try:
-			z = numpy.pad(binnedarray.array, [(1, 1)] * len(binnedarray.array.shape), mode = "constant", constant_values = [(fill_value, fill_value)] * len(binnedarray.array.shape))
-		except AttributeError:
-			# numpy < 1.7 didn't have pad().  FIXME:  remove
-			# when we can rely on a newer numpy
-			z = numpy.empty(tuple(l + 2 for l in binnedarray.array.shape))
-			z.fill(fill_value)
-			z[(slice(1, -1),) * len(binnedarray.array.shape)] = binnedarray.array
-
-		# if any co-ordinates are infinite, remove them.  also
-		# remove degenerate co-ordinates from ends
-		slices = []
-		for c in coords:
-			finite_indexes, = numpy.isfinite(c).nonzero()
-			assert len(finite_indexes) != 0
-
-			lo, hi = finite_indexes.min(), finite_indexes.max()
-
-			while lo < hi and c[lo + 1] == c[lo]:
-				lo += 1
-			while lo < hi and c[hi - 1] == c[hi]:
-				hi -= 1
-			assert lo < hi
-
-			slices.append(slice(lo, hi + 1))
-		coords = tuple(c[s] for c, s in zip(coords, slices))
-		z = z[slices]
-
-		# build the interpolator from the co-ordinates and array
-		# data
-		if len(coords) == 1:
-			try:
-				interp1d
-			except NameError:
-				# FIXME:  remove when we can rely on a new-enough scipy
-				lo, hi = coords[0][0], coords[0][-1]
-				def interp(x):
-					if not lo < x < hi:
-						return fill_value
-					i = coords[0].searchsorted(x)
-					return z[i - 1] + (x - coords[0][i - 1]) / (coords[0][i] - coords[0][i - 1]) * (z[i] - z[i - 1])
-				self.interp = interp
-			else:
-				self.interp = interp1d(coords[0], z, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
-		elif len(coords) == 2:
-			try:
-				interp2d
-			except NameError:
-				# FIXME:  remove when we can rely on a new-enough scipy
-				lox, hix = coords[0][0], coords[0][-1]
-				loy, hiy = coords[1][0], coords[1][-1]
-				def interp(x, y):
-					if not (lox < x < hix and loy < y < hiy):
-						return fill_value
-					i = coords[0].searchsorted(x)
-					j = coords[1].searchsorted(y)
-					dx = (x - coords[0][i - 1]) / (coords[0][i] - coords[0][i - 1])
-					dy = (y - coords[1][j - 1]) / (coords[1][j] - coords[1][j - 1])
-					if dx + dy <= 1.:
-						return z[i - 1, j - 1] + dx * (z[i, j - 1] - z[i - 1, j - 1]) + dy * (z[i - 1, j] - z[i - 1, j - 1])
-					return z[i, j] + (1. - dx) * (z[i - 1, j] - z[i, j]) + (1. - dy) * (z[i, j - 1] - z[i, j])
-				self.interp = interp
-			else:
-				self.interp = interp2d(coords[0], coords[1], z.T, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
-		else:
-			try:
-				LinearNDInterpolator
-			except NameError:
-				# FIXME:  remove when we can rely on a new-enough scipy
-				def interp(*coords):
-					try:
-						return binnedarray[coords]
-					except IndexError:
-						return fill_value
-				self.interp = interp
-			else:
-				self.interp = LinearNDInterpolator(list(itertools.product(*coords)), z.flat, fill_value = fill_value)
-
-
-	def __call__(self, *coords):
-		"""
-		Evaluate the interpolator at the given co-ordinates.
-		"""
-		# interpolators return an array-like thing that we convert
-		# to a scalar here
-		return float(self.interp(*coords))
+			interp1d
+		except NameError:
+			# FIXME:  remove when we can rely on a new-enough scipy
+			lo, hi = coords[0][0], coords[0][-1]
+			def interp(x):
+				if not lo < x < hi:
+					return fill_value
+				i = coords[0].searchsorted(x)
+				return z[i - 1] + (x - coords[0][i - 1]) / (coords[0][i] - coords[0][i - 1]) * (z[i] - z[i - 1])
+			return interp
+		interp = interp1d(coords[0], z, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
+		return lambda *coords: float(interp(*coords))
+	elif len(coords) == 2:
+		try:
+			interp2d
+		except NameError:
+			# FIXME:  remove when we can rely on a new-enough scipy
+			lox, hix = coords[0][0], coords[0][-1]
+			loy, hiy = coords[1][0], coords[1][-1]
+			def interp(x, y):
+				if not (lox < x < hix and loy < y < hiy):
+					return fill_value
+				i = coords[0].searchsorted(x)
+				j = coords[1].searchsorted(y)
+				dx = (x - coords[0][i - 1]) / (coords[0][i] - coords[0][i - 1])
+				dy = (y - coords[1][j - 1]) / (coords[1][j] - coords[1][j - 1])
+				if dx + dy <= 1.:
+					return z[i - 1, j - 1] + dx * (z[i, j - 1] - z[i - 1, j - 1]) + dy * (z[i - 1, j] - z[i - 1, j - 1])
+				return z[i, j] + (1. - dx) * (z[i - 1, j] - z[i, j]) + (1. - dy) * (z[i, j - 1] - z[i, j])
+			return interp
+		interp = interp2d(coords[0], coords[1], z.T, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
+		return lambda *coords: float(interp(*coords))
+	else:
+		try:
+			LinearNDInterpolator
+		except NameError:
+			# FIXME:  remove when we can rely on a new-enough scipy
+			def interp(*coords):
+				try:
+					return binnedarray[coords]
+				except IndexError:
+					return fill_value
+			return interp
+		interp = LinearNDInterpolator(list(itertools.product(*coords)), z.flat, fill_value = fill_value)
+		return lambda *coords: float(interp(*coords))
 
 
 #
