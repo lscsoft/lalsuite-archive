@@ -1434,7 +1434,7 @@ def gaussian_window(*bins, **kwargs):
 	windows = []
 	for b in bins:
 		if b <= 0:
-			raise ValueError(b)
+			raise ValueError("negative width: %s" % repr(b))
 		l = int(math.floor(sigma * b / 2.0)) * 2
 		w = lal.CreateGaussREAL8Window(l + 1, l / float(b))
 		windows.append(w.data.data / w.sum)
