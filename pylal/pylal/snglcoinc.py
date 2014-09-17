@@ -1572,9 +1572,9 @@ class CoincParamsDistributions(object):
 		self.zero_lag_pdf = {}
 		self.background_pdf = {}
 		self.injection_pdf = {}
-		self.zero_lag_pdf_interp = {}
-		self.background_pdf_interp = {}
-		self.injection_pdf_interp = {}
+		self.zero_lag_lnpdf_interp = {}
+		self.background_lnpdf_interp = {}
+		self.injection_lnpdf_interp = {}
 		self.process_id = process_id
 
 	def _rebuild_interpolators(self):
@@ -1582,15 +1582,21 @@ class CoincParamsDistributions(object):
 		Initialize the interp dictionaries from the discretely
 		sampled PDF data.  For internal use only.
 		"""
-		self.zero_lag_pdf_interp.clear()
-		self.background_pdf_interp.clear()
-		self.injection_pdf_interp.clear()
+		self.zero_lag_lnpdf_interp.clear()
+		self.background_lnpdf_interp.clear()
+		self.injection_lnpdf_interp.clear()
+		def mkinterp(binnedarray):
+			assert not (binnedarray.array < 0.).any()
+			binnedarray = binnedarray.copy()
+			with numpy.errstate(divide = "ignore"):
+				binnedarray.array = numpy.log(binnedarray.array)
+			return rate.InterpBinnedArray(binnedarray, fill_value = NegInf)
 		for key, binnedarray in self.zero_lag_pdf.items():
-			self.zero_lag_pdf_interp[key] = rate.InterpBinnedArray(binnedarray)
+			self.zero_lag_lnpdf_interp[key] = mkinterp(binnedarray)
 		for key, binnedarray in self.background_pdf.items():
-			self.background_pdf_interp[key] = rate.InterpBinnedArray(binnedarray)
+			self.background_lnpdf_interp[key] = mkinterp(binnedarray)
 		for key, binnedarray in self.injection_pdf.items():
-			self.injection_pdf_interp[key] = rate.InterpBinnedArray(binnedarray)
+			self.injection_lnpdf_interp[key] = mkinterp(binnedarray)
 
 	@staticmethod
 	def addbinnedarrays(rate_target_dict, rate_source_dict, pdf_target_dict, pdf_source_dict):
@@ -1770,9 +1776,8 @@ class CoincParamsDistributions(object):
 		"""
 		if params is None:
 			return None
-		log = lambda x: math.log(x) if x > 0. else NegInf
-		__getitem__ = self.background_pdf_interp.__getitem__
-		return sum(log(__getitem__(name)(*value)) for name, value in params.items())
+		__getitem__ = self.background_lnpdf_interp.__getitem__
+		return sum(__getitem__(name)(*value) for name, value in params.items())
 
 	def lnP_signal(self, params):
 		"""
@@ -1799,9 +1804,8 @@ class CoincParamsDistributions(object):
 		"""
 		if params is None:
 			return None
-		log = lambda x: math.log(x) if x > 0. else NegInf
-		__getitem__ = self.injection_pdf_interp.__getitem__
-		return sum(log(__getitem__(name)(*value)) for name, value in params.items())
+		__getitem__ = self.injection_lnpdf_interp.__getitem__
+		return sum(__getitem__(name)(*value) for name, value in params.items())
 
 	def get_xml_root(self, xml, name):
 		"""
