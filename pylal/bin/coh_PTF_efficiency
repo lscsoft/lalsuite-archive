@@ -30,6 +30,7 @@ from __future__ import division
 
 # set up timer
 import time
+import copy
 start = int(time.time()*10**6)
 elapsed_time = lambda: int(time.time()*10**6-start)
 
@@ -339,14 +340,27 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   sortedTrigs = {}
 
   # Loop over the various slides
+  sortedTrigCount = 0
+  tmpTable = lsctables.New(lsctables.MultiInspiralTable)
   for slideID in range(numSlides):
     # Begin by sorting the triggers into each slide
-    sortedTrigs[slideID] = lsctables.New(lsctables.MultiInspiralTable)
-    sortedTrigs[slideID].extend(\
-    [ trig for trig in trigs if int(trig.time_slide_id) == slideID ])
+    # It seems that New is pretty slow, so run it once and then use deepcopy
+    sortedTrigs[slideID] = copy.deepcopy(tmpTable)
+
+  for trig in trigs:
+    sortedTrigs[int(trig.time_slide_id)].append(trig)
+
+  for slideID in range(numSlides):
+    sortedTrigCount += len(sortedTrigs[slideID])
 
     # These can only *reduce* the analysis time
     currSegList = segmentDict[slideID]
+    # Check the triggers are all in the analysed segment lists
+    for trig in sortedTrigs[slideID]:
+      if trig.end_time not in currSegList:
+        err_msg = "Triggers found in input files not in the list of analysed " 
+        err_msg += "segments. This shouldn't happen."
+        raise ValueError(err_msg)
 
     # Construct the buffer segment list
     buffer = segments.segmentlist()
@@ -1274,6 +1288,9 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
 
   # plot cumulative histograms
   for i,bin in enumerate(massBins):
+    np.savetxt('%s/bestnr_vs_fap_%s_%s_numbers.txt' %(outdir, bin[0],
+                                                      bin[1]),
+               fullTimeBinVetoMaxBestNR[i], delimiter='/t')
     fig = pylab.figure()
     ax = fig.gca()
     cumplot = plotutils.CumulativeHistogramPlot("BestNR",
