@@ -971,6 +971,8 @@ class BinnedArray(object):
 	>>> x[0.5,] += 1
 	>>> x.array
 	array([ 2.,  0.,  0.,  0.,  0.])
+	>>> x.argmax()
+	(1.0,)
 
 	Note the relationship between the binning limits, the bin centres,
 	and the co-ordinates of the BinnedArray
@@ -993,6 +995,10 @@ class BinnedArray(object):
 	2.0
 	>>> x[1, 1]
 	4.0
+	>>> x.argmin()
+	(0.0, 0.0)
+	>>> x.argmax()
+	(1.0, 1.0)
 	"""
 	def __init__(self, bins, array = None, dtype = "double"):
 		self.bins = bins
@@ -1043,6 +1049,22 @@ class BinnedArray(object):
 		each dimension.
 		"""
 		return self.bins.centres()
+
+	def argmin(self):
+		"""
+		Return the co-ordinates of the bin centre containing the
+		minimum value.  Same as numpy.argmin(), converting the
+		indexes to bin co-ordinates.
+		"""
+		return tuple(centres[index] for centres, index in zip(self.centres(), numpy.unravel_index(self.array.argmin(), self.array.shape)))
+
+	def argmax(self):
+		"""
+		Return the co-ordinates of the bin centre containing the
+		maximum value.  Same as numpy.argmax(), converting the
+		indexes to bin co-ordinates.
+		"""
+		return tuple(centres[index] for centres, index in zip(self.centres(), numpy.unravel_index(self.array.argmax(), self.array.shape)))
 
 	def to_density(self):
 		"""
