@@ -4,7 +4,7 @@ EXTRA_DIST =
 include $(top_srcdir)/gnuscripts/lalsuite_python.am
 
 SUBDIRS = lalinference \
-        tiger
+          tiger
 
 if HAVE_PYTHON
 
