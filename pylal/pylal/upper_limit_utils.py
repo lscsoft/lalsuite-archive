@@ -4,7 +4,6 @@ import sys
 
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
-from pylal.xlal import constants
 from pylal import rate
 
 

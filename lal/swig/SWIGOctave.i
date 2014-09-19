@@ -29,7 +29,7 @@
 // Include SWIG Octave headers.
 %include <octcomplex.swg>
 
-// Include Octave headers.
+// Include Octave headers and set versioning macros.
 %header %{
 extern "C++" {
 #include <octave/ov-cell.h>
@@ -40,6 +40,15 @@ extern "C++" {
 #include <octave/ov-cx-mat.h>
 #include <octave/toplev.h>
 }
+#if defined(SWIG_OCTAVE_PREREQ)
+# if SWIG_OCTAVE_PREREQ(3,3,52)
+#  define SWIGLAL_OCT_PREREQ_3_3_52
+# endif
+#elif defined(OCTAVE_API_VERSION_NUMBER)
+# if OCTAVE_API_VERSION_NUMBER >= 40
+#  define SWIGLAL_OCT_PREREQ_3_3_52
+# endif
+#endif
 %}
 
 // Name of octave_value containing the SWIG wrapping of the struct whose members are being accessed.
@@ -514,7 +523,7 @@ SWIGINTERN bool swiglal_release_parent(void *ptr) {
       bool save_hdf5(hid_t loc_id, const char *name, bool save_as_floats) {
         return sloav_array_out().save_hdf5(loc_id, name, save_as_floats);
       }
-%#if OCTAVE_API_VERSION_NUMBER >= 40
+%#if defined(SWIGLAL_OCT_PREREQ_3_3_52)
       bool load_hdf5(hid_t loc_id, const char *name) {
         octave_value obj = sloav_array_out();
         return obj.load_hdf5(loc_id, name) && SWIG_IsOK(sloav_array_in(obj));
@@ -638,7 +647,7 @@ SWIGINTERN bool swiglal_release_parent(void *ptr) {
       SLOAV_OBV_METH_FROM_ARRAY_0(log10, octave_value);
       SLOAV_OBV_METH_FROM_ARRAY_0(log1p, octave_value);
       SLOAV_OBV_METH_FROM_ARRAY_0(log2, octave_value);
-%#if OCTAVE_API_VERSION_NUMBER >= 40
+%#if defined(SWIGLAL_OCT_PREREQ_3_3_52)
       SLOAV_OBV_METH_FROM_ARRAY_0(map_value, octave_map);
 %#else
       SLOAV_OBV_METH_FROM_ARRAY_0(map_value, Octave_map);
@@ -905,43 +914,75 @@ SWIGINTERN bool swiglal_release_parent(void *ptr) {
     if (!(ISOVTYPEEXPR)) {
       return SWIG_TypeError;
     }
-    OVTYPE val = obj.OVVALUE();
+    {
+      OVTYPE val = obj.OVVALUE();
 
-    // Check that the elements of 'val' have the correct size.
-    if (val.byte_size() != val.numel() * esize) {
-      return SWIG_TypeError;
-    }
+      // Check that the elements of 'val' have the correct size.
+      if (val.byte_size() != val.numel() * esize) {
+        return SWIG_TypeError;
+      }
 
-    // Check that 'val' has the correct number of dimensions.
-    // 1-D arrays are a special case, since Octave arrays are always at least
-    // 2-dimensional, so need to check that one of those dimensions is singular.
-    dim_vector valdims = val.dims();
-    if (ndims == 1) {
-      if (valdims.length() > 2 || valdims.num_ones() == 0) {
+      // Check that 'val' has the correct number of dimensions.
+      // 1-D arrays are a special case, since Octave arrays are always at least
+      // 2-dimensional, so need to check that one of those dimensions is singular.
+      dim_vector valdims = val.dims();
+      if (ndims == 1) {
+        if (valdims.length() > 2 || valdims.num_ones() == 0) {
+          return SWIG_ValueError;
+        }
+      }
+      else if (val.ndims() != ndims) {
         return SWIG_ValueError;
       }
-    }
-    else if (val.ndims() != ndims) {
-      return SWIG_ValueError;
-    }
 
-    // Return number of elements and dimensions of Octave array.
-    *numel = val.numel();
-    if (ndims == 1) {
-      dims[0] = val.numel();
-    } else {
-      for (size_t i = 0; i < ndims; ++i) {
-        dims[i] = valdims(i);
+      // Return number of elements and dimensions of Octave array.
+      *numel = val.numel();
+      if (ndims == 1) {
+        dims[0] = val.numel();
+      } else {
+        for (size_t i = 0; i < ndims; ++i) {
+          dims[i] = valdims(i);
+        }
       }
+
     }
 
     // Since Octave stores arrays in column-major order, we can only view 1-D arrays.
+    // (This check is performed late so that 'numel' and 'dims' can be filled first.)
     if (ndims != 1) {
       return SWIG_ValueError;
     }
 
-    // Get pointer to Octave array data.
-    *ptr = %reinterpret_cast(val.data(), void*);
+    // Get pointer to Octave array data, a highly complicated and dodgy process!
+    // Usually mex_get_data() does the job, apart from complex arrays where that
+    // creates a copy ... in which case try data() and try to detect copying ...
+    if (obj.is_complex_type() && !obj.is_scalar_type()) {
+      if (obj.is_double_type()) {
+        Complex c;
+        {
+          const ComplexNDArray t = obj.complex_array_value();
+          *ptr = %reinterpret_cast(t.data(), void*);
+          c = *((Complex*) *ptr);
+        }
+        if (c != *((Complex*) *ptr)) {
+          return SWIG_UnknownError;
+        }
+      } else if (obj.is_single_type()) {
+        FloatComplex c;
+        {
+          const FloatComplexNDArray t = obj.float_complex_array_value();
+          *ptr = %reinterpret_cast(t.data(), void*);
+          c = *((FloatComplex*) *ptr);
+        }
+        if (c != *((FloatComplex*) *ptr)) {
+          return SWIG_UnknownError;
+        }
+      } else {
+        return SWIG_TypeError;
+      }
+    } else {
+      *ptr = %reinterpret_cast(obj.mex_get_data(), void*);
+    }
     if (!*ptr) {
       return SWIG_ValueError;
     }

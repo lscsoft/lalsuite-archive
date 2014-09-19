@@ -23,8 +23,10 @@ SUBDIRS = \
 	debian \
 	include \
 	src \
+	swig \
+	python \
 	test \
-	swig
+	$(END_OF_LIST)
 
 user_environment = \
 	set $(PACKAGE)_PREFIX $(prefix); \
@@ -38,8 +40,6 @@ user_environment = \
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = lalstochastic.pc
-noinst_DATA = lalstochastic-uninstalled.pc
-BUILT_SOURCES += lalstochastic-uninstalled.pc
 
 all-local:
 	@echo "";\

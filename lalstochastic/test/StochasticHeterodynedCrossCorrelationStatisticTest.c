@@ -18,7 +18,7 @@
 */
 
 /**
- * \author UTB Relativity Group; contact whelan@phys.utb.edu (original by S. Drasco)
+ * \author UTB Relativity Group; contact john.whelan@ligo.org (original by S. Drasco)
  * \file
  * \ingroup StochasticCrossCorrelation_c
  *
@@ -117,7 +117,7 @@
  * printf()
  * fprintf()
  * freopen()
- * fabs()
+ * fabsf()
  * \endcode
  *
  * ### Notes ###
@@ -807,7 +807,7 @@ int main( int argc, char *argv[] )
   if ( ( fabs(crealf(output.value)-STOCHASTICHETERODYNEDCROSSCORRELATIONSTATISTICTESTC_EXP2)
          / STOCHASTICHETERODYNEDCROSSCORRELATIONSTATISTICTESTC_EXP2
          > STOCHASTICHETERODYNEDCROSSCORRELATIONSTATISTICTESTC_TOL )
-       || ( fabs(cimagf(output.value))
+       || ( fabsf(cimagf(output.value))
             / STOCHASTICHETERODYNEDCROSSCORRELATIONSTATISTICTESTC_EXP2
             > STOCHASTICHETERODYNEDCROSSCORRELATIONSTATISTICTESTC_TOL )
        )

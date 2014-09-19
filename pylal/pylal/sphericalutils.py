@@ -22,7 +22,7 @@ from __future__ import division
 import numpy as np
 np.seterr(all="raise")
 
-from pylal.xlal.constants import *
+import lal
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 
@@ -75,7 +75,7 @@ def new_z_to_euler(new_z):
     initial coordinate system, return the (alpha, beta) Euler angles
     that rotate the old Z axis (0, 0) to the new Z axis.
     """
-    return (LAL_PI_2 + new_z[1]) % (2 * LAL_PI), new_z[0]
+    return (lal.PI_2 + new_z[1]) % (2 * lal.PI), new_z[0]
 
 def rotate_about_axis(x, axis, ang):
     """
@@ -112,9 +112,9 @@ def _abs_diff(c):
     For some angular difference c = |a - b| in radians, find the
     magnitude of the difference, taking into account the wrap-around at 2*pi.
     """
-    c = abs(c) % (2 * LAL_PI)
+    c = abs(c) % (2 * lal.PI)
     # XXX: numpy 1.3.0 introduces fmin, which is more elegant
-    return np.where(c < LAL_PI, c, 2 * LAL_PI - c)
+    return np.where(c < lal.PI, c, 2 * lal.PI - c)
 
 def _haversine(angle):
     return np.sin(angle / 2)**2
@@ -165,7 +165,7 @@ def fisher_rvs(mu, kappa, size=1):
     """
     rayleigh_rv = \
         np.array((np.random.rayleigh(scale=1. / np.sqrt(kappa), size=size),
-                  np.random.uniform(low=0, high=2*LAL_PI, size=size)))\
+                  np.random.uniform(low=0, high=2*lal.PI, size=size)))\
                 .reshape((2, size)).T  # guarantee 2D and transpose
     a, b = new_z_to_euler(mu)
     return rotate_euler(rayleigh_rv, a, b, 0)

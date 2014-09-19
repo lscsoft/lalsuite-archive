@@ -90,6 +90,9 @@ SWIGLAL(
 REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData *data, 
                               LALInferenceTemplateFunction templt);
 
+REAL8 LALInferenceROQLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData * data,
+                              LALInferenceTemplateFunction templt);
+
 /**
  * For testing purposes (for instance sampling the prior),
  * likelihood that returns 0.0 = log(1) every
@@ -221,9 +224,9 @@ REAL8 LALInferenceRosenbrockLogLikelihood(LALInferenceVariables *currentParams,
 REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData * data,LALInferenceTemplateFunction templt);
 
 /**
- * Returns the log-likelihood marginalised over the time dimension.
- * The boundaries of the time marginalization are the data segment;
- * any prior on time is ignored.
+ * Returns the log-likelihood marginalised over the time dimension
+ * from the prior min to the prior max.  See
+ * https://dcc.ligo.org/LIGO-T1400460 for the details.
  */
 REAL8 LALInferenceMarginalisedTimeLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData *data, LALInferenceTemplateFunction templt);
 
@@ -233,6 +236,9 @@ REAL8 LALInferenceMarginalisedTimeLogLikelihood(LALInferenceVariables *currentPa
  * phase likelihoods
  */
 void LALInferenceInitLikelihood(LALInferenceRunState *runState);
+
+/** Get the intrinsic parameters from currentParams */
+LALInferenceVariables LALInferenceGetInstrinsicParams(LALInferenceVariables *currentParams);
 
 /** Switch for controlling the removal of lines */
 INT4 LALInferenceLineSwitch(INT4 lineFlag, INT4 Nlines, INT4 *lines_array, INT4 *widths_array, INT4 i);

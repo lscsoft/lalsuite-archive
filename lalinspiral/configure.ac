@@ -7,7 +7,6 @@ AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
   lalinspiral.spec \
   lalinspiral.pc \
-  lalinspiral-uninstalled.pc \
   Makefile \
   debian/Makefile \
   include/Makefile \
@@ -16,14 +15,17 @@ AC_CONFIG_FILES([ \
   src/LALInspiralVCSInfo.h \
   src/Makefile \
   python/Makefile \
-  python/__init__.py \
-  python/sbank/Makefile \
+  python/lalinspiral/Makefile \
+  python/lalinspiral/__init__.py \
+  python/lalinspiral/sbank/Makefile \
   swig/Makefile \
   test/Makefile
 ])
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
 
 AC_CANONICAL_HOST
+
+LALSUITE_ARG_VAR
 
 LALSUITE_CHECK_GIT_REPO
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
@@ -79,7 +81,7 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_AWK
 AC_PROG_SED
-AM_PATH_PYTHON([2.6],,[AC_MSG_ERROR([Python-2.6, or higher, is required])])
+LALSUITE_CHECK_PYTHON([2.6])
 
 # check for supported mac os x version
 LALSUITE_OSX_VERSION_CHECK
@@ -138,8 +140,10 @@ fi
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
 
+# link any executables against LALInspiral library
+AC_SUBST([LDADD], ["\$(top_builddir)/src/liblalinspiral.la"])
+
 # add extra preprocessor flags
-AM_CPPFLAGS="\$(TEST_CPPFLAGS) ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
 
@@ -157,6 +161,7 @@ AC_MSG_NOTICE([
 ==================================================
 LALInspiral has now been successfully configured:
 
+* Python support is $PYTHON_ENABLE_VAL
 * CUDA support is $CUDA_ENABLE_VAL
 * SWIG binding generation is $SWIG_GENERATE_ENABLE_VAL
 * SWIG bindings for Octave are $SWIG_BUILD_OCTAVE_ENABLE_VAL

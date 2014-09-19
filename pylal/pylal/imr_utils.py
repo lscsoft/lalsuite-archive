@@ -354,6 +354,19 @@ def guess_distance_mass_ratio_bins_from_sims(sims, qbins = 11, distbins = 200):
 	return rate.NDBins([rate.LinearBins(min(distances), max(distances), distbins), rate.LinearBins(min(mratios), max(mratios), qbins)])
 
 
+def guess_distance_chirp_mass_bins_from_sims(sims, mbins = 11, distbins = 200):
+	"""
+	Given a list of the injections, guess at the chirp mass and distance
+	bins.
+	"""
+	dist_mchirp_vals = map(sim_to_distance_chirp_mass_bins_function, sims)
+
+	distances = [tup[0] for tup in dist_mchirp_vals]
+	mchirps = [tup[1] for tup in dist_mchirp_vals]
+
+	return rate.NDBins([rate.LinearBins(min(distances), max(distances), distbins), rate.LinearBins(min(mchirps), max(mchirps), mbins)])
+
+
 def guess_distance_total_mass_bins_from_sims(sims, nbins = 11, distbins = 200):
        """
        Given a list of the injections, guess at the mass1, mass2 and distance
@@ -432,12 +445,18 @@ def sim_to_distance_effective_spin_parameter_bins_function(sim):
 
 def sim_to_distance_mass_ratio_bins_function(sim):
 	"""
-	create a function to map a sim to a distance, aligned spin parameter (a.k.a. chi) NDBins based object
+	create a function to map a sim to a distance, mass ratio NDBins based object
 	"""
 	# note that if you use symmetrize_sims() below, m2/m1 > 1
 	# which just strikes me as more intuitive
 	return (sim.distance, sim.mass2/sim.mass1)
 
+
+def sim_to_distance_chirp_mass_bins_function(sim):
+	"""
+	create a function to map a sim to a distance, chirp mass NDBins based object
+	"""
+	return (sim.distance, sim.mchirp)
 
 def symmetrize_sims(sims, col1, col2):
 	"""

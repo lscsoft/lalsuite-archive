@@ -2,7 +2,7 @@
 # lalsuite_swig.m4 - SWIG configuration
 # Author: Karl Wette, 2011--2014
 #
-# serial 60
+# serial 67
 
 AC_DEFUN([_LALSUITE_CHECK_SWIG_VERSION],[
   # $0: check the version of $1, and store it in ${swig_version}
@@ -60,9 +60,12 @@ AC_DEFUN([LALSUITE_ENABLE_SWIG],[
     ]
   )
   swig_build_any=false
+  python_min_version=
   LALSUITE_ENABLE_SWIG_LANGUAGE([Octave],[false],[LALSUITE_REQUIRE_CXX])
-  LALSUITE_ENABLE_SWIG_LANGUAGE([Python],[false])
+  LALSUITE_ENABLE_SWIG_LANGUAGE([Python],[false],[LALSUITE_REQUIRE_PYTHON([2.6])])
   AS_IF([test "${swig_generate}" = true],[
+    # require Python for running generate_swig_iface.py
+    LALSUITE_REQUIRE_PYTHON([2.6])
     SWIG_GENERATE_ENABLE_VAL=ENABLED
   ],[
     SWIG_GENERATE_ENABLE_VAL=DISABLED
@@ -190,14 +193,14 @@ AC_DEFUN([LALSUITE_USE_SWIG],[
     # SWIG sources, if distributed, have new timestamps
     AC_CONFIG_COMMANDS([swig_depfiles],[
       AS_IF([test "${swig_generate}" = true],[
-        test -f "swig/swig_preproc.deps" || echo '#empty' > "swig/swig_preproc.deps"
+        test -f "swig/swiglal_preproc.deps" || echo '#empty' > "swig/swiglal_preproc.deps"
       ])
       for file in ${swig_dep_files}; do
         depfile="${srcdir}/swig/${file}"
         AS_IF([test "${swig_generate}" = true],[
           test -f "swig/${file}" || echo '#empty' > "swig/${file}"
         ],[test -f "${depfile}"],[
-          srcfilename=`${SED} -n -e '1{s/:.*$//p}' "${depfile}"`
+          srcfilename=`cat "${depfile}" | ${SED} -n -e '1p' | ${SED} -e 's/:.*$//'`
           srcfile="${srcdir}/swig/${srcfilename}"
           AS_IF([test -f "${srcfile}"],[
             touch "${srcfile}"
@@ -231,7 +234,7 @@ AC_DEFUN([LALSUITE_USE_SWIG_LANGUAGE],[
   AS_IF([test "${swig_build_]lowercase[}" = true],[
     $2
     swig_build=true
-    swig_dep_files="${swig_dep_files} swig_[]lowercase[].deps"
+    swig_dep_files="${swig_dep_files} swiglal_[]lowercase[].deps"
   ])
   m4_popdef([uppercase])
   m4_popdef([lowercase])
@@ -299,16 +302,25 @@ AC_DEFUN([LALSUITE_USE_SWIG_OCTAVE],[
     AC_MSG_CHECKING([C++ compiler used for building ${OCTAVE}])
     octave_CXX=`${mkoctfile} -p CXX 2>/dev/null`
     AC_MSG_RESULT([${octave_CXX}])
-    octave_CXX_version=`${octave_CXX} --version 2>/dev/null | ${SED} -n -e '1p'`
-    lalsuite_CXX_version=`${CXX} --version 2>/dev/null | ${SED} -n -e '1p'`
+    CXX_version_regex=['s|([^)]*) *||g;s|^ *||g;s| *$||g']
+    octave_CXX_version=`${octave_CXX} --version 2>/dev/null | ${SED} -n -e '1p' | ${SED} -e "${CXX_version_regex}"`
+    _AS_ECHO_LOG([octave_CXX_version: '${octave_CXX_version}'])
+    lalsuite_CXX_version=`${CXX} --version 2>/dev/null | ${SED} -n -e '1p' | ${SED} -e "${CXX_version_regex}"`
+    _AS_ECHO_LOG([lalsuite_CXX_version: '${lalsuite_CXX_version}'])
     AS_IF([test "x${lalsuite_CXX_version}" != "x${octave_CXX_version}"],[
       AC_MSG_ERROR([configured C++ compiler "${CXX}" differs from ${OCTAVE} C++ compiler "${octave_CXX}"])
     ])
 
     # determine Octave preprocessor flags
     AC_SUBST([SWIG_OCTAVE_CPPFLAGS],[])
+    AC_SUBST([SWIG_OCTAVE_CPPFLAGS_IOCTAVE],[])
     for arg in CPPFLAGS INCFLAGS; do
-      SWIG_OCTAVE_CPPFLAGS="${SWIG_OCTAVE_CPPFLAGS} "`${mkoctfile} -p ${arg} 2>/dev/null`
+      for flag in `${mkoctfile} -p ${arg} 2>/dev/null`; do
+        AS_CASE([${flag}],
+          [-I*/octave],[SWIG_OCTAVE_CPPFLAGS_IOCTAVE="${flag}"],
+          [SWIG_OCTAVE_CPPFLAGS="${SWIG_OCTAVE_CPPFLAGS} ${flag}"]
+        )
+      done
     done
 
     # determine Octave compiler flags
@@ -319,7 +331,7 @@ AC_DEFUN([LALSUITE_USE_SWIG_OCTAVE],[
     AC_LANG_PUSH([C++])
     _LALSUITE_SWIG_CHECK_COMPILER_FLAGS([SWIG_OCTAVE_CXXFLAGS],[
       -Wno-uninitialized -Wno-unused-variable -Wno-unused-but-set-variable
-      -fno-strict-aliasing -g -O0
+      -Wno-tautological-compare -fno-strict-aliasing -g -O0
     ])
     AC_LANG_POP([C++])
 
@@ -332,7 +344,7 @@ AC_DEFUN([LALSUITE_USE_SWIG_OCTAVE],[
     # check for Octave headers
     AC_LANG_PUSH([C++])
     LALSUITE_PUSH_UVARS
-    CPPFLAGS="${SWIG_OCTAVE_CPPFLAGS}"
+    CPPFLAGS="${SWIG_OCTAVE_CPPFLAGS_IOCTAVE} ${SWIG_OCTAVE_CPPFLAGS}"
     AC_CHECK_HEADERS([octave/oct.h],[],[
       AC_MSG_ERROR([could not find the header "octave/oct.h"])
     ],[
@@ -348,10 +360,6 @@ AC_DEFUN([LALSUITE_USE_SWIG_OCTAVE],[
 AC_DEFUN([LALSUITE_USE_SWIG_PYTHON],[
   # $0: configure SWIG Python bindings
   LALSUITE_USE_SWIG_LANGUAGE([Python],[
-
-    # check for Python
-    python_min_version=2.5
-    AM_PATH_PYTHON([${python_min_version}])
 
     # check for distutils
     AC_MSG_CHECKING([for distutils])
@@ -413,7 +421,7 @@ EOD`]
     AC_LANG_PUSH([C])
     _LALSUITE_SWIG_CHECK_COMPILER_FLAGS([SWIG_PYTHON_CFLAGS],[
       -Wno-uninitialized -Wno-unused-variable -Wno-unused-but-set-variable
-      -fno-strict-aliasing -g
+      -Wno-tautological-compare -fno-strict-aliasing -g
     ])
     AC_LANG_POP([C])
 
@@ -465,19 +473,6 @@ EOD`]
     ])
     LALSUITE_POP_UVARS
     AC_LANG_POP([C])
-
-    # check for IPython
-    AC_SUBST([SWIG_IPYTHON_CMD],[])
-    AC_MSG_CHECKING([for IPython])
-    ipython_cmd="from IPython.frontend.terminal.ipapp import launch_new_instance"
-    ${PYTHON} -c "${ipython_cmd}" >/dev/null 2>&1
-    AS_IF([test $? -eq 0],[
-      SWIG_IPYTHON_CMD="-c '${ipython_cmd}; launch_new_instance()'"
-      AC_MSG_RESULT([yes])
-    ])
-    AS_IF([test "x${SWIG_IPYTHON_CMD}" = x],[
-      AC_MSG_RESULT([no])
-    ])
 
   ])
   # end $0

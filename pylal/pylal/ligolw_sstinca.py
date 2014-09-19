@@ -29,6 +29,7 @@ import math
 import sys
 
 
+import lal
 from glue import iterutils
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
@@ -37,10 +38,8 @@ from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue import offsetvector
-import lal
 from pylal import git_version
 from pylal import snglcoinc
-from pylal import lalconstants
 from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.datatypes import snglinspiraltable
@@ -388,7 +387,7 @@ def inspiral_max_dt(events, e_thinca_parameter):
 	# for each instrument present in the event list, compute the
 	# largest \Delta t interval for the events from that instrument,
 	# and return the sum of the largest two such \Delta t's.
-	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * lalconstants.LAL_REARTH_SI / lalconstants.LAL_C_SI
+	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * lal.REARTH_SI / lal.C_SI
 
 
 def inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter):

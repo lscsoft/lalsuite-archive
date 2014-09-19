@@ -22,9 +22,10 @@ SUBDIRS = \
 	debian \
 	include \
 	src \
+	swig \
 	python \
 	test \
-	swig
+	$(END_OF_LIST)
 
 user_environment = \
 	set $(PACKAGE)_PREFIX $(prefix); \
@@ -38,8 +39,6 @@ user_environment = \
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = lalxml.pc
-noinst_DATA = lalxml-uninstalled.pc
-BUILT_SOURCES += lalxml-uninstalled.pc
 
 all-local:
 	@echo "";\

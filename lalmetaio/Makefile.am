@@ -22,8 +22,10 @@ SUBDIRS = \
 	debian \
 	include \
 	src \
+	swig \
 	python \
-	swig
+	test \
+	$(END_OF_LIST)
 
 user_environment = \
 	set $(PACKAGE)_PREFIX $(prefix); \
@@ -37,8 +39,6 @@ user_environment = \
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = lalmetaio.pc
-noinst_DATA = lalmetaio-uninstalled.pc
-BUILT_SOURCES += lalmetaio-uninstalled.pc
 
 all-local:
 	@echo "";\

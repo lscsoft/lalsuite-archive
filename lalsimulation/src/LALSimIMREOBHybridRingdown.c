@@ -479,18 +479,20 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
           modefreqs->data[7] += I * 10./3. * cimag(modefreqs->data[0]);
       }
 
-      if ( approximant == SEOBNRv2 )
+      if ( approximant == SEOBNRv2 ) //See pages 6 to 12 of the dcc document T1400476-v3 for expressions in this block.
       {
           /* Replace the last two QNMs with pQNMs */
           /* We assume aligned/antialigned spins here */
+          /* Definitions of a, chi and NRPeakOmega22, where the last one is an approximation of \phi'[tmatch] in T1400476-v3. */
           a  = (spin1[2] + spin2[2]) / 2. * (1.0 - 2.0 * eta) + (spin1[2] - spin2[2]) / 2. * (mass1 - mass2) / (mass1 + mass2);
           NRPeakOmega22 = GetNRSpinPeakOmegav2( l, m, eta, a ) / mTot;
 
           /* Define chi */
-          chi = (spin1[2] + spin2[2]) / 2. + (spin1[2] - spin2[2]) / 2. * sqrt(1. - 4. * eta) / (1. - 2. * eta);
+          chi = (spin1[2] + spin2[2]) / 2. + (spin1[2] - spin2[2]) / 2. * ((mass1 - mass2)/(mass1+mass2)) / (1. - 2. * eta);
 
           /* For extreme chi (>= 0.8), there are scale factors in both complex
            * pseudo-QNM frequencies. kk, kt1, kt2 describe those factors. */
+          // Below definitions of kk, kt1 and kt2 are likely obsolete
           kk = kt1 = kt2 = 1.;
           if ( chi >= 0.8 )
           {
@@ -498,10 +500,16 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
             kt1 = 0.5 * sqrt(1.+800.0*eta*eta/3.0) - 0.125;
             kt2 = 0.5 * pow(1.+0.5*eta*sqrt(eta)/0.0225,2./3.) - 0.2;
           }
+          // Above definitions of kk, kt1 and kt2 are likely obsolete
           /*printf("a, chi and NRomega in QNM freq: %.16e %.16e %.16e %.16e %.16e %.16e\n",
             spin1[2],spin2[2],mTot/LAL_MTSUN_SI,a,chi,NRPeakOmega22*mTot);*/
           sh = 0.;
           //freq7sav = modefreqs->data[7];
+
+          /* Cases 1, 2 and 3 in T1400476-v3. Note that the difference between the 
+           * chi1=chi2=0 case and the chi<0.7 cases is only in Dtcomb, 
+           * which is not specified or used in this file.
+           */
           modefreqs->data[7] = (2./3. * NRPeakOmega22/finalMass) + (1./3. * creal(modefreqs->data[0]));
           modefreqs->data[7] += I * 3.5/0.9 * cimag(modefreqs->data[0]);
           modefreqs->data[6] = (3./4. * NRPeakOmega22/finalMass) + (1./4. * creal(modefreqs->data[0]));
@@ -515,7 +523,7 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
             sh = -9. * (eta - 0.25);
           }
           if ( (eta > 30./31./31. && eta <= 10./121. && chi >= 0.8) || (eta <= 30./31./31. && chi >= 0.8 && chi < 0.9) )
-          {
+          {// This is case 4 in T1400476-v3
             sh = -9. * (eta - 0.25) * (1.+2.*exp(-(chi-0.85)*(chi-0.85)/0.05/0.05)) * (1.+1./(1.+exp((eta-0.01)/0.001)));
             kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
             kt1 = 0.5 * sqrt(1.+800.0*eta*eta/3.0) - 0.125;
@@ -528,7 +536,7 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
             modefreqs->data[7] = kk*creal(modefreqs->data[7]) + I*cimag(modefreqs->data[7])/kt1;
 	  }
           if ( eta < 30./31./31. && chi >= 0.9 )
-          {
+          {// This is case 5 in T1400476-v3
             sh = 0.55 - 9. * (eta - 0.25) * (1.+2.*exp(-(chi-0.85)*(chi-0.85)/0.05/0.05)) * (1.+1./(1.+exp((eta-0.01)/0.001)));
             kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
             kt1 = 0.5 * sqrt(1.+800.0*eta*eta/3.0) - 0.125;
@@ -541,7 +549,7 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
             modefreqs->data[7] = kk*creal(modefreqs->data[7]) + I*cimag(modefreqs->data[7])/kt1;
 	  }
           if ( eta > 10./121. && chi >= 0.8 )
-          {
+          {// This is case 6 in T1400476-v3
             sh = 1. - 9. * (eta - 0.25) * (1.+2.*exp(-(chi-0.85)*(chi-0.85)/0.05/0.05)) * (1.+1./(1.+exp((eta-0.01)/0.001)));
             kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
             kt1 = 0.45 * sqrt(1.+200.0*eta*eta/3.0) - 0.125;
@@ -549,10 +557,9 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
             modefreqs->data[6] = kk*creal(modefreqs->data[6]) + I*cimag(modefreqs->data[6])/0.95/kt2;
             modefreqs->data[7] = kk*creal(modefreqs->data[7]) + I*cimag(modefreqs->data[7])/kt1;
 	  }
+          // The last line of T1400476-v3
           matchrange->data[0] -= sh;
           matchrange->data[1] -= sh;
-          matchrange->data[0] -= fmod( matchrange->data[0], dt/mTot);
-          matchrange->data[1] -= fmod( matchrange->data[1], dt/mTot);
 /*
 modefreqs->data[7] = 0.38068371/mTot + I/1.4677128/mTot;
 modefreqs->data[6] = 0.37007703/mTot + I/1.3359367/mTot;
@@ -567,10 +574,13 @@ printf("w3 = %f, t3 = %f\n",creal(modefreqs->data[4])*mTot, 1./cimag(modefreqs->
 printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[5])*mTot, 1./cimag(modefreqs->data[5])/mTot);
 */
       }
-      for (j = 0; j < nmodes; j++)
+      // Move ringdown comb boundaries to sampling points to avoid numerical artifacts. 
+      matchrange->data[0] -= fmod( matchrange->data[0], dt/mTot);
+      matchrange->data[1] -= fmod( matchrange->data[1], dt/mTot);
+     /*for (j = 0; j < nmodes; j++)
       {
-        //printf("QNM frequencies: %d %d %d %f %f\n",l,m,j,creal(modefreqs->data[j])*mTot,1./cimag(modefreqs->data[j])/mTot);
-      }
+        printf("QNM frequencies: %d %d %d %f %f\n",l,m,j,creal(modefreqs->data[j])*mTot,1./cimag(modefreqs->data[j])/mTot);
+      }*/
 
       /* Ringdown signal length: 10 times the decay time of the n=0 mode */
       Nrdwave = (INT4) (EOB_RD_EFOLDS / cimag(modefreqs->data[0]) / dt);

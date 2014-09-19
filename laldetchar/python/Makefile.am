@@ -1,17 +1,32 @@
 BUILT_SOURCES =
 MOSTLYCLEANFILES =
-include $(top_srcdir)/gnuscripts/lalsuite_vcs_info.am
+EXTRA_DIST =
+include $(top_srcdir)/gnuscripts/lalsuite_python.am
 
-SUBDIRS = \
-	triggers \
-	hveto
+SUBDIRS = laldetchar
 
-pkgpython_PYTHON = \
-	__init__.py \
-	dqsegs.py \
-	git_version.py
+dist_bin_SCRIPTS = \
+	laldetchar-idq-append-file-to-cache \
+	laldetchar-idq-post-svm-train
 
-EXTRA_DIST = \
-	git_version.py
+if HAVE_PYTHON
 
-vcs_info_sources = git_version.py
+pybin_scripts = \
+	laldetchar-hveto \
+	laldetchar-hveto-summary-page \
+	laldetchar-idq-add-excluded-vars \
+	laldetchar-idq-evaluate-times \
+	laldetchar-idq-fap-calibration \
+	laldetchar-idq-gdb-glitch-tables \
+	laldetchar-idq-gdb-timeseries \
+	laldetchar-idq-prepare-training-auxmvc-samples \
+	laldetchar-idq-realtime \
+	laldetchar-idq-select-channels-from-kw-config \
+	laldetchar-idq-summary \
+	laldetchar-idq-svm-evaluate \
+	laldetchar-idq-svm-train \
+	laldetchar-idq-train \
+	laldetchar-segments-from-data \
+	$(END_OF_LIST)
+
+endif

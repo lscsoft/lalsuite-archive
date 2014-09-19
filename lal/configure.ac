@@ -7,9 +7,7 @@ AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
   lal.spec \
   lal.pc \
-  lal-uninstalled.pc \
   lalsupport.pc \
-  lalsupport-uninstalled.pc \
   Makefile \
   debian/Makefile \
   include/Makefile \
@@ -24,9 +22,10 @@ AC_CONFIG_FILES([ \
   lib/lalsupport/src/Makefile \
   lib/lalsupport/test/Makefile \
   python/Makefile \
-  python/__init__.py \
-  python/utils/Makefile \
-  python/spectrum/Makefile \
+  python/lal/Makefile \
+  python/lal/__init__.py \
+  python/lal/utils/Makefile \
+  python/lal/spectrum/Makefile \
   swig/Makefile \
   packages/Makefile \
   packages/std/Makefile \
@@ -136,6 +135,7 @@ AC_SUBST([LIBAGE_SUPPORT],[0])
 AC_SUBST([LIBVERSION_SUPPORT],[${LIBCURRENT_SUPPORT}:${LIBREVISION_SUPPORT}:${LIBAGE_SUPPORT}])
 
 LAL_ENABLE_INTELFFT
+LAL_ENABLE_FFTW3_MEMALIGN
 
 LALSUITE_WITH_CUDA
 LALSUITE_WITH_NVCC_CFLAGS
@@ -180,7 +180,7 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_AWK
 AC_PROG_SED
-AM_PATH_PYTHON([2.6],,[AC_MSG_ERROR([Python-2.6, or higher, is required])])
+LALSUITE_CHECK_PYTHON([2.6])
 
 # check for supported mac os x version
 LALSUITE_OSX_VERSION_CHECK
@@ -256,16 +256,16 @@ else
   else
     AC_CHECK_LIB([pthread],[pthread_create],,[AC_MSG_ERROR([could not find the pthread library])])
   fi
-  AC_CHECK_LIB([guide],[__kmp_abort],,[AC_MSG_ERROR([could not find the guide library included with Intel MKL])])
+  # AC_CHECK_LIB([guide],[__kmp_abort],,[AC_MSG_ERROR([could not find the guide library included with Intel MKL])])
   AC_CHECK_HEADERS([pthread.h],,[AC_MSG_ERROR([could not find the pthread.h header])])
   if test "${enable_static}" = "yes"; then
     if test "${enable_shared}" = "yes" ; then
       LAL_INTEL_FFT_LIBS_MSG_ERROR
     else
-      AC_CHECK_LIB([mkl_ia32],[DftiCreateDescriptor],,[AC_MSG_ERROR([could not find the Intel FFT library])])
+      AC_CHECK_LIB([mkl_rt],[DftiCreateDescriptor],,[AC_MSG_ERROR([could not find the Intel FFT library])])
     fi
   else
-    AC_CHECK_LIB([mkl],[DftiCreateDescriptor],,[AC_MSG_ERROR([could not find the Intel FFT library])])
+    AC_CHECK_LIB([mkl_rt],[DftiCreateDescriptor],,[AC_MSG_ERROR([could not find the Intel FFT library])])
   fi
   AC_CHECK_HEADERS([mkl_dfti.h],,[AC_MSG_ERROR([could not find the Intel FFT header])])
 fi
@@ -309,6 +309,9 @@ if test "${cuda}" = "true"; then
 fi
 if test "${fftw3}" = "true"; then
   AC_DEFINE([LAL_FFTW3_ENABLED],[1],[Define if using fftw3 library])
+  if test "${fftw3_memalign}" = "true"; then
+    AC_DEFINE([LAL_FFTW3_MEMALIGN_ENABLED],[1],[Define if using fftw3 library])
+  fi
 fi
 if test "${boinc}" = "true"; then
   AC_DEFINE([LAL_BOINC_ENABLED],[1],[Define if using boinc library])
@@ -333,6 +336,7 @@ AC_CHECK_FUNCS([stat],,[AC_MSG_ERROR([could not find the stat() function])])
 AC_CHECK_FUNCS([getopt],,[AC_MSG_ERROR([could not find the getopt() function])])
 AC_CHECK_FUNCS([getopt_long],,[AC_MSG_ERROR([could not find the getopt_long() function])])
 AC_CHECK_FUNCS([putenv])
+AC_CHECK_FUNCS([posix_memalign])
 
 # set package documentation install path
 pkgdocdir="\${prefix}/share/doc/${PACKAGE}-${VERSION}"
@@ -345,8 +349,10 @@ AM_CONDITIONAL([QTHREAD],[test x$qthread = xtrue])
 # add gcc specific flags --- must be done at end or tests will break!
 LALSUITE_ADD_GCC_FLAGS
 
+# link any executables against LAL and LALSupport libraries
+AC_SUBST([LDADD], ["\$(top_builddir)/lib/lal/liblal.la \$(top_builddir)/lib/lalsupport/src/liblalsupport.la"])
+
 # add extra preprocessor flags
-AM_CPPFLAGS="\$(TEST_CPPFLAGS) ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
 
@@ -361,6 +367,7 @@ AC_MSG_NOTICE([
 ==================================================
 LAL has now been successfully configured:
 
+* Python support is $PYTHON_ENABLE_VAL
 * CUDA support is $CUDA_ENABLE_VAL
 * BOINC support is $BOINC_ENABLE_VAL
 * SWIG binding generation is $SWIG_GENERATE_ENABLE_VAL

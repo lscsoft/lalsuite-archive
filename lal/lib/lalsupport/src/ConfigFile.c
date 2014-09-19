@@ -67,6 +67,12 @@ static void cleanConfig ( char *text );
  *
  * NOTE: This function can transparently detect and read gzip-compressed
  * data-files, independently of filename-extension
+ *
+ * NOTE2: allows passing of *file-contents* directly instead of filename to read
+ * by passing a string like "{ file-contents }" instead of a file-path,
+ * ie if first character == '{' and last character == '}'
+ * This is useful to allow ascii-file user inputs to be transparently
+ * passed as filenames or direct contents
  */
 int
 XLALParseDataFile (LALParsedDataFile **cfgdata, /**< [out] pre-parsed data-file lines */
@@ -77,7 +83,15 @@ XLALParseDataFile (LALParsedDataFile **cfgdata, /**< [out] pre-parsed data-file 
   XLAL_CHECK ( path != NULL, XLAL_EINVAL );
 
   char *dataBuffer;
-  XLAL_CHECK ( (dataBuffer = XLALFileLoad ( path )) != NULL, XLAL_EFUNC );
+  if ( (path[0] == '{') && (path[strlen(path)-1] == '}') )
+    {
+      XLAL_CHECK ( (dataBuffer = XLALStringDuplicate ( path + 1 )) != NULL, XLAL_EFUNC );
+      dataBuffer[strlen(dataBuffer)-1] = 0;
+    }
+  else
+    {
+      XLAL_CHECK ( (dataBuffer = XLALFileLoad ( path )) != NULL, XLAL_EFUNC );
+    }
 
   if ( XLALParseDataFileContent ( cfgdata, dataBuffer ) != XLAL_SUCCESS ) {
     XLALFree ( dataBuffer );
@@ -814,6 +828,28 @@ XLALParseStringValueToREAL8 ( REAL8 *valREAL8,         //!< [out] return REAL8 v
   XLAL_CHECK ( (*endptr) == '\0', XLAL_EFAILED, "strtod(): trailing garbage '%s' found after double-conversion of '%s'\n", endptr, valString );
 
   (*valREAL8) = (REAL8)valDouble;
+
+  return XLAL_SUCCESS;
+
+} // XLALParseStringValueToREAL8()
+
+
+//! Parse a string into a REAL4.
+//! This ignores initial whitespace, but throws an error on _any_ non-converted trailing characters (including whitespace)
+int
+XLALParseStringValueToREAL4 ( REAL4 *valREAL4,         //!< [out] return REAL4 value
+                              const char *valString    //!< [in]  input string value
+                              )
+{
+  XLAL_CHECK ( (valREAL4 != NULL) && (valString != NULL ), XLAL_EINVAL );
+
+  errno = 0;
+  char *endptr;
+  float valFloat = strtof ( valString, &endptr );
+  XLAL_CHECK ( errno == 0, XLAL_EFAILED, "strtof() failed to convert '%s' into a float!\n", valString );
+  XLAL_CHECK ( (*endptr) == '\0', XLAL_EFAILED, "strtof(): trailing garbage '%s' found after float-conversion of '%s'\n", endptr, valString );
+
+  (*valREAL4) = (REAL4)valFloat;
 
   return XLAL_SUCCESS;
 

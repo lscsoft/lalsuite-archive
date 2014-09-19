@@ -9,6 +9,8 @@ import matplotlib.pyplot as pp
 import numpy as np
 import scipy.integrate as si
 
+matplotlib.rcParams['text.usetex'] = True
+
 def extract_temp(filename):
     """Extracts the PTMCMC temperature from the header lines of the
     given file."""
@@ -85,8 +87,8 @@ positional arguments:
     ebetas2 = np.concatenate((betas[::2], [0.0]))
     elogls2 = np.concatenate((logls[::2], [logls[::2][-1]]))
 
-    evidence = si.trapz(elogls, ebetas)
-    evidence2 = si.trapz(elogls2, ebetas2)
+    evidence = -si.trapz(elogls, ebetas)
+    evidence2 = -si.trapz(elogls2, ebetas2)
 
     devidence = np.abs(evidence - evidence2)
 

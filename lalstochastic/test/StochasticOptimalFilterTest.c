@@ -18,7 +18,7 @@
 */
 
 /**
- * \author UTB Relativity Group; contact whelan@phys.utb.edu
+ * \author UTB Relativity Group; contact john.whelan@ligo.org
  * \file
  * \ingroup StochasticOptimalFilter_c
  *
@@ -132,6 +132,7 @@
  * fprintf()
  * freopen()
  * fabs()
+ * fabsf()
  * \endcode
  *
  * ### Notes ###
@@ -996,8 +997,8 @@ int main(int argc, char *argv[])
     printf("Q(0)=%g + %g i, should be 0\n",
            crealf(optimal.data->data[0]), cimagf(optimal.data->data[0]));
   }
-  if ( fabs(crealf(optimal.data->data[0])) > STOCHASTICOPTIMALFILTERTESTC_TOL
-       || fabs(cimagf(optimal.data->data[0]))
+  if ( fabsf(crealf(optimal.data->data[0])) > STOCHASTICOPTIMALFILTERTESTC_TOL
+       || fabsf(cimagf(optimal.data->data[0]))
        > STOCHASTICOPTIMALFILTERTESTC_TOL )
   {
     printf("  FAIL: Valid data test #1\n");
@@ -1026,7 +1027,7 @@ int main(int argc, char *argv[])
     if (fabs(crealf(optimal.data->data[i])/crealf(optimal.data->data[1])
              - testNum)/testNum
         > STOCHASTICOPTIMALFILTERTESTC_TOL
-        || fabs(cimagf(optimal.data->data[i])/crealf(optimal.data->data[1]))
+        || fabsf(cimagf(optimal.data->data[i])/crealf(optimal.data->data[1]))
         > STOCHASTICOPTIMALFILTERTESTC_TOL)
     {
       printf("  FAIL: Valid data test #1\n");
@@ -1178,8 +1179,8 @@ int main(int argc, char *argv[])
     printf("Q(0)=%g + %g i, should be 0\n",
            crealf(optimal.data->data[0]), cimagf(optimal.data->data[0]));
   }
-  if ( fabs(crealf(optimal.data->data[0])) > STOCHASTICOPTIMALFILTERTESTC_TOL
-       || fabs(cimagf(optimal.data->data[0]))
+  if ( fabsf(crealf(optimal.data->data[0])) > STOCHASTICOPTIMALFILTERTESTC_TOL
+       || fabsf(cimagf(optimal.data->data[0]))
        > STOCHASTICOPTIMALFILTERTESTC_TOL )
   {
     printf("  FAIL: Valid data test #2\n");
@@ -1205,7 +1206,7 @@ int main(int argc, char *argv[])
     if (fabs(crealf(optimal.data->data[i])/crealf(optimal.data->data[1])
              - testNum)/testNum
         > STOCHASTICOPTIMALFILTERTESTC_TOL
-        || fabs(cimagf(optimal.data->data[i])/crealf(optimal.data->data[1]))
+        || fabsf(cimagf(optimal.data->data[i])/crealf(optimal.data->data[1]))
         > STOCHASTICOPTIMALFILTERTESTC_TOL)
     {
       printf("  FAIL: Valid data test #2\n");

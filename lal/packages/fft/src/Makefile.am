@@ -1,4 +1,4 @@
-include $(top_srcdir)/gnuscripts/lallibs_header_links.am
+include $(top_srcdir)/gnuscripts/lalsuite_header_links.am
 include $(top_srcdir)/gnuscripts/lalsuite_cuda.am
 
 if QTHREAD
@@ -11,7 +11,9 @@ if INTELFFT
 FFTSRC = \
 	IntelComplexFFT.c \
 	IntelRealFFT.c \
+	FFTWMutex.c \
 	$(QTHREADSRC)
+FFTHDR =
 FFTCXXSRC =
 FFTCXXGENSRC =
 FFTLIBCXX =
@@ -22,6 +24,7 @@ FFTSRC = \
 	CudaRealFFT.c \
 	FFTWMutex.c \
 	CudaFunctions.c
+FFTHDR =
 FFTCXXSRC =
 FFTCXXGENSRC = CudaFFT.cpp
 FFTLIBCXX = libfftcxx.la
@@ -30,6 +33,9 @@ FFTSRC = \
 	ComplexFFT.c \
 	RealFFT.c \
 	FFTWMutex.c
+FFTHDR = \
+	RealFFT_source.c \
+	ComplexFFT_source.c
 FFTCXXSRC =
 FFTCXXGENSRC =
 FFTLIBCXX =
@@ -46,6 +52,9 @@ libfft_la_SOURCES = \
 	Convolution.c \
 	$(FFTSRC)
 
+noinst_HEADERS = \
+	$(FFTHDR)
+
 libfft_la_LIBADD = $(FFTLIBCXX)
 libfftcxx_la_SOURCES = $(FFTCXXSRC)
 nodist_libfftcxx_la_SOURCES = $(FFTCXXGENSRC)
@@ -56,6 +65,7 @@ EXTRA_DIST = \
 	IntelRealFFT.c \
 	ComplexFFT.c \
 	RealFFT.c \
+	RealFFT_source.c \
 	FFTWMutex.c \
 	TimeFreqFFT.c \
 	CudaComplexFFT.c \

@@ -7,10 +7,8 @@ AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
   lalinference.spec \
   lalinference.pc \
-  lalinference-uninstalled.pc \
   Makefile \
   debian/Makefile \
-  bin/Makefile \
   include/Makefile \
   include/lal/Makefile \
   src/LALInferenceVCSInfo.c \
@@ -18,15 +16,18 @@ AC_CONFIG_FILES([ \
   src/Makefile \
   python/Makefile \
   python/__init__.py \
-  python/bayestar/Makefile \
   python/tiger/Makefile \
+  python/lalinference/Makefile \
+  python/lalinference/__init__.py \
+  python/lalinference/bayestar/Makefile \
   swig/Makefile \
   test/Makefile \
-  test/baseline_images/Makefile
 ])
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
 
 AC_CANONICAL_HOST
+
+LALSUITE_ARG_VAR
 
 LALSUITE_CHECK_GIT_REPO
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
@@ -83,7 +84,7 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_AWK
 AC_PROG_SED
-AM_PATH_PYTHON([2.6],,[AC_MSG_ERROR([Python-2.6, or higher, is required])])
+LALSUITE_CHECK_PYTHON([2.6])
 
 # check for supported mac os x version
 LALSUITE_OSX_VERSION_CHECK
@@ -136,7 +137,7 @@ PKG_CHECK_MODULES([GSL],[gsl],[true],[false])
 LALSUITE_ADD_FLAGS([C],[${GSL_CFLAGS}],[${GSL_LIBS}])
 AC_CHECK_LIB([gslcblas],[main],,[AC_MSG_ERROR([could not find the gsl library])])
 AC_CHECK_LIB([gsl],[gsl_version],,[AC_MSG_ERROR([could not find the gsl library])])
-LALSUITE_CHECK_GSL_VERSION([1.13])
+LALSUITE_CHECK_GSL_VERSION([1.15])
 LALSUITE_ENABLE_FAST_GSL
 
 # check for gsl headers
@@ -194,8 +195,10 @@ AS_IF(
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
 
+# link any executables against LALInference library
+AC_SUBST([LDADD], ["\$(top_builddir)/src/liblalinference.la"])
+
 # add extra preprocessor flags
-AM_CPPFLAGS="\$(TEST_CPPFLAGS) ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
 
@@ -213,6 +216,7 @@ AC_MSG_NOTICE([
 ==================================================
 LALInference has now been successfully configured:
 
+* Python support is $PYTHON_ENABLE_VAL
 * LALXML library support is $LALXML_ENABLE_VAL
 * SWIG binding generation is $SWIG_GENERATE_ENABLE_VAL
 * SWIG bindings for Octave are $SWIG_BUILD_OCTAVE_ENABLE_VAL

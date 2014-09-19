@@ -23,9 +23,10 @@ SUBDIRS = \
 	debian \
 	include \
 	src \
+	swig \
 	python \
 	test \
-	swig
+	$(END_OF_LIST)
 
 user_environment = \
 	set $(PACKAGE)_PREFIX $(prefix); \
@@ -39,8 +40,6 @@ user_environment = \
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = lalpulsar.pc
-noinst_DATA = lalpulsar-uninstalled.pc
-BUILT_SOURCES += lalpulsar-uninstalled.pc
 
 all-local:
 	@echo "";\

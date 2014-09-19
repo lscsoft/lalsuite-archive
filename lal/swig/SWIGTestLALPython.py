@@ -15,6 +15,8 @@ if hasattr(numpy, "ComplexWarning"):
 print("checking module load ...")
 import lal
 from lal import globalvar as lalglobalvar
+lal_c_si = lal.C_SI;
+lal_180_pi = lal.LAL_180_PI;
 print("PASSED module load")
 
 # check memory allocation
@@ -835,6 +837,7 @@ print("PASSED 'tm' struct conversions")
 print("checking LIGOTimeGPS operations ...")
 from lal import LIGOTimeGPS
 t0 = LIGOTimeGPS()
+assert(isinstance(LIGOTimeGPS(t0), LIGOTimeGPS))
 assert(t0 == 0 and isinstance(t0, LIGOTimeGPS))
 assert(t0 != None and not t0 is None)
 t1 = LIGOTimeGPS(10.5)
@@ -901,6 +904,7 @@ print("PASSED LIGOTimeGPS operations")
 # check LALUnit operations
 print("checking LALUnit operations ...")
 u1 = lal.Unit("kg m s^-2")
+assert(isinstance(lal.Unit(u1), lal.Unit))
 assert(u1 == lal.NewtonUnit and isinstance(u1, lal.Unit))
 assert(str(u1) == "m kg s^-2")
 u2 = lal.MeterUnit * lal.KiloGramUnit / lal.SecondUnit ** 2

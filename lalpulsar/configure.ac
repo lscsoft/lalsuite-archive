@@ -7,7 +7,6 @@ AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
   lalpulsar.spec \
   lalpulsar.pc \
-  lalpulsar-uninstalled.pc \
   Makefile \
   debian/Makefile \
   include/Makefile \
@@ -16,13 +15,16 @@ AC_CONFIG_FILES([ \
   src/LALPulsarVCSInfo.h \
   src/Makefile \
   python/Makefile \
-  python/__init__.py \
+  python/lalpulsar/Makefile \
+  python/lalpulsar/__init__.py \
   swig/Makefile \
   test/Makefile
 ])
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
 
 AC_CANONICAL_HOST
+
+LALSUITE_ARG_VAR
 
 LALSUITE_CHECK_GIT_REPO
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
@@ -81,7 +83,7 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_AWK
 AC_PROG_SED
-AM_PATH_PYTHON([2.6],,[AC_MSG_ERROR([Python-2.6, or higher, is required])])
+LALSUITE_CHECK_PYTHON([2.6])
 
 # check for supported mac os x version
 LALSUITE_OSX_VERSION_CHECK
@@ -141,8 +143,10 @@ LALSUITE_USE_SWIG
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
 
+# link any executables against LALPulsar library
+AC_SUBST([LDADD], ["\$(top_builddir)/src/liblalpulsar.la"])
+
 # add extra preprocessor flags
-AM_CPPFLAGS="\$(TEST_CPPFLAGS) ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
 
@@ -160,6 +164,7 @@ AC_MSG_NOTICE([
 ==================================================
 LALPulsar has now been successfully configured:
 
+* Python support is $PYTHON_ENABLE_VAL
 * SIMD extensions are $SIMD_ENABLE_VAL
 * LALXML library support is $LALXML_ENABLE_VAL
 * BOINC support is $BOINC_ENABLE_VAL

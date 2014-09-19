@@ -18,7 +18,7 @@
 */
 
 /**
- * \author UTB Relativity Group; contact whelan@phys.utb.edu
+ * \author UTB Relativity Group; contact john.whelan@ligo.org
  * \file
  * \ingroup StochasticOptimalFilterNormalization_c
  *
@@ -128,7 +128,7 @@
  * printf()
  * fprintf()
  * freopen()
- * fabs()
+ * fabsf()
  * \endcode
  *
  * ### Notes ###

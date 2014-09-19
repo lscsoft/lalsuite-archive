@@ -17,7 +17,7 @@ from bisect import bisect
 from pylal import date
 from pylal import CoincInspiralUtils, SnglInspiralUtils, SimInspiralUtils
 from pylal import inject
-from pylal.xlal.constants import LAL_PI_2
+from lal import PI_2 as LAL_PI_2
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS 
 from pylal.sphericalutils import angle_between_points
 

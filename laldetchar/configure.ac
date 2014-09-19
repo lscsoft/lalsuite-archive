@@ -7,7 +7,6 @@ AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
   laldetchar.spec \
   laldetchar.pc \
-  laldetchar-uninstalled.pc \
   Makefile \
   debian/Makefile \
   include/Makefile \
@@ -16,16 +15,19 @@ AC_CONFIG_FILES([ \
   src/LALDetCharVCSInfo.h \
   src/Makefile \
   python/Makefile \
-  python/__init__.py \
-  python/triggers/Makefile \
-  python/hveto/Makefile \
+  python/laldetchar/Makefile \
+  python/laldetchar/__init__.py \
+  python/laldetchar/triggers/Makefile \
+  python/laldetchar/hveto/Makefile \
+  python/laldetchar/idq/Makefile \
   swig/Makefile \
-  bin/Makefile \
   test/Makefile
 ])
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
 
 AC_CANONICAL_HOST
+
+LALSUITE_ARG_VAR
 
 LALSUITE_CHECK_GIT_REPO
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
@@ -78,7 +80,7 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_AWK
 AC_PROG_SED
-AM_PATH_PYTHON([2.6],,[AC_MSG_ERROR([Python-2.6, or higher, is required])])
+LALSUITE_CHECK_PYTHON([2.6])
 
 # check for supported mac os x version
 LALSUITE_OSX_VERSION_CHECK
@@ -109,10 +111,16 @@ LALSUITE_ADD_FLAGS([C],[${GLIB_CFLAGS}],[${GLIB_LIBS}])
 AC_CHECK_LIB([glib-2.0],[g_sequence_new],,[AC_MSG_ERROR([could not find the glib library])])
 AC_CHECK_HEADERS([glib.h],,[AC_MSG_ERROR([could not find the glib.h header])])
 
+# check for metaio
+PKG_CHECK_MODULES([METAIO],[libmetaio],[true],[false])
+LALSUITE_ADD_FLAGS([C],[${METAIO_CFLAGS}],[${METAIO_LIBS}])
+AC_CHECK_LIB([metaio],[MetaioOpen],,[AC_MSG_ERROR([could not find the metaio library])])
+
 # check for lal libraries and headers
 LALSUITE_CHECK_LIB([LAL],[6.12.0],[LALVersion],[lal/LALStdio.h])
 LALSUITE_CHECK_LIB([LALSupport],[6.12.0],[XLALCacheImport],[lal/LALCache.h])
 LALSUITE_CHECK_LIB([LALMetaIO],[1.2.0],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
+LALSUITE_CHECK_LIB([LALSimulation],[1.1.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
 LALSUITE_CHECK_LIB([LALBurst],[1.2.0],[XLALEPSearch],[lal/EPSearch.h])
 
 # configure SWIG wrapping modules
@@ -121,8 +129,10 @@ LALSUITE_USE_SWIG
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
 
+# link any executables against LALDetChar library
+AC_SUBST([LDADD], ["\$(top_builddir)/src/liblaldetchar.la"])
+
 # add extra preprocessor flags
-AM_CPPFLAGS="\$(TEST_CPPFLAGS) ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
 AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
 
@@ -140,6 +150,7 @@ AC_MSG_NOTICE([
 ==================================================
 LALDetChar has now been successfully configured:
 
+* Python support is $PYTHON_ENABLE_VAL
 * SWIG binding generation is $SWIG_GENERATE_ENABLE_VAL
 * SWIG bindings for Octave are $SWIG_BUILD_OCTAVE_ENABLE_VAL
 * SWIG bindings for Python are $SWIG_BUILD_PYTHON_ENABLE_VAL

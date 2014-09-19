@@ -1,5 +1,7 @@
-LDADD =
 BUILT_SOURCES =
+MOSTLYCLEANFILES =
+EXTRA_DIST =
+include $(top_srcdir)/gnuscripts/lalsuite_python.am
 include $(top_srcdir)/gnuscripts/lalapps.am
 
 if LALFRAME
@@ -13,7 +15,7 @@ endif
 endif
 
 if HAVE_PYTHON
-dist_bin_SCRIPTS = \
+pybin_scripts = \
 	lalapps_cosmicstring_pipe \
 	lalapps_string_cs_gamma
 pkgpython_PYTHON = cosmicstring.py
@@ -21,4 +23,4 @@ endif
 
 #pkgdata_DATA = S3_H1_StringDag.ini S3_StringDag.ini S4_StringDag.ini
 
-EXTRA_DIST = cosmicstring.py $(DATA)
+EXTRA_DIST += cosmicstring.py $(DATA)

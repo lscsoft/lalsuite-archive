@@ -31,12 +31,7 @@ Library of utility code for LIGO Light Weight XML applications.
 
 import codecs
 import gzip
-try:
-	# Python >= 2.5.0
-	from hashlib import md5
-except ImportError:
-	# Python < 2.5.0
-	from md5 import new as md5
+from hashlib import md5
 import warnings
 import os
 import urllib2
@@ -45,12 +40,19 @@ import signal
 import stat
 import sys
 
+
+# work-around for Python < 2.7.  remove when we can rely on native GzipFile
+# being usable as a context manager
+GzipFile = gzip.GzipFile
 try:
-	# Python >= 2.5.0
-	os.SEEK_SET
-except:
-	# Python < 2.5.0
-	os.SEEK_SET, os.SEEK_CUR, os.SEEK_END = range(3)
+	GzipFile.__exit__
+except AttributeError:
+	class GzipFile(gzip.GzipFile):
+		def __enter__(self):
+			return self
+		def __exit__(self, *args):
+			self.close()
+			return False
 
 
 from glue import git_version
@@ -227,14 +229,22 @@ class RewindableInputFile(object):
 	def close(self):
 		return self.fileobj.close()
 
+	def __enter__(self):
+		return self
+
+	def __exit__(self, *args):
+		self.close()
+		return False
+
 
 class MD5File(object):
-	def __init__(self, fileobj, md5obj = None):
+	def __init__(self, fileobj, md5obj = None, closable = True):
 		self.fileobj = fileobj
 		if md5obj is None:
 			self.md5obj = md5()
 		else:
 			self.md5obj = md5obj
+		self.closable = closable
 		self.pos = 0
 		# avoid attribute look-ups
 		try:
@@ -281,14 +291,25 @@ class MD5File(object):
 			# some streams that don't support seeking, like
 			# stdin, report IOError.  the things returned by
 			# urllib don't have a .tell() method at all.  fake
-			# it without our own count of bytes
+			# it with our own count of bytes
 			return self.pos
 
 	def flush(self):
 		return self.fileobj.flush()
 
 	def close(self):
-		return self.fileobj.close()
+		if self.closable:
+			return self.fileobj.close()
+		else:
+			# at least make sure we're flushed
+			self.flush()
+
+	def __enter__(self):
+		return self
+
+	def __exit__(self, *args):
+		self.close()
+		return False
 
 
 def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
@@ -331,11 +352,11 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 	"""
 	fileobj = MD5File(fileobj)
 	md5obj = fileobj.md5obj
-	if gz != False:
+	if gz or gz is None:
 		fileobj = RewindableInputFile(fileobj)
 		magic = fileobj.read(2)
 		fileobj.seek(0, os.SEEK_SET)
-		if gz == True or magic == '\037\213':
+		if gz or magic == '\037\213':
 			fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
@@ -442,14 +463,11 @@ def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = (signal.SIGTERM, s
 			signal.signal(sig, newsigterm)
 
 	# write the document
-	fileobj = MD5File(fileobj)
-	md5obj = fileobj.md5obj
-	if gz:
-		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
-	fileobj = codecs.EncodedFile(fileobj, "unicode_internal", "utf_8")
-	xmldoc.write(fileobj, **kwargs)
-	fileobj.flush()
-	del fileobj
+	with MD5File(fileobj, closable = False) as fileobj:
+		md5obj = fileobj.md5obj
+		with fileobj if not gz else GzipFile(mode = "wb", fileobj = fileobj) as fileobj:
+			with codecs.getwriter("utf_8")(fileobj) as fileobj:
+				xmldoc.write(fileobj, **kwargs)
 
 	# restore original handlers, and send outselves any trapped signals
 	# in order
@@ -485,7 +503,8 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, **kwargs):
 	else:
 		fileobj = sys.stdout
 	hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, **kwargs)
-	fileobj.close()
+	if not fileobj is sys.stdout:
+		fileobj.close()
 	if verbose:
 		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, (filename if filename is not None else ""))
 

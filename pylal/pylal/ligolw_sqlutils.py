@@ -1156,7 +1156,7 @@ def simplify_summ_tbls(connection, verbose=False, debug=False):
     cursor = connection.cursor()
 
     # check for duplicate entries from the process tbl
-    old_pids = get_pids_to_update(cursor, ['inspiral','ringdown'])
+    old_pids = get_pids_to_update(cursor, ['inspiral','ringdown', 'gstlal_inspiral'])
 
     # check that at least one table in table_names is in the database
     all_tables = zip(*get_tables_in_database(connection))[0]
@@ -1211,7 +1211,7 @@ def simplify_summ_tbls(connection, verbose=False, debug=False):
             print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
-        # commit transactions to database and close the cursor
+        # commit transactions to database
         connection.commit()
 
         if debug:
@@ -1287,7 +1287,7 @@ def update_pid_in_snglstbls(connection, verbose=False, debug=False):
             print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
-        # commit transactions to database and close the cursor
+        # commit transactions to database
         connection.commit()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
@@ -1364,6 +1364,17 @@ def simplify_proc_tbls(connection, verbose=False, debug=False):
             print >> sys.stderr, "Indexes readded at: %s" % str(time.localtime()[3:6])
 
     else:
+        sqlscript = """
+        DROP INDEX _pidmap_idx;
+        DROP TABLE _pidmap_; """
+        if debug:
+            print >> sys.stderr, sqlscript
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
+        # execute SQL script
+        cursor.executescript( sqlscript )
+        # commit transactions to database and close the cursor
+        connection.commit()
+
         if verbose:
             print >> sys.stdout, "The process & process_params tables lack duplicates."
     cursor.close()
@@ -1546,7 +1557,6 @@ def simplify_expr_tbl(connection, verbose=False, debug=False):
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
-        cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
 
@@ -1669,7 +1679,6 @@ def simplify_exprsumm_tbl(connection, verbose=False, debug=False):
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
-        cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
 
@@ -2076,7 +2085,6 @@ def simplify_coincdef_tbl(connection, verbose=False, debug=False):
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
-        cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
 
@@ -2461,7 +2469,7 @@ def simplify_sim_tbls(connection, verbose=False, debug=False):
     cursor = connection.cursor()
 
     # check for duplicate entries from the process tbl
-    old_pids = get_pids_to_update(cursor, ['inspinj','rinj'])
+    old_pids = get_pids_to_update(cursor, ['inspinj','rinj','gstlal_injections_by_local_rate'])
 
     # check whether there is a simulation table in the database
     all_tables = zip(*get_tables_in_database(connection))[0]
@@ -2673,9 +2681,8 @@ def simplify_segments_tbls(connection, verbose=False, debug=False):
             print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
-        # commit transactions to database and close the cursor
+        # commit transactions to database
         connection.commit()
-        cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
 
@@ -2686,6 +2693,8 @@ def simplify_segments_tbls(connection, verbose=False, debug=False):
 
         if debug:
             print >> sys.stderr, "Indexes readded at: %s" % str(time.localtime()[3:6])
+
+        cursor.close()
 
     else:
         if verbose:
@@ -2773,11 +2782,8 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
     # create the cursor object used to execute queries and commands
     cursor = connection.cursor()
 
-    # check for duplicate time_slide entries from the process tbl
-    old_pids = get_pids_to_update(cursor, ['ligolw_tisi','pycbc_timeslides'])
-
     all_tables = zip(*get_tables_in_database(connection))[0]
-    if old_pids and 'time_slide' in all_tables:
+    if 'time_slide' in all_tables:
         if verbose:
             print >> sys.stdout, "\nClean up the time_slide table ..."
 
@@ -2823,16 +2829,15 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
         
         -- Delete the redundant entries in the time_slide table
         DELETE FROM time_slide 
-            WHERE process_id NOT IN (
-                SELECT DISTINCT new_pid 
-                FROM _pidmap_ 
-                WHERE program IN ('ligolw_tisi','pycbc_timeslides'));
+            WHERE time_slide_id NOT IN (
+                SELECT DISTINCT new_tsid 
+                FROM _tsidmap_);
 
         UPDATE time_slide
-            SET time_slide_id = (
-                SELECT new_tsid 
-                FROM _tsidmap_
-                WHERE old_tsid = time_slide_id);
+            SET process_id = (
+                SELECT new_pid 
+                FROM _pidmap_
+                WHERE old_pid = process_id);
         """
 
         # if a coinc_event table exists, update its time_slide_id column
@@ -2959,9 +2964,8 @@ def simplify_vetodef_tbl(connection, verbose=False, debug=False):
             print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
-        # commit transactions to database and close the cursor
+        # commit transactions to database
         connection.commit()
-        cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
 
@@ -2972,6 +2976,8 @@ def simplify_vetodef_tbl(connection, verbose=False, debug=False):
 
         if debug:
             print >> sys.stderr, "Indexes readded at: %s" % str(time.localtime()[3:6])
+
+        cursor.close()
 
     else:
         if verbose:
