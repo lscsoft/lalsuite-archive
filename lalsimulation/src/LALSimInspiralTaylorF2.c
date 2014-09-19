@@ -98,7 +98,7 @@ int XLALSimInspiralTaylorF2(
         const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
         const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
         const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
-        const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
+        LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
         const INT4 phaseO,                     /**< twice PN phase order */
         const INT4 amplitudeO                  /**< twice PN amplitude order */
         )
