@@ -111,11 +111,11 @@ struct fvec *virgo_interp;
 enum population {
 	POPULATION_TARGETED,
 	POPULATION_ALL_SKY_SINEGAUSSIAN,
-    POPULATION_ALL_SKY_GAUSSIAN,
+  POPULATION_ALL_SKY_GAUSSIAN,
 	POPULATION_ALL_SKY_SINEGAUSSIAN_F,
 	POPULATION_ALL_SKY_BTLWNB,
 	POPULATION_STRING_CUSP,
-        POPULATION_ALL_SKY_DAMPEDSINUSOID
+  POPULATION_ALL_SKY_DAMPEDSINUSOID
 };
 
 typedef enum tagParDistr {
@@ -140,7 +140,7 @@ static int parse_distr(char* opt){
 		return 3;
 	else if( strstr(opt,"gaussian"))
 		return 4;
-return 0;
+  return 0;
 
 }
 
@@ -575,10 +575,10 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 			options.population = POPULATION_ALL_SKY_SINEGAUSSIAN_F;
 		else if(!strcmp(optarg, "all_sky_sinegaussian"))
 			options.population = POPULATION_ALL_SKY_SINEGAUSSIAN;
-        else if(!strcmp(optarg, "all_sky_gaussian"))
+    else if(!strcmp(optarg, "all_sky_gaussian"))
 			options.population = POPULATION_ALL_SKY_GAUSSIAN;
-                else if(!strcmp(optarg, "all_sky_DampedSinusoid"))
-                       options.population = POPULATION_ALL_SKY_DAMPEDSINUSOID;
+    else if(!strcmp(optarg, "all_sky_DampedSinusoid"))
+      options.population = POPULATION_ALL_SKY_DAMPEDSINUSOID;
 		else if(!strcmp(optarg, "all_sky_btlwnb"))
 			options.population = POPULATION_ALL_SKY_BTLWNB;
 		else {
@@ -619,25 +619,25 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 		break;
 
 	case 'U':
-		{
-			char *end;
-			options.ra = strtod(optarg, &end);
-			while(isspace(*end))
-				end++;
-			if(*end != ',') {
-				fprintf(stderr, "error: cannot parse --ra-dec \"%s\"\n", optarg);
-				exit(1);
-			}
-			options.dec = strtod(end + 1, &end);
-			while(isspace(*end))
-				end++;
-			if(*end != '\0') {
-				fprintf(stderr, "error: cannot parse --ra-dec \"%s\"\n", optarg);
-				exit(1);
-			}
-		}
-		ADD_PROCESS_PARAM(process, "lstring");
-		break;
+    {
+      char *end;
+      options.ra = strtod(optarg, &end);
+      while(isspace(*end))
+        end++;
+      if(*end != ',') {
+        fprintf(stderr, "error: cannot parse --ra-dec \"%s\"\n", optarg);
+        exit(1);
+      }
+      options.dec = strtod(end + 1, &end);
+      while(isspace(*end))
+        end++;
+      if(*end != '\0') {
+        fprintf(stderr, "error: cannot parse --ra-dec \"%s\"\n", optarg);
+        exit(1);
+      }
+    }
+    ADD_PROCESS_PARAM(process, "lstring");
+    break;
 
 	case 'V':
 		options.output = optarg;
@@ -718,35 +718,35 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 		break;
 	case 1720:
 		optarg_len = strlen( optarg ) + 1;
-        snr_ifos       = calloc( 1, optarg_len * sizeof(char) );
-        memcpy( snr_ifos, optarg, optarg_len * sizeof(char) );
-        break;
+    snr_ifos       = calloc( 1, optarg_len * sizeof(char) );
+    memcpy( snr_ifos, optarg, optarg_len * sizeof(char) );
+    break;
 	case 1721:
 		ligoStartFreq = (REAL8) atof( optarg );
 		break;
 	case 1722:
 		optarg_len      = strlen( optarg ) + 1;
-        ligoFakePsd = calloc( 1, optarg_len * sizeof(char) );
-        memcpy( ligoFakePsd, optarg, optarg_len * sizeof(char) );
-        break;
-	case 1724:
+    ligoFakePsd = calloc( 1, optarg_len * sizeof(char) );
+    memcpy( ligoFakePsd, optarg, optarg_len * sizeof(char) );
+    break;
+  case 1724:
 		virgoStartFreq = (REAL8) atof( optarg );
 		break;
 	case 1723:
 		optarg_len      = strlen( optarg ) + 1;
-        virgoFakePsd = calloc( 1, optarg_len * sizeof(char) );
-        memcpy( virgoFakePsd, optarg, optarg_len * sizeof(char) );
-        break;
+    virgoFakePsd = calloc( 1, optarg_len * sizeof(char) );
+    memcpy( virgoFakePsd, optarg, optarg_len * sizeof(char) );
+    break;
 	case 1725:
-		 optarg_len      = strlen( optarg ) + 1;
-        ligoPsdFileName = calloc( 1, optarg_len * sizeof(char) );
-        memcpy( ligoPsdFileName, optarg, optarg_len * sizeof(char) );
-        break;
+    optarg_len      = strlen( optarg ) + 1;
+    ligoPsdFileName = calloc( 1, optarg_len * sizeof(char) );
+    memcpy( ligoPsdFileName, optarg, optarg_len * sizeof(char) );
+    break;
 	case 1726:
 		optarg_len       = strlen( optarg ) + 1;
-        virgoPsdFileName = calloc( 1, optarg_len * sizeof(char) );
-        memcpy( virgoPsdFileName, optarg, optarg_len * sizeof(char) );
-        break;
+    virgoPsdFileName = calloc( 1, optarg_len * sizeof(char) );
+    memcpy( virgoPsdFileName, optarg, optarg_len * sizeof(char) );
+    break;
   case 1731:
 		options.minpolea= (REAL8) atof( optarg );
 		ADD_PROCESS_PARAM(process, "real_8");
@@ -1933,8 +1933,8 @@ int main(int argc, char *argv[])
 
 		case POPULATION_ALL_SKY_SINEGAUSSIAN:
 		case POPULATION_ALL_SKY_SINEGAUSSIAN_F:
-                case POPULATION_ALL_SKY_GAUSSIAN:
-                case POPULATION_ALL_SKY_DAMPEDSINUSOID:
+    case POPULATION_ALL_SKY_GAUSSIAN:
+    case POPULATION_ALL_SKY_DAMPEDSINUSOID:
 			*sim_burst = random_all_sky_sineGaussian(rng, &options,tinj);
 			break;
 
@@ -2127,10 +2127,10 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 	const CHAR *WF=inj->waveform;
 
 	if(!strcmp(WF,"SineGaussianF")||!strcmp(WF,"GaussianF"))
-			modelDomain=LAL_SIM_BURST_DOMAIN_FREQUENCY;
+    modelDomain=LAL_SIM_BURST_DOMAIN_FREQUENCY;
 			
 	else if (!strcmp(WF,"SineGaussian") ||!strcmp(WF,"Gaussian") ||!strcmp(WF,"DampedSinusoid"))
-            modelDomain=LAL_SIM_BURST_DOMAIN_TIME;
+    modelDomain=LAL_SIM_BURST_DOMAIN_TIME;
 			
     LIGOTimeGPS		    epoch;  
     
