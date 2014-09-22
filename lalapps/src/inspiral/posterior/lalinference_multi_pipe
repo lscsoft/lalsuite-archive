@@ -1,0 +1,8 @@
+#!/bin/sh
+pypath="/home/svitale/lalsuites/lalinference_tiger_tagged/src/lalapps/src/inspiral/posterior:/home/svitale/lalsuites/lalinference_tiger_tagged/src/lalapps/src/inspiral/posterior:/home/svitale/lalsuites/lalinference_tiger_tagged/opt/lib64/python2.7/site-packages"
+pyscript="/home/svitale/lalsuites/lalinference_tiger_tagged/src/lalapps/src/inspiral/posterior/lalinference_multi_pipe.py"
+PYTHONPATH=`echo "${PYTHONPATH}" | /usr/bin/sed -e "s|${pypath}:||g;"`
+PYTHONPATH="${pypath}:${PYTHONPATH}"
+export PYTHONPATH
+exec /usr/bin/python "${pyscript}" "$@"
+exit 1
