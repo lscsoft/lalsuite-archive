@@ -15,7 +15,6 @@ AC_CONFIG_FILES([ \
   src/LALInferenceVCSInfo.h \
   src/Makefile \
   python/Makefile \
-  python/__init__.py \
   python/tiger/Makefile \
   python/lalinference/Makefile \
   python/lalinference/__init__.py \
