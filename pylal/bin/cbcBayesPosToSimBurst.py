@@ -200,7 +200,7 @@ if __name__ == "__main__":
     for i,row in enumerate(sim_table):
         row.process_id = ilwd.ilwdchar("process:process_id:{0:d}".format(i))
         row.simulation_id = ilwd.ilwdchar("sim_burst:simulation_id:{0:d}".format(ids[i]))
-        row.time_slide_id = ilwd.ilwdchar("time_slide:time_slide_id:{0:d}".format(ids[i]))
+        row.time_slide_id = ilwd.ilwdchar("time_slide:time_slide_id:{0:d}".format(0))
     # Fill rows
     for field in injections.dtype.names:
         vals = injections[field]

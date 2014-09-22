@@ -823,6 +823,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     respagenode.set_snr_file(enginenodes[0].get_snr_file())
     if self.config.has_option('input','injection-file') and event.event_id is not None:
         respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
+    if self.config.has_option('input','burst-injection-file') and event.event_id is not None:
+        respagenode.set_injection(self.config.get('input','burst-injection-file'),event.event_id)
     if event.GID is not None:
         self.add_gracedb_log_node(respagenode,event.GID)
     return True
@@ -1079,9 +1081,9 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
 	    node.add_var_arg('--'+opt+' '+extra_options[opt])
     # Add control options
     if self.config.has_option('input','injection-file'):
-       prenode.set_injection(self.config.get('input','injection-file'),event.event_id)
+       node.set_injection(self.config.get('input','injection-file'),event.event_id)
     if self.config.has_option('input','burst-injection-file'):
-       prenode.set_injection(self.config.get('input','burst-injection-file'),event.event_id)
+       node.set_injection(self.config.get('input','burst-injection-file'),event.event_id)
     if self.config.has_option('lalinference','seglen'):
       node.set_seglen(self.config.getfloat('lalinference','seglen'))
     elif  self.config.has_option('engine','seglen'):

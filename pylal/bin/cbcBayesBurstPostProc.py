@@ -1201,6 +1201,7 @@ if __name__=='__main__':
     parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
     parser.add_option("--email",action="store",default=None,type="string",metavar="user@ligo.org",help="Send an e-mail to the given address with a link to the finished page.")
     parser.add_option("--stats_only",action="store_true",default=False,dest="stats_only")
+    parser.add_option("--archive",action="store",default=None,type="string",metavar="results.tar.gz",help="Create the given tarball with all results")
     (opts,args)=parser.parse_args()
 
     datafiles=[]
@@ -1306,7 +1307,9 @@ if __name__=='__main__':
                         header=opts.header,
                         statsonly=opts.stats_only
                     )
-
+    if opts.archive is not None:
+        import subprocess
+        subprocess.call(["tar","cvzf",opts.archive,opts.outpath])
     # Send an email, useful for keeping track of dozens of jobs!
     # Will only work if the local host runs a mail daemon
     # that can send mail to the internet
