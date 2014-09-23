@@ -2479,10 +2479,11 @@ int XLALSimInspiralChooseFDWaveform(
                 ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
             /* Call the waveform driver routine */
             ret = XLALSimInspiralTaylorF2Test(hptilde, phiRef, deltaF, m1, m2,
-                    S1z, S2z, f_min, f_max, r, lambda1, lambda2,
-                    XLALSimInspiralGetSpinOrder(waveFlags),
-                    XLALSimInspiralGetTidalOrder(waveFlags),
-                    phaseO, amplitudeO,nonGRparams);
+                                              S1z, S2z, f_min, f_max, f_ref, r,
+                                              quadparam1, quadparam2, lambda1, lambda2,
+                                              XLALSimInspiralGetSpinOrder(waveFlags),
+                                              XLALSimInspiralGetTidalOrder(waveFlags),
+                                              phaseO, amplitudeO,nonGRparams);
 	    /* The above returns h(f) for optimal orientation (i=0, Fp=1, Fc=0)
 	     * To get generic polarizations we multiply by incl. dependence
 	     * and note hc(f) \propto I * hp(f)
