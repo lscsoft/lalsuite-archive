@@ -378,6 +378,7 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
     REAL8 polarization=0.0;
     REAL8 injtime=0.0;
     REAL8 longitude;
+    REAL8 WinNorm = sqrt(tmpdata->window->sumofsquares/tmpdata->window->data->length);
     BurstApproximant approx = XLALGetBurstApproximantFromString(inj_table->waveform);
     tmpdata->modelParams=XLALCalloc(1,sizeof(LALInferenceVariables));
     modelParams=tmpdata->modelParams;
@@ -518,8 +519,8 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
         /* real & imag parts of  exp(-2*pi*i*f*deltaT): */
         re = cos(twopit * f);
         im = - sin(twopit * f);
-        templateReal = (plainTemplateReal*re - plainTemplateImag*im);
-        templateImag = (plainTemplateReal*im + plainTemplateImag*re);
+        templateReal = (plainTemplateReal*re - plainTemplateImag*im)/WinNorm;
+        templateImag = (plainTemplateReal*im + plainTemplateImag*re)/WinNorm;
         freqTemplate->data->data[i]=crect(templateReal,templateImag);
         dataPtr->freqData->data->data[i]+=crect(templateReal,templateImag);
         temp = ((2.0/( deltaT*(double) dataPtr->timeData->data->length) * (templateReal*templateReal+templateImag*templateImag)) / dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);

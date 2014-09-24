@@ -3235,7 +3235,7 @@ REAL8 LALInferenceSineGaussianPrior(LALInferenceRunState *runState, LALInference
   /*Use a distribution uniform in space volume */
   if(LALInferenceCheckVariable(params,"loghrss"))
     logPrior+=-3.0* *(REAL8 *)LALInferenceGetVariable(params,"loghrss");
-  if(LALInferenceCheckVariable(params,"hrss"))
+  else if(LALInferenceCheckVariable(params,"hrss"))
     logPrior+=-4.0* log(*(REAL8 *)LALInferenceGetVariable(params,"hrss"));
   if(LALInferenceCheckVariable(params,"declination"))
     logPrior+=log(fabs(cos(*(REAL8 *)LALInferenceGetVariable(params,"declination"))));
