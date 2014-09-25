@@ -987,25 +987,38 @@ class CoincSynthesizer(object):
 		# also mutually coincident.  this is done by picking a
 		# vector of allowed \Delta ts and testing them against the
 		# coincidence windows.  the loop's exit criterion is
-		# arrived at as follows.  the binomial distribution's
-		# variance is d p (1 - p) where d is the number of trials
-		# and p is the probability of a successful outcome, which
-		# we replace here with p=n/d.  we quit when \sqrt{d p (1 -
-		# p)} / n <= rel accuracy.  by connecting the bailout
-		# condition to the results of the loop we bias the final
-		# answer (e.g., we get lucky and increment n on the first
-		# trial).  to minimize the effect of this we require at
-		# least 1 / rel accuracy iterations before considering the
-		# binomial criterion.  note that if the true probability is
-		# 0 or 1, so that n=0 or n=d identically then the loop will
-		# never terminate;  from the nature of the problem we know
-		# 0<p<1 so the loop will, eventually, terminate
+		# arrived at as follows.  after d trials, the number of
+		# successful outcomes is a binomially-distributed RV with
+		# variance = d p (1 - p) <= d/4 where p is the probability
+		# of a successful outcome.  we quit when the ratio of the
+		# bound on the standard deviation of the number of
+		# successful outcomes to the actual number of successful
+		# outcomes falls below rel accuracy: \sqrt{d/4} / n < rel
+		# accuracy.  note that if the true probability is 0, so
+		# that n=0 identically, then the loop will never terminate;
+		# from the nature of the problem we know 0<p<1 so the loop
+		# will, eventually, terminate.  note that if instead of
+		# using the upper bound on the variance, we replace p with
+		# (n/d) and use that estimate of the variance the loop can
+		# be shown to require many fewer iterations to meet the
+		# desired accuracy, but that choice creates a rather strong
+		# bias that, to overcome, requires some extra hacks to
+		# force the loop to run for additional iterations.  this
+		# approach is cleaner.
+					math_sqrt = math.sqrt
+					random_uniform = random.uniform
+					epsilon = self.abundance_rel_accuracy
 					n, d = 0, 0
-					while self.abundance_rel_accuracy * d < 1.0 or n < d / (1.0 + self.abundance_rel_accuracy**2 * d):
-						dt = tuple(random.uniform(*window) for window in windows)
+					while math_sqrt(d) >= epsilon * n:
+						dt = tuple(random_uniform(*window) for window in windows)
 						if all(abs(dt[i] - dt[j]) <= maxdt for i, j, maxdt in ijseq):
-							n += 1
+		# instead of adding 1 here and multiplying n by 2 in the
+		# loop exit test, we increment n by 2 and then fix it
+		# afterwards.
+							n += 2
 						d += 1
+		# fix n (see above)
+					n //= 2
 
 					rate *= float(n) / float(d)
 					if self.verbose:
