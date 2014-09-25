@@ -75,6 +75,8 @@ const char *const differentialEvolutionExtrinsicName = "DifferentialEvolutionExt
 const char *const ensembleStretchFullName = "EnsembleStretchFull";
 const char *const ensembleStretchIntrinsicName = "EnsembleStretchIntrinsic";
 const char *const ensembleStretchExtrinsicName = "EnsembleStretchExtrinsic";
+const char *const BurstEnsembleStretchIntrinsicName = "BurstEnsembleStretchIntrinsic";
+const char *const BurstEnsembleStretchExtrinsicName = "BurstEnsembleStretchExtrinsic";
 const char *const drawApproxPriorName = "DrawApproxPrior";
 const char *const skyReflectDetPlaneName = "SkyReflectDetPlane";
 const char *const skyRingProposalName = "SkyRingProposal";
@@ -98,6 +100,8 @@ const char *const BurstChangeSkyRingProposalName="BurstChangeRingJump";
 const char *const ensembleWalkFullName = "EnsembleWalkFull";
 const char *const ensembleWalkIntrinsicName = "EnsembleWalkIntrinsic";
 const char *const ensembleWalkExtrinsicName = "EnsembleWalkExtrinsic";
+const char *const BurstEnsembleWalkIntrinsicName = "BurstEnsembleWalkIntrinsic";
+const char *const BurstEnsembleWalkExtrinsicName = "BurstEnsembleWalkExtrinsic";
 static int
 same_detector_location(LALInferenceIFOData *d1, LALInferenceIFOData *d2) {
   UINT4 i;
@@ -945,6 +949,29 @@ void LALInferenceEnsembleStretchExtrinsic(LALInferenceRunState *runState, LALInf
     LALInferenceEnsembleStretchNames(runState, pp, names);
 }
 
+void LALInferenceBurstEnsembleStretchIntrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp) {
+  const char *propName = BurstEnsembleStretchIntrinsicName;
+  LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
+  const char *names[] = {"frequency", "Q", "duration","alpha", NULL};
+    LALInferenceEnsembleStretchNames(runState, pp, names);
+}
+
+void LALInferenceBurstEnsembleStretchExtrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp) {
+  const char *propName = BurstEnsembleStretchExtrinsicName;
+  LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
+
+  const char *names[] = {"rightascension", "declination", "polarisation", "hrss", "loghrss", "phase", "time", NULL};
+  const char *marg_time_names[] = {"rightascension", "declination", "polarisation", "hrss", "loghrss", "phase", NULL};
+  const char *marg_time_phase_names[] = {"rightascension", "declination", "polarisation", "hrss", "loghrss", NULL};
+
+  if (LALInferenceGetProcParamVal(runState->commandLine, "--margtimephi"))
+    LALInferenceEnsembleStretchNames(runState, pp, marg_time_phase_names);
+  else if (LALInferenceGetProcParamVal(runState->commandLine, "--margtime"))
+    LALInferenceEnsembleStretchNames(runState, pp, marg_time_names);
+  else
+    LALInferenceEnsembleStretchNames(runState, pp, names);
+}
+
 /* This jump uses the current sample 'A' and another randomly
  * drawn 'B' from the ensemble of live points, and proposes
  * C = B+Z(A-B) where Z is a scale factor */
@@ -1061,6 +1088,28 @@ void LALInferenceEnsembleWalkExtrinsic(LALInferenceRunState *runState, LALInfere
     LALInferenceEnsembleWalkNames(runState, pp, names);
 }
 
+void LALInferenceBurstEnsembleWalkIntrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp) {
+  const char *propName = BurstEnsembleWalkIntrinsicName;
+  LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
+  const char *names[] = {"frequency", "Q", "duration","alpha", NULL};
+    LALInferenceEnsembleWalkNames(runState, pp, names);
+}
+
+void LALInferenceBurstEnsembleWalkExtrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp) {
+  const char *propName = BurstEnsembleWalkExtrinsicName;
+  LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
+
+  const char *names[] = {"rightascension", "declination", "polarisation", "hrss", "loghrss", "phase", "time", NULL};
+  const char *marg_time_names[] = {"rightascension", "declination", "polarisation", "hrss", "loghrss", "phase", NULL};
+  const char *marg_time_phase_names[] = {"rightascension", "declination", "polarisation", "hrss", "loghrss", NULL};
+
+  if (LALInferenceGetProcParamVal(runState->commandLine, "--margtimephi"))
+    LALInferenceEnsembleWalkNames(runState, pp, marg_time_phase_names);
+  else if (LALInferenceGetProcParamVal(runState->commandLine, "--margtime"))
+    LALInferenceEnsembleWalkNames(runState, pp, marg_time_names);
+  else
+    LALInferenceEnsembleWalkNames(runState, pp, names);
+}
 
 void LALInferenceEnsembleWalkNames(LALInferenceRunState *runState,
                                             LALInferenceVariables *proposedParams,
@@ -3503,9 +3552,10 @@ void LALInferenceSetupSineGaussianProposal(LALInferenceRunState *runState, LALIn
     LALInferenceAddProposalToCycle(runState, singleAdaptProposalName, &LALInferenceSingleAdaptProposal, TINYWEIGHT);
   }
 
+  /*
   if(!LALInferenceGetProcParamVal(runState->commandLine,"--margphi") && !LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-psiphi") && !LALInferenceGetProcParamVal(runState->commandLine, "--margtimephi")&& LALInferenceCheckVariable(runState->currentParams, "phase") && LALInferenceCheckVariable(runState->currentParams, "polarisation"))
     LALInferenceAddProposalToCycle(runState, polarizationPhaseJumpName, &LALInferencePolarizationPhaseJump, TINYWEIGHT);
-
+  */
   if (fullProp) {
     if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-skywander"))
     {   /* If there are not 3 detectors, the other sky jumps are not used, so increase the % of wandering jumps */
@@ -3515,7 +3565,8 @@ void LALInferenceSetupSineGaussianProposal(LALInferenceRunState *runState, LALIn
     if (nDet >= 3 && !LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-skyreflect") ) {
       LALInferenceAddProposalToCycle(runState, skyReflectDetPlaneName, &LALInferenceSkyReflectDetPlane, TINYWEIGHT);
     }
-    if (nDet>=2 && !LALInferenceGetProcParamVal(runState->commandLine,"--noProposalSkyRing")) {
+    /* Don't use sky ring by default as it is not balanced*/
+    if (nDet>=2 && LALInferenceGetProcParamVal(runState->commandLine,"--ProposalSkyRing")) {
       LALInferenceAddProposalToCycle(runState, BurstskyRingProposalName, &LALInferenceBurstSkyRingProposal, SMALLWEIGHT);
     }
     if(LALInferenceGetProcParamVal(runState->commandLine,"--proposal-drawprior"))
@@ -3523,7 +3574,7 @@ void LALInferenceSetupSineGaussianProposal(LALInferenceRunState *runState, LALIn
 
     if(!LALInferenceGetProcParamVal(runState->commandLine,"--margphi") && !LALInferenceGetProcParamVal(runState->commandLine, "--margtimephi"))
         if(LALInferenceCheckVariableNonFixed(proposedParams,"phase")&& LALInferenceCheckVariable(runState->currentParams, "phase")) {
-          LALInferenceAddProposalToCycle(runState, orbitalPhaseJumpName, &LALInferenceOrbitalPhaseJump, TINYWEIGHT);
+          //LALInferenceAddProposalToCycle(runState, orbitalPhaseJumpName, &LALInferenceOrbitalPhaseJump, TINYWEIGHT);
           if (!LALInferenceGetProcParamVal(runState->commandLine,"--noProposalCorrPsiPhi")&&  LALInferenceCheckVariable(runState->currentParams, "polarisation"))
             LALInferenceAddProposalToCycle(runState, polarizationCorrPhaseJumpName, &LALInferenceCorrPolarizationPhaseJump, SMALLWEIGHT);
         }
@@ -3532,6 +3583,15 @@ void LALInferenceSetupSineGaussianProposal(LALInferenceRunState *runState, LALIn
   /* Now add various special proposals that are conditional on
      command-line arguments or variables in the params. */
 
+  /* Use ensemble moves unless turned off */
+  if (!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-ensemble")) {
+    LALInferenceAddProposalToCycle(runState, ensembleStretchFullName, &LALInferenceEnsembleStretchFull, BIGWEIGHT);
+    LALInferenceAddProposalToCycle(runState, ensembleStretchIntrinsicName, &LALInferenceEnsembleStretchIntrinsic, SMALLWEIGHT);
+    LALInferenceAddProposalToCycle(runState, ensembleStretchExtrinsicName, &LALInferenceEnsembleStretchExtrinsic, SMALLWEIGHT);
+    LALInferenceAddProposalToCycle(runState, ensembleWalkFullName, &LALInferenceEnsembleWalkFull, BIGWEIGHT);
+    LALInferenceAddProposalToCycle(runState, ensembleWalkIntrinsicName, &LALInferenceEnsembleWalkIntrinsic, SMALLWEIGHT);
+    LALInferenceAddProposalToCycle(runState, ensembleWalkExtrinsicName, &LALInferenceEnsembleWalkExtrinsic, SMALLWEIGHT);
+  }
 
   /* Always use the covariance method */
     LALInferenceAddProposalToCycle(runState, covarianceEigenvectorJumpName, &LALInferenceCovarianceEigenvectorJump, BIGWEIGHT);

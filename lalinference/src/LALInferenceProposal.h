@@ -326,6 +326,10 @@ void LALInferenceEnsembleWalkFull(LALInferenceRunState *runState, LALInferenceVa
 void LALInferenceEnsembleWalkIntrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp);
 void LALInferenceEnsembleWalkExtrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp);
 void LALInferenceEnsembleWalkNames(LALInferenceRunState *runState, LALInferenceVariables *ppi, const char **names);
+void LALInferenceBurstEnsembleStretchIntrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp);
+void LALInferenceBurstEnsembleStretchExtrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp);
+void LALInferenceBurstEnsembleWalkIntrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp);
+void LALInferenceBurstEnsembleWalkExtrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp);
 /*@}*/
 
 #endif
