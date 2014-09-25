@@ -298,7 +298,7 @@ REAL8 fLow2fStart(REAL8 fLow, INT4 ampOrder, INT4 approximant)
 /*  sufficiently low.                                     */
 {
   if (ampOrder == -1) {
-      if (approximant == SpinTaylorT2 || approximant == SpinTaylorT4)
+      if (approximant == SpinTaylorT2 || approximant == SpinTaylorT4 || approximant == SpinTaylorT4Test)
           ampOrder = MAX_PRECESSING_AMP_PN_ORDER;
       else
           ampOrder = MAX_NONPRECESSING_AMP_PN_ORDER;

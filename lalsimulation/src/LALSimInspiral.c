@@ -386,6 +386,7 @@ double XLALSimInspiralGetFinalFreq(
         /* Spinning inspiral-only time domain */
         case SpinTaylorT2:
         case SpinTaylorT4:
+        case SpinTaylorT4Test:
         case PhenSpinTaylor:
         /* Spinning with ringdown attachment */
         case PhenSpinTaylorRD:
@@ -2232,6 +2233,35 @@ int XLALSimInspiralChooseTDWaveform(
                     XLALSimInspiralGetTidalOrder(waveFlags),
                     phaseO, amplitudeO);
             break;
+        case SpinTaylorT4Test:
+            /* Waveform-specific sanity checks */
+            /* Sanity check unused fields of waveFlags */
+            if( !XLALSimInspiralFrameAxisIsDefault(
+                                                   XLALSimInspiralGetFrameAxis(waveFlags) ) )
+            ABORT_NONDEFAULT_FRAME_AXIS(waveFlags);
+            if( !XLALSimInspiralModesChoiceIsDefault(
+                                                     XLALSimInspiralGetModesChoice(waveFlags) ) )
+            ABORT_NONDEFAULT_MODES_CHOICE(waveFlags);
+            LNhatx = sin(i);
+            LNhaty = 0.;
+            LNhatz = cos(i);
+            E1x = cos(i);
+            E1y = 0.;
+            E1z = - sin(i);
+            /* Maximum PN amplitude order for precessing waveforms is
+             * MAX_PRECESSING_AMP_PN_ORDER */
+            amplitudeO = amplitudeO <= MAX_PRECESSING_AMP_PN_ORDER ?
+            amplitudeO : MAX_PRECESSING_AMP_PN_ORDER;
+            /* Call the waveform driver routine */
+            ret = XLALSimInspiralSpinTaylorT4Test(hplus, hcross, phiRef, v0, deltaT,
+                                              m1, m2, f_min, f_ref, r, S1x, S1y, S1z, S2x, S2y, S2z,
+                                              LNhatx, LNhaty, LNhatz, E1x, E1y, E1z, lambda1, lambda2,
+                                              quadparam1, quadparam2,
+                                              XLALSimInspiralGetSpinOrder(waveFlags),
+                                              XLALSimInspiralGetTidalOrder(waveFlags),
+                                              phaseO, amplitudeO, nonGRparams);
+            printf("done with the wf!\n");
+            break;
         case SpinDominatedWf:
                 // waveform specific sanity checks
                 if (S2x != 0. || S2y != 0. || S2z != 0.){
@@ -2466,7 +2496,7 @@ int XLALSimInspiralChooseFDWaveform(
                 (*hptilde)->data->data[j] *= pfac;
             }
             break;
-        /* non-spinning inspiral-only models plus GR testing parameters */
+        /* spinning aligned inspiral-only models plus GR testing parameters */
         case TaylorF2Test:
             /* Waveform-specific sanity checks */
             if( !XLALSimInspiralFrameAxisIsDefault(
@@ -3308,6 +3338,7 @@ int XLALSimInspiralImplementedTDApproximants(
         case EOBNRv2HM:
         case SpinTaylorT2:
         case SpinTaylorT4:
+        case SpinTaylorT4Test:
         case IMRPhenomB:
         case PhenSpinTaylor:
         case IMRPhenomC:
@@ -3411,6 +3442,10 @@ int XLALGetApproximantFromString(const CHAR *inString)
   else if ( strstr(inString, "SpinTaylorT2" ) )
   {
     return SpinTaylorT2;
+  }
+  else if ( strstr(inString, "SpinTaylorT4Test" ) )
+  {
+    return SpinTaylorT4Test;
   }
   else if ( strstr(inString, "SpinTaylorT4" ) )
   {
@@ -3609,6 +3644,8 @@ char* XLALGetStringFromApproximant(Approximant approximant)
       return strdup("SpinTaylorT2");
     case SpinTaylorT4:
       return strdup("SpinTaylorT4");
+    case SpinTaylorT4Test:
+      return strdup("SpinTaylorT4Test");
     case SpinTaylorFrameless:
       return strdup("SpinTaylorFrameless");
     case SpinTaylorT3:
@@ -3846,6 +3883,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case SpinTaylor:
     case SpinTaylorFrameless:
     case SpinTaylorT4:
+    case SpinTaylorT4Test:
     case SpinTaylorT2:
     case PhenSpinTaylor:
     case PhenSpinTaylorRD:

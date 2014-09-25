@@ -1671,8 +1671,32 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
         XLALSimInspiralSetTidalOrder(waveFlags, tideO);
       }
       LALSimInspiralTestGRParam *nonGRparams = NULL;
-      /* Print a line with information about approximant, amporder, phaseorder, tide order and spin order */
-      fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, in the time domain with a reference frequency of %f.\n",approximant,XLALGetStringFromApproximant(approximant),order,amporder,(int) spinO, (int) tideO, (float) fref);
+        /* Print a line with information about approximant, amporder, phaseorder, tide order and spin order */
+        fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, in the time domain with a reference frequency of %f.\n",approximant,XLALGetStringFromApproximant(approximant),order,amporder,(int) spinO, (int) tideO, (float) fref);
+        if (strstr(injEvent->waveform,"SpinTaylorT4Test"))
+        {
+            XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi0",injEvent->dchi0);
+            XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi1",injEvent->dchi1);
+            XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi2",injEvent->dchi2);
+            XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi3",injEvent->dchi3);
+            XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi4",injEvent->dchi4);
+            XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi5",injEvent->dchi5);
+            XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi5l",injEvent->dchi5l);
+            XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi6",injEvent->dchi6);
+            XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi6l",injEvent->dchi6l);
+            XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi7",injEvent->dchi0);
+            fprintf(stdout,"Injecting %s in the time domain...\n",injEvent->waveform);
+            fprintf(stdout,"adding dchi0=%1.3f in the injection\n",injEvent->dchi0);
+            fprintf(stdout,"adding dchi1=%1.3f in the injection\n",injEvent->dchi1);
+            fprintf(stdout,"adding dchi2=%1.3f in the injection\n",injEvent->dchi2);
+            fprintf(stdout,"adding dchi3=%1.3f in the injection\n",injEvent->dchi3);
+            fprintf(stdout,"adding dchi4=%1.3f in the injection\n",injEvent->dchi4);
+            fprintf(stdout,"adding dchi5=%1.3f in the injection\n",injEvent->dchi5);
+            fprintf(stdout,"adding dchi5l=%1.3f in the injection\n",injEvent->dchi5l);
+            fprintf(stdout,"adding dchi6=%1.3f in the injection\n",injEvent->dchi6);
+            fprintf(stdout,"adding dchi6l=%1.3f in the injection\n",injEvent->dchi6l);
+            fprintf(stdout,"adding dchi7=%1.3f in the injection\n",injEvent->dchi7);
+        }
 
       /* ChooseWaveform starts the (2,2) mode of the waveform at the given minimum frequency.  We want the highest order contribution to start at the f_lower of the injection file */
       REAL8 f_min = fLow2fStart(injEvent->f_lower, amporder, approximant);
