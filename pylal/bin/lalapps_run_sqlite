@@ -74,7 +74,7 @@ for n, filename in enumerate(databases, 1):
 
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n, len(databases)),
-	if mimetypes.guess_type(filename)[0] == "application/xml":
+	if mimetypes.guess_type(filename)[0].split("/")[-1] == "xml":
 		# load XML file into in-ram database for processing
 		working_filename = None
 		connection = sqlite3.connect(":memory:")
