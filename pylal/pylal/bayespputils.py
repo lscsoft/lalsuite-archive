@@ -3821,7 +3821,7 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
     
     try:
       kde=stats.kde.gaussian_kde(samp)
-    except numpy.linalg.linalg.LinAlgError:
+    except np.linalg.linalg.LinAlgError:
       return None
       
     den=kde(samp)
