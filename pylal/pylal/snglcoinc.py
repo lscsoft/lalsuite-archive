@@ -754,10 +754,11 @@ class CoincSynthesizer(object):
 		features will not be available if a dictionary of counts is
 		provided).  segmentlists is a glue.segments.segmentlistdict
 		object describing the observation segments for each of the
-		instruments.  delta_t is a time window in seconds, the
-		light travel time between instrument pairs is added to this
-		internally to set the maximum allowed coincidence window
-		between a pair of instruments.
+		instruments.  A segment list must be provided for (at
+		least) each instrument in eventlists.  delta_t is a time
+		window in seconds, the light travel time between instrument
+		pairs is added to this internally to set the maximum
+		allowed coincidence window between a pair of instruments.
 
 		abundance_rel_accuracy sets the fractional error tolerated
 		in the Monte Carlo integrator used to estimate the relative
@@ -779,7 +780,7 @@ class CoincSynthesizer(object):
 		{frozenset(['V1', 'H1']): 0.0, frozenset(['V1', 'H1', 'L1']): 0.25, frozenset(['H1', 'L1']): 0.25, frozenset(['V1', 'L1']): 0.5}
 		"""
 		self.eventlists = eventlists if eventlists is not None else dict.fromkeys(segmentlists, 0) if segmentlists is not None else {}
-		self.segmentlists = segmentlists if segmentlists is not None else segments.segmentlistdict()
+		self.segmentlists = segmentlists if segmentlists is not None else segmentsUtils.segments.segmentlistdict()
 		self.delta_t = delta_t
 		# require a segment list for each list of events
 		assert set(self.eventlists) <= set(self.segmentlists)
