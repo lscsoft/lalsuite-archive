@@ -3819,7 +3819,11 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
     
     samp=np.transpose(np.column_stack((xdat,ydat)))
     
-    kde=stats.kde.gaussian_kde(samp)
+    try:
+      kde=stats.kde.gaussian_kde(samp)
+    except numpy.linalg.linalg.LinAlgError:
+      return None
+      
     den=kde(samp)
     #grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
     Nx=Npixels
