@@ -109,6 +109,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralPNMode.c \
 	LALSimInspiralPPE.c \
 	LALSimInspiralSpinTaylor.c \
+	LALSimInspiralSpinTaylorTest.c \
 	LALSimInspiralSpinTaylorF2.c \
 	LALSimInspiralTaylorEt.c \
 	LALSimInspiralTaylorF2.c \

@@ -2014,6 +2014,48 @@ int XLALSimInspiralSpinTaylorPNEvolveOrbit(
 	Approximant approx        /**< PN approximant (SpinTaylorT1/T2/T4) */
 	);
 
+int XLALSimInspiralSpinTaylorTestPNEvolveOrbit(
+                                               REAL8TimeSeries **V,            /**< post-Newtonian parameter [returned]*/
+                                               REAL8TimeSeries **Phi,          /**< orbital phase            [returned]*/
+                                               REAL8TimeSeries **S1x,	        /**< Spin1 vector x component [returned]*/
+                                               REAL8TimeSeries **S1y,	        /**< "    "    "  y component [returned]*/
+                                               REAL8TimeSeries **S1z,	        /**< "    "    "  z component [returned]*/
+                                               REAL8TimeSeries **S2x,	        /**< Spin2 vector x component [returned]*/
+                                               REAL8TimeSeries **S2y,	        /**< "    "    "  y component [returned]*/
+                                               REAL8TimeSeries **S2z,	        /**< "    "    "  z component [returned]*/
+                                               REAL8TimeSeries **LNhatx,       /**< unit orbital ang. mom. x [returned]*/
+                                               REAL8TimeSeries **LNhaty,       /**< "    "    "  y component [returned]*/
+                                               REAL8TimeSeries **LNhatz,       /**< "    "    "  z component [returned]*/
+                                               REAL8TimeSeries **E1x,	        /**< orb. plane basis vector x[returned]*/
+                                               REAL8TimeSeries **E1y,	        /**< "    "    "  y component [returned]*/
+                                               REAL8TimeSeries **E1z,	        /**< "    "    "  z component [returned]*/
+                                               REAL8 deltaT,          	        /**< sampling interval (s) */
+                                               REAL8 m1,              	        /**< mass of companion 1 (kg) */
+                                               REAL8 m2,              	        /**< mass of companion 2 (kg) */
+                                               REAL8 fStart,                   /**< starting GW frequency */
+                                               REAL8 fEnd,                     /**< ending GW frequency, fEnd=0 means integrate as far forward as possible */
+                                               REAL8 s1x,                      /**< initial value of S1x */
+                                               REAL8 s1y,                      /**< initial value of S1y */
+                                               REAL8 s1z,                      /**< initial value of S1z */
+                                               REAL8 s2x,                      /**< initial value of S2x */
+                                               REAL8 s2y,                      /**< initial value of S2y */
+                                               REAL8 s2z,                      /**< initial value of S2z */
+                                               REAL8 lnhatx,                   /**< initial value of LNhatx */
+                                               REAL8 lnhaty,                   /**< initial value of LNhaty */
+                                               REAL8 lnhatz,                   /**< initial value of LNhatz */
+                                               REAL8 e1x,                      /**< initial value of E1x */
+                                               REAL8 e1y,                      /**< initial value of E1y */
+                                               REAL8 e1z,                      /**< initial value of E1z */
+                                               REAL8 lambda1,                  /**< (tidal deformability of mass 1) / (mass of body 1)^5 (dimensionless) */
+                                               REAL8 lambda2,                  /**< (tidal deformability of mass 2) / (mass of body 2)^5 (dimensionless) */
+                                               REAL8 quadparam1,               /**< phenom. parameter describing induced quad. moment of body 1 (=1 for BHs, ~2-12 for NSs) */
+                                               REAL8 quadparam2,               /**< phenom. parameter describing induced quad. moment of body 2 (=1 for BHs, ~2-12 for NSs) */
+                                               LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
+                                               LALSimInspiralTidalOrder tideO, /**< twice PN order of tidal effects */
+                                               INT4 phaseO,                    /**< twice post-Newtonian order */
+                                               Approximant approx,              /**< PN approximant (SpinTaylorT1/T2/T4) */
+                                               LALSimInspiralTestGRParam *extraParams /**< structure of testing parameters */
+);
 /**
  * Driver routine to compute a precessing post-Newtonian inspiral waveform
  * with phasing computed from energy balance using the so-called \"T4\" method.
@@ -2072,6 +2114,40 @@ int XLALSimInspiralSpinTaylorT4(
 	int phaseO,                     /**< twice PN phase order */
 	int amplitudeO                  /**< twice PN amplitude order */
 	);
+
+int XLALSimInspiralSpinTaylorT4Test(
+                                REAL8TimeSeries **hplus,        /**< +-polarization waveform */
+                                REAL8TimeSeries **hcross,       /**< x-polarization waveform */
+                                REAL8 phiRef,                   /**< orbital phase at reference pt. */
+                                REAL8 v0,                       /**< tail gauge term (default = 1) */
+                                REAL8 deltaT,                   /**< sampling interval (s) */
+                                REAL8 m1,                       /**< mass of companion 1 (kg) */
+                                REAL8 m2,                       /**< mass of companion 2 (kg) */
+                                REAL8 fStart,                   /**< start GW frequency (Hz) */
+                                REAL8 fRef,                     /**< reference GW frequency (Hz) */
+                                REAL8 r,                        /**< distance of source (m) */
+                                REAL8 s1x,                      /**< initial value of S1x */
+                                REAL8 s1y,                      /**< initial value of S1y */
+                                REAL8 s1z,                      /**< initial value of S1z */
+                                REAL8 s2x,                      /**< initial value of S2x */
+                                REAL8 s2y,                      /**< initial value of S2y */
+                                REAL8 s2z,                      /**< initial value of S2z */
+                                REAL8 lnhatx,                   /**< initial value of LNhatx */
+                                REAL8 lnhaty,                   /**< initial value of LNhaty */
+                                REAL8 lnhatz,                   /**< initial value of LNhatz */
+                                REAL8 e1x,                      /**< initial value of E1x */
+                                REAL8 e1y,                      /**< initial value of E1y */
+                                REAL8 e1z,                      /**< initial value of E1z */
+                                REAL8 lambda1,                  /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
+                                REAL8 lambda2,                  /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+                                REAL8 quadparam1,               /**< phenom. parameter describing induced quad. moment of body 1 (=1 for BHs, ~2-12 for NSs) */
+                                REAL8 quadparam2,               /**< phenom. parameter describing induced quad. moment of body 2 (=1 for BHs, ~2-12 for NSs) */
+                                LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
+                                LALSimInspiralTidalOrder tideO, /**< twice PN order of tidal effects */
+                                int phaseO,                     /**< twice PN phase order */
+                                int amplitudeO,                  /**< twice PN amplitude order */
+                                LALSimInspiralTestGRParam *extraParams /**< structure of testing parameters */
+);
 
 int XLALSimInspiralSpinTaylorT5 (
         REAL8TimeSeries **hplus,        /**< +-polarization waveform */
@@ -2201,6 +2277,43 @@ int XLALSimInspiralSpinTaylorT4Fourier(
         INT4 phiRefAtEnd                /**< whether phiRef corresponds to the end of the inspiral */
         );
 
+int XLALSimInspiralSpinTaylorT4TestFourier(
+                                       COMPLEX16FrequencySeries **hplus,        /**< +-polarization waveform */
+                                       COMPLEX16FrequencySeries **hcross,       /**< x-polarization waveform */
+                                       REAL8 fMin,                     /**< minimum frequency of the returned series */
+                                       REAL8 fMax,                     /**< maximum frequency of the returned series */
+                                       REAL8 deltaF,                   /**< frequency interval of the returned series */
+                                       INT4 kMax,                      /**< k_max as described in arXiv: 1408.5158 (min 0, max 10). */
+                                       REAL8 phiRef,                   /**< orbital phase at reference pt. */
+                                       REAL8 v0,                       /**< tail gauge term (default = 1) */
+                                       REAL8 m1,                       /**< mass of companion 1 (kg) */
+                                       REAL8 m2,                       /**< mass of companion 2 (kg) */
+                                       REAL8 fStart,                   /**< start GW frequency (Hz) */
+                                       REAL8 fRef,                     /**< reference GW frequency (Hz) */
+                                       REAL8 r,                        /**< distance of source (m) */
+                                       REAL8 s1x,                      /**< initial value of S1x */
+                                       REAL8 s1y,                      /**< initial value of S1y */
+                                       REAL8 s1z,                      /**< initial value of S1z */
+                                       REAL8 s2x,                      /**< initial value of S2x */
+                                       REAL8 s2y,                      /**< initial value of S2y */
+                                       REAL8 s2z,                      /**< initial value of S2z */
+                                       REAL8 lnhatx,                   /**< initial value of LNhatx */
+                                       REAL8 lnhaty,                   /**< initial value of LNhaty */
+                                       REAL8 lnhatz,                   /**< initial value of LNhatz */
+                                       REAL8 e1x,                      /**< initial value of E1x */
+                                       REAL8 e1y,                      /**< initial value of E1y */
+                                       REAL8 e1z,                      /**< initial value of E1z */
+                                       REAL8 lambda1,                  /**< (tidal deformability of mass 1) / (mass of body 1)^5 (dimensionless) */
+                                       REAL8 lambda2,                  /**< (tidal deformability of mass 2) / (mass of body 2)^5 (dimensionless) */
+                                       REAL8 quadparam1,               /**< phenom. parameter describing induced quad. moment of body 1 (=1 for BHs, ~2-12 for NSs) */
+                                       REAL8 quadparam2,               /**< phenom. parameter describing induced quad. moment of body 2 (=1 for BHs, ~2-12 for NSs) */
+                                       LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
+                                       LALSimInspiralTidalOrder tideO, /**< twice PN order of tidal effects */
+                                       INT4 phaseO,                    /**< twice PN phase order */
+                                       INT4 amplitudeO,                /**< twice PN amplitude order */
+                                       INT4 phiRefAtEnd,                /**< whether phiRef corresponds to the end of the inspiral */
+                                       LALSimInspiralTestGRParam *extraParams
+);
 /**
  * Driver routine to compute a precessing post-Newtonian inspiral waveform in the Fourier domain
  * with phasing computed from energy balance using the so-called \"T2\" method.
