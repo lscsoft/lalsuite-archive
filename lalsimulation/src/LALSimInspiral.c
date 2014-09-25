@@ -2260,7 +2260,6 @@ int XLALSimInspiralChooseTDWaveform(
                                               XLALSimInspiralGetSpinOrder(waveFlags),
                                               XLALSimInspiralGetTidalOrder(waveFlags),
                                               phaseO, amplitudeO, nonGRparams);
-            printf("done with the wf!\n");
             break;
         case SpinDominatedWf:
                 // waveform specific sanity checks

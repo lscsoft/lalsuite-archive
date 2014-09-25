@@ -816,7 +816,7 @@ int XLALSimInspiralSpinTaylorTestPNEvolveOrbit(
     }
 
     // Fill params struct with values of constant coefficients of the model
-    if( approx == SpinTaylorT4 )
+    if( approx == SpinTaylorT4Test )
     {
         XLALSimInspiralSpinTaylorTxCoeffs paramsT4;
         XLALSimInspiralSpinTaylorT4TestSetup(&paramsT4, m1, m2, fStart, fEnd,
@@ -885,7 +885,7 @@ int XLALSimInspiralSpinTaylorTestPNEvolveOrbit(
     yinit[13] = e1z;
 
     /* initialize the integrator */
-    if( approx == SpinTaylorT4 )
+    if( approx == SpinTaylorT4Test )
         integrator = XLALAdaptiveRungeKutta4Init(LAL_NUM_ST4_VARIABLES,
                 XLALSimInspiralSpinTaylorT4TestDerivatives,
                 XLALSimInspiralSpinTaylorStoppingTest,
