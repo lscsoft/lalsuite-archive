@@ -104,12 +104,11 @@ typedef struct tagXLALSimInspiralSpinTaylorTxCoeffs
 	LALSimInspiralSpinOrder spinO; ///< Twice PN order of included spin effects
 	LALSimInspiralTidalOrder tideO;///< Twice PN order of included tidal effects
 	REAL8 prev_domega; ///< Previous value of domega/dt used in stopping test
-    LALSimInspiralTestGRParam *extraParams;
 } XLALSimInspiralSpinTaylorTxCoeffs;
 
 
 /* Declarations of static functions - defined below */
-static int XLALSimInspiralSpinTaylorStoppingTest(double t,
+static int XLALSimInspiralSpinTaylorTestStoppingTest(double t,
 	const double values[], double dvalues[], void *mparams);
 static int XLALSimInspiralSpinTaylorT4TestDerivatives(double t,
 	const double values[], double dvalues[], void *mparams);
@@ -118,13 +117,6 @@ static int XLALSimInspiralSpinTaylorT4TestSetup(
     REAL8 fStart, REAL8 fEnd, REAL8 lambda1, REAL8 lambda2,
     REAL8 quadparam1, REAL8 quadparam2, LALSimInspiralSpinOrder spinO,
     LALSimInspiralTidalOrder tideO, INT4 phaseO, LALSimInspiralTestGRParam *extraParams);
-static int XLALSimInspiralSpinTaylorT2Derivatives(double t,
-	const double values[], double dvalues[], void *mparams);
-static int XLALSimInspiralSpinTaylorT2Setup(
-    XLALSimInspiralSpinTaylorTxCoeffs *params, REAL8 m1, REAL8 m2,
-    REAL8 fStart, REAL8 fEnd, REAL8 lambda1, REAL8 lambda2,
-    REAL8 quadparam1, REAL8 quadparam2, LALSimInspiralSpinOrder spinO,
-    LALSimInspiralTidalOrder tideO, INT4 phaseO);
 static int XLALSimInspiralSpinTaylorTestDriver(REAL8TimeSeries **hplus,
     REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 v0, REAL8 deltaT,
     REAL8 m1, REAL8 m2, REAL8 fStart, REAL8 fRef, REAL8 r,
@@ -286,214 +278,6 @@ static REAL8Array *removeDuplicates(REAL8Array *series) {
 }
 
 
-static int XLALSimInspiralSpinTaylorT2Setup(
-    XLALSimInspiralSpinTaylorTxCoeffs *params, /**< UNDOCUMENTED */
-    REAL8 m1,                       /**< mass of body 1 (kg) */
-    REAL8 m2,                       /**< mass of body 2 (kg) */
-    REAL8 fStart,                   /**< Starting GW freq. (Hz) */
-    REAL8 fEnd,                     /**< Ending GW freq. (Hz), 0 means integrate forwards as far as possible */
-	REAL8 lambda1,                  /**< (tidal deformability of mass 1) / (mass of body 1)^5 (dimensionless) */
-	REAL8 lambda2,                  /**< (tidal deformability of mass 2) / (mass of body 2)^5 (dimensionless) */
-    REAL8 quadparam1,               /**< phenom. parameter describing induced quad. moment of body 1 (=1 for BHs, ~2-12 for NSs) */
-    REAL8 quadparam2,               /**< phenom. parameter describing induced quad. moment of body 2 (=1 for BHs, ~2-12 for NSs) */
-	LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
-	LALSimInspiralTidalOrder tideO, /**< twice PN order of tidal effects */
-	INT4 phaseO                     /**< twice post-Newtonian order */
-    )
-{
-    REAL8 M, eta, Mchirp, dm, m1m2, m2m1, m1M, m2M;
-    /* Zero the coefficients */
-    memset(params, 0, sizeof(XLALSimInspiralSpinTaylorTxCoeffs));
-
-    /* Define mass variables and other coefficients */
-    m1m2 = m1 / m2;
-    m2m1 = m2 / m1;
-    m1 *= LAL_G_SI / pow(LAL_C_SI, 3.0); /* convert m1 from kg to seconds */
-    m2 *= LAL_G_SI / pow(LAL_C_SI, 3.0); /* convert m2 from kg to seconds */
-    M = m1 + m2;
-    dm = (m1 - m2)/M;
-    m1M = m1 / M;
-    m2M = m2 / M;
-    eta = m1 * m2 / M / M;
-    Mchirp = M * pow(eta, 3./5.);
-    params->wdotnewt = (96.0/5.0) * eta;
-    params->M = M;
-    params->Mchirp = Mchirp;
-    params->m1M = m1M;
-    params->m2M = m2M;
-    params->eta = eta;
-    params->fStart = fStart;
-    params->fEnd = fEnd;
-    params->spinO = spinO;
-    params->tideO = tideO;
-
-    /* Set coefficients up to PN order phaseO.
-     * epnorb is the binary energy and
-     * wdotorb is the derivative of the orbital frequency \f$\dot{\omega}\f$.
-     * These are just the non-spinning contributions.
-     * Spin corrections must be recomputed at every step
-     * because the relative orientations of S, L can change
-     *
-     * The values can be found in Buonanno, Iyer, Ochsner, Pan and Sathyaprakash
-     * Phys. Rev. D 80, 084043 (2009) arXiv:0907.0700 (aka \"BIOPS\")
-     * Eq. 3.1 for the energy and Eq. 3.6 for \f$\dot{\omega}\f$
-     *
-     * Note that Eq. 3.6 actually gives dv/dt, but this relates to \f$\omega\f$
-     * by \f$d (M \omega)/dt = d (v^3)/dt = 3 v^2 dv/dt\f$
-     * so the PN corrections are the same
-     * but the leading order is 3 v^2 times Eq. 3.6
-     */
-    switch( phaseO )
-    {
-        case -1: /* highest available PN order */
-        case 8:
-        /* case LAL_PNORDER_THREE_POINT_FIVE: */
-        case 7:
-            params->wdotcoeff[7] = (LAL_PI/1016064.)
-                    * (-15419335. - 12718104.*eta + 4975824.*eta*eta);
-            params->Ecoeff[7] = 0.;
-        /* case LAL_PNORDER_THREE: */
-        case 6:
-            params->wdotcoeff[6] = 22.065 + 165.416*eta
-                    - 2.20067*eta*eta + 4.93152*eta*eta*eta;
-            /*params->wdotcoeff[6] = -10817850546611./93884313600.
-                    + 1712.*LAL_GAMMA/105. + 32.*LAL_PI*LAL_PI/3.
-                    + (3147553127./12192768. - 451.*LAL_PI*LAL_PI/48.)*eta
-                    - 15211.*eta*eta/6912. + 25565.*eta*eta*eta/5184.;*/
-            params->wdotlogcoeff = 1712./315.;
-            params->Ecoeff[6] = - 675./64. + ( 34445./576.
-                    - 205./96. * LAL_PI * LAL_PI ) * eta
-                    - (155./96.) *eta * eta - 35./5184. * eta * eta * eta;
-        /* case LAL_PNORDER_TWO_POINT_FIVE: */
-        case 5:
-            params->wdotcoeff[5] = (1./672.) * LAL_PI * (-7729. + 1092.*eta);
-            params->Ecoeff[5] = 0.;
-        /* case LAL_PNORDER_TWO: */
-        case 4:
-            params->wdotcoeff[4] = (3058673. + 5472432.*eta
-                    + 4353552.*eta*eta)/1016064.;
-            params->Ecoeff[4] = (-81. + 57.*eta - eta*eta)/24.;
-        /*case LAL_PNORDER_ONE_POINT_FIVE:*/
-        case 3:
-            params->wdotcoeff[3] = -4. * LAL_PI;
-            params->Ecoeff[3] = 0.;
-        /*case LAL_PNORDER_ONE:*/
-        case 2:
-            params->wdotcoeff[2] = (1./336.) * (743. + 924.*eta);
-            params->Ecoeff[2] = -(1.0/12.0) * (9.0 + eta);
-        /*case LAL_PNORDER_HALF:*/
-        case 1:
-            params->wdotcoeff[1] = 0.;
-            params->Ecoeff[1] = 0.;
-        /*case LAL_PNORDER_NEWTONIAN:*/
-        case 0:
-            params->wdotcoeff[0] = 1.;
-            params->Ecoeff[0] = 1.;
-            break;
-        default:
-            XLALPrintError("XLAL Error - %s: Invalid phase. PN order %s\n",
-                    __func__, phaseO );
-            XLAL_ERROR(XLAL_EINVAL);
-            break;
-    }
-
-    /* Compute the non-dynamical coefficients of spin corrections
-     * to the evolution equations for omega, L, S1 and S2 and binary energy E.
-     */
-    switch( spinO )
-    {
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_35PN:
-            params->wdotSO35s1 = 1796084999./3048192. - 1317319.*eta/3024.
-                    + 61.*eta*eta/144. + (dm/m1M) * (-34195607./193536.
-                    + 575285.*eta/2688. + 947.*eta*eta/576.);
-            params->wdotSO35s2 = 1796084999./3048192. - 1317319.*eta/3024.
-                    + 61.*eta*eta/144. - (dm/m2M) * (-34195607./193536.
-                    + 575285.*eta/2688. + 947.*eta*eta/576.);
-            params->ESO35s1 = 135./4. - 367.*eta/4. + 29.*eta*eta/12.
-                    + (dm/m1M) * (-27./4. + 39.*eta - 5.*eta*eta/4.);
-            params->ESO35s2 = 135./4. - 367.*eta/4. + 29.*eta*eta/12.
-                    - (dm/m2M) * (-27./4. + 39.*eta - 5.*eta*eta/4.);
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_3PN:
-            params->wdotSO3s1 = LAL_PI*(-188./3. + (dm/m1M)*149./6.);
-            params->wdotSO3s2 = LAL_PI*(-188./3. - (dm/m2M)*149./6.);
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_ALL:
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_25PN:
-            params->wdotSO25s1 = 110869./1008. + 11.*eta/4. + (dm/m1M) * (-8349./224. + 3.*eta/4.);
-            params->wdotSO25s2 = 110869./1008. + 11.*eta/4. + (dm/m2M) * (8349./224. - 3.*eta/4.);
-            params->ESO25s1 = 11. - 61.*eta/9. + (dm/m1M) * (-3. + 10.*eta/3.);
-            params->ESO25s2 = 11. - 61.*eta/9. + (dm/m2M) * (3. - 10.*eta/3.);
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_2PN:
-            // 2PN spin-spin terms
-            params->LNhatSS2 	= -1.5 / eta;
-            params->wdotSS2 	= 1. / 48. / eta;
-            params->ESS2 		= 1. / eta;
-            // 2PN quadrupole-monopole terms
-            params->wdotQM2S1        = quadparam1 * 5./2./m1M/m1M;
-            params->wdotQM2S1L       = -quadparam1 * 15./2./m1M/m1M;
-            params->wdotQM2S2        = quadparam2 * 5./2./m2M/m2M;
-            params->wdotQM2S2L       = -quadparam2 * 15./2./m2M/m2M;
-            params->EQM2S1           = quadparam1/2./m1M/m1M;
-            params->EQM2S1L          = -quadparam1*3./2./m1M/m1M;
-            params->EQM2S2           = quadparam2/2./m2M/m2M;
-            params->EQM2S2L          = -quadparam2*3./2./m2M/m2M;
-            // 2PN self-spin terms
-            params->wdotSSselfS1     = -7./96./m1M/m1M;
-            params->wdotSSselfS1L    = 1./96./m1M/m1M;
-            params->wdotSSselfS2     = -7./96./m2M/m2M;
-            params->wdotSSselfS2L    = 1./96./m2M/m2M;
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_15PN:
-            // Note: LNHat do not have their signs reversed relative to T4
-            // They are precession rather than orbital quantities
-            params->LNhatSO15s1 	= 2. + 3./2. * m2m1;
-            params->LNhatSO15s2	= 2. + 3./2. * m1m2;
-            params->wdotSO15s1 	= ( 113. + 75. * m2m1 ) / 12.;
-            params->wdotSO15s2 	= ( 113. + 75. * m1m2 ) / 12.;
-            params->ESO15s1 		= 8./3. + 2. * m2m1;
-            params->ESO15s2 		= 8./3. + 2. * m1m2;
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_1PN:
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_05PN:
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_0PN:
-            break;
-        default:
-            XLALPrintError("XLAL Error - %s: Invalid spin PN order %s\n",
-                    __func__, spinO );
-            XLAL_ERROR(XLAL_EINVAL);
-            break;
-    }
-
-    /*
-     * Compute the coefficients of tidal corrections
-     * to the evolution equations for omega and binary energy E.
-     * Coefficients found from Eqs. 2.11 and 3.10 of
-     * Vines, Flanagan, Hinderer, PRD 83, 084051 (2011).
-     */
-    switch( tideO )
-    {
-        case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
-        case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
-            params->wdottidal6pn = lambda1 * (4421./28. - 12263./28. * m1M
-                    + 1893./2. * m1M * m1M - 661 * m1M * m1M * m1M) / (2 * m1M)
-                    + lambda2 * (4421./28. - 12263./28. * m2M + 1893./2. * m2M * m2M
-                    - 661 * m2M * m2M * m2M) / (2 * m2M);
-            params->Etidal6pn = - 11./2. * m2m1
-                    * (3. + 2. * m1M + 3. * m1M * m1M) * lambda1
-                    - 11./2. * m1m2 * (3. + 2. * m2M + 3. * m2M * m2M) * lambda2;
-        case LAL_SIM_INSPIRAL_TIDAL_ORDER_5PN:
-            params->wdottidal5pn = lambda1 * 6. * (1. + 11. * m2M) / m1M
-                    + lambda2 * 6. * (1. + 11. * m1M) / m2M;
-            params->Etidal5pn = - 9. * m2m1 * lambda1 - 9. * m1m2 * lambda2;
-        case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
-            break;
-        default:
-            XLALPrintError("XLAL Error - %s: Invalid tidal PN order %s\n",
-                    __func__, tideO );
-            XLAL_ERROR(XLAL_EINVAL);
-            break;
-    }
-
-    return XLAL_SUCCESS;
-}
-
 static int XLALSimInspiralSpinTaylorT4TestSetup(
     XLALSimInspiralSpinTaylorTxCoeffs *params, /**< UNDOCUMENTED */
     REAL8 m1,                       /**< mass of body 1 (kg) */
@@ -513,7 +297,6 @@ static int XLALSimInspiralSpinTaylorT4TestSetup(
     REAL8 M, eta, Mchirp, dm, m1m2, m2m1, m1M, m2M;
     /* Zero the coefficients */
     memset(params, 0, sizeof(XLALSimInspiralSpinTaylorTxCoeffs));
-    params->extraParams = extraParams;
     /* Define mass variables and other coefficients */
     m1m2 = m1 / m2;
     m2m1 = m2 / m1;
@@ -701,6 +484,53 @@ static int XLALSimInspiralSpinTaylorT4TestSetup(
             break;
     }
 
+    /* modify the PN coefficients */
+    if (extraParams!=NULL)
+    {
+      REAL8 dchi=0.0;
+        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi0"))  params->wdotcoeff[0]*=1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi0");
+        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi1"))  params->wdotcoeff[1]=XLALSimInspiralGetTestGRParam(extraParams,"dchi1");
+        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi2"))  params->wdotcoeff[2]*=1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi2");
+        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi3"))  {
+	  dchi = XLALSimInspiralGetTestGRParam(extraParams,"dchi3");
+	  params->wdotcoeff[3] *= 1.0 + dchi;
+	  params->wdotSO15s1 *= 1.0 + dchi;
+	  params->wdotSO15s2 *= 1.0 + dchi;
+	}
+        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi4"))  {
+	  dchi = XLALSimInspiralGetTestGRParam(extraParams,"dchi4");
+	  params->wdotcoeff[4] *= 1.0 + dchi;
+	  params->wdotSS2 *= 1.0 + dchi;
+	  params->wdotQM2S1 *= 1.0 + dchi;
+	  params->wdotQM2S2 *= 1.0 + dchi;
+	  params->wdotQM2S1L *= 1.0 + dchi;
+	  params->wdotQM2S2L *= 1.0 + dchi;
+	  params->wdotSSselfS1 *= 1.0 + dchi;
+	  params->wdotSSselfS2 *= 1.0 + dchi;
+	  params->wdotSSselfS1L *= 1.0 + dchi;
+	  params->wdotSSselfS2L *= 1.0 + dchi;
+	}
+        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi5"))  {
+	  dchi = XLALSimInspiralGetTestGRParam(extraParams,"dchi5");
+	  params->wdotcoeff[5]*=1.0 + dchi;
+	  params->wdotSO25s1 *= 1.0 + dchi;
+	  params->wdotSO25s2 *= 1.0 + dchi;
+	}
+	if (XLALSimInspiralTestGRParamExists(extraParams,"dchi6"))  {
+	  dchi = XLALSimInspiralGetTestGRParam(extraParams,"dchi6");
+	  params->wdotcoeff[6]*=1.0 + dchi;
+	  params->wdotSO3s1 *= 1.0 + dchi;
+	  params->wdotSO3s2 *= 1.0 + dchi;
+	}
+        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi6l")) params->wdotlogcoeff*=1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi6l");
+        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi7"))  {
+	  dchi = XLALSimInspiralGetTestGRParam(extraParams,"dchi7");
+	  params->wdotcoeff[7]*=1.0 + dchi;
+	  params->wdotSO35s1 *= 1.0 + dchi;
+	  params->wdotSO35s2 *= 1.0 + dchi;
+	}
+    }
+
     return XLAL_SUCCESS;
 }
 
@@ -823,26 +653,31 @@ int XLALSimInspiralSpinTaylorTestPNEvolveOrbit(
                 lambda1, lambda2, quadparam1, quadparam2, spinO, tideO, phaseO, extraParams);
         params = (void *) &paramsT4;
     }
-    else if( approx == SpinTaylorT2 )
+    /*
+    else if( approx == SpinTaylorT2Test )
     {
-        XLALSimInspiralSpinTaylorTxCoeffs paramsT2;
-        XLALSimInspiralSpinTaylorT2Setup(&paramsT2, m1, m2, fStart, fEnd,
-                lambda1, lambda2, quadparam1, quadparam2, spinO, tideO, phaseO);
-        params = (void *) &paramsT2;
+      //XLALSimInspiralSpinTaylorTxCoeffs paramsT2;
+      //XLALSimInspiralSpinTaylorT2Setup(&paramsT2, m1, m2, fStart, fEnd,
+      //        lambda1, lambda2, quadparam1, quadparam2, spinO, tideO, phaseO);
+      //params = (void *) &paramsT2;
+        XLALPrintError("XLAL Error - %s: SpinTaylorT2Test not implemented yet!\n",
+                __func__);
+        XLAL_ERROR(XLAL_EINVAL);
     }
-    else if( approx == SpinTaylorT1 )
+    else if( approx == SpinTaylorT1Test )
     {
         //XLALSimInspiralSpinTaylorT1Coeffs paramsT1;
         //XLALSimInspiralSpinTaylorT1Setup(&paramsT1, m1, m2, fStart, fEnd,
         //        lambda1, lambda2, quadparam1, quadparam2, spinO, tideO, phaseO);
         //params = (void *) &paramsT1;
-        XLALPrintError("XLAL Error - %s: SpinTaylorT1 not implemented yet!\n",
+        XLALPrintError("XLAL Error - %s: SpinTaylorT1Test not implemented yet!\n",
                 __func__);
         XLAL_ERROR(XLAL_EINVAL);
     }
+    */
     else
     {
-        XLALPrintError("XLAL Error - %s: Approximant must be one of SpinTaylorT1, SpinTaylorT2, SpinTaylorT4, but %i provided\n",
+        XLALPrintError("XLAL Error - %s: Approximant must be one of SpinTaylorT1Test, SpinTaylorT2Test, SpinTaylorT4Test, but %i provided\n",
                 __func__, approx);
         XLAL_ERROR(XLAL_EINVAL);
 
@@ -888,26 +723,31 @@ int XLALSimInspiralSpinTaylorTestPNEvolveOrbit(
     if( approx == SpinTaylorT4Test )
         integrator = XLALAdaptiveRungeKutta4Init(LAL_NUM_ST4_VARIABLES,
                 XLALSimInspiralSpinTaylorT4TestDerivatives,
-                XLALSimInspiralSpinTaylorStoppingTest,
+                XLALSimInspiralSpinTaylorTestStoppingTest,
                 LAL_ST4_ABSOLUTE_TOLERANCE, LAL_ST4_RELATIVE_TOLERANCE);
-    else if( approx == SpinTaylorT2 )
-        integrator = XLALAdaptiveRungeKutta4Init(LAL_NUM_ST4_VARIABLES,
-                XLALSimInspiralSpinTaylorT2Derivatives,
-                XLALSimInspiralSpinTaylorStoppingTest,
-                LAL_ST4_ABSOLUTE_TOLERANCE, LAL_ST4_RELATIVE_TOLERANCE);
-    else if( approx == SpinTaylorT1 )
+    /*
+    else if( approx == SpinTaylorT2Test )
+      //integrator = XLALAdaptiveRungeKutta4Init(LAL_NUM_ST4_VARIABLES,
+      //        XLALSimInspiralSpinTaylorT2Derivatives,
+      //        XLALSimInspiralSpinTaylorStoppingTest,
+      //        LAL_ST4_ABSOLUTE_TOLERANCE, LAL_ST4_RELATIVE_TOLERANCE);
+        XLALPrintError("XLAL Error - %s: SpinTaylorT2Test not implemented yet!\n",
+                __func__);
+        XLAL_ERROR(XLAL_EINVAL);
+    else if( approx == SpinTaylorT1Test )
     {
         //integrator = XLALAdaptiveRungeKutta4Init(LAL_NUM_ST4_VARIABLES,
         //        XLALSimInspiralSpinTaylorT1Derivatives,
         //        XLALSimInspiralSpinTaylorStoppingTest,
         //        LAL_ST4_ABSOLUTE_TOLERANCE, LAL_ST4_RELATIVE_TOLERANCE);
-        XLALPrintError("XLAL Error - %s: SpinTaylorT1 not implemented yet!\n",
+        XLALPrintError("XLAL Error - %s: SpinTaylorT1Test not implemented yet!\n",
                 __func__);
         XLAL_ERROR(XLAL_EINVAL);
     }
+    */
     else
     {
-        XLALPrintError("XLAL Error - %s: Approximant must be one of SpinTaylorT1, SpinTaylorT2, SpinTaylorT4, but %i provided\n",
+        XLALPrintError("XLAL Error - %s: Approximant must be one of SpinTaylorT1Test, SpinTaylorT2Test, SpinTaylorT4Test, but %i provided\n",
                 __func__, approx);
         XLAL_ERROR(XLAL_EINVAL);
 
@@ -1064,7 +904,7 @@ int XLALSimInspiralSpinTaylorTestPNEvolveOrbit(
  * 5) The PN parameter v/c becomes >= 1
  * SpinTaylorT4 and SpinTaylorT2 both use this same stopping test
  */
-static int XLALSimInspiralSpinTaylorStoppingTest(
+static int XLALSimInspiralSpinTaylorTestStoppingTest(
 	double t, 
 	const double values[],
 	double dvalues[], 
@@ -1180,6 +1020,7 @@ static int XLALSimInspiralSpinTaylorStoppingTest(
         return GSL_SUCCESS;
 }
 
+
 /**
  * Internal function called by the integration routine.
  * Given the values of all the dynamical variables 'values' at time 't',
@@ -1215,7 +1056,6 @@ static int XLALSimInspiralSpinTaylorT4TestDerivatives(
             = (XLALSimInspiralSpinTaylorTxCoeffs*) mparams;
 
     UNUSED(t);
-    LALSimInspiralTestGRParam *extraParams = params->extraParams;
     /* copy variables */
     // UNUSED!!: s    = values[0] ;
     omega   	= values[1] ;
@@ -1302,19 +1142,6 @@ static int XLALSimInspiralSpinTaylorT4TestDerivatives(
             XLAL_ERROR(XLAL_EINVAL);
             break;
     }
-    /* modify the PN coefficients */
-    if (extraParams!=NULL)
-    {
-        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi0"))  params->wdotcoeff[0]*=1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi0");
-        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi1"))  params->wdotcoeff[1]=XLALSimInspiralGetTestGRParam(extraParams,"dchi1");
-        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi2"))  params->wdotcoeff[2]*=1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi2");
-        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi3"))  params->wdotcoeff[3]*=1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi3");
-        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi4"))  params->wdotcoeff[4]*=1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi4");
-        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi5"))  params->wdotcoeff[5]*=1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi5");
-        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi6"))  params->wdotcoeff[6]*=1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi6");
-        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi6l")) params->wdotlogcoeff*=1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi6l");
-        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi7"))  params->wdotcoeff[7]*=1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi7");
-    }
     
     domega  = params->wdotnewt * v11 * ( params->wdotcoeff[0]
             + v * ( params->wdotcoeff[1]
@@ -1391,237 +1218,6 @@ static int XLALSimInspiralSpinTaylorT4TestDerivatives(
     /*
      * dS2
      * 
-     * d S_2 / d \hat{t} = M * d S_2 / dt = \Omega_{S2} x S_2
-     * This is Eq. (9) of gr-qc/0405090.
-     * However, that paper uses spin variables which are M^2 times our spins
-     */
-    /* \Omega_{S2} vector */
-    threeLNdotS1 = 3. * LNdotS1;
-    v5etaLNhatSO15s2 = v5 * params->eta * params->LNhatSO15s2;
-    OmegaSx = v5etaLNhatSO15s2 * LNhx
-            + omega2by2 * (S1x - threeLNdotS1 * LNhx);
-    OmegaSy = v5etaLNhatSO15s2 * LNhy
-            + omega2by2 * (S1y - threeLNdotS1 * LNhy);
-    OmegaSz = v5etaLNhatSO15s2 * LNhz
-            + omega2by2 * (S1z - threeLNdotS1 * LNhz);
-
-    /* Take cross product of \Omega_{S2} with S_2 */
-    dS2x = (-OmegaSz*S2y + OmegaSy*S2z);
-    dS2y = (-OmegaSx*S2z + OmegaSz*S2x);
-    dS2z = (-OmegaSy*S2x + OmegaSx*S2y);
-
-    /* dphi = d \phi / d \hat{t} = M d \phi /dt = M \omega = \hat{\omega} */
-    ds = omega;
-
-    dvalues[0]    = ds   ; dvalues[1]     = domega;
-    dvalues[2]    = dLNhx; dvalues[3]     = dLNhy ; dvalues[4]    = dLNhz;
-    dvalues[5]    = dS1x ; dvalues[6]     = dS1y  ; dvalues[7]    = dS1z ;
-    dvalues[8]    = dS2x ; dvalues[9]     = dS2y  ; dvalues[10]   = dS2z ;
-    dvalues[11]   = dE1x ; dvalues[12]    = dE1y  ; dvalues[13]   = dE1z ;
-
-    return GSL_SUCCESS;
-}
-
-/**
- * Internal function called by the integration routine.
- * Given the values of all the dynamical variables 'values' at time 't',
- * This function computes their derivatives 'dvalues'
- * so the ODE integrator can take a step
- * All non-dynamical quantities (masses, etc.) are passed in \"mparams\"
- *
- * FIXME: Change references below
- * The derivatives for \f$\omega\f$, L_N, S1, S2 can be found
- * as Eqs. (1), (8) - (10) of gr-qc/0405090
- * The derivative of E1 is Eq. (15)-(16) of gr-qc/0310034
- */
-static int XLALSimInspiralSpinTaylorT2Derivatives(
-	double t,
-	const double values[],
-	double dvalues[],
-	void *mparams
-	)
-{
-    /* coordinates and derivatives */
-    REAL8 LNhx, LNhy, LNhz, S1x, S1y, S1z, S2x, S2y, S2z, E1x, E1y, E1z;
-    REAL8 omega, ds, domega, dLNhx, dLNhy, dLNhz;
-    REAL8 dS1x, dS1y, dS1z, dS2x, dS2y, dS2z, dE1x, dE1y, dE1z;
-
-    /* auxiliary variables */
-    REAL8 v, v2, v3, v4, v5, v7, v11, omega2, omega2by2;
-    REAL8 LNdotS1, LNdotS2, threeLNdotS1, threeLNdotS2, S1dotS2, S1sq, S2sq;
-    REAL8 v5etaLNhatSO15s1, v5etaLNhatSO15s2;
-    REAL8 OmegaLx, OmegaLy, OmegaLz, OmegaLdotLN;
-    REAL8 OmegaEx, OmegaEy, OmegaEz, OmegaSx, OmegaSy, OmegaSz;
-    REAL8 wspin15 = 0., wspin2 = 0., wspin25 = 0., wspin3 = 0., wspin35 = 0.;
-
-    XLALSimInspiralSpinTaylorTxCoeffs *params
-            = (XLALSimInspiralSpinTaylorTxCoeffs*) mparams;
-
-    UNUSED(t);
-
-    /* copy variables */
-    // UNUSED!!: s    = values[0] ;
-    omega   	= values[1] ;
-    LNhx = values[2] ; LNhy    	= values[3] ; LNhz 	= values[4] ;
-    S1x  = values[5] ; S1y     	= values[6] ; S1z 	= values[7] ;
-    S2x  = values[8] ; S2y     	= values[9] ; S2z 	= values[10];
-    E1x  = values[11]; E1y    	= values[12]; E1z 	= values[13];
-
-    if (omega <= 0.0) /* orbital frequency must be positive! */
-    {
-        return LALSIMINSPIRAL_ST_DERIVATIVE_OMEGANONPOS;
-    }
-
-    v = cbrt(omega);
-    v2  = v * v; v3 = v2 * v; v4 = v3 * v;
-    v5 = v * v4; v7 = v4 * v3; v11 = v7 * v4;
-
-    LNdotS1 = (LNhx*S1x + LNhy*S1y + LNhz*S1z);
-    LNdotS2 = (LNhx*S2x + LNhy*S2y + LNhz*S2z);
-    S1dotS2 = (S1x*S2x  + S1y*S2y  + S1z*S2z );
-
-    /*
-     * domega
-     *
-     * Note we are actually computing \f$d \hat{\omega} / d \hat{t}\f$
-     * where \f$\hat{\omega} = M \omega\f$ and \f$\hat{t} = t / M\f$
-     * Therefore \f$domega = M^2 * d\omega / dt\f$
-     *
-     * See Eqs. (1)-(7) of gr-qc/0405090 But note that our spin variables
-     * are scaled by component masses relative to that paper.
-     * i.e. \f$S_i = (m_i/M)^2 * \hat{S_i}\f$
-     *
-     * non-spinning coefficients of \f$\dot{\omega}\f$ (params->wdotcoeff[i])
-     * should have been set before this function was called
-     */
-
-    switch( params->spinO )
-    {
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_ALL:
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_35PN:
-            // Compute 3.5PN SO correction to domega/dt
-            // See Eq. 3.16 of arXiv:1303.7412
-            // Note that S_l/M^2 = (m1/M)^2 chi1 + (m2/M)^2 chi2
-            // and Sigma_l/M^2 = (m2/M) chi2 - (m1/M) chi1
-            wspin35 = params->wdotSO35s1*LNdotS1 + params->wdotSO35s2*LNdotS2;
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_3PN:
-            // Compute 3PN SO correction to domega/dt
-            // See Eq. 13 of arXiv:1210.0764 and/or Eq. 3.16 of arXiv:1303.7412
-            // Note that S_l/M^2 = (m1/M)^2 chi1 + (m2/M)^2 chi2
-            // and Sigma_l/M^2 = (m2/M) chi2 - (m1/M) chi1
-            wspin3 = params->wdotSO3s1 * LNdotS1 + params->wdotSO3s2 * LNdotS2;
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_25PN:
-            // Compute 2.5PN SO correction to domega/dt
-            // See Eq. 8.3 of gr-qc/0605140v4
-            // Note that S_l/M^2 = (m1/M)^2 chi1 + (m2/M)^2 chi2
-            // and Sigma_l/M^2 = (m2/M) chi2 - (m1/M) chi1
-            wspin25 = params->wdotSO25s1*LNdotS1 + params->wdotSO25s2*LNdotS2;
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_2PN:
-            // Compute S1-S2 spin-spin term
-            S1dotS2 = (S1x*S2x + S1y*S2y + S1z*S2z);
-            wspin2 = params->wdotSS2 * (247.*S1dotS2 - 721.*LNdotS1 * LNdotS2);
-            // Compute 2PN QM and self-spin corrections to domega/dt
-            // See last line of Eq. 5.17 of arXiv:0812.4413
-            // Also note this is equivalent to Eqs. 9c + 9d of astro-ph/0504538
-            S1sq = (S1x*S1x + S1y*S1y + S1z*S1z);
-            S2sq = (S2x*S2x + S2y*S2y + S2z*S2z);
-            wspin2 += params->wdotQM2S1 * S1sq
-                    + params->wdotQM2S2 * S2sq
-                    + params->wdotQM2S1L * LNdotS1 * LNdotS1
-                    + params->wdotQM2S2L * LNdotS2 * LNdotS2
-                    + params->wdotSSselfS1 * S1sq
-                    + params->wdotSSselfS2 * S2sq
-                    + params->wdotSSselfS1L * LNdotS1 * LNdotS1
-                    + params->wdotSSselfS2L * LNdotS2 * LNdotS2;
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_15PN:
-            // Compute 1.5PN SO correction to domega/dt
-            wspin15 = params->wdotSO15s1*LNdotS1 + params->wdotSO15s2*LNdotS2;
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_1PN:
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_05PN:
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_0PN:
-            break;
-        default:
-            XLALPrintError("XLAL Error - %s: Invalid spin PN order %s\n",
-                    __func__, params->spinO );
-            XLAL_ERROR(XLAL_EINVAL);
-            break;
-    }
-
-    domega  = params->wdotnewt * v11 / ( params->wdotcoeff[0]
-            + v * ( params->wdotcoeff[1]
-            + v * ( params->wdotcoeff[2]
-            + v * ( params->wdotcoeff[3] + wspin15
-            + v * ( params->wdotcoeff[4] + wspin2
-            + v * ( params->wdotcoeff[5] + wspin25
-            + v * ( params->wdotcoeff[6] + wspin3
-                    + params->wdotlogcoeff * log(omega)
-            + v * ( params->wdotcoeff[7] + wspin35
-            + v3 * ( params->wdottidal5pn
-            + v2 * ( params->wdottidal6pn ) ) ) ) ) ) ) ) ) );
-
-    /*
-     * dLN
-     *
-     * \f$d \hat{L_N}/d \hat{t} = M * d\hat{L_N} / dt = \Omega_L x \hat{L_N}\f$
-     * This is Eq. (10) of gr-qc/0405090 ( times M b/c we use \f$\hat{t}\f$)
-     */
-    omega2 = omega * omega;
-    /* \Omega_L vector */
-    OmegaLx = omega2 * (params->LNhatSO15s1 * S1x + params->LNhatSO15s2 * S2x)
-            + v7 * params->LNhatSS2 * (LNdotS2 * S1x + LNdotS1 * S2x);
-    OmegaLy = omega2 * (params->LNhatSO15s1 * S1y + params->LNhatSO15s2 * S2y)
-            + v7 * params->LNhatSS2 * (LNdotS2 * S1y + LNdotS1 * S2y);
-    OmegaLz = omega2 * (params->LNhatSO15s1 * S1z + params->LNhatSO15s2 * S2z)
-            + v7 * params->LNhatSS2 * (LNdotS2 * S1z + LNdotS1 * S2z);
-
-    /* Take cross product of \Omega_L with \hat{L_N} */
-    dLNhx = (-OmegaLz*LNhy + OmegaLy*LNhz);
-    dLNhy = (-OmegaLx*LNhz + OmegaLz*LNhx);
-    dLNhz = (-OmegaLy*LNhx + OmegaLx*LNhy);
-
-    /*
-     * dE1
-     *
-     * d E_1 / d \hat{t} = M * d E_1 / dt
-     * Computed from \Omega_L and \hat{L_N} with Eq. (15)-(16) of gr-qc/0310034
-     */
-    OmegaLdotLN = OmegaLx * LNhx + OmegaLy * LNhy + OmegaLz * LNhz;
-    /* \Omega_E vector */
-    OmegaEx = OmegaLx - OmegaLdotLN * LNhx;
-    OmegaEy = OmegaLy - OmegaLdotLN * LNhy;
-    OmegaEz = OmegaLz - OmegaLdotLN * LNhz;
-
-    /* Take cross product of \Omega_E with E_1 */
-    dE1x = (-OmegaEz*E1y + OmegaEy*E1z);
-    dE1y = (-OmegaEx*E1z + OmegaEz*E1x);
-    dE1z = (-OmegaEy*E1x + OmegaEx*E1y);
-
-    /*
-     * dS1
-     *
-     * d S_1 / d \hat{t} = M * d S_1 / dt = \Omega_{S1} x S_1
-     * This is Eq. (8) of gr-qc/0405090.
-     * However, that paper uses spin variables which are M^2 times our spins
-     */
-    /* \Omega_{S1} vector */
-    omega2by2 = omega2 * 0.5;
-    threeLNdotS2 = 3. * LNdotS2;
-    v5etaLNhatSO15s1 = v5 * params->eta * params->LNhatSO15s1;
-    OmegaSx = v5etaLNhatSO15s1 * LNhx
-            + omega2by2 * (S2x - threeLNdotS2 * LNhx);
-    OmegaSy = v5etaLNhatSO15s1 * LNhy
-            + omega2by2 * (S2y - threeLNdotS2 * LNhy);
-    OmegaSz = v5etaLNhatSO15s1 * LNhz
-            + omega2by2 * (S2z - threeLNdotS2 * LNhz);
-
-    /* Take cross product of \Omega_{S1} with S_1 */
-    dS1x = (-OmegaSz*S1y + OmegaSy*S1z);
-    dS1y = (-OmegaSx*S1z + OmegaSz*S1x);
-    dS1z = (-OmegaSy*S1x + OmegaSx*S1y);
-
-    /*
-     * dS2
-     *
      * d S_2 / d \hat{t} = M * d S_2 / dt = \Omega_{S2} x S_2
      * This is Eq. (9) of gr-qc/0405090.
      * However, that paper uses spin variables which are M^2 times our spins
@@ -1743,7 +1339,7 @@ int XLALSimInspiralSpinTaylorT4Test(
 }
 
 /**
- * Internal driver function to generate any of SpinTaylorT1/T2/T4
+ * Internal driver function to generate any of SpinTaylorT1/T2/T4Test
  */
 static int XLALSimInspiralSpinTaylorTestDriver(
 	REAL8TimeSeries **hplus,        /**< +-polarization waveform */
@@ -2035,33 +1631,38 @@ static int XLALSimInspiralSpinTaylorTestPNEvolveOrbitIrregularIntervals(
     }
 
     // Fill params struct with values of constant coefficients of the model
-    if( approx == SpinTaylorT4 )
+    if( approx == SpinTaylorT4Test )
     {
         XLALSimInspiralSpinTaylorTxCoeffs paramsT4;
         XLALSimInspiralSpinTaylorT4TestSetup(&paramsT4, m1, m2, fStart, fEnd,
                 lambda1, lambda2, quadparam1, quadparam2, spinO, tideO, phaseO, extraParams);
         params = (void *) &paramsT4;
     }
-    else if( approx == SpinTaylorT2 )
+    /*
+    else if( approx == SpinTaylorT2Test )
     {
-        XLALSimInspiralSpinTaylorTxCoeffs paramsT2;
-        XLALSimInspiralSpinTaylorT2Setup(&paramsT2, m1, m2, fStart, fEnd,
-                lambda1, lambda2, quadparam1, quadparam2, spinO, tideO, phaseO);
-        params = (void *) &paramsT2;
+      //XLALSimInspiralSpinTaylorTxCoeffs paramsT2;
+      //XLALSimInspiralSpinTaylorT2TestSetup(&paramsT2, m1, m2, fStart, fEnd,
+      //        lambda1, lambda2, quadparam1, quadparam2, spinO, tideO, phaseO);
+      //params = (void *) &paramsT2;
+        XLALPrintError("XLAL Error - %s: SpinTaylorT2Test not implemented yet!\n",
+                __func__);
+        XLAL_ERROR(XLAL_EINVAL);
     }
-    else if( approx == SpinTaylorT1 )
+    else if( approx == SpinTaylorT1Test )
     {
         //XLALSimInspiralSpinTaylorT1Coeffs paramsT1;
         //XLALSimInspiralSpinTaylorT1Setup(&paramsT1, m1, m2, fStart, fEnd,
         //        lambda1, lambda2, quadparam1, quadparam2, spinO, tideO, phaseO);
         //params = (void *) &paramsT1;
-        XLALPrintError("XLAL Error - %s: SpinTaylorT1 not implemented yet!\n",
+        XLALPrintError("XLAL Error - %s: SpinTaylorT1Test not implemented yet!\n",
                 __func__);
         XLAL_ERROR(XLAL_EINVAL);
     }
+    */
     else
     {
-        XLALPrintError("XLAL Error - %s: Approximant must be one of SpinTaylorT1, SpinTaylorT2, SpinTaylorT4, but %i provided\n",
+        XLALPrintError("XLAL Error - %s: Approximant must be one of SpinTaylorT1Test, SpinTaylorT2Test, SpinTaylorT4Test, but %i provided\n",
                 __func__, approx);
         XLAL_ERROR(XLAL_EINVAL);
 
@@ -2104,29 +1705,34 @@ static int XLALSimInspiralSpinTaylorTestPNEvolveOrbitIrregularIntervals(
     yinit[13] = e1z;
 
     /* initialize the integrator */
-    if( approx == SpinTaylorT4 )
+    if( approx == SpinTaylorT4Test )
         integrator = XLALAdaptiveRungeKutta4Init(LAL_NUM_ST4_VARIABLES,
                 XLALSimInspiralSpinTaylorT4TestDerivatives,
-                XLALSimInspiralSpinTaylorStoppingTest,
+                XLALSimInspiralSpinTaylorTestStoppingTest,
                 LAL_ST4_ABSOLUTE_TOLERANCE, LAL_ST4_RELATIVE_TOLERANCE);
-    else if( approx == SpinTaylorT2 )
-        integrator = XLALAdaptiveRungeKutta4Init(LAL_NUM_ST4_VARIABLES,
-                XLALSimInspiralSpinTaylorT2Derivatives,
-                XLALSimInspiralSpinTaylorStoppingTest,
-                LAL_ST4_ABSOLUTE_TOLERANCE, LAL_ST4_RELATIVE_TOLERANCE);
-    else if( approx == SpinTaylorT1 )
+    /*
+    else if( approx == SpinTaylorT2Test )
+      //integrator = XLALAdaptiveRungeKutta4Init(LAL_NUM_ST4_VARIABLES,
+      //        XLALSimInspiralSpinTaylorT2TestDerivatives,
+      //        XLALSimInspiralSpinTaylorTestStoppingTest,
+      //        LAL_ST4_ABSOLUTE_TOLERANCE, LAL_ST4_RELATIVE_TOLERANCE);
+        XLALPrintError("XLAL Error - %s: SpinTaylorT2Test not implemented yet!\n",
+                __func__);
+        XLAL_ERROR(XLAL_EINVAL);
+    else if( approx == SpinTaylorT1Test )
     {
         //integrator = XLALAdaptiveRungeKutta4Init(LAL_NUM_ST4_VARIABLES,
-        //        XLALSimInspiralSpinTaylorT1Derivatives,
-        //        XLALSimInspiralSpinTaylorStoppingTest,
+        //        XLALSimInspiralSpinTaylorT1TestDerivatives,
+        //        XLALSimInspiralSpinTaylorTestStoppingTest,
         //        LAL_ST4_ABSOLUTE_TOLERANCE, LAL_ST4_RELATIVE_TOLERANCE);
-        XLALPrintError("XLAL Error - %s: SpinTaylorT1 not implemented yet!\n",
+        XLALPrintError("XLAL Error - %s: SpinTaylorT1Test not implemented yet!\n",
                 __func__);
         XLAL_ERROR(XLAL_EINVAL);
     }
+    */
     else
     {
-        XLALPrintError("XLAL Error - %s: Approximant must be one of SpinTaylorT1, SpinTaylorT2, SpinTaylorT4, but %i provided\n",
+        XLALPrintError("XLAL Error - %s: Approximant must be one of SpinTaylorT1Test, SpinTaylorT2Test, SpinTaylorT4Test, but %i provided\n",
                 __func__, approx);
         XLAL_ERROR(XLAL_EINVAL);
 
