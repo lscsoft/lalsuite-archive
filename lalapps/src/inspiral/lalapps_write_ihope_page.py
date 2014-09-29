@@ -695,7 +695,7 @@ def write_datainfo(page,opts):
   for cat in (catStrings):
     vetSegs = get_segments_tag(cat)
     i=i+1
-    if i > 2:
+    if i > 1:
       cumVetSegs = get_segments_tag("COMBINED_CAT_"+str(i)+"_VETO_SEGS")
     else:
       cumVetSegs = vetSegs
@@ -723,9 +723,7 @@ def write_datainfo(page,opts):
       liveTimes[i] = {}
     for ifo in get_ifos():
       key += 1
-      if i == 2:
-        liveTimes[i][ifo] = liveTimes[i-1][ifo] - float(vetSegs[ifo][2])/86400
-      elif i > 2:
+      if i > 1:
         liveTimes[i][ifo] = liveTimes[1][ifo] - float(cumVetSegs[ifo][2])/86400
       keys.append(key)
       data[key]=[ifo,str(round(liveTimes[i][ifo],3)),str(round(liveTimes[i][ifo]*100/opts.daydur,3))]
