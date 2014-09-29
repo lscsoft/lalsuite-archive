@@ -358,6 +358,12 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     # Check the triggers are all in the analysed segment lists
     for trig in sortedTrigs[slideID]:
       if trig.end_time not in currSegList:
+        # This can be raised if the trigger is on the segment boundary, so
+        # check if the trigger is within 1/100 of a second within the list
+        if (trig.get_end() + 0.01) in currSegList:
+            continue
+        if (trig.get_end() - 0.01) in currSegList:
+            continue
         err_msg = "Triggers found in input files not in the list of analysed " 
         err_msg += "segments. This shouldn't happen."
         raise ValueError(err_msg)
