@@ -400,6 +400,7 @@ class CondorJob:
     self.__sub_file_path = None
     self.__output_files = []
     self.__input_files = []
+    self.__checkpoint_files = []
     self.__grid_type = None
     self.__grid_server = None
     self.__grid_scheduler = None
@@ -515,6 +516,13 @@ class CondorJob:
     """
     if filename not in self.__output_files:
       self.__output_files.append(filename)
+
+  def add_checkpoint_file(self.filename):
+    """
+    Add filename as a checkpoint file for this DAG job.
+    """
+    if filename not in self.__checkpoint_files:
+        self.__checkpoint_files.append(filename)
 
   def get_input_files(self):
     """
@@ -1002,6 +1010,7 @@ class CondorDAGNode:
     self.__bad_macro_chars = re.compile(r'[_-]')
     self.__output_files = []
     self.__input_files = []
+    self.__checkpoint_files = []
     self.__dax_collapse = None
     self.__vds_group = None
     if isinstance(job,CondorDAGJob) and job.get_universe()=='standard':
@@ -1162,9 +1171,20 @@ class CondorDAGNode:
         if self.job().get_universe() == 'grid':
           self.add_output_macro(filename)
 
+  def add_checkpoint_file(self,filename):
+    """
+    Add filename as a checkpoint file for this DAG node
+    @param filename: checkpoint filename to add
+    """
+    if filename not in self.__checkpoint_files:
+        self.__checkpoint_files.append(filename)
+        if not isinstance(self.job(), CondorDAGManJob):
+            if self.jon().get_universe() == 'grid':
+                self.add_checkpoint_macro(filename)
+
   def get_input_files(self):
     """
-    Return list of input files for this DAG node and it's job.
+    Return list of input files for this DAG node and its job.
     """
     input_files = list(self.__input_files)
     if isinstance(self.job(), CondorDAGJob):
@@ -1173,12 +1193,21 @@ class CondorDAGNode:
 
   def get_output_files(self):
     """
-    Return list of output files for this DAG node and it's job.
+    Return list of output files for this DAG node and its job.
     """
     output_files = list(self.__output_files)
     if isinstance(self.job(), CondorDAGJob):
       output_files = output_files + self.job().get_output_files()
     return output_files
+
+  def get_checkpoint_files(self):
+    """
+    Return a list of checkpoint files for this DAG node and its job.
+    """
+    checkpoint_files = list(self.__checkpoint_files)
+    if isinstance(self.job(), CondorDAGJob):
+        checkpoint_files = checkpoint_files + self.job().get_checkpoint_files()
+    return checkpoint_files
 
   def set_vds_group(self,group):
     """
@@ -1247,6 +1276,9 @@ class CondorDAGNode:
     @param filename: filename of output file
     """
     self.add_io_macro('macrooutput', filename)
+
+  def add_checkpoint_macro(self,filename):
+    self.add_io_macro('macrocheckpoint',filename)
 
   def get_opts(self):
     """
@@ -1961,10 +1993,17 @@ class CondorDAG:
         for f in node.get_output_files():
           output_node_file_dict[f] = 1
 
+        checkpoint_node_file_dict = {}
+        for f in node.get_checkpoint_files():
+            checkpoint_node_file_dict[f] = 1
+
         for f in output_node_file_dict.keys():
           workflow_job.uses(Pegasus.DAX3.File(os.path.basename(f)),link=Pegasus.DAX3.Link.OUTPUT,register=False,transfer=True)
 
-        node_file_dict = dict( input_node_file_dict.items() + output_node_file_dict.items() )
+        for f in checkpoint_node_file_dict.key():
+          workflow_job.uses(Pegasus.DAX3.File(os.path.basename(f)),link='checkpoint',register=False,transfer=True)
+
+        node_file_dict = dict( input_node_file_dict.items() + output_node_file_dict.items() + checkpoint_node_file_dict.items() )
 
         for job_arg in cmd_line:
           try:
