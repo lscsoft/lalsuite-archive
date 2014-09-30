@@ -1294,8 +1294,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
 
   # plot cumulative histograms
   for i,bin in enumerate(massBins):
-    np.savetxt('%s/bestnr_vs_fap_%s_%s_numbers.txt' %(outdir, bin[0],
-                                                      bin[1]),
+    np.savetxt('%s/bestnr_vs_fap_%s_%s_numbers.txt' %(outdir, bin[0], bin[1]),
                fullTimeBinVetoMaxBestNR[i], delimiter='/t')
     fig = pylab.figure()
     ax = fig.gca()
@@ -1365,6 +1364,14 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     yerr_lowNoMC  = (finjsNoMC/totalinjsNoMC) - yerr_low
     yerr_high     = (yerr_common + yerr_vary)/yerr_denom
     yerr_highNoMC = yerr_high - (finjsNoMC/totalinjsNoMC)
+
+    # save efficiency values to disk
+    f = open('%s/efficiency_numbers.txt' % outdir, 'w')
+    f.write('distance\tfraction\tyerr_low\tyerr_high\n\n')
+    stacked = np.column_stack([distPlotVals, finjs/totalinjs, yerr_lowMC,
+                               yerr_highMC])
+    np.savetxt(f, stacked, fmt='%.8e', delimiter='\t')
+    f.close()
 
     # plot efficiency
     fig = pylab.figure()
