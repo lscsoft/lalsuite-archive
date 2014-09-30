@@ -35,7 +35,7 @@ smoothing contour plots.
 """
 
 
-import bisect
+from bisect import bisect_right
 try:
 	from fpconst import PosInf, NegInf
 except ImportError:
@@ -237,7 +237,7 @@ class IrregularBins(Bins):
 				stop = self[x.stop]
 			return slice(start, stop)
 		if self.min <= x < self.max:
-			return bisect.bisect_right(self.boundaries, x) - 1
+			return bisect_right(self.boundaries, x) - 1
 		# special measure-zero edge case
 		if x == self.max:
 			return len(self.boundaries) - 2
