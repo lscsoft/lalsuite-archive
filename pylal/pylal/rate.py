@@ -262,6 +262,12 @@ class LinearBins(Bins):
 	Example:
 
 	>>> x = LinearBins(1.0, 25.0, 3)
+	>>> x.lower()
+	array([  1.,   9.,  17.])
+	>>> x.upper()
+	array([  9.,  17.,  25.])
+	>>> x.centres()
+	array([  5.,  13.,  21.])
 	>>> x[1]
 	0
 	>>> x[1.5]
@@ -296,13 +302,13 @@ class LinearBins(Bins):
 		raise IndexError(x)
 
 	def lower(self):
-		return self.min + self.delta * numpy.arange(len(self))
+		return numpy.linspace(self.min, self.max - self.delta, len(self))
 
 	def centres(self):
-		return self.min + self.delta * (numpy.arange(len(self)) + 0.5)
+		return numpy.linspace(self.min + self.delta / 2., self.max - self.delta / 2., len(self))
 
 	def upper(self):
-		return self.min + self.delta * (numpy.arange(len(self)) + 1)
+		return numpy.linspace(self.min + self.delta, self.max, len(self))
 
 
 class LinearPlusOverflowBins(Bins):
