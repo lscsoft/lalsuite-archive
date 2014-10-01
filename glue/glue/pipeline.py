@@ -517,7 +517,7 @@ class CondorJob:
     if filename not in self.__output_files:
       self.__output_files.append(filename)
 
-  def add_checkpoint_file(self.filename):
+  def add_checkpoint_file(self, filename):
     """
     Add filename as a checkpoint file for this DAG job.
     """
@@ -535,6 +535,12 @@ class CondorJob:
     Return list of output files for this DAG node.
     """
     return self.__output_files
+
+  def get_checkpoint_files(self):
+    """
+    Return a list of checkpoint files for this DAG node
+    """
+    return self.__checkpoint_files
 
   def add_arg(self, arg):
     """
