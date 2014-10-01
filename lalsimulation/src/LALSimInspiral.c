@@ -2430,6 +2430,40 @@ int XLALSimInspiralChooseTDWaveform(
     return ret;
 }
 
+int XLALSimInspiralChooseTDWaveformOldInterface(
+    REAL8TimeSeries **hplus,                    /**< +-polarization waveform */
+    REAL8TimeSeries **hcross,                   /**< x-polarization waveform */
+    REAL8 phiRef,                               /**< reference orbital phase (rad) */
+    REAL8 deltaT,                               /**< sampling interval (s) */
+    REAL8 m1,                                   /**< mass of companion 1 (kg) */
+    REAL8 m2,                                   /**< mass of companion 2 (kg) */
+    REAL8 S1x,                                  /**< x-component of the dimensionless spin of object 1 */
+    REAL8 S1y,                                  /**< y-component of the dimensionless spin of object 1 */
+    REAL8 S1z,                                  /**< z-component of the dimensionless spin of object 1 */
+    REAL8 S2x,                                  /**< x-component of the dimensionless spin of object 2 */
+    REAL8 S2y,                                  /**< y-component of the dimensionless spin of object 2 */
+    REAL8 S2z,                                  /**< z-component of the dimensionless spin of object 2 */
+    REAL8 f_min,                                /**< starting GW frequency (Hz) */
+    REAL8 f_ref,                                /**< reference GW frequency (Hz) */
+    REAL8 r,                                    /**< distance of source (m) */
+    REAL8 i,                                    /**< inclination of Lhat (rad) */
+    REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
+    REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
+    LALSimInspiralWaveformFlags *waveFlags,     /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
+    LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
+    int amplitudeO,                             /**< twice post-Newtonian amplitude order */
+    int phaseO,                                 /**< twice post-Newtonian order */
+    Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
+    )
+{
+    XLAL_PRINT_DEPRECATION_WARNING("XLALSimInspiralChooseTDWaveformOldInterface");
+    // Defaults in order are f_max=0., psi=0., quadparams=1., eccentricity=0., arg_periapsis=0.
+    return XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef, deltaT,
+                m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, 0., r, i, 0.,
+                1., 1., lambda1, lambda2, 0., 0., waveFlags, nonGRparams,
+                amplitudeO, phaseO, approximant);
+}
+
 /**
  * Chooses between different approximants when requesting a waveform to be generated
  * For spinning waveforms, all known spin effects up to given PN order are included
@@ -2453,7 +2487,7 @@ int XLALSimInspiralChooseFDWaveform(
     REAL8 f_max,                            /**< ending GW frequency (Hz) */
     REAL8 r,                                /**< distance of source (m) */
     REAL8 i,                                /**< inclination of source (rad) */
-    REAL8 psi,                                  /**< rotation of Lhat in plane of sky (rad) */
+    REAL8 psi,                              /**< rotation of Lhat in plane of sky (rad) */
     REAL8 quadparam1,                       /**< quadrupole deformability parameter of mass1 (dimensionless) */
     REAL8 quadparam2,                       /**< quadrupole deformability parameter of mass2 (dimensionless) */
     REAL8 lambda1,                          /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
@@ -2857,6 +2891,40 @@ int XLALSimInspiralChooseFDWaveform(
     return ret;
 }
 
+int XLALSimInspiralChooseFDWaveformOldInterface(
+    COMPLEX16FrequencySeries **hptilde,     /**< FD plus polarization */
+    COMPLEX16FrequencySeries **hctilde,     /**< FD cross polarization */
+    REAL8 phiRef,                           /**< reference orbital phase (rad) */
+    REAL8 deltaF,                           /**< sampling interval (Hz) */
+    REAL8 m1,                               /**< mass of companion 1 (kg) */
+    REAL8 m2,                               /**< mass of companion 2 (kg) */
+    REAL8 S1x,                              /**< x-component of the dimensionless spin of object 1 */
+    REAL8 S1y,                              /**< y-component of the dimensionless spin of object 1 */
+    REAL8 S1z,                              /**< z-component of the dimensionless spin of object 1 */
+    REAL8 S2x,                              /**< x-component of the dimensionless spin of object 2 */
+    REAL8 S2y,                              /**< y-component of the dimensionless spin of object 2 */
+    REAL8 S2z,                              /**< z-component of the dimensionless spin of object 2 */
+    REAL8 f_min,                            /**< starting GW frequency (Hz) */
+    REAL8 f_max,                            /**< ending GW frequency (Hz) */
+    REAL8 f_ref,                            /**< Reference frequency (Hz) */
+    REAL8 r,                                /**< distance of source (m) */
+    REAL8 i,                                /**< inclination of source (rad) */
+    REAL8 lambda1,                          /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
+    REAL8 lambda2,                          /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
+    LALSimInspiralWaveformFlags *waveFlags, /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
+    LALSimInspiralTestGRParam *nonGRparams, /**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
+    int amplitudeO,                         /**< twice post-Newtonian amplitude order */
+    int phaseO,                             /**< twice post-Newtonian order */
+    Approximant approximant                 /**< post-Newtonian approximant to use for waveform production */
+    )
+{
+    XLAL_PRINT_DEPRECATION_WARNING("XLALSimInspiralChooseFDWaveformOldInterface");
+    // Defaults in order are f_max=0., psi=0., quadparams=1., eccentricity=0., arg_periapsis=0.
+    return XLALSimInspiralChooseFDWaveform(hptilde, hctilde, phiRef, deltaF,
+                m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, f_max, r, i, 0.,
+                1., 1., lambda1, lambda2, 0., 0., waveFlags, nonGRparams,
+                amplitudeO, phaseO, approximant);
+}
 
 /**
  * @brief Generates an time domain inspiral waveform using the specified approximant; the

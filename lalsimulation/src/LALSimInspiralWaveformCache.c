@@ -135,7 +135,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
 
     // If nonGRparams are not NULL, don't even try to cache.
     if ( nonGRparams != NULL || (!cache) )
-        return XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef, deltaT,
+        return XLALSimInspiralChooseTDWaveformOldInterface(hplus, hcross, phiRef, deltaT,
                 m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, i,
                 lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO,
                 approximant);
@@ -164,7 +164,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
 
     // Intrinsic parameters have changed. We must generate a new waveform
     if( (changedParams & INTRINSIC) != 0 ) {
-        status = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef, deltaT,
+        status = XLALSimInspiralChooseTDWaveformOldInterface(hplus, hcross, phiRef, deltaT,
                 m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, i,
                 lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO,
                 approximant);
@@ -181,7 +181,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
         // If polarizations are not cached we must generate a fresh waveform
         // FIXME: Will need to check hlms and/or dynamical variables as well
         if( cache->hplus == NULL || cache->hcross == NULL) {
-            status = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef,
+            status = XLALSimInspiralChooseTDWaveformOldInterface(hplus, hcross, phiRef,
                     deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref,
                     r, i, lambda1, lambda2, waveFlags, nonGRparams,
                     amplitudeO, phaseO, approximant);
@@ -197,7 +197,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
         if( changedParams & INCLINATION ) {
             // FIXME: For now just treat as intrinsic parameter.
             // Will come back and put in transformation
-            status = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef,
+            status = XLALSimInspiralChooseTDWaveformOldInterface(hplus, hcross, phiRef,
                     deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref,
                     r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO,
                     phaseO, approximant);
@@ -212,7 +212,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
         if( changedParams & PHI_REF ) {
             // FIXME: For now just treat as intrinsic parameter.
             // Will come back and put in transformation
-            status = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef,
+            status = XLALSimInspiralChooseTDWaveformOldInterface(hplus, hcross, phiRef,
                     deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref,
                     r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO,
                     phaseO, approximant);
@@ -260,7 +260,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
                 || approximant==EOBNRv2 || approximant==SEOBNRv1) ) {
         // If polarizations are not cached we must generate a fresh waveform
         if( cache->hplus == NULL || cache->hcross == NULL) {
-            status = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef,
+            status = XLALSimInspiralChooseTDWaveformOldInterface(hplus, hcross, phiRef,
                     deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref,
                     r, i, lambda1, lambda2, waveFlags, nonGRparams,
                     amplitudeO, phaseO, approximant);
@@ -336,7 +336,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
         // FIXME: Add in check that hlms non-NULL
         if( cache->hplus == NULL || cache->hcross == NULL) {
             // FIXME: This will change to a code-path: inputs->hlms->{h+,hx}
-            status = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef,
+            status = XLALSimInspiralChooseTDWaveformOldInterface(hplus, hcross, phiRef,
                     deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref,
                     r, i, lambda1, lambda2, waveFlags, nonGRparams,
                     amplitudeO, phaseO, approximant);
@@ -352,7 +352,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
         if( changedParams & INCLINATION) {
             // FIXME: For now just treat as intrinsic parameter.
             // Will come back and put in transformation
-            status = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef,
+            status = XLALSimInspiralChooseTDWaveformOldInterface(hplus, hcross, phiRef,
                     deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref,
                     r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO,
                     phaseO, approximant);
@@ -368,7 +368,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
         if( changedParams & PHI_REF ) {
             // FIXME: For now just treat as intrinsic parameter.
             // Will come back and put in transformation
-            status = XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef,
+            status = XLALSimInspiralChooseTDWaveformOldInterface(hplus, hcross, phiRef,
                     deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref,
                     r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO,
                     phaseO, approximant);
@@ -415,7 +415,7 @@ int XLALSimInspiralChooseTDWaveformFromCache(
     // Basically, you requested a waveform type which is not setup for caching
     // b/c of lack of interest or it's unclear what/how to cache for that model
     else {
-        return XLALSimInspiralChooseTDWaveform(hplus, hcross, phiRef, deltaT,
+        return XLALSimInspiralChooseTDWaveformOldInterface(hplus, hcross, phiRef, deltaT,
                 m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, i,
                 lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO,
                 approximant);
@@ -468,7 +468,7 @@ int XLALSimInspiralChooseFDWaveformFromCache(
 
     // If nonGRparams are not NULL, don't even try to cache.
     if ( nonGRparams != NULL || (!cache) )
-        return XLALSimInspiralChooseFDWaveform(hptilde, hctilde, phiRef, deltaF,
+        return XLALSimInspiralChooseFDWaveformOldInterface(hptilde, hctilde, phiRef, deltaF,
                 m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_max, f_ref, r, i,
                 lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO,
                 approximant);
@@ -497,7 +497,7 @@ int XLALSimInspiralChooseFDWaveformFromCache(
 
     // Intrinsic parameters have changed. We must generate a new waveform
     if( (changedParams & INTRINSIC) != 0 ) {
-        status = XLALSimInspiralChooseFDWaveform(hptilde, hctilde, phiRef,
+        status = XLALSimInspiralChooseFDWaveformOldInterface(hptilde, hctilde, phiRef,
                 deltaF, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_max, f_ref,
                 r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO,
                 phaseO, approximant);
@@ -516,7 +516,7 @@ int XLALSimInspiralChooseFDWaveformFromCache(
         // If polarizations are not cached we must generate a fresh waveform
         // FIXME: Will need to check hlms and/or dynamical variables as well
         if( cache->hptilde == NULL || cache->hctilde == NULL) {
-            status = XLALSimInspiralChooseFDWaveform(hptilde, hctilde, phiRef,
+            status = XLALSimInspiralChooseFDWaveformOldInterface(hptilde, hctilde, phiRef,
                     deltaF, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_max, f_ref,
                     r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO,
                     phaseO, approximant);
@@ -589,7 +589,7 @@ int XLALSimInspiralChooseFDWaveformFromCache(
     // Basically, you requested a waveform type which is not setup for caching
     // b/c of lack of interest or it's unclear what/how to cache for that model
     else {
-        return XLALSimInspiralChooseFDWaveform(hptilde, hctilde, phiRef, deltaF,
+        return XLALSimInspiralChooseFDWaveformOldInterface(hptilde, hctilde, phiRef, deltaF,
                 m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_max, f_ref, r, i,
                 lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO,
                 approximant);
