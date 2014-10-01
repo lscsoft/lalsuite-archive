@@ -354,7 +354,7 @@ for i_sim_inspiral in progress.iterate(range(n_injections), format='injection %d
             raise ValueError("unrecognized approximant")
 
         # Generate injection
-        hplus, hcross = lalsimulation.SimInspiralChooseTDWaveform(
+        hplus, hcross = lalsimulation.SimInspiralChooseTDWaveformOldInterface(
             phi, 1 / sample_rate,
             mass1 * lal.MSUN_SI, mass2 * lal.MSUN_SI,
             spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,

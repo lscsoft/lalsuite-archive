@@ -365,7 +365,7 @@ def autocorrelation(
         f_low, mass1*lal.MSUN_SI, mass2*lal.MSUN_SI, 0, phase_order))
 
     # Evaluate waveform. Terminates at ISCO.
-    hplus, hcross = lalsimulation.SimInspiralChooseFDWaveform(
+    hplus, hcross = lalsimulation.SimInspiralChooseFDWaveformOldInterface(
         0, 1/duration, mass1*lal.MSUN_SI, mass2*lal.MSUN_SI,
         0, 0, 0, 0, 0, 0, f_low, 0, 0, 1e6 * lal.PC_SI, 0, 0, 0,
         None, None, amplitude_order, phase_order, approximant)
@@ -402,7 +402,7 @@ def autocorrelation(
 def generate_template(mass1, mass2, S, f_low, sample_rate, template_duration, approximant, amplitude_order, phase_order):
     template_length = sample_rate * template_duration
     if approximant == lalsimulation.TaylorF2:
-        zf, _ = lalsimulation.SimInspiralChooseFDWaveform(0,
+        zf, _ = lalsimulation.SimInspiralChooseFDWaveformOldInterface(0,
             1 / template_duration,
             mass1 * lal.MSUN_SI, mass2 * lal.MSUN_SI,
             0, 0, 0, 0, 0, 0, f_low, 0, 0, 1e6 * lal.PC_SI,
@@ -415,7 +415,7 @@ def generate_template(mass1, mass2, S, f_low, sample_rate, template_duration, ap
         psd.data.data = S(abscissa(psd))
         zW = matched_filter_spa(zf, psd)
     elif approximant == lalsimulation.TaylorT4:
-        hplus, hcross = lalsimulation.SimInspiralChooseTDWaveform(
+        hplus, hcross = lalsimulation.SimInspiralChooseTDWaveformOldInterface(
             0, 1 / sample_rate,
             mass1 * lal.MSUN_SI, mass2 * lal.MSUN_SI,
             0, 0, 0, 0, 0, 0,

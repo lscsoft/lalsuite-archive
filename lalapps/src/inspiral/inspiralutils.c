@@ -1217,7 +1217,7 @@ REAL8 calculate_lalsim_snr(SimInspiralTable *inj, char *IFOname, REAL8FrequencyS
 
     COMPLEX16FrequencySeries *hptilde=NULL;
     COMPLEX16FrequencySeries *hctilde=NULL;
-    XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&hptilde,&hctilde, phi0, deltaF, m1, m2,
+    XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformOldInterface(&hptilde,&hctilde, phi0, deltaF, m1, m2,
       s1x, s1y, s1z, s2x, s2y, s2z, f_min, 0.0, 0.0, LAL_PC_SI * 1.0e6,
       iota, lambda1, lambda2, waveFlags, nonGRparams,
       amporder, order, approx),errnum
@@ -1283,7 +1283,7 @@ REAL8 calculate_lalsim_snr(SimInspiralTable *inj, char *IFOname, REAL8FrequencyS
       seglen
     );
 
-    XLAL_TRY(ret=XLALSimInspiralChooseTDWaveform(&hplus, &hcross, phi0, deltaT,
+    XLAL_TRY(ret=XLALSimInspiralChooseTDWaveformOldInterface(&hplus, &hcross, phi0, deltaT,
         m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, f_min, 0., LAL_PC_SI*1.0e6,
         iota, lambda1, lambda2, waveFlags, nonGRparams, amporder, order, approx),
         errnum);

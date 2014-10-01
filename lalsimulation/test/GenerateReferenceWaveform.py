@@ -178,8 +178,8 @@ wfparameters.append(inputpar['approximant'])
 
 
 # Generate the waveform
-waveformgenerator={'TD': lalsim.SimInspiralChooseTDWaveform,
-                   'FD': lalsim.SimInspiralChooseFDWaveform}[inputpar['domain']]
+waveformgenerator={'TD': lalsim.SimInspiralChooseTDWaveformOldInterface,
+                   'FD': lalsim.SimInspiralChooseFDWaveformOldInterface}[inputpar['domain']]
 hp, hc = waveformgenerator(*wfparameters)
 assert hp.epoch==hc.epoch
 

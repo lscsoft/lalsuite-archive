@@ -133,7 +133,7 @@ class SignalModel(object):
 
         if approximant == lalsimulation.TaylorF2:
             # Frequency-domain post-Newtonian inspiral waveform.
-            h, _ = lalsimulation.SimInspiralChooseFDWaveform(0, 1,
+            h, _ = lalsimulation.SimInspiralChooseFDWaveformOldInterface(0, 1,
                 mass1 * lal.MSUN_SI, mass2 * lal.MSUN_SI,
                 0, 0, 0, 0, 0, 0, f_low, 0, 0, 1e6 * lal.PC_SI,
                 0, 0, 0, None, None, amplitude_order, 0, approximant)
@@ -144,7 +144,7 @@ class SignalModel(object):
             last_nonzero = nonzero[-1]
         elif approximant == lalsimulation.TaylorT4:
             # Time-domain post-Newtonian inspiral waveform.
-            hplus, hcross = lalsimulation.SimInspiralChooseTDWaveform(0,
+            hplus, hcross = lalsimulation.SimInspiralChooseTDWaveformOldInterface(0,
                 1 / 4096, mass1 * lal.MSUN_SI, mass2 * lal.MSUN_SI,
                 0, 0, 0, 0, 0, 0, f_low, f_low, 1e6 * lal.PC_SI,
                 0, 0, 0, None, None, amplitude_order, phase_order, approximant)

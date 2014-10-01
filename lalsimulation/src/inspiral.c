@@ -453,7 +453,7 @@ int generate_td_waveform(REAL8TimeSeries ** h_plus, REAL8TimeSeries ** h_cross, 
         fprintf(stderr, "generating waveform in time domain...\n");
         timer_start = clock();
     }
-    XLALSimInspiralChooseTDWaveform(h_plus, h_cross, p.phiRef, 1.0 / p.srate, p.m1, p.m2, p.s1x, p.s1y, p.s1z, p.s2x, p.s2y,
+    XLALSimInspiralChooseTDWaveformOldInterface(h_plus, h_cross, p.phiRef, 1.0 / p.srate, p.m1, p.m2, p.s1x, p.s1y, p.s1z, p.s2x, p.s2y,
         p.s2z, fstart, p.fRef, p.distance, p.inclination, p.lambda1, p.lambda2, p.waveFlags, p.nonGRparams, p.ampO, p.phaseO,
         p.approx);
     if (p.verbose)
@@ -468,7 +468,7 @@ int generate_td_waveform(REAL8TimeSeries ** h_plus, REAL8TimeSeries ** h_cross, 
             /* best to compute textra more accurately */
             REAL8TimeSeries *dummy_plus = NULL;
             REAL8TimeSeries *dummy_cross = NULL;
-            XLALSimInspiralChooseTDWaveform(&dummy_plus, &dummy_cross, p.phiRef, 1.0 / p.srate, p.m1, p.m2, p.s1x, p.s1y,
+            XLALSimInspiralChooseTDWaveformOldInterface(&dummy_plus, &dummy_cross, p.phiRef, 1.0 / p.srate, p.m1, p.m2, p.s1x, p.s1y,
                 p.s1z, p.s2x, p.s2y, p.s2z, p.f_min, p.fRef, p.distance, p.inclination, p.lambda1, p.lambda2, p.waveFlags,
                 p.nonGRparams, p.ampO, p.phaseO, p.approx);
             n = (*h_plus)->data->length - dummy_plus->data->length;
@@ -506,7 +506,7 @@ int generate_fd_waveform(COMPLEX16FrequencySeries ** htilde_plus, COMPLEX16Frequ
         fprintf(stderr, "generating waveform in frequency domain...\n");
         timer_start = clock();
     }
-    XLALSimInspiralChooseFDWaveform(htilde_plus, htilde_cross, p.phiRef, df, p.m1, p.m2, p.s1x, p.s1y, p.s1z, p.s2x, p.s2y,
+    XLALSimInspiralChooseFDWaveformOldInterface(htilde_plus, htilde_cross, p.phiRef, df, p.m1, p.m2, p.s1x, p.s1y, p.s1z, p.s2x, p.s2y,
         p.s2z, fstart, 0.5 * p.srate, p.fRef, p.distance, p.inclination, p.lambda1, p.lambda2, p.waveFlags, p.nonGRparams,
         p.ampO, p.phaseO, p.approx);
     if (p.verbose)

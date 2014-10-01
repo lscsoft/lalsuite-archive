@@ -62,7 +62,7 @@ int main(void) {
 
     // Generate waveform via usual ChooseTDWaveform path
     s1 = clock();
-    ret = XLALSimInspiralChooseTDWaveform(&hplus, &hcross, phiref1, dt, m1, m2,
+    ret = XLALSimInspiralChooseTDWaveformOldInterface(&hplus, &hcross, phiref1, dt, m1, m2,
         s1x, s1y, s1z, s2x, s2y, s2z, f_min, f_ref, dist1, inc1,
         lambda1, lambda2, NULL, NULL, ampO, phaseO, approx);
     e1 = clock();
@@ -105,7 +105,7 @@ int main(void) {
 
     // Generate another waveform via ChooseTDWaveform path
     s1 = clock();
-    ret = XLALSimInspiralChooseTDWaveform(&hplus, &hcross, phiref2, dt, m1, m2,
+    ret = XLALSimInspiralChooseTDWaveformOldInterface(&hplus, &hcross, phiref2, dt, m1, m2,
         s1x, s1y, s1z, s2x, s2y, s2z, f_min, f_ref, dist2, inc2,
         lambda1, lambda2, NULL, NULL, ampO, phaseO, approx);
     e1 = clock();
@@ -152,7 +152,7 @@ int main(void) {
 
     // Generate waveform via usual ChooseFDWaveform path
     s1 = clock();
-    ret = XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, phiref1, df,
+    ret = XLALSimInspiralChooseFDWaveformOldInterface(&hptilde, &hctilde, phiref1, df,
             m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, f_min, f_max, f_ref, dist1,
             inc1, lambda1, lambda2, NULL, NULL, ampO, phaseO, approxFD);
     e1 = clock();
@@ -195,7 +195,7 @@ int main(void) {
 
     // Generate another waveform via ChooseFDWaveform path
     s1 = clock();
-    ret = XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, phiref2, df,
+    ret = XLALSimInspiralChooseFDWaveformOldInterface(&hptilde, &hctilde, phiref2, df,
             m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, f_min, f_max, f_ref, dist2,
             inc2, lambda1, lambda2, NULL, NULL, ampO, phaseO, approxFD);
     e1 = clock();

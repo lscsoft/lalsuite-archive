@@ -431,7 +431,7 @@ int main (int argc , char **argv) {
     start_time = time(NULL);
     switch (params->domain) {
         case LAL_SIM_DOMAIN_FREQUENCY:
-            XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, params->phiRef, 
+            XLALSimInspiralChooseFDWaveformOldInterface(&hptilde, &hctilde, params->phiRef, 
                     params->deltaF, params->m1, params->m2, params->s1x, 
                     params->s1y, params->s1z, params->s2x, params->s2y, 
                     params->s2z, params->f_min, params->f_max, params->fRef, 
@@ -440,7 +440,7 @@ int main (int argc , char **argv) {
                     params->ampO, params->phaseO, params->approximant);
             break;
         case LAL_SIM_DOMAIN_TIME:
-            XLALSimInspiralChooseTDWaveform(&hplus, &hcross, params->phiRef, 
+            XLALSimInspiralChooseTDWaveformOldInterface(&hplus, &hcross, params->phiRef, 
                     params->deltaT, params->m1, params->m2, params->s1x, 
                     params->s1y, params->s1z, params->s2x, params->s2y, 
                     params->s2z, params->f_min, params->fRef, 

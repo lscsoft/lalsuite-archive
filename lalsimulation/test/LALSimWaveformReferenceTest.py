@@ -152,8 +152,8 @@ class ReferenceFile:
 
 class CheckReferenceWaveforms(unittest.TestCase):
     def waveformgenerator(self, domain, arg):
-        func = {'TD': lalsim.SimInspiralChooseTDWaveform,
-                'FD': lalsim.SimInspiralChooseFDWaveform}[domain]
+        func = {'TD': lalsim.SimInspiralChooseTDWaveformOldInterface,
+                'FD': lalsim.SimInspiralChooseFDWaveformOldInterface}[domain]
         return func(*arg)
 
     paramnames = {'TD': ['phiref', 'deltaT', 'm1', 'm2', 'spin1x', 'spin1y', 'spin1z',
