@@ -478,12 +478,29 @@ Arguments for each section follow:\n\n";
 	/* Review task needs special priors */
   ppt=LALInferenceGetProcParamVal(procParams,"--approx");
 	LALInferenceInitVariablesFunction initVarsFunc=NULL;
-	if(LALInferenceGetProcParamVal(procParams,"--correlatedGaussianLikelihood"))
-		initVarsFunc=&LALInferenceInitVariablesReviewEvidence;
-  else if(LALInferenceGetProcParamVal(procParams,"--bimodalGaussianLikelihood"))
+	if(LALInferenceGetProcParamVal(procParams,"--correlatedGaussianLikelihood")){
+		ppt=LALInferenceGetProcParamVal(procParams,"--approx");
+    if (XLALCheckBurstApproximantFromString(ppt->value))
+      initVarsFunc=&LALInferenceInitVariablesReviewEvidence_burst_unimod;
+    else
+      initVarsFunc=&LALInferenceInitVariablesReviewEvidence;
+  }
+  else if(LALInferenceGetProcParamVal(procParams,"--bimodalGaussianLikelihood")){
+    ppt=LALInferenceGetProcParamVal(procParams,"--approx");
+    if (XLALCheckBurstApproximantFromString(ppt->value))
+      initVarsFunc=&LALInferenceInitVariablesReviewEvidence_burst_bimod;
+    else
     initVarsFunc=&LALInferenceInitVariablesReviewEvidence_bimod;
-  else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood"))
-    initVarsFunc=&LALInferenceInitVariablesReviewEvidence_banana;
+  }
+  else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood")){
+    ppt=LALInferenceGetProcParamVal(procParams,"--approx");
+    if (XLALCheckBurstApproximantFromString(ppt->value)){
+      fprintf(stderr,"Rosenbrock Likelihood not yet implemented for LIB. Exiting...\n");
+      exit(1);
+    }
+    else
+      initVarsFunc=&LALInferenceInitVariablesReviewEvidence_banana;
+  }
 	else if(!strcmp("RingdownF",ppt->value) ){
       /* First check for ringdown since I'm not yes sure it will work with the initBurst*/
 	     fprintf(stdout,"--- Calling RD init function \n");

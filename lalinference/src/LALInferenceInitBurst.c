@@ -154,7 +154,7 @@ Parameter arguments:\n\
       }
     }
   }
-  if(!(BinjTable || inj_table || endtime )){
+  if(!(BinjTable || inj_table || endtime>=0.0 )){
     printf("Did not provide --trigtime or an xml file and event... Exiting.\n");
     exit(1);
   }
@@ -761,4 +761,90 @@ LALInferenceVariables * LALInferenceInitPowerBurst(LALInferenceRunState *state)
 
     return currentParams;
 
+}
+
+LALInferenceVariables *LALInferenceInitVariablesReviewEvidence_burst_unimod(LALInferenceRunState *state)
+{
+  ProcessParamsTable *commandLine=state->commandLine;
+  ProcessParamsTable *ppt=NULL;
+  char **strings=NULL;
+  char *pinned_params=NULL;
+  UINT4 N=0,i,j;
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
+    pinned_params=ppt->value;
+    LALInferenceVariables tempParams;
+    memset(&tempParams,0,sizeof(tempParams));
+    LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
+  }
+  LALInferenceVariables *currentParams = XLALCalloc(1,sizeof(LALInferenceVariables));
+  i=0;
+  
+  struct varSettings {const char *name; REAL8 val, min, max;};
+  
+  struct varSettings setup[]=
+  {
+    {.name="time", .val=0.001, .min=-0.006121, .max=0.008121},
+    {.name="frequency", .val=210., .min=205.346948, .max=216.653052},
+    {.name="Q", .val=6.03626, .min=5.043829, .max=6.956171},
+    {.name="loghrss", .val=-46., .min=-46.985195, .max=-45.014805},
+    {.name="phase", .val=1.008, .min=0.718919, .max=1.281081},
+    {.name="polarisation", .val=0.73, .min=0.427564, .max=0.972436},
+    {.name="rightascension", .val=LAL_PI, .min=2.837864, .max=3.445321},
+    {.name="declination", .val=0.04, .min= -0.334492, .max=0.334492},
+    {.name="alpha", .val=0.58, .min=0.200742, .max=0.799258},
+    {.name="END", .val=0., .min=0., .max=0.}
+  };
+  
+  while(strcmp("END",setup[i].name))
+  {
+    LALInferenceParamVaryType type=LALINFERENCE_PARAM_CIRCULAR;
+    /* Check if it is to be fixed */
+    for(j=0;j<N;j++) if(!strcmp(setup[i].name,strings[j])) {type=LALINFERENCE_PARAM_FIXED; printf("Fixing parameter %s\n",setup[i].name); break;}
+    LALInferenceRegisterUniformVariableREAL8(state, currentParams, setup[i].name, setup[i].val, setup[i].min, setup[i].max, type);
+    i++;
+  }
+  return(currentParams);
+}
+
+LALInferenceVariables *LALInferenceInitVariablesReviewEvidence_burst_bimod(LALInferenceRunState *state)
+{
+  ProcessParamsTable *commandLine=state->commandLine;
+  ProcessParamsTable *ppt=NULL;
+  char **strings=NULL;
+  char *pinned_params=NULL;
+  UINT4 N=0,i,j;
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
+    pinned_params=ppt->value;
+    LALInferenceVariables tempParams;
+    memset(&tempParams,0,sizeof(tempParams));
+    LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
+  }
+  LALInferenceVariables *currentParams = XLALCalloc(1,sizeof(LALInferenceVariables));
+  i=0;
+  
+  struct varSettings {const char *name; REAL8 val, min, max;};
+  
+  struct varSettings setup[]=
+  {
+    {.name="time", .val=0.001, .min=-0.006121, .max=0.019514},
+    {.name="frequency", .val=211., .min=205.346948, .max=225.697936},
+    {.name="Q", .val=6.0, .min=5.043829, .max=8.486044},
+    {.name="loghrss", .val=-46., .min=-46.985195, .max=-43.438492},
+    {.name="phase", .val=1.0, .min=0.718919, .max=1.730810},
+    {.name="polarisation", .val=0.73, .min=0.427564,.max=1.408335},
+    {.name="rightascension", .val=LAL_PI, .min=2.837864, .max=3.931287},
+    {.name="declination", .val=0.0, .min=-0.334492, .max=0.869678},
+    {.name="alpha", .val=0.5, .min=0.200742, .max=1.278070},
+    {.name="END", .val=0., .min=0., .max=0.}
+  };
+  
+  while(strcmp("END",setup[i].name))
+  {
+    LALInferenceParamVaryType type=LALINFERENCE_PARAM_CIRCULAR;
+    /* Check if it is to be fixed */
+    for(j=0;j<N;j++) if(!strcmp(setup[i].name,strings[j])) {type=LALINFERENCE_PARAM_FIXED; printf("Fixing parameter %s\n",setup[i].name); break;}
+    LALInferenceRegisterUniformVariableREAL8(state, currentParams, setup[i].name, setup[i].val, setup[i].min, setup[i].max, type);
+    i++;
+  }
+  return(currentParams);
 }

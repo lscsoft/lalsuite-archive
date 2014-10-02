@@ -80,7 +80,8 @@ void LALInferenceInitGlitchVariables(LALInferenceRunState *runState, LALInferenc
 LALInferenceVariables *LALInferenceInitVariablesReviewEvidence(LALInferenceRunState *state);
 LALInferenceVariables *LALInferenceInitVariablesReviewEvidence_bimod(LALInferenceRunState *state);
 LALInferenceVariables *LALInferenceInitVariablesReviewEvidence_banana(LALInferenceRunState *state);
-
+LALInferenceVariables *LALInferenceInitVariablesReviewEvidence_burst_bimod(LALInferenceRunState *state);
+LALInferenceVariables *LALInferenceInitVariablesReviewEvidence_burst_unimod(LALInferenceRunState *state);
 /**
  * Check options consistency 
  **/
