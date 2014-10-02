@@ -104,7 +104,7 @@ def parse_command_line():
 
 def binned_ratios_extractor(xmldoc):
 	for name in [elem.Name.replace(u":pylal_rate_binnedratios", u"") for elem in xmldoc.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute("Name") and "pylal_rate_binnedratios" in elem.Name]:
-		yield name, rate.binned_ratios_from_xml(xmldoc, name)
+		yield name, rate.BinnedRatios.from_xml(xmldoc, name)
 
 class Summaries(object):
 	def __init__(self, Nbins):
@@ -278,11 +278,11 @@ class Summaries(object):
 			for key2 in self.sngl_bins[key1].keys():
 				tablename = "".join(key1)+"-"
 				tablename += "-vs-".join(key2[::-1])
-				xmldoc.childNodes[-1].appendChild(rate.binned_ratios_to_xml(self.sngl_bins[key1][key2], tablename))
+				xmldoc.childNodes[-1].appendChild(self.sngl_bins[key1][key2].to_xml(tablename))
 		for key1 in self.sngl_1D_bins.keys():
 			for key2 in self.sngl_1D_bins[key1].keys():
 				tablename = "".join(key1)+"-"+"".join(key2)
-				xmldoc.childNodes[-1].appendChild(rate.binned_ratios_to_xml(self.sngl_1D_bins[key1][key2], tablename))
+				xmldoc.childNodes[-1].appendChild(self.sngl_1D_bins[key1][key2].to_xml(tablename))
 		
 		ligolw_utils.write_filename(xmldoc, filename, gz=filename.endswith(".gz"), verbose=options.verbose)
 

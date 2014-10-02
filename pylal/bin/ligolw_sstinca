@@ -32,6 +32,7 @@ from optparse import OptionParser
 import sys
 import re
 
+import lal
 from glue.lal import CacheEntry
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
@@ -127,7 +128,8 @@ def parse_command_line():
 	)
 	parser.add_option("-c", "--comment", metavar = "text", help = "Set comment string in process table (default = None).")
 	parser.add_option("--lars-id", metavar = "string", type = "string", default = None, help = "Set the lars_id for this experiment in the experiment table (optional).")
-	parser.add_option("-t", "--e-thinca-parameter", metavar = "float", type = "float", help = "Set the ellipsoidal coincidence algorithm's threshold (required).")
+	parser.add_option("-t", "--e-thinca-parameter", metavar = "float", type = "float", help = "Set the ellipsoidal coincidence algorithm's threshold (must provide this if not using --exact-match. If using --exact-match must provide either this or --time-window).")
+	parser.add_option("--time-window", metavar= "SECONDS", type='float', help = "Set a mass invariant time window allowed for coincidence, to be added to light travel time between detectors. (Only allowed if using --exact-match. If using --exact-match must provide either this or --e-thinca-parameter.)")
 	parser.add_option("--exact-match", action = "store_true", help = "Use the ellipsoidal coincidence algorithm and require exact match in the masses and spins of the templates.")
 	parser.add_option("-s", "--weighted-snr", metavar = "{rawsnr|snroverchi|effsnr|newsnr}", help = "Select the desired coincident ChiSq weighted SNR (required). \"rawsnr\" is just the matched filter SNR and lacks any weighting by a ChiSq statistic. The statistic \"snroverchi\" is used by gstlal. \"effsnr\" uses the Effective SNR algorithm to calculate a ChiSq weighted detection SNR.  \"newsnr\" uses the New SNR algorithm to calculate a ChiSq weighted SNR.")
 	parser.add_option("-w", "--magic-number", metavar = "float", type = "float", help = "Set the numerical factor for the ChiSq weighted SNR (effsnr & newsnr).  For raw-snr and gstlal-snr, just set this value to None.  The standard values used for Effective-SNR in S5 & NewSNR in S6 are 250.0 and 6.0 respectively.")
@@ -146,7 +148,7 @@ def parse_command_line():
 	# check arguments
 	#
 
-	required_options = ["e_thinca_parameter", "weighted_snr", "magic_number"]
+	required_options = ["weighted_snr", "magic_number"]
 	missing_options = [option for option in required_options if getattr(options, option) is None]
 	if missing_options:
 		raise ValueError("missing required option(s) %s" % ", ".join("--%s" % option.replace("_", "-") for option in missing_options))
@@ -159,6 +161,17 @@ def parse_command_line():
 		options.coinc_end_time_segs = segmentsUtils.from_range_strings([options.coinc_end_time_segment], boundtype = LIGOTimeGPS).coalesce()
 	else:
 		options.coinc_end_time_segs = None
+
+	# Check for coincidence threshold
+	if (not options.exact_match) and (not options.e_thinca_parameter):
+		raise ValueError("--e-thinca-parameter is required unless using --exact-match")
+	if (not options.exact_match) and options.time_window:
+		raise ValueError("--time-window is not supported unless using --exact-match")
+	if options.exact_match:
+		if (not options.e_thinca_parameter) and (not options.time_window):
+			raise ValueError("When using --exact-match you must provide either --e-thinca-parameter or --time-window.")
+		elif options.e_thinca_parameter and options.time_window:
+			raise ValueError("When using --exact-match you may not provide both --e-thinca-parameter and --time-window.")
 
 	#
 	# done
@@ -201,10 +214,21 @@ elif options.weighted_snr == "gstlal":
 #
 
 if options.exact_match:
-	# Require exact match coincidence
-	event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact
+	if options.e_thinca_parameter:
+		# Require exact match coincidence
+		event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact
+		threshold = options.e_thinca_parameter
+		max_dt = None
+	elif options.time_window:
+		event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact_dt
+		threshold = options.time_window
+		max_dt = 1.1 * options.time_window + 2. * lal.REARTH_SI / lal.C_SI
+	else:
+		raise ValueError("Cannot find valid input options for coincidence, this should have been caught in the command-line option checking.")
 else:
 	event_comparefunc = ligolw_thinca.inspiral_coinc_compare
+	threshold = options.e_thinca_parameter
+	max_dt = None
 
 #
 # Select ntuple_comparefunc form
@@ -275,12 +299,13 @@ ligolw_thinca.ligolw_thinca(
 	process_id = process.process_id,
 	coinc_definer_row = ligolw_thinca.InspiralCoincDef,
 	event_comparefunc = event_comparefunc,
-	thresholds = options.e_thinca_parameter,
+	thresholds = threshold,
 	ntuple_comparefunc = ntuple_comparefunc,
 	magic_number = options.magic_number,
 	veto_segments = vetoes,
 	trigger_program = options.trigger_program,
-	verbose = options.verbose
+	verbose = options.verbose,
+	max_dt=max_dt
 )
 
 if options.likelihood_output_file is not None:

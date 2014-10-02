@@ -35,14 +35,14 @@ def get_combined_array(tablename, childnode, files):
 	# dimension, the number of files from sys.argv[1:]
 	xmldoc = utils.load_filename(files[0], verbose=True, gz = (files[0] or "stdin").endswith(".gz"))
 	xmldoc = xmldoc.childNodes[0]
-	A  = rate.binned_array_from_xml(xmldoc.childNodes[childnode], tablename) 
-	bins = rate.bins_from_xml(xmldoc.childNodes[childnode])
+	A  = rate.BinnedArray.from_xml(xmldoc.childNodes[childnode], tablename) 
+	bins = rate.NDBins.from_xml(xmldoc.childNodes[childnode])
 	out = numpy.zeros((len(files),)+A.array.shape,dtype="float")
 	# Read the data
 	for i, f in enumerate(files):
 		xmldoc = utils.load_filename(f, verbose=True, gz = (f or "stdin").endswith(".gz"))
 		xmldoc = xmldoc.childNodes[0]
-		out[i] = rate.binned_array_from_xml(xmldoc.childNodes[childnode], tablename).array
+		out[i] = rate.BinnedArray.from_xml(xmldoc.childNodes[childnode], tablename).array
 	A.array = numpy.zeros(A.array.shape)
 	return bins, out, A 
 

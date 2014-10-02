@@ -754,10 +754,11 @@ class CoincSynthesizer(object):
 		features will not be available if a dictionary of counts is
 		provided).  segmentlists is a glue.segments.segmentlistdict
 		object describing the observation segments for each of the
-		instruments.  delta_t is a time window in seconds, the
-		light travel time between instrument pairs is added to this
-		internally to set the maximum allowed coincidence window
-		between a pair of instruments.
+		instruments.  A segment list must be provided for (at
+		least) each instrument in eventlists.  delta_t is a time
+		window in seconds, the light travel time between instrument
+		pairs is added to this internally to set the maximum
+		allowed coincidence window between a pair of instruments.
 
 		abundance_rel_accuracy sets the fractional error tolerated
 		in the Monte Carlo integrator used to estimate the relative
@@ -779,7 +780,7 @@ class CoincSynthesizer(object):
 		{frozenset(['V1', 'H1']): 0.0, frozenset(['V1', 'H1', 'L1']): 0.25, frozenset(['H1', 'L1']): 0.25, frozenset(['V1', 'L1']): 0.5}
 		"""
 		self.eventlists = eventlists if eventlists is not None else dict.fromkeys(segmentlists, 0) if segmentlists is not None else {}
-		self.segmentlists = segmentlists if segmentlists is not None else segments.segmentlistdict()
+		self.segmentlists = segmentlists if segmentlists is not None else segmentsUtils.segments.segmentlistdict()
 		self.delta_t = delta_t
 		# require a segment list for each list of events
 		assert set(self.eventlists) <= set(self.segmentlists)
@@ -942,9 +943,13 @@ class CoincSynthesizer(object):
 			for instruments in self.all_instrument_combos:
 		# choose the instrument whose TOA forms the "epoch" of the
 		# coinc.  to improve the convergence rate this should be
-		# the instrument with the smallest coincidence windows
+		# the instrument with the smallest Cartesian product of
+		# coincidence windows with other instruments (so that
+		# coincidence with this instrument provides the tightest
+		# prior constraint on the time differences between the
+		# other instruments).
 				key = instruments
-				anchor = min((self.tau[frozenset(ab)], ab[0]) for ab in iterutils.choices(tuple(instruments), 2))[1]
+				anchor = min((a for a in instruments), key = lambda a: sum(math.log(self.tau[frozenset((a, b))]) for b in instruments - set([a])))
 				instruments = tuple(instruments - set([anchor]))
 		# compute \mu_{1} * \mu_{2} ... \mu_{N} * 2 * \tau_{12} * 2
 		# * \tau_{13} ... 2 * \tau_{1N}.  this is the rate at which
@@ -982,25 +987,38 @@ class CoincSynthesizer(object):
 		# also mutually coincident.  this is done by picking a
 		# vector of allowed \Delta ts and testing them against the
 		# coincidence windows.  the loop's exit criterion is
-		# arrived at as follows.  the binomial distribution's
-		# variance is d p (1 - p) where d is the number of trials
-		# and p is the probability of a successful outcome, which
-		# we replace here with p=n/d.  we quit when \sqrt{d p (1 -
-		# p)} / n <= rel accuracy.  by connecting the bailout
-		# condition to the results of the loop we bias the final
-		# answer (e.g., we get lucky and increment n on the first
-		# trial).  to minimize the effect of this we require at
-		# least 1 / rel accuracy iterations before considering the
-		# binomial criterion.  note that if the true probability is
-		# 0 or 1, so that n=0 or n=d identically then the loop will
-		# never terminate;  from the nature of the problem we know
-		# 0<p<1 so the loop will, eventually, terminate
+		# arrived at as follows.  after d trials, the number of
+		# successful outcomes is a binomially-distributed RV with
+		# variance = d p (1 - p) <= d/4 where p is the probability
+		# of a successful outcome.  we quit when the ratio of the
+		# bound on the standard deviation of the number of
+		# successful outcomes to the actual number of successful
+		# outcomes falls below rel accuracy: \sqrt{d/4} / n < rel
+		# accuracy.  note that if the true probability is 0, so
+		# that n=0 identically, then the loop will never terminate;
+		# from the nature of the problem we know 0<p<1 so the loop
+		# will, eventually, terminate.  note that if instead of
+		# using the upper bound on the variance, we replace p with
+		# (n/d) and use that estimate of the variance the loop can
+		# be shown to require many fewer iterations to meet the
+		# desired accuracy, but that choice creates a rather strong
+		# bias that, to overcome, requires some extra hacks to
+		# force the loop to run for additional iterations.  this
+		# approach is cleaner.
+					math_sqrt = math.sqrt
+					random_uniform = random.uniform
+					epsilon = self.abundance_rel_accuracy
 					n, d = 0, 0
-					while self.abundance_rel_accuracy * d < 1.0 or n < d / (1.0 + self.abundance_rel_accuracy**2 * d):
-						dt = tuple(random.uniform(*window) for window in windows)
+					while math_sqrt(d) >= epsilon * n:
+						dt = tuple(random_uniform(*window) for window in windows)
 						if all(abs(dt[i] - dt[j]) <= maxdt for i, j, maxdt in ijseq):
-							n += 1
+		# instead of adding 1 here and multiplying n by 2 in the
+		# loop exit test, we increment n by 2 and then fix it
+		# afterwards.
+							n += 2
 						d += 1
+		# fix n (see above)
+					n //= 2
 
 					rate *= float(n) / float(d)
 					if self.verbose:
@@ -1849,7 +1867,7 @@ class CoincParamsDistributions(object):
 		# reconstruct the BinnedArray objects
 		def reconstruct(xml, prefix, target_dict):
 			for name in [elem.Name.split(u":")[1] for elem in xml.childNodes if elem.Name.startswith(u"%s:" % prefix)]:
-				target_dict[str(name)] = rate.binned_array_from_xml(xml, u"%s:%s" % (prefix, name))
+				target_dict[str(name)] = rate.BinnedArray.from_xml(xml, u"%s:%s" % (prefix, name))
 		reconstruct(xml, u"zero_lag", self.zero_lag_rates)
 		reconstruct(xml, u"zero_lag_pdf", self.zero_lag_pdf)
 		reconstruct(xml, u"background", self.background_rates)
@@ -1881,7 +1899,7 @@ class CoincParamsDistributions(object):
 		xml.appendChild(ligolw_param.new_param(u"process_id", u"ilwd:char", self.process_id))
 		def store(xml, prefix, source_dict):
 			for name, binnedarray in sorted(source_dict.items()):
-				xml.appendChild(rate.binned_array_to_xml(binnedarray, u"%s:%s" % (prefix, name)))
+				xml.appendChild(binnedarray.to_xml(u"%s:%s" % (prefix, name)))
 		store(xml, u"zero_lag", self.zero_lag_rates)
 		store(xml, u"zero_lag_pdf", self.zero_lag_pdf)
 		store(xml, u"background", self.background_rates)
