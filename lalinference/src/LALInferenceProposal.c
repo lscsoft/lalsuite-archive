@@ -3545,86 +3545,76 @@ void LALInferenceSetupSineGaussianProposal(LALInferenceRunState *runState, LALIn
 
   LALInferenceCopyVariables(runState->currentParams, proposedParams);
 
-  /* The default, single-parameter updates. */
-  if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-singleadapt"))
-  {
-    LALInferenceSetupAdaptiveProposals(runState);
-    LALInferenceAddProposalToCycle(runState, singleAdaptProposalName, &LALInferenceSingleAdaptProposal, TINYWEIGHT);
-  }
+  if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-ensamble-only")){
+    /* The default, single-parameter updates. */
+    if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-singleadapt"))
+    {
+      LALInferenceSetupAdaptiveProposals(runState);
+      LALInferenceAddProposalToCycle(runState, singleAdaptProposalName, &LALInferenceSingleAdaptProposal, TINYWEIGHT);
+    }
 
-  /*
-  if(!LALInferenceGetProcParamVal(runState->commandLine,"--margphi") && !LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-psiphi") && !LALInferenceGetProcParamVal(runState->commandLine, "--margtimephi")&& LALInferenceCheckVariable(runState->currentParams, "phase") && LALInferenceCheckVariable(runState->currentParams, "polarisation"))
-    LALInferenceAddProposalToCycle(runState, polarizationPhaseJumpName, &LALInferencePolarizationPhaseJump, TINYWEIGHT);
-  */
-  if (fullProp) {
-    if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-skywander"))
-    {   /* If there are not 3 detectors, the other sky jumps are not used, so increase the % of wandering jumps */
+    /*
+    if(!LALInferenceGetProcParamVal(runState->commandLine,"--margphi") && !LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-psiphi") && !LALInferenceGetProcParamVal(runState->commandLine, "--margtimephi")&& LALInferenceCheckVariable(runState->currentParams, "phase") && LALInferenceCheckVariable(runState->currentParams, "polarisation"))
+      LALInferenceAddProposalToCycle(runState, polarizationPhaseJumpName, &LALInferencePolarizationPhaseJump, TINYWEIGHT);
+    */
+    if (fullProp) {
+      if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-skywander"))
+      {   /* If there are not 3 detectors, the other sky jumps are not used, so increase the % of wandering jumps */
         if(nDet<3) LALInferenceAddProposalToCycle(runState, skyLocWanderJumpName, &LALInferenceSkyLocWanderJump, BIGWEIGHT);
         else LALInferenceAddProposalToCycle(runState, skyLocWanderJumpName, &LALInferenceSkyLocWanderJump, 3.0*SMALLWEIGHT);
-    }
-    if (nDet >= 3 && !LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-skyreflect") ) {
-      LALInferenceAddProposalToCycle(runState, skyReflectDetPlaneName, &LALInferenceSkyReflectDetPlane, TINYWEIGHT);
-    }
-    /* Don't use sky ring by default as it is not balanced*/
-    if (nDet>=2 && LALInferenceGetProcParamVal(runState->commandLine,"--ProposalSkyRing")) {
-      LALInferenceAddProposalToCycle(runState, BurstskyRingProposalName, &LALInferenceBurstSkyRingProposal, SMALLWEIGHT);
-    }
-    if(LALInferenceGetProcParamVal(runState->commandLine,"--proposal-drawprior"))
-      LALInferenceAddProposalToCycle(runState, drawApproxPriorName, &LALInferenceDrawApproxPrior, TINYWEIGHT);
-
-    if(!LALInferenceGetProcParamVal(runState->commandLine,"--margphi") && !LALInferenceGetProcParamVal(runState->commandLine, "--margtimephi"))
-        if(LALInferenceCheckVariableNonFixed(proposedParams,"phase")&& LALInferenceCheckVariable(runState->currentParams, "phase")) {
-          //LALInferenceAddProposalToCycle(runState, orbitalPhaseJumpName, &LALInferenceOrbitalPhaseJump, TINYWEIGHT);
+      }
+      if (nDet >= 3 && !LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-skyreflect") ) {
+        LALInferenceAddProposalToCycle(runState, skyReflectDetPlaneName, &LALInferenceSkyReflectDetPlane, TINYWEIGHT);
+      }
+      /* Don't use sky ring by default as it is not balanced*/
+      if (nDet>=2 && LALInferenceGetProcParamVal(runState->commandLine,"--ProposalSkyRing")) {
+        LALInferenceAddProposalToCycle(runState, BurstskyRingProposalName, &LALInferenceBurstSkyRingProposal, SMALLWEIGHT);
+      }
+      if(LALInferenceGetProcParamVal(runState->commandLine,"--proposal-drawprior"))
+        LALInferenceAddProposalToCycle(runState, drawApproxPriorName, &LALInferenceDrawApproxPrior, TINYWEIGHT);
+      if(!LALInferenceGetProcParamVal(runState->commandLine,"--margphi") && !LALInferenceGetProcParamVal(runState->commandLine, "--margtimephi"))
+        if(LALInferenceCheckVariableNonFixed(proposedParams,"phase")&& LALInferenceCheckVariable(runState->currentParams, "phase"))
+        { 
+           //LALInferenceAddProposalToCycle(runState, orbitalPhaseJumpName, &LALInferenceOrbitalPhaseJump, TINYWEIGHT);
           if (!LALInferenceGetProcParamVal(runState->commandLine,"--noProposalCorrPsiPhi")&&  LALInferenceCheckVariable(runState->currentParams, "polarisation"))
             LALInferenceAddProposalToCycle(runState, polarizationCorrPhaseJumpName, &LALInferenceCorrPolarizationPhaseJump, SMALLWEIGHT);
         }
-  }
+    }
 
-  /* Now add various special proposals that are conditional on
-     command-line arguments or variables in the params. */
+    /* Now add various special proposals that are conditional on
+       command-line arguments or variables in the params. */
 
-  /* Use ensemble moves unless turned off */
-  if (!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-ensemble")) {
-    LALInferenceAddProposalToCycle(runState, ensembleStretchFullName, &LALInferenceEnsembleStretchFull, BIGWEIGHT);
-    LALInferenceAddProposalToCycle(runState, ensembleStretchIntrinsicName, &LALInferenceEnsembleStretchIntrinsic, SMALLWEIGHT);
-    LALInferenceAddProposalToCycle(runState, ensembleStretchExtrinsicName, &LALInferenceEnsembleStretchExtrinsic, SMALLWEIGHT);
-    LALInferenceAddProposalToCycle(runState, ensembleWalkFullName, &LALInferenceEnsembleWalkFull, BIGWEIGHT);
-    LALInferenceAddProposalToCycle(runState, ensembleWalkIntrinsicName, &LALInferenceEnsembleWalkIntrinsic, SMALLWEIGHT);
-    LALInferenceAddProposalToCycle(runState, ensembleWalkExtrinsicName, &LALInferenceEnsembleWalkExtrinsic, SMALLWEIGHT);
-  }
-
-  /* Always use the covariance method */
+    /* Always use the covariance method */
     LALInferenceAddProposalToCycle(runState, covarianceEigenvectorJumpName, &LALInferenceCovarianceEigenvectorJump, BIGWEIGHT);
 
-  /* Use differential evolution unless turned off */
-  if (!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-differentialevolution")) {
-    LALInferenceAddProposalToCycle(runState, differentialEvolutionFullName, &LALInferenceDifferentialEvolutionFull, BIGWEIGHT);
-    LALInferenceAddProposalToCycle(runState, differentialEvolutionSineGaussIntrinsicName, &LALInferenceDifferentialEvolutionSineGaussIntrinsic, SMALLWEIGHT);
-    LALInferenceAddProposalToCycle(runState, differentialEvolutionSineGaussExtrinsicName, &LALInferenceDifferentialEvolutionSineGaussExtrinsic, SMALLWEIGHT);
-  }
+    /* Use differential evolution unless turned off */
+    if (!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-differentialevolution")) {
+      LALInferenceAddProposalToCycle(runState, differentialEvolutionFullName, &LALInferenceDifferentialEvolutionFull, BIGWEIGHT);
+      LALInferenceAddProposalToCycle(runState, differentialEvolutionSineGaussIntrinsicName, &LALInferenceDifferentialEvolutionSineGaussIntrinsic, SMALLWEIGHT);
+      LALInferenceAddProposalToCycle(runState, differentialEvolutionSineGaussExtrinsicName, &LALInferenceDifferentialEvolutionSineGaussExtrinsic, SMALLWEIGHT);
+     }
   
-  //Add LALInferencePSDFitJump to the cycle
-  if(LALInferenceGetProcParamVal(runState->commandLine, "--psdFit"))
-  {
-    LALInferenceAddProposalToCycle (runState, PSDFitJumpName, *LALInferencePSDFitJump, SMALLWEIGHT);
-  }
+    //Add LALInferencePSDFitJump to the cycle
+    if(LALInferenceGetProcParamVal(runState->commandLine, "--psdFit"))
+    {
+      LALInferenceAddProposalToCycle (runState, PSDFitJumpName, *LALInferencePSDFitJump, SMALLWEIGHT);
+    }
 
-  if (LALInferenceGetProcParamVal(runState->commandLine,"--proposal-timefreq")) {
-         printf("Adding timeFreq jump\n");
-        LALInferenceAddProposalToCycle(runState, TimeFreqJumpName, &LALInferenceTimeFreqJump,TINYWEIGHT );
+    if (LALInferenceGetProcParamVal(runState->commandLine,"--proposal-timefreq")) {
+      printf("Adding timeFreq jump\n");
+      LALInferenceAddProposalToCycle(runState, TimeFreqJumpName, &LALInferenceTimeFreqJump,TINYWEIGHT );
     }
     if (LALInferenceGetProcParamVal(runState->commandLine,"--proposal-timephasefreq")) {
-         printf("Adding TimePhaseFreq jump\n");      
+      printf("Adding TimePhaseFreq jump\n");      
       LALInferenceAddProposalToCycle(runState,TimePhaseFreqJumpName, &LALInferenceTimePhaseFreqJump,TINYWEIGHT );
       }
     if (LALInferenceGetProcParamVal(runState->commandLine,"--proposal-timedelay") && nDet >= 3 ) {        
-        printf("Adding time delay jump\n");
-         LALInferenceAddProposalToCycle(runState, TimeDelaysJumpName, &LALInferenceTimeDelaysJump,SMALLWEIGHT );    
-          
-    }
+      printf("Adding time delay jump\n");
+      LALInferenceAddProposalToCycle(runState, TimeDelaysJumpName, &LALInferenceTimeDelaysJump,SMALLWEIGHT );       
+   }
    if (LALInferenceGetProcParamVal(runState->commandLine,"--proposal-changering")) {
-   printf("Adding change ring proposal\n");
-   LALInferenceAddProposalToCycle(runState,BurstChangeSkyRingProposalName,&LALInferenceBurstChangeSkyRingProposal,SMALLWEIGHT);
+     printf("Adding change ring proposal\n");
+     LALInferenceAddProposalToCycle(runState,BurstChangeSkyRingProposalName,&LALInferenceBurstChangeSkyRingProposal,SMALLWEIGHT);
    }
   /********** TURNED OFF - very small acceptance with nested sampling, slows everything down ****************/
   /*
@@ -3632,6 +3622,16 @@ void LALInferenceSetupSineGaussianProposal(LALInferenceRunState *runState, LALIn
     LALInferenceAddProposalToCycle(runState, KDNeighborhoodProposalName, &LALInferenceKDNeighborhoodProposal, SMALLWEIGHT);
   }
   */
+  }
+    /* Use ensemble moves unless turned off */
+  //if (!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-ensemble")) {
+    LALInferenceAddProposalToCycle(runState, ensembleStretchFullName, &LALInferenceEnsembleStretchFull, BIGWEIGHT);
+    LALInferenceAddProposalToCycle(runState, ensembleStretchIntrinsicName, &LALInferenceEnsembleStretchIntrinsic, SMALLWEIGHT);
+    LALInferenceAddProposalToCycle(runState, ensembleStretchExtrinsicName, &LALInferenceEnsembleStretchExtrinsic, SMALLWEIGHT);
+    LALInferenceAddProposalToCycle(runState, ensembleWalkFullName, &LALInferenceEnsembleWalkFull, BIGWEIGHT);
+    LALInferenceAddProposalToCycle(runState, ensembleWalkIntrinsicName, &LALInferenceEnsembleWalkIntrinsic, SMALLWEIGHT);
+    LALInferenceAddProposalToCycle(runState, ensembleWalkExtrinsicName, &LALInferenceEnsembleWalkExtrinsic, SMALLWEIGHT);
+  //}
 
   LALInferenceRandomizeProposalCycle(runState);
   LALInferenceZeroProposalStats(runState);
