@@ -14,9 +14,40 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-"""This module defines the GWDataFindHTTPConnection and
-GWDataFindHTTPSConnection objects for handling connections to
-the GWDataFindServer.
+"""The client library for the LIGO Data Replicator (LDR) service.
+
+The DataFind service allows users to query for the location of
+Gravitational-Wave Frame (GWF) files containing data from the current
+LIGO and Virgo gravitational-wave detectors.
+
+This module defines the L{GWDataFindHTTPConnection} and
+L{GWDataFindHTTPSConnection} class objects, for connecting to an LDR
+server in open and authenticated access modes respectively.
+The authenticated L{GWDataFindHTTPSConnection} connection requires users
+have a valid X509 certificate that is registered with the server in
+question.
+
+A new connection can be opened as follows:
+
+>>> from glue.datafind import GWDataFindHTTPConnection
+>>> connection = GWDataFindHTTPConnection(host, port)
+
+and similar for the HTTPS version.
+
+Users on the LIGO Data Grid (LDG) can connect without giving the name of
+the relevant host, so long as the C{LIGO_DATAFIND_SERVER} environment
+variable is defined.
+
+Queries for frames can be made using the `find_frame_urls` method of the
+relevant connection:
+
+>>> cache = connection.find_frame_urls('L', 'L1_R', 1093564816, 1093651216)
+
+By default, the returned `lal.Cache` object includes both C{gsiftp} and local C{file} versions of each frame, but the `urlfile` keyword argument can be given to return only one of those:
+
+>>> cache = connection.find_frame_urls('L', 'L1_R', 1093564816, 1093651216, urltype='file')
+
+See the documentation for each connection method for more detailed examples.
 """
 
 from __future__ import division
@@ -43,6 +74,11 @@ _url_prefix = "/LDR/services/data/v1"
 
 class GWDataFindHTTPConnection(httplib.HTTPConnection):
     """Connection to LIGO data replicator service using HTTP.
+
+    :Parameters:
+    - `host`: the name of the server with which to connect
+    - `port`: the port on which to connect
+    - `**kwargs`: other keyword arguments accepted by `httplib.HTTPConnection`
     """
     LIGOTimeGPSType = lal.LIGOTimeGPS
     def __init__(self, host=None, **kwargs):
