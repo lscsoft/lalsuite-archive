@@ -2685,24 +2685,24 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   }
 
   static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , SimInspiralTable *inj_table){
+  
   char SnrName[200];
   char ListOfIFOs[10]="";
   REAL8 NetSNR=0.0;
-  // sprintf(ListOfIFOs,"");
+  sprintf(ListOfIFOs,"");
   LALInferenceIFOData *thisData=IFOdata;
   int nIFO=0;
 
   while(thisData){
-       sprintf(ListOfIFOs,"%s%s",ListOfIFOs,thisData->name);
-       thisData=thisData->next;
-  nIFO++;
-      }
-
-  //sprintf(SnrName,"%s/snr_%s_%10.1f.dat",SNRpath,ListOfIFOs,(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
-  (void) ListOfIFOs;
+    sprintf(ListOfIFOs,"%s%s",ListOfIFOs,thisData->name);
+    thisData=thisData->next;
+    nIFO++;
+  }
+  /* injtable not needed anymore since now SNRpath must contain the full path (including filename) of the snr file*/
   (void) inj_table;
-  sprintf(SnrName,"%s/snr_IMR.dat",SNRpath);
-  FILE * snrout = fopen(SnrName,"a");
+  
+  sprintf(SnrName,"%s",SNRpath);
+  FILE * snrout = fopen(SnrName,"w");
   if(!snrout){
     fprintf(stderr,"Unable to open the path %s for writing SNR files\n",SNRpath);
     exit(1);
@@ -2710,14 +2710,14 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
 
   thisData=IFOdata; // restart from the first IFO
   while(thisData){
-    //  fprintf(snrout,"%s:\t %4.2f\n",thisData->name,thisData->SNR);
-      NetSNR+=(thisData->SNR*thisData->SNR);
-      thisData=thisData->next;
+    fprintf(snrout,"%s:\t %4.2f\n",thisData->name,thisData->SNR);
+    NetSNR+=(thisData->SNR*thisData->SNR);
+    thisData=thisData->next;
   }
-  //if (nIFO>1){  //fprintf(snrout,"Network:\t");
-
-  fprintf(snrout,"%4.2f\n",sqrt(NetSNR));
-  //}
+  if (nIFO>1){
+    fprintf(snrout,"Network:\t");
+    fprintf(snrout,"%4.2f\n",sqrt(NetSNR));
+  }
   fclose(snrout);
   }
 

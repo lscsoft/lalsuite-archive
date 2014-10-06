@@ -425,6 +425,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       self.dataseed=cp.getint('analysis','dataseed')
     else:
       self.dataseed=None
+    snrdir=os.path.join(self.basepath,'SNR')
+    mkdirs(snrdir)
     # Set up necessary job files.
     self.prenodes={}
     self.datafind_job = pipeline.LSCDataFindJob(self.cachepath,self.logpath,self.config,dax=self.is_dax())
@@ -703,6 +705,13 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     mergenode=MergeNSNode(self.merge_job,parents=enginenodes)
     mergenode.set_pos_output_file(os.path.join(self.posteriorpath,'posterior_%s_%s.dat'%(myifos,evstring)))
     self.add_node(mergenode)
+    # if we have an injection file pass an option to save injected SNR into a file only for the first chain if Nparallel>1. Dump the rest to dev/null
+    if self.config.has_option('input','injection-file'):
+      for i in range(Npar):
+        if i==0:
+          enginenodes[0].set_snr_path(self.basepath)
+        else:
+          enginenodes[i].set_snr_path('/dev/null')
     # Call finalize to build final list of available data
     enginenodes[0].finalize()
     if event.GID is not None:
@@ -724,6 +733,10 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             for co in cotest_nodes:
               co.set_psdstart(enginenodes[0].GPSstart)
               co.set_psdlength(enginenodes[0].psdlength)
+              if co==cotest_nodes[0]:
+                co.set_snr_path(self.basepath)
+              else:
+                co.set_snr_path('/dev/null')
             pmergenode=MergeNSNode(self.merge_job,parents=cotest_nodes)
             pmergenode.set_pos_output_file(os.path.join(self.posteriorpath,'posterior_%s_%s.dat'%(ifo,evstring)))
             self.add_node(pmergenode)
@@ -735,6 +748,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             subresnode.set_bayes_coherent_noise(pmergenode.get_B_file())
             if self.config.has_option('input','injection-file') and event.event_id is not None:
                 subresnode.set_injection(self.config.get('input','injection-file'),event.event_id)
+                subresnode.set_snr_file(cotest_nodes[0].get_snr_path())
         coherence_node=CoherenceTestNode(self.coherence_test_job,outfile=os.path.join(self.basepath,'coherence_test','coherence_test_%s_%s.dat'%(myifos,evstring)))
         coherence_node.add_coherent_parent(mergenode)
         map(coherence_node.add_incoherent_parent, par_mergenodes)
@@ -748,6 +762,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
           zipfilename=None
         respagenode=self.add_results_page_node(outdir=pagedir,parent=mergenode,gzip_output=zipfilename)
     respagenode.set_bayes_coherent_noise(mergenode.get_B_file())
+    respagenode.set_snr_file(enginenodes[0].get_snr_path())
     if self.config.has_option('input','injection-file') and event.event_id is not None:
         respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
     if event.GID is not None:
@@ -1070,9 +1085,6 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     self.ispreengine=ispreengine
     self.engine=cp.get('analysis','engine')
     basepath=cp.get('paths','basedir')
-    snrpath=os.path.join(basepath,'SNR')
-    self.snrpath=snrpath
-    mkdirs(snrpath)
     if ispreengine is True:
       roqpath=os.path.join(basepath,'ROQdata')
       self.roqpath=roqpath
@@ -1150,7 +1162,6 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     if  cp.has_section('engine'):
       if ispreengine is False:
         self.add_ini_opts(cp,'engine')
-    #self.add_opt('snrpath',snrpath)
     self.set_stdout_file(os.path.join(logdir,'lalinference-$(cluster)-$(process)-$(node).out'))
     self.set_stderr_file(os.path.join(logdir,'lalinference-$(cluster)-$(process)-$(node).err'))
  
@@ -1231,6 +1242,15 @@ class EngineNode(pipeline.CondorDAGNode):
   def set_srate(self,srate):
     self.add_var_opt('srate',str(srate))
 
+  def set_snr_path(self,root):
+    ifos=''
+    if 'dev/null' in root:
+      self.snrpath='/dev/null'
+    else:
+      for i in self.ifos: ifos='%s%s'%(ifos,i)
+      self.snrpath=os.path.join(root,'SNR','snr_%s_%10.3f.dat'%(ifos,float(self.get_trig_time())))
+    self.add_file_opt('snrpath',self.snrpath,file_is_output_file=True)
+    
   def set_trigSNR(self,trigSNR):
     self.add_var_opt('trigSNR',str(trigSNR))
 
@@ -1240,10 +1260,8 @@ class EngineNode(pipeline.CondorDAGNode):
   def get_ifos(self):
     return ''.join(map(str,self.ifos))
       
-  def get_snr_file(self):
-    ifos=''
-    for i in self.ifos: ifos='%s%s'%(ifos,i)
-    return os.path.join(self.job.snrpath,'snr_%s_%10.1f.dat'%(ifos,float(self.get_trig_time())))
+  def get_snr_path(self):
+    return self.snrpath
   
   def set_trig_time(self,time):
     """
@@ -1490,7 +1508,7 @@ class ResultsPageNode(pipeline.CondorDAGNode):
       self.add_parent(node)
       self.add_file_arg(node.get_pos_file())
       if node.snrpath is not None:
-        self.set_snr_file(node.get_snr_file())
+        self.set_snr_file(node.get_snr_path())
       if isinstance(node,LALInferenceMCMCNode):
 	      self.add_var_opt('lalinfmcmc','')
       if os.path.exists("coinc.xml"):
@@ -1501,7 +1519,7 @@ class ResultsPageNode(pipeline.CondorDAGNode):
     def set_bayes_coherent_noise(self,bsnfile):
         self.add_file_opt('bsn',bsnfile)
     def set_snr_file(self,snrfile):
-        self.add_var_arg('--snr '+snrfile)
+        self.add_file_opt('snr',snrfile)
     def set_header_file(self,headerfile):
         self.add_var_arg('--header '+headerfile)
         

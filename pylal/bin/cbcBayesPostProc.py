@@ -313,10 +313,6 @@ def cbcBayesPostProc(
         if not os.path.isfile(snrfactor):
             print "No snr file provided or wrong path to snr file\n"
             snrfactor=None
-    if snrfactor is not None:
-        if not os.path.isfile(snrfactor):
-            print "Wrong path to snr file\n"
-            snrfactor=None
         else:
             snrstring=""
             snrfile=open(snrfactor,'r')
