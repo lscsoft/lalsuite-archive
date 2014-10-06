@@ -179,12 +179,34 @@ background: #DFF4FF;
 background: #DFF4FF;
 }
 
+img {
+    max-width: 510px;
+    max-height: 510px;
+    width:100%;
+    eight:100%;
+}
+
 .ppsection
 {
 border-bottom-style:double;
 }
 
 """
+__default_javascript_string='''
+//<![CDATA[
+function toggle_visibility(tbid,lnkid)
+{
+
+  if(document.all){document.getElementById(tbid).style.display = document.getElementById(tbid).style.display == 'block' ? 'none' : 'block';}
+
+  else{document.getElementById(tbid).style.display = document.getElementById(tbid).style.display == 'table' ? 'none' : 'table';}
+
+  document.getElementById(lnkid).value = document.getElementById(lnkid).value == '[-] Collapse' ? '[+] Expand' : '[-] Collapse';
+
+ }
+ //]]>
+
+'''
 
 #===============================================================================
 # Function used to generate plot labels.
@@ -524,6 +546,7 @@ class Posterior(object):
         self._injection=SimInspiralTableEntry
         self._triggers=SnglInpiralList
         self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
+        self._logpaliases=['logp', 'logP','prior','Prior']
         self._votfile=votfile
         
         common_output_table_header=[i.lower() for i in common_output_table_header]
@@ -614,6 +637,18 @@ class Posterior(object):
                 
         if not logLFound:
             raise RuntimeError("No likelihood/posterior values found!")
+        self._logP=None
+        
+        for logpalias in self._logpaliases:
+        
+            if logpalias in common_output_table_header:
+                try:
+                    self._logP=self._posterior[logpalias].samples
+                except KeyError:
+                    print "No '%s' column in input table!"%logpalias
+                    continue
+                if not 'log' in logpalias:
+                  self._logP=[np.log(i) for i in self._logP]
 
         if name is not None:
             self.__name=name
@@ -1258,17 +1293,36 @@ class Posterior(object):
         bf = self._bias_factor()
         return bf + np.log(1/np.mean(1/np.exp(self._logL-bf)))
 
-    def _posMode(self):
+    def _posMaxL(self):
         """
-        Find the sample with maximum posterior probability. Returns value
+        Find the sample with maximum likelihood probability. Returns value
+        of likelihood and index of sample .
+        """
+        logl_vals=self._logL
+        max_i=0
+        max_logl=logl_vals[0]
+        for i in range(len(logl_vals)):
+            if logl_vals[i] > max_logl:
+                max_logl=logl_vals[i]
+                max_i=i
+        return max_logl,max_i
+
+    def _posMap(self):
+        """
+        Find the sample with maximum a posteriori probability. Returns value
         of posterior and index of sample .
         """
-        pos_vals=self._logL
+        logl_vals=self._logL
+        if self._logP is not None:
+          logp_vals=self._logP
+        else:
+          return None
+        
         max_i=0
-        max_pos=pos_vals[0]
-        for i in range(len(pos_vals)):
-            if pos_vals[i] > max_pos:
-                max_pos=pos_vals[i]
+        max_pos=logl_vals[0]+logp_vals[0]
+        for i in range(len(logl_vals)):
+            if logl_vals[i]+logp_vals[i] > max_pos:
+                max_pos=logl_vals[i]+logp_vals[i]
                 max_i=i
         return max_pos,max_i
 
@@ -1288,15 +1342,29 @@ class Posterior(object):
     @property
     def maxL(self):
         """
-        Return the maximum posterior probability and the corresponding
+        Return the maximum likelihood probability and the corresponding
         set of parameters.
         """
         maxLvals={}
-        max_pos,max_i=self._posMode()
+        max_logl,max_i=self._posMaxL()
         for param_name in self.names:
             maxLvals[param_name]=self._posterior[param_name].samples[max_i][0]
 
-        return (max_pos,maxLvals)
+        return (max_logl,maxLvals)
+
+    @property
+    def maxP(self):
+        """
+        Return the maximum a posteriori probability and the corresponding
+        set of parameters.
+        """
+        maxPvals={}
+        max_pos,max_i=self._posMap()
+        for param_name in self.names:
+            maxPvals[param_name]=self._posterior[param_name].samples[max_i][0]
+
+        return (max_pos,maxPvals)
+
 
     def samples(self):
         """
@@ -1369,8 +1437,7 @@ class Posterior(object):
         a html formatted table of various properties of posteriors.
         """
         return_val='<table border="1" id="statstable"><tr><th/>'
-
-        column_names=['maxL','stdev','mean','median','stacc','injection value']
+        column_names=['maP','maxL','stdev','mean','median','stacc','injection value']
         IFOs = []
         if self._triggers is not None:
             IFOs = [trig.ifo for trig in self._triggers]
@@ -1384,8 +1451,10 @@ class Posterior(object):
 
         for name,oned_pos in self:
 
-            max_pos,max_i=self._posMode()
+            max_logl,max_i=self._posMaxL()
             maxL=oned_pos.samples[max_i][0]
+            max_post,max_j=self._posMap()
+            maP=oned_pos.samples[max_j][0]
             mean=str(oned_pos.mean)
             stdev=str(oned_pos.stdev)
             median=str(np.squeeze(oned_pos.median))
@@ -1393,7 +1462,7 @@ class Posterior(object):
             injval=str(oned_pos.injval)
             trigvals=oned_pos.trigvals
 
-            row = [maxL,stdev,mean,median,stacc,injval]
+            row = [maP,maxL,stdev,mean,median,stacc,injval]
             if self._triggers is not None:
                 for IFO in IFOs:
                     try:
@@ -1412,8 +1481,7 @@ class Posterior(object):
         rough_string = tostring(elem, 'utf-8')
         reparsed = minidom.parseString(rough_string)
         return_val=reparsed.toprettyxml(indent="  ")
-
-        return return_val
+        return return_val[len('<?xml version="1.0" ?>')+1:]
 
     def write_vot_info(self):
       """
@@ -2222,7 +2290,6 @@ class htmlChunk(object):
         if parent:
             parent.append(self._html)
 
-
     def toprettyxml(self):
         """
         Return a pretty-printed XML string of the htmlPage.
@@ -2287,6 +2354,51 @@ class htmlChunk(object):
         Ea.text=linktext
         self._html.append(Ea)
         return Ea
+        
+    def tab(self,idtable=None):
+        args={}
+        if idtable is not None:
+          args={'id':idtable}
+        
+        Etab=Element('table',args)
+        self._html.append(Etab)
+        return Etab
+        
+    def insert_row(self,tab,label=None):
+        
+        """
+        Insert row in table tab.
+        If given, label used as id for the table tag
+        """
+        
+        Etr=Element('tr')
+        if label is not None:
+            Etr.attrib['id']=label
+        tab.append(Etr)
+        return Etr
+        
+    def insert_td(self,row,td,label=None,legend=None):
+        """
+        Insert cell td into row row.
+        Sets id to label, if given
+        """
+        
+        Etd=Element('td')
+        
+        if type(td) is str:
+            Etd.text=td
+        else:
+            td=tostring(td)
+            td=minidom.parseString(td)
+            td=td.toprettyxml(indent="  ")
+            Etd.text=td
+        if label is not None:
+            Etd.attrib['id']=label
+        if legend is not None:
+            legend.a('#%s'%label,'%s'%label)
+            legend.br()
+        row.append(Etd)
+        return Etd      
 
     def append(self,element):
         self._html.append(element)
@@ -2297,7 +2409,7 @@ class htmlPage(htmlChunk):
     """
     A concrete class for generating an XHTML(1) document. Inherits from htmlChunk.
     """
-    def __init__(self,title=None,css=None,toc=False):
+    def __init__(self,title=None,css=None,javascript=None,toc=False):
         htmlChunk.__init__(self,'html',attrib={'xmlns':"http://www.w3.org/1999/xhtml"})
         self.doctype_str='<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'
 
@@ -2305,23 +2417,50 @@ class htmlPage(htmlChunk):
         Etitle=SubElement(self._head,'title')
         self._body=SubElement(self._html,'body')
         self._css=None
+        self._jscript=None
         if title is not None:
             Etitle.text=str(title)
             self._title=SubElement(self._body,'h1')
             self._title.text=title
-
+        if javascript is not None:
+            self._jscript=SubElement(self._head,'script')
+            self._jscript.attrib['type']="text/javascript"
+            self._jscript.text=str(javascript)
         if css is not None:
             self._css=SubElement(self._head,'style')
             self._css.attrib['type']="text/css"
             self._css.text=str(css)
-
+        
     def __str__(self):
         return self.doctype_str+'\n'+self.toprettyxml()
 
-    def add_section(self,section_name):
+    def add_section(self,section_name,legend=None):
         newSection=htmlSection(section_name)
         self._body.append(newSection._html)
+        if legend is not None:
+            legend.a('#%s'%section_name,'%s'%section_name)
+            legend.br()
         return newSection
+        
+    def add_collapse_section(self,section_name,legend=None,innertable_id=None,start_closed=True):
+        """
+        Create a section embedded into a table that can be collapsed with a button
+        """
+        newSection=htmlCollapseSection(section_name,table_id=innertable_id,start_closed=start_closed)
+        self._body.append(newSection._html)
+        if legend is not None:
+            legend.a('#%s'%section_name,'%s'%section_name)
+            legend.br()
+        return newSection
+
+    def add_section_to_element(self,section_name,parent):
+        """
+        Create a section which is not appended to the body of html, but to the parent Element
+        """
+        newSection=htmlSection(section_name,htmlElement=parent,blank=True)
+        parent.append(newSection._html)
+        return newSection
+        
 
     @property
     def body():
@@ -2336,11 +2475,39 @@ class htmlSection(htmlChunk):
     """
     Represents a block of html fitting within a htmlPage. Inherits from htmlChunk.
     """
-    def __init__(self,section_name,htmlElement=None):
-        htmlChunk.__init__(self,'div',attrib={'class':'ppsection'},parent=htmlElement)
-
+    def __init__(self,section_name,htmlElement=None,blank=False):
+        if not blank:
+            htmlChunk.__init__(self,'div',attrib={'class':'ppsection','id':section_name},parent=htmlElement)
+        else:
+            htmlChunk.__init__(self,'div',attrib={'style':'"color:#000000"','id':section_name},parent=htmlElement)
         self.h2(section_name)
 
+
+class htmlCollapseSection(htmlChunk):
+    """
+    Represents a block of html fitting within a htmlPage. Inherits from htmlChunk.
+    """
+    
+    def __init__(self,section_name,htmlElement=None,table_id=None,start_closed=True):
+        htmlChunk.__init__(self,'div',attrib={'class':'ppsection','id':section_name},parent=htmlElement)
+        # if table id is none, generate a random id:
+        if table_id is None:
+            table_id=random.randint(1,10000000)
+        self.table_id=table_id
+        self._start_closed=start_closed
+        
+    def write(self,string):
+        k=random.randint(1,10000000)
+        if self._start_closed:
+          st='<table border="0" align="center" cellpadding="5" cellspacing="0"><tr bgcolor="#4682B4" height="50"><td width="5%%"><font size="4" face="tahoma" color="white"><a href="#"> Top</a></font></td><td width="45%%"><font size="4" face="tahoma" color="white"><strong>%s</strong></font></td><td bgcolor="#4682B4" align="center" width="50%%"><input id="lnk%s" type="button" value="[+] Expand" onclick="toggle_visibility(\'%s\',\'lnk%s\');"></input></td></tr><tr><td colspan="7">'%(self._html.attrib['id'],k,self.table_id,k)
+          string=string.replace('table ', 'table style="display: none" ')
+        else:
+          st='<table border="0" align="center" cellpadding="5" cellspacing="0"><tr bgcolor="#4682B4" height="50"><td width="5%%"><font size="4" face="tahoma" color="white"><a href="#"> Top</a></font></td><td width="45%%"><font size="4" face="tahoma" color="white"><strong>%s</strong></font></td><td bgcolor="#4682B4" align="center" width="50%%"><input id="lnk%s" type="button" value="[-] Collapse" onclick="toggle_visibility(\'%s\',\'lnk%s\');"></input></td></tr><tr><td colspan="7">'%(self._html.attrib['id'],k,self.table_id,k)
+          string=string.replace('table ', 'table style="display: table" ')
+        st+=string
+        st+='</td></tr></table>'
+        htmlChunk.write(self,st)
+        
 #===============================================================================
 # Internal module functions
 #===============================================================================
@@ -3075,7 +3242,7 @@ def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
 
     np.seterr(under='ignore')
 
-    myfig=plt.figure()
+    myfig=plt.figure(1,figsize=(13,18),dpi=200)
     plt.clf()
     m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
     
@@ -3100,8 +3267,8 @@ def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
     m.drawmeridians(np.arange(0.,360.,90.),labels=[0,0,0,1],labelstyle='+/-')
     # draw meridians
     plt.title("Skymap") # add a title
-    plt.colorbar()
-    myfig.savefig(os.path.join(outdir,'skymap.png'))
+    plt.colorbar(pad=0.05,orientation='horizontal')
+    myfig.savefig(os.path.join(outdir,'skymap.png'),bbox_inches='tight')
     plt.clf()
 
     #Save skypoints
@@ -5662,4 +5829,405 @@ def confidence_interval_uncertainty(cl, cl_bounds, posteriors):
     return (relative_change, frac_uncertainty, quant_uncertainty)
 
 
+def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V1']):
+  
+  from lalsimulation.lalsimulation import SimInspiralChooseTDWaveform,SimInspiralChooseFDWaveform
+  from lalsimulation.lalsimulation import SimInspiralImplementedTDApproximants,SimInspiralImplementedFDApproximants
+  from lal.lal import StrainUnit
+  from lal.lal import CreateREAL8TimeSeries,CreateForwardREAL8FFTPlan,CreateTukeyREAL8Window,CreateCOMPLEX16FrequencySeries,DimensionlessUnit,REAL8TimeFreqFFT,CutREAL8TimeSeries
+  from lal.lal import LIGOTimeGPS
+  from lal.lal import MSUN_SI as LAL_MSUN_SI
+  from lal.lal import PC_SI as LAL_PC_SI
+  import lalsimulation as lalsim
+  from pylal import antenna as ant
+  from math import cos,sin,sqrt
+  from glue.ligolw import lsctables
+  from glue.ligolw import utils
+  import os
+  import numpy as np
+  from numpy import arange
+  from pylal import bayespputils as bppu
+  from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
+  import copy
+  if path is None:
+    path=os.getcwd()
+  if event is None:
+    event=0
+  colors_inj={'H1':'r','L1':'g','V1':'m','I1':'b','J1':'y'}
+  colors_rec={'H1':'k','L1':'k','V1':'k','I1':'k','J1':'k'}
+  # time and freq data handling variables 
+  srate=4096.0
+  seglen=60.
+  length=srate*seglen # lenght of 60 secs, hardcoded. May call a LALSimRoutine to get an idea
+  deltaT=1/srate
+  deltaF = 1.0 / (length* deltaT);
+  
+  # build window for FFT
+  pad=0.4
+  timeToFreqFFTPlan = CreateForwardREAL8FFTPlan(int(length), 1 );
+  window=CreateTukeyREAL8Window(int(length),2.0*pad*srate/length);
+  WinNorm = sqrt(window.sumofsquares/window.data.length);
+  # time and freq domain strain:
+  segStart=100000000 
+  strainT=CreateREAL8TimeSeries("strainT",segStart,0.0,1.0/srate,DimensionlessUnit,int(length));
+  strainF= CreateCOMPLEX16FrequencySeries("strainF",segStart,	0.0,	deltaF,	DimensionlessUnit,int(length/2. +1));
+  
+  f_min=25 # hardcoded 
+  f_ref=100 # hardcoded default (may be changed below)
+  f_max=srate/2.0  
+  plot_fmax=f_max
+  
+  inj_strains=dict((i,{"T":{'x':None,'strain':None},"F":{'x':None,'strain':None}}) for i in ifos)
+  rec_strains=dict((i,{"T":{'x':None,'strain':None},"F":{'x':None,'strain':None}}) for i in ifos)
+  
+  inj_domain=None
+  rec_domain=None
+  font_size=26
+  if siminspiral is not None:
+    skip=0
+    try:
+      xmldoc = utils.load_filename(siminspiral)
+      tbl = lsctables.table.get_table(xmldoc, "sim_inspiral")
+      if event>0:
+        tbl=tbl[event]
+      else:
+        tbl=tbl[0]
+    except:
+      print "Cannot read event %s from table %s. Won't plot injected waveform \n"%(event,siminspiral)
+      skip=1
+    if not skip:
+      REAL8time=tbl.geocent_end_time+1e-9*tbl.geocent_end_time_ns
+      GPStime=LIGOTimeGPS(REAL8time)
+      M1=tbl.mass1
+      M2=tbl.mass2
+      D=tbl.distance
+      m1=M1*LAL_MSUN_SI
+      m2=M2*LAL_MSUN_SI
+      phiRef=tbl.coa_phase
+      
+      s1x = tbl.spin1x
+      s1y = tbl.spin1y
+      s1z = tbl.spin1z
+      s2x = tbl.spin2x
+      s2y = tbl.spin2y
+      s2z = tbl.spin2z
+      
+      r=D*LAL_PC_SI*1.0e6
+      iota=tbl.inclination
+      print "WARNING: Defaulting to inj_fref =100Hz to plot the injected WF. This is hardcoded since xml table does not carry this information\n"
+      
+      lambda1=0
+      lambda2=0
+      waveFlags=None
+      nonGRparams=None
+      wf=str(tbl.waveform)
+
+      injapproximant=lalsim.GetApproximantFromString(wf)  
+      amplitudeO=int(tbl.amp_order )
+      phaseO=lalsim.GetOrderFromString(wf)
+     
+      ra=tbl.longitude
+      dec=tbl.latitude
+      psi=tbl.polarization
+
+      if SimInspiralImplementedFDApproximants(injapproximant):
+        inj_domain='F'
+        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min,f_max, f_ref,  r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, injapproximant)
+      elif SimInspiralImplementedTDApproximants(injapproximant):
+        inj_domain='T'
+        [plus,cross]=SimInspiralChooseTDWaveform(phiRef, deltaT,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_ref,   r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, injapproximant)
+      else:
+        print "\nThe approximant %s doesn't seem to be recognized by lalsimulation!\n Skipping WF plots\n"%injapproximant
+        return None
+        
+      for ifo in ifos:
+        (fp,fc,fa,qv)=ant.response(REAL8time,ra,dec,iota,psi,'radians',ifo)
+        if inj_domain=='T':
+          # strain is a temporary container for this IFO strain.
+          # Take antenna pattern into accout and window the data
+          for k in np.arange(strainT.data.length):
+            if k<plus.data.length:
+              strainT.data.data[k]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
+            else:
+              strainT.data.data[k]=0.0
+            strainT.data.data[k]*=window.data.data[k]
+          # now copy in the dictionary only the part of strain which is not null (that is achieved using plus.data.length as length)
+          inj_strains[ifo]["T"]['strain']=np.array([strainT.data.data[k] for k in arange(plus.data.length)])
+          inj_strains[ifo]["T"]['x']=np.array([REAL8time - deltaT*(plus.data.length-1-k) for k in np.arange(plus.data.length)])
+          
+          # Take the FFT
+          for j in arange(strainF.data.length):
+            strainF.data.data[j]=0.0
+          REAL8TimeFreqFFT(strainF,strainT,timeToFreqFFTPlan);
+          for j in arange(strainF.data.length):
+            strainF.data.data[j]/=WinNorm
+          # copy in the dictionary
+          inj_strains[ifo]["F"]['strain']=np.array([strainF.data.data[k] for k in arange(int(strainF.data.length))])
+          inj_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
+        elif inj_domain=='F':
+          for k in np.arange(strainF.data.length):
+            if k<plus.data.length:
+              strainF.data.data[k]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
+            else:
+              strainF.data.data[k]=0.0
+          # copy in the dictionary
+          inj_strains[ifo]["F"]['strain']=np.array([strainF.data.data[k] for k in arange(int(strainF.data.length))])
+          inj_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
+  if pos is not None:
+    
+    # Select the maxP sample
+    _,which=pos._posMap()
+    
+    if 'time' in pos.names:
+      REAL8time=pos['time'].samples[which][0]
+    elif 'time_maxl' in pos.names:
+      REAL8time=pos['time_maxl'].samples[which][0]
+    elif 'time_min' in pos.names and 'time_max' in pos.names:
+      REAL8time=pos['time_min'].samples[which][0]+0.5*(pos['time_max'].samples[which][0]-pos['time_min'].samples[which][0])
+    else:
+      print "ERROR: could not find any time parameter in the posterior file. Not plotting the WF...\n"
+      return None
+
+    GPStime=LIGOTimeGPS(REAL8time)
+    
+    q=pos['q'].samples[which][0]
+    mc=pos['mc'].samples[which][0]
+    M1,M2=bppu.q2ms(mc,q)
+    D=pos['dist'].samples[which][0]
+    m1=M1*LAL_MSUN_SI
+    m2=M2*LAL_MSUN_SI
+    if 'phi_orb' in pos.names:
+      phiRef=pos['phi_orb'].samples[which][0]
+    else:
+      print 'WARNING: phi_orb not found in posterior files. Defaulting to 0.0 which is probably *not* what you want\n'
+      phiRef=0.0
+      
+    try:
+      for name in ['fref','f_ref','f_Ref','fRef']:
+        if name in pos.names:
+          fname=name
+          
+      Fref = np.unique(pos[fname].samples)
+      if len(Fref) > 1:
+          print "ERROR: Expected f_ref to be constant for all samples.  Can't tell which value was injected! Defaulting to 100 Hz\n"
+          print Fref
+      else:
+          f_ref = Fref[0]
+    except ValueError:
+      print "WARNING: Could not read fref from posterior file! Defaulting to 100 Hz\n"
+
+    try:
+      a = pos['a_spin1'].samples[which][0]
+      the = pos['theta_spin1'].samples[which][0]
+      phi = pos['phi_spin1'].samples[which][0]
+      s1x = (a * sin(the) * cos(phi));
+      s1y = (a * sin(the) * sin(phi));
+      s1z = (a * cos(the));
+      a = pos['a_spin2'].samples[which][0]
+      the = pos['theta_spin2'].samples[which][0]
+      phi = pos['phi_spin2'].samples[which][0]
+      s2x = (a * sin(the) * cos(phi));
+      s2y = (a * sin(the) * sin(phi));
+      s2z = (a * cos(the));
+      iota=pos['inclination'].samples[which][0]
+    except:
+      try:
+        iota, s1x, s1y, s1z, s2x, s2y, s2z=lalsim.SimInspiralTransformPrecessingInitialConditions(pos['theta_JN'].samples[which][0], pos['phi_JL'].samples[which][0], pos['tilt1'].samples[which][0], pos['tilt2'].samples[which][0], pos['phi12'].samples[which][0], pos['a1'].samples[which][0], pos['a2'].samples[which][0], m1, m2, f_ref)
+      except:
+        s1x=s1y=s1z=s2x=s2y=s2z=0.0
+        try:
+          iota=pos['inclination'].samples[which][0]
+        except:
+          iota=pos['theta_jn'].samples[which][0]
+      
+    r=D*LAL_PC_SI*1.0e6
+
+    lambda1=0
+    lambda2=0
+    waveFlags=None
+    nonGRparams=None
+    approximant=int(pos['LAL_APPROXIMANT'].samples[which][0])
+    amplitudeO=int(pos['LAL_AMPORDER'].samples[which][0])
+    phaseO=int(pos['LAL_PNORDER'].samples[which][0])
+
+    if SimInspiralImplementedFDApproximants(approximant):
+      rec_domain='F'
+      [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_max,   f_ref,r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
+    elif SimInspiralImplementedTDApproximants(approximant):
+      rec_domain='T'
+      [plus,cross]=SimInspiralChooseTDWaveform(phiRef, deltaT,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_ref,  r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
+    else:
+      print "The approximant %s doesn't seem to be recognized by lalsimulation!\n Skipping WF plots\n"%approximant
+      return None
+      
+    ra=pos['ra'].samples[which][0]
+    dec=pos['dec'].samples[which][0]
+    psi=pos['psi'].samples[which][0]
+    fs={}
+    for ifo in ifos:
+      (fp,fc,fa,qv)=ant.response(REAL8time,ra,dec,iota,psi,'radians',ifo)
+      if rec_domain=='T':
+        # strain is a temporary container for this IFO strain.
+        # Take antenna pattern into accout and window the data
+        for k in np.arange(strainT.data.length):
+          if k<plus.data.length:
+            strainT.data.data[k]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
+          else:
+            strainT.data.data[k]=0.0
+          strainT.data.data[k]*=window.data.data[k]
+        # now copy in the dictionary only the part of strain which is not null (that is achieved using plus.data.length as length)
+        rec_strains[ifo]["T"]['strain']=np.array([strainT.data.data[k] for k in arange(plus.data.length)])
+        rec_strains[ifo]["T"]['x']=np.array([REAL8time - deltaT*(plus.data.length-1-k) for k in np.arange(plus.data.length)])
+        
+        # Take the FFT
+        for j in arange(strainF.data.length):
+          strainF.data.data[j]=0.0
+        REAL8TimeFreqFFT(strainF,strainT,timeToFreqFFTPlan);
+        for j in arange(strainF.data.length):
+          strainF.data.data[j]/=WinNorm
+        # copy in the dictionary
+        rec_strains[ifo]["F"]['strain']=np.array([strainF.data.data[k] for k in arange(int(strainF.data.length))])
+        rec_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
+      elif rec_domain=='F':
+        for k in np.arange(strainF.data.length):
+          if k<plus.data.length:
+            strainF.data.data[k]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
+          else:
+            strainF.data.data[k]=0.0
+        # copy in the dictionary
+        rec_strains[ifo]["F"]['strain']=np.array([strainF.data.data[k] for k in arange(int(strainF.data.length))])
+        rec_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
+
+  myfig=plt.figure(1,figsize=(23,15))
+  
+  rows=len(ifos)
+  cols=2
+  
+  #this variables decide which domain will be plotted on the left column of the plot.
+  # only plot Time domain if both injections and recovery are TD
+  global_domain="F"
+  if rec_domain is not None and inj_domain is not None:
+    if rec_domain=="T" and inj_domain=="T":
+      global_domain="T"
+  elif rec_domain is not None:
+    if rec_domain=="T":
+      global_domain="T"
+  elif inj_domain is not None:
+    if inj_domain=="T":
+      global_domain="T"
+  
+  A,axes=plt.subplots(nrows=rows,ncols=cols,sharex=False,sharey=False)
+  plt.setp(A,figwidth=23,figheight=15)
+  for (r,i) in zip(np.arange(rows),ifos):
+    for c in np.arange(cols):
+      ax=axes[r]
+      if type(ax)==np.ndarray:
+        ax=ax[c]
+      else:
+        ax=axes[c]
+      if rec_strains[i]["T"]['strain'] is not None or rec_strains[i]["F"]['strain'] is not None:
+        if c==0:
+          if global_domain=="T":
+            ax.plot(rec_strains[i]["T"]['x'],rec_strains[i]["T"]['strain'],colors_rec[i],label='%s maP'%i)
+          else:
+            data=rec_strains[i]["F"]['strain']
+            f=rec_strains[i]["F"]['x']
+            mask=np.logical_and(f>=f_min,f<=plot_fmax)
+            ys=data
+            ax.plot(f[mask],ys[mask].real,'.-',color=colors_rec[i],label='%s maP'%i)
+        else:
+            data=rec_strains[i]["F"]['strain']
+            f=rec_strains[i]["F"]['x']
+            mask=np.logical_and(f>=f_min,f<=plot_fmax)
+            ys=data
+            ax.loglog(f[mask],abs(ys[mask]),'--',color=colors_rec[i],linewidth=4)
+            ax.set_xlim([min(f[mask]),max(f[mask])])
+            ax.grid(True,which='both')
+      if inj_strains[i]["T"]['strain'] is not None or inj_strains[i]["F"]['strain'] is not None:
+        if c==0:
+          if global_domain=="T":
+            ax.plot(inj_strains[i]["T"]['x'],inj_strains[i]["T"]['strain'],colors_inj[i],label='%s inj'%i)
+          else:
+            data=inj_strains[i]["F"]['strain']
+            f=inj_strains[i]["F"]['x']
+            mask=np.logical_and(f>=f_min,f<=plot_fmax)
+            ys=data
+            ax.plot(f[mask],ys[mask].real,'.-',color=colors_inj[i],label='%s inj'%i)
+        else:
+            data=inj_strains[i]["F"]['strain']
+            f=inj_strains[i]["F"]['x']
+            mask=np.logical_and(f>=f_min,f<=plot_fmax)
+            ys=data
+            ax.loglog(f[mask],abs(ys[mask]),'--',color=colors_inj[i],linewidth=4)
+            ax.set_xlim([min(f[mask]),max(f[mask])])
+            ax.grid(True,which='both')
+        
+      if r==0:
+        if c==0:
+          if global_domain=="T":
+            ax.set_title(r"$h(t)$",fontsize=font_size)
+          else:
+            ax.set_title(r"$\Re[h(f)]$",fontsize=font_size)
+        else:
+          ax.set_title(r"$|h(f)|$",fontsize=font_size)
+      elif r==rows-1:
+        if c==0:
+          if global_domain=="T":
+            ax.set_xlabel("time [s]",fontsize=font_size)
+          else:
+            ax.set_xlabel("frequency [Hz]",fontsize=font_size)
+        else:
+          ax.set_xlabel("frequency [Hz]",fontsize=font_size)
+      
+      ax.legend(loc='best')
+      ax.grid(True)
+      
+      #ax.tight_layout()
+  A.savefig(os.path.join(path,'WF_DetFrame.png'),bbox_inches='tight')
+  return 1
+  
+def plot_psd(psd_files,outpath=None):
+  
+  f_min=30.
+  myfig2=plt.figure(figsize=(15,15),dpi=500)
+  ax=plt.subplot(1,1,1)  
+  colors={'H1':'r','L1':'g','V1':'m','I1':'k','J1':'y'}
+
+  if outpath is None:
+    outpath=os.getcwd()
+  tmp=[]
+  for f in psd_files:
+    if not os.path.isfile(f):
+      print "PSD file %s has not been found and won't be plotted\n"%f
+    else:
+      tmp.append(f)
+  if tmp==[]:
+     return None
+  else:
+    psd_files=tmp
+    
+  for f in psd_files:
+    
+    data=np.loadtxt(f)
+    freq=data[:,0]
+    data=data[:,1]
+    idx=f.find('-PSD.dat')
+    ifo=f[idx-2:idx]
+    fr=[]
+    da=[]
+    for (f,d) in zip(freq,data):
+      if f>f_min and d!=0.0:
+        fr.append(f)
+        da.append(d)
+    plt.loglog(fr,da,colors[ifo],label=ifo,linewidth=3)
+  plt.xlim([min(freq),max(freq)])
+  plt.xlabel("Frequency [Hz]",fontsize=26)
+  plt.ylabel("PSD",fontsize=26)
+  plt.legend(loc='best')
+  plt.grid(which='both')
+  plt.tight_layout()
+  myfig2.savefig(os.path.join(outpath,'PSD.png'),bbox_inches='tight')
+  myfig2.clf()
+
+  return 1
 
