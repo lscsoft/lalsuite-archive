@@ -2007,7 +2007,7 @@ class CondorDAG:
           workflow_job.uses(Pegasus.DAX3.File(os.path.basename(f)),link=Pegasus.DAX3.Link.OUTPUT,register=False,transfer=True)
 
         for f in checkpoint_node_file_dict.keys():
-          workflow_job.uses(Pegasus.DAX3.File(os.path.basename(f)),link='checkpoint',register=False,transfer=True)
+          workflow_job.uses(Pegasus.DAX3.File(os.path.basename(f)),link=Pegasus.DAX3.Link.CHECKPOINT,register=False,transfer=True)
 
         node_file_dict = dict( input_node_file_dict.items() + output_node_file_dict.items() + checkpoint_node_file_dict.items() )
 
