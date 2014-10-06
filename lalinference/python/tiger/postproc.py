@@ -39,7 +39,7 @@ from itertools import cycle
 from matplotlib import use, rcParams
 use('Agg')
 from matplotlib.pyplot import clf, figure, savefig
-from os import access, path, R_OK
+from os import access, path, R_OK, makedirs
 from scipy.stats import itemfreq, ks_2samp
 from scipy.stats.mstats import mquantiles
 from string import whitespace
