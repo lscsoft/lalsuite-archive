@@ -815,6 +815,7 @@ class Table(ligolw.Table, list):
 	# Row ID manipulation
 	#
 
+	@classmethod
 	def get_next_id(cls):
 		"""
 		Returns the current value of the next_id class attribute,
@@ -825,8 +826,8 @@ class Table(ligolw.Table, list):
 		id = cls.next_id
 		cls.next_id += 1
 		return id
-	get_next_id = classmethod(get_next_id)
 
+	@classmethod
 	def set_next_id(cls, id):
 		"""
 		Sets the value of the next_id class attribute.  This is a
@@ -835,7 +836,6 @@ class Table(ligolw.Table, list):
 		attribute.
 		"""
 		cls.next_id = id
-	set_next_id = classmethod(set_next_id)
 
 	def sync_next_id(self):
 		"""
