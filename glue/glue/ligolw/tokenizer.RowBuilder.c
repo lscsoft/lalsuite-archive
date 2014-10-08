@@ -252,7 +252,7 @@ PyTypeObject ligolw_RowBuilder_Type = {
 ">>> rows = tokenizer.RowBuilder(Row, [\"time\", \"snr\"])\n"\
 ">>> l = list(rows.append(t.append(u\"10,6.8,15,29.1,\")))\n"\
 ">>> l[0].snr\n"\
-"6.7999999999999998\n"\
+"6.8\n"\
 ">>> l[1].time\n"\
 "15\n"\
 "\n"\
