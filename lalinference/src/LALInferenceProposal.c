@@ -908,7 +908,7 @@ void LALInferenceEnsembleStretchIntrinsic(LALInferenceRunState *runState, LALInf
   const char *propName = ensembleStretchIntrinsicName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
   const char *names[] = {"chirpmass", "asym_massratio", "massratio", "m1", "m2", "a_spin1", "a_spin2",
-    "tilt_spin1", "tilt_spin2", "phi12", "phi_spin1", "phi_spin2", "theta_spin1", "theta_spin2", NULL};
+    "tilt_spin1", "tilt_spin2", "phi12", "phi_spin1", "phi_spin2", "theta_spin1", "theta_spin2","dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep", NULL};
     LALInferenceEnsembleStretchNames(runState, pp, names);
 }
 
@@ -916,9 +916,9 @@ void LALInferenceEnsembleStretchExtrinsic(LALInferenceRunState *runState, LALInf
   const char *propName = ensembleStretchExtrinsicName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
   
-  const char *names[] = {"rightascension", "declination", "polarisation", "inclination", "distance", "phase", "time", "theta_JN","dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep", NULL};
-  const char *marg_time_names[] = {"rightascension", "declination", "polarisation", "inclination", "distance", "phase", "theta_JN","dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep", NULL};
-  const char *marg_time_phase_names[] = {"rightascension", "declination", "polarisation", "inclination", "distance", "theta_JN","dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep",  NULL};
+  const char *names[] = {"rightascension", "declination", "polarisation", "inclination", "distance", "phase", "time", "theta_JN", NULL};
+  const char *marg_time_names[] = {"rightascension", "declination", "polarisation", "inclination", "distance", "phase", "theta_JN", NULL};
+  const char *marg_time_phase_names[] = {"rightascension", "declination", "polarisation", "inclination", "distance", "theta_JN",  NULL};
   
   if (LALInferenceGetProcParamVal(runState->commandLine, "--margtimephi"))
     LALInferenceEnsembleStretchNames(runState, pp, marg_time_phase_names);
@@ -1024,7 +1024,7 @@ void LALInferenceEnsembleWalkIntrinsic(LALInferenceRunState *runState, LALInfere
   const char *propName = ensembleWalkIntrinsicName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
   const char *names[] = {"chirpmass", "asym_massratio", "massratio", "m1", "m2", "a_spin1", "a_spin2",
-    "tilt_spin1", "tilt_spin2", "phi12", "phi_spin1", "phi_spin2", "theta_spin1", "theta_spin2", NULL};
+    "tilt_spin1", "tilt_spin2", "phi12", "phi_spin1", "phi_spin2", "theta_spin1", "theta_spin2","dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep", NULL};
     LALInferenceEnsembleWalkNames(runState, pp, names);
 }
 
@@ -1032,9 +1032,9 @@ void LALInferenceEnsembleWalkExtrinsic(LALInferenceRunState *runState, LALInfere
   const char *propName = ensembleWalkExtrinsicName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
   
-  const char *names[] = {"rightascension", "declination", "polarisation", "inclination", "distance", "phase", "time", "theta_JN","dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep", NULL};
-  const char *marg_time_names[] = {"rightascension", "declination", "polarisation", "inclination", "distance", "phase", "theta_JN","dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep", NULL};
-  const char *marg_time_phase_names[] = {"rightascension", "declination", "polarisation", "inclination", "distance", "theta_JN","dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep",  NULL};
+  const char *names[] = {"rightascension", "declination", "polarisation", "inclination", "distance", "phase", "time", "theta_JN", NULL};
+  const char *marg_time_names[] = {"rightascension", "declination", "polarisation", "inclination", "distance", "phase", "theta_JN", NULL};
+  const char *marg_time_phase_names[] = {"rightascension", "declination", "polarisation", "inclination", "distance", "theta_JN",  NULL};
   
   if (LALInferenceGetProcParamVal(runState->commandLine, "--margtimephi"))
     LALInferenceEnsembleWalkNames(runState, pp, marg_time_phase_names);
