@@ -458,7 +458,7 @@ class InterningRowBuilder(tokenizer.RowBuilder):
 	"""
 	strings = {}
 	def append(self, tokens):
-		for row in tokenizer.RowBuilder.append(self, tokens):
+		for row in super(InterningRowBuilder, self).append(tokens):
 			for col in self.interns:
 				val = getattr(row, col)
 				setattr(row, col, self.strings.setdefault(val, val))
@@ -790,7 +790,7 @@ class Table(ligolw.Table, list):
 		Remove a child from this element.  The child element is
 		returned, and it's parentNode element is reset.
 		"""
-		ligolw.Table.removeChild(self, child)
+		super(Table, self).removeChild(child)
 		if child.tagName == ligolw.Column.tagName:
 			self._update_column_info()
 		return child
@@ -800,7 +800,7 @@ class Table(ligolw.Table, list):
 		Break internal references within the document tree rooted
 		on this element to promote garbage collection.
 		"""
-		ligolw.Table.unlink(self)
+		super(Table, self).unlink()
 		del self[:]
 
 	def endElement(self):
