@@ -557,7 +557,10 @@ def cbcBayesPostProc(
     wfdir=os.path.join(outdir,'Waveform')
     if not os.path.isdir(wfdir):
         os.makedirs(wfdir)
-    wfpointer= bppu.plot_waveform(pos=pos,siminspiral=injfile,event=eventnum,path=wfdir)
+    try:
+        wfpointer= bppu.plot_waveform(pos=pos,siminspiral=injfile,event=eventnum,path=wfdir)
+    except KeyError:
+        wfpointer = None
     wftd=html_wf.insert_td(row,'',label='Waveform',legend=legend)
     wfsection=html.add_section_to_element('Waveforms',wftd)
     if wfpointer:
