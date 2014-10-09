@@ -1413,13 +1413,11 @@ class EngineNode(pipeline.CondorDAGNode):
       # Used when we are running the coherence test.
       # Otherwise the noise evidence will differ.
       #if self.scisegs!={}:
-
       #starttime=max([int(self.scisegs[ifo].start()) for ifo in self.ifos])
       #endtime=min([int(self.scisegs[ifo].end()) for ifo in self.ifos])
       # NOTE: The above two lines are replaced with the following to work with timeslides.
       starttime=max([int(self.scisegs[ifo].start())-self.timeslides[ifo] for ifo in self.ifos])
       endtime=min([int(self.scisegs[ifo].end())-self.timeslides[ifo] for ifo in self.ifos])
-      #print "start: %d, end: %d"%(starttime,endtime)
       #else:
       #  (starttime,endtime)=self.get_required_data(self.get_trig_time())
       #  starttime=floor(starttime)

@@ -2624,7 +2624,7 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   // FIXME: this adds lambda1 and lambda2 twice if --inj-lambda1,2 are set
   LALEquationOfState equation_of_state = LAL_SIM_INSPIRAL_EOS_NONE;
   equation_of_state = inj_table->eos;
-  fprintf(stderr, "In InjectFD, eos from inj_table: %d\n", equation_of_state);
+  //fprintf(stderr, "In InjectFD, eos from inj_table: %d\n", equation_of_state);
 
   REAL8 m1=inj_table->mass1;
   REAL8 m2=inj_table->mass2;
@@ -2632,8 +2632,8 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   //if (equation_of_state != LAL_SIM_INSPIRAL_EOS_NONE){
   lambda1 = XLALSimInspiralEOSLambda(equation_of_state, m1)/(m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI); /* gives lambda1/m1^5 (dimensionless) */
   lambda2 = XLALSimInspiralEOSLambda(equation_of_state, m2)/(m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI); /* gives lambda2/m2^5 (dimensionless) */
-  fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
-  fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
+  //fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
+  //fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
   LALInferenceAddVariable(IFOdata->modelParams, "LAL_SIM_INSPIRAL_EOS", &equation_of_state, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(IFOdata->modelParams, "lambda1",&lambda1,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   LALInferenceAddVariable(IFOdata->modelParams, "lambda2",&lambda2,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
