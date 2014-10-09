@@ -249,7 +249,7 @@ def plot_label(param):
       'iota':r'$\iota\,(\mathrm{rad})$',
       'cosiota':r'$\mathrm{cos}(\iota)$',
       'time':r'$t_\mathrm{c}\,(\mathrm{s})$',
-      'time_mean':r'$<t>\,(\mathrm{s})$,
+      'time_mean':r'$<t>\,(\mathrm{s})$',
       'dist':r'$d_\mathrm{L}\,(\mathrm{Mpc})$',
       'ra':r'$\alpha$',
       'dec':r'$\delta$',
