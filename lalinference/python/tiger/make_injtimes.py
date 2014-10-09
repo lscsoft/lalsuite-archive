@@ -34,6 +34,8 @@ from pylab import *
 py_version = sys.version_info[:2]
 np_version = np.__version__
 
+colordict={'H1':'r', 'L1':'g', 'V1':'b', 'H1L1':'c', 'L1H1':'c', 'H1V1':'m', 'V1H1':'m', 'L1V1':'y', 'V1L1':'y', 'H1L1V1':'k'}
+
 '''Exclude segments that contain the following gpstimes'''
 excludetimes = [966951349, 967054240, 968021010]
 
@@ -296,6 +298,33 @@ class segmentData:
     print "Printing segment list to file " + outfile
     savetxt(outfile, array(self._seglist), fmt='%i')
     
+  def plotSegments(self, outfile=None, lenperline=200000, segcolor='b', title=None):
+    '''Plot segments in rows of lenperline seconds'''
+    s = array(self._seglist)
+    t = sort(hstack((s[:,1],s[:,1],s[:,2],s[:,2])))
+    y = len(s)*[0,1,1,0]
+    n = ceil((t[-1]-t[0])/lenperline)
+    fig = figure()
+    for i in arange(n):
+      ax=fig.add_subplot(n,1,i+1)
+      ax.tick_params(axis='y', which='both', left='off', right='off', labelleft='off')
+      ax.tick_params(axis='x', which='both', top='on', bottom='off', labelbottom='off')
+      ax.set_ylim(0,2)
+      ax.xaxis.set_major_formatter(FormatStrFormatter('%0.0f'))
+      t0 = t[0] + i*lenperline
+      t1 = t0 + lenperline
+      ax.set_ylabel(int(t0), verticalalignment='top', rotation=45)
+      ax.set_xlim(t0, t1)
+      ax.fill_between(t, 0*array(y), y, alpha=0.3, color=segcolor)
+    if title is not None:
+      fig.suptitle(title)
+    if outfile is None:
+      return fig
+    else:
+      print 'Plotting segments to ', outfile
+      fig.savefig(outfile)
+    
+    
   def plotCumulativeDurations(self, outfile, maxdur=None):
     print "Plotting segment lengths distribution to file " + outfile
     fig = figure()
@@ -432,7 +461,7 @@ if __name__ == "__main__":
   parser.add_argument('-t', '--timeslides', action="store_true", dest="timeslides", help="Enable timeslides. This automatically deactivates --triples and --doubles.", default=False)
   parser.add_argument('-p', '--plot', action="store_true", dest="plotsegdist", help="plot cumulative segment length distribution", default=False)
   parser.add_argument('-c', '--checkslides', action="store_true", dest="check", help="verbose check that all timeslid times are in unvetoed segments", default=False)
-  parser.add_argument('-u', '--dumpunvetoed', action="store_true", dest="dumpunvetoed", help="dump list of unvetoed segments to file", default=False)
+  parser.add_argument('-u', '--dumpunvetoed', action="store_true", dest="dumpunvetoed", help="dump list of unvetoed segments to file and plot segments", default=False)
 
   #TODO: 
   # * add option to dump to pickle (IFOlist, doubleIFOs, tripleIFO)
@@ -503,9 +532,10 @@ if __name__ == "__main__":
           for time in single.getTrigTimes(whereInj=whereInj, n=Ninj, interval=interval, lmargin=seglen):
             dist = single._unvetoed.timeIn(time)
             print dist, dist > 0
-      # Dump unvetoed segment list to file
+      # Dump unvetoed segment list to file and plot segments to file
       if dumpunvetoed:
         single._unvetoed.printToFile(os.path.join(outfolder, 'segments', single._name + '_unvetoed_segs.dat'))
+        figseg = single._unvetoed.plotSegments(os.path.join(outfolder, 'segments', single._name + '_unvetoed_segs.pdf'), title=single._name + ' unvetoed segments', segcolor=colordict[single._name])
 
     
   # Combine IFOs into doubles
@@ -526,9 +556,10 @@ if __name__ == "__main__":
         for time in double.getTrigTimes(whereInj=whereInj, n=Ninj, interval=interval, lmargin=seglen):
           dist = double._unvetoed.timeIn(time)
           print dist, dist > 0
-      # Dump unvetoed segment list to file
+      # Dump unvetoed segment list to file and plot segments to file
       if dumpunvetoed:
         double._unvetoed.printToFile(os.path.join(outfolder, 'segments', double._name + '_unvetoed_segs.dat'))
+        figseg = double._unvetoed.plotSegments(os.path.join(outfolder, 'segments', double._name + '_unvetoed_segs.pdf'), title=double._name + ' unvetoed segments')
 
         
   # Combine IFOs into triples
@@ -549,7 +580,8 @@ if __name__ == "__main__":
       for time in tripleIFO.getTrigTimes(whereInj=whereInj, n=Ninj, interval=interval, lmargin=seglen):
         dist = tripleIFO._unvetoed.timeIn(time)
         print dist, dist > 0
-    # Dump unvetoed segment list to file
+    # Dump unvetoed segment list to file and plot segments to file
     if dumpunvetoed:
       tripleIFO._unvetoed.printToFile(os.path.join(outfolder, 'segments', tripleIFO._name + '_unvetoed_segs.dat'))
+      figseg = tripleIFO._unvetoed.plotSegments(os.path.join(outfolder, 'segments', tripleIFO._name + '_unvetoed_segs.pdf'), title=tripleIFO._name + ' unvetoed segments')
 
