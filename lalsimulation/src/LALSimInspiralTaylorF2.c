@@ -30,6 +30,7 @@
 #include <lal/LALConstants.h>
 #include <lal/LALDatatypes.h>
 #include <lal/LALSimInspiral.h>
+#include <lal/LALSimInspiralEOS.h>
 #include <lal/Units.h>
 #include <lal/XLALError.h>
 #include "LALSimInspiralPNCoefficients.c"
@@ -103,6 +104,9 @@ int XLALSimInspiralTaylorF2(
         const INT4 amplitudeO                  /**< twice PN amplitude order */
         )
 {
+//     const REAL8 lambda = -1987./3080.;
+//     const REAL8 theta = -11831./9240.;
+
     /* external: SI; internal: solar masses */
     const REAL8 m1 = m1_SI / LAL_MSUN_SI;
     const REAL8 m2 = m2_SI / LAL_MSUN_SI;
@@ -114,10 +118,20 @@ int XLALSimInspiralTaylorF2(
     const REAL8 fISCO = vISCO * vISCO * vISCO / piM;
     const REAL8 m1OverM = m1 / m;
     const REAL8 m2OverM = m2 / m;
+    const REAL8 chi1 = m1 / m;
+    const REAL8 chi2 = m2 / m;
+    REAL8 fCONT;
     REAL8 shft, amp0, f_max;
     size_t i, n, iStart;
     COMPLEX16 *data = NULL;
     LIGOTimeGPS tC = {0, 0};
+
+    /* The QM deformability parameters */
+    /* This is 1 for black holes and larger for neutron stars */
+    //UNUSED(quadparam1);
+    //UNUSED(quadparam2);
+    //REAL8 qm_def1 = XLALSimInspiralEOSQfromLambda(lambda1);
+    //REAL8 qm_def2 = XLALSimInspiralEOSQfromLambda(lambda2);
 
     /* phasing coefficients */
     PNPhasingSeries pfa;
@@ -128,6 +142,13 @@ int XLALSimInspiralTaylorF2(
     REAL8 pfa5 = 0.; REAL8 pfl5 = 0.;
     REAL8 pfa6 = 0.; REAL8 pfl6 = 0.;
     REAL8 pfa7 = 0.;
+
+    fCONT = XLALSimInspiralContactFrequency(m1, lambda1, m2, lambda2);
+
+
+
+
+
 
     switch (phaseO)
     {
@@ -146,8 +167,8 @@ int XLALSimInspiralTaylorF2(
             pfa3 = pfa.v[3];
         case 2:
             pfa2 = pfa.v[2];
-	case 1:
-	    XLALPrintWarning( "There is no 0.5PN phase coefficient, returning Newtonian-order phase.\n" );
+        case 1:
+            XLALPrintWarning( "There is no 0.5PN phase coefficient, returning Newtonian-order phase.\n" );
         case 0:
             pfaN = pfa.v[0];
             break;
@@ -182,9 +203,22 @@ int XLALSimInspiralTaylorF2(
      */
     REAL8 pft10 = 0.;
     REAL8 pft12 = 0.;
+    REAL8 pft13 = 0.;
+    REAL8 pft14 = 0.;
+    REAL8 pft15 = 0.;
     switch( tideO )
     {
-	    case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_75PN:
+            pft15 = lambda2* chi2*chi2*chi2*chi2 * 1.L/28.L*LAL_PI*(27719.L - 22127.L*chi2 + 7022.L*chi2*chi2 - 10232.L*chi2*chi2*chi2)
+                + lambda1* chi1*chi1*chi1*chi1 * 1.L/28.L*LAL_PI*(27719.L - 22127.L*chi1 + 7022.L*chi1*chi1 - 10232.L*chi1*chi1*chi1);
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_7PN:
+            pft14 = - lambda2 * chi2*chi2*chi2*chi2 * 24.L*(39927845.L/508032.L                           - 480043345.L/9144576.L*chi2 + 9860575.L/127008.L*chi2*chi2 - 421821905.L/2286144.L*chi2*chi2*chi2 + 4359700.L/35721.L*chi2*chi2*chi2*chi2 - 10578445.L/285768.L*chi2*chi2*chi2*chi2*chi2)
+                   - lambda1 * chi1*chi1*chi1*chi1 * 24.L*(39927845.L/508032.L
+                - 480043345.L/9144576.L*chi1 + 9860575.L/127008.L*chi1*chi1 - 421821905.L/2286144.L*chi1*chi1*chi1 + 4359700.L/35721.L*chi1*chi1*chi1*chi1 - 10578445.L/285768.L*chi1*chi1*chi1*chi1*chi1);
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_65PN:
+            pft13 =  lambda2 * chi2*chi2*chi2*chi2 * 24.L*(12.L - 11.L*chi2)*LAL_PI
+                    + lambda1 * chi1*chi1*chi1*chi1 * 24.L*(12.L - 11.L*chi1)*LAL_PI;
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
             pft12 = pfaN * ( XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m1OverM, lambda1)
                             + XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m2OverM, lambda2) );
@@ -228,11 +262,15 @@ int XLALSimInspiralTaylorF2(
     if (r <= 0) XLAL_ERROR(XLAL_EDOM);
 
     /* allocate htilde */
-    if ( fEnd == 0. ) // End at ISCO
-        f_max = fISCO;
-    else // End at user-specified freq.
-        f_max = fEnd;
+    if ( fEnd <= 0.0 )
+        f_max = (fISCO < fCONT) ? fISCO : fCONT; // Use min{fISCO,fCONT} as termination frequency
+    else
+        f_max = fEnd; // End at user-specified freq.
     if (f_max <= fStart) XLAL_ERROR(XLAL_EDOM);
+
+    // printf("fISCO = %e\n", fISCO);
+    // printf("fCONT = %e\n", fCONT);
+    // printf("f_max = %e\n", f_max);
 
     n = (size_t) (f_max / deltaF + 1);
     XLALGPSAdd(&tC, -1 / deltaF);  /* coalesce at t=0 */
@@ -272,6 +310,9 @@ int XLALSimInspiralTaylorF2(
         const REAL8 v9ref = vref * v8ref;
         const REAL8 v10ref = vref * v9ref;
         const REAL8 v12ref = v2ref * v10ref;
+        const REAL8 v13ref = v3ref * v10ref;
+        const REAL8 v14ref = v4ref * v10ref;
+        const REAL8 v15ref = v5ref * v10ref;
         ref_phasing += pfa7 * v7ref;
         ref_phasing += (pfa6 + pfl6 * logvref) * v6ref;
         ref_phasing += (pfa5 + pfl5 * logvref) * v5ref;
@@ -281,9 +322,24 @@ int XLALSimInspiralTaylorF2(
         ref_phasing += pfaN;
 
         /* Tidal terms in reference phasing */
-        ref_phasing += pft12 * v12ref;
-        ref_phasing += pft10 * v10ref;
+        switch( tideO )
+        {
+            case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
 
+            /* Following 75PN, 7PN and 65PN come from tidal branch*/
+            case LAL_SIM_INSPIRAL_TIDAL_ORDER_75PN:
+              ref_phasing  += pft15 * v15ref;
+            case LAL_SIM_INSPIRAL_TIDAL_ORDER_7PN:
+              ref_phasing  += pft14 * v14ref;
+            case LAL_SIM_INSPIRAL_TIDAL_ORDER_65PN:
+              ref_phasing  += pft13 * v13ref;
+            case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
+                ref_phasing += pft12 * v12ref;
+            case LAL_SIM_INSPIRAL_TIDAL_ORDER_5PN:
+                ref_phasing += pft10 * v10ref;
+            case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
+                ;
+        }
         ref_phasing /= v5ref;
     } /* End of if(f_ref != 0) block */
 
@@ -302,6 +358,9 @@ int XLALSimInspiralTaylorF2(
         const REAL8 v9 = v * v8;
         const REAL8 v10 = v * v9;
         const REAL8 v12 = v2 * v10;
+        const REAL8 v13 = v * v12;
+        const REAL8 v14 = v * v13;
+        const REAL8 v15 = v * v14;
         REAL8 phasing = 0.;
         REAL8 dEnergy = 0.;
         REAL8 flux = 0.;
@@ -315,9 +374,6 @@ int XLALSimInspiralTaylorF2(
         phasing += pfa2 * v2;
         phasing += pfaN;
 
-        /* Tidal terms in phasing */
-        phasing += pft12 * v12;
-        phasing += pft10 * v10;
 
     /* WARNING! Amplitude orders beyond 0 have NOT been reviewed!
      * Use at your own risk. The default is to turn them off.
@@ -327,8 +383,8 @@ int XLALSimInspiralTaylorF2(
      * from the stationary phase approximation. See for instance
      * Eq 6.9 of arXiv:0810.5336
      */
-	switch (amplitudeO)
-        {
+         switch (amplitudeO)
+         {
             case 7:
                 flux += FTa7 * v7;
             case 6:
@@ -348,6 +404,28 @@ int XLALSimInspiralTaylorF2(
             case 0:
                 flux += 1.;
                 dEnergy += 1.;
+        }
+
+        switch( tideO )
+        {
+            case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
+            case LAL_SIM_INSPIRAL_TIDAL_ORDER_75PN:
+                phasing += pft15 * v15;
+            case LAL_SIM_INSPIRAL_TIDAL_ORDER_7PN:
+                phasing += pft14 * v14;
+            case LAL_SIM_INSPIRAL_TIDAL_ORDER_65PN:
+                phasing += pft13 * v13;
+            case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
+                phasing += pft12 * v12;
+            case LAL_SIM_INSPIRAL_TIDAL_ORDER_5PN:
+                phasing += pft10 * v10;
+            case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
+                break;
+            default:
+                XLALPrintError("XLAL Error - %s: Invalid tidal PN order %s\n",
+                        __func__, tideO );
+                XLAL_ERROR(XLAL_EINVAL);
+                break;
         }
 
         phasing /= v5;

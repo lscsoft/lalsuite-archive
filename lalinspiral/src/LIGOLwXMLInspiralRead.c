@@ -1427,7 +1427,8 @@ SimInspiralTableFromLIGOLw (
     {"eff_dist_g",          -1, 47},
     {"eff_dist_t",          -1, 48},
     {"eff_dist_v",          -1, 49},
-    {"dchi0", 		    -1, 50},
+    {"eos",                 -1, 78},
+    {"dchi0",               -1, 50},
     {"dchi1",               -1, 51},
     {"dchi2",               -1, 52},
     {"dchi3",               -1, 53},
@@ -1732,6 +1733,10 @@ SimInspiralTableFromLIGOLw (
         else if ( tableDir[j].idx == 49 )
         {
           thisSim->eff_dist_v = r4colData;
+        }
+        else if ( tableDir[j].idx == 78 )
+        {
+          thisSim->eos = i4colData;
         }
         else if ( tableDir[j].idx == 50 )
         {
@@ -3174,15 +3179,15 @@ LALMultiInspiralTableFromLIGOLw (
       else if ( tableDir[j].idx == 74 )
       {
         thisEvent->cont_chisq_h1 = r4colData;
-      } 
+      }
       else if ( tableDir[j].idx == 75 )
       {
         thisEvent->cont_chisq_h2 = r4colData;
-      } 
+      }
       else if ( tableDir[j].idx == 76 )
       {
         thisEvent->cont_chisq_l = r4colData;
-      } 
+      }
       else if ( tableDir[j].idx == 77 )
       {
         thisEvent->cont_chisq_g = r4colData;

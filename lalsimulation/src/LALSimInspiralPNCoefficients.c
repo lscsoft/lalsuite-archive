@@ -364,7 +364,7 @@ XLALSimInspiralPNPhasing_F2(
 
     /* Non-spin phasing terms - see arXiv:0907.0700, Eq. 3.18 */
     pfa->v[0] = 1.L;
-    pfa->v[2] = 5.L*(743.L/84.L + 11.L * eta)/9.L; 
+    pfa->v[2] = 5.L*(743.L/84.L + 11.L * eta)/9.L;
     pfa->v[3] = -16.L*LAL_PI;
     pfa->v[4] = 5.L*(3058.673L/7.056L + 5429.L/7.L * eta
                      + 617.L * eta*eta)/72.L;
@@ -1311,7 +1311,7 @@ XLALSimInspiralTaylorEtZeta_7PNCoeff(
 }
 /** < TaylorF2 family */
 
-static REAL8 UNUSED 
+static REAL8 UNUSED
 XLALSimInspiralTaylorF2_NewtCoeff(REAL8 eta)
 {
     return  3.L/(128.L * eta);
@@ -1333,7 +1333,7 @@ XLALSimInspiralTaylorF2_1PNCoeff(REAL8 eta)
 {
     return 5.L*(743.L/84.L + 11.L * eta)/9.L;
 }
-static REAL8 UNUSED 
+static REAL8 UNUSED
 XLALSimInspiralTaylorF2_15PNCoeff(REAL8 beta)
 {
     return -16.L*LAL_PI + 4.L*beta;

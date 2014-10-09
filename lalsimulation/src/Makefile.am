@@ -57,6 +57,7 @@ pkginclude_HEADERS = \
 	LALSimInspiral.h \
 	LALSimInspiralSphHarmSeries.h \
 	LALSimInspiralWaveformCache.h \
+        LALSimInspiralEOS.h \
 	LALSimulation.h \
 	LALSimNeutronStar.h \
 	LALSimNoise.h \
@@ -105,6 +106,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralTestGRParams.c \
 	LALSimInspiralPrecess.c \
 	LALSimInspiral.c \
+        LALSimInspiralEOS.c \
 	LALSimInspiralSphHarmSeries.c \
 	LALSimInspiralPNMode.c \
 	LALSimInspiralPPE.c \

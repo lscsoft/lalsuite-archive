@@ -30,6 +30,7 @@
 #include <lal/LALConstants.h>
 #include <lal/LALDatatypes.h>
 #include <lal/LALSimInspiral.h>
+#include <lal/LALSimInspiralEOS.h>
 #include <lal/Units.h>
 #include <lal/XLALError.h>
 #include "LALSimInspiralPNCoefficients.c"
@@ -79,21 +80,26 @@ int XLALSimInspiralTaylorF2Test(
     const REAL8 fISCO = vISCO * vISCO * vISCO / piM;
     const REAL8 m1OverM = m1 / m;
     const REAL8 m2OverM = m2 / m;
-    REAL8 shft, amp0, f_max;
+    const REAL8 chi1 = m1 / m;
+    const REAL8 chi2 = m2 / m;
+    REAL8 shft, amp0, f_max, fCONT;
     size_t i, n, iStart;
     COMPLEX16 *data = NULL;
     LIGOTimeGPS tC = {0, 0};
-    
+
+
+    fCONT = XLALSimInspiralContactFrequency(m1, lambda1, m2, lambda2);
+
     /* phasing coefficients */
     PNPhasingSeries pfa;
     XLALSimInspiralPNPhasing_F2(&pfa, m1, m2, S1z, S2z, S1z*S1z, S2z*S2z, S1z*S2z, quadparam1, quadparam2, spinO);
-    
+
     REAL8 pfaN = 0.; REAL8 pfa1 = 0.;
     REAL8 pfa2 = 0.; REAL8 pfa3 = 0.; REAL8 pfa4 = 0.;
     REAL8 pfa5 = 0.; REAL8 pfl5 = 0.;
     REAL8 pfa6 = 0.; REAL8 pfl6 = 0.;
     REAL8 pfa7 = 0.;
-    
+
     switch (phaseO)
     {
         case -1:
@@ -124,8 +130,8 @@ int XLALSimInspiralTaylorF2Test(
     {
         //printf("Adding test params shifts %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf\n",XLALSimInspiralGetTestGRParam(extraParams,"dchi0"),XLALSimInspiralGetTestGRParam(extraParams,"dchi1"),XLALSimInspiralGetTestGRParam(extraParams,"dchi2"),XLALSimInspiralGetTestGRParam(extraParams,"dchi3"),XLALSimInspiralGetTestGRParam(extraParams,"dchi4"),XLALSimInspiralGetTestGRParam(extraParams,"dchi5"),XLALSimInspiralGetTestGRParam(extraParams,"dchi5l"),XLALSimInspiralGetTestGRParam(extraParams,"dchi6"),XLALSimInspiralGetTestGRParam(extraParams,"dchi6l"),XLALSimInspiralGetTestGRParam(extraParams,"dchi7"));
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi0")) pfaN*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi0"));
-        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi1")) pfa1 = XLALSimInspiralGetTestGRParam(extraParams,"dchi1");
-        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi2")) pfa2*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi2"));
+        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi1")) {pfa1 = XLALSimInspiralGetTestGRParam(extraParams,"dchi1"); printf("dchi1 = %.3f\n",XLALSimInspiralGetTestGRParam(extraParams,"dchi1"));}
+        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi2")) {pfa2*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi2")); printf("dchi1 = %.3f\n",XLALSimInspiralGetTestGRParam(extraParams,"dchi1"));}
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi3")) pfa3*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi3"));
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi4")) pfa4*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi4"));
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi5")) pfa5*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi5"));
@@ -139,7 +145,7 @@ int XLALSimInspiralTaylorF2Test(
      * because when OpenMP parallelization is turned on, early exits
      * from loops (via return or break statements) are not permitted.
      */
-    
+
     /* Validate amplitude PN order. */
     switch (amplitudeO)
     {
@@ -155,15 +161,28 @@ int XLALSimInspiralTaylorF2Test(
         default:
             XLAL_ERROR(XLAL_ETYPE, "Invalid amplitude PN order %s", amplitudeO);
     }
-    
+
     /* Generate tidal terms separately.
      * Enums specifying tidal order are in LALSimInspiralWaveformFlags.h
      */
     REAL8 pft10 = 0.;
     REAL8 pft12 = 0.;
+    REAL8 pft13 = 0.;
+    REAL8 pft14 = 0.;
+    REAL8 pft15 = 0.;
     switch( tideO )
     {
-	    case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_75PN:
+            pft15 = lambda2* chi2*chi2*chi2*chi2 * 1.L/28.L*LAL_PI*(27719.L - 22127.L*chi2 + 7022.L*chi2*chi2 - 10232.L*chi2*chi2*chi2)
+                + lambda1* chi1*chi1*chi1*chi1 * 1.L/28.L*LAL_PI*(27719.L - 22127.L*chi1 + 7022.L*chi1*chi1 - 10232.L*chi1*chi1*chi1);
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_7PN:
+            pft14 = - lambda2 * chi2*chi2*chi2*chi2 * 24.L*(39927845.L/508032.L                           - 480043345.L/9144576.L*chi2 + 9860575.L/127008.L*chi2*chi2 - 421821905.L/2286144.L*chi2*chi2*chi2 + 4359700.L/35721.L*chi2*chi2*chi2*chi2 - 10578445.L/285768.L*chi2*chi2*chi2*chi2*chi2)
+                   - lambda1 * chi1*chi1*chi1*chi1 * 24.L*(39927845.L/508032.L
+                - 480043345.L/9144576.L*chi1 + 9860575.L/127008.L*chi1*chi1 - 421821905.L/2286144.L*chi1*chi1*chi1 + 4359700.L/35721.L*chi1*chi1*chi1*chi1 - 10578445.L/285768.L*chi1*chi1*chi1*chi1*chi1);
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_65PN:
+            pft13 =  lambda2 * chi2*chi2*chi2*chi2 * 24.L*(12.L - 11.L*chi2)*LAL_PI
+                    + lambda1 * chi1*chi1*chi1*chi1 * 24.L*(12.L - 11.L*chi1)*LAL_PI;
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
             pft12 = pfaN * ( XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m1OverM, lambda1)
                             + XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m2OverM, lambda2) );
@@ -175,9 +194,9 @@ int XLALSimInspiralTaylorF2Test(
         default:
             XLAL_ERROR(XLAL_EINVAL, "Invalid tidal PN order %s", tideO);
     }
-    
+
     /* The flux and energy coefficients below are used to compute SPA amplitude corrections */
-    
+
     /* flux coefficients */
     const REAL8 FTaN = XLALSimInspiralPNFlux_0PNCoeff(eta);
     const REAL8 FTa2 = XLALSimInspiralPNFlux_2PNCoeff(eta);
@@ -187,16 +206,16 @@ int XLALSimInspiralTaylorF2Test(
     const REAL8 FTl6 = XLALSimInspiralPNFlux_6PNLogCoeff(eta);
     const REAL8 FTa6 = XLALSimInspiralPNFlux_6PNCoeff(eta);
     const REAL8 FTa7 = XLALSimInspiralPNFlux_7PNCoeff(eta);
-    
+
     /* energy coefficients */
     const REAL8 dETaN = 2. * XLALSimInspiralPNEnergy_0PNCoeff(eta);
     const REAL8 dETa1 = 2. * XLALSimInspiralPNEnergy_2PNCoeff(eta);
     const REAL8 dETa2 = 3. * XLALSimInspiralPNEnergy_4PNCoeff(eta);
     const REAL8 dETa3 = 4. * XLALSimInspiralPNEnergy_6PNCoeff(eta);
-    
-    
+
+
     COMPLEX16FrequencySeries *htilde;
-    
+
     /* Perform some initial checks */
     if (!htilde_out) XLAL_ERROR(XLAL_EFAULT);
     if (*htilde_out) XLAL_ERROR(XLAL_EFAULT);
@@ -205,31 +224,34 @@ int XLALSimInspiralTaylorF2Test(
     if (fStart <= 0) XLAL_ERROR(XLAL_EDOM);
     if (f_ref < 0) XLAL_ERROR(XLAL_EDOM);
     if (r <= 0) XLAL_ERROR(XLAL_EDOM);
-    
+
     /* allocate htilde */
-    if ( fEnd == 0. ) // End at ISCO
-    f_max = fISCO;
-    else // End at user-specified freq.
-    f_max = fEnd;
+    if ( fEnd <= 0.0 )
+        f_max = (fISCO < fCONT) ? fISCO : fCONT; // Use min{fISCO,fCONT} as termination frequency
+    else
+        f_max = fEnd; // End at user-specified freq.
     if (f_max <= fStart) XLAL_ERROR(XLAL_EDOM);
-    
+
+    //printf("fISCO = %e\n", fISCO);
+    //printf("fCONT = %e\n", fCONT);
+    //printf("f_max = %e\n", f_max);
     n = (size_t) (f_max / deltaF + 1);
     XLALGPSAdd(&tC, -1 / deltaF);  /* coalesce at t=0 */
     htilde = XLALCreateCOMPLEX16FrequencySeries("htilde: FD waveform", &tC, 0.0, deltaF, &lalStrainUnit, n);
     if (!htilde) XLAL_ERROR(XLAL_EFUNC);
     memset(htilde->data->data, 0, n * sizeof(COMPLEX16));
     XLALUnitDivide(&htilde->sampleUnits, &htilde->sampleUnits, &lalSecondUnit);
-    
+
     /* extrinsic parameters */
     amp0 = -4. * m1 * m2 / r * LAL_MRSUN_SI * LAL_MTSUN_SI * sqrt(LAL_PI/12.L);
     shft = LAL_TWOPI * (tC.gpsSeconds + 1e-9 * tC.gpsNanoSeconds);
-    
+
     const REAL8 log4=log(4.0);
-    
+
     /* Fill with non-zero vals from fStart to f_max */
     iStart = (size_t) ceil(fStart / deltaF);
     data = htilde->data->data;
-    
+
     /* Compute the SPA phase at the reference point
      * N.B. f_ref == 0 means we define the reference time/phase at "coalescence"
      * when the frequency approaches infinity. In that case,
@@ -251,6 +273,9 @@ int XLALSimInspiralTaylorF2Test(
         const REAL8 v9ref = vref * v8ref;
         const REAL8 v10ref = vref * v9ref;
         const REAL8 v12ref = v2ref * v10ref;
+        const REAL8 v13ref = v3ref * v10ref;
+        const REAL8 v14ref = v4ref * v10ref;
+        const REAL8 v15ref = v5ref * v10ref;
         ref_phasing += pfa7 * v7ref;
         ref_phasing += (pfa6 + pfl6 * logvref) * v6ref;
         ref_phasing += (pfa5 + pfl5 * logvref) * v5ref;
@@ -259,14 +284,17 @@ int XLALSimInspiralTaylorF2Test(
         ref_phasing += pfa2 * v2ref;
         ref_phasing += pfa1 * vref;
         ref_phasing += pfaN;
-        
+
         /* Tidal terms in reference phasing */
+        ref_phasing += pft15 * v15ref;
+        ref_phasing += pft14 * v14ref;
+        ref_phasing += pft13 * v13ref;
         ref_phasing += pft12 * v12ref;
         ref_phasing += pft10 * v10ref;
-        
+
         ref_phasing /= v5ref;
     } /* End of if(f_ref != 0) block */
-    
+
 #pragma omp parallel for
     for (i = iStart; i < n; i++) {
         const REAL8 f = i * deltaF;
@@ -282,11 +310,14 @@ int XLALSimInspiralTaylorF2Test(
         const REAL8 v9 = v * v8;
         const REAL8 v10 = v * v9;
         const REAL8 v12 = v2 * v10;
+        const REAL8 v13 = v3 * v10;
+        const REAL8 v14 = v4 * v10;
+        const REAL8 v15 = v5 * v10;
         REAL8 phasing = 0.;
         REAL8 dEnergy = 0.;
         REAL8 flux = 0.;
         REAL8 amp;
-        
+
         phasing += pfa7 * v7;
         phasing += (pfa6 + pfl6 * logv) * v6;
         phasing += (pfa5 + pfl5 * logv) * v5;
@@ -295,11 +326,14 @@ int XLALSimInspiralTaylorF2Test(
         phasing += pfa2 * v2;
         phasing += pfa1 * v;
         phasing += pfaN;
-        
+
         /* Tidal terms in phasing */
+        phasing += pft15 * v15;
+        phasing += pft14 * v14;
+        phasing += pft13 * v13;
         phasing += pft12 * v12;
         phasing += pft10 * v10;
-        
+
         /* WARNING! Amplitude orders beyond 0 have NOT been reviewed!
          * Use at your own risk. The default is to turn them off.
          * These do not currently include spin corrections.
@@ -330,7 +364,7 @@ int XLALSimInspiralTaylorF2Test(
                 flux += 1.;
                 dEnergy += 1.;
         }
-        
+
         phasing /= v5;
         flux *= FTaN * v10;
         dEnergy *= dETaN * v;
@@ -340,7 +374,7 @@ int XLALSimInspiralTaylorF2Test(
         data[i] = amp * cos(phasing - LAL_PI_4)
         - amp * sin(phasing - LAL_PI_4) * 1.0j;
     }
-    
+
     *htilde_out = htilde;
     return XLAL_SUCCESS;
 }

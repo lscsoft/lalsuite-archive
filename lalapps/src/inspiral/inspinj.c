@@ -144,6 +144,8 @@ char *outputFileName = NULL;
 char *injtimesFileName = NULL;
 char *exttrigFileName = NULL;
 char *IPNSkyPositionsFile = NULL;
+char eos_name[128]="";
+LALEquationOfState equation_of_state = LAL_SIM_INSPIRAL_EOS_NONE;
 
 INT4 outCompress = 0;
 INT4 ninjaMass   = 0;
@@ -1759,6 +1761,7 @@ int main( int argc, char *argv[] )
     {"enable-spin",             no_argument,       0,                'T'},
     {"disable-spin",            no_argument,       0,                'W'},
     {"aligned",                 no_argument,       0,                '@'},
+    {"eos",                     required_argument, 0,                666},
     {"write-compress",          no_argument,       &outCompress,       1},
     {"taper-injection",         required_argument, 0,                '*'},
     {"band-pass-injection",     no_argument,       0,                '}'},
@@ -2869,6 +2872,14 @@ int main( int argc, char *argv[] )
         spinAligned = 1;
         break;
 
+      case 666:
+        sprintf(eos_name, "%s",optarg);
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name, "string",
+                            "%s", optarg );
+        equation_of_state = XLALSimEOSfromString(eos_name);
+        break;
+
       case '}':
         /* enable band-passing */
         this_proc_param = this_proc_param->next =
@@ -3765,10 +3776,10 @@ int main( int argc, char *argv[] )
   }
 
   if ( spinInjections==1 && spinAligned==-1 &&
-      ( !strncmp(waveform, "IMRPhenomB", 10) || !strncmp(waveform, "IMRPhenomC", 10) ) )
+       ( !strncmp(waveform, "TaylorF2", 8) || !strncmp(waveform, "IMRPhenomB", 10) || !strncmp(waveform, "IMRPhenomC", 10) ) )
   {
     fprintf( stderr,
-        "Spinning IMRPhenomB or -C injections must have the --aligned option.\n" );
+        "Spinning TaylorF2, IMRPhenomB or -C injections must have the --aligned option.\n" );
     exit( 1 );
   }
 
@@ -4187,7 +4198,8 @@ int main( int argc, char *argv[] )
         if ( !strncmp(waveform, "IMRPhenomB", 10) || 
              !strncmp(waveform, "IMRPhenomC", 10) ||
              !strncmp(waveform, "SpinTaylorT5", 12) ||
-             !strncmp(waveform, "SEOBNR", 6) )
+             !strncmp(waveform, "SEOBNR", 6) ||
+             !strncmp(waveform, "TaylorF2", 8))
           alignInj = alongzAxis;
         else if ( !strncmp(waveform, "SpinTaylor", 10) ||
                   !strncmp(waveform, "IMRPhenomP", 10) )
@@ -4428,6 +4440,14 @@ int main( int argc, char *argv[] )
 	if (XLALSimInspiralTestGRParamExists(nonGRparams,"betaPPE")) betaPPE = XLALSimInspiralGetTestGRParam(nonGRparams,"betaPPE");
 	if (XLALSimInspiralTestGRParamExists(nonGRparams,"betaStep")) betaStep = XLALSimInspiralGetTestGRParam(nonGRparams,"betaStep");
 	if (XLALSimInspiralTestGRParamExists(nonGRparams,"fStep")) fStep = XLALSimInspiralGetTestGRParam(nonGRparams,"fStep");
+
+    /* check which EOS chosen, error if not available */
+    if (equation_of_state > LAL_SIM_INSPIRAL_NumEOS ) {
+      XLALPrintError("Chosen equation of state not implemented in lalsimulation.\n");
+      exit(-1) ;
+    }
+    
+    simTable->eos = equation_of_state;
 	
     simTable->aPPE = aPPE;
     simTable->alphaPPE = alphaPPE;

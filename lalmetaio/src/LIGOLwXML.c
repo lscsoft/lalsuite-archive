@@ -854,7 +854,8 @@ LALWriteLIGOLwXMLTable (
               tablePtr.simInspiralTable->eff_dist_g,
               tablePtr.simInspiralTable->eff_dist_t,
               tablePtr.simInspiralTable->eff_dist_v,
-                        tablePtr.simInspiralTable->dchi0,
+              tablePtr.simInspiralTable->eos,
+              tablePtr.simInspiralTable->dchi0,
               tablePtr.simInspiralTable->dchi1,
               tablePtr.simInspiralTable->dchi2,
               tablePtr.simInspiralTable->dchi3,
@@ -874,7 +875,7 @@ LALWriteLIGOLwXMLTable (
               tablePtr.simInspiralTable->omegaBD,
 
             /* Parameters for the PPE waveform */
-             
+
               tablePtr.simInspiralTable->aPPE,
               tablePtr.simInspiralTable->alphaPPE,
               tablePtr.simInspiralTable->bPPE,
@@ -1519,7 +1520,7 @@ int XLALWriteLIGOLwXMLSnglInspiralTable(
 			   sngl_inspiral->Gamma[7],
 			   sngl_inspiral->Gamma[8],
 			   sngl_inspiral->Gamma[9],
-			   sngl_inspiral->spin1x,  
+			   sngl_inspiral->spin1x,
 			   sngl_inspiral->spin1y,
 			   sngl_inspiral->spin1z,
 			   sngl_inspiral->spin2x,

@@ -24,6 +24,7 @@
 #include <lal/LALSimInspiralWaveformFlags.h>
 #include <lal/LALSimInspiralTestGRParams.h>
 #include <lal/LALSimInspiralSphHarmSeries.h>
+#include <lal/LALSimInspiralEOS.h>
 #include <lal/TimeSeries.h>
 #include <gsl/gsl_matrix.h>
 
@@ -1816,7 +1817,7 @@ int XLALSimInspiralTaylorEtPNRestricted(
 #define PN_PHASING_SERIES_MAX_ORDER 12
 typedef struct tagPNPhasingSeries
 {
-    REAL8 v[PN_PHASING_SERIES_MAX_ORDER+1];        /**< */ 
+    REAL8 v[PN_PHASING_SERIES_MAX_ORDER+1];        /**< */
     REAL8 vlogv[PN_PHASING_SERIES_MAX_ORDER+1];
     REAL8 vlogvsq[PN_PHASING_SERIES_MAX_ORDER+1];
 }
@@ -1900,7 +1901,7 @@ int XLALSimInspiralTaylorF2Test(
  * The phasing is then modified for the PPE parameters if present. See Yunes & Pretorius, 2011
  * \author W. Del Pozzo
  */
- 
+
 int XLALSimInspiralPPE(
         COMPLEX16FrequencySeries **htilde_out, /**< FD waveform */
         const REAL8 phic,                      /**< orbital coalescence phase (rad) */
@@ -2713,7 +2714,7 @@ int XLALSimInspiralTaylorF2RedSpinMetricChirpTimes(
     REAL8Vector *momJ_13,    /**< noise moments: \f$momJ_13(f) = \int_{f0}^f (f'/f0)^{(13-17)/3} log(f'/f0) df'\f$ */
     REAL8Vector *momJ_14,    /**< noise moments: \f$momJ_14(f) = \int_{f0}^f (f'/f0)^{(14-17)/3} log(f'/f0) df'\f$ */
     REAL8Vector *momK_10,    /**< noise moments: \f$momK_14(f) = \int_{f0}^f (f'/f0)^{(14-17)/3} log(f'/f0) log(f'/f0) df'\f$ */
-    REAL8Vector *momK_11,    /**< noise moments: \f$momK_15(f) = \int_{f0}^f (f'/f0)^{(15-17)/3} log(f'/f0) log(f'/f0) df'\f$ */      
+    REAL8Vector *momK_11,    /**< noise moments: \f$momK_15(f) = \int_{f0}^f (f'/f0)^{(15-17)/3} log(f'/f0) log(f'/f0) df'\f$ */
     REAL8Vector *momK_12     /**< noise moments: \f$momK_16(f) = \int_{f0}^f (f'/f0)^{(16-17)/3} log(f'/f0) log(f'/f0) df'\f$ */
 );
 
