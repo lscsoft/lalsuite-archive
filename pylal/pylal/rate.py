@@ -46,6 +46,7 @@ except ImportError:
 import itertools
 import math
 import numpy
+import random
 import scipy
 __numpy__version__ = tuple(map(int, numpy.__version__.strip().split(".")))
 __scipy__version__ = tuple(map(int, scipy.__version__.strip().split(".")))
@@ -171,21 +172,41 @@ class Bins(object):
 		"""
 		raise NotImplementedError
 
-	def randcentre(self, n = 1.):
+	def randcoord(self, n = 1., domain = slice(None, None)):
 		"""
 		Generator yielding a sequence of x, ln(P(x)) tuples where x
-		is a randomly-chosen bin centre and P(x) is the PDF from
-		which x has been drawn evaluated at x.  The CDF from which
-		the bin centres are drawn goes as [bin index]^{n}.  For
-		more information, see glue.iterutils.randindex.
+		is a randomly-chosen co-ordinate and P(x) is the PDF from
+		which x has been drawn evaluated at x.  The co-ordinate is
+		uniformly drawn from within bins, which are drawn from a
+		distribution whose CDF goes as [bin index]^{n}.  For more
+		information, see glue.iterutils.randindex.
 		"""
-		x = tuple(self.centres())
-		ln_dx = tuple(numpy.log(self.upper() - self.lower()))
+		if len(self) < 1:
+			raise ValueError("empty binning")
+		l = self.lower()
+		u = self.upper()
+		lo, hi, _ = self[domain].indices(len(l))
+		if not lo < hi:
+			raise ValueError("slice too small")
+		if domain.start is not None:
+			assert l[lo] <= domain.start
+			l[lo] = domain.start
+		if domain.stop is not None:
+			assert u[hi - 1] >= domain.stop
+			u[hi - 1] = domain.stop
+		# log() implicitly checks that the boundary adjustments
+		# above haven't made any bins <= 0 in size.  converting
+		# everything to tuples makes the loop faster
+		ln_dx = tuple(numpy.log(u - l))
+		l = tuple(l)
+		u = tuple(u)
+		# avoid symbol look-ups in the loop
 		isinf = math.isinf
-		for i, ln_Pi in iterutils.randindex(0, len(x), n = n):
+		uniform = random.uniform
+		for i, ln_Pi in iterutils.randindex(lo, hi, n = n):
 			if isinf(ln_dx[i]):
 				continue
-			yield x[i], ln_Pi - ln_dx[i]
+			yield uniform(l[i], u[i]), ln_Pi - ln_dx[i]
 
 
 class IrregularBins(Bins):
@@ -781,21 +802,29 @@ class NDBins(tuple):
 			result.shape = tuple(len(v) for v in volumes)
 			return result
 
-	def randcentre(self, ns = None):
+	def randcoord(self, ns = None, domain = None):
 		"""
 		Generator yielding a sequence of (x0, x1, ...), ln(P(x0,
 		x1, ...)) tuples where (x0, x1, ...) is a randomly-chosen
-		bin centre in the N-dimensional binning and P(x0, x1, ...)
+		co-ordinate in the N-dimensional binning and P(x0, x1, ...)
 		is the PDF from which the co-ordinate tuple has been drawn
 		evaluated at those co-ordinates.  If ns is not None it must
 		be a sequence of floats whose length matches the dimension
 		of the binning.  The floats will set the exponents, in
 		order, of the CDFs for the generators used for each
-		co-ordinate.  For more information, see Bins.randcentre().
+		co-ordinate.  If domain is not None it must be a sequence
+		of slice objects whose length matches the dimension of the
+		binning.  The slice objects will be passed, in order, as
+		the domain keyword argument to the .randcoord() method
+		corresponding to each dimension.  For more information on
+		how each of the co-ordinates is drawn, see
+		Bins.randcoord().
 		"""
 		if ns is None:
 			ns = (1.,) * len(self)
-		bingens = tuple(iter(binning.randcentre(n)).next for binning, n in zip(self, ns))
+		if domain is None:
+			domain = (slice(None, None),) * len(self)
+		bingens = tuple(iter(binning.randcoord(n, domain = d)).next for binning, n, d in zip(self, ns, domain))
 		while 1:
 			seq = sum((bingen() for bingen in bingens), ())
 			yield seq[0::2], sum(seq[1::2])
