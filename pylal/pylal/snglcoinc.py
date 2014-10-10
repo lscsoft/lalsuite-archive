@@ -1954,7 +1954,7 @@ class CoincParamsDistributions(object):
 # against NaNs in the Lambda = +inf/+inf case.
 
 
-class LikelihoodRatio(object):
+class LnLikelihoodRatio(object):
 	"""
 	Class for computing signal hypothesis / noise hypothesis likelihood
 	ratios from the measurements in a
@@ -1966,20 +1966,21 @@ class LikelihoodRatio(object):
 
 	def __call__(self, *args, **kwargs):
 		"""
-		Compute the likelihood ratio for the hypothesis that the
-		list of events are the result of a gravitational wave.  The
-		likelihood ratio is the ratio P(inj params) / P(noise
-		params).  The probability that the events are the result of
-		a gravitiational wave is a monotonically increasing
-		function of the likelihood ratio, so ranking events from
-		"most like a gravitational wave" to "least like a
-		gravitational wave" can be performed by calculating the
-		likelihood ratios, which has the advantage of not requiring
-		a prior probability to be provided (knowing how many
-		gravitational waves you've actually detected).
+		Return the natural logarithm of the likelihood ratio for
+		the hypothesis that the list of events are the result of a
+		gravitational wave.  The likelihood ratio is the ratio
+		P(inj params) / P(noise params).  The probability that the
+		events are the result of a gravitiational wave is a
+		monotonically increasing function of the likelihood ratio,
+		so ranking events from "most like a gravitational wave" to
+		"least like a gravitational wave" can be performed by
+		calculating the (logarithm of the) likelihood ratios, which
+		has the advantage of not requiring a prior probability to
+		be provided (knowing how many gravitational waves you've
+		actually detected).
 
-		The arguments are passed verbatim to the .P_noise and
-		.P_signal() methods of the
+		The arguments are passed verbatim to the .lnP_noise and
+		.lnP_signal() methods of the
 		snglcoinc.CoincParamsDistributions instance with which this
 		object is associated.
 		"""
@@ -1988,10 +1989,10 @@ class LikelihoodRatio(object):
 		if lnP_noise is None and lnP_signal is None:
 			return None
 		if math.isinf(lnP_noise) and math.isinf(lnP_signal):
-			# need to handle some special cases
+			# need to handle a special case
 			if lnP_noise < 0. and lnP_signal < 0.:
 				# both probabilities are 0.  "correct"
-				# answer is 0., because if a candidate is
+				# answer is -inf, because if a candidate is
 				# in a region of parameter space where the
 				# probability of a signal occuring is 0
 				# then there is no way it is a signal.
@@ -2003,13 +2004,12 @@ class LikelihoodRatio(object):
 				# probability that a candidate is a signal,
 				# which is 0 in this part of the parameter
 				# space.
-				return 0.
+				return NegInf
+			# all remaining cases are handled correctly by the
+			# expression that follows, but one still deserves a
+			# warning
 			if lnP_noise > 0. and lnP_signal > 0.:
 				# both probabilities are +inf.  no correct
 				# answer.
 				warnings.warn("inf/inf encountered")
-				return NaN
-			# one of the two probabilities is 0 and the other
-			# is +inf.  the following expression gives the
-			# correct behaviour in these cases
-		return  math.exp(lnP_signal - lnP_noise)
+		return  lnP_signal - lnP_noise
