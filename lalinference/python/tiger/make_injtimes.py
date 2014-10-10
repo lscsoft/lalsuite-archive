@@ -401,8 +401,11 @@ def generateTimeslides(tdict, n, ref=None, outfolder=None, verbose=False):
   if ref is None:
     ref = ifos[0]
   injtimes = []
-  injdict = {k: [] for k in tdict.keys()}
-  slidedict = {k: [] for k in tdict.keys()}
+  injdict = {}
+  slidedict = {}
+  for k in tdict.keys():
+    injdict[k] = []
+    slidedict[k] = []
   for i in arange(n):
     for ifo in ifos:
       injdict[ifo].append(rd.sample(tdict[ifo], 1)[0]) 
