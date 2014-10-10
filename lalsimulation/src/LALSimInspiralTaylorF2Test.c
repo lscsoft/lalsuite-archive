@@ -130,8 +130,8 @@ int XLALSimInspiralTaylorF2Test(
     {
         //printf("Adding test params shifts %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf\n",XLALSimInspiralGetTestGRParam(extraParams,"dchi0"),XLALSimInspiralGetTestGRParam(extraParams,"dchi1"),XLALSimInspiralGetTestGRParam(extraParams,"dchi2"),XLALSimInspiralGetTestGRParam(extraParams,"dchi3"),XLALSimInspiralGetTestGRParam(extraParams,"dchi4"),XLALSimInspiralGetTestGRParam(extraParams,"dchi5"),XLALSimInspiralGetTestGRParam(extraParams,"dchi5l"),XLALSimInspiralGetTestGRParam(extraParams,"dchi6"),XLALSimInspiralGetTestGRParam(extraParams,"dchi6l"),XLALSimInspiralGetTestGRParam(extraParams,"dchi7"));
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi0")) pfaN*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi0"));
-        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi1")) {pfa1 = XLALSimInspiralGetTestGRParam(extraParams,"dchi1"); printf("dchi1 = %.3f\n",XLALSimInspiralGetTestGRParam(extraParams,"dchi1"));}
-        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi2")) {pfa2*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi2")); printf("dchi1 = %.3f\n",XLALSimInspiralGetTestGRParam(extraParams,"dchi1"));}
+        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi1")) pfa1 = XLALSimInspiralGetTestGRParam(extraParams,"dchi1");
+        if (XLALSimInspiralTestGRParamExists(extraParams,"dchi2")) pfa2*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi2"));
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi3")) pfa3*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi3"));
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi4")) pfa4*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi4"));
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi5")) pfa5*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi5"));
