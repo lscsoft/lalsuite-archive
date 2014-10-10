@@ -559,7 +559,7 @@ def cbcBayesPostProc(
         os.makedirs(wfdir)
     try:
         wfpointer= bppu.plot_waveform(pos=pos,siminspiral=injfile,event=eventnum,path=wfdir)
-    except KeyError:
+    except:
         wfpointer = None
     wftd=html_wf.insert_td(row,'',label='Waveform',legend=legend)
     wfsection=html.add_section_to_element('Waveforms',wftd)
@@ -576,8 +576,10 @@ def cbcBayesPostProc(
       psddir=os.path.join(outdir,'PSDs')
       if not os.path.isdir(psddir):
         os.makedirs(psddir)
-      
-      psd_pointer=bppu.plot_psd(psd_files,outpath=psddir)    
+      try:
+        psd_pointer=bppu.plot_psd(psd_files,outpath=psddir)    
+      except:
+        psd_pointer=None
     if psd_pointer:
       wfsection.write('<a href="PSDs/PSD.png" target="_blank"><img src="PSDs/PSD.png"/></a>')
     else:
