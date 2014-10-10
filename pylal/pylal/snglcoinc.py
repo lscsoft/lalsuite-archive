@@ -1745,12 +1745,13 @@ class CoincParamsDistributions(object):
 
 		self._rebuild_interpolators()
 
-	def P_noise(self, params):
+	def lnP_noise(self, params):
 		"""
 		From a parameter value dictionary as returned by
-		self.coinc_params(), compute and return the noise
-		probability density at that point in parameter space.  If
-		params is None, the return value is None.
+		self.coinc_params(), compute and return the natural
+		logarithm of the noise probability density at that point in
+		parameter space.  If params is None, the return value is
+		None.
 
 		The .finish() method must have been invoked before this
 		method does meaningful things.  No attempt is made to
@@ -1763,38 +1764,24 @@ class CoincParamsDistributions(object):
 		This default implementation assumes the individual PDFs
 		containined in the noise dictionary are for
 		statistically-independent random variables, and computes
-		and returns their product.  Sub-classes that require more
-		sophisticated calculations can override this method.
+		and returns the logarithm of their product.  Sub-classes
+		that require more sophisticated calculations can override
+		this method.
 		"""
 		if params is None:
 			return None
 		# move attribute look-ups out of loop
+		log = math.log
 		__getitem__ = self.background_pdf_interp.__getitem__
-		P = 1.0
-		for name, value in params.items():
-			P *= __getitem__(name)(*value)
-		return P
+		return sum(log(__getitem__(name)(*value)) for name, value in params.items())
 
-	def lnP_noise(self, *args, **kwargs):
-		"""
-		Return ln(self.P_noise).
-		"""
-		P = self.P_noise(*args, **kwargs)
-		try:
-			return math.log(P)
-		except ValueError:
-			return NegInf
-		except TypeError:
-			if P is None:
-				return None
-			raise
-
-	def P_signal(self, params):
+	def lnP_signal(self, params):
 		"""
 		From a parameter value dictionary as returned by
-		self.coinc_params(), compute and return the signal
-		probability density at that point in parameter space.  If
-		params is None, the return value is None.
+		self.coinc_params(), compute and return the natural
+		logarithm of the signal probability density at that point
+		in parameter space.  If params is None, the return value is
+		None.
 
 		The .finish() method must have been invoked before this
 		method does meaningful things.  No attempt is made to
@@ -1807,31 +1794,16 @@ class CoincParamsDistributions(object):
 		This default implementation assumes the individual PDFs
 		containined in the signal dictionary are for
 		statistically-independent random variables, and computes
-		and returns their product.  Sub-classes that require more
-		sophisticated calculations can override this method.
+		and returns the logarithm of their product.  Sub-classes
+		that require more sophisticated calculations can override
+		this method.
 		"""
 		if params is None:
 			return None
 		# move attribute look-ups out of loop
+		log = math.log
 		__getitem__ = self.injection_pdf_interp.__getitem__
-		P = 1.0
-		for name, value in params.items():
-			P *= __getitem__(name)(*value)
-		return P
-
-	def lnP_signal(self, *args, **kwargs):
-		"""
-		Return ln(self.P_signal).
-		"""
-		P = self.P_signal(*args, **kwargs)
-		try:
-			return math.log(P)
-		except ValueError:
-			return NegInf
-		except TypeError:
-			if P is None:
-				return None
-			raise
+		return sum(log(__getitem__(name)(*value)) for name, value in params.items())
 
 	def get_xml_root(self, xml, name):
 		"""
@@ -1991,8 +1963,8 @@ class LikelihoodRatio(object):
 	snglcoinc.CoincParamsDistributions instance.
 	"""
 	def __init__(self, coinc_param_distributions):
-		self.P_noise = coinc_param_distributions.P_noise
-		self.P_signal = coinc_param_distributions.P_signal
+		self.lnP_noise = coinc_param_distributions.lnP_noise
+		self.lnP_signal = coinc_param_distributions.lnP_signal
 
 	def __call__(self, *args, **kwargs):
 		"""
@@ -2013,29 +1985,33 @@ class LikelihoodRatio(object):
 		snglcoinc.CoincParamsDistributions instance with which this
 		object is associated.
 		"""
-		P_noise = self.P_noise(*args, **kwargs)
-		P_signal = self.P_signal(*args, **kwargs)
-		if P_noise is None and P_signal is None:
+		lnP_noise = self.lnP_noise(*args, **kwargs)
+		lnP_signal = self.lnP_signal(*args, **kwargs)
+		if lnP_noise is None and lnP_signal is None:
 			return None
-		if P_noise == 0.0 and P_signal == 0.0:
-			# "correct" answer is 0, not NaN, because if a
-			# tuple of events has been found in a region of
-			# parameter space where the probability of an
-			# injection occuring is 0 then there is no way this
-			# is an injection.  there is also, aparently, no
-			# way it's a noise event, which is puzzling, but
-			# that's irrelevant because we are supposed to be
-			# computing something that is a monotonically
-			# increasing function of the probability that an
-			# event tuple is a gravitational wave, which is 0
-			# in this part of the parameter space.
-			return 0.0
-		if math.isinf(P_noise) and math.isinf(P_signal):
-			warnings.warn("inf/inf encountered")
-			return NaN
-		try:
-			return  P_signal / P_noise
-		except ZeroDivisionError:
-			# P_noise == 0.0, P_signal != 0.0.  this is a
-			# "guaranteed detection", not a failure
-			return PosInf
+		if math.isinf(lnP_noise) and math.isinf(lnP_signal):
+			# need to handle some special cases
+			if lnP_noise < 0. and lnP_signal < 0.:
+				# both probabilities are 0.  "correct"
+				# answer is 0., because if a candidate is
+				# in a region of parameter space where the
+				# probability of a signal occuring is 0
+				# then there is no way it is a signal.
+				# there is also, aparently, no way it's a
+				# noise event, which is puzzling, but
+				# that's irrelevant because we are supposed
+				# to be computing something that is a
+				# monotonically increasing function of the
+				# probability that a candidate is a signal,
+				# which is 0 in this part of the parameter
+				# space.
+				return 0.
+			if lnP_noise > 0. and lnP_signal > 0.:
+				# both probabilities are +inf.  no correct
+				# answer.
+				warnings.warn("inf/inf encountered")
+				return NaN
+			# one of the two probabilities is 0 and the other
+			# is +inf.  the following expression gives the
+			# correct behaviour in these cases
+		return  math.exp(lnP_signal - lnP_noise)
