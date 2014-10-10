@@ -5872,7 +5872,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
   strainT=CreateREAL8TimeSeries("strainT",segStart,0.0,1.0/srate,DimensionlessUnit,int(length));
   strainF= CreateCOMPLEX16FrequencySeries("strainF",segStart,	0.0,	deltaF,	DimensionlessUnit,int(length/2. +1));
   
-  f_min=25 # hardcoded 
+  f_min=25 # hardcoded default (may be changed below) 
   f_ref=100 # hardcoded default (may be changed below)
   f_max=srate/2.0  
   plot_fmax=f_max
@@ -5904,7 +5904,8 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       m1=M1*LAL_MSUN_SI
       m2=M2*LAL_MSUN_SI
       phiRef=tbl.coa_phase
-      
+  
+      f_min = tbl.f_lower    
       s1x = tbl.spin1x
       s1y = tbl.spin1y
       s1z = tbl.spin1z
