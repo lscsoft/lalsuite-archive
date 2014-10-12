@@ -1770,8 +1770,7 @@ class CoincParamsDistributions(object):
 		"""
 		if params is None:
 			return None
-		# move attribute look-ups out of loop
-		log = math.log
+		log = lambda x: math.log(x) if x > 0. else NegInf
 		__getitem__ = self.background_pdf_interp.__getitem__
 		return sum(log(__getitem__(name)(*value)) for name, value in params.items())
 
@@ -1800,8 +1799,7 @@ class CoincParamsDistributions(object):
 		"""
 		if params is None:
 			return None
-		# move attribute look-ups out of loop
-		log = math.log
+		log = lambda x: math.log(x) if x > 0. else NegInf
 		__getitem__ = self.injection_pdf_interp.__getitem__
 		return sum(log(__getitem__(name)(*value)) for name, value in params.items())
 
