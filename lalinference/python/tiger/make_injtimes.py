@@ -140,6 +140,40 @@ class IFO:
     ax.hist(udur, bins=sort(udur), cumulative=True, histtype='stepfilled', alpha=0.3, label="Unvetoed segments (" + str(self._unvetoed.length()) + ")")
     ax.legend(loc=4)
     fig.savefig(outfile)
+
+  def plotSegments(self, outfile=None, lenperline=200000, segcolorlist=['b','r','g'], title=None):
+    '''Plot segments in rows of lenperline seconds'''
+    start = min(self._allsegments._start, self._vetoes._start)
+    end = max(self._allsegments._end, self._vetoes._end)
+    n = ceil((end-start)/lenperline)
+    plot_params = {'figure.figsize': [fig_width,fig_height*2]}
+    rcParams.update(plot_params)
+    fig = figure()
+    for k, segs in zip([0,1,2],[self._segments, self._vetoes, self._unvetoed]):
+      s = array(segs._seglist)
+      t = sort(hstack((s[:,1],s[:,1],s[:,2],s[:,2])))
+      y = array(len(s)*[0,1,1,0])
+      for i in arange(n):
+        ax=fig.add_subplot(n,1,i+1)
+        ax.tick_params(axis='y', which='both', left='off', right='off', labelleft='off')
+        ax.tick_params(axis='x', which='both', top='on', bottom='off', labelbottom='off')
+        ax.set_ylim(0,2)
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%0.0f'))
+        t0 = start + i*lenperline
+        t1 = t0 + lenperline
+        ax.set_ylabel(int(t0), verticalalignment='top', rotation=45)
+        ax.set_xlim(t0, t1)
+        ax.fill_between(t, 0*y + 2*(k//2), y + 2*(1-y)*(k//2), alpha=0.3, color=segcolorlist[k])
+    if title is not None:
+      fig.suptitle(title)
+    if outfile is None:
+      return fig
+    else:
+      print 'Plotting segments to ', outfile
+      fig.savefig(outfile)
+      plot_params = {'figure.figsize': [fig_width,fig_height]}
+      rcParams.update(plot_params)
+
     
 #  def distToVeto(self, time):
 #    '''Returns the distance to the closest veto segment in seconds'''
@@ -170,17 +204,25 @@ class segment:
 #    if self._len != (self._end - self._start):
 #      print "Error in segment data: inconsistent length! " + str(self._len) + " " + str(self._end - self._start)
 
-  def intersectWithList(self, id0, other):
+  def intersectWithList(self, id0, other, sortedlist=True, startid=None):
     '''Intersect segment with list of (non-overlapping) segments'''
     newlist = []
     id = id0
-    for oseg in other:
+    minid = startid
+    '''Cut list short from the left'''
+    for oseg in other[startid:]:
+      if segment(oseg)._start > self._end and sortedlist:
+        minid = max((0,segment(oseg)._id - 1))
+        break
       newseg = self.intersectWith(segment(oseg))
       if newseg._start < newseg._end:
         newseg._id = id
         id += 1
         newlist.append(newseg.toArray())
-    return newlist
+    if startid is None:
+      return newlist
+    else:
+      return (newlist, minid)
 
   def hasTime(self, time):
     '''Checks if time is in (open) segment'''
@@ -227,6 +269,7 @@ class segmentData:
   def intersectSegments(self, other):
     '''Returns the intersection with another list of segments.'''
     newdata = []
+    startfrom = 0
     id0 = self._seglist[0][0]
     for s in self._seglist:
       exclude = False
@@ -235,7 +278,10 @@ class segmentData:
         exclude = exclude or (seg.hasTime(et) == 0)
       if not exclude:
         id = id0 + len(newdata)
-        newdata += seg.intersectWithList(id, other._seglist)
+        nd, minid= seg.intersectWithList(id, other._seglist, startid=startfrom)
+   #     nd= seg.intersectWithList(id, other._seglist, startid=None)
+        newdata += nd
+        startfrom = minid
     return segmentData(newdata)
 
   def notSegments(self, start, end):
@@ -372,13 +418,13 @@ def getDoubles(ifo1, ifo2, unvetoed=False):
   minl2 = ifo2._minlen
   
   name12 = name1 + name2
+  print 'Combining ' + name1 + ' and ' + name2 + ' into ' + name12
   if unvetoed:
     seg12 = unv1.intersectSegments(unv2)  # only uses unvetoed long segment list for each IFO
   else:
     seg12 = seg1.intersectSegments(seg2)  # uses full segment lists including small&vetoed segments
   vet12 = vet1.unionSegments(vet2)
   minl12 = max(minl1, minl2)
-
   ifo12 = IFO(name12, seg12, vet12, minl12)
 #  if ifo12
   return ifo12
@@ -488,7 +534,7 @@ if __name__ == "__main__":
   triples = args.triples
   timeslides = args.timeslides
   check = args.check
-  maxplot = None
+  maxplot = 40000
   
   # Ensure that directories exist
   ensure_dir(outfolder)
@@ -544,9 +590,9 @@ if __name__ == "__main__":
   # Combine IFOs into doubles
   if doubles:
     doubleIFOs = []
-    doubleIFOs.append( getDoubles(IFOlist[0], IFOlist[1], unvetoed=not plotsegdist) )  #FIXME: test it with plots!
-    doubleIFOs.append( getDoubles(IFOlist[1], IFOlist[2], unvetoed=not plotsegdist) )  #FIXME: test it with plots!
-    doubleIFOs.append( getDoubles(IFOlist[0], IFOlist[2], unvetoed=not plotsegdist) )  #FIXME: test it with plots!
+    doubleIFOs.append( getDoubles(IFOlist[0], IFOlist[1]) ) #, unvetoed=not plotsegdist) )  #FIXME: test it with plots!
+    doubleIFOs.append( getDoubles(IFOlist[1], IFOlist[2]) ) #, unvetoed=not plotsegdist) )  # speedup is ~3s for full triples set
+    doubleIFOs.append( getDoubles(IFOlist[0], IFOlist[2]) ) #, unvetoed=not plotsegdist) )  # not worth overall?
       
     # Generate output for doubles
     for double in doubleIFOs:
@@ -569,9 +615,9 @@ if __name__ == "__main__":
   if triples:
     # If doubles are combined half of the work is already done
     if doubles:
-      tripleIFO = getDoubles(doubleIFOs[0], IFOlist[2], unvetoed=not plotsegdist) #FIXME: test it with plots!
+      tripleIFO = getDoubles(doubleIFOs[0], IFOlist[2]) #, unvetoed=not plotsegdist) 
     else:
-      tripleIFO = getTriples(IFOlist[0], IFOlist[1], IFOlist[2], unvetoed=not plotsegdist)  #FIXME: test it with plots!
+      tripleIFO = getTriples(IFOlist[0], IFOlist[1], IFOlist[2]) #, unvetoed=not plotsegdist)
       
     # Generate output for doubles
     tripleIFO.getTrigTimes(whereInj=whereInj, n=Ninj, interval=interval, lmargin=seglen, outfile=os.path.join(outfolder,'injtimes_' + tripleIFO._name + '_' + str(tripleIFO._minlen) +'.dat'))
