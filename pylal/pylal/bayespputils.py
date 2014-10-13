@@ -560,6 +560,7 @@ class Posterior(object):
                             'm1':lambda inj:inj.mass1,
                             'mass2':lambda inj:inj.mass2,
                             'm2':lambda inj:inj.mass2,
+                            'mtotal':lambda inj:float(inj.mass1)+float(inj.mass2),
                             'eta':lambda inj:inj.eta,
                             'q':self._inj_q,
                             'asym_massratio':self._inj_q,
