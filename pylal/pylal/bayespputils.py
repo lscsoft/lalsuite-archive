@@ -697,7 +697,7 @@ class Posterior(object):
           pos.append_mapping(('m1','m2'),q2ms,(mchirp_name,q_name))
           pos.append_mapping('eta',q2eta,(mchirp_name,q_name))
 
-      if ('m1' in pos.name and 'm2' in pos.names and not 'mtotal' in pos.names ):
+      if ('m1' in pos.names and 'm2' in pos.names and not 'mtotal' in pos.names ):
           pos.append_mapping('mtotal', lambda m1,m2: m1+m2, ('m1','m2') )
 
       if ('spin1' in pos.names and 'm1' in pos.names) and \
