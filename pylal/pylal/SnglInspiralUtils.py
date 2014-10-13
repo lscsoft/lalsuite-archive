@@ -43,6 +43,19 @@ from glue import segments
 # =============================================================================
 #
 
+class ExtractSnglInspiralTableLIGOLWContentHandler(ligolw.PartialLIGOLWContentHandler):
+  """
+  LIGOLWContentHandler that will extract only the SnglInspiralTable from a document.
+  See glue.ligolw.LIGOLWContentHandler help for more info.
+  """
+  def __init__(self,document):
+    def filterfunc(name,attrs):
+      if name==ligolw.Table.tagName and attrs.has_key('Name'):
+        return 0==table.CompareTableNames(attrs.get('Name'), lsctables.SnglInspiralTable.tableName)
+      else:
+        return False
+    ligolw.PartialLIGOLWContentHandler.__init__(self,document,filterfunc)
+
 
 class SnglInspiralID_old(object):
   """
@@ -81,9 +94,10 @@ def ReadSnglInspiralFromFiles(fileList, verbose=False):
   sngls = lsctables.New(lsctables.SnglInspiralTable, \
       columns=lsctables.SnglInspiralTable.loadcolumns)
 
+  lsctables.use_in(ExtractSnglInspiralTableLIGOLWContentHandler)
   for i,file in enumerate(fileList):
     if verbose: print str(i+1)+"/"+str(len(fileList))+": "
-    xmldoc = utils.load_filename(file, verbose=verbose)
+    xmldoc = utils.load_filename(file, verbose=verbose, contenthandler=ExtractSnglInspiralTableLIGOLWContentHandler)
     try:
       sngl_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
     except ValueError: #some xml files have no sngl table, that's OK
