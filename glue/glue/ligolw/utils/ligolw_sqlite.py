@@ -290,7 +290,7 @@ def insert_from_urls(urls, contenthandler, **kwargs):
 	# done.  build indexes
 	#
 
-	dbtables.build_indexes(kwargs["contenthandler"].connection, verbose)
+	dbtables.build_indexes(contenthandler.connection, verbose)
 
 
 #
