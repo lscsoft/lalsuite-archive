@@ -895,6 +895,8 @@ def cbcBayesPostProc(
     for par1_name,par2_name in twoDGreedyMenu:
         par1_name=par1_name.lower()
         par2_name=par2_name.lower()
+        # Don't plot a parameter against itself!
+        if par1_name == par2_name: continue
         try:
             pos[par1_name.lower()]
         except KeyError:
