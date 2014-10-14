@@ -218,17 +218,18 @@ if options.exact_match:
 		# Require exact match coincidence
 		event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact
 		threshold = options.e_thinca_parameter
-		max_dt = None
+		max_dt_func = ligolw_thinca.inspiral_max_dt_exact
 	elif options.time_window:
 		event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact_dt
 		threshold = options.time_window
 		max_dt = 1.1 * options.time_window + 2. * lal.REARTH_SI / lal.C_SI
+		max_dt_func = lambda dummy1, dummy2: max_dt
 	else:
 		raise ValueError("Cannot find valid input options for coincidence, this should have been caught in the command-line option checking.")
 else:
 	event_comparefunc = ligolw_thinca.inspiral_coinc_compare
 	threshold = options.e_thinca_parameter
-	max_dt = None
+	max_dt_func = ligolw_thinca.inspiral_max_dt
 
 #
 # Select ntuple_comparefunc form
@@ -305,7 +306,7 @@ ligolw_thinca.ligolw_thinca(
 	veto_segments = vetoes,
 	trigger_program = options.trigger_program,
 	verbose = options.verbose,
-	max_dt=max_dt
+	max_dt_func=max_dt_func
 )
 
 if options.likelihood_output_file is not None:

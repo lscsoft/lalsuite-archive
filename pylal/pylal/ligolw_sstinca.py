@@ -352,7 +352,11 @@ class InspiralEventList(snglcoinc.EventList):
 		# avoid doing type conversion in loops
 		self.dt = LIGOTimeGPS(dt * 1.01)
 
-	def get_coincs(self, event_a, offset_a, light_travel_time, e_thinca_parameter, comparefunc):
+	def get_coincs(self, event_a, offset_a, light_travel_time, threshold, comparefunc):
+		"""
+		The parameter 'threshold' holds the ethinca parameter (for metric-based coincidence tests)
+		or the time window (for exact match with a fixed time uncertainty window)
+		"""
 		#
 		# event_a's end time, with time shift applied
 		#
@@ -366,7 +370,7 @@ class InspiralEventList(snglcoinc.EventList):
 		# a subset of the full list)
 		#
 
-		return [event_b for event_b in self[bisect.bisect_left(self, end - self.dt) : bisect.bisect_right(self, end + self.dt)] if not comparefunc(event_a, offset_a, event_b, self.offset, light_travel_time, e_thinca_parameter)]
+		return [event_b for event_b in self[bisect.bisect_left(self, end - self.dt) : bisect.bisect_right(self, end + self.dt)] if not comparefunc(event_a, offset_a, event_b, self.offset, light_travel_time, threshold)]
 
 
 #
@@ -390,10 +394,24 @@ def inspiral_max_dt(events, e_thinca_parameter):
 	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * lal.REARTH_SI / lal.C_SI
 
 
+def inspiral_max_dt_exact(events, e_thinca_parameter):
+	"""
+	Given an e-thinca parameter and a list of sngl_inspiral events,
+	return the greatest \Delta t that can separate two events and they
+	still be considered coincident, *if* I am doing exact match coincidence
+	"""
+	# for each instrument present in the event list, compute the
+	# largest \Delta t interval for the events from that instrument,
+	# and return the sum of the largest two such \Delta t's.
+	return sum(sorted(max( (e_thinca_parameter / event.Gamma0)**0.5  for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * lal.REARTH_SI / lal.C_SI
+
+
+
 def inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter):
 	"""
 	Returns False (a & b are coincident) if they pass the ellipsoidal
-	thinca test.
+	thinca test. Otherwise return True.
+        light_travel_time if given in units of seconds.
 	"""
 	if offseta: a.set_end(a.get_end() + offseta)
 	if offsetb: b.set_end(b.get_end() + offsetb)
@@ -412,26 +430,14 @@ def inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_p
 def inspiral_coinc_compare_exact(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter):
 	"""
 	Returns False (a & b are coincident) if their component masses and spins
-	are equal and they pass the ellipsoidal thinca test.
+	are equal and they pass the ellipsoidal thinca test. Otherwise return
+        True. light_travel_time if given in units of seconds.
 	"""
-        # define mchirp, eta tuple
-        a_masses = (a.mchirp, a.eta)
-        b_masses = (b.mchirp, b.eta)
-
-	if (a_masses != b_masses):
-		return True
-
-        try:
-                # check for spin columns (from events in sngl_inspiral table)
-        	a_spins = (a.spin1x, a.spin1y, a.spin1z, a.spin2x, a.spin2y, a.spin2z)
-        	b_spins = (b.spin1x, b.spin1y, b.spin1z, b.spin2x, b.spin2y, b.spin2z)
-	except:
-                # use spin correction terms for older templates
-        	a_spins = (a.beta, a.chi)
-        	b_spins = (b.beta, b.chi)
-		
-	if (a_spins == b_spins):
-		return inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter)
+	if inspiral_compare_masses_spins(a, b):
+		# Calculate metric dependent time-window in both detectors
+		twin_a = (e_thinca_parameter / a.Gamma0)**0.5
+		twin_b = (e_thinca_parameter / b.Gamma0)**0.5
+		return float(abs(a.get_end() + offseta - b.get_end() - offsetb)) > light_travel_time + twin_a + twin_b
 	else:
 		return True
 
@@ -439,14 +445,24 @@ def inspiral_coinc_compare_exact_dt(a, offseta, b, offsetb, light_travel_time, d
 	"""
 	Returns False (a & b are coincident) if their component masses and spins
 	are equal and they have dt < (delta_t+light_travel_time)
-	after offsets are considered.
+	after offsets are considered. Otherwise return True. light_travel_time
+        and delta_t are given in units of seconds.
         """
+	if inspiral_compare_masses_spins(a, b):
+		return float(abs(a.get_end() + offseta - b.get_end() - offsetb)) > light_travel_time + delta_t
+	else:
+		return True
+
+def inspiral_compare_masses_spins(a, b):
+	"""
+	Returns True if a and b have identical masses and spins. Returns False
+	if a and b have differing masses and spins.
+	"""
 	# define mchirp, eta tuple
 	a_masses = (a.mchirp, a.eta)
 	b_masses = (b.mchirp, b.eta)
-
 	if (a_masses != b_masses):
-		return True
+		return False
 
 	try:
 		# check for spin columns (from events in sngl_inspiral table)
@@ -458,9 +474,9 @@ def inspiral_coinc_compare_exact_dt(a, offseta, b, offsetb, light_travel_time, d
 		b_spins = (b.beta, b.chi)
 
 	if (a_spins == b_spins):
-		return float(abs(a.get_end() + offseta - b.get_end() - offsetb)) > light_travel_time + delta_t
-	else:
 		return True
+	else:
+		return False
 
 #
 # =============================================================================
@@ -487,7 +503,7 @@ def default_ntuple_comparefunc(events, offset_vector):
 #
 
 
-def replicate_threshold(e_thinca_parameter, instruments):
+def replicate_threshold(threshold, instruments):
 	"""
 	From a single threshold and a list of instruments, return a
 	dictionary whose keys are every instrument pair (both orders), and
@@ -499,9 +515,9 @@ def replicate_threshold(e_thinca_parameter, instruments):
 	{("H1", "H2"): 6, ("H2", "H1"): 6}
 	"""
 	instruments = sorted(instruments)
-	thresholds = dict((pair, e_thinca_parameter) for pair in iterutils.choices(instruments, 2))
+	thresholds = dict((pair, threshold) for pair in iterutils.choices(instruments, 2))
 	instruments.reverse()
-	thresholds.update(dict((pair, e_thinca_parameter) for pair in iterutils.choices(instruments, 2)))
+	thresholds.update(dict((pair,threshold) for pair in iterutils.choices(instruments, 2)))
 	return thresholds
 
 def get_vetoes(xmldoc, vetoes_name, verbose = False):
@@ -530,8 +546,12 @@ def ligolw_thinca(
 	likelihood_func = None,
 	likelihood_params_func = None,
 	verbose = False,
-	max_dt = None
+	max_dt_func = None
 ):
+	if not max_dt_func:
+		err_msg = "Must supply max_dt_func keyword argument to "
+		err_msg += "ligolw_thinca function."
+		raise ValueError(err_msg)
 	#
 	# prepare the coincidence table interface.
 	#
@@ -569,8 +589,7 @@ def ligolw_thinca(
 	# set the \Delta t parameter on all the event lists
 	#
 
-	if max_dt is None:
-		max_dt = inspiral_max_dt(lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName), thresholds)
+        max_dt = max_dt_func(lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName), thresholds)
 	if verbose:
 		print >>sys.stderr, "event bisection search window will be %.16g s" % max_dt
 	for eventlist in eventlists.values():
