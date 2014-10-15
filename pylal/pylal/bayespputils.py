@@ -716,8 +716,9 @@ class Posterior(object):
       # with zero tilt (for runs with tilt, this will be taken care of
       # below when the old spin angles are computed as functions of the
       # new ones
-      if ('theta_jn' in pos.names) and (not 'tilt1' in pos.names) and (not 'tilt2' in pos.names):
-          pos.append_mapping('iota', lambda t:t, 'theta_jn')
+      # Disabled this since the parameters are degenerate and causing problems
+      #if ('theta_jn' in pos.names) and (not 'tilt1' in pos.names) and (not 'tilt2' in pos.names):
+      #    pos.append_mapping('iota', lambda t:t, 'theta_jn')
 
       # Compute time delays from sky position
       try:
