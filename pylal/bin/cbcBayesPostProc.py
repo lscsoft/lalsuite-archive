@@ -80,10 +80,8 @@ def email_notify(address,path):
     else:
         k=None
     if k is not None:
-        (a,b)=(fslocation,'')
-        while a!=k:
-            (a,b)=fslocation.split(a)
-            webpath=os.path.join(b,webpath)
+        (a,b)=fslocation.split(k)
+        webpath=os.path.join(b,webpath)
     else: webpath=os.path.join(fslocation,'posplots.html')
 
     if 'atlas.aei.uni-hannover.de' in HOST:
