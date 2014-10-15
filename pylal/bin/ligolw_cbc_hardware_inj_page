@@ -115,7 +115,6 @@ def open_pipedown_database(database_filename,tmp_space):
     connection = sqlite3.connect(working_filename)
     if tmp_space:
         dbtables.set_temp_store_directory(connection,tmp_space)
-    dbtables.DBTable_set_connection(connection)
     return (connection,working_filename)
 
 # =============================================================================

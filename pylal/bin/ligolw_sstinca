@@ -253,7 +253,7 @@ else:
 # Load input xmldoc
 #
 
-xmldoc = utils.load_filename(filename[0], verbose = options.verbose)
+xmldoc = utils.load_filename(filename[0], verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
 
 lsctables.table.InterningRowBuilder.strings.clear()
 

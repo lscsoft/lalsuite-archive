@@ -29,7 +29,6 @@ from glue import lal
 from glue import iterutils
 
 from pylal import ligolw_cbc_compute_durations as compute_dur
-from pylal import llwapp
 from pylal import rate
 from pylal import InspiralUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -84,7 +83,6 @@ class upper_limit(object):
     # open a connection to the input database
     working_filename = dbtables.get_connection_filename(database, tmp_path=opts.tmp_space, verbose = opts.verbose)
     connection = sqlite3.connect(working_filename)
-    dbtables.DBTable_set_connection(connection)
 
     # find out which instruments were on and when during search
     self.set_instruments(connection)
@@ -100,7 +98,6 @@ class upper_limit(object):
     # done with db, close connection
     connection.commit()
     dbtables.discard_connection_filename(database, working_filename, verbose = opts.verbose)
-    dbtables.DBTable_set_connection(None)
 
     # Set up mass bins
     self.mass_bins = {}

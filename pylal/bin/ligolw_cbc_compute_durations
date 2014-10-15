@@ -159,7 +159,6 @@ working_filename = dbtables.get_connection_filename(
 connection = sqlite3.connect( working_filename )
 if options.tmp_space:
     dbtables.set_temp_store_directory(connection, options.tmp_space, verbose = options.verbose)
-dbtables.DBTable_set_connection( connection )
 xmldoc = dbtables.get_xml(connection)
 
 livetime_program = sqlutils.validate_option( options.livetime_program )
