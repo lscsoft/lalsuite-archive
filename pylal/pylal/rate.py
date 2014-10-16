@@ -128,6 +128,18 @@ class Bins(object):
 		whose upper and lower bounds are the bins in which the
 		input slice's upper and lower bounds fall.
 		"""
+		if isinstance(x, slice):
+			if x.step is not None:
+				raise NotImplementedError(x)
+			if x.start is None:
+				start = 0
+			else:
+				start = self[x.start]
+			if x.stop is None:
+				stop = len(self)
+			else:
+				stop = self[x.stop] + 1
+			return slice(start, stop)
 		raise NotImplementedError
 
 	def __iter__(self):
@@ -194,6 +206,8 @@ class IrregularBins(Bins):
 	1
 	>>> x[25]
 	2
+	>>> x[4:17]
+	slice(0, 3, None)
 	"""
 	def __init__(self, boundaries):
 		"""
@@ -225,17 +239,7 @@ class IrregularBins(Bins):
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
+			return super(IrregularBins, self).__getitem__(x)
 		if self.min <= x < self.max:
 			return bisect_right(self.boundaries, x) - 1
 		# special measure-zero edge case
@@ -276,6 +280,17 @@ class LinearBins(Bins):
 	1
 	>>> x[25]
 	2
+	>>> x[0:27]
+	Traceback (most recent call last):
+	  File "<stdin>", line 1, in <module>
+	    raise IndexError(value)
+	IndexError: 0
+	>>> x[1:25]
+	slice(0, 3, None)
+	>>> x[10:16.9]
+	slice(1, 2, None)
+	>>> x[10:17]
+	slice(1, 3, None)
 	"""
 	def __init__(self, min, max, n):
 		Bins.__init__(self, min, max, n)
@@ -283,17 +298,7 @@ class LinearBins(Bins):
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
+			return super(LinearBins, self).__getitem__(x)
 		if self.min <= x < self.max:
 			return int(math.floor((x - self.min) / self.delta))
 		if x == self.max:
@@ -321,33 +326,33 @@ class LinearPlusOverflowBins(Bins):
 
 	Example:
 
-	>>> X = LinearPlusOverflowBins(1.0, 25.0, 5)
-
-	>>> X.centres()
+	>>> x = LinearPlusOverflowBins(1.0, 25.0, 5)
+	>>> x.centres()
 	array([-inf,   5.,  13.,  21.,  inf])
-
-	>>> X.lower()
+	>>> x.lower()
 	array([-inf,   1.,   9.,  17.,  25.])
-
-	>>> X.upper()
+	>>> x.upper()
 	array([  1.,   9.,  17.,  25.,  inf])
-
-	>>> X[float("-inf")]
+	>>> x[float("-inf")]
 	0
-	>>> X[0]
+	>>> x[0]
 	0
-	>>> X[1]
+	>>> x[1]
 	1
-	>>> X[10]
+	>>> x[10]
 	2
-	>>> X[24.99999999]
+	>>> x[24.99999999]
 	3
-	>>> X[25]
+	>>> x[25]
 	4
-	>>> X[100]
+	>>> x[100]
 	4
-	>>> X[float("+inf")]
+	>>> x[float("+inf")]
 	4
+	>>> x[float("-inf"):9]
+	slice(0, 3, None)
+	>>> x[9:float("+inf")]
+	slice(2, 5, None)
 	"""
 	def __init__(self, min, max, n):
 		if n < 3:
@@ -357,17 +362,7 @@ class LinearPlusOverflowBins(Bins):
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
+			return super(LinearPlusOverflowBins, self).__getitem__(x)
 		if self.min <= x < self.max:
 			return int(math.floor((x - self.min) / self.delta)) + 1
 		if x >= self.max:
@@ -411,17 +406,7 @@ class LogarithmicBins(Bins):
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
+			return super(LogarithmicBins, self).__getitem__(x)
 		if self.min <= x < self.max:
 			return int(math.floor((math.log(x) - math.log(self.min)) / self.delta))
 		if x == self.max:
@@ -478,17 +463,7 @@ class LogarithmicPlusOverflowBins(Bins):
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
+			return super(LogarithmicPlusOverflowBins, self).__getitem__(x)
 		if self.min <= x < self.max:
 			return 1 + int(math.floor((math.log(x) - math.log(self.min)) / self.delta))
 		if x >= self.max:
@@ -541,17 +516,7 @@ class ATanBins(Bins):
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
+			return super(ATanBins, self).__getitem__(x)
 		# map to the domain [0, 1]
 		x = math.atan(float(x - self.mid) * self.scale) / math.pi + 0.5
 		if x < 1:
@@ -733,7 +698,7 @@ class NDBins(tuple):
 	>>> x[1, 5]
 	(0, 1)
 	>>> x[1, 1:5]
-	(0, slice(0, 1, None))
+	(0, slice(0, 2, None))
 	>>> x.centres()
 	(array([  5.,  13.,  21.]), array([  1.70997595,   5.        ,  14.62008869]))
 
