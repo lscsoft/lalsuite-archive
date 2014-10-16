@@ -154,7 +154,7 @@ if __name__ == '__main__':
 				xmldoc.unlink()
 				dbtables.discard_connection_filename(local_path_from_url(url), source_filename, verbose = options.verbose)
 			else:
-				ligolw_sqlite.insert_from_url(ContentHandler.connection, url, contenthandler = ContentHandler, preserve_ids = options.preserve_ids, verbose = options.verbose)
+				ligolw_sqlite.insert_from_url(url, contenthandler = ContentHandler, preserve_ids = options.preserve_ids, verbose = options.verbose)
 		dbtables.build_indexes(ContentHandler.connection, options.verbose)
 
 

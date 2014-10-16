@@ -9,7 +9,7 @@
 #       Will M. Farr <will.farr@ligo.org>,
 #       John Veitch <john.veitch@ligo.org>
 #       Vivien Raymond <vivien.raymond@ligo.org>
-#
+#       Salvatore Vitale <salvatore.vitale@ligo.org>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -206,7 +206,8 @@ def cbcBayesPostProc(
                         #List of meanVector csv files used, one csv file for each covariance matrix
                         meanVectors=None,
                         #header file
-                        header=None
+                        header=None,
+                        psd_files=None,
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -283,7 +284,7 @@ def cbcBayesPostProc(
     if injfile and eventnum is not None:
         print 'Looking for event %i in %s\n'%(eventnum,injfile)
         xmldoc = utils.load_filename(injfile,contenthandler=LIGOLWContentHandlerExtractSimInspiralTable)
-        siminspiraltable=table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
+        siminspiraltable=lsctables.table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
         injection=siminspiraltable[eventnum]
 	#injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
 	#if(len(injections)!=1): raise RuntimeError('Error: something unexpected happened while loading the injection file!\n')
@@ -312,10 +313,6 @@ def cbcBayesPostProc(
     if snrfactor is not None:
         if not os.path.isfile(snrfactor):
             print "No snr file provided or wrong path to snr file\n"
-            snrfactor=None
-    if snrfactor is not None:
-        if not os.path.isfile(snrfactor):
-            print "Wrong path to snr file\n"
             snrfactor=None
         else:
             snrstring=""
@@ -405,35 +402,41 @@ def cbcBayesPostProc(
     #Create web page
     #==================================================================#
 
-    html=bppu.htmlPage('Posterior PDFs',css=bppu.__default_css_string)
+    html=bppu.htmlPage('Posterior PDFs',css=bppu.__default_css_string,javascript=bppu.__default_javascript_string)
 
     #Create a section for meta-data/run information
     html_meta=html.add_section('Summary')
-    html_meta.p('Produced from '+str(len(pos))+' posterior samples.')
+    table=html_meta.tab()
+    row=html_meta.insert_row(table,label='thisrow')
+    td=html_meta.insert_td(row,'',label='Samples')
+    SampsStats=html.add_section_to_element('Samples',td)
+    SampsStats.p('Produced from '+str(len(pos))+' posterior samples.')
     if 'chain' in pos.names:
         acceptedChains = unique(pos['chain'].samples)
         acceptedChainText = '%i of %i chains accepted: %i'%(len(acceptedChains),len(data),acceptedChains[0])
         if len(acceptedChains) > 1:
             for chain in acceptedChains[1:]:
                 acceptedChainText += ', %i'%(chain)
-        html_meta.p(acceptedChainText)
+        SampsStats.p(acceptedChainText)
     if 'cycle' in pos.names:
-        html_meta.p('Longest chain has '+str(pos.longest_chain_cycles())+' cycles.')
+        SampsStats.p('Longest chain has '+str(pos.longest_chain_cycles())+' cycles.')
     filenames='Samples read from %s'%(data[0])
     if len(data) > 1:
         for fname in data[1:]:
             filenames+=', '+str(fname)
-    html_meta.p(filenames)
-
+    SampsStats.p(filenames)
+    td=html_meta.insert_td(row,'',label='SummaryLinks')
+    legend=html.add_section_to_element('Sections',td)
+    
     #Create a section for model selection results (if they exist)
     if bayesfactornoise is not None:
-        html_model=html.add_section('Model selection')
+        html_model=html.add_section('Model selection',legend=legend)
         html_model.p('log Bayes factor ( coherent vs gaussian noise) = %s, Bayes factor=%f'%(BSN,exp(float(BSN))))
         if bayesfactorcoherent is not None:
             html_model.p('log Bayes factor ( coherent vs incoherent OR noise ) = %s, Bayes factor=%f'%(BCI,exp(float(BCI))))
 
     if dievidence:
-        html_model=html.add_section('Direct Integration Evidence')
+        html_model=html.add_section('Direct Integration Evidence',legend=legend)
         log_ev = log(difactor) + pos.di_evidence(boxing=boxing)
         ev=exp(log_ev)
         evfilename=os.path.join(outdir,"evidence.dat")
@@ -450,7 +453,7 @@ def cbcBayesPostProc(
 
     if ellevidence:
         try:
-            html_model=html.add_section('Elliptical Evidence')
+            html_model=html.add_section('Elliptical Evidence',legend=legend)
             log_ev = pos.elliptical_subregion_evidence()
             ev = exp(log_ev)
             evfilename=os.path.join(outdir, 'ellevidence.dat')
@@ -468,65 +471,51 @@ def cbcBayesPostProc(
 
     #Create a section for SNR, if a file is provided
     if snrfactor is not None:
-        html_snr=html.add_section('Signal to noise ratio(s)')
+        html_snr=html.add_section('Signal to noise ratio(s)',legend=legend)
         html_snr.p('%s'%snrstring)
-        
+
     #Create a section for summary statistics
-    html_stats=html.add_section('Summary statistics')
+    # By default collapse section are collapsed when the page is opened or reloaded. Use start_closed=False option as here below to change this
+    tabid='statstable'
+    html_stats=html.add_collapse_section('Summary statistics',legend=legend,innertable_id=tabid,start_closed=False)
     html_stats.write(str(pos))
     statfilename=os.path.join(outdir,"summary_statistics.dat")
     statout=open(statfilename,"w")
-    statout.write("\tmaxL\tstdev\tmean\tmedian\tstacc\tinjection\tvalue\n")
+    statout.write("\tmaP\tmaxL\tstdev\tmean\tmedian\tstacc\tinjection\tvalue\n")
     
     for statname,statoned_pos in pos:
 
-      statmax_pos,max_i=pos._posMode()
+      statmax_pos,max_i=pos._posMaxL()
       statmaxL=statoned_pos.samples[max_i][0]
+      statmax_pos,max_j=pos._posMap()
+      statmaxP=statoned_pos.samples[max_j][0]
       statmean=str(statoned_pos.mean)
       statstdev=str(statoned_pos.stdev)
       statmedian=str(squeeze(statoned_pos.median))
       statstacc=str(statoned_pos.stacc)
       statinjval=str(statoned_pos.injval)
       
-      statarray=[str(i) for i in [statname,statmaxL,statstdev,statmean,statmedian,statstacc,statinjval]]
+      statarray=[str(i) for i in [statname,statmaxP,statmaxL,statstdev,statmean,statmedian,statstacc,statinjval]]
       statout.write("\t".join(statarray))
       statout.write("\n")
       
     statout.close()
-      
-    #Create a section for the covariance matrix
-    html_stats_cov=html.add_section('Covariance matrix')
-    pos_samples,table_header_string=pos.samples()
-
-    #calculate cov matrix
-    cov_matrix=cov(pos_samples,rowvar=0,bias=1)
-
-    #Create html table
-    table_header_list=table_header_string.split()
-
-    cov_table_string='<table border="1" id="covtable"><tr><th/>'
-    for header in table_header_list:
-        cov_table_string+='<th>%s</th>'%header
-    cov_table_string+='</tr>'
-
-    cov_column_list=hsplit(cov_matrix,cov_matrix.shape[1])
-
-    for cov_column,cov_column_name in zip(cov_column_list,table_header_list):
-        cov_table_string+='<tr><th>%s</th>'%cov_column_name
-        for cov_column_element in cov_column:
-            cov_table_string+='<td>%.3e</td>'%(cov_column_element[0])
-        cov_table_string+='</tr>'
-    cov_table_string+='</table>'
-    html_stats_cov.write(cov_table_string)
 
     #==================================================================#
-    #Generate sky map
+    #Generate sky map, WF, and PSDs
     #==================================================================#
-    #If sky resolution parameter has been specified try and create sky map...
+   
     skyreses=None
     sky_injection_cl=None
     inj_position=None
-
+    tabid='skywftable'
+    html_wf=html.add_collapse_section('Sky Localization and Waveform',innertable_id=tabid)
+    
+    table=html_wf.tab(idtable=tabid)
+    row=html_wf.insert_row(table,label='SkyandWF')
+    skytd=html_wf.insert_td(row,'',label='SkyMap',legend=legend)
+    html_sky=html.add_section_to_element('SkyMap',skytd)
+    #If sky resolution parameter has been specified try and create sky map...
     if skyres is not None and \
        (('ra' in pos.names and 'dec' in pos.names) or \
         ('rightascension' in pos.names and 'declination' in pos.names)):
@@ -544,13 +533,13 @@ def cbcBayesPostProc(
         
         #Create a web page section for sky localization results/plots (if defined)
 
-        html_sky=html.add_section('Sky Localization')
+        #html_sky=html.add_section('Sky Localization',legend=legend)
         if injection:
             if sky_injection_cl:
                 html_sky.p('Injection found at confidence interval %f in sky location'%(sky_injection_cl))
             else:
                 html_sky.p('Injection not found in posterior bins in sky location!')
-        html_sky.write('<a href="skymap.png" target="_blank"><img width="35%" src="skymap.png"/></a>')
+        html_sky.write('<a href="skymap.png" target="_blank"><img src="skymap.png"/></a>')
 
         html_sky_write='<table border="1" id="statstable"><tr><th>Confidence region</th><th>size (sq. deg)</th></tr>'
 
@@ -563,7 +552,38 @@ def cbcBayesPostProc(
         html_sky_write+=('</table>')
 
         html_sky.write(html_sky_write)
-
+    else:
+        html_sky.write('<b>No skymap generated!</b>')
+    wfdir=os.path.join(outdir,'Waveform')
+    if not os.path.isdir(wfdir):
+        os.makedirs(wfdir)
+    try:
+        wfpointer= bppu.plot_waveform(pos=pos,siminspiral=injfile,event=eventnum,path=wfdir)
+    except:
+        wfpointer = None
+    wftd=html_wf.insert_td(row,'',label='Waveform',legend=legend)
+    wfsection=html.add_section_to_element('Waveforms',wftd)
+    if wfpointer:
+      wfsection.write('<a href="Waveform/WF_DetFrame.png" target="_blank"><img src="Waveform/WF_DetFrame.png"/></a>')
+    else:
+      wfsection.write("<b>No Waveform generated!</b>")
+      
+    wftd=html_wf.insert_td(row,'',label='PSDs',legend=legend)
+    wfsection=html.add_section_to_element('PSDs',wftd)
+    psd_pointer=None
+    if psd_files is not None:
+      psd_files=list(psd_files.split(','))
+      psddir=os.path.join(outdir,'PSDs')
+      if not os.path.isdir(psddir):
+        os.makedirs(psddir)
+      try:
+        psd_pointer=bppu.plot_psd(psd_files,outpath=psddir)    
+      except:
+        psd_pointer=None
+    if psd_pointer:
+      wfsection.write('<a href="PSDs/PSD.png" target="_blank"><img src="PSDs/PSD.png"/></a>')
+    else:
+      wfsection.write("<b>No PSD file found!</b>")
     #==================================================================#
     #1D posteriors
     #==================================================================#
@@ -571,10 +591,20 @@ def cbcBayesPostProc(
     #Loop over each parameter and determine the contigious and greedy
     #confidence levels and some statistics.
 
-    #Add section for 1D confidence intervals
-    html_ogci=html.add_section('1D confidence intervals (greedy binning)')
-    #Generate the top part of the table
-    html_ogci_write='<table id="statstable" border="1"><tr><th/>'
+    #Add section for 1D marginal PDFs and sample plots
+    tabid='onedmargtable'
+    html_ompdf=html.add_collapse_section('1D marginal posterior PDFs',legend=legend,innertable_id=tabid)
+    #Table matter
+    if not noacf:
+        html_ompdf_write= '<table id="%s"><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th><th>Autocorrelation</th></tr>'%tabid
+    else:
+        html_ompdf_write= '<table id="%s"><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th></tr>'%tabid
+
+#Add section for 1D confidence intervals
+    tabid='onedconftable'
+    html_ogci=html.add_collapse_section('1D confidence intervals (greedy binning)',legend=legend,innertable_id=tabid)
+    html_ogci_write='<table id="%s" border="1"><tr><th/>'%tabid
+    
     confidence_levels.sort()
     for cl in confidence_levels:
         html_ogci_write+='<th>%f</th>'%cl
@@ -582,14 +612,6 @@ def cbcBayesPostProc(
         html_ogci_write+='<th>Injection Confidence Level</th>'
         html_ogci_write+='<th>Injection Confidence Interval</th>'
     html_ogci_write+='</tr>'
-
-    #Add section for 1D marginal PDFs and sample plots
-    html_ompdf=html.add_section('1D marginal posterior PDFs')
-    #Table matter
-    if not noacf:
-        html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th><th>Autocorrelation</th></tr>'
-    else:
-        html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th></tr>'
 
     onepdfdir=os.path.join(outdir,'1Dpdf')
     if not os.path.isdir(onepdfdir):
@@ -769,7 +791,6 @@ def cbcBayesPostProc(
 
 
     html_ompdf_write+='</table>'
-
     html_ompdf.write(html_ompdf_write)
 
     html_ogci_write+='</table>'
@@ -796,24 +817,29 @@ def cbcBayesPostProc(
       myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=intrinsicParams)
     except:
       myfig=None
+    tabid='CornerTable'
     html_corner=''
+    got_any=0
     if myfig:
-      html_corner='<table>'
-      html_corner+='<tr><td width="100%"><img width="100%" src="corner/intrinsic.png"/></td></tr>'
+      html_corner='<table id="%s" border="1">'%tabid
+      html_corner+='<tr><td width="100%"><a href="corner/intrinsic.png" target="_blank"><img width="70%" src="corner/intrinsic.png"/></a></td></tr>'
       myfig.savefig(os.path.join(cornerdir,'intrinsic.png'))
       myfig.savefig(os.path.join(cornerdir,'intrinsic.pdf'))
+      got_any+=1
     try:
       myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=extrinsicParams)
     except:
       myfig=None
+
     if myfig:
       myfig.savefig(os.path.join(cornerdir,'extrinsic.png'))
       myfig.savefig(os.path.join(cornerdir,'extrinsic.pdf'))
-      html_corner+='<tr><td width="100%"><img width="100%" src="corner/extrinsic.png"/></td></tr>'
+      html_corner+='<tr><td width="100%"><a href="corner/extrinsic.png" target="_blank"><img width="70%" src="corner/extrinsic.png"/></a></td></tr>'
+      got_any+=1
+    if got_any>0:
       html_corner+='</table>'
-
     if html_corner!='':
-      html_co=html.add_section('Corner plots')
+      html_co=html.add_collapse_section('Corner plots',legend=legend,innertable_id=tabid)
       html_co.write(html_corner)
     #==================================================================#
     #2D posteriors
@@ -838,9 +864,10 @@ def cbcBayesPostProc(
 
     #Add a section to the webpage for a table of the confidence interval
     #results.
-    html_tcig=html.add_section('2D confidence intervals (greedy binning)')
+    tabid='2dconftable'
+    html_tcig=html.add_collapse_section('2D confidence intervals (greedy binning)',legend=legend,innertable_id=tabid)
     #Generate the top part of the table
-    html_tcig_write='<table id="statstable" border="1"><tr><th/>'
+    html_tcig_write='<table id="%s" border="1"><tr><th/>'%tabid
     confidence_levels.sort()
     for cl in confidence_levels:
         html_tcig_write+='<th>%f</th>'%cl
@@ -853,12 +880,14 @@ def cbcBayesPostProc(
     #=  Add a section for a table of 2D marginal PDFs (kde)
     twodkdeplots_flag=twodkdeplots
     if twodkdeplots_flag:
-        html_tcmp=html.add_section('2D Marginal PDFs')
+        tabid='2dmargtable'
+        html_tcmp=html.add_collapse_section('2D Marginal PDFs',legend=legend,innertable_id=tabid)
         #Table matter
-        html_tcmp_write='<table border="1">'
+        html_tcmp_write='<table border="1" id="%s">'%tabid
 
-    html_tgbh=html.add_section('2D Greedy Bin Histograms')
-    html_tgbh_write='<table border="1">'
+    tabid='2dgreedytable'
+    html_tgbh=html.add_collapse_section('2D Greedy Bin Histograms',legend=legend,innertable_id=tabid)
+    html_tgbh_write='<table border="1" id="%s">'%tabid
 
     row_count=0
     row_count_gb=0
@@ -866,6 +895,8 @@ def cbcBayesPostProc(
     for par1_name,par2_name in twoDGreedyMenu:
         par1_name=par1_name.lower()
         par2_name=par2_name.lower()
+        # Don't plot a parameter against itself!
+        if par1_name == par2_name: continue
         try:
             pos[par1_name.lower()]
         except KeyError:
@@ -1033,7 +1064,8 @@ def cbcBayesPostProc(
         convergenceResults=bppu.convergenceTests(pos,gelman=False)
         
         if convergenceResults is not None:
-            html_conv_test=html.add_section('Convergence tests')
+            tabid='convtable'
+            html_conv_test=html.add_collapse_section('Convergence tests',legend=legend,innertable_id=tabid)
             data_found=False
             for test,test_data in convergenceResults.items():
                 
@@ -1054,18 +1086,43 @@ def cbcBayesPostProc(
                                 except KeyError:
                                     html_conv_table_rows[data[0]]='<td>'+data[1]+'</td>'
                                 
-                    html_conv_table='<table><tr><th>Chain</th>'+html_conv_table_header+'</tr>'
+                    html_conv_table='<table id="%s"><tr><th>Chain</th>'%tabid+html_conv_table_header+'</tr>'
                     for row_name,row in html_conv_table_rows.items():
                         html_conv_table+='<tr><td>%s</td>%s</tr>'%(row_name,row)
                     html_conv_table+='</table>'
                     html_conv_test.write(html_conv_table)
             if data_found is False:
                 html_conv_test.p('No convergence diagnostics generated!')
-                
+
+    #Create a section for the covariance matrix
+    tabid='covtable'
+    html_stats_cov=html.add_collapse_section('Covariance matrix',legend=legend,innertable_id=tabid)
+    pos_samples,table_header_string=pos.samples()
+
+    #calculate cov matrix
+    cov_matrix=cov(pos_samples,rowvar=0,bias=1)
+
+    #Create html table
+    table_header_list=table_header_string.split()
+    cov_table_string='<table border="1" id="%s"><tr><th/>'%tabid
+    for header in table_header_list:
+        cov_table_string+='<th>%s</th>'%header
+    cov_table_string+='</tr>'
+
+    cov_column_list=hsplit(cov_matrix,cov_matrix.shape[1])
+
+    for cov_column,cov_column_name in zip(cov_column_list,table_header_list):
+        cov_table_string+='<tr><th>%s</th>'%cov_column_name
+        for cov_column_element in cov_column:
+            cov_table_string+='<td>%.3e</td>'%(cov_column_element[0])
+        cov_table_string+='</tr>'
+    cov_table_string+='</table>'
+    html_stats_cov.write(cov_table_string)
+
     #Create a section for run configuration information if it exists
     if pos._votfile is not None:
-	html_vot=html.add_section('Run information')
-	html_vot.write(pos.write_vot_info())
+        html_vot=html.add_section('Run information',legend=legend)
+        html_vot.write(pos.write_vot_info())
     
     html_footer=html.add_section('')
     html_footer.p('Produced using cbcBayesPostProc.py at '+strftime("%Y-%m-%d %H:%M:%S")+' .')
@@ -1143,6 +1200,7 @@ if __name__=='__main__':
     parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
     parser.add_option("--email",action="store",default=None,type="string",metavar="user@ligo.org",help="Send an e-mail to the given address with a link to the finished page.")
     parser.add_option("--archive",action="store",default=None,type="string",metavar="results.tar.gz",help="Create the given tarball with all results")
+    parser.add_option("--psdfiles",action="store",default=None,type="string",metavar="H1,L1,V1",help="comma separater list of ASCII files with PSDs, one per IFO")
     (opts,args)=parser.parse_args()
 
     datafiles=[]
@@ -1157,14 +1215,14 @@ if __name__=='__main__':
       fixedBurnins = None
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio']
+    massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio','mtotal']
     distParams=['distance','distMPC','dist']
     incParams=['iota','inclination','cosiota']
     polParams=['psi','polarisation','polarization']
     skyParams=['ra','rightascension','declination','dec']
-    timeParams=['time']
+    timeParams=['time','time_mean']
     spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costheta_jn','cosbeta','tilt1','tilt2','phi_jl','theta_jn','phi12']
-    phaseParams=['phase', 'phi0']
+    phaseParams=['phase', 'phi0','phase_maxl']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
     ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
     tigerParams=['dphi%i'%(i) for i in range(7)] + ['dphi%il'%(i) for i in [5,6] ]
@@ -1231,7 +1289,7 @@ if __name__=='__main__':
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'time_mean':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0,'phase_maxl':0.05}
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
     if not opts.no2D:
@@ -1286,7 +1344,9 @@ if __name__=='__main__':
                         #List of meanVector csv files used, one csv file for each covariance matrix
                         meanVectors=opts.meanVectors,
                         #header file for parameter names in posterior samples
-                        header=opts.header
+                        header=opts.header,
+                        # ascii files (one per IFO) containing  freq - PSD columns
+                        psd_files=opts.psdfiles 
                     )
 
     if opts.archive is not None:

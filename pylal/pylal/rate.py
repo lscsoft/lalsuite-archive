@@ -35,7 +35,7 @@ smoothing contour plots.
 """
 
 
-import bisect
+from bisect import bisect_right
 try:
 	from fpconst import PosInf, NegInf
 except ImportError:
@@ -237,7 +237,7 @@ class IrregularBins(Bins):
 				stop = self[x.stop]
 			return slice(start, stop)
 		if self.min <= x < self.max:
-			return bisect.bisect_right(self.boundaries, x) - 1
+			return bisect_right(self.boundaries, x) - 1
 		# special measure-zero edge case
 		if x == self.max:
 			return len(self.boundaries) - 2
@@ -262,6 +262,12 @@ class LinearBins(Bins):
 	Example:
 
 	>>> x = LinearBins(1.0, 25.0, 3)
+	>>> x.lower()
+	array([  1.,   9.,  17.])
+	>>> x.upper()
+	array([  9.,  17.,  25.])
+	>>> x.centres()
+	array([  5.,  13.,  21.])
 	>>> x[1]
 	0
 	>>> x[1.5]
@@ -296,13 +302,13 @@ class LinearBins(Bins):
 		raise IndexError(x)
 
 	def lower(self):
-		return self.min + self.delta * numpy.arange(len(self))
+		return numpy.linspace(self.min, self.max - self.delta, len(self))
 
 	def centres(self):
-		return self.min + self.delta * (numpy.arange(len(self)) + 0.5)
+		return numpy.linspace(self.min + self.delta / 2., self.max - self.delta / 2., len(self))
 
 	def upper(self):
-		return self.min + self.delta * (numpy.arange(len(self)) + 1)
+		return numpy.linspace(self.min + self.delta, self.max, len(self))
 
 
 class LinearPlusOverflowBins(Bins):

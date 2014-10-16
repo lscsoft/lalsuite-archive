@@ -82,7 +82,8 @@ def imrchirptime(m1, m2, fLower, chi, a_hat = 0.98, e_folds = 10):
 	assert (fFinal > fLower) # demand that the low frequency comes before the ringdown frequency
 	tau = 2 * (m1+m2) * 5e-6 * (0.7 + 1.4187 * (1-a_hat)**-0.4990) / (1.5251 - 1.1568 * (1-a_hat)**0.1292)
 	inspiral_time = chirptime(m1, m2, 7, fLower, fFinal, chi)
-	assert (inspiral_time > 0) # demand positive inspiral times
+	if inspiral_time < 0:
+		raise ValueError("Inspiral time is negative: m1 = %e, m2 = %e, flow = %e, chi = %e" % (m1, m2, fLower, chi)) # demand positive inspiral times
 	return inspiral_time + e_folds * tau
 
 

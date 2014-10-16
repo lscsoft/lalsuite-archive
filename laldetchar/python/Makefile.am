@@ -15,9 +15,13 @@ pybin_scripts = \
 	laldetchar-hveto \
 	laldetchar-hveto-summary-page \
 	laldetchar-idq-add-excluded-vars \
+	laldetchar-idq-build-auxmvc-vectors \
+	laldetchar-idq-convertkwtosb \
 	laldetchar-idq-evaluate-times \
 	laldetchar-idq-fap-calibration \
+        laldetchar-idq-gdb-alert-handler \
 	laldetchar-idq-gdb-glitch-tables \
+        laldetchar-idq-gdb-processor \
 	laldetchar-idq-gdb-timeseries \
 	laldetchar-idq-prepare-training-auxmvc-samples \
 	laldetchar-idq-realtime \

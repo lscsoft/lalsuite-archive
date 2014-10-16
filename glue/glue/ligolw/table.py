@@ -239,8 +239,14 @@ def get_table(xmldoc, name):
 
 	Example:
 
-	>>> from glue.ligolw import lsctables
+	>>> import ligolw
+	>>> import lsctables
+	>>> xmldoc = ligolw.Document()
+	>>> xmldoc.appendChild(ligolw.LIGO_LW()).appendChild(lsctables.New(lsctables.SnglInspiralTable))
+	[]
 	>>> sngl_inspiral_table = get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+
+	See also the .get_table() class method of the Table class.
 	"""
 	tables = getTablesByName(xmldoc, name)
 	if len(tables) != 1:
@@ -267,6 +273,11 @@ def reassign_ids(elem):
 
 	Example:
 
+	>>> import ligolw
+	>>> import lsctables
+	>>> xmldoc = ligolw.Document()
+	>>> xmldoc.appendChild(ligolw.LIGO_LW()).appendChild(lsctables.New(lsctables.SnglInspiralTable))
+	[]
 	>>> reassign_ids(xmldoc)
 	"""
 	mapping = {}
@@ -413,7 +424,26 @@ class InterningRowBuilder(tokenizer.RowBuilder):
 	results in a reduction in memory use which is small for most
 	documents, but can be subtantial when dealing with tables
 	containing large volumes of repeated information.
-	
+
+	Example:
+
+	>>> class Row(object):
+	...	pass
+	...
+	>>> # 3rd arg is optional list of attributes to intern
+	>>> rows = InterningRowBuilder(Row, ["name", "age"], ("name",))
+	>>> l = list(rows.append(["Dick", 20., "Jane", 75., "Dick", 22.]))
+	>>> l[0].name
+	'Dick'
+	>>> l[2].name
+	'Dick'
+	>>> l[2].name is l[0].name
+	True
+
+	Note that Python naturally interns short strings, so this example
+	would return True regardless;  it is intended only to demonstrate
+	the use of the class.
+
 	The values are stored in a dictionary that is shared between all
 	instances of this class, and which survives forever.  Nothing is
 	ever naturally "uninterned", so the string dictionary grows without
@@ -428,7 +458,7 @@ class InterningRowBuilder(tokenizer.RowBuilder):
 	"""
 	strings = {}
 	def append(self, tokens):
-		for row in tokenizer.RowBuilder.append(self, tokens):
+		for row in super(InterningRowBuilder, self).append(tokens):
 			for col in self.interns:
 				val = getattr(row, col)
 				setattr(row, col, self.strings.setdefault(val, val))
@@ -601,7 +631,11 @@ class Table(ligolw.Table, list):
 
 		Example:
 
-		>>> from glue.ligolw import lsctables
+		>>> import ligolw
+		>>> import lsctables
+		>>> xmldoc = ligolw.Document()
+		>>> xmldoc.appendChild(ligolw.LIGO_LW()).appendChild(lsctables.New(lsctables.SnglInspiralTable))
+		[]
 		>>> sngl_inspiral_table = lsctables.SnglInspiralTable.get_table(xmldoc)
 		"""
 		return get_table(xmldoc, cls.tableName)
@@ -640,6 +674,8 @@ class Table(ligolw.Table, list):
 
 		Example:
 
+		>>> import lsctables
+		>>> tbl = lsctables.New(lsctables.SnglInspiralTable)
 		>>> col = tbl.getColumnByName("mass1")
 		"""
 		try:
@@ -667,7 +703,7 @@ class Table(ligolw.Table, list):
 		Example:
 
 		>>> import lsctables
-		>>> process_table = get_table(xmldoc, lsctabes.Process.tableName)
+		>>> process_table = lsctables.New(lsctables.ProcessTable, [])
 		>>> col = process_table.appendColumn("program")
 		>>> col.getAttribute("Name")
 		'process:program'
@@ -754,7 +790,7 @@ class Table(ligolw.Table, list):
 		Remove a child from this element.  The child element is
 		returned, and it's parentNode element is reset.
 		"""
-		ligolw.Table.removeChild(self, child)
+		super(Table, self).removeChild(child)
 		if child.tagName == ligolw.Column.tagName:
 			self._update_column_info()
 		return child
@@ -764,7 +800,7 @@ class Table(ligolw.Table, list):
 		Break internal references within the document tree rooted
 		on this element to promote garbage collection.
 		"""
-		ligolw.Table.unlink(self)
+		super(Table, self).unlink()
 		del self[:]
 
 	def endElement(self):
@@ -779,6 +815,7 @@ class Table(ligolw.Table, list):
 	# Row ID manipulation
 	#
 
+	@classmethod
 	def get_next_id(cls):
 		"""
 		Returns the current value of the next_id class attribute,
@@ -789,8 +826,8 @@ class Table(ligolw.Table, list):
 		id = cls.next_id
 		cls.next_id += 1
 		return id
-	get_next_id = classmethod(get_next_id)
 
+	@classmethod
 	def set_next_id(cls, id):
 		"""
 		Sets the value of the next_id class attribute.  This is a
@@ -799,32 +836,31 @@ class Table(ligolw.Table, list):
 		attribute.
 		"""
 		cls.next_id = id
-	set_next_id = classmethod(set_next_id)
 
 	def sync_next_id(self):
 		"""
 		Determines the highest-numbered ID in this table, and sets
-		the table's next_id attribute to the next highest ID in
-		sequence.  If the next_id attribute is already set to a
-		value greater than the max found, then it is left
+		the table's .next_id attribute to the next highest ID in
+		sequence.  If the .next_id attribute is already set to a
+		value greater than the highest value found, then it is left
 		unmodified.  The return value is the ID identified by this
-		method.  If the table's next_id attribute is None, then
+		method.  If the table's .next_id attribute is None, then
 		this function is a no-op.
 
 		Note that tables of the same name typically share a common
-		next_id attribute (it is a class attribute, not an
-		attribute of each instance).  This is enforced so that IDs
-		can be generated that are unique across all tables in the
-		document.  Running sync_next_id() on all the tables in a
-		document that are of the same type will have the effect of
-		setting the ID to the next ID higher than any ID in any of
-		those tables.
+		.next_id attribute (it is a class attribute, not an
+		attribute of each instance) so that IDs can be generated
+		that are unique across all tables in the document.  Running
+		sync_next_id() on all the tables in a document that are of
+		the same type will have the effect of setting the ID to the
+		next ID higher than any ID in any of those tables.
 
 		Example:
 
-		>>> for tbl in xmldoc.getElementsByTagName(Table.tagName):
-		...	tbl.sync_next_id()
-		...
+		>>> import lsctables
+		>>> tbl = lsctables.New(lsctables.ProcessTable)
+		>>> print tbl.sync_next_id()
+		process:process_id:0
 		"""
 		if self.next_id is not None:
 			if len(self):
@@ -898,11 +934,12 @@ def use_in(ContentHandler):
 	Example:
 
 	>>> from glue.ligolw import ligolw
-	>>> def MyContentHandler(ligolw.LIGOLWContentHandler):
+	>>> class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 	...	pass
 	...
 	>>> from glue.ligolw import table
-	>>> table.use_in(MyContentHandler)
+	>>> table.use_in(LIGOLWContentHandler)
+	<class 'glue.ligolw.table.LIGOLWContentHandler'>
 	"""
 	def startColumn(self, parent, attrs):
 		return Column(attrs)
@@ -921,7 +958,3 @@ def use_in(ContentHandler):
 	ContentHandler.startTable = startTable
 
 	return ContentHandler
-
-
-# FIXME:  remove
-use_in(ligolw.DefaultLIGOLWContentHandler)
