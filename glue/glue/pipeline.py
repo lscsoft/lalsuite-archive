@@ -1185,7 +1185,7 @@ class CondorDAGNode:
     if filename not in self.__checkpoint_files:
         self.__checkpoint_files.append(filename)
         if not isinstance(self.job(), CondorDAGManJob):
-            if self.jon().get_universe() == 'grid':
+            if self.job().get_universe() == 'grid':
                 self.add_checkpoint_macro(filename)
 
   def get_input_files(self):
