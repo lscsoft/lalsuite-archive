@@ -3722,6 +3722,73 @@ TimeSlideSegmentMapTable.RowType = TimeSlideSegmentMap
 #
 # =============================================================================
 #
+#                            idq_glitch:table
+#
+# =============================================================================
+#
+
+
+
+IDQGlitchID = ilwd.get_ilwdchar_class(u"idq_glitch", u"event_id")
+
+class IDQGlitchTable(table.Table):
+
+	tableName = 'idq_glitch:table'
+	validcolumns = {
+		'event_id': 'ilwd:char',
+		'ifo': 'lstring',
+		'gps': 'int_4s',
+		'gps_ns': 'int_4s',
+		'rank': 'real_4',
+		'fap': 'real_4',
+		'likelihood': 'real_4',
+		}
+	next_id = IDQGlitchID(0)
+
+class IDQGlitch(object):
+
+	__slots__ = IDQGlitchTable.validcolumns.keys()
+
+
+IDQGlitchTable.RowType = IDQGlitch
+
+#
+# =============================================================================
+#
+#                              ovl_data:table
+#
+# =============================================================================
+#
+
+OVLDataID = ilwd.get_ilwdchar_class(u"ovl_data", u"event_id")
+
+class OVLDataTable(table.Table):
+
+	tableName = 'ovl_data:table'
+	validcolumns = {
+		'event_id': 'ilwd:char',
+		'ifo': 'lstring',
+		'aux_channel': 'lstring',
+		'veto_thr': 'real_4',
+		'veto_win': 'real_4',
+		}
+	next_id = OVLDataID(0)
+
+class OVLData(object):
+
+	__slots__ = OVLDataTable.validcolumns.keys()
+
+
+OVLDataTable.RowType = OVLData
+
+
+
+
+
+
+#
+# =============================================================================
+#
 #                                Table Metadata
 #
 # =============================================================================
@@ -3770,7 +3837,9 @@ TableByName = {
 	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable,
 	table.StripTableName(VetoDefTable.tableName): VetoDefTable,
 	table.StripTableName(SummMimeTable.tableName): SummMimeTable,
-	table.StripTableName(TimeSlideSegmentMapTable.tableName): TimeSlideSegmentMapTable
+	table.StripTableName(TimeSlideSegmentMapTable.tableName): TimeSlideSegmentMapTable,
+	table.StripTableName(IDQGlitchTable.tableName): IDQGlitchTable,
+	table.StripTableName(OVLDataTable.tableName): OVLDataTable	
 }
 
 
