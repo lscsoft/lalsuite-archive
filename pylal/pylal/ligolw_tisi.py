@@ -161,8 +161,8 @@ def load_time_slides(filename, verbose = False, gz = None, contenthandler = Defa
 	Note that a side effect of this function is that the ID generator
 	associated with the TimeSlideTable class in glue.ligolw.lsctables
 	is synchronized with the result, so that the next ID it generates
-	will be immediately following the IDs listed in the dictionary
-	returned by this function.
+	will not conflict with the IDs listed in the dictionary returned by
+	this function.
 
 	Note also that this utility function should not be how applications
 	that perform multiple manipulations with an XML file obtain the
