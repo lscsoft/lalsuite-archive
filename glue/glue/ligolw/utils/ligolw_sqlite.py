@@ -49,7 +49,7 @@ import sys
 from glue import git_version
 from .. import ligolw
 from .. import dbtables
-from .. import utils
+from .. import utils as ligolw_utils
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -151,7 +151,7 @@ def insert_from_url(url, preserve_ids = False, verbose = False, contenthandler =
 		# not regular Table instances, but this is not checked.
 		#
 
-		xmldoc = utils.load_url(url, verbose = verbose, contenthandler = contenthandler)
+		xmldoc = ligolw_utils.load_url(url, verbose = verbose, contenthandler = contenthandler)
 
 		#
 		# update references to row IDs and cleanup ID remapping
@@ -309,7 +309,7 @@ def extract(connection, filename, table_names = None, verbose = False, xsl_file 
 	"""
 	xmldoc = ligolw.Document()
 	xmldoc.appendChild(dbtables.get_xml(connection, table_names))
-	utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"), verbose = verbose, xsl_file = xsl_file)
+	ligolw_utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"), verbose = verbose, xsl_file = xsl_file)
 
 	# delete cursors
 	xmldoc.unlink()
