@@ -229,6 +229,14 @@ class IrregularBins(Bins):
 	2
 	>>> x[4:17]
 	slice(0, 3, None)
+	>>> IrregularBins([0.0, 15.0, 11.0])
+	Traceback (most recent call last):
+	  File "<stdin>", line 1, in <module>
+	    raise ValueError("non-monotonic boundaries provided")
+	ValueError: non-monotonic boundaries provided
+	>>> y = IrregularBins([0.0, 11.0, 15.0, numpy.inf])
+	>>> x == y
+	True
 	"""
 	def __init__(self, boundaries):
 		"""
@@ -240,8 +248,8 @@ class IrregularBins(Bins):
 		# check pre-conditions
 		if len(boundaries) < 2:
 			raise ValueError("less than two boundaries provided")
-		boundaries = numpy.array(boundaries)
-		if (boundaries[:-1] > boundaries[1:]).any():
+		boundaries = tuple(boundaries)
+		if any(a > b for a, b in zip(boundaries[:-1], boundaries[1:])):
 			raise ValueError("non-monotonic boundaries provided")
 
 		self.boundaries = boundaries
@@ -256,7 +264,7 @@ class IrregularBins(Bins):
 		"""
 		if not isinstance(other, type(self)):
 			return -1
-		return cmp(len(self), len(other)) or (self.boundaries != other.boundaries).any()
+		return cmp(self.boundaries, other.boundaries)
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
@@ -269,10 +277,10 @@ class IrregularBins(Bins):
 		raise IndexError(x)
 
 	def lower(self):
-		return self.boundaries[:-1]
+		return numpy.array(self.boundaries[:-1])
 
 	def upper(self):
-		return self.boundaries[1:]
+		return numpy.array(self.boundaries[1:])
 
 	def centres(self):
 		return (self.lower() + self.upper()) / 2.0
