@@ -268,24 +268,6 @@ def Inspiral_Num_Slides_Iter(count, offsets):
 		yield offsetvector.offsetvector((instrument, offset * n) for instrument, offset in offsets)
 
 
-def RowsFromOffsetDict(offsetvect, time_slide_id, process):
-	"""
-	Accepts a dictionary mapping instrument --> offset, and a
-	time_slide ID, and yields a sequence of rows to append to the
-	time_slide table.  process must be the row in the process table on
-	which the newly-constructed time_slide table rows are to be blamed.
-	"""
-	# FIXME:  remove when all occurances are replaced with
-	# glue.ligolw.lsctables.TimeSlideTable.append_offsetvector()
-	for instrument, offset in offsetvect.items():
-		row = lsctables.TimeSlide()
-		row.process_id = process.process_id
-		row.time_slide_id = time_slide_id
-		row.instrument = instrument
-		row.offset = offset
-		yield row
-
-
 #
 # =============================================================================
 #
