@@ -144,9 +144,9 @@ def parse_inspiral_num_slides_slidespec(slidespec):
 #
 
 
+@lsctables.use_in
 class DefaultContentHandler(lsctables.ligolw.LIGOLWContentHandler):
 	pass
-lsctables.use_in(DefaultContentHandler)
 
 
 def load_time_slides(filename, verbose = False, gz = None, contenthandler = DefaultContentHandler):
