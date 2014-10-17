@@ -794,8 +794,9 @@ def main( grbxml, inifile, outdir, ifoTag, detectionInjList=[],\
   # add links
   # ownership of the domain changed, grbsumlink is not provided
   # grbsumlink = 'http://grblog.org/grblog.php?view=burst&GRB=%s' % GRBnum
+  # plot_segments_grb%s.png changed to segment_plot_%s.png 
   #seglink    = 'plot_segments_grb%s.png' % GRBnum
-  seglink    = 'plot_segments_%s.png' % GRBnum
+  seglink    = 'segment_plot_%s.png' % GRBnum
   inilink    = os.path.basename(inifile)
   #linktext = { grbsumlink:'Summary of this GRB',\
   #             seglink:   'Segments availability',\
