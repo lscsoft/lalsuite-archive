@@ -527,7 +527,7 @@ class Posterior(object):
     """
     Data structure for a table of posterior samples .
     """
-    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None,injFref=None,SnglInpiralList=None,name=None,description=None,votfile=None):
+    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None,injFref=100,SnglInpiralList=None,name=None,description=None,votfile=None):
         """
         Constructor.
 
@@ -584,23 +584,26 @@ class Posterior(object):
                             'psi': lambda inj: np.mod(inj.polarization, np.pi),
                             'iota':lambda inj: inj.inclination,
                             'inclination': lambda inj: inj.inclination,
-                            'spinchi': self._inj_spinchi,
+                            'spinchi': lambda inj: self._inj_spinchi(inj),
                             'f_ref': lambda inj: self._injFref,
-                            'a1': self._inj_a1,
-                            'a2': self._inj_a2,
-                            'theta1':self._inj_theta1,
-                            'theta2':self._inj_theta2,
-                            'phi1':self._inj_phi1,
-                            'phi2':self._inj_phi2,
-                            'phi12':self._inj_phi12,
-                            'tilt1':self._inj_tilt1,
-                            'tilt2':self._inj_tilt2,
+                            'a1': lambda inj:self._inj_a1(inj),
+                            'a2': lambda inj:self._inj_a2(inj),
+                            'spin1':lambda inj:inj.spin1z,
+                            'spin2':lambda inj:inj.spin2z,
+                            'theta1': lambda inj:self._inj_theta1(inj),
+                            'theta2': lambda inj:self._inj_theta2(inj),
+                            'phi1':lambda inj: self._inj_phi1(inj),
+                            'phi2':lambda inj:self._inj_phi2(inj),
+                            'phi12':lambda inj:self._inj_phi12(inj),
+                            'tilt1':lambda inj:self._inj_tilt1(inj),
+                            'tilt2':lambda inj:self._inj_tilt2(inj),
                             'costilt1': lambda inj: np.cos(_inj_tilt1),
                             'costilt2': lambda inj: np.cos(_inj_tilt2),
-                            'cos(iota)': lambda inj: np.cos(inj.inclination),
-                            'theta_jn':self._inj_theta_jn,
-                            'phi_jl':self._inj_phi_jl,
-                            'beta':self._inj_beta,
+                            'cosiota': lambda inj: np.cos(inj.inclination),
+                            'theta_jn':lambda inj:self._inj_theta_jn(inj),
+                            'costheta_jn':lambda inj:cos(self._inj_theta_jn(inj)),
+                            'phi_jl':lambda inj:self._inj_phi_jl(inj),
+                            'beta':lambda inj:self._inj_beta(inj),
                             'polarisation':lambda inj:inj.polarization,
                             'polarization':lambda inj:inj.polarization,
                             'h1_end_time':lambda inj:float(inj.get_end('H')),
@@ -1657,6 +1660,9 @@ class Posterior(object):
 
     def _inj_theta_jn(self, inj):
         # This is the angle between the injected J and the Z axis
+        # If spins aligned then return inclination angle
+        if inj.spin1x==0 and inj.spin1y==0 and inj.spin2x==0 and inj.spin2y==0:
+            return inj.inclination
         try:
             f_ref = self._injFref
             L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
@@ -3652,7 +3658,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     if param.find('time')!=-1:
       offset=floor(min(pos_samps))
       pos_samps=pos_samps-offset
-      if injpar:
+      if injpar is not None:
         injpar=injpar-offset
       ax1_name=param+' + %i'%(int(offset))
     else: ax1_name=param
@@ -3697,7 +3703,11 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     rbins=None
 
     if injpar is not None:
-        if min(pos_samps)<injpar and max(pos_samps)>injpar:
+        # We will plot the injection if it is <5% outside the posterior 
+        delta_samps=max(pos_samps)-min(pos_samps)
+        minrange=min(pos_samps)-0.05*delta_samps
+        maxrange=max(pos_samps)+0.05*delta_samps
+        if minrange<injpar and maxrange>injpar:
 
             plt.axvline(injpar, color='r', linestyle='-.', linewidth=4)
 
@@ -3705,6 +3715,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
             #print "r of injected value of %s (kde) = %f"%(param,rkde)
 
             #Find which bin the true value is in
+        if min(pos_samps)<injpar and max(pos_samps)>injpar:
             bins_to_inj=(injpar-bins[0])/histbinSize
             injbinh=int(floor(bins_to_inj))
             injbin_frac=bins_to_inj-float(injbinh)

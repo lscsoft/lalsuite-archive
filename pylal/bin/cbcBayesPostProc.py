@@ -67,22 +67,27 @@ def email_notify(address,path):
     address=address.split(',')
     SERVER="localhost"
     USER=os.environ['USER']
-    HOST=subprocess.check_output(["hostname","-f"]).strip()
+    HOST=os.environ['HOSTNAME']
     FROM=USER+'@'+HOST
     SUBJECT="LALInference result is ready at "+HOST+"!"
     # Guess the web space path for the clusters
     fslocation=os.path.abspath(path)
     webpath='posplots.html'
     if 'public_html' in fslocation:
-        k='public_html'
+        k='public_html/'
     elif 'WWW' in fslocation:
-        k='WWW'
+        k='WWW/'
+    elif 'www_html' in fslocation:
+        k='www_html/'
     else:
         k=None
     if k is not None:
         (a,b)=fslocation.split(k)
-        webpath=os.path.join(b,webpath)
-    else: webpath=os.path.join(fslocation,'posplots.html')
+        webpath=os.path.join('~%s'%(USER),b,webpath)
+        onweb=True
+    else:
+        webpath=os.path.join(fslocation,'posplots.html')
+        onweb=False
 
     if 'atlas.aei.uni-hannover.de' in HOST:
         url="https://atlas1.atlas.aei.uni-hannover.de/"
@@ -96,11 +101,16 @@ def email_notify(address,path):
         url="https://ldas-jobs.phys.uwm.edu/"
     elif 'phy.syr.edu' in HOST:
         url="https://sugar-jobs.phy.syr.edu/"
+    elif 'arcca.cf.ac.uk' in HOST:
+        url="https://geo2.arcca.cf.ac.uk/"
     else:
-        url=HOST+':'
+        if onweb:
+          url="http://%s/"%(HOST)
+        else:
+          url=HOST+':'
     url=url+webpath
 
-    TEXT="Hi "+USER+",\nYou have a new parameter estimation result on "+HOST+".\nYou can view the result at "+url
+    TEXT="Hi "+USER+",\nYou have a new parameter estimation result on "+HOST+".\nYou can view the result at "+url+"\n"
     message="From: %s\nTo: %s\nSubject: %s\n\n%s"%(FROM,', '.join(address),SUBJECT,TEXT)
     server=smtplib.SMTP(SERVER)
     server.sendmail(FROM,address,message)
@@ -727,9 +737,12 @@ def cbcBayesPostProc(
 
         injpar=pos[par_name].injval
 
-        if injpar:
-            if min(pos_samps)<injpar and max(pos_samps)>injpar:
-                plt.axhline(injpar, color='r', linestyle='-.')
+        if injpar is not None:
+            # Allow injection to be 5% outside the posterior plot
+            minrange=min(pos_samps)-0.05*(max(pos_samps)-min(pos_samps))
+            maxrange=max(pos_samps)+0.05*(max(pos_samps)-min(pos_samps))
+            if minrange<injpar and maxrange>injpar:
+                plt.axhline(injpar, color='r', linestyle='-.',linewidth=4)
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
         if(savepdfs): myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.pdf')))
         plt.close(myfig)
