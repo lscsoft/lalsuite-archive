@@ -792,13 +792,18 @@ def main( grbxml, inifile, outdir, ifoTag, detectionInjList=[],\
     webpage = write_antenna( webpage, grb, ifos, grid, None )
 
   # add links
-  grbsumlink = 'http://grblog.org/grblog.php?view=burst&GRB=%s' % GRBnum
-  seglink    = 'plot_segments_grb%s.png' % GRBnum
+  # ownership of the domain changed, grbsumlink is not provided
+  # grbsumlink = 'http://grblog.org/grblog.php?view=burst&GRB=%s' % GRBnum
+  #seglink    = 'plot_segments_grb%s.png' % GRBnum
+  seglink    = 'plot_segments_%s.png' % GRBnum
   inilink    = os.path.basename(inifile)
-  linktext = { grbsumlink:'Summary of this GRB',\
-               seglink:   'Segments availability',\
+  #linktext = { grbsumlink:'Summary of this GRB',\
+  #             seglink:   'Segments availability',\
+  #             inilink:   'ini-file used'}
+  linktext = { seglink:   'Segments availability',\
                inilink:   'ini-file used'}
-  for link in [ grbsumlink, seglink, inilink ]:
+  #for link in [ grbsumlink, seglink, inilink ]:
+  for link in [ seglink, inilink ]:
     webpage.add( linktext[link] )
     webpage.a( href=link )
     webpage.add( 'here' )
