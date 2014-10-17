@@ -208,6 +208,11 @@ function toggle_visibility(tbid,lnkid)
 
 '''
 
+#import sim inspiral table content handler 
+from pylal.SimInspiralUtils import ExtractSimInspiralTableLIGOLWContentHandler
+from glue.ligolw import lsctables
+lsctables.use_in(ExtractSimInspiralTableLIGOLWContentHandler)
+
 #===============================================================================
 # Function used to generate plot labels.
 #===============================================================================
@@ -5902,7 +5907,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
   if siminspiral is not None:
     skip=0
     try:
-      xmldoc = utils.load_filename(siminspiral)
+      xmldoc = utils.load_filename(siminspiral,contenthandler=ExtractSimInspiralTableLIGOLWContentHandler)
       tbl = lsctables.table.get_table(xmldoc, "sim_inspiral")
       if event>0:
         tbl=tbl[event]
@@ -6005,115 +6010,124 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       print "ERROR: could not find any time parameter in the posterior file. Not plotting the WF...\n"
       return None
 
-    GPStime=LIGOTimeGPS(REAL8time)
-    
-    q=pos['q'].samples[which][0]
-    mc=pos['mc'].samples[which][0]
-    M1,M2=bppu.q2ms(mc,q)
-    D=pos['dist'].samples[which][0]
-    m1=M1*LAL_MSUN_SI
-    m2=M2*LAL_MSUN_SI
-    if 'phi_orb' in pos.names:
-      phiRef=pos['phi_orb'].samples[which][0]
-    else:
-      print 'WARNING: phi_orb not found in posterior files. Defaulting to 0.0 which is probably *not* what you want\n'
-      phiRef=0.0
-      
+    # first check we have approx in posterior samples, otherwise skip 
+    skip=0
     try:
-      for name in ['fref','f_ref','f_Ref','fRef']:
-        if name in pos.names:
-          fname=name
-          
-      Fref = np.unique(pos[fname].samples)
-      if len(Fref) > 1:
+      approximant=int(pos['LAL_APPROXIMANT'].samples[which][0])
+      amplitudeO=int(pos['LAL_AMPORDER'].samples[which][0])
+      phaseO=int(pos['LAL_PNORDER'].samples[which][0])  
+    except:
+      skip=1
+    if skip==0:
+      GPStime=LIGOTimeGPS(REAL8time)
+
+      q=pos['q'].samples[which][0]
+      mc=pos['mc'].samples[which][0]
+      M1,M2=bppu.q2ms(mc,q)
+      D=pos['dist'].samples[which][0]
+      m1=M1*LAL_MSUN_SI
+      m2=M2*LAL_MSUN_SI
+      if 'phi_orb' in pos.names:
+        phiRef=pos['phi_orb'].samples[which][0]
+      else:
+        print 'WARNING: phi_orb not found in posterior files. Defaulting to 0.0 which is probably *not* what you want\n'
+        phiRef=0.0
+  
+      try:
+        for name in ['fref','f_ref','f_Ref','fRef']:
+          if name in pos.names:
+            fname=name
+
+        Fref = np.unique(pos[fname].samples)
+        if len(Fref) > 1:
           print "ERROR: Expected f_ref to be constant for all samples.  Can't tell which value was injected! Defaulting to 100 Hz\n"
           print Fref
-      else:
+        else:
           f_ref = Fref[0]
-    except ValueError:
-      print "WARNING: Could not read fref from posterior file! Defaulting to 100 Hz\n"
+      except ValueError:
+        print "WARNING: Could not read fref from posterior file! Defaulting to 100 Hz\n"
 
-    try:
-      a = pos['a_spin1'].samples[which][0]
-      the = pos['theta_spin1'].samples[which][0]
-      phi = pos['phi_spin1'].samples[which][0]
-      s1x = (a * sin(the) * cos(phi));
-      s1y = (a * sin(the) * sin(phi));
-      s1z = (a * cos(the));
-      a = pos['a_spin2'].samples[which][0]
-      the = pos['theta_spin2'].samples[which][0]
-      phi = pos['phi_spin2'].samples[which][0]
-      s2x = (a * sin(the) * cos(phi));
-      s2y = (a * sin(the) * sin(phi));
-      s2z = (a * cos(the));
-      iota=pos['inclination'].samples[which][0]
-    except:
       try:
-        iota, s1x, s1y, s1z, s2x, s2y, s2z=lalsim.SimInspiralTransformPrecessingInitialConditions(pos['theta_JN'].samples[which][0], pos['phi_JL'].samples[which][0], pos['tilt1'].samples[which][0], pos['tilt2'].samples[which][0], pos['phi12'].samples[which][0], pos['a1'].samples[which][0], pos['a2'].samples[which][0], m1, m2, f_ref)
+        a = pos['a_spin1'].samples[which][0]
+        the = pos['theta_spin1'].samples[which][0]
+        phi = pos['phi_spin1'].samples[which][0]
+        s1x = (a * sin(the) * cos(phi));
+        s1y = (a * sin(the) * sin(phi));
+        s1z = (a * cos(the));
+        a = pos['a_spin2'].samples[which][0]
+        the = pos['theta_spin2'].samples[which][0]
+        phi = pos['phi_spin2'].samples[which][0]
+        s2x = (a * sin(the) * cos(phi));
+        s2y = (a * sin(the) * sin(phi));
+        s2z = (a * cos(the));
+        iota=pos['inclination'].samples[which][0]
       except:
-        s1x=s1y=s1z=s2x=s2y=s2z=0.0
         try:
-          iota=pos['inclination'].samples[which][0]
+          iota, s1x, s1y, s1z, s2x, s2y, s2z=lalsim.SimInspiralTransformPrecessingInitialConditions(pos['theta_JN'].samples[which][0], pos['phi_JL'].samples[which][0], pos['tilt1'].samples[which][0], pos['tilt2'].samples[which][0], pos['phi12'].samples[which][0], pos['a1'].samples[which][0], pos['a2'].samples[which][0], m1, m2, f_ref)
         except:
-          iota=pos['theta_jn'].samples[which][0]
-      
-    r=D*LAL_PC_SI*1.0e6
+          s1x=s1y=s1z=s2x=s2y=s2z=0.0
+          try:
+            iota=pos['inclination'].samples[which][0]
+          except:
+            iota=pos['theta_jn'].samples[which][0]
 
-    lambda1=0
-    lambda2=0
-    waveFlags=None
-    nonGRparams=None
-    approximant=int(pos['LAL_APPROXIMANT'].samples[which][0])
-    amplitudeO=int(pos['LAL_AMPORDER'].samples[which][0])
-    phaseO=int(pos['LAL_PNORDER'].samples[which][0])
+      r=D*LAL_PC_SI*1.0e6
 
-    if SimInspiralImplementedFDApproximants(approximant):
-      rec_domain='F'
-      [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_max,   f_ref,r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
-    elif SimInspiralImplementedTDApproximants(approximant):
-      rec_domain='T'
-      [plus,cross]=SimInspiralChooseTDWaveform(phiRef, deltaT,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_ref,  r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
-    else:
-      print "The approximant %s doesn't seem to be recognized by lalsimulation!\n Skipping WF plots\n"%approximant
-      return None
-      
-    ra=pos['ra'].samples[which][0]
-    dec=pos['dec'].samples[which][0]
-    psi=pos['psi'].samples[which][0]
-    fs={}
-    for ifo in ifos:
-      (fp,fc,fa,qv)=ant.response(REAL8time,ra,dec,iota,psi,'radians',ifo)
-      if rec_domain=='T':
-        # strain is a temporary container for this IFO strain.
-        # Take antenna pattern into accout and window the data
-        for k in np.arange(strainT.data.length):
-          if k<plus.data.length:
-            strainT.data.data[k]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
-          else:
-            strainT.data.data[k]=0.0
-          strainT.data.data[k]*=window.data.data[k]
-        # now copy in the dictionary only the part of strain which is not null (that is achieved using plus.data.length as length)
-        rec_strains[ifo]["T"]['strain']=np.array([strainT.data.data[k] for k in arange(plus.data.length)])
-        rec_strains[ifo]["T"]['x']=np.array([REAL8time - deltaT*(plus.data.length-1-k) for k in np.arange(plus.data.length)])
-        
-        # Take the FFT
-        for j in arange(strainF.data.length):
-          strainF.data.data[j]=0.0
-        REAL8TimeFreqFFT(strainF,strainT,timeToFreqFFTPlan);
-        for j in arange(strainF.data.length):
-          strainF.data.data[j]/=WinNorm
-        # copy in the dictionary
-        rec_strains[ifo]["F"]['strain']=np.array([strainF.data.data[k] for k in arange(int(strainF.data.length))])
-        rec_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
-      elif rec_domain=='F':
-        for k in np.arange(strainF.data.length):
-          if k<plus.data.length:
-            strainF.data.data[k]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
-          else:
-            strainF.data.data[k]=0.0
-        # copy in the dictionary
-        rec_strains[ifo]["F"]['strain']=np.array([strainF.data.data[k] for k in arange(int(strainF.data.length))])
-        rec_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
+      lambda1=0
+      lambda2=0
+      waveFlags=None
+      nonGRparams=None
+      approximant=int(pos['LAL_APPROXIMANT'].samples[which][0])
+      amplitudeO=int(pos['LAL_AMPORDER'].samples[which][0])
+      phaseO=int(pos['LAL_PNORDER'].samples[which][0])
+
+      if SimInspiralImplementedFDApproximants(approximant):
+        rec_domain='F'
+        [plus,cross]=SimInspiralChooseFDWaveform(phiRef, deltaF,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_max,   f_ref,r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
+      elif SimInspiralImplementedTDApproximants(approximant):
+        rec_domain='T'
+        [plus,cross]=SimInspiralChooseTDWaveform(phiRef, deltaT,  m1, m2, s1x, s1y, s1z,s2x,s2y,s2z,f_min, f_ref,  r,   iota, lambda1,   lambda2,waveFlags, nonGRparams, amplitudeO, phaseO, approximant)
+      else:
+        print "The approximant %s doesn't seem to be recognized by lalsimulation!\n Skipping WF plots\n"%approximant
+        return None
+
+      ra=pos['ra'].samples[which][0]
+      dec=pos['dec'].samples[which][0]
+      psi=pos['psi'].samples[which][0]
+      fs={}
+      for ifo in ifos:
+        (fp,fc,fa,qv)=ant.response(REAL8time,ra,dec,iota,psi,'radians',ifo)
+        if rec_domain=='T':
+          # strain is a temporary container for this IFO strain.
+          # Take antenna pattern into accout and window the data
+          for k in np.arange(strainT.data.length):
+            if k<plus.data.length:
+              strainT.data.data[k]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
+            else:
+              strainT.data.data[k]=0.0
+            strainT.data.data[k]*=window.data.data[k]
+          # now copy in the dictionary only the part of strain which is not null (that is achieved using plus.data.length as length)
+          rec_strains[ifo]["T"]['strain']=np.array([strainT.data.data[k] for k in arange(plus.data.length)])
+          rec_strains[ifo]["T"]['x']=np.array([REAL8time - deltaT*(plus.data.length-1-k) for k in np.arange(plus.data.length)])
+
+          # Take the FFT
+          for j in arange(strainF.data.length):
+            strainF.data.data[j]=0.0
+          REAL8TimeFreqFFT(strainF,strainT,timeToFreqFFTPlan);
+          for j in arange(strainF.data.length):
+            strainF.data.data[j]/=WinNorm
+          # copy in the dictionary
+          rec_strains[ifo]["F"]['strain']=np.array([strainF.data.data[k] for k in arange(int(strainF.data.length))])
+          rec_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
+        elif rec_domain=='F':
+          for k in np.arange(strainF.data.length):
+            if k<plus.data.length:
+              strainF.data.data[k]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
+            else:
+              strainF.data.data[k]=0.0
+          # copy in the dictionary
+          rec_strains[ifo]["F"]['strain']=np.array([strainF.data.data[k] for k in arange(int(strainF.data.length))])
+          rec_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
 
   myfig=plt.figure(1,figsize=(23,15))
   

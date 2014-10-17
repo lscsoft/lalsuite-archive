@@ -116,26 +116,9 @@ def email_notify(address,path):
     server.sendmail(FROM,address,message)
     server.quit()
 
-
-class LIGOLWContentHandlerExtractSimInspiralTable(ligolw.LIGOLWContentHandler):
-    def __init__(self,document):
-      ligolw.LIGOLWContentHandler.__init__(self,document)
-      self.tabname=lsctables.SimInspiralTable.tableName
-      self.intable=False
-      self.tableElementName=''
-    def startElement(self,name,attrs):
-      if attrs.has_key('Name') and attrs['Name']==self.tabname:
-        self.tableElementName=name
-        # Got the right table, let's see if it's the right event
-        ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
-        self.intable=True
-      elif self.intable: # We are in the correct table
-        ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
-    def endElement(self,name):
-      if self.intable: ligolw.LIGOLWContentHandler.endElement(self,name)
-      if self.intable and name==self.tableElementName: self.intable=False
-
-lsctables.use_in(LIGOLWContentHandlerExtractSimInspiralTable)
+#Import content handerl 
+from pylal.SimInspiralUtils import ExtractSimInspiralTableLIGOLWContentHandler
+lsctables.use_in(ExtractSimInspiralTableLIGOLWContentHandler)
 
 
 def pickle_to_file(obj,fname):
@@ -291,7 +274,7 @@ def cbcBayesPostProc(
     injection=None
     if injfile and eventnum is not None:
         print 'Looking for event %i in %s\n'%(eventnum,injfile)
-        xmldoc = utils.load_filename(injfile,contenthandler=LIGOLWContentHandlerExtractSimInspiralTable)
+        xmldoc = utils.load_filename(injfile,contenthandler=ExtractSimInspiralTableLIGOLWContentHandler)
         siminspiraltable=lsctables.table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
         injection=siminspiraltable[eventnum]
 	#injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
