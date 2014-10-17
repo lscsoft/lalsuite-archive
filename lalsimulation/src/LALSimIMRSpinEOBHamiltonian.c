@@ -640,7 +640,7 @@ XLALSimIMRSpinAlignedEOBCalcOmega(
                       SpinEOBParams         *funcParams /**<< EOB parameters */
                       )
 {
-  static const REAL8 STEP_SIZE = 1.0e-4;
+  static const REAL8 STEP_SIZE = 10.0e-4;
 
   HcapDerivParams params;
 
@@ -719,7 +719,7 @@ XLALSimIMRSpinAlignedEOBNonKeplerCoeff(
 //debugPK
   tmpValues[2] = 1.0/(omegaCirc*omegaCirc*r3);
   //printf("NonKepler r set to r!!\n");
-  return 1.0;///(omegaCirc*omegaCirc*r3);
+  return 1.0/(omegaCirc*omegaCirc*r3);
 }
 
 

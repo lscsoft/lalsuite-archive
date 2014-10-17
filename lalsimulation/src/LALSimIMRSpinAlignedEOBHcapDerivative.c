@@ -92,7 +92,7 @@ static int XLALSpinAlignedHcapDerivative(
                   )
 {
 
-  static const REAL8 STEP_SIZE = 1.0e-4;
+  static const REAL8 STEP_SIZE = 10.e-4;
 
   static const INT4 lMax = 8;
 
