@@ -124,7 +124,8 @@ XLALEOBSpinAlignedStopCondition(double UNUSED t,  /**< UNUSED */
   r     = values[0];
   omega = dvalues[1];
 
-  //if ( omega < params->eobParams->omega )
+  //if ( omega < params->eobParams->omega ) 
+  //debugPK: Changed && to ||
   if ( r < 6. && omega < params->eobParams->omega )
   {
     return 1;

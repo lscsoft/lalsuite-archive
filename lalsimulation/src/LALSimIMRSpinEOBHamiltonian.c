@@ -40,6 +40,7 @@
 #include <lal/LALSimIMR.h>
 
 #include "LALSimIMRSpinEOB.h"
+#include "finite_difference.c"
 
 /*------------------------------------------------------------------------------------------
  *
@@ -672,7 +673,7 @@ XLALSimIMRSpinAlignedEOBCalcOmega(
   /* Now calculate omega. In the chosen co-ordinate system, */
   /* we need dH/dpy to calculate this, i.e. varyParam = 4   */
   params.varyParam = 4;
-  XLAL_CALLGSL( gslStatus = gsl_deriv_central( &F, cartValues[4],
+  XLAL_CALLGSL( gslStatus = gsl_deriv_fixed( &F, cartValues[4],
                   STEP_SIZE, &omega, &absErr ) );
 
   if ( gslStatus != GSL_SUCCESS )
@@ -715,8 +716,10 @@ XLALSimIMRSpinAlignedEOBNonKeplerCoeff(
   }
 
   r3 = values[0]*values[0]*values[0];
-
-  return 1.0/(omegaCirc*omegaCirc*r3);
+//debugPK
+  tmpValues[2] = 1.0/(omegaCirc*omegaCirc*r3);
+  //printf("NonKepler r set to r!!\n");
+  return 1.0;///(omegaCirc*omegaCirc*r3);
 }
 
 

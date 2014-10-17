@@ -47,6 +47,7 @@
 #include "LALSimIMRSpinEOBFactorizedFlux.c"
 
 #include <gsl/gsl_deriv.h>
+#include "finite_difference.c"
 
 /*------------------------------------------------------------------------------------------
  *
@@ -60,7 +61,13 @@ static int XLALSpinAlignedHcapDerivative(
                           const REAL8           values[],
                           REAL8                 dvalues[],
                           void                  *funcParams
-                               );
+                             );
+
+/* static int gsl_deriv_fixed( const gsl_function * f, 
+                            double x, 
+                            double h, 
+                            double * result, 
+                            double * abserr ); */
 /*------------------------------------------------------------------------------------------
  *
  *          Defintions of functions.
@@ -181,7 +188,7 @@ static int XLALSpinAlignedHcapDerivative(
   for ( i = 0; i < 6; i++ )
   {
     params.varyParam = i;
-    XLAL_CALLGSL( gslStatus = gsl_deriv_central( &F, cartValues[i], 
+    XLAL_CALLGSL( gslStatus = gsl_deriv_fixed( &F, cartValues[i], 
                     STEP_SIZE, &tmpDValues[i], &absErr ) );
 
     if ( gslStatus != GSL_SUCCESS )
@@ -233,7 +240,7 @@ static int XLALSpinAlignedHcapDerivative(
   /* csi is needed because we use the tortoise co-ordinate */
   /* Right hand side of Eqs. 10a - 10d of Pan et al. PRD 84, 124052 (2011) */
   dvalues[0] = csi * tmpDValues[3];
-  dvalues[1] = omega;
+  dvalues[1] = omega; //debugPK
   /* Note: in this special coordinate setting, namely y = z = 0, dpr/dt = dpx/dt + dy/dt * py/r, where py = pphi/r */ 
   dvalues[2] = - tmpDValues[0] + tmpDValues[4] * values[3] / (r*r);
   dvalues[2] = dvalues[2] * csi - ( values[2] / values[3] ) * flux / omega;
@@ -252,4 +259,25 @@ static int XLALSpinAlignedHcapDerivative(
   return XLAL_SUCCESS;
 }
 
+/*
+ static int gsl_deriv_fixed( 
+      const gsl_function * f, 
+      double x, 
+      double h, 
+      double * result, 
+      double * abserr )
+{
+   // Function to be called as -- Func(x) = (*(f->function))(double x, (void*) f->params );
+   // *result = Func(x+h) - Func(x-h) / 2h 
+   *result = (*(f->function))( x + 0.5*h, (void*) f->params ) - (*(f->function))( x - 0.5*h, (void*) f->params );
+   *result /= h;
+
+   double ddF = (*(f->function))( x + 0.5*h, (void*) f->params ) + (*(f->function))( x - 0.5*h, (void*) f->params ) - 2*(*(f->function))( x , (void*) f->params );
+   ddF /= (0.25*h*h);
+   *abserr = abs( 0.25 * h * ddF );
+
+   return GSL_SUCCESS;
+
+}
+*/
 #endif /* LALSIMIMRSPINALIGNEDEOBHCAPDERIVATIVE_C */

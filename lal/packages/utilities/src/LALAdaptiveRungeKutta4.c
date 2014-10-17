@@ -18,6 +18,9 @@
 */
 
 #include <lal/LALAdaptiveRungeKutta4.h>
+#include <malloc.h>
+#include <gsl/gsl_odeiv2.h>
+#include <gsl/gsl_errno.h>
 
 ark4GSLIntegrator *XLALAdaptiveRungeKutta4Init( int dim,
                              int (* dydt) (double t, const double y[], double dydt[], void * params),  /* These are XLAL functions! */
@@ -34,12 +37,12 @@ ark4GSLIntegrator *XLALAdaptiveRungeKutta4Init( int dim,
 	}
 
   /* allocate the GSL ODE components */
-  XLAL_CALLGSL( integrator->step    = gsl_odeiv_step_alloc(gsl_odeiv_step_rkf45,dim) );
-  XLAL_CALLGSL( integrator->control = gsl_odeiv_control_y_new(eps_abs,eps_rel) );
-  XLAL_CALLGSL( integrator->evolve  = gsl_odeiv_evolve_alloc(dim) );
+  XLAL_CALLGSL( integrator->step    = gsl_odeiv2_step_alloc(gsl_odeiv2_step_rkf45,dim) );
+  XLAL_CALLGSL( integrator->control = gsl_odeiv2_control_y_new(eps_abs,eps_rel) );
+  XLAL_CALLGSL( integrator->evolve  = gsl_odeiv2_evolve_alloc(dim) );
 
   /* allocate the GSL system (functions, etc.) */
-	integrator->sys = (gsl_odeiv_system *)LALCalloc(1, sizeof(gsl_odeiv_system));
+	integrator->sys = (gsl_odeiv2_system *)LALCalloc(1, sizeof(gsl_odeiv2_system));
 
   /* if something failed to be allocated, bail out */
   if ( !(integrator->step) || !(integrator->control) || !(integrator->evolve) || !(integrator->sys) )
@@ -67,9 +70,9 @@ void XLALAdaptiveRungeKutta4Free( ark4GSLIntegrator *integrator )
 {
   if (!integrator) return;
 
-  if (integrator->evolve)  XLAL_CALLGSL( gsl_odeiv_evolve_free(integrator->evolve) );
-  if (integrator->control) XLAL_CALLGSL( gsl_odeiv_control_free(integrator->control) );
-  if (integrator->step)    XLAL_CALLGSL( gsl_odeiv_step_free(integrator->step) );
+  if (integrator->evolve)  XLAL_CALLGSL( gsl_odeiv2_evolve_free(integrator->evolve) );
+  if (integrator->control) XLAL_CALLGSL( gsl_odeiv2_control_free(integrator->control) );
+  if (integrator->step)    XLAL_CALLGSL( gsl_odeiv2_step_free(integrator->step) );
 
   LALFree( integrator->sys );
   LALFree( integrator );
@@ -180,6 +183,18 @@ int XLALAdaptiveRungeKutta4Hermite( ark4GSLIntegrator *integrator,	/**< struct h
                                     )
 {
   int status;
+    //debugPK
+    printf("Hermite interpolation used!\n");
+	FILE *fout;
+	static int iii = 0; char fname[200]; char iiiStr[20];
+	strcpy( fname, "/home/prayush/research/SEOBNRv2-3/integrator_studies/RawIntegratorOutput.dat");
+	snprintf( iiiStr, 20, "%d", iii );
+	strcat( fname, iiiStr );
+	fout = fopen( fname,"w+");
+        printf("Writing data and error information\n"); fflush(NULL);
+    fprintf(stdout, "Integrator output statement accepted. iii = %d\n", ++iii-1);
+    fflush(stdout);
+    
   size_t dim, retries, i;
   int outputlen = 0, count = 0;
 
@@ -240,15 +255,20 @@ int XLALAdaptiveRungeKutta4Hermite( ark4GSLIntegrator *integrator,	/**< struct h
 
   /* We are starting a fresh integration; clear GSL step and evolve
      objects. */
-  gsl_odeiv_step_reset(integrator->step);
-  gsl_odeiv_evolve_reset(integrator->evolve);
+  gsl_odeiv2_step_reset(integrator->step);
+  gsl_odeiv2_evolve_reset(integrator->evolve);
 
   /* Enter evolution loop.  NOTE: we *always* take at least one
      step. */
+  //debugPK
+  //double *errlevels = NULL; errlevels = malloc( dim * sizeof(double) ); double errlevel = 0; int errcode = GSL_SUCCESS;
+    fprintf(fout, "#\t t\t y[%d]\t y[%d]\t y[%d]\t y[%d]\n", (int) dim, (int) dim, (int) dim, (int) dim);
+    //fprintf(fout, "#\t t\t y[%d]\t dydt[%d]\t yerr[%d]\t errlevel[%d]\n", 
+    //        (int) dim, (int) dim, (int) dim, (int) dim);
   while (1) {
     REAL8 told = t;
 
-    status = gsl_odeiv_evolve_apply(integrator->evolve, integrator->control, integrator->step, integrator->sys, &t, tend, &h, yinit);
+    status = gsl_odeiv2_evolve_apply(integrator->evolve, integrator->control, integrator->step, integrator->sys, &t, tend, &h, yinit);
 
     /* Check for failure, retry if haven't retried too many times
        already. */
@@ -313,9 +333,33 @@ int XLALAdaptiveRungeKutta4Hermite( ark4GSLIntegrator *integrator,	/**< struct h
         break;
       }
     }
+    //debugPK
+        //printf("%.4f\t%.4f\t%.4f\n", 
+        //    y[0], dydt_out[1], dydt_out[3]); fflush(NULL);
+    fprintf(fout, "%.12e\t", tintp);
+    for(unsigned int j=0; j<dim; j++){
+      fprintf(fout, "%.12e\t", ytemp[j]);
+    }
+    for(unsigned int j=0; j < dim; j++){
+      fprintf(fout, "%.12e\t", ytemp[j]);
+    }
+    for(unsigned int j=0; j < dim; j++){
+      fprintf(fout, "%.12e\t", ytemp[j]);
+    }
+    for(unsigned int j=0; j < dim; j++){
+      fprintf(fout, "%.12e\t", ytemp[j]);
+    }
+    
+
+    fprintf(fout, "\n");
+    fflush(fout);
+	
+
   }
 
   XLAL_ENDGSL;
+	//debugPK
+	fclose(fout);
 
   /* Now that the interpolation is done, shrink the output array down
      to exactly count samples. */
@@ -357,7 +401,8 @@ int XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
 	strcpy( fname, "/home/prayush/research/SEOBNRv2-3/integrator_studies/RawIntegratorOutput.dat");
 	snprintf( iiiStr, 20, "%d", iii );
 	strcat( fname, iiiStr );
-	fout = fopen( fname,"w+"); 
+	fout = fopen( fname,"w+");
+        printf("Writing data and error information\n"); fflush(NULL);
     fprintf(stdout, "Integrator output statement accepted. iii = %d\n", ++iii-1);
     fflush(stdout);
     
@@ -413,7 +458,9 @@ int XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
 	/* note: for speed, this replaces the single CALLGSL wrapper applied before each GSL call */
 	XLAL_BEGINGSL;
   //debugPK
-  double errlevels* = NULL; errlevels = calloc( dim * sizeof(double) );
+  double *errlevels = NULL; errlevels = malloc( dim * sizeof(double) ); double errlevel = 0; int errcode = GSL_SUCCESS;
+    fprintf(fout, "#\t t\t y[%d]\t dydt[%d]\t yerr[%d]\t errlevel[%d]\n", 
+            (int) dim, (int) dim, (int) dim, (int) dim);
   while(1) {
 
      if (!integrator->stopontestonly && t >= tend) {
@@ -437,7 +484,7 @@ int XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
 		memcpy(dydt_in0,dydt_in,dim*sizeof(REAL8));
 
     /* call the GSL stepper function */
-		status = gsl_odeiv_step_apply(integrator->step,t,h0,y,yerr,dydt_in,dydt_out,integrator->sys);
+		status = gsl_odeiv2_step_apply(integrator->step,t,h0,y,yerr,dydt_in,dydt_out,integrator->sys);
 		/* note: If the user-supplied functions defined in the system dydt return a status other than GSL_SUCCESS,
 		   the step will be aborted. In this case, the elements of y will be restored to their pre-step values,
 		   and the error code from the user-supplied function will be returned. */
@@ -458,14 +505,19 @@ int XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
     tnew = t + h0;
     
     //debugPK : Store the desired error levels
-    for(double errlevel=0,unsigned int i=0; i < dim; i++){
+    errlevel = 0;
+    for(unsigned int i=0; i < dim; i++){
       errlevels[i] = 0;
-      errcode = gsl_odeiv2_control_errlevel(integrator->control, y, dydt_out, h0, (const size_t) i, &errlevel);
+      //printf(" i = %d\n", i ); fflush(NULL);
+      //printf(" errlevel BEF = %e\n", errlevel ); fflush(NULL);
+      errcode = gsl_odeiv2_control_errlevel(integrator->control, y[i], dydt_out[i], h0, (const size_t) i, &errlevel);
+      errcode *= 2; errcode *= 0;
+      //printf(" errlevel AFT = %e\n", errlevel ); fflush(NULL);
       errlevels[i] = errlevel;
     }
 
     /* call the GSL error-checking function */
-    status = gsl_odeiv_control_hadjust(integrator->control,integrator->step,y,yerr,dydt_out,&h0);
+    status = gsl_odeiv2_control_hadjust(integrator->control,integrator->step,y,yerr,dydt_out,&h0);
 
 		/* did the error-checker reduce the stepsize?
 		   note: other possible return codes are GSL_ODEIV_HADJ_INC if it was increased,
@@ -503,7 +555,6 @@ int XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
     //debugPK
         //printf("%.4f\t%.4f\t%.4f\n", 
         //    y[0], dydt_out[1], dydt_out[3]); fflush(NULL);
-    fprintf(fout, "#\t t\t y[%d]\t dydt[%d]\n", (int) dim, (int) dim);
     fprintf(fout, "%.12e\t", t);
     for(unsigned int i=0; i<dim; i++){
       fprintf(fout, "%.12e\t", y[i]);
@@ -514,8 +565,8 @@ int XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
     for(unsigned int i=0; i < dim; i++){
       fprintf(fout, "%.12e\t", yerr[i]);
     }
-    for(double errlevel=0,unsigned int i=0; i < dim; i++){
-      fprintf(fout, "%.12e\t", errlevel);
+    for(unsigned int i=0; i < dim; i++){
+      fprintf(fout, "%.12e\t", errlevels[i]);
     }
 
 

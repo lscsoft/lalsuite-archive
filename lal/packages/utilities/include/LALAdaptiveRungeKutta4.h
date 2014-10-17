@@ -2,6 +2,7 @@
 #define _LALADAPTIVERUNGEKUTTA4_H
 
 #include <gsl/gsl_odeiv.h>
+#include <gsl/gsl_odeiv2.h>
 #include <gsl/gsl_spline.h>
 
 #include <lal/LALGSL.h>
@@ -58,15 +59,34 @@ extern "C" {
           XLALGSL_PTHREAD_MUTEX_UNLOCK; \
         }
 
+#if 0
+typedef struct
+tagark4GSLIntegrator2
+{
+  gsl_odeiv2_step    *step;
+  gsl_odeiv2_control *control;
+  gsl_odeiv2_evolve  *evolve;
+
+  gsl_odeiv2_system  *sys;
+
+  int (* dydt) (double t, const double y[], double dydt[], void * params);
+  int (* stop) (double t, const double y[], double dydt[], void * params);
+
+  int retries;		/* retries with smaller step when derivatives encounter singularity */
+  int stopontestonly;	/* stop only on test, use tend to size buffers only */
+
+  int returncode;
+} ark4GSLIntegrator2;
+#endif
 
 typedef struct
 tagark4GSLIntegrator
 {
-  gsl_odeiv_step    *step;
-  gsl_odeiv_control *control;
-  gsl_odeiv_evolve  *evolve;
+  gsl_odeiv2_step    *step;
+  gsl_odeiv2_control *control;
+  gsl_odeiv2_evolve  *evolve;
 
-  gsl_odeiv_system  *sys;
+  gsl_odeiv2_system  *sys;
 
   int (* dydt) (double t, const double y[], double dydt[], void * params);
   int (* stop) (double t, const double y[], double dydt[], void * params);
