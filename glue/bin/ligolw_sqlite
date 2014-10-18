@@ -33,6 +33,7 @@ databases.
 
 
 from optparse import OptionParser
+import os
 try:
 	import sqlite3
 except ImportError:
@@ -122,7 +123,8 @@ dbtables.use_in(ContentHandler)
 if __name__ == '__main__':
 	options, urls = parse_command_line()
 
-	will_write_to_file = (options.extract is None) or (urls != [None])
+	will_read_from_file = options.extract is not None
+	will_write_to_file = urls and not (will_read_from_file and urls == [None])
 	will_replace_file = will_write_to_file and options.replace
 	will_use_tmp_space = will_write_to_file and (options.tmp_space is not None)
 
@@ -132,7 +134,10 @@ if __name__ == '__main__':
 	#
 
 
-	target = dbtables.get_connection_filename(options.database, tmp_path = (will_use_tmp_space or None) and options.tmp_space, replace_file = will_replace_file, verbose = options.verbose)
+	if will_read_from_file and not will_write_to_file and not os.path.exists(options.database):
+		print >>sys.stderr, "'%s': no such file" % options.database
+		sys.exit(1)
+	target = dbtables.get_connection_filename(options.database, tmp_path = options.tmp_space if will_use_tmp_space else None, replace_file = will_replace_file, verbose = options.verbose)
 	ContentHandler.connection = sqlite3.connect(target)
 
 

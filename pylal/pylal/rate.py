@@ -46,6 +46,7 @@ except ImportError:
 import itertools
 import math
 import numpy
+import random
 import scipy
 __numpy__version__ = tuple(map(int, numpy.__version__.strip().split(".")))
 __scipy__version__ = tuple(map(int, scipy.__version__.strip().split(".")))
@@ -128,6 +129,18 @@ class Bins(object):
 		whose upper and lower bounds are the bins in which the
 		input slice's upper and lower bounds fall.
 		"""
+		if isinstance(x, slice):
+			if x.step is not None:
+				raise NotImplementedError(x)
+			if x.start is None:
+				start = 0
+			else:
+				start = self[x.start]
+			if x.stop is None:
+				stop = len(self)
+			else:
+				stop = self[x.stop] + 1
+			return slice(start, stop)
 		raise NotImplementedError
 
 	def __iter__(self):
@@ -159,21 +172,41 @@ class Bins(object):
 		"""
 		raise NotImplementedError
 
-	def randcentre(self, n = 1.):
+	def randcoord(self, n = 1., domain = slice(None, None)):
 		"""
 		Generator yielding a sequence of x, ln(P(x)) tuples where x
-		is a randomly-chosen bin centre and P(x) is the PDF from
-		which x has been drawn evaluated at x.  The CDF from which
-		the bin centres are drawn goes as [bin index]^{n}.  For
-		more information, see glue.iterutils.randindex.
+		is a randomly-chosen co-ordinate and P(x) is the PDF from
+		which x has been drawn evaluated at x.  The co-ordinate is
+		uniformly drawn from within bins, which are drawn from a
+		distribution whose CDF goes as [bin index]^{n}.  For more
+		information, see glue.iterutils.randindex.
 		"""
-		x = tuple(self.centres())
-		ln_dx = tuple(numpy.log(self.upper() - self.lower()))
+		if len(self) < 1:
+			raise ValueError("empty binning")
+		l = self.lower()
+		u = self.upper()
+		lo, hi, _ = self[domain].indices(len(l))
+		if not lo < hi:
+			raise ValueError("slice too small")
+		if domain.start is not None:
+			assert l[lo] <= domain.start
+			l[lo] = domain.start
+		if domain.stop is not None:
+			assert u[hi - 1] >= domain.stop
+			u[hi - 1] = domain.stop
+		# log() implicitly checks that the boundary adjustments
+		# above haven't made any bins <= 0 in size.  converting
+		# everything to tuples makes the loop faster
+		ln_dx = tuple(numpy.log(u - l))
+		l = tuple(l)
+		u = tuple(u)
+		# avoid symbol look-ups in the loop
 		isinf = math.isinf
-		for i, ln_Pi in iterutils.randindex(0, len(x), n = n):
+		uniform = random.uniform
+		for i, ln_Pi in iterutils.randindex(lo, hi, n = n):
 			if isinf(ln_dx[i]):
 				continue
-			yield x[i], ln_Pi - ln_dx[i]
+			yield uniform(l[i], u[i]), ln_Pi - ln_dx[i]
 
 
 class IrregularBins(Bins):
@@ -194,6 +227,16 @@ class IrregularBins(Bins):
 	1
 	>>> x[25]
 	2
+	>>> x[4:17]
+	slice(0, 3, None)
+	>>> IrregularBins([0.0, 15.0, 11.0])
+	Traceback (most recent call last):
+	  File "<stdin>", line 1, in <module>
+	    raise ValueError("non-monotonic boundaries provided")
+	ValueError: non-monotonic boundaries provided
+	>>> y = IrregularBins([0.0, 11.0, 15.0, numpy.inf])
+	>>> x == y
+	True
 	"""
 	def __init__(self, boundaries):
 		"""
@@ -205,8 +248,8 @@ class IrregularBins(Bins):
 		# check pre-conditions
 		if len(boundaries) < 2:
 			raise ValueError("less than two boundaries provided")
-		boundaries = numpy.array(boundaries)
-		if (boundaries[:-1] > boundaries[1:]).any():
+		boundaries = tuple(boundaries)
+		if any(a > b for a, b in zip(boundaries[:-1], boundaries[1:])):
 			raise ValueError("non-monotonic boundaries provided")
 
 		self.boundaries = boundaries
@@ -221,21 +264,11 @@ class IrregularBins(Bins):
 		"""
 		if not isinstance(other, type(self)):
 			return -1
-		return cmp(len(self), len(other)) or (self.boundaries != other.boundaries).any()
+		return cmp(self.boundaries, other.boundaries)
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
+			return super(IrregularBins, self).__getitem__(x)
 		if self.min <= x < self.max:
 			return bisect_right(self.boundaries, x) - 1
 		# special measure-zero edge case
@@ -244,10 +277,10 @@ class IrregularBins(Bins):
 		raise IndexError(x)
 
 	def lower(self):
-		return self.boundaries[:-1]
+		return numpy.array(self.boundaries[:-1])
 
 	def upper(self):
-		return self.boundaries[1:]
+		return numpy.array(self.boundaries[1:])
 
 	def centres(self):
 		return (self.lower() + self.upper()) / 2.0
@@ -276,6 +309,17 @@ class LinearBins(Bins):
 	1
 	>>> x[25]
 	2
+	>>> x[0:27]
+	Traceback (most recent call last):
+	  File "<stdin>", line 1, in <module>
+	    raise IndexError(value)
+	IndexError: 0
+	>>> x[1:25]
+	slice(0, 3, None)
+	>>> x[10:16.9]
+	slice(1, 2, None)
+	>>> x[10:17]
+	slice(1, 3, None)
 	"""
 	def __init__(self, min, max, n):
 		Bins.__init__(self, min, max, n)
@@ -283,17 +327,7 @@ class LinearBins(Bins):
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
+			return super(LinearBins, self).__getitem__(x)
 		if self.min <= x < self.max:
 			return int(math.floor((x - self.min) / self.delta))
 		if x == self.max:
@@ -321,33 +355,33 @@ class LinearPlusOverflowBins(Bins):
 
 	Example:
 
-	>>> X = LinearPlusOverflowBins(1.0, 25.0, 5)
-
-	>>> X.centres()
+	>>> x = LinearPlusOverflowBins(1.0, 25.0, 5)
+	>>> x.centres()
 	array([-inf,   5.,  13.,  21.,  inf])
-
-	>>> X.lower()
+	>>> x.lower()
 	array([-inf,   1.,   9.,  17.,  25.])
-
-	>>> X.upper()
+	>>> x.upper()
 	array([  1.,   9.,  17.,  25.,  inf])
-
-	>>> X[float("-inf")]
+	>>> x[float("-inf")]
 	0
-	>>> X[0]
+	>>> x[0]
 	0
-	>>> X[1]
+	>>> x[1]
 	1
-	>>> X[10]
+	>>> x[10]
 	2
-	>>> X[24.99999999]
+	>>> x[24.99999999]
 	3
-	>>> X[25]
+	>>> x[25]
 	4
-	>>> X[100]
+	>>> x[100]
 	4
-	>>> X[float("+inf")]
+	>>> x[float("+inf")]
 	4
+	>>> x[float("-inf"):9]
+	slice(0, 3, None)
+	>>> x[9:float("+inf")]
+	slice(2, 5, None)
 	"""
 	def __init__(self, min, max, n):
 		if n < 3:
@@ -357,17 +391,7 @@ class LinearPlusOverflowBins(Bins):
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
+			return super(LinearPlusOverflowBins, self).__getitem__(x)
 		if self.min <= x < self.max:
 			return int(math.floor((x - self.min) / self.delta)) + 1
 		if x >= self.max:
@@ -411,17 +435,7 @@ class LogarithmicBins(Bins):
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
+			return super(LogarithmicBins, self).__getitem__(x)
 		if self.min <= x < self.max:
 			return int(math.floor((math.log(x) - math.log(self.min)) / self.delta))
 		if x == self.max:
@@ -478,17 +492,7 @@ class LogarithmicPlusOverflowBins(Bins):
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
+			return super(LogarithmicPlusOverflowBins, self).__getitem__(x)
 		if self.min <= x < self.max:
 			return 1 + int(math.floor((math.log(x) - math.log(self.min)) / self.delta))
 		if x >= self.max:
@@ -541,17 +545,7 @@ class ATanBins(Bins):
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
+			return super(ATanBins, self).__getitem__(x)
 		# map to the domain [0, 1]
 		x = math.atan(float(x - self.mid) * self.scale) / math.pi + 0.5
 		if x < 1:
@@ -733,7 +727,7 @@ class NDBins(tuple):
 	>>> x[1, 5]
 	(0, 1)
 	>>> x[1, 1:5]
-	(0, slice(0, 1, None))
+	(0, slice(0, 2, None))
 	>>> x.centres()
 	(array([  5.,  13.,  21.]), array([  1.70997595,   5.        ,  14.62008869]))
 
@@ -816,21 +810,29 @@ class NDBins(tuple):
 			result.shape = tuple(len(v) for v in volumes)
 			return result
 
-	def randcentre(self, ns = None):
+	def randcoord(self, ns = None, domain = None):
 		"""
 		Generator yielding a sequence of (x0, x1, ...), ln(P(x0,
 		x1, ...)) tuples where (x0, x1, ...) is a randomly-chosen
-		bin centre in the N-dimensional binning and P(x0, x1, ...)
+		co-ordinate in the N-dimensional binning and P(x0, x1, ...)
 		is the PDF from which the co-ordinate tuple has been drawn
 		evaluated at those co-ordinates.  If ns is not None it must
 		be a sequence of floats whose length matches the dimension
 		of the binning.  The floats will set the exponents, in
 		order, of the CDFs for the generators used for each
-		co-ordinate.  For more information, see Bins.randcentre().
+		co-ordinate.  If domain is not None it must be a sequence
+		of slice objects whose length matches the dimension of the
+		binning.  The slice objects will be passed, in order, as
+		the domain keyword argument to the .randcoord() method
+		corresponding to each dimension.  For more information on
+		how each of the co-ordinates is drawn, see
+		Bins.randcoord().
 		"""
 		if ns is None:
 			ns = (1.,) * len(self)
-		bingens = tuple(iter(binning.randcentre(n)).next for binning, n in zip(self, ns))
+		if domain is None:
+			domain = (slice(None, None),) * len(self)
+		bingens = tuple(iter(binning.randcoord(n, domain = d)).next for binning, n, d in zip(self, ns, domain))
 		while 1:
 			seq = sum((bingen() for bingen in bingens), ())
 			yield seq[0::2], sum(seq[1::2])
