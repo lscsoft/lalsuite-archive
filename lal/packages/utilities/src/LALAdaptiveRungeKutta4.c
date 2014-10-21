@@ -18,7 +18,7 @@
 */
 
 #include <lal/LALAdaptiveRungeKutta4.h>
-#include <malloc.h>
+#include <malloc/malloc.h>
 #include <gsl/gsl_odeiv2.h>
 #include <gsl/gsl_errno.h>
 
@@ -397,8 +397,10 @@ int XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
   int status; /* used throughout */
     //debugPK
 	FILE *fout;
+    
 	static int iii = 0; char fname[200]; char iiiStr[20];
-	strcpy( fname, "/home/prayush/research/SEOBNRv2-3/integrator_studies/RawIntegratorOutput.dat");
+	/*strcpy( fname, "/home/prayush/research/SEOBNRv2-3/integrator_studies/RawIntegratorOutput.dat");*/
+    strcpy( fname, "/Users/stas/LSC/Work/RawIntegratorOutput.dat");
 	snprintf( iiiStr, 20, "%d", iii );
 	strcat( fname, iiiStr );
 	fout = fopen( fname,"w+");
@@ -461,6 +463,7 @@ int XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
   double *errlevels = NULL; errlevels = malloc( dim * sizeof(double) ); double errlevel = 0; int errcode = GSL_SUCCESS;
     fprintf(fout, "#\t t\t y[%d]\t dydt[%d]\t yerr[%d]\t errlevel[%d]\n", 
             (int) dim, (int) dim, (int) dim, (int) dim);
+              
   while(1) {
 
      if (!integrator->stopontestonly && t >= tend) {
@@ -475,6 +478,7 @@ int XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
 		}
 
 		/* ready to try stepping! */
+      
     try_step:
 
 		/* if we would be stepping beyond the final time, stop there instead... */
