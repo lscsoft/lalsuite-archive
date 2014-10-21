@@ -144,9 +144,9 @@ def parse_inspiral_num_slides_slidespec(slidespec):
 #
 
 
+@lsctables.use_in
 class DefaultContentHandler(lsctables.ligolw.LIGOLWContentHandler):
 	pass
-lsctables.use_in(DefaultContentHandler)
 
 
 def load_time_slides(filename, verbose = False, gz = None, contenthandler = DefaultContentHandler):
@@ -161,8 +161,8 @@ def load_time_slides(filename, verbose = False, gz = None, contenthandler = Defa
 	Note that a side effect of this function is that the ID generator
 	associated with the TimeSlideTable class in glue.ligolw.lsctables
 	is synchronized with the result, so that the next ID it generates
-	will be immediately following the IDs listed in the dictionary
-	returned by this function.
+	will not conflict with the IDs listed in the dictionary returned by
+	this function.
 
 	Note also that this utility function should not be how applications
 	that perform multiple manipulations with an XML file obtain the
@@ -266,24 +266,6 @@ def Inspiral_Num_Slides_Iter(count, offsets):
 	offsets = offsets.items()
 	for n in range(-count, +count + 1):
 		yield offsetvector.offsetvector((instrument, offset * n) for instrument, offset in offsets)
-
-
-def RowsFromOffsetDict(offsetvect, time_slide_id, process):
-	"""
-	Accepts a dictionary mapping instrument --> offset, and a
-	time_slide ID, and yields a sequence of rows to append to the
-	time_slide table.  process must be the row in the process table on
-	which the newly-constructed time_slide table rows are to be blamed.
-	"""
-	# FIXME:  remove when all occurances are replaced with
-	# glue.ligolw.lsctables.TimeSlideTable.append_offsetvector()
-	for instrument, offset in offsetvect.items():
-		row = lsctables.TimeSlide()
-		row.process_id = process.process_id
-		row.time_slide_id = time_slide_id
-		row.instrument = instrument
-		row.offset = offset
-		yield row
 
 
 #

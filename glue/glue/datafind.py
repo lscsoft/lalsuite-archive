@@ -1,4 +1,5 @@
-# Copyright (C) 2012  Scott Koranda, Duncan M. Macleod
+# -*- coding: utf-8 -*-
+# Copyright (C) 2012  Scott Koranda, Duncan Macleod
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -14,12 +15,46 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-"""This module defines the GWDataFindHTTPConnection and
-GWDataFindHTTPSConnection objects for handling connections to
-the GWDataFindServer.
+"""The client library for the LIGO Data Replicator (LDR) service.
+
+The DataFind service allows users to query for the location of
+Gravitational-Wave Frame (GWF) files containing data from the current
+LIGO and Virgo gravitational-wave detectors.
+
+This module defines the L{GWDataFindHTTPConnection} and
+L{GWDataFindHTTPSConnection} class objects, for connecting to an LDR
+server in open and authenticated access modes respectively.
+The authenticated L{GWDataFindHTTPSConnection} connection requires users
+have a valid X509 certificate that is registered with the server in
+question.
+
+A new connection can be opened as follows:
+
+>>> from glue.datafind import GWDataFindHTTPConnection
+>>> connection = GWDataFindHTTPConnection(host, port)
+
+and similar for the HTTPS version.
+
+Users on the LIGO Data Grid (LDG) can connect without giving the name of
+the relevant host, so long as the C{LIGO_DATAFIND_SERVER} environment
+variable is defined:
+
+>>> connection = GWDataFindHTTPConnection()
+
+Queries for frames can be made using the L{find_frame_urls<GWDataFindHTTPConnection.find_frame_urls>} method of the
+relevant connection:
+
+>>> cache = connection.find_frame_urls('L', 'L1_R', 1093564816, 1093651216)
+
+By default, the returned L{Cache<glue.lal.Cache>} object includes both C{gsiftp} and local C{file} versions of each frame, but the C{urlfile} keyword argument can be given to return only one of those:
+
+>>> cache = connection.find_frame_urls('L', 'L1_R', 1093564816, 1093651216, urltype='file')
+
+See the documentation for each connection method for more detailed examples.
 """
 
 from __future__ import division
+
 import os
 import sys
 import time
@@ -30,7 +65,7 @@ import re
 import unittest
 
 from cjson import decode
-from glue import lal, git_version, segments
+from glue import (lal, git_version, segments)
 
 __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 __credits__ = "Scott Koranda <scott.koranda@ligo.org>"
@@ -43,6 +78,14 @@ _url_prefix = "/LDR/services/data/v1"
 
 class GWDataFindHTTPConnection(httplib.HTTPConnection):
     """Connection to LIGO data replicator service using HTTP.
+
+    @param host: the name of the server with which to connect
+    @param port: the port on which to connect
+    @param **kwargs: other keyword arguments accepted by
+                     L{httplib.HTTPConnection}
+
+    @type  host: L{str}
+    @type  port: L{int}
     """
     LIGOTimeGPSType = lal.LIGOTimeGPS
     def __init__(self, host=None, **kwargs):
@@ -57,6 +100,16 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
 
     def _requestresponse(self, method, url, body=None, headers={}):
         """Internal method to perform request and verify reponse.
+
+        @param method: name of the method to use (e.g. 'GET')
+        @param url   : remote URL to query
+
+        @type  method: L{str}
+        @type  url   : L{str}
+
+        @returns: L{str} response from server query
+
+        @raises RuntimeError: if query is unsuccessful
         """
         try:
             self.request(method, url)
@@ -72,8 +125,10 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
         return response
 
     def ping(self):
-        """Ping the LDR host. Raises RuntimeError when ping fails,
-        returns 0 otherwise.
+        """Ping the LDR host to test for life
+
+        @raises RuntimeError: when ping fails
+        @returns: 0 if ping was successful
         """
         url = "%s/gwf/%s/%s/%s,%s" % (_url_prefix, 'H', 'R', '1', '2')
         self._requestresponse("HEAD", url)
@@ -91,6 +146,12 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
          'L', 'T', 'V', 'Z']
         >>> connection.find_observatories("H")
         ['H', 'HL', 'HLT']
+
+        @type  match: L{str}
+        @param match:
+            name to match return observatories against
+
+        @returns: L{list} of observatory prefixes
         """
         url = "%s/gwf.json" % _url_prefix
         response = self._requestresponse("GET", url)
@@ -119,6 +180,14 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
          'RDS_R_L2',
          'RDS_R_L3',
          'TESTPEM_RDS_A6']
+
+        @param  site: single-character name of site to match
+        @param match: type-name to match against
+
+        @type  site: L{str}
+        @type match: L{str}
+
+        @returns: L{list} of frame types
         """
         if site:
             url = "%s/gwf/%s.json" % (_url_prefix, site[0])
@@ -132,13 +201,26 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
         return typelist
 
     def find_times(self, site, frametype, gpsstart=None, gpsend=None):
-        """Query the LDR host for times for which frames are
-        available for the given site and frametype.
+        """Query the LDR for times for which frames are avaliable
 
         Use gpsstart and gpsend to restrict the returned times to
         this semiopen interval.
 
-        Returns glue.segments.segmentlist.
+        @returns: L{segmentlist<glue.segments.segmentlist>}
+
+        @param site:
+            single-character name of site to match
+        @param frametype:
+            name of frametype to match
+        @param gpsstart:
+            integer GPS start time of query
+        @param gpsend:
+            integer GPS end time of query
+
+        @type       site: L{str}
+        @type  frametype: L{str}
+        @type   gpsstart: L{int}
+        @type     gpsend: L{int}
         """
         if gpsstart and gpsend:
             url = ("%s/gwf/%s/%s/segments/%s,%s.json"
@@ -152,17 +234,25 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
         return segments.segmentlist(map(segments.segment, segmentlist))
 
     def find_frame(self, framefile, urltype=None, on_missing="warn"):
-        """Query the LDR host for a single framefile.
+        """Query the LDR host for a single framefile
 
-        Use urltype to restrict the returned frames to the given
-        scheme (e.g. "file").
+        @returns: L{Cache<glue.lal.Cache>}
 
+        @param frametype:
+            name of frametype to match
+        @param urltype:
+            file scheme to search for (e.g. 'file')
+        @param on_missing:
+            what to do when the requested frame isn't found, one of:
+                - C{'warn'} (default): print a warning,
+                - C{'error'}: raise an L{RuntimeError}, or
+                - C{'ignore'}: do nothing
 
-        If on_missing="error" is given, raises RuntimeError if no
-        frames are found matching the given filepath, otherwise prints
-        warning if "warn" is given or nothing if "ignore" is given.
+        @type  frametype: L{str}
+        @type    urltype: L{str}
+        @type on_missing: L{str}
 
-        Returns glue.lal.Cache.
+        @raises RuntimeError: if given framefile is malformed
         """
         if on_missing not in ("warn", "error", "ignore"):
             raise ValueError("on_missing must be 'warn', 'error', or 'ignore'.")
@@ -188,15 +278,30 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
         return cache
 
     def find_latest(self, site, frametype, urltype=None, on_missing="warn"):
-        """Query the LDR host for the most recently received framefile
-        of the given site and frametype.
+        """Query for the most recent framefile of a given type.
 
-        Use urltype to restrict the returned frames to the given scheme
-        (e.g. "file"). Returns glue.lal.Cache.
+        @param  site:
+            single-character name of site to match
+        @param frametype:
+            name of frametype to match
+        @param urltype:
+            file scheme to search for (e.g. 'file')
+        @param on_missing:
+            what to do when the requested frame isn't found, one of:
+                - C{'warn'} (default): print a warning,
+                - C{'error'}: raise an L{RuntimeError}, or
+                - C{'ignore'}: do nothing
 
-        If on_missing="error" is given, raises RuntimeError if no
-        frames are found matching the given parameters, otherwise
-        prints warning if 'warn' is given or nothing if 'ignore' is given.
+        @type       site: L{str}
+        @type  frametype: L{str}
+        @type    urltype: L{str}
+        @type on_missing: L{str}
+
+        @returns: L{Cache<glue.lal.Cache>} with one
+                  L{entry<glue.lal.CacheEntry>}
+
+        @raises RuntimeError: if given framefile is malformed
+        @raises RuntimeError: if no frames are found and C{on_missing='error'}
         """
         if on_missing not in ('warn', 'error', 'ignore'):
             raise ValueError("on_missing must be 'warn', 'error', or 'ignore'.")
@@ -218,20 +323,38 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
 
     def find_frame_urls(self, site, frametype, gpsstart, gpsend,
                         match=None, urltype=None, on_gaps="warn"):
-        """Query the LDR host for the most all frame files of the given
-        site and frametype in the given [gpsstart, gpsend) interval.
+        """Find the framefiles for the given type in the [start, end) interval
+        frame
 
-        Use urltype to restrict th returned frames to the given
-        scheme (e.g. "file").
+        @param site:
+            single-character name of site to match
+        @param frametype:
+            name of frametype to match
+        @param gpsstart:
+            integer GPS start time of query
+        @param gpsend:
+            integer GPS end time of query
+        @param match:
+            regular expression to match against
+        @param urltype:
+            file scheme to search for (e.g. 'file')
+        @param on_gaps:
+            what to do when the requested frame isn't found, one of:
+                - C{'warn'} (default): print a warning,
+                - C{'error'}: raise an L{RuntimeError}, or
+                - C{'ignore'}: do nothing
 
-        If on_gaps="error" is given, raises RuntimeError if there are
-        gaps in the found frame list, otherwise prints warning if
-        "warn" is given or nothing if "ignore" is given.
+        @type       site: L{str}
+        @type  frametype: L{str}
+        @type   gpsstart: L{int}
+        @type     gpsend: L{int}
+        @type      match: L{str}
+        @type    urltype: L{str}
+        @type    on_gaps: L{str}
 
-        Use match to return only those frames matching the given
-        regular expression.
+        @returns: L{Cache<glue.lal.Cache>}
 
-        Returns glue.lal.Cache.
+        @raises RuntimeError: if gaps are found and C{on_gaps='error'}
         """
         if on_gaps not in ("warn", "error", "ignore"):
             raise ValueError("on_gaps must be 'warn', 'error', or 'ignore'.")
@@ -271,7 +394,6 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
 class GWDataFindHTTPSConnection(httplib.HTTPSConnection, GWDataFindHTTPConnection):
     """Secured connection to LIGO data replicator service using HTTPS.
     """
-
     def __init__(self, host=None, **kwargs):
         """Connect to the LDR host using HTTPS.
 
@@ -285,8 +407,13 @@ class GWDataFindHTTPSConnection(httplib.HTTPSConnection, GWDataFindHTTPConnectio
 
 
 def validate_proxy(path):
-    """Test that the proxy certificate is RFC 3820 compliant and
-    that it is valid for at least the next 15 minutes.
+    """Validate the users X509 proxy certificate
+
+    Tests that the proxy certificate is RFC 3820 compliant and that it
+    is valid for at least the next 15 minutes.
+
+    @returns: L{True} if the certificate validates
+    @raises RuntimeError: if the certificate cannot be validated
     """
     # load the proxy from path
     try:
@@ -330,14 +457,15 @@ def validate_proxy(path):
     return True
 
 def find_credential():
-    """Follow the usual path that GSI libraries would
-    follow to find a valid proxy credential but
-    also allow an end entity certificate to be used
-    along with an unencrypted private key if they
-    are pointed to by X509_USER_CERT and X509_USER_KEY
-    since we expect this will be the output from
-    the eventual ligo-login wrapper around
-    kinit and then myproxy-login.
+    """Locate the users X509 certificate and key files
+
+    This method uses the C{X509_USER_CERT} and C{X509_USER_KEY} to locate
+    valid proxy information. If those are not found, the standard location
+    in /tmp/ is searched.
+
+    @raises RuntimeError: if the proxy found via either method cannot
+                          be validated
+    @raises RuntimeError: if the cert and key files cannot be located
     """
 
     rfc_proxy_msg = ("Could not find a RFC 3820 compliant proxy credential."
@@ -372,10 +500,16 @@ def find_credential():
     raise RuntimeError(rfc_proxy_msg)
 
 def find_server():
-    """Find the LSC datafind server from the %s environment
-    variable. If found returns the server,port tuple. If not found, raises
-    a RuntimeError.
-    """ % _server_env
+    """Find the default server host from the environment
+
+    This method uses the C{LIGO_DATAFIND_SERVER} variable to construct
+    a C{(host, port)} tuple.
+
+    @returns: C{(host, port)}: the L{str} host name and L{int} port number
+
+    @raises RuntimeError: if the C{LIGO_DATAFIND_SERVER} environment variable
+                          is not set
+    """
 
     if os.environ.has_key(_server_env):
         host = os.environ[_server_env]
@@ -392,10 +526,9 @@ def find_server():
 class TestLDR(unittest.TestCase):
     """Small suite of test functions.
 
-    robably won't work if you're not on an LDAS
+    Probably won't work if you're not on an LDAS
     machine...
     """
-
     def test_HTTPConnection(self):
         h = GWDataFindHTTPConnection()
         h.close()
@@ -430,5 +563,4 @@ class TestLDR(unittest.TestCase):
         h.close()
 
 if __name__ == "__main__":
-
     unittest.main()

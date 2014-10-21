@@ -20,7 +20,6 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import git_version
-from pylal import ligolw_tisi
 from pylal import ligolw_cafe
 from pylal import mvsc_queries
 from glue import pipeline
@@ -228,7 +227,6 @@ for database in databases:
   local_disk = None #"/tmp"
   working_filename = dbtables.get_connection_filename(database, tmp_path = local_disk, verbose = True)
   connection = sqlite3.connect(working_filename)
-  dbtables.DBTable_set_connection(connection)
   xmldoc = dbtables.get_xml(connection)
   cursor = connection.cursor()
   for comb in ifo_combinations:

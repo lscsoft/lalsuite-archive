@@ -754,10 +754,11 @@ class CoincSynthesizer(object):
 		features will not be available if a dictionary of counts is
 		provided).  segmentlists is a glue.segments.segmentlistdict
 		object describing the observation segments for each of the
-		instruments.  delta_t is a time window in seconds, the
-		light travel time between instrument pairs is added to this
-		internally to set the maximum allowed coincidence window
-		between a pair of instruments.
+		instruments.  A segment list must be provided for (at
+		least) each instrument in eventlists.  delta_t is a time
+		window in seconds, the light travel time between instrument
+		pairs is added to this internally to set the maximum
+		allowed coincidence window between a pair of instruments.
 
 		abundance_rel_accuracy sets the fractional error tolerated
 		in the Monte Carlo integrator used to estimate the relative
@@ -779,7 +780,7 @@ class CoincSynthesizer(object):
 		{frozenset(['V1', 'H1']): 0.0, frozenset(['V1', 'H1', 'L1']): 0.25, frozenset(['H1', 'L1']): 0.25, frozenset(['V1', 'L1']): 0.5}
 		"""
 		self.eventlists = eventlists if eventlists is not None else dict.fromkeys(segmentlists, 0) if segmentlists is not None else {}
-		self.segmentlists = segmentlists if segmentlists is not None else segments.segmentlistdict()
+		self.segmentlists = segmentlists if segmentlists is not None else segmentsUtils.segments.segmentlistdict()
 		self.delta_t = delta_t
 		# require a segment list for each list of events
 		assert set(self.eventlists) <= set(self.segmentlists)
@@ -942,9 +943,13 @@ class CoincSynthesizer(object):
 			for instruments in self.all_instrument_combos:
 		# choose the instrument whose TOA forms the "epoch" of the
 		# coinc.  to improve the convergence rate this should be
-		# the instrument with the smallest coincidence windows
+		# the instrument with the smallest Cartesian product of
+		# coincidence windows with other instruments (so that
+		# coincidence with this instrument provides the tightest
+		# prior constraint on the time differences between the
+		# other instruments).
 				key = instruments
-				anchor = min((self.tau[frozenset(ab)], ab[0]) for ab in iterutils.choices(tuple(instruments), 2))[1]
+				anchor = min((a for a in instruments), key = lambda a: sum(math.log(self.tau[frozenset((a, b))]) for b in instruments - set([a])))
 				instruments = tuple(instruments - set([anchor]))
 		# compute \mu_{1} * \mu_{2} ... \mu_{N} * 2 * \tau_{12} * 2
 		# * \tau_{13} ... 2 * \tau_{1N}.  this is the rate at which
@@ -982,25 +987,38 @@ class CoincSynthesizer(object):
 		# also mutually coincident.  this is done by picking a
 		# vector of allowed \Delta ts and testing them against the
 		# coincidence windows.  the loop's exit criterion is
-		# arrived at as follows.  the binomial distribution's
-		# variance is d p (1 - p) where d is the number of trials
-		# and p is the probability of a successful outcome, which
-		# we replace here with p=n/d.  we quit when \sqrt{d p (1 -
-		# p)} / n <= rel accuracy.  by connecting the bailout
-		# condition to the results of the loop we bias the final
-		# answer (e.g., we get lucky and increment n on the first
-		# trial).  to minimize the effect of this we require at
-		# least 1 / rel accuracy iterations before considering the
-		# binomial criterion.  note that if the true probability is
-		# 0 or 1, so that n=0 or n=d identically then the loop will
-		# never terminate;  from the nature of the problem we know
-		# 0<p<1 so the loop will, eventually, terminate
+		# arrived at as follows.  after d trials, the number of
+		# successful outcomes is a binomially-distributed RV with
+		# variance = d p (1 - p) <= d/4 where p is the probability
+		# of a successful outcome.  we quit when the ratio of the
+		# bound on the standard deviation of the number of
+		# successful outcomes to the actual number of successful
+		# outcomes falls below rel accuracy: \sqrt{d/4} / n < rel
+		# accuracy.  note that if the true probability is 0, so
+		# that n=0 identically, then the loop will never terminate;
+		# from the nature of the problem we know 0<p<1 so the loop
+		# will, eventually, terminate.  note that if instead of
+		# using the upper bound on the variance, we replace p with
+		# (n/d) and use that estimate of the variance the loop can
+		# be shown to require many fewer iterations to meet the
+		# desired accuracy, but that choice creates a rather strong
+		# bias that, to overcome, requires some extra hacks to
+		# force the loop to run for additional iterations.  this
+		# approach is cleaner.
+					math_sqrt = math.sqrt
+					random_uniform = random.uniform
+					epsilon = self.abundance_rel_accuracy
 					n, d = 0, 0
-					while self.abundance_rel_accuracy * d < 1.0 or n < d / (1.0 + self.abundance_rel_accuracy**2 * d):
-						dt = tuple(random.uniform(*window) for window in windows)
+					while math_sqrt(d) >= epsilon * n:
+						dt = tuple(random_uniform(*window) for window in windows)
 						if all(abs(dt[i] - dt[j]) <= maxdt for i, j, maxdt in ijseq):
-							n += 1
+		# instead of adding 1 here and multiplying n by 2 in the
+		# loop exit test, we increment n by 2 and then fix it
+		# afterwards.
+							n += 2
 						d += 1
+		# fix n (see above)
+					n //= 2
 
 					rate *= float(n) / float(d)
 					if self.verbose:
@@ -1727,12 +1745,13 @@ class CoincParamsDistributions(object):
 
 		self._rebuild_interpolators()
 
-	def P_noise(self, params):
+	def lnP_noise(self, params):
 		"""
 		From a parameter value dictionary as returned by
-		self.coinc_params(), compute and return the noise
-		probability density at that point in parameter space.  If
-		params is None, the return value is None.
+		self.coinc_params(), compute and return the natural
+		logarithm of the noise probability density at that point in
+		parameter space.  If params is None, the return value is
+		None.
 
 		The .finish() method must have been invoked before this
 		method does meaningful things.  No attempt is made to
@@ -1745,38 +1764,23 @@ class CoincParamsDistributions(object):
 		This default implementation assumes the individual PDFs
 		containined in the noise dictionary are for
 		statistically-independent random variables, and computes
-		and returns their product.  Sub-classes that require more
-		sophisticated calculations can override this method.
+		and returns the logarithm of their product.  Sub-classes
+		that require more sophisticated calculations can override
+		this method.
 		"""
 		if params is None:
 			return None
-		# move attribute look-ups out of loop
+		log = lambda x: math.log(x) if x > 0. else NegInf
 		__getitem__ = self.background_pdf_interp.__getitem__
-		P = 1.0
-		for name, value in params.items():
-			P *= __getitem__(name)(*value)
-		return P
+		return sum(log(__getitem__(name)(*value)) for name, value in params.items())
 
-	def lnP_noise(self, *args, **kwargs):
-		"""
-		Return ln(self.P_noise).
-		"""
-		P = self.P_noise(*args, **kwargs)
-		try:
-			return math.log(P)
-		except ValueError:
-			return NegInf
-		except TypeError:
-			if P is None:
-				return None
-			raise
-
-	def P_signal(self, params):
+	def lnP_signal(self, params):
 		"""
 		From a parameter value dictionary as returned by
-		self.coinc_params(), compute and return the signal
-		probability density at that point in parameter space.  If
-		params is None, the return value is None.
+		self.coinc_params(), compute and return the natural
+		logarithm of the signal probability density at that point
+		in parameter space.  If params is None, the return value is
+		None.
 
 		The .finish() method must have been invoked before this
 		method does meaningful things.  No attempt is made to
@@ -1789,31 +1793,15 @@ class CoincParamsDistributions(object):
 		This default implementation assumes the individual PDFs
 		containined in the signal dictionary are for
 		statistically-independent random variables, and computes
-		and returns their product.  Sub-classes that require more
-		sophisticated calculations can override this method.
+		and returns the logarithm of their product.  Sub-classes
+		that require more sophisticated calculations can override
+		this method.
 		"""
 		if params is None:
 			return None
-		# move attribute look-ups out of loop
+		log = lambda x: math.log(x) if x > 0. else NegInf
 		__getitem__ = self.injection_pdf_interp.__getitem__
-		P = 1.0
-		for name, value in params.items():
-			P *= __getitem__(name)(*value)
-		return P
-
-	def lnP_signal(self, *args, **kwargs):
-		"""
-		Return ln(self.P_signal).
-		"""
-		P = self.P_signal(*args, **kwargs)
-		try:
-			return math.log(P)
-		except ValueError:
-			return NegInf
-		except TypeError:
-			if P is None:
-				return None
-			raise
+		return sum(log(__getitem__(name)(*value)) for name, value in params.items())
 
 	def get_xml_root(self, xml, name):
 		"""
@@ -1966,58 +1954,62 @@ class CoincParamsDistributions(object):
 # against NaNs in the Lambda = +inf/+inf case.
 
 
-class LikelihoodRatio(object):
+class LnLikelihoodRatio(object):
 	"""
 	Class for computing signal hypothesis / noise hypothesis likelihood
 	ratios from the measurements in a
 	snglcoinc.CoincParamsDistributions instance.
 	"""
 	def __init__(self, coinc_param_distributions):
-		self.P_noise = coinc_param_distributions.P_noise
-		self.P_signal = coinc_param_distributions.P_signal
+		self.lnP_noise = coinc_param_distributions.lnP_noise
+		self.lnP_signal = coinc_param_distributions.lnP_signal
 
 	def __call__(self, *args, **kwargs):
 		"""
-		Compute the likelihood ratio for the hypothesis that the
-		list of events are the result of a gravitational wave.  The
-		likelihood ratio is the ratio P(inj params) / P(noise
-		params).  The probability that the events are the result of
-		a gravitiational wave is a monotonically increasing
-		function of the likelihood ratio, so ranking events from
-		"most like a gravitational wave" to "least like a
-		gravitational wave" can be performed by calculating the
-		likelihood ratios, which has the advantage of not requiring
-		a prior probability to be provided (knowing how many
-		gravitational waves you've actually detected).
+		Return the natural logarithm of the likelihood ratio for
+		the hypothesis that the list of events are the result of a
+		gravitational wave.  The likelihood ratio is the ratio
+		P(inj params) / P(noise params).  The probability that the
+		events are the result of a gravitiational wave is a
+		monotonically increasing function of the likelihood ratio,
+		so ranking events from "most like a gravitational wave" to
+		"least like a gravitational wave" can be performed by
+		calculating the (logarithm of the) likelihood ratios, which
+		has the advantage of not requiring a prior probability to
+		be provided (knowing how many gravitational waves you've
+		actually detected).
 
-		The arguments are passed verbatim to the .P_noise and
-		.P_signal() methods of the
+		The arguments are passed verbatim to the .lnP_noise and
+		.lnP_signal() methods of the
 		snglcoinc.CoincParamsDistributions instance with which this
 		object is associated.
 		"""
-		P_noise = self.P_noise(*args, **kwargs)
-		P_signal = self.P_signal(*args, **kwargs)
-		if P_noise is None and P_signal is None:
+		lnP_noise = self.lnP_noise(*args, **kwargs)
+		lnP_signal = self.lnP_signal(*args, **kwargs)
+		if lnP_noise is None and lnP_signal is None:
 			return None
-		if P_noise == 0.0 and P_signal == 0.0:
-			# "correct" answer is 0, not NaN, because if a
-			# tuple of events has been found in a region of
-			# parameter space where the probability of an
-			# injection occuring is 0 then there is no way this
-			# is an injection.  there is also, aparently, no
-			# way it's a noise event, which is puzzling, but
-			# that's irrelevant because we are supposed to be
-			# computing something that is a monotonically
-			# increasing function of the probability that an
-			# event tuple is a gravitational wave, which is 0
-			# in this part of the parameter space.
-			return 0.0
-		if math.isinf(P_noise) and math.isinf(P_signal):
-			warnings.warn("inf/inf encountered")
-			return NaN
-		try:
-			return  P_signal / P_noise
-		except ZeroDivisionError:
-			# P_noise == 0.0, P_signal != 0.0.  this is a
-			# "guaranteed detection", not a failure
-			return PosInf
+		if math.isinf(lnP_noise) and math.isinf(lnP_signal):
+			# need to handle a special case
+			if lnP_noise < 0. and lnP_signal < 0.:
+				# both probabilities are 0.  "correct"
+				# answer is -inf, because if a candidate is
+				# in a region of parameter space where the
+				# probability of a signal occuring is 0
+				# then there is no way it is a signal.
+				# there is also, aparently, no way it's a
+				# noise event, which is puzzling, but
+				# that's irrelevant because we are supposed
+				# to be computing something that is a
+				# monotonically increasing function of the
+				# probability that a candidate is a signal,
+				# which is 0 in this part of the parameter
+				# space.
+				return NegInf
+			# all remaining cases are handled correctly by the
+			# expression that follows, but one still deserves a
+			# warning
+			if lnP_noise > 0. and lnP_signal > 0.:
+				# both probabilities are +inf.  no correct
+				# answer.
+				warnings.warn("inf/inf encountered")
+		return  lnP_signal - lnP_noise

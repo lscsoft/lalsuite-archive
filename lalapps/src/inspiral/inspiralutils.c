@@ -1103,7 +1103,9 @@ REAL8 calculate_lalsim_snr(SimInspiralTable *inj, char *IFOname, REAL8FrequencyS
   approx=XLALGetApproximantFromString(inj->waveform);
   LALSimulationDomain modelDomain;
 
-  switch(approx)
+  if(XLALSimInspiralImplementedFDApproximants(approx)) modelDomain = LAL_SIM_DOMAIN_FREQUENCY;
+  else if(XLALSimInspiralImplementedTDApproximants(approx)) modelDomain = LAL_SIM_DOMAIN_TIME;
+  else
   {
     case GeneratePPN:
     case TaylorT1:
@@ -1135,7 +1137,6 @@ REAL8 calculate_lalsim_snr(SimInspiralTable *inj, char *IFOname, REAL8FrequencyS
     default:
       fprintf(stderr,"ERROR. Unknown approximant number %i. Unable to choose time or frequency domain model.",approx);
       exit(1);
-      break;
   }
 
   REAL8 m1,m2, s1x,s1y,s1z,s2x,s2y,s2z,phi0,f_min,f_max,iota,polarization,

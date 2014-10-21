@@ -3838,7 +3838,3 @@ def use_in(ContentHandler):
 	ContentHandler.startTable = startTable
 
 	return ContentHandler
-
-
-# FIXME:  remove
-use_in(ligolw.DefaultLIGOLWContentHandler)

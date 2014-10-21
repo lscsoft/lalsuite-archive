@@ -83,7 +83,12 @@ class Tisi(object):
 			N = int(round(float(len(self.time_slides)) / len(self.filenames)))
 			while N:
 				id, offsetdict = self.time_slides.pop()
-				for row in ligolw_tisi.RowsFromOffsetDict(offsetdict, id, process):
+				for instrument, offset in offsetdict.items():
+					row = timeslidetable.RowType()
+					row.process_id = process.process_id
+					row.time_slide_id = id
+					row.instrument = instrument
+					row.offset = offset
 					timeslidetable.append(row)
 				N -= 1
 			ligolw_process.set_process_end_time(process)

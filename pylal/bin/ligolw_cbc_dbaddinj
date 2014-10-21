@@ -17,6 +17,7 @@ import os
 import urllib2
 
 from glue.ligolw.utils import ligolw_sqlite
+from glue.ligolw import ligolw
 from glue.ligolw import dbtables
 from glue.ligolw.utils import process
 from glue import git_version
@@ -88,6 +89,12 @@ def parse_command_line():
 
     return options, sys.argv[1:]
 
+class ContentHandler(ligolw.LIGOLWContentHandler):
+        pass
+
+dbtables.use_in(ContentHandler)
+
+
 
 # =============================================================================
 #
@@ -117,7 +124,7 @@ working_filename = dbtables.get_connection_filename(
 connection = sqlite3.connect( working_filename )
 if opts.tmp_space:
     dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
-dbtables.DBTable_set_connection( connection )
+ContentHandler.connection = connection
 
 # Add program to process and process params table
 
@@ -135,7 +142,7 @@ proc_id = process.register_to_xmldoc(xmldoc, 'ligolw_cbc_dbaddinj', opts.__dict_
 if opts.verbose:
     print >> sys.stderr, "Adding the injection file to the database..."
 
-ligolw_sqlite.insert_from_urls(connection, [opts.injection_file], preserve_ids = False, verbose = opts.verbose)
+ligolw_sqlite.insert_from_urls([opts.injection_file], ContentHandler, preserve_ids = False, verbose = opts.verbose)
 
 #
 #   Update any simulation rows in the experiment_summary table who's sim_proc_id is None

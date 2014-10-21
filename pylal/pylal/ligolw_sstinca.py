@@ -418,6 +418,9 @@ def inspiral_coinc_compare_exact(a, offseta, b, offsetb, light_travel_time, e_th
         a_masses = (a.mchirp, a.eta)
         b_masses = (b.mchirp, b.eta)
 
+	if (a_masses != b_masses):
+		return True
+
         try:
                 # check for spin columns (from events in sngl_inspiral table)
         	a_spins = (a.spin1x, a.spin1y, a.spin1z, a.spin2x, a.spin2y, a.spin2z)
@@ -427,8 +430,35 @@ def inspiral_coinc_compare_exact(a, offseta, b, offsetb, light_travel_time, e_th
         	a_spins = (a.beta, a.chi)
         	b_spins = (b.beta, b.chi)
 		
-	if (a_masses == b_masses) and (a_spins == b_spins):
+	if (a_spins == b_spins):
 		return inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter)
+	else:
+		return True
+
+def inspiral_coinc_compare_exact_dt(a, offseta, b, offsetb, light_travel_time, delta_t):
+	"""
+	Returns False (a & b are coincident) if their component masses and spins
+	are equal and they have dt < (delta_t+light_travel_time)
+	after offsets are considered.
+        """
+	# define mchirp, eta tuple
+	a_masses = (a.mchirp, a.eta)
+	b_masses = (b.mchirp, b.eta)
+
+	if (a_masses != b_masses):
+		return True
+
+	try:
+		# check for spin columns (from events in sngl_inspiral table)
+		a_spins = (a.spin1x, a.spin1y, a.spin1z, a.spin2x, a.spin2y, a.spin2z)
+		b_spins = (b.spin1x, b.spin1y, b.spin1z, b.spin2x, b.spin2y, b.spin2z)
+	except:
+		# use spin correction terms for older templates
+		a_spins = (a.beta, a.chi)
+		b_spins = (b.beta, b.chi)
+
+	if (a_spins == b_spins):
+		return float(abs(a.get_end() + offseta - b.get_end() - offsetb)) > light_travel_time + delta_t
 	else:
 		return True
 
@@ -499,7 +529,8 @@ def ligolw_thinca(
 	trigger_program = u"inspiral",
 	likelihood_func = None,
 	likelihood_params_func = None,
-	verbose = False
+	verbose = False,
+	max_dt = None
 ):
 	#
 	# prepare the coincidence table interface.
@@ -538,7 +569,8 @@ def ligolw_thinca(
 	# set the \Delta t parameter on all the event lists
 	#
 
-	max_dt = inspiral_max_dt(lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName), thresholds)
+	if max_dt is None:
+		max_dt = inspiral_max_dt(lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName), thresholds)
 	if verbose:
 		print >>sys.stderr, "event bisection search window will be %.16g s" % max_dt
 	for eventlist in eventlists.values():
