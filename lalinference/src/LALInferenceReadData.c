@@ -2356,354 +2356,321 @@ static int FindTimeSeriesStartAndEnd (
 
 }
 
+
 void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, ProcessParamsTable *commandLine)
 ///*-------------- Inject in Frequency domain -----------------*/
 {
-
-  /* Inject a gravitational wave into the data in the frequency domain */
-  LALStatus status;
-  memset(&status,0,sizeof(LALStatus));
-  INT4 errnum;
-
-  Approximant approximant = XLALGetApproximantFromString(inj_table->waveform);
-  if( (int) approximant == XLAL_FAILURE)
-      ABORTXLAL(&status);
-
-  LALPNOrder phase_order = XLALGetOrderFromString(inj_table->waveform);
-  if ( (int) phase_order == XLAL_FAILURE)
-      ABORTXLAL(&status);
-
-  LALPNOrder amp_order = (LALPNOrder) inj_table->amp_order;
-
-  enforce_m1_larger_m2(inj_table);
-
-  REAL8 injtime=0.0;
-  injtime=(REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9;
-
-  REAL8 lambda1 = 0.;
-  if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")) {
-    lambda1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")->value);
-    fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
-  }
-
-  REAL8 lambda2 = 0.;
-  if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")) {
-    lambda2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")->value);
-    fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
-  }
-
-  REAL8 lambdaT = 0.;
-  REAL8 dLambdaT = 0.;
-
-  if(LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT")&&LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")) {
-    lambdaT= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT")->value);
-    dLambdaT= atof(LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")->value);
-    LALInferenceLambdaTsEta2Lambdas(lambdaT, dLambdaT, inj_table->eta, &lambda1, &lambda2);
-    fprintf(stdout,"Injection lambdaT set to %f\n",lambdaT);
-    fprintf(stdout,"Injection dLambdaT set to %f\n",dLambdaT);
-    fprintf(stdout,"lambda1 set to %f\n",lambda1);
-    fprintf(stdout,"lambda2 set to %f\n",lambda2);
-  }
-
-  /* Set up wave flags */
-  LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
-
-  LALSimInspiralSpinOrder spinO = LAL_SIM_INSPIRAL_SPIN_ORDER_ALL;
-  if(LALInferenceGetProcParamVal(commandLine, "--inj-spinOrder")) {
-    spinO = atoi(LALInferenceGetProcParamVal(commandLine, "--inj-spinOrder")->value);
-    XLALSimInspiralSetSpinOrder(waveFlags, spinO);
-  }
-
-  LALSimInspiralTidalOrder tideO = LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL;
-  if(LALInferenceGetProcParamVal(commandLine, "--inj-tidalOrder")) {
-    tideO = atoi(LALInferenceGetProcParamVal(commandLine, "--inj-tidalOrder")->value);
-    XLALSimInspiralSetTidalOrder(waveFlags, tideO);
-  }
-
-  LALSimInspiralTestGRParam *nonGRparams = NULL;
+    /* Inject a gravitational wave into the data in the frequency domain */
+    LALStatus status;
+    memset(&status,0,sizeof(LALStatus));
+    INT4 errnum;
     
-  if (strstr(inj_table->waveform,"TaylorF2Test")){
-      XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi0",inj_table->dchi0);
-      XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi1",inj_table->dchi1);
-      XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi2",inj_table->dchi2);
-      XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi3",inj_table->dchi3);
-      XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi4",inj_table->dchi4);
-      XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi5",inj_table->dchi5);
-      XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi5l",inj_table->dchi5l);
-      XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi6",inj_table->dchi6);
-      XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi6l",inj_table->dchi6l);
-      XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi7",inj_table->dchi7);
-      fprintf(stdout,"Injecting %s in the frequency domain...\n",inj_table->waveform);
-      fprintf(stdout,"adding dchi0=%1.3f in the injection\n",inj_table->dchi0);
-      fprintf(stdout,"adding dchi1=%1.3f in the injection\n",inj_table->dchi1);
-      fprintf(stdout,"adding dchi2=%1.3f in the injection\n",inj_table->dchi2);
-      fprintf(stdout,"adding dchi3=%1.3f in the injection\n",inj_table->dchi3);
-      fprintf(stdout,"adding dchi4=%1.3f in the injection\n",inj_table->dchi4);
-      fprintf(stdout,"adding dchi5=%1.3f in the injection\n",inj_table->dchi5);
-      fprintf(stdout,"adding dchi5l=%1.3f in the injection\n",inj_table->dchi5l);
-      fprintf(stdout,"adding dchi6=%1.3f in the injection\n",inj_table->dchi6);
-      fprintf(stdout,"adding dchi6l=%1.3f in the injection\n",inj_table->dchi6l);
-      fprintf(stdout,"adding dchi7=%1.3f in the injection\n",inj_table->dchi7);
-
-  }
-
-  if (strstr(inj_table->waveform,"PPE"))
-  {
+    Approximant approximant = XLALGetApproximantFromString(inj_table->waveform);
+    if( (int) approximant == XLAL_FAILURE)
+    ABORTXLAL(&status);
+    
+    LALPNOrder phase_order = XLALGetOrderFromString(inj_table->waveform);
+    if ( (int) phase_order == XLAL_FAILURE)
+    ABORTXLAL(&status);
+    
+    LALPNOrder amp_order = (LALPNOrder) inj_table->amp_order;
+    
+    enforce_m1_larger_m2(inj_table);
+    
+    REAL8 injtime=0.0;
+    injtime=(REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9;
+    
+    REAL8 lambda1 = 0.;
+    if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")) {
+        lambda1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")->value);
+        fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
+    }
+    
+    REAL8 lambda2 = 0.;
+    if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")) {
+        lambda2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")->value);
+        fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
+    }
+    
+    REAL8 lambdaT = 0.;
+    REAL8 dLambdaT = 0.;
+    
+    if(LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT")&&LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")) {
+        lambdaT= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT")->value);
+        dLambdaT= atof(LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")->value);
+        LALInferenceLambdaTsEta2Lambdas(lambdaT, dLambdaT, inj_table->eta, &lambda1, &lambda2);
+        fprintf(stdout,"Injection lambdaT set to %f\n",lambdaT);
+        fprintf(stdout,"Injection dLambdaT set to %f\n",dLambdaT);
+        fprintf(stdout,"lambda1 set to %f\n",lambda1);
+        fprintf(stdout,"lambda2 set to %f\n",lambda2);
+    }
+    
+    /* Set up wave flags */
+    LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
+    
+    LALSimInspiralSpinOrder spinO = LAL_SIM_INSPIRAL_SPIN_ORDER_ALL;
+    if(LALInferenceGetProcParamVal(commandLine, "--inj-spinOrder")) {
+        spinO = atoi(LALInferenceGetProcParamVal(commandLine, "--inj-spinOrder")->value);
+        XLALSimInspiralSetSpinOrder(waveFlags, spinO);
+    }
+    
+    LALSimInspiralTidalOrder tideO = LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL;
+    if(LALInferenceGetProcParamVal(commandLine, "--inj-tidalOrder")) {
+        tideO = atoi(LALInferenceGetProcParamVal(commandLine, "--inj-tidalOrder")->value);
+        XLALSimInspiralSetTidalOrder(waveFlags, tideO);
+    }
+    
+    LALSimInspiralTestGRParam *nonGRparams = NULL;
+    
+    if (strstr(inj_table->waveform,"TaylorF2Test")){
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi0",inj_table->dchi0);
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi1",inj_table->dchi1);
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi2",inj_table->dchi2);
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi3",inj_table->dchi3);
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi4",inj_table->dchi4);
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi5",inj_table->dchi5);
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi5l",inj_table->dchi5l);
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi6",inj_table->dchi6);
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi6l",inj_table->dchi6l);
+        XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi7",inj_table->dchi7);
+        fprintf(stdout,"Injecting %s in the frequency domain...\n",inj_table->waveform);
+        fprintf(stdout,"adding dchi0=%1.3f in the injection\n",inj_table->dchi0);
+        fprintf(stdout,"adding dchi1=%1.3f in the injection\n",inj_table->dchi1);
+        fprintf(stdout,"adding dchi2=%1.3f in the injection\n",inj_table->dchi2);
+        fprintf(stdout,"adding dchi3=%1.3f in the injection\n",inj_table->dchi3);
+        fprintf(stdout,"adding dchi4=%1.3f in the injection\n",inj_table->dchi4);
+        fprintf(stdout,"adding dchi5=%1.3f in the injection\n",inj_table->dchi5);
+        fprintf(stdout,"adding dchi5l=%1.3f in the injection\n",inj_table->dchi5l);
+        fprintf(stdout,"adding dchi6=%1.3f in the injection\n",inj_table->dchi6);
+        fprintf(stdout,"adding dchi6l=%1.3f in the injection\n",inj_table->dchi6l);
+        fprintf(stdout,"adding dchi7=%1.3f in the injection\n",inj_table->dchi7);
+        
+    }
+    
+    if (strstr(inj_table->waveform,"PPE"))
+    {
         XLALSimInspiralAddTestGRParam(&nonGRparams,"aPPE",inj_table->aPPE);
         XLALSimInspiralAddTestGRParam(&nonGRparams,"alphaPPE",inj_table->alphaPPE);
         XLALSimInspiralAddTestGRParam(&nonGRparams,"bPPE",inj_table->bPPE);
         XLALSimInspiralAddTestGRParam(&nonGRparams,"betaPPE",inj_table->betaPPE);
         XLALSimInspiralAddTestGRParam(&nonGRparams,"betaStep",inj_table->betaStep);
         XLALSimInspiralAddTestGRParam(&nonGRparams,"fStep",inj_table->fStep);
-      fprintf(stdout,"Injecting %s in the frequency domain...\n",inj_table->waveform);
-      fprintf(stdout,"adding aPPE=%1.3f in the injection\n",inj_table->aPPE);
-      fprintf(stdout,"adding alphaPPE=%1.3f in the injection\n",inj_table->alphaPPE);
-      fprintf(stdout,"adding bPPE=%1.3f in the injection\n",inj_table->bPPE);
-      fprintf(stdout,"adding betaPPE=%1.3f in the injection\n",inj_table->betaPPE);
-      fprintf(stdout,"adding betaStep=%1.3f in the injection\n",inj_table->betaStep);
-      fprintf(stdout,"adding fStep=%1.3f in the injection\n",inj_table->fStep);
-      /* amplitude parameters */
-      char aPPEparam[64]="";
-      char alphaPPEparam[64]="";
-      /* phase parameters */
-      char bPPEparam[64]="";
-      char betaPPEparam[64]="";
-      /* command line strings */
-      char aPPECL[64]="";
-      char alphaPPECL[64]="";
-      char bPPECL[64]="";
-      char betaPPECL[64]="";
-      int counters[4]={0};
-      do
-      {
-          sprintf(aPPECL, "%s%d","--inj-aPPE",++counters[0]);
-          sprintf(aPPEparam, "%s%d","aPPE",counters[0]);
-          if(LALInferenceGetProcParamVal(commandLine, aPPECL))
-          {
-              REAL8 aPPE_inj= atof(LALInferenceGetProcParamVal(commandLine,aPPECL)->value);
-              XLALSimInspiralAddTestGRParam(&nonGRparams,aPPEparam,aPPE_inj);
-              fprintf(stdout,"adding %s=%1.3f in the injection\n",aPPEparam,aPPE_inj);
-          }
-
-          sprintf(alphaPPECL, "%s%d","--inj-alphaPPE",++counters[1]);
-          sprintf(alphaPPEparam, "%s%d","alphaPPE",counters[1]);
-          if(LALInferenceGetProcParamVal(commandLine, alphaPPECL))
-          {
-              REAL8 alphaPPE_inj= atof(LALInferenceGetProcParamVal(commandLine,alphaPPECL)->value);
-              XLALSimInspiralAddTestGRParam(&nonGRparams, alphaPPEparam,alphaPPE_inj);
-              fprintf(stdout,"adding %s=%1.3f in the injection\n",alphaPPEparam,alphaPPE_inj);
-          }
-          sprintf(bPPECL, "%s%d","--inj-bPPE",++counters[2]);
-          sprintf(bPPEparam, "%s%d","bPPE",counters[2]);
-          if(LALInferenceGetProcParamVal(commandLine, bPPECL))
-          {
-              REAL8 bPPE_inj= atof(LALInferenceGetProcParamVal(commandLine,bPPECL)->value);
-              XLALSimInspiralAddTestGRParam(&nonGRparams, bPPEparam,bPPE_inj);
-              fprintf(stdout,"adding %s=%1.3f in the injection\n",bPPEparam,bPPE_inj);
-          }
-          sprintf(betaPPECL, "%s%d","--inj-betaPPE",++counters[3]);
-          sprintf(betaPPEparam, "%s%d","betaPPE",counters[3]);
-          if(LALInferenceGetProcParamVal(commandLine, betaPPECL))
-          {
-              REAL8 betaPPE_inj= atof(LALInferenceGetProcParamVal(commandLine,betaPPECL)->value);
-              XLALSimInspiralAddTestGRParam(&nonGRparams, betaPPEparam,betaPPE_inj);
-              fprintf(stdout,"adding %s=%1.3f in the injection\n",betaPPEparam,betaPPE_inj);
-          }
-      } while((LALInferenceGetProcParamVal(commandLine, aPPECL))||(LALInferenceGetProcParamVal(commandLine, alphaPPECL))||(LALInferenceGetProcParamVal(commandLine, bPPECL))||(LALInferenceGetProcParamVal(commandLine, betaPPECL)));
+        fprintf(stdout,"Injecting %s in the frequency domain...\n",inj_table->waveform);
+        fprintf(stdout,"adding aPPE=%1.3f in the injection\n",inj_table->aPPE);
+        fprintf(stdout,"adding alphaPPE=%1.3f in the injection\n",inj_table->alphaPPE);
+        fprintf(stdout,"adding bPPE=%1.3f in the injection\n",inj_table->bPPE);
+        fprintf(stdout,"adding betaPPE=%1.3f in the injection\n",inj_table->betaPPE);
+        fprintf(stdout,"adding betaStep=%1.3f in the injection\n",inj_table->betaStep);
+        fprintf(stdout,"adding fStep=%1.3f in the injection\n",inj_table->fStep);
+        /* amplitude parameters */
+        char aPPEparam[64]="";
+        char alphaPPEparam[64]="";
+        /* phase parameters */
+        char bPPEparam[64]="";
+        char betaPPEparam[64]="";
+        /* command line strings */
+        char aPPECL[64]="";
+        char alphaPPECL[64]="";
+        char bPPECL[64]="";
+        char betaPPECL[64]="";
+        int counters[4]={0};
+        do
+        {
+            sprintf(aPPECL, "%s%d","--inj-aPPE",++counters[0]);
+            sprintf(aPPEparam, "%s%d","aPPE",counters[0]);
+            if(LALInferenceGetProcParamVal(commandLine, aPPECL))
+            {
+                REAL8 aPPE_inj= atof(LALInferenceGetProcParamVal(commandLine,aPPECL)->value);
+                XLALSimInspiralAddTestGRParam(&nonGRparams,aPPEparam,aPPE_inj);
+                fprintf(stdout,"adding %s=%1.3f in the injection\n",aPPEparam,aPPE_inj);
+            }
+            
+            sprintf(alphaPPECL, "%s%d","--inj-alphaPPE",++counters[1]);
+            sprintf(alphaPPEparam, "%s%d","alphaPPE",counters[1]);
+            if(LALInferenceGetProcParamVal(commandLine, alphaPPECL))
+            {
+                REAL8 alphaPPE_inj= atof(LALInferenceGetProcParamVal(commandLine,alphaPPECL)->value);
+                XLALSimInspiralAddTestGRParam(&nonGRparams, alphaPPEparam,alphaPPE_inj);
+                fprintf(stdout,"adding %s=%1.3f in the injection\n",alphaPPEparam,alphaPPE_inj);
+            }
+            sprintf(bPPECL, "%s%d","--inj-bPPE",++counters[2]);
+            sprintf(bPPEparam, "%s%d","bPPE",counters[2]);
+            if(LALInferenceGetProcParamVal(commandLine, bPPECL))
+            {
+                REAL8 bPPE_inj= atof(LALInferenceGetProcParamVal(commandLine,bPPECL)->value);
+                XLALSimInspiralAddTestGRParam(&nonGRparams, bPPEparam,bPPE_inj);
+                fprintf(stdout,"adding %s=%1.3f in the injection\n",bPPEparam,bPPE_inj);
+            }
+            sprintf(betaPPECL, "%s%d","--inj-betaPPE",++counters[3]);
+            sprintf(betaPPEparam, "%s%d","betaPPE",counters[3]);
+            if(LALInferenceGetProcParamVal(commandLine, betaPPECL))
+            {
+                REAL8 betaPPE_inj= atof(LALInferenceGetProcParamVal(commandLine,betaPPECL)->value);
+                XLALSimInspiralAddTestGRParam(&nonGRparams, betaPPEparam,betaPPE_inj);
+                fprintf(stdout,"adding %s=%1.3f in the injection\n",betaPPEparam,betaPPE_inj);
+            }
+        } while((LALInferenceGetProcParamVal(commandLine, aPPECL))||(LALInferenceGetProcParamVal(commandLine, alphaPPECL))||(LALInferenceGetProcParamVal(commandLine, bPPECL))||(LALInferenceGetProcParamVal(commandLine, betaPPECL)));
         if ((counters[0]!=counters[1])||(counters[2]!=counters[3])) {fprintf(stderr,"Unequal number of PPE parameters in injection detected! Check your command line!"); exit(-1);}
-  }
 
-  REAL8 deltaT = IFOdata->timeData->deltaT;
-  REAL8 deltaF = IFOdata->freqData->deltaF;
+        LALEquationOfState equation_of_state = LAL_SIM_INSPIRAL_EOS_NONE;
+        equation_of_state = inj_table->eos;
+        //fprintf(stderr, "In InjectFD, eos from inj_table: %d\n", equation_of_state);
+        
+        REAL8 m1=inj_table->mass1;
+        REAL8 m2=inj_table->mass2;
+        
+        //if (equation_of_state != LAL_SIM_INSPIRAL_EOS_NONE){
+        lambda1 = XLALSimInspiralEOSLambda(equation_of_state, m1)/(m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI); /* gives lambda1/m1^5 (dimensionless) */
+        lambda2 = XLALSimInspiralEOSLambda(equation_of_state, m2)/(m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI); /* gives lambda2/m2^5 (dimensionless) */
+        //fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
+        //fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
+        //}
+        if ( (equation_of_state != LAL_SIM_INSPIRAL_EOS_NONE) + (LALInferenceGetProcParamVal(commandLine,"--inj-lambda1") || LALInferenceGetProcParamVal(commandLine,"--inj-lambd\
+                                                                                                                                                         a2")) + (LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT") || LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")) > 1) {
+            XLALPrintError("More than one ways to calculate the tidal terms has been used.\n");
+            XLAL_ERROR_VOID(XLAL_EINVAL);
+        }
 
-  REAL8 f_min = fLow2fStart(inj_table->f_lower, amp_order, approximant);
-  REAL8 f_max = 0.0;
-  REAL8 fref = 100.;
-  if(LALInferenceGetProcParamVal(commandLine,"--inj-fref")) {
-    fref = atoi(LALInferenceGetProcParamVal(commandLine,"--inj-fref")->value);
-  }
-
- /* Print a line with information about approximant, amp_order, phaseorder, tide order and spin order */
-  fprintf(stdout,"\n\n---\t\t ---\n");
- fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, in the frequency domain.\n",approximant,XLALGetStringFromApproximant(approximant),phase_order,amp_order,(int) spinO,(int) tideO);
-   fprintf(stdout,"---\t\t ---\n\n");
-
-
-  // FIXME: this adds lambda1 and lambda2 twice if --inj-lambda1,2 are set
-  LALEquationOfState equation_of_state = LAL_SIM_INSPIRAL_EOS_NONE;
-  equation_of_state = inj_table->eos;
-  //fprintf(stderr, "In InjectFD, eos from inj_table: %d\n", equation_of_state);
-
-  REAL8 m1=inj_table->mass1;
-  REAL8 m2=inj_table->mass2;
-
-  //if (equation_of_state != LAL_SIM_INSPIRAL_EOS_NONE){
-  lambda1 = XLALSimInspiralEOSLambda(equation_of_state, m1)/(m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI); /* gives lambda1/m1^5 (dimensionless) */
-  lambda2 = XLALSimInspiralEOSLambda(equation_of_state, m2)/(m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI); /* gives lambda2/m2^5 (dimensionless) */
-  //fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
-  //fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
-  //}
-  if ( (equation_of_state != LAL_SIM_INSPIRAL_EOS_NONE) + (LALInferenceGetProcParamVal(commandLine,"--inj-lambda1") || LALInferenceGetProcParamVal(commandLine,"--inj-lambd\
-    a2")) + (LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT") || LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")) > 1) {
-    XLALPrintError("More than one ways to calculate the tidal terms has been used.\n");
-    XLAL_ERROR_VOID(XLAL_EINVAL);
-  }
-
-
-//   if(LALInferenceGetProcParamVal(commandLine, "--fMax")) {
-//     REAL8 fMax = atof(LALInferenceGetProcParamVal(commandLine, "--fMax")->value);
-//     fprintf(stderr,"fMax = %.2f\n",fMax) ;
-//     LALInferenceAddVariable(model->params, "fMax", &fMax, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-//   }
-
-
-  COMPLEX16FrequencySeries *freqModelhCross=NULL;
- freqModelhCross=XLALCreateCOMPLEX16FrequencySeries("freqDatahC",&(IFOdata->timeData->epoch),0.0,IFOdata->freqData->deltaF,&lalDimensionlessUnit,IFOdata->freqData->data->length);
-  COMPLEX16FrequencySeries *freqModelhPlus=NULL;
-  freqModelhPlus=XLALCreateCOMPLEX16FrequencySeries("freqDatahP",&(IFOdata->timeData->epoch),0.0,IFOdata->freqData->deltaF,&lalDimensionlessUnit,IFOdata->freqData->data->length);
-//  IFOdata->freqModelhPlus=freqModelhPlus;
-//  IFOdata->freqModelhCross=freqModelhCross;
-//  IFOdata->modelDomain = LAL_SIM_DOMAIN_FREQUENCY;
-//  LALInferenceTemplateXLALSimInspiralChooseWaveform(IFOdata);
-  COMPLEX16FrequencySeries *hptilde=NULL, *hctilde=NULL;
-
-  XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, inj_table->coa_phase, deltaF,
-                                  inj_table->mass1*LAL_MSUN_SI, inj_table->mass2*LAL_MSUN_SI, inj_table->spin1x,
-                                  inj_table->spin1y, inj_table->spin1z, inj_table->spin2x, inj_table->spin2y,
-                                  inj_table->spin2z, f_min, f_max, fref, inj_table->distance*LAL_PC_SI * 1.0e6,
-                                  inj_table->inclination, lambda1, lambda2, waveFlags,
-                                  nonGRparams, amp_order, phase_order, approximant);
-
-  /* Fail if injection waveform generation was not successful */
-  errnum = *XLALGetErrnoPtr();
-  if (errnum != XLAL_SUCCESS) {
-    XLALPrintError(" ERROR in InjectFD(): error encountered when injecting waveform. errnum=%d\n",errnum);
-    exit(1);
-  }
-
-  XLALSimInspiralDestroyWaveformFlags(waveFlags);
-  XLALSimInspiralDestroyTestGRParam(nonGRparams);
-
-  LALInferenceIFOData *dataPtr;
-  REAL8 Fplus, Fcross;
-  REAL8 plainTemplateReal, plainTemplateImag;
-  REAL8 templateReal, templateImag;
-  LIGOTimeGPS GPSlal;
-  REAL8 gmst;
-  REAL8 chisquared;
-  REAL8 timedelay;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
-  REAL8 timeshift;  /* time shift (not necessarily same as above)                   */
-  REAL8 twopit, re, im, dre, dim, newRe, newIm;
-  UINT4 i, lower, upper;
-
-  REAL8 temp=0.0;
-  REAL8 NetSNR=0.0;
-
-  /* figure out GMST: */
-  XLALGPSSetREAL8(&GPSlal, injtime);
-  gmst=XLALGreenwichMeanSiderealTime(&GPSlal);
-
-  /* loop over data (different interferometers): */
-  dataPtr = IFOdata;
-
-  UINT4 NlowSNR = 0 ;
-  while (dataPtr != NULL) {
-    /*-- WF to inject is now in hptilde and hctilde. --*/
-    /* determine beam pattern response (Fplus and Fcross) for given Ifo: */
-    XLALComputeDetAMResponse(&Fplus, &Fcross,
-                                (const REAL4(*)[3])dataPtr->detector->response,
-                                inj_table->longitude, inj_table->latitude,
-                                inj_table->polarization, gmst);
-
-    /* signal arrival time (relative to geocenter); */
-    timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
-                                                inj_table->longitude, inj_table->latitude,
-                                                &GPSlal);
-
-    /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
-    /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
-    REAL8 instant = dataPtr->timeData->epoch.gpsSeconds + 1e-9*dataPtr->timeData->epoch.gpsNanoSeconds;
-
-    timeshift = (injtime - instant) + timedelay;
-    twopit    = LAL_TWOPI * (timeshift);
-
-    dataPtr->fPlus = Fplus;
-    dataPtr->fCross = Fcross;
-    dataPtr->timeshift = timeshift;
-
-    char InjFileName[50];
-    sprintf(InjFileName,"injection_%s.dat",dataPtr->name);
-    FILE *outInj=fopen(InjFileName,"w");
-
-     /* determine frequency range & loop over frequency bins: */
-    lower = (UINT4)ceil(dataPtr->fLow / deltaF);
-    upper = (UINT4)floor(dataPtr->fHigh / deltaF);
-    chisquared = 0.0;
-
-    re = cos(twopit * deltaF * lower);
-    im = -sin(twopit * deltaF * lower);
-    for (i=lower; i<=upper; ++i){
-      /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
-      if (i < hptilde->data->length) {
-          plainTemplateReal = Fplus * creal(hptilde->data->data[i])
-                              +  Fcross * creal(hctilde->data->data[i]);
-          plainTemplateImag = Fplus * cimag(hptilde->data->data[i])
-                              +  Fcross * cimag(hctilde->data->data[i]);
-      } else {
-          plainTemplateReal = 0.0;
-          plainTemplateImag = 0.0;
-      }
-      /* do time-shifting...             */
-      /* (also un-do 1/deltaT scaling): */
-      /* real & imag parts of  exp(-2*pi*i*f*deltaT): */
-      templateReal = (plainTemplateReal*re - plainTemplateImag*im);
-      templateImag = (plainTemplateReal*im + plainTemplateImag*re);
-
-      /* Incremental values, using cos(theta) - 1 = -2*sin(theta/2)^2 */
-      dim = -sin(twopit*deltaF);
-      dre = -2.0*sin(0.5*twopit*deltaF)*sin(0.5*twopit*deltaF);
-      newRe = re + re*dre - im * dim;
-      newIm = im + re*dim + im*dre;
-      re = newRe;
-      im = newIm;
-
-      fprintf(outInj,"%lf %e %e %e\n",i*deltaF ,templateReal,templateImag,1.0/dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
-      dataPtr->freqData->data->data[i] += crect( templateReal, templateImag );
-
-      temp = ((2.0/( deltaT*(double) dataPtr->timeData->data->length) * (templateReal*templateReal+templateImag*templateImag)) / dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
-      chisquared  += temp;
+    REAL8 deltaT = IFOdata->timeData->deltaT;
+    REAL8 deltaF = IFOdata->freqData->deltaF;
+    
+    REAL8 f_min = fLow2fStart(inj_table->f_lower, amp_order, approximant);
+    REAL8 f_max = 0.0;
+    
+    REAL8 fref = 100.;
+    if(LALInferenceGetProcParamVal(commandLine,"--inj-fref")) {
+        fref = atoi(LALInferenceGetProcParamVal(commandLine,"--inj-fref")->value);
     }
-    printf("injected SNR %.1f in IFO %s\n",sqrt(2.0*chisquared),dataPtr->name);
-    NetSNR+=2.0*chisquared;
-    dataPtr->SNR=sqrt(2.0*chisquared);
-    if (dataPtr->SNR < 5.5) NlowSNR +=1 ;
-    dataPtr = dataPtr->next;
-
-    fclose(outInj);
-  }
-  printf("injected Network SNR %.1f \n",sqrt(NetSNR));
-
-  if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
-    PrintSNRsToFile(IFOdata , inj_table);
-  }
-
-  XLALDestroyCOMPLEX16FrequencySeries(hctilde);
-  XLALDestroyCOMPLEX16FrequencySeries(hptilde);
-
-  if(sqrt(NetSNR) < 8.0) {
-    fprintf(stderr,"Network SNR < 8; exiting.\n");
-    exit(EXIT_SUCCESS);
-  }
-  if(sqrt(NetSNR) > 30.0) {
-    fprintf(stderr,"NetworkSNR > 30; exiting.\n");
-    exit(EXIT_SUCCESS);
-  }
-  if(NlowSNR>1) {
-    fprintf(stderr,"At least two individual detectors have SNR < 5.5; exiting.\n");
-    exit(EXIT_SUCCESS);
-  }
-
-  }
+    
+    /* Print a line with information about approximant, amp_order, phaseorder, tide order and spin order */
+    fprintf(stdout,"\n\n---\t\t ---\n");
+    fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, in the frequency domain.\n",approximant,XLALGetStringFromApproximant(approximant),phase_order,amp_order,(int) spinO,(int) tideO);
+    fprintf(stdout,"---\t\t ---\n\n");
+    
+    COMPLEX16FrequencySeries *hptilde=NULL, *hctilde=NULL;
+    
+    XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, inj_table->coa_phase, deltaF,
+                                    inj_table->mass1*LAL_MSUN_SI, inj_table->mass2*LAL_MSUN_SI, inj_table->spin1x,
+                                    inj_table->spin1y, inj_table->spin1z, inj_table->spin2x, inj_table->spin2y,
+                                    inj_table->spin2z, f_min, f_max, fref, inj_table->distance*LAL_PC_SI * 1.0e6,
+                                    inj_table->inclination, lambda1, lambda2, waveFlags,
+                                    nonGRparams, amp_order, phase_order, approximant);
+    
+    /* Fail if injection waveform generation was not successful */
+    errnum = *XLALGetErrnoPtr();
+    if (errnum != XLAL_SUCCESS) {
+        XLALPrintError(" ERROR in InjectFD(): error encountered when injecting waveform. errnum=%d\n",errnum);
+        exit(1);
+    }
+    
+    XLALSimInspiralDestroyWaveformFlags(waveFlags);
+    XLALSimInspiralDestroyTestGRParam(nonGRparams);
+    
+    LALInferenceIFOData *dataPtr;
+    REAL8 Fplus, Fcross;
+    REAL8 plainTemplateReal, plainTemplateImag;
+    REAL8 templateReal, templateImag;
+    LIGOTimeGPS GPSlal;
+    REAL8 gmst;
+    REAL8 chisquared;
+    REAL8 timedelay;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
+    REAL8 timeshift;  /* time shift (not necessarily same as above)                   */
+    REAL8 twopit, re, im, dre, dim, newRe, newIm;
+    UINT4 i, lower, upper;
+    
+    REAL8 temp=0.0;
+    REAL8 NetSNR=0.0;
+    
+    /* figure out GMST: */
+    XLALGPSSetREAL8(&GPSlal, injtime);
+    gmst=XLALGreenwichMeanSiderealTime(&GPSlal);
+    
+    /* loop over data (different interferometers): */
+    dataPtr = IFOdata;
+    
+    while (dataPtr != NULL) {
+        /*-- WF to inject is now in hptilde and hctilde. --*/
+        /* determine beam pattern response (Fplus and Fcross) for given Ifo: */
+        XLALComputeDetAMResponse(&Fplus, &Fcross,
+                                 (const REAL4(*)[3])dataPtr->detector->response,
+                                 inj_table->longitude, inj_table->latitude,
+                                 inj_table->polarization, gmst);
+        
+        /* signal arrival time (relative to geocenter); */
+        timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
+                                                 inj_table->longitude, inj_table->latitude,
+                                                 &GPSlal);
+        
+        /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
+        /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
+        REAL8 instant = dataPtr->timeData->epoch.gpsSeconds + 1e-9*dataPtr->timeData->epoch.gpsNanoSeconds;
+        
+        timeshift = (injtime - instant) + timedelay;
+        twopit    = LAL_TWOPI * (timeshift);
+        
+        dataPtr->fPlus = Fplus;
+        dataPtr->fCross = Fcross;
+        dataPtr->timeshift = timeshift;
+        
+        char InjFileName[50];
+        sprintf(InjFileName,"injection_%s.dat",dataPtr->name);
+        FILE *outInj=fopen(InjFileName,"w");
+        
+        /* determine frequency range & loop over frequency bins: */
+        lower = (UINT4)ceil(dataPtr->fLow / deltaF);
+        upper = (UINT4)floor(dataPtr->fHigh / deltaF);
+        chisquared = 0.0;
+        
+        re = cos(twopit * deltaF * lower);
+        im = -sin(twopit * deltaF * lower);
+        for (i=lower; i<=upper; ++i){
+            /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
+            if (i < hptilde->data->length) {
+                plainTemplateReal = Fplus * creal(hptilde->data->data[i])
+                +  Fcross * creal(hctilde->data->data[i]);
+                plainTemplateImag = Fplus * cimag(hptilde->data->data[i])
+                +  Fcross * cimag(hctilde->data->data[i]);
+            } else {
+                plainTemplateReal = 0.0;
+                plainTemplateImag = 0.0;
+            }
+            
+            /* do time-shifting...             */
+            /* (also un-do 1/deltaT scaling): */
+            /* real & imag parts of  exp(-2*pi*i*f*deltaT): */
+            templateReal = (plainTemplateReal*re - plainTemplateImag*im);
+            templateImag = (plainTemplateReal*im + plainTemplateImag*re);
+            
+            /* Incremental values, using cos(theta) - 1 = -2*sin(theta/2)^2 */
+            dim = -sin(twopit*deltaF);
+            dre = -2.0*sin(0.5*twopit*deltaF)*sin(0.5*twopit*deltaF);
+            newRe = re + re*dre - im * dim;
+            newIm = im + re*dim + im*dre;
+            re = newRe;
+            im = newIm;
+            
+            fprintf(outInj,"%lf %e %e %e\n",i*deltaF ,templateReal,templateImag,1.0/dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
+            dataPtr->freqData->data->data[i] += crect( templateReal, templateImag );
+            
+            temp = ((2.0/( deltaT*(double) dataPtr->timeData->data->length) * (templateReal*templateReal+templateImag*templateImag)) / dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
+            chisquared  += temp;
+        }
+        printf("injected SNR %.1f in IFO %s\n",sqrt(2.0*chisquared),dataPtr->name);
+        NetSNR+=2.0*chisquared;
+        dataPtr->SNR=sqrt(2.0*chisquared);
+        dataPtr = dataPtr->next;
+        
+        fclose(outInj);
+    }
+    printf("injected Network SNR %.1f \n",sqrt(NetSNR));
+    
+    if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
+        PrintSNRsToFile(IFOdata , inj_table);
+    }
+    
+    XLALDestroyCOMPLEX16FrequencySeries(hctilde);
+    XLALDestroyCOMPLEX16FrequencySeries(hptilde);
+}
 
 static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , SimInspiralTable *inj_table){
   char SnrName[200];
