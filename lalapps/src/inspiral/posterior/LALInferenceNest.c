@@ -360,57 +360,6 @@ Nested sampling arguments:\n\
 	
 }
 
-void initStudentt(LALInferenceRunState *state);
-void initStudentt(LALInferenceRunState *state)
-{
-    char help[]="\
-                 Student T Likelihood Arguments:\n\
-                 (--studentt)\tUse student-t likelihood function\n";
-
-    ProcessParamsTable *ppt=NULL;
-    LALInferenceIFOData *ifo=state->data;
-
-    /* Print command line arguments if help requested */
-    if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
-    {
-        fprintf(stdout,"%s",help);
-        while(ifo) {
-            fprintf(stdout,"(--dof-%s DoF)\tDegrees of freedom for %s\n",ifo->name,ifo->name);
-            ifo=ifo->next;
-        }
-        return;
-    }
-    /* Don't do anything unless asked */
-    if(!LALInferenceGetProcParamVal(state->commandLine,"--studentt")) return;
-
-    /* initialise degrees of freedom parameters for each IFO */
-    while(ifo){
-        CHAR df_argument_name[128];
-        CHAR df_variable_name[64];
-        REAL8 dof=10.0; /* Degrees of freedom parameter */
-
-        sprintf(df_argument_name,"--dof-%s",ifo->name);
-        if((ppt=LALInferenceGetProcParamVal(state->commandLine,df_argument_name)))
-            dof=atof(ppt->value);
-        sprintf(df_variable_name,"df_%s",ifo->name);
-        LALInferenceAddVariable(state->currentParams,df_variable_name,&dof,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
-        fprintf(stdout,"Setting %lf degrees of freedom for %s\n",dof,ifo->name);
-        ifo=ifo->next;
-    }
-
-
-    /* Set likelihood to student-t */
-    state->likelihood = &LALInferenceFreqDomainStudentTLogLikelihood;
-
-    /* Set the noise model evidence to the student t model value */
-    LALInferenceTemplateNullFreqdomain(state->data);
-    REAL8 noiseZ=LALInferenceFreqDomainStudentTLogLikelihood(state->currentParams,state->data,&LALInferenceTemplateNullFreqdomain);
-    LALInferenceAddVariable(state->algorithmParams,"logZnoise",&noiseZ,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
-    fprintf(stdout,"Student-t Noise evidence %lf\n",noiseZ);
-
-    return;
-}
-
 /*************** MAIN **********************/
 
 
