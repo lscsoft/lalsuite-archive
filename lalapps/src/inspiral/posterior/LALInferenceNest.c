@@ -142,10 +142,29 @@ Initialisation arguments:\n\
     fprintf(stdout, " initialize(): successfully read data.\n");
     ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
     if(ppt){
+      INT4 errnum_pre,errnum_post;
       SimInspiralTable *inspiralTable=NULL;
       SimBurst *burstTable=NULL;
+      
+      /* The following is ugly, take a seat...
+       * In order to avoid having to use a different option for burst and cbc injfile (which I did in the past) I will just take advantage of the fact that XLALSimBurstTableFromLIGOLw won't exit the code if the table is not a sim_burst table. If an injtable (of any kind) has been passed I will first try to call XLALSimBurstTableFromLIGOLw and then SimInspiralTableFromLIGOLw.
+       * 
+       * The output from these two calls is used just below to check which injection routine should be called (inspiral or burst). 
+       * 
+       * The problem with this is that XLALSimBurstTableFromLIGOLw will set the global variable xlalErrnoGlobal to a non zero status, making the call to fail the first time it checks it (which doesn't happen often, suprisingly enough).
+       * 
+       * I will thus re-set the error number to XLAL_SUCCESS after the two calls, after cheking that it was XLAL_SUCCESS before the calls.
+       * 
+       * I know, it's ugly. 
+       * 
+       * */
+      errnum_pre = *XLALGetErrnoPtr();
       burstTable=XLALSimBurstTableFromLIGOLw(ppt->value,0,0);
-      SimInspiralTableFromLIGOLw(&inspiralTable,ppt->value,0,0);
+      SimInspiralTableFromLIGOLw(&inspiralTable,ppt->value,0,0);    
+      errnum_post = *XLALGetErrnoPtr();
+      if (errnum_post != XLAL_SUCCESS && errnum_pre==XLAL_SUCCESS) 
+        XLALSetErrno(XLAL_SUCCESS);
+
       if(burstTable){
         fprintf(stdout, " LALInferenceInjectBurstSignal(): started.\n");
         LALInferenceInjectBurstSignal(irs,commandLine);
@@ -159,7 +178,7 @@ Initialisation arguments:\n\
     }
     ppt=LALInferenceGetProcParamVal(commandLine,"--inject_from_mdc");
     if (ppt){
-      fprintf(stdout,"INJECTING A SIGNAL FROM MDC HAS NOT CAREFULLY TESTED YET...\n"); 
+      fprintf(stdout,"WARNING: Injecting a signal from MDC has not been carefully tested yet! \n"); 
       LALInferenceInjectFromMDC(commandLine, irs->data);
     }
     ifoPtr = irs->data;

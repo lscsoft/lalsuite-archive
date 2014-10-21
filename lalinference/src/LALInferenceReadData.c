@@ -2274,6 +2274,7 @@ static int FindTimeSeriesStartAndEnd (
   
 }
 
+
 void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, ProcessParamsTable *commandLine)
 ///*-------------- Inject in Frequency domain -----------------*/
 {
@@ -2281,165 +2282,88 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   LALStatus status;
   memset(&status,0,sizeof(LALStatus));
   INT4 errnum;
-  REAL8 mc=0.0;
-  Approximant injapprox;
-  LALPNOrder phase_order=-1;
-  LALPNOrder amp_order=-1;
-  injapprox = XLALGetApproximantFromString(inj_table->waveform);
-  if( (int) injapprox == XLAL_FAILURE)
+
+  Approximant approximant = XLALGetApproximantFromString(inj_table->waveform);
+  if( (int) approximant == XLAL_FAILURE)
       ABORTXLAL(&status);
-  phase_order = XLALGetOrderFromString(inj_table->waveform);
+
+  LALPNOrder phase_order = XLALGetOrderFromString(inj_table->waveform);
   if ( (int) phase_order == XLAL_FAILURE)
       ABORTXLAL(&status);
-  REAL8 eta =0.0;
-  REAL8 startPhase = 0.0;
-  REAL8 inclination = 0.0;
-  REAL8 distance=0.0;
-  REAL8 longitude=0.0;
-  REAL8 latitude=0.0;
-  REAL8 polarization=0.0;
-  REAL8 injtime=0.0;
-  // The injection is done in the radiation frame as it is easier to convert the xml cartesian components to the components the spins in this frame...
-  LALInferenceFrame frame = LALINFERENCE_FRAME_RADIATION;
 
-  IFOdata->modelParams=XLALCalloc(1,sizeof(LALInferenceVariables));
-  memset(IFOdata->modelParams,0,sizeof(LALInferenceVariables));
+  LALPNOrder amp_order = (LALPNOrder) inj_table->amp_order;
 
   enforce_m1_larger_m2(inj_table);
-  eta = inj_table->eta;
-  mc=inj_table->mchirp;
-  startPhase = inj_table->coa_phase;
-  inclination = inj_table->inclination;
-  distance=inj_table->distance;
-  longitude=inj_table->longitude;
-  latitude=inj_table->latitude;
-  polarization=inj_table->polarization;
-  injtime=(REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9;
-  amp_order=(LALPNOrder) inj_table->amp_order;
 
-  LALInferenceAddVariable(IFOdata->modelParams, "chirpmass",&mc,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-  LALInferenceAddVariable(IFOdata->modelParams, "phase",&startPhase,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
-  LALInferenceAddVariable(IFOdata->modelParams, "rightascension",&longitude,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
-  LALInferenceAddVariable(IFOdata->modelParams, "declination",&latitude,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
-  LALInferenceAddVariable(IFOdata->modelParams, "polarisation",&polarization,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
-  LALInferenceAddVariable(IFOdata->modelParams, "time",&injtime,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-  LALInferenceAddVariable(IFOdata->modelParams, "massratio",&eta,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-  LALInferenceAddVariable(IFOdata->modelParams, "distance",&distance,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-  LALInferenceAddVariable(IFOdata->modelParams, "LAL_APPROXIMANT",&injapprox,LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
-  LALInferenceAddVariable(IFOdata->modelParams, "LAL_PNORDER",&phase_order,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
-  LALInferenceAddVariable(IFOdata->modelParams, "LAL_AMPORDER",&amp_order,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
-  frame = LALINFERENCE_FRAME_RADIATION;
-  LALInferenceAddVariable(IFOdata->modelParams, "LALINFERENCE_FRAME", &frame, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
-  LALInferenceAddVariable(IFOdata->modelParams, "inclination",&inclination,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+  REAL8 injtime=0.0;
+  injtime=(REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9;
 
   REAL8 lambda1 = 0.;
   if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")) {
     lambda1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")->value);
     fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
-    LALInferenceAddVariable(IFOdata->modelParams, "lambda1",&lambda1,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   }
+
   REAL8 lambda2 = 0.;
   if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")) {
     lambda2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")->value);
     fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
-    LALInferenceAddVariable(IFOdata->modelParams, "lambda2",&lambda2,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   }
+
   REAL8 lambdaT = 0.;
   REAL8 dLambdaT = 0.;
+
   if(LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT")&&LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")) {
     lambdaT= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT")->value);
     dLambdaT= atof(LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")->value);
-    LALInferenceLambdaTsEta2Lambdas(lambdaT,dLambdaT,eta,&lambda1,&lambda2);
+    LALInferenceLambdaTsEta2Lambdas(lambdaT, dLambdaT, inj_table->eta, &lambda1, &lambda2);
     fprintf(stdout,"Injection lambdaT set to %f\n",lambdaT);
     fprintf(stdout,"Injection dLambdaT set to %f\n",dLambdaT);
     fprintf(stdout,"lambda1 set to %f\n",lambda1);
     fprintf(stdout,"lambda2 set to %f\n",lambda2);
-    LALInferenceAddVariable(IFOdata->modelParams, "lambdaT",&lambdaT,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-    LALInferenceAddVariable(IFOdata->modelParams, "dLambdaT",&dLambdaT,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
   }
 
-  LALSimInspiralSpinOrder spinO = LAL_SIM_INSPIRAL_SPIN_ORDER_ALL;
+  /* Set up wave flags */
+  LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
 
+  LALSimInspiralSpinOrder spinO = LAL_SIM_INSPIRAL_SPIN_ORDER_ALL;
   if(LALInferenceGetProcParamVal(commandLine, "--inj-spinOrder")) {
-      spinO = atoi(LALInferenceGetProcParamVal(commandLine, "--inj-spinOrder")->value);
-      LALInferenceAddVariable(IFOdata->modelParams, "spinO", &spinO,   LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+    spinO = atoi(LALInferenceGetProcParamVal(commandLine, "--inj-spinOrder")->value);
+    XLALSimInspiralSetSpinOrder(waveFlags, spinO);
   }
 
   LALSimInspiralTidalOrder tideO = LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL;
-
   if(LALInferenceGetProcParamVal(commandLine, "--inj-tidalOrder")) {
-      tideO = atoi(LALInferenceGetProcParamVal(commandLine, "--inj-tidalOrder")->value);
-      LALInferenceAddVariable(IFOdata->modelParams, "tideO", &tideO,   LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+    tideO = atoi(LALInferenceGetProcParamVal(commandLine, "--inj-tidalOrder")->value);
+    XLALSimInspiralSetTidalOrder(waveFlags, tideO);
   }
 
-  REAL8 a1=0.0,theta1=0.0,phi1=0.0,a2=0.0,theta2=0.0,phi2=0.0;
-  int spin_aligned=0;
+  REAL8 deltaT = IFOdata->timeData->deltaT;
+  REAL8 deltaF = IFOdata->freqData->deltaF;
 
-  if (inj_table->spin1x==0.0 && inj_table->spin1y==0.0 && inj_table->spin1z!=0.0){
-    spin_aligned=1;
-    a1=inj_table->spin1z;
-    }
-  if (inj_table->spin2x==0.0 && inj_table->spin2y==0.0&& inj_table->spin2z!=0.0){
-    spin_aligned=1;
-    a2=inj_table->spin2z;
-    }
-  if (spin_aligned==0){
-    a1=sqrt(inj_table->spin1x*inj_table->spin1x+inj_table->spin1y*inj_table->spin1y+inj_table->spin1z*inj_table->spin1z);
-    if (a1>0.0){
-     REAL8 tmp=inj_table->spin1z/a1;
-     theta1=acos(tmp);
-    }
-    if (a1>0.0){
-      phi1=atan2( inj_table->spin1y,inj_table->spin1x);
-      if (phi1<0.0)
-        phi1+=LAL_PI*2.0;
-    }
-    a2=sqrt(inj_table->spin2x*inj_table->spin2x+inj_table->spin2y*inj_table->spin2y+inj_table->spin2z*inj_table->spin2z);
-    if (a2>0.0){
-     REAL8 tmp= inj_table->spin2z/a2;
-    theta2=acos(tmp);
-    }
-    if (a2>0.0){
-      phi2=atan2( inj_table->spin2y,inj_table->spin2x);
-      if (phi2<0.0)
-        phi2+=LAL_PI*2.0;
-    }
-  }
-  
-  if (spin_aligned>0){
-    if (a1!=0.0)
-      LALInferenceAddVariable(IFOdata->modelParams, "spin1",&a1,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-    if (a2!=0.0)
-      LALInferenceAddVariable(IFOdata->modelParams, "spin2",&a2,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-    }
-  else{
-    if (a1>0){
-      LALInferenceAddVariable(IFOdata->modelParams, "theta_spin1",&theta1,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-      LALInferenceAddVariable(IFOdata->modelParams, "phi_spin1",&phi1,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_CIRCULAR);
-      LALInferenceAddVariable(IFOdata->modelParams, "a_spin1",&a1,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-    }
-    if (a2>0){
-      LALInferenceAddVariable(IFOdata->modelParams, "a_spin2",&a2,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-      LALInferenceAddVariable(IFOdata->modelParams, "theta_spin2",&theta2,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-      LALInferenceAddVariable(IFOdata->modelParams, "phi_spin2",&phi2,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_CIRCULAR);
-    }
-  }
-  REAL8 flow=inj_table->f_lower;
-  LALInferenceAddVariable(IFOdata->modelParams, "fLow",&flow,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+  REAL8 f_min = fLow2fStart(inj_table->f_lower, amp_order, approximant);
+  REAL8 f_max = 0.0;
 
- /* Print a line with information about approximant, amporder, phaseorder, tide order and spin order */
+  REAL8 fref = 100.;
+  if(LALInferenceGetProcParamVal(commandLine,"--inj-fref")) {
+    fref = atoi(LALInferenceGetProcParamVal(commandLine,"--inj-fref")->value);
+  }
+
+  LALSimInspiralTestGRParam *nonGRparams = NULL;
+
+ /* Print a line with information about approximant, amp_order, phaseorder, tide order and spin order */
   fprintf(stdout,"\n\n---\t\t ---\n");
- fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, in the frequency domain.\n",injapprox,XLALGetStringFromApproximant(injapprox),phase_order,amp_order,(int) spinO,(int) tideO);
+ fprintf(stdout,"Injection will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i, tidal order %i, in the frequency domain.\n",approximant,XLALGetStringFromApproximant(approximant),phase_order,amp_order,(int) spinO,(int) tideO);
    fprintf(stdout,"---\t\t ---\n\n");
 
-  COMPLEX16FrequencySeries *freqModelhCross=NULL;
- freqModelhCross=XLALCreateCOMPLEX16FrequencySeries("freqDatahC",&(IFOdata->timeData->epoch),0.0,IFOdata->freqData->deltaF,&lalDimensionlessUnit,IFOdata->freqData->data->length);
-  COMPLEX16FrequencySeries *freqModelhPlus=NULL;
-  freqModelhPlus=XLALCreateCOMPLEX16FrequencySeries("freqDatahP",&(IFOdata->timeData->epoch),0.0,IFOdata->freqData->deltaF,&lalDimensionlessUnit,IFOdata->freqData->data->length);
-  IFOdata->freqModelhPlus=freqModelhPlus;
-  IFOdata->freqModelhCross=freqModelhCross;
-  IFOdata->modelDomain = LAL_SIM_DOMAIN_FREQUENCY;
-  LALInferenceTemplateXLALSimInspiralChooseWaveform(IFOdata);
+  COMPLEX16FrequencySeries *hptilde=NULL, *hctilde=NULL;
+
+  XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, inj_table->coa_phase, deltaF,
+                                  inj_table->mass1*LAL_MSUN_SI, inj_table->mass2*LAL_MSUN_SI, inj_table->spin1x,
+                                  inj_table->spin1y, inj_table->spin1z, inj_table->spin2x, inj_table->spin2y,
+                                  inj_table->spin2z, f_min, f_max, fref, inj_table->distance*LAL_PC_SI * 1.0e6,
+                                  inj_table->inclination, lambda1, lambda2, waveFlags,
+                                  nonGRparams, amp_order, phase_order, approximant);
 
   /* Fail if injection waveform generation was not successful */
   errnum = *XLALGetErrnoPtr();
@@ -2448,25 +2372,23 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
     exit(1);
   }
 
-  double Fplus, Fcross;
+  XLALSimInspiralDestroyWaveformFlags(waveFlags);
+  XLALSimInspiralDestroyTestGRParam(nonGRparams);
+
+  LALInferenceIFOData *dataPtr;
+  REAL8 Fplus, Fcross;
   REAL8 plainTemplateReal, plainTemplateImag;
   REAL8 templateReal, templateImag;
-  int i, lower, upper;
-  LALInferenceIFOData *dataPtr;
-  double ra, dec, psi, gmst;
   LIGOTimeGPS GPSlal;
-  double chisquared;
-  double timedelay;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
-  double timeshift;  /* time shift (not necessarily same as above)                   */
-  double deltaT, deltaF, twopit, f, re, im;
+  REAL8 gmst;
+  REAL8 chisquared;
+  REAL8 timedelay;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
+  REAL8 timeshift;  /* time shift (not necessarily same as above)                   */
+  REAL8 twopit, re, im, dre, dim, newRe, newIm;
+  UINT4 i, lower, upper;
 
   REAL8 temp=0.0;
   REAL8 NetSNR=0.0;
-
-  /* determine source's sky location & orientation parameters: */
-  ra        = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "rightascension"); /* radian      */
-  dec       = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "declination");    /* radian      */
-  psi       = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "polarisation");   /* radian      */
 
   /* figure out GMST: */
   XLALGPSSetREAL8(&GPSlal, injtime);
@@ -2474,70 +2396,90 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
 
   /* loop over data (different interferometers): */
   dataPtr = IFOdata;
-  if (IFOdata->modelDomain == LAL_SIM_DOMAIN_TIME) {
-  printf("There is a problem. You seem to be using a time domain model into the frequency domain injection function!. Exiting....\n");
-    exit(1);
-  }
-  
-  while (dataPtr != NULL) {
 
-    /*-- WF to inject is now in dataPtr->freqModelhPlus and dataPtr->freqModelhCross. --*/
-    /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
+  while (dataPtr != NULL) {
+    /*-- WF to inject is now in hptilde and hctilde. --*/
+    /* determine beam pattern response (Fplus and Fcross) for given Ifo: */
     XLALComputeDetAMResponse(&Fplus, &Fcross,
-                             (const REAL4(*)[3])dataPtr->detector->response,
-           ra, dec, psi, gmst);
+                                (const REAL4(*)[3])dataPtr->detector->response,
+                                inj_table->longitude, inj_table->latitude,
+                                inj_table->polarization, gmst);
+
     /* signal arrival time (relative to geocenter); */
     timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
-                                             ra, dec, &GPSlal);
+                                                inj_table->longitude, inj_table->latitude,
+                                                &GPSlal);
+
     /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
     /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
-    timeshift =  (injtime - (*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time"))) + timedelay;
+    REAL8 instant = dataPtr->timeData->epoch.gpsSeconds + 1e-9*dataPtr->timeData->epoch.gpsNanoSeconds;
+
+    timeshift = (injtime - instant) + timedelay;
     twopit    = LAL_TWOPI * (timeshift);
 
     dataPtr->fPlus = Fplus;
     dataPtr->fCross = Fcross;
     dataPtr->timeshift = timeshift;
+
+    char InjFileName[50];
+    sprintf(InjFileName,"injection_%s.dat",dataPtr->name);
+    FILE *outInj=fopen(InjFileName,"w");
+
      /* determine frequency range & loop over frequency bins: */
-    deltaT = dataPtr->timeData->deltaT;
-    deltaF = 1.0 / (((double)dataPtr->timeData->data->length) * deltaT);
     lower = (UINT4)ceil(dataPtr->fLow / deltaF);
     upper = (UINT4)floor(dataPtr->fHigh / deltaF);
-     chisquared = 0.0;
+    chisquared = 0.0;
+
+    re = cos(twopit * deltaF * lower);
+    im = -sin(twopit * deltaF * lower);
     for (i=lower; i<=upper; ++i){
       /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
-      plainTemplateReal = Fplus * creal(IFOdata->freqModelhPlus->data->data[i])
-                          +  Fcross * creal(IFOdata->freqModelhCross->data->data[i]);
-      plainTemplateImag = Fplus * cimag(IFOdata->freqModelhPlus->data->data[i])
-                          +  Fcross * cimag(IFOdata->freqModelhCross->data->data[i]);
+      if (i < hptilde->data->length) {
+          plainTemplateReal = Fplus * creal(hptilde->data->data[i])
+                              +  Fcross * creal(hctilde->data->data[i]);
+          plainTemplateImag = Fplus * cimag(hptilde->data->data[i])
+                              +  Fcross * cimag(hctilde->data->data[i]);
+      } else {
+          plainTemplateReal = 0.0;
+          plainTemplateImag = 0.0;
+      }
 
       /* do time-shifting...             */
       /* (also un-do 1/deltaT scaling): */
-      f = ((double) i) * deltaF;
       /* real & imag parts of  exp(-2*pi*i*f*deltaT): */
-      re = cos(twopit * f);
-      im = - sin(twopit * f);
       templateReal = (plainTemplateReal*re - plainTemplateImag*im);
       templateImag = (plainTemplateReal*im + plainTemplateImag*re);
 
+      /* Incremental values, using cos(theta) - 1 = -2*sin(theta/2)^2 */
+      dim = -sin(twopit*deltaF);
+      dre = -2.0*sin(0.5*twopit*deltaF)*sin(0.5*twopit*deltaF);
+      newRe = re + re*dre - im * dim;
+      newIm = im + re*dim + im*dre;
+      re = newRe;
+      im = newIm;
+
+      fprintf(outInj,"%lf %e %e %e\n",i*deltaF ,templateReal,templateImag,1.0/dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
+      dataPtr->freqData->data->data[i] += crect( templateReal, templateImag );
+
       temp = ((2.0/( deltaT*(double) dataPtr->timeData->data->length) * (templateReal*templateReal+templateImag*templateImag)) / dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
       chisquared  += temp;
-      }
-      printf("injected SNR %.1f in IFO %s\n",sqrt(2.0*chisquared),dataPtr->name);
-      NetSNR+=2.0*chisquared;
-      dataPtr->SNR=sqrt(2.0*chisquared);
-      dataPtr = dataPtr->next;
+    }
+    printf("injected SNR %.1f in IFO %s\n",sqrt(2.0*chisquared),dataPtr->name);
+    NetSNR+=2.0*chisquared;
+    dataPtr->SNR=sqrt(2.0*chisquared);
+    dataPtr = dataPtr->next;
+
+    fclose(outInj);
   }
   printf("injected Network SNR %.1f \n",sqrt(NetSNR));
 
   if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
-    REAL8 trigtime=(REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9;
-    PrintSNRsToFile(IFOdata , trigtime);
+    PrintSNRsToFile(IFOdata , injtime);
   }
-  XLALDestroyCOMPLEX16FrequencySeries(freqModelhCross);
-  XLALDestroyCOMPLEX16FrequencySeries(freqModelhPlus);
-  LALInferenceClearVariables(IFOdata->modelParams);
-  XLALFree(IFOdata->modelParams);
-  }
+
+  XLALDestroyCOMPLEX16FrequencySeries(hctilde);
+  XLALDestroyCOMPLEX16FrequencySeries(hptilde);
+}
 
 
   static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , REAL8 trigtime){

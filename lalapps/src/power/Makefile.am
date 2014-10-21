@@ -7,9 +7,10 @@ include $(top_srcdir)/gnuscripts/lalapps.am
 if LALFRAME
 if LALMETAIO
 if LALBURST
-BURSTPROGS = lalapps_binj lalapps_simburst_to_frame
+BURSTPROGS = lalapps_binj lalapps_simburst_to_frame lalapps_libbinj
 lalapps_binj_SOURCES = binj.c
 lalapps_simburst_to_frame_SOURCES=simburst_to_frame.c
+lalapps_libbinj_SOURCES = libbinj.c
 if LALINSPIRAL
 INSPPROGS = lalapps_power
 lalapps_power_SOURCES = power.c
