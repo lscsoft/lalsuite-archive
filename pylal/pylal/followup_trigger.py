@@ -885,7 +885,10 @@ class FollowupTrigger:
           sngl2 = snglInspirals[j]
           ifo1 = sngl1.ifo
           ifo2 = sngl2.ifo
-          ethinca = tools.XLALCalculateEThincaParameter(sngl1,sngl2)
+          try:
+            ethinca = tools.XLALCalculateEThincaParameter(sngl1,sngl2)
+          except:
+            ethinca = 'Not coincident'
           Name = 'Ethinca distance between ' + ifo1 + ' and ' + ifo2
           self.fill_table( page, [Name + ': ', ethinca])
 
