@@ -2511,7 +2511,7 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
             }
         } while((LALInferenceGetProcParamVal(commandLine, aPPECL))||(LALInferenceGetProcParamVal(commandLine, alphaPPECL))||(LALInferenceGetProcParamVal(commandLine, bPPECL))||(LALInferenceGetProcParamVal(commandLine, betaPPECL)));
         if ((counters[0]!=counters[1])||(counters[2]!=counters[3])) {fprintf(stderr,"Unequal number of PPE parameters in injection detected! Check your command line!"); exit(-1);}
-
+    }
         LALEquationOfState equation_of_state = LAL_SIM_INSPIRAL_EOS_NONE;
         equation_of_state = inj_table->eos;
         //fprintf(stderr, "In InjectFD, eos from inj_table: %d\n", equation_of_state);
@@ -2670,7 +2670,7 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
     
     XLALDestroyCOMPLEX16FrequencySeries(hctilde);
     XLALDestroyCOMPLEX16FrequencySeries(hptilde);
-}
+    }
 
 static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , SimInspiralTable *inj_table){
   char SnrName[200];

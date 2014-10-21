@@ -767,7 +767,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state)
   LALInferenceAddVariable(model->params, "LAL_PNORDER",     &PhaseOrder,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(model->params, "LAL_AMPORDER",     &AmpOrder,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(model->params, "fRef", &fRef, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-  LALInferenceAddVariable(currentParams, "fMax", &fMax, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(model->params, "fMax", &fMax, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
   REAL8 fLow = state->data->fLow;
   ppt=LALInferenceGetProcParamVal(commandLine,"--varyFlow");
@@ -1387,14 +1387,10 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state)
       } while((checkParamInList(ppt->value,aPPEparam))||(checkParamInList(ppt->value,alphaPPEparam))||(checkParamInList(ppt->value,bPPEparam))||(checkParamInList(ppt->value,betaPPEparam)));
  if ((counters[0]!=counters[1])||(counters[2]!=counters[3])) {fprintf(stderr,"Unequal number of PPE parameters detected! Check your command line!"); exit(-1);}
     }
-  model->waveFlagswaveFlags = XLALSimInspiralCreateWaveformFlags();
-  XLALSimInspiralSetSpinOrder(model->waveFlagswaveFlags,  spinO);
-  XLALSimInspiralSetTidalOrder(model->waveFlagswaveFlags, tideO);
+  model->waveFlags = XLALSimInspiralCreateWaveformFlags();
+  XLALSimInspiralSetSpinOrder(model->waveFlags,  spinO);
+  XLALSimInspiralSetTidalOrder(model->waveFlags, tideO);
   dataPtr = state->data;
-  while (dataPtr){
-    dataPtr->waveFlags = waveFlags;
-    dataPtr=dataPtr->next;
-  }
 
   fprintf(stdout,"\n\n---\t\t ---\n");
   LALInferenceInitSpinVariables(state, model);
