@@ -1,4 +1,4 @@
-# Copyright (C) 2008-2010,2012-2013  Kipp Cannon
+# Copyright (C) 2008-2010,2012-2014  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -142,7 +142,7 @@ class LigolwSegments(set):
 	of the set is a LigolwSegmentList instance describing one of the
 	segment lists in the original XML document.
 	"""
-	def __init__(self, xmldoc):
+	def __init__(self, xmldoc, process = None):
 		#
 		# Find tables
 		#
@@ -203,6 +203,12 @@ class LigolwSegments(set):
 		self.segment_def_table.sync_next_id()
 		self.segment_table.sync_next_id()
 		self.segment_sum_table.sync_next_id()
+
+		#
+		# Save process row for later
+		#
+
+		self.process = process
 
 		#
 		# Done
@@ -278,7 +284,7 @@ class LigolwSegments(set):
 		self.update(segment_lists.values())
 
 
-	def finalize(self, process_row):
+	def finalize(self, process_row = None):
 		"""
 		Restore the LigolwSegmentList objects to the XML tables in
 		preparation for output.  All segments from all segment
@@ -291,6 +297,11 @@ class LigolwSegments(set):
 		then it might be discontinued without notice.  You've been
 		warned.
 		"""
+		if process_row is None:
+			process_row = self.process
+			if process_row is None:
+				raise ValueError("must supply a process row to .__init__()")
+
 		#
 		# put all segment lists in time order
 		#
@@ -344,6 +355,16 @@ class LigolwSegments(set):
 
 		for row, target_table in iterutils.inorder(*row_generators):
 			target_table.append(row)
+
+
+	def __enter__(self):
+		assert self.process is not None
+		return self
+
+
+	def __exit__(self, *args):
+		self.finalize()
+		return False
 
 
 #
