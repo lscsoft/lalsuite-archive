@@ -815,7 +815,6 @@ def cbcBayesPostProc(
     html_corner=''
     got_any=0
     if myfig:
-      html_corner='<table id="%s" border="1">'%tabid
       html_corner+='<tr><td width="100%"><a href="corner/intrinsic.png" target="_blank"><img width="70%" src="corner/intrinsic.png"/></a></td></tr>'
       myfig.savefig(os.path.join(cornerdir,'intrinsic.png'))
       myfig.savefig(os.path.join(cornerdir,'intrinsic.pdf'))
@@ -831,6 +830,7 @@ def cbcBayesPostProc(
       html_corner+='<tr><td width="100%"><a href="corner/extrinsic.png" target="_blank"><img width="70%" src="corner/extrinsic.png"/></a></td></tr>'
       got_any+=1
     if got_any>0:
+      html_corner='<table id="%s" border="1">'%tabid+html_corner
       html_corner+='</table>'
     if html_corner!='':
       html_co=html.add_collapse_section('Corner plots',legend=legend,innertable_id=tabid)
