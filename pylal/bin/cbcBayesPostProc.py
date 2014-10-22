@@ -116,7 +116,7 @@ def email_notify(address,path):
     server.sendmail(FROM,address,message)
     server.quit()
 
-#Import content handerl 
+#Import content handler 
 from pylal.SimInspiralUtils import ExtractSimInspiralTableLIGOLWContentHandler
 lsctables.use_in(ExtractSimInspiralTableLIGOLWContentHandler)
 

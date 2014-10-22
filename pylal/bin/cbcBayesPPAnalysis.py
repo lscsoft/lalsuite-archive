@@ -35,6 +35,8 @@ import os
 import os.path
 import scipy.stats as ss
 import string
+from pylal.SimInspiralUtils import ExtractSimInspiralTableLIGOLWContentHandler
+lsctables.use_in(ExtractSimInspiralTableLIGOLWContentHandler)
 
 posterior_name_to_sim_inspiral_extractor = {
     'm1' : lambda si: si.mass1,
@@ -222,8 +224,7 @@ if __name__ == '__main__':
 
     (options, args) = parser.parse_args()
 
-    injs = table.get_table(utils.load_filename(options.injxml),
-                           lsctables.SimInspiralTable.tableName)
+    injs = table.get_table(utils.load_filename(options.injxml,contenthandler=ExtractSimInspiralTableLIGOLWContentHandler),lsctables.SimInspiralTable.tableName)
 
     if options.par == []:
         parameters = ['m1', 'm2', 'mc', 'eta', 'q',  'iota', 'a1', 'a2', 'theta1', 'theta2', 'phi1', 'phi2', 'ra', 'dec', 'dist', 'time', 'phi_orb', 'psi']
