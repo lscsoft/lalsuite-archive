@@ -122,32 +122,27 @@ class Bins(object):
 
 	def __getitem__(self, x):
 		"""
-		Convert a co-ordinate into a bin index.  The co-ordinate
-		can be a single number, or a Python slice instance.  If a
-		single number is given, it is mapped to the bin in which it
-		falls.  If a slice is given, it is converted to a slice
-		whose upper and lower bounds are the bins in which the
-		input slice's upper and lower bounds fall.
+		Convert a co-ordinate to a bin index.  The co-ordinate can
+		be a single value, or a Python slice instance describing a
+		range of values.  If a single value is given, it is mapped
+		to the bin index corresponding to that value.  If a slice
+		is given, it is converted to a slice whose lower bound is
+		the index of the bin in which the slice's lower bound
+		falls, and whose upper bound is 1 greater than the index of
+		the bin in which the slice's upper bound falls.  Steps are
+		not supported in slices.
 		"""
 		if isinstance(x, slice):
 			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop] + 1
-			return slice(start, stop)
+				raise NotImplementedError("step not supported: %s" % repr(x))
+			return slice(self[x.start] if x.start is not None else 0, self[x.stop] + 1 if x.stop is not None else len(self))
 		raise NotImplementedError
 
 	def __iter__(self):
 		"""
-		If __iter__ does not exist, Python uses __getitem__ with range(0)
-		as input to define iteration. This is nonsensical for bin objects,
-		so explicitly unsupport iteration.
+		If __iter__ does not exist, Python uses __getitem__ with
+		range(0) as input to define iteration. This is nonsensical
+		for bin objects, so explicitly unsupport iteration.
 		"""
 		raise NotImplementedError
 
