@@ -276,8 +276,7 @@ class IrregularBins(Bins):
 	slice(0, 3, None)
 	>>> IrregularBins([0.0, 15.0, 11.0])
 	Traceback (most recent call last):
-	  File "<stdin>", line 1, in <module>
-	    raise ValueError("non-monotonic boundaries provided")
+		...
 	ValueError: non-monotonic boundaries provided
 	>>> y = IrregularBins([0.0, 11.0, 15.0, numpy.inf])
 	>>> x == y
@@ -356,14 +355,17 @@ class LinearBins(Bins):
 	2
 	>>> x[0:27]
 	Traceback (most recent call last):
-	  File "<stdin>", line 1, in <module>
-	    raise IndexError(value)
+		...
 	IndexError: 0
 	>>> x[1:25]
+	slice(0, 3, None)
+	>>> x[:25]
 	slice(0, 3, None)
 	>>> x[10:16.9]
 	slice(1, 2, None)
 	>>> x[10:17]
+	slice(1, 3, None)
+	>>> x[10:]
 	slice(1, 3, None)
 	"""
 	def __init__(self, min, max, n):
@@ -619,7 +621,7 @@ class ATanLogarithmicBins(IrregularBins):
 	bounds of the interval of approximately logarithmically-spaced
 	bins.  In a sense, these are where the roll-over from
 	logarithmically-spaced bins to asymptotically diminishing bin
-	density occurs.  There is a total of n bins.
+	density occurs.
 
 	Example:
 
@@ -707,8 +709,7 @@ class Categories(Bins):
 	1
 	>>> categories[-1]
 	Traceback (most recent call last):
-	  File "<stdin>", line 1, in <module>
-	    raise IndexError(value)
+		...
 	IndexError: -1
 
 	This last example demonstrates the behaviour when the intersection
@@ -781,9 +782,9 @@ class NDBins(tuple):
 	"""
 	def __new__(cls, *args):
 		new = tuple.__new__(cls, *args)
-		new.min = tuple([b.min for b in new])
-		new.max = tuple([b.max for b in new])
-		new.shape = tuple([len(b) for b in new])
+		new.min = tuple(b.min for b in new)
+		new.max = tuple(b.max for b in new)
+		new.shape = tuple(len(b) for b in new)
 		return new
 
 	def __getitem__(self, coords):
@@ -821,7 +822,7 @@ class NDBins(tuple):
 		locations of the lower boundaries of the bins in the
 		corresponding dimension.
 		"""
-		return tuple([b.lower() for b in self])
+		return tuple(b.lower() for b in self)
 
 	def centres(self):
 		"""
@@ -829,7 +830,7 @@ class NDBins(tuple):
 		locations of the bin centres for the corresponding
 		dimension.
 		"""
-		return tuple([b.centres() for b in self])
+		return tuple(b.centres() for b in self)
 
 	def upper(self):
 		"""
@@ -837,7 +838,7 @@ class NDBins(tuple):
 		locations of the upper boundaries of the bins in the
 		corresponding dimension.
 		"""
-		return tuple([b.upper() for b in self])
+		return tuple(b.upper() for b in self)
 
 	def volumes(self):
 		"""
