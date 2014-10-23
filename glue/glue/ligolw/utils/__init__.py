@@ -337,14 +337,12 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 	>>> f = StringIO.StringIO('<?xml version="1.0" encoding="utf-8" ?><!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt"><LIGO_LW><Table Name="demo:table"><Column Name="name" Type="lstring"/><Column Name="value" Type="real8"/><Stream Name="demo:table" Type="Local" Delimiter=",">"mass",0.5,"velocity",34</Stream></Table></LIGO_LW>')
 	>>> xmldoc, digest = load_fileobj(f, contenthandler = ligolw.LIGOLWContentHandler)
 	>>> digest
-	'03d1f513120051f4dbf3e3bc58ddfaa6'
+	'6bdcc4726b892aad913531684024ed8e'
 
 	The contenthandler argument specifies the SAX content handler to
 	use when parsing the document.  The contenthandler is a required
-	argument, but for (temporary) backwards compatibility if it is
-	omitted a default fallback is used and a warning is emitted.  See
-	the glue.ligolw package documentation for typical parsing scenario
-	involving a custom content handler.  See
+	argument.  See the glue.ligolw package documentation for typical
+	parsing scenario involving a custom content handler.  See
 	glue.ligolw.ligolw.PartialLIGOLWContentHandler and
 	glue.ligolw.ligolw.FilteringLIGOLWContentHandler for examples of
 	custom content handlers used to load subsets of documents into
