@@ -881,14 +881,21 @@ class NDBins(tuple):
 		corresponding to each dimension.  For more information on
 		how each of the co-ordinates is drawn, see
 		Bins.randcoord().
+
+		Example:
+
+		>>> binning = NDBins((LinearBins(0, 10, 5), LinearBins(0, 10, 5)))
+		>>> coord = binning.randcoord().next
+		>>> coord()	# doctest: +ELLIPSIS
+		((..., ...), -4.6051701859880909)
 		"""
 		if ns is None:
 			ns = (1.,) * len(self)
 		if domain is None:
 			domain = (slice(None, None),) * len(self)
-		bingens = tuple(iter(binning.randcoord(n, domain = d)).next for binning, n, d in zip(self, ns, domain))
+		coordgens = tuple(iter(binning.randcoord(n, domain = d)).next for binning, n, d in zip(self, ns, domain))
 		while 1:
-			seq = sum((bingen() for bingen in bingens), ())
+			seq = sum((coordgen() for coordgen in coordgens), ())
 			yield seq[0::2], sum(seq[1::2])
 
 	class BinsTable(ligolw_table.Table):
