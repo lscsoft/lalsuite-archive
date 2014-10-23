@@ -171,36 +171,86 @@ class Bins(object):
 		"""
 		Generator yielding a sequence of x, ln(P(x)) tuples where x
 		is a randomly-chosen co-ordinate and P(x) is the PDF from
-		which x has been drawn evaluated at x.  The co-ordinate is
-		uniformly drawn from within bins, which are drawn from a
-		distribution whose CDF goes as [bin index]^{n}.  For more
-		information, see glue.iterutils.randindex.
+		which x has been drawn evaluated at x.  Each co-ordinate is
+		drawn uniformly from within a bin, which has been drawn
+		from a distribution whose CDF goes as [bin index]^{n}.  For
+		more information on how bins are drawn, see
+		glue.iterutils.randindex.
+
+		If a domain is given, the values returned fall within
+		[start, stop].  If start or stop is None, the corresponding
+		end of the binning is used.  If start or stop does not
+		correspond exactly to a bin boundary, the probability of
+		drawing a value from that bin is unchanged, but the values
+		drawn from that bin will be restricted to the allowed part
+		of the bin (the PDF is adjusted to reflect this).  No
+		values are returned from bins with infinite size (after
+		clipping them to the requested domain), and the PDF is
+		adjusted to reflect this.
+
+		Example:
+
+		>>> import math
+		>>> # natural log of 1/10
+		>>> print "%.15g" % math.log(1./10)
+		-2.30258509299405
+		>>> # linear bins spanning [1, 10]
+		>>> x = LinearBins(0, 10, 5).randcoord().next
+		>>> # draw a random value, P(value) = 1/10
+		>>> x()	# doctest: +ELLIPSIS
+		(..., -2.3025850929940455)
+		>>> # binning with infinite boundaries
+		>>> x = ATanBins(-1, +1, 4)
+		>>> # will ask for values in [0.5, +inf], i.e. the last two
+		>>> # bins, but values from final bin will be disallowed, so
+		>>> # return values will be uniform in part of the second 
+		>>> # last bin, [0.5, 0.6366]
+		>>> print "%.15g" % math.log(1. / (x.upper()[-2] - 0.5))
+		1.99055359585182
+		>>> x = x.randcoord(domain = slice(0.5, None)).next
+		>>> x() # doctest: +ELLIPSIS
+		(..., 1.9905535958518226)
+		>>> # things that aren't supported:
+		>>> # domain slice with a step
+		>>> LinearBins(0, 10, 1).randcoord(domain = slice(None, None, 2)).next()
+		Traceback (most recent call last):
+			...
+		NotImplementedError: step not supported: slice(None, None, 2)
 		"""
 		if len(self) < 1:
 			raise ValueError("empty binning")
+		if domain.step is not None:
+			raise NotImplementedError("step not supported: %s" % repr(domain))
+		# avoid symbol look-ups in the sampling loop
+		isinf = math.isinf
+		uniform = random.uniform
+		# determine boundaries and index range
 		l = self.lower()
 		u = self.upper()
 		lo, hi, _ = self[domain].indices(len(l))
-		if not lo < hi:
-			raise ValueError("slice too small")
 		if domain.start is not None:
 			assert l[lo] <= domain.start
 			l[lo] = domain.start
 		if domain.stop is not None:
 			assert u[hi - 1] >= domain.stop
 			u[hi - 1] = domain.stop
+		if isinf(u[lo] - l[lo]):
+			lo += 1
+		if isinf(u[hi - 1] - l[hi - 1]):
+			hi -= 1
+		if not lo < hi:
+			raise ValueError("slice too small")
 		# log() implicitly checks that the boundary adjustments
 		# above haven't made any bins <= 0 in size.  converting
-		# everything to tuples makes the loop faster
+		# everything to tuples makes the sampling loop faster
 		ln_dx = tuple(numpy.log(u - l))
 		l = tuple(l)
 		u = tuple(u)
-		# avoid symbol look-ups in the loop
-		isinf = math.isinf
-		uniform = random.uniform
+		# one last safety check
+		if any(map(isinf, ln_dx[lo:hi])):
+			raise ValueError("unavoidable infinite bin detected")
+		# generate samples
 		for i, ln_Pi in iterutils.randindex(lo, hi, n = n):
-			if isinf(ln_dx[i]):
-				continue
 			yield uniform(l[i], u[i]), ln_Pi - ln_dx[i]
 
 
