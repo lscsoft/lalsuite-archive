@@ -797,6 +797,15 @@ class NDBins(tuple):
 	def volumes(self):
 		"""
 		Return an n-dimensional array of the bin volumes.
+
+		Example:
+
+		>>> # 3x5 grid of bins, each 2 units by 2 units
+		>>> x = NDBins((LinearBins(0, 6, 3), LinearBins(0, 10, 5)))
+		>>> x.volumes()
+		array([[ 4.,  4.,  4.,  4.,  4.],
+		       [ 4.,  4.,  4.,  4.,  4.],
+		       [ 4.,  4.,  4.,  4.,  4.]])
 		"""
 		volumes = tuple(u - l for u, l in zip(self.upper(), self.lower()))
 		if len(volumes) == 1:
