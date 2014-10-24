@@ -601,15 +601,17 @@ class ATanBins(Bins):
 		return len(self) - 1
 
 	def lower(self):
-		x = numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(len(self))) / self.scale + self.mid
+		x = numpy.tan(numpy.linspace(-math.pi / 2., +math.pi / 2., len(self), endpoint = False)) / self.scale + self.mid
 		x[0] = NegInf
 		return x
 
 	def centres(self):
-		return numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(len(self)) + 0.5)) / self.scale + self.mid
+		offset = 0.5 * math.pi * self.delta
+		return numpy.tan(numpy.linspace(-math.pi / 2. + offset, +math.pi / 2. + offset, len(self), endpoint = False)) / self.scale + self.mid
 
 	def upper(self):
-		x = numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(len(self)) + 1)) / self.scale + self.mid
+		offset = math.pi * self.delta
+		x = numpy.tan(numpy.linspace(-math.pi / 2. + offset, +math.pi / 2. + offset, len(self), endpoint = False)) / self.scale + self.mid
 		x[-1] = PosInf
 		return x
 
@@ -663,7 +665,8 @@ class ATanLogarithmicBins(IrregularBins):
 		self._real_n = n
 
 	def centres(self):
-		centres = numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(self._real_n) + 0.5)) / self.scale + self.mid
+		offset = 0.5 * math.pi * self.delta
+		centres = numpy.tan(numpy.linspace(-math.pi / 2. + offset, +math.pi / 2. + offset, self._real_n, endpoint = False)) / self.scale + self.mid
 		with numpy.errstate(over = "ignore"):
 			return numpy.exp(centres)[self.keepers]
 
