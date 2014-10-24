@@ -1478,7 +1478,7 @@ class InstrumentCategories(dict):
 		# inconsisntent with the "H1H2+", "H1H2-" shown here, so
 		# this needs to be fixed but I don't know how.  maybe it'll
 		# go away before it needs to be fixed.
-		self.update(dict((instrument, 1 << n) for n, instrument in enumerate(("G1", "H1", "H2", "H1H2+", "H1H2-", "L1", "V1"))))
+		self.update(dict((instrument, 1 << n) for n, instrument in enumerate(("G1", "H1", "H2", "H1H2+", "H1H2-", "L1", "V1", "E1", "E2", "E3", "E0"))))
 
 	def max(self):
 		return sum(self.values())
