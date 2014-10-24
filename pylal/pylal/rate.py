@@ -595,7 +595,7 @@ class ATanBins(Bins):
 			return super(ATanBins, self).__getitem__(x)
 		# map to the domain [0, 1]
 		x = math.atan(float(x - self.mid) * self.scale) / math.pi + 0.5
-		if x < 1:
+		if x < 1.:
 			return int(math.floor(x / self.delta))
 		# x == 1, special "measure zero" corner case
 		return len(self) - 1
@@ -662,16 +662,10 @@ class ATanLogarithmicBins(IrregularBins):
 		self._real_max = max
 		self._real_n = n
 
-	#def lower(self):
-	#	return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(self._real_n)) / self.scale + self.mid)[self.keepers]
-
 	def centres(self):
 		centres = numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(self._real_n) + 0.5)) / self.scale + self.mid
 		with numpy.errstate(over = "ignore"):
 			return numpy.exp(centres)[self.keepers]
-
-	#def upper(self):
-	#	return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(self._real_n) + 1)) / self.scale + self.mid)[self.keepers]
 
 
 class Categories(Bins):
@@ -717,22 +711,24 @@ class Categories(Bins):
 	"""
 	def __init__(self, categories):
 		"""
-		categories is an iterable of containers defining the categories.
-		(Recall that containers are collections that support the "in"
-		operator.) Objects will be mapped to the integer index of the
-		container that contains them.
+		categories is an iterable of containers defining the
+		categories.  (Recall that containers are collections that
+		support the "in" operator.) Objects will be mapped to the
+		integer index of the container that contains them.
 		"""
 		self.containers = tuple(categories)  # need to set an order and len
 		self.n = len(self.containers)
 
-		# enable NDBins to read range, but do not enable treatment as numbers
+		# enable NDBins to read range, but do not enable treatment
+		# as numbers
 		self.min = None
 		self.max = None
 
 	def __getitem__(self, value):
 		"""
 		Return i if value is contained in i-th container. If value
-		is not contained in any of the containers, raise an IndexError.
+		is not contained in any of the containers, raise an
+		IndexError.
 		"""
 		for i, s in enumerate(self.containers):
 			if value in s:
