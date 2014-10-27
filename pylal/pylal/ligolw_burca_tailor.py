@@ -192,6 +192,7 @@ class EPAllSkyCoincParamsDistributions(BurcaCoincParamsDistributions):
 		# FIXME: this time is available as the peak_time in the
 		# multi_burst table, and it should be retrieved from that
 		# table instead of being recomputed
+		events = tuple(events)
 		t = events[0].get_peak()
 		t += sum(float(event.get_peak() - t) * event.ms_snr**2.0 for event in events) / sum(event.ms_snr**2.0 for event in events)
 		gmst = date.XLALGreenwichMeanSiderealTime(t) % (2 * math.pi)
