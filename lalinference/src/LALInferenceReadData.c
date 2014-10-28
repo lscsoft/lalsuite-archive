@@ -2684,9 +2684,9 @@ static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , SimInspiralTable *inj
        thisData=thisData->next;
   nIFO++;
       }
-  (void) inj_table;
   
-  sprintf(SnrName,"%s",SNRpath);
+  sprintf(SnrName,"%s/snr_%s_%10.1f.dat",SNRpath,ListOfIFOs,(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
+ (void) inj_table;
   FILE * snrout = fopen(SnrName,"w");
   if(!snrout){
     fprintf(stderr,"Unable to open the path %s for writing SNR files\n",SNRpath);
