@@ -187,6 +187,7 @@ def load_time_slides(filename, verbose = False, gz = None, contenthandler = Defa
 	from scratch.  Instead, from the glue.ligolw package use
 	table.get_table(...).as_dict().
 	"""
+	warnings.warn("pylal.ligolw_tisi.load_time_slides() is deprecated.  use glue.ligolw library directly to load document instead.", DeprecationWarning)
 	time_slide_table = lsctables.TimeSlideTable.get_table(ligolw_utils.load_filename(filename, verbose = verbose, gz = gz, contenthandler = contenthandler))
 	time_slide_table.sync_next_id()
 	return time_slide_table.as_dict()

@@ -130,8 +130,14 @@ options, filenames = parse_command_line()
 #
 
 
+@lsctables.use_in
+class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
+	pass
+
 if options.add_to is not None:
-	time_slides = ligolw_tisi.load_time_slides(options.add_to, verbose = options.verbose)
+	time_slide_table = lsctables.TimeSlideTable.get_table(ligolw_utils.load_filename(options.add_to, verbose = options.verbose, contenthandler = LIGOLWContentHandler))
+	time_slide_table.sync_next_id()
+	time_slides = time_slide_table.as_dict()
 	if options.verbose:
 		print >>sys.stderr, "Loaded %d time slides." % len(time_slides)
 else:
