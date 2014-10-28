@@ -2695,11 +2695,16 @@ static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , SimInspiralTable *inj
 
   thisData=IFOdata; // restart from the first IFO
   while(thisData){
+      fprintf(snrout,"%s:\t %4.2f\n",thisData->name,thisData->SNR);
       NetSNR+=(thisData->SNR*thisData->SNR);
       thisData=thisData->next;
   }
 
-  fprintf(snrout,"%4.2f\n",sqrt(NetSNR));
+  if (nIFO>1){
+    fprintf(snrout,"Network:\t");
+    fprintf(snrout,"%4.2f\n",sqrt(NetSNR));
+   }
+
   fclose(snrout);
 }
 

@@ -787,6 +787,10 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             for co in cotest_nodes:
               co.set_psdstart(enginenodes[0].GPSstart)
               co.set_psdlength(enginenodes[0].psdlength)
+              if co==cotest_nodes[0]:
+                co.set_snr_path(self.basepath)
+              else:
+                co.set_snr_path('/dev/null')
               if co!=cotest_nodes[0]:
                 co.add_var_arg('--dont-dump-psd')
 
@@ -1319,7 +1323,7 @@ class EngineNode(pipeline.CondorDAGNode):
       for i in self.ifos: ifos='%s%s'%(ifos,i)
       self.snrpath=os.path.join(root,'SNR','snr_%s_%10.3f.dat'%(ifos,float(self.get_trig_time())))
     self.add_file_opt('snrpath',self.snrpath,file_is_output_file=True)
-    
+
   def set_trigSNR(self,trigSNR):
     self.add_var_opt('trigSNR',str(trigSNR))
 
@@ -1340,6 +1344,9 @@ class EngineNode(pipeline.CondorDAGNode):
     for i in self.ifos:
       st+='%s/%.3f_%s-PSD.dat,'%('PSDs',float(self.get_trig_time()),i)  
     return st[:-1]
+
+  def get_snr_path(self):
+    return self.snrpath
 
   def set_trig_time(self,time):
     """
