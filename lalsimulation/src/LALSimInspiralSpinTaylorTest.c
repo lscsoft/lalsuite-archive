@@ -322,9 +322,7 @@ static int XLALSimInspiralSpinTaylorT4TestSetup(
     params->tideO = tideO;
 
     params->fCONT = XLALSimInspiralContactFrequency(m1/LAL_MTSUN_SI, lambda1, m2/LAL_MTSUN_SI, lambda2);
-    fprintf(stderr,"XLALSimInspiralSpinTaylorT4Setup: fCONT = %.3f\n",params->fCONT) ;
-    fprintf(stderr,"XLALSimInspiralSpinTaylorT4Setup: m1 m2 l1 l2 q1 q2 = %.4f %.4f %.4f %.4f %.4f %.4f \n", m1/LAL_MTSUN_SI, m2/LAL_MTSUN_SI,lambda1,lambda2,quadparam1,quadparam2) ;
-    fprintf(stderr,"XLALSimInspiralSpinTaylorT4Setup: fStart = %.4f\n",fStart);
+
 
     /* Set coefficients up to PN order phaseO.
      * epnorb is the binary energy and
@@ -652,7 +650,6 @@ int XLALSimInspiralSpinTaylorTestPNEvolveOrbit(
         XLAL_ERROR(XLAL_EINVAL);
     }
 
-    fprintf(stderr,"s1x s1y s1z s2x s2y s2z = %.4f %.4f %.4f %.4f %.4f %.4f\n", s1x,s1y,s1z,s2x,s2y,s2z);
 
     // Fill params struct with values of constant coefficients of the model
     if( approx == SpinTaylorT4Test )
@@ -1343,7 +1340,6 @@ int XLALSimInspiralSpinTaylorT4Test(
     LALSimInspiralTestGRParam *extraParams /**< structure of testing parameters */
 	)
 {
-    fprintf(stderr,"XLALSimInspiralSpinTaylorT4: lambda1 lambda2 qm1 qm2 = %f %f %f %f\n",lambda1,lambda2,quadparam1,quadparam2);
     Approximant approx = SpinTaylorT4Test;
     int n = XLALSimInspiralSpinTaylorTestDriver(hplus, hcross, phiRef, v0, deltaT,
             m1, m2, fStart, fRef, r, s1x, s1y, s1z, s2x, s2y, s2z,

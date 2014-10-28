@@ -537,12 +537,7 @@ static int XLALSimInspiralSpinTaylorT4Setup(
     params->tideO = tideO;
 
     params->fCONT = XLALSimInspiralContactFrequency(m1/LAL_MTSUN_SI, lambda1, m2/LAL_MTSUN_SI, lambda2);
-    fprintf(stderr,"XLALSimInspiralSpinTaylorT4Setup: fCONT = %.3f\n",params->fCONT) ;
-
-    fprintf(stderr,"XLALSimInspiralSpinTaylorT4Setup: m1 m2 l1 l2 q1 q2 = %.4f %.4f %.4f %.4f %.4f %.4f\n", m1/LAL_MTSUN_SI, m2/LAL_MTSUN_SI,lambda1,lambda2,quadparam1,quadparam2) ;
     
-    fprintf(stderr,"XLALSimInspiralSpinTaylorT4Setup: fStart = %.4f\n",fStart);
-
     /* Set coefficients up to PN order phaseO.
      * epnorb is the binary energy and
      * wdotorb is the derivative of the orbital frequency \f$\dot{\omega}\f$.
@@ -821,8 +816,6 @@ int XLALSimInspiralSpinTaylorPNEvolveOrbit(
         XLAL_ERROR(XLAL_EINVAL);
     }
 
-    fprintf(stderr,"s1x s1y s1z s2x s2y s2z = %.4f %.4f %.4f %.4f %.4f %.4f\n", s1x,s1y,s1z,s2x,s2y,s2z);
-
     // Fill params struct with values of constant coefficients of the model
     if( approx == SpinTaylorT4 )
     {
@@ -1042,14 +1035,11 @@ int XLALSimInspiralSpinTaylorPNEvolveOrbit(
     char testfilename[512] ;
     REAL8 m1sol = m1sec/LAL_MTSUN_SI ;
     REAL8 m2sol = m2sec/LAL_MTSUN_SI ;
-    sprintf(testfilename,"/home/jmeidam/tests/eos_porting_test/frequency_%.3f_%.3f.dat",m1sol,m2sol);
-    FILE* testfile = fopen(testfilename,"w");
     for( i = 0; i < cutlen; i++ )
     {
         int j = sgn*i+offset;
         (*Phi)->data->data[j] 		= yout->data[len+i];
         (*V)->data->data[j] 		= cbrt(yout->data[2*len+i]);
-        fprintf(testfile,"%d %.9e %.9e %.9e %.9e\n",j,j*deltaT,cbrt(yout->data[2*len+i]),yout->data[2*len+i]/(LAL_PI*Msec),fStart);
         (*LNhatx)->data->data[j] 	= yout->data[3*len+i];
         (*LNhaty)->data->data[j] 	= yout->data[4*len+i];
         (*LNhatz)->data->data[j] 	= yout->data[5*len+i];
@@ -1063,7 +1053,6 @@ int XLALSimInspiralSpinTaylorPNEvolveOrbit(
         (*E1y)->data->data[j] 		= yout->data[13*len+i];
         (*E1z)->data->data[j] 		= yout->data[14*len+i];
     }
-    fclose(testfile);
     XLALDestroyREAL8Array(yout);
 
     return XLAL_SUCCESS;
@@ -1739,7 +1728,6 @@ int XLALSimInspiralSpinTaylorT4(
 	int amplitudeO                  /**< twice PN amplitude order */
 	)
 {
-    fprintf(stderr,"XLALSimInspiralSpinTaylorT4: lambda1 lambda2 qm1 qm2 = %f %f %f %f\n",lambda1,lambda2,quadparam1,quadparam2) ;
     Approximant approx = SpinTaylorT4;
     int n = XLALSimInspiralSpinTaylorDriver(hplus, hcross, phiRef, v0, deltaT,
             m1, m2, fStart, fRef, r, s1x, s1y, s1z, s2x, s2y, s2z,
