@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2006--2013  Kipp Cannon
+# Copyright (C) 2006--2014  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -34,6 +34,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils as ligolw_utils
 from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import time_slide as ligolw_time_slide
 from glue import offsetvector
 from pylal import git_version
 from pylal import ligolw_tisi
@@ -165,7 +166,7 @@ if options.verbose:
 if options.verbose:
 	print >>sys.stderr, "Identifying and removing duplicates ..."
 
-map(time_slides.pop, ligolw_tisi.time_slides_vacuum(time_slides, verbose = options.verbose).keys())
+map(time_slides.pop, ligolw_time_slide.time_slides_vacuum(time_slides, verbose = options.verbose).keys())
 
 if options.verbose:
 	print >>sys.stderr, "%d time slides remain." % len(time_slides)

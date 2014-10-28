@@ -26,18 +26,35 @@
 
 import itertools
 import sys
+import warnings
 
 
 from glue import iterutils
 from glue import offsetvector
 from glue.ligolw import lsctables
 from glue.ligolw import utils as ligolw_utils
+from glue.ligolw.utils import time_slide as ligolw_time_slide
 from pylal import git_version
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
+
+
+def get_time_slide_id(*args, **kwargs):
+	warnings.warn("pylal.ligolw_tisi.get_time_slide_id() is deprecated.  use glue.ligolw.utils.time_slide.get_time_slide_id() instead.", DeprecationWarning)
+	return ligolw_time_slide.get_time_slide_id(*args, **kwargs)
+
+
+def time_slides_vacuum(*args, **kwargs):
+	warnings.warn("pylal.ligolw_tisi.time_slides_vacuum() is deprecated.  use glue.ligolw.utils.time_slide.time_slides_vacuum() instead.", DeprecationWarning)
+	return ligolw_time_slide.time_slides_vacuum(*args, **kwargs)
+
+
+def time_slide_list_merge(*args, **kwargs):
+	warnings.warn("pylal.ligolw_tisi.time_slide_list_merge() is deprecated.  use glue.ligolw.utils.time_slide.time_slide_list_merge() instead.", DeprecationWarning)
+	return ligolw_time_slide.time_slide_list_merge(*args, **kwargs)
 
 
 #
@@ -175,42 +192,6 @@ def load_time_slides(filename, verbose = False, gz = None, contenthandler = Defa
 	return time_slide_table.as_dict()
 
 
-def get_time_slide_id(xmldoc, time_slide, create_new = None, superset_ok = False, nonunique_ok = False):
-	"""
-	Return the time_slide_id corresponding to the offset vector
-	described by time_slide, a dictionary of instrument/offset pairs.
-
-	Example:
-
-	>>> get_time_slide_id(xmldoc, {"H1": 0, "L1": 0})
-	'time_slide:time_slide_id:10'
-
-	This function is a wrapper around the .get_time_slide_id() method
-	of the glue.ligolw.lsctables.TimeSlideTable class.  See the
-	documentation for that class for the meaning of the create_new,
-	superset_ok and nonunique_ok keyword arguments.
-
-	This function requires the document to contain exactly one
-	time_slide table.  If the document does not contain exactly one
-	time_slide table then ValueError is raised, unless the optional
-	create_new argument is not None.  In that case a new table is
-	created.  This effect of the create_new argument is in addition to
-	the affects described by the TimeSlideTable class.
-	"""
-	try:
-		tisitable = lsctables.TimeSlideTable.get_table(xmldoc)
-	except ValueError:
-		# table not found
-		if create_new is None:
-			raise
-		tisitable = lsctables.New(lsctables.TimeSlideTable)
-		xmldoc.childNodes[0].appendChild(tisitable)
-	# make sure the next_id attribute is correct
-	tisitable.sync_next_id()
-	# get the id
-	return tisitable.get_time_slide_id(time_slide, create_new = create_new, superset_ok = superset_ok, nonunique_ok = nonunique_ok)
-
-
 #
 # =============================================================================
 #
@@ -266,76 +247,3 @@ def Inspiral_Num_Slides_Iter(count, offsets):
 	offsets = offsets.items()
 	for n in range(-count, +count + 1):
 		yield offsetvector.offsetvector((instrument, offset * n) for instrument, offset in offsets)
-
-
-#
-# =============================================================================
-#
-#                            Time Slide Comparison
-#
-# =============================================================================
-#
-
-
-def time_slides_vacuum(time_slides, verbose = False):
-	"""
-	Given a dictionary mapping time slide IDs to instrument-->offset
-	mappings, for example as returned by the as_dict() method of the
-	TimeSlideTable class in glue.ligolw.lsctables or by the
-	load_time_slides() function in this module, construct and return a
-	mapping indicating time slide equivalences.  This can be used to
-	delete redundant time slides from a time slide table, and then also
-	used via the applyKeyMapping() method of glue.ligolw.table.Table
-	instances to update cross references (for example in the
-	coinc_event table).
-
-	Example:
-
-	>>> slides = {"time_slide_id:0": {"H1": 0, "H2": 0},
-	"time_slide_id:1": {"H1": 10, "H2": 10}, "time_slide_id:2": {"H1":
-	0, "H2": 10}}
-	>>> time_slides_vacuum(slides)
-	{'time_slide_id:1': 'time_slide_id:0'}
-
-	indicating that time_slide_id:1 describes a time slide that is
-	equivalent to time_slide_id:0.  The calling code could use this
-	information to delete time_slide_id:1 from the time_slide table,
-	and replace references to that ID in other tables with references
-	to time_slide_id:0.
-	"""
-	# convert offsets to deltas
-	time_slides = dict((time_slide_id, offsetvect.deltas) for time_slide_id, offsetvect in time_slides.items())
-	N = len(time_slides)
-	# old --> new mapping
-	mapping = {}
-	# while there are time slide offset dictionaries remaining
-	while time_slides:
-		n = N - len(time_slides)
-		if verbose and not (n % 10):
-			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
-		# pick an ID/offset dictionary pair at random
-		id1, deltas1 = time_slides.popitem()
-		# for every other ID/offset dictionary pair in the time
-		# slides
-		ids_to_delete = []
-		for id2, deltas2 in time_slides.items():
-			# if the relative offset dictionaries are
-			# equivalent record in the old --> new mapping
-			if deltas2 == deltas1:
-				mapping[id2] = id1
-				ids_to_delete.append(id2)
-		for id2 in ids_to_delete:
-			time_slides.pop(id2)
-	# done
-	if verbose:
-		print >>sys.stderr, "\t100.0%"
-	return mapping
-
-
-def time_slide_list_merge(slides1, slides2):
-	"""
-	Merges two lists of offset dictionaries into a single list with
-	no duplicate (equivalent) time slides.
-	"""
-	deltas1 = set(frozenset(offsetvect1.deltas.items()) for offsetvect1 in slides1)
-	return slides1 + [offsetvect2 for offsetvect2 in slides2 if frozenset(offsetvect2.deltas.items()) not in deltas1]
