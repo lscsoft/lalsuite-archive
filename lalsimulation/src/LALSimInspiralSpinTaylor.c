@@ -1032,9 +1032,6 @@ int XLALSimInspiralSpinTaylorPNEvolveOrbit(
      * If we integrated backwards, we copy backwards from 'cutlen'.
      */
 
-    char testfilename[512] ;
-    REAL8 m1sol = m1sec/LAL_MTSUN_SI ;
-    REAL8 m2sol = m2sec/LAL_MTSUN_SI ;
     for( i = 0; i < cutlen; i++ )
     {
         int j = sgn*i+offset;
