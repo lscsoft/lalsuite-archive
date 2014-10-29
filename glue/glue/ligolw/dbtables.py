@@ -139,46 +139,48 @@ def install_signal_trap(signums = (signal.SIGTERM, signal.SIGTSTP), retval = 1):
 	Note:  this function is called by get_connection_filename()
 	whenever it creates a scratch file.
 	"""
-	with temporary_files_lock:
-		# ignore signums we've already replaced
-		signums = set(signums) - set(origactions)
+	# NOTE:  this must be called with the temporary_files_lock held.
+	# ignore signums we've already replaced
+	signums = set(signums) - set(origactions)
 
-		def temporary_file_cleanup_on_signal(signum, frame):
-			with temporary_files_lock:
-				temporary_files.clear()
-			if callable(origactions[signum]):
-				# original action is callable, chain to it
-				return origactions[signum](signum, frame)
-			# original action was not callable or the callable
-			# returned.  invoke sys.exit() with retval as exit code
-			sys.exit(retval)
+	def temporary_file_cleanup_on_signal(signum, frame):
+		with temporary_files_lock:
+			temporary_files.clear()
+		if callable(origactions[signum]):
+			# original action is callable, chain to it
+			return origactions[signum](signum, frame)
+		# original action was not callable or the callable
+		# returned.  invoke sys.exit() with retval as exit code
+		sys.exit(retval)
 
-		for signum in signums:
-			origactions[signum] = signal.getsignal(signum)
-			if origactions[signum] != signal.SIG_IGN:
-				# signal is not being ignored, so install our
-				# handler
-				signal.signal(signum, temporary_file_cleanup_on_signal)
+	for signum in signums:
+		origactions[signum] = signal.getsignal(signum)
+		if origactions[signum] != signal.SIG_IGN:
+			# signal is not being ignored, so install our
+			# handler
+			signal.signal(signum, temporary_file_cleanup_on_signal)
 
 
 def uninstall_signal_trap(signums = None):
 	"""
 	Undo the effects of install_signal_trap().  Restores the original
-	signal handlers.  If signums is a sequence of signal numbers the
-	only the signal handlers for thos signals will be restored.  If
-	signums is None (the default) then all signals that have been
-	modified by previous calls to install_signal_trap() are
-	restored.
+	signal handlers.  If signums is a sequence of signal numbers only
+	the signal handlers for those signals will be restored (KeyError
+	will be raised if one of them is not one that install_signal_trap()
+	installed a handler for, in which case some undefined number of
+	handlers will have been restored).  If signums is None (the
+	default) then all signals that have been modified by previous calls
+	to install_signal_trap() are restored.
 
 	Note:  this function is called by put_connection_filename() and
 	discard_connection_filename() whenever they remove a scratch file
 	and there are then no more scrach files in use.
 	"""
-	with temporary_files_lock:
-		if signums is None:
-			signums = origactions.keys()
-		for signum in signums:
-			signal.signal(signum, origactions.pop(signum))
+	# NOTE:  this must be called with the temporary_files_lock held.
+	if signums is None:
+		signums = origactions.keys()
+	for signum in signums:
+		signal.signal(signum, origactions.pop(signum))
 
 
 #
@@ -193,21 +195,22 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 	load.
 	"""
 	def mktmp(path, suffix = ".sqlite", verbose = False):
-		# make sure the clean-up signal traps are installed
-		install_signal_trap()
-		# create the remporary file and replace it's unlink()
-		# function
-		temporary_file = tempfile.NamedTemporaryFile(suffix = suffix, dir = path if path != "_CONDOR_SCRATCH_DIR" else os.getenv("_CONDOR_SCRATCH_DIR"))
-		def new_unlink(self, orig_unlink = temporary_file.unlink):
-			# also remove a -journal partner, ignore all errors
-			try:
-				orig_unlink("%s-journal" % self)
-			except:
-				pass
-			orig_unlink(self)
-		temporary_file.unlink = new_unlink
-		filename = temporary_file.name
 		with temporary_files_lock:
+			# make sure the clean-up signal traps are installed
+			install_signal_trap()
+			# create the remporary file and replace it's
+			# unlink() function
+			temporary_file = tempfile.NamedTemporaryFile(suffix = suffix, dir = path if path != "_CONDOR_SCRATCH_DIR" else os.getenv("_CONDOR_SCRATCH_DIR"))
+			def new_unlink(self, orig_unlink = temporary_file.unlink):
+				# also remove a -journal partner, ignore all errors
+				try:
+					orig_unlink("%s-journal" % self)
+				except:
+					pass
+				orig_unlink(self)
+			temporary_file.unlink = new_unlink
+			filename = temporary_file.name
+			# hang onto reference to prevent its removal
 			temporary_files[filename] = temporary_file
 		if verbose:
 			print >>sys.stderr, "using '%s' as workspace" % filename
@@ -409,9 +412,8 @@ def put_connection_filename(filename, working_filename, verbose = False):
 		# if there are no more temporary files in place, remove the
 		# temporary-file signal traps
 		with temporary_files_lock:
-			no_more_files = not temporary_files
-		if no_more_files:
-			uninstall_signal_trap()
+			if not temporary_files:
+				uninstall_signal_trap()
 
 
 def discard_connection_filename(filename, working_filename, verbose = False):
@@ -427,20 +429,18 @@ def discard_connection_filename(filename, working_filename, verbose = False):
 	a call to get_connection_filename() even if a separate working copy
 	is not created.
 	"""
-	if working_filename != filename:
+	if working_filename == filename:
+		return
+	with temporary_files_lock:
 		if verbose:
 			print >>sys.stderr, "removing '%s' ..." % working_filename,
 		# remove reference to tempfile.TemporaryFile object
-		with temporary_files_lock:
-			del temporary_files[working_filename]
+		del temporary_files[working_filename]
 		if verbose:
 			print >>sys.stderr, "done."
-
 		# if there are no more temporary files in place, remove the
 		# temporary-file signal traps
-		with temporary_files_lock:
-			no_more_files = not temporary_files
-		if no_more_files:
+		if not temporary_files:
 			uninstall_signal_trap()
 
 
