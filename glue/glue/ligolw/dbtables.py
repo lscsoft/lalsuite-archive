@@ -33,6 +33,7 @@ methods that work against the SQL database.
 
 
 import itertools
+import operator
 import os
 import re
 import shutil
@@ -762,6 +763,7 @@ class DBTable(table.Table):
 			"mysql": ",".join(["%s"] * len(self.dbcolumnnames))
 		}[connection_db_type(self.connection)]
 		self.append_statement = "INSERT INTO %s (%s) VALUES (%s)" % (self.Name, ",".join(self.dbcolumnnames), params)
+		self.append_attrgetter = operator.attrgetter(*self.dbcolumnnames)
 
 	def _end_of_rows(self):
 		# FIXME:  is this needed?
@@ -803,9 +805,7 @@ class DBTable(table.Table):
 		Standard .append() method.  This method is for intended for
 		internal use only.
 		"""
-		# FIXME: in Python 2.5 use attrgetter() for attribute
-		# tuplization.
-		self.cursor.execute(self.append_statement, map(lambda n: getattr(row, n), self.dbcolumnnames))
+		self.cursor.execute(self.append_statement, self.append_attrgetter(row))
 
 	def _remapping_append(self, row):
 		"""
