@@ -888,6 +888,8 @@ class Table(ligolw.Table, list):
 			# table is missing its ID column, this is a no-op
 			return mapping
 		for i, old in enumerate(column):
+			if old is None:
+				raise ValueError("null row ID encountered in Table '%s', row %d" % (self.getAttribute("Name"), i))
 			if old in mapping:
 				column[i] = mapping[old]
 			else:

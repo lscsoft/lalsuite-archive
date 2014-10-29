@@ -464,7 +464,7 @@ def idmap_create(connection):
 	This function is for internal use, it forms part of the code used
 	to re-map row IDs when merging multiple documents.
 	"""
-	connection.cursor().execute("CREATE TEMPORARY TABLE _idmap_ (old TEXT PRIMARY KEY, new TEXT)")
+	connection.cursor().execute("CREATE TEMPORARY TABLE _idmap_ (old TEXT PRIMARY KEY NOT NULL, new TEXT NOT NULL)")
 
 
 def idmap_reset(connection):
