@@ -1432,12 +1432,13 @@ def InterpBinnedArray(binnedarray, fill_value = 0.0):
 			interp1d
 		except NameError:
 			# FIXME:  remove when we can rely on a new-enough scipy
+			coords0 = coords[0]
 			lo, hi = coords[0][0], coords[0][-1]
 			def interp(x):
 				if not lo < x < hi:
 					return fill_value
-				i = coords[0].searchsorted(x)
-				return z[i - 1] + (x - coords[0][i - 1]) / (coords[0][i] - coords[0][i - 1]) * (z[i] - z[i - 1])
+				i = coords0.searchsorted(x) - 1
+				return z[i] + (x - coords0[i]) / (coords0[i + 1] - coords0[i]) * (z[i + 1] - z[i])
 			return interp
 		interp = interp1d(coords[0], z, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
 		return lambda *coords: float(interp(*coords))
@@ -1446,17 +1447,21 @@ def InterpBinnedArray(binnedarray, fill_value = 0.0):
 			interp2d
 		except NameError:
 			# FIXME:  remove when we can rely on a new-enough scipy
+			coords0 = coords[0]
+			coords1 = coords[1]
 			lox, hix = coords[0][0], coords[0][-1]
 			loy, hiy = coords[1][0], coords[1][-1]
 			def interp(x, y):
 				if not (lox < x < hix and loy < y < hiy):
 					return fill_value
-				i = coords[0].searchsorted(x)
-				j = coords[1].searchsorted(y)
-				dx = (x - coords[0][i - 1]) / (coords[0][i] - coords[0][i - 1])
-				dy = (y - coords[1][j - 1]) / (coords[1][j] - coords[1][j - 1])
+				i = coords0.searchsorted(x) - 1
+				j = coords1.searchsorted(y) - 1
+				dx = (x - coords0[i]) / (coords0[i + 1] - coords0[i])
+				dy = (y - coords1[j]) / (coords1[j + 1] - coords1[j])
 				if dx + dy <= 1.:
-					return z[i - 1, j - 1] + dx * (z[i, j - 1] - z[i - 1, j - 1]) + dy * (z[i - 1, j] - z[i - 1, j - 1])
+					return z[i, j] + dx * (z[i + 1, j] - z[i, j]) + dy * (z[i, j + 1] - z[i, j])
+				i += 1
+				j += 1
 				return z[i, j] + (1. - dx) * (z[i - 1, j] - z[i, j]) + (1. - dy) * (z[i, j - 1] - z[i, j])
 			return interp
 		interp = interp2d(coords[0], coords[1], z.T, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
