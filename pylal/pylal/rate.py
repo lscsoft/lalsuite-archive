@@ -1369,14 +1369,22 @@ def InterpBinnedArray(binnedarray, fill_value = 0.0):
 	2.0
 	>>> y(2, 1)
 	4.0
-	>>> y(0, 0.5)
+	>>> y(0, 0.25)
+	0.25
+	>>> y(0, 0.75)
+	0.75
+	>>> y(0.25, 0)
 	0.5
-	>>> y(0.5, 0)
-	1.0
-	>>> y(0.5, 1)
+	>>> y(0.75, 0)
+	1.5
+	>>> y(0.25, 1)
+	1.75
+	>>> y(0.75, 1)
+	3.25
+	>>> y(1, 0.25)
 	2.5
-	>>> y(1, 0.5)
-	3.0
+	>>> y(1, 0.75)
+	3.5
 
 	BUGS:  Due to bugs in some versions of scipy and numpy, if an old
 	version of scipy and/or numpy is detected this code falls back to
@@ -1434,11 +1442,16 @@ def InterpBinnedArray(binnedarray, fill_value = 0.0):
 			# FIXME:  remove when we can rely on a new-enough scipy
 			coords0 = coords[0]
 			lo, hi = coords[0][0], coords[0][-1]
+			with numpy.errstate(invalid = "ignore"):
+				dz_over_dcoords0 = (z[1:] - z[:-1]) / (coords0[1:] - coords0[:-1])
+			isinf = math.isinf
 			def interp(x):
 				if not lo < x < hi:
 					return fill_value
 				i = coords0.searchsorted(x) - 1
-				return z[i] + (x - coords0[i]) / (coords0[i + 1] - coords0[i]) * (z[i + 1] - z[i])
+				if isinf(z[i]):
+					return z[i]
+				return z[i] + (x - coords0[i]) * dz_over_dcoords0[i]
 			return interp
 		interp = interp1d(coords[0], z, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
 		return lambda *coords: float(interp(*coords))
@@ -1449,20 +1462,28 @@ def InterpBinnedArray(binnedarray, fill_value = 0.0):
 			# FIXME:  remove when we can rely on a new-enough scipy
 			coords0 = coords[0]
 			coords1 = coords[1]
-			lox, hix = coords[0][0], coords[0][-1]
-			loy, hiy = coords[1][0], coords[1][-1]
+			lox, hix = coords0[0], coords0[-1]
+			loy, hiy = coords1[0], coords1[-1]
+			dcoords0 = coords0[1:] - coords0[:-1]
+			dcoords1 = coords1[1:] - coords1[:-1]
+			with numpy.errstate(invalid = "ignore"):
+				dz0 = z[1:,:] - z[:-1,:]
+				dz1 = z[:,1:] - z[:,:-1]
+			isinf = math.isinf
 			def interp(x, y):
 				if not (lox < x < hix and loy < y < hiy):
 					return fill_value
 				i = coords0.searchsorted(x) - 1
 				j = coords1.searchsorted(y) - 1
-				dx = (x - coords0[i]) / (coords0[i + 1] - coords0[i])
-				dy = (y - coords1[j]) / (coords1[j + 1] - coords1[j])
+				dx = (x - coords0[i]) / dcoords0[i]
+				dy = (y - coords1[j]) / dcoords1[j]
 				if dx + dy <= 1.:
-					return z[i, j] + dx * (z[i + 1, j] - z[i, j]) + dy * (z[i, j + 1] - z[i, j])
-				i += 1
-				j += 1
-				return z[i, j] + (1. - dx) * (z[i - 1, j] - z[i, j]) + (1. - dy) * (z[i, j - 1] - z[i, j])
+					if isinf(z[i, j]):
+						return z[i, j]
+					return z[i, j] + dx * dz0[i, j] + dy * dz1[i, j]
+				if isinf(z[i + 1, j + 1]):
+					return z[i + 1, j + 1]
+				return z[i + 1, j + 1] + (1. - dx) * -dz0[i, j + 1] + (1. - dy) * -dz1[i + 1, j]
 			return interp
 		interp = interp2d(coords[0], coords[1], z.T, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
 		return lambda *coords: float(interp(*coords))
