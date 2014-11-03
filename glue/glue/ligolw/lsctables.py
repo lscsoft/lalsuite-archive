@@ -1359,6 +1359,68 @@ class MultiBurst(object):
 MultiBurstTable.RowType = MultiBurst
 
 
+
+#
+# =============================================================================
+#
+#                             tmplt_inspiral:table
+#
+# =============================================================================
+#
+
+
+TmpltInspiralID = ilwd.get_ilwdchar_class(u"tmplt_inspiral", u"tmplt_inspiral_id")
+
+
+class TmpltInspiralTable(table.Table):
+	tableName = "tmplt_inspiral:table"
+	validcolumns = {
+		"tmplt_inspiral_id": "ilwd:char",
+		"process_id": "ilwd:char",
+		"phi_ref": "real_8",
+		"mass1": "real_8",
+		"mass2": "real_8",
+		"spin1x": "real_8",
+		"spin1y": "real_8",
+		"spin1z": "real_8",
+		"spin2x": "real_8",
+		"spin2y": "real_8",
+		"spin2z": "real_8",
+		"f_min": "real_8",
+		"f_ref": "real_8",
+		"f_max": "real_8",
+		"distance": "real_8",
+		"inclination": "real_8",
+		"lambda1": "real_8",
+		"lambda2": "real_8",
+		"quadparam1": "real_8",
+		"quadparam2": "real_8",
+		"eccentricity": "real_8",
+		"argument_periapsis": "real_8",
+		"amplitude_order": "int_4s",
+		"phase_order": "int_4s",
+		"spin_order": "int_4s",
+		"tidal_order": "int_4s",
+		"frame_axis": "lstring",
+		"modes_choice": "lstring",
+		"comment": "lstring",
+		"approximant": "lstring",
+		"taper": "lstring",
+		"waveform_duration": "real_8",
+		"bank_params_id": "ilwd:char",
+		"segment_def_id": "ilwd:char",
+		"noise_moment_id": "ilwd:char"
+	}
+
+	constraints = "PRIMARY KEY (tmplt_inspiral_id)"
+	next_id = TmpltInspiralID(0)
+
+
+class TmpltInspiral(object):
+    __slots__ = TmpltInspiralTable.validcolumns.keys()
+
+TmpltInspiralTable.RowType = TmpltInspiral
+
 #
 # =============================================================================
 #
@@ -1368,83 +1430,54 @@ MultiBurstTable.RowType = MultiBurst
 #
 
 
-SnglInspiralID = ilwd.get_ilwdchar_class(u"sngl_inspiral", u"event_id")
+SnglInspiralID = ilwd.get_ilwdchar_class(u"sngl_inspiral", u"sngl_inspiral_id")
 
 
 class SnglInspiralTable(table.Table):
 	tableName = "sngl_inspiral:table"
 	validcolumns = {
+		"sngl_inspiral_id": "ilwd:char",
+		"tmplt_inspiral_id": "ilwd:char",
 		"process_id": "ilwd:char",
-		"ifo": "lstring",
-		"search": "lstring",
-		"channel": "lstring",
 		"end_time": "int_4s",
 		"end_time_ns": "int_4s",
-		"end_time_gmst": "real_8",
-		"impulse_time": "int_4s",
-		"impulse_time_ns": "int_4s",
-		"template_duration": "real_8",
-		"event_duration": "real_8",
-		"amplitude": "real_4",
+		"ifo": "lstring",
+		"snr": "real_4",
 		"eff_distance": "real_4",
 		"coa_phase": "real_4",
-		"mass1": "real_4",
-		"mass2": "real_4",
-		"mchirp": "real_4",
-		"mtotal": "real_4",
-		"eta": "real_4",
-		"kappa": "real_4",
-		"chi": "real_4",
-		"tau0": "real_4",
-		"tau2": "real_4",
-		"tau3": "real_4",
-		"tau4": "real_4",
-		"tau5": "real_4",
-		"ttotal": "real_4",
-		"psi0": "real_4",
-		"psi3": "real_4",
-		"alpha": "real_4",
-		"alpha1": "real_4",
-		"alpha2": "real_4",
-		"alpha3": "real_4",
-		"alpha4": "real_4",
-		"alpha5": "real_4",
-		"alpha6": "real_4",
-		"beta": "real_4",
-		"f_final": "real_4",
-		"snr": "real_4",
 		"chisq": "real_4",
-		"chisq_dof": "int_4s",
+		"chisq_dof": "real_4",
 		"bank_chisq": "real_4",
-		"bank_chisq_dof": "int_4s",
-		"cont_chisq": "real_4",
-		"cont_chisq_dof": "int_4s",
-		"sigmasq": "real_8",
+		"bank_chisq_dof": "real_4",
+		"auto_chisq": "real_4",
+		"auto_chisq_dof": "real_4",
 		"rsqveto_duration": "real_4",
-		"Gamma0": "real_4",
-		"Gamma1": "real_4",
-		"Gamma2": "real_4",
-		"Gamma3": "real_4",
-		"Gamma4": "real_4",
-		"Gamma5": "real_4",
-		"Gamma6": "real_4",
-		"Gamma7": "real_4",
-		"Gamma8": "real_4",
-		"Gamma9": "real_4",
-		"spin1x": "real_4",
-		"spin1y": "real_4",
-		"spin1z": "real_4",
-		"spin2x": "real_4",
-		"spin2y": "real_4",
-		"spin2z": "real_4",
-		"event_id": "ilwd:char"
+		"sigmasq": "real_4",
+		"waveform_duration": "real_8",
+		#
+		# FIXME: the following columns will eventually be
+		# deprecated in favor of the tmplt_inspiral table
+		#
+		"mass1": "real_8",
+		"mass2": "real_8",
+		"spin1z": "real_8",
+		"spin2z": "real_8",
+		"f_min": "real_8",
+		"sigmasq": "real_8",
+		"gamma0": "real_4",
+		"gamma1": "real_4",
+		"gamma2": "real_4",
+		"gamma3": "real_4",
+		"gamma4": "real_4",
+		"gamma5": "real_4"
 	}
-	constraints = "PRIMARY KEY (event_id)"
+	constraints = "PRIMARY KEY (sngl_inspiral_id)"
 	# FIXME:  lal uses an ID of 0 to indicate "no valid ID has been
 	# set", so we start at 1 for safety, but eventually that should be
 	# fixed in LAL and then this can be put back to 0 for cleanliness.
 	next_id = SnglInspiralID(1)
-	interncolumns = ("process_id", "ifo", "search", "channel")
+	interncolumns = ("process_id", "ifo")
+
 
 	def get_column(self,column,fac=250.,index=6.):
 		if column == 'reduced_chisq':
@@ -1459,10 +1492,6 @@ class SnglInspiralTable(table.Table):
 			return self.get_effective_snr(fac=fac)
 		if column == 'new_snr':
 			return self.get_new_snr(index=index)
-		if column == 'lvS5stat':
-			return self.get_lvS5stat()
-		elif column == 'chirp_eff_distance':
-			return self.get_chirp_eff_dist()
 		else:
 			return self.getColumnByName(column).asarray()
 
@@ -1523,16 +1552,8 @@ class SnglInspiralTable(table.Table):
 		numpy.putmask(contnewsnr, rchisq < 1, snr)
 		return contnewsnr
 
-	def get_chirp_eff_dist(self, ref_mass=1.4):
-		mchirp = self.get_column('mchirp')
-		eff_dist = self.get_column('eff_distance')
-		return SnglInspiral.chirp_distance(eff_dist, mchirp, ref_mass)
-
 	def get_snr_over_chi(self):
 		return self.get_column('snr')/self.get_column('chisq')**(1./2)
-
-	def get_lvS5stat(self):
-		return self.get_column('beta')
 
 	def ifocut(self, ifo, inplace=False):
 		"""
@@ -1596,15 +1617,6 @@ class SnglInspiralTable(table.Table):
 				keep.append(row)
 		return vetoed
 	
-	def getslide(self,slide_num):
-		"""
-		Return the triggers with a specific slide number.
-		@param slide_num: the slide number to recover (contained in the event_id)
-		"""
-		slideTrigs = table.new_from_template(self)
-		slideTrigs.extend(row for row in self if row.get_slide_number() == slide_num)
-		return slideTrigs
-
 
 class SnglInspiral(object):
 	__slots__ = SnglInspiralTable.validcolumns.keys()
@@ -1657,63 +1669,8 @@ class SnglInspiral(object):
 		else:
 			return self.snr
 
-	def get_far(self):
-		return self.alpha
-
-	def get_ifar(self):
-		if self.alpha < 0.000000001:
-			self.alpha = 0.000000001
-		return 1./self.alpha
-
-	def get_lvS5stat(self):
-		return self.beta
-
-	def get_id_parts(self):
-		"""
-		Return the three pieces of the int_8s-style sngl_inspiral
-		event_id.
-		"""
-		int_event_id = int(self.event_id)
-		a = int_event_id // 1000000000
-		slidenum = (int_event_id % 1000000000) // 100000
-		b = int_event_id % 100000
-		return int(a), int(slidenum), int(b)
-
-	def get_slide_number(self):
-		"""
-		Return the slide-number for this trigger
-		"""
-		a, slide_number, b = self.get_id_parts()
-		if slide_number > 5000:
-			slide_number = 5000 - slide_number
-		return slide_number
-
-	# FIXME: how are two inspiral events defined to be the same?
-	def __eq__(self, other):
-		return not (
-			cmp(self.ifo, other.ifo) or
-			cmp(self.end_time, other.end_time) or
-			cmp(self.end_time_ns, other.end_time_ns) or
-			cmp(self.mass1, other.mass1) or
-			cmp(self.mass2, other.mass2) or
-			cmp(self.search, other.search)
-		)
-
-	@staticmethod
-	def chirp_distance(dist, mchirp, ref_mass=1.4):
-		return dist * (2.**(-1./5) * ref_mass / mchirp)**(5./6)
-
 
 SnglInspiralTable.RowType = SnglInspiral
-
-
-#
-# =============================================================================
-#
-#                             coinc_inspiral:table
-#
-# =============================================================================
-#
 
 
 class CoincInspiralTable(table.Table):
@@ -2489,6 +2446,7 @@ class MultiInspiral(object):
 MultiInspiralTable.RowType = MultiInspiral
 
 
+
 #
 # =============================================================================
 #
@@ -2498,176 +2456,100 @@ MultiInspiralTable.RowType = MultiInspiral
 #
 
 
-SimInspiralID = ilwd.get_ilwdchar_class(u"sim_inspiral", u"simulation_id")
+SimInspiralID = ilwd.get_ilwdchar_class(u"sim_inspiral", u"sim_inspiral_id")
 
 
 class SimInspiralTable(table.Table):
 	tableName = "sim_inspiral:table"
 	validcolumns = {
+		"sim_inspiral_id": "ilwd:char",
+		"tmplt_inspiral_id": "ilwd:char",
 		"process_id": "ilwd:char",
-		"waveform": "lstring",
+		"sim_tag": "lstring",
 		"geocent_end_time": "int_4s",
 		"geocent_end_time_ns": "int_4s",
+		"ra": "real_4",
+		"dec": "real_4",
+		"polarization": "real_4",
+		"coa_phase": "real_4",
+		#
+		# FIXME: the following columns will eventually be
+		# deprecated in favor of the tmplt_inspiral table and
+		# the sim_inspiral_params table
+		#
+		"mass1": "real_8",
+		"mass2": "real_8",
+		"spin1x": "real_8",
+		"spin1y": "real_8",
+		"spin1z": "real_8",
+		"spin2x": "real_8",
+		"spin2y": "real_8",
+		"spin2z": "real_8",
+		"f_min": "real_8",
+		"f_max": "real_8",
+		"distance": "real_8",
+		"inclination": "real_8",
+		"amplitude_order": "int_4s",
+		"phase_order": "int_4s",
+		"spin_order": "lstring",
+		"approximant": "lstring",
+		"taper": "lstring",
+		# following will be moved to the sim_inspiral_params table
 		"h_end_time": "int_4s",
 		"h_end_time_ns": "int_4s",
 		"l_end_time": "int_4s",
 		"l_end_time_ns": "int_4s",
-		"g_end_time": "int_4s",
-		"g_end_time_ns": "int_4s",
-		"t_end_time": "int_4s",
-		"t_end_time_ns": "int_4s",
 		"v_end_time": "int_4s",
 		"v_end_time_ns": "int_4s",
-		"end_time_gmst": "real_8",
-		"source": "lstring",
-		"mass1": "real_4",
-		"mass2": "real_4",
-		"mchirp": "real_4",
-		"eta": "real_4",
-		"distance": "real_4",
-		"longitude": "real_4",
-		"latitude": "real_4",
-		"inclination": "real_4",
-		"coa_phase": "real_4",
-		"polarization": "real_4",
-		"psi0": "real_4",
-		"psi3": "real_4",
-		"alpha": "real_4",
-		"alpha1": "real_4",
-		"alpha2": "real_4",
-		"alpha3": "real_4",
-		"alpha4": "real_4",
-		"alpha5": "real_4",
-		"alpha6": "real_4",
-		"beta": "real_4",
-		"spin1x": "real_4",
-		"spin1y": "real_4",
-		"spin1z": "real_4",
-		"spin2x": "real_4",
-		"spin2y": "real_4",
-		"spin2z": "real_4",
-		"theta0": "real_4",
-		"phi0": "real_4",
-		"f_lower": "real_4",
-		"f_final": "real_4",
 		"eff_dist_h": "real_4",
 		"eff_dist_l": "real_4",
-		"eff_dist_g": "real_4",
-		"eff_dist_t": "real_4",
-		"eff_dist_v": "real_4",
-		"numrel_mode_min": "int_4s",
-		"numrel_mode_max": "int_4s",
-		"numrel_data": "lstring",
-		"amp_order": "int_4s",
-		"taper": "lstring",
-		"bandpass": "int_4s",
-		"simulation_id": "ilwd:char"
+		"eff_dist_v": "real_4"
 	}
-	constraints = "PRIMARY KEY (simulation_id)"
+	constraints = "PRIMARY KEY (sim_inspiral_id)"
 	next_id = SimInspiralID(0)
-	interncolumns = ("process_id", "waveform", "source")
 
-	def get_column(self,column):
-		if column == 'chirp_dist' or column == 'chirp_distance':
-			return self.get_chirp_dist()
-		# be strict about formatting of chirp eff distance
-		if column[0:14] == 'chirp_eff_dist' and column[14:16] in ['_h','_l','_g','_t','_v'] and len(column) == 16:
-			site = column[-1]
-			return self.get_chirp_eff_dist(site)
-		elif column == 'spin1':
-			return self.get_spin_mag(1)
-		elif column == 'spin2':
-			return self.get_spin_mag(2)
-		elif column == 'total_mass' or column == 'mtotal':
-			m1=self.getColumnByName('mass1').asarray()
-			m2=self.getColumnByName('mass2').asarray()
-			return m1+m2
-		else:
-			return self.getColumnByName(column).asarray()
-
-	def get_chirp_dist(self,ref_mass=1.4):
-		mchirp = self.get_column('mchirp')
-		dist = self.get_column('distance')
-		return SnglInspiral.chirp_distance(dist, mchirp, ref_mass)
-
-	def get_chirp_eff_dist(self,site,ref_mass=1.4):
-		mchirp = self.get_column('mchirp')
-		eff_dist = self.get_column('eff_dist_' + site)
-		return SnglInspiral.chirp_distance(eff_dist, mchirp, ref_mass)
-
-	def get_spin_mag(self,objectnumber):
-		sx = self.get_column('spin' + str(objectnumber) + 'x')
-		sy = self.get_column('spin' + str(objectnumber) + 'y')
-		sz = self.get_column('spin' + str(objectnumber) + 'z')
-		return (sx**2 + sy**2 + sz**2)**(0.5)
-
-	def veto(self,seglist,site=None):
-		keep = table.new_from_template(self)
-		keep.extend(row for row in self if row.get_end(site) not in seglist)
-		return keep
-
-	def veto(self,seglist):
-		vetoed = table.new_from_template(self)
-		keep = table.new_from_template(self)
-		for row in self:
-			time = row.get_end()
-			if time in seglist:
-				vetoed.append(row)
-			else:
-				keep.append(row)
-		return keep
-
-	def vetoed(self, seglist):
-		"""
-		Return the inverse of what veto returns, i.e., return the triggers
-		that lie within a given seglist.
-		"""
-		vetoed = table.new_from_template(self)
-		keep = table.new_from_template(self)
-		for row in self:
-			time = row.get_end()
-			if time in seglist:
-				vetoed.append(row)
-			else:
-				keep.append(row)
-		return vetoed
-
-	def get_end(self, site=None):
-		return numpy.asarray([row.get_end(site=site) for row in self])
+	# FIXME: I've removed all functions for now since many of them would break with the
+	# new columns, and with some columns being moved to other tables.
 
 
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
-	def get_time_geocent(self):
-		return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
-
-	def set_time_geocent(self, gps):
-		self.geocent_end_time, self.geocent_end_time_ns = gps.seconds, gps.nanoseconds
-
-	def get_ra_dec(self):
-		return self.longitude, self.latitude
-
-	def get_end(self, site = None):
-		if site is None:
-			return self.get_time_geocent()
-		else:
-			return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%s_end_time_ns" % site.lower()))
-
-	def get_eff_dist(self, instrument):
-		return getattr(self, "eff_dist_%s" % instrument[0].lower())
-
-	def get_chirp_eff_dist(self, instrument, ref_mass = 1.4):
-		return SnglInspiral.chirp_distance(self.get_eff_dist(instrument), self.mchirp, ref_mass)
-
-	def get_spin_mag(self, objectnumber):
-		sx = getattr(self, "spin%dx" % objectnumber)
-		sy = getattr(self, "spin%dy" % objectnumber)
-		sz = getattr(self, "spin%dz" % objectnumber)
-		return (sx**2 + sy**2 + sz**2)**(0.5)
+	# FIXME: I've removed all functions for now since many of them would break with the
+	# new columns, and with some columns being moved to other tables.
 
 
 SimInspiralTable.RowType = SimInspiral
+
+
+#
+# =============================================================================
+#
+#                               sim_inspiral_params:table
+#
+# =============================================================================
+#
+
+class SimInspiralParamsTable(table.Table):
+	tableName = "sim_inspiral_params:table"
+	validcolumns = {
+		"sim_inspiral_id": "ilwd:char",
+		"ifo": "lstring",
+		"end_time": "int_4s",
+		"end_time_ns": "int_4s",
+		"sigmasq": "real_8",
+	}
+
+	how_to_index = {
+		"sip_sid_index": ("sim_inspiral_id",),
+	}
+
+
+class SimInspiralParams(object):
+    __slots__ = SimInspiralParamsTable.validcolumns.keys()
+
+
+SimInspiralParamsTable.RowType = SimInspiralParams
 
 
 #
