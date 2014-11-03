@@ -47,9 +47,9 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
+from glue.ligolw.utils import time_slide as ligolw_time_slide
 from pylal import git_version
 from pylal import ligolw_burca
-from pylal import ligolw_tisi
 from pylal import SimBurstUtils
 from pylal.xlal import tools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -216,7 +216,7 @@ class DocContents(object):
 		#
 
 		if self.siminspiraltable is not None:
-			time_slide_id = ligolw_tisi.get_time_slide_id(xmldoc, {}.fromkeys(self.seglists, 0.0), create_new = process, superset_ok = True, nonunique_ok = False)
+			time_slide_id = ligolw_time_slide.get_time_slide_id(xmldoc, {}.fromkeys(self.seglists, 0.0), create_new = process, superset_ok = True, nonunique_ok = False)
 			for sim in self.siminspiraltable:
 				sim.time_slide_id = time_slide_id
 

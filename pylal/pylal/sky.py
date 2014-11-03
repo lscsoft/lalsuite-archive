@@ -23,10 +23,12 @@
 from __future__ import division
 import numpy as np,re,sys
 
+import lal
+
 from glue import git_version
 from glue.ligolw import table
 
-from pylal import datatypes,inject,date,lalconstants
+from pylal import datatypes,inject,date
 from pylal import inject
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
@@ -160,33 +162,33 @@ class SkyPosition(object):
 
         # normalise longitude
         while self.longitude < 0:
-            self.longitude += lalconstants.LAL_TWOPI
-        while self.longitude >= lalconstants.LAL_TWOPI:
-            self.longitude -= lalconstants.LAL_TWOPI
+            self.longitude += lal.TWOPI
+        while self.longitude >= lal.TWOPI:
+            self.longitude -= lal.TWOPI
 
         # normalise latitude
-        while self.latitude <= -lalconstants.LAL_PI:
-            self.latitude += lalconstants.LAL_TWOPI
-        while self.latitude > lalconstants.LAL_TWOPI:
-            self.latitude -= lalconstants.LAL_TWOPI
+        while self.latitude <= -lal.PI:
+            self.latitude += lal.TWOPI
+        while self.latitude > lal.TWOPI:
+            self.latitude -= lal.TWOPI
 
         #
         # now get latitude into canonical interval [-pi/2, pi/2)
         #
 
-        if self.latitude > lalconstants.LAL_PI_2:
-            self.latitude = lalconstants.LAL_PI - self.latitude
-            if self.latitude < lalconstants.LAL_PI:
-                self.longitude += lalconstants.LAL_PI
+        if self.latitude > lal.PI_2:
+            self.latitude = lal.PI - self.latitude
+            if self.latitude < lal.PI:
+                self.longitude += lal.PI
             else:
-                self.longitude -= lalconstants.LAL_PI
+                self.longitude -= lal.PI
 
-        if self.latitude < -lalconstants.LAL_PI_2:
-            self.latitude = -lalconstants.LAL_PI - self.latitude
-            if self.longitude < lalconstants.LAL_PI:
-                self.longitude += lalconstants.LAL_PI
+        if self.latitude < -lal.PI_2:
+            self.latitude = -lal.PI - self.latitude
+            if self.longitude < lal.PI:
+                self.longitude += lal.PI
             else:
-                self.longitude -= lalconstants.LAL_PI
+                self.longitude -= lal.PI
 
     def opening_angle(self, other):
         """
@@ -223,9 +225,9 @@ class SkyPosition(object):
 # =============================================================================
 
 # a few last definitions (taken from SkyCoordinates.c)
-lalconstants.LAL_ALPHAGAL = 3.366032942
-lalconstants.LAL_DELTAGAL = 0.473477302
-lalconstants.LAL_LGAL     = 0.576
+lal.LAL_ALPHAGAL = 3.366032942
+lal.LAL_DELTAGAL = 0.473477302
+lal.LAL_LGAL     = 0.576
 
 def ConvertSkyPosition(skyPoint, system, zenith=None, gpstime=None):
     """
@@ -372,12 +374,12 @@ def GeographicToEquatorial(input, gpstime):
 
     # get GMST
     gmst = np.fmod(date.XLALGreenwichSiderealTime(gpstime, 0),\
-                   lalconstants.LAL_TWOPI)
+                   lal.TWOPI)
 
     # output
     output = SkyPosition()
     output.system = 'equatorial'
-    output.longitude = np.fmod(input.longitude + gmst, lalconstants.LAL_TWOPI)
+    output.longitude = np.fmod(input.longitude + gmst, lal.TWOPI)
     output.latitude = input.latitude
     output.probability = input.probability
     output.solid_angle = input.solid_angle
@@ -398,10 +400,10 @@ def EquatorialToEcliptic(input):
     cosA = np.cos(input.longitude)
 
     # components
-    sinB = sinD*np.cos(lalconstants.LAL_IEARTH)\
-                - cosD*sinA*np.sin(lalconstants.LAL_IEARTH)
-    sinL = cosD*sinA*np.cos(lalconstants.LAL_IEARTH)\
-                + sinD*np.sin(lalconstants.LAL_IEARTH)
+    sinB = sinD*np.cos(lal.IEARTH)\
+                - cosD*sinA*np.sin(lal.IEARTH)
+    sinL = cosD*sinA*np.cos(lal.IEARTH)\
+                + sinD*np.sin(lal.IEARTH)
     cosL = cosD*cosA
 
     # output
@@ -419,24 +421,24 @@ def EquatorialToGalactic(input):
     """
 
     # intermediates. */
-    a    = -lalconstants.LAL_ALPHAGAL + input.longitude
+    a    = -lal.LAL_ALPHAGAL + input.longitude
     sinD = np.sin(input.latitude)
     cosD = np.cos(input.latitude)
     sinA = np.sin(a)
     cosA = np.cos(a)
 
     # components. */
-    sinB = cosD*np.cos(lalconstants.LAL_DELTAGAL)*cosA\
-                + sinD*np.sin(lalconstants.LAL_DELTAGAL)
-    sinL = sinD*np.cos(lalconstants.LAL_DELTAGAL)\
-                - cosD*cosA*np.sin(lalconstants.LAL_DELTAGAL)
+    sinB = cosD*np.cos(lal.LAL_DELTAGAL)*cosA\
+                + sinD*np.sin(lal.LAL_DELTAGAL)
+    sinL = sinD*np.cos(lal.LAL_DELTAGAL)\
+                - cosD*cosA*np.sin(lal.LAL_DELTAGAL)
     cosL = cosD*sinA
 
     # output
     output = SkyPosition()
     output.system    = 'galactic'
     output.latitude  = np.arcsin(sinB)
-    output.longitude = np.arctan2(sinL, cosL) + lalconstants.LAL_LGAL
+    output.longitude = np.arctan2(sinL, cosL) + lal.LAL_LGAL
     output.probability = input.probability
     output.solid_angle = input.solid_angle
     output.normalize()
@@ -454,12 +456,12 @@ def EquatorialToGeographic(input, gpstime):
 
     # get GMST
     gmst = np.fmod(date.XLALGreenwichSiderealTime(gpstime, 0),\
-                   lalconstants.LAL_TWOPI)
+                   lal.TWOPI)
 
     # output
     output = SkyPosition()
     output.system = 'geographic'
-    output.longitude = np.fmod(input.longitude - gmst, lalconstants.LAL_TWOPI)
+    output.longitude = np.fmod(input.longitude - gmst, lal.TWOPI)
     output.latitude = input.latitude
     output.probability = input.probability
     output.solid_angle = input.solid_angle
@@ -480,10 +482,10 @@ def EclipticToEquatorial(input):
     cosL = np.cos(input.longitude)
 
     # components
-    sinD = cosB*sinL*np.sin(lalconstants.LAL_IEARTH)\
-                + sinB*np.cos(lalconstants.LAL_IEARTH)
-    sinA = cosB*sinL*np.cos(lalconstants.LAL_IEARTH)\
-                - sinB*np.sin(lalconstants.LAL_IEARTH)
+    sinD = cosB*sinL*np.sin(lal.IEARTH)\
+                + sinB*np.cos(lal.IEARTH)
+    sinA = cosB*sinL*np.cos(lal.IEARTH)\
+                - sinB*np.sin(lal.IEARTH)
     cosA = cosB*cosL
 
     # output
@@ -583,10 +585,10 @@ def SkyPatch(ifos, ra, dec, radius, gpstime, dt=0.0005, sigma=1.65,\
             # get window
             lmin = angle-radius
             lmax = angle+radius
-            if lmin < lalconstants.LAL_PI_2 and lmax > lalconstants.LAL_PI_2:
-                l = lalconstants.LAL_PI_2
-            elif np.fabs(lalconstants.LAL_PI_2-lmin) <\
-                     np.fabs(lalconstants.LAL_PI_2-lmax):
+            if lmin < lal.PI_2 and lmax > lal.PI_2:
+                l = lal.PI_2
+            elif np.fabs(lal.PI_2-lmin) <\
+                     np.fabs(lal.PI_2-lmax):
                 l = lmin
             else:
                 l = lmax
@@ -651,22 +653,22 @@ def CircularGrid(resolution, radius):
     theta = 0
     while theta < radius+resolution:
         # get number of points in ring
-        n  = max(1, int(np.ceil(lalconstants.LAL_TWOPI\
+        n  = max(1, int(np.ceil(lal.TWOPI\
                                 * np.sin(theta)/resolution)))
         # get phi step
-        dp = lalconstants.LAL_TWOPI / n
+        dp = lal.TWOPI / n
         # get solid angle
-        if theta == 0 or theta == lalconstants.LAL_PI:
-            dO = 4*lalconstants.LAL_PI * np.sin(0.25*resolution)**2
+        if theta == 0 or theta == lal.PI:
+            dO = 4*lal.PI * np.sin(0.25*resolution)**2
         else:
-            dO = 4*lalconstants.LAL_PI/n * np.sin(theta) * np.sin(0.5*resolution)
+            dO = 4*lal.PI/n * np.sin(theta) * np.sin(0.5*resolution)
  
         # assign points in ring
         for j in xrange(n):
             p = SkyPosition()
             p.system = 'equatorial'
-            p.longitude = (-lalconstants.LAL_PI + dp/2) + dp*j
-            p.latitude  = lalconstants.LAL_PI_2 - theta
+            p.longitude = (-lal.PI + dp/2) + dp*j
+            p.latitude  = lal.PI_2 - theta
             p.solid_angle = dO
             p.probability = 0
             p.normalize()
@@ -743,7 +745,7 @@ def TwoSiteSkyGrid(ifos, gpstime, dt=0.0005, sky='half', point=None):
     # construct sky table
     l = SkyPositionTable()
     if sky=='half': longs = [0]
-    elif sky=='full': longs = [0,lalconstants.LAL_PI]
+    elif sky=='full': longs = [0,lal.PI]
     else: raise AttributeError("Sky type \"%s\" not recognised, please use "
                                "'half' or 'full'" % sky)
 
@@ -758,7 +760,7 @@ def TwoSiteSkyGrid(ifos, gpstime, dt=0.0005, sky='half', point=None):
             e.system = 'geographic'
             # project time-delay onto prime meridian
             e.longitude   = long
-            e.latitude    = lalconstants.LAL_PI_2-np.arccos(-t/ltt)
+            e.latitude    = lal.PI_2-np.arccos(-t/ltt)
             e.probability = None
             e.solid_angle = None
             e.normalize()
@@ -915,7 +917,7 @@ def ThreeSiteSkyGrid(ifos, gpstime, dt=0.0005, tiling='square', sky='half'):
             p = SkyPosition()
             p.system = 'geographic'
             p.longitude   = nphi
-            p.latitude    = lalconstants.LAL_PI_2 - ntheta
+            p.latitude    = lal.PI_2 - ntheta
             p.probability = None
             p.solid_angle = None
             p.normalize()
@@ -925,7 +927,7 @@ def ThreeSiteSkyGrid(ifos, gpstime, dt=0.0005, tiling='square', sky='half'):
             if sky=='full':
                 p2 = SkyPosition()
                 p2.longitude = p.longitude
-                p2.latitude = p.latitude + lalconstants.LAL_PI
+                p2.latitude = p.latitude + lal.PI
                 p2.system = 'equatorial'
                 p2.normalize()
                 l.append(p2)
@@ -961,8 +963,8 @@ def ISOTimeDelayLine(ifos, ra, dec, gpstime=None, n=3):
     angle = np.arccos(np.dot(cart, baseline))
 
     # get evenly spaced ring over north pole
-    longitudes = np.linspace(0, lalconstants.LAL_TWOPI, n, endpoint=False)
-    latitudes  = [lalconstants.LAL_PI_2-angle]*len(longitudes)
+    longitudes = np.linspace(0, lal.TWOPI, n, endpoint=False)
+    latitudes  = [lal.PI_2-angle]*len(longitudes)
     # get axis and angle of rotation
     north = np.array([0,0,1])
     axis  = np.cross(north, baseline)
@@ -1036,7 +1038,7 @@ def MaxTimeDelayLine3(ifo1, ifo2, ra, dec, gpstime=None, n=3):
     baseline = baseline / np.linalg.norm(baseline)
 
     # get angular spacing
-    dtheta = lalconstants.LAL_TWOPI/n
+    dtheta = lal.TWOPI/n
 
     # get axis and angle of rotation
     north = np.array([0,0,1])
@@ -1068,7 +1070,7 @@ def SphericalToCartesian(skyPoint):
  
     p     = np.zeros(3)
     phi   = skyPoint.longitude
-    theta = lalconstants.LAL_PI_2 - skyPoint.latitude
+    theta = lal.PI_2 - skyPoint.latitude
     a     = np.sin(phi)
     b     = np.cos(phi)
     c     = np.sin(theta)
@@ -1091,7 +1093,7 @@ def CartesianToSpherical(x, system='equatorial'):
     p = SkyPosition()
     p.system = system
     p.longitude   = np.arctan2(x[1], x[0])
-    p.latitude    = lalconstants.LAL_PI_2 - np.arccos(x[2])
+    p.latitude    = lal.PI_2 - np.arccos(x[2])
     p.probability = None
     p.solid_angle = None
     p.normalize()

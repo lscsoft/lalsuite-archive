@@ -302,7 +302,3 @@ def use_in(ContentHandler):
 	ContentHandler.startArray = startArray
 
 	return ContentHandler
-
-
-# FIXME:  remove
-use_in(ligolw.DefaultLIGOLWContentHandler)

@@ -55,7 +55,8 @@ import ConfigParser
 import numpy
 from pylal import geom_aligned_bank_utils,git_version
 from glue import pipeline
-from pylal.xlal.constants import LAL_PI, LAL_MTSUN_SI
+from lal import PI as LAL_PI
+from lal import MTSUN_SI as LAL_MTSUN_SI
 
 __author__  = "Ian Harry <ian.harry@astro.cf.ac.uk>"
 __version__ = "git id %s" % git_version.id

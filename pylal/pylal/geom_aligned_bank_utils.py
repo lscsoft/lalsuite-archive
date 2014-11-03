@@ -4,7 +4,8 @@ import numpy
 import matplotlib
 matplotlib.use('Agg')
 import pylab
-from pylal.xlal.constants import LAL_PI, LAL_MTSUN_SI
+from lal import PI as LAL_PI
+from lal import MTSUN_SI as LAL_MTSUN_SI
 
 # FIXME: Use lal/pylals own variables here
 mtsun = LAL_MTSUN_SI

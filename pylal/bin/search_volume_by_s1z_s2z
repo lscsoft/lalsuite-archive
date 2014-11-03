@@ -747,18 +747,18 @@ for instruments in UL.set_instruments_to_calculate():
   #output an XML file with the result
   xmldoc = ligolw.Document()
   xmldoc.appendChild(ligolw.LIGO_LW())
-  xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(vA, "2DsearchvolumeFirstMoment"))
-  xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(vA2, "2DsearchvolumeSecondMoment"))
-  xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(dvA, "2DsearchvolumeDerivative"))
+  xmldoc.childNodes[-1].appendChild(vA.to_xml("2DsearchvolumeFirstMoment"))
+  xmldoc.childNodes[-1].appendChild(vA2.to_xml("2DsearchvolumeSecondMoment"))
+  xmldoc.childNodes[-1].appendChild(dvA.to_xml("2DsearchvolumeDerivative"))
 
   # DONE with vA, so it is okay to mess it up...
   # Compute range
   vA.array = (vA.array * secs_in_year / UL.livetime[instruments] / (4.0/3.0 * pi)) **(1.0/3.0)
   UL.trim_spin_space(vA, instruments, minthresh=0.0, minS=UL.mintotal, maxS=UL.maxtotal)
-  xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(vA, "2DsearchvolumeDistance"))
+  xmldoc.childNodes[-1].appendChild(vA.to_xml("2DsearchvolumeDistance"))
 
   # make a live time
   UL.trim_spin_space(ltA, instruments, minthresh=0.0, minS=UL.mintotal, maxS=UL.maxtotal)
-  xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(ltA, "2DsearchvolumeLiveTime"))
+  xmldoc.childNodes[-1].appendChild(ltA.to_xml("2DsearchvolumeLiveTime"))
 
   utils.write_filename(xmldoc, "2Dsearchvolume-s1zs2z-%s-%s.xml" % (opts.output_name_tag, "".join(sorted(list(instruments)))))

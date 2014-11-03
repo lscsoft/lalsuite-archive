@@ -377,15 +377,6 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
-			"pylal.xlal.constants",
-			["src/xlal/constants.c"],
-			include_dirs = lal_pkg_config.incdirs,
-			libraries = ["lal"],  # this really, truly has no other deps
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
-		),
-		Extension(
 			"pylal.xlal.date",
 			["src/xlal/date.c", "src/xlal/misc.c"],
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
@@ -622,8 +613,10 @@ setup(
 		os.path.join("bin", "mvsc_update_sql"),
 		os.path.join("bin", "mvsc_get_doubles"),
 		os.path.join("bin", "mvsc_get_doubles_ringdown"),
+		os.path.join("bin", "mvsc_get_doubles_snglstage"),
 		os.path.join("bin", "mvsc_dag"),
 		os.path.join("bin", "mvsc_dag_ringdown"),
+		os.path.join("bin", "mvsc_dag_snglstage"),
 		os.path.join("bin", "post_process_pipe"),
 		os.path.join("bin", "prepare_sendback.py"),
 		os.path.join("bin", "qsub_wscan.sh"),

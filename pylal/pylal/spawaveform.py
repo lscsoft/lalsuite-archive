@@ -35,8 +35,8 @@ rather than importing _spawaveform directly.
 import math
 
 
+import lal
 from pylal import git_version
-from pylal.xlal import constants as lalconstants
 from pylal._spawaveform import *
 
 
@@ -82,7 +82,8 @@ def imrchirptime(m1, m2, fLower, chi, a_hat = 0.98, e_folds = 10):
 	assert (fFinal > fLower) # demand that the low frequency comes before the ringdown frequency
 	tau = 2 * (m1+m2) * 5e-6 * (0.7 + 1.4187 * (1-a_hat)**-0.4990) / (1.5251 - 1.1568 * (1-a_hat)**0.1292)
 	inspiral_time = chirptime(m1, m2, 7, fLower, fFinal, chi)
-	assert (inspiral_time > 0) # demand positive inspiral times
+	if inspiral_time < 0:
+		raise ValueError("Inspiral time is negative: m1 = %e, m2 = %e, flow = %e, chi = %e" % (m1, m2, fLower, chi)) # demand positive inspiral times
 	return inspiral_time + e_folds * tau
 
 
@@ -97,7 +98,7 @@ def chirpmass(m1, m2):
 	"""
 	Compute the chirp mass in seconds.
 	"""
-	return lalconstants.LAL_MTSUN_SI * (m1+m2) * eta(m1, m2)**.6
+	return lal.MTSUN_SI * (m1+m2) * eta(m1, m2)**.6
 
 
 def ms2taus(m1, m2, f0 = 40.0):
@@ -121,4 +122,4 @@ def taus2ms(tau0, tau3, f0 = 40.0):
 	m1 = (1. + abs(1. - 4.*eta)**.5) * M / 2.
 	m2 = M - m1
 
-	return m1 / lalconstants.LAL_MTSUN_SI, m2 / lalconstants.LAL_MTSUN_SI
+	return m1 / lal.MTSUN_SI, m2 / lal.MTSUN_SI

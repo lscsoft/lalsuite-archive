@@ -22,7 +22,8 @@ from numpy import pi, sinh, arcsinh
 from scipy.integrate import quad
 from scipy.optimize import newton
 
-from pylal.xlal.constants import LAL_PC_SI, LAL_C_SI
+from lal import PC_SI as LAL_PC_SI
+from lal import C_SI as LAL_C_SI
 
 h0 = 0.703  # H0 = h0 * 100 km / s / Mpc
 H0_SI = h0 * 100000 / (1000000 * LAL_PC_SI)  # Hubble constant in inverse seconds

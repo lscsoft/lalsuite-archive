@@ -428,7 +428,7 @@ options, filenames = parse_command_line()
 
 def make_keep_this_sngl_burst(options):
 	def add_test(func, t):
-		return lambda arg: t and func(arg)
+		return lambda arg: t(arg) and func(arg)
 
 	keep_this_sngl_burst = lambda burst: True
 

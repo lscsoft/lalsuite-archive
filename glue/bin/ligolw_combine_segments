@@ -27,6 +27,10 @@ from glue.segments import segmentlist
 from glue.ligolw.utils import process, segments, ligolw_add
 from glue import git_version
 
+class ContentHandler(ligolw.LIGOLWContentHandler):
+    pass
+lsctables.use_in(ContentHandler)
+
 def parse_command_line():
     """
     Parse the command line, return an options object
@@ -83,7 +87,7 @@ if __name__ == '__main__':
     segment_list = segmentlist([])
     for filename in arg:
         indoc = utils.load_filename(filename, 
-                             contenthandler=ligolw.DefaultLIGOLWContentHandler)
+                             contenthandler=ContentHandler)
         segs = segments.LigolwSegments(indoc)
         for seglist in segs:
             # valid should be the intersection of the valid portion

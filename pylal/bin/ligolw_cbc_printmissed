@@ -215,7 +215,6 @@ working_filename = dbtables.get_connection_filename(
 connection = sqlite3.connect( working_filename )
 if opts.tmp_space:
     dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
-dbtables.DBTable_set_connection( connection )
 
 cmtable = printutils.printmissed( connection, opts.simulation_table, opts.recovery_table, opts.map_label, opts.livetime_program,
     param_name = opts.param_name, param_ranges = opts.param_ranges, include_only_coincs = opts.include_only_coincs,

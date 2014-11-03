@@ -33,13 +33,9 @@
 #include <numpy/arrayobject.h>
 
 
-#include <lal/Date.h>
-#include <lal/GenerateBurst.h>
-#include <lal/LALSimBurst.h>
 #include <lal/LALDatatypes.h>
 #include <lal/Sequence.h>
 #include <lal/TFTransform.h>
-#include <lal/Thresholds.h>
 #include <lal/Window.h>
 
 
@@ -47,9 +43,7 @@
 #include <datatypes/complex16frequencyseries.h>
 #include <datatypes/real8fftplan.h>
 #include <datatypes/real8frequencyseries.h>
-#include <datatypes/real8timeseries.h>
 #include <datatypes/real8window.h>
-#include <datatypes/simburst.h>
 
 
 #define MODULE_NAME "pylal.xlal.lalburst"
@@ -65,67 +59,8 @@
 
 
 /*
- * XLALGenerateSimBurst()
+ * XLALEPGetTimingParameters()
  */
-
-
-static PyObject *pylal_XLALGenerateSimBurst(PyObject *self, PyObject *args)
-{
-	PyObject *hplus_obj, *hcross_obj;
-	REAL8TimeSeries *hplus, *hcross;
-	pylal_SimBurst *sim_burst;
-	double delta_t;
-
-	if(!PyArg_ParseTuple(args, "O!d", &pylal_SimBurst_Type, &sim_burst, &delta_t))
-		return NULL;
-
-	if(XLALGenerateSimBurst(&hplus, &hcross, &sim_burst->sim_burst, delta_t)) {
-		pylal_set_exception_from_xlalerrno();
-		return NULL;
-	}
-
-	hplus_obj = pylal_REAL8TimeSeries_new(hplus, NULL);
-	hcross_obj = pylal_REAL8TimeSeries_new(hcross, NULL);
-	if(!hplus_obj || !hcross_obj) {
-		Py_XDECREF(hplus_obj);
-		Py_XDECREF(hcross_obj);
-		return NULL;
-	}
-
-	return Py_BuildValue("(NN)", hplus_obj, hcross_obj);
-}
-
-
-/*
- * XLALMeasureHrss()
- */
-
-
-static PyObject *pylal_XLALMeasureHrss(PyObject *self, PyObject *args)
-{
-	pylal_REAL8TimeSeries *hplus, *hcross;
-
-	if(!PyArg_ParseTuple(args, "O!O!", &pylal_REAL8TimeSeries_Type, &hplus, &pylal_REAL8TimeSeries_Type, &hcross))
-		return NULL;
-
-	return PyFloat_FromDouble(XLALMeasureHrss(hplus->series, hcross->series));
-}
-
-
-/*
- * XLALMeasureEoverRsquared()
- */
-
-
-static PyObject *pylal_XLALMeasureEoverRsquared(PyObject *self, PyObject *args)
-{
-	pylal_REAL8TimeSeries *hplus, *hcross;
-
-	if(!PyArg_ParseTuple(args, "O!O!", &pylal_REAL8TimeSeries_Type, &hplus, &pylal_REAL8TimeSeries_Type, &hcross))
-		return NULL;
-
-	return PyFloat_FromDouble(XLALMeasureEoverRsquared(hplus->series, hcross->series));
-}
 
 
 static PyObject *pylal_XLALEPGetTimingParameters(PyObject *self, PyObject *args)
@@ -262,78 +197,6 @@ static PyObject *pylal_XLALCreateExcessPowerFilter(PyObject *self, PyObject *arg
 
 
 /*
- * XLALChisqCdf()
- */
-
-
-static PyObject *pylal_XLALChisqCdf(PyObject *self, PyObject *args)
-{
-	double chi2;
-	double dof;
-	double P;
-
-	if(!PyArg_ParseTuple(args, "dd", &chi2, &dof))
-		return NULL;
-
-	P = XLALChisqCdf(chi2, dof);
-	if(XLALIsREAL8FailNaN(P)) {
-		pylal_set_exception_from_xlalerrno();
-		return NULL;
-	}
-
-	return PyFloat_FromDouble(P);
-}
-
-
-/*
- * XLALOneMinusChisqCdf()
- */
-
-
-static PyObject *pylal_XLALOneMinusChisqCdf(PyObject *self, PyObject *args)
-{
-	double chi2;
-	double dof;
-	double P;
-
-	if(!PyArg_ParseTuple(args, "dd", &chi2, &dof))
-		return NULL;
-
-	P = XLALOneMinusChisqCdf(chi2, dof);
-	if(XLALIsREAL8FailNaN(P)) {
-		pylal_set_exception_from_xlalerrno();
-		return NULL;
-	}
-
-	return PyFloat_FromDouble(P);
-}
-
-
-/*
- * XLALlnOneMinusChisqCdf()
- */
-
-
-static PyObject *pylal_XLALlnOneMinusChisqCdf(PyObject *self, PyObject *args)
-{
-	double chi2;
-	double dof;
-	double P;
-
-	if(!PyArg_ParseTuple(args, "dd", &chi2, &dof))
-		return NULL;
-
-	P = XLALlnOneMinusChisqCdf(chi2, dof);
-	if(XLALIsREAL8FailNaN(P)) {
-		pylal_set_exception_from_xlalerrno();
-		return NULL;
-	}
-
-	return PyFloat_FromDouble(P);
-}
-
-
-/*
  * ============================================================================
  *
  *                            Module Registration
@@ -343,16 +206,10 @@ static PyObject *pylal_XLALlnOneMinusChisqCdf(PyObject *self, PyObject *args)
 
 
 static struct PyMethodDef methods[] = {
-	{"XLALGenerateSimBurst", pylal_XLALGenerateSimBurst, METH_VARARGS, "Compute the h+ and hx time series for a row in a LIGO Light Weight XML sim_burst table."},
-	{"XLALMeasureHrss", pylal_XLALMeasureHrss, METH_VARARGS, "Measure h_{rss}"},
-	{"XLALMeasureEoverRsquared", pylal_XLALMeasureEoverRsquared, METH_VARARGS, "Measure E_{GW}/r^{2}"},
 	{"XLALEPGetTimingParameters", pylal_XLALEPGetTimingParameters, METH_VARARGS, NULL},
 	{"XLALREAL8WindowTwoPointSpectralCorrelation", pylal_XLALREAL8WindowTwoPointSpectralCorrelation, METH_VARARGS, NULL},
 	{"XLALExcessPowerFilterInnerProduct", pylal_XLALExcessPowerFilterInnerProduct, METH_VARARGS, NULL},
 	{"XLALCreateExcessPowerFilter", pylal_XLALCreateExcessPowerFilter, METH_VARARGS, NULL},
-	{"XLALChisqCdf", pylal_XLALChisqCdf, METH_VARARGS, NULL},
-	{"XLALOneMinusChisqCdf", pylal_XLALOneMinusChisqCdf, METH_VARARGS, NULL},
-	{"XLALlnOneMinusChisqCdf", pylal_XLALlnOneMinusChisqCdf, METH_VARARGS, NULL},
 	{NULL,}
 };
 
@@ -366,7 +223,5 @@ PyMODINIT_FUNC initlalburst(void)
 	pylal_complex16frequencyseries_import();
 	pylal_real8fftplan_import();
 	pylal_real8frequencyseries_import();
-	pylal_real8timeseries_import();
 	pylal_real8window_import();
-	pylal_simburst_import();
 }

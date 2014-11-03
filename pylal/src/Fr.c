@@ -545,7 +545,7 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
         CHECK_ERROR;
 
         nData = PyArray_SIZE(array);
-        nBits = PyArray_ITEMSIZE(array);
+        nBits = PyArray_ITEMSIZE(array)*8;
         arrayType = PyArray_TYPE(array);
 
         // kind, x_unit, y_unit, type, and subType have default values
