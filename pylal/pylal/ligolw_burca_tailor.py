@@ -37,6 +37,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
+from glue.offsetvector import offsetvector
 from pylal import date
 from pylal import git_version
 from pylal import inject
@@ -274,11 +275,8 @@ WHERE
 	coinc_event_map.coinc_event_id == ?
 	AND time_slide.time_slide_id == ?
 		""", (coinc_event_id, time_slide_id))]
-		offsetvector = dict((event.ifo, offset) for event, offset in rows)
-		if any(offsetvector.values()):
-			yield True, [event for event, offset in rows], offsetvector
-		else:
-			yield False, [event for event, offset in rows], offsetvector
+		offsets = offsetvector((event.ifo, offset) for event, offset in rows)
+		yield any(offsets.values()), [event for event, offset in rows], offsets
 	cursor.close()
 
 
@@ -340,7 +338,7 @@ WHERE
 	coinc_event.coinc_event_id == ?
 		""", (coinc_event_id,))]
 		# pass the events to whatever wants them
-		yield sim, [event for event, offset in rows], dict((event.ifo, offset) for event, offset in rows)
+		yield sim, [event for event, offset in rows], offsetvector((event.ifo, offset) for event, offset in rows)
 	cursor.close()
 
 
