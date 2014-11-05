@@ -1654,11 +1654,8 @@ class CoincParamsDistributions(object):
 		the histograms to increment, and the parameters identifying
 		the bin in each histogram, are given by the param_dict
 		dictionary.
-
-		The param_dict is allowed to be None.  Then this method is
-		a no-op.
 		"""
-		for param, value in (param_dict or {}).items():
+		for param, value in param_dict.items():
 			try:
 				self.zero_lag_rates[param][value] += weight
 			except IndexError:
@@ -1672,11 +1669,8 @@ class CoincParamsDistributions(object):
 		of the histograms to increment, and the parameters
 		identifying the bin in each histogram, are given by the
 		param_dict dictionary.
-
-		The param_dict is allowed to be None.  Then this method is
-		a no-op.
 		"""
-		for param, value in (param_dict or {}).items():
+		for param, value in param_dict.items():
 			try:
 				self.background_rates[param][value] += weight
 			except IndexError:
@@ -1690,11 +1684,8 @@ class CoincParamsDistributions(object):
 		of the histograms to increment, and the parameters
 		identifying the bin in each histogram, are given by the
 		param_dict dictionary.
-
-		The param_dict is allowed to be None.  Then this method is
-		a no-op.
 		"""
-		for param, value in (param_dict or {}).items():
+		for param, value in param_dict.items():
 			try:
 				self.injection_rates[param][value] += weight
 			except IndexError:
@@ -1756,8 +1747,7 @@ class CoincParamsDistributions(object):
 		From a parameter value dictionary as returned by
 		self.coinc_params(), compute and return the natural
 		logarithm of the noise probability density at that point in
-		parameter space.  If params is None, the return value is
-		None.
+		parameter space.
 
 		The .finish() method must have been invoked before this
 		method does meaningful things.  No attempt is made to
@@ -1774,8 +1764,6 @@ class CoincParamsDistributions(object):
 		that require more sophisticated calculations can override
 		this method.
 		"""
-		if params is None:
-			return None
 		__getitem__ = self.background_lnpdf_interp.__getitem__
 		return sum(__getitem__(name)(*value) for name, value in params.items())
 
@@ -1784,8 +1772,7 @@ class CoincParamsDistributions(object):
 		From a parameter value dictionary as returned by
 		self.coinc_params(), compute and return the natural
 		logarithm of the signal probability density at that point
-		in parameter space.  If params is None, the return value is
-		None.
+		in parameter space.
 
 		The .finish() method must have been invoked before this
 		method does meaningful things.  No attempt is made to
@@ -1802,8 +1789,6 @@ class CoincParamsDistributions(object):
 		that require more sophisticated calculations can override
 		this method.
 		"""
-		if params is None:
-			return None
 		__getitem__ = self.injection_lnpdf_interp.__getitem__
 		return sum(__getitem__(name)(*value) for name, value in params.items())
 
@@ -1990,8 +1975,6 @@ class LnLikelihoodRatio(object):
 		"""
 		lnP_noise = self.lnP_noise(*args, **kwargs)
 		lnP_signal = self.lnP_signal(*args, **kwargs)
-		if lnP_noise is None and lnP_signal is None:
-			return None
 		if math.isinf(lnP_noise) and math.isinf(lnP_signal):
 			# need to handle a special case
 			if lnP_noise < 0. and lnP_signal < 0.:
@@ -2043,8 +2026,6 @@ class LnLikelihoodRatio(object):
 		lnP_signal_func = self.lnP_signal
 		isinf = math.isinf
 		for params, lnP_params in random_params_seq:
-			if params is None:
-				continue
 			lnP_noise = lnP_noise_func(params, **kwargs)
 			lnP_signal = lnP_signal_func(params, **kwargs)
 			# see above for description of special cases
