@@ -1,4 +1,4 @@
-# Copyright (C) 2007  Kipp Cannon
+# Copyright (C) 2007-2014  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -33,6 +33,7 @@ methods that work against the SQL database.
 
 
 import itertools
+import operator
 import os
 import re
 import shutil
@@ -82,15 +83,6 @@ def connection_db_type(connection):
 	if "mysql" in repr(connection):
 		return "mysql"
 	raise TypeError(connection)
-
-
-def DBTable_set_connection(connection):
-	"""
-	Set the Python DB-API 2.0 compatible connection the DBTable class
-	will use.
-	"""
-	warnings.warn("DBTable_set_connection() function is deprecated;  use a LIGOLWContentHandler subclass with a \"connection\" attribute instead.  see glue.ligolw.dbtables.use_in() for more information.", DeprecationWarning)
-	DBTable.connection = connection
 
 
 #
@@ -147,46 +139,48 @@ def install_signal_trap(signums = (signal.SIGTERM, signal.SIGTSTP), retval = 1):
 	Note:  this function is called by get_connection_filename()
 	whenever it creates a scratch file.
 	"""
-	with temporary_files_lock:
-		# ignore signums we've already replaced
-		signums = set(signums) - set(origactions)
+	# NOTE:  this must be called with the temporary_files_lock held.
+	# ignore signums we've already replaced
+	signums = set(signums) - set(origactions)
 
-		def temporary_file_cleanup_on_signal(signum, frame):
-			with temporary_files_lock:
-				temporary_files.clear()
-			if callable(origactions[signum]):
-				# original action is callable, chain to it
-				return origactions[signum](signum, frame)
-			# original action was not callable or the callable
-			# returned.  invoke sys.exit() with retval as exit code
-			sys.exit(retval)
+	def temporary_file_cleanup_on_signal(signum, frame):
+		with temporary_files_lock:
+			temporary_files.clear()
+		if callable(origactions[signum]):
+			# original action is callable, chain to it
+			return origactions[signum](signum, frame)
+		# original action was not callable or the callable
+		# returned.  invoke sys.exit() with retval as exit code
+		sys.exit(retval)
 
-		for signum in signums:
-			origactions[signum] = signal.getsignal(signum)
-			if origactions[signum] != signal.SIG_IGN:
-				# signal is not being ignored, so install our
-				# handler
-				signal.signal(signum, temporary_file_cleanup_on_signal)
+	for signum in signums:
+		origactions[signum] = signal.getsignal(signum)
+		if origactions[signum] != signal.SIG_IGN:
+			# signal is not being ignored, so install our
+			# handler
+			signal.signal(signum, temporary_file_cleanup_on_signal)
 
 
 def uninstall_signal_trap(signums = None):
 	"""
 	Undo the effects of install_signal_trap().  Restores the original
-	signal handlers.  If signums is a sequence of signal numbers the
-	only the signal handlers for thos signals will be restored.  If
-	signums is None (the default) then all signals that have been
-	modified by previous calls to install_signal_trap() are
-	restored.
+	signal handlers.  If signums is a sequence of signal numbers only
+	the signal handlers for those signals will be restored (KeyError
+	will be raised if one of them is not one that install_signal_trap()
+	installed a handler for, in which case some undefined number of
+	handlers will have been restored).  If signums is None (the
+	default) then all signals that have been modified by previous calls
+	to install_signal_trap() are restored.
 
 	Note:  this function is called by put_connection_filename() and
 	discard_connection_filename() whenever they remove a scratch file
 	and there are then no more scrach files in use.
 	"""
-	with temporary_files_lock:
-		if signums is None:
-			signums = origactions.keys()
-		for signum in signums:
-			signal.signal(signum, origactions.pop(signum))
+	# NOTE:  this must be called with the temporary_files_lock held.
+	if signums is None:
+		signums = origactions.keys()
+	for signum in signums:
+		signal.signal(signum, origactions.pop(signum))
 
 
 #
@@ -201,21 +195,22 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 	load.
 	"""
 	def mktmp(path, suffix = ".sqlite", verbose = False):
-		# make sure the clean-up signal traps are installed
-		install_signal_trap()
-		# create the remporary file and replace it's unlink()
-		# function
-		temporary_file = tempfile.NamedTemporaryFile(suffix = suffix, dir = path if path != "_CONDOR_SCRATCH_DIR" else os.getenv("_CONDOR_SCRATCH_DIR"))
-		def new_unlink(self, orig_unlink = temporary_file.unlink):
-			# also remove a -journal partner, ignore all errors
-			try:
-				orig_unlink("%s-journal" % self)
-			except:
-				pass
-			orig_unlink(self)
-		temporary_file.unlink = new_unlink
-		filename = temporary_file.name
 		with temporary_files_lock:
+			# make sure the clean-up signal traps are installed
+			install_signal_trap()
+			# create the remporary file and replace it's
+			# unlink() function
+			temporary_file = tempfile.NamedTemporaryFile(suffix = suffix, dir = path if path != "_CONDOR_SCRATCH_DIR" else os.getenv("_CONDOR_SCRATCH_DIR"))
+			def new_unlink(self, orig_unlink = temporary_file.unlink):
+				# also remove a -journal partner, ignore all errors
+				try:
+					orig_unlink("%s-journal" % self)
+				except:
+					pass
+				orig_unlink(self)
+			temporary_file.unlink = new_unlink
+			filename = temporary_file.name
+			# hang onto reference to prevent its removal
 			temporary_files[filename] = temporary_file
 		if verbose:
 			print >>sys.stderr, "using '%s' as workspace" % filename
@@ -327,31 +322,6 @@ def set_temp_store_directory(connection, temp_store_directory, verbose = False):
 		print >>sys.stderr, "done"
 
 
-#
-# FIXME:  this is only here temporarily while the file corruption issue on
-# the clusters is diagnosed.  remove when no longer needed
-#
-
-try:
-	# >= 2.5.0
-	from hashlib import md5 as __md5
-except ImportError:
-	# < 2.5.0
-	from md5 import new as __md5
-def __md5digest(filename):
-	"""
-	For internal use only.
-	"""
-	m = __md5()
-	f = open(filename)
-	while True:
-		d = f.read(4096)
-		if not d:
-			break
-		m.update(d)
-	return m.hexdigest()
-
-
 def put_connection_filename(filename, working_filename, verbose = False):
 	"""
 	This function reverses the effect of a previous call to
@@ -384,14 +354,9 @@ def put_connection_filename(filename, working_filename, verbose = False):
 		# replace document
 		if verbose:
 			print >>sys.stderr, "moving '%s' to '%s' ..." % (working_filename, filename),
-		digest_before = __md5digest(working_filename)
 		shutil.move(working_filename, filename)
-		digest_after = __md5digest(filename)
 		if verbose:
 			print >>sys.stderr, "done."
-		if digest_before != digest_after:
-			print >>sys.stderr, "md5 checksum failure!  checksum on scratch disk was %s, checksum in final location is %s" % (digest_before, digest_after)
-			sys.exit(1)
 
 		# remove reference to tempfile.TemporaryFile object.
 		# because we've just deleted the file above, this would
@@ -417,9 +382,8 @@ def put_connection_filename(filename, working_filename, verbose = False):
 		# if there are no more temporary files in place, remove the
 		# temporary-file signal traps
 		with temporary_files_lock:
-			no_more_files = not temporary_files
-		if no_more_files:
-			uninstall_signal_trap()
+			if not temporary_files:
+				uninstall_signal_trap()
 
 
 def discard_connection_filename(filename, working_filename, verbose = False):
@@ -435,20 +399,18 @@ def discard_connection_filename(filename, working_filename, verbose = False):
 	a call to get_connection_filename() even if a separate working copy
 	is not created.
 	"""
-	if working_filename != filename:
+	if working_filename == filename:
+		return
+	with temporary_files_lock:
 		if verbose:
 			print >>sys.stderr, "removing '%s' ..." % working_filename,
 		# remove reference to tempfile.TemporaryFile object
-		with temporary_files_lock:
-			del temporary_files[working_filename]
+		del temporary_files[working_filename]
 		if verbose:
 			print >>sys.stderr, "done."
-
 		# if there are no more temporary files in place, remove the
 		# temporary-file signal traps
-		with temporary_files_lock:
-			no_more_files = not temporary_files
-		if no_more_files:
+		if not temporary_files:
 			uninstall_signal_trap()
 
 
@@ -472,7 +434,7 @@ def idmap_create(connection):
 	This function is for internal use, it forms part of the code used
 	to re-map row IDs when merging multiple documents.
 	"""
-	connection.cursor().execute("CREATE TEMPORARY TABLE _idmap_ (old TEXT PRIMARY KEY, new TEXT)")
+	connection.cursor().execute("CREATE TEMPORARY TABLE _idmap_ (old TEXT PRIMARY KEY NOT NULL, new TEXT NOT NULL)")
 
 
 def idmap_reset(connection):
@@ -686,17 +648,6 @@ class DBTable(table.Table):
 	necessarily work with the database-backed version of the class.
 	Your mileage may vary.
 	"""
-	#
-	# When instances of this class are created, they initialize their
-	# connection attributes from the value of this class attribute.
-	#
-	# NOTE:  this is deprecated;  this class attribute will be removed,
-	# and the connection parameter of the __init__() method will be the
-	# only way to pass this information to the class in the future.
-	#
-
-	connection = None
-
 	def __new__(cls, *args, **kwargs):
 		# does this class already have table-specific metadata?
 		if not hasattr(cls, "tableName"):
@@ -782,6 +733,7 @@ class DBTable(table.Table):
 			"mysql": ",".join(["%s"] * len(self.dbcolumnnames))
 		}[connection_db_type(self.connection)]
 		self.append_statement = "INSERT INTO %s (%s) VALUES (%s)" % (self.Name, ",".join(self.dbcolumnnames), params)
+		self.append_attrgetter = operator.attrgetter(*self.dbcolumnnames)
 
 	def _end_of_rows(self):
 		# FIXME:  is this needed?
@@ -823,9 +775,7 @@ class DBTable(table.Table):
 		Standard .append() method.  This method is for intended for
 		internal use only.
 		"""
-		# FIXME: in Python 2.5 use attrgetter() for attribute
-		# tuplization.
-		self.cursor.execute(self.append_statement, map(lambda n: getattr(row, n), self.dbcolumnnames))
+		self.cursor.execute(self.append_statement, self.append_attrgetter(row))
 
 	def _remapping_append(self, row):
 		"""
@@ -1087,20 +1037,11 @@ def use_in(ContentHandler):
 	ContentHandler = lsctables.use_in(ContentHandler)
 
 	def startTable(self, parent, attrs):
-		try:
-			connection = self.connection
-		except AttributeError:
-			warnings.warn("use of \"DBTable.connection\" class attribute to provide database connection information at DBTable instance creation time is deprecated;  use a LIGOLWContentHandler subclass with a \"connection\" attribute instead.  see glue.ligolw.dbtables.use_in() for more information.", DeprecationWarning)
-			connection = DBTable.connection
 		name = table.StripTableName(attrs[u"Name"])
 		if name in TableByName:
-			return TableByName[name](attrs, connection = connection)
-		return DBTable(attrs, connection = connection)
+			return TableByName[name](attrs, connection = self.connection)
+		return DBTable(attrs, connection = self.connection)
 
 	ContentHandler.startTable = startTable
 
 	return ContentHandler
-
-
-# FIXME:  remove
-use_in(ligolw.DefaultLIGOLWContentHandler)

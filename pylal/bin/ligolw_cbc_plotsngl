@@ -195,6 +195,10 @@ def parse_command_line():
             "Table to look in for recovered injections. " +
             "Can be any lsctable with a coinc_event_id."
         )
+    parser.add_option( "-M", "--map-label", action = "store", type = "string", default = None,
+        help =
+            "Required. Name of the type of mapping that was used for finding injections."
+        )
     parser.add_option( "", "--show-plot", action = "store_true", default = False,
         help = 
             "Display the plots on the terminal"
@@ -216,6 +220,7 @@ def parse_command_line():
     if missing_options:
         raise ValueError, "missing required option(s) %s" % ", ".join("--%s" % option.replace("_", "-") for option in missing_options)
 
+    options.datatypes = options.datatypes.split(",")
     if 'injection' in options.datatypes and options.simulation_table is None:
         raise ValueError, "Must specify --simulation-table for injection datatype."
 
@@ -428,7 +433,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                         print >> sys.stderr, "\tgetting 'found' triggers from %s..." % filename
                         
                     found_table = [ row for row in 
-                        printutils.printsims(connection, opts.simulation_table, opts.recovery_table,
+                        printutils.printsims(connection, opts.simulation_table, opts.recovery_table, opts.map_label,
                         opts.ranking_stat, opts.rank_by,
                         "slide", param_name = None, param_ranges = None,
                         include_only_coincs = '[ALL in %s]' % on_instr,
@@ -465,7 +470,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                         experiment_map.coinc_event_id == coinc_event_map.coinc_event_id AND
                         coinc_event_map.event_id == ''',sngl_table,'''.event_id)
                     WHERE
-                        experiment_instruments == ''',on_instr,''' AND
+                        experiment.instruments == "''',on_instr,'''" AND
                         experiment_summary.datatype == ''',datatype])
                 for data in connection.cursor().execute(sqlquery).fetchall():
                     this_row = Storage()

@@ -35,7 +35,7 @@ smoothing contour plots.
 """
 
 
-import bisect
+from bisect import bisect_right
 try:
 	from fpconst import PosInf, NegInf
 except ImportError:
@@ -46,6 +46,7 @@ except ImportError:
 import itertools
 import math
 import numpy
+import random
 import scipy
 __numpy__version__ = tuple(map(int, numpy.__version__.strip().split(".")))
 __scipy__version__ = tuple(map(int, scipy.__version__.strip().split(".")))
@@ -60,6 +61,10 @@ from scipy.signal import signaltools
 
 from glue import iterutils
 from glue import segments
+from glue.ligolw import ligolw
+from glue.ligolw import array as ligolw_array
+from glue.ligolw import table as ligolw_table
+from glue.ligolw import lsctables
 import lal
 from pylal import git_version
 
@@ -117,20 +122,27 @@ class Bins(object):
 
 	def __getitem__(self, x):
 		"""
-		Convert a co-ordinate into a bin index.  The co-ordinate
-		can be a single number, or a Python slice instance.  If a
-		single number is given, it is mapped to the bin in which it
-		falls.  If a slice is given, it is converted to a slice
-		whose upper and lower bounds are the bins in which the
-		input slice's upper and lower bounds fall.
+		Convert a co-ordinate to a bin index.  The co-ordinate can
+		be a single value, or a Python slice instance describing a
+		range of values.  If a single value is given, it is mapped
+		to the bin index corresponding to that value.  If a slice
+		is given, it is converted to a slice whose lower bound is
+		the index of the bin in which the slice's lower bound
+		falls, and whose upper bound is 1 greater than the index of
+		the bin in which the slice's upper bound falls.  Steps are
+		not supported in slices.
 		"""
+		if isinstance(x, slice):
+			if x.step is not None:
+				raise NotImplementedError("step not supported: %s" % repr(x))
+			return slice(self[x.start] if x.start is not None else 0, self[x.stop] + 1 if x.stop is not None else len(self))
 		raise NotImplementedError
 
 	def __iter__(self):
 		"""
-		If __iter__ does not exist, Python uses __getitem__ with range(0)
-		as input to define iteration. This is nonsensical for bin objects,
-		so explicitly unsupport iteration.
+		If __iter__ does not exist, Python uses __getitem__ with
+		range(0) as input to define iteration. This is nonsensical
+		for bin objects, so explicitly unsupport iteration.
 		"""
 		raise NotImplementedError
 
@@ -155,21 +167,91 @@ class Bins(object):
 		"""
 		raise NotImplementedError
 
-	def randcentre(self, n = 1.):
+	def randcoord(self, n = 1., domain = slice(None, None)):
 		"""
 		Generator yielding a sequence of x, ln(P(x)) tuples where x
-		is a randomly-chosen bin centre and P(x) is the PDF from
-		which x has been drawn evaluated at x.  The CDF from which
-		the bin centres are drawn goes as [bin index]^{n}.  For
-		more information, see glue.iterutils.randindex.
+		is a randomly-chosen co-ordinate and P(x) is the PDF from
+		which x has been drawn evaluated at x.  Each co-ordinate is
+		drawn uniformly from within a bin, which has been drawn
+		from a distribution whose CDF goes as [bin index]^{n}.  For
+		more information on how bins are drawn, see
+		glue.iterutils.randindex.
+
+		If a domain is given, the values returned fall within
+		[start, stop].  If start or stop is None, the corresponding
+		end of the binning is used.  If start or stop does not
+		correspond exactly to a bin boundary, the probability of
+		drawing a value from that bin is unchanged, but the values
+		drawn from that bin will be restricted to the allowed part
+		of the bin (the PDF is adjusted to reflect this).  No
+		values are returned from bins with infinite size (after
+		clipping them to the requested domain), and the PDF is
+		adjusted to reflect this.
+
+		Example:
+
+		>>> import math
+		>>> # natural log of 1/10
+		>>> print "%.15g" % math.log(1./10)
+		-2.30258509299405
+		>>> # linear bins spanning [1, 10]
+		>>> x = LinearBins(0, 10, 5).randcoord().next
+		>>> # draw a random value, P(value) = 1/10
+		>>> x()	# doctest: +ELLIPSIS
+		(..., -2.3025850929940455)
+		>>> # binning with infinite boundaries
+		>>> x = ATanBins(-1, +1, 4)
+		>>> # will ask for values in [0.5, +inf], i.e. the last two
+		>>> # bins, but values from final bin will be disallowed, so
+		>>> # return values will be uniform in part of the second 
+		>>> # last bin, [0.5, 0.6366]
+		>>> print "%.15g" % math.log(1. / (x.upper()[-2] - 0.5))
+		1.99055359585182
+		>>> x = x.randcoord(domain = slice(0.5, None)).next
+		>>> x() # doctest: +ELLIPSIS
+		(..., 1.9905535958518226)
+		>>> # things that aren't supported:
+		>>> # domain slice with a step
+		>>> LinearBins(0, 10, 1).randcoord(domain = slice(None, None, 2)).next()
+		Traceback (most recent call last):
+			...
+		NotImplementedError: step not supported: slice(None, None, 2)
 		"""
-		x = tuple(self.centres())
-		ln_dx = tuple(numpy.log(self.upper() - self.lower()))
+		if len(self) < 1:
+			raise ValueError("empty binning")
+		if domain.step is not None:
+			raise NotImplementedError("step not supported: %s" % repr(domain))
+		# avoid symbol look-ups in the sampling loop
 		isinf = math.isinf
-		for i, ln_Pi in iterutils.randindex(0, len(x), n = n):
-			if isinf(ln_dx[i]):
-				continue
-			yield x[i], ln_Pi - ln_dx[i]
+		uniform = random.uniform
+		# determine boundaries and index range
+		l = self.lower()
+		u = self.upper()
+		lo, hi, _ = self[domain].indices(len(l))
+		if domain.start is not None:
+			assert l[lo] <= domain.start
+			l[lo] = domain.start
+		if domain.stop is not None:
+			assert u[hi - 1] >= domain.stop
+			u[hi - 1] = domain.stop
+		if isinf(u[lo] - l[lo]):
+			lo += 1
+		if isinf(u[hi - 1] - l[hi - 1]):
+			hi -= 1
+		if not lo < hi:
+			raise ValueError("slice too small")
+		# log() implicitly checks that the boundary adjustments
+		# above haven't made any bins <= 0 in size.  converting
+		# everything to tuples makes the sampling loop faster
+		ln_dx = tuple(numpy.log(u - l))
+		l = tuple(l)
+		u = tuple(u)
+		# one last safety check
+		if any(map(isinf, ln_dx[lo:hi])):
+			raise ValueError("unavoidable infinite bin detected")
+		# generate samples
+		for i, ln_Pi in iterutils.randindex(lo, hi, n = n):
+			yield uniform(l[i], u[i]), ln_Pi - ln_dx[i]
 
 
 class IrregularBins(Bins):
@@ -190,6 +272,15 @@ class IrregularBins(Bins):
 	1
 	>>> x[25]
 	2
+	>>> x[4:17]
+	slice(0, 3, None)
+	>>> IrregularBins([0.0, 15.0, 11.0])
+	Traceback (most recent call last):
+		...
+	ValueError: non-monotonic boundaries provided
+	>>> y = IrregularBins([0.0, 11.0, 15.0, numpy.inf])
+	>>> x == y
+	True
 	"""
 	def __init__(self, boundaries):
 		"""
@@ -201,8 +292,8 @@ class IrregularBins(Bins):
 		# check pre-conditions
 		if len(boundaries) < 2:
 			raise ValueError("less than two boundaries provided")
-		boundaries = numpy.array(boundaries)
-		if (boundaries[:-1] > boundaries[1:]).any():
+		boundaries = tuple(boundaries)
+		if any(a > b for a, b in zip(boundaries[:-1], boundaries[1:])):
 			raise ValueError("non-monotonic boundaries provided")
 
 		self.boundaries = boundaries
@@ -217,33 +308,23 @@ class IrregularBins(Bins):
 		"""
 		if not isinstance(other, type(self)):
 			return -1
-		return cmp(len(self), len(other)) or (self.boundaries != other.boundaries).any()
+		return cmp(self.boundaries, other.boundaries)
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
+			return super(IrregularBins, self).__getitem__(x)
 		if self.min <= x < self.max:
-			return bisect.bisect_right(self.boundaries, x) - 1
+			return bisect_right(self.boundaries, x) - 1
 		# special measure-zero edge case
 		if x == self.max:
 			return len(self.boundaries) - 2
 		raise IndexError(x)
 
 	def lower(self):
-		return self.boundaries[:-1]
+		return numpy.array(self.boundaries[:-1])
 
 	def upper(self):
-		return self.boundaries[1:]
+		return numpy.array(self.boundaries[1:])
 
 	def centres(self):
 		return (self.lower() + self.upper()) / 2.0
@@ -258,6 +339,12 @@ class LinearBins(Bins):
 	Example:
 
 	>>> x = LinearBins(1.0, 25.0, 3)
+	>>> x.lower()
+	array([  1.,   9.,  17.])
+	>>> x.upper()
+	array([  9.,  17.,  25.])
+	>>> x.centres()
+	array([  5.,  13.,  21.])
 	>>> x[1]
 	0
 	>>> x[1.5]
@@ -266,6 +353,20 @@ class LinearBins(Bins):
 	1
 	>>> x[25]
 	2
+	>>> x[0:27]
+	Traceback (most recent call last):
+		...
+	IndexError: 0
+	>>> x[1:25]
+	slice(0, 3, None)
+	>>> x[:25]
+	slice(0, 3, None)
+	>>> x[10:16.9]
+	slice(1, 2, None)
+	>>> x[10:17]
+	slice(1, 3, None)
+	>>> x[10:]
+	slice(1, 3, None)
 	"""
 	def __init__(self, min, max, n):
 		Bins.__init__(self, min, max, n)
@@ -273,17 +374,7 @@ class LinearBins(Bins):
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
+			return super(LinearBins, self).__getitem__(x)
 		if self.min <= x < self.max:
 			return int(math.floor((x - self.min) / self.delta))
 		if x == self.max:
@@ -292,13 +383,13 @@ class LinearBins(Bins):
 		raise IndexError(x)
 
 	def lower(self):
-		return self.min + self.delta * numpy.arange(len(self))
+		return numpy.linspace(self.min, self.max - self.delta, len(self))
 
 	def centres(self):
-		return self.min + self.delta * (numpy.arange(len(self)) + 0.5)
+		return numpy.linspace(self.min + self.delta / 2., self.max - self.delta / 2., len(self))
 
 	def upper(self):
-		return self.min + self.delta * (numpy.arange(len(self)) + 1)
+		return numpy.linspace(self.min + self.delta, self.max, len(self))
 
 
 class LinearPlusOverflowBins(Bins):
@@ -311,33 +402,33 @@ class LinearPlusOverflowBins(Bins):
 
 	Example:
 
-	>>> X = LinearPlusOverflowBins(1.0, 25.0, 5)
-
-	>>> X.centres()
+	>>> x = LinearPlusOverflowBins(1.0, 25.0, 5)
+	>>> x.centres()
 	array([-inf,   5.,  13.,  21.,  inf])
-
-	>>> X.lower()
+	>>> x.lower()
 	array([-inf,   1.,   9.,  17.,  25.])
-
-	>>> X.upper()
+	>>> x.upper()
 	array([  1.,   9.,  17.,  25.,  inf])
-
-	>>> X[float("-inf")]
+	>>> x[float("-inf")]
 	0
-	>>> X[0]
+	>>> x[0]
 	0
-	>>> X[1]
+	>>> x[1]
 	1
-	>>> X[10]
+	>>> x[10]
 	2
-	>>> X[24.99999999]
+	>>> x[24.99999999]
 	3
-	>>> X[25]
+	>>> x[25]
 	4
-	>>> X[100]
+	>>> x[100]
 	4
-	>>> X[float("+inf")]
+	>>> x[float("+inf")]
 	4
+	>>> x[float("-inf"):9]
+	slice(0, 3, None)
+	>>> x[9:float("+inf")]
+	slice(2, 5, None)
 	"""
 	def __init__(self, min, max, n):
 		if n < 3:
@@ -347,17 +438,7 @@ class LinearPlusOverflowBins(Bins):
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
+			return super(LinearPlusOverflowBins, self).__getitem__(x)
 		if self.min <= x < self.max:
 			return int(math.floor((x - self.min) / self.delta)) + 1
 		if x >= self.max:
@@ -401,17 +482,7 @@ class LogarithmicBins(Bins):
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
+			return super(LogarithmicBins, self).__getitem__(x)
 		if self.min <= x < self.max:
 			return int(math.floor((math.log(x) - math.log(self.min)) / self.delta))
 		if x == self.max:
@@ -468,17 +539,7 @@ class LogarithmicPlusOverflowBins(Bins):
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
+			return super(LogarithmicPlusOverflowBins, self).__getitem__(x)
 		if self.min <= x < self.max:
 			return 1 + int(math.floor((math.log(x) - math.log(self.min)) / self.delta))
 		if x >= self.max:
@@ -531,34 +592,26 @@ class ATanBins(Bins):
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
-			if x.step is not None:
-				raise NotImplementedError(x)
-			if x.start is None:
-				start = 0
-			else:
-				start = self[x.start]
-			if x.stop is None:
-				stop = len(self)
-			else:
-				stop = self[x.stop]
-			return slice(start, stop)
+			return super(ATanBins, self).__getitem__(x)
 		# map to the domain [0, 1]
 		x = math.atan(float(x - self.mid) * self.scale) / math.pi + 0.5
-		if x < 1:
+		if x < 1.:
 			return int(math.floor(x / self.delta))
 		# x == 1, special "measure zero" corner case
 		return len(self) - 1
 
 	def lower(self):
-		x = numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(len(self))) / self.scale + self.mid
+		x = numpy.tan(numpy.linspace(-math.pi / 2., +math.pi / 2., len(self), endpoint = False)) / self.scale + self.mid
 		x[0] = NegInf
 		return x
 
 	def centres(self):
-		return numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(len(self)) + 0.5)) / self.scale + self.mid
+		offset = 0.5 * math.pi * self.delta
+		return numpy.tan(numpy.linspace(-math.pi / 2. + offset, +math.pi / 2. + offset, len(self), endpoint = False)) / self.scale + self.mid
 
 	def upper(self):
-		x = numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(len(self)) + 1)) / self.scale + self.mid
+		offset = math.pi * self.delta
+		x = numpy.tan(numpy.linspace(-math.pi / 2. + offset, +math.pi / 2. + offset, len(self), endpoint = False)) / self.scale + self.mid
 		x[-1] = PosInf
 		return x
 
@@ -570,7 +623,7 @@ class ATanLogarithmicBins(IrregularBins):
 	bounds of the interval of approximately logarithmically-spaced
 	bins.  In a sense, these are where the roll-over from
 	logarithmically-spaced bins to asymptotically diminishing bin
-	density occurs.  There is a total of n bins.
+	density occurs.
 
 	Example:
 
@@ -611,16 +664,11 @@ class ATanLogarithmicBins(IrregularBins):
 		self._real_max = max
 		self._real_n = n
 
-	#def lower(self):
-	#	return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(self._real_n)) / self.scale + self.mid)[self.keepers]
-
 	def centres(self):
-		centres = numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(self._real_n) + 0.5)) / self.scale + self.mid
+		offset = 0.5 * math.pi * self.delta
+		centres = numpy.tan(numpy.linspace(-math.pi / 2. + offset, +math.pi / 2. + offset, self._real_n, endpoint = False)) / self.scale + self.mid
 		with numpy.errstate(over = "ignore"):
 			return numpy.exp(centres)[self.keepers]
-
-	#def upper(self):
-	#	return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(self._real_n) + 1)) / self.scale + self.mid)[self.keepers]
 
 
 class Categories(Bins):
@@ -658,8 +706,7 @@ class Categories(Bins):
 	1
 	>>> categories[-1]
 	Traceback (most recent call last):
-	  File "<stdin>", line 1, in <module>
-	    raise IndexError(value)
+		...
 	IndexError: -1
 
 	This last example demonstrates the behaviour when the intersection
@@ -667,22 +714,24 @@ class Categories(Bins):
 	"""
 	def __init__(self, categories):
 		"""
-		categories is an iterable of containers defining the categories.
-		(Recall that containers are collections that support the "in"
-		operator.) Objects will be mapped to the integer index of the
-		container that contains them.
+		categories is an iterable of containers defining the
+		categories.  (Recall that containers are collections that
+		support the "in" operator.) Objects will be mapped to the
+		integer index of the container that contains them.
 		"""
 		self.containers = tuple(categories)  # need to set an order and len
 		self.n = len(self.containers)
 
-		# enable NDBins to read range, but do not enable treatment as numbers
+		# enable NDBins to read range, but do not enable treatment
+		# as numbers
 		self.min = None
 		self.max = None
 
 	def __getitem__(self, value):
 		"""
 		Return i if value is contained in i-th container. If value
-		is not contained in any of the containers, raise an IndexError.
+		is not contained in any of the containers, raise an
+		IndexError.
 		"""
 		for i, s in enumerate(self.containers):
 			if value in s:
@@ -723,7 +772,7 @@ class NDBins(tuple):
 	>>> x[1, 5]
 	(0, 1)
 	>>> x[1, 1:5]
-	(0, slice(0, 1, None))
+	(0, slice(0, 2, None))
 	>>> x.centres()
 	(array([  5.,  13.,  21.]), array([  1.70997595,   5.        ,  14.62008869]))
 
@@ -732,9 +781,9 @@ class NDBins(tuple):
 	"""
 	def __new__(cls, *args):
 		new = tuple.__new__(cls, *args)
-		new.min = tuple([b.min for b in new])
-		new.max = tuple([b.max for b in new])
-		new.shape = tuple([len(b) for b in new])
+		new.min = tuple(b.min for b in new)
+		new.max = tuple(b.max for b in new)
+		new.shape = tuple(len(b) for b in new)
 		return new
 
 	def __getitem__(self, coords):
@@ -772,7 +821,7 @@ class NDBins(tuple):
 		locations of the lower boundaries of the bins in the
 		corresponding dimension.
 		"""
-		return tuple([b.lower() for b in self])
+		return tuple(b.lower() for b in self)
 
 	def centres(self):
 		"""
@@ -780,7 +829,7 @@ class NDBins(tuple):
 		locations of the bin centres for the corresponding
 		dimension.
 		"""
-		return tuple([b.centres() for b in self])
+		return tuple(b.centres() for b in self)
 
 	def upper(self):
 		"""
@@ -788,11 +837,20 @@ class NDBins(tuple):
 		locations of the upper boundaries of the bins in the
 		corresponding dimension.
 		"""
-		return tuple([b.upper() for b in self])
+		return tuple(b.upper() for b in self)
 
 	def volumes(self):
 		"""
 		Return an n-dimensional array of the bin volumes.
+
+		Example:
+
+		>>> # 3x5 grid of bins, each 2 units by 2 units
+		>>> x = NDBins((LinearBins(0, 6, 3), LinearBins(0, 10, 5)))
+		>>> x.volumes()
+		array([[ 4.,  4.,  4.,  4.,  4.],
+		       [ 4.,  4.,  4.,  4.,  4.],
+		       [ 4.,  4.,  4.,  4.,  4.]])
 		"""
 		volumes = tuple(u - l for u, l in zip(self.upper(), self.lower()))
 		if len(volumes) == 1:
@@ -806,24 +864,104 @@ class NDBins(tuple):
 			result.shape = tuple(len(v) for v in volumes)
 			return result
 
-	def randcentre(self, ns = None):
+	def randcoord(self, ns = None, domain = None):
 		"""
 		Generator yielding a sequence of (x0, x1, ...), ln(P(x0,
 		x1, ...)) tuples where (x0, x1, ...) is a randomly-chosen
-		bin centre in the N-dimensional binning and P(x0, x1, ...)
+		co-ordinate in the N-dimensional binning and P(x0, x1, ...)
 		is the PDF from which the co-ordinate tuple has been drawn
 		evaluated at those co-ordinates.  If ns is not None it must
 		be a sequence of floats whose length matches the dimension
 		of the binning.  The floats will set the exponents, in
 		order, of the CDFs for the generators used for each
-		co-ordinate.  For more information, see Bins.randcentre().
+		co-ordinate.  If domain is not None it must be a sequence
+		of slice objects whose length matches the dimension of the
+		binning.  The slice objects will be passed, in order, as
+		the domain keyword argument to the .randcoord() method
+		corresponding to each dimension.  For more information on
+		how each of the co-ordinates is drawn, see
+		Bins.randcoord().
+
+		Example:
+
+		>>> binning = NDBins((LinearBins(0, 10, 5), LinearBins(0, 10, 5)))
+		>>> coord = binning.randcoord().next
+		>>> coord()	# doctest: +ELLIPSIS
+		((..., ...), -4.6051701859880909)
 		"""
 		if ns is None:
 			ns = (1.,) * len(self)
-		bingens = tuple(iter(binning.randcentre(n)).next for binning, n in zip(self, ns))
+		if domain is None:
+			domain = (slice(None, None),) * len(self)
+		coordgens = tuple(iter(binning.randcoord(n, domain = d)).next for binning, n, d in zip(self, ns, domain))
 		while 1:
-			seq = sum((bingen() for bingen in bingens), ())
+			seq = sum((coordgen() for coordgen in coordgens), ())
 			yield seq[0::2], sum(seq[1::2])
+
+	class BinsTable(ligolw_table.Table):
+		"""
+		LIGO Light Weight XML table defining a binning.
+		"""
+		tableName = "pylal_rate_bins:table"
+		validcolumns = {
+			"order": "int_4u",
+			"type": "lstring",
+			"min": "real_8",
+			"max": "real_8",
+			"n": "int_4u"
+		}
+
+	def to_xml(self):
+		"""
+		Construct a LIGO Light Weight XML table representation of the
+		NDBins instance.
+		"""
+		xml = lsctables.New(self.BinsTable)
+		for order, binning in enumerate(self):
+			row = xml.RowType()
+			row.order = order
+			row.type = {
+				LinearBins: "lin",
+				LinearPlusOverflowBins: "linplusoverflow",
+				LogarithmicBins: "log",
+				ATanBins: "atan",
+				ATanLogarithmicBins: "atanlog",
+				LogarithmicPlusOverflowBins: "logplusoverflow"
+			}[type(binning)]
+			if isinstance(binning, ATanLogarithmicBins):
+				row.min = binning._real_min
+				row.max = binning._real_max
+				row.n = binning._real_n
+			else:
+				row.min = binning.min
+				row.max = binning.max
+				row.n = len(binning)
+			xml.append(row)
+		return xml
+
+	@classmethod
+	def from_xml(cls, xml):
+		"""
+		From the XML document tree rooted at xml, retrieve the table
+		describing a binning, and construct and return a rate.NDBins object
+		from it.
+		"""
+		xml = cls.BinsTable.get_table(xml)
+		binnings = [None] * (len(xml) and (max(xml.getColumnByName("order")) + 1))
+		for row in xml:
+			if binnings[row.order] is not None:
+				raise ValueError("duplicate binning for dimension %d" % row.order)
+			binnings[row.order] = {
+				"lin": LinearBins,
+				"linplusoverflow": LinearPlusOverflowBins,
+				"log": LogarithmicBins,
+				"atan": ATanBins,
+				"atanlog": ATanLogarithmicBins,
+				"logplusoverflow": LogarithmicPlusOverflowBins
+			}[row.type](row.min, row.max, row.n)
+		if None in binnings:
+			raise ValueError("no binning for dimension %d" % binnings.find(None))
+		return cls(binnings)
 
 
 #
@@ -902,6 +1040,8 @@ class BinnedArray(object):
 	>>> x[0.5,] += 1
 	>>> x.array
 	array([ 2.,  0.,  0.,  0.,  0.])
+	>>> x.argmax()
+	(1.0,)
 
 	Note the relationship between the binning limits, the bin centres,
 	and the co-ordinates of the BinnedArray
@@ -924,6 +1064,10 @@ class BinnedArray(object):
 	2.0
 	>>> x[1, 1]
 	4.0
+	>>> x.argmin()
+	(0.0, 0.0)
+	>>> x.argmax()
+	(1.0, 1.0)
 	"""
 	def __init__(self, bins, array = None, dtype = "double"):
 		self.bins = bins
@@ -975,6 +1119,22 @@ class BinnedArray(object):
 		"""
 		return self.bins.centres()
 
+	def argmin(self):
+		"""
+		Return the co-ordinates of the bin centre containing the
+		minimum value.  Same as numpy.argmin(), converting the
+		indexes to bin co-ordinates.
+		"""
+		return tuple(centres[index] for centres, index in zip(self.centres(), numpy.unravel_index(self.array.argmin(), self.array.shape)))
+
+	def argmax(self):
+		"""
+		Return the co-ordinates of the bin centre containing the
+		maximum value.  Same as numpy.argmax(), converting the
+		indexes to bin co-ordinates.
+		"""
+		return tuple(centres[index] for centres, index in zip(self.centres(), numpy.unravel_index(self.array.argmax(), self.array.shape)))
+
 	def to_density(self):
 		"""
 		Divide each bin's value by the volume of the bin.
@@ -995,6 +1155,36 @@ class BinnedArray(object):
 		evaluated without error.
 		"""
 		self.array[self.array <= 0] = epsilon
+		return self
+
+	def to_xml(self, name):
+		"""
+		Retrun an XML document tree describing a rate.BinnedArray object.
+		"""
+		xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_rate_binnedarray" % name})
+		xml.appendChild(self.bins.to_xml())
+		xml.appendChild(ligolw_array.from_array(u"array", self.array))
+		return xml
+
+	@classmethod
+	def from_xml(cls, xml, name):
+		"""
+		Search for the description of a rate.BinnedArray object named
+		"name" in the XML document tree rooted at xml, and construct and
+		return a new rate.BinnedArray object from the data contained
+		therein.
+		"""
+		xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"%s:pylal_rate_binnedarray" % name]
+		try:
+			xml, = xml
+		except ValueError:
+			raise ValueError("document must contain exactly 1 BinnedArray named '%s'" % name)
+		# an empty binning is used for the initial object creation instead
+		# of using the real binning to avoid the creation of a (possibly
+		# large) array that would otherwise accompany this step
+		self = cls(NDBins())
+		self.bins = NDBins.from_xml(xml)
+		self.array = ligolw_array.get_array(xml, u"array").array
 		return self
 
 
@@ -1094,6 +1284,31 @@ class BinnedRatios(object):
 		self.numerator.to_pdf()
 		self.denominator.to_pdf()
 
+	def to_xml(self, name):
+		"""
+		Return an XML document tree describing a rate.BinnedRatios object.
+		"""
+		xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_rate_binnedratios" % name})
+		xml.appendChild(self.numerator.to_xml(u"numerator"))
+		xml.appendChild(self.denominator.to_xml(u"denominator"))
+		return xml
+
+	@classmethod
+	def from_xml(cls, xml, name):
+		"""
+		Search for the description of a rate.BinnedRatios object named
+		"name" in the XML document tree rooted at xml, and construct and
+		return a new rate.BinnedRatios object from the data contained
+		therein.
+		"""
+		xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"%s:pylal_rate_binnedratios" % name]
+		self = cls(NDBins())
+		self.numerator = BinnedArray.from_xml(xml, u"numerator")
+		self.denominator = BinnedArray.from_xml(xml, u"denominator")
+		# normally they share a single NDBins instance
+		self.denominator.bins = self.numerator.bins
+		return self
+
 
 #
 # =============================================================================
@@ -1104,7 +1319,7 @@ class BinnedRatios(object):
 #
 
 
-class InterpBinnedArray(object):
+def InterpBinnedArray(binnedarray, fill_value = 0.0):
 	"""
 	Wrapper constructing a scipy.interpolate interpolator from the
 	contents of a BinnedArray.  Only piecewise linear interpolators are
@@ -1154,14 +1369,22 @@ class InterpBinnedArray(object):
 	2.0
 	>>> y(2, 1)
 	4.0
-	>>> y(0, 0.5)
+	>>> y(0, 0.25)
+	0.25
+	>>> y(0, 0.75)
+	0.75
+	>>> y(0.25, 0)
 	0.5
-	>>> y(0.5, 0)
-	1.0
-	>>> y(0.5, 1)
+	>>> y(0.75, 0)
+	1.5
+	>>> y(0.25, 1)
+	1.75
+	>>> y(0.75, 1)
+	3.25
+	>>> y(1, 0.25)
 	2.5
-	>>> y(1, 0.5)
-	3.0
+	>>> y(1, 0.75)
+	3.5
 
 	BUGS:  Due to bugs in some versions of scipy and numpy, if an old
 	version of scipy and/or numpy is detected this code falls back to
@@ -1169,106 +1392,114 @@ class InterpBinnedArray(object):
 	dimensions that is slow, and in 3- and higher dimensions the
 	fall-back is to nearest-neighbour "interpolation".
 	"""
-	def __init__(self, binnedarray, fill_value = 0.0):
-		# the upper and lower boundaries of the binnings are added
-		# as additional co-ordinates with the array being assumed
-		# to equal fill_value at those points.  this solves the
-		# problem of providing a valid function in the outer halves
-		# of the first and last bins.
+	# the upper and lower boundaries of the binnings are added as
+	# additional co-ordinates with the array being assumed to equal
+	# fill_value at those points.  this solves the problem of providing
+	# a valid function in the outer halves of the first and last bins.
 
-		# coords[0] = co-ordinates along 1st dimension,
-		# coords[1] = co-ordinates along 2nd dimension,
-		# ...
-		coords = tuple(numpy.hstack((l[0], c, u[-1])) for l, c, u in zip(binnedarray.bins.lower(), binnedarray.bins.centres(), binnedarray.bins.upper()))
+	# coords[0] = co-ordinates along 1st dimension,
+	# coords[1] = co-ordinates along 2nd dimension,
+	# ...
+	coords = tuple(numpy.hstack((l[0], c, u[-1])) for l, c, u in zip(binnedarray.bins.lower(), binnedarray.bins.centres(), binnedarray.bins.upper()))
 
-		# pad the contents of the binned array with 1 element of
-		# fill_value on each side in each dimension
+	# pad the contents of the binned array with 1 element of fill_value
+	# on each side in each dimension
+	try:
+		z = numpy.pad(binnedarray.array, [(1, 1)] * len(binnedarray.array.shape), mode = "constant", constant_values = [(fill_value, fill_value)] * len(binnedarray.array.shape))
+	except AttributeError:
+		# numpy < 1.7 didn't have pad().  FIXME:  remove when we
+		# can rely on a newer numpy
+		z = numpy.empty(tuple(l + 2 for l in binnedarray.array.shape))
+		z.fill(fill_value)
+		z[(slice(1, -1),) * len(binnedarray.array.shape)] = binnedarray.array
+
+	# if any co-ordinates are infinite, remove them.  also remove
+	# degenerate co-ordinates from ends
+	slices = []
+	for c in coords:
+		finite_indexes, = numpy.isfinite(c).nonzero()
+		assert len(finite_indexes) != 0
+
+		lo, hi = finite_indexes.min(), finite_indexes.max()
+
+		while lo < hi and c[lo + 1] == c[lo]:
+			lo += 1
+		while lo < hi and c[hi - 1] == c[hi]:
+			hi -= 1
+		assert lo < hi
+
+		slices.append(slice(lo, hi + 1))
+	coords = tuple(c[s] for c, s in zip(coords, slices))
+	z = z[slices]
+
+	# build the interpolator from the co-ordinates and array data.
+	# scipy/numpy interpolators return an array-like thing so we have
+	# to wrap them, in turn, in a float cast
+	if len(coords) == 1:
 		try:
-			z = numpy.pad(binnedarray.array, [(1, 1)] * len(binnedarray.array.shape), mode = "constant", constant_values = [(fill_value, fill_value)] * len(binnedarray.array.shape))
-		except AttributeError:
-			# numpy < 1.7 didn't have pad().  FIXME:  remove
-			# when we can rely on a newer numpy
-			z = numpy.empty(tuple(l + 2 for l in binnedarray.array.shape))
-			z.fill(fill_value)
-			z[(slice(1, -1),) * len(binnedarray.array.shape)] = binnedarray.array
-
-		# if any co-ordinates are infinite, remove them.  also
-		# remove degenerate co-ordinates from ends
-		slices = []
-		for c in coords:
-			finite_indexes, = numpy.isfinite(c).nonzero()
-			assert len(finite_indexes) != 0
-
-			lo, hi = finite_indexes.min(), finite_indexes.max()
-
-			while lo < hi and c[lo + 1] == c[lo]:
-				lo += 1
-			while lo < hi and c[hi - 1] == c[hi]:
-				hi -= 1
-			assert lo < hi
-
-			slices.append(slice(lo, hi + 1))
-		coords = tuple(c[s] for c, s in zip(coords, slices))
-		z = z[slices]
-
-		# build the interpolator from the co-ordinates and array
-		# data
-		if len(coords) == 1:
-			try:
-				interp1d
-			except NameError:
-				# FIXME:  remove when we can rely on a new-enough scipy
-				lo, hi = coords[0][0], coords[0][-1]
-				def interp(x):
-					if not lo < x < hi:
-						return fill_value
-					i = coords[0].searchsorted(x)
-					return z[i - 1] + (x - coords[0][i - 1]) / (coords[0][i] - coords[0][i - 1]) * (z[i] - z[i - 1])
-				self.interp = interp
-			else:
-				self.interp = interp1d(coords[0], z, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
-		elif len(coords) == 2:
-			try:
-				interp2d
-			except NameError:
-				# FIXME:  remove when we can rely on a new-enough scipy
-				lox, hix = coords[0][0], coords[0][-1]
-				loy, hiy = coords[1][0], coords[1][-1]
-				def interp(x, y):
-					if not (lox < x < hix and loy < y < hiy):
-						return fill_value
-					i = coords[0].searchsorted(x)
-					j = coords[1].searchsorted(y)
-					dx = (x - coords[0][i - 1]) / (coords[0][i] - coords[0][i - 1])
-					dy = (y - coords[1][j - 1]) / (coords[1][j] - coords[1][j - 1])
-					if dx + dy <= 1.:
-						return z[i - 1, j - 1] + dx * (z[i, j - 1] - z[i - 1, j - 1]) + dy * (z[i - 1, j] - z[i - 1, j - 1])
-					return z[i, j] + (1. - dx) * (z[i - 1, j] - z[i, j]) + (1. - dy) * (z[i, j - 1] - z[i, j])
-				self.interp = interp
-			else:
-				self.interp = interp2d(coords[0], coords[1], z.T, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
-		else:
-			try:
-				LinearNDInterpolator
-			except NameError:
-				# FIXME:  remove when we can rely on a new-enough scipy
-				def interp(*coords):
-					try:
-						return binnedarray[coords]
-					except IndexError:
-						return fill_value
-				self.interp = interp
-			else:
-				self.interp = LinearNDInterpolator(list(itertools.product(*coords)), z.flat, fill_value = fill_value)
-
-
-	def __call__(self, *coords):
-		"""
-		Evaluate the interpolator at the given co-ordinates.
-		"""
-		# interpolators return an array-like thing that we convert
-		# to a scalar here
-		return float(self.interp(*coords))
+			interp1d
+		except NameError:
+			# FIXME:  remove when we can rely on a new-enough scipy
+			coords0 = coords[0]
+			lo, hi = coords[0][0], coords[0][-1]
+			with numpy.errstate(invalid = "ignore"):
+				dz_over_dcoords0 = (z[1:] - z[:-1]) / (coords0[1:] - coords0[:-1])
+			isinf = math.isinf
+			def interp(x):
+				if not lo < x < hi:
+					return fill_value
+				i = coords0.searchsorted(x) - 1
+				if isinf(z[i]):
+					return z[i]
+				return z[i] + (x - coords0[i]) * dz_over_dcoords0[i]
+			return interp
+		interp = interp1d(coords[0], z, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
+		return lambda *coords: float(interp(*coords))
+	elif len(coords) == 2:
+		try:
+			interp2d
+		except NameError:
+			# FIXME:  remove when we can rely on a new-enough scipy
+			coords0 = coords[0]
+			coords1 = coords[1]
+			lox, hix = coords0[0], coords0[-1]
+			loy, hiy = coords1[0], coords1[-1]
+			dcoords0 = coords0[1:] - coords0[:-1]
+			dcoords1 = coords1[1:] - coords1[:-1]
+			with numpy.errstate(invalid = "ignore"):
+				dz0 = z[1:,:] - z[:-1,:]
+				dz1 = z[:,1:] - z[:,:-1]
+			isinf = math.isinf
+			def interp(x, y):
+				if not (lox < x < hix and loy < y < hiy):
+					return fill_value
+				i = coords0.searchsorted(x) - 1
+				j = coords1.searchsorted(y) - 1
+				dx = (x - coords0[i]) / dcoords0[i]
+				dy = (y - coords1[j]) / dcoords1[j]
+				if dx + dy <= 1.:
+					if isinf(z[i, j]):
+						return z[i, j]
+					return z[i, j] + dx * dz0[i, j] + dy * dz1[i, j]
+				if isinf(z[i + 1, j + 1]):
+					return z[i + 1, j + 1]
+				return z[i + 1, j + 1] + (1. - dx) * -dz0[i, j + 1] + (1. - dy) * -dz1[i + 1, j]
+			return interp
+		interp = interp2d(coords[0], coords[1], z.T, kind = "linear", copy = False, bounds_error = False, fill_value = fill_value)
+		return lambda *coords: float(interp(*coords))
+	else:
+		try:
+			LinearNDInterpolator
+		except NameError:
+			# FIXME:  remove when we can rely on a new-enough scipy
+			def interp(*coords):
+				try:
+					return binnedarray[coords]
+				except IndexError:
+					return fill_value
+			return interp
+		interp = LinearNDInterpolator(list(itertools.product(*coords)), z.flat, fill_value = fill_value)
+		return lambda *coords: float(interp(*coords))
 
 
 #
@@ -1310,7 +1541,7 @@ def gaussian_window(*bins, **kwargs):
 	windows = []
 	for b in bins:
 		if b <= 0:
-			raise ValueError(b)
+			raise ValueError("negative width: %s" % repr(b))
 		l = int(math.floor(sigma * b / 2.0)) * 2
 		w = lal.CreateGaussREAL8Window(l + 1, l / float(b))
 		windows.append(w.data.data / w.sum)
@@ -1590,142 +1821,3 @@ def marginalize_ratios(likelihood, dim):
 	# normally they share an NDBins instance
 	result.denominator.bins = result.numerator.bins
 	return result
-
-
-#
-# =============================================================================
-#
-#                                     I/O
-#
-# =============================================================================
-#
-
-
-from glue.ligolw import ligolw
-from glue.ligolw import array as ligolw_array
-from glue.ligolw import table as ligolw_table
-from glue.ligolw import lsctables
-
-
-class BinsTable(ligolw_table.Table):
-	"""
-	LIGO Light Weight XML table defining a binning.
-	"""
-	tableName = "pylal_rate_bins:table"
-	validcolumns = {
-		"order": "int_4u",
-		"type": "lstring",
-		"min": "real_8",
-		"max": "real_8",
-		"n": "int_4u"
-	}
-
-
-def bins_to_xml(bins):
-	"""
-	Construct a LIGO Light Weight XML table representation of the
-	NDBins instance bins.
-	"""
-	xml = lsctables.New(BinsTable)
-	for order, bin in enumerate(bins):
-		row = xml.RowType()
-		row.order = order
-		row.type = {
-			LinearBins: "lin",
-			LinearPlusOverflowBins: "linplusoverflow",
-			LogarithmicBins: "log",
-			ATanBins: "atan",
-			ATanLogarithmicBins: "atanlog",
-			LogarithmicPlusOverflowBins: "logplusoverflow"
-		}[type(bin)]
-		if isinstance(bin, ATanLogarithmicBins):
-			row.min = bin._real_min
-			row.max = bin._real_max
-			row.n = bin._real_n
-		else:
-			row.min = bin.min
-			row.max = bin.max
-			row.n = len(bin)
-		xml.append(row)
-	return xml
-
-
-def bins_from_xml(xml):
-	"""
-	From the XML document tree rooted at xml, retrieve the table
-	describing a binning, and construct and return a rate.NDBins object
-	from it.
-	"""
-	xml = BinsTable.get_table(xml)
-	binnings = [None] * (len(xml) and (max(xml.getColumnByName("order")) + 1))
-	for row in xml:
-		if binnings[row.order] is not None:
-			raise ValueError("duplicate binning for dimension %d" % row.order)
-		binnings[row.order] = {
-			"lin": LinearBins,
-			"linplusoverflow": LinearPlusOverflowBins,
-			"log": LogarithmicBins,
-			"atan": ATanBins,
-			"atanlog": ATanLogarithmicBins,
-			"logplusoverflow": LogarithmicPlusOverflowBins
-		}[row.type](row.min, row.max, row.n)
-	if None in binnings:
-		raise ValueError("no binning for dimension %d" % binnings.find(None))
-	return NDBins(binnings)
-
-
-def binned_array_to_xml(binnedarray, name):
-	"""
-	Retrun an XML document tree describing a rate.BinnedArray object.
-	"""
-	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_rate_binnedarray" % name})
-	xml.appendChild(bins_to_xml(binnedarray.bins))
-	xml.appendChild(ligolw_array.from_array(u"array", binnedarray.array))
-	return xml
-
-
-def binned_array_from_xml(xml, name):
-	"""
-	Search for the description of a rate.BinnedArray object named
-	"name" in the XML document tree rooted at xml, and construct and
-	return a new rate.BinnedArray object from the data contained
-	therein.
-	"""
-	xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"%s:pylal_rate_binnedarray" % name]
-	try:
-		xml, = xml
-	except ValueError:
-		raise ValueError("document must contain exactly 1 BinnedArray named '%s'" % name)
-	# an empty binning is used for the initial object creation instead
-	# of using the real binning to avoid the creation of a (possibly
-	# large) array that would otherwise accompany this step
-	binnedarray = BinnedArray(NDBins())
-	binnedarray.bins = bins_from_xml(xml)
-	binnedarray.array = ligolw_array.get_array(xml, u"array").array
-	return binnedarray
-
-
-def binned_ratios_to_xml(ratios, name):
-	"""
-	Return an XML document tree describing a rate.BinnedRatios object.
-	"""
-	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_rate_binnedratios" % name})
-	xml.appendChild(binned_array_to_xml(ratios.numerator, u"numerator"))
-	xml.appendChild(binned_array_to_xml(ratios.denominator, u"denominator"))
-	return xml
-
-
-def binned_ratios_from_xml(xml, name):
-	"""
-	Search for the description of a rate.BinnedRatios object named
-	"name" in the XML document tree rooted at xml, and construct and
-	return a new rate.BinnedRatios object from the data contained
-	therein.
-	"""
-	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"%s:pylal_rate_binnedratios" % name]
-	ratios = BinnedRatios(NDBins())
-	ratios.numerator = binned_array_from_xml(xml, u"numerator")
-	ratios.denominator = binned_array_from_xml(xml, u"denominator")
-	# normally they share a single NDBins instance
-	ratios.denominator.bins = ratios.numerator.bins
-	return ratios
