@@ -183,7 +183,7 @@ def main( injCacheFile, outdir, maxIncl , injString , verbose=False ):
 
   # get search summary table from old file
   oldxml   = utils.load_filename( foundcache[0].path,\
-                                  gz = foundcache[0].path.endswith("gz") )
+                                  gz = foundcache[0].path.endswith("gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
   oldSearchSummTable = table.get_table( oldxml, "search_summary" )
   xmldoc.childNodes[-1].appendChild( oldSearchSummTable )
 
