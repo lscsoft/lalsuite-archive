@@ -37,7 +37,7 @@ from glue import segments
 from pylal import git_version
 from pylal.dq import dqSegmentUtils,dqPlotUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from glue.ligolw import table,lsctables,utils
+from glue.ligolw import table,lsctables,utils,ligolw
 from pylal.coh_PTF_pyutils import *
 
 __author__  = "Ian Harry <ian.harry@astro.cf.ac.uk>"
@@ -173,7 +173,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     sys.stdout.write("Loading triggers...\n")
 
   # load file
-  xmldoc = utils.load_filename(trigFile, gz=trigFile.endswith("gz"))
+  xmldoc = utils.load_filename(trigFile, gz=trigFile.endswith("gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
   searchSumm = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
 
   # extract IFOS
@@ -214,7 +214,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   if injFile:
     if verbose:
       sys.stdout.write("\nLoading injections...\n")
-    xmldoc = utils.load_filename(injFile, gz=injFile.endswith("gz"))
+    xmldoc = utils.load_filename(injFile, gz=injFile.endswith("gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
     tmp = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
     injs = lsctables.New(lsctables.MultiInspiralTable,\
                         columns=lsctables.MultiInspiralTable.loadcolumns)

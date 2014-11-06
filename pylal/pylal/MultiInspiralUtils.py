@@ -31,6 +31,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw import ilwd
+from glue.ligolw import ligolw
 
 #
 # =============================================================================
@@ -52,7 +53,7 @@ def ReadMultiInspiralFromFiles(fileList):
 
   for thisFile in fileList:
     doc = utils.load_filename(thisFile,
-        gz=(thisFile or "stdin").endswith(".gz"))
+        gz=(thisFile or "stdin").endswith(".gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
     # extract the multi inspiral table
     try:
       multiInspiralTable = table.get_table(doc,
@@ -77,7 +78,7 @@ def ReadMultiInspiralTimeSlidesFromFiles(fileList,generate_output_tables=False):
   for thisFile in fileList:
 
     doc = utils.load_filename(thisFile,
-        gz=(thisFile or "stdin").endswith(".gz"))
+        gz=(thisFile or "stdin").endswith(".gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
     # Extract the time slide table
     timeSlideTable = table.get_table(doc,
           lsctables.TimeSlideTable.tableName)

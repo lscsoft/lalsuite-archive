@@ -78,7 +78,7 @@ def fromsegmentxml(file, dict=False, id=None):
   """
 
   # load xmldocument and SegmentDefTable and SegmentTables
-  xmldoc, digest = utils.load_fileobj(file, gz=file.name.endswith(".gz"))
+  xmldoc, digest = utils.load_fileobj(file, gz=file.name.endswith(".gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
   seg_def_table  = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
   seg_table      = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
 

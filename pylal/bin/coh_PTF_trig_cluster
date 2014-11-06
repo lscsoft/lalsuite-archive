@@ -91,7 +91,7 @@ def main(trigFile, timeWindow, outdir, verbose=False):
     sys.stdout.write("Loading triggers...\n")
 
   oldxml   = utils.load_filename(trigFile,\
-                                 gz = trigFile.endswith("gz"))
+                                 gz = trigFile.endswith("gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
   tmp      = table.get_table(oldxml, "multi_inspiral")
   if len(tmp) >= 1:
     lsctables.MultiInspiralTable.loadcolumns =\

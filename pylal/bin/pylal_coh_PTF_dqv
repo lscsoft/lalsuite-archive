@@ -142,7 +142,7 @@ if __name__ == "__main__":
 
     # open file
     print_verbose("Reading xml file...\n", profile=False)
-    xmldoc = ligolw_utils.load_filename(xmlfile, gz=xmlfile.endswith(".gz"))
+    xmldoc = ligolw_utils.load_filename(xmlfile, gz=xmlfile.endswith(".gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
 
     # read SearchSummaryTable
     search_summ_table = table.get_table(xmldoc,
@@ -183,7 +183,7 @@ if __name__ == "__main__":
     # read segments into a dict by instrument
     veto_segments = SegmentListDict((ifo, SegmentList()) for ifo in ifos)
     for fp in segment_files:
-        xmldoc = ligolw_utils.load_filename(fp, gz=fp.endswith(".gz"))
+        xmldoc = ligolw_utils.load_filename(fp, gz=fp.endswith(".gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
         seg_def_table = table.get_table(xmldoc,
                                         lsctables.SegmentDefTable.tableName)
         seg_table = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
