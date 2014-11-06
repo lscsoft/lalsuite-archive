@@ -100,7 +100,7 @@ else:
   trigFile = "%s-COH_PTF_INSPIRAL_FIRST_GRB%s_OFFSOURCE-%s-%s.xml.gz" % (ifoTag, grb, start, end-start)
 
 
-xmldoc = utils.load_filename( trigFile, gz=trigFile.endswith("gz" ) )
+xmldoc = utils.load_filename( trigFile, gz=trigFile.endswith("gz" ), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
 trigs  = table.get_table( xmldoc, lsctables.MultiInspiralTable.tableName )
 searchSumm = table.get_table( xmldoc, lsctables.SearchSummaryTable.tableName )
 

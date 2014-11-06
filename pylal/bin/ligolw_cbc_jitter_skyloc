@@ -32,6 +32,7 @@ import sys
 import numpy as np
 
 import lal
+from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import table
 from glue.ligolw import utils
@@ -125,7 +126,7 @@ jitter_fermi30 = np.sqrt(jitter_sigma*jitter_sigma + err30*err30 )
 #
 
 siminsp_doc = utils.load_filename(siminsp_fname,
-    gz=siminsp_fname.endswith(".gz"))
+    gz=siminsp_fname.endswith(".gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
 
 # Prepare process table with information about the current program
 process = ligolw_process.register_to_xmldoc(siminsp_doc,
