@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-#       cbcBayesPostProc.py
+#       cbcBayesPPAnalysis.py
 #
-#       Copyright 2010
+#       Copyright 2013
 #       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
+#       SalvatoreVitale <salvatore.vitale@ligo.org>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -37,27 +38,7 @@ import scipy.stats as ss
 import string
 from pylal.SimInspiralUtils import ExtractSimInspiralTableLIGOLWContentHandler
 lsctables.use_in(ExtractSimInspiralTableLIGOLWContentHandler)
-
-posterior_name_to_sim_inspiral_extractor = {
-    'm1' : lambda si: si.mass1,
-    'm2' : lambda si: si.mass2,
-    'eta' : lambda si: si.eta,
-    'q' : lambda si: si.mass2 / si.mass1,
-    'mc' : lambda si: si.mchirp,
-    'dist' : lambda si: si.distance,
-    'time' : lambda si: si.geocent_end_time + 1e-9*si.geocent_end_time_ns,
-    'ra' : lambda si: si.longitude,
-    'dec' : lambda si: si.latitude,
-    'phi_orb' : lambda si: si.coa_phase,
-    'psi' : lambda si: si.polarization,
-    'iota' : lambda si: si.inclination,
-    'a1' : lambda si: np.sqrt(si.spin1x*si.spin1x+si.spin1y*si.spin1y+si.spin1z*si.spin1z),
-    'a2' : lambda si: np.sqrt(si.spin2x*si.spin2x+si.spin2y*si.spin2y+si.spin2z*si.spin2z),
-    'theta1' : lambda si: np.arccos(si.spin1z / np.sqrt(si.spin1x*si.spin1x+si.spin1y*si.spin1y+si.spin1z*si.spin1z)),
-    'theta2' : lambda si: np.arccos(si.spin2z /  np.sqrt(si.spin2x*si.spin2x+si.spin2y*si.spin2y+si.spin2z*si.spin2z)),
-    'phi1' : lambda si: np.arctan2(si.spin1y, si.spin1x) + 2*np.pi if np.arctan2(si.spin1y, si.spin1x) < 0.0 else np.arctan2(si.spin1y, si.spin1x),
-    'phi2' : lambda si: np.arctan2(si.spin2y, si.spin2x) + 2*np.pi if np.arctan2(si.spin2y, si.spin2x) < 0.0 else np.arctan2(si.spin2y, si.spin2x)
-}
+from pylal import bayespputils as bppu
 
 posterior_name_to_latex_name = {
     'm1' : r'$m_1$',
@@ -77,7 +58,12 @@ posterior_name_to_latex_name = {
     'theta1' : r'$\theta_1$',
     'theta2' : r'$\theta_2$',
     'phi1' : r'$\phi_1$',
-    'phi2' : r'$\phi_2$'
+    'phi2' : r'$\phi_2$',
+    'phi12':r'$\phi_{12}$',
+    'phi_jl':r'$\phi_{jl}$',
+    'theta_jn':r'$\theta_{jn}$',
+    'tilt1':r'$\tau_1$',
+    'tilt2':r'$\tau_2$'
 }
 
 def fractional_rank(x, xs):
@@ -141,16 +127,14 @@ def pp_kstest_pvalue(ps):
 
     return p
 
-def read_posterior_samples(f):
-    """Returns a named numpy array of the posterior samples in the file
-    ``f``.
-
+def read_posterior_samples(f,injrow):
+    """Returns a bppu posterior sample object
     """
-    with open(f, 'r') as inp:
-        header = inp.readline().split()
-        dtype = np.dtype([(n, np.float) for n in header])
-        data = np.loadtxt(inp, dtype=dtype)
-
+    peparser=bppu.PEOutputParser('common')
+    commonResultsObj=peparser.parse(open(f,'r'))
+    data = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injrow,injFref=100.0)
+    # add tilts, comp masses, tidal...
+    data.extend_posterior()
     return data
 
 def output_html(outdir, ks_pvalues, injnum):
@@ -227,7 +211,7 @@ if __name__ == '__main__':
     injs = table.get_table(utils.load_filename(options.injxml,contenthandler=ExtractSimInspiralTableLIGOLWContentHandler),lsctables.SimInspiralTable.tableName)
 
     if options.par == []:
-        parameters = ['m1', 'm2', 'mc', 'eta', 'q',  'iota', 'a1', 'a2', 'theta1', 'theta2', 'phi1', 'phi2', 'ra', 'dec', 'dist', 'time', 'phi_orb', 'psi']
+        parameters = ['m1', 'm2', 'mc', 'eta', 'q',  'theta_jn', 'a1', 'a2', 'tilt1', 'tilt2', 'phi12', 'phi_jl', 'ra', 'dec', 'dist', 'time', 'phi_orb', 'psi']
     else:
         parameters = options.par
 
@@ -241,9 +225,7 @@ if __name__ == '__main__':
     Ninj=0
     for index,posfile in enumerate(posfiles):
 	    try:
-	      psamples = read_posterior_samples(posfile)
-	      #index = int(element)
-	      true_params = injs[index]
+	      psamples = read_posterior_samples(posfile,injs[index])
 	      Ninj+=1
 	    except:
 	      # Couldn't read the posterior samples or the XML.
@@ -251,10 +233,9 @@ if __name__ == '__main__':
 
 	    for par in parameters:
 	      try:
-		samples = psamples[par]
-		true_value = posterior_name_to_sim_inspiral_extractor[par](true_params)
+		samples = psamples[par].samples
+                true_value=psamples[par].injval
 		p = fractional_rank(true_value, samples)
-
 		try:
 		  pvalues[par].append(p)
 		except:
