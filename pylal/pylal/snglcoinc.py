@@ -43,11 +43,7 @@ import itertools
 import math
 import numpy
 import random
-try:
-	from scipy.constants import c as speed_of_light
-except ImportError:
-	from lal import LAL_C_SI as speed_of_light
-	speed_of_light = float(speed_of_light)
+from scipy.constants import c as speed_of_light
 import scipy.optimize
 import sys
 import threading
