@@ -6029,7 +6029,7 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       m2=M2*LAL_MSUN_SI
       if 'phi_orb' in pos.names:
         phiRef=pos['phi_orb'].samples[which][0]
-      else if 'phase_maxl' in pos.names:
+      elif 'phase_maxl' in pos.names:
 		phiRef=pos['phase_maxl'].samples[which][0]
 		print 'INFO: phi_orb not estimated, using maximum likelihood value'
       else:
