@@ -44,6 +44,7 @@
  * See arXiv:0810.5336 and arXiv:astro-ph/0504538 for spin corrections
  * to the phasing.
  * See arXiv:1303.7412 for spin-orbit phasing corrections at 3 and 3.5PN order
+ * The testing GR implementation is described in arXiv:1110.0530
  */
 
 int XLALSimInspiralTaylorF2Test(
@@ -125,10 +126,9 @@ int XLALSimInspiralTaylorF2Test(
         default:
             XLAL_ERROR(XLAL_ETYPE, "Invalid phase PN order %s", phaseO);
     }
-    /* modify the PN coefficients */
+    /* modify the PN coefficients by perturbing around their central GR value */
     if (extraParams!=NULL)
     {
-        //printf("Adding test params shifts %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf\n",XLALSimInspiralGetTestGRParam(extraParams,"dchi0"),XLALSimInspiralGetTestGRParam(extraParams,"dchi1"),XLALSimInspiralGetTestGRParam(extraParams,"dchi2"),XLALSimInspiralGetTestGRParam(extraParams,"dchi3"),XLALSimInspiralGetTestGRParam(extraParams,"dchi4"),XLALSimInspiralGetTestGRParam(extraParams,"dchi5"),XLALSimInspiralGetTestGRParam(extraParams,"dchi5l"),XLALSimInspiralGetTestGRParam(extraParams,"dchi6"),XLALSimInspiralGetTestGRParam(extraParams,"dchi6l"),XLALSimInspiralGetTestGRParam(extraParams,"dchi7"));
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi0")) pfaN*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi0"));
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi1")) pfa1 = XLALSimInspiralGetTestGRParam(extraParams,"dchi1");
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi2")) pfa2*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi2"));

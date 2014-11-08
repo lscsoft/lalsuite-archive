@@ -724,19 +724,15 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
   LALSimInspiralTestGRParam *nonGRparams = NULL;
   
   deltaT = model->deltaT;
-  
-  if(model->domain == LAL_SIM_DOMAIN_FREQUENCY) {
-    deltaF = model->deltaF;
-    
-    const char list_extra_parameters[32][16] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep"};
-    
-    for (UINT4 k=0; k<16; k++) 
-    {
-        if(LALInferenceCheckVariable(model->params,list_extra_parameters[k])) 
-        {
-			XLALSimInspiralAddTestGRParam(&nonGRparams,list_extra_parameters[k],*(REAL8 *)LALInferenceGetVariable(model->params,list_extra_parameters[k]));
-		}
-    }
+  const char list_extra_parameters[32][16] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep"};
+
+  for (UINT4 k=0; k<16; k++)
+  {
+      if(LALInferenceCheckVariable(model->params,list_extra_parameters[k]))
+      {
+          XLALSimInspiralAddTestGRParam(&nonGRparams,list_extra_parameters[k],*(REAL8 *)LALInferenceGetVariable(model->params,list_extra_parameters[k]));
+      }
+  }
   char aPPEparam[64]="";
   char alphaPPEparam[64]="";
   /* phase parameters */
@@ -755,6 +751,9 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
       if(LALInferenceCheckVariable(model->params,betaPPEparam)) XLALSimInspiralAddTestGRParam(&nonGRparams,betaPPEparam,*(REAL8 *)LALInferenceGetVariable(model->params,betaPPEparam));
       
   } while((LALInferenceCheckVariable(model->params,aPPEparam))||(LALInferenceCheckVariable(model->params,alphaPPEparam))||(LALInferenceCheckVariable(model->params,bPPEparam))||(LALInferenceCheckVariable(model->params,betaPPEparam)));
+  
+  if(model->domain == LAL_SIM_DOMAIN_FREQUENCY) {
+    deltaF = model->deltaF;
 
 	XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformFromCache(&hptilde, &hctilde, phi0,
             deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
@@ -799,15 +798,15 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     
   } else {
 
-    const char list_extra_parameters[32][16] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep"};  
-    
-    for (UINT4 k=0; k<16; k++) 
-    {
-        if(LALInferenceCheckVariable(model->params,list_extra_parameters[k])) 
-            XLALSimInspiralAddTestGRParam(&nonGRparams,
-                                    list_extra_parameters[k],
-                                    *(REAL8 *)LALInferenceGetVariable(model->params,list_extra_parameters[k]));
-    }
+//    const char list_extra_parameters[32][16] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep"};  
+//    
+//    for (UINT4 k=0; k<16; k++) 
+//    {
+//        if(LALInferenceCheckVariable(model->params,list_extra_parameters[k])) 
+//            XLALSimInspiralAddTestGRParam(&nonGRparams,
+//                                    list_extra_parameters[k],
+//                                    *(REAL8 *)LALInferenceGetVariable(model->params,list_extra_parameters[k]));
+//    }
 
     XLAL_TRY(ret=XLALSimInspiralChooseTDWaveformFromCache(&hplus, &hcross, phi0, deltaT,
             m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
