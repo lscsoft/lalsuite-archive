@@ -43,11 +43,7 @@ import itertools
 import math
 import numpy
 import random
-try:
-	from scipy.constants import c as speed_of_light
-except ImportError:
-	from lal import LAL_C_SI as speed_of_light
-	speed_of_light = float(speed_of_light)
+from scipy.constants import c as speed_of_light
 import scipy.optimize
 import sys
 import threading
@@ -949,7 +945,7 @@ class CoincSynthesizer(object):
 		# prior constraint on the time differences between the
 		# other instruments).
 				key = instruments
-				anchor = min((a for a in instruments), key = lambda a: sum(math.log(self.tau[frozenset((a, b))]) for b in instruments - set([a])))
+				anchor = min(instruments, key = lambda a: sum(math.log(self.tau[frozenset((a, b))]) for b in instruments - set([a])))
 				instruments = tuple(instruments - set([anchor]))
 		# compute \mu_{1} * \mu_{2} ... \mu_{N} * 2 * \tau_{12} * 2
 		# * \tau_{13} ... 2 * \tau_{1N}.  this is the rate at which
@@ -973,6 +969,12 @@ class CoincSynthesizer(object):
 		# FIXME:  it might be practical to solve this with some
 		# sort of computational geometry library and convex hull
 		# volume calculator.
+		# FIXME:  in any case, these correction factors depend only
+		# on the coincidence windows and can be computed and saved
+		# when self.tau is updated allowing the rates, here, to be
+		# computed very quickly if only the single-instrument
+		# trigger rates have changed and not the coincidence
+		# windows.
 				if len(instruments) > 1:
 		# for each instrument 2...N, the interval within which an
 		# event is coincident with instrument 1
