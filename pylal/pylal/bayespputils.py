@@ -5419,7 +5419,7 @@ class PEOutputParser(object):
         it = iter(files)
         
         # check if there's a file containing the parameter names
-        parsfilename = it.next()+'_params.txt'
+        parsfilename = (it.next()).strip('.gz')+'_params.txt'
         
         if os.path.isfile(parsfilename):
             print 'Looking for '+parsfilename
