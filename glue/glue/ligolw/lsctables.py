@@ -1389,7 +1389,6 @@ class TmpltInspiralTable(table.Table):
 		"f_min": "real_8",
 		"f_ref": "real_8",
 		"f_max": "real_8",
-		"distance": "real_8",
 		"inclination": "real_8",
 		"lambda1": "real_8",
 		"lambda2": "real_8",
@@ -1430,13 +1429,13 @@ TmpltInspiralTable.RowType = TmpltInspiral
 #
 
 
-SnglInspiralID = ilwd.get_ilwdchar_class(u"sngl_inspiral", u"sngl_inspiral_id")
+SnglInspiralID = ilwd.get_ilwdchar_class(u"sngl_inspiral", u"event_id")
 
 
 class SnglInspiralTable(table.Table):
 	tableName = "sngl_inspiral:table"
 	validcolumns = {
-		"sngl_inspiral_id": "ilwd:char",
+		"event_id": "ilwd:char",
 		"tmplt_inspiral_id": "ilwd:char",
 		"process_id": "ilwd:char",
 		"end_time": "int_4s",
@@ -1460,7 +1459,11 @@ class SnglInspiralTable(table.Table):
 		#
 		"mass1": "real_8",
 		"mass2": "real_8",
+		"spin1x": "real_8",
+		"spin1y": "real_8",
 		"spin1z": "real_8",
+		"spin2x": "real_8",
+		"spin2y": "real_8",
 		"spin2z": "real_8",
 		"f_min": "real_8",
 		"sigmasq": "real_8",
@@ -1471,7 +1474,7 @@ class SnglInspiralTable(table.Table):
 		"gamma4": "real_4",
 		"gamma5": "real_4"
 	}
-	constraints = "PRIMARY KEY (sngl_inspiral_id)"
+	constraints = "PRIMARY KEY (event_id)"
 	# FIXME:  lal uses an ID of 0 to indicate "no valid ID has been
 	# set", so we start at 1 for safety, but eventually that should be
 	# fixed in LAL and then this can be put back to 0 for cleanliness.
@@ -2456,14 +2459,14 @@ MultiInspiralTable.RowType = MultiInspiral
 #
 
 
-SimInspiralID = ilwd.get_ilwdchar_class(u"sim_inspiral", u"sim_inspiral_id")
+SimInspiralID = ilwd.get_ilwdchar_class(u"sim_inspiral", u"simulation_id")
 
 
 class SimInspiralTable(table.Table):
 	tableName = "sim_inspiral:table"
 	validcolumns = {
-		"sim_inspiral_id": "ilwd:char",
-		"tmplt_inspiral_id": "ilwd:char",
+		"process_id": "ilwd:char",
+		"simulation_id": "ilwd:char",
 		"process_id": "ilwd:char",
 		"sim_tag": "lstring",
 		"geocent_end_time": "int_4s",
@@ -2471,12 +2474,7 @@ class SimInspiralTable(table.Table):
 		"ra": "real_4",
 		"dec": "real_4",
 		"polarization": "real_4",
-		"coa_phase": "real_4",
-		#
-		# FIXME: the following columns will eventually be
-		# deprecated in favor of the tmplt_inspiral table and
-		# the sim_inspiral_params table
-		#
+		"phi_ref": "real_8",
 		"mass1": "real_8",
 		"mass2": "real_8",
 		"spin1x": "real_8",
@@ -2486,15 +2484,28 @@ class SimInspiralTable(table.Table):
 		"spin2y": "real_8",
 		"spin2z": "real_8",
 		"f_min": "real_8",
+		"f_ref": "real_8",
 		"f_max": "real_8",
 		"distance": "real_8",
+		"redshift": "real_8",
 		"inclination": "real_8",
+		"lambda1": "real_8",
+		"lambda2": "real_8",
+		"quadparam1": "real_8",
+		"quadparam2": "real_8",
+		"eccentricity": "real_8",
+		"argument_periapsis": "real_8",
 		"amplitude_order": "int_4s",
 		"phase_order": "int_4s",
-		"spin_order": "lstring",
+		"spin_order": "int_4s",
+		"tidal_order": "int_4s",
+		"frame_axis": "lstring",
+		"modes_choice": "lstring",
+		"comment": "lstring",
 		"approximant": "lstring",
 		"taper": "lstring",
-		# following will be moved to the sim_inspiral_params table
+		"waveform_duration": "real_8",
+		# FIXME: the following will be moved to the sim_inspiral_params table
 		"h_end_time": "int_4s",
 		"h_end_time_ns": "int_4s",
 		"l_end_time": "int_4s",
@@ -2505,7 +2516,7 @@ class SimInspiralTable(table.Table):
 		"eff_dist_l": "real_4",
 		"eff_dist_v": "real_4"
 	}
-	constraints = "PRIMARY KEY (sim_inspiral_id)"
+	constraints = "PRIMARY KEY (simulation_id)"
 	next_id = SimInspiralID(0)
 
 	# FIXME: I've removed all functions for now since many of them would break with the
@@ -2533,7 +2544,7 @@ SimInspiralTable.RowType = SimInspiral
 class SimInspiralParamsTable(table.Table):
 	tableName = "sim_inspiral_params:table"
 	validcolumns = {
-		"sim_inspiral_id": "ilwd:char",
+		"simulation_id": "ilwd:char",
 		"ifo": "lstring",
 		"end_time": "int_4s",
 		"end_time_ns": "int_4s",
@@ -2541,7 +2552,7 @@ class SimInspiralParamsTable(table.Table):
 	}
 
 	how_to_index = {
-		"sip_sid_index": ("sim_inspiral_id",),
+		"sip_sid_index": ("simulation_id",),
 	}
 
 
