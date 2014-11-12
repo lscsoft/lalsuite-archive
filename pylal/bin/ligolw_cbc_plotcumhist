@@ -484,8 +484,8 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
                     param_tag = param_name
                     if opts.param_ranges:
                         param_tag = '_'.join([ param_tag,
-                            `int(param_parser.param_ranges[param_group][0][1])`,
-                            `int(param_parser.param_ranges[param_group][1][1])` ])
+                            str(param_parser.param_ranges[param_group][0][1]),
+                            str(param_parser.param_ranges[param_group][1][1]) ])
                     plot_description = '_'.join([ param_tag, ''.join(sorted(ifos)), "cumhist",
                         plot_stat_name.replace('*', 'x').replace('/', '_div_').replace('-', '_sub_').replace('$^{2}$', '_sq') ])
                     name = InspiralUtils.set_figure_tag( plot_description, 
