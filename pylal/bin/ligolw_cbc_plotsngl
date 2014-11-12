@@ -49,20 +49,19 @@ def parse_command_line():
     # following are related to file input and output naming
     parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
         metavar = "PATH",
-        help = 
-            "Location of local disk on which to do work. This is optional; " +
-            "it is only used to enhance performance in a networked " +
-            "environment. "
+        help =
+            "Path to the local disk for operating on .sqlite files. Optional, "
+            "used to enhance performance in a networked environment. "
         )
     parser.add_option( "-P", "--output-path", action = "store", type = "string",
         default = os.getcwd(), metavar = "PATH",
         help = 
-            "Optional. Path where the figures should be stored. Default is current directory." 
+            "Optional. Path where the figures should be stored. Default is current directory."
         )
     parser.add_option( "-O", "--enable-output", action = "store_true",
         default =  False, metavar = "OUTPUT",
         help = 
-            "enable the generation of html and cache documents" 
+            "Enable the generation of html and cache documents"
         )
     parser.add_option( "-u", "--user-tag", action = "store", type = "string",
         help =
@@ -70,27 +69,27 @@ def parse_command_line():
         )
     parser.add_option( "-d", "--datatypes", action = "store", type = "string",
         help =
-            "Required. What datatype to plot. Can be either 'injection', 'slide', 'all_data', 'playground', " +
-            "or 'exclude_play'. If 'injection', --simulation-table must be specified. In this case, found injections" +
+            "Required. What datatype to plot. Can be either 'injection', 'slide', 'all_data', 'playground', "
+            "or 'exclude_play'. If 'injection', --simulation-table must be specified and found injections"
             "will be plotted. To specify multiple datatypes, comma separate the types."
         )
     parser.add_option( "-x", "--x-var", action = "store", type = "string",
         metavar = "x_var[:label]",
         help = 
-            "Required. What variable to plot on the x-axis. Any column in the single table can be used. " +
-            "Math operations are also supported. For example, you can type chisq/chisq_dof." +
-            "All functions in the python math module can be used. Syntax is standard python; e.g., log(snr, 10) " +
-            "will return the log10 of the snr. To specify a label for the axis, type :label after the variable, e.g., " +
-            r"'chisq: $\chi^2$'. LaTeX is supported when placed between two $ signs (if using a bash terminal, " +
-            "be sure to escape each dollar sign appropriately). " +
-            "One special label is gps_(s|min|hr|days|yr). If given, the stat will be assumed to be a gps time and the units will be plotted in " +
+            "Required. What variable to plot on the x-axis. Any column in the single table can be used. "
+            "Math operations are also supported, e.g. 'chisq/chisq_dof'."
+            "All functions in the python math module can be used. Syntax is standard python; e.g., log(snr, 10) "
+            "will return the log10 of the snr. To specify a label for the axis, type :label after the variable, e.g., "
+            "'chisq: $\chi^2$'. LaTeX is supported when placed between two $ signs (if using a bash terminal, "
+            "escape each dollar sign appropriately). "
+            "One special label is gps_(s|min|hr|days|yr). If given, the stat will be assumed to be a gps time and the units will be plotted in "
             "(s|min|hr|days|yr) since the earliest experiment start time in the databases. For example, if you type end_time:gps_days, "
             "and the earilest start time is 987654321, the x-axis will be 'End Time ($987654320 + days$)'. "
         )
     parser.add_option( "-y", "--y-var", action = "store", type = "string",
         metavar = "y_var[:label]",
         help = 
-            "Required. What variable to plot on the y-axis. Any column in the single table can be used. " +
+            "Required. What variable to plot on the y-axis. Any column in the single table can be used. "
             "Math operations are also supported. Syntax is the same as --x-var option."
         )
     parser.add_option( "", "--x-ifo", action = "store", type = "string",
@@ -103,42 +102,42 @@ def parse_command_line():
         )
     parser.add_option( "-r", "--ranking-stat", action = "store", default = "snr",
         help =
-            "Stat to rank found injections with. The stat must be a column in the recovery table; default is snr. " +
-            "This is needed to select the best match if multiple events are mapped to the same injection."   
+            "Stat to rank found injections with. The stat must be a column in the recovery table; default is snr. "
+            "This is needed to select the best match if multiple events are mapped to the same injection."
         )
     parser.add_option( "-b", "--rank-by", action = "store", default = "MAX",
         help =
-            "How to rank the injections. Options are 'MAX' or 'MIN', default is 'MIN'. If set to 'MIN', any trigger " +
-            "with a 0 ranking_stat value will be plotted with a star as opposed to a circle. If set to 'MAX', any " +
+            "How to rank the injections. Options are 'MAX' or 'MIN', default is 'MIN'. If set to 'MIN', any trigger "
+            "with a 0 ranking_stat value will be plotted with a star as opposed to a circle. If set to 'MAX', any "
             "trigger with an infinite value will be plotted with a star."
         )
     parser.add_option( "-p", "--param-name", metavar = "PARAMETER[:label]",
         action = "store", default = None,
         help =
-            "Specifying this and param-ranges will only select triggers that fall within the given range for each plot. " +
-            "Any column in the single table may be used. " +
-            "As with x-var, math operations are permitted between columns, e.g.," +
-            "mass1+mass2. Any function in the python math module may be used; syntax is python. The parameter name " +
-            "will be in the title of the plot; to give a label for the name, add a colon and the label. If no label is specified, the " +
-            "the parameter name as given will be used. "
+            "Specifying this and param-ranges will only select triggers that fall within the given range for each plot. "
+            "Any column in the single table may be used. "
+            "As with x-var, math operations are permitted between columns, e.g. "
+            "mass1+mass2. Any function in the python math module may be used; syntax is python. The parameter name "
+            "will be in the title of the plot; to give a label for the name, add a colon and the label. If no label is specified, "
+            "the parameter name as given will be used."
         )
     parser.add_option( "-q", "--param-ranges", action = "store", default = None,
         metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; !VAL3; etc.",
         help = 
-            "Requires --param-name. Specify the parameter ranges " +
-            "to select triggers in. A '(' or ')' implies an open " +
-            "boundary, a '[' or ']' a closed boundary. To specify " +
-            "multiple ranges, separate each range by a ';'. To " +
-            "specify a single value, just type that value with no " +
-            "parentheses or brackets. To specify not equal to a single " +
-            "value, put a '!' before the value. If " +
+            "Requires --param-name. Specify the parameter ranges "
+            "to select triggers in. A '(' or ')' implies an open "
+            "boundary, a '[' or ']' a closed boundary. To specify "
+            "multiple ranges, separate each range by a ';'. To "
+            "specify a single value, just type that value with no "
+            "parentheses or brackets. To specify not equal to a single "
+            "value, put a '!' before the value. If "
             "multiple ranges are specified, a separate plot for each range will be generated."
         )
     parser.add_option( "-s", "--sim-tag", action = "store", type = "string", default = 'ALLINJ',
         help =
-            "If plotting injections, " +
-            "specify the simulation type to plot, e.g., 'BNSLININJ'. To plot multiple injection types together " +
-            "separate tags by a '+', e.g., 'BNSLOGINJA+BNSLOGINJB'. " +
+            "If plotting injections, "
+            "specify the simulation type to plot, e.g., 'BNSLININJ'. To plot multiple injection types together "
+            "separate tags by a '+', e.g., 'BNSLOGINJA+BNSLOGINJB'. "
             "If not specified, will group all injections together (equivalent to specifying 'ALLINJ')."
         )
     parser.add_option('-X', '--logx', action = 'store_true', default = False,
@@ -167,37 +166,37 @@ def parse_command_line():
         )
     parser.add_option('-f', '--plot-x-function', action = 'append', default = [], metavar = 'f(x)[:label]',
         help =
-            "Plot the curve y=f(x) where f(x) is the given function of x. As with --x-var, any function in the python math module may " +
-            "be used; syntax is python. Functions should be in terms of 'x'. The domain is evenly " +
-            "spaced across the space spanned by the x-axis. Some examples: to plot the sine of pi times x, " +
-            "type 'sin(pi*x)'. To plot 'log10(x)' type 'log(x, 10)'. To plot y=x type 'x'. To plot a horizontal line " +
-            "at some value, say y=6, just type '6'. To plot multiple functions, give the argument multiple times. To put a label " +
-            "for the function on the plot(s), add a colon and the label. As with variables, LaTex is supported by enclosing in $ signs."
+            "Plot the curve y=f(x) where f(x) is the given function of x. As with --x-var, any function in the python math module may "
+            "be used; syntax is python; use the variable 'x'. The domain is evenly "
+            "spaced across the space spanned by the x-axis. Ex.: to plot the sine of pi times x, "
+            "type 'sin(pi*x)'. To plot 'log10(x)' type 'log(x, 10)'. To plot y=x type 'x'. To plot a horizontal line "
+            "at some value, say y=6, just type '6'. To plot multiple functions, give the argument multiple times. To put a label "
+            "for the function on the plot(s), add a colon and the label. As with variables, LaTeX is supported by enclosing in $ signs."
         )
     parser.add_option('-g', '--plot-y-function', action = 'append', default = [], metavar = 'g(y)[:label]',
         help =
-            "Plot the curve x=g(y) where g(y) is the given function of y. Syntax is the same as plot-x-function, " +
-            "except that functions should be in terms of 'y'. The domain is evenly spaced across the space spanned " +
-            "by the y-axis. For example, to plot a vertical line at some value, say x=6, just type '6'."
+            "Plot the curve x=g(y) where g(y) is the given function of y. Syntax as for plot-x-function; "
+            "use the variable 'y'. The domain is evenly spaced across the space spanned "
+            "by the y-axis. Ex.: to plot a vertical line at x=6, type '6'."
         )
     parser.add_option( "-S", "--single-table", action = "store", type = "string", default = None,
         help =
-            "Required. Table to look in for single parameters. " +
+            "Required. Table to look in for single parameters. "
             "Can be any lsctable with a event_id and ifo column."
         )
     parser.add_option( "", "--simulation-table", action = "store", type = "string", default = None,
         help =
-            "Required if plotting injections. Table to look in for injection parameters. " +
+            "Required if plotting injections. Table to look in for injection parameters. "
             "Can be any lsctable with a simulation_id."
         )
     parser.add_option( "-R", "--recovery-table", action = "store", type = "string",
         help =
-            "Table to look in for recovered injections. " +
+            "Table to look in for recovered injections. "
             "Can be any lsctable with a coinc_event_id."
         )
     parser.add_option( "-M", "--map-label", action = "store", type = "string", default = None,
         help =
-            "Required. Name of the type of mapping that was used for finding injections."
+            "Required if plotting injections. Name of the type of mapping that was used for finding injections."
         )
     parser.add_option( "", "--show-plot", action = "store_true", default = False,
         help = 
@@ -230,7 +229,7 @@ def parse_command_line():
         raise ValueError, "If --logy desired, y-limits must be > 0."
 
     return options, filenames, sys.argv[1:]
-            
+
 # =============================================================================
 #
 #                       Function Definitions
@@ -239,14 +238,14 @@ def parse_command_line():
 
 def get_row_stat(row, arg):
     """
-    Wrapper method to evaluate the desired operation on columns from a row in the SelectedFound table. 
+    Wrapper method to evaluate the desired operation on columns from a row in the SelectedFound table.
     The name space available to eval is limited to the columns in the row and functions in the math module.
     """
     row_dict = dict([ [name, getattr(row,name)] for name in dir(row) ])
     safe_dict = dict([ [name,val] for name,val in row_dict.items() + math.__dict__.items() if not name.startswith('__') ])
 
     return eval( arg, {"__builtins__":None}, safe_dict )
-        
+
 def select_best_inj_match(found_table, selection_stat, select_by, use_match_rank = True):
     """
     If an injection is mapped to multiple events, picks out the best match via
@@ -269,7 +268,7 @@ def select_best_inj_match(found_table, selection_stat, select_by, use_match_rank
     # get all events with multiple matches
     simid_index = dict([ [row.simulation_id, [all_rows for all_rows in found_table if all_rows.simulation_id == row.simulation_id]]
         for row in found_table ])
-    
+
     for sim_id, matchlist in simid_index.items():
         if len(matchlist) > 1:
             # apply selection criteria
@@ -335,8 +334,7 @@ sqlite3.enable_callback_tracebacks(True)
 #   Plotting Initialization
 #
 
-# Change to Agg back-end if show() will not be called 
-# thus avoiding display problem
+# Change to Agg back-end if show() will not be called to avoid display problem
 if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
@@ -352,7 +350,7 @@ experiments = {}
 if opts.verbose:
     print >> sys.stderr, "Opening database(s) and checking for instrument times..."
 for filename in filenames:
-    working_filename = dbtables.get_connection_filename( 
+    working_filename = dbtables.get_connection_filename(
         filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
     connection = sqlite3.connect( working_filename )
     if opts.tmp_space:
@@ -384,7 +382,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
 
     for filename in filenames:
         if len(filenames) > 1:
-            working_filename = dbtables.get_connection_filename( 
+            working_filename = dbtables.get_connection_filename(
                 filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
             connection = sqlite3.connect( working_filename )
             if opts.tmp_space:
@@ -431,8 +429,8 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                     # get found table
                     if opts.verbose:
                         print >> sys.stderr, "\tgetting 'found' triggers from %s..." % filename
-                        
-                    found_table = [ row for row in 
+
+                    found_table = [ row for row in
                         printutils.printsims(connection, opts.simulation_table, opts.recovery_table, opts.map_label,
                         opts.ranking_stat, opts.rank_by,
                         "slide", param_name = None, param_ranges = None,
@@ -443,7 +441,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                     select_best_inj_match(found_table, opts.ranking_stat, rank_by, use_match_rank = True)
 
                     found_table = printutils.get_sngl_info(connection, found_table, sngl_table, verbose = opts.verbose)
-                   
+
                     # the single-table columns will have 'sngl_' appended to them; we need to remove this for get_row_stat to work
                     for thisrow in found_table:
                         cprow = Storage()
@@ -601,7 +599,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                         else:
                             xtext = max(x_vals)-.1*(xmax-xmin)
                         pylab.annotate( '$x=$'+glabel, xy=(x,y), xytext = (xtext,ytext), arrowprops=dict(arrowstyle='->'))
- 
+
             #
             # Set plot parameters
             #
@@ -615,12 +613,12 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
             if is_time_x is not None:
                 lbl = '%s ($%i + %s$)' % (xval.replace('_', ' ').title(), gps_start_time-1, is_time_x.group(1))
             else:
-                lbl = xlabel 
+                lbl = xlabel
             pylab.xlabel(lbl)
 
             if opts.logx and not no_data and not x_is_string:
                 pylab.gca().semilogx()
-                
+
             # set y-axis parameters
             if is_time_y is not None:
                 lbl = '%s ($%i + %s$)' % (yval.replace('_', ' ').title(), gps_start_time-1, is_time_y.group(1))
@@ -665,16 +663,16 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                     size = 'xx-small')
 
             pylab.grid()
-                
+
             if opts.enable_output:
-                param_tag = param_name is not None and param_label or ''
+                param_tag = (param_name is not None) and param_label or ''
                 if param_name is not None:
-                    param_tag = '_'.join([ re.sub( r'\W', '', param_tag),
-                        `int(param_parser.param_ranges[n][0][1])`,
-                        `int(param_parser.param_ranges[n][1][1])`, '' ])
+                    param_tag = '_'.join([ re.sub(r'\W', '', param_tag),
+                        str(param_parser.param_ranges[param_group][0][1]),
+                        str(param_parser.param_ranges[param_group][1][1]), '' ])
                 plot_description = '%sF%i' % ( param_tag, fig_num )
                 #plot_description = '_'.join([ param_tag, re.sub( r'\W', '', ystat ), 'v', re.sub( r'\W', '', xstat ) ])
-                name = InspiralUtils.set_figure_tag( plot_description, 
+                name = InspiralUtils.set_figure_tag( plot_description,
                     datatype_plotted = opts.sim_tag, open_box = False)
                 fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
                 fname_thumb = InspiralUtils.savefig_pylal( filename=fname, dpi=opts.dpi )
@@ -684,7 +682,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
     #
     #   Create the html page for this instrument time
     #
-    
+
     if opts.enable_output:
         if opts.verbose:
             print >> sys.stdout, "\twriting html file and cache."
