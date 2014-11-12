@@ -26,10 +26,10 @@ from pylal import ligolw_sqlutils as sqlutils
 from pylal import printutils
 
 __author__ = "Sarah Caudill <sarah.caudill@ligo.org>"
-__prog__ = "ligolw_cbc_plotsngls"
+__prog__ = "ligolw_cbc_plotsngl"
 
 description = \
-"Creates found/missed plots."
+"Plots single-ifo triggers from a search results database"
 
 # ============================================================================
 #
@@ -71,7 +71,7 @@ def parse_command_line():
     parser.add_option( "-d", "--datatypes", action = "store", type = "string",
         help =
             "Required. What datatype to plot. Can be either 'injection', 'slide', 'all_data', 'playground', " +
-            "or 'exclude_play'. If 'injection', --injection-table must be specified. In this case, found injections" +
+            "or 'exclude_play'. If 'injection', --simulation-table must be specified. In this case, found injections" +
             "will be plotted. To specify multiple datatypes, comma separate the types."
         )
     parser.add_option( "-x", "--x-var", action = "store", type = "string",
