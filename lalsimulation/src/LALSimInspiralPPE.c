@@ -205,7 +205,7 @@ int XLALSimInspiralPPE(
         case LAL_SIM_INSPIRAL_SPIN_ORDER_0PN:
             break;
         default:
-            XLALPrintError("XLAL Error - %s: Invalid spin PN order %s\n",
+            XLALPrintError("XLAL Error - %s: Invalid spin PN order %d\n",
                     __func__, spinO );
             XLAL_ERROR(XLAL_EINVAL);
             break;
@@ -228,7 +228,7 @@ int XLALSimInspiralPPE(
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
             break;
         default:
-            XLALPrintError("XLAL Error - %s: Invalid tidal PN order %s\n",
+            XLALPrintError("XLAL Error - %s: Invalid tidal PN order %d\n",
                     __func__, tideO );
             XLAL_ERROR(XLAL_EINVAL);
             break;
@@ -369,7 +369,7 @@ int XLALSimInspiralPPE(
             case LAL_SIM_INSPIRAL_SPIN_ORDER_0PN:
                 break;
             default:
-                XLALPrintError("XLAL Error - %s: Invalid spin PN order %s\n",
+                XLALPrintError("XLAL Error - %s: Invalid spin PN order %d\n",
                         __func__, spinO );
                 XLAL_ERROR(XLAL_EINVAL);
                 break;
@@ -385,7 +385,7 @@ int XLALSimInspiralPPE(
             case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
                 break;
             default:
-                XLALPrintError("XLAL Error - %s: Invalid tidal PN order %s\n",
+                XLALPrintError("XLAL Error - %s: Invalid tidal PN order %d\n",
                         __func__, tideO );
                 XLAL_ERROR(XLAL_EINVAL);
                 break;
