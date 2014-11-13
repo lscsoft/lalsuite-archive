@@ -998,7 +998,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   }
   
   //loglikelihood = -1.0 * chisquared; // note (again): the log-likelihood is unnormalised!
-  printf("%10.10e\n",loglikelihood);
   return(loglikelihood);
 }
 
