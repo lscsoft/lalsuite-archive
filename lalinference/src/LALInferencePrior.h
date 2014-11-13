@@ -49,6 +49,11 @@ SWIGLAL(INPUT_SCALARS(REAL8*, min, max));
 #endif
 
 /**
+ * Return the log Prior for the glitch amplitude
+*/
+REAL8 logGlitchAmplitudeDensity(REAL8 A, REAL8 Q, REAL8 f);
+
+/**
  * Return the logarithmic prior density of the variables specified, for the non-spinning/spinning inspiral signal case.
  */
 REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVariables *params, LALInferenceModel *model);
@@ -101,20 +106,6 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
  * for the non-spinning/spinning inspiral signal case.
  */
 UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, LALInferenceModel *model, double *Cube, void *context);
-
-/**
- * Return the logarithmic prior density of the variables specified,
- * for the non-spinning/spinning inspiral signal case.
- */
-REAL8 LALInferenceInspiralPriorNormalised(LALInferenceRunState *runState, LALInferenceVariables *params, LALInferenceModel *model);
-
-/**
- * Convert the hypercube parameter to physical parameters, for the prior density of the variables as
- * specified for the S6 parameter estimation paper
- * (see: https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/BayesS6PEpaper#Priors ),
- * for the non-spinning/spinning inspiral signal case.
- */
-UINT4 LALInferenceInspiralPriorNormalisedCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, LALInferenceModel *model, double *Cube, void *context);
 
 /**
  * Function to add the minimum and maximum values for the uniform prior onto the \c priorArgs.

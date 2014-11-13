@@ -1082,12 +1082,50 @@ def get_process_info(connection, verbose=False, debug=False):
                 process.node, process.version) AS process_info
         FROM
             process
-            JOIN process_params AS pp_table ON (
+            LEFT JOIN process_params AS pp_table ON (
                 pp_table.process_id == process.process_id)
         GROUP BY proc_id;
 
+    UPDATE
+        proc_params
+    SET
+        value = 'NULL'
+        WHERE
+            value is null OR value = '';
+
+    UPDATE
+        proc_params
+    SET
+        params = 'NULL'
+        WHERE
+            params is null OR params = '';
+    UPDATE
+        proc_params
+    SET
+        process_info = 'NULL'
+        WHERE
+            process_info is null OR process_info = '';
+    UPDATE
+        proc_params
+    SET
+        program = 'NULL'
+        WHERE
+            program is null OR program = '';
+
+    CREATE TEMP TABLE proc_params_map AS
+        SELECT
+            MIN(proc_id) AS proc_id,
+            program,
+            value,
+            params,
+            process_info
+        FROM
+            proc_params
+        GROUP BY program, value, params, process_info;
+
     DROP INDEX pp_pivp_idx;
     CREATE INDEX proc_params_idx ON proc_params (program, value, params, process_info);
+    CREATE INDEX proc_params_map_idx ON proc_params_map (program, value, params, process_info);
  
     CREATE TEMP TABLE _pidmap_ AS
         SELECT
@@ -1096,7 +1134,7 @@ def get_process_info(connection, verbose=False, debug=False):
             old_pp_table.program AS program
         FROM
             proc_params AS old_pp_table
-            JOIN proc_params AS new_pp_table ON (
+            JOIN proc_params_map AS new_pp_table ON (
                 old_pp_table.value == new_pp_table.value
                 AND old_pp_table.process_info == new_pp_table.process_info
                 AND old_pp_table.params == new_pp_table.params
@@ -1106,7 +1144,10 @@ def get_process_info(connection, verbose=False, debug=False):
     CREATE INDEX _pidmap_idx ON _pidmap_ (old_pid);
 
     DROP INDEX proc_params_idx;
-    DROP TABLE proc_params; """
+    DROP INDEX proc_params_map_idx;
+    DROP TABLE proc_params;
+    DROP TABLE proc_params_map;
+    """
     if debug:
         print >> sys.stderr, sqlscript
         print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])

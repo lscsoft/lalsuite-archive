@@ -186,8 +186,6 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		# - false-alarm rates are blank
 		#
 
-		events = sorted(events, lambda a, b: cmp(a.ifo, b.ifo))
-
 		coinc_inspiral = self.coinc_inspiral_table.RowType()
 		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
 		coinc_inspiral.mass = sum(event.mass1 + event.mass2 for event in events) / len(events)
@@ -248,8 +246,8 @@ def coinc_inspiral_end_time(events, offset_vector):
 	@offset_vector: a dictionary of offsets to apply to different
 	detectors keyed by detector name
 	"""
-	events = sorted(events, lambda a, b: cmp(a.ifo, b.ifo))
-	return events[0].get_end() + offset_vector[events[0].ifo]
+	event = min(events, key = lambda event: event.ifo)
+	return event.get_end() + offset_vector[event.ifo]
 
 
 #

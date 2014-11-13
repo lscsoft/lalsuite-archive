@@ -12,7 +12,7 @@ Source: %{name}-%{version}.tar.gz
 URL: https://www.lsc-group.phys.uwm.edu/daswg/projects/lalsuite.html
 Packager: Adam Mercer <adam.mercer@ligo.org>
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
-BuildRequires: swig python-devel octave-devel
+BuildRequires: python-devel octave-devel
 Requires: libmetaio lal
 Prefix: %{_prefix}
 
@@ -87,10 +87,8 @@ rm -Rf ${RPM_BUILD_DIR}/%{name}-%{version}
 %{_libdir}/python*/site-packages/lalmetaio/*.pyc
 %{_libdir}/python*/site-packages/lalmetaio/_lalmetaio.so*
 %exclude %{_libdir}/python*/site-packages/lalmetaio/*.pyo
-%exclude %{_libdir}/python*/site-packages/lalmetaio/*.la
 
 %files octave
 %defattr(-,root,root)
 %{_libexecdir}/octave/*/site/oct/*/lalmetaio.oct*
-%exclude %{_libexecdir}/octave/*/site/oct/*/lalmetaio.la
 

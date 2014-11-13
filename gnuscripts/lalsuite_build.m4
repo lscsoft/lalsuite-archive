@@ -1,7 +1,7 @@
 # -*- mode: autoconf; -*-
 # lalsuite_build.m4 - top level build macros
 #
-# serial 95
+# serial 97
 
 # not present in older versions of pkg.m4
 m4_pattern_allow([^PKG_CONFIG(_(PATH|LIBDIR|SYSROOT_DIR|ALLOW_SYSTEM_(CFLAGS|LIBS)))?$])
@@ -666,13 +666,13 @@ AC_DEFUN([LALSUITE_ENABLE_LALXML],
 [AC_REQUIRE([LALSUITE_ENABLE_ALL_LAL])
 AC_ARG_ENABLE(
   [lalxml],
-  AC_HELP_STRING([--enable-lalxml],[compile code that requires lalxml library [default=no]]),
+  AC_HELP_STRING([--enable-lalxml],[compile code that requires lalxml library [default=yes]]),
   [ case "${enableval}" in
       yes) lalxml=true;;
       no) lalxml=false;;
       *) AC_MSG_ERROR(bad value ${enableval} for --enable-lalxml) ;;
     esac
-  ], [ lalxml=${all_lal:-false} ] )
+  ], [ lalxml=${all_lal:-true} ] )
 ])
 
 AC_DEFUN([LALSUITE_ENABLE_LALSIMULATION],
@@ -711,7 +711,7 @@ AC_DEFUN([LALSUITE_ENABLE_LALDETCHAR],
 [AC_REQUIRE([LALSUITE_ENABLE_ALL_LAL])
 AC_ARG_ENABLE(
   [laldetchar],
-  AC_HELP_STRING([--enable-laldetchar],[compile code that requires laldetchar library [default=no]]),
+  AC_HELP_STRING([--enable-laldetchar],[compile code that requires laldetchar library [default=yes]]),
   [ case "${enableval}" in
       yes) laldetchar=true;;
       no) laldetchar=false;;

@@ -37,6 +37,7 @@
 #include <lal/LALInferenceTemplate.h>
 #include <lal/LALInferenceProposal.h>
 #include <lal/LALInferenceInit.h>
+#include <lal/LALInferenceCalibrationErrors.h>
 
 #ifdef PARALLEL
 #include <mpi.h>
@@ -374,6 +375,8 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
     if (netfilestr!=NULL)
         strcpy(networkinputs,netfilestr);
     int rseed = -1;
+    ppt=LALInferenceGetProcParamVal(runState->commandLine,"--randomseed");
+    if(ppt) rseed = atoi(ppt->value) % 30000;
     int fb = verbose;
     int bresume = resval;
     int outfile = 1;
@@ -438,7 +441,8 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
     BAMBIRun(mmodal, ceff, nlive, mntol, efr, ndims, nPar, nClsPar, maxModes, updInt, Ztol, root, rseed, pWrap, fb,
     bresume, outfile, initMPI, logZero, maxiter, LogLike, dumper, bambi, context);
 
-    free(info[1]);free(info[0]);free(info);free(root);free(networkinputs);
+    free(info[2]);free(info[1]);free(info[0]);free(info);
+    free(root);free(networkinputs);
 }
 
 
@@ -518,6 +522,8 @@ Initialisation arguments:\n\
 
         irs->currentLikelihood=LALInferenceNullLogLikelihood(irs->data);
         printf("Null Log Likelihood: %g\n", irs->currentLikelihood);
+        /* Apply calibration errors if desired*/
+        LALInferenceApplyCalibrationErrors(irs,commandLine);
     }
     else
     {
@@ -653,9 +659,6 @@ void initializeMN(LALInferenceRunState *runState)
     if(LALInferenceGetProcParamVal(commandLine,"--skyLocPrior")){
         runState->prior=&LALInferenceInspiralSkyLocPrior;
         runState->CubeToPrior = &LALInferenceInspiralSkyLocCubeToPrior;
-    } else if (LALInferenceGetProcParamVal(commandLine, "--S6Prior")) {
-        runState->prior=&LALInferenceInspiralPriorNormalised;
-        runState->CubeToPrior = &LALInferenceInspiralPriorNormalisedCubeToPrior;
     } else if (LALInferenceGetProcParamVal(commandLine, "--AnalyticPrior")) {
         runState->prior = &LALInferenceAnalyticNullPrior;
         runState->CubeToPrior = &LALInferenceAnalyticCubeToPrior;
@@ -664,8 +667,8 @@ void initializeMN(LALInferenceRunState *runState)
         runState->CubeToPrior = &LALInferenceInspiralCubeToPrior;
         initializeMalmquistPrior(runState);
     } else {
-        runState->prior = &LALInferenceInspiralPriorNormalised;
-        runState->CubeToPrior = &LALInferenceInspiralPriorNormalisedCubeToPrior;
+        runState->prior = &LALInferenceInspiralPrior;
+        runState->CubeToPrior = &LALInferenceInspiralCubeToPrior;
     }
 
     if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood") ||

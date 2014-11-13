@@ -78,7 +78,8 @@ def assign_likelihood_ratios(connection, coinc_def_id, offset_vectors, vetosegli
 
 	def ln_likelihood_ratio(coinc_event_id, time_slide_id):
 		try:
-			return ln_likelihood_ratio_func(likelihood_params_func([event for event in events_func(cursor, coinc_event_id) if veto_func(event, vetoseglists)], offset_vectors[time_slide_id], *params_func_extra_args))
+			params = likelihood_params_func([event for event in events_func(cursor, coinc_event_id) if veto_func(event, vetoseglists)], offset_vectors[time_slide_id], *params_func_extra_args)
+			return ln_likelihood_ratio_func(params) if params is not None else None
 		except:
 			traceback.print_exc()
 			raise
@@ -129,7 +130,8 @@ def assign_likelihood_ratios_xml(xmldoc, coinc_def_id, offset_vectors, vetosegli
 			progressbar.increment()
 		if coinc_event.coinc_def_id != coinc_def_id:
 			continue
-		coinc_event.likelihood = ln_likelihood_ratio_func(likelihood_params_func([event for event in events_func(None, coinc_event.coinc_event_id) if veto_func(event, vetoseglists)], offset_vectors[coinc_event.time_slide_id], *params_func_extra_args))
+		params = likelihood_params_func([event for event in events_func(None, coinc_event.coinc_event_id) if veto_func(event, vetoseglists)], offset_vectors[coinc_event.time_slide_id], *params_func_extra_args)
+		coinc_event.likelihood = ln_likelihood_ratio_func(params) if params is not None else None
 
 	del progressbar
 

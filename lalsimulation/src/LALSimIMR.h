@@ -201,10 +201,9 @@ int XLALSimIMRPhenomP(
   const REAL8 chip,                     /**< Effective spin in the orbital plane */
   const REAL8 eta,                      /**< Symmetric mass-ratio */
   const REAL8 thetaJ,                   /**< Angle between J0 and line of sight (z-direction) */
-  const REAL8 phiJ,                     /**< Angle of J0 in the plane of the sky */
   const REAL8 Mtot_SI,                  /**< Total mass of binary (kg) */
   const REAL8 distance,                 /**< Distance of source (m) */
-  const REAL8 alpha0,                   /**< Initial value of alpha angle */
+  const REAL8 alpha0,                   /**< Initial value of alpha angle (azimuthal precession angle) */
   const REAL8 phic,                     /**< Orbital phase at the peak of the underlying non precessing model (rad) */
   const REAL8 deltaF,                   /**< Sampling frequency (Hz) */
   const REAL8 f_min,                    /**< Starting GW frequency (Hz) */
@@ -224,8 +223,7 @@ int XLALSimIMRPhenomPCalculateModelParameters(
     REAL8 *chip,                    /**< Output: Effective spin in the orbital plane */
     REAL8 *eta,                     /**< Output: Symmetric mass-ratio */
     REAL8 *thetaJ,                  /**< Output: Angle between J0 and line of sight (z-direction) */
-    REAL8 *phiJ,                    /**< Output: Angle of J0 in the plane of the sky */
-    REAL8 *alpha0,                  /**< Output: Initial value of alpha angle */
+    REAL8 *alpha0,                  /**< Output: Initial value of alpha angle (azimuthal precession angle) */
     const REAL8 m1_SI,              /**< Mass of companion 1 (kg) */
     const REAL8 m2_SI,              /**< Mass of companion 2 (kg) */
     const REAL8 f_ref,              /**< Reference GW frequency (Hz) */
@@ -328,6 +326,24 @@ int XLALSimIMRSpinAlignedEOBWaveform(
         const REAL8     spin1z,
         const REAL8     spin2z,
         UINT4           SpinAlignedEOBversion
+     );
+
+int XLALSimIMRSpinEOBWaveform(
+        REAL8TimeSeries **hplus,
+        REAL8TimeSeries **hcross,
+        //LIGOTimeGPS     *tc,
+        const REAL8     phiC,
+        const REAL8     deltaT,
+        const REAL8     m1SI,
+        const REAL8     m2SI,
+        const REAL8     fMin,
+        const REAL8     r,
+        const REAL8     inc,
+        //const REAL8     spin1z,
+        //const REAL8     spin2z,
+        //UINT4           SpinAlignedEOBversion
+        const REAL8     spin1[],
+        const REAL8     spin2[]
      );
 
 /**

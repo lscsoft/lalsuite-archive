@@ -24,6 +24,7 @@
 #define LALInferenceProposal_h
 
 #include <lal/LALInference.h>
+#include <lal/LALInferenceClusteredKDE.h>
 
 #ifdef SWIG // SWIG interface directives
 SWIGLAL(
@@ -103,6 +104,7 @@ extern const char *const cycleArrayCounterName;
 
 
 /* Proposal Names */
+extern const char *const nullProposalName;
 extern const char *const singleAdaptProposalName;
 extern const char *const singleProposalName;
 extern const char *const orbitalPhaseJumpName;
@@ -118,7 +120,6 @@ extern const char *const drawApproxPriorName;
 extern const char *const skyReflectDetPlaneName;
 extern const char *const skyRingProposalName;
 extern const char *const PSDFitJumpName;
-extern const char *const rotateSpinsName;
 extern const char *const polarizationPhaseJumpName;
 extern const char *const polarizationCorrPhaseJumpName;
 extern const char *const extrinsicParamProposalName;
@@ -129,6 +130,7 @@ extern const char *const GlitchMorletReverseJumpName;
 extern const char *const ensembleWalkFullName;
 extern const char *const ensembleWalkIntrinsicName;
 extern const char *const ensembleWalkExtrinsicName;
+extern const char *const clusteredKDEProposalName;
 
 /**
  * The name of the variable that will store the name of the current
@@ -249,10 +251,6 @@ REAL8 NSWrapMCMCLALProposal(LALInferenceRunState *runState, LALInferenceVariable
 REAL8 LALInferenceGlitchMorletProposal(LALInferenceRunState *runState, LALInferenceVariables *currentParams, LALInferenceVariables *proposedParams);
 REAL8 LALInferenceGlitchMorletReverseJump(LALInferenceRunState *runState, LALInferenceVariables *currentParams, LALInferenceVariables *proposedParams);
 REAL8 LALInferencePSDFitJump(LALInferenceRunState *runState, LALInferenceVariables *currentParams, LALInferenceVariables *proposedParams);
-
-/** Rotate each spin by random angles about L. */
-REAL8 LALInferenceRotateSpins(LALInferenceRunState *runState, LALInferenceVariables *currentParams, LALInferenceVariables *proposedParams);
-
 /**
  * Uses a kD tree containing the previously-output points to propose
  * the next sample.  The proposal chooses a stored point at random,
@@ -285,6 +283,59 @@ void LALInferenceTrackProposalAcceptance(LALInferenceRunState *runState, INT4 ac
 
 /** Helper function to update the adaptive steps after each jump. Set accepted=1 if accepted, 0 otherwise */
 void LALInferenceUpdateAdaptiveJumps(LALInferenceRunState *runState, INT4 accepted, REAL8 targetAcceptance);
+
+/** Struct to hold clustered-KDE estimates */
+typedef struct
+tagLALInferenceClusteredKDEProposal
+{
+    char name[VARNAME_MAX];
+    LALInferenceKmeans *kmeans;
+    REAL8 weight;
+    INT4 dimension;
+    LALInferenceVariables *params;
+    struct tagLALInferenceClusteredKDEProposal *next;
+} LALInferenceClusteredKDE;
+
+/* Setup all clustered-KDE proposals with samples read from file. */
+void LALInferenceSetupClusteredKDEProposalsFromFile(LALInferenceRunState *runState);
+
+/* Add a KDE proposal to the KDE proposal set. */
+void LALInferenceAddClusteredKDEProposalToSet(LALInferenceRunState *runState, LALInferenceClusteredKDE *kde);
+
+/* Destroy an existing clustered-KDE proposal. */
+void LALInferenceDestroyClusteredKDEProposal(LALInferenceClusteredKDE *proposal);
+
+/* Setup a clustered-KDE proposal from the differential evolution buffer. */
+void LALInferenceSetupClusteredKDEProposalFromDEBuffer(LALInferenceRunState *runState);
+
+/* Setup a clustered-KDE proposal from the parameters in a run. */
+void LALInferenceSetupClusteredKDEProposalFromRun(LALInferenceRunState *runState, REAL8 *samples, INT4 size, INT4 cyclic_reflective, INT4 ntrials);
+
+/* A proposal based on the clustered kernal density estimate of a set of samples. */
+REAL8 LALInferenceClusteredKDEProposal(LALInferenceRunState *runState, LALInferenceVariables *currentParams, LALInferenceVariables *proposedParams);
+REAL8 LALInferenceStoredClusteredKDEProposal(LALInferenceRunState *runState, LALInferenceVariables *currentParams, LALInferenceVariables *proposedParams, REAL8 *propDensity);
+
+/* Initialize a clustered-KDE proposal. */
+void LALInferenceInitClusteredKDEProposal(LALInferenceRunState *runState, LALInferenceClusteredKDE *kde, REAL8 *array, INT4 nSamps, LALInferenceVariables *params, const char *name, REAL8 weight, LALInferenceKmeans* (*cluster_method)(gsl_matrix*, INT4, gsl_rng*), INT4 cyclic_reflective, INT4 ntrials);
+
+/* Dump clustered KDE information to file. */
+void LALInferenceDumpClusteredKDE(LALInferenceClusteredKDE *kde, char *outp_name, REAL8 *array);
+
+/* Dump draws from a KDE to file. */
+void LALInferenceDumpClusteredKDEDraws(LALInferenceClusteredKDE *kde, char *outp_name, INT4 nSamps);
+
+/* Compute the maximum ACL from the differential evolution buffer. */
+void LALInferenceComputeMaxAutoCorrLenFromDE(LALInferenceRunState *runState, INT4* maxACL);
+
+/* Compute the maximum single-parameter autocorrelation length. */
+REAL8 LALInferenceComputeMaxAutoCorrLen(REAL8 *array, INT4 nPoints, INT4 nPar);
+
+/* Update the estimatate of the autocorrelation length. */
+void LALInferenceUpdateMaxAutoCorrLen(LALInferenceRunState *runState);
+
+/* Determine the effective sample size based on the DE buffer. */
+INT4 LALInferenceComputeEffectiveSampleSize(LALInferenceRunState *runState);
+
 /** Helper function to setup the adaptive step proposals before the run */
 void LALInferenceSetupAdaptiveProposals(LALInferenceRunState *state);
 
@@ -307,6 +358,9 @@ REAL8 LALInferenceEnsembleWalkFull(LALInferenceRunState *runState, LALInferenceV
 REAL8 LALInferenceEnsembleWalkIntrinsic(LALInferenceRunState *runState, LALInferenceVariables *cp, LALInferenceVariables *pp);
 REAL8 LALInferenceEnsembleWalkExtrinsic(LALInferenceRunState *runState, LALInferenceVariables *cp, LALInferenceVariables *pp);
 REAL8 LALInferenceEnsembleWalkNames(LALInferenceRunState *runState, LALInferenceVariables *cpi, LALInferenceVariables *ppi, const char **names);
+
+/** Proposes jumps in the spline calibration parameters, if present. */
+REAL8 LALInferenceSplineCalibrationProposal(LALInferenceRunState *runState, LALInferenceVariables *cp, LALInferenceVariables *pp);
 /*@}*/
 
 #endif

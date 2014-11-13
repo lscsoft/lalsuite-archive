@@ -99,54 +99,6 @@ REAL8 LALInferenceROQLogLikelihood(LALInferenceVariables *currentParams, LALInfe
  */
 REAL8 LALInferenceZeroLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData *data, LALInferenceModel *model);
 
-/***********************************************************//**
- * (log-) likelihood function.                                 
- * Returns the non-normalised logarithmic likelihood.          
- * Slightly slower but cleaner than							   
- * UndecomposedFreqDomainLogLikelihood().          `		   
- *
- * Required (`currentParams') parameters are:                  
- *   - "rightascension"  (REAL8, radian, 0 <= RA <= 2pi)       
- *   - "declination"     (REAL8, radian, -pi/2 <= dec <=pi/2)  
- *   - "polarisation"    (REAL8, radian, 0 <= psi <= ?)        
- *   - "distance"        (REAL8, Mpc, >0)                      
- *   - "time"            (REAL8, GPS sec.)                     
- ***************************************************************/
-REAL8 LALInferenceFreqDomainLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData *data, LALInferenceModel *model);
-
-/***********************************************************//**
- * Chi-Square function.                                        
- * Returns the chi square of a template:                       
- * chisq= p * sum_i (dx_i)^2, with dx_i  =  <s,h>_i  - <s,h>/p
- * 
- * Required (`currentParams') parameters are:                  
- *   - "rightascension"  (REAL8, radian, 0 <= RA <= 2pi)       
- *   - "declination"     (REAL8, radian, -pi/2 <= dec <=pi/2)  
- *   - "polarisation"    (REAL8, radian, 0 <= psi <= ?)        
- *   - "distance"        (REAL8, Mpc, >0)                      
- *   - "time"            (REAL8, GPS sec.)                     
- ***************************************************************/
-REAL8 LALInferenceChiSquareTest(LALInferenceVariables *currentParams, LALInferenceIFOData *data, LALInferenceModel *model);
-
-/***********************************************************//**
- * Frequency-domain single-IFO response computation.           
- * Computes response for a given template.                    
- * Will re-compute template only if necessary                  
- * (i.e., if previous, as stored in data->freqModelhCross,     
- * was based on different parameters or template function).    
- * Carries out timeshifting for a given detector               
- * and projection onto this detector.                          
- * Result stored in freqResponse, assumed to be correctly      
- * initialized												   
- *
- * Required (`currentParams') parameters are:                  
- *   - "rightascension"  (REAL8, radian, 0 <= RA <= 2pi)       
- *   - "declination"     (REAL8, radian, -pi/2 <= dec <=pi/2)  
- *   - "polarisation"    (REAL8, radian, 0 <= psi <= ?)        
- *   - "distance"        (REAL8, Mpc, >0)                      
- *   - "time"            (REAL8, GPS sec.)                     
- ***************************************************************/				
-void LALInferenceComputeFreqDomainResponse(LALInferenceVariables *currentParams, LALInferenceIFOData *dataPtr, LALInferenceModel *model, COMPLEX16Vector *freqWaveform);
 
 /**
  * Computes the <x|y> overlap in the Fourrier domain.
@@ -212,6 +164,9 @@ REAL8 LALInferenceRosenbrockLogLikelihood(LALInferenceVariables *currentParams, 
 
 REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData *data, LALInferenceModel *model);
 
+REAL8 LALInferenceMarginalisedTimePhaseLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData *data, LALInferenceModel *model);
+
+
 /**
  * Returns the log-likelihood marginalised over the time dimension
  * from the prior min to the prior max.  See
@@ -229,8 +184,6 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState);
 /** Get the intrinsic parameters from currentParams */
 LALInferenceVariables LALInferenceGetInstrinsicParams(LALInferenceVariables *currentParams);
 
-/** Switch for controlling the removal of lines */
-INT4 LALInferenceLineSwitch(INT4 lineFlag, INT4 Nlines, INT4 *lines_array, INT4 *widths_array, INT4 i);
 
 /** Calculate the SNR across the network */
 void LALInferenceNetworkSNR(LALInferenceVariables *currentParams, LALInferenceIFOData *data, LALInferenceModel *model);

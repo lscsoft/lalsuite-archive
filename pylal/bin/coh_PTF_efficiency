@@ -40,7 +40,7 @@ import pylab
 from pylal import SimInspiralUtils,MultiInspiralUtils,plotutils,git_version
 from glue import segments,markup
 from pylal.dq import dqSegmentUtils,dqHTMLUtils,dqPlotUtils
-from glue.ligolw import table,lsctables,utils
+from glue.ligolw import table,lsctables,utils,ligolw
 from pylal.coh_PTF_pyutils import *
 import scipy
 from scipy import stats
@@ -273,7 +273,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   #
 
   # FIXME: This is nasty, we actually read the file twice, can we fix this?
-  xmldoc = utils.load_filename(trigFile,gz=trigFile.endswith("gz"))
+  xmldoc = utils.load_filename(trigFile,gz=trigFile.endswith("gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
   searchSumm = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
   ifos = sorted(map(str,searchSumm[0].get_ifos()))
   ifoAtt = {'G1':'g', 'H1':'h1', 'H2':'h2', 'L1':'l', 'V1':'v', 'T1':'t'}
@@ -1514,7 +1514,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     ax.set_xlabel("Mchirp")
     ax.set_ylabel("Inverse sum of effective distances")
     ax.set_title("Injections found louder than loudest background event")
-    ax.set_ylim([ 0.5, 1000 ])
+    #ax.set_ylim([ 0.5, 1000 ])
     fig.savefig('%s/found_missed_injections_effdist.png' % outdir)
   
     fig = pylab.figure()
@@ -1540,7 +1540,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     ax.set_ylabel("Inverse sum of effective distances")
     ax.set_title("Injections found louder than loudest background event")
     ax.set_xlim([ start, end ])
-    ax.set_ylim([ 0.5, 1000 ])
+    #ax.set_ylim([ 0.5, 1000 ])
     fig.savefig("%s/found_missed_injections_effdist_time.png" % outdir)
   
     sitename = { 'G':'GEO', 'H':'Hanford', 'L':'Livingston', 'V':'Virgo',\
@@ -1570,7 +1570,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
       ax.set_xlabel("Mchirp")
       ax.set_ylabel("%s effective distance" % sitename[site])
       ax.set_title("Injections found louder than loudest background event")
-      ax.set_ylim([ 0.5, 1000 ])
+      #ax.set_ylim([ 0.5, 1000 ])
       fig.savefig("%s/found_missed_injections_effdist_%s.png"\
                    % (outdir, site.lower()))
   
@@ -1598,7 +1598,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
       ax.set_ylabel("%s effective distance" % sitename[site])
       ax.set_title("Injections found louder than loudest background event")
       ax.set_xlim([ start, end ])
-      ax.set_ylim([ 0.5, 1000 ])
+      #ax.set_ylim([ 0.5, 1000 ])
       fig.savefig("%s/found_missed_injections_effdist_time_%s.png"\
                    % (outdir, site.lower()))
   
@@ -1623,7 +1623,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     ax.set_xlabel("Mchirp")
     ax.set_ylabel("Distance (Mpc)")
     ax.set_title("Injections found louder than loudest background event")
-    ax.set_ylim([ 0.5, 100 ])
+    #ax.set_ylim([ 0.5, 100 ])
     fig.savefig("%s/found_missed_injections_dist.png" % outdir)
   
     fig = pylab.figure()
@@ -1648,7 +1648,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     ax.set_ylabel("Distance (Mpc)")
     ax.set_title("Injections found louder than loudest background event")
     ax.set_xlim([ start, end ])
-    ax.set_ylim([ 0.5, 100 ])
+    #ax.set_ylim([ 0.5, 100 ])
     fig.savefig("%s/found_missed_injections_dist_time.png" % outdir)
 
     # plot sky recovery

@@ -1026,7 +1026,7 @@ int XLALSimInspiralPNPolarizationWaveforms(
                 break;
             /*case LAL_PNORDER_NEWTONIAN:*/
             default:
-                XLALPrintError("XLAL Error - %s: Invalid amp. PN order %s\n",
+                XLALPrintError("XLAL Error - %s: Invalid amp. PN order %d\n",
                         __func__, ampO );
                 XLAL_ERROR(XLAL_EINVAL);
                 break;
@@ -1303,7 +1303,7 @@ int XLALSimInspiralPrecessingPolarizationWaveforms(
                 hcross0 = 2*lx*ly - 2*nx*ny;
                 break;
             default:
-                XLALPrintError("XLAL Error - %s: Invalid amp. PN order %s\n",
+                XLALPrintError("XLAL Error - %s: Invalid amp. PN order %d\n",
                         __func__, ampO );
                 XLAL_ERROR(XLAL_EINVAL);
                 break;
@@ -1454,7 +1454,7 @@ int XLALSimInspiralPrecessingPolarizationWaveformHarmonic(
         case 0:
           break;
         default:
-          XLALPrintError("XLAL Error - %s: Invalid amp. PN order %s, highest is %d\n", __func__, ampO, 3 );
+          XLALPrintError("XLAL Error - %s: Invalid amp. PN order %d, highest is %d\n", __func__, ampO, 3 );
           break;
       }
       break;
@@ -1503,7 +1503,7 @@ int XLALSimInspiralPrecessingPolarizationWaveformHarmonic(
         case 0:
           break;
         default:
-          XLALPrintError("XLAL Error - %s: Invalid amp. PN order %s, highest is %d\n", __func__, ampO, 3 );
+          XLALPrintError("XLAL Error - %s: Invalid amp. PN order %d, highest is %d\n", __func__, ampO, 3 );
           break;
       }
       break;
@@ -1563,7 +1563,7 @@ int XLALSimInspiralPrecessingPolarizationWaveformHarmonic(
           *hcross += v2*((e2xe2y - e1xe1y) - I*(e1ye2x + e1xe2y));
           break;
         default:
-          XLALPrintError("XLAL Error - %s: Invalid amp. PN order %s, highest is %d\n", __func__, ampO, 3 );
+          XLALPrintError("XLAL Error - %s: Invalid amp. PN order %d, highest is %d\n", __func__, ampO, 3 );
           break;
       }
       break;
@@ -1602,7 +1602,7 @@ int XLALSimInspiralPrecessingPolarizationWaveformHarmonic(
         case 0:
           break;
         default:
-          XLALPrintError("XLAL Error - %s: Invalid amp. PN order %s, highest is %d\n", __func__, ampO, 3 );
+          XLALPrintError("XLAL Error - %s: Invalid amp. PN order %d, highest is %d\n", __func__, ampO, 3 );
           break;
       }
       break;
@@ -1628,7 +1628,7 @@ int XLALSimInspiralPrecessingPolarizationWaveformHarmonic(
         case 0:
           break;
         default:
-          XLALPrintError("XLAL Error - %s: Invalid amp. PN order %s, highest is %d\n", __func__, ampO, 3 );
+          XLALPrintError("XLAL Error - %s: Invalid amp. PN order %d, highest is %d\n", __func__, ampO, 3 );
           break;
       }
       break;
@@ -1655,7 +1655,7 @@ int XLALSimInspiralPrecessingPolarizationWaveformHarmonic(
         case 0:
           break;
         default:
-          XLALPrintError("XLAL Error - %s: Invalid amp. PN order %s, highest is %d\n", __func__, ampO, 3 );
+          XLALPrintError("XLAL Error - %s: Invalid amp. PN order %d, highest is %d\n", __func__, ampO, 3 );
           break;
       }
       break;
@@ -2109,7 +2109,7 @@ int XLALSimInspiralChooseTDWaveform(
 
     /* SEOBNR flag for model version. 1 for SEOBNRv1, 2 for SEOBNRv2 */
     UINT4 SpinAlignedEOBversion;
-    //REAL8 spin1[3], spin2[3];
+    REAL8 spin1[3], spin2[3];
     //LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
 
     /* General sanity check the input parameters - only give warnings! */
@@ -2464,6 +2464,26 @@ int XLALSimInspiralChooseTDWaveform(
             SpinAlignedEOBversion = 2;
             ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef,
                     deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion);
+            break;
+
+        case SEOBNRv3:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
+                ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
+            if( !checkTidesZero(lambda1, lambda2) )
+                ABORT_NONZERO_TIDES(waveFlags);
+            if( f_ref != 0.)
+                XLALPrintWarning("XLAL Warning - %s: This approximant does use f_ref. The reference phase will be defined at coalescence.\n", __func__);
+            /* Call the waveform driver routine */
+            spin1[0] = S1x; spin1[1] = S1y; spin1[2] = S1z;
+            spin2[0] = S2x; spin2[1] = S2y; spin2[2] = S2z;
+            ret = XLALSimIMRSpinEOBWaveform(hplus, hcross, /*&epoch,*/ phiRef,
+                    deltaT, m1, m2, f_min, r, i, spin1, spin2);
+            //SpinAlignedEOBversion = 2;
+            //ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiRef,
+            //        deltaT, m1, m2, f_min, r, i, S1z, S2z, SpinAlignedEOBversion);
+            //ret = XLALSimIMRSpinEOBWaveform(hplus, hcross, phiRef,
+            //        deltaT, m1, m2, f_min, r, i, spin1, spin2 );
             break;
 
         default:
@@ -2832,18 +2852,18 @@ int XLALSimInspiralChooseFDWaveform(
             LNhaty = 0.;
             LNhatz = cos(i);
             /* Tranform to model parameters */
-            REAL8 chi_eff, chip, eta, thetaJ, phiJ, alpha0;
+            REAL8 chi_eff, chip, eta, thetaJ, alpha0;
             if(f_ref==0.0)
                 f_ref = f_min; /* Default reference frequency is minimum frequency */
             XLALSimIMRPhenomPCalculateModelParameters(
-                &chi_eff, &chip, &eta, &thetaJ, &phiJ, &alpha0,
+                &chi_eff, &chip, &eta, &thetaJ, &alpha0,
                 m1, m2, f_ref,
                 LNhatx, LNhaty, LNhatz,
                 S1x, S1y, S1z,
                 S2x, S2y, S2z);
             /* Call the waveform driver routine */
             ret = XLALSimIMRPhenomP(hptilde, hctilde,
-              chi_eff, chip, eta, thetaJ, phiJ,
+              chi_eff, chip, eta, thetaJ,
               m1+m2, r, alpha0, phiRef, deltaF, f_min, f_max, f_ref);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             break;
@@ -3656,6 +3676,7 @@ int XLALSimInspiralImplementedTDApproximants(
         case SEOBNRv1:
         case SpinDominatedWf:
         case SEOBNRv2:
+        case SEOBNRv3:
             return 1;
 
         default:
@@ -3829,6 +3850,10 @@ int XLALGetApproximantFromString(const CHAR *inString)
   {
     return SEOBNRv2;
   }
+  else if ( strstr(inString, "SEOBNRv3" ) )
+  {
+    return SEOBNRv3;
+  }
   else if ( strstr(inString, "EOBNRv2HM" ) )
   {
     return EOBNRv2HM;
@@ -3990,6 +4015,8 @@ char* XLALGetStringFromApproximant(Approximant approximant)
       return strdup("SEOBNRv1");
     case SEOBNRv2:
       return strdup("SEOBNRv2");
+    case SEOBNRv3:
+      return strdup("SEOBNRv3");
     case EOBNRv2HM:
       return strdup("EOBNRv2HM");
     case EOBNRv2:
@@ -4216,6 +4243,7 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case IMRPhenomC:
     case SEOBNRv1:
     case SEOBNRv2:
+    case SEOBNRv3:
     case TaylorR2F4:
     case IMRPhenomFB:
     case FindChirpSP:
@@ -4293,6 +4321,7 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case EOBNRv2HM:
     case SEOBNRv1:
     case SEOBNRv2:
+    case SEOBNRv3:
     case IMRPhenomA:
     case IMRPhenomB:
     case IMRPhenomFA:

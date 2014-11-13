@@ -12,7 +12,7 @@ Source: %{name}-%{version}.tar.gz
 URL: https://www.lsc-group.phys.uwm.edu/daswg/projects/lalsuite.html
 Packager: Adam Mercer <adam.mercer@ligo.org>
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
-BuildRequires: swig python-devel octave-devel
+BuildRequires: python-devel octave-devel
 Requires: libframe lal
 Prefix: %{_prefix}
 
@@ -91,10 +91,8 @@ rm -Rf ${RPM_BUILD_DIR}/%{name}-%{version}
 %{_libdir}/python*/site-packages/lalframe/utils/*.py
 %{_libdir}/python*/site-packages/lalframe/utils/*.pyc
 %exclude %{_libdir}/python*/site-packages/lalframe/*.pyo
-%exclude %{_libdir}/python*/site-packages/lalframe/*.la
 %exclude %{_libdir}/python*/site-packages/lalframe/utils/*.pyo
 
 %files octave
 %defattr(-,root,root)
 %{_libexecdir}/octave/*/site/oct/*/lalframe.oct*
-%exclude %{_libexecdir}/octave/*/site/oct/*/lalframe.la

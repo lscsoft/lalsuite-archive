@@ -20,9 +20,11 @@ import os
 from pylal import ligolw_sqlutils as sqlutils
 
 from glue import git_version
+from glue.ligolw import ligolw
 from glue.ligolw import dbtables
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process
+from glue.ligolw.utils import ligolw_sqlite
 
 __prog__ = "ligolw_cbc_cluster_coincs"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
@@ -243,6 +245,17 @@ def get_ifo_multiplicity( ifos ):
     return len( lsctables.instrument_set_from_ifos( ifos ) )
 
 
+#
+# DB content handler
+#
+
+
+class ContentHandler(ligolw.LIGOLWContentHandler):
+    pass
+
+dbtables.use_in(ContentHandler)
+
+
 # =============================================================================
 #
 #                                     Main
@@ -265,11 +278,15 @@ sqlite3.enable_callback_tracebacks(opts.debug)
 # Setup working databases and connections
 if opts.verbose: 
     print >> sys.stderr, "Setting up temp. database..."
-working_filename = dbtables.get_connection_filename( 
-    filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
-connection = sqlite3.connect( working_filename )
-if opts.tmp_space:
-    dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
+if filename.endswith('.sql') or filename.endswith('.sqlite'):
+    working_filename = dbtables.get_connection_filename( 
+        filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
+    ContentHandler.connection = sqlite3.connect( working_filename )
+elif filename.endswith('.xml') or filename.endswith('.xml.gz'):
+    working_filename = dbtables.get_connection_filename(opts.output, tmp_path = opts.tmp_space, verbose = opts.verbose)
+    ContentHandler.connection = sqlite3.connect( working_filename )
+    ligolw_sqlite.insert_from_url(filename, contenthandler = ContentHandler, verbose=opts.verbose)
+connection = ContentHandler.connection
 
 # get needed table names
 ranking_table = sqlutils.validate_option( opts.ranking_table )

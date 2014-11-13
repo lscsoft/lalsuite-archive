@@ -165,9 +165,9 @@ if __name__ == "__main__":
 
     # Choose subset for sim_inspiral_table
     N = opts.num_of_injs
-    selection = np.arange(N)
+    selection = np.arange(len(samples))
     np.random.shuffle(selection)
-    samples = samples[selection]
+    samples = samples[selection[:N]]
 
     # Create an empty structured array with names indentical to sim_inspiral fields
     injections = np.zeros((N,), dtype=sim_inspiral_dt)

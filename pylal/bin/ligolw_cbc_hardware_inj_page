@@ -28,6 +28,8 @@ from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from glue import segments
 from glue import segmentsUtils
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
 from glue.ligolw import utils as ligolw_utils
 from glue.segmentdb import segmentdb_utils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -613,6 +615,10 @@ if ifos == []:
 # Work out times of injections
 hwinj_done = {}
 
+class ContentHandler(ligolw.LIGOLWContentHandler):
+    pass
+lsctables.use_in(ContentHandler)
+
 for ifo in ifos:
     # set the segment name
     if ifo == "V1":
@@ -643,7 +649,7 @@ for ifo in ifos:
     else:
         out_file_name = '-'.join([ifo, "HWINJ_SEGMENTS", str(opts.gps_start_time), str(opts.gps_end_time - opts.gps_start_time)])
         out_xml = os.path.join(opts.seg_dir,out_file_name + '.xml')
-        indoc = ligolw_utils.load_url(out_xml)
+        indoc = ligolw_utils.load_url(out_xml, contenthandler=ContentHandler)
         hwinj_done[ifo] = segmentdb_utils.find_segments(indoc,ifo+":RESULT:1")
 
 # ==============================================================================
