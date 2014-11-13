@@ -386,7 +386,7 @@ static int XLALSimInspiralSpinTaylorT4TestSetup(
             params->Ecoeff[0] = 1.;
             break;
         default:
-            XLALPrintError("XLAL Error - %s: Invalid phase. PN order %s\n",
+            XLALPrintError("XLAL Error - %s: Invalid phase. PN order %d\n",
                     __func__, phaseO );
             XLAL_ERROR(XLAL_EINVAL);
             break;
@@ -450,7 +450,7 @@ static int XLALSimInspiralSpinTaylorT4TestSetup(
         case LAL_SIM_INSPIRAL_SPIN_ORDER_0PN:
             break;
         default:
-            XLALPrintError("XLAL Error - %s: Invalid spin PN order %s\n",
+            XLALPrintError("XLAL Error - %s: Invalid spin PN order %d\n",
                     __func__, spinO );
             XLAL_ERROR(XLAL_EINVAL);
             break;
@@ -483,7 +483,7 @@ static int XLALSimInspiralSpinTaylorT4TestSetup(
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
             break;
         default:
-            XLALPrintError("XLAL Error - %s: Invalid tidal PN order %s\n",
+            XLALPrintError("XLAL Error - %s: Invalid tidal PN order %d\n",
                     __func__, tideO );
             XLAL_ERROR(XLAL_EINVAL);
             break;
@@ -980,7 +980,7 @@ static int XLALSimInspiralSpinTaylorTestStoppingTest(
         case LAL_SIM_INSPIRAL_SPIN_ORDER_0PN:
             break;
         default:
-            XLALPrintError("XLAL Error - %s: Invalid spin PN order %s\n",
+            XLALPrintError("XLAL Error - %s: Invalid spin PN order %d\n",
                     __func__, params->spinO );
             XLAL_ERROR(XLAL_EINVAL);
             break;
@@ -1148,7 +1148,7 @@ static int XLALSimInspiralSpinTaylorT4TestDerivatives(
         case LAL_SIM_INSPIRAL_SPIN_ORDER_0PN:
             break;
         default:
-            XLALPrintError("XLAL Error - %s: Invalid spin PN order %s\n",
+            XLALPrintError("XLAL Error - %s: Invalid spin PN order %d\n",
                     __func__, params->spinO );
             XLAL_ERROR(XLAL_EINVAL);
             break;
@@ -1852,14 +1852,14 @@ static int XLALSimInspiralSpinTaylorTestDriverFourier(
 
     if(kMax < 0)
     {
-        XLALPrintError("XLAL Error - %s: kMax = %f must be >= 0\n",
+        XLALPrintError("XLAL Error - %s: kMax = %d must be >= 0\n",
                 __func__, kMax);
         XLAL_ERROR(XLAL_EINVAL);
     }
 
     if(kMax > 10)
     {
-        XLALPrintError("XLAL Error - %s: kMax = %f not implemented. Must be <= 10\n",
+        XLALPrintError("XLAL Error - %s: kMax = %d not implemented. Must be <= 10\n",
                 __func__, kMax);
         XLAL_ERROR(XLAL_EINVAL);
     }
@@ -2137,7 +2137,7 @@ static int XLALSimInspiralSpinTaylorTestDriverFourier(
         maxHarmonic = 5;
         break;
       default:
-        XLALPrintError("XLAL Error - %s: Invalid amp. PN order %s\n",
+        XLALPrintError("XLAL Error - %s: Invalid amp. PN order %d\n",
         __func__, amplitudeO );
         XLAL_ERROR(XLAL_EINVAL);
         break;

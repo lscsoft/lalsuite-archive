@@ -124,7 +124,7 @@ int XLALSimInspiralTaylorF2Test(
             pfaN = pfa.v[0];
             break;
         default:
-            XLAL_ERROR(XLAL_ETYPE, "Invalid phase PN order %s", phaseO);
+            XLAL_ERROR(XLAL_ETYPE, "Invalid phase PN order %d", phaseO);
     }
     /* modify the PN coefficients by perturbing around their central GR value */
     if (extraParams!=NULL)
@@ -159,7 +159,7 @@ int XLALSimInspiralTaylorF2Test(
         case 0:
             break;
         default:
-            XLAL_ERROR(XLAL_ETYPE, "Invalid amplitude PN order %s", amplitudeO);
+            XLAL_ERROR(XLAL_ETYPE, "Invalid amplitude PN order %d", amplitudeO);
     }
 
     /* Generate tidal terms separately.
@@ -192,7 +192,7 @@ int XLALSimInspiralTaylorF2Test(
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
             break;
         default:
-            XLAL_ERROR(XLAL_EINVAL, "Invalid tidal PN order %s", tideO);
+            XLAL_ERROR(XLAL_EINVAL, "Invalid tidal PN order %d", tideO);
     }
 
     /* The flux and energy coefficients below are used to compute SPA amplitude corrections */

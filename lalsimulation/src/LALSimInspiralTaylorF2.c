@@ -421,7 +421,7 @@ int XLALSimInspiralTaylorF2(
             case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
                 break;
             default:
-                XLALPrintError("XLAL Error - %s: Invalid tidal PN order %s\n",
+                XLALPrintError("XLAL Error - %s: Invalid tidal PN order %d\n",
                         __func__, tideO );
                 XLAL_ERROR(XLAL_EINVAL);
                 break;
