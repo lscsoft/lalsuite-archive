@@ -811,8 +811,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
 
     /* The acutal coalescence time that corresponds to the buffer
        sample on which the waveform's tC lands. */
-    REAL8 injTc = XLALGPSGetREAL8(&(model->timehPlus->epoch)) + tcSample*deltaT;
-
+    REAL8 injTc = XLALGPSGetREAL8(&(model->timehPlus->epoch)) +(tcSample)*deltaT;
     /* The sample at which the waveform reaches tc. */
     size_t waveTcSample = (size_t)lround(-XLALGPSGetREAL8(&(hplus->epoch))/deltaT);
 
@@ -851,7 +850,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     memcpy(model->timehCross->data->data + bufStartIndex,
 	   hcross->data->data + waveStartIndex,
 	   bufWaveLength*sizeof(REAL8));
-
     LALInferenceSetVariable(model->params, "time", &injTc);
   }
   if ( hplus ) XLALDestroyREAL8TimeSeries(hplus);
