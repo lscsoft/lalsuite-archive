@@ -25,7 +25,7 @@
  * \brief Computes quantities for amplitude demodulation.
  *
  * This routine computes the quantities \f$a(t)\f$ and \f$b(t)\f$ as defined in
- * Jaranowski, Krolak, and Schutz \ref JKS98, hereafter JKS.  These
+ * Jaranowski, Krolak, and Schutz \cite JKS98, hereafter JKS.  These
  * functions quantify the dependence of the detector output on the
  * beam-pattern functions \f$F_{+}\f$ and \f$F_{\times}\f$; in fact, \f$a(t)\f$ and
  * \f$b(t)\f$ <i>are</i> the beam-pattern functions, without the dependence
@@ -36,7 +36,7 @@
  * smear the signal into several neighboring bins centered about the
  * search frequency, consequently losing valuable SNR.
  *
- * \heading{Algorithm}
+ * ### Algorithm ###
  *
  * The routine is really simple.  From JKS,
  * \f{eqnarray*}
@@ -53,7 +53,7 @@
 
 /*---------- INCLUDES ----------*/
 #include <lal/LALComputeAM.h>
-#include <lal/ComputeFstat.h>
+#include <lal/CWFastMath.h>
 
 /*---------- local DEFINES and macros ----------*/
 
@@ -61,22 +61,14 @@
 
 /*---------- internal types ----------*/
 
-/*---------- Global variables ----------*/
-/* empty initializers  */
-const AMCoeffs empty_AMCoeffs;
-const MultiAMCoeffs empty_MultiAMCoeffs;
-const AntennaPatternMatrix empty_AntennaPatternMatrix;
-
-static const LALStatus empty_LALStatus;
-static const EarthState empty_EarthState;
-
 /*---------- internal prototypes ----------*/
 
 
 /*==================== FUNCTION DEFINITIONS ====================*/
 
-/** Compute the 'amplitude coefficients' \f$a(t), b(t)\f$ as defined in
- * \ref JKS98 for a series of timestamps.
+/**
+ * Compute the 'amplitude coefficients' \f$a(t), b(t)\f$ as defined in
+ * \cite JKS98 for a series of timestamps.
  *
  * The input consists of the DetectorState-timeseries, which contains
  * the detector-info and the LMST's corresponding to the different times.
@@ -88,7 +80,7 @@ static const EarthState empty_EarthState;
  * \note This is an alternative implementation to LALComputeAM() with
  * the aim to be both simpler and faster.
  * The difference being that we don't implicitly re-derive the final expression
- * here but simply try to implement the final expressions (12), (13) in \ref JKS98
+ * here but simply try to implement the final expressions (12), (13) in \cite JKS98
  * in the most economical way possible.
  */
 void
@@ -151,8 +143,12 @@ LALGetAMCoeffs(LALStatus *status,				/**< [in/out] LAL status structure pointer 
     REAL4 sin1lambda, cos1lambda;
     REAL4 sin2lambda, cos2lambda;
 
-    sin_cos_LUT (&sin2gamma, &cos2gamma, 2.0f * gam );
-    sin_cos_LUT (&sin1lambda, &cos1lambda, lambda );
+    if( XLALSinCosLUT (&sin2gamma, &cos2gamma, 2.0f * gam ) != XLAL_SUCCESS )
+      ABORT( status->statusPtr, LAL_EXLAL, "XLALSinCosLUT (&sin2gamma, &cos2gamma, 2.0f * gam ) failed" );
+
+    if( XLALSinCosLUT (&sin1lambda, &cos1lambda, lambda ) != XLAL_SUCCESS )
+      ABORT( status->statusPtr, LAL_EXLAL, "XLALSinCosLUT (&sin1lambda, &cos1lambda, lambda ) failed" );
+
 
     sin2lambda = 2.0f * sin1lambda * cos1lambda;
     cos2lambda = cos1lambda * cos1lambda - sin1lambda * sin1lambda;
@@ -175,7 +171,9 @@ LALGetAMCoeffs(LALStatus *status,				/**< [in/out] LAL status structure pointer 
   alpha = skypos.longitude;
   delta = skypos.latitude;
 
-  sin_cos_LUT (&sin1delta, &cos1delta, delta );
+  if( XLALSinCosLUT (&sin1delta, &cos1delta, delta ) != XLAL_SUCCESS )
+    ABORT( status->statusPtr, LAL_EXLAL, "XLALSinCosLUT (&sin1delta, &cos1delta, delta ) failed" );
+
   sin2delta = 2.0f * sin1delta * cos1delta;
   cos2delta = cos1delta * cos1delta - sin1delta * sin1delta;
 
@@ -206,7 +204,9 @@ LALGetAMCoeffs(LALStatus *status,				/**< [in/out] LAL status structure pointer 
 
       ah = alpha - DetectorStates->data[i].LMST;
 
-      sin_cos_LUT ( &sin1ah, &cos1ah, ah );
+      if( XLALSinCosLUT ( &sin1ah, &cos1ah, ah ) != XLAL_SUCCESS )
+        ABORT( status->statusPtr, LAL_EXLAL, "XLALSinCosLUT ( &sin1ah, &cos1ah, ah ) failed" );
+
       sin2ah = 2.0f * sin1ah * cos1ah;
       cos2ah = cos1ah * cos1ah - sin1ah * sin1ah;
 
@@ -234,8 +234,9 @@ LALGetAMCoeffs(LALStatus *status,				/**< [in/out] LAL status structure pointer 
 
 } /* LALGetAMCoeffs() */
 
-/** Compute the 'amplitude coefficients' \f$a(t)\sin\zeta\f$,
- * \f$b(t)\sin\zeta\f$ as defined in \ref JKS98 for a series of
+/**
+ * Compute the 'amplitude coefficients' \f$a(t)\sin\zeta\f$,
+ * \f$b(t)\sin\zeta\f$ as defined in \cite JKS98 for a series of
  * timestamps.
  *
  * The input consists of the DetectorState-timeseries, which contains
@@ -290,8 +291,12 @@ LALNewGetAMCoeffs(LALStatus *status,			/**< [in/out] LAL status structure pointe
   alpha = skypos.longitude;
   delta = skypos.latitude;
 
-  sin_cos_LUT (&sin1delta, &cos1delta, delta );
-  sin_cos_LUT (&sin1alpha, &cos1alpha, alpha );
+  if( XLALSinCosLUT (&sin1delta, &cos1delta, delta ) != XLAL_SUCCESS )
+    ABORT( status->statusPtr, LAL_EXLAL, "XLALSinCosLUT (&sin1delta, &cos1delta, delta ) failed" );
+
+  if( XLALSinCosLUT (&sin1alpha, &cos1alpha, alpha ) != XLAL_SUCCESS )
+    ABORT( status->statusPtr, LAL_EXLAL, "XLALSinCosLUT (&sin1alpha, &cos1alpha, alpha ) failed" );
+
   // see Eq.(17) in CFSv2 notes (version v3):
   // https://dcc.ligo.org/cgi-bin/private/DocDB/ShowDocument?docid=1665&version=3
   xi1 =   sin1alpha;
@@ -356,7 +361,8 @@ LALNewGetAMCoeffs(LALStatus *status,			/**< [in/out] LAL status structure pointe
 
 
 
-/** Compute single time-stamp antenna-pattern coefficients a(t), b(t)
+/**
+ * Compute single time-stamp antenna-pattern coefficients a(t), b(t)
  * Note: this function uses REAL8 precision, so this can be used in
  * high-precision integration of the F-metric
  *
@@ -370,8 +376,8 @@ XLALComputeAntennaPatternCoeffs ( REAL8 *ai,   			/**< [out] antenna-pattern fun
 				  const EphemerisData *edat	/**< [in] ephemeris-data */
 				  )
 {
-  LALStatus status = empty_LALStatus;
-  EarthState earth = empty_EarthState;
+  LALStatus XLAL_INIT_DECL(status);
+  EarthState XLAL_INIT_DECL(earth);
 
   if ( !ai || !bi || !skypos || !tGPS || !site || !edat) {
     XLAL_ERROR( XLAL_EINVAL );
@@ -453,7 +459,8 @@ XLALComputeAntennaPatternCoeffs ( REAL8 *ai,   			/**< [out] antenna-pattern fun
 } /* XLALComputeAntennaPatternCoeffs() */
 
 
-/** Multi-IFO version of LALGetAMCoeffs().
+/**
+ * Multi-IFO version of LALGetAMCoeffs().
  * Get all antenna-pattern coefficients for all input detector-series.
  *
  * NOTE: contrary to LALGetAMCoeffs(), this functions *allocates* the output-vector,
@@ -529,7 +536,8 @@ LALGetMultiAMCoeffs (LALStatus *status,			/**< [in/out] LAL status structure poi
 } /* LALGetMultiAMCoeffs() */
 
 
-/** Original antenna-pattern function by S Berukoff
+/**
+ * Original antenna-pattern function by S Berukoff
  */
 void LALComputeAM (LALStatus          *status,
 		   AMCoeffs           *coe,
@@ -606,7 +614,8 @@ void LALComputeAM (LALStatus          *status,
 
 } /* LALComputeAM() */
 
-/** <b>Replace</b> AM-coeffs by weighted AM-coeffs, i.e.
+/**
+ * <b>Replace</b> AM-coeffs by weighted AM-coeffs, i.e.
  * \f$a_{X\alpha} \rightarrow \widehat{a}_{X\alpha} \equiv a_{X\alpha} \sqrt{w_{X\alpha}}\f$, and
  * \f$b_{X\alpha} \rightarrow \widehat{b}_{X\alpha} \equiv a_{X\alpha} \sqrt{w_{X\alpha}}\f$,
  * where \f$w_{X\alpha}\f$ are the \a multiWeights for SFT \f$\alpha\f$ and detector \f$X\f$.
@@ -656,7 +665,7 @@ XLALWeightMultiAMCoeffs (  MultiAMCoeffs *multiAMcoef, const MultiNoiseWeights *
       }
     } // for X < numDetectors
 
-  REAL8 Ad = 0, Bd = 0, Cd = 0;	// multi-IFO values
+  REAL4 Ad = 0, Bd = 0, Cd = 0;	// multi-IFO values
   /* ---------- main loop over detectors X ---------- */
   for ( X=0; X < numDetectors; X ++)
     {
@@ -678,12 +687,12 @@ XLALWeightMultiAMCoeffs (  MultiAMCoeffs *multiAMcoef, const MultiNoiseWeights *
         } // if weights
 
       UINT4 alpha;	// SFT-index
-      REAL8 AdX = 0, BdX = 0, CdX = 0;	// single-IFO values
+      REAL4 AdX = 0, BdX = 0, CdX = 0;	// single-IFO values
       /* compute single-IFO antenna-pattern coefficients AX,BX,CX, by summing over time-steps 'alpha' */
       for(alpha = 0; alpha < numStepsX; alpha++)
         {
-          REAL8 ahat = amcoeX->a->data[alpha];
-          REAL8 bhat = amcoeX->b->data[alpha];
+          REAL4 ahat = amcoeX->a->data[alpha];
+          REAL4 bhat = amcoeX->b->data[alpha];
 
           AdX += ahat * ahat;
           BdX += bhat * bhat;
@@ -716,8 +725,9 @@ XLALWeightMultiAMCoeffs (  MultiAMCoeffs *multiAMcoef, const MultiNoiseWeights *
 } /* XLALWeightMultiAMCoeffs() */
 
 
-/** Compute the 'amplitude coefficients' \f$a(t)\sin\zeta\f$,
- * \f$b(t)\sin\zeta\f$ as defined in \ref JKS98 for a series of
+/**
+ * Compute the 'amplitude coefficients' \f$a(t)\sin\zeta\f$,
+ * \f$b(t)\sin\zeta\f$ as defined in \cite JKS98 for a series of
  * timestamps.
  *
  * The input consists of the DetectorState-timeseries, which contains
@@ -760,8 +770,8 @@ XLALComputeAMCoeffs ( const DetectorStateSeries *DetectorStates,	/**< timeseries
 
   REAL4 sin1delta, cos1delta;
   REAL4 sin1alpha, cos1alpha;
-  sin_cos_LUT (&sin1delta, &cos1delta, delta );
-  sin_cos_LUT (&sin1alpha, &cos1alpha, alpha );
+  XLAL_CHECK_NULL( XLALSinCosLUT (&sin1delta, &cos1delta, delta ) == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK_NULL( XLALSinCosLUT (&sin1alpha, &cos1alpha, alpha ) == XLAL_SUCCESS, XLAL_EFUNC );
 
   REAL4 xi1 = - sin1alpha;
   REAL4 xi2 =  cos1alpha;
@@ -808,9 +818,9 @@ XLALComputeAMCoeffs ( const DetectorStateSeries *DetectorStates,	/**< timeseries
 
 } /* XLALComputeAMCoeffs() */
 
-/** Multi-IFO version of XLALComputeAMCoeffs().
+/**
+ * Multi-IFO version of XLALComputeAMCoeffs().
  * Computes noise-weighted combined multi-IFO antenna pattern functions.
-
  *
  * \note *) contrary to LALGetMultiAMCoeffs(), and XLALComputeAMCoeffs(), this function applies
  * the noise-weights and computes  the multi-IFO antenna-pattern matrix components
@@ -874,7 +884,8 @@ XLALComputeMultiAMCoeffs ( const MultiDetectorStateSeries *multiDetStates, 	/**<
 
 
 /* ---------- creators/destructors for AM-coeffs -------------------- */
-/** Create an AMCeoffs vector for given number of timesteps
+/**
+ * Create an AMCeoffs vector for given number of timesteps
  */
 AMCoeffs *
 XLALCreateAMCoeffs ( UINT4 numSteps )
@@ -903,7 +914,8 @@ XLALCreateAMCoeffs ( UINT4 numSteps )
 } /* XLALCreateAMCoeffs() */
 
 
-/** Destroy a MultiAMCoeffs structure.
+/**
+ * Destroy a MultiAMCoeffs structure.
  *
  * Note, this is "NULL-robust" in the sense that it will not crash
  * on NULL-entries anywhere in this struct, so it can be used
@@ -931,7 +943,8 @@ XLALDestroyMultiAMCoeffs ( MultiAMCoeffs *multiAMcoef )
 
 } /* XLALDestroyMultiAMCoeffs() */
 
-/** Destroy a AMCoeffs structure.
+/**
+ * Destroy a AMCoeffs structure.
  *
  * \note This function is "NULL-robust" in the sense that it will not crash
  * on NULL-entries anywhere in this struct, so it can be used

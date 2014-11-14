@@ -19,15 +19,15 @@
 
 /**
  * \file MultiWeights.c
- * \author Badri Krishnan, Alicia Sintes 
+ * \author Badri Krishnan, Alicia Sintes
  * \ingroup pulsarApps
- * \brief Utility code for calculating some properties of the noise weights 
-   for the multi-IFO Hough search
-
-   History:   Created by Sintes and Krishnan July 04, 2003
-              Modifications for S4 January 2006
-
-*/
+ * \brief Utility code for calculating some properties of the noise weights
+ * for the multi-IFO Hough search
+ *
+ * History:   Created by Sintes and Krishnan July 04, 2003
+ * Modifications for S4 January 2006
+ *
+ */
 
 #include "./DriveHoughColor.h"
 
@@ -61,9 +61,6 @@ BOOLEAN uvar_printEvents, uvar_printTemplates, uvar_printMaps, uvar_printStats, 
 
 #define TRUE (1==1)
 #define FALSE (1==0)
-
-#define LAL_INT4_MAX 2147483647
-
 
 /* local function prototype */
 void PrintLogFile (LALStatus *status, LALStringVector *linefiles, CHAR *executable );
@@ -216,12 +213,12 @@ int main(int argc, char *argv[]){
 
     if ( LALUserVarWasSet( &uvar_startTime ) ) {
       XLALGPSSetREAL8(&startTimeGPS, uvar_startTime);
-      constraints.startTime = &startTimeGPS;
+      constraints.minStartTime = &startTimeGPS;
     }
 
     if ( LALUserVarWasSet( &uvar_endTime ) ) {
       XLALGPSSetREAL8(&endTimeGPS, uvar_endTime);
-      constraints.endTime = &endTimeGPS;
+      constraints.maxStartTime = &endTimeGPS;
     }
 
     if ( LALUserVarWasSet( &uvar_timeStampsFile ) ) {

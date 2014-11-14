@@ -27,15 +27,17 @@
  *
  * Id: pulsar_crosscorr.c,v 1.23 2009/03/13 00:43:04 cchung Exp
  *
+ */
 
 
-/ lalapps includes */
+/* lalapps includes */
 #include <lalapps.h>
 #include <pulsar_crosscorr.h>
 #include <lal/PulsarCrossCorr.h>
 #include <lal/DopplerScan.h>
 #include <lal/ExtrapolatePulsarSpins.h>
 #include <gsl/gsl_permutation.h>
+#include <lal/LALString.h>
 
 /* globals, constants and defaults */
 
@@ -72,8 +74,10 @@ REAL8    uvar_brakingindexResolution;
 REAL8    uvar_fRef;
 
 
-CHAR     *uvar_ephemDir=NULL;
-CHAR     *uvar_ephemYear=NULL;
+CHAR 	*uvar_ephemEarth;		/**< Earth ephemeris file to use */
+CHAR 	*uvar_ephemSun;		/**< Sun ephemeris file to use */
+
+
 CHAR     *uvar_sftDir=NULL;
 CHAR     *uvar_dirnameOut=NULL;
 CHAR     *uvar_skyfile=NULL;
@@ -81,13 +85,8 @@ CHAR     *uvar_skyRegion=NULL;
 CHAR     *uvar_filenameOut=NULL;
 CHAR 	 *uvar_debugOut=NULL;
 
-#define DEFAULT_EPHEMDIR "env LAL_DATA_PATH"
-#define EPHEM_YEARS "00-19-DE405"
-
 #define F0 100
 #define FBAND 1
-#define LAL_INT4_MAX 2147483647
-
 
 #define BLOCKSRNGMED 51
 #define MAXFILENAMELENGTH 512 /* maximum # of characters  of a filename */
@@ -105,8 +104,6 @@ CHAR 	 *uvar_debugOut=NULL;
 
 #define SQUARE(x) ((x)*(x))
 #define CUBE(x) ((x)*(x)*(x))
-
-#define INIT_MEM(x) memset(&(x), 0, sizeof((x)))
 
 #define N_SPINDOWN_DERIVS 6
 
@@ -153,8 +150,6 @@ int main(int argc, char *argv[]){
 
   /* ephemeris */
   EphemerisData    *edat=NULL;
-  CHAR EphemEarth[MAXFILENAMELENGTH];
-  CHAR EphemSun[MAXFILENAMELENGTH];
 
   /* skypatch info */
   REAL8  *skyAlpha=NULL, *skyDelta=NULL,
@@ -357,8 +352,8 @@ int main(int argc, char *argv[]){
   /* set sft catalog constraints */
   constraints.detector = NULL;
   constraints.timestamps = NULL;
-  constraints.startTime = NULL;
-  constraints.endTime = NULL;
+  constraints.minStartTime = NULL;
+  constraints.maxStartTime = NULL;
 
   XLALGPSSet(&startTimeGPS, 0, 0);
   XLALGPSSet(&endTimeGPS, LAL_INT4_MAX, 0); 
@@ -366,12 +361,12 @@ int main(int argc, char *argv[]){
   if ( LALUserVarWasSet( &uvar_startTime ) ) {
     XLALGPSSetREAL8(&startTimeGPS, uvar_startTime);
 
-    constraints.startTime = &startTimeGPS;
+    constraints.minStartTime = &startTimeGPS;
   }
 
   if ( LALUserVarWasSet( &uvar_endTime ) ) {
     XLALGPSSetREAL8(&endTimeGPS, uvar_endTime);
-    constraints.endTime = &endTimeGPS;
+    constraints.maxStartTime = &endTimeGPS;
   }
 
   /* get sft catalog */
@@ -464,29 +459,12 @@ int main(int argc, char *argv[]){
     }
 
     delta_fdot = uvar_fdotResolution;
- 
+
     delta_fddot = uvar_fddotResolution;
   }
 
   /*  set up ephemeris  */
-  if(uvar_ephemDir) {
-    snprintf(EphemEarth, MAXFILENAMELENGTH, "%s/earth%s.dat",
-		uvar_ephemDir, uvar_ephemYear);
-    snprintf(EphemSun, MAXFILENAMELENGTH, "%s/sun%s.dat",
-		uvar_ephemDir, uvar_ephemYear);
-  } else {
-    snprintf(EphemEarth, MAXFILENAMELENGTH, "earth%s.dat", uvar_ephemYear);
-    snprintf(EphemSun, MAXFILENAMELENGTH, "sun%s.dat", uvar_ephemYear);
-  }
-
-  EphemEarth[MAXFILENAMELENGTH-1] = 0;
-  EphemSun[MAXFILENAMELENGTH-1] = 0;
-
-  edat = (EphemerisData *)LALCalloc(1, sizeof(EphemerisData));
-  (*edat).ephiles.earthEphemeris = EphemEarth;
-  (*edat).ephiles.sunEphemeris = EphemSun;
-
-  LAL_CALL( LALInitBarycenter( &status, edat), &status);
+  XLAL_CHECK ( (edat = XLALInitBarycenter ( uvar_ephemEarth, uvar_ephemSun )) != NULL, XLAL_EFUNC );
 
   /* set up skypatches */
   if ((skytest = fopen(uvar_skyfile, "r")) == NULL) {
@@ -599,9 +577,9 @@ int main(int argc, char *argv[]){
     fdotsMax->length = N_SPINDOWN_DERIVS;
     fdotsMax->data = (REAL8 *)LALCalloc(fdotsMax->length, sizeof(REAL8));
 
-    INIT_MEM(spinRange_startTime);
-    INIT_MEM(spinRange_endTime);
-    INIT_MEM(spinRange_refTime);
+    XLAL_INIT_MEM(spinRange_startTime);
+    XLAL_INIT_MEM(spinRange_endTime);
+    XLAL_INIT_MEM(spinRange_refTime);
 
     spinRange_refTime.refTime = refTime;
     spinRange_refTime.fkdot[0] = uvar_f0;
@@ -1073,9 +1051,8 @@ printf("%g %g\n", sigmasq->data[i] * ualpha->data[i].re, sigmasq->data[i] * ualp
   }
   LAL_CALL( LALDestroySFTCatalog( &status, &catalog ), &status);
 
-  LALFree(edat->ephemE);
-  LALFree(edat->ephemS);
-  LALFree(edat);
+  XLALDestroyEphemerisData(edat);
+
   LALFree(skyAlpha);
   LALFree(skyDelta);
   LALFree(skySizeAlpha);
@@ -1147,9 +1124,11 @@ printf("%g %g\n", sigmasq->data[i] * ualpha->data[i].re, sigmasq->data[i] * ualp
 } /* main */
 
 
-/** Set up location of skypatch centers and sizes
-    If user specified skyRegion then use DopplerScan function
-    to construct an isotropic grid. Otherwise use skypatch file. */
+/**
+ * Set up location of skypatch centers and sizes
+ * If user specified skyRegion then use DopplerScan function
+ * to construct an isotropic grid. Otherwise use skypatch file.
+ */
 void SetUpRadiometerSkyPatches(LALStatus           *status,	/**< pointer to LALStatus structure */
 			       SkyPatchesInfo      *out,   /**< output skypatches info */
 			       CHAR                *skyFileName, /**< name of skypatch file */
@@ -1158,8 +1137,8 @@ void SetUpRadiometerSkyPatches(LALStatus           *status,	/**< pointer to LALS
 			       REAL8               dDelta)  /**< delta resolution (if isotropic grid is to be constructed) */
 {
 
-  DopplerSkyScanInit scanInit = empty_DopplerSkyScanInit;   /* init-structure for DopperScanner */
-  DopplerSkyScanState thisScan = empty_DopplerSkyScanState; /* current state of the Doppler-scan */
+  DopplerSkyScanInit XLAL_INIT_DECL(scanInit);   /* init-structure for DopperScanner */
+  DopplerSkyScanState XLAL_INIT_DECL(thisScan); /* current state of the Doppler-scan */
   UINT4 nSkyPatches, skyCounter;
   PulsarDopplerParams dopplerpos;
 
@@ -1296,7 +1275,7 @@ void InitDoppParams(LALStatus *status,
    
 	    /* initialize Doppler parameters of the potential source */
 
-	    INIT_MEM( thisPoint->fkdot );
+	    XLAL_INIT_MEM( thisPoint->fkdot );
 	    thisPoint->fkdot[0] = f_current;
 	    thisPoint->fkdot[1] = fdot_current; 
 	    thisPoint->fkdot[2] = fddot_current;
@@ -1780,11 +1759,8 @@ void initUserVars (LALStatus *status)
   uvar_brakingindexResolution = uvar_brakingindex/10.0;
   uvar_fRef = 1.0;
 
-  uvar_ephemDir = (CHAR *)LALCalloc( MAXFILENAMELENGTH , sizeof(CHAR));
-  strcpy(uvar_ephemDir,DEFAULT_EPHEMDIR);
-
-  uvar_ephemYear = (CHAR *)LALCalloc( MAXFILENAMELENGTH , sizeof(CHAR));
-  strcpy(uvar_ephemYear,EPHEM_YEARS);
+  uvar_ephemEarth = XLALStringDuplicate("earth00-19-DE405.dat.gz");
+  uvar_ephemSun = XLALStringDuplicate("sun00-19-DE405.dat.gz");
 
   uvar_dirnameOut = (CHAR *)LALCalloc( MAXFILENAMELENGTH , sizeof(CHAR));
   strcpy(uvar_dirnameOut,DIROUT);
@@ -1891,14 +1867,10 @@ void initUserVars (LALStatus *status)
 			    0, UVAR_OPTIONAL,
 			    "Alternative: input skypatch file",
 			    &uvar_skyfile);
-  LALRegisterSTRINGUserVar( status->statusPtr, "ephemDir",
-			    'E', UVAR_OPTIONAL,
-			    "Directory where ephemeris files are located",
-			    &uvar_ephemDir);
-  LALRegisterSTRINGUserVar( status->statusPtr, "ephemYear",
-			    'y', UVAR_OPTIONAL,
-			    "Year (or range of years) of ephemeris files to be used",
-			    &uvar_ephemYear);
+
+  XLALRegisterSTRINGUserVar( "ephemEarth",   	 0,  UVAR_OPTIONAL,     "Earth ephemeris file to use", &uvar_ephemEarth );
+  XLALRegisterSTRINGUserVar( "ephemSun",     	 0,  UVAR_OPTIONAL,     "Sun ephemeris file to use", &uvar_ephemSun );
+
   LALRegisterSTRINGUserVar( status->statusPtr, "sftDir",
 			    'D', UVAR_REQUIRED,
 			    "SFT filename pattern",

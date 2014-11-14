@@ -1,5 +1,6 @@
+
 #flow DAG Class definitions for LALInference Pipeline
-# (C) 2012 John Veitch, Kiersten Ruisard, Kan Wang
+# (C) 2012 John Veitch, Vivien Raymond, Kiersten Ruisard, Kan Wang
 
 import itertools
 import glue
@@ -18,6 +19,8 @@ from glue.ligolw import table
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from itertools import permutations
+import shutil
 
 # We use the GLUE pipeline utilities to construct classes for each
 # type of job. Each class has inputs and outputs, which are used to
@@ -86,6 +89,13 @@ class Event():
         self.trig_time=self.coinctrigger.end_time + 1.0e-9 * self.coinctrigger.end_time_ns
     if self.GID is not None:
         self.event_id=int(''.join(i for i in self.GID if i.isdigit()))
+    self.engine_opts={}
+  def set_engine_option(self,opt,val):
+    """
+    Can set event-specific options for the engine nodes
+    using this option, e.g. ev.set_engine_option('time-min','1083759273')
+    """
+    self.engine_opts[opt]=val
 
 dummyCacheNames=['LALLIGO','LALVirgo','LALAdLIGO','LALAdVirgo','LALSimLIGO','LALSimAdLIGO','LALSimVirgo','LALSimAdVirgo']
 
@@ -277,6 +287,8 @@ def chooseEngineNode(name):
     return LALInferenceNestNode
   if name=='lalinferencemcmc':
     return LALInferenceMCMCNode
+  if name=='lalinferencebambi' or name=='lalinferencebambimpi':
+    return LALInferenceBAMBINode
   return EngineNode
 
 def scan_timefile(timefile):
@@ -380,25 +392,31 @@ def get_xml_psds(psdxml,ifos,outpath,end_time=None):
     # set node.psds dictionary with the path to the ascii files
     out[ifo]=os.path.join(outpath,ifo+'_psd_'+time+'.txt')
   return out
+ 
+def create_pfn_tuple(filename,protocol='file://',site='local'):
+    return( (os.path.basename(filename),protocol+os.path.abspath(filename),site) )
   
 class LALInferencePipelineDAG(pipeline.CondorDAG):
-  def __init__(self,cp,dax=False):
+  def __init__(self,cp,dax=False,site='local'):
     self.subfiles=[]
     self.config=cp
     self.engine=cp.get('analysis','engine')
     self.EngineNode=chooseEngineNode(self.engine)
+    self.site=site
     if cp.has_option('paths','basedir'):
       self.basepath=cp.get('paths','basedir')
     else:
       self.basepath=os.getcwd()
       print 'No basepath specified, using current directory: %s'%(self.basepath)
     mkdirs(self.basepath)
+    if dax:
+        os.chdir(self.basepath)
     self.posteriorpath=os.path.join(self.basepath,'posterior_samples')
     mkdirs(self.posteriorpath)
     daglogdir=cp.get('paths','daglogdir')
     mkdirs(daglogdir)
     self.daglogfile=os.path.join(daglogdir,'lalinference_pipeline-'+str(uuid.uuid1())+'.log')
-    pipeline.CondorDAG.__init__(self,self.daglogfile,dax)
+    pipeline.CondorDAG.__init__(self,self.daglogfile,dax=dax)
     if cp.has_option('paths','cachedir'):
       self.cachepath=cp.get('paths','cachedir')
     else:
@@ -419,6 +437,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     else: self.veto_categories=[]
     for ifo in self.ifos:
       self.segments[ifo]=[]
+    self.romweightsnodes={}
     self.dq={}
     self.frtypes=ast.literal_eval(cp.get('datafind','types'))
     self.channels=ast.literal_eval(cp.get('data','channels'))
@@ -439,25 +458,45 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     else:
       self.dataseed=None
     # Set up necessary job files.
-    self.datafind_job = pipeline.LSCDataFindJob(self.cachepath,self.logpath,self.config)
-    self.datafind_job.set_universe('vanilla')
+    self.prenodes={}
+    self.datafind_job = pipeline.LSCDataFindJob(self.cachepath,self.logpath,self.config,dax=self.is_dax())
     self.datafind_job.add_opt('url-type','file')
-    self.datafind_job.set_sub_file(os.path.join(self.basepath,'datafind.sub'))
-    self.engine_job = EngineJob(self.config, os.path.join(self.basepath,'lalinference.sub'),self.logpath)
-    self.results_page_job = ResultsPageJob(self.config,os.path.join(self.basepath,'resultspage.sub'),self.logpath)
-    self.merge_job = MergeNSJob(self.config,os.path.join(self.basepath,'merge_runs.sub'),self.logpath)
-    self.coherence_test_job = CoherenceTestJob(self.config,os.path.join(self.basepath,'coherence_test.sub'),self.logpath)
-    self.gracedbjob = GraceDBJob(self.config,os.path.join(self.basepath,'gracedb.sub'),self.logpath)
+    self.datafind_job.set_sub_file(os.path.abspath(os.path.join(self.basepath,'datafind.sub')))
+    self.preengine_job = EngineJob(self.config, os.path.join(self.basepath,'prelalinference.sub'),self.logpath,ispreengine=True,dax=self.is_dax())
+    self.preengine_job.set_grid_site('local')
+    self.preengine_job.set_universe('vanilla')
+    if cp.has_option('lalinference','roq'):
+      self.romweights_job = ROMJob(self.config,os.path.join(self.basepath,'romweights.sub'),self.logpath,dax=self.is_dax())
+      self.romweights_job.set_grid_site('local')
+    # Need to create a job file for each IFO combination
+    self.engine_jobs={}
+    ifocombos=[]
+    for N in range(1,len(self.ifos)+1):
+        for a in permutations(self.ifos,N):
+            ifocombos.append(a)
+    for ifos in ifocombos:
+        self.engine_jobs[ifos] = EngineJob(self.config, os.path.join(self.basepath,'engine_%s.sub'%(reduce(lambda x,y:x+y, map(str,ifos)))),self.logpath ,dax=self.is_dax(), site=site)
+    self.results_page_job = ResultsPageJob(self.config,os.path.join(self.basepath,'resultspage.sub'),self.logpath,dax=self.is_dax())
+    self.results_page_job.set_grid_site('local')
+    self.cotest_results_page_job = ResultsPageJob(self.config,os.path.join(self.basepath,'resultspagecoherent.sub'),self.logpath,dax=self.is_dax())
+    self.cotest_results_page_job.set_grid_site('local')
+    self.merge_job = MergeNSJob(self.config,os.path.join(self.basepath,'merge_runs.sub'),self.logpath,dax=self.is_dax())
+    self.merge_job.set_grid_site('local')
+    self.coherence_test_job = CoherenceTestJob(self.config,os.path.join(self.basepath,'coherence_test.sub'),self.logpath,dax=self.is_dax())
+    self.coherence_test_job.set_grid_site('local')
+    self.gracedbjob = GraceDBJob(self.config,os.path.join(self.basepath,'gracedb.sub'),self.logpath,dax=self.is_dax())
+    self.gracedbjob.set_grid_site('local')
     # Process the input to build list of analyses to do
     self.events=self.setup_from_inputs()
-    self.times=[e.trig_time for e in self.events]
 
     # Sanity checking
     if len(self.events)==0:
-      print 'No input events found, please check your config. Will generate an empty DAG'
+      print 'No input events found, please check your config if you expect some events'
+    self.times=[e.trig_time for e in self.events]
     
     # Set up the segments
-    (mintime,maxtime)=self.get_required_data(self.times)
+    if not (self.config.has_option('input','gps-start-time') and self.config.has_option('input','gps-end-time')) and len(self.times)>0:
+      (mintime,maxtime)=self.get_required_data(self.times)
     if not self.config.has_option('input','gps-start-time'):
       self.config.set('input','gps-start-time',str(int(floor(mintime))))
     if not self.config.has_option('input','gps-end-time'):
@@ -469,14 +508,31 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     with open(conffilename,'wb') as conffile:
       self.config.write(conffile)
     # Generate the DAG according to the config given
-    if self.engine=='lalinferencenest':
-      for event in self.events: self.add_full_analysis_lalinferencenest(event)
-    elif self.engine=='lalinferencemcmc':
-      for event in self.events: self.add_full_analysis_lalinferencemcmc(event)
+    for event in self.events: self.add_full_analysis(event)
 
     self.dagfilename="lalinference_%s-%s"%(self.config.get('input','gps-start-time'),self.config.get('input','gps-end-time'))
-    self.set_dag_file(os.path.join(self.basepath,self.dagfilename))
-    
+    self.set_dag_file(self.dagfilename)
+    if self.is_dax():
+      self.set_dax_file(self.dagfilename)
+  
+  def add_full_analysis(self,event):
+    if self.engine=='lalinferencenest':
+      return self.add_full_analysis_lalinferencenest(event)
+    elif self.engine=='lalinferencemcmc':
+      return self.add_full_analysis_lalinferencemcmc(event)
+    elif self.engine=='lalinferencebambi' or self.engine=='lalinferencebambimpi':
+      return self.add_full_analysis_lalinferencebambi(event)
+
+  def create_frame_pfn_file(self):
+    """
+    Create a pegasus cache file name, uses inspiralutils
+    """
+    import inspiralutils as iu
+    gpsstart=self.config.get('input','gps-start-time')
+    gpsend=self.config.get('input','gps-end-time')
+    pfnfile=iu.create_frame_pfn_file(self.frtypes,gpsstart,gpsend)
+    return pfnfile
+   
   def get_required_data(self,times):
     """
     Calculate the data that will be needed to process all events
@@ -509,7 +565,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     Generate a DAG from a list of times
     """
     for time in self.times:
-      self.add_full_analysis_lalinferencenest(Event(trig_time=time))
+      self.add_full_analysis(Event(trig_time=time))
       
   def select_events(self):
     """
@@ -542,11 +598,19 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     in the [input] section of the ini file.
     And process the events found therein
     """
+    events=[]
     gpsstart=None
     gpsend=None
+    if self.config.has_option('input','gps-start-time'):
+      gpsstart=self.config.getfloat('input','gps-start-time')
+    if self.config.has_option('input','gps-end-time'):
+      gpsend=self.config.getfloat('input','gps-end-time')
     inputnames=['gps-time-file','injection-file','burst-injection-file','sngl-inspiral-file','coinc-inspiral-file','pipedown-db','gid']#,'lvalert-file']
-    if sum([ 1 if self.config.has_option('input',name) else 0 for name in inputnames])!=1:
-        print 'Plese specify only one input file'
+    ReadInputFromList=sum([ 1 if self.config.has_option('input',name) else 0 for name in inputnames])
+    if ReadInputFromList!=1 and (gpsstart is None or gpsend is None):
+        return []
+        print 'Please specify only one input file'
+        print 'Or specify gps-start-time and gps-end-time in the ini file'
         sys.exit(1)
     if self.config.has_option('input','events'):
       selected_events=self.config.get('input','events')
@@ -558,10 +622,32 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
           selected_events=self.select_events()
     else:
         selected_events=None
-    if self.config.has_option('input','gps-start-time'):
-      gpsstart=self.config.getfloat('input','gps-start-time')
-    if self.config.has_option('input','gps-end-time'):
-      gpsend=self.config.getfloat('input','gps-end-time')
+    # No input file given, analyse the entire time stretch between gpsstart and gpsend
+    if self.config.has_option('input','analyse-all-time') and self.config.getboolean('input','analyse-all-time')==True:
+        print 'Setting up for analysis of continuous time stretch %f - %f'%(gpsstart,gpsend)
+        seglen=self.config.getfloat('engine','seglen')
+        if(self.config.has_option('input','segment-overlap')):
+          overlap=self.config.getfloat('input','segment-overlap')
+        else:
+          overlap=32.;
+        if(overlap>seglen):
+          print 'ERROR: segment-overlap is greater than seglen'
+          sys.exit(1)
+        # Now divide gpsstart - gpsend into jobs of seglen - overlap length
+        t=gpsstart
+        events=[]
+        while(t<gpsend):
+            ev=Event(trig_time=t+seglen-2)
+            ev.set_engine_option('segment-start',str(t-overlap))
+            ev.set_engine_option('time-min',str(t))
+            tMax=t + seglen - overlap
+            if tMax>=gpsend:
+                tMax=gpsend
+            ev.set_engine_option('time-max',str(tMax))
+            events.append(ev)
+            t=tMax
+        return events
+
     # ASCII list of GPS times
     if self.config.has_option('input','gps-time-file'):
       times=scan_timefile(self.config.get('input','gps-time-file'))
@@ -597,6 +683,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       from pylal import SimInspiralUtils
       injTable=SimInspiralUtils.ReadSimInspiralFromFiles([self.config.get('input','injection-file')])
       events=[Event(SimInspiral=inj) for inj in injTable]
+      #shutil.copy(self.config.get('input','injection-file'),self.basepath)
+      self.add_pfn_cache([create_pfn_tuple(self.config.get('input','injection-file'))])
     if self.config.has_option('input','burst-injection-file'):
       from pylal import SimBurstUtils
       injfile=self.config.get('input','burst-injection-file')
@@ -605,22 +693,27 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       #injection=siminspiraltable[eventnum]
       #injTable=SimBurstUtils.ReadSimBurstFromFiles([self.config.get('input','burst-injection-file')])
       events=[Event(SimBurst=inj) for inj in injTable]
+
     # SnglInspiral Table
     if self.config.has_option('input','sngl-inspiral-file'):
       from pylal import SnglInspiralUtils
       trigTable=SnglInspiralUtils.ReadSnglInspiralFromFiles([self.config.get('input','sngl-inspiral-file')])
       events=[Event(SnglInspiral=trig) for trig in trigTable]
+      self.add_pfn_cache([create_pfn_tuple(self.config.get('input','sngl-inspiral-file'))])
+      #shutil.copy(self.config.get('input','sngl-inspiral-file'),self.basepath)
     if self.config.has_option('input','coinc-inspiral-file'):
       from pylal import CoincInspiralUtils
       coincTable = CoincInspiralUtils.readCoincInspiralFromFiles([self.config.get('input','coinc-inspiral-file')])
       events = [Event(CoincInspiral=coinc) for coinc in coincTable]
+      self.add_pfn_cache([create_pfn_tuple(self.config.get('input','coinc-inspiral-file'))])
+      #shutil.copy(self.config.get('input','coinc-inspiral-file'),self.basepath)
     # LVAlert CoincInspiral Table
     #if self.config.has_option('input','lvalert-file'):
     if self.config.has_option('input','gid'):
       gid=self.config.get('input','gid')
       flow=40.0
       if self.config.has_option('lalinference','flow'):
-        flow=min(ast.literal_eval(self.config.get('lalinference','flow')))
+        flow=min(ast.literal_eval(self.config.get('lalinference','flow')).values())
       events = readLValert(gid=gid,flow=flow,gracedb=self.config.get('condor','gracedb'))
     # pipedown-database
     else: gid=None
@@ -647,9 +740,9 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             used_events.append(e)
         events=used_events
     if gpsstart is not None:
-        events = filter(lambda e:e.trig_time>gpsstart, events)
+        events = filter(lambda e: not e.trig_time<gpsstart, events)
     if gpsend is not None:
-        events = filter(lambda e:e.trig_time<gpsend, events)
+        events = filter(lambda e: not e.trig_time>gpsend, events)
     return events
 
   def add_full_analysis_lalinferencenest(self,event):
@@ -671,27 +764,28 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     myifos=enginenodes[0].get_ifos()
     # Merge the results together
     pagedir=os.path.join(self.webdir,evstring,myifos)
+    #pagedir=os.path.join(self.basepath,evstring,myifos)
     mkdirs(pagedir)
     mergenode=MergeNSNode(self.merge_job,parents=enginenodes)
     mergenode.set_pos_output_file(os.path.join(self.posteriorpath,'posterior_%s_%s.dat'%(myifos,evstring)))
     self.add_node(mergenode)
-    respagenode=self.add_results_page_node(outdir=pagedir,parent=mergenode)
     # Call finalize to build final list of available data
     enginenodes[0].finalize()
-    respagenode.set_bayes_coherent_noise(mergenode.get_B_file())
-    respagenode.set_snr_path(enginenodes[0].get_snr_file())
-
-    if (self.config.has_option('input','injection-file') or self.config.has_option('input','burst-injection-file')) and event.event_id is not None:
-        if self.config.has_option('input','injection-file'):
-            respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
-        else:
-            respagenode.set_injection(self.config.get('input','burst-injection-file'),event.event_id)
-           
     if event.GID is not None:
       if self.config.has_option('analysis','upload-to-gracedb'):
         if self.config.getboolean('analysis','upload-to-gracedb'):
           self.add_gracedb_log_node(respagenode,event.GID)
     if self.config.getboolean('analysis','coherence-test') and len(enginenodes[0].ifos)>1:
+        if self.site!='local':
+          zipfilename='postproc_'+evstring+'.tar.gz'
+        else:
+          zipfilename=None
+        respagenode=self.add_results_page_node(resjob=self.cotest_results_page_job,outdir=pagedir,parent=mergenode,gzip_output=zipfilename)  
+        if (self.config.has_option('input','injection-file') or self.config.has_option('input','burst-injection-file')) and event.event_id is not None:
+          if self.config.has_option('input','injection-file'):
+            respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
+          else:
+            respagenode.set_injection(self.config.get('input','burst-injection-file'),event.event_id)
         mkdirs(os.path.join(self.basepath,'coherence_test'))
         par_mergenodes=[]
         for ifo in enginenodes[0].ifos:
@@ -705,9 +799,10 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             par_mergenodes.append(pmergenode)
             presultsdir=os.path.join(pagedir,ifo)
             mkdirs(presultsdir)
-            subresnode=self.add_results_page_node(outdir=presultsdir,parent=pmergenode)
+            pzipfilename='postproc_'+evstring+'_'+ifo+'.tar.gz'
+            subresnode=self.add_results_page_node(outdir=presultsdir,parent=pmergenode, gzip_output=pzipfilename)
             subresnode.set_bayes_coherent_noise(pmergenode.get_B_file())
-            subresnode.set_snr_path(cotest_nodes[0].get_snr_file())
+            subresnode.set_snr_file(cotest_nodes[0].get_snr_file())
             if self.config.has_option('input','injection-file') and event.event_id is not None:
                 subresnode.set_injection(self.config.get('input','injection-file'),event.event_id)
             if self.config.has_option('input','burst-injection-file') and event.event_id is not None:
@@ -718,6 +813,20 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         self.add_node(coherence_node)
         respagenode.add_parent(coherence_node)
         respagenode.set_bayes_coherent_incoherent(coherence_node.get_output_files()[0])
+    else:
+        if self.site!='local':
+          zipfilename='postproc_'+evstring+'.tar.gz'
+        else:
+          zipfilename=None
+        respagenode=self.add_results_page_node(outdir=pagedir,parent=mergenode,gzip_output=zipfilename)
+    respagenode.set_bayes_coherent_noise(mergenode.get_B_file())
+    respagenode.set_snr_file(enginenodes[0].get_snr_file())
+    if self.config.has_option('input','injection-file') and event.event_id is not None:
+        respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
+    if self.config.has_option('input','burst-injection-file') and event.event_id is not None:
+        respagenode.set_injection(self.config.get('input','burst-injection-file'),event.event_id)
+    if event.GID is not None:
+        self.add_gracedb_log_node(respagenode,event.GID)
     return True
 	
   def add_full_analysis_lalinferencemcmc(self,event):
@@ -736,6 +845,33 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     pagedir=os.path.join(self.webdir,evstring,myifos)
     mkdirs(pagedir)
     respagenode=self.add_results_page_node(outdir=pagedir)
+    if self.config.has_option('input','injection-file') and event.event_id is not None:
+        respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
+    map(respagenode.add_engine_parent, enginenodes)
+    if event.GID is not None:
+      if self.config.has_option('analysis','upload-to-gracedb'):
+        if self.config.getboolean('analysis','upload-to-gracedb'):
+          self.add_gracedb_log_node(respagenode,event.GID)
+
+  def add_full_analysis_lalinferencebambi(self,event):
+    """
+    Generate an end-to-end analysis of a given event
+    For LALInferenceBAMBI.
+    """
+    evstring=str(event.event_id)
+    if event.trig_time is not None:
+        evstring=str(event.trig_time)+'-'+str(event.event_id)
+    enginenodes=[]
+    enginenodes.append(self.add_engine_node(event))
+    myifos=enginenodes[0].get_ifos()
+    pagedir=os.path.join(self.webdir,evstring,myifos)
+    mkdirs(pagedir)
+    respagenode=self.add_results_page_node(outdir=pagedir)
+    respagenode.set_bayes_coherent_noise(enginenodes[0].get_B_file())
+    respagenode.set_header_file(enginenodes[0].get_header_file())
+    if self.config.has_option('input','injection-file') and event.event_id is not None:
+        respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
+
     map(respagenode.add_engine_parent, enginenodes)
     if event.GID is not None:
       if self.config.has_option('analysis','upload-to-gracedb'):
@@ -796,24 +932,44 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       ifos=event.ifos
     if ifos is None:
       ifos=self.ifos
-    node=self.EngineNode(self.engine_job)
     end_time=event.trig_time
+    seglen=self.config.getfloat('engine','seglen')
+    segstart=end_time+2-seglen
+    segend=segstart+seglen
+    myifos=set([])
+    for ifo in ifos:
+      for seg in self.segments[ifo]:
+        if segstart >= seg.start() and segend < seg.end():
+          myifos.add(ifo)
+    ifos=myifos
+    if len(ifos)==0:
+      print 'No data found for time %f - %f, skipping'%(segstart,segend)
+      return
+
+    romweightsnode={}
+    prenode=self.EngineNode(self.preengine_job)
+    node=self.EngineNode(self.engine_jobs[tuple(ifos)])
+    roqeventpath=os.path.join(self.preengine_job.roqpath,str(event.event_id))
+    if self.config.has_option('lalinference','roq'):
+      mkdirs(roqeventpath)
     node.set_trig_time(end_time)
-    node.set_seed(random.randint(1,2**31))
-    if event.srate: node.set_srate(event.srate)
-    if event.trigSNR: node.set_trigSNR(event.trigSNR)
-    
-    """ The reason for the following is that LALInferenceReadData will increment dataseed by one for each IFO (keeping the order given in self.ifos). But for the coherence test, the runs with a single IFO won't have their seeds updated, and that will result in the BCI to be wrong. We thus increment by one the seed here"""
-    idx=0
-    if len(ifos)==len(self.ifos):
-      idx=0
-    elif len(ifos)==1:
-      thisifo=ifos[0]
-      idx=self.ifos.index(thisifo)
-      
-      
+    prenode.set_trig_time(end_time)
+    randomseed=random.randint(1,2**31)
+    node.set_seed(randomseed)
+    prenode.set_seed(randomseed)
+    srate=0
+    if event.srate:
+      srate=event.srate
+    if self.config.has_option('lalinference','srate'):
+      srate=ast.literal_eval(self.config.get('lalinference','srate'))
+    if srate is not 0:
+      node.set_srate(srate)
+      prenode.set_srate(srate)
+    if event.trigSNR:
+      node.set_trigSNR(event.trigSNR)
     if self.dataseed:
-      node.set_dataseed(self.dataseed+5*event.event_id+idx)
+      node.set_dataseed(self.dataseed+event.event_id)
+      prenode.set_dataseed(self.dataseed+event.event_id)
     gotdata=0
     for ifo in ifos:
       if event.timeslides.has_key(ifo):
@@ -821,7 +977,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       else:
         slide=0
       for seg in self.segments[ifo]:
-        if end_time >= seg.start() and end_time < seg.end():
+        if segstart >= seg.start() and segend < seg.end():
           if self.mdcchannels:
             mdcchannel=self.mdcchannels[ifo]
           else:
@@ -830,49 +986,91 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             mdccache=self.mdccaches[ifo]
             node.add_var_opt('inject_from_mdc','')
           else:
-            mdccache=None
-          gotdata+=node.add_ifo_data(ifo,seg,self.channels[ifo],mdccache=mdccache,mdcchannel=mdcchannel,timeslide=slide)
-    if self.config.has_option('lalinference','fake-cache'):
-      node.cachefiles=ast.literal_eval(self.config.get('lalinference','fake-cache'))
-      node.channels=ast.literal_eval(self.config.get('data','channels'))
-      if len(ifos)==0: node.ifos=node.cachefiles.keys()
-      else: node.ifos=ifos
-      node.timeslides=dict([ (ifo,0) for ifo in node.ifos])
-      gotdata=1
+            mdccache=None      
+          if not self.config.has_option('lalinference','fake-cache'):
+            if self.config.has_option('lalinference','roq'):
+              prenode.add_ifo_data(ifo,seg,self.channels[ifo],timeslide=slide)
+            gotdata+=node.add_ifo_data(ifo,seg,self.channels[ifo],mdccache=mdccache,mdcchannel=mdcchannel,timeslide=slide)
+          else:
+            fakecachefiles=ast.literal_eval(self.config.get('lalinference','fake-cache'))
+            if self.config.has_option('lalinference','roq'):
+              prenode.add_fake_ifo_data(ifo,seg,fakecachefiles[ifo],timeslide=slide)
+            gotdata+=node.add_fake_ifo_data(ifo,seg,fakecachefiles[ifo],mdccache=mdccache,mdcchannel=mdcchannel,timeslide=slide)
+
     if self.config.has_option('lalinference','psd-xmlfile'):
       psdpath=os.path.realpath(self.config.get('lalinference','psd-xmlfile'))
-      node.psds=get_xml_psds(psdpath,ifos,os.path.join(self.basepath,'PSDs'),end_time=end_time) 
-      if len(ifos)==0: node.ifos=node.cachefiles.keys()
-      else: node.ifos=ifos
+      node.psds=get_xml_psds(psdpath,ifos,os.path.join(self.basepath,'PSDs'),end_time=end_time)
+      prenode.psds=get_xml_psds(psdpath,ifos,os.path.join(self.basepath,'PSDs'),end_time=end_time)
+      if len(ifos)==0:
+        node.ifos=node.cachefiles.keys()
+        prenode.ifos=prenode.cachefiles.keys()
+      else:
+        node.ifos=ifos
+        prenode.ifos=ifos
       gotdata=1
     if self.config.has_option('input','gid'):
       if os.path.isfile(os.path.join(self.basepath,'psd.xml.gz')):
         psdpath=os.path.join(self.basepath,'psd.xml.gz')
-        node.psds=get_xml_psds(psdpath,ifos,os.path.join(self.basepath,'PSDs'),end_time=None) 
+        node.psds=get_xml_psds(psdpath,ifos,os.path.join(self.basepath,'PSDs'),end_time=None)
+        prenode.psds=get_xml_psds(psdpath,ifos,os.path.join(self.basepath,'PSDs'),end_time=None)
     if self.config.has_option('lalinference','flow'):
       node.flows=ast.literal_eval(self.config.get('lalinference','flow'))
+      prenode.flows=ast.literal_eval(self.config.get('lalinference','flow'))
     if event.fhigh:
       for ifo in ifos:
         node.fhighs[ifo]=str(event.fhigh)
-    if self.config.has_option('lalinference','ER2-cache'):
-      node.cachefiles=ast.literal_eval(self.config.get('lalinference','ER2-cache'))
-      node.channels=ast.literal_eval(self.config.get('data','channels'))
-      node.psds=ast.literal_eval(self.config.get('lalinference','psds'))
-      for ifo in ifos:
-        node.add_input_file(os.path.join(self.basepath,node.cachefiles[ifo]))
-        node.cachefiles[ifo]=os.path.join(self.basepath,node.cachefiles[ifo])
-        node.add_input_file(os.path.join(self.basepath,node.psds[ifo]))
-        node.psds[ifo]=os.path.join(self.basepath,node.psds[ifo])
-      if len(ifos)==0: node.ifos=node.cachefiles.keys()
-      else: node.ifos=ifos
-      node.timeslides=dict([ (ifo,0) for ifo in node.ifos])
-      gotdata=1
-    else:
-      # Add the nodes it depends on
-      for seg in node.scisegs.values():
-        dfnode=seg.get_df_node()
-        if dfnode is not None and dfnode not in self.get_nodes():
-    	  self.add_node(dfnode)
+        prenode.fhighs[ifo]=str(event.fhigh)
+    if self.config.has_option('lalinference','fhigh'):
+      node.fhighs=ast.literal_eval(self.config.get('lalinference','fhigh'))
+      prenode.fhighs=ast.literal_eval(self.config.get('lalinference','fhigh'))
+      prenode.set_max_psdlength(self.config.getint('input','max-psd-length'))
+      prenode.set_padding(self.config.getint('input','padding'))
+      #prenode[ifo].set_output_file('/dev/null')
+      prenode.add_var_arg('--Niter 1')
+      prenode.add_var_arg('--data-dump '+roqeventpath)
+      if self.config.has_option('lalinference','seglen'):
+        prenode.set_seglen(self.config.getint('lalinference','seglen'))
+      elif self.config.has_option('engine','seglen'):
+        prenode.set_seglen(self.config.getint('engine','seglen'))
+      else:
+        prenode.set_seglen(event.duration)
+    # Add the nodes it depends on
+    for ifokey, seg in node.scisegs.items():
+      dfnode=seg.get_df_node()
+    
+      if 1==1:
+        #if dfnode is not None and dfnode not in self.get_nodes():
+        if self.config.has_option('lalinference','roq'):
+          #if gotdata and seg.id() not in self.prenodes.keys():
+          if gotdata and event.event_id not in self.prenodes.keys():
+            if prenode not in self.get_nodes():
+              self.add_node(prenode)
+              for ifo in ifos:
+                romweightsnode[ifo]=self.add_rom_weights_node(ifo,prenode)
+                #self.add_node(romweightsnode[ifo])
+                if self.config.has_option('input','injection-file'):
+                  freqDataFile=os.path.join(roqeventpath,ifo+'-freqDataWithInjection.dat')
+                else:
+                  freqDataFile=os.path.join(roqeventpath,ifo+'-freqData.dat')
+                prenode.add_output_file(freqDataFile)
+                prenode.add_output_file(os.path.join(roqeventpath,ifo+'-PSD.dat'))
+                romweightsnode[ifo].add_var_arg('-d '+freqDataFile)
+                romweightsnode[ifo].add_input_file(freqDataFile)
+                romweightsnode[ifo].add_var_arg('-p '+os.path.join(roqeventpath,ifo+'-PSD.dat'))
+                romweightsnode[ifo].add_input_file(os.path.join(roqeventpath,ifo+'-PSD.dat'))
+                romweightsnode[ifo].add_var_arg('-o '+roqeventpath)
+                romweightsnode[ifo].add_output_file(os.path.join(roqeventpath,'weights_'+ifo+'.dat'))
+              #self.prenodes[seg.id()]=(prenode,romweightsnode)
+              self.prenodes[event.event_id]=(prenode,romweightsnode)
+
+      if self.config.has_option('lalinference','roq'):
+        #node.add_parent(self.prenodes[seg.id()][1][ifokey])
+        node.add_parent(self.prenodes[event.event_id][1][ifokey])
+
+      if dfnode is not None and dfnode not in self.get_nodes():
+        if not self.config.has_option('lalinference','fake-cache'):
+          self.add_node(dfnode)
+
     if gotdata:
       self.add_node(node)
     else:
@@ -904,15 +1102,35 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     mkdirs(out_dir)
     node.set_output_file(os.path.join(out_dir,node.engine+'-'+str(event.event_id)+'-'+node.get_ifos()+'-'+str(node.get_trig_time())+'-'+str(node.id)))
     node.set_snr_path(os.path.join(self.basepath, 'SNR','snr_'+node.get_ifos()+'_'+str(node.get_trig_time())+".dat"))
+    if self.config.has_option('lalinference','roq'):
+      for ifo in ifos:
+        node.add_var_arg('--'+ifo+'-roqweights '+os.path.join(roqeventpath,'weights_'+ifo+'.dat'))
+        node.add_input_file(os.path.join(roqeventpath,'weights_'+ifo+'.dat'))
+        
+      node.add_var_arg('--roqtime_steps '+os.path.join(roqeventpath,'roq_sizes.dat'))
+      node.add_input_file(os.path.join(roqeventpath,'roq_sizes.dat'))
+      if self.config.has_option('paths','rom_nodes'):
+        nodes_path=self.config.get('paths','rom_nodes')
+        node.add_var_arg('--roqnodes '+nodes_path)
+        node.add_input_file(nodes_path)
+      else:
+        print 'No nodes specified for ROM likelihood'
+        return None
+    for (opt,arg) in event.engine_opts.items():
+        node.add_var_opt(opt,arg)
     return node
     
-  def add_results_page_node(self,outdir=None,parent=None,extra_options=None):
-    node=ResultsPageNode(self.results_page_job)
+  def add_results_page_node(self,resjob=None,outdir=None,parent=None,extra_options=None,gzip_output=None):
+    if resjob is None:
+        resjob=self.results_page_job
+    node=ResultsPageNode(resjob)
     if parent is not None:
       node.add_parent(parent)
       infile=parent.get_pos_file()
       node.add_file_arg(infile)
     node.set_output_path(outdir)
+    if gzip_output is not None:
+        node.set_gzip_output(gzip_output)
     self.add_node(node)
     return node
 
@@ -922,28 +1140,82 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     self.add_node(node)
     return node
 
-class EngineJob(pipeline.CondorDAGJob):
-  def __init__(self,cp,submitFile,logdir):
+  def add_rom_weights_node(self,ifo,parent=None):
+    #try:
+    #node=self.romweightsnodes[ifo]
+        #except KeyError:
+    node=ROMNode(self.romweights_job,ifo,parent.seglen,parent.flows[ifo])
+    self.romweightsnodes[ifo]=node
+    if parent is not None:
+      node.add_parent(parent)
+    self.add_node(node)
+    return node
+
+
+class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
+  def __init__(self,cp,submitFile,logdir,ispreengine=False,dax=False,site=None):
+    self.ispreengine=ispreengine
     self.engine=cp.get('analysis','engine')
     basepath=cp.get('paths','basedir')
     snrpath=os.path.join(basepath,'SNR')
     self.snrpath=snrpath
     mkdirs(snrpath)
-    if self.engine=='lalinferencemcmc':
-      exe=cp.get('condor','mpirun')
-      self.binary=cp.get('condor',self.engine)
-      #universe="parallel"
-      universe="vanilla"
-      self.write_sub_file=self.__write_sub_file_mcmc_mpi
-    else:
+    if ispreengine is True:
+      roqpath=os.path.join(basepath,'ROQdata')
+      self.roqpath=roqpath
+      mkdirs(roqpath)
+      self.engine='lalinferencemcmc'
       exe=cp.get('condor',self.engine)
-      universe="standard"
+      if cp.has_option('engine','site'):
+        if self.site is not None and self.self!='local':
+          universe='vanilla'
+        else:
+          universe="standard"
+      else:
+        universe='vanilla'
+    else:
+      if self.engine=='lalinferencemcmc':
+        exe=cp.get('condor','mpirun')
+        self.binary=cp.get('condor',self.engine)
+        #universe="parallel"
+        universe="vanilla"
+        self.write_sub_file=self.__write_sub_file_mcmc_mpi
+      elif self.engine=='lalinferencebambimpi':
+        exe=cp.get('condor','mpirun')
+        self.binary=cp.get('condor','lalinferencebambi')
+        universe="vanilla"
+        self.write_sub_file=self.__write_sub_file_mcmc_mpi
+      elif self.engine=='lalinferencenest':
+        exe=cp.get('condor',self.engine)
+        if site is not None and site!='local':
+          universe='vanilla'
+        else:
+          # Run in the vanilla universe when using resume
+          if cp.has_option('engine','resume'):
+            universe='vanilla'
+          else:
+            universe='standard'
+      else:
+        print 'LALInferencePipe: Unknown engine node type %s!'%(self.engine)
+        sys.exit(1)
+
     pipeline.CondorDAGJob.__init__(self,universe,exe)
+    pipeline.AnalysisJob.__init__(self,cp,dax=dax)
+    # Set grid site if needed
+    if site:
+      self.set_grid_site(site)
+      if site!='local':
+        self.set_executable_installed(False)
     # Set the options which are always used
-    self.set_sub_file(submitFile)
-    if self.engine=='lalinferencemcmc':
+    self.set_sub_file(os.path.abspath(submitFile))
+    if self.engine=='lalinferencemcmc' or self.engine=='lalinferencebambimpi':
       #openmpipath=cp.get('condor','openmpi')
-      self.machine_count=cp.get('mpi','machine-count')
+      if ispreengine is False:
+        self.machine_count=cp.get('mpi','machine-count')
+        self.machine_memory=cp.get('mpi','machine-memory')
+      else:
+        self.machine_count=str(1)
+        self.machine_memory=cp.get('mpi','machine-memory')
       #self.add_condor_cmd('machine_count',machine_count)
       #self.add_condor_cmd('environment','CONDOR_MPI_PATH=%s'%(openmpipath))
       try:
@@ -954,19 +1226,31 @@ class EngineJob(pipeline.CondorDAGJob):
         self.add_condor_cmd('Requirements','CAN_RUN_MULTICORE')
         self.add_condor_cmd('+RequiresMultipleCores','True')
       self.add_condor_cmd('request_cpus',self.machine_count)
-      self.add_condor_cmd('request_memory',str(float(self.machine_count)*512))
+      self.add_condor_cmd('request_memory',str(float(self.machine_count)*float(self.machine_memory)))
       self.add_condor_cmd('getenv','true')
       if cp.has_option('condor','queue'):
         self.add_condor_cmd('+'+cp.get('condor','queue'),'True')
         self.add_condor_cmd('Requirements','(TARGET.'+cp.get('condor','queue')+' =?= True)')
     if cp.has_section(self.engine):
-      self.add_ini_opts(cp,self.engine)
+      if ispreengine is False:
+        self.add_ini_opts(cp,self.engine)
     if  cp.has_section('engine'):
-      self.add_ini_opts(cp,'engine')
-    self.add_opt('snrpath',snrpath)
+      if ispreengine is False:
+        self.add_ini_opts(cp,'engine')
+    #self.add_opt('snrpath',snrpath)
     self.set_stdout_file(os.path.join(logdir,'lalinference-$(cluster)-$(process)-$(node).out'))
     self.set_stderr_file(os.path.join(logdir,'lalinference-$(cluster)-$(process)-$(node).err'))
-  
+ 
+  def set_grid_site(self,site=None):
+    """
+    Over-load base class method to choose condor universe properly
+    """
+    if site is not None and site!='local':
+      self.set_universe('vanilla')
+    else:
+      self.set_universe('standard')
+    pipeline.CondorDAGJob.set_grid_site(self,site)
+ 
   def __write_sub_file_mcmc_mpi(self):
     """
     Nasty hack to insert the MPI stuff into the arguments
@@ -988,7 +1272,6 @@ class EngineJob(pipeline.CondorDAGJob):
     subfile=open(subfilepath,'w')
     subfile.write(outstring)
     subfile.close()
-      
  
 class EngineNode(pipeline.CondorDAGNode):
   new_id = itertools.count().next
@@ -1011,8 +1294,12 @@ class EngineNode(pipeline.CondorDAGNode):
     self.cachefiles={}
     self.mdccaches={}
     self.id=EngineNode.new_id()
+    if li_job.ispreengine is False:
+      self.id=EngineNode.new_id()
     self.__finaldata=False
     self.snrpath=None
+    self.fakedata=False
+    self.lfns=[] # Local file names (for frame files and pegasus)
 
   def set_seglen(self,seglen):
     self.seglen=seglen
@@ -1075,6 +1362,22 @@ class EngineNode(pipeline.CondorDAGNode):
     self.set_event_number(event)
 
   def get_trig_time(self): return self.__trigtime
+ 
+  def add_fake_ifo_data(self,ifo,sciseg,fake_cache_name,mdccache=None,mdcchannel=None,timeslide=0):
+    """
+    Dummy method to set up fake data without needing to run datafind
+    """
+    self.ifos.append(ifo)
+    self.scisegs[ifo]=sciseg
+    self.cachefiles[ifo]=fake_cache_name
+    self.timeslides[ifo]=timeslide
+    self.channels[ifo]=fake_cache_name
+    self.fakedata=True
+    if mdcchannel:
+      self.mdcchannels[ifo]=mdcchannel
+    if mdccache:
+      self.mdccaches[ifo]=mdccache
+    return 1
   
   def add_ifo_data(self,ifo,sciseg,channelname,mdccache=None,mdcchannel=None,timeslide=0):
     self.ifos.append(ifo)
@@ -1082,8 +1385,10 @@ class EngineNode(pipeline.CondorDAGNode):
     parent=sciseg.get_df_node()
     if parent is not None:
         self.add_parent(parent)
-        self.cachefiles[ifo]=parent.get_output_files()[0]
-        self.add_input_file(self.cachefiles[ifo])
+        df_output=parent.get_output()
+        self.set_cache(df_output,ifo)
+        #self.cachefiles[ifo]=parent.get_output_files()[0]
+        #self.add_input_file(self.cachefiles[ifo])
         self.timeslides[ifo]=timeslide
         self.channels[ifo]=channelname
         if mdcchannel:
@@ -1093,7 +1398,23 @@ class EngineNode(pipeline.CondorDAGNode):
 
         return 1
     else: return 0
-  
+ 
+  def set_cache(self,filename,ifo):
+    """
+    Add a cache file from LIGODataFind. Based on same method from pipeline.AnalysisNode
+    """
+    #print 'Adding cache files %s'%(str(filename))
+    if isinstance(filename,str): # A normal lal cache file
+        self.cachefiles[ifo]=filename
+        self.add_input_file(filename)
+    elif isinstance(filename,list): # A list of LFNs (for DAX mode)
+        self.add_var_opt('glob-frame-data',' ')
+        if len(filename) == 0:
+          raise pipeline.CondorDAGNodeError, \
+          "LDR did not return any LFNs for query: check ifo and frame type"
+        for lfn in filename:
+            self.lfns.append(lfn)
+
   def finalize(self):
     if not self.__finaldata:
       self._finalize_ifo_data()
@@ -1102,6 +1423,7 @@ class EngineNode(pipeline.CondorDAGNode):
   def _finalize_ifo_data(self):
       """
       Add final list of IFOs and data to analyse to command line arguments.
+      """
       """
       ifostring='['
       cachestring='['
@@ -1141,11 +1463,23 @@ class EngineNode(pipeline.CondorDAGNode):
       self.add_var_opt('cache',cachestring)
       if self.psds: self.add_var_opt('psd',psdstring)
       if self.flows: self.add_var_opt('flow',flowstring)
-      if self.mdcchannels: self.add_var_opt('MDC-channel',mdcchannelstring)
-      if self.mdccaches: self.add_var_opt('MDC-cache',mdccachestring)
+      #if self.mdcchannels: self.add_var_opt('MDC-channel',mdcchannelstring)
+      #if self.mdccaches: self.add_var_opt('MDC-cache',mdccachestring)
       if self.fhighs: self.add_var_opt('fhigh',fhighstring)
-      if any(self.timeslides):
-        self.add_var_opt('timeslide',slidestring)
+      #if any(self.timeslides):
+      #  self.add_var_opt('timeslide',slidestring)
+      """
+      for ifo in self.ifos:
+        self.add_var_arg('--ifo '+ifo)
+        if self.fakedata:
+            self.add_var_opt('%s-cache'%(ifo),self.cachefiles[ifo])
+        elif not self.lfns:
+            self.add_file_opt('%s-cache'%(ifo),self.cachefiles[ifo])
+        self.add_var_opt('%s-channel'%(ifo),self.channels[ifo])
+        if self.flows: self.add_var_opt('%s-flow'%(ifo),self.flows[ifo])
+        if self.psds: self.add_var_opt('%s-psd'%(ifo),self.psds[ifo])
+        if any(self.timeslides): self.add_var_opt('%s-timeslide'%(ifo),self.timeslides[ifo])
+
       # Start at earliest common time
       # NOTE: We perform this arithmetic for all ifos to ensure that a common data set is
       # Used when we are running the coherence test.
@@ -1160,8 +1494,15 @@ class EngineNode(pipeline.CondorDAGNode):
         (starttime,endtime)=self.get_required_data(self.get_trig_time())
         starttime=floor(starttime)
         endtime=ceil(endtime)
-        #starttime=self.get_trig_time()-self.padding-self.seglen-self.psdlength#-0.5*self.maxlength
-        #endtime=starttime+self.padding#+self.maxlength
+      #if self.scisegs!={}:
+      starttime=max([int(self.scisegs[ifo].start()) for ifo in self.ifos])
+      endtime=min([int(self.scisegs[ifo].end()) for ifo in self.ifos])
+      #else:
+      #  (starttime,endtime)=self.get_required_data(self.get_trig_time())
+      #  starttime=floor(starttime)
+      #  endtime=ceil(endtime)
+      #starttime=self.get_trig_time()-self.padding-self.seglen-self.psdlength#-0.5*self.maxlength
+      #endtime=starttime+self.padding#+self.maxlength
       self.GPSstart=starttime
       self.__GPSend=endtime
       length=endtime-starttime
@@ -1195,7 +1536,7 @@ class EngineNode(pipeline.CondorDAGNode):
               if trig_time-psdpad-starttime>endtime-psdpad-trig_time:
                   self.psdlength=trig_time-psdpad-starttime-1.
                   side="left"
-                  self.GPSstart=startime+1.
+                  self.GPSstart=starttime+1.
               else:
                   self.psdlength=endtime-trig_time-psdpad-1.
                   side="right"
@@ -1205,7 +1546,7 @@ class EngineNode(pipeline.CondorDAGNode):
       # Override calculated start time if requested by user in ini file
       if self.psdstart is not None:
         self.GPSstart=self.psdstart
-        print 'Over-riding start time to user-specified value %f'%(self.GPSstart)
+        #print 'Over-riding start time to user-specified value %f'%(self.GPSstart)
         #if self.GPSstart<starttime or self.GPSstart>endtime:
         #  print 'ERROR: Over-ridden time lies outside of science segment!'
         #  raise Exception('Bad psdstart specified') 
@@ -1218,6 +1559,15 @@ class EngineNode(pipeline.CondorDAGNode):
       self.add_var_opt('seglen',self.seglen)
       if (trig_time > self.GPSstart and trig_time<self.GPSstart+maxLength+psdpad ):
           print "WARNING: trigtime %s will be inside PSD segment (start=%s length+pad= %s)!\n"%(trig_time,self.GPSstart,maxLength+psdpad)
+      for lfn in self.lfns:
+        a, b, c, d = lfn.split('.')[0].split('-')
+        t_start = int(c)
+        t_end = int(c) + int(d)
+        data_end=max(self.GPSstart+self.psdlength,trig_time+2)
+        if( t_start <= data_end and t_end>self.GPSstart):
+        #if (t_start <= (self.GPSstart+self.psdlength or t_start <=trig_time+2 or t_end >=) \
+        #    and ( (t_end <= (self.GPSstart+self.psdlength )) or (t_end <= trig_time+2) ))  :
+            self.add_input_file(lfn)
       self.__finaldata=True
 
 class LALInferenceNestNode(EngineNode):
@@ -1229,11 +1579,14 @@ class LALInferenceNestNode(EngineNode):
   def set_output_file(self,filename):
     self.nsfile=filename+'.dat'
     self.add_file_opt(self.outfilearg,self.nsfile,file_is_output_file=True)
-    self.paramsfile=self.nsfile+'_params.txt'
     self.Bfilename=self.nsfile+'_B.txt'
+    self.add_output_file(self.Bfilename)
     self.headerfile=self.nsfile+'_params.txt'
+    self.add_output_file(self.headerfile)
+
   def set_snr_path(self,snrpath):
       self.snrpath=snrpath
+
   def get_B_file(self):
     return self.Bfilename
 
@@ -1255,18 +1608,41 @@ class LALInferenceMCMCNode(EngineNode):
 
   def set_output_file(self,filename):
     self.posfile=filename+'.00'
-    self.add_file_opt(self.outfilearg,filename)
+    self.add_file_opt(self.outfilearg,filename,file_is_output_file=True)
     self.add_output_file(self.posfile)
 
   def get_pos_file(self):
     return self.posfile
 
+class LALInferenceBAMBINode(EngineNode):
+  def __init__(self,li_job):
+    EngineNode.__init__(self,li_job)
+    self.engine='lalinferencebambi'
+    self.outfilearg='outfile'
 
-class ResultsPageJob(pipeline.CondorDAGJob):
-  def __init__(self,cp,submitFile,logdir):
+  def set_output_file(self,filename):
+    self.fileroot=filename+'_'
+    self.posfile=self.fileroot+'post_equal_weights.dat'
+    self.paramsfile=self.fileroot+'params.txt'
+    self.Bfilename=self.fileroot+'evidence.dat'
+    self.headerfile=self.paramsfile
+    self.add_file_opt(self.outfilearg,self.fileroot)
+
+  def get_B_file(self):
+    return self.Bfilename
+
+  def get_pos_file(self):
+    return self.posfile
+
+  def get_header_file(self):
+    return self.headerfile
+
+class ResultsPageJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
+  def __init__(self,cp,submitFile,logdir,dax=False):
     exe=cp.get('condor','resultspage')
     pipeline.CondorDAGJob.__init__(self,"vanilla",exe)
-    self.set_sub_file(submitFile)
+    pipeline.AnalysisJob.__init__(self,cp,dax=dax) # Job always runs locally
+    self.set_sub_file(os.path.abspath(submitFile))
     self.set_stdout_file(os.path.join(logdir,'resultspage-$(cluster)-$(process).out'))
     self.set_stderr_file(os.path.join(logdir,'resultspage-$(cluster)-$(process).err'))
     self.add_condor_cmd('getenv','True')
@@ -1282,14 +1658,18 @@ class ResultsPageNode(pipeline.CondorDAGNode):
         pipeline.CondorDAGNode.__init__(self,results_page_job)
         if outpath is not None:
             self.set_output_path(path)
+    def set_gzip_output(self,path):
+        self.add_file_opt('archive',path,file_is_output_file=True)
     def set_output_path(self,path):
         self.webpath=path
+        #self.add_file_opt('outpath',path,file_is_output_file=True)
         self.add_var_opt('outpath',path)
+        #self.add_file_opt('archive','results.tar.gz',file_is_output_file=True)
         mkdirs(path)
         self.posfile=os.path.join(path,'posterior_samples.dat')
     def set_injection(self,injfile,eventnumber):
         self.injfile=injfile
-        self.add_var_arg('--inj '+injfile)
+        self.add_file_opt('inj',injfile)
         self.set_event_number(eventnumber)
     def set_event_number(self,event):
         """
@@ -1313,25 +1693,27 @@ class ResultsPageNode(pipeline.CondorDAGNode):
         self.add_var_opt('trig','coinc.xml')
     def get_pos_file(self): return self.posfile
     def set_bayes_coherent_incoherent(self,bcifile):
-        self.add_var_arg('--bci '+bcifile)
+        self.add_file_opt('bci',bcifile)
     def set_bayes_coherent_noise(self,bsnfile):
-        self.add_var_arg('--bsn '+bsnfile)
-    def set_snr_path(self,snrfile):
-        self.add_var_arg('--snr '+snrfile)
+        self.add_file_opt('bsn',bsnfile)
     def set_snr_file(self,snrfile):
         self.add_var_arg('--snr '+snrfile)
-class CoherenceTestJob(pipeline.CondorDAGJob):
+    def set_header_file(self,headerfile):
+        self.add_var_arg('--header '+headerfile)
+        
+class CoherenceTestJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     """
     Class defining the coherence test job to be run as part of a pipeline.
     """
-    def __init__(self,cp,submitFile,logdir):
+    def __init__(self,cp,submitFile,logdir,dax=False):
       exe=cp.get('condor','coherencetest')
       pipeline.CondorDAGJob.__init__(self,"vanilla",exe)
+      pipeline.AnalysisJob.__init__(self,cp,dax=dax) 
       self.add_opt('coherent-incoherent','')
       self.add_condor_cmd('getenv','True')
       self.set_stdout_file(os.path.join(logdir,'coherencetest-$(cluster)-$(process).out'))
       self.set_stderr_file(os.path.join(logdir,'coherencetest-$(cluster)-$(process).err'))
-      self.set_sub_file(submitFile)
+      self.set_sub_file(os.path.abspath(submitFile))
 
 class CoherenceTestNode(pipeline.CondorDAGNode):
     """
@@ -1367,7 +1749,7 @@ class CoherenceTestNode(pipeline.CondorDAGNode):
       for inco in self.incoherent_parents:
         self.add_file_arg(inco.get_B_file())
 
-class MergeNSJob(pipeline.CondorDAGJob):
+class MergeNSJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     """
     Class defining a job which merges several parallel nested sampling jobs into a single file
     Input arguments:
@@ -1375,14 +1757,18 @@ class MergeNSJob(pipeline.CondorDAGJob):
     submitFile    - Path to store the submit file
     logdir        - A directory to hold the stderr, stdout files of the merge runs
     """
-    def __init__(self,cp,submitFile,logdir):
+    def __init__(self,cp,submitFile,logdir,dax=False):
       exe=cp.get('condor','mergescript')
       pipeline.CondorDAGJob.__init__(self,"vanilla",exe)
-      self.set_sub_file(submitFile)
+      pipeline.AnalysisJob.__init__(self,cp,dax=dax) 
+      self.set_sub_file(os.path.abspath(submitFile))
       self.set_stdout_file(os.path.join(logdir,'merge-$(cluster)-$(process).out'))
       self.set_stderr_file(os.path.join(logdir,'merge-$(cluster)-$(process).err'))
       self.add_condor_cmd('getenv','True')
-      self.add_opt('Nlive',cp.get('engine','nlive'))
+      if cp.has_option('engine','nlive'):
+        self.add_opt('Nlive',cp.get('engine','nlive'))
+      elif cp.has_option('engine','Nlive'):
+        self.add_opt('Nlive',cp.get('engine','Nlive'))
       if cp.has_option('merge','npos'):
       	self.add_opt('npos',cp.get('merge','npos'))
 
@@ -1404,23 +1790,27 @@ class MergeNSNode(pipeline.CondorDAGNode):
         self.add_parent(parent)
         self.add_file_arg(parent.get_ns_file())
         self.add_file_opt('headers',parent.get_header_file())
+        self.add_input_file(parent.get_B_file())
 
     def set_pos_output_file(self,file):
         self.add_file_opt('pos',file,file_is_output_file=True)
         self.posfile=file
+        self.Bfilename=self.posfile+'_B.txt'
+        self.add_output_file(self.Bfilename)
     
     def get_pos_file(self): return self.posfile
-    def get_B_file(self): return self.posfile+'_B.txt'
+    def get_B_file(self): return self.Bfilename
 
-class GraceDBJob(pipeline.CondorDAGJob):
+class GraceDBJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     """
     Class for a gracedb job
     """
-    def __init__(self,cp,submitFile,logdir):
+    def __init__(self,cp,submitFile,logdir,dax=False):
       exe=cp.get('condor','gracedb')
       #pipeline.CondorDAGJob.__init__(self,"vanilla",exe)
       pipeline.CondorDAGJob.__init__(self,"scheduler",exe)
-      self.set_sub_file(submitFile)
+      pipeline.AnalysisJob.__init__(self,cp,dax=dax)
+      self.set_sub_file(os.path.abspath(submitFile))
       self.set_stdout_file(os.path.join(logdir,'gracedb-$(cluster)-$(process).out'))
       self.set_stderr_file(os.path.join(logdir,'gracedb-$(cluster)-$(process).err'))
       self.add_condor_cmd('getenv','True')
@@ -1457,12 +1847,52 @@ class GraceDBNode(pipeline.CondorDAGNode):
         res=respagenode
         #self.set_page_path(res.webpath.replace(self.job().basepath,self.job().baseurl))
         self.resultsurl=res.webpath.replace(self.job().basepath,self.job().baseurl)
+        self.webpath=res.webpath
         self.set_gid(gid)
     def finalize(self):
         if self.__finalized:
             return
-        self.add_var_arg('log')
+        self.add_var_arg('upload')
         self.add_var_arg(str(self.gid))
         #self.add_var_arg('"Parameter estimation finished. <a href=\"'+self.resultsurl+'/posplots.html\">'+self.resultsurl+'/posplots.html</a>"')
-        self.add_var_arg('Parameter estimation finished. '+self.resultsurl+'/posplots.html')
+        self.add_var_arg(self.webpath+'/posterior_samples.dat Parameter estimation finished. '+self.resultsurl+'/posplots.html')
         self.__finalized=True
+
+class ROMJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
+  """
+  Class for a ROM compute weights job
+  """
+  def __init__(self,cp,submitFile,logdir,dax=False):
+    exe=cp.get('condor','romweights')
+    pipeline.CondorDAGJob.__init__(self,"vanilla",exe)
+    pipeline.AnalysisJob.__init__(self,cp,dax=dax)
+    self.set_sub_file(submitFile)
+    self.set_stdout_file(os.path.join(logdir,'romweights-$(cluster)-$(process).out'))
+    self.set_stderr_file(os.path.join(logdir,'romweights-$(cluster)-$(process).err'))
+    self.add_condor_cmd('getenv','True')
+    self.add_arg('-B '+str(cp.get('paths','rom_b_matrix')))
+    if cp.has_option('engine','dt'):
+      self.add_arg('-t '+str(cp.get('engine','dt')))
+    else:
+      self.add_arg('-t 0.1')
+    if cp.has_option('engine','dt'):
+      self.add_arg('-T '+str(cp.get('engine','time_step')))
+    else:
+      self.add_arg('-T 0.0001')
+    self.add_condor_cmd('RequestMemory',str((os.path.getsize(str(cp.get('paths','rom_b_matrix')))/(1024*1024))*4))
+
+class ROMNode(pipeline.CondorDAGNode):
+  """
+  Run the ROM compute weights script
+  """
+  def __init__(self,romweights_job,ifo,seglen,flow):
+    pipeline.CondorDAGNode.__init__(self,romweights_job)
+    self.__finalized=False
+    self.add_var_arg('-s '+str(seglen))
+    self.add_var_arg('-f '+str(flow))
+    self.add_var_arg('-i '+ifo)
+
+  def finalize(self):
+    if self.__finalized:
+      return
+    self.__finalized=True

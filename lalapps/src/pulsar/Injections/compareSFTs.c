@@ -24,7 +24,6 @@
  */
 
 /* ---------- includes ---------- */
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lalapps.h>
 
 #include <lal/Date.h>
@@ -71,9 +70,6 @@ void subtractSFTVectors (LALStatus *stat, SFTVector **ret, const SFTVector *sftv
 extern int vrbflg;
 
 /*----------------------------------------------------------------------*/
-static const LALStatus empty_status;
-static const SFTConstraints empty_constraints;
-/*----------------------------------------------------------------------*/
 /* User variables */
 CHAR *uvar_sftBname1;
 CHAR *uvar_sftBname2;
@@ -88,8 +84,8 @@ REAL8 uvar_relErrorMax;
 int
 main(int argc, char *argv[])
 {
-  LALStatus status = empty_status;	/* initialize status */
-  SFTConstraints constraints = empty_constraints;
+  LALStatus XLAL_INIT_DECL(status);
+  SFTConstraints XLAL_INIT_DECL(constraints);
   CHAR detector[2] = "??";	/* allow reading v1-SFTs without detector-info */
   SFTVector *SFTs1 = NULL, *SFTs2 = NULL;
   SFTVector *diffs = NULL;
@@ -432,8 +428,7 @@ subtractSFTVectors (LALStatus *stat, SFTVector **ret, const SFTVector *sftvect1,
     {
       for (j=0; j < N; j++)
 	{
-	  vect->data[alpha].data->data[j].realf_FIXME = crealf(sftvect1->data[alpha].data->data[j]) - crealf(sftvect2->data[alpha].data->data[j]);
-	  vect->data[alpha].data->data[j].imagf_FIXME = cimagf(sftvect1->data[alpha].data->data[j]) - cimagf(sftvect2->data[alpha].data->data[j]);
+	  vect->data[alpha].data->data[j] = crectf( crealf(sftvect1->data[alpha].data->data[j]) - crealf(sftvect2->data[alpha].data->data[j]), cimagf(sftvect1->data[alpha].data->data[j]) - cimagf(sftvect2->data[alpha].data->data[j]) );
 	} /* for j < N */
 
     } /* for alpha < M */

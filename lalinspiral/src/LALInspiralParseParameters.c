@@ -18,41 +18,42 @@
 */
 
 /**
-  \author  Cokelaer, T.
-  \file
-  \ingroup LALInspiral_h
-
-  \brief Module to work with the ::InspiralTemplate Structure.
-
-\heading{Description}
-This module is a set of functions to play with the ::InspiralTemplate structure of the
-inspiral package. It allows to set default values to the inspiral strcuture, to parse
-parameters from the inspiral strcuture and to print the inspiral structure.
-
-Has to check and finalized...
-
-<ul>
-<li>  The \c LALInspiralITStructureParseParameters() function allows
-the user to parse string with respect to that structure. Each variable in the
-inspiralTemplate structure might be parse with a string like "--(name of the variable)+(value)"
- i.e. <em>--approximant TaylorT1</em>. Each argument starts with a double dash character
-followed by a key word which is exactly as written in the InspiralTemplate Structure such as
- --order, --mass1, --mass2, --fCutoff ...
-
-Once the string is parsed, the checking function is called.</li>
-
-<li> The \c LALInspiralITStructurePrint() function will print on the stdout the value
-of the InspiralTemplate structure.</li>
-<li> The \c LALInspiralITStructureSetDefault() set default values to the variables.
-Those values are written in the C-code.</li>
-<li> \c LALInspiralITStructureHelp()</li>
-</ul>
-
-
-\heading{Algorithm}
-None
-
-*/
+ * \author  Cokelaer, T.
+ * \file
+ * \ingroup LALInspiral_h
+ *
+ * \brief Module to work with the ::InspiralTemplate Structure.
+ *
+ * ### Description ###
+ *
+ * This module is a set of functions to play with the ::InspiralTemplate structure of the
+ * inspiral package. It allows to set default values to the inspiral strcuture, to parse
+ * parameters from the inspiral strcuture and to print the inspiral structure.
+ *
+ * Has to check and finalized...
+ *
+ * <ul>
+ * <li>  The \c LALInspiralITStructureParseParameters() function allows
+ * the user to parse string with respect to that structure. Each variable in the
+ * inspiralTemplate structure might be parse with a string like "--(name of the variable)+(value)"
+ * i.e. <em>--approximant TaylorT1</em>. Each argument starts with a double dash character
+ * followed by a key word which is exactly as written in the InspiralTemplate Structure such as
+ * --order, --mass1, --mass2, --fCutoff ...
+ *
+ * Once the string is parsed, the checking function is called.</li>
+ *
+ * <li> The \c LALInspiralITStructurePrint() function will print on the stdout the value
+ * of the InspiralTemplate structure.</li>
+ * <li> The \c LALInspiralITStructureSetDefault() set default values to the variables.
+ * Those values are written in the C-code.</li>
+ * <li> \c LALInspiralITStructureHelp()</li>
+ * </ul>
+ *
+ * ### Algorithm ###
+ *
+ * None
+ *
+ */
 
 #include <lal/LALInspiral.h>
 #include <lal/StringInput.h>
@@ -106,7 +107,7 @@ None
 #define  INSPIRALTEMPLATE_SOURCEPHI             0.
 #define  INSPIRALTEMPLATE_POLARISATIONANGLE     0.
 
-#define INSPIRALTEMPLATE_INTERACTION	   LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN
+#define INSPIRALTEMPLATE_INTERACTION	   LAL_INSPIRAL_INTERACTION_ALL_SPIN
 #define INSPIRALTEMPLATE_AXISCHOICE             LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW
 #define INSPIRALTEMPLATE_FIXEDSTEP              0
 #define INSPIRALTEMPLATE_INSPIRALONLY           0
@@ -298,27 +299,27 @@ void LALInspiralITStructureParseParameters(LALStatus *status,
       else if (strcmp(argv[i],"--interaction")==0)
       {
         if (strcmp(argv[++i],"NO")==0){
-          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_NONE; }
+          params->interaction = LAL_INSPIRAL_INTERACTION_NONE; }
         else if (strcmp(argv[i],"SO15")==0){
-          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN; }
+          params->interaction = LAL_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN; }
         else if (strcmp(argv[i],"SS")==0){
-          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN; }
+          params->interaction = LAL_INSPIRAL_INTERACTION_SPIN_SPIN_2PN; }
         else if (strcmp(argv[i],"SSself")==0){
-          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN; }
+          params->interaction = LAL_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN; }
         else if (strcmp(argv[i],"QM")==0){
-          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN; }
+          params->interaction = LAL_INSPIRAL_INTERACTION_QUAD_MONO_2PN; }
         else if (strcmp(argv[i],"SO25")==0){
-          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN; }
+          params->interaction = LAL_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN; }
         else if (strcmp(argv[i],"SO30")==0){
-          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN; }
+          params->interaction = LAL_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN; }
         else if (strcmp(argv[i],"AllSpin")==0){
-          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN; }
+          params->interaction = LAL_INSPIRAL_INTERACTION_ALL_SPIN; }
         else if (strcmp(argv[i],"Tidal")==0){
-          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN; }
+          params->interaction = LAL_INSPIRAL_INTERACTION_TIDAL_5PN; }
         else if (strcmp(argv[i],"Tidal6")==0){
-          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN; }
+          params->interaction = LAL_INSPIRAL_INTERACTION_TIDAL_6PN; }
         else if (strcmp(argv[i],"All")==0){
-          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_ALL; }
+          params->interaction = LAL_INSPIRAL_INTERACTION_ALL; }
         else
           fprintf(stderr,"Invalid choice of --interaction\n");
       }

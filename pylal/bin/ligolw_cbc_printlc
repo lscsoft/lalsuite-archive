@@ -520,7 +520,9 @@ if opts.output_format != "xml":
     if opts.output is not None:
         opts.output.close()
 else:
-    utils.write_filename(lcdoc, opts.output, xsl_file = "ligolw.xsl")
+    utils.write_filename(lcdoc, opts.output,
+                         gz=(opts.output or "stdout").endswith("gz"),
+                         xsl_file = "ligolw.xsl")
 
 
 #

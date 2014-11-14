@@ -18,32 +18,33 @@
 */
 
 /**
-
-\author Ochsner, E.
-\file
-
-\brief This code generates the two GW polarizations of the inspiral waveform for a given phase model.
-
-\heading{Prototypes}
-
-
-<tt>LALInspiralHplus()</tt>
-<ul>
-<li> \c output: Outputs either \f$h_+\f$ or \f$h_\times.\f$</li>
-<li> \c params: Input containing binary chirp parameters.</li>
-<li> \c phase: Input containing binary chirp phase.</li>
-<li> \c v: PN expansion parameter</li>
-</ul>
-
-\heading{Description}
-
-\heading{Algorithm}
-
-\heading{Uses}
-
-\heading{Notes}
-
-*/
+ * \author Ochsner, E.
+ * \file
+ *
+ * \brief This code generates the two GW polarizations of the inspiral waveform for a given phase model.
+ *
+ * ### Prototypes ###
+ *
+ * <tt>LALInspiralHplus()</tt>
+ * <ul>
+ * <li> \c output: Outputs either \f$h_+\f$ or \f$h_\times.\f$</li>
+ * <li> \c params: Input containing binary chirp parameters.</li>
+ * <li> \c phase: Input containing binary chirp phase.</li>
+ * <li> \c v: PN expansion parameter</li>
+ * </ul>
+ *
+ * ### Description ###
+ *
+ *
+ * ### Algorithm ###
+ *
+ *
+ * ### Uses ###
+ *
+ *
+ * ### Notes ###
+ *
+ */
 
 #include <lal/LALStdlib.h>
 #include<lal/LALConstants.h>
@@ -58,7 +59,7 @@ REAL4 LALInspiralHPlusPolarization( REAL8 phase, REAL8 v, InspiralTemplate *para
 	REAL8 M = params->totalMass;
 	REAL8 eta = params->eta;
 	REAL8 eta2 = eta*eta;
-	REAL8 dM = abs(params->mass1 - params->mass2) / params->totalMass;
+	REAL8 dM = fabs(params->mass1 - params->mass2) / params->totalMass;
 	REAL8 cI = cos(params->inclination);
 	REAL8 sI = sin(params->inclination);
 	REAL8 sI2 = sI*sI;
@@ -120,7 +121,7 @@ REAL4 LALInspiralHCrossPolarization( REAL8 phase, REAL8 v, InspiralTemplate *par
 	REAL8 M = params->totalMass;
 	REAL8 eta = params->eta;
 	REAL8 eta2 = eta*eta;
-	REAL8 dM = abs(params->mass1 - params->mass2) / params->totalMass;
+	REAL8 dM = fabs(params->mass1 - params->mass2) / params->totalMass;
 	REAL8 cI = cos(params->inclination);
 	REAL8 sI = sin(params->inclination);
 	REAL8 sI2 = sI*sI;

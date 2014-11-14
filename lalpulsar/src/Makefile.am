@@ -1,29 +1,28 @@
-AM_CPPFLAGS = -I$(top_builddir)/include -DPKG_DATA_DIR='"$(pkgdatadir)/"'
+BUILT_SOURCES =
+MOSTLYCLEANFILES =
+include $(top_srcdir)/gnuscripts/lalsuite_header_links.am
+include $(top_srcdir)/gnuscripts/lalsuite_vcs_info.am
 
 if LALXML
 XMLHDR = LALXMLVOTableSerializersPulsar.h
 XMLSRC = LALXMLVOTableSerializersPulsar.c
 endif
 
-lalpulsarincludedir = $(includedir)/lal
-lalpulsarinclude_HEADERS = \
+pkginclude_HEADERS = \
 	BinaryPulsarTiming.h \
 	ComplexAM.h \
 	ComputeFstat.h \
 	ComputeSky.h \
-	ComputeSkyBinary.h \
+	CWFastMath.h \
+	CWMakeFakeData.h \
 	DetectorStates.h \
 	DopplerFullScan.h \
-	DopplerLatticeCovering.h \
 	DopplerScan.h \
 	ExtrapolatePulsarSpins.h \
 	FitToPulsar.h \
-	FlatLatticeTilingPulsar.h \
 	FlatMesh.h \
 	FlatPulsarMetric.h \
-	FoldAmplitudes.h \
 	GeneratePulsarSignal.h \
-	SimulatePulsarSignal.h \
 	GenerateSpinOrbitCW.h \
 	GenerateTaylorCW.h \
 	HoughMap.h \
@@ -33,36 +32,39 @@ lalpulsarinclude_HEADERS = \
 	LALHough.h \
 	LALInitBarycenter.h \
 	LALPulsarConfig.h \
-	LALPulsarLibVCSInfo.h \
 	LALPulsarVCSInfo.h \
+	LALPulsarVCSInfoHeader.h \
 	LALXMGRInterface.h \
+	LatticeTiling.h \
+	LFTandTSutils.h \
+	LineRobustStats.h \
 	LISAspecifics.h \
 	LUT.h \
-	LatticeCovering.h \
-	CWMakeFakeData.h \
 	NormalizeSFTRngMed.h \
 	PHMD.h \
 	ProbabilityDensity.h \
 	PtoleMetric.h \
-	PulsarCat.h \
 	PulsarCrossCorr.h \
 	PulsarCrossCorr_v2.h \
 	PulsarDataTypes.h \
 	PulsarSimulateCoherentGW.h \
 	PulsarTimes.h \
 	SFTClean.h \
+	SFTfileIO-LAL.h \
 	SFTfileIO.h \
-	SFTutils.h \
 	SFTutils-LAL.h \
+	SFTutils.h \
+	SimulatePulsarSignal.h \
+	SSBtimes.h \
 	StackMetric.h \
 	Statistics.h \
+	SuperSkyMetrics.h \
 	SynthesizeCWDraws.h \
 	TransientCW_utils.h \
 	TwoDMesh.h \
 	UniversalDopplerMetric.h \
 	Velocity.h \
-	$(XMLHDR) \
-	lalpulsarswig_test.i
+	$(XMLHDR)
 
 lib_LTLIBRARIES = liblalpulsar.la
 liblalpulsar_la_SOURCES = \
@@ -71,20 +73,18 @@ liblalpulsar_la_SOURCES = \
 	ComplexAM.c \
 	ComputeFstat.c \
 	ComputeSky.c \
-	ComputeSkyBinary.c \
 	ConstructPLUT.c \
-	DTEphemeris.c \
+	CWFastMath.c \
+	CWMakeFakeData.c \
 	DetectorStates.c \
 	DopplerFullScan.c \
-	DopplerLatticeCovering.c \
 	DopplerScan.c \
 	DriveHough.c \
+	DTEphemeris.c \
 	ExtrapolatePulsarSpins.c \
 	FitToPulsar.c \
-	FlatLatticeTilingPulsar.c \
 	FlatMesh.c \
 	FlatPulsarMetric.c \
-	FoldAmplitudes.c \
 	GenerateEllipticSpinOrbitCW.c \
 	GenerateHyperbolicSpinOrbitCW.c \
 	GenerateParabolicSpinOrbitCW.c \
@@ -100,9 +100,10 @@ liblalpulsar_la_SOURCES = \
 	LALInitBarycenter.c \
 	LALPulsarVCSInfo.c \
 	LALXMGRInterface.c \
+	LatticeTiling.c \
+	LFTandTSutils.c \
+	LineRobustStats.c \
 	LISAspecifics.c \
-	LatticeCovering.c \
-	CWMakeFakeData.c \
 	NDParamPLUT.c \
 	NormalizeSFTRngMed.c \
 	ParamPLUT.c \
@@ -111,19 +112,19 @@ liblalpulsar_la_SOURCES = \
 	ProbabilityDensity.c \
 	ProjectMetric.c \
 	PtoleMetric.c \
-	PulsarCat.c \
-	PulsarCatInput.c \
 	PulsarCrossCorr.c \
 	PulsarCrossCorr_v2.c \
-	PulsarDataTypes.c \
 	PulsarSimulateCoherentGW.c \
 	SFTClean.c \
 	SFTfileIO.c \
 	SFTutils.c \
 	SimulatePulsarSignal.c \
+	SinCosLUT.c \
+	SSBtimes.c \
 	StackMetric.c \
 	Statistics.c \
 	Stereographic.c \
+	SuperSkyMetrics.c \
 	SynthesizeCWDraws.c \
 	TBaryPtolemaic.c \
 	TComp.c \
@@ -136,54 +137,29 @@ liblalpulsar_la_SOURCES = \
 	UniversalDopplerMetric.c \
 	Velocity.c \
 	$(XMLSRC)
+nodist_liblalpulsar_la_SOURCES = LALPulsarBuildInfo.c
 
 EXTRA_liblalpulsar_la_SOURCES = \
+	GSLHelpers.h \
+	SinCosLUT.i 				\
+	ComputeFstat_Demod.c 			\
+	ComputeFstat_Demod_ComputeFaFb.c 	\
+	ComputeFstat_DemodHL_Altivec.i		\
+	ComputeFstat_DemodHL_OptC.i		\
+	ComputeFstat_DemodHL_SSE.i		\
+	ComputeFstat_DemodHL_Generic.i		\
+	ComputeFstat_Resamp.c 			\
+	SFTfileIO-LAL.c 			\
 	SFTutils-LAL.c
 
-liblalpulsar_la_LDFLAGS = -version-info $(LIBVERSION)
-
-MOSTLYCLEANFILES = \
-	lalpulsar-user-env.shell \
-	lalpulsar-user-env.sh \
-	lalpulsar-user-env.csh
-
-sysconf_DATA = \
-	lalpulsar-user-env.sh \
-	lalpulsar-user-env.csh
-
-BUILT_SOURCES = \
-	lalpulsar-user-env.sh \
-	lalpulsar-user-env.csh
-
-lalpulsar-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
-	@echo "# generic user environment script" >$@
-	@echo "set LALPULSAR_PREFIX $(prefix)" >>$@
-	@echo "prepend PATH $(bindir)" >>$@
-	@echo "prepend MANPATH $(mandir)" >>$@
-	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
-	@echo "prepend PYTHONPATH $(pyexecdir)" >>$@
-	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
-	@echo "prepend OCTAVE_PATH $(octexecdir)" >>$@
-
-lalpulsar-user-env.csh lalpulsar-user-env.sh: lalpulsar-user-env.shell $(srcdir)/generate_user_env.awk
-	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
+liblalpulsar_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(LIBVERSION)
 
 EXTRA_DIST = \
 	LALPulsarConfig.h.in \
-	config.h.in \
-	generate_user_env.awk
-
-if HAVE_GIT_REPO
-BUILT_SOURCES += LALPulsarVCSInfo.h
-MOSTLYCLEANFILES += LALPulsarVCSInfo.h
-LALPulsarVCSInfo.h .PHONY : gen-LALPulsarVCSInfo.h
-gen-LALPulsarVCSInfo.h :
-	$(AM_V_at)$(GENERATE_VCS_INFO) LALPulsarVCSInfo.h $(srcdir)/LALPulsarVCSInfo.h.git
-endif
+	config.h.in
 
 DISTCLEANFILES = config.h
 
-@LAL_HEADER_LINK@
-
-swig_headers = $(lalpulsarinclude_HEADERS)
-include $(top_srcdir)/swig/swiglal_header.am
+vcs_info_sources = LALPulsarVCSInfoHeader.h
+build_info_source = LALPulsarBuildInfo.c
+$(build_info_source): $(liblalpulsar_la_DEPENDENCIES)

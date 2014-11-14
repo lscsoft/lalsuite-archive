@@ -1,17 +1,18 @@
-AM_CPPFLAGS = -I$(top_builddir)/include -DPKG_DATA_DIR='"$(pkgdatadir)/"'
+BUILT_SOURCES =
+MOSTLYCLEANFILES =
+include $(top_srcdir)/gnuscripts/lalsuite_header_links.am
+include $(top_srcdir)/gnuscripts/lalsuite_vcs_info.am
 
-lalstochasticincludedir = $(includedir)/lal
-lalstochasticinclude_HEADERS = \
+pkginclude_HEADERS = \
 	AstroOmega.h \
 	LALStochasticConfig.h \
-	LALStochasticLibVCSInfo.h \
 	LALStochasticVCSInfo.h \
+	LALStochasticVCSInfoHeader.h \
 	LIGOLwXMLStochasticRead.h \
 	SimulatePopcorn.h \
 	SimulateSB.h \
 	StochasticCrossCorrelation.h \
-	StochasticMC.h \
-	lalstochasticswig_test.i
+	StochasticMC.h
 
 lib_LTLIBRARIES = liblalstochastic.la
 liblalstochastic_la_SOURCES = \
@@ -28,50 +29,15 @@ liblalstochastic_la_SOURCES = \
 	StochasticOptimalFilter.c \
 	StochasticOptimalFilterNormalization.c \
 	ZeroPadAndFFT.c
-liblalstochastic_la_LDFLAGS = -version-info $(LIBVERSION)
-
-MOSTLYCLEANFILES = \
-	lalstochastic-user-env.shell \
-	lalstochastic-user-env.sh \
-	lalstochastic-user-env.csh
-
-sysconf_DATA = \
-	lalstochastic-user-env.sh \
-	lalstochastic-user-env.csh
-
-BUILT_SOURCES = \
-	lalstochastic-user-env.sh \
-	lalstochastic-user-env.csh
-
-lalstochastic-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
-	@echo "# generic user environment script" >$@
-	@echo "set LALSTOCHASTIC_PREFIX $(prefix)" >>$@
-	@echo "prepend PATH $(bindir)" >>$@
-	@echo "prepend MANPATH $(mandir)" >>$@
-	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
-	@echo "prepend PYTHONPATH $(pyexecdir)" >>$@
-	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
-	@echo "prepend OCTAVE_PATH $(octexecdir)" >>$@
-
-lalstochastic-user-env.csh lalstochastic-user-env.sh: lalstochastic-user-env.shell $(srcdir)/generate_user_env.awk
-	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
+nodist_liblalstochastic_la_SOURCES = LALStochasticBuildInfo.c
+liblalstochastic_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(LIBVERSION)
 
 EXTRA_DIST = \
 	LALStochasticConfig.h.in \
-	config.h.in \
-	generate_user_env.awk
+	config.h.in
 
 DISTCLEANFILES = config.h
 
-if HAVE_GIT_REPO
-BUILT_SOURCES += LALStochasticVCSInfo.h
-MOSTLYCLEANFILES += LALStochasticVCSInfo.h
-LALStochasticVCSInfo.h .PHONY : gen-LALStochasticVCSInfo.h
-gen-LALStochasticVCSInfo.h :
-	$(AM_V_at)$(GENERATE_VCS_INFO) LALStochasticVCSInfo.h $(srcdir)/LALStochasticVCSInfo.h.git
-endif
-
-@LAL_HEADER_LINK@
-
-swig_headers = $(lalstochasticinclude_HEADERS)
-include $(top_srcdir)/swig/swiglal_header.am
+vcs_info_sources = LALStochasticVCSInfoHeader.h
+build_info_source = LALStochasticBuildInfo.c
+$(build_info_source): $(liblalstochastic_la_DEPENDENCIES)

@@ -38,7 +38,8 @@
 #include <lal/LALInitBarycenter.h>
 #include <lal/AVFactories.h>
 
-/** \author Reinhard Prix, John Whelan
+/**
+ * \author Reinhard Prix, John Whelan
  * \file
  * \ingroup LALComputeAM_h
  *
@@ -55,11 +56,6 @@
  */
 
 extern char *optarg;
-
-static const LALStatus empty_status;
-static const AMCoeffsParams empty_AMCoeffsParams;
-static const AMCoeffs empty_AMCoeffs;
-
 
 /* ----- internal prototypes ---------- */
 int XLALCompareMultiAMCoeffs ( MultiAMCoeffs *multiAM1, MultiAMCoeffs *multiAM2, REAL8 tolerance );
@@ -111,12 +107,8 @@ int main(int argc, char *argv[])
 
   /* ----- init detector info ---------- */
   UINT4 X;
-  MultiLALDetector *multiDet;
-  if ( (multiDet = XLALCreateMultiLALDetector ( numIFOs )) == NULL ) {
-    XLALPrintError ("%s: XLALCreateMultiLALDetector(%d) failed with errno=%d\n", __func__, numIFOs, xlalErrno );
-    return XLAL_EFAILED;
-  }
-
+  MultiLALDetector multiDet;
+  multiDet.length = numIFOs;
   for (X=0; X < numIFOs; X ++ )
     {
       LALDetector *site;
@@ -124,7 +116,7 @@ int main(int argc, char *argv[])
         XLALPrintError ("%s: Failed to get site-info for detector '%s'\n", __func__, sites[X] );
         return XLAL_EFAILED;
       }
-      multiDet->data[X] = (*site); 	/* copy! */
+      multiDet.sites[X] = (*site); 	/* copy! */
       XLALFree ( site );
     }
 
@@ -158,18 +150,17 @@ int main(int argc, char *argv[])
 
   /* ---------- compute multi-detector states -------------------- */
   MultiDetectorStateSeries *multiDetStates;
-  if ( (multiDetStates = XLALGetMultiDetectorStates ( multiTS, multiDet, edat, 0.5 * Tsft )) == NULL ) {
+  if ( (multiDetStates = XLALGetMultiDetectorStates ( multiTS, &multiDet, edat, 0.5 * Tsft )) == NULL ) {
     XLALPrintError ( "%s: XLALGetMultiDetectorStates() failed.\n", __func__ );
     return XLAL_EFAILED;
   }
-  XLALDestroyMultiLALDetector ( multiDet );
   XLALDestroyMultiTimestamps ( multiTS );
   XLALDestroyEphemerisData ( edat );
 
   /* ========== MAIN LOOP: N-trials of comparisons XLAL <--> LAL multiAM functions ========== */
   while ( numChecks-- )
     {
-      LALStatus status = empty_status;
+      LALStatus XLAL_INIT_DECL(status);
 
       /* ----- pick skyposition at random ----- */
       SkyPosition skypos;
@@ -222,8 +213,8 @@ int main(int argc, char *argv[])
 
 } /* main() */
 
-/** Comparison function for two multiAM vectors, return success or failure for given tolerance.
- *
+/**
+ * Comparison function for two multiAM vectors, return success or failure for given tolerance.
  * we compare avg() and max of |a1_i - a2_i|^2 and |b1_i - b2_i|^2 respectively,
  * and error in |A1 - A2|, |B1 - B2|, |C1 - C2|.
  * These numbers are typically ~ O(1), so we simply compare these absolute errors to the tolerance.

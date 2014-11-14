@@ -3,12 +3,13 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 datarootdir=@datarootdir@
-datadir=@datadir@
-pkgdatadir=@datadir@/@PACKAGE@
+LALINSPIRAL_DATA_PATH=@datadir@/@PACKAGE@
+LALINSPIRAL_OCTAVE_PATH=@octexecdir@
+LALINSPIRAL_PYTHON_PATH=@pyexecdir@
 
 Name: LALInspiral
 Description: LAL Inspiral Library Support
 Version: @VERSION@
-Requires: gsl lal libmetaio lalmetaio lalsimulation
+Requires: gsl, lal >= @LAL_VERSION@, libmetaio, lalmetaio >= @LALMETAIO_VERSION@, lalsimulation >= @LALSIMULATION_VERSION@
 Libs: -L${libdir} -llalinspiral
 Cflags: -I${includedir}

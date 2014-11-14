@@ -38,7 +38,6 @@ import time
 
 from glue import git_version
 from .. import ligolw
-from .. import table
 from .. import lsctables
 from .. import types as ligolwtypes
 
@@ -102,7 +101,7 @@ def append_process(xmldoc, program = None, version = None, cvs_repository = None
 	See also register_to_xmldoc().
 	"""
 	try:
-		proctable = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+		proctable = lsctables.ProcessTable.get_table(xmldoc)
 	except ValueError:
 		proctable = lsctables.New(lsctables.ProcessTable)
 		xmldoc.childNodes[0].appendChild(proctable)
@@ -159,7 +158,7 @@ def append_process_params(xmldoc, process, params):
 	See also process_params_from_dict(), register_to_xmldoc().
 	"""
 	try:
-		paramtable = table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
+		paramtable = lsctables.ProcessParamsTable.get_table(xmldoc)
 	except ValueError:
 		paramtable = lsctables.New(lsctables.ProcessParamsTable)
 		xmldoc.childNodes[0].appendChild(paramtable)
@@ -194,12 +193,12 @@ def get_process_params(xmldoc, program, param, require_unique_program = True):
 	require_unique_program is not True, then there must be at least one
 	program with the requested name otherwise ValueError is raised.
 	"""
-	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
+	process_ids = lsctables.ProcessTable.get_table(xmldoc).get_ids_by_program(program)
 	if len(process_ids) < 1:
 		raise ValueError("process table must contain at least one program named '%s'" % program)
 	elif require_unique_program and len(process_ids) != 1:
 		raise ValueError("process table must contain exactly one program named '%s'" % program)
-	return [row.pyvalue for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if (row.process_id in process_ids) and (row.param == param)]
+	return [row.pyvalue for row in lsctables.ProcessParamsTable.get_table(xmldoc) if (row.process_id in process_ids) and (row.param == param)]
 
 
 def doc_includes_process(xmldoc, program):
@@ -207,7 +206,7 @@ def doc_includes_process(xmldoc, program):
 	Return True if the process table in xmldoc includes entries for a
 	program named program.
 	"""
-	return program in table.get_table(xmldoc, lsctables.ProcessTable.tableName).getColumnByName("program")
+	return program in lsctables.ProcessTable.get_table(xmldoc).getColumnByName("program")
 
 
 def process_params_from_dict(paramdict):

@@ -148,7 +148,7 @@ COMPLEX16TimeSeries *XLALSimInspiralPNMode21(
     if ( !hlm )
         XLAL_ERROR_NULL(XLAL_EFUNC);
     UINT4 j;
-    REAL8 fac = -8.0*sqrt(LAL_PI/5.0)*LAL_G_SI/LAL_C_SI/LAL_C_SI;
+    REAL8 fac = -(8.0/3.0)*sqrt(LAL_PI/5.0)*LAL_G_SI/LAL_C_SI/LAL_C_SI;
     REAL8 m = m1 + m2;
     REAL8 dm = m1 - m2;
     REAL8 mu = m1*m2/m;
@@ -230,7 +230,7 @@ COMPLEX16TimeSeries *XLALSimInspiralPNMode20(
     for (j=0; j < V->data->length; j++) {
         v = V->data->data[j];
         v2 = v*v;
-        ans = crect(1., 0.);
+        ans = 1.0;
         hlm->data->data[j] = ans * ((fac*mu/r)*v2);
     }
     return hlm;
@@ -842,7 +842,7 @@ COMPLEX16TimeSeries *XLALSimInspiralPNMode40(
     for (j=0; j < V->data->length; j++) {
         v = V->data->data[j];
         v2 = v*v;
-        ans = crect(1., 0.);
+        ans = 1.0;
         hlm->data->data[j] = ans * ((fac*mu/r)*v2);
     }
     return hlm;
@@ -1218,7 +1218,7 @@ COMPLEX16TimeSeries *XLALSimInspiralPNMode50(
     UINT4 j;
     /* Loop over time samples, compute hlm(t) */
     for (j=0; j < V->data->length; j++) {
-        hlm->data->data[j] = crect(0., 0.);
+        hlm->data->data[j] = 0.0;
     }
     return hlm;
 }
@@ -1658,7 +1658,7 @@ COMPLEX16TimeSeries *XLALSimInspiralPNMode60(
     UINT4 j;
     /* Loop over time samples, compute hlm(t) */
     for (j=0; j < V->data->length; j++) {
-        hlm->data->data[j] = crect(1., 0.);
+        hlm->data->data[j] = 1.0;
     }
     return hlm;
 }

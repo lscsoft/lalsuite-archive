@@ -19,7 +19,8 @@
  */
 
 /*********************************************************************************/
-/** \author John Whelan (based on code by Reinhard Prix)
+/**
+ * \author John Whelan (based on code by Reinhard Prix)
  * \file
  * \brief Test for LALNewGetAMCoeffs(): compare results to older, well-tested
  * (but less efficient, and harder to understand) function LALComputeAM()
@@ -31,7 +32,7 @@
  * Detector and sky-location are picked at random each time, which allows a minimal
  * Monte-Carlo validation by simply running this script repeatedly.
  *
- *********************************************************************************/
+ */
 #include <config.h>
 
 #ifdef HAVE_UNISTD_H
@@ -95,19 +96,14 @@ do {                                                                 \
   }                                                                  \
 } while (0)
 
-
-static const LALStatus empty_status;
-static const AMCoeffsParams empty_AMCoeffsParams;
-static const AMCoeffs empty_AMCoeffs;
-
-
-/** Very simple test: pick random skyposition, compute a_i, b_i using
- *  once LALComputeAM() and once LALNewGetAMCoeffs(), and look at the errors
- *  sum_i (a_i - a_i')^2
+/**
+ * Very simple test: pick random skyposition, compute a_i, b_i using
+ * once LALComputeAM() and once LALNewGetAMCoeffs(), and look at the errors
+ * sum_i (a_i - a_i')^2
  */
 int main(int argc, char *argv[])
 {
-  LALStatus status = empty_status;
+  LALStatus XLAL_INIT_DECL(status);
   int              opt;             /* Command-line option. */
 
   LIGOTimeGPS startTime = {714180733, 0};
@@ -115,13 +111,15 @@ int main(int argc, char *argv[])
   REAL8 Tsft = 1800;		/* assume 30min SFTs */
   LIGOTimeGPSVector *timestamps = NULL;
   DetectorStateSeries *detStates = NULL;
-  SkyPosition skypos = empty_SkyPosition;
-  EphemerisData edat = empty_EphemerisData;
-  BarycenterInput baryinput = empty_BarycenterInput;
+  SkyPosition XLAL_INIT_DECL(skypos);
+  EphemerisData XLAL_INIT_DECL(edat);
+  BarycenterInput XLAL_INIT_DECL(baryinput);
   LALDetector *det = NULL;
-  AMCoeffs AMold = empty_AMCoeffs, AMnew1 = empty_AMCoeffs, AMnew2 = empty_AMCoeffs;
+  AMCoeffs XLAL_INIT_DECL(AMold);
+  AMCoeffs XLAL_INIT_DECL(AMnew1);
+  AMCoeffs XLAL_INIT_DECL(AMnew2);
   REAL8 alpha, delta;
-  AMCoeffsParams amParams = empty_AMCoeffsParams;
+  AMCoeffsParams XLAL_INIT_DECL(amParams);
   EarthState earth;
   UINT4 i;
   REAL8 maxerr01, maxerr02, maxerr12, averr01, averr02, averr12;

@@ -26,7 +26,7 @@ from glue import segments
 from glue.ligolw import ligolw, lsctables, table, utils
 from glue.ligolw.utils import segments as ligolw_segments
 from glue.segmentdb import query_engine, segmentdb_utils
-from pylal import llwapp
+from glue.ligolw.utils import process as ligolw_process
 from pylal.dq.dqTriggerUtils import def_get_time
 
 from scipy.stats import poisson
@@ -131,7 +131,8 @@ def tosegmentxml(file, segs):
   xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessParamsTable))
 
   # append process to table
-  process = llwapp.append_process(xmldoc, program='pylal.dq.dqSegmentUtils',\
+  process = ligolw_process.append_process(xmldoc,\
+                                  program='pylal.dq.dqSegmentUtils',\
                                   version=__version__,\
                                   cvs_repository='lscsoft',\
                                   cvs_entry_time=__date__)
@@ -147,7 +148,7 @@ def tosegmentxml(file, segs):
   segments_tables.coalesce()
   segments_tables.optimize()
   segments_tables.finalize(process)
-  llwapp.set_process_end_time(process)
+  ligolw_process.set_process_end_time(process)
 
   # write file
   utils.write_fileobj(xmldoc, file, gz=False)

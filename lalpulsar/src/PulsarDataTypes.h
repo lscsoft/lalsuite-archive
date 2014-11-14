@@ -32,7 +32,8 @@ extern "C" {
  * \ingroup pkg_pulsarCommon
  * \brief Some common useful data-types for pulsar-searches.
  *
- * \heading{Synopsis}
+ * ### Synopsis ###
+ *
  * \code
  * #include <lal/PulsarDataTypes.h>
  * \endcode
@@ -43,12 +44,7 @@ extern "C" {
 #include <gsl/gsl_matrix.h>
 
 #include <lal/LALDatatypes.h>
-#include <lal/DetectorSite.h>
-#include <lal/Date.h>
 #include <lal/SkyCoordinates.h>
-#include <lal/LALBarycenter.h>
-
-#include <lal/SFTutils.h>
 
 /** maximal number of spin-parameters (Freq + spindowns) we can handle */
 #define PULSAR_MAX_SPINS	7
@@ -57,15 +53,6 @@ extern "C" {
 #ifndef PULSAR_MAX_DETECTORS	// allow this value to be overridden for e.g. E@H apps
 #define PULSAR_MAX_DETECTORS	10
 #endif
-
-/** Type defining the orbital parameters of a binary pulsar */
-typedef struct tagBinaryOrbitParams {
-  LIGOTimeGPS tp;         /**< time of observed periapsis passage (in SSB) */
-  REAL8 argp;            /**< argument of periapsis (radians) */
-  REAL8 asini;            /**< projected, normalized orbital semi-major axis (s) */
-  REAL8 ecc;              /**< orbital eccentricity */
-  REAL8 period;           /**< orbital period (sec) */
-} BinaryOrbitParams;
 
 /** Type containing the JKS 'amplitude parameters' {h0, cosi, phi0, psi} */
 typedef struct tagPulsarAmplitudeParams {
@@ -81,8 +68,9 @@ typedef REAL8 PulsarAmplitudeVect[4];
 /** Typedef for fixed-size array holding GW frequency and derivatives fk = d^k Freq/dt^k|(tau_ref) */
 typedef REAL8 PulsarSpins[PULSAR_MAX_SPINS];
 
-/** Contains a "spin-range", ie spins \f$f^{(k)}\f$ and corresponding bands \f$\Delta f^{(k)}\f$
- *  at a given (SSB) reference GPS-time \f$\tau\f$.
+/**
+ * Contains a "spin-range", ie spins \f$f^{(k)}\f$ and corresponding bands \f$\Delta f^{(k)}\f$
+ * at a given (SSB) reference GPS-time \f$\tau\f$.
  * "Canonical" ordering refers to \f$\Delta f^{(k)} >= 0\f$ for all k.
  */
 typedef struct tagPulsarSpinRange
@@ -94,13 +82,16 @@ typedef struct tagPulsarSpinRange
 
 /** Type containing the 'Doppler-parameters' affecting the time-evolution of the phase */
 typedef struct tagPulsarDopplerParams {
-  LIGOTimeGPS refTime;	/**< reference time of pulsar parameters (in SSB!) */
-  REAL8 Alpha;		/**< skyposition: RA (longitude) in equatorial coords and radians */
-  REAL8 Delta;		/**< skyposition: DEC (latitude) in equatorial coords and radians */
-  PulsarSpins fkdot;	/**< intrinsic spins: [Freq, f1dot, f2dot, ... ] where fkdot = d^kFreq/dt^k */
-  BinaryOrbitParams *orbit;	/**< binary orbital parameters (or NULL if isolated pulsar) */
-  REAL8 dFreq;		/**< if used for a frequency band: frequency increment between bins */
-  UINT4 numFreqBins;	/**< if used for a frequency band: number of frequency bins */
+  LIGOTimeGPS refTime;	/**< Reference time of pulsar parameters (in SSB!) */
+  REAL8 Alpha;		/**< Sky position: RA (longitude) in equatorial coords and radians */
+  REAL8 Delta;		/**< Sky position: DEC (latitude) in equatorial coords and radians */
+  PulsarSpins fkdot;	/**< Intrinsic spins: [Freq, f1dot, f2dot, ... ] where fkdot = d^kFreq/dt^k */
+  REAL8 asini;		/**< Binary: projected, normalized orbital semi-major axis (s).
+                             If asini = 0 this is an \e isolated pulsar, and other binary parameters are ignored. */
+  REAL8 period;		/**< Binary: orbital period (sec) */
+  REAL8 ecc;		/**< Binary: orbital eccentricity */
+  LIGOTimeGPS tp;	/**< Binary: time of observed periapsis passage (in SSB) */
+  REAL8 argp;		/**< Binary: argument of periapsis (radians) */
 } PulsarDopplerParams;
 
 // ---------- transient-CW related types ----------
@@ -143,7 +134,8 @@ typedef struct tagPulsarCandidate {
 } PulsarCandidate;
 
 
-/** DEPRECATED Type defining the parameters of a pulsar-source of Gravitational waves.
+/**
+ * DEPRECATED Type defining the parameters of a pulsar-source of Gravitational waves.
  * \note this type is obsolete and should no longer be used,
  * however, it's too entrenched in LALGeneratePulsarSignal() et al, and codes using it,
  * so we can't easily get rid of it and keep it for now....
@@ -159,23 +151,6 @@ typedef struct tagPulsarSourceParams {
    REAL8 f0;             /**< WAVE-frequency(!) at tRef (in Hz) */
    REAL8Vector *spindown;/**< wave-frequency spindowns at tRef (NOT f0-normalized!) */
 } PulsarSourceParams;
-
-/*---------- Global variables ----------*/
-/** \name empty struct initializers */
-/*@{*/
-extern const BinaryOrbitParams empty_BinaryOrbitParams;
-extern const PulsarAmplitudeParams empty_PulsarAmplitudeParams;
-extern const PulsarSpinRange empty_PulsarSpinRange;
-extern const PulsarDopplerParams empty_PulsarDopplerParams;
-extern const PulsarParams empty_PulsarParams;
-extern const PulsarCandidate empty_PulsarCandidate;
-
-/* initializers for frequently used non-pulsar types */
-extern const LIGOTimeGPS empty_LIGOTimeGPS;
-extern const BarycenterInput empty_BarycenterInput;
-extern const EphemerisData empty_EphemerisData;
-extern const SkyPosition empty_SkyPosition;
-/*@}*/
 
 /*@}*/
 

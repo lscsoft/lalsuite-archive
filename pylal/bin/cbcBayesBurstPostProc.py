@@ -58,8 +58,11 @@ from glue.ligolw import table
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
-
-os.environ['PATH'] = os.environ['PATH'] + ':/usr/texbin'
+try:
+  os.environ['PATH'] = os.environ['PATH'] + ':/usr/texbin'
+except:
+  os.environ['PATH'] =':/usr/texbin'
+print os.environ['PATH']
 __author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
@@ -557,19 +560,21 @@ def cbcBayesBurstPostProc(
     html_stats.write(str(pos))
     statfilename=os.path.join(outdir,"summary_statistics.dat")
     statout=open(statfilename,"w")
-    statout.write("\tmaxL\tstdev\tmean\tmedian\tstacc\tinjection\tvalue\n")
+    statout.write("\tmaxP\tmaxL\tstdev\tmean\tmedian\tstacc\tinjection\tvalue\n")
     
     for statname,statoned_pos in pos:
 
       statmax_pos,max_i=pos._posMode()
       statmaxL=statoned_pos.samples[max_i][0]
+      statmax_pos,max_j=pos._posMap()
+      statmaxP=statoned_pos.samples[max_j][0]
       statmean=str(statoned_pos.mean)
       statstdev=str(statoned_pos.stdev)
       statmedian=str(squeeze(statoned_pos.median))
       statstacc=str(statoned_pos.stacc)
       statinjval=str(statoned_pos.injval)
       
-      statarray=[str(i) for i in [statname,statmaxL,statstdev,statmean,statmedian,statstacc,statinjval]]
+      statarray=[str(i) for i in [statname,statmaxP,statmaxL,statstdev,statmean,statmedian,statstacc,statinjval]]
       statout.write("\t".join(statarray))
       statout.write("\n")
       
@@ -959,18 +964,20 @@ def cbcBayesBurstPostProc(
         #= Plot 2D histograms of greedily binned points =#
 
         #greedy2ContourPlot=bppu.plot_two_param_greedy_bins_contour({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
-        greedy2ContourPlot=bppu.plot_two_param_kde_greedy_levels({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
-        greedy2contourpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2contour.png'%(par1_name,par2_name))
-        greedy2ContourPlot.savefig(greedy2contourpath)
-        if(savepdfs): greedy2ContourPlot.savefig(greedy2contourpath.replace('.png','.pdf'))
-        plt.close(greedy2ContourPlot)
-
-        greedy2HistFig=bppu.plot_two_param_greedy_bins_hist(pos,greedy2Params,confidence_levels)
-        greedy2histpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name))
-        greedy2HistFig.savefig(greedy2histpath)
-        if(savepdfs): greedy2HistFig.savefig(greedy2histpath.replace('.png','.pdf'))
-        plt.close(greedy2HistFig)
-
+        try:
+          greedy2ContourPlot=bppu.plot_two_param_kde_greedy_levels({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
+          greedy2contourpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2contour.png'%(par1_name,par2_name))
+          greedy2ContourPlot.savefig(greedy2contourpath)
+          if(savepdfs): greedy2ContourPlot.savefig(greedy2contourpath.replace('.png','.pdf'))
+          plt.close(greedy2ContourPlot)
+        
+          greedy2HistFig=bppu.plot_two_param_greedy_bins_hist(pos,greedy2Params,confidence_levels)
+          greedy2histpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name))
+          greedy2HistFig.savefig(greedy2histpath)
+          if(savepdfs): greedy2HistFig.savefig(greedy2histpath.replace('.png','.pdf'))
+          plt.close(greedy2HistFig)
+        except:
+          pass
         greedyFile = open(os.path.join(twobinsdir,'%s_%s_greedy_stats.txt'%(par1_name,par2_name)),'w')
 
         #= Write out statistics for greedy bins
@@ -1194,6 +1201,7 @@ if __name__=='__main__':
     parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
     parser.add_option("--email",action="store",default=None,type="string",metavar="user@ligo.org",help="Send an e-mail to the given address with a link to the finished page.")
     parser.add_option("--stats_only",action="store_true",default=False,dest="stats_only")
+    parser.add_option("--archive",action="store",default=None,type="string",metavar="results.tar.gz",help="Create the given tarball with all results")
     (opts,args)=parser.parse_args()
 
     datafiles=[]
@@ -1212,19 +1220,20 @@ if __name__=='__main__':
     polParams=['psi','polarisation','polarization']
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
-   
+    ellParams=['alpha']
     burstParams=['frequency','loghrss','q','hrss']
-    phaseParams=['phase']
+    phaseParams=['phase','phi_orb']
     #endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
     endTimeParams=[]
     #statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1']
     statsParams=['logl']
-    oneDMenu=polParams + skyParams + timeParams + statsParams+burstParams
+    oneDMenu=polParams + skyParams + timeParams + statsParams+burstParams+ellParams+phaseParams
    
     ifos_menu=['h1','l1','v1']
     from itertools import combinations
     for ifo1,ifo2 in combinations(ifos_menu,2):
       oneDMenu.append(ifo1+ifo2+'_delay')
+    
     #oneDMenu=[]
     twoDGreedyMenu=[]
     if not opts.no2D:
@@ -1236,10 +1245,16 @@ if __name__=='__main__':
         #for bu in burstParams:
         #    for ti in timeParams:
         #        twoDGreedyMenu.append([bu,ti])
-  
+
+    twoDGreedyMenu.append(['phi_orb','psi'])
+    twoDGreedyMenu.append(['alpha','psi'])
+    twoDGreedyMenu.append(['phi_orb','alpha'])
+    twoDGreedyMenu.append(['loghrss','psi'])
+    twoDGreedyMenu.append(['alpha','loghrss'])
+
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'time':1e-4,'ra':0.05,'dec':0.05,'polarisation':0.04,'rightascension':0.05,'declination':0.05, 'loghrss':0.01,'frequency':1.,'q':0.1}
+    greedyBinSizes={'time':1e-4,'ra':0.05,'dec':0.05,'polarisation':0.04,'rightascension':0.05,'declination':0.05, 'loghrss':0.01,'frequency':0.5,'q':0.05,'phase':0.1,'phi_orb':0.1,'psi':0.04,'polarization':0.04,'alpha':0.01}
     #for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
     #    greedyBinSizes[derived_time]=greedyBinSizes['time']
     #if not opts.no2D:
@@ -1281,7 +1296,8 @@ if __name__=='__main__':
                         # Turn of ACF?
                         noacf=opts.noacf,
                         #Turn on 2D kdes
-                        twodkdeplots=opts.twodkdeplots,
+                        #twodkdeplots=opts.twodkdeplots,
+                        twodkdeplots=False,
                         #Turn on R convergence tests
                         RconvergenceTests=opts.RconvergenceTests,
                         # Also save PDFs?
@@ -1294,7 +1310,9 @@ if __name__=='__main__':
                         header=opts.header,
                         statsonly=opts.stats_only
                     )
-
+    if opts.archive is not None:
+        import subprocess
+        subprocess.call(["tar","cvzf",opts.archive,opts.outpath])
     # Send an email, useful for keeping track of dozens of jobs!
     # Will only work if the local host runs a mail daemon
     # that can send mail to the internet

@@ -18,15 +18,16 @@
  */
 
 /*********************************************************************************/
-/** \author C. Messenger
- * \file 
+/**
+ * \author C. Messenger
+ * \file
  * \ingroup pulsarApps
  * \brief
- * Generates posterior pdfs for a subset of the unknown orbital and nuisance 
+ * Generates posterior pdfs for a subset of the unknown orbital and nuisance
  * parameters given a set of candidate regions in frequency of demodulated Fourier
  * transform results.
- *                                                                          
- *********************************************************************************/
+ *
+ */
 
 /* System includes */
 #include <stdio.h>
@@ -86,8 +87,6 @@ BOOLEAN uvar_ampmod;
 
 REAL8 jumptemp;
 
-static SideBandMCMCVector empty_SideBandMCMCVector;
-
 /* ---------- local prototypes ---------- */
 int main(int argc,char *argv[]);
 void initUserVars (LALStatus *);
@@ -101,7 +100,7 @@ void PriorRanges(LALStatus *,SideBandMCMCVector ,SideBandMCMCRanges,INT4 *);
 /* Function definitions start here */
 /*----------------------------------------------------------------------*/
 
-/** 
+/**
  * MAIN function of SideBandMCMC code
  * Compute the posterior pdfs of the orbital and nuisance parameters of a binary signal
  * in Fstat form
@@ -122,7 +121,7 @@ int main(int argc,char *argv[])
   SideBandMCMCVector **MCMCchain = NULL;       /* a vector of MCMC parameter vectors where the Markov chain is stored */
   SideBandMCMCVector lambda;                   /* stores the current MCMC parameter vector */
   SideBandMCMCVector newlambda;                /* stores the prospective MCMC parameter vector */
-  SideBandMCMCVector currentlambda = empty_SideBandMCMCVector; /* stores the last successful MCMC jump parameter vector */
+  SideBandMCMCVector XLAL_INIT_DECL(currentlambda); /* stores the last successful MCMC jump parameter vector */
   SideBandMCMCRanges ranges;                   /* used to store the prior ranges on all MCMC parameters */
   SideBandMCMCJumpProbs jumpsizes;                 /* used to store the jump sizes for all MCMC parameters */
   RandomParams *randparams = NULL;
@@ -572,7 +571,8 @@ initUserVars (LALStatus *status)
 
 
 /*----------------------------------------------------------------------*/
-/** Some general consistency-checks on user-input.
+/**
+ * Some general consistency-checks on user-input.
  * Throws an error plus prints error-message if problems are found.
  */
 void

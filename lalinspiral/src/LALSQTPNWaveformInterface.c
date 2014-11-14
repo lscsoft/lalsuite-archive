@@ -1,8 +1,8 @@
 /**
  * @file LALSQTPNWaveformInterface.c
- *		Contains function definitions to integrate the SpinQuadTaylor code into the other parts of the LALSuit.
- *	If you want to run the program use the \ref LALSQTPNWaveformTest.c file int the
- *	test directory.
+ * Contains function definitions to integrate the SpinQuadTaylor code into the other parts of the LALSuit.
+ * If you want to run the program use the \ref LALSQTPNWaveformTest.c file int the
+ * test directory.
  * @author László Veréb
  * @date 2010.06.27.
  */
@@ -13,8 +13,7 @@
 void LALSQTPNWaveformTemplates (LALStatus *status, REAL4Vector *signalvec1, 
 		REAL4Vector *signalvec2, InspiralTemplate *params) {
 
-	XLALPrintDeprecationWarning("LALSQTPNWaveformTemplates", 
-		"XLALSQTPNWaveformTemplates");
+	XLAL_PRINT_DEPRECATION_WARNING("XLALSQTPNWaveformTemplates");
 	INITSTATUS(status);
 	ATTATCHSTATUSPTR(status);
 
@@ -63,7 +62,7 @@ int XLALSQTPNWaveformTemplates (REAL4Vector *signalvec1,
 
 void LALSQTPNWaveform (LALStatus *status, REAL4Vector *signalvec, InspiralTemplate *params){
 
-	XLALPrintDeprecationWarning("LALSQTPNWaveform", "XLALSQTPNWaveform");
+	XLAL_PRINT_DEPRECATION_WARNING("XLALSQTPNWaveform");
 	INITSTATUS(status);
 	ATTATCHSTATUSPTR(status);
 
@@ -114,8 +113,7 @@ int XLALSQTPNWaveform (REAL4Vector *signalvec, InspiralTemplate *params){
 void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform,
 		InspiralTemplate *params, PPNParamStruc *ppnParams) {
 
-	XLALPrintDeprecationWarning("LALSQTPNWaveformForInjection", 
-		"XLALSQTPNWaveformForInjection");
+	XLAL_PRINT_DEPRECATION_WARNING("XLALSQTPNWaveformForInjection");
 	INITSTATUS(status);
 	ATTATCHSTATUSPTR(status);
 
@@ -332,7 +330,7 @@ void XLALSQTPNFillParams(LALSQTPNWaveformParams *wave, InspiralTemplate *params)
 	wave->order = params->order;
 	wave->interaction = params->interaction;
 	if (wave->interaction) {
-		wave->interaction = (LALSimInspiralInteraction) ( wave->interaction | LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN );
+		wave->interaction = (LALInspiralInteraction) ( wave->interaction | LAL_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN );
 	}
 	/*printf("masses: %lg %lg\n", wave->mass[0], wave->mass[1]);
 	printf("chis1: %lg %lg %lg\n", wave->chi[0][0], wave->chi[0][1], wave->chi[0][2]);

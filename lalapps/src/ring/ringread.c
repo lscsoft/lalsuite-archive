@@ -28,9 +28,10 @@
  */
 
 #include <math.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
+#include <metaio.h>
 #include <getopt.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -211,7 +212,7 @@ int main( int argc, char *argv[] )
   XLALGPSTimeNow(&(proctable.processTable->start_time));
 
   XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME,
-      LALAPPS_VCS_IDENT_ID, LALAPPS_VCS_IDENT_STATUS, LALAPPS_VCS_IDENT_DATE, 0);
+      lalAppsVCSIdentId, lalAppsVCSIdentStatus, lalAppsVCSIdentDate, 0);
 
   this_proc_param = procparams.processParamsTable = (ProcessParamsTable *) 
     calloc( 1, sizeof(ProcessParamsTable) );

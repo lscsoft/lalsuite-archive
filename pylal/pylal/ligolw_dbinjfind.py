@@ -6,6 +6,26 @@ from glue.ligolw import ilwd
 from pylal import ligolw_sqlutils as sqlutils
 from pylal import ligolw_dataUtils as dataUtils
 
+def make_rec_sngls_table( connection, recovery_table ):
+    """
+    Makes a temporary table containing events from the given recovery table
+    that could potentially be injections --- i.e., events from the "simulation"
+    datatype --- and the process id of the injection jobs that created them.
+    This allows for quick matching between injections and single events later
+    on.
+    """
+    sqlquery = ''.join(['''
+        CREATE TEMP TABLE rec_sngls AS
+            SELECT
+                experiment_summary.sim_proc_id AS sim_proc_id,
+            ''', recovery_table, '''.*
+        FROM
+            ''', recovery_table, '''
+        ''', sqlutils.join_experiment_tables_to_sngl_table( recovery_table ), '''
+        WHERE
+            experiment_summary.datatype == "simulation"''' ])
+    connection.cursor().execute(sqlquery)
+
 
 def dbinjfind( connection, simulation_table, recovery_table, match_criteria, rough_match = None, rejection_criteria = [], rough_rejection = None, verbose = False ):
 
@@ -23,17 +43,7 @@ def dbinjfind( connection, simulation_table, recovery_table, match_criteria, rou
     # create a temporary table to store the eligible foreground events that can be matched
     if verbose:
         print >> sys.stdout, "Getting eligible events..."
-    sqlquery = ''.join(['''
-        CREATE TEMP TABLE rec_sngls AS
-            SELECT
-                experiment_summary.sim_proc_id AS sim_proc_id,
-                ''', recovery_table, '''.*
-            FROM
-            ''', recovery_table, '''
-            ''', sqlutils.join_experiment_tables_to_sngl_table( recovery_table ), '''
-            WHERE
-                experiment_summary.datatype == "simulation"''' ])
-    connection.cursor().execute(sqlquery)
+    make_rec_sngls_table( connection, recovery_table )
 
     # if using rough match, create an index for it
     rough_match_test = ''
@@ -52,7 +62,8 @@ def dbinjfind( connection, simulation_table, recovery_table, match_criteria, rou
     if rejection_criteria != []:
         if verbose:
             print >> sys.stdout, "Applying rejection test to eligible events..."
-        # if comparing to all_data for rejection, create a temp table of all data events
+        # If comparing to all_data for rejection, create a temp table of all data events
+        # This rejection test only uses the single-ifo triggers from coincident events
         sqlquery = ''.join(['''
             CREATE TEMP TABLE all_data_sngls AS
                 SELECT
@@ -142,7 +153,7 @@ def dbinjfind( connection, simulation_table, recovery_table, match_criteria, rou
 def strlst_is_subset(stringA, stringB):
     return set(stringA.split(',')).issubset(set(stringB.split(',')))
 
-def write_coincidences(connection, map_label, process_id, verbose = False):
+def write_coincidences(connection, map_label, search, process_id, verbose = False):
     """
     Writes coincidences to coinc_event_map table.
     """
@@ -192,7 +203,7 @@ def write_coincidences(connection, map_label, process_id, verbose = False):
     sim_sngls = [(ilwd.ilwdchar(sim_id), ilwd.ilwdchar(eid)) for sim_id, eid in connection.cursor().execute( sqlquery ).fetchall()]
 
     # create a new coinc_def id for this map label, if it already doesn't exist
-    coinc_def_id = sqlutils.write_newstyle_coinc_def_entry( connection, map_label )
+    coinc_def_id = sqlutils.write_newstyle_coinc_def_entry( connection, map_label, search=search )
 
     # get the time_slide id
     # XXX: NOTE: We are assuming that all simulation entries have the same time_slide id

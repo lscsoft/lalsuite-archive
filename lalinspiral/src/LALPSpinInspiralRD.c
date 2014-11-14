@@ -19,12 +19,12 @@
 */
 
 /**
-\file
-\ingroup LALInspiral_h
-
+ * \file
+ * \ingroup LALInspiral_h
+ *
  * \brief Module to generate generic spinning binaries waveforms complete with ring-down
  *
- * \heading{Prototypes}
+ * ### Prototypes ###
  *
  * <tt>LALPSpinInspiralRD()</tt>
  * <dl>
@@ -33,7 +33,6 @@
  * <dt>params:</dt><dd> Input containing binary chirp parameters.</dd>
  * </dl>
  *
- *
  * <tt>LALPSpinInspiralRDTemplates()</tt>
  * <dl>
  * <dt>status:</dt><dd>Input/Output
@@ -41,7 +40,6 @@
  * <dt>signalvec2:</dt><dd>Output containing the \f$\times\f$ inspiral waveform.</dd>
  * <dt>params:</dt><dd>Input containing binary chirp parameters.</dd>
  * </dl>
- *
  *
  * <tt>LALPSpinInspiralRDInjection()</tt>
  * <dl>
@@ -57,7 +55,8 @@
  * <dt>params:</dt><dd>Input containing binary chirp parameters.</dd>
  * </dl>
  *
- * \heading{Description}
+ * ### Description ###
+ *
  * This codes provide complete waveforms for generically spinning binary systems.
  * In order to construct the waveforms three phases are joined together:
  * an initial inspiral phase, a phenomenological phase encompassing the description
@@ -71,9 +70,11 @@
  * ensure continuity of the phase, the frequency and its first and second
  * derivatives. Finally a ring-down phase is attached.
  *
- * \heading{Algorithm}
+ * ### Algorithm ###
  *
- * \heading{Uses}
+ *
+ * ### Uses ###
+ *
  * \code
  * LALPSpinInspiralRDderivatives()
  * LALInspiralSetup()
@@ -90,11 +91,12 @@
  * XLALSpinInspiralFillH4Modes()
  * \endcode
  *
- * \heading{Notes}
+ * ### Notes ###
  *
-*/
+ */
 
-/** \defgroup psird Complete phenomenological spin-inspiral waveforms
+/**
+ * \defgroup psird Complete phenomenological spin-inspiral waveforms
  * \ingroup ch_inspiral
  *
  * This code provides complete waveforms for generically spinning binary
@@ -346,7 +348,7 @@ static int XLALPSpinInspiralRDSetParams(LALPSpinInspiralRDparams *mparams,Inspir
 
   switch (params->interaction) {
 
-    case LAL_SIM_INSPIRAL_INTERACTION_NONE:
+    case LAL_INSPIRAL_INTERACTION_NONE:
       /*This kills all spin effects in the phase. Still there are spin effects
 	in the waveform due to orbital plane precession*/
       mparams->epnspin15S1dotLNh = 0.;
@@ -356,13 +358,13 @@ static int XLALPSpinInspiralRDSetParams(LALPSpinInspiralRDparams *mparams,Inspir
       mparams->S1dot15           = 0.;
       mparams->S2dot15           = 0.;
 
-    case LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN:  
+    case LAL_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN:
       /* This keeps only the leading spin-orbit interactions*/
       mparams->wdotspin20S1S2      = 0.;
       mparams->epnspin20S1S2       = 0.;
       mparams->epnspin20S1S2dotLNh = 0.;
 
-    case LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN:
+    case LAL_INSPIRAL_INTERACTION_SPIN_SPIN_2PN:
       /* This keeps S1-S2 interactions but kill spin self-interactions*/
       mparams->wdotspin20S1S1 = 0.;
       mparams->epnspin20S1S1 = 0.;
@@ -373,7 +375,7 @@ static int XLALPSpinInspiralRDSetParams(LALPSpinInspiralRDparams *mparams,Inspir
       mparams->epnspin20S1S1dotLNh = 0.;
       mparams->epnspin20S2S2dotLNh = 0.;
 
-    case LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN: 
+    case LAL_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN:
       /* This kills all spin interaction intervening at 2.5PN order or higher*/
       mparams->epnspin25S1dotLNh   = 0.;
       mparams->epnspin25S2dotLNh   = 0.;
@@ -382,21 +384,21 @@ static int XLALPSpinInspiralRDSetParams(LALPSpinInspiralRDparams *mparams,Inspir
       mparams->S1dot25             = 0.;
       mparams->S2dot25             = 0.;
 
-    case LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN:
+    case LAL_INSPIRAL_INTERACTION_QUAD_MONO_2PN:
 
-    case LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN:
+    case LAL_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN:
       mparams->wdotspin30S1LNh     = 0.;
       mparams->wdotspin30S2LNh     = 0.;
 
-    case LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN:
+    case LAL_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN:
 
-    case LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN:
+    case LAL_INSPIRAL_INTERACTION_ALL_SPIN:
 
-    case LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN:
+    case LAL_INSPIRAL_INTERACTION_TIDAL_5PN:
 
-    case LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN:
+    case LAL_INSPIRAL_INTERACTION_TIDAL_6PN:
 
-    case LAL_SIM_INSPIRAL_INTERACTION_ALL: 
+    case LAL_INSPIRAL_INTERACTION_ALL:
 
     default:
       break;

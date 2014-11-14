@@ -1,7 +1,10 @@
-AM_CPPFLAGS = -I$(top_builddir)/include -DPKG_DATA_DIR='"$(pkgdatadir)/"'
+BUILT_SOURCES =
+MOSTLYCLEANFILES =
+include $(top_srcdir)/gnuscripts/lalsuite_header_links.am
+include $(top_srcdir)/gnuscripts/lalsuite_vcs_info.am
+include $(top_srcdir)/gnuscripts/lalsuite_cuda.am
 
-lalinspiralincludedir = $(includedir)/lal
-lalinspiralinclude_HEADERS = \
+pkginclude_HEADERS = \
 	BBHPhenomCoeffs.h \
 	Chisq_CPU.h \
 	Chisq_GPU.h \
@@ -27,9 +30,9 @@ lalinspiralinclude_HEADERS = \
 	LALInspiral.h \
 	LALInspiralBank.h \
 	LALInspiralConfig.h \
-	LALInspiralLibVCSInfo.h \
-	LALInspiralSBankOverlap.h \
 	LALInspiralVCSInfo.h \
+	LALInspiralSBankOverlap.h \
+	LALInspiralVCSInfoHeader.h \
 	LALNoiseModelsInspiral.h \
 	LALPSpinInspiralRD.h \
 	LALTrigScanCluster.h \
@@ -48,8 +51,7 @@ lalinspiralinclude_HEADERS = \
 	RingUtils.h \
 	SimulateInspiral.h \
 	TemplateBankGeneration.h \
-	TrigScanEThincaCommon.h \
-	lalinspiralswig_test.i
+	TrigScanEThincaCommon.h
 
 lib_LTLIBRARIES = liblalinspiral.la
 liblalinspiral_la_SOURCES = \
@@ -213,6 +215,7 @@ liblalinspiral_la_SOURCES = \
 	SnglInspiralUtils.c \
 	SnglRingdownUtils.c \
 	TrigScanEThincaCommon.c
+nodist_liblalinspiral_la_SOURCES = LALInspiralBuildInfo.c
 
 if CUDA
 INSPCXXSRC =
@@ -229,57 +232,18 @@ liblalinspiralcxx_la_SOURCES = $(INSPCXXSRC)
 nodist_liblalinspiralcxx_la_SOURCES = $(INSPCXXGENSRC)
 liblalinspiral_la_LIBADD = $(INSPLIBCXX)
 
-liblalinspiral_la_LDFLAGS = -version-info $(LIBVERSION)
+liblalinspiral_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(LIBVERSION)
 
 CLEANFILES = \
 	Chisq_GPU.cpp
 
-MOSTLYCLEANFILES = \
-	lalinspiral-user-env.shell \
-	lalinspiral-user-env.sh \
-	lalinspiral-user-env.csh
-
-sysconf_DATA = \
-	lalinspiral-user-env.sh \
-	lalinspiral-user-env.csh
-
-BUILT_SOURCES = \
-	lalinspiral-user-env.sh \
-	lalinspiral-user-env.csh
-
-lalinspiral-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
-	@echo "# generic user environment script" >$@
-	@echo "set LALINSPIRAL_PREFIX $(prefix)" >>$@
-	@echo "prepend PATH $(bindir)" >>$@
-	@echo "prepend MANPATH $(mandir)" >>$@
-	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
-	@echo "prepend PYTHONPATH $(pyexecdir)" >>$@
-	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
-	@echo "prepend OCTAVE_PATH $(octexecdir)" >>$@
-
-lalinspiral-user-env.csh lalinspiral-user-env.sh: lalinspiral-user-env.shell $(srcdir)/generate_user_env.awk
-	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
-
 EXTRA_DIST = \
 	Chisq_GPU.cu \
 	LALInspiralConfig.h.in \
-	config.h.in \
-	generate_user_env.awk
-
-if HAVE_GIT_REPO
-BUILT_SOURCES += LALInspiralVCSInfo.h
-MOSTLYCLEANFILES += LALInspiralVCSInfo.h
-LALInspiralVCSInfo.h .PHONY : gen-LALInspiralVCSInfo.h
-gen-LALInspiralVCSInfo.h :
-	$(AM_V_at)$(GENERATE_VCS_INFO) LALInspiralVCSInfo.h $(srcdir)/LALInspiralVCSInfo.h.git
-endif
+	config.h.in
 
 DISTCLEANFILES = config.h
 
-@LAL_HEADER_LINK@
-
-# cuda build rules
-include $(top_srcdir)/gnuscripts/cuda.common
-
-swig_headers = $(lalinspiralinclude_HEADERS)
-include $(top_srcdir)/swig/swiglal_header.am
+vcs_info_sources = LALInspiralVCSInfoHeader.h
+build_info_source = LALInspiralBuildInfo.c
+$(build_info_source): $(liblalinspiral_la_DEPENDENCIES)

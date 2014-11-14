@@ -1,7 +1,7 @@
+include $(top_srcdir)/gnuscripts/lalsuite_header_links.am
+
 EXTRA_DIST = \
 	inject.dox \
-	inject_ascend.png \
-	inject_ascend.eps \
 	inject_binary.png \
 	inject_binary.eps \
 	inject_eanomaly.png \

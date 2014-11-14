@@ -1,7 +1,7 @@
-# Makefile for TDS_isolated
+BUILT_SOURCES =
+include $(top_srcdir)/gnuscripts/lalapps.am
 
-AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -DPKG_DATA_DIR='"$(pkgdatadir)/"'
-LDADD = $(top_builddir)/src/lalapps/liblalapps.la
+# Makefile for TDS_isolated
 
 if LALFRAME
 frame_progs = \
@@ -19,7 +19,9 @@ inference_progs = \
 endif
 endif
 endif
-bin_PROGRAMS = $(frame_progs) $(inference_progs) lalapps_CrabTNHeterodyne
+bin_PROGRAMS = $(frame_progs) $(inference_progs) lalapps_CrabTNHeterodyne lalapps_ssbtodetector
+
+lalapps_ssbtodetector_SOURCES = ssbtodetector.c
 
 lalapps_heterodyne_pulsar_SOURCES = \
 	heterodyne_pulsar.c \
@@ -60,8 +62,6 @@ EXTRA_DIST = \
 	pulsarpputils.py \
 	pulsar_pipeline_utils.py
 
-TESTS_ENVIRONMENT = LAL_DEBUG_LEVEL=memdbg LALPULSAR_DATADIR="$(LALPULSAR_DATADIR)"
-
-## make sure lalapps.la is rebuilt when appropriate
-BUILT_SOURCES =
-include $(top_srcdir)/gnuscripts/vcsID.common
+TESTS_ENVIRONMENT = \
+	LAL_DEBUG_LEVEL=msglvl1,memdbg; export LAL_DEBUG_LEVEL; \
+	LAL_DATA_PATH="$(LAL_DATA_PATH)"; export LAL_DATA_PATH;

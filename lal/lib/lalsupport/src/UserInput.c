@@ -18,7 +18,7 @@
  *  MA  02111-1307  USA
  */
 
-#include "getopt.h"
+#include "LALgetopt.h"
 
 #include <lal/LALStdio.h>
 #include <lal/UserInput.h>
@@ -41,7 +41,8 @@ typedef enum {
   UVAR_LAST
 } UserVarType;
 
-/** Linked list to hold the complete information about the user-variables.
+/**
+ * Linked list to hold the complete information about the user-variables.
  */
 typedef struct tagLALUserVariable {
   const CHAR *name;	/**< full name */
@@ -58,8 +59,8 @@ static LALUserVariable UVAR_vars;	/**< empty head */
 static const CHAR *program_name;	/**< keep a pointer to the program name */
 
 /* needed for command-line parsing */
-extern char *optarg;
-extern int optind, opterr, optopt;
+extern char *LALoptarg;
+extern int LALoptind, LALopterr, LALoptopt;
 
 /* ---------- internal prototypes ---------- */
 
@@ -116,16 +117,17 @@ XLALRegisterLISTUserVar ( const CHAR *name, CHAR optchar, UserVarState flag, con
 }
 
 
-/** \ingroup UserInput_h
+/**
+ * \ingroup UserInput_h
  * Internal function: Register a user-variable with the module.
- *  Effectively put an appropriate entry into UVAR_vars
+ * Effectively put an appropriate entry into UVAR_vars
  *
  * Checks that long- and short-options are unique, an error is returned
  * if a previous option name collides.
  *
  * \note don't use this function directly, as it is not type-safe!!
- *      ==> use one of the 4 wrappers: XLALRegisterREALUserVar(),
- *    XLALRegisterINTUserVar(), XLALRegisterBOOLUserVar(), XLALRegisterSTRINGUserVar().
+ * ==> use one of the 4 wrappers: XLALRegisterREALUserVar(),
+ * XLALRegisterINTUserVar(), XLALRegisterBOOLUserVar(), XLALRegisterSTRINGUserVar().
  *
  */
 int XLALRegisterUserVar ( const CHAR *name,	/**< name of user-variable to register */
@@ -178,7 +180,8 @@ int XLALRegisterUserVar ( const CHAR *name,	/**< name of user-variable to regist
 
 } /* XLALRegisterUserVar() */
 
-/** Free all memory associated with user-variable linked list
+/**
+ * Free all memory associated with user-variable linked list
  */
 void
 XLALDestroyUserVars( void )
@@ -224,7 +227,8 @@ XLALDestroyUserVars( void )
 } /* XLALDestroyUserVars() */
 
 
-/** Parse command-line into UserVariable array
+/**
+ * Parse command-line into UserVariable array
  */
 int
 XLALUserVarReadCmdline ( int argc, char *argv[] )
@@ -309,10 +313,10 @@ XLALUserVarReadCmdline ( int argc, char *argv[] )
    * Bruce's notes: read getopt_long() source code, and in particular
    * _getopt_internal() to see what is initialized.
    */
-  optind = 0; 	/* reset getopt(), getopt_long() */
+  LALoptind = 0; 	/* reset getopt(), getopt_long() */
 
   /* parse the command-line */
-  while ( (c = getopt_long(argc, argv, optstring, long_options, &longindex)) != -1 )
+  while ( (c = LALgetopt_long(argc, argv, optstring, long_options, &longindex)) != -1 )
     {
       if (c == '?') {
 	XLALPrintError ( "%s: ERROR: unkown command-line option encountered\n", __func__ );
@@ -341,80 +345,54 @@ XLALUserVarReadCmdline ( int argc, char *argv[] )
       }
 
       /* if we found the debug-switch, ignore it (has been handled already */
-      if (ptr == &UVAR_vars)
+      if (ptr == &UVAR_vars) {
 	continue;
+      }
 
       switch (ptr->type)
 	{
-	  INT2 ans;
-	case UVAR_BOOL:
-	  ans = -1;
 
+	case UVAR_BOOL:
 	  /* subtlety with optional argument: it's not necessarily found in the *same* argv-entry
 	   * eg, if no '=' was used, so we have to check for that case by hand: */
 
 	  /* if the next entry is not an option, take it as an argument */
-	  if (optarg == NULL && (optind<argc) && (argv[optind][0]!='-') && (argv[optind][0]!='@') )
-	    optarg = argv[optind];
+	  if ( (LALoptarg == NULL) && (LALoptind < argc) && (argv[LALoptind][0] != '-') && (argv[LALoptind][0] != '@') ) {
+	    LALoptarg = argv[LALoptind];
+          }
 
-	  if ( optarg == NULL )	/* no argument found at all: defaults to TRUE */
-	    {
-	      ans = 1;
-	    }
-	  else	/* parse bool-argument: should be consistent with bool-parsing in ConfigFile!! */
-	    {
-	      /* get rid of case ambiguities */
-	      if ( XLALStringToLowerCase (optarg) != XLAL_SUCCESS ) {
-                XLAL_ERROR ( XLAL_EFUNC );
-              }
-
-	      if      ( !strcmp(optarg, "yes") || !strcmp(optarg, "true") || !strcmp(optarg,"1") )
-		ans = 1;
-	      else if ( !strcmp (optarg, "no") || !strcmp(optarg,"false") || !strcmp(optarg,"0") )
-		ans = 0;
-	      else {	/* failed to parse BOOL properly */
-		XLALPrintError ( "%s: Illegal bool-value `%s`\n\n", __func__, optarg);
-		XLAL_ERROR ( XLAL_EDOM );
-	      }
-	    } /* parse bool-argument */
-
-	  /* only set if we properly parsed something */
-	  if (ans != -1) {
-	    *(BOOLEAN*)(ptr->varp)  = (BOOLEAN)ans;
-	    check_and_mark_as_set ( ptr );
-	  }
+	  if ( LALoptarg == NULL )  /* no argument found at all: defaults to TRUE */
+            {
+              *(BOOLEAN*)(ptr->varp) = TRUE;
+              check_and_mark_as_set ( ptr );
+            }
+          else
+            {	/* parse bool string argument */
+              XLAL_CHECK ( XLALParseStringValueToBOOLEAN ( (BOOLEAN*)(ptr->varp), LALoptarg ) == XLAL_SUCCESS, XLAL_EFUNC );
+              check_and_mark_as_set ( ptr );
+            }
 
 	  break;
 
 	case UVAR_INT4:
-	  if ( 1 != sscanf ( optarg, "%" LAL_INT4_FORMAT, (INT4*)(ptr->varp)) )
-	    {
-	      XLALPrintError ("%s: Illegal INT4 commandline argument to --%s: '%s'\n\n", __func__, ptr->name, optarg);
-	      XLAL_ERROR ( XLAL_EDOM );
-	    }
-
+          XLAL_CHECK ( XLALParseStringValueToINT4 ( (INT4*)(ptr->varp), LALoptarg ) == XLAL_SUCCESS, XLAL_EFUNC );
 	  check_and_mark_as_set ( ptr );
 	  break;
 
 	case UVAR_REAL8:
-	  if ( 1 != sscanf ( optarg, "%" LAL_REAL8_FORMAT, (REAL8*)(ptr->varp)) )
-	    {
-	      XLALPrintError ("%s: Illegal REAL8 commandline argument to --%s: '%s'\n\n", __func__, ptr->name, optarg);
-	      XLAL_ERROR ( XLAL_EDOM );
-	    }
-
+          XLAL_CHECK ( XLALParseStringValueToREAL8 ( (REAL8*)(ptr->varp), LALoptarg ) == XLAL_SUCCESS, XLAL_EFUNC );
 	  check_and_mark_as_set ( ptr );
 	  break;
 
 	case UVAR_STRING:
-	  if (!optarg) {	/* should not be possible, but let's be paranoid */
-	    XLALPrintError ( "%s: optarg==NULL, something went badly wrong ...\n", __func__ );
+	  if (!LALoptarg) {	/* should not be possible, but let's be paranoid */
+	    XLALPrintError ( "%s: LALoptarg==NULL, something went badly wrong ...\n", __func__ );
             XLAL_ERROR ( XLAL_EFAULT );
 	  }
 	  strp = *(CHAR**)(ptr->varp);
 	  if ( strp != NULL) 	 /* something allocated here before? */
 	    XLALFree ( strp );
-	  if ( (strp = XLAL_copy_string_unquoted ( optarg )) == NULL ) {
+	  if ( (strp = XLAL_copy_string_unquoted ( LALoptarg )) == NULL ) {
             XLALPrintError ("%s: XLAL_copy_string_unquoted() failed.\n", __func__ );
             XLAL_ERROR ( XLAL_EFUNC );
 	  }
@@ -428,8 +406,8 @@ XLALUserVarReadCmdline ( int argc, char *argv[] )
 	  if ( csv != NULL) { 	/* something allocated here before? */
 	    XLALDestroyStringVector ( csv );
           }
-	  if ( (csv = XLALParseCSV2StringVector ( optarg )) == NULL ) {
-            XLALPrintError ("%s: XLALParseCSV2StringVector() failed on '%s'\n", __func__, optarg );
+	  if ( (csv = XLALParseCSV2StringVector ( LALoptarg )) == NULL ) {
+            XLALPrintError ("%s: XLALParseCSV2StringVector() failed on '%s'\n", __func__, LALoptarg );
             XLAL_ERROR ( XLAL_EFUNC );
 	  }
 	  /* return value */
@@ -446,6 +424,21 @@ XLALUserVarReadCmdline ( int argc, char *argv[] )
 
     } /* while getopt_long() */
 
+  // check if there's any non-option strings left (except for a config-file specification '@file')
+  if ( (LALoptind == argc - 1) && (argv[LALoptind][0] == '@' ) ) {
+    LALoptind ++;	// advance counter in case of one config-file specification (only one allowed)
+  }
+  if ( LALoptind < argc ) // still stuff left? ==> error
+    {
+      XLALPrintError ( "\nGot non-option ARGV-elements: [ ");
+      while (LALoptind < argc) {
+        if ( argv[LALoptind][0] == '@' ) { LALoptind ++; continue; }	// don't list config-file entries here
+        XLALPrintError ("%s ", argv[LALoptind++]);
+      }
+      XLALPrintError(" ]\n");
+      XLAL_ERROR ( XLAL_EDOM );
+    } // non-option arguments found
+
   XLALFree (long_options);
   long_options=NULL;
 
@@ -454,8 +447,8 @@ XLALUserVarReadCmdline ( int argc, char *argv[] )
 } /* XLALUserVarReadCmdline() */
 
 
-/** Read config-variables from cfgfile and parse into input-structure.
- *
+/**
+ * Read config-variables from cfgfile and parse into input-structure.
  * An error is reported if the config-file reading fails, but the
  * individual variable-reads are treated as optional
  */
@@ -570,7 +563,8 @@ XLALUserVarReadCfgfile ( const CHAR *cfgfile ) 	   /**< [in] name of config-file
 #define UVAR_MAXDEFSTR    100 	/* max length of default-string */
 #define UVAR_MAXFMTLEN    128   /* max length of help-line format-string */
 
-/** Assemble all help-info from uvars into a help-string.
+/**
+ * Assemble all help-info from uvars into a help-string.
  */
 CHAR *
 XLALUserVarHelpString ( const CHAR *progname )
@@ -780,7 +774,8 @@ XLALUserVarHelpString ( const CHAR *progname )
 } /* XLALUserVarHelpString() */
 
 
-/** Put all the pieces together, and basically does everything:
+/**
+ * Put all the pieces together, and basically does everything:
  * get config-filename from cmd-line (if found),
  * then interpret config-file and then the command-line
  */
@@ -853,7 +848,7 @@ XLALUserVarReadAllInput ( int argc, char *argv[] )
   ptr = &UVAR_vars;
   while ( (ptr=ptr->next) != NULL)
     {
-      if ( (ptr->state & UVAR_HELP) && (ptr->state & UVAR_WAS_SET) )
+      if ( (ptr->state & UVAR_HELP) && ( *((BOOLEAN*)ptr->varp) ) )
 	{
 	  CHAR *helpstring = NULL;
 	  if ( ( helpstring = XLALUserVarHelpString(argv[0])) == NULL ) {
@@ -883,7 +878,8 @@ XLALUserVarReadAllInput ( int argc, char *argv[] )
 
 
 
-/** Has this user-variable been set by the user?
+/**
+ * Has this user-variable been set by the user?
  * returns TRUE/FALSE
  */
 int
@@ -913,7 +909,8 @@ XLALUserVarWasSet (const void *cvar)
 } /* XLALUserVarWasSet() */
 
 
-/** Check that all required user-variables have been set successfully.
+/**
+ * Check that all required user-variables have been set successfully.
  * Print error if not
  */
 int
@@ -935,7 +932,8 @@ XLALUserVarCheckRequired (void)
 } /* XLALUserVarCheckRequired() */
 
 
-/** Return a log-string representing the <em>complete</em> user-input.
+/**
+ * Return a log-string representing the <em>complete</em> user-input.
  * <em>NOTE:</em> we only record user-variables that have been set
  * by the user.
  */
@@ -1162,7 +1160,8 @@ XLALUvarValue2String ( LALUserVariable *uvar )
 } /* XLALUvarValue2String() */
 
 
-/** Copy (and allocate) string 'in', possibly with quotes \" or \' removed.
+/**
+ * Copy (and allocate) string 'in', possibly with quotes \" or \' removed.
  * If quotes are present at the beginning of 'in', they must have a matching
  * quote at the end of string, otherwise an error is printed and return=NULL
  */
@@ -1208,7 +1207,8 @@ XLAL_copy_string_unquoted ( const CHAR *in )
 
 } /* XLAL_copy_string_unquoted() */
 
-/** Mark the user-variable as set, check if it has been
+/**
+ * Mark the user-variable as set, check if it has been
  * set previously and issue a warning if set more than once ...
  */
 void
@@ -1356,7 +1356,8 @@ LALUserVarGetLog (LALStatus *status, CHAR **logstr,  UserVarLogFormat format)
 
 
 #if 0
-/** Return user log as a process-params table
+/**
+ * Return user log as a process-params table
  *
  * \param[out] **procPar the output ProcessParamsTable
  * \param[in] *progname  name of calling code
@@ -1416,7 +1417,8 @@ LALUserVarGetProcParamsTable (LALStatus *status, ProcessParamsTable **out, CHAR 
 #endif
 
 
-/** \deprecated use XLALUserVarHelpString() instead
+/**
+ * \deprecated use XLALUserVarHelpString() instead
  */
 void
 LALUserVarHelpString (LALStatus *status,

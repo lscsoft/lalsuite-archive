@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2012  Kipp Cannon
+# Copyright (C) 2006--2014  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -33,9 +33,10 @@ constructing a parser.
 """
 
 
-import re
+import datetime
 import sys
 from xml import sax
+from xml.sax.xmlreader import AttributesImpl
 from xml.sax.saxutils import escape as xmlescape
 from xml.sax.saxutils import unescape as xmlunescape
 
@@ -84,6 +85,46 @@ class ElementError(Exception):
 	pass
 
 
+class attributeproxy(property):
+	def __init__(self, name, enc = unicode, dec = unicode, default = None, doc = None):
+		# define get/set/del implementations, relying on Python's
+		# closure mechanism to remember values for name, default,
+		# etc.
+		def getter(self):
+			try:
+				val = self.getAttribute(name)
+			except KeyError:
+				if default is not None:
+					return default
+				raise AttributeError("attribute '%s' is not set" % name)
+			return dec(val)
+		def setter(self, value):
+			self.setAttribute(name, enc(value))
+		def deleter(self):
+			self.removeAttribute(name)
+		# construct a default documentation string if needed
+		if doc is None:
+			doc = "The \"%s\" attribute." % name
+			if default is not None:
+				doc += "  Default is \"%s\" if not set." % str(default)
+		# initialize the property object
+		super(attributeproxy, self).__init__(getter, setter, deleter, doc)
+		# documentation is not inherited, need to set it explicitly
+		self.__doc__ = doc
+		# record default attribute.  if no value is supplied,
+		# AttributeError will be raised on attempts to retrieve it
+		if default is not None:
+			self._default = default
+
+	@property
+	def default(self):
+		"""
+		Default value.  AttributeError is raised if no default
+		value is set.
+		"""
+		return self._default
+
+
 class Element(object):
 	"""
 	Base class for all element types.  This class is inspired by the
@@ -109,21 +150,20 @@ class Element(object):
 	validattributes = frozenset()
 	validchildren = frozenset()
 
-	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
+	def __init__(self, attrs = None):
 		"""
 		Construct an element.  The argument is a
 		sax.xmlreader.AttributesImpl object (see the xml.sax
 		documentation, but it's basically a dictionary-like thing)
 		used to set the element attributes.
 		"""
-		# must use .keys(), cannot iterate over AttributesImpl
-		# objects like you can with dictionaries.  you get a
-		# KeyError if you try
-		for key in attrs.keys():
-			if key not in self.validattributes:
-				raise ElementError("%s does not have attribute '%s'" % (self.tagName, key))
 		self.parentNode = None
-		self.attributes = attrs.copy()
+		if attrs is None:
+			self.attributes = AttributesImpl({})
+		elif set(attrs.keys()) <= self.validattributes:
+			self.attributes = attrs
+		else:
+			raise ElementError("%s element does not have attribute(s) %s" % (self.tagName, ", ".join("'%s'" % key for key in set(attrs.keys()) - self.validattributes)))
 		self.childNodes = []
 		self.pcdata = None
 
@@ -161,13 +201,11 @@ class Element(object):
 		"""
 		for i, childNode in enumerate(self.childNodes):
 			if childNode is refchild:
-				break
-		else:
-			raise ValueError(refchild)
-		self.childNodes.insert(i, newchild)
-		newchild.parentNode = self
-		self._verifyChildren(i)
-		return newchild
+				self.childNodes.insert(i, newchild)
+				newchild.parentNode = self
+				self._verifyChildren(i)
+				return newchild
+		raise ValueError(refchild)
 
 	def removeChild(self, child):
 		"""
@@ -178,10 +216,10 @@ class Element(object):
 		"""
 		for i, childNode in enumerate(self.childNodes):
 			if childNode is child:
-				self.childNodes.pop(i)
-				break
-		child.parentNode = None
-		return child
+				del self.childNodes[i]
+				child.parentNode = None
+				return child
+		raise ValueError(child)
 
 	def unlink(self):
 		"""
@@ -204,14 +242,12 @@ class Element(object):
 		# not something equivalent to it.
 		for i, childNode in enumerate(self.childNodes):
 			if childNode is oldchild:
-				break
-		else:
-			raise ValueError(oldchild)
-		self.childNodes[i].parentNode = None
-		self.childNodes[i] = newchild
-		newchild.parentNode = self
-		self._verifyChildren(i)
-		return newchild
+				self.childNodes[i].parentNode = None
+				self.childNodes[i] = newchild
+				newchild.parentNode = self
+				self._verifyChildren(i)
+				return newchild
+		raise ValueError(oldchild)
 
 	def getElements(self, filter):
 		"""
@@ -263,7 +299,7 @@ class Element(object):
 		"""
 		Add characters to the element's pcdata.
 		"""
-		if self.pcdata:
+		if self.pcdata is not None:
 			self.pcdata += content
 		else:
 			self.pcdata = content
@@ -284,19 +320,19 @@ class Element(object):
 		"""
 		pass
 
-	def write(self, file = sys.stdout, indent = u""):
+	def write(self, fileobj = sys.stdout, indent = u""):
 		"""
 		Recursively write an element and it's children to a file.
 		"""
-		file.write(self.start_tag(indent) + u"\n")
+		fileobj.write(self.start_tag(indent) + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
 				raise ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
-			c.write(file, indent + Indent)
-		if self.pcdata:
-			file.write(xmlescape(self.pcdata))
-			file.write(u"\n")
-		file.write(self.end_tag(indent) + u"\n")
+			c.write(fileobj, indent + Indent)
+		if self.pcdata is not None:
+			fileobj.write(xmlescape(self.pcdata))
+			fileobj.write(u"\n")
+		fileobj.write(self.end_tag(indent) + u"\n")
 
 
 def WalkChildren(elem):
@@ -326,6 +362,13 @@ class LIGO_LW(Element):
 	validchildren = frozenset([u"LIGO_LW", u"Comment", u"Param", u"Table", u"Array", u"Stream", u"IGWDFrame", u"AdcData", u"AdcInterval", u"Time", u"Detector"])
 	validattributes = frozenset([u"Name", u"Type"])
 
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
+
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type")
+
 
 class Comment(Element):
 	"""
@@ -333,13 +376,11 @@ class Comment(Element):
 	"""
 	tagName = u"Comment"
 
-	def write(self, file = sys.stdout, indent = u""):
-		if self.pcdata:
-			file.write(self.start_tag(indent))
-			file.write(xmlescape(self.pcdata))
-			file.write(self.end_tag(u"") + u"\n")
-		else:
-			file.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+	def write(self, fileobj = sys.stdout, indent = u""):
+		fileobj.write(self.start_tag(indent))
+		if self.pcdata is not None:
+			fileobj.write(xmlescape(self.pcdata))
+		fileobj.write(self.end_tag(u"") + u"\n")
 
 
 class Param(Element):
@@ -348,43 +389,14 @@ class Param(Element):
 	"""
 	tagName = u"Param"
 	validchildren = frozenset([u"Comment"])
-	validattributes = frozenset([u"Name", u"Type", u"Start", u"Scale", u"Unit", u"DataUnit"])
+	validattributes = frozenset([u"DataUnit", u"Name", u"Scale", u"Start", u"Type", u"Unit"])
 
-	def get_unit(self):
-		"""
-		Retrieve the value of the "Unit" attribute.
-		"""
-		return self.getAttribute(u"Unit")
-
-	def set_unit(self, value):
-		"""
-		Set the value of the "Unit" attribute.
-		"""
-		self.setAttribute(u"Unit", unicode(value))
-
-	def del_unit(self):
-		"""
-		Remove the "Unit" attribute.
-		"""
-		self.removeAttribute(u"Unit")
-
-	def get_dataunit(self):
-		"""
-		Retrieve the value of the "DataUnit" attribute.
-		"""
-		return self.getAttribute(u"DataUnit")
-
-	def set_dataunit(self, value):
-		"""
-		Set the value of the "DataUnit" attribute.
-		"""
-		self.setAttribute(u"DataUnit", unicode(value))
-
-	def del_dataunit(self):
-		"""
-		Remove the "DataUnit" attribute.
-		"""
-		self.removeAttribute(u"DataUnit")
+	DataUnit = attributeproxy(u"DataUnit")
+	Name = attributeproxy(u"Name")
+	Scale = attributeproxy(u"Scale")
+	Start = attributeproxy(u"Start")
+	Type = attributeproxy(u"Type")
+	Unit = attributeproxy(u"Unit")
 
 
 class Table(Element):
@@ -394,6 +406,10 @@ class Table(Element):
 	tagName = u"Table"
 	validchildren = frozenset([u"Comment", u"Column", u"Stream"])
 	validattributes = frozenset([u"Name", u"Type"])
+
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
 
 	def _verifyChildren(self, i):
 		ncomment = 0
@@ -415,6 +431,9 @@ class Table(Element):
 					raise ElementError("only one Stream allowed in Table")
 				nstream += 1
 
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type")
+
 
 class Column(Element):
 	"""
@@ -433,17 +452,25 @@ class Column(Element):
 		s += u"/>"
 		return s
 
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
+
 	def end_tag(self, indent):
 		"""
 		Generate the string for the element's end tag.
 		"""
 		return u""
 
-	def write(self, file = sys.stdout, indent = u""):
+	def write(self, fileobj = sys.stdout, indent = u""):
 		"""
 		Recursively write an element and it's children to a file.
 		"""
-		file.write(self.start_tag(indent) + u"\n")
+		fileobj.write(self.start_tag(indent) + u"\n")
+
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type")
+	Unit = attributeproxy(u"Unit")
 
 
 class Array(Element):
@@ -453,6 +480,10 @@ class Array(Element):
 	tagName = u"Array"
 	validchildren = frozenset([u"Dim", u"Stream"])
 	validattributes = frozenset([u"Name", u"Type", u"Unit"])
+
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
 
 	def _verifyChildren(self, i):
 		nstream = 0
@@ -465,21 +496,28 @@ class Array(Element):
 					raise ElementError("only one Stream allowed in Array")
 				nstream += 1
 
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type")
+	Unit = attributeproxy(u"Unit")
+
 
 class Dim(Element):
 	"""
 	Dim element.
 	"""
 	tagName = u"Dim"
-	validattributes = frozenset([u"Name", u"Unit", u"Start", u"Scale"])
+	validattributes = frozenset([u"Name", u"Scale", u"Start", u"Unit"])
 
-	def write(self, file = sys.stdout, indent = u""):
-		if self.pcdata:
-			file.write(self.start_tag(indent))
-			file.write(xmlescape(self.pcdata))
-			file.write(self.end_tag(u"") + u"\n")
-		else:
-			file.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+	def write(self, fileobj = sys.stdout, indent = u""):
+		fileobj.write(self.start_tag(indent))
+		if self.pcdata is not None:
+			fileobj.write(xmlescape(self.pcdata))
+		fileobj.write(self.end_tag(u"") + u"\n")
+
+	Name = attributeproxy(u"Name")
+	Scale = attributeproxy(u"Scale", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
+	Start = attributeproxy(u"Start", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
+	Unit = attributeproxy(u"Unit")
 
 
 class Stream(Element):
@@ -487,17 +525,18 @@ class Stream(Element):
 	Stream element.
 	"""
 	tagName = u"Stream"
-	validattributes = frozenset([u"Name", u"Type", u"Delimiter", u"Encoding", u"Content"])
+	validattributes = frozenset([u"Content", u"Delimiter", u"Encoding", u"Name", u"Type"])
 
-	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
-		attrs = attrs.copy()
-		if not attrs.has_key(u"Type"):
-			attrs._attrs[u"Type"] = u"Local"
-		if not attrs.has_key(u"Delimiter"):
-			attrs._attrs[u"Delimiter"] = u","
-		if attrs[u"Type"] not in [u"Remote", u"Local"]:
-			raise ElementError("invalid Type for Stream: '%s'" % attrs[u"Type"])
-		Element.__init__(self, attrs)
+	def __init__(self, *args):
+		super(Stream, self).__init__(*args)
+		if self.Type not in (u"Remote", u"Local"):
+			raise ElementError("invalid Type for Stream: '%s'" % self.Type)
+
+	Content = attributeproxy(u"Content")
+	Delimiter = attributeproxy(u"Delimiter", default = u",")
+	Encoding = attributeproxy(u"Encoding")
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type", default = u"Local")
 
 
 class IGWDFrame(Element):
@@ -508,6 +547,12 @@ class IGWDFrame(Element):
 	validchildren = frozenset([u"Comment", u"Param", u"Time", u"Detector", u"AdcData", u"LIGO_LW", u"Stream", u"Array", u"IGWDFrame"])
 	validattributes = frozenset([u"Name"])
 
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
+
+	Name = attributeproxy(u"Name")
+
 
 class Detector(Element):
 	"""
@@ -516,6 +561,12 @@ class Detector(Element):
 	tagName = u"Detector"
 	validchildren = frozenset([u"Comment", u"Param", u"LIGO_LW"])
 	validattributes = frozenset([u"Name"])
+
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
+
+	Name = attributeproxy(u"Name")
 
 
 class AdcData(Element):
@@ -526,6 +577,12 @@ class AdcData(Element):
 	validchildren = frozenset([u"AdcData", u"Comment", u"Param", u"Time", u"LIGO_LW", u"Array"])
 	validattributes = frozenset([u"Name"])
 
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
+
+	Name = attributeproxy(u"Name")
+
 
 class AdcInterval(Element):
 	"""
@@ -533,7 +590,15 @@ class AdcInterval(Element):
 	"""
 	tagName = u"AdcInterval"
 	validchildren = frozenset([u"AdcData", u"Comment", u"Time"])
-	validattributes = frozenset([u"Name", u"StartTime", u"DeltaT"])
+	validattributes = frozenset([u"DeltaT", u"Name", u"StartTime"])
+
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
+
+	DeltaT = attributeproxy(u"DeltaT", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
+	Name = attributeproxy(u"Name")
+	StartTime = attributeproxy(u"StartTime")
 
 
 class Time(Element):
@@ -543,21 +608,67 @@ class Time(Element):
 	tagName = u"Time"
 	validattributes = frozenset([u"Name", u"Type"])
 
-	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
-		attrs = attrs.copy()
-		if not attrs.has_key(u"Type"):
-			attrs._attrs[u"Type"] = u"ISO-8601"
-		if attrs[u"Type"] not in ligolwtypes.TimeTypes:
-			raise ElementError("invalid Type for Time: '%s'" % attrs[u"Type"])
-		Element.__init__(self, attrs)
+	def __init__(self, *args):
+		super(Time, self).__init__(*args)
+		if self.Type not in ligolwtypes.TimeTypes:
+			raise ElementError("invalid Type for Time: '%s'" % self.Type)
 
-	def write(self, file = sys.stdout, indent = u""):
-		if self.pcdata:
-			file.write(self.start_tag(indent))
-			file.write(xmlescape(self.pcdata))
-			file.write(self.end_tag(u"") + u"\n")
+	def endElement(self):
+		if self.Type == u"ISO-8601":
+			import dateutil.parser
+			self.pcdata = dateutil.parser.parse(self.pcdata)
+		elif self.Type == u"GPS":
+			try:
+				# FIXME:  switch to lal.LIGOTimeGPS when it
+				# can type-cast strings
+				from pylal.xlal.datatypes import LIGOTimeGPS
+			except ImportError:
+				from glue.lal import LIGOTimeGPS
+			self.pcdata = LIGOTimeGPS(self.pcdata)
+		elif self.Type == u"Unix":
+			self.pcdata = float(self.pcdata)
 		else:
-			file.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+			# unsupported time type.  not impossible that
+			# calling code has overridden TimeTypes set in
+			# glue.ligolw.types;  just accept it as a string
+			pass
+
+	def write(self, fileobj = sys.stdout, indent = u""):
+		fileobj.write(self.start_tag(indent))
+		if self.pcdata is not None:
+			if self.Type == u"ISO-8601":
+				fileobj.write(xmlescape(unicode(self.pcdata.isoformat())))
+			elif self.Type == u"GPS":
+				fileobj.write(xmlescape(unicode(self.pcdata)))
+			elif self.Type == u"Unix":
+				fileobj.write(xmlescape(u"%.16g" % self.pcdata))
+			else:
+				# unsupported time type.  not impossible.
+				# assume correct thing to do is cast to
+				# unicode and let calling code figure out
+				# how to ensure that does the correct
+				# thing.
+				fileobj.write(xmlescape(unicode(self.pcdata)))
+		fileobj.write(self.end_tag(u"") + u"\n")
+
+	@classmethod
+	def now(cls, Name = None):
+		self = cls()
+		if Name is not None:
+			self.Name = Name
+		self.pcdata = datetime.datetime.utcnow()
+		return self
+
+	@classmethod
+	def from_gps(cls, gps, Name = None):
+		self = cls(AttributesImpl({u"Type": u"GPS"}))
+		if Name is not None:
+			self.Name = Name
+		self.pcdata = gps
+		return self
+
+	Name = attributeproxy(u"Name")
+	Type = attributeproxy(u"Type", default = u"ISO-8601")
 
 
 class Document(Element):
@@ -567,17 +678,21 @@ class Document(Element):
 	tagName = u"Document"
 	validchildren = frozenset([u"LIGO_LW"])
 
-	def write(self, file = sys.stdout, xsl_file = None ):
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
+
+	def write(self, fileobj = sys.stdout, xsl_file = None):
 		"""
 		Write the document.
 		"""
-		file.write(Header + u"\n")
+		fileobj.write(Header + u"\n")
 		if xsl_file is not None:
-			file.write(u'<?xml-stylesheet type="text/xsl" href="' + xsl_file + u'" ?>' + u"\n")
+			fileobj.write(u'<?xml-stylesheet type="text/xsl" href="%s" ?>\n' % xsl_file)
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
 				raise ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
-			c.write(file)
+			c.write(fileobj)
 
 
 #
@@ -680,18 +795,24 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 			start_handler = self._startElementHandlers[(uri, localname)]
 		except KeyError:
 			raise ElementError("unknown element %s for namespace %s" % (localname, uri or NameSpace))
-		attrs = sax.xmlreader.AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
-		self.current = self.current.appendChild(start_handler(self.current, attrs))
+		attrs = AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
+		try:
+			self.current = self.current.appendChild(start_handler(self.current, attrs))
+		except Exception as e:
+			raise type(e)("line %d: %s" % (self._locator.getLineNumber(), str(e)))
 
 	def endElementNS(self, (uri, localname), qname):
-		self.current.endElement()
+		try:
+			self.current.endElement()
+		except Exception as e:
+			raise type(e)("line %d: %s" % (self._locator.getLineNumber(), str(e)))
 		self.current = self.current.parentNode
 
 	def characters(self, content):
-		# Discard character data for all elements except those for
-		# which it is meaningful.
-		if self.current.tagName in (Comment.tagName, Dim.tagName, Param.tagName, Stream.tagName, Time.tagName):
+		try:
 			self.current.appendData(xmlunescape(content))
+		except Exception as e:
+			raise type(e)("line %d: %s" % (self._locator.getLineNumber(), str(e)))
 
 
 # FIXME:  remove
@@ -699,7 +820,7 @@ class DefaultLIGOLWContentHandler(LIGOLWContentHandler):
 	pass
 
 
-class PartialLIGOLWContentHandler(DefaultLIGOLWContentHandler):
+class PartialLIGOLWContentHandler(LIGOLWContentHandler):
 	"""
 	LIGO LW content handler object that loads only those parts of the
 	document matching some criteria.  Useful, for example, when one
@@ -727,7 +848,7 @@ class PartialLIGOLWContentHandler(DefaultLIGOLWContentHandler):
 		self.depth = 0
 
 	def startElementNS(self, (uri, localname), qname, attrs):
-		filter_attrs = sax.xmlreader.AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
+		filter_attrs = AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
 		if self.depth > 0 or self.element_filter(localname, filter_attrs):
 			super(PartialLIGOLWContentHandler, self).startElementNS((uri, localname), qname, attrs)
 			self.depth += 1
@@ -737,8 +858,12 @@ class PartialLIGOLWContentHandler(DefaultLIGOLWContentHandler):
 			self.depth -= 1
 			super(PartialLIGOLWContentHandler, self).endElementNS(*args)
 
+	def characters(self, content):
+		if self.depth > 0:
+			super(PartialLIGOLWContentHandler, self).characters(content)
 
-class FilteringLIGOLWContentHandler(DefaultLIGOLWContentHandler):
+
+class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
 	"""
 	LIGO LW content handler that loads everything but those parts of a
 	document that match some criteria.  Useful, for example, when one
@@ -766,17 +891,21 @@ class FilteringLIGOLWContentHandler(DefaultLIGOLWContentHandler):
 		self.depth = 0
 
 	def startElementNS(self, (uri, localname), qname, attrs):
-		filter_attrs = sax.xmlreader.AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
-		if self.depth > 0 or not self.element_filter(localname, filter_attrs):
-			self.depth += 1
-		else:
+		filter_attrs = AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
+		if self.depth == 0 and self.element_filter(localname, filter_attrs):
 			super(FilteringLIGOLWContentHandler, self).startElementNS((uri, localname), qname, attrs)
+		else:
+			self.depth += 1
 
 	def endElementNS(self, *args):
-		if self.depth > 0:
-			self.depth -= 1
-		else:
+		if self.depth == 0:
 			super(FilteringLIGOLWContentHandler, self).endElementNS(*args)
+		else:
+			self.depth -= 1
+
+	def characters(self, content):
+		if self.depth == 0:
+			super(FilteringLIGOLWContentHandler, self).characters(content)
 
 
 #

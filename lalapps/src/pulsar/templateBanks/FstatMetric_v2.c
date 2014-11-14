@@ -102,7 +102,8 @@
 
 /* ---------- local types ---------- */
 
-/** Rudimentary first sketch of a history type, to encode all
+/**
+ * Rudimentary first sketch of a history type, to encode all
  * the history-trail leading to a certain result from primal inputs.
  *
  * This will be extended in the future and moved into LAL.
@@ -120,7 +121,8 @@ typedef struct
   EphemerisData *edat;			/**< ephemeris data (from XLALInitBarycenter()) */
   LALSegList segmentList;		/**< segment list contains start- and end-times of all segments */
   PulsarParams signalParams;		/**< GW signal parameters: Amplitudes + doppler */
-  MultiDetectorInfo detInfo;		/**< (multi-)detector info */
+  MultiLALDetector multiIFO;		/**< (multi-)detector info */
+  MultiNoiseFloor multiNoiseFloor;	/**< ... and corresponding noise-floors to be used as weights */
   DopplerCoordinateSystem coordSys; 	/**< array of enums describing Doppler-coordinates to compute metric in */
   ResultHistory_t *history;		/**< history trail leading up to and including this application */
 } ConfigVariables;
@@ -140,8 +142,8 @@ typedef struct
   REAL8 f2dot;		/**< target 2. spindown-value d2f/dt2 */
   REAL8 f3dot;		/**< target 3. spindown-value d3f/dt3 */
 
-  CHAR *ephemDir;	/**< directory to look for ephemeris files */
-  CHAR *ephemYear;	/**< date-range string on ephemeris-files to use */
+  CHAR *ephemEarth;	/**< Earth ephemeris file to use */
+  CHAR *ephemSun;	/**< Sun ephemeris file to use */
 
   REAL8 refTime;	/**< GPS reference time of Doppler parameters */
 
@@ -172,19 +174,12 @@ typedef struct
 
 } UserVariables_t;
 
-
-/*---------- empty structs for initializations ----------*/
-ConfigVariables empty_ConfigVariables;
-PulsarTimesParamStruc empty_PulsarTimesParamStruc;
-UserVariables_t empty_UserVariables;
 /* ---------- global variables ----------*/
 extern int vrbflg;
 
 /* ---------- local prototypes ---------- */
 int initUserVars (UserVariables_t *uvar);
 int XLALInitCode ( ConfigVariables *cfg, const UserVariables_t *uvar, const char *app_name);
-
-EphemerisData *InitEphemeris (const CHAR *ephemDir, const CHAR *ephemYear );
 
 int XLALOutputDopplerMetric ( FILE *fp, const DopplerMetric *metric, const ResultHistory_t *history );
 
@@ -198,9 +193,9 @@ void XLALDestroyResultHistory ( ResultHistory_t * history );
 int
 main(int argc, char *argv[])
 {
-  ConfigVariables config = empty_ConfigVariables;
-  UserVariables_t uvar = empty_UserVariables;
-  DopplerMetricParams metricParams = empty_DopplerMetricParams;
+  ConfigVariables XLAL_INIT_DECL(config);
+  UserVariables_t XLAL_INIT_DECL(uvar);
+  DopplerMetricParams XLAL_INIT_DECL(metricParams);
 
   vrbflg = 1;	/* verbose error-messages */
 
@@ -263,7 +258,8 @@ main(int argc, char *argv[])
   metricParams.segmentList   = config.segmentList;
   metricParams.coordSys      = config.coordSys;
   metricParams.metricType    = uvar.metricType;
-  metricParams.detInfo       = config.detInfo;
+  metricParams.multiIFO      = config.multiIFO;
+  metricParams.multiNoiseFloor = config.multiNoiseFloor;
   metricParams.signalParams  = config.signalParams;
   metricParams.projectCoord  = uvar.projection - 1;	/* user-input counts from 1, but interally we count 0=1st coord. (-1==no projection) */
   metricParams.approxPhase   = uvar.approxPhase;
@@ -317,9 +313,8 @@ initUserVars (UserVariables_t *uvar)
   /* set a few defaults */
   uvar->help = FALSE;
 
-#define EPHEM_YEAR  "00-19-DE405"
-  uvar->ephemYear = XLALCalloc (1, strlen(EPHEM_YEAR)+1);
-  strcpy (uvar->ephemYear, EPHEM_YEAR);
+  uvar->ephemEarth = XLALStringDuplicate("earth00-19-DE405.dat.gz");
+  uvar->ephemSun = XLALStringDuplicate("sun00-19-DE405.dat.gz");
 
   uvar->Freq = 100;
   uvar->f1dot = 0.0;
@@ -369,8 +364,8 @@ initUserVars (UserVariables_t *uvar)
   XLALregREALUserStruct(duration,	'T', UVAR_OPTIONAL,	"Duration of observation in seconds");
   XLALregINTUserStruct(Nseg,		'N', UVAR_OPTIONAL, 	"Compute semi-coherent metric for this number of segments within 'duration'" );
   XLALregSTRINGUserStruct(segmentList,   0,  UVAR_OPTIONAL,     "ALTERNATIVE: specify segment file with format: repeated lines <startGPS endGPS duration[h] NumSFTs>");
-  XLALregSTRINGUserStruct(ephemDir, 	'E', UVAR_OPTIONAL,     "Directory where Ephemeris files are located");
-  XLALregSTRINGUserStruct(ephemYear, 	'y', UVAR_OPTIONAL,     "Year (or range of years) of ephemeris files to be used");
+  XLALregSTRINGUserStruct( ephemEarth,   0,  UVAR_OPTIONAL,     "Earth ephemeris file to use");
+  XLALregSTRINGUserStruct( ephemSun,     0,  UVAR_OPTIONAL,     "Sun ephemeris file to use");
 
   XLALregREALUserStruct(h0,	 	 0, UVAR_OPTIONAL,	"GW amplitude h0" );
   XLALregREALUserStruct(cosi,	 	 0, UVAR_OPTIONAL,	"Pulsar orientation-angle cos(iota) [-1,1]" );
@@ -394,7 +389,8 @@ initUserVars (UserVariables_t *uvar)
 } /* initUserVars() */
 
 
-/** basic initializations: set-up 'ConfigVariables'
+/**
+ * basic initializations: set-up 'ConfigVariables'
  */
 int
 XLALInitCode ( ConfigVariables *cfg, const UserVariables_t *uvar, const char *app_name)
@@ -404,11 +400,8 @@ XLALInitCode ( ConfigVariables *cfg, const UserVariables_t *uvar, const char *ap
     XLAL_ERROR (XLAL_EINVAL );
   }
 
-  // ----- load ephemeris files
-  if ( (cfg->edat = InitEphemeris ( uvar->ephemDir, uvar->ephemYear)) == NULL ) {
-    LogPrintf (LOG_CRITICAL, "%s: InitEphemeris() Failed to initialize ephemeris data!\n\n", __func__);
-    XLAL_ERROR ( XLAL_EFUNC );
-  }
+  /* Init ephemerides */
+  XLAL_CHECK ( (cfg->edat = XLALInitBarycenter ( uvar->ephemEarth, uvar->ephemSun )) != NULL, XLAL_EFUNC );
 
   // ----- figure out which segments to use
   BOOLEAN manualSegments = XLALUserVarWasSet(&uvar->duration) || XLALUserVarWasSet(&uvar->startTime) || XLALUserVarWasSet(&uvar->Nseg);
@@ -464,7 +457,7 @@ XLALInitCode ( ConfigVariables *cfg, const UserVariables_t *uvar, const char *ap
 
   {
     PulsarDopplerParams *dop = &(cfg->signalParams.Doppler);
-    (*dop) = empty_PulsarDopplerParams;
+    XLAL_INIT_MEM((*dop));
     dop->refTime = refTimeGPS;
     dop->Alpha = uvar->Alpha;
     dop->Delta = uvar->Delta;
@@ -472,11 +465,17 @@ XLALInitCode ( ConfigVariables *cfg, const UserVariables_t *uvar, const char *ap
     dop->fkdot[1] = uvar->f1dot;
     dop->fkdot[2] = uvar->f2dot;
     dop->fkdot[3] = uvar->f3dot;
-    dop->orbit = NULL;
+    dop->asini = 0 /* isolated pulsar */;
   }
 
   /* ----- initialize IFOs and (Multi-)DetectorStateSeries  ----- */
-  XLAL_CHECK ( XLALParseMultiDetectorInfo ( &cfg->detInfo, uvar->IFOs, uvar->sqrtSX ) == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK ( XLALParseMultiLALDetector ( &cfg->multiIFO, uvar->IFOs ) == XLAL_SUCCESS, XLAL_EFUNC );
+  UINT4 numDet = cfg->multiIFO.length;
+  XLAL_CHECK ( numDet >= 1, XLAL_EINVAL );
+
+  if ( uvar->sqrtSX ) {
+    XLAL_CHECK ( XLALParseMultiNoiseFloor ( &cfg->multiNoiseFloor, uvar->sqrtSX, numDet ) == XLAL_SUCCESS, XLAL_EFUNC );
+  }
 
   /* ---------- translate coordinate system into internal representation ---------- */
   if ( XLALDopplerCoordinateNames2System ( &cfg->coordSys, uvar->coords ) ) {
@@ -537,46 +536,6 @@ XLALDestroyConfig ( ConfigVariables *cfg )
 } /* XLALDestroyConfig() */
 
 
-
-/** Load Ephemeris from ephemeris data-files  */
-EphemerisData *
-InitEphemeris (const CHAR *ephemDir,	/**< directory containing ephems */
-	       const CHAR *ephemYear	/**< which years do we need? */
-	       )
-{
-#define FNAME_LENGTH 1024
-  EphemerisData *edat;
-  CHAR EphemEarth[FNAME_LENGTH];	/* filename of earth-ephemeris data */
-  CHAR EphemSun[FNAME_LENGTH];	/* filename of sun-ephemeris data */
-
-  if ( !ephemYear ) {
-    XLALPrintError ("\n%s: NULL pointer passed as ephemeris year range!\n", __func__);
-    return NULL;
-  }
-
-  if ( ephemDir )
-    {
-      snprintf(EphemEarth, FNAME_LENGTH, "%s/earth%s.dat", ephemDir, ephemYear);
-      snprintf(EphemSun, FNAME_LENGTH, "%s/sun%s.dat", ephemDir, ephemYear);
-    }
-  else
-    {
-      snprintf(EphemEarth, FNAME_LENGTH, "earth%s.dat", ephemYear);
-      snprintf(EphemSun, FNAME_LENGTH, "sun%s.dat",  ephemYear);
-    }
-
-  EphemEarth[FNAME_LENGTH-1] = 0;
-  EphemSun[FNAME_LENGTH-1] = 0;
-
-  if ( (edat = XLALInitBarycenter(EphemEarth, EphemSun)) == NULL ) {
-    XLALPrintError ( "%s: XLALInitBarycenter() failed with xlalErrno = %d.\n\n", __func__, xlalErrno );
-    return NULL;
-  }
-
-  return edat;
-
-} /* InitEphemeris() */
-
 int
 XLALOutputDopplerMetric ( FILE *fp, const DopplerMetric *metric, const ResultHistory_t *history )
 {
@@ -632,15 +591,14 @@ XLALOutputDopplerMetric ( FILE *fp, const DopplerMetric *metric, const ResultHis
   fprintf ( fp, "refTime = %.1f;\n", XLALGPSGetREAL8 ( &doppler->refTime ) );
   fprintf ( fp, "Alpha   = %f;\nDelta = %f;\n", doppler->Alpha, doppler->Delta );
   fprintf ( fp, "fkdot   = [%f, %g, %g, %g ];\n", doppler->fkdot[0], doppler->fkdot[1], doppler->fkdot[2], doppler->fkdot[3] );
-  if ( doppler->orbit )
+  if ( doppler->asini > 0 )
     {
-      const BinaryOrbitParams *orbit = doppler->orbit;
       fprintf ( fp, "%%%% 	   orbit = { \n");
-      fprintf ( fp, "%%%% 		tp = {%d, %d}\n", orbit->tp.gpsSeconds, orbit->tp.gpsNanoSeconds );
-      fprintf ( fp, "%%%% 		argp  = %g\n", orbit->argp );
-      fprintf ( fp, "%%%% 		asini = %g\n", orbit->asini );
-      fprintf ( fp, "%%%% 		ecc = %g\n", orbit->ecc );
-      fprintf ( fp, "%%%% 		period = %g\n", orbit->period );
+      fprintf ( fp, "%%%% 		tp = {%d, %d}\n", doppler->tp.gpsSeconds, doppler->tp.gpsNanoSeconds );
+      fprintf ( fp, "%%%% 		argp  = %g\n", doppler->argp );
+      fprintf ( fp, "%%%% 		asini = %g\n", doppler->asini );
+      fprintf ( fp, "%%%% 		ecc = %g\n", doppler->ecc );
+      fprintf ( fp, "%%%% 		period = %g\n", doppler->period );
       fprintf ( fp, "%%%% 	   }\n");
     } /* if doppler->orbit */
   fprintf ( fp, "%%%% }\n");
@@ -652,17 +610,17 @@ XLALOutputDopplerMetric ( FILE *fp, const DopplerMetric *metric, const ResultHis
   fprintf ( fp, "Tspan     = %.1f;\n", Tspan );
   fprintf ( fp, "Nseg      = %d;\n", Nseg );
   fprintf ( fp, "detectors = {");
-  for ( i=0; i < meta->detInfo.length; i ++ )
+  for ( i=0; i < meta->multiIFO.length; i ++ )
     {
       if ( i > 0 ) fprintf ( fp, ", ");
-      fprintf ( fp, "\"%s\"", meta->detInfo.sites[i].frDetector.name );
+      fprintf ( fp, "\"%s\"", meta->multiIFO.sites[i].frDetector.name );
     }
   fprintf ( fp, "};\n");
   fprintf ( fp, "detectorWeights = [");
-  for ( i=0; i < meta->detInfo.length; i ++ )
+  for ( i=0; i < meta->multiNoiseFloor.length; i ++ )
     {
       if ( i > 0 ) fprintf ( fp, ", ");
-      fprintf ( fp, "%f", meta->detInfo.detWeights[i] );
+      fprintf ( fp, "%f", meta->multiNoiseFloor.sqrtSn[i] );
     }
   fprintf ( fp, "];\n");
 
@@ -727,7 +685,8 @@ XLALOutputDopplerMetric ( FILE *fp, const DopplerMetric *metric, const ResultHis
 } /* XLALOutputDopplerMetric() */
 
 
-/** Destructor for ResultHistory type
+/**
+ * Destructor for ResultHistory type
  */
 void
 XLALDestroyResultHistory ( ResultHistory_t * history )

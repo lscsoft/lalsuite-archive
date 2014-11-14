@@ -19,24 +19,25 @@
  */
 
 /*********************************************************************************/
-/** \author R. Prix, S. Giampanis
+/**
+ * \author R. Prix, S. Giampanis
  * \file
  * \brief
  * Some helper functions useful for "transient CWs", mostly applying transient window
  * functions.
  *
- *********************************************************************************/
+ */
 #include "config.h"
 
 /* System includes */
 #include <math.h>
 
 /* LAL-includes */
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/XLALError.h>
 #include <lal/Date.h>
 #include <lal/AVFactories.h>
 #include <lal/LogPrintf.h>
+#include <lal/LALString.h>
 
 #include <lal/ProbabilityDensity.h>
 #include <lal/TransientCW_utils.h>
@@ -44,31 +45,53 @@
 
 /* ----- MACRO definitions ---------- */
 #define SQ(x) ((x)*(x))
-#define LAL_INT4_MAX 2147483647
 
 /* ---------- internal prototypes ---------- */
-/* empty struct initializers */
-const transientCandidate_t empty_transientCandidate;
-const transientWindow_t empty_transientWindow;
-const transientWindowRange_t empty_transientWindowRange;
-const transientFstatMap_t empty_transientFstatMap;
 
-/* ----- module-local fast lookup-table handling of negative exponentials ----- */
-
-/** Lookup-table for negative exponentials e^(-x)
- * Holds an array 'data' of 'length' for values e^(-x) for x in the range [0, xmax]
- */
-#define EXPLUT_XMAX 	20.0	// LUT down to e^(-20) = 2.0612e-09
-#define EXPLUT_LENGTH 	2000	// number of LUT values to pre-compute
-static gsl_vector *expLUT = NULL; 	/**< module-global lookup-table for negative exponentials e^(-x) */
-#define EXPLUT_DXINV  ((EXPLUT_LENGTH)/(EXPLUT_XMAX))	// 1/dx with dx = xmax/length
-
-static int XLALCreateExpLUT ( void );	/* only ever used internally, destructor is in exported API */
-
+static const char *transientWindowNames[TRANSIENT_LAST] =
+  {
+    [TRANSIENT_NONE]	 	= "none",
+    [TRANSIENT_RECTANGULAR]	= "rect",
+    [TRANSIENT_EXPONENTIAL]	= "exp"
+  };
 
 /* ==================== function definitions ==================== */
+/// Parse a transient window name string into the corresponding transientWindowType
+int
+XLALParseTransientWindowName ( const char *windowName )
+{
+  XLAL_CHECK ( windowName != NULL, XLAL_EINVAL );
 
-/** Helper-function to determine the total timespan of
+  // convert input window-name into lower-case first
+  char windowNameLC [ strlen(windowName) + 1 ];
+  strcpy ( windowNameLC, windowName );
+  XLALStringToLowerCase ( windowNameLC );
+
+  int winType = -1;
+  for ( UINT4 j=0; j < TRANSIENT_LAST; j ++ )
+    {
+      if ( !strcmp ( windowNameLC, transientWindowNames[j] ) ) {
+        winType = j;
+        break;
+      }
+    } // j < TRANSIENT_LAST
+
+  if ( winType == -1 )
+    {
+      XLALPrintError ("Invalid transient Window-name '%s', allowed are (case-insensitive): [%s", windowName, transientWindowNames[0] );
+      for ( UINT4 j = 1; j < TRANSIENT_LAST; j ++ ) {
+        XLALPrintError (", %s", transientWindowNames[j] );
+      }
+      XLALPrintError ("]\n");
+      XLAL_ERROR ( XLAL_EINVAL );
+    } // if windowName not valid
+
+  return winType;
+
+} // XLALParseTransientWindowName()
+
+/**
+ * Helper-function to determine the total timespan of
  * a transient CW window, ie. the earliest and latest timestamps
  * of non-zero window function.
  */
@@ -100,7 +123,7 @@ XLALGetTransientWindowTimespan ( UINT4 *t0,				/**< [out] window start-time */
        * with the e-folding factor chosen such that the window-value
        * is practically negligible after that, where it will be set to 0
        */
-      (*t1) = (UINT4)( win_t0 + TRANSIENT_EXP_EFOLDING * win_tau + 0.5 );
+      (*t1) = lround( win_t0 + TRANSIENT_EXP_EFOLDING * win_tau);
       break;
     case TRANSIENT_RECTANGULAR:
       (*t0) = win_t0;
@@ -118,7 +141,8 @@ XLALGetTransientWindowTimespan ( UINT4 *t0,				/**< [out] window start-time */
 } /* XLALGetTransientWindowTimespan() */
 
 
-/** apply a "transient CW window" described by TransientWindowParams to the given
+/**
+ * apply a "transient CW window" described by TransientWindowParams to the given
  * timeseries
  */
 int
@@ -153,16 +177,17 @@ XLALApplyTransientWindow ( REAL4TimeSeries *series,		/**< input timeseries to ap
     case TRANSIENT_RECTANGULAR:
       for ( i = 0; i < ts_length; i ++ )
         {
-          UINT4 ti = (UINT4) ( ts_t0 + i * ts_dt + 0.5 );	// integer round: floor(x+0.5)
-          REAL8 win = XLALGetRectangularTransientWindowValue ( ti, t0, t1 );
-          series->data->data[i] *= win;
+          UINT4 ti = lround ( ts_t0 + i * ts_dt );
+          if ( ti < t0 || ti > t1 ) { // outside rectangular window: set to zero
+            series->data->data[i] = 0;
+          } // otherwise do nothing
         } /* for i < length */
       break;
 
     case TRANSIENT_EXPONENTIAL:
       for ( i = 0; i < ts_length; i ++ )
         {
-          UINT4 ti = (UINT4) ( ts_t0 + i * ts_dt + 0.5 );
+          UINT4 ti = lround ( ts_t0 + i * ts_dt );
           REAL8 win = XLALGetExponentialTransientWindowValue ( ti, t0, t1, transientWindow.tau );
           series->data->data[i] *= win;
         } /* for i < length */
@@ -181,7 +206,8 @@ XLALApplyTransientWindow ( REAL4TimeSeries *series,		/**< input timeseries to ap
 } /* XLALApplyTransientWindow() */
 
 
-/** apply transient window to give multi noise-weights, associated with given
+/**
+ * apply transient window to give multi noise-weights, associated with given
  * multi timestamps
  */
 int
@@ -265,7 +291,8 @@ XLALApplyTransientWindow2NoiseWeights ( MultiNoiseWeights *multiNoiseWeights,	/*
 } /* XLALApplyTransientWindow2NoiseWeights() */
 
 
-/** Turn pulsar doppler-params into a single string that can be used for filenames
+/**
+ * Turn pulsar doppler-params into a single string that can be used for filenames
  * The format is
  * tRefNNNNNN_RAXXXXX_DECXXXXXX_FreqXXXXX[_f1dotXXXXX][_f2dotXXXXx][_f3dotXXXXX]
  */
@@ -310,7 +337,7 @@ XLALPulsarDopplerParams2String ( const PulsarDopplerParams *par )
 	}
     }
 
-  if ( par->orbit )
+  if ( par->asini > 0 )
     {
       LogPrintf(LOG_NORMAL, "%s: orbital params not supported in Doppler-filenames yet\n", __func__ );
     }
@@ -328,7 +355,8 @@ XLALPulsarDopplerParams2String ( const PulsarDopplerParams *par )
 } /* PulsarDopplerParams2String() */
 
 
-/** Compute transient-CW Bayes-factor B_SG = P(x|HypS)/P(x|HypG)  (where HypG = Gaussian noise hypothesis),
+/**
+ * Compute transient-CW Bayes-factor B_SG = P(x|HypS)/P(x|HypG)  (where HypG = Gaussian noise hypothesis),
  * marginalized over start-time and timescale of transient CW signal, using given type and parameters
  * of transient window range.
  *
@@ -396,7 +424,8 @@ XLALComputeTransientBstat ( transientWindowRange_t windowRange,		/**< [in] type 
 
 } /* XLALComputeTransientBstat() */
 
-/** Compute transient-CW posterior (normalized) on start-time t0, using given type and parameters
+/**
+ * Compute transient-CW posterior (normalized) on start-time t0, using given type and parameters
  * of transient window range.
  *
  * NOTE: the returned pdf has a number of sample-points N_t0Range given by the size
@@ -486,7 +515,8 @@ XLALComputeTransientPosterior_t0 ( transientWindowRange_t windowRange,		/**< [in
 
 } /* XLALComputeTransientPosterior_t0() */
 
-/** Compute transient-CW posterior (normalized) on timescale tau, using given type and parameters
+/**
+ * Compute transient-CW posterior (normalized) on timescale tau, using given type and parameters
  * of transient window range.
  *
  * NOTE: the returned pdf has a number of sample-points N_tauRange given by the size
@@ -578,8 +608,8 @@ XLALComputeTransientPosterior_tau ( transientWindowRange_t windowRange,		/**< [i
 
 
 
-/** Function to compute transient-window "F-statistic map" over start-time and timescale {t0, tau}.
- *
+/**
+ * Function to compute transient-window "F-statistic map" over start-time and timescale {t0, tau}.
  * Returns a 2D matrix F_mn, with m = index over start-times t0, and n = index over timescales tau,
  * in steps of dt0 in [t0, t0+t0Band], and dtau in [tau, tau+tauBand] as defined in transientWindowRange
  *
@@ -682,7 +712,8 @@ XLALComputeTransientFstatMap ( const MultiFstatAtomVector *multiFstatAtoms, 	/**
       if ( i_t0 >= numAtoms ) i_t0 = numAtoms - 1;
 
       /* ----- INNER loop over timescale-parameter tau ---------- */
-      REAL8 Ad=0, Bd=0, Cd=0, Fa_re=0, Fa_im=0, Fb_re=0, Fb_im=0;
+      REAL4 Ad=0, Bd=0, Cd=0;
+      COMPLEX8 Fa=0, Fb=0;
       UINT4 i_t1_last = i_t0;
 
       for ( n = 0; n < N_tauRange; n ++ )
@@ -722,7 +753,7 @@ XLALComputeTransientFstatMap ( const MultiFstatAtomVector *multiFstatAtoms, 	/**
             case TRANSIENT_RECTANGULAR:
 #if 0
               /* 'vanilla' unoptimized method, for sanity checks with 'optimized' method */
-              Ad=0; Bd=0; Cd=0; Fa_re=0; Fa_im=0; Fb_re=0; Fb_im=0;
+              Ad=0; Bd=0; Cd=0; Fa=0; Fb=0;
               for ( UINT4 i = i_t0; i <= i_t1; i ++ )
 #else
               /* special optimiziation in the rectangular-window case: just add on to previous tau values
@@ -738,11 +769,8 @@ XLALComputeTransientFstatMap ( const MultiFstatAtomVector *multiFstatAtoms, 	/**
                   Bd += thisAtom_i->b2_alpha;
                   Cd += thisAtom_i->ab_alpha;
 
-                  Fa_re += crealf(thisAtom_i->Fa_alpha);
-                  Fa_im += cimagf(thisAtom_i->Fa_alpha);
-
-                  Fb_re += crealf(thisAtom_i->Fb_alpha);
-                  Fb_im += cimagf(thisAtom_i->Fb_alpha);
+                  Fa += thisAtom_i->Fa_alpha;
+                  Fb += thisAtom_i->Fb_alpha;
 
                 } /* for i = i_t1_last : i_t1 */
 
@@ -752,7 +780,7 @@ XLALComputeTransientFstatMap ( const MultiFstatAtomVector *multiFstatAtoms, 	/**
 
             case TRANSIENT_EXPONENTIAL:
               /* reset all values */
-              Ad=0; Bd=0; Cd=0; Fa_re=0; Fa_im=0; Fb_re=0; Fb_im=0;
+              Ad=0; Bd=0; Cd=0; Fa=0; Fb=0;
 
               for ( UINT4 i = i_t0; i <= i_t1; i ++ )
                 {
@@ -768,11 +796,8 @@ XLALComputeTransientFstatMap ( const MultiFstatAtomVector *multiFstatAtoms, 	/**
                   Bd += thisAtom_i->b2_alpha * win2_i;
                   Cd += thisAtom_i->ab_alpha * win2_i;
 
-                  Fa_re += crealf(thisAtom_i->Fa_alpha) * win_i;
-                  Fa_im += cimagf(thisAtom_i->Fa_alpha) * win_i;
-
-                  Fb_re += crealf(thisAtom_i->Fb_alpha) * win_i;
-                  Fb_im += cimagf(thisAtom_i->Fb_alpha) * win_i;
+                  Fa += thisAtom_i->Fa_alpha * win_i;
+                  Fb += thisAtom_i->Fb_alpha * win_i;
 
                 } /* for i in [i_t0, i_t1] */
               break;
@@ -787,10 +812,9 @@ XLALComputeTransientFstatMap ( const MultiFstatAtomVector *multiFstatAtoms, 	/**
 
 
           /* generic F-stat calculation from A,B,C, Fa, Fb */
-          REAL8 DdInv = 1.0 / ( Ad * Bd - Cd * Cd );
-          REAL8 F = DdInv * ( Bd * (SQ(Fa_re) + SQ(Fa_im) ) + Ad * ( SQ(Fb_re) + SQ(Fb_im) )
-                              - 2.0 * Cd *( Fa_re * Fb_re + Fa_im * Fb_im )
-                              );
+          REAL4 DdInv = 1.0 / ( Ad * Bd - Cd * Cd );
+          REAL4 twoF = XLALComputeFstatFromFaFb ( Fa, Fb, Ad, Bd, Cd, 0, DdInv );
+          REAL4 F = 0.5 * twoF;
 
           /* keep track of loudest F-stat value encountered over the m x n matrix */
           if ( F > ret->maxF )
@@ -822,7 +846,8 @@ XLALComputeTransientFstatMap ( const MultiFstatAtomVector *multiFstatAtoms, 	/**
 
 
 
-/** Combine N Fstat-atoms vectors into a single 'canonical' binned and ordered atoms-vector.
+/**
+ * Combine N Fstat-atoms vectors into a single 'canonical' binned and ordered atoms-vector.
  * The function pre-sums all atoms on a regular 'grid' of timestep bins deltaT covering the full data-span.
  * Atoms with timestamps falling into the bin i : [t_i, t_{i+1} ) are pre-summed and returned as atoms[i],
  * where t_i = t_0 + i * deltaT.
@@ -900,10 +925,8 @@ XLALmergeMultiFstatAtomsBinned ( const MultiFstatAtomVector *multiAtoms, UINT4 d
           destAtom->a2_alpha += atom_X_i->a2_alpha;
           destAtom->b2_alpha += atom_X_i->b2_alpha;
           destAtom->ab_alpha += atom_X_i->ab_alpha;
-          destAtom->Fa_alpha.realf_FIXME += crealf(atom_X_i->Fa_alpha);
-          destAtom->Fa_alpha.imagf_FIXME += cimagf(atom_X_i->Fa_alpha);
-          destAtom->Fb_alpha.realf_FIXME += crealf(atom_X_i->Fb_alpha);
-          destAtom->Fb_alpha.imagf_FIXME += cimagf(atom_X_i->Fb_alpha);
+          destAtom->Fa_alpha += atom_X_i->Fa_alpha;
+          destAtom->Fb_alpha += atom_X_i->Fb_alpha;
 
         } /* for i < numAtomsX */
     } /* for X < numDet */
@@ -912,7 +935,8 @@ XLALmergeMultiFstatAtomsBinned ( const MultiFstatAtomVector *multiAtoms, UINT4 d
 
 } /* XLALmergeMultiFstatAtomsBinned() */
 
-/** Write one line for given transient CW candidate into output file.
+/**
+ * Write one line for given transient CW candidate into output file.
  *
  * NOTE: if input thisCand == NULL, we write a header comment-line explaining the fields
  *
@@ -958,7 +982,8 @@ write_transientCandidate_to_fp ( FILE *fp, const transientCandidate_t *thisCand 
 } /* write_TransCandidate_to_fp() */
 
 
-/** Write multi-IFO F-stat atoms 'multiAtoms' into output stream 'fstat'.
+/**
+ * Write multi-IFO F-stat atoms 'multiAtoms' into output stream 'fstat'.
  */
 int
 write_MultiFstatAtoms_to_fp ( FILE *fp, const MultiFstatAtomVector *multiAtoms )
@@ -994,85 +1019,8 @@ write_MultiFstatAtoms_to_fp ( FILE *fp, const MultiFstatAtomVector *multiAtoms )
 } /* write_MultiFstatAtoms_to_fp() */
 
 
-/** Generate an exponential lookup-table expLUT for e^(-x)
- * over the interval x in [0, xmax], using 'length' points.
- */
-int
-XLALCreateExpLUT ( void )
-{
-  /* create empty output LUT */
-  gsl_vector *ret;
-  if ( ( ret = gsl_vector_alloc ( EXPLUT_LENGTH + 1)) == NULL ) {
-    XLALPrintError ("%s: failed to gsl_vector_alloc (%s)\n", __func__, EXPLUT_LENGTH +1 );
-    XLAL_ERROR ( XLAL_ENOMEM );
-  }
-
-  /* fill output LUT */
-  REAL8 dx = EXPLUT_XMAX / EXPLUT_LENGTH;
-  UINT4 i;
-  for ( i=0; i <= EXPLUT_LENGTH; i ++ )
-    {
-      REAL8 xi = i * dx;
-
-      gsl_vector_set ( ret, i, exp( - xi ) );
-
-    } /* for i < length() */
-
-  /* 'return' this by setting the global vector */
-  expLUT = ret;
-
-  return XLAL_SUCCESS;
-
-} /* XLALCreateExpLUT() */
-
-/** Destructor function for expLUT_t lookup table
- */
-void
-XLALDestroyExpLUT ( void )
-{
-  if ( !expLUT )
-    return;
-
-  gsl_vector_free ( expLUT );
-
-  expLUT = NULL;
-
-  return;
-
-} /* XLALDestroyExpLUT() */
-
-/** Fast exponential function e^-x using lookup-table (LUT).
- * We need to compute exp(-x) for x >= 0, typically in a B-stat
- * integral of the form int e^-x dx: this means that small values e^(-x)
- * will not contribute much to the integral and are less important than
- * values close to 1. Therefore we pre-compute a LUT of e^(-x) for x in [0, xmax],
- * in Npoints points, and set e^(-x) = 0 for x < xmax.
- *
- * NOTE: if module-global expLUT=NULL, we create it here
- * NOTE: if argument is negative, we use math-lib exp(-x) instead of LUT
- */
-REAL8
-XLALFastNegExp ( REAL8 mx )
-{
-  if ( mx > EXPLUT_XMAX )	/* for values smaller than e^(-xmax) we truncate to 0 */
-    return 0.0;
-
-  if ( mx < 0 )
-    return exp ( - mx  );
-
-  /* if lookup table doesn't exist yet: generate it now */
-  if ( !expLUT && ( XLALCreateExpLUT() != XLAL_SUCCESS) ) {
-    XLAL_ERROR_REAL8 ( XLAL_EFUNC );
-  }
-
-  /* find index of closest point xp in LUT to xm */
-  UINT4 i0 = (UINT4) ( mx * EXPLUT_DXINV + 0.5 );
-
-  return gsl_vector_get ( expLUT, i0 );
-
-} /* XLALFastNegExp() */
-
-/** Standard destructor for transientFstatMap_t
+/**
+ * Standard destructor for transientFstatMap_t
  * Fully NULL-robust as usual.
  */
 void
@@ -1090,7 +1038,8 @@ XLALDestroyTransientFstatMap ( transientFstatMap_t *FstatMap )
 
 } /* XLALDestroyTransientFstatMap() */
 
-/** Standard destructor for transientCandidate_t
+/**
+ * Standard destructor for transientCandidate_t
  * Fully NULL-robust as usual.
  */
 void

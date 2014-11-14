@@ -3,12 +3,13 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 datarootdir=@datarootdir@
-datadir=@datadir@
-pkgdatadir=@datadir@/@PACKAGE@
+LALSTOCHASTIC_DATA_PATH=@datadir@/@PACKAGE@
+LALSTOCHASTIC_OCTAVE_PATH=@octexecdir@
+LALSTOCHASTIC_PYTHON_PATH=@pyexecdir@
 
 Name: LALStochastic
 Description: LAL Stochastic Library
 Version: @VERSION@
-Requires: lal libmetaio lalmetaio
+Requires: lal >= @LAL_VERSION@, libmetaio, lalmetaio >= @LALMETAIO_VERSION@
 Libs: -L${libdir} -llalstochastic
 Cflags: -I${includedir}

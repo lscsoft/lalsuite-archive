@@ -52,11 +52,6 @@ from .. import dbtables
 from .. import utils
 
 
-# FIXME: remove this hack when the SnglInspiralTable class uses the
-# standard ID generator by default.
-dbtables.lsctables.SnglInspiralTable.next_id = dbtables.lsctables.SnglInspiralID(0)
-
-
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
@@ -239,7 +234,7 @@ def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose 
 			# target database, and save in XML tree
 			#
 
-			name = dbtables.table.StripTableName(tbl.getAttribute("Name"))
+			name = tbl.Name
 			try:
 				cls = dbtables.TableByName[name]
 			except KeyError:
@@ -282,19 +277,23 @@ def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose 
 	xmldoc.unlink()
 
 
-def insert_from_urls(connection, urls, preserve_ids = False, verbose = False):
+def insert_from_urls(connection, urls, **kwargs):
 	"""
 	Iterate over a sequence of URLs, calling insert_from_url() on each,
 	then build the indexes indicated by the metadata in lsctables.py.
+	See insert_from_url() for a description of the additional
+	arguments.
 	"""
+	verbose = kwargs.get("verbose", False)
+
 	#
 	# load documents
 	#
 
-	for n, url in enumerate(urls):
+	for n, url in enumerate(urls, 1):
 		if verbose:
-			print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
-		insert_from_url(connection, url, preserve_ids = preserve_ids, verbose = verbose)
+			print >>sys.stderr, "%d/%d:" % (n, len(urls)),
+		insert_from_url(connection, url, **kwargs)
 
 	#
 	# done.  build indexes

@@ -44,7 +44,7 @@ from scipy.integrate import cumtrapz
 from scipy.interpolate import interp1d
 from scipy.stats import hmean
 
-from pylal import date
+#from pylal import date
 from pylal import bayespputils as bppu
 
 from types import StringType, FloatType
@@ -121,26 +121,26 @@ def rad_to_dms(rad):
   else:
     return (sign * d, m, s)
 
-def dms_to_rad(deg, min, sec):
+def dms_to_rad(deg, mins, sec):
   """
   dms_to_rad(deg, min, sec):
      Convert degrees, minutes, and seconds of arc to radians.
   """
   if (deg < 0.0):
     sign = -1
-  elif (deg==0.0 and (min < 0.0 or sec < 0.0)):
+  elif (deg==0.0 and (mins < 0.0 or sec < 0.0)):
     sign = -1
   else:
     sign = 1
   return sign * ARCSECTORAD * \
-    (60.0 * (60.0 * np.fabs(deg) + np.fabs(min)) + np.fabs(sec))
+    (60.0 * (60.0 * np.fabs(deg) + np.fabs(mins)) + np.fabs(sec))
 
-def dms_to_deg(deg, min, sec):
+def dms_to_deg(deg, mins, sec):
   """
   dms_to_deg(deg, min, sec):
      Convert degrees, minutes, and seconds of arc to degrees.
   """
-  return RADTODEG * dms_to_rad(deg, min, sec)
+  return RADTODEG * dms_to_rad(deg, mins, sec)
 
 def rad_to_hms(rad):
   """
@@ -156,7 +156,7 @@ def rad_to_hms(rad):
   s = (arc - m) * 60.0
   return (h, m, s)
 
-def hms_to_rad(hour, min, sec):
+def hms_to_rad(hour, mins, sec):
   """
   hms_to_rad(hour, min, sec):
      Convert hours, minutes, and seconds of arc to radians
@@ -164,7 +164,7 @@ def hms_to_rad(hour, min, sec):
   if (hour < 0.0): sign = -1
   else: sign = 1
   return sign * SECTORAD * \
-         (60.0 * (60.0 * np.fabs(hour) + np.fabs(min)) + np.fabs(sec))
+         (60.0 * (60.0 * np.fabs(hour) + np.fabs(mins)) + np.fabs(sec))
 
 def coord_to_string(h_or_d, m, s):
   """
@@ -409,9 +409,9 @@ class psr_prior:
 
       if key in str_keys:
         # everything in a prior files should be numeric
-        setattr(self, key, [float(splitline[1]), float(splitline[2])])
+        setattr(self, key, [float(splitline[2]), float(splitline[3])])
       elif key in float_keys:
-        setattr(self, key, [float(splitline[1]), float(splitline[2])])
+        setattr(self, key, [float(splitline[2]), float(splitline[3])])
 
     # get sky positions in rads as strings 'dd/hh:mm:ss.s'
     if hasattr(self, 'RA'):
@@ -558,7 +558,7 @@ def plot_posterior_hist(poslist, param, ifos,
 
   if ifos == None:
     # default to just output colour for H1
-    ifos = ['H1'] 
+    ifos = ['H1']
 
   # loop over ifos
   for idx, ifo in enumerate(ifos):
@@ -740,7 +740,9 @@ def plot_posterior_chain(poslist, param, ifos, grr=None, withhist=0, \
       try:
         legendvals.append(r'$R = %.2f$' % grr[idx][param])
       except:
-        legendval = []
+        legendvals = []
+    else:
+      legendvals = None
 
     if len(pos_samps) > maxiter:
       maxiter = len(pos_samps)
@@ -945,6 +947,7 @@ def h0ul_from_prior_file(priorfile, ulval=0.95):
     h0marg.append(np.trapz(histarr[:][i], x=cibins))
 
   # normalise h0 posterior
+  h0bins = h0bins-(h0bins[1]-h0bins[0])/2
   h0area = np.trapz(h0marg, x=h0bins)
   h0margnorm = map(lambda x: x/h0area, h0marg)
 
@@ -962,7 +965,7 @@ def h0ul_from_prior_file(priorfile, ulval=0.95):
 
 # function to create a histogram plot of the 2D posterior
 def plot_posterior_hist2D(poslist, params, ifos, bounds=None, nbins=[50,50], \
-                          parfile=None, mplparams=False):
+                          parfile=None, overplot=False, mplparams=False):
   if len(params) != 2:
     print >> sys.stderr, "Require 2 parameters"
     sys.exit(1)
@@ -979,6 +982,10 @@ def plot_posterior_hist2D(poslist, params, ifos, bounds=None, nbins=[50,50], \
       'font.size': 12 }
 
   matplotlib.rcParams.update(mplparams)
+
+  if overplot:
+    coldict = {'H1': 'Reds', 'H2': 'GnBu', 'L1': 'Greens', 'V1': 'Blues', 'G1': 'BuPu', \
+               'Joint': 'Greys'}
 
   myfigs = []
 
@@ -1004,6 +1011,23 @@ def plot_posterior_hist2D(poslist, params, ifos, bounds=None, nbins=[50,50], \
     ifos = ['H1']
 
   for idx, ifo in enumerate(ifos):
+    if overplot:
+      if idx == 0:
+        # if overplotting just have one figure
+        myfig = plt.figure(figsize=(4,4),dpi=200)
+
+      if len(ifos) == 1:
+        alpha=1.0
+        cmap=plt.cm.get_cmap('Greys')
+      else:
+        alpha=0.5 # set transparency
+        cmap=plt.cm.get_cmap(coldict[ifo]) # set colormap
+        #cmap.set_bad(alpha=0.) # set 'bad' masked values to be transparent
+    else:
+      myfig = plt.figure(figsize=(4,4),dpi=200)
+      alpha=1.0 # no transparency
+      cmap=plt.cm.get_cmap('Greys')
+
     posterior = poslist[idx]
 
     a = np.squeeze(posterior[params[0]].samples)
@@ -1016,28 +1040,45 @@ def plot_posterior_hist2D(poslist, params, ifos, bounds=None, nbins=[50,50], \
     par1pos_max = a.max()
     par2pos_max = b.max()
 
-    myfig = plt.figure(figsize=(4,4),dpi=200)
-
     plt.xlabel(r''+parxaxis, fontsize=14, fontweight=100)
     plt.ylabel(r''+paryaxis, fontsize=14, fontweight=100, rotation=270)
 
     H, xedges, yedges = np.histogram2d(a, b, nbins, normed=True)
 
+    #if overplot and len(ifos) > 1:
+    #  # mask values that are zero, so that they are
+    #  Hm = np.ma.masked_where(np.transpose(H) == 0, np.transpose(H))
+    #else:
+    #  Hm = np.transpose(H)
+    Hm = np.transpose(H)
+
     extent = [xedges[0], xedges[-1], yedges[-1], yedges[0]]
-    plt.imshow(np.transpose(H), aspect='auto', extent=extent, \
-interpolation='bicubic', cmap='gray_r')
+    plt.imshow(Hm, aspect='auto', extent=extent, \
+interpolation='bilinear', cmap=cmap, alpha=alpha)
     #plt.colorbar()
+
     if bounds:
       plt.xlim(bounds[0][0], bounds[0][1])
       plt.ylim(bounds[1][0], bounds[1][1])
 
     # plot injection values if given
     if parval1 and parval2:
+      if overplot and idx == len(ifos)-1:
+        # only plot after final posterior has been plotted
+        plt.hold(True)
+        plt.plot(parval1, parval2, 'rx', markersize=8, mew=2)
+      else:
+        plt.hold(True)
+        plt.plot(parval1, parval2, 'rx', markersize=8, mew=2)
+
+    if overplot:
       plt.hold(True)
-      plt.plot(parval1, parval2, 'rx', markersize=8, mew=2)
+    if not overplot:
+      myfig.subplots_adjust(left=0.18, bottom=0.15) # adjust size
+      myfigs.append(myfig)
 
+  if overplot:
     myfig.subplots_adjust(left=0.18, bottom=0.15) # adjust size
-
     myfigs.append(myfig)
 
   return myfigs
@@ -1644,7 +1685,7 @@ def heterodyned_pulsar_signal(starttime, duration, dt, detector, pardict):
   s = [] # signal
   ts = [] # times
 
-  if C21 != 0.:
+  if 'C21' in pardict and 'C22' in pardict and 'h0' not in pardict:
     freqs = [1., 2.]
   else:
     freqs = [2.]
@@ -1705,8 +1746,8 @@ def convert_model_parameters(pardict):
 
   C21 = 2.*f2_r * math.sqrt( A21**2 + B21**2 )
 
-  phi22 = 2.*phi0 - math.atan2( B22, A22 )
-  phi21 = phi0 - math.atan2( B21, A21 )
+  phi22 = phi0 - math.atan2( B22, A22 )
+  phi21 = (phi0/2.) - math.atan2( B21, A21 )
 
   outvals = {'C22': C22, 'C21': C21, 'phi22': phi22, 'phi21': phi21}
 
@@ -1817,7 +1858,7 @@ def antenna_response( gpsTime, ra, dec, psi, det ):
     raise ValueError, "ERROR. Key %s is not a valid detector name." % (det)
 
   # get detector
-  detval = lal.lalCachedDetectors[detector]
+  detval = lal.CachedDetectors[detector]
 
   response = detval.response
 
@@ -1859,9 +1900,9 @@ def inject_pulsar_signal(starttime, duration, dt, detectors, pardict, \
     for j, det in enumerate(detectors):
       for frf in freqfac:
         if len(npsds) == 1:
-          tmpnpsds.append( (npsds[0]/2.0)/(2.0*dt) )
+          tmpnpsds.append( np.sqrt( (npsds[0]/2.0)/(2.0*dt) ) )
         else:
-          tmpnpsds.append( (npsds[count]/2.0)/(2.0*dt) )
+          tmpnpsds.append( np.sqrt( (npsds[count]/2.0)/(2.0*dt) ) )
 
         count = count+1
 
@@ -1917,7 +1958,8 @@ def inject_pulsar_signal(starttime, duration, dt, detectors, pardict, \
 
   # add noise and rescale signals if necessary
   if snrscale is not None:
-    snrscale = snrscale / snrtot
+    if snrscale != 0:
+      snrscale = snrscale / snrtot
     # print snrscale
   else:
     snrscale = 1
@@ -2189,6 +2231,85 @@ def read_pulsar_mcmc_file(cf):
       cfdata = None
 
   return cfdata
+
+
+# Function to convert nested sample files output from pulsar_parameter_estimation_nested into a
+# posterior object. The log(evidence ratio) (signal versus Gaussian noise) is also returned.
+#
+# The inputs are a list of nested sample files and the number of live points used to produce them.
+#
+# Any non-varying parameters in the files are removed from the posterior object. iota is converted
+# back into cos(iota), and if only C22 is varying then it is converted back into h0, and phi22
+# is converted back into phi0.
+def pulsar_nest_to_posterior(nestfiles, nlive):
+  # combine multiple nested sample files for an IFO into a single posterior (copied from lalapps_nest2pos)
+  peparser = bppu.PEOutputParser('ns')
+
+  # generate a random string for the posterior output file
+  import random
+  import string  
+  posfilename = 'posterior_samples_'+''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))+'.dat'
+
+  nsResultsObject = peparser.parse(nestfiles, Nlive=nlive, posfilename=posfilename)
+
+  pos = bppu.Posterior( nsResultsObject, SimInspiralTableEntry=None, votfile=None )
+
+  # remove posterior samples file created by parser
+  if os.path.isfile(posfilename):
+    os.remove(posfilename)
+
+  # convert iota back to cos(iota)
+  # create 1D posterior class of cos(iota) values
+  cipos = None
+  cipos = bppu.PosteriorOneDPDF('cosiota', np.cos(pos['iota'].samples))
+
+  # add it back to posterior and remove iota samples
+  pos.append(cipos)
+  pos.pop('iota')
+
+  # remove any unchanging variables
+  pnames = pos.names
+  for pname in pnames:
+    # check first and last samples are the same
+    if pos[pname].samples[0] - pos[pname].samples[-1] == 0.:
+      pos.pop(pname)
+
+  # convert C22 back into h0, and phi22 back into phi0 if required
+  try:
+    posC21 = pos['c21'].samples
+  except:
+    posC21 = None
+
+  try:
+    posC22 = pos['c22'].samples
+  except:
+    posC22 = None
+
+  try:
+    posphi22 = pos['phi22'].samples
+  except:
+    posphi22 = None
+
+  # convert C22 back into h0, and phi22 back into phi0 if required
+  if posC22 != None:
+    h0pos = None
+    h0pos = bppu.PosteriorOneDPDF('h0', 2.*pos['c22'].samples)
+
+    pos.append(h0pos)
+    pos.pop('c22')
+
+    if posphi22 != None:
+      phi0pos = None
+      phi0pos = bppu.PosteriorOneDPDF('phi0', np.fmod(pos['phi22'].samples + math.pi, 2.*math.pi))
+
+      pos.append(phi0pos)
+      pos.pop('phi22')
+
+  # get evidence (as in lalapps_nest2pos) (assume evidence in files suffixed '_B.txt')
+  Bs = map(np.loadtxt,[d.replace('.gz', '')+'_B.txt' for d in nestfiles])
+  meanB = reduce(np.logaddexp,[b[0] for b in Bs])-np.log(len(Bs))
+
+  return pos, meanB
 
 
 # function to add two exponentiated log values and return the log of the result

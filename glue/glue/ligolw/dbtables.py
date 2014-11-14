@@ -147,15 +147,13 @@ def install_signal_trap(signums = (signal.SIGTERM, signal.SIGTSTP), retval = 1):
 	Note:  this function is called by get_connection_filename()
 	whenever it creates a scratch file.
 	"""
-	temporary_files_lock.acquire()
-	try:
+	with temporary_files_lock:
 		# ignore signums we've already replaced
 		signums = set(signums) - set(origactions)
 
 		def temporary_file_cleanup_on_signal(signum, frame):
-			temporary_files_lock.acquire()
-			temporary_files.clear()
-			temporary_files_lock.release()
+			with temporary_files_lock:
+				temporary_files.clear()
 			if callable(origactions[signum]):
 				# original action is callable, chain to it
 				return origactions[signum](signum, frame)
@@ -169,8 +167,6 @@ def install_signal_trap(signums = (signal.SIGTERM, signal.SIGTSTP), retval = 1):
 				# signal is not being ignored, so install our
 				# handler
 				signal.signal(signum, temporary_file_cleanup_on_signal)
-	finally:
-		temporary_files_lock.release()
 
 
 def uninstall_signal_trap(signums = None):
@@ -186,14 +182,11 @@ def uninstall_signal_trap(signums = None):
 	discard_connection_filename() whenever they remove a scratch file
 	and there are then no more scrach files in use.
 	"""
-	temporary_files_lock.acquire()
-	try:
+	with temporary_files_lock:
 		if signums is None:
 			signums = origactions.keys()
 		for signum in signums:
 			signal.signal(signum, origactions.pop(signum))
-	finally:
-		temporary_files_lock.release()
 
 
 #
@@ -212,7 +205,7 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 		install_signal_trap()
 		# create the remporary file and replace it's unlink()
 		# function
-		temporary_file = tempfile.NamedTemporaryFile(suffix = suffix, dir = path)
+		temporary_file = tempfile.NamedTemporaryFile(suffix = suffix, dir = path if path != "_CONDOR_SCRATCH_DIR" else os.getenv("_CONDOR_SCRATCH_DIR"))
 		def new_unlink(self, orig_unlink = temporary_file.unlink):
 			# also remove a -journal partner, ignore all errors
 			try:
@@ -222,11 +215,8 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 			orig_unlink(self)
 		temporary_file.unlink = new_unlink
 		filename = temporary_file.name
-		temporary_files_lock.acquire()
-		try:
+		with temporary_files_lock:
 			temporary_files[filename] = temporary_file
-		finally:
-			temporary_files_lock.release()
 		if verbose:
 			print >>sys.stderr, "using '%s' as workspace" % filename
 		# mkstemp() ignores umask, creates all files accessible
@@ -243,7 +233,7 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 			print >>sys.stderr, "'%s' exists, truncating ..." % filename,
 		try:
 			fd = os.open(filename, os.O_WRONLY | os.O_TRUNC)
-		except Exception, e:
+		except Exception as e:
 			if verbose:
 				print >>sys.stderr, "cannot truncate '%s': %s" % (filename, str(e))
 			return
@@ -264,7 +254,7 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 			# don't preserve them if the destination file
 			# already exists?
 			shutil.copystat(srcname, dstname)
-		except Exception, e:
+		except Exception as e:
 			if verbose:
 				print >>sys.stderr, "warning: ignoring failure to copy permission bits from '%s' to '%s': %s" % (filename, target, str(e))
 
@@ -287,7 +277,7 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 				while True:
 					try:
 						cpy(filename, target, verbose = verbose)
-					except IOError, e:
+					except IOError as e:
 						import errno
 						import time
 						if e.errno not in (errno.EPERM, errno.ENOSPC):
@@ -303,18 +293,14 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 							continue
 						if verbose:
 							print >>sys.stderr, "warning: attempt %d: %s: working with original file '%s'" % (i, errno.errorcode[e.errno], filename)
-						temporary_files_lock.acquire()
-						del temporary_files[target]
-						temporary_files_lock.release()
+						with temporary_files_lock:
+							del temporary_files[target]
 						target = filename
 					break
 	else:
-		temporary_files_lock.acquire()
-		try:
+		with temporary_files_lock:
 			if filename in temporary_files:
 				raise ValueError("file '%s' appears to be in use already as a temporary database file and is to be deleted" % filename)
-		finally:
-			temporary_files_lock.release()
 		target = filename
 		if database_exists and replace_file:
 			truncate(target, verbose = verbose)
@@ -330,6 +316,8 @@ def set_temp_store_directory(connection, temp_store_directory, verbose = False):
 	"""
 	Sets the temp_store_directory parameter in sqlite.
 	"""
+	if temp_store_directory == "_CONDOR_SCRATCH_DIR":
+		temp_store_directory = os.getenv("_CONDOR_SCRATCH_DIR")
 	if verbose:
 		print >>sys.stderr, "setting the temp_store_directory to %s ..." % temp_store_directory,
 	cursor = connection.cursor()
@@ -416,11 +404,8 @@ def put_connection_filename(filename, working_filename, verbose = False):
 			open(working_filename, "w").close()
 		except:
 			pass
-		temporary_files_lock.acquire()
-		try:
+		with temporary_files_lock:
 			del temporary_files[working_filename]
-		finally:
-			temporary_files_lock.release()
 
 		# restore original handlers, and send ourselves any trapped signals
 		# in order
@@ -431,9 +416,8 @@ def put_connection_filename(filename, working_filename, verbose = False):
 
 		# if there are no more temporary files in place, remove the
 		# temporary-file signal traps
-		temporary_files_lock.acquire()
-		no_more_files = not temporary_files
-		temporary_files_lock.release()
+		with temporary_files_lock:
+			no_more_files = not temporary_files
 		if no_more_files:
 			uninstall_signal_trap()
 
@@ -455,19 +439,15 @@ def discard_connection_filename(filename, working_filename, verbose = False):
 		if verbose:
 			print >>sys.stderr, "removing '%s' ..." % working_filename,
 		# remove reference to tempfile.TemporaryFile object
-		temporary_files_lock.acquire()
-		try:
+		with temporary_files_lock:
 			del temporary_files[working_filename]
-		finally:
-			temporary_files_lock.release()
 		if verbose:
 			print >>sys.stderr, "done."
 
 		# if there are no more temporary files in place, remove the
 		# temporary-file signal traps
-		temporary_files_lock.acquire()
-		no_more_files = not temporary_files
-		temporary_files_lock.release()
+		with temporary_files_lock:
+			no_more_files = not temporary_files
 		if no_more_files:
 			uninstall_signal_trap()
 
@@ -631,7 +611,7 @@ def get_xml(connection, table_names = None):
 		except KeyError:
 			cls = DBTable
 		table_elem = cls(AttributesImpl({u"Name": u"%s:table" % table_name}), connection = connection)
-		for column_name, column_type in get_column_info(connection, table_elem.dbtablename):
+		for column_name, column_type in get_column_info(connection, table_elem.Name):
 			if table_elem.validcolumns is not None:
 				# use the pre-defined column type
 				column_type = table_elem.validcolumns[column_name]
@@ -640,7 +620,7 @@ def get_xml(connection, table_names = None):
 				column_type = ligolwtypes.FromSQLiteType[column_type]
 			table_elem.appendChild(table.Column(AttributesImpl({u"Name": u"%s:%s" % (table_name, column_name), u"Type": column_type})))
 		table_elem._end_of_columns()
-		table_elem.appendChild(table.TableStream(AttributesImpl({u"Name": u"%s:table" % table_name})))
+		table_elem.appendChild(table.TableStream(AttributesImpl({u"Name": u"%s:table" % table_name, u"Delimiter": table.TableStream.Delimiter.default, u"Type": table.TableStream.Type.default})))
 		ligo_lw.appendChild(table_elem)
 	return ligo_lw
 
@@ -755,14 +735,18 @@ class DBTable(table.Table):
 		# chain to parent class
 		table.Table.__init__(self, *args)
 
-		# save the stripped name
-		self.dbtablename = table.StripTableName(self.getAttribute(u"Name"))
-
 		# retrieve connection object from kwargs
 		self.connection = kwargs.pop("connection")
 
 		# pre-allocate a cursor for internal queries
 		self.cursor = self.connection.cursor()
+
+	def copy(self, *args, **kwargs):
+		"""
+		This method is not implemented.  See
+		glue.ligolw.table.Table for more information.
+		"""
+		raise NotImplemented
 
 	def _end_of_columns(self):
 		table.Table._end_of_columns(self)
@@ -781,8 +765,8 @@ class DBTable(table.Table):
 			"mysql": ligolwtypes.ToMySQLType
 		}[connection_db_type(self.connection)]
 		try:
-			statement = "CREATE TABLE IF NOT EXISTS " + self.dbtablename + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, ToSQLType[t]), self.dbcolumnnames, self.dbcolumntypes))
-		except KeyError, e:
+			statement = "CREATE TABLE IF NOT EXISTS " + self.Name + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, ToSQLType[t]), self.dbcolumnnames, self.dbcolumntypes))
+		except KeyError as e:
 			raise ValueError("column type '%s' not supported" % str(e))
 		if self.constraints is not None:
 			statement += ", " + self.constraints
@@ -797,7 +781,7 @@ class DBTable(table.Table):
 			"sqlite": ",".join("?" * len(self.dbcolumnnames)),
 			"mysql": ",".join(["%s"] * len(self.dbcolumnnames))
 		}[connection_db_type(self.connection)]
-		self.append_statement = "INSERT INTO %s (%s) VALUES (%s)" % (self.dbtablename, ",".join(self.dbcolumnnames), params)
+		self.append_statement = "INSERT INTO %s (%s) VALUES (%s)" % (self.Name, ",".join(self.dbcolumnnames), params)
 
 	def _end_of_rows(self):
 		# FIXME:  is this needed?
@@ -814,16 +798,16 @@ class DBTable(table.Table):
 		return self.next_id
 
 	def maxrowid(self):
-		self.cursor.execute("SELECT MAX(ROWID) FROM %s" % self.dbtablename)
+		self.cursor.execute("SELECT MAX(ROWID) FROM %s" % self.Name)
 		return self.cursor.fetchone()[0]
 
 	def __len__(self):
-		self.cursor.execute("SELECT COUNT(*) FROM %s" % self.dbtablename)
+		self.cursor.execute("SELECT COUNT(*) FROM %s" % self.Name)
 		return self.cursor.fetchone()[0]
 
 	def __iter__(self):
 		cursor = self.connection.cursor()
-		cursor.execute("SELECT * FROM %s" % self.dbtablename)
+		cursor.execute("SELECT * FROM %s" % self.Name)
 		for values in cursor:
 			yield self.row_from_cols(values)
 
@@ -832,7 +816,7 @@ class DBTable(table.Table):
 	#	# sqlite numbers rows starting from 1:  [0:10] becomes
 	#	# "rowid between 1 and 10" which means 1 <= rowid <= 10,
 	#	# which is the intended range
-	#	self.cursor.execute("DELETE FROM %s WHERE ROWID BETWEEN %d AND %d" % (self.dbtablename, i + 1, j))
+	#	self.cursor.execute("DELETE FROM %s WHERE ROWID BETWEEN %d AND %d" % (self.Name, i + 1, j))
 
 	def _append(self, row):
 		"""
@@ -896,7 +880,7 @@ class DBTable(table.Table):
 			# way it will wrap is if somebody sets it to a very
 			# high number manually.  This library does not do
 			# that, so I don't bother checking.
-			self.cursor.execute("UPDATE %s SET %s WHERE ROWID > %d" % (self.dbtablename, assignments, self.last_maxrowid))
+			self.cursor.execute("UPDATE %s SET %s WHERE ROWID > %d" % (self.Name, assignments, self.last_maxrowid))
 			self.last_maxrowid = self.maxrowid() or 0
 
 
@@ -1089,7 +1073,7 @@ def use_in(ContentHandler):
 
 	>>> import sqlite3
 	>>> from glue.ligolw import ligolw
-	>>> def MyContentHandler(ligolw.LIGOLWContentHandler):
+	>>> class MyContentHandler(ligolw.LIGOLWContentHandler):
 	...	def __init__(self, *args):
 	...		super(MyContentHandler, self).__init__(*args)
 	...		self.connection = sqlite3.connection()
@@ -1100,7 +1084,7 @@ def use_in(ContentHandler):
 	Multiple database files can be in use at once by creating a content
 	handler class for each one.
 	"""
-	lsctables.use_in(ContentHandler)
+	ContentHandler = lsctables.use_in(ContentHandler)
 
 	def startTable(self, parent, attrs):
 		try:
@@ -1114,6 +1098,8 @@ def use_in(ContentHandler):
 		return DBTable(attrs, connection = connection)
 
 	ContentHandler.startTable = startTable
+
+	return ContentHandler
 
 
 # FIXME:  remove

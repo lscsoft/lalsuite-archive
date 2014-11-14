@@ -18,107 +18,107 @@
 */
 
 /**
-\author Churches, D. K and Sathyaprakash, B.S. and Cokelaer. T
-\file
-\ingroup LALInspiral_h
-
-\brief Interface routine needed to generate all waveforms in the \ref pkg_inspiral package.
-
-To generate a waveform
-a user is noramlly required to (a) choose the binary parameters, starting frequency, number of
-bins of leading and trailing zero-padding, etc., in the structure <tt>InspiralTemplate params</tt>
-and (b) call the following three functions in the order given:
-LALInspiralParameterCalc(), LALInspiralWaveLength() and LALInspiralWave().
-Either a time- or a frequency-domain signal is returned depending upon the
-\c approximant requested (see Notes below).
-
-\heading{Prototypes}
-
-<tt>LALInspiralWave()</tt>
-<ul>
-<li> \c signalvec: Output containing the inspiral waveform.</li>
-<li> \c params: Input containing binary chirp parameters.</li>
-</ul>
-
-
-
-<tt>LALInspiralWaveTemplates()</tt>
-<ul>
-<li> \c signalvec1: Output containing the 0-phase inspiral waveform.</li>
-<li> \c signalvec2: Output containing the \f$\pi/2\f$-phase inspiral waveform.</li>
-<li> \c params: Input containing binary chirp parameters.</li>
-</ul>
-
-\heading{Description}
-
-The code LALInspiralWave() is the user interface to the inspiral codes. It takes from the user all
-the physical parameters which specify the binary, and calls the relevent wave generation function.
-Currently ten different approximants are fully implemented. These are #TaylorT1, #TaylorT2,
-#TaylorT3, #TaylorF1, #TaylorF2, #TaylorF2RedSpin, #PadeT1, #EOB, #BCV, #SpinTaylorT3, #PhenSpinTaylorRD.
-\c Taylor approximants can all be generated at seven different post-Newtonian orders,
-from Newtonian to 3.5 PN order, #PadeT1 exists at order 1.5PN and higher,
-#EOB at orders 2 and higher. #SpinTaylorT3 is implemented only at 2PN order
-by solving the evolution equations for the spin and orbital angular momenta and a
-time-domain phasing formula. Finally, PN order is undefined for #BCV.
-The approximant and the order are set up by the enums ::Approximant and ::LALPNOrder,
-respectively.
-
-The waveforms are all terminated one bin before the last stable orbit is reached.
-The last stable orbit corresponding to a given ::Approximant and ::LALPNOrder is
-defined as follows: For all \c Taylor approximants at orders 0PN, 1PN and 1.5PN
-\f$v_\textrm{lso}^2=1/6,\f$ and at 2PN, 2.5PN, 3PN and 3.5PN
-\f$v_\textrm{lso}^2 = x^\textrm{lso}_{T_4},\f$ where \f$x^\textrm{lso}_{T_4}\f$ is
-defined in Table.\tableref{table_energy}.  In the case of \c Pade approximant
-at 1.5PN order \f$v_\textrm{lso}^2=1/6,\f$ and at orders 2PN, 2.5PN, 3PN and 3.5PN
-\f$v_\textrm{lso}^2 = x^\textrm{lso}_{P_4},\f$ where \f$x^\textrm{lso}_{P_4}\f$ is
-defined in Table.\tableref{table_energy}. In the case of #EOB approximant,
-defined only at orders greater than 2PN, the plunge waveform is
-terminated at the light-ring orbit defined by Equation.\eqref{eq_LightRing}.
-
-In the case of LALInspiralWaveTemplates() <tt>*signalvec1</tt>
-contains the `0-phase' inspiral template and <tt>*signalvec2</tt> contains
-a signal that is \f$\pi/2\f$ out of phase with respect to <tt>*signalvec1.</tt>
-Currently, a template pair is generated only for the following \c approximants:
-#TaylorT1, #TaylorT2, #TaylorT3, #PadeT1, #EOB.
-
-See the test codes for examples of how to generate different approximations.
-
-\heading{Algorithm}
-Simple use of \c switch statement to access different PN approximations.
-
-\heading{Uses}
-Depending on the user inputs one of the following functions is called:
-\code
-LALInspiralWave1()
-LALInspiralWave2()
-LALInspiralWave3()
-XLALInspiralStationaryPhaseApprox1()
-XLALInspiralStationaryPhaseApprox2()
-LALEOBWaveform()
-LALBCVWaveform()
-LALInspiralSpinModulatedWave()
-\endcode
-
-\heading{Notes}
-
-<ul>
-    <li> A time-domain waveform is returned when the ::Approximant is one of
-    #TaylorT1, #TaylorT2, #TaylorT3, #PadeT1, #EOB, #SpinTaylorT3, #PhenSpinTaylorRD, #SpinQuadTaylor
-    </li><li> A frequency-domain waveform is returned when the ::Approximant is one of
-         #TaylorF1, #TaylorF2, #TaylorF2RedSpin, #BCV.
-         In these cases the code returns the real and imagninary parts of the
-         Fourier domain signal in the convention of fftw. For a signal vector
-         of length <tt>n=signalvec->length</tt> (\c n even):</li>
-         <ul>
-         <li> <tt>signalvec->data[0]</tt> is the \e real 0th frequency component of the Fourier transform.</li>
-         <li> <tt>signalvec->data[n/2]</tt> is the \e real Nyquist frequency component of the Fourier transform.</li>
-         <li> <tt>signalvec->data[k]</tt> and <tt>signalvec->data[n-k],</tt> for <tt>k=1,..., n/2-1,</tt> are
-             the real and imaginary parts of the Fourier transform at a frequency \f$k\Delta f=k/T,\f$ \f$T\f$ being
-             the duration of the signal and \f$\Delta f=1/T\f$ is the frequency resolution.</li>
-         </ul>
-</ul>
-
-*/
+ * \author Churches, D. K and Sathyaprakash, B.S. and Cokelaer. T
+ * \file
+ * \ingroup LALInspiral_h
+ *
+ * \brief Interface routine needed to generate all waveforms in the \ref pkg_inspiral package.
+ *
+ * To generate a waveform
+ * a user is noramlly required to (a) choose the binary parameters, starting frequency, number of
+ * bins of leading and trailing zero-padding, etc., in the structure <tt>InspiralTemplate params</tt>
+ * and (b) call the following three functions in the order given:
+ * LALInspiralParameterCalc(), LALInspiralWaveLength() and LALInspiralWave().
+ * Either a time- or a frequency-domain signal is returned depending upon the
+ * \c approximant requested (see Notes below).
+ *
+ * ### Prototypes ###
+ *
+ * <tt>LALInspiralWave()</tt>
+ * <ul>
+ * <li> \c signalvec: Output containing the inspiral waveform.</li>
+ * <li> \c params: Input containing binary chirp parameters.</li>
+ * </ul>
+ *
+ * <tt>LALInspiralWaveTemplates()</tt>
+ * <ul>
+ * <li> \c signalvec1: Output containing the 0-phase inspiral waveform.</li>
+ * <li> \c signalvec2: Output containing the \f$\pi/2\f$-phase inspiral waveform.</li>
+ * <li> \c params: Input containing binary chirp parameters.</li>
+ * </ul>
+ *
+ * ### Description ###
+ *
+ * The code LALInspiralWave() is the user interface to the inspiral codes. It takes from the user all
+ * the physical parameters which specify the binary, and calls the relevent wave generation function.
+ * Currently ten different approximants are fully implemented. These are #TaylorT1, #TaylorT2,
+ * #TaylorT3, #TaylorF1, #TaylorF2, #TaylorF2RedSpin, #PadeT1, #EOB, #BCV, #SpinTaylorT3, #PhenSpinTaylorRD.
+ * \c Taylor approximants can all be generated at seven different post-Newtonian orders,
+ * from Newtonian to 3.5 PN order, #PadeT1 exists at order 1.5PN and higher,
+ * #EOB at orders 2 and higher. #SpinTaylorT3 is implemented only at 2PN order
+ * by solving the evolution equations for the spin and orbital angular momenta and a
+ * time-domain phasing formula. Finally, PN order is undefined for #BCV.
+ * The approximant and the order are set up by the enums ::Approximant and ::LALPNOrder,
+ * respectively.
+ *
+ * The waveforms are all terminated one bin before the last stable orbit is reached.
+ * The last stable orbit corresponding to a given ::Approximant and ::LALPNOrder is
+ * defined as follows: For all \c Taylor approximants at orders 0PN, 1PN and 1.5PN
+ * \f$v_\textrm{lso}^2=1/6,\f$ and at 2PN, 2.5PN, 3PN and 3.5PN
+ * \f$v_\textrm{lso}^2 = x^\textrm{lso}_{T_4},\f$ where \f$x^\textrm{lso}_{T_4}\f$ is
+ * defined in \tableref{table_energy}.  In the case of \c Pade approximant
+ * at 1.5PN order \f$v_\textrm{lso}^2=1/6,\f$ and at orders 2PN, 2.5PN, 3PN and 3.5PN
+ * \f$v_\textrm{lso}^2 = x^\textrm{lso}_{P_4},\f$ where \f$x^\textrm{lso}_{P_4}\f$ is
+ * defined in \tableref{table_energy}. In the case of #EOB approximant,
+ * defined only at orders greater than 2PN, the plunge waveform is
+ * terminated at the light-ring orbit defined by \eqref{eq_LightRing}.
+ *
+ * In the case of LALInspiralWaveTemplates() <tt>*signalvec1</tt>
+ * contains the `0-phase' inspiral template and <tt>*signalvec2</tt> contains
+ * a signal that is \f$\pi/2\f$ out of phase with respect to <tt>*signalvec1.</tt>
+ * Currently, a template pair is generated only for the following \c approximants:
+ * #TaylorT1, #TaylorT2, #TaylorT3, #PadeT1, #EOB.
+ *
+ * See the test codes for examples of how to generate different approximations.
+ *
+ * ### Algorithm ###
+ *
+ * Simple use of \c switch statement to access different PN approximations.
+ *
+ * ### Uses ###
+ *
+ * Depending on the user inputs one of the following functions is called:
+ * \code
+ * LALInspiralWave1()
+ * LALInspiralWave2()
+ * LALInspiralWave3()
+ * XLALInspiralStationaryPhaseApprox1()
+ * XLALInspiralStationaryPhaseApprox2()
+ * LALEOBWaveform()
+ * LALBCVWaveform()
+ * LALInspiralSpinModulatedWave()
+ * \endcode
+ *
+ * ### Notes ###
+ *
+ * <ul>
+ * <li> A time-domain waveform is returned when the ::Approximant is one of
+ * #TaylorT1, #TaylorT2, #TaylorT3, #PadeT1, #EOB, #SpinTaylorT3, #PhenSpinTaylorRD, #SpinQuadTaylor
+ * </li><li> A frequency-domain waveform is returned when the ::Approximant is one of
+ * #TaylorF1, #TaylorF2, #TaylorF2RedSpin, #BCV.
+ * In these cases the code returns the real and imagninary parts of the
+ * Fourier domain signal in the convention of fftw. For a signal vector
+ * of length <tt>n=signalvec->length</tt> (\c n even):</li>
+ * <ul>
+ * <li> <tt>signalvec->data[0]</tt> is the \e real 0th frequency component of the Fourier transform.</li>
+ * <li> <tt>signalvec->data[n/2]</tt> is the \e real Nyquist frequency component of the Fourier transform.</li>
+ * <li> <tt>signalvec->data[k]</tt> and <tt>signalvec->data[n-k],</tt> for <tt>k=1,..., n/2-1,</tt> are
+ * the real and imaginary parts of the Fourier transform at a frequency \f$k\Delta f=k/T,\f$ \f$T\f$ being
+ * the duration of the signal and \f$\Delta f=1/T\f$ is the frequency resolution.</li>
+ * </ul>
+ * </ul>
+ *
+ */
 
 #include <lal/LALInspiral.h>
 #include <lal/LALNoiseModels.h>
@@ -209,6 +209,67 @@ int XLALSimInspiralChooseWaveformFromSimInspiral(
 
    if (XLALSimInspiralREAL8WaveTaper((*hcross)->data, taper) == XLAL_FAILURE)
       XLAL_ERROR(XLAL_EFUNC);
+
+   return XLAL_SUCCESS;
+}
+
+/**
+ * Generate the plus and cross polarizations for a conditioned waveform
+ * form a row of the sim_inspiral table.
+ *
+ * Parses a row from the sim_inspiral table and passes the appropriate members
+ * to XLALSimInspiralTD().
+ *
+ */
+int XLALInspiralTDWaveformFromSimInspiral(
+    REAL8TimeSeries **hplus,	/**< +-polarization waveform */
+    REAL8TimeSeries **hcross,	/**< x-polarization waveform */
+    SimInspiralTable *thisRow,	/**< row from the sim_inspiral table containing waveform parameters */
+    REAL8 deltaT		/**< time step (s) */
+    )
+{
+   int ret;
+   LALPNOrder order;
+   Approximant approximant;
+   REAL8 phi0 = thisRow->coa_phase;
+   REAL8 m1 = thisRow->mass1 * LAL_MSUN_SI;
+   REAL8 m2 = thisRow->mass2 * LAL_MSUN_SI;
+   REAL8 S1x = thisRow->spin1x;
+   REAL8 S1y = thisRow->spin1y;
+   REAL8 S1z = thisRow->spin1z;
+   REAL8 S2x = thisRow->spin2x;
+   REAL8 S2y = thisRow->spin2y;
+   REAL8 S2z = thisRow->spin2z;
+   REAL8 f_min = thisRow->f_lower;
+   REAL8 f_ref = 0.;
+   REAL8 r = thisRow->distance * LAL_PC_SI * 1e6;
+   REAL8 i = thisRow->inclination;
+   REAL8 lambda1 = 0.; /* FIXME:0 turns these terms off, these should be obtained by some other means */
+   REAL8 lambda2 = 0.; /* FIXME:0 turns these terms off, these should be obtained by some other means */
+   REAL8 z = 0.; /* FIXME:0 means zero redshift, this should be obtained by some other means */
+   LALSimInspiralWaveformFlags *waveFlags=XLALSimInspiralCreateWaveformFlags();
+   LALSimInspiralTestGRParam *nonGRparams = NULL;
+   int amplitudeO = thisRow->amp_order;
+
+   /* get approximant */
+   approximant = XLALGetApproximantFromString(thisRow->waveform);
+   if ( (int) approximant == XLAL_FAILURE)
+      XLAL_ERROR(XLAL_EFUNC);
+
+   /* get phase PN order; this is an enum such that the value is twice the PN order */
+   order = XLALGetOrderFromString(thisRow->waveform);
+   if ( (int) order == XLAL_FAILURE)
+      XLAL_ERROR(XLAL_EFUNC);
+
+   /* note: the condition waveform already does tapering... ignore any request to do so get taper option */
+   /* taper = XLALGetTaperFromString(thisRow->taper); */
+
+   /* generate +,x waveforms */
+   ret = XLALSimInspiralTD(hplus, hcross, phi0, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, z, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, order, approximant);
+   XLALSimInspiralDestroyWaveformFlags(waveFlags);
+   XLALSimInspiralDestroyTestGRParam(nonGRparams);
+   if( ret == XLAL_FAILURE )
+     XLAL_ERROR(XLAL_EFUNC);
 
    return XLAL_SUCCESS;
 }

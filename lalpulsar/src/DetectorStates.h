@@ -37,6 +37,8 @@ extern "C" {
 /*---------- exported INCLUDES ----------*/
 #include <lal/PulsarDataTypes.h>
 #include <lal/SeqFactories.h>
+#include <lal/LALBarycenter.h>
+#include <lal/SFTutils.h>
 
 /*---------- exported DEFINES ----------*/
 
@@ -59,7 +61,8 @@ extern "C" {
 
 /*---------- exported types ----------*/
 
-/** A symmetric 3x3 tensor (such as detector-tensors), storing only the upper triangle.
+/**
+ * A symmetric 3x3 tensor (such as detector-tensors), storing only the upper triangle.
  */
 typedef struct tagSymmTensor3
 {
@@ -69,7 +72,8 @@ typedef struct tagSymmTensor3
 } SymmTensor3;
 
 
-/** A symmetric 3x3 tensor (such as detector-tensors), storing only the upper triangle, using REAL8 precision
+/**
+ * A symmetric 3x3 tensor (such as detector-tensors), storing only the upper triangle, using REAL8 precision
  */
 typedef struct tagSymmTensor3d
 {
@@ -79,7 +83,8 @@ typedef struct tagSymmTensor3d
 } SymmTensor3d;
 
 
-/** Struct containing pre-computed quantites describing a
+/**
+ * Struct containing pre-computed quantites describing a
  * single detector arm: unit-vector along detector-arm, arm-length,
  * and arm "basis-tensor" n x n. This is used to speed up the
  * computation of LISA detector tensors in the rigid-adiabatic approximation.
@@ -93,31 +98,29 @@ typedef struct tagDetectorArm
 
 typedef DetectorArm Detector3Arms[3];	/**< used to allow functions some type/size checking */
 
-/** simple multi-IFO array of detector-information, standard LAL-vector
+/**
+ * array of detectors definitions 'LALDetector'
+ *
  */
 typedef struct tagMultiLALDetector
 {
-  UINT4 length;		/**< number of IFOs */
-  LALDetector *data;	/**< array of LALDetector structs */
+  UINT4 length;                         	//!< number of detectors \f$N\f$
+  LALDetector sites[PULSAR_MAX_DETECTORS];  	//!< array of site information
 } MultiLALDetector;
 
-
-/**
- * Struct describing a set of detectors with their PSDs and derived noise-weights
- *
- */
-typedef struct tagMultiDetectorInfo
+//! array of detector-specific 'noise floors' (ie PSD values), assumed constant
+//! over the frequency-band of interest
+typedef struct tagMultiNoiseFloor
 {
-  UINT4 length;                         //!< number of detectors \f$N\f$
-  LALDetector sites[PULSAR_MAX_DETECTORS];  //!< array of site information
-  REAL8 sqrtSn[PULSAR_MAX_DETECTORS];       //!< per-IFO sqrt{Sn} values, \f$\sqrt{S_X}\f$
-  REAL8 detWeights[PULSAR_MAX_DETECTORS];   //!< (derived) noise-weights, defined as \f$w_X = \frac{S_X^{-1}}{\mathcal{S}^{-1}}\f$
-  REAL8 calS;                           //!< noise normalization constant \f$\mathcal{S}^{-1}= \frac{1}{N}\sum_{X=1}^{N} S_X^{-1}\f$
-                                        //!< such that \f$\sum_{X=1}^N w_X = N\f$
-} MultiDetectorInfo;
+  UINT4 length;					//!< number of detectors \f$N_{\mathrm{det}}\f$
+  REAL8 sqrtSn[PULSAR_MAX_DETECTORS];       	//!< per-IFO sqrt(PSD) values \f$\sqrt{S_X}\f$, where
+                                                //!< \f$S_X^{-1}\equiv\frac{1}{N_{\mathrm{sft}}^X} \sum_{\alpha=0}^{N_{\mathrm{sft}}^X-1} S_{X\alpha}^{-1}\f$
+                                                //!< with \f$N_{\mathrm{sft}}^X\f$ the number of SFTs (labeled by \f$\alpha\f$) from detector \f$X\f$
+} MultiNoiseFloor;
 
 /* ----- Output types for LALGetDetectorStates() */
-/** State-info about position, velocity and LMST of a detector together
+/**
+ * State-info about position, velocity and LMST of a detector together
  * with corresponding EarthState.
  */
 typedef struct tagDetectorState
@@ -132,7 +135,8 @@ typedef struct tagDetectorState
 } DetectorState;
 
 
-/** Timeseries of DetectorState's, representing the detector-info at different timestamps.
+/**
+ * Timeseries of DetectorState's, representing the detector-info at different timestamps.
  * In addition to the standard 'vector'-fields we also store the detector-info in here.
  */
 typedef struct tagDetectorStateSeries
@@ -172,13 +176,13 @@ LALGetMultiDetectorStates( LALStatus *,
 
 void LALCreateDetectorStateSeries (LALStatus *, DetectorStateSeries **vect, UINT4 length );
 
-DetectorStateSeries*
-XLALGetDetectorStates ( const LIGOTimeGPSVector *timestamps, const LALDetector *detector, const EphemerisData *edat, REAL8 tOffset );
-MultiDetectorStateSeries*
-XLALGetMultiDetectorStates( const MultiLIGOTimeGPSVector *multiTS, const MultiLALDetector *multiIFO, const EphemerisData *edat, REAL8 tOffset );
+DetectorStateSeries* XLALGetDetectorStates ( const LIGOTimeGPSVector *timestamps, const LALDetector *detector, const EphemerisData *edat, REAL8 tOffset );
+MultiDetectorStateSeries* XLALGetMultiDetectorStates( const MultiLIGOTimeGPSVector *multiTS, const MultiLALDetector *multiIFO, const EphemerisData *edat, REAL8 tOffset );
 
-int XLALParseMultiDetectorInfo ( MultiDetectorInfo *detInfo, const LALStringVector *detNames, const LALStringVector *sqrtSX );
-int XLALMultiDetectorInfoFromMultiSFTCatalogView ( MultiDetectorInfo *multiDetInfo, const MultiSFTCatalogView *multiView );
+int XLALParseMultiLALDetector ( MultiLALDetector *multiIFO, const LALStringVector *detNames );
+int XLALParseMultiNoiseFloor ( MultiNoiseFloor *multiNoiseFloor, const LALStringVector *sqrtSX, UINT4 numDetectors );
+int XLALMultiLALDetectorFromMultiSFTCatalogView ( MultiLALDetector *multiIFO, const MultiSFTCatalogView *multiView );
+int XLALMultiLALDetectorFromMultiSFTs ( MultiLALDetector *multiIFO, const MultiSFTVector *multiSFTs );
 
 int XLALAddSymmTensor3s ( SymmTensor3 *sum, const SymmTensor3 *aT, const SymmTensor3 *bT );
 int XLALSubtractSymmTensor3s ( SymmTensor3 *diff, const SymmTensor3 *aT, const SymmTensor3 *bT );
@@ -188,16 +192,12 @@ int XLALSymmetricTensorProduct3 ( SymmTensor3 *vxw, REAL4 v[3], REAL4 w[3] );
 REAL4 XLALContractSymmTensor3s ( const SymmTensor3 *T1, const SymmTensor3 *T2 );
 
 /* creators */
-MultiLALDetector *XLALCreateMultiLALDetector ( UINT4 numDetectors );
-MultiLALDetector *XLALExtractMultiLALDetectorFromSFTs ( const MultiSFTVector *multiSFTs );
 DetectorStateSeries *XLALCreateDetectorStateSeries ( UINT4 length );
 
 /* destructors */
 void XLALDestroyDetectorStateSeries ( DetectorStateSeries *detStates );
 void LALDestroyDetectorStateSeries(LALStatus *, DetectorStateSeries **vect );
 void XLALDestroyMultiDetectorStateSeries ( MultiDetectorStateSeries *mdetStates );
-void XLALDestroyMultiLALDetector ( MultiLALDetector *multiIFO );
-
 
 /* helpers */
 

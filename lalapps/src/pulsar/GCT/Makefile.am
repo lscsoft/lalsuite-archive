@@ -1,38 +1,24 @@
-## Process this file with automake to produce Makefile.in
+BUILT_SOURCES =
+include $(top_srcdir)/gnuscripts/lalapps.am
+
+AM_CPPFLAGS = -I$(top_srcdir)/src/pulsar/FDS_isolated @AM_CPPFLAGS@
 
 CFSsrc = $(top_srcdir)/src/pulsar/FDS_isolated
-OPTsrc = $(top_srcdir)/src/pulsar/FDS_isolated/OptimizedCFS
 EAHsrc = $(top_srcdir)/src/pulsar/hough/src2/EinsteinAtHome
 
-# for using lalapps-defines + functions
-AM_CPPFLAGS = -I$(top_srcdir)/src/lalapps -I$(CFSsrc) -I$(EAHsrc) -DPKG_DATA_DIR='"$(pkgdatadir)/"'
-LDADD = $(top_builddir)/src/lalapps/liblalapps.la
-
 bin_PROGRAMS = lalapps_HierarchSearchGCT
-check_PROGRAMS = testLineVeto
-EXTRA_PROGRAMS = eah_HierarchSearchGCT lalapps_HierarchSearchGCT_cuda lalapps_HierarchSearchGCT_VFStat \
+check_PROGRAMS =
+EXTRA_PROGRAMS = eah_HierarchSearchGCT \
 	         lalapps_HierarchSearchGCT_SSE2 lalapps_HierarchSearchGCT_SSE2_NONC
 
 EAHSources = $(EAHsrc)/hs_boinc_extras.c $(EAHsrc)/hs_boinc_options.cpp $(EAHsrc)/win_lib.cpp
 HSGCTSources = HierarchSearchGCT.c HierarchSearchGCT.h \
                           GCTtoplist.c GCTtoplist.h \
                           $(CFSsrc)/HeapToplist.c $(CFSsrc)/HeapToplist.h \
-                          $(CFSsrc)/ComputeFStatistic.h $(OPTsrc)/LocalComputeFstat.c $(CFSsrc)/Fstat_v3.c \
-			  ComputeFstat_RS.c ComputeFstat_RS.h \
-			  LineVeto.c LineVeto.h
+                          $(CFSsrc)/ComputeFStatistic.h \
+                          RecalcToplistStats.c RecalcToplistStats.h
 
 lalapps_HierarchSearchGCT_SOURCES = $(HSGCTSources)
-
-testLineVeto_SOURCES = testLineVeto.c \
-                   $(CFSsrc)/HeapToplist.c $(CFSsrc)/HeapToplist.h \
-                   LineVeto.c LineVeto.h
-
-lalapps_HierarchSearchGCT_cuda_SOURCES = $(HSGCTSources) $(OPTsrc)/ComputeFstatREAL4.c $(OPTsrc)/ComputeFstatREAL4CUDA.c $(OPTsrc)/FStatCUDA.cu
-lalapps_HierarchSearchGCT_cuda_CPPFLAGS = $(AM_CPPFLAGS) -DUSE_CUDA
-lalapps_HierarchSearchGCT_cuda_LDADD = $(LDADD) -lcudart
-
-lalapps_HierarchSearchGCT_VFStat_SOURCES = $(HSGCTSources)
-lalapps_HierarchSearchGCT_VFStat_CPPFLAGS = $(AM_CPPFLAGS) -DHS_OPTIMIZATION -DHIERARCHSEARCHGCT
 
 lalapps_HierarchSearchGCT_SSE2_SOURCES = $(HSGCTSources)
 lalapps_HierarchSearchGCT_SSE2_CPPFLAGS = $(AM_CPPFLAGS) -DHS_OPTIMIZATION -DHIERARCHSEARCHGCT -DGC_SSE2_OPT
@@ -62,9 +48,6 @@ exchndl.o: $(EAHsrc)/exchndl.c
 erp_execinfo_plus.o: $(EAHsrc)/erp_execinfo_plus.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
-## make sure lalapps.la is rebuilt when appropriate
-BUILT_SOURCES =
-include $(top_srcdir)/gnuscripts/vcsID.common
 
 # how to compile CUDA files (.cu)
 NVCC ?= nvcc
@@ -75,24 +58,21 @@ NVCC ?= nvcc
 eah_HierarchSearchGCT_manual: eah_HierarchSearchGCT-HierarchSearchGCT.o \
     eah_HierarchSearchGCT-GCTtoplist.o \
     eah_HierarchSearchGCT-HeapToplist.o \
-    eah_HierarchSearchGCT-Fstat_v3.o \
     eah_HierarchSearchGCT-ComputeFstat_RS.o \
-    eah_HierarchSearchGCT-LineVeto.o \
+    eah_HierarchSearchGCT-RecalcToplistStats.o \
     eah_HierarchSearchGCT-hs_boinc_extras.o \
     eah_HierarchSearchGCT-hs_boinc_options.o \
     eah_HierarchSearchGCT-win_lib.o \
-    eah_HierarchSearchGCT-LocalComputeFstat.o \
     libstdc++.a
 	$(CXX) $(CPPFLAGS) $(AC_CPPFLAGS) -o $@ $^ $(LDFLAGS) $(AC_LDFLAGS) $(LDADD) $(AC_LDADD) $(LIBS) $(AC_LIBS) libstdc++.a
 
 
-EXTRA_DIST = testHS.sh
+EXTRA_DIST = testGCT.sh
 
-TESTS = testHS.sh testLineVeto
+TESTS = testGCT.sh
 
-TESTS_ENVIRONMENT = LAL_DEBUG_LEVEL=memdbg LALPULSAR_DATADIR="$(LALPULSAR_DATADIR)"
+TESTS_ENVIRONMENT = \
+	LAL_DEBUG_LEVEL=msglvl1,memdbg; export LAL_DEBUG_LEVEL; \
+	LAL_DATA_PATH="$(LAL_DATA_PATH)"; export LAL_DATA_PATH;
 
 CLEANFILES =
-
-clean-local:
-	-rm -rf ./testHS_dir

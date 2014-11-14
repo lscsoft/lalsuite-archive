@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2014 Karl Wette
  * Copyright (C) 2005, 2006 Reinhard Prix
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -29,9 +30,9 @@ extern "C" {
 /**
  * \defgroup ExtrapolatePulsarSpins_h Header ExtrapolatePulsarSpins.h
  * \ingroup pkg_pulsarCommon
- *  \author Reinhard Prix
- *  \brief  Extrapolate the Pulsar spin-paramters
- *  \f$\{f^{(k)}\}\equiv\{f, \stackrel{.}{f},\ddot{f},...\}\f$, and "spin-ranges"
+ * \author Reinhard Prix
+ * \brief  Extrapolate the Pulsar spin-paramters
+ * \f$\{f^{(k)}\}\equiv\{f, \stackrel{.}{f},\ddot{f},...\}\f$, and "spin-ranges"
  * \f$\{ f^{(k)}, \Delta f^{(k)} \}\f$ from one SSB epoch to another.
  *
  * The central function of this module is LALExtrapolatePulsarSpinRange(), which extrapolates
@@ -39,11 +40,10 @@ extern "C" {
  * A "spin-range" contains an epoch, and \em two vectors, \f$f^{(k)}\f$ and \f$\Delta f^{(k)}\f$
  * (where "canonical" ordering refers to \f$\Delta f^{(k)} >= 0\f$ for all k.
  *
- *
  * The extrapolation is defined by the pulsar spindown-model:
  * \f[ f(\tau_1) = f(\tau_0) + \frac{\stackrel{.}{f}(\tau_0)}{1!} \,\Delta\tau
- *     + \frac{\ddot{f}(\tau_0)}{2!} \,\Delta\tau^2 + ...
- *  = \sum_{k=0}^s \frac{f^{(k)}(\tau_0)}{k!}\, \Delta\tau^k\,,
+ * + \frac{\ddot{f}(\tau_0)}{2!} \,\Delta\tau^2 + ...
+ * = \sum_{k=0}^s \frac{f^{(k)}(\tau_0)}{k!}\, \Delta\tau^k\,,
  * \f]
  * where \f[\Delta\tau \equiv \tau_1 - \tau_0\f]
  * and therefore generally
@@ -64,8 +64,7 @@ extern "C" {
  *
  * This ensures that the range will be correctly extrapolated even if \f$\tau_1 < \tau_0\f$, i.e. \f$\Delta\tau < 0\f$.
  *
- *
- * The initial-phase extrapolation in LALExtrapolatePulsarPhase() proceeds in the other direction, extrapolating
+ * The initial-phase extrapolation in XLALExtrapolatePulsarPhase() proceeds in the other direction, extrapolating
  * \f$\phi(\tau_0)\f$ to \f$\phi(\tau_1)\f$, where the spins are given at \f$\tau_1\f$, i.e. \f$f^{(k)}(\tau_1)\f$.
  *
  * By using the above equations, one can arrive at the following expression
@@ -110,15 +109,21 @@ extern "C" {
 /*---------- exported Global variables ----------*/
 
 /*---------- exported prototypes [API] ----------*/
-void LALExtrapolatePulsarSpinRange( LALStatus *, PulsarSpinRange *range1, LIGOTimeGPS epoch1,  const PulsarSpinRange *range0 );
-
-void LALExtrapolatePulsarSpins (LALStatus *, PulsarSpins fkdot1, LIGOTimeGPS epoch1, const PulsarSpins fkdot0, LIGOTimeGPS epoch0 );
-
-void LALExtrapolatePulsarPhase (LALStatus *, REAL8 *phi1, PulsarSpins fkdot1, LIGOTimeGPS epoch1, REAL8 phi0, LIGOTimeGPS epoch0 );
+int XLALExtrapolatePulsarSpinRange(  PulsarSpinRange *range1, const PulsarSpinRange *range0, const REAL8 dtau );
 
 int XLALExtrapolatePulsarSpins ( PulsarSpins fkdotOut, const PulsarSpins fkdotIn, REAL8 DeltaTau );
 
+int XLALExtrapolatePulsarPhase ( REAL8 *phi1, PulsarSpins fkdot1, LIGOTimeGPS epoch1, REAL8 phi0, LIGOTimeGPS epoch0 );
+
+int XLALCWSignalCoveringBand( REAL8 *minCoverFreq, REAL8 *maxCoverFreq, const LIGOTimeGPS *time1, const LIGOTimeGPS *time2,
+                              const PulsarSpinRange *spinRange, const REAL8 binaryMaxAsini, const REAL8 binaryMinPeriod );
+
 /*@}*/
+
+/** \cond DONT_DOXYGEN */
+void LALExtrapolatePulsarSpinRange( LALStatus *, PulsarSpinRange *range1, LIGOTimeGPS epoch1,  const PulsarSpinRange *range0 );
+void LALExtrapolatePulsarSpins (LALStatus *, PulsarSpins fkdot1, LIGOTimeGPS epoch1, const PulsarSpins fkdot0, LIGOTimeGPS epoch0 );
+/** \endcond */
 
 #ifdef  __cplusplus
 }

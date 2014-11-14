@@ -42,7 +42,6 @@
 /* ---------- includes ---------- */
 #include <sys/stat.h>
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lalapps.h>
 #include <lal/AVFactories.h>
 #include <lal/SeqFactories.h>
@@ -77,9 +76,10 @@
 /** configuration-variables derived from user-variables */
 typedef struct
 {
-  EphemerisData *edat;		/**< ephemeris-data */
-  MultiLIGOTimeGPSVector *multiTimestamps;/**< a vector of timestamps to generate time-series/SFTs for */
-  MultiDetectorInfo detInfo;	//!< detectors and noise-floors (for Gaussian noise) to generate data for
+  EphemerisData *edat;				/**< ephemeris-data */
+  MultiLIGOTimeGPSVector *multiTimestamps;	/**< a vector of timestamps to generate time-series/SFTs for */
+  MultiLALDetector multiIFO;			//!< detectors to generate data for
+  MultiNoiseFloor multiNoiseFloor;		//!< ... and corresponding noise-floors to generate Gaussian white noise for
 
   SFTCatalog *noiseCatalog; 			/**< catalog of noise-SFTs */
   MultiSFTCatalogView *multiNoiseCatalogView; 	/**< multi-IFO 'view' of noise-SFT catalogs */
@@ -127,10 +127,10 @@ typedef struct
   CHAR *SFTWindowType;		/**< Windowing function to apply to the SFT time series */
   REAL8 SFTWindowBeta;         	/**< 'beta' parameter required for certain window-types */
 
-  CHAR *ephemDir;		/**< Directory path for ephemeris files (optional), use LAL_DATA_PATH if unset. */
-  CHAR *ephemYear;		/**< Year (or range of years) of ephemeris files to be used */
+  CHAR *ephemEarth;		/**< Earth ephemeris file to use */
+  CHAR *ephemSun;		/**< Sun ephemeris file to use */
 
-  /* pulsar parameters [REQUIRED] */
+  /* pulsar parameters */
   CHAR *injectionSources;	///< either a file-specification ("@file-pattern") or a config-string defining the sources to inject
 
   BOOLEAN version;		/**< output version information */
@@ -143,11 +143,6 @@ typedef struct
 // ---------- exportable API types ----------
 
 // ----- global variables ----------
-
-// ----- empty structs for initializations
-static const UserVariables_t empty_UserVariables;
-static const ConfigVars_t empty_GV;
-static const LALUnit empty_LALUnit;
 
 int XLALWriteREAL4TimeSeries2fp ( FILE *fp, const REAL4TimeSeries *TS );
 
@@ -167,8 +162,8 @@ int
 main(int argc, char *argv[])
 {
   size_t len;
-  ConfigVars_t GV = empty_GV;
-  UserVariables_t uvar = empty_UserVariables;
+  ConfigVars_t XLAL_INIT_DECL(GV);
+  UserVariables_t XLAL_INIT_DECL(uvar);
 
   /* ------------------------------
    * read user-input and set up shop
@@ -180,13 +175,16 @@ main(int argc, char *argv[])
   MultiSFTVector *mSFTs = NULL;
   MultiREAL4TimeSeries *mTseries = NULL;
 
-  PulsarParamsVector *injectionSources;
-  XLAL_CHECK ( (injectionSources = XLALPulsarParamsFromUserInput ( uvar.injectionSources ) ) != NULL, XLAL_EFUNC );
+  PulsarParamsVector *injectionSources = NULL;
+  if ( uvar.injectionSources ) {
+    XLAL_CHECK ( (injectionSources = XLALPulsarParamsFromUserInput ( uvar.injectionSources ) ) != NULL, XLAL_EFUNC );
+  }
 
-  CWMFDataParams DataParams   = empty_CWMFDataParams;
+  CWMFDataParams XLAL_INIT_DECL(DataParams);
   DataParams.fMin               = uvar.fmin;
   DataParams.Band               = uvar.Band;
-  DataParams.detInfo            = GV.detInfo;
+  DataParams.multiIFO           = GV.multiIFO;
+  DataParams.multiNoiseFloor    = GV.multiNoiseFloor;
   DataParams.multiTimestamps 	= (*GV.multiTimestamps);
   DataParams.randSeed           = uvar.randSeed;
   DataParams.SFTWindowType      = uvar.SFTWindowType;
@@ -329,13 +327,12 @@ main(int argc, char *argv[])
 } /* main */
 
 /**
- *  Handle user-input and set up shop accordingly, and do all
+ * Handle user-input and set up shop accordingly, and do all
  * consistency-checks on user-input.
  */
 int
 XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
 {
-  int len;
   XLAL_CHECK ( cfg != NULL, XLAL_EINVAL, "Invalid NULL input 'cfg'\n" );
   XLAL_CHECK ( uvar != NULL, XLAL_EINVAL, "Invalid NULL input 'uvar'\n");
 
@@ -366,7 +363,7 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
   XLAL_CHECK ( ! ( have_IFOs && have_noiseSFTs ), XLAL_EINVAL, "Allow only *one* of --IFOs or --noiseSFTs to determine detectors\n");
 
   if ( have_IFOs ) {
-    XLAL_CHECK ( XLALParseMultiDetectorInfo ( &(cfg->detInfo), uvar->IFOs, uvar->sqrtSX ) == XLAL_SUCCESS, XLAL_EFUNC );
+    XLAL_CHECK ( XLALParseMultiLALDetector ( &(cfg->multiIFO), uvar->IFOs ) == XLAL_SUCCESS, XLAL_EFUNC );
   }
 
   // TIMESTAMPS: either from --timestampsFiles, --startTime+duration, or --noiseSFTs
@@ -390,14 +387,14 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
   // now handle the 3 mutually-exclusive cases: have_noiseSFTs || have_timestampsFiles || have_startTime (only)
   if ( have_noiseSFTs )
     {
-      SFTConstraints constraints = empty_SFTConstraints;
+      SFTConstraints XLAL_INIT_DECL(constraints);
       if ( have_startTime && have_duration )	 // use optional (startTime+duration) as constraints,
         {
-          LIGOTimeGPS minStartTime, maxEndTime;
+          LIGOTimeGPS minStartTime, maxStartTime;
           XLALGPSSetREAL8 ( &minStartTime, uvar->startTime );
-          XLALGPSSetREAL8 ( &maxEndTime, uvar->startTime + uvar->duration );
-          constraints.startTime = &minStartTime;
-          constraints.endTime   = &maxEndTime;
+          XLALGPSSetREAL8 ( &maxStartTime, uvar->startTime + uvar->duration );
+          constraints.minStartTime = &minStartTime;
+          constraints.maxStartTime   = &maxStartTime;
           XLALPrintWarning ( "Only noise-SFTs between GPS [%d, %d] will be used!\n", uvar->startTime, uvar->startTime + uvar->duration );
         } /* if start+duration given */
       XLAL_CHECK ( (cfg->noiseCatalog = XLALSFTdataFind ( uvar->noiseSFTs, &constraints )) != NULL, XLAL_EFUNC );
@@ -407,7 +404,7 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
       // extract multi-timestamps from the multi-SFT-catalog view
       XLAL_CHECK ( (cfg->multiTimestamps = XLALTimestampsFromMultiSFTCatalogView ( cfg->multiNoiseCatalogView )) != NULL, XLAL_EFUNC );
       // extract IFOs from multi-SFT catalog
-      XLAL_CHECK ( XLALMultiDetectorInfoFromMultiSFTCatalogView ( &(cfg->detInfo), cfg->multiNoiseCatalogView ) == XLAL_SUCCESS, XLAL_EFUNC );
+      XLAL_CHECK ( XLALMultiLALDetectorFromMultiSFTCatalogView ( &(cfg->multiIFO), cfg->multiNoiseCatalogView ) == XLAL_SUCCESS, XLAL_EFUNC );
 
     } // endif have_noiseSFTs
   else if ( have_timestampsFiles )
@@ -426,30 +423,22 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
     {
       LIGOTimeGPS tStart;
       XLALGPSSetREAL8 ( &tStart, uvar->startTime );
-      XLAL_CHECK ( ( cfg->multiTimestamps = XLALMakeMultiTimestamps ( tStart, uvar->duration, uvar->Tsft, uvar->SFToverlap, cfg->detInfo.length )) != NULL, XLAL_EFUNC );
+      XLAL_CHECK ( ( cfg->multiTimestamps = XLALMakeMultiTimestamps ( tStart, uvar->duration, uvar->Tsft, uvar->SFToverlap, cfg->multiIFO.length )) != NULL, XLAL_EFUNC );
     } // endif have_startTime
   else {
     XLAL_ERROR (XLAL_EFAILED, "Something went wrong with my internal logic ..\n");
   }
 
-  /* -------------------- Prepare quantities for barycentering -------------------- */
-  CHAR *earthdata, *sundata;
-
-  len = strlen(uvar->ephemYear) + 20;
-  if ( uvar->ephemDir ) {
-    len += strlen ( uvar->ephemDir );
+  // check if the user asked for Gaussian white noise to be produced (sqrtSn[X]!=0), otherwise leave noise-floors at 0
+  if ( uvar->sqrtSX != NULL ) {
+    XLAL_CHECK ( XLALParseMultiNoiseFloor ( &(cfg->multiNoiseFloor), uvar->sqrtSX, cfg->multiIFO.length ) == XLAL_SUCCESS, XLAL_EFUNC );
+  } else {
+    cfg->multiNoiseFloor.length = cfg->multiIFO.length;
+    // values remain at their default sqrtSn[X] = 0;
   }
-  XLAL_CHECK ( (earthdata = XLALCalloc(1, len)) != NULL, XLAL_ENOMEM );
-  XLAL_CHECK ( (sundata   = XLALCalloc(1, len)) != NULL, XLAL_ENOMEM );
-  const char *sep = uvar->ephemDir ? "/" : "";
-  const char *ephemDir = uvar->ephemDir ? uvar->ephemDir : "";
-  sprintf ( earthdata, "%s%searth%s.dat", ephemDir, sep, uvar->ephemYear);
-  sprintf ( sundata,   "%s%ssun%s.dat",   ephemDir, sep, uvar->ephemYear);
 
-  XLAL_CHECK ( ( cfg->edat = XLALInitBarycenter ( earthdata, sundata ) ) != NULL, XLAL_EFUNC );
-  XLALFree(earthdata);
-  XLALFree(sundata);
-
+  /* Init ephemerides */
+  XLAL_CHECK ( (cfg->edat = XLALInitBarycenter ( uvar->ephemEarth, uvar->ephemSun )) != NULL, XLAL_EFUNC );
 
 #ifndef HAVE_LIBLALFRAME
   if ( uvar->TDDframedir ) {
@@ -474,10 +463,9 @@ XLALInitUserVars ( UserVariables_t *uvar, int argc, char *argv[] )
   XLAL_CHECK ( argv != NULL, XLAL_EINVAL, "Invalid NULL input 'argv'\n");
 
   // ---------- set a few defaults ----------
-#define EPHEM_YEARS  "00-19-DE405"
-  XLAL_CHECK ( (uvar->ephemYear = XLALStringDuplicate ( EPHEM_YEARS )) != NULL, XLAL_EFUNC );
+  uvar->ephemEarth = XLALStringDuplicate("earth00-19-DE405.dat.gz");
+  uvar->ephemSun = XLALStringDuplicate("sun00-19-DE405.dat.gz");
 
-  uvar->ephemDir = NULL;
   uvar->Tsft = 1800;
   uvar->fmin = 0;	/* no heterodyning by default */
   uvar->Band = 8192;	/* 1/2 LIGO sampling rate by default */
@@ -502,8 +490,8 @@ XLALInitUserVars ( UserVariables_t *uvar, int argc, char *argv[] )
   XLALregLISTUserStruct ( IFOs,			'I', UVAR_OPTIONAL, "CSV list of detectors, eg. \"H1,H2,L1,G1, ...\" ");
   XLALregLISTUserStruct ( sqrtSX,	 	 0,  UVAR_OPTIONAL, "Add Gaussian Noise: CSV list of detectors' noise-floors sqrt{Sn}");
 
-  XLALregSTRINGUserStruct ( ephemDir,           'E', UVAR_OPTIONAL, "Directory path for ephemeris files (use LAL_DATA_PATH if unspecified)");
-  XLALregSTRINGUserStruct ( ephemYear,          'y', UVAR_OPTIONAL, "Year-range string of ephemeris files to be used");
+  XLALregSTRINGUserStruct( ephemEarth, 	 	0,  UVAR_OPTIONAL, "Earth ephemeris file to use");
+  XLALregSTRINGUserStruct( ephemSun, 	 	0,  UVAR_OPTIONAL, "Sun ephemeris file to use");
 
   /* start + duration of timeseries */
   XLALregINTUserStruct (  startTime,            'G', UVAR_OPTIONAL, "Start-time of requested signal in detector-frame (GPS seconds)");
@@ -521,7 +509,7 @@ XLALInitUserVars ( UserVariables_t *uvar, int argc, char *argv[] )
   XLALregREALUserStruct (  SFTWindowBeta,        0, UVAR_OPTIONAL, "Window 'beta' parameter required for a few window-types (eg. 'tukey')");
 
   /* pulsar params */
-  XLALregSTRINGUserStruct( injectionSources,     0, UVAR_REQUIRED, "Either a file-specification (\"@file-pattern\") or a config-string defining the sources to inject" );
+  XLALregSTRINGUserStruct( injectionSources,     0, UVAR_OPTIONAL, "Either a file-specification (\"@file-pattern\") or a config-string defining the sources to inject" );
 
   /* noise */
   XLALregSTRINGUserStruct ( noiseSFTs,          'D', UVAR_OPTIONAL, "Noise-SFTs to be added to signal (Used also to set IFOs and timestamps)");
@@ -571,7 +559,8 @@ XLALFreeMem ( ConfigVars_t *cfg )
 
 } /* XLALFreeMem() */
 
-/** Log the all relevant parameters of this run into a log-file.
+/**
+ * Log the all relevant parameters of this run into a log-file.
  * The name of the log-file used is uvar_logfile
  * <em>NOTE:</em> Currently this function only logs the user-input and code-versions.
  */

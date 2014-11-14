@@ -1,4 +1,19 @@
-AM_CPPFLAGS = -I$(top_builddir)/include -DPKG_DATA_DIR='"$(pkgdatadir)/"'
+BUILT_SOURCES =
+MOSTLYCLEANFILES =
+include $(top_srcdir)/gnuscripts/lalsuite_header_links.am
+include $(top_srcdir)/gnuscripts/lalsuite_vcs_info.am
+
+FRAMECSRCS = LALFrameUFrameC.h LALFrameC.c
+FRAMELSRCS = LALFrameUFrameL.h LALFrameL.c
+FRAMEUSRCS =
+
+if FRAMEC
+FRAMEUSRCS += $(FRAMECSRCS)
+endif
+if FRAMEL
+FRAMEUSRCS += $(FRAMELSRCS)
+endif
+
 LDADD = liblalframe.la
 
 bin_PROGRAMS = \
@@ -38,8 +53,7 @@ lalfr_paste_SOURCES = paste.c utils.c utils.h
 lalfr_stream_SOURCES = stream.c
 lalfr_vis_SOURCES = vis.c
 
-lalframeincludedir = $(includedir)/lal
-lalframeinclude_HEADERS = \
+pkginclude_HEADERS = \
 	Aggregation.h \
 	FrameCalibration.h \
 	LALFrStream.h \
@@ -47,12 +61,12 @@ lalframeinclude_HEADERS = \
 	LALFrameIO.h \
 	LALFrameL.h \
 	LALFrameU.h \
-	LALFrameLibVCSInfo.h \
 	LALFrameVCSInfo.h \
-	lalframeswig_test.i
+	LALFrameVCSInfoHeader.h
 
 lib_LTLIBRARIES = liblalframe.la
 liblalframe_la_SOURCES = \
+	$(FRAMEUSRCS) \
 	LALFrameU.c \
 	LALFrameIO.c \
 	LALFrStream.c \
@@ -61,59 +75,26 @@ liblalframe_la_SOURCES = \
 	LALFrameVCSInfo.c \
 	FrameCalibration.c \
 	Aggregation.c
+nodist_liblalframe_la_SOURCES = LALFrameBuildInfo.c
 
 noinst_HEADERS = \
 	LALFrStreamReadTS_source.c \
 	LALFrStreamReadFS_source.c \
 	LALFrameIO_source.c
 
-liblalframe_la_LDFLAGS = -version-info $(LIBVERSION)
-
-MOSTLYCLEANFILES = \
-	lalframe-user-env.shell \
-	lalframe-user-env.sh \
-	lalframe-user-env.csh
-
-sysconf_DATA = \
-	lalframe-user-env.sh \
-	lalframe-user-env.csh
-
-BUILT_SOURCES = \
-	lalframe-user-env.sh \
-	lalframe-user-env.csh
-
-lalframe-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
-	@echo "# generic user environment script" >$@
-	@echo "set LALFRAME_PREFIX $(prefix)" >>$@
-	@echo "prepend PATH $(bindir)" >>$@
-	@echo "prepend MANPATH $(mandir)" >>$@
-	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
-	@echo "prepend PYTHONPATH $(pyexecdir)" >>$@
-	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
-	@echo "prepend OCTAVE_PATH $(octexecdir)" >>$@
-
-lalframe-user-env.csh lalframe-user-env.sh: lalframe-user-env.shell $(srcdir)/generate_user_env.awk
-	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
+liblalframe_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(LIBVERSION)
 
 EXTRA_DIST = \
 	$(MANS) \
+	$(FRAMECSRCS) \
+	$(FRAMELSRCS) \
 	config.h.in \
-	generate_user_env.awk \
 	LALFrameC.c \
 	LALFrameL.c \
 	LALFrameConfig.h.in
 
-if HAVE_GIT_REPO
-BUILT_SOURCES += LALFrameVCSInfo.h
-MOSTLYCLEANFILES += LALFrameVCSInfo.h
-LALFrameVCSInfo.h .PHONY : gen-LALFrameVCSInfo.h
-gen-LALFrameVCSInfo.h :
-	$(AM_V_at)$(GENERATE_VCS_INFO) LALFrameVCSInfo.h $(srcdir)/LALFrameVCSInfo.h.git
-endif
-
 DISTCLEANFILES = config.h
 
-@LAL_HEADER_LINK@
-
-swig_headers = $(lalframeinclude_HEADERS)
-include $(top_srcdir)/swig/swiglal_header.am
+vcs_info_sources = LALFrameVCSInfoHeader.h
+build_info_source = LALFrameBuildInfo.c
+$(build_info_source): $(liblalframe_la_DEPENDENCIES)

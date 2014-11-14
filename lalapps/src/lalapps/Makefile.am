@@ -1,3 +1,9 @@
+BUILT_SOURCES =
+MOSTLYCLEANFILES =
+EXTRA_DIST =
+include $(top_srcdir)/gnuscripts/lalsuite_python.am
+include $(top_srcdir)/gnuscripts/lalsuite_vcs_info.am
+
 if FRAME
 if LALFRAME
 FRAMESRCS = \
@@ -35,6 +41,10 @@ liblalapps_la_SOURCES = \
 	LALAppsVCSInfo.h \
 	$(FRAMESRCS) \
 	$(LALMETAIOSRCS)
+nodist_liblalapps_la_SOURCES = LALAppsBuildInfo.c
+
+noinst_HEADERS = \
+	LALAppsVCSInfoHeader.h
 
 bin_PROGRAMS = \
 	lalapps_version \
@@ -53,78 +63,32 @@ lalapps_tconvert_SOURCES = \
 lalapps_cache_SOURCES = \
 	cache.c
 
-LDADD = liblalapps.la @LAL_LIBS@
-AM_CPPFLAGS = -I$(top_srcdir)/src -DPKG_DATA_DIR='"$(pkgdatadir)/"'
+LDADD = liblalapps.la
 
 if HAVE_PYTHON
 pkgpython_PYTHON = \
 	__init__.py \
 	git_version.py
-dist_bin_SCRIPTS = \
+pybin_scripts = \
 	lalapps_path2cache \
 	lalapps_searchsum2cache
 endif
 
-EXTRA_DIST = \
+EXTRA_DIST += \
 	series.c \
 	series.h \
 	getdate.y \
 	__init__.py \
 	fftw_wisdom.c \
 	fftwf_wisdom.c \
-	generate_user_env.awk \
 	lalappsfrutils.c \
 	lalappsfrutils.h \
 	processtable.c \
 	processtable.h \
 	git_version.py
 
-MOSTLYCLEANFILES =
-
-CLEANFILES = \
-	lalapps-user-env.shell \
-	lalapps-user-env.sh \
-	lalapps-user-env.csh
-
-sysconf_DATA = \
-	lalapps-user-env.sh \
-	lalapps-user-env.csh
-
-BUILT_SOURCES = \
-	lalapps-user-env.sh \
-	lalapps-user-env.csh
-
-if HAVE_PYTHON
-lalapps_pythonpath = $(pyexecdir) $(pythondir)
-else
-lalapps_pythonpath =
-endif
-
-lalapps-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
-	@echo "# generic user environment script" >$@
-	@echo "prepend PATH $(bindir)" >>$@
-	@echo "prepend MANPATH $(mandir)" >>$@
-	@echo "prepend PYTHONPATH $(lalapps_pythonpath)" >>$@
-	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
-
-lalapps-user-env.csh lalapps-user-env.sh: lalapps-user-env.shell $(srcdir)/generate_user_env.awk
-	@echo "creating $@"
-	@$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
-
-if HAVE_GIT_REPO
-BUILT_SOURCES += LALAppsVCSInfo.h
-MOSTLYCLEANFILES += LALAppsVCSInfo.h
-LALAppsVCSInfo.h .PHONY : gen-LALAppsVCSInfo.h
-gen-LALAppsVCSInfo.h :
-	$(AM_V_at)$(GENERATE_VCS_INFO) LALAppsVCSInfo.h $(srcdir)/LALAppsVCSInfo.h.git
-endif
-
-if HAVE_GIT_REPO
-BUILT_SOURCES += git_version.py
-MOSTLYCLEANFILES += git_version.py
-git_version.py .PHONY : gen-git_version.py
-gen-git_version.py :
-	$(AM_V_at)$(GENERATE_VCS_INFO) git_version.py $(srcdir)/git_version.py.git
-endif
-
 TESTS = lalapps_version
+
+vcs_info_sources = LALAppsVCSInfoHeader.h git_version.py
+build_info_source = LALAppsBuildInfo.c
+$(build_info_source): $(liblalapps_la_DEPENDENCIES)

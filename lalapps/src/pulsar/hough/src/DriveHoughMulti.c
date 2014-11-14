@@ -20,69 +20,69 @@
 /**
  * \file
  * \ingroup pulsarApps
- * \author Badri Krishnan, Alicia Sintes, Llucia Sancho 
+ * \author Badri Krishnan, Alicia Sintes, Llucia Sancho
  * \brief Driver code for performing Hough transform search on non-demodulated
-   data using SFTs from possible multiple IFOs
-
-   History:   Created by Sintes and Krishnan July 04, 2003
-              Modifications for S4 January 2006
-	      Modifications for S5 November 2007
-
-   \par Description
-   
-   This is the main driver for the Hough transform routines. It takes as input 
-   a set of SFTs from possibly more than one IFO and outputs the number counts 
-   using the Hough transform.  For a single IFO, this should be essentially equivalent 
-   to DriveHough_v3.  validatehoughmultichi2
-
-   This code just does spin-downs values. 
-
-   \par User input
-
-   The user inputs the following parameters:
-
-   - Search frequency range
-
-   - A file containing list of skypatches to search over.  For each skypatch, 
-      the information is:
-      - RA and dec of skypatch center.
-      - Size in RA and dec.
-
-   - Location of Directory containing the SFTs (must be v2 SFTs).
-
-   - Interferometer (optional)
-
-   - List of linefiles containing information about known spectral disturbanclves
-
-   - Location of output directory and basename of output files.
-
-   - Block size of running median for estimating psd.
-
-   - The parameter nfSizeCylinder which determines the range of spindown parameters
-      to be searched over.
-
-   - Boolean variable for deciding if the SFTs should be inverse noise weighed.
-
-   - Boolean variable for deciding whether amplitude modulation weights should be used.
-
-   - Boolean variables for deciding whether the Hough maps, the statistics, list of 
-      events above a threshold, and logfile should be written
-
-   /par Output
-
-   The output is written in several sub-directories of the specified output directory.  The
-   first two items are default while the rest are written according to the user input:
-
-   - A directory called logfiles records the user input, contents of the skypatch file 
-      and cvs tags contained in the executable (if the user has required logging)
-
-   - A directory called nstarfiles containing the loudest event for each search frequency 
-      bin maximised over all sky-locations and spindown parameters.  An event is said to be
-      the loudest if it has the maximum significance defined as: (number count - mean)/sigma.
-
-   - A directory for each skypatch containing the number count statistics, the histogram, 
-      the list of events, and the Hough maps 
-*/
+ * data using SFTs from possible multiple IFOs
+ *
+ * History:   Created by Sintes and Krishnan July 04, 2003
+ * Modifications for S4 January 2006
+ * Modifications for S5 November 2007
+ *
+ * \par Description
+ *
+ * This is the main driver for the Hough transform routines. It takes as input
+ * a set of SFTs from possibly more than one IFO and outputs the number counts
+ * using the Hough transform.  For a single IFO, this should be essentially equivalent
+ * to DriveHough_v3.  validatehoughmultichi2
+ *
+ * This code just does spin-downs values.
+ *
+ * \par User input
+ *
+ * The user inputs the following parameters:
+ *
+ * - Search frequency range
+ *
+ * - A file containing list of skypatches to search over.  For each skypatch,
+ * the information is:
+ * - RA and dec of skypatch center.
+ * - Size in RA and dec.
+ *
+ * - Location of Directory containing the SFTs (must be v2 SFTs).
+ *
+ * - Interferometer (optional)
+ *
+ * - List of linefiles containing information about known spectral disturbanclves
+ *
+ * - Location of output directory and basename of output files.
+ *
+ * - Block size of running median for estimating psd.
+ *
+ * - The parameter nfSizeCylinder which determines the range of spindown parameters
+ * to be searched over.
+ *
+ * - Boolean variable for deciding if the SFTs should be inverse noise weighed.
+ *
+ * - Boolean variable for deciding whether amplitude modulation weights should be used.
+ *
+ * - Boolean variables for deciding whether the Hough maps, the statistics, list of
+ * events above a threshold, and logfile should be written
+ *
+ * /par Output
+ *
+ * The output is written in several sub-directories of the specified output directory.  The
+ * first two items are default while the rest are written according to the user input:
+ *
+ * - A directory called logfiles records the user input, contents of the skypatch file
+ * and cvs tags contained in the executable (if the user has required logging)
+ *
+ * - A directory called nstarfiles containing the loudest event for each search frequency
+ * bin maximised over all sky-locations and spindown parameters.  An event is said to be
+ * the loudest if it has the maximum significance defined as: (number count - mean)/sigma.
+ *
+ * - A directory for each skypatch containing the number count statistics, the histogram,
+ * the list of events, and the Hough maps
+ */
 
 /* lalapps/hough includes */
 #include "./DriveHoughColor.h"
@@ -165,7 +165,7 @@ void GetPeakGramFromMultSFTVector_NondestroyPg1(LALStatus *status, HOUGHPeakGram
 
 void PrintLogFile (LALStatus *status, CHAR *dir, CHAR *basename, CHAR *skyfile, LALStringVector *linefiles, CHAR *executable );
 
-int CreateSkypatchDirs(CHAR *filestats, CHAR *base, INT4 index);
+int CreateSkypatchDirs(CHAR *filestats, CHAR *base, INT4 ind);
 
 int PrintHistogram(UINT8Vector *hist, CHAR *fnameOut, REAL8 minSignificance, REAL8 maxSignificance);
 
@@ -173,7 +173,7 @@ int PrintHmap2m_file(HOUGHMapTotal *ht, CHAR *fnameOut, INT4 iHmap);
 
 int PrintHmap2file(HOUGHMapTotal *ht, CHAR *fnameOut, INT4 iHmap);
 
-int OpenExtraInfoFiles(CHAR *fileMaps, FILE **fp1_ptr, CHAR *filehisto, CHAR *dirname, CHAR *basename, INT4 index);
+int OpenExtraInfoFiles(CHAR *fileMaps, FILE **fp1_ptr, CHAR *filehisto, CHAR *dirname, CHAR *basename, INT4 ind);
 
 int PrintExtraInfo(CHAR *fileMaps, FILE **fp1_ptr, INT4 iHmap, HOUGHMapTotal *ht, REAL8UnitPolarCoor *sourceLocation, HoughStats *stats, INT8 fBinSearch, REAL8 deltaF);
 
@@ -510,12 +510,12 @@ int main(int argc, char *argv[]){
 
     if ( LALUserVarWasSet( &uvar_startTime ) ) {
       XLALGPSSetREAL8(&startTimeGPS, uvar_startTime);
-      constraints.startTime = &startTimeGPS;
+      constraints.minStartTime = &startTimeGPS;
     }
 
     if ( LALUserVarWasSet( &uvar_endTime ) ) {
       XLALGPSSetREAL8(&endTimeGPS, uvar_endTime);
-      constraints.endTime = &endTimeGPS;
+      constraints.maxStartTime = &endTimeGPS;
     }
 
     if ( LALUserVarWasSet( &uvar_timeStampsFile ) ) {
@@ -1479,8 +1479,10 @@ void ReadTimeStampsFile (LALStatus          *status,
 
 
 
-/** given a total hough map, this function produces a histogram of
-   the number count significance */
+/**
+ * given a total hough map, this function produces a histogram of
+ * the number count significance
+ */
 void LALHoughHistogramSignificance(LALStatus      *status,
 				   UINT8Vector    *out,
 				   HOUGHMapTotal  *in,
@@ -1702,9 +1704,11 @@ void GetPeakGramFromMultSFTVector(LALStatus           *status,		/**< pointer to 
 }
 
 
-/** Set up location of skypatch centers and sizes 
-    If user specified skyRegion then use DopplerScan function
-    to construct an isotropic grid. Otherwise use skypatch file. */
+/**
+ * Set up location of skypatch centers and sizes
+ * If user specified skyRegion then use DopplerScan function
+ * to construct an isotropic grid. Otherwise use skypatch file.
+ */
 void SetUpSkyPatches(LALStatus           *status,		/**< pointer to LALStatus structure */
 		     HoughSkyPatchesInfo *out,   /**< output skypatches info */
 		     CHAR                *skyFileName, /**< name of skypatch file */
@@ -1715,8 +1719,8 @@ void SetUpSkyPatches(LALStatus           *status,		/**< pointer to LALStatus str
                      INT4                partitionIndex)/**< Index [0,numSkyPartitions-1] of sky-partition to generate */
 {
 
-  DopplerSkyScanInit scanInit = empty_DopplerSkyScanInit;   /* init-structure for DopperScanner */
-  DopplerSkyScanState thisScan = empty_DopplerSkyScanState; /* current state of the Doppler-scan */
+  DopplerSkyScanInit XLAL_INIT_DECL(scanInit);   /* init-structure for DopperScanner */
+  DopplerSkyScanState XLAL_INIT_DECL(thisScan); /* current state of the Doppler-scan */
   UINT4 nSkyPatches, skyCounter;
   PulsarDopplerParams dopplerpos;	  
   

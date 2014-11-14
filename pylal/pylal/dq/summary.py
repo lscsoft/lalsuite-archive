@@ -56,7 +56,7 @@ from pylal.plotutils import display_name as latex
 from glue import markup
 from glue import segments
 from glue import segmentsUtils
-from glue.ligolw import table
+from glue.ligolw import table, lsctables
 
 LIGOTimeGPS = float
 
@@ -619,7 +619,7 @@ class SectionSummaryTab(SummaryTab):
                                              and order.index(x.parent.name)+1 or 1000)
             children = []
             for tab in self.children:
-                children.extend(tab.children)
+                children.append(tab)
         else:
             children = self.children
         n = len(children) > 1 and 2 or 1
@@ -632,7 +632,7 @@ class SectionSummaryTab(SummaryTab):
                 self.frame.tr()
             self.frame.td()
             if (self.name == "Summary"):
-                parent = tab.parent.parent
+                parent = tab.parent
                 self.frame.a(markup.oneliner.h2(parent.name, class_='summary'),
                              href=parent.index, title=parent.name)
                 self.frame.a(href=parent.index, title=parent.name)
@@ -864,12 +864,23 @@ class SegmentSummaryTab(SummaryTab):
         self.frame.img(src=self.plots[0][0], alt=self.plots[0][1],class_="full")
         self.frame.a.close()
  
-        # construct livetime table
-        uptime = abs(self.span)
-        headers = ["Flags", "Livetime (s)", "Duty cycle (\%)"]
-        data    = [[flag, float(abs(self.segdict[flag])),\
-                    100*float(abs(self.segdict[flag]))/float(uptime)]\
-                   for flag in self.flags]
+        # construct livetime table, KLUDGE, the "now" time should be
+        # provided by when the calling script started
+        uptime = abs(self.span & segments.segment(self.span[0],float(lal.GPSTimeNow())))
+        headers = ["Flags", "Livetime (s)", "Duty cycle (\%)", "Relative duty cycle (\%)"]
+        data = []
+        for i,flag in enumerate(self.flags):
+            if i>0:
+                previousuptime = float(abs(self.segdict[self.flags[i-1]]))
+                if previousuptime == 0:
+                    previousuptime = numpy.inf
+                data.append([flag, float(abs(self.segdict[flag])),\
+                                 100*float(abs(self.segdict[flag]))/float(uptime),\
+                                 100*float(abs(self.segdict[flag]))/previousuptime])
+            else:
+                data.append([flag, float(abs(self.segdict[flag])),\
+                                 100*float(abs(self.segdict[flag]))/float(uptime),\
+                                 100*float(abs(self.segdict[flag]))/float(uptime)])
         self.frame.add(htmlutils.write_table(headers, data, {"table":"full"})())
         self.frame.div.close()
 
@@ -1996,6 +2007,7 @@ class HvetoSummaryTab(TriggerSummaryTab):
         SummaryTab.__init__(self, *args, **kwargs)
         self.triggers      = dict()
         self.channels      = []
+        self.winnerchannels = []
         self.mainchannel   = []
         self.trigger_files = dict()
         self.coincs        = dict()
@@ -2004,55 +2016,60 @@ class HvetoSummaryTab(TriggerSummaryTab):
         self.auxplots      = dict()
         self.rounds        = {}
 
-    def plottable(self, outfile, channel, **kwargs):
+    def plothistogram(self, outfile, rnd, **kwargs):
         """
-        Plot the triggers for the given channel.
+        Kludge, rnd=0 is all the rounds combined
         """
-        desc = kwargs.pop("description", None)
-        if kwargs.get("xcolumn", None) == "time":
-            kwargs.setdefault("xlim", [self.start_time, self.end_time])
-        kwargs.setdefault("title", "%s (%s)" % (latex(channel),\
-                                                latex(self.etg)))
-        plottriggers.plottable({"_":self.triggers[channel]}, outfile,\
-                               **kwargs)
-        self.auxplots[channel].append((outfile, desc))
 
-    def plothistogram(self, outfile, channel, **kwargs):
         desc = kwargs.pop("description", None)
-        plottriggers.plothistogram({"_":self.triggers[channel]}, outfile,\
+        if kwargs.get("cumulative", True) and not kwargs.has_key("normalize"):
+            kwargs["normalize"] = float(abs(self.span))
+        trigs = {}
+        segments_before = segments.segmentlist([])
+        for i in range(1,rnd):
+            segments_before |= self.rounds[i].veto_segments
+        segments_after = segments.segmentlist([])
+        if rnd:
+            segments_after |= segments_before
+            segments_after |= self.rounds[rnd].veto_segments
+        else:
+            for i in range(1,1+len(self.rounds)):
+                segments_after |= self.rounds[i].veto_segments
+        # KLUDGE: putting space in front of "before" so that it is sorted in legends above the "after" line
+        trigs[" before"] = lsctables.New(lsctables.SnglBurstTable)
+        trigs[" before"].extend([t for t in self.triggers[self.mainchannel] if t.peak_time not in segments_before])
+        trigs["after"] = lsctables.New(lsctables.SnglBurstTable)
+        trigs["after"].extend([t for t in self.triggers[self.mainchannel] if t.peak_time not in segments_after])
+        plottriggers.plothistogram(trigs, outfile,\
                                    **kwargs)
-        self.auxplots[channel].append((outfile, desc))
+        self.auxplots[rnd].append((outfile, desc))
 
-    def plotrate(self, outfile, channel, **kwargs):
-        desc = kwargs.pop("description", None)
-        kwargs.setdefault("xlim", [self.start_time, self.end_time])
-        plottriggers.plotrate({"_":self.triggers[channel]}, outfile,\
-                               **kwargs)
-        self.auxplots[chan].append((outfile, desc))
-
-    def plotautocorrelation(self, outfile, channel, **kwargs):
-        desc = kwargs.pop("description", None)
-        if kwargs.get("xcolumn", None) == "time":
-            kwargs.setdefault("xlim", [self.start_time, self.end_time])
-        plottriggers.plotautocorrleation({"_":self.triggers[channel]},\
-                                         outfile, **kwargs)
-        self.auxplots[chan].append((outfile, desc))
-
-    def plotcoincs(self, outfile, channel, **kwargs):
+    def plotcoincs(self, outfile, rnd, **kwargs):
         """
-        Plot the coincident triggers between the given channel and the
-        mainchannel.
+        Plot the coincident triggers between the given round
         """
         desc = kwargs.pop("description", None)
         if kwargs.get("xcolumn", None) == "time":
             kwargs.setdefault("xlim", [self.start_time, self.end_time])
+        if rnd:
+            auxchannelname = latex(self.rounds[rnd].channel)
+        else :
+            auxchannelname = "auxiliary"
         kwargs.setdefault("title", "Coincident %s and %s (%s)"\
-                                   % (latex(channel), latex(self.mainchannel),\
+                                   % (auxchannelname, latex(self.mainchannel),\
                                       latex(self.etg)))
-        trigs = {channel:self.coincs[(channel, self.mainchannel)],\
-                 self.mainchannel:self.coincs[(self.mainchannel, channel)]}
+        trigs = {}
+        if rnd:
+            trigs[auxchannelname] = self.rounds[rnd].vetoing_aux_trigs
+            trigs[self.mainchannel] = self.rounds[rnd].vetoed_h_trigs
+        else:
+            trigs[auxchannelname] = lsctables.New(lsctables.SnglBurstTable)
+            trigs[self.mainchannel] = lsctables.New(lsctables.SnglBurstTable)
+            for i in range(1,1+len(self.rounds)):
+                trigs[auxchannelname].extend(self.rounds[i].vetoing_aux_trigs)
+                trigs[self.mainchannel].extend(self.rounds[i].vetoed_h_trigs)
         plottriggers.plottable(trigs, outfile, **kwargs)
-        self.auxplots[channel].append((outfile, desc))
+        self.auxplots[rnd].append((outfile, desc))
         
     def finalize(self):
         """
@@ -2074,30 +2091,40 @@ class HvetoSummaryTab(TriggerSummaryTab):
                 self.frame.img(src=self.plots[0][0], alt=self.plots[0][1],\
                                class_="full")
                 self.frame.a.close()
-            for i in sorted(self.rounds.keys()):  
-                # trig stats
-                th = ['Significance', 'T win.', 'SNR', 'Use %', 'Eff.', 'Deadtime',\
-                          'Eff./Deadtime','Safety', 'Segments' ]
+            # trig stats
+            th = ['Channel', 'Significance', 'T win.', 'SNR', 'Use %', 'Eff.', 'Deadtime',\
+                      'Eff./Deadtime', 'Cum. Eff.', 'Cum. Deadtime', 'Cum. Eff./Deadtime',\
+                      'Safety', 'Segments' ]
+            td = []
+            cellclasses = {"table":"full"}
 
-                td = []
-                cellclasses = {"table":"full"}
+            # produce a row for each round
+            cumeff = 0
+            cumdt = 0
+            for i in sorted(self.rounds.keys()):  
                 # work the numbers
-                use = numpy.nan
+                use = self.rounds[i].use_percentage
                 eff = self.rounds[i].efficiency[0]
                 dt  = self.rounds[i].deadtime[0]
                 edr = self.rounds[i].deadtime!=0\
                       and round(eff/dt, 2) or 'N/A'
+                cumeff += eff
+                cumdt += dt
+                cumedr = cumeff/cumdt
                 # generate strings
-                use = '%s%%' % round(use, 3)
-                eff = '%s%%' % round(eff, 3)
+                use = '%s%%' % round(use, 2)
+                eff = '%s%%' % round(eff, 2)
                 dt  = '%s%%' % round(dt, 3)
+                cumeffstr = '%s%%' % round(cumeff, 2)
+                cumdtstr = '%s%%' % round(cumdt, 2)
+                cumedrstr = '%s%%' % round(cumedr, 2)
 
                 # work safety
                 safe = 'N/A'
 
                 # add to table
-                td.extend([round(self.rounds[i].significance, 2), self.rounds[i].dt, self.rounds[i].snr,\
-                      use, eff, dt, edr, safe,\
+                td.append([self.rounds[i].channel, round(self.rounds[i].significance, 2), self.rounds[i].dt, self.rounds[i].snr,\
+                      use, eff, dt, edr, cumeffstr, cumdtstr, cumedrstr, safe,\
                       '<a href="%s" rel="external">link</a>' % self.rounds[i].veto_file])
 
             self.frame.add(htmlutils.write_table(th, td,
@@ -2108,27 +2135,10 @@ class HvetoSummaryTab(TriggerSummaryTab):
         # channel information
         div(self.frame, (0, 2), "Auxiliary channels", display=True)
 
-        for i,chan in enumerate(self.channels):
-            if chan == self.mainchannel:
-                continue
+        for i,chan in enumerate(self.winnerchannels):
             div(self.frame, (0, 2, i), chan, display=True)
-            if (chan, self.mainchannel) in self.numcoincs:
-                th = ["Num. coinc with<br>%s" % (self.mainchannel),\
-                      "Num %s<br>coinc with aux." % (self.mainchannel),\
-                      "Zero time-shift coincidence &sigma;"]
-                td = list()
-                if (chan, self.mainchannel) in self.numcoincs.keys():
-                    td.extend([self.numcoincs[(chan, self.mainchannel)],\
-                               self.numcoincs[(self.mainchannel, chan)]])
-                else:
-                    td.extend(["-", "-"])
-                if self.sigma.has_key(chan) and self.sigma[chan].has_key(0.0):
-                    td.append("%.2f" % self.sigma[chan][0.0])
-                else:
-                    td.append("-")
-                self.frame.add(htmlutils.write_table(th,td,{"table":"full"})())
-            class_ = plotclass(len(self.auxplots[chan]))
-            for p,d in self.auxplots[chan]:
+            class_ = plotclass(len(self.auxplots[i+1]))
+            for p,d in self.auxplots[i+1]:
                 self.frame.a(href=p, title=d, class_="fancybox-button", rel=class_)
                 self.frame.img(src=p, alt=d,  class_=class_)
                 self.frame.a.close()

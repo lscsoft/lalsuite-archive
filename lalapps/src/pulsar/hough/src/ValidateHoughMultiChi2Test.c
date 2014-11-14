@@ -21,12 +21,12 @@
 /**
  * \file
  * \ingroup pulsarApps
- * \author Badri Krishnan, Alicia Sintes 
+ * \author Badri Krishnan, Alicia Sintes
  * \brief Driver code for performing Hough transform search on non-demodulated
-   data using SFTs from possible multiple IFOs
-
-   History: Created by Sancho de la Jordana, Sintes and Krishnan December 15, 2006
-*/
+ * data using SFTs from possible multiple IFOs
+ *
+ * History: Created by Sancho de la Jordana, Sintes and Krishnan December 15, 2006
+ */
 
 
 #include "./DriveHoughColor.h"
@@ -61,8 +61,6 @@ BOOLEAN uvar_printEvents, uvar_printTemplates, uvar_printMaps, uvar_printStats, 
 
 #define TRUE (1==1)
 #define FALSE (1==0)
-
-#define LAL_INT4_MAX 2147483647
 
 #define NBLOCKSTEST 8 /* number of data blocks to do Chi2 test */
 
@@ -286,12 +284,12 @@ int main(int argc, char *argv[]){
 
     if ( LALUserVarWasSet( &uvar_startTime ) ) {
       XLALGPSSetREAL8(&startTimeGPS, uvar_startTime);
-      constraints.startTime = &startTimeGPS;
+      constraints.minStartTime = &startTimeGPS;
     }
 
     if ( LALUserVarWasSet( &uvar_endTime ) ) {
       XLALGPSSetREAL8(&endTimeGPS, uvar_endTime);
-      constraints.endTime = &endTimeGPS;
+      constraints.maxStartTime = &endTimeGPS;
     }
 
     if ( LALUserVarWasSet( &uvar_timeStampsFile ) ) {

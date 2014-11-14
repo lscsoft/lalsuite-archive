@@ -37,7 +37,7 @@ of the Bayesian parameter estimation codes.
 #standard library imports
 import os
 import sys
-from math import ceil,floor,sqrt,pi as pi_constant
+from math import cos,ceil,floor,sqrt,pi as pi_constant
 import xml
 from xml.dom import minidom
 from operator import itemgetter
@@ -69,7 +69,7 @@ matplotlib.rcParams.update(
         'legend.fontsize': 16,
         'xtick.labelsize': 16,
         'ytick.labelsize': 16,
-        'text.usetex': False,
+        'text.usetex': True,
         'figure.figsize': fig_size,
         'font.family': "serif",
         'font.serif': ['Times','Palatino','New Century Schoolbook','Bookman','Computer Modern Roman','Times New Roman','Liberation Serif'],
@@ -214,7 +214,7 @@ def plot_label(param):
   dist_names = ['dist','distance']
   ra_names = ['rightascension','ra']
   dec_names = ['declination','dec']
-  phase_names = ['phi_orb', 'phi', 'phase']
+  phase_names = ['phi_orb', 'phi', 'phase', 'phi0']
 
   labels={
       'm1':r'$m_1\,(\mathrm{M}_\odot)$',
@@ -535,6 +535,7 @@ class Posterior(object):
         self._injection=SimInspiralTableEntry
         self._triggers=SnglInpiralList
         self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
+        self._logpaliases=['logp', 'logP','prior','Prior']
         self._votfile=votfile
         
         common_output_table_header=[i.lower() for i in common_output_table_header]
@@ -578,12 +579,14 @@ class Posterior(object):
                             'theta2':self._inj_theta2,
                             'phi1':self._inj_phi1,
                             'phi2':self._inj_phi2,
+                            'phi12':self._inj_phi12,
                             'tilt1':self._inj_tilt1,
                             'tilt2':self._inj_tilt2,
                             'costilt1': lambda inj: np.cos(_inj_tilt1),
                             'costilt2': lambda inj: np.cos(_inj_tilt2),
                             'cos(iota)': lambda inj: np.cos(inj.inclination),
                             'theta_jn':self._inj_theta_jn,
+                            'phi_jl':self._inj_phi_jl,
                             'beta':self._inj_beta,
                             'polarisation':lambda inj:inj.polarization,
                             'polarization':lambda inj:inj.polarization,
@@ -623,6 +626,18 @@ class Posterior(object):
         if not logLFound:
             raise RuntimeError("No likelihood/posterior values found!")
 
+        self._logP=None
+        for logpalias in self._logpaliases:
+        
+            if logpalias in common_output_table_header:
+                try:
+                    self._logP=self._posterior[logpalias].samples
+                except KeyError:
+                    print "No '%s' column in input table!"%logpalias
+                    continue
+                if not 'log' in logpalias:
+                  self._logP=[np.log(i) for i in self._logP]
+
         if name is not None:
             self.__name=name
             
@@ -630,6 +645,153 @@ class Posterior(object):
             self.__description=description
 
         return
+
+    def extend_posterior(self):
+      """
+      Add some usefule derived parameters (such as tilt angles, time delays, etc) in the Posterior object
+      """
+      injection=self._injection
+      pos=self
+      # Generate component mass posterior samples (if they didnt exist already)
+      if 'mc' in pos.names:
+          mchirp_name = 'mc'
+      elif 'chirpmass' in pos.names:
+          mchirp_name = 'chirpmass'
+      else:
+          mchirp_name = 'mchirp'
+
+      if 'asym_massratio' in pos.names:
+          q_name = 'asym_massratio'
+      else:
+          q_name = 'q'
+
+      if 'sym_massratio' in pos.names:
+          eta_name= 'sym_massratio'
+      elif 'massratio' in pos.names:
+          eta_name= 'massratio'
+      else:
+          eta_name='eta'
+
+      if (mchirp_name in pos.names and eta_name in pos.names) and \
+      ('mass1' not in pos.names or 'm1' not in pos.names) and \
+      ('mass2' not in pos.names or 'm2' not in pos.names):
+
+          pos.append_mapping(('m1','m2'),mc2ms,(mchirp_name,eta_name))
+
+      if (mchirp_name in pos.names and q_name in pos.names) and \
+      ('mass1' not in pos.names or 'm1' not in pos.names) and \
+      ('mass2' not in pos.names or 'm2' not in pos.names):
+
+          pos.append_mapping(('m1','m2'),q2ms,(mchirp_name,q_name))
+          pos.append_mapping('eta',q2eta,(mchirp_name,q_name))
+
+      if ('spin1' in pos.names and 'm1' in pos.names) and \
+       ('spin2' in pos.names and 'm2' in pos.names):
+         pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','spin1','m2','spin2'))
+
+      if('a_spin1' in pos.names): pos.append_mapping('a1',lambda a:a,'a_spin1')
+      if('a_spin2' in pos.names): pos.append_mapping('a2',lambda a:a,'a_spin2')
+      if('phi_spin1' in pos.names): pos.append_mapping('phi1',lambda a:a,'phi_spin1')
+      if('phi_spin2' in pos.names): pos.append_mapping('phi2',lambda a:a,'phi_spin2')
+      if('theta_spin1' in pos.names): pos.append_mapping('theta1',lambda a:a,'theta_spin1')
+      if('theta_spin2' in pos.names): pos.append_mapping('theta2',lambda a:a,'theta_spin2')
+
+      # Ensure that both theta_jn and inclination are output for runs
+      # with zero tilt (for runs with tilt, this will be taken care of
+      # below when the old spin angles are computed as functions of the
+      # new ones
+      if ('theta_jn' in pos.names) and (not 'tilt1' in pos.names) and (not 'tilt2' in pos.names):
+          pos.append_mapping('iota', lambda t:t, 'theta_jn')
+
+      # Compute time delays from sky position
+      try:
+          if ('ra' in pos.names or 'rightascension' in pos.names) \
+          and ('declination' in pos.names or 'dec' in pos.names) \
+          and 'time' in pos.names:
+              from pylal import xlal,inject
+              from pylal.xlal import datatypes
+              from pylal import date
+              from pylal.date import XLALTimeDelayFromEarthCenter
+              from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+              import itertools
+              from numpy import array
+              detMap = {'H1': 'LHO_4k', 'H2': 'LHO_2k', 'L1': 'LLO_4k',
+                      'G1': 'GEO_600', 'V1': 'VIRGO', 'T1': 'TAMA_300'}
+              if 'ra' in pos.names:
+                  ra_name='ra'
+              else: ra_name='rightascension'
+              if 'dec' in pos.names:
+                  dec_name='dec'
+              else: dec_name='declination'
+              ifo_times={}
+              my_ifos=['H1','L1','V1']
+              for ifo in my_ifos:
+                  inj_time=None
+                  if injection:
+                      inj_time=float(injection.get_end(ifo[0]))
+                  location=inject.cached_detector[detMap[ifo]].location
+                  ifo_times[ifo]=array(map(lambda ra,dec,time: array([time[0]+XLALTimeDelayFromEarthCenter(location,ra[0],dec[0],LIGOTimeGPS(float(time[0])))]), pos[ra_name].samples,pos[dec_name].samples,pos['time'].samples))
+                  loc_end_time=PosteriorOneDPDF(ifo.lower()+'_end_time',ifo_times[ifo],injected_value=inj_time)
+                  pos.append(loc_end_time)
+              for ifo1 in my_ifos:
+                  for ifo2 in my_ifos:
+                      if ifo1==ifo2: continue
+                      delay_time=ifo_times[ifo2]-ifo_times[ifo1]
+                      if injection:
+                          inj_delay=float(injection.get_end(ifo2[0])-injection.get_end(ifo1[0]))
+                      else:
+                          inj_delay=None
+                      time_delay=PosteriorOneDPDF(ifo1.lower()+ifo2.lower()+'_delay',delay_time,inj_delay)
+                      pos.append(time_delay)
+      except ImportError:
+          print 'Warning: Could not import lal python bindings, check you ./configured with --enable-swig-python'
+          print 'This means I cannot calculate time delays'
+
+      #Calculate new spin angles
+      new_spin_params = ['tilt1','tilt2','theta_jn','beta']
+      if not set(new_spin_params).issubset(set(pos.names)):
+          old_params = ['f_ref',mchirp_name,'eta','iota','a1','theta1','phi1']
+          if 'a2' in pos.names: old_params += ['a2','theta2','phi2']
+          try:
+              pos.append_mapping(new_spin_params, spin_angles, old_params)
+          except KeyError:
+              print "Warning: Cannot find spin parameters.  Skipping spin angle calculations."
+
+      #Calculate new tidal parameters
+      new_tidal_params = ['lam_tilde','dlam_tilde']
+      old_tidal_params = ['lambda1','lambda2','eta']
+      if 'lambda1' in pos.names or 'lambda2' in pos.names:
+          try:
+              pos.append_mapping(new_tidal_params, symm_tidal_params, old_tidal_params)
+          except KeyError:
+              print "Warning: Cannot find tidal parameters.  Skipping tidal calculations."
+
+      #If new spin params present, calculate old ones
+      old_spin_params = ['iota', 'theta1', 'phi1', 'theta2', 'phi2', 'beta']
+      new_spin_params = ['theta_jn', 'phi_jl', 'tilt1', 'tilt2', 'phi12', 'a1', 'a2', 'm1', 'm2', 'f_ref']
+      if set(new_spin_params).issubset(set(pos.names)) and not set(old_spin_params).issubset(set(pos.names)):
+        pos.append_mapping(old_spin_params, physical2radiationFrame, new_spin_params)
+
+      #Calculate spin magnitudes for aligned runs
+      if 'spin1' in pos.names:
+          inj_a1 = inj_a2 = None
+          if injection:
+              inj_a1 = sqrt(injection.spin1x*injection.spin1x + injection.spin1y*injection.spin1y + injection.spin1z*injection.spin1z)
+              inj_a2 = sqrt(injection.spin2x*injection.spin2x + injection.spin2y*injection.spin2y + injection.spin2z*injection.spin2z)
+
+          try:
+              a1_samps = abs(pos['spin1'].samples)
+              a1_pos = PosteriorOneDPDF('a1',a1_samps,injected_value=inj_a1)
+              pos.append(a1_pos)
+          except KeyError:
+              print "Warning: problem accessing spin1 values."
+
+          try:
+              a2_samps = abs(pos['spin2'].samples)
+              a2_pos = PosteriorOneDPDF('a2',a2_samps,injected_value=inj_a2)
+              pos.append(a2_pos)
+          except KeyError:
+              print "Warning: no spin2 values found."
 
     def bootstrap(self):
         """
@@ -1133,6 +1295,25 @@ class Posterior(object):
                 max_i=i
         return max_pos,max_i
 
+    def _posMap(self):
+        """
+        Find the sample with maximum a posteriori probability. Returns value
+        of posterior and index of sample .
+        """
+        logl_vals=self._logL
+        if self._logP is not None:
+          logp_vals=self._logP
+        else:
+          return None
+        
+        max_i=0
+        max_pos=logl_vals[0]+logp_vals[0]
+        for i in range(len(logl_vals)):
+            if logl_vals[i]+logp_vals[i] > max_pos:
+                max_pos=logl_vals[i]+logp_vals[i]
+                max_i=i
+        return max_pos,max_i
+
     def _print_table_row(self,name,entries):
         """
         Print a html table row representation of
@@ -1159,6 +1340,18 @@ class Posterior(object):
 
         return (max_pos,maxLvals)
 
+    @property
+    def maxP(self):
+        """
+        Return the maximum a posteriori probability and the corresponding
+        set of parameters.
+        """
+        maxPvals={}
+        max_pos,max_i=self._posMap()
+        for param_name in self.names:
+            maxPvals[param_name]=self._posterior[param_name].samples[max_i][0]
+        return (max_pos,maxPvals)
+
     def samples(self):
         """
         Return an (M,N) numpy.array of posterior samples; M = len(self);
@@ -1168,7 +1361,7 @@ class Posterior(object):
         posterior_table=[]
         for param_name,one_pos in self:
             column=np.array(one_pos.samples)
-            header_string+=param_name+' '
+            header_string+=param_name+'\t'
             posterior_table.append(column)
         posterior_table=tuple(posterior_table)
         return np.column_stack(posterior_table),header_string
@@ -1184,7 +1377,7 @@ class Posterior(object):
         fobj=open(fname,'w')
 
         fobj.write(header_string+'\n')
-        np.savetxt(fobj,posterior_table)
+        np.savetxt(fobj,posterior_table,delimiter='\t')
         fobj.close()
 
         return
@@ -1231,7 +1424,7 @@ class Posterior(object):
         """
         return_val='<table border="1" id="statstable"><tr><th/>'
 
-        column_names=['maxL','stdev','mean','median','stacc','injection value']
+        column_names=['maxP','maxL','stdev','mean','median','stacc','injection value']
         IFOs = []
         if self._triggers is not None:
             IFOs = [trig.ifo for trig in self._triggers]
@@ -1245,8 +1438,10 @@ class Posterior(object):
 
         for name,oned_pos in self:
 
-            max_pos,max_i=self._posMode()
+            max_like,max_i=self._posMode()
             maxL=oned_pos.samples[max_i][0]
+            max_post,max_j=self._posMap()
+            maxP=oned_pos.samples[max_j][0]
             mean=str(oned_pos.mean)
             stdev=str(oned_pos.stdev)
             median=str(np.squeeze(oned_pos.median))
@@ -1254,7 +1449,7 @@ class Posterior(object):
             injval=str(oned_pos.injval)
             trigvals=oned_pos.trigvals
 
-            row = [maxL,stdev,mean,median,stacc,injval]
+            row = [maxP,maxL,stdev,mean,median,stacc,injval]
             if self._triggers is not None:
                 for IFO in IFOs:
                     try:
@@ -1421,7 +1616,7 @@ class Posterior(object):
             S1  = np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
             L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
             tilt1 = array_ang_sep(L,S1)
-            if np.max(S1) == 0.0:
+            if all([i==0.0 for i in S1]):
                 return 0.0
             else:
                 return tilt1
@@ -1435,15 +1630,16 @@ class Posterior(object):
             S2  = np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
             L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
             tilt2 = array_ang_sep(L,S2)
-            if np.max(S2) == 0.0:
-                return 0.0
+            if all([i==0.0 for i in S2]):
+              return 0.0
             else:
-                return tilt2
+              return tilt2
         except TypeError:
             # If we get here, probably because f_ref is None
             return None
 
     def _inj_theta_jn(self, inj):
+        # This is the angle between the injected J and the Z axis
         try:
             f_ref = self._injFref
             L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
@@ -1455,6 +1651,106 @@ class Posterior(object):
             return theta_jn
         except TypeError:
             # f_ref is probably None
+            return None
+    def _inj_phi12(self,inj):
+       # Calculate difference of spins' azimuthal angles in the L frame
+       import math 
+       try:
+         iota=inj.inclination
+         ci=np.cos(iota)
+         si=np.sin(iota)
+         s1x=inj.spin1x
+         s1y=inj.spin1y
+         s1z=inj.spin1z
+         s2x=inj.spin2x
+         s2y=inj.spin2y
+         s2z=inj.spin2z
+ 
+         f_ref = self._injFref
+         L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
+         S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+         S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+ 
+         J = L + S1 + S2
+ 
+         # Need to do rotations of XLALSimInspiralTransformPrecessingInitialConditioin inverse order to go in the L frame
+         # first rotation: bring J in the N-x plane, with negative x component
+         phi0=math.atan2(J[1],J[0])
+         phi0=np.pi-phi0
+ 
+         J=ROTATEZ(phi0,J[0],J[1],J[2])
+         L=ROTATEZ(phi0,L[0],L[1],L[2])
+         S1=ROTATEZ(phi0,S1[0],S1[1],S1[2])
+         S2=ROTATEZ(phi0,S2[0],S2[1],S2[2])
+ 
+         # now J in in the N-x plane and form an angle theta_jn with N, rotate by -theta_jn around y to have J along z
+         theta_jn= array_polar_ang(J)
+         J=ROTATEY(theta_jn,J[0],J[1],J[2])
+         L=ROTATEY(theta_jn,L[0],L[1],L[2])
+         S1=ROTATEY(theta_jn,S1[0],S1[1],S1[2])
+         S2=ROTATEY(theta_jn,S2[0],S2[1],S2[2])
+         # J should now be || z and L should have a azimuthal angle phi_jl
+         phi_jl=math.atan2(L[1],L[0])
+         phi_jl=np.pi-phi_jl
+         # bring L in the Z-X plane, with negative x
+         J=ROTATEZ(phi_jl,J[0],J[1],J[2])
+         L=ROTATEZ(phi_jl,L[0],L[1],L[2])
+         S1=ROTATEZ(phi_jl,S1[0],S1[1],S1[2])
+         S2=ROTATEZ(phi_jl,S2[0],S2[1],S2[2])
+ 
+         theta0=array_polar_ang(L)
+         J=ROTATEY(theta0,J[0],J[1],J[2])
+         L=ROTATEY(theta0,L[0],L[1],L[2])
+         S1=ROTATEY(theta0,S1[0],S1[1],S1[2])
+         S2=ROTATEY(theta0,S2[0],S2[1],S2[2])
+ 
+         # The last rotation is useless as it won't change the differenze in spins' azimuthal angles
+         phi1=math.atan2(S1[1],S1[0])
+         phi2=math.atan2(S2[1],S2[0])
+         if phi2 < phi1:
+                 phi12 = phi2 - phi1 + 2.*np.pi
+         else:
+                 phi12 = phi2 - phi1
+         return phi12
+ 
+       except TypeError:
+         return None
+ 
+    def _inj_phi_jl(self, inj):
+        """
+        Calculate the injected value of phi_jl. Start from the values 
+        of the spin and iota in the injection table and rotate the vectors
+        back in the frame where phi_JL is defined
+        """
+        import math
+
+        try:
+            f_ref = self._injFref
+            L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
+            S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+            S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+
+            J = L + S1 + S2
+            # Need to do the last two rotations of XLALSimInspiralTransformPrecessingInitialConditions to get phi_jl in the proper frame. We only rotate J and L as spins won't matter here
+            # first rotation: bring J in the N-x plane, with negative x component
+            phi0=math.atan2(J[1],J[0])
+            phi0=np.pi-phi0
+
+            J=ROTATEZ(phi0,J[0],J[1],J[2])
+            L=ROTATEZ(phi0,L[0],L[1],L[2])
+            # now J in in the N-x plane and form an angle theta_jn with N, rotate by -theta_jn around y to have J along z
+            theta_jn=array_polar_ang(J)
+            J=ROTATEY(theta_jn,J[0],J[1],J[2])
+            L=ROTATEY(theta_jn,L[0],L[1],L[2])
+            # J should now be || z and L should have a azimuthal angle phi_jl
+            phi_jl=math.atan2(L[1],L[0])
+            if phi_jl<0.:
+                phi_jl+=2.0*np.pi
+  
+            return phi_jl
+
+        except TypeError:
+             # f_ref is probably None
             return None
         
     def _inj_beta(self, inj):
@@ -1780,6 +2076,70 @@ class KDTreeVolume(object):
         else:
             return self._right.search(coordinates,boxing)
 
+    def fillNewTree(self,boxing = 64, isArea = False):
+        """
+        copies tree structure, but with KDSkeleton as the new nodes.
+        """
+        boxN = boxing
+        if len(self._objects) <= boxN:
+            newNode = KDSkeleton(self.bounds(), left_child = None , right_child = None)
+            if isArea:
+                newNode.setImportance(len(self._objects),skyArea(self.bounds()))
+            else:
+                newNode.setImportance(len(self._objects),self.volume())
+            return newNode
+        else:
+            if isArea:
+                newNode = KDSkeleton(self.bounds, left_child = self._left.fillNewTree(boxN,isArea=True), right_child = self._right.fillNewTree(boxN,isArea=True))
+                newNode.setImportance(len(self._objects),skyArea(self.bounds()))
+            else:
+                newNode = KDSkeleton(self.bounds, left_child = self._left.fillNewTree(boxN), right_child = self._right.fillNewTree(boxN))
+                newNode.setImportance(len(self._objects),self.volume())
+            newNode.setSplit(self._dimension,self._split_value)
+            return newNode
+
+class KDSkeleton(object):
+    """
+    object to store the structure of a kd tree
+    """
+
+    def __init__(self, bounding_box, left_child = None, right_child = None):
+        self._bounds = bounding_box
+        #self._names = coordinate_names
+        self._left = left_child
+        self._right = right_child
+        self._samples = 0
+        self._splitValue = None
+        self._splitDim = None
+        self._importance = None
+        self._volume = None
+
+    def addSample(self):
+        self._samples +=1
+
+    def bounds(self):
+        return self._bounds
+
+    def search(self,coordinates):
+        """
+        takes a set of coordinates and searches down through the tree untill it gets
+        to a box with less than 'boxing' objects in it and returns the box bounds,
+        number of objects in the box, and the weighting.
+        """
+        if self._left == None:
+            return self._bounds, self._samples, self._importance
+        elif coordinates[self._splitDim] < self._splitValue:
+            return self._left.search(coordinates)
+        else:
+            return self._right.search(coordinates)
+
+    def setImportance(self, sampleNumber, volume):
+        self._importance = sampleNumber/volume
+        self._volume = volume
+
+    def setSplit(self,dimension,value):
+        self._splitDim = dimension
+        self._splitValue = value
 
 
 class PosteriorSample(object):
@@ -2231,7 +2591,23 @@ def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,co
 
     return toppoints,injectionconfidence,reses,injection_area
 #
+#### functions used in 2stage kdtree 
 
+def skyArea(bounds):
+    return - (cos(pi_constant/2. - bounds[0][1])-cos(pi_constant/2. - bounds[1][1]))*(bounds[1][0] - bounds[0][0])
+
+def random_split(items, fraction):
+    size = int(len(items)*fraction)
+    random.shuffle(items)
+    return items[:size], items[size:]
+
+def addSample(tree,coordinates):
+    if tree._left == None:
+        tree.addSample()
+    elif coordinates[tree._splitDim] < tree._splitValue:
+        addSample(tree._left,coordinates)
+    else:
+        addSample(tree._right,coordinates)
 
 #
 #===============================================================================
@@ -2294,7 +2670,6 @@ def kdtree_bin_sky_volume(posterior,confidence_levels):
                 break
     
     return confidence_intervals
-
 
 def kdtree_bin_sky_area(posterior,confidence_levels,samples_per_bin=10):
     """
@@ -2533,6 +2908,121 @@ def kdtree_bin(posterior,coord_names,confidence_levels,initial_boundingbox = Non
                 break
 
     return confidence_intervals, b, initial_boundingbox,injInfo
+
+def kdtree_bin2Step(posterior,coord_names,confidence_levels,initial_boundingbox = None,samples_per_bin = 10,injCoords = None,alternate = False, fraction = 0.5, skyCoords=False):
+    """
+    input: posterior class instance, list of confidence levels, optional choice of inital parameter space, samples per box in kdtree
+    note initial_boundingbox is [[lowerbound of each param][upper bound of each param]], if not specified will just take limits of samples
+    fraction is proportion of samples used for making the tree structure.
+    returns: confidence_intervals, sorted list of kd objects, initial_boundingbox, injInfo
+    where injInfo is [bounding box injection is found within, samples in said box, weighting of box (in case of repeated samples),inj_confidence, inj_confidence_area]
+    """
+    confidence_levels.sort()
+
+    samples,header=posterior.samples()
+    numberSamples = len(samples)
+    if alternate == False:
+        samplesStructure, samplesFill = random_split(samples,fraction)
+    else:
+        samplesStructure = samples[:int(numberSamples*fraction)]
+        samplesFill = samples[int(numberSamples*fraction):]
+    samplesFillLen = len(samplesFill)
+    
+    header=header.split()
+    coordinatized_samples=[PosteriorSample(row, header, coord_names) for row in samplesStructure]
+    #if initial bounding box is not provided, create it using max/min of sample coords.
+    if skyCoords == True:
+        initial_boundingbox = [[0,-pi_constant/2.],[2*pi_constant,pi_constant/2.]]
+    if initial_boundingbox is None:
+        low=coordinatized_samples[0].coord()
+        high=coordinatized_samples[0].coord()
+        for obj in coordinatized_samples[1:]:
+            low=np.minimum(low,obj.coord())
+            high=np.maximum(high,obj.coord())
+        initial_boundingbox = [low,high]
+    tree=KDTreeVolume(coordinatized_samples,initial_boundingbox)
+    tree2fill = tree.fillNewTree(boxing=samples_per_bin, isArea = skyCoords)#set isArea True if looking at sky coords(modifies stored volume values
+
+    columns = []
+    for name in coord_names:
+        columns.append(header.index(name))
+
+    for sample in samplesFill:
+        tempSample=[]
+        for column in columns:
+            tempSample.append(sample[column])
+        addSample(tree2fill,tempSample)
+
+    def getValues(tree,listing):
+        if tree._left == None:
+            listing.append([tree.bounds(),tree._importance,tree._samples,tree._volume])
+        else:
+            getValues(tree._left,listing)
+            getValues(tree._right,listing)
+
+    listLeaves = []
+    getValues(tree2fill,listLeaves)
+
+    clSamples = []
+    for cl in confidence_levels:
+        clSamples.append(samplesFillLen*cl)
+    
+    sortedLeavesList = sorted(listLeaves, key=lambda importance: importance[1])
+    sortedLeavesList.reverse()
+    runningTotalSamples = 0
+    for i in range(len(sortedLeavesList)):
+        runningTotalSamples += sortedLeavesList[i][2]
+        sortedLeavesList[i].append(float(runningTotalSamples)/samplesFillLen,)
+
+
+    level = 0
+    countSamples = 0
+    volume = 0
+    lencl = len(clSamples)
+    #finds confidence levels
+    confidence_intervals={}
+    interpConfAreas = {}
+    countLeaves = 0
+    for leaf in sortedLeavesList:
+        countSamples += leaf[2]
+        countLeaves += 1
+        volume += leaf[3]
+        if level < lencl and countSamples >= clSamples[level]:
+            confidence_intervals[confidence_levels[level]]=(volume,float(countSamples)/samplesFillLen)
+            interpConfAreas[confidence_levels[level]] = volume-leaf[3]*(countSamples-clSamples[level])/leaf[2]
+            level +=1
+
+    if injCoords is not None:
+        injBound,injNum,injImportance = tree2fill.search(injCoords)                                                                                                              
+        injInfo = [injBound,injNum,injImportance]
+    else:
+        injInfo = None
+
+
+    #finds the confidence level of the injection and the volume of the associated contained region                                                         
+    inj_confidence = None
+    inj_confidence_area = None
+    if injInfo is not None:
+        print 'calculating cl'
+        acc_vol=0.
+        acc_cl=0.
+        for leaf in sortedLeavesList:
+            acc_vol+=leaf[3]
+            acc_cl+=leaf[2]
+            if leaf[1] <= injImportance:
+                inj_confidence = float(acc_cl)/samplesFillLen
+                inj_confidence_area = acc_vol
+                injInfo.append(inj_confidence)
+                injInfo.append(inj_confidence_area)
+                break
+
+    return sortedLeavesList, interpConfAreas, injInfo
+    #check that there is an injection value for all dimension names
+    def checkNone(listoParams):
+        for param in listoParams:
+            if posterior[param].injval is None:
+                return False
+        return True
 
 def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
     """
@@ -2917,10 +3407,26 @@ def rotate_vector(R, vec):
     return newVec
 #
 #
+def ROTATEZ(angle, vx, vy, vz):
+    # This is the ROTATEZ in LALSimInspiral.c. 
+    tmp1 = vx*np.cos(angle) - vy*np.sin(angle);
+    tmp2 = vx*np.sin(angle) + vy*np.cos(angle);
+    return np.asarray([tmp1,tmp2,vz])
+    
+def ROTATEY(angle, vx, vy, vz):
+    # This is the ROTATEY in LALSimInspiral.c 
+    tmp1 = vx*np.cos(angle) + vz*np.sin(angle);
+    tmp2 = - vx*np.sin(angle) + vz*np.cos(angle);
+    return np.asarray([tmp1,vy,tmp2])
 
 def orbital_momentum(fref, mc, inclination):
     """
     Calculate orbital angular momentum vector.
+    Note: The units of Lmag are different than what used in lalsimulation. 
+    Mc must be called in units of Msun here. 
+
+    Note that if one wants to build J=L+S1+S2 with L returned by this function, S1 and S2
+    must not get the Msun^2 factor.
     """
     Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * lalconstants.LAL_MTSUN_SI * fref, 1.0/3.0)
     Lx, Ly, Lz = sph2cart(Lmag, inclination, 0.0)
@@ -2974,41 +3480,85 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
     Wrapper function for SimInspiralTransformPrecessingInitialConditions().
     Vectorizes function for use in append_mapping() methods of the posterior class.
     """
-    import lalsimulation as lalsim
+    try:
+      import lalsimulation as lalsim
+    except ImportError:
+      print 'bayespputils.py: Cannot import lalsimulation SWIG bindings to calculate physical to radiation'
+      print 'frame angles, did you remember to use --enable-swig-python when ./configuring lalsimulation?'
+      return None
+    from numpy import shape
     transformFunc = lalsim.SimInspiralTransformPrecessingInitialConditions
 
     # Convert component masses to SI units
-    m1_SI = m1*lalsim.lal.LAL_MSUN_SI
-    m2_SI = m2*lalsim.lal.LAL_MSUN_SI
+    m1_SI = m1*lalconstants.LAL_MSUN_SI
+    m2_SI = m2*lalconstants.LAL_MSUN_SI
 
     # Flatten arrays
     ins = [theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1_SI, m2_SI, fref]
-    try:
-      for p,param in enumerate(ins):
-        ins[p] = param.flatten()
-    except:
-      pass
+    if len(shape(ins))>1:
+        # ins is a list of lists (i.e. we are converting full posterior chains)
+        try:
+            for p,param in enumerate(ins):
+                ins[p] = param.flatten()
+        except:
+            pass
+ 
+        try:
+            results = np.array([transformFunc(t_jn, p_jl, t1, t2, p12, a1, a2, m1_SI, m2_SI, f) for (t_jn, p_jl, t1, t2, p12, a1, a2, m1_SI, m2_SI, f) in zip(*ins)])
+            iota = results[:,0].reshape(-1,1)
+            spin1x = results[:,1].reshape(-1,1)
+            spin1y = results[:,2].reshape(-1,1)
+            spin1z = results[:,3].reshape(-1,1)
+            spin2x = results[:,4].reshape(-1,1)
+            spin2y = results[:,5].reshape(-1,1)
+            spin2z = results[:,6].reshape(-1,1)
+            a1,theta1,phi1 = cart2sph(spin1x,spin1y,spin1z)
+            a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
 
-    results = np.array([transformFunc(t_jn, p_jl, t1, t2, p12, a1, a2, m1_SI, m2_SI, f) for (t_jn, p_jl, t1, t2, p12, a1, a2, m1_SI, m2_SI, f) in zip(*ins)])
+            mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
+            L  = orbital_momentum(fref, mc, iota)
+            S1 = np.hstack([m1*m1*spin1x,m1*m1*spin1y,m1*m1*spin1z])
+            S2 = np.hstack([m2*m2*spin2x,m2*m2*spin2y,m2*m2*spin2z])
+            J = L + S1 + S2
+            beta = array_ang_sep(J,L)
 
-    iota = results[:,0].reshape(-1,1)
-    spin1x = results[:,1].reshape(-1,1)
-    spin1y = results[:,2].reshape(-1,1)
-    spin1z = results[:,3].reshape(-1,1)
-    spin2x = results[:,4].reshape(-1,1)
-    spin2y = results[:,5].reshape(-1,1)
-    spin2z = results[:,6].reshape(-1,1)
-    a1,theta1,phi1 = cart2sph(spin1x,spin1y,spin1z)
-    a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
+            return iota, theta1, phi1, theta2, phi2, beta
+        except TypeError:
+         # Something went wrong, returning None
+          return None
+ 
+    elif len(shape(ins))<=1:
+       # ins is a list of floats (i.e. we are converting the injected values) or empty
+        try:
+            for p,param in enumerate(ins):
+                ins[p] = param
+        except:
+            pass
+ 
+        try:
+            results = np.array(transformFunc(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1_SI, m2_SI, fref))
+            iota = results[0]
+            spin1x = results[1]
+            spin1y = results[2]
+            spin1z = results[3]
+            spin2x = results[4]
+            spin2y = results[5]
+            spin2z = results[6]
+            a1,theta1,phi1 = cart2sph(spin1x,spin1y,spin1z)
+            a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
 
-    mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
-    L  = orbital_momentum(fref, mc, iota)
-    S1 = m1*m1*np.hstack([spin1x,spin1y,spin1z])
-    S2 = m2*m2*np.hstack([spin2x,spin2y,spin2z])
-    J = L + S1 + S2
-    beta = array_ang_sep(J,L)
+            mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
+            L  = orbital_momentum(fref, mc, iota)
+            S1 = m1*m1*np.hstack([spin1x,spin1y,spin1z])
+            S2 = m2*m2*np.hstack([spin2x,spin2y,spin2z])
+            J = L + S1 + S2
+            beta = array_ang_sep(J,L)
 
-    return iota, theta1, phi1, theta2, phi2, beta
+            return iota, theta1, phi1, theta2, phi2, beta
+
+        except TypeError:
+            # Something went wrong, returning None
+            return None
 #
 #
 
@@ -3328,7 +3878,31 @@ def getDecString(radians,accuracy='auto'):
     #    else: return(getDecString(sign*radians,accuracy='deg'))
       return(getDecString(sign*radians,accuracy='deg'))
 
-def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None):
+def plot_corner(posterior,levels,parnames=None):
+  """
+  Make a corner plot using the triangle module
+  (See http://github.com/dfm/triangle.py)
+  @param posterior: The Posterior object
+  @param levels: a list of confidence levels
+  @param parnames: list of parameters to include
+  """
+  try:
+    import triangle
+  except ImportError:
+    print 'Cannot load triangle module. Try running\n\t$ pip install triangle_plot'
+    return None
+  parnames=filter(lambda x: x in posterior.names, parnames)
+  labels = [plot_label(parname) for parname in parnames]
+  data = np.hstack([posterior[p].samples for p in parnames])
+  if posterior.injection:
+    injvals=[posterior[p].injval for p in parnames]
+    myfig=triangle.corner(data,labels=labels,truths=injvals,quantiles=levels)
+  else:
+    myfig=triangle.corner(data,labels=labels,quantiles=levels)
+  return(myfig)
+
+
+def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None,Npixels=50):
   """
   Plots a 2D kernel density estimate of the 2-parameter marginal posterior.
   
@@ -3393,10 +3967,34 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
     kde=stats.kde.gaussian_kde(samp)
     den=kde(samp)
     #grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
-    Nx=50
-    Ny=50
-    xax = np.linspace(np.min(xdat),np.max(xdat),Nx)
-    yax = np.linspace(np.min(ydat),np.max(ydat),Ny)
+    Nx=Npixels
+    Ny=Npixels
+    # Ugly hack to produce plots centred on the main mode:
+    # Choose 1%-99% percentile range of the samples
+    # Then zoom out by 0.95 to encompass the contour edges
+    xsorted=np.sort(xdat,axis=None)
+    ysorted=np.sort(ydat,axis=None)
+    imin=int(0.01*len(xsorted))
+    imax=int(0.99*len(xsorted))
+    xmax=xsorted[imax]
+    xmin=xsorted[imin]
+    ymax=ysorted[imax]
+    ymin=ysorted[imin]
+    xmid=0.5*(xmin+xmax)
+    ymid=0.5*(ymin+ymax)
+    xmin=xmid+(xmin-xmid)/0.95
+    xmax=xmid+(xmax-xmid)/0.95
+    ymin=ymid+(ymin-ymid)/0.95
+    ymax=ymid+(ymax-ymid)/0.95
+    xax=np.linspace(xmin,xmax,Nx)
+    yax=np.linspace(ymin,ymax,Ny)
+    #print 'Plot limits %f-%f x %f-%f'%(xmin,xmax,ymin,ymax)
+
+    # Original way which includes all samples
+    #xax = np.linspace(np.min(xdat),np.max(xdat),Nx)
+    #yax = np.linspace(np.min(ydat),np.max(ydat),Ny)
+
+    # Do the actual plotting
     x,y = np.meshgrid(xax,yax)
     grid_coords = np.row_stack( (x.flatten(),y.flatten()) )
     z = kde(grid_coords)
@@ -4093,7 +4691,7 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     axes.xaxis.set_major_locator(locatorX)
 
     if par1_injvalue is not None and par2_injvalue is not None:
-        plt.plot([par1_injvalue],[par2_injvalue],'bo',scalex=False,scaley=False)
+        plt.plot([par2_injvalue],[par1_injvalue],'bo',scalex=False,scaley=False)
 
     if par1_trigvalues is not None and par2_trigvalues is not None:
         par1IFOs = set([IFO for IFO in par1_trigvalues.keys()])
@@ -4103,7 +4701,7 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
         elif IFO=='L1': color = 'g'
         elif IFO=='V1': color = 'm'
         else: color = 'c'
-        plt.plot([par1_trigvalues[IFO]],[par2_trigvalues[IFO]],color=color,marker='o',scalex=False,scaley=False)
+        plt.plot([par2_trigvalues[IFO]],[par1_trigvalues[IFO]],color=color,marker='o',scalex=False,scaley=False)
 
     # For RA and dec set custom labels and for RA reverse
     #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
@@ -4625,7 +5223,7 @@ class PEOutputParser(object):
                 ntots.append(ntot)
                 if nDownsample is None:
                     try:
-                        nonParams = ["logpost", "cycle", "logprior", "logl", "loglh1", "logll1", "loglv1"]
+                        nonParams = ["logpost", "cycle", "logprior", "logl", "loglh1", "logll1", "loglv1", "timestamp", "snrh1", "snrl1", "snrv1", "snr", "time_mean", "time_maxl"]
                         nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
                         paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
                         samps = np.array(lines).astype(float)
@@ -4673,9 +5271,9 @@ class PEOutputParser(object):
         for line in runInfoIter:
             headers=line.lstrip().lower().split()
             try:
-                fRefColNum = headers.index('fLow')
+                fRefColNum = headers.index('fref') # strings get converted to all lower case
                 info = runInfoIter.next().lstrip().lower().split()
-                fRef = info[fRefColNum]
+                fRef = info[-1]#fRefColNum] # too many column names with spaces for this way to work. I just grab the last value. Hopefully we will update to xml output files and those messy headers will be gone.
                 break
             except ValueError:
                 continue
@@ -4748,12 +5346,13 @@ class PEOutputParser(object):
             pos,bayesfactor=burnin(data,spin,deltaLogL,"posterior_samples.dat")
             return self._common_to_pos(open("posterior_samples.dat",'r'))
 
-    def _ns_to_pos(self,files,Nlive=None,Npost=None):
+    def _ns_to_pos(self,files,Nlive=None,Npost=None,posfilename='posterior_samples.dat'):
         """
         Parser for nested sampling output.
         files : list of input NS files
         Nlive : Number of live points
         Npost : Desired number of posterior samples
+        posfilename : Posterior output file name (default: 'posterior_samples.dat')
         """
         try:
             from lalapps.nest2pos import draw_N_posterior_many,draw_posterior_many
@@ -4763,9 +5362,7 @@ class PEOutputParser(object):
 
         if Nlive is None:
             raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
-                       
-        posfilename='posterior_samples.dat'
-       
+     
         #posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t
         #psi \t iota \t likelihood \n')
         # get parameter list
@@ -4803,14 +5400,17 @@ class PEOutputParser(object):
             pos=draw_posterior_many(inarrays,[Nlive for f in files],logLcol=logLcol)
         else:
             pos=draw_N_posterior_many(inarrays,[Nlive for f in files],Npost,logLcol=logLcol)
-
+        
+        prec=14
+        outformat = '%%.%de' % prec
+        
         with open(posfilename,'w') as posfile:
             
             posfile.write(outpars)
-        
             for row in pos:
                 for i in row:
-                    posfile.write('%.12g\t' %(i))
+                    outval = outformat % i
+                    posfile.write('%s\t'%(outval))
                 posfile.write('\n')
         
         with open(posfilename,'r') as posfile:
@@ -5227,6 +5827,7 @@ class BurstPosterior(object):
         self._injection=SimBurstTableEntry
         self._triggers=SnglBurstList
         self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
+        self._logpaliases=['logp', 'logP','prior','Prior']
         self._votfile=votfile
         
         common_output_table_header=[i.lower() for i in common_output_table_header]
@@ -5278,10 +5879,21 @@ class BurstPosterior(object):
                     print "No '%s' column in input table!"%loglalias
                     continue
                 logLFound=True
-                
+         
         if not logLFound:
             raise RuntimeError("No likelihood/posterior values found!")
 
+        self._logP=None
+        for logpalias in self._logpaliases:
+        
+            if logpalias in common_output_table_header:
+                try:
+                    self._logP=self._posterior[logpalias].samples
+                except KeyError:
+                    print "No '%s' column in input table!"%logpalias
+                    continue
+                if not 'log' in logpalias:
+                  self._logP=[np.log(i) for i in self._logP]
         if name is not None:
             self.__name=name
             
@@ -5792,6 +6404,25 @@ class BurstPosterior(object):
                 max_i=i
         return max_pos,max_i
 
+    def _posMap(self):
+        """
+        Find the sample with maximum a posteriori probability. Returns value
+        of posterior and index of sample .
+        """
+        logl_vals=self._logL
+        if self._logP is not None:
+          logp_vals=self._logP
+        else:
+          return None
+        
+        max_i=0
+        max_pos=logl_vals[0]+logp_vals[0]
+        for i in range(len(logl_vals)):
+            if logl_vals[i]+logp_vals[i] > max_pos:
+                max_pos=logl_vals[i]+logp_vals[i]
+                max_i=i
+        return max_pos,max_i
+
     def _print_table_row(self,name,entries):
         """
         Print a html table row representation of
@@ -5817,6 +6448,21 @@ class BurstPosterior(object):
             maxLvals[param_name]=self._posterior[param_name].samples[max_i][0]
 
         return (max_pos,maxLvals)
+
+
+    @property
+    def maxP(self):
+        """
+        Return the maximum a posteriori probability and the corresponding
+        set of parameters.
+        """
+        maxPvals={}
+        max_pos,max_i=self._posMap()
+        for param_name in self.names:
+            maxPvals[param_name]=self._posterior[param_name].samples[max_i][0]
+
+        return (max_pos,maxPvals)
+ 
 
     def samples(self):
         """
@@ -5890,7 +6536,7 @@ class BurstPosterior(object):
         """
         return_val='<table border="1" id="statstable"><tr><th/>'
 
-        column_names=['maxL','stdev','mean','median','stacc','injection value']
+        column_names=['maxP','maxL','stdev','mean','median','stacc','injection value']
         IFOs = []
         if self._triggers is not None:
             IFOs = [trig.ifo for trig in self._triggers]
@@ -5904,8 +6550,10 @@ class BurstPosterior(object):
 
         for name,oned_pos in self:
 
-            max_pos,max_i=self._posMode()
+            max_like,max_i=self._posMode()
             maxL=oned_pos.samples[max_i][0]
+            max_post,max_j=self._posMap()
+            maxP=oned_pos.samples[max_j][0]
             mean=str(oned_pos.mean)
             stdev=str(oned_pos.stdev)
             median=str(np.squeeze(oned_pos.median))
@@ -5913,7 +6561,7 @@ class BurstPosterior(object):
             injval=str(oned_pos.injval)
             trigvals=oned_pos.trigvals
 
-            row = [maxL,stdev,mean,median,stacc,injval]
+            row = [maxP,maxL,stdev,mean,median,stacc,injval]
             if self._triggers is not None:
                 for IFO in IFOs:
                     try:

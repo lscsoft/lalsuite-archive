@@ -39,7 +39,6 @@ typedef struct
   INT4 dummy;
 } UserInput_t;
 
-UserInput_t empty_UserInput_t;
 #define TESTSTRING "this is also possible, and # here does nothing "
 
 const char *cfgfile_content = \
@@ -65,7 +64,8 @@ const char *cfgfile_content = \
 
 
 
-/** some basic consistency checks of the (XLAL) UserInput module, far from exhaustive,
+/**
+ * some basic consistency checks of the (XLAL) UserInput module, far from exhaustive,
  * but should be enough to catch big obvious malfunctions
  */
 int
@@ -75,7 +75,7 @@ main(int argc, char *argv[])
   #define CFG_FNAME "ConfigFile.cfg"
   char **my_argv;
   const char *argv_in[] = { "progname", "--argNum=1", "--argStr=xyz", "--argBool=true", "-a", "1", "-b", "@" CFG_FNAME };
-  UserInput_t my_uvars = empty_UserInput_t;
+  UserInput_t XLAL_INIT_DECL(my_uvars);
 
   if ( argc > 1 ) {
     XLALPrintError ("No input arguments allowed.\n");

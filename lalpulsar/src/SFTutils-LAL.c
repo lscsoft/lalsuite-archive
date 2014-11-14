@@ -1,4 +1,7 @@
-/** \deprecated Use XLALCreateSFT() instead
+/** \cond DONT_DOXYGEN */
+
+/**
+ * \deprecated Use XLALCreateSFT() instead
  * Allows for numBins == 0.
  */
 void
@@ -25,7 +28,8 @@ LALCreateSFTtype (LALStatus *status,	/**< pointer to LALStatus structure */
 
 } /* LALCreateSFTtype() */
 
-/** \deprecated Use XLALCreateSFTVector() instead
+/**
+ * \deprecated Use XLALCreateSFTVector() instead
  */
 void
 LALCreateSFTVector (LALStatus *status,	/**< pointer to LALStatus structure */
@@ -51,7 +55,8 @@ LALCreateSFTVector (LALStatus *status,	/**< pointer to LALStatus structure */
 
 } /* LALCreateSFTVector() */
 
-/** Create an empty multi-IFO SFT vector for given number of IFOs and number of SFTs per IFO
+/**
+ * Create an empty multi-IFO SFT vector for given number of IFOs and number of SFTs per IFO
  */
 void LALCreateMultiSFTVector ( LALStatus *status,     /**< pointer to LALStatus structure */
 			       MultiSFTVector **out,  /**< [out] multi sft vector created */
@@ -101,7 +106,8 @@ void LALCreateMultiSFTVector ( LALStatus *status,     /**< pointer to LALStatus 
 
 } /* LALCreateMultiSFTVector() */
 
-/** \deprecated Use XLALDestroySFT() instead.
+/**
+ * \deprecated Use XLALDestroySFT() instead.
  */
 void
 LALDestroySFTtype (LALStatus *status,	/**< pointer to LALStatus structure */
@@ -120,7 +126,8 @@ LALDestroySFTtype (LALStatus *status,	/**< pointer to LALStatus structure */
 
 } /* LALDestroySFTtype() */
 
-/** \deprecated Use XLALDestroySFTVector() instead.
+/**
+ * \deprecated Use XLALDestroySFTVector() instead.
  */
 void
 LALDestroySFTVector (LALStatus *status,	/**< pointer to LALStatus structure */
@@ -138,7 +145,8 @@ LALDestroySFTVector (LALStatus *status,	/**< pointer to LALStatus structure */
 
 } /* LALDestroySFTVector() */
 
-/** \deprecated Use XLALDestroyPSDVector() instead
+/**
+ * \deprecated Use XLALDestroyPSDVector() instead
  */
 void
 LALDestroyPSDVector (LALStatus *status,	/**< pointer to LALStatus structure */
@@ -155,7 +163,8 @@ LALDestroyPSDVector (LALStatus *status,	/**< pointer to LALStatus structure */
 
 } /* LALDestroyPSDVector() */
 
-/** \deprecated Use XLALDestroyMultiSFTVector() instead.
+/**
+ * \deprecated Use XLALDestroyMultiSFTVector() instead.
  */
 void
 LALDestroyMultiSFTVector (LALStatus *status,		/**< pointer to LALStatus structure */
@@ -172,7 +181,8 @@ LALDestroyMultiSFTVector (LALStatus *status,		/**< pointer to LALStatus structur
 
 } /* LALDestroyMultiSFTVector() */
 
-/** \deprecate Use XLALDestroyMultiPSDVector() instead.
+/**
+ * \deprecated Use XLALDestroyMultiPSDVector() instead.
  */
 void
 LALDestroyMultiPSDVector (LALStatus *status,		/**< pointer to LALStatus structure */
@@ -188,7 +198,10 @@ LALDestroyMultiPSDVector (LALStatus *status,		/**< pointer to LALStatus structur
 
 } /* LALDestroyMultiPSDVector() */
 
-/** Copy an entire SFT-type into another.
+/**
+ * \deprecated Use XLALCopySFT()
+ *
+ * Copy an entire SFT-type into another.
  * We require the destination-SFT to have a NULL data-entry, as the
  * corresponding data-vector will be allocated here and copied into
  *
@@ -200,36 +213,21 @@ LALCopySFT (LALStatus *status,	/**< pointer to LALStatus structure */
 	    SFTtype *dest, 	/**< [out] copied SFT (needs to be allocated already) */
 	    const SFTtype *src)	/**< input-SFT to be copied */
 {
-
-
   INITSTATUS(status);
-  ATTATCHSTATUSPTR ( status );
 
-  ASSERT (dest,  status, SFTUTILS_ENULL,  SFTUTILS_MSGENULL);
-  ASSERT (dest->data == NULL, status, SFTUTILS_ENONULL, SFTUTILS_MSGENONULL );
-  ASSERT (src, status, SFTUTILS_ENULL,  SFTUTILS_MSGENULL);
+  XLAL_PRINT_DEPRECATION_WARNING("XLALCopySFT");
 
-  /* copy complete head (including data-pointer, but this will be separately alloc'ed and copied in the next step) */
-  memcpy ( dest, src, sizeof(*dest) );
+  int ret = XLALCopySFT ( dest, src );
+  if ( ret != XLAL_SUCCESS ) {
+    ABORT ( status, SFTUTILS_EFUNC, SFTUTILS_MSGEFUNC );
+  }
 
-  /* copy data (if there's any )*/
-  if ( src->data )
-    {
-      UINT4 numBins = src->data->length;
-      if ( (dest->data = XLALCreateCOMPLEX8Vector ( numBins )) == NULL ) {
-	ABORT ( status, SFTUTILS_EMEM, SFTUTILS_MSGEMEM );
-      }
-      memcpy (dest->data->data, src->data->data, numBins * sizeof (src->data->data[0]));
-    }
-
-  DETATCHSTATUSPTR (status);
   RETURN (status);
 
 } /* LALCopySFT() */
 
-
-
-/** Subtract two SFT-vectors and put the results in a new one (which it allocates).
+/**
+ * Subtract two SFT-vectors and put the results in a new one (which it allocates).
  *
  */
 void
@@ -306,8 +304,7 @@ LALSubtractSFTVectors (LALStatus *status,	/**< pointer to LALStatus structure */
 
       for (j=0; j < numBins1; j++)
 	{
-	  ret->data[i].data->data[j].realf_FIXME = crealf(inVect1->data[i].data->data[j]) - crealf(inVect2->data[i].data->data[j]);
-	  ret->data[i].data->data[j].imagf_FIXME = cimagf(inVect1->data[i].data->data[j]) - cimagf(inVect2->data[i].data->data[j]);
+	  ret->data[i].data->data[j] = crectf( crealf(inVect1->data[i].data->data[j]) - crealf(inVect2->data[i].data->data[j]), cimagf(inVect1->data[i].data->data[j]) - cimagf(inVect2->data[i].data->data[j]) );
 	}  /* for j < numBins1 */
 
       snprintf ( name1Trunc, halfNameLength, "%s", inVect1->data[i].name );
@@ -329,8 +326,8 @@ LALSubtractSFTVectors (LALStatus *status,	/**< pointer to LALStatus structure */
 
 
 
-/** Linearly combine two or more SFT-vectors and put the results in a new one (which it allocates).
- *
+/**
+ * Linearly combine two or more SFT-vectors and put the results in a new one (which it allocates).
  */
 void
 LALLinearlyCombineSFTVectors
@@ -384,12 +381,7 @@ LALLinearlyCombineSFTVectors
 
       for (k=0; k < numBins1; k++)
 	{
-	  ret->data[i].data->data[k].realf_FIXME
-	    = creal(weights->data[0]) * crealf(inVects[0]->data[i].data->data[k])
-	    - cimag(weights->data[0]) * cimagf(inVects[0]->data[i].data->data[k]);
-	  ret->data[i].data->data[k].imagf_FIXME
-	    = creal(weights->data[0]) * cimagf(inVects[0]->data[i].data->data[k])
-	    + cimag(weights->data[0]) * crealf(inVects[0]->data[i].data->data[k]);
+	  ret->data[i].data->data[k] = crectf( creal(weights->data[0]) * crealf(inVects[0]->data[i].data->data[k]) - cimag(weights->data[0]) * cimagf(inVects[0]->data[i].data->data[k]), creal(weights->data[0]) * cimagf(inVects[0]->data[i].data->data[k]) + cimag(weights->data[0]) * crealf(inVects[0]->data[i].data->data[k]) );
 	}  /* for k < numBins1 */
 
       /* add in the other SFTs one-by-one */
@@ -420,12 +412,7 @@ LALLinearlyCombineSFTVectors
 
 	  for (k=0; k < numBins1; k++)
 	    {
-	      ret->data[i].data->data[k].realf_FIXME
-		+= creal(weights->data[j]) * crealf(inVects[j]->data[i].data->data[k])
-		- cimag(weights->data[j]) * cimagf(inVects[j]->data[i].data->data[k]);
-	      ret->data[i].data->data[k].imagf_FIXME
-		+= creal(weights->data[j]) * cimagf(inVects[j]->data[i].data->data[k])
-		+ cimag(weights->data[j]) * crealf(inVects[j]->data[i].data->data[k]);
+	      ret->data[i].data->data[k] += crectf( creal(weights->data[j]) * crealf(inVects[j]->data[i].data->data[k]) - cimag(weights->data[j]) * cimagf(inVects[j]->data[i].data->data[k]), creal(weights->data[j]) * cimagf(inVects[j]->data[i].data->data[k]) + cimag(weights->data[j]) * crealf(inVects[j]->data[i].data->data[k]) );
 	    }  /* for k < numBins1 */
 
 	} /* for j < numSFTVects */
@@ -497,7 +484,8 @@ LALCreateTimestampVector (LALStatus *status,		/**< pointer to LALStatus structur
 
 } /* LALCreateTimestampVector() */
 
-/** \deprecated Use XLALDestroyTimestampVector() instead.
+/**
+ * \deprecated Use XLALDestroyTimestampVector() instead.
  */
 void
 LALDestroyTimestampVector (LALStatus *status,		/**< pointer to LALStatus structure */
@@ -519,7 +507,8 @@ LALDestroyTimestampVector (LALStatus *status,		/**< pointer to LALStatus structu
 
 } /* LALDestroyTimestampVector() */
 
-/** \deprecated Use XLALMakeTimestamps() instead.
+/**
+ * \deprecated Use XLALMakeTimestamps() instead.
  */
 void
 LALMakeTimestamps ( LALStatus *status,			/**< pointer to LALStatus structure */
@@ -548,7 +537,8 @@ LALMakeTimestamps ( LALStatus *status,			/**< pointer to LALStatus structure */
 
 } /* LALMakeTimestamps() */
 
-/** \deprecated LAL wrapper to XLALExtractTimestampsFromSFTs()
+/**
+ * \deprecated LAL wrapper to XLALExtractTimestampsFromSFTs()
  */
 void
 LALGetSFTtimestamps (LALStatus *status,			/**< pointer to LALStatus structure */
@@ -576,7 +566,8 @@ LALGetSFTtimestamps (LALStatus *status,			/**< pointer to LALStatus structure */
 
 } /* LALGetSFTtimestamps() */
 
-/** Computes weight factors arising from SFTs with different noise
+/**
+ * Computes weight factors arising from SFTs with different noise
  * floors -- it multiplies an existing weight vector
  */
 void
@@ -685,7 +676,8 @@ LALComputeNoiseWeights  (LALStatus        *status,
 } /* LALComputeNoiseWeights() */
 
 
-/** \deprecated Use XLALComputeMultiNoiseWeights() instead
+/**
+ * \deprecated Use XLALComputeMultiNoiseWeights() instead
  */
 void LALComputeMultiNoiseWeights  (LALStatus             *status,
 				   MultiNoiseWeights     **out,
@@ -741,8 +733,9 @@ LALDestroyMultiNoiseWeights  (LALStatus         *status,
  * ==================================================
  */
 
-/** upsample a given multi-SFTvector by the given (integer) factor,
- *  _replacing_ the original SFTs
+/**
+ * upsample a given multi-SFTvector by the given (integer) factor,
+ * _replacing_ the original SFTs
  */
 void
 upsampleMultiSFTVector (LALStatus *status,		/**< pointer to LALStatus structure */
@@ -818,3 +811,5 @@ upsampleSFTVector (LALStatus *status,		/**< pointer to LALStatus structure */
   RETURN (status);
 
 } /* upsampleSFTVector() */
+
+/** \endcond */

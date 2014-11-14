@@ -1,16 +1,19 @@
-EXTRA_DIST = \
-	generate_user_env.awk
+BUILT_SOURCES =
+MOSTLYCLEANFILES =
+include $(top_srcdir)/gnuscripts/lalsuite_header_links.am
+include $(top_srcdir)/gnuscripts/lalsuite_vcs_info.am
 
 lib_LTLIBRARIES = liblal.la
 
 pkginclude_HEADERS = \
-	LALLibVCSInfo.h \
-	LALVCSInfo.h
+	LALConfig.h \
+	LALVCSInfo.h \
+	LALVCSInfoHeader.h
 
 liblal_la_SOURCES = \
 	LALEmpty.c \
 	LALVCSInfo.c
-nodist_liblal_la_SOURCES = LALBuildDate.c
+nodist_liblal_la_SOURCES = LALBuildInfo.c
 liblal_la_DEPENDENCIES = \
 	$(top_builddir)/packages/std/src/libstd.la \
 	$(top_builddir)/packages/tools/src/libtools.la \
@@ -24,57 +27,15 @@ liblal_la_DEPENDENCIES = \
 	$(top_builddir)/packages/window/src/libwindow.la \
 	$(top_builddir)/packages/fft/src/libfft.la \
 	$(top_builddir)/packages/noisemodels/src/libnoisemodels.la
-liblal_la_LIBADD = $(liblal_la_DEPENDENCIES) @LAL_LIBADD@
-liblal_la_LDFLAGS = -version-info $(LIBVERSION)
+liblal_la_LIBADD = $(liblal_la_DEPENDENCIES)
+liblal_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(LIBVERSION)
 
 bin_PROGRAMS = lal-version
 lal_version_SOURCES = lal-version.c
 lal_version_LDADD = liblal.la
 
-CLEANFILES = \
-	lal-user-env.shell \
-	lal-user-env.sh \
-	lal-user-env.csh
-
-sysconf_DATA = \
-	lal-user-env.sh \
-	lal-user-env.csh
-
-BUILT_SOURCES = \
-	lal-user-env.sh \
-	lal-user-env.csh
-
-MOSTLYCLEANFILES = LALBuildDate.c
-
 TESTS = lal-version
 
-LALBuildDate.c: $(liblal_la_DEPENDENCIES)
-	$(AM_V_GEN)echo 'const char *lalBuildDate = "'`date +"%Y-%m-%dT%H:%M:%S%z"`'";' >$@
-
-lal-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
-	@echo "# generic user environment script" >$@
-	@echo "set LAL_PREFIX $(prefix)" >>$@
-	@echo "prepend PATH $(bindir)" >>$@
-	@echo "prepend MANPATH $(mandir)" >>$@
-	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
-	@echo "prepend PYTHONPATH $(pyexecdir) $(pythondir)" >>$@
-	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
-	@echo "prepend OCTAVE_PATH $(octexecdir)" >>$@
-
-lal-user-env.csh lal-user-env.sh: lal-user-env.shell $(srcdir)/generate_user_env.awk
-	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
-
-if HAVE_GIT_REPO
-BUILT_SOURCES += LALVCSInfo.h
-MOSTLYCLEANFILES += LALVCSInfo.h
-LALVCSInfo.h .PHONY : gen-LALVCSInfo.h
-gen-LALVCSInfo.h :
-	$(AM_V_at)$(GENERATE_VCS_INFO) LALVCSInfo.h $(srcdir)/LALVCSInfo.h.git
-endif
-
-all-local: include-link
-include-link: $(pkginclude_HEADERS)
-@INCLUDEMKFILE@
-
-swig_headers = $(pkginclude_HEADERS)
-include $(top_srcdir)/swig/swiglal_header.am
+vcs_info_sources = LALVCSInfoHeader.h
+build_info_source = LALBuildInfo.c
+$(build_info_source): $(liblal_la_DEPENDENCIES)

@@ -363,135 +363,10 @@ def cbcBayesPostProc(
             except KeyError:
                 print "Warning: No 'time' column!"
 
-    #Stupid bit to generate component mass posterior samples (if they didnt exist already)
-    if 'mc' in pos.names:
-        mchirp_name = 'mc'
-    elif 'chirpmass' in pos.names:
-        mchirp_name = 'chirpmass'
-    else:
-        mchirp_name = 'mchirp'
-
-    if 'asym_massratio' in pos.names:
-        q_name = 'asym_massratio'
-    else:
-        q_name = 'q'
-
-    if 'sym_massratio' in pos.names:
-        eta_name= 'sym_massratio'
-    elif 'massratio' in pos.names:
-        eta_name= 'massratio'
-    else:
-        eta_name='eta'
-
-    if (mchirp_name in pos.names and eta_name in pos.names) and \
-    ('mass1' not in pos.names or 'm1' not in pos.names) and \
-    ('mass2' not in pos.names or 'm2' not in pos.names):
-
-        pos.append_mapping(('m1','m2'),bppu.mc2ms,(mchirp_name,eta_name))
-
-    if (mchirp_name in pos.names and q_name in pos.names) and \
-    ('mass1' not in pos.names or 'm1' not in pos.names) and \
-    ('mass2' not in pos.names or 'm2' not in pos.names):
-
-        pos.append_mapping(('m1','m2'),bppu.q2ms,(mchirp_name,q_name))
-        pos.append_mapping('eta',bppu.q2eta,(mchirp_name,q_name))
-
-    if ('spin1' in pos.names and 'm1' in pos.names) and \
-     ('spin2' in pos.names and 'm2' in pos.names):
-       pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','spin1','m2','spin2'))
-
-    if('a_spin1' in pos.names): pos.append_mapping('a1',lambda a:a,'a_spin1')
-    if('a_spin2' in pos.names): pos.append_mapping('a2',lambda a:a,'a_spin2')
-    if('phi_spin1' in pos.names): pos.append_mapping('phi1',lambda a:a,'phi_spin1')
-    if('phi_spin2' in pos.names): pos.append_mapping('phi2',lambda a:a,'phi_spin2')
-    if('theta_spin1' in pos.names): pos.append_mapping('theta1',lambda a:a,'theta_spin1')
-    if('theta_spin2' in pos.names): pos.append_mapping('theta2',lambda a:a,'theta_spin2')
-
-    # Compute time delays from sky position
-    if ('ra' in pos.names or 'rightascension' in pos.names) \
-    and ('declination' in pos.names or 'dec' in pos.names) \
-    and 'time' in pos.names:
-        from pylal import antenna
-        from pylal import xlal,inject
-        from pylal.xlal import datatypes
-        from pylal import date
-        from pylal.date import XLALTimeDelayFromEarthCenter
-        from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-        import itertools
-        detMap = {'H1': 'LHO_4k', 'H2': 'LHO_2k', 'L1': 'LLO_4k',
-                'G1': 'GEO_600', 'V1': 'VIRGO', 'T1': 'TAMA_300'}
-        if 'ra' in pos.names:
-            ra_name='ra'
-        else: ra_name='rightascension'
-        if 'dec' in pos.names:
-            dec_name='dec'
-        else: dec_name='declination'
-        ifo_times={}
-        my_ifos=['H1','L1','V1']
-        for ifo in my_ifos:
-            inj_time=None
-            if injection:
-                inj_time=float(injection.get_end(ifo[0]))
-            location=inject.cached_detector[detMap[ifo]].location
-            ifo_times[ifo]=array(map(lambda ra,dec,time: array([time[0]+XLALTimeDelayFromEarthCenter(location,ra[0],dec[0],LIGOTimeGPS(float(time[0])))]), pos[ra_name].samples,pos[dec_name].samples,pos['time'].samples))
-            loc_end_time=bppu.PosteriorOneDPDF(ifo.lower()+'_end_time',ifo_times[ifo],injected_value=inj_time)
-            pos.append(loc_end_time)
-        for ifo1 in my_ifos:
-            for ifo2 in my_ifos:
-                if ifo1==ifo2: continue
-                delay_time=ifo_times[ifo2]-ifo_times[ifo1]
-                if injection:
-                    inj_delay=float(injection.get_end(ifo2[0])-injection.get_end(ifo1[0]))
-                else:
-                    inj_delay=None
-                time_delay=bppu.PosteriorOneDPDF(ifo1.lower()+ifo2.lower()+'_delay',delay_time,inj_delay)
-                pos.append(time_delay)
-
-    #Calculate new spin angles
-    new_spin_params = ['tilt1','tilt2','theta_jn','beta']
-    if not set(new_spin_params).issubset(set(pos.names)):
-        old_params = ['f_ref',mchirp_name,'eta','iota','a1','theta1','phi1']
-        if 'a2' in pos.names: old_params += ['a2','theta2','phi2']
-        try:
-            pos.append_mapping(new_spin_params, bppu.spin_angles, old_params)
-        except KeyError:
-            print "Warning: Cannot find spin parameters.  Skipping spin angle calculations."
-
-    #Calculate new tidal parameters
-    new_tidal_params = ['lam_tilde','dlam_tilde']
-    old_tidal_params = ['lambda1','lambda2','eta']
-    if 'lambda1' in pos.names or 'lambda2' in pos.names:
-        try:
-            pos.append_mapping(new_tidal_params, bppu.symm_tidal_params, old_tidal_params)
-        except KeyError:
-            print "Warning: Cannot find tidal parameters.  Skipping tidal calculations."
-
-    #If new spin params present, calculate old ones
-    old_spin_params = ['iota', 'theta1', 'phi1', 'theta2', 'phi2', 'beta']
-    new_spin_params = ['theta_jn', 'phi_jl', 'tilt1', 'tilt2', 'phi12', 'a1', 'a2', 'm1', 'm2', 'f_ref']
-    if set(new_spin_params).issubset(set(pos.names)) and not set(old_spin_params).issubset(set(pos.names)):
-      pos.append_mapping(old_spin_params, bppu.physical2radiationFrame, new_spin_params)
-
-    #Calculate spin magnitudes for aligned runs
-    if 'spin1' in pos.names:
-        inj_a1 = inj_a2 = None
-        if injection:
-            inj_a1 = sqrt(injection.spin1x*injection.spin1x + injection.spin1y*injection.spin1y + injection.spin1z*injection.spin1z)
-            inj_a2 = sqrt(injection.spin2x*injection.spin2x + injection.spin2y*injection.spin2y + injection.spin2z*injection.spin2z)
-
-        try:
-            a1_samps = abs(pos['spin1'].samples)
-            a1_pos = bppu.PosteriorOneDPDF('a1',a1_samps,injected_value=inj_a1)
-            pos.append(a1_pos)
-        except KeyError:
-            print "Warning: problem accessing spin1 values."
-
-        try:
-            a2_samps = abs(pos['spin2'].samples)
-            a2_pos = bppu.PosteriorOneDPDF('a2',a2_samps,injected_value=inj_a2)
-            pos.append(a2_pos)
-        except KeyError:
-            print "Warning: no spin2 values found."
+    try:
+      pos.extend_posterior()
+    except:
+      pass
 
     #Perform necessary mappings
     functions = {'cos':cos,'sin':sin,'exp':exp,'log':log}
@@ -900,6 +775,46 @@ def cbcBayesPostProc(
     html_ogci_write+='</table>'
     html_ogci.write(html_ogci_write)
 
+    cornerdir=os.path.join(outdir,'corner')
+    if not os.path.isdir(cornerdir):
+        os.makedirs(cornerdir)
+
+    #===============================#
+    # Corner plots
+    #===============================#
+
+    massParams=['mtotal','m1','m2','mc']
+    distParams=['distance','distMPC','dist']
+    incParams=['iota','inclination','theta_jn']
+    polParams=['psi','polarisation','polarization']
+    skyParams=['ra','rightascension','declination','dec']
+    timeParams=['time']
+    spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','chi','effectivespin','beta','tilt1','tilt2','phi_jl','theta_jn','phi12']
+    intrinsicParams=massParams+spinParams
+    extrinsicParams=incParams+distParams+polParams+skyParams
+    try:
+      myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=intrinsicParams)
+    except:
+      myfig=None
+    html_corner=''
+    if myfig:
+      html_corner='<table>'
+      html_corner+='<tr><td width="100%"><img width="100%" src="corner/intrinsic.png"/></td></tr>'
+      myfig.savefig(os.path.join(cornerdir,'intrinsic.png'))
+      myfig.savefig(os.path.join(cornerdir,'intrinsic.pdf'))
+    try:
+      myfig=bppu.plot_corner(pos,[0.05,0.5,0.95],parnames=extrinsicParams)
+    except:
+      myfig=None
+    if myfig:
+      myfig.savefig(os.path.join(cornerdir,'extrinsic.png'))
+      myfig.savefig(os.path.join(cornerdir,'extrinsic.pdf'))
+      html_corner+='<tr><td width="100%"><img width="100%" src="corner/extrinsic.png"/></td></tr>'
+      html_corner+='</table>'
+
+    if html_corner!='':
+      html_co=html.add_section('Corner plots')
+      html_co.write(html_corner)
     #==================================================================#
     #2D posteriors
     #==================================================================#
@@ -971,6 +886,12 @@ def cbcBayesPostProc(
             par2_bin=GreedyRes[par2_name]
         except KeyError:
             print "Bin size is not set for %s, skipping %s/%s binning."%(par2_name,par1_name,par2_name)
+            continue
+
+        # Skip any fixed parameters to avoid matrix inversion problems
+        par1_pos=pos[par1_name].samples
+        par2_pos=pos[par2_name].samples
+        if (size(unique(par1_pos))<2 or size(unique(par2_pos))<2):
             continue
 
         #print "Binning %s-%s to determine confidence levels ..."%(par1_name,par2_name)
@@ -1076,6 +997,7 @@ def cbcBayesPostProc(
                 myfig.savefig(twoDKdePath)
                 if(savepdfs): myfig.savefig(twoDKdePath.replace('.png','.pdf'))
                 plt.close(myfig)
+
 
     #Finish off the BCI table and write it into the etree
     html_tcig_write+='</table>'
@@ -1219,6 +1141,7 @@ if __name__=='__main__':
     parser.add_option("-c","--covarianceMatrix",dest="covarianceMatrices",action="append",default=None,help="CSV file containing covariance (must give accompanying mean vector CSV. Can add more than one matrix.")
     parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
     parser.add_option("--email",action="store",default=None,type="string",metavar="user@ligo.org",help="Send an e-mail to the given address with a link to the finished page.")
+    parser.add_option("--archive",action="store",default=None,type="string",metavar="results.tar.gz",help="Create the given tarball with all results")
     (opts,args)=parser.parse_args()
 
     datafiles=[]
@@ -1240,7 +1163,7 @@ if __name__=='__main__':
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
     spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costheta_jn','cosbeta','tilt1','tilt2','phi_jl','theta_jn','phi12']
-    phaseParams=['phase']
+    phaseParams=['phase', 'phi0']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
     ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
     tigerParams=['dphi%i'%(i) for i in range(7)] + ['dphi%il'%(i) for i in [5,6] ]
@@ -1364,6 +1287,10 @@ if __name__=='__main__':
                         #header file for parameter names in posterior samples
                         header=opts.header
                     )
+
+    if opts.archive is not None:
+        import subprocess
+        subprocess.call(["tar","cvzf",opts.archive,opts.outpath])
 
     # Send an email, useful for keeping track of dozens of jobs!
     # Will only work if the local host runs a mail daemon

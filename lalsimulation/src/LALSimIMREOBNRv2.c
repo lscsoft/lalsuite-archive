@@ -19,15 +19,14 @@
 */
 
 /**
-
-\author Craig Robinson
-
-\file
-
-\brief Functions to generate the EOBNRv2 waveforms, as defined in
-Pan et al, PRD84, 124052(2011).
-
-*/
+ * \author Craig Robinson
+ *
+ * \file
+ *
+ * \brief Functions to generate the EOBNRv2 waveforms, as defined in
+ * Pan et al, PRD84, 124052(2011).
+ *
+ */
 
 #include <complex.h>
 #include <lal/Units.h>
@@ -50,17 +49,17 @@ Pan et al, PRD84, 124052(2011).
 #include "LALSimIMREOBHybridRingdown.c"
 #include "LALSimInspiraldEnergyFlux.c"
 
-/** 
+/**
  * The maximum number of modes available to us in this model
  */
 static const int EOBNRV2_NUM_MODES_MAX = 5;
 
 /**
- *  The following declarations are so that the compiler quits. It appears that they are here because
- *  some of these functions are called before their definitions in the following code. 
- *  Perhaps this can be made cleaner by just moving the definitions, but for now I'm keeping with what
- *  the original code did.
-**/
+ * The following declarations are so that the compiler quits. It appears that they are here because
+ * some of these functions are called before their definitions in the following code.
+ * Perhaps this can be made cleaner by just moving the definitions, but for now I'm keeping with what
+ * the original code did.
+ */
 
 static int
 XLALSimIMREOBNRv2SetupFlux(
@@ -151,7 +150,7 @@ XLALpphiInitP4PN(
  * The name of this function is slightly misleading, as it does
  * not computs the initial pr directly. It instead calculated
  * dH/dpr - vr for the given values of vr and p. This function is
- * then passed to a root finding function, which determines the 
+ * then passed to a root finding function, which determines the
  * value of pr which makes this function zero. That value is then
  * the initial pr.
  */
@@ -372,7 +371,7 @@ REAL8 XLALCalculateOmega(   REAL8 eta,                /**<< Symmetric mass ratio
 /**
  * Function which will determine whether to stop the evolution for the initial,
  * user-requested sample rate. We stop in this case when we have reached the peak
- * orbital frequency. 
+ * orbital frequency.
  */
 static int
 XLALFirstStoppingCondition(double UNUSED t,              /**<< Current time (required by GSL) */
@@ -396,7 +395,7 @@ XLALFirstStoppingCondition(double UNUSED t,              /**<< Current time (req
 
 /**
  * Function which will determine whether to stop the evolution for the high sample rate.
- * In this case, the data obtained will be used to attach the ringdown, so to make sure 
+ * In this case, the data obtained will be used to attach the ringdown, so to make sure
  * we won't be interpolating data too near the final points, we push this integration
  * as far as is feasible.
  */
@@ -505,7 +504,7 @@ REAL8 XLALvrP4PN( const REAL8 r,    /**<< Orbital separation (in units of total 
 /**
  * Calculates the time window over which the ringdown attachment takes
  * place. These values were calibrated to numerical relativity simulations,
- * and come from Pan et al, PRD84, 124052(2011). 
+ * and come from Pan et al, PRD84, 124052(2011).
  * The time returned is in units of M.
  */
 static REAL8
@@ -1576,6 +1575,9 @@ XLALSimIMREOBNRv2Generator(
      rdMatchPoint->data[1] = timePeak + nrPeakDeltaT;
      rdMatchPoint->data[2] = dynamicsHi->data[finalIdx];
 
+     rdMatchPoint->data[0] -= fmod( rdMatchPoint->data[0], dt/m );
+     rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], dt/m );
+
      xlalStatus = XLALSimIMREOBHybridAttachRingdown(sigReHi, sigImHi,
                    modeL, modeM, dt, mass1, mass2, 0, 0, 0, 0, 0, 0, &tVecHi, rdMatchPoint, EOBNRv2 );
      if (xlalStatus != XLAL_SUCCESS )
@@ -1638,10 +1640,12 @@ XLALSimIMREOBNRv2Generator(
        *h_lms = XLALSphHarmTimeSeriesAddMode(*h_lms, sigMode, modeL, modeM);
      }
 
+     XLALDestroyCOMPLEX16TimeSeries( sigMode );
+
   } /* End loop over modes */
 
-  /* clip the parts below f_min */
-  if (flag_fLower_extend == 1)
+  /* If returning polarizations, clip the parts below f_min */
+  if (flag_fLower_extend == 1 && hplus && hcross)
   {
     if ( cos(inclination) < 0.0 )
     {
@@ -1664,7 +1668,6 @@ XLALSimIMREOBNRv2Generator(
   XLALDestroyREAL8Array( dynamicsHi );
   XLALDestroyREAL8Vector ( sigReHi );
   XLALDestroyREAL8Vector ( sigImHi );
-  XLALDestroyCOMPLEX16TimeSeries( sigMode );
   XLALDestroyREAL8Vector ( phseHi );
   XLALDestroyREAL8Vector ( omegaHi );
   XLALDestroyREAL8Vector( ampNQC );

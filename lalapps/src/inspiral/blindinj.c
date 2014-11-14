@@ -31,7 +31,6 @@
 #include <stdlib.h>
 #include <config.h>
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <math.h>
 #include <ctype.h>
 #include <assert.h>
@@ -338,8 +337,7 @@ static REAL4TimeSeries *injectWaveform(
       /* set the response function to unity */
       for ( k = 0; k < resp->data->length; ++k )
       {
-        resp->data->data[k].realf_FIXME = (REAL4) (1.0 /dynRange);
-        resp->data->data[k].imagf_FIXME = 0.0;
+        resp->data->data[k] = crectf( (REAL4) (1.0 /dynRange), 0.0 );
       }
       break;
 
@@ -350,8 +348,7 @@ static REAL4TimeSeries *injectWaveform(
         REAL8 sim_psd_freq = (REAL8) k * resp->deltaF;
         REAL8 sim_psd_value;
         LALLIGOIPsd( NULL, &sim_psd_value, sim_psd_freq );
-        resp->data->data[k].realf_FIXME = (REAL4) pow( sim_psd_value, 0.5 ) / dynRange;
-        resp->data->data[k].imagf_FIXME = 0.0;
+        resp->data->data[k] = crectf( (REAL4) pow( sim_psd_value, 0.5 ) / dynRange, 0.0 );
       }
       break;
 
@@ -388,8 +385,7 @@ static REAL4TimeSeries *injectWaveform(
   unity = XLALCreateCOMPLEX8Vector( resp->data->length );  
   for ( k = 0; k < unity->length; ++k ) 
   {
-    unity->data[k].realf_FIXME = 1.0;
-    unity->data[k].imagf_FIXME = 0.0;
+    unity->data[k] = 1.0;
   }
 
   XLALCCVectorDivide( detector.transfer->data, unity, resp->data );
@@ -508,8 +504,8 @@ int main( int argc, char *argv[] )
   proctable.processTable = (ProcessTable *) 
     calloc( 1, sizeof(ProcessTable) );
   XLALGPSTimeNow(&(proctable.processTable->start_time));
-  XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME, LALAPPS_VCS_IDENT_ID,
-      LALAPPS_VCS_IDENT_STATUS, LALAPPS_VCS_IDENT_DATE, 0);
+  XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME, lalAppsVCSIdentId,
+      lalAppsVCSIdentStatus, lalAppsVCSIdentDate, 0);
   snprintf( proctable.processTable->comment, LIGOMETA_COMMENT_MAX, " " );
   this_proc_param = procparams.processParamsTable = (ProcessParamsTable *) 
     calloc( 1, sizeof(ProcessParamsTable) );

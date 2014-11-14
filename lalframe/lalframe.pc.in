@@ -3,12 +3,13 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 datarootdir=@datarootdir@
-datadir=@datadir@
-pkgdatadir=@datadir@/@PACKAGE@
+LALFRAME_DATA_PATH=@datadir@/@PACKAGE@
+LALFRAME_OCTAVE_PATH=@octexecdir@
+LALFRAME_PYTHON_PATH=@pyexecdir@
 
 Name: LALFrame
 Description: LAL Frame Library Support
 Version: @VERSION@
-Requires: lal libframe
+Requires: lal >= @LAL_VERSION@, libframe
 Libs: -L${libdir} -llalframe
 Cflags: -I${includedir}

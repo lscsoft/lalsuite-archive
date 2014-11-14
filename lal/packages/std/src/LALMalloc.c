@@ -1,5 +1,5 @@
 /*
-*  Copyright (C) 2007 Jolien Creighton
+*  Copyright (C) 2007 Jolien Creighton, Josh Willis
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -22,10 +22,14 @@
 #include <string.h>
 #include <signal.h>
 
-#include <lal/LALConfig.h>
+#include <config.h>
 #include <lal/LALMalloc.h>
 #include <lal/LALStdio.h>
 #include <lal/LALError.h>
+
+/* global variables */
+size_t lalMallocTotal = 0;	/**< current amount of memory allocated by process */
+size_t lalMallocTotalPeak = 0;	/**< peak amount of memory allocated so far */
 
 /*
  *
@@ -39,6 +43,17 @@
     else (void)(0)
 #define XLAL_TEST_POINTER_LONG( ptr, size, file, line )                   \
     if ( ! (ptr) && (size) )                                              \
+    {                                                                     \
+       XLALPrintError( "XLALError - %s in %s:%d", __func__, file, line ); \
+       XLAL_ERROR_NULL( XLAL_ENOMEM );                                    \
+    }                                                                     \
+    else (void)(0)
+#define XLAL_TEST_POINTER_ALIGNED( ptr, size, retval )                    \
+    if ( ! (ptr) && (size) && (retval) )                                  \
+       XLAL_ERROR_NULL( XLAL_ENOMEM );                                    \
+    else (void)(0)
+#define XLAL_TEST_POINTER_ALIGNED_LONG( ptr, size, retval, file, line )   \
+    if ( ! (ptr) && (size) && (retval) )                                  \
     {                                                                     \
        XLALPrintError( "XLALError - %s in %s:%d", __func__, file, line ); \
        XLAL_ERROR_NULL( XLAL_ENOMEM );                                    \
@@ -95,6 +110,101 @@ void XLALFree(void *p)
     return;
 }
 
+/*
+ * Aligned memory routines.
+ */
+
+#if LAL_FFTW3_MEMALIGN_ENABLED
+
+#ifndef HAVE_POSIX_MEMALIGN
+#error no posix_memalign available
+#endif
+
+int XLALIsMemoryAligned(void *ptr)
+{
+	return LAL_IS_MEMORY_ALIGNED(ptr);
+}
+
+void *XLALMallocAlignedLong(size_t size, const char *file, int line)
+{
+	void *p;
+	int retval;
+	retval = posix_memalign(&p, LAL_MEM_ALIGNMENT, size);
+	XLAL_TEST_POINTER_ALIGNED_LONG(p, size, retval, file, line);
+	return p;
+}
+
+void *(XLALMallocAligned)(size_t size)
+{
+	void *p;
+	int retval;
+	retval = posix_memalign(&p, LAL_MEM_ALIGNMENT, size);
+	XLAL_TEST_POINTER_ALIGNED(p, size, retval);
+	return p;
+}
+
+void *XLALCallocAlignedLong(size_t nelem, size_t elsize, const char *file, int line)
+{
+	size_t size = nelem * elsize;
+	void *p = XLALMallocAlignedLong(size, file, line);
+	XLAL_TEST_POINTER_LONG(p, size, file, line);
+	memset(p, 0, size);
+	return p;
+}
+
+void *(XLALCallocAligned)(size_t nelem, size_t elsize)
+{
+	size_t size = nelem * elsize;
+	void *p = (XLALMallocAligned)(size);
+	XLAL_TEST_POINTER(p, size);
+	memset(p, 0, size);
+	return p;
+}
+
+void *XLALReallocAlignedLong(void *ptr, size_t size, const char *file, int line)
+{
+	void *p;
+	if (ptr == NULL)
+		return XLALMallocAlignedLong(size, file, line);
+	if (size == 0) {
+		XLALFreeAligned(ptr);
+		return NULL;
+	}
+	p = realloc(ptr, size); /* use ordinary realloc */
+	if (XLALIsMemoryAligned(p))
+		return p;
+	/* need to do a new allocation and a memcpy, inefficient... */
+	ptr = XLALMallocAlignedLong(size, file, line);
+	memcpy(ptr, p, size);
+	XLALFree(p);
+	return ptr;
+}
+
+void *(XLALReallocAligned)(void *ptr, size_t size)
+{
+	void *p;
+	if (ptr == NULL)
+		return XLALMallocAligned(size);
+	if (size == 0) {
+		XLALFreeAligned(ptr);
+		return NULL;
+	}
+	p = realloc(ptr, size); /* use ordinary realloc */
+	if (XLALIsMemoryAligned(p))
+		return p;
+	/* need to do a new allocation and a memcpy, inefficient... */
+	ptr = XLALMallocAligned(size);
+	memcpy(ptr, p, size);
+	XLALFree(p);
+	return ptr;
+}
+
+void XLALFreeAligned(void *ptr)
+{
+	free(ptr); /* use ordinary free */
+}
+
+#endif /* LAL_FFTW3_MEMALIGN_ENABLED */
 
 /*
  *
@@ -144,7 +254,6 @@ static struct allocNode {
     int line;
     struct allocNode *next;
 } *allocList = NULL;
-static size_t lalMallocTotal = 0;
 static int lalMallocCount = 0;
 
 /* need this to turn off gcc warnings about unused functions */
@@ -236,6 +345,7 @@ static void *PadAlloc(size_t * p, size_t n, int keep, const char *func)
 
     pthread_mutex_lock(&mut);
     lalMallocTotal += n;
+    lalMallocTotalPeak = (lalMallocTotalPeak > lalMallocTotal) ? lalMallocTotalPeak : lalMallocTotal;
     ++lalMallocCount;
     pthread_mutex_unlock(&mut);
 

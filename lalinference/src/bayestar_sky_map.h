@@ -65,34 +65,88 @@
  * MA  02111-1307  USA
  */
 
+
 #ifndef BAYESTAR_SKY_MAP_H
 #define BAYESTAR_SKY_MAP_H
 
+/* exclude from SWIG interface and C++ code */
+/* FIXME: maybe use GSL vector and matrix types that SWIG can wrap easily */
+#if !defined(SWIG) && !defined(__cplusplus)
 
-/* Perform sky localization based on TDOAs alone. */
-double *bayestar_sky_map_tdoa(
-    long *npix, /* In/out: number of HEALPix pixels. */
-    double gmst, /* Greenwich mean sidereal time in radians. */
-    int nifos, /* Input: number of detectors. */
-    const double **locs, /* Input: array of detector positions. */
-    const double *toas, /* Input: array of times of arrival. */
-    const double *w_toas /* Input: sum-of-squares weights, (1/TOA variance)^2. */
+#include <complex.h>
+
+
+/* Perform sky localization based on TDOAs, PHOAs, and amplitude. */
+double *bayestar_sky_map_toa_phoa_snr(
+    long *npix,
+    /* Prior */
+    double min_distance,            /* Minimum distance */
+    double max_distance,            /* Maximum distance */
+    int prior_distance_power,       /* Power of distance in prior */
+    /* Detector network */
+    double gmst,                    /* GMST (rad) */
+    unsigned int nifos,             /* Number of detectors */
+    unsigned long nsamples,         /* Length of autocorrelation sequence */
+    double sample_rate,             /* Sample rate in seconds */
+    const double complex **acors,   /* Autocorrelation sequences */
+    const float (**responses)[3],   /* Detector responses */
+    const double **locations,       /* Barycentered Cartesian geographic detector positions (m) */
+    const double *horizons,         /* SNR=1 horizon distances for each detector */
+    /* Observations */
+    const double *toas,             /* Arrival time differences relative to network barycenter (s) */
+    const double *phoas,            /* Phases on arrival */
+    const double *snrs              /* SNRs */
 );
 
-/* Perform sky localization based on TDOAs and amplitude. */
-double *bayestar_sky_map_tdoa_snr(
-    long *npix, /* In/out: number of HEALPix pixels. */
-    double gmst, /* Greenwich mean sidereal time in radians. */
-    int nifos, /* Input: number of detectors. */
-    const float (**responses)[3], /* Pointers to detector responses. */
-    const double **locations, /* Pointers to locations of detectors in Cartesian geographic coordinates. */
-    const double *toas, /* Input: array of times of arrival with arbitrary relative offset. (Make toas[0] == 0.) */
-    const double *snrs, /* Input: array of SNRs. */
-    const double *w_toas, /* Input: sum-of-squares weights, (1/TOA variance)^2. */
-    const double *horizons, /* Distances at which a source would produce an SNR of 1 in each detector. */
-    double min_distance,
-    double max_distance,
-    int prior_distance_power /* Use a prior of (distance)^(prior_distance_power) */
+double bayestar_log_likelihood_toa_snr(
+    /* Parameters */
+    double ra,                      /* Right ascension (rad) */
+    double sin_dec,                 /* Sin(declination) */
+    double distance,                /* Distance */
+    double u,                       /* Cos(inclination) */
+    double twopsi,                  /* Twice polarization angle (rad) */
+    double t,                       /* Barycentered arrival time (s) */
+    /* Detector network */
+    double gmst,                    /* GMST (rad) */
+    unsigned int nifos,             /* Number of detectors */
+    unsigned long nsamples,         /* Length of autocorrelation sequence */
+    double sample_rate,             /* Sample rate in seconds */
+    const double complex **acors,   /* Autocorrelation sequences */
+    const float (**responses)[3],   /* Detector responses */
+    const double **locations,       /* Barycentered Cartesian geographic detector positions (m) */
+    const double *horizons,         /* SNR=1 horizon distances for each detector */
+    /* Observations */
+    const double *toas,             /* Arrival time differences relative to network barycenter (s) */
+    const double *snrs              /* SNRs */
 );
+
+double bayestar_log_likelihood_toa_phoa_snr(
+    /* Parameters */
+    double ra,                      /* Right ascension (rad) */
+    double sin_dec,                 /* Sin(declination) */
+    double distance,                /* Distance */
+    double u,                       /* Cos(inclination) */
+    double twopsi,                  /* Twice polarization angle (rad) */
+    double t,                       /* Barycentered arrival time (s) */
+    /* Detector network */
+    double gmst,                    /* GMST (rad) */
+    unsigned int nifos,             /* Number of detectors */
+    unsigned long nsamples,         /* Length of autocorrelation sequence */
+    double sample_rate,             /* Sample rate in seconds */
+    const double complex **acors,   /* Autocorrelation sequences */
+    const float (**responses)[3],   /* Detector responses */
+    const double **locations,       /* Barycentered Cartesian geographic detector positions (m) */
+    const double *horizons,         /* SNR=1 horizon distances for each detector */
+    /* Observations */
+    const double *toas,             /* Arrival time differences relative to network barycenter (s) */
+    const double *phoas,            /* Phases on arrival */
+    const double *snrs              /* SNRs */
+);
+
+/* Unit test suite. Return EXIT_SUCCESS if tests passed,
+ * or otherwise EXIT_FAILURE. */
+int bayestar_test(void);
+
+#endif /* !defined(SWIG) && !defined(__cplusplus) */
 
 #endif /* BAYESTAR_SKY_MAP_H */

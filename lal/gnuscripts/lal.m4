@@ -1,47 +1,27 @@
 # lal.m4 - lal specific macros
 #
-# serial 16
+# serial 19
 
-AC_DEFUN([LAL_WITH_EXTRA_CPPFLAGS],
-[AC_ARG_WITH(
-  [extra_cppflags],
-  AC_HELP_STRING([--with-extra-cppflags=CPPFLAGS],[additional C preprocessor flags]),
-  AS_IF([test -n "${with_extra_cppflags}"],[CPPFLAGS="$CPPFLAGS ${with_extra_cppflags}"]),)
+AC_DEFUN([LAL_ENABLE_DEBUG],
+[AC_ARG_ENABLE(
+  [debug],
+  AC_HELP_STRING([--enable-debug],[include standard LAL debugging code [default=yes]]),
+  [AS_CASE(["${enableval}"],
+    [yes],,
+    [no],AC_DEFINE(LAL_NDEBUG, 1, Suppress debugging code),
+    AC_MSG_ERROR(bad value for ${enableval} for --enable-debug))
+  ], )
 ])
 
-AC_DEFUN([LAL_WITH_CFLAGS],
-[AC_ARG_WITH(
-  [cflags],
-  AC_HELP_STRING([--with-cflags=CFLAGS],[C compiler flags]),
-  AS_IF([test -n "${with_cflags}"],[CFLAGS="${with_cflags}"]),)
-])
-
-AC_DEFUN([LAL_WITH_EXTRA_CFLAGS],
-[AC_ARG_WITH(
-  [extra_cflags],
-  AC_HELP_STRING([--with-extra-cflags=CFLAGS],[additional C compiler flags]),
-  AS_IF([test -n "${with_extra_cflags}"],[CFLAGS="$CFLAGS ${with_extra_cflags}"]),)
-])
-
-AC_DEFUN([LAL_WITH_EXTRA_LDFLAGS],
-[AC_ARG_WITH(
-  [extra_ldflags],
-  AC_HELP_STRING([--with-extra-ldflags=LDFLAGS],[additional linker flags]),
-  AS_IF([test -n "${with_extra_ldflags}"],[LDFLAGS="$LDFLAGS ${with_extra_ldflags}"]),)
-])
-
-AC_DEFUN([LAL_WITH_EXTRA_LIBS],
-[AC_ARG_WITH(
-  [extra_libs],
-  AC_HELP_STRING([--with-extra-libs=LIBS],[additional -l and -L linker flags]),
-  AS_IF([test -n "${with_extra_libs}"],[LIBS="$LIBS ${with_extra_libs}"]),)
-])
-
-AC_DEFUN([LAL_WITH_CC],
-[AC_ARG_WITH(
-  [cc],
-  AC_HELP_STRING([--with-cc=CC],[use the CC C compiler]),
-  AS_IF([test -n "${with_cc}"],[CC="${with_cc}"]),)
+AC_DEFUN([LAL_ENABLE_FFTW3_MEMALIGN],
+[AC_ARG_ENABLE(
+  [fftw3_memalign],
+  AC_HELP_STRING([--enable-fftw3-memalign],[use aligned memory optimizations with fftw3 [default=no]]),
+  AS_CASE(["${enableval}"],
+    [yes],[fftw3_memalign=true],
+    [no],[fftw3_memalign=false],
+    AC_MSG_ERROR([bad value for ${enableval} for --enable-fftw3-memalign])
+  ),[fftw3_memalign=false])
 ])
 
 AC_DEFUN([LAL_ENABLE_INTELFFT],
@@ -115,36 +95,4 @@ AC_DEFUN([LAL_INTEL_FFT_LIBS_MSG_ERROR],
  echo "* Please see the instructions in the file INSTALL.           *"
  echo "**************************************************************"
 AC_MSG_ERROR([Intel FFT must use either static or shared libraries])
-])
-
-AC_DEFUN([LAL_CHECK_GSL_VERSION],
-[
-  lal_min_gsl_version=ifelse([$1], ,1.0,$1)
-  AC_MSG_CHECKING(for GSL version >= $lal_min_gsl_version)
-  AC_TRY_RUN([
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <gsl/gsl_version.h>
-int main(void)
-{
-  int required_major, required_minor;
-  int major, minor;
-  char required_version[] = "$lal_min_gsl_version";
-  char version[] = GSL_VERSION;
-  if ( strcmp(GSL_VERSION, gsl_version) ) {
-    printf("error\n*** mismatch between header and library versions of GSL\n" );
-    printf("\n*** header  has version %s\n", GSL_VERSION);
-    printf("\n*** library has version %s\n", gsl_version);
-    exit(1);
-  }
-  sscanf(required_version, "%d.%d", &required_major, &required_minor);
-  sscanf(version, "%d.%d", &major, &minor);
-  if ( major < required_major || (major == required_major && minor < required_minor) ) {
-    printf("no\n*** found version %s of GSL but minimum version is %d.%d\n", GSL_VERSION, required_major, required_minor );
-    exit(1);
-  }
-  return 0;
-}
-  ], [AC_MSG_RESULT(yes)], [AC_MSG_ERROR(could not find required version of GSL)], [echo $ac_n "cross compiling; assumed OK... $ac_c"])
 ])

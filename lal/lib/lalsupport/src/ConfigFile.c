@@ -47,6 +47,10 @@
 
 #include <lal/ConfigFile.h>
 
+// these constants are taken from StringConvert.c
+#define LAL_INT4_MAX    LAL_INT8_C(2147483647)
+#define LAL_INT8_MAX    LAL_INT8_C(9223372036854775807)
+
 #define FMT_STRING "string"    /* reading in quoted strings needs some special treatment */
 #define WHITESPACE " \t"
 
@@ -56,32 +60,45 @@
 /* local prototypes */
 static void cleanConfig ( char *text );
 
-/** Parse an ASCII data-file into a pre-cleaned array of lines.
- *
+/**
+ * Parse an ASCII data-file into a pre-cleaned array of lines.
  * The cleaning gets rid of comments ('\#', '\%'), empty lines,
  * and performs line-continuation if '\\' is found at EOL
  *
  * NOTE: This function can transparently detect and read gzip-compressed
  * data-files, independently of filename-extension
+ *
+ * NOTE2: allows passing of *file-contents* directly instead of filename to read
+ * by passing a string like "{ file-contents }" instead of a file-path,
+ * ie if first character == '{' and last character == '}'
+ * This is useful to allow ascii-file user inputs to be transparently
+ * passed as filenames or direct contents
  */
 int
 XLALParseDataFile (LALParsedDataFile **cfgdata, /**< [out] pre-parsed data-file lines */
-                   const CHAR *fname)		/**< [in] name of config-file to be read */
+                   const CHAR *path		/**< [in] file-path of config-file to be read */
+                   )
 {
   XLAL_CHECK ( (cfgdata != NULL) && (*cfgdata == NULL), XLAL_EINVAL );
-  XLAL_CHECK ( fname != NULL, XLAL_EINVAL );
+  XLAL_CHECK ( path != NULL, XLAL_EINVAL );
 
-  FILE *fp;
-  XLAL_CHECK ( (fp = LALOpenDataFile (fname)) != NULL, XLAL_EIO );
+  char *dataBuffer;
+  if ( (path[0] == '{') && (path[strlen(path)-1] == '}') )
+    {
+      XLAL_CHECK ( (dataBuffer = XLALStringDuplicate ( path + 1 )) != NULL, XLAL_EFUNC );
+      dataBuffer[strlen(dataBuffer)-1] = 0;
+    }
+  else
+    {
+      XLAL_CHECK ( (dataBuffer = XLALFileLoad ( path )) != NULL, XLAL_EFUNC );
+    }
 
-  CHARSequence *rawdata = NULL;
-  int err = XLALCHARReadSequence (&rawdata, fp);	// this function can read gzip-compressed files
-  fclose (fp);
-  XLAL_CHECK ( err == 0, XLAL_EFAILED, "XLALCHARReadSequence() failed with err = %d\n", err );
+  if ( XLALParseDataFileContent ( cfgdata, dataBuffer ) != XLAL_SUCCESS ) {
+    XLALFree ( dataBuffer );
+    XLAL_ERROR ( XLAL_EFUNC );
+  }
 
-  XLAL_CHECK ( XLALParseDataFileContent ( cfgdata, rawdata->data ) == XLAL_SUCCESS, XLAL_EFUNC );
-
-  XLALDestroyCHARVector ( rawdata );
+  XLALFree ( dataBuffer );
 
   return XLAL_SUCCESS;
 
@@ -136,7 +153,8 @@ XLALParseDataFileContent (LALParsedDataFile **cfgdata, 	/**< [out] pre-parsed da
 } // XLALParseDataFileContent()
 
 
-/** Free memory associated with a LALParsedDataFile structure.
+/**
+ * Free memory associated with a LALParsedDataFile structure.
  */
 void
 XLALDestroyParsedDataFile (LALParsedDataFile *cfgdata)	/**< [in] config-file data */
@@ -156,7 +174,8 @@ XLALDestroyParsedDataFile (LALParsedDataFile *cfgdata)	/**< [in] config-file dat
 } /* XLALDestroyParsedDataFile() */
 
 
-/** Function to determine whether a given section secName exists in the parsed
+/**
+ * Function to determine whether a given section secName exists in the parsed
  * config-file contents cfgdata.
  *
  * \note: this function tolerates NULL input as secName, cfgdata, or cfgdata->lines,
@@ -257,22 +276,25 @@ XLALListConfigFileSections ( const LALParsedDataFile *cfgdata )    /**< [in] pre
 
 
 
-/** Parser for config-file: can read config-variables of the form
- *	VARIABLE [=:] VALUE.
+/**
+ * Parser for config-file: can read config-variables of the form
+ * VARIABLE [=:] VALUE.
  * Input is a TokenList containing the 'logical' lines of the cleaned config-file
  *
  * - <tt>param->varName</tt> is the name of the config-variable to read
  * - <tt>param->fmt</tt>     is the format string to use for reading
+ * - <tt>param->secName</tt> is the section name within which to find varName. NULL means 'default' section.
+ * - <tt>param->strictness</tt>   what to do if variable not found: ignore, warn, error
  *
- * \note a special format-string is FMT_STRING, which means read the whole remaining line
- *   which is different from \"\%s\"! (reads only one word)
- *   In this case, this also does the memory-allocation!
+ * \note a special format-string is FMT_STRING, which means read the whole remaining line (without initial whitespace!)
+ * which is different from \"\%s\"! (which would read only one word)
+ * In this case, this also does the memory-allocation!
  *
  */
 int
 XLALReadConfigVariable ( void *varp,                      /**< [out] result gets written here! */
                          const LALParsedDataFile *cfgdata, /**< [in] pre-parsed config-data */
-                         const LALConfigVar *param,       /**< [in]  var-name, fmt-string, strictness */
+                         const LALConfigVar *param,       /**< [in]  var-name, section-name, fmt-string, strictness */
                          BOOLEAN *wasRead)                /**< [out] did we succeed in reading? */
 {
   CHAR *found    = NULL;
@@ -286,7 +308,7 @@ XLALReadConfigVariable ( void *varp,                      /**< [out] result gets
   size_t searchlen = strlen (param->varName);
   size_t sec_searchlen = 0;
 
-  if (param->secName == 0)
+  if (param->secName == NULL)
     {
       /* If we haven't been asked for a section then we want the
          "default" section, which starts at the top of the file */
@@ -309,7 +331,7 @@ XLALReadConfigVariable ( void *varp,                      /**< [out] result gets
       XLAL_ERROR ( XLAL_EINVAL );
     }
 
-  if (cfgdata->wasRead == NULL)
+  if ( (cfgdata->lines->nTokens > 0) && (cfgdata->wasRead == NULL) )
     {
       XLALPrintError ( "%s:" CONFIGFILEH_MSGENULL, __func__ );
       XLAL_ERROR ( XLAL_EINVAL );
@@ -442,7 +464,8 @@ XLALReadConfigVariable ( void *varp,                      /**< [out] result gets
 } /* XLALReadConfigVariable() */
 
 
-/** Type-specialization of generic reading-function XLALReadConfigVariable() to BOOLEAN variables.
+/**
+ * Type-specialization of generic reading-function XLALReadConfigVariable() to BOOLEAN variables.
  */
 int
 XLALReadConfigBOOLVariable (BOOLEAN *varp,                 /**< [out] variable to store result */
@@ -451,54 +474,33 @@ XLALReadConfigBOOLVariable (BOOLEAN *varp,                 /**< [out] variable t
                             const CHAR *varName,                       /**< [in] variable-name to read */
                             BOOLEAN *wasRead)                          /**< [out] did we succeed in reading? */
 {
-  CHAR *tmp = NULL;
-  INT2 ret = -1;		/* -1 means no legal value has been parsed */
-  INT2 ret2;
-  *wasRead = FALSE;
-
+  (*wasRead) = FALSE;
   /* first read the value as a string */
-  if ( XLALReadConfigSTRINGVariable (&tmp, cfgdata, secName, varName, wasRead) != XLAL_SUCCESS ) {
-    XLALPrintError ("%s: XLALReadConfigSTRINGVariable() failed.\n", __func__);
-    XLAL_ERROR ( XLAL_EFUNC );
+  CHAR *valString = NULL;
+  /* first read the value as a string */
+  XLAL_CHECK ( XLALReadConfigSTRINGVariable (&valString, cfgdata, secName, varName, wasRead) == XLAL_SUCCESS, XLAL_EFUNC );
+
+  if ( ! (*wasRead ) ) { // if nothing was read and XLALReadConfigSTRINGVariable() didn't throw an error, then we're ok and return
+    return XLAL_SUCCESS;
   }
+  XLAL_CHECK ( valString != NULL, XLAL_EFAILED, "Got NULL string after reading config-variable '%s' in section '%s'\n", varName, secName ? secName: "default" );
 
-  if (*wasRead && tmp)		/* if we read anything at all... */
-    {
-      /* get rid of case ambiguities */
-      ret2 = XLALStringToLowerCase (tmp);
+  XLAL_CHECK ( XLALParseStringValueToBOOLEAN ( varp, valString ) == XLAL_SUCCESS, XLAL_EFUNC );
 
-      if (ret2)
-        return ret2;
-
-      /* try to parse it as a bool */
-      if (!strcmp (tmp, "yes") || !strcmp (tmp, "true") || !strcmp (tmp, "1"))
-        ret = 1;
-      else if (!strcmp (tmp, "no") || !strcmp (tmp, "false") || !strcmp (tmp, "0"))
-        ret = 0;
-      else
-        {
-          XLALPrintError ("%s: illegal bool-value `%s`\n", __func__, tmp);
-          XLALPrintError (CONFIGFILEH_MSGEBOOL);
-          XLALFree (tmp);
-          XLAL_ERROR ( XLAL_EINVAL );
-        }
-
-      XLALFree (tmp);
-
-      if (ret != -1)		/* only set value of something has been found */
-        {
-          *varp = (BOOLEAN) ret;
-          *wasRead = TRUE;
-        }
-    } /* if wasRead && tmp */
-
+  XLALFree (valString);
 
   return XLAL_SUCCESS;
 
 } /* XLALReadConfigBOOLVariable() */
 
 
-/** Type-specialization of generic reading-function LALReadConfigVariable() to INT4 variables.
+/**
+ * Read a signed integer value.
+ *
+ * Note: Rather than using the sscanf()-based LALReadConfigVariable() for the string-to-integer conversion,
+ * we do our own parsing, in order to check for spurious extra characters at the end.
+ * This allows us to catch user-input mistakes like specifying "1e3" for an int-variable, which
+ * would silently be converted as '1' by sscanf("%ld").
  */
 int
 XLALReadConfigINT4Variable (INT4 *varp,
@@ -507,19 +509,27 @@ XLALReadConfigINT4Variable (INT4 *varp,
                             const CHAR *varName,
                             BOOLEAN *wasRead)
 {
-  LALConfigVar param = { 0, 0, 0, CONFIGFILE_IGNORE };
+  (*wasRead) = FALSE;
+  /* first read the value as a string */
+  CHAR *valString = NULL;
+  XLAL_CHECK ( XLALReadConfigSTRINGVariable ( &valString, cfgdata, secName, varName, wasRead) == XLAL_SUCCESS, XLAL_EFUNC );
 
-  param.varName    = varName;
-  param.fmt        = "%" LAL_INT4_FORMAT;
-  param.strictness = CONFIGFILE_IGNORE;
-  param.secName    = secName;
+  if ( ! (*wasRead ) ) { // if nothing was read and XLALReadConfigSTRINGVariable() didn't throw an error, then we're ok and return
+    return XLAL_SUCCESS;
+  }
+  XLAL_CHECK ( valString != NULL, XLAL_EFAILED, "Got NULL string after reading config-variable '%s' in section '%s'\n", varName, secName ? secName: "default" );
 
-  return XLALReadConfigVariable ((void *) varp, cfgdata, &param, wasRead);
+  XLAL_CHECK ( XLALParseStringValueToINT4 ( varp, valString ) == XLAL_SUCCESS, XLAL_EFUNC );
+
+  XLALFree ( valString );
+
+  return XLAL_SUCCESS;
 
 } /* XLALReadConfigINT4Variable() */
 
 
-/** Type-specialization of generic reading-function LALReadConfigVariable() to REAL8 variables.
+/**
+ * Type-specialization of generic reading-function LALReadConfigVariable() to REAL8 variables.
  */
 int
 XLALReadConfigREAL8Variable (REAL8 *varp,
@@ -528,23 +538,30 @@ XLALReadConfigREAL8Variable (REAL8 *varp,
                             const CHAR *varName,
                             BOOLEAN *wasRead)
 {
-  LALConfigVar param = {0,0,0, CONFIGFILE_IGNORE };
+  (*wasRead) = FALSE;
+  /* first read the value as a string */
+  CHAR *valString = NULL;
+  XLAL_CHECK ( XLALReadConfigSTRINGVariable ( &valString, cfgdata, secName, varName, wasRead) == XLAL_SUCCESS, XLAL_EFUNC );
 
-  param.secName = secName;
-  param.varName = varName;
-  param.fmt = "%" LAL_REAL8_FORMAT;
-  param.strictness = CONFIGFILE_IGNORE;
+  if ( ! (*wasRead ) ) { // if nothing was read and XLALReadConfigSTRINGVariable() didn't throw an error, then we're ok and return
+    return XLAL_SUCCESS;
+  }
+  XLAL_CHECK ( valString != NULL, XLAL_EFAILED, "Got NULL string after reading config-variable '%s' in section '%s'\n", varName, secName ? secName: "default" );
 
-  return XLALReadConfigVariable( (void*) varp, cfgdata, &param, wasRead);
+  XLAL_CHECK ( XLALParseStringValueToREAL8 ( varp, valString ) == XLAL_SUCCESS, XLAL_EFUNC );
+
+  XLALFree ( valString );
+
+  return XLAL_SUCCESS;
 
 } /* XLALReadConfigREAL8Variable() */
 
 
-/** Type-specialization of generic reading-function XLALReadConfigVariable() to
+/**
+ * Type-specialization of generic reading-function XLALReadConfigVariable() to
  * STRING variables
- * \note this means the rest of the line, NOT "%s"! (but excluding comments of course),
- * \par Note2: if string is quoted by ", everything within quotes is read,
- *       and the quotes are removed here
+ * \note this means the rest of the line (skipping initial whitespace and excluding trailing comments), NOT "%s"!
+ * \par Note2: if string is quoted by ", everything within quotes is read, and the quotes are removed here
  *
  */
 int
@@ -623,7 +640,8 @@ XLALReadConfigSTRINGVariable (CHAR ** varp,		/**< [out] string, allocated here! 
 } /* XLALReadConfigSTRINGVariable() */
 
 
-/** Type-specialization of generic reading-function XLALReadConfigVariable() to
+/**
+ * Type-specialization of generic reading-function XLALReadConfigVariable() to
  * reading of <em>fixed-length</em> strings.
  * Another variant of string-reading:similar to ReadConfigSTRINGVariable(), but
  * here a fixed-size CHAR-array is used as input, no memory is allocated by
@@ -632,11 +650,11 @@ XLALReadConfigSTRINGVariable (CHAR ** varp,		/**< [out] string, allocated here! 
  * (this is basically a wrapper for ReadConfigSTRINGVariable())
  *
  * \par Note 2: the behaviour is similar to strncpy, i.e. we silently clip the
- *       string to the right length, BUT we also 0-terminate it properly.
- *       No error or warning is generated when clipping occurs!
+ * string to the right length, BUT we also 0-terminate it properly.
+ * No error or warning is generated when clipping occurs!
  *
  * \par Note 3: at return, the value <tt>varp->length</tt> is set to the length of the
- *              string copied (*including* the trailing 0)
+ * string copied (*including* the trailing 0)
  *
  */
 int
@@ -682,7 +700,8 @@ XLALReadConfigSTRINGNVariable (CHARVector *varp,        /**< [out] must be alloc
 } /* XLALReadConfigSTRINGNVariable() */
 
 
-/** Check if all lines of config-file have been successfully read in
+/**
+ * Check if all lines of config-file have been successfully read in
  * and issue a warning or error (depending on strictness) if not.
  */
 int
@@ -701,7 +720,7 @@ XLALCheckConfigReadComplete (const LALParsedDataFile *cfgdata,  /**< [in] config
       XLALPrintError ("%s:" CONFIGFILEH_MSGENULL, __func__ );
       XLAL_ERROR ( XLAL_EINVAL );
     }
-  if (cfgdata->wasRead == NULL)
+  if ( (cfgdata->lines->nTokens > 0) && (cfgdata->wasRead == NULL) )
     {
       XLALPrintError ("%s:" CONFIGFILEH_MSGENULL, __func__ );
       XLAL_ERROR ( XLAL_EINVAL );
@@ -739,6 +758,121 @@ XLALCheckConfigReadComplete (const LALParsedDataFile *cfgdata,  /**< [in] config
   return XLAL_SUCCESS;
 
 } /* XLALCheckConfigReadComplete() */
+
+
+//! Parse a string into an INT8
+//! This ignores initial whitespace, but throws an error on _any_ non-converted trailing characters (including whitespace)
+int
+XLALParseStringValueToINT8 ( INT8 *valINT8,         //!< [out] return INT8 value
+                             const char *valString  //!< [in]  input string value
+                             )
+{
+  XLAL_CHECK ( (valINT8 != NULL) && (valString != NULL ), XLAL_EINVAL );
+
+  errno = 0;
+  char *endptr;
+  int base10 = 10;
+  long long valLLong = strtoll ( valString, &endptr, base10 );
+  XLAL_CHECK ( errno == 0, XLAL_EFAILED, "strtoll() failed to convert '%s' into long long!\n", valString );
+  XLAL_CHECK ( (*endptr) == '\0', XLAL_EFAILED, "strtoll(): trailing garbage '%s' found after int-conversion of '%s'\n", endptr, valString );
+
+  //  check range and convert long-int into INT8
+  if ( sizeof(valLLong) > sizeof(INT8) ) { // avoid warning about trivial check
+    XLAL_CHECK ( (valLLong > -LAL_INT8_MAX) && (valLLong < LAL_INT8_MAX), XLAL_EDOM, "String-conversion '%s' --> '%ld' exceeds INT8 range of +-%d\n",
+                 valString, valLLong, LAL_INT8_MAX );
+  }
+
+  (*valINT8) = (INT8)valLLong;
+
+  return XLAL_SUCCESS;
+
+} // XLALParseStringValueToINT8()
+
+
+//! Parse a string into an INT4
+//! This ignores initial whitespace, but throws an error on _any_ non-converted trailing characters (including whitespace)
+int
+XLALParseStringValueToINT4 ( INT4 *valINT4,         //!< [out] return INT4 value
+                             const char *valString  //!< [in]  input string value
+                             )
+{
+  XLAL_CHECK ( (valINT4 != NULL) && (valString != NULL ), XLAL_EINVAL );
+
+  INT8 valINT8;
+  XLAL_CHECK ( XLALParseStringValueToINT8 ( &valINT8, valString ) == XLAL_SUCCESS, XLAL_EFUNC );
+
+  // check range and convert INT8 into INT4
+  XLAL_CHECK ( (valINT8 > -LAL_INT4_MAX) && (valINT8 < LAL_INT4_MAX), XLAL_EDOM, "String-conversion '%s' --> '%ld' exceeds INT4 range of +-%d\n",
+               valString, valINT8, LAL_INT4_MAX );
+
+  (*valINT4) = (INT4)valINT8;
+
+  return XLAL_SUCCESS;
+
+} // XLALParseStringValueToINT4()
+
+
+//! Parse a string into a REAL8
+//! This ignores initial whitespace, but throws an error on _any_ non-converted trailing characters (including whitespace)
+int
+XLALParseStringValueToREAL8 ( REAL8 *valREAL8,         //!< [out] return REAL8 value
+                              const char *valString    //!< [in]  input string value
+                              )
+{
+  XLAL_CHECK ( (valREAL8 != NULL) && (valString != NULL ), XLAL_EINVAL );
+
+  errno = 0;
+  char *endptr;
+  double valDouble = strtod ( valString, &endptr );
+  XLAL_CHECK ( errno == 0, XLAL_EFAILED, "strtod() failed to convert '%s' into a double!\n", valString );
+  XLAL_CHECK ( (*endptr) == '\0', XLAL_EFAILED, "strtod(): trailing garbage '%s' found after double-conversion of '%s'\n", endptr, valString );
+
+  (*valREAL8) = (REAL8)valDouble;
+
+  return XLAL_SUCCESS;
+
+} // XLALParseStringValueToREAL8()
+
+
+//! Parse a string into a BOOLEAN
+//! Allowed string-values are (case-insensitive):
+//! {"yes", "true", "1"} --> TRUE
+//! {"no", "false", "0"} --> FALSE
+//!
+//! NOTE: This throws an error on _any_ extraneous leading or trailing characters or whitespace
+int
+XLALParseStringValueToBOOLEAN ( BOOLEAN *valBOOLEAN,     //!< [out] return BOOLEAN value
+                                const char *valString    //!< [in]  input string value
+                                )
+{
+  XLAL_CHECK ( (valBOOLEAN != NULL) && (valString != NULL ), XLAL_EINVAL );
+
+  /* get rid of case ambiguities */
+  char *valStringLower;
+  XLAL_CHECK ( (valStringLower = XLALMalloc ( strlen(valString) + 1 )) != NULL, XLAL_ENOMEM );
+  strcpy ( valStringLower, valString );
+  XLALStringToLowerCase ( valStringLower );
+
+  /* parse it as a bool */
+  if ( !strcmp(valStringLower, "yes") || !strcmp(valStringLower, "true") || !strcmp(valStringLower, "1") )
+    {
+      (*valBOOLEAN) = TRUE;
+    }
+  else if ( !strcmp(valStringLower, "no") || !strcmp(valStringLower, "false") || !strcmp(valStringLower, "0") )
+    {
+      (*valBOOLEAN) = FALSE;
+    }
+  else
+    {
+      XLALFree ( valStringLower );
+      XLAL_ERROR ( XLAL_EINVAL, "Illegal bool-string '%s', needs to be one of {'yes', 'true', '1'} or {'no', 'false', '0'} (case-insensitive)\n", valString );
+    }
+
+  XLALFree ( valStringLower );
+
+  return XLAL_SUCCESS;
+
+} // XLALParseStringValueToBOOLEAN()
 
 
 /*----------------------------------------------------------------------*/
@@ -857,7 +991,8 @@ cleanConfig ( char *text )
  * These functions are just wrappers around the XLAL functions
  */
 
-/** \deprecated use XLALParseDataFile() instead
+/**
+ * \deprecated use XLALParseDataFile() instead
  */
 void
 LALParseDataFile (LALStatus *status,		/**< pointer to LALStatus structure */
@@ -878,7 +1013,8 @@ LALParseDataFile (LALStatus *status,		/**< pointer to LALStatus structure */
 } /* LALLoadConfigFile() */
 
 
-/** \deprecated used XLALDestroyParsedDataFile() instead
+/**
+ * \deprecated used XLALDestroyParsedDataFile() instead
  */
 void
 LALDestroyParsedDataFile (LALStatus *status,		/**< pointer to LALStatus structure */
@@ -896,7 +1032,8 @@ LALDestroyParsedDataFile (LALStatus *status,		/**< pointer to LALStatus structur
 
 
 
-/** \deprecated use XLALReadConfigVariable() instead
+/**
+ * \deprecated use XLALReadConfigVariable() instead
  */
 void
 LALReadConfigVariable (LALStatus *status,		/**< pointer to LALStatus structure */
@@ -919,7 +1056,8 @@ LALReadConfigVariable (LALStatus *status,		/**< pointer to LALStatus structure *
 } /* LALReadConfigVariable() */
 
 
-/** \deprecated use XLALReadConfigBOOLVariable() instead
+/**
+ * \deprecated use XLALReadConfigBOOLVariable() instead
  */
 void
 LALReadConfigBOOLVariable (LALStatus *status,		/**< pointer to LALStatus structure */
@@ -941,7 +1079,8 @@ LALReadConfigBOOLVariable (LALStatus *status,		/**< pointer to LALStatus structu
 } /* LALReadConfigBOOLVariable() */
 
 
-/** \deprecated use XLALReadConfigINT4Variable() instead
+/**
+ * \deprecated use XLALReadConfigINT4Variable() instead
  */
 void
 LALReadConfigINT4Variable (LALStatus *status,
@@ -963,7 +1102,8 @@ LALReadConfigINT4Variable (LALStatus *status,
 
 } /* LALReadConfigINT4Variable() */
 
-/** \deprecated use XLALReadConfigREAL8Variable() instead
+/**
+ * \deprecated use XLALReadConfigREAL8Variable() instead
  */
 void
 LALReadConfigREAL8Variable (LALStatus *status,
@@ -985,7 +1125,8 @@ LALReadConfigREAL8Variable (LALStatus *status,
 
 } /* LALReadConfigREAL8Variable() */
 
-/** \deprecated use XLALReadConfigSTRINGVariable() instead
+/**
+ * \deprecated use XLALReadConfigSTRINGVariable() instead
  */
 void
 LALReadConfigSTRINGVariable (LALStatus *status,		/**< pointer to LALStatus structure */
@@ -1008,7 +1149,8 @@ LALReadConfigSTRINGVariable (LALStatus *status,		/**< pointer to LALStatus struc
 } /* LALReadConfigSTRINGVariable() */
 
 
-/** \deprecated use XLALReadConfigSTRINGNVariable() instead
+/**
+ * \deprecated use XLALReadConfigSTRINGNVariable() instead
  */
 void
 LALReadConfigSTRINGNVariable (LALStatus *status,	/**< pointer to LALStatus structure */
@@ -1030,7 +1172,8 @@ LALReadConfigSTRINGNVariable (LALStatus *status,	/**< pointer to LALStatus struc
 
 } /* LALReadConfigSTRINGNVariable() */
 
-/** \deprecated use XLALCheckConfigReadComplete() instead
+/**
+ * \deprecated use XLALCheckConfigReadComplete() instead
  */
 void
 LALCheckConfigReadComplete (LALStatus *status,			/**< pointer to LALStatus structure */

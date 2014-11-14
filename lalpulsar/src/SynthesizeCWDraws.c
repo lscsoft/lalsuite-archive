@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Reinhard Prix
+ * Copyright (C) 2011, 2014 David Keitel
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -17,26 +18,12 @@
  *  MA  02111-1307  USA
  */
 
-/*********************************************************************************/
-/** \author R. Prix
- * \file
- * \brief
- * Generate samples of various statistics (F-stat, B-stat,...) drawn from their
- * respective distributions, assuming Gaussian noise, and drawing signal params from
- * their (given) priors
- *
- * This is based on synthesizeBstat, and is mostly meant to be used for Monte-Carlos
- * studies of ROC curves
- *
- *********************************************************************************/
-
 /*---------- INCLUDES ----------*/
 
 /* GSL includes */
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_linalg.h>
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/SynthesizeCWDraws.h>
 
 /*---------- DEFINES ----------*/
@@ -45,17 +32,14 @@
 /*----- SWITCHES -----*/
 /*---------- internal types ----------*/
 
-/*---------- empty initializers ---------- */
-multiAMBuffer_t empty_multiAMBuffer;
-InjParams_t empty_InjParams_t;
-
 /*---------- Global variables ----------*/
 
 /*---------- internal prototypes ----------*/
 
 /*==================== FUNCTION DEFINITIONS ====================*/
 
-/** Generate 4 random-noise draws n_mu = {n_1, n_2, n_3, n_4} with correlations according to
+/**
+ * Generate 4 random-noise draws n_mu = {n_1, n_2, n_3, n_4} with correlations according to
  * the matrix M = L L^T, which is passed in as input.
  *
  * Note: you need to pass a pre-allocated 4-vector n_mu.
@@ -107,7 +91,8 @@ XLALDrawCorrelatedNoise ( PulsarAmplitudeVect n_mu,	/**< [out] 4d vector of nois
 
 } /* XLALDrawCorrelatedNoise() */
 
-/** Generate an FstatAtomVector for given antenna-pattern functions.
+/**
+ * Generate an FstatAtomVector for given antenna-pattern functions.
  * Simply creates FstatAtomVector and initializes with antenna-pattern function.
  */
 FstatAtomVector*
@@ -159,7 +144,8 @@ XLALGenerateFstatAtomVector ( const DetectorStateSeries *detStates,	/**< input d
 } /* XLALGenerateFstatAtomVector() */
 
 
-/** Generate a multi-FstatAtomVector for given antenna-pattern functions.
+/**
+ * Generate a multi-FstatAtomVector for given antenna-pattern functions.
  * Simply creates MultiFstatAtomVector and initializes with antenna-pattern function.
  */
 MultiFstatAtomVector*
@@ -213,7 +199,8 @@ XLALGenerateMultiFstatAtomVector ( const MultiDetectorStateSeries *multiDetState
 
 } /* XLALGenerateMultiFstatAtomVector() */
 
-/** Add Gaussian-noise components to given FstatAtomVector
+/**
+ * Add Gaussian-noise components to given FstatAtomVector
  */
 int
 XLALAddNoiseToFstatAtomVector ( FstatAtomVector *atoms,	/**< input atoms-vector, noise will be added to this */
@@ -277,10 +264,8 @@ XLALAddNoiseToFstatAtomVector ( FstatAtomVector *atoms,	/**< input atoms-vector,
 
       /* add this to Fstat-atom */
       /* relation Fa,Fb <--> x_mu: see Eq.(72) in CFSv2-LIGO-T0900149-v2.pdf */
-      atoms->data[alpha].Fa_alpha.realf_FIXME +=   x1;
-      atoms->data[alpha].Fa_alpha.imagf_FIXME += - x3;
-      atoms->data[alpha].Fb_alpha.realf_FIXME +=   x2;
-      atoms->data[alpha].Fb_alpha.imagf_FIXME += - x4;
+      atoms->data[alpha].Fa_alpha += crectf( x1, - x3 );
+      atoms->data[alpha].Fb_alpha += crectf( x2, - x4 );
 
     } /* for i < numAtoms */
 
@@ -292,7 +277,8 @@ XLALAddNoiseToFstatAtomVector ( FstatAtomVector *atoms,	/**< input atoms-vector,
 } /* XLALAddNoiseToFstatAtomVector() */
 
 
-/** Add Gaussian-noise components to given multi-FstatAtomVector
+/**
+ * Add Gaussian-noise components to given multi-FstatAtomVector
  */
 int
 XLALAddNoiseToMultiFstatAtomVector ( MultiFstatAtomVector *multiAtoms,	/**< input multi atoms-vector, noise will be added to this */
@@ -326,8 +312,9 @@ XLALAddNoiseToMultiFstatAtomVector ( MultiFstatAtomVector *multiAtoms,	/**< inpu
 } /* XLALSynthesizeMultiFstatAtomVector4Noise() */
 
 
-/** Add signal s_mu = M_mu_nu A^nu within the given transient-window
- *  to given atoms.
+/**
+ * Add signal s_mu = M_mu_nu A^nu within the given transient-window
+ * to given atoms.
  *
  * RETURN: SNR^2 of the injected signal
  * and the effective AntennaPatternMatrix M_mu_nu for this signal.
@@ -419,7 +406,7 @@ XLALAddSignalToFstatAtomVector ( FstatAtomVector* atoms,	 /**< [in/out] atoms ve
        * compute the matrix-vector product and sum y = \alpha op(A) x + \beta y, where op(A) = A, A^T, A^H
        * for TransA = CblasNoTrans, CblasTrans, CblasConjTrans.
        *
-       * sh_mu = sqrt(gamma/2) * Mh_mu_nu A^nu, where here gamma = TAtom (as Sinv=1)
+       * sh_mu = sqrt(gamma/2) * Mh_mu_nu A^nu, where here gamma = TAtom, as Sinv=1 for multi-IFO value, and weights for SinvX!=1 have already been absorbed in atoms through XLALComputeMultiAMCoeffs()
        */
       REAL8 norm_s = sqrt(TAtom / 2.0);
       if ( (gslstat = gsl_blas_dgemv (CblasNoTrans, norm_s, Mh_mu_nu, &A_Mu_view.vector, 0.0, &sh_mu_view.vector)) != 0 ) {
@@ -434,10 +421,8 @@ XLALAddSignalToFstatAtomVector ( FstatAtomVector* atoms,	 /**< [in/out] atoms ve
       s3 = sh_mu[2];
       s4 = sh_mu[3];
 
-      atoms->data[alpha].Fa_alpha.realf_FIXME +=   s1;
-      atoms->data[alpha].Fa_alpha.imagf_FIXME += - s3;
-      atoms->data[alpha].Fb_alpha.realf_FIXME +=   s2;
-      atoms->data[alpha].Fb_alpha.imagf_FIXME += - s4;
+      atoms->data[alpha].Fa_alpha += crectf( s1, - s3 );
+      atoms->data[alpha].Fb_alpha += crectf( s2, - s4 );
 
     } /* for alpha < numAtoms */
 
@@ -468,7 +453,8 @@ XLALAddSignalToFstatAtomVector ( FstatAtomVector* atoms,	 /**< [in/out] atoms ve
 } /* XLALAddSignalToFstatAtomVector() */
 
 
-/** Add given signal s_mu = M_mu_nu A^nu within the given transient-window
+/**
+ * Add given signal s_mu = M_mu_nu A^nu within the given transient-window
  * to multi-IFO noise-atoms.
  *
  * RETURN: SNR^2 of the injected signal
@@ -476,9 +462,9 @@ XLALAddSignalToFstatAtomVector ( FstatAtomVector* atoms,	 /**< [in/out] atoms ve
  */
 REAL8
 XLALAddSignalToMultiFstatAtomVector ( MultiFstatAtomVector* multiAtoms,	 /**< [in/out] multi atoms vectors containing antenna-functions and possibly noise {Fa,Fb} */
-                                      AntennaPatternMatrix *M_mu_nu,	 /**< [out] effective antenna-pattern matrix for the injected signal */
+                                      AntennaPatternMatrix *M_mu_nu,	 /**< [out] effective multi-IFO antenna-pattern matrix for the injected signal */
                                       const PulsarAmplitudeVect A_Mu, 	/**< [in] input canonical amplitude vector A^mu = {A1,A2,A3,A4} */
-                                      transientWindow_t transientWindow, /**< transient signal window */
+                                      transientWindow_t transientWindow, /**< [in] transient signal window */
                                       INT4 lineX	 		/**< [in] if >= 0: generate signal only for detector 'lineX': must be within 0,...(Ndet-1) */
                                       )
 {
@@ -497,7 +483,7 @@ XLALAddSignalToMultiFstatAtomVector ( MultiFstatAtomVector* multiAtoms,	 /**< [i
 
   UINT4 X;
   REAL8 rho2 = 0;
-  (*M_mu_nu) = empty_AntennaPatternMatrix;
+  XLAL_INIT_MEM( (*M_mu_nu));
 
   for ( X=0; X < numDet; X ++ )
     {
@@ -530,7 +516,8 @@ XLALAddSignalToMultiFstatAtomVector ( MultiFstatAtomVector* multiAtoms,	 /**< [i
 
 } /* XLALAddSignalToMultiFstatAtomVector() */
 
-/** Generates a multi-Fstat atoms vector for given parameters, drawing random parameters wherever required.
+/**
+ * Generates a multi-Fstat atoms vector for given parameters, drawing random parameters wherever required.
  *
  * Input: detector states, signal sky-pos (or allsky), amplitudes (or range), transient window range
  *
@@ -544,14 +531,13 @@ XLALSynthesizeTransientAtoms ( InjParams_t *injParamsOut,			/**< [out] return su
                                BOOLEAN SignalOnly,				/**< [in] switch to generate signal draws without noise */
                                multiAMBuffer_t *multiAMBuffer,			/**< [in/out] buffer for AM-coefficients if re-using same skyposition (must be !=NULL) */
                                gsl_rng *rng,					/**< [in/out] gsl random-number generator */
-                               INT4 lineX					/**< [in] if >= 0: generate signal only for detector 'lineX': must be within 0,...(Ndet-1) */
+                               INT4 lineX,					/**< [in] if >= 0: generate signal only for detector 'lineX': must be within 0,...(Ndet-1) */
+                               const MultiNoiseWeights *multiNoiseWeights	/** [in] per-detector noise weights SX^-1/S^-1, no per-SFT variation (can be NULL for unit weights) */
                                )
 {
   /* check input */
-  if ( !rng || !multiAMBuffer || !multiDetStates ) {
-    XLALPrintError ("%s: invalid NULL input\n", __func__ );
-    XLAL_ERROR_NULL ( XLAL_EINVAL );
-  }
+  XLAL_CHECK_NULL ( rng && multiAMBuffer && multiDetStates, XLAL_EINVAL, "Invalid NULL input!\n");
+  XLAL_CHECK_NULL ( !multiNoiseWeights || multiNoiseWeights->data, XLAL_EINVAL, "Invalid NULL input for multiNoiseWeights->data!\n" );
 
   /* -----  if Alpha < 0 ==> draw skyposition isotropically from all-sky */
   if ( skypos.longitude < 0 )
@@ -576,8 +562,7 @@ XLALSynthesizeTransientAtoms ( InjParams_t *injParamsOut,			/**< [out] return su
     } /* if single skypos given */
 
   /* ----- generate antenna-pattern functions for this sky-position */
-  const MultiNoiseWeights *weights = NULL;	/* NULL = unit weights */
-  if ( !multiAMBuffer->multiAM && (multiAMBuffer->multiAM = XLALComputeMultiAMCoeffs ( multiDetStates, weights, skypos )) == NULL ) {
+  if ( !multiAMBuffer->multiAM && (multiAMBuffer->multiAM = XLALComputeMultiAMCoeffs ( multiDetStates, multiNoiseWeights, skypos )) == NULL ) {
     XLALPrintError ( "%s: XLALComputeMultiAMCoeffs() failed with xlalErrno = %d\n", __func__, xlalErrno );
     XLAL_ERROR_NULL ( XLAL_EFUNC );
   }
@@ -611,7 +596,7 @@ XLALSynthesizeTransientAtoms ( InjParams_t *injParamsOut,			/**< [out] return su
   }
 
   /* ----- draw transient-window parameters from given ranges using flat priors */
-  transientWindow_t injectWindow = empty_transientWindow;
+  transientWindow_t XLAL_INIT_DECL(injectWindow);
   injectWindow.type = transientInjectRange.type;
   if ( injectWindow.type != TRANSIENT_NONE )	/* nothing to be done if no window */
     {
@@ -670,7 +655,7 @@ XLALSynthesizeTransientAtoms ( InjParams_t *injParamsOut,			/**< [out] return su
       injParamsOut->skypos = skypos;
       injParamsOut->ampParams = Amp;
       UINT4 i; for (i=0; i < 4; i ++) injParamsOut->ampVect[i] = A_Mu[i];
-      injParamsOut->M_mu_nu = M_mu_nu;
+      injParamsOut->multiAM = *multiAMBuffer->multiAM;
       injParamsOut->transientWindow = injectWindow;
       injParamsOut->SNR = sqrt(rho2);
       injParamsOut->detM1o8 = detM1o8;
@@ -681,7 +666,8 @@ XLALSynthesizeTransientAtoms ( InjParams_t *injParamsOut,			/**< [out] return su
 
 } /* XLALSynthesizeTransientAtoms() */
 
-/** Rescale a given multi-Fstat atoms vector {Fa,Fb} by given scalar factor.
+/**
+ * Rescale a given multi-Fstat atoms vector {Fa,Fb} by given scalar factor.
  * This is used to rescale signal atoms to desired fixed SNR.
  */
 int
@@ -707,11 +693,9 @@ XLALRescaleMultiFstatAtomVector ( MultiFstatAtomVector* multiAtoms,	/**< [in/out
         {
           FstatAtom *thisAtom = &atoms->data[i];
 
-          thisAtom->Fa_alpha.realf_FIXME *= rescale;
-          thisAtom->Fa_alpha.imagf_FIXME *= rescale;
+          thisAtom->Fa_alpha *= ((REAL4) rescale);
 
-          thisAtom->Fb_alpha.realf_FIXME *= rescale;
-          thisAtom->Fb_alpha.imagf_FIXME *= rescale;
+          thisAtom->Fb_alpha *= ((REAL4) rescale);
 
         } /* for i < numAtoms */
 
@@ -722,13 +706,16 @@ XLALRescaleMultiFstatAtomVector ( MultiFstatAtomVector* multiAtoms,	/**< [in/out
 } /* XLALRescaleMultiFstatAtomVector() */
 
 
-/** Write an injection-parameters structure to the given file-pointer,
+/**
+ * Write an injection-parameters structure to the given file-pointer,
  * adding one line with the injection parameters
  */
 int
-write_InjParams_to_fp ( FILE * fp,		/**< [in] file-pointer to output file */
-                        const InjParams_t *par,	/**< [in] injection params to write. NULL means write header-comment line */
-                        UINT4 dataStartGPS	/**< [in] data start-time in GPS seconds (used to turn window 't0' into offset from dataStartGPS) */
+write_InjParams_to_fp ( FILE * fp,			/**< [in] file-pointer to output file */
+                        const InjParams_t *par,		/**< [in] injection params to write. NULL means write header-comment line */
+                        const UINT4 dataStartGPS,	/**< [in] data start-time in GPS seconds (used to turn window 't0' into offset from dataStartGPS) */
+                        const BOOLEAN outputMmunuX,	/**< [in] write per-IFO antenna pattern matrices? */
+                        const UINT4 numDetectors	/**< [in] number of detectors, only needed to construct M_mu_nu_X_header_string */
                         )
 {
   /* input consistency */
@@ -740,7 +727,15 @@ write_InjParams_to_fp ( FILE * fp,		/**< [in] file-pointer to output file */
   int ret;
   /* if requested, write header-comment line */
   if ( par == NULL ) {
-    ret = fprintf(fp, "%%%%Alpha Delta      SNR       h0   cosi    psi   phi0          A1       A2       A3       A4         Ad       Bd       Cd       Dd       t0[d]     tau[d] type   (detMp)^(1/8)\n");
+    char M_mu_nu_X_header_string[256] = "";
+    if ( outputMmunuX ) {
+      char buf0[256];
+      for ( UINT4 X = 0; X < numDetectors ; X ++ ) {
+        snprintf ( buf0, sizeof(buf0), "   AdX[%d]   BdX[%d]   CdX[%d]   DdX[%d]", X, X, X, X );
+        strcat ( M_mu_nu_X_header_string, buf0 );
+      }
+    }
+    ret = fprintf(fp, "%%%%Alpha Delta      SNR       h0   cosi    psi   phi0          A1       A2       A3       A4         Ad       Bd       Cd       Dd       t0[d]     tau[d] type   (detMp)^(1/8)%s\n", M_mu_nu_X_header_string);
     if ( ret < 0 ) {
       XLALPrintError ("%s: failed to fprintf() to given file-pointer 'fp'.\n", __func__ );
       XLAL_ERROR ( XLAL_EIO );
@@ -753,15 +748,30 @@ write_InjParams_to_fp ( FILE * fp,		/**< [in] file-pointer to output file */
   REAL8 t0_d = 1.0 * ( par->transientWindow.t0 - dataStartGPS ) / DAY24;
   REAL8 tau_d = 1.0 * par->transientWindow.tau / DAY24;
 
+  char M_mu_nu_X_string[256] = "";
+  if ( outputMmunuX ) {
+    if ( par->multiAM.length != numDetectors ) {
+      XLALPrintError ("%s: length of multiAM different than numDetectors (%d!=%d).\n", __func__, par->multiAM.length, numDetectors );
+      XLAL_ERROR ( XLAL_EINVAL );
+    }
+    strcat ( M_mu_nu_X_string, "     ");
+    char buf0[256];
+    for ( UINT4 X = 0; X < numDetectors ; X ++ ) {
+      snprintf ( buf0, sizeof(buf0), " %8.3g %8.3g %8.3g %8.3g", par->multiAM.data[X]->A, par->multiAM.data[X]->B, par->multiAM.data[X]->C, par->multiAM.data[X]->D );
+      strcat ( M_mu_nu_X_string, buf0 );
+    }
+  }
+
   /* if injParams given, output them to the file */
-  ret = fprintf ( fp, " %5.3f %6.3f   %6.3f  %7.3g %6.3f %6.3f %6.3f    %8.3g %8.3g %8.3g %8.3g   %8.3g %8.3g %8.3g %8.3g    %8.3f  %8.3f    %1d   %8.3g\n",
+  ret = fprintf ( fp, " %5.3f %6.3f   %6.3f  %7.3g %6.3f %6.3f %6.3f    %8.3g %8.3g %8.3g %8.3g   %8.3g %8.3g %8.3g %8.3g    %8.3f  %8.3f    %1d   %8.3g%s\n",
                   par->skypos.longitude, par->skypos.latitude,						/* skypos */
                   par->SNR,										/* SNR */
                   par->ampParams.h0, par->ampParams.cosi, par->ampParams.psi, par->ampParams.phi0,	/* amplitude params {h0,cosi,psi,phi0}*/
                   par->ampVect[0], par->ampVect[1], par->ampVect[2], par->ampVect[3],			/* ampltiude vector A^mu */
-                  par->M_mu_nu.Ad, par->M_mu_nu.Bd, par->M_mu_nu.Cd, par->M_mu_nu.Dd,			/* antenna-pattern matrix components */
+                  par->multiAM.Mmunu.Ad, par->multiAM.Mmunu.Bd, par->multiAM.Mmunu.Cd, par->multiAM.Mmunu.Dd,	/* antenna-pattern matrix components */
                   t0_d, tau_d, par->transientWindow.type,		/* transient-window params */
-                  par->detM1o8										/* rescale parameter (detMp)^(1/8) */
+                  par->detM1o8,										/* rescale parameter (detMp)^(1/8) */
+                  M_mu_nu_X_string										/* optional output string for per-IFO antenna pattern matrices */
                   );
   if ( ret < 0 ) {
     XLALPrintError ("%s: failed to fprintf() to given file-pointer 'fp'.\n", __func__ );

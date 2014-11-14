@@ -19,35 +19,35 @@
 */
 
 /**
-
-\author Craig Robinson
-
-\file
-
-\brief Functions to generate the EOBNRv2 waveforms, as defined in
-Pan et al, arXiv:1106.1021v1 [gr-qc].
-
-\heading{Prototypes}
-<tt>LALEOBPPWaveform()</tt>
-<ul>
-    <li><tt>signalvec: </tt> Output containing the inspiral waveform.
-    <li><tt> params:</tt> Input containing binary chirp parameters.
-</ul>
-
-<tt> LALEOBPPWaveformTemplates() </tt>
-<ul>
-    <li><tt> signalvec1:</tt> Output containing the 0-phase inspiral waveform.
-    <li><tt> signalvec2:</tt> Output containing the \f$\pi/2\f$-phase inspiral waveform.
-    <li><tt> params:</tt> Input containing binary chirp parameters.
-</ul>
-
-<tt> LALEOBPPWaveformForInjection() </tt>
-<ul>
-    <li><tt> waveform: </tt> Coherent GW structure containing output waveform
-    <li><tt> params: </tt> Input containing inspiral template parameters.
-    <li><tt> ppnParams </tt> Input containing other necessary parameters.
-</ul>
-*/
+ * \author Craig Robinson
+ *
+ * \file
+ *
+ * \brief Functions to generate the EOBNRv2 waveforms, as defined in
+ * Pan et al, arXiv:1106.1021v1 [gr-qc].
+ *
+ * ### Prototypes ###
+ *
+ * <tt>LALEOBPPWaveform()</tt>
+ * <ul>
+ * <li><tt>signalvec: </tt> Output containing the inspiral waveform.
+ * <li><tt> params:</tt> Input containing binary chirp parameters.
+ * </ul>
+ *
+ * <tt> LALEOBPPWaveformTemplates() </tt>
+ * <ul>
+ * <li><tt> signalvec1:</tt> Output containing the 0-phase inspiral waveform.
+ * <li><tt> signalvec2:</tt> Output containing the \f$\pi/2\f$-phase inspiral waveform.
+ * <li><tt> params:</tt> Input containing binary chirp parameters.
+ * </ul>
+ *
+ * <tt> LALEOBPPWaveformForInjection() </tt>
+ * <ul>
+ * <li><tt> waveform: </tt> Coherent GW structure containing output waveform
+ * <li><tt> params: </tt> Input containing inspiral template parameters.
+ * <li><tt> ppnParams </tt> Input containing other necessary parameters.
+ * </ul>
+ */
 
 #include <lal/Units.h>
 #include <lal/LALInspiral.h>
@@ -1132,7 +1132,7 @@ LALEOBPPWaveform (
 
    INITSTATUS(status);
 
-   XLALPrintDeprecationWarning( "LALEOBPPWaveform", "XLALEOBPPWaveform" );
+   XLAL_PRINT_DEPRECATION_WARNING("XLALEOBPPWaveform");
 
    if ( XLALEOBPPWaveform( signalvec, params ) == XLAL_FAILURE )
    {
@@ -1148,7 +1148,7 @@ XLALEOBPPWaveform(
     InspiralTemplate *params
     )
 {
-   XLALPrintDeprecationWarning( "lalinspiral/XLALEOBPPWaveform", "lalsimulation/XLALSimIMREOBNRv2AllModes or lalsimulation/XLALSimIMREOBNRv2DominantMode" );
+   XLAL_PRINT_DEPRECATION_WARNING("lalsimulation/XLALSimIMREOBNRv2AllModes or lalsimulation/XLALSimIMREOBNRv2DominantMode");
    XLALPrintWarning( "WARNING: The lalinspiral version of EOBNRv2 and EOBNRv2HM are not reviewed or maintained and will be removed in the future. The lalsimulation versions of these waveforms should be used.\n" );
 
    UINT4 count;
@@ -1224,7 +1224,7 @@ LALEOBPPWaveformTemplates (
 
    INITSTATUS(status);
 
-   XLALPrintDeprecationWarning( "LALEOBPPWaveformTemplates", "XLALEOBPPWaveformTemplates" );
+   XLAL_PRINT_DEPRECATION_WARNING("XLALEOBPPWaveformTemplates");
 
    if ( XLALEOBPPWaveformTemplates( signalvec1, signalvec2, params ) == XLAL_FAILURE )
    {
@@ -1328,7 +1328,7 @@ LALEOBPPWaveformForInjection (
 {
   INITSTATUS(status);
 
-  XLALPrintDeprecationWarning( "LALEOBPPWaveformForInjection", "XLALEOBPPWaveformForInjection" );
+  XLAL_PRINT_DEPRECATION_WARNING("XLALEOBPPWaveformForInjection");
 
   if ( XLALEOBPPWaveformForInjection( waveform, params, ppnParams ) == XLAL_FAILURE )
   {

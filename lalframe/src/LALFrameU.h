@@ -238,7 +238,6 @@ enum LALFrameUFrProcDataSubType {
 int XLALFrameUFrFileIGWDVersion(LALFrameUFrFile *stream);
 */
 
-
 /**
  * @name FrFile Routines
  * @{
@@ -271,14 +270,12 @@ LALFrameUFrFile *XLALFrameUFrFileOpen(const char *filename, const char *mode);
  */
 int XLALFrameUFileCksumValid(LALFrameUFrFile * stream);
 
-
 /** @} */
 
 /**
  * @name FrTOC Routines
  * @{
  */
-
 
 /**
  * @brief Free a FrTOC structure.
@@ -290,7 +287,7 @@ int XLALFrameUFileCksumValid(LALFrameUFrFile * stream);
  */
 void XLALFrameUFrTOCFree(LALFrameUFrTOC * toc);
 
-/** 
+/**
  * @brief Read the table of contents FrTOC structure for a FrFile stream.
  * @param stream Pointer to the input FrFile stream from which to read FrTOC.
  * @return Pointer to the FrTOC structure.
@@ -308,8 +305,7 @@ void XLALFrameUFrTOCFree(LALFrameUFrTOC * toc);
  */
 LALFrameUFrTOC *XLALFrameUFrTOCRead(LALFrameUFrFile * stream);
 
-
-/** 
+/**
  * @name FrTOC Query Routines
  * @{
  */
@@ -338,10 +334,9 @@ size_t XLALFrameUFrTOCQueryNFrame(const LALFrameUFrTOC * toc);
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-double XLALFrameUFrTOCQueryGTimeModf(double *iptr, const LALFrameUFrTOC * toc,
-    size_t pos);
+double XLALFrameUFrTOCQueryGTimeModf(double *iptr, const LALFrameUFrTOC * toc, size_t pos);
 
-/** 
+/**
  * @brief Query FrTOC structure for duration of a FrameH structure.
  * @param toc Pointer to the FrTOC structure to be queried.
  * @param pos Index position of the FrameH structure.
@@ -380,8 +375,7 @@ size_t XLALFrameUFrTOCQueryAdcN(const LALFrameUFrTOC * toc);
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-const char *XLALFrameUFrTOCQueryAdcName(const LALFrameUFrTOC * toc,
-    size_t adc);
+const char *XLALFrameUFrTOCQueryAdcName(const LALFrameUFrTOC * toc, size_t adc);
 
 /**
  * @brief Query FrTOC structure for number of FrSimData structures.
@@ -409,8 +403,7 @@ size_t XLALFrameUFrTOCQuerySimN(const LALFrameUFrTOC * toc);
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-const char *XLALFrameUFrTOCQuerySimName(const LALFrameUFrTOC * toc,
-    size_t sim);
+const char *XLALFrameUFrTOCQuerySimName(const LALFrameUFrTOC * toc, size_t sim);
 
 /**
  * @brief Query FrTOC structure for number of FrProcData structures.
@@ -438,8 +431,7 @@ size_t XLALFrameUFrTOCQueryProcN(const LALFrameUFrTOC * toc);
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-const char *XLALFrameUFrTOCQueryProcName(const LALFrameUFrTOC * toc,
-    size_t proc);
+const char *XLALFrameUFrTOCQueryProcName(const LALFrameUFrTOC * toc, size_t proc);
 
 /**
  * @brief Query FrTOC structure for number of FrDetector structures.
@@ -466,15 +458,12 @@ size_t XLALFrameUFrTOCQueryDetectorN(const LALFrameUFrTOC * toc);
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-const char *XLALFrameUFrTOCQueryDetectorName(const LALFrameUFrTOC * toc,
-    size_t det);
-
+const char *XLALFrameUFrTOCQueryDetectorName(const LALFrameUFrTOC * toc, size_t det);
 
 /** @} */
 /** @} */
 
-
-/** 
+/**
  * @name FrameH Routines
  * @{
  */
@@ -500,8 +489,7 @@ void XLALFrameUFrameHFree(LALFrameUFrameH * frame);
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-LALFrameUFrameH *XLALFrameUFrameHAlloc(const char *name, double start,
-    double dt, int frnum);
+LALFrameUFrameH *XLALFrameUFrameHAlloc(const char *name, double start, double dt, int frnum);
 
 /**
  * @brief Read a frame header FrameH structure from a FrFile stream.
@@ -531,7 +519,6 @@ LALFrameUFrameH *XLALFrameUFrameHRead(LALFrameUFrFile * stream, int pos);
  */
 int XLALFrameUFrameHWrite(LALFrameUFrFile * stream, LALFrameUFrameH * frame);
 
-
 /**
  * @name FrameH Add Routines
  * @{
@@ -548,8 +535,7 @@ int XLALFrameUFrameHWrite(LALFrameUFrFile * stream, LALFrameUFrameH * frame);
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-int XLALFrameUFrameHFrChanAdd(LALFrameUFrameH * frame,
-    LALFrameUFrChan * channel);
+int XLALFrameUFrameHFrChanAdd(LALFrameUFrameH * frame, LALFrameUFrChan * channel);
 
 /**
  * @brief Add a FrDetector structure to a FrameH structure.
@@ -562,8 +548,7 @@ int XLALFrameUFrameHFrChanAdd(LALFrameUFrameH * frame,
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-int XLALFrameUFrameHFrDetectorAdd(LALFrameUFrameH * frame,
-    LALFrameUFrDetector * detector);
+int XLALFrameUFrameHFrDetectorAdd(LALFrameUFrameH * frame, LALFrameUFrDetector * detector);
 
 /**
  * @brief Add a FrHistory structure to a FrameH structure.
@@ -576,12 +561,9 @@ int XLALFrameUFrameHFrDetectorAdd(LALFrameUFrameH * frame,
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-int XLALFrameUFrameHFrHistoryAdd(LALFrameUFrameH * frame,
-    LALFrameUFrHistory * history);
-
+int XLALFrameUFrameHFrHistoryAdd(LALFrameUFrameH * frame, LALFrameUFrHistory * history);
 
 /** @} */
-
 
 /**
  * @name FrameH Query Routines
@@ -650,8 +632,7 @@ int XLALFrameUFrameHQueryDataQuality(const LALFrameUFrameH * frame);
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-double XLALFrameUFrameHQueryGTimeModf(double *iptr,
-    const LALFrameUFrameH * frame);
+double XLALFrameUFrameHQueryGTimeModf(double *iptr, const LALFrameUFrameH * frame);
 
 /**
  * @brief Query FrameH structure for the number of leap seconds.
@@ -679,7 +660,6 @@ double XLALFrameUFrameHQueryDt(const LALFrameUFrameH * frame);
 
 /** @} */
 
-
 /**
  * @name FrameH Set Routines
  * @{
@@ -698,12 +678,10 @@ double XLALFrameUFrameHQueryDt(const LALFrameUFrameH * frame);
  */
 int XLALFrameUFrameHSetRun(LALFrameUFrameH * frame, int run);
 
-
 /** @} */
 /** @} */
 
-
-/** 
+/**
  * @name FrChan Routines
  * @{
  */
@@ -732,8 +710,7 @@ void XLALFrameUFrChanFree(LALFrameUFrChan * channel);
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-LALFrameUFrChan *XLALFrameUFrChanRead(LALFrameUFrFile * stream,
-    const char *name, size_t pos);
+LALFrameUFrChan *XLALFrameUFrChanRead(LALFrameUFrFile * stream, const char *name, size_t pos);
 
 /**
  * @brief Allocate memory for a new FrChan structure of FrAdcData type.
@@ -749,8 +726,7 @@ LALFrameUFrChan *XLALFrameUFrChanRead(LALFrameUFrFile * stream,
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-LALFrameUFrChan *XLALFrameUFrAdcChanAlloc(const char *name, int dtype,
-    size_t ndata);
+LALFrameUFrChan *XLALFrameUFrAdcChanAlloc(const char *name, int dtype, size_t ndata);
 
 /**
  * @brief Allocate memory for a new FrChan structure of FrSimData type.
@@ -766,8 +742,7 @@ LALFrameUFrChan *XLALFrameUFrAdcChanAlloc(const char *name, int dtype,
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-LALFrameUFrChan *XLALFrameUFrSimChanAlloc(const char *name, int dtype,
-    size_t ndata);
+LALFrameUFrChan *XLALFrameUFrSimChanAlloc(const char *name, int dtype, size_t ndata);
 
 /**
  * @brief Allocate memory for a new FrChan structure of FrAdcData type.
@@ -785,9 +760,7 @@ LALFrameUFrChan *XLALFrameUFrSimChanAlloc(const char *name, int dtype,
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-LALFrameUFrChan *XLALFrameUFrProcChanAlloc(const char *name, int type,
-    int subtype, int dtype, size_t ndata);
-
+LALFrameUFrChan *XLALFrameUFrProcChanAlloc(const char *name, int type, int subtype, int dtype, size_t ndata);
 
 /**
  * @name FrChan Query Routines
@@ -829,7 +802,6 @@ double XLALFrameUFrChanQueryTimeOffset(const LALFrameUFrChan * channel);
 
 /** @} */
 
-
 /**
  * @name FrChan Set Routines
  * @{
@@ -846,8 +818,7 @@ double XLALFrameUFrChanQueryTimeOffset(const LALFrameUFrChan * channel);
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-int XLALFrameUFrChanSetSampleRate(LALFrameUFrChan * channel,
-    double sampleRate);
+int XLALFrameUFrChanSetSampleRate(LALFrameUFrChan * channel, double sampleRate);
 
 /**
  * @brief Set the time offset in a FrChan structure.
@@ -866,12 +837,10 @@ int XLALFrameUFrChanSetSampleRate(LALFrameUFrChan * channel,
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-int XLALFrameUFrChanSetTimeOffset(LALFrameUFrChan * channel,
-    double timeOffset);
+int XLALFrameUFrChanSetTimeOffset(LALFrameUFrChan * channel, double timeOffset);
 
 /** @} */
 /** @} */
-
 
 /**
  * @name FrVect Routines
@@ -890,8 +859,7 @@ int XLALFrameUFrChanSetTimeOffset(LALFrameUFrChan * channel,
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-int XLALFrameUFrChanVectorAlloc(LALFrameUFrChan * channel, int dtype,
-    size_t ndata);
+int XLALFrameUFrChanVectorAlloc(LALFrameUFrChan * channel, int dtype, size_t ndata);
 
 /**
  * @brief Compress a FrVect structure within a FrChan structure.
@@ -905,8 +873,7 @@ int XLALFrameUFrChanVectorAlloc(LALFrameUFrChan * channel, int dtype,
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-int XLALFrameUFrChanVectorCompress(LALFrameUFrChan * channel,
-    int compressLevel);
+int XLALFrameUFrChanVectorCompress(LALFrameUFrChan * channel, int compressLevel);
 
 /**
  * @brief Expands a FrVect structure within a FrChan structure.
@@ -919,7 +886,6 @@ int XLALFrameUFrChanVectorCompress(LALFrameUFrChan * channel,
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
 int XLALFrameUFrChanVectorExpand(LALFrameUFrChan * channel);
-
 
 /**
  * @name FrVect Query Routines
@@ -1023,7 +989,7 @@ size_t XLALFrameUFrChanVectorQueryNData(const LALFrameUFrChan * channel);
 size_t XLALFrameUFrChanVectorQueryNDim(const LALFrameUFrChan * channel);
 
 /**
- * @brief Query FrChan structure for the number of points in the @a dim 
+ * @brief Query FrChan structure for the number of points in the @a dim
  * dimension of the multi-dimensional data in the FrVect structure.
  * @param channel Pointer to the FrChan structure to be queried.
  * @param dim The dimension of the multi-dimensional data.
@@ -1035,11 +1001,10 @@ size_t XLALFrameUFrChanVectorQueryNDim(const LALFrameUFrChan * channel);
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-size_t XLALFrameUFrChanVectorQueryNx(const LALFrameUFrChan * channel,
-    size_t dim);
+size_t XLALFrameUFrChanVectorQueryNx(const LALFrameUFrChan * channel, size_t dim);
 
 /**
- * @brief Query FrChan structure for the sampling interval in the @a dim 
+ * @brief Query FrChan structure for the sampling interval in the @a dim
  * dimension of the multi-dimensional data in the FrVect structure.
  * @param channel Pointer to the FrChan structure to be queried.
  * @param dim The dimension of the multi-dimensional data.
@@ -1051,11 +1016,10 @@ size_t XLALFrameUFrChanVectorQueryNx(const LALFrameUFrChan * channel,
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-double XLALFrameUFrChanVectorQueryDx(const LALFrameUFrChan * channel,
-    size_t dim);
+double XLALFrameUFrChanVectorQueryDx(const LALFrameUFrChan * channel, size_t dim);
 
 /**
- * @brief Query FrChan structure for the starting value of the @a dim 
+ * @brief Query FrChan structure for the starting value of the @a dim
  * dimension of the multi-dimensional data in the FrVect structure.
  * @param channel Pointer to the FrChan structure to be queried.
  * @param dim The dimension of the multi-dimensional data.
@@ -1067,11 +1031,10 @@ double XLALFrameUFrChanVectorQueryDx(const LALFrameUFrChan * channel,
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-double XLALFrameUFrChanVectorQueryStartX(const LALFrameUFrChan * channel,
-    size_t dim);
+double XLALFrameUFrChanVectorQueryStartX(const LALFrameUFrChan * channel, size_t dim);
 
 /**
- * @brief Query FrChan structure for the units of the domain of the @a dim 
+ * @brief Query FrChan structure for the units of the domain of the @a dim
  * dimension of the multi-dimensional data in the FrVect structure.
  * @param channel Pointer to the FrChan structure to be queried.
  * @param dim The dimension of the multi-dimensional data.
@@ -1086,8 +1049,7 @@ double XLALFrameUFrChanVectorQueryStartX(const LALFrameUFrChan * channel,
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-const char *XLALFrameUFrChanVectorQueryUnitX(const LALFrameUFrChan * channel,
-    size_t dim);
+const char *XLALFrameUFrChanVectorQueryUnitX(const LALFrameUFrChan * channel, size_t dim);
 
 /**
  * @brief Query FrChan structure for sample units of the data in the FrVect
@@ -1108,7 +1070,6 @@ const char *XLALFrameUFrChanVectorQueryUnitY(const LALFrameUFrChan * channel);
 
 /** @} */
 
-
 /**
  * @name FrVect Set Routines
  * @{
@@ -1125,8 +1086,7 @@ const char *XLALFrameUFrChanVectorQueryUnitY(const LALFrameUFrChan * channel);
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-int XLALFrameUFrChanVectorSetName(LALFrameUFrChan * channel,
-    const char *name);
+int XLALFrameUFrChanVectorSetName(LALFrameUFrChan * channel, const char *name);
 
 /**
  * @brief Set the sampling interval for the data in the FrVect structure
@@ -1170,8 +1130,7 @@ int XLALFrameUFrChanVectorSetStartX(LALFrameUFrChan * channel, double x0);
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-int XLALFrameUFrChanVectorSetUnitX(LALFrameUFrChan * channel,
-    const char *unit);
+int XLALFrameUFrChanVectorSetUnitX(LALFrameUFrChan * channel, const char *unit);
 
 /**
  * @brief Set the units of the data in the FrVect structure contained in a
@@ -1186,14 +1145,12 @@ int XLALFrameUFrChanVectorSetUnitX(LALFrameUFrChan * channel,
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-int XLALFrameUFrChanVectorSetUnitY(LALFrameUFrChan * channel,
-    const char *unit);
+int XLALFrameUFrChanVectorSetUnitY(LALFrameUFrChan * channel, const char *unit);
 
 /* TODO: a bunch more things to set coming up!!! */
 
 /** @} */
 /** @} */
-
 
 /**
  * @name FrDetector Routines
@@ -1223,12 +1180,12 @@ void XLALFrameUFrDetectorFree(LALFrameUFrDetector * detector);
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-LALFrameUFrDetector *XLALFrameUFrDetectorRead(LALFrameUFrFile * stream,
-    const char *name);
+LALFrameUFrDetector *XLALFrameUFrDetectorRead(LALFrameUFrFile * stream, const char *name);
 
 /**
  * @brief Allocate memory for a new detector FrDetector structure.
  * @param name Name for this FrDetector structure.
+ * @param prefix UNDOCUMENTED
  * @param latitude Latitude North of the equator of detector in radians.
  * @param longitude Longitude East of Greenwich meridian of detector in radians.
  * @param elevation Elevation of detector above WGS84 ellipsoid in meters.
@@ -1257,12 +1214,11 @@ LALFrameUFrDetector *XLALFrameUFrDetectorRead(LALFrameUFrFile * stream,
  */
 LALFrameUFrDetector *XLALFrameUFrDetectorAlloc(const char *name,
     const char *prefix, double latitude, double longitude, double elevation,
-    double azimuthX, double azimuthY, double altitudeX, double altitudeY,
-    double midpointX, double midpointY, int localTime);
+    double azimuthX, double azimuthY, double altitudeX, double altitudeY, double midpointX, double midpointY, int localTime);
 
 /**
  * @name FrDetector Query Routines
- * @{ 
+ * @{
  */
 
 /**
@@ -1278,8 +1234,7 @@ LALFrameUFrDetector *XLALFrameUFrDetectorAlloc(const char *name,
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-const char *XLALFrameUFrDetectorQueryName(const LALFrameUFrDetector *
-    detector);
+const char *XLALFrameUFrDetectorQueryName(const LALFrameUFrDetector * detector);
 
 /**
  * @brief Query FrDetector structure for the detector prefix.
@@ -1294,8 +1249,7 @@ const char *XLALFrameUFrDetectorQueryName(const LALFrameUFrDetector *
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-const char *XLALFrameUFrDetectorQueryPrefix(const LALFrameUFrDetector *
-    detector);
+const char *XLALFrameUFrDetectorQueryPrefix(const LALFrameUFrDetector * detector);
 
 /**
  * @brief Query FrDetector structure for the detector longitude.
@@ -1310,8 +1264,7 @@ const char *XLALFrameUFrDetectorQueryPrefix(const LALFrameUFrDetector *
  * Interferometer</em>
  * LIGO-T010110 [https://dcc.ligo.org/LIGO-T010110-v1/public]
  */
-double XLALFrameUFrDetectorQueryLongitude(const LALFrameUFrDetector *
-    detector);
+double XLALFrameUFrDetectorQueryLongitude(const LALFrameUFrDetector * detector);
 
 /**
  * @brief Query FrDetector structure for the detector latitude.
@@ -1326,8 +1279,7 @@ double XLALFrameUFrDetectorQueryLongitude(const LALFrameUFrDetector *
  * Interferometer</em>
  * LIGO-T010110 [https://dcc.ligo.org/LIGO-T010110-v1/public]
  */
-double XLALFrameUFrDetectorQueryLatitude(const LALFrameUFrDetector *
-    detector);
+double XLALFrameUFrDetectorQueryLatitude(const LALFrameUFrDetector * detector);
 
 /**
  * @brief Query FrDetector structure for the detector elevation.
@@ -1342,8 +1294,7 @@ double XLALFrameUFrDetectorQueryLatitude(const LALFrameUFrDetector *
  * Interferometer</em>
  * LIGO-T010110 [https://dcc.ligo.org/LIGO-T010110-v1/public]
  */
-double XLALFrameUFrDetectorQueryElevation(const LALFrameUFrDetector *
-    detector);
+double XLALFrameUFrDetectorQueryElevation(const LALFrameUFrDetector * detector);
 
 /**
  * @brief Query FrDetector structure for the detector x-arm azimuth.
@@ -1358,8 +1309,7 @@ double XLALFrameUFrDetectorQueryElevation(const LALFrameUFrDetector *
  * Interferometer</em>
  * LIGO-T010110 [https://dcc.ligo.org/LIGO-T010110-v1/public]
  */
-double XLALFrameUFrDetectorQueryArmXAzimuth(const LALFrameUFrDetector *
-    detector);
+double XLALFrameUFrDetectorQueryArmXAzimuth(const LALFrameUFrDetector * detector);
 
 /**
  * @brief Query FrDetector structure for the detector y-arm azimuth.
@@ -1374,8 +1324,7 @@ double XLALFrameUFrDetectorQueryArmXAzimuth(const LALFrameUFrDetector *
  * Interferometer</em>
  * LIGO-T010110 [https://dcc.ligo.org/LIGO-T010110-v1/public]
  */
-double XLALFrameUFrDetectorQueryArmYAzimuth(const LALFrameUFrDetector *
-    detector);
+double XLALFrameUFrDetectorQueryArmYAzimuth(const LALFrameUFrDetector * detector);
 
 /**
  * @brief Query FrDetector structure for the detector x-arm altitude.
@@ -1391,8 +1340,7 @@ double XLALFrameUFrDetectorQueryArmYAzimuth(const LALFrameUFrDetector *
  * Interferometer</em>
  * LIGO-T010110 [https://dcc.ligo.org/LIGO-T010110-v1/public]
  */
-double XLALFrameUFrDetectorQueryArmXAltitude(const LALFrameUFrDetector *
-    detector);
+double XLALFrameUFrDetectorQueryArmXAltitude(const LALFrameUFrDetector * detector);
 
 /**
  * @brief Query FrDetector structure for the detector y-arm altitude.
@@ -1408,8 +1356,7 @@ double XLALFrameUFrDetectorQueryArmXAltitude(const LALFrameUFrDetector *
  * Interferometer</em>
  * LIGO-T010110 [https://dcc.ligo.org/LIGO-T010110-v1/public]
  */
-double XLALFrameUFrDetectorQueryArmYAltitude(const LALFrameUFrDetector *
-    detector);
+double XLALFrameUFrDetectorQueryArmYAltitude(const LALFrameUFrDetector * detector);
 
 /**
  * @brief Query FrDetector structure for the detector x-arm midpoint.
@@ -1425,8 +1372,7 @@ double XLALFrameUFrDetectorQueryArmYAltitude(const LALFrameUFrDetector *
  * Interferometer</em>
  * LIGO-T010110 [https://dcc.ligo.org/LIGO-T010110-v1/public]
  */
-double XLALFrameUFrDetectorQueryArmXMidpoint(const LALFrameUFrDetector *
-    detector);
+double XLALFrameUFrDetectorQueryArmXMidpoint(const LALFrameUFrDetector * detector);
 
 /**
  * @brief Query FrDetector structure for the detector y-arm midpoint.
@@ -1442,8 +1388,7 @@ double XLALFrameUFrDetectorQueryArmXMidpoint(const LALFrameUFrDetector *
  * Interferometer</em>
  * LIGO-T010110 [https://dcc.ligo.org/LIGO-T010110-v1/public]
  */
-double XLALFrameUFrDetectorQueryArmYMidpoint(const LALFrameUFrDetector *
-    detector);
+double XLALFrameUFrDetectorQueryArmYMidpoint(const LALFrameUFrDetector * detector);
 
 /**
  * @brief Query FrDetector structure for the local time offset at the detector.
@@ -1491,8 +1436,7 @@ void XLALFrameUFrHistoryFree(LALFrameUFrHistory * history);
  * Gravitational Wave Detectors (IGWD)</em>
  * LIGO-T970130 [https://dcc.ligo.org/LIGO-T970130-v1/public].
  */
-LALFrameUFrHistory *XLALFrameUFrHistoryAlloc(const char *name, double gpssec,
-    const char *comment);
+LALFrameUFrHistory *XLALFrameUFrHistoryAlloc(const char *name, double gpssec, const char *comment);
 
 /** @} */
 

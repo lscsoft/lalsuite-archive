@@ -1,14 +1,15 @@
-AM_CPPFLAGS = -I$(top_builddir)/include -DPKG_DATA_DIR='"$(pkgdatadir)/"'
+BUILT_SOURCES =
+MOSTLYCLEANFILES =
+include $(top_srcdir)/gnuscripts/lalsuite_header_links.am
+include $(top_srcdir)/gnuscripts/lalsuite_vcs_info.am
 
-lalburstincludedir = $(includedir)/lal
-
-lalburstinclude_HEADERS = \
+pkginclude_HEADERS = \
 	CLR.h \
 	EPSearch.h \
 	GenerateBurst.h \
 	LALBurstConfig.h \
-	LALBurstLibVCSInfo.h \
 	LALBurstVCSInfo.h \
+	LALBurstVCSInfoHeader.h \
 	LIGOLwXMLBurstRead.h \
 	LIGOMetadataBurstUtils.h \
 	TFTransform.h \
@@ -18,8 +19,7 @@ lalburstinclude_HEADERS = \
 	TimeFreq.h \
 	TrackSearch.h \
 	cs_cosmo.h \
-	cs_lambda_cosmo.h \
-	lalburstswig_test.i
+	cs_lambda_cosmo.h
 
 lib_LTLIBRARIES = liblalburst.la
 liblalburst_la_SOURCES = \
@@ -46,51 +46,16 @@ liblalburst_la_SOURCES = \
 	Thresholds.c \
 	TrackSearch.c \
 	cs_lambda_cosmo.c
+nodist_liblalburst_la_SOURCES = LALBurstBuildInfo.c
 
-liblalburst_la_LDFLAGS = -version-info $(LIBVERSION)
-
-MOSTLYCLEANFILES = \
-	lalburst-user-env.shell \
-	lalburst-user-env.sh \
-	lalburst-user-env.csh
-
-sysconf_DATA = \
-	lalburst-user-env.sh \
-	lalburst-user-env.csh
-
-BUILT_SOURCES = \
-	lalburst-user-env.sh \
-	lalburst-user-env.csh
-
-lalburst-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
-	@echo "# generic user environment script" >$@
-	@echo "set LALBURST_PREFIX $(prefix)" >>$@
-	@echo "prepend PATH $(bindir)" >>$@
-	@echo "prepend MANPATH $(mandir)" >>$@
-	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
-	@echo "prepend PYTHONPATH $(pyexecdir)" >>$@
-	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
-	@echo "prepend OCTAVE_PATH $(octexecdir)" >>$@
-
-lalburst-user-env.csh lalburst-user-env.sh: lalburst-user-env.shell $(srcdir)/generate_user_env.awk
-	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
+liblalburst_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(LIBVERSION)
 
 EXTRA_DIST = \
 	LALBurstConfig.h.in \
-	config.h.in \
-	generate_user_env.awk
+	config.h.in
 
 DISTCLEANFILES = config.h
 
-if HAVE_GIT_REPO
-BUILT_SOURCES += LALBurstVCSInfo.h
-MOSTLYCLEANFILES += LALBurstVCSInfo.h
-LALBurstVCSInfo.h .PHONY : gen-LALBurstVCSInfo.h
-gen-LALBurstVCSInfo.h :
-	$(AM_V_at)$(GENERATE_VCS_INFO) LALBurstVCSInfo.h $(srcdir)/LALBurstVCSInfo.h.git
-endif
-
-@LAL_HEADER_LINK@
-
-swig_headers = $(lalburstinclude_HEADERS)
-include $(top_srcdir)/swig/swiglal_header.am
+vcs_info_sources = LALBurstVCSInfoHeader.h
+build_info_source = LALBurstBuildInfo.c
+$(build_info_source): $(liblalburst_la_DEPENDENCIES)

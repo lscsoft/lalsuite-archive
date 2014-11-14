@@ -1,7 +1,8 @@
 #!/bin/bash
 
-## run all LALApps programs with memory debugging
-export LAL_DEBUG_LEVEL="${LAL_DEBUG_LEVEL},memdbg"
+## set LAL debug level
+echo "Setting LAL_DEBUG_LEVEL=${LAL_DEBUG_LEVEL:-msglvl1,memdbg}"
+export LAL_DEBUG_LEVEL
 
 ## allow 'make test' to work from builddir != srcdir
 if [ -z "${srcdir}" ]; then
@@ -25,17 +26,6 @@ if [ -n "$DEBUG" ]; then
     debug=${DEBUG}
 else
     debug=0	## default=quiet
-fi
-
-if [ -n "${LALPULSAR_DATADIR}" ]; then
-    mfdCODE="${mfdCODE} -E ${LALPULSAR_DATADIR}"
-else
-    echo
-    echo "Need environment-variable LALPULSAR_DATADIR to be set to"
-    echo "your ephemeris-directory (e.g. /usr/local/share/lalpulsar)"
-    echo "This might indicate an incomplete LAL+LALPULSAR installation"
-    echo
-    exit 1
 fi
 
 #prepare test subdirectory

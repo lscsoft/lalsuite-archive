@@ -44,7 +44,6 @@ import sys
 
 
 from glue.ligolw import ilwd
-from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw.utils import search_summary as ligolw_search_summary
@@ -74,23 +73,23 @@ class CoincDatabase(object):
 
 		# find the tables
 		try:
-			self.sngl_burst_table = table.get_table(self.xmldoc, lsctables.SnglBurstTable.tableName)
+			self.sngl_burst_table = lsctables.SnglBurstTable.get_table(self.xmldoc)
 		except ValueError:
 			self.sngl_burst_table = None
 		try:
-			self.sim_burst_table = table.get_table(self.xmldoc, lsctables.SimBurstTable.tableName)
+			self.sim_burst_table = lsctables.SimBurstTable.get_table(self.xmldoc)
 		except ValueError:
 			self.sim_burst_table = None
 		try:
-			self.coinc_def_table = table.get_table(self.xmldoc, lsctables.CoincDefTable.tableName)
-			self.coinc_table = table.get_table(self.xmldoc, lsctables.CoincTable.tableName)
-			self.time_slide_table = table.get_table(self.xmldoc, lsctables.TimeSlideTable.tableName)
+			self.coinc_def_table = lsctables.CoincDefTable.get_table(self.xmldoc)
+			self.coinc_table = lsctables.CoincTable.get_table(self.xmldoc)
+			self.time_slide_table = lsctables.TimeSlideTable.get_table(self.xmldoc)
 		except ValueError:
 			self.coinc_def_table = None
 			self.coinc_table = None
 			self.time_slide_table = None
 		try:
-			self.multi_burst_table = table.get_table(self.xmldoc, lsctables.MultiBurstTable.tableName)
+			self.multi_burst_table = lsctables.MultiBurstTable.get_table(self.xmldoc)
 		except ValueError:
 			self.multi_burst_table = None
 

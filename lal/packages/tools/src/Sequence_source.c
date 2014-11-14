@@ -24,8 +24,13 @@ void DFUNC (
 	SEQUENCETYPE *sequence
 )
 {
+#ifdef USE_ALIGNED_MEMORY_ROUTINES
+	if(sequence)
+		XLALFreeAligned(sequence->data);
+#else
 	if(sequence)
 		XLALFree(sequence->data);
+#endif
 	XLALFree(sequence);
 }
 
@@ -38,7 +43,13 @@ SEQUENCETYPE *CFUNC (
 	DATATYPE *data;
 
 	new = XLALMalloc(sizeof(*new));
+
+#ifdef USE_ALIGNED_MEMORY_ROUTINES
+	data = XLALMallocAligned(length * sizeof(*data));
+#else
 	data = XLALMalloc(length * sizeof(*data));
+#endif /*  USE_ALIGNED_MEMORY_ROUTINES */
+
 	/* data == NULL is OK if length == 0 */
 	if(!new || (length && !data)) {
 		XLALFree(new);
@@ -107,7 +118,12 @@ SEQUENCETYPE *RFUNC (
 
 	if(length > sequence->length) {
 		/* need to increase memory */
+
+#ifdef USE_ALIGNED_MEMORY_ROUTINES
+		new_data = XLALReallocAligned(sequence->data, length * sizeof(*sequence->data));
+#else
 		new_data = XLALRealloc(sequence->data, length * sizeof(*sequence->data));
+#endif /* USE_ALIGNED_MEMORY_ROUTINES */
 
 		if(new_data) {
 			sequence->data = new_data;
@@ -119,7 +135,11 @@ SEQUENCETYPE *RFUNC (
 	} else {
 		/* do not need to increase memory */
 		SFUNC (sequence, -first);
+#ifdef USE_ALIGNED_MEMORY_ROUTINES
+		new_data = XLALReallocAligned(sequence->data, length * sizeof(*sequence->data));
+#else
 		new_data = XLALRealloc(sequence->data, length * sizeof(*sequence->data));
+#endif /* USE_ALIGNED_MEMORY_ROUTINES */
 		if(new_data) {
 			sequence->data = new_data;
 			sequence->length = length;

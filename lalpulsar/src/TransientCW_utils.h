@@ -18,13 +18,14 @@
  */
 
 /*********************************************************************************/
-/** \author R. Prix
+/**
+ * \author R. Prix
  * \file
  * \brief
  * Some helper functions useful for "transient CWs", mostly applying transient window
  * functions.
  *
- *********************************************************************************/
+ */
 
 #ifndef _TRANSIENTCW_UTILS_H
 #define _TRANSIENTCW_UTILS_H
@@ -47,6 +48,7 @@ extern "C" {
 #include <lal/SFTutils.h>
 #include <lal/PulsarDataTypes.h>
 #include <lal/ComputeFstat.h>
+#include <lal/CWFastMath.h> /* for XLALFastNegExp() */
 
 /* ---------- exported API defines ---------- */
 
@@ -70,7 +72,8 @@ typedef struct tagtransientWindowRange_t
   UINT4 dtau;			/**< stepsize to search tau-range with, in seconds */
 } transientWindowRange_t;
 
-/** Struct holding a transient-window "F-statistic map" over start-time and timescale {t0, tau}.
+/**
+ * Struct holding a transient-window "F-statistic map" over start-time and timescale {t0, tau}.
  * This contains a 2D matrix F_mn, with m = index over start-times t0, and n = index over timescales tau,
  * in steps of dt0 in [t0, t0+t0Band], and dtau in [tau, tau+tauBand] as defined in transientWindowRange.
  *
@@ -93,13 +96,9 @@ typedef struct tagtransientCandidate_t {
   REAL8 tau_MP;				/**< maximum-posterior estimate for tau */
 } transientCandidate_t;
 
-/* empty struct initializers */
-extern const transientCandidate_t empty_transientCandidate;
-extern const transientWindow_t empty_transientWindow;
-extern const transientWindowRange_t empty_transientWindowRange;
-extern const transientFstatMap_t empty_transientFstatMap;
-
 /* ---------- exported API prototypes ---------- */
+int XLALParseTransientWindowName ( const char *windowName );
+
 int XLALGetTransientWindowTimespan ( UINT4 *t0, UINT4 *t1, transientWindow_t transientWindow );
 
 int XLALApplyTransientWindow ( REAL4TimeSeries *series, transientWindow_t TransientWindowParams );
@@ -123,13 +122,6 @@ pdf1D_t *XLALComputeTransientPosterior_tau ( transientWindowRange_t windowRange,
 void XLALDestroyTransientFstatMap ( transientFstatMap_t *FstatMap );
 void XLALDestroyTransientCandidate ( transientCandidate_t *cand );
 
-/* these functions operate on the module-local lookup-table for negative-exponentials,
- * which will dynamically be generated on first use of XLALFastNegExp(), and can
- * be destroyed at any time using XLALDestroyExpLUT()
- */
-REAL8 XLALFastNegExp ( REAL8 mx );
-void XLALDestroyExpLUT( void );
-
 /* ---------- Fstat-atoms related functions ----------*/
 int write_MultiFstatAtoms_to_fp ( FILE *fp, const MultiFstatAtomVector *multiAtoms );
 CHAR* XLALPulsarDopplerParams2String ( const PulsarDopplerParams *par );
@@ -139,8 +131,8 @@ FstatAtomVector *XLALmergeMultiFstatAtomsBinned ( const MultiFstatAtomVector *mu
 
 /* ---------- INLINE function definitions ---------- */
 
-/** Function to compute the value of a rectangular transient-window at a given timestamp.
- *
+/**
+ * Function to compute the value of a rectangular transient-window at a given timestamp.
  * This is the central function defining the rectangular window properties.
  */
 static inline REAL8
@@ -156,7 +148,8 @@ XLALGetRectangularTransientWindowValue ( UINT4 timestamp,	/**< timestamp for whi
 
 } /* XLALGetRectangularTransientWindowValue() */
 
-/** Function to compute the value of an exponential transient-window at a given timestamp.
+/**
+ * Function to compute the value of an exponential transient-window at a given timestamp.
  *
  * This is the central function defining the exponential window properties.
  */
@@ -181,7 +174,8 @@ XLALGetExponentialTransientWindowValue ( UINT4 timestamp,	/**< timestamp for whi
 
 } /* XLALGetExponentialTransientWindowValue() */
 
-/** Function to compute the value of a given transient-window function at a given timestamp.
+/**
+ * Function to compute the value of a given transient-window function at a given timestamp.
  *
  * This is a simple wrapper to the actual window-defining functions
  */

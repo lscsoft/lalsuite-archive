@@ -44,7 +44,6 @@ from glue.ligolw import utils
 from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
-from pylal import llwapp
 
 
 lsctables.use_in(ligolw.LIGOLWContentHandler)
@@ -98,7 +97,7 @@ def parse_command_line():
 
 
 def append_process(xmldoc, options):
-	process = llwapp.append_process(xmldoc, program = "ligolw_segments", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = options.comment)
+	process = ligolw_process.append_process(xmldoc, program = "ligolw_segments", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = options.comment)
 
 	params = []
 	if options.output is not None:
@@ -224,7 +223,7 @@ for url in urls:
 	#
 
 
-	llwapp.set_process_end_time(process)
+	ligolw_process.set_process_end_time(process)
 
 
 	#

@@ -18,15 +18,16 @@
  */
 
 /*********************************************************************************/
-/** \author C. Messenger
- * \file 
+/**
+ * \author C. Messenger
+ * \file
  * \ingroup pulsarApps
  * \brief
- * Generates posterior pdfs for a subset of the unknown orbital and nuisance 
+ * Generates posterior pdfs for a subset of the unknown orbital and nuisance
  * parameters given a set of candidate regions in frequency of demodulated Fourier
  * transform results.
- *                                                                          
- *********************************************************************************/
+ *
+ */
 
 /* System includes */
 #include <stdio.h>
@@ -80,7 +81,7 @@ void initUserVars (LALStatus *);
 /* Function definitions start here */
 /*----------------------------------------------------------------------*/
 
-/** 
+/**
  * MAIN function of SideBandMCMC code
  * Compute the posterior pdfs of the orbital and nuisance parameters of a binary signal
  * in Fstat form
@@ -89,10 +90,10 @@ int main(int argc,char *argv[])
 {
   FILE *fp = NULL;
   LALStatus status = blank_status;	/* initialize status */
-  SFTConstraints constraints = empty_SFTConstraints;
+  SFTConstraints XLAL_INIT_DECL(constraints);
   SFTCatalog *catalog = NULL;
-  LIGOTimeGPS start = empty_LIGOTimeGPS;
-  LIGOTimeGPS end = empty_LIGOTimeGPS;
+  LIGOTimeGPS XLAL_INIT_DECL(start);
+  LIGOTimeGPS XLAL_INIT_DECL(end);
   INT4 i;
 
   vrbflg = 0;	/* verbose error-messages */
@@ -115,8 +116,8 @@ int main(int argc,char *argv[])
   /* get an sft catalog */
   start.gpsSeconds = (INT4)uvar_tstart;
   end.gpsSeconds = (INT4)uvar_tstart + (INT4)uvar_duration;
-  constraints.startTime = &start;
-  constraints.endTime = &end;
+  constraints.minStartTime = &start;
+  constraints.maxStartTime = &end;
   LALSFTdataFind(&status,&catalog,uvar_sftdir,&constraints);
   
   /* output timestamps to file */

@@ -1,5 +1,6 @@
 /*
-*  Copyright (C) 2008 Yi Pan, B.S. Sathyaprakash (minor modificaitons)
+*  Copyright (C) 2008 Yi Pan, B.S. Sathyaprakash (minor modificaitons), Prayush
+*  Kumar (some additions)
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -18,22 +19,21 @@
 */
 
 /**
-
-\author Yi Pan, Craig Robinson
-\file
-
-\brief Module to compute the ring-down waveform as linear combination
-of quasi-normal-modes decaying waveforms, which can be attached to
-the inspiral part of the compat binary coalescing waveform.
-The method is describe in Sec. II C of Pan et al. PRD 84, 124052 (2011), 
-specifically Eqs. 30 - 32.
-Eqs. 30 and 31 are written in explicity linear equation systems in 
-DCC document T1100433.
-This method is currently used for EOBNRv2 and SEOBNRv1 models. The only difference
-between the two models in ring-down waveform is the pseudo-QNM introduced 
-in the latter (see Taracchini et al. PRD 86, 024011 (2012) for more details).
-*/
-
+ * \author Yi Pan, Craig Robinson
+ * \file
+ *
+ * \brief Module to compute the ring-down waveform as linear combination
+ * of quasi-normal-modes decaying waveforms, which can be attached to
+ * the inspiral part of the compat binary coalescing waveform.
+ * The method is describe in Sec. II C of Pan et al. PRD 84, 124052 (2011),
+ * specifically Eqs. 30 - 32.
+ * Eqs. 30 and 31 are written in explicity linear equation systems in
+ * DCC document T1100433.
+ * This method is currently used for EOBNRv2 and SEOBNRv1 models. The only difference
+ * between the two models in ring-down waveform is the pseudo-QNM introduced
+ * in the latter (see Taracchini et al. PRD 86, 024011 (2012) for more details).
+ */
+#include <math.h>
 #include <complex.h>
 #include <stdlib.h>
 #include <lal/LALStdlib.h>
@@ -58,14 +58,14 @@ in the latter (see Taracchini et al. PRD 86, 024011 (2012) for more details).
 
 /**
  * Generates the ringdown wave associated with the given real
- * and imaginary parts of the inspiral waveform. The parameters of 
+ * and imaginary parts of the inspiral waveform. The parameters of
  * the ringdown, such as amplitude and phase offsets, are determined
  * by solving the linear equations defined in the DCC document T1100433.
- * In the linear equations Ax=y, 
+ * In the linear equations Ax=y,
  * A is a 16-by-16 matrix depending on QNM (complex) frequencies,
  * x is a 16-d vector of the 8 unknown complex QNM amplitudes,
  * y is a 16-d vector depending on inspiral-plunge waveforms and their derivatives near merger.
- */ 
+ */
 static INT4 XLALSimIMREOBHybridRingdownWave(
   REAL8Vector          *rdwave1,   /**<< OUTPUT, Real part of ringdown waveform */
   REAL8Vector          *rdwave2,   /**<< OUTPUT, Imag part of ringdown waveform */
@@ -385,14 +385,14 @@ static INT4 XLALGenerateHybridWaveDerivatives (
 
 /**
  * The main workhorse function for performing the ringdown attachment for EOB
- * models EOBNRv2 and SEOBNRv1. This is the function which gets called by the 
+ * models EOBNRv2 and SEOBNRv1. This is the function which gets called by the
  * code generating the full IMR waveform once generation of the inspiral part
  * has been completed.
- * The ringdown is attached using the hybrid comb matching detailed in 
- * The method is describe in Sec. II C of Pan et al. PRD 84, 124052 (2011), 
+ * The ringdown is attached using the hybrid comb matching detailed in
+ * The method is describe in Sec. II C of Pan et al. PRD 84, 124052 (2011),
  * specifically Eqs. 30 - 32.. Further details of the
  * implementation of the found in the DCC document T1100433.
- * In SEOBNRv1, the last physical overtone is replace by a pseudoQNM. See 
+ * In SEOBNRv1, the last physical overtone is replace by a pseudoQNM. See
  * Taracchini et al. PRD 86, 024011 (2012) for details.
  * STEP 1) Get mass and spin of the final black hole and the complex ringdown frequencies
  * STEP 2) Based on least-damped-mode decay time, allocate memory for rigndown waveform
@@ -421,6 +421,7 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
 {
 
       COMPLEX16Vector *modefreqs;
+      //COMPLEX16       freq7sav;
       UINT4 Nrdwave;
       UINT4 j;
 
@@ -432,7 +433,8 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
       REAL8Vector		*ddinspwave;
       REAL8VectorSequence	*inspwaves1;
       REAL8VectorSequence	*inspwaves2;
-      REAL8 eta, a, NRPeakOmega22; /* To generate pQNM frequency */
+      REAL8 eta, a, chi, NRPeakOmega22; /* To generate pQNM frequency */
+      REAL8 sh, kk, kt1, kt2; /* To generate pQNM frequency */
       REAL8 mTot; /* In geometric units */
       REAL8 spin1[3] = { spin1x, spin1y, spin1z };
       REAL8 spin2[3] = { spin2x, spin2y, spin2z };
@@ -441,7 +443,7 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
       mTot  = (mass1 + mass2) * LAL_MTSUN_SI;
       eta       = mass1 * mass2 / ( (mass1 + mass2) * (mass1 + mass2) );
 
-      /**
+      /*
        * STEP 1) Get mass and spin of the final black hole and the complex ringdown frequencies
        */
 
@@ -477,9 +479,107 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
           modefreqs->data[7] += I * 10./3. * cimag(modefreqs->data[0]);
       }
 
+      if ( approximant == SEOBNRv2 ) //See pages 6 to 12 of the dcc document T1400476-v3 for expressions in this block.
+      {
+          /* Replace the last two QNMs with pQNMs */
+          /* We assume aligned/antialigned spins here */
+          /* Definitions of a, chi and NRPeakOmega22, where the last one is an approximation of \phi'[tmatch] in T1400476-v3. */
+          a  = (spin1[2] + spin2[2]) / 2. * (1.0 - 2.0 * eta) + (spin1[2] - spin2[2]) / 2. * (mass1 - mass2) / (mass1 + mass2);
+          NRPeakOmega22 = GetNRSpinPeakOmegav2( l, m, eta, a ) / mTot;
+
+          /* Define chi */
+          chi = (spin1[2] + spin2[2]) / 2. + (spin1[2] - spin2[2]) / 2. * ((mass1 - mass2)/(mass1+mass2)) / (1. - 2. * eta);
+
+          /* For extreme chi (>= 0.8), there are scale factors in both complex
+           * pseudo-QNM frequencies. kk, kt1, kt2 describe those factors. */
+          // Below definitions of kk, kt1 and kt2 are likely obsolete
+          kk = kt1 = kt2 = 1.;
+          if ( chi >= 0.8 )
+          {
+            kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
+            kt1 = 0.5 * sqrt(1.+800.0*eta*eta/3.0) - 0.125;
+            kt2 = 0.5 * pow(1.+0.5*eta*sqrt(eta)/0.0225,2./3.) - 0.2;
+          }
+          // Above definitions of kk, kt1 and kt2 are likely obsolete
+          /*printf("a, chi and NRomega in QNM freq: %.16e %.16e %.16e %.16e %.16e %.16e\n",
+            spin1[2],spin2[2],mTot/LAL_MTSUN_SI,a,chi,NRPeakOmega22*mTot);*/
+          sh = 0.;
+          //freq7sav = modefreqs->data[7];
+
+          /* Cases 1, 2 and 3 in T1400476-v3. Note that the difference between the 
+           * chi1=chi2=0 case and the chi<0.7 cases is only in Dtcomb, 
+           * which is not specified or used in this file.
+           */
+          modefreqs->data[7] = (2./3. * NRPeakOmega22/finalMass) + (1./3. * creal(modefreqs->data[0]));
+          modefreqs->data[7] += I * 3.5/0.9 * cimag(modefreqs->data[0]);
+          modefreqs->data[6] = (3./4. * NRPeakOmega22/finalMass) + (1./4. * creal(modefreqs->data[0]));
+          modefreqs->data[6] += I * 3.5 * cimag(modefreqs->data[0]);
+
+          /* For extreme chi (>= 0.8), the ringdown attachment should end
+           * slightly before the value given passed to this function. sh
+           * gives exactly how long before. */
+          if ( chi >= 0.7 && chi < 0.8 )
+          {
+            sh = -9. * (eta - 0.25);
+          }
+          if ( (eta > 30./31./31. && eta <= 10./121. && chi >= 0.8) || (eta <= 30./31./31. && chi >= 0.8 && chi < 0.9) )
+          {// This is case 4 in T1400476-v3
+            sh = -9. * (eta - 0.25) * (1.+2.*exp(-(chi-0.85)*(chi-0.85)/0.05/0.05)) * (1.+1./(1.+exp((eta-0.01)/0.001)));
+            kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
+            kt1 = 0.5 * sqrt(1.+800.0*eta*eta/3.0) - 0.125;
+            kt2 = 0.5 * pow(1.+0.5*eta*sqrt(eta)/0.0225,2./3.) - 0.2;
+            modefreqs->data[4] = 0.4*(1.+kk)*creal(modefreqs->data[6])
+                                 + I*cimag(modefreqs->data[6])/(2.5*kt2*exp(-(eta-0.005)/0.03));
+            modefreqs->data[5] = 0.4*(1.+kk)*creal(modefreqs->data[7])
+                                 + I*cimag(modefreqs->data[7])/(1.5*kt1*exp(-(eta-0.005)/0.03));
+            modefreqs->data[6] = kk*creal(modefreqs->data[6]) + I*cimag(modefreqs->data[6])/kt2;
+            modefreqs->data[7] = kk*creal(modefreqs->data[7]) + I*cimag(modefreqs->data[7])/kt1;
+	  }
+          if ( eta < 30./31./31. && chi >= 0.9 )
+          {// This is case 5 in T1400476-v3
+            sh = 0.55 - 9. * (eta - 0.25) * (1.+2.*exp(-(chi-0.85)*(chi-0.85)/0.05/0.05)) * (1.+1./(1.+exp((eta-0.01)/0.001)));
+            kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
+            kt1 = 0.5 * sqrt(1.+800.0*eta*eta/3.0) - 0.125;
+            kt2 = 0.5 * pow(1.+0.5*eta*sqrt(eta)/0.0225,2./3.) - 0.2;
+            modefreqs->data[4] = 1.1*0.4*(1.+kk)*creal(modefreqs->data[6])
+                                 + I*cimag(modefreqs->data[6])/(1.05*2.5*kt2*exp(-(eta-0.005)/0.03));
+            modefreqs->data[5] = 0.4*(1.+kk)*creal(modefreqs->data[7])
+                                 + I*cimag(modefreqs->data[7])/(1.05*1.5*kt1*exp(-(eta-0.005)/0.03));
+            modefreqs->data[6] = kk*creal(modefreqs->data[6]) + I*cimag(modefreqs->data[6])/kt2;
+            modefreqs->data[7] = kk*creal(modefreqs->data[7]) + I*cimag(modefreqs->data[7])/kt1;
+	  }
+          if ( eta > 10./121. && chi >= 0.8 )
+          {// This is case 6 in T1400476-v3
+            sh = 1. - 9. * (eta - 0.25) * (1.+2.*exp(-(chi-0.85)*(chi-0.85)/0.05/0.05)) * (1.+1./(1.+exp((eta-0.01)/0.001)));
+            kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
+            kt1 = 0.45 * sqrt(1.+200.0*eta*eta/3.0) - 0.125;
+            kt2 = 0.5 * pow(1.+0.5*eta*sqrt(eta)/0.0225,2./3.) - 0.2;
+            modefreqs->data[6] = kk*creal(modefreqs->data[6]) + I*cimag(modefreqs->data[6])/0.95/kt2;
+            modefreqs->data[7] = kk*creal(modefreqs->data[7]) + I*cimag(modefreqs->data[7])/kt1;
+	  }
+          // The last line of T1400476-v3
+          matchrange->data[0] -= sh;
+          matchrange->data[1] -= sh;
+          // Move ringdown comb boundaries to sampling points to avoid numerical artifacts. 
+          matchrange->data[0] -= fmod( matchrange->data[0], dt/mTot);
+          matchrange->data[1] -= fmod( matchrange->data[1], dt/mTot);
+/*
+modefreqs->data[7] = 0.38068371/mTot + I/1.4677128/mTot;
+modefreqs->data[6] = 0.37007703/mTot + I/1.3359367/mTot;
+modefreqs->data[5] = 0.36980703/mTot + I/1.7791212/mTot;
+modefreqs->data[4] = 0.3595034/mTot + I/2.6989764/mTot;
+printf("sh = %f\n",sh);
+printf("PeakOmega = %f, mTot = %f\n",NRPeakOmega22,mTot);
+printf("w0 = %f, t0 = %f\n",creal(modefreqs->data[0])*mTot, 1./cimag(modefreqs->data[0])/mTot);
+printf("w1 = %f, t1 = %f\n",creal(modefreqs->data[6])*mTot, 1./cimag(modefreqs->data[6])/mTot);
+printf("w2 = %f, t2 = %f\n",creal(modefreqs->data[7])*mTot, 1./cimag(modefreqs->data[7])/mTot);
+printf("w3 = %f, t3 = %f\n",creal(modefreqs->data[4])*mTot, 1./cimag(modefreqs->data[4])/mTot);
+printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[5])*mTot, 1./cimag(modefreqs->data[5])/mTot);
+*/
+      }
       /*for (j = 0; j < nmodes; j++)
       {
-        printf("QNM frequencies: %d %d %d %e %e\n",l,m,j,modefreqs->data[j].re*mTot,1./modefreqs->data[j].im/mTot);
+        printf("QNM frequencies: %d %d %d %f %f\n",l,m,j,creal(modefreqs->data[j])*mTot,1./cimag(modefreqs->data[j])/mTot);
       }*/
 
       /* Ringdown signal length: 10 times the decay time of the n=0 mode */
@@ -489,12 +589,12 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
       if ( matchrange->data[0] * mTot / dt < 5 || matchrange->data[1]*mTot/dt > matchrange->data[2] *mTot/dt - 2 )
       {
         XLALPrintError( "More inspiral points needed for ringdown matching.\n" );
-        //printf("%.16e,%.16e,%.16e\n",matchrange->data[0] * mTot / dt, matchrange->data[1]*mTot/dt, matchrange->data[2] *mTot/dt - 2);
+        printf("%.16e,%.16e,%.16e\n",matchrange->data[0] * mTot / dt, matchrange->data[1]*mTot/dt, matchrange->data[2] *mTot/dt - 2);
         XLALDestroyCOMPLEX16Vector( modefreqs );
         XLAL_ERROR( XLAL_EFAILED );
       }
 
-      /**
+      /*
        * STEP 2) Based on least-damped-mode decay time, allocate memory for rigndown waveform
        */
 
@@ -526,7 +626,7 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
       memset( rdwave1->data, 0, rdwave1->length * sizeof( REAL8 ) );
       memset( rdwave2->data, 0, rdwave2->length * sizeof( REAL8 ) );
 
-      /**
+      /*
        * STEP 3) Get values and derivatives of inspiral waveforms at matching comb points
        */
 
@@ -574,7 +674,7 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
       }
 
 
-      /**
+      /*
        * STEP 4) Solve QNM coefficients and generate ringdown waveforms
        */
 
@@ -593,12 +693,13 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
         XLAL_ERROR( XLAL_EFUNC );
       }
 
-      /**
+      /*
        * STEP 5) Stitch inspiral and ringdown waveoforms
        */
 
       /* Generate full waveforms, by stitching inspiral and ring-down waveforms */
-      UINT4 attachIdx = matchrange->data[1] * mTot / dt;
+      //UINT4 attachIdx = matchrange->data[1] * mTot / dt;
+      UINT4 attachIdx = round( matchrange->data[1] * mTot / dt );
       for (j = 1; j < Nrdwave; ++j)
       {
 	    signal1->data[j + attachIdx] = rdwave1->data[j];

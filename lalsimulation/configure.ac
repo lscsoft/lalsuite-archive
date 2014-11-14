@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([lalsimulation],[1.0.0.1],[lal-discuss@ligo.org])
+AC_INIT([LALSimulation],[1.1.0.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h src/LALSimulationConfig.h])
 AC_CONFIG_SRCDIR([src/LALSimulation.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -7,24 +7,27 @@ AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
   lalsimulation.spec \
   lalsimulation.pc \
+  lalsimulation-uninstalled.pc \
   Makefile \
-  gnuscripts/Makefile \
   debian/Makefile \
   include/Makefile \
   include/lal/Makefile \
+  src/LALSimulationVCSInfo.c \
+  src/LALSimulationVCSInfo.h \
   src/Makefile \
   python/Makefile \
-  python/__init__.py \
+  python/lalsimulation/Makefile \
+  python/lalsimulation/__init__.py \
   swig/Makefile \
-  swig/octave/Makefile \
-  swig/python/Makefile \
   test/Makefile
 ])
-AM_INIT_AUTOMAKE([1.11 foreign color-tests parallel-tests])
+AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
 
 AC_CANONICAL_HOST
 
 LALSUITE_ARG_VAR
+
+LALSUITE_CHECK_GIT_REPO
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 
 # set library api info
@@ -41,19 +44,13 @@ LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[8])
+AC_SUBST([LIBCURRENT],[9])
 AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 
-# check for git repo
-LALSUITE_CHECK_GIT_REPO
-
 # nightly build
 LALSUITE_ENABLE_NIGHTLY
-
-# debug
-LALSUITE_ENABLE_DEBUG
 
 # enable strict gcc flags
 LALSUITE_ENABLE_GCC_FLAGS
@@ -61,27 +58,8 @@ LALSUITE_ENABLE_GCC_FLAGS
 # enable SWIG wrapping modules
 LALSUITE_ENABLE_SWIG
 
-# put version/configure info in config header
-lalsimulation_version_major=`echo "$VERSION" | cut -d. -f1`
-lalsimulation_version_minor=`echo "$VERSION" | cut -d. -f2`
-lalsimulation_version_micro=`echo "$VERSION" | cut -d. -f3`
-lalsimulation_version_devel=`echo "$VERSION" | cut -d. -f4-`
-test -z "$lalsimulation_version_micro" && lalsimulation_version_micro=0
-test -z "$lalsimulation_version_devel" && lalsimulation_version_devel=0
-lalsimulation_configure_date=`date +"%Y-%m-%dT%H:%M:%S%z"`
-AC_DEFINE_UNQUOTED([LALSIMULATION_VERSION],["$VERSION"],[LALSimulation Version])
-AC_DEFINE_UNQUOTED([LALSIMULATION_VERSION_MAJOR],[$lalsimulation_version_major],
-                   [LALSimulation Version Major Number])
-AC_DEFINE_UNQUOTED([LALSIMULATION_VERSION_MINOR],[$lalsimulation_version_minor],
-                   [LALSimulation Version Minor Number])
-AC_DEFINE_UNQUOTED([LALSIMULATION_VERSION_MICRO],[$lalsimulation_version_micro],
-                   [LALSimulation Version Micro Number])
-AC_DEFINE_UNQUOTED([LALSIMULATION_VERSION_DEVEL],[$lalsimulation_version_devel],
-                   [LALSimulation Version Devel Number])
-AC_DEFINE_UNQUOTED([LALSIMULATION_CONFIGURE_ARGS],["$ac_configure_args"],
-                   [LALSimulation Configure Arguments])
-AC_DEFINE_UNQUOTED([LALSIMULATION_CONFIGURE_DATE],["$lalsimulation_configure_date"],
-                   [LALSimulation Configure Date])
+# define version/configure info
+LALSUITE_VERSION_CONFIGURE_INFO
 
 # workaround broken libtool multilib support on sl6
 LALSUITE_MULTILIB_LIBTOOL_HACK
@@ -97,8 +75,7 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_AWK
 AC_PROG_SED
-AM_PATH_PYTHON([2.6],,[AC_MSG_ERROR([Python-2.6, or higher, is required])])
-AC_CHECK_PROGS([M4],[gm4 m4],[m4])
+LALSUITE_CHECK_PYTHON([2.6])
 
 # check for supported mac os x version
 LALSUITE_OSX_VERSION_CHECK
@@ -119,25 +96,62 @@ AC_DEFINE([HAVE_GETHOSTNAME_PROTOTYPE],[1],
 # check for required libraries
 AC_CHECK_LIB([m],[main],,[AC_MSG_ERROR([could not find the math library])])
 
+# check for OpenMP
+AC_OPENMP
+
 # check for gsl
 PKG_CHECK_MODULES([GSL],[gsl],[true],[false])
-CPPFLAGS="$CPPFLAGS $GSL_CFLAGS"
-LIBS="$LIBS $GSL_LIBS"
+LALSUITE_ADD_FLAGS([C],[${GSL_CFLAGS}],[${GSL_LIBS}])
 AC_CHECK_LIB([gslcblas],[main],,[AC_MSG_ERROR([could not find the gsl library])])
-AC_CHECK_LIB([gsl],[gsl_strerror],,[AC_MSG_ERROR([could not find the gsl library])])
+AC_CHECK_LIB([gsl],[gsl_version],,[AC_MSG_ERROR([could not find the gsl library])])
+LALSUITE_CHECK_GSL_VERSION([1.13])
+LALSUITE_ENABLE_FAST_GSL
 
 # check for gsl headers
 AC_CHECK_HEADERS([gsl/gsl_errno.h],,[AC_MSG_ERROR([could not find the gsl/gsl_errno.h header])])
-
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.11.0],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.11.0],[LALOpenDataFile],[lal/FileIO.h])
+LALSUITE_CHECK_LIB([LAL],[6.12.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.12.0],[XLALCacheImport],[lal/LALCache.h])
+LALSUITE_CHECK_LIB([LALMetaIO],[1.2.0],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
 
 # configure SWIG wrapping modules
-LALSUITE_USE_SWIG([XLAL LAL])
+LALSUITE_USE_SWIG
+
+# Disable OpenMP by default.
+# FIXME: OpenMP should be on by default, but it breaks condor_compiling lalapps.
+AS_IF(
+  [test "x$enable_openmp" = "x"],
+  [OPENMP_CFLAGS=]
+)
+# add compiler flags for OpenMP
+AS_IF(
+  [test "x$OPENMP_CFLAGS" = "x"],
+  [
+    OPENMP_ENABLE_VAL="DISABLED"
+    LALSUITE_ADD_FLAGS([C],[-Wno-unknown-pragmas],[])
+  ],
+  [
+    OPENMP_ENABLE_VAL="ENABLED"
+    LALSUITE_ADD_FLAGS([C],[${OPENMP_CFLAGS}],[])
+  ]
+)
+
+# create Automake conditional so that we know whether we need to build
+# OpenMP-specific tests
+AM_CONDITIONAL([HAVE_OPENMP],[test "x$OPENMP_ENABLE_VAL" = "xENABLED"])
 
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
+
+# link any executables against LALSimulation library
+AC_SUBST([LDADD], ["\$(top_builddir)/src/liblalsimulation.la"])
+
+# add extra preprocessor flags
+AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
+AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
+
+# force headers to be installed in ${includedir}/lal, ignoring library name
+AC_SUBST([pkgincludedir], ["\${includedir}/lal"])
 
 # force all python modules into the exec dir to prevent mixed C and
 # pure-python library code from being split across lib and lib64 on
@@ -145,16 +159,16 @@ LALSUITE_ADD_GCC_FLAGS
 AC_SUBST([pkgpythondir], ["\${pkgpyexecdir}"])
 
 # output
-LAL_HEADER_LINK=${ac_aux_dir}/header-link.mk
-AC_SUBST_FILE([LAL_HEADER_LINK])
-AC_PROG_MAKE_SET
 AC_OUTPUT
-echo "
+AC_MSG_NOTICE([
 ==================================================
 LALSimulation has now been successfully configured:
 
-* SWIG wrapping module for Octave is $SWIG_OCTAVE_ENABLE_VAL
-* SWIG wrapping module for Python is $SWIG_PYTHON_ENABLE_VAL
+* Python support is $PYTHON_ENABLE_VAL
+* SWIG binding generation is $SWIG_GENERATE_ENABLE_VAL
+* SWIG bindings for Octave are $SWIG_BUILD_OCTAVE_ENABLE_VAL
+* SWIG bindings for Python are $SWIG_BUILD_PYTHON_ENABLE_VAL
+* OpenMP acceleration is $OPENMP_ENABLE_VAL
 
 and will be installed under the directory:
 
@@ -163,4 +177,4 @@ ${prefix}
 Now run 'make' to build LALSimulation,
 and run 'make install' to install LALSimulation.
 ==================================================
-"
+])

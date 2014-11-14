@@ -1,7 +1,8 @@
 #!/bin/bash
 
-## run all LALApps programs with memory debugging
-export LAL_DEBUG_LEVEL="${LAL_DEBUG_LEVEL},memdbg"
+## set LAL debug level
+echo "Setting LAL_DEBUG_LEVEL=${LAL_DEBUG_LEVEL:-msglvl1,memdbg}"
+export LAL_DEBUG_LEVEL
 
 ## allow 'make test' to work from builddir != srcdir
 if [ -z "${srcdir}" ]; then
@@ -14,18 +15,6 @@ testDIR="./mfd_TEST"
 oldcode="${builddir}lalapps_makefakedata_test"
 newcodeDEFAULT="${builddir}lalapps_Makefakedata_v4"
 compCode="${builddir}lalapps_compareSFTs"
-
-if [ -n "${LALPULSAR_DATADIR}" ]; then
-    oldcode="${oldcode} -E ${LALPULSAR_DATADIR}"
-    newcodeDEFAULT="${newcodeDEFAULT} -E ${LALPULSAR_DATADIR}"
-else
-    echo
-    echo "Need environment-variable LALPULSAR_DATADIR to be set to"
-    echo "your ephemeris-directory (e.g. /usr/local/share/lalpulsar)"
-    echo "This might indicate an incomplete LAL+LALPULSAR installation"
-    echo
-    exit 1
-fi
 
 if [ -z "$1" ]; then
     newcode=${newcodeDEFAULT}
@@ -64,14 +53,13 @@ f0=300.2
 alpha=1.7
 delta=0.9
 noiseDir="../"
-noiseSFTs="$noiseDir/SFT.0000[0-9]"
 f1dot="-1.e-9"
 f2dot="1e-14"
 
 dataTMP=In.data-test
 oldCL="-i $dataTMP  -I $IFO -S $refTime" ## -D $noiseDir"
-newCL="--Tsft=$Tsft --fmin=$fmin --Band=$Band --aPlus=$aPlus --aCross=$aCross --psi=$psi --phi0=$phi0 --f0=$f0 --longitude=$alpha --latitude=$delta --detector=$IFO --timestampsFile=$timestamps --refTime=$refTime --f1dot=$f1dot --f2dot=$f2dot $@" ## -D$noiseSFTs -v1"
-newCL2="--Tsft=$Tsft --fmin=$fmin --Band=$Band --aPlus=$aPlus --aCross=$aCross --psi=$psi --phi0=$phi0 --Freq=$f0  --Alpha=$alpha --Delta=$delta --IFO=$IFO --timestampsFile=$timestamps --refTime=$refTime --f1dot=$f1dot --f2dot=$f2dot $@" ## -D$noiseSFTs -v1"
+newCL="--Tsft=$Tsft --fmin=$fmin --Band=$Band --aPlus=$aPlus --aCross=$aCross --psi=$psi --phi0=$phi0 --f0=$f0 --longitude=$alpha --latitude=$delta --detector=$IFO --timestampsFile=$timestamps --refTime=$refTime --f1dot=$f1dot --f2dot=$f2dot $@"
+newCL2="--Tsft=$Tsft --fmin=$fmin --Band=$Band --aPlus=$aPlus --aCross=$aCross --psi=$psi --phi0=$phi0 --Freq=$f0  --Alpha=$alpha --Delta=$delta --IFO=$IFO --timestampsFile=$timestamps --refTime=$refTime --f1dot=$f1dot --f2dot=$f2dot $@"
 
 
 ## produce In.data file for makefakedata_v2

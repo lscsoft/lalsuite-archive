@@ -23,7 +23,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
 
@@ -796,7 +795,7 @@ int LALInferenceRemoveLinesPowerLaw(
 
       y_estimate_log = slope*flog + y_intercept;
 
-      res = fabsf(datavallog - y_estimate_log);
+      res = fabs(datavallog - y_estimate_log);
       pvalues[k] = 1.0/res;
       }
     }
@@ -934,7 +933,7 @@ int LALInferenceXCorrBands(
       for ( seg = 0; seg < numseg; ++seg ) {
          sxy += (work[seg].data->data[k] - mx) * (work[seg].data->data[l] - my);
       }
-      r = fabsf(sxy / denom);
+      r = fabs(sxy / denom);
 
       fprintf(out," %e ",r);
 

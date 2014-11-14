@@ -40,7 +40,6 @@
 /* ---------- includes ---------- */
 #include <sys/stat.h>
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lalapps.h>
 #include <lal/AVFactories.h>
 #include <lal/SeqFactories.h>
@@ -154,8 +153,9 @@ typedef struct
 
   CHAR *actuation;		/**< filename containg detector actuation function */
   REAL8 actuationScale;	/**< Scale-factor to be applied to actuation-function */
-  CHAR *ephemDir;		/**< Directory path for ephemeris files (optional), use LAL_DATA_PATH if unset. */
-  CHAR *ephemYear;		/**< Year (or range of years) of ephemeris files to be used */
+
+  CHAR *ephemEarth;		/**< Earth ephemeris file to use */
+  CHAR *ephemSun;		/**< Sun ephemeris file to use */
 
   /* pulsar parameters [REQUIRED] */
   REAL8 refTime;		/**< Pulsar reference time tRef in SSB ('0' means: use startTime converted to SSB) */
@@ -208,11 +208,6 @@ typedef struct
 
 // ----- global variables ----------
 
-// ----- empty structs for initializations
-static const UserVariables_t empty_UserVariables;
-static const ConfigVars_t empty_GV;
-static const LALUnit empty_LALUnit;
-
 // ---------- local prototypes ----------
 int XLALInitUserVars ( UserVariables_t *uvar, int argc, char *argv[] );
 int XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar );
@@ -220,8 +215,6 @@ int XLALWriteMFDlog ( const char *logfile, const ConfigVars_t *cfg );
 COMPLEX8FrequencySeries *XLALLoadTransferFunctionFromActuation ( REAL8 actuationScale, const CHAR *fname );
 int XLALFreeMem ( ConfigVars_t *cfg );
 
-extern void write_timeSeriesR4 (FILE *fp, const REAL4TimeSeries *series);
-extern void write_timeSeriesR8 (FILE *fp, const REAL8TimeSeries *series);
 BOOLEAN is_directory ( const CHAR *fname );
 int XLALIsValidDescriptionField ( const char *desc );
 
@@ -231,13 +224,13 @@ int XLALIsValidDescriptionField ( const char *desc );
 int
 main(int argc, char *argv[])
 {
-  ConfigVars_t GV = empty_GV;
-  PulsarSignalParams params = empty_PulsarSignalParams;
+  ConfigVars_t XLAL_INIT_DECL(GV);
+  PulsarSignalParams XLAL_INIT_DECL(params);
   REAL4TimeSeries *Tseries = NULL;
   UINT4 i_chunk, numchunks;
   FILE *fpSingleSFT = NULL;
   size_t len;
-  UserVariables_t uvar = empty_UserVariables;
+  UserVariables_t XLAL_INIT_DECL(uvar);
 
 
   /* ------------------------------
@@ -266,7 +259,11 @@ main(int argc, char *argv[])
 
   params.pulsar.f0		   = GV.pulsar.Doppler.fkdot[0];
   params.pulsar.spindown           = GV.spindown;
-  params.orbit                     = GV.pulsar.Doppler.orbit;
+  params.orbit.tp                  = GV.pulsar.Doppler.tp;
+  params.orbit.argp                = GV.pulsar.Doppler.argp;
+  params.orbit.asini               = GV.pulsar.Doppler.asini;
+  params.orbit.ecc                 = GV.pulsar.Doppler.ecc;
+  params.orbit.period              = GV.pulsar.Doppler.period;
 
   /* detector params */
   params.transfer = GV.transfer;	/* detector transfer function (NULL if not used) */
@@ -364,19 +361,10 @@ main(int argc, char *argv[])
       /* output ASCII time-series if requested */
       if ( uvar.TDDfile )
 	{
-	  FILE *fp;
 	  CHAR *fname = XLALCalloc (1, len = strlen(uvar.TDDfile) + 10 );
           XLAL_CHECK ( fname != NULL, XLAL_ENOMEM, "XLALCalloc(1,%d) failed\n", len );
 	  sprintf (fname, "%s.%02d", uvar.TDDfile, i_chunk);
-
-	  if ( (fp = fopen (fname, "w")) == NULL)
-	    {
-	      perror ("Error opening outTDDfile for writing");
-              XLAL_ERROR ( XLAL_EIO, "Failed to fopen TDDfile = '%s' for writing\n", fname );
-	    }
-
-	  write_timeSeriesR4(fp, Tseries);
-	  fclose(fp);
+	  XLAL_CHECK ( XLALdumpREAL4TimeSeries ( fname, Tseries ) == XLAL_SUCCESS, XLAL_EFUNC );
 	  XLALFree (fname);
 	} /* if outputting ASCII time-series */
 
@@ -448,7 +436,7 @@ main(int argc, char *argv[])
       SFTVector *SFTs = NULL;
       if (uvar.outSFTbname)
 	{
-	  SFTParams sftParams = empty_SFTParams;
+	  SFTParams XLAL_INIT_DECL(sftParams);
 	  LIGOTimeGPSVector ts;
 	  SFTVector noise;
 
@@ -581,13 +569,12 @@ main(int argc, char *argv[])
 } /* main */
 
 /**
- *  Handle user-input and set up shop accordingly, and do all
+ * Handle user-input and set up shop accordingly, and do all
  * consistency-checks on user-input.
  */
 int
 XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
 {
-  int len;
   XLAL_CHECK ( cfg != NULL, XLAL_EINVAL, "Invalid NULL input 'cfg'\n" );
   XLAL_CHECK ( uvar != NULL, XLAL_EINVAL, "Invalid NULL input 'uvar'\n");
 
@@ -838,8 +825,8 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
 
       if ( lalDebugLevel )
 	{
-	  if ( abs(cfg->fmin_eff - uvar->fmin)> LAL_REAL8_EPS
-	       || abs(cfg->fBand_eff - uvar->Band) > LAL_REAL8_EPS )
+	  if ( fabs(cfg->fmin_eff - uvar->fmin)> LAL_REAL8_EPS
+	       || fabs(cfg->fBand_eff - uvar->Band) > LAL_REAL8_EPS )
 	    printf("\nWARNING: for SFT-creation we had to adjust (fmin,Band) to"
 		   " fmin_eff=%.20g and Band_eff=%.20g\n\n", cfg->fmin_eff, cfg->fBand_eff);
 	}
@@ -914,8 +901,8 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
     if ( uvar->noiseSFTs )
       {
 	REAL8 fMin, fMax;
-	SFTConstraints constraints = empty_SFTConstraints;
-	LIGOTimeGPS minStartTime, maxEndTime;
+	SFTConstraints XLAL_INIT_DECL(constraints);
+	LIGOTimeGPS minStartTime, maxStartTime;
         BOOLEAN have_window = XLALUserVarWasSet ( &uvar->window );
 
         /* user must specify the window function used for the noiseSFTs */
@@ -929,9 +916,9 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
 	if ( haveStart && haveDuration )
 	  {
 	    XLALGPSSetREAL8 ( &minStartTime, uvar->startTime );
-	    constraints.startTime = &minStartTime;
-	    XLALGPSSetREAL8 ( &maxEndTime, uvar->startTime + uvar->duration );
-	    constraints.endTime = &maxEndTime;
+	    constraints.minStartTime = &minStartTime;
+	    XLALGPSSetREAL8 ( &maxStartTime, uvar->startTime + uvar->duration );
+	    constraints.maxStartTime = &maxStartTime;
             XLALPrintWarning ( "\nWARNING: only noise-SFTs between GPS [%d, %d] will be used!\n", uvar->startTime, uvar->startTime + uvar->duration );
 	  } /* if start+duration given */
 	if ( cfg->timestamps )
@@ -1078,40 +1065,8 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
       }
     } /* if uvar->window */
 
-  /* -------------------- Prepare quantities for barycentering -------------------- */
-  {
-    CHAR *earthdata, *sundata;
-
-    len = strlen(uvar->ephemYear) + 20;
-
-    if (XLALUserVarWasSet(&uvar->ephemDir) )
-      len += strlen (uvar->ephemDir);
-
-    if ( (earthdata = XLALCalloc(1, len)) == NULL) {
-      XLAL_ERROR ( XLAL_ENOMEM, "earthdata = XLALCalloc(1, %d) failed.\n", len );
-    }
-    if ( (sundata = XLALCalloc(1, len)) == NULL) {
-      XLAL_ERROR ( XLAL_ENOMEM, "sundata = XLALCalloc(1, %d) failed.\n", len );
-    }
-
-    if (XLALUserVarWasSet(&uvar->ephemDir) )
-      {
-	sprintf ( earthdata, "%s/earth%s.dat", uvar->ephemDir, uvar->ephemYear);
-	sprintf ( sundata, "%s/sun%s.dat", uvar->ephemDir, uvar->ephemYear);
-      }
-    else
-      {
-	sprintf ( earthdata, "earth%s.dat", uvar->ephemYear);
-	sprintf ( sundata, "sun%s.dat",  uvar->ephemYear);
-      }
-
-    /* Init ephemerides */
-    cfg->edat = XLALInitBarycenter ( earthdata, sundata );
-    XLAL_CHECK ( cfg->edat != NULL, XLAL_EFUNC, "XLALInitBarycenter() failed.\n" );
-    XLALFree(earthdata);
-    XLALFree(sundata);
-
-  } /* END: prepare barycentering routines */
+  /* Init ephemerides */
+  XLAL_CHECK ( (cfg->edat = XLALInitBarycenter ( uvar->ephemEarth, uvar->ephemSun )) != NULL, XLAL_EFUNC );
 
   /* -------------------- handle binary orbital params if given -------------------- */
 
@@ -1152,7 +1107,6 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
     BOOLEAN set5 = XLALUserVarWasSet(&uvar->orbitTpSSBsec);
     BOOLEAN set6 = XLALUserVarWasSet(&uvar->orbitTpSSBnan);
     BOOLEAN set7 = XLALUserVarWasSet(&uvar->orbitTpSSBMJD);
-    BinaryOrbitParams *orbit = NULL;
 
     if (set1 || set2 || set3 || set4 || set5 || set6 || set7)
     {
@@ -1162,20 +1116,18 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
       if ( (uvar->orbitEcc < 0) || (uvar->orbitEcc > 1) ) {
         XLAL_ERROR ( XLAL_EINVAL, "\nEccentricity = %g has to lie within [0, 1]\n\n", uvar->orbitEcc );
       }
-      orbit = XLALCalloc ( 1, len = sizeof(BinaryOrbitParams) );
-      XLAL_CHECK ( orbit != NULL, XLAL_ENOMEM, "XLALCalloc (1, %d) failed.\n", len );
 
       if ( set7 && (!set5 && !set6) )
 	{
 	  /* convert MJD peripase to GPS using Matt Pitkins code found at lal/packages/pulsar/src/BinaryPulsarTimeing.c */
 	  REAL8 GPSfloat;
 	  GPSfloat = XLALTTMJDtoGPS(uvar->orbitTpSSBMJD);
-	  XLALGPSSetREAL8(&(orbit->tp),GPSfloat);
+	  XLALGPSSetREAL8(&(cfg->pulsar.Doppler.tp),GPSfloat);
 	}
-      else if ((set5 && set6) && !set7)
+      else if ( set5 && !set7 )
 	{
-	  orbit->tp.gpsSeconds = uvar->orbitTpSSBsec;
-	  orbit->tp.gpsNanoSeconds = uvar->orbitTpSSBnan;
+	  cfg->pulsar.Doppler.tp.gpsSeconds = uvar->orbitTpSSBsec;
+	  cfg->pulsar.Doppler.tp.gpsNanoSeconds = uvar->orbitTpSSBnan;
 	}
       else if ((set7 && set5) || (set7 && set6))
 	{
@@ -1183,15 +1135,14 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
 	}
 
       /* fill in orbital parameter structure */
-      orbit->period = uvar->orbitPeriod;
-      orbit->asini = uvar->orbitasini;
-      orbit->argp = uvar->orbitArgp;
-      orbit->ecc = uvar->orbitEcc;
+      cfg->pulsar.Doppler.period = uvar->orbitPeriod;
+      cfg->pulsar.Doppler.asini = uvar->orbitasini;
+      cfg->pulsar.Doppler.argp = uvar->orbitArgp;
+      cfg->pulsar.Doppler.ecc = uvar->orbitEcc;
 
-      cfg->pulsar.Doppler.orbit = orbit;     /* struct copy */
     } /* if one or more orbital parameters were set */
     else
-      cfg->pulsar.Doppler.orbit = NULL;
+      cfg->pulsar.Doppler.asini = 0 /* isolated pulsar */;
   } /* END: binary orbital params */
 
 
@@ -1287,27 +1238,12 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
   XLALFree ( channelName );
 
   /* ----- handle transient-signal window if given ----- */
-  if ( !XLALUserVarWasSet ( &uvar->transientWindowType ) || !strcmp ( uvar->transientWindowType, "none") )
-    cfg->transientWindow.type = TRANSIENT_NONE;                /* default: no transient signal window */
-  else
-    {
-      if ( !strcmp ( uvar->transientWindowType, "rect" ) )
-       {
-         cfg->transientWindow.type = TRANSIENT_RECTANGULAR;              /* rectangular window [t0, t0+tau] */
-       }
-      else if ( !strcmp ( uvar->transientWindowType, "exp" ) )
-        {
-          cfg->transientWindow.type = TRANSIENT_EXPONENTIAL;            /* exponential decay window e^[-(t-t0)/tau for t>t0, 0 otherwise */
-        }
-      else
-        {
-          XLAL_ERROR ( XLAL_EINVAL, "Illegal transient window '%s' specified: valid are 'none', 'rect' or 'exp'\n", uvar->transientWindowType );
-        }
+  int twtype;
+  XLAL_CHECK ( (twtype = XLALParseTransientWindowName ( uvar->transientWindowType )) >= 0, XLAL_EFUNC );
+  cfg->transientWindow.type = twtype;
 
-      cfg->transientWindow.t0   = uvar->transientStartTime;
-      cfg->transientWindow.tau  = uvar->transientTauDays * LAL_DAYSID_SI;
-
-    } /* if transient window != none */
+  cfg->transientWindow.t0   = uvar->transientStartTime;
+  cfg->transientWindow.tau  = uvar->transientTauDays * LAL_DAYSID_SI;
 
   return XLAL_SUCCESS;
 
@@ -1326,15 +1262,8 @@ XLALInitUserVars ( UserVariables_t *uvar, int argc, char *argv[] )
   XLAL_CHECK ( argv != NULL, XLAL_EINVAL, "Invalid NULL input 'argv'\n");
 
   // ---------- set a few defaults ----------
-#define EPHEM_YEARS  "00-19-DE405"
-  uvar->ephemYear = XLALCalloc ( 1, len = strlen(EPHEM_YEARS)+1 );
-  XLAL_CHECK ( uvar->ephemYear != NULL, XLAL_ENOMEM, "XLALCalloc ( 1, %d ) failed.\n", len );
-  strcpy ( uvar->ephemYear, EPHEM_YEARS );
-
-#define DEFAULT_EPHEMDIR "env LAL_DATA_PATH"
-  uvar->ephemDir = XLALCalloc ( 1, len = strlen(DEFAULT_EPHEMDIR)+1 );
-  XLAL_CHECK ( uvar->ephemDir != NULL, XLAL_ENOMEM, "XLALCalloc ( 1, %d ) failed.\n", len );
-  strcpy (uvar->ephemDir, DEFAULT_EPHEMDIR );
+  uvar->ephemEarth = XLALStringDuplicate("earth00-19-DE405.dat.gz");
+  uvar->ephemSun = XLALStringDuplicate("sun00-19-DE405.dat.gz");
 
   uvar->Tsft = 1800;
   uvar->fmin = 0;	/* no heterodyning by default */
@@ -1366,8 +1295,8 @@ XLALInitUserVars ( UserVariables_t *uvar, int argc, char *argv[] )
   /* detector and ephemeris */
   XLALregSTRINGUserStruct ( IFO,                'I', UVAR_OPTIONAL, "Detector: one of 'G1','L1','H1,'H2','V1', ...");
 
-  XLALregSTRINGUserStruct ( ephemDir,           'E', UVAR_OPTIONAL, "Directory path for ephemeris files (use LAL_DATA_PATH if unspecified)");
-  XLALregSTRINGUserStruct ( ephemYear,          'y', UVAR_OPTIONAL, "Year-range string of ephemeris files to be used");
+  XLALregSTRINGUserStruct( ephemEarth, 	 	0,  UVAR_OPTIONAL, "Earth ephemeris file to use");
+  XLALregSTRINGUserStruct( ephemSun, 	 	0,  UVAR_OPTIONAL, "Sun ephemeris file to use");
 
   /* start + duration of timeseries */
   XLALregINTUserStruct (  startTime,            'G', UVAR_OPTIONAL, "Start-time of requested signal in detector-frame (GPS seconds)");
@@ -1480,8 +1409,6 @@ XLALFreeMem ( ConfigVars_t *cfg )
   /* free spindown-vector (REAL8) */
   XLALDestroyREAL8Vector ( cfg->spindown );
 
-  XLALFree ( cfg->pulsar.Doppler.orbit );
-
   /* free noise-SFTs */
   XLALDestroySFTVector( cfg->noiseSFTs );
 
@@ -1497,7 +1424,8 @@ XLALFreeMem ( ConfigVars_t *cfg )
 
 } /* XLALFreeMem() */
 
-/** Log the all relevant parameters of this run into a log-file.
+/**
+ * Log the all relevant parameters of this run into a log-file.
  * The name of the log-file used is uvar_logfile
  * <em>NOTE:</em> Currently this function only logs the user-input and code-versions.
  */
@@ -1607,8 +1535,7 @@ XLALLoadTransferFunctionFromActuation ( REAL8 actuationScale, /**< overall scale
       }
 
       /* now convert into transfer-function and (Re,Im): T = A^-1 */
-      data->data[i-startline].realf_FIXME =  cos(phi) / ( amp * actuationScale );
-      data->data[i-startline].imagf_FIXME = -sin(phi) / ( amp * actuationScale );
+      data->data[i-startline] = crectf( cos(phi) / ( amp * actuationScale ), -sin(phi) / ( amp * actuationScale ) );
 
     } /* for i < numlines */
 

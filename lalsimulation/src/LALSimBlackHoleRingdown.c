@@ -11,8 +11,9 @@
 
 #include <lal/LALSimBlackHoleRingdown.h>
 
+/* note: use double-precision variables, but demand single-precision accuracy */
 #define EPS LAL_REAL4_EPS
-#define TINY LAL_REAL8_MIN
+#define TINY LAL_REAL4_MIN
 #define MAXITER 16384
 
 #ifdef __GNUC__
@@ -524,7 +525,7 @@ COMPLEX16 XLALSimBlackHoleRingdownSpheroidalWaveFunctionLeaver(
 /**
  * Computes the frequency and quality factor of a specified quasinormal
  * mode (l,m) of spin weight s perturbations (s=-2 for gravitational
- * perturbations) of a black hole of a specified mass and spin. 
+ * perturbations) of a black hole of a specified mass and spin.
  *
  * Uses the method of Leaver (1985):
  * E. W. Leaver "An analyitic representation for the quasi-normal
@@ -833,12 +834,12 @@ int main(void)
 
 
 /**
- * Computes the final mass and spin of the black hole resulting from merger. 
+ * Computes the final mass and spin of the black hole resulting from merger.
  * They are given by fittings of NR simulations results. Specifically,
  * for EOBNR, Table I of Buonanno et al. PRD76, 104049;
  * for EOBNRv2 and EOBNRv2HM, Eqs. 29a and 29b of Pan et al. PRD84, 124052;
- * for SEOBNRv1, Eq. 8 of Tichy and Marronetti PRD78, 081501 and 
- *               Eqs. 1 and 3 of Barausse and Rezzolla ApJ704, L40.
+ * for SEOBNRv1, SEOBNRv2, Eq. 8 of Tichy and Marronetti PRD78, 081501 and
+ * Eqs. 1 and 3 of Barausse and Rezzolla ApJ704, L40.
  */
 INT4 XLALSimIMREOBFinalMassSpin(
 	REAL8    *finalMass,  /**<< OUTPUT, the final mass (scaled by original total mass) */
@@ -863,10 +864,21 @@ INT4 XLALSimIMREOBFinalMassSpin(
   static const REAL8 s4 = -0.1229;
   static const REAL8 s5 = 0.4537;
 
+  static const REAL8 s9   = 2.763032781169752;
+  static const REAL8 s8   = -2.6081232221537394;
+  static const REAL8 s7   = 1.2657111864932808;
+  static const REAL8 s6   = -0.7835007857591175;
+  static const REAL8 s5v2 = -0.3264724801557159;
+  static const REAL8 s4v2 = -0.27506210736300474;
+  static const REAL8 t0v2 = -2.649826989941522;
+  static const REAL8 t3v2 = 3.910637513328723;
+  static const REAL8 t2v2 = -3.850983155206041;
+
+
   REAL8 totalMass;
   REAL8 eta, eta2, eta3;
   REAL8 a1, a2, chiS, q;
-  REAL8 tmpVar;
+  REAL8 z1, z2, rISCO, eISCO, atl, tmpVar;
 
   /* get a local copy of the intrinsic parameters */
   totalMass = mass1 + mass2;
@@ -888,6 +900,23 @@ INT4 XLALSimIMREOBFinalMassSpin(
       *finalMass = 1 - 0.057191 * eta - 0.498 * eta2;
       *finalSpin = 3.464102 * eta - 2.9 * eta2;
       break;
+    case SEOBNRv2:
+      /* See page 3 of the dcc document T1400476-v3, quantities MFinal and aFinal, for expressions below. */
+      a1     = spin1[2];
+      a2     = spin2[2];
+      q      = mass1 / mass2;
+      atl    = ( a1 + a2 /q/q) / (1.+1./q)/(1.+ 1./q);
+      tmpVar = ( a1 + a2 /q/q) / (1.+1./q/q);
+      z1 = 1. + pow( 1.-atl*atl, 1./3.) * ( pow( 1.+atl, 1./3. ) + pow( 1.-atl, 1./3. ) );
+      z2 = sqrt( 3.*atl*atl + z1*z1 );
+      rISCO = 3. + z2 - ( atl<0. ? -1. : 1. ) * sqrt( (3.-z1) * (3.+z1+2.*z2) );
+      eISCO = sqrt( 1. - 2./(3.*rISCO) );
+      *finalMass = 1. - ( (1.-eISCO)*eta
+                 + 16.*eta*eta*( 0.00258 - 0.0773/(1./((1.+1/q/q)/(1.+1/q)/(1.+1/q))*atl-1.6939) - 0.25*(1.-eISCO)) );
+      *finalSpin = tmpVar + tmpVar*eta*( s9*eta*tmpVar*tmpVar + s8*eta*eta*tmpVar + s7*eta*tmpVar
+                 + s6*tmpVar*tmpVar + s4v2*tmpVar + s5v2*eta + t0v2)
+                 + eta*( 2.*sqrt(3.) + t2v2*eta + t3v2 *eta*eta );
+        break;
     case SEOBNRv1:
       /* Final mass/spin comes from Eq. 8 of Tichy and Marronetti PRD78, 081501 
          and from Eqs. 1 and 3 of Barausse and Rezzolla ApJ704, L40 */
@@ -896,7 +925,6 @@ INT4 XLALSimIMREOBFinalMassSpin(
 
       chiS = 0.5 * ( a1 + a2 );
       q    = mass1 / mass2;
-
       *finalMass = 1. - p0 + 2.*p1 * chiS  + 4.*p2*chiS*chiS;
       *finalMass = 1. + (0.9515 - 1.0)*4.*eta - 0.013*16.*eta2*(a1+a2);
       tmpVar     = ( a1 + a2 /q/q) / ( 1. + 1/q/q);
@@ -916,10 +944,10 @@ INT4 XLALSimIMREOBFinalMassSpin(
  * This function generates the quasinormal mode frequencies for a black
  * hole ringdown. At present, this function works for the 22, 21, 33, 44
  * and 55 modes, and includes 8 overtones. The final frequencies are
- * computed by interpolating the data found on the webpage of 
+ * computed by interpolating the data found on the webpage of
  * Vitor Cardoso, http://centra.ist.utl.pt/~vitor/?page=ringdown
  * In this page, frequecy data are given for positive final spins only.
- * For a negative final spin chi<0 case, the (l,m) mode frequency is given by 
+ * For a negative final spin chi<0 case, the (l,m) mode frequency is given by
  * the (l,-m) mode frequency of the positive final spin -chi case.
  */
 INT4 XLALSimIMREOBGenerateQNMFreqV2(
@@ -2078,6 +2106,10 @@ INT4 XLALSimIMREOBGenerateQNMFreqV2(
     XLAL_ERROR( XLAL_EFUNC );
   }
 
+  /* finalSpin interpolation is available only between -0.9996 and 0.9996 */
+  /* Set finalSpin to +/- 0.9996 if it is out of this range */
+  if ( finalSpin < -0.9996 ) finalSpin = -0.9996;
+  if ( finalSpin >  0.9996 ) finalSpin =  0.9996;
   /* Now get the QNM frequencies from interpolating the above data */
   for ( i = 0; i < nmodes; i++ )
   {

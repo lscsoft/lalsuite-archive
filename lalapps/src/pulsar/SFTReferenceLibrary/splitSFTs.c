@@ -23,25 +23,25 @@
  * \author Bernd Machenschalk, Bruce Allen
  *
  * \brief This program reads in binary SFTs (v1 and v2) and writes out narrow-banded merged SFTs (v2).
-
-  This code links to the SFTReferenceLibrary. To compile, use somehting like
-  <code>gcc -Wall -g -O2 splitSFTs.c -o splitSFTs libSFTReferenceLibrary.a -lm</code>
-
-  Writen by Bernd Machenschalk for Einstein\@home 2008
-
-  * Revision splitSFTs.c,v 1.41 2008/10/29 16:54:13 was
-    reviewed by the LSC CW Review Committee Thur Oct 30, 2008
-
-    Suggested improvements:
-    * issue warning at ambiguous frequency values that are so close to the boundary of a bin
-      that rounding might end up giving an unintended bin
-    * check for consistency of input SFTs (same timebase, ascending timestamps etc., see spec)
-      and merged SFTs (check last header of a file we are appending to)
-
-  * Other possible improvements not suggested by the committee
-    * keep output files open (if there aren't too many)
-    * obscure a mystery factor in command-line record even if given with long option --factor
-*/
+ *
+ * This code links to the SFTReferenceLibrary. To compile, use somehting like
+ * <code>gcc -Wall -g -O2 splitSFTs.c -o splitSFTs libSFTReferenceLibrary.a -lm</code>
+ *
+ * Writen by Bernd Machenschalk for Einstein\@home 2008
+ *
+ * Revision splitSFTs.c,v 1.41 2008/10/29 16:54:13 was
+ * reviewed by the LSC CW Review Committee Thur Oct 30, 2008
+ *
+ * Suggested improvements:
+ * issue warning at ambiguous frequency values that are so close to the boundary of a bin
+ * that rounding might end up giving an unintended bin
+ * check for consistency of input SFTs (same timebase, ascending timestamps etc., see spec)
+ * and merged SFTs (check last header of a file we are appending to)
+ *
+ * Other possible improvements not suggested by the committee
+ * keep output files open (if there aren't too many)
+ * obscure a mystery factor in command-line record even if given with long option --factor
+ */
 
 #include <math.h>
 #include <time.h>
@@ -52,10 +52,10 @@
 #include <LALAppsVCSInfo.h>
 #include "SFTReferenceLibrary.h"
 
-#define VCSID LALAPPS_VCS_IDENT_ID LALAPPS_VCS_IDENT_STATUS
-
-/** rounding (for positive numbers!)
-    taken from SFTfileIO in LALSupport, should be consistent with that */
+/**
+ * rounding (for positive numbers!)
+ * taken from SFTfileIO in LALSupport, should be consistent with that
+ */
 #define MYROUND(x) ( floor( (x) + 0.5 ) )
 
 #define FALSE 0
@@ -210,9 +210,10 @@ int main(int argc, char**argv) {
   }
 
   /* record VCS ID and command-line for the comment */
-  TRY((cmdline = (char*)malloc(strlen(VCSID)+2)) == NULL,
+  TRY((cmdline = (char*)malloc(strlen(lalAppsVCSIdentId)+strlen(lalAppsVCSIdentStatus)+2)) == NULL,
       "out of memory allocating cmdline",1);
-  strcpy(cmdline,VCSID);
+  strcpy(cmdline,lalAppsVCSIdentId);
+  strcpy(cmdline,lalAppsVCSIdentStatus);
   strcat(cmdline, "\n");
   for(arg = 0; arg < argc; arg++) {
     if (strcmp(argv[arg], "-m") == 0) {

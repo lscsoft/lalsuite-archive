@@ -42,6 +42,7 @@
 #include <lal/AVFactories.h>
 #include <lal/SFTutils.h>
 #include <lal/LogPrintf.h>
+#include <lal/LALString.h>
 
 #include <lal/DopplerScan.h>
 
@@ -81,8 +82,9 @@ typedef struct
   REAL8 Delta;			/**< skyposition Delta: radians, equatorial coords. */
   REAL8 Freq;			/**< target-frequency */
   REAL8 f1dot;			/**< target 1. spindown-value df/dt */
-  CHAR *ephemDir;		/**< directory of ephemeris-files */
-  CHAR *ephemYear;		/**< year-range of ephemeris-file to use */
+
+  CHAR *ephemEarth;		/**< Earth ephemeris file to use */
+  CHAR *ephemSun;		/**< Sun ephemeris file to use */
 
   REAL8 startTime;		/**< GPS start time of observation */
   REAL8 endTime;		/**< GPS end time of observation */
@@ -116,20 +118,12 @@ typedef struct
 
 typedef struct
 {
-  CHAR EphemEarth[512];		/**< filename of earth-ephemeris data */
-  CHAR EphemSun[512];		/**< filename of sun-ephemeris data */
   LALDetector *Detector;        /**< detector of data to be searched */
   EphemerisData *ephemeris;	/**< ephemeris data (from LALInitBarycenter()) */
   LIGOTimeGPS startTimeGPS;	/**< starttime of observation */
   REAL8 duration;		/**< total observation-time spanned */
   DopplerRegion searchRegion;	/**< Doppler parameter-space to search */
 } ConfigVariables;
-
-
-/*---------- empty structs for initializations ----------*/
-static const UserVariables_t empty_UserVariables;
-static const ConfigVariables empty_ConfigVariables;
-static const PtoleMetricIn empty_metricpar;
 
 /* ---------- local prototypes ---------- */
 void initUserVars (LALStatus *, UserVariables_t *uvar);
@@ -149,10 +143,10 @@ int
 main(int argc, char *argv[])
 {
   LALStatus status = blank_status;
-  ConfigVariables config = empty_ConfigVariables;
-  UserVariables_t uvar = empty_UserVariables;
-  DopplerSkyScanInit scanInit = empty_DopplerSkyScanInit; /* init-structure for DopperScanner */
-  DopplerSkyScanState thisScan = empty_DopplerSkyScanState; /* current state of the Doppler-scan */
+  ConfigVariables XLAL_INIT_DECL(config);
+  UserVariables_t XLAL_INIT_DECL(uvar);
+  DopplerSkyScanInit XLAL_INIT_DECL(scanInit);
+  DopplerSkyScanState XLAL_INIT_DECL(thisScan);
   UINT4 nFreq, nf1dot;
 
   vrbflg = 1;	/* verbose error-messages */
@@ -194,7 +188,7 @@ main(int argc, char *argv[])
   scanInit.partitionIndex = uvar.partitionIndex;
 
   /* figure out searchRegion from UserInput and possibly --searchNeighbors */
-  config.searchRegion = empty_DopplerRegion;	/* set to empty first */
+  XLAL_INIT_MEM(config.searchRegion);	/* set to empty first */
   LAL_CALL ( getSearchRegion(&status, &(config.searchRegion), &scanInit, &uvar ), &status);
   scanInit.skyRegionString = config.searchRegion.skyRegionString;
   scanInit.Freq = config.searchRegion.fkdot[0] + config.searchRegion.fkdotBand[0];
@@ -292,6 +286,8 @@ main(int argc, char *argv[])
   thisScan.state = STATE_FINISHED;
   LAL_CALL ( FreeDopplerSkyScan(&status, &thisScan), &status);
 
+  XLALDestroyEphemerisData ( config.ephemeris );
+
   /* Free User-variables and contents */
   LAL_CALL ( LALDestroyUserVars (&status), &status);
 
@@ -315,13 +311,8 @@ initUserVars (LALStatus *status, UserVariables_t *uvar)
   ATTATCHSTATUSPTR (status);
 
   /* set a few defaults */
-#define EPHEM_YEARS  "00-19-DE405"
-  uvar->ephemYear = (CHAR*)LALCalloc (1, strlen(EPHEM_YEARS)+1);
-  strcpy (uvar->ephemYear, EPHEM_YEARS);
-
-#define DEFAULT_EPHEMDIR "env LAL_DATA_PATH"
-  uvar->ephemDir = (CHAR*)LALCalloc (1, strlen(DEFAULT_EPHEMDIR)+1);
-  strcpy (uvar->ephemDir, DEFAULT_EPHEMDIR);
+  uvar->ephemEarth = XLALStringDuplicate("earth00-19-DE405.dat.gz");
+  uvar->ephemSun = XLALStringDuplicate("sun00-19-DE405.dat.gz");
 
   uvar->f1dot = 0.0;
   uvar->metricType = LAL_PMETRIC_COH_PTOLE_ANALYTIC;
@@ -377,8 +368,8 @@ initUserVars (LALStatus *status, UserVariables_t *uvar)
   LALregREALUserStruct(status, 	endTime,      	 0, UVAR_OPTIONAL,	"GPS end time of observation");
   LALregREALUserStruct(status,	duration,	'T', UVAR_OPTIONAL,	"Alternative: Duration of observation in seconds");
 
-  LALregSTRINGUserStruct(status,ephemDir,       'E', UVAR_OPTIONAL,	"Directory where Ephemeris files are located");
-  LALregSTRINGUserStruct(status,ephemYear,      'y', UVAR_OPTIONAL, 	"Year (or range of years) of ephemeris files to be used");
+  XLALregSTRINGUserStruct( ephemEarth,   	 0,  UVAR_OPTIONAL,     "Earth ephemeris file to use");
+  XLALregSTRINGUserStruct( ephemSun,     	 0,  UVAR_OPTIONAL,     "Sun ephemeris file to use");
 
   /* ---------- */
   LALregINTUserStruct(status,	gridType,        0 , UVAR_OPTIONAL, 	"0=flat, 1=isotropic, 2=metric, 3=file, 4=SkyGridFILE+metric");
@@ -400,7 +391,8 @@ initUserVars (LALStatus *status, UserVariables_t *uvar)
 } /* initUserVars() */
 
 /*----------------------------------------------------------------------*/
-/** do some general initializations,
+/**
+ * do some general initializations,
  * e.g. load ephemeris-files (if required), setup detector etc
  */
 void
@@ -422,22 +414,10 @@ initGeneral (LALStatus *status, ConfigVariables *cfg, const UserVariables_t *uva
   /* ---------- init ephemeris if needed ---------- */
   if ( uvar->metricType ==  LAL_PMETRIC_COH_EPHEM )
     {
-      if (LALUserVarWasSet (&uvar->ephemDir) )
-	{
-	  sprintf(cfg->EphemEarth, "%s/earth%s.dat", uvar->ephemDir, uvar->ephemYear);
-	  sprintf(cfg->EphemSun, "%s/sun%s.dat", uvar->ephemDir, uvar->ephemYear);
-	}
-      else
-	{
-	  sprintf(cfg->EphemEarth, "earth%s.dat", uvar->ephemYear);
-	  sprintf(cfg->EphemSun, "sun%s.dat", uvar->ephemYear);
-	}
-
-      cfg->ephemeris = (EphemerisData*) LALCalloc( 1, sizeof(EphemerisData) );
-      cfg->ephemeris->ephiles.earthEphemeris = cfg->EphemEarth;
-      cfg->ephemeris->ephiles.sunEphemeris = cfg->EphemSun;
-
-      TRY (LALInitBarycenter (status->statusPtr, cfg->ephemeris), status);
+      /* Init ephemerides */
+      if ( (cfg->ephemeris = XLALInitBarycenter ( uvar->ephemEarth, uvar->ephemSun )) == NULL ) {
+        ABORT (status, GETMESH_EFILE, GETMESH_MSGEFILE);
+      }
 
   } /* end: init ephemeris data */
 
@@ -453,7 +433,8 @@ initGeneral (LALStatus *status, ConfigVariables *cfg, const UserVariables_t *uva
 } /* initGeneral() */
 
 /*----------------------------------------------------------------------*/
-/** Some general consistency-checks on user-input.
+/**
+ * Some general consistency-checks on user-input.
  * Throws an error plus prints error-message if problems are found.
  */
 void
@@ -462,11 +443,6 @@ checkUserInputConsistency (LALStatus *status, const UserVariables_t *uvar)
 
   INITSTATUS(status);
 
-  if (uvar->ephemYear == NULL)
-    {
-      XLALPrintError ("\nNo ephemeris year specified (option 'ephemYear')\n\n");
-      ABORT (status, GETMESH_EINPUT, GETMESH_MSGEINPUT);
-    }
   /* don't allow negative bands (for safty in griding-routines) */
   if ( (uvar->AlphaBand < 0) ||  (uvar->DeltaBand < 0) )
     {
@@ -572,7 +548,8 @@ checkUserInputConsistency (LALStatus *status, const UserVariables_t *uvar)
 } /* checkUserInputConsistency() */
 
 
-/** Determine the DopplerRegion in parameter-space to search over.
+/**
+ * Determine the DopplerRegion in parameter-space to search over.
  *
  * Normally this is just given directly by the user and therefore trivial.
  *
@@ -594,7 +571,7 @@ getSearchRegion (LALStatus *status,		/**< pointer to LALStatus structure */
 		 )
 {
 
-  DopplerRegion ret = empty_DopplerRegion;
+  DopplerRegion XLAL_INIT_DECL(ret);
 
   INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
@@ -630,8 +607,8 @@ getSearchRegion (LALStatus *status,		/**< pointer to LALStatus structure */
    */
   if ( LALUserVarWasSet(&uvar->searchNeighbors) )
     {
-      DopplerRegion cube = empty_DopplerRegion;
-      PulsarDopplerParams signal_params = empty_PulsarDopplerParams;
+      DopplerRegion XLAL_INIT_DECL(cube);
+      PulsarDopplerParams XLAL_INIT_DECL(signal_params);
 
       signal_params.Alpha = uvar->Alpha;
       signal_params.Delta = uvar->Delta;
@@ -718,7 +695,8 @@ getSearchRegion (LALStatus *status,		/**< pointer to LALStatus structure */
 
 } /* getSearchRegion() */
 
-/** set random-seed from /dev/urandom if possible, otherwise
+/**
+ * set random-seed from /dev/urandom if possible, otherwise
  * from uninitialized local-var ;)
  */
 void

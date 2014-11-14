@@ -160,7 +160,7 @@ def fisher_rvs(mu, kappa, size=1):
     Assume kappa = 1 / sigma**2
 
     References:
-      * http://en.wikipedia.org/wiki/Von_Mises–Fisher_distribution
+      * http://en.wikipedia.org/wiki/Von_Mises-Fisher_distribution
       * http://arxiv.org/pdf/0902.0737v1 (states the Rayleigh limit)
     """
     rayleigh_rv = \

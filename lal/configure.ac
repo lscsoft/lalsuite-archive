@@ -1,19 +1,22 @@
 AC_PREREQ([2.63])
-AC_INIT([lal],[6.11.0.1],[lal-discuss@ligo.org])
-AC_CONFIG_HEADERS([include/config.h include/lal/LALConfig.h])
+AC_INIT([LAL],[6.12.0.1],[lal-discuss@ligo.org])
+AC_CONFIG_HEADERS([include/config.h lib/lal/LALConfig.h])
 AC_CONFIG_SRCDIR([packages/std/include/LALStdio.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
   lal.spec \
   lal.pc \
+  lal-uninstalled.pc \
   lalsupport.pc \
+  lalsupport-uninstalled.pc \
   Makefile \
   debian/Makefile \
-  gnuscripts/Makefile \
   include/Makefile \
   include/lal/Makefile \
   lib/Makefile \
+  lib/lal/LALVCSInfo.c \
+  lib/lal/LALVCSInfo.h \
   lib/lal/Makefile \
   lib/lalsupport/Makefile \
   lib/lalsupport/doc/Makefile \
@@ -21,12 +24,11 @@ AC_CONFIG_FILES([ \
   lib/lalsupport/src/Makefile \
   lib/lalsupport/test/Makefile \
   python/Makefile \
-  python/__init__.py \
-  python/utils/Makefile \
-  python/spectrum/Makefile \
+  python/lal/Makefile \
+  python/lal/__init__.py \
+  python/lal/utils/Makefile \
+  python/lal/spectrum/Makefile \
   swig/Makefile \
-  swig/octave/Makefile \
-  swig/python/Makefile \
   packages/Makefile \
   packages/std/Makefile \
   packages/std/doc/Makefile \
@@ -89,18 +91,11 @@ AC_CONFIG_FILES([ \
   packages/noisemodels/src/Makefile \
   packages/noisemodels/test/Makefile
 ])
-AM_INIT_AUTOMAKE([1.11 foreign color-tests parallel-tests])
-AH_TOP([
-#ifndef CONFIG_H__LAL
-#define CONFIG_H__LAL
-])
-AH_BOTTOM([
-#endif /* CONFIG_H__LAL */
-])
+AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
 
 AC_CANONICAL_HOST
 
-LALSUITE_ARG_VAR
+LALSUITE_CHECK_GIT_REPO
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 
 # set library api info - liblal
@@ -117,7 +112,7 @@ LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[7])
+AC_SUBST([LIBCURRENT],[8])
 AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
@@ -137,21 +132,12 @@ AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
 AC_SUBST([LIBCURRENT_SUPPORT],[4])
-AC_SUBST([LIBREVISION_SUPPORT],[0])
+AC_SUBST([LIBREVISION_SUPPORT],[1])
 AC_SUBST([LIBAGE_SUPPORT],[0])
 AC_SUBST([LIBVERSION_SUPPORT],[${LIBCURRENT_SUPPORT}:${LIBREVISION_SUPPORT}:${LIBAGE_SUPPORT}])
 
-# check for git repo
-LALSUITE_CHECK_GIT_REPO
-
-LAL_WITH_CC
-LAL_WITH_CFLAGS
-LAL_WITH_EXTRA_CFLAGS
-LAL_WITH_EXTRA_CPPFLAGS
-LAL_WITH_EXTRA_LDFLAGS
-LAL_WITH_EXTRA_LIBS
-
 LAL_ENABLE_INTELFFT
+LAL_ENABLE_FFTW3_MEMALIGN
 
 LALSUITE_WITH_CUDA
 LALSUITE_WITH_NVCC_CFLAGS
@@ -159,7 +145,7 @@ LALSUITE_WITH_NVCC_CFLAGS
 LALSUITE_ENABLE_BOINC
 LALSUITE_ENABLE_GCC_FLAGS
 
-LALSUITE_ENABLE_DEBUG
+LAL_ENABLE_DEBUG
 LAL_ENABLE_MACROS
 LAL_ENABLE_PTHREAD_LOCK
 LALSUITE_ENABLE_NIGHTLY
@@ -167,21 +153,8 @@ LALSUITE_ENABLE_NIGHTLY
 # enable SWIG wrapping modules
 LALSUITE_ENABLE_SWIG
 
-# get version
-lal_version_major=`echo "$VERSION" | cut -d. -f1`
-lal_version_minor=`echo "$VERSION" | cut -d. -f2`
-lal_version_micro=`echo "$VERSION" | cut -d. -f3`
-lal_version_devel=`echo "$VERSION" | cut -d. -f4-`
-test -z "$lal_version_micro" && lal_version_micro=0
-test -z "$lal_version_devel" && lal_version_devel=0
-lal_configure_date=`date +"%Y-%m-%dT%H:%M:%S%z"`
-AC_DEFINE_UNQUOTED([LAL_VERSION],["$VERSION"],[LAL Version])
-AC_DEFINE_UNQUOTED([LAL_VERSION_MAJOR],[$lal_version_major],[LAL Version Major Number])
-AC_DEFINE_UNQUOTED([LAL_VERSION_MINOR],[$lal_version_minor],[LAL Version Minor Number])
-AC_DEFINE_UNQUOTED([LAL_VERSION_MICRO],[$lal_version_micro],[LAL Version Micro Number])
-AC_DEFINE_UNQUOTED([LAL_VERSION_DEVEL],[$lal_version_devel],[LAL Version Devel Number])
-AC_DEFINE_UNQUOTED([LAL_CONFIGURE_ARGS],["$ac_configure_args"],[LAL Configure Arguments])
-AC_DEFINE_UNQUOTED([LAL_CONFIGURE_DATE],["$lal_configure_date"],[LAL Configure Date])
+# define version/configure info
+LALSUITE_VERSION_CONFIGURE_INFO
 
 # workaround broken libtool multilib support on sl6
 LALSUITE_MULTILIB_LIBTOOL_HACK
@@ -197,8 +170,7 @@ lal_pthread_available="yes"
 AX_PTHREAD(,[lal_pthread_available="no"])
 if test "$lal_pthread_lock" = "true" ; then
   if test "$lal_pthread_available" = "yes" ; then
-    LIBS="$PTHREAD_LIBS $LIBS"
-    CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+    LALSUITE_ADD_FLAGS([C],[${PTHREAD_CFLAGS}],[${PTHREAD_LIBS}])
     CC="$PTHREAD_CC"
   else
     AC_MSG_ERROR([do not know how to compile posix threads])
@@ -210,8 +182,7 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_AWK
 AC_PROG_SED
-AM_PATH_PYTHON([2.6],,[AC_MSG_ERROR([Python-2.6, or higher, is required])])
-AC_CHECK_PROGS([M4],[gm4 m4], m4)
+LALSUITE_CHECK_PYTHON([2.6])
 
 # check for supported mac os x version
 LALSUITE_OSX_VERSION_CHECK
@@ -222,18 +193,13 @@ LALSUITE_USE_LIBTOOL
 # set additional compiler flags
 AC_MSG_CHECKING([for additional compiler flags])
 case "${host_os}" in
-  solaris*) CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=200112L"
+  solaris*) LALSUITE_ADD_FLAGS([C],[-D_POSIX_C_SOURCE=200112L],[])
   AC_MSG_RESULT([-D_POSIX_C_SOURCE=200112L]);;
   *) AC_MSG_RESULT([none]);;
 esac
 
-# initialise lalsupport libs
-LALSUPPORT_LIBADD=""
-
 # system library checks
 AC_CHECK_LIB([m],[sin])
-AC_CHECK_LIB([z],[compress],[LALSUPPORT_LIBADD="$LALSUPPORT_LIBADD -lz"],
-             [AC_MSG_ERROR([could not find the zlib library])])
 
 # check for platform specific libs
 case "${host_os}" in
@@ -242,8 +208,7 @@ esac
 
 # check for system headers files
 AC_HEADER_STDC
-AC_CHECK_HEADERS([sys/time.h unistd.h getopt.h malloc.h regex.h glob.h])
-AC_CHECK_HEADERS([zlib.h],,[AC_MSG_ERROR([could not find zlib.h])])
+AC_CHECK_HEADERS([sys/time.h sys/resource.h unistd.h getopt.h malloc.h regex.h glob.h])
 AC_CHECK_HEADERS([stdint.h],,[AC_MSG_ERROR([could not find stdint.h])])
 AC_CHECK_HEADERS([inttypes.h],,[AC_MSG_ERROR([could not find inttypes.h])])
 AC_MSG_CHECKING([for gethostname prototype in unistd.h])
@@ -260,13 +225,20 @@ case "${host_os}" in
   solaris*) AC_CHECK_HEADERS([sunmath.h]);;
 esac
 
+# check for zlib libraries and headers
+PKG_CHECK_MODULES([ZLIB],[zlib],[true],[false])
+LALSUITE_PUSH_UVARS
+LALSUITE_ADD_FLAGS([C],[${ZLIB_CFLAGS}],[${ZLIB_LIBS}])
+AC_SEARCH_LIBS([compress],[],[:],[AC_MSG_ERROR([could not find the zlib library])])
+AC_CHECK_HEADER([zlib.h],[:],[AC_MSG_ERROR([could not find the zlib.h header])])
+LALSUITE_POP_UVARS
+
 # check for gsl
 PKG_CHECK_MODULES([GSL],[gsl],[true],[false])
-CPPFLAGS="$CPPFLAGS $GSL_CFLAGS"
-LIBS="$LIBS $GSL_LIBS"
-AC_CHECK_LIB([gslcblas],[main])
-AC_CHECK_LIB([gsl],[gsl_strerror],,[AC_MSG_ERROR([could not find the gsl library])])
-LAL_CHECK_GSL_VERSION([1.9])
+LALSUITE_ADD_FLAGS([C],[${GSL_CFLAGS}],[${GSL_LIBS}])
+AC_CHECK_LIB([gslcblas],[main],,[AC_MSG_ERROR([could not find the gsl library])])
+AC_CHECK_LIB([gsl],[gsl_version],,[AC_MSG_ERROR([could not find the gsl library])])
+LALSUITE_CHECK_GSL_VERSION([1.13])
 LALSUITE_ENABLE_FAST_GSL
 
 # check for gsl headers
@@ -276,8 +248,7 @@ AC_CHECK_HEADERS([gsl/gsl_errno.h],,[AC_MSG_ERROR([could not find the gsl/gsl_er
 if test "${intelfft}" = "false" ; then
   fftw3="true"
   PKG_CHECK_MODULES([FFTW3],[fftw3 fftw3f],[true],[false])
-  CPPFLAGS="$CPPFLAGS $FFTW3_CFLAGS"
-  LIBS="$LIBS $FFTW3_LIBS"
+  LALSUITE_ADD_FLAGS([C],[${FFTW3_CFLAGS}],[${FFTW3_LIBS}])
   AC_CHECK_LIB([fftw3f],[fftwf_execute_dft],,[AC_MSG_ERROR([could not find the fftw3f library])],[-lm])
   AC_CHECK_LIB([fftw3],[fftw_execute_dft],,[AC_MSG_ERROR([could not find the fftw3 library])],[-lm])
 else
@@ -287,16 +258,16 @@ else
   else
     AC_CHECK_LIB([pthread],[pthread_create],,[AC_MSG_ERROR([could not find the pthread library])])
   fi
-  AC_CHECK_LIB([guide],[__kmp_abort],,[AC_MSG_ERROR([could not find the guide library included with Intel MKL])])
+  # AC_CHECK_LIB([guide],[__kmp_abort],,[AC_MSG_ERROR([could not find the guide library included with Intel MKL])])
   AC_CHECK_HEADERS([pthread.h],,[AC_MSG_ERROR([could not find the pthread.h header])])
   if test "${enable_static}" = "yes"; then
     if test "${enable_shared}" = "yes" ; then
       LAL_INTEL_FFT_LIBS_MSG_ERROR
     else
-      AC_CHECK_LIB([mkl_ia32],[DftiCreateDescriptor],,[AC_MSG_ERROR([could not find the Intel FFT library])])
+      AC_CHECK_LIB([mkl_rt],[DftiCreateDescriptor],,[AC_MSG_ERROR([could not find the Intel FFT library])])
     fi
   else
-    AC_CHECK_LIB([mkl],[DftiCreateDescriptor],,[AC_MSG_ERROR([could not find the Intel FFT library])])
+    AC_CHECK_LIB([mkl_rt],[DftiCreateDescriptor],,[AC_MSG_ERROR([could not find the Intel FFT library])])
   fi
   AC_CHECK_HEADERS([mkl_dfti.h],,[AC_MSG_ERROR([could not find the Intel FFT header])])
 fi
@@ -307,29 +278,32 @@ if test "${intelfft}" = "false" ; then
 fi
 
 # check for boinc
-if test "${boinc}" = "true" ; then
-  if test -n "$BOINC_PREFIX}" ; then
-    # do compilation checks with c++
-    AC_LANG_PUSH([C++])
+if test "x${boinc}" = xtrue; then
+  # do compilation checks with c++
+  AC_LANG_PUSH([C++])
 
-    # set boinc flags
-    BOINC_CFLAGS="-I$BOINC_PREFIX/include"
-    BOINC_LIBS="-L$BOINC_PREFIX/lib -lboinc_api -lboinc"
-    CPPFLAGS="$CPPFLAGS $BOINC_CFLAGS"
-    LIBS="$LIBS $BOINC_LIBS"
-
-    # check for boinc libraries
-    AC_CHECK_LIB([boinc],[boinc_fopen],[true],[boinc=false])
-    AC_CHECK_LIB([boinc_api],[boinc_finish],[true],[boinc=false],[-lboinc])
-
-    # check for boinc headers
-    AC_CHECK_HEADERS([boinc/boinc_api.h],,[boinc=false])
-
-    # go back to c
-    AC_LANG_POP([C++])
+  # set boinc flags
+  AC_ARG_VAR([BOINC_PREFIX],[BOINC installation directory (optional)])
+  AC_ARG_VAR([BOINC_EXTRA_CFLAGS],[extra BOINC compiler flags (optional)])
+  AC_ARG_VAR([BOINC_EXTRA_LIBS],[extra BOINC libraries (optional)])
+  AC_SUBST(BOINC_CFLAGS,"${BOINC_EXTRA_CFLAGS}")
+  AC_SUBST(BOINC_LIBS,"-lboinc_api -lboinc ${BOINC_EXTRA_LIBS}")
+  if test "x${BOINC_PREFIX}" != x; then
+    BOINC_CFLAGS="-I${BOINC_PREFIX}/include ${BOINC_CFLAGS}"
+    BOINC_LIBS="-L${BOINC_PREFIX}/lib ${BOINC_LIBS}"
   fi
+  LALSUITE_ADD_FLAGS([C],[${BOINC_CFLAGS}],[${BOINC_LIBS}])
+
+  # check for boinc libraries
+  AC_CHECK_LIB([boinc],[boinc_fopen],[:],[AC_MSG_ERROR([could not find the boinc library])])
+  AC_CHECK_LIB([boinc_api],[boinc_finish],[:],[AC_MSG_ERROR([could not find the boinc_api library])])
+
+  # check for boinc headers
+  AC_CHECK_HEADERS([boinc/boinc_api.h],[:],[AC_MSG_ERROR([could not find the boinc_api.h header])])
+
+  # go back to c
+  AC_LANG_POP([C++])
 fi
-LALSUITE_ENABLE_MODULE([BOINC],[boinc])
 
 # define what is being enabled
 if test "${cuda}" = "true"; then
@@ -337,6 +311,9 @@ if test "${cuda}" = "true"; then
 fi
 if test "${fftw3}" = "true"; then
   AC_DEFINE([LAL_FFTW3_ENABLED],[1],[Define if using fftw3 library])
+  if test "${fftw3_memalign}" = "true"; then
+    AC_DEFINE([LAL_FFTW3_MEMALIGN_ENABLED],[1],[Define if using fftw3 library])
+  fi
 fi
 if test "${boinc}" = "true"; then
   AC_DEFINE([LAL_BOINC_ENABLED],[1],[Define if using boinc library])
@@ -345,25 +322,23 @@ if test "${boinc}" = "true"; then
 fi
 
 # configure SWIG wrapping modules
-LALSUITE_USE_SWIG([XLAL LAL])
-
-# record the libraries needed for linking lal
-LAL_LIBADD="$LIBS"
-AC_SUBST(LAL_LIBADD)
-AC_SUBST(LALSUPPORT_LIBADD)
+LALSUITE_USE_SWIG
 
 # checks for typedefs, structures, and compiler characteristics
 AC_C_BIGENDIAN
 AC_C_CONST
 AC_C_STRINGIZE
 AC_TYPE_SIZE_T
+AC_TYPE_SSIZE_T
 AC_HEADER_TIME
 
 # checks for library functions
+AC_CHECK_FUNCS([gmtime_r localtime_r])
 AC_CHECK_FUNCS([stat],,[AC_MSG_ERROR([could not find the stat() function])])
 AC_CHECK_FUNCS([getopt],,[AC_MSG_ERROR([could not find the getopt() function])])
 AC_CHECK_FUNCS([getopt_long],,[AC_MSG_ERROR([could not find the getopt_long() function])])
 AC_CHECK_FUNCS([putenv])
+AC_CHECK_FUNCS([posix_memalign])
 
 # set package documentation install path
 pkgdocdir="\${prefix}/share/doc/${PACKAGE}-${VERSION}"
@@ -376,22 +351,30 @@ AM_CONDITIONAL([QTHREAD],[test x$qthread = xtrue])
 # add gcc specific flags --- must be done at end or tests will break!
 LALSUITE_ADD_GCC_FLAGS
 
+# link any executables against LAL and LALSupport libraries
+AC_SUBST([LDADD], ["\$(top_builddir)/lib/lal/liblal.la \$(top_builddir)/lib/lalsupport/src/liblalsupport.la"])
+
+# add extra preprocessor flags
+AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
+AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
+
 # force all python modules into the exec dir to prevent mixed C and
 # pure-python library code from being split across lib and lib64 on
 # RedHat-derived systems.
 AC_SUBST([pkgpythondir], ["\${pkgpyexecdir}"])
 
-INCLUDEMKFILE=$srcdir/gnuscripts/include.mk
-AC_SUBST_FILE([INCLUDEMKFILE])
+# output
 AC_OUTPUT
-echo "
+AC_MSG_NOTICE([
 ==================================================
 LAL has now been successfully configured:
 
+* Python support is $PYTHON_ENABLE_VAL
 * CUDA support is $CUDA_ENABLE_VAL
 * BOINC support is $BOINC_ENABLE_VAL
-* SWIG wrapping module for Octave is $SWIG_OCTAVE_ENABLE_VAL
-* SWIG wrapping module for Python is $SWIG_PYTHON_ENABLE_VAL
+* SWIG binding generation is $SWIG_GENERATE_ENABLE_VAL
+* SWIG bindings for Octave are $SWIG_BUILD_OCTAVE_ENABLE_VAL
+* SWIG bindings for Python are $SWIG_BUILD_PYTHON_ENABLE_VAL
 
 and will be installed under the directory:
 
@@ -400,4 +383,4 @@ ${prefix}
 Now run 'make' to build LAL,
 and run 'make install' to install LAL.
 ==================================================
-"
+])

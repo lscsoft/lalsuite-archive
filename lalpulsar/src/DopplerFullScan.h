@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Karl Wette
+ * Copyright (C) 2007, 2008, 2012 Karl Wette
  * Copyright (C) 2006 Reinhard Prix
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -42,21 +42,22 @@ extern "C" {
 #include <lal/LALBarycenter.h>
 #include <lal/PulsarDataTypes.h>
 #include <lal/ComputeFstat.h>
-
-#include "DopplerScan.h"
+#include <lal/DopplerScan.h>
+#include <lal/LatticeTiling.h>
 
 /*---------- DEFINES ----------*/
 
 /*---------- external types ----------*/
 
 /* ==================== FULL MULTIDIMENSIONAL-GRID types ==================== */
-/** Structure describing a region in paramter-space (a,d,f,f1dot,..).
- *  Currently this is simply a direct product of skyRegion x FreqBand x f1dotBand.
+/**
+ * Structure describing a region in paramter-space (a,d,f,f1dot,..).
+ * Currently this is simply a direct product of skyRegion x FreqBand x f1dotBand.
  */
 
 /** initialization struct for full InitDopplerScan() [UNDER CONSTRUCTION] */
 #ifdef SWIG /* SWIG interface directives */
-SWIGLAL(IMMUTABLE_MEMBERS(tagDopplerFullScanInit, gridFile));
+SWIGLAL(IMMUTABLE_MEMBERS(tagDopplerFullScanInit, Detector, ephemeris, gridFile));
 #endif /* SWIG */
 typedef struct tagDopplerFullScanInit {
   DopplerRegion searchRegion;		/**< Doppler-space region to be covered + scanned */
@@ -92,6 +93,30 @@ REAL8 XLALNumDopplerTemplates ( DopplerFullScanState *scan);
 int XLALGetDopplerSpinRange ( PulsarSpinRange *spinRange, const DopplerFullScanState *scan );
 
 /* ----- variout utility functions ----- */
+
+///
+/// Set a first spindown bound derived from spindown age and braking indices
+///
+int XLALSetLatticeF1DotAgeBrakingBound(
+  LatticeTiling* tiling,		///< [in] Tiling state
+  const size_t freq_dimension,		///< [in] Frequency dimension
+  const size_t f1dot_dimension,		///< [in] First spindown dimension
+  const double age,			///< [in] Spindown age
+  const double min_braking,		///< [in] Minimum braking index
+  const double max_braking		///< [in] Maximum braking index
+  );
+
+///
+/// Set a second spindown bound derived from braking indices
+///
+int XLALSetLatticeF2DotBrakingBound(
+  LatticeTiling* tiling,		///< [in] Tiling state
+  const size_t freq_dimension,		///< [in] Frequency dimension
+  const size_t f1dot_dimension,		///< [in] First spindown dimension
+  const size_t f2dot_dimension,		///< [in] Second spindown dimension
+  const double min_braking,		///< [in] Minimum braking index
+  const double max_braking		///< [in] Maximum braking index
+  );
 
 #ifdef  __cplusplus
 }

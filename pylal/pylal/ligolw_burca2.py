@@ -24,183 +24,18 @@
 #
 
 
-try:
-	from fpconst import PosInf, NegInf
-except ImportError:
-	# fpconst is not part of the standard library and might not be
-	# available
-	PosInf = float("+inf")
-	NegInf = float("-inf")
-import math
 import sys
 import traceback
 
 
+from glue.ligolw import lsctables
+from glue.text_progress_bar import ProgressBar
 from pylal import git_version
-from pylal import rate
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
-
-
-#
-# =============================================================================
-#
-#                                  Likelihood
-#
-# =============================================================================
-#
-
-
-# starting from Bayes' theorem:
-#
-# P(coinc is a g.w. | its parameters)
-#     P(those parameters | a coinc known to be a g.w.) * P(coinc is g.w.)
-#   = -------------------------------------------------------------------
-#                                P(parameters)
-#
-#     P(those parameters | a coinc known to be a g.w.) * P(coinc is g.w.)
-#   = -------------------------------------------------------------------
-#     P(noise params) * P(coinc is not g.w.) + P(inj params) * P(coinc is g.w.)
-#
-#                       P(inj params) * P(coinc is g.w.)
-#   = -------------------------------------------------------------------
-#     P(noise params) * [1 - P(coinc is g.w.)] + P(inj params) * P(coinc is g.w.)
-#
-#                        P(inj params) * P(coinc is g.w.)
-#   = ----------------------------------------------------------------------
-#     P(noise params) + [P(inj params) - P(noise params)] * P(coinc is g.w.)
-#
-# this last form above is used below to compute the LHS
-#
-#          [P(inj params) / P(noise params)] * P(coinc is g.w.)
-#   = --------------------------------------------------------------
-#     1 + [[P(inj params) / P(noise params)] - 1] * P(coinc is g.w.)
-#
-#          Lambda * P(coinc is g.w.)                       P(inj params)
-#   = -----------------------------------  where Lambda = ---------------
-#     1 + (Lambda - 1) * P(coinc is g.w.)                 P(noise params)
-#
-# Differentiating w.r.t. Lambda shows the derivative is always positive, so
-# this is a monotonically increasing function of Lambda --> thresholding on
-# Lambda is equivalent to thresholding on P(coinc is a g.w. | its
-# parameters).  The limits:  Lambda=0 --> P(coinc is a g.w. | its
-# parameters)=0, Lambda=+inf --> P(coinc is a g.w. | its
-# parameters)=P(coinc is g.w.), Lambda=0/0 --> P(coinc is a g.w. | its
-# parameters)=0/0.  We interpret the last case to be 0.
-
-
-#
-# Class for computing foreground likelihoods from the measurements in a
-# BurcaCoincParamsDistributions instance.
-#
-
-
-class Likelihood(object):
-	def __init__(self, coinc_param_distributions):
-		# check input
-		if set(coinc_param_distributions.background_rates) != set(coinc_param_distributions.injection_rates):
-			raise ValueError("distribution density name mismatch:  found background data with names %s and injection data with names %s" % (", ".join(sorted(coinc_param_distributions.background_rates)), ", ".join(sorted(coinc_param_distributions.injection_rates))))
-		for name, binnedarray in coinc_param_distributions.background_rates.items():
-			if len(binnedarray.array.shape) != len(coinc_param_distributions.injection_rates[name].array.shape):
-				raise ValueError("background data with name %s has shape %s but injection data has shape %s" % (name, str(binnedarray.array.shape), str(coinc_param_distributions.injection_rates[name].array.shape)))
-
-		# construct interpolators from the distribution data
-		self.background_rates = dict((name, rate.InterpBinnedArray(binnedarray)) for name, binnedarray in coinc_param_distributions.background_rates.items())
-		self.injection_rates = dict((name, rate.InterpBinnedArray(binnedarray)) for name, binnedarray in coinc_param_distributions.injection_rates.items())
-
-	def set_P_gw(self, P):
-		self.P_gw = P
-
-	def P(self, params):
-		if params is None:
-			return None, None
-		P_bak = 1.0
-		P_inj = 1.0
-		for name, value in params.items():
-			P_bak *= float(self.background_rates[name](*value))
-			P_inj *= float(self.injection_rates[name](*value))
-		return P_bak, P_inj
-
-	def __call__(self, params):
-		"""
-		Compute the likelihood that the coincident n-tuple of
-		events is the result of a gravitational wave:  the
-		probability that the hypothesis "the events are a
-		gravitational wave" is correct, in the context of the
-		measured background and foreground distributions, and the
-		intrinsic rate of gravitational wave coincidences.  offsets
-		is a dictionary of instrument --> offset mappings to be
-		used to time shift the events before comparison.
-		"""
-		P_bak, P_inj = self.P(params)
-		if P_bak is None and P_inj is None:
-			return None
-		return (P_inj * self.P_gw) / (P_bak + (P_inj - P_bak) * self.P_gw)
-
-
-class Confidence(Likelihood):
-	def __call__(self, params):
-		"""
-		Compute the confidence that the list of events are the
-		result of a gravitational wave:  -ln[1 - P(gw)], where
-		P(gw) is the likelihood returned by the Likelihood class.
-		A set of events very much like gravitational waves will
-		have a likelihood of being a gravitational wave very close
-		to 1, so 1 - P is a small positive number, and so -ln of
-		that is a large positive number.
-		"""
-		P_bak, P_inj = self.P(params)
-		if P_bak is None and P_inj is None:
-			return None
-		return  math.log(P_bak + (P_inj - P_bak) * self.P_gw) - math.log(P_inj) - math.log(self.P_gw)
-
-
-class LikelihoodRatio(Likelihood):
-	def set_P_gw(self, P):
-		"""
-		Raises NotImplementedError.  The likelihood ratio is
-		computed without using this parameter.
-		"""
-		raise NotImplementedError
-
-	def __call__(self, params):
-		"""
-		Compute the likelihood ratio for the hypothesis that the
-		list of events are the result of a gravitational wave.  The
-		likelihood ratio is the ratio P(inj params) / P(noise
-		params).  The probability that the events are the result of
-		a gravitiational wave is a monotonically increasing
-		function of the likelihood ratio, so ranking events from
-		"most like a gravitational wave" to "least like a
-		gravitational wave" can be performed by calculating the
-		likelihood ratios, which has the advantage of not requiring
-		a prior probability to be provided.
-		"""
-		P_bak, P_inj = self.P(params)
-		if P_bak is None and P_inj is None:
-			return None
-		if P_bak == 0.0 and P_inj == 0.0:
-			# this can happen.  "correct" answer is 0, not NaN,
-			# because if a tuple of events has been found in a
-			# region of parameter space where the probability
-			# of an injection occuring is 0 then there is no
-			# way this is an injection.  there is also,
-			# aparently, no way it's a noise event, but that's
-			# irrelevant because we are supposed to be
-			# computing something that is a monotonically
-			# increasing function of the probability that an
-			# event tuple is a gravitational wave, which is 0
-			# in this part of the parameter space.
-			return 0.0
-		try:
-			return  P_inj / P_bak
-		except ZeroDivisionError:
-			# P_bak == 0.0, P_inj != 0.0.  this is a
-			# "guaranteed detection", not a failure
-			return PosInf
 
 
 #
@@ -274,6 +109,37 @@ WHERE
 	cursor.close()
 
 
+def assign_likelihood_ratios_xml(xmldoc, coinc_def_id, offset_vectors, vetoseglists, events_func, veto_func, likelihood_ratio_func, likelihood_params_func, verbose = False, params_func_extra_args = ()):
+	"""
+	Assigns likelihood ratio values to coincidences (XML version).
+	"""
+	#
+	# Iterate over all coincs, assigning likelihood ratios.
+	#
+
+	coinc_event_table = lsctables.CoincTable.get_table(xmldoc)
+
+	if verbose:
+		progressbar = ProgressBar("computing likelihood ratios", max = len(coinc_event_table))
+	else:
+		progressbar = None
+
+	for coinc_event in coinc_event_table:
+		if progressbar is not None:
+			progressbar.increment()
+		if coinc_event.coinc_def_id != coinc_def_id:
+			continue
+		coinc_event.likelihood = likelihood_ratio_func(likelihood_params_func([event for event in events_func(None, coinc_event.coinc_event_id) if veto_func(event, vetoseglists)], offset_vectors[coinc_event.time_slide_id], *params_func_extra_args))
+
+	del progressbar
+
+	#
+	# Done
+	#
+
+	return
+
+
 #
 # Burst-specific interface
 #
@@ -314,7 +180,7 @@ def ligolw_burca2(database, likelihood_ratio, params_func, verbose = False, para
 		coinc_def_id = database.bb_definer_id,
 		offset_vectors = database.time_slide_table.as_dict(),
 		vetoseglists = database.vetoseglists,
-		events_func = lambda cursor, coinc_event_id: sngl_burst_events_func(cursor, conic_event_id, database.sngl_burst_table.row_from_cols),
+		events_func = lambda cursor, coinc_event_id: sngl_burst_events_func(cursor, coinc_event_id, database.sngl_burst_table.row_from_cols),
 		veto_func = sngl_burst_veto_func,
 		likelihood_ratio_func = likelihood_ratio,
 		likelihood_params_func = params_func,

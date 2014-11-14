@@ -120,30 +120,34 @@ class build_auxmvc_vectors_job(auxmvc_analysis_job):
   """
   Job for building auxmvc feature vectors. 
   """
-  def __init__(self, cp):
+  def __init__(self, cp, main_channel, channels=None, unsafe_channels=None):
     """
     """
-    sections = ['build-auxmvc-vectors']
+    sections = ['build_auxmvc_vectors']
     exec_name = 'idq_build_auxmvc_vectors'
     tag_base = 'build_vectors'
-    auxmvc_analysis_job.__init__(self,cp,sections,exec_name,tag_base=tag_base)	
+    auxmvc_analysis_job.__init__(self,cp,sections,exec_name,tag_base=tag_base)
+    self.add_opt('main-channel',main_channel)
+    if channels: self.add_opt('channels', channels)
+    if unsafe_channels: self.add_opt('unsafe-channels', unsafe_channels)	
 		
 
 class build_auxmvc_vectors_node(pipeline.CondorDAGNode):
   """
-  Dag node for building axumvc feature vector.
+  Dag node for building auxmvc feature vector.
   """
-  def __init__(self, job, triggerfiles, gps_start_time, gps_end_time, p_node=[]):
+  def __init__(self, job, trigdir, gps_start_time, gps_end_time, output_file, dq_segments=None, dq_segments_name="", p_node=[]):
+    job.set_stdout_file('logs/' + job.tag_base + '-' + str(gps_start_time) + '-' + str(gps_end_time - gps_start_time) +'.out')
+    job.set_stderr_file('logs/' + job.tag_base + '-' +  str(gps_start_time) + '-' + str(gps_end_time - gps_start_time) +'.err')
     pipeline.CondorDAGNode.__init__(self,job)
-    self.job.set_stdout_file('logs/' + job.tag_base + '-' + str(gps_start_time) + '-' + str(gps_end_time - gps_start_time) +'.out')
-    self.job.set_stderr_file('logs/' + job.tag_base + '-' +  str(gps_start_time) + '-' + str(gps_end_time - gps_start_time) +'.err')
-    self.add_input_file(triggerfiles)
-    trigger_type = self.job.get_opt('trigger-type')
-    ifo = self.job.get_opt('ifo')
-    user_tag = self.job.get_opt('user-tag')
-    output_file_name= trigger_type + ifo + "-" + "evaluation_" + user_tag  + "-" + gps_start_time + "-" + str(gps_end_time - gps_start_time) + ".pat"
-    self.add_output_file(output_file_name)
-    self.add_var_opt('trigger-files', triggerfiles)
+    self.add_output_file(output_file)
+    self.add_var_opt('trigger-dir', trigdir)
+    self.add_var_opt('gps-start-time', gps_start_time)
+    self.add_var_opt('gps-end-time', gps_end_time)
+    self.add_var_opt('output-file', output_file)
+    if dq_segments: 
+	  self.add_var_opt('dq-segments', dq_segments)
+	  self.add_var_opt('dq-segments-name', dq_segments_name)
     for p in p_node:
       self.add_parent(p)
   
@@ -154,7 +158,7 @@ class prepare_training_auxmvc_samples_job(auxmvc_analysis_job):
   def __init__(self, cp):
     """
     """
-    sections = ['prepare-training-auxmvc-samples']
+    sections = ['prepare_training_auxmvc_samples']
     exec_name = 'idq_prepare_training_auxmvc_samples'
     tag_base = 'training_auxmvc'
     auxmvc_analysis_job.__init__(self,cp,sections,exec_name,tag_base=tag_base)	
@@ -195,12 +199,13 @@ class add_file_to_cache_node(pipeline.CondorDAGNode):
   """
   Node for preparing training auxmvc samples job. 
   """
-  def __init__(self, job, file, cache, p_node=[]):
-    job.set_stdout_file('logs/' + os.path.split(file)[1].split(".")[0] + 'adding_to_cache.out')
-    job.set_stderr_file('logs/' + os.path.split(file)[1].split(".")[0] + 'adding_to_cache.err')
+  def __init__(self, job, files, cache, p_node=[]):
+    job.set_stdout_file('logs/' + os.path.split(files[0])[1].split(".")[0] + '_adding_to_cache.out')
+    job.set_stderr_file('logs/' + os.path.split(files[0])[1].split(".")[0] + '_adding_to_cache.err')
     pipeline.CondorDAGNode.__init__(self,job)
-    self.add_var_arg(file)
     self.add_var_arg(cache)
+    for file in files:
+      self.add_var_arg(file)
     for p in p_node:
       self.add_parent(p)
 	
@@ -440,3 +445,93 @@ class train_svm_node(pipeline.CondorDAGNode):
             self.add_parent(p)
 
 
+########################  ann for idq  ############################
+
+class convert_annfile_job(auxmvc_analysis_job):
+  """
+  Job for converting pat files to FANN type files.
+  """
+  def __init__(self, cp):
+    """
+    """
+    sections = ['ann_convert']
+    exec_name = 'ConvertSprToFann'
+    tag_base = 'ann_convert'
+    auxmvc_analysis_job.__init__(self,cp,sections,exec_name,tag_base=tag_base, short_opts=False)	
+		
+
+class convert_annfile_node(pipeline.CondorDAGNode):
+  """
+  Dag node for converting pat files to FANN type files.
+  """
+  def __init__(self, job, pat_file, p_node=[]):
+    job.set_stdout_file('logs/' + os.path.split(training_data_file)[1].replace('.pat', '.out'))
+    job.set_stderr_file('logs/' + os.path.split(training_data_file)[1].replace('.pat', '.err'))
+    pipeline.CondorDAGNode.__init__(self,job)
+    self.add_input_file(pat_file)
+    self.pat_file = self.get_input_files()[0]
+    self.fann_file = pat_file.replace(".pat",".ann")
+    self.add_output_file(self.fann_file)	
+    self.add_file_arg(" %s" % (self.pat_file))
+    for p in p_node:
+      self.add_parent(p)
+
+class train_ann_job(auxmvc_analysis_job):
+  """
+  Training job for Artifical Neural Networks (ANN) with iRPROP- algorithm.
+  """
+  def __init__(self, cp):
+    """
+    """
+    sections = ['train_ann']
+    exec_name = 'TrainNeuralNet'
+    tag_base = 'train_ann'
+    auxmvc_analysis_job.__init__(self,cp,sections,exec_name,tag_base=tag_base, short_opts=False)	
+		
+
+class train_ann_node(pipeline.CondorDAGNode):
+  """
+  Dag node for training the Artificial Neural Networks (ANN) with iRPROP- algorithm.
+  """
+  def __init__(self, job, training_data_file, trained_ann_filename, p_node=[]):
+    job.set_stdout_file('logs/' + os.path.split(training_data_file)[1].replace('.pat', '.out'))
+    job.set_stderr_file('logs/' + os.path.split(training_data_file)[1].replace('.pat', '.err'))
+    pipeline.CondorDAGNode.__init__(self,job)
+    self.add_input_file(training_data_file)
+    self.training_data_file = self.get_input_files()[0]
+    self.trained_ann = trained_ann_filename
+    self.add_output_file(self.trained_ann)	
+    self.add_file_arg(" -t %s -s %s" % (self.training_data_file, self.trained_ann))
+    for p in p_node:
+      self.add_parent(p)
+
+class use_ann_job(auxmvc_analysis_job):
+  """
+  Job using ANN to evaluate unclassified data.
+  """
+  def __init__(self, cp):
+    """
+    """
+    sections = ['ann_evaluate']
+    exec_name = 'EvaluateNeuralNet'
+    tag_base = 'ann_evaluate'
+    auxmvc_analysis_job.__init__(self,cp, sections, exec_name, tag_base=tag_base, short_opts=False)
+    self.add_short_opt("", "")
+
+class use_ann_node(pipeline.CondorDAGNode):
+  """
+  Node for ANN evaluation job. 
+  """
+  def __init__(self, job, trained_ann, file_to_rank, ranked_file,p_node=[]):
+    job.set_stdout_file('logs/' + os.path.split(ranked_file)[1].replace('.dat', '.out'))
+    job.set_stderr_file('logs/' + os.path.split(ranked_file)[1].replace('.dat', '.err'))
+    pipeline.CondorDAGNode.__init__(self,job)
+    self.add_input_file(trained_ann)
+    self.add_input_file(file_to_rank)
+    self.add_output_file(ranked_file)
+    self.trained_ann = self.get_input_files()[0]
+    self.file_to_rank = self.get_input_files()[1]
+    self.ranked_file = ranked_file
+    self.add_file_arg(" -n %s -e %s -s %s" % (self.trained_ann, self.file_to_rank, self.ranked_file))
+    for p in p_node:
+      self.add_parent(p)

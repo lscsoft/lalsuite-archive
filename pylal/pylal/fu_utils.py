@@ -302,9 +302,6 @@ class getCache(UserDict):
           break
 
         path = f.path
-        extension = path.split('.')[len(path.split('.'))-1]
-        if extension == 'gz': gz = True
-        else: gz = False
 
         # if the option "--convert-evenid" is called, a copy of the xml file
         # is made under LOCAL_XML_COPY, and the event_id is converted 
@@ -313,7 +310,7 @@ class getCache(UserDict):
           path = self.doFileCopyAndEventIdConvert(cp,[path],True)[0]
         elif opts.create_localcopy:
           path = self.doFileCopyAndEventIdConvert(cp,[path])[0]
-        doc = utils.load_filename(path,False,gz)
+        doc = utils.load_filename(path)
         proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
         if getInsp:
           insp = table.get_table(doc, lsctables.SnglInspiralTable.tableName)
@@ -843,10 +840,7 @@ def readFiles(fileGlob,statistic=None,excludedTags=None):
   coincs = None
   search = None
   for thisFile in fList:
-    extension = thisFile.split('.')[len(thisFile.split('.'))-1]
-    if extension == 'gz': gz = True
-    else: gz = False
-    doc = utils.load_filename(thisFile,False,gz)
+    doc = utils.load_filename(thisFile)
     # extract the sim inspiral table
     try:
       simInspiralTable = \

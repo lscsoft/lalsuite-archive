@@ -53,8 +53,6 @@
 #define MIN(x,y) (x < y ? x : y)
 #define MAX(x,y) (x > y ? x : y)
 
-#define INIT_MEM(x) memset(&(x), 0, sizeof((x)))
-
 #define TRUE (1==1)
 #define FALSE (1==0)
 
@@ -101,20 +99,6 @@ typedef REAL4	meshREAL;
 typedef TwoDMeshNode meshNODE;
 typedef TwoDMeshParamStruc meshPARAMS;
 
-/*---------- empty initializers ---------- */
-/* some empty structs for initializations */
-static const meshPARAMS empty_meshpar;
-
-static const PtoleMetricIn empty_metricpar;
-static const MetricParamStruc empty_MetricParamStruc;
-static const PulsarTimesParamStruc empty_PulsarTimesParamStruc;
-
-const DopplerSkyGrid empty_DopplerSkyGrid;
-const DopplerSkyScanState empty_DopplerSkyScanState;
-const DopplerSkyScanInit empty_DopplerSkyScanInit;
-const DopplerRegion empty_DopplerRegion;
-const SkyRegion empty_SkyRegion;
-
 /*---------- internal prototypes ----------*/
 void getRange( LALStatus *, meshREAL y[2], meshREAL x, void *params );
 void getMetric( LALStatus *, meshREAL g[3], meshREAL skypos[2], void *params );
@@ -141,7 +125,8 @@ const char *va(const char *format, ...);	/* little var-arg string helper functio
 
 /*==================== FUNCTION DEFINITIONS ====================*/
 
-/** NextDopplerSkyPos(): step through sky-grid
+/**
+ * NextDopplerSkyPos(): step through sky-grid
  * return 0 = OK, -1 = ERROR
  */
 int
@@ -187,7 +172,8 @@ XLALNextDopplerSkyPos( PulsarDopplerParams *pos, DopplerSkyScanState *skyScan)
 } /* XLALNextDopplerSkyPos() */
 
 
-/** Initialize the Doppler sky-scanner
+/**
+ * Initialize the Doppler sky-scanner
  */
 void
 InitDopplerSkyScan( LALStatus *status,			/**< pointer to LALStatus structure */
@@ -299,13 +285,13 @@ InitDopplerSkyScan( LALStatus *status,			/**< pointer to LALStatus structure */
    * are sufficiently independent of the phase-parameters
    * ----------*/
   {
-    PulsarDopplerParams gridpoint = empty_PulsarDopplerParams;
-    PulsarDopplerParams gridSpacings = empty_PulsarDopplerParams;
+    PulsarDopplerParams XLAL_INIT_DECL(gridpoint);
+    PulsarDopplerParams XLAL_INIT_DECL(gridSpacings);
 
     gridpoint.Alpha = skyScan->skyGrid->Alpha;
     gridpoint.Delta = skyScan->skyGrid->Delta;
 
-    INIT_MEM ( gridpoint.fkdot );
+    XLAL_INIT_MEM ( gridpoint.fkdot );
     gridpoint.fkdot[0] = init->Freq;
 
     TRY ( getGridSpacings( status->statusPtr, &gridSpacings, gridpoint, init), status);
@@ -327,7 +313,8 @@ InitDopplerSkyScan( LALStatus *status,			/**< pointer to LALStatus structure */
 } /* InitDopplerSkyScan() */
 
 
-/** Destroy the DopplerSkyScanState structure
+/**
+ * Destroy the DopplerSkyScanState structure
  */
 void
 FreeDopplerSkyScan (LALStatus *status, DopplerSkyScanState *skyScan)
@@ -394,7 +381,8 @@ freeSkyGrid (DopplerSkyGrid *skygrid)
    FIXME: generalize to N-dimensional parameter-searches
 ********************************************************************** */
 
-/** This is the parameter range function as required by TwoDMesh().
+/**
+ * This is the parameter range function as required by TwoDMesh().
  *
  * NOTE: for the moment we only provide a trival range as defined by the
  * rectangular parameter-area [ a1, a2 ] x [ d1, d2 ]
@@ -446,7 +434,7 @@ void getMetric( LALStatus *status, meshREAL g[3], meshREAL skypos[2], void *para
 {
   REAL8Vector   *metric = NULL;  /* for output of metric */
   DopplerSkyScanInit *par = (DopplerSkyScanInit*) params;
-  PtoleMetricIn metricpar = empty_metricpar;
+  PtoleMetricIn XLAL_INIT_DECL(metricpar);
 
   /* Set up shop. */
   INITSTATUS(status);
@@ -699,21 +687,25 @@ plotSkyGrid (LALStatus *status,
 
 } /* plotSkyGrid */
 
-/** Function for checking if a given point lies inside or outside a given
- *  polygon, which is specified by a list of points in a SkyPositionVector.
+/**
+ * Function for checking if a given point lies inside or outside a given
+ * polygon, which is specified by a list of points in a SkyPositionVector.
  *
- * \heading{Note1:}
- * 	The list of polygon-points must not close on itself, the last point
- * 	is automatically assumed to be connected to the first
+ * ### Note1: ###
  *
- * \heading{Algorithm:}
- *     Count the number of intersections of rays emanating to the right
- *     from the point with the lines of the polygon: even =\> outside, odd =\> inside
+ * The list of polygon-points must not close on itself, the last point
+ * is automatically assumed to be connected to the first
  *
- * \heading{Note2:}
- *     we try to get this algorith to count all boundary-points as 'inside'
- *     we do this by counting intersection to the left _AND_ to the right
- *     and consider the point inside if either of those says its inside...
+ * ### Algorithm: ###
+ *
+ * Count the number of intersections of rays emanating to the right
+ * from the point with the lines of the polygon: even =\> outside, odd =\> inside
+ *
+ * ### Note2: ###
+ *
+ * we try to get this algorith to count all boundary-points as 'inside'
+ * we do this by counting intersection to the left _AND_ to the right
+ * and consider the point inside if either of those says its inside...
  *
  * \return TRUE or FALSE
  */
@@ -777,7 +769,7 @@ ConvertTwoDMesh2SkyGrid ( LALStatus *status,
 		       const SkyRegion *region )   	/* a sky-region for clipping */
 {
   const meshNODE *meshpoint;
-  DopplerSkyGrid head = empty_DopplerSkyGrid;
+  DopplerSkyGrid XLAL_INIT_DECL(head);
   DopplerSkyGrid *node = NULL;
   SkyPosition point;
 
@@ -845,7 +837,7 @@ buildFlatSkyGrid (LALStatus *status,
 	       REAL8 dDelta)
 {
   SkyPosition thisPoint;
-  DopplerSkyGrid head = empty_DopplerSkyGrid;  /* empty head to start grid-list */
+  DopplerSkyGrid XLAL_INIT_DECL(head);
   DopplerSkyGrid *node = NULL;
 
   INITSTATUS(status);
@@ -909,7 +901,7 @@ void
 buildIsotropicSkyGrid (LALStatus *status, DopplerSkyGrid **skyGrid, const SkyRegion *skyRegion, REAL8 dAlpha, REAL8 dDelta)
 {
   SkyPosition thisPoint;
-  DopplerSkyGrid head = empty_DopplerSkyGrid;  /* empty head to start grid-list */
+  DopplerSkyGrid XLAL_INIT_DECL(head);
   DopplerSkyGrid *node = NULL;
   REAL8 step_Alpha, step_Delta, cos_Delta;
 
@@ -968,7 +960,8 @@ buildIsotropicSkyGrid (LALStatus *status, DopplerSkyGrid **skyGrid, const SkyReg
 
 } /* buildIsotropicSkyGrid() */
 
-/** Build the skygrid using a specified metric.
+/**
+ * Build the skygrid using a specified metric.
  *
  * \note: first we cover the enclosing rectange of the skyRegion
  * using the metric-covering code, then we clip out the actual
@@ -986,8 +979,8 @@ buildMetricSkyGrid (LALStatus *status,
 		    const DopplerSkyScanInit *init)
 {
   meshNODE *mesh2d = NULL;
-  meshPARAMS meshpar = empty_meshpar;
-  PtoleMetricIn metricpar = empty_metricpar;
+  meshPARAMS XLAL_INIT_DECL(meshpar);
+  PtoleMetricIn XLAL_INIT_DECL(metricpar);
   DopplerSkyScanInit params = (*init);
 
   INITSTATUS(status);
@@ -1053,7 +1046,8 @@ buildMetricSkyGrid (LALStatus *status,
 } /* buildMetricSkyGrid() */
 
 
-/** Load skygrid from file, clipped to searchRegion.
+/**
+ * Load skygrid from file, clipped to searchRegion.
  */
 void
 loadSkyGridFile (LALStatus *status,
@@ -1062,9 +1056,10 @@ loadSkyGridFile (LALStatus *status,
 		 )
 {
   LALParsedDataFile *data = NULL;
-  DopplerSkyGrid *node, head = empty_DopplerSkyGrid;
+  DopplerSkyGrid *node;
+  DopplerSkyGrid XLAL_INIT_DECL(head);
   UINT4 i;
-  SkyPosition thisPoint = empty_SkyPosition;
+  SkyPosition XLAL_INIT_DECL(thisPoint);
 
   INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
@@ -1111,7 +1106,8 @@ loadSkyGridFile (LALStatus *status,
 
 } /* loadSkyGridFile() */
 
-/** Write the given sky-grid to a file.
+/**
+ * Write the given sky-grid to a file.
  * Possibly including some comments containing the parameters of the grid (?).
  *
  */
@@ -1260,8 +1256,10 @@ printFrequencyShifts ( LALStatus *status, const DopplerSkyScanState *skyScan, co
 } /* printFrequencyShifts() */
 
 
-/** some temp test-code outputting the maximal possible dopper-shift
- * |vE| + |vS| over the ephemeris */
+/**
+ * some temp test-code outputting the maximal possible dopper-shift
+ * |vE| + |vS| over the ephemeris
+ */
 REAL8
 getDopplermax(EphemerisData *edat)
 {
@@ -1296,7 +1294,7 @@ getDopplermax(EphemerisData *edat)
 /**
  * parse a skyRegion-string into a SkyRegion structure: the expected
  * string-format is
- *   " (ra1, dec1), (ra2, dec2), (ra3, dec3), ... "
+ * " (ra1, dec1), (ra2, dec2), (ra3, dec3), ... "
  *
  * If input == NULL or input == "allsky":==> sky-region covering the whole sky.
  *
@@ -1462,7 +1460,7 @@ getGridSpacings( LALStatus *status,			/**< pointer to LALStatus structure */
 {
   REAL8Vector *metric = NULL;
   REAL8 g_f0_f0 = 0, gamma_f1_f1 = 0, gamma_a_a, gamma_d_d;
-  PtoleMetricIn metricpar = empty_metricpar;
+  PtoleMetricIn XLAL_INIT_DECL(metricpar);
   UINT4 s;
 
   INITSTATUS(status);
@@ -1546,30 +1544,31 @@ getGridSpacings( LALStatus *status,			/**< pointer to LALStatus structure */
 } /* getGridSpacings() */
 
 /*----------------------------------------------------------------------*/
-/** Determine a (randomized) cubic DopplerRegion around a search-point
- *  with (roughly) the given number of grid-points in each non-projected
- *  dimension.
+/**
+ * Determine a (randomized) cubic DopplerRegion around a search-point
+ * with (roughly) the given number of grid-points in each non-projected
+ * dimension.
  *
- *  Motivation: mainly useful for MC tests of the search-grid.
- *              For this we need to simulate a 'small' search-grid around
- *              the signal-location.
+ * Motivation: mainly useful for MC tests of the search-grid.
+ * For this we need to simulate a 'small' search-grid around
+ * the signal-location.
  *
- *  This function tries to estimate a region in parameter-space
- *  with roughly the given number of grid-points in each non-projected dimension.
+ * This function tries to estimate a region in parameter-space
+ * with roughly the given number of grid-points in each non-projected dimension.
  *
- *  NOTE: if the frequency has been projected, we need to search
- *       the *whole* possible Doppler-range of frequencies, in which the
- *       signal can show up. This range is bounded by (from circle-equation)
- *       |FreqBand/Freq| < beta_orb Delta_n, where beta_orb = V_orb/c ~1e-4,
- *       and \f$\Delta_n = |\vec{n} - \vec{n}_sig|\f$ can be estimated from the
- *       metric sky-ellipses: Delta_n ~ smajor of the sky-ellipse
+ * NOTE: if the frequency has been projected, we need to search
+ * the *whole* possible Doppler-range of frequencies, in which the
+ * signal can show up. This range is bounded by (from circle-equation)
+ * |FreqBand/Freq| < beta_orb Delta_n, where beta_orb = V_orb/c ~1e-4,
+ * and \f$\Delta_n = |\vec{n} - \vec{n}_sig|\f$ can be estimated from the
+ * metric sky-ellipses: Delta_n ~ smajor of the sky-ellipse
  *
- *  The region will be randomized wrt the central point within one
- *  grid-spacing in order to avoid systematic effects in MC simulations.
+ * The region will be randomized wrt the central point within one
+ * grid-spacing in order to avoid systematic effects in MC simulations.
  *
- *  PointsPerDim == 0: trivial search-region consisting just of the signal-location
- * 			( no randomization! )
- *  PointsPerDim == 1: DopplerRegion is only one point (randomized within one cell)
+ * PointsPerDim == 0: trivial search-region consisting just of the signal-location
+ * ( no randomization! )
+ * PointsPerDim == 1: DopplerRegion is only one point (randomized within one cell)
  */
 void
 getMCDopplerCube (LALStatus *status,		/**< pointer to LALStatus structure */
@@ -1578,7 +1577,7 @@ getMCDopplerCube (LALStatus *status,		/**< pointer to LALStatus structure */
 		  UINT4 PointsPerDim,		/**< desired number of grid-points per dim. */
 		  const DopplerSkyScanInit *params)/**< search+metric parameters */
 {
-  PulsarDopplerParams spacings = empty_PulsarDopplerParams;
+  PulsarDopplerParams XLAL_INIT_DECL(spacings);
   REAL8 Alpha, Delta, Freq, f1dot;
   REAL8 dAlpha, dDelta, dFreq, df1dot;
   REAL8 AlphaBand, DeltaBand, FreqBand, f1dotBand;
@@ -1619,7 +1618,7 @@ getMCDopplerCube (LALStatus *status,		/**< pointer to LALStatus structure */
     { /* choose large-enough FreqBand if projecting */
       REAL8 DopplerFreqBand;
       REAL8 fB = FreqBand;
-      PtoleMetricIn metricpar = empty_metricpar;/* we need to know metric for this..:( */
+      PtoleMetricIn XLAL_INIT_DECL(metricpar);
       MetricEllipse ellipse;
       REAL8Vector *metric = NULL;
 
@@ -1683,7 +1682,8 @@ getMCDopplerCube (LALStatus *status,		/**< pointer to LALStatus structure */
 } /* getMCDopplerCube() */
 
 /*----------------------------------------------------------------------*/
-/** get "metric-ellipse" for given metric.
+/**
+ * get "metric-ellipse" for given metric.
  * \note This function uses only 2 dimensions starting from dim0 of the given metric!
  */
 void
@@ -1749,7 +1749,8 @@ fprintfDopplerParams ( FILE *fp, const PulsarDopplerParams *params )
   return 0;
 } /* printfDopplerParams() */
 
-/** Equi-partition (approximately) a given skygrid into numPartitions, and return
+/**
+ * Equi-partition (approximately) a given skygrid into numPartitions, and return
  * partition 0<= partitionIndex < numPartitions
  */
 DopplerSkyGrid *
@@ -1759,7 +1760,8 @@ XLALEquiPartitionSkygrid ( const DopplerSkyGrid *skygrid, UINT4 partitionIndex, 
   UINT4 iMin, numPoints;
   UINT4 counter;
   const DopplerSkyGrid *node;
-  DopplerSkyGrid *newNode, newGrid = empty_DopplerSkyGrid;
+  DopplerSkyGrid *newNode;
+  DopplerSkyGrid XLAL_INIT_DECL(newGrid);
 
   if ( !skygrid || (numPartitions == 0) || (partitionIndex >= numPartitions) )
     XLAL_ERROR_NULL( XLAL_EINVAL );

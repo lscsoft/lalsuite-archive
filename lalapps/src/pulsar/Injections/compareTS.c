@@ -91,18 +91,14 @@ REAL4Vector *XLALREAL4VectorFromFile ( const CHAR *fname );
 
 extern int vrbflg;
 
-/* Empty initializers */
-static const LALStatus empty_LALStatus;
-static const UserVar empty_UserVar;
-
 /*----------------------------------------------------------------------
  * main function
  *----------------------------------------------------------------------*/
 int
 main(int argc, char *argv[])
 {
-  LALStatus status = empty_LALStatus;	/* initialize status */
-  UserVar uvar = empty_UserVar;
+  LALStatus XLAL_INIT_DECL(status);
+  UserVar XLAL_INIT_DECL(uvar);
   REAL4Vector *ts1 = NULL, *ts2 = NULL;
   REAL4 maxd;
 
@@ -199,7 +195,8 @@ initUserVars (LALStatus *status, UserVar *uvar)
 } /* initUserVars() */
 
 
-/** Compare two REAL8 vectors, returns a measure of the difference.
+/**
+ * Compare two REAL8 vectors, returns a measure of the difference.
  */
 REAL4
 XLALcompareREAL4Vectors ( REAL4Vector *ts1, REAL4Vector *ts2 )
@@ -255,7 +252,8 @@ XLALcompareREAL4Vectors ( REAL4Vector *ts1, REAL4Vector *ts2 )
   } /* XLALcompareREAL4Vectors() */
 
 
-/** Load timeseries from binary input file into REAL4Vector
+/**
+ * Load timeseries from binary input file into REAL4Vector
  */
 REAL4Vector *
 XLALREAL4VectorFromFile ( const CHAR *fname )

@@ -18,18 +18,18 @@
 */
 
 /**
-\author Sathyaprakash, B. S., Cokelaer T.
-\file
-\ingroup LALInspiral_h
-
-\brief Test routine for wave generation codes.
-
-To get some help just type the name of the executable and the option --h
-
-Basically, you can provide all the arguments from the InspiralTemplate structure such as
---approximant, --order ....
-
-*/
+ * \author Sathyaprakash, B. S., Cokelaer T.
+ * \file
+ * \ingroup LALInspiral_h
+ *
+ * \brief Test routine for wave generation codes.
+ *
+ * To get some help just type the name of the executable and the option --h
+ *
+ * Basically, you can provide all the arguments from the InspiralTemplate structure such as
+ * --approximant, --order ....
+ *
+ */
 
 
 #define LALGENERATEINSPIRALWAVEFORMC_ENORM 0
@@ -682,37 +682,37 @@ void buildhoft(LALStatus *status, REAL4Vector *wave,
     }
   }
   switch (params->interaction) {
-  case LAL_SIM_INSPIRAL_INTERACTION_NONE:
+  case LAL_INSPIRAL_INTERACTION_NONE:
     strcat(simTable.waveform,"NO");
     break;
-  case LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN:
+  case LAL_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN:
     strcat(simTable.waveform,"SO15PN");
     break;
-  case LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN:
+  case LAL_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN:
     strcat(simTable.waveform,"SO25PN");
     break;
-  case LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN:
+  case LAL_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN:
     strcat(simTable.waveform,"SO");
     break;
-  case LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN:
+  case LAL_INSPIRAL_INTERACTION_SPIN_SPIN_2PN:
     strcat(simTable.waveform,"SS");
     break;
-  case LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN:
+  case LAL_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN:
     strcat(simTable.waveform,"SELF");
     break;
-  case LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN:
+  case LAL_INSPIRAL_INTERACTION_QUAD_MONO_2PN:
     strcat(simTable.waveform,"QM");
     break;
-  case LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN:
+  case LAL_INSPIRAL_INTERACTION_ALL_SPIN:
     strcat(simTable.waveform,"ALL_SPIN");
     break;
-  case LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN:
+  case LAL_INSPIRAL_INTERACTION_TIDAL_5PN:
 	strcat(simTable.waveform,"TIDAL5PN");
 	break;
-  case LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN:
+  case LAL_INSPIRAL_INTERACTION_TIDAL_6PN:
 	strcat(simTable.waveform,"TIDAL");
 	break;
-  case LAL_SIM_INSPIRAL_INTERACTION_ALL:
+  case LAL_INSPIRAL_INTERACTION_ALL:
 	strcat(simTable.waveform,"ALL");
 	break;
 		  

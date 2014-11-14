@@ -66,13 +66,13 @@ static struct options options_defaults(void)
 
 	defaults.output = NULL;
 	defaults.ifonames=NULL;
-    defaults.channames=NULL;
+        defaults.channames=NULL;
 	defaults.nIFO=-1;
 	defaults.mdc_gps_start=-1;
 	defaults.mdc_duration=-1;
 	defaults.simburst_file=NULL;
-    defaults.pad=-1;
-    
+        defaults.pad=-1;
+        defaults.time_step=0.0;
     return defaults;
 }
 
@@ -322,7 +322,7 @@ int main(int argc, char **argv)
     inj=injs;
     
     CHAR frameType[256];
-    sprintf(frameType,inj->waveform);
+    sprintf(frameType,"%s",inj->waveform);
     
     /* Create a string with the first char of the IFO name to use as prefix for the frame name */
     char IFOs[10]="";
@@ -463,7 +463,7 @@ static void write_log(SimBurst **injs, TimeSlide * time_slide_table_head,struct 
         else if(!strcmp(IFOnames[i],"GEO")) 
             memcpy(detector,&lalCachedDetectors[LALDetectorIndexGEO600DIFF],sizeof(LALDetector));
         gmst=XLALGreenwichMeanSiderealTime(&injtime);
-        XLALComputeDetAMResponse(&Fplus, &Fcross,(const REAL4(*)[3])detector->response, ra, dec, psi, gmst);
+        XLALComputeDetAMResponse(&Fplus, &Fcross,(const REAL4(*)[3]) detector->response, ra, dec, psi, gmst);
         timedelay = XLALTimeDelayFromEarthCenter(detector->location,ra, dec, &injtime);
     
         fprintf(log_file, "%s %10.10f %.10e %.10e ", IFOnames[i], geoc_time+timedelay,Fplus,Fcross);

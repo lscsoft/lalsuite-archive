@@ -36,10 +36,9 @@ const int lalVersionMajor = LAL_VERSION_MAJOR;
 const int lalVersionMinor = LAL_VERSION_MINOR;
 const int lalVersionMicro = LAL_VERSION_MICRO;
 const int lalVersionDevel = LAL_VERSION_DEVEL;
-const char *const lalConfigureArgs = LAL_CONFIGURE_ARGS;
-const char *const lalConfigureDate = LAL_CONFIGURE_DATE;
 
-/** \ingroup LALVersion_h
+/**
+ * \ingroup LALVersion_h
  * Routine that returns the version of LAL.
  * This function writes a version message into the string buffer of specified
  * size (and is truncated if the buffer is too small).  Configuration information
@@ -63,8 +62,8 @@ LALVersion(LALStatus * status, CHAR * message, UINT4 size, INT4 verbose)
                  "Build Date:          %s\n"
                  "Configure Date:      %s\n"
                  "Configure Arguments: %s\n",
-                 lalVersion, lalHeaderVCSInfo.vcsId,
-                 lalHeaderVCSInfo.vcsTag, lalBuildDate, lalConfigureDate,
+                 lalVersion, lalVCSInfo.vcsId,
+                 lalVCSInfo.vcsTag, lalBuildDate, lalConfigureDate,
                  lalConfigureArgs) : snprintf(message, size,
                                               "LAL Version: %s\n",
                                               lalVersion);

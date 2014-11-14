@@ -39,7 +39,6 @@ INT4 verbose=0;
 
 static char joint_string[] = "Joint";
 static char uniform_string[] = "uniform";
-const OutputParams empty_OutputParams;
 
 /* Usage format string */
 static char USAGE1[] = \
@@ -163,7 +162,7 @@ INT4 main(INT4 argc, CHAR *argv[]){
   CHAR dataFile[256];
   CHAR outputFile[256];
 
-  OutputParams output = empty_OutputParams;
+  OutputParams XLAL_INIT_DECL(output);
   REAL8 logNoiseEv[5]; /* log evidence for noise only (no signal) */
   Results results;
   REAL8 h0ul=0.;
@@ -1164,7 +1163,7 @@ REAL8 create_likelihood_grid(DataStructure data, REAL8 ****logLike,
 
     vars.phi0 = mesh.minVals.phi0 + (REAL8)i*mesh.delta.phi0;
 
-    sin_cos_LUT( &sinphi, &cosphi, vars.phi0 );
+    XLAL_CHECK( XLALSinCosLUT( &sinphi, &cosphi, vars.phi0 ) == XLAL_SUCCESS, XLAL_EFUNC );
 
     for( j = 0 ; j < mesh.ciotaSteps ; j++ ){
       vars.ci = mesh.minVals.ci + (REAL8)j*mesh.delta.ci;
@@ -1295,7 +1294,7 @@ REAL8 log_likelihood( REAL8 *likeArray, DataStructure data,
         REAL4 cphi=0., sphi=0.;
 
         /* create the signal model */
-        sin_cos_2PI_LUT( &sphi, &cphi, -dphi->data[j] );
+        XLAL_CHECK( XLALSinCos2PiLUT( &sphi, &cphi, -dphi->data[j] ) == XLAL_SUCCESS, XLAL_EFUNC );
 
         model = ((plus*vars.Xpcosphi_2 + cross*vars.Xcsinphi_2)*cphi +
           (cross*vars.Xccosphi_2 - plus*vars.Xpsinphi_2)*sphi) +
@@ -2002,7 +2001,7 @@ void perform_mcmc(DataStructure *data, InputParams input, INT4 numDets,
   ParamData *paramData=NULL, *randVals=NULL, *vals=NULL;
   INT4Vector *matPos=NULL; /* position of parameters in ParamData */
 
-  BarycenterInput baryinput = empty_BarycenterInput;
+  BarycenterInput XLAL_INIT_DECL(baryinput);
   REAL8Vector *phi1[numDets], *phi2=NULL;
 
   INT4 iterations = input.mcmc.iterations + input.mcmc.burnIn;
@@ -2562,14 +2561,14 @@ paramData ) ) == NULL ){
     /* set combined parameters */
     varsNew.Xplus = 0.5*(1.+varsNew.ci*varsNew.ci);
     varsNew.Xcross = varsNew.ci;
-    sin_cos_LUT( &sp, &cp, varsNew.phi0 );
+    XLAL_CHECK_VOID( XLALSinCosLUT( &sp, &cp, varsNew.phi0 ) == XLAL_SUCCESS, XLAL_EFUNC );
     varsNew.Xpsinphi_2 = 0.5*varsNew.Xplus*sp;
     varsNew.Xcsinphi_2 = 0.5*varsNew.Xcross*sp;
     varsNew.Xpcosphi_2 = 0.5*varsNew.Xplus*cp;
     varsNew.Xccosphi_2 = 0.5*varsNew.Xcross*cp;
 
     for( j = 0 ; j < nGlitches ; j++ ){
-      sin_cos_LUT( &sp, &cp, extraVarsNew[j].phi0 );
+      XLAL_CHECK_VOID( XLALSinCosLUT( &sp, &cp, extraVarsNew[j].phi0 ) == XLAL_SUCCESS, XLAL_EFUNC );
       extraVarsNew[j].h0 = varsNew.h0;
       extraVarsNew[j].Xpsinphi_2 = 0.5*varsNew.Xplus * sp;
       extraVarsNew[j].Xcsinphi_2 = 0.5*varsNew.Xcross * sp;

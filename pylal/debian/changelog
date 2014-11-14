@@ -1,3 +1,9 @@
+pylal (0.5.0) unstable; urgency=high
+
+  * Initial 0.5.0 release
+
+ -- Kipp Cannon <kipp.cannon@ligo.org>  Thu, 16 Jan 2014 14:42:46 -0500
+
 pylal (0.4.0) unstable; urgency=high
 
   * Initial 0.4.0 release

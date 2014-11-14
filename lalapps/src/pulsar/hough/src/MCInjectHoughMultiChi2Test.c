@@ -23,7 +23,7 @@
  * \author Llucia Sancho de la Jordana
  * \brief
  * Monte Carlo signal injections for several h_0 values and
- *  compute the Hough transform for a small number of point in parameter space each time
+ * compute the Hough transform for a small number of point in parameter space each time
  */
 
 /* 
@@ -47,7 +47,6 @@
    signals. 
 */
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include "./MCInjectHoughMulti.h" /* proper path*/
 
 
@@ -86,8 +85,6 @@
 
 #define TRUE (1==1)
 #define FALSE (1==0)
-
-static REAL8Vector empty_REAL8Vector;
 
 /* ****************************************
  * Structure, HoughParamsTest, typedef
@@ -161,7 +158,8 @@ int main(int argc, char *argv[]){
   UINT4     binsSFT;
 
   /* vector of weights */
-  REAL8Vector      weightsV, weightsNoise, weightsAM = empty_REAL8Vector;;
+  REAL8Vector      weightsV, weightsNoise;
+  REAL8Vector XLAL_INIT_DECL(weightsAM);
   REAL8      alphaPeak, meanN, sigmaN; 
   /* REAL8      significance;*/
   
@@ -640,7 +638,7 @@ int main(int argc, char *argv[]){
   sftParams.Tsft = timeBase;
   sftParams.noiseSFTs = NULL;       
   
-  params.orbit = NULL;
+  params.orbit.asini = 0 /* isolated pulsar */;
   /* params.transferFunction = NULL; */
   params.ephemerides = edat;
   params.startTimeGPS.gpsSeconds = firstTimeStamp.gpsSeconds;   /* start time of output time series */
@@ -752,8 +750,7 @@ int main(int argc, char *argv[]){
 	 /* initialize data to zero */
          for ( iSFT = 0; iSFT < numsft; iSFT++){	   
 	   for (j=0; j < binsSFT; j++) {
-	     signalSFTs->data[iIFO]->data[iSFT].data->data[j].realf_FIXME = 0.0;
-	     signalSFTs->data[iIFO]->data[iSFT].data->data[j].imagf_FIXME = 0.0;	    
+	     signalSFTs->data[iIFO]->data[iSFT].data->data[j] = 0.0;
 	   }	 
          }
      	  	 
@@ -864,8 +861,7 @@ int main(int argc, char *argv[]){
 	  sumSFT    = sumSFTs->data[iIFO]->data[iSFT].data->data;
 	  	  
 	  for (j=0; j < binsSFT; j++) {
-	    sumSFT->realf_FIXME = crealf(*noiseSFT) + h0scale *crealf(*signalSFT);
-	    sumSFT->imagf_FIXME = cimagf(*noiseSFT) + h0scale *cimagf(*signalSFT);
+	    *(sumSFT) = crectf( crealf(*noiseSFT) + h0scale *crealf(*signalSFT), cimagf(*noiseSFT) + h0scale *cimagf(*signalSFT) );
 	    ++noiseSFT;
 	    ++signalSFT;
 	    ++sumSFT;

@@ -1,18 +1,19 @@
-AM_CPPFLAGS = -I$(top_builddir)/include -DPKG_DATA_DIR='"$(pkgdatadir)/"'
+BUILT_SOURCES =
+MOSTLYCLEANFILES =
+include $(top_srcdir)/gnuscripts/lalsuite_header_links.am
+include $(top_srcdir)/gnuscripts/lalsuite_vcs_info.am
 
-lalmetaioincludedir = $(includedir)/lal
-lalmetaioinclude_HEADERS = \
+pkginclude_HEADERS = \
 	LALMetaIOConfig.h \
-	LALMetaIOLibVCSInfo.h \
 	LALMetaIOVCSInfo.h \
+	LALMetaIOVCSInfoHeader.h \
 	LIGOLwXML.h \
 	LIGOLwXMLArray.h \
 	LIGOLwXMLHeaders.h \
 	LIGOLwXMLInspiralHeaders.h \
 	LIGOLwXMLRead.h \
 	LIGOMetadataTables.h \
-	LIGOMetadataUtils.h \
-	lalmetaioswig_test.i
+	LIGOMetadataUtils.h
 
 lib_LTLIBRARIES = liblalmetaio.la
 liblalmetaio_la_SOURCES = \
@@ -22,51 +23,16 @@ liblalmetaio_la_SOURCES = \
 	LIGOLwXMLArray.c \
 	LIGOLwXMLRead.c \
 	LIGOMetadataUtils.c
+nodist_liblalmetaio_la_SOURCES = LALMetaIOBuildInfo.c
 
-liblalmetaio_la_LDFLAGS = -version-info $(LIBVERSION)
+liblalmetaio_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(LIBVERSION)
 
 EXTRA_DIST = \
 	LALMetaIOConfig.h.in \
-	config.h.in \
-	generate_user_env.awk
+	config.h.in
 
 DISTCLEANFILES = config.h
 
-MOSTLYCLEANFILES = \
-	lalmetaio-user-env.shell \
-	lalmetaio-user-env.sh \
-	lalmetaio-user-env.csh
-
-sysconf_DATA = \
-	lalmetaio-user-env.sh \
-	lalmetaio-user-env.csh
-
-BUILT_SOURCES = \
-	lalmetaio-user-env.sh \
-	lalmetaio-user-env.csh
-
-lalmetaio-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
-	@echo "# generic user environment script" >$@
-	@echo "set LALMETAIO_PREFIX $(prefix)" >>$@
-	@echo "prepend PATH $(bindir)" >>$@
-	@echo "prepend MANPATH $(mandir)" >>$@
-	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
-	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
-	@echo "prepend PYTHONPATH $(pyexecdir)" >>$@
-	@echo "prepend OCTAVE_PATH $(octexecdir)" >>$@
-
-lalmetaio-user-env.csh lalmetaio-user-env.sh: lalmetaio-user-env.shell $(srcdir)/generate_user_env.awk
-	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
-
-if HAVE_GIT_REPO
-BUILT_SOURCES += LALMetaIOVCSInfo.h
-MOSTLYCLEANFILES += LALMetaIOVCSInfo.h
-LALMetaIOVCSInfo.h .PHONY : gen-LALMetaIOVCSInfo.h
-gen-LALMetaIOVCSInfo.h :
-	$(AM_V_at)$(GENERATE_VCS_INFO) LALMetaIOVCSInfo.h $(srcdir)/LALMetaIOVCSInfo.h.git
-endif
-
-@LAL_HEADER_LINK@
-
-swig_headers = $(lalmetaioinclude_HEADERS)
-include $(top_srcdir)/swig/swiglal_header.am
+vcs_info_sources = LALMetaIOVCSInfoHeader.h
+build_info_source = LALMetaIOBuildInfo.c
+$(build_info_source): $(liblalmetaio_la_DEPENDENCIES)

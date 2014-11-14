@@ -280,7 +280,30 @@ static int print_gctFStatline_to_str(GCTtopOutputEntry fline, char* buf, int buf
 
     } /* if sumTwoFX */
 
-  int len = snprintf(buf, buflen,
+  int len;
+  if (fline.have_f3dot){
+  len = snprintf(buf, buflen,
+#ifdef EAH_BOINC /* for S5GC1HF Apps use exactly the precision used in the workunit generator
+		    (12g for Freq and F1dot) and skygrid file (7f for Alpha & Delta)
+		    as discussed with Holger & Reinhard 5.11.2010 */
+                     "%.16f %.7f %.7f %.12g %.12g %.12g %d %.6f%s%s\n",
+#else
+                     "%.16g %.13g %.13g %.13g %.13g %.13g %d %.6f%s%s\n",
+#endif
+                     fline.Freq,
+                     fline.Alpha,
+                     fline.Delta,
+                     fline.F1dot,
+                     fline.F2dot,
+					 fline.F3dot,
+                     fline.nc,
+                     fline.sumTwoF,
+                     LVStr,
+                     LVRecalcStr
+                 );
+  }
+  else {
+  len = snprintf(buf, buflen,
 #ifdef EAH_BOINC /* for S5GC1HF Apps use exactly the precision used in the workunit generator
 		    (12g for Freq and F1dot) and skygrid file (7f for Alpha & Delta)
 		    as discussed with Holger & Reinhard 5.11.2010 */
@@ -297,8 +320,8 @@ static int print_gctFStatline_to_str(GCTtopOutputEntry fline, char* buf, int buf
                      fline.sumTwoF,
                      LVStr,
                      LVRecalcStr
-                 );
-
+                 );	  
+}
   return len;
 
 } /* print_gctFStatline_to_str() */
@@ -911,9 +934,10 @@ int read_gct_checkpoint(const char*filename, toplist_t*tl, toplist_t*t2, UINT4*c
 } /* read_gct_checkpoint() */
 
 
-/** removes a checkpoint
-    returns 0 on success, errno on failure
-*/
+/**
+ * removes a checkpoint
+ * returns 0 on success, errno on failure
+ */
 int clear_gct_checkpoint(const char*filename) {
   FILE*fp=NULL; /* referenced in LOGIOERROR */
 

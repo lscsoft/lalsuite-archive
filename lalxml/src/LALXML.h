@@ -42,12 +42,14 @@ extern "C" {
  */
 /*@{*/
 
-/** Cast macro to use instead of libxml2's 'BAD_CAST' macro,
+/**
+ * Cast macro to use instead of libxml2's 'BAD_CAST' macro,
  * with are more descriptive name.
  */
 #define CAST_XMLCHAR (xmlChar *)
 
-/** Cast macro to use instead of libxml2's BAD_CAST macro for const pointers.
+/**
+ * Cast macro to use instead of libxml2's BAD_CAST macro for const pointers.
  */
 #define CAST_CONST_XMLCHAR (const xmlChar *)
 
@@ -61,6 +63,9 @@ extern "C" {
  * \author Oliver Bock\n
  * Albert-Einstein-Institute Hannover, Germany
  */
+#ifdef SWIG /* SWIG interface directives */
+SWIGLAL(IMMUTABLE_MEMBERS(tagXML_NAMESPACE, prefix, url));
+#endif /* SWIG */
 typedef struct tagXML_NAMESPACE {
     const xmlChar *prefix;
     const xmlChar *url;
@@ -69,13 +74,16 @@ typedef struct tagXML_NAMESPACE {
 
 /**
  * \brief This type represents a vector of XML namespaces
-  *
+ *
  * \sa XML_NAMESPACE
  * \sa XLALGetSingleNodeContentByXPath
  *
  * \author Oliver Bock\n
  * Albert-Einstein-Institute Hannover, Germany
  */
+#ifdef SWIG /* SWIG interface directives */
+SWIGLAL(IMMUTABLE_MEMBERS(tagXML_NAMESPACE_VECTOR, items, count));
+#endif /* SWIG */
 typedef struct tagXML_NAMESPACE_VECTOR {
     const XML_NAMESPACE *items;
     const int count;

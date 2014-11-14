@@ -59,6 +59,7 @@ typedef struct
    REAL8 ULmindf;
    REAL8 ULmaxdf;
    REAL8 lineDetection;
+   REAL8 avesqrtSh;
    INT4 ihsfactor;
    INT4 harmonicNumToSearch;
    INT4 keepOnlyTopNumIHS;
@@ -69,7 +70,6 @@ typedef struct
    INT4 rootFindingMethod;
    INT4 numofIFOs;
    LALDetector *det;
-   CHAR* sftType;
    INT4 markBadSFTs;
    INT4 FFTplanFlag;
    INT4 calcRthreshold;
@@ -79,11 +79,14 @@ typedef struct
    INT4 printAllULvalues;
    INT4 fastchisqinv;
    INT4 useSSE;
+   INT4 useAVX;
    INT4 followUpOutsideULrange;
-   INT4 validateSSE;
    INT4 randSeed;
    INT4 ULsolver;
    INT4 signalOnly;
+   INT4 weightedIHS;
+   INT4 periodHarmToCheck;
+   INT4 periodFracToCheck;
    gsl_rng *rng;
 } inputParamsStruct;
 

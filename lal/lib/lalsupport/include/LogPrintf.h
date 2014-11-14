@@ -33,7 +33,6 @@ extern "C" {
 
 /*---------- INCLUDES ----------*/
 #include <stdarg.h>
-
 #include <gsl/gsl_matrix.h>
 
 /**
@@ -41,7 +40,7 @@ extern "C" {
  * \author Reinhard Prix
  * \date 2005
  * \brief General-purpose log-message handling, controlled by lalDebugLevel independent of lalDebugLevel,
- *        mostly modelled after the MSG_LOG class in BOINC.
+ * mostly modelled after the MSG_LOG class in BOINC.
  *
  */
 /*@{*/
@@ -73,8 +72,14 @@ int XLALfprintfGSLvector ( FILE *fp, const char *fmt, const gsl_vector *vect );
 int XLALfprintfGSLvector_int ( FILE *fp, const char *fmt, const gsl_vector_int *vect );
 
 REAL8 XLALGetTimeOfDay(void);
+REAL8 XLALGetPeakHeapUsageMB ( void );
 
 char * XLALClearLinebreaks ( const char *str );
+
+
+int XLALdumpREAL4TimeSeries (const char *fname, const REAL4TimeSeries *series);
+int XLALdumpREAL8TimeSeries (const char *fname, const REAL8TimeSeries *series);
+int XLALdumpCOMPLEX8TimeSeries (const char *fname, const COMPLEX8TimeSeries *series );
 
 /*@}*/
 

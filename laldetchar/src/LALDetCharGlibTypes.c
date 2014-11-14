@@ -101,14 +101,10 @@ LALGSequenceIter* XLALGSequenceBegin(LALGSequence* seq) {
   }
 }
 
-LALGSequenceIter* XLALGSequenceNext(LALGSequenceIter* itr) {
+bool XLALGSequenceNext(LALGSequenceIter* itr) {
   XLAL_CHECK_NULL(itr, XLAL_EFAULT);
   itr->i = g_sequence_iter_next(itr->i);
-  if (g_sequence_iter_is_end(itr->i)) {
-    XLALDestroyGSequenceIter(itr);
-    return NULL;
-  }
-  return itr;
+  return !g_sequence_iter_is_end(itr->i);
 }
 
 GSequenceIter* XLALGSequenceBeginRaw(LALGSequence* seq, LALGType type) {
@@ -123,11 +119,20 @@ SnglBurst* XLALGetGSeqSnglBurst(LALGSequenceIter* itr) {
   return (SnglBurst*)g_sequence_get(itr->i);
 }
 
-void XLALAddGSeqSnglBurst(LALGSequence* seq, SnglBurst* sb) {
-  XLAL_CHECK_VOID(seq, XLAL_EFAULT);
-  XLAL_CHECK_VOID(seq->type == LALGTYPE_SNGL_BURST, XLAL_EINVAL);
-  XLAL_CHECK_VOID(sb, XLAL_EFAULT);
-  g_sequence_insert_sorted(seq->s, sb, g_compare_SnglBurst, NULL);
+LALGSequenceIter* XLALAddGSeqSnglBurst(LALGSequence* seq, SnglBurst* sb) {
+  XLAL_CHECK_NULL(seq, XLAL_EFAULT);
+  XLAL_CHECK_NULL(seq->type == LALGTYPE_SNGL_BURST, XLAL_EINVAL);
+  XLAL_CHECK_NULL(sb, XLAL_EFAULT);
+  GSequenceIter* i = g_sequence_insert_sorted(seq->s, sb, g_compare_SnglBurst, NULL);
+  if (g_sequence_iter_is_end(i)) {
+    return NULL;
+  } else {
+    LALGSequenceIter* itr = (LALGSequenceIter*)XLALMalloc(sizeof(LALGSequenceIter*));
+    XLAL_CHECK_NULL(itr, XLAL_ENOMEM);
+    itr->type = seq->type;
+    itr->i = i;
+    return itr;
+  }
 }
 
 LALGHashTable* XLALCreateGHashTable(LALGType type) {
