@@ -31,34 +31,34 @@
 
 #define ALLOC_GSL_1D_VAL(val, type, name, n) \
   name = gsl_##type##_calloc(n); \
-  XLAL_CHECK_VAL(val, (name) != NULL, XLAL_ENOMEM, "gsl_"#type"_calloc(%zu) failed", n)
+  XLAL_CHECK_VAL(val, (name) != NULL, XLAL_ENOMEM, "gsl_"#type"_calloc(%zu) failed", ((size_t) n))
 
 #define ALLOC_GSL_2D_VAL(val, type, name, m, n) \
   name = gsl_##type##_calloc(m, n); \
-  XLAL_CHECK_VAL(val, (name) != NULL, XLAL_ENOMEM, "gsl_"#type"_calloc(%zu,%zu) failed", m, n)
+  XLAL_CHECK_VAL(val, (name) != NULL, XLAL_ENOMEM, "gsl_"#type"_calloc(%zu,%zu) failed", ((size_t) m), ((size_t) n))
 
 #define PRINT_GSL_1D(type, name, fmt) \
   do { \
-    printf("%s:%i ", strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') : __FILE__, __LINE__); \
-    printf("%s = [", #name); \
+    fprintf(stderr, "%s:%i ", strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') : __FILE__, __LINE__); \
+    fprintf(stderr, "%s = [", #name); \
     for (size_t GH_i = 0; (name) != NULL && GH_i < (name)->size; ++GH_i) { \
-      printf(" "fmt, gsl_##type##_get(name, GH_i)); \
+      fprintf(stderr, " "fmt, gsl_##type##_get(name, GH_i)); \
     } \
-    printf(" ]\n"); \
+    fprintf(stderr, " ]\n"); \
   } while (0)
 
 #define PRINT_GSL_2D(type, name, fmt) \
   do { \
-    printf("%s:%i ", strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') : __FILE__, __LINE__); \
-    printf("%s = [\n", #name); \
+    fprintf(stderr, "%s:%i ", strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') : __FILE__, __LINE__); \
+    fprintf(stderr, "%s = [\n", #name); \
     for (size_t GH_i = 0; (name) != NULL && GH_i < (name)->size1; ++GH_i) { \
-      printf("  "); \
+      fprintf(stderr, "  "); \
       for (size_t GH_j = 0; GH_j < (name)->size2; ++GH_j) { \
-        printf(" "fmt, gsl_##type##_get(name, GH_i, GH_j)); \
+        fprintf(stderr, " "fmt, gsl_##type##_get(name, GH_i, GH_j)); \
       } \
-      printf(";\n"); \
+      fprintf(stderr, ";\n"); \
     } \
-    printf("]\n"); \
+    fprintf(stderr, "]\n"); \
   } while (0)
 
 #define FREE_GSL(type, ...) \
@@ -69,14 +69,15 @@
     } \
   } while (0)
 
-#define CALL_GSL_VAL(val, ...)		CALL_GSL_VAL_(val, __VA_ARGS__, NULL, NULL)
-#define CALL_GSL_VAL_(val, call, fmt, ...) \
+#define CALL_GSL_VAL(val, ...)		_CALL_GSL_VAL_1(val, __VA_ARGS__, "")
+#define _CALL_GSL_VAL_1(val, call, ...)	_CALL_GSL_VAL_2(val, call, "" __VA_ARGS__)
+#define _CALL_GSL_VAL_2(val, call, fmt, ...) \
   do { \
     int GH_retn = 0; \
     XLAL_CALLGSL(GH_retn = (call)); \
     if (GH_retn != 0) { \
-      if (fmt != NULL) { \
-        XLAL_ERROR_VAL(val, XLAL_EFAILED, fmt, __VA_ARGS__, NULL); \
+      if ((fmt)[0] != '\0') { \
+        XLAL_ERROR_VAL(val, XLAL_EFAILED, fmt "%.0s", __VA_ARGS__ ""); \
       } else { \
         XLAL_ERROR_VAL(val, XLAL_EFAILED, #call " failed: %s", gsl_strerror(GH_retn)); \
       } \

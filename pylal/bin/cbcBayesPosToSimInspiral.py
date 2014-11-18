@@ -31,6 +31,8 @@ import numpy as np
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import ilwd
+import matplotlib
+matplotlib.use("Agg") # Needed to run on the CIT cluster
 from pylal import bayespputils as bppu
 
 # Create a datatype for all relavent fields to be filled in the sim_inspiral table
@@ -163,9 +165,9 @@ if __name__ == "__main__":
 
     # Choose subset for sim_inspiral_table
     N = opts.num_of_injs
-    selection = np.arange(N)
+    selection = np.arange(len(samples))
     np.random.shuffle(selection)
-    samples = samples[selection]
+    samples = samples[selection[:N]]
 
     # Create an empty structured array with names indentical to sim_inspiral fields
     injections = np.zeros((N,), dtype=sim_inspiral_dt)

@@ -778,7 +778,7 @@ XLALParseStringValueToINT8 ( INT8 *valINT8,         //!< [out] return INT8 value
 
   //  check range and convert long-int into INT8
   if ( sizeof(valLLong) > sizeof(INT8) ) { // avoid warning about trivial check
-    XLAL_CHECK ( (valLLong > -LAL_INT8_MAX) && (valLLong < LAL_INT8_MAX), XLAL_EDOM, "String-conversion '%s' --> '%ld' exceeds INT8 range of +-%d\n",
+    XLAL_CHECK ( (valLLong > -LAL_INT8_MAX) && (valLLong < LAL_INT8_MAX), XLAL_EDOM, "String-conversion '%s' --> '%lli' exceeds INT8 range of +-%"LAL_INT8_FORMAT"\n",
                  valString, valLLong, LAL_INT8_MAX );
   }
 
@@ -802,7 +802,7 @@ XLALParseStringValueToINT4 ( INT4 *valINT4,         //!< [out] return INT4 value
   XLAL_CHECK ( XLALParseStringValueToINT8 ( &valINT8, valString ) == XLAL_SUCCESS, XLAL_EFUNC );
 
   // check range and convert INT8 into INT4
-  XLAL_CHECK ( (valINT8 > -LAL_INT4_MAX) && (valINT8 < LAL_INT4_MAX), XLAL_EDOM, "String-conversion '%s' --> '%ld' exceeds INT4 range of +-%d\n",
+  XLAL_CHECK ( (valINT8 > -LAL_INT4_MAX) && (valINT8 < LAL_INT4_MAX), XLAL_EDOM, "String-conversion '%s' --> '%"LAL_INT8_FORMAT"' exceeds INT4 range of +-%"LAL_INT8_FORMAT"\n",
                valString, valINT8, LAL_INT4_MAX );
 
   (*valINT4) = (INT4)valINT8;
@@ -828,6 +828,28 @@ XLALParseStringValueToREAL8 ( REAL8 *valREAL8,         //!< [out] return REAL8 v
   XLAL_CHECK ( (*endptr) == '\0', XLAL_EFAILED, "strtod(): trailing garbage '%s' found after double-conversion of '%s'\n", endptr, valString );
 
   (*valREAL8) = (REAL8)valDouble;
+
+  return XLAL_SUCCESS;
+
+} // XLALParseStringValueToREAL8()
+
+
+//! Parse a string into a REAL4.
+//! This ignores initial whitespace, but throws an error on _any_ non-converted trailing characters (including whitespace)
+int
+XLALParseStringValueToREAL4 ( REAL4 *valREAL4,         //!< [out] return REAL4 value
+                              const char *valString    //!< [in]  input string value
+                              )
+{
+  XLAL_CHECK ( (valREAL4 != NULL) && (valString != NULL ), XLAL_EINVAL );
+
+  errno = 0;
+  char *endptr;
+  float valFloat = strtof ( valString, &endptr );
+  XLAL_CHECK ( errno == 0, XLAL_EFAILED, "strtof() failed to convert '%s' into a float!\n", valString );
+  XLAL_CHECK ( (*endptr) == '\0', XLAL_EFAILED, "strtof(): trailing garbage '%s' found after float-conversion of '%s'\n", endptr, valString );
+
+  (*valREAL4) = (REAL4)valFloat;
 
   return XLAL_SUCCESS;
 
@@ -892,7 +914,7 @@ cleanConfig ( char *text )
   size_t len;
   CHAR *ptr, *ptr2, *eol;
   BOOLEAN inQuotes = 0;
-
+  INT4 inBracesCount = 0;
   /*----------------------------------------------------------------------
    * RUN 1: clean out comments, by replacing them by '\n'
    */
@@ -901,6 +923,12 @@ cleanConfig ( char *text )
     {
       if ( (*ptr) == '\"' ) {
         inQuotes = !inQuotes;	/* flip state */
+      }
+      if ( (*ptr) == '{' ) {
+        inBracesCount ++;
+      }
+      if ( (*ptr) == '}' ) {
+        inBracesCount --;
       }
 
       if ( ((*ptr) == '#') || ( (*ptr) == '%') ) {
@@ -911,8 +939,8 @@ cleanConfig ( char *text )
           }
       }
 
-      // replace un-quoted ';' by '\n' to allow semi-colons to separate assignments
-      if ( (!inQuotes) && ((*ptr) == ';') ) {
+      // replace un-quoted ';' {iff outside of any braces} by '\n' to allow semi-colons to separate assignments
+      if ( (!inQuotes) && (inBracesCount == 0) && ((*ptr) == ';') ) {
         (*ptr) = '\n';
       }
       // replace DOS-style '\r' EOL characters by '\n'

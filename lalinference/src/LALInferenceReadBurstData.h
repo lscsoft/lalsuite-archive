@@ -41,7 +41,7 @@
  * \return Pointer to a new \c LALInferenceIFOData linked list containing the data, or NULL upon error.
  * \author John Veitch
  */
-void LALInferenceInjectBurstSignal(LALInferenceRunState *runState, ProcessParamsTable *commandLine);
+void LALInferenceInjectBurstSignal(LALInferenceIFOData *IFOdata, ProcessParamsTable *commandLine);
 void LALInferenceBurstInjectionToVariables(SimBurst *theEventTable, LALInferenceVariables *vars);
 /*@}*/
 #endif

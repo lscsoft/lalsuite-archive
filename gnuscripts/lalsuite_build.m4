@@ -1,7 +1,7 @@
 # -*- mode: autoconf; -*-
 # lalsuite_build.m4 - top level build macros
 #
-# serial 90
+# serial 97
 
 # not present in older versions of pkg.m4
 m4_pattern_allow([^PKG_CONFIG(_(PATH|LIBDIR|SYSROOT_DIR|ALLOW_SYSTEM_(CFLAGS|LIBS)))?$])
@@ -187,6 +187,14 @@ AC_DEFUN([LALSUITE_ADD_PATH],[
   # end $0
 ])
 
+AC_DEFUN([LALSUITE_VERSION_COMPARE],[
+  # $0: compare versions using the given operator
+  m4_case([$2],[<],,[<=],,[=],,[>=],,[>],,[m4_fatal([$0: invalid operator $2])])
+  AS_VERSION_COMPARE([$1],[$3],[lalsuite_op='<'],[lalsuite_op='='],[lalsuite_op='>'])
+  AS_CASE(['$2'],[*${lalsuite_op}*],[m4_default([$4],[:])],[m4_default([$5],[:])])
+  # end $0
+])
+
 AC_DEFUN([LALSUITE_CHECK_GIT_REPO],[
   # $0: check for git
   AC_PATH_PROGS([GIT],[git],[false])
@@ -337,7 +345,7 @@ AC_DEFUN([LALSUITE_REQUIRE_PYTHON],[
   AS_IF([test "x${lalsuite_require_pyvers}" = x],[
     lalsuite_require_pyvers="$1"
   ],[
-    AS_VERSION_COMPARE([${lalsuite_require_pyvers}],[$1],[
+    LALSUITE_VERSION_COMPARE([$1],[>],[${lalsuite_require_pyvers}],[
       lalsuite_require_pyvers="$1"
     ])
   ])
@@ -348,7 +356,7 @@ AC_DEFUN([LALSUITE_CHECK_PYTHON],[
   # $0: check for Python
   lalsuite_pyvers="$1"
   AS_IF([test "x${lalsuite_require_pyvers}" != x],[
-    AS_VERSION_COMPARE([${lalsuite_pyvers}],[${lalsuite_require_pyvers}],[
+    LALSUITE_VERSION_COMPARE([${lalsuite_require_pyvers}],[>],[${lalsuite_pyvers}],[
       lalsuite_pyvers="${lalsuite_require_pyvers}"
     ])
   ])
@@ -357,7 +365,7 @@ AC_DEFUN([LALSUITE_CHECK_PYTHON],[
       AS_IF([test "x${lalsuite_require_pyvers}" = x],[
         PYTHON=false
       ],[
-        AC_MSG_ERROR([Python version ${lalsuite_pyvers} or higher is required])
+        AC_MSG_ERROR([Python version ${lalsuite_pyvers} or later is required])
       ])
     ])
   ])
@@ -474,7 +482,7 @@ AC_DEFUN([LALSUITE_CHECK_LIB],[
   fi
 
   # add system include flags to LAL_SYSTEM_INCLUDES
-  if test -n "$PKG_CONFIG"; then
+  if test -n "$PKG_CONFIG" -a "$LALSUITE_BUILD" != "true"; then
     # use pkg-config to get system paths
     PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1
     export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS
@@ -489,7 +497,7 @@ AC_DEFUN([LALSUITE_CHECK_LIB],[
     # use standard include paths
     save_IFS="$IFS"
     IFS=:
-    for flag in "$C_INCLUDE_PATH:CPLUS_INCLUDE_PATH:/usr/include" ; do
+    for flag in "$C_INCLUDE_PATH:$CPLUS_INCLUDE_PATH:/usr/include" ; do
       test -n "$flag" && flag="-I$flag"
       AS_CASE([" $CPPFLAGS $LAL_SYSTEM_INCLUDES "],
         [*" ${flag} "*],[:],
@@ -658,13 +666,13 @@ AC_DEFUN([LALSUITE_ENABLE_LALXML],
 [AC_REQUIRE([LALSUITE_ENABLE_ALL_LAL])
 AC_ARG_ENABLE(
   [lalxml],
-  AC_HELP_STRING([--enable-lalxml],[compile code that requires lalxml library [default=no]]),
+  AC_HELP_STRING([--enable-lalxml],[compile code that requires lalxml library [default=yes]]),
   [ case "${enableval}" in
       yes) lalxml=true;;
       no) lalxml=false;;
       *) AC_MSG_ERROR(bad value ${enableval} for --enable-lalxml) ;;
     esac
-  ], [ lalxml=${all_lal:-false} ] )
+  ], [ lalxml=${all_lal:-true} ] )
 ])
 
 AC_DEFUN([LALSUITE_ENABLE_LALSIMULATION],
@@ -703,7 +711,7 @@ AC_DEFUN([LALSUITE_ENABLE_LALDETCHAR],
 [AC_REQUIRE([LALSUITE_ENABLE_ALL_LAL])
 AC_ARG_ENABLE(
   [laldetchar],
-  AC_HELP_STRING([--enable-laldetchar],[compile code that requires laldetchar library [default=no]]),
+  AC_HELP_STRING([--enable-laldetchar],[compile code that requires laldetchar library [default=yes]]),
   [ case "${enableval}" in
       yes) laldetchar=true;;
       no) laldetchar=false;;

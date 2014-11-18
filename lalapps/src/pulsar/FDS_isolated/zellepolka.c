@@ -144,8 +144,6 @@ If defined, it does:
 #ifdef _MSC_VER
 #include <float.h>
 #define finite _finite
-#else
-int finite(double);
 #endif
 
 
@@ -2141,18 +2139,18 @@ ReadCandidateListFromZipFile( LALStatus *lalStatus,
 	/* ------------------------------------------------------------------------- */
 	/* check that values that are read in are sensible */
 	if (
-	    cl->FileID < 0                        ||
-	    cl->f < 0.0                        ||
-	    cl->TwoF < 0.0                        ||
-	    cl->Alpha <         0.0 - epsilon  ||
-	    cl->Alpha >   LAL_TWOPI + epsilon  ||
-	    cl->Delta < -0.5*LAL_PI - epsilon  ||
-	    cl->Delta >  0.5*LAL_PI + epsilon  ||
-	    !finite(cl->FileID)                     ||                                                                 
-	    !finite(cl->f)                     ||
-	    !finite(cl->Alpha)                 ||
-	    !finite(cl->Delta)                 ||
-	    !finite(cl->TwoF)
+            cl->FileID < 0                     ||
+            cl->f < 0.0                        ||
+            cl->TwoF < 0.0                     ||
+            cl->Alpha <         0.0 - epsilon  ||
+            cl->Alpha >   LAL_TWOPI + epsilon  ||
+            cl->Delta < -0.5*LAL_PI - epsilon  ||
+            cl->Delta >  0.5*LAL_PI + epsilon  ||
+            !isfinite(cl->FileID)              ||
+            !isfinite(cl->f)                   ||
+            !isfinite(cl->Alpha)               ||
+            !isfinite(cl->Delta)               ||
+            !isfinite(cl->TwoF)
 	    ) {
 	  XLALPrintError(
 			"Line %d of file %s has invalid values.\n"
@@ -2282,7 +2280,7 @@ ReadOneCandidateFileV2( LALStatus *lalStatus,
        line1 or null chars read) */
     if (!len || line1[len-1] != '\n') {
       XLALPrintError(
-              "Line %d of file %s is too long or has no NEWLINE.  First 255 chars are:\n%s\n",
+              "Line %"LAL_INT8_FORMAT" of file %s is too long or has no NEWLINE.  First 255 chars are:\n%s\n",
               i+1, fname, line1);
       fclose(fp);
       ABORT (lalStatus, POLKAC_EINVALIDFSTATS, POLKAC_MSGEINVALIDFSTATS);
@@ -2369,7 +2367,7 @@ ReadOneCandidateFileV2( LALStatus *lalStatus,
 
       if (strlen(line1)==0 || line1[strlen(line1)-1] != '\n') {
         XLALPrintError(
-                "Line %d of file %s is too long or has no NEWLINE.  First 255 chars are:\n%s\n",
+                "Line %"LAL_INT8_FORMAT" of file %s is too long or has no NEWLINE.  First 255 chars are:\n%s\n",
                 i+1, fname, line1);
         LALFree ((*CList));
         fclose(fp);
@@ -2390,15 +2388,15 @@ ReadOneCandidateFileV2( LALStatus *lalStatus,
           cl->Alpha >   LAL_TWOPI + epsilon  ||
           cl->Delta < -0.5*LAL_PI - epsilon  ||
           cl->Delta >  0.5*LAL_PI + epsilon  ||
-	  !finite(cl->FileID)                ||                                                                 
-          !finite(cl->f)                     ||
-          !finite(cl->Alpha)                 ||
-	  !finite(cl->F1dot)                 ||
-          !finite(cl->Delta)                 ||
-          !finite(cl->TwoF)
+          !isfinite(cl->FileID)              ||
+          !isfinite(cl->f)                   ||
+          !isfinite(cl->Alpha)               ||
+          !isfinite(cl->F1dot)               ||
+          !isfinite(cl->Delta)               ||
+          !isfinite(cl->TwoF)
           ) {
           XLALPrintError(
-                  "Line %d of file %s has invalid values.\n"
+                  "Line %"LAL_INT8_FORMAT" of file %s has invalid values.\n"
                   "First 255 chars are:\n"
                   "%s\n"
                   "1st and 4th field should be positive.\n" 
@@ -2418,7 +2416,7 @@ ReadOneCandidateFileV2( LALStatus *lalStatus,
          above */
       if (newline != '\n') {
         XLALPrintError(
-                "Line %d of file %s had extra chars after F value and before newline.\n"
+                "Line %"LAL_INT8_FORMAT" of file %s had extra chars after F value and before newline.\n"
                 "First 255 chars are:\n"
                 "%s\n",
                 i+1, fname, line1);
@@ -2430,7 +2428,7 @@ ReadOneCandidateFileV2( LALStatus *lalStatus,
       /* check that we read 7 quantities with exactly the right format */
       if ( nread != 7 )
         {
-          XLALPrintError ("Found %d not %d values on line %d in file '%s'\n"
+          XLALPrintError ("Found %"LAL_INT8_FORMAT" not %d values on line %"LAL_INT8_FORMAT" in file '%s'\n"
                          "Line in question is\n%s",
                          nread, 7, i+1, fname, line1);               
           LALFree ((*CList));
@@ -2445,7 +2443,7 @@ ReadOneCandidateFileV2( LALStatus *lalStatus,
   /* check that we read ALL lines! */
   if (i != numlines) {
     XLALPrintError(
-            "Read of file %s terminated after %d line but numlines=%d\n",
+            "Read of file %s terminated after %"LAL_INT8_FORMAT" line but numlines=%"LAL_INT8_FORMAT"\n",
             fname, i, numlines);
     LALFree((*CList));
     fclose(fp);
@@ -2553,7 +2551,7 @@ ReadOneCandidateFile( LALStatus *lalStatus, 	/**< LALStatus pointer */
        line1 or null chars read) */
     if (!len || line1[len-1] != '\n') {
       XLALPrintError(
-              "Line %d of file %s is too long or has no NEWLINE.  First 255 chars are:\n%s\n",
+              "Line %"LAL_INT8_FORMAT" of file %s is too long or has no NEWLINE.  First 255 chars are:\n%s\n",
               i+1, fname, line1);
       fclose(fp);
       ABORT (lalStatus, POLKAC_EINVALIDFSTATS, POLKAC_MSGEINVALIDFSTATS);
@@ -2627,7 +2625,7 @@ ReadOneCandidateFile( LALStatus *lalStatus, 	/**< LALStatus pointer */
 
       if (strlen(line1)==0 || line1[strlen(line1)-1] != '\n') {
         XLALPrintError(
-                "Line %d of file %s is too long or has no NEWLINE.  First 255 chars are:\n%s\n",
+                "Line %"LAL_INT8_FORMAT" of file %s is too long or has no NEWLINE.  First 255 chars are:\n%s\n",
                 i+1, fname, line1);
         LALFree ((*CList));
         fclose(fp);
@@ -2663,15 +2661,15 @@ ReadOneCandidateFile( LALStatus *lalStatus, 	/**< LALStatus pointer */
           cl->Alpha >   LAL_TWOPI + epsilon  ||
           cl->Delta < -0.5*LAL_PI - epsilon  ||
           cl->Delta >  0.5*LAL_PI + epsilon  ||
-	  !finite(cl->FileID)                ||                                                                 
-          !finite(cl->f)                     ||
-          !finite(cl->Alpha)                 ||
-          !finite(cl->Delta)                 ||
-	  !finite(cl->F1dot)                 ||
-	  !finite(cl->TwoF)
+          !isfinite(cl->FileID)              ||
+          !isfinite(cl->f)                   ||
+          !isfinite(cl->Alpha)               ||
+          !isfinite(cl->Delta)               ||
+          !isfinite(cl->F1dot)               ||
+          !isfinite(cl->TwoF)
           ) {
           XLALPrintError(
-                  "Line %d of file %s has invalid values.\n"
+                  "Line %"LAL_INT8_FORMAT" of file %s has invalid values.\n"
                   "First 255 chars are:\n"
                   "%s\n"
                   "1st and 4th field should be positive.\n" 
@@ -2691,7 +2689,7 @@ ReadOneCandidateFile( LALStatus *lalStatus, 	/**< LALStatus pointer */
          above */
       if (newline != '\n') {
         XLALPrintError(
-                "Line %d of file %s had extra chars after F value and before newline.\n"
+                "Line %"LAL_INT8_FORMAT" of file %s had extra chars after F value and before newline.\n"
                 "First 255 chars are:\n"
                 "%s\n",
                 i+1, fname, line1);
@@ -2703,7 +2701,7 @@ ReadOneCandidateFile( LALStatus *lalStatus, 	/**< LALStatus pointer */
       /* check that we read 7 quantities with exactly the right format */
       if ( nread != 7 )
         {
-          XLALPrintError ("Found %d not %d values on line %d in file '%s'\n"
+          XLALPrintError ("Found %"LAL_INT8_FORMAT" not %d values on line %"LAL_INT8_FORMAT" in file '%s'\n"
                          "Line in question is\n%s",
                          nread, 7, i+1, fname, line1);               
           LALFree ((*CList));
@@ -2720,7 +2718,7 @@ ReadOneCandidateFile( LALStatus *lalStatus, 	/**< LALStatus pointer */
   /* check that we read ALL lines! */
   if (i != numlines) {
     XLALPrintError(
-            "Read of file %s terminated after %d line but numlines=%d\n",
+            "Read of file %s terminated after %"LAL_INT8_FORMAT" line but numlines=%"LAL_INT8_FORMAT"\n",
             fname, i, numlines);
     LALFree((*CList));
     fclose(fp);

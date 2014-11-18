@@ -146,13 +146,15 @@ int XLALSimInspiralTaylorF2(
             pfa3 = pfa.v[3];
         case 2:
             pfa2 = pfa.v[2];
-	case 1:
-	    XLALPrintWarning( "There is no 0.5PN phase coefficient, returning Newtonian-order phase.\n" );
         case 0:
             pfaN = pfa.v[0];
             break;
+	case 1:
+	    XLALPrintWarning( "There is no 0.5PN phase coefficient, returning Newtonian-order phase.\n" );
+            pfaN = pfa.v[0];
+            break;
         default:
-            XLAL_ERROR(XLAL_ETYPE, "Invalid phase PN order %s", phaseO);
+            XLAL_ERROR(XLAL_ETYPE, "Invalid phase PN order %d", phaseO);
     }
 
     /* Validate expansion order arguments.
@@ -174,7 +176,7 @@ int XLALSimInspiralTaylorF2(
         case 0:
             break;
         default:
-            XLAL_ERROR(XLAL_ETYPE, "Invalid amplitude PN order %s", amplitudeO);
+            XLAL_ERROR(XLAL_ETYPE, "Invalid amplitude PN order %d", amplitudeO);
     }
 
     /* Generate tidal terms separately.
@@ -194,7 +196,7 @@ int XLALSimInspiralTaylorF2(
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
             break;
         default:
-            XLAL_ERROR(XLAL_EINVAL, "Invalid tidal PN order %s", tideO);
+            XLAL_ERROR(XLAL_EINVAL, "Invalid tidal PN order %d", tideO);
     }
 
     /* The flux and energy coefficients below are used to compute SPA amplitude corrections */
@@ -232,6 +234,8 @@ int XLALSimInspiralTaylorF2(
         f_max = fISCO;
     else // End at user-specified freq.
         f_max = fEnd;
+    if (f_max <= fStart) XLAL_ERROR(XLAL_EDOM);
+
     n = (size_t) (f_max / deltaF + 1);
     XLALGPSAdd(&tC, -1 / deltaF);  /* coalesce at t=0 */
     htilde = XLALCreateCOMPLEX16FrequencySeries("htilde: FD waveform", &tC, 0.0, deltaF, &lalStrainUnit, n);

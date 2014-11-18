@@ -42,6 +42,7 @@
 #include <lal/GenerateBurst.h>
 #include <lal/LALSimBurst.h>
 #include <lal/LALInferenceInit.h>
+#include <lal/LALInferenceCalibrationErrors.h>
 
 LALInferenceRunState *initialize(ProcessParamsTable *commandLine);
 void initializeNS(LALInferenceRunState *runState);
@@ -77,7 +78,6 @@ Initialisation arguments:\n\
 (--randomseed seed           Random seed for Nested Sampling)\
 (--resume)\tAllow non-condor checkpointing every 4 hours. If give will check for OUTFILE_resume and continue if possible\n\n";
 	LALInferenceRunState *irs=NULL;
-	LALInferenceIFOData *ifoPtr, *ifoListStart;
 	ProcessParamsTable *ppt=NULL;
 	unsigned long int randomseed;
 	struct timeval tv;
@@ -139,6 +139,7 @@ Initialisation arguments:\n\
 	/*     window, oneSidedNoisePowerSpectrum, timeDate, freqData         ) */
 	fprintf(stdout, " LALInferenceReadData(): finished.\n");
 	if (irs->data != NULL) {
+<<<<<<< HEAD
     fprintf(stdout, " initialize(): successfully read data.\n");
     ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
     if(ppt){
@@ -212,6 +213,16 @@ Initialisation arguments:\n\
     irs->currentLikelihood=LALInferenceNullLogLikelihood(irs->data);
       
     printf("Injection Null Log Likelihood: %g\n", irs->currentLikelihood);
+=======
+		fprintf(stdout, " initialize(): successfully read data.\n");
+		
+		fprintf(stdout, " LALInferenceInjectInspiralSignal(): started.\n");
+		LALInferenceInjectInspiralSignal(irs->data,commandLine);
+		fprintf(stdout, " LALInferenceInjectInspiralSignal(): finished.\n");
+		
+		irs->currentLikelihood=LALInferenceNullLogLikelihood(irs->data);
+		printf("Null Log Likelihood: %g\n", irs->currentLikelihood);
+>>>>>>> lalinference_review_fall2014
 	}
 	else
 	{
@@ -346,14 +357,18 @@ Nested sampling arguments:\n\
   /* Default likelihood is the frequency domain one */
   runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
 
+<<<<<<< HEAD
   /* Check whether to use the SkyLocalization prior. Otherwise uses the default LALInferenceInspiralPriorNormalised. That should probably be replaced with a swhich over the possible priors. */
+=======
+    /* Check whether to use the SkyLocalization prior. Otherwise uses the default LALInferenceInspiralPrior. That should probably be replaced with a swhich over the possible priors. */
+>>>>>>> lalinference_review_fall2014
     ppt=LALInferenceGetProcParamVal(commandLine,"--prior");
     if(ppt){
       if(!strcmp(ppt->value,"SkyLoc")) runState->prior = &LALInferenceInspiralSkyLocPrior;
       if(!strcmp(ppt->value,"malmquist")) initializeMalmquistPrior(runState);
     }
     else{
-      runState->prior = &LALInferenceInspiralPriorNormalised;
+      runState->prior = &LALInferenceInspiralPrior;
     }
     /* For Compatibility with MCMC command line */
     if(LALInferenceGetProcParamVal(commandLine,"--malmquist-prior")) initializeMalmquistPrior(runState);
@@ -482,6 +497,7 @@ Arguments for each section follow:\n\n";
 	/* Set up structures for nested sampling */
 	initializeNS(state);
 	
+<<<<<<< HEAD
 	/* Set template function */
 	ppt=LALInferenceGetProcParamVal(procParams,"--approx");
 	if(XLALCheckBurstApproximantFromString(ppt->value)){  
@@ -552,10 +568,42 @@ Arguments for each section follow:\n\n";
     fprintf(stdout,"%s",help);
     exit(0);
   }
+=======
+	/* Set up currentParams with variables to be used */
+	/* Review task needs special priors */
+	LALInferenceInitModelFunction initModelFunc=NULL;
+	if(LALInferenceGetProcParamVal(procParams,"--correlatedGaussianLikelihood"))
+		initModelFunc=&LALInferenceInitModelReviewEvidence;
+  else if(LALInferenceGetProcParamVal(procParams,"--bimodalGaussianLikelihood"))
+    initModelFunc=&LALInferenceInitModelReviewEvidence_bimod;
+  else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood"))
+    initModelFunc=&LALInferenceInitModelReviewEvidence_banana;
+	else
+		initModelFunc=&LALInferenceInitCBCModel;
+	state->initModel=initModelFunc;
+	state->model = initModelFunc(state);
+  state->currentParams = XLALMalloc(sizeof(LALInferenceVariables));
+  memset(state->currentParams, 0, sizeof(LALInferenceVariables));
+  LALInferenceCopyVariables(state->model->params, state->currentParams);
+  state->templt = state->model->templt;
 
+      /* Choose the likelihood */
+      LALInferenceInitLikelihood(state);
+
+     /* Print command line arguments if help requested */
+      if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
+      {
+              fprintf(stdout,"%s",help);
+  exit(0);
+      }
+>>>>>>> lalinference_review_fall2014
+
+  /* Apply calibration errors if desired*/
+  LALInferenceApplyCalibrationErrors(state,procParams);
 	/* Call setupLivePointsArray() to populate live points structures */
 	LALInferenceSetupLivePointsArray(state);
 
+<<<<<<< HEAD
 	ppt=LALInferenceGetProcParamVal(procParams,"--approx");
 	if(ppt) {
     // SALVO: We may want different if else for differnt templates in the future
@@ -567,6 +615,10 @@ Arguments for each section follow:\n\n";
 	else 
 	    LALInferenceSetupDefaultNSProposal(state,state->currentParams);
 
+=======
+	LALInferenceSetupDefaultNSProposal(state,state->currentParams,state->currentParams);
+	
+>>>>>>> lalinference_review_fall2014
 	/* write injection with noise evidence information from algorithm */
 	LALInferencePrintInjectionSample(state);
 	

@@ -28,7 +28,7 @@ from glue.ligolw.utils import process as ligolw_process
 from glue import segments
 
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pylal.xlal import constants as XLALConstants
+import lal as XLALConstants
 from pylal.dq import dqTriggerUtils
 
 from matplotlib import use
@@ -779,7 +779,7 @@ def inspiral_range(f, S, rho=8, m1=1.4, m2=1.4, fmin=30, fmax=4096,\
     Calculate inspiral range for a given spectrum.
   """
 
-  Mpc = 10**6 * XLALConstants.LAL_PC_SI
+  Mpc = 10**6 * XLALConstants.PC_SI
 
   # compute chirp mass and total mass (in units of solar masses)
   mtot = m1 + m2;
@@ -787,13 +787,13 @@ def inspiral_range(f, S, rho=8, m1=1.4, m2=1.4, fmin=30, fmax=4096,\
   mchirp = reducedmass**(3/5)*mtot**(2/5);
 
   # calculate prefactor in m^2
-  mchirp *= XLALConstants.LAL_MSUN_SI * XLALConstants.LAL_G_SI /\
-            XLALConstants.LAL_C_SI**2
-  pre = (5 * XLALConstants.LAL_C_SI**(1/3) * mchirp**(5/3) * 1.77**2) /\
+  mchirp *= XLALConstants.MSUN_SI * XLALConstants.G_SI /\
+            XLALConstants.C_SI**2
+  pre = (5 * XLALConstants.C_SI**(1/3) * mchirp**(5/3) * 1.77**2) /\
         (96 * numpy.pi ** (4/3) * rho**2)
 
   # include fisco
-  fisco = XLALConstants.LAL_C_SI**3/XLALConstants.LAL_G_SI/XLALConstants.LAL_MSUN_SI/\
+  fisco = XLALConstants.C_SI**3/XLALConstants.G_SI/XLALConstants.MSUN_SI/\
       6**1.5/numpy.pi/mtot
 
   # restrict to range, include fisco
@@ -822,10 +822,10 @@ def f_dependent_burst_range(f, S, rho=8, E=1e-2):
     Calculate GRB-like or supernov-like burst range for a given spectrum    and background trigger SNR at a given time as a function of freqeucy.
   """
 
-  Mpc = 10**6 * XLALConstants.LAL_PC_SI
+  Mpc = 10**6 * XLALConstants.PC_SI
 
   # generate frequency dependent range
-  A = (((XLALConstants.LAL_G_SI * (E*XLALConstants.LAL_MSUN_SI) * 2/5)/(XLALConstants.LAL_PI**2 * XLALConstants.LAL_C_SI))**(1/2))/Mpc
+  A = (((XLALConstants.G_SI * (E*XLALConstants.MSUN_SI) * 2/5)/(XLALConstants.PI**2 * XLALConstants.C_SI))**(1/2))/Mpc
   R = A/ (rho * S**(1/2) * f)
 
   return R
@@ -863,10 +863,10 @@ def burst_sg_range(f, S, centralFreq, Q, rho=8, E=1e-2, fmin=64, fmax=500):
   f2 = f[condition]
 
   # generate frequency dependent range
-  Mpc = 10**6 * XLALConstants.LAL_PC_SI
+  Mpc = 10**6 * XLALConstants.PC_SI
   1/centralFreq
-  A = (((XLALConstants.LAL_G_SI * (E*XLALConstants.LAL_MSUN_SI) )/(XLALConstants.LAL_PI**2 * XLALConstants.LAL_C_SI))**(1/2))/Mpc/centralFreq
-  sigmaSq = Q**2 / (4 * XLALConstants.LAL_PI**2 * centralFreq**2)
+  A = (((XLALConstants.G_SI * (E*XLALConstants.MSUN_SI) )/(XLALConstants.PI**2 * XLALConstants.C_SI))**(1/2))/Mpc/centralFreq
+  sigmaSq = Q**2 / (4 * XLALConstants.PI**2 * centralFreq**2)
   sg = numpy.exp( - (f2 - centralFreq)**2 * sigmaSq / 2) 
   normSG = scipy.integrate.trapz(sg**2, f2)**(1/2)
   sg = sg/normSG

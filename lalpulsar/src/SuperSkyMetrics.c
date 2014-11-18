@@ -933,7 +933,7 @@ int XLALSetLatticeReducedSuperSkyPointBounds(
 
 }
 
-static void SuperSkySpinBound(
+static void PhysicalSpinBound(
   const size_t dimension UNUSED,
   const gsl_vector* point,
   const gsl_vector* bbox UNUSED,
@@ -948,20 +948,20 @@ static void SuperSkySpinBound(
   *bound = ((const double*) data)[3];
 
   // Add the inner product of the sky offsets with the aligned sky
-  // position to the super-sky bound to get the reduced super-sky bound
+  // position to the physical bound to get the reduced super-sky bound
   double as[3];
   SSM_ReducedToAligned(as, point);
   *bound += DOT3(sky_offsets, as);
 
-  // Add sufficient padding to the reduced super-sky bound to cover any
+  // Add sufficient extra padding to the physical bound to cover any
   // mismatch in sky position, within the bounding box around each sky point
   const double bboxA = gsl_vector_get(bbox, 0);
   const double bboxB = gsl_vector_get(bbox, 1);
-  *padding += fabs(sky_offsets[0]) * bboxA  + fabs(sky_offsets[1]) * bboxB;
+  *padding += fabs(sky_offsets[0]) * bboxA + fabs(sky_offsets[1]) * bboxB;
 
 }
 
-int XLALSetLatticeSuperSkySpinBound(
+int XLALSetLatticePhysicalSpinBound(
   LatticeTiling* tiling,
   const gsl_matrix* rssky_transf,
   const size_t s,
@@ -993,10 +993,10 @@ int XLALSetLatticeSuperSkySpinBound(
     data_lower[j] = data_upper[j] = gsl_matrix_get(rssky_transf, dimension + 1, j);
   }
 
-  // Set the parameter-space bound on (untransformed) super-sky frequency/spindown coordinate
+  // Set the parameter-space bound on physical frequency/spindown coordinate
   data_lower[3] = GSL_MIN(bound1, bound2);
   data_upper[3] = GSL_MAX(bound1, bound2);
-  XLAL_CHECK(XLALSetLatticeBound(tiling, dimension, SuperSkySpinBound, data_len, data_lower, data_upper) == XLAL_SUCCESS, XLAL_EFUNC);
+  XLAL_CHECK(XLALSetLatticeBound(tiling, dimension, PhysicalSpinBound, data_len, data_lower, data_upper) == XLAL_SUCCESS, XLAL_EFUNC);
 
   return XLAL_SUCCESS;
 

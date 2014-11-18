@@ -34,8 +34,10 @@ LIGO Light-Weight XML Coincidence Analysis Front End.
 from optparse import OptionParser
 import sys
 
+
+from glue.ligolw import lsctables
+from glue.ligolw import utils as ligolw_utils
 from pylal import git_version
-from pylal import ligolw_tisi
 from pylal import ligolw_cafe
 
 
@@ -54,7 +56,7 @@ __date__ = git_version.date
 
 
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-ligolw_cafe.lsctables.LIGOTimeGPS = LIGOTimeGPS
+lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #
@@ -101,7 +103,11 @@ for filename in cachenames:
 	cache.extend(ligolw_cafe.load_cache(filename, options.verbose))
 
 
-seglists, outputcaches = ligolw_cafe.ligolw_cafe(cache, ligolw_tisi.load_time_slides(options.time_slides, verbose = options.verbose).values(), options.verbose)
+@lsctables.use_in
+class LIGOLWContentHandler(lsctables.ligolw.LIGOLWContentHandler):
+	pass
+
+seglists, outputcaches = ligolw_cafe.ligolw_cafe(cache, lsctables.TimeSlideTable.get_table(ligolw_utils.load_filename(options.time_slides, verbose = options.verbose, contenthandler = LIGOLWContentHandler)).as_dict().values(), options.verbose)
 instruments = set(seglists.keys())
 
 

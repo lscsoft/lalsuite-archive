@@ -30,6 +30,7 @@ from __future__ import division
 
 # set up timer
 import time
+import copy
 start = int(time.time()*10**6)
 elapsed_time = lambda: int(time.time()*10**6-start)
 
@@ -39,7 +40,7 @@ import pylab
 from pylal import SimInspiralUtils,MultiInspiralUtils,plotutils,git_version
 from glue import segments,markup
 from pylal.dq import dqSegmentUtils,dqHTMLUtils,dqPlotUtils
-from glue.ligolw import table,lsctables,utils
+from glue.ligolw import table,lsctables,utils,ligolw
 from pylal.coh_PTF_pyutils import *
 import scipy
 from scipy import stats
@@ -272,7 +273,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   #
 
   # FIXME: This is nasty, we actually read the file twice, can we fix this?
-  xmldoc = utils.load_filename(trigFile,gz=trigFile.endswith("gz"))
+  xmldoc = utils.load_filename(trigFile,gz=trigFile.endswith("gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
   searchSumm = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
   ifos = sorted(map(str,searchSumm[0].get_ifos()))
   ifoAtt = {'G1':'g', 'H1':'h1', 'H2':'h2', 'L1':'l', 'V1':'v', 'T1':'t'}
@@ -339,14 +340,33 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   sortedTrigs = {}
 
   # Loop over the various slides
+  sortedTrigCount = 0
+  tmpTable = lsctables.New(lsctables.MultiInspiralTable)
   for slideID in range(numSlides):
     # Begin by sorting the triggers into each slide
-    sortedTrigs[slideID] = lsctables.New(lsctables.MultiInspiralTable)
-    sortedTrigs[slideID].extend(\
-    [ trig for trig in trigs if int(trig.time_slide_id) == slideID ])
+    # It seems that New is pretty slow, so run it once and then use deepcopy
+    sortedTrigs[slideID] = copy.deepcopy(tmpTable)
+
+  for trig in trigs:
+    sortedTrigs[int(trig.time_slide_id)].append(trig)
+
+  for slideID in range(numSlides):
+    sortedTrigCount += len(sortedTrigs[slideID])
 
     # These can only *reduce* the analysis time
     currSegList = segmentDict[slideID]
+    # Check the triggers are all in the analysed segment lists
+    for trig in sortedTrigs[slideID]:
+      if trig.end_time not in currSegList:
+        # This can be raised if the trigger is on the segment boundary, so
+        # check if the trigger is within 1/100 of a second within the list
+        if (trig.get_end() + 0.01) in currSegList:
+            continue
+        if (trig.get_end() - 0.01) in currSegList:
+            continue
+        err_msg = "Triggers found in input files not in the list of analysed " 
+        err_msg += "segments. This shouldn't happen."
+        raise ValueError(err_msg)
 
     # Construct the buffer segment list
     buffer = segments.segmentlist()
@@ -1274,6 +1294,8 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
 
   # plot cumulative histograms
   for i,bin in enumerate(massBins):
+    np.savetxt('%s/bestnr_vs_fap_%s_%s_numbers.txt' %(outdir, bin[0], bin[1]),
+               fullTimeBinVetoMaxBestNR[i], delimiter='/t')
     fig = pylab.figure()
     ax = fig.gca()
     cumplot = plotutils.CumulativeHistogramPlot("BestNR",
@@ -1342,6 +1364,14 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     yerr_lowNoMC  = (finjsNoMC/totalinjsNoMC) - yerr_low
     yerr_high     = (yerr_common + yerr_vary)/yerr_denom
     yerr_highNoMC = yerr_high - (finjsNoMC/totalinjsNoMC)
+
+    # save efficiency values to disk
+    f = open('%s/efficiency_numbers.txt' % outdir, 'w')
+    f.write('distance\tfraction\tyerr_low\tyerr_high\n\n')
+    stacked = np.column_stack([distPlotVals, finjs/totalinjs, yerr_lowMC,
+                               yerr_highMC])
+    np.savetxt(f, stacked, fmt='%.8e', delimiter='\t')
+    f.close()
 
     # plot efficiency
     fig = pylab.figure()
@@ -1484,7 +1514,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     ax.set_xlabel("Mchirp")
     ax.set_ylabel("Inverse sum of effective distances")
     ax.set_title("Injections found louder than loudest background event")
-    ax.set_ylim([ 0.5, 1000 ])
+    #ax.set_ylim([ 0.5, 1000 ])
     fig.savefig('%s/found_missed_injections_effdist.png' % outdir)
   
     fig = pylab.figure()
@@ -1510,7 +1540,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     ax.set_ylabel("Inverse sum of effective distances")
     ax.set_title("Injections found louder than loudest background event")
     ax.set_xlim([ start, end ])
-    ax.set_ylim([ 0.5, 1000 ])
+    #ax.set_ylim([ 0.5, 1000 ])
     fig.savefig("%s/found_missed_injections_effdist_time.png" % outdir)
   
     sitename = { 'G':'GEO', 'H':'Hanford', 'L':'Livingston', 'V':'Virgo',\
@@ -1540,7 +1570,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
       ax.set_xlabel("Mchirp")
       ax.set_ylabel("%s effective distance" % sitename[site])
       ax.set_title("Injections found louder than loudest background event")
-      ax.set_ylim([ 0.5, 1000 ])
+      #ax.set_ylim([ 0.5, 1000 ])
       fig.savefig("%s/found_missed_injections_effdist_%s.png"\
                    % (outdir, site.lower()))
   
@@ -1568,7 +1598,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
       ax.set_ylabel("%s effective distance" % sitename[site])
       ax.set_title("Injections found louder than loudest background event")
       ax.set_xlim([ start, end ])
-      ax.set_ylim([ 0.5, 1000 ])
+      #ax.set_ylim([ 0.5, 1000 ])
       fig.savefig("%s/found_missed_injections_effdist_time_%s.png"\
                    % (outdir, site.lower()))
   
@@ -1593,7 +1623,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     ax.set_xlabel("Mchirp")
     ax.set_ylabel("Distance (Mpc)")
     ax.set_title("Injections found louder than loudest background event")
-    ax.set_ylim([ 0.5, 100 ])
+    #ax.set_ylim([ 0.5, 100 ])
     fig.savefig("%s/found_missed_injections_dist.png" % outdir)
   
     fig = pylab.figure()
@@ -1618,7 +1648,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     ax.set_ylabel("Distance (Mpc)")
     ax.set_title("Injections found louder than loudest background event")
     ax.set_xlim([ start, end ])
-    ax.set_ylim([ 0.5, 100 ])
+    #ax.set_ylim([ 0.5, 100 ])
     fig.savefig("%s/found_missed_injections_dist_time.png" % outdir)
 
     # plot sky recovery

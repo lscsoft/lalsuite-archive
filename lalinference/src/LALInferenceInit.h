@@ -54,17 +54,19 @@ void LALInferenceRegisterUniformVariableREAL8(LALInferenceRunState *state, LALIn
  * Initialise state variables needed for LALInferenceNest or LALInferenceMCMC to run
  * on a CBC signal. Reads the command line to get user-specified options
  */
-LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state);
-LALInferenceVariables *LALInferenceInitBurstVariables(LALInferenceRunState *state);
-LALInferenceVariables *LALInferenceInitBestIFOVariables(LALInferenceRunState *state);
-LALInferenceVariables *LALInferenceInitRDVariables(LALInferenceRunState *state);
-LALInferenceVariables *LALInferenceInitPowerBurst(LALInferenceRunState *state);
+
 /**
  * Initialise the template for a standard CBC signal
  */
-void LALInferenceInitCBCTemplate(LALInferenceRunState *runState);
-void LALInferenceInitBurstTemplate(LALInferenceRunState *runState);
+LALInferenceTemplateFunction LALInferenceInitCBCTemplate(LALInferenceRunState *runState);
+LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state);
 
+LALInferenceTemplateFunction LALInferenceInitBurstTemplate(LALInferenceRunState *runState);
+
+LALInferenceModel *LALInferenceInitBurstModel(LALInferenceRunState *state);
+
+LALInferenceModel *LALInferenceInitRDVariables(LALInferenceRunState *state);
+LALInferenceModel *LALInferenceInitPowerBurst(LALInferenceRunState *state);
 
 /**
  Initialise the glitch fitting parameters
@@ -77,11 +79,12 @@ void LALInferenceInitGlitchVariables(LALInferenceRunState *runState, LALInferenc
  * 
  */
 
-LALInferenceVariables *LALInferenceInitVariablesReviewEvidence(LALInferenceRunState *state);
-LALInferenceVariables *LALInferenceInitVariablesReviewEvidence_bimod(LALInferenceRunState *state);
-LALInferenceVariables *LALInferenceInitVariablesReviewEvidence_banana(LALInferenceRunState *state);
-LALInferenceVariables *LALInferenceInitVariablesReviewEvidence_burst_bimod(LALInferenceRunState *state);
-LALInferenceVariables *LALInferenceInitVariablesReviewEvidence_burst_unimod(LALInferenceRunState *state);
+LALInferenceModel *LALInferenceInitModelReviewEvidence(LALInferenceRunState *state);
+LALInferenceModel *LALInferenceInitModelReviewEvidence_bimod(LALInferenceRunState *state);
+LALInferenceModel *LALInferenceInitModelReviewEvidence_banana(LALInferenceRunState *state);
+LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_bimod(LALInferenceRunState *state);
+LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_unimod(LALInferenceRunState *state);
+
 /**
  * Check options consistency 
  **/

@@ -31,6 +31,7 @@ import sys
 
 import numpy as np
 
+from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import table
 from glue.ligolw import utils
@@ -38,8 +39,10 @@ from glue.ligolw.utils import process as ligolw_process
 from pylal import date
 from pylal import git_version
 from pylal import sphericalutils as su
-from pylal.lalconstants import LAL_PI, LAL_TWOPI, LAL_MTSUN_SI
 from pylal import inject
+from lal import PI as LAL_PI
+from lal import TWOPI as LAL_TWOPI
+from lal import MTSUN_SI as LAL_MTSUN_SI
 
 
 #
@@ -147,7 +150,7 @@ siminsp_fname = args[0]
 #
 
 siminsp_doc = utils.load_filename(siminsp_fname,
-    gz=siminsp_fname.endswith(".gz"))
+    gz=siminsp_fname.endswith(".gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
 
 # Prepare process table with information about the current program
 process = ligolw_process.register_to_xmldoc(siminsp_doc,

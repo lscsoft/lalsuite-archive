@@ -18,6 +18,20 @@ ifos = ("G1", "H1", "H2", "L1", "T1", "V1")
 ########################################
 # helper functions
 
+class ExtractCoincInspiralTableLIGOLWContentHandler(ligolw.PartialLIGOLWContentHandler):
+  """
+  LIGOLWContentHandler that will extract only the CoincInspiralTable from a document.
+  See glue.ligolw.LIGOLWContentHandler help for more info.
+  """
+  def __init__(self,document):
+    def filterfunc(name,attrs):
+      if name==ligolw.Table.tagName and attrs.has_key('Name'):
+        return 0==table.CompareTableNames(attrs.get('Name'), lsctables.CoincInspiralTable.tableName)
+      else:
+        return False
+      ligolw.PartialLIGOLWContentHandler.__init__(self,document,filterfunc)
+
+
 def get_ifo_combos(ifo_list):
   ifo_combos = []
   for num_ifos in range(2, len(ifo_list) + 1):
@@ -74,8 +88,9 @@ def readCoincInspiralFromFiles(fileList,statistic=None):
   sims = None
   coincs = None
 
+  lsctables.use_in(ExtractCoincInspiralTableLIGOLWContentHandler)
   for thisFile in fileList:
-    doc = utils.load_filename(thisFile, gz = (thisFile or "stdin").endswith(".gz"))
+    doc = utils.load_filename(thisFile, gz = (thisFile or "stdin").endswith(".gz"), contenthandler=ExtractCoincInspiralTableLIGOLWContentHandler)
     # extract the sim inspiral table
     try: 
       simInspiralTable = \

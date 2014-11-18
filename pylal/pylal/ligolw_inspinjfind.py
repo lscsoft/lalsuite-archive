@@ -45,10 +45,10 @@ from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw.utils import coincs as ligolw_coincs
 from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import time_slide as ligolw_time_slide
 from glue.text_progress_bar import ProgressBar
 from pylal import git_version
 from pylal import ligolw_thinca
-from pylal import ligolw_tisi
 from pylal import SimInspiralUtils
 from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -151,7 +151,7 @@ class DocContents(object):
 		# indicate time slide at which the injection was done
 		#
 
-		self.tisi_id = ligolw_tisi.get_time_slide_id(xmldoc, {}.fromkeys(seglists, 0.0), create_new = process)
+		self.tisi_id = ligolw_time_slide.get_time_slide_id(xmldoc, {}.fromkeys(seglists, 0.0), create_new = process)
 
 		#
 		# get coinc_definer row for sim_inspiral <--> sngl_inspiral

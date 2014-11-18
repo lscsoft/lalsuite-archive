@@ -793,6 +793,7 @@ class CumulativeHistogramPlot(BasicPlot):
         min_stat, max_stat = determine_common_bin_limits(\
             self.fg_data_sets + self.bg_data_sets)
         bins = numpy.linspace(min_stat, max_stat, num_bins + 1, endpoint=True)
+        bins_bg = numpy.append(bins, float('Inf'))
         dx = bins[1] - bins[0]
 
         # plot foreground
@@ -815,7 +816,8 @@ class CumulativeHistogramPlot(BasicPlot):
             sq_hist_sum = numpy.zeros(len(bins), dtype=float)
             for instance in self.bg_data_sets:
                 # make histogram
-                y, x = numpy.histogram(instance, bins=bins, new=False)
+	        y, x = numpy.histogram(instance, bins=bins_bg)
+                x = numpy.delete(x, -1)
                 y = y[::-1].cumsum()[::-1]
                 hist_sum += y
                 sq_hist_sum += y*y

@@ -593,7 +593,12 @@ def populate_rinca_time_slide_table(xmldoc, process, instruments = None, verbose
 	n = 0
 	for id, offset_vector in zip(ids(type(time_slide_table.next_id), num_slides), ligolw_tisi.Inspiral_Num_Slides_Iter(num_slides, offset_vector)):
 		n += 1
-		for row in ligolw_tisi.RowsFromOffsetDict(offset_vector, id, process):
+		for instrument, offset in offset_vector.items():
+			row = time_slide_table.RowType()
+			row.process_id = process.process_id
+			row.time_slide_id = id
+			row.instrument = instrument
+			row.offset = offset
 			time_slide_table.append(row)
 
 	#

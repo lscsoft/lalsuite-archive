@@ -41,6 +41,20 @@ import stat
 import sys
 
 
+# work-around for Python < 2.7.  remove when we can rely on native GzipFile
+# being usable as a context manager
+GzipFile = gzip.GzipFile
+try:
+	GzipFile.__exit__
+except AttributeError:
+	class GzipFile(gzip.GzipFile):
+		def __enter__(self):
+			return self
+		def __exit__(self, *args):
+			self.close()
+			return False
+
+
 from glue import git_version
 from .. import ligolw
 
@@ -50,7 +64,7 @@ __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
 
-__all__ = []
+__all__ = ["sort_files_by_size", "local_path_from_url", "load_fileobj", "load_filename", "load_url", "write_fileobj", "write_filename", "write_url"]
 
 
 #
@@ -102,9 +116,6 @@ def local_path_from_url(url):
 
 
 class RewindableInputFile(object):
-	"""
-	DON'T EVER USE THIS FOR ANYTHING!  I'M NOT EVEN KIDDING!
-	"""
 	# The GzipFile class in Python's standard library is, in my
 	# opinion, somewhat weak.  Instead of relying on the return values
 	# from the file object's .read() method, GzipFile checks for EOF
@@ -323,14 +334,12 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 	>>> f = StringIO.StringIO('<?xml version="1.0" encoding="utf-8" ?><!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt"><LIGO_LW><Table Name="demo:table"><Column Name="name" Type="lstring"/><Column Name="value" Type="real8"/><Stream Name="demo:table" Type="Local" Delimiter=",">"mass",0.5,"velocity",34</Stream></Table></LIGO_LW>')
 	>>> xmldoc, digest = load_fileobj(f, contenthandler = ligolw.LIGOLWContentHandler)
 	>>> digest
-	'03d1f513120051f4dbf3e3bc58ddfaa6'
+	'6bdcc4726b892aad913531684024ed8e'
 
 	The contenthandler argument specifies the SAX content handler to
 	use when parsing the document.  The contenthandler is a required
-	argument, but for (temporary) backwards compatibility if it is
-	omitted a default fallback is used and a warning is emitted.  See
-	the glue.ligolw package documentation for typical parsing scenario
-	involving a custom content handler.  See
+	argument.  See the glue.ligolw package documentation for typical
+	parsing scenario involving a custom content handler.  See
 	glue.ligolw.ligolw.PartialLIGOLWContentHandler and
 	glue.ligolw.ligolw.FilteringLIGOLWContentHandler for examples of
 	custom content handlers used to load subsets of documents into
@@ -346,10 +355,6 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 			fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
-	# FIXME:  remove.  require contenthandler parameter
-	if contenthandler is None:
-		contenthandler = ligolw.DefaultLIGOLWContentHandler
-		warnings.warn("contenthandler argument is required.  see https://www.lsc-group.phys.uwm.edu/daswg/projects/glue/doc/glue.ligolw.ligolw.LIGOLWContentHandler-class.html for more information", DeprecationWarning)
 	ligolw.make_parser(contenthandler(xmldoc)).parse(fileobj)
 	return xmldoc, md5obj.hexdigest()
 
@@ -366,7 +371,7 @@ def load_filename(filename, verbose = False, **kwargs):
 	Example:
 
 	>>> from glue.ligolw import ligolw
-	>>> xmldoc = load_filename(name, contenthandler = ligolw.LIGOLWContentHandler, verbose = True)
+	>>> xmldoc = load_filename("demo.xml", contenthandler = ligolw.LIGOLWContentHandler, verbose = True)
 	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (("'%s'" % filename) if filename is not None else "stdin")
@@ -392,8 +397,9 @@ def load_url(url, verbose = False, **kwargs):
 
 	Example:
 
+	>>> from os import getcwd
 	>>> from glue.ligolw import ligolw
-	>>> xmldoc = load_url("file://localhost/tmp/data.xml", contenthandler = ligolw.LIGOLWContentHandler)
+	>>> xmldoc = load_url("file://localhost/%s/demo.xml" % getcwd(), contenthandler = ligolw.LIGOLWContentHandler, verbose = True)
 	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (("'%s'" % url) if url is not None else "stdin")
@@ -436,7 +442,22 @@ def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = (signal.SIGTERM, s
 	Example:
 
 	>>> import sys
-	>>> write_fileobj(xmldoc, sys.stdout)
+	>>> from glue.ligolw import ligolw
+	>>> xmldoc = load_filename("demo.xml", contenthandler = ligolw.LIGOLWContentHandler)
+	>>> digest = write_fileobj(xmldoc, sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	<?xml version='1.0' encoding='utf-8'?>
+	<!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">
+	<LIGO_LW>
+		<Table Name="demo:table">
+			<Column Type="lstring" Name="name"/>
+			<Column Type="real8" Name="value"/>
+			<Stream Delimiter="," Type="Local" Name="demo:table">
+	"mass",0.5,"velocity",34
+			</Stream>
+		</Table>
+	</LIGO_LW>
+	>>> digest
+	'37044d979a79409b3d782da126636f53'
 	"""
 	# initialize SIGTERM and SIGTSTP trap
 	deferred_signals = []
@@ -451,7 +472,7 @@ def write_fileobj(xmldoc, fileobj, gz = False, trap_signals = (signal.SIGTERM, s
 	# write the document
 	with MD5File(fileobj, closable = False) as fileobj:
 		md5obj = fileobj.md5obj
-		with fileobj if not gz else gzip.GzipFile(mode = "wb", fileobj = fileobj) as fileobj:
+		with fileobj if not gz else GzipFile(mode = "wb", fileobj = fileobj) as fileobj:
 			with codecs.getwriter("utf_8")(fileobj) as fileobj:
 				xmldoc.write(fileobj, **kwargs)
 
@@ -478,7 +499,8 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, **kwargs):
 
 	Example:
 
-	>>> write_filename(xmldoc, "data.xml")
+	>>> write_filename(xmldoc, "demo.xml")	# doctest: +SKIP
+	>>> write_filename(xmldoc, "demo.xml.gz", gz = True)	# doctest: +SKIP
 	"""
 	if verbose:
 		print >>sys.stderr, "writing %s ..." % (("'%s'" % filename) if filename is not None else "stdout")
@@ -508,6 +530,7 @@ def write_url(xmldoc, url, **kwargs):
 
 	Example:
 
-	>>> write_url(xmldoc, "file:///data.xml")
+	>>> write_url(xmldoc, "file:///data.xml")	# doctest: +SKIP
+	>>> write_url(xmldoc, "file:///data.xml.gz", gz = True)	# doctest: +SKIP
 	"""
 	return write_filename(xmldoc, local_path_from_url(url), **kwargs)
