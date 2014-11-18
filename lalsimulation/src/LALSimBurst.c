@@ -1353,7 +1353,7 @@ int XLALGetBurstApproximantFromString(const CHAR *inString)
  * XLAL function to determine string from approximant enum.
  * This function needs to be updated when new approximants are added.
  */
-char* XLALGetStringFromBurstApproximant(Approximant approximant){
+char* XLALGetStringFromBurstApproximant(BurstApproximant approximant){
 {
   switch (approximant)
   {

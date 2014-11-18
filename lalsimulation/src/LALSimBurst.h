@@ -237,7 +237,7 @@ int XLALSimBurstChooseTDWaveform(
  * match exactly, only contain a member of the BurstApproximant enum.
  */
 int XLALGetBurstApproximantFromString(const CHAR *inString);
-char* XLALGetStringFromBurstApproximant(Approximant approximant);
+char* XLALGetStringFromBurstApproximant(BurstApproximant approximant);
 int XLALCheckBurstApproximantFromString(const CHAR *inString);
 
 #if 0
