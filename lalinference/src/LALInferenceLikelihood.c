@@ -493,6 +493,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   COMPLEX16 Rcplx=0.0;
   int margphi=0;
   int margtime=0;
+  REAL8 desired_tc=0.0;
   if (marginalisationflags==MARGPHI || marginalisationflags==MARGTIMEPHI)
     margphi=1;
   if (marginalisationflags==MARGTIME || marginalisationflags==MARGTIMEPHI)
@@ -572,10 +573,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     psi       = *(REAL8*) LALInferenceGetVariable(currentParams, "polarisation");   /* radian      */
     if(!margtime)
       GPSdouble = *(REAL8*) LALInferenceGetVariable(currentParams, "time");           /* GPS seconds */
-    else
-      GPSdouble = XLALGPSGetREAL8(&(data->freqData->epoch));
-
-    
     // Add phase parameter set to 0 for calculation
     if(margphi ){
       REAL8 phi0=0.0;
@@ -587,21 +584,20 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   int freq_length=0,time_length=0;
   COMPLEX16Vector * dh_S_tilde=NULL;
   COMPLEX16Vector *dh_S=NULL;
+  /* Setup times to integrate over */
+  freq_length = data->freqData->data->length;
+  time_length = 2*(freq_length-1);
+    
+  /* Desired tc == 2 seconds before buffer end.  Only used during
+     margtime{phi} to try to place the waveform in a reasonable
+     place before time-shifting */
+  deltaT = data->timeData->deltaT;
+  REAL8 epoch = XLALGPSGetREAL8(&(data->freqData->epoch));
+  desired_tc = epoch + (time_length-1)*deltaT - 2.0;
 
   if(margtime)
   {
-    /* Setup times to integrate over */
-    freq_length = data->freqData->data->length;
-    time_length = 2*(freq_length-1);
-    
-    /* Desired tc == 2 seconds before buffer end.  Only used during
-       margtime{phi} to try to place the waveform in a reasonable
-       place before time-shifting */
-    deltaT = data->timeData->deltaT;
-    REAL8 epoch = XLALGPSGetREAL8(&(data->freqData->epoch));
-    REAL8 desired_tc = epoch + (time_length-1)*deltaT - 2.0;
     GPSdouble = desired_tc;
-    
     dh_S_tilde = XLALCreateCOMPLEX16Vector(time_length);
     dh_S = XLALCreateCOMPLEX16Vector(time_length);
     
@@ -631,7 +627,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     /* Note that the template function shifts the waveform to so that*/
 	/* t_c corresponds to the "time" parameter in                    */
 	/* model->params (set, e.g., from the trigger value).     */
-    
+
     /* Reset log-likelihood */
     model->ifo_loglikelihoods[ifo] = 0.0;
     model->ifo_SNRs[ifo] = 0.0;
@@ -732,8 +728,13 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
         timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location, ra, dec, &GPSlal);
         /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
         /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
-        timeshift =  (GPSdouble - (*(REAL8*) LALInferenceGetVariable(model->params, "time"))) + timedelay;
-
+        if (margtime)
+	  /* If we are marginalising over time, we want the
+	     freq-domain signal to have tC = epoch, so we shift it
+	     from the model's "time" parameter to epoch */
+          timeshift =  (epoch - (*(REAL8 *) LALInferenceGetVariable(model->params, "time"))) + timedelay;
+        else
+          timeshift =  (GPSdouble - (*(REAL8*) LALInferenceGetVariable(model->params, "time"))) + timedelay;
         twopit    = LAL_TWOPI * timeshift;
 
         dataPtr->fPlus = Fplus;
@@ -838,7 +839,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       }
       
       diff = (d - template);
-        
       }//end signal subtraction
 
       //subtract glitch model from residual
@@ -878,9 +878,9 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
           templatesq=creal(template)*creal(template) + cimag(template)*cimag(template);
           REAL8 datasq = creal(d)*creal(d)+cimag(d)*cimag(d);
           loglikelihood+=-TwoDeltaToverN*(templatesq+datasq)/sigmasq;
-          /* Note: This is conj(d) not H, since we use a Forward FFT later on */
+	  
           /* Note: No Factor of 2 here, since we are using the 2-sided COMPLEX16FFT */
-          COMPLEX16 dstarh =  TwoDeltaToverN * conj(d) * template/sigmasq;
+	  COMPLEX16 dstarh = TwoDeltaToverN * conj(d) * template / sigmasq;
           dh_S_tilde->data[i]+=dstarh;
           dh_S_tilde->data[time_length-i] += conj(dstarh);
           break;
@@ -891,7 +891,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
           REAL8 datasq = creal(d)*creal(d)+cimag(d)*cimag(d);
           D+=TwoDeltaToverN*datasq/sigmasq;
           S+=TwoDeltaToverN*templatesq/sigmasq;
-          COMPLEX16 dhstar = TwoDeltaToverN*d*conj(template)/sigmasq;
+          COMPLEX16 dhstar =( TwoDeltaToverN*d*conj(template)/sigmasq);
           Rcplx+=dhstar;
           break;
         }
@@ -910,14 +910,12 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       loglikelihood += model->ifo_loglikelihoods[ifo];
       break;
     case MARGTIME:
-      break; /* Placeholder for any code that needs to go at end of
-		  IFO loop */
     case MARGPHI:
-      break; /* Placeholder for any code that needs to go at end of
-		  IFO loop */
     case MARGTIMEPHI:
-      break; /* Placeholder for any code that needs to go at end of
-		  IFO loop */
+      /* These are non-separable likelihoods, so single IFO log(L)
+	 doesn't make sense. */
+      model->ifo_loglikelihoods[ifo] = 0.0;
+      break;
     default:
       break;
     }
@@ -957,7 +955,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       dh_S_tilde->data[0] = crect( creal(dh_S_tilde->data[0]), 0. );
 
       XLALCOMPLEX16VectorFFT(dh_S, dh_S_tilde, data->margComplexFFTPlan);
-      
+
       REAL8 time_low,time_high;
       LALInferenceGetMinMaxPrior(currentParams,"time",&time_low,&time_high);
       REAL8 t0 = XLALGPSGetREAL8(&(data->freqData->epoch));
@@ -1000,7 +998,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   }
   
   //loglikelihood = -1.0 * chisquared; // note (again): the log-likelihood is unnormalised!
-  //printf("%10.10e\n",loglikelihood);
+
   return(loglikelihood);
 }
 
