@@ -50,7 +50,8 @@ BBHPhenomCParams *ComputeIMRPhenomCParamsRDmod(
   const REAL8 m1,   /**< Mass of companion 1 (solar masses) */
   const REAL8 m2,   /**< Mass of companion 2 (solar masses) */
   const REAL8 chi,  /**< Reduced aligned spin of the binary chi = (m1*chi1 + m2*chi2)/M */
-  const REAL8 chip  /**< Dimensionless spin in the orbital plane */
+  const REAL8 chip,  /**< Dimensionless spin in the orbital plane */
+  const LALSimInspiralTestGRParam *extraParams
 );
 
 typedef struct tagNNLOanglecoeffs {
@@ -255,7 +256,8 @@ int XLALSimIMRPhenomP(
   const REAL8 deltaF,                   /**< Sampling frequency (Hz) */
   const REAL8 f_min,                    /**< Starting GW frequency (Hz) */
   const REAL8 f_max,                    /**< End frequency; 0 defaults to ringdown cutoff freq */
-  const REAL8 f_ref)                    /**< Reference frequency */
+  const REAL8 f_ref,                    /**< Reference frequency */
+  const LALSimInspiralTestGRParam *extraParams)
 {
   // See Fig. 1. in arxiv:1408.1810 for diagram of the angles.
   // Note that the angles phiJ which is calculated internally in XLALSimIMRPhenomPCalculateModelParameters
@@ -338,7 +340,7 @@ int XLALSimIMRPhenomP(
   /* Phenomenological parameters */
   BBHPhenomCParams *PCparams;
   //PCparams = ComputeIMRPhenomCParams(m1, m2, chi_eff); /* original PhenomC */
-  PCparams = ComputeIMRPhenomCParamsRDmod(m1, m2, chi_eff, chip); /* PhenomC with ringdown using Barausse 2009 formula for final spin */
+  PCparams = ComputeIMRPhenomCParamsRDmod(m1, m2, chi_eff, chip, extraParams); /* PhenomC with ringdown using Barausse 2009 formula for final spin */
   if (!PCparams) XLAL_ERROR(XLAL_EFUNC);
   if (PCparams->fCut <= f_min) {
       XLALPrintError("(fCut = 0.15M) <= f_min\n");
@@ -755,11 +757,12 @@ BBHPhenomCParams *ComputeIMRPhenomCParamsRDmod(
   const REAL8 m1,   /**< Mass of companion 1 (solar masses) */
   const REAL8 m2,   /**< Mass of companion 2 (solar masses) */
   const REAL8 chi,  /**< Reduced aligned spin of the binary chi = (m1*chi1 + m2*chi2)/M */
-  const REAL8 chip) /**< Dimensionless spin in the orbital plane */
+  const REAL8 chip, /**< Dimensionless spin in the orbital plane */
+  const LALSimInspiralTestGRParam *extraParams)
 {
 
   BBHPhenomCParams *p = NULL;
-  p = ComputeIMRPhenomCParams(m1, m2, chi); /* populate parameters with the original PhenomC setup */
+  p = ComputeIMRPhenomCParams(m1, m2, chi, extraParams); /* populate parameters with the original PhenomC setup */
   if( !p )
     XLAL_ERROR_NULL(XLAL_EFUNC);
 
