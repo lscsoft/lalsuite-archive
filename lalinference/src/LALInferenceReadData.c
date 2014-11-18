@@ -2434,6 +2434,30 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
 
   LALSimInspiralTestGRParam *nonGRparams = NULL;
   
+  if (strstr(inj_table->waveform,"IMRPhenomP")){
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi0",inj_table->dchi0);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi1",inj_table->dchi1);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi2",inj_table->dchi2);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi3",inj_table->dchi3);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi4",inj_table->dchi4);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi5",inj_table->dchi5);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi5l",inj_table->dchi5l);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi6",inj_table->dchi6);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi6l",inj_table->dchi6l);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi7",inj_table->dchi7);
+    fprintf(stdout,"Injecting %s in the frequency domain...\n",inj_table->waveform);
+    fprintf(stdout,"adding dchi0=%1.3f in the injection\n",inj_table->dchi0);
+    fprintf(stdout,"adding dchi1=%1.3f in the injection\n",inj_table->dchi1);
+    fprintf(stdout,"adding dchi2=%1.3f in the injection\n",inj_table->dchi2);
+    fprintf(stdout,"adding dchi3=%1.3f in the injection\n",inj_table->dchi3);
+    fprintf(stdout,"adding dchi4=%1.3f in the injection\n",inj_table->dchi4);
+    fprintf(stdout,"adding dchi5=%1.3f in the injection\n",inj_table->dchi5);
+    fprintf(stdout,"adding dchi5l=%1.3f in the injection\n",inj_table->dchi5l);
+    fprintf(stdout,"adding dchi6=%1.3f in the injection\n",inj_table->dchi6);
+    fprintf(stdout,"adding dchi6l=%1.3f in the injection\n",inj_table->dchi6l);
+    fprintf(stdout,"adding dchi7=%1.3f in the injection\n",inj_table->dchi7);
+    
+  }
   if (strstr(inj_table->waveform,"TaylorF2Test")){
     XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi0",inj_table->dchi0);
     XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi1",inj_table->dchi1);

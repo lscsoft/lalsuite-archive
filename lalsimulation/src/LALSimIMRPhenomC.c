@@ -117,9 +117,9 @@ int XLALSimIMRPhenomCGenerateFD(
   else if (q > 4.0){
       XLALPrintWarning("Warning: The model is only calibrated for m1/m2 <= 4.\n");
   }
-
+  LALSimInspiralTestGRParam *extraParams=NULL;
   /* phenomenological parameters*/
-  params = ComputeIMRPhenomCParams(m1, m2, chi);
+  params = ComputeIMRPhenomCParams(m1, m2, chi, extraParams);
   if (!params) XLAL_ERROR(XLAL_EFUNC);
   if (params->fCut <= f_min) {
       XLALPrintError("(fCut = 0.15M) <= f_min\n");
@@ -157,7 +157,8 @@ double XLALSimIMRPhenomCGetFinalFreq(
     const REAL8 chi
 ) {
     BBHPhenomCParams *phenomParams;
-    phenomParams = ComputeIMRPhenomCParams(m1, m2, chi);
+    LALSimInspiralTestGRParam *extraParams = NULL;
+    phenomParams = ComputeIMRPhenomCParams(m1, m2, chi, extraParams);
     return phenomParams->fCut;
 }
 
@@ -226,9 +227,9 @@ int XLALSimIMRPhenomCGenerateTD(
 	else if (q > 4.0){
 		XLALPrintWarning("Warning: The model is only calibrated for m1/m2 <= 4.\n");
 	}
-
+  LALSimInspiralTestGRParam *extraParams=NULL;
 	/* phenomenological parameters*/
-	params = ComputeIMRPhenomCParams(m1, m2, chi);
+	params = ComputeIMRPhenomCParams(m1, m2, chi, extraParams);
 	if (!params) XLAL_ERROR(XLAL_EFUNC);
 	if (params->fCut <= f_min) {
 		XLALPrintError("(fCut = 0.15M) <= f_min\n");

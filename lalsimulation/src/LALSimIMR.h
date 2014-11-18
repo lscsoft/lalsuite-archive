@@ -208,7 +208,8 @@ int XLALSimIMRPhenomP(
   const REAL8 deltaF,                   /**< Sampling frequency (Hz) */
   const REAL8 f_min,                    /**< Starting GW frequency (Hz) */
   const REAL8 f_max,                   	/**< End frequency; 0 defaults to ringdown cutoff freq */
-  const REAL8 f_ref                     /**< Reference frequency */
+  const REAL8 f_ref,                  /**< Reference frequency */
+  const LALSimInspiralTestGRParam *extraParams
 );
 
 /**
