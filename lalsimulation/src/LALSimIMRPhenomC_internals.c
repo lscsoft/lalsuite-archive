@@ -64,6 +64,7 @@ typedef struct tagBBHPhenomCParams{
   REAL8 Qual;
 
   REAL8 pfaN;
+  REAL8 pfa1;
   REAL8 pfa2;
   REAL8 pfa3;
   REAL8 pfa4;
@@ -111,8 +112,8 @@ BBHPhenomCParams;
  *
  */
 
-static BBHPhenomCParams *ComputeIMRPhenomCParamsSPA( const REAL8 m1, const REAL8 m2, const REAL8 chi );
-static BBHPhenomCParams *ComputeIMRPhenomCParams( const REAL8 m1, const REAL8 m2, const REAL8 chi );
+static BBHPhenomCParams *ComputeIMRPhenomCParamsSPA( const REAL8 m1, const REAL8 m2, const REAL8 chi, const LALSimInspiralTestGRParam *extraParams );
+static BBHPhenomCParams *ComputeIMRPhenomCParams( const REAL8 m1, const REAL8 m2, const REAL8 chi, const LALSimInspiralTestGRParam *extraParams );
 static REAL8 wPlus( const REAL8 f, const REAL8 f0, const REAL8 d, const BBHPhenomCParams *params );
 static REAL8 wMinus( const REAL8 f, const REAL8 f0, const REAL8 d, const BBHPhenomCParams *params );
 
@@ -134,7 +135,8 @@ static int IMRPhenomCGenerateAmpPhase( REAL8 *amplitude, REAL8 *phasing, REAL8 f
 static BBHPhenomCParams *ComputeIMRPhenomCParamsSPA(
     const REAL8 m1, /**< mass of companion 1 (solar masses) */
     const REAL8 m2, /**< mass of companion 2 (solar masses) */
-    const REAL8 chi) /**< Reduced spin of the binary, defined in the main paper */
+    const REAL8 chi, /**< Reduced spin of the binary, defined in the main paper */
+    const LALSimInspiralTestGRParam *extraParams)
 {
 
   BBHPhenomCParams *p = (BBHPhenomCParams *) XLALMalloc(sizeof(BBHPhenomCParams));
@@ -156,6 +158,7 @@ static BBHPhenomCParams *ComputeIMRPhenomCParamsSPA(
 
   /* Calculate the PN phasing terms */
   p->pfaN = 3.0/(128.0 * eta);
+  p->pfa1 = 0.0;
   p->pfa2 = (3715./756.) + (55.*eta/9.0);
   p->pfa3 = -16.0*LAL_PI + (113./3.)*chi - 38.*eta*chisum/3.;
   p->pfa4 = (152.93365/5.08032) - 50.*chi2 + eta*(271.45/5.04 + 1.25*chiprod) +
@@ -178,7 +181,18 @@ static BBHPhenomCParams *ComputeIMRPhenomCParamsSPA(
         chisum*(4862.041225*eta/1.524096 + 1189.775*eta2/1.008 - 717.05*eta2*eta/2.16 - 830.*eta*chi2/3. + 35.*eta2*chiprod/3.) -
         560.*LAL_PI*chi2 + 20.*LAL_PI*eta*chiprod +
         chi2*chi*(945.55/1.68 - 85.*eta) + chi*chiprod*(396.65*eta/1.68 + 255.*eta2);
-
+  if (extraParams!=NULL)
+  {
+    if (XLALSimInspiralTestGRParamExists(extraParams,"dchi0")) p->pfaN*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi0"));
+    if (XLALSimInspiralTestGRParamExists(extraParams,"dchi1")) p->pfa1 = XLALSimInspiralGetTestGRParam(extraParams,"dchi1");
+    if (XLALSimInspiralTestGRParamExists(extraParams,"dchi2")) p->pfa2*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi2"));
+    if (XLALSimInspiralTestGRParamExists(extraParams,"dchi3")) p->pfa3*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi3"));
+    if (XLALSimInspiralTestGRParamExists(extraParams,"dchi4")) p->pfa4*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi4"));
+    if (XLALSimInspiralTestGRParamExists(extraParams,"dchi5")) p->pfa5*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi5"));
+    if (XLALSimInspiralTestGRParamExists(extraParams,"dchi6")) p->pfa6*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi6"));
+    if (XLALSimInspiralTestGRParamExists(extraParams,"dchi6l")) p->pfa6log*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi6l"));
+    if (XLALSimInspiralTestGRParamExists(extraParams,"dchi7")) p->pfa7*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi7"));
+  }
   /* Coefficients to calculate xdot, that comes in the fourier amplitude */
   p->xdotaN = 64.*eta/5.;
   p->xdota2 = -7.43/3.36 - 11.*eta/4.;
@@ -236,10 +250,11 @@ static BBHPhenomCParams *ComputeIMRPhenomCParamsSPA(
 static BBHPhenomCParams *ComputeIMRPhenomCParams(
     const REAL8 m1, /**< mass of companion 1 (solar masses) */
     const REAL8 m2, /**< mass of companion 2 (solar masses) */
-    const REAL8 chi) /**< Reduced spin of the binary, defined in the main paper */
+    const REAL8 chi, /**< Reduced spin of the binary, defined in the main paper */
+    const LALSimInspiralTestGRParam *extraParams)
 {
   BBHPhenomCParams *p = NULL;
-  p = ComputeIMRPhenomCParamsSPA( m1, m2, chi );
+  p = ComputeIMRPhenomCParamsSPA( m1, m2, chi, extraParams );
   if( !p )
     XLAL_ERROR_NULL(XLAL_EFUNC);
 
@@ -470,7 +485,7 @@ static int IMRPhenomCGenerateAmpPhase(
   REAL8 v10 = v5*v5;
 
   /* SPA part of the phase */
-  REAL8 phSPA = 1. + params->pfa2 * v2 + params->pfa3 * v3 + params->pfa4 * v4 +
+  REAL8 phSPA = 1. + params->pfa1*v + params->pfa2 * v2 + params->pfa3 * v3 + params->pfa4 * v4 +
     (1. + log(v3)) * params->pfa5 * v5 + (params->pfa6  + params->pfa6log * log(v3))*v6 +
     params->pfa7 * v7;
   phSPA *= (params->pfaN / v5);
