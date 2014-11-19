@@ -465,7 +465,8 @@ def run_query_segments(doc, process_id, engine, gps_start_time, gps_end_time, in
 #
 # =============================================================================
 #
-
+class ContentHandler(ligolw.LIGOLWContentHandler):
+    connection = None
 
 def setup_files(dir_name, gps_start_time, gps_end_time):
     # Filter out the ones that are outside our time range
@@ -477,7 +478,13 @@ def setup_files(dir_name, gps_start_time, gps_end_time):
     target     = dbtables.get_connection_filename(temp_db, None, True, False)
     connection = ligolw_sqlite.setup(target)
 
-    ligolw_sqlite.insert_from_urls(connection, xml_files) # [temp_xml])
+    ContentHandler.connection = connection
+    dbtables.use_in(ContentHandler)
+    # With ER6 Glue change:
+    ligolw_sqlite.insert_from_urls(xml_files, ContentHandler)
+
+    # Pre-ER6 Kipp Glue change:
+    #ligolw_sqlite.insert_from_urls(connection, xml_files) # [temp_xml])
 
     segmentdb_utils.ensure_segment_table(connection)
         
