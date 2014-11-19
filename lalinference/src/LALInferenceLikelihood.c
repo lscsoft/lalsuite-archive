@@ -81,8 +81,7 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
 
     ProcessParamsTable *commandLine=runState->commandLine;
     LALInferenceIFOData *ifo=runState->data;
-    ProcessParamsTable *ppt=NULL;
-    ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
+
   
     /* Print command line arguments if help requested */
     if(LALInferenceGetProcParamVal(runState->commandLine,"--help"))
@@ -130,12 +129,6 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
    } else if (LALInferenceGetProcParamVal(commandLine, "--roq")) {
      fprintf(stderr, "Using ROQ likelihood.\n");
      runState->likelihood=&LALInferenceROQLogLikelihood;
-   } else if(!strcmp("RingdownF",ppt->value)){
-      runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_RD;
-      if(LALInferenceGetProcParamVal(commandLine,"--margphi")){
-        printf("Using Marginalise Phase Likelihood\n");
-        runState->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood_RD;
-      }
     }
     else {
     runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
@@ -1045,7 +1038,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       break;
       
   }
-
+ //printf("%10.10e\n",loglikelihood);
   return(loglikelihood);
 }
 

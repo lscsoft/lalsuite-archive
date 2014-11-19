@@ -53,11 +53,9 @@ LALInferenceTemplateFunction LALInferenceInitBurstTemplate(LALInferenceRunState 
   if(ppt) {
     if(XLALSimBurstImplementedFDApproximants(XLALGetBurstApproximantFromString(ppt->value))){
         templt=&LALInferenceTemplateXLALSimBurstChooseWaveform;
-        runState->model->domain=LAL_SIM_DOMAIN_FREQUENCY;
     }
     else if(XLALSimBurstImplementedTDApproximants(XLALGetBurstApproximantFromString(ppt->value))){
         templt=&LALInferenceTemplateXLALSimBurstChooseWaveform;
-        runState->model->domain=LAL_SIM_DOMAIN_TIME;
     }
     else {
       XLALPrintError("Error: unknown template %s\n",ppt->value);
@@ -72,7 +70,7 @@ LALInferenceTemplateFunction LALInferenceInitBurstTemplate(LALInferenceRunState 
 /* Includes specification of prior ranges */
 
 LALInferenceModel * LALInferenceInitBurstModel(LALInferenceRunState *state)
-{   
+{
   fprintf(stderr,"Using LALInferenceBurstVariables!\n");
 
   LALStatus status;
@@ -184,7 +182,16 @@ Parameter arguments:\n\
   if(ppt){
     approx = XLALGetBurstApproximantFromString(ppt->value);
     }
-    
+   /* Set the model domain appropriately */
+  if (XLALSimBurstImplementedFDApproximants(approx)) {
+    model->domain = LAL_SIM_DOMAIN_FREQUENCY;
+  } else if (XLALSimBurstImplementedTDApproximants(approx)) {
+    model->domain = LAL_SIM_DOMAIN_TIME;
+  } else {
+    fprintf(stderr,"ERROR. Unknown approximant number %i. Unable to choose time or frequency domain model.",approx);
+    exit(1);
+  }
+  
   LALInferenceAddVariable(currentParams, "LAL_APPROXIMANT", &approx,        LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
  
     REAL8 psiMin=0.0,psiMax=LAL_PI; 
@@ -279,6 +286,54 @@ Parameter arguments:\n\
         }
             
     }*/
+  /* Set model sampling rates to be consistent with data */
+  model->deltaT = state->data->timeData->deltaT;
+  model->deltaF = state->data->freqData->deltaF;
+  UINT4 nifo=0;
+  LALInferenceIFOData *dataPtr = state->data;
+  while (dataPtr != NULL)
+  {
+    dataPtr = dataPtr->next;
+    nifo++;
+  }
+  /* Initialize waveform buffers */
+  model->timehPlus  = XLALCreateREAL8TimeSeries("timehPlus",
+                                                &(state->data->timeData->epoch),
+                                                0.0,
+                                                model->deltaT,
+                                                &lalDimensionlessUnit,
+                                                state->data->timeData->data->length);
+  model->timehCross = XLALCreateREAL8TimeSeries("timehCross",
+                                                &(state->data->timeData->epoch),
+                                                0.0,
+                                                model->deltaT,
+                                                &lalDimensionlessUnit,
+                                                state->data->timeData->data->length);
+  model->freqhPlus = XLALCreateCOMPLEX16FrequencySeries("freqhPlus",
+                                                &(state->data->freqData->epoch),
+                                                0.0,
+                                                model->deltaF,
+                                                &lalDimensionlessUnit,
+                                                state->data->freqData->data->length);
+  model->freqhCross = XLALCreateCOMPLEX16FrequencySeries("freqhCross",
+                                                &(state->data->freqData->epoch),
+                                                0.0,
+                                                model->deltaF,
+                                                &lalDimensionlessUnit,
+                                                state->data->freqData->data->length);
+
+  /* Create arrays for holding single-IFO likelihoods, etc. */
+  model->ifo_loglikelihoods = XLALCalloc(nifo, sizeof(REAL8));
+  model->ifo_SNRs = XLALCalloc(nifo, sizeof(REAL8));
+
+  /* Choose proper template */
+  model->templt = LALInferenceInitBurstTemplate(state);
+
+  /* Use same window and FFT plans on model as data */
+  model->window = state->data->window;
+  model->timeToFreqFFTPlan = state->data->timeToFreqFFTPlan;
+  model->freqToTimeFFTPlan = state->data->freqToTimeFFTPlan;
+  
     return model;
 }
 

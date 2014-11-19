@@ -2348,6 +2348,7 @@ class AnalyticLikelihood(object):
 # Web page creation classes (wrap ElementTrees)
 #===============================================================================
 
+
 class htmlChunk(object):
     """
     A base class for representing web content using ElementTree .
@@ -2425,13 +2426,6 @@ class htmlChunk(object):
         Ea.text=linktext
         self._html.append(Ea)
         return Ea
-<<<<<<< HEAD
-    def tab(self):	
-        Etab=Element('table')
-        self._html.append(Etab)
-        return Etab	
-    def insert_row(self,tab,label=None):
-=======
         
     def tab(self,idtable=None):
         args={}
@@ -2444,37 +2438,25 @@ class htmlChunk(object):
         
     def insert_row(self,tab,label=None):
         
->>>>>>> lalinference_review_fall2014
         """
         Insert row in table tab.
         If given, label used as id for the table tag
         """
-<<<<<<< HEAD
-=======
         
->>>>>>> lalinference_review_fall2014
         Etr=Element('tr')
         if label is not None:
             Etr.attrib['id']=label
         tab.append(Etr)
         return Etr
-<<<<<<< HEAD
-    def insert_td(self,row,td,label=None):
-=======
         
     def insert_td(self,row,td,label=None,legend=None):
->>>>>>> lalinference_review_fall2014
         """
         Insert cell td into row row.
         Sets id to label, if given
         """
-<<<<<<< HEAD
-        Etd=Element('td')
-=======
         
         Etd=Element('td')
         
->>>>>>> lalinference_review_fall2014
         if type(td) is str:
             Etd.text=td
         else:
@@ -2484,20 +2466,14 @@ class htmlChunk(object):
             Etd.text=td
         if label is not None:
             Etd.attrib['id']=label
-<<<<<<< HEAD
-        row.append(Etd)
-        return Etd    
-=======
         if legend is not None:
             legend.a('#%s'%label,'%s'%label)
             legend.br()
         row.append(Etd)
         return Etd      
->>>>>>> lalinference_review_fall2014
 
     def append(self,element):
         self._html.append(element)
-
 
 #
 class htmlPage(htmlChunk):
@@ -2536,34 +2512,16 @@ class htmlPage(htmlChunk):
             legend.a('#%s'%section_name,'%s'%section_name)
             legend.br()
         return newSection
-<<<<<<< HEAD
-    def add_collapse_section(self,section_name,legend=None,innertable_id=None):
-        """
-        Create a section embedded into a table that can be collapsed with a button
-        """
-        newSection=htmlCollapseSection(section_name,table_id=innertable_id)
-=======
         
     def add_collapse_section(self,section_name,legend=None,innertable_id=None,start_closed=True):
         """
         Create a section embedded into a table that can be collapsed with a button
         """
         newSection=htmlCollapseSection(section_name,table_id=innertable_id,start_closed=start_closed)
->>>>>>> lalinference_review_fall2014
         self._body.append(newSection._html)
         if legend is not None:
             legend.a('#%s'%section_name,'%s'%section_name)
             legend.br()
-<<<<<<< HEAD
-        return newSection
-    def add_section_to_element(self,section_name,parent):
-        """
-        Create a section which is not appended to the body of html, but to the parent Element
-        """
-        newSection=htmlSection(section_name,htmlElement=parent,blank=True)
-        parent.append(newSection._html)	
-=======
->>>>>>> lalinference_review_fall2014
         return newSection
 
     def add_section_to_element(self,section_name,parent):
@@ -2584,46 +2542,30 @@ class htmlPage(htmlChunk):
         return self._head
 
 
+
 class htmlSection(htmlChunk):
     """
     Represents a block of html fitting within a htmlPage. Inherits from htmlChunk.
     """
     def __init__(self,section_name,htmlElement=None,blank=False):
         if not blank:
-<<<<<<< HEAD
-            htmlChunk.__init__(self,'div',attrib={'class':'ppsection','id':section_name},parent=htmlElement)	
-=======
             htmlChunk.__init__(self,'div',attrib={'class':'ppsection','id':section_name},parent=htmlElement)
->>>>>>> lalinference_review_fall2014
         else:
             htmlChunk.__init__(self,'div',attrib={'style':'"color:#000000"','id':section_name},parent=htmlElement)
         self.h2(section_name)
 
-<<<<<<< HEAD
-=======
 
->>>>>>> lalinference_review_fall2014
 class htmlCollapseSection(htmlChunk):
     """
     Represents a block of html fitting within a htmlPage. Inherits from htmlChunk.
     """
-<<<<<<< HEAD
-
-    def __init__(self,section_name,htmlElement=None,table_id=None):
-=======
     
     def __init__(self,section_name,htmlElement=None,table_id=None,start_closed=True):
->>>>>>> lalinference_review_fall2014
         htmlChunk.__init__(self,'div',attrib={'class':'ppsection','id':section_name},parent=htmlElement)
         # if table id is none, generate a random id:
         if table_id is None:
             table_id=random.randint(1,10000000)
         self.table_id=table_id
-<<<<<<< HEAD
-    def write(self,string):
-        k=random.randint(1,10000000)
-        st='<table width="772px" border="0" align="center" cellpadding="5" cellspacing="0"><tr bgcolor="#4682B4" height="50"><td width="5%%"><font size="4" face="tahoma" color="white"><a href="#"> Top</a></font></td><td width="45%%"><font size="4" face="tahoma" color="white"><strong>%s</strong></font></td><td bgcolor="#4682B4" align="center" width="50%%"><input id="lnk%s" type="button" value="[+] Expand" onclick="toggle_visibility(\'%s\',\'lnk%s\');"></input></td></tr><tr><td colspan="7">'%(self._html.attrib['id'],k,self.table_id,k)
-=======
         self._start_closed=start_closed
         
     def write(self,string):
@@ -2634,7 +2576,6 @@ class htmlCollapseSection(htmlChunk):
         else:
           st='<table border="0" align="center" cellpadding="5" cellspacing="0"><tr bgcolor="#4682B4" height="50"><td width="5%%"><font size="4" face="tahoma" color="white"><a href="#"> Top</a></font></td><td width="45%%"><font size="4" face="tahoma" color="white"><strong>%s</strong></font></td><td bgcolor="#4682B4" align="center" width="50%%"><input id="lnk%s" type="button" value="[-] Collapse" onclick="toggle_visibility(\'%s\',\'lnk%s\');"></input></td></tr><tr><td colspan="7">'%(self._html.attrib['id'],k,self.table_id,k)
           string=string.replace('table ', 'table style="display: table" ')
->>>>>>> lalinference_review_fall2014
         st+=string
         st+='</td></tr></table>'
         htmlChunk.write(self,st)
@@ -3384,11 +3325,7 @@ def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
 
     np.seterr(under='ignore')
 
-<<<<<<< HEAD
-    myfig=plt.figure(1,figsize=(13,18),dpi=200)    
-=======
     myfig=plt.figure(1,figsize=(13,18),dpi=200)
->>>>>>> lalinference_review_fall2014
     plt.clf()
     m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
     
@@ -5984,7 +5921,6 @@ def confidence_interval_uncertainty(cl, cl_bounds, posteriors):
     return (relative_change, frac_uncertainty, quant_uncertainty)
 
 
-<<<<<<< HEAD
 class BurstPosterior(object):
     """
     Data structure for a table of posterior samples .
@@ -6018,7 +5954,7 @@ class BurstPosterior(object):
                             'f0':lambda inj:inj.frequency,
                             'frequency':lambda inj:inj.frequency,
                             'centre_frequency':lambda inj:inj.frequency,
-                            'Q':lambda inj:inj.q,
+                            'quality':lambda inj:inj.q,
                             'hrss':lambda inj:inj.hrss,
                             'loghrss':lambda inj:log(inj.hrss),
                             'polar_angle':lambda inj:inj.pol_ellipse_angle,
@@ -6792,7 +6728,7 @@ class BurstPosterior(object):
             return maplong
         else:
             return inj.ra
-=======
+
 def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V1']):
   
   from lalsimulation.lalsimulation import SimInspiralChooseTDWaveform,SimInspiralChooseFDWaveform
@@ -7207,5 +7143,4 @@ def plot_psd(psd_files,outpath=None):
   myfig2.clf()
 
   return 1
->>>>>>> lalinference_review_fall2014
 

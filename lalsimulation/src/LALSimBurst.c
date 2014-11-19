@@ -1349,31 +1349,6 @@ int XLALGetBurstApproximantFromString(const CHAR *inString)
   }
 }
 
-/**
- * XLAL function to determine string from approximant enum.
- * This function needs to be updated when new approximants are added.
- */
-char* XLALGetStringFromBurstApproximant(BurstApproximant approximant){
-{
-  switch (approximant)
-  {
-    case SineGaussianF:
-      return strdup("SineGaussianF");
-    case SineGaussian:
-      return strdup("SineGaussian");
-    case GaussianF:
-      return strdup("GaussianF");
-    case Gaussian:
-      return strdup("Gaussian");
-    case DampedSinusoidF:
-      return strdup("DampedSinusoidF");
-    case DampedSinusoid:
-      return strdup("DampedSinusoid");
-    default:
-        XLALPrintError("Not a valid approximant\n");
-        XLAL_ERROR_NULL(XLAL_EINVAL);
-    }
-}
 
 /* FIXME ORDER*/
 /* FIXME ORDER*/
@@ -1613,4 +1588,30 @@ int XLALSimBurstChooseTDWaveform(
     if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
 
     return ret;
+}
+
+/**
+ * XLAL function to determine string from approximant enum.
+ * This function needs to be updated when new approximants are added.
+ */
+char* XLALGetStringFromBurstApproximant(BurstApproximant bapproximant)
+{
+  switch (bapproximant)
+  {
+    case SineGaussianF:
+      return strdup("SineGaussianF");
+    case SineGaussian:
+      return strdup("SineGaussian");
+    case GaussianF:
+      return strdup("GaussianF");
+    case Gaussian:
+      return strdup("Gaussian");
+    case DampedSinusoidF:
+      return strdup("DampedSinusoidF");
+    case DampedSinusoid:
+      return strdup("DampedSinusoid");
+    default:
+        XLALPrintError("Not a valid approximant\n");
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    }
 }

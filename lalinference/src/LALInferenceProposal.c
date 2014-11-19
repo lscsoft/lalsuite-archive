@@ -936,7 +936,7 @@ REAL8 LALInferenceEnsembleStretchIntrinsic(LALInferenceRunState *runState, LALIn
 
 REAL8 LALInferenceEnsembleStretchExtrinsic(LALInferenceRunState *runState, LALInferenceVariables *cp, LALInferenceVariables *pp) {
   REAL8 logPropRatio;
-  const char *propName = BurstEnsembleStretchExtrinsicName;
+  const char *propName = ensembleStretchExtrinsicName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
   
   const char *names[] = {"rightascension", "declination", "polarisation", "distance", "logdistance", "phase", "time", "theta_jn", NULL};
@@ -954,7 +954,7 @@ REAL8 LALInferenceEnsembleStretchExtrinsic(LALInferenceRunState *runState, LALIn
 }
 
 REAL8 LALInferenceBurstEnsembleStretchIntrinsic(LALInferenceRunState *runState, LALInferenceVariables *cp, LALInferenceVariables *pp) {
-  const char *propName = ensembleStretchIntrinsicName;
+  const char *propName = BurstEnsembleStretchIntrinsicName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
   const char *names[] = {"frequency", "quality", "duration","alpha", NULL};
   REAL8 logPropRatio = LALInferenceEnsembleStretchNames(runState, cp, pp, names);
@@ -4223,11 +4223,11 @@ void LALInferenceSetupSineGaussianProposal(LALInferenceRunState *runState, LALIn
     /* Use ensemble moves unless turned off */
   //if (!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-ensemble")) {
     LALInferenceAddProposalToCycle(runState, ensembleStretchFullName, &LALInferenceEnsembleStretchFull, BIGWEIGHT);
-    LALInferenceAddProposalToCycle(runState, ensembleStretchIntrinsicName, &LALInferenceEnsembleStretchIntrinsic, SMALLWEIGHT);
-    LALInferenceAddProposalToCycle(runState, ensembleStretchExtrinsicName, &LALInferenceEnsembleStretchExtrinsic, SMALLWEIGHT);
+    LALInferenceAddProposalToCycle(runState, BurstEnsembleStretchIntrinsicName, &LALInferenceBurstEnsembleStretchIntrinsic, SMALLWEIGHT);
+    LALInferenceAddProposalToCycle(runState, BurstEnsembleStretchExtrinsicName, &LALInferenceBurstEnsembleStretchExtrinsic, SMALLWEIGHT);
     LALInferenceAddProposalToCycle(runState, ensembleWalkFullName, &LALInferenceEnsembleWalkFull, BIGWEIGHT);
-    LALInferenceAddProposalToCycle(runState, ensembleWalkIntrinsicName, &LALInferenceEnsembleWalkIntrinsic, SMALLWEIGHT);
-    LALInferenceAddProposalToCycle(runState, ensembleWalkExtrinsicName, &LALInferenceEnsembleWalkExtrinsic, SMALLWEIGHT);
+    LALInferenceAddProposalToCycle(runState, BurstEnsembleWalkIntrinsicName, &LALInferenceBurstEnsembleWalkIntrinsic, SMALLWEIGHT);
+    LALInferenceAddProposalToCycle(runState, BurstEnsembleWalkExtrinsicName, &LALInferenceBurstEnsembleWalkExtrinsic, SMALLWEIGHT);
   //}
 
   LALInferenceRandomizeProposalCycle(runState);

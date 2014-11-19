@@ -1081,20 +1081,20 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
       
 	COMPLEX16 *dataPtr = hptilde->data->data;
 
-    for (i=0; i<model->timehCross->data->length; ++i) {
+    for (i=0; i<model->freqhCross->data->length; ++i) {
       dataPtr = hptilde->data->data;
       if(i < hptilde->data->length){
-        model->timehPlus->data->data[i] = dataPtr[i];
+        model->freqhPlus->data->data[i] = dataPtr[i];
       }else{
-        model->timehPlus->data->data[i] = 0.0;
+        model->freqhPlus->data->data[i] = 0.0;
       }
     }
-    for (i=0; i<model->timehCross->data->length; ++i) {
+    for (i=0; i<model->freqhCross->data->length; ++i) {
       dataPtr = hctilde->data->data;
       if(i < hctilde->data->length){
-        model->timehCross->data->data[i] = dataPtr[i];
+        model->freqhCross->data->data[i] = dataPtr[i];
       }else{
-        model->timehCross->data->data[i] = 0.0;
+        model->freqhCross->data->data[i] = 0.0;
       }
     }
 
