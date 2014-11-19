@@ -1,3 +1,10 @@
+glue (1.47.1-1) unstable; urgency=low
+
+  * ER6 pre-release of glue, bug fix for dmt-files method of
+    ligolw_segment_query for Kipp API change.
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Wed, 19 Nov 2014 16:14:00 -0500
+
 glue (1.47-1) unstable; urgency=low
 
   * ER6 pre-release of glue.
