@@ -62,7 +62,7 @@ dic_nest.update({
 "wwwdir":WWWdir,
 "nlive":1024,
 "maxmcmc":2048,
-"dmax":150,
+"distance-max":150,
 "seglen":64,
 "srate":4096,
 "flow":20,
@@ -208,8 +208,7 @@ coherence-test=False
 [paths]
 #webdir is the base output dir for results pages
 webdir=/projects/USER/WWWDIR/RUNNAME
-basedir=/projects/USER/WWWDIR/RUNNAME
-baseurl=
+baseurl=https://atlas1.atlas.aei.uni-hannover.de/~USER/WWWDIR/RUNNAME
 
 [input]
 # Maximum length to use for automatically-determined psdlength options
@@ -225,68 +224,187 @@ events = all
 # Section used by the datafind jobs
 [datafind]
 url-type=file
-types={'H1':'LALSimAdLIGO','L1':'LALSimAdLIGO','V1':'LALSimAdLIGO'}
+types={'H1':'H1_LDAS_C02_L2','L1':'L1_LDAS_C02_L2','V1':'HrecOnline'}
 
 [data]
 # S5 has LSC-STRAIN, S6 has LDAS-STRAIN
-channels={'H1':'LALSimAdLIGO','L1':'LALSimAdLIGO','V1':'LALSimAdVirgo'}
-
-# Options for merge script
-[merge]
-# Number of posterior samples to generate. If not given will determine automatically
-#npos=50000
+channels={'H1':'H1:LDAS-STRAIN','L1':'L1:LDAS-STRAIN','V1':'V1:h_16384Hz'}
 
 [condor]
 lalinferencenest=PATH_TO_BIN/lalinference_nest
 lalinferencemcmc=PATH_TO_BIN/lalinference_mcmc
 segfind=PATH_TO_BIN/ligolw_segment_query
-datafind=/bin/true
+datafind=PATH_TO_BIN/ligo_data_find
 resultspage=PATH_TO_BIN/cbcBayesPostProc.py
 ligolw_print=PATH_TO_BIN/ligolw_print
 mergescript=PATH_TO_BIN/lalapps_nest2pos
 coherencetest=PATH_TO_BIN/lalapps_coherence_test
-mpirun=
-gracedb=
-
-[resultspage]
-skyres=1.0
-basedir=/home/USER/WWWDIR/RUNNAME
+mpirun=/bin/true
+gracedb=/bin/true
 
 [lalinference]
-seglen=SEGLEN
 fake-cache={'H1':'LALSimAdLIGO','L1':'LALSimAdLIGO','V1':'LALSimAdVirgo'}
+flow = {'H1':40,'L1':40,'V1':40}
 
 [engine]
-nlive=NLIVE
-srate=SRATE
-template=LALSim
-progress=
-maxmcmc=MAXMCMC
-lalsimulationinjection=
-flow=[FLOW,FLOW,FLOW]
-Dmax=DMAX
-dt=0.1
-#spinOrder=0
-#tidalOrder=0
-#inj-tidalOrder=0
-#inj-spinOrder=0
-amporder=0
-approx=TaylorF2TestthreePointFivePN
-proposal-no-extrinsicparam=
-resume=
-margphi=
-GRtestparameters=GRTESTPARAMETERS
-#pinparams=PINPARAMS
-downsample=1000
-deltalogl=5
 
+# All options in this section are passed to lalinference_nest, lalinference_mcmc,
+# and lalinference_bambi. Some useful ones are noted below.
+# Options passed to a sampler which does not know them will simply be ignored
+
+# REQUIRED SETTINGS:
+# Nlive specifies the number of live points for each job
+nlive=NLIVE
+
+# Sampling rate for data
+srate=SRATE
+
+# Segment length to use for analysis (should be long enough for whole template
+seglen=SEGLEN
+
+# OPTIONAL SETTINGS:
+
+# Use lalinference_nest's resume ability if the run is interrupted
+resume=
+# lalinference_bambi automatically resumes, use this is you want to force a start from scratch
+#noresume=
+
+# approx can be used to manually specify an approximant
+# If this is not given, the code will use whatever was injected in the case of a software injection
+# Or TaylorF2threePointFivePN if no injection was given.
+approx=TaylorF2TestthreePointFivePN
+
+# Control the amplitude order (default: max available)
+#amporder=0
+
+# maxmcmc set the maximum chain length for the nested sampling sub-chains. Default 5000
+#maxmcmc=5000 # Auto determination is on, but the length cannot be longer than that.
+
+maxmcmc=MAXMCMC
+
+# Number of independent sample to obtain before quitting for lalinference_mcmc
+Neff=1000
+
+# Priors
+# For all parameters known to lalinference, the min and max default prior can be overwritten with
+#parname-min=MIN
+#parname-max=MAX
+
+# The starting point for the MCMC chain(s) can be specified with
+#parname=START
+
+# Parameters can be fixed to some value with
+#fix-parname=FIXVALUE
+
+#currently known parameters, together with default [min-max] are (radiants for angle, Mpc for distance, Msun for masses)
+
+#time                         Waveform time [trigtime-0.1-trigtime+0.1]
+#chirpmss                     Chirpmass [1,15.3]
+#eta                          Symmetric massratio (needs --use-eta) [0,0.0312]
+#q                            Asymmetric massratio (a.k.a. q=m2/m1 with m1>m2) [0.033,1]
+#phase                        Coalescence phase [0,2Pi]
+#theta_jn                     Angle between J and line of sight [0,Pi]
+#distance                     Distance [1,2000]
+#logdistance                  Log Distance (requires --use-logdistance) [log(1),log(2000)]
+#rightascension               Rightascension [0,2Pi]
+#declination                  Declination [-Pi/2,Pi/2]
+#polarisation                 Polarisation angle [0,Pi]
+
+#Spin Parameters:
+#a1                           Spin1 magnitude (for precessing spins) [0,1]
+#a_spin1                      Spin1 magnitude (for aligned spins) [-1,1]
+#a2                           Spin2 magnitude (for precessing spins) [0,1]
+#a_spin2                      Spin2 magnitude (for aligned spins) [-1,1]
+#tilt_spin1                   Angle between spin1 and orbital angular momentum [0,Pi]
+#tilt_spin2                   Angle between spin2 and orbital angular momentum  [0, Pi]
+#phi_12                       Difference between spins' azimuthal angles [0,2Pi]
+#phi_jl                       Difference between total and orbital angular momentum azimuthal angles [0,2Pi]
+
+#Equation of State parameters (requires --use-tidal or --use-tidalT):
+#lambda1                      lambda1 [0,3000]
+#lambda2                      lambda2 [0,3000]
+#lambdaT                      lambdaT [0,3000]
+#dLambdaT                     dLambdaT [-500,500]
+
+# Settings for allowed component masses in Solar Masses, with default values
+component-max=3.0
+component-min=1.0
+
+distance-max=450
+
+# Allowed total masses in Msun (note, used together with component masses, mc,q,eta priors may lead to inconsistencies. Be careful!)
+#mtotal-max=35
+#mtotal-min=2
+
+# Setting time prior [secs]
+#dt=0.1
+
+# The following three options control various marginalised likelihoods. Use at most one.
+# Analytically marginalise over phase (only for Newtonian amplitude orders)
+#margphi=
+# Semi-analytically marginalise over time
+#margtime=
+# Semi-analytically marginalise over time and phase (only for Newtonian amplitude orders)
+#margtimephi=
+
+# By default the code use spins if the choosen approximant supports spin. NOTE that this include TaylorF2, which will be run with aligned spins.
+# Several options, here below,  allows the user to choose a particular setting:
+
+#Disable spin for waveforms which would normally have spins
+#disable-spin=
+
+# Only allow aligned spins
+#aligned-spin=
+
+# Only allow the heavier mass to spin (can be used together with aligned-spin)
+#singleSpin=
+
+# Print progress information throughout the run
+progress=
+
+# lalinference_bambi allows you to set a target efficiency and tolerance - these are default values
+#eff=0.1
+#tol=0.5
+
+# Sample in log(distance) for improved sampling
+use-logdistance=
+# Sample in eta instead than q=m2/m1
+#use-eta=
+
+grtest-parameters=GRTESTPARAMETERS
+
+#####################################################################################
+[mpi]
+# Settings when running with MPI for lalinference_mcmc or lalinference_bambi
+
+# number of CPUs desired and how much memory on each (MB)
+machine-count=8
+machine-memory=512
+
+#####################################################################################
+[resultspage]
+# Settings for the results pages (see cbcBayesPostProc.py --help for more)
+
+# Size of the side of the sky bins in degrees
+skyres=0.5
+
+# Do no create 2D plots, which take a while to generate
+#no2D=
+
+# Send an email linking to the final page
+#email=albert.einstein@ligo.org
+
+#####################################################################################
 [segfind]
+# URL of the segment database
 segment-url=https://segdb.ligo.caltech.edu
 
+#####################################################################################
 [segments]
-l1-analyze = L1:DMT-SCIENCE:2
-h1-analyze = H1:DMT-SCIENCE:2
-v1-analyze = V1:ITF_SCIENCEMODE:6
+# Names of science segments to use
+l1-analyze = L1:DMT-SCIENCE:4
+h1-analyze = H1:DMT-SCIENCE:4
+v1-analyze = V1:ITF_SCIENCEMODE:7
 """
     return stri
 
