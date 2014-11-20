@@ -59,7 +59,7 @@
 #include <lal/LALString.h>
 #include <lal/LALSimInspiral.h>
 #include <lal/LALSimInspiralWaveformCache.h>
-
+#include <lal/LALSimBurstWaveformCache.h>
 #include <lal/SFTutils.h>
 #include <lal/SFTfileIO.h>
 #include <lal/LALDetectors.h>
@@ -438,6 +438,7 @@ typedef struct tagLALInferenceModel
 
   LALSimInspiralWaveformFlags *waveFlags;   /** A pointer to the WF flag. Will store here tide and spin order, as well as frame */
   LALSimInspiralWaveformCache *waveformCache;   /** Waveform cache */
+  LALSimBurstWaveformCache *burstWaveformCache;   /** Waveform cache */
 
   REAL8FFTPlan                *timeToFreqFFTPlan, *freqToTimeFFTPlan; /** Pre-calculated FFT plans for forward and reverse FFTs */
   REAL8Window                 *window;        /** A window */

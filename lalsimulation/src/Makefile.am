@@ -57,6 +57,7 @@ pkginclude_HEADERS = \
 	LALSimIMR.h \
 	LALSimInspiral.h \
 	LALSimInspiralSphHarmSeries.h \
+	LALSimBurstWaveformCache.h \
 	LALSimInspiralWaveformCache.h \
 	LALSimulation.h \
 	LALSimNeutronStar.h \
@@ -124,6 +125,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralSpinTaylorT5.c \
 	LALSimInspiralSpinDominatedWaveform.c \
 	LALSimInspiralTaylorLength.c \
+	LALSimBurstWaveformCache.c \
 	LALSimInspiralWaveformCache.c \
 	LALSimInspiralWaveformTaper.c \
 	LALSimulation.c \

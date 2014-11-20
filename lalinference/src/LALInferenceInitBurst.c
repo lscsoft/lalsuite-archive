@@ -333,8 +333,10 @@ Parameter arguments:\n\
   model->window = state->data->window;
   model->timeToFreqFFTPlan = state->data->timeToFreqFFTPlan;
   model->freqToTimeFFTPlan = state->data->freqToTimeFFTPlan;
-  
-    return model;
+  /* Initialize waveform cache */
+  model->burstWaveformCache = XLALCreateSimBurstWaveformCache();
+
+  return model;
 }
 
 LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_unimod(LALInferenceRunState *state)
@@ -360,7 +362,7 @@ LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_unimod(LALInferenceR
   {
     {.name="time", .val=0.001, .min=-0.006121, .max=0.008121},
     {.name="frequency", .val=210., .min=205.346948, .max=216.653052},
-    {.name="Q", .val=6.03626, .min=5.043829, .max=6.956171},
+    {.name="quality", .val=6.03626, .min=5.043829, .max=6.956171},
     {.name="loghrss", .val=-46., .min=-46.985195, .max=-45.014805},
     {.name="phase", .val=1.008, .min=0.718919, .max=1.281081},
     {.name="polarisation", .val=0.73, .min=0.427564, .max=0.972436},
@@ -404,7 +406,7 @@ LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_bimod(LALInferenceRu
   {
     {.name="time", .val=0.001, .min=-0.006121, .max=0.019514},
     {.name="frequency", .val=211., .min=205.346948, .max=225.697936},
-    {.name="Q", .val=6.0, .min=5.043829, .max=8.486044},
+    {.name="quality", .val=6.0, .min=5.043829, .max=8.486044},
     {.name="loghrss", .val=-46., .min=-46.985195, .max=-43.438492},
     {.name="phase", .val=1.0, .min=0.718919, .max=1.730810},
     {.name="polarisation", .val=0.73, .min=0.427564,.max=1.408335},

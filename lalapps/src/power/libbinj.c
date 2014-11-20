@@ -46,6 +46,7 @@
 #include <lal/LALConstants.h>
 #include <lal/LALSimBurst.h>
 #include <lal/LALStdio.h>
+#include <lal/LALSimInspiral.h>
 #include <lal/LALStdlib.h>
 #include <lal/LIGOLwXML.h>
 #include <lal/LIGOLwXMLRead.h>
@@ -2081,7 +2082,7 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
     REAL8 injtime=0.0;
     REAL8 longitude;
     //REAL8 duration=0.0;
-	LALSimulationBurstDomain modelDomain=LAL_SIM_BURST_DOMAIN_FREQUENCY;
+	LALSimulationDomain modelDomain=LAL_SIM_DOMAIN_FREQUENCY;
 	REAL8 f_max;
 	Q=inj->q;
 	centre_frequency=inj->frequency;
@@ -2097,10 +2098,10 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 	const CHAR *WF=inj->waveform;
 
 	if(!strcmp(WF,"SineGaussianF")||!strcmp(WF,"GaussianF"))
-    modelDomain=LAL_SIM_BURST_DOMAIN_FREQUENCY;
+    modelDomain=LAL_SIM_DOMAIN_FREQUENCY;
 			
 	else if (!strcmp(WF,"SineGaussian") ||!strcmp(WF,"Gaussian") ||!strcmp(WF,"DampedSinusoid"))
-    modelDomain=LAL_SIM_BURST_DOMAIN_TIME;
+    modelDomain=LAL_SIM_DOMAIN_TIME;
 			
     LIGOTimeGPS		    epoch;  
     
@@ -2135,7 +2136,7 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 										seglen/2+1);
      
     /* If the approximant is on the FD call XLALSimBurstSineGaussianF */
-    if(modelDomain == LAL_SIM_BURST_DOMAIN_FREQUENCY) {
+    if(modelDomain == LAL_SIM_DOMAIN_FREQUENCY) {
         COMPLEX16FrequencySeries *hptilde=NULL;
         COMPLEX16FrequencySeries *hctilde=NULL;
         

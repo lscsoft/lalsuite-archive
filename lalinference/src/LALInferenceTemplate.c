@@ -40,6 +40,7 @@
 #include <lal/LALSimInspiral.h>
 #include <lal/LALSimRingdown.h>
 #include <lal/LALInferenceTemplate.h>
+#include <lal/LALSimBurstWaveformCache.h>
 #include <lal/LALSimBurst.h>
 #define PROGRAM_NAME "LALInferenceTemplate.c"
 #define CVS_ID_STRING "$Id$"
@@ -968,7 +969,6 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
 {
 
   BurstApproximant approximant = (BurstApproximant) 0;
-  
   unsigned long	i;
   static int sizeWarning = 0;
   int ret=0;
@@ -1064,7 +1064,8 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
 	/*Create BurstExtra params here and set depending on approx or let chooseFD do that*/ 
   
   
-  XLAL_TRY(ret=XLALSimBurstChooseFDWaveform(&hptilde, &hctilde, deltaF,deltaT,freq,quality,duration,f_low,f_max,hrss,polar_angle,polar_ecc,extraParams,approximant), errnum);
+  XLAL_TRY(ret=XLALSimBurstChooseFDWaveformFromCache(&hptilde, &hctilde, deltaF,deltaT,freq,quality,duration,f_low,f_max,hrss,polar_angle,polar_ecc,extraParams,approximant,model->burstWaveformCache), errnum);
+  //XLAL_TRY(ret=XLALSimBurstChooseFDWaveform(&hptilde, &hctilde, deltaF,deltaT,freq,quality,duration,f_low,f_max,hrss,polar_angle,polar_ecc,extraParams,approximant), errnum);
   if (ret == XLAL_FAILURE)
       {
         XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBurstChooseWaveform(). errnum=%d\n",errnum );
@@ -1107,7 +1108,7 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
  else {
     /*Time domain WF*/
 
-    XLAL_TRY(ret=XLALSimBurstChooseTDWaveform(&hplus, &hcross,deltaT,freq,quality,duration,f_low,f_max,hrss,polar_angle,polar_ecc,extraParams,approximant), errnum);
+    XLAL_TRY(ret=XLALSimBurstChooseTDWaveformFromCache(&hplus, &hcross,deltaT,freq,quality,duration,f_low,f_max,hrss,polar_angle,polar_ecc,extraParams,approximant,model->burstWaveformCache), errnum);
     XLALSimBurstDestroyExtraParam(extraParams);
     if (ret == XLAL_FAILURE || hplus == NULL || hcross == NULL)
       {

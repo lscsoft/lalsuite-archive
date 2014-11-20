@@ -486,7 +486,9 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   double mc;
   /* Burst templates are generated at hrss=1, thus need to rescale amplitude */
   double amp_prefactor=1.0;
-  REAL4 WinNorm = sqrt(data->window->sumofsquares/data->window->data->length);
+  REAL4 WinNorm=1.0;
+  if (model->domain==LAL_SIM_DOMAIN_FREQUENCY)
+    WinNorm = sqrt(data->window->sumofsquares/data->window->data->length);
 
   COMPLEX16FrequencySeries *calFactor = NULL;
   COMPLEX16 calF = 0.0;
@@ -1337,7 +1339,7 @@ static void extractBurstDimensionlessVariableVector(LALInferenceVariables *curre
  
   loghrss = (*(REAL8 *)LALInferenceGetVariable(currentParams, "loghrss"));
   frequency = *(REAL8 *)LALInferenceGetVariable(currentParams, "frequency");
-  q = *(REAL8 *)LALInferenceGetVariable(currentParams, "Q");
+  q = *(REAL8 *)LALInferenceGetVariable(currentParams, "quality");
   psi = *(REAL8 *)LALInferenceGetVariable(currentParams, "polarisation");
   phi0 = *(REAL8 *)LALInferenceGetVariable(currentParams, "phase");
   alpha = *(REAL8 *)LALInferenceGetVariable(currentParams, "alpha");

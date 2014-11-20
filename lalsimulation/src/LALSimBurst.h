@@ -18,7 +18,8 @@
  * 02111-1307  USA
  */
 
-
+#ifndef _LALSIMBURST_H
+#define _LALSIMBURST_H
 /*
  * ============================================================================
  *
@@ -175,11 +176,6 @@ REAL8 XLALMeasureHrss(const REAL8TimeSeries *, const REAL8TimeSeries *);
 REAL8 XLALMeasureIntHDotSquaredDT(const COMPLEX16FrequencySeries *);
 REAL8 XLALMeasureEoverRsquared(REAL8TimeSeries *, REAL8TimeSeries *);
 
-typedef enum {
-  LAL_SIM_BURST_DOMAIN_TIME,
-  LAL_SIM_BURST_DOMAIN_FREQUENCY
- } LALSimulationBurstDomain;
-
 /** Enum that specifies the PN approximant to be used in computing the waveform.
 */
 typedef enum {
@@ -244,4 +240,5 @@ int XLALCheckBurstApproximantFromString(const CHAR *inString);
 { /* so that editors will match succeeding brace */
 #elif defined(__cplusplus)
 }
+#endif
 #endif
