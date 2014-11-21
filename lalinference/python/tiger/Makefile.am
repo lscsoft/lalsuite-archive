@@ -7,4 +7,5 @@ tigerdir = $(pkgpythondir)/tiger
 
 tiger_PYTHON = \
 	__init__.py \
+	make_injtimes.py \
 	postproc.py
