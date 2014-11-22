@@ -465,7 +465,8 @@ def generateTimeslides(tdict, n, ref=None, outfolder=None, verbose=False):
   else:
     label=''.join(ifos) + '_' + str(n)
     injtimesfile = os.path.join(outfolder,'injtimes_'+label+'.dat')
-    slidefile = open(os.path.join(outfolder,'timeslides_'+label+'.dat'), 'w')
+    slidefilename = os.path.join(outfolder,'timeslides_'+label+'.dat')
+    slidefile = open(slidefilename, 'w')
     header = " ".join(ifos)
     slidefile.write(header+'\n')
     slidedata = array(slidedict.values()).T
@@ -475,6 +476,7 @@ def generateTimeslides(tdict, n, ref=None, outfolder=None, verbose=False):
     savetxt(injtimesfile, array(injtimes), fmt='%i')
     savetxt(slidefile, slidedata, delimiter=' ', fmt='%i')
     slidefile.close()
+    return (injtimesfile, slidefilename)
 
 
 

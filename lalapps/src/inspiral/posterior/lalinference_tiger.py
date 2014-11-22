@@ -127,10 +127,11 @@ args = parser.parse_args()
 
 config_file = args.config
 basefolder = args.basedir
-postproc = args.postproc
+webdir = args.postproc
 injfile = args.injfile
 logdir = args.logdir
 scratchdir = args.scratchdir
+
 
 if injfile is not None:
   if os.path.exists(injfile):
@@ -154,6 +155,7 @@ if not cp.has_section('tiger'):
   print 'Invalid configuration file! No "tiger" section found.'
   sys.exit(1)
 
+
 dic_engine = {}
 
 # Your inspinj seed. The inspnest dataseed will be created from this, adding three zeros at the end (e.g. inspinj 7001 --> inspnest 7001000)
@@ -165,6 +167,15 @@ dic_analysis={"dataseed":dataseed,}
 
 # A descriptive name of what is being run. Will be the name of the postprocessing result folder and a part of the injection file, for the records
 tiger_tag = cp.get('tiger', 'tiger-tag') 
+
+# Setup output directory names
+basefolder = os.path.join(basefolder, tiger_tag, str(inspinj_seed))
+ensure_dir(basefolder)
+
+if webdir is None:
+    webdir = cp.get('paths', 'webdir')
+webdir = os.path.join(webdir, tiger_tag, str(inspinj_seed)) 
+baseurl = os.path.join(cp.get('paths', 'baseurl'), tiger_tag, str(inspinj_seed))
 
 # This has to be either GR or MG for modified gravity
 type_inj = cp.get('tiger','type-inj') 
@@ -209,7 +220,7 @@ if type_inj == 'MG':
   # Read distribution list for the shifts. (default: constant for all)
   # Available options: 'const' for constant shift, 'uniform' for uniform from 0 to mg-shifts or 'gauss' for normal distributed as N(mg-shifts, mg-sigmas)
   if cp.has_option('tiger', 'mg-distr'):
-      mgdistr = ast.literal_eval(cp.get('tiger', 'mg-distr'))
+      mgdistr = cp.get('tiger', 'mg-distr')
   if len(mgpars) is not len(mgshifts):
     print 'Error: Number of MG shift values does not match number of MG parameters'
     sys.exit(1)
@@ -217,6 +228,7 @@ if type_inj == 'MG':
   # Currently inspinj only supports constant modGR parameters.
   if mgdistr != 'const':
       print "Error: Only mg-distr='const' is available at the moment"
+      sys.exit(1)
 
   # Read stdevs for normal-distributed deviations. (default: 0 for all)
   if mgdistr=='gauss':
@@ -343,18 +355,17 @@ if not cp.has_option('lalinference', 'fake-cache'):
   if timeslides:
     print 'TIGER: Injection times will be generated with timeslides'
     timesdict = {}
-    timeslidefile = os.path.join(basefolder, 'injtimes', 'slides_%s_%s_%s.dat'%(cp.get('tiger', 'tiger-tag'), str(sta_time), str(end_time)))
+    # timeslidefile = os.path.join(basefolder, 'injtimes', 'slides_%s_%s_%s.dat'%(str(sta_time), str(end_time)))
     # Generate timeslides file
     for i in IFOdict.keys():
     # Generate triggers for each IFO (for timeslides only)
       timesdict[i] = IFOdict[i].getTrigTimes(whereInj=whereinj, interval=inj_every, lmargin=seglen)
-    print timesdict.keys(), len(timesdict.values())
 
     # Generate timeslide output
-    make_injtimes.generateTimeslides(timesdict, num_events, ref=ifos[0], outfolder=os.path.join(basefolder,'injtimes'))
-    label=''.join(ifos) + '_' + str(num_events)
-    injtimesfile = os.path.join(basefolder,'injtimes','injtimes_%s.dat'%(label))
-    slidefile = os.path.join(basefolder,'injtimes','timeslides_%s.dat'%(label))
+    injtimesfile, slidefile = make_injtimes.generateTimeslides(timesdict, num_events, ref=ifos[0], outfolder=os.path.join(basefolder,'injtimes'))
+    #label=''.join(ifos) + '_' + str(num_events)
+    #injtimesfile = os.path.join(basefolder,'injtimes','injtimes_%s.dat'%(label))
+    # slidefile = os.path.join(basefolder,'injtimes','timeslides_%s.dat'%(label))
     cp.set('input', 'timeslide-file', slidefile)
   else:
     print 'TIGER: Injection times will be generated on coincident unvetoed time (no timeslides)'
@@ -376,8 +387,6 @@ if injfile is None:
 
   print "TIGER: Creating the xml file\n"
   print tiger_tag
-  if not os.path.isdir(basefolder):
-      os.makedirs(basefolder)
       
   #inspinjname=os.path.join(basefolder,'injections_%s_%s_SNR_%s_%s.xml'%(tiger_tag,dic_inj['seed'],dic_inj['min_snr'],dic_inj['max_snr']))
   inspinjname=os.path.join(basefolder,'injections_%s_%s.xml'%(tiger_tag,dic_inj['seed']))
@@ -443,6 +452,7 @@ for run in allcombinations:
             subhy+= item +","
         subhy=subhy[:-1]
     ensure_dir(os.path.join(basefolder,foldername))
+    dic_path={"webdir":os.path.join(webdir, foldername),"baseurl":os.path.join(baseurl, foldername)}
     os.chdir(os.path.join(basefolder,foldername))
     foldernames+=foldername+' '
     parser_paths+=str(os.path.join(basefolder,foldername,"pipeline.ini"))+" "
@@ -450,7 +460,7 @@ for run in allcombinations:
         dic_engine.update({'grtest-parameters':'['+subhy+']'})
     else:
         dic_engine.update({'grtest-parameters':''})
-    dic = {'engine':dic_engine, 'analysis':dic_analysis}
+    dic = {'engine':dic_engine, 'analysis':dic_analysis, 'paths':dic_path}
     write_pipe_init(dic, cp)
     
 
