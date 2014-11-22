@@ -154,11 +154,14 @@ if not cp.has_section('tiger'):
   print 'Invalid configuration file! No "tiger" section found.'
   sys.exit(1)
 
+dic_engine = {}
+
 # Your inspinj seed. The inspnest dataseed will be created from this, adding three zeros at the end (e.g. inspinj 7001 --> inspnest 7001000)
 inspinj_seed = cp.getint('tiger', 'seed') 
 dataseed = 1000*inspinj_seed
 if cp.has_option('analysis', 'dataseed'):
     dataseed = cp.getint('analysis', 'dataseed')
+dic_analysis={"dataseed":dataseed,}
 
 # A descriptive name of what is being run. Will be the name of the postprocessing result folder and a part of the injection file, for the records
 tiger_tag = cp.get('tiger', 'tiger-tag') 
@@ -232,35 +235,50 @@ if type_inj == 'MG':
 hypotheses = ast.literal_eval(cp.get('tiger', 'test-params'))
 
 
-# *** #
-dmin=100000
-dmax=250000 #FIXME!!!
-
 #Define defaults
 dic_inj={
 #"min_snr":8,
 #"max_snr":25, # NetSNR
 #"start_freq":30, # f_low for SNR calculation
 #"coinc_snr":5.5,
-"min_m":1,
-"max_m":3,
+#"min_m":1,
+#"max_m":3,
 "seed":inspinj_seed,
 "waveform":inj_approx+inj_PNorder,
-"min-distance":dmin,
-"max-distance":dmax,
 }
 
-if not cp.has_option('injections','enable-spin'):
-  cp.set('injections', 'disable-spin', '')
-
 #Read rest of dict from config file
-#if inject_spins:
-#  dic_inj.update{"enable-spin":, "min-spin1":min_spin, "max-spin1":max_spin, }
-#if spin_distr is 'gaussian'
+
+distrange = ast.literal_eval(cp.get('tiger', 'inj-dist-range'))
+
+mass1range = ast.literal_eval(cp.get('tiger', 'inj-m1-range'))
+mass2range = ast.literal_eval(cp.get('tiger', 'inj-m2-range'))
+dic_inj.update({
+"min_m1":mass1range[0], "max_m1":mass1range[1],
+"min_m2":mass2range[0], "max_m2":mass2range[1],
+"min_mtot":mass1range[0]+mass2range[0], "max_mtot":mass1range[1]+mass2range[1],
+"min-distance":distrange[0], "max-distance":distrange[1],
+})
+
+if cp.has_option('tiger', 'inj-spins'):
+    inject_spins = cp.get('tiger', 'inj-spins')
+    spin1range = ast.literal_eval(cp.get('tiger', 'inj-a1-range'))
+    spin2range = ast.literal_eval(cp.get('tiger', 'inj-a2-range'))
+    dic_inj.update({"enable-spin":"", "min-spin1":spin1range[0], "max-spin1":spin1range[1], "min-spin2":spin2range[0], "max-spin2":spin2range[1]})
+    if cp.has_option('tiger','inj-a-gaussian'):
+        spin1mean = cp.get('tiger','inj-a1-mean')
+        spin2mean = cp.get('tiger','inj-a2-mean')
+        spin1stdev = cp.get('tiger','inj-a1-stdev')
+        spin2stdev = cp.get('tiger','inj-a2-stdev')
+        dic_inj.update({"mean-spin1":spin1mean, "stdev-spin1":spin1stdev, "mean-spin2":spin2mean, "stdev-spin2":spin2stdev})
+    if inject_spins=='aligned':
+        dic_inj.update({"aligned":"",})
+else:
+    dic_inj.update({"disable-spin":"",})
 
 
 if type_inj=="MG":
-    dic_inj.update({'enable-mg':''})
+    dic_inj.update({'enable-dchi':''})
     for mgp,mgs in zip(mgpars,mgshifts):
         dic_inj.update({mgp:mgs})
         print 'modGR at ', mgp, ' by ', mgs
@@ -271,9 +289,6 @@ if type_inj=="MG":
 #else:
 #    WWWdir="public_html"
 
-dic_engine = {}
-
-dic_analysis={"dataseed":dataseed,}
 
 ################################################################################
 #
@@ -333,6 +348,7 @@ if not cp.has_option('lalinference', 'fake-cache'):
     for i in IFOdict.keys():
     # Generate triggers for each IFO (for timeslides only)
       timesdict[i] = IFOdict[i].getTrigTimes(whereInj=whereinj, interval=inj_every, lmargin=seglen)
+    print timesdict.keys(), len(timesdict.values())
 
     # Generate timeslide output
     make_injtimes.generateTimeslides(timesdict, num_events, ref=ifos[0], outfolder=os.path.join(basefolder,'injtimes'))
@@ -347,7 +363,7 @@ if not cp.has_option('lalinference', 'fake-cache'):
     for ifo in IFOdict.values()[1:]:
         compIFO = make_injtimes.getDoubles(compIFO, ifo)
     injtimesfile = os.path.join(basefolder, 'injtimes', 'injtimes_%s_%s.dat'%(compIFO._name, str(num_events)))
-    compIFO.getTrigTimes(whereInj=whereinj, interval=inj_every, lmargin=seglen, outfile=injtimesfile)
+    compIFO.getTrigTimes(whereInj=whereinj, interval=inj_every, lmargin=seglen, n=num_events, outfile=injtimesfile)
 
 
 ################################################################################
@@ -374,8 +390,8 @@ if injfile is None:
   "gps-end-time":end_time,
   "time-step":time_step,
   "output": inspinjname,
-  "min_tot_m":(dic_inj["min_m"]*2),
-  "max_tot_m":(dic_inj["max_m"]*2)
+#  "min_tot_m":(dic_inj["min_m"]*2),
+#  "max_tot_m":(dic_inj["max_m"]*2)
   })
 
   if timeslides:
@@ -383,7 +399,7 @@ if injfile is None:
 
 
   #--min-snr MIN_SNR --max-snr MAX_SNR --snr-distr volume  --ligo-fake-psd LALSimAdLIGO --virgo-fake-psd LALSimAdVirgo --ligo-start-freq START_FREQ --virgo-start-freq START_FREQ --ifos H1,L1,V1"
-  string="LALAPPS_INSPINJ --f-lower 10.0 --gps-start-time GPS-START-TIME --gps-end-time GPS-END-TIME --seed SEED --waveform WAVEFORM --d-distr volume --l-distr random --i-distr uniform --min-mass2 MIN_M --max-mass2 MAX_M --min-mass1 MIN_M --max-mass1 MAX_M --m-distr componentMass --min-mtotal MIN_TOT_M --max-mtotal MAX_TOT_M --disable-spin --amp-order 0 --time-step TIME-STEP --output OUTPUT "
+  string="LALAPPS_INSPINJ --f-lower 10.0 --gps-start-time GPS-START-TIME --gps-end-time GPS-END-TIME --seed SEED --waveform WAVEFORM --d-distr volume --l-distr random --i-distr uniform --min-mass2 MIN_M2 --max-mass2 MAX_M2 --min-mass1 MIN_M1 --max-mass1 MAX_M1 --m-distr componentMass --min-mtotal MIN_MTOT --max-mtotal MAX_MTOT --amp-order 0 --time-step TIME-STEP --output OUTPUT "
 
   for p in dic_inj.keys():
       if not p.upper() in string:
@@ -393,7 +409,7 @@ if injfile is None:
               string=string+ " --"+p +" "+repr(dic_inj[p])
       else:
           string=string.replace(p.upper()+" ", "%s "%(dic_inj[p]))
-  print string
+  print string+"\n"
   os.system(string)
 
 else:

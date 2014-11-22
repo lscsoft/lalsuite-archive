@@ -179,14 +179,14 @@ REAL4 maxMassRatio=-1.0;
 REAL4 inclStd=-1.0;
 REAL4 fixed_inc=-1.0;
 REAL4 max_inc=LAL_PI/2.0;
-int coaPhaseFixed = 0;
+INT4 coaPhaseFixed = 0;
 REAL4 fixedCoaPhase = 0;
 REAL4 psi=-1.0;
 REAL4 longitude=181.0;
 REAL4 latitude=91.0;
 REAL4 epsAngle=1e-7;
-int spinInjections=-1;
-int spinAligned=-1;
+INT4 spinInjections=-1;
+INT4 spinAligned=-1;
 REAL4 minSpin1=-1.0;
 REAL4 maxSpin1=-1.0;
 REAL4 meanSpin1=0.0;
@@ -240,7 +240,7 @@ REAL8 betaStep = 0.0;
 REAL8 fStep = 0.0;
 REAL8 single_IFO_SNR_threshold=0.0;
 char ** ifonames=NULL;
-int numifos=0;
+INT4 numifos=0;
 
 static LALStatus status;
 static RandomParams* randParams=NULL;
@@ -3786,10 +3786,11 @@ int main( int argc, char *argv[] )
 
   if ( spinInjections==1 && spinAligned==1 && strncmp(waveform, "IMRPhenomB", 10)
     && strncmp(waveform, "IMRPhenomC", 10) && strncmp(waveform, "SpinTaylor", 10)
-    && strncmp(waveform, "IMRPhenomP", 10) && strncmp(waveform, "SEOBNR", 6) )
+    && strncmp(waveform, "IMRPhenomP", 10) && strncmp(waveform, "SEOBNR", 6) 
+    && strncmp(waveform, "TaylorF2", 8))
   {
     fprintf( stderr,
-        "Sorry, I only know to make spin aligned injections for SEOBNR, \n"
+        "Sorry, I only know to make spin aligned injections for SEOBNR, TaylorF2,\n"
         "IMRPhenomB/C/P, SpinTaylor and SpinTaylorFrameless waveforms.\n" );
     exit( 1 );
   }
