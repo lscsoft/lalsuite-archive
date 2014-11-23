@@ -374,8 +374,11 @@ if not cp.has_option('lalinference', 'fake-cache'):
         compIFO = make_injtimes.getDoubles(compIFO, ifo)
     injtimesfile = os.path.join(basefolder, 'injtimes', 'injtimes_%s_%s.dat'%(compIFO._name, str(num_events)))
     compIFO.getTrigTimes(whereInj=whereinj, interval=inj_every, lmargin=seglen, n=num_events, outfile=injtimesfile)
-    dic_inj.update({"t-distr":"file", "time-file":injtimesfile})
+  dic_inj.update({"t-distr":"file", "time-file":injtimesfile})
     
+else:
+  time_step=((end_time-sta_time)/(num_events-1))
+  dic_inj.update({"time-step":time_step,})
 
 
 ################################################################################
@@ -392,13 +395,11 @@ if injfile is None:
   #inspinjname=os.path.join(basefolder,'injections_%s_%s_SNR_%s_%s.xml'%(tiger_tag,dic_inj['seed'],dic_inj['min_snr'],dic_inj['max_snr']))
   inspinjname=os.path.join(basefolder,'injections_%s_%s.xml'%(tiger_tag,dic_inj['seed']))
 
-  time_step=((end_time-sta_time)/(num_events-1))
 
   dic_inj.update({
   "lalapps_inspinj":cp.get('tiger', 'lalapps_inspinj'),
   "gps-start-time":sta_time,
   "gps-end-time":end_time,
-  "time-step":time_step,
   "output": inspinjname,
 #  "min_tot_m":(dic_inj["min_m"]*2),
 #  "max_tot_m":(dic_inj["max_m"]*2)
