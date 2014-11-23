@@ -94,8 +94,7 @@ def write_pipe_init(dic, cp):
         cp_temp.write(ofile)
 
 def ensure_dir(f):
-    #d = os.path.dirname(f)
-    if not os.path.exists(f):
+    if not os.path.isdir(f):
         os.makedirs(f)
 
 # Deep copy ConfigParser instance
@@ -375,6 +374,8 @@ if not cp.has_option('lalinference', 'fake-cache'):
         compIFO = make_injtimes.getDoubles(compIFO, ifo)
     injtimesfile = os.path.join(basefolder, 'injtimes', 'injtimes_%s_%s.dat'%(compIFO._name, str(num_events)))
     compIFO.getTrigTimes(whereInj=whereinj, interval=inj_every, lmargin=seglen, n=num_events, outfile=injtimesfile)
+    dic_inj.update({"t-distr":"file", "time-file":injtimesfile})
+    
 
 
 ################################################################################
@@ -402,9 +403,6 @@ if injfile is None:
 #  "min_tot_m":(dic_inj["min_m"]*2),
 #  "max_tot_m":(dic_inj["max_m"]*2)
   })
-
-  if timeslides:
-      dic_inj.update({"t-distr":"file", "time-file":injtimesfile})
 
 
   #--min-snr MIN_SNR --max-snr MAX_SNR --snr-distr volume  --ligo-fake-psd LALSimAdLIGO --virgo-fake-psd LALSimAdVirgo --ligo-start-freq START_FREQ --virgo-start-freq START_FREQ --ifos H1,L1,V1"
