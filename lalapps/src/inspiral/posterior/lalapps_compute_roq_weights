@@ -1,0 +1,8 @@
+#!/bin/sh
+pypath="/Users/chinmay/src/lalsuite/lalapps/src/inspiral/posterior:/Users/chinmay/src/lalsuite/lalapps/src/inspiral/posterior:/Users/chinmay/src/lalsuite/lalstochastic/python:/Users/chinmay/src/lalsuite/lalinference/python:/Users/chinmay/src/lalsuite/lalpulsar/python:/Users/chinmay/src/lalsuite/lalinspiral/python:/Users/chinmay/src/lalsuite/lalburst/python:/Users/chinmay/src/lalsuite/lalsimulation/python:/Users/chinmay/src/lalsuite/lalmetaio/python:/Users/chinmay/src/lalsuite/lalframe/python:/Users/chinmay/src/lalsuite/lal/python"
+pyscript="/Users/chinmay/src/lalsuite/lalapps/src/inspiral/posterior/lalapps_compute_roq_weights.py"
+PYTHONPATH=`echo "${PYTHONPATH}" | /usr/bin/sed -e "s|${pypath}:||g;"`
+PYTHONPATH="${pypath}:${PYTHONPATH}"
+export PYTHONPATH
+exec /opt/local/bin/python "${pyscript}" "$@"
+exit 1

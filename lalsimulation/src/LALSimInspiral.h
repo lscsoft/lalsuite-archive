@@ -2200,16 +2200,32 @@ int XLALSimInspiralTaylorF2RedSpinMetricMChirpEtaChi(
  * Compute the template-space metric of the IMRPhenomB templates in
  * Mchirp-eta-chi parameter space.
  */
-int XLALSimIMRPhenomBMetricTheta0Theta3(
-    REAL8 *gamma00,  /**< template metric coeff. 00 in PN Chirp Time */
-    REAL8 *gamma01,  /**< template metric coeff. 01/10 PN Chirp Time */
-    REAL8 *gamma11,  /**< template metric coeff. 11 in PN Chirp Time */
-    const REAL8 Mass,     /**< Total Mass of the system */
-    const REAL8 eta,    /**< Symmetric mass ratio */
-    const REAL8 flow,   /**< low-frequency cutoff (Hz) */
-    const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
+
+
+int XLALSimIMRPhenomBMetricTheta0Theta3Theta3S(
+											   REAL8 *gamma00,  /**< template metric coeff. 00 in PN Chirp Time */
+											   REAL8 *gamma01,  /**< template metric coeff. 01/10 PN Chirp Time */
+											   REAL8 *gamma02,  /**< template metric coeff. 01/10 PN Chirp Time */
+											   REAL8 *gamma11,  /**< template metric coeff. 11 in PN Chirp Time */
+											   REAL8 *gamma12,  /**< template metric coeff. 01/10 PN Chirp Time */
+											   REAL8 *gamma22,  /**< template metric coeff. 01/10 PN Chirp Time */
+											   const REAL8 Mass,     /**< Total Mass of the system */
+											   const REAL8 eta,    /**< Symmetric mass ratio */
+											   const REAL8	chi,	/** Reduced Spin Parameter of the system **/
+											   const REAL8 flow,   /**< low-frequency cutoff (Hz) */
+											   const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
 );
 
+
+int XLALSimIMRPhenomBMetricTheta0Theta3(
+										REAL8 *gamma00,  /**< template metric coeff. 00 in PN Chirp Time */
+										REAL8 *gamma01,  /**< template metric coeff. 01/10 PN Chirp Time */
+										REAL8 *gamma11,  /**< template metric coeff. 11 in PN Chirp Time */
+										const REAL8 Mass,     /**< Total Mass of the system */
+										const REAL8 eta,    /**< Symmetric mass ratio */
+										const REAL8 flow,   /**< low-frequency cutoff (Hz) */
+										const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
+);
 
 /**
  * Compute the Fisher information matrix of "reduced-spin" PN templates in
