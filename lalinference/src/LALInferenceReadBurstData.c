@@ -325,6 +325,10 @@ void InjectBurstFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, ProcessPar
   if( (int) approx == XLAL_FAILURE)
     ABORTXLAL(&status);
 
+  REAL8 WinNorm=1.0;
+  WinNorm = sqrt(IFOdata->window->sumofsquares/IFOdata->window->data->length);
+
+
   REAL8 injtime=0.0;
   injtime=inj_table->time_geocent_gps.gpsSeconds + 1e-9*inj_table->time_geocent_gps.gpsNanoSeconds;
   REAL8 hrss_one=1.0;
@@ -393,8 +397,8 @@ void InjectBurstFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, ProcessPar
     timeshift = (injtime - instant) + timedelay;
     twopit    = LAL_TWOPI * (timeshift);
     /* Restore hrss (template has been calculated for hrss=1) effect in Fplus/Fcross: */
-    Fplus*=inj_table->hrss;
-    Fcross*=inj_table->hrss;
+    Fplus*=inj_table->hrss/WinNorm;
+    Fcross*=inj_table->hrss/WinNorm;
     dataPtr->fPlus = Fplus;
     dataPtr->fCross = Fcross;
     dataPtr->timeshift = timeshift;

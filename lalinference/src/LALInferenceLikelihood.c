@@ -1040,7 +1040,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       break;
       
   }
- //printf("%10.10e\n",loglikelihood);
+  //printf("%10.10e\n",loglikelihood);
   return(loglikelihood);
 }
 

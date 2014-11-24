@@ -258,7 +258,6 @@ int XLALSimBurstChooseFDWaveformFromCache(
 
     // Intrinsic parameters have changed. We must generate a new waveform
     if( (changedParams & INTRINSIC) != 0 ) {
-      
         status = XLALSimBurstChooseFDWaveform(hptilde, hctilde, deltaF,deltaT,f0,q, tau,f_min,f_max, hrss,polar_angle, polar_ecc,extraParams,approximant);
         if (status == XLAL_FAILURE) return status;
 
@@ -393,7 +392,7 @@ static CacheVariableDiffersBitmask CacheArgsDifferenceBitmask(
     if (extraParams!=NULL){
       if (XLALSimBurstExtraParamExists(extraParams,"alpha")){ 
         REAL8 alpha=XLALSimBurstGetExtraParam(extraParams,"alpha");
-        REAL8 cached_alpha=0.0;
+        REAL8 cached_alpha=1.0;
         if ( XLALSimBurstExtraParamExists(cache->extraParams,"alpha"))
           cached_alpha=XLALSimBurstGetExtraParam(cache->extraParams,"alpha");
         else 
@@ -456,7 +455,8 @@ static int StoreTDHCache(
     if (extraParams==NULL)
       cache->extraParams=NULL;
     else if (cache->extraParams==NULL){
-      cache->extraParams=XLALSimBurstCreateExtraParam("alpha",0.0);
+      /* Initialize to something that won't make the ratio of sin alphas to blow up */
+      cache->extraParams=XLALSimBurstCreateExtraParam("alpha",1.0);
       XLALSimBurstAddExtraParam(&(cache->extraParams),"phase",0.0);
     }
     else{
@@ -524,7 +524,8 @@ static int StoreFDHCache(LALSimBurstWaveformCache *cache,
     if (extraParams==NULL)
       cache->extraParams=NULL;
     else if (cache->extraParams==NULL){
-      cache->extraParams=XLALSimBurstCreateExtraParam("alpha",0.0);
+      /* Initialize to something that won't make the ratio of sin alphas to blow up */
+      cache->extraParams=XLALSimBurstCreateExtraParam("alpha",1.0);
       XLALSimBurstAddExtraParam(&(cache->extraParams),"phase",0.0);
     }
     else{

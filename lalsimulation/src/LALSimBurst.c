@@ -1460,6 +1460,8 @@ int XLALSimBurstChooseFDWaveform(
             
             (void) f_max;
             if (XLALSimBurstExtraParamExists(extraParams,"alpha")) alpha=XLALSimBurstGetExtraParam(extraParams,"alpha");
+            // if alpha not there (e.g. because we are calling this routine for injecting, and xml tables do not know about alpha) set polar_angle=alpha
+            else alpha=polar_angle;
             if (XLALSimBurstExtraParamExists(extraParams,"phase")) phi0=XLALSimBurstGetExtraParam(extraParams,"phase");
             (void) polar_angle;
             (void) polar_ecc;
@@ -1475,6 +1477,8 @@ int XLALSimBurstChooseFDWaveform(
             
             (void) f_max;
             if (XLALSimBurstExtraParamExists(extraParams,"alpha")) alpha=XLALSimBurstGetExtraParam(extraParams,"alpha");
+            // if alpha not there (e.g. because we are calling this routine for injecting, and xml tables do not know about alpha) set polar_angle=alpha
+            else alpha=polar_angle;
             (void) polar_angle;
             (void) polar_ecc;
             (void) f0;

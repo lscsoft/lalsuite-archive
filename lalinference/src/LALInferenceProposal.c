@@ -956,7 +956,7 @@ REAL8 LALInferenceEnsembleStretchExtrinsic(LALInferenceRunState *runState, LALIn
 REAL8 LALInferenceBurstEnsembleStretchIntrinsic(LALInferenceRunState *runState, LALInferenceVariables *cp, LALInferenceVariables *pp) {
   const char *propName = BurstEnsembleStretchIntrinsicName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
-  const char *names[] = {"frequency", "quality", "duration","alpha", NULL};
+  const char *names[] = {"frequency", "quality", "duration","alpha", "phase", NULL};
   REAL8 logPropRatio = LALInferenceEnsembleStretchNames(runState, cp, pp, names);
   return logPropRatio;
 }
@@ -966,8 +966,8 @@ REAL8 logPropRatio;
   const char *propName = BurstEnsembleStretchExtrinsicName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
 
-  const char *names[] = {"rightascension", "declination", "polarisation", "hrss", "loghrss", "phase", "time", NULL};
-  const char *marg_time_names[] = {"rightascension", "declination", "polarisation", "hrss", "loghrss", "phase", NULL};
+  const char *names[] = {"rightascension", "declination", "polarisation", "hrss", "loghrss", "time", NULL};
+  const char *marg_time_names[] = {"rightascension", "declination", "polarisation", "hrss", "loghrss",  NULL};
   const char *marg_time_phase_names[] = {"rightascension", "declination", "polarisation", "hrss", "loghrss", NULL};
 
   if (LALInferenceGetProcParamVal(runState->commandLine, "--margtimephi"))
@@ -1105,7 +1105,7 @@ REAL8 LALInferenceEnsembleWalkExtrinsic(LALInferenceRunState *runState, LALInfer
 REAL8 LALInferenceBurstEnsembleWalkIntrinsic(LALInferenceRunState *runState, LALInferenceVariables *cp, LALInferenceVariables *pp) {
   const char *propName = BurstEnsembleWalkIntrinsicName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
-  const char *names[] = {"frequency", "quality", "duration","alpha", NULL};
+  const char *names[] = {"frequency", "quality", "duration","alpha",  "phase",NULL};
   REAL8 logPropRatio = LALInferenceEnsembleWalkNames(runState, cp, pp, names);
   return logPropRatio;
 }
@@ -1115,8 +1115,8 @@ REAL8 LALInferenceBurstEnsembleWalkExtrinsic(LALInferenceRunState *runState, LAL
   const char *propName = BurstEnsembleWalkExtrinsicName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
 
-  const char *names[] = {"rightascension", "declination", "polarisation", "hrss", "loghrss", "phase", "time", NULL};
-  const char *marg_time_names[] = {"rightascension", "declination", "polarisation", "hrss", "loghrss", "phase", NULL};
+  const char *names[] = {"rightascension", "declination", "polarisation", "hrss", "loghrss", "time", NULL};
+  const char *marg_time_names[] = {"rightascension", "declination", "polarisation", "hrss", "loghrss", NULL};
   const char *marg_time_phase_names[] = {"rightascension", "declination", "polarisation", "hrss", "loghrss", NULL};
 
   if (LALInferenceGetProcParamVal(runState->commandLine, "--margtimephi"))
