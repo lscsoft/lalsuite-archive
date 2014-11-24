@@ -191,6 +191,11 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
    total_lt = rate.BinnedArray(bins,array=numpy.sum(a.array for a in livetimes))
    eff_deriv = rate.BinnedArray(bins,array=numpy.sum(a.array*b.array for a,b in zip(vols,volDerivs))/total_vol.array)
 
+   # skip when no volume has been computed
+   if total_vol.array.max() == 0:
+     print >>sys.stderr,"No volume observed in bins of type %s... skipping plots." % bin_type
+     continue
+
    # get mass ranges
    mrange = [(min(b),max(b)) for b in edges(bins)]
 
