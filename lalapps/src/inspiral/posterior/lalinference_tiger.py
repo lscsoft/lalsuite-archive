@@ -117,7 +117,7 @@ def cp_ConfigParser(config):
 parser = argparse.ArgumentParser(usage)
 parser.add_argument('config', metavar='CONFIG_FILE', type=str, nargs='+', help='A (list of) configuration file(s) containing sections and options for the entire pipeline')
 parser.add_argument("-O", dest='basedir', type=str, help="Path to base directory")
-parser.add_argument("-P", dest='postproc', type=str, help="Path to post-processing output")
+parser.add_argument("-P", dest='postproc', type=str, help="Path to post-processing output", default=None)
 parser.add_argument("-I", dest='injfile', type=str, help="Path to a pre-existing injection .xml file (optional)", default=None)
 parser.add_argument("-L", dest='logdir', type=str, help="Path to log directory (optional)", default=None)
 parser.add_argument("-S", dest='scratchdir', type=str, help="Path to scratch directory (optional)", default=None)
@@ -125,20 +125,37 @@ parser.add_argument("-S", dest='scratchdir', type=str, help="Path to scratch dir
 args = parser.parse_args()
 
 config_file = args.config
-basefolder = args.basedir
-webdir = args.postproc
-injfile = args.injfile
-logdir = args.logdir
-scratchdir = args.scratchdir
 
-
-if injfile is not None:
-  if os.path.exists(injfile):
-    print 'TIGER: Reading injections from file'
-  else:
-    print 'Error: Cannot find xml file for injections: ' + injfile
+if args.basedir is not None:
+    basefolder = os.path.abspath(args.basedir)
+else:
+    print 'Error: No base directory provided! Exiting...'
     sys.exit(1)
 
+if args.postproc is not None:
+    webdir = os.path.abspath(args.postproc)
+else:
+    webdir = None
+
+if args.injfile is not None:
+    injfile = os.path.abspath(args.injfile)
+    if os.path.exists(injfile):
+        print 'TIGER: Reading injections from file'
+    else:
+        print 'Error: Cannot find xml file for injections: ' + injfile
+        sys.exit(1)
+else:
+    injfile = None
+
+if args.logdir is not None:
+    logdir = os.path.abspath(args.logdir)
+else:
+    logdir = None
+    
+if args.scratchdir is not None:
+    scratchdir = os.path.abspath(args.scratchdir)
+else:
+    scratchdir = None
 
 ################################################################################
 #
@@ -307,8 +324,14 @@ if type_inj=="MG":
 #
 ################################################################################
 
+seglen = 300
+psdlen = 1024
+if cp.has_option('lalinference','seglen'):
+    seglen = cp.getint('lalinference','seglen')
+if cp.has_option('input','max-psd-length'):
+    psdlen = cp.getint('input','max-psd-length')
 
-if not cp.has_option('lalinference', 'fake-cache'):
+if injfile is None and not cp.has_option('lalinference', 'fake-cache'):
   from lalinference.tiger import make_injtimes
   print 'TIGER: Generating science and veto segment files for real data'
   if not (cp.has_option('input','gps-start-time') and cp.has_option('input','gps-end-time')):
@@ -339,12 +362,6 @@ if not cp.has_option('lalinference', 'fake-cache'):
   print 'TIGER: Generating GPS times for unvetoed injections'
   ensure_dir(os.path.join(basefolder, 'injtimes'))
   IFOdict={}
-  seglen = 300
-  psdlen = 1024
-  if cp.has_option('lalinference','seglen'):
-    seglen = cp.getint('lalinference','seglen')
-  if cp.has_option('input','max-psd-length'):
-    psdlen = cp.getint('input','max-psd-length')
   for ifo in ifos: 
     IFOdict[ifo]=make_injtimes.IFO(ifo, seg_dic[ifo], veto_dic[ifo][4], minlen=max(psdlen, seglen))
   os.chdir(curdir)
@@ -377,7 +394,7 @@ if not cp.has_option('lalinference', 'fake-cache'):
   dic_inj.update({"t-distr":"file", "time-file":injtimesfile})
     
 else:
-  time_step=((end_time-sta_time)/(num_events-1))
+  time_step=((end_time-2-sta_time-seglen)/(num_events-1))
   dic_inj.update({"time-step":time_step,})
 
 
@@ -398,8 +415,8 @@ if injfile is None:
 
   dic_inj.update({
   "lalapps_inspinj":cp.get('tiger', 'lalapps_inspinj'),
-  "gps-start-time":sta_time,
-  "gps-end-time":end_time,
+  "gps-start-time":sta_time+seglen,
+  "gps-end-time":end_time-2,
   "output": inspinjname,
 #  "min_tot_m":(dic_inj["min_m"]*2),
 #  "max_tot_m":(dic_inj["max_m"]*2)
