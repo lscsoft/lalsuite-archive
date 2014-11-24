@@ -85,6 +85,14 @@
 /*----- Macros ----- */
 
 /* ---------- local types ---------- */
+/** Type containing multi- and single-detector \f$ \mathcal{F} \f$-statistics and line-robust statistic */
+typedef struct tagBSGLComponents {
+  REAL4 TwoF;				/**< multi-detector \f$ \mathcal{F} \f$-statistic value */
+  REAL4 TwoFX[PULSAR_MAX_DETECTORS];	/**< fixed-size array of single-detector \f$ \mathcal{F} \f$-statistic values */
+  UINT4 numDetectors;			/**< number of detectors, numDetectors=0 should make all code ignore the TwoFX field. */
+  REAL4 log10BSGL;			/**< line-robust statistic \f$ \log_{10}B_{\mathrm{SGL}} \f$ */
+} BSGLComponents;
+
 
 /** User-variables: can be set from config-file or command-line */
 typedef struct {
@@ -528,7 +536,7 @@ XLALInitCode ( ConfigVariables *cfg, const UserInput_t *uvar )
   const char fmt[] = "%%%% cmdline: %s\n%%%%\n%s%%%%\n";
   UINT4 len = strlen(vcs) + strlen(cmdline) + strlen(fmt) + 1;
   if ( ( cfg->logString = XLALMalloc ( len  )) == NULL ) {
-    XLALPrintError ("%s: XLALMalloc ( %d ) failed.\n", len );
+    XLALPrintError ("%s: XLALMalloc ( %d ) failed.\n", __func__, len );
     XLAL_ERROR ( XLAL_ENOMEM );
   }
   sprintf ( cfg->logString, fmt, cmdline, vcs );
@@ -777,13 +785,13 @@ XLALCreateMultiLIGOTimeGPSVector ( UINT4 numDetectors )
   MultiLIGOTimeGPSVector *ret;
 
   if ( (ret = XLALMalloc ( sizeof(*ret) )) == NULL ) {
-    XLALPrintError ("%s: XLALMalloc(%d) failed.\n", __func__, sizeof(*ret) );
+    XLALPrintError ("%s: XLALMalloc(%lu) failed.\n", __func__, sizeof(*ret) );
     XLAL_ERROR_NULL ( XLAL_ENOMEM );
   }
 
   ret->length = numDetectors;
   if ( (ret->data = XLALCalloc ( numDetectors, sizeof(*ret->data) )) == NULL ) {
-    XLALPrintError ("%s: XLALCalloc(%d, %d) failed.\n", __func__, numDetectors, sizeof(*ret->data) );
+    XLALPrintError ("%s: XLALCalloc(%d, %lu) failed.\n", __func__, numDetectors, sizeof(*ret->data) );
     XLALFree ( ret );
     XLAL_ERROR_NULL ( XLAL_ENOMEM );
   }
@@ -814,7 +822,7 @@ write_BSGL_candidate_to_fp ( FILE *fp, const BSGLComponents *stats, const LALStr
     for ( UINT4 X = 0; X < IFOs->length ; X ++ ) {
       snprintf ( buf0, sizeof(buf0), "    2F_%s", IFOs->data[X] );
       UINT4 len1 = strlen ( stat_header_string ) + strlen ( buf0 ) + 1;
-      XLAL_CHECK ( len1 <= sizeof ( stat_header_string ), XLAL_EBADLEN, "Assembled output string too long! (%d > %d)", len1, sizeof(stat_header_string));
+      XLAL_CHECK ( len1 <= sizeof ( stat_header_string ), XLAL_EBADLEN, "Assembled output string too long! (%d > %lu)", len1, sizeof(stat_header_string));
       strcat ( stat_header_string, buf0 );
     }
     if ( haveBSGL ) {
@@ -838,7 +846,7 @@ write_BSGL_candidate_to_fp ( FILE *fp, const BSGLComponents *stats, const LALStr
   for ( UINT4 X = 0; X < IFOs->length ; X ++ ) {
     snprintf ( buf0, sizeof(buf0), " %.6f", stats->TwoFX[X] );
     UINT4 len1 = strlen ( statString ) + strlen ( buf0 ) + 1;
-    XLAL_CHECK ( len1 <= sizeof ( statString ), XLAL_EBADLEN, "Assembled output string too long! (%d > %d)", len1, sizeof(statString));
+    XLAL_CHECK ( len1 <= sizeof ( statString ), XLAL_EBADLEN, "Assembled output string too long! (%d > %lu)", len1, sizeof(statString));
     strcat ( statString, buf0 );
   } /* for X < IFOs->length */
   if ( haveBSGL ) {
@@ -876,8 +884,8 @@ XLALComputeConstantMultiNoiseWeightsFromNoiseFloor ( const MultiNoiseFloor *mult
 
   /* create multi noise weights for output */
   MultiNoiseWeights *multiWeights = NULL;
-  XLAL_CHECK_NULL ( (multiWeights = XLALCalloc(1, sizeof(*multiWeights))) != NULL, XLAL_ENOMEM, "Failed call to XLALCalloc ( 1, %d )\n", sizeof(*multiWeights) );
-  XLAL_CHECK_NULL ( (multiWeights->data = XLALCalloc(numDet, sizeof(*multiWeights->data))) != NULL, XLAL_ENOMEM, "Failed call to XLALCalloc ( %d, %d )\n", numDet, sizeof(*multiWeights->data) );
+  XLAL_CHECK_NULL ( (multiWeights = XLALCalloc(1, sizeof(*multiWeights))) != NULL, XLAL_ENOMEM, "Failed call to XLALCalloc ( 1, %lu )\n", sizeof(*multiWeights) );
+  XLAL_CHECK_NULL ( (multiWeights->data = XLALCalloc(numDet, sizeof(*multiWeights->data))) != NULL, XLAL_ENOMEM, "Failed call to XLALCalloc ( %d, %lu )\n", numDet, sizeof(*multiWeights->data) );
   multiWeights->length = numDet;
 
   REAL8 sqrtSnTotal = 0;

@@ -37,7 +37,7 @@ from distutils import log
 
 from misc import generate_vcs_info as gvcsi
 
-ver = "1.46.2"
+ver = "1.47.1"
 
 def remove_root(path,root):
   if root:
@@ -255,7 +255,6 @@ setup(
     os.path.join('bin','dmtdq_seg_insert'),
     os.path.join('bin','ligolw_add'),
     os.path.join('bin','ligolw_cut'),
-    os.path.join('bin','ligolw_burst2mon'),
     os.path.join('bin','ligolw_inspiral2mon'),
     os.path.join('bin','ligolw_print'),
     os.path.join('bin','ligolw_sqlite'),

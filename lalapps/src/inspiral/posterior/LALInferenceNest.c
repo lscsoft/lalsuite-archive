@@ -38,6 +38,7 @@
 #include <lal/LALInferenceTemplate.h>
 #include <lal/LALInferenceProposal.h>
 #include <lal/LALInferenceInit.h>
+#include <lal/LALInferenceCalibrationErrors.h>
 
 LALInferenceRunState *initialize(ProcessParamsTable *commandLine);
 void initializeNS(LALInferenceRunState *runState);
@@ -261,14 +262,14 @@ Nested sampling arguments:\n\
 	/* Default likelihood is the frequency domain one */
 	runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
 
-    /* Check whether to use the SkyLocalization prior. Otherwise uses the default LALInferenceInspiralPriorNormalised. That should probably be replaced with a swhich over the possible priors. */
+    /* Check whether to use the SkyLocalization prior. Otherwise uses the default LALInferenceInspiralPrior. That should probably be replaced with a swhich over the possible priors. */
     ppt=LALInferenceGetProcParamVal(commandLine,"--prior");
     if(ppt){
       if(!strcmp(ppt->value,"SkyLoc")) runState->prior = &LALInferenceInspiralSkyLocPrior;
       if(!strcmp(ppt->value,"malmquist")) initializeMalmquistPrior(runState);
     }
     else{
-      runState->prior = &LALInferenceInspiralPriorNormalised;
+      runState->prior = &LALInferenceInspiralPrior;
     }
     /* For Compatibility with MCMC command line */
     if(LALInferenceGetProcParamVal(commandLine,"--malmquist-prior")) initializeMalmquistPrior(runState);
@@ -390,29 +391,31 @@ Arguments for each section follow:\n\n";
 	LALInferenceInitModelFunction initModelFunc=NULL;
 	if(LALInferenceGetProcParamVal(procParams,"--correlatedGaussianLikelihood"))
 		initModelFunc=&LALInferenceInitModelReviewEvidence;
-        else if(LALInferenceGetProcParamVal(procParams,"--bimodalGaussianLikelihood"))
-                initModelFunc=&LALInferenceInitModelReviewEvidence_bimod;
-        else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood"))
-                initModelFunc=&LALInferenceInitModelReviewEvidence_banana;
+  else if(LALInferenceGetProcParamVal(procParams,"--bimodalGaussianLikelihood"))
+    initModelFunc=&LALInferenceInitModelReviewEvidence_bimod;
+  else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood"))
+    initModelFunc=&LALInferenceInitModelReviewEvidence_banana;
 	else
 		initModelFunc=&LALInferenceInitCBCModel;
 	state->initModel=initModelFunc;
 	state->model = initModelFunc(state);
-    state->currentParams = XLALMalloc(sizeof(LALInferenceVariables));
-    memset(state->currentParams, 0, sizeof(LALInferenceVariables));
-    LALInferenceCopyVariables(state->model->params, state->currentParams);
-    state->templt = state->model->templt;
+  state->currentParams = XLALMalloc(sizeof(LALInferenceVariables));
+  memset(state->currentParams, 0, sizeof(LALInferenceVariables));
+  LALInferenceCopyVariables(state->model->params, state->currentParams);
+  state->templt = state->model->templt;
 
-        /* Choose the likelihood */
-        LALInferenceInitLikelihood(state);
-    
-       /* Print command line arguments if help requested */
-        if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
-        {
-                fprintf(stdout,"%s",help);
-		exit(0);
-        }
+      /* Choose the likelihood */
+      LALInferenceInitLikelihood(state);
 
+     /* Print command line arguments if help requested */
+      if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
+      {
+              fprintf(stdout,"%s",help);
+  exit(0);
+      }
+
+  /* Apply calibration errors if desired*/
+  LALInferenceApplyCalibrationErrors(state,procParams);
 	/* Call setupLivePointsArray() to populate live points structures */
 	LALInferenceSetupLivePointsArray(state);
 

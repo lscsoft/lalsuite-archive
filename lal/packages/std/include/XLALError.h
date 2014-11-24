@@ -20,6 +20,7 @@
 #ifndef XLALERROR_H
 #define XLALERROR_H
 
+#include <stdlib.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <lal/LALAtomicDatatypes.h>
@@ -141,6 +142,10 @@ extern "C" {
  */
 /*@{*/
 
+
+#ifndef SWIG    /* exclude from SWIG interface */
+
+
 /*
  *
  * Use these functions to print arbitrary messages as errors or warnings.
@@ -148,26 +153,22 @@ extern "C" {
  */
 
 /** Prints an error message if error printing is enabled by lalDebugLevel. */
-int XLALPrintError(const char *fmt, ...);
+int XLALPrintError(const char *fmt, ...) _LAL_GCC_PRINTF_FORMAT_(1,2);
 
 /** Prints a warning message if warning printing is enabled by lalDebugLevel. */
-int XLALPrintWarning(const char *fmt, ...);
+int XLALPrintWarning(const char *fmt, ...) _LAL_GCC_PRINTF_FORMAT_(1,2);
 
 /** Prints an info message if info printing is enabled by lalDebugLevel. */
-int XLALPrintInfo(const char *fmt, ...);
-
-#ifndef SWIG    /* exclude from SWIG interface */
+int XLALPrintInfo(const char *fmt, ...) _LAL_GCC_PRINTF_FORMAT_(1,2);
 
 /** Prints an error message if error printing is enabled by lalDebugLevel. */
-int XLALVPrintError(const char *fmt, va_list ap);
+int XLALVPrintError(const char *fmt, va_list ap) _LAL_GCC_VPRINTF_FORMAT_(1);
 
 /** Prints a warning message if warning printing is enabled by lalDebugLevel. */
-int XLALVPrintWarning(const char *fmt, va_list ap);
+int XLALVPrintWarning(const char *fmt, va_list ap) _LAL_GCC_VPRINTF_FORMAT_(1);
 
 /** Prints an info message if info printing is enabled by lalDebugLevel. */
-int XLALVPrintInfo(const char *fmt, va_list ap);
-
-#endif /* SWIG */
+int XLALVPrintInfo(const char *fmt, va_list ap) _LAL_GCC_VPRINTF_FORMAT_(1);
 
 
 /*
@@ -181,46 +182,42 @@ int XLALVPrintInfo(const char *fmt, va_list ap);
  * are enabled by lalDebugLevel).
  */
 void XLALPrintErrorMessage(const char *func, const char *file, int line,
-                           const char *fmt, ...);
+                           const char *fmt, ...) _LAL_GCC_PRINTF_FORMAT_(4,5);
 
 /**
  * Print an warning message with standard XLAL formatting (if warning messages
  * are enabled by lalDebugLevel).
  */
 void XLALPrintWarningMessage(const char *func, const char *file, int line,
-                             const char *fmt, ...);
+                             const char *fmt, ...) _LAL_GCC_PRINTF_FORMAT_(4,5);
 
 /**
  * Print an info message with standard XLAL formatting (if info messages
  * are enabled by lalDebugLevel).
  */
 void XLALPrintInfoMessage(const char *func, const char *file, int line,
-                          const char *fmt, ...);
-
-#ifndef SWIG    /* exclude from SWIG interface */
+                          const char *fmt, ...) _LAL_GCC_PRINTF_FORMAT_(4,5);
 
 /**
  * Print an error message with standard XLAL formatting (if error messages
  * are enabled by lalDebugLevel).
  */
 void XLALVPrintErrorMessage(const char *func, const char *file, int line,
-                            const char *fmt, va_list ap);
+                            const char *fmt, va_list ap) _LAL_GCC_VPRINTF_FORMAT_(4);
 
 /**
  * Print an warning message with standard XLAL formatting (if warning messages
  * are enabled by lalDebugLevel).
  */
 void XLALVPrintWarningMessage(const char *func, const char *file, int line,
-                              const char *fmt, va_list ap);
+                              const char *fmt, va_list ap) _LAL_GCC_VPRINTF_FORMAT_(4);
 
 /**
  * Print an error message with standard XLAL formatting (if error messages
  * are enabled by lalDebugLevel).
  */
 void XLALVPrintInfoMessage(const char *func, const char *file, int line,
-                           const char *fmt, va_list ap);
-
-#endif /* SWIG */
+                           const char *fmt, va_list ap) _LAL_GCC_VPRINTF_FORMAT_(4);
 
 /** Prints a progress bar at the "info" verbosity level. */
 int XLALPrintProgressBar(double);
@@ -321,7 +318,6 @@ int XLALPrintProgressBar(double);
 
 /** Returns the value of the XLAL <tt>REAL4</tt> failure NaN. */
 static _LAL_INLINE_ REAL4 XLALREAL4FailNaN(void);
-#ifndef SWIG    /* exclude from SWIG interface */
 static _LAL_INLINE_ REAL4 XLALREAL4FailNaN(void)
 {
     volatile const union {
@@ -331,11 +327,9 @@ static _LAL_INLINE_ REAL4 XLALREAL4FailNaN(void)
     XLAL_REAL4_FAIL_NAN_INT};
     return val.x;
 }
-#endif /* SWIG */
 
 /** Returns the value of the XLAL <tt>REAL8</tt> failure NaN. */
 static _LAL_INLINE_ REAL8 XLALREAL8FailNaN(void);
-#ifndef SWIG    /* exclude from SWIG interface */
 static _LAL_INLINE_ REAL8 XLALREAL8FailNaN(void)
 {
     volatile const union {
@@ -345,11 +339,9 @@ static _LAL_INLINE_ REAL8 XLALREAL8FailNaN(void)
     XLAL_REAL8_FAIL_NAN_INT};
     return val.x;
 }
-#endif /* SWIG */
 
 /** Tests if a value is an XLAL <tt>REAL4</tt> failure NaN. */
 static _LAL_INLINE_ int XLALIsREAL4FailNaN(REAL4 val);
-#ifndef SWIG    /* exclude from SWIG interface */
 static _LAL_INLINE_ int XLALIsREAL4FailNaN(REAL4 val)
 {
     volatile const union {
@@ -368,11 +360,9 @@ static _LAL_INLINE_ int XLALIsREAL4FailNaN(REAL4 val)
             return 0;
     return 1;
 }
-#endif /* SWIG */
 
 /** Tests if a value is an XLAL <tt>REAL8</tt> failure NaN. */
 static _LAL_INLINE_ int XLALIsREAL8FailNaN(REAL8 val);
-#ifndef SWIG    /* exclude from SWIG interface */
 static _LAL_INLINE_ int XLALIsREAL8FailNaN(REAL8 val)
 {
     volatile const union {
@@ -391,7 +381,6 @@ static _LAL_INLINE_ int XLALIsREAL8FailNaN(REAL8 val)
             return 0;
     return 1;
 }
-#endif /* SWIG */
 
 /* Here are the macro constants for the fail NaNs. */
 #define XLAL_REAL4_FAIL_NAN ( XLALREAL4FailNaN() ) /**< Floating-point value of the XLAL <tt>REAL4</tt> failure NaN. */
@@ -401,6 +390,8 @@ static _LAL_INLINE_ int XLALIsREAL8FailNaN(REAL8 val)
 #define XLAL_IS_REAL4_FAIL_NAN(val) XLALIsREAL4FailNaN(val) /**< Tests if <tt>val</tt> is a XLAL <tt>REAL4</tt> failure NaN. */
 #define XLAL_IS_REAL8_FAIL_NAN(val) XLALIsREAL8FailNaN(val) /**< Tests if <tt>val</tt> is a XLAL <tt>REAL8</tt> failure NaN. */
 
+
+#endif /* SWIG */
 
 
 /** XLAL error numbers and return values. */
@@ -468,6 +459,9 @@ enum XLALErrorValue {
 };
 
 
+#ifndef SWIG    /* exclude from SWIG interface */
+
+
 /*
  *
  * These functions provide message associated with an error code and print
@@ -493,8 +487,6 @@ void XLALPerror(const char *func, const char *file, int line, int errnum);
  * Also provide is the default error handler.
  *
  */
-
-#ifndef SWIG    /* exclude from SWIG interface */
 
 /** The XLAL error handler type. */
 typedef void XLALErrorHandlerType(const char *func, const char *file,
@@ -530,6 +522,7 @@ XLALErrorHandlerType *XLALSetDefaultErrorHandler(void);
 /** Sets the error handler to a silent handler and returns the old handler. */
 XLALErrorHandlerType *XLALSetSilentErrorHandler(void);
 
+
 #endif /* SWIG */
 
 
@@ -552,6 +545,10 @@ int XLALGetBaseErrno(void);
 /** Clears the XLAL error number, returns the old value. */
 int XLALClearErrno(void);
 
+
+#ifndef SWIG    /* exclude from SWIG interface */
+
+
 /*
  *
  * The LAL specifiation requires that the XLAL error number be a modifiable
@@ -565,7 +562,6 @@ int XLALClearErrno(void);
 
 /** Function to return pointer to the XLAL error number. */
 int *XLALGetErrnoPtr(void);
-
 
 /* these are the modifiable lvalues for xlalErrno and XLALErrorHandler */
 #define xlalErrno ( * XLALGetErrnoPtr() ) /**< Modifiable lvalue containing the XLAL error number */
@@ -637,7 +633,10 @@ void XLALError(const char *func,
 #define XLAL_ERROR_VAL_(val, errnum, fmt, ...) \
 	do { \
 		if (fmt != NULL) { \
+			_LAL_GCC_DIAGNOSTIC_(push); \
+			_LAL_GCC_DIAGNOSTIC_(ignored "-Wformat-extra-args"); \
 			XLAL_PRINT_ERROR(fmt, __VA_ARGS__); \
+			_LAL_GCC_DIAGNOSTIC_(pop); \
 		} \
 		XLALError(__func__, __FILE__, __LINE__, errnum); \
 		return val; \
@@ -708,6 +707,19 @@ void XLALError(const char *func,
  */
 #define XLAL_ERROR_REAL8(...) XLAL_ERROR_VAL(XLAL_REAL8_FAIL_NAN, __VA_ARGS__)
 
+/**
+ * \brief Macro to invoke a failure from a C <tt>main()</tt> routine.
+ *
+ * Prototype <b>XLAL_ERROR_MAIN(errnum [, fmt [, ...]])</b>
+ *
+ * \b Parameters:<ul>
+ * <li> \b errnum The XLAL error number to set.
+ * <li> \b fmt (Optional) Format string for additional error information.
+ * <li> \b ... (Optional) Additional arguments for printf-like format.
+ * </ul>
+ */
+#define XLAL_ERROR_MAIN(...) XLAL_ERROR_VAL(EXIT_FAILURE, __VA_ARGS__)
+
 
 /**
  * \brief Macro to test an assertion; if it is not true, invoke the
@@ -731,9 +743,12 @@ void XLALError(const char *func,
 	do { \
 		if (!(assertion)) { \
 			if (fmt != NULL) { \
+				_LAL_GCC_DIAGNOSTIC_(push); \
+				_LAL_GCC_DIAGNOSTIC_(ignored "-Wformat-extra-args"); \
 				XLAL_PRINT_ERROR(fmt, __VA_ARGS__); \
+				_LAL_GCC_DIAGNOSTIC_(pop); \
 			} else { \
-				XLAL_PRINT_ERROR("Check failed: " #assertion); \
+				XLAL_PRINT_ERROR("Check failed: %s", #assertion); \
 			} \
 			XLALError(__func__, __FILE__, __LINE__, errnum); \
 			return val; \
@@ -819,6 +834,25 @@ void XLALError(const char *func,
  */
 #define XLAL_CHECK_REAL8(assertion, ...) \
 	XLAL_CHECK_VAL(XLAL_REAL8_FAIL_NAN, assertion, __VA_ARGS__)
+
+/**
+ * \brief Macro to test an assertion and invoke a failure if it is not true
+ * in a C <tt>main()</tt> routine.
+ *
+ * Prototype: <b>XLAL_CHECK_MAIN(assertion, errnum [, fmt [, ...]])</b>
+ *
+ * \b Parameters:<ul>
+ * <li> \b assertion The assertion to test.
+ * <li> \b errnum The XLAL error number to set if the assertion is false.
+ * <li> \b fmt (Optional) Format string for additional error information.
+ * <li> \b ... (Optional) Additional arguments for printf-like format.
+ * </ul>
+ */
+#define XLAL_CHECK_MAIN(assertion, ...) \
+	XLAL_CHECK_VAL(EXIT_FAILURE, assertion, __VA_ARGS__)
+
+
+#endif /* SWIG */
 
 
 /*@}*/

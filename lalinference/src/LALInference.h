@@ -106,6 +106,7 @@ typedef enum {
   LALINFERENCE_gslMatrix_t,
   LALINFERENCE_REAL8Vector_t,
   LALINFERENCE_UINT4Vector_t,
+  LALINFERENCE_COMPLEX16Vector_t,
   LALINFERENCE_string_t,
   LALINFERENCE_MCMCrunphase_ptr_t,
   LALINFERENCE_void_ptr_t
@@ -123,36 +124,23 @@ typedef enum {
 	LALINFERENCE_PARAM_OUTPUT    /** A parameter changed by an inner code and passed out */
 } LALInferenceParamVaryType;
 
-/**
- * An enumerated type for denoting a type of taper
- */
-typedef enum
-{
-	LALINFERENCE_TAPER_NONE,
-	LALINFERENCE_TAPER_START,
-	LALINFERENCE_TAPER_END,
-	LALINFERENCE_TAPER_STARTEND,
-	LALINFERENCE_TAPER_NUM_OPTS,
-	LALINFERENCE_RING,
-	LALINFERENCE_SMOOTH
-}  LALInferenceApplyTaper;
-
-/**
- * An enumerated type for denoting the spinning parameter variables
- */
-typedef enum
-{
-  LALINFERENCE_FRAME_RADIATION,
-  LALINFERENCE_FRAME_SYSTEM
-} LALInferenceFrame;
-
-extern size_t LALInferenceTypeSize[13];
+extern size_t LALInferenceTypeSize[14];
 
 /**
  * The LALInferenceVariableItem list node structure
  * This should only be accessed using the accessor functions below
  * Implementation may change to hash table so please use only the
  * accessor functions below.
+ *
+ * A note on memory ownership: each LALInferenceVariableItem() owns
+ * the memory for its contents.  This means after calling
+ * LALInferenceAddVariable() or LALInferenceSetVariable(), you should
+ * not free the memory assoicated with the new variable's value.  In
+ * fact, you should not access this memory through its original
+ * pointer again (access through pointers returned by
+ * LALInferenceGetVariable() is OK); the object may not be live in
+ * memory if its variable has been overwritten through another call to
+ * LALInferenceSetVariable().
  */
 typedef struct
 tagVariableItem
@@ -315,6 +303,38 @@ void LALInferencePrintVariables(LALInferenceVariables *var);
 /** Check for equality in two variables */
 int LALInferenceCompareVariables(LALInferenceVariables *var1, LALInferenceVariables *var2);
 
+/** Computes the factor relating the physical waveform to a measured
+    waveform for a spline-fit calibration model in amplitude and
+    phase.  The spline points can be arbitrary frequencies, and the
+    values of the calibration offset at these points can be arbitary,
+    too.  For amplitude offset, \f$\delta A\f$, and phase offset,
+    \f$\delta \phi\f$, the measured waveform is related to the
+    physical waveform via
+
+    \f\[
+      h_\mathrm{meas} = h_\mathrm{phys} \left(1 + \delta A \right) \frac{2 + i \delta \phi}{2 - i \delta \phi}
+    \f\]
+
+    The phase factor takes the form above rather than the more obvious
+    \f$\exp(i \delta \phi)\f$ or \f$1 + \delta \phi\f$ because it is
+    faster to compute than the former (but, for small \f$\phi\f$,
+    equivalent through second order in \f$\delta \phi\f$) and, unlike
+    the latter, it ensures that the complex amplitude of the
+    correction is always 1.  (A similar technique is used when using
+    finite-difference approximations to solve the multi-dimensional
+    Schrodinger equation to ensure that the evolution remains
+    unitary.)  Note that this implies that the phase calibration
+    parameter ranges over \f$\delta \phi \in [-\infty, \infty]\f$.
+
+    The values of \f$\delta A\f$ and \f$\delta \phi\f$ at arbitrary
+    frequency are obtained by a spline curve that passes through the
+    given values at the given frequencies.
+
+*/
+int LALInferenceSplineCalibrationFactor(REAL8Vector *freqs, 
+					REAL8Vector *deltaAmps, 
+					REAL8Vector *deltaPhases, 
+					COMPLEX16FrequencySeries *calFactor);
 
 //Wrapper for template computation 
 //(relies on LAL libraries for implementation) <- could be a #DEFINE ?
@@ -478,7 +498,10 @@ tagLALInferenceRunState
   LALInferenceLogFunction            logsample; /** Log sample, i.e. to disk */
   LALInferenceTemplateFunction templt; /** The template generation function */
   LALInferenceModel        *model; /** Stucture containing model buffers and parameters */
+  LALInferenceModel        **modelArray; /** Array containing multiple models */
   struct tagLALInferenceIFOData      *data; /** The data from the interferometers */
+  LALInferenceVariables **currentParamArray;         /** Array containing multiple currentParams */
+  REAL8 *currentPropDensityArray;         /** Array containing multiple proposal densities */
   LALInferenceVariables              *currentParams, /** The current parameters */
     *priorArgs,                                      /** Any special arguments for the prior function */
     *proposalArgs,                                   /** Any special arguments for the proposal function */
@@ -509,6 +532,8 @@ tagLALInferenceRunState
   REAL8			currentLikelihood;  /** This should be removed, can be given as an algorithmParams or proposalParams entry */
   REAL8                 currentPrior;       /** This should be removed, can be given as an algorithmParams entry */
   gsl_rng               *GSLrandom;         /** A pointer to a GSL random number generator */
+  REAL8                  *currentPriors;
+  REAL8                  *currentLikelihoods;
 } LALInferenceRunState;
 
 
@@ -524,6 +549,7 @@ tagLALInferenceIFOData
   char                       name[DETNAMELEN]; /** Detector name */
   REAL8TimeSeries           *timeData,         /** A time series from the detector */
                             *whiteTimeData, *windowedTimeData; /** white is not really white, but over-white. */
+  REAL8TimeSeries           *varTimeData;    /** A time series of the data noise variance */
   /* Stores the log(L) for the model in presence of data.  These were
      added to allow for individual-detector log(L) output.  The
      convention is that loglikelihood always stores the log(L) for the
@@ -542,6 +568,7 @@ tagLALInferenceIFOData
 //  REAL8TimeSeries           *timeDomainNoiseWeights; /** Roughly, InvFFT(1/Noise PSD). */
   REAL8Window               *window;        /** A window */
   REAL8FFTPlan              *timeToFreqFFTPlan, *freqToTimeFFTPlan; /** Pre-calculated FFT plans for forward and reverse FFTs */
+  COMPLEX16FFTPlan          *margComplexFFTPlan; /** FFT plan needed for time/time-and-phase marginalisation */
   REAL8                     fLow, fHigh;	/** integration limits for overlap integral in F-domain */
   LALDetector               *detector;          /** LALDetector structure for where this data came from */
   BarycenterInput           *bary;              /** Barycenter information */
@@ -625,10 +652,34 @@ void LALInferencePrintSample(FILE *fp,LALInferenceVariables *sample);
 /** Output only non-fixed parameters */
 void LALInferencePrintSampleNonFixed(FILE *fp,LALInferenceVariables *sample);
 
+/** Output spline calibration parameters */
+void LALInferencePrintSplineCalibration(FILE *fp, LALInferenceRunState *state);
+
 /** Read in the non-fixed parameters from the given file (position in
     the file must be arranged properly before calling this
     function). */
 void LALInferenceReadSampleNonFixed(FILE *fp, LALInferenceVariables *sample);
+
+/** Utility for readling in delimited ASCII files. */
+REAL8 *LALInferenceParseDelimitedAscii(FILE *input, INT4 nCols, INT4 *wantedCols, INT4 *nLines);
+
+/* Parse a single line of delimited ASCII. */
+void parseLine(char *record, const char *delim, char arr[][VARNAME_MAX], INT4 *cnt);
+
+/* Discard the standard header of a PTMCMC chain file. */
+void LALInferenceDiscardPTMCMCHeader(FILE *filestream);
+
+/* Burn-in a PTMCMC output file. */
+void LALInferenceBurninPTMCMC(FILE *filestream, INT4 logl_idx, INT4 nPar);
+
+/* Burn-in a generic ASCII stream. */
+void LALInferenceBurninStream(FILE *filestream, INT4 burnin);
+
+/* Read column names from an ASCII file. */
+void LALInferenceReadAsciiHeader(FILE *input, char params[][VARNAME_MAX], INT4 *nCols);
+
+/* Utility for selecting columns from an array, in the specified order. */
+REAL8 **LALInferenceSelectColsFromArray(REAL8 **inarray, INT4 nRows, INT4 nCols, INT4 nSelCols, INT4 *selCols);
 
 /** Output proposal statistics header to file *fp */
 int LALInferencePrintProposalStatsHeader(FILE *fp,LALInferenceVariables *propStats);
@@ -647,14 +698,15 @@ void LALInferenceProcessParamLine(FILE *inp, char **headers, LALInferenceVariabl
 void LALInferenceSortVariablesByName(LALInferenceVariables *vars);
 
 /** LALInferenceVariable buffer to array and vica versa */
-INT4 LALInferenceBufferToArray(LALInferenceRunState *state, INT4 startCycle, INT4 endCycle, REAL8 **array);
+INT4 LALInferenceThinnedBufferToArray(LALInferenceRunState *state, REAL8 **array, INT4 step);
+INT4 LALInferenceBufferToArray(LALInferenceRunState *state, REAL8 **array);
 
-void LALInferenceArrayToBuffer(LALInferenceRunState *state, REAL8 **array);
+void LALInferenceArrayToBuffer(LALInferenceRunState *state, REAL8 **array, INT4 nPoints);
 
 /** LALInference variables to an array, and vica versa */
-REAL8Vector *LALInferenceCopyVariablesToArray(LALInferenceVariables *origin);
+void LALInferenceCopyVariablesToArray(LALInferenceVariables *origin, REAL8 *target);
 
-void LALInferenceCopyArrayToVariables(REAL8Vector *origin, LALInferenceVariables *target);
+void LALInferenceCopyArrayToVariables(REAL8 *origin, LALInferenceVariables *target);
 
 /**
  * Append the sample to a file. file pointer is stored in state->algorithmParams as a
@@ -936,6 +988,12 @@ REAL8Vector* LALInferenceGetREAL8VectorVariable(LALInferenceVariables * vars, co
 
 void LALInferenceSetREAL8VectorVariable(LALInferenceVariables* vars,const char* name,REAL8Vector* value);
 
+void LALInferenceAddCOMPLEX16VectorVariable(LALInferenceVariables * vars, const char * name, COMPLEX16Vector* value, LALInferenceParamVaryType vary);
+
+COMPLEX16Vector* LALInferenceGetCOMPLEX16VectorVariable(LALInferenceVariables * vars, const char * name);
+
+void LALInferenceSetCOMPLEX16VectorVariable(LALInferenceVariables* vars,const char* name,COMPLEX16Vector* value);
+
 void LALInferenceAddUINT4VectorVariable(LALInferenceVariables * vars, const char * name, UINT4Vector* value, LALInferenceParamVaryType vary);
 
 UINT4Vector* LALInferenceGetUINT4VectorVariable(LALInferenceVariables * vars, const char * name);
@@ -953,6 +1011,11 @@ void LALInferenceAddstringVariable(LALInferenceVariables * vars, const char * na
 CHAR* LALInferenceGetstringVariable(LALInferenceVariables * vars, const char * name);
 
 void LALInferenceSetstringVariable(LALInferenceVariables* vars,const char* name,CHAR* value);
+
+/**
+ * Print spline calibration parameter names as tab-separated ASCII
+ */
+void LALInferenceFprintSplineCalibrationHeader(FILE *out, LALInferenceRunState *state);
 
 /*@}*/
 

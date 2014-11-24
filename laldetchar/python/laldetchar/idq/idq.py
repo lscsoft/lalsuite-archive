@@ -291,8 +291,8 @@ def most_recent_realtime_stride(file_obj):
 #            file_obj.seek(0,0) ### we're at the beginnig of the file
 
     else: ### reached beginning of file without finding realtime stride. We now look forward
-        stride_start = -np.infty ### we wait until we find a new stride or time out
-        stride_end = -np.infty
+        stride_start = -numpy.infty ### we wait until we find a new stride or time out
+        stride_end = -numpy.infty
 
     file_obj.seek(starting_tell, 0) ### go back to where we started
 
@@ -322,7 +322,7 @@ def block_until(t, file_obj, max_wait=600, timeout=600, wait=0.1):
 
         elif "Begin: stride " in line: ### FIXME? this is fragile and could break if we change the logger statements
             ### find the stride start
-            stride_start = float( line.split("Begin: stride ")[-1].split("-")[-1] )
+            stride_start = float( line.split("Begin: stride ")[-1].split("-")[-2] )
 
         waited = 0.0 ### we found a new line, so re-set this counter
 

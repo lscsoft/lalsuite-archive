@@ -224,6 +224,18 @@ tagBinaryPulsarParams
   REAL8 Aplus;  /**< 0.5*h0*(1+cos^2iota) */
   REAL8 Across; /**< h0*cosiota */
 
+  /* scalar-tensor-vector mode amplitude parameters */
+  REAL8 hPlus;       /**< amplitude for the tensor plus polarisation */
+  REAL8 hCross;      /**< amplitude for the tensor cross polarisation */
+  REAL8 phi0Tensor;  /**< initial phase for tensor modes (to be used instead of phi0 or phi22) */
+  REAL8 hScalarB;    /**< amplitude for scalar breathing polarisation mode */
+  REAL8 hScalarL;    /**< amplitude for scalar longitudinal polarisation mode */
+  REAL8 phi0Scalar;  /**< initial phase for the scalar modes */
+  REAL8 hVectorX;    /**< amplitude for vector "x" polarisation mode */
+  REAL8 hVectorY;    /**< amplitude for vector "y" polarisation mode */
+  REAL8 psiVector;   /**< phase polarisation angle for vector polarisation mode */
+  REAL8 phi0Vector;  /**< initial phase for vector modes */
+
   /* pinned superfluid gw parameters*/
   REAL8 I21;    /**< parameter for pinsf model.**/
   REAL8 I31;    /**< parameter for pinsf model.**/
@@ -318,6 +330,17 @@ tagBinaryPulsarParams
   REAL8 C21Err;
   REAL8 phi22Err;
   REAL8 phi21Err;
+
+  REAL8 hPlusErr;
+  REAL8 hCrossErr;
+  REAL8 phi0TensorErr;
+  REAL8 hScalarBErr;
+  REAL8 hScalarLErr;
+  REAL8 phi0ScalarErr;
+  REAL8 hVectorXErr;
+  REAL8 hVectorYErr;
+  REAL8 psiVectorErr;
+  REAL8 phi0VectorErr;
 
   /* timing noise fitting parameters */
   REAL8 wave_omErr;
@@ -456,6 +479,7 @@ void ParConvMasToRads( const CHAR *in, void *out );
 void ParConvInvArcsecsToInvRads( const CHAR *in, void *out );
 /** Convert the input string from days to seconds */
 void ParConvDaysToSecs( const CHAR *in, void *out );
+
 /** Convert the binary system parameter from a string to a double, but  make the check (as performed by TEMPO2)
  * that this is > 1e-7 then it's in units of 1e-12, so needs converting by that factor. It also checks if the
  * number is too large (> 10000) and if so sets to to zero.

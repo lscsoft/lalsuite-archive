@@ -166,7 +166,7 @@ if __name__ == "__main__":
 
     # open file
     print_verbose("Reading xml file...\n", profile=False)
-    xmldoc = ligolw_utils.load_filename(xmlfile, gz=xmlfile.endswith(".gz"))
+    xmldoc = ligolw_utils.load_filename(xmlfile, gz=xmlfile.endswith(".gz"), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
 
     # read ProcesTable
     process_table = table.get_table(xmldoc, lsctables.ProcessTable.tableName)

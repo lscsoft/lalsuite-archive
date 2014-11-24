@@ -13,8 +13,7 @@ if LALFRAME
 
 if LALPULSAR
 if LALINFERENCE
-pulsar_progs = lalinference_nest ChiSquare_test #lalinference_mcmcmpi
-ChiSquare_test_SOURCES = ChiSquare_test.c
+pulsar_progs = lalinference_nest #lalinference_mcmcmpi
 lalinference_nest_SOURCES = LALInferenceNest.c
 if HAVE_BAMBI
 if !HAVE_BAMBI_MPI
@@ -26,11 +25,6 @@ endif # bambi
 
 endif # lalinference
 endif # lalpulsar
-
-frame_progs = \
-	lalapps_followupMcmc
-lalapps_followupMcmc_SOURCES = \
-	followupMcmc.c
 
 endif # lalframe
 endif # lalinspiral
@@ -68,4 +62,6 @@ endif
 
 EXTRA_DIST += \
 	LALInferenceMCMCSampler.c \
-	LALInferenceMCMCSampler.h
+	LALInferenceMCMCSampler.h \
+	LALInferenceEnsembleSampler.c \
+	LALInferenceEnsembleSampler.h

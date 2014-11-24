@@ -116,7 +116,7 @@ def email_notify(address,path):
     server.sendmail(FROM,address,message)
     server.quit()
 
-#Import content handerl 
+#Import content handler 
 from pylal.SimInspiralUtils import ExtractSimInspiralTableLIGOLWContentHandler
 lsctables.use_in(ExtractSimInspiralTableLIGOLWContentHandler)
 
@@ -815,7 +815,6 @@ def cbcBayesPostProc(
     html_corner=''
     got_any=0
     if myfig:
-      html_corner='<table id="%s" border="1">'%tabid
       html_corner+='<tr><td width="100%"><a href="corner/intrinsic.png" target="_blank"><img width="70%" src="corner/intrinsic.png"/></a></td></tr>'
       myfig.savefig(os.path.join(cornerdir,'intrinsic.png'))
       myfig.savefig(os.path.join(cornerdir,'intrinsic.pdf'))
@@ -831,6 +830,7 @@ def cbcBayesPostProc(
       html_corner+='<tr><td width="100%"><a href="corner/extrinsic.png" target="_blank"><img width="70%" src="corner/extrinsic.png"/></a></td></tr>'
       got_any+=1
     if got_any>0:
+      html_corner='<table id="%s" border="1">'%tabid+html_corner
       html_corner+='</table>'
     if html_corner!='':
       html_co=html.add_collapse_section('Corner plots',legend=legend,innertable_id=tabid)
@@ -1209,7 +1209,7 @@ if __name__=='__main__':
       fixedBurnins = None
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio','mtotal']
+    massParams=['m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio','mtotal']
     distParams=['distance','distMPC','dist']
     incParams=['iota','inclination','cosiota']
     polParams=['psi','polarisation','polarization']

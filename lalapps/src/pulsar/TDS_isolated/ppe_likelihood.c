@@ -45,28 +45,25 @@
  * \return The natural logarithm of the likelihood function
  */
 REAL8 pulsar_log_likelihood( LALInferenceVariables *vars, LALInferenceIFOData *data,
-                             LALInferenceModel *get_model){
+                             LALInferenceModel *get_model ){
   REAL8 loglike = 0.; /* the log likelihood */
-  UINT4 i = 0, ifo = 0;
-  REAL8Vector *freqFactors = *(REAL8Vector **)LALInferenceGetVariable( get_model->ifo->params, "freqfactors" );
-
-  LALInferenceIFOModel *ifomodeltemp1 = get_model->ifo, *ifomodeltemp2 = get_model->ifo, *ifomodeltemp3 = get_model->ifo;
+  UINT4 i = 0, ifo = 0, nonGR = 0;
+  INT4 gaussianLike = 0;
+  LALInferenceIFOModel *ifomodeltemp = get_model->ifo;
   LALInferenceIFOData *tempdata = data;
 
   /* copy model parameters to data parameters */
-  while( ifomodeltemp1 ){
-    LALInferenceCopyVariables( vars, get_model->params );
-    ifomodeltemp1 = ifomodeltemp1->next;
-  }
+  LALInferenceCopyVariables( vars, get_model->params );
 
-  /* get pulsar model */
-  while( ifomodeltemp2 ){
-    get_model->templt( get_model );
+  /* get pulsar model (this will internally loop over all data frequency streams and IFOs) */
+  get_model->templt( get_model );
 
-    for( i = 0; i < freqFactors->length; i++ ) { ifomodeltemp2 = ifomodeltemp2->next; }
-  }
+  if ( LALInferenceCheckVariable( ifomodeltemp->params, "nonGR" ) ){ nonGR = 1; }
 
   while ( tempdata ){
+    /* check if using a Gaussian likelihood - default is the students-t */
+    if ( LALInferenceCheckVariable( ifomodeltemp->params, "gaussianLikelihood" ) ){  gaussianLike = 1; }
+
     UINT4 j = 0, count = 0, cl = 0;
     UINT4 length = 0, chunkMin;
     REAL8 chunkLength = 0.;
@@ -74,18 +71,66 @@ REAL8 pulsar_log_likelihood( LALInferenceVariables *vars, LALInferenceIFOData *d
 
     REAL8 sumModel = 0., sumDataModel = 0.;
     REAL8 chiSquare = 0.;
-    COMPLEX16 B, M;
+    COMPLEX16 B = 0., M = 0., Mp = 0., Mc = 0.;
 
     REAL8Vector *sumDat = NULL;
+    REAL8Vector *sumP = NULL, *sumC = NULL, *sumX = NULL, *sumY = NULL, *sumB = NULL, *sumL = NULL;
+    REAL8Vector *sumPC = NULL, *sumPX = NULL, *sumPY = NULL, *sumPB = NULL, *sumPL = NULL;
+    REAL8Vector *sumCX = NULL, *sumCY = NULL, *sumCB = NULL, *sumCL = NULL;
+    REAL8Vector *sumXY = NULL, *sumXB = NULL, *sumXL = NULL;
+    REAL8Vector *sumYB = NULL, *sumYL = NULL;
+    REAL8Vector *sumBL = NULL;
+
+    COMPLEX16Vector *sumDataP = NULL, *sumDataC = NULL, *sumDataX = NULL, *sumDataY = NULL, *sumDataB = NULL, *sumDataL = NULL;
     UINT4Vector *chunkLengths = NULL;
+    INT4 varyphase = 0;
+
+    if ( LALInferenceCheckVariable( ifomodeltemp->params, "varyphase" ) ){ varyphase = 1; }
 
     get_model->ifo_loglikelihoods[ifo] = 0.0;
 
-    sumDat = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp3->params, "sumData" );
-    chunkLengths = *(UINT4Vector **)LALInferenceGetVariable( ifomodeltemp3->params, "chunkLength" );
-    chunkMin = *(INT4*)LALInferenceGetVariable( ifomodeltemp3->params, "chunkMin" );
+    sumDat = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumData" );
+    chunkLengths = *(UINT4Vector **)LALInferenceGetVariable( ifomodeltemp->params, "chunkLength" );
+    chunkMin = *(INT4*)LALInferenceGetVariable( ifomodeltemp->params, "chunkMin" );
 
     length = tempdata->compTimeData->data->length;
+
+    /* get pre-summed antenna pattern values if required */
+    if ( !varyphase ){
+      sumP = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumP" );
+      sumC = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumC" );
+      sumPC = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumPC" );
+      sumDataP = *(COMPLEX16Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumDataP" );
+      sumDataC = *(COMPLEX16Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumDataC" );
+
+      /* get non-GR components */
+      if ( nonGR ){
+        sumX = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumX" );
+        sumY = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumY" );
+        sumB = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumB" );
+        sumL = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumL" );
+
+        sumPX = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumPX" );
+        sumPY = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumPY" );
+        sumPB = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumPB" );
+        sumPL = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumPL" );
+        sumCX = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumCX" );
+        sumCY = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumCY" );
+        sumCB = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumCB" );
+        sumCL = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumCL" );
+        sumXY = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumXY" );
+        sumXB = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumXB" );
+        sumXL = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumXL" );
+        sumYB = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumYB" );
+        sumYL = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumYL" );
+        sumBL = *(REAL8Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumBL" );
+
+        sumDataX = *(COMPLEX16Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumDataX" );
+        sumDataY = *(COMPLEX16Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumDataY" );
+        sumDataB = *(COMPLEX16Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumDataB" );
+        sumDataL = *(COMPLEX16Vector **)LALInferenceGetVariable( ifomodeltemp->params, "sumDataL" );
+      }
+    }
 
     for( i = 0 ; i < length ; i += chunkLength ){
       chunkLength = (REAL8)chunkLengths->data[count];
@@ -101,34 +146,88 @@ REAL8 pulsar_log_likelihood( LALInferenceVariables *vars, LALInferenceIFOData *d
 
       cl = i + (INT4)chunkLength;
 
-      for( j = i ; j < cl ; j++ ){
-        B = tempdata->compTimeData->data->data[j];
+      if ( varyphase ){ /* not using pre-summed values */
+        for( j = i ; j < cl ; j++ ){
+          B = tempdata->compTimeData->data->data[j];
+          M = ifomodeltemp->compTimeSignal->data->data[j];
 
-        M = get_model->ifo->compTimeSignal->data->data[j];
+          /* sum over the model */
+          sumModel += creal(M)*creal(M) + cimag(M)*cimag(M);
 
-        /* sum over the model */
-        sumModel += creal(M)*creal(M) + cimag(M)*cimag(M);
-
-        /* sum over that data and model */
-        sumDataModel += creal(B)*creal(M) + cimag(B)*cimag(M);
+          /* sum over that data and model */
+          sumDataModel += creal(B)*creal(M) + cimag(B)*cimag(M);
+        }
       }
+      else{ /* using pre-summed data */
+        Mp = ifomodeltemp->compTimeSignal->data->data[0];
+        Mc = ifomodeltemp->compTimeSignal->data->data[1];
 
-      chiSquare = sumDat->data[count];
-      chiSquare -= 2.*sumDataModel;
-      chiSquare += sumModel;
+        sumModel += sumP->data[count]*(creal(Mp)*creal(Mp) + cimag(Mp)*cimag(Mp)) +
+                    sumC->data[count]*(creal(Mc)*creal(Mc) + cimag(Mc)*cimag(Mc)) +
+                    2.*sumPC->data[count]*(creal(Mp)*creal(Mc) + cimag(Mp)*cimag(Mc));
 
-      logliketmp -= chunkLength*log(chiSquare) + LAL_LN2 * (chunkLength-1.) + gsl_sf_lnfact(chunkLength);
+        sumDataModel += creal(sumDataP->data[count])*creal(Mp) + cimag(sumDataP->data[count])*cimag(Mp) +
+                        creal(sumDataC->data[count])*creal(Mc) + cimag(sumDataC->data[count])*cimag(Mc);
+
+        if ( nonGR ){
+          COMPLEX16 Mx = 0., My = 0., Mb = 0., Ml = 0.;
+
+          Mx = ifomodeltemp->compTimeSignal->data->data[2];
+          My = ifomodeltemp->compTimeSignal->data->data[3];
+          Mb = ifomodeltemp->compTimeSignal->data->data[4];
+          Ml = ifomodeltemp->compTimeSignal->data->data[5];
+
+          sumModel += sumX->data[count]*(creal(Mx)*creal(Mx) + cimag(Mx)*cimag(Mx)) +
+                      sumY->data[count]*(creal(My)*creal(My) + cimag(My)*cimag(My)) +
+                      sumB->data[count]*(creal(Mb)*creal(Mb) + cimag(Mb)*cimag(Mb)) +
+                      sumL->data[count]*(creal(Ml)*creal(Ml) + cimag(Ml)*cimag(Ml)) +
+                      2.*(sumPX->data[count]*(creal(Mp)*creal(Mx) + cimag(Mp)*cimag(Mx)) +
+                      sumPY->data[count]*(creal(Mp)*creal(My) + cimag(Mp)*cimag(My)) +
+                      sumPB->data[count]*(creal(Mp)*creal(Mb) + cimag(Mp)*cimag(Mb)) +
+                      sumPL->data[count]*(creal(Mp)*creal(Ml) + cimag(Mp)*cimag(Ml)) +
+                      sumCX->data[count]*(creal(Mc)*creal(Mx) + cimag(Mc)*cimag(Mx)) +
+                      sumCY->data[count]*(creal(Mc)*creal(My) + cimag(Mc)*cimag(My)) +
+                      sumCB->data[count]*(creal(Mc)*creal(Mb) + cimag(Mc)*cimag(Mb)) +
+                      sumCL->data[count]*(creal(Mc)*creal(Ml) + cimag(Mc)*cimag(Ml)) +
+                      sumXY->data[count]*(creal(Mx)*creal(My) + cimag(Mx)*cimag(My)) +
+                      sumXB->data[count]*(creal(Mx)*creal(Mb) + cimag(Mx)*cimag(Mb)) +
+                      sumXL->data[count]*(creal(Mx)*creal(Ml) + cimag(Mx)*cimag(Ml)) +
+                      sumYB->data[count]*(creal(My)*creal(Mb) + cimag(My)*cimag(Mb)) +
+                      sumYL->data[count]*(creal(My)*creal(Ml) + cimag(My)*cimag(Ml)) +
+                      sumBL->data[count]*(creal(Mb)*creal(Ml) + cimag(Mb)*cimag(Ml)));
+
+          sumDataModel += creal(sumDataP->data[count])*creal(Mp) + cimag(sumDataP->data[count])*cimag(Mp) +
+                          creal(sumDataC->data[count])*creal(Mc) + cimag(sumDataC->data[count])*cimag(Mc) +
+                          creal(sumDataX->data[count])*creal(Mx) + cimag(sumDataX->data[count])*cimag(Mx) +
+                          creal(sumDataY->data[count])*creal(My) + cimag(sumDataY->data[count])*cimag(My) +
+                          creal(sumDataB->data[count])*creal(Mb) + cimag(sumDataB->data[count])*cimag(Mb) +
+                          creal(sumDataL->data[count])*creal(Ml) + cimag(sumDataL->data[count])*cimag(Ml);
+        }
+     }
+
+      chiSquare = sumDat->data[count] - 2.*sumDataModel + sumModel;
+
+      if ( !gaussianLike ){ /* using Students-t likelihood */
+        logliketmp -= chunkLength*log(chiSquare) + LAL_LN2 * (chunkLength-1.) + gsl_sf_lnfact(chunkLength);
+      }
+      else{ /* using Gaussian likelihood */
+        REAL8 logGaussianNorm = *(REAL8 *)LALInferenceGetVariable( ifomodeltemp->params,  "logGaussianNorm" );
+        logliketmp += logGaussianNorm - 0.5*chiSquare;
+      }
 
       count++;
     }
 
     get_model->ifo_loglikelihoods[ifo] = logliketmp;
 
+    //fprintf(stderr, "logL = %le\n", logliketmp);
+
     loglike += logliketmp;
     tempdata = tempdata->next;
-    ifomodeltemp3 = ifomodeltemp3->next;
+    ifomodeltemp = ifomodeltemp->next;
     ifo++;
   }
+
   return loglike;
 }
 
@@ -158,6 +257,7 @@ REAL8 noise_only_likelihood( LALInferenceRunState *runState ){
   CHAR *Znoisefile = NULL;
   ProcessParamsTable *ppt;
   ProcessParamsTable *commandLine = runState->commandLine;
+  INT4 gaussianLike = 0;
   /*-----------------------------*/
   /*get the outfile name*/
   ppt = LALInferenceGetProcParamVal( commandLine, "--outfile" );
@@ -174,6 +274,10 @@ REAL8 noise_only_likelihood( LALInferenceRunState *runState ){
     exit(0);
   }
 
+  /* check whether using Gaussian or students-t likelihood - using Gaussian if --gaussian
+   * has been given as a command line argument. */
+  if ( LALInferenceGetProcParamVal( commandLine, "--gaussian-like" ) ){ gaussianLike = 1; }
+
   /*calculate the evidence */
   while ( ifo ){
     UINT4Vector *chunkLengths = NULL;
@@ -185,10 +289,17 @@ REAL8 noise_only_likelihood( LALInferenceRunState *runState ){
     chunkLengths = *(UINT4Vector **)LALInferenceGetVariable( ifo->params,  "chunkLength" );
     sumDat = *(REAL8Vector **)LALInferenceGetVariable( ifo->params, "sumData" );
     /*Sum the logL over the datachunks*/
-    for (i=0; i<chunkLengths->length; i++){
-      chunkLength = (REAL8)chunkLengths->data[i];
+    if ( !gaussianLike ){
+      for (i=0; i<chunkLengths->length; i++){
+        chunkLength = (REAL8)chunkLengths->data[i];
 
-      logLtmp -= chunkLength * log(sumDat->data[i]) + LAL_LN2 * (chunkLength-1.) + gsl_sf_lnfact(chunkLength);
+        logLtmp -= chunkLength * log(sumDat->data[i]) + LAL_LN2 * (chunkLength-1.) + gsl_sf_lnfact(chunkLength);
+      }
+    }
+    else{
+      /* for Gaussian likelihood there's only one chunk */
+      REAL8 logGaussianNorm = *(REAL8 *)LALInferenceGetVariable( ifo->params,  "logGaussianNorm" );
+      logLtmp -= logGaussianNorm -0.5*sumDat->data[0];
     }
 
     data->nullloglikelihood = logLtmp;
@@ -235,8 +346,6 @@ REAL8 priorFunction( LALInferenceRunState *runState, LALInferenceVariables *para
   REAL8Vector *corVals = NULL;
   UINT4 cori = 0;
 
-  const CHAR *fn = __func__;
-
   /* check that parameters are within their prior ranges */
   if( !in_range( runState->priorArgs, params ) ) { return -INFINITY; }
 
@@ -247,8 +356,7 @@ REAL8 priorFunction( LALInferenceRunState *runState, LALInferenceVariables *para
     LALInferenceKDTree *tree = *(LALInferenceKDTree **)LALInferenceGetVariable(runState->priorArgs, "kDTreePrior");
 
     /* get parameter template */
-    LALInferenceVariables *template =*(LALInferenceVariables **)LALInferenceGetVariable(runState->priorArgs,
-                                                                                        "kDTreePriorTemplate");
+    LALInferenceVariables *template =*(LALInferenceVariables **)LALInferenceGetVariable(runState->priorArgs, "kDTreePriorTemplate");
 
     /* number of points in a prior cell - i.e. controls how fine or coarse the prior looks (default to 8) */
     UINT4 Ncell = 8;
@@ -258,7 +366,7 @@ REAL8 priorFunction( LALInferenceRunState *runState, LALInferenceVariables *para
     }
 
     if ( tree->npts == 0 ) {
-      XLALPrintError("%s: no points in prior k-d tree.\n", fn);
+      XLALPrintError("%s: no points in prior k-d tree.\n", __func__ );
       XLAL_ERROR_REAL8( XLAL_EFUNC );
     }
 
@@ -271,8 +379,7 @@ REAL8 priorFunction( LALInferenceRunState *runState, LALInferenceVariables *para
     /* find cell of current point */
     LALInferenceKDTree *currentCell = LALInferenceKDFindCell(tree, pt, Ncell);
 
-    /* get log probability of current point - taken from the function
-       LALInferenceKDLogProposalRatio() in LALInference.c */
+    /* get log probability of current point - taken from the function LALInferenceKDLogProposalRatio() in LALInference.c */
     REAL8 logVolume = LALInferenceKDLogCellEigenVolume(currentCell);
     // REAL8 logVolume = LALInferenceKDLogCellVolume(currentCell);
     REAL8 logCellFactor = log((REAL8)currentCell->npts / (REAL8)tree->npts);
@@ -299,6 +406,7 @@ REAL8 priorFunction( LALInferenceRunState *runState, LALInferenceVariables *para
     if( item->vary == LALINFERENCE_PARAM_FIXED || item->vary == LALINFERENCE_PARAM_OUTPUT ){ continue; }
 
     sprintf(scalePar, "%s_scale", item->name);
+
     scale = *(REAL8 *)LALInferenceGetVariable( ifo->params, scalePar );
 
     sprintf(scaleMinPar, "%s_scale_min", item->name);
@@ -365,7 +473,7 @@ REAL8 priorFunction( LALInferenceRunState *runState, LALInferenceVariables *para
       /* check for positive definiteness */
       if( !LALInferenceCheckPositiveDefinite( cor, cor->size1 ) ){
         XLALPrintError("Error... matrix is not positive definite!\n");
-        XLAL_ERROR_REAL8(XLAL_EFUNC);
+        XLAL_ERROR_REAL8( XLAL_EFUNC );
       }
 
       /* gsl_linalg_cholesky_invert is not supported in GSL versions < 1.9, so until this requirement is changed just
@@ -383,8 +491,7 @@ REAL8 priorFunction( LALInferenceRunState *runState, LALInferenceVariables *para
       gsl_matrix_free( invcor );
       gsl_permutation_free( p );
 
-      LALInferenceAddVariable( runState->priorArgs, "matrix_inverse", &cor, LALINFERENCE_gslMatrix_t,
-                               LALINFERENCE_PARAM_FIXED );
+      LALInferenceAddVariable( runState->priorArgs, "matrix_inverse", &cor, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED );
 
     }
 

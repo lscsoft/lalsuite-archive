@@ -24,6 +24,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
@@ -83,7 +84,6 @@ struct fvec {
 
 #define LALINFERENCE_DEFAULT_FLOW "40.0"
 
-char *SNRpath = NULL;
 
 struct fvec *interpFromFile(char *filename);
 
@@ -177,7 +177,7 @@ static const LALUnit strainPerCount={0,{0,0,0,0,0,1,-1},{0,0,0,0,0,0,0}};
 
 static REAL8TimeSeries *readTseries(LALCache *cache, CHAR *channel, LIGOTimeGPS start, REAL8 length);
 static void makeWhiteData(LALInferenceIFOData *IFOdata);
-static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , SimInspiralTable *inj_table);
+static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , char SNRpath[] );
 
 
 static LALCache *GlobFramesPWD( char *ifo);
@@ -248,21 +248,10 @@ static INT4 getDataOptionsByDetectors(ProcessParamsTable *commandLine, char ***i
     *N=0;
     char tmp[128];
     if(!this) {fprintf(stderr,"No command line arguments given!\n"); exit(1);}
-    while(this)
-    {
-        if(!strcmp(this->param,"--ifo") || !strcmp(this->param,"--IFO"))
-        for(i=0;this->value[i]!='\0';i++)
-            if(this->value[i]=='[' || this->value[i]==']')
-            {
-                fprintf(stderr,"Found old-style input arguments for %s\n",this->param);
-                return(0);
-            }
-        this=this->next;
-    }
     /* Construct a list of IFOs */
     for(this=commandLine;this;this=this->next)
     {
-        if(!strcmp(this->param,"--ifo")||!strcmp(this->param,"--IFO"))
+        if(!strcmp(this->param,"--ifo"))
         {
             (*N)++;
             *ifos=XLALRealloc(*ifos,*N*sizeof(char *));
@@ -446,10 +435,12 @@ void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, ProcessPar
 (--lalinspiralinjection)      Enables injections via the LALInspiral package\n\
 (--inj-fref)                    Reference frequency for parameters in injection XML (default 100Hz)\n\
 (--inj-lambda1)                 value of lambda1 to be injected, LALSimulation only (0)\n\
-(--inj-lambda2)                 value of lambda1 to be injected, LALSimulation only (0)\n\
+(--inj-lambda2)                 value of lambda2 to be injected, LALSimulation only (0)\n\
+(--inj-lambdaT                  value of lambdaT to be injected (0)\n\
+(--inj-dlambdaT                  value of dlambdaT to be injected (0)\n\
 (--inj-spinOrder PNorder)           Specify twice the PN order (e.g. 5 <==> 2.5PN) of spin effects to use, only for LALSimulation (default: -1 <==> Use all spin effects).\n\
 (--inj-tidalOrder PNorder)          Specify twice the PN order (e.g. 10 <==> 5PN) of tidal effects to use, only for LALSimulation (default: -1 <==> Use all tidal effects).\n\
-(--snrpath) 			Set a folder where to write a file with the SNRs being injected\n\
+(--snrpath) 		              	Set a folder where to write a file with the SNRs being injected\n\
 (--0noise)                      Sets the noise realisation to be identically zero (for the fake caches above only)\n"
 
 
@@ -513,7 +504,6 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         }
         LALInferenceParseCharacterOptionString(LALInferenceGetProcParamVal(commandLine,"--cache")->value,&caches,&Ncache);
         ppt=LALInferenceGetProcParamVal(commandLine,"--ifo");
-        if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--IFO");
         LALInferenceParseCharacterOptionString(ppt->value,&IFOnames,&Nifo);
 
         ppt=LALInferenceGetProcParamVal(commandLine,"--flow");
@@ -875,9 +865,11 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     for (i=0;i<Nifo;i++){
         /* Create FFT plans (flag 1 to measure performance) */
         IFOdata[i].timeToFreqFFTPlan = XLALCreateForwardREAL8FFTPlan((UINT4) seglen, 1 );
-        if(!IFOdata[i].timeToFreqFFTPlan) XLAL_ERROR_NULL(XLAL_EFUNC);
+        if(!IFOdata[i].timeToFreqFFTPlan) XLAL_ERROR_NULL(XLAL_ENOMEM);
         IFOdata[i].freqToTimeFFTPlan = XLALCreateReverseREAL8FFTPlan((UINT4) seglen, 1 );
-        if(!IFOdata[i].freqToTimeFFTPlan) XLAL_ERROR_NULL(XLAL_EFUNC);		
+        if(!IFOdata[i].freqToTimeFFTPlan) XLAL_ERROR_NULL(XLAL_ENOMEM);
+        IFOdata[i].margComplexFFTPlan = XLALCreateForwardCOMPLEX16FFTPlan((UINT4) seglen, 1);
+        if(!IFOdata[i].margComplexFFTPlan) XLAL_ERROR_NULL(XLAL_ENOMEM);
         /* Setup windows */
         IFOdata[i].window=XLALCreateTukeyREAL8Window(seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen);
         if(!IFOdata[i].window) XLAL_ERROR_NULL(XLAL_EFUNC);
@@ -1463,16 +1455,16 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	REAL8 bufferLength = 2048.0; /* Default length of buffer for injections (seconds) */
 	UINT4 bufferN=0;
 	LIGOTimeGPS bufferStart;
-
 	
 	LALInferenceIFOData *thisData=IFOdata->next;
 	REAL8 minFlow=IFOdata->fLow;
 	REAL8 MindeltaT=IFOdata->timeData->deltaT;
-  REAL8 InjSampleRate=1.0/MindeltaT;
+    REAL8 InjSampleRate=1.0/MindeltaT;
 	REAL4TimeSeries *injectionBuffer=NULL;
-  REAL8 padding=0.4; //default, set in LALInferenceReadData()
-	
-  
+    REAL8 padding=0.4; //default, set in LALInferenceReadData()
+	UINT4 SNR_flag=0; // Print SNRs to file
+    char SNRpath[FILENAME_MAX]="";
+
 	while(thisData){
           minFlow   = minFlow>thisData->fLow ? thisData->fLow : minFlow;
           MindeltaT = MindeltaT>thisData->timeData->deltaT ? thisData->timeData->deltaT : MindeltaT;
@@ -1485,12 +1477,12 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
     event= atoi(LALInferenceGetProcParamVal(commandLine,"--event")->value);
     fprintf(stdout,"Injecting event %d\n",event);
 	}
-        if(LALInferenceGetProcParamVal(commandLine,"--snrpath")){
+    
+	if(LALInferenceGetProcParamVal(commandLine,"--snrpath")){
                 ppt = LALInferenceGetProcParamVal(commandLine,"--snrpath");
-		SNRpath = XLALCalloc(strlen(ppt->value)+1,sizeof(char));
-		memcpy(SNRpath,ppt->value,strlen(ppt->value)+1);
-                fprintf(stdout,"Writing SNRs in %s\n",SNRpath)     ;
-
+                sprintf(SNRpath,"%s",ppt->value);
+				SNR_flag=1;
+				fprintf(stdout,"Writing SNRs in %s\n",SNRpath);
 	}
 	Ninj=SimInspiralTableFromLIGOLw(&injTable,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
 	REPORTSTATUS(&status);
@@ -1768,8 +1760,8 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       XLALDestroyCOMPLEX16FrequencySeries(injF);
       thisData=thisData->next;
     }
-     if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
-      PrintSNRsToFile(IFOdata , injTable);
+     if (SNR_flag){ /* If the user provided a path with --snrpath store a file with injected SNRs */
+      PrintSNRsToFile(IFOdata , SNRpath);
     }
 
     NetworkSNR=sqrt(NetworkSNR);
@@ -2285,6 +2277,16 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   LALStatus status;
   memset(&status,0,sizeof(LALStatus));
   INT4 errnum;
+  char SNRpath[FILENAME_MAX];
+  char SNR_flag=0;
+  ProcessParamsTable *ppt=NULL;
+
+  if(LALInferenceGetProcParamVal(commandLine,"--snrpath")){
+                ppt = LALInferenceGetProcParamVal(commandLine,"--snrpath");
+                sprintf(SNRpath,"%s",ppt->value);
+				SNR_flag=1;
+				fprintf(stdout,"Writing SNRs in %s\n",SNRpath);
+  }
 
   Approximant approximant = XLALGetApproximantFromString(inj_table->waveform);
   if( (int) approximant == XLAL_FAILURE)
@@ -2476,8 +2478,8 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   }
   printf("injected Network SNR %.1f \n",sqrt(NetSNR));
 
-  if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
-    PrintSNRsToFile(IFOdata , inj_table);
+  if (SNR_flag){ /* If the user provided a path with --snrpath store a file with injected SNRs */
+    PrintSNRsToFile(IFOdata , SNRpath);
   }
 
   XLALDestroyCOMPLEX16FrequencySeries(hctilde);
@@ -2485,26 +2487,15 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
 }
 
 
-static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , SimInspiralTable *inj_table){
-  char SnrName[200];
-  char ListOfIFOs[10]="";
+static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , char SNRpath[] ){
   REAL8 NetSNR=0.0;
   LALInferenceIFOData *thisData=IFOdata;
-  int nIFO=0;
 
-  while(thisData){
-       sprintf(ListOfIFOs,"%s%s",ListOfIFOs,thisData->name);
-       thisData=thisData->next;
-  nIFO++;
-      }
-
-  (void) ListOfIFOs;
-  (void) inj_table;
-  sprintf(SnrName,"%s/snr_IMR.dat",SNRpath);
-  FILE * snrout = fopen(SnrName,"a");
+  FILE * snrout = fopen(SNRpath,"a");
   if(!snrout){
     fprintf(stderr,"Unable to open the path %s for writing SNR files\n",SNRpath);
-    exit(1);
+    fprintf(stderr,"Error code %i: %s\n",errno,strerror(errno));
+    exit(errno);
   }
 
   thisData=IFOdata; // restart from the first IFO
@@ -2585,11 +2576,10 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
   LALInferenceAddVariable(vars, "mass1", &m1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "mass2", &m2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "chirpmass", &chirpmass, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-  LALInferenceAddVariable(vars, "asym_massratio", &q, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(vars, "q", &q, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "time", &injGPSTime, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "distance", &dist, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-  LALInferenceAddVariable(vars, "inclination", &inclination, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-  LALInferenceAddVariable(vars, "theta_JN", &inclination, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(vars, "theta_jn", &inclination, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "polarisation", &(psi), LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "phase", &phase, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(vars, "declination", &dec, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
@@ -2649,10 +2639,15 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState)
       theEventTable->next = NULL;
     }
 
+    LALPNOrder *order=LALInferenceGetVariable(runState->currentParams,"LAL_PNORDER");
+    Approximant *approx=LALInferenceGetVariable(runState->currentParams,"LAL_APPROXIMANT");
+
+    if(!(approx && order)){
+      fprintf(stdout,"Unable to print injection sample: No approximant/PN order set\n");
+      return;
+    }
     /* Save old variables */
     LALInferenceCopyVariables(runState->currentParams,&backup);
-    LALPNOrder *order=LALInferenceGetVariable(&backup,"LAL_PNORDER");
-    Approximant *approx=LALInferenceGetVariable(&backup,"LAL_APPROXIMANT");
     /* Fill named variables */
     LALInferenceInjectionToVariables(theEventTable,runState->currentParams);
 
@@ -2668,13 +2663,6 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState)
             LALInferenceAddVariable(runState->currentParams,"time_max",&time_max,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
     }
 
-    if(order && approx){
-      /* Set the waveform to the one used in the analysis */
-      LALInferenceRemoveVariable(runState->currentParams,"LAL_APPROXIMANT");
-      LALInferenceRemoveVariable(runState->currentParams,"LAL_PNORDER");
-      LALInferenceAddVariable(runState->currentParams,"LAL_PNORDER",order,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED);
-      LALInferenceAddVariable(runState->currentParams,"LAL_APPROXIMANT",approx,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED);
-    }
     REAL8 injPrior = runState->prior(runState,runState->currentParams,runState->model);
     LALInferenceAddVariable(runState->currentParams,"logPrior",&injPrior,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
     int errnum=0;
@@ -2708,7 +2696,8 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState)
     fprintf(outfile,"\n");
     LALInferencePrintSample(outfile,runState->currentParams);
     fclose(outfile);
-    
+    LALInferenceCopyVariables(&backup,runState->currentParams);
+    LALInferenceClearVariables(&backup);
     return;
 }
 

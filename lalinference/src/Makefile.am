@@ -22,10 +22,13 @@ pkginclude_HEADERS = \
 	LALInferenceReadData.h \
 	LALInferenceTemplate.h \
 	LALInferenceProposal.h \
+	LALInferenceClusteredKDE.h \
+	LALInferenceKDE.h \
 	LALInferenceVCSInfo.h \
 	LALInferenceInit.h \
 	LALInferenceVCSInfoHeader.h \
 	LALInferenceRemoveLines.h \
+	LALInferenceCalibrationErrors.h \
 	$(BAYESTARHDR) \
 	$(XMLHDR)
 
@@ -38,9 +41,12 @@ liblalinference_la_SOURCES = \
 	LALInferenceReadData.c \
 	LALInferenceTemplate.c \
 	LALInferenceProposal.c \
+	LALInferenceClusteredKDE.c \
+	LALInferenceKDE.c \
 	LALInferenceInitCBC.c \
 	LALInferenceVCSInfo.c \
 	LALInferenceRemoveLines.c \
+	LALInferenceCalibrationErrors.c \
 	logaddexp.h \
 	$(BAYESTARSRC) \
 	$(XMLSRC)

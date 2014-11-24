@@ -1,7 +1,7 @@
 # -*- mode: autoconf; -*-
 # lalsuite_build.m4 - top level build macros
 #
-# serial 95
+# serial 98
 
 # not present in older versions of pkg.m4
 m4_pattern_allow([^PKG_CONFIG(_(PATH|LIBDIR|SYSROOT_DIR|ALLOW_SYSTEM_(CFLAGS|LIBS)))?$])
@@ -170,17 +170,21 @@ AC_DEFUN([LALSUITE_ADD_PATH],[
   # $0: prepend path to $1, removing duplicates, first value taking precedence
   # - arg 1: name of path variable
   # - arg 2: path to prepend
+  # - arg 3: whether to exclude /opt/... and /usr/... directories (default: yes)
   tokens=$2
   tokens=`echo ${tokens} ${$1} | sed 's/:/ /g'`
   $1=
   for token in ${tokens}; do
-    AS_CASE([":${$1}:"],
-      [*:${token}:*],[:],
-      AS_IF([test "x${$1}" = x],[
-        $1="${token}"
-      ],[
-        $1="${$1}:${token}"
-      ])
+    AS_CASE([m4_default([$3],[yes]):${token}],
+      [yes:/opt/*|yes:/usr/*],[:],
+      AS_CASE([":${$1}:"],
+        [*:${token}:*],[:],
+        AS_IF([test "x${$1}" = x],[
+          $1="${token}"
+        ],[
+          $1="${$1}:${token}"
+        ])
+      )
     )
   done
   _AS_ECHO_LOG([$1=${$1}])
@@ -666,13 +670,13 @@ AC_DEFUN([LALSUITE_ENABLE_LALXML],
 [AC_REQUIRE([LALSUITE_ENABLE_ALL_LAL])
 AC_ARG_ENABLE(
   [lalxml],
-  AC_HELP_STRING([--enable-lalxml],[compile code that requires lalxml library [default=no]]),
+  AC_HELP_STRING([--enable-lalxml],[compile code that requires lalxml library [default=yes]]),
   [ case "${enableval}" in
       yes) lalxml=true;;
       no) lalxml=false;;
       *) AC_MSG_ERROR(bad value ${enableval} for --enable-lalxml) ;;
     esac
-  ], [ lalxml=${all_lal:-false} ] )
+  ], [ lalxml=${all_lal:-true} ] )
 ])
 
 AC_DEFUN([LALSUITE_ENABLE_LALSIMULATION],
@@ -711,7 +715,7 @@ AC_DEFUN([LALSUITE_ENABLE_LALDETCHAR],
 [AC_REQUIRE([LALSUITE_ENABLE_ALL_LAL])
 AC_ARG_ENABLE(
   [laldetchar],
-  AC_HELP_STRING([--enable-laldetchar],[compile code that requires laldetchar library [default=no]]),
+  AC_HELP_STRING([--enable-laldetchar],[compile code that requires laldetchar library [default=yes]]),
   [ case "${enableval}" in
       yes) laldetchar=true;;
       no) laldetchar=false;;

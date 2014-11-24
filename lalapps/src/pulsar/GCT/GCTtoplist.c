@@ -255,30 +255,49 @@ static int print_gctFStatline_to_str(GCTtopOutputEntry fline, char* buf, int buf
           snprintf ( buf0, sizeof(buf0), " %.6f", fline.avTwoFX[X] );
           UINT4 len1 = strlen ( BSGLstr ) + strlen ( buf0 ) + 1;
           if ( len1 > sizeof ( BSGLstr ) ) {
-            XLALPrintError ("%s: assembled output string too long! (%d > %d)\n", fn, len1, sizeof(BSGLstr ));
+            XLALPrintError ("%s: assembled output string too long! (%d > %zu)\n", fn, len1, sizeof(BSGLstr ));
             break;	/* we can't really terminate with error in this function, but at least we avoid crashing */
           }
           strcat ( BSGLstr, buf0 );
         } /* for X < numDet */
 
     } /* if fline.log10BSGL */
-  /* add extra output fields for recalculated F-stats */
+  /* add extra output fields for recalculated statistics */
   char recalcStr[256] = "";	/* defaults to empty */
   if ( fline.avTwoFrecalc >= 0.0 ) /* this was initialised to -1.0 and is only >= 0.0 if actually recomputed in recalcToplistStats step */
     {
       char buf0[256];
       snprintf ( recalcStr, sizeof(recalcStr), " %.6f", fline.avTwoFrecalc );
+      if ( fline.log10BSGLrecalc > -LAL_REAL4_MAX*0.2 ) /* if --computeBSGL=FALSE, the log10BSGLrecalc field was initialised to -LAL_REAL4_MAX; if --computeBSGL=TRUE, it is at least -LAL_REAL4_MAX*0.1 */
+        {
+          snprintf ( buf0, sizeof(buf0), " %.6f", fline.log10BSGLrecalc );
+          strcat ( recalcStr, buf0 );
+        } /* if ( fline.log10BSGL > -LAL_REAL4_MAX*0.2 ) */
       for ( UINT4 X = 0; X < fline.numDetectors ; X ++ )
         {
           snprintf ( buf0, sizeof(buf0), " %.6f", fline.avTwoFXrecalc[X] );
           UINT4 len1 = strlen ( recalcStr ) + strlen ( buf0 ) + 1;
           if ( len1 > sizeof ( recalcStr ) ) {
-            XLALPrintError ("%s: assembled output string too long! (%d > %d)\n", fn, len1, sizeof(recalcStr ));
+            XLALPrintError ("%s: assembled output string too long! (%d > %zu)\n", fn, len1, sizeof(recalcStr ));
             break;	/* we can't really terminate with error in this function, but at least we avoid crashing */
           }
           strcat ( recalcStr, buf0 );
         } /* for X < numDet */
-
+      if ( fline.twoFloudestSeg >= 0.0 ) /* this was initialised to -1.0 and is only >= 0.0 if actually recomputed in recalcToplistStats step */
+      {
+        snprintf ( buf0, sizeof(buf0), " %d %.6f", fline.loudestSeg, fline.twoFloudestSeg );
+        strcat ( recalcStr, buf0 );
+        for ( UINT4 X = 0; X < fline.numDetectors ; X ++ )
+          {
+            snprintf ( buf0, sizeof(buf0), " %.6f", fline.twoFXloudestSeg[X] );
+            UINT4 len1 = strlen ( recalcStr ) + strlen ( buf0 ) + 1;
+            if ( len1 > sizeof ( recalcStr ) ) {
+              XLALPrintError ("%s: assembled output string too long! (%d > %zu)\n", fn, len1, sizeof(recalcStr ));
+              break;	/* we can't really terminate with error in this function, but at least we avoid crashing */
+            }
+            strcat ( recalcStr, buf0 );
+          } /* for X < numDet */
+      } /* if ( fline.twoFloudestSeg >= 0.0 ) */
     } /* if avTwoFX */
 
   int len;
@@ -618,7 +637,7 @@ int write_gct_checkpoint(const char*filename, toplist_t*tl, toplist_t*t2, UINT4 
   len = fwrite(tl->data, tl->size, tl->elems, fp);
   if(len != tl->elems) {
     LOGIOERROR("Couldn't write data to", tmpfilename);
-    LogPrintf(LOG_CRITICAL,"fwrite() returned %d, length was %d\n", len, tl->elems);
+    LogPrintf(LOG_CRITICAL,"fwrite() returned %d, length was %zu\n", len, tl->elems);
     if(fclose(fp))
       LOGIOERROR("In addition: couldn't close", tmpfilename);
     LALFree(tmpfilename);
@@ -657,7 +676,7 @@ int write_gct_checkpoint(const char*filename, toplist_t*tl, toplist_t*t2, UINT4 
     len = fwrite(t2->data, t2->size, t2->elems, fp);
     if(len != t2->elems) {
       LOGIOERROR("Couldn't write data to", tmpfilename);
-      LogPrintf(LOG_CRITICAL,"fwrite() returned %d, length was %d\n", len, t2->elems);
+      LogPrintf(LOG_CRITICAL,"fwrite() returned %d, length was %zu\n", len, t2->elems);
       if(fclose(fp))
 	LOGIOERROR("In addition: couldn't close", tmpfilename);
       LALFree(tmpfilename);
@@ -791,7 +810,7 @@ int read_gct_checkpoint(const char*filename, toplist_t*tl, toplist_t*t2, UINT4*c
   /* sanity check */
   if (tl->elems > tl->length) {
     LogPrintf(LOG_CRITICAL,
-	      "Number of elements read larger than length of toplist: %d, > %d\n",
+	      "Number of elements read larger than length of toplist: %zu > %zu\n",
 	      tl->elems, tl->length);
     if(fclose(fp))
       LOGIOERROR("In addition: couldn't close", filename);
@@ -802,7 +821,7 @@ int read_gct_checkpoint(const char*filename, toplist_t*tl, toplist_t*t2, UINT4*c
   len = fread(tl->data, tl->size, tl->elems, fp);
   if(len != tl->elems) {
     LOGIOERROR("Couldn't read data from", filename);
-    LogPrintf(LOG_CRITICAL,"fread() returned %d, length was %d\n", len, tl->elems);
+    LogPrintf(LOG_CRITICAL,"fread() returned %d, length was %zu\n", len, tl->elems);
     if(fclose(fp))
       LOGIOERROR("In addition: couldn't close", filename);
     clear_toplist(tl);
@@ -839,7 +858,7 @@ int read_gct_checkpoint(const char*filename, toplist_t*tl, toplist_t*t2, UINT4*c
     /* sanity check */
     if (t2->elems > t2->length) {
       LogPrintf(LOG_CRITICAL,
-		"Number of elements read larger than length of toplist: %d, > %d\n",
+		"Number of elements read larger than length of toplist: %zu > %zu\n",
 		t2->elems, t2->length);
       if(fclose(fp))
 	LOGIOERROR("In addition: couldn't close", filename);
@@ -850,7 +869,7 @@ int read_gct_checkpoint(const char*filename, toplist_t*tl, toplist_t*t2, UINT4*c
     len = fread(t2->data, t2->size, t2->elems, fp);
     if(len != t2->elems) {
       LOGIOERROR("Couldn't read data from", filename);
-      LogPrintf(LOG_CRITICAL,"fread() returned %d, length was %d\n", len, t2->elems);
+      LogPrintf(LOG_CRITICAL,"fread() returned %d, length was %zu\n", len, t2->elems);
       if(fclose(fp))
 	LOGIOERROR("In addition: couldn't close", filename);
       clear_toplist(tl);

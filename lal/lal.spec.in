@@ -57,7 +57,7 @@ This package provides the Octave bindings.
 %{__make} V=1
 
 %install
-%makeinstall
+%make_install
 rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 
 %post
@@ -92,11 +92,9 @@ rm -Rf ${RPM_BUILD_DIR}/%{name}-%{version}
 %{_libdir}/python*/site-packages/lal/utils/*.py
 %{_libdir}/python*/site-packages/lal/utils/*.pyc
 %exclude %{_libdir}/python*/site-packages/lal/*.pyo
-%exclude %{_libdir}/python*/site-packages/lal/*.la
 %exclude %{_libdir}/python*/site-packages/lal/spectrum/*.pyo
 %exclude %{_libdir}/python*/site-packages/lal/utils/*.pyo
 
 %files octave
 %defattr(-,root,root)
 %{_libexecdir}/octave/*/site/oct/*/lal.oct*
-%exclude %{_libexecdir}/octave/*/site/oct/*/lal.la

@@ -17,6 +17,11 @@ from glue.ligolw import ligolw, utils
 from glue import lal
 from glue import iterutils
 
+# boilerplate to get the ligolw I/O code to treat arrays correctly
+class arrayContentHandler(ligolw.LIGOLWContentHandler):
+    pass
+array.use_in(arrayContentHandler)
+
 from pylal import upper_limit_utils
 import lal as constants
 
@@ -36,7 +41,7 @@ def edges(bins):
 
 
 def get_bins(file,bin_type):
-	xmldoc = utils.load_filename(file).childNodes[0]
+	xmldoc = utils.load_filename(file, contenthandler=arrayContentHandler).childNodes[0]
 	mbins = xmldoc.getChildrenByAttributes({"Name":"mass_bins:%s" % bin_type})
 	m1bins = xmldoc.getChildrenByAttributes({"Name":"mass1_bins:%s" % bin_type})
 	m2bins = xmldoc.getChildrenByAttributes({"Name":"mass2_bins:%s" % bin_type})
@@ -61,7 +66,7 @@ def get_bins(file,bin_type):
 def get_data(file,tablename):
 	"""Read in data produced by lalapps_cbc_svim"""
 
-	xmldoc = utils.load_filename(file)
+	xmldoc = utils.load_filename(file, contenthandler=arrayContentHandler)
 	xmldoc = xmldoc.childNodes[0]
 	table_node = xmldoc.getChildrenByAttributes({"Name":"binned_array:%s" % tablename})
 	if len(table_node) != 1:
