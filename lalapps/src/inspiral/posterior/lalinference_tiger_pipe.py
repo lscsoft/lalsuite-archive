@@ -117,7 +117,7 @@ def cp_ConfigParser(config):
 parser = argparse.ArgumentParser(usage)
 parser.add_argument('config', metavar='CONFIG_FILE', type=str, nargs='+', help='A (list of) configuration file(s) containing sections and options for the entire pipeline')
 parser.add_argument("-O", dest='basedir', type=str, help="Path to base directory")
-parser.add_argument("-P", dest='postproc', type=str, help="Path to post-processing output", default=None)
+parser.add_argument("-P", dest='postproc', type=str, help="Path to post-processing output (optional)", default=None)
 parser.add_argument("-I", dest='injfile', type=str, help="Path to a pre-existing injection .xml file (optional)", default=None)
 parser.add_argument("-L", dest='logdir', type=str, help="Path to log directory (optional)", default=None)
 parser.add_argument("-S", dest='scratchdir', type=str, help="Path to scratch directory (optional)", default=None)

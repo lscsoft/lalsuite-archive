@@ -50,7 +50,7 @@ pybin_scripts = \
 	lalapps_vo_nest2pos \
 	lalinference_pipe \
         lalinference_multi_pipe \
-	lalinference_tiger \
+	lalinference_tiger_pipe \
 	lalapps_nest2pos \
 	lalapps_merge_nested_sampling_runs \
 	lalinference_pp_pipe \
