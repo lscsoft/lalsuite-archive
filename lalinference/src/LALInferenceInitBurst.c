@@ -331,6 +331,7 @@ Parameter arguments:\n\
 
   /* Use same window and FFT plans on model as data */
   model->window = state->data->window;
+  model->padding = state->data->padding;
   model->timeToFreqFFTPlan = state->data->timeToFreqFFTPlan;
   model->freqToTimeFFTPlan = state->data->freqToTimeFFTPlan;
   /* Initialize waveform cache */

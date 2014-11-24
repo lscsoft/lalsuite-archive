@@ -336,10 +336,10 @@ void InjectBurstFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, ProcessPar
 
   LALSimBurstExtraParam *extraParams = NULL;
 
- /* Print a line with information about approximant, amp_order, phaseorder, tide order and spin order */
+  /* Print a line with information about approximant, amp_order, phaseorder, tide order and spin order */
   fprintf(stdout,"\n\n---\t\t ---\n");
- fprintf(stdout,"Injection will run using Approximant %d (%s) in the frequency domain.\n",approx,XLALGetStringFromBurstApproximant(approx));
-   fprintf(stdout,"---\t\t ---\n\n");
+  fprintf(stdout,"Injection will run using Approximant %d (%s) in the frequency domain.\n",approx,XLALGetStringFromBurstApproximant(approx));
+  fprintf(stdout,"---\t\t ---\n\n");
 
   COMPLEX16FrequencySeries *hptilde=NULL, *hctilde=NULL;
 
