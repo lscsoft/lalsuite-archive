@@ -244,6 +244,8 @@ Parameter arguments:\n\
     }
     else if (!strcmp("Gaussian",ppt->value) || !strcmp("GaussianF",ppt->value)){
       LALInferenceRegisterUniformVariableREAL8(state, model->params,"duration", zero, durMin,durMax, LALINFERENCE_PARAM_LINEAR);
+      
+      LALInferenceRegisterUniformVariableREAL8(state, model->params, "phase", zero, phiMin, phiMax, LALINFERENCE_PARAM_FIXED);
     }
     
     if (LALInferenceGetProcParamVal(commandLine,"--use-hrss")){

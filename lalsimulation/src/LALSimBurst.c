@@ -746,14 +746,11 @@ int XLALSimBurstGaussian(
    * 
    * */
   
-//	REAL8Window *window;
-	/* semimajor and semiminor axes of waveform ellipsoid */
-	const double a = 1.0 / sqrt(2.0 - eccentricity * eccentricity);
-	const double b = a * sqrt(1.0 - eccentricity * eccentricity);
+  (void) eccentricity;
+  /* semimajor and semiminor axes of waveform ellipsoid */
 	/* rss of plus and cross polarizations */
-	const double hplusrss  = hrss * (a * cos(polarization) - b * sin(polarization));
-	const double hcrossrss = hrss * (b * cos(polarization) + a * sin(polarization));
-	
+	const double hplusrss  = hrss * cos(polarization);
+	const double hcrossrss = hrss * sin(polarization);
   REAL8 sdur=sqrt(duration);
 	/* "peak" amplitudes of plus and cross */
 	const double h0plus  = hplusrss /sdur*FRTH_2_Pi ;

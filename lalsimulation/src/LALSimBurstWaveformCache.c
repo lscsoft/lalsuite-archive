@@ -461,7 +461,10 @@ static int StoreTDHCache(
     }
     else{
       XLALSimBurstSetExtraParam(cache->extraParams,"alpha",XLALSimBurstGetExtraParam(extraParams,"alpha"));
-      XLALSimBurstSetExtraParam(cache->extraParams,"phase",XLALSimBurstGetExtraParam(extraParams,"phase"));
+      REAL8 phase=0.0;
+      if (XLALSimBurstExtraParamExists(extraParams,"phase"))
+        phase=XLALSimBurstGetExtraParam(extraParams,"phase");
+      XLALSimBurstSetExtraParam(cache->extraParams,"phase",phase);
     }
     cache->approximant = approximant;
 
