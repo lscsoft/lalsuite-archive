@@ -1588,7 +1588,8 @@ class CoincParamsDistributions(object):
 		self.background_lnpdf_interp.clear()
 		self.injection_lnpdf_interp.clear()
 		def mkinterp(binnedarray):
-			assert not (binnedarray.array < 0.).any()
+			with numpy.errstate(invalid = "ignore"):
+				assert not (binnedarray.array < 0.).any()
 			binnedarray = binnedarray.copy()
 			with numpy.errstate(divide = "ignore"):
 				binnedarray.array = numpy.log(binnedarray.array)
