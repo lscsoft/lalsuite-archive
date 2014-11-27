@@ -1870,37 +1870,6 @@ class CoincParamsDistributions(object):
 
 		return xml
 
-	@classmethod
-	def from_filenames(cls, filenames, name, verbose = False, contenthandler = None):
-		"""
-		Convenience function to deserialize
-		CoincParamsDistributions objects from a collection of XML
-		files and return their sum.  The return value is a
-		two-element tuple.  The first element is the deserialized
-		and summed CoincParamsDistributions object, the second is a
-		segmentlistdict indicating the interval of time spanned by
-		the out segments in the search_summary rows matching the
-		process IDs that were attached to the
-		CoincParamsDistributions objects in the XML.
-		"""
-		if contenthandler is None:
-			contenthandler = cls.LIGOLWContentHandler
-		self = None
-		for n, filename in enumerate(filenames):
-			if verbose:
-				print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-			xmldoc = utils.load_filename(filename, verbose = verbose, contenthandler = contenthandler)
-			if self is None:
-				self = cls.from_xml(xmldoc, name)
-				seglists = lsctables.SearchSummaryTable.get_table(xmldoc).get_out_segmentlistdict(set([self.process_id])).coalesce()
-			else:
-				other = cls.from_xml(xmldoc, name)
-				self += other
-				seglists |= lsctables.SearchSummaryTable.get_table(xmldoc).get_out_segmentlistdict(set([other.process_id])).coalesce()
-				del other
-			xmldoc.unlink()
-		return self, seglists
-
 
 #
 # Likelihood Ratio
