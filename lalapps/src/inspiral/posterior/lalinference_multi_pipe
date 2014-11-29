@@ -1,8 +1,0 @@
-#!/bin/sh
-pypath="/projects/lalinference/src/lalapps/src/inspiral/posterior:/projects/lalinference/src/lalapps/src/inspiral/posterior:/projects/lalinference/src/lalstochastic/python:/projects/lalinference/src/lalinference/python:/projects/lalinference/src/lalpulsar/python:/projects/lalinference/src/lalinspiral/python:/projects/lalinference/src/lalburst/python:/projects/lalinference/src/lalsimulation/python:/projects/lalinference/src/lalmetaio/python:/projects/lalinference/src/lalframe/python:/projects/lalinference/src/lal/python"
-pyscript="/projects/lalinference/src/lalapps/src/inspiral/posterior/lalinference_multi_pipe.py"
-PYTHONPATH=`echo "${PYTHONPATH}" | /opt/local/bin/gsed -e "s|${pypath}:||g;"`
-PYTHONPATH="${pypath}:${PYTHONPATH}"
-export PYTHONPATH
-exec /opt/local/bin/python "${pyscript}" "$@"
-exit 1
