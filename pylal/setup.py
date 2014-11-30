@@ -88,15 +88,6 @@ def write_build_info():
 	if sed_retcode:
 		raise gvcsi.GitInvocationError
 
-class pylal_build(build.build):
-	def run(self):
-		# If we are building from a release tarball, do not distribute scripts.
-		# PKG-INFO is inserted into the tarball by the sdist target.
-		if os.path.exists("PKG-INFO"):
-			self.distribution.scripts = []
-
-		# resume normal build procedure
-		build.build.run(self)
 
 class pylal_build_py(build_py.build_py):
 	def run(self):
@@ -119,11 +110,6 @@ class pylal_install(install.install):
 	def run(self):
 		pylal_prefix = remove_root(self.prefix, self.root)
 
-		# Detect whether we are building from a tarball; we have decided
-		# that releases should not contain scripts.
-		# PKG-INFO is inserted into the tarball by the sdist target.
-		if os.path.exists("PKG-INFO"):
-			self.distribution.scripts = []
 		# Hardcode a check for system-wide installation;
 		# in this case, don't make the user-env scripts.
 		if pylal_prefix == sys.prefix:
@@ -192,7 +178,6 @@ class pylal_sdist(sdist.sdist):
 			for file in files:
 				self.distribution.data_files += [os.path.join(root,file)]
 		self.distribution.data_files += ["pylal.spec"]
-		self.distribution.scripts = []
 
 		# create the git_version module
 		try:
@@ -212,7 +197,7 @@ class pylal_sdist(sdist.sdist):
 
 setup(
 	name = "pylal",
-	version = "0.5.0",
+	version = "0.6.0",
 	author = "Kipp Cannon and Nickolas Fotopoulos",
 	author_email = "lal-discuss@ligo.org",
 	description = "Python LIGO Algorithm Library",
@@ -225,7 +210,6 @@ setup(
                 "pylal.dq"
 	],
 	cmdclass = {
-		"build": pylal_build,
 		"build_py": pylal_build_py,
 		"install": pylal_install,
 		"sdist": pylal_sdist
@@ -372,15 +356,6 @@ setup(
 			["src/xlal/datatypes/snglringdowntable.c", "src/xlal/misc.c"],
 			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
 			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
-		),
-		Extension(
-			"pylal.xlal.constants",
-			["src/xlal/constants.c"],
-			include_dirs = lal_pkg_config.incdirs,
-			libraries = ["lal"],  # this really, truly has no other deps
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs,
 			extra_compile_args = lal_pkg_config.extra_cflags
@@ -613,6 +588,7 @@ setup(
 		os.path.join("bin", "ligolw_cbc_plotfm"),
 		os.path.join("bin", "ligolw_cbc_plotvt"),
 		os.path.join("bin", "lalapps_cbc_plotrates"),
+                os.path.join("bin", "pylal_cbc_extended_background"),
 		os.path.join("bin", "ligolw_cbc_compute_durations"),
 		os.path.join("bin", "ligolw_cbc_repop_coinc"),
 		os.path.join("bin", "ligolw_segments_compat"),
@@ -621,8 +597,10 @@ setup(
 		os.path.join("bin", "mvsc_update_sql"),
 		os.path.join("bin", "mvsc_get_doubles"),
 		os.path.join("bin", "mvsc_get_doubles_ringdown"),
+		os.path.join("bin", "mvsc_get_doubles_snglstage"),
 		os.path.join("bin", "mvsc_dag"),
 		os.path.join("bin", "mvsc_dag_ringdown"),
+		os.path.join("bin", "mvsc_dag_snglstage"),
 		os.path.join("bin", "post_process_pipe"),
 		os.path.join("bin", "prepare_sendback.py"),
 		os.path.join("bin", "qsub_wscan.sh"),

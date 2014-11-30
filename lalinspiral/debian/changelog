@@ -1,3 +1,43 @@
+lalinspiral (1.6.4-1) unstable; urgency=low
+
+  * LALInspiral 1.6.4
+  * packaging updates
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Tue, 18 Nov 2014 16:14:10 -0600
+
+lalinspiral (1.6.3-2) unstable; urgency=low
+
+  * dependency typo fix
+
+ -- Steffen Grunewald <steffen.grunewald@ligo.org>  Thu, 13 Nov 2014 09:55:00 +0100
+
+lalinspiral (1.6.3-1) unstable; urgency=low
+
+  * LALInspiral 1.6.3
+  * more SWIG binding packaging fixes
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Thu, 06 Nov 2014 15:36:48 -0600
+
+lalinspiral (1.6.2-1) unstable; urgency=low
+
+  * LALInspiral 1.6.2
+  * more SWIG binding packaging fixes
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Mon, 03 Nov 2014 11:52:49 -0600
+
+lalinspiral (1.6.1-1) unstable; urgency=low
+
+  * LALInspiral 1.6.1
+  * correctly package SWIG bindings
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Fri, 31 Oct 2014 11:27:22 -0500
+
+lalinspiral (1.6.0-1) unstable; urgency=low
+
+  * LALInspiral 1.6.0
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Mon, 27 Oct 2014 15:25:30 -0500
+
 lalinspiral (1.5.3-1) unstable; urgency=low
 
   * LALInspiral 1.5.3

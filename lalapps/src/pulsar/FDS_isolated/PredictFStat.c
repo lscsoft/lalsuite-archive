@@ -85,8 +85,6 @@
 
 #define SQ(x) ((x)*(x))
 
-#define LAL_INT4_MAX 2147483647
-
 /**
  * Configuration settings required for and defining a coherent pulsar search.
  * These are 'pre-processed' settings, which have been derived from the user-input.
@@ -644,7 +642,7 @@ InitPFS ( LALStatus *status, ConfigVariables *cfg, const UserInput_t *uvar )
     }
     strcpy ( cfg->dataSummary, summary );
 
-    LogPrintfVerbatim( LOG_DEBUG, cfg->dataSummary );
+    LogPrintfVerbatim( LOG_DEBUG, "%s", cfg->dataSummary );
   } /* write dataSummary string */
 
   /* free everything not needed any more */

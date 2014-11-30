@@ -599,9 +599,9 @@ void coh_PTF_create_time_slide_table(
   UINT4 shortSlideCount = 0;
   INT4 i;
   UINT4 ui,uj,ifoNumber,ifoNum,lastStartPoint,wrapPoint,currId,ifoCount;
-  UINT4 slideSegmentCount;
+  UINT4 slideSegmentCount, calculatedFlag;
   REAL8 currBaseOffset,currBaseIfoOffset[LAL_NUM_IFO],wrapTime,currIfoOffset;
-  LIGOTimeGPS slideStartTime,slideEndTime;
+  LIGOTimeGPS slideStartTime,slideEndTime, tmpSlideStartTime, tmpSlideEndTime;
 
   /* First construct the list of long slides */
   for (i = 0 ; i < numSegments ; i++)
@@ -679,11 +679,11 @@ void coh_PTF_create_time_slide_table(
         {
           currBaseIfoOffset[ifoNumber] = currBaseOffset * ifoNum;
           /* If the offset is bigger than the stride then this cannot be done*/
-          /* EDIT: We need to check that the offset is not bigger than the */
+          /* FIXME: We should check if the offset is not bigger than the */
           /* stride minus the BaseOffset, otherwise we can end up with short */
           /* slides whose offsets are very similar to the long slides */
           if (currBaseIfoOffset[ifoNumber] > \
-                  (params->strideDuration - params->shortSlideOffset) )
+                  (params->strideDuration) )
           {
             break;
           }
@@ -826,12 +826,41 @@ void coh_PTF_create_time_slide_table(
       currId = slideIDList[i]*shortSlideCount;
       currId += shortTimeSlideList[uj].timeSlideID;
       /* Construct the segment start and end times */
+      calculatedFlag = 0;
       for (ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
       {
         if (params->haveTrig[ifoNumber])
         {
-          slideStartTime = segments[ifoNumber]->sgmnt[i].epoch; 
-          slideEndTime = segments[ifoNumber]->sgmnt[i].epoch;
+          tmpSlideStartTime = segments[ifoNumber]->sgmnt[i].epoch; 
+          tmpSlideEndTime = segments[ifoNumber]->sgmnt[i].epoch;
+          XLALGPSAdd(&tmpSlideStartTime, \
+                    -timeSlideVectors[ifoNumber*params->numOverlapSegments+i]);
+          XLALGPSAdd(&tmpSlideEndTime, \
+                    -timeSlideVectors[ifoNumber*params->numOverlapSegments+i]);
+          if (calculatedFlag)
+          {
+            if (XLALGPSCmp(&tmpSlideStartTime, &slideStartTime))
+            {
+              fprintf(stderr, "1: %d %d\n", tmpSlideStartTime.gpsSeconds, slideStartTime.gpsSeconds);
+              fprintf(stderr, "1: %d %d\n", tmpSlideStartTime.gpsNanoSeconds, slideStartTime.gpsNanoSeconds);
+              error("Error long slide epochs not agreeing with the slid times. This suggests broken code, please contact a developer.\n");
+
+            }
+            if (XLALGPSCmp(&tmpSlideEndTime, &slideEndTime))
+            {
+              fprintf(stderr, "2: %d %d\n", tmpSlideEndTime.gpsSeconds, slideEndTime.gpsSeconds);
+              fprintf(stderr, "2: %d %d\n", tmpSlideEndTime.gpsNanoSeconds, slideEndTime.gpsNanoSeconds);          
+              error("Error long slide epochs not agreeing with the slid times. This suggests broken code, please contact a developer.");
+            }
+          }
+          else
+          {
+            slideStartTime.gpsSeconds=tmpSlideStartTime.gpsSeconds;
+            slideStartTime.gpsNanoSeconds=tmpSlideStartTime.gpsNanoSeconds;
+            slideEndTime.gpsSeconds=tmpSlideEndTime.gpsSeconds;
+            slideEndTime.gpsNanoSeconds=tmpSlideEndTime.gpsNanoSeconds;
+            calculatedFlag = 1;
+          }
         }
       }
       XLALGPSAdd(&slideStartTime, \
@@ -1796,6 +1825,19 @@ void coh_PTF_calculate_coherent_SNR(
           continue;
         }
         snrData[currPointLoc] = sqrt(max_eigen);
+        if (params->storeAmpParams)
+        {
+         coh_PTF_calculate_rotated_vectors(params,PTFqVec,v1p,v2p,Fplus,Fcross,
+            timeOffsetPoints,eigenvecs,eigenvals,
+            params->numTimePoints,i,vecLength,vecLengthTwo,LAL_NUM_IFO);
+          for (j = 0 ; j < vecLengthTwo ; j++)
+          {
+            pValues[j]->data->data[currPointLoc] = \
+                           v1p[j] / (pow(gsl_vector_get(eigenvals,j),0.5));
+            pValues[j+vecLengthTwo]->data->data[currPointLoc] = \
+                           v2p[j] / (pow(gsl_vector_get(eigenvals,j),0.5));
+          }
+        }
       }
       else
       {
@@ -1856,8 +1898,10 @@ void coh_PTF_calculate_coherent_SNR(
             {
               for (j = 0 ; j < vecLengthTwo ; j++)
               {
-                pValues[j]->data->data[currPointLoc] = v1p[j];
-                pValues[j+vecLengthTwo]->data->data[currPointLoc] = v2p[j];
+                pValues[j]->data->data[currPointLoc] = \
+                               v1p[j] / (pow(gsl_vector_get(eigenvals,j),0.5));
+                pValues[j+vecLengthTwo]->data->data[currPointLoc] = \
+                               v2p[j] / (pow(gsl_vector_get(eigenvals,j),0.5));
               }
             }
           }
@@ -2642,39 +2686,47 @@ MultiInspiralTable* coh_PTF_create_multi_event(
       }
     }
   }
+
+  REAL8 sigmasqCorrFac, invSigmaCorrFac;
+  sigmasqCorrFac = ( (REAL8)fcTmplt->tmpltNorm);
+  sigmasqCorrFac *= ( (REAL8)params->tempCorrFac);
+  invSigmaCorrFac = 1. / pow(sigmasqCorrFac, 0.5);
+
   if (pValues[0])
-    currEvent->amp_term_1 = pValues[0]->data->data[currPos];
+    currEvent->amp_term_1 = pValues[0]->data->data[currPos] * invSigmaCorrFac;
   if (pValues[1])
-    currEvent->amp_term_2 = pValues[1]->data->data[currPos];
+    currEvent->amp_term_2 = pValues[1]->data->data[currPos] * invSigmaCorrFac;
   if (pValues[2])
-    currEvent->amp_term_3 = pValues[2]->data->data[currPos];
+    currEvent->amp_term_3 = pValues[2]->data->data[currPos] * invSigmaCorrFac;
   if (pValues[3])
-    currEvent->amp_term_4 = pValues[3]->data->data[currPos];
+    currEvent->amp_term_4 = pValues[3]->data->data[currPos] * invSigmaCorrFac;
+    /* If here, also populate distance and other parameters */
+    currEvent->distance = ( currEvent->amp_term_1*currEvent->amp_term_1 + \
+                            currEvent->amp_term_2*currEvent->amp_term_2 + \
+                            currEvent->amp_term_3*currEvent->amp_term_3 + \
+                            currEvent->amp_term_4*currEvent->amp_term_4 );
+    currEvent->distance = pow(2. / currEvent->distance, 0.5);
   if (pValues[4])
-    currEvent->amp_term_5 = pValues[4]->data->data[currPos];
+    currEvent->amp_term_5 = pValues[4]->data->data[currPos] * invSigmaCorrFac;
   if (pValues[5])
-    currEvent->amp_term_6 = pValues[5]->data->data[currPos];
+    currEvent->amp_term_6 = pValues[5]->data->data[currPos] * invSigmaCorrFac;
   if (pValues[6])
-    currEvent->amp_term_7 = pValues[6]->data->data[currPos];
+    currEvent->amp_term_7 = pValues[6]->data->data[currPos] * invSigmaCorrFac;
   if (pValues[7])
-    currEvent->amp_term_8 = pValues[7]->data->data[currPos];
+    currEvent->amp_term_8 = pValues[7]->data->data[currPos] * invSigmaCorrFac;
   if (pValues[8])
-    currEvent->amp_term_9 = pValues[8]->data->data[currPos];
+    currEvent->amp_term_9 = pValues[8]->data->data[currPos] * invSigmaCorrFac;
   if (pValues[9])
-    currEvent->amp_term_10 = pValues[9]->data->data[currPos];
+    currEvent->amp_term_10 = pValues[9]->data->data[currPos] * invSigmaCorrFac;
   /* Note that these two terms are only used for debugging
-   * at the moment. When they are used properly they will be
-   * moved into sane columns! For spin they give Amp*cos(Phi_0) and
-   * Amp*sin(Phi_0). For non spinning the second is 0 and the
-   * first is some arbitrary amplitude. */
+ *    * at the moment. When they are used properly they will be
+ *       * moved into sane columns! For spin they give Amp*cos(Phi_0) and
+ *          * Amp*sin(Phi_0). For non spinning the second is 0 and the
+ *             * first is some arbitrary amplitude. */
   if (gammaBeta[0])
   {
     currEvent->g1quad = crectf( gammaBeta[0]->data->data[currPos], gammaBeta[1]->data->data[currPos] );
   }
-
-  REAL8 sigmasqCorrFac;
-  sigmasqCorrFac = ( (REAL8)fcTmplt->tmpltNorm);
-  sigmasqCorrFac *= ( (REAL8)params->tempCorrFac);
 
   if (snrComps[LAL_IFO_G1])
   {
@@ -3714,7 +3766,7 @@ CohPTFSkyPositions *coh_PTF_parse_time_delays(
 
       /* if we already have a timeDelay within the timing accuracy,
        * we don't want another one */
-      if (fabsf(timeDelay-timeDelays[i]) < dt)
+      if (fabs(timeDelay-timeDelays[i]) < dt)
       {
         appendPoint[p] = 1;
         break;

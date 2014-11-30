@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([lalpulsar],[1.9.0.1],[lal-discuss@ligo.org])
+AC_INIT([LALPulsar],[1.10.4.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h src/LALPulsarConfig.h])
 AC_CONFIG_SRCDIR([src/ComputeFstat.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -7,23 +7,24 @@ AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
   lalpulsar.spec \
   lalpulsar.pc \
-  lalpulsar-uninstalled.pc \
   Makefile \
-  gnuscripts/Makefile \
   debian/Makefile \
   include/Makefile \
   include/lal/Makefile \
+  src/LALPulsarVCSInfo.c \
+  src/LALPulsarVCSInfo.h \
   src/Makefile \
   python/Makefile \
-  python/__init__.py \
+  python/lalpulsar/Makefile \
+  python/lalpulsar/__init__.py \
   swig/Makefile \
-  swig/octave/Makefile \
-  swig/python/Makefile \
   test/Makefile
 ])
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
 
 AC_CANONICAL_HOST
+
+LALSUITE_ARG_VAR
 
 LALSUITE_CHECK_GIT_REPO
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
@@ -42,7 +43,7 @@ LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[9])
+AC_SUBST([LIBCURRENT],[10])
 AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
@@ -82,7 +83,7 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_AWK
 AC_PROG_SED
-AM_PATH_PYTHON([2.6],,[AC_MSG_ERROR([Python-2.6, or higher, is required])])
+LALSUITE_CHECK_PYTHON([2.6])
 
 # check for supported mac os x version
 LALSUITE_OSX_VERSION_CHECK
@@ -120,13 +121,13 @@ if test "${boinc}" = "true" ; then
 fi
 
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.12.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LAL],[6.13.0],[LALVersion],[lal/LALStdio.h])
 
 # check that lal was built with BOINC support, if required
 LALSUITE_CHECK_BOINC
 
 # check for lalsupport, needed for test suite
-LALSUITE_CHECK_LIB([LALSupport],[6.12.0],[XLALCacheImport],[lal/LALCache.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.13.0],[XLALCacheImport],[lal/LALCache.h])
 
 # check for lalxml
 LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.5],[XLALXMLFilePrintElements],[lal/LALXML.h])
@@ -137,18 +138,25 @@ if test "${boinc}" = "true" ; then
 fi
 
 # configure SWIG wrapping modules
-LALSUITE_USE_SWIG([XLAL LAL])
+LALSUITE_USE_SWIG
 
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
+
+# link any executables against LALPulsar library
+AC_SUBST([LDADD], ["\$(top_builddir)/src/liblalpulsar.la"])
+
+# add extra preprocessor flags
+AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
+AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
+
+# force headers to be installed in ${includedir}/lal, ignoring library name
+AC_SUBST([pkgincludedir], ["\${includedir}/lal"])
 
 # force all python modules into the exec dir to prevent mixed C and
 # pure-python library code from being split across lib and lib64 on
 # RedHat-derived systems.
 AC_SUBST([pkgpythondir], ["\${pkgpyexecdir}"])
-
-LAL_HEADER_LINK=${ac_aux_dir}/header-link.mk
-AC_SUBST_FILE([LAL_HEADER_LINK])
 
 # output
 AC_OUTPUT
@@ -156,11 +164,13 @@ AC_MSG_NOTICE([
 ==================================================
 LALPulsar has now been successfully configured:
 
+* Python support is $PYTHON_ENABLE_VAL
 * SIMD extensions are $SIMD_ENABLE_VAL
 * LALXML library support is $LALXML_ENABLE_VAL
 * BOINC support is $BOINC_ENABLE_VAL
-* SWIG wrapping module for Octave is $SWIG_OCTAVE_ENABLE_VAL
-* SWIG wrapping module for Python is $SWIG_PYTHON_ENABLE_VAL
+* SWIG binding generation is $SWIG_GENERATE_ENABLE_VAL
+* SWIG bindings for Octave are $SWIG_BUILD_OCTAVE_ENABLE_VAL
+* SWIG bindings for Python are $SWIG_BUILD_PYTHON_ENABLE_VAL
 
 and will be installed under the directory:
 

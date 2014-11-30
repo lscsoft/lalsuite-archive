@@ -1,4 +1,5 @@
-from pylal.date import *
+import doctest
+from pylal import date
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 import unittest
 
@@ -63,3 +64,5 @@ suite = unittest.TestSuite()
 suite.addTest(unittest.makeSuite(test_LIGOTimeGPS))
 
 unittest.TextTestRunner(verbosity=2).run(suite)
+
+doctest.testmod(date)

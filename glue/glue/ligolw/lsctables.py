@@ -1446,29 +1446,6 @@ class SnglInspiralTable(table.Table):
 	next_id = SnglInspiralID(1)
 	interncolumns = ("process_id", "ifo", "search", "channel")
 
-	def updateKeyMapping(self, mapping):
-		# hacked version of stock .updateKeyMapping() method that
-		# can detect lalapps_thinca-style event IDs, to prevent
-		# accidentally ligolw_adding old-style thinca documents.
-		#
-		# FIXME: remove this method when we can be certain nobody
-		# is trying to run ligolw_add on lalapps_thinca files
-		if self.next_id is None:
-			raise ValueError(self)
-		try:
-			column = self.getColumnByName(self.next_id.column_name)
-		except KeyError:
-			# table is missing its ID column, this is a no-op
-			return mapping
-		for i, old in enumerate(column):
-			if int(old) >= 100000000000000000:
-				raise ValueError("ligolw_add does not support lalapps_thinca documents;  convert to coinc tables format and try again")
-			if old in mapping:
-				column[i] = mapping[old]
-			else:
-				column[i] = mapping[old] = self.get_next_id()
-		return mapping
-
 	def get_column(self,column,fac=250.,index=6.):
 		if column == 'reduced_chisq':
 			return self.get_reduced_chisq()
@@ -1517,7 +1494,6 @@ class SnglInspiralTable(table.Table):
 		return snr/ (1 + snr**2/fac)**(0.25) / rchisq**(0.25)
 
 	def get_new_snr(self, index=6.0):
-		import numpy
 		# kwarg 'index' is assigned to the parameter chisq_index
 		# nhigh gives the asymptotic large  rho behaviour of d (ln chisq) / d (ln rho) 
 		# for fixed new_snr eg nhigh = 2 -> chisq ~ rho^2 at large rho 
@@ -1529,7 +1505,6 @@ class SnglInspiralTable(table.Table):
 		return newsnr
 
 	def get_bank_new_snr(self, index=6.0):
-		import numpy
 		snr = self.get_column('snr')
 		rchisq = self.get_column('reduced_bank_chisq')
 		nhigh = 2.
@@ -1538,7 +1513,6 @@ class SnglInspiralTable(table.Table):
 		return banknewsnr
 
 	def get_cont_new_snr(self, index=6.0):
-		import numpy
 		snr = self.get_column('snr')
 		rchisq = self.get_column('reduced_cont_chisq')
 		nhigh = 2.
@@ -3829,7 +3803,7 @@ def use_in(ContentHandler):
 	>>> from glue.ligolw import lsctables
 	>>> lsctables.use_in(MyContentHandler)
 	"""
-	table.use_in(ContentHandler)
+	ContentHandler = table.use_in(ContentHandler)
 
 	def startTable(self, parent, attrs, __orig_startTable = ContentHandler.startTable):
 		name = table.StripTableName(attrs[u"Name"])
@@ -3839,6 +3813,4 @@ def use_in(ContentHandler):
 
 	ContentHandler.startTable = startTable
 
-
-# FIXME:  remove
-use_in(ligolw.DefaultLIGOLWContentHandler)
+	return ContentHandler

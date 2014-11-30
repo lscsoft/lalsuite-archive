@@ -213,7 +213,7 @@ main(int argc, char *argv[])
 
     /* write out the data for this sky point */
     if ( uvar.outab ) { // output a(t), b(t) at each timestamp
-      for (UINT4 t = 0; t < config.numTimeStamps; t++) { // FIXME: does not work for different multi-IFO numTimeStampsX
+      for (UINT4 t = 0; t < config.numTimeStampsX->data[0]; t++) { // FIXME: does not work for different multi-IFO numTimeStampsX
          fprintf (fpOutab, "%.7f  %.7f  %d", config.Alpha->data[n], config.Delta->data[n], config.multiTimestamps->data[0]->data[t].gpsSeconds );
          for ( UINT4 X=0; X < config.numDetectors; X++ ) {
            fprintf(fpOutab, " %12.8f %12.8f", multiAMforSingle->data[X]->a->data[t], multiAMforSingle->data[X]->b->data[t]);
@@ -357,7 +357,7 @@ XLALInitCode ( ConfigVariables *cfg, const UserVariables_t *uvar, const char *ap
 
     XLAL_CHECK ( ( cfg->multiTimestamps = XLALReadMultiTimestampsFiles ( uvar->timeStampsFiles ) ) != NULL, XLAL_EFUNC );
 
-    XLAL_CHECK ( (cfg->multiTimestamps->length > 0) && (cfg->multiTimestamps->data != NULL), XLAL_EINVAL, "Got empty timestamps-list from '%s'.", uvar->timeStampsFiles );
+    XLAL_CHECK ( (cfg->multiTimestamps->length > 0) && (cfg->multiTimestamps->data != NULL), XLAL_EINVAL, "Got empty timestamps-list from XLALReadMultiTimestampsFiles()" );
 
   }
 
@@ -483,11 +483,11 @@ XLALInitCode ( ConfigVariables *cfg, const UserVariables_t *uvar, const char *ap
 
     /* create multi noise weights */
     if ( (cfg->multiNoiseWeights = XLALCalloc(1, sizeof(*cfg->multiNoiseWeights))) == NULL ) {
-     XLALPrintError ("%s: failed to XLALCalloc ( 1, %d )\n", __func__, sizeof(*cfg->multiNoiseWeights) );
+     XLALPrintError ("%s: failed to XLALCalloc ( 1, %lu )\n", __func__, sizeof(*cfg->multiNoiseWeights) );
      XLAL_ERROR ( XLAL_ENOMEM );
     }
     if ( (cfg->multiNoiseWeights->data = XLALCalloc(cfg->numDetectors, sizeof(*cfg->multiNoiseWeights->data))) == NULL ) {
-     XLALPrintError ("%s: failed to XLALCalloc ( %d, %d )\n", __func__, cfg->numDetectors, sizeof(*cfg->multiNoiseWeights->data) );
+     XLALPrintError ("%s: failed to XLALCalloc ( %d, %lu )\n", __func__, cfg->numDetectors, sizeof(*cfg->multiNoiseWeights->data) );
      XLAL_ERROR ( XLAL_ENOMEM );
     }
     cfg->multiNoiseWeights->length = cfg->numDetectors;

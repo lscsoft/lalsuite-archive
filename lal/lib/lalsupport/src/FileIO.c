@@ -62,7 +62,7 @@
  *
  */
 
-#include "config.h"
+#include <config.h>
 
 #include <stdarg.h>
 #include <stdlib.h>
@@ -346,7 +346,7 @@ XLALFileLoad ( const char *path		//!< [in] input filepath
       dataBufferLen += blobLen;
       if ( (dataBuffer = XLALRealloc ( dataBuffer, dataBufferLen + 1)) == NULL ) {
         XLALFileClose(fp);
-        XLAL_ERROR_NULL ( XLAL_ENOMEM, "Failed to XLALRealloc(%d)\n", dataBufferLen+1 );
+        XLAL_ERROR_NULL ( XLAL_ENOMEM, "Failed to XLALRealloc(%zu)\n", dataBufferLen+1 );
       }
       size_t numRead = XLALFileRead ( dataBuffer + blobCounter*blobLen, sizeof(char), blobLen, fp );
       if ( xlalErrno != XLAL_SUCCESS ) {
@@ -367,7 +367,7 @@ XLALFileLoad ( const char *path		//!< [in] input filepath
   XLALFileClose(fp);
 
   // adjust buffer to final size of data read
-  XLAL_CHECK_NULL ( (dataBuffer = XLALRealloc ( dataBuffer, numReadTotal + 1)) != NULL, XLAL_ENOMEM, "Failed to XLALRealloc(%d)\n", numReadTotal+1 );
+  XLAL_CHECK_NULL ( (dataBuffer = XLALRealloc ( dataBuffer, numReadTotal + 1)) != NULL, XLAL_ENOMEM, "Failed to XLALRealloc(%zu)\n", numReadTotal+1 );
   dataBuffer[numReadTotal] = 0;
 
   return dataBuffer;

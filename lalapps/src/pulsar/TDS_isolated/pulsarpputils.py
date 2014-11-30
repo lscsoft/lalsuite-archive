@@ -121,26 +121,26 @@ def rad_to_dms(rad):
   else:
     return (sign * d, m, s)
 
-def dms_to_rad(deg, min, sec):
+def dms_to_rad(deg, mins, sec):
   """
   dms_to_rad(deg, min, sec):
      Convert degrees, minutes, and seconds of arc to radians.
   """
   if (deg < 0.0):
     sign = -1
-  elif (deg==0.0 and (min < 0.0 or sec < 0.0)):
+  elif (deg==0.0 and (mins < 0.0 or sec < 0.0)):
     sign = -1
   else:
     sign = 1
   return sign * ARCSECTORAD * \
-    (60.0 * (60.0 * np.fabs(deg) + np.fabs(min)) + np.fabs(sec))
+    (60.0 * (60.0 * np.fabs(deg) + np.fabs(mins)) + np.fabs(sec))
 
-def dms_to_deg(deg, min, sec):
+def dms_to_deg(deg, mins, sec):
   """
   dms_to_deg(deg, min, sec):
      Convert degrees, minutes, and seconds of arc to degrees.
   """
-  return RADTODEG * dms_to_rad(deg, min, sec)
+  return RADTODEG * dms_to_rad(deg, mins, sec)
 
 def rad_to_hms(rad):
   """
@@ -156,7 +156,7 @@ def rad_to_hms(rad):
   s = (arc - m) * 60.0
   return (h, m, s)
 
-def hms_to_rad(hour, min, sec):
+def hms_to_rad(hour, mins, sec):
   """
   hms_to_rad(hour, min, sec):
      Convert hours, minutes, and seconds of arc to radians
@@ -164,7 +164,7 @@ def hms_to_rad(hour, min, sec):
   if (hour < 0.0): sign = -1
   else: sign = 1
   return sign * SECTORAD * \
-         (60.0 * (60.0 * np.fabs(hour) + np.fabs(min)) + np.fabs(sec))
+         (60.0 * (60.0 * np.fabs(hour) + np.fabs(mins)) + np.fabs(sec))
 
 def coord_to_string(h_or_d, m, s):
   """
@@ -275,7 +275,7 @@ float_keys = ["F", "F0", "F1", "F2", "F3", "F4", "F5", "F6",
               "FB0", "FB1", "FB2", "ELAT", "ELONG", "PMRA", "PMDEC", "DIST",
               # GW PARAMETERS
               "H0", "COSIOTA", "PSI", "PHI0", "THETA", "I21", "I31", "C22",
-              "C21", "PHI22", "PHI21", "SNR"]
+              "C21", "PHI22", "PHI21", "SNR", "COSTHETA", "IOTA"]
 str_keys = ["FILE", "PSR", "PSRJ", "NAME", "RAJ", "DECJ", "RA", "DEC", "EPHEM",
             "CLK", "BINARY", "UNITS"]
 
@@ -1746,8 +1746,8 @@ def convert_model_parameters(pardict):
 
   C21 = 2.*f2_r * math.sqrt( A21**2 + B21**2 )
 
-  phi22 = 2.*phi0 - math.atan2( B22, A22 )
-  phi21 = phi0 - math.atan2( B21, A21 )
+  phi22 = phi0 - math.atan2( B22, A22 )
+  phi21 = (phi0/2.) - math.atan2( B21, A21 )
 
   outvals = {'C22': C22, 'C21': C21, 'phi22': phi22, 'phi21': phi21}
 
@@ -1757,7 +1757,7 @@ def convert_model_parameters(pardict):
 # a function to create the signal model for a heterodyned pinned superfluid
 # model pulsar a signal GPS start time, signal duration (in seconds),
 # sample interval (seconds), detector, and the parameters I21, I31,
-# cos(theta), lambda, cos(iota), psi (rads), initial phase phi0 (rads), right
+# cos(theta), lambda, cos(iota), psi (rads), initial phase phi0 (for l=m=2 mode in rads), right
 # ascension (rads), declination (rads), distance (kpc) and frequency (f0) in a
 # dictionary. The list of time stamps, and the real and imaginary parts of the
 # 1f and 2f signals are returned in an array
@@ -1771,8 +1771,8 @@ def heterodyned_pinsf_pulsar(starttime, duration, dt, detector, pardict):
   coslambda = math.cos(pardict['lambda'])
   sin2lambda = math.sin( 2.0*pardict['lambda'] )
 
-  ePhi = cmath.exp( pardict['phi0'] * 1j )
-  e2Phi = cmath.exp( 2. * pardict['phi0'] * 1j )
+  ePhi = cmath.exp( 0.5 * pardict['phi0'] * 1j )
+  e2Phi = cmath.exp( pardict['phi0'] * 1j )
 
   f2_r = pardict['f0']**2 / pardict['dist']
 
@@ -1858,7 +1858,7 @@ def antenna_response( gpsTime, ra, dec, psi, det ):
     raise ValueError, "ERROR. Key %s is not a valid detector name." % (det)
 
   # get detector
-  detval = lal.lalCachedDetectors[detector]
+  detval = lal.CachedDetectors[detector]
 
   response = detval.response
 
@@ -1900,9 +1900,9 @@ def inject_pulsar_signal(starttime, duration, dt, detectors, pardict, \
     for j, det in enumerate(detectors):
       for frf in freqfac:
         if len(npsds) == 1:
-          tmpnpsds.append( (npsds[0]/2.0)/(2.0*dt) )
+          tmpnpsds.append( np.sqrt( (npsds[0]/2.0)/(2.0*dt) ) )
         else:
-          tmpnpsds.append( (npsds[count]/2.0)/(2.0*dt) )
+          tmpnpsds.append( np.sqrt( (npsds[count]/2.0)/(2.0*dt) ) )
 
         count = count+1
 

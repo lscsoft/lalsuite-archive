@@ -104,7 +104,7 @@ void XLALComputeDetAMResponse(
  * scalar breathing and longitudinal modes, Fb and Fl, and the vector "x" and
  * "y" modes, Fx ("x") and Fy, for a source at a specified sky position,
  * polarization angle, and sidereal time.  Also requires the detector's
- * response matrix which is defined by Eq. (B6) of [ABCF] using either
+ * response matrix which is defined by Eq. (B6) of \cite ABCF2001 using either
  * Table 1 of \cite ABCF2001 or Eqs. (B11)--(B17) to compute the arm
  * direction unit vectors.
  */
@@ -112,7 +112,7 @@ void XLALComputeDetAMResponseExtraModes(
 	double *fplus,		/**< Returned value of F+ */
 	double *fcross,		/**< Returned value of Fx (cross) */
 	double *fb,		/**< Returned value of Fb (breathing mode) */
-	double *fl,		/**< Returned value of Fl (scalar longitudinal */
+	double *fl,		/**< Returned value of Fl (scalar longitudinal) */
 	double *fx,		/**< Returned value of Fx ("x" vector mode) */
 	double *fy,		/**< Returned value of Fy (y vector mode) */
 	const REAL4 D[3][3],		/**< Detector response 3x3 matrix */
@@ -313,15 +313,9 @@ void LALComputeDetAMResponseSeries(LALStatus * status, LALDetAMResponseSeries * 
 	/* Want to loop over the time and call LALComputeDetAMResponse() */
 	LALDetAMResponse instResponse;
 	unsigned i;
-	char infostr[128];
 
 	INITSTATUS(status);
 	ATTATCHSTATUSPTR(status);
-
-	if(lalDebugLevel >= 8) {
-		sprintf(infostr, "pResponseSeries->pPlus->data->length = %d\npTimeInfo->nSample = %d\n", pResponseSeries->pPlus->data->length, pTimeInfo->nSample);
-		LALInfo(status, infostr);
-	}
 
 	/*
 	 * Error-checking assertions
@@ -404,11 +398,6 @@ void LALComputeDetAMResponseSeries(LALStatus * status, LALDetAMResponseSeries * 
 	for(i = 0; i < pTimeInfo->nSample; ++i) {
 		LIGOTimeGPS gps = pTimeInfo->epoch;
 		XLALGPSAdd(&gps, i * pTimeInfo->deltaT);
-
-		if(lalDebugLevel >= 8) {
-			sprintf(infostr, "LALComputeDetAMResponseSeries: i = %d\n", i);
-			LALInfo(status, infostr);
-		}
 
 		TRY(LALComputeDetAMResponse(status->statusPtr, &instResponse, pDetAndSource, &gps), status);
 

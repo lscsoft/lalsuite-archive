@@ -20,8 +20,8 @@
  * searches using the nested sampling algorithm.
  */
 
-#ifndef _PULSAR_PARAMETER_ESTIMATION_H
-#define _PULSAR_PARAMETER_ESTIMATION_H
+#ifndef _PULSAR_PARAMETER_ESTIMATION_NESTED_H
+#define _PULSAR_PARAMETER_ESTIMATION_NESTED_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,6 +57,7 @@
 #include <lal/Date.h>
 #include <lal/StringVector.h>
 #include <lal/XLALGSL.h>
+#include <lal/FileIO.h>
 
 #include <lalapps.h>
 
@@ -96,13 +97,18 @@ extern "C" {
 #define FACTOR(x,y) ((INT4)floor(x/y))
 
 /** Macro to square a value. */
-#define SQUARE(x) ( (x) * (x) );
+#define SQUARE(x) ( (x) * (x) )
 
 /**
  * The maximum allowable length of the input data stream. Note: this may be
  * removed in the future with memory allocated dynamically.
  */
 #define MAXLENGTH 1000000
+
+/**
+ * The maximum line length (in characters) of a heterodyned data file.
+ */
+#define PPEN_MAXLINELENGTH 1024
 
 /* default values */
 /** Default value of the minimum length into which the data can be split. */
@@ -129,7 +135,7 @@ extern "C" {
  *
  * Note: These should be increased if additional model parameters are added.
  */
-#define NUMAMPPARS 8
+#define NUMAMPPARS 15
 
 /**
  * The total number of frequency parameters that can defined a signal e.g.
@@ -151,12 +157,157 @@ extern "C" {
  */
 #define NUMBINPARS 33
 
+/** The maximum number of different detectors allowable. */
+#define MAXDETS 6
+
+/** The usage format for the code.  */
+#define USAGE \
+"Usage: %s [options]\n\n"\
+" --help              display this message\n"\
+" --verbose           display all error messages\n"\
+" --detectors         all IFOs with data to be analysed e.g. H1,H2\n\
+                     (delimited by commas) (if generating fake data these\n\
+                     should not be set)\n"\
+" --par-file          pulsar parameter (.par) file (full path)\n"\
+" --cor-file          pulsar TEMPO-fit parameter correlation matrix\n"\
+" --input-files       full paths and file names for the data for each\n\
+                     detector and model harmonic in the list (must be in the\n\
+                     same order) delimited by commas. These files can be gzipped.\n\
+                     If not set you can generate fake data (see --fake-data below)\n"\
+" --sample-interval   (REAL8) the time interval bewteen samples (default to 60 s)\n"\
+" --downsample-factor (INT4) factor by which to downsample the input data\n\
+                     (default is for no downsampling and this is NOT\n\
+                     applied to fake data)\n"\
+" --outfile           name of output data file [required]\n"\
+" --non-fixed-only    output only the non-fixed (i.e. variable) parameters\n\
+                     specified in the prior and .par files.\n"\
+" --gzip              gzip the output text file\n"\
+" --outXML            name of output XML file [not required]\n"\
+" --chunk-min         (INT4) minimum stationary length of data to be used in\n\
+                     the likelihood e.g. 5 mins\n"\
+" --chunk-max         (INT4) maximum stationary length of data to be used in\n\
+                     the likelihood e.g. 30 mins\n"\
+" --time-bins         (INT4) no. of time bins in the time-psi lookup table\n"\
+" --prior-file        file containing the parameters to search over and\n\
+                     their upper and lower ranges\n"\
+" --ephem-earth       Earth ephemeris file\n"\
+" --ephem-sun         Sun ephemeris file\n"\
+" --ephem-timecorr    Einstein delay time correction ephemeris file\n"\
+" --harmonics         (CHAR) the signal model frequency harmonics that you want\n\
+                     to use (delimited by commas). Currently this can be either\n\
+                     the 'triaxial' model for which you use 2 (the default\n\
+                     value) or 1,2 for a model with emission at both the rotation\n\
+                     frequency and twice the rotation frequency.\n"\
+" --gaussian-like     Set this if a Gaussian likelihood is to be used. If the input\n\
+                     file contains a column specifying the noise standard deviation of\n\
+                     the data then that will be used in the Gaussian likelihood function,\n\
+                     otherwise the noise variance will be calculated from the data.\n"\
+" --nonGR             Set to allow non-GR polarisation modes and/or a variable\n\
+                     speed of gravitational waves.\n"\
+"\n"\
+" Nested sampling parameters:\n"\
+" --Nlive             (INT4) no. of live points for nested sampling\n"\
+" --Nmcmc             (INT4) no. of for MCMC used to find new live points\n\
+                     (if not specified an adaptive number of points is used)\n"\
+" --Nruns             (INT4) no. of parallel runs\n"\
+" --tolerance         (REAL8) tolerance of nested sampling integrator\n"\
+" --randomseed        seed for random number generator\n"\
+"\n"\
+" MCMC proposal parameters:\n"\
+" --covariance        (UINT4) relative weight of using covariance matrix\n\
+                     of the live points as the proposal (DEFAULT = 0,\n\
+                     e.g. 0%%)\n"\
+" --temperature       (REAL8) temperature for covariance proposal\n\
+                     distribution (DEFAULT = 0.1)\n"\
+" --kDTree            (UINT4) relative weight of using a k-D tree of the live\n\
+                     points to use as a proposal (DEFAULT = 0, e.g. 0%%)\n"\
+" --kDNCell           (INT4) maximum number of samples in a k-D tree cell\n"\
+" --kDUpdateFactor    (REAL8) how often the k-D tree gets updated as a\n\
+                     factor of the number of live points\n"\
+" --diffev            (UINT4) relative weight of using differential evolution\n\
+                     of the live points as the proposal (DEFAULT = 0, e.g.\n\
+                     0%%)\n"\
+" --freqBinJump       (UINT4) relative weight of using jumps to adjacent\n\
+                     frequency bins as a proposal (DEFAULT = 0, e.g. this is\n\
+                     not required unless searching over frequency)\n"\
+" --ensembleStretch   (UINT4) relative weight of the ensemble stretch\n\
+                     proposal (DEFAULT = 1, e.g. 50%%)\n"\
+" --ensembleWalk      (UINT4) relative weight of the ensemble walk\n\
+                     proposal (DEFAULT = 1, e.g. 50%%)\n"\
+"\n"\
+" Signal injection parameters:\n"\
+" --inject-file       a pulsar parameter (par) file containing the parameters\n\
+                     of a signal to be injected. If this is given a signal\n\
+                     will be injected\n"\
+" --inject-output     a filename to which the injected signal will be\n\
+                     output if specified\n"\
+" --fake-data         a list of IFO's for which fake data will be generated\n\
+                     e.g. H1,L1 (delimited by commas). Unless the --fake-psd\n\
+                     flag is set the power spectral density for the data will\n\
+                     be generated from the noise models in LALNoiseModels.\n\
+                     For Advanced detectors (e.g Advanced LIGO) prefix the\n\
+                     name with an A (e.g. AH1 for an Advanced LIGO detector\n\
+                     at Hanford). The noise will be white across the data\n\
+                     band width.\n"\
+" --fake-psd          if you want to generate fake data with specific power\n\
+                     spectral densities for each detector giving in\n\
+                     --fake-data then they should be specified here delimited\n\
+                     by commas (e.g. for --fake-data H1,L1 then you could use\n\
+                     --fake-psd 1e-48,1.5e-48) where values are single-sided\n\
+                     PSDs in Hz^-1.\n"\
+" --fake-starts       the start times (in GPS seconds) of the fake data for\n\
+                     each detector separated by commas (e.g.\n\
+                     910000000,910021000). If not specified these will all\n\
+                     default to 900000000\n"\
+" --fake-lengths      the length of each fake data set (in seconds) for each\n\
+                     detector separated by commas. If not specified these\n\
+                     will all default to 86400 (i.e. 1 day)\n"\
+" --fake-dt           the data sample rate (in seconds) for the fake data for\n\
+                     each detector. If not specified this will default to\n\
+                     60s.\n"\
+" --scale-snr         give a (multi-detector) SNR value to which you want to\n\
+                     scale the injection. This is 1 by default.\n"\
+"\n"\
+" Flags for using a Nested sampling file as a prior:\n"\
+" --sample-files     a list of (comma separated) file containing the nested\n\
+                    samples from a previous run of the code (these should\n\
+                    contain samples in ascending likelihood order and be\n\
+                    accompanied by a file containg a list of the parameter\n\
+                    names for each column with the suffix _params.txt). If\n\
+                    this is set this WILL be used as the only prior, but the\n\
+                    prior ranges set in the --prior-file and --par-file are\n\
+                    still needed (and should be consistent with the variable\n\
+                    parameters in the nested sample file).\n"\
+" --sample-nlives    a list (comma separated) of the number of live point\n\
+                    that where used when creating each nested sample file.\n"\
+" --prior-cell       The number of samples to use in a k-d tree cell for the\n\
+                    prior (the default will be 8).\n"\
+" --Npost            The (approxiamate) number of posterior samples to be\n\
+                    generated from each nested sample file (default = 1000)\n"\
+"\n"\
+" Phase parameter search speed-up factors:\n"\
+" --mismatch         Maximum allowed phase mismatch between consecutive\n\
+                    models (if phase mismatch is small do not update phase\n\
+                    correction)\n"\
+" --mm-factor        (INT4) Downsampling factor for the phase models used\n\
+                    to calculate the mismatch\n"\
+ "\n"\
+" Legacy code flags:\n"\
+" --oldChunks        Set if using fixed chunk sizes for dividing the data as\n\
+                    in the old code, rather than the calculating chunks\n\
+                    using the change point method.\n"\
+" --jones-model      Set if using both 1 and 2 multiples of the frequency and\n\
+                    requiring the use of the original signal model parameters\n\
+                    from Jones, MNRAS, 402 (2010).\n"\
+"\n"
+
 /**
  * A list of the amplitude parameters. The names given here are those that are
  * recognised within the code.
  */
 static const CHAR amppars[NUMAMPPARS][VARNAME_MAX] = { "h0", "phi0", "psi",
-"cosiota", "C22", "C21", "phi22", "phi21" };
+"cosiota", "C22", "C21", "phi22", "phi21", "hScalarB", "hScalarL", "hVector",
+"gammaVector", "psiVector", "phi0Vector", "phi0Scalar" };
 
 /**
  * A list of the frequency parameters. The names given here are those that are
@@ -181,94 +332,14 @@ static const CHAR binpars[NUMBINPARS][VARNAME_MAX] = { "Pb", "e", "eps1",
 "T03", "x3", "w03", "xpbdot", "eps1dot", "eps2dot", "wdot", "gamma", "Pbdot",
 "xdot", "edot", "s", "dr", "dth", "a0", "b0", "M", "m2" };
 
-/**
- * A flag to specify if phase parameters are being searched over and
- * therefore the pulsar model requires phase evolution to be re-calculated (0 =
- * no, 1 = yes).
- */
-extern UINT4 varyphase;
-
-/**
- * A flag to specify if the sky position will be searched over, and therefore
- * whether the solar system barycentring needs recalculating (0 = no, 1 = yes).
- */
-extern UINT4 varyskypos;
-
-/**
- * A flag to specify if the binary system parameters will be searched over,
- * and therefore whether the binary system barycentring needs recalculating (0 =
- * no, 1 = yes)
- */
-extern UINT4 varybinary;
-
 extern LALStringVector *corlist;
 
-/* initialisation functions */
-void initialiseAlgorithm( LALInferenceRunState *runState );
+extern UINT4 verbose_output;
 
-void readPulsarData( LALInferenceRunState *runState );
-
-void setupFromParFile( LALInferenceRunState *runState );
-
-void setupLookupTables(LALInferenceRunState *runState, LALSource *source);
-
-void add_initial_variables( LALInferenceVariables *ini, LALInferenceVariables *scaleFac, BinaryPulsarParams pars );
-
-void add_variable_scale( LALInferenceVariables *var, LALInferenceVariables *scale, const char *name, REAL8 value );
-
-void initialisePrior( LALInferenceRunState *runState );
-
-void initialiseProposal( LALInferenceRunState *runState );
-
-void add_correlation_matrix( LALInferenceVariables *ini,
-                             LALInferenceVariables *priors, REAL8Array *corMat,
-                             LALStringVector *parMat );
-
-/* software injection functions */
-void injectSignal( LALInferenceRunState *runState );
-
-/* helper functions */
-UINT4Vector *get_chunk_lengths( LALInferenceIFOData *data, INT4 chunkMax );
-
-UINT4Vector *chop_n_merge( LALInferenceIFOData *data, INT4 chunkMin, INT4 chunkMax );
-
-COMPLEX16Vector *subtract_running_median( COMPLEX16Vector *data );
-
-UINT4Vector *chop_data( COMPLEX16Vector *data, INT4 chunkMin );
-
-UINT4 find_change_point( COMPLEX16Vector *data, REAL8 *logodds, INT4 chunkMin );
-
-void rechop_data( UINT4Vector *segs, INT4 chunkMax, INT4 chunkMin );
-
-void merge_data( COMPLEX16Vector *data, UINT4Vector *segs );
-
-void sumData( LALInferenceRunState *runState );
-
-void response_lookup_table( REAL8 t0, LALDetAndSource detAndSource,
-                            INT4 timeSteps, INT4 psiSteps, gsl_matrix *LUfplus,
-                            gsl_matrix *LUfcross );
-
-void rescaleOutput( LALInferenceRunState *runState );
-
-INT4 count_csv( CHAR *csvline );
-
-INT4 recognised_parameter( CHAR *parname );
-
-REAL8 calculate_time_domain_snr( LALInferenceIFOData *data );
-
-void get_loudest_snr( LALInferenceRunState *runState );
-
-TimeCorrectionType XLALAutoSetEphemerisFiles( CHAR *efile, CHAR *sfile,
-                                              CHAR *tfile,
-                                              BinaryPulsarParams pulsar,
-                                              INT4 gpsstart, INT4 gpsend );
-
-void remove_variable_and_prior( LALInferenceRunState *runState, LALInferenceIFOData *data, const CHAR *var );
-
-void samples_prior( LALInferenceRunState *runState );
+extern REAL8 *logfactorial;
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _PULSAR_PARAMETER_ESTIMATION_H */
+#endif /* _PULSAR_PARAMETER_ESTIMATION__NESTED_H */

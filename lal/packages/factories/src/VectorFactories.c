@@ -4,38 +4,54 @@ File Name: VectorFactories.c
 
 -------------------------------------------------------------------------*/
 
-#include "LALStdlib.h"
-#include "AVFactories.h"
+#include <lal/LALStdlib.h>
+#include <lal/AVFactories.h>
 
 #define TYPECODE Z
 #define TYPE COMPLEX16
+#ifdef LAL_FFTW3_MEMALIGN_ENABLED
+#define USE_ALIGNED_MEMORY_ROUTINES
+#endif
 #include "CreateVector_source.c"
 #include "DestroyVector_source.c"
 #include "ResizeVector_source.c"
+#undef USE_ALIGNED_MEMORY_ROUTINES
 #undef TYPECODE
 #undef TYPE
 
 #define TYPECODE C
 #define TYPE COMPLEX8
+#ifdef LAL_FFTW3_MEMALIGN_ENABLED
+#define USE_ALIGNED_MEMORY_ROUTINES
+#endif
 #include "CreateVector_source.c"
 #include "DestroyVector_source.c"
 #include "ResizeVector_source.c"
+#undef USE_ALIGNED_MEMORY_ROUTINES
 #undef TYPECODE
 #undef TYPE
 
 #define TYPECODE D
 #define TYPE REAL8
+#ifdef LAL_FFTW3_MEMALIGN_ENABLED
+#define USE_ALIGNED_MEMORY_ROUTINES
+#endif
 #include "CreateVector_source.c"
 #include "DestroyVector_source.c"
 #include "ResizeVector_source.c"
+#undef USE_ALIGNED_MEMORY_ROUTINES
 #undef TYPECODE
 #undef TYPE
 
 #define TYPECODE S
 #define TYPE REAL4
+#ifdef LAL_FFTW3_MEMALIGN_ENABLED
+#define USE_ALIGNED_MEMORY_ROUTINES
+#endif
 #include "CreateVector_source.c"
 #include "DestroyVector_source.c"
 #include "ResizeVector_source.c"
+#undef USE_ALIGNED_MEMORY_ROUTINES
 #undef TYPECODE
 #undef TYPE
 
@@ -96,7 +112,11 @@ File Name: VectorFactories.c
 #undef TYPE
 
 #define TYPE REAL4
+#ifdef LAL_FFTW3_MEMALIGN_ENABLED
+#define USE_ALIGNED_MEMORY_ROUTINES
+#endif
 #include "CreateVector_source.c"
 #include "DestroyVector_source.c"
 #include "ResizeVector_source.c"
+#undef USE_ALIGNED_MEMORY_ROUTINES
 #undef TYPE

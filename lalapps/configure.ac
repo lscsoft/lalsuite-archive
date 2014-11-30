@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([lalapps],[6.14.0.1],[lal-discuss@ligo.org])
+AC_INIT([LALApps],[6.15.2.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/lalapps/lalapps.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -9,10 +9,11 @@ AC_CONFIG_FILES([\
   lalapps.spec \
   debian/Makefile \
   doc/Makefile \
-  gnuscripts/Makefile \
   man/Makefile \
   src/Makefile \
   src/lalapps/Makefile \
+  src/lalapps/LALAppsVCSInfo.c \
+  src/lalapps/LALAppsVCSInfo.h \
   src/calibration/Makefile \
   src/frametools/Makefile \
   src/findchirp/Makefile \
@@ -22,7 +23,6 @@ AC_CONFIG_FILES([\
   src/string/Makefile \
   src/pulsar/Makefile \
   src/pulsar/FDS_isolated/Makefile \
-  src/pulsar/FDS_isolated/ResamplingFstat/Makefile \
   src/pulsar/Injections/Makefile \
   src/pulsar/hough/Makefile \
   src/pulsar/hough/src/Makefile \
@@ -54,6 +54,8 @@ AC_CONFIG_FILES([\
 AM_INIT_AUTOMAKE([1.11 foreign color-tests parallel-tests -Wno-unsupported])
 
 AC_CANONICAL_HOST
+
+LALSUITE_ARG_VAR
 
 LALSUITE_CHECK_GIT_REPO
 LALSUITE_DISTCHECK_CONFIGURE_FLAGS
@@ -126,8 +128,7 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_AWK
 AC_PROG_SED
-AM_PATH_PYTHON([2.6],,[:])
-AM_CONDITIONAL([HAVE_PYTHON],[test "$PYTHON" != :])
+LALSUITE_CHECK_PYTHON([2.6])
 
 # check for condor_compile
 AC_ENABLE_SHARED
@@ -200,8 +201,8 @@ LALSUITE_ENABLE_MODULE([FFTW])
 # check for GDS system: we check if we can link against libawg which is in GDS
 # GDS is a requirements for building 'online_psinject', which is used for hardware injections
 if test "${gds}" = "true"; then
-  AC_CHECK_LIB([awg],[awgGetChannelNames],,[gds="false"])
-  AC_CHECK_HEADERS([gdstype.h],,[gds="false"])
+  AC_CHECK_LIB([awg],[awgGetChannelNames],,[AC_MSG_ERROR([could not find the GDS library])])
+  AC_CHECK_HEADERS([gdstype.h],,[AC_MSG_ERROR([could not find the GDS library])])
 fi
 LALSUITE_ENABLE_MODULE([GDS])
 
@@ -255,6 +256,7 @@ LALSUITE_ENABLE_MODULE([METAIO])
 
 # check for libxml2
 if test "$lalxml" = "true"; then
+  AC_SEARCH_LIBS([lzma_code],[lzma])
   PKG_CHECK_MODULES([LIBXML2],[libxml-2.0 >= 2.6],[true],[false])
   lal_pre_libxml2_LIBS="$LIBS"
   LALSUITE_ADD_FLAGS([C],[],[${LIBXML2_LIBS}])
@@ -349,16 +351,16 @@ if test "${boinc}" = "true" ; then
 fi
 
 # check for lal libararies and headers
-LALSUITE_CHECK_LIB([LAL],[6.12.0],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.12.0],[XLALCacheImport],[lal/LALCache.h])
-LALSUITE_CHECK_OPT_LIB([LALFrame],[1.1.0],[LALFrOpen],[lal/LALFrameL.h])
+LALSUITE_CHECK_LIB([LAL],[6.13.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.13.0],[XLALCacheImport],[lal/LALCache.h])
+LALSUITE_CHECK_OPT_LIB([LALFrame],[1.2.0],[LALFrOpen],[lal/LALFrameL.h])
 LALSUITE_CHECK_OPT_LIB([LALMetaIO],[1.2.0],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
 LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.3],[XLALXMLFilePrintElements],[lal/LALXML.h])
-LALSUITE_CHECK_OPT_LIB([LALSimulation],[1.1.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
+LALSUITE_CHECK_OPT_LIB([LALSimulation],[1.2.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
 LALSUITE_CHECK_OPT_LIB([LALBurst],[1.2.0],[XLALEPSearch],[lal/EPSearch.h])
-LALSUITE_CHECK_OPT_LIB([LALInspiral],[1.5.0],[LALInspiralParameterCalc],[lal/LALInspiral.h])
-LALSUITE_CHECK_OPT_LIB([LALPulsar],[1.9.0],[XLALComputeFstat],[lal/ComputeFstat.h])
-LALSUITE_CHECK_OPT_LIB([LALInference],[1.3.0],[LALInferenceAddVariable],[lal/LALInference.h])
+LALSUITE_CHECK_OPT_LIB([LALInspiral],[1.6.0],[LALInspiralParameterCalc],[lal/LALInspiral.h])
+LALSUITE_CHECK_OPT_LIB([LALPulsar],[1.10.0],[XLALComputeFstat],[lal/ComputeFstat.h])
+LALSUITE_CHECK_OPT_LIB([LALInference],[1.4.0],[LALInferenceAddVariable],[lal/LALInference.h])
 LALSUITE_CHECK_OPT_LIB([LALStochastic],[1.1.4],[LALStochasticOptimalFilter],[lal/StochasticCrossCorrelation.h])
 
 # check that lal was built with BOINC support, if required
@@ -384,9 +386,6 @@ AC_CHECK_FUNCS([setenv])
 # set prefix
 AC_DEFINE_UNQUOTED([PREFIX],["$prefix"],[Install prefix])
 
-# add gcc specific flags
-LALSUITE_ADD_GCC_FLAGS
-
 # define if CUDA is enabled
 if test "${cuda}" = "true"; then
   AC_DEFINE([LALAPPS_CUDA_ENABLED],[1],[Define if using cuda library])
@@ -406,10 +405,57 @@ if test "${static_binaries}" = "true"; then
   AC_DISABLE_SHARED
 fi
 
+# check for OpenMP
+AC_OPENMP
+
+# Disable OpenMP by default.
+# FIXME: OpenMP should be on by default, but it breaks condor_compiling lalapps.
+AS_IF(
+  [test "x$enable_openmp" = "x"],
+  [OPENMP_CFLAGS=]
+)
+# add compiler flags for OpenMP
+AS_IF(
+  [test "x$OPENMP_CFLAGS" = "x"],
+  [
+    OPENMP_ENABLE_VAL="DISABLED"
+    LALSUITE_ADD_FLAGS([C],[-Wno-unknown-pragmas],[])
+  ],
+  [
+    OPENMP_ENABLE_VAL="ENABLED"
+    LALSUITE_ADD_FLAGS([C],[${OPENMP_CFLAGS}],[])
+  ]
+)
+
+# create Automake conditional so that we know whether we need to build
+# OpenMP-specific tests
+AM_CONDITIONAL([HAVE_OPENMP],[test "x$OPENMP_ENABLE_VAL" = "xENABLED"])
+
+# create Automake conditional so that we know whether we need to build
+# OpenMP-specific tests
+AM_CONDITIONAL([HAVE_OPENMP],[test "x$OPENMP_ENABLE_VAL" = "xENABLED"])
+# add gcc specific flags
+LALSUITE_ADD_GCC_FLAGS
+
+# link any executables against LALApps library
+AC_SUBST([LDADD], ["\$(top_builddir)/src/lalapps/liblalapps.la"])
+
+# add extra preprocessor flags
+AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
+AM_CPPFLAGS="-I\$(top_builddir)/src/lalapps ${AM_CPPFLAGS}"
+AM_CPPFLAGS="-I\$(top_srcdir)/src/lalapps ${AM_CPPFLAGS}"
+AM_CPPFLAGS="-I\$(top_srcdir)/src ${AM_CPPFLAGS}"
+
 # force all python modules into the exec dir to prevent mixed C and
 # pure-python library code from being split across lib and lib64 on
 # RedHat-derived systems.
 AC_SUBST([pkgpythondir], ["\${pkgpyexecdir}"])
+
+# get the glue and pylal prefixes from the environment
+AC_SUBST([GLUE_PREFIX])
+AM_CONDITIONAL([HAVE_GLUE_PREFIX], [test ! -z "$GLUE_PREFIX"])
+AC_SUBST([PYLAL_PREFIX])
+AM_CONDITIONAL([HAVE_PYLAL_PREFIX], [test ! -z "$PYLAL_PREFIX"])
 
 # output
 AC_OUTPUT
@@ -417,6 +463,7 @@ AC_MSG_NOTICE([
 ==================================================
 LALApps has now been successfully configured:
 
+* Python support is $PYTHON_ENABLE_VAL
 * FFTW library support is $FFTW_ENABLE_VAL
 * Frame library support is $FRAME_ENABLE_VAL
 * MetaIO library support is $METAIO_ENABLE_VAL
@@ -437,6 +484,7 @@ LALApps has now been successfully configured:
 * MPI support is $MPI_ENABLE_VAL
 * GDS support is $GDS_ENABLE_VAL
 * CUDA support is $CUDA_ENABLE_VAL
+* OpenMP acceleration is $OPENMP_ENABLE_VAL
 
 and will be installed under the directory:
 

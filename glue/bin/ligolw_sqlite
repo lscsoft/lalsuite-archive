@@ -33,6 +33,7 @@ databases.
 
 
 from optparse import OptionParser
+import os
 try:
 	import sqlite3
 except ImportError:
@@ -51,11 +52,6 @@ from glue.ligolw.utils import ligolw_sqlite
 
 # so they can be inserted into a database
 dbtables.ligolwtypes.ToPyType["ilwd:char"] = unicode
-
-
-# FIXME: remove this hack when the SnglInspiralTable class uses the
-# standard ID generator by default.
-dbtables.lsctables.SnglInspiralTable.next_id = dbtables.lsctables.SnglInspiralID(0)
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -127,7 +123,8 @@ dbtables.use_in(ContentHandler)
 if __name__ == '__main__':
 	options, urls = parse_command_line()
 
-	will_write_to_file = (options.extract is None) or (urls != [None])
+	will_read_from_file = options.extract is not None
+	will_write_to_file = urls and not (will_read_from_file and urls == [None])
 	will_replace_file = will_write_to_file and options.replace
 	will_use_tmp_space = will_write_to_file and (options.tmp_space is not None)
 
@@ -137,7 +134,10 @@ if __name__ == '__main__':
 	#
 
 
-	target = dbtables.get_connection_filename(options.database, tmp_path = (will_use_tmp_space or None) and options.tmp_space, replace_file = will_replace_file, verbose = options.verbose)
+	if will_read_from_file and not will_write_to_file and not os.path.exists(options.database):
+		print >>sys.stderr, "'%s': no such file" % options.database
+		sys.exit(1)
+	target = dbtables.get_connection_filename(options.database, tmp_path = options.tmp_space if will_use_tmp_space else None, replace_file = will_replace_file, verbose = options.verbose)
 	ContentHandler.connection = sqlite3.connect(target)
 
 
@@ -159,7 +159,7 @@ if __name__ == '__main__':
 				xmldoc.unlink()
 				dbtables.discard_connection_filename(local_path_from_url(url), source_filename, verbose = options.verbose)
 			else:
-				ligolw_sqlite.insert_from_url(ContentHandler.connection, url, contenthandler = ContentHandler, preserve_ids = options.preserve_ids, verbose = options.verbose)
+				ligolw_sqlite.insert_from_url(url, contenthandler = ContentHandler, preserve_ids = options.preserve_ids, verbose = options.verbose)
 		dbtables.build_indexes(ContentHandler.connection, options.verbose)
 
 

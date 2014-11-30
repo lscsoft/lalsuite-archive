@@ -311,6 +311,4 @@ def use_in(ContentHandler):
 
 	ContentHandler.startParam = startParam
 
-
-# FIXME:  remove
-use_in(ligolw.DefaultLIGOLWContentHandler)
+	return ContentHandler

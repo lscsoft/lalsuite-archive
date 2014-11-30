@@ -95,7 +95,7 @@ echo "----------------------------------------------------------------------"
 echo " STEP 1: Generate Fake Signal"
 echo "----------------------------------------------------------------------"
 echo
-injectionSources="refTime=${refTime}; Freq=$Freq; f1dot=$f1dot; Alpha=$Alpha; Delta=$Delta; h0=$h0; cosi=$cosi; psi=$psi; phi0=$phi0;"
+injectionSources="{refTime=${refTime}; Freq=$Freq; f1dot=$f1dot; Alpha=$Alpha; Delta=$Delta; h0=$h0; cosi=$cosi; psi=$psi; phi0=$phi0;}"
 dataSpec="--Tsft=$Tsft --startTime=$startTime --duration=$duration --sqrtSX=${sqrtSX} --fmin=$mfd_fmin --Band=$mfd_FreqBand"
 mfd_CL="--injectionSources='${injectionSources}' ${dataSpec} --outSingleSFT --outSFTdir=${SFTdir} --randSeed=1 --IFOs=H1,L1"
 cmdline="$mfd_code $mfd_CL "
@@ -143,7 +143,7 @@ sort $outfile_Resamp > __tmp_sorted && mv __tmp_sorted $outfile_Resamp
 
 ## compare absolute differences instead of relative, allow deviations of up to sigma=sqrt(8)~2.8
 echo
-cmdline="$cmp_code -1 ./${outfile_Demod} -2 ./${outfile_Resamp} --clusterFiles=0 --sigFtolerance --Ftolerance=0.5"
+cmdline="$cmp_code -1 ./${outfile_Demod} -2 ./${outfile_Resamp}"
 echo -n $cmdline
 if ! eval $cmdline; then
     echo "==> OUCH... files differ. Something might be wrong..."

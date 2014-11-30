@@ -29,12 +29,11 @@ from glue import lal
 from glue import iterutils
 
 from pylal import ligolw_cbc_compute_durations as compute_dur
-from pylal import llwapp
 from pylal import rate
 from pylal import InspiralUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
-from pylal.xlal import constants
+import lal as constants
 from pylal import upper_limit_utils
 from pylal import imr_utils
 
@@ -84,7 +83,6 @@ class upper_limit(object):
     # open a connection to the input database
     working_filename = dbtables.get_connection_filename(database, tmp_path=opts.tmp_space, verbose = opts.verbose)
     connection = sqlite3.connect(working_filename)
-    dbtables.DBTable_set_connection(connection)
 
     # find out which instruments were on and when during search
     self.set_instruments(connection)
@@ -100,7 +98,6 @@ class upper_limit(object):
     # done with db, close connection
     connection.commit()
     dbtables.discard_connection_filename(database, working_filename, verbose = opts.verbose)
-    dbtables.DBTable_set_connection(None)
 
     # Set up mass bins
     self.mass_bins = {}
@@ -123,7 +120,7 @@ class upper_limit(object):
       self.livetime = {}
       for inst in self.instruments:
           # compute live time in years from zero lag segments
-          self.livetime[inst] = abs(self.zero_lag_segments[inst].coalesce()).seconds/float(constants.LAL_YRJUL_SI)
+          self.livetime[inst] = abs(self.zero_lag_segments[inst].coalesce()).seconds/float(constants.YRJUL_SI)
 
       return
 
@@ -645,7 +642,7 @@ will compute the search volume using all injections with at least one component 
   # options to control output
   parser.add_option("--user-tag", default = "", metavar = "name", help = "Add a descriptive tag to the names of output files.")
   parser.add_option("--output-cache", default = None, help = "Name of output cache file. If not specified, then no cache file will be written.")
-  parser.add_option("--output-path", default = "./", action = "store", help="Choose directory to save output files.")
+  parser.add_option("--output-path", type = "string", default = "./", action = "store", help="Choose directory to save output files.")
   parser.add_option("--verbose", action = "store_true", help = "Be verbose.")
   parser.add_option("--plot-efficiency", action = "store_true", help = "Plot efficiency as a function of distance.")
   parser.add_option("--plot-volume-vs-far", action = "store_true", help = "Compute and plot the volume as a function of FAR.")
@@ -680,6 +677,8 @@ will compute the search volume using all injections with at least one component 
       raise ValueError, "The maximum mass ratio must be >=1!"
   if opts.max_mass_ratio and not opts.min_mass_ratio <= opts.max_mass_ratio:
     raise ValueError, "The maximum mass ratio must be >= minimum mass ratio!"
+
+  opts.output_path = opts.output_path if opts.output_path[-1]=="/" else opts.output_path+"/"
 
   return opts, filenames[0]
 
@@ -777,27 +776,27 @@ if opts.plot_volume_vs_far:
             pyplot.figure(1)
             pyplot.axvline(UL.far[instr],ls='--',c='k')
             tag = "%s-VOLUME_VS_FAR_BINNED_BY_%s_%s" % ("".join(sorted(list(instr))),bin_type.upper(),opts.user_tag)
-            pyplot.xlabel("False Alarm Rate ($yr^{-1}$)")
-            pyplot.ylabel("Mean Sensitive 4-Volume ($Mpc^3 yr$)")
+            pyplot.xlabel("False Alarm Rate (yr$^{-1}$)")
+            pyplot.ylabel("Mean Sensitive 4-Volume (Mpc$^3\,$yr)")
             pyplot.semilogx()
             pyplot.grid()
             pyplot.xlim(min(fars), max(fars))
             pyplot.ylim(ymin=0)
             pyplot.legend(loc="lower right")
-            pyplot.savefig(tag)
+            pyplot.savefig(opts.output_path+tag+".png")
             pyplot.close()
 
             pyplot.figure(2)
             pyplot.axvline(UL.far[instr],ls='--',c='k')
             tag = "%s-RANGE_VS_FAR_BINNED_BY_%s_%s" % ("".join(sorted(list(instr))),bin_type.upper(),opts.user_tag)
-            pyplot.xlabel("False Alarm Rate ($yr^{-1}$)")
-            pyplot.ylabel("Mean Sensitive Distance ($Mpc$)")
+            pyplot.xlabel("False Alarm Rate (yr$^{-1}$)")
+            pyplot.ylabel("Mean Sensitive Distance (Mpc)")
             pyplot.semilogx()
             pyplot.grid()
             pyplot.xlim(min(fars), max(fars))
             pyplot.ylim(ymin=0)
             pyplot.legend(loc="lower right")
-            pyplot.savefig(tag)
+            pyplot.savefig(opts.output_path+tag+".png")
             pyplot.close()
 
 
@@ -868,7 +867,8 @@ for bin_type in UL.mass_bins:
       xml.appendChild(array.from_array(u"array",output_arrays[arr]))
       child.appendChild(xml)
 
-    output_filename = "%s-SEARCH_VOLUME_BINNED_BY_%s_%s-%d-%d.xml" % ("".join(sorted(list(instruments))),bin_type.upper(),opts.user_tag,UL.start_time,UL.end_time-UL.start_time)
+    output_filename = opts.output_path+"%s-SEARCH_VOLUME_BINNED_BY_%s_%s-%d-%d.xml" % \
+        ("".join(sorted(list(instruments))),bin_type.upper(),opts.user_tag,UL.start_time,UL.end_time-UL.start_time)
     utils.write_filename(xmldoc, output_filename)
     cache_entry =  lal.CacheEntry( "".join(sorted(list(instruments))),
                                    bin_type,

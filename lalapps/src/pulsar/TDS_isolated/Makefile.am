@@ -1,7 +1,7 @@
-# Makefile for TDS_isolated
+BUILT_SOURCES =
+include $(top_srcdir)/gnuscripts/lalapps.am
 
-AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -DPKG_DATA_DIR='"$(pkgdatadir)/"' @AM_CPPFLAGS@
-LDADD = $(top_builddir)/src/lalapps/liblalapps.la
+# Makefile for TDS_isolated
 
 if LALFRAME
 frame_progs = \
@@ -39,7 +39,15 @@ lalapps_pulsar_parameter_estimation_nested_SOURCES = \
 	ppe_likelihood.c \
 	ppe_likelihood.h \
 	ppe_testing.c \
-	ppe_testing.h
+	ppe_testing.h \
+	ppe_init.c \
+	ppe_init.h \
+	ppe_utils.c \
+	ppe_utils.h \
+	ppe_readdata.c \
+	ppe_readdata.h \
+	ppe_inject.c \
+	ppe_inject.h
 
 lalapps_create_pulsar_signal_frame_SOURCES = \
 	create_pulsar_signal_frame.c
@@ -65,7 +73,3 @@ EXTRA_DIST = \
 TESTS_ENVIRONMENT = \
 	LAL_DEBUG_LEVEL=msglvl1,memdbg; export LAL_DEBUG_LEVEL; \
 	LAL_DATA_PATH="$(LAL_DATA_PATH)"; export LAL_DATA_PATH;
-
-## make sure lalapps.la is rebuilt when appropriate
-BUILT_SOURCES =
-include $(top_srcdir)/gnuscripts/vcsID.common

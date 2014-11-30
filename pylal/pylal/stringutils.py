@@ -1,4 +1,4 @@
-# Copyright (C) 2009  Kipp Cannon
+# Copyright (C) 2009--2014  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -34,6 +34,7 @@ from glue import segmentsUtils
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
+from glue.offsetvector import offsetvector
 from pylal import ligolw_burca_tailor
 from pylal import git_version
 from pylal import inject
@@ -289,7 +290,7 @@ class StringCoincParamsDistributions(snglcoinc.CoincParamsDistributions):
 		n_coincs, = scipy.stats.poisson.rvs(float(abs(segmentsUtils.vote(seglists.values(), 2))) * sum(coinc_generator.rates.values()) * experiments)
 
 		# generate synthetic background coincs
-		zero_lag_offset_vector = dict((instrument, 0.0) for instrument in seglists)
+		zero_lag_offset_vector = offsetvector((instrument, 0.0) for instrument in seglists)
 		for n, events in enumerate(coinc_generator.coincs(lsctables.SnglBurst.get_peak)):
 			# n = 1 on 2nd iteration, so placing this condition
 			# where it is in the loop causes the correct number
@@ -314,7 +315,24 @@ class StringCoincParamsDistributions(snglcoinc.CoincParamsDistributions):
 
 
 def load_likelihood_data(filenames, verbose = False):
-	return StringCoincParamsDistributions.from_filenames(filenames, name = u"string_cusp_likelihood", verbose = verbose)
+	coinc_params = None
+	seglists = None
+	for n, filename in enumerate(filenames, 1):
+		if verbose:
+			print >>sys.stderr, "%d/%d:" % (n, len(filenames)),
+		xmldoc = ligolw_utils.load_filename(filename, verbose = verbose, contenthandler = StringCoincParamsDistributions.contenthandler)
+		this_coinc_params = StringCoincParamsDistributions.from_xml(xmldoc, u"string_cusp_likelihood")
+		this_seglists = lsctables.SearchSummaryTable.get_table(xmldoc).get_out_segmentlistdict(set([this_coinc_params.process_id])).coalesce()
+		xmldoc.unlink()
+		if coinc_params is None:
+			coinc_params = this_coinc_params
+		else:
+			coinc_params += this_coinc_params
+		if seglists is None:
+			seglists = this_seglists
+		else:
+			seglists |= this_seglists
+	return coinc_params, seglists
 
 
 def write_likelihood_data(filename, coincparamsdistributions, seglists, verbose = False):

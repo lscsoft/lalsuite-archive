@@ -199,14 +199,14 @@ int XLALSimIMRPhenomP(
   const REAL8 chip,                     /**< Effective spin in the orbital plane */
   const REAL8 eta,                      /**< Symmetric mass-ratio */
   const REAL8 thetaJ,                   /**< Angle between J0 and line of sight (z-direction) */
-  const REAL8 phiJ,                     /**< Angle of J0 in the plane of the sky */
   const REAL8 Mtot_SI,                  /**< Total mass of binary (kg) */
   const REAL8 distance,                 /**< Distance of source (m) */
-  const REAL8 alpha0,                   /**< Initial value of alpha angle */
-  const REAL8 phic,                     /**< Orbital coalescence phase (rad) */
+  const REAL8 alpha0,                   /**< Initial value of alpha angle (azimuthal precession angle) */
+  const REAL8 phic,                     /**< Orbital phase at the peak of the underlying non precessing model (rad) */
   const REAL8 deltaF,                   /**< Sampling frequency (Hz) */
   const REAL8 f_min,                    /**< Starting GW frequency (Hz) */
-  const REAL8 f_max                    	/**< End frequency; 0 defaults to ringdown cutoff freq */
+  const REAL8 f_max,                   	/**< End frequency; 0 defaults to ringdown cutoff freq */
+  const REAL8 f_ref                     /**< Reference frequency */
 );
 
 /**
@@ -221,11 +221,10 @@ int XLALSimIMRPhenomPCalculateModelParameters(
     REAL8 *chip,                    /**< Output: Effective spin in the orbital plane */
     REAL8 *eta,                     /**< Output: Symmetric mass-ratio */
     REAL8 *thetaJ,                  /**< Output: Angle between J0 and line of sight (z-direction) */
-    REAL8 *phiJ,                    /**< Output: Angle of J0 in the plane of the sky */
-    REAL8 *alpha0,                  /**< Output: Initial value of alpha angle */
+    REAL8 *alpha0,                  /**< Output: Initial value of alpha angle (azimuthal precession angle) */
     const REAL8 m1_SI,              /**< Mass of companion 1 (kg) */
     const REAL8 m2_SI,              /**< Mass of companion 2 (kg) */
-    const REAL8 f_min,              /**< Starting GW frequency (Hz) */
+    const REAL8 f_ref,              /**< Reference GW frequency (Hz) */
     const REAL8 lnhatx,             /**< Initial value of LNhatx: orbital angular momentum unit vector */
     const REAL8 lnhaty,             /**< Initial value of LNhaty */
     const REAL8 lnhatz,             /**< Initial value of LNhatz */
@@ -304,6 +303,14 @@ SphHarmTimeSeries *XLALSimIMREOBNRv2Modes(
         const REAL8 distance /**< Distance to sources (m) */
         );
 
+double XLALSimIMRSpinAlignedEOBPeakFrequency( 
+    REAL8 m1SI,            /**< mass of companion 1 (kg) */
+    REAL8 m2SI,            /**< mass of companion 2 (kg) */
+    const REAL8 spin1z,    /**< z-component of the dimensionless spin of object 1 */
+    const REAL8 spin2z,    /**< z-component of the dimensionless spin of object 2 */
+    UINT4 SpinAlignedEOBversion   /**< 1 for SEOBNRv1, 2 for SEOBNRv2 */
+    );
+
 int XLALSimIMRSpinAlignedEOBWaveform(
         REAL8TimeSeries **hplus,
         REAL8TimeSeries **hcross,
@@ -315,8 +322,99 @@ int XLALSimIMRSpinAlignedEOBWaveform(
         const REAL8     r,
         const REAL8     inc,
         const REAL8     spin1z,
-        const REAL8     spin2z
+        const REAL8     spin2z,
+        UINT4           SpinAlignedEOBversion
      );
+
+int XLALSimIMRSpinEOBWaveform(
+        REAL8TimeSeries **hplus,
+        REAL8TimeSeries **hcross,
+        //LIGOTimeGPS     *tc,
+        const REAL8     phiC,
+        const REAL8     deltaT,
+        const REAL8     m1SI,
+        const REAL8     m2SI,
+        const REAL8     fMin,
+        const REAL8     r,
+        const REAL8     inc,
+        //const REAL8     spin1z,
+        //const REAL8     spin2z,
+        //UINT4           SpinAlignedEOBversion
+        const REAL8     spin1[],
+        const REAL8     spin2[]
+     );
+
+/*
+ * SEOBNRv1 reduced order models
+ * See CQG 31 195010, 2014, arXiv:1402.4146 for details.
+ */
+
+int XLALSimIMRSEOBNRv1ROMSingleSpin(
+    struct tagCOMPLEX16FrequencySeries **hptilde, /**< Output: Frequency-domain waveform h+ */
+    struct tagCOMPLEX16FrequencySeries **hctilde, /**< Output: Frequency-domain waveform hx */
+    REAL8 phiRef,                                 /**< Phase at reference frequency */
+    REAL8 deltaF,                                 /**< Sampling frequency (Hz) */
+    REAL8 fLow,                                   /**< Starting GW frequency (Hz) */
+    REAL8 fHigh,                                  /**< End frequency; 0 defaults to ringdown cutoff freq */
+    REAL8 fRef,                                   /**< Reference frequency; 0 defaults to fLow */
+    REAL8 distance,                               /**< Distance of source (m) */
+    REAL8 inclination,                            /**< Inclination of source (rad) */
+    REAL8 m1SI,                                   /**< Mass of companion 1 (kg) */
+    REAL8 m2SI,                                   /**< Mass of companion 2 (kg) */
+    REAL8 chi                                     /**< Effective aligned spin */
+);
+
+int XLALSimIMRSEOBNRv1ROMDoubleSpin(
+    struct tagCOMPLEX16FrequencySeries **hptilde, /**< Output: Frequency-domain waveform h+ */
+    struct tagCOMPLEX16FrequencySeries **hctilde, /**< Output: Frequency-domain waveform hx */
+    REAL8 phiRef,                                 /**< Phase at reference frequency */
+    REAL8 deltaF,                                 /**< Sampling frequency (Hz) */
+    REAL8 fLow,                                   /**< Starting GW frequency (Hz) */
+    REAL8 fHigh,                                  /**< End frequency; 0 defaults to ringdown cutoff freq */
+    REAL8 fRef,                                   /**< Reference frequency; 0 defaults to fLow */
+    REAL8 distance,                               /**< Distance of source (m) */
+    REAL8 inclination,                            /**< Inclination of source (rad) */
+    REAL8 m1SI,                                   /**< Mass of companion 1 (kg) */
+    REAL8 m2SI,                                   /**< Mass of companion 2 (kg) */
+    REAL8 chi1,                                   /**< Dimensionless aligned component spin 1 */
+    REAL8 chi2                                    /**< Dimensionless aligned component spin 2 */
+);
+
+/*
+ * SEOBNRv2 reduced order models PRELIMINARY!
+ * See CQG 31 195010, 2014, arXiv:1402.4146 for details.
+ */
+
+int XLALSimIMRSEOBNRv2ROMSingleSpin(
+    struct tagCOMPLEX16FrequencySeries **hptilde, /**< Output: Frequency-domain waveform h+ */
+    struct tagCOMPLEX16FrequencySeries **hctilde, /**< Output: Frequency-domain waveform hx */
+    REAL8 phiRef,                                 /**< Phase at reference frequency */
+    REAL8 deltaF,                                 /**< Sampling frequency (Hz) */
+    REAL8 fLow,                                   /**< Starting GW frequency (Hz) */
+    REAL8 fHigh,                                  /**< End frequency; 0 defaults to ringdown cutoff freq */
+    REAL8 fRef,                                   /**< Reference frequency; 0 defaults to fLow */
+    REAL8 distance,                               /**< Distance of source (m) */
+    REAL8 inclination,                            /**< Inclination of source (rad) */
+    REAL8 m1SI,                                   /**< Mass of companion 1 (kg) */
+    REAL8 m2SI,                                   /**< Mass of companion 2 (kg) */
+    REAL8 chi                                     /**< Effective aligned spin */
+);
+
+int XLALSimIMRSEOBNRv2ROMDoubleSpin(
+    struct tagCOMPLEX16FrequencySeries **hptilde, /**< Output: Frequency-domain waveform h+ */
+    struct tagCOMPLEX16FrequencySeries **hctilde, /**< Output: Frequency-domain waveform hx */
+    REAL8 phiRef,                                 /**< Phase at reference frequency */
+    REAL8 deltaF,                                 /**< Sampling frequency (Hz) */
+    REAL8 fLow,                                   /**< Starting GW frequency (Hz) */
+    REAL8 fHigh,                                  /**< End frequency; 0 defaults to ringdown cutoff freq */
+    REAL8 fRef,                                   /**< Reference frequency; 0 defaults to fLow */
+    REAL8 distance,                               /**< Distance of source (m) */
+    REAL8 inclination,                            /**< Inclination of source (rad) */
+    REAL8 m1SI,                                   /**< Mass of companion 1 (kg) */
+    REAL8 m2SI,                                   /**< Mass of companion 2 (kg) */
+    REAL8 chi1,                                   /**< Dimensionless aligned component spin 1 */
+    REAL8 chi2                                    /**< Dimensionless aligned component spin 2 */
+);
 
 /**
  * Routine to compute the mass and spin of the final black hole given

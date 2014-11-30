@@ -906,7 +906,8 @@ int XLALConvertSSB2GPS ( LIGOTimeGPS *GPSout,			/**< [out] GPS-arrival-time at d
       delta = XLALGPSToINT8NS( &SSBin ) - XLALGPSToINT8NS( &SSBofguess );
 
       /* if we are within 1ns of the result increment the flip-flop counter */
-      if ( abs(delta) == 1) {
+      /* cast delta to "long long" to ensure expected type for llabs() */
+      if ( llabs((long long)delta) == 1) {
         flip_flop_counter ++;
       }
 
@@ -926,7 +927,7 @@ int XLALConvertSSB2GPS ( LIGOTimeGPS *GPSout,			/**< [out] GPS-arrival-time at d
 
   /* check for convergence of root finder */
   if ( iterations == 100 ) {
-    XLAL_ERROR ( XLAL_EFAILED, "SSB->GPS iterative conversion failed to converge to <= 1ns within 100 iterations: delta = %d ns\n", delta );
+    XLAL_ERROR ( XLAL_EFAILED, "SSB->GPS iterative conversion failed to converge to <= 1ns within 100 iterations: delta = %"LAL_INT8_FORMAT" ns\n", delta );
   }
 
   /* if we exited because of flip-flop and final delta was +1 then round up to the higher value */

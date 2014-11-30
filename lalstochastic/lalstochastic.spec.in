@@ -12,7 +12,7 @@ Source: %{name}-%{version}.tar.gz
 URL: https://www.lsc-group.phys.uwm.edu/daswg/projects/lalsuite.html
 Packager: Adam Mercer <adam.mercer@ligo.org>
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
-BuildRequires: swig python-devel octave-devel 
+BuildRequires: swig python-devel octave-devel
 Requires: libmetaio lal lalmetaio
 Prefix: %{_prefix}
 
@@ -57,7 +57,7 @@ This package provides the Octave bindings for LALStochastic.
 %{__make} V=1
 
 %install
-%makeinstall
+%make_install
 rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 
 %post
@@ -87,9 +87,7 @@ rm -Rf ${RPM_BUILD_DIR}/%{name}-%{version}
 %{_libdir}/python*/site-packages/lalstochastic/*.pyc
 %{_libdir}/python*/site-packages/lalstochastic/_lalstochastic.so*
 %exclude %{_libdir}/python*/site-packages/lalstochastic/*.pyo
-%exclude %{_libdir}/python*/site-packages/lalstochastic/*.la
 
 %files octave
 %defattr(-,root,root)
 %{_libexecdir}/octave/*/site/oct/*/lalstochastic.oct*
-%exclude %{_libexecdir}/octave/*/site/oct/*/lalstochastic.la

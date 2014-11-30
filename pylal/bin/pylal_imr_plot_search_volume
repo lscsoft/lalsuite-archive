@@ -33,9 +33,9 @@ xmldoc = utils.load_filename(f, verbose = True)
 xmldoc = xmldoc.childNodes[0]
 
 
-rangeVal  = rate.binned_array_from_xml(xmldoc, "mass1_mass2_range")
-bins = rate.bins_from_xml(xmldoc.childNodes[1])
-range_error  = rate.binned_array_from_xml(xmldoc, "mass1_mass2_range_error")
+rangeVal  = rate.BinnedArray.from_xml(xmldoc, "mass1_mass2_range")
+bins = rate.NDBins.from_xml(xmldoc.childNodes[1])
+range_error  = rate.BinnedArray.from_xml(xmldoc, "mass1_mass2_range_error")
 #### Make the NaN in the error as zero for plotting only
 whereAreNaNs = numpy.isnan(range_error.array);
 range_error.array[whereAreNaNs] = 0;

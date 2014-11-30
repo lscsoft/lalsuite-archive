@@ -186,8 +186,6 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		# - false-alarm rates are blank
 		#
 
-		events = sorted(events, lambda a, b: cmp(a.ifo, b.ifo))
-
 		coinc_inspiral = self.coinc_inspiral_table.RowType()
 		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
 		coinc_inspiral.mass = sum(event.mass1 + event.mass2 for event in events) / len(events)
@@ -248,8 +246,8 @@ def coinc_inspiral_end_time(events, offset_vector):
 	@offset_vector: a dictionary of offsets to apply to different
 	detectors keyed by detector name
 	"""
-	events = sorted(events, lambda a, b: cmp(a.ifo, b.ifo))
-	return events[0].get_end() + offset_vector[events[0].ifo]
+	event = min(events, key = lambda event: event.ifo)
+	return event.get_end() + offset_vector[event.ifo]
 
 
 #
@@ -321,7 +319,7 @@ def inspiral_max_dt(events, e_thinca_parameter):
 	# for each instrument present in the event list, compute the
 	# largest \Delta t interval for the events from that instrument,
 	# and return the sum of the largest two such \Delta t's.
-	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * lal.LAL_REARTH_SI / lal.LAL_C_SI
+	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * lal.REARTH_SI / lal.C_SI
 
 
 def inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter):
@@ -406,7 +404,8 @@ def ligolw_thinca(
 	trigger_program = u"inspiral",
 	likelihood_func = None,
 	likelihood_params_func = None,
-	verbose = False
+	verbose = False,
+	max_dt = None
 ):
 	#
 	# prepare the coincidence table interface.
@@ -433,7 +432,8 @@ def ligolw_thinca(
 	# set the \Delta t parameter on all the event lists
 	#
 
-	max_dt = inspiral_max_dt(lsctables.SnglInspiralTable.get_table(xmldoc), thresholds)
+	if max_dt is None:
+		max_dt = inspiral_max_dt(lsctables.SnglInspiralTable.get_table(xmldoc), thresholds)
 	if verbose:
 		print >>sys.stderr, "event bisection search window will be %.16g s" % max_dt
 	for eventlist in eventlists.values():
@@ -458,9 +458,9 @@ def ligolw_thinca(
 	#
 
 	for node, coinc in time_slide_graph.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose):
-		ntuple = tuple(sngl_index[id] for id in coinc)
-		if not ntuple_comparefunc(ntuple, node.offset_vector):
-			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
+		coinc = tuple(sngl_index[event_id] for event_id in coinc)
+		if not ntuple_comparefunc(coinc, node.offset_vector):
+			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, coinc, effective_snr_factor)
 
 	#
 	# remove time offsets from events

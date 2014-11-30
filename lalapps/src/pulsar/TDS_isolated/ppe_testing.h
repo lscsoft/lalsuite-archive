@@ -25,6 +25,7 @@
 #define _PPE_TESTING_H
 
 #include "pulsar_parameter_estimation_nested.h"
+#include "ppe_utils.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -52,7 +53,7 @@ void gridOutput( LALInferenceRunState *runState );
 
 REAL8 test_gaussian_log_likelihood( LALInferenceVariables *vars,
                                     LALInferenceIFOData *data,
-                                    LALInferenceTemplateFunction get_model );
+                                    LALInferenceModel *get_model );
 
 void outputPriorSamples( LALInferenceRunState *runState );
 

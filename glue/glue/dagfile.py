@@ -75,6 +75,9 @@ the DAG object.
 import re
 
 
+__all__ = ["DAG", "JOB", "DATA", "SPLICE", "SUBDAG_EXTERNAL"]
+
+
 #
 # =============================================================================
 #

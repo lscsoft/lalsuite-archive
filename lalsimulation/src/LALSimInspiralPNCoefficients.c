@@ -49,7 +49,7 @@ static REAL8 UNUSED
 XLALSimInspiralPNEnergy_2PNCoeff(
 	REAL8 eta)
 {
-	return -(3.0/4.0 + 1.0/12.0 * eta);
+	return -(0.75 + eta/12.0);
 }
 
 static REAL8 UNUSED
@@ -103,7 +103,7 @@ XLALSimInspiralPNEnergy_4PNS1S2Coeff(
 }
 
 static REAL8 UNUSED
-XLALSimInspiralPNEnergy_4PNS1S2LCoeff(
+XLALSimInspiralPNEnergy_4PNS1S2OCoeff(
 	REAL8 eta)
 {
 	return -3./eta;
@@ -117,7 +117,7 @@ XLALSimInspiralPNEnergy_4PNQM2SCoeff(
 }
 
 static REAL8 UNUSED
-XLALSimInspiralPNEnergy_4PNQM2SLCoeff(
+XLALSimInspiralPNEnergy_4PNQM2SOCoeff(
 	REAL8 mByM)
 {
 	return -3. * (1./mByM/mByM) / 2.;
@@ -134,9 +134,8 @@ static REAL8 UNUSED
 XLALSimInspiralPNEnergy_7PNSOCoeff(
 	REAL8 mByM)
 {
-	return -75./4. + 27./(4.*mByM) + 53.*mByM/2. + 67*mByM*mByM/6. + 17.*pow(mByM,3)/12. - pow(mByM,4)/12.;
+	return -75./4. + 27./(4.*mByM) + 53.*mByM/2. + 67*mByM*mByM/6. + 17.*mByM*mByM*mByM/12. - mByM*mByM*mByM*mByM/12.;
 }
-
 
 /*
  * Tidal correction coefficients to Energy
@@ -144,20 +143,16 @@ XLALSimInspiralPNEnergy_7PNSOCoeff(
 
 static REAL8 UNUSED
 XLALSimInspiralPNEnergy_10PNTidalCoeff(
-	REAL8 chi1,
-	REAL8 chi2,
-	REAL8 lambda2)
+	REAL8 mByM)
 {
-	return -9.0 * chi1 * chi2*chi2*chi2*chi2 * lambda2;
+       return -9.0 * mByM*mByM*mByM*mByM*(1.-mByM);
 }
 
 static REAL8 UNUSED
 XLALSimInspiralPNEnergy_12PNTidalCoeff(
-	REAL8 chi1,
-	REAL8 chi2,
-	REAL8 lambda2)
+	REAL8 mByM)
 {
-	return -11.0/2.0 * chi1 * chi2*chi2*chi2*chi2 * lambda2 * (3. + 2.*chi2 + 3.*chi2*chi2);
+  return (-33./2. + 11./2.*mByM - 11./2.*mByM*mByM + 33./2.*mByM*mByM*mByM)*mByM*mByM*mByM*mByM;
 }
 
 /**
@@ -207,6 +202,48 @@ XLALSimInspiralPNFlux_4PNCoeff(
 }
 
 static REAL8 UNUSED
+XLALSimInspiralPNFlux_4PNS1S2Coeff(
+    REAL8 eta)
+{
+    return -103./48./eta;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralPNFlux_4PNS1S2OCoeff(
+    REAL8 eta)
+{
+    return 289./48./eta;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralPNFlux_4PNQM2SCoeff(
+    REAL8 mByM)
+{
+    return -1./mByM/mByM;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralPNFlux_4PNQM2SOCoeff(
+    REAL8 mByM)
+{
+    return 3./mByM/mByM;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralPNFlux_4PNSelf2SCoeff(
+    REAL8 mByM)
+{
+    return 7./96./mByM/mByM;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralPNFlux_4PNSelf2SOCoeff(
+    REAL8 mByM)
+{
+    return -1./96./mByM/mByM;
+}
+
+static REAL8 UNUSED
 XLALSimInspiralPNFlux_5PNCoeff(
 	REAL8 eta)
 {
@@ -224,16 +261,15 @@ static REAL8 UNUSED
 XLALSimInspiralPNFlux_6PNCoeff(
 	REAL8 eta)
 {
-	return (664.3739519/6.9854400 + 16.0/3.0 * LAL_PI*LAL_PI - 17.12/1.05 * LAL_GAMMA
-		+ (4.1/4.8 * LAL_PI*LAL_PI - 134.543/7.776) * eta
-		- 94.403/3.024 * eta*eta - 7.75/3.24 * eta*eta*eta);
+        return (664.3739519/6.9854400 + 16.0/3.0 * LAL_PI*LAL_PI - 17.12/1.05 * LAL_GAMMA - 17.12/1.05*log(4.) + (4.1/4.8 * LAL_PI*LAL_PI - 134.543/7.776) * eta - 94.403/3.024 * eta*eta - 7.75/3.24 * eta*eta*eta);
 }
 
+/* Note that this coefficient multiplies log(v)*/
 static REAL8 UNUSED
 XLALSimInspiralPNFlux_6PNLogCoeff(
 	REAL8 UNUSED eta)
 {
-	return -8.56/1.05;
+	return -17.12/1.05;
 }
 
 static REAL8 UNUSED
@@ -254,7 +290,15 @@ static REAL8 UNUSED
 XLALSimInspiralPNFlux_7PNSOCoeff(
 	REAL8 mByM)
 {
-        return (380.647/13.608) + 9535./(336.*mByM) - 40115.*mByM/756. + 3742.*mByM*mByM/63. - 35.*pow(mByM,3)/108. - 1117.*pow(mByM,4)/54.;
+        return (380.647/13.608) + 9535./(336.*mByM) - 40115.*mByM/756. + 3742.*mByM*mByM/63. - 35.*mByM*mByM*mByM/108. - 1117.*mByM*mByM*mByM*mByM/54.;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralPNFlux_8PNSOCoeff(
+	REAL8 mByM)
+{
+        return LAL_PI * (125.47/2.52 - 71.63/(6.72*mByM) -3.137*mByM/2.016 - 212.41*mByM*mByM/3.36);
+       // see eq. (4.9) of arXiv:1307.6793
 }
 
 /*
@@ -263,28 +307,35 @@ XLALSimInspiralPNFlux_7PNSOCoeff(
 
 static REAL8 UNUSED
 XLALSimInspiralPNFlux_10PNTidalCoeff(
-	REAL8 chi2,
-	REAL8 lambda2)
+	REAL8 mByM)
 {
-	return (18. - 12.*chi2) * chi2*chi2*chi2*chi2 * lambda2;
+        return 6. *(3. - 2.*mByM) * mByM*mByM*mByM*mByM;
 }
 
 static REAL8 UNUSED
 XLALSimInspiralPNFlux_12PNTidalCoeff(
-	REAL8 chi2,
-	REAL8 lambda2)
+	REAL8 mByM)
 {
-	return (-70.4 - 180.3*chi2 + 450.1*chi2*chi2 - 217.0*chi2*chi2*chi2)/2.8 * chi2*chi2*chi2*chi2 * lambda2;
+        return (-176./7. - 1803./28.*mByM + 643./4.*mByM*mByM -155./2.*mByM*mByM*mByM) * mByM*mByM*mByM*mByM;
 }
 
+/* The phasing function for TaylorF2 frequency-domain waveform.
+ * This function is tested in ../test/PNCoefficients.c for consistency
+ * with the energy and flux in this file.
+ */
 static void UNUSED
-XLALSimInspiralPNPhasing_F2WithSO(
+XLALSimInspiralPNPhasing_F2(
 	PNPhasingSeries *pfa,
-	const REAL8 m1,
-	const REAL8 m2,
-	const REAL8 chi1L,
-	const REAL8 chi2L,
-	const LALSimInspiralSpinOrder spinO
+	const REAL8 m1, /**< Mass of body 1, in Msol */
+	const REAL8 m2, /**< Mass of body 2, in Msol */
+	const REAL8 chi1L, /**< Component of dimensionless spin 1 along Lhat */
+	const REAL8 chi2L, /**< Component of dimensionless spin 2 along Lhat */
+	const REAL8 chi1sq, /**< Magnitude of dimensionless spin 1 */
+	const REAL8 chi2sq, /**< Magnitude of dimensionless spin 2 */
+	const REAL8 chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
+	const REAL8 qm_def1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
+	const REAL8 qm_def2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
+	const LALSimInspiralSpinOrder spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
 	)
 {
     const REAL8 mtot = m1 + m2;
@@ -292,8 +343,13 @@ XLALSimInspiralPNPhasing_F2WithSO(
     const REAL8 eta = m1*m2/mtot/mtot;
     const REAL8 m1M = m1/mtot;
     const REAL8 m2M = m2/mtot;
-    const REAL8 xs = 0.5L * (chi1L + chi2L);
-    const REAL8 xa = 0.5L * (chi1L - chi2L);
+    /* Use the spin-orbit variables from arXiv:1303.7412, Eq. 3.9
+     * We write dSigmaL for their (\delta m/m) * \Sigma_\ell
+     * There's a division by mtotal^2 in both the energy and flux terms
+     * We just absorb the division by mtotal^2 into SL and dSigmaL
+     */
+    const REAL8 SL = m1M*m1M*chi1L + m2M*m2M*chi2L;
+    const REAL8 dSigmaL = d*(m2M*chi2L - m1M*chi1L);
 
     const REAL8 pfaN = 3.L/(128.L * eta);
 
@@ -315,34 +371,41 @@ XLALSimInspiralPNPhasing_F2WithSO(
                  - eta*eta*eta * 127825.L/1296.L;
     pfa->v[6] += (-6848.L/21.L)*log(4.);
     pfa->vlogv[6] = -6848.L/21.L;
-    pfa->v[7] = LAL_PI * 5.L/756.L * ( 15419335.L/336.L
-                     + 75703.L/2.L * eta - 14809.L * eta*eta);
+    pfa->v[7] = LAL_PI * ( 77096675.L/254016.L
+                     + 378515.L/1512.L * eta - 74045.L/756.L * eta*eta);
+
+
+    /* Compute 2.0PN SS, QM, and self-spin */
+    // See Eq. (6.24) in arXiv:0810.5336
+    // 9b,c,d in arXiv:astro-ph/0504538
+    REAL8 pn_sigma = eta * (721.L/48.L*chi1L*chi2L - 247.L/48.L*chi1dotchi2);
+    pn_sigma += (720.L*qm_def1 - 1.L)/96.0L * m1M * m1M * chi1L * chi1L;
+    pn_sigma += (720.L*qm_def2 - 1.L)/96.0L * m2M * m2M * chi2L * chi2L;
+    pn_sigma -= (240.L*qm_def1 - 7.L)/96.0L * m1M * m1M * chi1sq;
+    pn_sigma -= (240.L*qm_def2 - 7.L)/96.0L * m2M * m2M * chi2sq;
 
     /* Spin-orbit terms - can be derived from arXiv:1303.7412, Eq. 3.15-16 */
-    const REAL8 pn_gamma = (732985.L/2268.L - 24260.L/81.L * eta - 340.L/9.L * eta * eta ) * xs + (732985.L/2268.L +140.L/9.0L * eta) * xa * d;
-
+    const REAL8 pn_gamma = (554345.L/1134.L + 110.L*eta/9.L)*SL + (13915.L/84.L - 10.L*eta/3.)*dSigmaL;
     switch( spinO )
     {
         case LAL_SIM_INSPIRAL_SPIN_ORDER_ALL:
         case LAL_SIM_INSPIRAL_SPIN_ORDER_35PN:
-            pfa->v[7] += (m1M * (-8980424995.L/762048.L + 6586595.L*eta/756.L - 305.L*eta*eta/36.L) + d * (170978035.L/48384.L - 2876425.L*eta/672.L - 4735.L*eta*eta/144.L) ) * m1M * chi1L;
-            pfa->v[7] += (m2M * (-8980424995.L/762048.L + 6586595.L*eta/756.L - 305.L*eta*eta/36.L) - d * (170978035.L/48384.L - 2876425.L*eta/672.L - 4735.L*eta*eta/144.L) ) * m2M * chi2L;
+            pfa->v[7] += (-8980424995.L/762048.L + 6586595.L*eta/756.L - 305.L*eta*eta/36.L)*SL - (170978035.L/48384.L - 2876425.L*eta/672.L - 4735.L*eta*eta/144.L) * dSigmaL;
         case LAL_SIM_INSPIRAL_SPIN_ORDER_3PN:
-            pfa->v[6] += LAL_PI * (260.L*m1M + 1490.L/3.L) * m1M * chi1L;
-            pfa->v[6] += LAL_PI * (260.L*m2M + 1490.L/3.L) * m2M * chi2L;
+            pfa->v[6] += LAL_PI * (3760.L*SL + 1490.L*dSigmaL)/3.L;
         case LAL_SIM_INSPIRAL_SPIN_ORDER_25PN:
             pfa->v[5] += -1.L * pn_gamma;
             pfa->vlogv[5] += -3.L * pn_gamma;
         case LAL_SIM_INSPIRAL_SPIN_ORDER_2PN:
-            /* At least for now, handle spin-spin term in following function */
+            pfa->v[4] += -10.L * pn_sigma;
         case LAL_SIM_INSPIRAL_SPIN_ORDER_15PN:
-            pfa->v[3] += 4.L * ( (113.L/12.L- 19.L/3.L * eta) * xs + 113.L/12.L * d * xa);
+            pfa->v[3] += 188.L*SL/3.L + 25.L*dSigmaL;
         case LAL_SIM_INSPIRAL_SPIN_ORDER_1PN:
         case LAL_SIM_INSPIRAL_SPIN_ORDER_05PN:
         case LAL_SIM_INSPIRAL_SPIN_ORDER_0PN:
             break;
         default:
-            XLALPrintError("XLAL Error - %s: Invalid spin PN order %s\n",
+            XLALPrintError("XLAL Error - %s: Invalid spin PN order %i\n",
                     __func__, spinO );
             XLAL_ERROR_VOID(XLAL_EINVAL);
             break;
@@ -357,58 +420,6 @@ XLALSimInspiralPNPhasing_F2WithSO(
     }
 }
 
-static void UNUSED
-XLALSimInspiralPNPhasing_F2AddSS(
-	PNPhasingSeries *pfa,
-	const REAL8 m1,
-	const REAL8 m2,
-	const REAL8 chi1L,
-	const REAL8 chi2L,
-	const REAL8 chi1sq,
-	const REAL8 chi2sq,
-    const REAL8 chi1dotchi2,
-    const REAL8 qm_def1,
-    const REAL8 qm_def2,
-    const LALSimInspiralSpinOrder spinO
-	)
-{
-    const REAL8 mtot = m1 + m2;
-    const REAL8 eta = m1*m2/mtot/mtot;
-    const REAL8 m1Msq = m1*m1/mtot/mtot;
-    const REAL8 m2Msq = m2*m2/mtot/mtot;
-
-    const REAL8 pfaN = 3.L/(128.L * eta);
-    REAL8 pn_sigma;
-
-    /* Compute 2.0PN SS, QM, and self-spin */
-    // See Eq. (6.24) in arXiv:0810.5336
-    // 9b,c,d in arXiv:astro-ph/0504538
-    pn_sigma = eta * (721.L/48.L *chi1L*chi2L-247.L/48.L*chi1dotchi2);
-    pn_sigma += (720.L*qm_def1 - 1.L)/96.0L * m1Msq * chi1L * chi1L;
-    pn_sigma += (720.L*qm_def2 - 1.L)/96.0L * m2Msq * chi2L * chi2L;
-    pn_sigma -= (240.L*qm_def1 - 7.L)/96.0L * m1Msq * chi1sq;
-    pn_sigma -= (240.L*qm_def2 - 7.L)/96.0L * m2Msq * chi2sq;
-
-    switch( spinO )
-    {
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_ALL:
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_35PN:
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_3PN:
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_25PN:
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_2PN:
-            pfa->v[4] += -10.L * pfaN * pn_sigma;
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_15PN:
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_1PN:
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_05PN:
-        case LAL_SIM_INSPIRAL_SPIN_ORDER_0PN:
-            break;
-        default:
-            XLALPrintError("XLAL Error - %s: Invalid spin PN order %s\n",
-                    __func__, spinO );
-            XLAL_ERROR_VOID(XLAL_EINVAL);
-    }
-}
-
 /*
  * Tidal corrections to F2 phasing
  * See arXiv:1101.1673
@@ -416,21 +427,19 @@ XLALSimInspiralPNPhasing_F2AddSS(
 
 static REAL8 UNUSED
 XLALSimInspiralTaylorF2Phasing_10PNTidalCoeff(
-	REAL8 chi, /**< ratio of object mass to total mass */
-	REAL8 lambda /**< tidal deformability parameter */
+	REAL8 mByM /**< ratio of object mass to total mass */
     )
 {
-    return -4.L * lambda * chi*chi*chi*chi * (72.L - 66.L*chi);
+  return (-288. + 264.*mByM)*mByM*mByM*mByM*mByM;
+
 }
 
 static REAL8 UNUSED
 XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(
-	REAL8 chi, /**< ratio of object mass to total mass */
-	REAL8 lambda /**< tidal deformability parameter */
+	REAL8 mByM /**< ratio of object mass to total mass */
     )
 {
-    return -5.L * lambda * chi*chi*chi*chi *
-        (3179.L - 919.L*chi - 2286.L*chi*chi + 260.L*chi*chi*chi)/28.L;
+  return (-15895./28. + 4595./28.*mByM + 5715./14.*mByM*mByM - 325./7.*mByM*mByM*mByM)*mByM*mByM*mByM*mByM;
 }
 
 /**
@@ -499,6 +508,139 @@ XLALSimInspiralTaylorT2Phasing_7PNCoeff(
 {
 	return (77.096675/2.032128 + 37.8515/1.2096 * eta - 74.045/6.048 * eta*eta) * LAL_PI;
 }
+
+/*
+ * TaylorT2 derivatives dt/dv
+ */
+
+/* The expression for dt/dv has an extra factor of M not implemented here */
+static REAL8 UNUSED
+XLALSimInspiralTaylorT2dtdv_0PNCoeff(
+    REAL8 eta)
+{
+    return 5./(32.*eta);
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorT2dtdv_2PNCoeff(
+    REAL8 eta)
+{
+    return 743./336. + 11.*eta/4.;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorT2dtdv_3PNCoeff(
+    REAL8 UNUSED eta)
+{
+    return -4.*LAL_PI;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorT2dtdv_4PNCoeff(
+    REAL8 eta)
+{
+    return 3058673./1016064. + 5429.*eta/1008. + 617.*eta*eta/144.;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorT2dtdv_5PNCoeff(
+    REAL8 eta)
+{
+    return (-7729./672.+13.*eta/8.)*LAL_PI;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorT2dtdv_6PNCoeff(
+    REAL8 eta)
+{
+    return -10817850546611./93884313600. + 32.*LAL_PI*LAL_PI/3.
+            + 1712.*LAL_GAMMA/105.
+            + (3147553127./12192768. - 451.*LAL_PI*LAL_PI/48.)*eta
+            - 15211.*eta*eta/6912. + 25565.*eta*eta*eta/5184.
+            + 856.*log(16.)/105.;
+}
+
+/* The convention here is that this is the coefficient in front of v^6 log(v)
+ * in the dt/dv expansion, NOT the one proportional to v^6 log(16 v^2).
+ * Hence the term above containing log(16).
+ */
+static REAL8 UNUSED
+XLALSimInspiralTaylorT2dtdv_6PNLogCoeff(
+    REAL8 UNUSED eta)
+{
+    return 1712./105.;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorT2dtdv_7PNCoeff(
+    REAL8 eta)
+{
+    return LAL_PI*(-15419335./1016064. -75703.*eta/6048. + 14809.*eta*eta/3024);
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorT2dtdv_3PNSOCoeff(
+    REAL8 mByM)
+{
+    return 19./6. + 25./mByM/4.;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorT2dtdv_5PNSOCoeff(
+    REAL8 mByM)
+{
+    return -17.*mByM*mByM/4. + 5.*mByM + 1249./36. + 8349./mByM/224.;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorT2dtdv_6PNSOCoeff(
+    REAL8 mByM)
+{
+    return LAL_PI*( -13. - 149./mByM/6.);
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorT2dtdv_7PNSOCoeff(
+    REAL8 mByM)
+{
+    const REAL8 mByMsq = mByM*mByM;
+    return 1069.*mByMsq*mByMsq/288. - 1741.*mByMsq*mByM/192. + 176383.*mByMsq/12096. + 707767.*mByM/3456. + 133100377./6096384. + 34195607./mByM/193536.;
+}
+
+/* At 2 PN there are several spin^2 terms; see arXiv:astro-ph/0504538
+ * The dt/dv spin^2 term at 2 PN is just -sigma (Eq. 9b-9d)
+ * The terms 4PNSS and 4PNSSL are spin1-spin1 terms, and also depend
+ * on qm_def, the dimensionless quadrupole-monopole deformation
+ * parameter (1 for BH, larger for NS
+ */
+static REAL8 UNUSED
+XLALSimInspiralTaylorT2dtdv_4PNS1S2Coeff(
+    REAL8 eta)
+{
+    return 247./48./eta;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorT2dtdv_4PNS1S2LCoeff(
+    REAL8 eta)
+{
+    return -721./48./eta;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorT2dtdv_4PNSSCoeff(
+    REAL8 mByM, REAL8 qm_def)
+{
+    return (5.*qm_def/2. - 7./96.)/mByM/mByM;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorT2dtdv_4PNSSLCoeff(
+    REAL8 mByM, REAL8 qm_def)
+{
+    return (-15.*qm_def/2. + 1./96.)/mByM/mByM;
+}
+
 
 /*
  * Tidal correction coefficients to Phasing
@@ -800,154 +942,98 @@ XLALSimInspiralTaylorT3Frequency_12PNTidalCoeff(
 }
 
 /**
- * Computes the PN Coefficients for using in the TaylorT4 angular acceleration
- * equation.
+ * Computes the PN Coefficients for using in the TaylorT4 frequency equation.
  *
- * Terms given in equation 3.6 of: Alessandra Buonanno, Bala R Iyer, Evan
- * Ochsner, Yi Pan, and B S Sathyaprakash, "Comparison of post-Newtonian
+ * Spin-less terms given in equation 3.6 of: Alessandra Buonanno, Bala R Iyer,
+ * Evan Ochsner, Yi Pan, and B S Sathyaprakash, "Comparison of post-Newtonian
  * templates for compact binary inspiral signals in gravitational-wave
  * detectors", Phys. Rev. D 80, 084043 (2009), arXiv:0907.0700v1
+ * ( with (domega/dt)/omega = 3 (dv/dt)/v ),
+ * spin-orbit terms in eq. 4.10a of S.Marsat, A.Bohe, L.Blanchet, A.Buonanno
+ * Class.Quant.Grav. 31 (2014) 025023, arXiv:1307.6793,
+ * spin-spin terms in eqs. 5.15-17 of E.Racine, A.Buonanno, L.Kidder PRD80(2009)
+ * 044010, arXiv:0812.4413
+ *** UNREVIEWED ****
  */
 
 static REAL8 UNUSED
-XLALSimInspiralTaylorT4AngularAccel_0PNCoeff(
-	REAL8 totalmass,
-	REAL8 eta)
-{
-	return 32.0 * eta / (5.0 * totalmass);
-}
-
-static REAL8 UNUSED
-XLALSimInspiralTaylorT4AngularAccel_2PNCoeff(
-	REAL8 eta)
-{
-	return -(7.43/3.36 + 11.0/4.0 * eta);
-}
-
-static REAL8 UNUSED
-XLALSimInspiralTaylorT4AngularAccel_3PNCoeff(
-	REAL8 UNUSED eta)
-{
-	return 4.0 * LAL_PI;
-}
-
-static REAL8 UNUSED
-XLALSimInspiralTaylorT4AngularAccel_4PNCoeff(
-	REAL8 eta)
-{
-	return (3.4103/1.8144 + 13.661/2.016 * eta + 5.9/1.8 * eta*eta);
-}
-
-static REAL8 UNUSED
-XLALSimInspiralTaylorT4AngularAccel_5PNCoeff(
-	REAL8 eta)
-{
-	return -(41.59/6.72 + 189.0/8.0 * eta) * LAL_PI;
-}
-
-static REAL8 UNUSED
-XLALSimInspiralTaylorT4AngularAccel_6PNCoeff(
-	REAL8 eta)
-{
-	return (164.47322263/1.39708800 + 16.0/3.0 * LAL_PI * LAL_PI 
-		- 17.12/1.05 * LAL_GAMMA
-		+ (45.1/4.8 * LAL_PI*LAL_PI - 561.98689/2.17728) * eta
-		+ 5.41/8.96 * eta*eta - 5.605/2.592 * eta*eta*eta);
-}
-
-static REAL8 UNUSED
-XLALSimInspiralTaylorT4AngularAccel_6PNLogCoeff(
-	REAL8 UNUSED eta)
-{
-	return -8.56/1.05;
-}
-
-static REAL8 UNUSED
-XLALSimInspiralTaylorT4AngularAccel_7PNCoeff(
-	REAL8 eta)
-{
-	return -(4.415/4.032 - 358.675/6.048 * eta - 91.495/1.512 * eta*eta) * LAL_PI;
-}
-
-
-static REAL8 UNUSED
-XLALSimInspiralTaylorT4Phasing_0PNCoeff(
+XLALSimInspiralTaylorT4wdot_0PNCoeff(
 	REAL8 eta)
 {
 	return 96. / 5. * eta;
 }
 
 static REAL8 UNUSED
-XLALSimInspiralTaylorT4Phasing_2PNCoeff(
+XLALSimInspiralTaylorT4wdot_2PNCoeff(
 	REAL8 eta)
 {
 	return ( -(1.0/336.0) * (743.0 + 924.0*eta) );
 }
 
 static REAL8 UNUSED
-XLALSimInspiralTaylorT4Phasing_3PNCoeff(
+XLALSimInspiralTaylorT4wdot_3PNCoeff(
 	REAL8 UNUSED eta)
 {
 	return 4.0 * LAL_PI;
 }
 
 static REAL8 UNUSED
-XLALSimInspiralTaylorT4Phasing_3PNSOCoeff(
+XLALSimInspiralTaylorT4wdot_3PNSOCoeff(
 	REAL8 mByM)
 {
 	return - 19./6. - 25./4./mByM;
 }
 
 static REAL8 UNUSED
-XLALSimInspiralTaylorT4Phasing_4PNCoeff(
+XLALSimInspiralTaylorT4wdot_4PNCoeff(
 	REAL8 eta)
 {
 	return (34103. + 122949.*eta + 59472.*eta*eta)/18144.;
 }
 
 static REAL8 UNUSED
-XLALSimInspiralTaylorT4Phasing_4PNSSCoeff(
+XLALSimInspiralTaylorT4wdot_4PNS1S2Coeff(
 	REAL8 eta)
 {
 	return - 247. / 48. / eta;
 }
 
-static REAL8 UNUSED XLALSimInspiralTaylorT4Phasing_4PNSSLCoeff(
+static REAL8 UNUSED XLALSimInspiralTaylorT4wdot_4PNS1S2OCoeff(
 	REAL8 eta)
 {
 	return 721. / 48. / eta;
 }
 
 static REAL8 UNUSED
-XLALSimInspiralTaylorT4Phasing_4PNSelfSSCoeff(
+XLALSimInspiralTaylorT4wdot_4PNSelfSSCoeff(
 	REAL8 mByM)
 {
 	return 7./96./mByM/mByM;
 }
 
 static REAL8 UNUSED
-XLALSimInspiralTaylorT4Phasing_4PNSelfSSLCoeff(
+XLALSimInspiralTaylorT4wdot_4PNSelfSSOCoeff(
 	REAL8 mByM)
 {
 	return -1./96./mByM/mByM;
 }
 
 static REAL8 UNUSED
-XLALSimInspiralTaylorT4Phasing_4PNQMCoeff(
+XLALSimInspiralTaylorT4wdot_4PNQMCoeff(
 	REAL8 mByM)
 {
 	return -5./2./mByM/mByM;
 }
 
 static REAL8 UNUSED
-XLALSimInspiralTaylorT4Phasing_4PNQMSOCoeff(
+XLALSimInspiralTaylorT4wdot_4PNQMSOCoeff(
 	REAL8 mByM)
 {
 	return 15./2./mByM/mByM;
 }
 
 static REAL8 UNUSED
-XLALSimInspiralTaylorT4Phasing_5PNCoeff(
+XLALSimInspiralTaylorT4wdot_5PNCoeff(
 	REAL8 eta)
 {
 	return ( -(1.0/672.0) * LAL_PI * (4159.0 + 15876.0*eta) );
@@ -963,38 +1049,39 @@ XLALSimInspiralTaylorT4Phasing_5PNCoeff(
 }
 
 static REAL8 UNUSED
-XLALSimInspiralTaylorT4Phasing_5PNSLCoeff(
+XLALSimInspiralTaylorT4wdot_5PNSOCoeff(
 	REAL8 mByM)
 {
-	return 13.795/1.008 - 809./(84.*mByM) - 527.*mByM/24. - 79.*mByM*mByM/6.;
+	return  -809./(84.*mByM) + 13.795/1.008 - 527.*mByM/24. - 79.*mByM*mByM/6.;
 }
 
 static REAL8 UNUSED
-XLALSimInspiralTaylorT4Phasing_6PNCoeff(
+XLALSimInspiralTaylorT4wdot_6PNCoeff(
 	REAL8 eta)
 {
-	return ( 16447322263./139708800. - 1712./105.
-		* LAL_GAMMA - 56198689./217728. * eta + LAL_PI * LAL_PI
+	return ( 16447.322263/139.7088 - 1712./105.
+		* LAL_GAMMA - 561.98689/2.17728 * eta + LAL_PI * LAL_PI
 		* (16./3. + 451./48. * eta) + 541./896. * eta * eta
 		- 5605./2592. * eta * eta * eta - 856./105. * log(16.) );
 }
 
+/* The coefficient of the log is normalized for the argument of the log to be v=(M omega)^(1/3) */
 static REAL8 UNUSED
-XLALSimInspiralTaylorT4Phasing_6PNLogCoeff(
+XLALSimInspiralTaylorT4wdot_6PNLogCoeff(
 	REAL8 UNUSED eta)
 {
-	return -(1712.0/315.0);
+	return -(1712.0/105.0);
 }
 
 static REAL8 UNUSED
-XLALSimInspiralTaylorT4Phasing_6PNSLCoeff(
+XLALSimInspiralTaylorT4wdot_6PNSOCoeff(
 	REAL8 mByM)
 {
-	return -LAL_PI/3. * ( 188. - 151./2./mByM );
+	return LAL_PI * ( -37./3. - 151./6./mByM );
 }
 
 static REAL8 UNUSED
-XLALSimInspiralTaylorT4Phasing_7PNCoeff(
+XLALSimInspiralTaylorT4wdot_7PNCoeff(
 	REAL8 eta)
 {
 	return (LAL_PI/12096.0) * (-13245.0 + 717350.0*eta + 731960.0*eta*eta);
@@ -1010,10 +1097,36 @@ XLALSimInspiralTaylorT4Phasing_7PNCoeff(
 }
 
 static REAL8 UNUSED
-XLALSimInspiralTaylorT4Phasing_7PNSLCoeff(
+XLALSimInspiralTaylorT4wdot_7PNSOCoeff(
 	REAL8 mByM)
 {
-	return (1195.759 + 6558.455 * mByM - 3734.208 * mByM*mByM + 299.397*pow(mByM,3) - 737.205*pow(mByM,4) - 454.398*pow(mByM,5) )/(18.144 * mByM);
+       return  -1195.759 / 18.144 / mByM + 2694.373 / 18.144 - 432.2 / 2.1 * mByM + 1425.7 / 86.4 *mByM*mByM - 351.05 / 8.64 *mByM*mByM*mByM - 108.19 / 4.32 *mByM*mByM*mByM*mByM;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorT4wdot_8PNSOCoeff(
+	REAL8 mByM)
+{
+        return LAL_PI*(266.519/2.016 - 166.5/(2.8*mByM) - 828.43*mByM/6.72 -343.03*mByM*mByM/3.36);
+        // see eq.(4.10a) of arXiv:1307.6793
+}
+
+/*
+ * Tidal correction coefficients to DOmega/dt
+ */
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorT4wdot_10PNTidalCoeff(
+        REAL8 mByM)
+{
+        return 6.*mByM*mByM*mByM*mByM * (12.-11.*mByM);
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorT4wdot_12PNTidalCoeff(
+        REAL8 mByM)
+{
+        return mByM*mByM*mByM*mByM * (4421./56. - 12263./56.*mByM + 1893./4.*mByM*mByM - 661./2.*mByM*mByM*mByM);
 }
 
 static REAL8 UNUSED
@@ -1030,7 +1143,7 @@ static const REAL8 UNUSED
 XLALSimInspiralSpinDot_4PNCoeffLS1LS2=-1.5;
 
 static REAL8 UNUSED
-XLALSimInspiralSpinDot_4PNCoeffLSLSself(
+XLALSimInspiralSpinDot_4PNCoeffLSOSself(
 	REAL8 mByM)
 {
 	return 1.5 * (1./mByM - 1.);
@@ -1040,29 +1153,7 @@ static REAL8 UNUSED
 XLALSimInspiralSpinDot_5PNCoeff(
 	REAL8 mByM)
 {
-	return 9./8. - mByM/2. + 7.*mByM*mByM/12. - 7.*pow(mByM,3)/6. - pow(mByM,4)/24.;
-}
-
-/*
- * Tidal correction coefficients to Angular Acceleration
- */
-
-static REAL8 UNUSED
-XLALSimInspiralTaylorT4AngularAccel_10PNTidalCoeff(
-	REAL8 chi,
-	REAL8 lambda)
-{
-	return lambda * (-66.*chi + 72.) * chi*chi*chi*chi;
-}
-
-static REAL8 UNUSED
-XLALSimInspiralTaylorT4AngularAccel_12PNTidalCoeff(
-	REAL8 eta,
-	REAL8 chi,
-	REAL8 lambda)
-{
-	return lambda * chi*chi*chi*chi * (-461.9*chi/5.6 + 275.*eta*chi/2.
-		+ 442.1/5.6 - 273.*eta/2. + 797.*chi*chi/4. - 193.*chi*chi*chi);
+	return 9./8. - mByM/2. + 7.*mByM*mByM/12. - 7.*mByM*mByM*mByM/6. - mByM*mByM*mByM*mByM/24.;
 }
 
 

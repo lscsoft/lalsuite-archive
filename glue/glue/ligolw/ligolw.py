@@ -299,7 +299,7 @@ class Element(object):
 		"""
 		Add characters to the element's pcdata.
 		"""
-		if self.pcdata:
+		if self.pcdata is not None:
 			self.pcdata += content
 		else:
 			self.pcdata = content
@@ -363,8 +363,8 @@ class LIGO_LW(Element):
 	validattributes = frozenset([u"Name", u"Type"])
 
 	def appendData(self, content):
-		# discard.  this element doesn't hold text
-		pass
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
 
 	Name = attributeproxy(u"Name")
 	Type = attributeproxy(u"Type")
@@ -377,12 +377,10 @@ class Comment(Element):
 	tagName = u"Comment"
 
 	def write(self, fileobj = sys.stdout, indent = u""):
-		if self.pcdata:
-			fileobj.write(self.start_tag(indent))
+		fileobj.write(self.start_tag(indent))
+		if self.pcdata is not None:
 			fileobj.write(xmlescape(self.pcdata))
-			fileobj.write(self.end_tag(u"") + u"\n")
-		else:
-			fileobj.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+		fileobj.write(self.end_tag(u"") + u"\n")
 
 
 class Param(Element):
@@ -410,8 +408,8 @@ class Table(Element):
 	validattributes = frozenset([u"Name", u"Type"])
 
 	def appendData(self, content):
-		# discard.  this element doesn't hold text
-		pass
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
 
 	def _verifyChildren(self, i):
 		ncomment = 0
@@ -455,8 +453,8 @@ class Column(Element):
 		return s
 
 	def appendData(self, content):
-		# discard.  this element doesn't hold text
-		pass
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
 
 	def end_tag(self, indent):
 		"""
@@ -484,8 +482,8 @@ class Array(Element):
 	validattributes = frozenset([u"Name", u"Type", u"Unit"])
 
 	def appendData(self, content):
-		# discard.  this element doesn't hold text
-		pass
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
 
 	def _verifyChildren(self, i):
 		nstream = 0
@@ -511,12 +509,10 @@ class Dim(Element):
 	validattributes = frozenset([u"Name", u"Scale", u"Start", u"Unit"])
 
 	def write(self, fileobj = sys.stdout, indent = u""):
-		if self.pcdata:
-			fileobj.write(self.start_tag(indent))
+		fileobj.write(self.start_tag(indent))
+		if self.pcdata is not None:
 			fileobj.write(xmlescape(self.pcdata))
-			fileobj.write(self.end_tag(u"") + u"\n")
-		else:
-			fileobj.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+		fileobj.write(self.end_tag(u"") + u"\n")
 
 	Name = attributeproxy(u"Name")
 	Scale = attributeproxy(u"Scale", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
@@ -552,8 +548,8 @@ class IGWDFrame(Element):
 	validattributes = frozenset([u"Name"])
 
 	def appendData(self, content):
-		# discard.  this element doesn't hold text
-		pass
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
 
 	Name = attributeproxy(u"Name")
 
@@ -567,8 +563,8 @@ class Detector(Element):
 	validattributes = frozenset([u"Name"])
 
 	def appendData(self, content):
-		# discard.  this element doesn't hold text
-		pass
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
 
 	Name = attributeproxy(u"Name")
 
@@ -582,8 +578,8 @@ class AdcData(Element):
 	validattributes = frozenset([u"Name"])
 
 	def appendData(self, content):
-		# discard.  this element doesn't hold text
-		pass
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
 
 	Name = attributeproxy(u"Name")
 
@@ -597,8 +593,8 @@ class AdcInterval(Element):
 	validattributes = frozenset([u"DeltaT", u"Name", u"StartTime"])
 
 	def appendData(self, content):
-		# discard.  this element doesn't hold text
-		pass
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
 
 	DeltaT = attributeproxy(u"DeltaT", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
 	Name = attributeproxy(u"Name")
@@ -681,6 +677,10 @@ class Document(Element):
 	"""
 	tagName = u"Document"
 	validchildren = frozenset([u"LIGO_LW"])
+
+	def appendData(self, content):
+		if not content.isspace():
+			raise TypeError("%s does not hold text" % type(self))
 
 	def write(self, fileobj = sys.stdout, xsl_file = None):
 		"""
@@ -796,22 +796,26 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 		except KeyError:
 			raise ElementError("unknown element %s for namespace %s" % (localname, uri or NameSpace))
 		attrs = AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
-		self.current = self.current.appendChild(start_handler(self.current, attrs))
+		try:
+			self.current = self.current.appendChild(start_handler(self.current, attrs))
+		except Exception as e:
+			raise type(e)("line %d: %s" % (self._locator.getLineNumber(), str(e)))
 
 	def endElementNS(self, (uri, localname), qname):
-		self.current.endElement()
+		try:
+			self.current.endElement()
+		except Exception as e:
+			raise type(e)("line %d: %s" % (self._locator.getLineNumber(), str(e)))
 		self.current = self.current.parentNode
 
 	def characters(self, content):
-		self.current.appendData(xmlunescape(content))
+		try:
+			self.current.appendData(xmlunescape(content))
+		except Exception as e:
+			raise type(e)("line %d: %s" % (self._locator.getLineNumber(), str(e)))
 
 
-# FIXME:  remove
-class DefaultLIGOLWContentHandler(LIGOLWContentHandler):
-	pass
-
-
-class PartialLIGOLWContentHandler(DefaultLIGOLWContentHandler):
+class PartialLIGOLWContentHandler(LIGOLWContentHandler):
 	"""
 	LIGO LW content handler object that loads only those parts of the
 	document matching some criteria.  Useful, for example, when one
@@ -849,8 +853,12 @@ class PartialLIGOLWContentHandler(DefaultLIGOLWContentHandler):
 			self.depth -= 1
 			super(PartialLIGOLWContentHandler, self).endElementNS(*args)
 
+	def characters(self, content):
+		if self.depth > 0:
+			super(PartialLIGOLWContentHandler, self).characters(content)
 
-class FilteringLIGOLWContentHandler(DefaultLIGOLWContentHandler):
+
+class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
 	"""
 	LIGO LW content handler that loads everything but those parts of a
 	document that match some criteria.  Useful, for example, when one
@@ -879,16 +887,20 @@ class FilteringLIGOLWContentHandler(DefaultLIGOLWContentHandler):
 
 	def startElementNS(self, (uri, localname), qname, attrs):
 		filter_attrs = AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
-		if self.depth > 0 or not self.element_filter(localname, filter_attrs):
-			self.depth += 1
-		else:
+		if self.depth == 0 and self.element_filter(localname, filter_attrs):
 			super(FilteringLIGOLWContentHandler, self).startElementNS((uri, localname), qname, attrs)
+		else:
+			self.depth += 1
 
 	def endElementNS(self, *args):
-		if self.depth > 0:
-			self.depth -= 1
-		else:
+		if self.depth == 0:
 			super(FilteringLIGOLWContentHandler, self).endElementNS(*args)
+		else:
+			self.depth -= 1
+
+	def characters(self, content):
+		if self.depth == 0:
+			super(FilteringLIGOLWContentHandler, self).characters(content)
 
 
 #

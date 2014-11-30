@@ -1,22 +1,36 @@
-SUBDIRS = \
-	triggers \
-	hveto
-
-pkgpython_PYTHON = \
-	__init__.py \
-	dqsegs.py \
-	git_version.py
-
-EXTRA_DIST = \
-	git_version.py
-
 BUILT_SOURCES =
 MOSTLYCLEANFILES =
+EXTRA_DIST =
+include $(top_srcdir)/gnuscripts/lalsuite_python.am
 
-if HAVE_GIT_REPO
-BUILT_SOURCES += git_version.py
-MOSTLYCLEANFILES += git_version.py
-git_version.py .PHONY : gen-git_version.py
-gen-git_version.py :
-	$(AM_V_at)$(GENERATE_VCS_INFO) git_version.py $(srcdir)/git_version.py.git
+SUBDIRS = laldetchar
+
+dist_bin_SCRIPTS = \
+	laldetchar-idq-append-file-to-cache \
+	laldetchar-idq-post-svm-train
+
+if HAVE_PYTHON
+
+pybin_scripts = \
+	laldetchar-hveto \
+	laldetchar-hveto-summary-page \
+	laldetchar-idq-add-excluded-vars \
+	laldetchar-idq-build-auxmvc-vectors \
+	laldetchar-idq-convertkwtosb \
+	laldetchar-idq-evaluate-times \
+	laldetchar-idq-fap-calibration \
+        laldetchar-idq-gdb-alert-handler \
+	laldetchar-idq-gdb-glitch-tables \
+        laldetchar-idq-gdb-processor \
+	laldetchar-idq-gdb-timeseries \
+	laldetchar-idq-prepare-training-auxmvc-samples \
+	laldetchar-idq-realtime \
+	laldetchar-idq-select-channels-from-kw-config \
+	laldetchar-idq-summary \
+	laldetchar-idq-svm-evaluate \
+	laldetchar-idq-svm-train \
+	laldetchar-idq-train \
+	laldetchar-segments-from-data \
+	$(END_OF_LIST)
+
 endif

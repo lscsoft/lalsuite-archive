@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2013  Kipp Cannon, Drew G. Keppel, Jolien Creighton
+# Copyright (C) 2006--2014  Kipp Cannon, Drew G. Keppel, Jolien Creighton
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -43,11 +43,7 @@ import itertools
 import math
 import numpy
 import random
-try:
-	from scipy.constants import c as speed_of_light
-except ImportError:
-	from lal import LAL_C_SI as speed_of_light
-	speed_of_light = float(speed_of_light)
+from scipy.constants import c as speed_of_light
 import scipy.optimize
 import sys
 import threading
@@ -754,10 +750,11 @@ class CoincSynthesizer(object):
 		features will not be available if a dictionary of counts is
 		provided).  segmentlists is a glue.segments.segmentlistdict
 		object describing the observation segments for each of the
-		instruments.  delta_t is a time window in seconds, the
-		light travel time between instrument pairs is added to this
-		internally to set the maximum allowed coincidence window
-		between a pair of instruments.
+		instruments.  A segment list must be provided for (at
+		least) each instrument in eventlists.  delta_t is a time
+		window in seconds, the light travel time between instrument
+		pairs is added to this internally to set the maximum
+		allowed coincidence window between a pair of instruments.
 
 		abundance_rel_accuracy sets the fractional error tolerated
 		in the Monte Carlo integrator used to estimate the relative
@@ -779,7 +776,7 @@ class CoincSynthesizer(object):
 		{frozenset(['V1', 'H1']): 0.0, frozenset(['V1', 'H1', 'L1']): 0.25, frozenset(['H1', 'L1']): 0.25, frozenset(['V1', 'L1']): 0.5}
 		"""
 		self.eventlists = eventlists if eventlists is not None else dict.fromkeys(segmentlists, 0) if segmentlists is not None else {}
-		self.segmentlists = segmentlists if segmentlists is not None else segments.segmentlistdict()
+		self.segmentlists = segmentlists if segmentlists is not None else segmentsUtils.segments.segmentlistdict()
 		self.delta_t = delta_t
 		# require a segment list for each list of events
 		assert set(self.eventlists) <= set(self.segmentlists)
@@ -942,9 +939,13 @@ class CoincSynthesizer(object):
 			for instruments in self.all_instrument_combos:
 		# choose the instrument whose TOA forms the "epoch" of the
 		# coinc.  to improve the convergence rate this should be
-		# the instrument with the smallest coincidence windows
+		# the instrument with the smallest Cartesian product of
+		# coincidence windows with other instruments (so that
+		# coincidence with this instrument provides the tightest
+		# prior constraint on the time differences between the
+		# other instruments).
 				key = instruments
-				anchor = min((self.tau[frozenset(ab)], ab[0]) for ab in iterutils.choices(tuple(instruments), 2))[1]
+				anchor = min(instruments, key = lambda a: sum(math.log(self.tau[frozenset((a, b))]) for b in instruments - set([a])))
 				instruments = tuple(instruments - set([anchor]))
 		# compute \mu_{1} * \mu_{2} ... \mu_{N} * 2 * \tau_{12} * 2
 		# * \tau_{13} ... 2 * \tau_{1N}.  this is the rate at which
@@ -968,6 +969,12 @@ class CoincSynthesizer(object):
 		# FIXME:  it might be practical to solve this with some
 		# sort of computational geometry library and convex hull
 		# volume calculator.
+		# FIXME:  in any case, these correction factors depend only
+		# on the coincidence windows and can be computed and saved
+		# when self.tau is updated allowing the rates, here, to be
+		# computed very quickly if only the single-instrument
+		# trigger rates have changed and not the coincidence
+		# windows.
 				if len(instruments) > 1:
 		# for each instrument 2...N, the interval within which an
 		# event is coincident with instrument 1
@@ -982,25 +989,38 @@ class CoincSynthesizer(object):
 		# also mutually coincident.  this is done by picking a
 		# vector of allowed \Delta ts and testing them against the
 		# coincidence windows.  the loop's exit criterion is
-		# arrived at as follows.  the binomial distribution's
-		# variance is d p (1 - p) where d is the number of trials
-		# and p is the probability of a successful outcome, which
-		# we replace here with p=n/d.  we quit when \sqrt{d p (1 -
-		# p)} / n <= rel accuracy.  by connecting the bailout
-		# condition to the results of the loop we bias the final
-		# answer (e.g., we get lucky and increment n on the first
-		# trial).  to minimize the effect of this we require at
-		# least 1 / rel accuracy iterations before considering the
-		# binomial criterion.  note that if the true probability is
-		# 0 or 1, so that n=0 or n=d identically then the loop will
-		# never terminate;  from the nature of the problem we know
-		# 0<p<1 so the loop will, eventually, terminate
+		# arrived at as follows.  after d trials, the number of
+		# successful outcomes is a binomially-distributed RV with
+		# variance = d p (1 - p) <= d/4 where p is the probability
+		# of a successful outcome.  we quit when the ratio of the
+		# bound on the standard deviation of the number of
+		# successful outcomes to the actual number of successful
+		# outcomes falls below rel accuracy: \sqrt{d/4} / n < rel
+		# accuracy.  note that if the true probability is 0, so
+		# that n=0 identically, then the loop will never terminate;
+		# from the nature of the problem we know 0<p<1 so the loop
+		# will, eventually, terminate.  note that if instead of
+		# using the upper bound on the variance, we replace p with
+		# (n/d) and use that estimate of the variance the loop can
+		# be shown to require many fewer iterations to meet the
+		# desired accuracy, but that choice creates a rather strong
+		# bias that, to overcome, requires some extra hacks to
+		# force the loop to run for additional iterations.  this
+		# approach is cleaner.
+					math_sqrt = math.sqrt
+					random_uniform = random.uniform
+					epsilon = self.abundance_rel_accuracy
 					n, d = 0, 0
-					while self.abundance_rel_accuracy * d < 1.0 or n < d / (1.0 + self.abundance_rel_accuracy**2 * d):
-						dt = tuple(random.uniform(*window) for window in windows)
+					while math_sqrt(d) >= epsilon * n:
+						dt = tuple(random_uniform(*window) for window in windows)
 						if all(abs(dt[i] - dt[j]) <= maxdt for i, j, maxdt in ijseq):
-							n += 1
+		# instead of adding 1 here and multiplying n by 2 in the
+		# loop exit test, we increment n by 2 and then fix it
+		# afterwards.
+							n += 2
 						d += 1
+		# fix n (see above)
+					n //= 2
 
 					rate *= float(n) / float(d)
 					if self.verbose:
@@ -1460,7 +1480,7 @@ class InstrumentCategories(dict):
 		# inconsisntent with the "H1H2+", "H1H2-" shown here, so
 		# this needs to be fixed but I don't know how.  maybe it'll
 		# go away before it needs to be fixed.
-		self.update(dict((instrument, 1 << n) for n, instrument in enumerate(("G1", "H1", "H2", "H1H2+", "H1H2-", "L1", "V1"))))
+		self.update(dict((instrument, 1 << n) for n, instrument in enumerate(("G1", "H1", "H2", "H1H2+", "H1H2-", "L1", "V1", "E1", "E2", "E3", "E0"))))
 
 	def max(self):
 		return sum(self.values())
@@ -1470,36 +1490,6 @@ class InstrumentCategories(dict):
 
 	def instruments(self, category):
 		return set(instrument for instrument, factor in self.items() if category & factor)
-
-
-#
-# threading.Thread sub-class for filtering parameter distributions
-#
-
-
-class CoincParamsFilterThread(threading.Thread):
-	"""
-	For internal use by the CoincParamsDistributions class.
-	"""
-	# allow at most 5 threads
-	cpu = threading.Semaphore(5)
-	# allow at most one to update a progressbar
-	progresslock = threading.Lock()
-
-	def __init__(self, binnedarray, kernel, progressbar = None):
-		super(CoincParamsFilterThread, self).__init__()
-		self.binnedarray = binnedarray
-		self.kernel = kernel
-		self.progressbar = progressbar
-
-	def run(self):
-		with self.cpu:
-			if self.kernel is not None:
-				rate.filter_array(self.binnedarray.array, self.kernel)
-			self.binnedarray.to_pdf()
-		if self.progressbar is not None:
-			with self.progresslock:
-				self.progressbar.increment()
 
 
 #
@@ -1513,14 +1503,21 @@ class CoincParamsDistributions(object):
 	single events).  It is assumed there is a fixed, pre-determined,
 	set of parameters that one wishes to histogram, and that each
 	parameter has a name.  To use this, it must be sub-classed and the
-	derived class must provide dictionaries of binnings and smoothing
-	filters.  The binnings is a dictionary mapping parameter names to
-	rate.NDBins instances describing the binning to be used for each
-	paramter.  The filters is a dictionary mapping parameter names to
-	numpy.ndarray instances that will be used to smooth bin count data
-	in the histograms.  Subclasses must also provide a .coinc_params()
-	static method that will transform a list of single-instrument
-	events into a dictionary mapping paramter name to parameter value.
+	derived class must provide dictionaries of binnings and functions
+	for performing the kernel density estimation transform to obtain
+	PDFs from histograms of counts.  The binnings is a dictionary
+	mapping parameter names to rate.NDBins instances describing the
+	binning to be used for each paramter.  The pdf_from_rates_func
+	dictionary maps parameter names to functions to smooth and
+	normalize bin count data into PDFs.  As a special case, a default
+	function is provided and will be used for any parameters whose
+	names do not appear in the pdf_from_rates_func dictionary.  The
+	default function looks for a smoothing filter in the filters
+	dictionary, applies it if found, then invokes the .to_pdf() method
+	of the binned array object.  Subclasses must also provide a
+	.coinc_params() static method that will transform a list of
+	single-instrument events into a dictionary mapping paramter name to
+	parameter value.
 
 	This class maintains three sets of histograms, one set for noise
 	(or "background") events, one set for signal (or "injection")
@@ -1550,6 +1547,7 @@ class CoincParamsDistributions(object):
 
 	binnings = {}
 
+	pdf_from_rates_func = {}
 	filters = {}
 
 	@staticmethod
@@ -1576,9 +1574,9 @@ class CoincParamsDistributions(object):
 		self.zero_lag_pdf = {}
 		self.background_pdf = {}
 		self.injection_pdf = {}
-		self.zero_lag_pdf_interp = {}
-		self.background_pdf_interp = {}
-		self.injection_pdf_interp = {}
+		self.zero_lag_lnpdf_interp = {}
+		self.background_lnpdf_interp = {}
+		self.injection_lnpdf_interp = {}
 		self.process_id = process_id
 
 	def _rebuild_interpolators(self):
@@ -1586,15 +1584,22 @@ class CoincParamsDistributions(object):
 		Initialize the interp dictionaries from the discretely
 		sampled PDF data.  For internal use only.
 		"""
-		self.zero_lag_pdf_interp.clear()
-		self.background_pdf_interp.clear()
-		self.injection_pdf_interp.clear()
+		self.zero_lag_lnpdf_interp.clear()
+		self.background_lnpdf_interp.clear()
+		self.injection_lnpdf_interp.clear()
+		def mkinterp(binnedarray):
+			with numpy.errstate(invalid = "ignore"):
+				assert not (binnedarray.array < 0.).any()
+			binnedarray = binnedarray.copy()
+			with numpy.errstate(divide = "ignore"):
+				binnedarray.array = numpy.log(binnedarray.array)
+			return rate.InterpBinnedArray(binnedarray, fill_value = NegInf)
 		for key, binnedarray in self.zero_lag_pdf.items():
-			self.zero_lag_pdf_interp[key] = rate.InterpBinnedArray(binnedarray)
+			self.zero_lag_lnpdf_interp[key] = mkinterp(binnedarray)
 		for key, binnedarray in self.background_pdf.items():
-			self.background_pdf_interp[key] = rate.InterpBinnedArray(binnedarray)
+			self.background_lnpdf_interp[key] = mkinterp(binnedarray)
 		for key, binnedarray in self.injection_pdf.items():
-			self.injection_pdf_interp[key] = rate.InterpBinnedArray(binnedarray)
+			self.injection_lnpdf_interp[key] = mkinterp(binnedarray)
 
 	@staticmethod
 	def addbinnedarrays(rate_target_dict, rate_source_dict, pdf_target_dict, pdf_source_dict):
@@ -1652,11 +1657,8 @@ class CoincParamsDistributions(object):
 		the histograms to increment, and the parameters identifying
 		the bin in each histogram, are given by the param_dict
 		dictionary.
-
-		The param_dict is allowed to be None.  Then this method is
-		a no-op.
 		"""
-		for param, value in (param_dict or {}).items():
+		for param, value in param_dict.items():
 			try:
 				self.zero_lag_rates[param][value] += weight
 			except IndexError:
@@ -1670,11 +1672,8 @@ class CoincParamsDistributions(object):
 		of the histograms to increment, and the parameters
 		identifying the bin in each histogram, are given by the
 		param_dict dictionary.
-
-		The param_dict is allowed to be None.  Then this method is
-		a no-op.
 		"""
-		for param, value in (param_dict or {}).items():
+		for param, value in param_dict.items():
 			try:
 				self.background_rates[param][value] += weight
 			except IndexError:
@@ -1688,18 +1687,24 @@ class CoincParamsDistributions(object):
 		of the histograms to increment, and the parameters
 		identifying the bin in each histogram, are given by the
 		param_dict dictionary.
-
-		The param_dict is allowed to be None.  Then this method is
-		a no-op.
 		"""
-		for param, value in (param_dict or {}).items():
+		for param, value in param_dict.items():
 			try:
 				self.injection_rates[param][value] += weight
 			except IndexError:
 				# param value out of range
 				pass
 
-	def finish(self, verbose = False, filterthread = CoincParamsFilterThread):
+	def default_pdf_from_rates(self, key, pdf_dict):
+		"""
+		For internal use by the CoincParamsDistributions class.
+		"""
+		binnedarray = pdf_dict[key]
+		if key in self.filters:
+			rate.filter_array(binnedarray.array, self.filters[key])
+		binnedarray.to_pdf()
+
+	def finish(self, verbose = False):
 		"""
 		Populate the discrete PDF dictionaries from the contents of
 		the rates dictionaries, and then the PDF interpolator
@@ -1717,9 +1722,7 @@ class CoincParamsDistributions(object):
 		self.zero_lag_pdf.clear()
 		self.background_pdf.clear()
 		self.injection_pdf.clear()
-		N = len(self.zero_lag_rates) + len(self.background_rates) + len(self.injection_rates)
-		threads = []
-		progressbar = ProgressBar(text = "Computing Parameter PDFs") if verbose else None
+		progressbar = ProgressBar(text = "Computing Parameter PDFs", max = len(self.zero_lag_rates) + len(self.background_rates) + len(self.injection_rates)) if verbose else None
 		for key, (msg, rates_dict, pdf_dict) in itertools.chain(
 				zip(self.zero_lag_rates, itertools.repeat(("zero lag", self.zero_lag_rates, self.zero_lag_pdf))),
 				zip(self.background_rates, itertools.repeat(("background", self.background_rates, self.background_pdf))),
@@ -1727,14 +1730,14 @@ class CoincParamsDistributions(object):
 		):
 			assert numpy.isfinite(rates_dict[key].array).all() and (rates_dict[key].array >= 0).all(), "%s %s counts are not valid" % (key, msg)
 			pdf_dict[key] = rates_dict[key].copy()
-			threads.append(filterthread(pdf_dict[key], self.filters[key] if key in self.filters else None, progressbar = progressbar))
-		if verbose:
-			progressbar.max = len(threads)
-			progressbar.show()
-		for thread in threads:
-			thread.start()
-		while threads:
-			threads.pop(0).join()
+			try:
+				pdf_from_rates_func = self.pdf_from_rates_func[key]
+			except KeyError:
+				pdf_from_rates_func = self.default_pdf_from_rates
+			if pdf_from_rates_func is not None:
+				pdf_from_rates_func(key, pdf_dict)
+			if progressbar is not None:
+				progressbar.increment()
 
 		#
 		# rebuild interpolators
@@ -1742,12 +1745,12 @@ class CoincParamsDistributions(object):
 
 		self._rebuild_interpolators()
 
-	def P_noise(self, params):
+	def lnP_noise(self, params):
 		"""
 		From a parameter value dictionary as returned by
-		self.coinc_params(), compute and return the noise
-		probability density at that point in parameter space.  If
-		params is None, the return value is None.
+		self.coinc_params(), compute and return the natural
+		logarithm of the noise probability density at that point in
+		parameter space.
 
 		The .finish() method must have been invoked before this
 		method does meaningful things.  No attempt is made to
@@ -1760,38 +1763,19 @@ class CoincParamsDistributions(object):
 		This default implementation assumes the individual PDFs
 		containined in the noise dictionary are for
 		statistically-independent random variables, and computes
-		and returns their product.  Sub-classes that require more
-		sophisticated calculations can override this method.
+		and returns the logarithm of their product.  Sub-classes
+		that require more sophisticated calculations can override
+		this method.
 		"""
-		if params is None:
-			return None
-		# move attribute look-ups out of loop
-		__getitem__ = self.background_pdf_interp.__getitem__
-		P = 1.0
-		for name, value in params.items():
-			P *= __getitem__(name)(*value)
-		return P
+		__getitem__ = self.background_lnpdf_interp.__getitem__
+		return sum(__getitem__(name)(*value) for name, value in params.items())
 
-	def lnP_noise(self, *args, **kwargs):
-		"""
-		Return ln(self.P_noise).
-		"""
-		P = self.P_noise(*args, **kwargs)
-		try:
-			return math.log(P)
-		except ValueError:
-			return NegInf
-		except TypeError:
-			if P is None:
-				return None
-			raise
-
-	def P_signal(self, params):
+	def lnP_signal(self, params):
 		"""
 		From a parameter value dictionary as returned by
-		self.coinc_params(), compute and return the signal
-		probability density at that point in parameter space.  If
-		params is None, the return value is None.
+		self.coinc_params(), compute and return the natural
+		logarithm of the signal probability density at that point
+		in parameter space.
 
 		The .finish() method must have been invoked before this
 		method does meaningful things.  No attempt is made to
@@ -1804,31 +1788,12 @@ class CoincParamsDistributions(object):
 		This default implementation assumes the individual PDFs
 		containined in the signal dictionary are for
 		statistically-independent random variables, and computes
-		and returns their product.  Sub-classes that require more
-		sophisticated calculations can override this method.
+		and returns the logarithm of their product.  Sub-classes
+		that require more sophisticated calculations can override
+		this method.
 		"""
-		if params is None:
-			return None
-		# move attribute look-ups out of loop
-		__getitem__ = self.injection_pdf_interp.__getitem__
-		P = 1.0
-		for name, value in params.items():
-			P *= __getitem__(name)(*value)
-		return P
-
-	def lnP_signal(self, *args, **kwargs):
-		"""
-		Return ln(self.P_signal).
-		"""
-		P = self.P_signal(*args, **kwargs)
-		try:
-			return math.log(P)
-		except ValueError:
-			return NegInf
-		except TypeError:
-			if P is None:
-				return None
-			raise
+		__getitem__ = self.injection_lnpdf_interp.__getitem__
+		return sum(__getitem__(name)(*value) for name, value in params.items())
 
 	def get_xml_root(self, xml, name):
 		"""
@@ -1864,7 +1829,7 @@ class CoincParamsDistributions(object):
 		# reconstruct the BinnedArray objects
 		def reconstruct(xml, prefix, target_dict):
 			for name in [elem.Name.split(u":")[1] for elem in xml.childNodes if elem.Name.startswith(u"%s:" % prefix)]:
-				target_dict[str(name)] = rate.binned_array_from_xml(xml, u"%s:%s" % (prefix, name))
+				target_dict[str(name)] = rate.BinnedArray.from_xml(xml, u"%s:%s" % (prefix, name))
 		reconstruct(xml, u"zero_lag", self.zero_lag_rates)
 		reconstruct(xml, u"zero_lag_pdf", self.zero_lag_pdf)
 		reconstruct(xml, u"background", self.background_rates)
@@ -1896,7 +1861,7 @@ class CoincParamsDistributions(object):
 		xml.appendChild(ligolw_param.new_param(u"process_id", u"ilwd:char", self.process_id))
 		def store(xml, prefix, source_dict):
 			for name, binnedarray in sorted(source_dict.items()):
-				xml.appendChild(rate.binned_array_to_xml(binnedarray, u"%s:%s" % (prefix, name)))
+				xml.appendChild(binnedarray.to_xml(u"%s:%s" % (prefix, name)))
 		store(xml, u"zero_lag", self.zero_lag_rates)
 		store(xml, u"zero_lag_pdf", self.zero_lag_pdf)
 		store(xml, u"background", self.background_rates)
@@ -1905,37 +1870,6 @@ class CoincParamsDistributions(object):
 		store(xml, u"injection_pdf", self.injection_pdf)
 
 		return xml
-
-	@classmethod
-	def from_filenames(cls, filenames, name, verbose = False, contenthandler = None):
-		"""
-		Convenience function to deserialize
-		CoincParamsDistributions objects from a collection of XML
-		files and return their sum.  The return value is a
-		two-element tuple.  The first element is the deserialized
-		and summed CoincParamsDistributions object, the second is a
-		segmentlistdict indicating the interval of time spanned by
-		the out segments in the search_summary rows matching the
-		process IDs that were attached to the
-		CoincParamsDistributions objects in the XML.
-		"""
-		if contenthandler is None:
-			contenthandler = cls.LIGOLWContentHandler
-		self = None
-		for n, filename in enumerate(filenames):
-			if verbose:
-				print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-			xmldoc = utils.load_filename(filename, verbose = verbose, contenthandler = contenthandler)
-			if self is None:
-				self = cls.from_xml(xmldoc, name)
-				seglists = lsctables.SearchSummaryTable.get_table(xmldoc).get_out_segmentlistdict(set([self.process_id])).coalesce()
-			else:
-				other = cls.from_xml(xmldoc, name)
-				self += other
-				seglists |= lsctables.SearchSummaryTable.get_table(xmldoc).get_out_segmentlistdict(set([other.process_id])).coalesce()
-				del other
-			xmldoc.unlink()
-		return self, seglists
 
 
 #
@@ -1981,58 +1915,93 @@ class CoincParamsDistributions(object):
 # against NaNs in the Lambda = +inf/+inf case.
 
 
-class LikelihoodRatio(object):
+class LnLikelihoodRatio(object):
 	"""
 	Class for computing signal hypothesis / noise hypothesis likelihood
 	ratios from the measurements in a
 	snglcoinc.CoincParamsDistributions instance.
 	"""
 	def __init__(self, coinc_param_distributions):
-		self.P_noise = coinc_param_distributions.P_noise
-		self.P_signal = coinc_param_distributions.P_signal
+		self.lnP_noise = coinc_param_distributions.lnP_noise
+		self.lnP_signal = coinc_param_distributions.lnP_signal
 
 	def __call__(self, *args, **kwargs):
 		"""
-		Compute the likelihood ratio for the hypothesis that the
-		list of events are the result of a gravitational wave.  The
-		likelihood ratio is the ratio P(inj params) / P(noise
-		params).  The probability that the events are the result of
-		a gravitiational wave is a monotonically increasing
-		function of the likelihood ratio, so ranking events from
-		"most like a gravitational wave" to "least like a
-		gravitational wave" can be performed by calculating the
-		likelihood ratios, which has the advantage of not requiring
-		a prior probability to be provided (knowing how many
-		gravitational waves you've actually detected).
+		Return the natural logarithm of the likelihood ratio for
+		the hypothesis that the list of events are the result of a
+		gravitational wave.  The likelihood ratio is the ratio
+		P(inj params) / P(noise params).  The probability that the
+		events are the result of a gravitiational wave is a
+		monotonically increasing function of the likelihood ratio,
+		so ranking events from "most like a gravitational wave" to
+		"least like a gravitational wave" can be performed by
+		calculating the (logarithm of the) likelihood ratios, which
+		has the advantage of not requiring a prior probability to
+		be provided (knowing how many gravitational waves you've
+		actually detected).
 
-		The arguments are passed verbatim to the .P_noise and
-		.P_signal() methods of the
+		The arguments are passed verbatim to the .lnP_noise and
+		.lnP_signal() methods of the
 		snglcoinc.CoincParamsDistributions instance with which this
 		object is associated.
 		"""
-		P_noise = self.P_noise(*args, **kwargs)
-		P_signal = self.P_signal(*args, **kwargs)
-		if P_noise is None and P_signal is None:
-			return None
-		if P_noise == 0.0 and P_signal == 0.0:
-			# "correct" answer is 0, not NaN, because if a
-			# tuple of events has been found in a region of
-			# parameter space where the probability of an
-			# injection occuring is 0 then there is no way this
-			# is an injection.  there is also, aparently, no
-			# way it's a noise event, which is puzzling, but
-			# that's irrelevant because we are supposed to be
-			# computing something that is a monotonically
-			# increasing function of the probability that an
-			# event tuple is a gravitational wave, which is 0
-			# in this part of the parameter space.
-			return 0.0
-		if math.isinf(P_noise) and math.isinf(P_signal):
-			warnings.warn("inf/inf encountered")
-			return NaN
-		try:
-			return  P_signal / P_noise
-		except ZeroDivisionError:
-			# P_noise == 0.0, P_signal != 0.0.  this is a
-			# "guaranteed detection", not a failure
-			return PosInf
+		lnP_noise = self.lnP_noise(*args, **kwargs)
+		lnP_signal = self.lnP_signal(*args, **kwargs)
+		if math.isinf(lnP_noise) and math.isinf(lnP_signal):
+			# need to handle a special case
+			if lnP_noise < 0. and lnP_signal < 0.:
+				# both probabilities are 0.  "correct"
+				# answer is -inf, because if a candidate is
+				# in a region of parameter space where the
+				# probability of a signal occuring is 0
+				# then there is no way it is a signal.
+				# there is also, aparently, no way it's a
+				# noise event, which is puzzling, but
+				# that's irrelevant because we are supposed
+				# to be computing something that is a
+				# monotonically increasing function of the
+				# probability that a candidate is a signal,
+				# which is 0 in this part of the parameter
+				# space.
+				return NegInf
+			# all remaining cases are handled correctly by the
+			# expression that follows, but one still deserves a
+			# warning
+			if lnP_noise > 0. and lnP_signal > 0.:
+				# both probabilities are +inf.  no correct
+				# answer.
+				warnings.warn("inf/inf encountered")
+		return  lnP_signal - lnP_noise
+
+	def samples(self, random_params_seq, **kwargs):
+		"""
+		Generator that yields an unending sequence of 3-element
+		tuples.  Each tuple's elements are a value of the natural
+		logarithm of the likelihood rato, the natural logarithm of
+		the probability density of that likelihood ratio in the
+		signal population, the natural logarithm of the probability
+		density of that likelihood ratio in the noise population.
+
+		random_params_seq should be a sequence (or generator) that
+		yielding 2-element tuples whose first element is a choice
+		of parameter values and whose second element is the natural
+		logarithm of the probability density from which the
+		parameters have been drawn evaluated at the parameters.
+
+		The parameter values yielded by the random_params_seq are
+		passed as the first argument, verbatim, to the .lnP_noise()
+		an .lnP_signal() methods of the CoincParamsDistributions
+		object with which this object is associated, followed by
+		any (optional) key-word arguments.
+		"""
+		lnP_noise_func = self.lnP_noise
+		lnP_signal_func = self.lnP_signal
+		isinf = math.isinf
+		for params, lnP_params in random_params_seq:
+			lnP_noise = lnP_noise_func(params, **kwargs)
+			lnP_signal = lnP_signal_func(params, **kwargs)
+			# see above for description of special cases
+			if isinf(lnP_noise) and isinf(lnP_signal) and lnP_noise < 0. and lnP_signal < 0.:
+				yield NegInf, lnP_signal - lnP_params, lnP_noise - lnP_params
+			else:
+				yield lnP_signal - lnP_noise, lnP_signal - lnP_params, lnP_noise - lnP_params

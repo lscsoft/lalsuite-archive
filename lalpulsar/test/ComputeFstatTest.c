@@ -27,6 +27,8 @@
 #include <lal/ExtrapolatePulsarSpins.h>
 #include <lal/ComputeFstat.h>
 #include <lal/DetectorStates.h>
+#include <lal/LFTandTSutils.h>
+#include <lal/LALString.h>
 
 // basic consistency checks of the ComputeFstat module: compare F-stat results for all
 // *available* Fstat methods against each other
@@ -65,15 +67,19 @@ main ( int argc, char *argv[] )
   XLAL_CHECK ( XLALParseMultiLALDetector ( &detInfo, detNames ) == XLAL_SUCCESS, XLAL_EFUNC );
 
   LIGOTimeGPS startTime = {711595934, 0};
-  REAL8 Tspan = 100 * 3600;
+  REAL8 Tspan = 10 * 3600;
   LIGOTimeGPS endTime = startTime;
   XLALGPSAdd( &endTime, Tspan );
-  REAL8 Tsft = 1800;
+  REAL8 Tsft = 60;
 
   LIGOTimeGPS refTime = { startTime.gpsSeconds + round(0.5*Tspan), 0 };	// reftime in middle of segment
 
   MultiLIGOTimeGPSVector *multiTimestamps;
   XLAL_CHECK ( (multiTimestamps = XLALMakeMultiTimestamps ( startTime, Tspan, Tsft, 0, numDetectors )) != NULL, XLAL_EFUNC );
+
+  // shift a timestamp in order to create a non-commensurate gap
+  UINT4 numSFTsPerDet = multiTimestamps->data[0]->length;
+  multiTimestamps->data[0]->data[numSFTsPerDet-1].gpsSeconds += 2000;
 
   SFTCatalog *catalog;
   XLAL_CHECK ( (catalog = XLALMultiAddToFakeSFTCatalog ( NULL, detNames, multiTimestamps )) != NULL, XLAL_EFUNC );
@@ -89,9 +95,9 @@ main ( int argc, char *argv[] )
   sources->data[0].Amp.psi  = 0.1;
   sources->data[0].Amp.phi0 = 1.2;
 
-  REAL8 asini = 2.9;
-  REAL8 Period = 10 * 3600;
-
+  REAL8 asini = 1.4;	// sco-X1 like
+  REAL8 Period = 19 * 3600;// sco-X1 like
+  REAL8 ecc = 0.1;	// much larger than ScoX1
   PulsarDopplerParams XLAL_INIT_DECL(Doppler);
   Doppler.Alpha = 0.5;
   Doppler.Delta = -0.5;
@@ -100,7 +106,7 @@ main ( int argc, char *argv[] )
   Doppler.refTime = refTime;
 
   Doppler.asini = asini;
-  Doppler.ecc = 0.1;
+  Doppler.ecc = ecc;
   Doppler.tp = startTime;
   Doppler.period = Period;
   Doppler.argp = 0.5;
@@ -112,18 +118,23 @@ main ( int argc, char *argv[] )
   REAL8 df1dot = sqrt( 720.0 * mis ) / (LAL_PI * Tspan * Tspan);	// metric (f-projected) stepsize for given mismatch mis
   REAL8 dSky = 1e4 / (Freq * Tspan);	// rough estimate of a 'metric' sky step, eg. Eq.(118) in \cite Prix07
 
+  REAL8 dPeriod = 3600;
   UINT4 numFreqBins = 1000;
-  UINT4 numf1dotBins = 2;
-  UINT4 numSkyPoints = 2;
+
+  UINT4 numf1dotPoints  = 2;
+  UINT4 numSkyPoints    = 2;
+  UINT4 numPeriodPoints = 2;
 
   PulsarSpinRange XLAL_INIT_DECL(spinRange);
   spinRange.refTime = refTime;
   memcpy ( &spinRange.fkdot, &sources->data[0].Doppler.fkdot, sizeof(spinRange.fkdot) );
   spinRange.fkdotBand[0] = (numFreqBins - 1)*dFreq - 10*LAL_REAL8_EPS;
-  spinRange.fkdotBand[1] = (numf1dotBins - 1)*df1dot - 10*LAL_REAL8_EPS;
+  spinRange.fkdotBand[1] = (numf1dotPoints - 1)*df1dot - 10*LAL_REAL8_EPS;
+
+  Doppler.fkdot[0] -= 0.4 * spinRange.fkdotBand[0];
 
   REAL8 minCoverFreq, maxCoverFreq;
-  XLAL_CHECK ( XLALCWSignalCoveringBand ( &minCoverFreq, &maxCoverFreq, &startTime, &endTime, &spinRange, asini, Period ) == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK ( XLALCWSignalCoveringBand ( &minCoverFreq, &maxCoverFreq, &startTime, &endTime, &spinRange, asini, Period, ecc ) == XLAL_SUCCESS, XLAL_EFUNC );
 
   // ----- setup extra Fstat method params
   FstatExtraParams XLAL_INIT_DECL(extraParams);
@@ -144,36 +155,68 @@ main ( int argc, char *argv[] )
       XLAL_CHECK ( input[iMethod] != NULL, XLAL_EFUNC );
     }
 
-  // ----- loop over all templates {sky, f1dot}
+  FstatQuantities whatToCompute = (FSTATQ_2F | FSTATQ_FAFB);
+  // ----- loop over all templates {sky, f1dot, period}
   for ( UINT4 iSky = 0; iSky < numSkyPoints; iSky ++ )
     {
-      for ( UINT4 if1dot = 0; if1dot < numf1dotBins; if1dot ++ )
+      for ( UINT4 if1dot = 0; if1dot < numf1dotPoints; if1dot ++ )
         {
-          // ----- loop over all available methods and compare Fstat results
-          FstatMethodType firstMethod = FMETHOD_START;
-          for ( UINT4 iMethod = FMETHOD_START; iMethod < FMETHOD_END; iMethod ++ )
+          for ( UINT4 iPeriod = 0; iPeriod < numPeriodPoints; iPeriod ++ )
             {
-              if ( !XLALFstatMethodIsAvailable(iMethod) ) {
-                continue;
-              }
-              if ( firstMethod == FMETHOD_START ) {	// keep track of first available method found
-                firstMethod = iMethod;
-              }
-              XLAL_CHECK ( XLALComputeFstat ( &results[iMethod], input[iMethod], &Doppler, dFreq, numFreqBins, FSTATQ_2F ) == XLAL_SUCCESS, XLAL_EFUNC );
-
-              // compare to first result
-              if ( compareFstatResults ( results[firstMethod], results[iMethod] ) != XLAL_SUCCESS )
+              // ----- loop over all available methods and compare Fstat results
+              FstatMethodType firstMethod = FMETHOD_START;
+              for ( UINT4 iMethod = FMETHOD_START; iMethod < FMETHOD_END; iMethod ++ )
                 {
-                  XLALPrintError ("Comparison between method '%s' and '%s' failed comparison\n",
-                                  XLALGetFstatMethodName(firstMethod), XLALGetFstatMethodName(iMethod) );
-                  XLAL_ERROR ( XLAL_EFUNC );
-                }
+                  if ( !XLALFstatMethodIsAvailable(iMethod) ) {
+                    continue;
+                  }
+                  if ( firstMethod == FMETHOD_START ) {	// keep track of first available method found
+                    firstMethod = iMethod;
+                  }
 
-            }  // for i < FMETHOD_END
+                  XLAL_CHECK ( XLALComputeFstat ( &results[iMethod], input[iMethod], &Doppler, dFreq, numFreqBins, whatToCompute ) == XLAL_SUCCESS, XLAL_EFUNC );
+
+                  if ( lalDebugLevel & LALINFOBIT )
+                    {
+                      FILE *fp;
+                      char fname[1024]; XLAL_INIT_MEM ( fname );
+                      snprintf ( fname, sizeof(fname)-1, "twoF%s-iSky%02d-if1dot%02d-iPeriod%02d.dat", XLALGetFstatMethodName(iMethod), iSky, if1dot, iPeriod );
+                      XLAL_CHECK ( (fp = fopen ( fname, "wb" )) != NULL, XLAL_EFUNC );
+                      for ( UINT4 k = 0; k < results[iMethod]->numFreqBins; k ++ )
+                        {
+                          REAL8 Freq0 = results[iMethod]->doppler.fkdot[0];
+                          REAL8 Freq_k = Freq0 + k * results[iMethod]->dFreq;
+                          if ( whatToCompute & FSTATQ_FAFB ) {
+                            fprintf ( fp, "%20.16g %10.4g   %10.4g %10.4g   %10.4g %10.4g\n",
+                                      Freq_k, results[iMethod]->twoF[k],
+                                      crealf(results[iMethod]->Fa[k]), cimagf(results[iMethod]->Fa[k]),
+                                      crealf(results[iMethod]->Fb[k]), cimagf(results[iMethod]->Fb[k])
+                                      );
+                          } else {
+                            fprintf ( fp, "%20.16g %10.4g\n",
+                                      Freq_k, results[iMethod]->twoF[k] );
+                          }
+                        } // for k < numFreqBins
+                      fclose(fp);
+                    } // if info
+
+                  // compare to first result
+                  XLALPrintInfo ("Comparing results between method '%s' and '%s'\n", XLALGetFstatMethodName(firstMethod), XLALGetFstatMethodName(iMethod) );
+                  if ( compareFstatResults ( results[firstMethod], results[iMethod] ) != XLAL_SUCCESS )
+                    {
+                      XLALPrintError ("Comparison between method '%s' and '%s' failed\n", XLALGetFstatMethodName(firstMethod), XLALGetFstatMethodName(iMethod) );
+                      XLAL_ERROR ( XLAL_EFUNC );
+                    }
+
+                }  // for i < FMETHOD_END
+
+              Doppler.period += dPeriod;
+
+            } // for iPeriod < numPeriodPoints
 
           Doppler.fkdot[1] += df1dot;
 
-        } // for if1dot < numf1dotBins
+        } // for if1dot < numf1dotPoints
 
       Doppler.Alpha += dSky;
 
@@ -200,82 +243,59 @@ main ( int argc, char *argv[] )
 
 } // main()
 
-static REAL8
-relError ( REAL8 val1, REAL8 val2 )
-{
-  return ( (val1-val2) / ( 0.5 * (val1+val2) ) );
-} // relError()
-
 static int
 compareFstatResults ( const FstatResults *result1, const FstatResults *result2 )
 {
   XLAL_CHECK ( (result1 != NULL) && (result2 != NULL), XLAL_EINVAL );
 
   XLAL_CHECK ( result1->whatWasComputed == result2->whatWasComputed, XLAL_EINVAL );
-  XLAL_CHECK ( result1->whatWasComputed == FSTATQ_2F, XLAL_EINVAL, "Currently on 2F comparison supported.\n");
   XLAL_CHECK ( result1->dFreq == result2->dFreq, XLAL_EINVAL );
   XLAL_CHECK ( result1->numFreqBins == result2->numFreqBins, XLAL_EINVAL );
-  UINT4 numFreqBins = result1->numFreqBins;
   XLAL_CHECK ( result1->numDetectors == result2->numDetectors, XLAL_EINVAL );
 
-  REAL8 tolMaxRelErr = 1.2;
-  REAL8 tolMeanRelErr = 0.1;
-  REAL8 tolMeanAbsRelErr = 0.15;
-  REAL8 tolRelErrSum = 0.1;
+  // ----- set tolerance levels for comparisons ----------
+  VectorComparison XLAL_INIT_DECL(tol);
+  tol.relErr_L1 	= 5.3e-2;
+  tol.relErr_L2		= 5e-2;
+  tol.angleV 		= 0.05;  // rad
+  tol.relErr_atMaxAbsx 	= 6e-2;
+  tol.relErr_atMaxAbsy  = 6e-2;
 
-  REAL8 maxRelErr = 0;
-  REAL8 meanRelErr = 0;
-  REAL8 meanAbsRelErr = 0;
-  REAL8 relErrSum = 0;
-  REAL8 sum1 = 0, sum2 = 0;
-  REAL8 maxTwoF1 = 0, twoF2atMax = 0;
-  for ( UINT4 k = 0; k < numFreqBins; k ++ )
+  UINT4 numFreqBins = result1->numFreqBins;
+  VectorComparison XLAL_INIT_DECL(cmp);
+
+  if ( result1->whatWasComputed & FSTATQ_2F )
     {
-      REAL8 twoF1 = result1->twoF[k];
-      REAL8 twoF2 = result2->twoF[k];
+      // ----- package twoF arrays into REAL4Vectors
+      REAL4Vector XLAL_INIT_DECL(v1);
+      REAL4Vector XLAL_INIT_DECL(v2);
+      v1.length = numFreqBins;
+      v2.length = numFreqBins;
+      v1.data = result1->twoF;
+      v2.data = result2->twoF;
 
-      // keep track of highest 2F_1 peak and corresponding 2F_2 value
-      if ( twoF1 > maxTwoF1 ) {
-        maxTwoF1 = twoF1;
-        twoF2atMax = twoF2;
-      }
+      XLALPrintInfo ("Comparing 2F values:\n");
+      XLAL_CHECK ( XLALCompareREAL4Vectors ( &cmp, &v1, &v2, &tol ) == XLAL_SUCCESS, XLAL_EFUNC );
+    }
 
-      REAL8 relErr = relError ( twoF1, twoF2 );
-
-      meanRelErr += relErr;
-      meanAbsRelErr += fabs(relErr);
-      maxRelErr = fmax ( maxRelErr, fabs ( relErr ) );
-      sum1 += twoF1;
-      sum2 += twoF2;
-
-    } // for k < numFreqBins
-
-  meanRelErr = fabs(meanRelErr) / numFreqBins;
-  meanAbsRelErr = meanAbsRelErr / numFreqBins;
-  relErrSum = fabs ( relError ( sum1, sum2 ) );
-
-  REAL8 relErrAtMax = fabs ( relError ( maxTwoF1, twoF2atMax ) );
-  REAL8 tolRelErrAtMax = 0.1;
-
-  XLALPrintWarning ( "maxRelErr = %g (tol=%g), relErrAtMax = %g (tol=%g), meanRelErr = %g (tol=%g), meanAbsRelErr = %g (tol=%g), relErrSum = %g (tol=%g)\n",
-                     maxRelErr, tolMaxRelErr, relErrAtMax, tolRelErrAtMax, meanRelErr, tolMeanRelErr, meanAbsRelErr, tolMeanAbsRelErr, relErrSum, tolRelErrSum );
-
-  if ( (maxRelErr > tolMaxRelErr) || (relErrAtMax > tolRelErrAtMax) || (meanRelErr > tolMeanRelErr) || (meanAbsRelErr > tolMeanAbsRelErr) || (relErrSum > tolRelErrSum) )
+  if ( result1->whatWasComputed & FSTATQ_FAFB )
     {
-      XLALPrintError ( "maxRelErr = %g (tol=%g), relErrAtMax = %g (tol=%g), meanRelErr = %g (tol=%g), meanAbsRelErr = %g (tol=%g), relErrSum = %g (tol=%g)\n",
-                       maxRelErr, tolMaxRelErr, relErrAtMax, tolRelErrAtMax, meanRelErr, tolMeanRelErr, meanAbsRelErr, tolMeanAbsRelErr, relErrSum, tolRelErrSum );
-
-      FILE *fp = fopen("failed-fstats.dat", "wb");
-      fprintf (fp, "%%%% Freq             F1        F2\n");
-      for ( UINT4 k1 = 0; k1 < result1->numFreqBins; k1 ++ )
-        {
-          REAL8 fi = result1->doppler.fkdot[0] + k1 * result1->dFreq;
-          fprintf ( fp, "%20.16g %10.5g %10.5g\n", fi, result1->twoF[k1], result2->twoF[k1] );
-        }
-      fclose(fp);
-
-      XLAL_ERROR ( XLAL_ETOL );
-    } // if error > tolerance
+      // ----- package Fa,Fb arrays int COMPLEX8Vectors
+      COMPLEX8Vector XLAL_INIT_DECL(c1);
+      COMPLEX8Vector XLAL_INIT_DECL(c2);
+      c1.length = numFreqBins;
+      c2.length = numFreqBins;
+      // Fa
+      c1.data = result1->Fa;
+      c2.data = result2->Fa;
+      XLALPrintInfo ("Comparing Fa values:\n");
+      XLAL_CHECK ( XLALCompareCOMPLEX8Vectors ( &cmp, &c1, &c2, NULL ) == XLAL_SUCCESS, XLAL_EFUNC );	 // FIXME: deactivated test
+      // Fb
+      c1.data = result1->Fb;
+      c2.data = result2->Fb;
+      XLALPrintInfo ("Comparing Fb values:\n");
+      XLAL_CHECK ( XLALCompareCOMPLEX8Vectors ( &cmp, &c1, &c2, NULL ) == XLAL_SUCCESS, XLAL_EFUNC );	 // FIXME: deactivated test
+    }
 
   return XLAL_SUCCESS;
 

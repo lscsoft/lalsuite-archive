@@ -33,7 +33,6 @@ extern "C" {
 
 /*---------- INCLUDES ----------*/
 #include <stdarg.h>
-
 #include <gsl/gsl_matrix.h>
 
 /**
@@ -65,17 +64,22 @@ typedef enum
 void LogSetFile(FILE* file);
 void LogSetLevel(LogLevel_t level);
 
-void LogPrintf (LogLevel_t, const char* format, ...);
-void LogPrintfVerbatim (LogLevel_t, const char* format, ...);
+void LogPrintf (LogLevel_t, const char* format, ...) _LAL_GCC_PRINTF_FORMAT_(2,3);
+void LogPrintfVerbatim (LogLevel_t, const char* format, ...) _LAL_GCC_PRINTF_FORMAT_(2,3);
 
-int XLALfprintfGSLmatrix ( FILE *fp, const char *fmt, const gsl_matrix *gij );
-int XLALfprintfGSLvector ( FILE *fp, const char *fmt, const gsl_vector *vect );
-int XLALfprintfGSLvector_int ( FILE *fp, const char *fmt, const gsl_vector_int *vect );
+int XLALfprintfGSLmatrix ( FILE *fp, const char *fmt, const gsl_matrix *gij ) _LAL_GCC_VPRINTF_FORMAT_(2);
+int XLALfprintfGSLvector ( FILE *fp, const char *fmt, const gsl_vector *vect ) _LAL_GCC_VPRINTF_FORMAT_(2);
+int XLALfprintfGSLvector_int ( FILE *fp, const char *fmt, const gsl_vector_int *vect ) _LAL_GCC_VPRINTF_FORMAT_(2);
 
 REAL8 XLALGetTimeOfDay(void);
 REAL8 XLALGetPeakHeapUsageMB ( void );
 
 char * XLALClearLinebreaks ( const char *str );
+
+
+int XLALdumpREAL4TimeSeries (const char *fname, const REAL4TimeSeries *series);
+int XLALdumpREAL8TimeSeries (const char *fname, const REAL8TimeSeries *series);
+int XLALdumpCOMPLEX8TimeSeries (const char *fname, const COMPLEX8TimeSeries *series );
 
 /*@}*/
 

@@ -181,7 +181,7 @@ if not (options.table or options.array):
 else:
 	class ContentHandler(ligolw.PartialLIGOLWContentHandler):
 		def __init__(self, xmldoc):
-			ligolw.PartialLIGOLWContentHandler.__init__(self, xmldoc, lambda name, attrs: (name in (ligolw.Table.tagName, ligolw.Array.tagName)) and (table.StripTableName(attrs["Name"]) in options.table or array.StripArrayName(attrs["Name"]) in options.array))
+			super(ContentHandler, self).__init__(xmldoc, lambda name, attrs: (name in (ligolw.Table.tagName, ligolw.Array.tagName)) and (table.StripTableName(attrs["Name"]) in options.table or array.StripArrayName(attrs["Name"]) in options.array))
 
 array.use_in(ContentHandler)
 

@@ -154,22 +154,14 @@ typedef struct tagFstatExtraParams {
 } FstatExtraParams;
 
 ///
-/// Complex \f$\mathcal{F}\f$-statistic amplitudes \f$F_a\f$ and \f$F_b\f$.
-///
-typedef struct tagFstatFaFb {
-  COMPLEX16 Fa;                         ///< Complex amplitude \f$F_a\f$.
-  COMPLEX16 Fb;                         ///< Complex amplitude \f$F_b\f$.
-} FstatFaFb;
-
-///
 /// An \f$\mathcal{F}\f$-statistic 'atom', i.e. the elementary per-SFT quantities required to compute the
 /// \f$\mathcal{F}\f$-statistic, for one detector X.
 ///
 typedef struct tagFstatAtom {
   UINT4 timestamp;                      ///< SFT GPS timestamp \f$t_i\f$ in seconds.
-  REAL8 a2_alpha;                       ///< Antenna-pattern factor \f$a^2(X,t_i)\f$.
-  REAL8 b2_alpha;                       ///< Antenna-pattern factor \f$b^2(X,t_i)\f$.
-  REAL8 ab_alpha;                       ///< Antenna-pattern factor \f$a*b(X,t_i)\f$.
+  REAL4 a2_alpha;                       ///< Antenna-pattern factor \f$a^2(X,t_i)\f$.
+  REAL4 b2_alpha;                       ///< Antenna-pattern factor \f$b^2(X,t_i)\f$.
+  REAL4 ab_alpha;                       ///< Antenna-pattern factor \f$a*b(X,t_i)\f$.
   COMPLEX8 Fa_alpha;                    ///< \f$Fa^X(t_i)\f$.
   COMPLEX8 Fb_alpha;                    ///< \f$Fb^X(t_i)\f$.
 } FstatAtom;
@@ -202,7 +194,7 @@ typedef struct tagMultiFstatAtomVector {
 /// XLALComputeFstat() computed results structure.
 ///
 #ifdef SWIG // SWIG interface directives
-SWIGLAL(IMMUTABLE_MEMBERS(tagFstatResults, internalalloclen));
+SWIGLAL(IGNORE_MEMBERS(tagFstatResults, internalalloclen));
 SWIGLAL(ARRAY_MULTIPLE_LENGTHS(tagFstatResults, numFreqBins, numDetectors));
 #endif // SWIG
 typedef struct tagFstatResults {
@@ -243,9 +235,11 @@ typedef struct tagFstatResults {
   /// computed at #numFreqBins frequencies spaced #dFreq apart.  This array should not be accessed
   /// if #whatWasComputed & FSTATQ_PARTS is false.
 #ifdef SWIG // SWIG interface directives
-  SWIGLAL(ARRAY_1D(FstatResults, FstatFaFb, FaFb, UINT4, numFreqBins));
+  SWIGLAL(ARRAY_1D(FstatResults, COMPLEX8, Fa, UINT4, numFreqBins));
+  SWIGLAL(ARRAY_1D(FstatResults, COMPLEX8, Fb, UINT4, numFreqBins));
 #endif // SWIG
-  FstatFaFb *FaFb;
+  COMPLEX8 *Fa;
+  COMPLEX8 *Fb;
 
   /// If #whatWasComputed & FSTATQ_2F_PER_DET is true, the \f$2\mathcal{F}\f$ values computed at
   /// #numFreqBins frequencies spaced #dFreq apart, and for #numDetectors detectors.  Only the first
@@ -260,9 +254,11 @@ typedef struct tagFstatResults {
   /// computed at #numFreqBins frequencies spaced #dFreq apart, and for #numDetectors detectors.
   /// This array should not be accessed if #whatWasComputed & FSTATQ_PARTS_PER_DET is false.
 #ifdef SWIG // SWIG interface directives
-  SWIGLAL(ARRAY_1D_PTR_1D(FstatResults, FstatFaFb, FaFb, UINT4, numDetectors, numFreqBins));
+  SWIGLAL(ARRAY_1D_PTR_1D(FstatResults, COMPLEX8, FaPerDet, UINT4, numDetectors, numFreqBins));
+  SWIGLAL(ARRAY_1D_PTR_1D(FstatResults, COMPLEX8, FaPerDet, UINT4, numDetectors, numFreqBins));
 #endif // SWIG
-  FstatFaFb *FaFbPerDet[PULSAR_MAX_DETECTORS];
+  COMPLEX8 *FaPerDet[PULSAR_MAX_DETECTORS];
+  COMPLEX8 *FbPerDet[PULSAR_MAX_DETECTORS];
 
   /// If #whatWasComputed & FSTATQ_ATOMS_PER_DET is true, the per-SFT \f$\mathcal{F}\f$-statistic
   /// multi-atoms computed at #numFreqBins frequencies spaced #dFreq apart.  This array should not
@@ -314,12 +310,13 @@ void XLALDestroyFstatResults ( FstatResults* Fstats );
 int XLALAdd4ToFstatResults ( FstatResults* Fstats );
 
 int XLALEstimatePulsarAmplitudeParams ( PulsarCandidate *pulsarParams, const LIGOTimeGPS* FaFb_refTime,
-                                        const COMPLEX16 Fa, const COMPLEX16 Fb, const AntennaPatternMatrix *Mmunu );
+                                        const COMPLEX8 Fa, const COMPLEX8 Fb, const AntennaPatternMatrix *Mmunu );
 
 int XLALAmplitudeParams2Vect ( PulsarAmplitudeVect A_Mu, const PulsarAmplitudeParams Amp );
 int XLALAmplitudeVect2Params( PulsarAmplitudeParams *Amp, const PulsarAmplitudeVect A_Mu );
 
-REAL8 XLALComputeFstatFromAtoms ( const MultiFstatAtomVector *multiFstatAtoms, const INT4 X );
+REAL4 XLALComputeFstatFromAtoms ( const MultiFstatAtomVector *multiFstatAtoms, const INT4 X );
+REAL4 XLALComputeFstatFromFaFb ( COMPLEX8 Fa, COMPLEX8 Fb, REAL4 A, REAL4 B, REAL4 C, REAL4 E, REAL4 Dinv );
 
 // @}
 

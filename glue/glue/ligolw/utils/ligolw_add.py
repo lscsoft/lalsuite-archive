@@ -72,7 +72,7 @@ def remove_input(urls, preserves, verbose = False):
 	any that are the same as the files in the preserves list.
 	"""
 	for path in map(url2path, urls):
-		if True in map(os.path.samefile, [path] * len(preserves), preserves):
+		if any(os.path.samefile(path, preserve) for preserve in preserves):
 			continue
 		if verbose:
 			print >>sys.stderr, "removing \"%s\" ..." % path

@@ -1,4 +1,4 @@
-# Copyright (C) 2007-2013  Kipp Cannon
+# Copyright (C) 2007-2014  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -34,9 +34,10 @@ import sys
 from glue import iterutils
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
-from glue.ligolw import utils
+from glue.ligolw import utils as ligolw_utils
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
+from glue.offsetvector import offsetvector
 from pylal import date
 from pylal import git_version
 from pylal import inject
@@ -115,6 +116,35 @@ class BurcaCoincParamsDistributions(snglcoinc.CoincParamsDistributions):
 		"H2_L1_dt": rate.gaussian_window(11, 5)
 	}
 
+	@classmethod
+	def from_filenames(cls, filenames, name, verbose = False):
+		"""
+		Convenience function to deserialize
+		CoincParamsDistributions objects from a collection of XML
+		files and return their sum.  The return value is a
+		two-element tuple.  The first element is the deserialized
+		and summed CoincParamsDistributions object, the second is a
+		segmentlistdict indicating the interval of time spanned by
+		the out segments in the search_summary rows matching the
+		process IDs that were attached to the
+		CoincParamsDistributions objects in the XML.
+		"""
+		self = None
+		for n, filename in enumerate(filenames, 1):
+			if verbose:
+				print >>sys.stderr, "%d/%d:" % (n, len(filenames)),
+			xmldoc = ligolw_utils.load_filename(filename, verbose = verbose, contenthandler = cls.contenthandler)
+			if self is None:
+				self = cls.from_xml(xmldoc, name)
+				seglists = lsctables.SearchSummaryTable.get_table(xmldoc).get_out_segmentlistdict(set([self.process_id])).coalesce()
+			else:
+				other = cls.from_xml(xmldoc, name)
+				self += other
+				seglists |= lsctables.SearchSummaryTable.get_table(xmldoc).get_out_segmentlistdict(set([other.process_id])).coalesce()
+				del other
+			xmldoc.unlink()
+		return self, seglists
+
 
 #
 # All sky version
@@ -124,22 +154,27 @@ class BurcaCoincParamsDistributions(snglcoinc.CoincParamsDistributions):
 class EPAllSkyCoincParamsDistributions(BurcaCoincParamsDistributions):
 	@staticmethod
 	def coinc_params(events, offsetvector):
+		#
+		# check for coincs that have been vetoed entirely
+		#
+
+		if len(events) < 2:
+			return None
+
 		params = {}
 
-		if events:
-			# the "time" is the ms_snr squared weighted average of the
-			# peak times neglecting light-travel times.  because
-			# LIGOTimeGPS objects have overflow problems in this sort
-			# of a calculation, the first event's peak time is used as
-			# an epoch and the calculations are done w.r.t. that time.
+		# the "time" is the ms_snr squared weighted average of the
+		# peak times neglecting light-travel times.  because
+		# LIGOTimeGPS objects have overflow problems in this sort
+		# of a calculation, the first event's peak time is used as
+		# an epoch and the calculations are done w.r.t. that time.
 
-			# FIXME: this time is available as the peak_time in the
-			# multi_burst table, and it should be retrieved from that
-			# table instead of being recomputed
-
-			t = events[0].get_peak()
-			t += sum(float(event.get_peak() - t) * event.ms_snr**2.0 for event in events) / sum(event.ms_snr**2.0 for event in events)
-			gmst = date.XLALGreenwichMeanSiderealTime(t) % (2 * math.pi)
+		# FIXME: this time is available as the peak_time in the
+		# multi_burst table, and it should be retrieved from that
+		# table instead of being recomputed
+		t = events[0].get_peak()
+		t += sum(float(event.get_peak() - t) * event.ms_snr**2.0 for event in events) / sum(event.ms_snr**2.0 for event in events)
+		gmst = date.XLALGreenwichMeanSiderealTime(t) % (2 * math.pi)
 
 		for event1, event2 in iterutils.choices(sorted(events, lambda a, b: cmp(a.ifo, b.ifo)), 2):
 			if event1.ifo == event2.ifo:
@@ -220,7 +255,7 @@ def delay_and_amplitude_correct(event, ra, dec):
 class EPGalacticCoreCoincParamsDistributions(BurcaCoincParamsDistributions):
 	@staticmethod
 	def coinc_params(events, offsetvector, ra, dec):
-		return EPAllSkyCoincParamsDistributions.coinc_params((delay_and_amplitude_correct(copy.copy(event), ra, dec) for event in events), offsetvector)
+		return EPAllSkyCoincParamsDistributions.coinc_params([delay_and_amplitude_correct(copy.copy(event), ra, dec) for event in events], offsetvector)
 
 
 #
@@ -269,11 +304,8 @@ WHERE
 	coinc_event_map.coinc_event_id == ?
 	AND time_slide.time_slide_id == ?
 		""", (coinc_event_id, time_slide_id))]
-		offsetvector = dict((event.ifo, offset) for event, offset in rows)
-		if any(offsetvector.values()):
-			yield True, [event for event, offset in rows], offsetvector
-		else:
-			yield False, [event for event, offset in rows], offsetvector
+		offsets = offsetvector((event.ifo, offset) for event, offset in rows)
+		yield any(offsets.values()), [event for event, offset in rows], offsets
 	cursor.close()
 
 
@@ -335,7 +367,7 @@ WHERE
 	coinc_event.coinc_event_id == ?
 		""", (coinc_event_id,))]
 		# pass the events to whatever wants them
-		yield sim, [event for event, offset in rows], dict((event.ifo, offset) for event, offset in rows)
+		yield sim, [event for event, offset in rows], offsetvector((event.ifo, offset) for event, offset in rows)
 	cursor.close()
 
 

@@ -146,7 +146,7 @@ def check_segment_availability(grb_name, grb_time, query_start, query_end, offse
 
   # try to open the file
   try:
-    doc = utils.load_filename("segments{ifo}_grb{grb_name}.xml".format(**args))
+    doc = utils.load_filename("segments{ifo}_grb{grb_name}.xml".format(**args), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
   except:
     raise IOError, "Error reading file: segments{ifo}_grb{grb_name}.xml".format(**args)
 
@@ -312,8 +312,8 @@ def exttrig_dataquery(grb_name, grb_time, grb_ra, grb_dec, offset, config_file, 
 	testseg = segments.segment([segdict[ifo][0][0],segdict[ifo][0][1]])
 	list_overlaps = []
 
-	# load the content of the veto-file 
-	xmldoc = utils.load_filename(xmlsegfile, gz = False)
+	# load the content of the veto-file
+        xmldoc = utils.load_filename(xmlsegfile, gz = False, contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
 	segs = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
 	segdefs = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
 
@@ -577,7 +577,7 @@ def exttrig_dataquery(grb_name, grb_time, grb_ra, grb_dec, offset, config_file, 
     for cat in catlist:
       for ifo in ifolist:
 	vetofile = "%s-VETOTIME_CAT%s_grb%s.xml" % (ifo, cat, grb_name)
-	xmldoc = utils.load_filename(vetofile, gz = False)
+        xmldoc = utils.load_filename(vetofile, gz = False, contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
 	segs = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
 	segdefs = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
 	vetodict[ifo] = segments.segmentlist(segments.segment(s.start_time, s.end_time) for s in segs)
@@ -594,7 +594,7 @@ if __name__ == "__main__":
 
   # get time, RA, DEC and name of GRB; get offset to search from GRB time
   if opts.grb_file:
-    xmldoc    = utils.load_filename(opts.grb_file, gz=opts.grb_file.endswith('.gz'))
+    xmldoc    = utils.load_filename(opts.grb_file, gz=opts.grb_file.endswith('.gz'), contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
     ext_table = table.get_table(xmldoc,lsctables.ExtTriggersTable.tableName)
     grb_time  = ext_table[0].start_time
     grb_name  = os.path.basename(opts.grb_file)[3:-4]

@@ -1005,7 +1005,7 @@ int MAIN( int argc, char *argv[]) {
 	  }
 	  else {
 	    fstatVector.data[k].data = LALRealloc( fstatVector.data[k].data, sizeof(REAL4Sequence));
-	    XLAL_CHECK( fstatVector.data[k].data != NULL, XLAL_ENOMEM, "Failed to re-allocate memory LALRealloc ( %d )\n", sizeof(REAL4Sequence) );
+	    XLAL_CHECK( fstatVector.data[k].data != NULL, XLAL_ENOMEM, "Failed to re-allocate memory LALRealloc ( %lu )\n", sizeof(REAL4Sequence) );
 
 	    fstatVector.data[k].data->length = binsFstat1;
 	    fstatVector.data[k].data->data = LALRealloc( fstatVector.data[k].data->data, alloc_len = binsFstat1 * sizeof(REAL4));
@@ -1400,6 +1400,20 @@ void SetUpSFTs( LALStatus *status,			/**< pointer to LALStatus structure */
   fMin = freqLo - doppWings;
   fMax = freqHi + doppWings;
 
+  // ---------- wild hack: FIXME if you can
+  // this code only worked previously because the running-median sideband
+  // actually covered for *physically needed* extraBinsFstat sidebands.
+  // Those are unfortunately unknown at this point in the code, and it turned to
+  // too tricky to get their calculation moved here before SetupSFTs()
+  // Now that CreateFstatInput will actually remove the running-median sidebands
+  // before proceeding with the Fstat-calculation, this fails...
+  // We fix this simply by tagging on an extra 50 SFT bins on either side, which
+  // have previously made this work. I don't think this code cares ...
+  // To whom it may concern: feel free to clean this up if it matters to you.
+  fMin -= 50 * deltaFsft;
+  fMax += 50 * deltaFsft;
+  // ---------- end: wild hack
+
   /* set up vector of Fstat input data structs */
   (*p_Fstat_in_vec) = XLALCreateFstatInputVector( in->nStacks );
   if ( (*p_Fstat_in_vec) == NULL ) {
@@ -1740,7 +1754,7 @@ void ComputeFstatHoughMap(LALStatus *status,		/**< pointer to LALStatus structur
   fBinFin -= params->extraBinsFstat;
   /* this is not very clean -- the Fstat calculation has to know how many extra bins are needed */
 
-  LogPrintf(LOG_DETAIL, "Freq. range analyzed by Hough = [%fHz - %fHz] (%d bins)\n",
+  LogPrintf(LOG_DETAIL, "Freq. range analyzed by Hough = [%fHz - %fHz] (%"LAL_INT8_FORMAT" bins)\n",
 	    fBinIni*deltaF, fBinFin*deltaF, fBinFin - fBinIni + 1);
   ASSERT ( fBinIni <= fBinFin, status, HIERARCHICALSEARCH_EVAL, HIERARCHICALSEARCH_MSGEVAL );
 

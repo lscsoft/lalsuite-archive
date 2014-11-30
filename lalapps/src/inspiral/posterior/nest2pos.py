@@ -1,43 +1,49 @@
-from numpy import log1p, log, logaddexp, array, digitize, loadtxt, zeros, exp, hstack, vstack, reshape
+import numpy as np
+from numpy import log1p, log, logaddexp, array, digitize, loadtxt, zeros, exp, hstack, vstack, reshape, diff, concatenate, all, cumsum, ones, linspace
 from numpy.random import uniform
+
+def logsubexp(x,y):
+        assert all(x >= y), 'cannot take log of negative number %s - %s'%(str(x),str(y))
+
+        return x + log1p(-exp(y-x))
+
+def log_integrate_log_trap(log_func,log_support):
+    """
+    Trapezoidal integration of given log(func)
+    Returns log of the integral
+    """
+
+    log_func_sum = logaddexp(log_func[:-1], log_func[1:]) - log(2)
+    log_dxs = logsubexp(log_support[:-1], log_support[1:])
+
+    return logaddexp.reduce(log_func_sum + log_dxs)
+
 
 def compute_weights(data, Nlive):
     """Returns log_ev, log_wts for the log-likelihood samples in data,
     assumed to be a result of nested sampling with Nlive live points."""
 
-    start_data=data[:-Nlive]
+    start_data=concatenate(([float('-inf')], data[:-Nlive]))
     end_data=data[-Nlive:]
 
     log_wts=zeros(data.shape[0])
 
-    log_vol_factor=log1p(-1.0/Nlive)
-    log_dvol = -1.0/Nlive
+    log_vols_start=cumsum(ones(len(start_data)+1)*log1p(-1./Nlive))-log1p(-1./Nlive)
+    log_vols_end=log_vols_start[-1]+concatenate((log(linspace(1,0,len(end_data)+1)[1:-1]),[np.NINF]))
 
-    log_vol = 0.0
-    log_ev = -float('inf')
-    for i,log_like in enumerate(start_data):
-        # Volume associated with this likelihood = Vol/Nlive:
-        log_this_vol=log_vol+log_dvol
-        log_wts[i] = log_like+log_this_vol
-        log_ev = logaddexp(log_ev, log_wts[i])
-        log_vol += log_vol_factor
+    log_likes = concatenate((start_data,end_data,[end_data[-1]]))
 
-    avg_log_like_end = -float('inf')
-    for i,log_l in enumerate(end_data):
-        avg_log_like_end = logaddexp(avg_log_like_end, log_l)
-    avg_log_like_end-=log(Nlive)
+    log_vols=concatenate((log_vols_start,log_vols_end))
+    log_ev = log_integrate_log_trap(log_likes, log_vols)
 
-    # Each remaining live point contributes (Vol/Nlive)*like to
-    # integral, but have posterior weights Vol relative to the other samples
-    log_wts[-Nlive:] = log_vol+end_data
-
-    log_ev = logaddexp(log_ev, avg_log_like_end + log_vol)
+    log_dXs = logsubexp(log_vols[:-1], log_vols[1:])
+    log_wts = log_likes[1:-1] + log_vols[1:-1]  #(log(0.5) + logaddexp(log_dXs[:-1], log_dXs[1:]))
 
     log_wts -= log_ev
 
     return log_ev, log_wts
 
-def draw_posterior(data, log_wts):
+def draw_posterior(data, log_wts, verbose=False):
     """Draw points from the given data (of shape (Nsamples, Ndim))
     with associated log(weight) (of shape (Nsamples,)). Draws uniquely so
     there are no repeated samples"""
@@ -47,7 +53,7 @@ def draw_posterior(data, log_wts):
     idx=filter(lambda i: selection[i], range(len(selection)))
     return data[idx,:]
     
-def draw_posterior_many(datas, Nlives,logLcol=-1):
+def draw_posterior_many(datas, Nlives,logLcol=-1, verbose=False):
     """Draw samples from the posteriors represented by the
     (Nruns, Nsamples, Nparams)-shaped array datas, each sampled with
     the corresponding Nlive number of live points. Will draw without repetition,
@@ -55,27 +61,30 @@ def draw_posterior_many(datas, Nlives,logLcol=-1):
 
     # list of log_evidences, log_weights
     log_evs,log_wts=zip(*[compute_weights(data[:,logLcol],Nlive) for data,Nlive in zip(datas, Nlives)])
+    if verbose: print 'Computed log_evidences: %s'%(str(log_evs))
 
     log_total_evidence=reduce(logaddexp, log_evs)
     log_max_evidence=max(log_evs)
     #print 'evidences: %s'%(str(log_evs))
     fracs=[exp(log_ev-log_max_evidence) for log_ev in log_evs]
-    #print 'Relative weights of input files: %s'%(str(fracs))
+    if verbose: print 'Relative weights of input files: %s'%(str(fracs))
     Ns=[fracs[i]/len(datas[i]) for i in range(len(fracs))]
     Ntot=max(Ns)
     fracs=[n/Ntot for n in Ns]
-    #print 'Relative weights of input files taking into account their length: %s'%(str(fracs))
+    if verbose: print 'Relative weights of input files taking into account their length: %s'%(str(fracs))
 
     bigpos=[]
     posts=[draw_posterior(data,logwt) for (data,logwt,logZ) in zip(datas,log_wts,log_evs)]
-    #print 'Expected number of samples from each input file %s'%(str([int(f*len(p)) for f,p in zip(fracs,posts)]))
+    if verbose: print 'Number of input samples: %s'%(str([len(x) for x in log_wts]))
+    if verbose: print 'Expected number of samples from each input file %s'%(str([int(f*len(p)) for f,p in zip(fracs,posts)]))
     for post,frac in zip(posts,fracs):
     	for samp in post:
 	    if(uniform()<frac):
 	    	bigpos.append(samp)
+    if verbose: print 'Total number of samples produced: %i'%(len(bigpos))
     return bigpos
     
-def draw_N_posterior(data,log_wts, N):
+def draw_N_posterior(data,log_wts, N, verbose=False):
     """
     Draw N samples from the input data, weighted by log_wt.
     For large N there may be repeated samples
@@ -91,7 +100,7 @@ def draw_N_posterior(data,log_wts, N):
 
     return data[idxs-1, :]
 
-def draw_N_posterior_many(datas, Nlives, Npost, logLcol=-1):
+def draw_N_posterior_many(datas, Nlives, Npost, logLcol=-1, verbose=False):
     """
     Draw Npost samples from the posteriors represented by the
     (Nruns, Nsamples, Nparams)-shaped array datas, each sampled with
