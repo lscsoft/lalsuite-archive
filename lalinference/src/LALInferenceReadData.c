@@ -832,8 +832,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         if(!IFOdata[i].timeToFreqFFTPlan) XLAL_ERROR_NULL(XLAL_ENOMEM);
         IFOdata[i].freqToTimeFFTPlan = XLALCreateReverseREAL8FFTPlan((UINT4) seglen, 1 );
         if(!IFOdata[i].freqToTimeFFTPlan) XLAL_ERROR_NULL(XLAL_ENOMEM);
-        IFOdata[i].margComplexFFTPlan = XLALCreateForwardCOMPLEX16FFTPlan((UINT4) seglen, 1);
-        if(!IFOdata[i].margComplexFFTPlan) XLAL_ERROR_NULL(XLAL_ENOMEM);
+        IFOdata[i].margFFTPlan = XLALCreateReverseREAL8FFTPlan((UINT4) seglen, 1);
+        if(!IFOdata[i].margFFTPlan) XLAL_ERROR_NULL(XLAL_ENOMEM);
         /* Setup windows */
         ppt=LALInferenceGetProcParamVal(commandLine,"--padding");
         if (ppt){

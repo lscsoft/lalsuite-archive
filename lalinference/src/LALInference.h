@@ -569,7 +569,7 @@ tagLALInferenceIFOData
   REAL8Window               *window;        /** A window */
   REAL8 padding;
   REAL8FFTPlan              *timeToFreqFFTPlan, *freqToTimeFFTPlan; /** Pre-calculated FFT plans for forward and reverse FFTs */
-  COMPLEX16FFTPlan          *margComplexFFTPlan; /** FFT plan needed for time/time-and-phase marginalisation */
+  REAL8FFTPlan              *margFFTPlan; /** FFT plan needed for time/time-and-phase marginalisation */
   REAL8                     fLow, fHigh;	/** integration limits for overlap integral in F-domain */
   LALDetector               *detector;          /** LALDetector structure for where this data came from */
   BarycenterInput           *bary;              /** Barycenter information */
