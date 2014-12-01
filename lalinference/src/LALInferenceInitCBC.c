@@ -634,6 +634,12 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state)
   /* This sets the component masses and total mass priors, if given in command line. 
    * The prior for other parameters are now read in in RegisterUniformVariable, if given by the user. */
   LALInferenceInitMassVariables(state);
+  /* now we need to update the chirp mass and q limits accordingly */
+  REAL8 comp_min = *(REAL8 *)LALInferenceGetVariable(state->priorArgs,"component_min");
+  REAL8 comp_max = *(REAL8 *)LALInferenceGetVariable(state->priorArgs,"component_max");
+  qMin = comp_min/comp_max;
+  mcMin =2.0*comp_min*pow(qMin/pow(1.+qMin,2.),3./5.);
+  mcMax =2.0*comp_max*pow(0.25,3./5.);
 
   /************ Initial Value Related Argument START *************/
   /* Read time parameter from injection file */
@@ -1524,7 +1530,6 @@ void LALInferenceInitMassVariables(LALInferenceRunState *state){
   ppt=LALInferenceGetProcParamVal(commandLine,"--comp-max");
   //if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--compmax");
   if(ppt)	mMax=atof(ppt->value);
-  
   ppt=LALInferenceGetProcParamVal(commandLine,"--mtotal-max");
   //if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--mtotalmax");
   if(ppt)	MTotMax=atof(ppt->value);
@@ -1532,7 +1537,6 @@ void LALInferenceInitMassVariables(LALInferenceRunState *state){
   ppt=LALInferenceGetProcParamVal(commandLine,"--mtotal-min");
   //if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--mtotalmin");
   if(ppt)	MTotMin=atof(ppt->value);
-
   LALInferenceAddVariable(priorArgs,"component_min",&mMin,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(priorArgs,"component_max",&mMax,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(priorArgs,"MTotMax",&MTotMax,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);

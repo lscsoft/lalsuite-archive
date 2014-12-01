@@ -303,7 +303,6 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
     else
       logPrior+=log(((m1+m2)*(m1+m2))/((m1-m2)*pow(eta,3.0/5.0)));
   }
-
   /* Check for component masses in range, if specified */
   if(LALInferenceCheckVariable(priorParams,"component_min"))
     if(*(REAL8 *)LALInferenceGetVariable(priorParams,"component_min") > m1
@@ -335,7 +334,6 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
 
   /* Evaluate glitch prior (returns 0 if no glitch model) */
   logPrior += LALInferenceGlitchPrior(runState, params);
-  
   return(logPrior);
 }
 
