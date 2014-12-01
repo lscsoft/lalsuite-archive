@@ -250,11 +250,13 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
   }
   if(LALInferenceCheckVariable(params,"flow"))
     logPrior+=log(*(REAL8 *)LALInferenceGetVariable(params,"flow"));
-
-  if(LALInferenceCheckVariable(params,"logdistance"))
-    logPrior+=3.0* *(REAL8 *)LALInferenceGetVariable(params,"logdistance");
-  else if(LALInferenceCheckVariable(params,"distance"))
-    logPrior+=2.0*log(*(REAL8 *)LALInferenceGetVariable(params,"distance"));
+  if (!LALInferenceGetProcParamVal(runState->commandLine,"--marginal-distance"))
+  {
+    if(LALInferenceCheckVariable(params,"logdistance"))
+      logPrior+=3.0* *(REAL8 *)LALInferenceGetVariable(params,"logdistance");
+    else if(LALInferenceCheckVariable(params,"distance"))
+      logPrior+=2.0*log(*(REAL8 *)LALInferenceGetVariable(params,"distance"));
+  }
   if(LALInferenceCheckVariable(params,"theta_jn"))
     logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"theta_jn"))));
   if(LALInferenceCheckVariable(params,"declination"))
