@@ -1,7 +1,7 @@
 /*
  * simburst_to_frame.c
  * 
- * Copyright 2013 Salvatore Vitale <svitale@dante>
+ * Copyright 2013 Salvatore Vitale <salvatore.vitale@ligo.org>
  * 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -332,7 +332,7 @@ int main(int argc, char **argv)
          i++;
     }
     
-    snprintf( fname, FILENAME_MAX, "%s-%s-%d-%d.gwf", IFOs,frameType, (int) mdc_gps_start, mdc_duration );
+    snprintf( fname, 256, "%s-%s-%d-%d.gwf", IFOs,frameType, (int) mdc_gps_start, mdc_duration );
     
     /* set detector flags */
 	detectorFlags = LAL_GEO_600_DETECTOR_BIT | LAL_LHO_4K_DETECTOR_BIT |
