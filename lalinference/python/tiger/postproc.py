@@ -245,14 +245,15 @@ def TigerPostProcess(configfile):
 	# STATISTICS
 	html_data_efficiencies = []
 	betas = [0.95,0.99]
-	for ns in N_sources:
-		tmp = TigerCalculateEfficiency(tigerruns,N=ns,beta=betas)
-		html_data_efficiencies.append(tmp)
-	html_data_efficiencies = array(html_data_efficiencies)
+	if len(tigerruns)>1:
+		for ns in N_sources:
+			tmp = TigerCalculateEfficiency(tigerruns,N=ns,beta=betas)
+			html_data_efficiencies.append(tmp)
+		html_data_efficiencies = array(html_data_efficiencies)
 
-	html_data_ks =[]
-	for ns in N_sources:
-		html_data_ks.append(TigerKSandPvalue(tigerruns[0],tigerruns[1],N=ns))
+		html_data_ks =[[TigerKSandPvalue(tigerruns[0],j,N=ns) for ns in N_sources] for j in tigerruns[1:] if len(tigerruns)>1]
+	#for ns in N_sources:
+		#html_data_ks.append(TigerKSandPvalue(tigerruns[0],tigerruns[1],N=ns))
 
 	# HISTOGRAMS
 	html_files_hist = []
@@ -366,58 +367,60 @@ def TigerPostProcess(configfile):
 		#hfsbase = path.basename(hfs)
 		#htmltxt+="<a href='"+hfsbase+"'>"+hfsbase+"</a>&nbsp;&nbsp;&nbsp;&nbsp;"
 
-	htmltxt+=\
-	"""
-	<h2>Statistics</h2>
-	"""
-	htmltxt+=\
-	"""
-	<h3>Efficiencies</h3>
-	"""
-	htmltxt+=\
-	"""
-	<table border="1">
-	<tr>
-	<td>catsize</td>
-	"""
-	for ns in N_sources: 
-		htmltxt+='<td>'+str(ns)+'</td>'
-	htmltxt+='</tr>'
-
-	background = 0
-	for i in xrange(len(tigerruns)):
-		if i != background: # hardcoded for the time being
-			htmltxt+='<tr>'
-			htmltxt+='<td>'+tigerruns[i].label+'</td>'
-			for j in xrange(len(N_sources)):
-				if i < background:
-					effstr="%.2f "%html_data_efficiencies[j,i,0]+' | '+ '%.2f'% html_data_efficiencies[j,i,1]
-				else:
-					effstr="%.2f"%html_data_efficiencies[j,i-1,0]+' | '+'%.2f'%html_data_efficiencies[j,i-1,1]
-				htmltxt+='<td>'+effstr+'</td>'
-			htmltxt+='</tr>'
-	htmltxt+='</table>'
-
-	htmltxt+=\
-	"""
-	<h3>KS and p value</h3>
-	"""
-	htmltxt+=\
-	"""
-	<table border="1">
-	<tr>
-	<td></td>
-	<td>ks stat</td>
-	<td>p value</td>
-	</tr>
-	"""
-	for i in xrange(len(N_sources)):
-		htmltxt+='<tr>'
-		htmltxt+='<td>'+'N='+str(N_sources[i])+'</td>'
-		htmltxt+='<td>'+'%.2f'%html_data_ks[i][0]+'</td>'
-		htmltxt+='<td>'+'%.2f'%html_data_ks[i][1]+'</td>'
+	if len(tigerruns)>1:
+		htmltxt+=\
+		"""
+		<h2>Statistics</h2>
+		"""
+		htmltxt+=\
+		"""
+		<h3>Efficiencies</h3>
+		"""
+		htmltxt+=\
+		"""
+		<table border="1">
+		<tr>
+		<td>catsize</td>
+		"""
+		for ns in N_sources: 
+			htmltxt+='<td>'+str(ns)+'</td>'
 		htmltxt+='</tr>'
-	htmltxt+='</table>'
+
+		background = 0
+		for i in xrange(len(tigerruns)):
+			if i != background: # hardcoded for the time being
+				htmltxt+='<tr>'
+				htmltxt+='<td>'+tigerruns[i].label+'</td>'
+				for j in xrange(len(N_sources)):
+					if i < background:
+						effstr="%.2f "%html_data_efficiencies[j,i,0]+' | '+ '%.2f'% html_data_efficiencies[j,i,1]
+					else:
+						effstr="%.2f"%html_data_efficiencies[j,i-1,0]+' | '+'%.2f'%html_data_efficiencies[j,i-1,1]
+					htmltxt+='<td>'+effstr+'</td>'
+				htmltxt+='</tr>'
+		htmltxt+='</table>'
+
+		htmltxt+=\
+		"""
+		<h3>KS and p value</h3>
+		"""
+		htmltxt+=\
+		"""
+		<table border="1">
+		<tr>
+		<td></td>
+		<td>ks stat</td>
+		<td>p value</td>
+		</tr>
+		"""
+		for i in xrange(len(tigerruns)-1):
+			for j in xrange(len(N_sources)):
+				htmltxt+='<tr>'
+				htmltxt+='<td>'+'N='+str(N_sources[j])+'</td>'
+				htmltxt+='<td>'+'%.2f'%html_data_ks[i][j][0]+'</td>'
+				htmltxt+='<td>'+'%.2f'%html_data_ks[i][j][1]+'</td>'
+				htmltxt+='</tr>'
+		htmltxt+='</table>'
 
 	# HISTOGRAMS
 	htmltxt+=\
@@ -643,7 +646,7 @@ class TigerRun:
 		Download SNRs from remote location. Only works after sources are found by
 		the searchsources function.
 		"""
-		stdout.write("... pulling SNRs: %s\t%s\r" % (self.cluster,self.directory))
+		stdout.write("... pulling SNRs: %s\t%s\n" % (self.cluster,self.directory))
 		# GET SNRS
 		if self.nsources == 0:
 			stdout.write("... pulling SNRs: %s\t%s - nothing to fetch\n" % (self.cluster,self.directory))
@@ -659,6 +662,10 @@ class TigerRun:
 			p = Popen(command, stdout=PIPE, stderr=PIPE,shell=True)
 			#self.snr = array([float(k.strip('Network:').strip()) for k in p.stdout.readlines() if k.find('Network')!=-1])
 			snrrawdata = p.stdout.readlines()
+			if snrrawdata == []:
+				stdout.write("... Warning: Cannot find SNR file. Writing zeros\n")
+				self.snr = zeros(self.nsources)
+				return
 			count = 0
 			for k in xrange(len(self.gps)):
 				ndet = len(self.detectors[k])/2
@@ -712,7 +719,7 @@ class TigerRun:
 		Apply a Bayes factor and SNR cut on the data
 		"""
 		# SET CONDITION
-		cond = (self.snr>st) & (self.bayes[:,0]>bt)
+		cond = (self.snr>st) | (self.snr==0.0) & (self.bayes[:,0]>bt)
 
 		# UPDATE DATA
 		self.bayes = self.bayes[cond,:]
@@ -986,7 +993,7 @@ def TigerCreateHistogram(list_tigerruns, axis, N=1, xlim=None,bins=50):
 			# ADD X-AXIS LABEL
 			axis.set_xlabel(r"$\ln{O_{GR}^{modGR}}$")
 			axis.set_ylabel(r"$P(\ln{O_{GR}^{modGR}})$")
-		else:
+		elif N < list_tigerruns[i].nsources:
 			# PLOT HISTOGRAMS
 			axis.hist(list_tigerruns[i].odds(N), \
 					facecolor="none", \
@@ -1014,6 +1021,13 @@ def TigerCalculateEfficiency(list_tigerruns, N=1, beta=[0.95], background=0):
 	OddsBeta=[mquantiles(list_tigerruns[background].odds(N),prob=[b]) for b in beta]
 	efficiencies = empty((len(list_tigerruns)-1,len(beta)))
 	for i in xrange(len(list_tigerruns)):
+		if N>list_tigerruns[i].nsources:
+			stdout.write("... Warning: Not sufficient events (%s) to calculate the efficiency for %s sources. Writing zeros\n"%(list_tigerruns[i].nsources,N))
+			if i < background:
+				efficiencies[i,:] = 0.0
+			else:
+				efficiencies[i-1,:] = 0.0
+			continue
 		if i != background:
 			tmp = list_tigerruns[i].odds(N)
 			for j in xrange(len(OddsBeta)):
@@ -1032,6 +1046,9 @@ def TigerKSandPvalue(tigerrun1,tigerrun2, N=1):
 	"""
 	CALCULATE KS STATISTICS FROM A LIST OF TIGERRUNS
 	"""
+	if tigerrun1.nsources < N or tigerrun2.nsources < N:
+		stdout.write("... Warning: Not sufficient events (%s,%s) to calculate KS-statistic for %s sources. Writing zeros\n"%(tigerrun1.nsources, tigerrun2.nsources,N))
+		return [0.0,0.0]
 	data1 = tigerrun1.odds(N)
 	data2 = tigerrun2.odds(N)
 	ksstat, pvalue = ks_2samp(data1,data2)
