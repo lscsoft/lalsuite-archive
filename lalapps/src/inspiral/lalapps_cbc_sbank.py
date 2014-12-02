@@ -26,6 +26,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import table
 from glue.ligolw import utils
+from glue.ligolw import ilwd
 from glue.ligolw.utils import process as ligolw_process
 from pylal.inspiral_metric import compute_metric
 from pylal.xlal.datatypes.real8frequencyseries import REAL8FrequencySeries
@@ -49,8 +50,12 @@ usage = """
 
 lalapps_cbc_sbank: This program generates a template bank for compact
 binary searches covering a given region of mass and spin parameter
-space. The program supports a number of waveform approximants and is
-extensible to other waveform approximants as they become available.
+space. The program supports the waveform approximants listed below and
+is designed to be easily extensible to other waveform approximants as
+they become available (see waveforms.py for details).
+
+Supported template approximants:
+\t%s
 
 Example command lines:
 
@@ -98,8 +103,8 @@ For large parameter spaces with many templates, it is recommended that
 you split the space into smaller sub-regions and ligolw_add the
 resulting banks. One can also seed the template placement process with
 a pre-generated bank, produced for instance by lalapps_tmpltbank, and
-SBank will fill in whichever gaps remain.
-"""
+SBank will fill in whichever gaps remain. See also lalapps_cbc_sbank_pipe.
+""" % '\n\t'.join(sorted(waveforms.keys()))
 
 
 def parse_command_line():
@@ -137,7 +142,7 @@ def parse_command_line():
     # initial condition options
     #
     parser.add_option("--seed", help="Set the seed for the random number generator used by SBank for waveform parameter (masss, spins, ...) generation.", metavar="INT", default=1729, type="int")
-    parser.add_option("--bank-seed",help="Initialize the bank with specified template bank. For instance, one might generate a template bank by geomtretic/lattice placement methods and use SBank to \"complete\" the bank.", metavar="FILE")
+    parser.add_option("--bank-seed",help="Initialize the bank with specified template bank. For instance, one might generate a template bank by geomtretic/lattice placement methods and use SBank to \"complete\" the bank. NOTE: Only the additional templates will be outputted and to complete the bank you will need to add the output of this to the original bank", metavar="FILE")
 
     #
     # noise model options
@@ -151,6 +156,7 @@ def parse_command_line():
     parser.add_option("--flow", type="float", help="Required. Set the low-frequency cutoff to use for the match caluclation.")
     parser.add_option("--match-min",help="Set minimum match of the bank. Note that since this is a stochastic process, the requested minimal match may not be strictly guaranteed but should be fulfilled on a statistical basis. Default: 0.95.", type="float", default=0.95)
     parser.add_option("--convergence-threshold", metavar="N", help="Set the criterion for convergence of the stochastic bank. The code terminates when there are N rejected proposals for each accepted proposal, averaged over the last ten acceptances. Default 1000.", type="int", default=1000)
+    parser.add_option("--cache-waveforms", default = False, action="store_true", help="A given waveform in the template bank will be used many times throughout the bank generation process. You can save a considerable amount of CPU by caching the waveform from the first time it is generated; however, do so only if you are sure that storing the waveforms in memory will not overload the system memory.")
 
     #
     # output options
@@ -161,9 +167,6 @@ def parse_command_line():
     parser.add_option("--user-tag", default=None, help="Apply descriptive tag to output filename.")
     parser.add_option("--verbose", default=False,action="store_true", help="Be verbose and write diagnostic information out to file.")
 
-    #
-    # deprecated options
-    #
     parser.add_option("--mchirp-boundaries-file", metavar="FILE", help="Deprecated. File containing chirp mass bin boundaries")
     parser.add_option("--mchirp-boundaries-index", metavar="INDEX", type="int", help="Deprecated. Integer index into --mchirp-boundaries-file line number such that boundaries[INDEX] is taken as --mchirp-min and boundaries[INDEX + 1] is taken as --mchirp-max")
     parser.add_option("--mchirp-min", help="Deprecated. Set minimum chirp-mass of the system (in solar masses)", type="float")
@@ -249,7 +252,7 @@ else:
 if opts.bank_seed is None:
     # seed the process with an empty bank
     # the first proposal will always be accepted
-    bank = Bank(waveform, noise_model, opts.flow, opts.use_metric)
+    bank = Bank(waveform, noise_model, opts.flow, opts.use_metric, opts.cache_waveforms)
 else:
     # seed bank with input bank. we do not prune the bank
     # for overcoverage, but take it as is
@@ -257,15 +260,7 @@ else:
         print>>sys.stdout,"Seeding the template bank..."
     tmpdoc = utils.load_filename(opts.bank_seed, contenthandler=ContentHandler)
     sngl_inspiral = table.get_table(tmpdoc, lsctables.SnglInspiralTable.tableName)
-    bank = Bank.from_sngls(sngl_inspiral, waveform, noise_model, opts.flow, opts.use_metric)
-
-    # update mchirp bounds
-    # FIXME store boundaries in metadata of bank seed file
-    A0 = 5. / (256 * (lal.PI * opts.flow)**(8./3)) # eqn B3
-    if opts.mchirp_min is None:
-        opts.mchirp_min = min([b._mchirp for b in bank])
-    if opts.mchirp_max is None:
-        opts.mchirp_max = max([b._mchirp for b in bank])
+    bank = Bank.from_sngls(sngl_inspiral, waveform, noise_model, opts.flow, opts.use_metric, opts.cache_waveforms)
 
     tmpdoc.unlink()
     del sngl_inspiral, tmpdoc
@@ -306,6 +301,11 @@ while (k + float(sum(ks)))/len(ks) < opts.convergence_threshold:
         ks.append(k)
         k = 0
 
+    # clear the proposal template if caching is not enabled
+    if not opts.cache_waveforms:
+        tmplt.clear()
+
+
 print "total number of proposed templates: %d" % nprop
 print "total number of match calculations: %d" % bank._nmatch
 print "final bank size: %d" % len(bank)
@@ -320,8 +320,14 @@ psd = REAL8FrequencySeries(name="psd", f0=0., deltaF=1., data=get_PSD(1., opts.f
 lsctables.SnglInspiralTable.RowType = SnglInspiralTable
 tbl = lsctables.New(lsctables.SnglInspiralTable)
 xmldoc.childNodes[-1].appendChild(tbl)
-for template in bank:
+for idx, template in enumerate(bank):
+    # Do not store templates that were in the original bank, only store the
+    # additions.
+    if hasattr(template, 'is_seed_point'):
+        continue
     row = template.to_sngl()
+    # Event ids must be unique, or the table isn't valid, SQL needs this
+    row.event_id = ilwd.ilwdchar('sngl_inspiral:event_id:%d' %(idx,))
     row.ifo = opts.instrument
     row.process_id = process.process_id
     row.Gamma0, row.Gamma1, row.Gamma2, row.Gamma3, row.Gamma4, row.Gamma5,\

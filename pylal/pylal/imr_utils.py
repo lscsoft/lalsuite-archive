@@ -492,7 +492,6 @@ class DataBaseSummary(object):
 				print >> sys.stderr, "Gathering stats from: %s...." % (f,)
 			working_filename = dbtables.get_connection_filename(f, tmp_path = tmp_path, verbose = verbose)
 			connection = sqlite3.connect(working_filename)
-			dbtables.DBTable_set_connection(connection)
 			xmldoc = dbtables.get_xml(connection)
 
 			sim = False
@@ -543,18 +542,19 @@ class DataBaseSummary(object):
 					segments_to_consider_for_these_injections = self.this_injection_segments.intersection(instruments_set) - self.this_injection_segments.union(set(self.this_injection_segments.keys()) - instruments_set)
 					found, total, missed = get_min_far_inspiral_injections(connection, segments = segments_to_consider_for_these_injections, table_name = self.table_name)
 					if verbose:
-						print >> sys.stderr, "Total injections: %d; Found injections %d: Missed injections %d" % (len(total), len(found), len(missed))
+						print >> sys.stderr, "%s total injections: %d; Found injections %d: Missed injections %d" % (instruments, len(total), len(found), len(missed))
 					self.found_injections_by_instrument_set.setdefault(instruments_set, []).extend(found)
 					self.total_injections_by_instrument_set.setdefault(instruments_set, []).extend(total)
 					self.missed_injections_by_instrument_set.setdefault(instruments_set, []).extend(missed)
 
 			# All done
 			dbtables.discard_connection_filename(f, working_filename, verbose = verbose)
-			dbtables.DBTable_set_connection(None)
 		if len(self.numslides) > 1:
 			raise ValueError('number of slides differs between input files')
-		else:
+		elif self.numslides:
 			self.numslides = min(self.numslides)
+		else:
+			self.numslides = 0
 
 		# FIXME
 		# Things left to do

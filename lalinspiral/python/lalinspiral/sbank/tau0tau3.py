@@ -227,11 +227,18 @@ def tau0tau3_bound(flow, **constraints):
 
     Supported constraints: mass1, mass2, mtotal, mratio, mchirp
     '''
+    # FIXME: This function does not do as advertised. The box does *not* bound
+    # the space, but instead slightly *shrinks* the space. This can cause the
+    # code to get stuck if the resultant box has no extent.
+
     # ensure we can at least bound the region in m1-m2
     constraints = set_default_constraints( constraints )
 
     # controls delta-m resolution
-    npts = 1e4
+    # FIXME: As this is discrete, this can cause the bank sizes to be smaller
+    # than expected. Raising this to 1e5, raising it higher starts to cause
+    # slowdown as computing m2 from m1 and mchirp is expensive.
+    npts = 1e5
 
     # draw constant component mass lines
     m1min, m1max = constraints['mass1']
@@ -438,4 +445,6 @@ proposals = {"IMRPhenomB":IMRPhenomB_param_generator,
              "TaylorF2RedSpin":aligned_spin_param_generator,
              "EOBNRv2":urand_tau0tau3_generator,
              "SEOBNRv1":aligned_spin_param_generator,
+             "SEOBNRv2":aligned_spin_param_generator,
+             "SEOBNRv2_ROM_DoubleSpin":aligned_spin_param_generator,
              "SpinTaylorT4":SpinTaylorT4_param_generator}
