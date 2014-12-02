@@ -452,6 +452,11 @@ void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, ProcessPar
 LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 /* Read in the data and store it in a LALInferenceIFOData structure */
 {
+    if (LALInferenceGetProcParamVal(commandLine,"--help"))
+    { 
+      fprintf(stderr,USAGE); 
+      return(NULL);
+    }
     LALStatus status;
     INT4 dataseed=0;
     memset(&status,0,sizeof(status));

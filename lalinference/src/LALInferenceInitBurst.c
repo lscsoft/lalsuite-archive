@@ -71,6 +71,78 @@ LALInferenceTemplateFunction LALInferenceInitBurstTemplate(LALInferenceRunState 
 
 LALInferenceModel * LALInferenceInitBurstModel(LALInferenceRunState *state)
 {
+    char help[]="\
+                \n\
+               ------------------------------------------------------------------------------------------------------------------\n\
+               --- Injection Arguments ------------------------------------------------------------------------------------------\n\
+               ------------------------------------------------------------------------------------------------------------------\n\
+               (--inj injections.xml)          Sim Burst XML file to use.\n\
+               (--event N)                     Event number from Injection XML file to use.\n\
+               \n\
+               ------------------------------------------------------------------------------------------------------------------\n\
+               --- Template Arguments -------------------------------------------------------------------------------------------\n\
+               ------------------------------------------------------------------------------------------------------------------\n\
+               (--use-hrss)                    Jump in hrss instead than loghrss.\n\
+               --approx                        Specify a burst template approximant to use.\n\
+                                               Available approximants:\n\
+                                               modeldomain=\"time\": SineGaussian,Gaussian,DumpedSinusoidal.\n\
+                                               default modeldomain=\"frequency\": SineGaussianF,GaussianF,DumpedSinusoidalF.\n\
+               \n\
+               ------------------------------------------------------------------------------------------------------------------\n\
+               --- Starting Parameters ------------------------------------------------------------------------------------------\n\
+               ------------------------------------------------------------------------------------------------------------------\n\
+               You can generally have MCMC chains to start from a given parameter value by using --parname VALUE. Names currently known to the code are:\n\
+                 time                         Waveform time (overrides random about trigtime).\n\
+                 frequency                    Central frequency [Hz], (not used for Gaussian WF).\n\
+                 quality                      Quality factor for SG and DumpedSin \n\
+                 duration                     Duration [s] (Gaussian WF only)\n\
+                 phase                        Phase (not used for Gaussian WF).\n\
+                 hrss                         hrss (requires --use-hrss)\n\
+                 loghrss                      Log hrss\n\
+                 rightascension               Rightascensions\n\
+                 declination                  Declination.\n\
+                 polarisation                 Polarisation angle.\n\
+                \n               ------------------------------------------------------------------------------------------------------------------\n\
+               --- Prior Arguments ----------------------------------------------------------------------------------------------\n\
+               ------------------------------------------------------------------------------------------------------------------\n\
+               You can generally use --paramname-min MIN --paramname-max MAX to set the prior range for the parameter paramname\n\
+               The names known to the code are listed below.\n\
+               Time has dedicated options listed here:\n\n\
+               (--trigtime time)                       Center of the prior for the time variable.\n\
+               (--dt time)                             Width of time prior, centred around trigger (0.2s).\n\
+               (--malmquistPrior)                      Rejection sample based on SNR of template \n\
+               \n\
+               (--varyFlow, --flowMin, --flowMax)       Allow the lower frequency bound of integration to vary in given range.\n\
+               (--pinparams)                            List of parameters to set to injected values [frequency,quality,etc].\n\
+               ------------------------------------------------------------------------------------------------------------------\n\
+               --- Fix Parameters ----------------------------------------------------------------------------------------------\n\
+               ------------------------------------------------------------------------------------------------------------------\n\
+               You can generally fix a parameter to be fixed to a given values by using both --paramname VALUE and --fix-paramname\n\
+               where the known names have been listed above\n\
+               ------------------------------------------------------------------------------------------------------------------\n\
+               --- Spline Calibration Model -------------------------------------------------------------------------------------\n\
+               ------------------------------------------------------------------------------------------------------------------\n\
+               (--enable-spline-calibration)            Enable cubic-spline calibration error model.\n\
+               (--spline-calibration-nodes N)           Set the number of spline nodes per detector (default 5)\n\
+               (--spline-calibration-amp-uncertainty X) Set the prior on relative amplitude uncertainty (default 0.1)\n\
+               (--spline-calibration-phase-uncertainty X) Set the prior on phase uncertanity in degrees (default 5)\n";
+
+
+  /* Print command line arguments if state was not allocated */
+  if(state==NULL)
+    {
+      fprintf(stdout,"%s",help);
+      return(NULL);
+    }
+
+  /* Print command line arguments if help requested */
+  if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
+    {
+      fprintf(stdout,"%s",help);
+      return(NULL);
+    }
+
+  
   fprintf(stderr,"Using LALInferenceBurstVariables!\n");
 
   LALStatus status;
@@ -86,21 +158,6 @@ LALInferenceModel * LALInferenceInitBurstModel(LALInferenceRunState *state)
 	INT4 i=0;
   BurstApproximant approx = (BurstApproximant) 0;
   char *pinned_params=NULL;
-	char help[]="\
-Parameter arguments:\n\
-(--inj injections.xml)\tSimInspiral or SimBurst Injection XML file to use\n\
-(--dt time)\tWidth of time prior, centred around trigger (0.1s)\n\
-(--trigtime time)\tTrigger time to use\n\
-(--approx Approximant)\tSet approximant (SineGaussianF,SineGaussian,Gaussian,RingdownF)\n\
-(--fref fRef)\tSpecify a reference frequency at which parameters are defined (default 0).\n\
-(--pinparams [frequency,q,loghrss, etc])\n\tList of parameters to set to injected values\n";
-	/* Print command line arguments if help requested */
-	ppt=LALInferenceGetProcParamVal(commandLine,"--help");
-	if(ppt)
-	{
-		fprintf(stdout,"%s",help);
-		return 0;
-	}
   
   LALInferenceModel *model = XLALMalloc(sizeof(LALInferenceModel));
   model->params = XLALCalloc(1, sizeof(LALInferenceVariables));

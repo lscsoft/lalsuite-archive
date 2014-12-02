@@ -436,18 +436,22 @@ Bayesian analysis tool using Nested Sampling algorithm\n\
 for CBC and burst analysis. Uses LALInference library for back-end.\n\n\
 Arguments for each section follow:\n\n";
 
+
 	LALInferenceRunState *state;
 	ProcessParamsTable *procParams=NULL;
   ProcessParamsTable *ppt=NULL;
 	/* Read command line and parse */
 	procParams=LALInferenceParseCommandLine(argc,argv);
-	
+	/* Exit if help requested (help has already been printed by each function called so far) */
+  if(LALInferenceGetProcParamVal(procParams,"--help"))
+  {
+    fprintf(stdout,"%s",help);
+  }
 	/* initialise runstate based on command line */
 	/* This includes reading in the data */
 	/* And performing any injections specified */
 	/* And allocating memory */
 	state = initialize(procParams);
-	
 	/* Set up structures for nested sampling */
 	initializeNS(state);
   
@@ -492,26 +496,26 @@ Arguments for each section follow:\n\n";
 
   state->initModel=initModelFunc;
 	state->model = initModelFunc(state);
-
+  if (state->model){
 	state->currentParams = XLALMalloc(sizeof(LALInferenceVariables));
   memset(state->currentParams, 0, sizeof(LALInferenceVariables));
   LALInferenceCopyVariables(state->model->params, state->currentParams);
   state->templt = state->model->templt;
-  
+  }
 	/* Check for student-t and apply */
 	//initStudentt(state);
   /* Choose the likelihood */
   LALInferenceInitLikelihood(state);
   	
-  /* Print command line arguments if help requested */
-  if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
-  {
-    fprintf(stdout,"%s",help);
-    exit(0);
-  }
-
   /* Apply calibration errors if desired*/
   LALInferenceApplyCalibrationErrors(state,procParams);
+
+  /* Exit if help requested (help has already been printed by each function called so far) */
+  if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
+  {
+    exit(0);
+  }
+  
 	/* Call setupLivePointsArray() to populate live points structures */
 	LALInferenceSetupLivePointsArray(state);
 
