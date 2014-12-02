@@ -546,23 +546,6 @@ int XLALGenerateBandAndTimeLimitedWhiteNoiseBurst(
 
 	(*hplus)->deltaT = (*hcross)->deltaT = delta_t;
 
-	/* apply a Tukey window for continuity at the start and end of the
-	 * injection.  the window's shape parameter sets what fraction of
-	 * the window is used by the tapers */
-
-	window = XLALCreateTukeyREAL8Window((*hplus)->data->length, 0.5);
-	if(!window) {
-		XLALDestroyREAL8TimeSeries(*hplus);
-		XLALDestroyREAL8TimeSeries(*hcross);
-		*hplus = *hcross = NULL;
-		XLAL_ERROR(XLAL_EFUNC);
-	}
-	for(i = 0; i < window->data->length; i++) {
-		(*hplus)->data->data[i] *= window->data->data[i];
-		(*hcross)->data->data[i] *= window->data->data[i];
-	}
-	XLALDestroyREAL8Window(window);
-
 	/* done */
 
 	return 0;
@@ -627,6 +610,7 @@ int XLALSimBurstSineGaussian(
 	/* rss of plus and cross polarizations 
    * 
    * WARNING!!! I (salvo) have modified this in such a way that polarization=alpha, a=1, b=0 (i.e. eccentricity=1) here. This means that only one of these two parameters is really used, polarization, and is totally equivalent to the alpha parameter of the SineGaussianF
+   * See https://dcc.ligo.org/LIGO-T1400734
    * */
 
 	//const double hplusrss  = hrss * (a * cos(polarization) - b * sin(polarization));
@@ -651,7 +635,6 @@ int XLALSimBurstSineGaussian(
 
 	length = (int) floor(6.0 * Q / (LAL_TWOPI * centre_frequency) / delta_t / 2.0);  // This is 30 tau
 	length = 2 * length + 1; // length is 60 taus +1 bin
-//printf("deltaT inj %lf semi-length %lf \n",delta_t,length/2.*delta_t);
 	/* the middle sample is t = 0 */
 
 	XLALGPSSetREAL8(&epoch, -(length - 1) / 2 * delta_t); // epoch is set to minus (30 taus) in secs
@@ -705,24 +688,7 @@ int XLALSimBurstSineGaussian(
         im = newIm;
         //
     }
-//fclose(testout);
-	/* apply a Tukey window for continuity at the start and end of the
-	 * injection.  the window's shape parameter sets what fraction of
-	 * the window is used by the tapers */
-/*
-	window = XLALCreateTukeyREAL8Window((*hplus)->data->length, 0.5);
-	if(!window) {
-		XLALDestroyREAL8TimeSeries(*hplus);
-		XLALDestroyREAL8TimeSeries(*hcross);
-		*hplus = *hcross = NULL;
-		XLAL_ERROR(XLAL_EFUNC);
-	}
-	for(i = 0; i < window->data->length; i++) {
-		(*hplus)->data->data[i] *= window->data->data[i];
-		(*hcross)->data->data[i] *= window->data->data[i];
-	}
-	XLALDestroyREAL8Window(window);
-*/
+
 	return 0;
 }
 
@@ -743,7 +709,7 @@ int XLALSimBurstGaussian(
    * h_x=C (hrss /sqrt(tau)) (2/Pi)^1/4 exp(-t^2/tau^2) 
    * h_x=P (hrss /sqrt(tau)) (2/Pi)^1/4 exp(-t^2/tau^2) 
    * 
-   * 
+   *  See https://dcc.ligo.org/LIGO-T1400734
    * */
   
   (void) eccentricity;
@@ -791,34 +757,15 @@ int XLALSimBurstGaussian(
 		(*hplus)->data->data[i]  = h0plus *fac;
 		(*hcross)->data->data[i] = h0cross*fac;  
 	}
-//fclose(testout);
 
-	/* apply a Tukey window for continuity at the start and end of the
-	 * injection.  the window's shape parameter sets what fraction of
-	 * the window is used by the tapers 
-   * 
-   * NO!!! The caller will apply the window after the WF is added to the data!
-   * 
-   * */
-   
-   
-/*
-	window = XLALCreateTukeyREAL8Window((*hplus)->data->length, 0.5);
-	if(!window) {
-		XLALDestroyREAL8TimeSeries(*hplus);
-		XLALDestroyREAL8TimeSeries(*hcross);
-		*hplus = *hcross = NULL;
-		XLAL_ERROR(XLAL_EFUNC);
-	}
-	for(i = 0; i < window->data->length; i++) {
-		(*hplus)->data->data[i] *= window->data->data[i];
-		(*hcross)->data->data[i] *= window->data->data[i];
-	}
-	XLALDestroyREAL8Window(window);
-*/
 	return 0;
 }
 
+/* Frequency domain SineGaussians (these are the exact analytic Fourier Transform of the time domain SG.
+ * 
+ * See https://dcc.ligo.org/LIGO-T1400734
+ * 
+ * */
 
 int XLALSimBurstSineGaussianF(
 	COMPLEX16FrequencySeries **hplus,
@@ -1491,6 +1438,8 @@ int XLALSimBurstChooseFDWaveform(
             
             (void) f_max;
             if (XLALSimBurstExtraParamExists(extraParams,"alpha")) alpha=XLALSimBurstGetExtraParam(extraParams,"alpha");
+            // if alpha not there (e.g. because we are calling this routine for injecting, and xml tables do not know about alpha) set polar_angle=alpha
+            else alpha=polar_angle;
             (void) polar_angle;
             (void) polar_ecc;
             (void) tau;
@@ -1573,8 +1522,6 @@ int XLALSimBurstChooseTDWaveform(
             /* None so far */
             (void) extraParams;
             (void) f_max;
-            (void) polar_angle;
-            (void) polar_ecc;
             (void) tau;
 
             /* Call the waveform driver routine */
