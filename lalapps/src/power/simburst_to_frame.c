@@ -417,13 +417,15 @@ static void write_log(SimBurst **injs, TimeSlide * time_slide_table_head,struct 
     
     LALEquatorialToGeographic(&status, &currentGeo, &currentEqu, &injtime);
     
-    char wf[2];
+    char wf[4];
     if (!strcmp("SineGaussian",inj->waveform))
         strcpy(wf,"SG");
     else if (!strcmp("SineGaussianF",inj->waveform))
         strcpy(wf,"SGF");   
     else if (!strcmp("Gaussian",inj->waveform))
         strcpy(wf,"GA");
+    else if (!strcmp("GaussianF",inj->waveform))
+        strcpy(wf,"GAF");
     else if (!strcmp("StringCusp",inj->waveform))
         strcpy(wf,"SC");
     else if (!strcmp("BTLWNB",inj->waveform))
