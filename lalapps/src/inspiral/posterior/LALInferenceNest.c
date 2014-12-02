@@ -522,10 +522,13 @@ Arguments for each section follow:\n\n";
       fprintf(stdout,"--- Setting burst jump proposal \n");
       LALInferenceSetupSineGaussianProposal(state,state->currentParams,state->currentParams);
     }
-  }
-	else 
+    else 
 	    LALInferenceSetupDefaultNSProposal(state,state->currentParams,state->currentParams);
-  
+  }
+  else{
+    fprintf(stderr,"ERROR: --approx is a required argument since LIB won't know whether to default to CBC or Burst approximant\n");
+    exit(1);
+  }
 	/* write injection with noise evidence information from algorithm */
 	LALInferencePrintInjectionSample(state);
 	
