@@ -119,7 +119,6 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralTaylorLength.c \
 	LALSimInspiralWaveformCache.c \
 	LALSimInspiralWaveformTaper.c \
-	LALSimInspiralHGimri.c \
 	LALSimulation.c \
 	LALSimulationVCSInfo.c \
 	LALSimNeutronStarEOS.c \
@@ -132,7 +131,10 @@ liblalsimulation_la_SOURCES = \
 	LALSimSGWBORF.c \
 	LALSimUnicorn.c \
 	check_series_macros.h \
-	unicorn.xpm
+	unicorn.xpm \
+	LALSimInspiralCGimri.c \
+	LALSimInspiralHGimri.c
+
 nodist_liblalsimulation_la_SOURCES = LALSimulationBuildInfo.c
 
 liblalsimulation_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(LIBVERSION)
@@ -146,7 +148,7 @@ lalsim_ns_params_SOURCES = ns-params.c
 lalsim_sgwb_SOURCES = sgwb.c
 lalsim_unicorn_SOURCES = unicorn.c
 lalsim_detector_noise_SOURCES = detector_noise.c
-#lalsim_imri_SOURCES = LALSimInspiralHG.c
+#lalsim_imri_SOURCES = eccentric_imri_lal.c
 
 MOSTLYCLEANFILES = \
 	lalsimulation-user-env.shell \

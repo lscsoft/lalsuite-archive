@@ -1676,7 +1676,7 @@ int XLALSimInspiralChooseTDWaveform(
 
     /* General sanity checks that will abort */
 
-    if( nonGRparams && approximant != PhenSpinTaylor && approximant != PhenSpinTaylorRD )
+    if( nonGRparams && approximant != PhenSpinTaylor && approximant != PhenSpinTaylorRD && approximant != CGimri)
     {
         XLALPrintError("XLAL Error - %s: Passed in non-NULL pointer to LALSimInspiralTestGRParam for an approximant that does not use LALSimInspiralTestGRParam\n", __func__);
         XLAL_ERROR(XLAL_EINVAL);
@@ -1959,7 +1959,21 @@ int XLALSimInspiralChooseTDWaveform(
 	     if( !checkCOSpinZero(S2x, S2y, S2z) )
 		 ABORT_NONZERO_SPIN2(waveFlags);
 	     /* Call the waveform driver */
-	     ret = XLALimriGenerator(hplus, hcross, phiRef, deltaT, m1, m2, f_min, r, i, S1z);
+	     ret = XLALHGimri_generator(hplus, hcross, phiRef, deltaT, m1, m2, f_min, r, i, S1z);
+	     break;
+
+	case CGimri:
+		/* Waveform-specific sanity checks */
+	     if( !checkTidesZero(lambda1, lambda2) )
+		 ABORT_NONZERO_TIDES(waveFlags);
+	     if( !checkCOSpinZero(S2x, S2y, S2z) )
+		 ABORT_NONZERO_SPIN2(waveFlags);
+	     /* Call the waveform driver */
+	    FILE *logF;
+		logF=fopen("logfile.txt","w");
+		fprintf(logF,"Calling CGimri");
+		fclose(logF);
+	     ret = XLALCGimri_generator(hplus, hcross, phiRef, deltaT, m1, m2, f_min, r, i, S1z, nonGRparams);
 	     break;
 
         default:
@@ -2743,9 +2757,13 @@ int XLALGetApproximantFromString(const CHAR *inString)
   {
     return SEOBNRv1;
   }
-  else if ( strstr(inString, "HGimri" ) )
+  //else if ( strstr(inString, "HGimri" ) )
+  //{
+  //  return HGimri;
+  //}
+  else if ( strstr(inString, "CGimri" ) )
   {
-    return HGimri;
+    return CGimri;
   }
   else if ( strstr(inString, "EOBNRv2HM" ) )
   {

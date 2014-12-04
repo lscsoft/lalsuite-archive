@@ -1,3 +1,25 @@
+
+//====================================================================================================
+// Code to generate a quasi-circular intermediate mass-ratio inspiral trajectory and graviational
+// waveform following Huerta & Gair 2011 (1009.1985). The system's evolution is divided into four
+// stages. See Huerta & Gair 2011 for discussion of each.
+//
+//	1. Adiabatic inspiral
+//	2. Transition (see also Ori & Thorne 2000 -- gr-qc/0003032)
+//	3. Geodesic Plunge
+//	4. Quasi-Normal Ringdown
+//
+// System is evolved using 2PN angular momentum flux from Gair and Glampedakis 2006 (gr-qc/0510129)
+// with higher order fits to Teukolsky results. Azimuthal phase is evolved using the 2PN conservative
+// corrections discussed in Huerta & Gair 2008 (0812.4208), and the waveform is generated with the
+// flat space quadrupole formula (see Babak et al 2007 -- gr-qc/0607007).
+//
+// Tom Callister
+// thomas.a.callister@gmail.com
+// 2014
+//
+//====================================================================================================
+
 #include <math.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_spline.h>
@@ -18,26 +40,26 @@
 #define GPC_sec ((REAL8)(pc*pow(10.,9.)/c))
 
 //Function prototypes
-REAL8 XLALAngMomFlux(REAL8 q, REAL8 r, REAL8 eta);
-INT4 XLALPlusEquations(const gsl_vector * x, void *params, gsl_vector * f);
-INT4 XLALCrossEquations(const gsl_vector * z, void *params, gsl_vector * g);
-REAL8 XLALDFDr(REAL8 E, REAL8 Lz, REAL8 a, REAL8 r);
-REAL8 XLALInitialP(REAL8 p0, void *params);
-REAL8 XLALDLzDr(REAL8 q, REAL8 r);
-INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL8 p0, REAL8Sequence *hplus, REAL8Sequence *hcross, REAL8 dt, INT4 Npts);
-INT4 XLALimriGenerator(REAL8TimeSeries **hplus,REAL8TimeSeries **hcross,REAL8 phi0,REAL8 dt,REAL8 m1,REAL8 m2,REAL8 f_min,REAL8 r,REAL8 inc,REAL8 s1z);
+REAL8 XLALHGimri_AngMomFlux(REAL8 q, REAL8 r, REAL8 eta);
+INT4 XLALHGimri_PlusEquations(const gsl_vector * x, void *params, gsl_vector * f);
+INT4 XLALHGimri_CrossEquations(const gsl_vector * z, void *params, gsl_vector * g);
+REAL8 XLALHGimri_dFdr(REAL8 E, REAL8 Lz, REAL8 a, REAL8 r);
+REAL8 XLALHGimri_initialP(REAL8 p0, void *params);
+REAL8 XLALHGimri_dLzdr(REAL8 q, REAL8 r);
+INT4 HGimri_start(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL8 p0, REAL8Sequence *hplus, REAL8Sequence *hcross, REAL8 dt, INT4 Npts);
+INT4 XLALHGimri_generator(REAL8TimeSeries **hplus,REAL8TimeSeries **hcross,REAL8 phi0,REAL8 dt,REAL8 m1,REAL8 m2,REAL8 f_min,REAL8 r,REAL8 inc,REAL8 s1z);
 
 //Data type to hold current simulation regime
 enum stage {INSPIRAL, TRANSITION, PLUNGE, FINALPLUNGE};
 
-//Structure template used to match plunging waveform onto QNM ringdown
+//Structure template used to match plunging waveform onto QNM ringdown at three points across the light-ring (LR)
 struct rparams {
 	REAL8 M;		//Total binary mass (units seconds)
-	REAL8 Sdotn;		//
+	REAL8 Sdotn;		//Cosine of inclination angle (relative to detector)
 	REAL8 final_mass;	//Final BH mass (units seconds)
 	REAL8 final_q;		//Final BH reduced spin
-	REAL8 w0, w1, w2;	//Frequencies of n=0,1,2 overtones of the (l,m)=(2,+/-2) QNM, real parts
-	REAL8 wi0, wi1, wi2;	//Frequencies of n=0,1,2 overtones of the (l,m)=(2,+/-2) QNM, imaginary parts
+	REAL8 w0, w1, w2;	//Frequencies of n=0,1,2 overtones of the (l,m)=(2,+/-2) QNMs, real parts
+	REAL8 wi0, wi1, wi2;	//Frequencies of n=0,1,2 overtones of the (l,m)=(2,+/-2) QNMs, imaginary parts
 	REAL8 ab_factor;	//Amplitude factor
 	REAL8 hp_1, dhpdi_1;	//hplus and its derivative at point 1
 	REAL8 hp_2, dhpdi_2;	//hplus and its derivative at point 2
@@ -50,24 +72,24 @@ struct rparams {
 
 //Structure template used in computing in initial radius
 struct pParams {
-	REAL8 m;		//CO mass
-	REAL8 M;		//BH mass
-	REAL8 a;		//BH reduced spin
+	REAL8 m;		//CO mass (seconds)
+	REAL8 M;		//BH mass (seconds)
+	REAL8 q;		//BH reduced spin
 	REAL8 f_min;		//Desired initial GW frequency
 	};
 
-REAL8 XLALInitialP(REAL8 p0, void *params) {
+REAL8 XLALHGimri_initialP(REAL8 p0, void *params) {
 
-	//=====================================================================
-	//Root-finding function called in XLALInitialP() to find initial radius
-	//corresponding to f_GW = f_min, or the orbital frequency f = (f_min)/2
-	//=====================================================================
+	//====================================================
+	// Root-finding function used to find initial radius p
+	// corresponding to a GW frequency f_min.
+	//====================================================
 
 	//Read params
 	struct pParams *p = (struct pParams *) params;
 	REAL8 m = p->m;
 	REAL8 M = p->M;
-	REAL8 a = p->a;
+	REAL8 q = p->q;
 	REAL8 f_min = p->f_min;
 	REAL8 nu = (m*M)/pow(m+M,2.);
 
@@ -78,24 +100,24 @@ REAL8 XLALInitialP(REAL8 p0, void *params) {
 	REAL8 l1_5	= -191./160.;
 	REAL8 d2	= 1152343./451584.;
 
-	//Match orbital frequency to twice the GW freq of f_min
-	return 	(1./(pow(p0,3/2.)+a))*(1. + nu*(d0+d1/p0+(d1_5+a*l1_5)*pow(p0,-1.5)+d2*pow(p0,-2.0))) - pi*(f_min)*(m+M)*Msun_sec;
+	//Match orbital frequency to twice the GW frequency f_min
+	return 	(1./(pow(p0,3/2.)+q))*(1. + nu*(d0+d1/p0+(d1_5+q*l1_5)*pow(p0,-1.5)+d2*pow(p0,-2.0))) - pi*(f_min)*(m+M)*Msun_sec;
 
 	}
 
 
-REAL8 XLALAngMomFlux(REAL8 q, REAL8 r, REAL8 eta) {
+REAL8 XLALHGimri_AngMomFlux(REAL8 q, REAL8 r, REAL8 eta) {
 
 	//===================================================================
-	// Angular momentum flux from Gair & Glampedakis 2006 (gr-qc/0510129)
+	// Angular momentum flux from Gair & Glampedakis 2006 (gr-qc/0510129).
 	// See Eq (45) for 2PN fluxes, and (57) for the higher order fits to
-	// circular Teukolsky data
+	// circular Teukolsky data.
 	//===================================================================
 
         REAL8 pref = -6.4/(pow(r,7./2.));
         REAL8 rtr=sqrt(r);
 
-	//Higher order Teukolsky terms (see Eq 57)
+	//Higher order Teukolsky terms
 	REAL8 c1a,c1b,c1c;
 	REAL8 c2a,c2b,c2c;
 	REAL8 c3a,c3b,c3c;
@@ -175,7 +197,7 @@ REAL8 XLALAngMomFlux(REAL8 q, REAL8 r, REAL8 eta) {
 
 	}
 
-INT4 XLALPlusEquations(const gsl_vector * x, void *params, gsl_vector * f) {
+INT4 XLALHGimri_PlusEquations(const gsl_vector * x, void *params, gsl_vector * f) {
 
 	//=============================================================================
 	// Used by gsl_multiroots to match plus-polarized plunge waveform onto ringdown.
@@ -264,7 +286,7 @@ INT4 XLALPlusEquations(const gsl_vector * x, void *params, gsl_vector * f) {
 	}
 
 
-INT4 XLALCrossEquations(const gsl_vector * z, void *params, gsl_vector * g) {
+INT4 XLALHGimri_CrossEquations(const gsl_vector * z, void *params, gsl_vector * g) {
 
 	//=============================================================================
 	// Used by gsl_multiroots to match cross-polarized plunge waveform onto ringdown.
@@ -351,7 +373,7 @@ INT4 XLALCrossEquations(const gsl_vector * z, void *params, gsl_vector * g) {
         return GSL_SUCCESS;
 	}
 
-REAL8 XLALDLzDr(REAL8 q, REAL8 r) {
+REAL8 XLALHGimri_dLzdr(REAL8 q, REAL8 r) {
 
 	//==============================================
 	//Partial derivative (\partial L_z)/(\partial r)
@@ -363,11 +385,13 @@ REAL8 XLALDLzDr(REAL8 q, REAL8 r) {
 
 	}
 
-REAL8 XLALDFDr(REAL8 E, REAL8 Lz, REAL8 a, REAL8 r) {
+REAL8 XLALHGimri_dFdr(REAL8 E, REAL8 Lz, REAL8 a, REAL8 r) {
 
 	//==================================================
-	// Dimensionless dF/dr, where F=R/(V_t)^2 and 
-	// R and V_t are the Kerr radial and time potentials
+	// Dimensionless (\partial F)/(\partial r), where F=R/(V_t)^2 and 
+	// R and V_t are the Kerr radial and time potentials.
+	// Related to radial coordinate acceleration via
+	// (d^2 r)/(dt^2) = (1/2)dFdr
 	//==================================================
 
 	REAL8 R = pow(E*(a*a+r*r)-a*Lz,2.) - (r*r-2.*r+a*a)*((Lz-a*E)*(Lz-a*E) + r*r);
@@ -378,26 +402,37 @@ REAL8 XLALDFDr(REAL8 E, REAL8 Lz, REAL8 a, REAL8 r) {
 	return ( dRdr/pow(Vt,2.) - 2.*R*dVtdr/pow(Vt,3.) );
 	}
 
-INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL8 p0,
+INT4 HGimri_start(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL8 p0,
 	REAL8Sequence *hplus, REAL8Sequence *hcross, REAL8 dt, INT4 Npts) {
 
 	//====================================================================================================
-	// Generates intermediate mass-ratio inspiral trajectory and graviational waveform following
-	// Huerta & Gair 2011 (1009.1985). The system's evolution is divided into four stages. See
-	// Huerta & Gair 2011 for discussion of each.
+	// Function which evolves an inspiral trajectory and gravitational waveform for a circular intermediate
+	// mass-ratio inspiral, following Huerta & Gair 2011 (see file header above for more info).
 	//
-	//	1. Adiabatic inspiral
-	//	2. Transition (see also Ori & Thorne 2000 -- gr-qc/0003032)
-	//	3. Geodesic Plunge
-	//	4. Quasi-Normal Ringdown
+	// INPUTS:
+	// 
+	// m: 		Compact object mass (in units of seconds)
+	// M: 		Central BH mass (seconds)
+	// q: 		Dimensionless reduced spin of the central BH (-1<q<1)
+	// D: 		Distance to source (in seconds)
+	// Sdotn: 	Cosine of the inclination angle between the detector line of sight and the orbital
+	// 		angular momentum vector of the IMRI
+	// phi0: 	Initial azimuthal angle
+	// p0:		Initial orbital radius
+	// hplus:	REAL8TimeSequence object to store plus-polarized GW
+	// hcross:	REAL8TimeSequence object to store cross-polarized GW
+	// dt:		Dimensionless integration time step
+	// Npts:	The maximum number of steps to evolve
 	//
-	// System is evolved using 2PN angular momentum flux from Gair and Glampedakis 2006 (gr-qc/0510129)
-	// with higher order fits to Teukolsky results. Azimuthal phase is evolved using the 2PN conservative
-	// corrections discussed in Huerta & Gair 2008 (0812.4208), and the waveform is generated with the
-	// flat space quadrupole formula (see Babak et al 2007 -- gr-qc/0607007).
+	// NOTE:
+	// 
+	// Within this function, masses and source distance are in units of seconds. Central black hole
+	// spin is expressed as the dimensionless reduced spin (-1<q<1). Orbital radius and time are dimensionless,
+	// with dimensions removed by multiplying by the appropriate factor of total mass (m+M).
+	//
 	//====================================================================================================
 
-	//Get intrinsic source parameters. Note: masses passed to IMRIstart() in units of seconds.
+	//Get intrinsic source parameters. Note: masses passed to HGimri_start() in units of seconds.
 
 	REAL8 	mu;		//Reduced mass in seconds
 	REAL8 	eta;		//Symmetric mass ratio (m/M)
@@ -458,7 +493,7 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 
 	//Calculate transition point, plunge point, and light ring radii
 
-	REAL8 	r_match;			//Radius at which inspiral is matched onto transition. Corresponds to T=-1 (using Ori & Thorne Eq. 3.23)
+	REAL8 	r_match;			//Radius at which inspiral is matched onto transition (Corresponds to T=-1 in Ori & Thorne Eq. 3.23)
 	REAL8	E_match;			//Energy at match
 	REAL8	L_match;			//Angular momentum at match
 	REAL8	r_plunge, E_plunge, L_plunge;	//Conditions at the start of plunge. Corresponds to T=2 (using Ori & Thorne Eq. 3.25)
@@ -474,13 +509,8 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 
 	printf("r_match: %f \n",r_match);
 
-	//==========================================
-	//Iterate through trajectory
-	//Stage 1: Adiabatic Inspiral
-	//Stage 2: Transition Phase
-	//Stage 3: Plunge
-	//==========================================
-
+	//Misc variable declaration
+	
 	REAL8 dr;			//Differential radial step corresponding to the time step dt
 	REAL8 d2phidt2;			//Second coordinate time derivatives of phi
 	REAL8 d2rdt2;			//Second coordinate time derivatives of radius
@@ -490,6 +520,7 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 	INT4 i_end;			//Final index at which ringdown evolution is halted
 
 	REAL8 r;					//Instantaneous radial coordinate
+	REAL8 r_old;					//Radius at previous time step (used for sanity checks)
 	REAL8 drdt=0.;					//Radial velocity
 	REAL8 phi;					//Azimuthal position
 	REAL8 dphidt;					//Orbital angular velocity
@@ -498,19 +529,29 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 	REAL8 r_K3,drdt_K3,dphidt_K3,d2rdt2_K3;		//For Stage 3 of RK4 integration
 	REAL8 r_K4,drdt_K4,dphidt_K4,d2rdt2_K4;		//For stage 4 of RK4 integration
 
-	//Initialize coordinates, stage
+	//Initialize coordinates
 	r 	= p0;
+	r_old	= p0;
 	phi 	= phi0;
 	dphidt	= (sign/(pow(r,3/2.)+q))*(1. + nu*(d0+d1/r+(d1_5+q*l1_5)*pow(r,-1.5)+d2*pow(r,-2.0)));
 	enum stage currentStage = INSPIRAL;
 
-	//Verify that we're starting outside transition
+	//SANITY CHECK: Verify that we're starting outside transition. If not, abort.
 	if (r <= r_match) {
-		XLALPrintError("XLAL Error: Beginning inside Transition (Stage 2). Specify larger initial f_min\n");
+		XLALPrintError("XLAL Error: Beginning inside Transition (Stage 2). Specify larger initial frequency f_min\n");
 		XLAL_ERROR(XLAL_EDOM);
 		}
 
-	//Integrate
+	//==========================================
+	// Iterate through trajectory
+	// Stage 1: Adiabatic Inspiral
+	// Stage 2: Transition Phase
+	// Stage 3: Plunge
+	//
+	// Evolve trajectory using an 4th order
+	// Runge-Kutta integrator
+	//==========================================
+
 	for (INT4 i=0; i<Npts; i++) {
 
 		//Direct to the appropriate iterator
@@ -522,22 +563,22 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 			case INSPIRAL:
 
 				//Dimensionless radial speed and angular velocity.
-				drdt = XLALAngMomFlux(q,r,nu)/XLALDLzDr(q,r); 
+				drdt = XLALHGimri_AngMomFlux(q,r,nu)/XLALHGimri_dLzdr(q,r); 
 				dphidt = (sign/(pow(r,3/2.)+q))*(1. + nu*(d0+d1/r+(d1_5+q*l1_5)*pow(r,-1.5)+d2*pow(r,-2.0)));
 
 				//RK4 Step 2
 				r_K2 = r + (dt/2.)*drdt;
-				drdt_K2 = XLALAngMomFlux(q,r_K2,nu)/XLALDLzDr(q,r_K2);
+				drdt_K2 = XLALHGimri_AngMomFlux(q,r_K2,nu)/XLALHGimri_dLzdr(q,r_K2);
 				dphidt_K2 = (sign/(pow(r_K2,3/2.)+q))*(1. + nu*(d0+d1/r_K2+(d1_5+q*l1_5)*pow(r_K2,-1.5)+d2*pow(r_K2,-2.0)));
 
 				//RK4 Step 3
 				r_K3 = r + (dt/2.)*drdt_K2;
-				drdt_K3 = XLALAngMomFlux(q,r_K3,nu)/XLALDLzDr(q,r_K3);
+				drdt_K3 = XLALHGimri_AngMomFlux(q,r_K3,nu)/XLALHGimri_dLzdr(q,r_K3);
 				dphidt_K3 = (sign/(pow(r_K3,3/2.)+q))*(1. + nu*(d0+d1/r_K3+(d1_5+q*l1_5)*pow(r_K3,-1.5)+d2*pow(r_K3,-2.0)));
 
 				//RK4 Step 4
 				r_K4 = r + (dt)*drdt_K3;
-				drdt_K4 = XLALAngMomFlux(q,r_K4,nu)/XLALDLzDr(q,r_K4);
+				drdt_K4 = XLALHGimri_AngMomFlux(q,r_K4,nu)/XLALHGimri_dLzdr(q,r_K4);
 				dphidt_K4 = (sign/(pow(r_K4,3/2.)+q))*(1. + nu*(d0+d1/r_K4+(d1_5+q*l1_5)*pow(r_K4,-1.5)+d2*pow(r_K4,-2.0)));
 
 				//Gravitational wave amplitudes, following Huerta & Gair (1009.1985) Eqs.14,15
@@ -556,6 +597,7 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 					}
 
 				//Update coordinates
+				r_old	= r;
 				r 	+= dr;
 				phi 	+= (1./6.)*dt*(dphidt+2.*dphidt_K2+2.*dphidt_K3+dphidt_K4);
 
@@ -568,8 +610,8 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 
 				dphidt_old = dphidt;
 
-				//Update acceleration using H&G (1009.1985) Eq.29. The gamma^2 factor makes this (approximately) a coordinate t derivative
-				//Numerically compute d^2phi/dt^2
+				//Update acceleration using H&G (1009.1985) Eq.29. The gamma^2 factor makes this (to very
+				//good approximation) a coordinate t derivative. Directly  compute d^2phi/dt^2.
 				d2rdt2 = gamma_isco*gamma_isco*(
 						- a_isco*(r-r_isco)*(r-r_isco)
 						+ b_isco*(L_match-L_isco-nu*k_isco*gamma_isco*(i-i_match)*dt));
@@ -601,9 +643,12 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 						+ b_isco*(L_match-L_isco-nu*k_isco*gamma_isco*((i-i_match)*dt+(dt))));
 
 				//GW amplitudes. Huerta & Gair (1009.1985) Eq. 37 and 38
-				hplus->data[i] = (mu/(2.*D))*((1. - 2.*(2.*Sdotn*Sdotn-1.)*pow(cos(phi),2.) - 3.*cos(2.*phi))*drdt*drdt
+				hplus->data[i] = (mu/(2.*D))*(
+						(1. - 2.*(2.*Sdotn*Sdotn-1.)*pow(cos(phi),2.) - 3.*cos(2.*phi))*drdt*drdt
 						+ (3. + (2.*Sdotn*Sdotn-1.))*(2.*cos(2.*phi)*dphidt*dphidt + sin(2.*phi)*d2phidt2)*r*r
-						+ (4.*(3.+(2.*Sdotn*Sdotn-1.))*sin(2.*phi)*dphidt*drdt + (1.-2.*(2.*Sdotn*Sdotn-1.)*pow(cos(phi),2.)-3.*cos(2.*phi))*d2rdt2)*r);
+						+ (4.*(3.+(2.*Sdotn*Sdotn-1.))*sin(2.*phi)*dphidt*drdt
+							+ (1.-2.*(2.*Sdotn*Sdotn-1.)*pow(cos(phi),2.)-3.*cos(2.*phi))*d2rdt2)*r);
+
 				hcross->data[i] = (-2.*mu/D)*Sdotn*( sin(2.*(phi))*drdt*drdt
 						+ r*r*(-2.*sin(2.*(phi))*dphidt*dphidt + cos(2.*( phi))*d2phidt2)
 						+ r*(4.*cos(2.*(phi))*dphidt*drdt + sin(2.*(phi))*d2rdt2));
@@ -622,6 +667,7 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 					}
 
 				//Iterate
+				r_old	= r;
 				r	+= dr;
 				phi 	+= (1./6.)*dt*(dphidt+2.*dphidt_K2+2.*dphidt_K3+dphidt_K4);
 				drdt 	+= (1./6.)*(d2rdt2+2.*d2rdt2_K2+2.*d2rdt2_K3+d2rdt2_K4);
@@ -635,10 +681,10 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 			//If inside LR, iterate i_finalplunge and move on to PLUNGE case below
 			case FINALPLUNGE:
 
-				//Update counter
+				//Update counter to track # of iterations inside LR
 				i_finalplunge ++;
 
-				//After 10 iterations inside light ring, stop the loop
+				//After 10 iterations inside light ring, stop integration.
 				if (i_finalplunge == 10) {
 
 					i = Npts;
@@ -653,35 +699,38 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 				dphidt_old = dphidt;
 				dphidt = (L_plunge*(r-2.)+2.*E_plunge*q)/(E_plunge*(r*r*r+(2.+r)*q*q) - 2.*q*L_plunge);
 				d2phidt2 = (dphidt-dphidt_old)/(dt);
-				d2rdt2 	= (1./2.)*XLALDFDr(E_plunge,L_plunge,q,r);
+				d2rdt2 	= (1./2.)*XLALHGimri_dFdr(E_plunge,L_plunge,q,r);
 
 				//RK2
 				r_K2 = r + (dt/2.)*drdt;
 				drdt_K2 = drdt + (dt/2.)*d2rdt2;
 				dphidt_K2 = (L_plunge*(r_K2-2.)+2.*E_plunge*q)/(E_plunge*(r_K2*r_K2*r_K2+(2.+r_K2)*q*q) - 2.*q*L_plunge);
-				d2rdt2 = (1./2.)*XLALDFDr(E_plunge,L_plunge,q,r_K2);
+				d2rdt2 = (1./2.)*XLALHGimri_dFdr(E_plunge,L_plunge,q,r_K2);
 
 				//RK3
 				r_K3 = r + (dt/2.)*drdt_K2;
 				drdt_K3 = drdt + (dt/2.)*d2rdt2_K2;
 				dphidt_K3 = (L_plunge*(r_K3-2.)+2.*E_plunge*q)/(E_plunge*(r_K3*r_K3*r_K3+(2.+r_K3)*q*q) - 2.*q*L_plunge);
-				d2rdt2_K3 = (1./2.)*XLALDFDr(E_plunge,L_plunge,q,r_K3);
+				d2rdt2_K3 = (1./2.)*XLALHGimri_dFdr(E_plunge,L_plunge,q,r_K3);
 
 				//RK4
 				r_K4 = r + (dt)*drdt_K3;
 				drdt_K4 = drdt + (dt)*d2rdt2_K3;
 				dphidt_K4 = (L_plunge*(r_K4-2.)+2.*E_plunge*q)/(E_plunge*(r_K4*r_K4*r_K4+(2.+r_K4)*q*q) - 2.*q*L_plunge);
-				d2rdt2_K4 = (1./2.)*XLALDFDr(E_plunge,L_plunge,q,r_K4);
+				d2rdt2_K4 = (1./2.)*XLALHGimri_dFdr(E_plunge,L_plunge,q,r_K4);
 
 				//GW amplitudes
 				hplus->data[i] = (mu/(2.*D))*((1. - 2.*(2.*Sdotn*Sdotn-1.)*pow(cos(phi),2.) - 3.*cos(2.*phi))*drdt*drdt
 						+ (3. + (2.*Sdotn*Sdotn-1.))*(2.*cos(2.*phi)*dphidt*dphidt + sin(2.*phi)*d2phidt2)*r*r
-						+ (4.*(3.+(2.*Sdotn*Sdotn-1.))*sin(2.*phi)*dphidt*drdt + (1.-2.*(2.*Sdotn*Sdotn-1.)*pow(cos(phi),2.)-3.*cos(2.*phi))*d2rdt2)*r);
+						+ (4.*(3.+(2.*Sdotn*Sdotn-1.))*sin(2.*phi)*dphidt*drdt
+							+ (1.-2.*(2.*Sdotn*Sdotn-1.)*pow(cos(phi),2.)-3.*cos(2.*phi))*d2rdt2)*r);
+
 				hcross->data[i] = (-2.*mu/D)*Sdotn*( sin(2.*(phi))*drdt*drdt
 						+ r*r*(-2.*sin(2.*(phi))*dphidt*dphidt + cos(2.*( phi))*d2phidt2)
 						+ r*(4.*cos(2.*(phi))*dphidt*drdt + sin(2.*(phi))*d2rdt2));
 
 				//Update coordinates
+				r_old	= r;
 				r	+= (1./6.)*dt*(drdt+2.*drdt_K2+2.*drdt_K3+drdt_K4);
 				phi	+= (1./6.)*dt*(dphidt+2.*dphidt_K2+2.*dphidt_K3+dphidt_K4);
 				drdt	+= (1./6.)*dt*(d2rdt2+2.*d2rdt2_K2+2.*d2rdt2_K3+d2rdt2_K4);
@@ -699,18 +748,40 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 
 			}
 
+			//===============
+			// SANITY CHECKS
+			//===============
+
 			//If r is negative or NaN, raise error.
 			if (r != r || r < 0.0) {
 				XLALPrintError("XLAL Error: Radius is negative or NaN. ");
 				if (currentStage == INSPIRAL) XLALPrintError("Halting INSPIRAL\n.");
 				if (currentStage == TRANSITION) XLALPrintError("Halting TRANSITION.\n");
 				if (currentStage == PLUNGE) XLALPrintError("Halting PLUNGE.\n");
-				if (currentStage == FINALPLUNGE) XLALPrintError("Halting FINALPLUNGE.\n");
+				if (currentStage == FINALPLUNGE) {
+					if (i_finalplunge <= 10)
+						XLALPrintError("Failed to complete 10 steps inside light ring. Use smaller time step dt. ");
+					XLALPrintError("Halting FINALPLUNGE.\n");
+					}
+				XLAL_ERROR(XLAL_EFAILED);
+				}
+
+			//If r has increased since the last time step, raise error.
+			if (r > r_old) {
+				XLALPrintError("XLAL Error: Increasing radius. ");
+				if (currentStage == INSPIRAL) XLALPrintError("Halting INSPIRAL\n.");
+				if (currentStage == TRANSITION) XLALPrintError("Halting TRANSITION.\n");
+				if (currentStage == PLUNGE) XLALPrintError("Halting PLUNGE.\n");
+				if (currentStage == FINALPLUNGE) {
+					if (i_finalplunge <= 10)
+						XLALPrintError("Failed to complete 10 steps inside light ring. Use smaller time step dt. ");
+					XLALPrintError("Halting FINALPLUNGE.\n");
+					}
 				XLAL_ERROR(XLAL_EFAILED);
 				}
 
 			//If we've reached the max array length and failed to plunge, either something has gone wrong numerically,
-			//or Npts is too small. In the latter case, choose smaller time steps or increase Npts in XLALimriGenerator() below
+			//or Npts is too small. In the latter case, choose smaller time steps or increase Npts in XLALHGimri_generator() below
 			if (i == Npts && currentStage != FINALPLUNGE) {
 				XLALPrintError("XLAL Error: Reached Npts before finishing plunge. Binary either failed to plunge, or Npts is too small.\n");
 				XLAL_ERROR(XLAL_EFAILED);
@@ -721,7 +792,7 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 
 	//=====================================================================
 	// Get ringdown frequencies by interpolating data presented in Table 2
-	// of Berti et al 2006 (gr-qc/0512160)
+	// of Berti et al 2006 (gr-qc/0512160). See Huerta & Gair for details.
 	//=====================================================================
 
 	INT4 N = 11;
@@ -783,8 +854,8 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 
 
 	//==================================================================
-	// Build interpolation functions for h_plus and h_cross at 20 steps
-	// as the CO moves across the light ring
+	// Build interpolation functions for h_plus and h_cross at 20 time
+	// steps centered at r_lightring.
 	//==================================================================
 
 	//Define arrays to hold the final 20 values of hplus, hcross, and their derivatives during plunge.
@@ -853,6 +924,15 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 	gsl_spline_free(spline_hp);
 	gsl_spline_free(spline_hx);
 
+	//==============================================================
+	// Match plunging waveform onto QNM ringdown waveform by
+	// numerically finding the QNM amplitudes which match the
+	// waveform amplitudes and derivatives at the three points above.
+	//
+	// See comments in declarations of XLALHGimri_Plus/CrossEquations()
+	// for more detail.
+	// ============================================================= 
+
 	//Create an instance of rparams, populate
 	struct rparams p;
 	p.dt		= dt;
@@ -889,9 +969,9 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 	size_t iter = 0;
 	const size_t nmatch = 6;
 
-	//Define functions
-	gsl_multiroot_function f_plus = {&XLALPlusEquations, nmatch, &p};
-	gsl_multiroot_function f_cross = {&XLALCrossEquations, nmatch, &p};
+	//Define target functions to be XLALHGimri_Plus/CrossEquations
+	gsl_multiroot_function f_plus = {&XLALHGimri_PlusEquations, nmatch, &p};
+	gsl_multiroot_function f_cross = {&XLALHGimri_CrossEquations, nmatch, &p};
 
 	//Define two 6D vectors, and feed initial guesses
 	REAL8 x_init[6] = {-0.392254,  4.575194, -0.870431,  5.673678,  0.979356, -3.637467};
@@ -915,7 +995,7 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 	REAL8 fminval = 1.e-5;
 	size_t MaxITS = 200000;
 
-	//Find root of XLALPlusEquations
+	//Find root of XLALHGimri_PlusEquations
 	do {
 		iter++;
 		statusp = gsl_multiroot_fsolver_iterate(plus_solver);
@@ -924,7 +1004,7 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 		}
 	while (statusp == GSL_CONTINUE && iter < MaxITS);
 
-	//Find root of XLALCrossEquations
+	//Find root of XLALHGimri_CrossEquations
 	iter = 0;
 	do {
 		iter++;
@@ -959,9 +1039,9 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 	gsl_vector_free(xmr);
 	gsl_vector_free(z);
 
-	//===============================================================================
-	// Recompute wave amplitudes and detector responses from (i_lightring-1) onwards
-	//===============================================================================
+	//=====================================================================================
+	// Recompute wave amplitudes from (i_lightring-1), the first matching point, onwards
+	//=====================================================================================
 
 	REAL8 aone, atwo;
 	REAL8 hp0, hp1, hp2;
@@ -975,8 +1055,8 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 
 	for (INT4 i=i_lightring; i<Npts; i++) {
 
-		//Compute coefficients. Factor of (M/final_mass) rescales the dimensionless frequencies w to match the scaling of dt (or vice-versa).
-		//Note: final_q and the frequencies wi are both nondimensionalized by final_mass, so their direct product is scaled properly
+		//NOTE: final_q and the ringdown frequencies wi are nondimensionalized by final_mass. Their direct product is therefore already
+		//dimensionless. When multiplying the wi's by dt, however, factors of (M/final_mass), however, are needed to properly rescale the wi's.
 		hp0 = exp(-(i-(i_lightring-1))*dt*(wi0*(m+M)/final_mass))*( aone-(2./9.)*final_q*w0*atwo )*( a0n*cos(w0*(i-(i_lightring-1))*(dt*(m+M)/final_mass)) - a0p*sin(w0*(i-(i_lightring-1))*(dt*(m+M)/final_mass)));
 		hp1 = exp(-(i-(i_lightring-1))*dt*(wi1*(m+M)/final_mass))*( aone-(2./9.)*final_q*w1*atwo )*( a1n*cos(w1*(i-(i_lightring-1))*(dt*(m+M)/final_mass)) - a1p*sin(w1*(i-(i_lightring-1))*(dt*(m+M)/final_mass)));
 		hp2 = exp(-(i-(i_lightring-1))*dt*(wi2*(m+M)/final_mass))*( aone-(2./9.)*final_q*w2*atwo )*( a2n*cos(w2*(i-(i_lightring-1))*(dt*(m+M)/final_mass)) - a2p*sin(w2*(i-(i_lightring-1))*(dt*(m+M)/final_mass)));
@@ -996,9 +1076,9 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 		if (fabs(hplus->data[i]) < 1.e-30) {
 
 			i_end = i;
-			hplus->length=i-1;	//Redefine REAL8TimeSeries length
+			hplus->length=i-1;	//Redefine REAL8TimeSeries length to be the current index.
 			hcross->length=i-1;
-			i = Npts;
+			i = Npts;		//Halt.
 
 			}
 
@@ -1009,75 +1089,87 @@ INT4 IMRIstart(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, REAL
 	}
 
 
-//============================================
-// Called by --
-//============================================
+//===================================================
+// Generator function for the Huerta-Gair IMRI model.
+//===================================================
 
-INT4 XLALimriGenerator(
+INT4 XLALHGimri_generator(
 	REAL8TimeSeries **hplus,
 	REAL8TimeSeries **hcross,
 	REAL8 phi0,			//Initial phi
-	REAL8 dt,			//Time step (in seconds)
+	REAL8 dt,			//Integration time step (in seconds)
 	REAL8 m1,			//BH mass (passed in kg)
 	REAL8 m2,			//CO mass (passed in kg)
 	REAL8 f_min,			//Initial frequency (passed in Hz)
 	REAL8 r,			//Distance to system (passed in meters)
-	REAL8 inc,			//Inclination angle between line of sight \hat n and BH spin axis \hat L
-	REAL8 s1z			//BH reduced spin
+	REAL8 inc,			//Inclination angle between detector line of sight n and central BH spin axis
+	REAL8 s1z			//Central BH reduced spin
 	) {
 
-	REAL8 a = s1z;
-	REAL8 Sdotn = cos(inc);
+	//Parse input, adjusting dimensiones
+	REAL8 q = s1z;				//Rename spin
+	REAL8 Sdotn = cos(inc);			//Cosine(inclination)
 	REAL8 M = m1/LAL_MSUN_SI;		//Units of solar masses
 	REAL8 m = m2/LAL_MSUN_SI;		//Units of solar masses
 	REAL8 dist = r/(LAL_PC_SI*1.e9);	//Units of Gpc
 
-	//sanity checks
+	//SANITY CHECKS
 	if (f_min < 0.) {
-		XLALPrintError("XLAL Error: f_min must be greater than 0\n");
+		XLALPrintError("XLAL Error: Minimum frequency is %f. f_min must be greater than 0\n",f_min);
 		XLAL_ERROR(XLAL_EDOM);
 		}
 
-	if (a >= 1) {
-		XLALPrintError("XLAL Error: S1z must be less than 1.\n");
+	if (q >= 1 || q<=1) {
+		XLALPrintError("XLAL Error: Magnitude of BH spin %f must be less than 1.\n",q);
 		XLAL_ERROR(XLAL_EDOM);
 		}
 
 	if (m/M > 1./10.) {
-		XLALPrintWarning("XLAL Warning: Warning: code likely inaccurate for m2/m1 > 1/10\n");
+		XLALPrintWarning("XLAL Warning: Mass-ratio is %f. Code likely inaccurate for mass ratios m2/m1 > 1/10\n",m/M);
+		}
+
+	if (dist <= 0) {
+		XLALPrintError("XLAL Error: Distance %f Mpc to source must be greater than 0 Mpc.\n",dist);
+		XLAL_ERROR(XLAL_EDOM);
 		}
 
 	//==========================================================================
-	//Solve for initial radius corresponding to orbital frequency of twice f_min
+	//Numerically solve for initial radius corresponding to initial gravitational
+	//wave frequency of f_min (or an initial orbital frequency of twice f_min).
 	//==========================================================================
 
+	//Construct a gsl rootfinder.
 	INT4 status;
 	size_t iter=0, max_iter = 100;
 	const gsl_root_fsolver_type *T;
 	gsl_root_fsolver *s;
 
+	//Populate pParams object
 	struct pParams p0Params;
 	p0Params.m = m;
 	p0Params.M = M;
-	p0Params.a = a;
+	p0Params.q = q;
 	p0Params.f_min = f_min;
 
+	//Define target function
 	gsl_function F;
-	F.function = &XLALInitialP;
+	F.function = &XLALHGimri_initialP;
 	F.params = &p0Params;
 
+	//Initialize p0 and the search bounds.
 	REAL8 p0 = 0.;
-	REAL8 p_high = 1000.;
+	REAL8 p_high = 500.;
 	REAL8 p_low = 0.;
 
-	if (a==0.) p_low = 6.; //ISCO
+	//Set a reasonable lower limit by equating p_low to the ISCO radius.
+	if (q==0.) p_low = 6.;
 	else {
-		REAL8 Z1 = 1. + pow((1.-a*a),1./3.)*(pow(1.+a, 1./3.)+pow(1.-a, 1./3.));
-		REAL8 Z2 = sqrt(3.*a*a + Z1*Z1);
-		p_low = 3. + Z2 - (a/fabs(a))*sqrt((3. - Z1)*(3. + Z1 + 2.*Z2));
+		REAL8 Z1 = 1. + pow((1.-q*q),1./3.)*(pow(1.+q, 1./3.)+pow(1.-q, 1./3.));
+		REAL8 Z2 = sqrt(3.*q*q + Z1*Z1);
+		p_low = 3. + Z2 - (q/fabs(q))*sqrt((3. - Z1)*(3. + Z1 + 2.*Z2));
 		}
 
-
+	//Find p0
 	T = gsl_root_fsolver_brent;
 	s = gsl_root_fsolver_alloc(T);
 	gsl_root_fsolver_set(s, &F, p_low, p_high);
@@ -1094,9 +1186,13 @@ INT4 XLALimriGenerator(
 	gsl_root_fsolver_free(s);
 
 	if (status != GSL_SUCCESS) {
-		XLALPrintError("XLAL Error: Rootfinding failed. Could not find inital radius 6M < r < 500M satisfying specified initial frequency.\n");
+		XLALPrintError("XLAL Error: Rootfinding failed. Could not find inital radius ISCO < r < 500M satisfying specified initial frequency.\n");
 		XLAL_ERROR(XLAL_EFAILED); //"generic failure"
 		}
+
+	if (p0 >= 20.) {
+		XLALPrintWarning("XLAL Warning: Beginning at large initial radius p0 = %fM. Code will require long runtime to compute waveform.\n",p0);
+		} 
 
 	//==============================================================
 	//Create REAL8TimeSeries to hold waveform data, start simulation
@@ -1107,11 +1203,10 @@ INT4 XLALimriGenerator(
 	static LIGOTimeGPS epoch;
 	*hplus = XLALCreateREAL8TimeSeries("h_plus",&epoch,fDyne,dt,&lalStrainUnit,length);
 	*hcross = XLALCreateREAL8TimeSeries("h_cross",&epoch,fDyne,dt,&lalStrainUnit,length);
-
 	if (*hplus == NULL || *hcross == NULL)
 		XLAL_ERROR(XLAL_EFUNC);
 
-	printf("a: %f \n",a);
+	printf("q: %f \n",q);
 	printf("m: %f \n",m);
 	printf("M: %f \n",M);
 	printf("f0: %f \n",f_min);
@@ -1120,7 +1215,7 @@ INT4 XLALimriGenerator(
 	printf("dist: %f \n",dist);
 	printf("\n");
 
-	IMRIstart(m*Msun_sec,M*Msun_sec,a,dist*GPC_sec,Sdotn,phi0,p0,(*hplus)->data,(*hcross)->data,dt/((m+M)*Msun_sec),length);
+	HGimri_start(m*Msun_sec,M*Msun_sec,q,dist*GPC_sec,Sdotn,phi0,p0,(*hplus)->data,(*hcross)->data,dt/((m+M)*Msun_sec),length);
 
 	printf("delta t: %f \n",dt*((*hplus)->data->length));
 
@@ -1140,6 +1235,6 @@ INT4 XLALimriGenerator(
 	REAL8 s1z = 1.;
 	REAL8 dist = 100.;
 
-	XLALimriGenerator(m1,m2,phi0,f_min,inclination,s1x,s1y,s1z,dist);
+	XLALHGimri_generator(m1,m2,phi0,f_min,inclination,s1x,s1y,s1z,dist);
 
 	}*/
