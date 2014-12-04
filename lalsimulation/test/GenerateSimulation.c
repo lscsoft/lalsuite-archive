@@ -89,7 +89,6 @@ const char * usage =
 "                             PhenSpinTaylor\n"
 "                             PhenSpinTaylorRD\n"
 "                             HGimri\n"
-"			      CGimri\n"
 "                           Supported FD approximants:\n"
 "                             IMRPhenomA\n"
 "                             IMRPhenomB\n"
