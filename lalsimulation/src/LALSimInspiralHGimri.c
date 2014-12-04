@@ -117,6 +117,22 @@ REAL8 XLALHGimri_AngMomFlux(REAL8 q, REAL8 r, REAL8 eta) {
         REAL8 pref = -6.4/(pow(r,7./2.));
         REAL8 rtr=sqrt(r);
 
+	//Cosine of orbital inclination. 1 if prograde, -1 if retrograde
+	REAL8 cosInc;
+	REAL8 sign;
+
+	if (q >= 0.0) {
+		cosInc = 1.;
+		sign = 1.;
+		}
+	else {
+		cosInc = -1.;
+		sign = -1.;
+		}
+
+	//Absolute value of spin
+	REAL8 q_abs = fabs(q);
+
 	//Higher order Teukolsky terms
 	REAL8 c1a,c1b,c1c;
 	REAL8 c2a,c2b,c2c;
@@ -177,23 +193,30 @@ REAL8 XLALHGimri_AngMomFlux(REAL8 q, REAL8 r, REAL8 eta) {
 	c11b=-5.13591989;
 	c11c=47.19818628;
 
-	correction = q*(
-			(736.2086781-283.9553066*rtr+q*(-1325.1852209+483.266206498*rtr+q*(634.49936445-219.223848944*rtr)))
-			+(82.07804475-25.82025864*rtr+q*(-904.16109275+301.477789146*rtr+q*(827.31891826-271.9659423*rtr)))
+	correction = q_abs*(
+			736.2086781-283.9553066*rtr+q_abs*(-1325.1852209+483.266206498*rtr)+pow(q_abs,2.0)*(634.49936445-219.223848944*rtr)
+			+(82.07804475-25.82025864*rtr)+q_abs*(-904.16109275+301.477789146*rtr)+pow(q_abs,2.0)*(827.31891826-271.9659423*rtr)
 			)/(r*rtr);
 
-	higherorderfit = q*(c1+q*q*c2)
-			+ ( c3a+(c3b+c3c/rtr)/rtr + q*q*((c4a+(c4b+c4c/rtr)/rtr)+q*q*(c5a+(c5b+c5c/rtr)/rtr)) )
-			+ q*(c6a+(c6b+c6c/rtr)/rtr+q*q*(c7a+(c7b+c7c/rtr)/rtr))
-			+ q*q*((c8a+(c8b+c8c/rtr)/rtr)+q*q*(c9a+(c9b+c9c/rtr)/rtr))
-			+ q*q*q*((c10a+(c10b+c10c/rtr)/rtr)+q*(c11a+(c11b+c11c/rtr)/rtr))
+	higherorderfit = q_abs*c1 + pow(q_abs,3.)*c2
+			+ cosInc*( c3a+(c3b+c3c/rtr)/rtr )
+			+ pow(q_abs,2.)*cosInc*(c4a+(c4b+c4c/rtr)/rtr)
+			+ pow(q_abs,4.)*cosInc*(c5a+(c5b+c5c/rtr)/rtr)
+			+ q_abs*(c6a+(c6b+c6c/rtr)/rtr)
+			+ pow(q_abs,3.)*(c7a+(c7b+c7c/rtr)/rtr)
+			+ pow(q_abs,2.)*cosInc*(c8a+(c8b+c8c/rtr)/rtr)
+			+ pow(q_abs,4.)*cosInc*(c9a+(c9b+c9c/rtr)/rtr)
+			+ pow(q_abs,3.)*(c10a+(c10b+c10c/rtr)/rtr)
+			+ pow(q_abs,4.)*cosInc*(c11a+(c11b+c11c/rtr)/rtr)
 			+ correction;
 
 	//Bracketed flux terms from Eq (45) with higher order corrections
-	circbit = 1. - (61./12.)*q/(r*rtr) -1247./(336.*r) + 4.*pi/(r*rtr) - 44711./(9072.*r*r) + (33./16.)*q*q/(r*r) + higherorderfit/(r*r*rtr);
+	circbit = cosInc - (61./12.)*q_abs/(r*rtr) -1247.*cosInc/(336.*r) + 4.*pi*cosInc/(r*rtr) - 44711.*cosInc/(9072.*r*r)
+			+ (33./16.)*q_abs*q_abs*cosInc/(r*r) + higherorderfit/(r*r*rtr);
 
-	//Return full flux
-	return(eta*pref*circbit);
+	//Return full flux. (sign) factor needed to guarantee that Ldot is negative at leading order,
+	//following our adopted spin convention.
+	return(sign*eta*pref*circbit);
 
 	}
 
@@ -379,9 +402,13 @@ REAL8 XLALHGimri_dLzdr(REAL8 q, REAL8 r) {
 	//Partial derivative (\partial L_z)/(\partial r)
 	//for circular geodesic orbits
 	//==============================================
+	
+	//REAL8 sign;
+	//if (q >= 0.) sign = 1.;
+	//else sign = -1.;
 
 	REAL8 denom1 = r*r*r-3.*r*r+2.*q*pow(r,3./2.);
-	return (2.*r-q/sqrt(r)-0.5*(r*r-2.*q*sqrt(r)+q*q)*(3.*r*r-6.*r+3.*q*sqrt(r))/denom1)/sqrt(denom1);
+	return ((2.*r-q/sqrt(r)-0.5*(r*r-2.*q*sqrt(r)+q*q)*(3.*r*r-6.*r+3.*q*sqrt(r))/denom1)/sqrt(denom1));
 
 	}
 
@@ -437,14 +464,16 @@ INT4 HGimri_start(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, R
 	REAL8 	mu;		//Reduced mass in seconds
 	REAL8 	eta;		//Symmetric mass ratio (m/M)
 	REAL8 	nu;		//Reduced mass ratio (mu/(m+M))
+	REAL8	q_abs;		//Absolute value of spin q
 	REAL8 	final_mass;	//Final post-merger mass in units of seconds, from Huerta & Gair (1009.1985) Eq.40
 	REAL8	final_q;	//Final post-merger spin, from Huerta & Gair (1009.1985) Eq. 41
 
 	mu		= ((m*M)/(m+M));
 	eta 		= m/M;
 	nu		= mu/(m+M);
+	q_abs		= fabs(q);
 	final_mass 	= (M+m)*(1. + nu*(sqrt(8./9.)-1.) - 0.498*nu*nu);
-	final_q		= q - 0.129*q*q*nu - 0.384*q*nu*nu - 2.686*q*nu + 2.*sqrt(3.)*nu - 3.454*nu*nu + 2.353*nu*nu*nu;
+	final_q		= q_abs - 0.129*q_abs*q_abs*nu - 0.384*q_abs*nu*nu - 2.686*q_abs*nu + 2.*sqrt(3.)*nu - 3.454*nu*nu + 2.353*nu*nu*nu;
 
 	//Prograde (sign = 1) or retrograde (sign = -1)
 
@@ -475,9 +504,10 @@ INT4 HGimri_start(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, R
   	Z2 		= sqrt(3.*q*q + Z1*Z1);
 	r_isco 		= 3. + Z2 - sign*sqrt((3. - Z1)*(3. + Z1 + 2.*Z2));
 	E_isco		= (1.+q/pow(r_isco,1.5)-2./r_isco)/sqrt(1.+(2.*q)/pow(r_isco,1.5)-3./r_isco);
-	L_isco 		= sign*sqrt(r_isco)*(1.+pow(q,2.)/pow(r_isco,2.)-(2.*q)/pow(r_isco,1.5))/sqrt(1.+(2.*q)/pow(r_isco,1.5)-3./r_isco);
-	omega_isco 	= (sign/(pow(r_isco,3/2.)+q))*(1. + nu*(d0+d1/r_isco+(d1_5+q*l1_5)*pow(r_isco,-1.5)+d2*pow(r_isco,-2.0)));
+	L_isco 		= sqrt(r_isco)*(1.+pow(q,2.)/pow(r_isco,2.)-(2.*q)/pow(r_isco,1.5))/sqrt(1.+(2.*q)/pow(r_isco,1.5)-3./r_isco);
+	omega_isco 	= (1./(pow(r_isco,3/2.)+q))*(1. + nu*(d0+d1/r_isco+(d1_5+q*l1_5)*pow(r_isco,-1.5)+d2*pow(r_isco,-2.0)));
 	gamma_isco 	= sqrt(1. - 3./r_isco + 2.*q/pow(r_isco,1.5))/(1. + q/pow(r_isco,1.5));
+	printf("ISCO: %f\n",r_isco);
 
 	//Find dimensionless constants governing transition behavior (Ori & Thorne /gr-qc/0003032 Equations 3.9,3.18,3.19)
 
@@ -501,7 +531,7 @@ INT4 HGimri_start(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, R
 
 	r_match 	= r_isco + sqrt(1.0*pow(nu*b_isco*k_isco,4./5.)/pow(a_isco,6./5.));
 	E_match 	= (1.+q/pow(r_match,1.5)-2./r_match)/sqrt(1.+(2.*q)/pow(r_match,1.5)-3./r_match);
-	L_match 	= sign*sqrt(r_match)*(1.+pow(q,2.)/pow(r_match,2.)-(2.*q)/pow(r_match,1.5))/sqrt(1.+(2.*q)/pow(r_match,1.5)-3./r_match);
+	L_match 	= sqrt(r_match)*(1.+pow(q,2.)/pow(r_match,2.)-(2.*q)/pow(r_match,1.5))/sqrt(1.+(2.*q)/pow(r_match,1.5)-3./r_match);
 	r_plunge	= r_isco + pow(nu*b_isco*k_isco,2./5.)*pow(a_isco,-3./5.)*(-6./pow(3.412-.75,2.));
 	E_plunge	= E_isco - omega_isco*k_isco*pow(a_isco*b_isco*k_isco,-1./5.)*3.412*pow(nu,4./5.);
 	L_plunge	= L_isco - k_isco*pow(a_isco*b_isco*k_isco,-1./5.)*3.412*pow(nu,4./5.);
@@ -533,7 +563,7 @@ INT4 HGimri_start(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, R
 	r 	= p0;
 	r_old	= p0;
 	phi 	= phi0;
-	dphidt	= (sign/(pow(r,3/2.)+q))*(1. + nu*(d0+d1/r+(d1_5+q*l1_5)*pow(r,-1.5)+d2*pow(r,-2.0)));
+	dphidt	= (1./(pow(r,3/2.)+q))*(1. + nu*(d0+d1/r+(d1_5+q*l1_5)*pow(r,-1.5)+d2*pow(r,-2.0)));
 	enum stage currentStage = INSPIRAL;
 
 	//SANITY CHECK: Verify that we're starting outside transition. If not, abort.
@@ -564,22 +594,22 @@ INT4 HGimri_start(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, R
 
 				//Dimensionless radial speed and angular velocity.
 				drdt = XLALHGimri_AngMomFlux(q,r,nu)/XLALHGimri_dLzdr(q,r); 
-				dphidt = (sign/(pow(r,3/2.)+q))*(1. + nu*(d0+d1/r+(d1_5+q*l1_5)*pow(r,-1.5)+d2*pow(r,-2.0)));
+				dphidt = (1./(pow(r,3/2.)+q))*(1. + nu*(d0+d1/r+(d1_5+q*l1_5)*pow(r,-1.5)+d2*pow(r,-2.0)));
 
 				//RK4 Step 2
 				r_K2 = r + (dt/2.)*drdt;
 				drdt_K2 = XLALHGimri_AngMomFlux(q,r_K2,nu)/XLALHGimri_dLzdr(q,r_K2);
-				dphidt_K2 = (sign/(pow(r_K2,3/2.)+q))*(1. + nu*(d0+d1/r_K2+(d1_5+q*l1_5)*pow(r_K2,-1.5)+d2*pow(r_K2,-2.0)));
+				dphidt_K2 = (1./(pow(r_K2,3/2.)+q))*(1. + nu*(d0+d1/r_K2+(d1_5+q*l1_5)*pow(r_K2,-1.5)+d2*pow(r_K2,-2.0)));
 
 				//RK4 Step 3
 				r_K3 = r + (dt/2.)*drdt_K2;
 				drdt_K3 = XLALHGimri_AngMomFlux(q,r_K3,nu)/XLALHGimri_dLzdr(q,r_K3);
-				dphidt_K3 = (sign/(pow(r_K3,3/2.)+q))*(1. + nu*(d0+d1/r_K3+(d1_5+q*l1_5)*pow(r_K3,-1.5)+d2*pow(r_K3,-2.0)));
+				dphidt_K3 = (1./(pow(r_K3,3/2.)+q))*(1. + nu*(d0+d1/r_K3+(d1_5+q*l1_5)*pow(r_K3,-1.5)+d2*pow(r_K3,-2.0)));
 
 				//RK4 Step 4
 				r_K4 = r + (dt)*drdt_K3;
 				drdt_K4 = XLALHGimri_AngMomFlux(q,r_K4,nu)/XLALHGimri_dLzdr(q,r_K4);
-				dphidt_K4 = (sign/(pow(r_K4,3/2.)+q))*(1. + nu*(d0+d1/r_K4+(d1_5+q*l1_5)*pow(r_K4,-1.5)+d2*pow(r_K4,-2.0)));
+				dphidt_K4 = (1./(pow(r_K4,3/2.)+q))*(1. + nu*(d0+d1/r_K4+(d1_5+q*l1_5)*pow(r_K4,-1.5)+d2*pow(r_K4,-2.0)));
 
 				//Gravitational wave amplitudes, following Huerta & Gair (1009.1985) Eqs.14,15
 				hplus->data[i] = ((4.*mu*pow(dphidt*r,2.))/D) * ((1.+pow(Sdotn,2.))/2.) * cos(2.*phi);
@@ -615,13 +645,13 @@ INT4 HGimri_start(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, R
 				d2rdt2 = gamma_isco*gamma_isco*(
 						- a_isco*(r-r_isco)*(r-r_isco)
 						+ b_isco*(L_match-L_isco-nu*k_isco*gamma_isco*(i-i_match)*dt));
-				dphidt = (sign/(pow(r,3/2.)+q))*(1. + nu*(d0+d1/r+(d1_5+q*l1_5)*pow(r,-1.5)+d2*pow(r,-2.0)));
+				dphidt = (1./(pow(r,3/2.)+q))*(1. + nu*(d0+d1/r+(d1_5+q*l1_5)*pow(r,-1.5)+d2*pow(r,-2.0)));
 				d2phidt2 = (dphidt-dphidt_old)/(dt);
 
 				//Step 2
 				r_K2 = r+(dt/2.)*drdt;
 				drdt_K2 = drdt+(dt/2.)*d2rdt2;
-				dphidt_K2 = (sign/(pow(r_K2,3/2.)+q))*(1. + nu*(d0+d1/r_K2+(d1_5+q*l1_5)*pow(r_K2,-1.5)+d2*pow(r_K2,-2.0)));
+				dphidt_K2 = (1./(pow(r_K2,3/2.)+q))*(1. + nu*(d0+d1/r_K2+(d1_5+q*l1_5)*pow(r_K2,-1.5)+d2*pow(r_K2,-2.0)));
 				d2rdt2_K2 = gamma_isco*gamma_isco*(
 						- a_isco*(r_K2-r_isco)*(r_K2-r_isco)
 						+ b_isco*(L_match-L_isco-nu*k_isco*gamma_isco*((i-i_match)*dt+(dt/2.))));
@@ -629,7 +659,7 @@ INT4 HGimri_start(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, R
 				//Step 3
 				r_K3 = r+(dt/2.)*drdt_K2;
 				drdt_K3 = drdt+(dt/2.)*d2rdt2_K2;
-				dphidt_K3 = (sign/(pow(r_K3,3/2.)+q))*(1. + nu*(d0+d1/r_K3+(d1_5+q*l1_5)*pow(r_K3,-1.5)+d2*pow(r_K3,-2.0)));
+				dphidt_K3 = (1./(pow(r_K3,3/2.)+q))*(1. + nu*(d0+d1/r_K3+(d1_5+q*l1_5)*pow(r_K3,-1.5)+d2*pow(r_K3,-2.0)));
 				d2rdt2_K3 = gamma_isco*gamma_isco*(
 						- a_isco*(r_K3-r_isco)*(r_K3-r_isco)
 						+ b_isco*(L_match-L_isco-nu*k_isco*gamma_isco*((i-i_match)*dt+(dt/2.))));
@@ -637,7 +667,7 @@ INT4 HGimri_start(REAL8 m, REAL8 M, REAL8 q, REAL8 D, REAL8 Sdotn, REAL8 phi0, R
 				//Step 4
 				r_K4 = r+(dt)*drdt_K3;
 				drdt_K4 = drdt+(dt/2.)*d2rdt2_K3;
-				dphidt_K4 = (sign/(pow(r_K4,3/2.)+q))*(1. + nu*(d0+d1/r_K4+(d1_5+q*l1_5)*pow(r_K4,-1.5)+d2*pow(r_K4,-2.0)));
+				dphidt_K4 = (1./(pow(r_K4,3/2.)+q))*(1. + nu*(d0+d1/r_K4+(d1_5+q*l1_5)*pow(r_K4,-1.5)+d2*pow(r_K4,-2.0)));
 				d2rdt2_K4 = gamma_isco*gamma_isco*(
 						- a_isco*(r_K4-r_isco)*(r_K4-r_isco)
 						+ b_isco*(L_match-L_isco-nu*k_isco*gamma_isco*((i-i_match)*dt+(dt))));
@@ -1119,7 +1149,7 @@ INT4 XLALHGimri_generator(
 		XLAL_ERROR(XLAL_EDOM);
 		}
 
-	if (q >= 1 || q<=1) {
+	if (q >= 1 || q<=-1) {
 		XLALPrintError("XLAL Error: Magnitude of BH spin %f must be less than 1.\n",q);
 		XLAL_ERROR(XLAL_EDOM);
 		}
