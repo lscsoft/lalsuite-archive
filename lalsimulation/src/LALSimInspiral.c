@@ -1974,6 +1974,7 @@ int XLALSimInspiralChooseWaveform(
     REAL8 S2z,                                  /**< z-component of the dimensionless spin of object 2 */
     REAL8 f_min,                                /**< starting GW frequency (Hz) */
     REAL8 f_ref,                                /**< reference GW frequency (Hz) */
+    REAL8 UNUSED f_max,				/**< User-specified max frequency (Hz). 0 default to ISCO */
     REAL8 r,                                    /**< distance of source (m) */
     REAL8 i,                                    /**< inclination of source (rad) */
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
@@ -2015,7 +2016,7 @@ int XLALSimInspiralChooseTDWaveform(
     REAL8 S2z,                                  /**< z-component of the dimensionless spin of object 2 */
     REAL8 f_min,                                /**< starting GW frequency (Hz) */
     REAL8 f_ref,                                /**< reference GW frequency (Hz) */
-    REAL8 UNUSED f_max,                         /**< ending GW frequency (Hz) */
+    REAL8 f_max,                                /**< ending GW frequency (Hz) */
     REAL8 r,                                    /**< distance of source (m) */
     REAL8 i,                                    /**< inclination of Lhat (rad) */
     REAL8 psi,                                  /**< rotation of Lhat in plane of sky (rad) */
@@ -2148,7 +2149,7 @@ int XLALSimInspiralChooseTDWaveform(
                 ABORT_NONZERO_ECCENTRICITY(waveFlags);
             /* Call the waveform driver routine */
             ret = XLALSimInspiralTaylorT2PNGenerator(hplus, hcross, phiRef, v0,
-                    deltaT, m1, m2, f_min, f_ref, r, i, lambda1, lambda2,
+                    deltaT, m1, m2, f_min, f_ref, f_max, r, i, lambda1, lambda2,
                     XLALSimInspiralGetTidalOrder(waveFlags), amplitudeO, phaseO);
             break;
 
@@ -3146,6 +3147,7 @@ SphHarmTimeSeries *XLALSimInspiralChooseTDModes(
     REAL8 m2,                                   /**< mass of companion 2 (kg) */
     REAL8 f_min,                                /**< starting GW frequency (Hz) */
     REAL8 f_ref,                                /**< reference GW frequency (Hz) */
+    REAL8 f_max,                                /**< User-specified max frequency (Hz) 0 defaults to ISCO */
     REAL8 r,                                    /**< distance of source (m) */
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
@@ -3213,7 +3215,7 @@ SphHarmTimeSeries *XLALSimInspiralChooseTDModes(
                 ABORT_NONDEFAULT_MODES_CHOICE_NULL(waveFlags);
             /* Call the waveform driver routine */
             hlm = XLALSimInspiralTaylorT2PNModes(phiRef, v0,
-                    deltaT, m1, m2, f_min, f_ref, r, lambda1, lambda2,
+                    deltaT, m1, m2, f_min, f_ref, f_max, r, lambda1, lambda2,
                     XLALSimInspiralGetTidalOrder(waveFlags), amplitudeO,
                     phaseO, lmax);
             break;
@@ -3298,6 +3300,7 @@ COMPLEX16TimeSeries *XLALSimInspiralChooseTDMode(
     REAL8 m2,                                   /**< mass of companion 2 (kg) */
     REAL8 f_min,                                /**< starting GW frequency (Hz) */
     REAL8 f_ref,                                /**< reference GW frequency (Hz) */
+    REAL8 f_max,				/**< User-specified max frequency (Hz) 0 default to fISCO */
     REAL8 r,                                    /**< distance of source (m) */
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
@@ -3367,7 +3370,7 @@ COMPLEX16TimeSeries *XLALSimInspiralChooseTDMode(
                 ABORT_NONDEFAULT_MODES_CHOICE_NULL(waveFlags);
             /* Call the waveform driver routine */
             hlm = XLALSimInspiralTaylorT2PNMode(phiRef, v0,
-                    deltaT, m1, m2, f_min, f_ref, r, lambda1, lambda2,
+                    deltaT, m1, m2, f_min, f_ref, f_max, r, lambda1, lambda2,
                     XLALSimInspiralGetTidalOrder(waveFlags), amplitudeO,
                     phaseO, l, m);
             break;

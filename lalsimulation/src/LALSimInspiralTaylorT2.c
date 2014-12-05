@@ -734,6 +734,7 @@ int XLALSimInspiralTaylorT2PNEvolveOrbit(
 		REAL8 m2,                       /**< mass of companion 2 (kg) */
 		REAL8 f_min,                    /**< starting GW frequency (Hz) */
 		REAL8 fRef,                     /**< reference GW frequency (Hz) */
+		REAL8 f_max,                    /**< User-specified max frequency (Hz) */
 		REAL8 lambda1,                  /**< (tidal deformability of body 1)/(mass of body 1)^5 */
 		REAL8 lambda2,                  /**< (tidal deformability of body 2)/(mass of body 2)^5 */
 		LALSimInspiralTidalOrder tideO, /**< twice PN order of tidal effects */
@@ -800,7 +801,7 @@ int XLALSimInspiralTaylorT2PNEvolveOrbit(
 
 	/* Is the sampling rate large enough? */
 
-	if (fLso > 0.5/deltaT)
+	if (f_max > 0.5/deltaT)
 		XLAL_ERROR(XLAL_EDOM);
 	if (fLso <= f_min)
 		XLAL_ERROR(XLAL_EDOM);
@@ -859,7 +860,7 @@ int XLALSimInspiralTaylorT2PNEvolveOrbit(
 					__func__, fLso, v*v*v/toffIn.piM);
 			break;
 		}
-	} while (f < fLso && toffIn.t < -tC);
+	} while (f < fLso && toffIn.t < -tC && f < f_max);
 
 	/* check termination conditions */
 
@@ -924,6 +925,7 @@ int XLALSimInspiralTaylorT2PNGenerator(
 		REAL8 m2,                       /**< mass of companion 2 (kg) */
 		REAL8 f_min,                    /**< starting GW frequency (Hz) */
 		REAL8 fRef,                     /**< reference GW frequency (Hz) */
+		REAL8 f_max,                    /**< User-specified maximum frequency (Hz) */
 		REAL8 r,                        /**< distance of source (m) */
 		REAL8 i,                        /**< inclination of source (rad) */
 		REAL8 lambda1,                  /**< (tidal deformability of body 1)/(mass of body 1)^5 */
@@ -936,6 +938,11 @@ int XLALSimInspiralTaylorT2PNGenerator(
 	/* The Schwarzschild ISCO frequency - for sanity checking fRef */
 	REAL8 fISCO = pow(LAL_C_SI,3) / (pow(6.,3./2.)*LAL_PI*(m1+m2)*LAL_G_SI);
 
+	if( f_max == 0.0 )
+	{
+		f_max=fISCO;
+	}
+
 	/* Sanity check fRef value */
 	if( fRef < 0. )
 	{
@@ -943,10 +950,10 @@ int XLALSimInspiralTaylorT2PNGenerator(
 				__func__, fRef);
 		XLAL_ERROR(XLAL_EINVAL);
 	}
-	if( fRef != 0. && fRef < f_min )
+	if( fRef != 0. && (fRef < f_min || fRef > f_max) )
 	{
-		XLALPrintError("XLAL Error - %s: fRef = %f must be > fStart = %f\n", 
-				__func__, fRef, f_min);
+		XLALPrintError("XLAL Error - %s: fRef = %f must be > fStart = %f and < f_max = %f\n", 
+				__func__, fRef, f_min, f_max);
 		XLAL_ERROR(XLAL_EINVAL);
 	}
 	if( fRef >= fISCO )
@@ -956,13 +963,12 @@ int XLALSimInspiralTaylorT2PNGenerator(
 		XLAL_ERROR(XLAL_EINVAL);
 	}
 
-
 	REAL8TimeSeries *V;
 	REAL8TimeSeries *phi;
 	int status;
 	int n;
 	n = XLALSimInspiralTaylorT2PNEvolveOrbit(&V, &phi, phiRef, deltaT,
-			m1, m2, f_min, fRef, lambda1, lambda2, tideO, phaseO);
+			m1, m2, f_min, fRef, f_max, lambda1, lambda2, tideO, phaseO);
 	if ( n < 0 )
 		XLAL_ERROR(XLAL_EFUNC);
 	status = XLALSimInspiralPNPolarizationWaveforms(hplus, hcross, V, phi,
@@ -986,6 +992,7 @@ SphHarmTimeSeries *XLALSimInspiralTaylorT2PNModes(
 		REAL8 m2,                       /**< mass of companion 2 (kg) */
 		REAL8 f_min,                    /**< starting GW frequency (Hz) */
 		REAL8 fRef,                     /**< reference GW frequency (Hz) */
+		REAL8 f_max,                    /**< User-specified max frequency (Hz) 0 default to fISCO */
 		REAL8 r,                        /**< distance of source (m) */
 		REAL8 lambda1,                  /**< (tidal deformability of body 1)/(mass of body 1)^5 */
 		REAL8 lambda2,                  /**< (tidal deformability of body 2)/(mass of body 2)^5 */
@@ -999,6 +1006,8 @@ SphHarmTimeSeries *XLALSimInspiralTaylorT2PNModes(
 	/* The Schwarzschild ISCO frequency - for sanity checking fRef */
 	REAL8 fISCO = pow(LAL_C_SI,3) / (pow(6.,3./2.)*LAL_PI*(m1+m2)*LAL_G_SI);
 
+	if(f_max==0) f_max=fISCO;
+
 	/* Sanity check fRef value */
 	if( fRef < 0. )
 	{
@@ -1006,10 +1015,10 @@ SphHarmTimeSeries *XLALSimInspiralTaylorT2PNModes(
 				__func__, fRef);
 		XLAL_ERROR_NULL(XLAL_EINVAL);
 	}
-	if( fRef != 0. && fRef < f_min )
+	if( fRef != 0. && (fRef < f_min || fRef > f_max))
 	{
-		XLALPrintError("XLAL Error - %s: fRef = %f must be > fStart = %f\n", 
-				__func__, fRef, f_min);
+		XLALPrintError("XLAL Error - %s: fRef = %f must be > fStart = %f and < f_max=%f\n", 
+				__func__, fRef, f_min,f_max);
 		XLAL_ERROR_NULL(XLAL_EINVAL);
 	}
 	if( fRef >= fISCO )
@@ -1023,7 +1032,7 @@ SphHarmTimeSeries *XLALSimInspiralTaylorT2PNModes(
 	REAL8TimeSeries *phi;
 	int n;
 	n = XLALSimInspiralTaylorT2PNEvolveOrbit(&V, &phi, phiRef, deltaT,
-			m1, m2, f_min, fRef, lambda1, lambda2, tideO, phaseO);
+			m1, m2, f_min, fRef, f_max, lambda1, lambda2, tideO, phaseO);
 	if ( n < 0 )
 		XLAL_ERROR_NULL(XLAL_EFUNC);
     int m, l;
@@ -1056,6 +1065,7 @@ COMPLEX16TimeSeries *XLALSimInspiralTaylorT2PNMode(
 		REAL8 m2,                       /**< mass of companion 2 (kg) */
 		REAL8 f_min,                    /**< starting GW frequency (Hz) */
 		REAL8 fRef,                     /**< reference GW frequency (Hz) */
+		REAL8 f_max,                    /**< User-specified max frequency (Hz). 0 defaults to fISCO */
 		REAL8 r,                        /**< distance of source (m) */
 		REAL8 lambda1,                  /**< (tidal deformability of body 1)/(mass of body 1)^5 */
 		REAL8 lambda2,                  /**< (tidal deformability of body 2)/(mass of body 2)^5 */
@@ -1077,10 +1087,10 @@ COMPLEX16TimeSeries *XLALSimInspiralTaylorT2PNMode(
 				__func__, fRef);
 		XLAL_ERROR_NULL(XLAL_EINVAL);
 	}
-	if( fRef != 0. && fRef < f_min )
+	if( fRef != 0. && (fRef < f_min || fRef > f_max) )
 	{
-		XLALPrintError("XLAL Error - %s: fRef = %f must be > fStart = %f\n", 
-				__func__, fRef, f_min);
+		XLALPrintError("XLAL Error - %s: fRef = %f must be > fStart = %f and <f_max = %f\n", 
+				__func__, fRef, f_min, f_max);
 		XLAL_ERROR_NULL(XLAL_EINVAL);
 	}
 	if( fRef >= fISCO )
@@ -1094,7 +1104,7 @@ COMPLEX16TimeSeries *XLALSimInspiralTaylorT2PNMode(
 	REAL8TimeSeries *phi;
 	int n;
 	n = XLALSimInspiralTaylorT2PNEvolveOrbit(&V, &phi, phiRef, deltaT,
-			m1, m2, f_min, fRef, lambda1, lambda2, tideO, phaseO);
+			m1, m2, f_min, fRef, f_max, lambda1, lambda2, tideO, phaseO);
 	if ( n < 0 )
 		XLAL_ERROR_NULL(XLAL_EFUNC);
 	hlm = XLALCreateSimInspiralPNModeCOMPLEX16TimeSeries(V, phi,
@@ -1122,6 +1132,7 @@ int XLALSimInspiralTaylorT2PN(
 		REAL8 m2,                       /**< mass of companion 2 (kg) */
 		REAL8 f_min,                    /**< starting GW frequency (Hz)*/
 		REAL8 fRef,                     /**< reference GW frequency (Hz)*/
+		REAL8 f_max,                    /**< User-specified max frequency (Hz). 0 defaults to ISCO */
 		REAL8 r,                        /**< distance of source (m) */
 		REAL8 i,                        /**< inclination of source (rad) */
 		REAL8 lambda1,                  /**< (tidal deformability of body 1)/(mass of body 1)^5 */
@@ -1132,7 +1143,7 @@ int XLALSimInspiralTaylorT2PN(
 {
 	/* set v0 to default value 1 */
 	return XLALSimInspiralTaylorT2PNGenerator(hplus, hcross, phiRef, 1.0,
-			deltaT, m1, m2, f_min, fRef, r, i, lambda1, lambda2, tideO, O, O);
+			deltaT, m1, m2, f_min, fRef, f_max, r, i, lambda1, lambda2, tideO, O, O);
 }
 
 
@@ -1153,6 +1164,7 @@ int XLALSimInspiralTaylorT2PNRestricted(
 		REAL8 m2,                       /**< mass of companion 2 (kg) */
 		REAL8 f_min,                    /**< starting GW frequency (Hz) */
 		REAL8 fRef,                     /**< reference GW frequency (Hz) */
+		REAL8 f_max,                    /**< User-specified max frequency (Hz). 0 defaults to ISCO */
 		REAL8 r,                        /**< distance of source (m) */
 		REAL8 i,                        /**< inclination of source (rad) */
 		REAL8 lambda1,                  /**< (tidal deformability of body 1)/(mass of body 1)^5 */
@@ -1164,5 +1176,5 @@ int XLALSimInspiralTaylorT2PNRestricted(
 	/* use Newtonian order for amplitude */
 	/* set v0 to default value 1 */
 	return XLALSimInspiralTaylorT2PNGenerator(hplus, hcross, phiRef, 1.0,
-			deltaT, m1, m2, f_min, fRef, r, i, lambda1, lambda2, tideO, 0, O);
+			deltaT, m1, m2, f_min, fRef, f_max, r, i, lambda1, lambda2, tideO, 0, O);
 }

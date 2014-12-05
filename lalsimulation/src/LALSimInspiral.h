@@ -984,6 +984,7 @@ int XLALSimInspiralChooseWaveform(
     REAL8 S2z,                                  /**< z-component of the dimensionless spin of object 2 */
     REAL8 f_min,                                /**< starting GW frequency (Hz) */
     REAL8 f_ref,                                /**< reference GW frequency (Hz) */
+    REAL8 f_max,				/**< User-specified max frequency */
     REAL8 r,                                    /**< distance of source (m) */
     REAL8 i,                                    /**< inclination of source (rad) */
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
@@ -1017,7 +1018,7 @@ int XLALSimInspiralChooseTDWaveform(
     REAL8 s2z,                  /**< z-component of the dimensionless spin of object 2 */
     REAL8 f_min,                /**< starting GW frequency (Hz) */
     REAL8 f_ref,                /**< reference GW frequency (Hz) */
-    REAL8 f_max,                /**< ending GW frequency (Hz) */
+    REAL8 f_max,                /**< ending GW frequency (Hz) -- 0 defaults to waveform's maximum defined freq */
     REAL8 r,                    /**< distance of source (m) */
     REAL8 i,                    /**< inclination of source (rad) */
     REAL8 psi,                  /**< rotation of Lhat in plane of sky (rad) */
@@ -1191,6 +1192,7 @@ SphHarmTimeSeries *XLALSimInspiralChooseTDModes(
     REAL8 m2,                                   /**< mass of companion 2 (kg) */
     REAL8 f_min,                                /**< starting GW frequency (Hz) */
     REAL8 f_ref,                                /**< reference GW frequency (Hz) */
+    REAL8 f_max,                    		/**< Max frequency (Hz). 0 defaults to ISCO */
     REAL8 r,                                    /**< distance of source (m) */
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
@@ -1214,6 +1216,7 @@ COMPLEX16TimeSeries *XLALSimInspiralChooseTDMode(
     REAL8 m2,                                   /**< mass of companion 2 (kg) */
     REAL8 f_min,                                /**< starting GW frequency (Hz) */
     REAL8 f_ref,                                /**< reference GW frequency (Hz) */
+    REAL8 f_max,                                /**< Max frequency (Hz). 0 defaults to ISCO */
     REAL8 r,                                    /**< distance of source (m) */
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
@@ -1527,6 +1530,7 @@ int XLALSimInspiralTaylorT2PNEvolveOrbit(
 		REAL8 m2,                       /**< mass of companion 2 (kg) */
 		REAL8 f_min,                    /**< starting GW frequency (Hz) */
 		REAL8 fRef,                     /**< reference GW frequency (Hz) */
+		REAL8 f_max,                    /**< User-specified max frequency */
 		REAL8 lambda1,                  /**< (tidal deformability of body 1)/(mass of body 1)^5 */
 		REAL8 lambda2,                  /**< (tidal deformability of body 2)/(mass of body 2)^5 */
 		LALSimInspiralTidalOrder tideO, /**< twice PN order of tidal effects */
@@ -1549,6 +1553,7 @@ int XLALSimInspiralTaylorT2PNGenerator(
 		REAL8 m2,                       /**< mass of companion 2 (kg) */
 		REAL8 f_min,                    /**< starting GW frequency (Hz) */
 		REAL8 fRef,                     /**< reference GW frequency (Hz) */
+		REAL8 f_max,                    /**< Maximum frequency of the waveform (Hz) 0 defaults to ISCO */
 		REAL8 r,                        /**< distance of source (m) */
 		REAL8 i,                        /**< inclination of source (rad) */
 		REAL8 lambda1,                  /**< (tidal deformability of body 1)/(mass of body 1)^5 */
@@ -1570,6 +1575,7 @@ SphHarmTimeSeries *XLALSimInspiralTaylorT2PNModes(
 		REAL8 m2,                       /**< mass of companion 2 (kg) */
 		REAL8 f_min,                    /**< starting GW frequency (Hz) */
 		REAL8 fRef,                     /**< reference GW frequency (Hz) */
+		REAL8 f_max,                    /**< Max frequency (Hz). 0 defaults to ISCO */
 		REAL8 r,                        /**< distance of source (m) */
 		REAL8 lambda1,                  /**< (tidal deformability of body 1)/(mass of body 1)^5 */
 		REAL8 lambda2,                  /**< (tidal deformability of body 2)/(mass of body 2)^5 */
@@ -1591,6 +1597,7 @@ COMPLEX16TimeSeries *XLALSimInspiralTaylorT2PNMode(
 		REAL8 m2,                       /**< mass of companion 2 (kg) */
 		REAL8 f_min,                    /**< starting GW frequency (Hz) */
 		REAL8 fRef,                     /**< reference GW frequency (Hz) */
+		REAL8 f_max,                    /**< User-specified max frequency (Hz). 0 defaults to ISCO */
 		REAL8 r,                        /**< distance of source (m) */
 		REAL8 lambda1,                  /**< (tidal deformability of body 1)/(mass of body 1)^5 */
 		REAL8 lambda2,                  /**< (tidal deformability of body 2)/(mass of body 2)^5 */
@@ -1619,6 +1626,7 @@ int XLALSimInspiralTaylorT2PN(
 		REAL8 m2,                       /**< mass of companion 2 (kg) */
 		REAL8 f_min,                    /**< starting GW frequency (Hz)*/
 		REAL8 fRef,                     /**< reference GW frequency (Hz)*/
+		REAL8 f_max,                    /**< User-specified max frequency (Hz). 0 defaults to ISCO */
 		REAL8 r,                        /**< distance of source (m) */
 		REAL8 i,                        /**< inclination of source (rad) */
 		REAL8 lambda1,                  /**< (tidal deformability of body 1)/(mass of body 1)^5 */
@@ -1644,6 +1652,7 @@ int XLALSimInspiralTaylorT2PNRestricted(
 		REAL8 m2,                       /**< mass of companion 2 (kg) */
 		REAL8 f_min,                    /**< starting GW frequency (Hz) */
 		REAL8 fRef,                     /**< reference GW frequency (Hz) */
+		REAL8 f_max,                    /**< User-specified max frequency (Hz). 0 defaults to ISCO */
 		REAL8 r,                        /**< distance of source (m) */
 		REAL8 i,                        /**< inclination of source (rad) */
 		REAL8 lambda1,                  /**< (tidal deformability of body 1)/(mass of body 1)^5 */
