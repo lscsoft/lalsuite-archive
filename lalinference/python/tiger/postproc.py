@@ -719,7 +719,7 @@ class TigerRun:
 		Apply a Bayes factor and SNR cut on the data
 		"""
 		# SET CONDITION
-		cond = (self.snr>st) | (self.snr==0.0) & (self.bayes[:,0]>bt)
+		cond = ((self.snr>st) | (self.snr==0.0)) & (self.bayes[:,0]>bt)
 
 		# UPDATE DATA
 		self.bayes = self.bayes[cond,:]
