@@ -498,7 +498,37 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     
     # Set up the segments
     if not (self.config.has_option('input','gps-start-time') and self.config.has_option('input','gps-end-time')) and len(self.times)>0:
-      (mintime,maxtime)=self.get_required_data(self.times)
+      #This will set the min and max for the frames we'll put in the caches. Since we may be timeshifting, need to check before we s
+      timeslidedtimes=[]
+      if cp.has_option('input','timeslides-ascii'):
+        dest=cp.get('input','timeslides-ascii')
+        if not os.path.isfile(dest):
+          print "ERROR the ascii file %s containing the timeslides do not exist\n"%dest
+          exit(1)
+        else:
+          from numpy import loadtxt
+          data=loadtxt(dest).reshape(-1,len(self.ifos))
+          if len(self.ifos)!= len(data[0,:]):
+            print "ERROR: ascii timeslide file must contain a column for each IFO used in the analysis!\n"
+            exit(1)
+          if len(self.times)!=len(data[:,0]):
+            print 'ERROR: ascii timeslide must contain a row for each trigtime. Exiting...\n'
+            exit(1)
+          this_time=0
+          for time in self.times:
+            maxts=0.0
+            mints=0.0
+            this_ifo=0
+            for ifo in self.ifos:
+              ts=data[this_time,this_ifo]
+              this_ifo+=1
+              timeslidedtimes.append(time-ts)
+              this_time+=1
+      if timeslidedtimes==[]:
+        timeslidedtimes=self.times
+  
+      (mintime,maxtime)=self.get_required_data(timeslidedtimes)
+
     if not self.config.has_option('input','gps-start-time'):
       self.config.set('input','gps-start-time',str(int(floor(mintime))))
     if not self.config.has_option('input','gps-end-time'):
