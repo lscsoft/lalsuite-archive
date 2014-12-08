@@ -377,3 +377,25 @@ def ReadSimBurstFromFiles(fileList, verbose=False):
       simBurstTriggers = simBurstTable
 
   return simBurstTriggers
+
+from glue.ligolw import ligolw
+#
+# =============================================================================
+#
+#                                   Input
+#
+# =============================================================================
+#
+
+class ExtractSimBurstTableLIGOLWContentHandler(ligolw.PartialLIGOLWContentHandler):
+  """
+  LIGOLWContentHandler that will extract only the SimBurstTable from a document.
+  See glue.ligolw.LIGOLWContentHandler help for more info.
+  """
+  def __init__(self,document):
+    def filterfunc(name,attrs):
+      if name==ligolw.Table.tagName and attrs.has_key('Name'):
+        return 0==table.CompareTableNames(attrs.get('Name'), lsctables.SimBurstTable.tableName)
+      else:
+        return False
+    ligolw.PartialLIGOLWContentHandler.__init__(self,document,filterfunc)
