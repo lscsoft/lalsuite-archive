@@ -620,8 +620,7 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
             LALInferenceSetVariable(params, "phi_jl", &phi_JL);
             Cube[i] = phi_JL;
             i++;
-            strcat(header,"phi_jl");
-            strcat(header,"phi_jl");
+            strcat(header,"phi_jl ");
         }
     }
 
@@ -678,10 +677,10 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
     Cube[i] = LALInferenceInspiralPrior(runState,params,runState->model);
     i++; strcat(header,"logprior ");
 
-    // fRef for system-frame parameters
-    if(LALInferenceCheckVariable(params,"fRef"))
+    // f_ref for system-frame parameters
+    if(LALInferenceCheckVariable(params,"f_ref"))
     {
-        Cube[i] = *(REAL8 *)LALInferenceGetVariable(params,"fRef");
+        Cube[i] = *(REAL8 *)LALInferenceGetVariable(params,"f_ref");
         i++;
         strcat(header,"f_ref ");
     }
@@ -1364,10 +1363,10 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
     Cube[i] = LALInferenceInspiralSkyLocPrior(runState,params,model);
     i++; strcat(header,"logprior ");
 
-    // fRef for system-frame parameters
-    if(LALInferenceCheckVariable(params,"fRef"))
+    // f_ref for system-frame parameters
+    if(LALInferenceCheckVariable(params,"f_ref"))
     {
-        Cube[i] = *(REAL8 *)LALInferenceGetVariable(params,"fRef");
+        Cube[i] = *(REAL8 *)LALInferenceGetVariable(params,"f_ref");
         i++;
         strcat(header,"f_ref ");
     }

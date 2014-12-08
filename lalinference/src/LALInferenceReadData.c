@@ -428,7 +428,7 @@ void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, ProcessPar
  --psdstart GPStime             GPS start time of PSD estimation data\n\
  --psdlength length             length of PSD estimation data in seconds\n\
  --seglen length                length of segments for PSD estimation and analysis in seconds\n\
-(--dont-dump-psd                If given, no ascii file with the PSD will be generated\n\
+(--dont-dump-extras             If given, won't save PSD and SNR files\n\
 (--trigtime GPStime)            GPS time of the trigger to analyse (optional when using --margtime or --margtimephi)\n\
 (--padding PAD [sec]            Override default 0.4 seconds padding\n\
 (--segment-start)               GPS time of the start of the segment (optional when --trigtime given, default is seglen-2 s before --trigtime)\n\
@@ -1267,7 +1267,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         const UINT4 nameLength=FILENAME_MAX;
         char filename[nameLength];
         FILE *out;
-        ppt=LALInferenceGetProcParamVal(commandLine,"--dont-dump-psd");
+        ppt=LALInferenceGetProcParamVal(commandLine,"--dont-dump-extras");
         if (!ppt){
           ppt=LALInferenceGetProcParamVal(commandLine,"--outfile");
           if(ppt) {
@@ -1471,8 +1471,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
     event= atoi(LALInferenceGetProcParamVal(commandLine,"--event")->value);
     fprintf(stdout,"Injecting event %d\n",event);
 	}
-    
-  ppt = LALInferenceGetProcParamVal(commandLine,"--outfile");
+	ppt = LALInferenceGetProcParamVal(commandLine,"--outfile");
   sprintf(SNRpath,"%s_snr.txt",ppt->value);
 
 	Ninj=SimInspiralTableFromLIGOLw(&injTable,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
@@ -1755,8 +1754,10 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       thisData=thisData->next;
     }
 
-    PrintSNRsToFile(IFOdata , SNRpath);
-  
+    ppt=LALInferenceGetProcParamVal(commandLine,"--dont-dump-extras");
+    if (!ppt){
+      PrintSNRsToFile(IFOdata , SNRpath);
+    }
     NetworkSNR=sqrt(NetworkSNR);
     fprintf(stdout,"Network SNR of event %d = %g\n",event,NetworkSNR);
 
@@ -2272,7 +2273,6 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   INT4 errnum;
   char SNRpath[FILENAME_MAX];
   ProcessParamsTable *ppt=NULL;
-  ppt = NULL; 
   ppt=LALInferenceGetProcParamVal(commandLine,"--outfile");
   if(!ppt){
     fprintf(stderr,"Must specify --outfile <filename.dat>\n");
@@ -2470,9 +2470,10 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
     fclose(outInj);
   }
   printf("injected Network SNR %.1f \n",sqrt(NetSNR));
-
-  PrintSNRsToFile(IFOdata , SNRpath);
-
+  ppt=LALInferenceGetProcParamVal(commandLine,"--dont-dump-extras");
+  if (!ppt){
+    PrintSNRsToFile(IFOdata , SNRpath);
+  }
   XLALDestroyCOMPLEX16FrequencySeries(hctilde);
   XLALDestroyCOMPLEX16FrequencySeries(hptilde);
 }
@@ -2483,26 +2484,27 @@ static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , char SNRpath[] ){
   int nIFO=0;
 
   while(thisData){
-   thisData=thisData->next;
+    thisData=thisData->next;
     nIFO++;
   }
-  FILE * snrout = fopen(SNRpath,"a");
+  FILE * snrout = fopen(SNRpath,"w");
   if(!snrout){
     fprintf(stderr,"Unable to open the path %s for writing SNR files\n",SNRpath);
     fprintf(stderr,"Error code %i: %s\n",errno,strerror(errno));
     exit(errno);
   }
-
+  thisData=IFOdata;
   while(thisData){
-        fprintf(snrout,"%s:\t %4.2f\n",thisData->name,thisData->SNR);
-        NetSNR+=(thisData->SNR*thisData->SNR);
-        thisData=thisData->next;
-    }
-    if (nIFO>1){ 
-      fprintf(snrout,"Network:\t");
-      fprintf(snrout,"%4.2f\n",sqrt(NetSNR));
-    }
-    fclose(snrout);
+    fprintf(snrout,"%s:\t %4.2f\n",thisData->name,thisData->SNR);
+    nIFO++;
+    NetSNR+=(thisData->SNR*thisData->SNR);
+    thisData=thisData->next;
+  }
+  if (nIFO>1){ 
+    fprintf(snrout,"Network:\t");
+    fprintf(snrout,"%4.2f\n",sqrt(NetSNR));
+  }
+  fclose(snrout);
 }
 
 /**

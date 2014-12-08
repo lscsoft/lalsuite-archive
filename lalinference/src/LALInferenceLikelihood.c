@@ -68,15 +68,18 @@ static double integrate_interpolated_log(double h, REAL8 *log_ys, size_t n, doub
 void LALInferenceInitLikelihood(LALInferenceRunState *runState)
 {
     char help[]="\
-                 (--zeroLogLike)                  Use flat, null likelihood.\n\
-                 (--studentTLikelihood)           Use the Student-T Likelihood that marginalizes over noise.\n\
-                 (--correlatedGaussianLikelihood) Use analytic, correlated Gaussian for Likelihood.\n\
-                 (--bimodalGaussianLikelihood)    Use analytic, bimodal correlated Gaussian for Likelihood.\n\
-                 (--rosenbrockLikelihood)         Use analytic, Rosenbrock banana for Likelihood.\n\
-                 (--noiseonly)                    Using noise-only likelihood.\n\
-                 (--margphi)                      Using marginalised phase likelihood.\n\
-                 (--margtime)                     Using marginalised time likelihood.\n\
-                 (--margtimephi)                  Using marginalised in time and phase likelihood\n";
+ ------------------------------------------------------------------------------------------------------------------\n\
+ --- Likelihood Arguments     -------------------------------------------------------------------------------------\n\
+ ------------------------------------------------------------------------------------------------------------------\n\
+(--zeroLogLike)                  Use flat, null likelihood.\n\
+(--studentTLikelihood)           Use the Student-T Likelihood that marginalizes over noise.\n\
+(--correlatedGaussianLikelihood) Use analytic, correlated Gaussian for Likelihood.\n\
+(--bimodalGaussianLikelihood)    Use analytic, bimodal correlated Gaussian for Likelihood.\n\
+(--rosenbrockLikelihood)         Use analytic, Rosenbrock banana for Likelihood.\n\
+(--noiseonly)                    Using noise-only likelihood.\n\
+(--margphi)                      Using marginalised phase likelihood.\n\
+(--margtime)                     Using marginalised time likelihood.\n\
+(--margtimephi)                  Using marginalised in time and phase likelihood\n";
 
 
     ProcessParamsTable *commandLine=runState->commandLine;
@@ -860,10 +863,11 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       REAL8 sigmasq=(*psd)*deltaT*deltaT;
       
       if (constantcal_active) {
-        REAL8 dre_tmp=creal(d)/(1.0+calamp);
-        REAL8 dim_tmp=cimag(d)/(1.0+calamp);
-        dre_tmp= creal(d)*cos_calpha - cimag(d)*sin_calpha;
-        dim_tmp = creal(d)*sin_calpha + cimag(d)*cos_calpha;
+        REAL8 dre_tmp= creal(d)*cos_calpha - cimag(d)*sin_calpha;
+        REAL8 dim_tmp = creal(d)*sin_calpha + cimag(d)*cos_calpha;
+        dre_tmp/=(1.0+calamp);
+        dim_tmp/=(1.0+calamp);
+
         d=crect(dre_tmp,dim_tmp);
         sigmasq/=((1.0+calamp)*(1.0+calamp));
       } 
