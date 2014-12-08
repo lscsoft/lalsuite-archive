@@ -232,6 +232,7 @@ def cbcBayesBurstPostProc(
                         meanVectors=None,
                         #header file
                         header=None,
+                        psd_files=None,
                         #only save stats about PDF and exit #
                         statsonly=False
                     ):
@@ -581,13 +582,20 @@ def cbcBayesBurstPostProc(
     statout.close()
 
     #==================================================================#
-    #Generate sky map
+    #Generate sky map, WF, and PSDs
     #==================================================================#
-    #If sky resolution parameter has been specified try and create sky map...
+   
     skyreses=None
     sky_injection_cl=None
     inj_position=None
-
+    tabid='skywftable'
+    html_wf=html.add_collapse_section('Sky Localization and Waveform',innertable_id=tabid)
+    
+    table=html_wf.tab(idtable=tabid)
+    row=html_wf.insert_row(table,label='SkyandWF')
+    skytd=html_wf.insert_td(row,'',label='SkyMap',legend=legend)
+    html_sky=html.add_section_to_element('SkyMap',skytd)
+    #If sky resolution parameter has been specified try and create sky map...
     if skyres is not None and \
        (('ra' in pos.names and 'dec' in pos.names) or \
         ('rightascension' in pos.names and 'declination' in pos.names)):
@@ -605,42 +613,59 @@ def cbcBayesBurstPostProc(
         
         #Create a web page section for sky localization results/plots (if defined)
 
-        html_sky=html.add_section('Sky Localization',legend=legend)
+        #html_sky=html.add_section('Sky Localization',legend=legend)
         if injection:
             if sky_injection_cl:
                 html_sky.p('Injection found at confidence interval %f in sky location'%(sky_injection_cl))
             else:
                 html_sky.p('Injection not found in posterior bins in sky location!')
-        html_sky.write('<a href="skymap.png" target="_blank"><img width="35%" src="skymap.png"/></a>')
+        html_sky.write('<a href="skymap.png" target="_blank"><img src="skymap.png"/></a>')
 
         html_sky_write='<table border="1" id="statstable"><tr><th>Confidence region</th><th>size (sq. deg)</th></tr>'
 
         fracs=skyreses.keys()
         fracs.sort()
-        skystatfilename=os.path.join(outdir,"sky_summary_statistics.dat")
-        statout=open(skystatfilename,"w")
-        stri="FoundCL\t"
-        for frac in fracs:
-            stri+="%s\t%s\t"%("CL","Size")
-        statout.write(stri)
-        if injection:
-            if sky_injection_cl:
-                stri=str(sky_injection_cl)
-            else:
-                stri="-1707" 
-        else:
-            stri="-1707"
+
         skysizes=[skyreses[frac] for frac in fracs]
         for frac,skysize in zip(fracs,skysizes):
             html_sky_write+=('<tr><td>%f</td><td>%f</td></tr>'%(frac,skysize))
-            stri+="\t%.3f\t%.3f"%(frac,skysize)
         html_sky_write+=('</table>')
-        stri+='\n'
-        statout.write('\n'+stri)
-        statout.close()
+
         html_sky.write(html_sky_write)
-        if statsonly:
-            return 0
+    else:
+        html_sky.write('<b>No skymap generated!</b>')
+    wfdir=os.path.join(outdir,'Waveform')
+    if not os.path.isdir(wfdir):
+        os.makedirs(wfdir)
+    try:
+        wfpointer= bppu.plot_burst_waveform(pos=pos,simburst=injfile,event=eventnum,path=wfdir)
+    except:
+        wfpointer = None
+    wftd=html_wf.insert_td(row,'',label='Waveform',legend=legend)
+    wfsection=html.add_section_to_element('Waveforms',wftd)
+    if wfpointer:
+      wfsection.write('<a href="Waveform/WF_DetFrame.png" target="_blank"><img src="Waveform/WF_DetFrame.png"/></a>')
+    else:
+      wfsection.write("<b>No Waveform generated!</b>")
+      
+    wftd=html_wf.insert_td(row,'',label='PSDs',legend=legend)
+    wfsection=html.add_section_to_element('PSDs',wftd)
+    psd_pointer=None
+    if psd_files is not None:
+      psd_files=list(psd_files.split(','))
+      psddir=os.path.join(outdir,'PSDs')
+      if not os.path.isdir(psddir):
+        os.makedirs(psddir)
+      try:
+        psd_pointer=bppu.plot_psd(psd_files,outpath=psddir)    
+      except:
+        psd_pointer=None
+    if psd_pointer:
+      wfsection.write('<a href="PSDs/PSD.png" target="_blank"><img src="PSDs/PSD.png"/></a>')
+    else:
+      wfsection.write("<b>No PSD file found!</b>")
+    if statsonly:
+      return 0
     #==================================================================#
     #1D posteriors
     #==================================================================#
@@ -1202,6 +1227,7 @@ if __name__=='__main__':
     parser.add_option("--email",action="store",default=None,type="string",metavar="user@ligo.org",help="Send an e-mail to the given address with a link to the finished page.")
     parser.add_option("--stats_only",action="store_true",default=False,dest="stats_only")
     parser.add_option("--archive",action="store",default=None,type="string",metavar="results.tar.gz",help="Create the given tarball with all results")
+    parser.add_option("--psdfiles",action="store",default=None,type="string",metavar="H1,L1,V1",help="comma separater list of ASCII files with PSDs, one per IFO")
     (opts,args)=parser.parse_args()
 
     datafiles=[]
@@ -1246,11 +1272,11 @@ if __name__=='__main__':
         #    for ti in timeParams:
         #        twoDGreedyMenu.append([bu,ti])
 
-    twoDGreedyMenu.append(['phi_orb','psi'])
-    twoDGreedyMenu.append(['alpha','psi'])
-    twoDGreedyMenu.append(['phi_orb','alpha'])
-    twoDGreedyMenu.append(['loghrss','psi'])
-    twoDGreedyMenu.append(['alpha','loghrss'])
+        twoDGreedyMenu.append(['phi_orb','psi'])
+        twoDGreedyMenu.append(['alpha','psi'])
+        twoDGreedyMenu.append(['phi_orb','alpha'])
+        twoDGreedyMenu.append(['loghrss','psi'])
+        twoDGreedyMenu.append(['alpha','loghrss'])
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
@@ -1308,6 +1334,8 @@ if __name__=='__main__':
                         meanVectors=opts.meanVectors,
                         #header file for parameter names in posterior samples
                         header=opts.header,
+                        # ascii files (one per IFO) containing  freq - PSD columns
+                        psd_files=opts.psdfiles,
                         statsonly=opts.stats_only
                     )
     if opts.archive is not None:
