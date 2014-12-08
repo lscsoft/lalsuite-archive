@@ -233,7 +233,11 @@ void LALInferenceInjectBurstSignal(LALInferenceIFOData *IFOdata, ProcessParamsTa
     thisData=thisData->next;
     }
 
-    PrintSNRsToFile(IFOdata , SNRpath);
+    ppt=LALInferenceGetProcParamVal(commandLine,"--dont-dump-extras");
+    if (!ppt){
+      PrintSNRsToFile(IFOdata , SNRpath);
+    }
+    
     NetworkSNR=sqrt(NetworkSNR);
     fprintf(stdout,"Network SNR of event %d = %.1e\n",event,NetworkSNR);
     thisData=IFOdata;
@@ -283,23 +287,28 @@ static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , char SNRpath[] ){
   LALInferenceIFOData *thisData=IFOdata;
   int nIFO=0;
 
-  FILE * snrout = fopen(SNRpath,"a");
+  while(thisData){
+    thisData=thisData->next;
+    nIFO++;
+  }
+  FILE * snrout = fopen(SNRpath,"w");
   if(!snrout){
     fprintf(stderr,"Unable to open the path %s for writing SNR files\n",SNRpath);
     fprintf(stderr,"Error code %i: %s\n",errno,strerror(errno));
     exit(errno);
   }
-
+  thisData=IFOdata;
   while(thisData){
-        fprintf(snrout,"%s:\t %4.2f\n",thisData->name,thisData->SNR);
-        NetSNR+=(thisData->SNR*thisData->SNR);
-        thisData=thisData->next;
-    }
-    if (nIFO>1){ 
-      fprintf(snrout,"Network:\t");
-      fprintf(snrout,"%4.2f\n",sqrt(NetSNR));
-    }
-    fclose(snrout);
+    fprintf(snrout,"%s:\t %4.2f\n",thisData->name,thisData->SNR);
+    nIFO++;
+    NetSNR+=(thisData->SNR*thisData->SNR);
+    thisData=thisData->next;
+  }
+  if (nIFO>1){ 
+    fprintf(snrout,"Network:\t");
+    fprintf(snrout,"%4.2f\n",sqrt(NetSNR));
+  }
+  fclose(snrout);
 }
 
 void InjectBurstFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, ProcessParamsTable *commandLine)
@@ -455,7 +464,10 @@ void InjectBurstFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, ProcessPar
   }
   printf("injected Network SNR %.1f \n",sqrt(NetSNR));
 
-  PrintSNRsToFile(IFOdata , SNRpath);
+  ppt=LALInferenceGetProcParamVal(commandLine,"--dont-dump-extras");
+  if (!ppt){
+    PrintSNRsToFile(IFOdata , SNRpath);
+  }
 
   XLALDestroyCOMPLEX16FrequencySeries(hctilde);
   XLALDestroyCOMPLEX16FrequencySeries(hptilde);
