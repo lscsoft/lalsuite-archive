@@ -2985,8 +2985,10 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
     }
     char *outfile=ppt->value;
     sprintf(SNRpath,"%s_snr.txt",outfile); 
-    PrintSNRsToFile(IFOdata,SNRpath);
-
+    ppt=LALInferenceGetProcParamVal(commandLine,"--dont-dump-extras");
+    if (!ppt){
+      PrintSNRsToFile(IFOdata , SNRpath);
+    }
     return ;
     
 }
