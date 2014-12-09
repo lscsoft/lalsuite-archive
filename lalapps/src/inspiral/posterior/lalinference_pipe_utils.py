@@ -26,26 +26,8 @@ import shutil
 # type of job. Each class has inputs and outputs, which are used to
 # join together types of jobs into a DAG.
 
-
-class LIGOLWContentHandlerExtractSimBurstTable(ligolw.LIGOLWContentHandler):
-    def __init__(self,document):
-      ligolw.LIGOLWContentHandler.__init__(self,document)
-      self.tabname=lsctables.SimBurstTable.tableName
-      self.intable=False
-      self.tableElementName=''
-    def startElement(self,name,attrs):
-      if attrs.has_key('Name') and attrs['Name']==self.tabname:
-        self.tableElementName=name
-        # Got the right table, let's see if it's the right event
-        ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
-        self.intable=True
-      elif self.intable: # We are in the correct table
-        ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
-    def endElement(self,name):
-      if self.intable: ligolw.LIGOLWContentHandler.endElement(self,name)
-      if self.intable and name==self.tableElementName: self.intable=False
-
-lsctables.use_in(LIGOLWContentHandlerExtractSimBurstTable)
+from pylal.SimBurstUtils import ExtractSimBurstTableLIGOLWContentHandler
+lsctables.use_in(ExtractSimBurstTableLIGOLWContentHandler)
 
 class Event():
   """
