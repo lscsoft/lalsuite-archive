@@ -7174,12 +7174,12 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
   from pylal.SimBurstUtils import ExtractSimBurstTableLIGOLWContentHandler
   lsctables.use_in(ExtractSimBurstTableLIGOLWContentHandler)
   # time and freq data handling variables 
-  srate=4096.0
+  srate=2048.0
   seglen=10.
   length=srate*seglen # lenght of 60 secs, hardcoded. May call a LALSimRoutine to get an idea
   deltaT=1/srate
   deltaF = 1.0 / (length* deltaT);
-  
+
   # build window for FFT
   pad=0.4
   timeToFreqFFTPlan = CreateForwardREAL8FFTPlan(int(length), 1 );
@@ -7259,8 +7259,8 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
           for j in arange(strainF.data.length):
             strainF.data.data[j]=0.0
           REAL8TimeFreqFFT(strainF,strainT,timeToFreqFFTPlan);
-          for j in arange(strainF.data.length):
-            strainF.data.data[j]/=WinNorm
+          #for j in arange(strainF.data.length):
+          #  strainF.data.data[j]/=WinNorm
           # copy in the dictionary
           inj_strains[ifo]["F"]['strain']=np.array([strainF.data.data[k] for k in arange(int(strainF.data.length))])
           inj_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
@@ -7316,11 +7316,14 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
         print 'WARNING: phi_orb not found in posterior files. Defaulting to 0.0 which is probably *not* what you want\n'
         phiRef=None
 
-      polar_e_angle=0.0
-      polar_e_ecc=0.0
+      polar_e_angle=np.nan
+      polar_e_ecc=np.nan
       alpha=None
       if 'alpha' in pos.names:
         alpha=pos['alpha'].samples[which][0]
+      elif 'polar_ellipse_angle' in pos.names:
+        polar_e_angle=pos['polar_ellipse_angle'].samples[which][0]
+        polar_e_ecc=pos['polar_ellipse_e'].samples[which][0]
       BurstExtraParams=None
       if alpha or phiRef:
         if alpha:
@@ -7361,8 +7364,6 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
           for j in arange(strainF.data.length):
             strainF.data.data[j]=0.0
           REAL8TimeFreqFFT(strainF,strainT,timeToFreqFFTPlan);
-          for j in arange(strainF.data.length):
-            strainF.data.data[j]/=WinNorm
           # copy in the dictionary
           rec_strains[ifo]["F"]['strain']=np.array([strainF.data.data[k] for k in arange(int(strainF.data.length))])
           rec_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
@@ -7372,6 +7373,8 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
               strainF.data.data[k]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
             else:
               strainF.data.data[k]=0.0
+          #for j in arange(strainF.data.length):
+          #  strainF.data.data[j]/=WinNorm
           # copy in the dictionary
           rec_strains[ifo]["F"]['strain']=np.array([strainF.data.data[k] for k in arange(int(strainF.data.length))])
           rec_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
