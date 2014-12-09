@@ -282,8 +282,8 @@ def scan_timefile(timefile):
       if not p.match(time):
 	continue
       if float(time) in times:
-	print 'NOT Skipping duplicate time %s (lalinfernece_pipe_utils.py 268)'%(time)
-	#continue
+	print 'Skipping duplicate time %s'%(time)
+	continue
       print 'Read time %s'%(time)
       times.append(float(time))
     timefilehandle.close()
@@ -702,7 +702,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     if self.config.has_option('input','burst-injection-file'):
       from pylal import SimBurstUtils
       injfile=self.config.get('input','burst-injection-file')
-      xmldoc = utils.load_filename(injfile,contenthandler=LIGOLWContentHandlerExtractSimBurstTable)
+      xmldoc = utils.load_filename(injfile,contenthandler=ExtractSimBurstTableLIGOLWContentHandler)
       injTable=table.get_table(xmldoc,lsctables.SimBurstTable.tableName)
       #injection=siminspiraltable[eventnum]
       #injTable=SimBurstUtils.ReadSimBurstFromFiles([self.config.get('input','burst-injection-file')])
@@ -1033,6 +1033,10 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             gotdata+=node.add_ifo_data(ifo,seg,self.channels[ifo],fakechannels[ifo],mdccache=mdccache,mdcchannel=mdcchannel,timeslide=slide)
           else:
             fakecachefiles=ast.literal_eval(self.config.get('lalinference','fake-cache'))
+            if self.config.has_option('lalinference','fake-channels'):
+                fakechannels=ast.literal_eval(self.config.get('lalinference','fake-channels'))
+            else:
+                fakechannels=fakecachefiles
             if self.config.has_option('lalinference','roq'):
               prenode.add_fake_ifo_data(ifo,seg,fakecachefiles[ifo],timeslide=slide)
             gotdata+=node.add_fake_ifo_data(ifo,seg,fakecachefiles[ifo],fakechannels[ifo],mdccache=mdccache,mdcchannel=mdcchannel,timeslide=slide)
@@ -1497,51 +1501,6 @@ class EngineNode(pipeline.CondorDAGNode):
       """
       Add final list of IFOs and data to analyse to command line arguments.
       """
-      """
-      ifostring='['
-      cachestring='['
-      psdstring='['
-      flowstring='['
-      fhighstring='['
-      channelstring='['
-      slidestring='['
-      mdccachestring='['
-      mdcchannelstring='['
-      first=True
-      for ifo in self.ifos:
-        if first:
-          delim=''
-          first=False
-        else: delim=','
-        ifostring=ifostring+delim+ifo
-        cachestring=cachestring+delim+self.cachefiles[ifo]
-        if self.mdcchannels: mdcchannelstring=mdcchannelstring+delim+self.mdcchannels[ifo]
-        if self.mdccaches: mdccachestring=mdccachestring+delim+self.mdccaches[ifo]
-        if self.psds: psdstring=psdstring+delim+self.psds[ifo]
-        if self.flows: flowstring=flowstring+delim+self.flows[ifo]
-        if self.fhighs: fhighstring=fhighstring+delim+self.fhighs[ifo]
-        channelstring=channelstring+delim+self.channels[ifo]
-        slidestring=slidestring+delim+str(self.timeslides[ifo])
-      ifostring=ifostring+']'
-      cachestring=cachestring+']'
-      psdstring=psdstring+']'
-      flowstring=flowstring+']'
-      fhighstring=fhighstring+']'
-      channelstring=channelstring+']'
-      slidestring=slidestring+']'
-      mdccachestring=mdccachestring+']'
-      mdcchannelstring=mdcchannelstring+']'
-      self.add_var_opt('ifo',ifostring)
-      self.add_var_opt('channel',channelstring)
-      self.add_var_opt('cache',cachestring)
-      if self.psds: self.add_var_opt('psd',psdstring)
-      if self.flows: self.add_var_opt('flow',flowstring)
-      #if self.mdcchannels: self.add_var_opt('MDC-channel',mdcchannelstring)
-      #if self.mdccaches: self.add_var_opt('MDC-cache',mdccachestring)
-      if self.fhighs: self.add_var_opt('fhigh',fhighstring)
-      #if any(self.timeslides):
-      #  self.add_var_opt('timeslide',slidestring)
-      """
       for ifo in self.ifos:
         self.add_var_arg('--ifo '+ifo)
         if self.fakedata:
@@ -1557,16 +1516,6 @@ class EngineNode(pipeline.CondorDAGNode):
       # NOTE: We perform this arithmetic for all ifos to ensure that a common data set is
       # Used when we are running the coherence test.
       # Otherwise the noise evidence will differ.
-      #print int(self.scisegs[self.ifos[0]].start()),int(self.scisegs[self.ifos[1]].start())
-      #print int(self.scisegs[self.ifos[0]].end()),int(self.scisegs[self.ifos[1]].end())
-
-      if self.scisegs!={}:
-        starttime=max([int(self.scisegs[ifo].start()) for ifo in self.ifos])
-        endtime=min([int(self.scisegs[ifo].end()) for ifo in self.ifos])
-      else:
-        (starttime,endtime)=self.get_required_data(self.get_trig_time())
-        starttime=floor(starttime)
-        endtime=ceil(endtime)
       #if self.scisegs!={}:
       starttime=max([int(self.scisegs[ifo].start()) for ifo in self.ifos])
       endtime=min([int(self.scisegs[ifo].end()) for ifo in self.ifos])
@@ -1574,8 +1523,8 @@ class EngineNode(pipeline.CondorDAGNode):
       #  (starttime,endtime)=self.get_required_data(self.get_trig_time())
       #  starttime=floor(starttime)
       #  endtime=ceil(endtime)
-      #starttime=self.get_trig_time()-self.padding-self.seglen-self.psdlength#-0.5*self.maxlength
-      #endtime=starttime+self.padding#+self.maxlength
+        #starttime=self.get_trig_time()-self.padding-self.seglen-self.psdlength#-0.5*self.maxlength
+        #endtime=starttime+self.padding#+self.maxlength
       self.GPSstart=starttime
       self.__GPSend=endtime
       length=endtime-starttime
@@ -1584,38 +1533,9 @@ class EngineNode(pipeline.CondorDAGNode):
       # is not exceeded.
       trig_time=self.get_trig_time()
       maxLength=self.maxlength
-      psdpad=self.psdpadding
-      #print "using psd pad %s length %s MaxLength %s\n"%(psdpad,length,maxLength)
       if(length > maxLength):
-        while(self.GPSstart+maxLength+psdpad<trig_time and self.GPSstart+maxLength+psdpad<self.__GPSend):
-          #print "moving gpsstart from %s to %s\n"%(self.GPSstart,self.GPSstart+(psdpad+maxLength)/2.0)
-          #print "checking new start smaller than trigtime..."
-          #if self.GPSstart+(psdpad+maxLength)/2.0+maxLength+psdpad<trig_time:
-          #    print "TRUE\n"
-          #else: print "FALSE\n"
-          #print "checking new start smaller than end..."
-          #if self.GPSstart+(psdpad+maxLength)/2.0+maxLength<self.__GPSend:
-          #    print "TRUE\n"
-          #else: print "FALSE\n"
-
-          self.GPSstart+=(maxLength+psdpad)/2.0
-      if  self.GPSstart-ceil(self.GPSstart+maxLength+psdpad -trig_time) > starttime:
-          self.GPSstart-=ceil(self.GPSstart+maxLength+psdpad-trig_time)
-      else: 
-          print "trigtime %s too close to starttime %s (diff %s). Trying to calculate PSD on the right\n"%(trig_time,starttime,trig_time-starttime)
-          if (endtime > trig_time+psdpad+maxLength):
-              self.GPSstart=trig_time+psdpad
-          else:
-              if trig_time-psdpad-starttime>endtime-psdpad-trig_time:
-                  self.psdlength=trig_time-psdpad-starttime-1.
-                  side="left"
-                  self.GPSstart=starttime+1.
-              else:
-                  self.psdlength=endtime-trig_time-psdpad-1.
-                  side="right"
-                  self.GPSstart=trig_time+psdpad
-
-              print "There is not enough science time on the left or right of the trigtime to use %s secs for the PSD estimation. Using the largest possible stretch. That is %s secs on the %s of trigtime (gpsstart=%s)"%(maxLength,self.psdlength,side,self.GPSstart)
+        while(self.GPSstart+maxLength<trig_time and self.GPSstart+maxLength<self.__GPSend):
+          self.GPSstart+=maxLength/2.0
       # Override calculated start time if requested by user in ini file
       if self.psdstart is not None:
         self.GPSstart=self.psdstart
@@ -1630,8 +1550,6 @@ class EngineNode(pipeline.CondorDAGNode):
           self.psdlength=self.maxlength
       self.add_var_opt('psdlength',self.psdlength)
       self.add_var_opt('seglen',self.seglen)
-      if (trig_time > self.GPSstart and trig_time<self.GPSstart+maxLength+psdpad ):
-          print "WARNING: trigtime %s will be inside PSD segment (start=%s length+pad= %s)!\n"%(trig_time,self.GPSstart,maxLength+psdpad)
       for lfn in self.lfns:
         a, b, c, d = lfn.split('.')[0].split('-')
         t_start = int(c)
