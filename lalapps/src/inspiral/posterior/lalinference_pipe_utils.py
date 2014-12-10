@@ -799,7 +799,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         else:
           zipfilename=None
         respagenode=self.add_results_page_node(resjob=self.cotest_results_page_job,outdir=pagedir,parent=mergenode,gzip_output=zipfilename)
-        respagenode.set_psd_files(enginenodes[0])  
+        respagenode.set_psd_files(enginenodes[0].get_psd_files())
+        respagenode.set_snr_file(enginenodes[0].get_snr_file())
         if (self.config.has_option('input','injection-file') or self.config.has_option('input','burst-injection-file')) and event.event_id is not None:
           if self.config.has_option('input','injection-file'):
             respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
@@ -1030,7 +1031,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
           if not self.config.has_option('lalinference','fake-cache'):
             if self.config.has_option('lalinference','roq'):
               prenode.add_ifo_data(ifo,seg,self.channels[ifo],timeslide=slide)
-            gotdata+=node.add_ifo_data(ifo,seg,self.channels[ifo],fakechannels[ifo],mdccache=mdccache,mdcchannel=mdcchannel,timeslide=slide)
+            gotdata+=node.add_ifo_data(ifo,seg,self.channels[ifo],mdccache=mdccache,mdcchannel=mdcchannel,timeslide=slide)
           else:
             fakecachefiles=ast.literal_eval(self.config.get('lalinference','fake-cache'))
             if self.config.has_option('lalinference','fake-channels'):
