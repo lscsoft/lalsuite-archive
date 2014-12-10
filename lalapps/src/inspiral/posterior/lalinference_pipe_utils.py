@@ -498,14 +498,12 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             exit(1)
           this_time=0
           for time in self.times:
-            maxts=0.0
-            mints=0.0
             this_ifo=0
             for ifo in self.ifos:
               ts=data[this_time,this_ifo]
               this_ifo+=1
               timeslidedtimes.append(time-ts)
-              this_time+=1
+            this_time+=1
       if timeslidedtimes==[]:
         timeslidedtimes=self.times
   
