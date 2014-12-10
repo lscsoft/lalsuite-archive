@@ -6259,7 +6259,12 @@ def plot_psd(psd_files,outpath=None):
   plt.ylabel("PSD",fontsize=26)
   plt.legend(loc='best')
   plt.grid(which='both')
-  plt.tight_layout()
+  # put this in a try, since it fails @ CIT
+  try:
+    plt.tight_layout()
+  except:
+    print "Could not set tight_layout for PSD plot...\n"
+
   myfig2.savefig(os.path.join(outpath,'PSD.png'),bbox_inches='tight')
   myfig2.clf()
 
