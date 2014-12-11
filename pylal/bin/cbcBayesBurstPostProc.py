@@ -637,9 +637,9 @@ def cbcBayesBurstPostProc(
     wfdir=os.path.join(outdir,'Waveform')
     if not os.path.isdir(wfdir):
         os.makedirs(wfdir)
-    if 1:
+    try:
         wfpointer= bppu.plot_burst_waveform(pos=pos,simburst=injfile,event=eventnum,path=wfdir)
-    else:
+    except:
         wfpointer = None
     wftd=html_wf.insert_td(row,'',label='Waveform',legend=legend)
     wfsection=html.add_section_to_element('Waveforms',wftd)
