@@ -1,3 +1,9 @@
+glue (1.47-2) unstable; urgency=low
+
+  * added missing python modules to python-glue.install
+
+ -- Steffen Grunewald <steffen.grunewald@ligo.org>  Thu, 11 Dec 2014 11:30:00 +0100
+
 glue (1.47.1-1) unstable; urgency=low
 
   * ER6 pre-release of glue, bug fix for dmt-files method of
