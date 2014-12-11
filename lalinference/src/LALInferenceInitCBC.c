@@ -1627,8 +1627,8 @@ static void LALInferenceInitNonGRParams(LALInferenceRunState *state, LALInferenc
   ppt=LALInferenceGetProcParamVal(commandLine,"--grtest-parameters");
   if (ppt)
   {
-    REAL8 testParameter_max=1.;
-    REAL8 testParameter_min=-1.;
+    REAL8 testParameter_max=2.;
+    REAL8 testParameter_min=-2.;
     REAL8 tmpVal=0.0;
     if (checkParamInList(ppt->value,"dchi0")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dchi0", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
     if (checkParamInList(ppt->value,"dchi1")) LALInferenceRegisterUniformVariableREAL8(state, model->params, "dchi1", tmpVal, testParameter_min, testParameter_max, LALINFERENCE_PARAM_LINEAR);
