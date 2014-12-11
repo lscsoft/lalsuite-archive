@@ -68,15 +68,18 @@ static double integrate_interpolated_log(double h, REAL8 *log_ys, size_t n, doub
 void LALInferenceInitLikelihood(LALInferenceRunState *runState)
 {
     char help[]="\
-                 (--zeroLogLike)                  Use flat, null likelihood.\n\
-                 (--studentTLikelihood)           Use the Student-T Likelihood that marginalizes over noise.\n\
-                 (--correlatedGaussianLikelihood) Use analytic, correlated Gaussian for Likelihood.\n\
-                 (--bimodalGaussianLikelihood)    Use analytic, bimodal correlated Gaussian for Likelihood.\n\
-                 (--rosenbrockLikelihood)         Use analytic, Rosenbrock banana for Likelihood.\n\
-                 (--noiseonly)                    Using noise-only likelihood.\n\
-                 (--margphi)                      Using marginalised phase likelihood.\n\
-                 (--margtime)                     Using marginalised time likelihood.\n\
-                 (--margtimephi)                  Using marginalised in time and phase likelihood\n";
+ ------------------------------------------------------------------------------------------------------------------\n\
+ --- Likelihood Arguments     -------------------------------------------------------------------------------------\n\
+ ------------------------------------------------------------------------------------------------------------------\n\
+(--zeroLogLike)                  Use flat, null likelihood.\n\
+(--studentTLikelihood)           Use the Student-T Likelihood that marginalizes over noise.\n\
+(--correlatedGaussianLikelihood) Use analytic, correlated Gaussian for Likelihood.\n\
+(--bimodalGaussianLikelihood)    Use analytic, bimodal correlated Gaussian for Likelihood.\n\
+(--rosenbrockLikelihood)         Use analytic, Rosenbrock banana for Likelihood.\n\
+(--noiseonly)                    Using noise-only likelihood.\n\
+(--margphi)                      Using marginalised phase likelihood.\n\
+(--margtime)                     Using marginalised time likelihood.\n\
+(--margtimephi)                  Using marginalised in time and phase likelihood\n";
 
     ProcessParamsTable *commandLine=runState->commandLine;
     LALInferenceIFOData *ifo=runState->data;
@@ -573,10 +576,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     psi       = *(REAL8*) LALInferenceGetVariable(currentParams, "polarisation");   /* radian      */
     if(!margtime)
       GPSdouble = *(REAL8*) LALInferenceGetVariable(currentParams, "time");           /* GPS seconds */
-    else
-      GPSdouble = XLALGPSGetREAL8(&(data->freqData->epoch));
-
-    
     // Add phase parameter set to 0 for calculation
     if(margphi ){
       REAL8 phi0=0.0;
@@ -646,7 +645,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     /* Note that the template function shifts the waveform to so that*/
 	/* t_c corresponds to the "time" parameter in                    */
 	/* model->params (set, e.g., from the trigger value).     */
-    
+
     /* Reset log-likelihood */
     model->ifo_loglikelihoods[ifo] = 0.0;
     model->ifo_SNRs[ifo] = 0.0;
@@ -748,9 +747,9 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
         /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
         /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
         if (margtime)
-          /* If we are marginalising over time, we want the
-	      freq-domain signal to have tC = epoch, so we shift it
-	      from the model's "time" parameter to epoch */
+	  /* If we are marginalising over time, we want the
+	     freq-domain signal to have tC = epoch, so we shift it
+	     from the model's "time" parameter to epoch */
           timeshift =  (epoch - (*(REAL8 *) LALInferenceGetVariable(model->params, "time"))) + timedelay;
         else
           timeshift =  (GPSdouble - (*(REAL8*) LALInferenceGetVariable(model->params, "time"))) + timedelay;
@@ -820,10 +819,11 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       REAL8 sigmasq=(*psd)*deltaT*deltaT;
       
       if (constantcal_active) {
-        REAL8 dre_tmp=creal(d)/(1.0+calamp);
-        REAL8 dim_tmp=cimag(d)/(1.0+calamp);
-        dre_tmp= creal(d)*cos_calpha - cimag(d)*sin_calpha;
-        dim_tmp = creal(d)*sin_calpha + cimag(d)*cos_calpha;
+        REAL8 dre_tmp= creal(d)*cos_calpha - cimag(d)*sin_calpha;
+        REAL8 dim_tmp = creal(d)*sin_calpha + cimag(d)*cos_calpha;
+        dre_tmp/=(1.0+calamp);
+        dim_tmp/=(1.0+calamp);
+
         d=crect(dre_tmp,dim_tmp);
         sigmasq/=((1.0+calamp)*(1.0+calamp));
       } 
@@ -858,7 +858,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       }
       
       diff = (d - template);
-        
       }//end signal subtraction
 
       //subtract glitch model from residual
@@ -918,7 +917,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
           REAL8 datasq = creal(d)*creal(d)+cimag(d)*cimag(d);
           D+=TwoDeltaToverN*datasq/sigmasq;
           S+=TwoDeltaToverN*templatesq/sigmasq;
-          COMPLEX16 dhstar = TwoDeltaToverN*d*conj(template)/sigmasq;
+          COMPLEX16 dhstar =( TwoDeltaToverN*d*conj(template)/sigmasq);
           Rcplx+=dhstar;
           break;
         }

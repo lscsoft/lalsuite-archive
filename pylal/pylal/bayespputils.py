@@ -5320,7 +5320,7 @@ class PEOutputParser(object):
         for line in runInfoIter:
             headers=line.lstrip().lower().split()
             try:
-                fRefColNum = headers.index('fref') # strings get converted to all lower case
+                fRefColNum = headers.index('f_ref') # strings get converted to all lower case
                 info = runInfoIter.next().lstrip().lower().split()
                 fRef = info[-1]#fRefColNum] # too many column names with spaces for this way to work. I just grab the last value. Hopefully we will update to xml output files and those messy headers will be gone.
                 break
@@ -6259,7 +6259,12 @@ def plot_psd(psd_files,outpath=None):
   plt.ylabel("PSD",fontsize=26)
   plt.legend(loc='best')
   plt.grid(which='both')
-  plt.tight_layout()
+  # put this in a try, since it fails @ CIT
+  try:
+    plt.tight_layout()
+  except:
+    print "Could not set tight_layout for PSD plot...\n"
+
   myfig2.savefig(os.path.join(outpath,'PSD.png'),bbox_inches='tight')
   myfig2.clf()
 

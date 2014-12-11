@@ -357,96 +357,89 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state)
 {
 
   char help[]="\
-                \n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               --- Injection Arguments ------------------------------------------------------------------------------------------\n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               (--inj injections.xml)          Injection XML file to use.\n\
-               (--event N)                     Event number from Injection XML file to use.\n\
-               \n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               --- Template Arguments -------------------------------------------------------------------------------------------\n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               (--use-eta)                    Jump in symmetric mass ratio eta, instead of q=m1/m2 (m1>m2).\n\
-               (--use-logdistance)             Jump in log(distance) instead of distance.\n\
-               (--approx)                      Specify a template approximant and phase order to use.\n\
-                                               (default TaylorF2threePointFivePN). Available approximants:\n\
-                                               default modeldomain=\"time\": GeneratePPN, TaylorT1, TaylorT2, TaylorT3, TaylorT4,\n\
-                                                                           EOB, EOBNR, EOBNRv2, EOBNRv2HM, SEOBNRv1, SpinTaylor,\n\
-                                                                           SpinQuadTaylor, SpinTaylorFrameless, SpinTaylorT4,\n\
-                                                                           PhenSpinTaylorRD, NumRel.\n\
-                                               default modeldomain=\"frequency\": TaylorF1, TaylorF2, TaylorF2RedSpin, \n\
-                                                                                TaylorF2RedSpinTidal, IMRPhenomA, IMRPhenomB, IMRPhenomP.\n\
-               (--amporder PNorder)            Specify a PN order in amplitude to use (defaults: LALSimulation: max available; LALInspiral: newtownian).\n\
-               (--fref fRef)                   Specify a reference frequency at which parameters are defined (default 100).\n\
-               (--use-tidal)                   Enables tidal corrections, only with LALSimulation.\n\
-               (--use-tidalT)                  Enables reparmeterized tidal corrections, only with LALSimulation.\n\
-               (--spinOrder PNorder)           Specify twice the PN order (e.g. 5 <==> 2.5PN) of spin effects to use, only for LALSimulation (default: -1 <==> Use all spin effects).\n\
-               (--tidalOrder PNorder)          Specify twice the PN order (e.g. 10 <==> 5PN) of tidal effects to use, only for LALSimulation (default: -1 <==> Use all tidal effects).\n\
-               (--modeldomain)                 domain the waveform template will be computed in (\"time\" or \"frequency\"). If not given will use LALSim to decide\n\
-               (--spinAligned or --aligned-spin)  template will assume spins aligned with the orbital angular momentum.\n\
-               (--singleSpin)                  template will assume only the spin of the most massive binary component exists.\n\
-               (--noSpin, --disable-spin)      template will assume no spins (giving this will void spinOrder!=0) \n\
-               \n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               --- Starting Parameters ------------------------------------------------------------------------------------------\n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               You can generally have MCMC chains to start from a given parameter value by using --parname VALUE. Names currently known to the code are:\n\
-                 time                         Waveform time (overrides random about trigtime).\n\
-                 chirpmas                     Chirpmass\n\
-                 eta                          Symmetric massratio (needs --use-eta)\n\
-                 q                            Asymmetric massratio (a.k.a. q=m2/m1 with m1>m2)\n\
-                 phase                        Coalescence phase.\n\
-                 theta_jn                     Angle between J and line of sight [rads]\n\
-                 distance                     Distance [Mpc]\n\
-                 logdistance                  Log Distance (requires --use-logdistance)\n\
-                 rightascension               Rightascensions\n\
-                 declination                  Declination.\n\
-                 polarisation                 Polarisation angle.\n\
-               * Spin Parameters:\n\
-                 a1                           Spin1 magnitude (for precessing spins)\n\
-                 a_spin1                      Spin1 magnitude (for aligned spins)\n\
-                 a2                           Spin2 magnitude (for precessing spins)\n\
-                 a_spin2                      Spin2 magnitude (for aligned spins)\n\
-                 tilt_spin1                   Angle between spin1 and orbital angular momentum\n\
-                 tilt_spin2                   Angle between spin2 and orbital angular momentum \n\
-                 phi_12                       Difference between spins' azimuthal angles \n\
-                 phi_jl                       Difference between total and orbital angular momentum azimuthal angles\n\
-               * Equation of State parameters (requires --use-tidal or --use-tidalT):\n\
-                 lambda1                      lambda1.\n\
-                 lambda2                      lambda2.\n\
-                 lambdaT                      lambdaT.\n\
-                 dLambdaT                     dLambdaT.\n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               --- Prior Arguments ----------------------------------------------------------------------------------------------\n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               You can generally use --paramname-min MIN --paramname-max MAX to set the prior range for the parameter paramname\n\
-               The names known to the code are listed below.\n\
-               Component masses, total mass and time have dedicated options listed here:\n\n\
-               (--trigtime time)                       Center of the prior for the time variable.\n\
-               (--comp-min min)                        Minimum component mass (1.0).\n\
-               (--comp-max max)                        Maximum component mass (30.0).\n\
-               (--mtotal-min min)                      Minimum total mass (2.0).\n\
-               (--mtotal-max max)                      Maximum total mass (35.0).\n\
-               (--dt time)                             Width of time prior, centred around trigger (0.2s).\n\
-               (--malmquistPrior)                      Rejection sample based on SNR of template \n\
-               (--marginal-distance)                   Returns Dl samples from the marginalised likelihood rather than the posterior.\n\
-               \n\
-               (--varyFlow, --flowMin, --flowMax)       Allow the lower frequency bound of integration to vary in given range.\n\
-               (--pinparams)                            List of parameters to set to injected values [mchirp,asym_massratio,etc].\n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               --- Fix Parameters ----------------------------------------------------------------------------------------------\n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               You can generally fix a parameter to be fixed to a given values by using both --paramname VALUE and --fix-paramname\n\
-               where the known names have been listed above\n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               --- Spline Calibration Model -------------------------------------------------------------------------------------\n\
-               ------------------------------------------------------------------------------------------------------------------\n\
-               (--enable-spline-calibration)            Enable cubic-spline calibration error model.\n\
-               (--spline-calibration-nodes N)           Set the number of spline nodes per detector (default 5)\n\
-               (--spline-calibration-amp-uncertainty X) Set the prior on relative amplitude uncertainty (default 0.1)\n\
-               (--spline-calibration-phase-uncertainty X) Set the prior on phase uncertanity in degrees (default 5)\n";
-
+\n\
+------------------------------------------------------------------------------------------------------------------\n\
+--- Injection Arguments ------------------------------------------------------------------------------------------\n\
+------------------------------------------------------------------------------------------------------------------\n\
+(--inj injections.xml)          Injection XML file to use.\n\
+(--event N)                     Event number from Injection XML file to use.\n\
+\n\
+------------------------------------------------------------------------------------------------------------------\n\
+--- Template Arguments -------------------------------------------------------------------------------------------\n\
+------------------------------------------------------------------------------------------------------------------\n\
+(--use-eta)                    Jump in symmetric mass ratio eta, instead of q=m1/m2 (m1>m2).\n\
+(--use-logdistance)             Jump in log(distance) instead of distance.\n\
+(--approx)                      Specify a template approximant and phase order to use.\n\
+                               (default TaylorF2threePointFivePN). Available approximants:\n\
+                               default modeldomain=\"time\": GeneratePPN, TaylorT1, TaylorT2, TaylorT3, TaylorT4,\n\
+                                                           EOB, EOBNR, EOBNRv2, EOBNRv2HM, SEOBNRv1, SpinTaylor,\n\
+                                                           SpinQuadTaylor, SpinTaylorFrameless, SpinTaylorT4,\n\
+                                                           PhenSpinTaylorRD, NumRel.\n\
+                               default modeldomain=\"frequency\": TaylorF1, TaylorF2, TaylorF2RedSpin, \n\
+                                                                TaylorF2RedSpinTidal, IMRPhenomA, IMRPhenomB, IMRPhenomP.\n\
+(--amporder PNorder)            Specify a PN order in amplitude to use (defaults: LALSimulation: max available; LALInspiral: newtownian).\n\
+(--fref f_ref)                   Specify a reference frequency at which parameters are defined (default 100).\n\
+(--use-tidal)                   Enables tidal corrections, only with LALSimulation.\n\
+(--use-tidalT)                  Enables reparmeterized tidal corrections, only with LALSimulation.\n\
+(--spinOrder PNorder)           Specify twice the PN order (e.g. 5 <==> 2.5PN) of spin effects to use, only for LALSimulation (default: -1 <==> Use all spin effects).\n\
+(--tidalOrder PNorder)          Specify twice the PN order (e.g. 10 <==> 5PN) of tidal effects to use, only for LALSimulation (default: -1 <==> Use all tidal effects).\n\
+(--modeldomain)                 domain the waveform template will be computed in (\"time\" or \"frequency\"). If not given will use LALSim to decide\n\
+(--spinAligned or --aligned-spin)  template will assume spins aligned with the orbital angular momentum.\n\
+(--singleSpin)                  template will assume only the spin of the most massive binary component exists.\n\
+(--noSpin, --disable-spin)      template will assume no spins (giving this will void spinOrder!=0) \n\
+\n\
+------------------------------------------------------------------------------------------------------------------\n\
+--- Starting Parameters ------------------------------------------------------------------------------------------\n\
+------------------------------------------------------------------------------------------------------------------\n\
+You can generally have MCMC chains to start from a given parameter value by using --parname VALUE. Names currently known to the code are:\n\
+ time                         Waveform time (overrides random about trigtime).\n\
+ chirpmas                     Chirpmass\n\
+ eta                          Symmetric massratio (needs --use-eta)\n\
+ q                            Asymmetric massratio (a.k.a. q=m2/m1 with m1>m2)\n\
+ phase                        Coalescence phase.\n\
+ theta_jn                     Angle between J and line of sight [rads]\n\
+ distance                     Distance [Mpc]\n\
+ logdistance                  Log Distance (requires --use-logdistance)\n\
+ rightascension               Rightascensions\n\
+ declination                  Declination.\n\
+ polarisation                 Polarisation angle.\n\
+* Spin Parameters:\n\
+ a1                           Spin1 magnitude (for precessing spins)\n\
+ a_spin1                      Spin1 magnitude (for aligned spins)\n\
+ a2                           Spin2 magnitude (for precessing spins)\n\
+ a_spin2                      Spin2 magnitude (for aligned spins)\n\
+ tilt_spin1                   Angle between spin1 and orbital angular momentum\n\
+ tilt_spin2                   Angle between spin2 and orbital angular momentum \n\
+ phi_12                       Difference between spins' azimuthal angles \n\
+ phi_jl                       Difference between total and orbital angular momentum azimuthal angles\n\
+* Equation of State parameters (requires --use-tidal or --use-tidalT):\n\
+ lambda1                      lambda1.\n\
+ lambda2                      lambda2.\n\
+ lambdaT                      lambdaT.\n\
+ dLambdaT                     dLambdaT.\n\
+------------------------------------------------------------------------------------------------------------------\n\
+--- Prior Arguments ----------------------------------------------------------------------------------------------\n\
+------------------------------------------------------------------------------------------------------------------\n\
+You can generally use --paramname-min MIN --paramname-max MAX to set the prior range for the parameter paramname\n\
+The names known to the code are listed below.\n\
+Component masses, total mass and time have dedicated options listed here:\n\n\
+(--trigtime time)                       Center of the prior for the time variable.\n\
+(--comp-min min)                        Minimum component mass (1.0).\n\
+(--comp-max max)                        Maximum component mass (30.0).\n\
+(--mtotal-min min)                      Minimum total mass (2.0).\n\
+(--mtotal-max max)                      Maximum total mass (35.0).\n\
+(--dt time)                             Width of time prior, centred around trigger (0.2s).\n\
+(--malmquistPrior)                      Rejection sample based on SNR of template \n\
+(--marginal-distance)                   Returns Dl samples from the marginalised likelihood rather than the posterior.\n\
+\n\
+(--varyFlow, --flowMin, --flowMax)       Allow the lower frequency bound of integration to vary in given range.\n\
+(--pinparams)                            List of parameters to set to injected values [mchirp,asym_massratio,etc].\n\
+------------------------------------------------------------------------------------------------------------------\n\
+--- Fix Parameters ----------------------------------------------------------------------------------------------\n\
+------------------------------------------------------------------------------------------------------------------\n\
+You can generally fix a parameter to be fixed to a given values by using both --paramname VALUE and --fix-paramname\n\
+where the known names have been listed above\n\
+\n";
 
   /* Print command line arguments if state was not allocated */
   if(state==NULL)
@@ -474,7 +467,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state)
   LALPNOrder PhaseOrder=-1;
   LALPNOrder AmpOrder=-1;
   Approximant approx=NumApproximants;
-  REAL8 fRef = 100.0;
+  REAL8 f_ref = 100.0;
   LALInferenceIFOData *dataPtr;
   UINT4 event=0;
   UINT4 i=0;
@@ -610,7 +603,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state)
   }
 
   ppt=LALInferenceGetProcParamVal(commandLine, "--fref");
-  if (ppt) fRef = atof(ppt->value);
+  if (ppt) f_ref = atof(ppt->value);
 
   ppt=LALInferenceGetProcParamVal(commandLine,"--modeldomain");
   if(ppt){
@@ -667,7 +660,7 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state)
   LALInferenceAddVariable(model->params, "LAL_APPROXIMANT", &approx,        LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(model->params, "LAL_PNORDER",     &PhaseOrder,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(model->params, "LAL_AMPORDER",     &AmpOrder,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
-  LALInferenceAddVariable(model->params, "fref", &fRef, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(model->params, "f_ref", &f_ref, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
   /* flow handling */
   REAL8 fLow = state->data->fLow;
@@ -675,11 +668,11 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state)
   if(ppt){
     REAL8 fLow_min = fLow;
     REAL8 fLow_max = 200.0;
-    if(LALInferenceCheckVariable(model->params,"fref"))
-      fRef = *(REAL8*)LALInferenceGetVariable(model->params, "fref");
-      if (fRef > 0.0 && fLow_max > fRef) {
-        fprintf(stdout,"WARNING: flow can't go higher than the reference frequency.  Setting flow-max to %f\n",fRef);
-        fLow_max = fRef;
+    if(LALInferenceCheckVariable(model->params,"f_ref"))
+      f_ref = *(REAL8*)LALInferenceGetVariable(model->params, "f_ref");
+      if (f_ref > 0.0 && fLow_max > f_ref) {
+        fprintf(stdout,"WARNING: flow can't go higher than the reference frequency.  Setting flow-max to %f\n",f_ref);
+        fLow_max = f_ref;
       }
     LALInferenceRegisterUniformVariableREAL8(state, model->params, "flow", fLow, fLow_min, fLow_max, LALINFERENCE_PARAM_LINEAR);
   } else {
@@ -1527,17 +1520,22 @@ void LALInferenceInitMassVariables(LALInferenceRunState *state){
   /* Over-ride component masses */
   ppt=LALInferenceGetProcParamVal(commandLine,"--comp-min");
   //if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--compmin");
-  if(ppt)	mMin=atof(ppt->value);
+  if(ppt){
+          mMin=atof(ppt->value);
+          MTotMin=2.0*mMin;
+  }
   
   ppt=LALInferenceGetProcParamVal(commandLine,"--comp-max");
   //if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--compmax");
-  if(ppt)	mMax=atof(ppt->value);
+  if(ppt){
+          mMax=atof(ppt->value);
+          MTotMax=2.0*mMax;
+  }
+
   ppt=LALInferenceGetProcParamVal(commandLine,"--mtotal-max");
-  //if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--mtotalmax");
   if(ppt)	MTotMax=atof(ppt->value);
 
   ppt=LALInferenceGetProcParamVal(commandLine,"--mtotal-min");
-  //if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--mtotalmin");
   if(ppt)	MTotMin=atof(ppt->value);
   LALInferenceAddVariable(priorArgs,"component_min",&mMin,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(priorArgs,"component_max",&mMax,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
@@ -1553,25 +1551,25 @@ void LALInferenceCheckApproximantNeeds(LALInferenceRunState *state,Approximant a
   REAL8 min,max;
   UINT4 q=0;
 
-  if (LALInferenceCheckVariable(state->priorArgs,"q")){
+  if (LALInferenceCheckVariable(state->priorArgs,"q_min")){
     LALInferenceGetMinMaxPrior(state->priorArgs, "q", &min, &max);
     q=1;
   }
-  else if (LALInferenceCheckVariable(state->priorArgs,"eta"))
+  else if (LALInferenceCheckVariable(state->priorArgs,"eta_min"))
     LALInferenceGetMinMaxPrior(state->priorArgs, "eta", &min, &max);
   
   /* IMRPhenomP only supports q > 1/10. Set prior consequently  */
   if (q==1 && approx==IMRPhenomP && min<1./10.){
     min=1.0/10.;
-    LALInferenceRemoveVariable(state->priorArgs,"q-min");
-    LALInferenceAddVariable(state->priorArgs,"q-min",&min,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
-    XLALPrintWarning("WARNING: IMRPhenomP only supports mass ratios up to 10 ( suggested max: 4). Changing the min prior for q to 1/10\n");
+    LALInferenceRemoveVariable(state->priorArgs,"q_min");
+    LALInferenceAddVariable(state->priorArgs,"q_min",&min,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
+    fprintf(stdout,"WARNING: IMRPhenomP only supports mass ratios up to 10 ( suggested max: 4). Changing the min prior for q to 1/10\n");
   }
   if (q==0 && approx==IMRPhenomP && min<0.08264462810){
      min=0.08264462810;  //(that is eta for a 1-10 system)
-     LALInferenceRemoveVariable(state->priorArgs,"eta-min");
-     LALInferenceAddVariable(state->priorArgs,"eta-min",&min,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
-     XLALPrintWarning("WARNING: IMRPhenomP only supports mass ratios up to 10 ( suggested max: 4). Changing the min prior for eta to 0.083\n");
+     LALInferenceRemoveVariable(state->priorArgs,"eta_min");
+     LALInferenceAddVariable(state->priorArgs,"eta_min",&min,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
+     fprintf(stdout,"WARNING: IMRPhenomP only supports mass ratios up to 10 ( suggested max: 4). Changing the min prior for eta to 0.083\n");
   }
 
   (void) max;

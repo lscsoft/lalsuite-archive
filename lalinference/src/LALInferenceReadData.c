@@ -129,7 +129,7 @@ REAL8 interpolate(struct fvec *fvec, REAL8 f){
 	{
 		return (fvec[i-1].x);
 	}
-  //if(i==0){return (fvec[0].x);}
+//  if(i==0){return (fvec[0].x);}
 	a=(fvec[i].f-f)/(fvec[i].f-fvec[i-1].f);
 	delta=fvec[i].x-fvec[i-1].x;
 	return (fvec[i-1].x + delta*a);
@@ -235,16 +235,16 @@ static REAL8TimeSeries *readTseries(LALCache *cache, CHAR *channel, LIGOTimeGPS 
 }
 
 /**
- * Parse the command line looking for options of the kind --ifo H1 --H1-channel H1:LDAS_STRAIN --H1-cache H1.cache --H1-flow 40.0 --H1-fhigh 4096.0 --H1-timeslide 100.0 ...
+ * Parse the command line looking for options of the kind --ifo H1 --H1-channel H1:LDAS_STRAIN --H1-cache H1.cache --H1-flow 40.0 --H1-fhigh 4096.0 --H1-timeslide 100.0 --H1-psd psdascii.txt ...
  * It is necessary to use this method instead of the old method for the pipeline to work in DAX mode. Warning: do not mix options between
  * the old and new style.
  */
-static INT4 getDataOptionsByDetectors(ProcessParamsTable *commandLine, char ***ifos, char ***caches, char ***channels, char ***flows , char ***fhighs, char ***timeslides, UINT4 *N)
+static INT4 getDataOptionsByDetectors(ProcessParamsTable *commandLine, char ***ifos, char ***caches, char ***channels, char ***flows , char ***fhighs, char ***timeslides, char ***psds, UINT4 *N)
 {
     /* Check that the input has no lists with [ifo,ifo] */
     ProcessParamsTable *this=commandLine;
     UINT4 i=0;
-    *caches=*ifos=*channels=*flows=*fhighs=*timeslides=NULL;
+    *caches=*ifos=*channels=*flows=*fhighs=*timeslides=*psds=NULL;
     *N=0;
     char tmp[128];
     if(!this) {fprintf(stderr,"No command line arguments given!\n"); exit(1);}
@@ -263,6 +263,7 @@ static INT4 getDataOptionsByDetectors(ProcessParamsTable *commandLine, char ***i
     *flows=XLALCalloc(*N,sizeof(REAL8));
     *fhighs=XLALCalloc(*N,sizeof(REAL8));
     *timeslides=XLALCalloc(*N,sizeof(REAL8));
+    *psds=XLALCalloc(*N,sizeof(char *));
 
     int globFrames=!!LALInferenceGetProcParamVal(commandLine,"--glob-frame-data");
 
@@ -297,6 +298,10 @@ static INT4 getDataOptionsByDetectors(ProcessParamsTable *commandLine, char ***i
         this=LALInferenceGetProcParamVal(commandLine,tmp);
         (*timeslides)[i]=XLALStringDuplicate(this?this->value:"0.0");
 
+        /* PSD */
+        sprintf(tmp,"--%s-psd",(*ifos)[i]);
+        this=LALInferenceGetProcParamVal(commandLine,tmp);
+        (*psds)[i]=this?XLALStringDuplicate(this->value):NULL;
     }
     return(1);
 }
@@ -423,7 +428,7 @@ void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, ProcessPar
  --psdstart GPStime             GPS start time of PSD estimation data\n\
  --psdlength length             length of PSD estimation data in seconds\n\
  --seglen length                length of segments for PSD estimation and analysis in seconds\n\
-(--dont-dump-psd                If given, no ascii file with the PSD will be generated\n\
+(--dont-dump-extras             If given, won't save PSD and SNR files\n\
 (--trigtime GPStime)            GPS time of the trigger to analyse (optional when using --margtime or --margtimephi)\n\
 (--segment-start)               GPS time of the start of the segment (optional when --trigtime given, default is seglen-2 s before --trigtime)\n\
 (--srate rate)                  Downsample data to rate in Hz (4096.0,)\n\
@@ -431,6 +436,7 @@ void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, ProcessPar
 (--IFO1-flow freq1 [--IFO2-flow freq2 ...])      Specify lower frequency cutoff for overlap integral (40.0)\n\
 (--IFO1-fhigh freq1 [--IFO2-fhigh freq2 ...])     Specify higher frequency cutoff for overlap integral (Nyquist freq 0.5*srate)\n\
 (--IFO1-channel chan1 [--IFO2-channel chan2 ...])   Specify channel names when reading cache files\n\
+(--IFO1-psd psd1-ascii.txt [--IFO2-psd psd2-ascii.txt ...])  Read in PSD from ascii file. This is not equivalent to using --IFO1-cache interp:file.txt since the former won't use the ascii psd to generate fake noise. \n\
 (--dataseed number)             Specify random seed to use when generating data\n\
 (--lalinspiralinjection)      Enables injections via the LALInspiral package\n\
 (--inj-fref)                    Reference frequency for parameters in injection XML (default 100Hz)\n\
@@ -440,7 +446,6 @@ void LALInferencePrintDataWithInjection(LALInferenceIFOData *IFOdata, ProcessPar
 (--inj-dlambdaT                  value of dlambdaT to be injected (0)\n\
 (--inj-spinOrder PNorder)           Specify twice the PN order (e.g. 5 <==> 2.5PN) of spin effects to use, only for LALSimulation (default: -1 <==> Use all spin effects).\n\
 (--inj-tidalOrder PNorder)          Specify twice the PN order (e.g. 10 <==> 5PN) of tidal effects to use, only for LALSimulation (default: -1 <==> Use all tidal effects).\n\
-(--snrpath) 		              	Set a folder where to write a file with the SNRs being injected\n\
 (--0noise)                      Sets the noise realisation to be identically zero (for the fake caches above only)\n"
 
 
@@ -494,7 +499,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     if(LALInferenceGetProcParamVal(commandLine,"--glob-frame-data")) globFrames=1;
 
     /* Check if the new style command line arguments are used */
-    INT4 dataOpts=getDataOptionsByDetectors(commandLine, &IFOnames, &caches, &channels, &fLows , &fHighs, &timeslides, &Nifo);
+    INT4 dataOpts=getDataOptionsByDetectors(commandLine, &IFOnames, &caches, &channels, &fLows , &fHighs, &timeslides,&psds, &Nifo);
     /* Check for options if not given in the new style */
     if(!dataOpts){
         if(!(globFrames||LALInferenceGetProcParamVal(commandLine,"--cache"))||!(LALInferenceGetProcParamVal(commandLine,"--IFO")||LALInferenceGetProcParamVal(commandLine,"--ifo")))
@@ -516,6 +521,10 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         if(ppt){
             LALInferenceParseCharacterOptionString(ppt->value,&fHighs,&NfHigh);
         }
+
+        ppt=LALInferenceGetProcParamVal(commandLine,"--psd");
+        if (ppt)  LALInferenceParseCharacterOptionString(ppt->value,&psds,&Npsd);
+
         if((ppt=LALInferenceGetProcParamVal(commandLine,"--timeslide"))) LALInferenceParseCharacterOptionString(ppt->value,&timeslides,&Ntimeslides);
         if(Nifo!=Ncache) {fprintf(stderr,"ERROR: Must specify equal number of IFOs and Cache files\n"); exit(1);}
         if(Nchannel!=0 && Nchannel!=Nifo) {fprintf(stderr,"ERROR: Please specify a channel for all caches, or omit to use the defaults\n"); exit(1);}
@@ -568,10 +577,6 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     if (LALInferenceGetProcParamVal(commandLine, "--spinspiralPSD")) {
         LALInferenceParseCharacterOptionString(LALInferenceGetProcParamVal(commandLine,"--spinspiralPSD")->value,&spinspiralPSD,&NspinspiralPSD);
     }    
-
-    if(LALInferenceGetProcParamVal(commandLine,"--psd")){
-        LALInferenceParseCharacterOptionString(LALInferenceGetProcParamVal(commandLine,"--psd")->value,&psds,&Npsd);
-    }
 
     if(LALInferenceGetProcParamVal(commandLine,"--dataseed")){
         procparam=LALInferenceGetProcParamVal(commandLine,"--dataseed");
@@ -984,7 +989,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
             }
             if(!cache) {fprintf(stderr,"ERROR: Cannot find any frame data!\n"); exit(1);}
-            if (LALInferenceGetProcParamVal(commandLine, "--psd")){
+            if (!((psds)==NULL || (psds[i])==NULL)){
                 interp=NULL;
                 char *interpfilename=&(psds[i][0]);
                 fprintf(stderr,"Reading PSD for %s using %s\n",IFOnames[i],interpfilename);
@@ -996,7 +1001,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
                 if(!IFOdata[i].oneSidedNoisePowerSpectrum) XLAL_ERROR_NULL(XLAL_EFUNC);
                 for(j=0;j<IFOdata[i].oneSidedNoisePowerSpectrum->data->length;j++)
                 {
-                    MetaNoiseFunc(&status,&(IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]),j*IFOdata[i].oneSidedNoisePowerSpectrum->deltaF,interp,NULL);
+                    MetaNoiseFunc(&status,&(IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]),j*IFOdata[i].oneSidedNoisePowerSpectrum->deltaF,interp,NULL); 
+                    //fprintf(stdout,"%lf\n",IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]);
                 }
             }else{
                 fprintf(stderr,"Estimating PSD for %s using %i segments of %i samples (%lfs)\n",IFOnames[i],nSegs,(int)seglen,SegmentLength);
@@ -1272,7 +1278,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         const UINT4 nameLength=FILENAME_MAX;
         char filename[nameLength];
         FILE *out;
-        ppt=LALInferenceGetProcParamVal(commandLine,"--dont-dump-psd");
+        ppt=LALInferenceGetProcParamVal(commandLine,"--dont-dump-extras");
         if (!ppt){
           ppt=LALInferenceGetProcParamVal(commandLine,"--outfile");
           if(ppt) {
@@ -1440,11 +1446,11 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	LALStatus status;
 	memset(&status,0,sizeof(status));
 	SimInspiralTable *injTable=NULL;
-    SimInspiralTable *injEvent=NULL;
+  SimInspiralTable *injEvent=NULL;
 	UINT4 Ninj=0;
 	UINT4 event=0;
 	UINT4 i=0,j=0;
-    REAL8 responseScale=1.0;
+  REAL8 responseScale=1.0;
 	LIGOTimeGPS injstart;
 	REAL8 SNR=0,NetworkSNR=0;
 	DetectorResponse det;
@@ -1459,11 +1465,10 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	LALInferenceIFOData *thisData=IFOdata->next;
 	REAL8 minFlow=IFOdata->fLow;
 	REAL8 MindeltaT=IFOdata->timeData->deltaT;
-    REAL8 InjSampleRate=1.0/MindeltaT;
+  REAL8 InjSampleRate=1.0/MindeltaT;
 	REAL4TimeSeries *injectionBuffer=NULL;
-    REAL8 padding=0.4; //default, set in LALInferenceReadData()
-	UINT4 SNR_flag=0; // Print SNRs to file
-    char SNRpath[FILENAME_MAX]="";
+  REAL8 padding=0.4; //default, set in LALInferenceReadData()
+  char SNRpath[FILENAME_MAX]="";
 
 	while(thisData){
           minFlow   = minFlow>thisData->fLow ? thisData->fLow : minFlow;
@@ -1477,13 +1482,10 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
     event= atoi(LALInferenceGetProcParamVal(commandLine,"--event")->value);
     fprintf(stdout,"Injecting event %d\n",event);
 	}
-    
-	if(LALInferenceGetProcParamVal(commandLine,"--snrpath")){
-                ppt = LALInferenceGetProcParamVal(commandLine,"--snrpath");
-                sprintf(SNRpath,"%s",ppt->value);
-				SNR_flag=1;
-				fprintf(stdout,"Writing SNRs in %s\n",SNRpath);
-	}
+
+	ppt = LALInferenceGetProcParamVal(commandLine,"--outfile");
+  sprintf(SNRpath,"%s_snr.txt",ppt->value);
+
 	Ninj=SimInspiralTableFromLIGOLw(&injTable,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
 	REPORTSTATUS(&status);
 	printf("Ninj %d\n", Ninj);
@@ -1760,10 +1762,10 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       XLALDestroyCOMPLEX16FrequencySeries(injF);
       thisData=thisData->next;
     }
-     if (SNR_flag){ /* If the user provided a path with --snrpath store a file with injected SNRs */
+    ppt=LALInferenceGetProcParamVal(commandLine,"--dont-dump-extras");
+    if (!ppt){
       PrintSNRsToFile(IFOdata , SNRpath);
     }
-
     NetworkSNR=sqrt(NetworkSNR);
     fprintf(stdout,"Network SNR of event %d = %g\n",event,NetworkSNR);
 
@@ -2278,15 +2280,15 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   memset(&status,0,sizeof(LALStatus));
   INT4 errnum;
   char SNRpath[FILENAME_MAX];
-  char SNR_flag=0;
   ProcessParamsTable *ppt=NULL;
 
-  if(LALInferenceGetProcParamVal(commandLine,"--snrpath")){
-                ppt = LALInferenceGetProcParamVal(commandLine,"--snrpath");
-                sprintf(SNRpath,"%s",ppt->value);
-				SNR_flag=1;
-				fprintf(stdout,"Writing SNRs in %s\n",SNRpath);
+  ppt=LALInferenceGetProcParamVal(commandLine,"--outfile");
+  if(!ppt){
+    fprintf(stderr,"Must specify --outfile <filename.dat>\n");
+    exit(1);
   }
+  char *outfile=ppt->value;
+  sprintf(SNRpath,"%s_snr.txt",outfile); 
 
   Approximant approximant = XLALGetApproximantFromString(inj_table->waveform);
   if( (int) approximant == XLAL_FAILURE)
@@ -2477,34 +2479,40 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
     fclose(outInj);
   }
   printf("injected Network SNR %.1f \n",sqrt(NetSNR));
-
-  if (SNR_flag){ /* If the user provided a path with --snrpath store a file with injected SNRs */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--dont-dump-extras");
+  if (!ppt){
     PrintSNRsToFile(IFOdata , SNRpath);
   }
-
   XLALDestroyCOMPLEX16FrequencySeries(hctilde);
   XLALDestroyCOMPLEX16FrequencySeries(hptilde);
 }
 
-
 static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , char SNRpath[] ){
   REAL8 NetSNR=0.0;
   LALInferenceIFOData *thisData=IFOdata;
+  int nIFO=0;
 
-  FILE * snrout = fopen(SNRpath,"a");
+  while(thisData){
+    thisData=thisData->next;
+    nIFO++;
+  }
+  FILE * snrout = fopen(SNRpath,"w");
   if(!snrout){
     fprintf(stderr,"Unable to open the path %s for writing SNR files\n",SNRpath);
     fprintf(stderr,"Error code %i: %s\n",errno,strerror(errno));
     exit(errno);
   }
-
-  thisData=IFOdata; // restart from the first IFO
+  thisData=IFOdata;
   while(thisData){
-      NetSNR+=(thisData->SNR*thisData->SNR);
-      thisData=thisData->next;
+    fprintf(snrout,"%s:\t %4.2f\n",thisData->name,thisData->SNR);
+    nIFO++;
+    NetSNR+=(thisData->SNR*thisData->SNR);
+    thisData=thisData->next;
   }
-
-  fprintf(snrout,"%4.2f\n",sqrt(NetSNR));
+  if (nIFO>1){ 
+    fprintf(snrout,"Network:\t");
+    fprintf(snrout,"%4.2f\n",sqrt(NetSNR));
+  }
   fclose(snrout);
 }
 
