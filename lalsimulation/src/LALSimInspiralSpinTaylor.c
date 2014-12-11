@@ -126,15 +126,15 @@ static int XLALSimInspiralSpinTaylorT2Setup(
     LALSimInspiralTidalOrder tideO, INT4 phaseO);
 static int XLALSimInspiralSpinTaylorDriver(REAL8TimeSeries **hplus,
     REAL8TimeSeries **hcross, REAL8 phiRef, REAL8 v0, REAL8 deltaT,
-    REAL8 m1, REAL8 m2, REAL8 fStart, REAL8 fRef, REAL8 r,
+    REAL8 m1, REAL8 m2, REAL8 fStart, REAL8 fRef, REAL8 f_max, REAL8 r,
     REAL8 s1x, REAL8 s1y, REAL8 s1z, REAL8 s2x, REAL8 s2y, REAL8 s2z,
     REAL8 lnhatx, REAL8 lnhaty, REAL8 lnhatz, REAL8 e1x, REAL8 e1y, REAL8 e1z,
     REAL8 lambda1, REAL8 lambda2, REAL8 quadparam1, REAL8 quadparam2,
     LALSimInspiralSpinOrder spinO, LALSimInspiralTidalOrder tideO,
     int phaseO, int amplitudeO, Approximant approx);
 static int XLALSimInspiralSpinTaylorPNEvolveOrbitIrregularIntervals(
-    REAL8Array **yout, REAL8 m1, REAL8 m2, REAL8 fStart, REAL8 fEnd, REAL8 s1x,
-    REAL8 s1y, REAL8 s1z, REAL8 s2x, REAL8 s2y, REAL8 s2z, REAL8 lnhatx,
+    REAL8Array **yout, REAL8 m1, REAL8 m2, REAL8 fStart, REAL8 fEnd,
+    REAL8 s1x, REAL8 s1y, REAL8 s1z, REAL8 s2x, REAL8 s2y, REAL8 s2z, REAL8 lnhatx,
     REAL8 lnhaty, REAL8 lnhatz, REAL8 e1x, REAL8 e1y, REAL8 e1z, REAL8 lambda1,
     REAL8 lambda2, REAL8 quadparam1, REAL8 quadparam2,
     LALSimInspiralSpinOrder spinO, LALSimInspiralTidalOrder tideO, INT4 phaseO,
@@ -499,8 +499,8 @@ static int XLALSimInspiralSpinTaylorT4Setup(
     REAL8 m2,                       /**< mass of body 2 (kg) */
     REAL8 fStart,                   /**< Starting GW freq. (Hz) */
     REAL8 fEnd,                     /**< Ending GW freq. (Hz), 0 means integrate forwards as far as possible */
-	REAL8 lambda1,                  /**< (tidal deformability of mass 1) / (mass of body 1)^5 (dimensionless) */
-	REAL8 lambda2,                  /**< (tidal deformability of mass 2) / (mass of body 2)^5 (dimensionless) */
+    REAL8 lambda1,                  /**< (tidal deformability of mass 1) / (mass of body 1)^5 (dimensionless) */
+    REAL8 lambda2,                  /**< (tidal deformability of mass 2) / (mass of body 2)^5 (dimensionless) */
     REAL8 quadparam1,               /**< phenom. parameter describing induced quad. moment of body 1 (=1 for BHs, ~2-12 for NSs) */
     REAL8 quadparam2,               /**< phenom. parameter describing induced quad. moment of body 2 (=1 for BHs, ~2-12 for NSs) */
 	LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
@@ -778,6 +778,9 @@ int XLALSimInspiralSpinTaylorPNEvolveOrbit(
     REAL8 norm, dtStart, dtEnd, lengths, wEnd, m1sec, m2sec, Msec, Mcsec, fTerm;
     LIGOTimeGPS tStart = LIGOTIMEGPSZERO;
 
+    if (fEnd > 0.5/deltaT)
+                XLAL_ERROR(XLAL_EDOM);
+
     /* Check start and end frequencies are positive */
     if( fStart <= 0. )
     {
@@ -816,7 +819,7 @@ int XLALSimInspiralSpinTaylorPNEvolveOrbit(
     if( approx == SpinTaylorT4 )
     {
         XLALSimInspiralSpinTaylorTxCoeffs paramsT4;
-        XLALSimInspiralSpinTaylorT4Setup(&paramsT4, m1, m2, fStart, fEnd,
+        XLALSimInspiralSpinTaylorT4Setup(&paramsT4, m1, m2, fStart, fEnd, 
                 lambda1, lambda2, quadparam1, quadparam2, spinO, tideO, phaseO);
         params = (void *) &paramsT4;
     }
@@ -1693,6 +1696,7 @@ int XLALSimInspiralSpinTaylorT4(
 	REAL8 m2,                       /**< mass of companion 2 (kg) */
 	REAL8 fStart,                   /**< start GW frequency (Hz) */
 	REAL8 fRef,                     /**< reference GW frequency (Hz) */
+	REAL8 f_max,                    /**< User-specified max frequency (Hz) */
 	REAL8 r,                        /**< distance of source (m) */
 	REAL8 s1x,                      /**< initial value of S1x */
 	REAL8 s1y,                      /**< initial value of S1y */
@@ -1718,7 +1722,7 @@ int XLALSimInspiralSpinTaylorT4(
 {
     Approximant approx = SpinTaylorT4;
     int n = XLALSimInspiralSpinTaylorDriver(hplus, hcross, phiRef, v0, deltaT,
-            m1, m2, fStart, fRef, r, s1x, s1y, s1z, s2x, s2y, s2z,
+            m1, m2, fStart, fRef, f_max, r, s1x, s1y, s1z, s2x, s2y, s2z,
             lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2,
             quadparam1, quadparam2, spinO, tideO, phaseO, amplitudeO, approx);
 
@@ -1761,6 +1765,7 @@ int XLALSimInspiralSpinTaylorT2(
 	REAL8 m2,                       /**< mass of companion 2 (kg) */
 	REAL8 fStart,                   /**< start GW frequency (Hz) */
 	REAL8 fRef,                     /**< reference GW frequency (Hz) */
+	REAL8 f_max,                    /**< User-specified max frequency */
 	REAL8 r,                        /**< distance of source (m) */
 	REAL8 s1x,                      /**< initial value of S1x */
 	REAL8 s1y,                      /**< initial value of S1y */
@@ -1786,7 +1791,7 @@ int XLALSimInspiralSpinTaylorT2(
 {
     Approximant approx = SpinTaylorT2;
     int n = XLALSimInspiralSpinTaylorDriver(hplus, hcross, phiRef, v0, deltaT,
-            m1, m2, fStart, fRef, r, s1x, s1y, s1z, s2x, s2y, s2z,
+            m1, m2, fStart, fRef, f_max, r, s1x, s1y, s1z, s2x, s2y, s2z,
             lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2,
             quadparam1, quadparam2, spinO, tideO, phaseO, amplitudeO, approx);
 
@@ -1806,6 +1811,7 @@ static int XLALSimInspiralSpinTaylorDriver(
 	REAL8 m2,                       /**< mass of companion 2 (kg) */
 	REAL8 fStart,                   /**< start GW frequency (Hz) */
 	REAL8 fRef,                     /**< reference GW frequency (Hz) */
+	REAL8 f_max,                    /**< Maximum frequency of the waveform (Hz) 0 defaults to ISCO */
 	REAL8 r,                        /**< distance of source (m) */
 	REAL8 s1x,                      /**< initial value of S1x */
 	REAL8 s1y,                      /**< initial value of S1y */
@@ -1838,6 +1844,9 @@ static int XLALSimInspiralSpinTaylorDriver(
     /* The Schwarzschild ISCO frequency - for sanity checking fRef */
     REAL8 fISCO = pow(LAL_C_SI,3) / (pow(6.,3./2.)*LAL_PI*(m1+m2)*LAL_G_SI);
 
+    /* f_maxHELP: set to fISCO or leave it to zero which should mean integrate to the maximum possible frequency? */
+    /*  if(f_max==0) f_max=fISCO; */
+
     /* Sanity check fRef value */
     if( fRef < 0. )
     {
@@ -1845,16 +1854,23 @@ static int XLALSimInspiralSpinTaylorDriver(
                 __func__, fRef);
         XLAL_ERROR(XLAL_EINVAL);
     }
+    if( f_max < 0. )
+    {
+        XLALPrintError("XLAL Error - %s: f_max = %f must be >= 0\n",
+                __func__, f_max);
+        XLAL_ERROR(XLAL_EINVAL);
+    }
+    /* f_maxHELP: more checks necessary? */
     if( fRef != 0. && fRef < fStart )
     {
         XLALPrintError("XLAL Error - %s: fRef = %f must be > fStart = %f\n", 
                 __func__, fRef, fStart);
         XLAL_ERROR(XLAL_EINVAL);
     }
-    if( fRef >= fISCO )
+    if( fRef >= fISCO || f_max>= fISCO)
     {
-        XLALPrintError("XLAL Error - %s: fRef = %f must be < Schwar. ISCO=%f\n",
-                __func__, fRef, fISCO);
+        XLALPrintError("XLAL Error - %s: fRef =%f and f_max = %f must be < Schwar. ISCO=%f\n",
+                __func__, fRef, f_max, fISCO);
         XLAL_ERROR(XLAL_EINVAL);
     }
 
@@ -1862,7 +1878,8 @@ static int XLALSimInspiralSpinTaylorDriver(
     if( fRef < LAL_REAL4_EPS )
     {
         fS = fStart;
-        fE = 0.;
+        fE = f_max;
+	/* fE= 0.; */
         /* Evolve the dynamical variables */
         n = XLALSimInspiralSpinTaylorPNEvolveOrbit(&V, &Phi,
                 &S1x, &S1y, &S1z, &S2x, &S2y, &S2z, 
@@ -1884,7 +1901,8 @@ static int XLALSimInspiralSpinTaylorDriver(
     else if( fabs(fRef - fStart) < LAL_REAL4_EPS )
     {
         fS = fStart;
-        fE = 0.;
+	fE = f_max;
+        /* fE = 0.; */
         /* Evolve the dynamical variables */
         n = XLALSimInspiralSpinTaylorPNEvolveOrbit(&V, &Phi,
                 &S1x, &S1y, &S1z, &S2x, &S2y, &S2z, 
@@ -1910,7 +1928,8 @@ static int XLALSimInspiralSpinTaylorDriver(
         REAL8TimeSeries *LNhatx2=NULL, *LNhaty2=NULL, *LNhatz2=NULL, *E1x2=NULL, *E1y2=NULL, *E1z2=NULL;
 
         /* Integrate backward to fStart */
-        fS = fRef;
+        fS = fRef; 
+	/* fS = f_max; */
         fE = fStart;
         n = XLALSimInspiralSpinTaylorPNEvolveOrbit(&V1, &Phi1,
                 &S1x1, &S1y1, &S1z1, &S2x1, &S2y1, &S2z1, 
@@ -1928,7 +1947,8 @@ static int XLALSimInspiralSpinTaylorDriver(
 
         /* Integrate forward to end of waveform */
         fS = fRef;
-        fE = 0.;
+        fE = f_max;
+	/* fE = 0.; */
         n = XLALSimInspiralSpinTaylorPNEvolveOrbit(&V2, &Phi2,
                 &S1x2, &S1y2, &S1z2, &S2x2, &S2y2, &S2z2, 
                 &LNhatx2, &LNhaty2, &LNhatz2, &E1x2, &E1y2, &E1z2,
@@ -2102,6 +2122,7 @@ static int XLALSimInspiralSpinTaylorPNEvolveOrbitIrregularIntervals(
         REAL8 m2,                       /**< mass of companion 2 (kg) */
         REAL8 fStart,                   /**< starting GW frequency */
         REAL8 fEnd,                     /**< ending GW frequency, fEnd=0 means integrate as far forward as possible */
+/*	REAL8 f_max, */                    /**< Maximum frequency of the waveform (Hz) 0 defaults to ISCO */
         REAL8 s1x,                      /**< initial value of S1x */
         REAL8 s1y,                      /**< initial value of S1y */
         REAL8 s1z,                      /**< initial value of S1z */

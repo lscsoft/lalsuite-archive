@@ -2064,6 +2064,7 @@ int XLALSimInspiralSpinTaylorT4(
 	REAL8 m2,                       /**< mass of companion 2 (kg) */
 	REAL8 fStart,                   /**< start GW frequency (Hz) */
 	REAL8 fRef,                     /**< reference GW frequency (Hz) */
+	REAL8 f_max,			/**< User-specified max frequency */ 
 	REAL8 r,                        /**< distance of source (m) */
 	REAL8 s1x,                      /**< initial value of S1x */
 	REAL8 s1y,                      /**< initial value of S1y */
@@ -2118,6 +2119,7 @@ int XLALSimInspiralSpinTaylorT2(
 	REAL8 m2,                       /**< mass of companion 2 (kg) */
 	REAL8 fStart,                   /**< start GW frequency (Hz) */
 	REAL8 fRef,                     /**< reference GW frequency (Hz) */
+	REAL8 f_max,                    /**< User-specified max frequency */
 	REAL8 r,                        /**< distance of source (m) */
 	REAL8 s1x,                      /**< initial value of S1x */
 	REAL8 s1y,                      /**< initial value of S1y */
