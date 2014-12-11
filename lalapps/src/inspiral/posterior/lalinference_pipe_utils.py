@@ -793,7 +793,10 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
           self.add_gracedb_log_node(respagenode,event.GID)
     if self.config.getboolean('analysis','coherence-test') and len(enginenodes[0].ifos)>1:
         if self.site!='local':
-          zipfilename='postproc_'+evstring+'.tar.gz'
+          if self.config.has_option('resultspage','archive'):
+            zipfilename=None
+          else:
+            zipfilename='postproc_'+evstring+'.tar.gz'
         else:
           zipfilename=None
         respagenode=self.add_results_page_node(resjob=self.cotest_results_page_job,outdir=pagedir,parent=mergenode,gzip_output=zipfilename)
@@ -824,7 +827,13 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             par_mergenodes.append(pmergenode)
             presultsdir=os.path.join(pagedir,ifo)
             mkdirs(presultsdir)
-            pzipfilename='postproc_'+evstring+'_'+ifo+'.tar.gz'
+            if self.site!='local':
+              if self.config.has_option('resultspage','archive'):
+                pzipfilename=None
+              else:
+                pzipfilename='postproc_'+evstring+'_'+ifo+'.tar.gz'
+            else:
+              pzipfilename=None
             subresnode=self.add_results_page_node(outdir=presultsdir,parent=pmergenode, gzip_output=pzipfilename)
             subresnode.set_psd_files(cotest_nodes[0].get_psd_files())
             subresnode.set_snr_file(cotest_nodes[0].get_snr_file())
@@ -842,7 +851,10 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         respagenode.set_bayes_coherent_incoherent(coherence_node.get_output_files()[0])
     else:
         if self.site!='local':
-          zipfilename='postproc_'+evstring+'.tar.gz'
+          if self.config.has_option('resultspage','archive'):
+            zipfilename=None
+          else:
+            zipfilename='postproc_'+evstring+'.tar.gz'
         else:
           zipfilename=None
         respagenode=self.add_results_page_node(outdir=pagedir,parent=mergenode,gzip_output=zipfilename)

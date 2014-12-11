@@ -7215,6 +7215,8 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
     if not skip:
       REAL8time=tbl.time_geocent_gps+1e-9*tbl.time_geocent_gps_ns
       GPStime=LIGOTimeGPS(REAL8time)
+      strainT.epoch=LIGOTimeGPS(round(REAL8time,0)-seglen)
+      strainF.epoch=LIGOTimeGPS(round(REAL8time,0)-seglen)
       f0=tbl.frequency
       q=tbl.q
       dur=tbl.duration
@@ -7273,7 +7275,13 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
           # copy in the dictionary
           inj_strains[ifo]["F"]['strain']=np.array([strainF.data.data[k] for k in arange(int(strainF.data.length))])
           inj_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
-
+        
+        twopit=2.*np.pi*(REAL8time-strainF.epoch)
+        for k in arange(strainF.data.length):
+          re = cos(twopit*deltaF*k)
+          im = -sin(twopit*deltaF*k)
+          inj_strains[ifo]["F"]['strain'][k]*= (re + 1j*im);
+        
   if pos is not None:
     
     # Select the maxP sample
@@ -7293,13 +7301,16 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
 
     # first check we have approx in posterior samples, otherwise skip 
     skip=0
+    
     try:
       approximant=int(pos['LAL_APPROXIMANT'].samples[which][0])
     except:
       skip=1
     if skip==0:
       GPStime=LIGOTimeGPS(REAL8time)
-
+      strainT.epoch=LIGOTimeGPS(round(REAL8time,0)-seglen)
+      strainF.epoch=LIGOTimeGPS(round(REAL8time,0)-seglen)
+      dur=np.nan
       q=pos['quality'].samples[which][0]
       f0=pos['frequency'].samples[which][0]
       try:
@@ -7332,6 +7343,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
           lalsim.SimBurstAddExtraParam(BurstExtraParams,"phase",phiRef)
         if phiRef and not BurstExtraParams:
           BurstExtraParams=lalsim.SimBurstCreateExtraParam("phase",phiRef)
+      
       if SimBurstImplementedFDApproximants(approximant):
         rec_domain='F'
         [plus,cross]=SimBurstChooseFDWaveform(deltaF, deltaT, f0, q,dur, f_min, f_max,hrss,polar_e_angle ,polar_e_ecc,BurstExtraParams, approximant)
@@ -7373,11 +7385,17 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
               strainF.data.data[k]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
             else:
               strainF.data.data[k]=0.0
-          #for j in arange(strainF.data.length):
-          #  strainF.data.data[j]/=WinNorm
+          if inj_domain=='T':
+            for j in arange(strainF.data.length):
+              strainF.data.data[j]/=WinNorm
           # copy in the dictionary
           rec_strains[ifo]["F"]['strain']=np.array([strainF.data.data[k] for k in arange(int(strainF.data.length))])
           rec_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
+        twopit=2.*np.pi*(REAL8time-strainF.epoch)
+        for k in arange(strainF.data.length):
+          re = cos(twopit*deltaF*k)
+          im = -sin(twopit*deltaF*k)
+          rec_strains[ifo]["F"]['strain'][k]*= (re + 1j*im);
 
   myfig=plt.figure(1,figsize=(18,13))
   
@@ -7415,7 +7433,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
             f=rec_strains[i]["F"]['x']
             mask=np.logical_and(f>=f_min,f<=plot_fmax)
             ys=data
-            ax.plot(f[mask],ys[mask].real,'.-',color=colors_rec[i],label='%s maP'%i)
+            ax.plot(f[mask],ys[mask].real,'*',color=colors_rec[i],label='%s maP'%i)
         else:
             data=rec_strains[i]["F"]['strain']
             f=rec_strains[i]["F"]['x']
@@ -7433,7 +7451,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
             f=inj_strains[i]["F"]['x']
             mask=np.logical_and(f>=f_min,f<=plot_fmax)
             ys=data
-            ax.plot(f[mask],ys[mask].real,'.-',color=colors_inj[i],label='%s inj'%i)
+            ax.plot(f[mask],ys[mask].real,'-',color=colors_inj[i],label='%s inj'%i)
         else:
             data=inj_strains[i]["F"]['strain']
             f=inj_strains[i]["F"]['x']

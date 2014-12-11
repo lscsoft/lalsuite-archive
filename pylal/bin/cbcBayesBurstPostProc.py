@@ -637,9 +637,9 @@ def cbcBayesBurstPostProc(
     wfdir=os.path.join(outdir,'Waveform')
     if not os.path.isdir(wfdir):
         os.makedirs(wfdir)
-    try:
+    if 1:
         wfpointer= bppu.plot_burst_waveform(pos=pos,simburst=injfile,event=eventnum,path=wfdir)
-    except:
+    else:
         wfpointer = None
     wftd=html_wf.insert_td(row,'',label='Waveform',legend=legend)
     wfsection=html.add_section_to_element('Waveforms',wftd)
@@ -1240,7 +1240,8 @@ if __name__=='__main__':
       fixedBurnins = [int(fixedBurnin) for fixedBurnin in opts.fixedBurnin]
     else:
       fixedBurnins = None
-
+    if opts.archive=='None':
+      opts.archive=None
     #List of parameters to plot/bin . Need to match (converted) column names.
     
     polParams=['psi','polarisation','polarization']
