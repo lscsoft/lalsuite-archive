@@ -2081,29 +2081,27 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
     REAL8 polarization=0.0;
     REAL8 injtime=0.0;
     REAL8 longitude;
-    //REAL8 duration=0.0;
-	LALSimulationDomain modelDomain=LAL_SIM_DOMAIN_FREQUENCY;
-	REAL8 f_max;
-	Q=inj->q;
-	centre_frequency=inj->frequency;
-	hrss=inj->hrss;
-	polarization=inj->psi;
-	polar_angle=inj->pol_ellipse_angle;
-	eccentricity=inj->pol_ellipse_e; 
-	injtime=inj->time_geocent_gps.gpsSeconds + 1e-9*inj->time_geocent_gps.gpsNanoSeconds;
-	latitude=inj->dec;
-	longitude=inj->ra;
-  //duration=inj->duration;
+    LALSimulationDomain modelDomain=LAL_SIM_DOMAIN_FREQUENCY;
+    REAL8 f_max;
+    Q=inj->q;
+    centre_frequency=inj->frequency;
+    hrss=inj->hrss;
+    polarization=inj->psi;
+    polar_angle=inj->pol_ellipse_angle;
+    eccentricity=inj->pol_ellipse_e; 
+    injtime=inj->time_geocent_gps.gpsSeconds + 1e-9*inj->time_geocent_gps.gpsNanoSeconds;
+    latitude=inj->dec;
+    longitude=inj->ra;
 
-	const CHAR *WF=inj->waveform;
+    const CHAR *WF=inj->waveform;
+    BurstApproximant approx=XLALGetBurstApproximantFromString(WF);
 
-	if(!strcmp(WF,"SineGaussianF")||!strcmp(WF,"GaussianF"))
-    modelDomain=LAL_SIM_DOMAIN_FREQUENCY;
-			
-	else if (!strcmp(WF,"SineGaussian") ||!strcmp(WF,"Gaussian") ||!strcmp(WF,"DampedSinusoid"))
-    modelDomain=LAL_SIM_DOMAIN_TIME;
-			
-    LIGOTimeGPS		    epoch;  
+    if (XLALSimBurstImplementedFDApproximants(approx))
+      modelDomain=LAL_SIM_DOMAIN_FREQUENCY;
+    else if (XLALSimBurstImplementedTDApproximants(approx))
+      modelDomain=LAL_SIM_DOMAIN_TIME;
+
+    LIGOTimeGPS epoch;  
     
     /* Hardcoded values of srate and segment length. If changed here they must also be changed in inspinj.c */
     REAL8 srate=8192.0;
@@ -2139,8 +2137,8 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
     if(modelDomain == LAL_SIM_DOMAIN_FREQUENCY) {
         COMPLEX16FrequencySeries *hptilde=NULL;
         COMPLEX16FrequencySeries *hctilde=NULL;
-        
-         XLALSimBurstSineGaussianF(&hptilde,&hctilde,Q,centre_frequency,hrss, eccentricity,polar_angle,deltaF,deltaT);
+      
+        XLALSimBurstChooseFDWaveform(&hptilde, &hctilde, deltaF,deltaT,centre_frequency,Q,0.0,0.0,f_max,hrss,polar_angle,eccentricity,NULL,approx);
         
         COMPLEX16 *dataPtr = hptilde->data->data;
         for (j=0; j<(UINT4) freqHplus->data->length; ++j) {
@@ -2198,7 +2196,6 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
         REAL8 padding=0.4;
         REAL8Window *window;
         window =XLALCreateTukeyREAL8Window(seglen,(REAL8)2.0*padding*srate/(REAL8)seglen);
-        REAL4 WinNorm = sqrt(window->sumofsquares/window->data->length);
         if(!window) {
           XLAL_ERROR(XLAL_EFUNC);
         }
@@ -2212,12 +2209,7 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
         /* FFT into freqHplus and freqHcross */
         XLALREAL8TimeFreqFFT(freqHplus,timeHplus,timeToFreqFFTPlan);
         XLALREAL8TimeFreqFFT(freqHcross,timeHcross,timeToFreqFFTPlan);
-        
-        for (j=0; j<(UINT4) freqHplus->data->length; ++j) {
-            freqHplus->data->data[j]/=WinNorm; 
-            freqHcross->data->data[j]/=WinNorm;
-        }
-        
+
         /* Clean... */
         if ( hplus ) XLALDestroyREAL8TimeSeries(hplus);
         if ( hcross ) XLALDestroyREAL8TimeSeries(hcross);
@@ -2324,12 +2316,10 @@ REAL8 interpolate(struct fvec *fvec, REAL8 f){
 	REAL8 delta=0.0;
 	if(f<fvec[0].f) return(0.0);
 	while(fvec[i].f<f && (fvec[i].x!=0.0 )){i++;}; //&& fvec[i].f!=0.0)){i++;};
-  //printf("%d\t%lg\t%lg\t%lg\n",i,fvec[i].f,f,fvec[i].x);
 	if (fvec[i].f==0.0 && fvec[i].x==0.0) /* Frequency above moximum */
 	{
 		return (fvec[i-1].x);
 	}
-  //if(i==0){return (fvec[0].x);}
 	a=(fvec[i].f-f)/(fvec[i].f-fvec[i-1].f);
 	delta=fvec[i].x-fvec[i-1].x;
 	return (fvec[i-1].x + delta*a);
