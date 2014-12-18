@@ -774,7 +774,6 @@ int XLALSimBurstSineGaussianF(
 	REAL8 centre_frequency,
 	REAL8 hrss,
 	REAL8 alpha,
-	REAL8 phi0,
 	REAL8 deltaF,
   REAL8 deltaT
 )
@@ -784,9 +783,8 @@ int XLALSimBurstSineGaussianF(
 	/* rss of plus and cross polarizations */
 	const double hplusrss  = hrss * cos(alpha);
 	const double hcrossrss = hrss * sin(alpha);
-  const double ctwophi=cos(2.0*phi0);
-	const double cgrss = sqrt((Q / (4.0 * centre_frequency * LAL_SQRT_PI)) * (1.0 +ctwophi* exp(-Q * Q)));
-	const double sgrss = sqrt((Q / (4.0 * centre_frequency *LAL_SQRT_PI)) * (1.0 - ctwophi*exp(-Q * Q)));
+	const double cgrss = sqrt((Q / (4.0 * centre_frequency * LAL_SQRT_PI)) * (1.0 +exp(-Q * Q)));
+	const double sgrss = sqrt((Q / (4.0 * centre_frequency *LAL_SQRT_PI)) * (1.0 - exp(-Q * Q)));
 	/* "peak" amplitudes of plus and cross */
 	const double h0plus  = hplusrss / cgrss;
 	const double h0cross = hcrossrss / sgrss;
@@ -808,12 +806,12 @@ int XLALSimBurstSineGaussianF(
   REAL8 sigma= centre_frequency/Q; // This is also equal to 1/(sqrt(2) Pi tau)
   
   /* set fmax to be f0 + 6sigmas*/
-  REAL8 Fmax=centre_frequency + 6.0*sigma;
+  REAL8 Fmax=centre_frequency + 7.0*sigma;
   /* if fmax > nyquist use nyquist */
   if (Fmax>(1.0/(2.0*deltaT))) 
     Fmax=1.0/(2.0*deltaT);
   
-  REAL8 Fmin= centre_frequency -6.0*sigma;
+  REAL8 Fmin= centre_frequency -7.0*sigma;
   /* if fmin <0 use 0 */
   if (Fmin<0.0 || Fmin >=Fmax)
     Fmin=0.0;
@@ -835,7 +833,7 @@ int XLALSimBurstSineGaussianF(
 		XLAL_ERROR(XLAL_EFUNC);
 	}
   /* Set to zero below flow */
-  for(i = 0; i < lower; i++) {
+  for(i = 0; i < hptilde->data->length; i++) {
     hptilde->data->data[i] = 0.0;
     hctilde->data->data[i] = 0.0;
   }
@@ -844,15 +842,13 @@ int XLALSimBurstSineGaussianF(
   REAL8 f=0.0;
   REAL8 phi2minus=0.0;
   REAL8 ephimin=0.0;
-  REAL8 cp=cos(phi0);
-  REAL8 sp=sin(phi0);
   
   for(i = lower; i < upper; i++) {
     f=((REAL8 ) i )*deltaF;
     phi2minus= (f-centre_frequency )*(f-centre_frequency );
     ephimin=exp(-phi2minus*tau2pi2);
-    hptilde->data->data[i] = h0plus * tau*ephimin*(cp+1.0j*sp)/LAL_2_SQRTPI;
-    hctilde->data->data[i] = h0cross *tau*ephimin*(-1.0j*cp+sp)/LAL_2_SQRTPI;
+    hptilde->data->data[i] = h0plus * tau*ephimin/LAL_2_SQRTPI;
+    hctilde->data->data[i] = h0cross *tau*ephimin*(-1.0j)/LAL_2_SQRTPI;
   }
 
   *hplus=hptilde;
@@ -1167,9 +1163,8 @@ int XLALSimBurstDampedSinusoidF(
         REAL8 centre_frequency,
         REAL8 hrss,
         REAL8 alpha,
-        //REAL8 phi0,
         REAL8 deltaF,
-    REAL8 deltaT
+        REAL8 deltaT
 )
 {
         /* semimajor and semiminor axes of waveform ellipsoid */
@@ -1394,7 +1389,7 @@ int XLALSimBurstChooseFDWaveform(
     int ret;
     
     /* Check if need to initiate this w/ meaningful values */
-    REAL8 alpha=0.0,phi0=0.0;
+    REAL8 alpha=0.0;
     
     switch (approximant)
     {
@@ -1406,13 +1401,12 @@ int XLALSimBurstChooseFDWaveform(
             if (XLALSimBurstExtraParamExists(extraParams,"alpha")) alpha=XLALSimBurstGetExtraParam(extraParams,"alpha");
             // if alpha not there (e.g. because we are calling this routine for injecting, and xml tables do not know about alpha) set polar_angle=alpha
             else alpha=polar_angle;
-            if (XLALSimBurstExtraParamExists(extraParams,"phase")) phi0=XLALSimBurstGetExtraParam(extraParams,"phase");
             (void) polar_angle;
             (void) polar_ecc;
             (void) tau;
             
             /* Call the waveform driver routine */
-            ret = XLALSimBurstSineGaussianF(hptilde,hctilde,q,f0,hrss, alpha,phi0,deltaF,deltaT);
+            ret = XLALSimBurstSineGaussianF(hptilde,hctilde,q,f0,hrss, alpha,deltaF,deltaT);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             break;
         case GaussianF:
@@ -1488,10 +1482,7 @@ int XLALSimBurstChooseTDWaveform(
     if( f_min > 40.000001 )
         XLALPrintWarning("XLAL Warning - %s: Large value of fmin = %e requested...Check for errors, the signal will start in band.\n", __func__, f_min);
     int ret;
-    
-    /* Check if need to initiate this w/ meaningful values */
-    //REAL8 alpha=0.0,phi0=0.0;
-    
+        
     switch (approximant)
     {
         case SineGaussian:
