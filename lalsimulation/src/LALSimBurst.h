@@ -129,8 +129,7 @@ int XLALSimBurstSineGaussianF(
 	REAL8 Q,
 	REAL8 centre_frequency,
 	REAL8 hrss,
-	REAL8 eccentricity,
-	REAL8 polarization,
+  REAL8 alpha,
 	REAL8 deltaF,
     REAL8 deltaT
 );
@@ -163,7 +162,6 @@ int XLALSimBurstDampedSinusoidF(
         REAL8 centre_frequency,
         REAL8 hrss,
         REAL8 alpha,
-//      REAL8 phi0,
         REAL8 deltaF,
     REAL8 deltaT
 );
