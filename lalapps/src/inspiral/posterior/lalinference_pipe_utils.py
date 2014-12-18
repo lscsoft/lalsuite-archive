@@ -670,7 +670,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
               exit(1)
           else:
               from numpy import loadtxt
-              data=loadtxt(dest)
+              data=loadtxt(dest).reshape(-1,len(self.ifos))
               if len(self.ifos)!= len(data[0,:]):
                   print "ERROR: ascii timeslide file must contain a column for each IFO used in the analysis!\n"
                   exit(1)
