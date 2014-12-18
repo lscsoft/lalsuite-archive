@@ -191,7 +191,7 @@ void LALInferenceInjectBurstSignal(LALInferenceIFOData *IFOdata, ProcessParamsTa
     }
 
     /* Window the data */
-    REAL4 WinNorm = sqrt(thisData->window->sumofsquares/thisData->window->data->length);
+    //REAL4 WinNorm = sqrt(thisData->window->sumofsquares/thisData->window->data->length);
     for(j=0;j<inj8Wave->data->length;j++){
       inj8Wave->data->data[j]*=thisData->window->data->data[j]; /* /WinNorm; */ /* Window normalisation applied only in freq domain */
     }
@@ -206,8 +206,8 @@ void LALInferenceInjectBurstSignal(LALInferenceIFOData *IFOdata, ProcessParamsTa
         }
         SNR*=4.0*injF->deltaF;
     }
-    thisData->SNR=sqrt(SNR)/WinNorm;
-    NetworkSNR+=SNR/WinNorm/WinNorm;
+    thisData->SNR=sqrt(SNR);
+    NetworkSNR+=SNR;
 
     /* Actually inject the waveform */
     for(j=0;j<inj8Wave->data->length;j++) thisData->timeData->data->data[j]+=inj8Wave->data->data[j];
@@ -221,10 +221,10 @@ void LALInferenceInjectBurstSignal(LALInferenceIFOData *IFOdata, ProcessParamsTa
     fclose(file);
     sprintf(filename,"%s_freqInjection.dat",thisData->name);
     file=fopen(filename, "w");
-    printf("For injection using norm %lf\n",WinNorm);
+    /* NOTE: Here I (salvo) got rid of the division by WinNorm that was done in the CBC version of this routine. This is because burst signals are short and centered in the middle of the segment. Thus, the actual signal will be in the flat part of the Tuckey window. */
     for(j=0;j<injF->data->length;j++){   
-      thisData->freqData->data->data[j]+=(injF->data->data[j]/WinNorm);
-      fprintf(file, "%lg %lg \t %lg\n", thisData->freqData->deltaF*j, creal(injF->data->data[j]/WinNorm), cimag(injF->data->data[j]/WinNorm));    
+      thisData->freqData->data->data[j]+=(injF->data->data[j]);
+      fprintf(file, "%lg %lg \t %lg\n", thisData->freqData->deltaF*j, creal(injF->data->data[j]), cimag(injF->data->data[j]));    
     }
     fclose(file);
 
@@ -334,10 +334,6 @@ void InjectBurstFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, ProcessPar
   if( (int) approx == XLAL_FAILURE)
     ABORTXLAL(&status);
 
-  REAL8 WinNorm=1.0;
-  WinNorm = sqrt(IFOdata->window->sumofsquares/IFOdata->window->data->length);
-
-
   REAL8 injtime=0.0;
   injtime=inj_table->time_geocent_gps.gpsSeconds + 1e-9*inj_table->time_geocent_gps.gpsNanoSeconds;
   REAL8 hrss_one=1.0;
@@ -406,8 +402,8 @@ void InjectBurstFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, ProcessPar
     timeshift = (injtime - instant) + timedelay;
     twopit    = LAL_TWOPI * (timeshift);
     /* Restore hrss (template has been calculated for hrss=1) effect in Fplus/Fcross: */
-    Fplus*=inj_table->hrss/WinNorm;
-    Fcross*=inj_table->hrss/WinNorm;
+    Fplus*=inj_table->hrss;
+    Fcross*=inj_table->hrss;
     dataPtr->fPlus = Fplus;
     dataPtr->fCross = Fcross;
     dataPtr->timeshift = timeshift;
