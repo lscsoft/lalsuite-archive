@@ -102,7 +102,7 @@ int XLALSimBurstChooseTDWaveformFromCache(
         REAL8 hrss,                             /**< hrss */
         REAL8 polar_angle,                      /**< Together with polar_ecc, controls ratio plus/cross polarization (rad) */
         REAL8 polar_ecc,                        /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
-        LALSimBurstExtraParam *extraParams, /**< Linked list of extra Parameters (includes alpha and phase). Pass in NULL (or None in python) to neglect */
+        LALSimBurstExtraParam *extraParams, /**< Linked list of extra Parameters (includes alpha). Pass in NULL (or None in python) to neglect */
         BurstApproximant approximant,           /**< Burst approximant to use for waveform production */
         LALSimBurstWaveformCache *cache      /**< waveform cache structure; use NULL for no caching */
         )
@@ -399,16 +399,6 @@ static CacheVariableDiffersBitmask CacheArgsDifferenceBitmask(
           return INTRINSIC;
         if (alpha!= cached_alpha) difference = difference | ALPHA;
         }
-      if (XLALSimBurstExtraParamExists(extraParams,"phase")){
-        REAL8 phi0=XLALSimBurstGetExtraParam(extraParams,"phase");
-        REAL8 cached_phi0=0.0;
-        if ( XLALSimBurstExtraParamExists(cache->extraParams,"phase"))
-          cached_phi0=XLALSimBurstGetExtraParam(cache->extraParams,"phase");
-        else 
-          return INTRINSIC;
-        
-        if (phi0!=cached_phi0) return INTRINSIC;
-      }
     }
     return difference;
 }
@@ -457,14 +447,9 @@ static int StoreTDHCache(
     else if (cache->extraParams==NULL){
       /* Initialize to something that won't make the ratio of sin alphas to blow up */
       cache->extraParams=XLALSimBurstCreateExtraParam("alpha",1.0);
-      XLALSimBurstAddExtraParam(&(cache->extraParams),"phase",0.0);
     }
     else{
       XLALSimBurstSetExtraParam(cache->extraParams,"alpha",XLALSimBurstGetExtraParam(extraParams,"alpha"));
-      REAL8 phase=0.0;
-      if (XLALSimBurstExtraParamExists(extraParams,"phase"))
-        phase=XLALSimBurstGetExtraParam(extraParams,"phase");
-      XLALSimBurstSetExtraParam(cache->extraParams,"phase",phase);
     }
     cache->approximant = approximant;
 
@@ -529,11 +514,9 @@ static int StoreFDHCache(LALSimBurstWaveformCache *cache,
     else if (cache->extraParams==NULL){
       /* Initialize to something that won't make the ratio of sin alphas to blow up */
       cache->extraParams=XLALSimBurstCreateExtraParam("alpha",1.0);
-      XLALSimBurstAddExtraParam(&(cache->extraParams),"phase",0.0);
     }
     else{
       XLALSimBurstSetExtraParam(cache->extraParams,"alpha",XLALSimBurstGetExtraParam(extraParams,"alpha"));
-      XLALSimBurstSetExtraParam(cache->extraParams,"phase",XLALSimBurstGetExtraParam(extraParams,"phase"));
     }
     
     cache->approximant = approximant;
