@@ -961,7 +961,6 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
 /*   "Q" quality, REAL8 (optional, depending on the WF)                                              */
 /*   "duration" duration, REAL8 (optional, depending on the WF)                                      */
 /*   "alpha"  ellipticity, REAL8 (optional, depending on the WF)                                     */
-/*   "phase" phase, REAL8 (optional)                                                                 */
 /*   "polar_angle" ellipticity polar angle, REAL8 (optional, together with polar_eccentricity may replace alpha)*/
 /*   "polar_eccentricity" ellipticity ellipse eccentricity, REAL8 (optional)                                     */
 /*                                                                                                                      */
@@ -979,7 +978,7 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
   REAL8TimeSeries *hplus=NULL;  /**< +-polarization waveform [returned] */
   REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform [returned] */
   COMPLEX16FrequencySeries *hptilde=NULL, *hctilde=NULL;
-  REAL8 phi0, deltaT,deltaF, 
+  REAL8 deltaT,deltaF, 
   freq=0.0,
   quality=0.0,
   duration=0.0,
@@ -1023,21 +1022,13 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
       else XLALSimBurstAddExtraParam(&extraParams,"alpha",alpha);
       polar_angle=alpha;
   } 
-  
-  if(LALInferenceCheckVariable(model->params,"phase"))
-    {
-      phi0=*(REAL8*) LALInferenceGetVariable(model->params, "phase");
-      if (!extraParams) extraParams=XLALSimBurstCreateExtraParam("phase",phi0);
-      else XLALSimBurstAddExtraParam(&extraParams,"phase",phi0);
-  }
 
   /* If someone wants to use old parametrization, allow for */
   if(LALInferenceCheckVariable(model->params,"polar_angle"))
     polar_angle=*(REAL8*) LALInferenceGetVariable(model->params, "polar_angle");
   if(LALInferenceCheckVariable(model->params,"polar_eccentricity"))
     polar_ecc=*(REAL8*) LALInferenceGetVariable(model->params, "polar_eccentricity");
-    
-    
+
   /* Check if fLow is a model parameter, otherwise use data structure definition */
   if(LALInferenceCheckVariable(model->params, "fLow"))
     f_low = *(REAL8*) LALInferenceGetVariable(model->params, "fLow");
