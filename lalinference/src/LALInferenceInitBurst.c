@@ -96,7 +96,6 @@ LALInferenceModel * LALInferenceInitBurstModel(LALInferenceRunState *state)
                  frequency                    Central frequency [Hz], (not used for Gaussian WF).\n\
                  quality                      Quality factor for SG and DumpedSin \n\
                  duration                     Duration [s] (Gaussian WF only)\n\
-                 phase                        Phase (not used for Gaussian WF).\n\
                  hrss                         hrss (requires --use-hrss)\n\
                  loghrss                      Log hrss\n\
                  rightascension               Rightascensions\n\
@@ -263,8 +262,6 @@ LALInferenceModel * LALInferenceInitBurstModel(LALInferenceRunState *state)
     REAL8 dt=0.1;
     REAL8 timeMin=endtime-0.5*dt; 
     REAL8 timeMax=endtime+0.5*dt;
-    REAL8 phiMin=0.0,phiMax=LAL_TWOPI;
-
     REAL8 zero=0.0;
 
     ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
@@ -274,18 +271,17 @@ LALInferenceModel * LALInferenceInitBurstModel(LALInferenceRunState *state)
     
     /* If we are marginalising over the time, remove that variable from the model (having set the prior above) */
     /* Also set the prior in model->params, since Likelihood can't access the state! (ugly hack) */
-    if(LALInferenceGetProcParamVal(commandLine,"--margtime") || LALInferenceGetProcParamVal(commandLine, "--margtimephi")){
+    if(LALInferenceGetProcParamVal(commandLine,"--margtime")){
         LALInferenceVariableItem *p=LALInferenceGetItem(state->priorArgs,"time_min");
         LALInferenceAddVariable(model->params,"time_min",p->value,p->type,p->vary);
         p=LALInferenceGetItem(state->priorArgs,"time_max");
         LALInferenceAddVariable(model->params,"time_max",p->value,p->type,p->vary);
         LALInferenceRemoveVariable(model->params,"time");
-        if (LALInferenceGetProcParamVal(commandLine, "--margtimephi")) {
-            UINT4 margphi = 1;
-            LALInferenceAddVariable(model->params, "margtimephi", &margphi, LALINFERENCE_UINT4_t,LALINFERENCE_PARAM_FIXED);
-        }
     }
-
+    if (LALInferenceGetProcParamVal(commandLine, "--margtimephi") || LALInferenceGetProcParamVal(commandLine, "--margphi")) {
+      fprintf(stderr,"ERROR: cannot use margphi or margtimephi with burst approximants. Please use margtime or no marginalization\n");
+      exit(1);
+    }
     LALInferenceRegisterUniformVariableREAL8(state, model->params, "rightascension", zero, raMin, raMax, LALINFERENCE_PARAM_CIRCULAR);
     LALInferenceRegisterUniformVariableREAL8(state, model->params, "declination", zero, decMin, decMax, LALINFERENCE_PARAM_LINEAR);
     LALInferenceRegisterUniformVariableREAL8(state, model->params, "polarisation", zero, psiMin, psiMax, LALINFERENCE_PARAM_LINEAR);
@@ -295,14 +291,9 @@ LALInferenceModel * LALInferenceInitBurstModel(LALInferenceRunState *state)
      
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "frequency",  zero, ffMin, ffMax,   LALINFERENCE_PARAM_LINEAR);
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "quality",  zero,qMin, qMax,   LALINFERENCE_PARAM_LINEAR);
-      if(!LALInferenceGetProcParamVal(commandLine,"--margphi") && !LALInferenceGetProcParamVal(commandLine, "--margtimephi")){
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "phase", zero, phiMin, phiMax, LALINFERENCE_PARAM_CIRCULAR);
-      }
     }
     else if (!strcmp("Gaussian",ppt->value) || !strcmp("GaussianF",ppt->value)){
       LALInferenceRegisterUniformVariableREAL8(state, model->params,"duration", zero, durMin,durMax, LALINFERENCE_PARAM_LINEAR);
-      
-      LALInferenceRegisterUniformVariableREAL8(state, model->params, "phase", zero, phiMin, phiMax, LALINFERENCE_PARAM_FIXED);
     }
     
     if (LALInferenceGetProcParamVal(commandLine,"--use-hrss")){
@@ -424,7 +415,6 @@ LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_unimod(LALInferenceR
     {.name="frequency", .val=210., .min=205.346948, .max=216.653052},
     {.name="quality", .val=6.03626, .min=5.043829, .max=6.956171},
     {.name="loghrss", .val=-46., .min=-46.985195, .max=-45.014805},
-    {.name="phase", .val=1.008, .min=0.718919, .max=1.281081},
     {.name="polarisation", .val=0.73, .min=0.427564, .max=0.972436},
     {.name="rightascension", .val=LAL_PI, .min=2.837864, .max=3.445321},
     {.name="declination", .val=0.04, .min= -0.334492, .max=0.334492},
@@ -468,7 +458,6 @@ LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_bimod(LALInferenceRu
     {.name="frequency", .val=211., .min=205.346948, .max=225.697936},
     {.name="quality", .val=6.0, .min=5.043829, .max=8.486044},
     {.name="loghrss", .val=-46., .min=-46.985195, .max=-43.438492},
-    {.name="phase", .val=1.0, .min=0.718919, .max=1.730810},
     {.name="polarisation", .val=0.73, .min=0.427564,.max=1.408335},
     {.name="rightascension", .val=LAL_PI, .min=2.837864, .max=3.931287},
     {.name="declination", .val=0.0, .min=-0.334492, .max=0.869678},
