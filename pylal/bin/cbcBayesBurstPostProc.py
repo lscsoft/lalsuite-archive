@@ -637,9 +637,9 @@ def cbcBayesBurstPostProc(
     wfdir=os.path.join(outdir,'Waveform')
     if not os.path.isdir(wfdir):
         os.makedirs(wfdir)
-    if 1:
+    try:
         wfpointer= bppu.plot_burst_waveform(pos=pos,simburst=injfile,event=eventnum,path=wfdir)
-    else:
+    except:
         wfpointer = None
     wftd=html_wf.insert_td(row,'',label='Waveform',legend=legend)
     wfsection=html.add_section_to_element('Waveforms',wftd)
@@ -1248,7 +1248,7 @@ if __name__=='__main__':
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
     ellParams=['alpha']
-    burstParams=['frequency','loghrss','quality','hrss']
+    burstParams=['frequency','loghrss','quality','hrss','duration']
     phaseParams=['phase','phi_orb']
     #endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
     endTimeParams=[]
@@ -1281,7 +1281,7 @@ if __name__=='__main__':
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'time':1e-4,'ra':0.05,'dec':0.05,'polarisation':0.04,'rightascension':0.05,'declination':0.05, 'loghrss':0.01,'frequency':0.5,'quality':0.05,'phase':0.1,'phi_orb':0.1,'psi':0.04,'polarization':0.04,'alpha':0.01}
+    greedyBinSizes={'time':1e-4,'ra':0.05,'dec':0.05,'polarisation':0.04,'rightascension':0.05,'declination':0.05, 'loghrss':0.01,'frequency':0.5,'quality':0.05,'phase':0.1,'phi_orb':0.1,'psi':0.04,'polarization':0.04,'alpha':0.01,'duration':0.0001}
     #for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
     #    greedyBinSizes[derived_time]=greedyBinSizes['time']
     #if not opts.no2D:

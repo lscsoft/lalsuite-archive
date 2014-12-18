@@ -5975,6 +5975,7 @@ class BurstPosterior(object):
                             'f_ref': lambda inj: self._injFref,
                             'polarisation':lambda inj:inj.psi,
                             'polarization':lambda inj:inj.psi,
+                            'duration':lambda inj:inj.duration,
                             'h1_end_time':lambda inj:float(inj.get_end('H')),
                             'l1_end_time':lambda inj:float(inj.get_end('L')),
                             'v1_end_time':lambda inj:float(inj.get_end('V')),
@@ -7157,7 +7158,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
   from lalsimulation.lalsimulation import SimBurstChooseFDWaveform,SimBurstChooseTDWaveform
   from lalsimulation.lalsimulation import SimBurstImplementedFDApproximants,SimBurstImplementedTDApproximants
   from lal.lal import StrainUnit
-  from lal.lal import CreateREAL8TimeSeries,CreateForwardREAL8FFTPlan,CreateTukeyREAL8Window,CreateCOMPLEX16FrequencySeries,DimensionlessUnit,REAL8TimeFreqFFT,CutREAL8TimeSeries
+  from lal.lal import CreateREAL8TimeSeries,CreateForwardREAL8FFTPlan,CreateTukeyREAL8Window,CreateCOMPLEX16FrequencySeries,DimensionlessUnit,REAL8TimeFreqFFT,CutREAL8TimeSeries,ResampleREAL8TimeSeries,CreateReverseREAL8FFTPlan,REAL8FreqTimeFFT
   from lal.lal import LIGOTimeGPS
   from lal.lal import MSUN_SI as LAL_MSUN_SI
   from lal.lal import PC_SI as LAL_PC_SI
@@ -7168,7 +7169,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
   from glue.ligolw import utils
   import os
   import numpy as np
-  from numpy import arange
+  from numpy import arange,real,imag,absolute,fabs
   from pylal import bayespputils as bppu
   from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
   import copy
@@ -7181,27 +7182,33 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
   #import sim inspiral table content handler 
   from pylal.SimBurstUtils import ExtractSimBurstTableLIGOLWContentHandler
   lsctables.use_in(ExtractSimBurstTableLIGOLWContentHandler)
+  
   # time and freq data handling variables 
-  srate=2048.0
+  srate=4096.0
   seglen=10.
-  length=srate*seglen # lenght of 60 secs, hardcoded. May call a LALSimRoutine to get an idea
+  length=srate*seglen # lenght of 10 secs, hardcoded.
   deltaT=1/srate
   deltaF = 1.0 / (length* deltaT);
 
   # build window for FFT
   pad=0.4
   timeToFreqFFTPlan = CreateForwardREAL8FFTPlan(int(length), 1 );
+  freqToTimeFFTPlan = CreateReverseREAL8FFTPlan(int(length), 1 );
   window=CreateTukeyREAL8Window(int(length),2.0*pad*srate/length);
-  WinNorm = sqrt(window.sumofsquares/window.data.length);
-  # time and freq domain strain:
-  segStart=100000000 
-  strainT=CreateREAL8TimeSeries("strainT",segStart,0.0,1.0/srate,DimensionlessUnit,int(length));
-  strainF= CreateCOMPLEX16FrequencySeries("strainF",segStart,	0.0,	deltaF,	DimensionlessUnit,int(length/2. +1));
+  # A random GPS time to initialize arrays. Epoch will be overwritten with sensible times further down
+  segStart=939936910.000
+  strainFinj= CreateCOMPLEX16FrequencySeries("strainF",segStart,0.0,deltaF,DimensionlessUnit,int(length/2. +1));
+  strainTinj=CreateREAL8TimeSeries("strainT",segStart,0.0,1.0/srate,DimensionlessUnit,int(length));
+  strainFrec= CreateCOMPLEX16FrequencySeries("strainF",segStart,0.0,deltaF,DimensionlessUnit,int(length/2. +1));
+  strainTrec=CreateREAL8TimeSeries("strainT",segStart,0.0,1.0/srate,DimensionlessUnit,int(length));
+  GlobREAL8time=None
   f_min=25 # hardcoded default (may be changed below) 
   f_ref=100 # hardcoded default (may be changed below)
-  f_max=srate/2.0  
-  plot_fmax=f_max
-  
+  f_max=srate/2.0
+
+  plot_fmax=2048
+  plot_fmin=0.01
+
   inj_strains=dict((i,{"T":{'x':None,'strain':None},"F":{'x':None,'strain':None}}) for i in ifos)
   rec_strains=dict((i,{"T":{'x':None,'strain':None},"F":{'x':None,'strain':None}}) for i in ifos)
   
@@ -7223,8 +7230,9 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
     if not skip:
       REAL8time=tbl.time_geocent_gps+1e-9*tbl.time_geocent_gps_ns
       GPStime=LIGOTimeGPS(REAL8time)
-      strainT.epoch=LIGOTimeGPS(round(REAL8time,0)-seglen)
-      strainF.epoch=LIGOTimeGPS(round(REAL8time,0)-seglen)
+      GlobREAL8time=(REAL8time)
+      strainTinj.epoch=LIGOTimeGPS(round(GlobREAL8time,0)-seglen/2.)
+      strainFinj.epoch=LIGOTimeGPS(round(GlobREAL8time,0)-seglen/2.)
       f0=tbl.frequency
       q=tbl.q
       dur=tbl.duration
@@ -7236,7 +7244,6 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       wf=str(tbl.waveform)
 
       injapproximant=lalsim.GetBurstApproximantFromString(wf)  
-     
       ra=tbl.ra
       dec=tbl.dec
       psi=tbl.psi
@@ -7254,42 +7261,72 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       for ifo in ifos:
         (fp,fc,fa,qv)=ant.response(REAL8time,ra,dec,0.0,psi,'radians',ifo)
         if inj_domain=='T':
+          # bin of ref time as seen in strainT
+          tCinstrain=np.floor(REAL8time-float(strainTinj.epoch))/deltaT
+          # bin of strainT where we need to start copying the WF over
+          #tSinstrain=floor(tCinstrain-float(plus.data.length)/2.)+1 
+          tSinstrain=int(  (REAL8time-fabs(float(plus.epoch)) - fabs(float(strainTinj.epoch)))/deltaT)
+          rem=(REAL8time-fabs(float(plus.epoch)) - fabs(float(strainTinj.epoch)))/deltaT-tSinstrain
           # strain is a temporary container for this IFO strain.
-          # Take antenna pattern into accout and window the data
-          for k in np.arange(strainT.data.length):
-            if k<plus.data.length:
-              strainT.data.data[k]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
-            else:
-              strainT.data.data[k]=0.0
-            strainT.data.data[k]*=window.data.data[k]
-          # now copy in the dictionary only the part of strain which is not null (that is achieved using plus.data.length as length)
-          inj_strains[ifo]["T"]['strain']=np.array([strainT.data.data[k] for k in arange(plus.data.length)])
-          inj_strains[ifo]["T"]['x']=np.array([REAL8time - deltaT*(plus.data.length-1-k) for k in np.arange(plus.data.length)])
+          # Zero until tSinstrain
+          for k in np.arange(tSinstrain):
+            strainTinj.data.data[k]=0.0
+          # then copy plus/cross over
+          for k in np.arange(plus.data.length):
+            strainTinj.data.data[k+tSinstrain]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
+          # Then zeros till the end (superfluous)
+          for k in np.arange(strainTinj.data.length- (tSinstrain +plus.data.length)):
+            strainTinj.data.data[k+tSinstrain+plus.data.length]=0.0
+          for k in np.arange(strainTinj.data.length):
+            strainTinj.data.data[k]*=window.data.data[k]
+          np.savetxt('file.out',zip(np.array([strainTinj.epoch + j*deltaT for j in arange(strainTinj.data.length)]),np.array([strainTinj.data.data[j] for j in arange(strainTinj.data.length)])))
+          # now copy in the dictionary
+          inj_strains[ifo]["T"]['strain']=np.array([strainTinj.data.data[j] for j in arange(strainTinj.data.length)])
+          inj_strains[ifo]["T"]['x']=np.array([strainTinj.epoch + j*deltaT for j in arange(strainTinj.data.length)])
           # Take the FFT
-          for j in arange(strainF.data.length):
-            strainF.data.data[j]=0.0
-          REAL8TimeFreqFFT(strainF,strainT,timeToFreqFFTPlan);
-          #for j in arange(strainF.data.length):
-          #  strainF.data.data[j]/=WinNorm
+          for j in arange(strainFinj.data.length):
+            strainFinj.data.data[j]=0.0
+          REAL8TimeFreqFFT(strainFinj,strainTinj,timeToFreqFFTPlan);
+          twopit=2.*np.pi*(rem*deltaT)
+          for k in arange(strainFinj.data.length):
+            re = cos(twopit*deltaF*k)
+            im = -sin(twopit*deltaF*k)
+            strainFinj.data.data[k]*= (re + 1j*im);
           # copy in the dictionary
-          inj_strains[ifo]["F"]['strain']=np.array([strainF.data.data[k] for k in arange(int(strainF.data.length))])
-          inj_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
+          inj_strains[ifo]["F"]['strain']=np.array([strainFinj.data.data[k] for k in arange(int(strainFinj.data.length))])
+          inj_strains[ifo]["F"]['x']=np.array([strainFinj.f0+ k*strainFinj.deltaF for k in arange(int(strainFinj.data.length))])
         elif inj_domain=='F':
-          for k in np.arange(strainF.data.length):
+          for k in np.arange(strainFinj.data.length):
             if k<plus.data.length:
-              strainF.data.data[k]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
+              strainFinj.data.data[k]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
             else:
-              strainF.data.data[k]=0.0
+              strainFinj.data.data[k]=0.0
+          twopit=2.*np.pi*(REAL8time-float(strainFinj.epoch))
+          for k in arange(strainFinj.data.length):
+            re = cos(twopit*deltaF*k)
+            im = -sin(twopit*deltaF*k)
+            strainFinj.data.data[k]*= (re + 1j*im);
           # copy in the dictionary
-          inj_strains[ifo]["F"]['strain']=np.array([strainF.data.data[k] for k in arange(int(strainF.data.length))])
-          inj_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
-        
-        twopit=2.*np.pi*(REAL8time-strainF.epoch)
-        for k in arange(strainF.data.length):
-          re = cos(twopit*deltaF*k)
-          im = -sin(twopit*deltaF*k)
-          inj_strains[ifo]["F"]['strain'][k]*= (re + 1j*im);
-        
+          inj_strains[ifo]["F"]['strain']=np.array([strainFinj.data.data[k] for k in arange(int(strainFinj.data.length))])
+          inj_strains[ifo]["F"]['x']=np.array([strainFinj.f0+ k*strainFinj.deltaF for k in arange(int(strainFinj.data.length))])
+        #update xlimits for plot, go 6 sigmas left and right of f0
+        # This should work for SineGaussians
+        if f0 is not None and f0 is not np.nan:
+          if q is not None and q is not np.nan:
+            sigma=f0/q
+            if f0-6.*sigma>plot_fmin:
+              plot_fmin=f0-6.*sigma
+            if f0+6.*sigma<plot_fmax:
+              plot_fmax=f0+6.*sigma
+        # Now handle gaussians. For gaussians f0 is nan (FD centered at f=0)
+        if dur is not None and dur is not np.nan:
+          sigma=sqrt(0.5*np.pi*np.pi/dur/dur)/4.
+          if 0+3.*sigma<plot_fmax:
+            plot_fmax=0+3.*sigma
+          plot_fmin=0.0
+                
+          
+
   if pos is not None:
     
     # Select the maxP sample
@@ -7316,41 +7353,39 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       skip=1
     if skip==0:
       GPStime=LIGOTimeGPS(REAL8time)
-      strainT.epoch=LIGOTimeGPS(round(REAL8time,0)-seglen)
-      strainF.epoch=LIGOTimeGPS(round(REAL8time,0)-seglen)
-      dur=np.nan
-      q=pos['quality'].samples[which][0]
-      f0=pos['frequency'].samples[which][0]
+      if GlobREAL8time is None:
+        GlobREAL8time=REAL8time
+      strainTrec.epoch=LIGOTimeGPS(round(GlobREAL8time,0)-seglen/2.)
+      strainFrec.epoch=LIGOTimeGPS(round(GlobREAL8time,0)-seglen/2.)
+      if "duration" in pos.names:
+        dur=pos["duration"].samples[which][0]
+      else:
+        dur=np.nan
+      if "quality" in pos.names:
+        q=pos['quality'].samples[which][0]
+      else:
+        q=np.nan
+      if 'frequency' in pos.names:
+        f0=pos['frequency'].samples[which][0]
+      else:
+        f0=np.nan
       try:
         hrss=pos['hrss'].samples[which][0]
       except:
         hrss=exp(pos['loghrss'].samples[which][0])
 
-      if 'phi_orb' in pos.names:
-        phiRef=pos['phi_orb'].samples[which][0]
-      elif 'phase_maxl' in pos.names:
-        phiRef=pos['phase_maxl'].samples[which][0]
-        print 'INFO: phi_orb not estimated, using maximum likelihood value'
-      else:
-        print 'WARNING: phi_orb not found in posterior files. Defaulting to 0.0 which is probably *not* what you want\n'
-        phiRef=None
-
-      polar_e_angle=np.nan
-      polar_e_ecc=np.nan
       alpha=None
       if 'alpha' in pos.names:
         alpha=pos['alpha'].samples[which][0]
+        polar_e_angle=alpha
+        polar_e_ecc=0
       elif 'polar_ellipse_angle' in pos.names:
         polar_e_angle=pos['polar_ellipse_angle'].samples[which][0]
         polar_e_ecc=pos['polar_ellipse_e'].samples[which][0]
+
       BurstExtraParams=None
-      if alpha or phiRef:
-        if alpha:
-          BurstExtraParams=lalsim.SimBurstCreateExtraParam("alpha",alpha)
-        if phiRef and BurstExtraParams:
-          lalsim.SimBurstAddExtraParam(BurstExtraParams,"phase",phiRef)
-        if phiRef and not BurstExtraParams:
-          BurstExtraParams=lalsim.SimBurstCreateExtraParam("phase",phiRef)
+      if alpha:
+        BurstExtraParams=lalsim.SimBurstCreateExtraParam("alpha",alpha)
       
       if SimBurstImplementedFDApproximants(approximant):
         rec_domain='F'
@@ -7368,44 +7403,72 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       for ifo in ifos:
         (fp,fc,fa,qv)=ant.response(REAL8time,ra,dec,0.0,psi,'radians',ifo)
         if rec_domain=='T':
+          # bin of ref time as seen in strainT
+          tCinstrain=np.floor(REAL8time-float(strainTrec.epoch))/deltaT
+          # bin of strainT where we need to start copying the WF over
+          tSinstrain=int(  (REAL8time-fabs(float(plus.epoch)) - fabs(float(strainTrec.epoch)))/deltaT)
+          #tSinstrain=floor(tCinstrain-float(plus.data.length)/2.)+1
+          #reminder for fractions of bin, will be added back in the FD WF
+          rem=(REAL8time-fabs(float(plus.epoch)) - fabs(float(strainTrec.epoch)))/deltaT-tSinstrain
+
           # strain is a temporary container for this IFO strain.
-          # Take antenna pattern into accout and window the data
-          for k in np.arange(strainT.data.length):
-            if k<plus.data.length:
-              strainT.data.data[k]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
-            else:
-              strainT.data.data[k]=0.0
-            strainT.data.data[k]*=window.data.data[k]
-          # now copy in the dictionary only the part of strain which is not null (that is achieved using plus.data.length as length)
-          rec_strains[ifo]["T"]['strain']=np.array([strainT.data.data[k] for k in arange(plus.data.length)])
-          rec_strains[ifo]["T"]['x']=np.array([REAL8time - deltaT*(plus.data.length-1-k) for k in np.arange(plus.data.length)])
-
+          # Zero until tSinstrain
+          for k in np.arange(tSinstrain):
+            strainTrec.data.data[k]=0.0
+          # then copy plus/cross over
+          for k in np.arange(plus.data.length):
+            strainTrec.data.data[k+tSinstrain]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
+          # Then zeros till the end (superfluous)
+          for k in np.arange(strainTrec.data.length- (tSinstrain +plus.data.length)):
+            strainTrec.data.data[k+tSinstrain+plus.data.length]=0.0
+          for k in np.arange(strainTrec.data.length):
+            strainTrec.data.data[k]*=window.data.data[k]
+          # now copy in the dictionary
+          rec_strains[ifo]["T"]['strain']=np.array([strainTrec.data.data[j] for j in arange(strainTrec.data.length)])
+          rec_strains[ifo]["T"]['x']=np.array([strainTrec.epoch + j*deltaT for j in arange(strainTrec.data.length)])
           # Take the FFT
-          for j in arange(strainF.data.length):
-            strainF.data.data[j]=0.0
-          REAL8TimeFreqFFT(strainF,strainT,timeToFreqFFTPlan);
+          for j in arange(strainFrec.data.length):
+            strainFrec.data.data[j]=0.0
+          REAL8TimeFreqFFT(strainFrec,strainTrec,timeToFreqFFTPlan);
+          twopit=2.*np.pi*(rem*deltaT)
+          for k in arange(strainFrec.data.length):
+            re = cos(twopit*deltaF*k)
+            im = -sin(twopit*deltaF*k)
+            strainFrec.data.data[k]*= (re + 1j*im);
           # copy in the dictionary
-          rec_strains[ifo]["F"]['strain']=np.array([strainF.data.data[k] for k in arange(int(strainF.data.length))])
-          rec_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
+          rec_strains[ifo]["F"]['strain']=np.array([strainFrec.data.data[k] for k in arange(int(strainFrec.data.length))])
+          rec_strains[ifo]["F"]['x']=np.array([strainFrec.f0+ k*strainFrec.deltaF for k in arange(int(strainFrec.data.length))])
         elif rec_domain=='F':
-          for k in np.arange(strainF.data.length):
+          for k in np.arange(strainFrec.data.length):
             if k<plus.data.length:
-              strainF.data.data[k]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
+              strainFrec.data.data[k]=((fp*plus.data.data[k]+fc*cross.data.data[k]))
             else:
-              strainF.data.data[k]=0.0
-          if inj_domain=='T':
-            for j in arange(strainF.data.length):
-              strainF.data.data[j]/=WinNorm
+              strainFrec.data.data[k]=0.0
+          twopit=2.*np.pi*(REAL8time-float(strainFrec.epoch))
+          for k in arange(strainFrec.data.length):
+            re = cos(twopit*deltaF*k)
+            im = -sin(twopit*deltaF*k)
+            strainFrec.data.data[k]*= (re + 1j*im);
           # copy in the dictionary
-          rec_strains[ifo]["F"]['strain']=np.array([strainF.data.data[k] for k in arange(int(strainF.data.length))])
-          rec_strains[ifo]["F"]['x']=np.array([strainF.f0+ k*strainF.deltaF for k in arange(int(strainF.data.length))])
-        twopit=2.*np.pi*(REAL8time-strainF.epoch)
-        for k in arange(strainF.data.length):
-          re = cos(twopit*deltaF*k)
-          im = -sin(twopit*deltaF*k)
-          rec_strains[ifo]["F"]['strain'][k]*= (re + 1j*im);
-
-  myfig=plt.figure(1,figsize=(18,13))
+          rec_strains[ifo]["F"]['strain']=np.array([strainFrec.data.data[k] for k in arange(int(strainFrec.data.length))])
+          rec_strains[ifo]["F"]['x']=np.array([strainFrec.f0+ k*strainFrec.deltaF for k in arange(int(strainFrec.data.length))])
+        #update xlimits for plot, go 6 sigmas left and right of f0
+        # This should work for SineGaussians
+        if f0 is not None and f0 is not np.nan:
+          if q is not None and q is not np.nan:
+            sigma=f0/q
+            if f0-6.*sigma>plot_fmin:
+              plot_fmin=f0-6.*sigma
+            if f0+6.*sigma<plot_fmax:
+              plot_fmax=f0+6.*sigma
+        # Now handle gaussians. For gaussians f0 is nan (FD centered at f=0)
+        if dur is not None and dur is not np.nan:
+          sigma=sqrt(0.5*np.pi*np.pi/dur/dur)/4.
+          if 0+3.*sigma<plot_fmax:
+            plot_fmax=0+3.*sigma
+          plot_fmin=0.0
+                
+  myfig=plt.figure(1,figsize=(10,7))
   
   rows=len(ifos)
   cols=2
@@ -7424,7 +7487,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       global_domain="T"
   
   A,axes=plt.subplots(nrows=rows,ncols=cols,sharex=False,sharey=False)
-  plt.setp(A,figwidth=18,figheight=13)
+  plt.setp(A,figwidth=10,figheight=7)
   for (r,i) in zip(np.arange(rows),ifos):
     for c in np.arange(cols):
       ax=axes[r]
@@ -7435,38 +7498,42 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
       if rec_strains[i]["T"]['strain'] is not None or rec_strains[i]["F"]['strain'] is not None:
         if c==0:
           if global_domain=="T":
-            ax.plot(rec_strains[i]["T"]['x'],rec_strains[i]["T"]['strain'],colors_rec[i],label='%s maP'%i)
+            ax.plot(rec_strains[i]["T"]['x'],rec_strains[i]["T"]['strain'],colors_rec[i],label='%s maP'%i,linewidth=5)
+            #ax.set_xlim([GlobREAL8time-0.02,GlobREAL8time+0.02])
+            #ax.vlines(GlobREAL8time,0.9*min(rec_strains[i]["T"]['strain']),1.1*max(rec_strains[i]["T"]['strain']),'k')
           else:
             data=rec_strains[i]["F"]['strain']
             f=rec_strains[i]["F"]['x']
-            mask=np.logical_and(f>=f_min,f<=plot_fmax)
+            mask=np.logical_and(f>=plot_fmin,f<=plot_fmax)
             ys=data
-            ax.plot(f[mask],ys[mask].real,'*',color=colors_rec[i],label='%s maP'%i)
+            ax.plot(f[mask],real(ys[mask]),'-',color=colors_rec[i],label='%s maP'%i,linewidth=5)
+            #ax.set_xlim([plot_fmin,plot_fmax])
         else:
             data=rec_strains[i]["F"]['strain']
             f=rec_strains[i]["F"]['x']
-            mask=np.logical_and(f>=f_min,f<=plot_fmax)
+            mask=np.logical_and(f>=plot_fmin,f<=plot_fmax)
             ys=data
-            ax.loglog(f[mask],abs(ys[mask]),'--',color=colors_rec[i],linewidth=4)
-            ax.set_xlim([min(f[mask]),max(f[mask])])
+            ax.plot(f[mask],absolute(ys[mask]),'--',color=colors_rec[i],linewidth=5)
+            #ax.set_xlim([min(f[mask]),max(f[mask])])
             ax.grid(True,which='both')
       if inj_strains[i]["T"]['strain'] is not None or inj_strains[i]["F"]['strain'] is not None:
         if c==0:
           if global_domain=="T":
-            ax.plot(inj_strains[i]["T"]['x'],inj_strains[i]["T"]['strain'],colors_inj[i],label='%s inj'%i)
+            ax.plot(inj_strains[i]["T"]['x'],inj_strains[i]["T"]['strain'],colors_inj[i],label='%s inj'%i,linewidth=2)
+            #ax.set_xlim([GlobREAL8time-0.02,GlobREAL8time+0.02])
           else:
             data=inj_strains[i]["F"]['strain']
             f=inj_strains[i]["F"]['x']
-            mask=np.logical_and(f>=f_min,f<=plot_fmax)
+            mask=np.logical_and(f>=plot_fmin,f<=plot_fmax)
             ys=data
-            ax.plot(f[mask],ys[mask].real,'-',color=colors_inj[i],label='%s inj'%i)
+            ax.plot(f[mask],real(ys[mask]),'-',color=colors_inj[i],label='%s inj'%i,linewidth=2)
+            #ax.set_xlim([plot_fmin,plot_fmax])
         else:
             data=inj_strains[i]["F"]['strain']
             f=inj_strains[i]["F"]['x']
-            mask=np.logical_and(f>=f_min,f<=plot_fmax)
+            mask=np.logical_and(f>=plot_fmin,f<=plot_fmax)
             ys=data
-            ax.loglog(f[mask],abs(ys[mask]),'--',color=colors_inj[i],linewidth=4)
-            ax.set_xlim([min(f[mask]),max(f[mask])])
+            ax.plot(f[mask],absolute(ys[mask]),'--',color=colors_inj[i],linewidth=2)
             ax.grid(True,which='both')
         
       if r==0:

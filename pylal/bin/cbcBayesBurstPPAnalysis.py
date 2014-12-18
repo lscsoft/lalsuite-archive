@@ -6,7 +6,8 @@
 #       Copyright 2010
 #       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
-#
+#       2014
+#       Salvatore Vitale <salvatore.vitale@ligo.mit.edu>
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
 #       the Free Software Foundation; either version 2 of the License, or
