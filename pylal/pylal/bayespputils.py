@@ -3720,9 +3720,10 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
   #axes=plt.Axes(myfig,[0.2, 0.2, 0.7,0.7])
     axes=plt.Axes(myfig,[0.15,0.15,0.6,0.76])
     myfig.add_axes(axes)
-    majorFormatterX=ScalarFormatter(useMathText=True)
+
+    majorFormatterX=ScalarFormatter(useMathText=True,useOffset=0.0)
     majorFormatterX.format_data=lambda data:'%.6g'%(data)
-    majorFormatterY=ScalarFormatter(useMathText=True)
+    majorFormatterY=ScalarFormatter(useMathText=True,useOffset=0.0)
     majorFormatterY.format_data=lambda data:'%.6g'%(data)
     majorFormatterX.set_scientific(True)
     majorFormatterY.set_scientific(True)
@@ -3758,6 +3759,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
 
     locatorX.view_limits(bins[0],bins[-1])
     axes.xaxis.set_major_locator(locatorX)
+
     if plotkde:  plot_one_param_pdf_kde(myfig,posterior[param])
     histbinSize=bins[1]-bins[0]
     if analyticPDF:
@@ -7169,7 +7171,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
   from glue.ligolw import utils
   import os
   import numpy as np
-  from numpy import arange,real,imag,absolute,fabs
+  from numpy import arange,real,imag,absolute,fabs,pi
   from pylal import bayespputils as bppu
   from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
   import copy
@@ -7208,6 +7210,8 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
 
   plot_fmax=2048
   plot_fmin=0.01
+  plot_tmin=1e11
+  plot_tmax=-1e11
 
   inj_strains=dict((i,{"T":{'x':None,'strain':None},"F":{'x':None,'strain':None}}) for i in ifos)
   rec_strains=dict((i,{"T":{'x':None,'strain':None},"F":{'x':None,'strain':None}}) for i in ifos)
@@ -7313,19 +7317,28 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
         # This should work for SineGaussians
         if f0 is not None and f0 is not np.nan:
           if q is not None and q is not np.nan:
-            sigma=f0/q
-            if f0-6.*sigma>plot_fmin:
-              plot_fmin=f0-6.*sigma
-            if f0+6.*sigma<plot_fmax:
-              plot_fmax=f0+6.*sigma
+            sigmaF=f0/q
+            if f0-6.*sigmaF>plot_fmin:
+              plot_fmin=f0-6.*sigmaF
+            if f0+6.*sigmaF<plot_fmax:
+              plot_fmax=f0+6.*sigmaF
+            sigmaT=q/(2.*pi*f0)
+            if REAL8time-6.*sigmaT<plot_tmin:
+              plot_tmin=REAL8time-6.*sigmaT
+            if REAL8time+6.*sigmaT>plot_tmax:
+              plot_tmax=REAL8time+6.*sigmaT
         # Now handle gaussians. For gaussians f0 is nan (FD centered at f=0)
         if dur is not None and dur is not np.nan:
-          sigma=sqrt(0.5*np.pi*np.pi/dur/dur)/4.
-          if 0+3.*sigma<plot_fmax:
-            plot_fmax=0+3.*sigma
+          sigmaF=1./sqrt(2.)/pi/dur
+          if 0+6.*sigmaF<plot_fmax:
+            plot_fmax=0+6.*sigmaF
           plot_fmin=0.0
-                
-          
+          sigmaT=dur/sqrt(2.)
+          if REAL8time-6.*sigmaT<plot_tmin:
+            plot_tmin=REAL8time-6.*sigmaT
+          if REAL8time+6.*sigmaT>plot_tmax:
+            plot_tmax=REAL8time+6.*sigmaT
+
 
   if pos is not None:
     
@@ -7456,18 +7469,28 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
         # This should work for SineGaussians
         if f0 is not None and f0 is not np.nan:
           if q is not None and q is not np.nan:
-            sigma=f0/q
-            if f0-6.*sigma>plot_fmin:
-              plot_fmin=f0-6.*sigma
-            if f0+6.*sigma<plot_fmax:
-              plot_fmax=f0+6.*sigma
+            sigmaF=f0/q
+            if f0-6.*sigmaF>plot_fmin:
+              plot_fmin=f0-6.*sigmaF
+            if f0+6.*sigmaF<plot_fmax:
+              plot_fmax=f0+6.*sigmaF
+            sigmaT=q/(2.*pi*f0)
+            if REAL8time-6.*sigmaT<plot_tmin:
+              plot_tmin=REAL8time-6.*sigmaT
+            if REAL8time+6.*sigmaT>plot_tmax:
+              plot_tmax=REAL8time+6.*sigmaT
         # Now handle gaussians. For gaussians f0 is nan (FD centered at f=0)
         if dur is not None and dur is not np.nan:
-          sigma=sqrt(0.5*np.pi*np.pi/dur/dur)/4.
-          if 0+3.*sigma<plot_fmax:
-            plot_fmax=0+3.*sigma
+          sigmaF=1./sqrt(2.)/pi/dur
+          if 0+6.*sigmaF<plot_fmax:
+            plot_fmax=0+6.*sigmaF
           plot_fmin=0.0
-                
+          sigmaT=dur/sqrt(2.)
+          if REAL8time-6.*sigmaT<plot_tmin:
+            plot_tmin=REAL8time-6.*sigmaT
+          if REAL8time+6.*sigmaT>plot_tmax:
+            plot_tmax=REAL8time+6.*sigmaT
+
   myfig=plt.figure(1,figsize=(10,7))
   
   rows=len(ifos)
@@ -7499,7 +7522,7 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
         if c==0:
           if global_domain=="T":
             ax.plot(rec_strains[i]["T"]['x'],rec_strains[i]["T"]['strain'],colors_rec[i],label='%s maP'%i,linewidth=5)
-            #ax.set_xlim([GlobREAL8time-0.02,GlobREAL8time+0.02])
+            ax.set_xlim([plot_tmin,plot_tmax])
             #ax.vlines(GlobREAL8time,0.9*min(rec_strains[i]["T"]['strain']),1.1*max(rec_strains[i]["T"]['strain']),'k')
           else:
             data=rec_strains[i]["F"]['strain']
@@ -7507,35 +7530,35 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
             mask=np.logical_and(f>=plot_fmin,f<=plot_fmax)
             ys=data
             ax.plot(f[mask],real(ys[mask]),'-',color=colors_rec[i],label='%s maP'%i,linewidth=5)
-            #ax.set_xlim([plot_fmin,plot_fmax])
+            ax.set_xlim([plot_fmin,plot_fmax])
         else:
             data=rec_strains[i]["F"]['strain']
             f=rec_strains[i]["F"]['x']
             mask=np.logical_and(f>=plot_fmin,f<=plot_fmax)
             ys=data
-            ax.plot(f[mask],absolute(ys[mask]),'--',color=colors_rec[i],linewidth=5)
-            #ax.set_xlim([min(f[mask]),max(f[mask])])
+            ax.loglog(f[mask],absolute(ys[mask]),'--',color=colors_rec[i],linewidth=5)
             ax.grid(True,which='both')
+            ax.set_xlim([plot_fmin,plot_fmax])
       if inj_strains[i]["T"]['strain'] is not None or inj_strains[i]["F"]['strain'] is not None:
         if c==0:
           if global_domain=="T":
             ax.plot(inj_strains[i]["T"]['x'],inj_strains[i]["T"]['strain'],colors_inj[i],label='%s inj'%i,linewidth=2)
-            #ax.set_xlim([GlobREAL8time-0.02,GlobREAL8time+0.02])
+            ax.set_xlim([plot_tmin,plot_tmax])
           else:
             data=inj_strains[i]["F"]['strain']
             f=inj_strains[i]["F"]['x']
             mask=np.logical_and(f>=plot_fmin,f<=plot_fmax)
             ys=data
             ax.plot(f[mask],real(ys[mask]),'-',color=colors_inj[i],label='%s inj'%i,linewidth=2)
-            #ax.set_xlim([plot_fmin,plot_fmax])
+            ax.set_xlim([plot_fmin,plot_fmax])
         else:
             data=inj_strains[i]["F"]['strain']
             f=inj_strains[i]["F"]['x']
             mask=np.logical_and(f>=plot_fmin,f<=plot_fmax)
             ys=data
-            ax.plot(f[mask],absolute(ys[mask]),'--',color=colors_inj[i],linewidth=2)
+            ax.loglog(f[mask],absolute(ys[mask]),'--',color=colors_inj[i],linewidth=2)
             ax.grid(True,which='both')
-        
+            ax.set_xlim([plot_fmin,plot_fmax])
       if r==0:
         if c==0:
           if global_domain=="T":
