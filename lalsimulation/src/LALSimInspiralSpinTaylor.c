@@ -920,7 +920,7 @@ int XLALSimInspiralSpinTaylorPNEvolveOrbit(
     }
 
     /* stop the integration only when the test is true */
-    integrator->stopontestonly = 1;
+    integrator->stopontestonly = 0;
 
     /* run the integration; note: time is measured in \hat{t} = t / M */
     //len = XLALAdaptiveRungeKutta4Hermite(integrator, (void *) &params, yinit,
