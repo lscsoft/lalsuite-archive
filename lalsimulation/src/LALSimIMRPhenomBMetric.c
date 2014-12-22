@@ -32,6 +32,9 @@
 #include <gsl/gsl_complex.h>
 
 
+#define PI 3.14159265358979323846264338327950288419716939937510582097494
+
+
 static REAL8 * ChiPowList(const REAL8 chi){
 	static REAL8	chi_pow_list[9];
 	
@@ -57,7 +60,7 @@ static REAL8 ChirpTime_theta0(
 		const REAL8 eta,	/**< Symmetric mass ratio of system */
 		const REAL8 flow	/**< Lower Frequency Cut-off */
 ){
-	v0 =	cbrt(LAL_PI*mass*LAL_MTSUN_SI*flow);
+	v0 =	cbrt(pi*mass*LAL_MTSUN_SI*flow);
 	return 5.0/(128.0*eta*v0*v0*v0*v0*v0);
 }
 
@@ -334,98 +337,58 @@ static REAL8 * XLALSimIMRPhenomBNormalization(const REAL8 mass,
 
 
 static REAL8 *XLALSimIMRPhenomBAmplitude_Inspiral(
-												  const REAL8 mass,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
-												  const REAL8 eta,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
-												  const REAL8 chi
-												  ){
+		const REAL8 mass,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+		const REAL8 eta,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+		const REAL8 chi
+){
+
 	static REAL8	amplitude_inspiral_expression_list[12];
-	
 	REAL8 insp_coef1, insp_coef2, insp_coef3;
 	REAL8 insp_coef1_mass, insp_coef2_mass, insp_coef3_mass;
 	REAL8 insp_coef1_eta, insp_coef2_eta, insp_coef3_eta;
 	REAL8 insp_coef1_chi, insp_coef2_chi, insp_coef3_chi;
+	REAL8 M = mass*LAL_MTSUN_SI;
+	REAL8 eta_pow_half = sqrt(eta);
+	REAL8 mass_pow_half	= sqrt(M);
+	REAL8 mass_pow_5_6 = M/sqrt(cbrt(M));
 	
+	/* Inspiral Phase of waveform */
+	insp_coef1 = (0.212787510139663399157865621657*eta_pow_half*mass_pow_5_6);
+	insp_coef2 = eta_pow_half*(-0.65816363866878219734598675537 + 1.2253118721965769700847885518*eta)*M*sqrt(M);
+	insp_coef3 = 0.212787510139663399157865621657*eta_pow_half*mass_pow_5_6*(10.6028752058655521798114214186*chi*M - 5.75958653158128760384817953601*chi*eta*M) ;
 	
+	amplitude_inspiral_expression_list[0] =	insp_coef1;
+	amplitude_inspiral_expression_list[1] =	insp_coef2;
+	amplitude_inspiral_expression_list[2] =	insp_coef3;
 	
-	REAL8	M = mass*LAL_MTSUN_SI;
+	/* Derivative of inspiral phase w.r.t theta0 co-ordinate */
+	insp_coef1_mass	= (0.177322925116386165964888018048*eta_pow_half)/sqrt(cbrt(M));
+	insp_coef2_mass	= -0.987245458003173296018980133062*eta_pow_half*mass_pow_half + 1.8379678082948654551271828277*eta_pow_half*eta*mass_pow_half ;
+	insp_coef3_mass	= chi*(4.13629226152578669789413343455 - 2.2468748087300569716955786558*eta)*eta_pow_half*mass_pow_5_6;
 	
-	REAL8	eta_pow_half	=	sqrt(eta);
+	amplitude_inspiral_expression_list[3] =	insp_coef1_mass;
+	amplitude_inspiral_expression_list[4] =	insp_coef2_mass;
+	amplitude_inspiral_expression_list[5] =	insp_coef3_mass;
 	
-	REAL8	mass_pow_half	=	sqrt(M);
-	REAL8	mass_pow_5_6	=	M/sqrt(cbrt(M));
+	/* Derivative of inspiral phase w.r.t theta3 co-ordinate */
+	insp_coef1_eta = (0.106393755069831699578932810829*mass_pow_5_6)/eta_pow_half;
+	insp_coef2_eta = ((-0.3290818193343910986729933777 + 1.837967808294865455127182828*eta)*M*sqrt(M))/eta_pow_half;
+	insp_coef3_eta = (chi*(1.128079707688850917607490937 - 1.838352116233682976841837082*eta)*(mass_pow_5_6*M))/eta_pow_half;
 	
-	/******************** Inspiral Phase of waveform ******************************/
+	amplitude_inspiral_expression_list[6] =	insp_coef1_eta;
+	amplitude_inspiral_expression_list[7] =	insp_coef2_eta;
+	amplitude_inspiral_expression_list[8] =	insp_coef3_eta;
 	
+	/* Derivative of inspiral phase w.r.t theta3S co-ordinate */ 
+	insp_coef1_chi = 0.;
+	insp_coef2_chi = 0.;
+	insp_coef3_chi = -1.2255680774891219845612247213*eta_pow_half*(-1.8409090909090909090909090909 + 1.*eta)*(mass_pow_5_6*M);
 	
-	
-	insp_coef1	=	(0.212787510139663399157865621657*eta_pow_half*mass_pow_5_6);
-	
-	insp_coef2	=	eta_pow_half*(-0.65816363866878219734598675537 + 1.2253118721965769700847885518*eta)*M*sqrt(M);
-	
-	insp_coef3	=	0.212787510139663399157865621657*eta_pow_half*mass_pow_5_6*(10.6028752058655521798114214186*chi*M - 5.75958653158128760384817953601*chi*eta*M) ;
-	
-	
-	
-	amplitude_inspiral_expression_list[0]	=	insp_coef1;
-	amplitude_inspiral_expression_list[1]	=	insp_coef2;
-	amplitude_inspiral_expression_list[2]	=	insp_coef3;
-	
-	
-	
-	
-	/******************** Derivative of inspiral phase w.r.t theta0 co-ordinate ******************************/
-	
-	insp_coef1_mass	=	(0.177322925116386165964888018048*eta_pow_half)/sqrt(cbrt(M));
-	
-	insp_coef2_mass	=	-0.987245458003173296018980133062*eta_pow_half*mass_pow_half + 1.8379678082948654551271828277*eta_pow_half*eta*mass_pow_half ;
-	
-	insp_coef3_mass	=	chi*(4.13629226152578669789413343455 - 2.2468748087300569716955786558*eta)*eta_pow_half*mass_pow_5_6;
-	
-	
-	
-	
-	amplitude_inspiral_expression_list[3]	=	insp_coef1_mass;
-	amplitude_inspiral_expression_list[4]	=	insp_coef2_mass;
-	amplitude_inspiral_expression_list[5]	=	insp_coef3_mass;
-	
-	
-	
-	/******************** Derivative of inspiral phase w.r.t theta3 co-ordinate ******************************/
-	
-	
-	insp_coef1_eta	=	(0.106393755069831699578932810829*mass_pow_5_6)/eta_pow_half;
-	
-	insp_coef2_eta	=	((-0.3290818193343910986729933777 + 1.837967808294865455127182828*eta)*M*sqrt(M))/eta_pow_half;
-	
-	insp_coef3_eta	=	(chi*(1.128079707688850917607490937 - 1.838352116233682976841837082*eta)*(mass_pow_5_6*M))/eta_pow_half;
-	
-	
-	
-	
-	amplitude_inspiral_expression_list[6]	=	insp_coef1_eta;
-	amplitude_inspiral_expression_list[7]	=	insp_coef2_eta;
-	amplitude_inspiral_expression_list[8]	=	insp_coef3_eta;
-	
-	
-	
-	
-	/******************** Derivative of inspiral phase w.r.t theta3S co-ordinate ******************************/
-	
-	insp_coef1_chi	=	0.;
-	
-	insp_coef2_chi	=	0.;
-	
-	insp_coef3_chi	=	-1.2255680774891219845612247213*eta_pow_half*(-1.8409090909090909090909090909 + 1.*eta)*(mass_pow_5_6*M);
-	
-	
-	
-	amplitude_inspiral_expression_list[9]	=	insp_coef1_chi ;
-	amplitude_inspiral_expression_list[10]	=	insp_coef2_chi ;
-	amplitude_inspiral_expression_list[11]	=	insp_coef3_chi ;
-	
+	amplitude_inspiral_expression_list[9] = insp_coef1_chi ;
+	amplitude_inspiral_expression_list[10] = insp_coef2_chi ;
+	amplitude_inspiral_expression_list[11] = insp_coef3_chi ;
 	
 	return amplitude_inspiral_expression_list;
-	
 }
 
 
