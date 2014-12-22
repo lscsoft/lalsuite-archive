@@ -35,7 +35,6 @@
 #define PI 3.14159265358979323846264338327950288419716939937510582097494
 
 
-
 static REAL8 * ChiPowList(const REAL8 chi){
 	static REAL8	chi_pow_list[9];
 	
@@ -53,21 +52,22 @@ static REAL8 * ChiPowList(const REAL8 chi){
 	
 }
 
-static REAL8 ChirpTime_theta0(const REAL8 mass,	/**< Total Mass of system */
-							  const REAL8 eta,	/**< Symmetric mass ratio of system */
-							  const REAL8 flow	/**< Lower Frequency Cut-off */
-
+/**
+* Compute the dimensionless Newtonian chirp time (Eq. XX of the paper LIGO-Doc-Number) 
+*/
+static REAL8 ChirpTime_theta0(
+		const REAL8 mass,	/**< Total Mass of system */
+		const REAL8 eta,	/**< Symmetric mass ratio of system */
+		const REAL8 flow	/**< Lower Frequency Cut-off */
 ){
-	REAL8 pi;
-	pi = PI;
-	REAL8	expr	=	cbrt(pi*mass*LAL_MTSUN_SI*flow);
-	return 5.0/(128.0*eta*expr*expr*expr*expr*expr);
+	v0 =	cbrt(pi*mass*LAL_MTSUN_SI*flow);
+	return 5.0/(128.0*eta*v0*v0*v0*v0*v0);
 }
 
-static REAL8 ChirpTime_theta3(const REAL8 mass,	/**< Total Mass of system */
-							  const REAL8 eta,	/**< Symmetric mass ratio of system */
-							  const REAL8 flow	/**< Lower Frequency Cut-off */
-
+static REAL8 ChirpTime_theta3(
+		const REAL8 mass,	/**< Total Mass of system */
+		const REAL8 eta,	/**< Symmetric mass ratio of system */
+		const REAL8 flow	/**< Lower Frequency Cut-off */
 ){
 	REAL8 pi;
 	pi = PI;
