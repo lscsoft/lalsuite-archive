@@ -32,9 +32,6 @@
 #include <gsl/gsl_complex.h>
 
 
-#define PI 3.14159265358979323846264338327950288419716939937510582097494
-
-
 static REAL8 * ChiPowList(const REAL8 chi){
 	static REAL8	chi_pow_list[9];
 	
@@ -60,7 +57,7 @@ static REAL8 ChirpTime_theta0(
 		const REAL8 eta,	/**< Symmetric mass ratio of system */
 		const REAL8 flow	/**< Lower Frequency Cut-off */
 ){
-	v0 =	cbrt(pi*mass*LAL_MTSUN_SI*flow);
+	v0 =	cbrt(LAL_PI*mass*LAL_MTSUN_SI*flow);
 	return 5.0/(128.0*eta*v0*v0*v0*v0*v0);
 }
 
