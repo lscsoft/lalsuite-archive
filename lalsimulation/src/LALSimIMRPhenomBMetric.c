@@ -36,6 +36,23 @@
 
 
 
+static REAL8 * ChiPowList(const REAL8 chi){
+	static REAL8	chi_pow_list[9];
+	
+	chi_pow_list[0]		=	pow(1. - chi,0.217);
+	chi_pow_list[1]		=	pow(1. - chi,0.26);
+	chi_pow_list[2]		=	pow(1. - chi,0.783);
+	chi_pow_list[3]		=	pow(1. - chi,1.5230000000000001);
+	chi_pow_list[4]		=	pow(1. - chi,0.3);
+	chi_pow_list[5]		=	pow(1. - chi,0.45);
+	chi_pow_list[6]		=	pow(1. - chi,0.74);
+	chi_pow_list[7]		=	pow(1. - chi,0.75);
+	chi_pow_list[8]		=	pow(1. - chi,0.7);
+	
+	return chi_pow_list;
+	
+}
+
 static REAL8 ChirpTime_theta0(const REAL8 mass,	/**< Total Mass of system */
 							  const REAL8 eta,	/**< Symmetric mass ratio of system */
 							  const REAL8 flow	/**< Lower Frequency Cut-off */
@@ -72,316 +89,243 @@ static REAL8 ChirpTime_theta3S(const REAL8 mass,	/**< Total Mass of system */
 
 
 static REAL8 TransitionFrequencies_fmerg(
-										 const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
-										 const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
-										 const REAL8 theta3S,
-										 const REAL8 flow	/**< Lower Frequency Cut-off */
-)
-{	REAL8	theta3_pow_2 = theta3*theta3;
-	REAL8	theta0_pow_3 = theta0*theta0*theta0;
-	REAL8	theta3S_pow_2 = theta3S*theta3S;
-	REAL8	theta0_pow_third = cbrt(theta0);
-	REAL8	theta3_pow_third = cbrt(theta3);
-	/* Some expressions which occur multiple times */
+										 const REAL8 mass,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+										 const REAL8 eta,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+										 const REAL8 chi,
+										 const REAL8 *chi_pow_list
+										 )
+{
+	REAL8	M = mass*LAL_MTSUN_SI;
 	
+	const REAL8 chi_pow_217	=	chi_pow_list[0];
+	const REAL8 chi_pow_26	=	chi_pow_list[1];
 	
-	REAL8	expr1 = -0.7794457395540408 + (0.00001800104500292942*(theta3_pow_third*theta3_pow_third)*theta3S)/(theta0_pow_third*theta0_pow_third);
-	
-	
-	return  (-27925.658030729744*flow*theta0_pow_3)/(theta3_pow_2*theta3_pow_2*theta3_pow_2) - (4787.010536911997*flow*cbrt(theta0_pow_3*theta0_pow_3*theta0))/(theta3_pow_third*theta3_pow_2*theta3_pow_2) + (146.91743091386425*flow*(theta0_pow_third*theta0_pow_third*theta0))/cbrt(theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3_pow_2) + (20.106192982974676*flow*theta0)/theta3 + (0.04802651168014136*flow*(theta0_pow_third*theta0_pow_third*theta0)*theta3S)/cbrt(theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3) + (0.0002862373302760312*flow*theta0*theta3S)/theta3_pow_2 - (1.023947441860004e-8*flow*theta0_pow_third*theta3S_pow_2)/(theta3_pow_third*theta3) - (89.57308973915218*flow*theta0*pow(expr1,0.217))/theta3 + (70.79390549305383*flow*theta0*pow(expr1,0.26))/theta3 ;
+	return  ((0.31830988618379075 - 1.4180705429487876*chi_pow_217 + 1.1207691092531271*chi_pow_26 + (0.2048801582421969 + 0.2632295434785476*chi - 0.08614420449791928*(chi*chi))*eta + (-0.01853136495384793 - 1.252422078178743*chi)*(eta*eta) - 2.25732638886097*(eta*eta*eta))/M);
 	
 	
 }
 
 static REAL8 TransitionFrequencies_fring(
-										 const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
-										 const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
-										 const REAL8 theta3S,
-										 const REAL8 flow	/**< Lower Frequency Cut-off */
-)
-{	REAL8	theta3_pow_2 = theta3*theta3;
-	REAL8	theta0_pow_3 = theta0*theta0*theta0;
-	REAL8	theta3S_pow_2 = theta3S*theta3S;
-	REAL8	theta0_pow_third = cbrt(theta0);
-	REAL8	theta3_pow_third = cbrt(theta3);
-	/* Some expressions which occur multiple times */
+										 const REAL8 mass,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+										 const REAL8 eta,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+										 const REAL8 chi,
+										 const REAL8 *chi_pow_list
+										 
+										 )
+{
+	REAL8	M = mass*LAL_MTSUN_SI;
 	
-	/* Some combination of above expressions. For optimization purposes, they are calculated here only once and used in the end expression. */
-	
-	REAL8	t0_term2	=	theta0_pow_third*theta0_pow_third;
-	REAL8	t0_term6	=	theta0_pow_third*theta0_pow_third*theta0;
-	REAL8	t3_term1	=	theta3_pow_third*theta3_pow_third;
-	REAL8	t3_term2	=	theta3_pow_third*theta3_pow_2*theta3_pow_2;
+	const REAL8	chi_pow_3 = chi_pow_list[4]	;
 	
 	
-	
-	
-	
-	REAL8	expr1 = -0.7794457395540408 + (0.00001800104500292942*(t3_term1)*theta3S)/(t0_term2);
-	
-	return (9156.289138283717*flow*theta0_pow_3)/(theta3_pow_2*theta3_pow_2*theta3_pow_2) + (188.3965655180371*flow*cbrt(theta0_pow_3*theta0_pow_3*theta0))/(t3_term2) - (18.010617308324708*flow*(t0_term6))/cbrt(theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3_pow_2) + (10.053096491487338*flow*theta0)/theta3 - (0.002076640683206031*flow*(t0_term6)*theta3S)/cbrt(theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3) + (0.000453297950563177*flow*theta0*theta3S)/theta3_pow_2 - (9.871711453116567e-10*flow*theta0_pow_third*theta3S_pow_2)/(theta3_pow_third*theta3) - (6.333450789637023*flow*theta0*pow(expr1,0.3))/theta3;
+	return ((0.15915494309189532 - 0.10026761414789406*chi_pow_3 + (0.046759722280398854 - 0.039091637122231335*chi - 0.008305023240421283*(chi*chi))*eta + (-0.007925916165976387 + 0.054154060936448305*chi)*(eta*eta) + 0.7401341473545502*(eta*eta*eta))/M);
 	
 }
 
 static REAL8 TransitionFrequencies_fcut(
-										const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
-										const REAL8 theta3, /**< Theta3 component of Chirp-Time Co-ordinate system*/
-										const REAL8 theta3S,
-										const REAL8 flow	/**< Lower Frequency Cut-off */
-)
-{	REAL8	theta3_pow_2 = theta3*theta3;
-	REAL8	theta0_pow_3 = theta0*theta0*theta0;
-	REAL8	theta3S_pow_2 = theta3S*theta3S;
-	REAL8	theta0_pow_third = cbrt(theta0);
-	REAL8	theta3_pow_third = cbrt(theta3);
+										const REAL8 mass,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+										const REAL8 eta,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+										const REAL8 chi
+										)
+{
+	REAL8	M = mass*LAL_MTSUN_SI;
 	
-	REAL8	t3_term2	=	theta3_pow_third*theta3_pow_2*theta3_pow_2;
-	REAL8	t0_term6	=	theta0_pow_third*theta0_pow_third*theta0 ;
-	
-	
-	return (19382.098373745248*flow*theta0_pow_3)/(theta3_pow_2*theta3_pow_2*theta3_pow_2) - (29.730187648067748*flow*cbrt(theta0_pow_3*theta0_pow_3*theta0))/(t3_term2) + (21.13013741081529*flow*(t0_term6))/cbrt(theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3_pow_2) + (9.114273716814719*flow*theta0)/theta3 - (0.0015609287637006245*flow*(t0_term6)*theta3S)/cbrt(theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3) - (0.0009137763972796158*flow*theta0*theta3S)/theta3_pow_2 - (0.0000350525661224564*flow*theta0_pow_third*theta3S)/theta3_pow_third + (5.490716208946671e-9*flow*theta0_pow_third*theta3S_pow_2)/(theta3_pow_third*theta3) + (8.771363873581556e-11*flow*theta3_pow_third*theta3S_pow_2)/theta0_pow_third;
+	return ((0.10300507916907467 + (chi*chi)*(0.004285405997692373 + 0.046193130682991704*eta) - 0.042376595147648057*eta - 0.08638930311028079*(eta*eta) + 1.5667212597966178*(eta*eta*eta) + chi*(0.015576494280403797 - 0.026012283898939375*eta + 0.04070546824518315*(eta*eta)))/M);
 }
 
 /*****************************************************************************************************************************
  
  ******************************************************************************************************************************/
 
+static REAL8 * MassPartialDerivativesWRTTheta0(
+											   const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+											   const REAL8 theta3, /**< Theta3 component of Chirp-Time Co-ordinate system*/
+											   const REAL8 theta3S,
+											   const REAL8 flow	/**< Lower Frequency Cut-off */
 
+){	static  REAL8	coord_derivative_list[3];
+	
+	REAL8	mass, eta, mass_theta0, eta_theta0, chi_theta0;
+	
+	REAL8	theta0_pow_2_3 = cbrt(theta0*theta0);
+	REAL8	theta3_pow_2_3 = cbrt(theta3*theta3);
+	
+	
+	mass	=	0.0158314349441152767881061661265*(1./flow)*(theta3/theta0);
+	eta		=	5.80732920322284746065959952653*(theta0_pow_2_3/(theta3_pow_2_3*theta3));
+	
+	mass_theta0		=	-mass/theta0;
+	
+	eta_theta0		=	(0.666666666666666666666666666667)*(eta/theta0);
+	
+	chi_theta0		=	0.000012000696668619612*(theta3S*theta3_pow_2_3/(theta0_pow_2_3*theta0));
+	
+	coord_derivative_list[0]		=		mass_theta0;
+	coord_derivative_list[1]		=		eta_theta0;
+	coord_derivative_list[2]		=		chi_theta0;
+	
+	return coord_derivative_list;
+}
 
+static REAL8 * MassPartialDerivativesWRTTheta3(
+											   const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+											   const REAL8 theta3, /**< Theta3 component of Chirp-Time Co-ordinate system*/
+											   const REAL8 theta3S,
+											   const REAL8 flow	/**< Lower Frequency Cut-off */
 
-
-/*****************************************************************************************************************************
-	Define list of an expression and it's powers which is used multiple times throughout the code.
- 
- ******************************************************************************************************************************/
-
-
-static REAL8 * XLALSimIMRPhenomBExprPowers(	  const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
-											  const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
-											  const REAL8 theta3S	/**< Theta3S component of new co-ordinate system */
-){
-	static REAL8	expr_list[16];
+){	static  REAL8	coord_derivative_list[3];
 	
-	REAL8	theta0_pow_third = cbrt(theta0);
-	REAL8	theta3_pow_third = cbrt(theta3);
-	REAL8	t3_term1	=	theta3_pow_third*theta3_pow_third;							/* pow(theta3,2.0/3.0)	*/
-	REAL8	t0_term2	=	theta0_pow_third*theta0_pow_third;							/* pow(theta0,2.0/3.0)	*/
+	REAL8	eta, mass_theta3, eta_theta3, chi_theta3;
+	
+	REAL8	theta0_pow_2_3 = cbrt(theta0*theta0);
+	REAL8	theta3_pow_2_3 = cbrt(theta3*theta3);
 	
 	
+	eta		=	5.80732920322284746065959952653*(theta0_pow_2_3/(theta3_pow_2_3*theta3));
 	
-	REAL8	expr1		  =		-0.7794457395540408 + (0.00001800104500292942*(t3_term1)*theta3S)/(t0_term2);
-	REAL8	expr1_pow_217 =		pow(expr1,0.217);
-	REAL8	expr1_pow_26  =		pow(expr1,0.26);
-	REAL8	expr1_pow_3   =		pow(expr1,0.3);
-	REAL8	expr1_pow_7   =		pow(expr1,0.7);
-	REAL8	expr1_pow_152 =		pow(expr1,1.5230000000000001);
-	REAL8	expr1_pow_74  =		pow(expr1,0.7400000000000001);
-	REAL8	expr1_pow_78  =		pow(expr1,0.7830000000000001);
-	REAL8	expr1_pow_174 =		pow(expr1,1.74);
-	REAL8	expr1_pow_178 =		pow(expr1,1.783);
-	REAL8	expr1_pow_45  =		pow(expr1,0.45);
-	REAL8	expr1_pow_75  =		pow(expr1,0.75);
-	REAL8	expr1_pow_216 =		pow(expr1,0.21699999999999986);
-	REAL8	expr1_pow_249 =		pow(expr1,0.24999999999999994);
-	REAL8	expr1_pow_55  =		pow(expr1,0.55);
-	REAL8	expr1_pow_25  =		pow(expr1,0.25);
+	mass_theta3		=	0.0158314349441152767881061661265*(1./flow)*(1/theta0);
 	
+	eta_theta3		=	-(5.0/3.0)*(eta/theta3);
 	
-	expr_list[0]	=	expr1;
-	expr_list[1]	=	expr1_pow_217;
-	expr_list[2]	=	expr1_pow_26;
-	expr_list[3]	=	expr1_pow_3;
-	expr_list[4]	=	expr1_pow_7;
-	expr_list[5]	=	expr1_pow_152;
-	expr_list[6]	=	expr1_pow_74;
-	expr_list[7]	=	expr1_pow_78;
-	expr_list[8]	=	expr1_pow_174;
-	expr_list[9]	=	expr1_pow_178;
-	expr_list[10]	=	expr1_pow_45;
-	expr_list[11]	=	expr1_pow_75;
-	expr_list[12]	=	expr1_pow_216;
-	expr_list[13]	=	expr1_pow_249;
-	expr_list[14]	=	expr1_pow_55;
-	expr_list[15]	=	expr1_pow_25;
+	chi_theta3		=	-(0.666666666666666666666666666667)*0.00001800104500292942*(theta3S/(theta0_pow_2_3*cbrt(theta3)));
 	
+	coord_derivative_list[0]		=		mass_theta3;
+	coord_derivative_list[1]		=		eta_theta3;
+	coord_derivative_list[2]		=		chi_theta3;
 	
-	
-	
-	
-	return expr_list;
-	
+	return coord_derivative_list;
 }
 
 
+static REAL8 * MassPartialDerivativesWRTTheta3S(
+												const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+												const REAL8 theta3	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+
+){	static  REAL8	coord_derivative_list[3];
+	
+	REAL8	chi_theta3S;
+	
+	REAL8	theta0_pow_2_3 = cbrt(theta0*theta0);
+	REAL8	theta3_pow_2_3 = cbrt(theta3*theta3);
+	
+	
+	chi_theta3S		=	-0.00001800104500292942*(theta3_pow_2_3/(theta0_pow_2_3));
+	
+	coord_derivative_list[0]		=		0.0;
+	coord_derivative_list[1]		=		0.0;
+	coord_derivative_list[2]		=		chi_theta3S;
+	
+	return coord_derivative_list;
+}
+
+/*****************************************************************************************************************************
+ 
+ ******************************************************************************************************************************/
+static REAL8 CalculateDerivatives(
+								  const REAL8 expr_mass,
+								  const REAL8 expr_eta,
+								  const REAL8 expr_chi,
+								  const REAL8 *partial_der_list
+								  ){
+	REAL8	final_expr;
+	
+	final_expr	=	expr_mass*partial_der_list[0] + expr_eta*partial_der_list[1] + expr_chi*partial_der_list[2];
+	return final_expr;
+}
 
 /*****************************************************************************************************************************
  
  ******************************************************************************************************************************/
 
-
-
-
-
 /*****************************************************************************************************************************
-	Define the normalization constants and their derivatives.
  
  ******************************************************************************************************************************/
-
-
-
-
-static REAL8 * XLALSimIMRPhenomBNormalization(const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
-											  const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
-											  const REAL8 theta3S,	/**< Theta3S component of new co-ordinate system */
-											  const REAL8 flow,		/**< Lower Frequency Cut-off */
-											  const	REAL8 *expr_list
-											  
+static REAL8 * XLALSimIMRPhenomBNormalization(const REAL8 mass,
+											  const REAL8 eta,
+											  const REAL8 chi,
+											  const REAL8 *chi_pow_list
 											  ){
 	static REAL8	normalization_list[8];
 	
-	REAL8	norm_merg, norm_ring, norm_merg_t0, norm_merg_t3, norm_merg_t3S, norm_ring_t0, norm_ring_t3, norm_ring_t3S;
-	REAL8	norm_ring_t0_pre, norm_ring_t3_pre, norm_ring_t3S_pre ;
-	/* Normalization constants and their derivatives w.r.t the co-ordinates. The normalization constants are to ensure smooth transition between the amplitudes.*/
+	REAL8	norm_merg, norm_merg_mass, norm_merg_eta, norm_merg_chi, norm_ring, norm_ring_mass, norm_ring_eta, norm_ring_chi, pre_norm_ring, pre_norm_ring_mass, pre_norm_ring_eta, pre_norm_ring_chi;
 	
-	REAL8	theta3_pow_2 = theta3*theta3;
-	REAL8	theta0_pow_2 = theta0*theta0;
-	REAL8	theta3S_pow_2 = theta3S*theta3S;
-	REAL8	theta0_pow_third = cbrt(theta0);
-	REAL8	theta3_pow_third = cbrt(theta3);
-	REAL8	pi = PI;
+	REAL8	M = mass*LAL_MTSUN_SI;
 	
-	/* Some combination of above expressions. For optimization purposes, they are calculated here only once and used in the end expression. */
-	REAL8	t0_term2	=	theta0_pow_third*theta0_pow_third;							/* pow(theta0,2.0/3.0)	*/
-	REAL8	t0_term3	=	t0_term2*t0_term2;											/* pow(theta0,4.0/3.0)	*/
-	REAL8	t0_term4	=	theta0_pow_third*theta0_pow_2;								/* pow(theta0,7.0/3.0)	*/
-	REAL8	t0_term5	=	t0_term3*t0_term3;											/* pow(theta0,8.0/3.0)	*/
-	REAL8	t0_term6	=	theta0_pow_third*t0_term3;									/* pow(theta0,5.0/3.0)	*/
-	
-	REAL8	t3_term1	=	theta3_pow_third*theta3_pow_third;							/* pow(theta3,2.0/3.0)	*/
-	REAL8	t3_term2	=	theta3_pow_third*theta3_pow_2*theta3_pow_2;					/* pow(theta3,13.0/3.0)	*/
-	REAL8	t3_term3	=	theta3_pow_third*theta3_pow_third*theta3;					/* pow(theta3,5.0/3.0)	*/
-	REAL8	t3_term4	=	theta3_pow_third*theta3_pow_2;								/* pow(theta3,7.0/3.0)	*/
-	REAL8	t3_term5	=	t3_term4*t3_term4;											/* pow(theta3,14.0/3.0)	*/
-	REAL8	t3_term6	=	theta3_pow_2*theta3_pow_2;									/* pow(theta3,4.0)	*/
-	REAL8	t3_term7	=	t3_term6*theta3;											/* pow(theta3,5.0)	*/
-	REAL8	t3_term8	=	t3_term3*t3_term3;											/* pow(theta3,10.0/3.0)	*/
-	REAL8	t3_term9	=	theta3_pow_third*theta3_pow_third*theta3_pow_2;				/* pow(theta3,11.0/3.0)	*/
-	REAL8	t3_term10	=	theta3_pow_third*theta3_pow_third*t3_term9 ;				/* pow(theta3,13.0/3.0)	*/
-	REAL8	t3_term11	=	theta3_pow_third*theta3;									/* pow(theta3,4.0/3.0)	*/
-	REAL8	t3_term12	=	t3_term8*t3_term4;											/* pow(theta3,17.0/3.0)	*/
-	REAL8	t3_term13	=	t3_term11*t3_term11;										/* pow(theta3,8.0/3.0)	*/
-	REAL8	t3_term14	=	t3_term13*theta3;											/* pow(theta3,11.0/3.0)	*/
-	REAL8	t3_term15	=	t3_term13*t3_term13;										/* pow(theta3,16.0/3.0)	*/
+	const	REAL8	chi_pow_217		=	chi_pow_list[0];
+	const	REAL8	chi_pow_26		=	chi_pow_list[1];
+	const	REAL8	chi_pow_2		=	chi*chi;
+	const	REAL8	chi_pow_783		=	chi_pow_list[2];
+	const	REAL8	chi_pow_152		=	chi_pow_list[3];
+	const	REAL8	chi_pow_3		=	chi_pow_list[4];
+	const	REAL8	chi_pow_45		=	chi_pow_list[5];
+	const	REAL8	chi_pow_74		=	chi_pow_list[6];
+	const	REAL8	chi_pow_75		=	chi_pow_list[7];
+	const	REAL8	chi_pow_7		=	chi_pow_list[8];
 	
 	
 	
+	const	REAL8	eta_pow_2		=	eta*eta;
 	
-	/* Some expressions which occur multiple times. For optimization purposes, they are calculated here only once and used in the end expression. */
+	const	REAL8	mass_pow_third	=	cbrt(M);
 	
-	REAL8	expr1_pow_217 =		expr_list[1];
-	REAL8	expr1_pow_26  =		expr_list[2];
-	REAL8	expr1_pow_3   =		expr_list[3];
-	REAL8	expr1_pow_7   =		expr_list[4];
-	REAL8	expr1_pow_152 =		expr_list[5];
-	REAL8	expr1_pow_74  =		expr_list[6];
-	REAL8	expr1_pow_78  =		expr_list[7];
-	REAL8	expr1_pow_174 =		expr_list[8];
-	REAL8	expr1_pow_178 =		expr_list[9];
-	REAL8	expr1_pow_45  =		expr_list[10];
-	REAL8	expr1_pow_75  =		expr_list[11];
-	REAL8	expr1_pow_216 =		expr_list[12];
-	REAL8	expr1_pow_249 =		expr_list[13];
-	REAL8	expr1_55	  =		expr_list[14];
+	const	REAL8	expr1			=	0.31830988618379075 - 1.4180705429487876*chi_pow_217 + 1.1207691092531271*chi_pow_26 + (0.2048801582421969 + 0.2632295434785476*chi -												0.08614420449791928*chi_pow_2)*eta + (-0.01853136495384793 - 1.252422078178743*chi)*eta_pow_2 - 2.25732638886097*eta_pow_2*eta ;
+	const	REAL8	expr1_pow_third	=	cbrt(expr1);
 	
+	const	REAL8	expr2			=	cbrt((1. - 4.455*chi_pow_217 + 3.521*chi_pow_26 + (0.64365 + 0.82696*chi - 0.27063*chi_pow_2)*eta + (-0.058218 - 3.9346*chi)*eta_pow_2 - 7.0916*									eta_pow_2*eta)*(1. - 4.455*chi_pow_217 + 3.521*chi_pow_26 + (0.64365 + 0.82696*chi - 0.27063*chi_pow_2)*eta + (-0.058218 - 3.9346*chi)*eta_pow_2 -									7.0916*eta_pow_2*eta));
 	
+	const	REAL8	expr3			=	1 + 2.1305418188357477*(-1.2990307279851514 + 1.*chi)*expr1_pow_third - 3.8938718645756443*(-0.9120806478268055 + 1.*chi)*expr1_pow_third*											expr1_pow_third;
 	
+	const	REAL8	expr4			=	cbrt((1 - 0.63*chi_pow_3)/(2.*M*PI) + (0.1469*eta - 0.12281*chi*eta - 0.026091*chi_pow_2*eta - 0.0249*eta_pow_2 + 0.17013*chi*eta_pow_2 + 2.3252*									eta_pow_2*eta)/(M*PI));
 	
+	const	REAL8	expr5			=	cbrt((0.15915494309189532 - 0.10026761414789406*chi_pow_3 + (0.046759722280398854 - 0.039091637122231335*chi - 0.008305023240421283*chi_pow_2)*eta + (-0.007925916165976387 + 0.054154060936448305*chi)*eta_pow_2 + 0.7401341473545502*eta_pow_2*eta)/M);
 	
+	const	REAL8	expr6			=	cbrt((1 - 4.455*chi_pow_217 + 3.521*chi_pow_26)/(M*PI) + (0.64365*eta + 0.82696*chi*eta - 0.27063*chi_pow_2*eta - 0.058218*eta_pow_2 - 3.9346*chi*eta_pow_2 - 7.0916*eta_pow_2*eta)/(M*PI));
 	
+	norm_merg		=	(1 + ((-969 + 1804*eta)*expr2)/672. + 0.4961549999999999*chi*(-1.8409090909090908 + 1.*eta)*(-3.6950818460628905 + 16.461589624210177*chi_pow_217 - 13.010383179987437*chi_pow_26 + (-2.3783394302183796 - 3.055684883420168*chi + 1.*chi_pow_2)*eta + (0.21512027491408936 + 14.53866903151905*chi)*eta_pow_2 + 26.204042419539594*eta_pow_2*eta))/(expr3);
 	
-	REAL8	expr2	=	(1.7794457395540408 - (0.00001800104500292942*(t3_term1)*theta3S)/(t0_term2));
-	REAL8	expr2_term1	=	expr2*expr2;
+	norm_merg_mass	=	0.0;
 	
-	REAL8	expr3	=	 cbrt(theta3/(flow*theta0));
-	REAL8	expr3_pow_2 = expr3*expr3;
+	norm_merg_eta	=	(-((0.64365 - 0.27063*chi_pow_2 + chi*(0.82696 - 7.8692*eta) - 0.116436*eta - 21.2748*eta_pow_2)*(-1.8897 + 1.4547*chi - 5.317347306980865*(-0.9120806478268055 + 1.*chi)*expr1_pow_third)*(1 + ((-969 + 1804*eta)*expr2)/672. + 0.4961549999999999*chi*(-1.8409090909090908 + 1.*eta)*(-3.6950818460628905 + 16.461589624210177*chi_pow_217 - 13.010383179987437*chi_pow_26 + (-2.3783394302183796 - 3.055684883420168*chi + 1.*chi_pow_2)*eta + (0.21512027491408936 + 14.53866903151905*chi)*eta_pow_2 + 26.204042419539594*eta_pow_2*eta)))/(3.*expr2) + (expr3)*((451*pow(1. - 4.455*chi_pow_217 + 3.5209999999999995*chi_pow_26 + (0.6436500000000002 + 0.8269599999999999*chi - 0.27063*chi_pow_2)*eta + (-0.058218000000000006 - 3.9346*chi)*eta_pow_2 - 7.091600000000001*eta_pow_2*eta,0.6666666666666666))/168. - (25.997097497673163*(-0.5371396895787139 + 1.*eta)*(-0.030254103446330876 + 0.012720683625698009*chi_pow_2 + chi*(-0.03887040066181586 + 0.3698836181773742*eta) + 0.005472953917310622*eta + 1.*eta_pow_2))/expr1_pow_third + 0.49615499999999996*chi*(-3.6950818460628905 + 16.461589624210177*chi_pow_217 - 13.010383179987437*chi_pow_26 + (-2.3783394302183796 - 3.055684883420168*chi + 1.*chi_pow_2)*eta + (0.21512027491408936 + 14.53866903151905*chi)*eta_pow_2 + 26.204042419539594*eta_pow_2*eta) + 0.4961549999999999*chi*(-1.8409090909090908 + 1.*eta)*(-2.3783394302183796 + 1.*chi_pow_2 + 0.4302405498281787*eta + 78.61212725861878*eta_pow_2 + chi*(-3.055684883420168 + 29.0773380630381*eta))))/(expr3*expr3);
 	
-	REAL8	expr4	=	cbrt((-27925.658030729744*(t0_term5) - 4787.010536911997*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(146.91743091386425*theta3 + 0.04802651168014136*theta3S) - 1.0239474418600038e-8*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(0.00028623733027603087*theta3S + theta3*(20.106192982974676 - 89.57308973915218*expr1_pow_217 + 70.79390549305383*expr1_pow_26)))/((t0_term2)*(t3_term7)));
-	
-	REAL8	expr5	=	(-27925.658030729744*(t0_term5) - 4787.010536911997*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(146.91743091386425*theta3 + 0.04802651168014137*theta3S) - 1.023947441860004e-8*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(0.0002862373302760312*theta3S + theta3*(20.106192982974676 - 89.57308973915218*expr1_pow_217 + 70.79390549305383*expr1_pow_26)))/((t0_term2)*(t3_term7));
-	REAL8	expr5_term1	=	cbrt(expr5);
-	
-	REAL8	expr6	=	(20.106192982974676*flow*theta0*((455.3964614801514*theta0_pow_2)/(t3_term7) - (0.8397543046176623*(t0_term3))/(t3_term8) + (0.8530966599534363*(t0_term2))/(t3_term3) + (5.737646580104534*(t0_term3)*expr2)/(t3_term8) - (0.7131980994477979*(t0_term2)*expr2)/(t3_term3) - (0.15151902624128732*(t0_term2)*expr2_term1)/(t3_term3)))/theta3 + (10.053096491487338*flow*theta0*(1 - 0.63*expr1_pow_3))/theta3;
-	REAL8	expr6_term1	=	cbrt(expr6);
-	
-	REAL8	expr7	=	cbrt((20.106192982974676*flow*theta0*((-1388.9082858389133*theta0_pow_2)/(t3_term7) - (1.9634062693265488*(t0_term3))/(t3_term8) + (3.737887441654386*(t0_term2))/(t3_term3) - (132.6946701585805*(t0_term3)*expr2)/(t3_term8) + (4.802428957897166*(t0_term2)*expr2)/(t3_term3) - (1.5716375022681992*(t0_term2)*expr2_term1)/(t3_term3)))/theta3 + (20.106192982974676*flow*theta0*(1 - 4.455*expr1_pow_217 + 3.521*expr1_pow_26))/theta3);
-	
-	REAL8	expr8	=	cbrt((20.106192982974676*flow*theta0*((455.3964614801514*theta0_pow_2)/(t3_term7) - (0.8397543046176623*(t0_term3))/(t3_term8) + (0.8530966599534363*(t0_term2))/(t3_term3) + (5.737646580104534*(t0_term3)*(expr2))/(t3_term8) - (0.7131980994477979*(t0_term2)*(expr2))/(t3_term3) - (0.15151902624128732*(t0_term2)*expr2_term1)/(t3_term3)))/theta3 + (10.053096491487338*flow*theta0*(1 - 0.63*expr1_pow_3))/theta3);
-	
-	REAL8	expr9	=	1 + (0.25700804969411556*(1.*(t0_term2) - 0.000037469780438674206*(t3_term1)*theta3S)*(expr4))/(t0_term2) - (0.21294320317109386*(1.*(t0_term2) - 0.000020753711643020906*(t3_term1)*theta3S)*(expr4*expr4))/(t0_term2);
-	
-	REAL8	expr10	=	cbrt((flow*(1.*(theta0_pow_2*theta0) + 0.020575646167651576*(t0_term4)*(t3_term3) + (t0_term6)*(t3_term4)*(-0.0019670214686668005*theta3 - 2.2679937820260693e-7*theta3S) - 1.0781345263379211e-13*theta0_pow_third*(t3_term5)*theta3S_pow_2 + theta0*(t3_term6)*(0.0010979444117217687*theta3 + 4.950673179027029e-8*theta3S - 0.0006917049793847144*theta3*expr1_pow_3)))/(theta3_pow_2*theta3_pow_2*theta3_pow_2));
-	
-	REAL8	expr11	=	cbrt((20.106192982974676*flow*theta0*((-1388.9082858389133*theta0_pow_2)/(t3_term7) - (1.9634062693265488*(t0_term3))/(t3_term8) + (3.737887441654386*(t0_term2))/(t3_term3) - (132.6946701585805*(t0_term3)*(expr2))/(t3_term8) + (4.802428957897166*(t0_term2)*(expr2))/(t3_term3) - (1.5716375022681992*(t0_term2)*expr2_term1)/(t3_term3)))/theta3 + (20.106192982974676*flow*theta0*(1 - 4.455*expr1_pow_217 + 3.521*expr1_pow_26))/theta3);
-	
-	REAL8	expr12 = ((20.106192982974676*flow*theta0*((-562.0577864939526*theta0_pow_2)/(t3_term7) + (61.66966752706254*(t0_term3))/(t3_term8) - (2.379843507480723*(t0_term2))/(t3_term3) - (0.6802009867403065*(t0_term3)*expr2)/(t3_term8) - (0.20456897851272804*(t0_term2)*expr2)/(t3_term3) + (0.5854949302689275*(t0_term2)*expr2_term1)/(t3_term3)))/theta3 + (5.026548245743669*flow*theta0*expr1_pow_45*(1 - 0.63*expr1_pow_3))/theta3);
-	
-	REAL8	expr13 = cbrt((-27925.658030729744*(t0_term5) - 4787.010536911997*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(146.91743091386425*theta3 + 0.04802651168014136*theta3S) - 1.0239474418600038e-8*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(0.00028623733027603087*theta3S + theta3*(20.106192982974676 - 89.57308973915218*expr1_pow_217 + 70.79390549305383*expr1_pow_26)))/((t0_term2)*(t3_term7)))*((-27925.658030729744*(t0_term5) - 4787.010536911997*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(146.91743091386425*theta3 + 0.04802651168014136*theta3S) - 1.0239474418600038e-8*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(0.00028623733027603087*theta3S + theta3*(20.106192982974676 - 89.57308973915218*expr1_pow_217 + 70.79390549305383*expr1_pow_26)))/((t0_term2)*(t3_term7)));
-	
-	REAL8	expr14	=	cbrt((20.106192982974676*flow*theta0*((455.3964614801514*theta0_pow_2)/(t3_term7) - (0.8397543046176623*(t0_term3))/(t3_term8) + (0.8530966599534363*(t0_term2))/(t3_term3) + (5.737646580104534*(t0_term3)*(expr2))/(t3_term8) - (0.7131980994477979*(t0_term2)*(expr2))/(t3_term3) - (0.15151902624128732*(t0_term2)*expr2_term1)/(t3_term3)))/theta3 + (10.053096491487338*flow*theta0*(1 - 0.63*expr1_pow_3))/theta3);
-	
-	/* Normalization constant at inspiral-merger transition. norm_merg_t0, norm_merg_t3, norm_merg_t3S denotes derivative of the constant w.r.t theta0, theta3 and theta3S co-ordinate.*/
+	norm_merg_chi	=	((expr3)*(chi*(3.375 - (11*eta)/6.)*(0.966735/chi_pow_783 - 0.91546/chi_pow_74 + (0.82696 - 0.54126*chi)*eta - 3.9346*eta_pow_2) + 13.001266666666666*(-1.8409090909090908 + 1.*eta)*(-0.14101190140447856 + 0.6282080207569519*chi_pow_217 - 0.49650290484516896*chi_pow_26 + (-0.09076231033899262 - 0.11661120198544758*chi + 0.038162050877094025*chi_pow_2)*eta + (0.008209430875965932 + 0.5548254272660613*chi)*eta_pow_2 + 1.*eta_pow_2*eta) - (4.807950242274655*(-0.5371396895787139 + 1.*eta)*(-0.24570096070756875*chi_pow_74 + 0.23266914044629697*chi_pow_783 + chi_pow_152*(-0.2101763838763788 + 0.13756417424897066*chi)*eta + 1.*chi_pow_152*eta_pow_2))/(chi_pow_152*(cbrt(-1.4180705429487876*chi_pow_217 + 1.120769109253127*chi_pow_26 + (0.2048801582421969 + 0.26322954347854755*chi - 0.08614420449791926*chi_pow_2)*eta + (-0.018531364953847926 - 1.252422078178743*chi)*eta_pow_2 - 2.25732638886097*eta_pow_2*eta + 1/PI)))) - ((1 + ((-969 + 1804*eta)*expr2)/672. + 0.4961549999999999*chi*(-1.8409090909090908 + 1.*eta)*(-3.6950818460628905 + 16.461589624210177*chi_pow_217 - 13.010383179987437*chi_pow_26 + (-2.3783394302183796 - 3.055684883420168*chi + 1.*chi_pow_2)*eta + (0.21512027491408936 + 14.53866903151905*chi)*eta_pow_2 + 26.204042419539594*eta_pow_2*eta))*(2.03451757159024 - 9.063775781434519*chi_pow_217 + 7.163536369569235*chi_pow_26 + (1.3095172349540583 + 1.6824646510022647*chi - 0.5506014903994666*chi_pow_2)*eta + (-0.11844554398284059 - 8.005012837178958*chi)*eta_pow_2 - 14.427984810689344*eta_pow_2*eta + (9.753542185587131*(-0.9120806478268055 + 1.*chi)*(-0.24570096070756875*chi_pow_74 + 0.23266914044629697*chi_pow_783 + chi_pow_152*(-0.2101763838763788 + 0.13756417424897066*chi)*eta + 1.*chi_pow_152*eta_pow_2)*expr1_pow_third)/chi_pow_152 - 11.681615593726933*cbrt(expr1)*expr1 + ((-1.8897 + 1.4547*chi)*(0.966735/chi_pow_783 - 0.91546/chi_pow_74 + (0.82696 - 0.54126*chi)*eta - 3.9346*eta_pow_2))/cbrt(PI*PI)))/(3.*expr1_pow_third*expr1_pow_third))/(expr3*expr3);
 	
 	
-	norm_merg = ((1 + (26313.353430497755*(1.*(t0_term2) - 0.31699754336080277*(t3_term3))*(1.*(t0_term2) - 0.000010116096604013777*(t3_term1)*theta3S)*(1.*(t0_term5) + 0.17141979364082705*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.6666904705817113e-13*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-1.0249976203284152e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))))/((t0_term3)*(t3_term10*t3_term10)) - (0.19501496506452742*(-10.811580890210543*(t0_term2) + 1.*(t3_term3))*(expr4*expr4))/(t3_term3))/(expr9));
+	
+	pre_norm_ring	=	(5.5873167384795925*(-0.08711408460519897*chi_pow_45 + 0.05488187330127535*chi_pow_75 + (0.14279740748484215 + 0.012274722977210955*chi - 0.035131368039584644*chi_pow_2)*eta + (-0.6371872604362673 + 0.007028015889609032*chi)*eta_pow_2 + 1.*eta_pow_2*eta)*(-0.2568137922301612 - 0.5471525240001535*(-1.2990307279851518 + 1.*chi)*expr5*mass_pow_third + 1.*(-0.9120806478268055 + 1.*chi)*expr5*expr5*(mass_pow_third*mass_pow_third))*(cbrt((0.31830988618379075 - 1.4180705429487876*chi_pow_217 + 1.1207691092531271*chi_pow_26 + (0.2048801582421969 + 0.2632295434785476*chi - 0.08614420449791928*chi_pow_2)*eta + (-0.01853136495384793 - 1.252422078178743*chi)*eta_pow_2 - 2.25732638886097*eta_pow_2*eta)/M)*cbrt((0.31830988618379075 - 1.4180705429487876*chi_pow_217 + 1.1207691092531271*chi_pow_26 + (0.2048801582421969 + 0.2632295434785476*chi - 0.08614420449791928*chi_pow_2)*eta + (-0.01853136495384793 - 1.252422078178743*chi)*eta_pow_2 - 2.25732638886097*eta_pow_2*eta)/M)))/(expr5*expr5*M);
 	
 	
-	norm_merg_t0 = ((-(((t3_term3)*(1 + (26313.353430497755*(1.*(t0_term2) - 0.31699754336080277*(t3_term3))*(1.*(t0_term2) - 0.000010116096604013777*(t3_term1)*theta3S)*(1.*(t0_term5) + 0.17141979364082705*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.6666904705817113e-13*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-1.0249976203284152e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))))/((t0_term3)*(t3_term10*t3_term10)) - (0.19501496506452742*(-10.811580890210543*(t0_term2) + 1.*(t3_term3))*(expr4*expr4))/(t3_term3))*(-4784.745937935112*cbrt(theta0_pow_2*theta0_pow_2*theta0_pow_2*theta0_pow_2*theta0_pow_2) + theta0_pow_2*(t3_term4)*(8.390880530053826*theta3 + 0.023231413328905076*theta3S) + (t0_term5)*(t3_term1)*(-546.8001075364147*theta3 + 0.17928337974926692*theta3S) + t3_term15*theta3S_pow_2*(-2.191255533534397e-14*theta3S - (7.48773329722063e-10*theta3)/expr1_pow_78 + (7.090588759353495e-10*theta3)/expr1_pow_74) + (t0_term3)*(theta3_pow_2*theta3)*(-0.00031440445114826307*theta3*theta3S - 1.027771105949522e-7*theta3S_pow_2 - 1.2174346849468309e-15*theta3_pow_2*expr1_pow_216) + (t0_term2)*(t3_term5)*theta3S*(5.848060778260404e-10*theta3S + theta3*(0.000019983392508732752/expr1_pow_78 - 0.000018923486277050577/expr1_pow_74 + 4.5617010343384256e-20*expr1_pow_216)) - 0.17928337974926692*(t3_term1)*theta3S*(1.*(t0_term5) + 0.17141979364082705*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.6666904705817113e-13*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-1.0249976203284152e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))) + (7928.77209563223*(1.*(t0_term2) - 0.000020753711643020906*(t3_term1)*theta3S)*(1.*(t0_term5)*expr1_pow_152 + 0.11427986242721798*theta0_pow_2*(t3_term3)*expr1_pow_152 - 0.0017536731602670974*(t0_term3)*t3_term10*expr1_pow_152 - 5.732662488775536e-7*(t0_term3)*(t3_term4)*theta3S*expr1_pow_152 - 2.9118441129277097e-24*(t0_term2)*(t3_term6)*theta3S*expr1_pow_152 - 1.2222301568605703e-13*(t3_term5)*theta3S_pow_2*expr1_pow_152 + 2.544408210464405e-19*(t0_term2)*(t3_term7)*expr1_pow_174 + (theta3_pow_third*theta3_pow_third*theta3_pow_2*theta3_pow_2*theta3)*theta3S*(-4.176479329925867e-9*expr1_pow_74 + 3.954961563793527e-9*expr1_pow_78))*(expr4))/expr1_pow_152 - 2.9462412233027313e-6*(t0_term2)*(theta3_pow_third*theta3_pow_third*theta3_pow_2*theta3_pow_2*theta3)*theta3S*expr13))/(expr4*expr4)) + (expr9)*((78940.06029149327*(1.*(t0_term2) - 0.31699754336080277*(t3_term3))*(1.*(t0_term2) - 0.000010116096604013777*(t3_term1)*theta3S)*(1.*(t0_term5)*expr1_pow_152 + 0.13332650616508768*theta0_pow_2*(t3_term3)*expr1_pow_152 - 0.0029227886004451627*(t0_term3)*t3_term10*expr1_pow_152 - 9.554437481292567e-7*(t0_term3)*(t3_term4)*theta3S*expr1_pow_152 - 3.4166587344280525e-9*(t0_term2)*(t3_term6)*theta3S*expr1_pow_152 + 4.074100522868567e-14*(t3_term5)*theta3S_pow_2*expr1_pow_152 + (theta3_pow_third*theta3_pow_third*theta3_pow_2*theta3_pow_2*theta3)*theta3S*(-2.7843195532839116e-9*expr1_pow_74 + 2.636641042529018e-9*expr1_pow_78) + (t0_term2)*(t3_term7)*(-0.0002399966482538456*expr1_pow_152 + 0.0010691850679708822*expr1_pow_174 - 0.0008450281985017903*expr1_pow_178)))/expr1_pow_152 + 0.17745895018564842*(t3_term1)*(1.*(t0_term2) - 0.31699754336080277*(t3_term3))*theta3S*(1.*(t0_term5) + 0.17141979364082705*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.6666904705817113e-13*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-1.0249976203284152e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))) + 17542.235620331838*(t0_term2)*(1.*(t0_term2) - 0.000010116096604013777*(t3_term1)*theta3S)*(1.*(t0_term5) + 0.17141979364082705*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.6666904705817113e-13*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-1.0249976203284152e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))) - 26313.353430497755*(1.*(t0_term2) - 0.31699754336080277*(t3_term3))*(1.*(t0_term2) - 0.000010116096604013777*(t3_term1)*theta3S)*(1.*(t0_term5) + 0.17141979364082705*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.6666904705817113e-13*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-1.0249976203284152e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))) - (78505.3571315806*(t0_term2)*(1.*(t0_term2) - 0.09249341147745195*(t3_term3))*(1.*(t0_term5)*expr1_pow_152 + 0.11427986242721798*theta0_pow_2*(t3_term3)*expr1_pow_152 - 0.0017536731602670974*(t0_term3)*t3_term10*expr1_pow_152 - 5.732662488775536e-7*(t0_term3)*(t3_term4)*theta3S*expr1_pow_152 - 2.9118441129277097e-24*(t0_term2)*(t3_term6)*theta3S*expr1_pow_152 - 1.2222301568605703e-13*(t3_term5)*theta3S_pow_2*expr1_pow_152 + 2.544408210464405e-19*(t0_term2)*(t3_term7)*expr1_pow_174 + (theta3_pow_third*theta3_pow_third*theta3_pow_2*theta3_pow_2*theta3)*theta3S*(-4.176479329925867e-9*expr1_pow_74 + 3.954961563793527e-9*expr1_pow_78)))/(expr1_pow_152*expr5_term1) + 1.4056133797311474*theta0_pow_2*(t3_term7)*(expr5_term1*expr5_term1)))/((t0_term4)*(t3_term10*t3_term10)*(expr9*expr9))) ;
+	pre_norm_ring_mass	=	((-2.415236754972846*(-1.5873015873015872 + 1.*chi_pow_3 + (-0.46634920634920635 + 0.38987301587301587*chi + 0.08282857142857143*chi_pow_2)*eta + (0.07904761904761905 - 0.5400952380952381*chi)*eta_pow_2 - 7.381587301587302*eta_pow_2*eta)*(-0.08711408460519895*chi_pow_45 + 0.05488187330127534*chi_pow_75 + (0.14279740748484215 + 0.012274722977210955*chi - 0.03513136803958464*chi_pow_2)*eta + (-0.6371872604362673 + 0.00702801588960903*chi)*eta_pow_2 + 1.*eta_pow_2*eta)*(-0.14101190140447856 + 0.6282080207569519*chi_pow_217 - 0.49650290484516896*chi_pow_26 + (-0.09076231033899262 - 0.11661120198544758*chi + 0.038162050877094025*chi_pow_2)*eta + (0.008209430875965932 + 0.5548254272660613*chi)*eta_pow_2 + 1.*eta_pow_2*eta)*(-0.2568137922301612 - 0.5471525240001535*(-1.2990307279851518 + 1.*chi)*expr5*mass_pow_third + 1.*(-0.9120806478268055 + 1.*chi)*expr5*expr5*(mass_pow_third*mass_pow_third)) + 3*(0.31830988618379075 - 1.4180705429487876*chi_pow_217 + 1.1207691092531271*chi_pow_26 + (0.2048801582421969 + 0.2632295434785476*chi - 0.08614420449791928*chi_pow_2)*eta + (-0.01853136495384793 - 1.252422078178743*chi)*eta_pow_2 - 2.25732638886097*eta_pow_2*eta)*(0.07957747154594766*chi_pow_45 - 0.050133807073947025*chi_pow_75 + (-0.13044339135811742 - 0.011212784050710209*chi + 0.03209200272504978*chi_pow_2)*eta + (0.5820614578756795 - 0.006419992094440873*chi)*eta_pow_2 - 0.9134857113702426*eta_pow_2*eta)*(-7.829682347308064e-18*chi_pow_2*eta_pow_2 + chi*(-1.5659364694616128e-17 + eta*(3.914841173654032e-18 - 2.293457849610211e-17*expr5*mass_pow_third) + eta_pow_2*(5.8722617604810484e-18 + 1.7200933872076582e-17*expr5*mass_pow_third)) + eta_pow_2*(-9.78710293413508e-19 - 2.8668223120127636e-18*expr5*mass_pow_third) + chi_pow_2*chi*eta*(9.78710293413508e-19 + 2.8668223120127636e-18*expr5*mass_pow_third) + (4.586915699220422e-17 - 4.586915699220422e-17*chi_pow_3)*expr5*mass_pow_third)*expr5*mass_pow_third)*PI)/(6.*cbrt((0.31830988618379075 - 1.4180705429487876*chi_pow_217 + 1.1207691092531271*chi_pow_26 + (0.2048801582421969 + 0.2632295434785476*chi - 0.08614420449791928*chi_pow_2)*eta + (-0.01853136495384793 - 1.252422078178743*chi)*eta_pow_2 - 2.25732638886097*eta_pow_2*eta)/M)*(expr5*expr5*(0.15915494309189532 - 0.10026761414789406*chi_pow_3 + (0.046759722280398854 - 0.039091637122231335*chi - 0.008305023240421283*chi_pow_2)*eta + (-0.007925916165976387 + 0.054154060936448305*chi)*eta_pow_2 + 0.7401341473545502*eta_pow_2*eta)/M)*M*M*M*M);
 	
-	norm_merg_t3 = ((-(((1 + (26313.353430497755*(1.*(t0_term2) - 0.31699754336080277*(t3_term3))*(1.*(t0_term2) - 0.000010116096604013777*(t3_term1)*theta3S)*(1.*(t0_term5) + 0.17141979364082705*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.6666904705817113e-13*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-1.0249976203284152e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))))/((t0_term3)*(t3_term10*t3_term10)) - (0.19501496506452742*(-10.811580890210543*(t0_term2) + 1.*(t3_term3))*(expr4*expr4))/(t3_term3))*(11961.86484483778*theta0_pow_2 + (t0_term3)*(t3_term1)*(1367.000268841037*theta3 - 0.44820844937316734*theta3S) + (t0_term2)*(t3_term4)*(-20.977201325134562*theta3 - 0.06219293335577098*theta3S) + (t3_term15*theta3S_pow_2*(-1.0956277667671992e-14*theta3S + (7.487733297220631e-10*theta3)/expr1_pow_78 - (7.090588759353495e-10*theta3)/expr1_pow_74))/(t0_term3) + (theta3_pow_2*theta3)*(0.0007614893618693598*theta3*theta3S + 4.111084423798093e-7*theta3S_pow_2 + 1.217434684946831e-15*theta3_pow_2*expr1_pow_216) + ((t3_term5)*theta3S*(1.2112282269501943e-9*theta3S + theta3*(-0.000019983392508732752/expr1_pow_78 + 0.000018923486277050577/expr1_pow_74 - 4.561701034338426e-20*expr1_pow_216)))/(t0_term2) + (0.17928337974926692*(t3_term1)*theta3S*(1.*(t0_term5) + 0.17141979364082705*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.6666904705817113e-13*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-1.0249976203284152e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))))/(t0_term3) - (19821.930239080575*(1.*(t0_term2) - 0.000020753711643020906*(t3_term1)*theta3S)*(1.*(t0_term5)*expr1_pow_152 + 0.114279862427218*theta0_pow_2*(t3_term3)*expr1_pow_152 - 0.0017536731602670972*(t0_term3)*t3_term10*expr1_pow_152 - 9.172259982040867e-7*(t0_term3)*(t3_term4)*theta3S*expr1_pow_152 - 2.0499952406568365e-9*(t0_term2)*(t3_term6)*theta3S*expr1_pow_152 + 2.444460313721142e-14*(t3_term5)*theta3S_pow_2*expr1_pow_152 + 1.017763284185762e-19*(t0_term2)*(t3_term7)*expr1_pow_174 + t3_term12*theta3S*(-1.6705917319703469e-9*expr1_pow_74 + 1.5819846255174108e-9*expr1_pow_78))*(expr4))/((t0_term3)*expr1_pow_152) + (2.9462412233027313e-6*t3_term12*theta3S*expr13)/(t0_term2)))/((theta3_pow_2*theta3_pow_2*theta3_pow_2)*(expr4*expr4))) + ((expr9)*((-157880.12058298654*(1.*(t0_term2) - 0.31699754336080277*(t3_term3))*(1.*(t0_term2) - 0.000010116096604013777*(t3_term1)*theta3S)*(1.*(t0_term5)*expr1_pow_152 + 0.12380318429615285*theta0_pow_2*(t3_term3)*expr1_pow_152 - 0.0023382308803561297*(t0_term3)*t3_term10*expr1_pow_152 - 1.0509881229421826e-6*(t0_term3)*(t3_term4)*theta3S*expr1_pow_152 - 3.416658734428056e-9*(t0_term2)*(t3_term6)*theta3S*expr1_pow_152 + 8.148201045737137e-14*(t3_term5)*theta3S_pow_2*expr1_pow_152 + t3_term12*theta3S*(-1.3921597766419558e-9*expr1_pow_74 + 1.318320521264509e-9*expr1_pow_78) + (t0_term2)*(t3_term7)*(-0.0001199983241269228*expr1_pow_152 + 0.0005345925339854411*expr1_pow_174 - 0.00042251409925089513*expr1_pow_178)))/expr1_pow_152 - 0.17745895018564842*(t3_term1)*(1.*(t0_term2) - 0.31699754336080277*(t3_term3))*theta3S*(1.*(t0_term5) + 0.17141979364082705*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.6666904705817113e-13*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-1.0249976203284152e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))) - 43855.58905082959*(t0_term2)*(1.*(t0_term2) - 0.000010116096604013777*(t3_term1)*theta3S)*(1.*(t0_term5) + 0.17141979364082705*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.6666904705817113e-13*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-1.0249976203284152e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))) + 26313.353430497755*(1.*(t0_term2) - 0.31699754336080277*(t3_term3))*(1.*(t0_term2) - 0.000010116096604013777*(t3_term1)*theta3S)*(1.*(t0_term5) + 0.17141979364082705*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.6666904705817113e-13*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-1.0249976203284152e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))) + (196263.3928289515*(t0_term2)*(1.*(t0_term2) - 0.09249341147745195*(t3_term3))*(1.*(t0_term5)*expr1_pow_152 + 0.114279862427218*theta0_pow_2*(t3_term3)*expr1_pow_152 - 0.0017536731602670972*(t0_term3)*t3_term10*expr1_pow_152 - 9.172259982040867e-7*(t0_term3)*(t3_term4)*theta3S*expr1_pow_152 - 2.0499952406568365e-9*(t0_term2)*(t3_term6)*theta3S*expr1_pow_152 + 2.444460313721142e-14*(t3_term5)*theta3S_pow_2*expr1_pow_152 + 1.017763284185762e-19*(t0_term2)*(t3_term7)*expr1_pow_174 + t3_term12*theta3S*(-1.6705917319703469e-9*expr1_pow_74 + 1.5819846255174108e-9*expr1_pow_78)))/(expr1_pow_152*expr5_term1) - 3.514033449327869*theta0_pow_2*(t3_term7)*(expr5_term1*expr5_term1)))/((t0_term3)*(t3_term15*t3_term4)))/(expr9*expr9));
+	pre_norm_ring_eta	=	((-0.0008425904274917489*(-4.064669708391192 + 1.*chi_pow_2 + chi*(-0.34939496131719894 - 0.4000991866693116*eta) + 36.27454870065463*eta - 85.39377107716723*eta_pow_2)*(-19.163696293741136 + 12.073128665056917*chi_pow_3 + (-5.630293971101146 + 4.7069870836686984*chi + 1.*chi_pow_2)*eta + (0.9543520754283086 - 6.52063930090836*chi)*eta_pow_2 - 89.11885324441378*eta_pow_2*eta)*(-3.6950818460628905 + 16.461589624210177*chi_pow_217 - 13.010383179987437*chi_pow_26 + (-2.3783394302183796 - 3.055684883420168*chi + 1.*chi_pow_2)*eta + (0.21512027491408936 + 14.53866903151905*chi)*eta_pow_2 + 26.204042419539594*eta_pow_2*eta)*(-0.2568137922301612 - 0.5471525240001535*(-1.2990307279851518 + 1.*chi)*expr5*mass_pow_third + 1.*(-0.9120806478268055 + 1.*chi)*expr5*expr5*(mass_pow_third*mass_pow_third)))/(M*M*M) + (0.0005617269516611657*(-5.630293971101146 + 1.*chi_pow_2 + chi*(4.7069870836686984 - 13.04127860181672*eta) + 1.9087041508566172*eta - 267.35655973324134*eta_pow_2)*(2.4796667327911126*chi_pow_45 - 1.562190041658401*chi_pow_75 + (-4.064669708391192 - 0.34939496131719894*chi + 1.*chi_pow_2)*eta + (18.137274350327313 - 0.2000495933346558*chi)*eta_pow_2 - 28.46459035905574*eta_pow_2*eta)*(-3.6950818460628905 + 16.461589624210177*chi_pow_217 - 13.010383179987437*chi_pow_26 + (-2.3783394302183796 - 3.055684883420168*chi + 1.*chi_pow_2)*eta + (0.21512027491408936 + 14.53866903151905*chi)*eta_pow_2 + 26.204042419539594*eta_pow_2*eta)*(-0.2568137922301612 - 0.5471525240001535*(-1.2990307279851518 + 1.*chi)*expr5*mass_pow_third + 1.*(-0.9120806478268055 + 1.*chi)*expr5*expr5*(mass_pow_third*mass_pow_third)))/(M*M*M) - (0.0005617269516611657*(-19.163696293741136 + 12.073128665056917*chi_pow_3 + (-5.630293971101146 + 4.7069870836686984*chi + 1.*chi_pow_2)*eta + (0.9543520754283086 - 6.52063930090836*chi)*eta_pow_2 - 89.11885324441378*eta_pow_2*eta)*(2.4796667327911126*chi_pow_45 - 1.562190041658401*chi_pow_75 + (-4.064669708391192 - 0.34939496131719894*chi + 1.*chi_pow_2)*eta + (18.137274350327313 - 0.2000495933346558*chi)*eta_pow_2 - 28.46459035905574*eta_pow_2*eta)*(-2.3783394302183796 + 1.*chi_pow_2 + 0.4302405498281787*eta + 78.61212725861878*eta_pow_2 + chi*(-3.055684883420168 + 29.0773380630381*eta))*(-0.2568137922301612 - 0.5471525240001535*(-1.2990307279851518 + 1.*chi)*expr5*mass_pow_third + 1.*(-0.9120806478268055 + 1.*chi)*expr5*expr5*(mass_pow_third*mass_pow_third)))/(M*M*M) + ((0.1469 - 0.026091*chi_pow_2 + chi*(-0.12281 + 0.34026*eta) - 0.0498*eta + 6.9756*eta_pow_2)*(0.31830988618379075 - 1.4180705429487876*chi_pow_217 + 1.1207691092531271*chi_pow_26 + (0.2048801582421969 + 0.2632295434785476*chi - 0.08614420449791928*chi_pow_2)*eta + (-0.01853136495384793 - 1.252422078178743*chi)*eta_pow_2 - 2.25732638886097*eta_pow_2*eta)*(0.07957747154594766*chi_pow_45 - 0.050133807073947025*chi_pow_75 + (-0.13044339135811742 - 0.011212784050710209*chi + 0.03209200272504978*chi_pow_2)*eta + (0.5820614578756795 - 0.006419992094440873*chi)*eta_pow_2 - 0.9134857113702426*eta_pow_2*eta)*(0.15915494309189532 - 0.10026761414789406*chi_pow_3 + (0.046759722280398854 - 0.039091637122231335*chi - 0.008305023240421283*chi_pow_2)*eta + (-0.007925916165976387 + 0.054154060936448305*chi)*eta_pow_2 + 0.7401341473545502*eta_pow_2*eta)*(-1.8897 + 1.4547*chi - 5.317347306980865*(-0.9120806478268055 + 1.*chi)*expr5*mass_pow_third)*PI)/(pow((0.5 - 0.315*chi_pow_3 + (0.1469 - 0.12281*chi - 0.026091*chi_pow_2)*eta + (-0.0249 + 0.17013*chi)*eta_pow_2 + 2.3252*eta_pow_2*eta)/M,0.6666666666666666)*pow(M,3.6666666666666665)))/(6.*cbrt((0.31830988618379075 - 1.4180705429487876*chi_pow_217 + 1.1207691092531271*chi_pow_26 + (0.2048801582421969 + 0.2632295434785476*chi - 0.08614420449791928*chi_pow_2)*eta + (-0.01853136495384793 - 1.252422078178743*chi)*eta_pow_2 - 2.25732638886097*eta_pow_2*eta)/M)*(expr5*expr5*(0.15915494309189532 - 0.10026761414789406*chi_pow_3 + (0.046759722280398854 - 0.039091637122231335*chi - 0.008305023240421283*chi_pow_2)*eta + (-0.007925916165976387 + 0.054154060936448305*chi)*eta_pow_2 + 0.7401341473545502*eta_pow_2*eta)/M));
 	
-	norm_merg_t3S = ((-(((t3_term1)*(1 + (26313.353430497755*(1.*(t0_term2) - 0.31699754336080277*(t3_term3))*(1.*(t0_term2) - 0.000010116096604013777*(t3_term1)*theta3S)*(1.*(t0_term5) + 0.17141979364082705*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.6666904705817113e-13*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-1.0249976203284152e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))))/((t0_term3)*(t3_term10*t3_term10)) - (0.19501496506452742*(-10.811580890210543*(t0_term2) + 1.*(t3_term3))*(expr4*expr4))/(t3_term3))*((0.12258447263984441*(t0_term2)*(0.6988597173292637 - (0.00002618612016576143*(t3_term1)*theta3S)/(t0_term2))*(0.04802651168014136*(t0_term3) + 0.0002862373302760312*(t0_term2)*(t3_term3) + (t3_term4)*(-2.047894883720008e-8*theta3S - (0.0003498928006197632*theta3)/expr1_pow_78 + (0.00033133471246553445*theta3)/expr1_pow_74)))/t3_term10 + (0.2689250696239004*(t0_term5) + 0.04609907993977405*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-0.0014148200301671839*theta3 - 4.624969976772854e-7*theta3S) + 9.860649900904788e-14*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-2.756475564111513e-9*theta3S + theta3*(-0.00019362334602350447 + 0.0008625920065347126*expr1_pow_217 - 0.0006817478013487593*expr1_pow_26)))/(t3_term7) - (0.006817946156202168*(1.*(t0_term2) - 0.000020753711643020906*(t3_term1)*theta3S)*(1.*(t0_term3)*expr1_pow_152 + 0.005959985854945788*(t0_term2)*(t3_term3)*expr1_pow_152 - 4.264092502405914e-7*(t3_term4)*theta3S*expr1_pow_152 + t3_term10*(-0.007285409420323183*expr1_pow_74 + 0.006898996010208653*expr1_pow_78))*(expr4))/(t3_term10*expr1_pow_152) + 4.419361834954097e-6*(t0_term2)*expr13))/((t0_term3)*(expr4*expr4))) + ((expr9)*(0.04973591971621729*theta0*(3.375 - (10.646770205908554*(t0_term2))/(t3_term3))*t3_term10*(expr2)*(0.04802651168014136*(t0_term3) + 0.0002862373302760312*(t0_term2)*(t3_term3) + (t3_term4)*(-2.047894883720008e-8*theta3S - (0.0003498928006197632*theta3)/expr1_pow_78 + (0.00033133471246553445*theta3)/expr1_pow_74)) - 0.26618842527847253*(1.*(t0_term2) - 0.31699754336080277*(t3_term3))*(1.*(theta0_pow_2*theta0) + 0.17141979364082705*(t0_term4)*(t3_term3) + (t0_term6)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.6666904705817113e-13*theta0_pow_third*(t3_term5)*theta3S_pow_2 + theta0*(t3_term6)*(-1.0249976203284152e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))) + (0.06750670739942093*theta0*(t3_term3)*(1.*(t0_term2) - 0.09249341147745195*(t3_term3))*(1.*(t0_term3)*expr1_pow_152 + 0.005959985854945788*(t0_term2)*(t3_term3)*expr1_pow_152 - 4.264092502405914e-7*(t3_term4)*theta3S*expr1_pow_152 + t3_term10*(-0.007285409420323182*expr1_pow_74 + 0.006898996010208652*expr1_pow_78)))/(expr1_pow_152*expr5_term1)))/((t0_term6)*(theta3_pow_2*theta3_pow_2*theta3_pow_2)))/(expr9*expr9));
-	
-	
-	/* Normalization constant at merger-ringdown transition. norm_ring_t0, norm_ring_t3, norm_ring_t3S denotes derivative of the constant w.r.t theta0, theta3 and theta3S co-ordinate.*/
-	norm_ring = ((-3.150917089945074e6*flow*(1.*(t0_term5) - 0.10756774166639459*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(0.0015833529729131952*theta3 - 2.1784821538952197e-8*theta3S) - 3.3754960608409787e-13*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(6.018341074822566e-8*theta3S - 0.00044479412261054025*theta3*expr1_pow_45 + 0.0002802202972446404*theta3*expr1_pow_75))*cbrt(-((flow*(1.*(theta0_pow_2*theta0) + 0.17141979364082705*(t0_term4)*(t3_term3) + (t0_term6)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326628e-6*theta3S) + 3.6666904705817113e-13*theta0_pow_third*(t3_term5)*theta3S_pow_2 + theta0*(t3_term6)*(-1.0249976203284152e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))))/(theta3_pow_2*theta3_pow_2*theta3_pow_2)))*cbrt(-((flow*(1.*(theta0_pow_2*theta0) + 0.17141979364082705*(t0_term4)*(t3_term3) + (t0_term6)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326628e-6*theta3S) + 3.6666904705817113e-13*theta0_pow_third*(t3_term5)*theta3S_pow_2 + theta0*(t3_term6)*(-1.0249976203284152e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))))/(theta3_pow_2*theta3_pow_2*theta3_pow_2)))*(-0.009083267631449107*(t3_term1)*theta3S*(-0.10415860320817937*expr3*expr10 + 1.*expr3_pow_2*(expr10*expr10)) + (t0_term2)*(-4.696087900943841 - 25.2496934324519*expr3*expr10 + 437.6695497985125*expr3_pow_2*(expr10*expr10)))*(311.7639249918997*(theta0_pow_2*theta0_pow_2) + cbrt(theta0_pow_2*theta0_pow_2*theta0_pow_2*theta0_pow_2*theta0_pow_2)*(t3_term1)*(-45.385890644188066*theta3 - 0.0031538339828645627*theta3S) + (t0_term5)*(t3_term4)*(-18.581339730539014*theta3 - 0.00007704315323053715*theta3S) + 3.6658017555104676e-16*(theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3)*(theta3S*theta3S*theta3S) + (t0_term2)*t3_term15*theta3S*(-4.6484806500890864e-11*theta3*theta3S - 1.1564133010766257e-15*theta3S_pow_2 + theta3_pow_2*(-7.198154370085134e-7 + 3.2067777718729266e-6*expr1_pow_217 - 2.5344701537069753e-6*expr1_pow_26)) + (t0_term3)*(t3_term5)*(-1.5727410053998532e-9*theta3S_pow_2 + theta3*theta3S*(-1.9760268536044293e-6 - 0.000010116096604013777*expr1_pow_217 + 7.995235946741304e-6*expr1_pow_26) + theta3_pow_2*(0.08300357898163133 - 0.31699754336080277*expr1_pow_217 + 0.25053835020726967*expr1_pow_26 - 0.0023105618636280823*(expr5_term1*expr5_term1))) + theta0_pow_2*(theta3_pow_2*theta3)*(0.00035474001051521043*theta3*theta3S + 5.4239597308179735e-9*theta3S_pow_2 + theta3_pow_2*(0.29547123774198014 + 1.*expr1_pow_217 - 0.790347923681257*expr1_pow_26 + 0.024980826490450633*(expr5_term1*expr5_term1)))))/(theta0*(t3_term15*t3_term15*t3_term11*t3_term1)*cbrt((flow*(1.*(theta0_pow_2*theta0) + 0.020575646167651573*(t0_term4)*(t3_term3) + (t0_term6)*(t3_term4)*(-0.0019670214686668*theta3 - 2.2679937820260699e-7*theta3S) - 1.0781345263379211e-13*theta0_pow_third*(t3_term5)*theta3S_pow_2 + theta0*(t3_term6)*(4.950673179027029e-8*theta3S + theta3*(0.0010979444117217689 - 0.0006917049793847144*expr1_pow_3))))/(theta3_pow_2*theta3_pow_2*theta3_pow_2))*cbrt((flow*(1.*(theta0_pow_2*theta0) + 0.020575646167651573*(t0_term4)*(t3_term3) + (t0_term6)*(t3_term4)*(-0.0019670214686668*theta3 - 2.2679937820260699e-7*theta3S) - 1.0781345263379211e-13*theta0_pow_third*(t3_term5)*theta3S_pow_2 + theta0*(t3_term6)*(4.950673179027029e-8*theta3S + theta3*(0.0010979444117217689 - 0.0006917049793847144*expr1_pow_3))))/(theta3_pow_2*theta3_pow_2*theta3_pow_2))*(-0.000020753711643020906*(t3_term1)*theta3S*(-2.1790556086273494*expr5_term1 + 1.*(expr5_term1*expr5_term1)) + (t0_term2)*(-4.696087900943841 - 1.2069323926137094*expr5_term1 + 1.*(expr5_term1*expr5_term1)))));
-	
-	norm_ring_t0_pre = ((pi*(expr7*expr7)*((20.106192982974676*flow*theta0*((-562.0577864939526*theta0_pow_2)/(t3_term7) + (61.66966752706254*(t0_term3))/(t3_term8) - (2.379843507480723*(t0_term2))/(t3_term3) - (0.6802009867403065*(t0_term3)*expr2)/(t3_term8) - (0.20456897851272804*(t0_term2)*expr2)/(t3_term3) + (0.5854949302689275*(t0_term2)*(expr2*expr2))/(t3_term3)))/theta3 + (5.026548245743669*flow*theta0*expr1_pow_45*(1 - 0.63*expr1_pow_3))/theta3)*((0.12258447263984441*expr3*(-1.8897 + 1.4547*expr2)*((0.00002280174653761898*flow*theta3S)/((t0_term2)*theta3_pow_third*expr1_pow_7) + (20.106192982974676*flow*theta0*((910.7929229603028*theta0)/(t3_term7) - (1.119672406156883*theta0_pow_third)/(t3_term8) + 0.5687311066356242/(theta0_pow_third*(t3_term3)) + (0.00006885575619957719*theta3S)/(theta0_pow_third*t3_term9) - (8.558874056109027e-6*theta3S)/(theta0*theta3) + (7.650195440139378*theta0_pow_third*expr2)/(t3_term8) - (0.47546539963186524*expr2)/(theta0_pow_third*(t3_term3)) - (3.6366677468926088e-6*theta3S*expr2)/(theta0*theta3) - (0.10101268416085821*expr2_term1)/(theta0_pow_third*(t3_term3))))/theta3 + (20.106192982974676*flow*((455.3964614801514*theta0_pow_2)/(t3_term7) - (0.8397543046176623*(t0_term3))/(t3_term8) + (0.8530966599534363*(t0_term2))/(t3_term3) + (5.737646580104534*(t0_term3)*expr2)/(t3_term8) - (0.7131980994477979*(t0_term2)*expr2)/(t3_term3) - (0.15151902624128732*(t0_term2)*expr2_term1)/(t3_term3)))/theta3 + (10.053096491487338*flow*(1 - 0.63*expr1_pow_3))/theta3))/(expr6_term1*expr6_term1) + (0.09016171759433259*expr3_pow_2*(1.6557 - 1.8153*expr2)*((0.00002280174653761898*flow*theta3S)/((t0_term2)*theta3_pow_third*expr1_pow_7) + (20.106192982974676*flow*theta0*((910.7929229603028*theta0)/(t3_term7) - (1.119672406156883*theta0_pow_third)/(t3_term8) + 0.5687311066356242/(theta0_pow_third*(t3_term3)) + (0.00006885575619957719*theta3S)/(theta0_pow_third*t3_term9) - (8.558874056109027e-6*theta3S)/(theta0*theta3) + (7.650195440139378*theta0_pow_third*expr2)/(t3_term8) - (0.47546539963186524*expr2)/(theta0_pow_third*(t3_term3)) - (3.6366677468926088e-6*theta3S*expr2)/(theta0*theta3) - (0.10101268416085821*expr2_term1)/(theta0_pow_third*(t3_term3))))/theta3 + (20.106192982974676*flow*((455.3964614801514*theta0_pow_2)/(t3_term7) - (0.8397543046176623*(t0_term3))/(t3_term8) + (0.8530966599534363*(t0_term2))/(t3_term3) + (5.737646580104534*(t0_term3)*expr2)/(t3_term8) - (0.7131980994477979*(t0_term2)*expr2)/(t3_term3) - (0.15151902624128732*(t0_term2)*expr2_term1)/(t3_term3)))/theta3 + (10.053096491487338*flow*(1 - 0.63*expr1_pow_3))/theta3))/expr6_term1 + (6.4200234620069195e-6*(t3_term1)*expr3*theta3S*expr6_term1)/(t0_term6) - (0.12258447263984441*theta3*(-1.8897 + 1.4547*expr2)*expr6_term1)/(flow*theta0_pow_2*expr3_pow_2) - (2.9462412233027313e-6*(t3_term1)*expr3_pow_2*theta3S*(expr6_term1*expr6_term1))/(t0_term6) - (0.09016171759433259*theta3*(1.6557 - 1.8153*expr2)*(expr6_term1*expr6_term1))/(flow*theta0_pow_2*expr3)))/(2.*(expr6_term1*expr6_term1)) + (pi *(expr7*expr7)*((0.00001140087326880949*flow*theta3S)/((t0_term2)*theta3_pow_third*expr1_pow_249) + (20.106192982974676*flow*theta0*((-1124.1155729879051*theta0)/(t3_term7) + (82.22622336941672*theta0_pow_third)/(t3_term8) - 1.5865623383204819/(theta0_pow_third*(t3_term3)) - (8.162885715566168e-6*theta3S)/(theta0_pow_third*t3_term9) - (2.4549702589406124e-6*theta3S)/(theta0*theta3) - (0.9069346489870753*theta0_pow_third*expr2)/(t3_term8) - (0.13637931900848535*expr2)/(theta0_pow_third*(t3_term3)) + (0.000014052694118343981*theta3S*expr2)/(theta0*theta3) + (0.39032995351261834*expr2_term1)/(theta0_pow_third*(t3_term3))))/theta3 + (20.106192982974676*flow*((-562.0577864939526*theta0_pow_2)/(t3_term7) + (61.66966752706254*(t0_term3))/(t3_term8) - (2.379843507480723*(t0_term2))/(t3_term3) - (0.6802009867403065*(t0_term3)*expr2)/(t3_term8) - (0.20456897851272804*(t0_term2)*expr2)/(t3_term3) + (0.5854949302689275*(t0_term2)*expr2_term1)/(t3_term3)))/theta3 - (0.000027144936354308312*flow*theta3S*(1 - 0.63*expr1_pow_3))/((t0_term2)*theta3_pow_third*expr1_55) + (5.026548245743669*flow*expr1_pow_45*(1 - 0.63*expr1_pow_3))/theta3)*(1 + 0.36775341791953325*expr3*(-1.8897 + 1.4547*expr2)*expr6_term1 + 0.1352425763914989*expr3_pow_2*(1.6557 - 1.8153*expr2)*(expr6_term1*expr6_term1)))/(2.*(expr6_term1*expr6_term1)) - (pi *(expr7*expr7)*((0.00002280174653761898*flow*theta3S)/((t0_term2)*theta3_pow_third*expr1_pow_7) + (20.106192982974676*flow*theta0*((910.7929229603028*theta0)/(t3_term7) - (1.119672406156883*theta0_pow_third)/(t3_term8) + 0.5687311066356242/(theta0_pow_third*(t3_term3)) + (0.00006885575619957719*theta3S)/(theta0_pow_third*t3_term9) - (8.558874056109027e-6*theta3S)/(theta0*theta3) + (7.650195440139378*theta0_pow_third*expr2)/(t3_term8) - (0.47546539963186524*expr2)/(theta0_pow_third*(t3_term3)) - (3.6366677468926088e-6*theta3S*expr2)/(theta0*theta3) - (0.10101268416085821*expr2_term1)/(theta0_pow_third*(t3_term3))))/theta3 + (20.106192982974676*flow*((455.3964614801514*theta0_pow_2)/(t3_term7) - (0.8397543046176623*(t0_term3))/(t3_term8) + (0.8530966599534363*(t0_term2))/(t3_term3) + (5.737646580104534*(t0_term3)*expr2)/(t3_term8) - (0.7131980994477979*(t0_term2)*expr2)/(t3_term3) - (0.15151902624128732*(t0_term2)*(expr2*expr2))/(t3_term3)))/theta3 + (10.053096491487338*flow*(1 - 0.63*expr1_pow_3))/theta3)*expr12*(1 + 0.36775341791953325*expr3*(-1.8897 + 1.4547*expr2)*expr6_term1 + 0.1352425763914989*expr3_pow_2*(1.6557 - 1.8153*expr2)*(expr6_term1*expr6_term1)))/(3.*(expr6_term1*expr6_term1*expr6_term1*expr6_term1*expr6_term1)) + (pi *((20.106192982974676*flow*theta0*((-2777.8165716778267*theta0)/(t3_term7) - (2.6178750257687318*theta0_pow_third)/(t3_term8) + 2.491924961102924/(theta0_pow_third*(t3_term3)) - (0.0015924284861156552*theta3S)/(theta0_pow_third*t3_term9) + (0.000057632493196318874*theta3S)/(theta0*theta3) - (176.92622687810731*theta0_pow_third*expr2)/(t3_term8) + (3.201619305264777*expr2)/(theta0_pow_third*(t3_term3)) - (0.00003772148987549525*theta3S*expr2)/(theta0*theta3) - (1.047758334845466*expr2_term1)/(theta0_pow_third*(t3_term3))))/theta3 + (20.106192982974676*flow*((-1388.9082858389133*theta0_pow_2)/(t3_term7) - (1.9634062693265488*(t0_term3))/(t3_term8) + (3.737887441654386*(t0_term2))/(t3_term3) - (132.6946701585805*(t0_term3)*expr2)/(t3_term8) + (4.802428957897166*(t0_term2)*expr2)/(t3_term3) - (1.5716375022681992*(t0_term2)*expr2_term1)/(t3_term3)))/theta3 + (20.106192982974676*flow*theta0*((0.000011601493493937981*(t3_term1)*theta3S)/((t0_term6)*expr1_pow_78) - (0.000010986157772254511*(t3_term1)*theta3S)/((t0_term6)*expr1_pow_74)))/theta3 + (20.106192982974676*flow*(1 - 4.455*expr1_pow_217 + 3.521*expr1_pow_26))/theta3)*expr12*(1 + 0.36775341791953325*expr3*(-1.8897 + 1.4547*expr2)*expr6_term1 + 0.1352425763914989*expr3_pow_2*(1.6557 - 1.8153*expr2)*(expr6_term1*expr6_term1)))/(3.*expr7*(expr6_term1*expr6_term1)));
-	norm_ring_t0 = norm_merg*norm_ring_t0_pre + (norm_ring/norm_merg)*norm_merg_t0;
-	
-	norm_ring_t3_pre = ((PI*(expr11*expr11)*((20.106192982974676*flow*theta0*((-562.0577864939526*theta0_pow_2)/(t3_term7) + (61.66966752706254*(t0_term3))/(t3_term8) - (2.379843507480723*(t0_term2))/(t3_term3) - (0.6802009867403065*(t0_term3)*(expr2))/(t3_term8) - (0.20456897851272804*(t0_term2)*(expr2))/(t3_term3) + (0.5854949302689275*(t0_term2)*expr2_term1)/(t3_term3)))/theta3 + (5.026548245743669*flow*theta0*expr1_pow_45*(1 - 0.63*expr1_pow_3))/theta3)*((0.12258447263984441*expr3*(-1.8897 + 1.4547*(expr2))*((-0.00002280174653761898*flow*theta0_pow_third*theta3S)/(t3_term11*expr1_pow_7) + (20.106192982974676*flow*theta0*((-2276.9823074007572*theta0_pow_2)/(theta3_pow_2*theta3_pow_2*theta3_pow_2) + (2.799181015392208*(t0_term3))/(t3_term2) - (1.4218277665890606*(t0_term2))/t3_term9 - (0.00006885575619957719*(t0_term2)*theta3S)/t3_term14 + (8.558874056109027e-6*theta3S)/theta3_pow_2 - (19.125488600348447*(t0_term3)*(expr2))/(t3_term2) + (1.1886634990796632*(t0_term2)*(expr2))/t3_term9 + (3.6366677468926088e-6*theta3S*(expr2))/theta3_pow_2 + (0.25253171040214556*(t0_term2)*expr2_term1)/t3_term9))/theta3 - (20.106192982974676*flow*theta0*((455.3964614801514*theta0_pow_2)/(t3_term7) - (0.8397543046176623*(t0_term3))/(t3_term8) + (0.8530966599534363*(t0_term2))/(t3_term3) + (5.737646580104534*(t0_term3)*(expr2))/(t3_term8) - (0.7131980994477979*(t0_term2)*(expr2))/(t3_term3) - (0.15151902624128732*(t0_term2)*expr2_term1)/(t3_term3)))/theta3_pow_2 - (10.053096491487338*flow*theta0*(1 - 0.63*expr1_pow_3))/theta3_pow_2))/(expr8*expr8) + (0.09016171759433259*expr3_pow_2*(1.6557 - 1.8153*(expr2))*((-0.00002280174653761898*flow*theta0_pow_third*theta3S)/(t3_term11*expr1_pow_7) + (20.106192982974676*flow*theta0*((-2276.9823074007572*theta0_pow_2)/(theta3_pow_2*theta3_pow_2*theta3_pow_2) + (2.799181015392208*(t0_term3))/(t3_term2) - (1.4218277665890606*(t0_term2))/t3_term9 - (0.00006885575619957719*(t0_term2)*theta3S)/t3_term14 + (8.558874056109027e-6*theta3S)/theta3_pow_2 - (19.125488600348447*(t0_term3)*(expr2))/(t3_term2) + (1.1886634990796632*(t0_term2)*(expr2))/t3_term9 + (3.6366677468926088e-6*theta3S*(expr2))/theta3_pow_2 + (0.25253171040214556*(t0_term2)*expr2_term1)/t3_term9))/theta3 - (20.106192982974676*flow*theta0*((455.3964614801514*theta0_pow_2)/(t3_term7) - (0.8397543046176623*(t0_term3))/(t3_term8) + (0.8530966599534363*(t0_term2))/(t3_term3) + (5.737646580104534*(t0_term3)*(expr2))/(t3_term8) - (0.7131980994477979*(t0_term2)*(expr2))/(t3_term3) - (0.15151902624128732*(t0_term2)*expr2_term1)/(t3_term3)))/theta3_pow_2 - (10.053096491487338*flow*theta0*(1 - 0.63*expr1_pow_3))/theta3_pow_2))/expr8 - (6.4200234620069195e-6*expr3*theta3S*expr8)/((t0_term2)*theta3_pow_third) + (0.12258447263984441*(-1.8897 + 1.4547*(expr2))*expr8)/(flow*theta0*expr3_pow_2) + (2.9462412233027313e-6*expr3_pow_2*theta3S*(expr8*expr8))/((t0_term2)*theta3_pow_third) + (0.09016171759433259*(1.6557 - 1.8153*(expr2))*(expr8*expr8))/(flow*theta0*expr3)))/(2.*(expr8*expr8)) + (PI*(expr11*expr11)*((-0.00001140087326880949*flow*theta0_pow_third*theta3S)/(t3_term11*expr1_pow_249) + (20.106192982974676*flow*theta0*((2810.2889324697626*theta0_pow_2)/(theta3_pow_2*theta3_pow_2*theta3_pow_2) - (205.56555842354183*(t0_term3))/(t3_term2) + (3.966405845801205*(t0_term2))/t3_term9 + (8.162885715566168e-6*(t0_term2)*theta3S)/t3_term14 + (2.4549702589406124e-6*theta3S)/theta3_pow_2 + (2.2673366224676883*(t0_term3)*(expr2))/(t3_term2) + (0.3409482975212134*(t0_term2)*(expr2))/t3_term9 - (0.000014052694118343981*theta3S*(expr2))/theta3_pow_2 - (0.9758248837815459*(t0_term2)*expr2_term1)/t3_term9))/theta3 - (20.106192982974676*flow*theta0*((-562.0577864939526*theta0_pow_2)/(t3_term7) + (61.66966752706254*(t0_term3))/(t3_term8) - (2.379843507480723*(t0_term2))/(t3_term3) - (0.6802009867403065*(t0_term3)*(expr2))/(t3_term8) - (0.20456897851272804*(t0_term2)*(expr2))/(t3_term3) + (0.5854949302689275*(t0_term2)*expr2_term1)/(t3_term3)))/theta3_pow_2 + (0.000027144936354308312*flow*theta0_pow_third*theta3S*(1 - 0.63*expr1_pow_3))/(t3_term11*expr1_55) - (5.026548245743669*flow*theta0*expr1_pow_45*(1 - 0.63*expr1_pow_3))/theta3_pow_2)*(1 + 0.36775341791953325*expr3*(-1.8897 + 1.4547*(expr2))*expr8 + 0.1352425763914989*expr3_pow_2*(1.6557 - 1.8153*(expr2))*(expr8*expr8)))/(2.*(expr8*expr8)) - (PI*(expr11*expr11)*((-0.00002280174653761898*flow*theta0_pow_third*theta3S)/(t3_term11*expr1_pow_7) + (20.106192982974676*flow*theta0*((-2276.9823074007572*theta0_pow_2)/(theta3_pow_2*theta3_pow_2*theta3_pow_2) + (2.799181015392208*(t0_term3))/(t3_term2) - (1.4218277665890606*(t0_term2))/t3_term9 - (0.00006885575619957719*(t0_term2)*theta3S)/t3_term14 + (8.558874056109027e-6*theta3S)/theta3_pow_2 - (19.125488600348447*(t0_term3)*(expr2))/(t3_term2) + (1.1886634990796632*(t0_term2)*(expr2))/t3_term9 + (3.6366677468926088e-6*theta3S*(expr2))/theta3_pow_2 + (0.25253171040214556*(t0_term2)*expr2_term1)/t3_term9))/theta3 - (20.106192982974676*flow*theta0*((455.3964614801514*theta0_pow_2)/(t3_term7) - (0.8397543046176623*(t0_term3))/(t3_term8) + (0.8530966599534363*(t0_term2))/(t3_term3) + (5.737646580104534*(t0_term3)*(expr2))/(t3_term8) - (0.7131980994477979*(t0_term2)*(expr2))/(t3_term3) - (0.15151902624128732*(t0_term2)*expr2_term1)/(t3_term3)))/theta3_pow_2 - (10.053096491487338*flow*theta0*(1 - 0.63*expr1_pow_3))/theta3_pow_2)*((20.106192982974676*flow*theta0*((-562.0577864939526*theta0_pow_2)/(t3_term7) + (61.66966752706254*(t0_term3))/(t3_term8) - (2.379843507480723*(t0_term2))/(t3_term3) - (0.6802009867403065*(t0_term3)*(expr2))/(t3_term8) - (0.20456897851272804*(t0_term2)*(expr2))/(t3_term3) + (0.5854949302689275*(t0_term2)*expr2_term1)/(t3_term3)))/theta3 + (5.026548245743669*flow*theta0*expr1_pow_45*(1 - 0.63*expr1_pow_3))/theta3)*(1 + 0.36775341791953325*expr3*(-1.8897 + 1.4547*(expr2))*expr8 + 0.1352425763914989*expr3_pow_2*(1.6557 - 1.8153*(expr2))*(expr8*expr8)))/(3.*(expr14*expr14*expr14*expr14*expr14)) + (PI*((20.106192982974676*flow*theta0*((6944.541429194567*theta0_pow_2)/(theta3_pow_2*theta3_pow_2*theta3_pow_2) + (6.54468756442183*(t0_term3))/(t3_term2) - (6.22981240275731*(t0_term2))/t3_term9 + (0.0015924284861156552*(t0_term2)*theta3S)/t3_term14 - (0.000057632493196318874*theta3S)/theta3_pow_2 + (442.31556719526833*(t0_term3)*(expr2))/(t3_term2) - (8.004048263161943*(t0_term2)*(expr2))/t3_term9 + (0.00003772148987549525*theta3S*(expr2))/theta3_pow_2 + (2.6193958371136654*(t0_term2)*expr2_term1)/t3_term9))/theta3 - (20.106192982974676*flow*theta0*((-1388.9082858389133*theta0_pow_2)/(t3_term7) - (1.9634062693265488*(t0_term3))/(t3_term8) + (3.737887441654386*(t0_term2))/(t3_term3) - (132.6946701585805*(t0_term3)*(expr2))/(t3_term8) + (4.802428957897166*(t0_term2)*(expr2))/(t3_term3) - (1.5716375022681992*(t0_term2)*expr2_term1)/(t3_term3)))/theta3_pow_2 + (20.106192982974676*flow*theta0*((-0.000011601493493937981*theta3S)/((t0_term2)*theta3_pow_third*expr1_pow_78) + (0.000010986157772254511*theta3S)/((t0_term2)*theta3_pow_third*expr1_pow_74)))/theta3 - (20.106192982974676*flow*theta0*(1 - 4.455*expr1_pow_217 + 3.521*expr1_pow_26))/theta3_pow_2)*((20.106192982974676*flow*theta0*((-562.0577864939526*theta0_pow_2)/(t3_term7) + (61.66966752706254*(t0_term3))/(t3_term8) - (2.379843507480723*(t0_term2))/(t3_term3) - (0.6802009867403065*(t0_term3)*(expr2))/(t3_term8) - (0.20456897851272804*(t0_term2)*(expr2))/(t3_term3) + (0.5854949302689275*(t0_term2)*expr2_term1)/(t3_term3)))/theta3 + (5.026548245743669*flow*theta0*expr1_pow_45*(1 - 0.63*expr1_pow_3))/theta3)*(1 + 0.36775341791953325*expr3*(-1.8897 + 1.4547*(expr2))*expr8 + 0.1352425763914989*expr3_pow_2*(1.6557 - 1.8153*(expr2))*(expr8*expr8)))/(3.*expr11*(expr8*expr8)));
-	norm_ring_t3 = norm_merg*norm_ring_t3_pre + (norm_ring/norm_merg)*norm_merg_t3 ;
-	
-	norm_ring_t3S_pre = ((PI*(expr7*expr7)*expr12*((0.12258447263984441*expr3*(-1.8897 + 1.4547*expr2)*((-0.000034202619806428474*flow*theta0_pow_third)/(theta3_pow_third*expr1_pow_7) + (20.106192982974676*flow*theta0*((-0.00010328363429936579*(t0_term2))/t3_term13 + 0.00001283831108416354/theta3 + (5.455001620338913e-6*expr2)/theta3))/theta3))/(expr6_term1*expr6_term1) + (0.09016171759433259*expr3_pow_2*(1.6557 - 1.8153*expr2)*((-0.000034202619806428474*flow*theta0_pow_third)/(theta3_pow_third*expr1_pow_7) + (20.106192982974676*flow*theta0*((-0.00010328363429936579*(t0_term2))/t3_term13 + 0.00001283831108416354/theta3 + (5.455001620338913e-6*expr2)/theta3))/theta3))/expr6_term1 - (9.63003519301038e-6*(t3_term1)*expr3*expr6_term1)/(t0_term2) + (4.419361834954097e-6*(t3_term1)*expr3_pow_2*(expr6_term1*expr6_term1))/(t0_term2)))/(2.*(expr6_term1*expr6_term1)) + (PI*(expr7*expr7)*((-0.000017101309903214237*flow*theta0_pow_third)/(theta3_pow_third*expr1_pow_249) + (20.106192982974676*flow*theta0*((0.000012244328573349254*(t0_term2))/t3_term13 + 3.682455388410919e-6/theta3 - (0.000021079041177515973*expr2)/theta3))/theta3 + (0.00004071740453146247*flow*theta0_pow_third*(1 - 0.63*expr1_pow_3))/(theta3_pow_third*expr1_55))*(1 + 0.36775341791953325*expr3*(-1.8897 + 1.4547*expr2)*expr6_term1 + 0.1352425763914989*expr3_pow_2*(1.6557 - 1.8153*expr2)*(expr6_term1*expr6_term1)))/(2.*(expr6_term1*expr6_term1)) - (PI*((-0.000034202619806428474*flow*theta0_pow_third)/(theta3_pow_third*expr1_pow_7) + (20.106192982974676*flow*theta0*((-0.00010328363429936579*(t0_term2))/t3_term13 + 0.00001283831108416354/theta3 + (5.455001620338913e-6*expr2)/theta3))/theta3)*(expr7*expr7)*expr12*(1 + 0.36775341791953325*expr3*(-1.8897 + 1.4547*expr2)*expr6_term1 + 0.1352425763914989*expr3_pow_2*(1.6557 - 1.8153*expr2)*(expr6_term1*expr6_term1)))/(3.*(expr6_term1*expr6_term1*expr6_term1*expr6_term1*expr6_term1)) + (PI*((20.106192982974676*flow*theta0*((0.0023886427291734827*(t0_term2))/t3_term13 - 0.00008644873979447832/theta3 + (0.00005658223481324288*expr2)/theta3))/theta3 + (20.106192982974676*flow*theta0*((-0.00001740224024090697*(t3_term1))/((t0_term2)*expr1_pow_78) + (0.000016479236658381764*(t3_term1))/((t0_term2)*expr1_pow_74)))/theta3)*expr12*(1 + 0.36775341791953325*expr3*(-1.8897 + 1.4547*expr2)*expr6_term1 + 0.1352425763914989*expr3_pow_2*(1.6557 - 1.8153*expr2)*(expr6_term1*expr6_term1)))/(3.*expr7*(expr6_term1*expr6_term1)));
-	norm_ring_t3S = norm_merg*norm_ring_t3S_pre + (norm_ring/norm_merg)*norm_merg_t3S ;
+	pre_norm_ring_chi	=	((expr6*expr6)*(((1 - 0.63*chi_pow_3)*chi_pow_45)/(4.*M*PI) + (-0.4098*eta - 0.035226*chi*eta + 0.10082*chi_pow_2*eta + 1.8286*eta_pow_2 - 0.020169*chi*eta_pow_2 - 2.8698*eta_pow_2*eta)/(M*PI))*(2.1305418188357477*mass_pow_third*expr4 - 3.8938718645756443*(mass_pow_third*mass_pow_third)*expr4*expr4 + ((-1.8897 + 1.4547*chi)*mass_pow_third*(0.03008028424436822/(chi_pow_7*M) + (-0.12281*eta - 0.052182*chi*eta + 0.17013*eta_pow_2)/(M*PI))*cbrt(PI))/(3.*expr4*expr4) + (2*(1.6557 - 1.8153*chi)*(mass_pow_third*mass_pow_third)*(0.03008028424436822/(chi_pow_7*M) + (-0.12281*eta - 0.052182*chi*eta + 0.17013*eta_pow_2)/(M*PI))*cbrt(PI*PI))/(3.*expr4))*PI)/(2.*expr4*expr4) - ((0.03008028424436822/(chi_pow_7*M) + (-0.12281*eta - 0.052182*chi*eta + 0.17013*eta_pow_2)/(M*PI))*(expr6*expr6)*(((1 - 0.63*chi_pow_3)*chi_pow_45)/(4.*M*PI) + (-0.4098*eta - 0.035226*chi*eta + 0.10082*chi_pow_2*eta + 1.8286*eta_pow_2 - 0.020169*chi*eta_pow_2 - 2.8698*eta_pow_2*eta)/(M*PI))*(1 + (-1.8897 + 1.4547*chi)*mass_pow_third*expr4*cbrt(PI) + (1.6557 - 1.8153*chi)*(mass_pow_third*mass_pow_third)*expr4*expr4*cbrt(PI*PI))*PI)/(3.*pow((1 - 0.63*chi_pow_3)/(2.*M*PI) + (0.1469*eta - 0.12281*chi*eta - 0.026091*chi_pow_2*eta - 0.0249*eta_pow_2 + 0.17013*chi*eta_pow_2 + 2.3252*eta_pow_2*eta)/(M*PI),1.6666666666666667)) + (((-0.03580986219567645*(1 - 0.63*chi_pow_3))/(pow(1 - chi,0.55)*M) + 0.01504014212218411/(pow(1 - chi,0.24999999999999994)*M) + (-0.035226*eta + 0.20164*chi*eta - 0.020169*eta_pow_2)/(M*PI))*(expr6*expr6)*(1 + (-1.8897 + 1.4547*chi)*mass_pow_third*expr4*cbrt(PI) + (1.6557 - 1.8153*chi)*(mass_pow_third*mass_pow_third)*expr4*expr4*cbrt(PI*PI))*PI)/(2.*expr4*expr4) + (((0.966735/chi_pow_783 - 0.91546/chi_pow_74)/(M*PI) + (0.82696*eta - 0.54126*chi*eta - 3.9346*eta_pow_2)/(M*PI))*(((1 - 0.63*chi_pow_3)*chi_pow_45)/(4.*M*PI) + (-0.4098*eta - 0.035226*chi*eta + 0.10082*chi_pow_2*eta + 1.8286*eta_pow_2 - 0.020169*chi*eta_pow_2 - 2.8698*eta_pow_2*eta)/(M*PI))*(1 + (-1.8897 + 1.4547*chi)*mass_pow_third*expr4*cbrt(PI) + (1.6557 - 1.8153*chi)*(mass_pow_third*mass_pow_third)*expr4*expr4*cbrt(PI*PI))*PI)/(3.*expr6*expr4*expr4);
 	
 	
-	normalization_list[0] = norm_merg ;
-	normalization_list[1] = norm_ring ;
-	normalization_list[2] = norm_merg_t0 ;
-	normalization_list[3] = norm_merg_t3 ;
-	normalization_list[4] = norm_merg_t3S ;
-	normalization_list[5] = norm_ring_t0 ;
-	normalization_list[6] = norm_ring_t3 ;
-	normalization_list[7] = norm_ring_t3S ;
-	
-	return normalization_list ;
+	norm_ring				=	norm_merg*pre_norm_ring;
+	norm_ring_mass			=	norm_merg*pre_norm_ring_mass + norm_merg_mass*pre_norm_ring;
+	norm_ring_eta			=	norm_merg*pre_norm_ring_eta + norm_merg_eta*pre_norm_ring;
+	norm_ring_chi			=	norm_merg*pre_norm_ring_chi + norm_merg_chi*pre_norm_ring;
 	
 	
+	normalization_list[0]	=	norm_merg;
+	normalization_list[1]	=	norm_merg_mass;
+	normalization_list[2]	=	norm_merg_eta;
+	normalization_list[3]	=	norm_merg_chi;
+	normalization_list[4]	=	norm_ring;
+	normalization_list[5]	=	norm_ring_mass;
+	normalization_list[6]	=	norm_ring_eta;
+	normalization_list[7]	=	norm_ring_chi;
+	
+	
+	return normalization_list;
 }
 
 
 
-/*****************************************************************************************************************************
- 
- AMPLITUDES
- ******************************************************************************************************************************/
 
 /*****************************************************************************************************************************
  
  ******************************************************************************************************************************/
-
-
-
 
 
 
@@ -390,123 +334,103 @@ static REAL8 * XLALSimIMRPhenomBNormalization(const REAL8 theta0,	/**< Theta0 co
  ******************************************************************************************************************************/
 
 
-
-
-
-/*****************************************************************************************************************************
- Definition and derivatives of inspiral phase of amplitude w.r.t the co-ordinates
- 
- 
- ******************************************************************************************************************************/
 
 
 static REAL8 *XLALSimIMRPhenomBAmplitude_Inspiral(
-												  const REAL8 f,		/**<Fourier Frequency*/
-												  const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
-												  const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
-												  const REAL8 theta3S,
-												  const REAL8 flow	/**< Lower Frequency Cut-off */
-){
-	static REAL8	amplitude_inspiral_list[4];
+												  const REAL8 mass,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+												  const REAL8 eta,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+												  const REAL8 chi
+												  ){
+	static REAL8	amplitude_inspiral_expression_list[12];
 	
-	REAL8	theta0_pow_2	=	theta0*theta0;
-	REAL8	theta3_pow_2	=	theta3*theta3;
-	REAL8	theta3_pow_third=	cbrt(theta3);
-	REAL8	theta0_sqrt		=	sqrt(theta0);
-	
-	
-	REAL8	flow_term1 = sqrt(cbrt(flow*flow*flow*flow*flow));
-	REAL8	flow_term2 = flow_term1*flow;
-	
-	
-	REAL8	t3_term1	=	cbrt(theta3*theta3);
-	REAL8	t3_term3	=	t3_term1*theta3;
-	REAL8	t0_term3	=	sqrt(cbrt(theta0_pow_2*theta0_pow_2*theta0_pow_2*theta0));
-	REAL8	t0_term2	=	t0_term3*theta0;
-	
-	
-	REAL8 insp_coef1, insp_coef2, insp_coef3, insp_amp;
-	REAL8 insp_coef1_t0, insp_coef2_t0, insp_coef3_t0, insp_amp_t0;
-	REAL8 insp_coef1_t3, insp_coef2_t3, insp_coef3_t3, insp_amp_t3;
-	REAL8 insp_coef1_t3S, insp_coef2_t3S, insp_coef3_t3S, insp_amp_t3S;
-	
-	REAL8	freq_pow_7_6 =	cbrt(sqrt(1./(f*f*f*f*f*f*f)));
-	REAL8	freq_pow_3_6 =	sqrt(1./(f));
-	REAL8	freq_pow_1_6 =	cbrt(sqrt(1./(f)));
+	REAL8 insp_coef1, insp_coef2, insp_coef3;
+	REAL8 insp_coef1_mass, insp_coef2_mass, insp_coef3_mass;
+	REAL8 insp_coef1_eta, insp_coef2_eta, insp_coef3_eta;
+	REAL8 insp_coef1_chi, insp_coef2_chi, insp_coef3_chi;
 	
 	
 	
+	REAL8	M = mass*LAL_MTSUN_SI;
+	
+	REAL8	eta_pow_half	=	sqrt(eta);
+	
+	REAL8	mass_pow_half	=	sqrt(M);
+	REAL8	mass_pow_5_6	=	M/sqrt(cbrt(M));
 	
 	/******************** Inspiral Phase of waveform ******************************/
 	
 	
 	
-	insp_coef1	=	(0.016200730203430484/(flow_term1*theta0_sqrt));
+	insp_coef1	=	(0.212787510139663399157865621657*eta_pow_half*mass_pow_5_6);
 	
-	insp_coef2	=	(0.03415794470303461/(flow*sqrt(flow)*theta0_sqrt*theta3) - (0.00315938483464183*(t3_term1))/((flow*sqrt(flow))*t0_term3)) ;
+	insp_coef2	=	eta_pow_half*(-0.65816363866878219734598675537 + 1.2253118721965769700847885518*eta)*M*sqrt(M);
 	
-	insp_coef3	=	(-0.015265371337209142/(flow_term2*sqrt(cbrt(theta0_pow_2*theta0_pow_2*theta0))*(t3_term1)) + (0.004839085212385711*theta3)/(flow_term2*theta0*theta0_sqrt) + (1.5442597114335067e-7*theta3S)/(flow_term2*theta0*theta0_sqrt) - (4.8952653483548386e-8*(t3_term3)*theta3S)/(flow_term2*t0_term2));
+	insp_coef3	=	0.212787510139663399157865621657*eta_pow_half*mass_pow_5_6*(10.6028752058655521798114214186*chi*M - 5.75958653158128760384817953601*chi*eta*M) ;
 	
 	
-	insp_amp		=	insp_coef1*freq_pow_7_6 + insp_coef2*freq_pow_3_6 + insp_coef3*freq_pow_1_6 ;
+	
+	amplitude_inspiral_expression_list[0]	=	insp_coef1;
+	amplitude_inspiral_expression_list[1]	=	insp_coef2;
+	amplitude_inspiral_expression_list[2]	=	insp_coef3;
 	
 	
 	
 	
 	/******************** Derivative of inspiral phase w.r.t theta0 co-ordinate ******************************/
 	
-	insp_coef1_t0	=	-0.008100365101715244/(flow_term1*theta0*theta0_sqrt);
+	insp_coef1_mass	=	(0.177322925116386165964888018048*eta_pow_half)/sqrt(cbrt(M));
 	
-	insp_coef2_t0	=	(1/(flow*sqrt(flow)))*(-0.017078972351517306/(theta0*theta0_sqrt*theta3) + (0.003685948973748802*(t3_term1))/(t0_term2)) ;
+	insp_coef2_mass	=	-0.987245458003173296018980133062*eta_pow_half*mass_pow_half + 1.8379678082948654551271828277*eta_pow_half*eta*mass_pow_half ;
 	
-	insp_coef3_t0	=	(1./flow_term2)*(0.01272114278100762/((sqrt(cbrt(theta0_pow_2*theta0_pow_2*theta0))*theta0)*(t3_term1)) - (0.007258627818578568*theta3)/(theta0_pow_2*theta0_sqrt) - (2.3163895671502604e-7*theta3S)/(theta0_pow_2*theta0_sqrt) + (1.0606408254768816e-7*(t3_term3)*theta3S)/((sqrt(cbrt(theta0_pow_2*theta0_pow_2*theta0_pow_2*theta0))*theta0_pow_2)));
+	insp_coef3_mass	=	chi*(4.13629226152578669789413343455 - 2.2468748087300569716955786558*eta)*eta_pow_half*mass_pow_5_6;
 	
 	
-	insp_amp_t0		=	insp_coef1_t0*freq_pow_7_6 + insp_coef2_t0*freq_pow_3_6 + insp_coef3_t0*freq_pow_1_6 ;
 	
+	
+	amplitude_inspiral_expression_list[3]	=	insp_coef1_mass;
+	amplitude_inspiral_expression_list[4]	=	insp_coef2_mass;
+	amplitude_inspiral_expression_list[5]	=	insp_coef3_mass;
 	
 	
 	
 	/******************** Derivative of inspiral phase w.r.t theta3 co-ordinate ******************************/
 	
 	
-	insp_coef1_t3	=	0.;
+	insp_coef1_eta	=	(0.106393755069831699578932810829*mass_pow_5_6)/eta_pow_half;
 	
-	insp_coef2_t3	=	-0.03415794470303461/(sqrt(flow*flow*flow)*sqrt(theta0)*theta3_pow_2) - 0.0021062565564278868/(sqrt(flow*flow*flow)*t0_term3*theta3_pow_third);
+	insp_coef2_eta	=	((-0.3290818193343910986729933777 + 1.837967808294865455127182828*eta)*M*sqrt(M))/eta_pow_half;
 	
-	insp_coef3_t3	=	0.004839085212385711/(flow_term2*(theta0*sqrt(theta0))) + 0.010176914224806093/(flow_term2*sqrt(cbrt(theta0_pow_2*theta0_pow_2*theta0))*(t3_term3)) + (2.6469779601696886e-23*theta3S)/(flow_term2*(theta0*sqrt(theta0))*theta3) - (8.158775580591398e-8*(t3_term1)*theta3S)/(flow_term2*t0_term2);
+	insp_coef3_eta	=	(chi*(1.128079707688850917607490937 - 1.838352116233682976841837082*eta)*(mass_pow_5_6*M))/eta_pow_half;
 	
 	
-	insp_amp_t3		=	 insp_coef2_t3*freq_pow_3_6 + insp_coef3_t3*freq_pow_1_6 ;
+	
+	
+	amplitude_inspiral_expression_list[6]	=	insp_coef1_eta;
+	amplitude_inspiral_expression_list[7]	=	insp_coef2_eta;
+	amplitude_inspiral_expression_list[8]	=	insp_coef3_eta;
+	
 	
 	
 	
 	/******************** Derivative of inspiral phase w.r.t theta3S co-ordinate ******************************/
 	
-	insp_coef1_t3S	=	0.;
+	insp_coef1_chi	=	0.;
 	
-	insp_coef2_t3S	=	0.;
+	insp_coef2_chi	=	0.;
 	
-	insp_coef3_t3S	=	1.5442597114335065e-7/(flow_term2*theta0*theta0_sqrt) - (4.895265348354837e-8*(t3_term3))/(flow_term2*t0_term2);
+	insp_coef3_chi	=	-1.2255680774891219845612247213*eta_pow_half*(-1.8409090909090909090909090909 + 1.*eta)*(mass_pow_5_6*M);
 	
 	
-	insp_amp_t3S		=	 insp_coef2_t3S*freq_pow_3_6 + insp_coef3_t3S*freq_pow_1_6 ;
 	
-	amplitude_inspiral_list[0] = insp_amp;
-	amplitude_inspiral_list[1] = insp_amp_t0;
-	amplitude_inspiral_list[2] = insp_amp_t3;
-	amplitude_inspiral_list[3] = insp_amp_t3S;
+	amplitude_inspiral_expression_list[9]	=	insp_coef1_chi ;
+	amplitude_inspiral_expression_list[10]	=	insp_coef2_chi ;
+	amplitude_inspiral_expression_list[11]	=	insp_coef3_chi ;
 	
-	return amplitude_inspiral_list;
+	
+	return amplitude_inspiral_expression_list;
 	
 }
 
-/*****************************************************************************************************************************
- 
- ******************************************************************************************************************************/
-
-
-
 
 
 
@@ -516,108 +440,72 @@ static REAL8 *XLALSimIMRPhenomBAmplitude_Inspiral(
 
 
 
-
-
-/*****************************************************************************************************************************
- Definition and derivatives of Merger phase of amplitude w.r.t the co-ordinates
- 
- 
- ******************************************************************************************************************************/
 
 
 static REAL8 *XLALSimIMRPhenomBAmplitude_Merger(
-												const REAL8 f,		/**<Fourier Frequency*/
-												const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
-												const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
-												const REAL8 theta3S,
-												const REAL8 norm_merg,
-												const REAL8 norm_merg_t0,
-												const REAL8 norm_merg_t3,
-												const REAL8 norm_merg_t3S,
-												const REAL8 flow,	/**< Lower Frequency Cut-off */
-												const REAL8 *expr_list
+												const REAL8 mass,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+												const REAL8 eta,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+												const REAL8 chi,
+												const REAL8 *norm_list,
+												const REAL8 *chi_pow_list
+												
 												){
-	static REAL8	amplitude_merger_list[4] ;
+	static REAL8	amplitude_merger_expression_list[12];
 	
-	REAL8	theta3_pow_2 = theta3*theta3;
-	REAL8	theta0_pow_2 = theta0*theta0;
-	REAL8	theta3S_pow_2 = theta3S*theta3S;
-	REAL8	theta0_pow_third = cbrt(theta0);
-	REAL8	theta3_pow_third = cbrt(theta3);
-	REAL8	theta3_pow_6	=	theta3_pow_2*theta3_pow_2*theta3_pow_2;
+	REAL8	M = mass*LAL_MTSUN_SI;
 	
-	/* Some combination of above expressions. For optimization purposes, they are calculated here only once and used in the end expression. */
-	REAL8	t0_term1	=	theta0_pow_2*theta0 ;
-	REAL8	t0_term2	=	theta0_pow_third*theta0_pow_third;
-	REAL8	t0_term3	=	theta0_pow_third*theta0;
-	REAL8	t0_term4	=	theta0_pow_third*theta0_pow_2;
-	REAL8	t0_term6	=	theta0_pow_third*theta0_pow_third*theta0;
-	REAL8	t0_term5	=	theta0_pow_third*theta0_pow_third*theta0_pow_2;
-	REAL8	t0_term7	=	theta0_pow_third*t0_term1;
-	
-	
-	REAL8	t3_term1	=	cbrt(theta3*theta3);
-	REAL8	t3_term2	=	t3_term1*t3_term1;
-	REAL8	t3_term3	=	t3_term1*theta3;
-	REAL8	t3_term4	=	theta3_pow_third*theta3_pow_2;
-	REAL8	t3_term5	=	theta3_pow_third*theta3_pow_third*theta3_pow_2*theta3_pow_2;
-	REAL8	t3_term6	=	theta3_pow_2*theta3_pow_2;
-	REAL8	t3_term7	=	theta3_pow_2*theta3_pow_2*theta3;
-	REAL8	t3_term8	=	theta3_pow_third*theta3_pow_2*theta3;
-	REAL8	t3_term9	=	t3_term8*t3_term4;
-	REAL8	t3_term10	=	t3_term5*t3_term1;
+	const	REAL8	chi_pow_217		=	chi_pow_list[0];
+	const	REAL8	chi_pow_26		=	chi_pow_list[1];
+	const	REAL8	chi_pow_2		=	chi*chi;
+	const	REAL8	chi_pow_783		=	chi_pow_list[2];
+	const	REAL8	chi_pow_152		=	chi_pow_list[3];
+	const	REAL8	chi_pow_74		=	chi_pow_list[6];
 	
 	
 	
+	const REAL8		eta_pow_half	=	sqrt(eta);
+	const REAL8		eta_pow_2		=	eta*eta;
+	const REAL8		eta_pow_3		=	eta_pow_2*eta;
 	
-	REAL8	expr1_pow_217 =		expr_list[1];
-	REAL8	expr1_pow_26  =		expr_list[2];
-	REAL8	expr1_pow_152 =		expr_list[5];
-	REAL8	expr1_pow_174 =		expr_list[8];
-	REAL8	expr1_pow_74  =		expr_list[6];
-	REAL8	expr1_pow_78  =		expr_list[7];
-	REAL8	expr1_pow_178 =		expr_list[9];
+	const	REAL8	expr1			=	sqrt(0.31830988618379075 - 1.4180705429487876*chi_pow_217 + 1.1207691092531271*chi_pow_26 + (0.2048801582421969 + 0.2632295434785476*chi - 0.08614420449791928*chi_pow_2)*eta + (-0.01853136495384793 - 1.252422078178743*chi)*eta_pow_2 - 2.25732638886097*eta_pow_3);
 	
-	REAL8	freq_pow_2_3  =		cbrt(1./(f*f));
-	REAL8	freq_pow_1_3  =		cbrt(1./(f));
+	const	REAL8	expr2		=	(-0.22446689113355783 + 1.*chi_pow_217 - 0.7903479236812571*chi_pow_26 + (-0.14447811447811448 - 0.185625140291807*chi + 0.060747474747474745*chi_pow_2)*eta + (0.013068013468013468 + 0.8831874298540965*chi)*eta_pow_2 + 1.5918294051627384*eta_pow_3);
 	
-	
-	REAL8	flow_term1	=	cbrt(flow);
-	
-	REAL8 merg_coef1, merg_coef2, merg_coef3, amp_merg;
-	REAL8 merg_coef1_t0, merg_coef2_t0, merg_coef3_t0, amp_merg_t0;	/*  */
-	REAL8 merg_coef1_t3, merg_coef2_t3, merg_coef3_t3, amp_merg_t3;	/*  */
-	REAL8 merg_coef1_t3S, merg_coef2_t3S, merg_coef3_t3S, amp_merg_t3S;	/*  */
+	REAL8 merg_coef1, merg_coef2, merg_coef3;
+	REAL8 merg_coef1_mass, merg_coef2_mass, merg_coef3_mass;	/*  */
+	REAL8 merg_coef1_eta, merg_coef2_eta, merg_coef3_eta;	/*  */
+	REAL8 merg_coef1_chi, merg_coef2_chi, merg_coef3_chi;	/*  */
 	
 	
 	
 	/******************** Merger phase of waveform	******************************/
 	
-	merg_coef1	=	(-0.00002064413376646512*(t0_term2)*(t3_term1) + 4.2844239930916823e-10*t3_term2*theta3S)/(sqrt(flow*flow*flow)*(sqrt(cbrt(theta0_pow_2*theta0_pow_2*theta0))*theta0)*sqrt(-((flow*(1.*(t0_term1) + 0.17141979364082702*(t0_term4)*(t3_term3) + (t0_term6)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326628e-6*theta3S) + 3.666690470581712e-13*theta0_pow_third*(t3_term5)*theta3S_pow_2 + theta0*(t3_term6)*(-1.0249976203284162e-8*theta3S + theta3*(-0.0007199899447615367 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))))/(theta3_pow_2*theta3_pow_2*theta3_pow_2))));
+	merg_coef1	=	(0.21278751013966343*eta_pow_half*(cbrt(M)*M))/expr1;
 	
-	merg_coef2	=	merg_coef1*((-4.696087900943841*flow_term1*flow_term1*(t0_term3))/(1.*(t0_term2)*(t3_term1) - 0.00002075371164302091*t3_term2*theta3S));
+	merg_coef2	=	merg_coef1*(2.1305418188357477*(-1.2990307279851514 + 1.*chi)*cbrt(M));
 	
-	merg_coef3	=	merg_coef2*((0.25700804969411556*(t0_term2)*theta3_pow_third - 9.630035193010379e-6*theta3*theta3S)/(flow_term1*theta0));
-	
-	amp_merg		=	norm_merg*(merg_coef1 + merg_coef2*freq_pow_2_3 + merg_coef3*freq_pow_1_3) ;
+	merg_coef3	=	merg_coef1*(-3.8938718645756443*(-0.9120806478268055 + 1.*chi)*cbrt(M*M));
 	
 	
+	amplitude_merger_expression_list[0] =	norm_list[0]*merg_coef1;
+	amplitude_merger_expression_list[1] =	norm_list[0]*merg_coef2;
+	amplitude_merger_expression_list[2] =	norm_list[0]*merg_coef3;
 	
 	
 	
 	/******************** Derivative of merger phase w.r.t theta0 co-ordinate	******************************/
 	
 	/* Expression which occurs in all three coefficients */
-	REAL8	expr_t0		=	(311.7639249918997*(t0_term5) + 53.44250768676573*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-1.6401960827934574*theta3 - 0.0005361712074463486*theta3S) + 1.1431418128389502e-10*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-3.1955728122094408e-6*theta3S + theta3*(-0.22446689113355778 + 1.*expr1_pow_217 - 0.790347923681257*expr1_pow_26)))*sqrt(-((flow*(1.*(t0_term1) + 0.17141979364082702*(t0_term4)*(t3_term3) + (t0_term6)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326628e-6*theta3S) + 3.666690470581712e-13*theta0_pow_third*(t3_term5)*theta3S_pow_2 + theta0*(t3_term6)*(-1.0249976203284162e-8*theta3S + theta3*(-0.0007199899447615367 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))))/theta3_pow_6));
 	
-	merg_coef1_t0	=	(t3_term10*t3_term1*theta3_pow_third*theta3S*(2.5454512977543498e-11*(t0_term2) - 5.282756223494714e-16*(t3_term1)*theta3S)*expr1_pow_78 + (t0_term2)*t3_term9*(0.000034406889610775205*(t0_term2) - 9.996989317213926e-10*(t3_term1)*theta3S)*expr1_pow_174 + (t0_term2)*t3_term9*(-0.00002719341376420639*(t0_term2) + 7.901099749923734e-10*(t3_term1)*theta3S)*expr1_pow_178 + expr1_pow_74*(-2.6880222623976484e-11*(t0_term2)*t3_term10*t3_term1*theta3_pow_third*theta3S + 5.578643892382148e-16*(theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3)*theta3S_pow_2) + (t3_term1)*expr1_pow_152*(0.017162923122909273*t0_term7 + (t0_term5)*(t3_term1)*(0.0025743066475021753*theta3 - 4.4524294680524365e-7*theta3S) + theta0_pow_2*(t3_term4)*(-0.00006772085467284047*theta3 - 9.082868891174881e-8*theta3S) + (t0_term2)*(t3_term5)*(2.2439931127303988e-10*theta3 + 6.3411670597086005e-15*theta3S)*theta3S - 9.79540842086704e-20*t3_term10*(theta3S*theta3S*theta3S) + (t0_term3)*(theta3_pow_2*theta3)*(-7.723207544506218e-6*theta3_pow_2 + 1.7639957324725234e-9*theta3*theta3S + 6.12582609490153e-13*theta3S_pow_2)))/((flow*sqrt(flow))*sqrt(t0_term7*theta0_pow_third*theta0_pow_2)*expr1_pow_152*expr_t0);
+	merg_coef1_mass	=	merg_coef1*(4.0/(3.0*M));
 	
-	merg_coef2_t0	=	(-0.06044894671674265*(t0_term5)*expr1_pow_152 - 0.008635121643324476*theta0_pow_2*(t3_term3)*expr1_pow_152 + 0.0002120153908471349*(t0_term3)*(t3_term8)*expr1_pow_152 + 6.930668186581239e-8*(t0_term3)*(t3_term4)*theta3S*expr1_pow_152 + 3.098001326801022e-10*(t0_term2)*(t3_term6)*theta3S*expr1_pow_152 - 7.388252562766063e-15*(t3_term5)*theta3S_pow_2*expr1_pow_152 + t3_term9*theta3S*(1.262318882391329e-10*expr1_pow_74 - 1.1953663041826004e-10*expr1_pow_78) + (t0_term2)*(t3_term7)*(0.000021761316903740307*expr1_pow_152 - 0.00009694666680616308*expr1_pow_174 + 0.00007662159681806963*expr1_pow_178))/(sqrt(cbrt(flow*flow*flow*flow*flow))*(theta0*sqrt(theta0))*expr1_pow_152*expr_t0);
+	merg_coef2_mass	=	merg_coef1_mass*(2.6631772735446857*(-1.2990307279851514 + 1.*chi)*cbrt(M));
 	
-	merg_coef3_t0	=	(-0.00003322143168026296*(t0_term2)*expr1_pow_174*(1.*(t0_term2)*t3_term10 - 0.000056204670658011316*theta3_pow_6*theta3S) + 0.000026256489550214566*(t0_term2)*expr1_pow_178*(1.*(t0_term2)*t3_term10 - 0.00005620467065801129*theta3_pow_6*theta3S) + theta3_pow_6*theta3S*(1.*(t0_term2) - 0.000037469780438674206*(t3_term1)*theta3S)*(3.2442611405545104e-11*expr1_pow_74 - 3.0721876250803296e-11*expr1_pow_78) - 0.018125176885355792*expr1_pow_152*(1.*t0_term7*theta3_pow_third + (t0_term5)*theta3*(0.14693125169213742*theta3 - 0.00004817543199258112*theta3S) + theta0_pow_2*cbrt(theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3_pow_2)*(-0.0037578710577152088*theta3 - 8.569069996811477e-6*theta3S) + (t0_term2)*(t3_term7)*(2.31238844128011e-8*theta3 + 4.863418983152387e-13*theta3S)*theta3S - 9.813577633519693e-18*t3_term9*(theta3S*theta3S*theta3S) + (t0_term3)*(t3_term8)*(-0.00041142282557802103*theta3_pow_2 + 1.9127211557019266e-7*theta3*theta3S + 6.444048143503295e-11*theta3S_pow_2)))/(sqrt(cbrt(flow*flow*flow*flow*flow*flow*flow))*(theta0_pow_2*sqrt(theta0))*expr1_pow_152*expr_t0);
+	merg_coef3_mass	=	merg_coef1_mass*(-5.840807796863467*(-0.9120806478268056 + 1.*chi)*cbrt(M*M));
 	
-	amp_merg_t0 = ( norm_merg*(merg_coef1_t0 + merg_coef2_t0*freq_pow_2_3 + merg_coef3_t0*freq_pow_1_3) + norm_merg_t0*amp_merg/norm_merg );
-	
+	amplitude_merger_expression_list[3]	=	norm_list[0]*merg_coef1_mass + norm_list[1]*merg_coef1;
+	amplitude_merger_expression_list[4]	=	norm_list[0]*merg_coef2_mass + norm_list[1]*merg_coef2;
+	amplitude_merger_expression_list[5]	=	norm_list[0]*merg_coef3_mass + norm_list[1]*merg_coef3;
 	
 	
 	
@@ -625,52 +513,39 @@ static REAL8 *XLALSimIMRPhenomBAmplitude_Merger(
 	
 	/******************** Derivative of merger phase w.r.t theta3 co-ordinate	******************************/
 	
-	REAL8	expr_t3_1		=	sqrt(cbrt((-((flow*(1.*(t0_term1) + 0.17141979364082702*(t0_term4)*(t3_term3) + (t0_term6)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326628e-6*theta3S) + 3.666690470581712e-13*theta0_pow_third*(t3_term5)*theta3S_pow_2 + theta0*(t3_term6)*(-1.0249976203284162e-8*theta3S + theta3*(-0.0007199899447615367 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))))/(theta3_pow_2*theta3*theta3_pow_2*theta3)))));
+	merg_coef1_eta	=	((-0.02388187543655033 + 0.10639375506983173*chi_pow_217 - 0.08408808341209371*chi_pow_26 + (2.1565808261191165e-18 + 4.313161652238233e-18*chi - 3.234871239178675e-18*chi_pow_2)*eta + (-0.0013903550241650875 - 0.09396562709265095*chi)*eta_pow_2 - 0.3387214156916807*eta_pow_3)*(cbrt(M)*M))/(eta_pow_half*expr1*expr2);
 	
-	REAL8	expr_t3_2	=	cbrt(-((theta3_pow_2*theta3*theta3_pow_2*theta3)/(flow*(1.*(t0_term1) + 0.17141979364082705*(t0_term4)*(t3_term3) + (t0_term6)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.666690470581712e-13*theta0_pow_third*(t3_term5)*theta3S_pow_2 + theta0*(t3_term6)*(-1.0249976203284162e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))))));
-	
-	
-	merg_coef1_t3	=	(0.005984092419836408*sqrt((t0_term2)/(t3_term3))*sqrt(theta3/(flow*theta0))*expr_t3_2*(-0.012649396405173638*cbrt(theta0_pow_2*theta0_pow_2*theta0_pow_2*theta0_pow_2*theta0_pow_2)*expr1_pow_152 + theta0_pow_2*(t3_term4)*(0.00003629930231345255*theta3 + 5.778849005804924e-8*theta3S)*expr1_pow_152 + (t0_term5)*(t3_term1)*(-0.001675548530215911*theta3 + 3.102531846241915e-7*theta3S)*expr1_pow_152 + t3_term10*theta3S_pow_2*(-2.9902292599075614e-16*theta3*expr1_pow_74 + 2.831629431307418e-16*theta3*expr1_pow_78 + 5.2504725947499286e-20*theta3S*expr1_pow_152) + (t0_term2)*(t3_term5)*theta3S*(-3.3989520839993703e-15*theta3S*expr1_pow_152 + theta3*(1.4408166169703531e-11*expr1_pow_74 - 1.3643966342086296e-11*expr1_pow_78 - 9.45065733021649e-11*expr1_pow_152 + 4.2102678406114467e-10*expr1_pow_174 - 3.3275764459692264e-10*expr1_pow_178)) + (t0_term3)*(theta3_pow_2*theta3)*(-9.4552578643607e-10*theta3*theta3S*expr1_pow_152 - 3.8991875857900215e-13*theta3S_pow_2*expr1_pow_152 + theta3_pow_2*(2.89782125150883e-6*expr1_pow_152 - 0.000012909793675471837*expr1_pow_174 + 0.000010203228626562591*expr1_pow_178))))/(flow*(t0_term6)*expr1_pow_152*(1.*(t0_term5) + 0.17141979364082705*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.666690470581712e-13*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-1.0249976203284163e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26)))*expr_t3_1);
-	
-	merg_coef2_t3	=	(0.005984092419836408*sqrt((t0_term2)/(t3_term3))*sqrt(cbrt((theta3/(flow*theta0))*(theta3/(flow*theta0))*(theta3/(flow*theta0))*(theta3/(flow*theta0))*(theta3/(flow*theta0))))*(15.15240970786892*(t0_term5)*expr1_pow_152 + 1.8759165715941113*theta0_pow_2*(t3_term3)*expr1_pow_152 - 0.03542983229074711*(t0_term3)*(t3_term8)*expr1_pow_152 - 0.000015925002636924063*(t0_term3)*(t3_term4)*theta3S*expr1_pow_152 - 5.177061297602283e-8*(t0_term2)*(t3_term6)*theta3S*expr1_pow_152 + 1.2346488062709506e-12*(t3_term5)*theta3S_pow_2*expr1_pow_152 + t3_term9*theta3S*(-2.1094575314494196e-8*expr1_pow_74 + 1.9975732664491157e-8*expr1_pow_78) + (t0_term2)*(t3_term7)*(-0.001818263771428786*expr1_pow_152 + 0.008100365101715242*expr1_pow_174 - 0.006402106739200755*expr1_pow_178))*expr_t3_2)/(theta3*expr1_pow_152*(311.7639249918997*(t0_term5) + 53.44250768676573*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-1.6401960827934574*theta3 - 0.0005361712074463486*theta3S) + 1.1431418128389502e-10*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-3.1955728122094408e-6*theta3S + theta3*(-0.22446689113355778 + 1.*expr1_pow_217 - 0.790347923681257*expr1_pow_26)))*expr_t3_1);
+	merg_coef2_eta	=	((0.06609641677529171 - 0.29445953673392455*chi_pow_217 + 0.23272548346580207*chi_pow_26 + chi_pow_2*(8.873370157277154e-18 - 0.20019769805401816*eta)*eta + 0.0038480011918239324*eta_pow_2 + 0.9374586984073172*eta_pow_3 + chi*(-0.050881334329796725 + 0.22667634443924436*chi_pow_217 - 0.17915317817521426*chi_pow_26 - 4.436685078638577e-18*eta + 0.2571007519220506*eta_pow_2 - 0.7216601410663728*eta_pow_3))*pow(M,1.6666666666666667))/(eta_pow_half*expr1*expr2);
 	
 	
-	merg_coef3_t3	=	(0.005984092419836408*sqrt((t0_term2)/(t3_term3))*sqrt(cbrt((theta3/(flow*theta0))))*expr_t3_2*(0.01387906024401407*cbrt(theta0_pow_2*theta0_pow_2*theta0_pow_2*theta0_pow_2*theta0_pow_2)*expr1_pow_152 + (t0_term5)*(t3_term1)*(0.001784359232218124*theta3 - 6.240544080460071e-7*theta3S)*expr1_pow_152 + theta0_pow_2*(t3_term4)*(-0.00003650900315948638*theta3 - 1.0020373539744504e-7*theta3S)*expr1_pow_152 + t3_term10*theta3S_pow_2*(6.51587583988318e-16*theta3*expr1_pow_74 - 6.170277993844701e-16*theta3*expr1_pow_78 - 9.534226462945023e-20*theta3S*expr1_pow_152) + (t0_term3)*(theta3_pow_2*theta3)*(1.858274050499108e-9*theta3*theta3S*expr1_pow_152 + 7.602173253915788e-13*theta3S_pow_2*expr1_pow_152 + theta3_pow_2*(-2.498195954607433e-6*expr1_pow_152 + 0.000011129462977776115*expr1_pow_174 - 8.79614795617277e-6*expr1_pow_178)) + (t0_term2)*(t3_term5)*theta3S*(4.7249779541337574e-15*theta3S*expr1_pow_152 + theta3*(-1.738968246837619e-11*expr1_pow_74 + 1.6467344941995137e-11*expr1_pow_78 + 1.6849233704146434e-10*expr1_pow_152 - 7.506333615197236e-10*expr1_pow_174 + 5.932615187229959e-10*expr1_pow_178))))/(flow*(t0_term6)*expr1_pow_152*(1.*(t0_term5) + 0.17141979364082705*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.666690470581712e-13*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-1.0249976203284163e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26)))*expr_t3_1);
+	merg_coef3_eta	=	((-0.08481708178650428 + 0.37786009935887654*chi_pow_217 - 0.29864094497028154*chi_pow_26 - 0.004937880867446704*eta_pow_2 + 0.3658901115732804*chi_pow_2*eta_pow_2 - 1.202977634394347*eta_pow_3 + chi*(0.09299296283568353 - 0.4142836494329701*chi_pow_217 + 0.32742822214444167*chi_pow_26 - 8.108680640276699e-18*eta - 0.3283074256868117*eta_pow_2 + 1.3189377904910664*eta_pow_3))*(M*M))/(eta_pow_half*expr1*expr2);
 	
 	
-	amp_merg_t3 =  ( norm_merg*(merg_coef1_t3 + merg_coef2_t3*freq_pow_2_3 + merg_coef3_t3*freq_pow_1_3) + norm_merg_t3*amp_merg/norm_merg ) ;
 	
+	amplitude_merger_expression_list[6]	=	norm_list[0]*merg_coef1_eta + norm_list[2]*merg_coef1;
+	amplitude_merger_expression_list[7]	=	norm_list[0]*merg_coef2_eta + norm_list[2]*merg_coef2;
+	amplitude_merger_expression_list[8]	=	norm_list[0]*merg_coef3_eta + norm_list[2]*merg_coef3;
 	
 	/******************** Derivative of merger phase w.r.t theta3S co-ordinate	******************************/
 	
 	
-	REAL8	expr_t3S_1		=	expr1_pow_152*(1.*(t0_term5) + 0.17141979364082705*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.666690470581712e-13*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-1.0249976203284163e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26)))*sqrt(cbrt((-((flow*(1.*(t0_term1) + 0.17141979364082702*(t0_term4)*(t3_term3) + (t0_term6)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326628e-6*theta3S) + 3.666690470581712e-13*theta0_pow_third*(t3_term5)*theta3S_pow_2 + theta0*(t3_term6)*(-1.0249976203284162e-8*theta3S + theta3*(-0.0007199899447615367 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))))/theta3_pow_6))));
+	merg_coef1_chi	=	(eta_pow_half*(0.023087444850153484*chi_pow_74 - 0.021862901687144366*chi_pow_783 + chi_pow_152*(0.019749355711009664 - 0.012926303898787232*chi)*eta - 0.09396562709265092*chi_pow_152*eta_pow_2)*(cbrt(M)*M))/(chi_pow_152*expr1*expr2);
+	
+	merg_coef2_chi	=	(eta_pow_half*(-0.06389771947126163*chi_pow_74 + 0.06050862570110856*chi_pow_783 - 0.10176266865959344*chi_pow_152 + 0.4533526888784887*pow(1. - 1.*chi,1.74) - 0.35830635635042846*pow(1. - 1.*chi,1.783) - 0.12015863449924255*chi_pow_152*eta - 4.436685078638576e-18*chi_pow_152*chi_pow_2*eta + 0.2659873804880869*chi_pow_152*eta_pow_2 + 0.7216601410663727*chi_pow_152*eta_pow_3 + chi*(0.049188766743316036*chi_pow_74 - 0.0465798263255557*chi_pow_783 - 0.006301481693574297*chi_pow_152*eta + 0.2001976980540181*chi_pow_152*eta_pow_2))*pow(M,1.6666666666666667))/(chi_pow_152*expr1*expr2);
 	
 	
-	merg_coef1_t3S	=	(0.005984092419836408*sqrt((theta3/(flow*theta0))*(theta3/(flow*theta0))*(theta3/(flow*theta0)))*cbrt(-(theta3_pow_6/(flow*(1.*(t0_term1) + 0.17141979364082705*(t0_term4)*(t3_term3) + (t0_term6)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.666690470581712e-13*theta0_pow_third*(t3_term5)*theta3S_pow_2 + theta0*(t3_term6)*(-1.0249976203284162e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))))))*(7.159688875942881e-8*(t0_term5)*expr1_pow_152 + 9.306612612383264e-9*theta0_pow_2*(t3_term3)*expr1_pow_152 + (t0_term3)*(t3_term4)*(-3.943529918197914e-10*theta3 - 6.156611977563193e-14*theta3S)*expr1_pow_152 + (t3_term5)*theta3S*(-4.485343889861342e-16*theta3*expr1_pow_74 + 4.2474441469611246e-16*theta3*expr1_pow_78 + 3.009265538105056e-36*theta3S*expr1_pow_152) + (t0_term2)*(t3_term6)*(8.980146494695381e-16*theta3S*expr1_pow_152 + theta3*(2.1612249254555295e-11*expr1_pow_74 - 2.0465949513129443e-11*expr1_pow_78 - 5.154903998299904e-11*expr1_pow_152 + 2.2965097312426077e-10*expr1_pow_174 - 1.8150416978013964e-10*expr1_pow_178))))/(sqrt((t0_term2)/(t3_term3))*theta3*expr_t3S_1);
+	merg_coef3_chi	=	(eta_pow_half*(0.08199564156087623*chi_pow_74 - 0.07764664569227323*chi_pow_783 + 0.1859859256713671*chi_pow_152 - 0.8285672988659402*pow(1. - 1.*chi,1.74) + 0.6548564442888833*pow(1. - 1.*chi,1.783) + 0.189850175012543*chi_pow_152*eta - 0.34454901861791526*chi_pow_152*eta_pow_2 - 1.3189377904910666*chi_pow_152*eta_pow_3 + chi*(-0.08989955192695454*chi_pow_74 + 0.08513133775755487*chi_pow_783 + 0.03099336685883355*chi_pow_152*eta - 0.3658901115732804*chi_pow_152*eta_pow_2))*(M*M))/(chi_pow_152*expr1*expr2);
 	
-	merg_coef2_t3S	=	(0.005984092419836408*sqrt((t0_term2)/(t3_term3))*(t3_term4)*sqrt(cbrt((theta3/(flow*theta0))*(theta3/(flow*theta0))*(theta3/(flow*theta0))*(theta3/(flow*theta0))*(theta3/(flow*theta0))))*(1.3930997749196833e-8*(t0_term3)*expr1_pow_152 + 8.302854953049474e-11*(t0_term2)*(t3_term3)*expr1_pow_152 - 5.940306305338388e-15*(t3_term4)*theta3S*expr1_pow_152 + (t3_term8)*(-1.0149302223649968e-10*expr1_pow_74 + 9.610989788993466e-11*expr1_pow_78))*cbrt(-(theta3_pow_6/(flow*(1.*(t0_term1) + 0.17141979364082705*(t0_term4)*(t3_term3) + (t0_term6)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.666690470581712e-13*theta0_pow_third*(t3_term5)*theta3S_pow_2 + theta0*(t3_term6)*(-1.0249976203284162e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26)))))))/(expr_t3S_1);
+	amplitude_merger_expression_list[9]		=	norm_list[0]*merg_coef1_chi + norm_list[3]*merg_coef1;
+	amplitude_merger_expression_list[10]	=	norm_list[0]*merg_coef2_chi + norm_list[3]*merg_coef2;
+	amplitude_merger_expression_list[11]	=	norm_list[0]*merg_coef3_chi + norm_list[3]*merg_coef3;
 	
 	
-	merg_coef3_t3S	=	(0.005984092419836408*sqrt(cbrt((theta3/(flow*theta0))))*(theta3/(flow*theta0))*cbrt(-(theta3_pow_6/(flow*(1.*(t0_term1) + 0.17141979364082705*(t0_term4)*(t3_term3) + (t0_term6)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326626e-6*theta3S) + 3.666690470581712e-13*theta0_pow_third*(t3_term5)*theta3S_pow_2 + theta0*(t3_term6)*(-1.0249976203284162e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))))))*(-1.5601360201150178e-7*(t0_term5)*expr1_pow_152 - 2.3163440900159563e-8*theta0_pow_2*(t3_term3)*expr1_pow_152 + (t0_term3)*(t3_term4)*(8.421296050362544e-10*theta3 + 1.341559985985139e-13*theta3S)*expr1_pow_152 + t3_term10*theta3_pow_third*theta3S*(9.77381375982477e-16*expr1_pow_74 - 9.25541699076705e-16*expr1_pow_78) + (t0_term2)*(t3_term6)*(-7.271386841174064e-16*theta3S*expr1_pow_152 + theta3*(-2.6084523702564282e-11*expr1_pow_74 + 2.4701017412992696e-11*expr1_pow_78 + 1.1232822469430954e-10*expr1_pow_152 - 5.004222410131491e-10*expr1_pow_174 + 3.955076791486639e-10*expr1_pow_178))))/(sqrt((t0_term2)/(t3_term3))*theta3*expr_t3S_1);
 	
-	amp_merg_t3S = ( norm_merg*(merg_coef1_t3S + merg_coef2_t3S*freq_pow_2_3 + merg_coef3_t3S*freq_pow_1_3) + norm_merg_t3S*amp_merg/norm_merg ) ;
 	
-	amplitude_merger_list[0]	=	amp_merg ;
-	amplitude_merger_list[1]	=	amp_merg_t0 ;
-	amplitude_merger_list[2]	=	amp_merg_t3 ;
-	amplitude_merger_list[3]	=	amp_merg_t3S ;
-	
-	return amplitude_merger_list ;
+	return amplitude_merger_expression_list ;
 	
 }
-
-
-/*****************************************************************************************************************************
- 
- ******************************************************************************************************************************/
-
-
 
 
 
@@ -692,131 +567,78 @@ static REAL8 *XLALSimIMRPhenomBAmplitude_Merger(
 
 
 static REAL8 *XLALSimIMRPhenomBAmplitude_Ringdown(
-												  const REAL8 f,		/**<Fourier Frequency*/
-												  const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
-												  const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
-												  const REAL8 theta3S,
-												  const REAL8 norm_ring,
-												  const REAL8 norm_ring_t0,
-												  const REAL8 norm_ring_t3,
-												  const REAL8 norm_ring_t3S,
-												  const REAL8 flow,	/**< Lower Frequency Cut-off */
-												  const REAL8 *expr_list
+												  const REAL8 mass,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+												  const REAL8 eta,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+												  const REAL8 chi,
+												  const REAL8 fRing,
+												  const REAL8 *chi_pow_list
 												  
 												  ){
-	static REAL8	amp_list_ringdown[4];
+	static REAL8	amplitude_ringdown_expression_list[12];
 	
-	REAL8	theta3_pow_2 = theta3*theta3;
-	REAL8	theta0_pow_2 = theta0*theta0;
-	REAL8	theta3_pow_6 = theta3_pow_2*theta3_pow_2*theta3_pow_2;
-	REAL8	theta3S_pow_2 = theta3S*theta3S;
-	REAL8	theta0_pow_third = cbrt(theta0);
-	REAL8	theta3_pow_third = cbrt(theta3);
+	REAL8	M = mass*LAL_MTSUN_SI;
 	
-	
-	/* Some combination of above expressions. For optimization purposes, they are calculated here only once and used in the end expression. */
-	REAL8	t0_term1	=	theta0_pow_2*theta0 ;
-	REAL8	t0_term2	=	theta0_pow_third*theta0_pow_third;
-	REAL8	t0_term3	=	theta0_pow_third*theta0;
-	REAL8	t0_term4	=	theta0_pow_third*theta0_pow_2;
-	REAL8	t0_term5	=	theta0_pow_third*theta0_pow_third*theta0_pow_2;
-	REAL8	t0_term6	=	theta0_pow_third*theta0_pow_third*theta0;
-	
-	REAL8	t3_term1	=	cbrt(theta3*theta3);
-	REAL8	t3_term2	=	theta3_pow_third*theta3_pow_2*theta3_pow_2;
-	REAL8	t3_term3	=	t3_term1*theta3;
-	REAL8	t3_term4	=	theta3_pow_third*theta3_pow_2;
-	REAL8	t3_term5	=	theta3_pow_third*theta3_pow_third*theta3_pow_2*theta3_pow_2;
-	REAL8	t3_term6	=	theta3_pow_2*theta3_pow_2;
-	REAL8	t3_term7	=	theta3_pow_2*theta3_pow_2*theta3;
-	REAL8	t3_term8	=	theta3_pow_third*theta3_pow_2*theta3;
-	REAL8	t3_term11	=	cbrt(theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3_pow_2);
-	REAL8	t3_term12	=	cbrt(theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3);
+	const	REAL8	chi_pow_217		=	chi_pow_list[0];
+	const	REAL8	chi_pow_26		=	chi_pow_list[1];
+	const	REAL8	chi_pow_2		=	chi*chi;
+	const	REAL8	chi_pow_783		=	chi_pow_list[2];
+	const	REAL8	chi_pow_75		=	chi_pow_list[7];
+	const	REAL8	chi_pow_7		=	chi_pow_list[8];
 	
 	
 	
-	REAL8	flow_term1	=	sqrt(cbrt(flow*flow*flow*flow*flow));
+	REAL8	f_ring, f_ring_mass, f_ring_eta, f_ring_chi;
+	REAL8	sigma, sigma_mass, sigma_eta, sigma_chi ;
+	REAL8	amp_const, amp_const_mass, amp_const_eta, amp_const_chi;
 	
-	REAL8	expr1_pow_217	=		expr_list[1];
-	REAL8	expr1_pow_26	=		expr_list[2];
-	REAL8	expr1_pow_152	=		expr_list[5];
-	REAL8	expr1_pow_74	=		expr_list[6];
-	REAL8	expr1_pow_78	=		expr_list[7];
-	REAL8	expr1_pow_178	=		expr_list[9];
-	REAL8	expr1_pow_55	=		expr_list[14];
-	REAL8	expr1_pow_75	=		expr_list[11];
-	REAL8	expr1_pow_7		=		expr_list[4];
-	REAL8	expr1_pow_3		=		expr_list[3];
-	REAL8	expr1_pow_25	=		expr_list[15];
-	REAL8	expr1_pow_174	=		expr_list[8];
-	REAL8	expr1_pow_45	=		expr_list[10];
-	
-	
-	
-	
-	
-	
-	
-	REAL8	expr3	=	1.7794457395540408 - (0.00001800104500292942*(t3_term1)*theta3S)/(t0_term2);
-	
-	REAL8	expr2	=	pow((20.106192982974676*flow*theta0*((-1388.9082858389133*theta0_pow_2)/(t3_term7) - (1.9634062693265488*(t0_term3))/(t3_term8) + (3.737887441654386*(t0_term2))/(t3_term3) - (132.6946701585805*(t0_term3)*(expr3))/(t3_term8) + (4.802428957897166*(t0_term2)*(expr3))/(t3_term3) - (1.5716375022681992*(t0_term2)*(expr3*expr3))/(t3_term3)))/theta3 + (20.106192982974676*flow*theta0*(1 - 4.455*expr1_pow_217 + 3.521*expr1_pow_26))/theta3,2.1666666666666665);
-	
-	REAL8	f_merg, f_merg_t0, f_merg_t3, f_merg_t3S;
-	REAL8	sigma, sigma_t0, sigma_t3, sigma_t3S ;
-	REAL8	lorentzian ,ring_amp, ring_amp_t0, ring_amp_t3, ring_amp_t3S ;
-	REAL8	amp_const, amp_const_t0, amp_const_t3, amp_const_t3S;
-	
+	const REAL8	expr1	=	0.3183098861837907 - 1.4180705429487876*chi_pow_217 + 1.120769109253127*chi_pow_26 + eta*(0.2048801582421969 - 0.08614420449791926*chi_pow_2 + chi*(0.26322954347854755 - 1.252422078178743*eta) + (-0.018531364953847926 - 2.25732638886097*eta)*eta);
 	
 	/*******************************	Define the terms required for the lorentzian and it's derivatives	*************************************/
-	f_merg		=	TransitionFrequencies_fring(theta0, theta3, theta3S, flow) ;
+	f_ring			=	fRing;
 	
-	f_merg_t0	=	(flow*(27468.867414851156*theta0_pow_2 + 439.5919862087532*(t0_term3)*(t3_term3) + (t0_term2)*(t3_term4)*(-30.017695513874518*theta3 - 0.003461067805343385*theta3S) + ((t3_term5)*theta3S*(-3.2905704843721867e-10*theta3S + (0.00002280174653761898*theta3)/expr1_pow_7))/(t0_term2) + (t3_term6)*(0.0004532979505631769*theta3S + theta3*(10.053096491487338 - 6.333450789637024*expr1_pow_3))))/theta3_pow_6;
+	f_ring_mass		=	-f_ring/M;
 	
-	f_merg_t3	=	(flow*theta0_pow_third*(-54937.73482970231*(t0_term5) - 816.3851172448275*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(48.02831282219921*theta3 + 0.007614349171755447*theta3S) + (t3_term5)*theta3S*(1.3162281937488755e-9*theta3S - (0.00002280174653761898*theta3)/expr1_pow_7) + (t0_term2)*(t3_term6)*(-0.0009065959011263539*theta3S + theta3*(-10.053096491487338 + 6.333450789637023*expr1_pow_3))))/(theta3_pow_6*theta3);
-	
-	f_merg_t3S	=	(flow*theta0_pow_third*(-0.002076640683206031*(t0_term3) + 0.000453297950563177*(t0_term2)*(t3_term3) + (t3_term4)*(-1.9743422906233134e-9*theta3S - (0.000034202619806428474*theta3)/expr1_pow_7)))/t3_term12;
-	
-	
-	sigma	=	(-11300.842322830988*flow*(1.*(t0_term1) - 0.10756774166639459*(t0_term4)*(t3_term3) + (t0_term6)*(t3_term4)*(0.0015833529729131948*theta3 - 2.1784821538952197e-8*theta3S) - 3.3754960608409787e-13*theta0_pow_third*(t3_term5)*theta3S_pow_2 + theta0*(t3_term6)*(6.018341074822566e-8*theta3S - 0.00044479412261054025*theta3*expr1_pow_45 + 0.0002802202972446404*theta3*expr1_pow_75)))/theta3_pow_6;
-	
-	sigma_t0	=	(flow*(-33902.52696849296*theta0_pow_2 + 2836.4142043881975*(t0_term3)*(t3_term3) + (t0_term2)*(t3_term4)*(-29.82203714712949*theta3 + 0.00041031138873785176*theta3S) + ((t3_term5)*theta3S*(1.2715316248300336e-9*theta3S - (0.000027144936354308312*theta3)/expr1_pow_55 + (0.000028502183172023725*theta3)/expr1_pow_25))/(t0_term2) + (t3_term6)*(-0.00068012323531587*theta3S + 5.026548245743669*theta3*expr1_pow_45 - 3.1667253948185117*theta3*expr1_pow_75)))/theta3_pow_6;
-	
-	sigma_t3	=	(flow*theta0_pow_third*(67805.05393698592*(t0_term5) - 5267.626379578083*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(47.715259435407205*theta3 - 0.0009026850552232741*theta3S) + (t3_term5)*theta3S*(-5.086126499320134e-9*theta3S + (0.000027144936354308312*theta3)/expr1_pow_55 - (0.00002850218317202372*theta3)/expr1_pow_25) + (t0_term2)*(t3_term6)*(0.00136024647063174*theta3S - 5.026548245743669*theta3*expr1_pow_45 + 3.1667253948185117*theta3*expr1_pow_75)))/(theta3_pow_6*theta3);
-	
-	sigma_t3S	=	(flow*theta0_pow_third*(0.00024618683324271107*(t0_term3) - 0.00068012323531587*(t0_term2)*(t3_term3) + (t3_term4)*(7.629189748980202e-9*theta3S + (0.00004071740453146247*theta3)/expr1_pow_55 - (0.000042753274758035594*theta3)/expr1_pow_25)))/t3_term12;
+	f_ring_eta		=	(0.04675972228039886 - 0.008305023240421283*chi_pow_2 + chi*(-0.03909163712223134 + 0.10830812187289664*eta) + eta*(-0.015851832331952777 + 2.2204024420636506*eta))/M;
+	f_ring_chi		=	(0.03008028424436822/chi_pow_7 + (-0.039091637122231335 - 0.016610046480842567*chi + 0.05415406093644831*eta)*eta)/M;
 	
 	
-	amp_const	=	0.016200730203430484/(flow_term1*sqrt(theta0)*sqrt(cbrt((20.106192982974676*flow*theta0*((-1388.9082858389133*theta0_pow_2)/(t3_term7) - (1.9634062693265488*(t0_term3))/(t3_term8) + (3.737887441654386*(t0_term2))/(t3_term3) - (132.6946701585805*(t0_term3)*(expr3))/(t3_term8) + (4.802428957897166*(t0_term2)*(expr3))/(t3_term3) - (1.5716375022681992*(t0_term2)*(expr3*expr3))/(t3_term3)))/theta3 + (20.106192982974676*flow*theta0*(1 - 4.455*expr1_pow_217 + 3.521*expr1_pow_26))/theta3 ) )*((20.106192982974676*flow*theta0*((-1388.9082858389133*theta0_pow_2)/(t3_term7) - (1.9634062693265488*(t0_term3))/(t3_term8) + (3.737887441654386*(t0_term2))/(t3_term3) - (132.6946701585805*(t0_term3)*(expr3))/(t3_term8) + (4.802428957897166*(t0_term2)*(expr3))/(t3_term3) - (1.5716375022681992*(t0_term2)*(expr3*expr3))/(t3_term3)))/theta3 + (20.106192982974676*flow*theta0*(1 - 4.455*expr1_pow_217 + 3.521*expr1_pow_26))/theta3));
+	sigma			=	(0.07957747154594766*pow(1. - chi,0.45) - 0.050133807073947025*chi_pow_75 + (-0.13044339135811742 - 0.011212784050710209*chi + 0.03209200272504978*chi_pow_2)*eta + (0.5820614578756795 - 0.006419992094440873*chi)*(eta*eta) - 0.9134857113702426*(eta*eta*eta))/M;
 	
-	amp_const_t0	=	(-9.976298781101935e-11*theta3_pow_6*(-4.1046191752998394e8*(t0_term5)*expr1_pow_152 - 5.667993385588423e7*theta0_pow_2*(t3_term3)*expr1_pow_152 + 1.3196627548208495e6*(t0_term3)*(t3_term8)*expr1_pow_152 + 431.3906002440869*(t0_term3)*(t3_term4)*theta3S*expr1_pow_152 + 1.753010369598633*(t0_term2)*(t3_term6)*theta3S*expr1_pow_152 - 0.00003344526225653086*(t3_term5)*theta3S_pow_2*expr1_pow_152 + t3_term12*theta3_pow_2*theta3S*(1.*expr1_pow_74 - 0.9469606458853771*expr1_pow_78) + (t0_term2)*(t3_term7)*(123136.85555380318*expr1_pow_152 - 548574.6914921931*expr1_pow_174 + 433564.86840494093*expr1_pow_178)))/(sqrt(cbrt(flow*flow*flow*flow*flow*flow*flow*flow*flow*flow*flow))*(sqrt(cbrt(theta0_pow_2*theta0_pow_2*theta0))*theta0)*expr1_pow_152*(311.7639249918997*(t0_term5) + 53.44250768676574*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-1.6401960827934576*theta3 - 0.0005361712074463486*theta3S) + 1.1431418128389501e-10*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-3.195572812209438e-6*theta3S + theta3*(-0.2244668911335578 + 1.*expr1_pow_217 - 0.790347923681257*expr1_pow_26)))*(311.7639249918997*(t0_term5) + 53.44250768676574*theta0_pow_2*(t3_term3) + (t0_term3)*(t3_term4)*(-1.6401960827934576*theta3 - 0.0005361712074463486*theta3S) + 1.1431418128389501e-10*(t3_term5)*theta3S_pow_2 + (t0_term2)*(t3_term6)*(-3.195572812209438e-6*theta3S + theta3*(-0.2244668911335578 + 1.*expr1_pow_217 - 0.790347923681257*expr1_pow_26)))*sqrt(cbrt((-((flow*(1.*(t0_term1) + 0.17141979364082705*(t0_term4)*(t3_term3) + (t0_term6)*(t3_term4)*(-0.0052610194808012925*theta3 - 1.7197987466326628e-6*theta3S) + 3.6666904705817113e-13*theta0_pow_third*(t3_term5)*theta3S_pow_2 + theta0*(t3_term6)*(-1.0249976203284152e-8*theta3S + theta3*(-0.0007199899447615368 + 0.0032075552039126467*expr1_pow_217 - 0.002535084595505371*expr1_pow_26))))/theta3_pow_6)))));
+	sigma_mass		=	-sigma/M;
 	
-	amp_const_t3	=	0. - (0.018900851904002234*((20.106192982974676*flow*theta0*((6944.541429194567*theta0_pow_2)/theta3_pow_6 + (6.54468756442183*(t0_term3))/(t3_term2) - (6.22981240275731*(t0_term2))/t3_term11 + (0.0015924284861156552*(t0_term2)*theta3S)/t3_term12 - (0.000057632493196318874*theta3S)/theta3_pow_2 + (442.31556719526833*(t0_term3)*(expr3))/(t3_term2) - (8.004048263161943*(t0_term2)*(expr3))/t3_term11 + (0.00003772148987549525*theta3S*(expr3))/theta3_pow_2 + (2.6193958371136654*(t0_term2)*(expr3*expr3))/t3_term11))/theta3 - (20.106192982974676*flow*theta0*((-1388.9082858389133*theta0_pow_2)/(t3_term7) - (1.9634062693265488*(t0_term3))/(t3_term8) + (3.737887441654386*(t0_term2))/(t3_term3) - (132.6946701585805*(t0_term3)*(expr3))/(t3_term8) + (4.802428957897166*(t0_term2)*(expr3))/(t3_term3) - (1.5716375022681992*(t0_term2)*(expr3*expr3))/(t3_term3)))/theta3_pow_2 + (20.106192982974676*flow*theta0*((-0.000011601493493937981*theta3S)/((t0_term2)*theta3_pow_third*expr1_pow_78) + (0.000010986157772254511*theta3S)/((t0_term2)*theta3_pow_third*expr1_pow_74)))/theta3 - (20.106192982974676*flow*theta0*(1 - 4.455*expr1_pow_217 + 3.521*expr1_pow_26))/theta3_pow_2))/(flow_term1*sqrt(theta0)*(expr2));
+	sigma_eta		=	(-0.13044339135811742 + 0.03209200272504978*chi_pow_2 + chi*(-0.01121278405071021 - 0.012839984188881748*eta) + 1.1641229157513593*eta - 2.7404571341107276*(eta*eta))/M;
 	
-	amp_const_t3S	=	(-0.018900851904002234*((20.106192982974676*flow*theta0*((0.0023886427291734827*(t0_term2))/t3_term11 - 0.00008644873979447832/theta3 + (0.00005658223481324288*(expr3))/theta3))/theta3 + (20.106192982974676*flow*theta0*((-0.00001740224024090697*(t3_term1))/((t0_term2)*expr1_pow_78) + (0.000016479236658381764*(t3_term1))/((t0_term2)*expr1_pow_74)))/theta3))/(flow_term1*sqrt(theta0)*(expr2));
+	sigma_chi		=	(-0.03580986219567645/pow(1 - chi,0.55) + 0.03760035530546027/sqrt(sqrt(1. - chi)) + (-0.01121278405071021 + 0.06418400545009956*chi)*eta - 0.006419992094440875*(eta*eta))/M;
 	
+	
+	amp_const		=	(0.21278751013966343*sqrt(eta)*(M*M))/(sqrt(cbrt(expr1))*expr1);
+	
+	amp_const_mass	=	2*amp_const/M;
+	
+	amp_const_eta	=	((0.016841105370463082 - 0.07502712442541304*chi_pow_217 + 0.05929753200940051*chi_pow_26 + eta*(-0.014453036628931423 + 0.0060769444618778996*chi_pow_2 + chi*(-0.0185692273295442 + 0.24296438169895485*eta) + (0.0035950033990112726 + 0.7165822970710561*eta)*eta))*(M*M))/(sqrt(eta)*sqrt(cbrt(expr1))*(-0.22446689113355778 + 1.*chi_pow_217 - 0.7903479236812568*chi_pow_26 + eta*(-0.14447811447811448 + 0.06074747474747474*chi_pow_2 + chi*(-0.18562514029180693 + 0.8831874298540965*eta) + eta*(0.013068013468013466 + 1.5918294051627384*eta)))*(-0.22446689113355778 + 1.*chi_pow_217 - 0.7903479236812568*chi_pow_26 + eta*(-0.14447811447811448 + 0.06074747474747474*chi_pow_2 + chi*(-0.18562514029180693 + 0.8831874298540965*eta) + eta*(0.013068013468013466 + 1.5918294051627384*eta))));
+	
+	amp_const_chi	=	(-0.2482520951629407*sqrt(eta)*(0.3077213078198869/chi_pow_783 - 0.29139996840581306/pow(1. - chi,0.74) + (0.26322954347854755 - 0.17228840899583853*chi - 1.252422078178743*eta)*eta)*(M*M))/(sqrt(cbrt(expr1))*expr1*expr1);
 	
 	
 	
-	/*******************************	Define the ringdown phase of amplitude and it's derivatives		*************************************/
+	amplitude_ringdown_expression_list[0]	=	f_ring;
+	amplitude_ringdown_expression_list[1]	=	f_ring_mass;
+	amplitude_ringdown_expression_list[2]	=	f_ring_eta;
+	amplitude_ringdown_expression_list[3]	=	f_ring_chi;
+	amplitude_ringdown_expression_list[4]	=	sigma;
+	amplitude_ringdown_expression_list[5]	=	sigma_mass;
+	amplitude_ringdown_expression_list[6]	=	sigma_eta;
+	amplitude_ringdown_expression_list[7]	=	sigma_chi;
+	amplitude_ringdown_expression_list[8]	=	amp_const;
+	amplitude_ringdown_expression_list[9]	=	amp_const_mass;
+	amplitude_ringdown_expression_list[10]	=	amp_const_eta;
+	amplitude_ringdown_expression_list[11]	=	amp_const_chi;
 	
 	
-	lorentzian	=	1./((f - f_merg)*(f - f_merg) + sigma*sigma*0.25);
-	
-	ring_amp	=	norm_ring*amp_const*(1./(2*PI))*(sigma*lorentzian);
-	
-	ring_amp_t0	=	(1./(2*PI))*(norm_ring*amp_const*( sigma_t0*lorentzian + (2*sigma*(f_merg_t0*(f - f_merg) - sigma*sigma_t0*0.25))*(lorentzian*lorentzian) ) + norm_ring_t0*amp_const*lorentzian*sigma + norm_ring*lorentzian*amp_const_t0*sigma) ;
-	
-	ring_amp_t3	=	(1./(2*PI))*(norm_ring*amp_const*( sigma_t3*lorentzian + (2*sigma*(f_merg_t3*(f - f_merg) - sigma*sigma_t3*0.25))*(lorentzian*lorentzian) ) + norm_ring_t3*amp_const*sigma*lorentzian + norm_ring*sigma*lorentzian*amp_const_t3) ;
-	
-	ring_amp_t3S	=	(1./(2*PI))*(norm_ring*amp_const*( sigma_t3S*lorentzian + (2*sigma*(f_merg_t3S*(f - f_merg) - sigma*sigma_t3S*0.25))*(lorentzian*lorentzian) ) + norm_ring_t3S*amp_const*sigma*lorentzian + norm_ring*sigma*lorentzian*amp_const_t3S) ;
 	
 	
-	amp_list_ringdown[0]	=	ring_amp;
-	amp_list_ringdown[1]	=	ring_amp_t0;
-	amp_list_ringdown[2]	=	ring_amp_t3;
-	amp_list_ringdown[3]	=	ring_amp_t3S;
 	
-	return amp_list_ringdown;
+	return amplitude_ringdown_expression_list;
 	
 	
 	
@@ -826,150 +648,95 @@ static REAL8 *XLALSimIMRPhenomBAmplitude_Ringdown(
 /*****************************************************************************************************************************
  
  ******************************************************************************************************************************/
-
-
-
-
-
 /*****************************************************************************************************************************
-	Define the Phase and it's derivatives.
  
  ******************************************************************************************************************************/
-
-
-
 static REAL8 *XLALSimIMRPhenomBPhase(
-									 const REAL8 f,		/**<Fourier Frequency*/
-									 const REAL8 theta0,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
-									 const REAL8 theta3,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
-									 const REAL8 theta3S,
-									 const REAL8 flow	/**< Lower Frequency Cut-off */
-){
-	REAL8	theta3_pow_2 = theta3*theta3;
-	REAL8	theta0_pow_2 = theta0*theta0;
-	REAL8	theta3S_pow_2 = theta3S*theta3S;
-	REAL8	theta0_pow_third = cbrt(theta0);
-	REAL8	theta3_pow_third = cbrt(theta3);
+									 const REAL8 mass,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
+									 const REAL8 eta,	/**< Theta3 component of Chirp-Time Co-ordinate system*/
+									 const REAL8 chi
+									 ){
+	
+	static REAL8	phase_expression_list[18];
+	
+	REAL8	M = mass*LAL_MTSUN_SI;
+	
+	const	REAL8	 mass_pow_third	=	cbrt(M);
+	const	REAL8	 mass_pow_2_third	=	mass_pow_third*mass_pow_third;
+	
+	const	REAL8	 eta_pow_2			=	eta*eta;
+	const	REAL8	 eta_pow_3			=	eta_pow_2*eta;
+	
+	const	REAL8	chi_pow_2			=	chi*chi;
+	
+	/******************************		Derivative of Phase w.r.t mass co-ordinate		*************************************/
 	
 	
-	/* Some combination of above expressions. For optimization purposes, they are calculated here only once and used in the end expression. */
-	REAL8	t0_term1	=	theta0_pow_2*theta0 ;
-	REAL8	t0_term2	=	theta0_pow_third*theta0_pow_third;
-	REAL8	t0_term3	=	theta0_pow_third*theta0;
-	REAL8	t0_term4	=	theta0_pow_third*theta0_pow_2;
-	REAL8	t0_term5	=	theta0_pow_third*theta0_pow_third*theta0_pow_2;
-	REAL8	t0_term6	=	theta0_pow_third*theta0_pow_third*theta0;
 	
-	REAL8	t3_term1	=	cbrt(theta3*theta3);
-	REAL8	t3_term2	=	theta3_pow_third*theta3_pow_2*theta3_pow_2;
-	REAL8	t3_term3	=	t3_term1*theta3;
-	REAL8	t3_term4	=	theta3_pow_third*theta3_pow_2;
-	REAL8	t3_term5	=	theta3_pow_third*theta3_pow_third*theta3_pow_2*theta3_pow_2;
-	REAL8	t3_term6	=	theta3_pow_2*theta3_pow_2;
-	REAL8	t3_term7	=	theta3_pow_2*theta3_pow_2*theta3;
-	REAL8	t3_term8	=	theta3_pow_third*theta3_pow_2*theta3;
-	REAL8	t3_term9	=	cbrt(theta3_pow_2*theta3_pow_2);
-	REAL8	t3_term10	=	cbrt(theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3_pow_2);
-	REAL8	t3_term11	=	cbrt(theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3_pow_2*theta3);
+	phase_expression_list[0]		=	-0.005796647796902313/(eta*pow(M,2.6666666666666665));
 	
-	REAL8	flow_term1	=	cbrt(flow);
-	REAL8	flow_term2	=	flow_term1*flow_term1;
+	phase_expression_list[1]		=	(-0.007460387957432594*(4.914021164021164 - 920.91*eta + 492.13*chi*eta + 135.03*chi_pow_2*eta + 6741.9*eta_pow_2 - 1053.4*chi*eta_pow_2 - 13396.999999999998*eta_pow_3))/(eta*M*M);
 	
+	phase_expression_list[2]		=	(-0.007284282453678307*(-50.26548245743669 + 37.666666666666664*chi + 17022.*eta - 9565.9*chi*eta - 2182.1*chi_pow_2*eta - 121370.*eta_pow_2 + 20752.*chi*eta_pow_2 + 238590.*eta_pow_3))/(eta*pow(M,1.6666666666666667));
 	
-	static REAL8	Phase_list[3];
+	phase_expression_list[3]		=	(-0.005334250494181998*(30.103152950995213 - 50.625*chi_pow_2 - 125440.*eta + 75066.*chi*eta + 13382.*chi_pow_2*eta + 873540.*eta_pow_2 - 165730.*chi*eta_pow_2 - 1.6936e6*eta_pow_3))/(eta*(mass_pow_third*M));
 	
-	REAL8	ph_coef1_t0, ph_coef2_t0, ph_coef3_t0, ph_coef4_t0, ph_coef5_t0, ph_coef6_t0 ;
-	REAL8	ph_coef1_t3, ph_coef2_t3, ph_coef3_t3, ph_coef4_t3, ph_coef5_t3, ph_coef6_t3 ;
-	REAL8	ph_coef1_t3S, ph_coef2_t3S, ph_coef3_t3S, ph_coef4_t3S, ph_coef5_t3S, ph_coef6_t3S ;
-	REAL8	Phase_theta0, Phase_theta3, Phase_theta3S;
+	phase_expression_list[4]		=	(0.0114421241215744*(-889770.*eta + 631020.*chi*eta + 50676.*chi_pow_2*eta + 5.9808e6*eta_pow_2 - 1.4148e6*chi*eta_pow_2 - 1.1279999999999998e7*eta_pow_3))/(eta*mass_pow_2_third);
 	
-	
-	REAL8	freq_coef_1	=	cbrt(1./(f*f*f*f*f));
-	REAL8	freq_coef_2	=	1./f;
-	REAL8	freq_coef_3	=	cbrt(1./(f*f));
-	REAL8	freq_coef_4	=	cbrt(1./(f));
-	REAL8	freq_coef_5	=	cbrt(f);
-	REAL8	freq_coef_6	=	cbrt(f*f);
+	phase_expression_list[5]		=	(0.03351608432985977*(869600.*eta - 670980.*chi*eta - 30082.*chi_pow_2*eta - 5.8379e6*eta_pow_2 + 1.5145e6*chi*eta_pow_2 + 1.0891e7*eta_pow_3))/(eta*mass_pow_third);
 	
 	
 	
 	
-	/******************************		Derivative of Phase w.r.t theta0 co-ordinate		*************************************/
+	/******************************		Derivative of Phase w.r.t eta co-ordinate		*************************************/
 	
 	
 	
-	ph_coef1_t0		=	0.6000000000000002*cbrt(flow*flow)*flow;
+	phase_expression_list[6]		=	-0.0034779886781413872/(eta_pow_2*pow(M,1.6666666666666667)) ;
 	
-	ph_coef2_t0		=	(-496796.31530040567*flow*(t0_term3))/(t3_term2) + (22200.676447943464*flow*(t0_term2))/t3_term10 + (180.1882246452362*flow)/theta3 + (0.13291697653291495*flow*(t3_term1))/(t0_term2) + (0.051892979771241965*flow*theta3S)/theta3_pow_2 - (0.0027503676945816874*flow*theta3S)/((t0_term2)*theta3_pow_third) - (6.872987910440406e-9*flow*theta3_pow_third*theta3S_pow_2)/(t0_term3);
+	phase_expression_list[7]		=	50.2971895702148/M - (7.8587726743594954*chi)/M - 0.03666050431463239/(eta_pow_2*M) - (199.89363493144887*eta)/M;
 	
-	ph_coef3_t0		=	(2.788900203576317e6*flow_term2*theta0)/(t3_term6) - (113312.12594094372*flow_term2*theta0_pow_third)/(t3_term4) - (798.2717109354624*flow_term2)/(theta0_pow_third*(t3_term1)) - (5.551115123125783e-17*flow_term2*theta3)/theta0 - (0.25063441977539375*flow_term2*theta3S)/(theta0_pow_third*(t3_term3)) + (0.000013489164504710593*flow_term2*(t3_term3)*theta3S)/(t0_term6) + (8.169146323050617e-8*flow_term2*(t3_term1)*theta3S_pow_2)/(t0_term6);
-	
-	ph_coef4_t0		=	(-6.066903031167111e6*flow_term1*(t0_term2))/t3_term11 + (214157.75437429963*flow_term1)/theta3_pow_2 + (1073.0058727005821*flow_term1)/((t0_term2)*theta3_pow_third) + (0.4762758725280963*flow_term1*t3_term9)/(t0_term3) + (0.3680515121677991*flow_term1*theta3S)/((t0_term2)*t3_term9) + (0.0469184914582182*flow_term1*theta3_pow_third*theta3S)/(t0_term3) - (0.000035592264540930435*flow_term1*theta3_pow_2*theta3S)/theta0_pow_2 - (2.763573554553112e-7*flow_term1*theta3*theta3S_pow_2)/theta0_pow_2 + (3.000456553763886e-10*flow_term1*t3_term10*theta3S_pow_2)/(t0_term5);
-	
-	ph_coef5_t0		=	-3.2789137589417053e6/(flow_term1*(theta3_pow_2*theta3)) + 57783.760772178706/(flow_term1*(t0_term2)*t3_term9) - (1130.7202644890722*theta3_pow_third)/(flow_term1*(t0_term3)) - (0.424928600282445*theta3S)/(flow_term1*(t0_term3)*(t3_term1)) + (0.12588815603440986*theta3*theta3S)/(flow_term1*theta0_pow_2) - (2.3589270756953156e-7*(t3_term3)*theta3S_pow_2)/(flow_term1*(t0_term5));
-	
-	ph_coef6_t0		=	776165.1005429978/(flow_term2*theta0_pow_third*t3_term10) - 1.4551915228366852e-11/(flow_term2*theta0*theta3) + (886.7368935774405*(t3_term1))/(flow_term2*(t0_term6)) + (0.3345622241910803*theta3S)/(flow_term2*(t0_term6)*theta3_pow_third) - (0.05919190315883502*t3_term9*theta3S)/(flow_term2*(t0_term4)) + (6.179550113157154e-8*theta3_pow_2*theta3S_pow_2)/(flow_term2*(t0_term1));
-	
-	Phase_theta0 = ph_coef1_t0*freq_coef_1 + ph_coef2_t0*freq_coef_2 + ph_coef3_t0*freq_coef_3 + ph_coef4_t0*freq_coef_4 + ph_coef5_t0*freq_coef_5 + ph_coef6_t0*freq_coef_6 ;
+	phase_expression_list[8]		=	(0.549221957835571 - 1326.1400421044043*eta_pow_2 + 5213.870851869322*eta_pow_3 + chi*(-0.41156195863282435 + 226.74514421809837*eta_pow_2))/(eta_pow_2*mass_pow_2_third);
 	
 	
+	phase_expression_list[9]		=	(-0.4817332755158474 + 0.8101392938038909*chi_pow_2 + 13979.043530063223*eta_pow_2 - 2652.136003202347*chi*eta_pow_2 - 54204.51982167979*eta_pow_3)/(eta_pow_2*mass_pow_third);
 	
-	/******************************		Derivative of Phase w.r.t theta3 co-ordinate		*************************************/
+	
+	phase_expression_list[10]		=	(205299.1678389365 - 48564.95162161038*chi - 774402.960548155*eta)*mass_pow_third;
+	
+	
+	phase_expression_list[11]		=	(-293495.32306393253 + 76140.16457635893*chi + 1.0950710233095083e6*eta)*mass_pow_2_third;
 	
 	
 	
-	ph_coef1_t3		=	0. ;
-	
-	ph_coef2_t3		=	(922621.728415039*flow*(t0_term4))/(t3_term11*t3_term1*theta3) - (35521.08231670954*flow*(t0_term6))/t3_term11 - (180.18822464523618*flow*theta0)/theta3_pow_2 + (0.2658339530658298*flow*theta0_pow_third)/theta3_pow_third - (0.10378595954248393*flow*theta0*theta3S)/(theta3_pow_2*theta3) + (0.0027503676945816874*flow*theta0_pow_third*theta3S)/t3_term9 + (6.872987910440398e-9*flow*theta3S_pow_2)/(theta0_pow_third*(t3_term1));
-	
-	ph_coef3_t3		=	0.5001535719852379*flow_term2 - (5.577800407152632e6*flow_term2*theta0_pow_2)/(t3_term7) + (198296.2203966515*flow_term2*(t0_term3))/(t3_term8) + (798.2717109354612*flow_term2*(t0_term2))/(t3_term3) + (0.6265860494384846*flow_term2*(t0_term2)*theta3S)/t3_term10 + (1.3877787807814457e-17*flow_term2*theta3S)/theta3 - (0.00003372291126177649*flow_term2*(t3_term1)*theta3S)/(t0_term2) - (8.169146323050617e-8*flow_term2*theta3S_pow_2)/((t0_term2)*theta3_pow_third);
 	
 	
-	ph_coef4_t3		=	(1.3347186668567643e7*flow_term1*(t0_term6))/(t3_term5) - (428315.5087485993*flow_term1*theta0)/(theta3_pow_2*theta3) - (1073.0058727005826*flow_term1*theta0_pow_third)/t3_term9 - (1.9051034901123853*flow_term1*theta3_pow_third)/theta0_pow_third - (1.4722060486711963*flow_term1*theta0_pow_third*theta3S)/(t3_term4) - (0.04691849145821825*flow_term1*theta3S)/(theta0_pow_third*(t3_term1)) + (0.00007118452908186087*flow_term1*theta3*theta3S)/theta0 + (2.7635735545531124e-7*flow_term1*theta3S_pow_2)/theta0 - (4.800730486022218e-10*flow_term1*(t3_term3)*theta3S_pow_2)/(t0_term6);
-	
-	
-	ph_coef5_t3		=	(9.836741276825115e6*theta0)/(flow_term1*(t3_term6)) - (231135.04308871482*theta0_pow_third)/(flow_term1*(t3_term4)) + 1130.7202644890722/(flow_term1*theta0_pow_third*(t3_term1)) - (0.12588815603440984*theta3S)/(flow_term1*theta0) - (0.8498572005648914*theta3S)/(flow_term1*theta0_pow_third*(t3_term3)) + (2.3589270756953154e-7*(t3_term1)*theta3S_pow_2)/(flow_term1*(t0_term6));
-	
-	
-	ph_coef6_t3		=	(-3.1046604021719913e6*(t0_term2))/(flow_term2*t3_term11) + 57854.32031258002/(flow_term2*theta3_pow_2) - 886.7368935774405/(flow_term2*(t0_term2)*theta3_pow_third) + (0.16728111209553997*theta3S)/(flow_term2*(t0_term2)*t3_term9) + (0.05919190315883502*theta3_pow_third*theta3S)/(flow_term2*(t0_term3)) - (6.179550113157154e-8*theta3*theta3S_pow_2)/(flow_term2*theta0_pow_2);
-	
-	
-	Phase_theta3 = ph_coef1_t3*freq_coef_1 + ph_coef2_t3*freq_coef_2 + ph_coef3_t3*freq_coef_3 + ph_coef4_t3*freq_coef_4 + ph_coef5_t3*freq_coef_5 + ph_coef6_t3*freq_coef_6 ;
+	/******************************		Derivative of Phase w.r.t chi co-ordinate		*************************************/
 	
 	
 	
-	/******************************		Derivative of Phase w.r.t theta3S co-ordinate		*************************************/
+	phase_expression_list[12]		=	0. ;
+	
+	phase_expression_list[13]		=	(3.6714807254913024 + 2.014752371784246*chi - 7.8587726743594954*eta)/M;
+	
+	phase_expression_list[14]		=	(0.41156195863282435 + (-104.52107628546197 - 47.6850982265143*chi)*eta + 226.74514421809835*eta_pow_2)/(eta*mass_pow_2_third);
+	
+	
+	phase_expression_list[15]		=	((1201.2625427887974 - 2652.136003202347*eta)*eta + chi*(-1.6202785876077814 + 428.2976406788609*eta))/(eta*mass_pow_third);
+	
+	
+	phase_expression_list[16]		=	3479.0464919094256*(6.226024153445418 + 1.*chi - 13.959270660667771*eta)*mass_pow_third;
+	
+	
+	phase_expression_list[17]		=	-3024.692546432525*(11.152516455022937 + 1.*chi - 25.17286084701815*eta)*mass_pow_2_third;
 	
 	
 	
-	ph_coef1_t3S		=	0. ;
-	
-	ph_coef2_t3S		=	(0.05189297977124195*flow*theta0)/theta3_pow_2 - (0.008251103083745059*flow*theta0_pow_third)/theta3_pow_third + (4.123792746264244e-8*flow*theta3_pow_third*theta3S)/theta0_pow_third;
-	
-	ph_coef3_t3S		=	0.05406773306195388*flow_term2 - (0.37595162966309076*flow_term2*(t0_term2))/(t3_term3) - (0.00002023374675706589*flow_term2*(t3_term3))/(t0_term2) - (2.450743896915185e-7*flow_term2*(t3_term1)*theta3S)/(t0_term2);
 	
 	
-	ph_coef4_t3S		=	(1.1041545365033965*flow_term1*theta0_pow_third)/t3_term9 - (0.14075547437465458*flow_term1*theta3_pow_third)/theta0_pow_third + (0.00003559226454093043*flow_term1*theta3_pow_2)/theta0 + (5.527147109106224e-7*flow_term1*theta3*theta3S)/theta0 - (3.6005478645166633e-10*flow_term1*t3_term10*theta3S)/(t0_term6);
-	
-	
-	ph_coef5_t3S		=	1.2747858008473352/(flow_term1*theta0_pow_third*(t3_term1)) - (0.12588815603440986*theta3)/(flow_term1*theta0) + (2.8307124908343786e-7*(t3_term3)*theta3S)/(flow_term1*(t0_term6));
-	
-	
-	ph_coef6_t3S		=	-0.5018433362866205/(flow_term2*(t0_term2)*theta3_pow_third) + (0.04439392736912627*t3_term9)/(flow_term2*(t0_term3)) - (6.179550113157156e-8*theta3_pow_2*theta3S)/(flow_term2*theta0_pow_2);
-	
-	
-	Phase_theta3S = ph_coef1_t3S*freq_coef_1 + ph_coef2_t3S*freq_coef_2 + ph_coef3_t3S*freq_coef_3 + ph_coef4_t3S*freq_coef_4 + ph_coef5_t3S*freq_coef_5 + ph_coef6_t3S*freq_coef_6 ;
-	
-	
-	Phase_list[0]	=	Phase_theta0;
-	Phase_list[1]	=	Phase_theta3;
-	Phase_list[2]	=	Phase_theta3S;
-	
-	return Phase_list ;
+	return phase_expression_list ;
 	
 }
-
-
 
 /**
  *******************************************************************************************************************************
@@ -978,8 +745,9 @@ static REAL8 *XLALSimIMRPhenomBPhase(
 /**
  * Function to compute the metric elements using waveform derivatives
  */
+
 static REAL8 MetricCoeffs(REAL8Vector *Amp, REAL8Vector *dPsii, REAL8Vector *dPsij,
-        REAL8Vector *dAi, REAL8Vector*dAj, REAL8Vector *Sh, REAL8 hSqr, REAL8 df) {
+						  REAL8Vector *dAi, REAL8Vector*dAj, REAL8Vector *Sh, REAL8 hSqr, REAL8 df) {
 	size_t k = Amp->length;
 	REAL8 gij   = 0.;
 	for (;k--;) {
@@ -1001,18 +769,6 @@ static REAL8 MetricCoeffs(REAL8Vector *Amp, REAL8Vector *dPsii, REAL8Vector *dPs
  *******************************************************************************************************************************
  */
 
-
-
-
-
-
-
-/**
- *******************************************************************************************************************************
- */
-
-
-
 /**
  * Compute the template-space metric of IMRPhenomB wavefrom in PN Chirp Time Co-ordinates.
  */
@@ -1033,7 +789,10 @@ int XLALSimIMRPhenomBMetricTheta0Theta3Theta3S(
 	REAL8Vector *Amp=NULL, *dATheta0=NULL, *dATheta3=NULL, *dATheta3S=NULL;
 	REAL8Vector *dAT0=NULL, *dAPhi=NULL, *dPhaseTheta0=NULL;
 	REAL8Vector *dPhaseTheta3=NULL, *dPhaseTheta3S=NULL, *dPhaseT0=NULL, *dPhasePhi=NULL;
-	REAL8 *normalization, *expr_list;
+	REAL8 *normalization, *inspiral_coef_list, *merger_coef_list, *ringdown_coef_list, *phase_coef_list, *chi_pow_list;
+	REAL8 *der_list_theta0, *der_list_theta3, *der_list_theta3S;
+	
+	chi_pow_list =	ChiPowList(chi);
 	
 	
 	/* compute the chirp-time co-ordinates */
@@ -1043,28 +802,30 @@ int XLALSimIMRPhenomBMetricTheta0Theta3Theta3S(
 	
 	/* Compute the transition frequencies */
 	
-	const REAL8 fMerg  = TransitionFrequencies_fmerg(theta0,theta3, theta3S, flow);	/**Frequency at which inspiral part transitions to merger part of the waveform*/
+	const REAL8 fMerg  = TransitionFrequencies_fmerg(Mass,eta, chi, chi_pow_list);	/**Frequency at which inspiral part transitions to merger part of the waveform*/
 	
-	const REAL8 fRing  = TransitionFrequencies_fring(theta0,theta3,theta3S, flow);	/**Frequency at which merger part transitions to ringdown part of the waveform*/
+	const REAL8 fRing  = TransitionFrequencies_fring(Mass,eta, chi, chi_pow_list);	/**Frequency at which merger part transitions to ringdown part of the waveform*/
 	
-	const REAL8 fCut   = TransitionFrequencies_fcut(theta0,theta3, theta3S, flow);	/**Frequency at which ringdown part of the waveform is terminated*/
+	const REAL8 fCut   = TransitionFrequencies_fcut(Mass,eta, chi);	/**Frequency at which ringdown part of the waveform is terminated*/
 	
+	/* Compute the list of partial derivatives */
+	der_list_theta0		=	MassPartialDerivativesWRTTheta0(theta0, theta3, theta3S, flow);
+	der_list_theta3		=	MassPartialDerivativesWRTTheta3(theta0, theta3, theta3S, flow);
+	der_list_theta3S	=	MassPartialDerivativesWRTTheta3S(theta0, theta3);
 	
-	/* Calculate the expression list */
-	expr_list = XLALSimIMRPhenomBExprPowers(theta0,theta3,theta3S);
 	
 	
 	/*Compute the normalizations and their derivatives*/
-	normalization						=		XLALSimIMRPhenomBNormalization(theta0,theta3, theta3S, flow, expr_list);
-	const REAL8	norm_merg				=		normalization[0];
-	const REAL8	norm_ringdown			=		normalization[1];
-	const REAL8	norm_merg_theta0		=		normalization[2];
-	const REAL8	norm_merg_theta3		=		normalization[3];
-	const REAL8 norm_merg_theta3S		=		normalization[4];
-	const REAL8	norm_ringdown_theta0	=		normalization[5];
-	const REAL8	norm_ringdown_theta3	=		normalization[6];
-	const REAL8	norm_ringdown_theta3S	=		normalization[7];
+	normalization					=		XLALSimIMRPhenomBNormalization(Mass,eta, chi, chi_pow_list);
+	const REAL8 norm_ring			=		normalization[4];
+	const REAL8	norm_ring_mass		=		normalization[5];
+	const REAL8	norm_ring_eta		=		normalization[6];
+	const REAL8	norm_ring_chi		=		normalization[7];
 	
+	inspiral_coef_list	=	XLALSimIMRPhenomBAmplitude_Inspiral(Mass,eta, chi);
+	merger_coef_list	=	XLALSimIMRPhenomBAmplitude_Merger(Mass,eta, chi, normalization, chi_pow_list);
+	ringdown_coef_list	=	XLALSimIMRPhenomBAmplitude_Ringdown(Mass,eta, chi, fRing, chi_pow_list);
+	phase_coef_list		=	XLALSimIMRPhenomBPhase(Mass,eta, chi);
 	
 	
 	/* make sure that the flow is lower than the fCut */
@@ -1105,60 +866,125 @@ int XLALSimIMRPhenomBMetricTheta0Theta3Theta3S(
 	
 	/* compute derivatives of the amplitude and phase of the waveform */
 	for (;k--;) {
-		REAL8 *amplitude_inspiral, *amplitude_merger, *amplitude_ringdown, *phase;
 		
 		const REAL8 f = flow + k * df;
 		
-		phase	=	XLALSimIMRPhenomBPhase(f, theta0,theta3, theta3S, flow);
 		
+		REAL8	freq_coef_1		=	cbrt(1./(f*f*f*f*f));
+		REAL8	freq_coef_2		=	1./f;
+		REAL8	freq_coef_3		=	cbrt(1./(f*f));
+		REAL8	freq_coef_4		=	cbrt(1./(f));
+		REAL8	freq_coef_5		=	cbrt(f);
+		REAL8	freq_coef_6		=	cbrt(f*f);
 		
-		dPhaseTheta0->data[k]	=	phase[0];
-		dPhaseTheta3->data[k]	=	phase[1];
-		dPhaseTheta3S->data[k]	=	phase[2];
+		REAL8	phase_mass		=	phase_coef_list[0]*freq_coef_1 + phase_coef_list[1]*freq_coef_2 + phase_coef_list[2]*freq_coef_3 + phase_coef_list[3]*									freq_coef_4 + phase_coef_list[4]*freq_coef_5 + phase_coef_list[5]*freq_coef_6;
+		
+		REAL8	phase_eta		=	phase_coef_list[6]*freq_coef_1 + phase_coef_list[7]*freq_coef_2 + phase_coef_list[8]*freq_coef_3 + phase_coef_list[9]*									freq_coef_4 + phase_coef_list[10]*freq_coef_5 + phase_coef_list[11]*freq_coef_6;
+		
+		REAL8	phase_chi		=	phase_coef_list[12]*freq_coef_1 + phase_coef_list[13]*freq_coef_2 + phase_coef_list[14]*freq_coef_3 + phase_coef_list[15]*								freq_coef_4 +	phase_coef_list[16]*freq_coef_5 + phase_coef_list[17]*freq_coef_6;
+		
+		dPhaseTheta0->data[k]	=	CalculateDerivatives(phase_mass, phase_eta, phase_chi, der_list_theta0);
+		
+		dPhaseTheta3->data[k]	=	CalculateDerivatives(phase_mass, phase_eta, phase_chi, der_list_theta3);
+		
+		dPhaseTheta3S->data[k]	=	CalculateDerivatives(phase_mass, phase_eta, phase_chi, der_list_theta3S);
+		
 		dPhaseT0->data[k]		=	LAL_TWOPI * f;
 		dPhasePhi->data[k]		=	1.;
 		
 		
 		
 		if (f <= fMerg){
-			amplitude_inspiral	=	XLALSimIMRPhenomBAmplitude_Inspiral(f, theta0,theta3, theta3S, flow);
+			
+			REAL8	freq_pow_7_6	=	cbrt(sqrt(1./(f*f*f*f*f*f*f)));
+			REAL8	freq_pow_3_6	=	sqrt(1./(f));
+			REAL8	freq_pow_1_6	=	cbrt(sqrt(1./(f)));
+			
+			REAL8	amp_insp_mass	=	inspiral_coef_list[3]*freq_pow_7_6	+	inspiral_coef_list[4]*freq_pow_3_6	+	inspiral_coef_list[5]*freq_pow_1_6;
+			
+			REAL8	amp_insp_eta	=	inspiral_coef_list[6]*freq_pow_7_6	+	inspiral_coef_list[7]*freq_pow_3_6	+	inspiral_coef_list[8]*freq_pow_1_6;
+			
+			REAL8	amp_insp_chi	=	inspiral_coef_list[9]*freq_pow_7_6	+	inspiral_coef_list[10]*freq_pow_3_6	+	inspiral_coef_list[11]*freq_pow_1_6;
 			
 			/* inspiral amplitude of the waveform */
-			Amp->data[k] = amplitude_inspiral[0];
+			Amp->data[k]		=	inspiral_coef_list[0]*freq_pow_7_6	+	inspiral_coef_list[1]*freq_pow_3_6	+	inspiral_coef_list[2]*freq_pow_1_6;
 			
-			/* inspiral waveform deratives with respect to the parameters */
-			dATheta0->data[k]	=	amplitude_inspiral[1];
-			dATheta3->data[k]	=	amplitude_inspiral[2];
-			dATheta3S->data[k]	=	amplitude_inspiral[3];
+			/* inspiral waveform deratives with respect to theta0 */
+			dATheta0->data[k]	=	CalculateDerivatives(amp_insp_mass, amp_insp_eta, amp_insp_chi, der_list_theta0);
+			
+			/* inspiral waveform deratives with respect to theta3 */
+			dATheta3->data[k]	=	CalculateDerivatives(amp_insp_mass, amp_insp_eta, amp_insp_chi, der_list_theta3);
+			
+			
+			/* inspiral waveform deratives with respect to theta3S */
+			dATheta3S->data[k]	=	CalculateDerivatives(amp_insp_mass, amp_insp_eta, amp_insp_chi, der_list_theta3S);
 			
 			
 		}
 		else if ((fMerg<f) && (f<=fRing)){
-			amplitude_merger	=	XLALSimIMRPhenomBAmplitude_Merger(f, theta0, theta3, theta3S, norm_merg, norm_merg_theta0, norm_merg_theta3, norm_merg_theta3S, flow, expr_list);
+			
+			REAL8	freq_pow_2_3  =		cbrt(1./(f*f));
+			REAL8	freq_pow_1_3  =		cbrt(1./(f));
 			
 			/* merger amplitude of the frequency-domain waveform */
-			Amp->data[k]	=	amplitude_merger[0];
+			REAL8	amp_merg		=	merger_coef_list[0]*freq_pow_2_3 + merger_coef_list[1]*freq_pow_1_3 + merger_coef_list[2];
+			REAL8 amp_merg_mass		=	merger_coef_list[3]*freq_pow_2_3 + merger_coef_list[4]*freq_pow_1_3 + merger_coef_list[5];
+			REAL8 amp_merg_eta		=	merger_coef_list[6]*freq_pow_2_3 + merger_coef_list[7]*freq_pow_1_3 + merger_coef_list[8];
+			REAL8 amp_merg_chi		=	merger_coef_list[9]*freq_pow_2_3 + merger_coef_list[10]*freq_pow_1_3+ merger_coef_list[11];
 			
-			/* merger waveform deratives with respect to the parameters */
-			dATheta0->data[k]	=	amplitude_merger[1];
-			dATheta3->data[k]	=	amplitude_merger[2];
-			dATheta3S->data[k]	=	amplitude_merger[3];
+			Amp->data[k]	=	amp_merg;
+			
+			/* merger waveform deratives with respect to theta0 */
+			
+			dATheta0->data[k]			=	CalculateDerivatives(amp_merg_mass, amp_merg_eta, amp_merg_chi, der_list_theta0);
+			
+			/* merger waveform deratives with respect to theta3 */
+			
+			dATheta3->data[k]			=	CalculateDerivatives(amp_merg_mass, amp_merg_eta, amp_merg_chi, der_list_theta3);
+			
+			/* merger waveform deratives with respect to theta3S */
+			
+			dATheta3S->data[k]		=	CalculateDerivatives(amp_merg_mass, amp_merg_eta, amp_merg_chi, der_list_theta3S);
 			
 			
 			
 		}
 		
 		else{
+			REAL8	f_merg			=	ringdown_coef_list[0];
+			REAL8	f_merg_mass		=	ringdown_coef_list[1];
+			REAL8	f_merg_eta		=	ringdown_coef_list[2];
+			REAL8	f_merg_chi		=	ringdown_coef_list[3];
+			REAL8	sigma			=	ringdown_coef_list[4];
+			REAL8	sigma_mass		=	ringdown_coef_list[5];
+			REAL8	sigma_eta		=	ringdown_coef_list[6];
+			REAL8	sigma_chi		=	ringdown_coef_list[7];
+			REAL8	amp_const		=	ringdown_coef_list[8];
+			REAL8	amp_const_mass	=	ringdown_coef_list[9];
+			REAL8	amp_const_eta	=	ringdown_coef_list[10];
+			REAL8	amp_const_chi	=	ringdown_coef_list[11];
 			
-			amplitude_ringdown	=	XLALSimIMRPhenomBAmplitude_Ringdown(f, theta0, theta3, theta3S, norm_ringdown, norm_ringdown_theta0, norm_ringdown_theta3, norm_ringdown_theta3S, flow, expr_list);
 			
-			/* ringdown amplitude of the frequency-domain waveform */
-			Amp->data[k]	=	amplitude_ringdown[0];
+			REAL8	lorentzian		=	1./((f - f_merg)*(f - f_merg) + sigma*sigma*0.25);
+			REAL8	amp_ring		=	norm_ring*amp_const*(1./(2*PI))*(sigma*lorentzian);
 			
-			/* ringdown waveform deratives with respect to the parameters */
-			dATheta0->data[k]	=	amplitude_ringdown[1];
-			dATheta3->data[k]	=	amplitude_ringdown[2];
-			dATheta3S->data[k]	=	amplitude_ringdown[3];
+			REAL8	amp_ring_mass	=	(1./(2*PI))*(norm_ring*amp_const*( sigma_mass*lorentzian + (2*sigma*(f_merg_mass*(f - f_merg) - sigma*sigma_mass*0.25))*								(lorentzian*lorentzian) ) +	 norm_ring_mass*amp_const*lorentzian*sigma + norm_ring*lorentzian*amp_const_mass*sigma);
+			
+			REAL8	amp_ring_eta	=	(1./(2*PI))*(norm_ring*amp_const*( sigma_eta*lorentzian + (2*sigma*(f_merg_eta*(f - f_merg) - sigma*sigma_eta*0.25))*									(lorentzian*lorentzian) ) +	 norm_ring_eta*amp_const*lorentzian*sigma + norm_ring*lorentzian*amp_const_eta*sigma);
+			
+			REAL8	amp_ring_chi	=	(1./(2*PI))*(norm_ring*amp_const*( sigma_chi*lorentzian + (2*sigma*(f_merg_chi*(f - f_merg) - sigma*sigma_chi*0.25))*									(lorentzian*lorentzian) ) +	 norm_ring_chi*amp_const*lorentzian*sigma + norm_ring*lorentzian*amp_const_chi*sigma);
+			
+			
+			Amp->data[k]		=	amp_ring;
+			
+			
+			dATheta0->data[k]	=	CalculateDerivatives(amp_ring_mass, amp_ring_eta, amp_ring_chi, der_list_theta0);
+			
+			
+			dATheta3->data[k]	=	CalculateDerivatives(amp_ring_mass, amp_ring_eta, amp_ring_chi, der_list_theta3);
+			
+			
+			dATheta3S->data[k]	=	CalculateDerivatives(amp_ring_mass, amp_ring_eta, amp_ring_chi, der_list_theta3S);
 			
 		}
 		
@@ -1302,7 +1128,8 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
 	REAL8Vector *Amp=NULL, *dATheta0=NULL, *dATheta3=NULL;
 	REAL8Vector *dAT0=NULL, *dAPhi=NULL, *dPhaseTheta0=NULL;
 	REAL8Vector *dPhaseTheta3=NULL, *dPhaseT0=NULL, *dPhasePhi=NULL;
-	REAL8 *normalization, *expr_list;
+	REAL8 *der_list_theta0, *der_list_theta3, *der_list_theta3S;
+	REAL8 *normalization, *inspiral_coef_list, *merger_coef_list, *ringdown_coef_list, *phase_coef_list, *chi_pow_list;
 	
 	
 	/* compute the chirp-time co-ordinates */
@@ -1310,29 +1137,36 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
 	const REAL8 theta3	=	ChirpTime_theta3(Mass,eta, flow);
 	const REAL8	theta3S	=	ChirpTime_theta3S(Mass, 0., flow);
 	
+	chi_pow_list =	ChiPowList(0.);
+	
+	
 	/* Compute the transition frequencies */
 	
-	const REAL8 fMerg  = TransitionFrequencies_fmerg(theta0,theta3, theta3S, flow);	/**Frequency at which inspiral part transitions to merger part of the waveform*/
+	const REAL8 fMerg  = TransitionFrequencies_fmerg(Mass,eta,  0., chi_pow_list);	/**Frequency at which inspiral part transitions to merger part of the waveform*/
 	
-	const REAL8 fRing  = TransitionFrequencies_fring(theta0,theta3,theta3S, flow);	/**Frequency at which merger part transitions to ringdown part of the waveform*/
+	const REAL8 fRing  = TransitionFrequencies_fring(Mass,eta,  0., chi_pow_list);	/**Frequency at which merger part transitions to ringdown part of the waveform*/
 	
-	const REAL8 fCut   = TransitionFrequencies_fcut(theta0,theta3, theta3S, flow);	/**Frequency at which ringdown part of the waveform is terminated*/
+	const REAL8 fCut   = TransitionFrequencies_fcut(Mass,eta,  0.);	/**Frequency at which ringdown part of the waveform is terminated*/
 	
 	
-	/* Calculate the expression list */
-	expr_list = XLALSimIMRPhenomBExprPowers(theta0,theta3,theta3S);
+	/* Compute the list of partial derivatives */
+	der_list_theta0		=	MassPartialDerivativesWRTTheta0(theta0, theta3, theta3S, flow);
+	der_list_theta3		=	MassPartialDerivativesWRTTheta3(theta0, theta3, theta3S, flow);
+	der_list_theta3S	=	MassPartialDerivativesWRTTheta3S(theta0, theta3);
+	
 	
 	
 	/*Compute the normalizations and their derivatives*/
-	normalization						=		XLALSimIMRPhenomBNormalization(theta0,theta3, theta3S, flow, expr_list);
-	const REAL8	norm_merg				=		normalization[0];
-	const REAL8	norm_ringdown			=		normalization[1];
-	const REAL8	norm_merg_theta0		=		normalization[2];
-	const REAL8	norm_merg_theta3		=		normalization[3];
-	const REAL8 norm_merg_theta3S		=		normalization[4];
-	const REAL8	norm_ringdown_theta0	=		normalization[5];
-	const REAL8	norm_ringdown_theta3	=		normalization[6];
-	const REAL8	norm_ringdown_theta3S	=		normalization[7];
+	normalization					=		XLALSimIMRPhenomBNormalization(Mass,eta, 0.0, chi_pow_list);
+	const REAL8 norm_ring			=		normalization[4];
+	const REAL8	norm_ring_mass		=		normalization[5];
+	const REAL8	norm_ring_eta		=		normalization[6];
+	
+	inspiral_coef_list	=	XLALSimIMRPhenomBAmplitude_Inspiral(Mass,eta,  0.);
+	merger_coef_list	=	XLALSimIMRPhenomBAmplitude_Merger(Mass,eta,  0., normalization, chi_pow_list);
+	ringdown_coef_list	=	XLALSimIMRPhenomBAmplitude_Ringdown(Mass,eta,  0., fRing, chi_pow_list);
+	phase_coef_list		=	XLALSimIMRPhenomBPhase(Mass,eta,  0.);
+	
 	
 	/* make sure that the flow is lower than the fCut */
 	if (fCut < flow) {
@@ -1371,55 +1205,109 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
 	/* compute derivatives of the amplitude and phase of the waveform */
 	for (;k--;) {
 		
-		REAL8 *amplitude_inspiral, *amplitude_merger, *amplitude_ringdown, *phase;
-		
 		const REAL8 f = flow + k * df;
 		
-		phase	=	XLALSimIMRPhenomBPhase(f, theta0,theta3, theta3S, flow);
+		
+		REAL8	freq_coef_1		=	cbrt(1./(f*f*f*f*f));
+		REAL8	freq_coef_2		=	1./f;
+		REAL8	freq_coef_3		=	cbrt(1./(f*f));
+		REAL8	freq_coef_4		=	cbrt(1./(f));
+		REAL8	freq_coef_5		=	cbrt(f);
+		REAL8	freq_coef_6		=	cbrt(f*f);
+		
+		REAL8	phase_mass		=	phase_coef_list[0]*freq_coef_1 + phase_coef_list[1]*freq_coef_2 + phase_coef_list[2]*freq_coef_3 + phase_coef_list[3]*									freq_coef_4 + phase_coef_list[4]*freq_coef_5 + phase_coef_list[5]*freq_coef_6;
+		
+		REAL8	phase_eta		=	phase_coef_list[6]*freq_coef_1 + phase_coef_list[7]*freq_coef_2 + phase_coef_list[8]*freq_coef_3 + phase_coef_list[9]*									freq_coef_4 + phase_coef_list[10]*freq_coef_5 + phase_coef_list[11]*freq_coef_6;
 		
 		
-		dPhaseTheta0->data[k]	=	phase[0];
-		dPhaseTheta3->data[k]	=	phase[1];
-		dPhaseT0->data[k]		=	LAL_TWOPI*f;
+		dPhaseTheta0->data[k]	=	CalculateDerivatives(phase_mass, phase_eta, 0., der_list_theta0);
+		
+		dPhaseTheta3->data[k]	=	CalculateDerivatives(phase_mass, phase_eta, 0., der_list_theta3);
+		
+		
+		dPhaseT0->data[k]		=	LAL_TWOPI * f;
 		dPhasePhi->data[k]		=	1.;
 		
 		
+		
 		if (f <= fMerg){
-			amplitude_inspiral	=	XLALSimIMRPhenomBAmplitude_Inspiral(f, theta0,theta3, theta3S, flow);
+			
+			REAL8	freq_pow_7_6	=	cbrt(sqrt(1./(f*f*f*f*f*f*f)));
+			REAL8	freq_pow_3_6	=	sqrt(1./(f));
+			REAL8	freq_pow_1_6	=	cbrt(sqrt(1./(f)));
+			
+			REAL8	amp_insp_mass	=	inspiral_coef_list[3]*freq_pow_7_6	+	inspiral_coef_list[4]*freq_pow_3_6	+	inspiral_coef_list[5]*freq_pow_1_6;
+			
+			REAL8	amp_insp_eta	=	inspiral_coef_list[6]*freq_pow_7_6	+	inspiral_coef_list[7]*freq_pow_3_6	+	inspiral_coef_list[8]*freq_pow_1_6;
+			
 			
 			/* inspiral amplitude of the waveform */
-			Amp->data[k] = amplitude_inspiral[0];
+			Amp->data[k]		=	inspiral_coef_list[0]*freq_pow_7_6	+	inspiral_coef_list[1]*freq_pow_3_6	+	inspiral_coef_list[2]*freq_pow_1_6;
 			
-			/* inspiral waveform deratives with respect to the parameters */
-			dATheta0->data[k]	=	amplitude_inspiral[1];
-			dATheta3->data[k]	=	amplitude_inspiral[2];
+			/* inspiral waveform deratives with respect to theta0 */
+			dATheta0->data[k]	=	CalculateDerivatives(amp_insp_mass, amp_insp_eta, 0., der_list_theta0);
+			
+			/* inspiral waveform deratives with respect to theta3 */
+			dATheta3->data[k]	=	CalculateDerivatives(amp_insp_mass, amp_insp_eta, 0., der_list_theta3);
+			
 			
 			
 		}
 		else if ((fMerg<f) && (f<=fRing)){
-			amplitude_merger	=	XLALSimIMRPhenomBAmplitude_Merger(f, theta0, theta3, theta3S, norm_merg, norm_merg_theta0, norm_merg_theta3, norm_merg_theta3S, flow, expr_list);
+			
+			REAL8	freq_pow_2_3  =		cbrt(1./(f*f));
+			REAL8	freq_pow_1_3  =		cbrt(1./(f));
 			
 			/* merger amplitude of the frequency-domain waveform */
-			Amp->data[k]	=	amplitude_merger[0];
+			REAL8 amp_merg			=	merger_coef_list[0]*freq_pow_2_3 + merger_coef_list[1]*freq_pow_1_3 + merger_coef_list[2];
+			REAL8 amp_merg_mass		=	merger_coef_list[3]*freq_pow_2_3 + merger_coef_list[4]*freq_pow_1_3 + merger_coef_list[5];
+			REAL8 amp_merg_eta		=	merger_coef_list[6]*freq_pow_2_3 + merger_coef_list[7]*freq_pow_1_3 + merger_coef_list[8];
 			
-			/* merger waveform deratives with respect to the parameters */
-			dATheta0->data[k]	=	amplitude_merger[1];
-			dATheta3->data[k]	=	amplitude_merger[2];
+			Amp->data[k]	=	amp_merg;
+			
+			/* merger waveform deratives with respect to theta0 */
+			
+			dATheta0->data[k]			=	CalculateDerivatives(amp_merg_mass, amp_merg_eta, 0., der_list_theta0);
+			
+			/* merger waveform deratives with respect to theta3 */
+			
+			dATheta3->data[k]			=	CalculateDerivatives(amp_merg_mass, amp_merg_eta, 0., der_list_theta3);
+			
 			
 			
 			
 		}
 		
 		else{
+			REAL8	f_merg			=	ringdown_coef_list[0];
+			REAL8	f_merg_mass		=	ringdown_coef_list[1];
+			REAL8	f_merg_eta		=	ringdown_coef_list[2];
+			REAL8	sigma			=	ringdown_coef_list[4];
+			REAL8	sigma_mass		=	ringdown_coef_list[5];
+			REAL8	sigma_eta		=	ringdown_coef_list[6];
+			REAL8	amp_const		=	ringdown_coef_list[8];
+			REAL8	amp_const_mass	=	ringdown_coef_list[9];
+			REAL8	amp_const_eta	=	ringdown_coef_list[10];
 			
-			amplitude_ringdown	=	XLALSimIMRPhenomBAmplitude_Ringdown(f, theta0, theta3, theta3S, norm_ringdown, norm_ringdown_theta0, norm_ringdown_theta3, norm_ringdown_theta3S, flow, expr_list);
 			
-			/* ringdown amplitude of the frequency-domain waveform */
-			Amp->data[k]	=	amplitude_ringdown[0];
+			REAL8	lorentzian		=	1./((f - f_merg)*(f - f_merg) + sigma*sigma*0.25);
+			REAL8	amp_ring		=	norm_ring*amp_const*(1./(2*PI))*(sigma*lorentzian);
 			
-			/* ringdown waveform deratives with respect to the parameters */
-			dATheta0->data[k]	=	amplitude_ringdown[1];
-			dATheta3->data[k]	=	amplitude_ringdown[2];
+			REAL8	amp_ring_mass	=	(1./(2*PI))*(norm_ring*amp_const*( sigma_mass*lorentzian + (2*sigma*(f_merg_mass*(f - f_merg) - sigma*sigma_mass*0.25))*								(lorentzian*lorentzian) ) +	 norm_ring_mass*amp_const*lorentzian*sigma + norm_ring*lorentzian*amp_const_mass*sigma);
+			
+			REAL8	amp_ring_eta	=	(1./(2*PI))*(norm_ring*amp_const*( sigma_eta*lorentzian + (2*sigma*(f_merg_eta*(f - f_merg) - sigma*sigma_eta*0.25))*									(lorentzian*lorentzian) ) +	 norm_ring_eta*amp_const*lorentzian*sigma + norm_ring*lorentzian*amp_const_eta*sigma);
+			
+			
+			
+			Amp->data[k]		=	amp_ring;
+			
+			
+			dATheta0->data[k]	=	CalculateDerivatives(amp_ring_mass, amp_ring_eta, 0., der_list_theta0);
+			
+			
+			dATheta3->data[k]	=	CalculateDerivatives(amp_ring_mass, amp_ring_eta, 0., der_list_theta3);
+			
+			
 			
 		}
 		
@@ -1513,9 +1401,5 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
 	
 	return XLAL_SUCCESS;
 }
-
-
-
-
 
 
