@@ -565,7 +565,7 @@ def cbcBayesBurstPostProc(
     
     for statname,statoned_pos in pos:
 
-      statmax_pos,max_i=pos._posMode()
+      statmax_pos,max_i=pos._posMaxL()
       statmaxL=statoned_pos.samples[max_i][0]
       statmax_pos,max_j=pos._posMap()
       statmaxP=statoned_pos.samples[max_j][0]

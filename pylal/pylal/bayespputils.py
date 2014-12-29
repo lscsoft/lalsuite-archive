@@ -1363,25 +1363,6 @@ class Posterior(object):
                 max_i=i
         return max_pos,max_i
 
-    def _posMap(self):
-        """
-        Find the sample with maximum a posteriori probability. Returns value
-        of posterior and index of sample .
-        """
-        logl_vals=self._logL
-        if self._logP is not None:
-          logp_vals=self._logP
-        else:
-          return None
-        
-        max_i=0
-        max_pos=logl_vals[0]+logp_vals[0]
-        for i in range(len(logl_vals)):
-            if logl_vals[i]+logp_vals[i] > max_pos:
-                max_pos=logl_vals[i]+logp_vals[i]
-                max_i=i
-        return max_pos,max_i
-
     def _print_table_row(self,name,entries):
         """
         Print a html table row representation of
@@ -6510,19 +6491,19 @@ class BurstPosterior(object):
         bf = self._bias_factor()
         return bf + np.log(1/np.mean(1/np.exp(self._logL-bf)))
 
-    def _posMode(self):
+    def _posMaxL(self):
         """
-        Find the sample with maximum posterior probability. Returns value
-        of posterior and index of sample .
+        Find the sample with maximum likelihood probability. Returns value
+        of likelihood and index of sample .
         """
-        pos_vals=self._logL
+        logl_vals=self._logL
         max_i=0
-        max_pos=pos_vals[0]
-        for i in range(len(pos_vals)):
-            if pos_vals[i] > max_pos:
-                max_pos=pos_vals[i]
+        max_logl=logl_vals[0]
+        for i in range(len(logl_vals)):
+            if logl_vals[i] > max_logl:
+                max_logl=logl_vals[i]
                 max_i=i
-        return max_pos,max_i
+        return max_logl,max_i
 
     def _posMap(self):
         """
@@ -6563,7 +6544,7 @@ class BurstPosterior(object):
         set of parameters.
         """
         maxLvals={}
-        max_pos,max_i=self._posMode()
+        max_pos,max_i=self._posMaxL()
         for param_name in self.names:
             maxLvals[param_name]=self._posterior[param_name].samples[max_i][0]
 
@@ -6670,7 +6651,7 @@ class BurstPosterior(object):
 
         for name,oned_pos in self:
 
-            max_like,max_i=self._posMode()
+            max_like,max_i=self._posMaxL()
             maxL=oned_pos.samples[max_i][0]
             max_post,max_j=self._posMap()
             maxP=oned_pos.samples[max_j][0]
