@@ -300,22 +300,28 @@ void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessPara
      * */
      
      char help[]="\
-		  	\n\
-			------------------------------------------------------------------------------------------------------------------\n\
-			--- Calibration Errors Handling Arguments ------------------------------------------------------------------------\n\
-			------------------------------------------------------------------------------------------------------------------\n\
-			(--AddCalibrationErrors) Adds calibration errors into the f domain datastream (that includes both noise and signal)\n\
-			(--RandomCE) Add a random realization of phase and amplitude CE, using the S6/VSR2-3 error budget as an indication of the 1-sigma errors\n\
-			(--ConstantCE) Assumes calibration errors are constant over the bandwidth (requires ConstantCalAmp and ConstantCalPha)\n\
-			(--ConstantCalAmp [IFO1err,IFO2err,IFO3err]) List of constant amplitude CE. 0.0 means no error, 0.1 means 10 percent\n\
-			(--ConstantCalPha [IFO1err,IFO2err,IFO3err]) List of constant phase CE. 0.0 means no error, 5 means a  5 degree shift \n\
-      (--RandomLinearCE ) Assumes CE are given by a contant plateau plus a random jittering of a few percent. After a given frequency f CE increase linearly with a given slope (requires RandomLinearCalAmp)\n\
-			(--RandomLinearCalAmp [IF01_c,IFO1_f,IFO1_slope, IF02_c,IFO2_f,IFO2_slope, ...] ) Add on the i-th IFO's stream errors on the form (IFOi_c + jitter) for f<IFOi_f and (IFOi_c-f)*IFOi_slope for f>IFOi_f\n\
-      (--RandomLinearCalPha [IF01_c, IFO1_f,IFO1_slope, IF02_c,IFO2_f,IFO2_slope, ...] ) Add on the i-th IFO's stream errors on the form (IFOi_c + jitter) for f<IFOi_f and (IFOi_c-f)*IFOi_slope for f>IFOi_f\n\
-			(--MarginalizeConstantCalAmp ) If given, will add a constant value of Amplitude CE per each IFO on the top of the CBC parameters.\n\
-			(--MarginalizeConstantCalPha ) If given, will add a constant value of Phase CE per each IFO on the top of the CBC parameters.\n\
-			";
+\n\
+------------------------------------------------------------------------------------------------------------------\n\
+--- Calibration Errors Handling Arguments ------------------------------------------------------------------------\n\
+------------------------------------------------------------------------------------------------------------------\n\
+(--AddCalibrationErrors) Adds calibration errors into the f domain datastream (that includes both noise and signal)\n\
+(--RandomCE) Add a random realization of phase and amplitude CE, using the S6/VSR2-3 error budget as an indication of the 1-sigma errors\n\
+(--ConstantCE) Assumes calibration errors are constant over the bandwidth (requires ConstantCalAmp and ConstantCalPha)\n\
+(--ConstantCalAmp [IFO1err,IFO2err,IFO3err]) List of constant amplitude CE. 0.0 means no error, 0.1 means 10 percent\n\
+(--ConstantCalPha [IFO1err,IFO2err,IFO3err]) List of constant phase CE. 0.0 means no error, 5 means a  5 degree shift \n\
+(--RandomLinearCE ) Assumes CE are given by a contant plateau plus a random jittering of a few percent.\n\t\t After a given frequency f CE increase linearly with a given slope (requires RandomLinearCalAmp and RandomLinearCalPha)\n\
+(--RandomLinearCalAmp [IF01_c,IFO1_f,IFO1_slope, ...] ) Add on the i-th IFO's stream errors on the form (IFOi_c + jitter) for f<IFOi_f and (IFOi_c-f)*IFOi_slope for f>IFOi_f\n\
+(--RandomLinearCalPha [IF01_c, IFO1_f,IFO1_slope, ...] ) Add on the i-th IFO's stream errors on the form (IFOi_c + jitter) for f<IFOi_f and (IFOi_c-f)*IFOi_slope for f>IFOi_f\n\
+ * Constant Calibration Model \n\
+  (--MarginalizeConstantCalAmp ) If given, will add a constant value of Amplitude CE per each IFO on the top of the CBC parameters.\n\
+  (--MarginalizeConstantCalPha ) If given, will add a constant value of Phase CE per each IFO on the top of the CBC parameters.\n\
+ * Spline Calibration Model \n\
+  (--enable-spline-calibration)            Enable cubic-spline calibration error model.\n\
+  (--spline-calibration-nodes N)           Set the number of spline nodes per detector (default 5)\n\
+  (--spline-calibration-amp-uncertainty X) Set the prior on relative amplitude uncertainty (default 0.1)\n\
+  (--spline-calibration-phase-uncertainty X) Set the prior on phase uncertanity in degrees (default 5)\n\n\n";
 
+    static LALStatus   status;
       /* Print command line arguments if state was not allocated */
     if(state==NULL)
     {
@@ -338,9 +344,21 @@ void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessPara
     }
     if(!state->GSLrandom)  {fprintf(stderr,"The random seed has not be initialized... Exiting..."); exit(1);}
 
-    /* For the moment the seed of CE is dependent on the data seed. We may want to add an indepedent option in the future */
-    int calib_seed_ampli= floor(1E6*gsl_rng_uniform(state->GSLrandom));
-    int calib_seed_phase=floor(1E6*gsl_rng_uniform(state->GSLrandom));
+    /* Set calibration seed for random errors */
+    if(!LALInferenceGetProcParamVal(commandLine,"--dataseed")){
+      fprintf(stdout,"--dataseed is required when running with --AddCalibrationErrors\n");
+      exit(1);
+    }
+    int dataseed=atoi(LALInferenceGetProcParamVal(commandLine,"--dataseed")->value);
+    RandomParams *datarandparam=XLALCreateRandomParams(dataseed);
+    
+    int calib_seed_ampli=0.0;
+    int calib_seed_phase=0.0;
+    REAL4 tmpampli,tmpphase;
+    LALUniformDeviate(&status,&tmpampli,datarandparam);
+    LALUniformDeviate(&status,&tmpphase,datarandparam);
+    calib_seed_ampli=floor(1E6*tmpampli);
+    calib_seed_phase=floor(1E6*tmpphase);
     fprintf(stdout,"Using calibseedAmp %d and calibseedPha %d\n",calib_seed_ampli,calib_seed_phase);
   
     LALInferenceIFOData * tmpdata=state->data;
@@ -371,8 +389,10 @@ void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessPara
         while (tmpdata!=NULL){
           CreateRandomAmplitudeCalibrationErrors(ampCoeffs[this_ifo],calib_seed_ampli,tmpdata->name);
           CreateRandomPhaseCalibrationErrors(phaseCoeffs[this_ifo],calib_seed_phase,tmpdata->name);
-          calib_seed_ampli+=floor(1E6*gsl_rng_uniform(state->GSLrandom));
-          calib_seed_phase+=floor(1E6*gsl_rng_uniform(state->GSLrandom));
+          LALUniformDeviate(&status,&tmpampli,datarandparam);
+          LALUniformDeviate(&status,&tmpphase,datarandparam);
+          calib_seed_ampli+=floor(1E6*tmpampli);
+          calib_seed_phase+=floor(1E6*tmpphase);
           this_ifo++;
           tmpdata=tmpdata->next;
         }
@@ -423,7 +443,8 @@ void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessPara
          
         /* Fill random part. Will take 10% of it later on */
         CreateRandomAmplitudeCalibrationErrors(ampCoeffs[i],calib_seed_ampli,tmpdata->name);
-        calib_seed_ampli+=floor(1E6*gsl_rng_uniform(state->GSLrandom));
+        LALUniformDeviate(&status,&tmpampli,datarandparam);
+        calib_seed_ampli+=floor(1E6*tmpampli);
         /* Consant plateau, knee, slope*/
         (ampCoeffs[i])[Npoints]=atof(calamps[i*3]);
         (ampCoeffs[i])[Npoints+1]=atof(calamps[i*3+1]);
@@ -451,7 +472,9 @@ void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessPara
          
         /* Fill random part. Will take 10% of it later on */
         CreateRandomPhaseCalibrationErrors(phaseCoeffs[i],calib_seed_phase,tmpdata->name);
-        calib_seed_phase+=floor(1E6*gsl_rng_uniform(state->GSLrandom));
+        
+        LALUniformDeviate(&status,&tmpphase,datarandparam);
+        calib_seed_phase+=floor(1E6*tmpphase);
         /* Consant plateau, knee, slope*/
         // user gave degrees, convert to radiands
         (phaseCoeffs[i])[Npoints]=LAL_PI/180.*atof(calphas[i*3]);
@@ -479,6 +502,7 @@ void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessPara
       this_ifo++;
       tmpdata=tmpdata->next;
     }
+    XLALDestroyRandomParams(datarandparam);
 }
 
 void PrintCEtoFile(REAL8* Acoeffs,REAL8* Pcoeffs,LALInferenceIFOData* IFOdata, ProcessParamsTable *commandLine ){

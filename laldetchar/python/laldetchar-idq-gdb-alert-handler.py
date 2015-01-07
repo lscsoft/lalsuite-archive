@@ -114,16 +114,6 @@ description = eventdata['description']
 if not alert_type=='new': ### only process new events
     sys.exit(0)
 
-### more specific logicals based on the following
-#group = event['Group']
-#pipeline = event['Pipeline']
-#search = event['Search']
-
-event_type = None
-
-# The above event attributes could be useful in the future if we decide to code up logic
-# that differentiates between gracedb entries based on their type, search, description etc.
-
 #=================================================
 ### logging setup
 
@@ -143,18 +133,6 @@ logger.addHandler(hdlr2)
 sys.stdout = idq.LogFile(logger)
 sys.err = idq.LogFile(logger)
 
-#========================
-# digest event type and pull the correct params from config file
-#========================
-if event_type not in config.sections():
-    logger.info("Warning: event type not found. Defaulting to \"default_event\" settings in %s"%options.config_file)
-    event_type = 'default_event'
-
-time_before = config.getfloat(event_type, 'time_before')
-time_after = config.getfloat(event_type, 'time_after')
-max_wait = config.getfloat(event_type,'max_wait')
-delay = config.getfloat(event_type, 'delay') ### the amount of extra time we wait for jobs to finish
-
 #=================================================
 ### process the event in full
 logger.info("New event. GraceDB ID %s." % (gdb_id))
@@ -163,10 +141,8 @@ logger.info("Alert type: %s. Description: %s." % (alert_type,description))
 ### set up robot cert if needed
 if not options.no_robot_cert:
     ### unset ligo-proxy just in case
-    try:
+    if os.environ.has_key("X509_USER_PROXY"):
         del os.environ['X509_USER_PROXY']
-    except KeyError:
-        pass 
 
     ### get cert and key from ini file
     robot_cert = config.get('ldg_certificate', 'robot_certificate')
@@ -194,10 +170,48 @@ except:
     logger.info("    Exiting.")
     sys.exit(1)
 
+#========================
+# get parameters about event type from gracedb
+#========================
+group = gdb_entry['group']
+pipeline = gdb_entry['pipeline']
+if gdb_entry.has_key('search'):
+    search = gdb_entry['search']
+    event_type = "%s_%s_%s"%(group, pipeline, search)
+else:
+    event_type = "%s_%s"%(group, pipeline)
+
+### cast to lower case to match config sections
+event_type = event_type.lower()
+
+#========================
+# digest event type and pull the correct params from config file
+#========================
+if event_type not in config.sections():
+    logger.info("Warning: event type not found. Defaulting to \"default_event\" settings in %s"%options.config_file)
+    event_type = 'default_event'
+
+logger.info("event_type : %s"%event_type)
+
+time_before = config.getfloat(event_type, 'time_before')
+time_after = config.getfloat(event_type, 'time_after')
+
+plotting_time_before = config.getfloat(event_type, 'plotting_time_before')
+plotting_time_after = config.getfloat(event_type, 'plotting_time_after')
+
+max_wait = config.getfloat(event_type,'max_wait')
+delay = config.getfloat(event_type, 'delay') ### the amount of extra time we wait for jobs to finish
+
+#========================
+# get start and end time for our look-up routines
+#========================
 event_gps_time = gdb_entry['gpstime']
+
 gps_start = event_gps_time - time_before
 gps_end = event_gps_time + time_after
 
+plotting_gps_start = event_gps_time - plotting_time_before
+plotting_gps_end = event_gps_time + plotting_time_after
 
 logger.info("Started searching for iDQ information within [%.3f, %.3f] at %s"%(gps_start, gps_end, ifo))
 gracedb.writeLog(gdb_id, message="Started searching for iDQ information within [%.3f, %.3f] at %s"%(gps_start, gps_end, ifo))
@@ -250,7 +264,7 @@ for classifier in classifiers:
 ### run idq-gdb-timeseries for each classifier
 for classifier in classifiers:
     logger.info("    Begin: executing idq-gdb-timeseries for " + classifier + " ...")
-    exit_status = idq_gdb_utils.execute_gdb_timeseries(str(gps_start), str(gps_end), str(event_gps_time), gdb_id, ifo, classifier, config, idq_dir, config.get('executables', 'idq_gdb_timeseries'), usertag = str(gdb_id)+'_'+usertag) #, gch_xml=glob.glob("%s/*glitch*%s*.xml*"%(idq_gdb_main_dir, gdb_id))) ### un-comment when adding tables is not broken!
+    exit_status = idq_gdb_utils.execute_gdb_timeseries(str(gps_start), str(gps_end), str(event_gps_time), gdb_id, ifo, classifier, config, idq_dir, config.get('executables', 'idq_gdb_timeseries'), usertag = str(gdb_id)+'_'+usertag, plotting_gps_start=plotting_gps_start, plotting_gps_end=plotting_gps_end) #, gch_xml=glob.glob("%s/*glitch*%s*.xml*"%(idq_gdb_main_dir, gdb_id))) ### un-comment when adding tables is not broken!
 
     if exit_status != 0:
         logger.info("    WARNING: idq-gdb-timeseries failed for " + classifier)

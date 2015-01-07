@@ -575,6 +575,8 @@ tagLALInferenceIFOData
   LIGOTimeGPS		    epoch;              /** The epoch of this observation (the time of the first sample) */
   REAL8                     SNR;                /** IF INJECTION ONLY, E(SNR) of the injection in the detector.*/
   REAL8                     STDOF;              /** Degrees of freedom for IFO to be used in Student-T Likelihood. */
+  UINT4                     likeli_counter; /** counts how many time the likelihood has been calculated */
+  UINT4                     templa_counter; /** counts how many time the template has been calculated */
   struct tagLALInferenceROQData *roq; /** ROQ data */
 
   struct tagLALInferenceIFOData      *next;     /** A pointer to the next set of data for linked list */
@@ -587,6 +589,7 @@ typedef struct
 tagLALInferenceROQData
 {
   gsl_matrix_complex *weights; /** weights for the likelihood: NOTE: needs to be stored from data read from command line */
+  gsl_matrix_complex *mmweights; /** weights for calculating <h|h> if not using analytical formula */
   double int_f_7_over_3; /** /int_{fmin}^{fmax} df f^(-7/3)/psd...for <h|h> part of the likelihood */
   REAL8 time_weights_width;
 } LALInferenceROQData;
@@ -645,6 +648,11 @@ LALInferenceVariableItem *LALInferenceGetItem(const LALInferenceVariables *vars,
  * Indexing starts at 1
  */
 LALInferenceVariableItem *LALInferenceGetItemNr(LALInferenceVariables *vars, int idx);
+
+/**
+ * Pop the list node for "name". Returns a pointer to the node, which is removed from vars
+ */
+LALInferenceVariableItem *LALInferencePopVariableItem(LALInferenceVariables *vars, const char *name);
 
 /** Output the sample to file *fp, in ASCII format */
 void LALInferencePrintSample(FILE *fp,LALInferenceVariables *sample);

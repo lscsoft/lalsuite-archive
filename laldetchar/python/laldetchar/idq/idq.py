@@ -450,10 +450,11 @@ def extract_dq_segments(xmlfile, dq_name):
 ....dq_name is what was given as an --include-segments option to ligolw_segment_query that generated the xmlfileobj"
 ...."""
 
+    lsctables.use_in(ligolw.LIGOLWContentHandler)
     if type(xmlfile) == str:
-        xmldoc = ligolw_utils.load_filename(xmlfile)  # load as filename
+        xmldoc = ligolw_utils.load_filename(xmlfile, contenthandler=ligolw.LIGOLWContentHandler)  # load as filename
     else:
-        xmldoc = ligolw_utils.load_fileobj(xmlfile)[0]  # laod as file object
+        xmldoc = ligolw_utils.load_fileobj(xmlfile, contenthandler=ligolw.LIGOLWContentHandler)[0]  # laod as file object
 
     # get segment tables
 
@@ -491,8 +492,9 @@ def extract_lldq_segments(xmlfiles, lldq_name, hoft_name):
 
     good = []
     covered = []
+    lsctables.use_in(ligolw.LIGOLWContentHandler)
     for file in xmlfiles:
-        xmldoc = ligolw_utils.load_filename(file)  # load file
+        xmldoc = ligolw_utils.load_filename(file, contenthandler=ligolw.LIGOLWContentHandler)  # load file
 
         # get segment tables
 
@@ -533,8 +535,9 @@ def extract_dmt_segments(xmlfiles, dq_name):
 
     good = []
     covered = []
+    lsctables.use_in(ligolw.LIGOLWContentHandler)
     for file in xmlfiles:
-        xmldoc = ligolw_utils.load_filename(file)  # load file
+        xmldoc = ligolw_utils.load_filename(file, contenthandler=ligolw.LIGOLWContentHandler)  # load file
 
         # get segment tables
 
@@ -997,19 +1000,22 @@ def datfiles_to_roc(
 
         # find all appropriate subdirectories of source_dir and gather datfiles
 
-        datfiles = []
-        for dir in os.listdir(source_dir):
-            try:
-                d = dir.strip('/').split('-')
-                start = int(d[-1])  # last element of d must be castable as an integer
-                if start * 1e5 <= gpsstart < (start + 1) * 1e5 or start \
-                    * 1e5 < gpsstop <= (start + 1) * 1e5:
-                    if not basename or basename in dir:  # check basename
-                        datfiles += gather_datfiles(gpsstart, gpsstop,
-                                classifier=classifier,
-                                source_dir=source_dir + '/' + dir)
-            except:
-                pass
+        datfiles = get_all_files_in_range(source_dir, gpsstart, gpsstop, suffix=".dat")
+        if classifier:
+            datfiles = [datfile for datfile in datfiles if classifier in datfile]
+#        datfiles = []
+#        for dir in os.listdir(source_dir):
+#            try:
+#                d = dir.strip('/').split('-')
+#                start = int(d[-1])  # last element of d must be castable as an integer
+#                if start * 1e5 <= gpsstart < (start + 1) * 1e5 or start \
+#                    * 1e5 < gpsstop <= (start + 1) * 1e5:
+#                    if not basename or basename in dir:  # check basename
+#                        datfiles += gather_datfiles(gpsstart, gpsstop,
+#                                classifier=classifier,
+#                                source_dir=source_dir + '/' + dir)
+#            except:
+#                pass
 
         # gather roc information as tuples: (rank, i)
         # i=1 --> glitch
@@ -1256,20 +1262,20 @@ def datfiles_to_chanlist(
     # pick up each classifier separately
 
     for classifier in classifiers:
-        print classifier
-        datfiles = []
-        for dir in os.listdir(source_dir):
-            try:
-                d = dir.strip('/').split('-')
-                start = int(d[-1])  # expect a particular directory structure
-                if start * 1e5 <= gpsstart < (start + 1) * 1e5 or start \
-                    * 1e5 < gpsstop <= (start + 1) * 1e5:
-                    if not basename or basename in dir:
-                        datfiles += gather_datfiles(gpsstart, gpsstop,
-                                classifier=classifier,
-                                source_dir=source_dir + '/' + dir)
-            except:
-                pass
+        datfiles = [datfile for datfile in get_all_files_in_range(source_dir, gpsstart, gpsstop, suffix=".dat") if classifier in datfile]
+#        datfiles = []
+#        for dir in os.listdir(source_dir):
+#            try:
+#                d = dir.strip('/').split('-')
+#                start = int(d[-1])  # expect a particular directory structure
+#                if start * 1e5 <= gpsstart < (start + 1) * 1e5 or start \
+#                    * 1e5 < gpsstop <= (start + 1) * 1e5:
+#                    if not basename or basename in dir:
+#                        datfiles += gather_datfiles(gpsstart, gpsstop,
+#                                classifier=classifier,
+#                                source_dir=source_dir + '/' + dir)
+#            except:
+#                pass
 
         # gather chan performance measures
 
@@ -1462,20 +1468,20 @@ def datfiles_to_ranklist(
     # pick up each classifier separately
 
     for classifier in classifiers:
-        print classifier
-        datfiles = []
-        for dir in os.listdir(source_dir):
-            try:
-                d = dir.strip('/').split('-')
-                start = int(d[-1])  # expect a particular directory structure
-                if start * 1e5 <= gpsstart < (start + 1) * 1e5 or start \
-                    * 1e5 < gpsstop <= (start + 1) * 1e5:
-                    if not basename or basename in dir:
-                        datfiles += gather_datfiles(gpsstart, gpsstop,
-                                classifier=classifier,
-                                source_dir=source_dir + '/' + dir)
-            except:
-                pass
+        
+        datfiles = [datfile for datfile in get_all_files_in_range(source_dir, gpsstart, gpsstop, suffix=".dat") if classifier in datfile]
+#        for dir in os.listdir(source_dir):
+#            try:
+#                d = dir.strip('/').split('-')
+#                start = int(d[-1])  # expect a particular directory structure
+#                if start * 1e5 <= gpsstart < (start + 1) * 1e5 or start \
+#                    * 1e5 < gpsstop <= (start + 1) * 1e5:
+#                    if not basename or basename in dir:
+#                        datfiles += gather_datfiles(gpsstart, gpsstop,
+#                                classifier=classifier,
+#                                source_dir=source_dir + '/' + dir)
+#            except:
+#                pass
 
         # gather chan performance measures
 
@@ -1641,20 +1647,20 @@ def datfiles_to_configlist(
     # pick up each classifier separately
 
     for classifier in classifiers:
-        print classifier
-        datfiles = []
-        for dir in os.listdir(source_dir):
-            try:
-                d = dir.strip('/').split('-')
-                start = int(d[-1])  # expect a particular directory structure
-                if start * 1e5 <= gpsstart < (start + 1) * 1e5 or start \
-                    * 1e5 < gpsstop <= (start + 1) * 1e5:
-                    if not basename or basename in dir:
-                        datfiles += gather_datfiles(gpsstart, gpsstop,
-                                classifier=classifier,
-                                source_dir=source_dir + '/' + dir)
-            except:
-                pass
+        
+        datfiles = [datfile for datfile in get_all_files_in_range(source_dir, gpsstart, gpsstop, suffix=".dat") if classifier in datfile]
+#        for dir in os.listdir(source_dir):
+#            try:
+#                d = dir.strip('/').split('-')
+#                start = int(d[-1])  # expect a particular directory structure
+#                if start * 1e5 <= gpsstart < (start + 1) * 1e5 or start \
+#                    * 1e5 < gpsstop <= (start + 1) * 1e5:
+#                    if not basename or basename in dir:
+#                        datfiles += gather_datfiles(gpsstart, gpsstop,
+#                                classifier=classifier,
+#                                source_dir=source_dir + '/' + dir)
+#            except:
+#                pass
 
         # gather chan performance measures
 
@@ -2152,14 +2158,11 @@ def build_auxmvc_vectors(
         print 'Number of triggers in the main channel before thresholding:', \
             len(trigger_dict[main_channel])
     else:
-
         # empty trig-dictionary, raise an error
-
         raise StandardError('Empty trig-dictionary. Can not build auxmvc vectors.'
                             )
 
     # use only channels from the channels file, if provided
-
     if channels:
         selected_channels = event.read_channels_from_file(channels)
         trigger_dict.keep_channels(selected_channels)
@@ -2175,22 +2178,18 @@ def build_auxmvc_vectors(
 
     if unsafe_channels:
         unsafe_channels = event.read_channels_from_file(unsafe_channels)
-        trigger_dict.remove_channels(unsafe_channels)
+        trigger_dict.remove_channels([channel for channel in unsafe_channels if channel != main_channel]) ### never remove the main channel
 
     # keep only the triggers from the [gps_start_time, gps_end_time] segment
 
     # first keep all triggers from the segment expanded by the time concidence window, so that not to loose coincidences
-
     trigger_dict.include([[gps_start_time - time_window, gps_end_time
                          + time_window]])
 
     # then in the main channel keep triggers that fall within the segment.
-
-    trigger_dict.include([[gps_start_time, gps_end_time]],
-                         channels=[main_channel])
+    trigger_dict.include([[gps_start_time, gps_end_time]], channels=[main_channel])
 
     # keep only triggers from the science segments if given........
-
     if science_segments:
         science_segments = event.andsegments([[gps_start_time
                 - time_window, gps_end_time + time_window]],
@@ -2198,20 +2197,17 @@ def build_auxmvc_vectors(
         trigger_dict.include(science_segments)
 
     # apply significance threshold to the triggers from the main channel
-
     trigger_dict.apply_signif_threshold(channels=[main_channel],
             threshold=signif_threshold)
     print 'Number of triggers in the main channel after thresholding:', \
         len(trigger_dict[main_channel])
 
     # construct glitch auxmvc vectors
-
     aux_glitch_vecs = event.build_auxmvc_vectors(trigger_dict,
             main_channel=main_channel,
             coincidence_time_window=time_window)
 
     # apply upper limit on the number of glitch samples if given
-
     if max_glitch_samples:
         if len(aux_glitch_vecs) > max_glitch_samples:
             aux_glitch_vecs = aux_glitch_vecs[-max_glitch_samples:]
@@ -2220,7 +2216,6 @@ def build_auxmvc_vectors(
         if clean_samples_rate:
 
             # generate random times for clean samples
-
             if science_segments:
                 clean_times = event.randomrate(clean_samples_rate,
                         event.andsegments([[gps_start_time
@@ -2234,7 +2229,6 @@ def build_auxmvc_vectors(
             clean_times = []
 
     # construct clean auxmvc vectors
-
     aux_clean_vecs = event.build_auxmvc_vectors(
         trigger_dict,
         main_channel=main_channel,
@@ -2262,7 +2256,6 @@ def build_auxmvc_vectors(
             KWAuxCleanTriggers=aux_clean_vecs)
 
     # save MVSC evaluation set in file........
-
     auxmvc_utils.WriteMVSCTriggers(mvsc_evaluation_set,
                                    output_filename=output_file_name,
                                    Classified=False)
@@ -2308,7 +2301,7 @@ def build_auxmvc_vector_at_gps(
 
     if unsafe_channels:
         unsafe_channels = event.read_channels_from_file(unsafe_channels)
-        trigger_dict.remove_channels(unsafe_channels)
+        trigger_dict.remove_channels([channel for channel in unsafe_channels if channel != main_channel]) ### never remove the main channel
 
         # keep only the triggers from the [gps_start_time, gps_end_time] segment
 

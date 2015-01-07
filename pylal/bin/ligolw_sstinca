@@ -168,9 +168,9 @@ def parse_command_line():
 	if (not options.exact_match) and options.time_window:
 		raise ValueError("--time-window is not supported unless using --exact-match")
 	if options.exact_match:
-		if (not options.e_thinca_parameter) and (not options.time_window):
+		if (not options.e_thinca_parameter) and (options.time_window is None):
 			raise ValueError("When using --exact-match you must provide either --e-thinca-parameter or --time-window.")
-		elif options.e_thinca_parameter and options.time_window:
+		elif options.e_thinca_parameter and (options.time_window is not None):
 			raise ValueError("When using --exact-match you may not provide both --e-thinca-parameter and --time-window.")
 
 	#
@@ -219,7 +219,7 @@ if options.exact_match:
 		event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact
 		threshold = options.e_thinca_parameter
 		max_dt_func = ligolw_thinca.inspiral_max_dt_exact
-	elif options.time_window:
+	elif options.time_window is not None:
 		event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact_dt
 		threshold = options.time_window
 		max_dt = 1.1 * options.time_window + 2. * lal.REARTH_SI / lal.C_SI

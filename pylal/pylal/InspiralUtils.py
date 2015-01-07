@@ -25,13 +25,13 @@ symbols = {'G1':'Y','H1':'x','H2':'o','L1':'+','V1':'1'}
 
 # set color codes for coincident ifo types
 def get_coinc_ifo_colors( ifo_set ):
-  """ 
+  """
   Given an ifo set, returns an html color code for plotting.
-  """     
+  """
   # check that ifo_set is set or frozenset
   if not ( isinstance(ifo_set, set) or isinstance(ifo_set, frozenset) ):
-    raise ValueError, "ifo_set must be of type set or frozenset. " + \
-      "Use lsctables.instrument_set_from_ifos to do this."
+    raise ValueError("ifo_set must be of type set or frozenset. "
+      "Use lsctables.instrument_set_from_ifos to do this.")
 
   if ifo_set == set(['H1', 'H2', 'L1', 'V1']):
     return '#F88017' # dark orange
@@ -64,8 +64,8 @@ class InspiralPage(object):
 
   # ------------------------------------------------------
   # ------------------------------------------------------
-  def __init__(self, options, ifo_times = None, ifo_tag = None, user_tag = None,\
-               gps_start_time = None, gps_end_time = None):
+  def __init__(self, options, ifo_times=None, ifo_tag=None, user_tag=None,
+               gps_start_time=None, gps_end_time=None):
     """
     Initializes this class with the options.
     @params options: option object from the calling function
@@ -84,12 +84,12 @@ class InspiralPage(object):
     if ifo_times: self.ifo_times = ifo_times
     if ifo_tag: self.ifo_tag = ifo_tag
     if user_tag: self.user_tag = user_tag
-    if gps_start_time: self.gps_start_time = gps_start_time
-    if gps_end_time: self.gps_end_time = gps_end_time
+    if gps_start_time is not None: self.gps_start_time = gps_start_time
+    if gps_end_time is not None: self.gps_end_time = gps_end_time
 
     # and NOW create the suffix and prefixes
     self.create_affixes()
-    
+
     # create some empty lists
     self.fname_list = []
     self.tag_list = []
@@ -119,7 +119,7 @@ class InspiralPage(object):
       self.user_tag = None
 
     if hasattr(self.opts, 'gps_start_time'):
-      self.time_string = str(int(self.opts.gps_start_time))+"-"+\
+      self.time_string = str(int(self.opts.gps_start_time))+"-" + \
                          str(int(math.ceil(self.opts.gps_end_time))-int(self.opts.gps_start_time))
     else:
       self.time_string = "unspecified-gpstime"
@@ -127,7 +127,7 @@ class InspiralPage(object):
     if hasattr(self.opts,'output_path'):
       self.output_path = self.opts.output_path
       if not self.output_path.endswith('/'):
-        self.output_path+= '/'
+        self.output_path += '/'
     else:
       self.output_path = './'
 
@@ -167,7 +167,7 @@ class InspiralPage(object):
       fname = self.output_path + fname
 
     filename, filename_thumb = self.savefig(fname, plot_fig)
-    
+
     self.fname_list.append(filename)
     self.tag_list.append(filename)
 
@@ -191,7 +191,7 @@ class InspiralPage(object):
     fig.savefig(filename, **savefig_kwargs)
 
     if doThumb:
-      filename_thumb =  filename_base + '_thumb.png'
+      filename_thumb = filename_base + '_thumb.png'
       fig.savefig(filename_thumb, dpi=dpi_thumb)
     else:
       filename_thumb = None
@@ -199,15 +199,15 @@ class InspiralPage(object):
     return filename, filename_thumb
 
   # ------------------------------------------------------
-  def write_page(self, infix = None, doThumb = True, \
+  def write_page(self, infix = None, doThumb = True, 
                  map_list = [], coinc_summ_table = None ):
     """
     Create the pages if output is enabled
     """
     if self.opts.enable_output:
       html_filename = self.create_htmlname(infix)
-      self.write_html_output(html_filename, doThumb = doThumb, \
-                             map_list = map_list, coinc_summ_table = coinc_summ_table,\
+      self.write_html_output(html_filename, doThumb = doThumb,
+                             map_list = map_list, coinc_summ_table = coinc_summ_table,
                              comment=self.html_footer or None)
       self.write_cache_output(html_filename)
       return html_filename
@@ -220,7 +220,7 @@ class InspiralPage(object):
     """
     print text
     self.html_footer+=text+'<br>'
-  
+
   # ------------------------------------------------------
   def create_htmlname(self, infix):
     """
@@ -229,7 +229,7 @@ class InspiralPage(object):
 
     # Any infix to use?
     if infix:
-      html_filename = self.prefix + '_'+ infix  +self.suffix
+      html_filename = self.prefix + '_'+ infix +self.suffix
     else:
       html_filename = self.prefix + self.suffix
 
@@ -239,10 +239,10 @@ class InspiralPage(object):
       html_filename = self.output_path + html_filename
 
     return html_filename
-  
-  # ------------------------------------------------------  
-  def write_html_output(self, html_filename, doThumb = True, map_list = [],\
-                          comment = None, coinc_summ_table = None ):
+
+  # ------------------------------------------------------
+  def write_html_output(self, html_filename, doThumb=True, map_list=[],
+                        comment=None, coinc_summ_table=None ):
     """
     @param doThumb: Uses the thumbnail file as the sourcs for the images
     @param map_list: A list of dictionaries to create the image maps
@@ -278,7 +278,7 @@ class InspiralPage(object):
         fname_thumb = fname
 
       # add the image to the page
-      page.a(extra_oneliner.img(src=[fname_thumb], width=400, \
+      page.a(extra_oneliner.img(src=[fname_thumb], width=400,
           alt=tag, border="2"), title=tag, href=[ fname])
 
     page.add("<hr/>")
@@ -288,20 +288,20 @@ class InspiralPage(object):
     for map_dict in map_list:
       m+=1
       page.add( map_dict['text']+'<br>' )
-      page.add( '<IMG src="%s" width=800px '\
+      page.add( '<IMG src="%s" width=800px '
                 'usemap="#map%d">' % ( map_dict['object'], m) )
       page.add( '<MAP name="map%d"> <P>' % m )
       n=0
-      for px, py, link in zip( map_dict['xCoords'],  \
-                               map_dict['yCoords'],  \
-                               map_dict['links']):
+      for px, py, link in zip( map_dict['xCoords'],
+                               map_dict['yCoords'],
+                               map_dict['links'] ):
         n+=1
-        page.add( '<area href="%s" shape="circle" '\
-                  'coords="%d, %d, 5"> Point%d</a>' %\
+        page.add( '<area href="%s" shape="circle" '
+                  'coords="%d, %d, 5"> Point%d</a>' %
                   ( link, px, py, n) )
       page.add('</P></MAP></OBJECT><br>')
-      page.add("<hr/>")    
-        
+      page.add("<hr/>")
+
     # add some extra stuff if needed
     if comment:
       page.add("<div> "+comment+"</div>")
@@ -310,12 +310,12 @@ class InspiralPage(object):
     if coinc_summ_table:
       page.add(coinc_summ_table)
       page.hr()
-        
+
     text = self.write_process_params()
     page.add(text)
     html_file.write(page(False))
     html_file.close()
-    
+
 
   # ------------------------------------------------------
   def write_cache_output(self, html_filename):
@@ -346,18 +346,17 @@ class InspiralPage(object):
     cachefile.close()
 
   # ------------------------------------------------------
-  def write_process_params(self): 
+  def write_process_params(self):
     """
     Returns the version and the full command run 
     """
-    
     text = "Figure(s) produced with '" + self.name + "' with version: <br>" \
-           + self.version  \
-           + '<br>\n<p style="width:80%; color:blue">'+ self.name
+           + self.version \
+           + '<br>\n<p style="width:80%; color:blue">' + self.name
     for arg in self.arguments:
-      text += " " +  arg
-    text+='</p>'
-  
+      text += " " + arg
+    text += '</p>'
+
     return text
 
 def savefig_pylal(filename=None, filename_thumb=None, doThumb=True, dpi=None,
@@ -369,13 +368,13 @@ def savefig_pylal(filename=None, filename_thumb=None, doThumb=True, dpi=None,
   @param dpi: resolution of the figure
   @param dpi_thumb: resolution of the thumbnail (dpi=50 by default)
   @param fig: the particular figure you wish to save (current figure by
-              default)
+         default)
   @return filename_thumb if a thumbnail was created (computed from filename
           by default)
 
   """
   import pylab
-  
+
   # fill in non-trivial defaults
   if fig is None:
     fig = pylab.gcf()
@@ -383,11 +382,11 @@ def savefig_pylal(filename=None, filename_thumb=None, doThumb=True, dpi=None,
     dpi = pylab.rcParams["savefig.dpi"]
   if doThumb and (filename_thumb is None):
     if filename is None:
-      raise ValueError, "must provide filename_thumb or filename if doThumb "\
-        "is True"
+      raise ValueError("must provide filename_thumb or filename if doThumb "
+        "is True")
     index = filename.rindex('.')
     filename_thumb = filename[0:index] + '_thumb' + filename[index:]
-  
+
   # save picture into a file
   if filename is not None:
     fig.savefig(filename, dpi=dpi)
@@ -400,13 +399,13 @@ def savefig_pylal(filename=None, filename_thumb=None, doThumb=True, dpi=None,
 
 
 def ErrorMessagePlotting(opts, thisplot):
-   """
+  """
 
-   """
-   text = "---Error in "+opts.name+"in plotting functions "+thisplot
-   if "chi" in thisplot:
-     text += "\n---possible reasons related to chi-square (are you reading first stage triggers ?)"
-   print >> sys.stderr, text
+  """
+  text = "---Error in "+opts.name+"in plotting functions "+thisplot
+  if "chi" in thisplot:
+    text += "\n---possible reasons related to chi-square (are you reading first stage triggers ?)"
+  print >> sys.stderr, text
 
 
 def message(opts, text):
@@ -445,7 +444,7 @@ def set_figure_name(opts, figure_tag):
   plotting functions.
   """
   fname = ''.join([ "Images/", opts.prefix, "_", figure_tag, opts.suffix, ".png" ])
-  
+
   if opts.output_path is not None:
     fname = opts.output_path + fname
 
@@ -480,11 +479,11 @@ def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=
     xccx = '||'
   else:
     raise ValueError, 'unrecognized format; must be either html or wiki'
-  
+
   # set statTag if not specified
   if statTag is None: statTag = stat.name
 
-  CoincSummTable = '' 
+  CoincSummTable = ''
 
   # populate table
   for coincTable, coincComment in zip(tableList,commentList):
@@ -494,14 +493,14 @@ def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=
       coincTable.sort()
     rank = 1
     # set table header
-    CoincSummTable = CoincSummTable + tx + thx + coincComment + xr 
+    CoincSummTable = CoincSummTable + tx + thx + coincComment + xr
     CoincSummTable = CoincSummTable + \
-        rx + ' Rank ' + xccx + ' followup ' + xccx + 'Coinc IFOs' + xccx +\
+        rx + ' Rank ' + xccx + ' followup ' + xccx + 'Coinc IFOs' + xccx + \
         statTag + xccx + 'False Alarm Probability' + xccx + ' end_time ' + \
         xccx + ' end_time_ns ' + xccx + ' mass1 ' + xccx + ' mass2 ' + xccx + ' mchirp ' + \
         xccx + ' eta ' + xccx + ' snr ' + xccx + ' chisq ' + xccx + ' effective_snr ' + xr
     for coinc in coincTable:
-      if format == 'html': 
+      if format == 'html':
         CoincSummTable = CoincSummTable + '<tr><td rowspan=' + str(coinc.numifos) + '>' + str(rank) + '</td>'
       elif format == 'wiki':
         CoincSummTable = CoincSummTable + rx + '<|' + str(coinc.numifos) + '>' + str(rank) + xccx
@@ -509,8 +508,8 @@ def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=
       if followup:
         followup.from_coinc( coinc, coinc.get_ifos()[1][0] )
         coinc.get_ifos()[1][0]
-        followupFile = followupOpts.prefix  \
-            + '_followup_' + str(followup.number) + followupOpts.suffix\
+        followupFile = followupOpts.prefix \
+            + '_followup_' + str(followup.number) + followupOpts.suffix \
             + '.html'
         followupLink = '<a href="./' + followupFile +'"> here </a>'
       if format == 'html':
@@ -527,12 +526,12 @@ def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=
       rank = rank + 1
       if rank > number: break
     CoincSummTable = CoincSummTable + xt
-        
+
   return CoincSummTable
 
-def write_html_output(opts, args, fnameList, tagLists, \
-      doThumb=True, mapList = [],\
-      comment=None, CoincSummTable=None,\
+def write_html_output(opts, args, fnameList, tagLists,
+      doThumb=True, mapList = [],
+      comment=None, CoincSummTable=None,
       html_tag = '', add_box_flag=False):
   """
   @param opts: The options from the calling code
@@ -581,7 +580,6 @@ def write_html_output(opts, args, fnameList, tagLists, \
 
     # set the correct name for linking (two '//' does not bother)
     fname = "Images/" + os.path.basename(filename)
-     
 
       # set the thumbnail pictures if required
     if doThumb:
@@ -590,9 +588,9 @@ def write_html_output(opts, args, fnameList, tagLists, \
       fname_thumb =fname
 
     # add the image to tge page
-    page.a(extra.img(src=[fname_thumb], width=400, \
+    page.a(extra.img(src=[fname_thumb], width=400,
         alt=tag, border="2"), title=tag, href=[ fname])
-    
+
   page.add("<hr/>")
 
   # add maps to this page
@@ -601,19 +599,19 @@ def write_html_output(opts, args, fnameList, tagLists, \
     for mapDict in mapList:
       m+=1
       page.add( mapDict['text']+'<br>' )
-      page.add( '<IMG src="%s" width=800px '\
+      page.add( '<IMG src="%s" width=800px '
                 'usemap="#map%d">' % ( mapDict['object'], m) )
       page.add( '<MAP name="map%d"> <P>' % m )
       n=0
-      for px, py, link in zip( mapDict['xCoords'],  \
-                               mapDict['yCoords'],  \
-                               mapDict['links']):
+      for px, py, link in zip( mapDict['xCoords'],
+                               mapDict['yCoords'],
+                               mapDict['links'] ):
         n+=1
-        page.add( '<area href="%s" shape="circle" '\
-                  'coords="%d, %d, 5"> Point%d</a>' %\
+        page.add( '<area href="%s" shape="circle" '
+                  'coords="%d, %d, 5"> Point%d</a>' %
                   ( link, px, py, n) )
       page.add('</P></MAP></OBJECT><br>')
-      page.add("<hr/>")    
+      page.add("<hr/>")
 
   if opts.enable_output:
     if comment is not None:
@@ -622,7 +620,7 @@ def write_html_output(opts, args, fnameList, tagLists, \
     if CoincSummTable is not None:
       page.add(CoincSummTable)
       page.hr()
-    text = writeProcessParams( opts.name, opts.version,  args)
+    text = writeProcessParams(opts.name, opts.version, args)
     page.add(text)
     html_file.write(page(False))
     html_file.close()
@@ -640,15 +638,15 @@ def write_cache_output(opts, html_filename,fnameList):
   if opts.enable_output:
     this.write(os.path.basename(html_filename) + '\n')
   for filename in fnameList:
-    if str(filename).endswith('.png'): 
+    if str(filename).endswith('.png'):
       fname = "Images/"+os.path.basename(filename) # set the correct name for linking
-    elif str(filename).endswith('.html'): 
+    elif str(filename).endswith('.html'):
       fname = os.path.basename(str(filename)) # set the correct name for linking
     this.write(fname + '\n')
   this.close()
 
 
-def writeProcessParams(name, version, command): 
+def writeProcessParams(name, version, command):
   """
   Convert input parameters from the process params that the code was called 
   with into a formatted string that can be saved within an other document 
@@ -660,12 +658,12 @@ def writeProcessParams(name, version, command):
   @return text
   """
   text = "Figure(s) produced with '" + name + "' with version: <br>" \
-      + version  \
+      + version \
       + '<br>\n<p style="width:80%; color:blue">'+ name
   for arg in command:
-    text += " " +  arg
+    text += " " + arg
   text+='</p>'
-  
+
   return text
 
 def AddFileToCache(fname, cache):
@@ -677,16 +675,16 @@ def AddFileToCache(fname, cache):
   """
   file_name = fname.split('.')[0].split('-')
   cache.append(lal.CacheEntry( file_name[0], file_name[1],
-    segments.segment(int(file_name[2]), 
-      int(file_name[2]) + int(file_name[3])),
+    segments.segment(int(file_name[2]),
+    int(file_name[2]) + int(file_name[3])),
     'file://' + socket.gethostbyaddr(socket.gethostname())[0] + \
-     os.getcwd() + '/' + fname))
+    os.getcwd() + '/' + fname))
 
 def GenerateCache(fileList):
   """
   Generate a lal.Cache for the list of files
 
-  @param fileList : a list of file
+  @param fileList : a list of files
   @return cache
   """
   cache = lal.Cache()
@@ -706,7 +704,7 @@ try:
   lsctables.use_in(SummValueContentHandler)
 except AttributeError:
   # old glue did not allow .use_in().
-  # FIXME:  remove when we can require the latest version of glue
+  # FIXME: remove when we can require the latest version of glue
   pass
 
 
@@ -729,58 +727,56 @@ def initialise(opts, name, version = None):
     if opts.ifo_times:
       prefix = opts.ifo_times +"-"+ prefix
   except:
-     print >> sys.stderr, "--ifo-times option not implemented in the "+name +" executable. skipping..."
-     pass
+    print >> sys.stderr, "--ifo-times option not implemented in the "+name +" executable. skipping..."
+    pass
   try:
     if opts.ifo_tag:
       prefix = prefix + "_" + opts.ifo_tag
-  except: 
-     print >> sys.stderr, "--ifo-tag option not implemented in the "+name +" executable. skipping..."
-     pass
+  except:
+    print >> sys.stderr, "--ifo-tag option not implemented in the "+name +" executable. skipping..."
+    pass
   try:
     if opts.user_tag:
       prefix = prefix + "_" + opts.user_tag
-  except: 
-     print >> sys.stderr, "--user-tag option not implemented in the "+name +" executable. skipping..."
-     pass
-  
+  except:
+    print >> sys.stderr, "--user-tag option not implemented in the "+name +" executable. skipping..."
+    pass
 
   # compose suffix
   try:
-    if opts.gps_start_time and opts.gps_end_time :
+    if opts.gps_start_time is not None and opts.gps_end_time is not None:
       suffix = "-"+str(int(opts.gps_start_time))+"-"+str(int(math.ceil(opts.gps_end_time))-int(opts.gps_start_time))
     else:
       suffix = "-unspecified-gpstime"
   except:
-     suffix = "-unspecified-gpstime"
-     print >> sys.stderr, "--gps-start-time and/or --gps-end-time  option not implemented in the "+\
-           name +" executable. skipping..."
-     pass
-  
+    suffix = "-unspecified-gpstime"
+    print >> sys.stderr, "--gps-start-time and/or --gps-end-time option not implemented in the " + \
+                         name + " executable. skipping..."
+    pass
 
   opts.prefix = prefix
   opts.suffix = suffix
   opts.name = name
-  opts.version = git_version.verbose_msg.replace('\n','<br>')
+  opts.version = git_version.verbose_msg.replace("\n","<br>")
 
   # make sure output_path is set correctly
   if opts.output_path is not None:
-    opts.output_path = opts.output_path +'/'
+    if not opts.output_path.endswith("/"):
+      opts.output_path += "/"
 
     # create output file if required
-    if not os.path.exists( opts.output_path ):
-      os.mkdir (opts.output_path)
+    if not os.path.exists(opts.output_path):
+      os.mkdir(opts.output_path)
 
-    if not os.path.exists( opts.output_path+"Images" ):
-      os.mkdir (opts.output_path+"Images")
-      
+    if not os.path.exists(opts.output_path+"Images"):
+      os.mkdir(opts.output_path+"Images")
+
   else:
-    if not os.path.exists( "Images" ):
-      os.mkdir( "Images")
+    if not os.path.exists("Images"):
+      os.mkdir("Images")
 
-
-  
   return opts
+
 
 def init_markup_page( opts):
   """
@@ -808,13 +804,13 @@ def init_markup_page( opts):
   return page, extra_oneliner
 
 
-def readHorizonDistanceFromSummValueTable(fList, verbose=False, contenthandler = SummValueContentHandler):
+def readHorizonDistanceFromSummValueTable(fList, verbose=False, contenthandler=SummValueContentHandler):
   """
   read in the SummValueTables from a list of files and return the
   horizon distance versus total mass
 
-  @param fList:       list of input files
-  @param verbose: True of False (default is False)
+  @param fList:   list of input files
+  @param verbose: boolean (default False)
   """
 
   output = {}
@@ -823,7 +819,7 @@ def readHorizonDistanceFromSummValueTable(fList, verbose=False, contenthandler =
   if len(fList) == 0:
     return output
 
-  # for each file in the list 
+  # for each file in the list
   for thisFile in fList:
     if verbose:
       print str(count+1)+"/"+str(len(fList))+" " + thisFile
@@ -837,10 +833,10 @@ def readHorizonDistanceFromSummValueTable(fList, verbose=False, contenthandler =
       print "ValueError in readHorizonDistanceFromSummValueTable whiile reading summvalue table from file ", thisFile
       return output,massOutput
 
-    # if not summ_value table was filled , then simply returns 
+    # if not summ_value table was filled , then simply returns
     if summ_value_table is None:
       return output,massOutput
-    
+
     # else
     for row in summ_value_table:
       # we should fnd a name "inspiral_Effective_distance

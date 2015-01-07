@@ -234,7 +234,11 @@ void LALInferenceSetVariable(LALInferenceVariables * vars, const char * name, vo
   if(!item) {
     XLAL_ERROR_VOID(XLAL_EINVAL, "Entry \"%s\" not found.", name);
   }
-  if (item->vary==LALINFERENCE_PARAM_FIXED) return;
+  if (item->vary==LALINFERENCE_PARAM_FIXED)
+  {
+    XLALPrintWarning("Warning! Attempting to set variable %s which is fixed\n",item->name);
+    return;
+  }
 
   /* We own the memory for each of these types, and it's about to be
      replaced by the new inputs. */
@@ -749,7 +753,8 @@ void LALInferencePrintSampleNonFixed(FILE *fp,LALInferenceVariables *sample){
 					break;
            */
 				default:
-					fprintf(stdout, "<can't print>");
+				  break;
+				  // fprintf(stdout, "<can't print>");  Don't print anything
 			}
 		fprintf(fp,"\t");
 		}
@@ -1096,8 +1101,6 @@ const char *LALInferenceTranslateInternalToExternalParamName(const char *inName)
     return "psi";
   } else if (!strcmp(inName, "distance")) {
     return "dist";
-  } else if (!strcmp(inName, "fRef")) {
-    return "f_ref";
   } else {
     return inName;
   }
@@ -1132,8 +1135,6 @@ void LALInferenceTranslateExternalToInternalParamName(char *outName, const char 
     strcpy(outName, "phi_jl");
   } else if (!strcmp(inName, "dist")) {
     strcpy(outName, "distance");
-  } else if (!strcmp(inName, "f_ref")) {
-    strcpy(outName, "fRef");
   } else {
     strcpy(outName, inName);
   }
@@ -1281,6 +1282,34 @@ int LALInferenceCompareVariables(LALInferenceVariables *var1, LALInferenceVariab
             else
                 result = 1;
             break;
+          case LALINFERENCE_REAL8Vector_t:
+          {
+            REAL8Vector *v1=ptr1->value,*v2=ptr2->value;
+            if(v1->length!=v2->length) result=1;
+            else
+              for(UINT4 i=0;i<v1->length;i++)
+              {
+                if(v1->data[i]!=v2->data[i]){
+                  result=1;
+                  break;
+                }
+              }
+            break;
+          }
+          case LALINFERENCE_UINT4Vector_t:
+          {
+            UINT4Vector *v1=ptr1->value,*v2=ptr2->value;
+            if(v1->length!=v2->length) result=1;
+            else
+              for(UINT4 i=0;i<v1->length;i++)
+              {
+                if(v1->data[i]!=v2->data[i]){
+                  result=1;
+                  break;
+                }
+              }
+            break;
+          }
           default:
             XLAL_ERROR(XLAL_EFAILED, "Encountered unknown LALInferenceVariables type (entry: \"%s\").", ptr1->name);
         }
@@ -1895,28 +1924,45 @@ char *colNameToParamName(const char *colName) {
   return retstr;
 }
 
+LALInferenceVariableItem *LALInferencePopVariableItem(LALInferenceVariables *vars, const char *name)
+{
+  LALInferenceVariableItem **prevPtr=&(vars->head);
+  LALInferenceVariableItem *thisPtr=vars->head;
+  while(thisPtr)
+  {
+    if(!strcmp(thisPtr->name,name))
+      break;
+    prevPtr=&(thisPtr->next);
+    thisPtr=thisPtr->next;
+  }
+  if(!thisPtr) return NULL;
+  *prevPtr=thisPtr->next;
+  thisPtr->next=NULL;
+  vars->dimension--;
+  return thisPtr;
+}
+
 void LALInferenceSortVariablesByName(LALInferenceVariables *vars)
 {
-  LALInferenceVariables tmp;
-  tmp.head=NULL;
-  tmp.dimension=0;
-  LALInferenceVariableItem *thisitem,*ptr;
-  LALInferenceVariables *new=XLALCalloc(1,sizeof(*new));
-  if(!vars){
-    XLAL_ERROR_VOID(XLAL_EFAULT, "Received null input pointer.");
-  }
+  
+  /* Start a new list */
+  LALInferenceVariableItem *newHead=NULL;
+
+  /* While there are elements in the old list */
   while(vars->head)
   {
-    thisitem=vars->head;
-    for (ptr=thisitem->next;ptr;ptr=ptr->next){
-      if(strcmp(ptr->name,thisitem->name)<0)
-        thisitem=ptr;
-    }
-    LALInferenceAddVariable(&tmp, thisitem->name, thisitem->value, thisitem->type, thisitem->vary);
-    LALInferenceRemoveVariable(vars,thisitem->name);
+    /* Scan through the old list looking for first item alphabetically */
+    LALInferenceVariableItem *this=NULL,*match=NULL;
+    for(match=vars->head,this=match->next; this; this=this->next)
+      if(strcmp(match->name,this->name)<0)
+        match = this;
+    /* Remove it from the old list and link it into the new one */
+    LALInferenceVariableItem *item=LALInferencePopVariableItem(vars,match->name);
+    item->next=newHead;
+    newHead=item;
+	vars->dimension++; /* Increase the dimension which was decreased by PopVariableItem */
   }
-  vars->head=tmp.head;
-  vars->dimension=tmp.dimension;
+  vars->head=newHead;
   return;
 }
 

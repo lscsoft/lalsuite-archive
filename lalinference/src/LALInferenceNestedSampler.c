@@ -520,7 +520,7 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
       LALInferenceSetupkDTreeNSLivePoints( runState );
       
   if(!LALInferenceCheckVariable(runState->algorithmParams,"Nmcmc")){
-    INT4 tmp=200;
+    INT4 tmp=MAX_MCMC;
     LALInferenceAddVariable(runState->algorithmParams,"Nmcmc",&tmp,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_OUTPUT);
   }
   s=initNSintegralState(Nruns,Nlive);
@@ -1484,7 +1484,6 @@ static void SetupEigenProposals(LALInferenceRunState *runState)
 
   /* Set up eigenvectors and eigenvalues. */
   gsl_matrix *covCopy = gsl_matrix_alloc(N,N);
-  eVectors = gsl_matrix_alloc(N,N);
   eValues = gsl_vector_alloc(N);
   gsl_eigen_symmv_workspace *ws = gsl_eigen_symmv_alloc(N);
   int gsl_status;
@@ -1499,8 +1498,10 @@ static void SetupEigenProposals(LALInferenceRunState *runState)
     eigenValues->data[i] = gsl_vector_get(eValues,i);
   }
   
-  LALInferenceAddVariable(runState->proposalArgs, "covarianceEigenvectors", &eVectors, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED);
-  LALInferenceAddVariable(runState->proposalArgs, "covarianceEigenvalues", &eigenValues, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED);
+  if(!LALInferenceCheckVariable(runState->proposalArgs,"covarianceEigenvectors"))
+    LALInferenceAddVariable(runState->proposalArgs, "covarianceEigenvectors", &eVectors, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED);
+  if(!LALInferenceCheckVariable(runState->proposalArgs,"covarianceEigenvalues"))
+    LALInferenceAddVariable(runState->proposalArgs, "covarianceEigenvalues", &eigenValues, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(runState->proposalArgs,"covarianceMatrix",cvm,LALINFERENCE_gslMatrix_t,LALINFERENCE_PARAM_OUTPUT);
   
   gsl_matrix_free(covCopy);

@@ -21,8 +21,6 @@
  *  MA  02111-1307  USA
  */
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <lal/LALInspiral.h>
@@ -377,12 +375,19 @@ void LALInferenceSetupDefaultNSProposal(LALInferenceRunState *runState, LALInfer
     LALInferenceAddProposalToCycle(runState, ensembleWalkIntrinsicName, &LALInferenceEnsembleWalkIntrinsic, SMALLWEIGHT);
     LALInferenceAddProposalToCycle(runState, ensembleWalkExtrinsicName, &LALInferenceEnsembleWalkExtrinsic, SMALLWEIGHT);
   }
-  
-  
+    
   //Add LALInferencePSDFitJump to the cycle
   if(LALInferenceGetProcParamVal(runState->commandLine, "--psdFit"))
   {
     LALInferenceAddProposalToCycle (runState, PSDFitJumpName, *LALInferencePSDFitJump, SMALLWEIGHT);
+  }
+  
+  /* Add glitch-fitting proposals to cycle */
+  if(LALInferenceGetProcParamVal(runState->commandLine, "--glitchFit"))
+  {
+    //Morlet wavelet propposals
+    LALInferenceAddProposalToCycle(runState, GlitchMorletJumpName, *LALInferenceGlitchMorletProposal, SMALLWEIGHT);
+    LALInferenceAddProposalToCycle(runState, GlitchMorletReverseJumpName, *LALInferenceGlitchMorletReverseJump, SMALLWEIGHT);
   }
 
   if(LALInferenceGetProcParamVal(runState->commandLine,"--proposal-kde")){
@@ -390,6 +395,11 @@ void LALInferenceSetupDefaultNSProposal(LALInferenceRunState *runState, LALInfer
       if (LALInferenceGetProcParamVal(runState->commandLine,"--ptmcmc-samples") || LALInferenceGetProcParamVal(runState->commandLine,"--ascii-samples")) {
           LALInferenceSetupClusteredKDEProposalsFromFile(runState);
       }
+  }
+
+  /* Calibration error splines */
+  if (LALInferenceGetProcParamVal(runState->commandLine, "--enable-spline-calibration")) {
+    LALInferenceAddProposalToCycle(runState, splineCalibrationProposalName, &LALInferenceSplineCalibrationProposal, SMALLWEIGHT);
   }
 
   LALInferenceRandomizeProposalCycle(runState);
@@ -727,13 +737,13 @@ REAL8 LALInferenceSingleProposal(LALInferenceRunState *runState, LALInferenceVar
   do {
     varNr = 1+gsl_rng_uniform_int(GSLrandom, dim);
     param = LALInferenceGetItemNr(proposedParams, varNr);
-  } while (param->vary == LALINFERENCE_PARAM_FIXED || param->vary == LALINFERENCE_PARAM_OUTPUT || !strcmp(param->name,"psdscale"));
+  } while (param->vary == LALINFERENCE_PARAM_FIXED || param->vary == LALINFERENCE_PARAM_OUTPUT || param->type != LALINFERENCE_REAL8_t);
 
   for (dummyParam = proposedParams->head, i = 0; dummyParam != NULL; dummyParam = dummyParam->next) {
     if (!strcmp(dummyParam->name, param->name)) {
       /* Found it; i = index into sigma vector. */
       break;
-    } else if (dummyParam->vary == LALINFERENCE_PARAM_FIXED || dummyParam->vary == LALINFERENCE_PARAM_OUTPUT) {
+    } else if (dummyParam->vary == LALINFERENCE_PARAM_FIXED || dummyParam->vary == LALINFERENCE_PARAM_OUTPUT || param->type != LALINFERENCE_REAL8_t) {
       /* Don't increment i, since we're not dealing with a "real" parameter. */
       continue;
     } else {
@@ -843,7 +853,7 @@ REAL8 LALInferenceCovarianceEigenvectorJump(LALInferenceRunState *runState, LALI
     exit(1);
   }
   do {
-    if (proposeIterator->vary != LALINFERENCE_PARAM_FIXED && proposeIterator->vary != LALINFERENCE_PARAM_OUTPUT && strcmp(proposeIterator->name,"psdscale")) {
+    if (proposeIterator->vary != LALINFERENCE_PARAM_FIXED && proposeIterator->vary != LALINFERENCE_PARAM_OUTPUT && proposeIterator->type==LALINFERENCE_REAL8_t) {
       REAL8 tmp = *((REAL8 *)proposeIterator->value);
       REAL8 inc = jumpSize*gsl_matrix_get(eigenvectors, j, i);
 
