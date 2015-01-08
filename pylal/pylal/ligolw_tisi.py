@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2013  Kipp Cannon
+# Copyright (C) 2006--2014  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -25,36 +25,16 @@
 
 
 import itertools
-import sys
-import warnings
 
 
 from glue import iterutils
 from glue import offsetvector
-from glue.ligolw import lsctables
-from glue.ligolw import utils as ligolw_utils
-from glue.ligolw.utils import time_slide as ligolw_time_slide
 from pylal import git_version
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
-
-
-def get_time_slide_id(*args, **kwargs):
-	warnings.warn("pylal.ligolw_tisi.get_time_slide_id() is deprecated.  use glue.ligolw.utils.time_slide.get_time_slide_id() instead.", DeprecationWarning)
-	return ligolw_time_slide.get_time_slide_id(*args, **kwargs)
-
-
-def time_slides_vacuum(*args, **kwargs):
-	warnings.warn("pylal.ligolw_tisi.time_slides_vacuum() is deprecated.  use glue.ligolw.utils.time_slide.time_slides_vacuum() instead.", DeprecationWarning)
-	return ligolw_time_slide.time_slides_vacuum(*args, **kwargs)
-
-
-def time_slide_list_merge(*args, **kwargs):
-	warnings.warn("pylal.ligolw_tisi.time_slide_list_merge() is deprecated.  use glue.ligolw.utils.time_slide.time_slide_list_merge() instead.", DeprecationWarning)
-	return ligolw_time_slide.time_slide_list_merge(*args, **kwargs)
 
 
 #
@@ -150,47 +130,6 @@ def parse_inspiral_num_slides_slidespec(slidespec):
 	count, offsets = slidespec.strip().split(":")
 	offsetvect = offsetvector.offsetvector((instrument.strip(), float(offset)) for instrument, offset in (token.strip().split("=") for token in offsets.strip().split(",")))
 	return int(count), offsetvect
-
-
-#
-# =============================================================================
-#
-#                                     I/O
-#
-# =============================================================================
-#
-
-
-@lsctables.use_in
-class DefaultContentHandler(lsctables.ligolw.LIGOLWContentHandler):
-	pass
-
-
-def load_time_slides(filename, verbose = False, gz = None, contenthandler = DefaultContentHandler):
-	"""
-	Load a time_slide table from the LIGO Light Weight XML file named
-	filename, or stdin if filename is None.  See
-	glue.ligolw.utils.load_filename() for a description of the verbose
-	and gz parameters.  The return value is a dictionary mapping each
-	time slide ID to a dictionary of instrument/offset pairs for that
-	time slide.
-
-	Note that a side effect of this function is that the ID generator
-	associated with the TimeSlideTable class in glue.ligolw.lsctables
-	is synchronized with the result, so that the next ID it generates
-	will not conflict with the IDs listed in the dictionary returned by
-	this function.
-
-	Note also that this utility function should not be how applications
-	that perform multiple manipulations with an XML file obtain the
-	time slide table's contents since this function re-parses the file
-	from scratch.  Instead, from the glue.ligolw package use
-	table.get_table(...).as_dict().
-	"""
-	warnings.warn("pylal.ligolw_tisi.load_time_slides() is deprecated.  use glue.ligolw library directly to load document instead.", DeprecationWarning)
-	time_slide_table = lsctables.TimeSlideTable.get_table(ligolw_utils.load_filename(filename, verbose = verbose, gz = gz, contenthandler = contenthandler))
-	time_slide_table.sync_next_id()
-	return time_slide_table.as_dict()
 
 
 #
