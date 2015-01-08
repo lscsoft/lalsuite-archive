@@ -27,7 +27,6 @@
 import itertools
 
 
-from glue import iterutils
 from glue import offsetvector
 from pylal import git_version
 
@@ -60,8 +59,7 @@ def parse_slidespec(slidespec):
 	Example:
 
 	>>> parse_slidespec("H1=-5:+5:0.5")
-	('H1', [-5.0, -4.5, -4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5,
-	0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0])
+	('H1', [-5.0, -4.5, -4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0])
 	"""
 	try:
 		instrument, rangespec = slidespec.split("=")
@@ -125,7 +123,7 @@ def parse_inspiral_num_slides_slidespec(slidespec):
 	Example:
 
 	>>> parse_inspiral_num_slides_slidespec("3:H1=0,H2=5,L1=10")
-	(3, {'H2': 5.0, 'H1': 0.0, 'L1': 10.0})
+	(3, offsetvector({'H2': 5.0, 'H1': 0.0, 'L1': 10.0}))
 	"""
 	count, offsets = slidespec.strip().split(":")
 	offsetvect = offsetvector.offsetvector((instrument.strip(), float(offset)) for instrument, offset in (token.strip().split("=") for token in offsets.strip().split(",")))
@@ -152,14 +150,10 @@ def SlidesIter(slides):
 
 	>>> slides = {"H1": [-1, 0, 1], "H2": [-1, 0, 1], "L1": [0]}
 	>>> list(SlidesIter(slides))
-	[{'H2': -1, 'H1': -1, 'L1': 0}, {'H2': 0, 'H1': -1, 'L1': 0},
-	{'H2': 1, 'H1': -1, 'L1': 0}, {'H2': -1, 'H1': 0, 'L1': 0}, {'H2':
-	0, 'H1': 0, 'L1': 0}, {'H2': 1, 'H1': 0, 'L1': 0}, {'H2': -1, 'H1':
-	1, 'L1': 0}, {'H2': 0, 'H1': 1, 'L1': 0}, {'H2': 1, 'H1': 1, 'L1':
-	0}]
+	[offsetvector({'H2': -1, 'H1': -1, 'L1': 0}), offsetvector({'H2': -1, 'H1': 0, 'L1': 0}), offsetvector({'H2': -1, 'H1': 1, 'L1': 0}), offsetvector({'H2': 0, 'H1': -1, 'L1': 0}), offsetvector({'H2': 0, 'H1': 0, 'L1': 0}), offsetvector({'H2': 0, 'H1': 1, 'L1': 0}), offsetvector({'H2': 1, 'H1': -1, 'L1': 0}), offsetvector({'H2': 1, 'H1': 0, 'L1': 0}), offsetvector({'H2': 1, 'H1': 1, 'L1': 0})]
 	"""
 	instruments = slides.keys()
-	for slide in iterutils.MultiIter(*slides.values()):
+	for slide in itertools.product(*slides.values()):
 		yield offsetvector.offsetvector(zip(instruments, slide))
 
 
@@ -175,10 +169,7 @@ def Inspiral_Num_Slides_Iter(count, offsets):
 	Example:
 
 	>>> list(Inspiral_Num_Slides_Iter(3, {"H1": 0.0, "H2": 5.0,"L1": 10.0}))
-	[{'H2': -15.0, 'H1': -0.0, 'L1': -30.0}, {'H2': -10.0, 'H1': -0.0,
-	'L1': -20.0}, {'H2': -5.0, 'H1': -0.0, 'L1': -10.0}, {'H2': 0.0,
-	'H1': 0.0, 'L1': 0.0}, {'H2': 5.0, 'H1': 0.0, 'L1': 10.0}, {'H2':
-	10.0, 'H1': 0.0, 'L1': 20.0}, {'H2': 15.0, 'H1': 0.0, 'L1': 30.0}]
+	[offsetvector({'H2': -15.0, 'H1': -0.0, 'L1': -30.0}), offsetvector({'H2': -10.0, 'H1': -0.0, 'L1': -20.0}), offsetvector({'H2': -5.0, 'H1': -0.0, 'L1': -10.0}), offsetvector({'H2': 0.0, 'H1': 0.0, 'L1': 0.0}), offsetvector({'H2': 5.0, 'H1': 0.0, 'L1': 10.0}), offsetvector({'H2': 10.0, 'H1': 0.0, 'L1': 20.0}), offsetvector({'H2': 15.0, 'H1': 0.0, 'L1': 30.0})]
 
 	The output time slides are all integer multiples of the input time
 	shift vector in the range [-count, +count], and are returned in
