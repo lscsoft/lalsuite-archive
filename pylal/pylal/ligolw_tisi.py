@@ -60,31 +60,32 @@ def parse_slidespec(slidespec):
 
 	>>> parse_slidespec("H1=-5:+5:0.5")
 	('H1', [-5.0, -4.5, -4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0])
+	>>> parse_slidespec("H1=+5:-5:-0.5")
+	('H1', [-5.0, -4.5, -4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0])
+	>>> parse_slidespec("H1=-5:+5:8")
+	('H1', [-5.0, 3.0])
 	"""
 	try:
 		instrument, rangespec = slidespec.split("=")
 	except ValueError:
 		raise ValueError("cannot parse time slide '%s'" % slidespec)
 	offsets = set()
-	for range in [s.strip() for s in rangespec.split(",")]:
+	for rng in [s.strip() for s in rangespec.split(",")]:
 		try:
-			first, last, step = map(float, range.split(":"))
+			first, last, step = map(float, rng.split(":"))
 		except ValueError:
-			raise ValueError("malformed range '%s' in '%s'" % (range, rangespec))
+			raise ValueError("malformed range '%s' in '%s'" % (rng, rangespec))
 		if step == 0:
 			if first != last:
-				raise ValueError("divide by zero in range '%s'" % range)
+				raise ValueError("divide by zero in range '%s'" % rng)
 			offsets.add(first)
 			continue
-		if (last - first) / step < 0.0:
-			raise ValueError("step has wrong sign in range '%s'" % range)
+		elif last > first if step < 0 else last < first:
+			raise ValueError("step has wrong sign in range '%s'" % rng)
 
 		for i in itertools.count():
 			x = first + i * step
-			if step > 0:
-				if not (first <= x <= last):
-					break
-			elif not (last <= x <= first):
+			if not min(first, last) <= x <= max(first, last):
 				break
 			offsets.add(x)
 	return instrument.strip(), sorted(offsets)
