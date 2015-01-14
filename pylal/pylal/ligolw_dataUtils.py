@@ -45,6 +45,7 @@ __version__ = git_version.id
 #   Tools for manipulating statistics
 #
 #
+
 def get_row_stat(row, arg):
     """
     Method to evaluate the desired operation on columns from a row in a table.

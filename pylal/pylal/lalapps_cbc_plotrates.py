@@ -41,6 +41,7 @@ from pylal import ligolw_sqlutils as sqlutils
 from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
 from pylal import printutils
+from pylal.ligolw_dataUtils import get_row_stat
 
 # =============================================================================
 #
@@ -303,23 +304,6 @@ def fix_zarray(zarray,sigmas):
         #        zarray[ii,-(n+1)] = s
 
 
-def get_row_stat(row, arg):
-    """    
-    Method to evaluate the desired operation on columns from a row in a table. The desired operation can be either a pre-defined function (if it exists in the row's namespace) or a function of the elements in the row's name space. Syntax for the arg is python. 
-    The name space available to eval is limited to the columns in the row and functions in the math module.
-    """
-    # for speed: if the arg exists in the row, just return it
-    if arg in dir(row):
-        try:
-            return getattr( row, arg )()
-        except TypeError:
-            return getattr( row, arg )
-    # otherwise, evaluate explicitly
-    row_dict = dict([ [name, getattr(row,name)] for name in dir(row) ])
-    safe_dict = dict([ [name,val] for name,val in row_dict.items() + math.__dict__.items() if not name.startswith('__') ])
-    
-    return eval( arg, {"__builtins__":None}, safe_dict )
-
 def createDataHolder( tableName, columns = None ):
     """
     Creates a DataHolder object. If tableName is the same as a table in lsctables, the DataHolder class will be an instance of that table's RowType.
@@ -337,7 +321,7 @@ def createDataHolder( tableName, columns = None ):
 
         def store( self, data ):
             """
-            Takes a list of data and assings the values to the object's variables.
+            Takes a list of data and assigns the values to the object's variables.
 
             @data: a list of tuples in which the first element is the column name and the second is the value to assign.
             """
@@ -346,7 +330,10 @@ def createDataHolder( tableName, columns = None ):
 
         def get_value(self, arg):
             """
-            Returns the result of some operation on the elements in self. 'arg' can be the name of any defined function in self's base class, a slot in self, or a function of either or both. See get_row_stat for more info.
+            Returns the result of some operation on the elements in self. 
+            'arg' can be the name of any defined function in self's base class,
+            a slot in self, or a function of either or both. 
+            See ligolw.dataUtils.get_row_stat for more info.
             """
             return get_row_stat( self, arg )
 
@@ -380,7 +367,7 @@ def combineRowStats( function, rows ):
     if function == 'echo':
         return rows
 
-    # otherwise, evaulate the function explicitly
+    # otherwise, evaluate the function explicitly
     safe_dict = dict([ [name,val] for name,val in rows.items() + math.__dict__.items() if not name.startswith('__') ])
 
     try:
