@@ -192,6 +192,8 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
   REAL8 nullLikelihood;
   REAL8 trigSNR = 0.0;
   REAL8 *ladder = NULL;			//the ladder
+  REAL8 ptAcceptanceLow = 0;
+  REAL8 ptAcceptanceHigh = 0;
   REAL8 *annealDecay = NULL;
   INT4 parameter=0;
   INT4 annealStartIter = 0;
@@ -1021,6 +1023,9 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, INT4 i, 
       XLALFree(parameters);
       XLALFree(adjParameters);
     }
+
+    /* Update acceptance ratio with hotter chain. */
+    ptAcceptanceHigh = swapAccepted ? 1 : 0;
   }
 
   /* Check if next lower temperature is ready to swap */
@@ -1074,7 +1079,30 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, INT4 i, 
         XLALFree(parameters);
         XLALFree(adjParameters);
       }
+
+      /* Update acceptance ratio with colder chain. */
+      ptAcceptanceLow = swapAccepted ? 1 : 0;
     }
+  }
+
+  /* If a swap was proposed (and we're not on an extremal chain)... */
+  if ((swapProposed || readyToSwap) && (MPIrank > 0 && MPIrank < nChain-1)) {
+    /* ...update temperature of current chain. */
+    REAL8 kappa = 1 / 200.;
+    REAL8 logS = log(ladder[MPIrank] - ladder[MPIrank-1]) - log(ladder[MPIrank+1] - ladder[MPIrank]);
+    logS += kappa * (ptAcceptanceLow - ptAcceptanceHigh)
+    REAL8 S = exp(logS);
+    ladder[MPIrank] = (ladder[MPIrank-1] + S * ladder[MPIrank+1]) / (1 + S);
+
+    /* Exchange updated temperatures. */
+    if (swapProposed && MPIrank < nChain - 2)
+      /* We're on the colder chain. */
+      MPI_Send(ladder + MPIrank, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD);
+      MPI_Recv(ladder + MPIrank+1, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
+    else if (readyToSwap && MPIrank > 1)
+      /* We're on the hotter chain. */
+      MPI_Recv(ladder + MPIrank-1, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
+      MPI_Send(ladder + MPIrank, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD);
   }
 
   /* Return values for colder chain: 0=nothing happened; 1=swap proposed, not accepted; 2=swap proposed & accepted */
