@@ -284,7 +284,7 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
   ProcessParamsTable *ppt;
 
   ladder = malloc(nChain * sizeof(REAL8));                  // Array of temperatures for parallel tempering.
-  annealDecay = malloc(nChain * sizeof(REAL8));           			// Used by annealing scheme
+  annealDecay = malloc(nChain * sizeof(REAL8));             // Used by annealing scheme
 
   /* If not specified otherwise, set effective sample size to total number of iterations */
   if (!Neff) {
@@ -1079,12 +1079,12 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, INT4 i, 
 
   /* Return values for colder chain: 0=nothing happened; 1=swap proposed, not accepted; 2=swap proposed & accepted */
   if (swapProposed) {
-      if (swapAccepted)
-          swapReturn = ACCEPTED_SWAP;
-      else
-          swapReturn = REJECTED_SWAP;
+    if (swapAccepted)
+      swapReturn = ACCEPTED_SWAP;
+    else
+      swapReturn = REJECTED_SWAP;
   } else {
-      swapReturn = NO_SWAP_PROPOSED;
+    swapReturn = NO_SWAP_PROPOSED;
   }
   return swapReturn;
 }
