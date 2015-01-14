@@ -63,10 +63,10 @@ typedef enum {
 } LALInferenceMPIswapAcceptance;
 
 /* Standard parallel temperature swap proposal function */
-UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, INT4 i, FILE *swapfile);
+UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, REAL8 *ptAcceptanceLow, REAL8 *ptAcceptanceHigh, INT4 i, FILE *swapfile);
 
 /* Metropolis-coupled MCMC swap proposal, when the likelihood is not identical between chains */
-UINT4 LALInferenceMCMCMCswap(LALInferenceRunState *runState, REAL8 *ladder, INT4 i, FILE *swapfile);
+UINT4 LALInferenceMCMCMCswap(LALInferenceRunState *runState, REAL8 *ladder, REAL8 *ptAcceptanceLow, REAL8 *ptAcceptanceHigh, INT4 i, FILE *swapfile);
 
 /* Functions for controlling adaptation */
 void acknowledgePhase(LALInferenceRunState *runState);

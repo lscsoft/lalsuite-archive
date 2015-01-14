@@ -53,6 +53,9 @@
 #define CVS_DATE "$Date$"
 #define CVS_NAME_STRING "$Name$"
 
+/* Hack to suppress unused parameter warnings. */
+#define UNUSED(x) (void)(x)
+
 const char *const parallelSwapProposalName = "ParallelSwap";
 const char *const clusteredKDEProposalName = "ClusteredKDEProposal";
 
@@ -206,7 +209,7 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
   LALInferenceVariables *propStats = runState->proposalStats; // Print proposal acceptance rates to file
   LALInferenceProposalStatistics *propStat;
   UINT4 propTrack = 0;
-  UINT4 (*parallelSwap)(LALInferenceRunState *, REAL8 *, INT4, FILE *);
+  UINT4 (*parallelSwap)(LALInferenceRunState *, REAL8 *, REAL8 *, REAL8*, INT4, FILE *);
   INT4 nPar = LALInferenceGetVariableDimensionNonFixed(runState->currentParams);
   INT4 Niter = *(INT4*) LALInferenceGetVariable(runState->algorithmParams, "Niter");
   INT4 Neff = *(INT4*) LALInferenceGetVariable(runState->algorithmParams, "Neff");
@@ -832,7 +835,7 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
 
     /* Excute swap proposal. */
     if (*runPhase_p == LALINFERENCE_ONLY_PT || *runPhase_p == LALINFERENCE_TEMP_PT) {
-      swapReturn = parallelSwap(runState, ladder, i, swapfile); 
+      swapReturn = parallelSwap(runState, ladder, &ptAcceptanceLow, &ptAcceptanceHigh, i, swapfile); 
       if (propStats) {
         if (swapReturn != NO_SWAP_PROPOSED) {
           propStat = ((LALInferenceProposalStatistics *)LALInferenceGetVariable(propStats, parallelSwapProposalName));
@@ -975,7 +978,7 @@ INT4 PTMCMCOneStep(LALInferenceRunState *runState)
 //-----------------------------------------
 // Swap routines:
 //-----------------------------------------
-UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, INT4 i, FILE *swapfile)
+UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, REAL8 *ptAcceptanceLow, REAL8 *ptAcceptanceHigh, INT4 i, FILE *swapfile)
 {
   INT4 MPIrank;
   MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
@@ -1025,7 +1028,7 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, INT4 i, 
     }
 
     /* Update acceptance ratio with hotter chain. */
-    ptAcceptanceHigh = swapAccepted ? 1 : 0;
+    *ptAcceptanceHigh = swapAccepted ? 1 : 0;
   }
 
   /* Check if next lower temperature is ready to swap */
@@ -1081,7 +1084,7 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, INT4 i, 
       }
 
       /* Update acceptance ratio with colder chain. */
-      ptAcceptanceLow = swapAccepted ? 1 : 0;
+      *ptAcceptanceLow = swapAccepted ? 1 : 0;
     }
   }
 
@@ -1090,19 +1093,21 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, INT4 i, 
     /* ...update temperature of current chain. */
     REAL8 kappa = 1 / 200.;
     REAL8 logS = log(ladder[MPIrank] - ladder[MPIrank-1]) - log(ladder[MPIrank+1] - ladder[MPIrank]);
-    logS += kappa * (ptAcceptanceLow - ptAcceptanceHigh)
+    logS += kappa * (*ptAcceptanceLow - *ptAcceptanceHigh);
     REAL8 S = exp(logS);
     ladder[MPIrank] = (ladder[MPIrank-1] + S * ladder[MPIrank+1]) / (1 + S);
 
     /* Exchange updated temperatures. */
-    if (swapProposed && MPIrank < nChain - 2)
+    if (swapProposed && MPIrank < nChain - 2) {
       /* We're on the colder chain. */
       MPI_Send(ladder + MPIrank, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD);
       MPI_Recv(ladder + MPIrank+1, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
-    else if (readyToSwap && MPIrank > 1)
+    }
+    else if (readyToSwap && MPIrank > 1) {
       /* We're on the hotter chain. */
       MPI_Recv(ladder + MPIrank-1, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
       MPI_Send(ladder + MPIrank, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD);
+    }
   }
 
   /* Return values for colder chain: 0=nothing happened; 1=swap proposed, not accepted; 2=swap proposed & accepted */
@@ -1224,8 +1229,11 @@ void LALInferenceLadderUpdate(LALInferenceRunState *runState, INT4 sourceChainFl
   XLALFree(params);
 }
 
-UINT4 LALInferenceMCMCMCswap(LALInferenceRunState *runState, REAL8 *ladder, INT4 i, FILE *swapfile)
+UINT4 LALInferenceMCMCMCswap(LALInferenceRunState *runState, REAL8 *ladder, REAL8 *ptAcceptanceLow, REAL8 *ptAcceptanceHigh, INT4 i, FILE *swapfile)
 {
+  UNUSED(ptAcceptanceHigh);
+  UNUSED(ptAcceptanceLow);
+
   INT4 MPIrank;
   MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
   MPI_Status MPIstatus;
