@@ -784,6 +784,8 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
           fprintf(chainoutput, "%f\t", runState->model->SNR);
       }
 
+      fprintf(chainoutput, "%f\t", ladder[MPIrank]);
+
       if (benchmark) {
         gettimeofday(&tv, NULL);
         timestamp = tv.tv_sec + tv.tv_usec/1E6 - timestamp_epoch;
@@ -1655,6 +1657,9 @@ void LALInferencePrintPTMCMCHeaderFile(LALInferenceRunState *runState, FILE *cha
         fprintf(chainoutput, "SNR\t");
     }
 
+    /* Output adapting temperature. */
+    fprintf(chainoutput, "temp");
+
     if (benchmark)
       fprintf(chainoutput, "timestamp\t");
     fprintf(chainoutput,"\n");
@@ -1671,6 +1676,7 @@ void LALInferencePrintPTMCMCHeaderFile(LALInferenceRunState *runState, FILE *cha
       headIFO = headIFO->next;
       i++;
     }
+    fprintf(chainoutput, "%f\t", temperature);
     if(benchmark) {
       gettimeofday(&tv, NULL);
       timestamp = tv.tv_sec + tv.tv_usec/1E6;
