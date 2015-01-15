@@ -295,8 +295,8 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
   nChainTracked = 3;
   sMin = (MPIrank > 0) ? 0 : 1;
   sMax = (MPIrank < nChain - 1) ? 2 : 1;
-  ladder = malloc(nChainTracked * sizeof(REAL8));                  // Array of temperatures for parallel tempering.
-  annealDecay = malloc(nChainTracked * sizeof(REAL8));             // Used by annealing scheme
+  ladder = XLALMalloc(nChainTracked * sizeof(REAL8));                  // Array of temperatures for parallel tempering.
+  annealDecay = XLALMalloc(nChainTracked * sizeof(REAL8));             // Used by annealing scheme
 
   /* If not specified otherwise, set effective sample size to total number of iterations */
   if (!Neff) {
@@ -1005,6 +1005,9 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, REAL8 *p
   REAL8 *Tlow = ladder;
   REAL8 *Tme = ladder + 1;
   REAL8 *Thigh = ladder + 2;
+  INT4 adapt = *(INT4*) LALInferenceGetVariable(runState->algorithmParams, "adaptLadder");
+  REAL8 adaptTimeScale = *(REAL8*) LALInferenceGetVariable(runState->algorithmParams, "adaptLadderTimeScale");
+  REAL8 adaptDecayLag = *(REAL8*) LALInferenceGetVariable(runState->algorithmParams, "adaptLadderDecayLag");
 
   /* If Tskip reached, then block until next chain in ladder is prepared to accept swap proposal */
   if (((i % Tskip) == 0) && MPIrank < nChain-1) {
@@ -1102,11 +1105,9 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, REAL8 *p
   }
 
   /* If a swap was proposed (and we're not on an extremal chain)... */
-  if ((swapProposed || readyToSwap) && (MPIrank > 0 && MPIrank < nChain-1)) {
+  if (adapt && (swapProposed || readyToSwap) && (MPIrank > 0 && MPIrank < nChain-1)) {
     /* ...update temperature of current chain. */
-    REAL8 adaptationLag = 1000;
-    REAL8 adaptationTime = 500;
-    REAL8 kappa = adaptationLag / (i + adaptationTime) / adaptationTime;
+    REAL8 kappa = adaptDecayLag / (i + adaptDecayLag) / adaptTimeScale;
 
     REAL8 oldTemp = *Tme;
     REAL8 logS = log(*Tme - *Tlow) - log(*Thigh - *Tme);
@@ -1599,6 +1600,7 @@ void LALInferencePrintPTMCMCHeaderFile(LALInferenceRunState *runState, FILE *cha
   REAL8 temperature = *(REAL8*) LALInferenceGetVariable(runState->proposalArgs, "temperature");
   REAL8 SampleRate=4096.0; //default value of the sample rate from LALInferenceReadData()
   UINT4 nIFO=0;
+  INT4 adaptLadder = *(INT4*) LALInferenceGetVariable(runState->algorithmParams, "adaptLadder");
   LALInferenceIFOData *ifodata1=runState->data;
   REAL8 timestamp;
   struct timeval tv;
@@ -1632,12 +1634,18 @@ void LALInferencePrintPTMCMCHeaderFile(LALInferenceRunState *runState, FILE *cha
   UINT4 benchmark=0;
   if(LALInferenceGetProcParamVal(runState->commandLine,"--benchmark")) benchmark=1;
 
+    char tempStr[12];
+    if (adaptLadder)
+      sprintf(tempStr, "%12s", "variable");
+    else
+      sprintf(tempStr, "%12.1f", temperature);
+
     fprintf(chainoutput, "  LALInference version:%s,%s,%s,%s,%s\n", lalAppsVCSId,lalAppsVCSDate,lalAppsVCSBranch,lalAppsVCSAuthor,lalAppsVCSStatus);
     fprintf(chainoutput,"  %s\n",str);
     fprintf(chainoutput, "%10s  %10s  %6s  %20s  %6s %8s   %6s  %10s  %12s  %9s  %9s  %8s %8s\n",
         "nIter","Nburn","seed","null likelihood","Ndet","nCorr","nTemps","Tchain","Network SNR","Waveform","pN order","Npar","f_ref");
-    fprintf(chainoutput, "%10d  %10d  %u  %20.10lf  %6d %8d   %6d%12.1f%14.6f  %9i  %9.1f  %8i %12.1f\n",
-        Niter,0,randomseed,nullLikelihood,nIFO,0,nChain,temperature,networkSNR,waveform,(double)pnorder,nPar,f_ref);
+    fprintf(chainoutput, "%10d  %10d  %u  %20.10lf  %6d %8d   %6d%s%14.6f  %9i  %9.1f  %8i %12.1f\n",
+        Niter,0,randomseed,nullLikelihood,nIFO,0,nChain,tempStr,networkSNR,waveform,(double)pnorder,nPar,f_ref);
     fprintf(chainoutput, "\n%16s  %16s  %10s  %10s  %10s  %10s  %20s  %15s  %12s  %12s  %12s\n",
         "Detector","SNR","f_low","f_high","before tc","after tc","Sample start (GPS)","Sample length","Sample rate","Sample size","FT size");
     ifodata1=runState->data;

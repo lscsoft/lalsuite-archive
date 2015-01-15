@@ -375,6 +375,12 @@ void initializeMCMC(LALInferenceRunState *runState)
                (--anneal)                       Anneal hot temperature linearly to T=1.0.\n\
                (--annealStart N)                Iteration number to start annealing (5*10^5).\n\
                (--annealLength N)               Number of iterations to anneal all chains to T=1.0 (1*10^5).\n\
+               (--adaptLadder)                  Dynamically adapt parallel tempering ladder for equal inter-chain\n\
+                                                  swap acceptance ratios.\n\
+               (--adaptLadderTimescale t)       The timescale for temperature adaptations, in multiples of --tempSkip\n\
+                                                  (100).\n\
+               (--adaptLadderDecayLag t)        The timescale for the decay of temperature adaptations, in multiples of\n\
+                                                  --tempSkip (10000).\n\
                \n\
                ---------------------------------------------------------------------------------------------------\n\
                --- Output ----------------------------------------------------------------------------------------\n\
@@ -398,6 +404,9 @@ void initializeMCMC(LALInferenceRunState *runState)
   REAL8 trigSNR = 0.0;
   REAL8 tempMin = 1.0;
   REAL8 tempMax = 50.0;
+  INT4 adaptLadder = 0;
+  REAL8 adaptLadderTimeScale = 100;
+  REAL8 adaptLadderDecayLag = 10000;
   ProcessParamsTable *commandLine=runState->commandLine;
   ProcessParamsTable *ppt=NULL;
   FILE *devrandom;
@@ -539,13 +548,32 @@ void initializeMCMC(LALInferenceRunState *runState)
   }
   LALInferenceAddVariable(runState->algorithmParams,"tempMin",&tempMin, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
 
- printf("set highest temperature.\n");
+  printf("set highest temperature.\n");
   /* Maximum temperature of the temperature ladder */
   ppt=LALInferenceGetProcParamVal(commandLine,"--tempMax");
   if(ppt){
     tempMax=strtod(ppt->value,(char **)NULL);
   }
   LALInferenceAddVariable(runState->algorithmParams,"tempMax",&tempMax, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
+
+  /* Temperature adaptation parameters. */
+  ppt = LALInferenceGetProcParamVal(commandLine, "--adaptLadder");
+  if (ppt) {
+    adaptLadder = 1;
+  }
+  LALInferenceAddVariable(runState->algorithmParams, "adaptLadder", &adaptLadder, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+
+  ppt = LALInferenceGetProcParamVal(commandLine, "--adaptLadderTimeScale");
+  if (ppt) {
+    adaptLadderTimeScale = strtod(ppt->value, (char **)NULL);
+  }
+  LALInferenceAddVariable(runState->algorithmParams, "adaptLadderTimeScale", &adaptLadderTimeScale, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+
+  ppt = LALInferenceGetProcParamVal(commandLine, "--adaptLadderDecayLag");
+  if (ppt) {
+    adaptLadderDecayLag = strtod(ppt->value, (char **)NULL);
+  }
+  LALInferenceAddVariable(runState->algorithmParams, "adaptLadderDecayLag", &adaptLadderDecayLag, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
   printf("set random seed.\n");
   /* set up GSL random number generator: */
