@@ -184,8 +184,10 @@ BcastDifferentialEvolutionPoints(LALInferenceRunState *runState, INT4 sourceTemp
 
 void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
 {
-  INT4 i,t; //indexes for for() loops
-  INT4 nChain;
+  INT4 i,s; // Indexes for for() loops
+  INT4 t; // Zero-based temperature .
+  INT4 nChain, nChainTracked;
+  INT4 sMin, sMax;
   INT4 MPIrank, MPIsize;
   MPI_Status MPIstatus;
   LALStatus status;
@@ -201,7 +203,6 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
   INT4 parameter=0;
   INT4 annealStartIter = 0;
   UINT4 hotChain = 0;                 // Affects proposal setup
-  REAL8 temp = 1;
   REAL8 tempDelta = 0.0;
   MPI_Request MPIrequest;
 
@@ -288,8 +289,14 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
 
   ProcessParamsTable *ppt;
 
-  ladder = malloc(nChain * sizeof(REAL8));                  // Array of temperatures for parallel tempering.
-  annealDecay = malloc(nChain * sizeof(REAL8));             // Used by annealing scheme
+  /* Only keep track of current and neighbouring temperatures.  ladder[1] is temperature of current
+   * chain; ladder[0] is temperature of colder chain (0 if none); ladder[1] is temperature of hotter
+   * chain (0 if none). */
+  nChainTracked = 3;
+  sMin = (MPIrank > 0) ? 0 : 1;
+  sMax = (MPIrank < nChain - 1) ? 2 : 1;
+  ladder = malloc(nChainTracked * sizeof(REAL8));                  // Array of temperatures for parallel tempering.
+  annealDecay = malloc(nChainTracked * sizeof(REAL8));             // Used by annealing scheme
 
   /* If not specified otherwise, set effective sample size to total number of iterations */
   if (!Neff) {
@@ -380,8 +387,8 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
     endOfPhase=annealStart;
   }
 
-  for (t=0; t<nChain; ++t) {
-    ladder[t] = 0.0;
+  for (s=sMin; s<=sMax; ++s) {
+    ladder[s] = 0.0;
   }
 
   if (runState->likelihood==&LALInferenceUndecomposedFreqDomainLogLikelihood){
@@ -438,33 +445,33 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
   if(nChain > 1){
     if(LALInferenceGetProcParamVal(runState->commandLine, "--inverseLadder")) {     //Spacing uniform in 1/T
       tempDelta = (1.0/ladderMin - 1.0/ladderMax)/(REAL8)(nChain-1);
-      for (t=0; t<nChain; ++t) {
-        ladder[t]=1.0/(REAL8)(1.0/ladderMin-t*tempDelta);
+      for (s=sMin; s<=sMax; ++s) {
+        t = MPIrank + s - 1;
+        ladder[s]=1.0/(REAL8)(1.0/ladderMin-t*tempDelta);
       }
     } else {                                                                        //Geometric spacing
       if (LALInferenceGetProcParamVal(runState->commandLine, "--tempLadderBottomUp") && nPar != 1)
         tempDelta=1.+sqrt(2./(REAL8)nPar);
       else
         tempDelta=pow(ladderMax/ladderMin,1.0/(REAL8)(nChain-1));
-      for (t=0;t<nChain; ++t) {
-        ladder[t]=ladderMin*pow(tempDelta,t);
+      for (s=sMin;s<=sMax; ++s) {
+        t = MPIrank + s - 1;
+        ladder[s]=ladderMin*pow(tempDelta,t);
       }
     }
   } else {
-    if(LALInferenceGetProcParamVal(runState->commandLine,"--tempMax")){   //assume --tempMax specified intentionally
-      ladder[0]=ladderMax;
-    }else{
-      ladder[0]=1.0;
-      ladderMax=1.0;
+    // If --tempMax is specified, assume it was intentional.
+    if (!LALInferenceGetProcParamVal(runState->commandLine,"--tempMax")){
+      ladderMax = 1.0;
     }
+    ladder[1]=ladderMax;
   }
-  temp=ladder[MPIrank];
 
   if (MPIrank > hotThreshold) {
     hotChain = 1;
   }
 
-  LALInferenceAddVariable(runState->proposalArgs, "temperature", &temp,  LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+  LALInferenceAddVariable(runState->proposalArgs, "temperature", ladder + 1,  LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
   LALInferenceAddVariable(runState->proposalArgs, "hotChain", &hotChain, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_OUTPUT);
 
   FILE * chainoutput = NULL;
@@ -533,12 +540,13 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
     LALInferencePrintPTMCMCInjectionSample(runState);
   }
 
-  if (MPIrank == 0){
-    printf("\nTemperature ladder:\n");
-    for (t=0; t<nChain; ++t) {
-      printf(" ladder[%d]=%f\n",t,ladder[t]);
-    }
-  }
+  /* TODO: Can we make this work with only local knowledge of ladder? */
+  /*if (MPIrank == 0){*/
+    /*printf("\nTemperature ladder:\n");*/
+    /*for (t=0; t<nChain; ++t) {*/
+      /*printf(" ladder[%d]=%f\n",t,ladder[t]);*/
+    /*}*/
+  /*}*/
 
   /* Add parallel swaps to proposal tracking structure */
   if (propStats && MPIrank < nChain-1) {
@@ -672,8 +680,8 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
           LALInferenceAdaptationRestart(runState, i);
 
         /* Calculate speed of annealing based on ACL */
-        for (t=0; t<nChain; ++t)
-          annealDecay[t] = (ladder[t]-1.0)/(REAL8)(annealLength*PTacl);
+        for (s=sMin; s<=sMax; ++s)
+          annealDecay[s] = (ladder[s]-1.0)/(REAL8)(annealLength*PTacl);
 
         /* Reset effective sample size and ACL */
         iEff=0;
@@ -682,9 +690,9 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
       }
 
       if (i-annealStartIter < PTacl*annealLength) {
-        for (t=0;t<nChain; ++t) {
-          ladder[t] = ladder[t] - annealDecay[t];
-          LALInferenceSetVariable(runState->proposalArgs, "temperature", &(ladder[MPIrank]));
+        for (s=sMin;s<=sMax; ++s) {
+          ladder[s] = ladder[s] - annealDecay[s];
+          LALInferenceSetVariable(runState->proposalArgs, "temperature", &(ladder[1]));
         }
       } else {
         *runPhase_p = LALINFERENCE_SINGLE_CHAIN;
@@ -1093,22 +1101,24 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, REAL8 *p
   /* If a swap was proposed (and we're not on an extremal chain)... */
   if ((swapProposed || readyToSwap) && (MPIrank > 0 && MPIrank < nChain-1)) {
     /* ...update temperature of current chain. */
+    REAL8 oldTemp = ladder[1];
     REAL8 kappa = 1 / 200.;
-    REAL8 logS = log(ladder[MPIrank] - ladder[MPIrank-1]) - log(ladder[MPIrank+1] - ladder[MPIrank]);
+    REAL8 logS = log(ladder[1] - ladder[0]) - log(ladder[2] - ladder[1]);
     logS += kappa * (*ptAcceptanceLow - *ptAcceptanceHigh);
     REAL8 S = exp(logS);
-    ladder[MPIrank] = (ladder[MPIrank-1] + S * ladder[MPIrank+1]) / (1 + S);
+    ladder[1] = (ladder[0] + S * ladder[2]) / (1 + S);
+    printf("New temperature for chain %d:\t%f -> %f\n", MPIrank, oldTemp, ladder[1]);
 
     /* Exchange updated temperatures. */
     if (swapProposed && MPIrank < nChain - 2) {
       /* We're on the colder chain. */
-      MPI_Send(ladder + MPIrank, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD);
-      MPI_Recv(ladder + MPIrank+1, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
+      MPI_Send(ladder + 1, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD);
+      MPI_Recv(ladder + 2, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
     }
     else if (readyToSwap && MPIrank > 1) {
       /* We're on the hotter chain. */
-      MPI_Recv(ladder + MPIrank-1, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
-      MPI_Send(ladder + MPIrank, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD);
+      MPI_Recv(ladder + 0, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
+      MPI_Send(ladder + 1, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD);
     }
   }
 
@@ -1355,7 +1365,7 @@ UINT4 LALInferenceMCMCMCswap(LALInferenceRunState *runState, REAL8 *ladder, REAL
       MPI_Recv(&lowLikeHighParams, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
 
       /* Propose swap */
-      logChainSwap = (1./ladder[MPIrank-1])*(lowLikeHighParams-lowLikeLowParams)+(1./ladder[MPIrank])*(highLikeLowParams-highLikeHighParams);
+      logChainSwap = (1./ladder[0])*(lowLikeHighParams-lowLikeLowParams)+(1./ladder[1])*(highLikeLowParams-highLikeHighParams);
 
       if ((logChainSwap > 0) || (log(gsl_rng_uniform(runState->GSLrandom)) < logChainSwap )) {
         swapAccepted = 1;
