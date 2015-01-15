@@ -1002,6 +1002,9 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, REAL8 *p
   UINT4 swapProposed=0;
   INT4 swapAccepted=0;
   LALInferenceMPIswapAcceptance swapReturn;
+  REAL8 *Tlow = ladder;
+  REAL8 *Tme = ladder + 1;
+  REAL8 *Thigh = ladder + 2;
 
   /* If Tskip reached, then block until next chain in ladder is prepared to accept swap proposal */
   if (((i % Tskip) == 0) && MPIrank < nChain-1) {
@@ -1051,7 +1054,7 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, REAL8 *p
       MPI_Recv(&adjCurrentLikelihood, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
 
       /* Determine if swap is accepted and tell the other chain */
-      logChainSwap = (1.0/ladder[MPIrank-1]-1.0/ladder[MPIrank])*(runState->currentLikelihood-adjCurrentLikelihood);
+      logChainSwap = (1.0 / *Tlow - 1.0 / *Tme) * (runState->currentLikelihood - adjCurrentLikelihood);
       if ((logChainSwap > 0) || (log(gsl_rng_uniform(runState->GSLrandom)) < logChainSwap )) {
         swapAccepted = 1;
       } else {
@@ -1101,24 +1104,28 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, REAL8 *p
   /* If a swap was proposed (and we're not on an extremal chain)... */
   if ((swapProposed || readyToSwap) && (MPIrank > 0 && MPIrank < nChain-1)) {
     /* ...update temperature of current chain. */
-    REAL8 oldTemp = ladder[1];
-    REAL8 kappa = 1 / 200.;
-    REAL8 logS = log(ladder[1] - ladder[0]) - log(ladder[2] - ladder[1]);
+    REAL8 adaptationLag = 1000;
+    REAL8 adaptationTime = 500;
+    REAL8 kappa = adaptationLag / (i + adaptationTime) / adaptationTime;
+
+    REAL8 oldTemp = *Tme;
+    REAL8 logS = log(*Tme - *Tlow) - log(*Thigh - *Tme);
     logS += kappa * (*ptAcceptanceLow - *ptAcceptanceHigh);
     REAL8 S = exp(logS);
-    ladder[1] = (ladder[0] + S * ladder[2]) / (1 + S);
-    printf("New temperature for chain %d:\t%f -> %f\n", MPIrank, oldTemp, ladder[1]);
+    *Tme = (*Tlow + S * *Thigh) / (1 + S);
+    if (oldTemp != *Tme)
+      printf("New temperature for chain %d:\t%f -> %f\n (+ %f)", MPIrank, oldTemp, *Tme, *Tme - oldTemp);
 
     /* Exchange updated temperatures. */
     if (swapProposed && MPIrank < nChain - 2) {
       /* We're on the colder chain. */
-      MPI_Send(ladder + 1, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD);
-      MPI_Recv(ladder + 2, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
+      MPI_Send(Tme, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD);
+      MPI_Recv(Thigh, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
     }
     else if (readyToSwap && MPIrank > 1) {
       /* We're on the hotter chain. */
-      MPI_Recv(ladder + 0, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
-      MPI_Send(ladder + 1, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD);
+      MPI_Recv(Tlow, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
+      MPI_Send(Tme, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD);
     }
   }
 
