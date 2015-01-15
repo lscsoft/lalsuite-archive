@@ -9,3 +9,15 @@ libinject_la_SOURCES = \
 	SimulateCoherentGW.c \
 	SkyCoordinates.c \
 	TerrestrialCoordinates.c
+
+EXTRA_DIST = \
+	SkyCoordinates.dox \
+	SkyCoordinates_conversions.png \
+	inject_ecliptic.png \
+	inject_galactic.png \
+	inject_geodetic.png \
+	inject_geodeticsing.png \
+	inject_geographic.png \
+	inject_horizon.png \
+	inject_lat_long.png \
+	$(END_OF_LIST)

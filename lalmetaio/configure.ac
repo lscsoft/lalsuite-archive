@@ -5,12 +5,14 @@ AC_CONFIG_SRCDIR([src/LIGOLwXML.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
-  lalmetaio.spec \
-  lalmetaio.pc \
   Makefile \
   debian/Makefile \
+  doxygen/Makefile \
+  doxygen/doxygen.cfg \
   include/Makefile \
   include/lal/Makefile \
+  lalmetaio.pc \
+  lalmetaio.spec \
   python/Makefile \
   python/lalmetaio/Makefile \
   python/lalmetaio/__init__.py \
@@ -56,6 +58,9 @@ LALSUITE_ENABLE_GCC_FLAGS
 
 # enable SWIG wrapping modules
 LALSUITE_ENABLE_SWIG
+
+# enable Doxygen documentation
+LALSUITE_ENABLE_DOXYGEN
 
 # define version/configure info
 LALSUITE_VERSION_CONFIGURE_INFO
@@ -133,6 +138,7 @@ LALMetaIO has now been successfully configured:
 * SWIG binding generation is $SWIG_GENERATE_ENABLE_VAL
 * SWIG bindings for Octave are $SWIG_BUILD_OCTAVE_ENABLE_VAL
 * SWIG bindings for Python are $SWIG_BUILD_PYTHON_ENABLE_VAL
+* Doxygen documentation is $DOXYGEN_ENABLE_VAL
 
 and will be installed under the directory:
 

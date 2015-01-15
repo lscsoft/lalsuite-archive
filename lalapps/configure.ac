@@ -6,47 +6,47 @@ AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([\
   Makefile \
-  lalapps.spec \
   debian/Makefile \
-  doc/Makefile \
+  doxygen/Makefile \
+  doxygen/doxygen.cfg \
+  lalapps.spec \
   man/Makefile \
   src/Makefile \
-  src/lalapps/Makefile \
-  src/lalapps/LALAppsVCSInfo.c \
-  src/lalapps/LALAppsVCSInfo.h \
   src/calibration/Makefile \
-  src/frametools/Makefile \
   src/findchirp/Makefile \
-  src/stochastic/Makefile \
-  src/power/Makefile \
-  src/ring/Makefile \
-  src/string/Makefile \
-  src/pulsar/Makefile \
-  src/pulsar/FDS_isolated/Makefile \
-  src/pulsar/Injections/Makefile \
-  src/pulsar/hough/Makefile \
-  src/pulsar/hough/src/Makefile \
-  src/pulsar/SideBand/Makefile \
-  src/pulsar/CombSearch/Makefile \
-  src/pulsar/templateBanks/Makefile \
-  src/pulsar/TimingTests/Makefile \
-  src/pulsar/TDS_isolated/Makefile \
-  src/pulsar/CreateEphemeris/Makefile \
-  src/pulsar/Tools/Makefile \
+  src/frametools/Makefile \
+  src/hwinjection/Makefile \
   src/inspiral/Makefile \
   src/inspiral/posterior/Makefile \
   src/inspiral/posterior/SPINspiral/Makefile \
   src/inspiral/posterior/mpi/Makefile \
-  src/pulsar/hough/src2/Makefile \
+  src/lalapps/LALAppsVCSInfo.c \
+  src/lalapps/LALAppsVCSInfo.h \
+  src/lalapps/Makefile \
+  src/online/Makefile \
+  src/power/Makefile \
+  src/pulsar/CombSearch/Makefile \
+  src/pulsar/CreateEphemeris/Makefile \
+  src/pulsar/FDS_isolated/Makefile \
   src/pulsar/GCT/Makefile \
+  src/pulsar/Injections/Makefile \
   src/pulsar/MakeSFTs/Makefile \
+  src/pulsar/Makefile \
+  src/pulsar/SFTReferenceLibrary/Makefile \
+  src/pulsar/SideBand/Makefile \
+  src/pulsar/TDS_isolated/Makefile \
+  src/pulsar/Tools/Makefile \
+  src/pulsar/TwoSpect/Makefile \
   src/pulsar/crosscorr/Makefile \
   src/pulsar/fscan/Makefile \
-  src/pulsar/TwoSpect/Makefile \
-  src/pulsar/SFTReferenceLibrary/Makefile \
+  src/pulsar/hough/Makefile \
+  src/pulsar/hough/src/Makefile \
+  src/pulsar/hough/src2/Makefile \
+  src/pulsar/templateBanks/Makefile \
+  src/ring/Makefile \
+  src/stochastic/Makefile \
+  src/string/Makefile \
   src/tracksearch/Makefile \
-  src/online/Makefile \
-  src/hwinjection/Makefile \
 ])
 # FIXME: -Wno-unsupported is a hack which silences warnings regarding
 # subdir-objects in automake-1.14+. this will be the default, and only,
@@ -87,6 +87,9 @@ LALSUITE_ENABLE_LALINSPIRAL
 LALSUITE_ENABLE_LALPULSAR
 LALSUITE_ENABLE_LALINFERENCE
 LALSUITE_ENABLE_LALSTOCHASTIC
+
+# enable Doxygen documentation
+LALSUITE_ENABLE_DOXYGEN
 
 # define version/configure info
 LALSUITE_VERSION_CONFIGURE_INFO
@@ -149,12 +152,6 @@ if test "x$condor" = "xtrue"; then
 fi
 CONDOR_ENABLE_VAL="`eval test x$condor = xtrue && echo "ENABLED" || echo "DISABLED"`"
 AM_CONDITIONAL([CONDOR_ENABLED],[test "$CONDOR_ENABLE_VAL" = "ENABLED"])
-
-# further program checks
-AC_CHECK_PROGS([LATEX],[pdflatex latex],[echo])
-AC_CHECK_PROGS([MKIND],[makeindex],[echo])
-AC_CHECK_PROGS([DVIPS],[dvips],[echo])
-AC_CHECK_PROGS([BIBTEX],[bibtex],[echo])
 
 # check for supported mac os x version
 LALSUITE_OSX_VERSION_CHECK
@@ -485,6 +482,7 @@ LALApps has now been successfully configured:
 * GDS support is $GDS_ENABLE_VAL
 * CUDA support is $CUDA_ENABLE_VAL
 * OpenMP acceleration is $OPENMP_ENABLE_VAL
+* Doxygen documentation is $DOXYGEN_ENABLE_VAL
 
 and will be installed under the directory:
 
