@@ -651,7 +651,7 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
         if (MPIrank > 1) {
             MPI_Probe(MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);  // Completes when PT swap attempted
             MPI_Send(runPhase_p, 1, MPI_INT, MPIrank-1, RUN_PHASE_COM, MPI_COMM_WORLD);  // Update runPhase
-            LALInferenceFlushPTswap();                                // Rejects the swap
+            LALInferenceFlushPTswap(runState);                                // Rejects the swap
         }
 
         /* Broadcast the cold chain ACL from parallel tempering */
@@ -863,7 +863,7 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
   
   /* Send complete message to hottest chain, and it will propogate down to ensure no
    * hanging swap proposals happen */
-  LALInferenceShutdownLadder();
+  LALInferenceShutdownLadder(runState);
 
   fclose(chainoutput);
 
@@ -1118,13 +1118,23 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, REAL8 *p
       printf("New temperature for chain %d:\t%f -> %f\n (+ %f)", MPIrank, oldTemp, *Tme, *Tme - oldTemp);
 
     /* Exchange updated temperatures. */
+    INT4 adjust;
     if (swapProposed && MPIrank < nChain - 2) {
-      /* We're on the colder chain. */
-      MPI_Send(Tme, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD);
-      MPI_Recv(Thigh, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
+      /* We're on the colder chain.  Poll check whether to go ahead (so that the likes of
+       LALInferenceFlushPTswap can abort).  */
+      MPI_Recv(&adjust, 1, MPI_INT, MPIrank+1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
+
+      if (adjust) {
+        MPI_Send(Tme, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD);
+        MPI_Recv(Thigh, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
+      }
     }
     else if (readyToSwap && MPIrank > 1) {
       /* We're on the hotter chain. */
+      /* Option to abandon temperature adjustment (decided by hot chain). */
+      adjust = 1;
+      MPI_Send(&adjust, 1, MPI_INT, MPIrank-1, PT_COM, MPI_COMM_WORLD);
+
       MPI_Recv(Tlow, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
       MPI_Send(Tme, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD);
     }
@@ -1143,13 +1153,14 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, REAL8 *p
 }
 
 /* Utility function that checks if the next coldest chain is attempting a PT swap.  If so, it is rejected. */
-void LALInferenceFlushPTswap() {
+void LALInferenceFlushPTswap(LALInferenceRunState *runState) {
     INT4 MPIrank;
     INT4 attemptingSwap=0;
     INT4 swapRejection = 0;
     REAL8 dummyLikelihood;
     MPI_Status MPIstatus;
     MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
+    INT4 adapt = *(INT4*) LALInferenceGetVariable(runState->algorithmParams, "adaptLadder");
 
     if (MPIrank==0) {
         return;
@@ -1157,21 +1168,28 @@ void LALInferenceFlushPTswap() {
         printf("Chain %i waiting for PT comm.\n", MPIrank);
         while (!attemptingSwap)
             MPI_Iprobe(MPIrank-1, PT_COM, MPI_COMM_WORLD, &attemptingSwap, &MPIstatus);
-        printf("Chain %i flushing swap proposed by %i.\n", MPIrank, MPIrank-1);
         MPI_Recv(&dummyLikelihood, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
+        printf("Chain %i flushing swap proposed by %i.\n", MPIrank, MPIrank-1);
         MPI_Send(&swapRejection, 1, MPI_INT, MPIrank-1, PT_COM, MPI_COMM_WORLD);
+        
+        if (adapt) {
+          /* Send a signal to abort the temperature adjustment. */
+          INT4 adjust = 0;
+          MPI_Send(&adjust, 1, MPI_INT, MPIrank-1, PT_COM, MPI_COMM_WORLD);
+        }
     }
     return;
 }
 
 /* Function to shut down the ladder */
-void LALInferenceShutdownLadder() {
+void LALInferenceShutdownLadder(LALInferenceRunState *runState) {
     INT4 MPIrank, MPIsize;
     INT4 attemptingSwap = 0;
     INT4 swapRejection = 0;
     INT4 runComplete = 1;
     REAL8 dummyLikelihood;
     MPI_Status MPIstatus;
+    INT4 adapt = *(INT4*) LALInferenceGetVariable(runState->algorithmParams, "adaptLadder");
 
     MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
     MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
@@ -1186,6 +1204,12 @@ void LALInferenceShutdownLadder() {
         printf("Chain %i flushing swap proposed by %i.\n", MPIrank, MPIrank-1);
         MPI_Recv(&dummyLikelihood, 1, MPI_DOUBLE, MPIrank-1, PT_COM, MPI_COMM_WORLD, &MPIstatus);
         MPI_Send(&swapRejection, 1, MPI_INT, MPIrank-1, PT_COM, MPI_COMM_WORLD);
+
+        if (adapt) {
+          /* Send a signal to abort the temperature adjustment. */
+          INT4 adjust = 0;
+          MPI_Send(&adjust, 1, MPI_INT, MPIrank-1, PT_COM, MPI_COMM_WORLD);
+        }
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -1223,7 +1247,7 @@ void LALInferenceLadderUpdate(LALInferenceRunState *runState, INT4 sourceChainFl
 
   } else {
     /* Flush out any lingering swap proposals from colder chains */
-    LALInferenceFlushPTswap();
+    LALInferenceFlushPTswap(runState);
 
     /* Wait until source chain is ready to send parameters */
     while (!readyToSend) {

@@ -559,7 +559,11 @@ void initializeMCMC(LALInferenceRunState *runState)
   /* Temperature adaptation parameters. */
   ppt = LALInferenceGetProcParamVal(commandLine, "--adaptLadder");
   if (ppt) {
-    adaptLadder = 1;
+    /* Incompatible with MCMCMC. */
+    ppt = LALInferenceGetProcParamVal(commandLine, "--varyFlow");
+    if (ppt) {
+      adaptLadder = 1;
+    }
   }
   LALInferenceAddVariable(runState->algorithmParams, "adaptLadder", &adaptLadder, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
 
