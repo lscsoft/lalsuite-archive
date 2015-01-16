@@ -1107,13 +1107,10 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, REAL8 *p
     /* ...update temperature of current chain. */
     REAL8 kappa = adaptDecayLag / (i + adaptDecayLag) / adaptTimeScale;
 
-    REAL8 oldTemp = *Tme;
     REAL8 logS = log(*Tme - *Tlow) - log(*Thigh - *Tme);
     logS += kappa * (*ptAcceptanceLow - *ptAcceptanceHigh);
     REAL8 S = exp(logS);
     *Tme = (*Tlow + S * *Thigh) / (1 + S);
-    if (oldTemp != *Tme)
-      printf("New temperature for chain %d:\t%f -> %f\n (+ %f)", MPIrank, oldTemp, *Tme, *Tme - oldTemp);
 
     /* Exchange updated temperatures. */
     INT4 adjust;

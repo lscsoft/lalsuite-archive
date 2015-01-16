@@ -561,7 +561,7 @@ void initializeMCMC(LALInferenceRunState *runState)
   if (ppt) {
     /* Incompatible with MCMCMC. */
     ppt = LALInferenceGetProcParamVal(commandLine, "--varyFlow");
-    if (ppt) {
+    if (!ppt) {
       adaptLadder = 1;
     }
   }
