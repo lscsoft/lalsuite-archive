@@ -377,7 +377,7 @@ void initializeMCMC(LALInferenceRunState *runState)
                (--annealLength N)               Number of iterations to anneal all chains to T=1.0 (1*10^5).\n\
                (--adaptLadder)                  Dynamically adapt parallel tempering ladder for equal inter-chain\n\
                                                   swap acceptance ratios.\n\
-               (--adaptLadderTimescale t)       The timescale for temperature adaptations, in multiples of --tempSkip\n\
+               (--adaptLadderTimeScale t)       The timescale for temperature adaptations, in multiples of --tempSkip\n\
                                                   (100).\n\
                (--adaptLadderDecayLag t)        The timescale for the decay of temperature adaptations, in multiples of\n\
                                                   --tempSkip (10000).\n\
