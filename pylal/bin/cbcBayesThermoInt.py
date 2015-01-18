@@ -72,7 +72,7 @@ def get_mean_logl(filename, burnin=0.5):
 if __name__=='__main__':
     # Custom usage and help message
     usage = """%s [-h] [--plotfile FILE] [--evfile FILE] OUTPUT_FILE [OUTPUT_FILE ...]
-    
+
 Thermodynamic integration on PTMCMC samples.
 
 positional arguments:
@@ -96,7 +96,6 @@ positional arguments:
     betas = betas[inds]
     logls = logls[inds]
 
-    # If the highest temperature is infinite, leave 
     if betas[-1] != 0:
         betas2 = np.concatenate((betas[::2], [0]))
         betas = np.concatenate((betas, [0]))
@@ -122,6 +121,3 @@ positional arguments:
     with open(options.evfile, 'w') as out:
         out.write('# ln-Z delta-ln-Z\n')
         out.write(str(lnZ) + ' ' + str(dlnZ))
-    
-    
-    
