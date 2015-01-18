@@ -7,7 +7,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as pp
 import numpy as np
-import scipy.integrate as si
 
 matplotlib.rcParams['text.usetex'] = True
 
