@@ -45,16 +45,16 @@ def extract_temp(filename, burnin=0.5):
             except ValueError:
                 pass
 
-    with open(filename, 'r') as inp:
-        if variable:
+    if variable:
+        with open(filename, 'r') as inp:
             skip, line = skip_header(inp)
             col = line.index('temp')
             data = np.loadtxt(filename, skiprows=skip, usecols=(col,))
             N = data.shape[0]
 
             return np.mean(data[N * burnin:])
-        else:
-            raise ValueError('extract_temp: did not find header line with \'Tchain\'')
+    else:
+        raise ValueError('extract_temp: did not find header line with \'Tchain\'')
 
 def get_mean_logl(filename, burnin=0.5):
     """Returns the mean value of log(L) from the given filename,
