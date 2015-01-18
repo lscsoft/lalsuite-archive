@@ -11,7 +11,20 @@ import scipy.integrate as si
 
 matplotlib.rcParams['text.usetex'] = True
 
-def extract_temp(filename):
+def skip_header(inp):
+    skip = 0
+    for line in inp:
+        line = line.lstrip().split()
+        skip += 1
+        try:
+            line.index('cycle')
+            break
+        except ValueError:
+            pass
+
+    return skip, line
+
+def extract_temp(filename, burnin=0.5):
     """Extracts the PTMCMC temperature from the header lines of the
     given file."""
     with open(filename, 'r') as inp:
@@ -24,32 +37,37 @@ def extract_temp(filename):
                 # for 'null likelihood' header name that splits into
                 # two list elements
                 #####################################################
-                return float(inp.next().split()[i-1])
+                temperature = inp.next().split()[i-1].strip()
+                if temperature == 'variable':
+                    variable = True
+                    break
+                else:
+                    return float(temperature)
             except ValueError:
                 pass
 
-        raise ValueError('extract_temp: did not find header line with \'Tchain\'')
+    with open(filename, 'r') as inp:
+        if variable:
+            skip, line = skip_header(inp)
+            col = line.index('temp')
+            data = np.loadtxt(filename, skiprows=skip, usecols=(col,))
+            N = data.shape[0]
 
-def get_mean_logl(filename):
+            return np.mean(data[N * burnin:])
+        else:
+            raise ValueError('extract_temp: did not find header line with \'Tchain\'')
+
+def get_mean_logl(filename, burnin=0.5):
     """Returns the mean value of log(L) from the given filename,
     excluding the first 50% of samples as burn-in."""
     with open(filename, 'r') as inp:
-        skip=0
-        for line in inp:
-            line=line.lstrip().split()
-            skip+=1
-            try:
-                line.index('cycle')
-                break
-            except ValueError:
-                pass
+        skip, line = skip_header(inp)
 
     col = line.index('logl')
+    data = np.loadtxt(filename, skiprows=skip, usecols=(col,))
+    N = data.shape[0]
 
-    data=np.loadtxt(filename, skiprows=skip, usecols=(col,))
-    N=data.shape[0]
-
-    return np.mean(data[N/2:])
+    return np.mean(data[N * burnin:])
 
 if __name__=='__main__':
     # Custom usage and help message
@@ -78,19 +96,22 @@ positional arguments:
     betas = betas[inds]
     logls = logls[inds]
 
-    # Now extend to infinite temperature by copying the last <log(L)>.
-    # This works as long as the chains have extended to high enough
-    # temperature to sample the prior.
-    ebetas = np.concatenate((betas, [0.0]))
-    elogls = np.concatenate((logls, [logls[-1]]))
+    # If the highest temperature is infinite, leave 
+    if betas[-1] != 0:
+        betas2 = np.concatenate((betas[::2], [0]))
+        betas = np.concatenate((betas, [0]))
 
-    ebetas2 = np.concatenate((betas[::2], [0.0]))
-    elogls2 = np.concatenate((logls[::2], [logls[::2][-1]]))
+        # Duplicate mean log-likelihood of hottest chain as a best guess for beta = 0.  This works
+        # as long as the chains ahve extended to high enough temperature to sample the prior.
+        logls2 = np.concatenate((logls[::2], [logls[-1]]))
+        logls = np.concatenate((logls, [logls[-1]]))
+    else:
+        betas2 = np.concatenate((betas[:-1:2], betas[-1]))
+        logls2 = np.concatenate((logls[:-1:2], logls[-1]))
 
-    evidence = -si.trapz(elogls, ebetas)
-    evidence2 = -si.trapz(elogls2, ebetas2)
-
-    devidence = np.abs(evidence - evidence2)
+    lnZ = -np.trapz(betas, logls)
+    lnZ2 = -np.trapz(betas2, logls2)
+    dlnZ = np.abs(lnZ - lnZ2)
 
     pp.plot(betas, betas*logls)
     pp.xscale('log')
@@ -100,7 +121,7 @@ positional arguments:
 
     with open(options.evfile, 'w') as out:
         out.write('# ln-Z delta-ln-Z\n')
-        out.write(str(evidence) + ' ' + str(devidence))
+        out.write(str(lnZ) + ' ' + str(dlnZ))
     
     
     
