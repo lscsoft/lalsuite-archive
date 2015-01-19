@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
-from optparse import OptionParser
+import itertools
+import argparse
+import re
 import sys
 import os
 import matplotlib
@@ -9,7 +11,6 @@ import matplotlib.pyplot as pp
 import numpy as np
 
 matplotlib.rcParams['text.usetex'] = True
-
 
 def skip_header(inp):
     skip = 0
@@ -25,32 +26,82 @@ def skip_header(inp):
     return skip, line
 
 def get_temperatures(filename):
+    match = re.search(r'\.(\d+)$', filename)
+    if match:
+        index = int(match.group(1))
+    else:
+        index = None
+
     with open(filename, 'r') as file:
         skip, line = skip_header(file)
         cols = line.index('cycle'), line.index('temp')
-        return np.loadtxt(filename, skiprows=skip, usecols=cols)
+
+        return index, np.loadtxt(filename, skiprows=skip, usecols=cols)
+
+def get_ratios(filename, timeScale=30000):
+    match = re.search(r'\.(\d+)$', filename)
+    if match:
+        index = int(match.group(1))
+    else:
+        index = None
+
+    with open(filename, 'r') as file:
+        line = map(str.strip, file.next().split())
+        cols = line.index('cycle'), line.index('swap_accepted')
+
+        swaps = np.loadtxt(filename, skiprows=1, usecols=cols)
+        bins = np.arange(np.min(swaps[:, 0]), np.max(swaps[:, 0]) + timeScale, timeScale)
+        pairs = zip(np.digitize(swaps[:, 0], bins), swaps[:, 1])
+        times = (bins[1:] + bins[:-1]) / 2.
+        ratios = np.zeros(len(times))
+        for i, g in itertools.groupby(pairs, lambda x: x[0]):
+            g = list(x[1] for x in g)
+            ratios[i - 1] = sum(g) / len(g)
+        return index, times, ratios
 
 if __name__ == '__main__':
-    usage = """%s [-h] [--plotfile FILE] OUTPUT_FILE [OUTPUT_FILE ...]
+    parser = argparse.ArgumentParser(description='Generate diagnostic plot of chain temperature evolution.')
+    parser.add_argument('outputFiles', nargs='+',
+                        help='The chain output files.')
+    parser.add_argument('--swapFiles', nargs='*',
+                        type=argparse.FileType('r'),
+                        help='The swap statistic files for swap ratio plots.')
+    parser.add_argument('--plotFile', type=argparse.FileType('w'),
+                        help='The output plot file.',
+                        default='chain-evolution.pdf')
+    parser.add_argument('--indices', type=int,
+                        nargs='*',
+                        help='The indicies of the chains to plot.')
+    args = parser.parse_args()
 
-Plot evolution of dynamically adapted PTMCMC ladder.
+    subplotCount = 2 if len(args.swapFiles) > 0 else 1
 
-positional arguments:
-  OUTPUT_FILE      PTMCMC output files""" % (os.path.basename(sys.argv[0]))
+    figure = pp.figure()
+    axes = figure.add_subplot(subplotCount, 1, 1)
 
-    parser = OptionParser(usage=usage)
-    parser.add_option('--plotfile', metavar='FILE', default='chain-evolution.pdf', help='Plot output file.')
+    chains = sorted(map(get_temperatures, args.outputFiles), key=lambda c: c[0])
+    for i, c in chains:
+        if args.indices is not None and i not in args.indices:
+            continue
 
-    (options, args) = parser.parse_args()
+        axes.plot(c[:,0], c[:, 1], label=r'$T_{%i}$' % i)
+    axes.set_xlabel(r'No. of cycles')
+    axes.set_ylabel(r'Temperature')
+    axes.legend()
+    xMin, xMax = axes.get_xlim()
 
-    # Make positional arguments required
-    if len(args)==0:
-        parser.error('Positional filename argument(s) are required.')
+    if len(args.swapFiles) > 0:
+        axes = figure.add_subplot(subplotCount, 1, 2)
+        for file in args.swapFiles:
+            i, times, ratios = get_ratios(file.name)
+            if args.indices is not None and i not in args.indices:
+                continue
 
-    chains = sorted([get_temperatures(f) for f in args], key=lambda c: c[0, 0])
-    for i, c in enumerate(chains[:4]):
-        pp.plot(c[:,0], c[:, 1], label=r'$T_{%i}$' % i)
-    pp.xlabel(r'No. of cycles')
-    pp.ylabel(r'Temperature')
-    pp.legend()
-    pp.savefig(options.plotfile)
+            axes.plot(times, ratios, label=r'$T_{{{:}}} \leftrightarrow T_{{{:}}}$'.format(i - 1, i))
+        axes.set_xlabel(r'No. of cycles')
+        axes.set_ylabel(r'Acceptance ratio')
+        axes.set_xlim(xMin, xMax)
+        axes.set_ylim(0, 1)
+        axes.legend()
+
+    figure.savefig(args.plotFile.name)
