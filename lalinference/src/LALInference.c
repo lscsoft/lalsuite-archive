@@ -3617,3 +3617,28 @@ void LALInferencePrintSplineCalibration(FILE *output, LALInferenceRunState *runS
     ifo = ifo->next;
   } while (ifo);
 }
+
+const gsl_matrix* get_matrix_from_file(const char *file_name){
+
+     int N, L;
+     FILE *fp;
+     L = 7;
+     N = 6145;
+
+     gsl_matrix *matrix_from_file = gsl_matrix_calloc(N, L);
+
+     fp = fopen(file_name, "rb");
+
+     if ( fp == NULL ){
+         fprintf(stderr, "Error... cannot open file containing PCs ");
+         exit(1);
+     }
+
+     gsl_matrix_fread(fp, matrix_from_file);
+
+     fclose(fp);
+
+     return matrix_from_file;
+
+}
+

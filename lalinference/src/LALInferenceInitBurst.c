@@ -51,7 +51,11 @@ LALInferenceTemplateFunction LALInferenceInitBurstTemplate(LALInferenceRunState 
   
   ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
   if(ppt) {
-    if(XLALSimBurstImplementedFDApproximants(XLALGetBurstApproximantFromString(ppt->value))){
+    if(!strcmp("PrincipalComp",ppt->value)){
+        printf("Using LALInferenceTemplatePrincipalComp \n");
+        templt=&LALInferenceTemplatePrincipalComp;
+    }
+    else if(XLALSimBurstImplementedFDApproximants(XLALGetBurstApproximantFromString(ppt->value))){
         templt=&LALInferenceTemplateXLALSimBurstChooseWaveform;
     }
     else if(XLALSimBurstImplementedTDApproximants(XLALGetBurstApproximantFromString(ppt->value))){
@@ -427,3 +431,159 @@ LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_bimod(LALInferenceRu
   }
   return(model);
 }
+
+/* Setup the variables to control Principal component template generation */
+/* Includes specification of prior ranges */
+
+LALInferenceModel * LALInferenceInitPrincipalCompModel(LALInferenceRunState *state)
+{printf("-----Using LALInferenceInitPrincipalCompVariables!\n");
+
+        //LALInferenceVariables *priorArgs=state->priorArgs;
+        //state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
+        //LALInferenceVariables *currentParams=state->currentParams;
+
+  LALInferenceModel *model = XLALMalloc(sizeof(LALInferenceModel));
+  model->params = XLALCalloc(1, sizeof(LALInferenceVariables));
+  memset(model->params, 0, sizeof(LALInferenceVariables));
+//  LALInferenceVariables *currentParams=model->params;       
+
+        ProcessParamsTable *commandLine=state->commandLine;
+        ProcessParamsTable *ppt=NULL;
+        gsl_rng *GSLrandom=state->GSLrandom;
+
+        REAL8 beta1_min=-31;
+        REAL8 beta1_max=263;
+        REAL8 beta2_min=-123;
+        REAL8 beta2_max=247;
+        REAL8 beta3_min=-96;
+        REAL8 beta3_max=190;
+        REAL8 beta4_min=-145;
+        REAL8 beta4_max=71;
+        REAL8 beta5_min=-81;
+        REAL8 beta5_max=239;
+        REAL8 beta6_min=-114;
+        REAL8 beta6_max=118;
+        REAL8 beta7_min=-86;
+        REAL8 beta7_max=59;
+        REAL8 hrssmin = 1e-22;
+        REAL8 hrssmax = 1e-20;
+        REAL8 psimin=0.0,psimax=LAL_PI;
+        REAL8 ramin=0.0,ramax=LAL_TWOPI;
+        REAL8 decmin=-LAL_PI/2.0,decmax=LAL_PI/2.0;
+        REAL8 endtime=0.0;
+        REAL8 dt=0.1;           
+        REAL8 zero=0.0;
+
+    REAL8 start_hrss=hrssmin+gsl_rng_uniform(GSLrandom)*(hrssmax-hrssmin);
+
+    REAL8 startbeta1=beta1_min+gsl_rng_uniform(GSLrandom)*(beta1_max-beta1_min);
+    REAL8 startbeta2=beta2_min+gsl_rng_uniform(GSLrandom)*(beta2_max-beta2_min);
+    REAL8 startbeta3=beta3_min+gsl_rng_uniform(GSLrandom)*(beta3_max-beta3_min);
+    REAL8 startbeta4=beta4_min+gsl_rng_uniform(GSLrandom)*(beta4_max-beta4_min);
+    REAL8 startbeta5=beta5_min+gsl_rng_uniform(GSLrandom)*(beta5_max-beta5_min);
+    REAL8 startbeta6=beta6_min+gsl_rng_uniform(GSLrandom)*(beta6_max-beta6_min);
+    REAL8 startbeta7=beta7_min+gsl_rng_uniform(GSLrandom)*(beta7_max-beta7_min);
+
+        if((ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime"))) endtime=atof(ppt->value);
+        if((ppt=LALInferenceGetProcParamVal(commandLine,"--dt"))) dt=atof(ppt->value);
+
+        REAL8 timeMin=endtime-0.5*dt; 
+        REAL8 timeMax=endtime+0.5*dt;
+
+        if((ppt=LALInferenceGetProcParamVal(commandLine,"--beta1_min"))) beta1_min=(atof(ppt->value));
+        if((ppt=LALInferenceGetProcParamVal(commandLine,"--beta1_max"))) beta1_max=(atof(ppt->value));
+
+        if((ppt=LALInferenceGetProcParamVal(commandLine,"--beta2_min"))) beta2_min=atof(ppt->value);
+        if((ppt=LALInferenceGetProcParamVal(commandLine,"--beta2_max"))) beta2_max=atof(ppt->value);
+
+        if((ppt=LALInferenceGetProcParamVal(commandLine,"--beta3_min"))) beta3_min=(atof(ppt->value));
+        if((ppt=LALInferenceGetProcParamVal(commandLine,"--beta3_max"))) beta3_max=(atof(ppt->value));
+
+        if((ppt=LALInferenceGetProcParamVal(commandLine,"--beta4_min"))) beta4_min=atof(ppt->value);
+        if((ppt=LALInferenceGetProcParamVal(commandLine,"--beta4_max"))) beta4_max=atof(ppt->value);
+
+        if((ppt=LALInferenceGetProcParamVal(commandLine,"--beta5_min"))) beta5_min=(atof(ppt->value));
+        if((ppt=LALInferenceGetProcParamVal(commandLine,"--beta5_max"))) beta5_max=(atof(ppt->value));
+
+        if((ppt=LALInferenceGetProcParamVal(commandLine,"--beta6_min"))) beta6_min=atof(ppt->value);
+        if((ppt=LALInferenceGetProcParamVal(commandLine,"--beta6_max"))) beta6_max=atof(ppt->value);
+
+        if((ppt=LALInferenceGetProcParamVal(commandLine,"--beta7_min"))) beta7_min=(atof(ppt->value));
+        if((ppt=LALInferenceGetProcParamVal(commandLine,"--beta7_max"))) beta7_max=(atof(ppt->value));
+
+        LALInferenceAddVariable(model->params, "beta1", &startbeta1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+        LALInferenceAddVariable(model->params, "beta2", &startbeta2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+        LALInferenceAddVariable(model->params, "beta3", &startbeta3, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+        LALInferenceAddVariable(model->params, "beta4", &startbeta4, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+        LALInferenceAddVariable(model->params, "beta5", &startbeta5, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+        LALInferenceAddVariable(model->params, "beta6", &startbeta6, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+        LALInferenceAddVariable(model->params, "beta7", &startbeta7, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+        LALInferenceAddVariable(model->params, "hrss", &start_hrss, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+
+        LALInferenceRegisterUniformVariableREAL8(state, model->params, "beta1", zero, beta1_min, beta1_max, LALINFERENCE_PARAM_LINEAR);
+        LALInferenceRegisterUniformVariableREAL8(state, model->params, "beta2", zero, beta2_min, beta2_max, LALINFERENCE_PARAM_LINEAR);
+        LALInferenceRegisterUniformVariableREAL8(state, model->params, "beta3", zero, beta3_min, beta3_max, LALINFERENCE_PARAM_LINEAR);
+        LALInferenceRegisterUniformVariableREAL8(state, model->params, "beta4", zero, beta4_min, beta4_max, LALINFERENCE_PARAM_LINEAR);
+        LALInferenceRegisterUniformVariableREAL8(state, model->params, "beta5", zero, beta5_min, beta5_max, LALINFERENCE_PARAM_LINEAR);
+        LALInferenceRegisterUniformVariableREAL8(state, model->params, "beta6", zero, beta6_min, beta6_max, LALINFERENCE_PARAM_LINEAR);
+        LALInferenceRegisterUniformVariableREAL8(state, model->params, "beta7", zero, beta7_min, beta7_max, LALINFERENCE_PARAM_LINEAR);
+        LALInferenceRegisterUniformVariableREAL8(state, model->params, "hrss", zero, hrssmin, hrssmax, LALINFERENCE_PARAM_LINEAR);
+
+
+    LALInferenceRegisterUniformVariableREAL8(state, model->params, "time", zero, timeMin, timeMax, LALINFERENCE_PARAM_LINEAR);
+    
+    /* If we are marginalising over the time, remove that variable from the model (having set the prior above) */
+    /* Also set the prior in model->params, since Likelihood can't access the state! (ugly hack) */
+    if(LALInferenceGetProcParamVal(commandLine,"--margtime")){
+        LALInferenceVariableItem *p=LALInferenceGetItem(state->priorArgs,"time_min");
+        LALInferenceAddVariable(model->params,"time_min",p->value,p->type,p->vary);
+        p=LALInferenceGetItem(state->priorArgs,"time_max");
+        LALInferenceAddVariable(model->params,"time_max",p->value,p->type,p->vary);
+        LALInferenceRemoveVariable(model->params,"time");
+    }
+    if (LALInferenceGetProcParamVal(commandLine, "--margtimephi") || LALInferenceGetProcParamVal(commandLine, "--margphi")) {
+      fprintf(stderr,"ERROR: cannot use margphi or margtimephi with burst approximants. Please use margtime or no marginalization\n");
+      exit(1);
+    }
+    LALInferenceRegisterUniformVariableREAL8(state, model->params, "rightascension", zero, ramin, ramax, LALINFERENCE_PARAM_CIRCULAR);
+    LALInferenceRegisterUniformVariableREAL8(state, model->params, "declination", zero, decmin, decmax, LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state, model->params, "polarisation", zero, psimin, psimax, LALINFERENCE_PARAM_LINEAR);
+
+
+   /* Set model sampling rates to be consistent with data */
+  model->deltaT = state->data->timeData->deltaT;
+  model->deltaF = state->data->freqData->deltaF;
+  UINT4 nifo=0;
+  LALInferenceIFOData *dataPtr = state->data;
+  while (dataPtr != NULL)
+  {
+    dataPtr = dataPtr->next;
+    nifo++;
+  }
+
+  model->freqhPlus = XLALCreateCOMPLEX16FrequencySeries("freqhPlus",
+                                                &(state->data->freqData->epoch),
+                                                0.0,
+                                                model->deltaF,
+                                                &lalDimensionlessUnit,
+                                                state->data->freqData->data->length);
+
+  model->freqhCross = XLALCreateCOMPLEX16FrequencySeries("freqhCross",
+                                                &(state->data->freqData->epoch),
+                                                0.0,
+                                                model->deltaF,
+                                                &lalDimensionlessUnit,
+                                                state->data->freqData->data->length);
+
+  /* Create arrays for holding single-IFO likelihoods, etc. */
+  model->ifo_loglikelihoods = XLALCalloc(nifo, sizeof(REAL8));
+  model->ifo_SNRs = XLALCalloc(nifo, sizeof(REAL8));
+
+  /* Choose proper template */
+  model->templt = LALInferenceInitBurstTemplate(state);
+ 
+  return model;
+
+ 
+}
+

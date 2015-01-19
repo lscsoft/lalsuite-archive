@@ -1006,6 +1006,7 @@ CHAR* LALInferenceGetstringVariable(LALInferenceVariables * vars, const char * n
 
 void LALInferenceSetstringVariable(LALInferenceVariables* vars,const char* name,CHAR* value);
 
+const gsl_matrix* get_matrix_from_file(const char *file_name);
 /**
  * Print spline calibration parameter names as tab-separated ASCII
  */

@@ -1249,3 +1249,52 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
   
   return;
 }
+
+void LALInferenceTemplatePrincipalComp(LALInferenceModel *model)
+{
+  double beta1 = *(REAL8*) LALInferenceGetVariable(model->params, "beta1");
+  double beta2 = *(REAL8*) LALInferenceGetVariable(model->params, "beta2");
+  double beta3 = *(REAL8*) LALInferenceGetVariable(model->params, "beta3");
+  double beta4 = *(REAL8*) LALInferenceGetVariable(model->params, "beta4");
+  double beta5 = *(REAL8*) LALInferenceGetVariable(model->params, "beta5");
+  double beta6 = *(REAL8*) LALInferenceGetVariable(model->params, "beta6");
+  double beta7 = *(REAL8*) LALInferenceGetVariable(model->params, "beta7");
+
+  const gsl_matrix *PCvectorsreal = NULL;
+  const gsl_matrix *PCvectorsimag = NULL;
+
+  PCvectorsreal = get_matrix_from_file("RealPCsbinary.dat");
+  PCvectorsimag = get_matrix_from_file("ImagPCsbinary.dat");
+
+  UINT4 i;
+  REAL8 hrss = 1.0;
+
+
+  for(i=0; i<model->freqhPlus->data->length; i++){
+
+     REAL8 plainTemplatereal = hrss * (beta1 * gsl_matrix_get(PCvectorsreal, i, 0)  + beta2 * gsl_matrix_get(PCvectorsreal, i, 1)
+     + beta3 * gsl_matrix_get(PCvectorsreal, i, 2) + beta4 * gsl_matrix_get(PCvectorsreal, i, 3)
+     + beta5 * gsl_matrix_get(PCvectorsreal, i, 4)  + beta6 * gsl_matrix_get(PCvectorsreal, i, 5)
+     + beta7 * gsl_matrix_get(PCvectorsreal, i, 6));
+
+     REAL8 plainTemplateimag = hrss * (beta1 * gsl_matrix_get(PCvectorsimag, i, 0)  + beta2 * gsl_matrix_get(PCvectorsimag, i, 1)
+     + beta3 * gsl_matrix_get(PCvectorsimag, i, 2) + beta4 * gsl_matrix_get(PCvectorsimag, i, 3)
+     + beta5 * gsl_matrix_get(PCvectorsimag, i, 4)  + beta6 * gsl_matrix_get(PCvectorsimag, i, 5)
+     + beta7 * gsl_matrix_get(PCvectorsimag, i, 6));
+
+     model->freqhPlus->data->data[i] = (plainTemplatereal) + I*(plainTemplateimag);
+     model->freqhCross->data->data[i] = 0.0;
+
+  }
+
+
+  LALInferenceAddVariable(model->params,"PCvectorsreal",&PCvectorsreal, LALINFERENCE_gslMatrix_t,
+                                   LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(model->params,"PCvectorsimag",&PCvectorsimag, LALINFERENCE_gslMatrix_t,
+                                   LALINFERENCE_PARAM_FIXED);
+
+  model->domain = LAL_SIM_DOMAIN_FREQUENCY;
+
+  return;
+
+}
