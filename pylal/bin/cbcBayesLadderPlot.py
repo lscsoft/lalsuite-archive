@@ -38,7 +38,7 @@ def get_temperatures(filename):
 
         return index, np.loadtxt(filename, skiprows=skip, usecols=cols)
 
-def get_ratios(filename, timeScale=30000):
+def get_ratios(filename, timeScale):
     match = re.search(r'\.(\d+)$', filename)
     if match:
         index = int(match.group(1))
@@ -63,18 +63,23 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate diagnostic plot of chain temperature evolution.')
     parser.add_argument('outputFiles', nargs='+',
                         help='The chain output files.')
-    parser.add_argument('--swapFiles', nargs='*',
+    parser.add_argument('--swap-files', nargs='*',
                         type=argparse.FileType('r'),
                         help='The swap statistic files for swap ratio plots.')
-    parser.add_argument('--plotFile', type=argparse.FileType('w'),
+    parser.add_argument('--plot-file', type=argparse.FileType('w'),
                         help='The output plot file.',
-                        default='chain-evolution.pdf')
+                        default='chain-evolution.png')
     parser.add_argument('--indices', type=int,
                         nargs='*',
                         help='The indicies of the chains to plot.')
+    parser.add_argument('--time-scale', type=int,
+                        help='The averaging time-scale (in MCMC cycles) for acceptance ratios (default: 5000).',
+                        default=5000)
+    parser.add_argument('--log-time', action='store_true',
+                        help='Plot time on a log-scale.')
     args = parser.parse_args()
 
-    subplotCount = 2 if len(args.swapFiles) > 0 else 1
+    subplotCount = 2 if len(args.swap_files) > 0 else 1
 
     figure = pp.figure()
     axes = figure.add_subplot(subplotCount, 1, 1)
@@ -84,16 +89,18 @@ if __name__ == '__main__':
         if args.indices is not None and i not in args.indices:
             continue
 
-        axes.plot(c[:,0], c[:, 1], label=r'$T_{%i}$' % i)
+        axes.plot(c[:,0], c[:, 1], label=r'$T_{{{:}}}$'.format(i))
     axes.set_xlabel(r'No. of cycles')
     axes.set_ylabel(r'Temperature')
-    axes.legend()
+    axes.set_yscale('log')
+    if args.indices is not None:
+        axes.legend()
     xMin, xMax = axes.get_xlim()
 
-    if len(args.swapFiles) > 0:
+    if len(args.swap_files) > 0:
         axes = figure.add_subplot(subplotCount, 1, 2)
-        for file in args.swapFiles:
-            i, times, ratios = get_ratios(file.name)
+        for file in args.swap_files:
+            i, times, ratios = get_ratios(file.name, timeScale=args.time_scale)
             if args.indices is not None and i not in args.indices:
                 continue
 
@@ -102,6 +109,7 @@ if __name__ == '__main__':
         axes.set_ylabel(r'Acceptance ratio')
         axes.set_xlim(xMin, xMax)
         axes.set_ylim(0, 1)
-        axes.legend()
+        if args.indices is not None:
+            axes.legend()
 
-    figure.savefig(args.plotFile.name)
+    figure.savefig(args.plot_file.name)
