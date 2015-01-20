@@ -791,7 +791,7 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
           fprintf(chainoutput, "%f\t", runState->model->SNR);
       }
 
-      fprintf(chainoutput, "%f\t", ladder[MPIrank]);
+      fprintf(chainoutput, "%f\t", ladder[1]);
 
       if (benchmark) {
         gettimeofday(&tv, NULL);
@@ -1102,21 +1102,24 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, REAL8 *p
     }
   }
 
-  /* If a swap was proposed (and we're not on an extremal chain)... */
-  if (adapt && (swapProposed || readyToSwap) && (MPIrank > 0 && MPIrank < nChain-1)) {
-    /* ...update temperature of current chain. */
-    REAL8 kappa = adaptDecayLag / (i + adaptDecayLag) / adaptTimeScale;
+  /* If a swap was proposed ... */
+  if (adapt && (swapProposed || readyToSwap)) {
+    /* ...and we're not on an extremal chain... */
+    if (MPIrank > 0 && MPIrank < nChain - 1) {
+      /* ...then update temperature of current chain. */
+      REAL8 kappa = adaptDecayLag / ((i / Tskip) + adaptDecayLag) / adaptTimeScale;
 
-    REAL8 logS = log(*Tme - *Tlow) - log(*Thigh - *Tme);
-    logS += kappa * (*ptAcceptanceLow - *ptAcceptanceHigh);
-    REAL8 S = exp(logS);
-    *Tme = (*Tlow + S * *Thigh) / (1 + S);
+      REAL8 logS = log(*Tme - *Tlow) - log(*Thigh - *Tme);
+      logS += kappa * (*ptAcceptanceLow - *ptAcceptanceHigh);
+      REAL8 S = exp(logS);
+      *Tme = (*Tlow + S * *Thigh) / (1 + S);
+    }
 
     /* Exchange updated temperatures. */
     INT4 adjust;
-    if (swapProposed && MPIrank < nChain - 2) {
-      /* We're on the colder chain.  Poll check whether to go ahead (so that the likes of
-       LALInferenceFlushPTswap can abort).  */
+    if (swapProposed && MPIrank < nChain - 1) {
+      /* We're on the colder chain. */
+      /* Check whether to go ahead (so that the likes of LALInferenceFlushPTswap can abort). */
       MPI_Recv(&adjust, 1, MPI_INT, MPIrank+1, PT_COM, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
       if (adjust) {
@@ -1124,7 +1127,7 @@ UINT4 LALInferencePTswap(LALInferenceRunState *runState, REAL8 *ladder, REAL8 *p
         MPI_Recv(Thigh, 1, MPI_DOUBLE, MPIrank+1, PT_COM, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       }
     }
-    else if (readyToSwap && MPIrank > 1) {
+    else if (readyToSwap && MPIrank > 0) {
       /* We're on the hotter chain. */
       /* Option to abandon temperature adjustment (decided by hot chain). */
       adjust = 1;
