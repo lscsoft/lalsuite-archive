@@ -93,6 +93,8 @@ if __name__ == '__main__':
     axes.set_xlabel(r'No. of cycles')
     axes.set_ylabel(r'Temperature')
     axes.set_yscale('log')
+    if args.log_time:
+        axes.set_xscale('log')
     if args.indices is not None:
         axes.legend()
     xMin, xMax = axes.get_xlim()
@@ -109,6 +111,8 @@ if __name__ == '__main__':
         axes.set_ylabel(r'Acceptance ratio')
         axes.set_xlim(xMin, xMax)
         axes.set_ylim(0, 1)
+        if args.log_time:
+            axes.set_xscale('log')
         if args.indices is not None:
             axes.legend()
 
