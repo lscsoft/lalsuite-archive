@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import glob
 import itertools
 import argparse
 import re
@@ -39,7 +40,7 @@ def get_temperatures(filename):
         # Skip the final line in case it it wasn't completely flushed.
         return index, np.genfromtxt(filename, skip_header=skip, skip_footer=1, usecols=columns)
 
-def get_ratios(filename, timeScale):
+def get_ratios(filename, timeScale, burnIn=None):
     match = re.search(r'\.(\d+)$', filename)
     if match:
         index = int(match.group(1))
@@ -60,38 +61,52 @@ def get_ratios(filename, timeScale):
         for i, g in itertools.groupby(pairs, lambda x: x[0]):
             if i > len(ratios):
                 continue
+            ratios[i - 1] = np.mean([x[1] for x in g])
 
-            g = list(x[1] for x in g)
-            ratios[i - 1] = sum(g) / len(g)
+        if burnIn is not None:
+            meanRatio = np.mean(swaps[swaps[:, 0] > burnIn, 1])
+        else:
+            meanRatio = None
 
-        return index, times, ratios
+        return index, times, ratios, meanRatio
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate diagnostic plot of chain temperature evolution.')
-    parser.add_argument('outputFiles', nargs='+',
-                        help='The chain output files.')
-    parser.add_argument('--swap-files', nargs='*',
-                        type=argparse.FileType('r'),
-                        help='The swap statistic files for swap ratio plots.')
-    parser.add_argument('--plot-file', type=argparse.FileType('w'),
+    parser.add_argument('--data-files', nargs='+',
+                        help='The chain output files.  Default: output.??')
+    parser.add_argument('--swap-files', nargs='+',
+                        help='The swap statistic files for swap ratio plots.  Default: PTMCMC.tempswaps.*.??')
+    parser.add_argument('--plot-file',
                         help='The output plot file.',
                         default='chain-evolution.png')
     parser.add_argument('--indices', type=int,
                         nargs='*',
                         help='The indicies of the chains to plot.')
     parser.add_argument('--time-scale', type=int,
-                        help='The averaging time-scale (in MCMC cycles) for acceptance ratios (default: 5000).',
+                        help='The averaging time-scale (in MCMC cycles) for acceptance ratios.  Default: 5000',
                         default=5000)
     parser.add_argument('--log-time', action='store_true',
                         help='Plot time on a log-scale.')
+    parser.add_argument('--burn-in', type=int,
+                        help='The burn-in time (in MCMC cycles) for calculation of converged acceptance ratios.')
     args = parser.parse_args()
 
-    subplotCount = 2 if len(args.swap_files) > 0 else 1
+    if args.data_files is not None:
+        dataFiles = args.data_files
+    else:
+        dataFiles = glob.glob('output.??')
+
+    if args.swap_files is not None:
+        swapFiles = args.swap_files
+    else:
+        swapFiles = glob.glob('PTMCMC.tempswaps.*.??')
+
+    subplotCount = 2 if len(swapFiles) > 0 else 1
 
     figure = pp.figure()
     axes = figure.add_subplot(subplotCount, 1, 1)
 
-    chains = sorted(map(get_temperatures, args.outputFiles), key=lambda c: c[0])
+    chains = sorted([get_temperatures(f) for f in dataFiles], key=lambda c: c[0])
     for i, c in chains:
         if args.indices is not None and i not in args.indices:
             continue
@@ -106,12 +121,14 @@ if __name__ == '__main__':
         axes.legend()
     xMin, xMax = axes.get_xlim()
 
-    if len(args.swap_files) > 0:
+    if len(swapFiles) > 0:
         axes = figure.add_subplot(subplotCount, 1, 2)
-        for file in args.swap_files:
-            i, times, ratios = get_ratios(file.name, timeScale=args.time_scale)
+        for swapFile in swapFiles:
+            i, times, ratios, meanRatio = get_ratios(swapFile, timeScale=args.time_scale, burnIn=args.burn_in)
             if args.indices is not None and i not in args.indices:
                 continue
+            if meanRatio is not None:
+                print('Acceptance ratio for chain {:}: {:}'.format(i, meanRatio))
 
             axes.plot(times, ratios, label=r'$T_{{{:}}} \leftrightarrow T_{{{:}}}$'.format(i - 1, i))
         axes.set_xlabel(r'No. of cycles')
@@ -123,4 +140,4 @@ if __name__ == '__main__':
         if args.indices is not None:
             axes.legend()
 
-    figure.savefig(args.plot_file.name)
+    figure.savefig(args.plot_file)
