@@ -226,7 +226,7 @@ char *LALInferenceGetVariableName(LALInferenceVariables *vars, int idx)
 }
 
 
-void LALInferenceSetVariable(LALInferenceVariables * vars, const char * name, void *value)
+void LALInferenceSetVariable(LALInferenceVariables * vars, const char * name, const void *value)
 /* Set the value of variable name in the vars structure to value */
 {
   LALInferenceVariableItem *item;
@@ -266,7 +266,7 @@ void LALInferenceSetVariable(LALInferenceVariables * vars, const char * name, vo
   return;
 }
 
-void LALInferenceAddVariable(LALInferenceVariables * vars, const char * name, void *value, LALInferenceVariableType type, LALInferenceParamVaryType vary)
+void LALInferenceAddVariable(LALInferenceVariables * vars, const char * name, const void *value, LALInferenceVariableType type, LALInferenceParamVaryType vary)
 /* Add the variable name with type type and value value to vars */
 /* If variable already exists, it will over-write the current value if type compatible*/
 {
@@ -430,7 +430,7 @@ void LALInferenceCopyVariables(LALInferenceVariables *origin, LALInferenceVariab
     }
     else
     {
-      if(!ptr->value || !ptr->name){
+      if(!ptr->value){
         XLAL_ERROR_VOID(XLAL_EFAULT, "Badly formed LALInferenceVariableItem structure!");
       }
       /* Deep copy matrix and vector types */
@@ -924,6 +924,7 @@ void LALInferenceDiscardPTMCMCHeader(FILE *filestream) {
  * maximum log(likelihood) sampled by the chain.
  * @param     filestream  The PTMCMC input stream to be burned in.
  * @param[in] logl_idx    The column containing logl values.
+ * @param     nPar        UNDOCUMENTED
  * @return The cycle to be used for burnin.
  */
 void LALInferenceBurninPTMCMC(FILE *filestream, INT4 logl_idx, INT4 nPar) {

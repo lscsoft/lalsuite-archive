@@ -35,4 +35,5 @@ noinst_HEADERS = \
 	TimeSeries_source.c
 
 EXTRA_DIST = \
-	MakeTemplateBank.c
+	MakeTemplateBank.c \
+	$(END_OF_LIST)

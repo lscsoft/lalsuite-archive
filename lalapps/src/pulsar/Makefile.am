@@ -1,13 +1,12 @@
 SUBDIRS = \
 	MakeSFTs \
 	Injections \
-	FDS_isolated \
+	Fstatistic \
 	hough \
 	GCT \
 	SideBand \
 	templateBanks \
 	crosscorr \
-	TimingTests \
 	TDS_isolated \
 	fscan \
 	TwoSpect \

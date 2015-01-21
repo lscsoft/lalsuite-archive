@@ -1,21 +1,21 @@
 BUILT_SOURCES =
 include $(top_srcdir)/gnuscripts/lalapps.am
 
-AM_CPPFLAGS = -I$(top_srcdir)/src/pulsar/FDS_isolated @AM_CPPFLAGS@
+AM_CPPFLAGS = -I$(top_srcdir)/src/pulsar/Fstatistic @AM_CPPFLAGS@
 
-CFSsrc = $(top_srcdir)/src/pulsar/FDS_isolated
-EAHsrc = $(top_srcdir)/src/pulsar/hough/src2/EinsteinAtHome
+CFSsrc = $(top_srcdir)/src/pulsar/Fstatistic
+HHSsrc = $(top_srcdir)/src/pulsar/hough/src2
+EAHsrc = $(top_srcdir)/src/pulsar/EinsteinAtHome
 
 bin_PROGRAMS = lalapps_HierarchSearchGCT
 check_PROGRAMS =
 EXTRA_PROGRAMS = eah_HierarchSearchGCT \
 	         lalapps_HierarchSearchGCT_SSE2 lalapps_HierarchSearchGCT_SSE2_NONC
 
-EAHSources = $(EAHsrc)/hs_boinc_extras.c $(EAHsrc)/hs_boinc_options.cpp $(EAHsrc)/win_lib.cpp
+EAHSources = $(EAHsrc)/hs_boinc_extras.c $(EAHsrc)/hs_boinc_options.cpp $(EAHsrc)/win_lib.cpp $(HHSsrc)/HierarchicalSearch.h
 HSGCTSources = HierarchSearchGCT.c HierarchSearchGCT.h \
                           GCTtoplist.c GCTtoplist.h \
                           $(CFSsrc)/HeapToplist.c $(CFSsrc)/HeapToplist.h \
-                          $(CFSsrc)/ComputeFStatistic.h \
                           RecalcToplistStats.c RecalcToplistStats.h
 
 lalapps_HierarchSearchGCT_SOURCES = $(HSGCTSources)
@@ -30,7 +30,7 @@ lalapps_HierarchSearchGCT_SSE2_NONC_CFLAGS = $(AM_CFLAGS) -msse -msse2 -mfpmath=
 
 
 eah_HierarchSearchGCT_SOURCES = $(HSGCTSources) $(EAHSources)
-eah_HierarchSearchGCT_CPPFLAGS = $(AM_CPPFLAGS) -DEAH_BOINC -DHS_OPTIMIZATION -DHIERARCHSEARCHGCT
+eah_HierarchSearchGCT_CPPFLAGS = $(AM_CPPFLAGS) -I $(EAHsrc) -I $(HHSsrc) -DEAH_BOINC -DHS_OPTIMIZATION -DHIERARCHSEARCHGCT
 # this shouldn't harm - it just prefers libraries in the build directory over e.g. system ones
 eah_HierarchSearchGCT_LDFLAGS = -L. $(AM_LDFLAGS)
 # RELEASE_DEPS contains additional dependencies of the E@H build
@@ -53,19 +53,6 @@ erp_execinfo_plus.o: $(EAHsrc)/erp_execinfo_plus.c
 NVCC ?= nvcc
 .cu.o:
 	$(NVCC) $(CPPFLAGS) -c $< -o $@
-
-## pretty dirty hack, particulary for compiling an E@H Mac OS 10.3 App on 10.4
-eah_HierarchSearchGCT_manual: eah_HierarchSearchGCT-HierarchSearchGCT.o \
-    eah_HierarchSearchGCT-GCTtoplist.o \
-    eah_HierarchSearchGCT-HeapToplist.o \
-    eah_HierarchSearchGCT-ComputeFstat_RS.o \
-    eah_HierarchSearchGCT-RecalcToplistStats.o \
-    eah_HierarchSearchGCT-hs_boinc_extras.o \
-    eah_HierarchSearchGCT-hs_boinc_options.o \
-    eah_HierarchSearchGCT-win_lib.o \
-    libstdc++.a
-	$(CXX) $(CPPFLAGS) $(AC_CPPFLAGS) -o $@ $^ $(LDFLAGS) $(AC_LDFLAGS) $(LDADD) $(AC_LDADD) $(LIBS) $(AC_LIBS) libstdc++.a
-
 
 EXTRA_DIST = testGCT.sh
 

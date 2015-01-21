@@ -27,7 +27,7 @@
 
 /**
  * \defgroup LALInference_h Header LALInference.h
- * \ingroup pkg_LALInference
+ * \ingroup lalinference_general
  * \brief Main header file for LALInference common routines and structures
  *
  * LALInference is a Bayesian analysis toolkit for use with LAL. It contains
@@ -255,7 +255,7 @@ char *LALInferenceGetVariableName(LALInferenceVariables *vars, int idx);
  * Pass a void * in \c value to the value you wish to set,
  * i.e. LALInferenceSetVariable(vars, "mu", (void *)&mu);
  */
-void LALInferenceSetVariable(LALInferenceVariables * vars, const char * name, void * value);
+void LALInferenceSetVariable(LALInferenceVariables * vars, const char * name, const void * value);
 
 /**
  * Add a variable named \c name to \c vars with initial value referenced by \c value
@@ -266,7 +266,7 @@ void LALInferenceSetVariable(LALInferenceVariables * vars, const char * name, vo
  * \param value UNDOCUMENTED
  * If the variable already exists it will be over-written UNLESS IT HAS A CONFLICTING TYPE
  */
-void LALInferenceAddVariable(LALInferenceVariables * vars, const char * name, void * value, 
+void LALInferenceAddVariable(LALInferenceVariables * vars, const char * name, const void * value, 
 	LALInferenceVariableType type, LALInferenceParamVaryType vary);
 
 /**
@@ -311,9 +311,9 @@ int LALInferenceCompareVariables(LALInferenceVariables *var1, LALInferenceVariab
     \f$\delta \phi\f$, the measured waveform is related to the
     physical waveform via
 
-    \f\[
+    \f[
       h_\mathrm{meas} = h_\mathrm{phys} \left(1 + \delta A \right) \frac{2 + i \delta \phi}{2 - i \delta \phi}
-    \f\]
+    \f]
 
     The phase factor takes the form above rather than the more obvious
     \f$\exp(i \delta \phi)\f$ or \f$1 + \delta \phi\f$ because it is

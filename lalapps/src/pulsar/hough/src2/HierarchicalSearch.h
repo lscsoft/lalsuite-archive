@@ -22,7 +22,8 @@
 
 /**
  * \file
- * \brief Header file for DriveHoughFStat.c
+ * \ingroup lalapps_pulsar
+ * \brief Header file for DriveHoughFstat.c
  * \author Badri Krishnan, Alicia Sintes
  *
  */
@@ -68,7 +69,7 @@
 #include <lalapps.h>
 
 /* more efficient toplist using heaps */
-#include "HoughFStatToplist.h"
+#include "HoughFstatToplist.h"
 
 /******************************************************
  *   Protection against C++ name mangling
