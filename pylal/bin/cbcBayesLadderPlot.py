@@ -34,9 +34,10 @@ def get_temperatures(filename):
 
     with open(filename, 'r') as file:
         skip, line = skip_header(file)
-        cols = line.index('cycle'), line.index('temp')
+        columns = line.index('cycle'), line.index('temp')
 
-        return index, np.loadtxt(filename, skiprows=skip, usecols=cols)
+        # Skip the final line in case it it wasn't completely flushed.
+        return index, np.genfromtxt(filename, skip_header=skip, skip_footer=1, usecols=columns)
 
 def get_ratios(filename, timeScale):
     match = re.search(r'\.(\d+)$', filename)
@@ -47,16 +48,22 @@ def get_ratios(filename, timeScale):
 
     with open(filename, 'r') as file:
         line = map(str.strip, file.next().split())
-        cols = line.index('cycle'), line.index('swap_accepted')
+        columns = line.index('cycle'), line.index('swap_accepted')
 
-        swaps = np.loadtxt(filename, skiprows=1, usecols=cols)
-        bins = np.arange(np.min(swaps[:, 0]), np.max(swaps[:, 0]) + timeScale, timeScale)
+        swaps = np.genfromtxt(filename, skip_header=1, skip_footer=1, usecols=columns)
+        tMin, tMax = np.min(swaps[:, 0]), np.max(swaps[:, 0])
+        bins = np.arange(tMin, tMax, timeScale)
+
         pairs = zip(np.digitize(swaps[:, 0], bins), swaps[:, 1])
         times = (bins[1:] + bins[:-1]) / 2.
         ratios = np.zeros(len(times))
         for i, g in itertools.groupby(pairs, lambda x: x[0]):
+            if i > len(ratios):
+                continue
+
             g = list(x[1] for x in g)
             ratios[i - 1] = sum(g) / len(g)
+
         return index, times, ratios
 
 if __name__ == '__main__':
