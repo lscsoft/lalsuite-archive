@@ -1015,7 +1015,7 @@ get_whole_sky_AM_response(d->gps, d->coherence_time, d->detector, d->free, args_
 
 if(args_info.extended_test_arg) {
 	TODO("implement extended test of AM coeffs validity")
-/*	precompute_values(fine_grid);
+/*	precompute_values(fine_grid); */
 	/* Check AM_response for correctness */
 /*	fprintf(stderr, "Verifying AM response computation for dataset %s\n", d->name);
 	for(i=0;i<ntotal_polarizations;i++) {
