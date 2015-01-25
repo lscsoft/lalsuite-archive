@@ -2591,6 +2591,7 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   /* loop over data (different interferometers): */
   dataPtr = IFOdata;
 
+  UINT4 NlowSNR = 0 ;
   while (dataPtr != NULL) {
     /*-- WF to inject is now in hptilde and hctilde. --*/
     /* determine beam pattern response (Fplus and Fcross) for given Ifo: */
@@ -2661,6 +2662,7 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
     printf("injected SNR %.1f in IFO %s\n",sqrt(2.0*chisquared),dataPtr->name);
     NetSNR+=2.0*chisquared;
     dataPtr->SNR=sqrt(2.0*chisquared);
+    if (dataPtr->SNR < 5.5) NlowSNR +=1 ;    
     dataPtr = dataPtr->next;
 
     fclose(outInj);
@@ -2672,6 +2674,20 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   }
   XLALDestroyCOMPLEX16FrequencySeries(hctilde);
   XLALDestroyCOMPLEX16FrequencySeries(hptilde);
+
+  if(sqrt(NetSNR) < 8.0) {
+    fprintf(stderr,"Network SNR < 8; exiting.\n");
+    exit(EXIT_SUCCESS);
+    }
+  if(sqrt(NetSNR) > 30.0) {
+    fprintf(stderr,"NetworkSNR > 30; exiting.\n");
+    exit(EXIT_SUCCESS);
+    }
+  if(NlowSNR > 1) {
+      fprintf(stderr,"At least two individual detectors have SNR < 5.5; exiting.\n");
+      exit(EXIT_SUCCESS);
+  }
+
 }
 
 static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , char SNRpath[] ){
