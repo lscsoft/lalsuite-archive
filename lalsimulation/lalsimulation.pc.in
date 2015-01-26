@@ -5,6 +5,7 @@ libdir=@libdir@
 includedir=@includedir@
 datarootdir=@datarootdir@
 docdir=@docdir@
+htmldir=@htmldir@
 LALSIMULATION_OCTAVE_PATH=@octexecdir@
 LALSIMULATION_PYTHON_PATH=@pyexecdir@
 

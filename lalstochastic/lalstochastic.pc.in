@@ -5,6 +5,7 @@ libdir=@libdir@
 includedir=@includedir@
 datarootdir=@datarootdir@
 docdir=@docdir@
+htmldir=@htmldir@
 LALSTOCHASTIC_OCTAVE_PATH=@octexecdir@
 LALSTOCHASTIC_PYTHON_PATH=@pyexecdir@
 

@@ -5,6 +5,7 @@ libdir=@libdir@
 includedir=@includedir@
 datarootdir=@datarootdir@
 docdir=@docdir@
+htmldir=@htmldir@
 LALMETAIO_OCTAVE_PATH=@octexecdir@
 LALMETAIO_PYTHON_PATH=@pyexecdir@
 
