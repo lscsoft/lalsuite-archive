@@ -815,13 +815,31 @@ static double ran_flat_log_discrete(gsl_rng *rng, double a, double b, double rat
  */
 
 
-static double random_string_fhigh(double flow, double fhigh, gsl_rng *rng)
+static double random_stringcusp_fhigh(double flow, double fhigh, gsl_rng *rng)
 {
 	const double thetasqmin = pow(fhigh, -2.0 / 3.0);
 	const double thetasqmax = pow(flow, -2.0 / 3.0);
 	const double thetasq = gsl_ran_flat(rng, thetasqmin, thetasqmax);
 
 	return pow(thetasq, -3.0 / 2.0);
+}
+
+/*
+ * \theta is the angle the line of sight makes with the kink.  \theta
+ * is distributed uniformly, and the high frequency cut-off of the
+ * injection is \propto \theta^{-3}.  So we first solve for the limits of
+ * \theta from the low- and high bounds of the frequency band of
+ * interest, pick a uniformly-distributed number in that range, and convert
+ * back to a high frequency cut-off.
+ */
+
+static double random_stringkink_fhigh(double flow, double fhigh, gsl_rng *rng)
+{
+	const double thetamin = pow(fhigh, -1.0 / 3.0);
+	const double thetamax = pow(flow, -1.0 / 3.0);
+	const double theta = gsl_ran_flat(rng, thetamin, thetamax);
+
+	return pow(theta, -3.0 / 2.0);
 }
 
 /*
@@ -856,16 +874,24 @@ static SimBurst *random_string(double flow, double fhigh, double Alow, double Ah
 	  exit(1);
 	}
 
-	/* high frequency cut-off and amplitude */
+	/* high frequency cut-off */
 
-	sim_burst->frequency = random_string_fhigh(flow, fhigh, rng);
+	if(!strcmp(waveform_type,"cusp")) sim_burst->frequency = random_stringcusp_fhigh(flow, fhigh, rng);
+	else if(!strcmp(waveform_type,"kink")) sim_burst->frequency = random_stringkink_fhigh(flow, fhigh, rng);
+	else{
+	  XLALPrintError("Unknown waveform type\n");
+	  exit(1);
+	}
+	
+	/* amplitude */
+
 	sim_burst->amplitude = ran_flat_log(rng, Alow, Ahigh);
 
 	/* sky location and wave frame orientation */
 
 	random_location_and_polarization(&sim_burst->ra, &sim_burst->dec, &sim_burst->psi, rng);
 
-	/* string cusp waveform generator makes a linearly polarized
+	/* string waveform generator makes a linearly polarized
 	 * waveform in the + polarization.  it ignores these parameters,
 	 * but just for consistency we populate them appropriately */
 
