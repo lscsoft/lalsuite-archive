@@ -473,7 +473,7 @@ for run in allcombinations:
     foldernames+=foldername+' '
     parser_paths+=str(os.path.join(basefolder,foldername,"pipeline.ini"))+" "
     if subhy!='GR':
-        dic_engine.update({'grtest-parameters':'['+subhy+']'})
+        dic_engine.update({'grtest-parameters':subhy})
     else:
         dic_engine.update({'grtest-parameters':''})
     dic = {'engine':dic_engine, 'analysis':dic_analysis, 'paths':dic_path}
