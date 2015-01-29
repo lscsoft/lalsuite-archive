@@ -636,7 +636,6 @@ class TigerRun:
 				files += item
 			nsplit = 3 if self.nsources > 1000 else 1
 			for fsplit in array_split(files.split(),nsplit):
-				print fsplit[0]; exit(0);
 				command="%s %s '%s'"%("gsissh -C",clusters[self.cluster],command) if self.cluster in clusters.keys() else "%s %s"%("cat"," ".join(fsplit))
 				p = Popen(command, stdout=PIPE, stderr=PIPE,shell=True)
 				self.bayes.extend(loadtxt(p.stdout, usecols=[0]))
@@ -662,7 +661,6 @@ class TigerRun:
 			command += " "+self.directory+self.subhyp[0]+"/engine/"+"{"+snrfilescomma+"}"
 			if self.cluster != 'local':
 				command+="'"
-			#print command; exit(0);
 			p = Popen(command, stdout=PIPE, stderr=PIPE,shell=True)
 			#self.snr = array([float(k.strip('Network:').strip()) for k in p.stdout.readlines() if k.find('Network')!=-1])
 			snrrawdata = p.stdout.readlines()
