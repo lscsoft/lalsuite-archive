@@ -46,7 +46,7 @@ from string import whitespace
 from subprocess import Popen, PIPE
 from sys import exit, stdout, version_info, float_info
 from time import time
-from numpy import sqrt, array, empty, hstack, min, max, reshape, shape, loadtxt, vstack, append, arange, random, column_stack, concatenate, savetxt, log, exp, size, zeros, argmax, argsort, sort, sum, subtract
+from numpy import sqrt, array, empty, hstack, min, max, reshape, shape, loadtxt, vstack, append, arange, random, column_stack, concatenate, savetxt, log, exp, size, zeros, argmax, argsort, sort, sum, subtract, array_split
 
 py_version = version_info[:2]
 if py_version < (2, 7):
@@ -607,7 +607,8 @@ class TigerRun:
 		# GET SNR FILES
 		#snrfilename = "snr_%s_%.1f.dat"%(self.bayesfiles[k].split('_')[1],int(self.gps[k]))
 		#self.snrfiles = array(["snr_%s_%.1f.dat"%(self.bayesfiles[k].split('_')[1],int(self.gps[k])) for k in xrange(len(self.bayesfiles))])
-		self.snrfiles = array(["snr_%s_%.1f.dat"%(x,int(y)) for x,y in zip(self.detectors, self.gps)])
+		#self.snrfiles = array(["snr_%s_%.1f.dat"%(x,int(y)) for x,y in zip(self.detectors, self.gps)])
+		self.snrfiles = array([k.replace('_','-').replace('-B.txt','_snr.txt').replace('posterior','lalinferencenest-%s'%(k.split('-')[1].split('.')[0])).replace('%s'%(k.split('-')[0].split('_')[-1]),'%.1f'%(float(k.split('-')[0].split('_')[-1]))) for k in self.bayesfiles])
 		#self.snrfiles = array(["snr_H1L1V1_"+item+".0.dat" for item in self.gps])
 
 		self.nsources = len(self.bayesfiles)
@@ -624,21 +625,23 @@ class TigerRun:
 		if self.nsources == 0:
 			stdout.write("... pulling Bayes factors: %s\t%s - nothing to fetch\n" % (self.cluster,self.directory))
 		else:
-			command = "" 
-			if self.cluster != 'local':
-				command+="gsissh -C "+clusters[self.cluster]+" '"
-			command+="cat"
+			# new command
+			files=""
 			for item in self.bayesfiles:
-				command+=" "+self.directory+"{"+",".join(self.subhyp)+"}"
+				files+=" "+self.directory+"{"+",".join(self.subhyp)+"}"
 				if self.engine == 'lalnest':
-					command += "/nest/"
+					files += "/nest/"
 				elif self.engine == 'lalinference':
-					command += "/posterior_samples/"
-				command += item
-			if self.cluster != 'local':
-				command+="'"
-			p = Popen(command, stdout=PIPE, stderr=PIPE,shell=True)
-			self.bayes = reshape(loadtxt(p.stdout, usecols=[0]), (self.nsources,len(self.subhyp)))
+					files += "/posterior_samples/"
+				files += item
+			nsplit = 3 if self.nsources > 1000 else 1
+			for fsplit in array_split(files.split(),nsplit):
+				print fsplit[0]; exit(0);
+				command="%s %s '%s'"%("gsissh -C",clusters[self.cluster],command) if self.cluster in clusters.keys() else "%s %s"%("cat"," ".join(fsplit))
+				p = Popen(command, stdout=PIPE, stderr=PIPE,shell=True)
+				self.bayes.extend(loadtxt(p.stdout, usecols=[0]))
+			self.bayes = reshape(self.bayes, (self.nsources,len(self.subhyp)))
+			savetxt('test.dat',self.bayes);
 		stdout.write("... pulling Bayes factors: %s\t%s - %d x %d dimension\n" % (self.cluster,self.directory, shape(self.bayes)[0],shape(self.bayes)[1]))
 
 	def pullsnr(self):
@@ -656,9 +659,10 @@ class TigerRun:
 				command+="gsissh -C "+clusters[self.cluster]+" '"
 			command+="cat"
 			snrfilescomma=",".join(self.snrfiles)
-			command += " "+self.directory+self.subhyp[0]+"/SNR/"+"{"+snrfilescomma+"}"
+			command += " "+self.directory+self.subhyp[0]+"/engine/"+"{"+snrfilescomma+"}"
 			if self.cluster != 'local':
 				command+="'"
+			#print command; exit(0);
 			p = Popen(command, stdout=PIPE, stderr=PIPE,shell=True)
 			#self.snr = array([float(k.strip('Network:').strip()) for k in p.stdout.readlines() if k.find('Network')!=-1])
 			snrrawdata = p.stdout.readlines()
@@ -762,7 +766,7 @@ class TigerSet:
 			exit('Engine not recognised')
 
 		# CREATE LOCATIONS
-		self.locations = [TigerRun(loc[0].lower(),loc[1],self.engine,self.subhyp) for loc in locations if loc[0].lower() in clusters.keys()]
+		self.locations = [TigerRun(loc[0].lower(),loc[1],self.engine,self.subhyp) for loc in locations if loc[0].lower() in clusters.keys()+['local']]
 
 		# SET LABELS
 		self.label = label
@@ -1099,8 +1103,7 @@ def TigerCreateCumFreq(tigerrun, axis):
 
 	# CHECK IF TOTAL ADDS UP TO TOTAL NUMBER OF SOURCES
 	if sum(freqs[-1,:]) != tigerrun.nsources:
-			print "Total number of sources not correct; %i vs %i" %(sum(freqs[-1,:]),tigerrun.nsources)
-			exit(-1)
+		print "Warning, some sources maybe out of the SNR range and are not plotted: SNR \in [%.1f:%.1f], %i sources missing" %(xlim[0], xlim[1], tigerrun.nsources-sum(freqs[-1,:]))
 
 	# PLOT CUMULATIVE HIGHEST BAYES SIGNAL VERSUS NOISE
 	rcParams['legend.fontsize']=18 # MANUAL RESET FONTSIZE
