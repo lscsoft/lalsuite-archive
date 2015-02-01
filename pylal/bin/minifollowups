@@ -153,7 +153,7 @@ def run_omega_scan(opts,omegaTimes):
         print 'Making an omega scan for ' + ifo + ' at time ' + str(omegaTimes[ifo].seconds)
       make_external_call(' '.join(omegaCommand))
     omegaDirs[ifo] = outDir
-    omegaLinks+= '<a href="pipedown/'+omegaDirs[ifo]+'" rel="external">'
+    omegaLinks+= '<a href="coinc_result_plots/'+omegaDirs[ifo]+'" rel="external">'
     omegaLinks+= ifo + '</a> '
 
   return omegaDirs,omegaLinks
@@ -215,7 +215,7 @@ def loudest_events(xmldoc, opts, summTable, followup):
   for event in summTable:
     for coinc,p,omegaScan in zip(coincTable,page,omegaScans):
       if event.coinc_event_id == coinc[0].coinc_event_id:
-        event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
+        event.mini_followup = '''<a href = "coinc_result_plots/''' + p + '''" rel="external"> link </a>'''
         if omegaScan:
           event.omega_scan = omegaScan
 
@@ -239,7 +239,7 @@ def missed_injections(opts, summTable, followup):
       numFU += 1
 
   for event,p,omegaScan in zip(summTable,page,omegaScans):
-    event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
+    event.mini_followup = '''<a href = "coinc_result_plots/''' + p + '''" rel="external"> link </a>'''
     if omegaScan:
       event.omega_scan = omegaScan
 
@@ -269,7 +269,7 @@ def found_injections(xmldoc, opts, summTable, followup):
       numFU += 1
 
   for event,p,omegaScan in zip(summTable,page,omegaScans):
-    event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
+    event.mini_followup = '''<a href = "coinc_result_plots/''' + p + '''" rel="external"> link </a>'''
     if omegaScan:
       event.omega_scan = omegaScan
 
