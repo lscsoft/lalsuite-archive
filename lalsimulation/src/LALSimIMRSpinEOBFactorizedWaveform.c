@@ -82,6 +82,17 @@ static INT4 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
                                 SpinEOBParams         * restrict params
                                 );
 #endif
+
+static INT4 UNUSED XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform( 
+                 COMPLEX16         * restrict hlm,    /**< OUTPUT, hlm waveforms */
+                 REAL8Vector       * restrict values, /**< dyanmical variables: (r,\phi,p_r,p_\phi) */
+                 REAL8Vector       * restrict cartvalues, /**< dyanmical variables */
+                 const REAL8         v,               /**< velocity */
+                 const REAL8         Hreal,           /**< real Hamiltonian */
+                 const INT4          l,               /**< l mode index */
+                 const INT4          m,               /**< m mode index */
+                 SpinEOBParams     * restrict params  /**< Spin EOB parameters */
+                 );
 static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
                                 COMPLEX16             * restrict hlm,
                                 REAL8Vector           * restrict values,
@@ -92,6 +103,16 @@ static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
                                 SpinEOBParams         * restrict params
                                 );
 
+static INT4 UNUSED XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform( 
+                 COMPLEX16         * restrict hlm,    /**< OUTPUT, hlm waveforms */
+                 REAL8Vector       * restrict values, /**< dyanmical variables: (r,\phi,p_r,p_\phi) */
+                 REAL8Vector       * restrict cartvalues, /**< dyanmical variables */
+                 const REAL8         v,               /**< velocity */
+                 const REAL8         Hreal,           /**< real Hamiltonian */
+                 const INT4          l,               /**< l mode index */
+                 const INT4          m,               /**< m mode index */
+                 SpinEOBParams     * restrict params  /**< Spin EOB parameters */
+                 );
 static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
           FacWaveformCoeffs * const coeffs,
           const REAL8               m1,
@@ -580,16 +601,16 @@ static INT4 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 	        break;
 	      case 2:
 		deltalm = hCoeffs->delta62vh3 * vh3;
-		rholm	= 1. + v2*(hCoeffs->rho62v2
+		rholm	= 1. + v2*(hCoeffs->rho62v2 
                         + v*((hCoeffs->rho62v3 + hCoeffs->rho62v3S)
 			+ (hCoeffs->rho62v4 + hCoeffs->rho62v4S)* v));
 		break;
 	      case 1:
 		deltalm = hCoeffs->delta61vh3 * vh3;
-		rholm	= 1. + v2*(hCoeffs->rho61v2
+		rholm	= 1. + v2*(hCoeffs->rho61v2 
                         + (hCoeffs->rho61v3 + hCoeffs->rho61v3S)*v);
-		break;
-	      default:
+        break;
+          default:        
                 XLAL_ERROR( XLAL_EINVAL );
                 break;
 	    }

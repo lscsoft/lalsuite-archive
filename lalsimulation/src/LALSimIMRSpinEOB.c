@@ -107,6 +107,7 @@ int XLALSimIMRSpinEOBWaveform(
 
   int i;
   int status;
+  int debugout = 1;
   INT4 SpinAlignedEOBversion = 1;
 
   REAL8Vector *values = NULL;
@@ -180,7 +181,7 @@ int XLALSimIMRSpinEOBWaveform(
   s2Vec.data   = s2Data;
 
   /* Populate the initial structures */
-  if ( XLALSimIMRSpinEOBCalculateSigmaStar( sigmaStar, m1, m2,
+  if ( XLALSimIMRSpinEOBCalculateSigmaStar( sigmaStar, m1, m2, 
                               &s1Vec, &s2Vec ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( sigmaKerr );
@@ -189,7 +190,7 @@ int XLALSimIMRSpinEOBWaveform(
     XLAL_ERROR( XLAL_EFUNC );
   }
 
-  if ( XLALSimIMRSpinEOBCalculateSigmaKerr( sigmaKerr, m1, m2,
+  if ( XLALSimIMRSpinEOBCalculateSigmaKerr( sigmaKerr, m1, m2, 
                               &s1Vec, &s2Vec ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( sigmaKerr );
@@ -213,6 +214,94 @@ int XLALSimIMRSpinEOBWaveform(
   const REAL8 EPS_ABS = 1.0e-9;
   const REAL8 EPS_REL = 1.0e-8;
 
+  /* Spins not scaled by the mass */
+  REAL8 mSpin1[3], mSpin2[3];
+
+  /* Parameter structures containing important parameters for the model */
+  SpinEOBParams           seobParams;
+  SpinEOBHCoeffs          seobCoeffs;
+  EOBParams               eobParams;
+  FacWaveformCoeffs       hCoeffs;
+  NewtonMultipolePrefixes prefixes;
+
+  if ( !(sigmaStar = XLALCreateREAL8Vector( 3 )) )
+  {
+    XLALDestroyREAL8Vector( sigmaStar );
+    XLALDestroyREAL8Vector( values );
+    XLAL_ERROR( XLAL_ENOMEM );
+  }
+
+  if ( !(sigmaKerr = XLALCreateREAL8Vector( 3 )) )
+  {
+    XLALDestroyREAL8Vector( sigmaStar );
+    XLALDestroyREAL8Vector( values );
+    XLAL_ERROR( XLAL_ENOMEM );
+  }
+
+  /* Calculate chiS and chiA */
+  /* Assuming we are in the minimally-rotating frame, such that the orbital
+   * angular momentum is along the z-axis at the initial time. */
+  chiS = 0.5 * (spin1[2] + spin2[2]);
+  chiA = 0.5 * (spin1[2] - spin2[2]);
+
+  /* Wrapper spin vectors used to calculate sigmas */
+  REAL8Vector s1Vec, s1VecOverMtMt;
+  REAL8Vector s2Vec, s2VecOverMtMt;
+  REAL8       s1Data[3], s2Data[3], s1DataNorm[3], s2DataNorm[3];
+  REAL8       omega, v, ham;
+
+  s1VecOverMtMt.data   = s1DataNorm;
+  s2VecOverMtMt.data   = s2DataNorm;
+
+  memcpy( s1Data, spin1, sizeof(s1Data) );
+  memcpy( s2Data, spin2, sizeof(s2Data) );
+  memcpy( s1DataNorm, spin1, sizeof( s1DataNorm ) );
+  memcpy( s2DataNorm, spin2, sizeof( s2DataNorm ) );
+
+  for( i = 0; i < 3; i++ )
+  {
+    s1Data[i] *= m1*m1;
+    s2Data[i] *= m2*m2;
+  }
+
+  for ( i = 0; i < 3; i++ )
+  {
+    s1DataNorm[i] = s1Data[i]/mTotal/mTotal;
+    s2DataNorm[i] = s2Data[i]/mTotal/mTotal;
+  }
+
+  s1Vec.length = s2Vec.length = 3;
+  s1Vec.data   = s1Data;
+  s2Vec.data   = s2Data;
+
+  /* Populate the initial structures */
+  if ( XLALSimIMRSpinEOBCalculateSigmaStar( sigmaStar, m1, m2, 
+                              &s1Vec, &s2Vec ) == XLAL_FAILURE )
+  {
+    XLALDestroyREAL8Vector( sigmaKerr );
+    XLALDestroyREAL8Vector( sigmaStar );
+    XLALDestroyREAL8Vector( values );
+    XLAL_ERROR( XLAL_EFUNC );
+  }
+
+  if ( XLALSimIMRSpinEOBCalculateSigmaKerr( sigmaKerr, m1, m2, 
+                              &s1Vec, &s2Vec ) == XLAL_FAILURE )
+  {
+    XLALDestroyREAL8Vector( sigmaKerr );
+    XLALDestroyREAL8Vector( sigmaStar );
+    XLALDestroyREAL8Vector( values );
+    XLAL_ERROR( XLAL_EFUNC );
+  }
+
+  seobParams.a = a = sigmaKerr->data[2];
+  s1VecOverMtMt.length = s2VecOverMtMt.length = 3;
+  seobParams.s1Vec    = &s1VecOverMtMt;
+  seobParams.s2Vec    = &s2VecOverMtMt;
+
+  /* Variables for the integrator */
+  ark4GSLIntegrator       *integrator = NULL;
+  REAL8Array              *dynamics   = NULL;
+  INT4                    retLen;
   /* Initialize parameters */
   mTotal = m1 + m2;
   mTScaled = mTotal * LAL_MTSUN_SI;
@@ -454,9 +543,11 @@ int XLALSimIMRSpinEOBWaveform(
     LNhz = LNhz / magL;
 
     alpha = atan2( LNhy, LNhx );
-
-    printf( "alpha = %.16e, omega = %.16e, LNhz = %.16e, vphi = %.16e\n",
-             alpha, omega, LNhz, vphi[i] );
+    
+    if (debugout){
+       printf( "alpha = %.16e, omega = %.16e, LNhz = %.16e, vphi = %.16e\n",
+               alpha, omega, LNhz, vphi[i] );
+    }
 
     /* Calculate the value of the Hamiltonian */
     cartPosVec.data[0] = values->data[0];

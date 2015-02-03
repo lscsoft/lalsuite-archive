@@ -85,6 +85,7 @@ static int XLALSpinAlignedHcapDerivative(
                   )
 {
 
+  int debugPK = 1;
   static const REAL8 STEP_SIZE = 1.0e-4;
 
   static const INT4 lMax = 8;
@@ -208,7 +209,7 @@ static int XLALSpinAlignedHcapDerivative(
   pData[0] = values[2];
   pData[1] = values[3] / values[0];
   /* Calculate Hamiltonian using Cartesian vectors rVec and pVec */
-  H =  XLALSimIMRSpinEOBHamiltonian( eta, &rVec, &pVec, s1Vec, s2Vec, sKerr, sStar, params.params->tortoise, params.params->seobCoeffs );
+  H =  XLALSimIMRSpinEOBHamiltonian( eta, &rVec, &pVec, s1Vec, s2Vec, sKerr, sStar, params.params->tortoise, params.params->seobCoeffs ); 
 
   //printf( "csi = %.16e, ham = %.16e ( tortoise = %d)\n", csi, H, params.params->tortoise );
   //exit(1);
@@ -247,6 +248,40 @@ static int XLALSpinAlignedHcapDerivative(
   {
     //printf( "Deriv is nan: %e %e %e %e\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3] );
     return 1;
+  }
+  
+  if ( debugPK )
+  {
+    /* Print out all mass parameters */   
+    printf("\nIn XLALSpinHcapNumericalDerivative:\n");
+    printf("m1 = %12.12lf, m2 = %12.12lf, eta = %12.12lf\n", (double) mass1, 
+        (double) mass2, (double) eta );
+    /* Print out all spin parameters */
+    printf("spin1 = {%12.12lf,%12.12lf,%12.12lf}, spin2 = {%12.12lf,%12.12lf,%12.12lf}\n",
+        (double) s1Vec->data[0], (double) s1Vec->data[1], (double) s1Vec->data[2],
+        (double) s2Vec->data[0], (double) s2Vec->data[1], (double) s2Vec->data[2]);
+    printf("sigmaStar = {%12.12lf,%12.12lf,%12.12lf}, sigmaKerr = {%12.12lf,%12.12lf,%12.12lf}\n",
+        (double) sStar->data[0], (double) sStar->data[1],
+        (double) sStar->data[2], (double) sKerr->data[0],
+        (double) sKerr->data[1], (double) sKerr->data[2]);
+    //printf("L = {%12.12lf,%12.12lf,%12.12lf}, |L| = %12.12lf\n", (double) Lx, (double) Ly,
+    //    (double) Lz, (double) magL);
+    //printf("dLdt = {%12.12lf,%12.12lf,%12.12lf}, d|L|dt = %12.12lf\n", (double) dLx, 
+    //    (double) dLy, (double) dLz, (double) dMagL);
+    
+    printf("Cartesian coordinates: {%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf}\n",
+        (double) cartValues[0], (double) cartValues[1], (double) cartValues[2],
+        (double) cartValues[3], (double) cartValues[4], (double) cartValues[5]);
+        
+    printf("Polar coordinates = {%12.12lf, %12.12lf, %12.12lf, %12.12lf}\n", 
+        (double) polData[0], (double) polData[1], (double) polData[2], (double) polData[3]);
+
+    printf("Polar derivatives: {%12.12lf,%12.12lf,%12.12lf,%12.12lf}\n",
+       (double) dvalues[0], (double) dvalues[1], (double) dvalues[2], (double) dvalues[3]);
+		  
+	printf("Hamiltonian = %12.12lf, Flux = %12.12lf, Omega = %12.12lf\n", H, flux, omega);
+
+    fflush(NULL);
   }
 
   return XLAL_SUCCESS;

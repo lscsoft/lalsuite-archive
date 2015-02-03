@@ -15,6 +15,7 @@
 #define EPS LAL_REAL4_EPS
 #define TINY LAL_REAL4_MIN
 #define MAXITER 16384
+define debugout 1
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -872,7 +873,8 @@ INT4 XLALSimIMREOBFinalMassSpin(
   static const REAL8 s4v2 = -0.27506210736300474;
   static const REAL8 t0v2 = -2.649826989941522;
   static const REAL8 t3v2 = 3.910637513328723;
-  static const REAL8 t2v2 = -3.850983155206041;
+  static const REAL8 t2v2 = 16.* (-0.17958273605461628 - 0.015625*t3v2);
+  /*static const REAL8 t2v2 = -3.850983155206041;*/
 
 
   REAL8 totalMass;
@@ -968,10 +970,11 @@ INT4 XLALSimIMREOBFinalMassSpin(
       a1a2L    = chi1*cosb+chi2*q2*cosg;
       lnorm    = 2.*sqrt(3.)+t2*eta+t3*eta*eta+s4/(1.+q2)/(1.+q2)*a1a2norm
                + (s5*eta+t0+2.)/(1.+q2) * a1a2L;
-      *finalMass = 1. + (0.9515 - 1.0)*4.*eta - 0.013*16.*eta2*(chi1+chi2);
+      *finalMass = 1. + (0.9515 - 1.0)*4.*eta - 0.013*16.*eta2*(chi1*cosb+chi2*cosg);
       *finalSpin = 1. / (1.+q) / (1.+q)
                * sqrt(a1a2norm +2.*a1a2L*lnorm*q+lnorm*lnorm*q2);
-      printf("final spin variables: %e, %e, %e, %e, %e, %e\n",chi1,chi2,theta1,theta2,phi1,phi2);
+      if (debugout)
+          printf("final spin variables: %e, %e, %e, %e, %e, %e\n",chi1,chi2,theta1,theta2,phi1,phi2);
     break;
     default:
       XLALPrintError( "XLAL Error %s - Unsupported approximant.\n", __func__ );

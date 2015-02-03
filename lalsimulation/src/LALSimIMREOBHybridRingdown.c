@@ -42,6 +42,7 @@
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_interp.h>
 #include <gsl/gsl_spline.h>
+#include <gsl/gsl_blas.h>
 
 #include "LALSimIMREOBNRv2.h"
 #include "LALSimBlackHoleRingdown.h"
@@ -49,6 +50,7 @@
 
 #ifndef _LALSIMIMREOBHYBRIDRINGDOWN_C
 #define _LALSIMIMREOBHYBRIDRINGDOWN_C
+#define debugout 1
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -100,7 +102,7 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
 
   /* mass in geometric units */
   m  = (mass1 + mass2) * LAL_MTSUN_SI;
-  t5 = (matchrange->data[0] - matchrange->data[1]) * m;
+  t5 = (matchrange->data[0] - matchrange->data[1])* m;
   rt = -t5 / 5.;
 
   t4 = t5 + rt;
@@ -108,6 +110,13 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
   t2 = t3 + rt;
   t1 = t2 + rt;
   
+ if (debugout){
+  printf("Something is wrong: (0)-> %.16e, (1)-> %.16e, (0-1)->%.16e\n", 
+        matchrange->data[0], matchrange->data[1], matchrange->data[0] - matchrange->data[1]);
+  printf("Stas: timechecks t1=%.16e, t2=%.16e, t3=%.16e, t4=%.16e, t5=%.10e \n", 
+          t1/m+matchrange->data[1], t2/m+matchrange->data[1], t3/m+matchrange->data[1], 
+          t4/m+matchrange->data[1], t5/m+matchrange->data[1]);
+ }
   if ( inspwave1->length != 3 || inspwave2->length != 3 ||
 		modefreqs->length != nmodes )
   {
@@ -235,6 +244,9 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
   {
 	modeamps->data[i] = gsl_vector_get(x, i);
 	modeamps->data[i + nmodes] = gsl_vector_get(x, i + nmodes);
+    if (debugout){
+        printf("RD Solution: i= %d,   %.16e,   %.16e \n", i, gsl_vector_get(x,i), gsl_vector_get(x, i+nmodes))
+    }
   }
 
   /* Free all gsl linear algebra objects */
@@ -312,7 +324,14 @@ static INT4 XLALGenerateHybridWaveDerivatives (
   tlist[3] = tlist[2] + rt;
   tlist[4] = tlist[3] + rt;
   tlist[5] = matchrange->data[1];
-
+  
+  if (debugout){
+     printf("Stas: range of comb: %.10e - %.10e \n", matchrange->data[0], matchrange->data[1]);
+     for (j=0; j<6; j++){
+         printf("Stas: attachment points are %.10e  \n", tlist[j]+7.4928397137240454e+03);
+     } 
+  }
+  
   /* Set the length of the interpolation vectors */
   vecLength = ( m * matchrange->data[2] / dt ) + 1;
 
@@ -460,6 +479,19 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
         XLALDestroyCOMPLEX16Vector( modefreqs );
         XLAL_ERROR( XLAL_EFUNC );
       }
+      
+      if ( approximant == SEOBNRv3 ){
+         if ( XLALSimIMREOBGenerateQNMFreqV2( modefreqs, mass1, mass2, spin1, spin2, l, fabs(m), nmodes, approximant ) == XLAL_FAILURE )
+         {
+           XLALDestroyCOMPLEX16Vector( modefreqs );
+           XLAL_ERROR( XLAL_EFUNC );
+         }
+         if ( m<0){
+            for (j=0; j<nmodes; j++){
+                modefreqs->data[j] = conjl(-1.0*modefreqs->data[j]);
+            }
+         }
+      }
 
       /* Call XLALSimIMREOBFinalMassSpin() to get mass and spin of the final black hole */
       if ( XLALSimIMREOBFinalMassSpin(&finalMass, &finalSpin, mass1, mass2, spin1, spin2, approximant) == XLAL_FAILURE )
@@ -574,13 +606,74 @@ printf("w3 = %f, t3 = %f\n",creal(modefreqs->data[4])*mTot, 1./cimag(modefreqs->
 printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[5])*mTot, 1./cimag(modefreqs->data[5])/mTot);
 */
       }
+      if (approximant == SEOBNRv3 )
+      {    
+          if (fabs(m) == 2 && l ==2){ 
+          /*if (m == 2 && l ==2){ */
+            chi1 = sqrt( spin1[0]*spin1[0] + spin1[1]*spin1[1] + spin1[2]*spin1[2] );
+            chi2 = sqrt( spin2[0]*spin2[0] + spin2[1]*spin2[1] + spin2[2]*spin2[2] );
+            if ( chi1 < 1.0e-15 )
+             { theta1 = 0.; }
+            else
+             { theta1 = acos( spin1[2] / chi1 ); }
+            if ( chi2 < 1.0e-15 )
+             { theta2 = 0.; }
+            else
+             { theta2 = acos( spin2[2] / chi2 ); }
+            chi1 = chi1 *cos(theta1);
+            chi2 = chi2 *cos(theta2);
+
+            a  = (chi1 + chi2) / 2. * (1.0 - 2.0 * eta) + (chi1 - chi2) / 2. * (mass1 - mass2) / (mass1 + mass2);
+            NRPeakOmega22 = GetNRSpinPeakOmega( l, m, eta, a ) / mTot;
+          
+            chi = (chi1 + chi2) / 2. + (chi1 - chi2) / 2. * sqrt(1. - 4. * eta) / (1. - 2. * eta);
+            /* For extreme chi (>= 0.8), there are scale factors in both complex
+             * pseudo-QNM frequencies. kk, kt1, kt2 describe those factors. */
+            /*printf("Stas: a, chi and NRomega in QNM freq: %.16e %.16e %.16e %.16e %.16e %.16e\n",
+              spin1[2],spin2[2],mTot/LAL_MTSUN_SI,a,chi,NRPeakOmega22*mTot);*/
+            kk = kt1 = kt2 = 1.;
+            if ( chi >= 0.8 )
+            {
+               kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
+               kt1 = -0.125 + sqrt(1. + 200. * pow(eta,2) / 3.)/2.;
+               kt2 = -0.2 + pow(1. + 200. * pow(eta, 3./2.) / 9., 2./3.)/2.;
+            }
+            /* Here is RD_V2
+             if (m<0){
+                modefreqs->data[6] = kk * ((2./3. * NRPeakOmega22/finalMass) + (1./3. * creal(modefreqs->data[0])) );
+                modefreqs->data[7] = kk * ((3./4. * NRPeakOmega22/finalMass) + (1./4. * creal(modefreqs->data[0])) / 2.);
+            }else{
+                modefreqs->data[6] = kk * ((2./3. * NRPeakOmega22/finalMass) + (1./3. * creal(modefreqs->data[0])) );
+                modefreqs->data[7] = kk * ((3./4. * NRPeakOmega22/finalMass) + (1./4. * creal(modefreqs->data[0])) / 2.);
+            }
+            modefreqs->data[6] += I * 3.5/0.9 * cimag(modefreqs->data[0]) / kt1;
+            modefreqs->data[7] += I * 3.5 * cimag(modefreqs->data[0]) / kt2;
+            
+            */
+            /*Stas: somehow it makes thinigs worse */
+            /*modefreqs->data[7] = (NRPeakOmega22/finalMass + creal(modefreqs->data[0])) / 2.;       
+            modefreqs->data[7] += I * 10./3. * cimag(modefreqs->data[0]); */
+            /* This is a version1 of RD attachment */
+            if (m<0){
+              modefreqs->data[7] = (-NRPeakOmega22/finalMass + creal(modefreqs->data[0])) / 2.;       
+            }
+            else {
+              modefreqs->data[7] = (NRPeakOmega22/finalMass + creal(modefreqs->data[0])) / 2.;
+            }
+            modefreqs->data[7] += I * 10./3. * cimag(modefreqs->data[0]); /**/
+          }
+
+      }
+      
       // Move ringdown comb boundaries to sampling points to avoid numerical artifacts. 
       matchrange->data[0] -= fmod( matchrange->data[0], dt/mTot);
       matchrange->data[1] -= fmod( matchrange->data[1], dt/mTot);
-     /*for (j = 0; j < nmodes; j++)
-      {
-        printf("QNM frequencies: %d %d %d %f %f\n",l,m,j,creal(modefreqs->data[j])*mTot,1./cimag(modefreqs->data[j])/mTot);
-      }*/
+      if (debugout){
+         for (j = 0; j < nmodes; j++)
+         {
+            printf("QNM frequencies: %d %d %d %f %f\n",l,m,j,creal(modefreqs->data[j])*mTot,1./cimag(modefreqs->data[j])/mTot);
+         }
+      }
 
       /* Ringdown signal length: 10 times the decay time of the n=0 mode */
       Nrdwave = (INT4) (EOB_RD_EFOLDS / cimag(modefreqs->data[0]) / dt);

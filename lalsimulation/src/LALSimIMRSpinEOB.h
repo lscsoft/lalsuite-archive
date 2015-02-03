@@ -63,6 +63,7 @@ tagSpinEOBHCoeffs
   double dheffSS;
   double dheffSSv2;
   UINT4    SpinAlignedEOBversion;
+  int      updateHCoeffs;
 }
 SpinEOBHCoeffs;
 
@@ -117,4 +118,27 @@ struct tagHcapSphDeriv2Params
 }
 HcapSphDeriv2Params;
 
+/* We need to encapsulate the data for the GSL derivative function */
+typedef
+struct tagPrecEulerAnglesIntegration
+{
+   gsl_spline *alpha_spline;
+   gsl_spline *beta_spline;
+   
+   gsl_interp_accel *alpha_acc;
+   gsl_interp_accel *beta_acc;
+}
+PrecEulerAnglesIntegration;
+
+/*
+int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+          FacWaveformCoeffs * const coeffs,
+          const REAL8               m1,
+          const REAL8               m2,
+          const REAL8               eta,
+          const REAL8               a,
+          const REAL8               chiS,
+          const REAL8               chiA,
+          const UINT4               SpinAlignedEOBversion
+          );*/
 #endif /* _LALSIMIMRSPINEOB_H */
