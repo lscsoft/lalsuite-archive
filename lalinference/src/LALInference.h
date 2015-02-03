@@ -104,6 +104,7 @@ typedef enum {
   LALINFERENCE_COMPLEX8_t, 
   LALINFERENCE_COMPLEX16_t, 
   LALINFERENCE_gslMatrix_t,
+  LALINFERENCE_gslMatrixComplex_t,
   LALINFERENCE_REAL8Vector_t,
   LALINFERENCE_UINT4Vector_t,
   LALINFERENCE_string_t,
@@ -975,13 +976,21 @@ void LALInferenceAddCOMPLEX16Variable(LALInferenceVariables * vars, const char *
 COMPLEX16 LALInferenceGetCOMPLEX16Variable(LALInferenceVariables * vars, const char * name);
 
 void LALInferenceSetCOMPLEX16Variable(LALInferenceVariables* vars,const char* name,COMPLEX16 value);
-
+// ---
 void LALInferenceAddgslMatrixVariable(LALInferenceVariables * vars, const char * name, gsl_matrix* value, LALInferenceParamVaryType vary);
 
 gsl_matrix* LALInferenceGetgslMatrixVariable(LALInferenceVariables * vars, const char * name);
 
 void LALInferenceSetgslMatrixVariable(LALInferenceVariables* vars,const char* name,gsl_matrix* value);
 
+
+void LALInferenceAddgslMatrixComplexVariable(LALInferenceVariables * vars, const char * name, gsl_matrix_complex* value, LALInferenceParamVaryType vary);
+
+gsl_matrix_complex* LALInferenceGetgslMatrixComplexVariable(LALInferenceVariables * vars, const char * name);
+
+void LALInferenceSetgslMatrixComplexVariable(LALInferenceVariables* vars,const char* name,gsl_matrix_complex* value);
+
+// ---
 void LALInferenceAddREAL8VectorVariable(LALInferenceVariables * vars, const char * name, REAL8Vector* value, LALInferenceParamVaryType vary);
 
 REAL8Vector* LALInferenceGetREAL8VectorVariable(LALInferenceVariables * vars, const char * name);
@@ -1007,6 +1016,7 @@ CHAR* LALInferenceGetstringVariable(LALInferenceVariables * vars, const char * n
 void LALInferenceSetstringVariable(LALInferenceVariables* vars,const char* name,CHAR* value);
 
 const gsl_matrix* get_matrix_from_file(const char *file_name);
+const gsl_matrix_complex* get_complex_matrix_from_file(const char *file_name, int M, int N);
 /**
  * Print spline calibration parameter names as tab-separated ASCII
  */

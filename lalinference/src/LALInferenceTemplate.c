@@ -1298,3 +1298,80 @@ void LALInferenceTemplatePrincipalComp(LALInferenceModel *model)
   return;
 
 }
+
+void LALInferenceTemplatePrincipalCompBBH(LALInferenceModel *model)
+{
+
+    /* PC matrix configuration */
+    UINT4 nPCs = *(UINT4*) LALInferenceGetVariable(model->params, "nPCs");
+
+    UINT4 i=0, j=0;
+    REAL8 hrss = 1.0;
+
+    /* Retrieve the PC matrix from model (may be better to use data) */
+    const gsl_matrix_complex *PCmatrix = *((gsl_matrix_complex **) LALInferenceGetVariable(model->params, "PCmatrix"));
+
+//   fprintf(stdout, "TESTING: extracting value from PCmatrix:\n");
+//   fprintf(stdout, "TESTING: %e\n", GSL_REAL(gsl_matrix_complex_get(PCmatrix, i, 0)));
+//   fprintf(stdout, "TESTING: extraction complete\n");
+//   exit(0);
+
+    /* Principle Component Coefficients */
+    UINT4 nPCs_max=10;
+    REAL8 betas[nPCs_max];
+
+    for (j=0; j<nPCs_max; j++){
+
+        betas[j] = 0.0;
+
+        if (nPCs>=1)
+            betas[0] = *(REAL8*) LALInferenceGetVariable(model->params, "beta1");
+        if (nPCs>=2)
+            betas[1] = *(REAL8*) LALInferenceGetVariable(model->params, "beta2");
+        if (nPCs>=3)
+            betas[2] = *(REAL8*) LALInferenceGetVariable(model->params, "beta3");
+        if (nPCs>=4)
+            betas[3] = *(REAL8*) LALInferenceGetVariable(model->params, "beta4");
+        if (nPCs>=5)
+            betas[4] = *(REAL8*) LALInferenceGetVariable(model->params, "beta5");
+        if (nPCs>=6)
+            betas[5] = *(REAL8*) LALInferenceGetVariable(model->params, "beta6");
+        if (nPCs>=7)
+            betas[6] = *(REAL8*) LALInferenceGetVariable(model->params, "beta7");
+        if (nPCs>=8)
+            betas[7] = *(REAL8*) LALInferenceGetVariable(model->params, "beta8");
+        if (nPCs>=9)
+            betas[8] = *(REAL8*) LALInferenceGetVariable(model->params, "beta9");
+        if (nPCs==10)
+            betas[9] = *(REAL8*) LALInferenceGetVariable(model->params, "beta10");
+    }
+
+    /* Build Template */
+    for(i=0; i<model->freqhPlus->data->length; i++){
+
+        model->freqhPlus->data->data[i] =  
+            betas[0] * (GSL_REAL(gsl_matrix_complex_get(PCmatrix, i, 0)) + I*GSL_IMAG(gsl_matrix_complex_get(PCmatrix, i, 0)))
+            + betas[1] * (GSL_REAL(gsl_matrix_complex_get(PCmatrix, i, 1)) + I*GSL_IMAG(gsl_matrix_complex_get(PCmatrix, i, 1)))
+            + betas[2] * (GSL_REAL(gsl_matrix_complex_get(PCmatrix, i, 2)) + I*GSL_IMAG(gsl_matrix_complex_get(PCmatrix, i, 2)))
+            + betas[3] * (GSL_REAL(gsl_matrix_complex_get(PCmatrix, i, 3)) + I*GSL_IMAG(gsl_matrix_complex_get(PCmatrix, i, 3)))
+            + betas[4] * (GSL_REAL(gsl_matrix_complex_get(PCmatrix, i, 4)) + I*GSL_IMAG(gsl_matrix_complex_get(PCmatrix, i, 4)))
+            + betas[5] * (GSL_REAL(gsl_matrix_complex_get(PCmatrix, i, 5)) + I*GSL_IMAG(gsl_matrix_complex_get(PCmatrix, i, 5)))
+            + betas[6] * (GSL_REAL(gsl_matrix_complex_get(PCmatrix, i, 6)) + I*GSL_IMAG(gsl_matrix_complex_get(PCmatrix, i, 6)))
+            + betas[7] * (GSL_REAL(gsl_matrix_complex_get(PCmatrix, i, 7)) + I*GSL_IMAG(gsl_matrix_complex_get(PCmatrix, i, 7)))
+            + betas[8] * (GSL_REAL(gsl_matrix_complex_get(PCmatrix, i, 8)) + I*GSL_IMAG(gsl_matrix_complex_get(PCmatrix, i, 8)))
+            + betas[9] * (GSL_REAL(gsl_matrix_complex_get(PCmatrix, i, 9)) + I*GSL_IMAG(gsl_matrix_complex_get(PCmatrix, i, 9)));
+
+        /* XXX: hrss is only really applied in the likelihood function */
+        model->freqhPlus->data->data[i] *= hrss;
+
+
+        /* FIXME: do something about the cross polarisation!!! */
+        model->freqhCross->data->data[i] = 0.0;
+
+    }
+
+    model->domain = LAL_SIM_DOMAIN_FREQUENCY;
+
+    return;
+
+}
