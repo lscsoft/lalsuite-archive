@@ -35,7 +35,7 @@ matplotlib.rcParams.update({
 	"legend.fontsize": 8.0,
 	"figure.dpi": 600,
 	"savefig.dpi": 600,
-	"text.usetex": True	# render all text with TeX
+	#"text.usetex": True	# render all text with TeX
 })
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas

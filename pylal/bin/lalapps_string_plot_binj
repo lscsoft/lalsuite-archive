@@ -208,7 +208,7 @@ FROM
 			axes.plot([xmin, xmax], [ymin, ymax], "k-")
 			axes.set_xlim([xmin, xmax])
 			axes.set_ylim([ymin, ymax])
-			axes.set_title(r"Recovered $A$ vs.\ Injected %s in %s (%d Recovered Injections)" % (self.amplitude_lbl, instrument, data.found))
+			axes.set_title(r"Recovered $A$ vs. Injected %s in %s (%d Recovered Injections)" % (self.amplitude_lbl, instrument, data.found))
 			yield fig
 
 
@@ -354,7 +354,7 @@ FROM
 		for instrument, data in sorted(self.dataA.items()):
 			fig, axes = SnglBurstUtils.make_burst_plot(r"SNR in %s" % instrument, r"$(f_{\mathrm{recovered}} - f_{\mathrm{injected}})/ f_{\mathrm{injected}}$")
 
-			axes.set_title("Cut-off Frequency Residual vs.\ SNR in %s\n(%d Found Injections)" % (instrument, data.found))
+			axes.set_title("Cut-off Frequency Residual vs. SNR in %s\n(%d Found Injections)" % (instrument, data.found))
 			axes.loglog()
 			axes.plot(data.x, data.y, "k+")
 
@@ -372,7 +372,7 @@ FROM
 			axes.plot([xmin, xmax], [ymin, ymax], "k-")
 			axes.set_xlim([xmin, xmax])
 			axes.set_ylim([ymin, ymax])
-			axes.set_title(r"Recovered Cut-off Frequency vs.\ Injected Cut-off Frequency in %s\\(%d Injections; red = high recovered SNR, blue = low recovered SNR)" % (instrument, data.found))
+			axes.set_title("Recovered Cut-off Frequency vs. Injected Cut-off Frequency in %s\n(%d Injections; red = high recovered SNR, blue = low recovered SNR)" % (instrument, data.found))
 
 			yield fig
 
@@ -440,7 +440,7 @@ FROM
 		for instrument, data in sorted(self.data.items()):
 			fig, axes = SnglBurstUtils.make_burst_plot(r"SNR", r"$\chi^{2} / \mathrm{DOF}$")
 
-			axes.set_title("$\chi^{2} / \mathrm{DOF}$ vs.\ SNR in %s" % instrument)
+			axes.set_title("$\chi^{2} / \mathrm{DOF}$ vs. SNR in %s" % instrument)
 			axes.loglog()
 			axes.plot(data.injections_x, data.injections_y, "r+")
 			axes.plot(data.noninjections_x, data.noninjections_y, "k+")
