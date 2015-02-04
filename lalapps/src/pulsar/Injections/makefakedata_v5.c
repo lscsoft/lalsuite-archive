@@ -22,7 +22,7 @@
 
 /**
  * \file
- * \ingroup pulsarApps
+ * \ingroup lalapps_pulsar_Injections
  * \author R. Prix, M.A. Papa, X. Siemens, B. Allen, C. Messenger
  */
 

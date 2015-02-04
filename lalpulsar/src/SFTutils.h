@@ -28,7 +28,7 @@ extern "C" {
 
 /**
  * \defgroup SFTutils_h Header SFTutils.h
- * \ingroup pkg_SFTIO
+ * \ingroup lalpulsar_sft
  * \author Reinhard Prix, Badri Krishnan
  * \date 2005
  * \brief Utility functions for handling of SFTtype and SFTVectors
@@ -112,6 +112,7 @@ MultiSFTVector *XLALExtractBandFromMultiSFTVector ( const MultiSFTVector *inSFTs
 int XLALFindCoveringSFTBins ( UINT4 *firstBin, UINT4 *numBins, REAL8 fMinIn, REAL8 BandIn, REAL8 Tsft );
 
 LIGOTimeGPSVector *XLALCreateTimestampVector (UINT4 len);
+LIGOTimeGPSVector *XLALResizeTimestampVector ( LIGOTimeGPSVector *vector, UINT4 length );
 LIGOTimeGPSVector *XLALMakeTimestamps ( LIGOTimeGPS tStart, REAL8 Tspan, REAL8 Tsft, REAL8 Toverlap );
 MultiLIGOTimeGPSVector *XLALMakeMultiTimestamps ( LIGOTimeGPS tStart, REAL8 Tspan, REAL8 Tsft, REAL8 Toverlap, UINT4 numDet );
 

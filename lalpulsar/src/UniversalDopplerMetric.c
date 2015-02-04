@@ -43,7 +43,7 @@
  * \author Reinhard Prix, Karl Wette
  * \ingroup UniversalDopplerMetric_h
  * \brief Function to compute the full F-statistic metric, including
- * antenna-pattern functions from multi-detector, as derived in \cite Prix07.
+ * antenna-pattern functions from multi-detector, as derived in \cite Prix07 .
  *
  */
 
@@ -849,9 +849,8 @@ CWPhase_cov_Phi_ij ( const MultiLALDetector *multiIFO,		//!< [in] detectors to u
       integrand.function = &CW_am1_am2_Phi_i_Phi_j;
       XLAL_CALLGSL ( stat = gsl_integration_qag (&integrand, ti, tf, epsabs, epsrel, limit, GSL_INTEG_GAUSS61, wksp, &res_n, &abserr) );
       if ( stat != 0 ) {
-        XLALPrintError ( "\n%s: GSL-integration 'gsl_integration_qag()' of <Phi_i Phi_j> failed! xlalErrno=%i, seg=%d, av_ij_n=%g, abserr=%g\n",
-                         __func__, par.errnum, n, res_n, abserr);
-        XLAL_ERROR_REAL8( XLAL_EFUNC );
+        XLALPrintWarning ( "\n%s: GSL-integration 'gsl_integration_qag()' of <Phi_i Phi_j> did not reach requested precision!\n", __func__ );
+        XLALPrintWarning ( "xlalErrno=%i, seg=%d, av_ij_n=%g, abserr=%g\n", par.errnum, n, res_n, abserr );
       }
       res_n *= scale12;
       abserr *= scale12;
@@ -863,9 +862,8 @@ CWPhase_cov_Phi_ij ( const MultiLALDetector *multiIFO,		//!< [in] detectors to u
       par.deriv = par.deriv1;
       XLAL_CALLGSL ( stat = gsl_integration_qag (&integrand, ti, tf, epsabs, epsrel, limit, GSL_INTEG_GAUSS61, wksp, &res_n, &abserr) );
       if ( stat != 0 ) {
-        XLALPrintError ( "\n%s: GSL-integration 'gsl_integration_qag()' of <Phi_i> failed! xlalErrno=%i, seg=%d, av_i_n=%g, abserr=%g\n",
-                         __func__, par.errnum, n, res_n, abserr);
-        XLAL_ERROR_REAL8( XLAL_EFUNC );
+        XLALPrintWarning ( "\n%s: GSL-integration 'gsl_integration_qag()' of <Phi_i> did not reach requested precision!\n", __func__ );
+        XLALPrintWarning ( "xlalErrno=%i, seg=%d, av_ij_n=%g, abserr=%g\n", par.errnum, n, res_n, abserr );
       }
       res_n *= scale1;
       abserr *= scale1;
@@ -877,9 +875,8 @@ CWPhase_cov_Phi_ij ( const MultiLALDetector *multiIFO,		//!< [in] detectors to u
       par.deriv = par.deriv2;
       XLAL_CALLGSL ( stat = gsl_integration_qag (&integrand, ti, tf, epsabs, epsrel, limit, GSL_INTEG_GAUSS61, wksp, &res_n, &abserr) );
       if ( stat != 0 ) {
-        XLALPrintError ( "\n%s: GSL-integration 'gsl_integration_qag()' of <Phi_j> failed! xlalErrno=%i, seg=%d, av_j_n=%g, abserr=%g\n",
-                         __func__, par.errnum, n, res_n, abserr);
-        XLAL_ERROR_REAL8( XLAL_EFUNC );
+        XLALPrintWarning ( "\n%s: GSL-integration 'gsl_integration_qag()' of <Phi_j> did not reach requested precision!\n", __func__ );
+        XLALPrintWarning ( "xlalErrno=%i, seg=%d, av_ij_n=%g, abserr=%g\n", par.errnum, n, res_n, abserr );
       }
       res_n *= scale2;
       abserr *= scale2;
@@ -1107,7 +1104,7 @@ XLALDopplerPhaseMetric ( const DopplerMetricParams *metricParams,  	/**< input p
 
 /**
  * Calculate the general (single-segment coherent, or multi-segment semi-coherent) phase-metric,
- * the *full* (multi-IFO) Fstat-metrix and the Fisher-matrix derived in \cite Prix07.
+ * the *full* (multi-IFO) Fstat-metrix and the Fisher-matrix derived in \cite Prix07 .
  *
  * The semi-coherent metrics \f$g_{ij}\f$ over \f$N\f$ segments are computed according to
  *
@@ -1192,7 +1189,7 @@ XLALDopplerFstatMetric ( const DopplerMetricParams *metricParams,  	/**< input p
 
 /**
  * Calculate the *coherent* (single-segment) phase-metric, the *full* (multi-IFO) Fstat-metrix
- * and the Fisher-matrix derived in \cite Prix07.
+ * and the Fisher-matrix derived in \cite Prix07 .
  *
  * Note: The returned DopplerMetric struct contains the matrices
  * g_ij (the phase metric), gF_ij (the F-metric), gFav_ij (the average F-metric),

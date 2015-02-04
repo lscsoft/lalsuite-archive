@@ -87,7 +87,7 @@ Initialisation arguments:\n\
 	INT4 x=0;
 	ppt=LALInferenceGetProcParamVal(commandLine,"--verbose");
 	if(ppt) {
-	  if(ppt->value){
+	  if(ppt->value[0]){
 	    x=atoi(ppt->value);
 	    switch(x){
 	     case 0:
@@ -220,6 +220,8 @@ Nested sampling arguments:\n\
 ---------------------------------------------------------------------------------------------------\n\
 --- Noise Model -----------------------------------------------------------------------------------\n\
 ---------------------------------------------------------------------------------------------------\n\
+(--glitchFit)                    Run with glitch fitting\n\
+(--glitchNmax)                   Max number of glitches to fit\n\
 (--psdFit)                       Run with PSD fitting\n\
 (--psdNblock)                    Number of noise parameters per IFO channel (8)\n\
 (--psdFlatPrior)                 Use flat prior on psd parameters (Gaussian)\n\

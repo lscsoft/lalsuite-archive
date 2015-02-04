@@ -33,13 +33,13 @@ extern "C" {
 
 ///
 /// \defgroup ComputeFstat_h Header ComputeFstat.h
-/// \ingroup pkg_pulsarCoh
+/// \ingroup lalpulsar_coh
 /// \authors Badri Krishnan, Bernd Machenschalk, Chris Messenger, David Keitel, Holger Pletsch,
 ///          John T. Whelan, Karl Wette, Pinkesh Patel, Reinhard Prix, Xavier Siemens
 ///
 /// \brief The \f$\mathcal{F}\f$-statistic.
 ///
-/// This module provides a API for computing the \f$\mathcal{F}\f$-statistic \cite JKS98, using
+/// This module provides a API for computing the \f$\mathcal{F}\f$-statistic \cite JKS98 , using
 /// various different methods.  All data required to compute the \f$\mathcal{F}\f$-statistic are
 /// contained in the opaque structure \c FstatInput, which is shared by all methods. A function
 /// XLALCreateFstatInput() is provided for creating an \c FstatInput structure configured

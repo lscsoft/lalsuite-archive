@@ -28,7 +28,8 @@ extern "C" {
 
 
 /**
- * \addtogroup Integrate_h
+ * \defgroup Integrate_h Header Integrate.h
+ * \ingroup lal_utilities
  *
  * \brief Integrates a function.
  *
@@ -96,7 +97,7 @@ extern "C" {
  * ### Algorithm ###
  *
  * This is an implementation of the Romberg integrating function \c qromb in
- * Numerical Recipes \cite ptvf1992.
+ * Numerical Recipes \cite ptvf1992 .
  *
  */
 /*@{*/

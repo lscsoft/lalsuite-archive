@@ -29,6 +29,7 @@ pkginclude_HEADERS = \
 	LALInferenceVCSInfoHeader.h \
 	LALInferenceRemoveLines.h \
 	LALInferenceCalibrationErrors.h \
+	LALInferenceGenerateROQ.h \
 	$(BAYESTARHDR) \
 	$(XMLHDR)
 
@@ -47,6 +48,7 @@ liblalinference_la_SOURCES = \
 	LALInferenceVCSInfo.c \
 	LALInferenceRemoveLines.c \
 	LALInferenceCalibrationErrors.c \
+	LALInferenceGenerateROQ.c \
 	logaddexp.h \
 	$(BAYESTARSRC) \
 	$(XMLSRC)
@@ -58,7 +60,6 @@ EXTRA_DIST = \
 	LALInferenceConfig.h.in \
 	LALInferenceXML.c \
 	LALInferenceXML.h \
-	chapter_inference.dox \
 	config.h.in
 
 DISTCLEANFILES = config.h

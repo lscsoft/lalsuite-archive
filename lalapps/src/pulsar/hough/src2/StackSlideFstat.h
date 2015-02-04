@@ -22,6 +22,7 @@
 
 /**
  * \file StackSlideFstat.h
+ * \ingroup lalapps_pulsar_hough
  * \brief Header file for StackSlideFstat.c
  * \author Gregory Mendell
  *

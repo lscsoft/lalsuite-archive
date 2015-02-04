@@ -30,7 +30,8 @@ extern "C" {
 #endif
 
 /**
- * \addtogroup ComplexFFT_h
+ * \defgroup ComplexFFT_h Header ComplexFFT_h
+ * \ingroup lal_fft
  *
  * \brief Performs complex-to-complex FFTs.
  *
@@ -41,7 +42,7 @@ extern "C" {
  * \endcode
  *
  * Perform complex-to-complex fast Fourier transforms of vectors using the
- * package FFTW \cite fj_1998.
+ * package FFTW \cite fj_1998 .
  *
  */
 /*@{*/

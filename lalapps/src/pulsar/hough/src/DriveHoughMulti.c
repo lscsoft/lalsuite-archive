@@ -19,7 +19,7 @@
 
 /**
  * \file
- * \ingroup pulsarApps
+ * \ingroup lalapps_pulsar_hough
  * \author Badri Krishnan, Alicia Sintes, Llucia Sancho
  * \brief Driver code for performing Hough transform search on non-demodulated
  * data using SFTs from possible multiple IFOs
@@ -90,7 +90,7 @@
 
 /* lalapps includes */
 #include <lalapps.h>
-#include <FstatToplist.h>
+#include "FstatToplist.h"
 
 /* lal includes */
 #include <lal/DopplerScan.h>

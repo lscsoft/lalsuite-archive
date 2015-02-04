@@ -19,7 +19,7 @@
 
 /**
  * \file
- * \ingroup pulsarApps
+ * \ingroup lalapps_pulsar_SFTReferenceLibrary
  * \author Bernd Machenschalk, Bruce Allen
  *
  * \brief This program reads in binary SFTs (v1 and v2) and writes out narrow-banded merged SFTs (v2).
@@ -384,11 +384,11 @@ int main(int argc, char**argv) {
 
     /* get the detector name from SFT header if present there (in v2 SFTs),
        or else it needs to have been set on the command-line */
-    if(hd.detector && *hd.detector)
+    if(hd.detector[0] != 0)
       detector = hd.detector;
 
     /* if no detector has been specified, issue an error */
-    TRY(!detector || !*detector, "When reading v1 SFTs a detector needs to be specified with -d",12);
+    TRY( detector[0] != 0, "When reading v1 SFTs a detector needs to be specified with -d",12);
 
     /* calculate number of bins to actually read (from width + overlap) */
     /* add width-overlap samples as lon as they are < the total number og bins to write */

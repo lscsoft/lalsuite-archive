@@ -25,11 +25,12 @@ SUBDIRS = \
 	swig \
 	python \
 	test \
+	doxygen \
 	$(END_OF_LIST)
 
 user_environment = \
 	set $(PACKAGE)_PREFIX $(prefix); \
-	prepend LAL_DATA_PATH $(pkgdatadir); \
+	set $(PACKAGE)_DATADIR $(pkgdatadir); \
 	prepend MANPATH $(mandir); \
 	prepend OCTAVE_PATH $(octexecdir); \
 	prepend PATH $(bindir); \

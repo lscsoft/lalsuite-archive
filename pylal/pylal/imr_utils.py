@@ -434,7 +434,7 @@ def sim_to_distance_effective_spin_parameter_bins_function(sim):
 		chi2 = sim.spin2z
 		chi = SimInspiralTaylorF2ReducedSpinComputeChi(sim.mass1, sim.mass2, chi1, chi2)
 
-	elif sim.waveform.startswith("IMRPhenomB") or sim.waveform.startswith("IMRPhenomC"):
+	elif sim.waveform.startswith("IMRPhenomB") or sim.waveform.startswith("IMRPhenomC") or sim.waveform.startswith("SEOBNR"):
 		chi = SimIMRPhenomBComputeChi(sim.mass1, sim.mass2, sim.spin1z, sim.spin2z)
 
 	else:

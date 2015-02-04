@@ -12,9 +12,9 @@ test_scripts +=
 test_helpers +=
 
 MOSTLYCLEANFILES = \
-	*.out
+	*.out \
 	$(END_OF_LIST)
 
 EXTRA_DIST += \
-	NoisePSDTest.eps \
+	NoisePSDTest.png \
 	$(END_OF_LIST)

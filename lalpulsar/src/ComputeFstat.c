@@ -38,7 +38,7 @@
 #include <lal/LALComputeAM.h>
 #include <lal/ExtrapolatePulsarSpins.h>
 #include <lal/LFTandTSutils.h>
-#include <lal/CWFastMath.h>
+#include <lal/SinCosLUT.h>
 #include <lal/NormalizeSFTRngMed.h>
 
 // ----- macro definitions
@@ -616,8 +616,6 @@ XLALComputeFstat ( FstatResults **Fstats,	  	///< [in/out] Address of a pointer 
       // Enlarge F-atoms per detector arrays, and initialise to NULL
       if ( (whatToCompute & FSTATQ_ATOMS_PER_DET) && (moreFreqBins || moreDetectors) )
         {
-          for ( UINT4 X = 0; X < numDetectors; ++X )
-            {
               (*Fstats)->multiFatoms = XLALRealloc ( (*Fstats)->multiFatoms, numFreqBins*sizeof((*Fstats)->multiFatoms[0]) );
               XLAL_CHECK ( (*Fstats)->multiFatoms != NULL, XLAL_EINVAL, "Failed to (re)allocate (*Fstats)->multiFatoms to length %u", numFreqBins );
 
@@ -636,7 +634,6 @@ XLALComputeFstat ( FstatResults **Fstats,	  	///< [in/out] Address of a pointer 
                     (*Fstats)->multiFatoms[k] = NULL;
                   }
                 }
-            } // for X < numDetectors
 
         } // if Atoms_per_det to enlarge
 
@@ -743,7 +740,7 @@ XLALDestroyFstatResults ( FstatResults* Fstats  ///< [in] #FstatResults structur
 ///
 /// Add +4 to any multi-detector or per-detector 2F values computed by XLALComputeFstat().
 /// This is for compatibility with programs which expect this normalisation if SFTs do not
-/// contain noise, e.g. \c lalapps_ComputeFStatistic with the \c --SignalOnly option.
+/// contain noise, e.g. \c lalapps_ComputeFstatistic with the \c --SignalOnly option.
 ///
 int
 XLALAdd4ToFstatResults ( FstatResults* Fstats    ///< [in/out] #FstatResults structure.
@@ -987,12 +984,9 @@ XLALEstimatePulsarAmplitudeParams ( PulsarCandidate *pulsarParams,	///< [in,out]
 
   // ===== debug-output resulting matrices =====
   // propagate initial-phase from Fstat-reference-time to refTime of Doppler-params
-  XLAL_CHECK( XLALExtrapolatePulsarPhase ( &phi0, pulsarParams->Doppler.fkdot, pulsarParams->Doppler.refTime, phi0, *FaFb_refTime )
-              == XLAL_SUCCESS, XLAL_EFUNC );
-
-  if ( phi0 < 0 )             /* make sure phi0 in [0, 2*pi] */
-    phi0 += LAL_TWOPI;
-  phi0 = fmod ( phi0, LAL_TWOPI );
+  // XLALExtrapolatePulsarPhase() guarantees propagated phi0 is in [0, 2*pi]
+  const REAL8 dtau = XLALGPSDiff( &pulsarParams->Doppler.refTime, FaFb_refTime );
+  XLAL_CHECK( XLALExtrapolatePulsarPhase( &phi0, pulsarParams->Doppler.fkdot, phi0, dtau ) == XLAL_SUCCESS, XLAL_EFUNC );
 
   // fill candidate-struct with the obtained signal-parameters and error-estimations
   pulsarParams->Amp.h0     = normAmu * h0;

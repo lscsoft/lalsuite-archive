@@ -28,7 +28,8 @@ extern "C" {
 
 
 /**
- * \addtogroup FindRoot_h
+ * \defgroup FindRoot_h Header FindRoot.h
+ * \ingroup lal_utilities
  *
  * \brief Root finding routines.
  *
@@ -88,7 +89,7 @@ extern "C" {
  * ### Algorithm ###
  *
  * This is an implementation of the root bracketing and bisection finding
- * routines \c zbrac and \c rtbis in Numerical Recipes \cite ptvf1992.
+ * routines \c zbrac and \c rtbis in Numerical Recipes \cite ptvf1992 .
  *
  */
 /*@{*/

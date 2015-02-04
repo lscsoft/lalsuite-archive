@@ -31,7 +31,7 @@
 #include <lal/VectorOps.h>
 #include <lal/PulsarSimulateCoherentGW.h>
 #include <lal/SkyCoordinates.h>
-#include <lal/CWFastMath.h>
+#include <lal/SinCosLUT.h>
 
 /** \name Error Codes */
 /*@{*/
@@ -222,7 +222,7 @@ XLALPulsarSimulateCoherentGW ( REAL4TimeSeries  *output,	///< [in/out] output ti
  * years between phase epoch and observation time for frequencies of
  * around 1kHz).
  *
- * To activate this feature, be sure that \ref sunmath.h and
+ * To activate this feature, be sure that <tt>sunmath.h</tt> and
  * \c libsunmath are on your system, and add <tt>-DONLINE</tt> to the
  * <tt>--with-extra-cppflags</tt> configuration argument.  In future this
  * flag may be used to turn on other efficient trig algorithms on other

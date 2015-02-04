@@ -23,7 +23,7 @@ import ConfigParser
 from optparse import *
 import traceback
 import logging
-from glue.ligolw import table, lsctables, utils
+from glue.ligolw import table, lsctables, utils, ligolw
 from laldetchar.idq import auxmvc_utils
 from pylal import frutils
 import numpy
@@ -189,7 +189,8 @@ if opts.no_robot_cert:
     logger.info("Warning: running without a robot certificate. Your personal certificate may expire and this job may fail")
 else:
     ### unset ligo-proxy just in case
-    del os.environ['X509_USER_PROXY']
+    if os.environ.has_key("X509_USER_PROXY"):
+        del os.environ['X509_USER_PROXY']
 
     ### get cert and key from ini file
     robot_cert = config.get('ldg_certificate', 'robot_certificate')
@@ -250,13 +251,14 @@ while gpsstart < gpsstop:
 
             ### load xml document
             ### converts string to an object
-            xmldoc = utils.load_fileobj(seg_xml_file)[0]
+            lsctables.use_in(ligolw.LIGOLWContentHandler)
+            xmldoc = utils.load_fileobj(seg_xml_file, contenthandler=ligolw.LIGOLWContentHandler)[0]
 
             ### science segments xml filename
             seg_file = "%sscience_segments-%d-%d.xml.gz"%(output_dir, int(gpsstart - lookback * stride), int((lookback+1)*stride))
 
             logger.info('writing science segments to file : '+seg_file)
-            utils.write_filename(xmldoc, seg_file, gz=True)
+            utils.write_filename(xmldoc, seg_file, gz=seg_file.endswith(".gz"))
 
         except Exception as e:
             traceback.print_exc()
@@ -294,18 +296,24 @@ while gpsstart < gpsstop:
                     if opts.force:
                         raise e
 
-             ### if we aren't building auxmvc vectors, we re-use pat files from realtime job
+            ### if we aren't building auxmvc vectors, we re-use pat files from realtime job
             ### this requires us to redefine the 'science-segments' as the intersection of scisegs with realtime segs
-            ### currently, we assume realtime only runs when completely in science time, so the intersection is identical to realtime segs
+            ### we call this intersection "idq_segs"
             else:
                 try:
                     ### determine segments from realtime filenames
                     realtime_segs = idq.get_idq_segments(realtimedir, gpsstart - lookback * stride, gpsstart + stride, suffix='.pat')
 
+                    ### read in science segments
+                    (scisegs, coveredseg) = idq.extract_dq_segments(seg_file, config.get('get_science_segments', 'include'))
+
+                    ### take the intersection of these segments
+                    idq_segs = event.andsegments([scisegs, realtime_segs])
+
                     ### write segment file
                     idqseg_path = "%s/idq_segements-%d-%d.seg"%(output_dir, int(gpsstart - lookback * stride), int((lookback+1) * stride))
                     f = open(idqseg_path, 'w')
-                    for seg in realtime_segs:
+                    for seg in idq_segs:
                         print >> f, seg[0], seg[1]
                     f.close()
 

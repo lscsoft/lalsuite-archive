@@ -1,7 +1,7 @@
 BUILT_SOURCES =
 include $(top_srcdir)/gnuscripts/lalapps.am
 
-AM_CPPFLAGS = -I$(top_srcdir)/src/pulsar/FDS_isolated @AM_CPPFLAGS@
+AM_CPPFLAGS = -I$(top_srcdir)/src/pulsar/Fstatistic @AM_CPPFLAGS@
 
 ## Compiling with OpenCL on Linux
 # LDFLAGS = -lOpenCL
@@ -28,7 +28,8 @@ EXTRA_PROGRAMS = lalapps_HierarchicalSearch_sse lalapps_HierarchicalSearch_sse2 
 #bin_PROGRAMS += lalapps_HierarchicalSearch
 #endif
 
-FDSsrc = ../../FDS_isolated
+EAHsrc = $(top_srcdir)/src/pulsar/EinsteinAtHome
+FDSsrc = ../../Fstatistic
 Recalcsrc = ../../GCT
 
 lalapps_HoughValidateAM_SOURCES = HoughValidateAM.c ../src/MCInjectHoughS2.h \
@@ -43,21 +44,19 @@ lalapps_HoughMismatch_SOURCES = HoughMismatch.c ../src/MCInjectHoughS2.h \
 
 HierarchicalSearchSources = HierarchicalSearch.c HierarchicalSearch.h \
 			  StackSlideFstat.c StackSlideFstat.h \
-			  HoughFStatToplist.c HoughFStatToplist.h \
-			  $(FDSsrc)/HeapToplist.c $(FDSsrc)/HeapToplist.h \
-			  $(FDSsrc)/ComputeFStatistic.h
+			  HoughFstatToplist.c HoughFstatToplist.h \
+			  $(FDSsrc)/HeapToplist.c $(FDSsrc)/HeapToplist.h
 
 lalapps_HierarchicalSearch_SOURCES = $(HierarchicalSearchSources)
 
 lalapps_RecalcHSCandidates_SOURCES = RecalcHSCandidates.c HierarchicalSearch.h \
-				  HoughFStatToplist.c HoughFStatToplist.h \
+				  HoughFstatToplist.c HoughFstatToplist.h \
 				  $(FDSsrc)/HeapToplist.c $(FDSsrc)/HeapToplist.h \
-				  $(FDSsrc)/ComputeFStatistic.h \
 				  $(Recalcsrc)/RecalcToplistStats.c $(Recalcsrc)/RecalcToplistStats.h
 
 
-HSLocalSources = EinsteinAtHome/LocalComputeFstatHoughMap.c
-EAHSources = $(HSLocalSources) EinsteinAtHome/hs_boinc_extras.c EinsteinAtHome/hs_boinc_options.cpp EinsteinAtHome/win_lib.cpp
+HSLocalSources = $(EAHsrc)/LocalComputeFstatHoughMap.c
+EAHSources = $(HSLocalSources) $(EAHsrc)/hs_boinc_extras.c $(EAHsrc)/hs_boinc_options.cpp $(EAHsrc)/win_lib.cpp
 
 ## optimized HierarchicalSearch targets
 
@@ -84,10 +83,10 @@ eah_HierarchicalSearch_LDADD = $(LDADD) $(RELEASE_LDADD)
 libstdc++.a:
 	cp -f `$(CC) -print-file-name=$@` $@
 
-exchndl.o: EinsteinAtHome/exchndl.c
+exchndl.o: $(EAHsrc)/exchndl.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
-erp_execinfo_plus.o: EinsteinAtHome/erp_execinfo_plus.c
+erp_execinfo_plus.o: $(EAHsrc)/erp_execinfo_plus.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 TESTS = testRecalcHS.sh

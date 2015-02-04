@@ -5,19 +5,21 @@ AC_CONFIG_SRCDIR([src/LALInference.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
-  lalinference.spec \
-  lalinference.pc \
   Makefile \
   debian/Makefile \
+  doxygen/Makefile \
+  doxygen/doxygen.cfg \
   include/Makefile \
   include/lal/Makefile \
-  src/LALInferenceVCSInfo.c \
-  src/LALInferenceVCSInfo.h \
-  src/Makefile \
+  lalinference.pc \
+  lalinference.spec \
   python/Makefile \
   python/lalinference/Makefile \
   python/lalinference/__init__.py \
   python/lalinference/bayestar/Makefile \
+  src/LALInferenceVCSInfo.c \
+  src/LALInferenceVCSInfo.h \
+  src/Makefile \
   swig/Makefile \
   test/Makefile \
 ])
@@ -64,6 +66,9 @@ LALSUITE_ENABLE_LALXML
 
 # enable SWIG wrapping modules
 LALSUITE_ENABLE_SWIG
+
+# enable Doxygen documentation
+LALSUITE_ENABLE_DOXYGEN
 
 # define version/configure info
 LALSUITE_VERSION_CONFIGURE_INFO
@@ -172,6 +177,9 @@ LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.5],[XLALXMLFilePrintElements],[lal/LALXML.h
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG
 
+# configure Doxygen documentation
+LALSUITE_USE_DOXYGEN
+
 # Disable OpenMP by default.
 # FIXME: OpenMP should be on by default, but it breaks condor_compiling lalapps.
 AS_IF(
@@ -222,6 +230,7 @@ LALInference has now been successfully configured:
 * SWIG bindings for Python are $SWIG_BUILD_PYTHON_ENABLE_VAL
 * HEALPix is $HEALPIX_ENABLE_VAL
 * OpenMP acceleration is $OPENMP_ENABLE_VAL
+* Doxygen documentation is $DOXYGEN_ENABLE_VAL
 
 and will be installed under the directory:
 

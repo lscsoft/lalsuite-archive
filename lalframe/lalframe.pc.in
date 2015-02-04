@@ -1,9 +1,11 @@
+PACKAGE_TARNAME=@PACKAGE_TARNAME@
 prefix=@prefix@
 exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 datarootdir=@datarootdir@
-LALFRAME_DATA_PATH=@datadir@/@PACKAGE@
+docdir=@docdir@
+htmldir=@htmldir@
 LALFRAME_OCTAVE_PATH=@octexecdir@
 LALFRAME_PYTHON_PATH=@pyexecdir@
 

@@ -33,7 +33,8 @@ extern "C" {
 #endif
 
 /**
- * \addtogroup Interpolate_h
+ * \defgroup Interpolate_h Header Interpolate.h
+ * \ingroup lal_utilities
  *
  * \brief This header covers the routines for interpolation.
  *
@@ -80,7 +81,7 @@ extern "C" {
  * ### Algorithm ###
  *
  * This is an implementation of the Neville algroithm, see \c polint in
- * Numerical Recipes \cite ptvf1992.
+ * Numerical Recipes \cite ptvf1992 .
  *
  */
 /*@{*/

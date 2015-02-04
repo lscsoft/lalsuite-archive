@@ -26,6 +26,7 @@ liblalsupport_la_SOURCES = \
 	StreamVectorInput.c \
 	StreamVectorSequenceInput.c \
 	UserInput.c \
+	UserInputParser.c \
 	LALgetopt.c \
 	LALgetopt.h
 
@@ -48,3 +49,7 @@ noinst_HEADERS = \
 	StreamSeriesOutput_source.c \
 	StreamVectorInput_source.c \
 	StreamVectorSequenceInput_source.c
+
+EXTRA_DIST = \
+	LALMathematicaHplot1.png \
+	$(END_OF_LIST)

@@ -32,12 +32,14 @@ liblalstochastic_la_SOURCES = \
 nodist_liblalstochastic_la_SOURCES = LALStochasticBuildInfo.c
 liblalstochastic_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(LIBVERSION)
 
-EXTRA_DIST = \
-	LALStochasticConfig.h.in \
-	config.h.in
-
 DISTCLEANFILES = config.h
 
 vcs_info_sources = LALStochasticVCSInfoHeader.h
 build_info_source = LALStochasticBuildInfo.c
 $(build_info_source): $(liblalstochastic_la_DEPENDENCIES)
+
+EXTRA_DIST = \
+	LALStochasticConfig.h.in \
+	config.h.in \
+	stochastic_CrossCorrFlowchart.png \
+	$(END_OF_LIST)

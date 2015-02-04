@@ -759,7 +759,7 @@ class CondorJob:
       subfile.write( ' "\n' )
 
     for cmd in self.__condor_cmds.keys():
-      subfile.write( cmd + " = " + self.__condor_cmds[cmd] + '\n' )
+      subfile.write( str(cmd) + " = " + str(self.__condor_cmds[cmd]) + '\n' )
 
     subfile.write( 'log = ' + self.__log_file + '\n' )
     if self.__in_file is not None:

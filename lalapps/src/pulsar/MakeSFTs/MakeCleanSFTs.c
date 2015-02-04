@@ -20,7 +20,7 @@ version 2 of the License, or
 
 /**
  * \file
- * \ingroup pulsarApps
+ * \ingroup lalapps_pulsar_MakeSFTs
  * \author Gregory Mendell, Xavier Siemens, Bruce Allen, Paola Leaci
  * \brief generate SFTs
  */

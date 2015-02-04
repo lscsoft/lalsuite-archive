@@ -37,7 +37,8 @@ extern "C" {
 
 
 /**
- * \addtogroup Sort_h
+ * \defgroup Sort_h Header Sort.h
+ * \ingroup lal_utilities
  *
  * \brief Provides routines for sorting, indexing, and ranking real vector elements.
  *
@@ -97,7 +98,7 @@ extern "C" {
  * ### Algorithm ###
  *
  * These routines use the standard heap sort algorithm described in
- * Sec. 8.3 of Ref. \cite ptvf1992.
+ * Sec. 8.3 of Ref. \cite ptvf1992 .
  *
  * The <tt>LALSHeapSort()</tt> and <tt>LALDHeapSort()</tt> routines are entirely
  * in-place, with no auxiliary storage vector.  The <tt>LALSHeapIndex()</tt>

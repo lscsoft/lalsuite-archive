@@ -31,7 +31,8 @@ extern "C" {
 #endif
 
 /**
- * \addtogroup GenerateSpinOrbitCW_h
+ * \defgroup GenerateSpinOrbitCW_h Header GenerateSpinOrbitCW.h
+ * \ingroup lalpulsar_inject
  * \author Creighton, T. D.
  *
  * \brief Provides routines to generate continuous waveforms with spindown and orbital modulation.
@@ -83,9 +84,10 @@ extern "C" {
  *
  * ### Orbital motion ###
  *
- * \figure{inject_binary,eps,0.47,Binary orbit orientation parameters}
+ * \anchor inject_binary
+ * \image html inject_binary.png "Binary orbit orientation parameters"
  *
- * \figref{inject_binary} illustrates the notation conventions
+ * \ref inject_binary "this figure" illustrates the notation conventions
  * defining a binary orbit.  We define a radial axis \f$R\f$ directed
  * \e from the observer (Earth) \e to the source, as shown.  The
  * horizontal plane is thus the plane of the sky, and the direction
@@ -93,7 +95,7 @@ extern "C" {
  * celestial pole.  The tilted plane is the plane of the binary orbit,
  * and the axis labeled \f$z\f$ is the normal to this plane directed such
  * that the orbit is right-handed about this axis.  The <em>ascending
- * node</em> of the orbit, denoted by \f$\Omega\f$, is the direction
+ * node</em> of the orbit, denoted by ☊, is the direction
  * defined by \f$\hat{\mathbf{\mathit{R}}}\times\hat{\mathbf{\mathit{z}}}\f$.
  * The binary orbit itself is shown as an off-centred ellipse, with the
  * barycentre at one of its foci; the wave-emitting source is also shown.
@@ -240,8 +242,8 @@ extern "C" {
 /**
  * This structure stores the parameters for constructing a gravitational
  * waveform with both a Taylor-polynomial intrinsic frequency and phase,
- * and a binary-orbit modulation.  As with the ::PPNParamStruc type
- * in \ref GeneratePPNInspiral_h, we divide the fields into passed
+ * and a binary-orbit modulation.  As with the \c PPNParamStruc type
+ * in \c GeneratePPNInspiral_h, we divide the fields into passed
  * fields (which are supplied to the final PulsarCoherentGW structure
  * but not used in any calculations), input fields (that are used by the
  * waveform generator), and output fields (that are set by the waveform

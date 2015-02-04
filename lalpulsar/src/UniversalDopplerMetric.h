@@ -28,11 +28,11 @@ extern "C" {
 
 /**
  * \defgroup UniversalDopplerMetric_h Header UniversalDopplerMetric.h
- * \ingroup pkg_pulsarMetric
+ * \ingroup lalpulsar_metric
  * \author Reinhard Prix, Karl Wette
  *
  * Function to compute the full F-statistic metric, including
- * antenna-pattern functions from multi-detector, derived in \cite Prix07.
+ * antenna-pattern functions from multi-detector, derived in \cite Prix07 .
  *
  */
 /*@{*/

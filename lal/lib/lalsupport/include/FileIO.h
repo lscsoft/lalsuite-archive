@@ -29,7 +29,8 @@ extern "C" {
 #include <lal/LALStdio.h>
 
 /**
- * \addtogroup FileIO_h
+ * \defgroup FileIO_h Header FileIO.h
+ * \ingroup lal_support
  *
  * \brief Provides standard LAL support IO functions.
  *
@@ -43,8 +44,6 @@ extern "C" {
  * Only use \ref FileIO.h in test code that links to the \c lalsupport library.
  */
 /*@{*/
-
-FILE *LALOpenDataFile( const char* );
 
 typedef struct tagLALFILE LALFILE;
 

@@ -1,17 +1,15 @@
 SUBDIRS = \
 	MakeSFTs \
 	Injections \
-	FDS_isolated \
+	Fstatistic \
 	hough \
 	GCT \
-	SideBand \
 	templateBanks \
 	crosscorr \
-	TimingTests \
-	TDS_isolated \
+	HeterodyneSearch \
 	fscan \
 	TwoSpect \
-	CombSearch \
 	SFTReferenceLibrary \
+	SidebandSearch \
 	CreateEphemeris \
 	Tools

@@ -472,6 +472,7 @@ void LALInferenceApplyCalibrationErrors(LALInferenceRunState *state, ProcessPara
          
         /* Fill random part. Will take 10% of it later on */
         CreateRandomPhaseCalibrationErrors(phaseCoeffs[i],calib_seed_phase,tmpdata->name);
+
         LALUniformDeviate(&status,&tmpphase,datarandparam);
         calib_seed_phase+=floor(1E6*tmpphase);
         /* Consant plateau, knee, slope*/

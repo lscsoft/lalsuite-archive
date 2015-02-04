@@ -1,13 +1,14 @@
+*.egg-info
 *.swp
 *.trs
 *~
-*.egg-info
 .DS_Store
 .dirstamp
 /Makefile
 /Makefile.in
 /_build/
 /_inst/
+/index.html
 /lalsuite-*/
 TAGS
 aclocal.m4

@@ -1,6 +1,5 @@
 //
-// Copyright (C) 2013 Karl Wette
-// Copyright (C) 2005 Reinhard Prix
+// Copyright (C) 2015 Reinhard Prix
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -29,28 +28,13 @@ extern "C" {
 
 ///
 /// \defgroup CWFastMath_h Header CWFastMath.h
-/// \ingroup pkg_pulsarCommon
+/// \ingroup lalpulsar_common
 /// \authors Reinhard Prix, Karl Wette
 ///
 /// \brief Various functions for performing fast math in CW functions.
 ///
 
 // @{
-void XLALSinCosLUTInit (void);
-
-int XLALSinCosLUT ( REAL4 *sinx, REAL4 *cosx, REAL8 x );
-int XLALSinCos2PiLUT ( REAL4 *sin2pix, REAL4 *cos2pix, REAL8 x );
-int XLALSinCos2PiLUTtrimmed ( REAL4 *s, REAL4 *c, REAL8 x );
-
-/* these functions operate on the module-local lookup-table for logarithms,
- * which will dynamically be generated on first use of XLALFastLog(), and can
- * be destroyed at any time using XLALDestroyLogLUT()
- */
-REAL8 XLALFastLog ( REAL8 x );
-void XLALDestroyLogLUT( void );
-
-REAL8 XLALFastNegExp ( REAL8 mx );
-void XLALDestroyExpLUT( void );
 
 // @}
 
