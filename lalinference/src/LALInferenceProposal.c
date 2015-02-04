@@ -658,7 +658,7 @@ REAL8 LALInferenceSingleAdaptProposal(LALInferenceRunState *runState, LALInferen
           if (!strcmp(dummyParam->name, param->name)) {
             /* Found it; i = index into sigma vector. */
             break;
-          } else if (dummyParam->vary == LALINFERENCE_PARAM_FIXED || dummyParam->vary == LALINFERENCE_PARAM_OUTPUT) {
+          } else if (dummyParam->vary == LALINFERENCE_PARAM_FIXED || dummyParam->vary == LALINFERENCE_PARAM_OUTPUT || dummyParam->type!=LALINFERENCE_REAL8_t) {
             /* Don't increment i, since we're not dealing with a "real" parameter. */
             continue;
           } else if (param->type == LALINFERENCE_gslMatrix_t)
@@ -743,13 +743,13 @@ REAL8 LALInferenceSingleProposal(LALInferenceRunState *runState, LALInferenceVar
   do {
     varNr = 1+gsl_rng_uniform_int(GSLrandom, dim);
     param = LALInferenceGetItemNr(proposedParams, varNr);
-  } while (param->vary == LALINFERENCE_PARAM_FIXED || param->vary == LALINFERENCE_PARAM_OUTPUT || !strcmp(param->name,"psdscale"));
+  } while (param->vary == LALINFERENCE_PARAM_FIXED || param->vary == LALINFERENCE_PARAM_OUTPUT || param->type!=LALINFERENCE_REAL8_t );
 
   for (dummyParam = proposedParams->head, i = 0; dummyParam != NULL; dummyParam = dummyParam->next) {
     if (!strcmp(dummyParam->name, param->name)) {
       /* Found it; i = index into sigma vector. */
       break;
-    } else if (dummyParam->vary == LALINFERENCE_PARAM_FIXED || dummyParam->vary == LALINFERENCE_PARAM_OUTPUT) {
+    } else if (dummyParam->vary == LALINFERENCE_PARAM_FIXED || dummyParam->vary == LALINFERENCE_PARAM_OUTPUT || dummyParam->type!=LALINFERENCE_REAL8_t)  {
       /* Don't increment i, since we're not dealing with a "real" parameter. */
       continue;
     } else {
@@ -859,7 +859,7 @@ REAL8 LALInferenceCovarianceEigenvectorJump(LALInferenceRunState *runState, LALI
     exit(1);
   }
   do {
-    if (proposeIterator->vary != LALINFERENCE_PARAM_FIXED && proposeIterator->vary != LALINFERENCE_PARAM_OUTPUT && strcmp(proposeIterator->name,"psdscale")) {
+    if (proposeIterator->vary != LALINFERENCE_PARAM_FIXED && proposeIterator->vary != LALINFERENCE_PARAM_OUTPUT && proposeIterator->type==LALINFERENCE_REAL8_t ) {
       REAL8 tmp = *((REAL8 *)proposeIterator->value);
       REAL8 inc = jumpSize*gsl_matrix_get(eigenvectors, j, i);
 
@@ -1433,7 +1433,7 @@ LALInferenceDrawApproxPrior(LALInferenceRunState *runState, LALInferenceVariable
   if (analyticTest) {
     LALInferenceVariableItem *ptr = currentParams->head;
     while(ptr!=NULL) {
-      if(ptr->vary != LALINFERENCE_PARAM_FIXED) {
+      if(ptr->vary != LALINFERENCE_PARAM_FIXED && ptr->type==LALINFERENCE_REAL8_t) {
         tmp = draw_flat(runState, ptr->name);
         LALInferenceSetVariable(proposedParams, ptr->name, &tmp);
       }
@@ -4267,7 +4267,7 @@ REAL8 LALInferenceHrssQJump(LALInferenceRunState *runState,LALInferenceVariables
     exit(1);
   }
   do {
-    if (proposeIterator->vary != LALINFERENCE_PARAM_FIXED && proposeIterator->vary != LALINFERENCE_PARAM_OUTPUT) {
+    if (proposeIterator->vary != LALINFERENCE_PARAM_FIXED && proposeIterator->vary != LALINFERENCE_PARAM_OUTPUT && proposeIterator->type==LALINFERENCE_REAL8_t) {
         if (!strcmp("quality",proposeIterator->name)){
       REAL8 tmp = *((REAL8 *)proposeIterator->value);
       REAL8 inc = jumpSize*gsl_matrix_get(eigenvectors, j, i);
