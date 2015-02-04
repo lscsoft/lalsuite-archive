@@ -43,7 +43,6 @@
 #include "LALSimIMRSpinEOBFactorizedWaveform.c"
 
 
-int UsePrec = 0;
 
 /*------------------------------------------------------------------------------------------
  *
@@ -101,8 +100,8 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
   REAL8 omegaSq;
   COMPLEX16 hLM;
   INT4 l, m;
+  int debugPK = 0;
 
-  //EOBNonQCCoeffs nqcCoeffs;
 
 #ifndef LAL_NDEBUG
   if ( !values || !ak )
@@ -122,32 +121,35 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
   v = cbrt( omega );
 
   /* Update the factorized multipole coefficients, w.r.t. new spins */
-  if ( UsePrec )
-  {
-	/* Assume that initial conditions are available at this point, to
-	 * compute the chiS and chiA parameters.
-     * Calculate the values of chiS and chiA, as given in Eq.16 of
-	 * Precessing EOB paper. Assuming \vec{L} to be pointing in the
+  if ( 0 )
+  {/*{{{*/
+    printf("\nValues inside Flux:\n");
+    for( int i = 0; i < 11; i++)
+        printf("values[%d] = %.12e\n", i, values->data[i]);
+	/* Assume that initial conditions are available at this point, to 
+	 * compute the chiS and chiA parameters. 
+     * Calculate the values of chiS and chiA, as given in Eq.16 of 
+	 * Precessing EOB paper. Assuming \vec{L} to be pointing in the 
      * direction of \vec{r}\times\vec{p} */
-    /* TODO: Check the mass scaling of spins */
+    /* TODO: Check the mass scaling of spins */ 
 	REAL8 rcrossp[3], rcrosspMag, s1dotL, s2dotL;
 	REAL8 chiS, chiA, tplspin;
-
+	
 	rcrossp[0] = values->data[1]*values->data[5] - values->data[2]*values->data[4];
 	rcrossp[1] = values->data[2]*values->data[3] - values->data[0]*values->data[5];
 	rcrossp[2] = values->data[0]*values->data[4] - values->data[1]*values->data[3];
-	rcrosspMag = sqrt(rcrossp[0]*rcrossp[0] + rcrossp[1]*rcrossp[1] +
+	rcrosspMag = sqrt(rcrossp[0]*rcrossp[0] + rcrossp[1]*rcrossp[1] + 
         rcrossp[2]*rcrossp[2]);
-
+  
 	rcrossp[0] /= rcrosspMag;
 	rcrossp[1] /= rcrosspMag;
 	rcrossp[2] /= rcrosspMag;
-
-	s1dotL = values->data[6]*rcrossp[0] + values->data[7]*rcrossp[1]
+	
+	s1dotL = values->data[6]*rcrossp[0] + values->data[7]*rcrossp[1] 
 			+ values->data[8]*rcrossp[2];
-	s2dotL = values->data[9]*rcrossp[0] + values->data[10]*rcrossp[1]
+	s2dotL = values->data[9]*rcrossp[0] + values->data[10]*rcrossp[1] 
 			+ values->data[11]*rcrossp[2];
-
+	
 	chiS = 0.5 * (s1dotL + s2dotL);
 	chiA = 0.5 * (s1dotL - s2dotL);
 
@@ -159,7 +161,7 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
        tplspin = 0.0;
        break;
      case 2:
-       tplspin = (1.-2.* ak->eobParams->eta) * chiS + (ak->eobParams->m1
+       tplspin = (1.-2.* ak->eobParams->eta) * chiS + (ak->eobParams->m1 
 			- ak->eobParams->m2)/(ak->eobParams->m1 + ak->eobParams->m2) * chiA;
        break;
      default:
@@ -171,22 +173,30 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
 	/* ************************************************* */
 	/* Re-Populate the Waveform structures               */
 	/* ************************************************* */
-
+	
 	/* Re-compute the spinning coefficients for hLM */
-	if ( XLALSimIMREOBCalcSpinFacWaveformCoefficients( ak->eobParams->hCoeffs,
-			ak->eobParams->m1, ak->eobParams->m2, ak->eobParams->eta,
+        //debugPK
+        printf("Re-calculating waveform coefficients in the Flux function with chiS, chiA = %e, %e!\n", chiS, chiA);
+        chiS = 0.3039435650957116; chiA = -0.2959424290852973;
+        printf("Changed them to the correct values = %e, %e!\n", chiS, chiA );
+
+
+	if ( XLALSimIMREOBCalcSpinFacWaveformCoefficients( ak->eobParams->hCoeffs, 
+			ak->eobParams->m1, ak->eobParams->m2, ak->eobParams->eta, 
 			tplspin, chiS, chiA, SpinAlignedEOBversion ) == XLAL_FAILURE )
 	{
 		XLALDestroyREAL8Vector( values );
 		XLAL_ERROR( XLAL_EFUNC );
 	}
-  }
+  }/*}}}*/
+
 
 //  printf( "v = %.16e\n", v );
   for ( l = 2; l <= lMax; l++ )
   {
     for ( m = 1; m <= l; m++ )
     {
+      if (debugPK) printf("\nGetting (%d, %d) mode for flux!\n", l, m);
 
       if ( XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform( &hLM, values, v, H,
             l, m, ak ) == XLAL_FAILURE )

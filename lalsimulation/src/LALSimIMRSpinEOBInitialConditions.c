@@ -287,8 +287,10 @@ XLALFindSphericalOrbit( const gsl_vector *x, /**<< Parameters requested by gsl r
                         void *params,        /**<< Spin EOB parameters */
                         gsl_vector *f        /**<< Function values for the given parameters */
                       )
-{
+{ int debugPK = 1;
   SEOBRootParams *rootParams = (SEOBRootParams *) params;
+  REAL8 mTotal = rootParams->params->eobParams->m1 + rootParams->params->eobParams->m2;
+  if(debugPK)printf("\n\nmtotal in XLALFindSphericalOrbit = %f\n", (float) mTotal);
 
   REAL8 py, pz, r, ptheta, pphi;
 
@@ -302,22 +304,37 @@ XLALFindSphericalOrbit( const gsl_vector *x, /**<< Parameters requested by gsl r
   rootParams->values[4] = py = gsl_vector_get( x, 1 );
   rootParams->values[5] = pz = gsl_vector_get( x, 2 );
 
- // printf( "Values r = %.16e, py = %.16e, pz = %.16e\n", r, py, pz );
+ if (debugPK) printf( "Values r = %.16e, py = %.16e, pz = %.16e\n", r, py, pz );
 
   ptheta = - r * pz;
   pphi   = r * py;
 
+  if(debugPK)printf( "Input Values r = %.16e, py = %.16e, pz = %.16e\n pthetha = %.16e pphi = %.16e\n", r, py, pz, ptheta, pphi );
+
+  /* dH by dR and dP */
+  REAL8 tmpDValues[14];
+  int UNUSED status;
+  for( int i =0; i < 3; i ++)
+  {
+		rootParams->values[i+6] /= mTotal * mTotal;
+		rootParams->values[i+9] /= mTotal * mTotal;
+	}
+  status  = XLALSpinHcapNumericalDerivativeNoFlux( 0, rootParams->values, tmpDValues, rootParams->params );
+  for( int i =0; i < 3; i ++)
+  {
+		rootParams->values[i+6] *= mTotal * mTotal;
+		rootParams->values[i+9] *= mTotal * mTotal;
+	}  
   /* dHdR */
-  dHdx = XLALSpinHcapNumDerivWRTParam( 0, rootParams->values, rootParams->params );
+  dHdx = -tmpDValues[3]; //XLALSpinHcapNumDerivWRTParam( 0, rootParams->values, rootParams->params );
   if ( XLAL_IS_REAL8_FAIL_NAN( dHdx ) )
   {
     XLAL_ERROR( XLAL_EFUNC );
   }
-  //printf( "dHdx = %.16e\n", dHdx );
 
   /* dHdPphi (I think we can use dHdPy in this coord system) */
   /* TODO: Check this is okay */
-  dHdpy = XLALSpinHcapNumDerivWRTParam( 4, rootParams->values, rootParams->params );
+  dHdpy = tmpDValues[1];//XLALSpinHcapNumDerivWRTParam( 4, rootParams->values, rootParams->params );
   if ( XLAL_IS_REAL8_FAIL_NAN( dHdpy ) )
   {
     XLAL_ERROR( XLAL_EFUNC );
@@ -325,24 +342,27 @@ XLALFindSphericalOrbit( const gsl_vector *x, /**<< Parameters requested by gsl r
 
   /* dHdPtheta (I think we can use dHdPz in this coord system) */
   /* TODO: Check this is okay */
-  dHdpz = XLALSpinHcapNumDerivWRTParam( 5, rootParams->values, rootParams->params );
+  dHdpz = tmpDValues[2];//XLALSpinHcapNumDerivWRTParam( 5, rootParams->values, rootParams->params );
   if ( XLAL_IS_REAL8_FAIL_NAN( dHdpz ) )
   {
     XLAL_ERROR( XLAL_EFUNC );
   }
+  if(debugPK)printf( "dHdx = %.16e, dHdpy = %.16e, dHdpz = %.16e\n", dHdx, dHdpy, dHdpz );
 
   /* Now convert to spherical polars */
   dHdr      = dHdx - dHdpy * pphi / (r*r) + dHdpz * ptheta / (r*r);
   dHdptheta = - dHdpz / r;
   dHdpphi   = dHdpy / r;
 
+  if(debugPK)printf("dHdr = %.16e dHdptheta = %.16e dHdpphi = %.16e\n", dHdr, dHdptheta, dHdpphi);
   /* populate the function vector */
   gsl_vector_set( f, 0, dHdr );
   gsl_vector_set( f, 1, dHdptheta );
   gsl_vector_set( f, 2, dHdpphi - rootParams->omega );
 
-  //printf( "Current funcvals = %.16e %.16e %.16e\n", gsl_vector_get( f, 0 ), gsl_vector_get( f, 1 ),
-   //  gsl_vector_get( f, 2 )/*dHdpphi*/ );
+  if(debugPK)
+		printf( "Current funcvals = %.16e %.16e %.16e\n", gsl_vector_get( f, 0 ), gsl_vector_get( f, 1 ),
+     gsl_vector_get( f, 2 )/*dHdpphi*/ );
 
   return XLAL_SUCCESS;
 }
@@ -358,6 +378,7 @@ static double GSLSpinHamiltonianDerivWrapper( double x,    /**<< Derivative at x
 {
 
   HcapSphDeriv2Params *dParams = (HcapSphDeriv2Params *) params;
+  REAL8 mTotal = dParams->params->eobParams->m1 + dParams->params->eobParams->m2;
 
   REAL8 sphValues[12];
   REAL8 cartValues[12];
@@ -375,14 +396,29 @@ static double GSLSpinHamiltonianDerivWrapper( double x,    /**<< Derivative at x
   ptheta = sphValues[4];
   pphi   = sphValues[5];
 
+  /* New code to compute derivatives w.r.t. cartesian variables */
+  REAL8 tmpDValues[14];
+  int UNUSED status;
+  for( int i =0; i < 3; i ++)
+  {
+		cartValues[i+6] /= mTotal * mTotal;
+		cartValues[i+9] /= mTotal * mTotal;
+	}
+  status  = XLALSpinHcapNumericalDerivativeNoFlux( 0, cartValues, tmpDValues, dParams->params );
+  for( int i =0; i < 3; i ++)
+  {
+		cartValues[i+6] *= mTotal * mTotal;
+		cartValues[i+9] *= mTotal * mTotal;
+	}  
+
   /* Return the appropriate derivative according to varyParam2 */
   switch ( dParams->varyParam2 )
   {
     case 0:
       /* dHdr */
-      dHdx  = XLALSpinHcapNumDerivWRTParam( 0, cartValues, dParams->params );
-      dHdpy = XLALSpinHcapNumDerivWRTParam( 4, cartValues, dParams->params );
-      dHdpz = XLALSpinHcapNumDerivWRTParam( 5, cartValues, dParams->params );
+      dHdx  = -tmpDValues[3]; //XLALSpinHcapNumDerivWRTParam( 0, cartValues, dParams->params );
+      dHdpy = tmpDValues[1]; //XLALSpinHcapNumDerivWRTParam( 4, cartValues, dParams->params );
+      dHdpz = tmpDValues[2]; //XLALSpinHcapNumDerivWRTParam( 5, cartValues, dParams->params );
 
       dHdr      = dHdx - dHdpy * pphi / (r*r) + dHdpz * ptheta / (r*r);
       //printf( "dHdr = %.16e\n", dHdr );
@@ -391,12 +427,12 @@ static double GSLSpinHamiltonianDerivWrapper( double x,    /**<< Derivative at x
       break;
     case 4:
       /* dHdptheta */
-      dHdpz = XLALSpinHcapNumDerivWRTParam( 5, cartValues, dParams->params );
+      dHdpz = tmpDValues[2]; //XLALSpinHcapNumDerivWRTParam( 5, cartValues, dParams->params );
       return - dHdpz / r;
       break;
     case 5:
       /* dHdpphi */
-      dHdpy = XLALSpinHcapNumDerivWRTParam( 4, cartValues, dParams->params );
+      dHdpy = tmpDValues[1]; //XLALSpinHcapNumDerivWRTParam( 4, cartValues, dParams->params );
       return dHdpy / r;
       break;
     default:
@@ -514,6 +550,15 @@ static int XLALSimIMRSpinEOBInitialConditions(
   }
 #endif
 
+ int debugPK = 1;
+ if( debugPK )
+  {
+    printf("Inside the XLALSimIMRSpinEOBInitialConditions function!\n");
+    printf("Inputs: m1 = %.16e, m2 = %.16e, fMin = %.16e, inclination = %.16e\n", mass1, mass2, (double) fMin, (double) inc );
+    printf("Inputs: mSpin1 = {%.16e, %.16e, %.16e}\n",  spin1[0], spin1[1], spin1[2]);
+    printf("Inputs: mSpin2 = {%.16e, %.16e, %.16e}\n",  spin2[0], spin2[1], spin2[2]);
+    fflush(NULL);
+  }
 
   static const int UNUSED lMax = 8;
 
@@ -629,7 +674,8 @@ static int XLALSimIMRSpinEOBInitialConditions(
   NormalizeVector( vHat );
 
   /* XXX Test code XXX */
-  /*for ( i = 0; i < 3; i++ )
+  if(debugPK){
+  for ( i = 0; i < 3; i++ )
   {
     printf ( " LnHat[%d] = %.16e, rHat[%d] = %.16e, vHat[%d] = %.16e\n", i, LnHat[i], i, rHat[i], i, vHat[i] );
   }
@@ -638,7 +684,8 @@ static int XLALSimIMRSpinEOBInitialConditions(
   for ( i = 0; i < 3; i++ )
   {
     printf ( " s1[%d] = %.16e, s2[%d] = %.16e\n", i, tmpS1[i], i, tmpS2[i] );
-  }*/
+  }
+}
 
   /* Allocate and compute the rotation matrices */
   XLAL_CALLGSL( rotMatrix = gsl_matrix_alloc( 3, 3 ) );
@@ -667,7 +714,8 @@ static int XLALSimIMRSpinEOBInitialConditions(
   ApplyRotationMatrix( rotMatrix, tmpS2Norm );
 
   /* XXX Test code XXX */
-  /*printf( "\nAfter applying rotation matrix:\n\n" );
+  if(debugPK){
+		printf( "\nAfter applying rotation matrix:\n\n" );
   for ( i = 0; i < 3; i++ )
   {
     printf ( " LnHat[%d] = %.16e, rHat[%d] = %.16e, vHat[%d] = %.16e\n", i, LnHat[i], i, rHat[i], i, vHat[i] );
@@ -677,7 +725,8 @@ static int XLALSimIMRSpinEOBInitialConditions(
   for ( i = 0; i < 3; i++ )
   {
     printf ( " s1[%d] = %.16e, s2[%d] = %.16e\n", i, tmpS1[i], i, tmpS2[i] );
-  }*/
+  }
+}
 
   /* STEP 2) After rotation in STEP 1, in spherical coordinates, phi0 and theta0 are given directly in Eq. (4.7),
    *         r0, pr0, ptheta0 and pphi0 are obtained by solving Eqs. (4.8) and (4.9) (using gsl_multiroot_fsolver).
@@ -696,10 +745,11 @@ static int XLALSimIMRSpinEOBInitialConditions(
   /* To start with, we will just assign Newtonian-ish ICs to the system */
   rootParams.values[0] = 1./(v0*v0);  /* Initial r */
   rootParams.values[4] = v0;    /* Initial p */
+  rootParams.values[5] = 1e-3; // PK
   memcpy( rootParams.values+6, tmpS1, sizeof( tmpS1 ) );
   memcpy( rootParams.values+9, tmpS2, sizeof( tmpS2 ) );
 
-  //printf( "ICs guess: r = %.16e, p = %.16e\n", rootParams.values[0], rootParams.values[4] );
+  if(debugPK)printf( "ICs guess: x = %.16e, py = %.16e\n", rootParams.values[0], rootParams.values[4] );
 
   /* Initialise the gsl stuff */
   XLAL_CALLGSL( rootSolver = gsl_multiroot_fsolver_alloc( T, 3 ) );
@@ -734,6 +784,16 @@ static int XLALSimIMRSpinEOBInitialConditions(
   do
   {
     XLAL_CALLGSL( gslStatus = gsl_multiroot_fsolver_iterate( rootSolver ) ); 
+    if(debugPK){
+			for( int j = 0; j < 3; j++)
+				printf("IC at iteration %d, r[%d] = %.16e, p[%d] = %.16e\n", i, j, rootParams.values[j], j, rootParams.values[j+3]);
+			
+			printf("\n\n");
+			for( int j = 0; j < 3; j++)
+				printf("IC at iteration %d, s1[%d] = %.16e, s2[%d] = %.16e\n", i, j, rootParams.values[j+6], j, rootParams.values[j+9]);
+			printf("\n\n");
+
+		}
     if ( gslStatus != GSL_SUCCESS )
     {
       XLALPrintError( "Error in GSL iteration function!\n" );
@@ -744,7 +804,7 @@ static int XLALSimIMRSpinEOBInitialConditions(
       XLAL_ERROR( XLAL_EFUNC );
     }
 
-    XLAL_CALLGSL( gslStatus = gsl_multiroot_test_residual( rootSolver->f, 1.0e-10 ) );
+    XLAL_CALLGSL( gslStatus = gsl_multiroot_test_residual( rootSolver->f, 1.0e-10) );
     i++;
   }
   while ( gslStatus == GSL_CONTINUE && i <= maxIter );
@@ -760,9 +820,11 @@ static int XLALSimIMRSpinEOBInitialConditions(
 
   finalValues = gsl_multiroot_fsolver_root( rootSolver );
 
-  /*printf( "Spherical orbit conditions here given by the following:\n" );
+ if(debugPK){
+  printf( "Spherical orbit conditions here given by the following:\n" );
   printf( " x = %.16e, py = %.16e, pz = %.16e\n", gsl_vector_get( finalValues, 0 ), 
-      gsl_vector_get( finalValues, 1 ), gsl_vector_get( finalValues, 2 ) );*/
+      gsl_vector_get( finalValues, 1 ), gsl_vector_get( finalValues, 2 ) );
+		}
 
   memset( qCart, 0, sizeof(qCart) );
   memset( pCart, 0, sizeof(pCart) );
@@ -834,13 +896,30 @@ static int XLALSimIMRSpinEOBInitialConditions(
   d2Hdr2     = XLALCalculateSphHamiltonianDeriv2( 0, 0, sphValues, params );
   d2Hdrdpphi = XLALCalculateSphHamiltonianDeriv2( 0, 5, sphValues, params );
 
-  //printf( "d2Hdr2 = %.16e, d2Hdrdpphi = %.16e\n", d2Hdr2, d2Hdrdpphi );
+  if(debugPK)printf( "d2Hdr2 = %.16e, d2Hdrdpphi = %.16e\n", d2Hdr2, d2Hdrdpphi );
 
-  dHdpphi  = XLALSpinHcapNumDerivWRTParam( 4, cartValues, params ) / sphValues[0];
+  /* New code to compute derivatives w.r.t. cartesian variables */
+  
+  REAL8 tmpDValues[14];
+  int UNUSED status;
+  for( i =0; i < 3; i ++)
+  {
+		cartValues[i+6] /= mTotal * mTotal;
+		cartValues[i+9] /= mTotal * mTotal;
+	}
+  status  = XLALSpinHcapNumericalDerivativeNoFlux( 0, cartValues, tmpDValues, params );
+  for( i =0; i < 3; i ++)
+  {
+		cartValues[i+6] *= mTotal * mTotal;
+		cartValues[i+9] *= mTotal * mTotal;
+	}  
+	
+	dHdpphi  = tmpDValues[1] / sqrt(cartValues[0]*cartValues[0] + cartValues[1]*cartValues[1] + cartValues[2]*cartValues[2]); 
+	//XLALSpinHcapNumDerivWRTParam( 4, cartValues, params ) / sphValues[0];
   
   dEdr  = - dHdpphi * d2Hdr2 / d2Hdrdpphi;
 
-  //printf( "d2Hdr2 = %.16e d2Hdrdpphi = %.16e dHdpphi = %.16e\n", d2Hdr2, d2Hdrdpphi, dHdpphi );
+  if(debugPK)printf( "d2Hdr2 = %.16e d2Hdrdpphi = %.16e dHdpphi = %.16e\n", d2Hdr2, d2Hdrdpphi, dHdpphi );
 
   if ( d2Hdr2 != 0.0 )
   {
@@ -860,7 +939,7 @@ static int XLALSimIMRSpinEOBInitialConditions(
     //chi1 = tmpS1[0]*LnHat[0] + tmpS1[1]*LnHat[1] + tmpS1[2]*LnHat[2];
     //chi2 = tmpS2[0]*LnHat[0] + tmpS2[1]*LnHat[1] + tmpS2[2]*LnHat[2];
 
-    //printf( "magS1 = %.16e, magS2 = %.16e\n", chi1, chi2 );
+    //if(debugPK)printf( "magS1 = %.16e, magS2 = %.16e\n", chi1, chi2 );
 
     //chiS = 0.5 * ( chi1 / (mass1*mass1) + chi2 / (mass2*mass2) );
     //chiA = 0.5 * ( chi1 / (mass1*mass1) - chi2 / (mass2*mass2) );
@@ -874,11 +953,11 @@ static int XLALSimIMRSpinEOBInitialConditions(
     //XLALSimIMRCalculateSpinEOBHCoeffs( params->seobCoeffs, eta, a );
     ham = XLALSimIMRSpinEOBHamiltonian( eta, &qCartVec, &pCartVec, &s1VecNorm, &s2VecNorm, &sKerr, &sStar, params->tortoise, params->seobCoeffs );
 
-    //printf( "hamiltonian at this point is %.16e\n", ham );
+    if(debugPK)printf( "hamiltonian at this point is %.16e\n", ham );
 
     /* And now, finally, the flux */
-    REAL8Vector polarDynamics;
-    REAL8       polarData[4];
+    REAL8Vector polarDynamics, cartDynamics;
+    REAL8       polarData[4], cartData[12];
 
     polarDynamics.length = 4;
     polarDynamics.data = polarData;
@@ -888,18 +967,42 @@ static int XLALSimIMRSpinEOBInitialConditions(
     polarData[2] = pSph[0];
     polarData[3] = pSph[2];
 
-    flux  = XLALInspiralSpinFactorizedFlux( &polarDynamics, nqcCoeffs, omega, params, ham, lMax, SpinAlignedEOBversion );
+    cartDynamics.length = 12;
+    cartDynamics.data = cartData;
+    
+    memcpy( cartData, qCart, 3*sizeof(REAL8) );
+    memcpy( cartData+3, pCart, 3*sizeof(REAL8) );
+    memcpy( cartData+6, tmpS1Norm, 3*sizeof(REAL8) );
+    memcpy( cartData+9, tmpS2Norm, 3*sizeof(REAL8) );
+    
+    flux  = XLALInspiralPrecSpinFactorizedFlux( &polarDynamics, &cartDynamics, nqcCoeffs, omega, params, ham, lMax, SpinAlignedEOBversion );
+    /*flux  = XLALInspiralSpinFactorizedFlux( &polarDynamics, nqcCoeffs, omega, params, ham, lMax, SpinAlignedEOBversion );*/
     flux  = flux / eta;
 
     rDot  = - flux / dEdr;
 
-    /* We now need dHdpr - we take it that it is safely linear up to a pr of 1.0e-3 */
+    /* We now need dHdpr - we take it that it is safely linear up to a pr of 1.0e-3
+     * PK: Ideally, the pr should be of the order of other momenta, in order for its 
+     * contribution to the Hamiltonian to not get buried in the numerical noise in 
+     * the numerically larger momenta components */
     cartValues[3] = 1.0e-3;
-    dHdpr         = XLALSpinHcapNumDerivWRTParam( 3, cartValues, params );
+    for( i =0; i < 3; i ++)
+    {
+		  cartValues[i+6] /= mTotal * mTotal;
+	  	cartValues[i+9] /= mTotal * mTotal;
+	  }
+    status  = XLALSpinHcapNumericalDerivativeNoFlux( 0, cartValues, tmpDValues, params );
+    for( i =0; i < 3; i ++)
+    {
+		  cartValues[i+6] *= mTotal * mTotal;
+	  	cartValues[i+9] *= mTotal * mTotal;
+	  }  
+    dHdpr         = tmpDValues[0]; //XLALSpinHcapNumDerivWRTParam( 3, cartValues, params );
 
-
-    /*printf( "Ingredients going into prDot:\n" );
-    printf( "flux = %.16e, dEdr = %.16e, dHdpr = %.16e\n", flux, dEdr, dHdpr );*/
+    if(debugPK){
+			printf( "Ingredients going into prDot:\n" );
+			printf( "flux = %.16e, dEdr = %.16e, dHdpr = %.16e, dHdpr/pr = %.16e\n", flux, dEdr, dHdpr, dHdpr / cartValues[3] );
+		}
 
     /* We can now calculate what pr should be taking into account the flux */
     pSph[0] = rDot / (dHdpr / cartValues[3] );
@@ -953,7 +1056,7 @@ static int XLALSimIMRSpinEOBInitialConditions(
 
     params->tortoise = tmpTortoise;
 
-    //printf( "Applying the tortoise to p (csi = %.26e)\n", csi );
+    if(debugPK)printf( "Applying the tortoise to p (csi = %.26e)\n", csi );
 
     for ( i = 0; i < 3; i++ )
     {
@@ -967,10 +1070,12 @@ static int XLALSimIMRSpinEOBInitialConditions(
   memcpy( initConds->data+6, tmpS1Norm, sizeof(tmpS1Norm) );
   memcpy( initConds->data+9, tmpS2Norm, sizeof(tmpS2Norm) );
 
-  //printf( "THE FINAL INITIAL CONDITIONS:\n");
-  /*printf( " %.16e %.16e %.16e\n%.16e %.16e %.16e\n%.16e %.16e %.16e\n%.16e %.16e %.16e\n", initConds->data[0], initConds->data[1], initConds->data[2],
+  if(debugPK){
+		printf( "THE FINAL INITIAL CONDITIONS:\n");
+    printf( " %.16e %.16e %.16e\n%.16e %.16e %.16e\n%.16e %.16e %.16e\n%.16e %.16e %.16e\n", initConds->data[0], initConds->data[1], initConds->data[2],
           initConds->data[3], initConds->data[4], initConds->data[5], initConds->data[6], initConds->data[7], initConds->data[8],
-          initConds->data[9], initConds->data[10], initConds->data[11] );*/
+          initConds->data[9], initConds->data[10], initConds->data[11] );
+				}
 
   return XLAL_SUCCESS;
 }
