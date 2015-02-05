@@ -104,7 +104,6 @@ typedef enum {
   LALINFERENCE_COMPLEX8_t, 
   LALINFERENCE_COMPLEX16_t, 
   LALINFERENCE_gslMatrix_t,
-  LALINFERENCE_gslMatrixComplex_t,
   LALINFERENCE_REAL8Vector_t,
   LALINFERENCE_UINT4Vector_t,
   LALINFERENCE_string_t,
@@ -124,7 +123,7 @@ typedef enum {
 	LALINFERENCE_PARAM_OUTPUT    /** A parameter changed by an inner code and passed out */
 } LALInferenceParamVaryType;
 
-extern size_t LALInferenceTypeSize[15];
+extern size_t LALInferenceTypeSize[14];
 
 /**
  * The LALInferenceVariableItem list node structure
@@ -445,6 +444,7 @@ typedef struct tagLALInferenceModel
   REAL8Window                 *window;        /** A window */
   REAL8                       padding; /** Padding used for the window */
   struct tagLALInferenceROQModel *roq; /** ROQ data */
+  struct tagLALInferencePCsModel *pcs; /** Principle Component data */
 } LALInferenceModel;
 
 
@@ -607,6 +607,17 @@ tagLALInferenceROQModel
   REAL8* amp_squared;
   REAL8 trigtime;
 } LALInferenceROQModel;
+
+/**
+ * Structure to contain model-related principle component quantities
+ */
+typedef struct
+tagLALInferencePCsModel
+{
+    INT4 nPCs; /** Number of PCs to use */
+    const gsl_matrix_complex *pcs_plus; /** Principle component matrix for hplus */
+    const gsl_matrix_complex *pcs_cross; /** Principle component matrix for hplus */
+} LALInferencePCsModel;
 
 /** Returns the element of the process params table with "name" */
 ProcessParamsTable *LALInferenceGetProcParamVal(ProcessParamsTable *procparams,const char *name);
@@ -976,21 +987,13 @@ void LALInferenceAddCOMPLEX16Variable(LALInferenceVariables * vars, const char *
 COMPLEX16 LALInferenceGetCOMPLEX16Variable(LALInferenceVariables * vars, const char * name);
 
 void LALInferenceSetCOMPLEX16Variable(LALInferenceVariables* vars,const char* name,COMPLEX16 value);
-// ---
+
 void LALInferenceAddgslMatrixVariable(LALInferenceVariables * vars, const char * name, gsl_matrix* value, LALInferenceParamVaryType vary);
 
 gsl_matrix* LALInferenceGetgslMatrixVariable(LALInferenceVariables * vars, const char * name);
 
 void LALInferenceSetgslMatrixVariable(LALInferenceVariables* vars,const char* name,gsl_matrix* value);
 
-
-void LALInferenceAddgslMatrixComplexVariable(LALInferenceVariables * vars, const char * name, gsl_matrix_complex* value, LALInferenceParamVaryType vary);
-
-gsl_matrix_complex* LALInferenceGetgslMatrixComplexVariable(LALInferenceVariables * vars, const char * name);
-
-void LALInferenceSetgslMatrixComplexVariable(LALInferenceVariables* vars,const char* name,gsl_matrix_complex* value);
-
-// ---
 void LALInferenceAddREAL8VectorVariable(LALInferenceVariables * vars, const char * name, REAL8Vector* value, LALInferenceParamVaryType vary);
 
 REAL8Vector* LALInferenceGetREAL8VectorVariable(LALInferenceVariables * vars, const char * name);

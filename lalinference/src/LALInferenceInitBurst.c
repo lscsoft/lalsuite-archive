@@ -654,11 +654,9 @@ LALInferenceModel *LALInferenceInitPrincipalCompModelBBH(LALInferenceRunState *s
     }
 
     /* Read PC matrix */
-    const gsl_matrix_complex *PCmatrix = get_complex_matrix_from_file(PCfile, ncatrows, ncatcols);
-
-    /* Add the PCs to the model to avoid reloading the file next time */
-    LALInferenceAddVariable(model->params,"PCmatrix", &PCmatrix,
-            LALINFERENCE_gslMatrixComplex_t, LALINFERENCE_PARAM_FIXED);
+    model->pcs = XLALMalloc(sizeof(LALInferencePCsModel));
+    model->pcs->pcs_plus = get_complex_matrix_from_file(PCfile, ncatrows, ncatcols);
+    model->pcs->nPCs = nPCs;
     
     REAL8 hrssmin = 1e-22;
     REAL8 hrssmax = 1e-20;
@@ -677,8 +675,6 @@ LALInferenceModel *LALInferenceInitPrincipalCompModelBBH(LALInferenceRunState *s
 
     REAL8 start_hrss=hrssmin+gsl_rng_uniform(GSLrandom)*(hrssmax-hrssmin);
 
-    /* PC Cofficients */
-    LALInferenceAddVariable(model->params, "nPCs", &nPCs, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
 
     if (nPCs>=1){
 

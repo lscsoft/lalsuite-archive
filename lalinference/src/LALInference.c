@@ -54,7 +54,6 @@ size_t LALInferenceTypeSize[] = {sizeof(INT4),
                                    sizeof(COMPLEX8),
                                    sizeof(COMPLEX16),
                                    sizeof(gsl_matrix *),
-                                   sizeof(gsl_matrix_complex *),
                                    sizeof(REAL8Vector *),
                                    sizeof(UINT4Vector *),
                                    sizeof(CHAR *),
@@ -236,9 +235,6 @@ void LALInferenceSetVariable(LALInferenceVariables * vars, const char * name, vo
   case LALINFERENCE_gslMatrix_t:
     gsl_matrix_free(*(gsl_matrix **)item->value);
     break;
-  case LALINFERENCE_gslMatrixComplex_t:
-    gsl_matrix_complex_free(*(gsl_matrix_complex **)item->value);
-    break;
   case LALINFERENCE_REAL8Vector_t:
     XLALDestroyREAL8Vector(*(REAL8Vector **)item->value);
     break;
@@ -318,9 +314,6 @@ void LALInferenceRemoveVariable(LALInferenceVariables *vars,const char *name)
   case LALINFERENCE_gslMatrix_t:
     gsl_matrix_free(*(gsl_matrix **)this->value);
     break;
-  case LALINFERENCE_gslMatrixComplex_t:
-    gsl_matrix_complex_free(*(gsl_matrix_complex **)this->value);
-    break;
   case LALINFERENCE_REAL8Vector_t:
     XLALDestroyREAL8Vector(*(REAL8Vector **)this->value);
     break;
@@ -369,7 +362,6 @@ void LALInferenceClearVariables(LALInferenceVariables *vars)
   if(this) next=this->next;
   while(this){
     if(this->type==LALINFERENCE_gslMatrix_t) gsl_matrix_free(*(gsl_matrix **)this->value);
-    if(this->type==LALINFERENCE_gslMatrixComplex_t) gsl_matrix_complex_free(*(gsl_matrix_complex **)this->value);
     if(this->type==LALINFERENCE_UINT4Vector_t) XLALDestroyUINT4Vector(*(UINT4Vector **)this->value);
     if(this->type==LALINFERENCE_REAL8Vector_t) XLALDestroyREAL8Vector(*(REAL8Vector **)this->value);
     XLALFree(this->value);
@@ -432,15 +424,6 @@ void LALInferenceCopyVariables(LALInferenceVariables *origin, LALInferenceVariab
             gsl_matrix *new=gsl_matrix_alloc(old->size1,old->size2);
             if(!new) XLAL_ERROR_VOID(XLAL_ENOMEM,"Unable to create %zux%zu matrix\n",old->size1,old->size2);
             gsl_matrix_memcpy(new,old);
-            LALInferenceAddVariable(target,ptr->name,(void *)&new,ptr->type,ptr->vary);
-            break;
-          }
-          case LALINFERENCE_gslMatrixComplex_t:
-          {
-            gsl_matrix_complex *old=*(gsl_matrix_complex **)ptr->value;
-            gsl_matrix_complex *new=gsl_matrix_complex_alloc(old->size1,old->size2);
-            if(!new) XLAL_ERROR_VOID(XLAL_ENOMEM,"Unable to create %zux%zu matrix\n",old->size1,old->size2);
-            gsl_matrix_complex_memcpy(new,old);
             LALInferenceAddVariable(target,ptr->name,(void *)&new,ptr->type,ptr->vary);
             break;
           }
@@ -514,9 +497,6 @@ void LALInferencePrintVariableItem(char *out, LALInferenceVariableItem *ptr)
         case LALINFERENCE_gslMatrix_t:
           sprintf(out, "<can't print matrix>");
           break;
-        case LALINFERENCE_gslMatrixComplex_t:
-          sprintf(out, "<can't print matrix>");
-          break;
         default:
           sprintf(out, "<can't print>");
       }
@@ -567,16 +547,12 @@ void LALInferencePrintVariables(LALInferenceVariables *var)
         case LALINFERENCE_gslMatrix_t:
           fprintf(stdout, "'gslMatrix'");
           break;
-        case LALINFERENCE_gslMatrixComplex_t:
-          fprintf(stdout, "'gslMatrixComplex'");
-          break;
         default:
           fprintf(stdout, "<unknown type>");
       }
       fprintf(stdout, ")  ");
       /* print value: */
       gsl_matrix *matrix = NULL;
-      gsl_matrix_complex *matrix_complex = NULL;
       switch (ptr->type) {
         case LALINFERENCE_INT4_t:
           fprintf(stdout, "%d", *(INT4 *) ptr->value);
@@ -622,11 +598,6 @@ void LALInferencePrintVariables(LALInferenceVariables *var)
           }
           fprintf(stdout,"]");
            */
-          break;
-        case LALINFERENCE_gslMatrixComplex_t:
-          fprintf(stdout,"[");
-          matrix_complex = *((gsl_matrix_complex **)ptr->value);
-          fprintf(stdout,"%ix%i]",(int)(matrix_complex->size1),(int)(matrix_complex->size2));
           break;
         default:
           fprintf(stdout, "<can't print>");
@@ -689,8 +660,6 @@ void LALInferencePrintSample(FILE *fp,LALInferenceVariables *sample){
           }
         }
          */
-        break;
-	  case LALINFERENCE_gslMatrixComplex_t:
         break;
       default:
         XLALPrintWarning("<can't print>");
@@ -3428,32 +3397,7 @@ gsl_matrix* LALInferenceGetgslMatrixVariable(LALInferenceVariables * vars, const
 void LALInferenceSetgslMatrixVariable(LALInferenceVariables* vars,const char* name,gsl_matrix* value){
   LALInferenceSetVariable(vars,name,(void*)&value);
 }
-// ---
-//
-void LALInferenceAddgslMatrixComplexVariable(LALInferenceVariables * vars, const char * name, gsl_matrix_complex* value, LALInferenceParamVaryType vary)
-/* Typed version of LALInferenceAddVariable for gsl_matrix_complex values.*/
-{
-  LALInferenceAddVariable(vars,name,(void*)value,LALINFERENCE_gslMatrixComplex_t,vary);
-}
 
-gsl_matrix_complex* LALInferenceGetgslMatrixComplexVariable(LALInferenceVariables * vars, const char * name)
-/* Typed version of LALInferenceGetVariable for gsl_matrix_complex values.*/
-{
-
-  if(LALInferenceGetVariableType(vars,name)!=LALINFERENCE_gslMatrixComplex_t){
-    XLAL_ERROR_NULL(XLAL_ETYPE);
-  }
-
-  gsl_matrix_complex* rvalue=(gsl_matrix_complex*)LALInferenceGetVariable(vars,name);
-
-  return rvalue;
-}
-
-void LALInferenceSetgslMatrixComplexVariable(LALInferenceVariables* vars,const char* name,gsl_matrix_complex* value){
-  LALInferenceSetVariable(vars,name,(void*)&value);
-}
-
-// ---
 void LALInferenceAddREAL8VectorVariable(LALInferenceVariables * vars, const char * name, REAL8Vector* value, LALInferenceParamVaryType vary)
 /* Typed version of LALInferenceAddVariable for REAL8Vector values.*/
 {
