@@ -124,7 +124,7 @@ typedef enum {
 	LALINFERENCE_PARAM_OUTPUT    /** A parameter changed by an inner code and passed out */
 } LALInferenceParamVaryType;
 
-extern size_t LALInferenceTypeSize[14];
+extern size_t LALInferenceTypeSize[15];
 
 /**
  * The LALInferenceVariableItem list node structure
