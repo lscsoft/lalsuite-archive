@@ -58,7 +58,27 @@ sim_inspiral_dt = [
         ('spin2x', 'f8'),
         ('spin2y', 'f8'),
         ('spin2z', 'f8'),
-        ('amp_order', 'i4')
+        ('amp_order', 'i4'),
+        ('dchi0','f8'),
+        ('dchi1','f8'),
+        ('dchi2','f8'),
+        ('dchi3','f8'),
+        ('dchi4','f8'),
+        ('dchi5','f8'),
+        ('dchi5l','f8'),
+        ('dchi6','f8'),
+        ('dchi6l','f8'),
+        ('dchi7','f8'),
+        ('loglambdaG','f8'),
+        ('ScalarCharge1','f8')
+        ('ScalarCharge2','f8'),
+        ('omegaBD','f8'),
+        ('aPPE','f8'),
+        ('alphaPPE','f8'),
+        ('bPPE','f8'),
+        ('betaPPE','f8'),
+        ('betaStep','f8'),
+        ('fStep','f8')
 ]
 
 def get_input_filename(parser, args):
@@ -265,6 +285,27 @@ if __name__ == "__main__":
     injections['spin2y'] = s2y
     injections['spin2z'] = s2z
     injections['amp_order'] = [opts.amporder for i in xrange(N)]
+    # TIGER parameters
+    injections['dchi0']=samples['dchi0']
+    injections['dchi1']=samples['dchi1']
+    injections['dchi2']=samples['dchi2']
+    injections['dchi3']=samples['dchi3']
+    injections['dchi4']=samples['dchi4']
+    injections['dchi5']=samples['dchi5']
+    injections['dchi5l']=samples['dchi5l']
+    injections['dchi6']=samples['dchi6']
+    injections['dchi6l']=samples['dchi6l']
+    injections['dchi7']=samples['dchi7']
+    injections['loglambdaG']=samples['loglambdaG']
+    injections['ScalarCharge1']=samples['ScalarCharge1']
+    injections['ScalarCharge2']=samples['ScalarCharge2']
+    injections['omegaBD']=samples['omegaBD']
+    injections['aPPE']=samples['aPPE']
+    injections['alphaPPE']=samples['alphaPPE']
+    injections['bPPE']=samples['bPPE']
+    injections['betaPPE']=samples['betaPPE']
+    injections['betaStep']=samples['betaStep']
+    injections['fStep']=samples['fStep']
 
     # Create a new XML document
     xmldoc = ligolw.Document()
