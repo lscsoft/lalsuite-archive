@@ -70,7 +70,7 @@ sim_inspiral_dt = [
         ('dchi6l','f8'),
         ('dchi7','f8'),
         ('loglambdaG','f8'),
-        ('ScalarCharge1','f8')
+        ('ScalarCharge1','f8'),
         ('ScalarCharge2','f8'),
         ('omegaBD','f8'),
         ('aPPE','f8'),
