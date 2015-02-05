@@ -279,7 +279,7 @@ static PyObject *pylal_XLALGPSTimeNow(PyObject *self, PyObject *args)
  */
 
 PyDoc_STRVAR(pylal_XLALJulianDay__doc__,
-"Returns the Julian Day corresponding to the date given in a time structure.\n"
+"Returns the Julian Day (in UTC time system) corresponding to the date given in a time structure.\n"
 "Example:\n"
 "\n"
 ">>> import time\n"
@@ -300,7 +300,7 @@ static PyObject *pylal_XLALJulianDay(PyObject *self, PyObject *args)
 }
 
 PyDoc_STRVAR(pylal_XLALModifiedJulianDay__doc__,
-"Returns the Modified Julian Day corresponding to the date given in a time structure.\n"
+"Returns the Modified Julian Day (in UTC time system) corresponding to the date given in a time structure.\n"
 "Example:\n"
 "\n"
 ">>> import time\n"
