@@ -1522,6 +1522,16 @@ class EngineNode(pipeline.CondorDAGNode):
         if self.flows: self.add_var_opt('%s-flow'%(ifo),self.flows[ifo])
         if self.psds: self.add_var_opt('%s-psd'%(ifo),self.psds[ifo])
         if any(self.timeslides): self.add_var_opt('%s-timeslide'%(ifo),self.timeslides[ifo])
+      if self.mdcchannels is not None and self.mdccaches is not None:
+        cast="["
+        chst="["
+        for ifo in self.ifos:       
+          cast+=self.mdccaches[ifo]+','
+          chst+=self.mdcchannels[ifo]+','
+        chst=chst[:-1]+"]"
+        cast=cast[:-1]+"]"
+        self.add_var_opt('MDC-channel ',chst)
+        self.add_var_opt('MDC-cache  ',cast)
 
       # Start at earliest common time
       # NOTE: We perform this arithmetic for all ifos to ensure that a common data set is
