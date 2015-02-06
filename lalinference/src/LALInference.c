@@ -3650,6 +3650,11 @@ const gsl_matrix_complex* get_complex_matrix_from_file(const char *file_name, in
 
 	fp = fopen(file_name, "rb");
 
+    if ( fp == NULL ){
+        fprintf(stderr, "Error... cannot open file containing PCs\n");
+        exit(1);
+    }
+
 	gsl_matrix_complex_fread(fp, complex_matrix_from_file); //NOTE: matrix_from_file must be in binary format
 
 	fprintf(stderr, "read in matrix\n");
