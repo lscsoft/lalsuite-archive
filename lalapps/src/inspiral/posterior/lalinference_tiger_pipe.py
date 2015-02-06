@@ -164,6 +164,7 @@ else:
 ################################################################################
 
 cp = ConfigParser.RawConfigParser()
+cp.optionxform = str
 # FIXME: bring all defaults here
 cp.read(config_file)
 
