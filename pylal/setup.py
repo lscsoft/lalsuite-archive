@@ -670,6 +670,7 @@ setup(
 		os.path.join("bin", "cbcBayesInjProc.py"),
 		os.path.join("bin", "cbcBayesThermoInt.py"),
 		os.path.join("bin", "cbcBayesPPAnalysis.py"),
+                os.path.join("bin", "cbcBayesBurstPPAnalysis.py"),
                 os.path.join("bin", "cbcBayesPosToSimInspiral.py"),
                 os.path.join("bin", "cbcBayesPosToSimBurst.py"),
 		os.path.join("bin", "pulsarBayesPostProc.py"),

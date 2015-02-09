@@ -36,11 +36,13 @@ import os
 import os.path
 import scipy.stats as ss
 import string
+from pylal.SimBurstUtils import ExtractSimBurstTableLIGOLWContentHandler
+lsctables.use_in(ExtractSimBurstTableLIGOLWContentHandler)
 
 posterior_name_to_sim_burst_extractor = {
     'frequency' : lambda sb: sb.frequency,
     'duration' : lambda sb: sb.duration,
-    'q' : lambda sb: sb.q,
+    'quality' : lambda sb: sb.q,
     'hrss' : lambda sb: sb.hrss,
     'psi' : lambda sb: sb.psi,
     'time' : lambda sb: sb.time_geocent_gps + 1e-9*sb.time_geocent_gps_ns,
@@ -54,7 +56,7 @@ posterior_name_to_sim_burst_extractor = {
 
 posterior_name_to_latex_name = {
     'frequency' : r'$f$',
-    'q' : r'$q$',
+    'quality' : r'$q$',
     'duration' : r'$\tau$',
     'hrss' : r'$hrss$',
     'time' : r'$t$',
@@ -212,11 +214,11 @@ if __name__ == '__main__':
 
     (options, args) = parser.parse_args()
 
-    injs = table.get_table(utils.load_filename(options.injxml),
+    injs = table.get_table(utils.load_filename(options.injxml,contenthandler=ExtractSimBurstTableLIGOLWContentHandler),
                            lsctables.SimBurstTable.tableName)
 
     if options.par == []:
-        parameters = ['frequency', 'q', 'hrss', 'ra', 'dec', 'psi', 'time', 'alpha']
+        parameters = ['frequency', 'quality', 'hrss', 'ra', 'dec', 'psi', 'time', 'alpha']
     else:
         parameters = options.par
 
