@@ -85,7 +85,6 @@ LALInferenceModel *LALInferenceInitModelReviewEvidence_banana(LALInferenceRunSta
 LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_bimod(LALInferenceRunState *state);
 LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_unimod(LALInferenceRunState *state);
 LALInferenceModel *LALInferenceInitPrincipalCompModel(LALInferenceRunState *state);
-LALInferenceModel *LALInferenceInitPrincipalCompModelBBH(LALInferenceRunState *state);
 
 /**
  * Check options consistency 

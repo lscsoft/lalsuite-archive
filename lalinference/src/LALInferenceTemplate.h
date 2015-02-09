@@ -205,7 +205,6 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model);
 void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateDampedSinusoidF(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplatePrincipalComp(LALInferenceModel *model);
-void LALInferenceTemplatePrincipalCompBBH(LALInferenceModel *model);
 /*@}*/
 
 #endif
