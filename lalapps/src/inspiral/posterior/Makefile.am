@@ -52,6 +52,7 @@ pybin_scripts = \
 	lalapps_nest2pos \
 	lalapps_merge_nested_sampling_runs \
 	lalinference_pp_pipe \
+        lalinference_burst_pp_pipe \
 	lalapps_compute_roq_weights
 pkgpython_PYTHON = \
 	nest_utils.py \
