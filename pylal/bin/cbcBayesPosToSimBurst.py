@@ -172,7 +172,10 @@ if __name__ == "__main__":
     injections['frequency'] = samples['frequency']
     injections['duration'] = dur
     injections['q'] = q
-    injections['hrss'] = samples['hrss']
+    try:
+      injections['hrss'] = samples['hrss']
+    except:
+      injections['hrss'] = np.exp(samples['loghrss'])
     injections['ra'] = samples['ra']
     injections['dec'] = samples['dec']
     #injections['coa_phase'] = samples['phi_orb']
@@ -181,15 +184,16 @@ if __name__ == "__main__":
     # Create a new XML document
     xmldoc = ligolw.Document()
     xmldoc.appendChild(ligolw.LIGO_LW())
+    #create timeslide table and set offsets to 0
     timeslide_table = lsctables.New(lsctables.TimeSlideTable)
+    p=lsctables.Process
+    p.process_id=ilwd.ilwdchar("process:process_id:{0:d}".format(0))
+    timeslide_table.append_offsetvector({'H1':0,'V1':0,'L1':0,'H2':0},p)
+
     sim_table = lsctables.New(lsctables.SimBurstTable)
     xmldoc.childNodes[0].appendChild(timeslide_table)
     xmldoc.childNodes[0].appendChild(sim_table)
 
-    # Add empty row to the time_slide table
-    row = timeslide_table.RowType()
-    for slot in row.__slots__: setattr(row, slot, 0)
-    timeslide_table.append(row)
     # Add empty rows to the sim_inspiral table
     for inj in xrange(N):
         row = sim_table.RowType()
