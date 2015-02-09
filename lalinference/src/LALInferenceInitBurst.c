@@ -660,6 +660,96 @@ LALInferenceModel * LALInferenceInitPrincipalCompModel(LALInferenceRunState *sta
     LALInferenceRegisterUniformVariableREAL8(state, model->params, "declination", zero, decmin, decmax, LALINFERENCE_PARAM_LINEAR);
     LALInferenceRegisterUniformVariableREAL8(state, model->params, "polarisation", zero, psimin, psimax, LALINFERENCE_PARAM_LINEAR);
 
+    /* ------------------- Routine To Pin Params From Injection file ------------------- */
+    SimBurst *BinjTable=NULL;
+    SimInspiralTable *inj_table=NULL;
+	INT4 event=0;	
+	INT4 i=0;
+	REAL8 endtime_from_inj=-1;
+    char *pinned_params=NULL;
+    LALInferenceVariables *currentParams=model->params;
+
+    ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
+    if (ppt)
+        endtime=atof(ppt->value);
+
+    ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
+    if (ppt) {
+        BinjTable=XLALSimBurstTableFromLIGOLw(LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
+        if (BinjTable){
+            ppt=LALInferenceGetProcParamVal(commandLine,"--event");
+            if(ppt){
+                event = atoi(ppt->value);
+                while(i<event) {i++; BinjTable = BinjTable->next;}
+            }
+            else
+                fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
+            endtime_from_inj=XLALGPSGetREAL8(&(BinjTable->time_geocent_gps));
+        }
+        else{
+            SimInspiralTableFromLIGOLw(&inj_table,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
+            if (inj_table){
+                ppt=LALInferenceGetProcParamVal(commandLine,"--event");
+                if(ppt){
+                    event= atoi(ppt->value);
+                    fprintf(stderr,"Reading event %d from file\n",event);
+                    i =0;
+                    while(i<event) {i++; inj_table=inj_table->next;} /* select event */
+                    endtime_from_inj=XLALGPSGetREAL8(&(inj_table->geocent_end_time));
+                }
+                else
+                    fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
+            }
+        }
+    }
+    if(!(BinjTable || inj_table || endtime>=0.0 )){
+        printf("Did not provide --trigtime or an xml file and event... Exiting.\n");
+        exit(1);
+    }
+    if (endtime_from_inj!=endtime){
+        if(endtime_from_inj>0 && endtime>0)
+            fprintf(stderr,"WARNING!!! You set trigtime %lf with --trigtime but event %i seems to trigger at time %lf\n",endtime,event,endtime_from_inj);
+        else if(endtime_from_inj>0)
+            endtime=endtime_from_inj;
+    }
+
+    if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
+        pinned_params=ppt->value;
+        LALInferenceVariables tempParams;
+        memset(&tempParams,0,sizeof(tempParams));
+        char **strings=NULL;
+        UINT4 N;
+        LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
+
+        if (BinjTable){
+            /* Read pinned parameters from sim_burst */
+            fprintf(stdout, "Pinning params from sim_burst table\n");
+            LALInferenceBurstInjectionToVariables(BinjTable,&tempParams);
+        }
+        else if (inj_table){
+            /* Read pinned parameters from sim_inspiral */
+            fprintf(stdout, "Pinning params from sim_inspiral table\n");
+            LALInferenceInjectionToVariables(inj_table,&tempParams);
+        }
+
+        LALInferenceVariableItem *node=NULL;
+        while(N>0){
+            N--;
+            char *name=strings[N];
+            fprintf(stdout, "Testing whether to pin.. %s\n", name);
+            node=LALInferenceGetItem(&tempParams,name);
+            if(node) {
+                LALInferenceRemoveVariable(currentParams,node->name);
+                LALInferenceAddVariable(currentParams,node->name,node->value,node->type,node->vary);
+                fprintf(stdout, "pinned %s \n", node->name);
+            }
+            else {
+                fprintf(stderr,"Error: Cannot pin parameter %s. No such parameter found in injection!\n", node->name);
+            }
+        }
+    }
+    /* ------------------- END Routine To Pin Params From Injection file ------------------- */
+
 
     /* Set model sampling rates to be consistent with data */
     model->deltaT = state->data->timeData->deltaT;
