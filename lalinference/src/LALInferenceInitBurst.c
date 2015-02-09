@@ -457,7 +457,8 @@ LALInferenceModel * LALInferenceInitPrincipalCompModel(LALInferenceRunState *sta
     UINT4 nPCs = 0; // number of principle components to use 
     UINT4 ncatrows = 0; // number of rows in pc matrix (frequency samples) 
     UINT4 ncatcols = 0; // number of columns in pc matrix (waveforms) 
-    char *PCfile = NULL; // name of PC file
+    char *PCfilePlus = NULL; // name of PC file
+    char *PCfileCross = NULL; // name of PC file
 
     if((ppt=LALInferenceGetProcParamVal(commandLine,"--nPCs"))){
         nPCs=atoi(ppt->value);
@@ -480,13 +481,6 @@ LALInferenceModel * LALInferenceInitPrincipalCompModel(LALInferenceRunState *sta
         XLALPrintError("must supply --ncatcols");
         exit(1);
     }
-    if((ppt=LALInferenceGetProcParamVal(commandLine,"--PCfile"))){
-        PCfile=ppt->value;
-    }
-    else{
-        XLALPrintError("must supply --PCfile");
-        exit(1);
-    }
 
     /* Check PC matrix is compatible with data */
     if (state->data->freqData->data->length != ncatrows){
@@ -494,12 +488,27 @@ LALInferenceModel * LALInferenceInitPrincipalCompModel(LALInferenceRunState *sta
                 state->data->freqData->data->length, ncatrows);
         exit(1);
     }
-
     /* Read PC matrix */
     model->pcs = XLALMalloc(sizeof(LALInferencePCsModel));
-    model->pcs->pcs_plus = get_complex_matrix_from_file(PCfile, ncatrows, ncatcols);
     model->pcs->nPCs = nPCs;
-    
+
+    if((ppt=LALInferenceGetProcParamVal(commandLine,"--PCfile_pluspol"))){
+        PCfilePlus=ppt->value;
+        fprintf(stdout, "Loading PCs from + file\n");
+        model->pcs->pcs_plus = get_complex_matrix_from_file(PCfilePlus, ncatrows, ncatcols);
+    }
+    if((ppt=LALInferenceGetProcParamVal(commandLine,"--PCfile_crosspol"))){
+        PCfileCross=ppt->value;
+        fprintf(stdout, "Loading PCs from x file\n");
+        model->pcs->pcs_cross = get_complex_matrix_from_file(PCfileCross, ncatrows, ncatcols);
+    }
+
+    if (!LALInferenceGetProcParamVal(commandLine,"--PCfile_pluspol") &&
+            !LALInferenceGetProcParamVal(commandLine,"--PCfile_crosspol")){
+        XLALPrintError("must supply at least one of --PCfile_pluspol and --PCfile_crosspol\n");
+        exit(1);
+    }
+
     REAL8 hrssmin = 1e-22;
     REAL8 hrssmax = 1e-20;
     REAL8 psimin=0.0,psimax=LAL_PI;
