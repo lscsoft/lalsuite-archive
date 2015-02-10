@@ -39,6 +39,7 @@
 #include <gsl/gsl_linalg.h>
 
 #include "LALSimIMREOBNRv2.h"
+#include "LALSimIMRSpinEOB.h"
 
 #define OLDNSNQC 0
 #define NEWNSNQC 1

@@ -50,7 +50,7 @@
 #include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBFactorizedFlux.c"
 #include "LALSimIMREOBFactorizedWaveform.c"
-#include "LALSimIMRSpinEOBHcapNumericalDerivatives.h"
+#include "LALSimIMRSpinEOBHcapNumericalDerivative.h"
 
 //int UsePrec = 1;
 

@@ -10,7 +10,7 @@
 
 #include "LALSimIMRSpinEOB.h"
 #include "LALSimIMRSpinEOBHamiltonian.c"
-#include "LALSimIMRSpinEOBHcapNumericalDerivative.c"
+#include "LALSimIMRSpinEOBHcapNumericalDerivative.h"
 #include "LALSimIMREOBFactorizedWaveform.c"
 
 #ifndef _LALSIMIMRSPINEOBINITIALCONDITIONS_C

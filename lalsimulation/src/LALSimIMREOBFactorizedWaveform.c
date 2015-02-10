@@ -32,11 +32,13 @@
 #include <math.h>
 #include <complex.h>
 #include "LALSimIMREOBNRv2.h"
+#include "LALSimIMRSpinEOB.h"
 
-/* Include static functions */
+/* Include static functions
 #include "LALSimInspiraldEnergyFlux.c"
 #include "LALSimIMREOBNewtonianMultipole.c" 
 #include "LALSimIMREOBNQCCorrection.c"
+*/
 
 #ifndef _LALSIMIMRFACTORIZEDWAVEFORM_C
 #define _LALSIMIMRFACTORIZEDWAVEFORM_C
@@ -53,35 +55,6 @@
  */
 #define ninty4by3etc 18.687902694437592603
 
-
-static inline REAL8 XLALCalculateA5( REAL8 eta );
-
-static inline REAL8 XLALCalculateA6( REAL8 eta );
-
-static
-REAL8 XLALCalculateEOBD( REAL8    r,
-                         REAL8	eta) UNUSED;
-
-
-/**
- * Calculates the a5 parameter in the A potential function in EOBNRv2
- */
-static inline
-REAL8 XLALCalculateA5( const REAL8 eta /**<< Symmetric mass ratio */
-                     )
-{
-  return - 5.82827 - 143.486 * eta + 447.045 * eta * eta;
-}
-
-/**
- * Calculates the a6 parameter in the A potential function in EOBNRv2
- */
-static inline
-REAL8 XLALCalculateA6( const REAL8 UNUSED eta /**<< Symmetric mass ratio */
-                     )
-{
-  return 184.0;
-}
 
 
 /**

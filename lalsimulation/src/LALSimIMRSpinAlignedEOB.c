@@ -63,7 +63,7 @@
 #include "LALSimIMREOBNQCCorrection.c"
 #include "LALSimIMRSpinEOBInitialConditions.c"
 #include "LALSimIMRSpinEOBAuxFuncs.c"
-#include "LALSimIMRSpinAlignedEOBHcapDerivative.c"
+#include "LALSimIMRSpinAlignedEOBHcapDerivative.h"
 #include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBFactorizedWaveform.c"
 #include "LALSimIMRSpinEOBFactorizedFlux.c"

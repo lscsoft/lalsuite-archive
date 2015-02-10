@@ -46,60 +46,13 @@
 #include "LALSimIMREOBNRv2.h"
 #include "LALSimIMRSpinEOB.h"
 
-#include "LALSimIMREOBNewtonianMultipole.c"
+/*#include "LALSimIMREOBNewtonianMultipole.c"
 #include "LALSimIMRSpinEOBAuxFuncs.c"
 #include "LALSimIMREOBNQCCorrection.c"
 #include "LALSimIMRSpinEOBHamiltonian.c"
-#include "LALSimIMRSpinEOBFactorizedWaveform.c"
-
-/*------------------------------------------------------------------------------------------
- *
- *          Prototypes of functions defined in this code.
- *
- *------------------------------------------------------------------------------------------
- */
+#include "LALSimIMRSpinEOBFactorizedWaveform.c"*/
 
 
-static INT4 XLALSimIMRSpinEOBGetSpinFactorizedWaveform(
-                                COMPLEX16             * restrict hlm,
-                                REAL8Vector           * restrict values,
-                                const REAL8           v,
-                                const REAL8           Hreal,
-                                const INT4            l,
-                                const INT4            m,
-                                SpinEOBParams         * restrict params
-                                );
-
-static INT4 UNUSED XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform( 
-                 COMPLEX16         * restrict hlm,    /**< OUTPUT, hlm waveforms */
-                 REAL8Vector       * restrict values, /**< dyanmical variables: (r,\phi,p_r,p_\phi) */
-                 REAL8Vector       * restrict cartvalues, /**< dyanmical variables */
-                 const REAL8         v,               /**< velocity */
-                 const REAL8         Hreal,           /**< real Hamiltonian */
-                 const INT4          l,               /**< l mode index */
-                 const INT4          m,               /**< m mode index */
-                 SpinEOBParams     * restrict params  /**< Spin EOB parameters */
-                 );
-static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
-                                COMPLEX16             * restrict hlm,
-                                REAL8Vector           * restrict values,
-                                const REAL8           v,
-                                const REAL8           Hreal,
-                                const INT4            l,
-                                const INT4            m,
-                                SpinEOBParams         * restrict params
-                                );
-
-static INT4 UNUSED XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform( 
-                 COMPLEX16         * restrict hlm,    /**< OUTPUT, hlm waveforms */
-                 REAL8Vector       * restrict values, /**< dyanmical variables: (r,\phi,p_r,p_\phi) */
-                 REAL8Vector       * restrict cartvalues, /**< dyanmical variables */
-                 const REAL8         v,               /**< velocity */
-                 const REAL8         Hreal,           /**< real Hamiltonian */
-                 const INT4          l,               /**< l mode index */
-                 const INT4          m,               /**< m mode index */
-                 SpinEOBParams     * restrict params  /**< Spin EOB parameters */
-                 );
 
 /*
 static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(

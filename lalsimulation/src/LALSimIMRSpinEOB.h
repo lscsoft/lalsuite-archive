@@ -130,6 +130,357 @@ struct tagPrecEulerAnglesIntegration
 }
 PrecEulerAnglesIntegration;
 
+
+
+static INT4 XLALSimIMRSpinEOBGetSpinFactorizedWaveform(
+                                COMPLEX16             * restrict hlm,
+                                REAL8Vector           * restrict values,
+                                const REAL8           v,
+                                const REAL8           Hreal,
+                                const INT4            l,
+                                const INT4            m,
+                                SpinEOBParams         * restrict params
+                                );
+
+static INT4 UNUSED XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform( 
+                 COMPLEX16         * restrict hlm,    /**< OUTPUT, hlm waveforms */
+                 REAL8Vector       * restrict values, /**< dyanmical variables: (r,\phi,p_r,p_\phi) */
+                 REAL8Vector       * restrict cartvalues, /**< dyanmical variables */
+                 const REAL8         v,               /**< velocity */
+                 const REAL8         Hreal,           /**< real Hamiltonian */
+                 const INT4          l,               /**< l mode index */
+                 const INT4          m,               /**< m mode index */
+                 SpinEOBParams     * restrict params  /**< Spin EOB parameters */
+                 );
+static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
+                                COMPLEX16             * restrict hlm,
+                                REAL8Vector           * restrict values,
+                                const REAL8           v,
+                                const REAL8           Hreal,
+                                const INT4            l,
+                                const INT4            m,
+                                SpinEOBParams         * restrict params
+                                );
+
+static INT4 UNUSED XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform( 
+                 COMPLEX16         * restrict hlm,    /**< OUTPUT, hlm waveforms */
+                 REAL8Vector       * restrict values, /**< dyanmical variables: (r,\phi,p_r,p_\phi) */
+                 REAL8Vector       * restrict cartvalues, /**< dyanmical variables */
+                 const REAL8         v,               /**< velocity */
+                 const REAL8         Hreal,           /**< real Hamiltonian */
+                 const INT4          l,               /**< l mode index */
+                 const INT4          m,               /**< m mode index */
+                 SpinEOBParams     * restrict params  /**< Spin EOB parameters */
+                 );
+
+
+REAL8 GSLSpinHamiltonianWrapper( double x, void *params );
+
+int XLALSpinHcapNumericalDerivative(
+                          double                t,
+                          const REAL8           values[],
+                          REAL8                 dvalues[],
+                          void                  *funcParams
+                               ) UNUSED;
+
+int XLALSpinHcapNumericalDerivativeNoFlux(
+                          double                t,
+                          const REAL8           values[],
+                          REAL8                 dvalues[],
+                          void                  *funcParams
+                               ) UNUSED;
+
+REAL8 XLALSpinHcapNumDerivWRTParam(
+                       const INT4 paramIdx,
+                       const REAL8 values[],
+                       SpinEOBParams *params
+                       ) UNUSED;
+
+
+static inline REAL8 XLALCalculateA5( REAL8 eta );
+
+static inline REAL8 XLALCalculateA6( REAL8 eta );
+
+static
+REAL8 XLALCalculateEOBD( REAL8    r,
+                         REAL8	eta) UNUSED;
+
+
+/**
+ * Calculates the a5 parameter in the A potential function in EOBNRv2
+ */
+static inline
+REAL8 XLALCalculateA5( const REAL8 eta /**<< Symmetric mass ratio */
+                     )
+{
+  return - 5.82827 - 143.486 * eta + 447.045 * eta * eta;
+}
+
+/**
+ * Calculates the a6 parameter in the A potential function in EOBNRv2
+ */
+static inline
+REAL8 XLALCalculateA6( const REAL8 UNUSED eta /**<< Symmetric mass ratio */
+                     )
+{
+  return 184.0;
+}
+
+
+typedef struct
+{
+   /* coefficients in the Pade expression of new energy function */
+   REAL8 ePaN, ePa1, ePa2, ePa3;
+   /* coefficients in the Taylor expansion of usual energy function */
+   REAL8 ETaN, ETa1, ETa2, ETa3, ETa5, ETa6;
+   /* coefficients in the Taylor expansion of the derivative of the
+    usual energy function */
+   REAL8 dETaN, dETa1, dETa2, dETa3, dETa5, dETa6;
+
+   /* Taylor expansion coefficients of energy flux*/
+   REAL8 FTaN, FTa1, FTa2, FTa3, FTa4, FTa5, FTa6, FTa7, FTa8, FTl6, FTl8, FTa10, FTa12;
+   /* Coefficients of the corresponding P-approximant */
+   REAL8 fPaN, fPa1, fPa2, fPa3, fPa4, fPa5, fPa6, fPa7, fPa8;
+
+   /* symmetric mass ratio, total mass, component masses */
+   REAL8 eta, totalmass;
+
+   /* initial and final values of frequency, time, velocity; lso
+    values of velocity and frequency; final phase. */
+   REAL8 vlso;
+
+   /* last stable orbit and pole defined by various Taylor and P-approximants */
+   REAL8 vlsoT0, vlsoT2, vlsoT4, vlsoT6;
+   REAL8 vlsoP0, vlsoP2, vlsoP4, vlsoP6;
+   REAL8 vlsoPP;
+   REAL8 vpoleP4, vpoleP6;
+   REAL8 vpolePP;
+}  expnCoeffsdEnergyFlux;
+
+
+typedef REAL8 (*EnergyFunction)(
+   REAL8 v,
+   expnCoeffsdEnergyFlux *ak);
+
+
+typedef REAL8 (*FluxFunction)(
+   REAL8 v,
+   expnCoeffsdEnergyFlux *ak);
+
+
+typedef struct
+{
+   EnergyFunction dEnergy;
+   FluxFunction flux;
+   expnCoeffsdEnergyFlux *coeffs;
+} TofVIntegrandIn;
+
+
+typedef struct
+{
+   REAL8 t;
+   REAL8 v0;
+   REAL8 t0;
+   REAL8 vlso;
+   REAL8 totalmass;
+   EnergyFunction dEnergy;
+   FluxFunction flux;
+   expnCoeffsdEnergyFlux *coeffs;
+} TofVIn;
+
+static REAL8 UNUSED XLALSimInspiralEt0(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiralEt2(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiralEt4(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiralEt6(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiraldEt0(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiraldEt2(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiraldEt4(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiraldEt6(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiralFt0(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiralFt2(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiralFt3(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiralFt4(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiralFt5(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiralFt6(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiralFt7(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+
+static REAL8 UNUSED XLALSimInspiralep2(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiralep4(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiralep6(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiraldEp2(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiraldEp4(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiraldEp6(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiralFp3(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiralFp4(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiralFp5(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiralFp6(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiralFp7(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8 UNUSED XLALSimInspiralFp8PP(REAL8 v, expnCoeffsdEnergyFlux *ak);
+
+static REAL8
+XLALAssociatedLegendreXIsZero( const int l,
+                               const int m
+                             );
+
+static int
+XLALScalarSphHarmThetaPiBy2(COMPLEX16 *y,
+                         INT4 l,
+                         INT4  m,
+                         REAL8 phi);
+
+static int
+XLALAbsScalarSphHarmThetaPiBy2(COMPLEX16 *y,
+                         INT4 l,
+                         INT4  m);
+
+static int
+CalculateThisMultipolePrefix(
+               COMPLEX16 *prefix,
+               const REAL8 m1,
+               const REAL8 m2,
+               const INT4 l,
+               const INT4 m );
+
+static int XLALSimIMREOBComputeNewtonMultipolePrefixes(
+                NewtonMultipolePrefixes *prefix, /**<< OUTPUT Structure containing the coeffs */
+                const REAL8             m1,      /**<< Mass of first component */
+                const REAL8             m2       /**<< Nass of second component */
+                );
+
+
+UNUSED static int
+XLALSimIMREOBCalculateNewtonianMultipole(
+                 COMPLEX16 *multipole, /**<< OUTPUT, Newtonian multipole */
+                 REAL8 x,              /**<< Dimensionless parameter \f$\equiv v^2\f$ */
+                 UNUSED REAL8 r,       /**<< Orbital separation (units of total mass M) */
+                 REAL8 phi,            /**<< Orbital phase (in radians) */
+                 UINT4  l,             /**<< Mode l */
+                 INT4  m,              /**<< Mode m */
+                 EOBParams *params     /**<< Pre-computed coefficients, parameters, etc. */
+                 );
+
+
+UNUSED static int
+XLALSimIMRSpinEOBCalculateNewtonianMultipole(
+                 COMPLEX16 *multipole, /**<< OUTPUT, Newtonian multipole */
+                 REAL8 x,              /**<< Dimensionless parameter \f$\equiv v^2\f$ */
+                 UNUSED REAL8 r,       /**<< Orbital separation (units of total mass M */
+                 REAL8 phi,            /**<< Orbital phase (in radians) */
+                 UINT4  l,             /**<< Mode l */
+                 INT4  m,              /**<< Mode m */
+                 EOBParams *params     /**<< Pre-computed coefficients, parameters, etc. */
+                 );
+
+
+UNUSED static int
+XLALSimIMRSpinEOBFluxCalculateNewtonianMultipole(
+                 COMPLEX16 *multipole, /**<< OUTPUT, Newtonian multipole */
+                 REAL8 x,              /**<< Dimensionless parameter \f$\equiv v^2\f$ */
+                 UNUSED REAL8 r,       /**<< Orbital separation (units of total mass M */
+                 UNUSED REAL8 phi,     /**<< Orbital phase (in radians) */
+                 UINT4  l,             /**<< Mode l */
+                 INT4  m,              /**<< Mode m */
+                 EOBParams *params     /**<< Pre-computed coefficients, parameters, etc. */
+                 );
+
+static int
+XLALScalarSphHarmThetaPiBy2(
+                 COMPLEX16 *y, /**<< OUTPUT, Ylm(0,phi) */
+                 INT4 l,       /**<< Mode l */
+                 INT4  m,      /**<< Mode m */
+                 REAL8 phi     /**<< Orbital phase (in radians) */
+                 );
+
+
+static int
+XLALAbsScalarSphHarmThetaPiBy2(
+                 COMPLEX16 *y, /**<< OUTPUT, Ylm(0,phi) */
+                 INT4 l,       /**<< Mode l */
+                 INT4  m      /**<< Mode m */
+                 );
+
+
+static REAL8
+XLALAssociatedLegendreXIsZero( const int l,
+                               const int m );
+
+
+static int
+CalculateThisMultipolePrefix(
+                 COMPLEX16 *prefix, /**<< OUTPUT, Prefix value */
+                 const REAL8 m1,    /**<< mass 1 */
+                 const REAL8 m2,    /**<< mass 2 */
+                 const INT4 l,      /**<< Mode l */
+                 const INT4 m       /**<< Mode m */
+                 );
+
+
+
+
+                 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /*
 int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
           FacWaveformCoeffs * const coeffs,
