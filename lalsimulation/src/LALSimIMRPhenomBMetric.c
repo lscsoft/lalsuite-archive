@@ -1,21 +1,21 @@
 /*
- *  Copyright (C) 2014 Chinmay Kalaghatgi, P. Ajith
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with with program; see the file COPYING. If not, write to the
- *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- *  MA  02111-1307  USA
- */
+*  Copyright (C) 2014 Chinmay Kalaghatgi, P. Ajith
+*
+*  This program is free software; you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation; either version 2 of the License, or
+*  (at your option) any later version.
+*
+*  This program is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*  GNU General Public License for more details.
+*
+*  You should have received a copy of the GNU General Public License
+*  along with with program; see the file COPYING. If not, write to the
+*  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+*  MA  02111-1307  USA
+*/
 
 
 #include <lal/AVFactories.h>
@@ -147,8 +147,6 @@ static REAL8 ChirpTime_theta3S(
 	REAL8	v0	=	cbrt(mass*LAL_MTSUN_SI*flow);
 	return (cbrt(LAL_PI)/(4.0*v0*v0))*(17022. - 9565.9*chi) ;
 }
-
-
 
 static REAL8 TransitionFrequencies_fmerg(
 										 const REAL8 mass,	/**< Theta0 component of Chirp-Time Co-ordinate system*/
@@ -454,7 +452,7 @@ static AmplitudeParameters *XLALSimIMRPhenomBAmplitude_Merger(
 	merg_coef2_chi	=	(eta_pow_half*(-0.06389771947126163*chi_pow_74 + 0.06050862570110856*chi_pow_783 - 0.10176266865959344*chi_pow_152 + 0.4533526888784887*pow(1. - 1.*chi,1.74) - 0.35830635635042846*pow(1. - 1.*chi,1.783) - 0.12015863449924255*chi_pow_152*eta - 4.436685078638576e-18*chi_pow_152*chi_pow_2*eta + 0.2659873804880869*chi_pow_152*eta_pow_2 + 0.7216601410663727*chi_pow_152*eta_pow_3 + chi*(0.049188766743316036*chi_pow_74 - 0.0465798263255557*chi_pow_783 - 0.006301481693574297*chi_pow_152*eta + 0.2001976980540181*chi_pow_152*eta_pow_2))*pow(M,1.6666666666666667))/(chi_pow_152*expr1*expr2);
 	merg_coef3_chi	=	(eta_pow_half*(0.08199564156087623*chi_pow_74 - 0.07764664569227323*chi_pow_783 + 0.1859859256713671*chi_pow_152 - 0.8285672988659402*pow(1. - 1.*chi,1.74) + 0.6548564442888833*pow(1. - 1.*chi,1.783) + 0.189850175012543*chi_pow_152*eta - 0.34454901861791526*chi_pow_152*eta_pow_2 - 1.3189377904910666*chi_pow_152*eta_pow_3 + chi*(-0.08989955192695454*chi_pow_74 + 0.08513133775755487*chi_pow_783 + 0.03099336685883355*chi_pow_152*eta - 0.3658901115732804*chi_pow_152*eta_pow_2))*(M*M))/(chi_pow_152*expr1*expr2);
 	
-	Amplitude->amp_coef_a_chi		=	Normalization->norm_merg*merg_coef1_chi + Normalization->norm_merg_chi*merg_coef1;
+	Amplitude->amp_coef_a_chi	=	Normalization->norm_merg*merg_coef1_chi + Normalization->norm_merg_chi*merg_coef1;
 	Amplitude->amp_coef_b_chi	=	Normalization->norm_merg*merg_coef2_chi + Normalization->norm_merg_chi*merg_coef2;
 	Amplitude->amp_coef_c_chi	=	Normalization->norm_merg*merg_coef3_chi + Normalization->norm_merg_chi*merg_coef3;
 	
@@ -582,6 +580,7 @@ static REAL8 MetricCoeffs(REAL8Vector *Amp, REAL8Vector *dPsii, REAL8Vector *dPs
 	return gij;
 }
 
+
 /**
  * Compute the three dimensional template-space metric of IMRPhenomB wavefrom in New Co-ordinates.
  */
@@ -598,7 +597,7 @@ int XLALSimIMRPhenomBMetricTheta0Theta3Theta3S(
 											   const REAL8 chi,	   /** Reduced Spin Parameter of the system **/
 											   const REAL8 flow,   /**< low-frequency cutoff (Hz) */
 											   const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
-){
+) {
 	REAL8Vector *Amp=NULL, *dATheta0=NULL, *dATheta3=NULL, *dATheta3S=NULL;
 	REAL8Vector *dAT0=NULL, *dAPhi=NULL, *dPhaseTheta0=NULL;
 	REAL8Vector *dPhaseTheta3=NULL, *dPhaseTheta3S=NULL, *dPhaseT0=NULL, *dPhasePhi=NULL;
@@ -649,7 +648,7 @@ int XLALSimIMRPhenomBMetricTheta0Theta3Theta3S(
 	/* create a view of the PSD between flow and fCut */
 	size_t nBins = (fCut - flow) / df;
 	size_t k = nBins;
-	REAL8Vector Shdata = {nBins, Sh->data->data}; /* copy the Vector, including its pointer to the actual data */
+	REAL8Vector Shdata = {nBins, Sh->data->data + (size_t) (flow / df)}; /* copy the Vector, including its pointer to the actual data */
 	/* drop low-frequency samples */
 	Shdata.length = nBins;  /* drop high-frequency samples */
 	
@@ -1010,7 +1009,7 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
 			Amp->data[k]	=	amp_merg;
 			dATheta0->data[k]			=	CalculateDerivatives(amp_merg_mass, amp_merg_eta, 0., der_list_theta0);
 			dATheta3->data[k]			=	CalculateDerivatives(amp_merg_mass, amp_merg_eta, 0., der_list_theta3);
-			}
+		}
 		
 		else{
 			REAL8	f_merg			=	Ringdown->amp_coef_a;
@@ -1118,6 +1117,297 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
 		*gamma00 = gsl_matrix_get(g1, 0, 0);
 		*gamma01 = gsl_matrix_get(g1, 0, 1);
 		*gamma11 = gsl_matrix_get(g1, 1, 1);
+		gsl_matrix_free (g1);
+	}
+	
+	return XLAL_SUCCESS;
+}
+
+
+/**
+ * Compute the two dimensional template-space metric of IMRPhenomB wavefrom in Mass Co-ordinates.
+ */
+
+int XLALSimIMRPhenomBMetricMassEtaChi(
+									  REAL8 *gamma00,  /**< template metric coeff. 00 in PN Chirp Time */
+									  REAL8 *gamma01,  /**< template metric coeff. 01/10 PN Chirp Time */
+									  REAL8 *gamma02,  /**< template metric coeff. 01/10 PN Chirp Time */
+									  REAL8 *gamma11,  /**< template metric coeff. 11 in PN Chirp Time */
+									  REAL8 *gamma12,  /**< template metric coeff. 01/10 PN Chirp Time */
+									  REAL8 *gamma22,  /**< template metric coeff. 01/10 PN Chirp Time */
+									  const REAL8 Mass,     /**< Total Mass of the system */
+									  const REAL8 eta,    /**< Symmetric mass ratio */
+									  const REAL8 chi,	   /** Reduced Spin Parameter of the system **/
+									  const REAL8 flow,   /**< low-frequency cutoff (Hz) */
+									  const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
+){
+	REAL8Vector *Amp=NULL, *dATheta0=NULL, *dATheta3=NULL, *dATheta3S=NULL;
+	REAL8Vector *dAT0=NULL, *dAPhi=NULL, *dPhaseTheta0=NULL;
+	REAL8Vector *dPhaseTheta3=NULL, *dPhaseTheta3S=NULL, *dPhaseT0=NULL, *dPhasePhi=NULL;
+	
+	ConstantDefinitions *ChiPowers =	ChiPowList(chi);
+	
+	
+	/* Compute the transition frequencies */
+	
+	const REAL8 fMerg  = TransitionFrequencies_fmerg(Mass,eta, chi, ChiPowers);	/**Frequency at which inspiral part transitions to merger part of the waveform*/
+	const REAL8 fRing  = TransitionFrequencies_fring(Mass,eta, chi, ChiPowers);	/**Frequency at which merger part transitions to ringdown part of the waveform*/
+	const REAL8 fCut   = TransitionFrequencies_fcut(Mass,eta, chi);	/**Frequency at which ringdown part of the waveform is terminated*/
+	
+	
+	/*Compute the normalizations and their derivatives*/
+	NormalizationParameters *Normalization		=		XLALSimIMRPhenomBNormalization(Mass,eta, chi, ChiPowers);
+	const REAL8 norm_ring			=		Normalization->norm_ring;
+	const REAL8	norm_ring_mass		=		Normalization->norm_ring_mass;
+	const REAL8	norm_ring_eta		=		Normalization->norm_ring_eta;
+	const REAL8	norm_ring_chi		=		Normalization->norm_ring_chi;
+	
+	AmplitudeParameters *Inspiral	=	XLALSimIMRPhenomBAmplitude_Inspiral(Mass,eta, chi);
+	AmplitudeParameters *Merger		=	XLALSimIMRPhenomBAmplitude_Merger(Mass,eta, chi, Normalization, ChiPowers);
+	AmplitudeParameters *Ringdown	=	XLALSimIMRPhenomBAmplitude_Ringdown(Mass,eta, chi, fRing, ChiPowers);
+	PhaseParameters		*Phase		=	XLALSimIMRPhenomBPhase(Mass,eta, chi);
+	
+	
+	/* make sure that the flow is lower than the fCut */
+	if (fCut < flow) {
+		XLALPrintError("IMRPhenomB fCut is less than the flow chosen");
+		XLAL_ERROR(XLAL_EDOM);
+	}
+	
+	REAL8 df = Sh->deltaF;
+	REAL8 hSqr = 0.;
+	int s = 0;
+	
+	
+	/* create a view of the PSD between flow and fCut */
+	size_t nBins = (fCut - flow) / df;
+	size_t k = nBins;
+	REAL8Vector Shdata = {nBins, Sh->data->data + (size_t) (flow / df)}; /* copy the Vector, including its pointer to the actual data */
+	/* drop low-frequency samples */
+	Shdata.length = nBins;  /* drop high-frequency samples */
+	
+	/* allocate memory for various vectors */
+	Amp = XLALCreateREAL8Vector(nBins);
+	dATheta0 = XLALCreateREAL8Vector(nBins);
+	dATheta3 = XLALCreateREAL8Vector(nBins);
+	dATheta3S = XLALCreateREAL8Vector(nBins);
+	dAT0 = XLALCreateREAL8Vector(nBins);
+	dAPhi = XLALCreateREAL8Vector(nBins);
+	dPhaseTheta0 = XLALCreateREAL8Vector(nBins);
+	dPhaseTheta3 = XLALCreateREAL8Vector(nBins);
+	dPhaseTheta3S = XLALCreateREAL8Vector(nBins);
+	dPhaseT0 = XLALCreateREAL8Vector(nBins);
+	dPhasePhi = XLALCreateREAL8Vector(nBins);
+	
+	
+	/* derivative of the ampl w.r.t t0 and phi0 are zero. Fill these vectors with zero */
+	memset(dAT0->data, 0, nBins*sizeof(REAL8));
+	memset(dAPhi->data, 0, nBins*sizeof(REAL8));
+	
+	/* compute derivatives of the amplitude and phase of the waveform */
+	for (;k--;) {
+		
+		const REAL8 f = flow + k * df;
+		REAL8	freq_coef_1		=	cbrt(1./(f*f*f*f*f));
+		REAL8	freq_coef_2		=	1./f;
+		REAL8	freq_coef_3		=	cbrt(1./(f*f));
+		REAL8	freq_coef_4		=	cbrt(1./(f));
+		REAL8	freq_coef_5		=	cbrt(f);
+		REAL8	freq_coef_6		=	cbrt(f*f);
+		
+		REAL8	phase_mass		=	Phase->phase_coef_1_mass*freq_coef_1 + Phase->phase_coef_2_mass*freq_coef_2 + Phase->phase_coef_3_mass*freq_coef_3 + Phase->phase_coef_4_mass*										freq_coef_4 + Phase->phase_coef_5_mass*freq_coef_5 + Phase->phase_coef_6_mass*freq_coef_6;
+		REAL8	phase_eta		=	Phase->phase_coef_1_eta*freq_coef_1 + Phase->phase_coef_2_eta*freq_coef_2 + Phase->phase_coef_3_eta*freq_coef_3 + Phase->phase_coef_4_eta*											freq_coef_4 + Phase->phase_coef_5_eta*freq_coef_5 + Phase->phase_coef_6_eta*freq_coef_6;
+		REAL8	phase_chi		=	Phase->phase_coef_1_chi*freq_coef_1 + Phase->phase_coef_2_chi*freq_coef_2 + Phase->phase_coef_3_chi*freq_coef_3 + Phase->phase_coef_4_chi*											freq_coef_4 + Phase->phase_coef_5_chi*freq_coef_5 + Phase->phase_coef_6_chi*freq_coef_6;
+		
+		dPhaseTheta0->data[k]	=	phase_mass;
+		dPhaseTheta3->data[k]	=	phase_eta;
+		dPhaseTheta3S->data[k]	=	phase_chi;
+		dPhaseT0->data[k]		=	LAL_TWOPI * f;
+		dPhasePhi->data[k]		=	1.;
+		
+		if (f <= fMerg){
+			REAL8	freq_pow_7_6	=	cbrt(sqrt(1./(f*f*f*f*f*f*f)));
+			REAL8	freq_pow_3_6	=	sqrt(1./(f));
+			REAL8	freq_pow_1_6	=	cbrt(sqrt(1./(f)));
+			
+			REAL8	amp_insp_mass	=	Inspiral->amp_coef_a_mass*freq_pow_7_6	+	Inspiral->amp_coef_b_mass*freq_pow_3_6	+	Inspiral->amp_coef_c_mass*freq_pow_1_6;
+			REAL8	amp_insp_eta	=	Inspiral->amp_coef_a_eta*freq_pow_7_6	+	Inspiral->amp_coef_b_eta*freq_pow_3_6	+	Inspiral->amp_coef_c_eta*freq_pow_1_6;
+			REAL8	amp_insp_chi	=	Inspiral->amp_coef_a_chi*freq_pow_7_6	+	Inspiral->amp_coef_b_chi*freq_pow_3_6	+	Inspiral->amp_coef_c_chi*freq_pow_1_6;
+			
+			/* inspiral amplitude of the waveform */
+			Amp->data[k]		=	Inspiral->amp_coef_a*freq_pow_7_6	+	Inspiral->amp_coef_b*freq_pow_3_6	+	Inspiral->amp_coef_c*freq_pow_1_6;
+			
+			/* inspiral waveform deratives with respect to theta0 */
+			dATheta0->data[k]	=	amp_insp_mass;
+			
+			/* inspiral waveform deratives with respect to theta3 */
+			dATheta3->data[k]	=	amp_insp_eta;
+			
+			
+			/* inspiral waveform deratives with respect to theta3S */
+			dATheta3S->data[k]	=	amp_insp_chi;
+			
+			
+		}
+		else if ((fMerg<f) && (f<=fRing)){
+			REAL8	freq_pow_2_3  =		cbrt(1./(f*f));
+			REAL8	freq_pow_1_3  =		cbrt(1./(f));
+			
+			/* merger amplitude of the frequency-domain waveform */
+			REAL8 amp_merg			=	Merger->amp_coef_a*freq_pow_2_3 + Merger->amp_coef_b*freq_pow_1_3 + Merger->amp_coef_c;
+			REAL8 amp_merg_mass		=	Merger->amp_coef_a_mass*freq_pow_2_3 + Merger->amp_coef_b_mass*freq_pow_1_3 + Merger->amp_coef_c_mass;
+			REAL8 amp_merg_eta		=	Merger->amp_coef_a_eta*freq_pow_2_3  + Merger->amp_coef_b_eta*freq_pow_1_3 	+ Merger->amp_coef_c_eta;
+			REAL8 amp_merg_chi		=	Merger->amp_coef_a_chi*freq_pow_2_3  + Merger->amp_coef_b_chi*freq_pow_1_3	+ Merger->amp_coef_c_chi;
+			
+			Amp->data[k]	=	amp_merg;
+			
+			/* merger waveform deratives with respect to theta0 */
+			
+			dATheta0->data[k]			=	amp_merg_mass;
+			
+			/* merger waveform deratives with respect to theta3 */
+			
+			dATheta3->data[k]			=	amp_merg_eta;
+			
+			/* merger waveform deratives with respect to theta3S */
+			
+			dATheta3S->data[k]			=	amp_merg_chi;
+			
+			
+			
+		}
+		
+		else{
+			REAL8	f_merg			=	Ringdown->amp_coef_a;
+			REAL8	f_merg_mass		=	Ringdown->amp_coef_a_mass;
+			REAL8	f_merg_eta		=	Ringdown->amp_coef_a_eta;
+			REAL8	f_merg_chi		=	Ringdown->amp_coef_a_chi;
+			REAL8	sigma			=	Ringdown->amp_coef_b;
+			REAL8	sigma_mass		=	Ringdown->amp_coef_b_mass;
+			REAL8	sigma_eta		=	Ringdown->amp_coef_b_eta;
+			REAL8	sigma_chi		=	Ringdown->amp_coef_b_chi;
+			REAL8	amp_const		=	Ringdown->amp_coef_c;
+			REAL8	amp_const_mass	=	Ringdown->amp_coef_c_mass;
+			REAL8	amp_const_eta	=	Ringdown->amp_coef_c_eta;
+			REAL8	amp_const_chi	=	Ringdown->amp_coef_c_chi;
+			
+			REAL8	lorentzian		=	1./((f - f_merg)*(f - f_merg) + sigma*sigma*0.25);
+			REAL8	amp_ring		=	norm_ring*amp_const*(1./(2*LAL_PI))*(sigma*lorentzian);
+			REAL8	amp_ring_mass	=	(1./(2*LAL_PI))*(norm_ring*amp_const*( sigma_mass*lorentzian + (2*sigma*(f_merg_mass*(f - f_merg) - sigma*sigma_mass*0.25))*												(lorentzian*lorentzian) ) +	 norm_ring_mass*amp_const*lorentzian*sigma + norm_ring*lorentzian*amp_const_mass*sigma);
+			REAL8	amp_ring_eta	=	(1./(2*LAL_PI))*(norm_ring*amp_const*( sigma_eta*lorentzian + (2*sigma*(f_merg_eta*(f - f_merg) - sigma*sigma_eta*0.25))*													(lorentzian*lorentzian) ) +	 norm_ring_eta*amp_const*lorentzian*sigma + norm_ring*lorentzian*amp_const_eta*sigma);
+			REAL8	amp_ring_chi	=	(1./(2*LAL_PI))*(norm_ring*amp_const*( sigma_chi*lorentzian + (2*sigma*(f_merg_chi*(f - f_merg) - sigma*sigma_chi*0.25))*													(lorentzian*lorentzian) ) +	 norm_ring_chi*amp_const*lorentzian*sigma + norm_ring*lorentzian*amp_const_chi*sigma);
+			
+			Amp->data[k]		=	amp_ring;
+			dATheta0->data[k]	=	amp_ring_mass;
+			dATheta3->data[k]	=	amp_ring_eta;
+			dATheta3S->data[k]	=	amp_ring_chi;
+			
+		}
+		
+		hSqr += Amp->data[k] * Amp->data[k] / Shdata.data[k];
+		
+	}
+	hSqr = hSqr*df;
+	/* allocate memory, and initialize the Fisher matrix */
+	gsl_matrix * g = gsl_matrix_calloc (5, 5);
+	
+	/* compute the components of the Fisher matrix in coordinates mc, eta, chi, t0, phi0 */
+	gsl_matrix_set (g, 0,0, MetricCoeffs(Amp, dPhaseTheta0, dPhaseTheta0, dATheta0, dATheta0, &Shdata, hSqr, df));
+	gsl_matrix_set (g, 0,1, MetricCoeffs(Amp, dPhaseTheta0, dPhaseTheta3, dATheta0, dATheta3, &Shdata, hSqr, df));
+	gsl_matrix_set (g, 0,2, MetricCoeffs(Amp, dPhaseTheta0, dPhaseTheta3S, dATheta0, dATheta3S, &Shdata, hSqr, df));
+	gsl_matrix_set (g, 0,3, MetricCoeffs(Amp, dPhaseTheta0, dPhaseT0, dATheta0, dAT0, &Shdata, hSqr, df));
+	gsl_matrix_set (g, 0,4, MetricCoeffs(Amp, dPhaseTheta0, dPhasePhi, dATheta0, dAPhi, &Shdata, hSqr, df));
+	
+	
+	gsl_matrix_set (g, 1,0, gsl_matrix_get(g, 0,1));
+	gsl_matrix_set (g, 1,1, MetricCoeffs(Amp, dPhaseTheta3, dPhaseTheta3, dATheta3, dATheta3, &Shdata, hSqr, df));
+	gsl_matrix_set (g, 1,2, MetricCoeffs(Amp, dPhaseTheta3, dPhaseTheta3S, dATheta3, dATheta3S, &Shdata, hSqr, df));
+	gsl_matrix_set (g, 1,3, MetricCoeffs(Amp, dPhaseTheta3, dPhaseT0, dATheta3, dAT0, &Shdata, hSqr, df));
+	gsl_matrix_set (g, 1,4, MetricCoeffs(Amp, dPhaseTheta3, dPhasePhi, dATheta3, dAPhi, &Shdata, hSqr, df));
+	
+	gsl_matrix_set (g, 2,0, gsl_matrix_get(g, 0,2));
+	gsl_matrix_set (g, 2,1, gsl_matrix_get(g, 1,2));
+	gsl_matrix_set (g, 2,2, MetricCoeffs(Amp, dPhaseTheta3S, dPhaseTheta3S, dATheta3S, dATheta3S, &Shdata, hSqr, df));
+	gsl_matrix_set (g, 2,3, MetricCoeffs(Amp, dPhaseTheta3S, dPhaseT0, dATheta3S, dAT0, &Shdata, hSqr, df));
+	gsl_matrix_set (g, 2,4, MetricCoeffs(Amp, dPhaseTheta3S, dPhasePhi, dATheta3S, dAPhi, &Shdata, hSqr, df));
+	
+	
+	gsl_matrix_set (g, 3,0, gsl_matrix_get(g, 0,3));
+	gsl_matrix_set (g, 3,1, gsl_matrix_get(g, 1,3));
+	gsl_matrix_set (g, 3,2, gsl_matrix_get(g, 2,3));
+	gsl_matrix_set (g, 3,3, MetricCoeffs(Amp, dPhaseT0, dPhaseT0, dAT0,dAT0, &Shdata, hSqr, df));
+	gsl_matrix_set (g, 3,4, MetricCoeffs(Amp, dPhaseT0, dPhasePhi, dAT0,dAPhi, &Shdata, hSqr, df));
+	
+	gsl_matrix_set (g, 4,0, gsl_matrix_get(g, 0,4));
+	gsl_matrix_set (g, 4,1, gsl_matrix_get(g, 1,4));
+	gsl_matrix_set (g, 4,2, gsl_matrix_get(g, 2,4));
+	gsl_matrix_set (g, 4,3, gsl_matrix_get(g, 3,4));
+	gsl_matrix_set (g, 4,4, MetricCoeffs(Amp, dPhasePhi, dPhasePhi, dAPhi,dAPhi, &Shdata, hSqr, df));
+	
+	
+	
+	/* free the memory */
+	XLALDestroyREAL8Vector(Amp);
+	XLALDestroyREAL8Vector(dATheta0);
+	XLALDestroyREAL8Vector(dATheta3);
+	XLALDestroyREAL8Vector(dAT0);
+	XLALDestroyREAL8Vector(dAPhi);
+	XLALDestroyREAL8Vector(dPhaseTheta0);
+	XLALDestroyREAL8Vector(dPhaseTheta3);
+	XLALDestroyREAL8Vector(dPhaseT0);
+	XLALDestroyREAL8Vector(dPhasePhi);
+	
+	
+	{
+		/* Form submatrices g1, g2, g3, g4, defined as:
+		 *              g = [ g1 g2
+		 *                    g4 g3 ]                           */
+		gsl_matrix_view g1v = gsl_matrix_submatrix (g, 0, 0, 3, 3);
+		gsl_matrix_view g2v = gsl_matrix_submatrix (g, 0, 3, 3, 2);
+		gsl_matrix_view g3v = gsl_matrix_submatrix (g, 3, 3, 2, 2);
+		gsl_matrix_view g4v = gsl_matrix_submatrix (g, 3, 0, 2, 3);
+		
+		
+		
+		gsl_matrix * g1 = gsl_matrix_calloc (3, 3);
+		gsl_matrix * g2 = gsl_matrix_calloc (3, 2);
+		gsl_matrix * g3 = gsl_matrix_calloc (2, 2);
+		gsl_matrix * g4 = gsl_matrix_calloc (2, 3);
+		gsl_matrix * g3invg4 = gsl_matrix_calloc (2, 3);
+		gsl_matrix * g2g3invg4 = gsl_matrix_calloc (3, 3);
+		
+		/* Project out the t0 and phi0 dimensions: gamma =  g1 - g2 g3^{-1} g4 */
+		gsl_matrix * g3inv = gsl_matrix_calloc (2, 2);
+		gsl_permutation * p = gsl_permutation_calloc (2);
+		
+		gsl_matrix_memcpy (g1, &g1v.matrix);
+		gsl_matrix_memcpy (g2, &g2v.matrix);
+		gsl_matrix_memcpy (g3, &g3v.matrix);
+		gsl_matrix_memcpy (g4, &g4v.matrix);
+		gsl_matrix_free (g);
+		
+		gsl_linalg_LU_decomp (g3, p, &s);
+		gsl_linalg_LU_invert (g3, p, g3inv);
+		gsl_permutation_free (p);
+		gsl_matrix_free (g3);
+		
+		gsl_blas_dgemm (CblasNoTrans, CblasNoTrans, 1.0, g3inv, g4,  0.0, g3invg4);
+		gsl_matrix_free (g4);
+		gsl_matrix_free (g3inv);
+		gsl_blas_dgemm (CblasNoTrans, CblasNoTrans, 1.0, g2, g3invg4,  0.0, g2g3invg4);
+		gsl_matrix_free (g2);
+		gsl_matrix_free (g3invg4);
+		
+		gsl_matrix_sub (g1, g2g3invg4);
+		gsl_matrix_free (g2g3invg4);
+		
+		*gamma00 = gsl_matrix_get(g1, 0, 0);
+		*gamma01 = gsl_matrix_get(g1, 0, 1);
+		*gamma02 = gsl_matrix_get(g1, 0, 2);
+		*gamma11 = gsl_matrix_get(g1, 1, 1);
+		*gamma12 = gsl_matrix_get(g1, 1, 2);
+		*gamma22 = gsl_matrix_get(g1, 2, 2);
+		
 		gsl_matrix_free (g1);
 	}
 	

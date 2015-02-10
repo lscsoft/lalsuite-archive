@@ -2201,7 +2201,6 @@ int XLALSimInspiralTaylorF2RedSpinMetricMChirpEtaChi(
  * Mchirp-eta-chi parameter space.
  */
 
-
 int XLALSimIMRPhenomBMetricTheta0Theta3Theta3S(
 											   REAL8 *gamma00,  /**< template metric coeff. 00 in PN Chirp Time */
 											   REAL8 *gamma01,  /**< template metric coeff. 01/10 PN Chirp Time */
@@ -2211,11 +2210,10 @@ int XLALSimIMRPhenomBMetricTheta0Theta3Theta3S(
 											   REAL8 *gamma22,  /**< template metric coeff. 01/10 PN Chirp Time */
 											   const REAL8 Mass,     /**< Total Mass of the system */
 											   const REAL8 eta,    /**< Symmetric mass ratio */
-											   const REAL8	chi,	/** Reduced Spin Parameter of the system **/
+											   const REAL8 chi,	   /** Reduced Spin Parameter of the system **/
 											   const REAL8 flow,   /**< low-frequency cutoff (Hz) */
 											   const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
 );
-
 
 int XLALSimIMRPhenomBMetricTheta0Theta3(
 										REAL8 *gamma00,  /**< template metric coeff. 00 in PN Chirp Time */
@@ -2225,6 +2223,48 @@ int XLALSimIMRPhenomBMetricTheta0Theta3(
 										const REAL8 eta,    /**< Symmetric mass ratio */
 										const REAL8 flow,   /**< low-frequency cutoff (Hz) */
 										const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
+);
+
+int XLALSimIMRPhenomBMetricMassEtaChi(
+									  REAL8 *gamma00,  /**< template metric coeff. 00 in PN Chirp Time */
+									  REAL8 *gamma01,  /**< template metric coeff. 01/10 PN Chirp Time */
+									  REAL8 *gamma02,  /**< template metric coeff. 01/10 PN Chirp Time */
+									  REAL8 *gamma11,  /**< template metric coeff. 11 in PN Chirp Time */
+									  REAL8 *gamma12,  /**< template metric coeff. 01/10 PN Chirp Time */
+									  REAL8 *gamma22,  /**< template metric coeff. 01/10 PN Chirp Time */
+									  const REAL8 Mass,     /**< Total Mass of the system */
+									  const REAL8 eta,    /**< Symmetric mass ratio */
+									  const REAL8 chi,	   /** Reduced Spin Parameter of the system **/
+									  const REAL8 flow,   /**< low-frequency cutoff (Hz) */
+									  const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
+);
+
+int XLALSimIMRPhenomBMetricInMEtaChi(
+									 REAL8 *gamma00,  /**< template metric coeff. 00 in PN Chirp Time */
+									 REAL8 *gamma01,  /**< template metric coeff. 01/10 PN Chirp Time */
+									 REAL8 *gamma02,  /**< template metric coeff. 01/10 PN Chirp Time */
+									 REAL8 *gamma11,  /**< template metric coeff. 11 in PN Chirp Time */
+									 REAL8 *gamma12,  /**< template metric coeff. 01/10 PN Chirp Time */
+									 REAL8 *gamma22,  /**< template metric coeff. 01/10 PN Chirp Time */
+									 const REAL8 m1,     /**< component mass 1 (kg) */
+									 const REAL8 m2,     /**< component mass 2 (kg) */
+									 const REAL8 chi,    /**< effective spin parameter of IMRPhenomB: chi = (m1 chi1 + m2 chi2)/(m1+m2)  */
+									 const REAL8 fLow,   /**< low-frequency cutoff (Hz) */
+									 const REAL8FrequencySeries *Sh
+);
+
+int XLALSimIMRPhenomBMetricInTheta0Theta3Theta3S(
+												 REAL8 *gamma00,  /**< template metric coeff. 00 in PN Chirp Time */
+												 REAL8 *gamma01,  /**< template metric coeff. 01/10 PN Chirp Time */
+												 REAL8 *gamma02,  /**< template metric coeff. 01/10 PN Chirp Time */
+												 REAL8 *gamma11,  /**< template metric coeff. 11 in PN Chirp Time */
+												 REAL8 *gamma12,  /**< template metric coeff. 01/10 PN Chirp Time */
+												 REAL8 *gamma22,  /**< template metric coeff. 01/10 PN Chirp Time */
+												 const REAL8 m1,     /**< component mass 1 (kg) */
+												 const REAL8 m2,     /**< component mass 2 (kg) */
+												 const REAL8 chi,    /**< effective spin parameter of IMRPhenomB: chi = (m1 chi1 + m2 chi2)/(m1+m2)  */
+												 const REAL8 fLow,   /**< low-frequency cutoff (Hz) */
+												 const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
 );
 
 /**
