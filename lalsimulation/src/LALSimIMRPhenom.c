@@ -1426,7 +1426,7 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 			dAdChi->data[k]		= coeffs->dA1dchi_0*freq_m7by6 + coeffs->dA1dchi_1*freq_m1by2 + coeffs->dA1dchi_2*freq_m1by6;
 		}
 		else if ((f1<f) && (f<=f2)) {
-			Amp->data[k]		= coeffs->Wm*AmpCoef*sqrt*pow(f1,-7.0/6.0)*pow(fbyf1,-2.0/3.0)*( 1 + epsilon_1*v + epsilon_2*v*v );
+			Amp->data[k]		= coeffs->Wm*AmpCoef*pow(f1,-7.0/6.0)*pow(fbyf1,-2.0/3.0)*( 1 + epsilon_1*v + epsilon_2*v*v );
 			dAdM->data[k]		= coeffs->dA2dM_0*freq_m2by3 + coeffs->dA2dM_1*freq_m1by3 + coeffs->dA2dM_2;
 			dAdEta->data[k]		= coeffs->dA2deta_0*freq_m2by3 + coeffs->dA2deta_1*freq_m1by3 + coeffs->dA2deta_2;
 			dAdChi->data[k]		= coeffs->dA2dchi_0*freq_m2by3 + coeffs->dA2dchi_1*freq_m1by3 + coeffs->dA2dchi_2;
