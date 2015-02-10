@@ -1018,7 +1018,9 @@ CHAR* LALInferenceGetstringVariable(LALInferenceVariables * vars, const char * n
 
 void LALInferenceSetstringVariable(LALInferenceVariables* vars,const char* name,CHAR* value);
 
-const gsl_matrix_complex* get_complex_matrix_from_file(const char *file_name, int M, int N);
+gsl_matrix_complex* get_complex_matrix_from_file(const char *file_name, int M, int N);
+
+gsl_matrix_complex* copy_npcs_from_complex_matrix(gsl_matrix_complex *input_matrix, int nPCs_max, int nPCs, int nrows, int ncols);
 /**
  * Print spline calibration parameter names as tab-separated ASCII
  */

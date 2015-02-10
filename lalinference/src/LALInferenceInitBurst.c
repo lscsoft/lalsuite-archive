@@ -455,6 +455,7 @@ LALInferenceModel * LALInferenceInitPrincipalCompModel(LALInferenceRunState *sta
 
     /* PC model configuration TODO: sanity check values */
     UINT4 nPCs = 0; // number of principle components to use 
+    UINT4 nPCs_max = 10; // max number of PCs
     UINT4 ncatrows = 0; // number of rows in pc matrix (frequency samples) 
     UINT4 ncatcols = 0; // number of columns in pc matrix (waveforms) 
     char *PCfilePlus = NULL; // name of PC file
@@ -488,19 +489,28 @@ LALInferenceModel * LALInferenceInitPrincipalCompModel(LALInferenceRunState *sta
                 state->data->freqData->data->length, ncatrows);
         exit(1);
     }
-    /* Read PC matrix */
+
+    /* Retrieve PCs */
     model->pcs = XLALMalloc(sizeof(LALInferencePCsModel));
     model->pcs->nPCs = nPCs;
 
     if((ppt=LALInferenceGetProcParamVal(commandLine,"--PCfile_pluspol"))){
         PCfilePlus=ppt->value;
         fprintf(stdout, "Loading PCs from + file\n");
-        model->pcs->pcs_plus = get_complex_matrix_from_file(PCfilePlus, ncatrows, ncatcols);
+        /* Read PC matrix */
+        gsl_matrix_complex *tmp = get_complex_matrix_from_file(PCfilePlus, ncatrows, ncatcols);
+        /* Now put first nPCs into a ncatrows x 10 matrix for easily
+         * standardised template functions */
+        model->pcs->pcs_plus = copy_npcs_from_complex_matrix(tmp, nPCs_max, nPCs, ncatrows, ncatcols);
     }
     if((ppt=LALInferenceGetProcParamVal(commandLine,"--PCfile_crosspol"))){
         PCfileCross=ppt->value;
         fprintf(stdout, "Loading PCs from x file\n");
-        model->pcs->pcs_cross = get_complex_matrix_from_file(PCfileCross, ncatrows, ncatcols);
+        /* Read PC matrix */
+        gsl_matrix_complex *tmp = get_complex_matrix_from_file(PCfileCross, ncatrows, ncatcols);
+        /* Now put first nPCs into a ncatrows x 10 matrix for easily
+         * standardised template functions */
+        model->pcs->pcs_cross = copy_npcs_from_complex_matrix(tmp, nPCs_max, nPCs, ncatrows, ncatcols);
     }
 
     if (!LALInferenceGetProcParamVal(commandLine,"--PCfile_pluspol") &&
