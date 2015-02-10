@@ -42,7 +42,7 @@
 #include "LALSimIMRSpinEOB.h"
 
 #include "LALSimIMRSpinEOBAuxFuncs.c"
-//#include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
+#include "LALSimIMRSpinEOBFactorizedWaveform.c"
 
 /*------------------------------------------------------------------------------------------
  *
@@ -130,8 +130,6 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params );
 
 
 
-/*------------------------------------------------------------------------------------------
- *
 
 /*------------------------------------------------------------------------------------------
  *

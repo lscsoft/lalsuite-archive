@@ -50,7 +50,6 @@
 
 #ifndef _LALSIMIMREOBHYBRIDRINGDOWN_C
 #define _LALSIMIMREOBHYBRIDRINGDOWN_C
-#define debugout 1
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -80,7 +79,8 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
   REAL8Vector          *matchrange /**<< Times which determine the comb of ringdown attachment */
   )
 {
-
+ 
+  INT4 debugout = 0;
   /* XLAL error handling */
   INT4 errcode = XLAL_SUCCESS;
 
@@ -245,7 +245,7 @@ static INT4 XLALSimIMREOBHybridRingdownWave(
 	modeamps->data[i] = gsl_vector_get(x, i);
 	modeamps->data[i + nmodes] = gsl_vector_get(x, i + nmodes);
     if (debugout){
-        printf("RD Solution: i= %d,   %.16e,   %.16e \n", i, gsl_vector_get(x,i), gsl_vector_get(x, i+nmodes))
+        printf("RD Solution: i= %d,   %.16e,   %.16e \n", i, gsl_vector_get(x,i), gsl_vector_get(x, i+nmodes));
     }
   }
 
@@ -297,6 +297,7 @@ static INT4 XLALGenerateHybridWaveDerivatives (
 	)
 {
 
+  INT4 debugout = 0;
   /* XLAL error handling */
   INT4 errcode = XLAL_SUCCESS;
 
@@ -438,6 +439,7 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
   Approximant  approximant /**<<The waveform approximant being used */
   )
 {
+      INT4 debugout = 0;
 
       COMPLEX16Vector *modefreqs;
       //COMPLEX16       freq7sav;
@@ -458,6 +460,7 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
       REAL8 spin1[3] = { spin1x, spin1y, spin1z };
       REAL8 spin2[3] = { spin2x, spin2y, spin2z };
       REAL8 finalMass, finalSpin;
+      REAL8 chi1, chi2, theta1, theta2;
 
       mTot  = (mass1 + mass2) * LAL_MTSUN_SI;
       eta       = mass1 * mass2 / ( (mass1 + mass2) * (mass1 + mass2) );

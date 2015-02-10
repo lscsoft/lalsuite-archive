@@ -15,7 +15,7 @@
 #define EPS LAL_REAL4_EPS
 #define TINY LAL_REAL4_MIN
 #define MAXITER 16384
-define debugout 1
+
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -876,7 +876,7 @@ INT4 XLALSimIMREOBFinalMassSpin(
   static const REAL8 t2v2 = 16.* (-0.17958273605461628 - 0.015625*t3v2);
   /*static const REAL8 t2v2 = -3.850983155206041;*/
 
-
+  INT4 debugout=0;
   REAL8 totalMass;
   REAL8 eta, eta2, eta3;
   REAL8 a1, a2, chiS, q;

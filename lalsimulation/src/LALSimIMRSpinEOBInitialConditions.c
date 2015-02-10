@@ -129,11 +129,12 @@ CalculateRotationMatrix(
   gsl_matrix_transpose_memcpy( rotInverse, rotMatrix );
 
   /* Test that the code does what it should do */
+  
   /* gsl_matrix *ab = gsl_matrix_alloc( 3, 3 );
-     gsl_blas_dgemm( CblasNoTrans, CblasNoTrans, 1., rotMatrix, rotInverse, 0., ab );
-   */
+     gsl_blas_dgemm( CblasNoTrans, CblasNoTrans, 1., rotMatrix, rotInverse, 0., ab );*/
 
-  /*printf( "The generated rotation matrix:?\n" );
+  /*
+  printf( "The generated rotation matrix: \n" );
   for ( int i = 0; i < 3; i++ )
   {
     for ( int j = 0; j < 3; j++ )
@@ -141,9 +142,11 @@ CalculateRotationMatrix(
       printf( "%.16e\t", gsl_matrix_get( rotMatrix, i, j ) );
     }
     printf( "\n" );
-  }*/
+  }
+  */
 
-  /*printf( "Is the transpose of the rotation matrix the inverse?\n" );
+  /*
+  printf( "Is the transpose of the rotation matrix the inverse?\n" );
   for ( int i = 0; i < 3; i++ )
   {
     for ( int j = 0; j < 3; j++ )
