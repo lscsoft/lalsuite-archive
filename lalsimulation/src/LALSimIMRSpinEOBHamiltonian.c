@@ -42,7 +42,8 @@
 #include "LALSimIMRSpinEOB.h"
 
 #include "LALSimIMRSpinEOBAuxFuncs.c"
-#include "LALSimIMRSpinEOBFactorizedWaveform.c"
+/*#include "LALSimIMRSpinEOBFactorizedWaveform.c"*/
+#include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
 
 /*------------------------------------------------------------------------------------------
  *

@@ -1529,7 +1529,7 @@ static INT4 XLALSimIMRSpinEOBGetSpinFactorizedWaveform(
     /* Status of function calls */
     INT4 status;
     INT4 i;
-    INT4 debugPK = 0;
+    /*INT4 debugPK = 0;*/
 
     REAL8 eta;
 	REAL8 r, pp, Omega, v2, vh, vh3, k, hathatk, eulerlogxabs; //pr

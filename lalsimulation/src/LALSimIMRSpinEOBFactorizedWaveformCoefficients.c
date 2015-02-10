@@ -25,6 +25,20 @@
  */ 
 
 
+
+
+
+#ifndef _LALSIMIMRSPINEOBFACTORIZEDWAVEFORMCOEFFICIENTS_C
+#define _LALSIMIMRSPINEOBFACTORIZEDWAVEFORMCOEFFICIENTS_C
+
+
+#include <complex.h>
+#include <lal/LALSimInspiral.h>
+#include <lal/LALSimIMR.h>
+
+#include "LALSimIMREOBNRv2.h"
+#include "LALSimIMRSpinEOB.h"
+
 /*--------------------------------------------------------------*/
 /**
  * Spin Factors
@@ -1652,3 +1666,4 @@ UNUSED static int XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients(
   return XLAL_SUCCESS;
 }
 
+# endif
