@@ -17,6 +17,8 @@
  * */
 #define MAX_NUM_MODES 7
 
+#include <math.h>
+
 struct
 SpinEOBModes
 {
@@ -130,9 +132,14 @@ struct tagPrecEulerAnglesIntegration
 }
 PrecEulerAnglesIntegration;
 
+UNUSED  static
+REAL8 XLALCalculateEOBA( 
+        const REAL8 r,                     /**<< Orbital separation (in units of total mass M) */
+        EOBACoefficients * restrict coeffs /**<< Pre-computed coefficients for the A function */
+ );
 
 
-static INT4 XLALSimIMRSpinEOBGetSpinFactorizedWaveform(
+static INT4 UNUSED XLALSimIMRSpinEOBGetSpinFactorizedWaveform(
                                 COMPLEX16             * restrict hlm,
                                 REAL8Vector           * restrict values,
                                 const REAL8           v,
@@ -152,7 +159,7 @@ static INT4 UNUSED XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
                  const INT4          m,               /**< m mode index */
                  SpinEOBParams     * restrict params  /**< Spin EOB parameters */
                  );
-static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
+static INT4 UNUSED  XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
                                 COMPLEX16             * restrict hlm,
                                 REAL8Vector           * restrict values,
                                 const REAL8           v,
@@ -174,35 +181,45 @@ static INT4 UNUSED XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
                  );
 
 
-REAL8 GSLSpinHamiltonianWrapper( double x, void *params );
+static
+REAL8 UNUSED XLALEffectiveHamiltonian( const REAL8 eta,          /**<< Symmetric mass ratio */
+                                const REAL8 r,            /**<< Orbital separation */
+                                const REAL8 pr,           /**<< Tortoise co-ordinate */
+                                const REAL8 pp,           /**<< Momentum pphi */
+                                EOBACoefficients *aCoeffs /**<< Pre-computed coefficients in A function */
+                              );
 
-int XLALSpinHcapNumericalDerivative(
+
+
+REAL8 UNUSED  GSLSpinHamiltonianWrapper( double x, void *params );
+
+int UNUSED  XLALSpinHcapNumericalDerivative(
                           double                t,
                           const REAL8           values[],
                           REAL8                 dvalues[],
                           void                  *funcParams
                                ) UNUSED;
 
-int XLALSpinHcapNumericalDerivativeNoFlux(
+int UNUSED XLALSpinHcapNumericalDerivativeNoFlux(
                           double                t,
                           const REAL8           values[],
                           REAL8                 dvalues[],
                           void                  *funcParams
                                ) UNUSED;
 
-REAL8 XLALSpinHcapNumDerivWRTParam(
+REAL8 UNUSED XLALSpinHcapNumDerivWRTParam(
                        const INT4 paramIdx,
                        const REAL8 values[],
                        SpinEOBParams *params
                        ) UNUSED;
 
 
-static inline REAL8 XLALCalculateA5( REAL8 eta );
+static inline REAL8 UNUSED XLALCalculateA5( REAL8 eta );
 
-static inline REAL8 XLALCalculateA6( REAL8 eta );
+static inline REAL8 UNUSED  XLALCalculateA6( REAL8 eta );
 
 static
-REAL8 XLALCalculateEOBD( REAL8    r,
+REAL8 UNUSED  XLALCalculateEOBD( REAL8    r,
                          REAL8	eta) UNUSED;
 
 
@@ -210,7 +227,7 @@ REAL8 XLALCalculateEOBD( REAL8    r,
  * Calculates the a5 parameter in the A potential function in EOBNRv2
  */
 static inline
-REAL8 XLALCalculateA5( const REAL8 eta /**<< Symmetric mass ratio */
+REAL8 UNUSED  XLALCalculateA5( const REAL8 eta /**<< Symmetric mass ratio */
                      )
 {
   return - 5.82827 - 143.486 * eta + 447.045 * eta * eta;
@@ -220,7 +237,7 @@ REAL8 XLALCalculateA5( const REAL8 eta /**<< Symmetric mass ratio */
  * Calculates the a6 parameter in the A potential function in EOBNRv2
  */
 static inline
-REAL8 XLALCalculateA6( const REAL8 UNUSED eta /**<< Symmetric mass ratio */
+REAL8 UNUSED XLALCalculateA6( const REAL8 UNUSED eta /**<< Symmetric mass ratio */
                      )
 {
   return 184.0;
@@ -343,23 +360,23 @@ static REAL8 UNUSED XLALSimInspiralFp7(REAL8 v, expnCoeffsdEnergyFlux *ak);
 
 static REAL8 UNUSED XLALSimInspiralFp8PP(REAL8 v, expnCoeffsdEnergyFlux *ak);
 
-static REAL8
+static REAL8 UNUSED 
 XLALAssociatedLegendreXIsZero( const int l,
                                const int m
                              );
 
-static int
+static int UNUSED 
 XLALScalarSphHarmThetaPiBy2(COMPLEX16 *y,
                          INT4 l,
                          INT4  m,
                          REAL8 phi);
 
-static int
+static int UNUSED 
 XLALAbsScalarSphHarmThetaPiBy2(COMPLEX16 *y,
                          INT4 l,
                          INT4  m);
 
-static int
+static int UNUSED 
 CalculateThisMultipolePrefix(
                COMPLEX16 *prefix,
                const REAL8 m1,
@@ -367,14 +384,14 @@ CalculateThisMultipolePrefix(
                const INT4 l,
                const INT4 m );
 
-static int XLALSimIMREOBComputeNewtonMultipolePrefixes(
+static int UNUSED XLALSimIMREOBComputeNewtonMultipolePrefixes(
                 NewtonMultipolePrefixes *prefix, /**<< OUTPUT Structure containing the coeffs */
                 const REAL8             m1,      /**<< Mass of first component */
                 const REAL8             m2       /**<< Nass of second component */
                 );
 
 
-UNUSED static int
+UNUSED static int 
 XLALSimIMREOBCalculateNewtonianMultipole(
                  COMPLEX16 *multipole, /**<< OUTPUT, Newtonian multipole */
                  REAL8 x,              /**<< Dimensionless parameter \f$\equiv v^2\f$ */
@@ -409,7 +426,7 @@ XLALSimIMRSpinEOBFluxCalculateNewtonianMultipole(
                  EOBParams *params     /**<< Pre-computed coefficients, parameters, etc. */
                  );
 
-static int
+static int UNUSED 
 XLALScalarSphHarmThetaPiBy2(
                  COMPLEX16 *y, /**<< OUTPUT, Ylm(0,phi) */
                  INT4 l,       /**<< Mode l */
@@ -418,7 +435,7 @@ XLALScalarSphHarmThetaPiBy2(
                  );
 
 
-static int
+static int UNUSED 
 XLALAbsScalarSphHarmThetaPiBy2(
                  COMPLEX16 *y, /**<< OUTPUT, Ylm(0,phi) */
                  INT4 l,       /**<< Mode l */
@@ -426,12 +443,12 @@ XLALAbsScalarSphHarmThetaPiBy2(
                  );
 
 
-static REAL8
+static REAL8 UNUSED 
 XLALAssociatedLegendreXIsZero( const int l,
                                const int m );
 
 
-static int
+static int UNUSED 
 CalculateThisMultipolePrefix(
                  COMPLEX16 *prefix, /**<< OUTPUT, Prefix value */
                  const REAL8 m1,    /**<< mass 1 */
@@ -439,6 +456,206 @@ CalculateThisMultipolePrefix(
                  const INT4 l,      /**<< Mode l */
                  const INT4 m       /**<< Mode m */
                  );
+
+
+static REAL8  UNUSED XLALSimIMREOBGetNRPeakDeltaT( 
+                         INT4 l,    /**<< Mode l */ 
+                         INT4 m,    /**<< Mode m */
+                         REAL8 eta  /**<< Symmetric mass ratio */
+                         );
+
+UNUSED static int XLALSimIMREOBGetCalibratedNQCCoeffs( 
+                                EOBNonQCCoeffs *coeffs, /**<< OUTPUT, Structure for NQC coeffs */
+                                INT4            l,      /**<< Mode l */
+                                INT4            m,      /**<< Mode m */
+                                REAL8           eta     /**<< Symmetric mass ratio */
+                                );
+
+
+UNUSED static int  XLALSimIMREOBNonQCCorrection(
+                      COMPLEX16      * restrict nqc,    /**<< OUTPUT, The NQC correction */
+                      REAL8Vector    * restrict values, /**<< Dynamics r, phi, pr, pphi */
+                      const REAL8               omega,  /**<< Angular frequency */
+                      EOBNonQCCoeffs * restrict coeffs  /**<< NQC coefficients */
+                     );
+
+
+UNUSED static int  XLALSimIMRSpinEOBNonQCCorrection(
+                      COMPLEX16      * restrict nqc,    /**<< OUTPUT, The NQC correction */
+                      REAL8Vector    * restrict values, /**<< Dynamics r, phi, pr, pphi */
+                      const REAL8               omega,  /**<< Angular frequency */
+                      EOBNonQCCoeffs * restrict coeffs  /**<< NQC coefficients */
+                     );
+
+
+UNUSED static int XLALSimIMREOBCalculateNQCCoefficients(
+                 EOBNonQCCoeffs * restrict coeffs,    /**<< OUTPUT, NQC coefficients */
+                 REAL8Vector    * restrict amplitude, /**<< Waveform amplitude, func of time */
+                 REAL8Vector    * restrict phase,     /**<< Waveform phase(rad), func of time */
+                 REAL8Vector    * restrict q1,        /**<< Function of dynamics (see DCC doc) */
+                 REAL8Vector    * restrict q2,        /**<< Function of dynamics (see DCC doc) */
+                 REAL8Vector    * restrict q3,        /**<< Function of dynamics (see DCC doc) */
+                 REAL8Vector    * restrict p1,        /**<< Function of dynamics (see DCC doc) */
+                 REAL8Vector    * restrict p2,        /**<< Function of dynamics (see DCC doc) */
+                 INT4                      l,         /**<< Mode l */
+                 INT4                      m,         /**<< Mode m */
+                 REAL8                     timePeak,  /**<< Time of peak orbital frequency */
+                 REAL8                     deltaT,    /**<< Sampling interval */
+                 REAL8                     eta        /**<< Symmetric mass ratio */
+                 );
+
+
+
+UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQC( EOBNonQCCoeffs * restrict coeffs,                                   INT4 UNUSED l,                                   INT4 UNUSED m,                                   REAL8 eta,                                   REAL8 a );
+
+
+UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2( EOBNonQCCoeffs * restrict coeffs,                                   INT4 UNUSED l,                                   INT4 UNUSED m,                                   REAL8 eta,                                   REAL8 a );
+
+
+UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2chiAmax( EOBNonQCCoeffs * restrict coeffs,                                                             INT4 UNUSED l,                                                             INT4 UNUSED m,                                                             REAL8 eta,                                                             REAL8 a );
+
+
+UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2chiAmed( EOBNonQCCoeffs * restrict coeffs,                                                             INT4 UNUSED l,                                                             INT4 UNUSED m,                                                             REAL8 eta,                                                             REAL8 a );
+
+
+
+UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2chiAmin( EOBNonQCCoeffs * restrict coeffs,                                                             INT4 UNUSED l,                                                             INT4 UNUSED m,                                                             REAL8 eta,                                                             REAL8 a );
+
+
+UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQC3D(
+                        EOBNonQCCoeffs * restrict coeffs,
+                        INT4 UNUSED l,
+                        INT4 UNUSED m,
+                        REAL8 m1,
+                        REAL8 m2,
+                        REAL8 a,
+                        REAL8 chiAin );
+
+
+UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
+                 REAL8Vector    * restrict amplitude,   /**<< Waveform amplitude, func of time */
+                 REAL8Vector    * restrict phase,       /**<< Waveform phase(rad), func of time */
+                 REAL8Vector    * restrict rVec,        /**<< Position-vector, function of time */
+                 REAL8Vector    * restrict prVec,       /**<< Momentum vector, function of time */
+                 REAL8Vector    * restrict orbOmegaVec, /**<< Orbital frequency, func of time */
+                 INT4                      l,           /**<< Mode index l */
+                 INT4                      m,           /**<< Mode index m */
+                 REAL8                     timePeak,    /**<< Time of peak orbital frequency */
+                 REAL8                     deltaT,      /**<< Sampling interval */
+                 REAL8                     m1,          /**<< Component mass 1 */
+                 REAL8                     m2,          /**<< Component mass 2 */
+                 REAL8                     a,           /**<< Normalized spin of deformed-Kerr */
+                 REAL8                     chiA,        /**<< Assymmetric dimensionless spin combination */
+                 REAL8                     chiS,        /**<< Symmetric dimensionless spin combination */
+                 EOBNonQCCoeffs * restrict coeffs,      /**<< OUTPUT, NQC coefficients */
+                 UINT4                     SpinAlignedEOBversion  /**<< 1 for SEOBNRv1, 2 for SEOBNRv2 */
+);
+
+UNUSED static
+int XLALCalculateEOBACoefficients(
+          EOBACoefficients * const coeffs, /**<< A coefficients (populated in function) */
+          const REAL8              eta     /**<< Symmetric mass ratio */
+          );
+
+
+UNUSED static
+REAL8 XLALCalculateEOBdAdr( 
+        const REAL8 r,                     /**<< Orbital separation (in units of total mass M) */
+        EOBACoefficients * restrict coeffs /**<< Pre-computed coefficients for the A function */
+     );
+
+
+
+static REAL8 UNUSED  XLALCalculateEOBD( 
+        REAL8   r, /**<< Orbital separation (in units of total mass M) */
+        REAL8 eta  /**<< Symmetric mass ratio */       
+        );
+
+
+UNUSED static int XLALSimIMREOBCalcFacWaveformCoefficients(
+          FacWaveformCoeffs * const coeffs, /**<< Structure containing coefficients (populated in function) */
+          const REAL8               eta     /**<< Symmetric mass ratio */
+          );
+
+UNUSED static int XLALSimIMREOBModifyFacWaveformCoefficients( 
+                FacWaveformCoeffs * const coeffs, /**<< Structure containing coefficients */
+                const REAL8 eta                   /**<< Symmetric mass ratio */
+        );
+
+
+static REAL8 UNUSED 
+nonKeplerianCoefficient(
+        REAL8Vector * restrict values, /**<< Dynamics r, phi, pr, pphi */
+        const REAL8       eta,         /**<< Symmetric mass ratio */
+        EOBACoefficients *coeffs       /**<< Pre-computed A coefficients */
+        );
+
+
+UNUSED static int  XLALSimIMREOBGetFactorizedWaveform( 
+            COMPLEX16   * restrict hlm,    /**<< The value of hlm (populated by the function) */
+            REAL8Vector * restrict values, /**<< Vector containing dynamics r, phi, pr, pphi for a given point */
+            const REAL8 v,                 /**<< Velocity (in geometric units) */
+            const INT4  l,                 /**<< Mode l */
+            const INT4  m,                 /**<< Mode m */
+            EOBParams   * restrict params  /**<< Structure containing pre-computed coefficients, etc. */
+            );
+
+static REAL8 UNUSED  XLALSimIMREOBFactorizedFlux(
+        REAL8Vector  *values, /**<< Dynamics r, phi, pr, pphi */
+        const REAL8  omega,   /**<< Angular frequency omega */
+        EOBParams    *ak,     /**<< Structure containing pre-computed parameters */
+        const INT4   lMax     /**<< Maximum l to include when calculating flux (between 2 and 8) */
+        );
+
+static INT4 UNUSED  XLALSimIMREOBHybridRingdownWave(
+  REAL8Vector          *rdwave1,   /**<< OUTPUT, Real part of ringdown waveform */
+  REAL8Vector          *rdwave2,   /**<< OUTPUT, Imag part of ringdown waveform */
+  const REAL8           dt,        /**<< Sampling interval */
+  const REAL8           mass1,     /**<< First component mass (in Solar masses) */
+  const REAL8           mass2,     /**<< Second component mass (in Solar masses) */
+  REAL8VectorSequence  *inspwave1, /**<< Values and derivs of real part inspiral waveform */
+  REAL8VectorSequence  *inspwave2, /**<< Values and derivs of imag part inspiral waveform */
+  COMPLEX16Vector      *modefreqs, /**<< Complex freqs of ringdown (scaled by total mass) */
+  REAL8Vector          *matchrange /**<< Times which determine the comb of ringdown attachment */
+  );
+
+
+static INT4 UNUSED  XLALGenerateHybridWaveDerivatives (
+	REAL8Vector	*rwave,      /**<< OUTPUT, values of the waveform at comb points */
+	REAL8Vector	*dwave,      /**<< OUTPUT, 1st deriv of the waveform at comb points */
+	REAL8Vector	*ddwave,     /**<< OUTPUT, 2nd deriv of the waveform at comb points */
+    REAL8Vector	*timeVec,    /**<< Vector containing the time */
+	REAL8Vector	*wave,       /**<< Last part of inspiral waveform */
+	REAL8Vector	*matchrange, /**<< Times which determine the size of the comb */
+    REAL8           dt,          /**<< Sample time step */
+    REAL8           mass1,       /**<< First component mass (in Solar masses) */
+    REAL8           mass2        /**<< Second component mass (in Solar masses) */
+	);
+
+static INT4 UNUSED  XLALSimIMREOBHybridAttachRingdown(
+  REAL8Vector *signal1,    /**<< OUTPUT, Real of inspiral waveform to which we attach ringdown */
+  REAL8Vector *signal2,    /**<< OUTPUT, Imag of inspiral waveform to which we attach ringdown */
+  const INT4   l,          /**<< Current mode l */
+  const INT4   m,          /**<< Current mode m */
+  const REAL8  dt,         /**<< Sample time step (in seconds) */
+  const REAL8  mass1,      /**<< First component mass (in Solar masses) */
+  const REAL8  mass2,      /**<< Second component mass (in Solar masses) */
+  const REAL8  spin1x,     /**<<The spin of the first object; only needed for spin waveforms */
+  const REAL8  spin1y,     /**<<The spin of the first object; only needed for spin waveforms */
+  const REAL8  spin1z,     /**<<The spin of the first object; only needed for spin waveforms */
+  const REAL8  spin2x,     /**<<The spin of the second object; only needed for spin waveforms */
+  const REAL8  spin2y,     /**<<The spin of the second object; only needed for spin waveforms */
+  const REAL8  spin2z,     /**<<The spin of the second object; only needed for spin waveforms */
+  REAL8Vector *timeVec,    /**<< Vector containing the time values */
+  REAL8Vector *matchrange, /**<< Time values chosen as points for performing comb matching */
+  Approximant  approximant /**<<The waveform approximant being used */
+  );
+
+
+
+
+
+
 
 
 

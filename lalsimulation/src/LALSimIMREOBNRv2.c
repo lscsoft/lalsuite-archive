@@ -42,12 +42,14 @@
 #include "LALSimBlackHoleRingdown.h"
 
 /* Include all the static function files we need */
-#include "LALSimIMREOBFactorizedWaveform.c"
+/*#include "LALSimIMREOBFactorizedWaveform.c"
 #include "LALSimIMREOBFactorizedFlux.c"
 #include "LALSimIMREOBNQCCorrection.c"
 #include "LALSimIMREOBNewtonianMultipole.c"
 #include "LALSimIMREOBHybridRingdown.c"
-#include "LALSimInspiraldEnergyFlux.c"
+#include "LALSimInspiraldEnergyFlux.c"*/
+
+#include "LALSimIMRSpinEOB.h"
 
 /**
  * The maximum number of modes available to us in this model

@@ -60,7 +60,6 @@
 /**
  * Function to pre-compute the coefficients in the EOB A potential function
  */
-UNUSED static
 int XLALCalculateEOBACoefficients(
           EOBACoefficients * const coeffs, /**<< A coefficients (populated in function) */
           const REAL8              eta     /**<< Symmetric mass ratio */
@@ -96,7 +95,6 @@ int XLALCalculateEOBACoefficients(
  * This function calculates the EOB A function which using the pre-computed
  * coefficients which should already have been calculated.
  */
-static
 REAL8 XLALCalculateEOBA( const REAL8 r,                     /**<< Orbital separation (in units of total mass M) */
                          EOBACoefficients * restrict coeffs /**<< Pre-computed coefficients for the A function */
                        )
