@@ -73,7 +73,7 @@ UNUSED static int XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients(
  * Appendix of the paper, and papers DIN (PRD 79, 064004 (2009)) and PBFRT (PRD 83, 064003 (2011)).
  */
 
-static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
           FacWaveformCoeffs * const coeffs, /**< OUTPUT, pre-computed waveform coefficients */
           const REAL8               m1,     /**< mass 1 */
           const REAL8               m2,     /**< mass 2 */

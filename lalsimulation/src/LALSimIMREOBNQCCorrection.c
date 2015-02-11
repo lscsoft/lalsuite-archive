@@ -63,7 +63,7 @@
  * These numbers were tuned to numerical relativity simulations, and
  * are taken from Pan et al, PRD84, 124052(2011), lines 1-5 of Table II.
  */
- static REAL8 XLALSimIMREOBGetNRPeakDeltaT( 
+ REAL8 XLALSimIMREOBGetNRPeakDeltaT( 
                          INT4 l,    /**<< Mode l */ 
                          INT4 m,    /**<< Mode m */
                          REAL8 eta  /**<< Symmetric mass ratio */
@@ -386,7 +386,8 @@ REAL8 GetNRPeakOmegaDot(
  * correction can be used in the dynamics prior to finding the more
  * accurate NQC values later on.
  */
-UNUSED static int XLALSimIMREOBGetCalibratedNQCCoeffs( 
+/*UNUSED static */
+int XLALSimIMREOBGetCalibratedNQCCoeffs( 
                                 EOBNonQCCoeffs *coeffs, /**<< OUTPUT, Structure for NQC coeffs */
                                 INT4            l,      /**<< Mode l */
                                 INT4            m,      /**<< Mode m */
@@ -425,7 +426,8 @@ UNUSED static int XLALSimIMREOBGetCalibratedNQCCoeffs(
  * that when calling this function, the NQC coefficients should already
  * have been pre-computed.
  */
-UNUSED static int  XLALSimIMREOBNonQCCorrection(
+/*UNUSED static */
+int  XLALSimIMREOBNonQCCorrection(
                       COMPLEX16      * restrict nqc,    /**<< OUTPUT, The NQC correction */
                       REAL8Vector    * restrict values, /**<< Dynamics r, phi, pr, pphi */
                       const REAL8               omega,  /**<< Angular frequency */
@@ -478,7 +480,8 @@ printf("NQC mag = %.16e, arg = %.16e\n",mag,phase);*/
  * This version is for generic precesing case where the dynamics variable
  * values are given in Catesean coordinates.
  */
-UNUSED static int  XLALSimIMRSpinEOBNonQCCorrection(
+/*UNUSED static */
+int  XLALSimIMRSpinEOBNonQCCorrection(
                       COMPLEX16      * restrict nqc,    /**<< OUTPUT, The NQC correction */
                       REAL8Vector    * restrict values, /**<< Dynamics r, phi, pr, pphi */
                       const REAL8               omega,  /**<< Angular frequency */
@@ -525,7 +528,8 @@ UNUSED static int  XLALSimIMRSpinEOBNonQCCorrection(
  * non-quasicircular correction. The details of the calculation of these
  * coefficients are found in the DCC document T1100433.
  */
-UNUSED static int XLALSimIMREOBCalculateNQCCoefficients(
+/*UNUSED static */
+int XLALSimIMREOBCalculateNQCCoefficients(
                  EOBNonQCCoeffs * restrict coeffs,    /**<< OUTPUT, NQC coefficients */
                  REAL8Vector    * restrict amplitude, /**<< Waveform amplitude, func of time */
                  REAL8Vector    * restrict phase,     /**<< Waveform phase(rad), func of time */
@@ -776,194 +780,9 @@ UNUSED static int XLALSimIMREOBCalculateNQCCoefficients(
  *          Spin (SEOBNRv1 and SEOBNRv2)
  * ------------------------------------------------*/
 
-/**
- * The time difference between the orbital peak and the peak amplitude
- * of the mode in question (currently only 2,2 implemented ).
- * Eq. 33 of Taracchini et al. PRD 86, 024011 (2012).
- */
-UNUSED static inline REAL8 XLALSimIMREOBGetNRSpinPeakDeltaT( 
-                 INT4 l,           /**<< Mode l */
-                 INT4 m,           /**<< Mode m */
-                 REAL8 UNUSED eta, /**<< Symmetric mass ratio */
-                 REAL8 a           /**<< Dimensionless spin */
-                 )
-{
-
-  switch ( l )
-  {
-    case 2:
-      switch ( m )
-      {
-        case 2:
-          /* DeltaT22 defined here is a minus sign different from Eq. (33) of Taracchini et al. */
-          if ( a <= 0.0 )
-          {
-            return 2.5;
-          }
-          else
-          {
-            return (2.5 + 1.77*a*a*a*a/(0.43655*0.43655*0.43655*0.43655)/(1.0-2.0*eta)/(1.0-2.0*eta)/(1.0-2.0*eta)/(1.0-2.0*eta));
-          }
-          break;
-        default:
-          XLAL_ERROR_REAL8( XLAL_EINVAL );
-      }
-      break;
-    default:
-      XLAL_ERROR_REAL8( XLAL_EINVAL );
-  }
-
-  /* We should never get here, but I expect a compiler whinge without it... */
-  XLALPrintError( "XLAL Error %s - We should never get here!!\n", __func__ );
-  XLAL_ERROR_REAL8( XLAL_EINVAL );
-}
 
 /* FIXME: Add XLALSimIMREOB to these function names */
 
-/**
- * Peak amplitude predicted by fitting NR results (currently only 2,2 available).
- * Tables IV and V and Eq. 42 of Taracchini et al. PRD 86, 024011 (2012).
- */
-UNUSED static inline REAL8 GetNRSpinPeakAmplitude( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 UNUSED a )
-{
-  /* Fit for HOMs missing */
-  return 1.3547468629743946*eta + 0.9187885481024214*eta*eta;
-}
-
-/**
- * Peak amplitude curvature predicted by fitting NR results (currently only 2,2 available).
- * Tables IV and V and Eq. 42 of Taracchini et al. PRD 86, 024011 (2012).
- */
-UNUSED static inline REAL8 GetNRSpinPeakADDot( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 UNUSED a )
-{
-  /* Fit for HOMs missing */
-  return eta*(-0.0024971911410897156 + (-0.006128515435641139 + 0.01732656*a/(2.0-4.0*eta))*eta);
-}
-
-/**
- * Peak frequency predicted by fitting NR results (currently only 2,2 available).
- * Tables IV and V and Eq. 42 of Taracchini et al. PRD 86, 024011 (2012).
- */
-UNUSED static inline REAL8 GetNRSpinPeakOmega( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 a )
-{
-  /* Fit for HOMs missing */
-  return 0.27581190323955274 + 0.19347381066059993*eta
-       - 0.08898338208573725*log(1.0 - a/(1.0-2.0*eta))
-       + eta*eta*(1.78832*(0.2690779744133912 + a/(2.0-4.0*eta))*(1.2056469070395925
-       + a/(2.0-4.0*eta)) + 1.423734113371796*log(1.0 - a/(1.0-2.0*eta)));
-}
-
-/**
- * Peak frequency slope predicted by fitting NR results (currently only 2,2 available).
- * Tables IV and V and Eq. 42 of Taracchini et al. PRD 86, 024011 (2012).
- */
-UNUSED static inline REAL8 GetNRSpinPeakOmegaDot( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 UNUSED a )
-{
-  /* Fit for HOMs missing */
-  return 0.006075014646800278 + 0.012040017219351778*eta
-       + (0.0007353536801336875 + 0.0015592659912461832*a/(1.0-2.0*eta))*log(1.0-a/(1.0-2.0*eta))
-       + eta*eta*(0.03575969677378844 + (-0.011765658882139 - 0.02494825585993893*a/(1.0-2.0*eta))
-       * log(1.0 - a/(1.0-2.0*eta)));
-}
-
-/**
- * The time difference between the orbital peak and the peak amplitude
- * of the mode in question (currently only 2,2 implemented ).
- */
-UNUSED static inline REAL8 XLALSimIMREOBGetNRSpinPeakDeltaTv2(
-                 INT4 UNUSED l,    /**<< Mode l */
-                 INT4 UNUSED m,    /**<< Mode m */
-                 REAL8 UNUSED m1,  /**<< mass 1 */
-                 REAL8 UNUSED m2,  /**<< mass 22 */
-                 REAL8 chi1,       /**<< Dimensionless spin1 */
-                 REAL8 chi2        /**<< Dimensionless spin2 */
-                 )
-{
-  REAL8 chi, chichi;
-  REAL8 eta = m1*m2 / ((m1+m2)*(m1+m2));
-  chi    = (chi1+chi2)/2. + (chi1-chi2)/2.*((m1-m2)/(m1+m2))/(1-2.*eta);
-    
-  chichi = chi*chi;
-  if ( chi > 0.8 )
-  {
-    return (0.75*eta*chi + sqrt(1.-4.*eta)) * (57.1755-48.0564*chi);
-  }
-  else if ( chi > 0.0 )
-  {
-    return (0.75*eta*chi + sqrt(1.-4.*eta)) * (2.5+10.*chichi+24.*chichi*chichi);
-  }
-  else
-  {
-    return 2.5 + (1.+2.5*chi) * (-2.5+2.5*sqrt(1.-4.*eta));
-  }
-}
-
-/**
- * Peak frequency predicted by fitting NR results (currently only 2,2 available).
- * Take from unpublished SEOBNRv2 results.
- */
-UNUSED static inline REAL8 GetNRSpinPeakOmegav2( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 a )
-{
-  REAL8 chi = a/(1.0 - 2.0*eta);
-  REAL8 eta2= eta*eta;
-  if ( eta > 50./51./51. )
-  {
-    return 0.43747541927878864 + (-0.10933208665273314 - 0.007325831113333813*chi)*log(
-            4.500844771420863 - 9.681916048928946*eta +
-            chi*(-4.254886879579986 + 11.513558950322647*eta));
-  }
-  else
-  {
-    return 1.5609526077704716 - 122.25721149839733 * eta +
-           3586.2192688666914 * eta2 - 13869.506144441548 * eta*eta2 +
-           (eta - 0.25) * (1651.5823693445805 * (-0.01922337588094282 + eta) *
-           (-0.01922337536857659 + eta) + 66.87492814925524 * chi *
-           (0.0003695381704106058 - 0.03844675124951941 * eta + eta2)) *
-           log(5600.67382718678 - 5555.824895398546 * chi) +
-           (-1412.8186461833657 + 67.66455403259023 * chi) * (eta - 0.001) *
-           (0.0003695381704106056 - 0.038446751249519406 * eta + eta2) *
-           log(0.5680439481719505 - 0.36813967358200156 * chi) +
-           0.012328326527732041 * log(4.500844771420863 - 9.681916048928946 * eta + 
-           chi * (-4.254886879579986 + 11.513558950322647 * eta)) +
-           0.0008260634258180991 * chi * log(4.500844771420863 -9.681916048928946 * eta +
-           chi * (-4.254886879579986 + 11.513558950322647 * eta)) -
-           12.6575493872956 * eta * log(4.500844771420863 -
-           9.681916048928946 * eta + chi * (-4.254886879579986 + 11.513558950322647 * eta)) -
-           0.8481231078533651 * chi * eta * log(4.500844771420863 - 
-           9.681916048928946 * eta + chi * (-4.254886879579986 + 11.513558950322647 * eta)) +
-           329.2228595635586 * eta2 * log(4.500844771420863 - 9.681916048928946 * eta +
-           chi * (-4.254886879579986 + 11.513558950322647 * eta)) +
-           22.05968203526603 * chi * eta2 * log(4.500844771420863 -9.681916048928946 * eta +
-           chi * (-4.254886879579986 + 11.513558950322647 * eta));
-  }
-}
-
-/**
- * Peak frequency slope predicted by fitting NR results (currently only 2,2 available).
- * Take from unpublished SEOBNRv2 results.
- */
-UNUSED static inline REAL8 GetNRSpinPeakOmegaDotv2( INT4 UNUSED l, INT4 UNUSED m, REAL8 UNUSED eta, REAL8 UNUSED a )
-{
-  REAL8 chi = a/(1.0-2.0*eta);
-  REAL8 eta2= eta*eta;
-  /* Fit for HOMs missing */
-  if (chi < 0.8 )
-  {
-    return -0.07086074186161867 * chi * (-0.26367236731979804 + eta) *
-           (-0.0010019969893089581 + eta) + 0.2893863668183948 *
-           (-0.16845695144529893 + eta) * (0.23032241797163952 + eta) +
-           (0.004086861548547749 - 0.06538978477676398 * eta2 +
-           chi * (0.0006334026884930817 - 0.010134443015889307 * eta2)) *
-           log(68.47466578101876 - 58.30148755701496 * chi);
-  }
-  else
-  {
-    return -0.10069512275335238 * (-0.46107388514323044 + eta) *
-           (0.2832795481380979 + eta) + 0.2614619716504706 * chi *
-           (-0.24838163750494138 + eta) * (0.320112993649413 + eta) +
-           chi * chi * (0.010000160002560042 - 0.16000256004096067 * eta2);
-  }
-}
 
 /**
  * Function to interpolate known amplitude NQC coeffcients of spin terms,
@@ -980,7 +799,8 @@ UNUSED static inline REAL8 GetNRSpinPeakOmegaDotv2( INT4 UNUSED l, INT4 UNUSED m
  * the peak amplitude and frequency agree well with the NR-fits predicted values,
  * and to get exact NR-fits predicted values, corrections on these numbers are ~1%.
  */
-UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQC( EOBNonQCCoeffs * restrict coeffs,                                   INT4 UNUSED l,                                   INT4 UNUSED m,                                   REAL8 eta,                                   REAL8 a )
+/*UNUSED static */
+int XLALSimIMRGetEOBCalibratedSpinNQC( EOBNonQCCoeffs * restrict coeffs,                                   INT4 UNUSED l,                                   INT4 UNUSED m,                                   REAL8 eta,                                   REAL8 a )
 {
   const unsigned int nsqdim = 100;
   const unsigned int   qdim = 50;
@@ -1297,7 +1117,8 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQC( EOBNonQCCoeffs * restrict c
  * the peak amplitude and frequency agree well with the NR-fits predicted values,
  * and to get exact NR-fits predicted values, corrections on these numbers are ~1%.
  */
-UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2( EOBNonQCCoeffs * restrict coeffs,                                   INT4 UNUSED l,                                   INT4 UNUSED m,                                   REAL8 eta,                                   REAL8 a )
+/*UNUSED static*/ 
+int XLALSimIMRGetEOBCalibratedSpinNQCv2( EOBNonQCCoeffs * restrict coeffs,                                   INT4 UNUSED l,                                   INT4 UNUSED m,                                   REAL8 eta,                                   REAL8 a )
 {
   const unsigned int nsqdim = 101;
   const unsigned int   qdim = 21;
@@ -1603,7 +1424,8 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2( EOBNonQCCoeffs * restrict
  * ==================================================
  */
 
-UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2chiAmax( EOBNonQCCoeffs * restrict coeffs,                                                             INT4 UNUSED l,                                                             INT4 UNUSED m,                                                             REAL8 eta,                                                             REAL8 a )
+/*UNUSED static */
+int XLALSimIMRGetEOBCalibratedSpinNQCv2chiAmax( EOBNonQCCoeffs * restrict coeffs,                                                             INT4 UNUSED l,                                                             INT4 UNUSED m,                                                             REAL8 eta,                                                             REAL8 a )
 {
   const unsigned int   qdim = 98;
   const unsigned int   adim = 200;
@@ -2184,7 +2006,8 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2chiAmax( EOBNonQCCoeffs * r
 
 
 
-UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2chiAmed( EOBNonQCCoeffs * restrict coeffs,                                                             INT4 UNUSED l,                                                             INT4 UNUSED m,                                                             REAL8 eta,                                                             REAL8 a )
+/*UNUSED static */
+int XLALSimIMRGetEOBCalibratedSpinNQCv2chiAmed( EOBNonQCCoeffs * restrict coeffs,                                                             INT4 UNUSED l,                                                             INT4 UNUSED m,                                                             REAL8 eta,                                                             REAL8 a )
 {
   const unsigned int   qdim = 98;
   const unsigned int   adim = 200;
@@ -2765,7 +2588,8 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2chiAmed( EOBNonQCCoeffs * r
 
 
 
-UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2chiAmin( EOBNonQCCoeffs * restrict coeffs,                                                             INT4 UNUSED l,                                                             INT4 UNUSED m,                                                             REAL8 eta,                                                             REAL8 a )
+/*UNUSED static */
+int XLALSimIMRGetEOBCalibratedSpinNQCv2chiAmin( EOBNonQCCoeffs * restrict coeffs,                                                             INT4 UNUSED l,                                                             INT4 UNUSED m,                                                             REAL8 eta,                                                             REAL8 a )
 {
   const unsigned int   qdim = 98;
   const unsigned int   adim = 200;
@@ -3368,7 +3192,8 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQCv2chiAmin( EOBNonQCCoeffs * r
  * the peak amplitude and frequency agree well with the NR-fits predicted values,
  * and to get exact NR-fits predicted values, corrections on these numbers are ~1%.
  */
-UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQC3D(
+/*UNUSED static */
+int XLALSimIMRGetEOBCalibratedSpinNQC3D(
                         EOBNonQCCoeffs * restrict coeffs,
                         INT4 UNUSED l,
                         INT4 UNUSED m,
@@ -3570,7 +3395,8 @@ coeffs->b4 = -655.437950088;*/
  * In brief, this function populates and solves the linear equations
  * Eq. 18 (for amplitude) and Eq. 19 (for phase) of the DCC document T1100433v2.
  */
-UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
+/*UNUSED static */
+int XLALSimIMRSpinEOBCalculateNQCCoefficients(
                  REAL8Vector    * restrict amplitude,   /**<< Waveform amplitude, func of time */
                  REAL8Vector    * restrict phase,       /**<< Waveform phase(rad), func of time */
                  REAL8Vector    * restrict rVec,        /**<< Position-vector, function of time */

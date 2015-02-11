@@ -131,7 +131,6 @@ REAL8 XLALCalculateEOBA( const REAL8 r,                     /**<< Orbital separa
  * Calculated the derivative of the EOB A function with respect to
  * r, using the pre-computed A coefficients
  */
-static
 REAL8 XLALCalculateEOBdAdr( const REAL8 r,                     /**<< Orbital separation (in units of total mass M) */
                             EOBACoefficients * restrict coeffs /**<< Pre-computed coefficients for the A function */
                           )
@@ -171,8 +170,9 @@ REAL8 XLALCalculateEOBdAdr( const REAL8 r,                     /**<< Orbital sep
 
 /**
  * Calculate the EOB D function.
- */
-static REAL8 XLALCalculateEOBD( REAL8   r, /**<< Orbital separation (in units of total mass M) */
+ *
+static*/ 
+REAL8 XLALCalculateEOBD( REAL8   r, /**<< Orbital separation (in units of total mass M) */
                          REAL8 eta  /**<< Symmetric mass ratio */
                        )
 {

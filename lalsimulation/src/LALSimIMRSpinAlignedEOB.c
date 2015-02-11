@@ -55,9 +55,10 @@
 #include "LALSimIMREOBNRv2.h"
 #include "LALSimIMRSpinEOB.h"
 #include "LALSimInspiralPrecess.h"
+#include "LALSimBlackHoleRingdown.h"
 
 /* Include all the static function files we need */
-#include "LALSimIMREOBHybridRingdown.c"
+/*#include "LALSimIMREOBHybridRingdown.c"
 #include "LALSimIMREOBFactorizedWaveform.c"
 #include "LALSimIMREOBNewtonianMultipole.c"
 #include "LALSimIMREOBNQCCorrection.c"
@@ -67,9 +68,9 @@
 #include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBFactorizedWaveform.c"
 #include "LALSimIMRSpinEOBFactorizedFlux.c"
+*/
 
-
-int debugPK = 1;
+/*int debugPK = 1;*/
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))

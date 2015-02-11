@@ -41,9 +41,10 @@
 
 #include "LALSimIMRSpinEOB.h"
 
-#include "LALSimIMRSpinEOBAuxFuncs.c"
-/*#include "LALSimIMRSpinEOBFactorizedWaveform.c"*/
-#include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
+/*#include "LALSimIMRSpinEOBAuxFuncs.c"
+#include "LALSimIMRSpinEOBFactorizedWaveform.c"
+#include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"*/
+
 
 /*------------------------------------------------------------------------------------------
  *
@@ -51,84 +52,6 @@
  *
  *------------------------------------------------------------------------------------------
  */
-
-/**
- * This function calculates the DeltaR potential function in the spin EOB Hamiltonian
- */
-static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaR(
-        SpinEOBHCoeffs *coeffs, /**<< Pre-computed coefficients which appear in the function */
-        const REAL8    r,       /**<< Current orbital radius (in units of total mass) */
-        const REAL8    eta,     /**<< Symmetric mass ratio */
-        const REAL8    a        /**<< Normalized deformed Kerr spin */
-        );
-
-static REAL8 XLALSimIMRSpinEOBHamiltonian(
-               const REAL8    eta,
-               REAL8Vector    * restrict x,
-               REAL8Vector    * restrict p,
-               REAL8Vector    * restrict s1Vec,
-               REAL8Vector    * restrict s2Vec,
-               REAL8Vector    * restrict sigmaKerr,
-               REAL8Vector    * restrict sigmaStar,
-               int                       tortoise,
-               SpinEOBHCoeffs *coeffs);
-
-static int XLALSimIMRCalculateSpinEOBHCoeffs(
-        SpinEOBHCoeffs *coeffs,
-        const REAL8    eta,
-        const REAL8    a,
-        const UINT4    SpinAlignedEOBversion
-        );
-
-static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaT( 
-        SpinEOBHCoeffs *coeffs,
-        const REAL8    r,
-        const REAL8    eta,
-        const REAL8    a
-        );
-
-static REAL8 XLALSimIMRSpinAlignedEOBCalcOmega(
-                      const REAL8          values[],
-                      SpinEOBParams        *funcParams
-                      );
-
-static REAL8 XLALSimIMRSpinAlignedEOBNonKeplerCoeff(
-                      const REAL8           values[],
-                      SpinEOBParams         *funcParams
-                      );
-
-static double GSLSpinAlignedHamiltonianWrapper( double x, void *params );
-
-static REAL8 UNUSED inner_product( const REAL8 values1[], 
-                             const REAL8 values2[]
-                             );
-
-UNUSED static REAL8* cross_product( const REAL8 values1[],
-                              const REAL8 values2[],
-                              REAL8 result[] 
-                              );
-
-static REAL8 XLALSimIMRSpinEOBCalcOmega(
-                      const REAL8          values[],
-                      SpinEOBParams        *funcParams
-                      );
-
-static REAL8 XLALSimIMRSpinEOBNonKeplerCoeff(
-                      const REAL8           values[],
-                      SpinEOBParams         *funcParams
-                      );
-
-static int XLALSpinHcapRvecDerivative(
-                 double UNUSED     t,         /**<< UNUSED */
-                 const  REAL8      values[],  /**<< Dynamical variables */
-                 REAL8             dvalues[], /**<< Time derivatives of variables (returned) */
-                 void             *funcParams /**<< EOB parameters */
-                               ) UNUSED;
-                              
-static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params );
-
-static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params );
-
 
 
 
