@@ -458,21 +458,23 @@ Arguments for each section follow:\n\n";
   
 	/* Set up currentParams with variables to be used */
 	/* Review task needs special priors */
-  ppt=LALInferenceGetProcParamVal(procParams,"--approx");
+        ppt=LALInferenceGetProcParamVal(procParams,"--approx");
 	if(LALInferenceGetProcParamVal(procParams,"--correlatedGaussianLikelihood")){
-		ppt=LALInferenceGetProcParamVal(procParams,"--approx");
-    if (XLALCheckBurstApproximantFromString(ppt->value))
-      initModelFunc=&LALInferenceInitModelReviewBurstEvidence_unimod;
-    else
-      initModelFunc=&LALInferenceInitModelReviewEvidence;
-  }
-  else if(LALInferenceGetProcParamVal(procParams,"--bimodalGaussianLikelihood")){
-    ppt=LALInferenceGetProcParamVal(procParams,"--approx");
-    if (XLALCheckBurstApproximantFromString(ppt->value))
-      initModelFunc=&LALInferenceInitModelReviewBurstEvidence_bimod;
-    else
-      initModelFunc=&LALInferenceInitModelReviewEvidence_bimod;;
-  }
+	  ppt=LALInferenceGetProcParamVal(procParams,"--approx");
+          if (XLALCheckBurstApproximantFromString(ppt->value)){
+            fprintf(stdout,"Using burst unimodal analytic likelihood\n");
+            initModelFunc=&LALInferenceInitModelReviewBurstEvidence_unimod;
+          }
+          else
+            initModelFunc=&LALInferenceInitModelReviewEvidence;
+        }
+        else if(LALInferenceGetProcParamVal(procParams,"--bimodalGaussianLikelihood")){
+          ppt=LALInferenceGetProcParamVal(procParams,"--approx");
+          if (XLALCheckBurstApproximantFromString(ppt->value))
+            initModelFunc=&LALInferenceInitModelReviewBurstEvidence_bimod;
+          else
+            initModelFunc=&LALInferenceInitModelReviewEvidence_bimod;;
+        }
   else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood")){
     ppt=LALInferenceGetProcParamVal(procParams,"--approx");
     if (XLALCheckBurstApproximantFromString(ppt->value)){

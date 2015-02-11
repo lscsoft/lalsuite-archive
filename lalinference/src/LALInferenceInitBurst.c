@@ -405,20 +405,31 @@ LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_unimod(LALInferenceR
   }
   LALInferenceModel *model = XLALCalloc(1, sizeof(LALInferenceModel));
   model->params = XLALCalloc(1, sizeof(LALInferenceVariables));
+
+  UINT4 nifo=0;
+  LALInferenceIFOData *dataPtr = state->data;
+  while (dataPtr != NULL)
+  {
+    dataPtr = dataPtr->next;
+    nifo++;
+  }
+
+  model->ifo_loglikelihoods = XLALCalloc(nifo, sizeof(REAL8));
+
   i=0;
   
   struct varSettings {const char *name; REAL8 val, min, max;};
-  
+ 
   struct varSettings setup[]=
   {
-    {.name="time", .val=0.001, .min=-0.006121, .max=0.008121},
-    {.name="frequency", .val=210., .min=205.346948, .max=216.653052},
-    {.name="quality", .val=6.03626, .min=5.043829, .max=6.956171},
-    {.name="loghrss", .val=-46., .min=-46.985195, .max=-45.014805},
-    {.name="polarisation", .val=0.73, .min=0.427564, .max=0.972436},
-    {.name="rightascension", .val=LAL_PI, .min=2.837864, .max=3.445321},
-    {.name="declination", .val=0.04, .min= -0.334492, .max=0.334492},
-    {.name="alpha", .val=0.58, .min=0.200742, .max=0.799258},
+    {.name="time", .val=0.001, .min=-0.006410, .max=0.008410},
+    {.name="frequency", .val=210., .min=205.560916, .max=216.439084},
+    {.name="quality", .val=6.03626, .min=5.252647, .max=6.747353},
+    {.name="loghrss", .val=-46., .min=-46.964458, .max=-45.035542},
+    {.name="polarisation", .val=0.73, .min=0.425622, .max=0.974378},
+    {.name="rightascension", .val=LAL_PI, .min=2.864650, .max=3.418535},
+    {.name="declination", .val=0.04, .min=-0.306437, .max=0.306437},
+    {.name="alpha", .val=0.58, .min=0.224279, .max=0.775721},
     {.name="END", .val=0., .min=0., .max=0.}
   };
   
@@ -447,21 +458,30 @@ LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_bimod(LALInferenceRu
     LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
   }
   LALInferenceModel *model = XLALCalloc(1, sizeof(LALInferenceModel));
-  model->params = XLALCalloc(1, sizeof(LALInferenceVariables));
+  model->params = XLALCalloc(1i, sizeof(LALInferenceVariables));
+  UINT4 nifo=0;
+  LALInferenceIFOData *dataPtr = state->data;
+  while (dataPtr != NULL)
+  {
+    dataPtr = dataPtr->next;
+    nifo++;
+  }
+
+  model->ifo_loglikelihoods = XLALCalloc(nifo, sizeof(REAL8));
   i=0;
   
   struct varSettings {const char *name; REAL8 val, min, max;};
-  
+ 
   struct varSettings setup[]=
   {
-    {.name="time", .val=0.001, .min=-0.006121, .max=0.019514},
-    {.name="frequency", .val=211., .min=205.346948, .max=225.697936},
-    {.name="quality", .val=6.0, .min=5.043829, .max=8.486044},
-    {.name="loghrss", .val=-46., .min=-46.985195, .max=-43.438492},
-    {.name="polarisation", .val=0.73, .min=0.427564,.max=1.408335},
-    {.name="rightascension", .val=LAL_PI, .min=2.837864, .max=3.931287},
-    {.name="declination", .val=0.0, .min=-0.334492, .max=0.869678},
-    {.name="alpha", .val=0.5, .min=0.200742, .max=1.278070},
+    {.name="time", .val=0.001, .min= -0.006410, .max=0.020266},
+    {.name="frequency", .val=211., .min=205.560916, .max=225.141619},
+    {.name="quality", .val=6.0, .min=5.252647, .max=7.943119},
+    {.name="loghrss", .val=-46., .min=-46.964458, .max=-43.492410},
+    {.name="polarisation", .val=0.73, .min=0.425622,.max=1.413383},
+    {.name="rightascension", .val=LAL_PI, .min=2.864650, .max=3.861644},
+    {.name="declination", .val=0.0, .min=-0.306437, .max=0.796736},
+    {.name="alpha", .val=0.5, .min=0.224279, .max=1.216874},
     {.name="END", .val=0., .min=0., .max=0.}
   };
   
