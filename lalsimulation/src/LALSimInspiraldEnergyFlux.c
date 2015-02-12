@@ -65,7 +65,67 @@
 
 #include <math.h>
 #include <lal/LALStdlib.h>
-#include "LALSimIMRSpinEOB.h"
+
+typedef struct
+{
+   /* coefficients in the Pade expression of new energy function */
+   REAL8 ePaN, ePa1, ePa2, ePa3;
+   /* coefficients in the Taylor expansion of usual energy function */
+   REAL8 ETaN, ETa1, ETa2, ETa3, ETa5, ETa6;
+   /* coefficients in the Taylor expansion of the derivative of the
+    usual energy function */
+   REAL8 dETaN, dETa1, dETa2, dETa3, dETa5, dETa6;
+
+   /* Taylor expansion coefficients of energy flux*/
+   REAL8 FTaN, FTa1, FTa2, FTa3, FTa4, FTa5, FTa6, FTa7, FTa8, FTl6, FTl8, FTa10, FTa12;
+   /* Coefficients of the corresponding P-approximant */
+   REAL8 fPaN, fPa1, fPa2, fPa3, fPa4, fPa5, fPa6, fPa7, fPa8;
+
+   /* symmetric mass ratio, total mass, component masses */
+   REAL8 eta, totalmass;
+
+   /* initial and final values of frequency, time, velocity; lso
+    values of velocity and frequency; final phase. */
+   REAL8 vlso;
+
+   /* last stable orbit and pole defined by various Taylor and P-approximants */
+   REAL8 vlsoT0, vlsoT2, vlsoT4, vlsoT6;
+   REAL8 vlsoP0, vlsoP2, vlsoP4, vlsoP6;
+   REAL8 vlsoPP;
+   REAL8 vpoleP4, vpoleP6;
+   REAL8 vpolePP;
+}  expnCoeffsdEnergyFlux;
+
+
+typedef REAL8 (*EnergyFunction)(
+   REAL8 v,
+   expnCoeffsdEnergyFlux *ak);
+
+
+typedef REAL8 (*FluxFunction)(
+   REAL8 v,
+   expnCoeffsdEnergyFlux *ak);
+
+
+typedef struct
+{
+   EnergyFunction dEnergy;
+   FluxFunction flux;
+   expnCoeffsdEnergyFlux *coeffs;
+} TofVIntegrandIn;
+
+
+typedef struct
+{
+   REAL8 t;
+   REAL8 v0;
+   REAL8 t0;
+   REAL8 vlso;
+   REAL8 totalmass;
+   EnergyFunction dEnergy;
+   FluxFunction flux;
+   expnCoeffsdEnergyFlux *coeffs;
+} TofVIn;
 
 
 static REAL8 UNUSED XLALSimInspiralEt0(REAL8 v, expnCoeffsdEnergyFlux *ak)
