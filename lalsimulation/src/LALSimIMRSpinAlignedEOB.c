@@ -1300,9 +1300,9 @@ int XLALSimIMRSpinAlignedEOBWaveform(
 
 int XLALSimIMRSpinEOBWaveform(
         REAL8TimeSeries **hplus,
-        REAL8TimeSeries **hcross,
+         REAL8TimeSeries **hcross,
         //LIGOTimeGPS     *tc,
-        const REAL8     UNUSED phiC,
+        const REAL8      phiC,
         const REAL8     deltaT,
         const REAL8     m1SI,
         const REAL8     m2SI,
@@ -1315,8 +1315,9 @@ int XLALSimIMRSpinEOBWaveform(
 {
   
   int debugPK = 1;
-  INT4 i, k;
-  UINT4 j;
+  INT4 i=0;
+  INT4 k=0;
+  UINT4 j=0;
   INT4 UNUSED status;
   LIGOTimeGPS tc = LIGOTIMEGPSZERO;
 
@@ -1369,41 +1370,42 @@ int XLALSimIMRSpinEOBWaveform(
 
   /* Parameters of the system */
   REAL8 m1, m2, mTotal, eta, mTScaled;
-  REAL8 UNUSED amp0, amp;
-  REAL8 UNUSED sSub = 0.0;
+  REAL8  amp0, amp;
+  /*REAL8  sSub = 0.0;*/
 
   /* Dynamics of the system */
   REAL8Vector tVec, phiDMod, phiMod;
   REAL8Vector posVecx, posVecy, posVecz, momVecx, momVecy, momVecz;
   REAL8Vector s1Vecx, s1Vecy, s1Vecz, s2Vecx, s2Vecy, s2Vecz;
-  REAL8       omega, v, ham;
+   REAL8       omega, v, ham;
 
   /* Cartesian vectors needed to calculate Hamiltonian */
-  REAL8Vector cartPosVec, cartMomVec;
-  REAL8       cartPosData[3], cartMomData[3];
+   REAL8Vector cartPosVec, cartMomVec;
+   REAL8       cartPosData[3], cartMomData[3];
   REAL8 rcrossrdotNorm, rvec[3], rcrossrdot[3], s1dotLN, s2dotLN;; 
-  REAL8 UNUSED rcrossp[3], rcrosspMag, s1dotL, s2dotL;
+  REAL8  rcrossp[3], rcrosspMag, s1dotL, s2dotL;
 
   /* Polar vectors needed for waveform modes calculation */
-  REAL8Vector polarDynamics, cartDynamics;
-  REAL8 polData[4];
+   REAL8Vector UNUSED polarDynamics, cartDynamics;
+   REAL8 polData[4];
+  
   
   /* Signal mode */
-  COMPLEX16   hLM;
-  REAL8Vector UNUSED *sigReVec = NULL, *sigImVec = NULL;
+   COMPLEX16   hLM;
+  REAL8Vector  *sigReVec = NULL, *sigImVec = NULL;
 
   /* Non-quasicircular correction */
   EOBNonQCCoeffs nqcCoeffs;
-  COMPLEX16      UNUSED   hNQC;
+  COMPLEX16         hNQC;
   REAL8Vector    *ampNQC = NULL, *phaseNQC = NULL;
 
   /* Ringdown freq used to check the sample rate */
-  COMPLEX16Vector UNUSED modefreqVec;
-  COMPLEX16       UNUSED modeFreq;
+  COMPLEX16Vector  modefreqVec;
+  COMPLEX16        modeFreq;
 
   /* Spin-weighted spherical harmonics */
-  COMPLEX16 UNUSED MultSphHarmP;
-  COMPLEX16 UNUSED MultSphHarmM;
+  COMPLEX16  MultSphHarmP;
+  COMPLEX16  MultSphHarmM;
 
   /* We will have to switch to a high sample rate for ringdown attachment */
   REAL8 deltaTHigh;
@@ -1429,7 +1431,7 @@ int XLALSimIMRSpinEOBWaveform(
   UINT4 UNUSED peakIdx = 0, finalIdx = 0;
 
   /* (2,2) and (2,-2) spherical harmonics needed in (h+,hx) */
-  REAL8 UNUSED y_1, y_2, z1, z2;
+  REAL8  y_1, y_2, z1, z2;
 
   /* Parameter structures containing important parameters for the model */
   SpinEOBParams           seobParams;
@@ -1437,6 +1439,21 @@ int XLALSimIMRSpinEOBWaveform(
   EOBParams               eobParams;
   FacWaveformCoeffs       hCoeffs;
   NewtonMultipolePrefixes prefixes;
+  
+  REAL8 tPeakOmega, tAttach, combSize, /*longCombSize,*/ deltaNQC;
+  REAL8 sh = 0.0;
+  REAL8  vX, vY, vZ, rCrossV_x, rCrossV_y, rCrossV_z, vOmega, omegasav, omegasav2;
+   REAL8 magR, Lx, Ly, Lz, magL, LNhx, LNhy, LNhz, /*magLN,*/ Jx, Jy, Jz, magJ;
+   REAL8 aI2P, bI2P, gI2P, aP2J, bP2J, gP2J;
+  REAL8 chi1J, chi2J, chiJ, kappaJL;
+  REAL8 JframeEx[3], JframeEy[3], JframeEz[3];
+  REAL8 LframeEx[3], LframeEy[3], LframeEz[3];
+  
+  for (i=0; i<3; i++){
+      LframeEx[i] = 0.0;
+      LframeEy[i] = 0.0;
+      LframeEz[i] = 0.0;
+  }
 
   /* Set up structures and calculate necessary PN parameters */
   /* Due to precession, these need to get calculated in every step */
@@ -1451,10 +1468,10 @@ int XLALSimIMRSpinEOBWaveform(
   ark4GSLIntegrator       *integrator = NULL;
   REAL8Array              *dynamics   = NULL;
   REAL8Array              *dynamicsHi = NULL;
-  INT4  UNUSED          retLen, retLenLow, retLenHi;
+  INT4            retLen, retLenLow, retLenHi;
   INT4                    retLenRDPatch;
   INT4                    retLenRDPatchLow;
-  REAL8  UNUSED           tMax;
+  //REAL8             tMax;
   
   /* Interpolation spline */
   gsl_spline    *spline = NULL;
@@ -1670,7 +1687,7 @@ int XLALSimIMRSpinEOBWaveform(
    int NoComputeInitialConditions = 0;
 if( !NoComputeInitialConditions )
 {
-  REAL8 UNUSED temp32;
+  REAL8  temp32;
   temp32 = 17.23333034918909 + 0 * fMin / mTotal  / LAL_PI / LAL_MTSUN_SI;
   REAL8Vector* tmpValues2 = NULL;
   tmpValues2 = XLALCreateREAL8Vector( 14 );
@@ -2316,13 +2333,7 @@ if( !NoComputeInitialConditions )
    * ==============================
    */
 
-  REAL8 tPeakOmega, tAttach, combSize, /*longCombSize,*/ deltaNQC;
-  REAL8 UNUSED vX, vY, vZ, rCrossV_x, rCrossV_y, rCrossV_z, vOmega, omegasav, omegasav2;
-  REAL8 magR, Lx, Ly, Lz, magL, LNhx, LNhy, LNhz, /*magLN,*/ Jx, Jy, Jz, magJ;
-  REAL8 aI2P, bI2P, gI2P, aP2J, bP2J, gP2J;
-  REAL8 chi1J, chi2J, chiJ, kappaJL;
-  REAL8 JframeEx[3], JframeEy[3], JframeEz[3];
-  REAL8 LframeEx[3], LframeEy[3], LframeEz[3];
+  
   /* WaveStep 1
    * Locate merger point (max omega), calculate J, chi and kappa at merger, and construct final J frame
    */
@@ -2385,9 +2396,10 @@ if( !NoComputeInitialConditions )
       /* Stuff to find the actual peak time */
       REAL8 omegaDeriv1; //, omegaDeriv2;
       REAL8 time1, time2;
-      REAL8 UNUSED timewavePeak = 0., omegaDerivMid;
+      UNUSED REAL8  timewavePeak = 0.;
+      REAL8  omegaDerivMid=0.0;
       REAL8 UNUSED sigAmpSqHi = 0., oldsigAmpSqHi = 0.;
-      INT4  UNUSED peakCount = 0;
+      /*INT4   peakCount = 0;*/
       
       spline = gsl_spline_alloc( gsl_interp_cspline, retLen );
       acc    = gsl_interp_accel_alloc();
@@ -2472,18 +2484,9 @@ if( !NoComputeInitialConditions )
   chi1J/= magJ*m1*m1/mTotal/mTotal;
   chi2J/= magJ*m2*m2/mTotal/mTotal;
   chiJ = (chi1J+chi2J)/2. + (chi1J-chi2J)/2.*sqrt(1. - 4.*eta)/(1. - 2.*eta);
-  if (chiJ <= 0.) {
-    deltaNQC = 2.5;
-  }
-  else {
-    deltaNQC = 2.5 + 1.77*(chiJ/0.43655)*(chiJ/0.43655)*(chiJ/0.43655)*(chiJ/0.43655);
-  }
+  /* chiJ = (chi1J+chi2J)/2. + (chi1J-chi2J)/2.*((m1-m2)/(m1+m2))/(1. - 2.*eta);*/
   kappaJL      = (Lx*Jx + Ly*Jy + Lz*Jz) / magL / magJ;
-  combSize    *= 1.0 + 9.0 * (1.0 - fabs(kappaJL));
-  //longCombSize = combSize;
-  deltaNQC    += 10.0 * (1.0 - fabs(kappaJL));
-  tAttach = tPeakOmega - deltaNQC;
-  /* WaveStep 1.4: calculate combsize and deltaNQC */
+  sh = 0.0;
   switch ( SpinAlignedEOBversion )
   {
      case 1:
@@ -2497,8 +2500,21 @@ if( !NoComputeInitialConditions )
        break;
      case 2:
        combSize = 12.;
-       if ( chiJ > 0.8 ) combSize = 13.5;
+       /*if ( chiJ > 0.8 ) combSize = 13.5;*/
+       if (chiJ >= 0.7 && chiJ < 0.8) sh = -9.0*(eta - 0.25);
        if ( chi1J == 0. && chi2J == 0. ) combSize = 11.;
+       if (chiJ >= 0.8 && eta >30.0/(31.*31) && eta <10.0/121.){
+           combSize = 13.5;
+           sh = -9.0*(eta - 0.25);       
+       }
+       if (chiJ >= 0.9 && eta < 30./(31.*31.)){
+           combSize = 12.0;
+           sh = 0.55 -9.0*(eta-0.25);
+       }
+       if (chiJ >= 0.8 && eta > 10./121.){
+           combSize = 8.5;
+           sh = 1.0 - 9.0*(eta - 0.25);
+       }
        if ( chiJ <= 0. ) {
          deltaNQC = 2.5 + (1. + chiJ)*(-2.5 + 2.5*sqrt(1.-4.*eta));
        }
@@ -2514,6 +2530,16 @@ if( !NoComputeInitialConditions )
        XLAL_ERROR( XLAL_EINVAL );
        break;
   }
+  
+  /*** Here is the old attempt of Yi to modify parameters according to the 
+       opening angle  
+  combSize    *= 1.0 + 9.0 * (1.0 - fabs(kappaJL));
+  //longCombSize = combSize;
+  deltaNQC    += 10.0 * (1.0 - fabs(kappaJL));*/
+  
+  tAttach = tPeakOmega - deltaNQC - sh;
+  /* WaveStep 1.4: calculate combsize and deltaNQC */
+  
 
   /* WaveStep 1.5: get  */
   /* WaveStep 1.6: construct J-frame */
@@ -2544,12 +2570,12 @@ if( !NoComputeInitialConditions )
    * Calculate quasi-nonprecessing waveforms
    */
   /* WaveStep 2.1: create time-series containers for euler angles and hlm harmonics */
-  retLen = retLenLow
+  retLen = retLenLow;
   
-  SphHarmTimeSeries *hlmPTS = NULL;
-  SphHarmTimeSeries *hIMRlmJTS = NULL;
-  REAL8TimeSeries UNUSED *hPlusTS  = XLALCreateREAL8TimeSeries( "H_PLUS", &tc, 0.0, deltaT, &lalStrainUnit, retLen );
-  REAL8TimeSeries UNUSED *hCrossTS = XLALCreateREAL8TimeSeries( "H_CROSS", &tc, 0.0, deltaT, &lalStrainUnit, retLen );
+  SphHarmTimeSeries  *hlmPTS = NULL;
+  SphHarmTimeSeries  *hIMRlmJTS = NULL;
+  REAL8TimeSeries  *hPlusTS  = XLALCreateREAL8TimeSeries( "H_PLUS", &tc, 0.0, deltaT, &lalStrainUnit, retLen );
+  REAL8TimeSeries  *hCrossTS = XLALCreateREAL8TimeSeries( "H_CROSS", &tc, 0.0, deltaT, &lalStrainUnit, retLen );
   REAL8TimeSeries *alphaI2PTS = XLALCreateREAL8TimeSeries( "alphaI2P", &tc, 0.0, deltaT, &lalStrainUnit, retLen );
   REAL8TimeSeries  *betaI2PTS = XLALCreateREAL8TimeSeries(  "betaI2P", &tc, 0.0, deltaT, &lalStrainUnit, retLen );
   REAL8TimeSeries *gammaI2PTS = XLALCreateREAL8TimeSeries( "gammaI2P", &tc, 0.0, deltaT, &lalStrainUnit, retLen );
@@ -2580,7 +2606,7 @@ if( !NoComputeInitialConditions )
                                                                    retLen + retLenRDPatchLow );
   COMPLEX16TimeSeries *hIMR20JTS  = XLALCreateCOMPLEX16TimeSeries( "HIMRJ_20",  &tc, 0.0, deltaT, &lalStrainUnit,
                                                                    retLen + retLenRDPatchLow );
-   COMPLEX16TimeSeries *hIMR2m1JTS = XLALCreateCOMPLEX16TimeSeries( "HIMRJ_2m1", &tc, 0.0, deltaT, &lalStrainUnit,
+  COMPLEX16TimeSeries *hIMR2m1JTS = XLALCreateCOMPLEX16TimeSeries( "HIMRJ_2m1", &tc, 0.0, deltaT, &lalStrainUnit,
                                                                    retLen + retLenRDPatchLow );
   COMPLEX16TimeSeries *hIMR2m2JTS = XLALCreateCOMPLEX16TimeSeries( "HIMRJ_2m2", &tc, 0.0, deltaT, &lalStrainUnit,
                                                                    retLen + retLenRDPatchLow );
@@ -2603,7 +2629,6 @@ if( !NoComputeInitialConditions )
   }
 
   /* WaveStep 2.2: get Calibrated NQC coeffcients, based on underlying nonprecessing model */
-  }
 
   /* WaveStep 2.3.1: main loop for quasi-nonprecessing waveform generation */
   // Generating modes for coarsely sampled portion 
@@ -2669,10 +2694,11 @@ if( !NoComputeInitialConditions )
     gP2J = atan2(  JframeEy[0]*LframeEz[0]+JframeEy[1]*LframeEz[1]+JframeEy[2]*LframeEz[2],
                  -(JframeEx[0]*LframeEz[0]+JframeEx[1]*LframeEz[1]+JframeEx[2]*LframeEz[2]));
 
-if (i==0||i==1900) printf("{{%f,%f,%f},{%f,%f,%f},{%f,%f,%f}}\n",JframeEx[0],JframeEx[1],JframeEx[2],JframeEy[0],JframeEy[1],JframeEy[2],JframeEz[0],JframeEz[1],JframeEz[2]);
+/*if (i==0||i==1900) printf("{{%f,%f,%f},{%f,%f,%f},{%f,%f,%f}}\n",JframeEx[0],JframeEx[1],JframeEx[2],JframeEy[0],JframeEy[1],JframeEy[2],JframeEz[0],JframeEz[1],JframeEz[2]);
 if (i==0||i==1900) printf("{{%f,%f,%f},{%f,%f,%f},{%f,%f,%f}}\n",LframeEx[0],LframeEx[1],LframeEx[2],LframeEy[0],LframeEy[1],LframeEy[2],LframeEz[0],LframeEz[1],LframeEz[2]);
 if (i==0||i==1900) printf("YP: study time = %f\n",i*deltaT/mTScaled);
 if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+JframeEy[1]*LframeEz[1]+JframeEy[2]*LframeEz[2], JframeEx[0]*LframeEz[0]+JframeEx[1]*LframeEz[1]+JframeEx[2]*LframeEz[2], gP2J, atan2(-0.365446,-0.378524));
+    */
     /* I2P Euler angles are stored only for debugging purposes */
     alphaI2PTS->data->data[i] = -aI2P;
      betaI2PTS->data->data[i] = bI2P;
@@ -2840,20 +2866,21 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   h20PTS  = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, 0 );
   h2m1PTS = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, -1);
   h2m2PTS = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, -2);
-  printf("YP: SphHarmTS structures populated.\n");
-
-  out = fopen( "PWaves.dat", "w" );
-  for ( i = 0; i < retLen; i++ )
-  {
-    fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
+  if (debugPK){
+     printf("YP: SphHarmTS structures populated.\n");
+     out = fopen( "PWaves.dat", "w" );
+     for ( i = 0; i < retLen; i++ )
+     {
+        fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
              i*deltaT/mTScaled, creal(h22PTS->data->data[i]), cimag(h22PTS->data->data[i]),
                                 creal(h21PTS->data->data[i]), cimag(h21PTS->data->data[i]),
                                 creal(h20PTS->data->data[i]), cimag(h20PTS->data->data[i]),
                                 creal(h2m1PTS->data->data[i]), cimag(h2m1PTS->data->data[i]),
                                 creal(h2m2PTS->data->data[i]), cimag(h2m2PTS->data->data[i]) );
+     }
+     fclose( out );
+     printf("YP: P-frame waveforms written to file.\n");
   }
-  fclose( out );
-  printf("YP: P-frame waveforms written to file.\n");
 
 
   /* WaveStep 2.3.2: main loop for quasi-nonprecessing waveform generation -- HIGH SR */
@@ -3425,35 +3452,106 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   hIMR2m1ITS = XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, -1);
   hIMR2m2ITS = XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, -2);
 
-  out = fopen( "IWaves.dat", "w" );
-  for ( i = 0; i < retLenLow + retLenRDPatchLow; i++ )
-  {
-    fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
+  if (debugPK){
+    out = fopen( "IWaves.dat", "w" );
+    for ( i = 0; i < retLenLow + retLenRDPatchLow; i++ )
+    {
+       fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
              /*timeHi.data[i]+HiSRstart, creal(h22JTSHi->data->data[i]), cimag(h22JTSHi->data->data[i]),*/
              tlistRDPatch->data[i], creal(hIMR22ITS->data->data[i]), cimag(hIMR22ITS->data->data[i]),
                                 creal(hIMR21ITS->data->data[i]), cimag(hIMR21ITS->data->data[i]),
                                 creal(hIMR20ITS->data->data[i]), cimag(hIMR20ITS->data->data[i]),
                                 creal(hIMR2m1ITS->data->data[i]), cimag(hIMR2m1ITS->data->data[i]),
                                 creal(hIMR2m2ITS->data->data[i]), cimag(hIMR2m2ITS->data->data[i]) );
+    }
+    fclose( out );
   }
-  fclose( out );
 
+  /*** This is copy -paste: FIXME need to make proper calculation of h+, hx*/
+  MultSphHarmP = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 2 );
+  MultSphHarmM = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, -2 );
+
+    y_1 =   creal(MultSphHarmP) + creal(MultSphHarmM);
+    y_2 =   cimag(MultSphHarmM) - cimag(MultSphHarmP);
+    z1 = - cimag(MultSphHarmM) - cimag(MultSphHarmP);
+    z2 =   creal(MultSphHarmM) - creal(MultSphHarmP);
+
+    for ( i = 0; i < (INT4)sigReVec->length; i++ )
+    {
+      REAL8 x1 = sigReVec->data[i];
+      REAL8 x2 = sigImVec->data[i];
+
+      hPlusTS->data->data[i]  = (x1 * y_1) + (x2 * y_2);
+      hCrossTS->data->data[i] = (x1 * z1) + (x2 * z2);
+    }
+
+    /* Point the output pointers to the relevant time series and return */
+    (*hplus)  = hPlusTS;
+    (*hcross) = hCrossTS;
 
 
   /*hplus =  XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 );
   hcross =  XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 );*/
-
-  exit(0);
-
- /*** Stas: The rest of the code is not used right now ***/
-  abort();
-
- 
-
-
-
-abort();
-
+  
+    XLALDestroyREAL8TimeSeries(alphaI2PTS);
+    XLALDestroyREAL8TimeSeries(betaI2PTS);
+    XLALDestroyREAL8TimeSeries(gammaI2PTS);
+    XLALDestroyREAL8TimeSeries(alphaP2JTS);
+    XLALDestroyREAL8TimeSeries(betaP2JTS);
+    XLALDestroyREAL8TimeSeries(gammaP2JTS);
+    
+    XLALDestroyREAL8TimeSeries(alphaI2PTSHi);
+    XLALDestroyREAL8TimeSeries(betaI2PTSHi);
+    XLALDestroyREAL8TimeSeries(gammaI2PTSHi);
+    XLALDestroyREAL8TimeSeries(alphaP2JTSHi);
+    XLALDestroyREAL8TimeSeries(betaP2JTSHi);
+    XLALDestroyREAL8TimeSeries(gammaP2JTSHi);
+    
+    XLALDestroyCOMPLEX16TimeSeries(h22TS);  
+    XLALDestroyCOMPLEX16TimeSeries(h21TS); 
+    XLALDestroyCOMPLEX16TimeSeries(h20TS); 
+    XLALDestroyCOMPLEX16TimeSeries(h2m1TS); 
+    XLALDestroyCOMPLEX16TimeSeries(h2m2TS);
+    XLALDestroyCOMPLEX16TimeSeries(h22PTS); 
+    XLALDestroyCOMPLEX16TimeSeries(h21PTS);
+    XLALDestroyCOMPLEX16TimeSeries(h20PTS);
+    XLALDestroyCOMPLEX16TimeSeries(h2m1PTS);
+    XLALDestroyCOMPLEX16TimeSeries(h2m2PTS);
+    XLALDestroyCOMPLEX16TimeSeries(h22JTS);
+    XLALDestroyCOMPLEX16TimeSeries(h21JTS); 
+    XLALDestroyCOMPLEX16TimeSeries(h20JTS);
+    XLALDestroyCOMPLEX16TimeSeries(h2m1JTS); 
+    XLALDestroyCOMPLEX16TimeSeries(h2m2JTS);
+    XLALDestroyCOMPLEX16TimeSeries(hJTS);
+    XLALDestroyCOMPLEX16TimeSeries(hIMR22JTS); 
+    XLALDestroyCOMPLEX16TimeSeries(hIMR21JTS); 
+    XLALDestroyCOMPLEX16TimeSeries(hIMR20JTS); 
+    XLALDestroyCOMPLEX16TimeSeries(hIMR2m1JTS); 
+    XLALDestroyCOMPLEX16TimeSeries(hIMR2m2JTS); 
+    XLALDestroyCOMPLEX16TimeSeries(hIMRJTS);
+    
+    XLALDestroyCOMPLEX16TimeSeries(h22TSHi);  
+    XLALDestroyCOMPLEX16TimeSeries(h21TSHi); 
+    XLALDestroyCOMPLEX16TimeSeries(h20TSHi); 
+    XLALDestroyCOMPLEX16TimeSeries(h2m1TSHi); 
+    XLALDestroyCOMPLEX16TimeSeries(h2m2TSHi);
+    XLALDestroyCOMPLEX16TimeSeries(h22PTSHi); 
+    XLALDestroyCOMPLEX16TimeSeries(h21PTSHi);
+    XLALDestroyCOMPLEX16TimeSeries(h20PTSHi);
+    XLALDestroyCOMPLEX16TimeSeries(h2m1PTSHi);
+    XLALDestroyCOMPLEX16TimeSeries(h2m2PTSHi);
+    XLALDestroyCOMPLEX16TimeSeries(h22JTSHi);
+    XLALDestroyCOMPLEX16TimeSeries(h21JTSHi); 
+    XLALDestroyCOMPLEX16TimeSeries(h20JTSHi);
+    XLALDestroyCOMPLEX16TimeSeries(h2m1JTSHi); 
+    XLALDestroyCOMPLEX16TimeSeries(h2m2JTSHi);
+    XLALDestroyCOMPLEX16TimeSeries(hJTSHi);
+    XLALDestroyCOMPLEX16TimeSeries(hIMR22JTSHi); 
+    XLALDestroyCOMPLEX16TimeSeries(hIMR21JTSHi); 
+    XLALDestroyCOMPLEX16TimeSeries(hIMR20JTSHi); 
+    XLALDestroyCOMPLEX16TimeSeries(hIMR2m1JTSHi); 
+    XLALDestroyCOMPLEX16TimeSeries(hIMR2m2JTSHi); 
+    XLALDestroyCOMPLEX16TimeSeries(hIMRJTSHi);
 
 
   /* Point the output pointers to the relevant time series and return */
@@ -3464,4 +3562,4 @@ abort();
   return XLAL_SUCCESS;
 }
 
-#endif
+

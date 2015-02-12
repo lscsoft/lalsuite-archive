@@ -395,7 +395,12 @@ int XLALSimIMRSpinEOBInitialConditions(
                       SpinEOBParams *params     /**<< Spin EOB parameters */
                       );
 
-
+int XLALSpinAlignedHcapDerivative(
+            double                t,
+            const REAL8           values[],
+            REAL8                 dvalues[],
+            void                  *funcParams
+ );
 
  int UNUSED 
 CalculateThisMultipolePrefix(

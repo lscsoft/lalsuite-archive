@@ -55,12 +55,8 @@
  *------------------------------------------------------------------------------------------
  */
 
-static int XLALSpinAlignedHcapDerivative(
-                          double                t,
-                          const REAL8           values[],
-                          REAL8                 dvalues[],
-                          void                  *funcParams
-                               );
+ 
+
 /*------------------------------------------------------------------------------------------
  *
  *          Defintions of functions.
