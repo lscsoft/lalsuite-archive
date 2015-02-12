@@ -2154,7 +2154,7 @@ class KDSkeleton(object):
         to a box with less than 'boxing' objects in it and returns the box bounds,
         number of objects in the box, and the weighting.
         """
-        if self._left == None:
+        if self._left is None:
             return self._bounds, self._samples, self._importance
         elif coordinates[self._splitDim] < self._splitValue:
             return self._left.search(coordinates)
@@ -2654,7 +2654,7 @@ def random_split(items, fraction):
     return items[:size], items[size:]
 
 def addSample(tree,coordinates):
-    if tree._left == None:
+    if tree._left is None:
         tree.addSample()
     elif coordinates[tree._splitDim] < tree._splitValue:
         addSample(tree._left,coordinates)
@@ -2995,7 +2995,7 @@ def kdtree_bin2Step(posterior,coord_names,confidence_levels,initial_boundingbox 
         addSample(tree2fill,tempSample)
 
     def getValues(tree,listing):
-        if tree._left == None:
+        if tree._left is None:
             listing.append([tree.bounds(),tree._importance,tree._samples,tree._volume])
         else:
             getValues(tree._left,listing)
