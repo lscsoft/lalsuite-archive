@@ -24,6 +24,7 @@ from glue.ligolw import dbtables
 from pylal import InspiralUtils
 from pylal import ligolw_sqlutils as sqlutils
 from pylal import printutils
+from pylal.ligolw_dataUtils import get_row_stat
 
 __author__ = "Sarah Caudill <sarah.caudill@ligo.org>"
 __prog__ = "ligolw_cbc_plotsngl"
@@ -235,16 +236,6 @@ def parse_command_line():
 #                       Function Definitions
 #
 # =============================================================================
-
-def get_row_stat(row, arg):
-    """
-    Wrapper method to evaluate the desired operation on columns from a row in the SelectedFound table.
-    The name space available to eval is limited to the columns in the row and functions in the math module.
-    """
-    row_dict = dict([ [name, getattr(row,name)] for name in dir(row) ])
-    safe_dict = dict([ [name,val] for name,val in row_dict.items() + math.__dict__.items() if not name.startswith('__') ])
-
-    return eval( arg, {"__builtins__":None}, safe_dict )
 
 def select_best_inj_match(found_table, selection_stat, select_by, use_match_rank = True):
     """
