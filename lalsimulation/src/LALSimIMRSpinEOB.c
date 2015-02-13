@@ -42,7 +42,7 @@
 #include "LALSimIMRSpinEOB.h"
 
 /* Include all the static function files we need */
-#include "LALSimIMREOBHybridRingdown.c"
+/*#include "LALSimIMREOBHybridRingdown.c"
 #include "LALSimIMREOBFactorizedWaveform.c"
 #include "LALSimIMREOBNewtonianMultipole.c"
 #include "LALSimIMREOBNQCCorrection.c"
@@ -51,7 +51,7 @@
 #include "LALSimIMRSpinAlignedEOBHcapDerivative.c"
 #include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBFactorizedWaveform.c"
-#include "LALSimIMRSpinEOBFactorizedFlux.c"
+#include "LALSimIMRSpinEOBFactorizedFlux.c"*/
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
