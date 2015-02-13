@@ -73,7 +73,8 @@
  * x = r, y = z = 0, px = pr, py = pphi/r, pz = 0, and
  * omega = v/r = (dy/dt)/r = (dH/dpy)/r, dr/dt = dx/dt = dH/dpx, etc.
  */
-static int XLALSpinAlignedHcapDerivative(
+ 
+int XLALSpinAlignedHcapDerivative(
                   double UNUSED t,          /**< UNUSED */
                   const REAL8   values[],   /**< dynamical varables */
                   REAL8         dvalues[],  /**< time derivative of dynamical variables */
