@@ -43,8 +43,8 @@
 #include <lal/LALSimIMR.h>
 
 #include "LALSimIMRSpinEOB.h"
-#include "LALSimIMRSpinEOBHamiltonian.c"
-#include "LALSimIMRSpinEOBFactorizedFlux.c"
+/*#include "LALSimIMRSpinEOBHamiltonian.c"
+#include "LALSimIMRSpinEOBFactorizedFlux.c"*/
 
 #include <gsl/gsl_deriv.h>
 

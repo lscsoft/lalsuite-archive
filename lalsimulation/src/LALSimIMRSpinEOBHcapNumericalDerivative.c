@@ -46,10 +46,10 @@
 #include "LALSimIMRSpinEOB.h"
 
 
-#include "LALSimIMRSpinEOBAuxFuncs.c"
+/*#include "LALSimIMRSpinEOBAuxFuncs.c"
 #include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBFactorizedFlux.c"
-#include "LALSimIMREOBFactorizedWaveform.c"
+#include "LALSimIMREOBFactorizedWaveform.c"*/
 #include "LALSimIMRSpinEOBHcapNumericalDerivative.h"
 
 //int UsePrec = 1;

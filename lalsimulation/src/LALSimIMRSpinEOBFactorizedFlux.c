@@ -38,10 +38,10 @@
 #include "LALSimIMREOBNRv2.h"
 #include "LALSimIMRSpinEOB.h"
 
-#include "LALSimIMRSpinEOBAuxFuncs.c"
+/*#include "LALSimIMRSpinEOBAuxFuncs.c"
 #include "LALSimIMREOBNQCCorrection.c"
 #include "LALSimIMRSpinEOBFactorizedWaveform.c"
-
+*/
 
 
 /*------------------------------------------------------------------------------------------
