@@ -66,6 +66,22 @@ UNUSED static int XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients(
           const UINT4               SpinAlignedEOBversion
           );
 
+static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+          FacWaveformCoeffs * const coeffs, /**< OUTPUT, pre-computed waveform coefficients */
+          const REAL8               m1,     /**< mass 1 */
+          const REAL8               m2,     /**< mass 2 */
+          const REAL8               eta,    /**< symmetric mass ratio */
+          const REAL8               a,      /**< Kerr spin parameter for test-particle terms */
+          const REAL8               chiS,   /**< (chi1+chi2)/2 */
+          const REAL8               chiA,   /**< (chi1-chi2)/2 */
+          const UINT4               SpinAlignedEOBversion  /**< 1 for SEOBNRv1; 2 for SEOBNRv2 */
+          );
+
+
+/****************************************************
+ *    Definition of Functions 
+ *    **********************************************/
+
 
 /**
  * This function calculates coefficients for hlm mode factorized-resummed waveform.
@@ -73,7 +89,7 @@ UNUSED static int XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients(
  * Appendix of the paper, and papers DIN (PRD 79, 064004 (2009)) and PBFRT (PRD 83, 064003 (2011)).
  */
 
-int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
           FacWaveformCoeffs * const coeffs, /**< OUTPUT, pre-computed waveform coefficients */
           const REAL8               m1,     /**< mass 1 */
           const REAL8               m2,     /**< mass 2 */

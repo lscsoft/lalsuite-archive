@@ -135,12 +135,6 @@ struct tagPrecEulerAnglesIntegration
 }
 PrecEulerAnglesIntegration;
 
-int XLALSpinAlignedHcapDerivative(
-            double                t,
-            const REAL8           values[],
-            REAL8                 dvalues[],
-            void                  *funcParams
- );
 
 //
 REAL8 XLALCalculateEOBA( 
@@ -148,47 +142,6 @@ REAL8 XLALCalculateEOBA(
         EOBACoefficients * restrict coeffs /**<< Pre-computed coefficients for the A function */
  );
 
-
- INT4  XLALSimIMRSpinEOBGetSpinFactorizedWaveform(
-                                COMPLEX16             * restrict hlm,
-                                REAL8Vector           * restrict values,
-                                const REAL8           v,
-                                const REAL8           Hreal,
-                                const INT4            l,
-                                const INT4            m,
-                                SpinEOBParams         * restrict params
-                                );
-
- INT4  XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform( 
-                 COMPLEX16         * restrict hlm,    /**< OUTPUT, hlm waveforms */
-                 REAL8Vector       * restrict values, /**< dyanmical variables: (r,\phi,p_r,p_\phi) */
-                 REAL8Vector       * restrict cartvalues, /**< dyanmical variables */
-                 const REAL8         v,               /**< velocity */
-                 const REAL8         Hreal,           /**< real Hamiltonian */
-                 const INT4          l,               /**< l mode index */
-                 const INT4          m,               /**< m mode index */
-                 SpinEOBParams     * restrict params  /**< Spin EOB parameters */
-                 );
- INT4   XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
-                                COMPLEX16             * restrict hlm,
-                                REAL8Vector           * restrict values,
-                                const REAL8           v,
-                                const REAL8           Hreal,
-                                const INT4            l,
-                                const INT4            m,
-                                SpinEOBParams         * restrict params
-                                );
-
- INT4  XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform( 
-                 COMPLEX16         * restrict hlm,    /**< OUTPUT, hlm waveforms */
-                 REAL8Vector       * restrict values, /**< dyanmical variables: (r,\phi,p_r,p_\phi) */
-                 REAL8Vector       * restrict cartvalues, /**< dyanmical variables */
-                 const REAL8         v,               /**< velocity */
-                 const REAL8         Hreal,           /**< real Hamiltonian */
-                 const INT4          l,               /**< l mode index */
-                 const INT4          m,               /**< m mode index */
-                 SpinEOBParams     * restrict params  /**< Spin EOB parameters */
-                 );
 
 
 
@@ -199,54 +152,6 @@ REAL8  XLALEffectiveHamiltonian( const REAL8 eta,          /**<< Symmetric mass 
                                 EOBACoefficients *aCoeffs /**<< Pre-computed coefficients in A function */
                               );
 
-
-
-REAL8   GSLSpinHamiltonianWrapper( double x, void *params );
-
-int   XLALSpinHcapNumericalDerivative(
-                          double                t,
-                          const REAL8           values[],
-                          REAL8                 dvalues[],
-                          void                  *funcParams
-                               ) ;
-
-int  XLALSpinHcapNumericalDerivativeNoFlux(
-                          double                t,
-                          const REAL8           values[],
-                          REAL8                 dvalues[],
-                          void                  *funcParams
-                               ) ;
-
-REAL8  XLALSpinHcapNumDerivWRTParam(
-                       const INT4 paramIdx,
-                       const REAL8 values[],
-                       SpinEOBParams *params
-                       ) ;
-
-
- inline REAL8  XLALCalculateA5( REAL8 eta );
-
- inline REAL8   XLALCalculateA6( REAL8 eta );
-
-
-/**
- * Calculates the a5 parameter in the A potential function in EOBNRv2
- */
- inline
-REAL8   XLALCalculateA5( const REAL8 eta /**<< Symmetric mass ratio */
-                     )
-{
-  return - 5.82827 - 143.486 * eta + 447.045 * eta * eta;
-}
-
-/**
- * Calculates the a6 parameter in the A potential function in EOBNRv2
- */
- inline
-REAL8  XLALCalculateA6( UNUSED const REAL8 eta /**<< Symmetric mass ratio */)
-{
-  return 184.0;
-}
 
 
 typedef struct
@@ -349,21 +254,8 @@ SEOBRootParams;
 
  REAL8  XLALSimInspiralFp8PP(REAL8 v, expnCoeffsdEnergyFlux *ak);
 
- REAL8  
-XLALAssociatedLegendreXIsZero( const int l,
-                               const int m
-                             );
 
- int  
-XLALScalarSphHarmThetaPiBy2(COMPLEX16 *y,
-                         INT4 l,
-                         INT4  m,
-                         REAL8 phi);
 
- int  
-XLALAbsScalarSphHarmThetaPiBy2(COMPLEX16 *y,
-                         INT4 l,
-                         INT4  m);
 
 int XLALSimIMRSpinEOBInitialConditions(
                       REAL8Vector   *initConds, /**<< OUTPUT, Initial dynamical variables */
@@ -378,13 +270,6 @@ int XLALSimIMRSpinEOBInitialConditions(
 
 
 
- int  
-CalculateThisMultipolePrefix(
-               COMPLEX16 *prefix,
-               const REAL8 m1,
-               const REAL8 m2,
-               const INT4 l,
-               const INT4 m );
 
  int  XLALSimIMREOBComputeNewtonMultipolePrefixes(
                 NewtonMultipolePrefixes *prefix, /**<< OUTPUT Structure containing the coeffs */
@@ -428,36 +313,8 @@ XLALSimIMRSpinEOBFluxCalculateNewtonianMultipole(
                  EOBParams *params     /**<< Pre-computed coefficients, parameters, etc. */
                  );
 
- int  
-XLALScalarSphHarmThetaPiBy2(
-                 COMPLEX16 *y, /**<< OUTPUT, Ylm(0,phi) */
-                 INT4 l,       /**<< Mode l */
-                 INT4  m,      /**<< Mode m */
-                 REAL8 phi     /**<< Orbital phase (in radians) */
-                 );
 
 
- int  
-XLALAbsScalarSphHarmThetaPiBy2(
-                 COMPLEX16 *y, /**<< OUTPUT, Ylm(0,phi) */
-                 INT4 l,       /**<< Mode l */
-                 INT4  m      /**<< Mode m */
-                 );
-
-
- REAL8  
-XLALAssociatedLegendreXIsZero( const int l,
-                               const int m );
-
-
- int  
-CalculateThisMultipolePrefix(
-                 COMPLEX16 *prefix, /**<< OUTPUT, Prefix value */
-                 const REAL8 m1,    /**<< mass 1 */
-                 const REAL8 m2,    /**<< mass 2 */
-                 const INT4 l,      /**<< Mode l */
-                 const INT4 m       /**<< Mode m */
-                 );
 
 
  REAL8   XLALSimIMREOBGetNRPeakDeltaT( 
@@ -555,89 +412,6 @@ CalculateThisMultipolePrefix(
 
 
 
-
-/**
- * This function calculates the DeltaR potential function in the spin EOB Hamiltonian
- */
-REAL8 XLALSimIMRSpinEOBHamiltonianDeltaR(
-        SpinEOBHCoeffs *coeffs, /**<< Pre-computed coefficients which appear in the function */
-        const REAL8    r,       /**<< Current orbital radius (in units of total mass) */
-        const REAL8    eta,     /**<< Symmetric mass ratio */
-        const REAL8    a        /**<< Normalized deformed Kerr spin */
-        );
-
-REAL8 XLALSimIMRSpinEOBHamiltonian(
-               const REAL8    eta,
-               REAL8Vector    * restrict x,
-               REAL8Vector    * restrict p,
-               REAL8Vector    * restrict s1Vec,
-               REAL8Vector    * restrict s2Vec,
-               REAL8Vector    * restrict sigmaKerr,
-               REAL8Vector    * restrict sigmaStar,
-               int                       tortoise,
-               SpinEOBHCoeffs *coeffs);
-
-int XLALSimIMRCalculateSpinEOBHCoeffs(
-        SpinEOBHCoeffs *coeffs,
-        const REAL8    eta,
-        const REAL8    a,
-        const UINT4    SpinAlignedEOBversion
-        );
-
-REAL8 XLALSimIMRSpinEOBHamiltonianDeltaT( 
-        SpinEOBHCoeffs *coeffs,
-        const REAL8    r,
-        const REAL8    eta,
-        const REAL8    a
-        );
-
-REAL8 XLALSimIMRSpinAlignedEOBCalcOmega(
-                      const REAL8          values[],
-                      SpinEOBParams        *funcParams
-                      );
-
-REAL8 XLALSimIMRSpinAlignedEOBNonKeplerCoeff(
-                      const REAL8           values[],
-                      SpinEOBParams         *funcParams
-                      );
-
-double GSLSpinAlignedHamiltonianWrapper( double x, void *params );
-
-REAL8  inner_product( const REAL8 values1[], 
-                             const REAL8 values2[]
-                             );
-
-/* static */
-REAL8* cross_product( const REAL8 values1[],
-                              const REAL8 values2[],
-                              REAL8 result[] 
-                              );
-
-REAL8 XLALSimIMRSpinEOBCalcOmega(
-                      const REAL8          values[],
-                      SpinEOBParams        *funcParams
-                      );
-
-REAL8 XLALSimIMRSpinEOBNonKeplerCoeff(
-                      const REAL8           values[],
-                      SpinEOBParams         *funcParams
-                      );
-
-int XLALSpinHcapRvecDerivative(
-                 double      t,         /**<<  */
-                 const  REAL8      values[],  /**<< Dynamical variables */
-                 REAL8             dvalues[], /**<< Time derivatives of variables (returned) */
-                 void             *funcParams /**<< EOB parameters */
-                               ) ;
-                              
-double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params );
-
-double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params );
-
-
-
-
-
 /* */
 int XLALCalculateEOBACoefficients(
           EOBACoefficients * const coeffs, /**<< A coefficients (populated in function) */
@@ -652,12 +426,6 @@ REAL8 XLALCalculateEOBdAdr(
      );
 
 
-
-/* */
-REAL8 XLALCalculateEOBD( 
-        REAL8   r, /**<< Orbital separation (in units of total mass M) */
-        REAL8 eta  /**<< Symmetric mass ratio */       
-        );
 
 
   int XLALSimIMREOBCalcFacWaveformCoefficients(
@@ -741,227 +509,6 @@ nonKeplerianCoefficient(
 
 REAL8 XLALKronecker( const INT4 i, const INT4 j );
 
-int XLALSimIMRSpinEOBCalculateSigmaKerr(
-                                   REAL8Vector *sigmaKerr,
-                                   REAL8        mass1,
-                                   REAL8        mass2,
-                                   REAL8Vector *s1,
-                                   REAL8Vector *s2 );
-
-int XLALSimIMRSpinEOBCalculateSigmaStar(
-                                   REAL8Vector *sigmaStar,
-                                   REAL8        mass1,
-                                   REAL8        mass2,
-                                   REAL8Vector *s1,
-                                   REAL8Vector *s2 );
-
-
-int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
-          FacWaveformCoeffs * const coeffs, /**< OUTPUT, pre-computed waveform coefficients */
-          const REAL8               m1,     /**< mass 1 */
-          const REAL8               m2,     /**< mass 2 */
-          const REAL8               eta,    /**< symmetric mass ratio */
-          const REAL8               a,      /**< Kerr spin parameter for test-particle terms */
-          const REAL8               chiS,   /**< (chi1+chi2)/2 */
-          const REAL8               chiA,   /**< (chi1-chi2)/2 */
-          const UINT4               SpinAlignedEOBversion  /**< 1 for SEOBNRv1; 2 for SEOBNRv2 */
-          );
-
-
-
-
-/***** Inline functions  **********/
-
-/**
- * The time difference between the orbital peak and the peak amplitude
- * of the mode in question (currently only 2,2 implemented ).
- * Eq. 33 of Taracchini et al. PRD 86, 024011 (2012).
- */
- static 
-inline REAL8 XLALSimIMREOBGetNRSpinPeakDeltaT( 
-                 INT4 l,           /**<< Mode l */
-                 INT4 m,           /**<< Mode m */
-                 REAL8  eta, /**<< Symmetric mass ratio */
-                 REAL8 a           /**<< Dimensionless spin */
-                 )
-{
-
-  switch ( l )
-  {
-    case 2:
-      switch ( m )
-      {
-        case 2:
-          /* DeltaT22 defined here is a minus sign different from Eq. (33) of Taracchini et al. */
-          if ( a <= 0.0 )
-          {
-            return 2.5;
-          }
-          else
-          {
-            return (2.5 + 1.77*a*a*a*a/(0.43655*0.43655*0.43655*0.43655)/(1.0-2.0*eta)/(1.0-2.0*eta)/(1.0-2.0*eta)/(1.0-2.0*eta));
-          }
-          break;
-        default:
-          XLAL_ERROR_REAL8( XLAL_EINVAL );
-      }
-      break;
-    default:
-      XLAL_ERROR_REAL8( XLAL_EINVAL );
-  }
-
-  /* We should never get here, but I expect a compiler whinge without it... */
-  XLALPrintError( "XLAL Error %s - We should never get here!!\n", __func__ );
-  XLAL_ERROR_REAL8( XLAL_EINVAL );
-}
-
-/**
- * Peak amplitude predicted by fitting NR results (currently only 2,2 available).
- * Tables IV and V and Eq. 42 of Taracchini et al. PRD 86, 024011 (2012).
- */
- static inline REAL8 GetNRSpinPeakAmplitude( INT4 UNUSED l, INT4 UNUSED m, REAL8  eta, REAL8 UNUSED a )
-{
-  /* Fit for HOMs missing */
-  return 1.3547468629743946*eta + 0.9187885481024214*eta*eta;
-}
-
-/**
- * Peak amplitude curvature predicted by fitting NR results (currently only 2,2 available).
- * Tables IV and V and Eq. 42 of Taracchini et al. PRD 86, 024011 (2012).
- */
- static inline REAL8 GetNRSpinPeakADDot( INT4 UNUSED  l, INT4  UNUSED m, REAL8  eta, REAL8  a )
-{
-  /* Fit for HOMs missing */
-  return eta*(-0.0024971911410897156 + (-0.006128515435641139 + 0.01732656*a/(2.0-4.0*eta))*eta);
-}
-
-/**
- * Peak frequency predicted by fitting NR results (currently only 2,2 available).
- * Tables IV and V and Eq. 42 of Taracchini et al. PRD 86, 024011 (2012).
- */
- static inline REAL8 GetNRSpinPeakOmega( INT4 UNUSED  l, INT4 UNUSED  m, REAL8  eta, REAL8 a )
-{
-  /* Fit for HOMs missing */
-  return 0.27581190323955274 + 0.19347381066059993*eta
-       - 0.08898338208573725*log(1.0 - a/(1.0-2.0*eta))
-       + eta*eta*(1.78832*(0.2690779744133912 + a/(2.0-4.0*eta))*(1.2056469070395925
-       + a/(2.0-4.0*eta)) + 1.423734113371796*log(1.0 - a/(1.0-2.0*eta)));
-}
-
-/**
- * Peak frequency slope predicted by fitting NR results (currently only 2,2 available).
- * Tables IV and V and Eq. 42 of Taracchini et al. PRD 86, 024011 (2012).
- */
- static inline REAL8 GetNRSpinPeakOmegaDot( INT4 UNUSED  l, INT4 UNUSED  m, REAL8  eta, REAL8  a )
-{
-  /* Fit for HOMs missing */
-  return 0.006075014646800278 + 0.012040017219351778*eta
-       + (0.0007353536801336875 + 0.0015592659912461832*a/(1.0-2.0*eta))*log(1.0-a/(1.0-2.0*eta))
-       + eta*eta*(0.03575969677378844 + (-0.011765658882139 - 0.02494825585993893*a/(1.0-2.0*eta))
-       * log(1.0 - a/(1.0-2.0*eta)));
-}
-
-
-/**
- * The time difference between the orbital peak and the peak amplitude
- * of the mode in question (currently only 2,2 implemented ).
- */
- static inline REAL8 XLALSimIMREOBGetNRSpinPeakDeltaTv2(
-                 UNUSED INT4  l,    /**<< Mode l */
-                 UNUSED INT4  m,    /**<< Mode m */
-                 REAL8  m1,  /**<< mass 1 */
-                 REAL8  m2,  /**<< mass 22 */
-                 REAL8 chi1,       /**<< Dimensionless spin1 */
-                 REAL8 chi2        /**<< Dimensionless spin2 */
-                 )
-{
-  REAL8 chi, chichi;
-  REAL8 eta = m1*m2 / ((m1+m2)*(m1+m2));
-  chi    = (chi1+chi2)/2. + (chi1-chi2)/2.*((m1-m2)/(m1+m2))/(1-2.*eta);
-    
-  chichi = chi*chi;
-  if ( chi > 0.8 )
-  {
-    return (0.75*eta*chi + sqrt(1.-4.*eta)) * (57.1755-48.0564*chi);
-  }
-  else if ( chi > 0.0 )
-  {
-    return (0.75*eta*chi + sqrt(1.-4.*eta)) * (2.5+10.*chichi+24.*chichi*chichi);
-  }
-  else
-  {
-    return 2.5 + (1.+2.5*chi) * (-2.5+2.5*sqrt(1.-4.*eta));
-  }
-}
-
-
-/**
- * Peak frequency predicted by fitting NR results (currently only 2,2 available).
- * Take from unpublished SEOBNRv2 results.
- */
- static inline REAL8 GetNRSpinPeakOmegav2( INT4 UNUSED  l, INT4 UNUSED  m, REAL8  eta, REAL8 a )
-{
-  REAL8 chi = a/(1.0 - 2.0*eta);
-  REAL8 eta2= eta*eta;
-  if ( eta > 50./51./51. )
-  {
-    return 0.43747541927878864 + (-0.10933208665273314 - 0.007325831113333813*chi)*log(
-            4.500844771420863 - 9.681916048928946*eta +
-            chi*(-4.254886879579986 + 11.513558950322647*eta));
-  }
-  else
-  {
-    return 1.5609526077704716 - 122.25721149839733 * eta +
-           3586.2192688666914 * eta2 - 13869.506144441548 * eta*eta2 +
-           (eta - 0.25) * (1651.5823693445805 * (-0.01922337588094282 + eta) *
-           (-0.01922337536857659 + eta) + 66.87492814925524 * chi *
-           (0.0003695381704106058 - 0.03844675124951941 * eta + eta2)) *
-           log(5600.67382718678 - 5555.824895398546 * chi) +
-           (-1412.8186461833657 + 67.66455403259023 * chi) * (eta - 0.001) *
-           (0.0003695381704106056 - 0.038446751249519406 * eta + eta2) *
-           log(0.5680439481719505 - 0.36813967358200156 * chi) +
-           0.012328326527732041 * log(4.500844771420863 - 9.681916048928946 * eta + 
-           chi * (-4.254886879579986 + 11.513558950322647 * eta)) +
-           0.0008260634258180991 * chi * log(4.500844771420863 -9.681916048928946 * eta +
-           chi * (-4.254886879579986 + 11.513558950322647 * eta)) -
-           12.6575493872956 * eta * log(4.500844771420863 -
-           9.681916048928946 * eta + chi * (-4.254886879579986 + 11.513558950322647 * eta)) -
-           0.8481231078533651 * chi * eta * log(4.500844771420863 - 
-           9.681916048928946 * eta + chi * (-4.254886879579986 + 11.513558950322647 * eta)) +
-           329.2228595635586 * eta2 * log(4.500844771420863 - 9.681916048928946 * eta +
-           chi * (-4.254886879579986 + 11.513558950322647 * eta)) +
-           22.05968203526603 * chi * eta2 * log(4.500844771420863 -9.681916048928946 * eta +
-           chi * (-4.254886879579986 + 11.513558950322647 * eta));
-  }
-}
-
-/**
- * Peak frequency slope predicted by fitting NR results (currently only 2,2 available).
- * Take from unpublished SEOBNRv2 results.
- */
- static inline REAL8 GetNRSpinPeakOmegaDotv2( INT4 UNUSED  l, INT4 UNUSED  m, REAL8  eta, REAL8  a )
-{
-  REAL8 chi = a/(1.0-2.0*eta);
-  REAL8 eta2= eta*eta;
-  /* Fit for HOMs missing */
-  if (chi < 0.8 )
-  {
-    return -0.07086074186161867 * chi * (-0.26367236731979804 + eta) *
-           (-0.0010019969893089581 + eta) + 0.2893863668183948 *
-           (-0.16845695144529893 + eta) * (0.23032241797163952 + eta) +
-           (0.004086861548547749 - 0.06538978477676398 * eta2 +
-           chi * (0.0006334026884930817 - 0.010134443015889307 * eta2)) *
-           log(68.47466578101876 - 58.30148755701496 * chi);
-  }
-  else
-  {
-    return -0.10069512275335238 * (-0.46107388514323044 + eta) *
-           (0.2832795481380979 + eta) + 0.2614619716504706 * chi *
-           (-0.24838163750494138 + eta) * (0.320112993649413 + eta) +
-           chi * chi * (0.010000160002560042 - 0.16000256004096067 * eta2);
-  }
-}
-
 
 /**
  * Calculates the dot product of two vectors
@@ -1010,49 +557,4 @@ NormalizeVector( REAL8 a[] )
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*
-int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
-          FacWaveformCoeffs * const coeffs,
-          const REAL8               m1,
-          const REAL8               m2,
-          const REAL8               eta,
-          const REAL8               a,
-          const REAL8               chiS,
-          const REAL8               chiA,
-          const UINT4               SpinAlignedEOBversion
-          );*/
 #endif /* _LALSIMIMRSPINEOB_H */

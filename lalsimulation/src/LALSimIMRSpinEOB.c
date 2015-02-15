@@ -42,7 +42,7 @@
 #include "LALSimIMRSpinEOB.h"
 
 /* Include all the static function files we need */
-/*#include "LALSimIMREOBHybridRingdown.c"
+#include "LALSimIMREOBHybridRingdown.c"
 #include "LALSimIMREOBFactorizedWaveform.c"
 #include "LALSimIMREOBNewtonianMultipole.c"
 #include "LALSimIMREOBNQCCorrection.c"
@@ -51,7 +51,7 @@
 #include "LALSimIMRSpinAlignedEOBHcapDerivative.c"
 #include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBFactorizedWaveform.c"
-#include "LALSimIMRSpinEOBFactorizedFlux.c"*/
+#include "LALSimIMRSpinEOBFactorizedFlux.c"
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -181,7 +181,7 @@ int XLALSimIMRSpinEOBWaveform(
   s2Vec.data   = s2Data;
 
   /* Populate the initial structures */
-  if ( XLALSimIMRSpinEOBCalculateSigmaStar( sigmaStar, m1, m2, 
+  if ( XLALSimIMRSpinEOBCalculateSigmaStar( sigmaStar, m1, m2,
                               &s1Vec, &s2Vec ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( sigmaKerr );
@@ -190,7 +190,7 @@ int XLALSimIMRSpinEOBWaveform(
     XLAL_ERROR( XLAL_EFUNC );
   }
 
-  if ( XLALSimIMRSpinEOBCalculateSigmaKerr( sigmaKerr, m1, m2, 
+  if ( XLALSimIMRSpinEOBCalculateSigmaKerr( sigmaKerr, m1, m2,
                               &s1Vec, &s2Vec ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( sigmaKerr );
