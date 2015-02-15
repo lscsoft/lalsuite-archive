@@ -135,6 +135,13 @@ struct tagPrecEulerAnglesIntegration
 }
 PrecEulerAnglesIntegration;
 
+int XLALSpinAlignedHcapDerivative(
+            double                t,
+            const REAL8           values[],
+            REAL8                 dvalues[],
+            void                  *funcParams
+ );
+
 //
 REAL8 XLALCalculateEOBA( 
         const REAL8 r,                     /**<< Orbital separation (in units of total mass M) */
@@ -369,12 +376,7 @@ int XLALSimIMRSpinEOBInitialConditions(
                       SpinEOBParams *params     /**<< Spin EOB parameters */
                       );
 
-int XLALSpinAlignedHcapDerivative(
-            double                t,
-            const REAL8           values[],
-            REAL8                 dvalues[],
-            void                  *funcParams
- );
+
 
  int  
 CalculateThisMultipolePrefix(
