@@ -1370,7 +1370,8 @@ int XLALSimIMRSpinEOBWaveform(
 
   /* Parameters of the system */
   REAL8 m1, m2, mTotal, eta, mTScaled;
-  REAL8  amp0, amp;
+  REAL8  amp0;
+  REAL8 UNUSED amp;
   /*REAL8  sSub = 0.0;*/
 
   /* Dynamics of the system */
@@ -1383,7 +1384,8 @@ int XLALSimIMRSpinEOBWaveform(
    REAL8Vector cartPosVec, cartMomVec;
    REAL8       cartPosData[3], cartMomData[3];
   REAL8 rcrossrdotNorm, rvec[3], rcrossrdot[3], s1dotLN, s2dotLN;; 
-  REAL8  rcrossp[3], rcrosspMag, s1dotL, s2dotL;
+  REAL8  rcrossp[3], rcrosspMag;
+  REAL8 UNUSED s1dotL, s2dotL;
 
   /* Polar vectors needed for waveform modes calculation */
    REAL8Vector UNUSED polarDynamics, cartDynamics;
@@ -1442,10 +1444,12 @@ int XLALSimIMRSpinEOBWaveform(
   
   REAL8 tPeakOmega, tAttach, combSize, /*longCombSize,*/ deltaNQC;
   REAL8 sh = 0.0;
-  REAL8  vX, vY, vZ, rCrossV_x, rCrossV_y, rCrossV_z, vOmega, omegasav, omegasav2;
+  REAL8  vX, vY, vZ, rCrossV_x, rCrossV_y, rCrossV_z, vOmega, omegasav;
+  REAL8 UNUSED  omegasav2;
    REAL8 magR, Lx, Ly, Lz, magL, LNhx, LNhy, LNhz, /*magLN,*/ Jx, Jy, Jz, magJ;
    REAL8 aI2P, bI2P, gI2P, aP2J, bP2J, gP2J;
-  REAL8 chi1J, chi2J, chiJ, kappaJL;
+  REAL8 chi1J, chi2J, chiJ; 
+  REAL8 UNUSED kappaJL;
   REAL8 JframeEx[3], JframeEy[3], JframeEz[3];
   REAL8 LframeEx[3], LframeEy[3], LframeEz[3];
   
@@ -1687,7 +1691,7 @@ int XLALSimIMRSpinEOBWaveform(
    int NoComputeInitialConditions = 0;
 if( !NoComputeInitialConditions )
 {
-  REAL8  temp32;
+  REAL8 UNUSED  temp32;
   temp32 = 17.23333034918909 + 0 * fMin / mTotal  / LAL_PI / LAL_MTSUN_SI;
   REAL8Vector* tmpValues2 = NULL;
   tmpValues2 = XLALCreateREAL8Vector( 14 );
