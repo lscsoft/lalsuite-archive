@@ -59,6 +59,7 @@
 
 /* Include all the static function files we need */
 #include "LALSimIMREOBHybridRingdown.c"
+
 #include "LALSimIMREOBFactorizedWaveform.c"
 #include "LALSimIMREOBNewtonianMultipole.c"
 #include "LALSimIMREOBNQCCorrection.c"
@@ -66,9 +67,9 @@
 #include "LALSimIMRSpinEOBAuxFuncs.c"
 #include "LALSimIMRSpinAlignedEOBHcapDerivative.c"
 #include "LALSimIMRSpinEOBHamiltonian.c"
+#include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
 #include "LALSimIMRSpinEOBFactorizedWaveform.c"
 #include "LALSimIMRSpinEOBFactorizedFlux.c"
-
 
 
 #ifdef __GNUC__

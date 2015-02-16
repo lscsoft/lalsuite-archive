@@ -35,15 +35,16 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <gsl/gsl_deriv.h>
 
 #include <lal/LALSimInspiral.h>
 #include <lal/LALSimIMR.h>
 
 #include "LALSimIMRSpinEOB.h"
 
-/*#include "LALSimIMRSpinEOBAuxFuncs.c"
-#include "LALSimIMRSpinEOBFactorizedWaveform.c"
-#include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"*/
+#include "LALSimIMRSpinEOBAuxFuncs.c"
+#include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
+/*#include "LALSimIMRSpinEOBFactorizedWaveform.c"*/
 
 /*------------------------------------------------------------------------------------------
  *

@@ -42,7 +42,7 @@
 #include <lal/LALSimInspiral.h>
 #include <lal/LALSimIMR.h>
 
-#include "LALSimIMRSpinEOB.h"
+/*#include "LALSimIMRSpinEOB.h"*/
 #include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBFactorizedFlux.c"
 
