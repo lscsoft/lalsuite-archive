@@ -1325,7 +1325,7 @@ int XLALSimIMRSpinEOBWaveform(
 
   /* SEOBNRv3 model */
   Approximant spinEOBApproximant = SEOBNRv3;
-  /* Fix the underlying aligned spin EOB model */
+  /* FIXME: it is harcoded here: the underlying aligned spin EOB model */
   INT4 SpinAlignedEOBversion = 1;
 
   /* Vector to store the initial parameters */
