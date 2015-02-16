@@ -124,7 +124,7 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params );
 
 static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params );
 
-static REAL8 XLALSimIMRSpinPrecEOBNonKeplerCoeff(
+static UNUSED REAL8 XLALSimIMRSpinPrecEOBNonKeplerCoeff(
                       const REAL8           values[],   /**<< Dynamical variables */
                       SpinEOBParams         *funcParams /**<< EOB parameters */
                       );
@@ -1807,7 +1807,7 @@ static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params )
  * i.e. the function returns \f$(r_{\Omega} / r)^3\f$ 
  * = \f$1/(r^3 (\partial Hreal/\partial p_\phi |p_r=0)^2)\f$.
  */
-static REAL8
+static REAL8 
 XLALSimIMRSpinPrecEOBNonKeplerCoeff(
                       const REAL8           values[],   /**<< Dynamical variables */
                       SpinEOBParams         *funcParams /**<< EOB parameters */

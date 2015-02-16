@@ -37,6 +37,8 @@
 #define UNUSED
 #endif
 
+/*#include "LALSimIMRSpinEOBHcapNumericalDerivative.h"*/
+
 #include <unistd.h>
 #include <math.h>
 #include <gsl/gsl_deriv.h>
@@ -63,25 +65,25 @@
 
 static REAL8 GSLSpinHamiltonianWrapper( double x, void *params );
 
-static int XLALSpinHcapNumericalDerivative(
+static     int XLALSpinHcapNumericalDerivative(
                  double UNUSED     t,         /**<< UNUSED */
                  const  REAL8      values[],  /**<< Dynamical variables */
                  REAL8             dvalues[], /**<< Time derivatives of variables (returned) */
                  void             *funcParams /**<< EOB parameters */
-                               );
+                                                    );
 
-static REAL8 XLALSpinHcapNumDerivWRTParam(
-                 const INT4 paramIdx,      /**<< Index of the parameters */
-                 const REAL8 values[],     /**<< Dynamical variables */
-                 SpinEOBParams *funcParams /**<< EOB Parameters */
-                 );
+static UNUSED REAL8 XLALSpinHcapNumDerivWRTParam(
+            const INT4 paramIdx,      /**<< Index of the parameters */
+            const REAL8 values[],     /**<< Dynamical variables */
+            SpinEOBParams *funcParams /**<< EOB Parameters */                
+            );
 
-static int XLALSpinHcapNumericalDerivativeNoFlux(
+static  int XLALSpinHcapNumericalDerivativeNoFlux(
                  double UNUSED     t,         /**<< UNUSED */
                  const  REAL8      values[],  /**<< Dynamical variables */
                  REAL8             dvalues[], /**<< Time derivatives of variables (returned) */
-                 void             *funcParams /**<< EOB parameters */
-                               );
+                 void             *funcParams /**<< EOB parameters */                               
+        );
 
 
 
@@ -101,7 +103,8 @@ static int XLALSpinHcapNumericalDerivativeNoFlux(
  * Pan et al. PRD 81, 084041 (2010)
  * This function is not used by the spin-aligned SEOBNRv1 model.
  */
-static int XLALSpinHcapNumericalDerivative(
+static
+     int XLALSpinHcapNumericalDerivative(
                  double UNUSED     t,         /**<< UNUSED */
                  const  REAL8      values[],  /**<< Dynamical variables */
                  REAL8             dvalues[], /**<< Time derivatives of variables (returned) */
@@ -1368,7 +1371,8 @@ static REAL8 XLALSpinHcapNumDerivWRTParam(
 /**
  * Wrapper for GSL to call the Hamiltonian function
  */
-static REAL8 GSLSpinHamiltonianWrapper( double x, void *params )
+/*static */
+REAL8 GSLSpinHamiltonianWrapper( double x, void *params )
 {
   int debugPK = 0;
   HcapDerivParams *dParams = (HcapDerivParams *)params;

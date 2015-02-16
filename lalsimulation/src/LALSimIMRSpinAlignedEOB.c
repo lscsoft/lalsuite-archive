@@ -58,18 +58,20 @@
 #include "LALSimBlackHoleRingdown.h"
 
 /* Include all the static function files we need */
-#include "LALSimIMREOBHybridRingdown.c"
-
-#include "LALSimIMREOBFactorizedWaveform.c"
-#include "LALSimIMREOBNewtonianMultipole.c"
 #include "LALSimIMREOBNQCCorrection.c"
-#include "LALSimIMRSpinEOBInitialConditions.c"
+#include "LALSimInspiraldEnergyFlux.c"
+#include "LALSimIMREOBNewtonianMultipole.c"
+#include "LALSimIMREOBFactorizedWaveform.c"
+#include "LALSimIMREOBHybridRingdown.c"
 #include "LALSimIMRSpinEOBAuxFuncs.c"
-#include "LALSimIMRSpinAlignedEOBHcapDerivative.c"
-#include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBFactorizedWaveformCoefficients.c"
+#include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMRSpinEOBFactorizedWaveform.c"
 #include "LALSimIMRSpinEOBFactorizedFlux.c"
+#include "LALSimIMRSpinEOBHcapNumericalDerivative.c"
+#include "LALSimIMRSpinAlignedEOBHcapDerivative.c"
+#include "LALSimIMRSpinEOBInitialConditions.c"
+
 
 
 #ifdef __GNUC__

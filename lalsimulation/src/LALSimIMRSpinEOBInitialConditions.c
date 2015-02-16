@@ -9,8 +9,9 @@
 #include <gsl/gsl_deriv.h>
 
 #include "LALSimIMRSpinEOB.h"
+//#include "LALSimIMRSpinEOBHcapNumericalDerivative.c"
+#include "LALSimIMRSpinEOBHcapNumericalDerivative.h"
 #include "LALSimIMRSpinEOBHamiltonian.c"
-#include "LALSimIMRSpinEOBHcapNumericalDerivative.c"
 #include "LALSimIMREOBFactorizedWaveform.c"
 
 #ifndef _LALSIMIMRSPINEOBINITIALCONDITIONS_C
@@ -25,8 +26,7 @@ struct tagSEOBRootParams
   REAL8          values[12]; /**<< Dynamical variables, x, y, z, px, py, pz, S1x, S1y, S1z, S2x, S2y and S2z */
   SpinEOBParams *params;     /**<< Spin EOB parameters -- physical, pre-computed, etc. */
   REAL8          omega;      /**<< Orbital frequency */
-}
-SEOBRootParams;
+} SEOBRootParams;
 
 /**
  * Calculates the dot product of two vectors

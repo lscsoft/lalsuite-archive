@@ -122,7 +122,7 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
 
   /* Update the factorized multipole coefficients, w.r.t. new spins */
   if ( 0 )
-  {/*{{{*/
+  {
     printf("\nValues inside Flux:\n");
     for( int i = 0; i < 11; i++)
         printf("values[%d] = %.12e\n", i, values->data[i]);
@@ -188,7 +188,7 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
 		XLALDestroyREAL8Vector( values );
 		XLAL_ERROR( XLAL_EFUNC );
 	}
-  }/*}}}*/
+  }
 
 
 //  printf( "v = %.16e\n", v );
@@ -394,5 +394,5 @@ static REAL8 XLALInspiralPrecSpinFactorizedFlux(
   }
   if(debugPK)printf( "\tFLUX = %.16e\n", flux * LAL_1_PI / 8.0 );
   return flux * LAL_1_PI / 8.0;
-
+}
 #endif /* _LALSIMIMRSPINEOBFACTORIZEDFLUX_C */
