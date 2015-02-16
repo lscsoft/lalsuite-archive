@@ -1038,6 +1038,7 @@ static INT4 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
     REAL8 vPhi, vPhi2;
 
     /* Pre-computed coefficients */
+   
     FacWaveformCoeffs *hCoeffs = params->eobParams->hCoeffs;
 
 	if ( abs(m) > (INT4) l )
@@ -1078,10 +1079,12 @@ static INT4 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
       vh3     = Hreal * Omega;
 	    vh	= cbrt(vh3);
 	    eulerlogxabs = LAL_GAMMA + log( 2.0 * (REAL8)m * v );
+        
 
         /* Calculate the non-Keplerian velocity */
         if ( params->alignedSpins )
         {
+              
           vPhi = XLALSimIMRSpinAlignedEOBNonKeplerCoeff( values->data, params );
 
           if ( XLAL_IS_REAL8_FAIL_NAN( vPhi ) )
@@ -1098,8 +1101,9 @@ static INT4 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
           vPhi2 = vPhi*vPhi;
         }
         else
-        {
-          vPhi = XLALSimIMRSpinEOBNonKeplerCoeff( cartvalues->data, params );
+        { 
+          vPhi = XLALSimIMRSpinPrecEOBNonKeplerCoeff( cartvalues->data, params );
+          
 
           if ( XLAL_IS_REAL8_FAIL_NAN( vPhi ) )
           {

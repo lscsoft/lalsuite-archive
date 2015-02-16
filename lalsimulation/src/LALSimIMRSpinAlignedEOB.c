@@ -1328,10 +1328,11 @@ int XLALSimIMRSpinEOBWaveform(
   /* FIXME: it is harcoded here: the underlying aligned spin EOB model */
   INT4 SpinAlignedEOBversion = 1;
 
-  /* Vector to store the initial parameters */
+  /* Vector to store the initial paramseters */
   REAL8 spin1[3], spin2[3];
   memcpy( spin1, INspin1, 3*sizeof(REAL8));
   memcpy( spin2, INspin2, 3*sizeof(REAL8));
+  
 
   REAL8Vector *values = NULL;
 
@@ -1507,8 +1508,15 @@ int XLALSimIMRSpinEOBWaveform(
   eta    = m1 * m2 / (mTotal*mTotal);
   amp0 = mTotal * LAL_MRSUN_SI / r;
   //amp0 = 4. * mTotal * LAL_MRSUN_SI * eta / r;
+  if (debugPK){
+     printf("Stas, here is the passes functions\n");
+     printf("Inputs: m1 = %.16e, m2 = %.16e, fMin = %.16e, inclination = %.16e\n", m1, m2, (double) fMin, (double) inc );
+     printf("Mtotal = %.16e, eta = %.16e \n", mTotal, eta);
+     printf("Inputs: spin1 = {%.16e, %.16e, %.16e}\n",  spin1[0], spin1[1], spin1[2]);
+     printf("Inputs: spin2 = {%.16e, %.16e, %.16e}\n",  spin2[0], spin2[1], spin2[2]);
+  }  
 
-#if 0 
+#if 1 
   
   values->data[0] = 15.87;
   values->data[1] = 0.;
@@ -1537,7 +1545,7 @@ int XLALSimIMRSpinEOBWaveform(
   values->data[11] = 9.7964208715400000e-03 * (mTotal/m2) * (mTotal/m2);
   */
 
-#endif
+
   for( i = 0; i < 3; i++ )
   {
     /* Store the dimensionless chi vector, i.e. \vec{S}_i/m_i^2 */
@@ -1548,6 +1556,7 @@ int XLALSimIMRSpinEOBWaveform(
     values->data[i+6] *= m1*m1/(mTotal*mTotal);
     values->data[i+9] *= m2*m2/(mTotal*mTotal);
   }
+  #endif
 
   /* TODO: Insert potentially necessary checks on the arguments */
 
@@ -1597,6 +1606,14 @@ int XLALSimIMRSpinEOBWaveform(
     s1DataNorm[i] = s1Data[i]/mTotal/mTotal;
     s2DataNorm[i] = s2Data[i]/mTotal/mTotal;
   }
+  if (debugPK){
+     printf("Stas, here is the passes functions\n");
+     printf("Inputs: m1 = %.16e, m2 = %.16e, fMin = %.16e, inclination = %.16e\n", m1, m2, (double) fMin, (double) inc );
+     printf("Inputs: spin1 = {%.16e, %.16e, %.16e}\n",  spin1[0], spin1[1], spin1[2]);
+     printf("Inputs: spin2 = {%.16e, %.16e, %.16e}\n",  spin2[0], spin2[1], spin2[2]);
+     printf("Inputs: s1V = {%.16e, %.16e, %.16e}\n",  s1Vec.data[0], s1Vec.data[1], s1Vec.data[2]);
+     printf("Inputs: s2V = {%.16e, %.16e, %.16e}\n",  s2Vec.data[0], s2Vec.data[1], s2Vec.data[2]);
+  }
 
   /* Populate the initial structures */
   if ( XLALSimIMRSpinEOBCalculateSigmaStar( sigmaStar, m1, m2,
@@ -1615,6 +1632,10 @@ int XLALSimIMRSpinEOBWaveform(
     XLALDestroyREAL8Vector( sigmaStar );
     XLALDestroyREAL8Vector( values );
     XLAL_ERROR( XLAL_EFUNC );
+  }
+  if (debugPK){
+      printf("Inputs: sigma = {%.16e, %.16e, %.16e}\n",  sigmaKerr->data[0], sigmaKerr->data[1], sigmaKerr->data[2]);
+      printf("Inputs: star = {%.16e, %.16e, %.16e}\n",  sigmaStar->data[0], sigmaStar->data[1], sigmaStar->data[2]);
   }
 
   memcpy( mSpin1, spin1, sizeof( mSpin1 ) );
@@ -1688,7 +1709,7 @@ int XLALSimIMRSpinEOBWaveform(
   /*
    * STEP 1) Solve for initial conditions
    */
-   int NoComputeInitialConditions = 0;
+   int NoComputeInitialConditions = 1;
 if( !NoComputeInitialConditions )
 {
   REAL8  temp32;
@@ -1716,7 +1737,7 @@ if( !NoComputeInitialConditions )
 	  printf("Setting up initial conditions, returned values are:\n");
 	  for( j=0; j < tmpValues2->length; j++)
 		printf("%.16le\n", tmpValues2->data[j]);
-	}
+ }
 }
   
   /* Assume that initial conditions are available at this point, to
@@ -1838,6 +1859,8 @@ if( !NoComputeInitialConditions )
      nqcCoeffs.a1 = nqcCoeffs.a2 = nqcCoeffs.a3 = nqcCoeffs.a3S = nqcCoeffs.a4 = 
      nqcCoeffs.a5 = nqcCoeffs.b1 = nqcCoeffs.b2 = nqcCoeffs.b3 = nqcCoeffs.b4 = 0;
  }
+ nqcCoeffs.a1 = nqcCoeffs.a2 = nqcCoeffs.a3 = nqcCoeffs.a3S = nqcCoeffs.a4 = 
+ nqcCoeffs.a5 = nqcCoeffs.b1 = nqcCoeffs.b2 = nqcCoeffs.b3 = nqcCoeffs.b4 = 0;
   if(debugPK)printf("\tl = %d, m = %d, NQC: a1 = %.16e, a2 = %.16e, a3 = %.16e, a3S = %.16e, a4 = %.16e, a5 = %.16e\n\tb1 = %.16e, b2 = %.16e, b3 = %.16e, b4 = %.16e\n", 
                        2, 2, nqcCoeffs.a1, nqcCoeffs.a2, nqcCoeffs.a3, 
                        nqcCoeffs.a3S, nqcCoeffs.a4, nqcCoeffs.a5, 
@@ -2546,6 +2569,9 @@ if( !NoComputeInitialConditions )
   deltaNQC    += 10.0 * (1.0 - fabs(kappaJL));*/
   
   tAttach = tPeakOmega - deltaNQC - sh;
+  if (debugPK){
+      printf("For RD: DeltaNQC = %e.16, comb = %e.16 \n", deltaNQC+sh, combSize);
+  }
   /* WaveStep 1.4: calculate combsize and deltaNQC */
   
 
@@ -2824,8 +2850,10 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     if (debugPK){
         fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e ",
              i*deltaT/mTScaled, aI2P, bI2P, gI2P, aP2J, bP2J, gP2J );
+        //fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
+        //     vX, vY, vZ, LNhx, LNhy, LNhz, creal(hLM), cimag(hLM) );
         fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
-             vX, vY, vZ, LNhx, LNhy, LNhz, creal(hLM), cimag(hLM) );
+               polData[0], polData[1], polData[2], polData[3], ham, v, creal(hLM), cimag(hLM) );     
     }
 
     if ( XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform( &hLM, &polarDynamics, values, v, ham, 2, 1, &seobParams )
@@ -3451,6 +3479,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   hIMRlmITS = XLALSphHarmTimeSeriesAddMode( hIMRlmITS, hIMR2m2JTS, 2, -2 );
   XLALSphHarmTimeSeriesSetTData( hIMRlmITS, tlistRDPatch );
 
+  if (debugPK) printf("Rotation to inertial I-frame\n");
   if ( XLALSimInspiralPrecessionRotateModes( hIMRlmITS, alpI, betI, gamI ) == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
@@ -3494,12 +3523,12 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
       hCrossTS->data->data[i] = -cimag(x11);
      
     }
-
+    
     /* Point the output pointers to the relevant time series and return */
     (*hplus)  = hPlusTS;
     (*hcross) = hCrossTS;
-
-
+     
+    if (debugPK) printf("plus and cross are computed, freeing the memory\n");
   /*hplus =  XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 );
   hcross =  XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 );*/
   
@@ -3512,7 +3541,8 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     XLALDestroyREAL8TimeSeries(alphaP2JTS);
     XLALDestroyREAL8TimeSeries(betaP2JTS);
     XLALDestroyREAL8TimeSeries(gammaP2JTS);
-    
+
+
     XLALDestroyREAL8TimeSeries(alphaI2PTSHi);
     XLALDestroyREAL8TimeSeries(betaI2PTSHi);
     XLALDestroyREAL8TimeSeries(gammaI2PTSHi);
@@ -3520,28 +3550,24 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     XLALDestroyREAL8TimeSeries(betaP2JTSHi);
     XLALDestroyREAL8TimeSeries(gammaP2JTSHi);
     
-    XLALDestroyCOMPLEX16TimeSeries(h22TS);  
+    XLALDestroyCOMPLEX16TimeSeries(h22TS); 
     XLALDestroyCOMPLEX16TimeSeries(h21TS); 
-    XLALDestroyCOMPLEX16TimeSeries(h20TS); 
+    XLALDestroyCOMPLEX16TimeSeries(h20TS);  
     XLALDestroyCOMPLEX16TimeSeries(h2m1TS); 
-    XLALDestroyCOMPLEX16TimeSeries(h2m2TS);
+    XLALDestroyCOMPLEX16TimeSeries(h2m2TS); 
     XLALDestroyCOMPLEX16TimeSeries(h22PTS); 
     XLALDestroyCOMPLEX16TimeSeries(h21PTS);
     XLALDestroyCOMPLEX16TimeSeries(h20PTS);
     XLALDestroyCOMPLEX16TimeSeries(h2m1PTS);
     XLALDestroyCOMPLEX16TimeSeries(h2m2PTS);
-    XLALDestroyCOMPLEX16TimeSeries(h22JTS);
-    XLALDestroyCOMPLEX16TimeSeries(h21JTS); 
-    XLALDestroyCOMPLEX16TimeSeries(h20JTS);
-    XLALDestroyCOMPLEX16TimeSeries(h2m1JTS); 
-    XLALDestroyCOMPLEX16TimeSeries(h2m2JTS);
-    XLALDestroyCOMPLEX16TimeSeries(hJTS);
+ 
     XLALDestroyCOMPLEX16TimeSeries(hIMR22JTS); 
     XLALDestroyCOMPLEX16TimeSeries(hIMR21JTS); 
     XLALDestroyCOMPLEX16TimeSeries(hIMR20JTS); 
     XLALDestroyCOMPLEX16TimeSeries(hIMR2m1JTS); 
     XLALDestroyCOMPLEX16TimeSeries(hIMR2m2JTS); 
     XLALDestroyCOMPLEX16TimeSeries(hIMRJTS);
+    
     
     XLALDestroyCOMPLEX16TimeSeries(h22TSHi);  
     XLALDestroyCOMPLEX16TimeSeries(h21TSHi); 
@@ -3553,19 +3579,14 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     XLALDestroyCOMPLEX16TimeSeries(h20PTSHi);
     XLALDestroyCOMPLEX16TimeSeries(h2m1PTSHi);
     XLALDestroyCOMPLEX16TimeSeries(h2m2PTSHi);
-    XLALDestroyCOMPLEX16TimeSeries(h22JTSHi);
-    XLALDestroyCOMPLEX16TimeSeries(h21JTSHi); 
-    XLALDestroyCOMPLEX16TimeSeries(h20JTSHi);
-    XLALDestroyCOMPLEX16TimeSeries(h2m1JTSHi); 
-    XLALDestroyCOMPLEX16TimeSeries(h2m2JTSHi);
-    XLALDestroyCOMPLEX16TimeSeries(hJTSHi);
     XLALDestroyCOMPLEX16TimeSeries(hIMR22JTSHi); 
     XLALDestroyCOMPLEX16TimeSeries(hIMR21JTSHi); 
     XLALDestroyCOMPLEX16TimeSeries(hIMR20JTSHi); 
     XLALDestroyCOMPLEX16TimeSeries(hIMR2m1JTSHi); 
     XLALDestroyCOMPLEX16TimeSeries(hIMR2m2JTSHi); 
-    XLALDestroyCOMPLEX16TimeSeries(hIMRJTSHi);
+    //XLALDestroyCOMPLEX16TimeSeries(hIMRJTSHi);
     
+
     XLALDestroyREAL8Vector( values );
     XLALDestroyREAL8Vector( dvalues );
     XLALDestroyREAL8Vector( sigmaStar );
@@ -3573,11 +3594,13 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     XLALDestroyREAL8Vector( sigReHi );
     XLALDestroyREAL8Vector( sigImHi );
     XLALDestroyREAL8Vector( omegaHi );
-   
+    
+
     XLALAdaptiveRungeKutta4Free(integrator);
     XLALDestroyREAL8Array( dynamics );
     XLALDestroyREAL8Array( dynamicsHi );
     
+
     XLALDestroyREAL8Vector( LN_x );
     XLALDestroyREAL8Vector( LN_y );
     XLALDestroyREAL8Vector( LN_z );
@@ -3591,12 +3614,14 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     XLALDestroyREAL8Vector( Gamma );
     XLALDestroyREAL8Vector( GammaHi );
     
+    
     XLALDestroyREAL8Vector( tlist );
     XLALDestroyREAL8Vector( tlistHi );
     XLALDestroyREAL8Vector( tlistRDPatch );
     XLALDestroyREAL8Vector( tlistRDPatchHi );
-    
- 
+     
+    //printf("here\n");      
+  
   return XLAL_SUCCESS;
 }
 

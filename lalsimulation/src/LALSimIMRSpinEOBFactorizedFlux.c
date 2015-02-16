@@ -347,18 +347,21 @@ static REAL8 XLALInspiralPrecSpinFactorizedFlux(
 	}
   }/*}}}*/
   
-//  printf( "v = %.16e\n", v );
+  // printf( "v = %.16e\n", v );
   for ( l = 2; l <= lMax; l++ )
   {
+    
     for ( m = 1; m <= l; m++ )
     {
+      
       if(debugPK)printf("\nGetting (%d, %d) mode for flux!\n", l, m);
-
+      //printf("Stas, computing the waveform l = %d, m =%d\n", l, m); 
       if ( XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform( &hLM, polvalues, values, v, H,
             l, m, ak ) == XLAL_FAILURE )
       {
         XLAL_ERROR_REAL8( XLAL_EFUNC );
       }
+      //printf("Stas: done\n"); 
       /* For the 2,2 mode, we apply NQC correction to the flux */
       if ( l == 2 && m == 2 )
       {
@@ -392,7 +395,7 @@ static REAL8 XLALInspiralPrecSpinFactorizedFlux(
       flux += (REAL8)(m * m) * omegaSq * ( creal(hLM)*creal(hLM) + cimag(hLM)*cimag(hLM) );
     }
   }
-  if(debugPK)printf( "\tFLUX = %.16e\n", flux * LAL_1_PI / 8.0 );
+  if(debugPK)printf( "\tStas, FLUX = %.16e\n", flux * LAL_1_PI / 8.0 );
   return flux * LAL_1_PI / 8.0;
 }
 #endif /* _LALSIMIMRSPINEOBFACTORIZEDFLUX_C */

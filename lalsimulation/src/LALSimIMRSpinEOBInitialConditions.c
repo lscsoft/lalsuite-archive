@@ -678,17 +678,17 @@ static int XLALSimIMRSpinEOBInitialConditions(
 
   /* XXX Test code XXX */
   if(debugPK){
-  for ( i = 0; i < 3; i++ )
-  {
-    printf ( " LnHat[%d] = %.16e, rHat[%d] = %.16e, vHat[%d] = %.16e\n", i, LnHat[i], i, rHat[i], i, vHat[i] );
-  }
+     for ( i = 0; i < 3; i++ )
+     {
+        printf ( " LnHat[%d] = %.16e, rHat[%d] = %.16e, vHat[%d] = %.16e\n", i, LnHat[i], i, rHat[i], i, vHat[i] );
+     }
 
-  printf("\n\n" );
-  for ( i = 0; i < 3; i++ )
-  {
-    printf ( " s1[%d] = %.16e, s2[%d] = %.16e\n", i, tmpS1[i], i, tmpS2[i] );
+     printf("\n\n" );
+     for ( i = 0; i < 3; i++ )
+     {
+        printf ( " s1[%d] = %.16e, s2[%d] = %.16e\n", i, tmpS1[i], i, tmpS2[i] );
+     }
   }
-}
 
   /* Allocate and compute the rotation matrices */
   XLAL_CALLGSL( rotMatrix = gsl_matrix_alloc( 3, 3 ) );
@@ -729,7 +729,7 @@ static int XLALSimIMRSpinEOBInitialConditions(
   {
     printf ( " s1[%d] = %.16e, s2[%d] = %.16e\n", i, tmpS1[i], i, tmpS2[i] );
   }
-}
+  }
 
   /* STEP 2) After rotation in STEP 1, in spherical coordinates, phi0 and theta0 are given directly in Eq. (4.7),
    *         r0, pr0, ptheta0 and pphi0 are obtained by solving Eqs. (4.8) and (4.9) (using gsl_multiroot_fsolver).
@@ -823,7 +823,7 @@ static int XLALSimIMRSpinEOBInitialConditions(
 
   finalValues = gsl_multiroot_fsolver_root( rootSolver );
 
- if(debugPK){
+  if(debugPK){
   printf( "Spherical orbit conditions here given by the following:\n" );
   printf( " x = %.16e, py = %.16e, pz = %.16e\n", gsl_vector_get( finalValues, 0 ), 
       gsl_vector_get( finalValues, 1 ), gsl_vector_get( finalValues, 2 ) );
@@ -839,7 +839,8 @@ static int XLALSimIMRSpinEOBInitialConditions(
   /* Free the GSL root finder, since we're done with it */
   gsl_multiroot_fsolver_free( rootSolver );
   gsl_vector_free( initValues );
-
+  
+ 
   /* STEP 3) Rotate to L0 along z-axis and N0 along x-axis frame, where L0 is the initial orbital angular momentum
    *         and L0 is calculated using initial position and linear momentum obtained in STEP 2.
    */
@@ -956,7 +957,7 @@ static int XLALSimIMRSpinEOBInitialConditions(
     //XLALSimIMRCalculateSpinEOBHCoeffs( params->seobCoeffs, eta, a );
     ham = XLALSimIMRSpinEOBHamiltonian( eta, &qCartVec, &pCartVec, &s1VecNorm, &s2VecNorm, &sKerr, &sStar, params->tortoise, params->seobCoeffs );
 
-    if(debugPK)printf( "hamiltonian at this point is %.16e\n", ham );
+    if(debugPK)printf( "Stas: hamiltonian at this point is %.16e\n", ham );
 
     /* And now, finally, the flux */
     REAL8Vector polarDynamics, cartDynamics;
@@ -978,11 +979,22 @@ static int XLALSimIMRSpinEOBInitialConditions(
     memcpy( cartData+6, tmpS1Norm, 3*sizeof(REAL8) );
     memcpy( cartData+9, tmpS2Norm, 3*sizeof(REAL8) );
     
+    if (debugPK){
+        printf("Stas here I am\n");
+    }
+    
+    //printf("Stas: starting FLux calculations\n");
+    
     flux  = XLALInspiralPrecSpinFactorizedFlux( &polarDynamics, &cartDynamics, nqcCoeffs, omega, params, ham, lMax, SpinAlignedEOBversion );
     /*flux  = XLALInspiralSpinFactorizedFlux( &polarDynamics, nqcCoeffs, omega, params, ham, lMax, SpinAlignedEOBversion );*/
+   // printf("Stas flux = %.16e \n", flux);
+    //exit(0);
     flux  = flux / eta;
-
+    
     rDot  = - flux / dEdr;
+    if (debugPK){
+        printf("Stas here I am 2  \n");
+    }
 
     /* We now need dHdpr - we take it that it is safely linear up to a pr of 1.0e-3
      * PK: Ideally, the pr should be of the order of other momenta, in order for its 
