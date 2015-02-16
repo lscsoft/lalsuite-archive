@@ -122,7 +122,7 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
 
   /* Update the factorized multipole coefficients, w.r.t. new spins */
   if ( 0 )
-  {/*{{{*/
+  {
     printf("\nValues inside Flux:\n");
     for( int i = 0; i < 11; i++)
         printf("values[%d] = %.12e\n", i, values->data[i]);
@@ -131,25 +131,25 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
      * Calculate the values of chiS and chiA, as given in Eq.16 of 
 	 * Precessing EOB paper. Assuming \vec{L} to be pointing in the 
      * direction of \vec{r}\times\vec{p} */
-    /* TODO: Check the mass scaling of spins */ 
+    /* TODO: Check the mass scaling of spins */
 	REAL8 rcrossp[3], rcrosspMag, s1dotL, s2dotL;
 	REAL8 chiS, chiA, tplspin;
-	
+
 	rcrossp[0] = values->data[1]*values->data[5] - values->data[2]*values->data[4];
 	rcrossp[1] = values->data[2]*values->data[3] - values->data[0]*values->data[5];
 	rcrossp[2] = values->data[0]*values->data[4] - values->data[1]*values->data[3];
-	rcrosspMag = sqrt(rcrossp[0]*rcrossp[0] + rcrossp[1]*rcrossp[1] + 
+	rcrosspMag = sqrt(rcrossp[0]*rcrossp[0] + rcrossp[1]*rcrossp[1] +
         rcrossp[2]*rcrossp[2]);
-  
+
 	rcrossp[0] /= rcrosspMag;
 	rcrossp[1] /= rcrosspMag;
 	rcrossp[2] /= rcrosspMag;
-	
-	s1dotL = values->data[6]*rcrossp[0] + values->data[7]*rcrossp[1] 
+
+	s1dotL = values->data[6]*rcrossp[0] + values->data[7]*rcrossp[1]
 			+ values->data[8]*rcrossp[2];
-	s2dotL = values->data[9]*rcrossp[0] + values->data[10]*rcrossp[1] 
+	s2dotL = values->data[9]*rcrossp[0] + values->data[10]*rcrossp[1]
 			+ values->data[11]*rcrossp[2];
-	
+
 	chiS = 0.5 * (s1dotL + s2dotL);
 	chiA = 0.5 * (s1dotL - s2dotL);
 
@@ -161,7 +161,7 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
        tplspin = 0.0;
        break;
      case 2:
-       tplspin = (1.-2.* ak->eobParams->eta) * chiS + (ak->eobParams->m1 
+       tplspin = (1.-2.* ak->eobParams->eta) * chiS + (ak->eobParams->m1
 			- ak->eobParams->m2)/(ak->eobParams->m1 + ak->eobParams->m2) * chiA;
        break;
      default:
@@ -173,7 +173,7 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
 	/* ************************************************* */
 	/* Re-Populate the Waveform structures               */
 	/* ************************************************* */
-	
+
 	/* Re-compute the spinning coefficients for hLM */
         //debugPK
         printf("Re-calculating waveform coefficients in the Flux function with chiS, chiA = %e, %e!\n", chiS, chiA);
@@ -188,7 +188,7 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
 		XLALDestroyREAL8Vector( values );
 		XLAL_ERROR( XLAL_EFUNC );
 	}
-  }/*}}}*/
+  }
 
 
 //  printf( "v = %.16e\n", v );
@@ -347,18 +347,21 @@ static REAL8 XLALInspiralPrecSpinFactorizedFlux(
 	}
   }/*}}}*/
   
-//  printf( "v = %.16e\n", v );
+  // printf( "v = %.16e\n", v );
   for ( l = 2; l <= lMax; l++ )
   {
+    
     for ( m = 1; m <= l; m++ )
     {
+      
       if(debugPK)printf("\nGetting (%d, %d) mode for flux!\n", l, m);
-
+      //printf("Stas, computing the waveform l = %d, m =%d\n", l, m); 
       if ( XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform( &hLM, polvalues, values, v, H,
             l, m, ak ) == XLAL_FAILURE )
       {
         XLAL_ERROR_REAL8( XLAL_EFUNC );
       }
+      //printf("Stas: done\n"); 
       /* For the 2,2 mode, we apply NQC correction to the flux */
       if ( l == 2 && m == 2 )
       {
@@ -392,7 +395,7 @@ static REAL8 XLALInspiralPrecSpinFactorizedFlux(
       flux += (REAL8)(m * m) * omegaSq * ( creal(hLM)*creal(hLM) + cimag(hLM)*cimag(hLM) );
     }
   }
-  if(debugPK)printf( "\tFLUX = %.16e\n", flux * LAL_1_PI / 8.0 );
+  if(debugPK)printf( "\tStas, FLUX = %.16e\n", flux * LAL_1_PI / 8.0 );
   return flux * LAL_1_PI / 8.0;
-
+}
 #endif /* _LALSIMIMRSPINEOBFACTORIZEDFLUX_C */

@@ -9,13 +9,63 @@
 #include <gsl/gsl_deriv.h>
 
 #include "LALSimIMRSpinEOB.h"
-/*#include "LALSimIMRSpinEOBHamiltonian.c"
+//#include "LALSimIMRSpinEOBHcapNumericalDerivative.c"
 #include "LALSimIMRSpinEOBHcapNumericalDerivative.h"
-#include "LALSimIMREOBFactorizedWaveform.c"*/
+#include "LALSimIMRSpinEOBHamiltonian.c"
+#include "LALSimIMREOBFactorizedWaveform.c"
 
 #ifndef _LALSIMIMRSPINEOBINITIALCONDITIONS_C
 #define _LALSIMIMRSPINEOBINITIALCONDITIONS_C
 
+/**
+ * Structure consisting SEOBNR parameters that can be used by gsl root finders
+ */
+typedef
+struct tagSEOBRootParams
+{
+  REAL8          values[12]; /**<< Dynamical variables, x, y, z, px, py, pz, S1x, S1y, S1z, S2x, S2y and S2z */
+  SpinEOBParams *params;     /**<< Spin EOB parameters -- physical, pre-computed, etc. */
+  REAL8          omega;      /**<< Orbital frequency */
+} SEOBRootParams;
+
+/**
+ * Calculates the dot product of two vectors
+ */
+static inline
+REAL8
+CalculateDotProduct( const REAL8 a[], const REAL8 b[] )
+{
+  return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+}
+
+
+/**
+ * calculates the ith component of the cross product of two vectors,
+ * where i is in the range 0-2.
+ */
+static inline
+REAL8
+CalculateCrossProduct( const INT4 i, const REAL8 a[], const REAL8 b[] )
+{
+  return a[(i+1)%3]*b[(i+2)%3] - a[(i+2)%3]*b[(i+1)%3];
+}
+
+
+/**
+ * Normalizes the given vector
+ */
+static inline
+int
+NormalizeVector( REAL8 a[] )
+{
+  REAL8 norm = sqrt( a[0]*a[0] + a[1]*a[1] + a[2]*a[2] );
+
+  a[0] /= norm;
+  a[1] /= norm;
+  a[2] /= norm;
+
+  return XLAL_SUCCESS;
+}
 
 /**
  * Calculate the rotation matrix and its inverse.
@@ -628,17 +678,17 @@ static int XLALSimIMRSpinEOBInitialConditions(
 
   /* XXX Test code XXX */
   if(debugPK){
-  for ( i = 0; i < 3; i++ )
-  {
-    printf ( " LnHat[%d] = %.16e, rHat[%d] = %.16e, vHat[%d] = %.16e\n", i, LnHat[i], i, rHat[i], i, vHat[i] );
-  }
+     for ( i = 0; i < 3; i++ )
+     {
+        printf ( " LnHat[%d] = %.16e, rHat[%d] = %.16e, vHat[%d] = %.16e\n", i, LnHat[i], i, rHat[i], i, vHat[i] );
+     }
 
-  printf("\n\n" );
-  for ( i = 0; i < 3; i++ )
-  {
-    printf ( " s1[%d] = %.16e, s2[%d] = %.16e\n", i, tmpS1[i], i, tmpS2[i] );
+     printf("\n\n" );
+     for ( i = 0; i < 3; i++ )
+     {
+        printf ( " s1[%d] = %.16e, s2[%d] = %.16e\n", i, tmpS1[i], i, tmpS2[i] );
+     }
   }
-}
 
   /* Allocate and compute the rotation matrices */
   XLAL_CALLGSL( rotMatrix = gsl_matrix_alloc( 3, 3 ) );
@@ -679,7 +729,7 @@ static int XLALSimIMRSpinEOBInitialConditions(
   {
     printf ( " s1[%d] = %.16e, s2[%d] = %.16e\n", i, tmpS1[i], i, tmpS2[i] );
   }
-}
+  }
 
   /* STEP 2) After rotation in STEP 1, in spherical coordinates, phi0 and theta0 are given directly in Eq. (4.7),
    *         r0, pr0, ptheta0 and pphi0 are obtained by solving Eqs. (4.8) and (4.9) (using gsl_multiroot_fsolver).
@@ -773,7 +823,7 @@ static int XLALSimIMRSpinEOBInitialConditions(
 
   finalValues = gsl_multiroot_fsolver_root( rootSolver );
 
- if(debugPK){
+  if(debugPK){
   printf( "Spherical orbit conditions here given by the following:\n" );
   printf( " x = %.16e, py = %.16e, pz = %.16e\n", gsl_vector_get( finalValues, 0 ), 
       gsl_vector_get( finalValues, 1 ), gsl_vector_get( finalValues, 2 ) );
@@ -789,7 +839,8 @@ static int XLALSimIMRSpinEOBInitialConditions(
   /* Free the GSL root finder, since we're done with it */
   gsl_multiroot_fsolver_free( rootSolver );
   gsl_vector_free( initValues );
-
+  
+ 
   /* STEP 3) Rotate to L0 along z-axis and N0 along x-axis frame, where L0 is the initial orbital angular momentum
    *         and L0 is calculated using initial position and linear momentum obtained in STEP 2.
    */
@@ -906,7 +957,7 @@ static int XLALSimIMRSpinEOBInitialConditions(
     //XLALSimIMRCalculateSpinEOBHCoeffs( params->seobCoeffs, eta, a );
     ham = XLALSimIMRSpinEOBHamiltonian( eta, &qCartVec, &pCartVec, &s1VecNorm, &s2VecNorm, &sKerr, &sStar, params->tortoise, params->seobCoeffs );
 
-    if(debugPK)printf( "hamiltonian at this point is %.16e\n", ham );
+    if(debugPK)printf( "Stas: hamiltonian at this point is %.16e\n", ham );
 
     /* And now, finally, the flux */
     REAL8Vector polarDynamics, cartDynamics;
@@ -928,11 +979,22 @@ static int XLALSimIMRSpinEOBInitialConditions(
     memcpy( cartData+6, tmpS1Norm, 3*sizeof(REAL8) );
     memcpy( cartData+9, tmpS2Norm, 3*sizeof(REAL8) );
     
+    if (debugPK){
+        printf("Stas here I am\n");
+    }
+    
+    //printf("Stas: starting FLux calculations\n");
+    
     flux  = XLALInspiralPrecSpinFactorizedFlux( &polarDynamics, &cartDynamics, nqcCoeffs, omega, params, ham, lMax, SpinAlignedEOBversion );
     /*flux  = XLALInspiralSpinFactorizedFlux( &polarDynamics, nqcCoeffs, omega, params, ham, lMax, SpinAlignedEOBversion );*/
+   // printf("Stas flux = %.16e \n", flux);
+    //exit(0);
     flux  = flux / eta;
-
+    
     rDot  = - flux / dEdr;
+    if (debugPK){
+        printf("Stas here I am 2  \n");
+    }
 
     /* We now need dHdpr - we take it that it is safely linear up to a pr of 1.0e-3
      * PK: Ideally, the pr should be of the order of other momenta, in order for its 

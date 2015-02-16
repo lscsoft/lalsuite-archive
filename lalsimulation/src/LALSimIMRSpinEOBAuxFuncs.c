@@ -39,6 +39,20 @@
  *------------------------------------------------------------------------------------------
  */
 
+static int XLALSimIMRSpinEOBCalculateSigmaKerr(
+                                   REAL8Vector *sigmaKerr,
+                                   REAL8        mass1,
+                                   REAL8        mass2,
+                                   REAL8Vector *s1,
+                                   REAL8Vector *s2 );
+
+static int XLALSimIMRSpinEOBCalculateSigmaStar(
+                                   REAL8Vector *sigmaStar,
+                                   REAL8        mass1,
+                                   REAL8        mass2,
+                                   REAL8Vector *s1,
+                                   REAL8Vector *s2 );
+
 /*------------------------------------------------------------------------------------------
  *
  *          Defintions of functions.

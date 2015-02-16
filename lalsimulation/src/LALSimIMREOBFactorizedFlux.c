@@ -26,7 +26,6 @@
  */
 
 #include <complex.h>
-#include "LALSImIMRSpinEOB.h"
 
 
 #ifndef _LALSIMIMRFACTORIZEDFLUX_C

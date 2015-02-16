@@ -44,6 +44,30 @@
 #ifndef _LALSIMIMRNEWTONIANMULTIPOLE_C
 #define _LALSIMIMRNEWTONIANMULTIPOLE_C
 
+static REAL8
+XLALAssociatedLegendreXIsZero( const int l,
+                               const int m
+                             );
+
+static int
+XLALScalarSphHarmThetaPiBy2(COMPLEX16 *y,
+                         INT4 l,
+                         INT4  m,
+                         REAL8 phi);
+
+static int
+XLALAbsScalarSphHarmThetaPiBy2(COMPLEX16 *y,
+                         INT4 l,
+                         INT4  m);
+
+static int
+CalculateThisMultipolePrefix(
+               COMPLEX16 *prefix,
+               const REAL8 m1,
+               const REAL8 m2,
+               const INT4 l,
+               const INT4 m );
+
 
 /**
  * Function which computes the various coefficients in the Newtonian
