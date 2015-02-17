@@ -1363,7 +1363,6 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 	const REAL8 epsilon_1 =  1.4547*chi - 1.8897;
 	const REAL8 epsilon_2 = -1.8153*chi + 1.6557;
 	
-	REAL8 hSqr = 0.;
 	REAL8 gamma_MM = 0.;
 	REAL8 gamma_MEta= 0.;
 	REAL8 gamma_MChi = 0.;
@@ -1380,8 +1379,10 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 	REAL8 gamma_T0Phi0 = 0.;
 	REAL8 gamma_Phi0Phi0 = 0.;
 	
-	REAL8 amp, dAdM, dAdEta, dAdChi, dA3Denom;
+	REAL8 amp, dAdM, dAdEta, dAdChi, dA3Den;
 	REAL8 f1_pm7by6 = pow(f1,-7./6.);
+	REAL8 f1_p2by3 = pow(f1,2./3);
+	REAL8 sigma_p2 = sigma*sigma; 
 
 	/* compute derivatives over a freq vector from fLow to fCut with frequency resolution df
 	 *  and use this to compute the Fisher matrix */
@@ -1408,8 +1409,7 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 		REAL8 f_pm5by3	= f_pm2by3*f_pm1;
 		REAL8 f_pm7by6 	= f_pm1by6*f_pm1;
 
-		REAL8 fbyf1		= f/f1;
-		REAL8 fbyf1_pm2by3 = cbrt(1./fbyf1)*cbrt(1./fbyf1);
+		REAL8 fbyf1_pm2by3 = f1_p2by3*f_pm2by3;
 
 		/* compute derivatives of the amplitude w.r.t M, eta and chi */
 		if (f <= f1) {
@@ -1419,18 +1419,17 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 			dAdChi	= coef->dA1dchi_0*f_pm7by6 + coef->dA1dchi_1*f_pm1by2 + coef->dA1dchi_2*f_pm1by6;
 		}
 		else if ((f1<f) && (f<=f2)) {
-
 			amp		= coef->Wm*AmpCoef*f1_pm7by6*fbyf1_pm2by3*(1. + epsilon_1*v + epsilon_2*v_p2);
 			dAdM	= coef->dA2dM_0*f_pm2by3 + coef->dA2dM_1*f_pm1by3 + coef->dA2dM_2;
 			dAdEta	= coef->dA2deta_0*f_pm2by3 + coef->dA2deta_1*f_pm1by3 + coef->dA2deta_2;
 			dAdChi	= coef->dA2dchi_0*f_pm2by3 + coef->dA2dchi_1*f_pm1by3 + coef->dA2dchi_2;
 		}
 		else {
-			amp		= coef->Wr*(1./(LAL_TWOPI))*( sigma/( (f-f2)*(f-f2) + sigma*sigma*0.25));
-			dA3Denom = coef->dA3denom_0 + coef->dA3denom_1*f + coef->dA3denom_2*f_p2 + coef->dA3denom_3*f_p3 + coef->dA3denom_4*f_p4;
-			dAdM 	= (coef->dA3dMnum_0 + coef->dA3dMnum_1*f + coef->dA3dMnum_2*f_p2)/(dA3Denom);
-			dAdEta	= (coef->dA3detanum_0 + coef->dA3detanum_1*f + coef->dA3detanum_2*f_p2)/(dA3Denom);
-			dAdChi	= (coef->dA3dchinum_0 + coef->dA3dchinum_1*f + coef->dA3dchinum_2*f_p2)/(dA3Denom);
+			amp		= coef->Wr*(sigma/((f-f2)*(f-f2) + sigma_p2*0.25))/LAL_TWOPI;
+			dA3Den  = coef->dA3denom_0 + coef->dA3denom_1*f + coef->dA3denom_2*f_p2 + coef->dA3denom_3*f_p3 + coef->dA3denom_4*f_p4;
+			dAdM 	= (coef->dA3dMnum_0 + coef->dA3dMnum_1*f + coef->dA3dMnum_2*f_p2)/dA3Den;
+			dAdEta	= (coef->dA3detanum_0 + coef->dA3detanum_1*f + coef->dA3detanum_2*f_p2)/dA3Den;
+			dAdChi	= (coef->dA3dchinum_0 + coef->dA3dchinum_1*f + coef->dA3dchinum_2*f_p2)/dA3Den;
 		}
 		
 		/* compute derivatives of the phase w.r.t M, eta and chi */
@@ -1438,30 +1437,34 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 		REAL8 dPsidEta	= coef->dPsideta_0*f_pm5by3 + coef->dPsideta_2*f_pm1 + coef->dPsideta_3*f_pm2by3 + coef->dPsideta_4*f_pm1by3 + coef->dPsideta_6*f_p1by3 + coef->dPsideta_7*f_p2by3;
 		REAL8 dPsidChi	= coef->dPsidchi_0*f_pm5by3 + coef->dPsidchi_2*f_pm1 + coef->dPsidchi_3*f_pm2by3 + coef->dPsidchi_4*f_pm1by3 + coef->dPsidchi_6*f_p1by3 + coef->dPsidchi_7*f_p2by3;
 		REAL8 dPsidT0	= LAL_TWOPI * f;
-		REAL8 dPsidPhi0	= 1.;
 
 		/* compute the elements of the Fisher matrix in M, eta, chi */
 		REAL8 amp_p2 = amp*amp;
-		gamma_MM += (amp_p2*dPsidM*dPsidM + dAdM*dAdM)/Shdata.data[k];
-		gamma_MEta += (amp_p2*dPsidM*dPsidEta + dAdM*dAdEta)/Shdata.data[k];
-		gamma_MChi += (amp_p2*dPsidM*dPsidChi + dAdM*dAdChi)/Shdata.data[k];
-		gamma_MT0 += amp_p2*dPsidM*dPsidT0/Shdata.data[k];
-		gamma_MPhi0 += amp_p2*dPsidM*dPsidPhi0/Shdata.data[k];
-		gamma_EtaEta += (amp_p2*dPsidEta*dPsidEta + dAdEta*dAdEta)/Shdata.data[k];
-		gamma_EtaChi += (amp_p2*dPsidEta*dPsidChi + dAdEta*dAdChi)/Shdata.data[k];
-		gamma_EtaT0 += amp_p2*dPsidEta*dPsidT0/Shdata.data[k];
-		gamma_EtaPhi0 += amp_p2*dPsidEta*dPsidPhi0/Shdata.data[k];
-		gamma_ChiChi += (amp_p2*dPsidChi*dPsidChi + dAdChi*dAdChi)/Shdata.data[k];
-		gamma_ChiT0 += amp_p2*dPsidChi*dPsidT0/Shdata.data[k];
-		gamma_ChiPhi0 += amp_p2*dPsidChi*dPsidPhi0/Shdata.data[k];
-		gamma_T0T0 += amp_p2*dPsidT0*dPsidT0/Shdata.data[k];
-		gamma_T0Phi0 += amp_p2*dPsidT0*dPsidPhi0/Shdata.data[k];
-		gamma_Phi0Phi0 += amp_p2*dPsidPhi0*dPsidPhi0/Shdata.data[k];
+		REAL8 ampSqr_x_dPsiM = amp_p2*dPsidM;
+		REAL8 ampSqr_x_dPsiEta = amp_p2*dPsidEta; 
+		REAL8 ampSqr_x_dPsidChi = amp_p2*dPsidChi; 
+		REAL8 ampSqr_by_Sh = amp_p2/Shdata.data[k];
 
-		hSqr += amp_p2/Shdata.data[k];
+		gamma_MM += (ampSqr_x_dPsiM*dPsidM + dAdM*dAdM)/Shdata.data[k];
+		gamma_MEta += (ampSqr_x_dPsiM*dPsidEta + dAdM*dAdEta)/Shdata.data[k];
+		gamma_MChi += (ampSqr_x_dPsiM*dPsidChi + dAdM*dAdChi)/Shdata.data[k];
+		gamma_MT0 += ampSqr_x_dPsiM*dPsidT0/Shdata.data[k];
+		gamma_MPhi0 += ampSqr_x_dPsiM/Shdata.data[k];
+		gamma_EtaEta += (ampSqr_x_dPsiEta*dPsidEta + dAdEta*dAdEta)/Shdata.data[k];
+		gamma_EtaChi += (ampSqr_x_dPsiEta*dPsidChi + dAdEta*dAdChi)/Shdata.data[k];
+		gamma_EtaT0 += ampSqr_x_dPsiEta*dPsidT0/Shdata.data[k];
+		gamma_EtaPhi0 += ampSqr_x_dPsiEta/Shdata.data[k];
+		gamma_ChiChi += (ampSqr_x_dPsidChi*dPsidChi + dAdChi*dAdChi)/Shdata.data[k];
+		gamma_ChiT0 += ampSqr_x_dPsidChi*dPsidT0/Shdata.data[k];
+		gamma_ChiPhi0 += ampSqr_x_dPsidChi/Shdata.data[k];
+		gamma_T0T0 += dPsidT0*dPsidT0*ampSqr_by_Sh;
+		gamma_T0Phi0 += dPsidT0*ampSqr_by_Sh;
+		gamma_Phi0Phi0 += ampSqr_by_Sh;
+
 	}
 	
-	hSqr *= 2.; 
+	/* this is actually twice the h-square 2*||h||^2 */
+	REAL8 hSqr = 2.*gamma_Phi0Phi0; 
 
 	/* fill the gsl matrix containing the Fisher matrix in (M, eta, chi, t0, phi0) */
 	gsl_matrix * g = gsl_matrix_calloc (5, 5);
