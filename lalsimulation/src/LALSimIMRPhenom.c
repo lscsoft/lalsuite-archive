@@ -1381,11 +1381,13 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 	REAL8 gamma_Phi0Phi0 = 0.;
 	
 	REAL8 amp, dAdM, dAdEta, dAdChi, dA3Denom;
+	REAL8 f1_pm7by6 = pow(f1,-7./6.);
 
 	/* compute derivatives over a freq vector from fLow to fCut with frequency resolution df
 	 *  and use this to compute the Fisher matrix */
 	for (;k--;) {
 		
+
 		const REAL8 f = fLow + k * df;
 		
 		REAL8 v 		= cbrt(piM*f);
@@ -1394,34 +1396,37 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 		REAL8 f_p2	 	= f*f;
 		REAL8 f_p3	 	= f_p2*f;
 		REAL8 f_p4	 	= f_p3*f;
-		REAL8 f_m7by6 	= sqrt(cbrt(1./(f_p4*f_p3)));
-		REAL8 f_m1by2 	= sqrt(1./f);
-		REAL8 f_m1by6 	= cbrt(sqrt(1/f));
-		REAL8 f_m2by3 	= cbrt(1./f_p2);
-		REAL8 f_m1by3 	= cbrt(1./f);
-		REAL8 f_pm5by3	= cbrt(1./(f_p4*f));
-		REAL8 f_pm1		= 1./f;
-		REAL8 f_pm2by3	= cbrt(1./f_p2);
-		REAL8 f_pm1by3	= cbrt(1./f);
 		REAL8 f_p1by3	= cbrt(f);
-		REAL8 f_p2by3	= cbrt(f_p2);
-		REAL8 fbyf1		= f/f1;
+		REAL8 f_p2by3	= f_p1by3*f_p1by3;
 		
+		REAL8 f_pm1		= 1./f;
+		REAL8 f_pm1by2 	= sqrt(f_pm1);
+		REAL8 f_pm1by3	= 1./f_p1by3;
+		REAL8 f_pm2by3	= 1./f_p2by3;
+		
+		REAL8 f_pm1by6 	= cbrt(sqrt(f_pm1));
+		REAL8 f_pm5by3	= f_pm2by3*f_pm1;
+		REAL8 f_pm7by6 	= f_pm1by6*f_pm1;
+
+		REAL8 fbyf1		= f/f1;
+		REAL8 fbyf1_pm2by3 = cbrt(1./fbyf1)*cbrt(1./fbyf1);
+
 		/* compute derivatives of the amplitude w.r.t M, eta and chi */
 		if (f <= f1) {
-			amp		= AmpCoef*f_m7by6*( 1 + alpha2*v_p2 + alpha3*v_p3);
-			dAdM	= coef->dA1dM_0*f_m7by6 + coef->dA1dM_1*f_m1by2 + coef->dA1dM_2*f_m1by6;
-			dAdEta	= coef->dA1deta_0*f_m7by6 + coef->dA1deta_1*f_m1by2 + coef->dA1deta_2*f_m1by6;
-			dAdChi	= coef->dA1dchi_0*f_m7by6 + coef->dA1dchi_1*f_m1by2 + coef->dA1dchi_2*f_m1by6;
+			amp		= AmpCoef*f_pm7by6*(1. + alpha2*v_p2 + alpha3*v_p3);
+			dAdM	= coef->dA1dM_0*f_pm7by6 + coef->dA1dM_1*f_pm1by2 + coef->dA1dM_2*f_pm1by6;
+			dAdEta	= coef->dA1deta_0*f_pm7by6 + coef->dA1deta_1*f_pm1by2 + coef->dA1deta_2*f_pm1by6;
+			dAdChi	= coef->dA1dchi_0*f_pm7by6 + coef->dA1dchi_1*f_pm1by2 + coef->dA1dchi_2*f_pm1by6;
 		}
 		else if ((f1<f) && (f<=f2)) {
-			amp		= coef->Wm*AmpCoef*pow(f1,-7.0/6.0)*pow(fbyf1,-2.0/3.0)*(1. + epsilon_1*v + epsilon_2*v_p2);
-			dAdM	= coef->dA2dM_0*f_m2by3 + coef->dA2dM_1*f_m1by3 + coef->dA2dM_2;
-			dAdEta	= coef->dA2deta_0*f_m2by3 + coef->dA2deta_1*f_m1by3 + coef->dA2deta_2;
-			dAdChi	= coef->dA2dchi_0*f_m2by3 + coef->dA2dchi_1*f_m1by3 + coef->dA2dchi_2;
+
+			amp		= coef->Wm*AmpCoef*f1_pm7by6*fbyf1_pm2by3*(1. + epsilon_1*v + epsilon_2*v_p2);
+			dAdM	= coef->dA2dM_0*f_pm2by3 + coef->dA2dM_1*f_pm1by3 + coef->dA2dM_2;
+			dAdEta	= coef->dA2deta_0*f_pm2by3 + coef->dA2deta_1*f_pm1by3 + coef->dA2deta_2;
+			dAdChi	= coef->dA2dchi_0*f_pm2by3 + coef->dA2dchi_1*f_pm1by3 + coef->dA2dchi_2;
 		}
 		else {
-			amp		= coef->Wr*(1/(LAL_TWOPI))*( sigma/( (f-f2)*(f-f2) + sigma*sigma*0.25));
+			amp		= coef->Wr*(1./(LAL_TWOPI))*( sigma/( (f-f2)*(f-f2) + sigma*sigma*0.25));
 			dA3Denom = coef->dA3denom_0 + coef->dA3denom_1*f + coef->dA3denom_2*f_p2 + coef->dA3denom_3*f_p3 + coef->dA3denom_4*f_p4;
 			dAdM 	= (coef->dA3dMnum_0 + coef->dA3dMnum_1*f + coef->dA3dMnum_2*f_p2)/(dA3Denom);
 			dAdEta	= (coef->dA3detanum_0 + coef->dA3detanum_1*f + coef->dA3detanum_2*f_p2)/(dA3Denom);
