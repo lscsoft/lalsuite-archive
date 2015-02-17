@@ -1095,7 +1095,8 @@ IMRDerivCoeffs *XLALComputeIMRPhenomBDerivativeCoeffs(
 		const REAL8 m1,
 		const REAL8 m2,
 		const REAL8 chi
-													  );
+);
+
 /**
  * Compute the coefficients of the series expansion (in Fourier frequency) of the derivatives of the
  * IMRPhenomB waveform with respect to parameters M, eta, chi
@@ -1310,16 +1311,6 @@ IMRDerivCoeffs *XLALComputeIMRPhenomBDerivativeCoeffs(
  */
 
 
-static REAL8 FisherMatrixElements(REAL8Vector *Amp, REAL8Vector *dPsii, REAL8Vector *dPsij,
-								  REAL8Vector *dAi, REAL8Vector*dAj, REAL8Vector *Sh, REAL8 hSqr, REAL8 df) {
-	size_t k = Amp->length;
-	REAL8 gij   = 0.;
-	for (;k--;) {
-		gij += df*(Amp->data[k]*Amp->data[k]*dPsii->data[k]*dPsij->data[k]
-				   + dAi->data[k]*dAj->data[k])/(2.0*Sh->data[k]*hSqr);
-	}
-	return gij;
-};
 
 gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 		const REAL8 m1,     /**< component mass 1 (kg) */
@@ -1329,12 +1320,8 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 		const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
 ){
 	
-	IMRDerivCoeffs *coeffs;
+	IMRDerivCoeffs *coef;
 	BBHPhenomParams *params;
-	
-	REAL8Vector *Amp=NULL, *dAdM=NULL, *dAdEta=NULL, *dAdChi=NULL;
-	REAL8Vector *dAdT=NULL, *dAdPhi=NULL, *dPsidM=NULL;
-	REAL8Vector *dPsidEta=NULL, *dPsidChi=NULL, *dPsidT=NULL, *dPsidPhi=NULL;
 	
 	/* check inputs */
 	if (m1 <= 0) XLAL_ERROR_NULL(XLAL_EDOM);
@@ -1357,7 +1344,6 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 	REAL8 sigma = params->sigma;
 	REAL8 f3 = params->fCut;
 	
-	
 	/* create a view of the PSD between flow and fCut */
 	REAL8 df = Sh->deltaF;
 	size_t nBins = (f3 - fLow) / df;
@@ -1366,25 +1352,8 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 	/* drop low-frequency samples */
 	Shdata.length = nBins;  /* drop high-frequency samples */
 	
-	/* allocate memory for various vectors */
-	Amp = XLALCreateREAL8Vector(nBins);
-	dAdM = XLALCreateREAL8Vector(nBins);
-	dAdEta = XLALCreateREAL8Vector(nBins);
-	dAdChi = XLALCreateREAL8Vector(nBins);
-	dAdT = XLALCreateREAL8Vector(nBins);
-	dAdPhi = XLALCreateREAL8Vector(nBins);
-	dPsidM = XLALCreateREAL8Vector(nBins);
-	dPsidEta = XLALCreateREAL8Vector(nBins);
-	dPsidChi = XLALCreateREAL8Vector(nBins);
-	dPsidT = XLALCreateREAL8Vector(nBins);
-	dPsidPhi = XLALCreateREAL8Vector(nBins);
-	
-	/* derivative of the ampl w.r.t t0 and phi0 are zero. Fill these vectors with zero */
-	memset(dAdT->data, 0, nBins*sizeof(REAL8));
-	memset(dAdPhi->data, 0, nBins*sizeof(REAL8));
-	
 	/* compute the coefficients of the series expansion of the derivatives */
-	coeffs = XLALComputeIMRPhenomBDerivativeCoeffs(m1, m2, chi);
+	coef = XLALComputeIMRPhenomBDerivativeCoeffs(m1, m2, chi);
 	
 	/* PN corrections to the frequency domain amplitude of the (2,2) mode */
 	const REAL8 alpha2   = -323./224. + 451.*eta/168.;
@@ -1395,97 +1364,132 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 	const REAL8 epsilon_2 = -1.8153*chi + 1.6557;
 	
 	REAL8 hSqr = 0.;
+	REAL8 gamma_MM = 0.;
+	REAL8 gamma_MEta= 0.;
+	REAL8 gamma_MChi = 0.;
+	REAL8 gamma_MT0 = 0.;
+	REAL8 gamma_MPhi0 = 0.;
+	REAL8 gamma_EtaEta = 0.;
+	REAL8 gamma_EtaChi = 0.;
+	REAL8 gamma_EtaT0 = 0.;
+	REAL8 gamma_EtaPhi0= 0.;
+	REAL8 gamma_ChiChi = 0.;
+	REAL8 gamma_ChiT0 = 0.;
+	REAL8 gamma_ChiPhi0 = 0.;
+	REAL8 gamma_T0T0 = 0.;
+	REAL8 gamma_T0Phi0 = 0.;
+	REAL8 gamma_Phi0Phi0 = 0.;
 	
-	
+	REAL8 amp, dAdM, dAdEta, dAdChi, dA3Denom;
+
 	/* compute derivatives over a freq vector from fLow to fCut with frequency resolution df
 	 *  and use this to compute the Fisher matrix */
 	for (;k--;) {
 		
 		const REAL8 f = fLow + k * df;
 		
-		REAL8 v 			= cbrt(piM*f);
-		REAL8 freq_p2	 	= f*f;
-		REAL8 freq_p3	 	= f*f*f;
-		REAL8 freq_p4	 	= f*f*f*f;
-		REAL8 freq_m7by6 	= sqrt(cbrt(1./(freq_p4*freq_p3)));
-		REAL8 freq_m1by2 	= sqrt(1./f);
-		REAL8 freq_m1by6 	= cbrt(sqrt(1/f));
-		REAL8 freq_m2by3 	= cbrt(1./(f*f));
-		REAL8 freq_m1by3 	= cbrt(1./f);
-		REAL8 freq_pm5by3	= cbrt(1./(freq_p4*f));
-		REAL8 freq_pm1		= 1./f;
-		REAL8 freq_pm2by3	= cbrt(1./(f*f));
-		REAL8 freq_pm1by3	= cbrt(1./(f));
-		REAL8 freq_p1by3	= cbrt(f);
-		REAL8 freq_p2by3	= cbrt(f*f);
-		REAL8 fbyf1			= f/f1;
-		
+		REAL8 v 		= cbrt(piM*f);
+		REAL8 v_p2 		= v*v; 
+		REAL8 v_p3 		= v_p2*v; 
+		REAL8 f_p2	 	= f*f;
+		REAL8 f_p3	 	= f_p2*f;
+		REAL8 f_p4	 	= f_p3*f;
+		REAL8 f_m7by6 	= sqrt(cbrt(1./(f_p4*f_p3)));
+		REAL8 f_m1by2 	= sqrt(1./f);
+		REAL8 f_m1by6 	= cbrt(sqrt(1/f));
+		REAL8 f_m2by3 	= cbrt(1./f_p2);
+		REAL8 f_m1by3 	= cbrt(1./f);
+		REAL8 f_pm5by3	= cbrt(1./(f_p4*f));
+		REAL8 f_pm1		= 1./f;
+		REAL8 f_pm2by3	= cbrt(1./f_p2);
+		REAL8 f_pm1by3	= cbrt(1./f);
+		REAL8 f_p1by3	= cbrt(f);
+		REAL8 f_p2by3	= cbrt(f_p2);
+		REAL8 fbyf1		= f/f1;
 		
 		/* compute derivatives of the amplitude w.r.t M, eta and chi */
 		if (f <= f1) {
-			Amp->data[k]		= AmpCoef*freq_m7by6*( 1 + alpha2*v*v + alpha3*v*v*v );
-			dAdM->data[k]		= coeffs->dA1dM_0*freq_m7by6 + coeffs->dA1dM_1*freq_m1by2 + coeffs->dA1dM_2*freq_m1by6;
-			dAdEta->data[k]		= coeffs->dA1deta_0*freq_m7by6 + coeffs->dA1deta_1*freq_m1by2 + coeffs->dA1deta_2*freq_m1by6;
-			dAdChi->data[k]		= coeffs->dA1dchi_0*freq_m7by6 + coeffs->dA1dchi_1*freq_m1by2 + coeffs->dA1dchi_2*freq_m1by6;
+			amp		= AmpCoef*f_m7by6*( 1 + alpha2*v_p2 + alpha3*v_p3);
+			dAdM	= coef->dA1dM_0*f_m7by6 + coef->dA1dM_1*f_m1by2 + coef->dA1dM_2*f_m1by6;
+			dAdEta	= coef->dA1deta_0*f_m7by6 + coef->dA1deta_1*f_m1by2 + coef->dA1deta_2*f_m1by6;
+			dAdChi	= coef->dA1dchi_0*f_m7by6 + coef->dA1dchi_1*f_m1by2 + coef->dA1dchi_2*f_m1by6;
 		}
 		else if ((f1<f) && (f<=f2)) {
-			Amp->data[k]		= coeffs->Wm*AmpCoef*pow(f1,-7.0/6.0)*pow(fbyf1,-2.0/3.0)*( 1 + epsilon_1*v + epsilon_2*v*v );
-			dAdM->data[k]		= coeffs->dA2dM_0*freq_m2by3 + coeffs->dA2dM_1*freq_m1by3 + coeffs->dA2dM_2;
-			dAdEta->data[k]		= coeffs->dA2deta_0*freq_m2by3 + coeffs->dA2deta_1*freq_m1by3 + coeffs->dA2deta_2;
-			dAdChi->data[k]		= coeffs->dA2dchi_0*freq_m2by3 + coeffs->dA2dchi_1*freq_m1by3 + coeffs->dA2dchi_2;
+			amp		= coef->Wm*AmpCoef*pow(f1,-7.0/6.0)*pow(fbyf1,-2.0/3.0)*(1. + epsilon_1*v + epsilon_2*v_p2);
+			dAdM	= coef->dA2dM_0*f_m2by3 + coef->dA2dM_1*f_m1by3 + coef->dA2dM_2;
+			dAdEta	= coef->dA2deta_0*f_m2by3 + coef->dA2deta_1*f_m1by3 + coef->dA2deta_2;
+			dAdChi	= coef->dA2dchi_0*f_m2by3 + coef->dA2dchi_1*f_m1by3 + coef->dA2dchi_2;
 		}
 		else {
-			Amp->data[k]		= coeffs->Wr*(1/(LAL_TWOPI))*( sigma/( (f-f2)*(f-f2) + sigma*sigma*0.25));
-			REAL8 dA3Denom	    = coeffs->dA3denom_0 + coeffs->dA3denom_1*f + coeffs->dA3denom_2*freq_p2 + coeffs->dA3denom_3*freq_p3 + coeffs->dA3denom_4*freq_p4;
-			dAdM->data[k] 		= (coeffs->dA3dMnum_0 + coeffs->dA3dMnum_1*f + coeffs->dA3dMnum_2*freq_p2)/(dA3Denom);
-			dAdEta->data[k]		= (coeffs->dA3detanum_0 + coeffs->dA3detanum_1*f + coeffs->dA3detanum_2*freq_p2)/(dA3Denom);
-			dAdChi->data[k]		= (coeffs->dA3dchinum_0 + coeffs->dA3dchinum_1*f + coeffs->dA3dchinum_2*freq_p2)/(dA3Denom);
-			
+			amp		= coef->Wr*(1/(LAL_TWOPI))*( sigma/( (f-f2)*(f-f2) + sigma*sigma*0.25));
+			dA3Denom = coef->dA3denom_0 + coef->dA3denom_1*f + coef->dA3denom_2*f_p2 + coef->dA3denom_3*f_p3 + coef->dA3denom_4*f_p4;
+			dAdM 	= (coef->dA3dMnum_0 + coef->dA3dMnum_1*f + coef->dA3dMnum_2*f_p2)/(dA3Denom);
+			dAdEta	= (coef->dA3detanum_0 + coef->dA3detanum_1*f + coef->dA3detanum_2*f_p2)/(dA3Denom);
+			dAdChi	= (coef->dA3dchinum_0 + coef->dA3dchinum_1*f + coef->dA3dchinum_2*f_p2)/(dA3Denom);
 		}
 		
 		/* compute derivatives of the phase w.r.t M, eta and chi */
-		dPsidM->data[k]		=	coeffs->dPsidM_0*freq_pm5by3 + coeffs->dPsidM_2*freq_pm1 + coeffs->dPsidM_3*freq_pm2by3 + coeffs->dPsidM_4*freq_pm1by3 + coeffs->dPsidM_6*freq_p1by3 + 						coeffs->dPsidM_7*freq_p2by3;
-		dPsidEta->data[k]	=	coeffs->dPsideta_0*freq_pm5by3 + coeffs->dPsideta_2*freq_pm1 + coeffs->dPsideta_3*freq_pm2by3 + coeffs->dPsideta_4*freq_pm1by3 + coeffs->dPsideta_6*						freq_p1by3 + coeffs->dPsideta_7*freq_p2by3;
-		dPsidChi->data[k]	=	coeffs->dPsidchi_0*freq_pm5by3 + coeffs->dPsidchi_2*freq_pm1 + coeffs->dPsidchi_3*freq_pm2by3 + coeffs->dPsidchi_4*freq_pm1by3 + coeffs->dPsidchi_6*						freq_p1by3 + coeffs->dPsidchi_7*freq_p2by3;
-		dPsidT->data[k]		=	LAL_TWOPI * f;
-		dPsidPhi->data[k]	=	1.;
-		
-		hSqr += Amp->data[k] * Amp->data[k] / Shdata.data[k];
+		REAL8 dPsidM	= coef->dPsidM_0*f_pm5by3 + coef->dPsidM_2*f_pm1 + coef->dPsidM_3*f_pm2by3 + coef->dPsidM_4*f_pm1by3 + coef->dPsidM_6*f_p1by3 + coef->dPsidM_7*f_p2by3;
+		REAL8 dPsidEta	= coef->dPsideta_0*f_pm5by3 + coef->dPsideta_2*f_pm1 + coef->dPsideta_3*f_pm2by3 + coef->dPsideta_4*f_pm1by3 + coef->dPsideta_6*f_p1by3 + coef->dPsideta_7*f_p2by3;
+		REAL8 dPsidChi	= coef->dPsidchi_0*f_pm5by3 + coef->dPsidchi_2*f_pm1 + coef->dPsidchi_3*f_pm2by3 + coef->dPsidchi_4*f_pm1by3 + coef->dPsidchi_6*f_p1by3 + coef->dPsidchi_7*f_p2by3;
+		REAL8 dPsidT0	= LAL_TWOPI * f;
+		REAL8 dPsidPhi0	= 1.;
+
+		/* compute the elements of the Fisher matrix in M, eta, chi */
+		REAL8 amp_p2 = amp*amp;
+		gamma_MM += (amp_p2*dPsidM*dPsidM + dAdM*dAdM)/Shdata.data[k];
+		gamma_MEta += (amp_p2*dPsidM*dPsidEta + dAdM*dAdEta)/Shdata.data[k];
+		gamma_MChi += (amp_p2*dPsidM*dPsidChi + dAdM*dAdChi)/Shdata.data[k];
+		gamma_MT0 += amp_p2*dPsidM*dPsidT0/Shdata.data[k];
+		gamma_MPhi0 += amp_p2*dPsidM*dPsidPhi0/Shdata.data[k];
+		gamma_EtaEta += (amp_p2*dPsidEta*dPsidEta + dAdEta*dAdEta)/Shdata.data[k];
+		gamma_EtaChi += (amp_p2*dPsidEta*dPsidChi + dAdEta*dAdChi)/Shdata.data[k];
+		gamma_EtaT0 += amp_p2*dPsidEta*dPsidT0/Shdata.data[k];
+		gamma_EtaPhi0 += amp_p2*dPsidEta*dPsidPhi0/Shdata.data[k];
+		gamma_ChiChi += (amp_p2*dPsidChi*dPsidChi + dAdChi*dAdChi)/Shdata.data[k];
+		gamma_ChiT0 += amp_p2*dPsidChi*dPsidT0/Shdata.data[k];
+		gamma_ChiPhi0 += amp_p2*dPsidChi*dPsidPhi0/Shdata.data[k];
+		gamma_T0T0 += amp_p2*dPsidT0*dPsidT0/Shdata.data[k];
+		gamma_T0Phi0 += amp_p2*dPsidT0*dPsidPhi0/Shdata.data[k];
+		gamma_Phi0Phi0 += amp_p2*dPsidPhi0*dPsidPhi0/Shdata.data[k];
+
+		hSqr += amp_p2/Shdata.data[k];
 	}
 	
-	hSqr = hSqr*df;
+	hSqr *= 2.; 
+
 	/* fill the gsl matrix containing the Fisher matrix in (M, eta, chi, t0, phi0) */
 	gsl_matrix * g = gsl_matrix_calloc (5, 5);
 	
-	gsl_matrix_set (g, 0,0, FisherMatrixElements(Amp,	dPsidM,	dPsidM,		dAdM, dAdM,		&Shdata, hSqr, df) );
-	gsl_matrix_set (g, 0,1, FisherMatrixElements(Amp,	dPsidM,	dPsidEta,	dAdM, dAdEta,	&Shdata, hSqr, df));
-	gsl_matrix_set (g, 0,2, FisherMatrixElements(Amp,	dPsidM, dPsidChi,	dAdM, dAdChi,	&Shdata, hSqr, df));
-	gsl_matrix_set (g, 0,3, FisherMatrixElements(Amp,	dPsidM, dPsidT,		dAdM, dAdT,		&Shdata, hSqr, df));
-	gsl_matrix_set (g, 0,4, FisherMatrixElements(Amp,	dPsidM, dPsidPhi,	dAdM, dAdPhi,	&Shdata, hSqr, df));
+	gsl_matrix_set (g, 0,0, gamma_MM/hSqr);
+	gsl_matrix_set (g, 0,1, gamma_MEta/hSqr);
+	gsl_matrix_set (g, 0,2, gamma_MChi/hSqr);
+	gsl_matrix_set (g, 0,3, gamma_MT0/hSqr);
+	gsl_matrix_set (g, 0,4, gamma_MPhi0/hSqr);
 	
 	gsl_matrix_set (g, 1,0, gsl_matrix_get(g, 0,1));
-	gsl_matrix_set (g, 1,1, FisherMatrixElements(Amp, dPsidEta, dPsidEta,	dAdEta, dAdEta, &Shdata, hSqr, df));
-	gsl_matrix_set (g, 1,2, FisherMatrixElements(Amp, dPsidEta, dPsidChi,	dAdEta, dAdChi, &Shdata, hSqr, df));
-	gsl_matrix_set (g, 1,3, FisherMatrixElements(Amp, dPsidEta, dPsidT,		dAdEta, dAdT,	&Shdata, hSqr, df));
-	gsl_matrix_set (g, 1,4, FisherMatrixElements(Amp, dPsidEta, dPsidPhi,	dAdEta, dAdPhi, &Shdata, hSqr, df));
+	gsl_matrix_set (g, 1,1, gamma_EtaEta/hSqr);
+	gsl_matrix_set (g, 1,2, gamma_EtaChi/hSqr);
+	gsl_matrix_set (g, 1,3, gamma_EtaT0/hSqr);
+	gsl_matrix_set (g, 1,4, gamma_EtaPhi0/hSqr);
 	
 	gsl_matrix_set (g, 2,0, gsl_matrix_get(g, 0,2));
 	gsl_matrix_set (g, 2,1, gsl_matrix_get(g, 1,2));
-	gsl_matrix_set (g, 2,2, FisherMatrixElements(Amp, dPsidChi, dPsidChi,	dAdChi, dAdChi, &Shdata, hSqr, df));
-	gsl_matrix_set (g, 2,3, FisherMatrixElements(Amp, dPsidChi, dPsidT,		dAdChi, dAdT,	&Shdata, hSqr, df));
-	gsl_matrix_set (g, 2,4, FisherMatrixElements(Amp, dPsidChi, dPsidPhi,	dAdChi, dAdPhi, &Shdata, hSqr, df));
+	gsl_matrix_set (g, 2,2, gamma_ChiChi/hSqr);
+	gsl_matrix_set (g, 2,3, gamma_ChiT0/hSqr);
+	gsl_matrix_set (g, 2,4, gamma_ChiPhi0/hSqr);
 	
 	gsl_matrix_set (g, 3,0, gsl_matrix_get(g, 0,3));
 	gsl_matrix_set (g, 3,1, gsl_matrix_get(g, 1,3));
 	gsl_matrix_set (g, 3,2, gsl_matrix_get(g, 2,3));
-	gsl_matrix_set (g, 3,3, FisherMatrixElements(Amp, dPsidT, dPsidT,	dAdT, dAdT, &Shdata, hSqr, df));
-	gsl_matrix_set (g, 3,4, FisherMatrixElements(Amp, dPsidT, dPsidPhi,	dAdT, dAdPhi, &Shdata, hSqr, df));
+	gsl_matrix_set (g, 3,3, gamma_T0T0/hSqr);
+	gsl_matrix_set (g, 3,4, gamma_T0Phi0/hSqr);
 	
 	gsl_matrix_set (g, 4,0, gsl_matrix_get(g, 0,4));
 	gsl_matrix_set (g, 4,1, gsl_matrix_get(g, 1,4));
 	gsl_matrix_set (g, 4,2, gsl_matrix_get(g, 2,4));
 	gsl_matrix_set (g, 4,3, gsl_matrix_get(g, 3,4));
-	gsl_matrix_set (g, 4,4, FisherMatrixElements(Amp, dPsidPhi, dPsidPhi,	dAdPhi, dAdPhi, &Shdata, hSqr, df));
+	gsl_matrix_set (g, 4,4, gamma_Phi0Phi0/hSqr);
 	
 	return g;
 };
@@ -1651,8 +1655,6 @@ int XLALSimIMRPhenomBMetricInTheta0Theta3Theta3S(
 	gsl_matrix_view g2v = gsl_matrix_submatrix (g, 0, 3, 3, 2);
 	gsl_matrix_view g3v = gsl_matrix_submatrix (g, 3, 3, 2, 2);
 	gsl_matrix_view g4v = gsl_matrix_submatrix (g, 3, 0, 2, 3);
-	
-	
 	
 	gsl_matrix * g1 = gsl_matrix_calloc (3, 3);
 	gsl_matrix * g2 = gsl_matrix_calloc (3, 2);
