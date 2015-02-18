@@ -1388,7 +1388,6 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 	 *  and use this to compute the Fisher matrix */
 	for (;k--;) {
 		
-
 		const REAL8 f = fLow + k * df;
 		
 		REAL8 v 		= cbrt(piM*f);
