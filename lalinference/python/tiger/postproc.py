@@ -636,7 +636,7 @@ class TigerRun:
 				files += item
 			nsplit = 3 if self.nsources > 1000 else 1
 			for fsplit in array_split(files.split(),nsplit):
-				command="%s %s '%s'"%("gsissh -C",clusters[self.cluster],command) if self.cluster in clusters.keys() else "%s %s"%("cat"," ".join(fsplit))
+				command="%s %s '%s %s'"%("gsissh -C",clusters[self.cluster],"cat"," ".join(fsplit)) if self.cluster in clusters.keys() else "%s %s"%("cat"," ".join(fsplit))
 				p = Popen(command, stdout=PIPE, stderr=PIPE,shell=True)
 				self.bayes.extend(loadtxt(p.stdout, usecols=[0]))
 			self.bayes = reshape(self.bayes, (self.nsources,len(self.subhyp)))
