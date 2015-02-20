@@ -1461,11 +1461,19 @@ UNUSED static int XLALSpinHcapRvecDerivative(
        XLAL_ERROR( XLAL_EINVAL );
        break;
   }
+
+  for( i = 0; i< 3; i++ )
+  {
+    params.params->s1Vec->data[i]     = s1norm.data[i];
+    params.params->s2Vec->data[i]     = s2norm.data[i];
+    params.params->sigmaStar->data[i] = sStar.data[i];
+    params.params->sigmaKerr->data[i] = sKerr.data[i];
+  }
  
-  params.params->s1Vec     = &s1norm;
-  params.params->s2Vec     = &s2norm;
-  params.params->sigmaStar = &sStar;
-  params.params->sigmaKerr = &sKerr;
+  //params.params->s1Vec     = &s1norm;
+  //params.params->s2Vec     = &s2norm;
+  //params.params->sigmaStar = &sStar;
+  //params.params->sigmaKerr = &sKerr;
   params.params->a         = a;
  
   XLALSimIMREOBCalcSpinFacWaveformCoefficients( 
