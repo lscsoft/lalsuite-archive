@@ -63,6 +63,18 @@ LALInferenceTemplateFunction LALInferenceInitBurstTemplate(LALInferenceRunState 
       //XLAL_ERROR_VOID(XLAL_EINVAL);
     }
   }
+  ppt=LALInferenceGetProcParamVal(commandLine,"--fastSineGaussianLikelihood");
+  if (ppt){
+    templt=&LALInferenceTemplateXLALSimBurstSineGaussianF;
+    ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
+    if (XLALGetBurstApproximantFromString(ppt->value)==SineGaussianF){
+      fprintf(stdout,"Using fast sine gaussian frequency domain likelihood.\n WARNING: this disables most of the extra features like marginalization. Also assumes you are using a SineGaussianF template and know what you are doing. Be careful\n");
+      }
+    else{
+      fprintf(stderr,"ERROR: can only use fastSineGaussianLikelihood with SineGaussianF approximants.\n");
+      exit(1);
+      }
+  }
   return templt;
 }
 

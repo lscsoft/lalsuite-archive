@@ -188,4 +188,6 @@ LALInferenceVariables LALInferenceGetInstrinsicParams(LALInferenceVariables *cur
 void LALInferenceNetworkSNR(LALInferenceVariables *currentParams, LALInferenceIFOData *data, LALInferenceModel *model);
 /*@}*/
 
+REAL8 LALInferenceFastSineGaussianLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData *data, LALInferenceModel *model);
+
 #endif

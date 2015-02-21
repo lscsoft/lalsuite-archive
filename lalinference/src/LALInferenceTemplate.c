@@ -1240,3 +1240,97 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
   
   return;
 }
+
+
+void LALInferenceTemplateXLALSimBurstSineGaussianF(LALInferenceModel *model)
+/*************************************************************************************************************************/
+/* Wrapper for LALSimulation waveforms:						                                                             */
+/* XLALSimBurstChooseFDWaveform() and XLALSimBurstChooseTDWaveform().                                              */
+/*                                                                                                                       */
+/*  model->params parameters are:										                                         */
+/*  - "name" description; type OPTIONAL (default value)										                             */
+/*   "LAL_APPROXIMANT" burst approximant, BurstApproximant */
+/*	"frequency" central frequency, REAL8                                                                          */
+/*   "Q" quality, REAL8 (optional, depending on the WF)                                              */
+/*   "duration" duration, REAL8 (optional, depending on the WF)                                      */
+/*   "alpha"  ellipticity, REAL8 (optional, depending on the WF)                                     */
+/*   "polar_angle" ellipticity polar angle, REAL8 (optional, together with polar_eccentricity may replace alpha)*/
+/*   "polar_eccentricity" ellipticity ellipse eccentricity, REAL8 (optional)                                     */
+/*                                                                                                                      */
+/*************************************************************************************************************************/
+{
+
+  unsigned long	i;
+  int ret=0;
+  INT4 errnum=0;
+  REAL8 instant;
+  
+  
+  REAL8TimeSeries *hplus=NULL;  /**< +-polarization waveform [returned] */
+  REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform [returned] */
+  COMPLEX16FrequencySeries *hptilde=NULL, *hctilde=NULL;
+  REAL8 deltaT,deltaF, 
+  freq=0.0,
+  quality=0.0,
+  hrss=1.0, alpha=LAL_PI/2.; 
+
+  freq=*(REAL8*) LALInferenceGetVariable(model->params, "frequency");
+  quality=*(REAL8*) LALInferenceGetVariable(model->params, "quality");
+  alpha=*(REAL8*) LALInferenceGetVariable(model->params, "alpha");
+  
+  if (model->timehCross==NULL) {
+    XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'timeData'.\n");
+    XLAL_ERROR_VOID(XLAL_EFAULT);
+  }
+  deltaT = model->timehCross->deltaT;
+  
+  if (model->freqhCross==NULL) {
+      XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'freqhCross'.\n");
+      XLAL_ERROR_VOID(XLAL_EFAULT);
+  }
+
+  deltaF = model->deltaF;
+  XLAL_TRY(ret=XLALSimBurstSineGaussianF(&hptilde, &hctilde, quality,freq,hrss, alpha,deltaF,deltaT), errnum);
+  if (ret == XLAL_FAILURE)
+      {
+        XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBurstChooseWaveform(). errnum=%d\n",errnum );
+        return;
+      }
+	if (hptilde==NULL || hptilde->data==NULL || hptilde->data->data==NULL ) {
+	  XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBurstChooseWaveform: encountered unallocated 'hptilde'.\n");
+	  XLAL_ERROR_VOID(XLAL_EFAULT);
+	}
+	if (hctilde==NULL || hctilde->data==NULL || hctilde->data->data==NULL ) {
+	  XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBurstChooseWaveform: encountered unallocated 'hctilde'.\n");
+	  XLAL_ERROR_VOID(XLAL_EFAULT);
+	}
+      
+	COMPLEX16 *dataPtr = hptilde->data->data;
+
+    for (i=0; i<model->freqhCross->data->length; ++i) {
+      dataPtr = hptilde->data->data;
+      if(i < hptilde->data->length){
+        model->freqhPlus->data->data[i] = dataPtr[i];
+      }else{
+        model->freqhPlus->data->data[i] = 0.0;
+      }
+    }
+    for (i=0; i<model->freqhCross->data->length; ++i) {
+      dataPtr = hctilde->data->data;
+      if(i < hctilde->data->length){
+        model->freqhCross->data->data[i] = dataPtr[i];
+      }else{
+        model->freqhCross->data->data[i] = 0.0;
+      }
+    }
+  instant= (model->timehCross->epoch.gpsSeconds + 1e-9*model->timehCross->epoch.gpsNanoSeconds);
+  LALInferenceSetVariable(model->params, "time", &instant);    
+
+
+  if ( hplus ) XLALDestroyREAL8TimeSeries(hplus);
+  if ( hcross ) XLALDestroyREAL8TimeSeries(hcross);
+  if ( hptilde ) XLALDestroyCOMPLEX16FrequencySeries(hptilde);
+  if ( hctilde ) XLALDestroyCOMPLEX16FrequencySeries(hctilde);
+  
+  return;
+}
