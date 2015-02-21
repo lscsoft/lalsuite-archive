@@ -2939,6 +2939,7 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
 //FIXME CHECK WNORM
     /* Inject into FD data stream and calculate optimal SNR */
     while(data){
+      tmp=0.0;
         LALCache *mdc_cache=NULL;
         mdc_cache  = XLALCacheImport(mdc_caches[i] );
         
