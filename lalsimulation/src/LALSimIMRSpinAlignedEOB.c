@@ -2477,7 +2477,11 @@ if( !NoComputeInitialConditions )
 	     }
 	     while ( time2 - time1 > 1.0e-5 );
       
-    if(debugPK)printf( "Estimation of the peak is now at time %.16e, %.16e \n", tPeakOmega, tPeakOmega+HiSRstart);
+    if(debugPK) {
+		printf( "Estimation of the peak is now at time %.16e, %.16e \n", 
+					tPeakOmega, tPeakOmega+HiSRstart);
+		fflush(NULL);
+	}
   }
 
   /* WaveStep 1.2: calculate J at merger */
@@ -2511,7 +2515,7 @@ if( !NoComputeInitialConditions )
   Jz = eta*Lz + values->data[8] + values->data[11];
   magJ = sqrt( Jx*Jx + Jy*Jy + Jz*Jz );
   
-  if(debugPK)printf("J at merger: %e, %e, %e (mag = %e)\n", Jx, Jy, Jz, magJ);
+  if(debugPK){ printf("J at merger: %e, %e, %e (mag = %e)\n", Jx, Jy, Jz, magJ); fflush(NULL); }
 
   /* WaveStep 1.3: calculate chi and kappa at merger */
   chi1J = values->data[6]*Jx + values->data[7] *Jy + values->data[8] *Jz;
@@ -2575,6 +2579,7 @@ if( !NoComputeInitialConditions )
   tAttach = tPeakOmega - deltaNQC - sh;
   if (debugPK){
       printf("For RD: DeltaNQC = %e.16, comb = %e.16 \n", deltaNQC+sh, combSize);
+	  fflush(NULL);
   }
   /* WaveStep 1.4: calculate combsize and deltaNQC */
   
@@ -2603,6 +2608,7 @@ if( !NoComputeInitialConditions )
   if(debugPK)printf("J-frameEx = [%e\t%e\t%e]\n", JframeEx[0], JframeEx[1], JframeEx[2]);
   if(debugPK)printf("J-frameEy = [%e\t%e\t%e]\n", JframeEy[0], JframeEy[1], JframeEy[2]);
   if(debugPK)printf("J-frameEz = [%e\t%e\t%e]\n", JframeEz[0], JframeEz[1], JframeEz[2]);
+  if(debugPK)fflush(NULL);
 
   /* WaveStep 2
    * Calculate quasi-nonprecessing waveforms
@@ -3539,14 +3545,14 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     // FIXME check that all created arrays are destroyed here
   
   
-    XLALDestroyREAL8TimeSeries(alphaI2PTS);
-    XLALDestroyREAL8TimeSeries(betaI2PTS);
-    XLALDestroyREAL8TimeSeries(gammaI2PTS);
-    XLALDestroyREAL8TimeSeries(alphaP2JTS);
-    XLALDestroyREAL8TimeSeries(betaP2JTS);
-    XLALDestroyREAL8TimeSeries(gammaP2JTS);
+    //XLALDestroyREAL8TimeSeries(alphaI2PTS);
+    //XLALDestroyREAL8TimeSeries(betaI2PTS);
+    //XLALDestroyREAL8TimeSeries(gammaI2PTS);
+    //XLALDestroyREAL8TimeSeries(alphaP2JTS);
+    //XLALDestroyREAL8TimeSeries(betaP2JTS);
+    //XLALDestroyREAL8TimeSeries(gammaP2JTS);
 
-
+    if(debugPK){ printf("Memory cleanup 1 done.\n"); fflush(NULL); }
     XLALDestroyREAL8TimeSeries(alphaI2PTSHi);
     XLALDestroyREAL8TimeSeries(betaI2PTSHi);
     XLALDestroyREAL8TimeSeries(gammaI2PTSHi);
@@ -3571,7 +3577,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     XLALDestroyCOMPLEX16TimeSeries(hIMR2m1JTS); 
     XLALDestroyCOMPLEX16TimeSeries(hIMR2m2JTS); 
     XLALDestroyCOMPLEX16TimeSeries(hIMRJTS);
-    
+    if(debugPK){ printf("Memory cleanup 2 done.\n"); fflush(NULL); }
     
     XLALDestroyCOMPLEX16TimeSeries(h22TSHi);  
     XLALDestroyCOMPLEX16TimeSeries(h21TSHi); 
@@ -3599,7 +3605,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     XLALDestroyREAL8Vector( sigImHi );
     XLALDestroyREAL8Vector( omegaHi );
     
-
+    if(debugPK){ printf("Memory cleanup 3 done.\n"); fflush(NULL); }
     XLALAdaptiveRungeKutta4Free(integrator);
     XLALDestroyREAL8Array( dynamics );
     XLALDestroyREAL8Array( dynamicsHi );
@@ -3624,7 +3630,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     XLALDestroyREAL8Vector( tlistRDPatch );
     XLALDestroyREAL8Vector( tlistRDPatchHi );
      
-    //printf("here\n");      
+    if(debugPK){ printf("Memory cleanup ALL done.\n"); fflush(NULL); }
   
   return XLAL_SUCCESS;
 }

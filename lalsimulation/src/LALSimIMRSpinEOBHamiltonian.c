@@ -124,12 +124,12 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params );
 
 static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params );
 
-static UNUSED REAL8 XLALSimIMRSpinPrecEOBNonKeplerCoeff(
+static REAL8 UNUSED XLALSimIMRSpinEOBNonKeplerCoeff(
                       const REAL8           values[],   /**<< Dynamical variables */
                       SpinEOBParams         *funcParams /**<< EOB parameters */
                       );
 
-static REAL8 UNUSED XLALSimIMRSpinEOBNonKeplerCoeff(
+static UNUSED REAL8 XLALSimIMRSpinPrecEOBNonKeplerCoeff(
                       const REAL8           values[],   /**<< Dynamical variables */
                       SpinEOBParams         *funcParams /**<< EOB parameters */
                       );
@@ -1848,6 +1848,34 @@ XLALSimIMRSpinPrecEOBNonKeplerCoeff(
  * i.e. the function returns \f$(r_{\Omega} / r)^3\f$.
  * This is the generic precessing version
  */
+static REAL8 
+XLALSimIMRSpinEOBNonKeplerCoeff(
+                      const REAL8           values[],   /**<< Dynamical variables */
+                      SpinEOBParams         *funcParams /**<< EOB parameters */
+                      )
+{
+
+  REAL8 omegaCirc;
+
+  REAL8 tmpValues[14];
+
+  REAL8 r3;
+
+  /* We need to find the values of omega assuming pr = 0 */
+  memcpy( tmpValues, values, sizeof(tmpValues) );
+
+  omegaCirc = XLALSimIMRSpinEOBCalcOmega( tmpValues, funcParams );
+  if ( XLAL_IS_REAL8_FAIL_NAN( omegaCirc ) )
+  {
+    XLAL_ERROR_REAL8( XLAL_EFUNC );
+  }
+
+  r3 = pow(values[0]*values[0] + values[1]*values[1] + values[2]*values[2], 3./2.);
+
+  return 1.0/(omegaCirc*omegaCirc*r3);
+}
+
+#if 0
 static REAL8 UNUSED
 XLALSimIMRSpinEOBNonKeplerCoeff(
                       const REAL8           values[],   /**<< Dynamical variables */
@@ -1883,6 +1911,6 @@ XLALSimIMRSpinEOBNonKeplerCoeff(
 
   return 1.0/(omegaCirc*omegaCirc*r3);
 }
-
+#endif
 
 #endif /*_LALSIMIMRSPINEOBHAMILTONIAN_C*/

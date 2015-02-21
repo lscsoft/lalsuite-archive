@@ -62,7 +62,6 @@
  *------------------------------------------------------------------------------------------
  */
 
-
 static REAL8 GSLSpinHamiltonianWrapper( double x, void *params );
 
 static     int XLALSpinHcapNumericalDerivative(
@@ -103,8 +102,7 @@ static  int XLALSpinHcapNumericalDerivativeNoFlux(
  * Pan et al. PRD 81, 084041 (2010)
  * This function is not used by the spin-aligned SEOBNRv1 model.
  */
-static
-     int XLALSpinHcapNumericalDerivative(
+static int XLALSpinHcapNumericalDerivative(
                  double UNUSED     t,         /**<< UNUSED */
                  const  REAL8      values[],  /**<< Dynamical variables */
                  REAL8             dvalues[], /**<< Time derivatives of variables (returned) */

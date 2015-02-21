@@ -1102,7 +1102,7 @@ static INT4 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
         }
         else
         { 
-          vPhi = XLALSimIMRSpinPrecEOBNonKeplerCoeff( cartvalues->data, params );
+          vPhi = XLALSimIMRSpinEOBNonKeplerCoeff( cartvalues->data, params );
           
 
           if ( XLAL_IS_REAL8_FAIL_NAN( vPhi ) )
