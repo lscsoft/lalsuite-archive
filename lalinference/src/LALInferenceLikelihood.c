@@ -609,6 +609,9 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     psi       = *(REAL8*) LALInferenceGetVariable(currentParams, "polarisation");   /* radian      */
     if(!margtime)
       GPSdouble = *(REAL8*) LALInferenceGetVariable(currentParams, "time");           /* GPS seconds */
+    else
+      GPSdouble = XLALGPSGetREAL8(&(data->freqData->epoch));
+
     // Add phase parameter set to 0 for calculation
     if(margphi ){
       REAL8 phi0=0.0;
@@ -631,8 +634,8 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
      place before time-shifting */
   deltaT = data->timeData->deltaT;
   REAL8 epoch = XLALGPSGetREAL8(&(data->freqData->epoch));
-  desired_tc = epoch + (time_length-1)*deltaT - 2.0;
-
+  //desired_tc = epoch + (time_length-1)*deltaT - 2.0;
+  desired_tc = epoch + (time_length-1)*deltaT/2.0;
   if(margtime)
   {
     GPSdouble = desired_tc;
@@ -774,16 +777,16 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
         }
         /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
         XLALComputeDetAMResponse(&Fplus, &Fcross, (const REAL4(*)[3])dataPtr->detector->response, ra, dec, psi, gmst);
-
         /* signal arrival time (relative to geocenter); */
         timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location, ra, dec, &GPSlal);
         /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
         /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
-        if (margtime)
+        if (margtime){
 	  /* If we are marginalising over time, we want the
 	     freq-domain signal to have tC = epoch, so we shift it
 	     from the model's "time" parameter to epoch */
           timeshift =  (epoch - (*(REAL8 *) LALInferenceGetVariable(model->params, "time"))) + timedelay;
+           }
         else
           timeshift =  (GPSdouble - (*(REAL8*) LALInferenceGetVariable(model->params, "time"))) + timedelay;
         twopit    = LAL_TWOPI * timeshift;
@@ -935,16 +938,16 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
           REAL8 datasq = creal(d)*creal(d)+cimag(d)*cimag(d);
           loglikelihood+=-TwoDeltaToverN*(templatesq+datasq)/sigmasq;
 	  
-          /* Note: No Factor of 2 here, since we are using the 2-sided
-	     COMPLEX16FFT.  Also, we use d*conj(h) because we are
-	     using a complex->real *inverse* FFT to compute the
-	     time-series of likelihoods. */
+            /* Note: No Factor of 2 here, since we are using the 2-sided
+          COMPLEX16FFT.  Also, we use d*conj(h) because we are
+          using a complex->real *inverse* FFT to compute the
+          time-series of likelihoods. */
           dh_S_tilde->data[i] += TwoDeltaToverN * d * conj(template) / sigmasq;
 
-	  if (margphi) {
-	    /* This is the other phase quadrature */
-	    dh_S_phase_tilde->data[i] += TwoDeltaToverN * d * conj(I*template) / sigmasq;
-	  }
+          if (margphi) {
+            /* This is the other phase quadrature */
+            dh_S_phase_tilde->data[i] += TwoDeltaToverN * d * conj(I*template) / sigmasq;
+          }
 	  
           break;
         }
@@ -1048,7 +1051,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       size_t imax;
       REAL8 imean;
       loglikelihood += integrate_interpolated_log(deltaT, dh_S->data + istart, n, &imean, &imax) - log(n*deltaT);
-      
       REAL8 max_time=t0+((REAL8) imax + istart)*deltaT;
       REAL8 mean_time=t0+(imean+(double)istart)*deltaT;
       if(margphi){
