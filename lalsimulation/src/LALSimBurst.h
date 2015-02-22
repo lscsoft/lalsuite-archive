@@ -144,6 +144,17 @@ int XLALSimBurstGaussianF(
   REAL8 deltaT
 );
 
+int XLALSimBurstSineGaussianFFast(
+	COMPLEX16FrequencySeries **hplus,
+	COMPLEX16FrequencySeries **hcross,
+	REAL8 Q,
+	REAL8 centre_frequency,
+	REAL8 hrss,
+	REAL8 alpha,
+	REAL8 deltaF,
+  REAL8 deltaT
+);
+
 int XLALSimBurstDampedSinusoid(
         REAL8TimeSeries **hplus,
         REAL8TimeSeries **hcross,

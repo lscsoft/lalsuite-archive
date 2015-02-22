@@ -1554,3 +1554,87 @@ char* XLALGetStringFromBurstApproximant(BurstApproximant bapproximant)
         XLAL_ERROR_NULL(XLAL_EINVAL);
     }
 }
+
+int XLALSimBurstSineGaussianFFast(
+	COMPLEX16FrequencySeries **hplus,
+	COMPLEX16FrequencySeries **hcross,
+	REAL8 Q,
+	REAL8 centre_frequency,
+	REAL8 hrss,
+	REAL8 alpha,
+	REAL8 deltaF,
+  REAL8 deltaT
+)
+{
+	/* semimajor and semiminor axes of waveform ellipsoid */
+  REAL8 LAL_SQRT_PI=sqrt(LAL_PI);
+	/* rss of plus and cross polarizations */
+	const double hplusrss  = hrss * cos(alpha);
+	const double hcrossrss = hrss * sin(alpha);
+	const double cgrss = sqrt((Q / (4.0 * centre_frequency * LAL_SQRT_PI)) * (1.0 +exp(-Q * Q)));
+	const double sgrss = sqrt((Q / (4.0 * centre_frequency *LAL_SQRT_PI)) * (1.0 - exp(-Q * Q)));
+	/* "peak" amplitudes of plus and cross */
+	const double h0plus  = hplusrss / cgrss;
+	const double h0cross = hcrossrss / sgrss;
+	LIGOTimeGPS epoch= LIGOTIMEGPSZERO;
+	int length;
+	unsigned i;
+    
+ 	/* length of the injection time series is 6 * the width of the
+	 * time domain Gaussian envelope rounded to the nearest odd integer */
+	length = (int) floor(4.0 * Q / (LAL_TWOPI * centre_frequency) / deltaT / 2.0);  // This is 30 tau_t
+	length = 2 * length + 1; // length is 60 taus +1 bin
+  XLALGPSSetREAL8(&epoch, -(length - 1) / 2 * deltaT); // epoch is set to minus (30 taus_t) in secs
+    
+  
+  REAL8 tau=Q/LAL_PI/LAL_SQRT2/centre_frequency;
+  REAL8 tau2pi2=tau*tau*LAL_PI*LAL_PI;
+  
+  /* sigma is the width of the gaussian envelope in the freq domain WF ~ exp(-1/2 X^2/sigma^2)*/
+  REAL8 sigma= centre_frequency/Q; // This is also equal to 1/(sqrt(2) Pi tau)
+  
+  /* set fmax to be f0 + 6sigmas*/
+  REAL8 Fmax=centre_frequency + 4.0*sigma;
+  /* if fmax > nyquist use nyquist */
+  if (Fmax>(1.0/(2.0*deltaT))) 
+    Fmax=1.0/(2.0*deltaT);
+  
+  REAL8 Fmin= centre_frequency -4.0*sigma;
+  /* if fmin <0 use 0 */
+  if (Fmin<0.0 || Fmin >=Fmax)
+    Fmin=0.0;
+  
+  size_t lower =(size_t) ( Fmin/deltaF);    
+  size_t upper= (size_t) ( (Fmax)/deltaF+1);
+  upper=upper-lower;
+  COMPLEX16FrequencySeries *hptilde;
+  COMPLEX16FrequencySeries *hctilde;
+  /* the middle sample is t = 0 */
+  hptilde=XLALCreateCOMPLEX16FrequencySeries("hplus",&epoch,Fmin,deltaF,&lalStrainUnit,upper);
+  hctilde=XLALCreateCOMPLEX16FrequencySeries("hcross",&epoch,Fmin,deltaF,&lalStrainUnit,upper);
+	
+	if(!hptilde || !hctilde) {
+		XLALDestroyCOMPLEX16FrequencySeries(hptilde);
+		XLALDestroyCOMPLEX16FrequencySeries(hctilde);
+		hctilde=hptilde = NULL;
+		XLAL_ERROR(XLAL_EFUNC);
+	}
+
+  /* populate */
+  REAL8 f=0.0;
+  REAL8 phi2minus=0.0;
+  REAL8 ephimin=0.0;
+  //#pragma omp parallel for
+  for(i = 0; i < upper; i++) {
+    f=((REAL8 ) (i+lower) )*deltaF;
+    phi2minus= (f-centre_frequency )*(f-centre_frequency );
+    ephimin=exp(-phi2minus*tau2pi2);
+    hptilde->data->data[i] = h0plus * tau*ephimin/LAL_2_SQRTPI;
+    hctilde->data->data[i] = h0cross *tau*ephimin*(-1.0j)/LAL_2_SQRTPI;
+  }
+
+  *hplus=hptilde;
+  *hcross=hctilde;
+
+  return XLAL_SUCCESS;
+}

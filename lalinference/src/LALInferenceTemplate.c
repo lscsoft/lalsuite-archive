@@ -1290,7 +1290,7 @@ void LALInferenceTemplateXLALSimBurstSineGaussianF(LALInferenceModel *model)
   }
 
   deltaF = model->deltaF;
-  XLAL_TRY(ret=XLALSimBurstSineGaussianF(&hptilde, &hctilde, quality,freq,hrss, alpha,deltaF,deltaT), errnum);
+  XLAL_TRY(ret=XLALSimBurstSineGaussianFFast(&hptilde, &hctilde, quality,freq,hrss, alpha,deltaF,deltaT), errnum);
   if (ret == XLAL_FAILURE)
       {
         XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBurstChooseWaveform(). errnum=%d\n",errnum );
@@ -1304,25 +1304,28 @@ void LALInferenceTemplateXLALSimBurstSineGaussianF(LALInferenceModel *model)
 	  XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBurstChooseWaveform: encountered unallocated 'hctilde'.\n");
 	  XLAL_ERROR_VOID(XLAL_EFAULT);
 	}
-      
-	COMPLEX16 *dataPtr = hptilde->data->data;
-
-    for (i=0; i<model->freqhCross->data->length; ++i) {
-      dataPtr = hptilde->data->data;
-      if(i < hptilde->data->length){
-        model->freqhPlus->data->data[i] = dataPtr[i];
-      }else{
-        model->freqhPlus->data->data[i] = 0.0;
-      }
+  size_t lower =(size_t) ( hctilde->f0/hctilde->deltaF);    
+  size_t upper= (size_t) ( hctilde->data->length + lower);
+  COMPLEX16 *dataPtrP = hptilde->data->data;
+  COMPLEX16 *dataPtrC = hctilde->data->data;
+  for (i=0; i<lower; ++i) {
+    model->freqhPlus->data->data[i] = 0.0;
+    model->freqhCross->data->data[i] = 0.0;
+  }
+  
+  if (upper>model->freqhPlus->data->length)
+    upper=model->freqhPlus->data->length;
+  else{
+    for (i=upper; i<model->freqhPlus->data->length; ++i) {
+      model->freqhPlus->data->data[i] = 0.0;
+      model->freqhCross->data->data[i] = 0.0;
     }
-    for (i=0; i<model->freqhCross->data->length; ++i) {
-      dataPtr = hctilde->data->data;
-      if(i < hctilde->data->length){
-        model->freqhCross->data->data[i] = dataPtr[i];
-      }else{
-        model->freqhCross->data->data[i] = 0.0;
-      }
-    }
+  }
+  for (i=lower; i<upper; ++i) {
+    model->freqhPlus->data->data[i] = dataPtrP[i-lower];
+    model->freqhCross->data->data[i] = dataPtrC[i-lower];
+  }
+  
   instant= (model->timehCross->epoch.gpsSeconds + 1e-9*model->timehCross->epoch.gpsNanoSeconds);
   LALInferenceSetVariable(model->params, "time", &instant);    
 
