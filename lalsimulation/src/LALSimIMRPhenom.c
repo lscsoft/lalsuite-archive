@@ -1092,9 +1092,14 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 );
 
 IMRDerivCoeffs *XLALComputeIMRPhenomBDerivativeCoeffs(
-		const REAL8 m1,
-		const REAL8 m2,
-		const REAL8 chi
+													  const REAL8 m1,
+													  const REAL8 m2,
+													  const REAL8 chi,
+													  BBHPhenomParams *params
+													  );
+
+gsl_matrix *XLALSimIMRPhenomBProjectExtrinsicParam(
+	gsl_matrix *g
 );
 
 /**
@@ -1104,21 +1109,17 @@ IMRDerivCoeffs *XLALComputeIMRPhenomBDerivativeCoeffs(
 IMRDerivCoeffs *XLALComputeIMRPhenomBDerivativeCoeffs(
 		const REAL8 m1,
 		const REAL8 m2,
-		const REAL8 chi
+		const REAL8 chi,
+		BBHPhenomParams *params
 ){
-	
-	BBHPhenomParams *params;
-	
 	/* allocate memory for the structure IMRDerivCoeffs */
 	IMRDerivCoeffs *derCoeffs = (IMRDerivCoeffs *) XLALMalloc(sizeof(IMRDerivCoeffs));
 	if (!derCoeffs) XLAL_ERROR_NULL(XLAL_EFUNC);
 	memset(derCoeffs, 0, sizeof(IMRDerivCoeffs));
 	
+	/* define mass and symmetric mass ratio */
 	REAL8 M = (m1 + m2)*LAL_MTSUN_SI;
 	REAL8 eta = m1*m2/((m1 + m2)*(m1 + m2));
-	
-	/* compute the phenomenological parameters describing the IMRPhenomB waveform */
-	params = ComputeIMRPhenomBParams(m1, m2, chi);
 	
 	/* extract various phenomenological parameters */
 	REAL8 f1 = params->fMerger;
@@ -1150,17 +1151,17 @@ IMRDerivCoeffs *XLALComputeIMRPhenomBDerivativeCoeffs(
 	REAL8 f1byf2_p1by3 = cbrt(f1/f2);
 	REAL8 f1byf2_p2by3 = f1byf2_p1by3*f1byf2_p1by3;
 	
-	/* derivatives of fMerger */
+	/* derivatives w.r.t physical parameters of fMerger */
 	REAL8 dF1dM = (-0.3183098861837907*(1. - 4.4547*pow(1. - 1.*chi,0.217) + 3.521*pow(1. - 1.*chi,0.26)))/M_p2 - (0.3183098861837907*(0.64365*eta + 0.82696*chi*eta - 0.27063*chi_p2*eta - 0.058218*eta_p2 - 3.9346*chi*eta_p2 - 7.0916*eta_p3))/M_p2;
 	REAL8 dF1dEta = (0.3183098861837907*(0.64365 + 0.82696*chi - 0.27063*chi_p2 - 0.116436*eta - 7.8692*chi*eta - 21.2748*eta_p2))/M;
 	REAL8 dF1dChi = (0.3183098861837907*(0.9666699/pow(1. - 1.*chi,0.783) - 0.91546/pow(1. - 1.*chi,0.74)))/M + (0.3183098861837907*(0.82696*eta - 0.54126*chi*eta - 3.9346*eta_p2))/M;
 	
-	/* derivatives of fRing */
+	/* derivatives w.r.t physical parameters of fRing */
 	REAL8 dF2dM = (-0.15915494309189535*(1. - 0.63*pow(1. - 1.*chi,0.3)))/M_p2 - (0.3183098861837907*(0.1469*eta - 0.12281*chi*eta - 0.026091*chi_p2*eta - 0.0249*eta_p2 + 0.17013*chi*				eta_p2 + 2.3252*eta_p3))/M_p2;
 	REAL8 dF2dEta = (0.3183098861837907*(0.1469 - 0.12281*chi - 0.026091*chi_p2 - 0.0498*eta + 0.34026*chi*eta + 6.9756*eta_p2))/M;
 	REAL8 dF2dChi = 0.03008028424436822/(pow(1. - 1.*chi,0.7)*M) + (0.3183098861837907*(-0.12281*eta - 0.052182*chi*eta + 0.17013*eta_p2))/M;
 	
-	/* derivatives of Sigma parameter */
+	/* derivatives of w.r.t physical parameters Sigma parameter */
 	REAL8 dSigmadM = (-0.07957747154594767*(1. - 0.63*pow(1. - 1.*chi,0.3))*pow(1. - 1.*chi,0.45))/M_p2 - (0.3183098861837907*(-0.40979*eta - 0.035226*chi*eta + 0.10082*chi_p2*eta + 1.8286*eta_p2 - 0.020169*chi*eta_p2 - 2.8698*eta_p3))/M_p2;
 	REAL8 dSigmadEta = (0.3183098861837907*(-0.40979 - 0.035226*chi + 0.10082*chi_p2 + 3.6572*eta - 0.040338*chi*eta - 8.6094*eta_p2))/M;
 	REAL8 dSigmadChi = (-0.03580986219567645*(1. - 0.63*pow(1. - 1.*chi,0.3)))/(pow(1. - 1.*chi,0.55)*M) + 0.01504014212218411/(pow(1. - 1.*chi,0.24999999999999994)*M) + (0.3183098861837907*(-0.035226*eta + 0.20164*chi*eta - 0.020169*eta_p2))/M;
@@ -1182,22 +1183,25 @@ IMRDerivCoeffs *XLALComputeIMRPhenomBDerivativeCoeffs(
 	REAL8 dEps1dChi = 1.4547;
 	REAL8 dEps2dChi = -1.8153;
 	
+	/* Recurring expressions in normalization */
+	REAL8 norm_expr_1 = (1. + 1.4645918875615231*eps1*f2M_p1by3 + 2.1450293971110255*eps2*f2M_p2by3);
+	REAL8 norm_expr_2 = 0.33424583931521507*sqrt_eta*f1byf2_p2by3*M_p5by6;
+	REAL8 norm_expr_3 = 1. + 1.4645918875615231*eps1*f1M_p1by3 + 2.1450293971110255*eps2*f1M_p2by3;
+	
 	/* normalisation constant of the inspiral/merger amplitude */
-	REAL8 wm = (1. + 3.141592653589793*alpha3*f1*M + 2.1450293971110255*alpha2*f1M_p2by3)/(1. + 1.4645918875615231*eps1*f1M_p1by3 + 2.1450293971110255*eps2*f1M_p2by3);
-	REAL8 wr = (0.33424583931521507*sqrt_eta*f1byf2_p2by3*M_p5by6*(1. + 1.4645918875615231*eps1*f2M_p1by3 + 2.1450293971110255*eps2*f2M_p2by3)*sigma)/f1_p7by6*wm;
+	REAL8 wm = (1. + 3.141592653589793*alpha3*f1*M + 2.1450293971110255*alpha2*f1M_p2by3)/(norm_expr_3);
+	REAL8 wr = (norm_expr_2*norm_expr_1*sigma)/f1_p7by6*wm;
 	
 	/* compute the derivatives of the phenomenological parameters w.r.t the physical parameters.*/
-	REAL8 dWmDen = pow(1. + 1.4645918875615231*eps1*f1M_p1by3 + 2.1450293971110255*eps2*f1M_p2by3,2); /* This is the common denominatior to dWmdM and dWmdeta dWmdchi */
+	REAL8 dWmDen = pow(norm_expr_3,2); /* This is the common denominatior to dWmdM and dWmdeta dWmdchi */
 	
 	REAL8 dWmdM = 0.;
-	REAL8 dWmdEta = ((-0.48819729585384103*dF1dEta*M*(eps1 + 2.9291837751230463*eps2*f1M_p1by3)*(1. + 3.141592653589793*alpha3*f1*M + 2.1450293971110255*alpha2*f1M_p2by3))/f1M_p2by3 + (3.141592653589793*alpha3*dF1dEta*M + 3.141592653589793*dAlpha3dEta*f1*M + (1.430019598074017*alpha2*dF1dEta*M)/f1M_p1by3 + 2.1450293971110255*dAlpha2dEta*f1M_p2by3)*(1. + 1.4645918875615231*eps1*f1M_p1by3 + 2.1450293971110255*eps2*f1M_p2by3))/dWmDen;
-	REAL8 dWmdChi = ((3.141592653589793*alpha3*dF1dChi*M + 3.141592653589793*dAlpha3dChi*f1*M + (1.430019598074017*alpha2*dF1dChi*M)/f1M_p1by3)*(1. + 1.4645918875615231*eps1*f1M_p1by3 + 2.1450293971110255*eps2*f1M_p2by3) - (0.48819729585384103*M*(1. + 3.141592653589793*alpha3*f1*M + 2.1450293971110255*alpha2*f1M_p2by3)*(3.*f1*(dEps1dChi + 1.4645918875615231*dEps2dChi*f1M_p1by3) + dF1dChi*(eps1 + 2.9291837751230463*eps2*f1M_p1by3)))/f1M_p2by3)/dWmDen;
+	REAL8 dWmdEta = ((-0.48819729585384103*dF1dEta*M*(eps1 + 2.9291837751230463*eps2*f1M_p1by3)*(1. + 3.141592653589793*alpha3*f1*M + 2.1450293971110255*alpha2*f1M_p2by3))/f1M_p2by3 + (3.141592653589793*alpha3*dF1dEta*M + 3.141592653589793*dAlpha3dEta*f1*M + (1.430019598074017*alpha2*dF1dEta*M)/f1M_p1by3 + 2.1450293971110255*dAlpha2dEta*f1M_p2by3)*(norm_expr_3))/dWmDen;
+	REAL8 dWmdChi = ((3.141592653589793*alpha3*dF1dChi*M + 3.141592653589793*dAlpha3dChi*f1*M + (1.430019598074017*alpha2*dF1dChi*M)/f1M_p1by3)*(norm_expr_3) - (0.48819729585384103*M*(1. + 3.141592653589793*alpha3*f1*M + 2.1450293971110255*alpha2*f1M_p2by3)*(3.*f1*(dEps1dChi + 1.4645918875615231*dEps2dChi*f1M_p1by3) + dF1dChi*(eps1 + 2.9291837751230463*eps2*f1M_p1by3)))/f1M_p2by3)/dWmDen;
 	
-	
-	REAL8 dWrdM = wm*((0.33424583931521507*dSigmadM*sqrt_eta*f1byf2_p2by3*M_p5by6*(1. + 1.4645918875615231*eps1*f2M_p1by3 + 2.1450293971110255*eps2*f2M_p2by3))/f1_p7by6 + (0.27853819942934593*sqrt_eta*f1byf2_p2by3*(1. + 1.4645918875615231*eps1*f2M_p1by3 + 2.1450293971110255*eps2*f2M_p2by3)*sigma)/(f1_p7by6*M_p1by6) + (0.22283055954347672*sqrt_eta*((-1.*dF2dM*f1)/f2_p2 + dF1dM/f2)*M_p5by6*(1. + 1.4645918875615231*eps1*f2M_p1by3 + 2.1450293971110255*eps2*f2M_p2by3)*sigma)/(f1_p7by6*f1byf2_p1by3) - (0.38995347920108425*dF1dM*sqrt_eta*f1byf2_p2by3*M_p5by6*(1. + 1.4645918875615231*eps1*f2M_p1by3 + 2.1450293971110255*eps2*f2M_p2by3)*sigma)/(f1_p7by6*f1) + (0.33424583931521507*sqrt_eta*f1byf2_p2by3*M_p5by6*((0.48819729585384103*eps1*(f2 + dF2dM*M))/f2M_p2by3 + (1.430019598074017*eps2*(f2 + dF2dM*M))/f2M_p1by3)*sigma)/f1_p7by6);
-	REAL8 dWrdEta = wm*((0.33424583931521507*dSigmadEta*sqrt_eta*f1byf2_p2by3*M_p5by6*(1. + 1.4645918875615231*eps1*f2M_p1by3 + 2.1450293971110255*eps2*f2M_p2by3))/f1_p7by6 + (0.33424583931521507*sqrt_eta*f1byf2_p2by3*M_p5by6*((0.48819729585384103*dF2dEta*eps1*M)/f2M_p2by3 + (1.430019598074017*dF2dEta*eps2*M)/f2M_p1by3)*sigma)/f1_p7by6 + (0.22283055954347672*sqrt_eta*((-1.*dF2dEta*f1)/f2_p2 + dF1dEta/f2)*M_p5by6*(1. + 1.4645918875615231*eps1*f2M_p1by3 + 2.1450293971110255*eps2*f2M_p2by3)*sigma)/(f1_p7by6*f1byf2_p1by3) - (0.38995347920108425*dF1dEta*sqrt_eta*f1byf2_p2by3*M_p5by6*(1. + 1.4645918875615231*eps1*f2M_p1by3 + 2.1450293971110255*eps2*f2M_p2by3)*sigma)/(f1_p7by6*f1) + (0.16712291965760753*f1byf2_p2by3*M_p5by6*(1. + 1.4645918875615231*eps1*f2M_p1by3 + 2.1450293971110255*eps2*f2M_p2by3)*sigma)/(sqrt_eta*f1_p7by6)) + wr*dWmdEta/wm;
-	REAL8 dWrdChi = wm*((0.33424583931521507*dSigmadChi*sqrt_eta*f1byf2_p2by3*M_p5by6*(1. + 1.4645918875615231*eps1*f2M_p1by3 + 2.1450293971110255*eps2*f2M_p2by3))/f1_p7by6 + (0.33424583931521507*sqrt_eta*f1byf2_p2by3*M_p5by6*((0.48819729585384103*dF2dChi*eps1*M)/f2M_p2by3 + (1.430019598074017*dF2dChi*eps2*M)/f2M_p1by3 + 1.4645918875615231*dEps1dChi*f2M_p1by3 + 2.1450293971110255*dEps2dChi*f2M_p2by3)*sigma)/f1_p7by6 + (0.22283055954347672*sqrt_eta*((-1.*dF2dChi*f1)/f2_p2 + dF1dChi/f2)*M_p5by6*(1. + 1.4645918875615231*eps1*f2M_p1by3 + 2.1450293971110255*eps2*f2M_p2by3)*sigma)/(f1_p7by6*f1byf2_p1by3) - (0.38995347920108425*dF1dChi*sqrt_eta*f1byf2_p2by3*M_p5by6*(1. + 1.4645918875615231*eps1*f2M_p1by3 + 2.1450293971110255*eps2*f2M_p2by3)*sigma)/(f1_p7by6*f1)) + wr*dWmdChi/wm;
-	
+	REAL8 dWrdM = wm*((0.33424583931521507*dSigmadM*sqrt_eta*f1byf2_p2by3*M_p5by6*norm_expr_1)/f1_p7by6 + (0.27853819942934593*sqrt_eta*f1byf2_p2by3*norm_expr_1*sigma)/(f1_p7by6*M_p1by6) + (0.22283055954347672*sqrt_eta*((-1.*dF2dM*f1)/f2_p2 + dF1dM/f2)*M_p5by6*norm_expr_1*sigma)/(f1_p7by6*f1byf2_p1by3) - (0.38995347920108425*dF1dM*sqrt_eta*f1byf2_p2by3*M_p5by6*norm_expr_1*sigma)/(f1_p7by6*f1) + (norm_expr_2*((0.48819729585384103*eps1*(f2 + dF2dM*M))/f2M_p2by3 + (1.430019598074017*eps2*(f2 + dF2dM*M))/f2M_p1by3)*sigma)/f1_p7by6);
+	REAL8 dWrdEta = wm*((0.33424583931521507*dSigmadEta*sqrt_eta*f1byf2_p2by3*M_p5by6*norm_expr_1)/f1_p7by6 + (norm_expr_2*((0.48819729585384103*dF2dEta*eps1*M)/f2M_p2by3 + (1.430019598074017*dF2dEta*eps2*M)/f2M_p1by3)*sigma)/f1_p7by6 + (0.22283055954347672*sqrt_eta*((-1.*dF2dEta*f1)/f2_p2 + dF1dEta/f2)*M_p5by6*norm_expr_1*sigma)/(f1_p7by6*f1byf2_p1by3) - (0.38995347920108425*dF1dEta*sqrt_eta*f1byf2_p2by3*M_p5by6*norm_expr_1*sigma)/(f1_p7by6*f1) + (0.16712291965760753*f1byf2_p2by3*M_p5by6*norm_expr_1*sigma)/(sqrt_eta*f1_p7by6)) + wr*dWmdEta/wm;
+	REAL8 dWrdChi = wm*((0.33424583931521507*dSigmadChi*sqrt_eta*f1byf2_p2by3*M_p5by6*norm_expr_1)/f1_p7by6 + (norm_expr_2*((0.48819729585384103*dF2dChi*eps1*M)/f2M_p2by3 + (1.430019598074017*dF2dChi*eps2*M)/f2M_p1by3 + 1.4645918875615231*dEps1dChi*f2M_p1by3 + 2.1450293971110255*dEps2dChi*f2M_p2by3)*sigma)/f1_p7by6 + (0.22283055954347672*sqrt_eta*((-1.*dF2dChi*f1)/f2_p2 + dF1dChi/f2)*M_p5by6*norm_expr_1*sigma)/(f1_p7by6*f1byf2_p1by3) - (0.38995347920108425*dF1dChi*sqrt_eta*f1byf2_p2by3*M_p5by6*norm_expr_1*sigma)/(f1_p7by6*f1)) + wr*dWmdChi/wm;
 	
 	derCoeffs->Wm = wm;
 	derCoeffs->Wr = wr;
@@ -1259,11 +1263,11 @@ IMRDerivCoeffs *XLALComputeIMRPhenomBDerivativeCoeffs(
 	derCoeffs->dA3denom_4 = 50.26548245743669;
 	
 	/* Coefficients of the derivatives of the phase */
-	REAL8 psi2 = 4.914021164021164 - 920.91*eta + 492.13*chi*eta + 135.03*chi_p2*eta + 6741.9*eta_p2 - 1053.4*chi*eta_p2 - 13397.*eta_p3;
-	REAL8 psi3 = -50.26548245743669 + 37.666666666666664*chi + 17022.*eta - 9565.9*chi*eta - 2182.1*chi_p2*eta - 121370.*eta_p2 + 20752.*chi*eta_p2 + 238590.*eta_p3;
-	REAL8 psi4 = 30.103152950995213 - 50.625*chi_p2 - 125440.*eta + 75066.*chi*eta + 13382.*chi_p2*eta + 873540.*eta_p2 - 165730.*chi*eta_p2 - 1.6936e6*eta_p3;
-	REAL8 psi6 = -889770.*eta + 631020.*chi*eta + 50676.*chi_p2*eta + 5.9808e6*eta_p2 - 1.4148e6*chi*eta_p2 - 1.1279999999999998e7*eta_p3;
-	REAL8 psi7 = 869600.*eta - 670980.*chi*eta - 30082.*chi_p2*eta - 5.8379e6*eta_p2 + 1.5145e6*chi*eta_p2 + 1.0891e7*eta_p3;
+	REAL8 psi2 = params->psi2;
+	REAL8 psi3 = params->psi3;
+	REAL8 psi4 = params->psi4;
+	REAL8 psi6 = params->psi6;
+	REAL8 psi7 = params->psi7;
 	REAL8 dPsi2dEta = -920.91 + 492.13*chi + 135.03*chi_p2 + 13483.8*eta - 2106.8*chi*eta - 40191.*eta_p2;
 	REAL8 dPsi2dChi = 492.13*eta + 270.06*chi*eta - 1053.4*eta_p2;
 	REAL8 dPsi3dEta = 17022. - 9565.9*chi - 2182.1*chi_p2 - 242740.*eta + 41504.*chi*eta + 715770.*eta_p2;
@@ -1310,8 +1314,6 @@ IMRDerivCoeffs *XLALComputeIMRPhenomBDerivativeCoeffs(
  * M, eta, chi, t0, phi0 parameter space, for an SNR=1/sqrt(2) signal.
  */
 
-
-
 gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 		const REAL8 m1,     /**< component mass 1 (kg) */
 		const REAL8 m2,     /**< component mass 2 (kg) */
@@ -1330,10 +1332,11 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 	if (chi >= 1.) XLAL_ERROR_NULL(XLAL_EDOM);
 	if (fLow <= 0) XLAL_ERROR_NULL(XLAL_EDOM);
 	
+	/* define physical parameters and required coefficients */
 	REAL8 M	  = (m1 + m2)*LAL_MTSUN_SI;
-	REAL8 eta = (m1*m2)/pow(m1+m2,2);
+	REAL8 eta = m1*m2/((m1+m2)*(m1+m2));
 	REAL8 piM = LAL_PI * M;
-	REAL8 AmpCoef = pow(LAL_PI,-2.0/3.0)*sqrt(5.*eta/24.)*pow(M,5.0/6.0);
+	REAL8 AmpCoef = cbrt(1./(LAL_PI*LAL_PI))*sqrt(5.*eta/24.)*pow(M,5.0/6.0);
 	
 	/* compute the phenomenological parameters describing the IMRPhenomB waveform */
 	params = ComputeIMRPhenomBParams(m1, m2, chi);
@@ -1349,11 +1352,10 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 	size_t nBins = (f3 - fLow) / df;
 	size_t k = nBins;
 	REAL8Vector Shdata = {nBins, Sh->data->data + (size_t) (fLow / df)}; /* copy the Vector, including its pointer to the actual data */
-	/* drop low-frequency samples */
 	Shdata.length = nBins;  /* drop high-frequency samples */
 	
 	/* compute the coefficients of the series expansion of the derivatives */
-	coef = XLALComputeIMRPhenomBDerivativeCoeffs(m1, m2, chi);
+	coef = XLALComputeIMRPhenomBDerivativeCoeffs(m1, m2, chi, params);
 	
 	/* PN corrections to the frequency domain amplitude of the (2,2) mode */
 	const REAL8 alpha2   = -323./224. + 451.*eta/168.;
@@ -1380,9 +1382,11 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 	REAL8 gamma_Phi0Phi0 = 0.;
 	
 	REAL8 amp, dAdM, dAdEta, dAdChi, dA3Den;
-	REAL8 f1_pm7by6 = pow(f1,-7./6.);
-	REAL8 f1_p2by3 = pow(f1,2./3);
-	REAL8 sigma_p2 = sigma*sigma; 
+	REAL8 f1_pm7by6 = 1./(f1*cbrt(sqrt(f1)));
+	REAL8 f1_p2by3 = cbrt(f1*f1);
+	REAL8 sigma_p2 = sigma*sigma;
+	REAL8 amp_merg_const = coef->Wm*AmpCoef*f1_pm7by6;
+	REAL8 amp_ring_const = (coef->Wr*sigma)/LAL_TWOPI;
 
 	/* compute derivatives over a freq vector from fLow to fCut with frequency resolution df
 	 *  and use this to compute the Fisher matrix */
@@ -1418,13 +1422,13 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 			dAdChi	= coef->dA1dchi_0*f_pm7by6 + coef->dA1dchi_1*f_pm1by2 + coef->dA1dchi_2*f_pm1by6;
 		}
 		else if ((f1<f) && (f<=f2)) {
-			amp		= coef->Wm*AmpCoef*f1_pm7by6*fbyf1_pm2by3*(1. + epsilon_1*v + epsilon_2*v_p2);
+			amp		= amp_merg_const*fbyf1_pm2by3*(1. + epsilon_1*v + epsilon_2*v_p2);
 			dAdM	= coef->dA2dM_0*f_pm2by3 + coef->dA2dM_1*f_pm1by3 + coef->dA2dM_2;
 			dAdEta	= coef->dA2deta_0*f_pm2by3 + coef->dA2deta_1*f_pm1by3 + coef->dA2deta_2;
 			dAdChi	= coef->dA2dchi_0*f_pm2by3 + coef->dA2dchi_1*f_pm1by3 + coef->dA2dchi_2;
 		}
 		else {
-			amp		= coef->Wr*(sigma/((f-f2)*(f-f2) + sigma_p2*0.25))/LAL_TWOPI;
+			amp		= amp_ring_const/((f-f2)*(f-f2) + sigma_p2*0.25);
 			dA3Den  = coef->dA3denom_0 + coef->dA3denom_1*f + coef->dA3denom_2*f_p2 + coef->dA3denom_3*f_p3 + coef->dA3denom_4*f_p4;
 			dAdM 	= (coef->dA3dMnum_0 + coef->dA3dMnum_1*f + coef->dA3dMnum_2*f_p2)/dA3Den;
 			dAdEta	= (coef->dA3detanum_0 + coef->dA3detanum_1*f + coef->dA3detanum_2*f_p2)/dA3Den;
@@ -1441,24 +1445,25 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 		REAL8 amp_p2 = amp*amp;
 		REAL8 ampSqr_x_dPsiM = amp_p2*dPsidM;
 		REAL8 ampSqr_x_dPsiEta = amp_p2*dPsidEta; 
-		REAL8 ampSqr_x_dPsidChi = amp_p2*dPsidChi; 
-		REAL8 ampSqr_by_Sh = amp_p2/Shdata.data[k];
+		REAL8 ampSqr_x_dPsidChi = amp_p2*dPsidChi;
+		REAL8 psd_pm1 = 1./Shdata.data[k];
+		REAL8 ampSqr_by_Sh = amp_p2*psd_pm1;
 
-		gamma_MM += (ampSqr_x_dPsiM*dPsidM + dAdM*dAdM)/Shdata.data[k];
-		gamma_MEta += (ampSqr_x_dPsiM*dPsidEta + dAdM*dAdEta)/Shdata.data[k];
-		gamma_MChi += (ampSqr_x_dPsiM*dPsidChi + dAdM*dAdChi)/Shdata.data[k];
-		gamma_MT0 += ampSqr_x_dPsiM*dPsidT0/Shdata.data[k];
-		gamma_MPhi0 += ampSqr_x_dPsiM/Shdata.data[k];
-		gamma_EtaEta += (ampSqr_x_dPsiEta*dPsidEta + dAdEta*dAdEta)/Shdata.data[k];
-		gamma_EtaChi += (ampSqr_x_dPsiEta*dPsidChi + dAdEta*dAdChi)/Shdata.data[k];
-		gamma_EtaT0 += ampSqr_x_dPsiEta*dPsidT0/Shdata.data[k];
-		gamma_EtaPhi0 += ampSqr_x_dPsiEta/Shdata.data[k];
-		gamma_ChiChi += (ampSqr_x_dPsidChi*dPsidChi + dAdChi*dAdChi)/Shdata.data[k];
-		gamma_ChiT0 += ampSqr_x_dPsidChi*dPsidT0/Shdata.data[k];
-		gamma_ChiPhi0 += ampSqr_x_dPsidChi/Shdata.data[k];
-		gamma_T0T0 += dPsidT0*dPsidT0*ampSqr_by_Sh;
-		gamma_T0Phi0 += dPsidT0*ampSqr_by_Sh;
-		gamma_Phi0Phi0 += ampSqr_by_Sh;
+		gamma_MM		+= (ampSqr_x_dPsiM*dPsidM + dAdM*dAdM)*psd_pm1;
+		gamma_MEta		+= (ampSqr_x_dPsiM*dPsidEta + dAdM*dAdEta)*psd_pm1;
+		gamma_MChi		+= (ampSqr_x_dPsiM*dPsidChi + dAdM*dAdChi)*psd_pm1;
+		gamma_MT0		+= ampSqr_x_dPsiM*dPsidT0*psd_pm1;
+		gamma_MPhi0		+= ampSqr_x_dPsiM*psd_pm1;
+		gamma_EtaEta	+= (ampSqr_x_dPsiEta*dPsidEta + dAdEta*dAdEta)*psd_pm1;
+		gamma_EtaChi	+= (ampSqr_x_dPsiEta*dPsidChi + dAdEta*dAdChi)*psd_pm1;
+		gamma_EtaT0		+= ampSqr_x_dPsiEta*dPsidT0*psd_pm1;
+		gamma_EtaPhi0	+= ampSqr_x_dPsiEta*psd_pm1;
+		gamma_ChiChi	+= (ampSqr_x_dPsidChi*dPsidChi + dAdChi*dAdChi)*psd_pm1;
+		gamma_ChiT0 	+= ampSqr_x_dPsidChi*dPsidT0*psd_pm1;
+		gamma_ChiPhi0 	+= ampSqr_x_dPsidChi*psd_pm1;
+		gamma_T0T0 		+= dPsidT0*dPsidT0*ampSqr_by_Sh;
+		gamma_T0Phi0 	+= dPsidT0*ampSqr_by_Sh;
+		gamma_Phi0Phi0 	+= ampSqr_by_Sh;
 
 	}
 	
@@ -1501,27 +1506,11 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 	return g;
 };
 
-/**
- * Compute the template-space metric of the IMRPhenomB waveform in the
- * M, eta, chi coordinates
- */
-int XLALSimIMRPhenomBMetricInMEtaChi(
-		REAL8 *gamma00,  /**< template metric coeff. 00 in PN Chirp Time */
-		REAL8 *gamma01,  /**< template metric coeff. 01/10 PN Chirp Time */
-		REAL8 *gamma02,  /**< template metric coeff. 01/10 PN Chirp Time */
-		REAL8 *gamma11,  /**< template metric coeff. 11 in PN Chirp Time */
-		REAL8 *gamma12,  /**< template metric coeff. 01/10 PN Chirp Time */
-		REAL8 *gamma22,  /**< template metric coeff. 01/10 PN Chirp Time */
-		const REAL8 m1,     /**< component mass 1 (kg) */
-		const REAL8 m2,     /**< component mass 2 (kg) */
-		const REAL8 chi,    /**< effective spin parameter of IMRPhenomB: chi = (m1 chi1 + m2 chi2)/(m1+m2)  */
-		const REAL8 fLow,   /**< low-frequency cutoff (Hz) */
-		const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
+gsl_matrix *XLALSimIMRPhenomBProjectExtrinsicParam(
+	gsl_matrix *g
 ){
-	
-	/* compute the Fisher matrix in (M, eta, chi, t0, phi0) coords */
-	gsl_matrix * g = XLALSimIMRPhenomBFisherMatrix(m1, m2, chi, fLow, Sh);
 	int s = 0;
+
 	/* Form submatrices g1, g2, g3, g4, defined as:
 	 *              g = [ g1 g2
 	 *                    g4 g3 ]                           */
@@ -1561,6 +1550,33 @@ int XLALSimIMRPhenomBMetricInMEtaChi(
 	
 	gsl_matrix_sub (g1, g2g3invg4);
 	gsl_matrix_free (g2g3invg4);
+	return g1;
+	
+};
+
+/**
+ * Compute the template-space metric of the IMRPhenomB waveform in the
+ * M, eta, chi coordinates
+ */
+int XLALSimIMRPhenomBMetricInMEtaChi(
+		REAL8 *gamma00,  /**< template metric coeff. 00 in PN Chirp Time */
+		REAL8 *gamma01,  /**< template metric coeff. 01/10 PN Chirp Time */
+		REAL8 *gamma02,  /**< template metric coeff. 01/10 PN Chirp Time */
+		REAL8 *gamma11,  /**< template metric coeff. 11 in PN Chirp Time */
+		REAL8 *gamma12,  /**< template metric coeff. 01/10 PN Chirp Time */
+		REAL8 *gamma22,  /**< template metric coeff. 01/10 PN Chirp Time */
+		const REAL8 m1,     /**< component mass 1 (kg) */
+		const REAL8 m2,     /**< component mass 2 (kg) */
+		const REAL8 chi,    /**< effective spin parameter of IMRPhenomB: chi = (m1 chi1 + m2 chi2)/(m1+m2)  */
+		const REAL8 fLow,   /**< low-frequency cutoff (Hz) */
+		const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
+){
+	
+	/* compute the Fisher matrix in (M, eta, chi, t0, phi0) coords */
+	gsl_matrix * g = XLALSimIMRPhenomBFisherMatrix(m1, m2, chi, fLow, Sh);
+	
+	/* Project out t0 and phi0 */
+	gsl_matrix * g1= XLALSimIMRPhenomBProjectExtrinsicParam(g);
 	
 	*gamma00 = gsl_matrix_get(g1, 0, 0);
 	*gamma01 = gsl_matrix_get(g1, 0, 1);
@@ -1576,7 +1592,7 @@ int XLALSimIMRPhenomBMetricInMEtaChi(
 
 /**
  * Compute the template-space metric of the IMRPhenomB waveform in the
- * Theta0, theta3, theta3S coordinates
+ * theta0, theta3, theta3S coordinates
  */
 int XLALSimIMRPhenomBMetricInTheta0Theta3Theta3S(
 		REAL8 *gamma00,  /**< template metric coeff. 00 in PN Chirp Time */
@@ -1594,26 +1610,28 @@ int XLALSimIMRPhenomBMetricInTheta0Theta3Theta3S(
 	
 	/* compute the Fisher matrix in (M, eta, chi, t0, phi0) coords */
 	gsl_matrix * gMass = XLALSimIMRPhenomBFisherMatrix(m1, m2, chi, fLow, Sh);
-	int s = 0;
 	
 	REAL8 M		= (m1+m2)*LAL_MTSUN_SI;
-	REAL8 eta	= m1*m2/pow(m1+m2,2);
+	REAL8 eta	= m1*m2/((m1+m2)*(m1+m2));
 	REAL8 v0	= cbrt(LAL_PI*M*fLow);
 	
 	REAL8 theta0 = 5.0/(128.0*eta*v0*v0*v0*v0*v0);
 	REAL8 theta3 = (LAL_PI/(4.0*eta*v0*v0));
 	REAL8 theta3S = (LAL_PI/(4.0*v0*v0))*(17022. - 9565.9*chi);
+	REAL8 theta3_p2 = theta3*theta3;
+	REAL8 theta0_p2 = theta0*theta0;
+	REAL8 theta0_p2by3 = cbrt(theta3_p2);
 	
-	/* Co-ordinate Derivatives */
-	REAL8 dMdTheta0 = (-0.015831434944115277*theta3)/(fLow*theta0*theta0);
+	/* Co-ordinate Derivatives for Jacobian matrix */
+	REAL8 dMdTheta0 = (-0.015831434944115277*theta3)/(fLow*theta0_p2);
 	REAL8 dMdTheta3 = 0.015831434944115277/(fLow*theta0);
 	REAL8 dMdTheta3S = 0.;
-	REAL8 dEtadTheta0 = 3.8715528021485643/(cbrt(theta0)*pow(theta3,1.6666666666666667));
-	REAL8 dEtadTheta3 = (-9.678882005371412*cbrt(theta0*theta0))/pow(theta3,2.6666666666666665);
+	REAL8 dEtadTheta0 = 3.8715528021485643/(cbrt(theta0)*theta3*theta0_p2by3);
+	REAL8 dEtadTheta3 = (-9.678882005371412*cbrt(theta0_p2))/(theta3_p2*theta0_p2by3);
 	REAL8 dEtadTheta3S = 0.;
-	REAL8 dChidTheta0 = (0.000012000696668619612*pow(theta3,0.6666666666666666)*theta3S)/pow(theta0,1.6666666666666667);
-	REAL8 dChidTheta3 = (-0.000012000696668619612*theta3S)/(cbrt(theta0*theta0)*cbrt(theta3));
-	REAL8 dChidTheta3S = (-0.00001800104500292942*pow(theta3,0.6666666666666666))/cbrt(theta0*theta0);
+	REAL8 dChidTheta0 = (0.000012000696668619612*theta0_p2by3*theta3S)/(theta0*cbrt(theta0_p2));
+	REAL8 dChidTheta3 = (-0.000012000696668619612*theta3S)/(cbrt(theta0_p2)*cbrt(theta3));
+	REAL8 dChidTheta3S = (-0.00001800104500292942*theta0_p2by3)/cbrt(theta0_p2);
 	
 	/* Define the Jacobian transformation matrix which would give the Fisher Matrix in theta co-ordinates */
 	gsl_matrix * jaco = gsl_matrix_calloc (5, 5);
@@ -1655,45 +1673,8 @@ int XLALSimIMRPhenomBMetricInTheta0Theta3Theta3S(
 	gsl_matrix_free (jaco);
 	gsl_matrix_free (gPre);
 
-	/* Form submatrices g1, g2, g3, g4, defined as:
-	 *              g = [ g1 g2
-	 *                    g4 g3 ]                           */
-	gsl_matrix_view g1v = gsl_matrix_submatrix (g, 0, 0, 3, 3);
-	gsl_matrix_view g2v = gsl_matrix_submatrix (g, 0, 3, 3, 2);
-	gsl_matrix_view g3v = gsl_matrix_submatrix (g, 3, 3, 2, 2);
-	gsl_matrix_view g4v = gsl_matrix_submatrix (g, 3, 0, 2, 3);
-	
-	gsl_matrix * g1 = gsl_matrix_calloc (3, 3);
-	gsl_matrix * g2 = gsl_matrix_calloc (3, 2);
-	gsl_matrix * g3 = gsl_matrix_calloc (2, 2);
-	gsl_matrix * g4 = gsl_matrix_calloc (2, 3);
-	gsl_matrix * g3invg4 = gsl_matrix_calloc (2, 3);
-	gsl_matrix * g2g3invg4 = gsl_matrix_calloc (3, 3);
-	
-	/* Project out the t0 and phi0 dimensions: gamma =  g1 - g2 g3^{-1} g4 */
-	gsl_matrix * g3inv = gsl_matrix_calloc (2, 2);
-	gsl_permutation * p = gsl_permutation_calloc (2);
-	
-	gsl_matrix_memcpy (g1, &g1v.matrix);
-	gsl_matrix_memcpy (g2, &g2v.matrix);
-	gsl_matrix_memcpy (g3, &g3v.matrix);
-	gsl_matrix_memcpy (g4, &g4v.matrix);
-	gsl_matrix_free (g);
-	
-	gsl_linalg_LU_decomp (g3, p, &s);
-	gsl_linalg_LU_invert (g3, p, g3inv);
-	gsl_permutation_free (p);
-	gsl_matrix_free (g3);
-	
-	gsl_blas_dgemm (CblasNoTrans, CblasNoTrans, 1.0, g3inv, g4,  0.0, g3invg4);
-	gsl_matrix_free (g4);
-	gsl_matrix_free (g3inv);
-	gsl_blas_dgemm (CblasNoTrans, CblasNoTrans, 1.0, g2, g3invg4,  0.0, g2g3invg4);
-	gsl_matrix_free (g2);
-	gsl_matrix_free (g3invg4);
-	
-	gsl_matrix_sub (g1, g2g3invg4);
-	gsl_matrix_free (g2g3invg4);
+	/* Project out t0 and phi0 */
+	gsl_matrix * g1  = XLALSimIMRPhenomBProjectExtrinsicParam(g);
 	
 	*gamma00 = gsl_matrix_get(g1, 0, 0);
 	*gamma01 = gsl_matrix_get(g1, 0, 1);
