@@ -1013,7 +1013,11 @@ static int apply_inclination(const REAL8TimeSeries *hp, const REAL8TimeSeries *h
 /********************************************************************************/
 /********************************************************************************/
 
-
+/** 
+* Structure containing the coefficients of various powers of the Fourier frequency
+* f in the derivative of the amplitude and phase of IMRPhenomB w.r.t. the parameters 
+* of the binary 
+*/
 typedef struct tagIMRDerivCoeffs{
 	REAL8 dA1dM_0; /*Coef of k = 0 term in (2k-7)/6 expansion of inspiral phase of amplitude*/
 	REAL8 dA1dM_1; /*Coef of k = 2 term in (2k-7)/6 expansion of inspiral phase of amplitude*/
@@ -1086,6 +1090,9 @@ typedef struct tagIMRDerivCoeffs{
 }
 IMRDerivCoeffs;
 
+/** 
+* Fisher matrix of the IMRPhenomB waveform in the M-eta-chi-t0-phi0 coordinate system 
+*/
 gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 		const REAL8 m1,     /**< component mass 1 (kg) */
 		const REAL8 m2,     /**< component mass 2 (kg) */
@@ -1094,13 +1101,20 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 		const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
 );
 
+/** 
+* Function to compute the coefficients of f in the derivative of the amplitude and phase w.r.t. 
+* the physical parameters 
+*/
 IMRDerivCoeffs *XLALComputeIMRPhenomBDerivativeCoeffs(
-													  const REAL8 m1,
-													  const REAL8 m2,
-													  const REAL8 chi,
-													  BBHPhenomParams *params
-													  );
+		const REAL8 m1,
+		const REAL8 m2,
+		const REAL8 chi,
+		BBHPhenomParams *params
+);
 
+/** 
+* Function to project the Fisher matrix orthogonal to the extrinsic parameters t0 and phi0 
+*/
 gsl_matrix *XLALSimIMRPhenomBProjectExtrinsicParam(
 	gsl_matrix *g
 );
