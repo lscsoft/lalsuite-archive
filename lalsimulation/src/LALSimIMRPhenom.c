@@ -1003,14 +1003,9 @@ static int apply_inclination(const REAL8TimeSeries *hp, const REAL8TimeSeries *h
 };
 
 
-
 /********************************************************************************/
 /*  						END OF THE REVIEWED CODE 							*/
-/********************************************************************************/
-
-/********************************************************************************/
 /*	 		 Below is the code for generating the IMRPhenomB metric 			*/
-/********************************************************************************/
 /********************************************************************************/
 
 /** 
@@ -1363,6 +1358,7 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 	/* compute the coefficients of the series expansion of the derivatives */
 	coef = XLALComputeIMRPhenomBDerivativeCoeffs(m1, m2, chi, params);
 	
+	/* initialise the components of the Fisher matrix */
 	REAL8 gamma_MM = 0.;
 	REAL8 gamma_MEta= 0.;
 	REAL8 gamma_MChi = 0.;
@@ -1504,6 +1500,9 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 	return g;
 };
 
+/** 
+* Project the Fisher matrix orthogonal to the extrnsic parameters t0 and phi0
+*/
 gsl_matrix *XLALSimIMRPhenomBProjectExtrinsicParam(
 	gsl_matrix *g
 ){
