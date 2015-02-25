@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2014  Kipp Cannon
+# Copyright (C) 2006--2015  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -939,8 +939,7 @@ def use_in(ContentHandler):
 	>>> class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 	...	pass
 	...
-	>>> from glue.ligolw import table
-	>>> table.use_in(LIGOLWContentHandler)
+	>>> use_in(LIGOLWContentHandler)
 	<class 'glue.ligolw.table.LIGOLWContentHandler'>
 	"""
 	def startColumn(self, parent, attrs):

@@ -1,4 +1,4 @@
-# Copyright (C) 2006--2014  Kipp Cannon
+# Copyright (C) 2006--2015  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -284,11 +284,11 @@ def use_in(ContentHandler):
 	Example:
 
 	>>> from glue.ligolw import ligolw
-	>>> def MyContentHandler(ligolw.LIGOLWContentHandler):
+	>>> class MyContentHandler(ligolw.LIGOLWContentHandler):
 	...	pass
 	...
-	>>> from glue.ligolw import array
-	>>> array.use_in(MyContentHandler)
+	>>> use_in(MyContentHandler)
+	<class 'glue.ligolw.array.MyContentHandler'>
 	"""
 	def startStream(self, parent, attrs, __orig_startStream = ContentHandler.startStream):
 		if parent.tagName == ligolw.Array.tagName:

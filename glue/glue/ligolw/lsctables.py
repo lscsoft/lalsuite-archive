@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2015  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -3800,8 +3800,7 @@ def use_in(ContentHandler):
 	>>> def MyContentHandler(ligolw.LIGOLWContentHandler):
 	...	pass
 	...
-	>>> from glue.ligolw import lsctables
-	>>> lsctables.use_in(MyContentHandler)
+	>>> use_in(MyContentHandler)
 	"""
 	ContentHandler = table.use_in(ContentHandler)
 
