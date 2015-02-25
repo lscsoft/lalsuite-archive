@@ -139,9 +139,7 @@ def from_array(name, array, dim_names = None):
 	# to take advantage of encoding handled by attribute proxy
 	doc = Array(Attributes({u"Type": ligolwtypes.FromNumPyType[str(array.dtype)]}))
 	doc.Name = name
-	s = list(array.shape)
-	s.reverse()
-	for n, dim in enumerate(s):
+	for n, dim in enumerate(reversed(array.shape)):
 		child = ligolw.Dim()
 		if dim_names is not None:
 			child.Name = dim_names[n]
