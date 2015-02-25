@@ -118,6 +118,22 @@ def from_array(name, array, dim_names = None):
 	"""
 	Construct a LIGO Light Weight XML Array document subtree from a
 	numpy array object.
+
+	Example:
+
+	>>> import numpy, sys
+	>>> a = numpy.arange(12, dtype = "double")
+	>>> a.shape = (4, 3)
+	>>> from_array(u"test", a).write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	<Array Type="real_8" Name="test:array">
+		<Dim>3</Dim>
+		<Dim>4</Dim>
+		<Stream Delimiter=" " Type="Local">
+			0 3 6 9
+			1 4 7 10
+			2 5 8 11
+		</Stream>
+	</Array>
 	"""
 	# Type must be set for .__init__();  easier to set Name afterwards
 	# to take advantage of encoding handled by attribute proxy
