@@ -787,6 +787,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     enginenodes[0].finalize()
     enginenodes[0].set_psd_files()
     enginenodes[0].set_snr_file()
+
     if event.GID is not None:
       if self.config.has_option('analysis','upload-to-gracedb'):
         if self.config.getboolean('analysis','upload-to-gracedb'):
@@ -816,6 +817,9 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             for co in cotest_nodes:
               co.set_psdstart(enginenodes[0].GPSstart)
               co.set_psdlength(enginenodes[0].psdlength)
+              if self.config.getboolean('analysis','fix-single-ifo-sky'):
+                co.make_fix_sky()
+
               if co!=cotest_nodes[0]:
                 co.add_var_arg('--dont-dump-extras')
               else:
@@ -1581,6 +1585,13 @@ class EngineNode(pipeline.CondorDAGNode):
         #    and ( (t_end <= (self.GPSstart+self.psdlength )) or (t_end <= trig_time+2) ))  :
             self.add_input_file(lfn)
       self.__finaldata=True
+
+  def make_fix_sky(self):
+    ## Fix sky position to 0,0. Useful for single IFO runs coherence test
+    self.add_var_arg('--fix-rightascension')
+    self.add_var_arg('--rightascension 0.0')
+    self.add_var_arg('--fix-declination')
+    self.add_var_arg('--declination 0.0')
 
 class LALInferenceNestNode(EngineNode):
   def __init__(self,li_job):
