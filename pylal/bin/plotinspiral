@@ -27,14 +27,43 @@ import exceptions
 import glob
 from types import *
 
-from pylal import SnglInspiralUtils
 from glue import lal
 from glue import segments
 from glue import segmentsUtils
+from glue.ligolw import lsctables
+from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
 from pylal import git_version
 
-#################################################################
+##############################################################################
+# redefine the SnglInspiral columns of interest
+##############################################################################
+lsctables.SnglInspiralTable.loadcolumns = [
+    "ifo",
+    "end_time",
+    "end_time_ns",
+#    "eff_distance",
+    "mass1",
+    "mass2",
+#    "mtotal",
+#    "mchirp",
+#    "eta",
+    "snr",
+    "chisq",
+    "chisq_dof"#,
+#    "bank_chisq",
+#    "bank_chisq_dof",
+#    "cont_chisq",
+#    "cont_chisq_dof",
+#    "rsqveto_duration",
+#    "sigmasq",
+#    "alpha",
+#    "template_duration",
+#    "ttotal",
+#    "event_id"#,
+#    "process_id"
+    ]
+
 # help message
 usage = """\
 %prog [options]
