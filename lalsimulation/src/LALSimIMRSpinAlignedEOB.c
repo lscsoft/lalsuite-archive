@@ -2618,8 +2618,7 @@ if( !NoComputeInitialConditions )
   
   SphHarmTimeSeries  *hlmPTS = NULL;
   SphHarmTimeSeries  *hIMRlmJTS = NULL;
-  REAL8TimeSeries  *hPlusTS  = XLALCreateREAL8TimeSeries( "H_PLUS", &tc, 0.0, deltaT, &lalStrainUnit, retLen );
-  REAL8TimeSeries  *hCrossTS = XLALCreateREAL8TimeSeries( "H_CROSS", &tc, 0.0, deltaT, &lalStrainUnit, retLen );
+
   REAL8TimeSeries *alphaI2PTS = XLALCreateREAL8TimeSeries( "alphaI2P", &tc, 0.0, deltaT, &lalStrainUnit, retLen );
   REAL8TimeSeries  *betaI2PTS = XLALCreateREAL8TimeSeries(  "betaI2P", &tc, 0.0, deltaT, &lalStrainUnit, retLen );
   REAL8TimeSeries *gammaI2PTS = XLALCreateREAL8TimeSeries( "gammaI2P", &tc, 0.0, deltaT, &lalStrainUnit, retLen );
@@ -2655,6 +2654,10 @@ if( !NoComputeInitialConditions )
   COMPLEX16TimeSeries *hIMR2m2JTS = XLALCreateCOMPLEX16TimeSeries( "HIMRJ_2m2", &tc, 0.0, deltaT, &lalStrainUnit,
                                                                    retLen + retLenRDPatchLow );
   COMPLEX16TimeSeries *hIMRJTS    = XLALCreateCOMPLEX16TimeSeries( "HIMRJ",     &tc, 0.0, deltaT, &lalStrainUnit,
+                                                                   retLen + retLenRDPatchLow );
+  REAL8TimeSeries  *hPlusTS  = XLALCreateREAL8TimeSeries( "H_PLUS", &tc, 0.0, deltaT, &lalStrainUnit, 
+                                                                   retLen + retLenRDPatchLow );
+  REAL8TimeSeries  *hCrossTS = XLALCreateREAL8TimeSeries( "H_CROSS", &tc, 0.0, deltaT, &lalStrainUnit, 
                                                                    retLen + retLenRDPatchLow );
   if ( !(tlist = XLALCreateREAL8Vector( retLen )) || !(tlistRDPatch = XLALCreateREAL8Vector( retLen + retLenRDPatchLow )) )
   {
