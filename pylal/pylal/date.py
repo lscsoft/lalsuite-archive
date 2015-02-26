@@ -57,10 +57,6 @@ def XLALGreenwichMeanSiderealTime(gps):
 	return XLALGreenwichSiderealTime(gps, 0.0)
 
 
-def XLALGreenwichSiderealTimeToGPS(gmst, equation_of_equinoxes):
-	return XLALGreenwichMeanSiderealTimeToGPS(gmst) - equation_of_equinoxes
-
-
 def XLALTimeDelayFromEarthCenter(pos, ra, dec, gps):
 	return XLALArrivalTimeDiff(pos, (0.0, 0.0, 0.0), ra, dec, gps)
 
