@@ -243,32 +243,6 @@ static PyObject *pylal_XLALGreenwichSiderealTime(PyObject *self, PyObject *args)
 	return PyFloat_FromDouble(XLALGreenwichSiderealTime(&gps->gps, equation_of_equinoxes));
 }
 
-PyDoc_STRVAR(pylal_XLALGreenwichMeanSiderealTimeToGPS__doc__,
-"Returns the GPS time for the given Greenwich mean sidereal time (in radians)\n"
-"\n"
-"The input is sidereal time in radians since the Julian epoch (currently\n"
-"J2000 for LAL), and the output is the corresponding GPS time. The algorithm\n"
-"uses a naive iterative root-finder, so it's slow.\n"
-"Example:\n"
-"\n"
-">>> XLALGreenwichMeanSiderealTimeToGPS(24739.075161218461)\n"
-"LIGOTimeGPS(969953933,999996506)\n");
-
-static PyObject *pylal_XLALGreenwichMeanSiderealTimeToGPS(PyObject *self, PyObject *args)
-{
-	LIGOTimeGPS gps;
-	double gmst;
-
-	/* float */
-	if(!PyArg_ParseTuple(args, "d:XLALGreenwichMeanSiderealTimeToGPS", &gmst))
-		return NULL;
-
-	XLALGreenwichMeanSiderealTimeToGPS(gmst, &gps);
-
-	/* LIGOTimeGPS */
-	return pylal_LIGOTimeGPS_new(gps);
-}
-
 
 /*
  * ============================================================================
@@ -350,7 +324,6 @@ static struct PyMethodDef module_methods[] = {
 	{"XLALArrivalTimeDiff", pylal_XLALArrivalTimeDiff, METH_VARARGS, pylal_XLALArrivalTimeDiff__doc__},
 	{"XLALGPSToUTC", pylal_XLALGPSToUTC, METH_VARARGS, pylal_XLALGPSToUTC__doc__},
 	{"XLALGreenwichSiderealTime", pylal_XLALGreenwichSiderealTime, METH_VARARGS, pylal_XLALGreenwichSiderealTime__doc__},
-	{"XLALGreenwichMeanSiderealTimeToGPS", pylal_XLALGreenwichMeanSiderealTimeToGPS, METH_VARARGS, pylal_XLALGreenwichMeanSiderealTimeToGPS__doc__},
 	{"XLALLeapSeconds", pylal_XLALLeapSeconds, METH_VARARGS, pylal_XLALLeapSeconds__doc__},
 	{"XLALUTCToGPS", pylal_XLALUTCToGPS, METH_VARARGS, pylal_XLALUTCToGPS__doc__},
 	{"XLALGPSTimeNow", pylal_XLALGPSTimeNow, METH_NOARGS, "Use XLALUTCToGPS(time.gmtime()) instead."},
