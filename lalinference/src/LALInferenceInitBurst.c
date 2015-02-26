@@ -260,7 +260,7 @@ LALInferenceModel * LALInferenceInitBurstModel(LALInferenceRunState *state)
     exit(1);
   }
   
-  LALInferenceAddVariable(currentParams, "LAL_APPROXIMANT", &approx,        LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+  
  
     REAL8 psiMin=0.0,psiMax=LAL_PI; 
     REAL8 raMin=0.0,raMax=LAL_TWOPI; 
@@ -325,7 +325,7 @@ LALInferenceModel * LALInferenceInitBurstModel(LALInferenceRunState *state)
         printf("Fixing alpha to 0 in template ---> only plus polarization will be used\n");
         LALInferenceRegisterUniformVariableREAL8(state,model->params, "alpha", 0.0,0.0,2*LAL_PI, LALINFERENCE_PARAM_FIXED);
     }
-    
+    LALInferenceAddVariable(model->params, "LAL_APPROXIMANT", &approx,        LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
     /* Needs two condition: must be a burst template and the burst injection must have been provided to do those checks
     if (BinjTable && burst_inj){
         
