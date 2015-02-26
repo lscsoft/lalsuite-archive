@@ -112,27 +112,6 @@ static PyObject *pylal_XLALLeapSeconds(PyObject *self, PyObject *args)
 	return PyInt_FromLong(XLALLeapSeconds(gpssec));
 }
 
-PyDoc_STRVAR(pylal_XLALLeapSecondsUTC__doc__,
-"Returns the leap seconds TAI-UTC at a given UTC time structure.\n"
-"Example:\n"
-"\n"
-">>> import time\n"
-">>> tm = time.gmtime()\n"
-">>> XLALLeapSecondsUTC(tm)\n"
-"34\n");
-
-static PyObject *pylal_XLALLeapSecondsUTC(PyObject *self, PyObject *args)
-{
-	struct tm utc;
-
-	/* time.struct_time */
-	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALLeapSecondsUTC", &utc.tm_year, &utc.tm_mon, &utc.tm_mday, &utc.tm_hour, &utc.tm_min, &utc.tm_sec, &utc.tm_wday, &utc.tm_yday, &utc.tm_isdst))
-		return NULL;
-
-	/* int */
-	return PyInt_FromLong(XLALLeapSecondsUTC(struct_tm_python_to_c(&utc)));
-}
-
 
 /*
  * GPS to/from UTC
@@ -421,7 +400,6 @@ static struct PyMethodDef module_methods[] = {
 	{"XLALGreenwichMeanSiderealTimeToGPS", pylal_XLALGreenwichMeanSiderealTimeToGPS, METH_VARARGS, pylal_XLALGreenwichMeanSiderealTimeToGPS__doc__},
 	{"XLALJulianDay", pylal_XLALJulianDay, METH_VARARGS, pylal_XLALJulianDay__doc__},
 	{"XLALLeapSeconds", pylal_XLALLeapSeconds, METH_VARARGS, pylal_XLALLeapSeconds__doc__},
-	{"XLALLeapSecondsUTC", pylal_XLALLeapSecondsUTC, METH_VARARGS, pylal_XLALLeapSecondsUTC__doc__},
 	{"XLALModifiedJulianDay", pylal_XLALModifiedJulianDay, METH_VARARGS, pylal_XLALModifiedJulianDay__doc__},
 	{"XLALUTCToGPS", pylal_XLALUTCToGPS, METH_VARARGS, pylal_XLALUTCToGPS__doc__},
 	{"XLALGPSTimeNow", pylal_XLALGPSTimeNow, METH_NOARGS, "Use XLALUTCToGPS(time.gmtime()) instead."},
