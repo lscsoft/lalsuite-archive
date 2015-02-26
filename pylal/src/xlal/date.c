@@ -43,39 +43,6 @@
 /*
  * ============================================================================
  *
- *                       LIGOTimeGPS Function Wrappers
- *
- * ============================================================================
- */
-
-
-PyDoc_STRVAR(pylal_XLALINT8NSToGPS__doc__,
-"Converts nanoseconds since the GPS epoch to a LIGOTimeGPS object\n"
-"Example:\n"
-"\n"
-">>> XLALINT8NSToGPS(969953934756118000)\n"
-"LIGOTimeGPS(969953934,756118000)\n");
-
-static PyObject *pylal_XLALINT8NSToGPS(PyObject *self, PyObject *args)
-{
-	long long ns;
-	pylal_LIGOTimeGPS *new;
-
-	/* long */
-	if(!PyArg_ParseTuple(args, "L:XLALINT8NSToGPS", &ns))
-		return NULL;
-
-	new = (pylal_LIGOTimeGPS *) _PyObject_New(&pylal_LIGOTimeGPS_Type);
-	XLALINT8NSToGPS(&new->gps, ns);
-
-	/* LIGOTimeGPS */
-	return (PyObject *) new;
-}
-
-
-/*
- * ============================================================================
- *
  *                              Time Conversion
  *
  * ============================================================================
@@ -452,7 +419,6 @@ static struct PyMethodDef module_methods[] = {
 	{"XLALGPSToUTC", pylal_XLALGPSToUTC, METH_VARARGS, pylal_XLALGPSToUTC__doc__},
 	{"XLALGreenwichSiderealTime", pylal_XLALGreenwichSiderealTime, METH_VARARGS, pylal_XLALGreenwichSiderealTime__doc__},
 	{"XLALGreenwichMeanSiderealTimeToGPS", pylal_XLALGreenwichMeanSiderealTimeToGPS, METH_VARARGS, pylal_XLALGreenwichMeanSiderealTimeToGPS__doc__},
-	{"XLALINT8NSToGPS", pylal_XLALINT8NSToGPS, METH_VARARGS, pylal_XLALINT8NSToGPS__doc__},
 	{"XLALJulianDay", pylal_XLALJulianDay, METH_VARARGS, pylal_XLALJulianDay__doc__},
 	{"XLALLeapSeconds", pylal_XLALLeapSeconds, METH_VARARGS, pylal_XLALLeapSeconds__doc__},
 	{"XLALLeapSecondsUTC", pylal_XLALLeapSecondsUTC, METH_VARARGS, pylal_XLALLeapSecondsUTC__doc__},
