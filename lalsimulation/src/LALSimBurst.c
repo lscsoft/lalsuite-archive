@@ -1571,11 +1571,12 @@ int XLALSimBurstSineGaussianFFast(
 	/* rss of plus and cross polarizations */
 	const double hplusrss  = hrss * cos(alpha);
 	const double hcrossrss = hrss * sin(alpha);
-	const double cgrss = sqrt((Q / (4.0 * centre_frequency * LAL_SQRT_PI)) * (1.0 +exp(-Q * Q)));
-	const double sgrss = sqrt((Q / (4.0 * centre_frequency *LAL_SQRT_PI)) * (1.0 - exp(-Q * Q)));
+  REAL8 eqq=exp(-Q*Q);
+	const double cgrss = sqrt((Q / (4.0 * centre_frequency * LAL_SQRT_PI)) * (1.0 +eqq));
+	const double sgrss = sqrt((Q / (4.0 * centre_frequency *LAL_SQRT_PI)) * (1.0 - eqq));
 	/* "peak" amplitudes of plus and cross */
-	const double h0plus  = hplusrss / cgrss;
-	const double h0cross = hcrossrss / sgrss;
+	double h0plus  = hplusrss / cgrss;
+	double h0cross = hcrossrss / sgrss;
 	LIGOTimeGPS epoch= LIGOTIMEGPSZERO;
 	int length;
 	unsigned i;
@@ -1624,13 +1625,15 @@ int XLALSimBurstSineGaussianFFast(
   REAL8 f=0.0;
   REAL8 phi2minus=0.0;
   REAL8 ephimin=0.0;
+  h0plus=h0plus * tau/LAL_2_SQRTPI;
+  h0cross=-h0cross* tau/LAL_2_SQRTPI;
   //#pragma omp parallel for
   for(i = 0; i < upper; i++) {
     f=((REAL8 ) (i+lower) )*deltaF;
     phi2minus= (f-centre_frequency )*(f-centre_frequency );
     ephimin=exp(-phi2minus*tau2pi2);
-    hptilde->data->data[i] = h0plus * tau*ephimin/LAL_2_SQRTPI;
-    hctilde->data->data[i] = h0cross *tau*ephimin*(-1.0j)/LAL_2_SQRTPI;
+    hptilde->data->data[i] = crect(h0plus *ephimin,0.0);
+    hctilde->data->data[i] = crect(0.0,h0cross *ephimin);
   }
 
   *hplus=hptilde;
