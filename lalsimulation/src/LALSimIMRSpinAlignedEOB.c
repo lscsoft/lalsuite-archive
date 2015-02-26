@@ -3548,12 +3548,12 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     // FIXME check that all created arrays are destroyed here
   
   
-    //XLALDestroyREAL8TimeSeries(alphaI2PTS);
-    //XLALDestroyREAL8TimeSeries(betaI2PTS);
-    //XLALDestroyREAL8TimeSeries(gammaI2PTS);
-    //XLALDestroyREAL8TimeSeries(alphaP2JTS);
-    //XLALDestroyREAL8TimeSeries(betaP2JTS);
-    //XLALDestroyREAL8TimeSeries(gammaP2JTS);
+    XLALDestroyREAL8TimeSeries(alphaI2PTS);
+    XLALDestroyREAL8TimeSeries(betaI2PTS);
+    XLALDestroyREAL8TimeSeries(gammaI2PTS);
+    XLALDestroyREAL8TimeSeries(alphaP2JTS);
+    XLALDestroyREAL8TimeSeries(betaP2JTS);
+    XLALDestroyREAL8TimeSeries(gammaP2JTS);
 
     if(debugPK){ printf("Memory cleanup 1 done.\n"); fflush(NULL); }
     XLALDestroyREAL8TimeSeries(alphaI2PTSHi);
