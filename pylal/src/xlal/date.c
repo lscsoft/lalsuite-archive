@@ -48,26 +48,6 @@
  * ============================================================================
  */
 
-PyDoc_STRVAR(pylal_XLALGPSToINT8NS__doc__,
-"Converts a LIGOTimeGPS time to nanoseconds since the same epoch.\n"
-"Example:\n"
-"\n"
-">>> from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS\n"
-">>> gps = LIGOTimeGPS(969953934,756118000)\n"
-">>> print XLALGPSToINT8NS(gps)\n"
-"969953934756118000\n");
-
-static PyObject *pylal_XLALGPSToINT8NS(PyObject *self, PyObject *args)
-{
-	pylal_LIGOTimeGPS *s;
-
-	/* LIGOTimeGPS */
-	if(!PyArg_ParseTuple(args, "O!:XLALGPSToINT8NS", &pylal_LIGOTimeGPS_Type, &s))
-		return NULL;
-
-	/* long */
-	return PyLong_FromLongLong(XLALGPSToINT8NS(&s->gps));
-}
 
 PyDoc_STRVAR(pylal_XLALINT8NSToGPS__doc__,
 "Converts nanoseconds since the GPS epoch to a LIGOTimeGPS object\n"
@@ -469,7 +449,6 @@ static PyObject *pylal_XLALArrivalTimeDiff(PyObject *self, PyObject *args)
 
 static struct PyMethodDef module_methods[] = {
 	{"XLALArrivalTimeDiff", pylal_XLALArrivalTimeDiff, METH_VARARGS, pylal_XLALArrivalTimeDiff__doc__},
-	{"XLALGPSToINT8NS", pylal_XLALGPSToINT8NS, METH_VARARGS, pylal_XLALGPSToINT8NS__doc__},
 	{"XLALGPSToUTC", pylal_XLALGPSToUTC, METH_VARARGS, pylal_XLALGPSToUTC__doc__},
 	{"XLALGreenwichSiderealTime", pylal_XLALGreenwichSiderealTime, METH_VARARGS, pylal_XLALGreenwichSiderealTime__doc__},
 	{"XLALGreenwichMeanSiderealTimeToGPS", pylal_XLALGreenwichMeanSiderealTimeToGPS, METH_VARARGS, pylal_XLALGreenwichMeanSiderealTimeToGPS__doc__},
