@@ -1903,13 +1903,7 @@ REAL8 LALInferenceFastSineGaussianLogLikelihood(LALInferenceVariables *currentPa
       model->templt(model);
       if(XLALGetBaseErrno()==XLAL_FAILURE) /* Template generation failed in a known way, set -Inf likelihood */
           return(-DBL_MAX);
-
-      if (model->domain == LAL_SIM_DOMAIN_TIME) {
-          /* TD --> FD. */
-          LALInferenceExecuteFT(model);
-      }
     }
-
         /* Template is now in model->timeFreqhPlus and hCross */
 
       /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
@@ -1965,9 +1959,6 @@ REAL8 LALInferenceFastSineGaussianLogLikelihood(LALInferenceVariables *currentPa
       COMPLEX16 d=*dtilde;
       /* Normalise PSD to our funny standard (see twoDeltaTOverN below). */
       REAL8 sigmasq=(*psd)*deltaT*deltaT;
-      
-      REAL8 singleFreqBinTerm;
-      
       //subtract GW model from residual
       /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
       COMPLEX16 plainTemplate = Fplus*(*hptilde)+Fcross*(*hctilde);
@@ -1978,9 +1969,8 @@ REAL8 LALInferenceFastSineGaussianLogLikelihood(LALInferenceVariables *currentPa
 
       REAL8 diffsq = creal(diff)*creal(diff)+cimag(diff)*cimag(diff);
       chisq = TwoDeltaToverN*diffsq/sigmasq;
-      singleFreqBinTerm = chisq;
-      chisquared  += singleFreqBinTerm;
-      model->ifo_loglikelihoods[ifo] -= singleFreqBinTerm;
+      chisquared  += chisq;
+      model->ifo_loglikelihoods[ifo] -= chisq;
     } /* End loop over freq bins */
     
     loglikelihood += model->ifo_loglikelihoods[ifo];
