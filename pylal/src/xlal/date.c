@@ -201,53 +201,6 @@ static PyObject *pylal_XLALGPSTimeNow(PyObject *self, PyObject *args)
 
 
 /*
- * Julian day
- */
-
-PyDoc_STRVAR(pylal_XLALJulianDay__doc__,
-"Returns the Julian Day (in UTC time system) corresponding to the date given in a time structure.\n"
-"Example:\n"
-"\n"
-">>> import time\n"
-">>> tm = time.gmtime()\n"
-">>> XLALJulianDay(tm)\n"
-"2455470.942650463\n");
-
-static PyObject *pylal_XLALJulianDay(PyObject *self, PyObject *args)
-{
-	struct tm utc;
-
-	/* time.struct_time */
-	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALJulianDay", &utc.tm_year, &utc.tm_mon, &utc.tm_mday, &utc.tm_hour, &utc.tm_min, &utc.tm_sec, &utc.tm_wday, &utc.tm_yday, &utc.tm_isdst))
-		return NULL;
-
-	/* float */
-	return PyFloat_FromDouble(XLALJulianDay(struct_tm_python_to_c(&utc)));
-}
-
-PyDoc_STRVAR(pylal_XLALModifiedJulianDay__doc__,
-"Returns the Modified Julian Day (in UTC time system) corresponding to the date given in a time structure.\n"
-"Example:\n"
-"\n"
-">>> import time\n"
-">>> tm = time.gmtime()\n"
-">>> XLALModifiedJulianDay(tm)\n"
-"55470\n");
-
-static PyObject *pylal_XLALModifiedJulianDay(PyObject *self, PyObject *args)
-{
-	struct tm utc;
-
-	/* time.struct_time */
-	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALModifiedJulianDay", &utc.tm_year, &utc.tm_mon, &utc.tm_mday, &utc.tm_hour, &utc.tm_min, &utc.tm_sec, &utc.tm_wday, &utc.tm_yday, &utc.tm_isdst))
-		return NULL;
-
-	/* int */
-	return PyInt_FromLong(XLALModifiedJulianDay(struct_tm_python_to_c(&utc)));
-}
-
-
-/*
  * Sidereal time
  */
 
@@ -398,9 +351,7 @@ static struct PyMethodDef module_methods[] = {
 	{"XLALGPSToUTC", pylal_XLALGPSToUTC, METH_VARARGS, pylal_XLALGPSToUTC__doc__},
 	{"XLALGreenwichSiderealTime", pylal_XLALGreenwichSiderealTime, METH_VARARGS, pylal_XLALGreenwichSiderealTime__doc__},
 	{"XLALGreenwichMeanSiderealTimeToGPS", pylal_XLALGreenwichMeanSiderealTimeToGPS, METH_VARARGS, pylal_XLALGreenwichMeanSiderealTimeToGPS__doc__},
-	{"XLALJulianDay", pylal_XLALJulianDay, METH_VARARGS, pylal_XLALJulianDay__doc__},
 	{"XLALLeapSeconds", pylal_XLALLeapSeconds, METH_VARARGS, pylal_XLALLeapSeconds__doc__},
-	{"XLALModifiedJulianDay", pylal_XLALModifiedJulianDay, METH_VARARGS, pylal_XLALModifiedJulianDay__doc__},
 	{"XLALUTCToGPS", pylal_XLALUTCToGPS, METH_VARARGS, pylal_XLALUTCToGPS__doc__},
 	{"XLALGPSTimeNow", pylal_XLALGPSTimeNow, METH_NOARGS, "Use XLALUTCToGPS(time.gmtime()) instead."},
 	{NULL,}
