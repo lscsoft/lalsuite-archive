@@ -295,11 +295,19 @@ class ProcessTable(table.Table):
 class Process(object):
 	__slots__ = ProcessTable.validcolumns.keys()
 
+	@property
+	def instruments(self):
+		return instrument_set_from_ifos(self.ifos)
+
+	@instruments.setter
+	def instruments(self, instruments):
+		self.ifos = ifos_from_instrument_set(instruments)
+
 	def get_ifos(self):
 		"""
 		Return a set of the instruments for this row.
 		"""
-		return instrument_set_from_ifos(self.ifos)
+		return self.instruments
 
 	def set_ifos(self, instruments):
 		"""
@@ -307,7 +315,7 @@ class Process(object):
 		attribute.  The instrument names must not contain the ","
 		character.
 		"""
-		self.ifos = ifos_from_instrument_set(instruments)
+		self.instruments = instruments
 
 
 ProcessTable.RowType = Process
@@ -437,7 +445,7 @@ class SearchSummaryTable(table.Table):
 		Note:  the result is not coalesced, the segmentlist
 		contains the segments as they appear in the table.
 		"""
-		return segments.segmentlist(row.get_in() for row in self)
+		return segments.segmentlist(row.in_segment for row in self)
 
 	def get_outlist(self):
 		"""
@@ -447,7 +455,7 @@ class SearchSummaryTable(table.Table):
 		Note:  the result is not coalesced, the segmentlist
 		contains the segments as they appear in the table.
 		"""
-		return segments.segmentlist(row.get_out() for row in self)
+		return segments.segmentlist(row.out_segment for row in self)
 
 	def get_in_segmentlistdict(self, process_ids = None):
 		"""
@@ -462,11 +470,9 @@ class SearchSummaryTable(table.Table):
 		"""
 		seglists = segments.segmentlistdict()
 		for row in self:
-			ifos = row.get_ifos()
-			if ifos is None:
-				ifos = (None,)
+			ifos = row.instruments or (None,)
 			if process_ids is None or row.process_id in process_ids:
-				seglists.extend(dict((ifo, segments.segmentlist([row.get_in()])) for ifo in ifos))
+				seglists.extend(dict((ifo, segments.segmentlist([row.in_segment])) for ifo in ifos))
 		return seglists
 
 	def get_out_segmentlistdict(self, process_ids = None):
@@ -482,22 +488,108 @@ class SearchSummaryTable(table.Table):
 		"""
 		seglists = segments.segmentlistdict()
 		for row in self:
-			ifos = row.get_ifos()
-			if ifos is None:
-				ifos = (None,)
+			ifos = row.instruments or (None,)
 			if process_ids is None or row.process_id in process_ids:
-				seglists.extend(dict((ifo, segments.segmentlist([row.get_out()])) for ifo in ifos))
+				seglists.extend(dict((ifo, segments.segmentlist([row.out_segment])) for ifo in ifos))
 		return seglists
 
 
 class SearchSummary(object):
 	__slots__ = SearchSummaryTable.validcolumns.keys()
 
+	@property
+	def instruments(self):
+		return instrument_set_from_ifos(self.ifos)
+
+	@instruments.setter
+	def instruments(self, instruments):
+		self.ifos = ifos_from_instrument_set(instruments)
+
+	@property
+	def in_start(self):
+		if self.in_start_time is None and self.in_start_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.in_start_time, self.in_start_time_ns)
+
+	@in_start.setter
+	def in_start(self, gps):
+		if gps is None:
+			self.in_start_time = self.in_start_time_ns = None
+		else:
+			self.in_start_time, self.in_start_time_ns = gps.seconds, gps.nanoseconds
+
+	@property
+	def in_end(self):
+		if self.in_end_time is None and self.in_end_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.in_end_time, self.in_end_time_ns)
+
+	@in_end.setter
+	def in_end(self, gps):
+		if gps is None:
+			self.in_end_time = self.in_end_time_ns = None
+		else:
+			self.in_end_time, self.in_end_time_ns = gps.seconds, gps.nanoseconds
+
+	@property
+	def out_start(self):
+		if self.out_start_time is None and self.out_start_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.out_start_time, self.out_start_time_ns)
+
+	@out_start.setter
+	def out_start(self, gps):
+		if gps is None:
+			self.out_start_time = self.out_start_time_ns = None
+		else:
+			self.out_start_time, self.out_start_time_ns = gps.seconds, gps.nanoseconds
+
+	@property
+	def out_end(self):
+		if self.out_end_time is None and self.out_end_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.out_end_time, self.out_end_time_ns)
+
+	@out_end.setter
+	def out_end(self, gps):
+		if gps is None:
+			self.out_end_time = self.out_end_time_ns = None
+		else:
+			self.out_end_time, self.out_end_time_ns = gps.seconds, gps.nanoseconds
+
+	@property
+	def in_segment(self):
+		start, end = self.in_start, self.in_end
+		if start is None and end is None:
+			return None
+		return segments.segment(start, end)
+
+	@in_segment.setter
+	def in_segment(self, seg):
+		if seg is None:
+			self.in_start = self.in_end = None
+		else:
+			self.in_start, self.in_end = seg
+
+	@property
+	def out_segment(self):
+		start, end = self.out_start, self.out_end
+		if start is None and end is None:
+			return None
+		return segments.segment(start, end)
+
+	@out_segment.setter
+	def out_segment(self, seg):
+		if seg is None:
+			self.out_start = self.out_end = None
+		else:
+			self.out_start, self.out_end = seg
+
 	def get_ifos(self):
 		"""
 		Return a set of the instruments for this row.
 		"""
-		return instrument_set_from_ifos(self.ifos)
+		return self.instruments
 
 	def set_ifos(self, instruments):
 		"""
@@ -505,61 +597,31 @@ class SearchSummary(object):
 		attribute.  The instrument names must not contain the ","
 		character.
 		"""
-		self.ifos = ifos_from_instrument_set(instruments)
+		self.instruments = instruments
 
 	def get_in(self):
 		"""
-		Get the input segment.  Returns a segment with both
-		boundaries set to None if all four input segment boundary
-		attributes are None.
+		Get the input segment.
 		"""
-		try:
-			return segments.segment(LIGOTimeGPS(self.in_start_time, self.in_start_time_ns), LIGOTimeGPS(self.in_end_time, self.in_end_time_ns))
-		except:
-			if (self.in_start_time, self.in_start_time_ns, self.in_end_time, self.in_end_time_ns) == (None, None, None, None):
-				return segments.segment(None, None)
-			raise
+		return self.in_segment
 
 	def set_in(self, seg):
 		"""
-		Set the input segment.  If seg's boundaries are both None
-		then all four input segment boundary attributes are set to
-		None.
+		Set the input segment.
 		"""
-		try:
-			self.in_start_time, self.in_start_time_ns = seg[0].seconds, seg[0].nanoseconds
-			self.in_end_time, self.in_end_time_ns = seg[1].seconds, seg[1].nanoseconds
-		except:
-			if seg != segments.segment(None, None):
-				raise
-			self.in_start_time = self.in_start_time_ns = self.in_end_time = self.in_end_time_ns = None
+		self.in_segment = seg
 
 	def get_out(self):
 		"""
-		Get the output segment.  Returns a segment with both
-		boundaries set to None if all four output segment boundary
-		attributes are None.
+		Get the output segment.
 		"""
-		try:
-			return segments.segment(LIGOTimeGPS(self.out_start_time, self.out_start_time_ns), LIGOTimeGPS(self.out_end_time, self.out_end_time_ns))
-		except:
-			if (self.out_start_time, self.out_start_time_ns, self.out_end_time, self.out_end_time_ns) == (None, None, None, None):
-				return segments.segment(None, None)
-			raise
+		return self.out_segment
 
 	def set_out(self, seg):
 		"""
-		Set the output segment.  If seg's boundaries are both None
-		then all four output segment boundary attributes are set to
-		None.
+		Set the output segment.
 		"""
-		try:
-			self.out_start_time, self.out_start_time_ns = seg[0].seconds, seg[0].nanoseconds
-			self.out_end_time, self.out_end_time_ns = seg[1].seconds, seg[1].nanoseconds
-		except:
-			if seg != segments.segment(None, None):
-				raise
-			self.out_start_time = self.out_start_time_ns = self.out_end_time = self.out_end_time_ns = None
+		self.out_segment = seg
 
 
 SearchSummaryTable.RowType = SearchSummary
@@ -1743,17 +1805,38 @@ class CoincInspiralTable(table.Table):
 class CoincInspiral(object):
 	__slots__ = CoincInspiralTable.validcolumns.keys()
 
-	def get_end(self):
+	@property
+	def instruments(self):
+		return instrument_set_from_ifos(self.ifos)
+
+	@instruments.setter
+	def instruments(self, instruments):
+		self.ifos = ifos_from_instrument_set(instruments)
+
+	@property
+	def end(self):
+		if self.end_time is None and self.end_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.end_time, self.end_time_ns)
 
-	def set_end(self, gps):
-		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+	@end.setter
+	def end(self, gps):
+		if gps is None:
+			self.end_time = self.end_time_ns = None
+		else:
+			self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
-	def set_ifos(self, ifos):
-		self.ifos = ifos_from_instrument_set(ifos)
+	def get_end(self):
+		return self.end
+
+	def set_end(self, gps):
+		self.end = gps
 
 	def get_ifos(self):
-		return instrument_set_from_ifos(self.ifos)
+		return self.instruments
+
+	def set_ifos(self, ifos):
+		self.instruments = ifos
 
 
 CoincInspiralTable.RowType = CoincInspiral
@@ -2713,14 +2796,42 @@ class SimBurstTable(table.Table):
 class SimBurst(TableRow):
 	__slots__ = SimBurstTable.validcolumns.keys()
 
-	def get_time_geocent(self):
+	@property
+	def time_geocent(self):
+		if self.time_geocent_gps is None and self.time_geocent_gps_ns is None:
+			return None
 		return LIGOTimeGPS(self.time_geocent_gps, self.time_geocent_gps_ns)
 
+	@time_geocent.setter
+	def time_geocent(self, gps):
+		if gps is None:
+			self.time_geocent_gps = self.time_geocent_gps_ns = self.time_geocent_gmst = None
+		else:
+			self.time_geocent_gps, self.time_geocent_gps_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  also do this when we switch to swig
+			# binding version of LIGOTimeGPS
+			#self.time_geocent_gmst = lal.GreenwichMeanSiderealTime(gps)
+
+	@property
+	def ra_dec(self):
+		if self.ra is None and self.dec is None:
+			return None
+		return self.ra, self.dec
+
+	@ra_dec.setter
+	def ra_dec(self, radec):
+		if radec is None:
+			self.ra = self.dec = None
+		self.ra, self.dec = radec
+
+	def get_time_geocent(self):
+		return self.time_geocent
+
 	def set_time_geocent(self, gps):
-		self.time_geocent_gps, self.time_geocent_gps_ns = gps.seconds, gps.nanoseconds
+		self.time_geocent = gps
 
 	def get_ra_dec(self):
-		return self.ra, self.dec
+		return self.ra_dec
 
 
 SimBurstTable.RowType = SimBurst
@@ -3117,6 +3228,46 @@ class SegmentTable(table.Table):
 class Segment(object):
 	__slots__ = SegmentTable.validcolumns.keys()
 
+	@property
+	def start(self):
+		if self.start_time is None and self.start_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+	@start.setter
+	def start(self, gps):
+		if gps is None:
+			self.start_time = self.start_time_ns = None
+		else:
+			self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+
+	@property
+	def end(self):
+		if self.end_time is None and self.end_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
+
+	@end.setter
+	def end(self, gps):
+		if gps is None:
+			self.end_time = self.end_time_ns = None
+		else:
+			self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+
+	@property
+	def segment(self):
+		start, end = self.start, self.end
+		if start is None and end is None:
+			return None
+		return segments.segment(start, end)
+
+	@segment.setter
+	def segment(self, seg):
+		if seg is None:
+			self.start = self.end = None
+		else:
+			self.start, self.end = seg
+
 	def __cmp__(self, other):
 		return cmp(self.get(), other.get())
 
@@ -3124,14 +3275,13 @@ class Segment(object):
 		"""
 		Return the segment described by this row.
 		"""
-		return segments.segment(LIGOTimeGPS(self.start_time, self.start_time_ns), LIGOTimeGPS(self.end_time, self.end_time_ns))
+		return self.segment
 
 	def set(self, segment):
 		"""
 		Set the segment described by this row.
 		"""
-		self.start_time, self.start_time_ns = segment[0].seconds, segment[0].nanoseconds
-		self.end_time, self.end_time_ns = segment[1].seconds, segment[1].nanoseconds
+		self.segment = segment
 
 
 SegmentTable.RowType = Segment
@@ -3169,11 +3319,19 @@ class SegmentDefTable(table.Table):
 class SegmentDef(object):
 	__slots__ = SegmentDefTable.validcolumns.keys()
 
+	@property
+	def instruments(self):
+		return instrument_set_from_ifos(self.ifos)
+
+	@instruments.setter
+	def instruments(self, instruments):
+		self.ifos = ifos_from_instrument_set(instruments)
+
 	def get_ifos(self):
 		"""
 		Return a set of the instruments for this row.
 		"""
-		return instrument_set_from_ifos(self.ifos)
+		return self.instruments
 
 	def set_ifos(self, instruments):
 		"""
@@ -3181,7 +3339,7 @@ class SegmentDef(object):
 		attribute.  The instrument names must not contain the ","
 		character.
 		"""
-		self.ifos = ifos_from_instrument_set(instruments)
+		self.instruments = instruments
 
 
 SegmentDefTable.RowType = SegmentDef
@@ -3227,25 +3385,64 @@ class SegmentSumTable(table.Table):
 		contains the segments as they appear in the table.
 		"""
 		if segment_def_id is None:
-			return segments.segmentlist(row.get() for row in self)
-		return segments.segmentlist(row.get() for row in self if row.segment_def_id == segment_def_id)
+			return segments.segmentlist(row.segment for row in self)
+		return segments.segmentlist(row.segment for row in self if row.segment_def_id == segment_def_id)
 
 
 class SegmentSum(object):
 	__slots__ = SegmentSumTable.validcolumns.keys()
 
+	@property
+	def start(self):
+		if self.start_time is None and self.start_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+	@start.setter
+	def start(self, gps):
+		if gps is None:
+			self.start_time = self.start_time_ns = None
+		else:
+			self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+
+	@property
+	def end(self):
+		if self.end_time is None and self.end_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
+
+	@end.setter
+	def end(self, gps):
+		if gps is None:
+			self.end_time = self.end_time_ns = None
+		else:
+			self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+
+	@property
+	def segment(self):
+		start, end = self.start, self.end
+		if start is None and end is None:
+			return None
+		return segments.segment(start, end)
+
+	@segment.setter
+	def segment(self, seg):
+		if seg is None:
+			self.start = self.end = None
+		else:
+			self.start, self.end = seg
+
 	def get(self):
 		"""
 		Return the segment described by this row.
 		"""
-		return segments.segment(LIGOTimeGPS(self.start_time, self.start_time_ns), LIGOTimeGPS(self.end_time, self.end_time_ns))
+		return self.segment
 
 	def set(self, segment):
 		"""
 		Set the segment described by this row.
 		"""
-		self.start_time, self.start_time_ns = segment[0].seconds, segment[0].nanoseconds
-		self.end_time, self.end_time_ns = segment[1].seconds, segment[1].nanoseconds
+		self.segment = segment
 
 
 SegmentSumTable.RowType = SegmentSum

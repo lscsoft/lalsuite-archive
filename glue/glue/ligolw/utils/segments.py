@@ -171,7 +171,7 @@ class LigolwSegments(set):
 		# construct empty LigolwSegmentList objects, one for each
 		# entry in the segment_definer table, indexed by
 		# segment_definer id
-		segment_lists = dict((row.segment_def_id, LigolwSegmentList(instruments = row.get_ifos(), name = row.name, version = row.version, comment = row.comment)) for row in self.segment_def_table)
+		segment_lists = dict((row.segment_def_id, LigolwSegmentList(instruments = row.instruments, name = row.name, version = row.version, comment = row.comment)) for row in self.segment_def_table)
 		if len(segment_lists) != len(self.segment_def_table):
 			raise ValueError("duplicate segment_definer IDs detected in segment_definer table")
 		del self.segment_def_table[:]
@@ -179,10 +179,10 @@ class LigolwSegments(set):
 		# populate LigolwSegmentList objects from segment table and
 		# segment_summary table
 		for row in self.segment_sum_table:
-			segment_lists[row.segment_def_id].valid.append(row.get())
+			segment_lists[row.segment_def_id].valid.append(row.segment)
 		del self.segment_sum_table[:]
 		for row in self.segment_table:
-			segment_lists[row.segment_def_id].active.append(row.get())
+			segment_lists[row.segment_def_id].active.append(row.segment)
 		del self.segment_table[:]
 
 		#
@@ -318,7 +318,7 @@ class LigolwSegments(set):
 			id_column = target_table.next_id.column_name
 			for seg in segs:
 				row = target_table.RowType()
-				row.set(seg)
+				row.segment = seg
 				row.process_id = process_row.process_id
 				setattr(row, id_column, target_table.get_next_id())
 				row.segment_def_id = segment_def_row.segment_def_id
@@ -339,7 +339,7 @@ class LigolwSegments(set):
 			segment_def_row = self.segment_def_table.RowType()
 			segment_def_row.process_id = process_row.process_id
 			segment_def_row.segment_def_id = self.segment_def_table.get_next_id()
-			segment_def_row.set_ifos(ligolw_segment_list.instruments)
+			segment_def_row.instruments = ligolw_segment_list.instruments
 			segment_def_row.name = ligolw_segment_list.name
 			segment_def_row.version = ligolw_segment_list.version
 			segment_def_row.comment = ligolw_segment_list.comment
@@ -413,7 +413,7 @@ def segmenttable_get_by_name(xmldoc, name):
 	# segment_definer entries bearing the requested name
 	#
 
-	instrument_index = dict((row.segment_def_id, row.get_ifos()) for row in def_table if row.name == name)
+	instrument_index = dict((row.segment_def_id, row.instruments) for row in def_table if row.name == name)
 
 	#
 	# populate result segmentlistdict object from segment_def_map table
@@ -425,7 +425,7 @@ def segmenttable_get_by_name(xmldoc, name):
 
 	for row in seg_table:
 		if row.segment_def_id in instrument_index:
-			seg = row.get()
+			seg = row.segment
 			for instrument in instrument_index[row.segment_def_id]:
 				result[instrument].append(seg)
 
