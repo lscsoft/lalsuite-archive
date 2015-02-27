@@ -32,6 +32,7 @@ Maintenance of the table definitions is left to the conscience of
 interested users.
 """
 
+
 import numpy
 from xml import sax
 
@@ -49,6 +50,7 @@ from . import ligolw
 from . import table
 from . import types as ligolwtypes
 from . import ilwd
+
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
@@ -3698,6 +3700,7 @@ class SummMime(object):
 
 SummMimeTable.RowType = SummMime
 
+
 #
 # =============================================================================
 #
@@ -3792,7 +3795,7 @@ def use_in(ContentHandler):
 	"""
 	Modify ContentHandler, a sub-class of
 	glue.ligolw.LIGOLWContentHandler, to cause it to use the Table
-	class defined in this module when parsing XML documents.
+	classes defined in this module when parsing XML documents.
 
 	Example:
 
