@@ -198,8 +198,9 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		coinc_inspiral.false_alarm_rate = None
 		coinc_inspiral.combined_far = None
 		coinc_inspiral.minimum_duration = None
-		coinc_inspiral.set_end(coinc_inspiral_end_time(events, self.time_slide_index[time_slide_id]))
-		coinc_inspiral.set_ifos(event.ifo for event in events)
+		offsetvector = self.time_slide_index[time_slide_id]
+		coinc_inspiral.end = coinc_inspiral_end_time(events, offsetvector)
+		coinc_inspiral.instruments = (event.ifo for event in events)
 		self.coinc_inspiral_table.append(coinc_inspiral)
 
 		#
@@ -208,9 +209,9 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		# unslid to compare with the instrument segment lists
 		#
 
-		tstart = coinc_inspiral.get_end()
+		tstart = coinc_inspiral.end
 		instruments = set(event.ifo for event in events)
-		instruments |= set(instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs)
+		instruments |= set(instrument for instrument, segs in self.seglists.items() if tstart - offsetvector[instrument] in segs)
 		coinc.set_instruments(instruments)
 
 		#
@@ -219,7 +220,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		#
 
 		if self.likelihood_func is not None:
-			coinc.likelihood = self.likelihood_func(self.likelihood_params_func(events, self.time_slide_index[time_slide_id]))
+			coinc.likelihood = self.likelihood_func(self.likelihood_params_func(events, offsetvector))
 
 		#
 		# save memory by re-using strings
