@@ -307,15 +307,6 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
-			"pylal.xlal.datatypes.real8window",
-			["src/xlal/datatypes/real8window.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
-		),
-		Extension(
 			"pylal.xlal.datatypes.simburst",
 			["src/xlal/datatypes/simburst.c", "src/xlal/misc.c"],
 			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
