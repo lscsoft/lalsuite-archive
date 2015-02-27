@@ -100,8 +100,17 @@ def New(Type, columns = None, **kwargs):
 
 	Example:
 
-	>>> tbl = New(ProcessTable)
-	>>> tbl.write()
+	>>> import sys
+	>>> tbl = New(ProcessTable, [u"process_id", u"start_time", u"end_time", u"comment"])
+	>>> tbl.write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	<Table Name="process:table">
+		<Column Type="ilwd:char" Name="process:process_id"/>
+		<Column Type="int_4s" Name="process:start_time"/>
+		<Column Type="int_4s" Name="process:end_time"/>
+		<Column Type="lstring" Name="process:comment"/>
+		<Stream Delimiter="," Type="Local" Name="process:table">
+		</Stream>
+	</Table>
 	"""
 	new = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}), **kwargs)
 	colnamefmt = u":".join(Type.tableName.split(":")[:-1]) + u":%s"
@@ -3997,10 +4006,11 @@ def use_in(ContentHandler):
 	Example:
 
 	>>> from glue.ligolw import ligolw
-	>>> def MyContentHandler(ligolw.LIGOLWContentHandler):
+	>>> class MyContentHandler(ligolw.LIGOLWContentHandler):
 	...	pass
 	...
 	>>> use_in(MyContentHandler)
+	<class 'glue.ligolw.lsctables.MyContentHandler'>
 	"""
 	ContentHandler = table.use_in(ContentHandler)
 
