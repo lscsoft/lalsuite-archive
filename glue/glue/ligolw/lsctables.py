@@ -139,6 +139,11 @@ def IsTableProperties(Type, tagname, attrs):
 	"""
 	Convenience function to check that the given tag name and
 	attributes match those of a Table of type Type.
+
+	Example:
+
+	>>> IsTableProperties(ProcessTable, u"Table", {u"Name": u"process:table"})
+	True
 	"""
 	if tagname != ligolw.Table.tagName:
 		return False
@@ -201,6 +206,23 @@ def instrument_set_from_ifos(ifos):
 	into two-character pieces, add a "," or "+" character to the end to
 	force the comma- or plus-delimited decoding to be used.
 	ifos_from_instrument_set() does this for you.
+
+	Example:
+
+	>>> print instrument_set_from_ifos(None)
+	None
+	>>> instrument_set_from_ifos(u"H1")
+	set([u'H1'])
+	>>> instrument_set_from_ifos(u"SWIFT")
+	set([u'SWIFT'])
+	>>> instrument_set_from_ifos(u"H1L1")
+	set([u'H1', u'L1'])
+	>>> instrument_set_from_ifos(u"H1L1,")
+	set([u'H1L1'])
+	>>> instrument_set_from_ifos(u"H1,L1")
+	set([u'H1', u'L1'])
+	>>> instrument_set_from_ifos(u"H1+L1")
+	set([u'H1', u'L1'])
 	"""
 	if ifos is None:
 		return None
@@ -246,6 +268,17 @@ def ifos_from_instrument_set(instruments):
 	comma-delimited encoding.  This behaviour will be discontinued at
 	that time.  DO NOT WRITE CODE THAT RELIES ON THIS!  You have been
 	warned.
+
+	Example:
+
+	>>> ifos_from_instrument_set((u"H1",))
+	u'H1'
+	>>> ifos_from_instrument_set((u"H1",u"L1"))
+	u'H1,L1'
+	>>> ifos_from_instrument_set((u"SWIFT",))
+	u'SWIFT'
+	>>> ifos_from_instrument_set((u"H1L1",))
+	u'H1L1,'
 	"""
 	if instruments is None:
 		return None
@@ -302,6 +335,16 @@ class ProcessTable(table.Table):
 
 
 class Process(object):
+	"""
+	Example:
+
+	>>> x = Process()
+	>>> x.instruments = (u"H1", u"L1")
+	>>> x.ifos
+	u'H1,L1'
+	>>> x.instruments
+	set([u'H1', u'L1'])
+	"""
 	__slots__ = ProcessTable.validcolumns.keys()
 
 	@property
@@ -396,6 +439,21 @@ class ProcessParamsTable(table.Table):
 
 
 class ProcessParams(object):
+	"""
+	Example:
+
+	>>> x = ProcessParams()
+	>>> x.pyvalue = u"test"
+	>>> x.type
+	u'lstring'
+	>>> x.value
+	u'"test"'
+	>>> x.pyvalue = 6.
+	>>> x.type
+	u'real_8'
+	>>> x.value
+	u'6'
+	"""
 	__slots__ = ProcessParamsTable.validcolumns.keys()
 
 	@property
@@ -504,6 +562,27 @@ class SearchSummaryTable(table.Table):
 
 
 class SearchSummary(object):
+	"""
+	Example:
+
+	>>> x = SearchSummary()
+	>>> x.instruments = (u"H1", u"L1")
+	>>> x.ifos
+	u'H1,L1'
+	>>> x.instruments
+	set([u'H1', u'L1'])
+	>>> x.in_start = x.out_start = LIGOTimeGPS(0)
+	>>> x.in_end = x.out_end = LIGOTimeGPS(10)
+	>>> x.in_segment
+	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
+	>>> x.out_segment
+	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
+	>>> x.in_segment = x.out_segment = None
+	>>> print x.in_segment
+	None
+	>>> print x.out_segment
+	None
+	"""
 	__slots__ = SearchSummaryTable.validcolumns.keys()
 
 	@property
@@ -1812,6 +1891,22 @@ class CoincInspiralTable(table.Table):
 
 
 class CoincInspiral(object):
+	"""
+	Example:
+
+	>>> x = CoincInspiral()
+	>>> x.instruments = (u"H1", u"L1")
+	>>> x.ifos
+	u'H1,L1'
+	>>> x.instruments
+	set([u'H1', u'L1'])
+	>>> x.end = LIGOTimeGPS(10)
+	>>> x.end
+	LIGOTimeGPS(10,0)
+	>>> x.end = None
+	>>> print x.end
+	None
+	"""
 	__slots__ = CoincInspiralTable.validcolumns.keys()
 
 	@property
@@ -2803,6 +2898,22 @@ class SimBurstTable(table.Table):
 
 
 class SimBurst(TableRow):
+	"""
+	Example:
+
+	>>> x = SimBurst()
+	>>> x.ra_dec = 0., 0.
+	>>> x.ra_dec
+	(0.0, 0.0)
+	>>> x.time_geocent = None
+	>>> print x.time_geocent
+	None
+	>>> print x.time_geocent_gmst
+	None
+	>>> x.time_geocent = LIGOTimeGPS(6e8)
+	>>> print x.time_geocent
+	600000000
+	"""
 	__slots__ = SimBurstTable.validcolumns.keys()
 
 	@property
@@ -2950,6 +3061,23 @@ class SummValueTable(table.Table):
 
 
 class SummValue(object):
+	"""
+	Example:
+
+	>>> x = SummValue()
+	>>> x.instruments = (u"H1", u"L1")
+	>>> x.ifo
+	u'H1,L1'
+	>>> x.instruments
+	set([u'H1', u'L1'])
+	>>> x.start = LIGOTimeGPS(0)
+	>>> x.end = LIGOTimeGPS(10)
+	>>> x.segment
+	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
+	>>> x.segment = None
+	>>> print x.segment
+	None
+	"""
 	__slots__ = SummValueTable.validcolumns.keys()
 
 	@property
@@ -3235,6 +3363,18 @@ class SegmentTable(table.Table):
 
 
 class Segment(object):
+	"""
+	Example:
+
+	>>> x = Segment()
+	>>> x.start = LIGOTimeGPS(0)
+	>>> x.end = LIGOTimeGPS(10)
+	>>> x.segment
+	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
+	>>> x.segment = None
+	>>> print x.segment
+	None
+	"""
 	__slots__ = SegmentTable.validcolumns.keys()
 
 	@property
@@ -3326,6 +3466,16 @@ class SegmentDefTable(table.Table):
 
 
 class SegmentDef(object):
+	"""
+	Example:
+
+	>>> x = SegmentDef()
+	>>> x.instruments = (u"H1", u"L1")
+	>>> x.ifos
+	u'H1,L1'
+	>>> x.instruments
+	set([u'H1', u'L1'])
+	"""
 	__slots__ = SegmentDefTable.validcolumns.keys()
 
 	@property
@@ -3399,6 +3549,18 @@ class SegmentSumTable(table.Table):
 
 
 class SegmentSum(object):
+	"""
+	Example:
+
+	>>> x = SegmentSum()
+	>>> x.start = LIGOTimeGPS(0)
+	>>> x.end = LIGOTimeGPS(10)
+	>>> x.segment
+	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
+	>>> x.segment = None
+	>>> print x.segment
+	None
+	"""
 	__slots__ = SegmentSumTable.validcolumns.keys()
 
 	@property
