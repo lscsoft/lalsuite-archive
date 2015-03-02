@@ -27,7 +27,7 @@
 
 /**
  * \defgroup LALInference_h Header LALInference.h
- * \ingroup pkg_LALInference
+ * \ingroup lalinference_general
  * \brief Main header file for LALInference common routines and structures
  *
  * LALInference is a Bayesian analysis toolkit for use with LAL. It contains
@@ -106,6 +106,7 @@ typedef enum {
   LALINFERENCE_gslMatrix_t,
   LALINFERENCE_REAL8Vector_t,
   LALINFERENCE_UINT4Vector_t,
+  LALINFERENCE_COMPLEX16Vector_t,
   LALINFERENCE_string_t,
   LALINFERENCE_MCMCrunphase_ptr_t,
   LALINFERENCE_void_ptr_t
@@ -254,7 +255,7 @@ char *LALInferenceGetVariableName(LALInferenceVariables *vars, int idx);
  * Pass a void * in \c value to the value you wish to set,
  * i.e. LALInferenceSetVariable(vars, "mu", (void *)&mu);
  */
-void LALInferenceSetVariable(LALInferenceVariables * vars, const char * name, void * value);
+void LALInferenceSetVariable(LALInferenceVariables * vars, const char * name, const void * value);
 
 /**
  * Add a variable named \c name to \c vars with initial value referenced by \c value
@@ -265,7 +266,7 @@ void LALInferenceSetVariable(LALInferenceVariables * vars, const char * name, vo
  * \param value UNDOCUMENTED
  * If the variable already exists it will be over-written UNLESS IT HAS A CONFLICTING TYPE
  */
-void LALInferenceAddVariable(LALInferenceVariables * vars, const char * name, void * value, 
+void LALInferenceAddVariable(LALInferenceVariables * vars, const char * name, const void * value, 
 	LALInferenceVariableType type, LALInferenceParamVaryType vary);
 
 /**
@@ -310,9 +311,9 @@ int LALInferenceCompareVariables(LALInferenceVariables *var1, LALInferenceVariab
     \f$\delta \phi\f$, the measured waveform is related to the
     physical waveform via
 
-    \f\[
+    \f[
       h_\mathrm{meas} = h_\mathrm{phys} \left(1 + \delta A \right) \frac{2 + i \delta \phi}{2 - i \delta \phi}
-    \f\]
+    \f]
 
     The phase factor takes the form above rather than the more obvious
     \f$\exp(i \delta \phi)\f$ or \f$1 + \delta \phi\f$ because it is
@@ -550,6 +551,7 @@ tagLALInferenceIFOData
   char                       name[DETNAMELEN]; /** Detector name */
   REAL8TimeSeries           *timeData,         /** A time series from the detector */
                             *whiteTimeData, *windowedTimeData; /** white is not really white, but over-white. */
+  REAL8TimeSeries           *varTimeData;    /** A time series of the data noise variance */
   /* Stores the log(L) for the model in presence of data.  These were
      added to allow for individual-detector log(L) output.  The
      convention is that loglikelihood always stores the log(L) for the
@@ -576,6 +578,8 @@ tagLALInferenceIFOData
   LIGOTimeGPS		    epoch;              /** The epoch of this observation (the time of the first sample) */
   REAL8                     SNR;                /** IF INJECTION ONLY, E(SNR) of the injection in the detector.*/
   REAL8                     STDOF;              /** Degrees of freedom for IFO to be used in Student-T Likelihood. */
+  UINT4                     likeli_counter; /** counts how many time the likelihood has been calculated */
+  UINT4                     templa_counter; /** counts how many time the template has been calculated */
   struct tagLALInferenceROQData *roq; /** ROQ data */
   struct tagLALInferenceIFOData      *next;     /** A pointer to the next set of data for linked list */
 
@@ -588,6 +592,7 @@ typedef struct
 tagLALInferenceROQData
 {
   gsl_matrix_complex *weights; /** weights for the likelihood: NOTE: needs to be stored from data read from command line */
+  gsl_matrix_complex *mmweights; /** weights for calculating <h|h> if not using analytical formula */
   double int_f_7_over_3; /** /int_{fmin}^{fmax} df f^(-7/3)/psd...for <h|h> part of the likelihood */
   REAL8 time_weights_width;
 } LALInferenceROQData;
@@ -645,6 +650,11 @@ LALInferenceVariableItem *LALInferenceGetItem(const LALInferenceVariables *vars,
  * Indexing starts at 1
  */
 LALInferenceVariableItem *LALInferenceGetItemNr(LALInferenceVariables *vars, int idx);
+
+/**
+ * Pop the list node for "name". Returns a pointer to the node, which is removed from vars
+ */
+LALInferenceVariableItem *LALInferencePopVariableItem(LALInferenceVariables *vars, const char *name);
 
 /** Output the sample to file *fp, in ASCII format */
 void LALInferencePrintSample(FILE *fp,LALInferenceVariables *sample);
@@ -988,6 +998,12 @@ REAL8Vector* LALInferenceGetREAL8VectorVariable(LALInferenceVariables * vars, co
 
 void LALInferenceSetREAL8VectorVariable(LALInferenceVariables* vars,const char* name,REAL8Vector* value);
 
+void LALInferenceAddCOMPLEX16VectorVariable(LALInferenceVariables * vars, const char * name, COMPLEX16Vector* value, LALInferenceParamVaryType vary);
+
+COMPLEX16Vector* LALInferenceGetCOMPLEX16VectorVariable(LALInferenceVariables * vars, const char * name);
+
+void LALInferenceSetCOMPLEX16VectorVariable(LALInferenceVariables* vars,const char* name,COMPLEX16Vector* value);
+
 void LALInferenceAddUINT4VectorVariable(LALInferenceVariables * vars, const char * name, UINT4Vector* value, LALInferenceParamVaryType vary);
 
 UINT4Vector* LALInferenceGetUINT4VectorVariable(LALInferenceVariables * vars, const char * name);
@@ -1010,6 +1026,10 @@ void LALInferenceSetstringVariable(LALInferenceVariables* vars,const char* name,
  * Print spline calibration parameter names as tab-separated ASCII
  */
 void LALInferenceFprintSplineCalibrationHeader(FILE *out, LALInferenceRunState *state);
+
+void LALInferenceDetFrameToEquatorial(LALDetector *det0, LALDetector *det1,
+                                      REAL8 t0, REAL8 alpha, REAL8 theta,
+                                      REAL8 *tg, REAL8 *ra, REAL8 *dec);
 
 /*@}*/
 

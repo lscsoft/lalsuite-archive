@@ -27,12 +27,108 @@
  *-----------------------------------------------------------------------
  */
 
+/**
+ * \file
+ * \ingroup lalapps_inspiral
+ *
+ * <dl>
+ * <dt>Name</dt><dd>
+ * \c lalapps_splitbank --- splits a template bank file into several smaller
+ * files</dd>
+ *
+ * <dt>Synopsis</dt><dd>
+ * <tt>lalapps_splitbank</tt>
+ * <tt>--bank-file</tt> <i>file</i>
+ * <tt>--comment</tt> <i>comment</i>
+ * <tt>--help</tt>
+ * <tt>--minimal-match</tt> <i>m</i>
+ * <tt>--number-of-banks</tt> <i>n</i>
+ * <tt>--user-tag</tt> <i>comment</i>
+ * <tt>--verbose</tt>
+ * <tt>--version</tt> </dd>
+ *
+ * <dt>Description</dt><dd>
+ * \c lalapps_splitbank splits a LIGO_LW XML file containing inspiral
+ * templates in a \c sngl_inspiral table into several smaller bank
+ * files. This allows a template bank to be split across several inspiral
+ * jobs and then recombined with \c lalapps_inca or
+ * \c lalapps_sire.
+ *
+ * The name of the output template bank files is derived from the name of
+ * the input bank file and the number of files that the bank should be split
+ * into. For example, if the input bank file:\\
+ *
+ * <tt>H1-TRIGBANK_L1-729330491-2048.xml</tt>\\
+ *
+ * is split into 3 output files, then these will be named:\\
+ *
+ * <tt>H1-TRIGBANK_L1_00-729330491-2048.xml</tt>\\
+ * <tt>H1-TRIGBANK_L1_01-729330491-2048.xml</tt>\\
+ * <tt>H1-TRIGBANK_L1_02-729330491-2048.xml</tt>\\
+ *
+ * The naming convention is to insert the bank file number after the usertag part
+ * of the filename and before the GPS start time part of the file name.
+ *
+ * In the case that the input file contains no templates, empty output bank files
+ * are generated. This is done since DAGman does not implement decision rules
+ * yet, so the nodes in the DAG must be identical regardless of the data flowing
+ * through them.</dd>
+ *
+ * <dt>Options</dt><dd>
+ * <dl>
+ *
+ * <dt><tt>--bank-file</tt> <i>file</i></dt><dd>
+ * Read the templates from the \c sngl_inspiral table in the file <i>file</i>.</dd>
+ *
+ * <dt> <tt>--comment</tt> <i>comment</i></dt><dd>
+ * Add the string <i>comment</i> to the \c process table in the output XML file.</dd>
+ *
+ * <dt><tt>--help</tt></dt><dd>
+ * Display a usage message and exit.</dd>
+ *
+ * <dt><tt>--minimal-match</tt> <i>m</i></dt><dd>
+ * Set the minimal match of the output template bank file to <i>m</i>.
+ * This option is not really needed for running \c lalapps_splitbank, it just put that value of <i>m</i> for the minimal match in all splited template banks.</dd>
+ *
+ * <dt><tt>--number-of-banks</tt> <i>n</i></dt><dd>
+ *  Split the input template banks into <i>n</i> seperate output bank files.</dd>
+ *
+ * <dt><tt>--user-tag</tt> <i>comment</i></dt><dd>
+ * Set the user tag to the string <i>comment</i>.  This string must not
+ * contain spaces or dashes ("-").  This string will appear in the name of
+ * the file to which output information is written, and is recorded in the
+ * various XML tables within the file.</dd>
+ *
+ * <dt><tt>--verbose</tt></dt><dd>
+ * Print debugging information to the
+ * standard output while executing.</dd>
+ *
+ * <dt><tt>--version</tt></dt><dd>
+ * Print the CVS id and exit.
+ * </dd>
+ * </dl></dd>
+ *
+ * <dt>Example</dt><dd>
+ * \code
+ * lalapps_splitbank --bank-file L1-TMPLTBANK-732488741-2048.xml \
+ * --number-of-banks 3 --minimal-match 0.97
+ * \endcode</dd>
+ *
+ * <dt>Algorithm</dt><dd>
+ * \c lalapps_splitbank counts the number of templates in the input file.
+ * It increments this by one and divides by the number of template banks to
+ * generate using standard integer division. This gives the upper limit on the
+ * number of templates in a single output file.</dd>
+ *
+ * <dt>Author</dt><dd>
+ * Duncan Brown and Alexander Dietz</dd>
+ * </dl>
+ */
+
 #include <config.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <getopt.h>
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -43,6 +139,7 @@
 #include <processtable.h>
 
 #include <lal/LALConfig.h>
+#include <lal/LALgetopt.h>
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALError.h>
@@ -107,8 +204,8 @@ int main ( int argc, char *argv[] )
   SnglInspiralTable *thisTmplt = NULL;
   SnglInspiralTable *tmpTmplt = NULL;
 
-  /* getopt arguments */
-  struct option long_options[] =
+  /* LALgetopt arguments */
+  struct LALoption long_options[] =
   {
     {"verbose",                 no_argument,       &vrbflg,           1 },
     {"version",                 no_argument,       0,                'V'},
@@ -153,11 +250,11 @@ int main ( int argc, char *argv[] )
 
   while ( 1 )
   {
-    /* getopt_long stores long option here */
+    /* LALgetopt_long stores long option here */
     int option_index = 0;
-    size_t optarg_len;
+    size_t LALoptarg_len;
 
-    c = getopt_long_only( argc, argv, 
+    c = LALgetopt_long_only( argc, argv,
         "i:n:VZ:hs:M:", 
         long_options, &option_index );
 
@@ -178,15 +275,15 @@ int main ( int argc, char *argv[] )
         else
         {
           fprintf( stderr, "error parsing option %s with argument %s\n",
-              long_options[option_index].name, optarg );
+              long_options[option_index].name, LALoptarg );
           exit( 1 );
         }
         break;
 
       case 'v':
-        optarg_len = strlen( optarg ) + 1;
-        bankFileName = (CHAR *) calloc( optarg_len, sizeof(CHAR));
-        memcpy( bankFileName, optarg, optarg_len );
+        LALoptarg_len = strlen( LALoptarg ) + 1;
+        bankFileName = (CHAR *) calloc( LALoptarg_len, sizeof(CHAR));
+        memcpy( bankFileName, LALoptarg, LALoptarg_len );
         snprintf( procparams.processParamsTable->program, 
             LIGOMETA_PROGRAM_MAX, "%s", PROGRAM_NAME );
         snprintf( procparams.processParamsTable->type, 
@@ -194,11 +291,11 @@ int main ( int argc, char *argv[] )
         snprintf( procparams.processParamsTable->param, 
             LIGOMETA_PARAM_MAX, "--%s", long_options[option_index].name );
         snprintf( procparams.processParamsTable->value, 
-            LIGOMETA_VALUE_MAX, "%s", optarg );
+            LIGOMETA_VALUE_MAX, "%s", LALoptarg );
         break;
 
       case 'n':
-        numOutBanks = (INT4) atoi( optarg );
+        numOutBanks = (INT4) atoi( LALoptarg );
         if ( numOutBanks < 0 )
         {
           fprintf( stderr, "invalid argument to --%s:\n"
@@ -224,7 +321,7 @@ int main ( int argc, char *argv[] )
         break;
 
       case 's':
-        if ( strlen( optarg ) > LIGOMETA_COMMENT_MAX - 1 )
+        if ( strlen( LALoptarg ) > LIGOMETA_COMMENT_MAX - 1 )
         {
           fprintf( stderr, "invalid argument to --%s:\n"
               "comment must be less than %d characters\n",
@@ -233,15 +330,15 @@ int main ( int argc, char *argv[] )
         }
         else
         {
-          snprintf( comment, LIGOMETA_COMMENT_MAX, "%s", optarg );
+          snprintf( comment, LIGOMETA_COMMENT_MAX, "%s", LALoptarg );
         }
         break;
 
       case 'Z':
         /* create storage for the usertag */
-        optarg_len = strlen( optarg ) + 1;
-        userTag = (CHAR *) calloc( optarg_len, sizeof(CHAR) );
-        memcpy( userTag, optarg, optarg_len );
+        LALoptarg_len = strlen( LALoptarg ) + 1;
+        userTag = (CHAR *) calloc( LALoptarg_len, sizeof(CHAR) );
+        memcpy( userTag, LALoptarg, LALoptarg_len );
 
         this_proc_param = this_proc_param->next = (ProcessParamsTable *)
           calloc( 1, sizeof(ProcessParamsTable) );
@@ -250,11 +347,11 @@ int main ( int argc, char *argv[] )
         snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
         snprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, "-userTag" );
         snprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, "%s",
-            optarg );
+            LALoptarg );
         break;
 
       case 'M':
-        minMatch = (REAL4) atof( optarg );
+        minMatch = (REAL4) atof( LALoptarg );
         if ( minMatch <= 0 )
         {
           fprintf( stdout, "invalid argument to --%s:\n"
@@ -294,12 +391,12 @@ int main ( int argc, char *argv[] )
     }
   }
 
-  if ( optind < argc )
+  if ( LALoptind < argc )
   {
     fprintf( stderr, "extraneous command line arguments:\n" );
-    while ( optind < argc )
+    while ( LALoptind < argc )
     {
-      fprintf ( stderr, "%s\n", argv[optind++] );
+      fprintf ( stderr, "%s\n", argv[LALoptind++] );
     }
     exit( 1 );
   }

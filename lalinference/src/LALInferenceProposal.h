@@ -37,7 +37,7 @@ SWIGLAL(
 
 /**
  * \defgroup LALInferenceProposal_h Header LALInferenceProposal.h
- * \ingroup pkg_LALInference
+ * \ingroup lalinference_general
  *
  * \author Ilya Mandel, Vivien Raymond, Christian Roever, Marc van der Sluys, John Veitch, and Will M. Farr.
  * \date 2011
@@ -250,8 +250,6 @@ REAL8 LALInferenceSkyReflectDetPlane(LALInferenceRunState *runState, LALInferenc
 
 REAL8 LALInferenceSkyRingProposal(LALInferenceRunState *runState, LALInferenceVariables *currentParams, LALInferenceVariables *proposedParams);;
 
-/* Nested sampling wrappers. */
-void NSFillMCMCVariables(LALInferenceVariables *proposedParams, LALInferenceVariables *priorArgs);
 REAL8 NSWrapMCMCLALProposal(LALInferenceRunState *runState, LALInferenceVariables *currentParams, LALInferenceVariables *proposedParams);
 
 /* Noise model proposals. */

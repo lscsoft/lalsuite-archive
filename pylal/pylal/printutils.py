@@ -981,6 +981,8 @@ def get_sngl_info(connection, summary_table, sngl_table, daily_ihope_pages_locat
 
     class Merged(object):
         __slots__ = MergedTable.validcolumns.keys()
+        _effective_snr = None
+        _new_snr = None
 
         def get_sngl_gps_time(self):
             if 'sngl_start_time' in self.__slots__:
@@ -989,6 +991,29 @@ def get_sngl_info(connection, summary_table, sngl_table, daily_ihope_pages_locat
                 return self.sngl_end_time
             else:
                 raise AttributeError, "could not find a sngl_start_time or sngl_end_time"
+
+        @property
+        def new_snr(self):
+            if not self._new_snr:
+                self._new_snr = lsctables.SnglInspiral.get_new_snr(self)
+            return self._new_snr
+ 
+        @new_snr.setter
+        def new_snr(self):
+            err_msg = "The new_snr property cannot be set directly."
+            raise ValueError(err_msg)
+
+        @property
+        def effective_snr(self):
+            if not self._effective_snr:
+                self._effective_snr = \
+                                 lsctables.SnglInspiral.get_effective_snr(self)
+            return self._new_snr
+
+        @new_snr.setter
+        def effective_snr(self):
+            err_msg = "The effective_snr property cannot be set directly." 
+            raise ValueError(err_msg)  
 
         def get_pyvalue(self):
             return printutils.generic_get_pyvalue()

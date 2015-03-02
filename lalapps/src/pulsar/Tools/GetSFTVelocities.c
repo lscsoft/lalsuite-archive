@@ -19,7 +19,7 @@
 
 /**
  * \file
- * \ingroup pulsarApps
+ * \ingroup lalapps_pulsar_Tools
  * \author Badri Krishnan, Berit Behnke
  * \brief Little Helper code for getting velocities from v2 SFTs
  */
@@ -42,7 +42,6 @@
 #define FALSE (1==0)
 
 
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>

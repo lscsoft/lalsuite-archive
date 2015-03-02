@@ -31,8 +31,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <getopt.h>
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -1273,6 +1271,9 @@ REAL8 calculate_lalsim_snr(SimInspiralTable *inj, char *IFOname, REAL8FrequencyS
       XLALPrintError(" ERROR in XLALSimInspiralChooseTDWaveform(): error generating waveform. errnum=%d. Exiting...\n",errnum );
       exit(1);
     }
+
+    hplus->epoch  = timeHplus->epoch;
+    hcross->epoch = timeHcross->epoch;
 
     XLALSimAddInjectionREAL8TimeSeries(timeHplus, hplus, NULL);
     XLALSimAddInjectionREAL8TimeSeries(timeHcross, hcross, NULL);

@@ -16,7 +16,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 
-import httplib, socket
+import httplib, socket, ssl
 import mimetypes
 import urllib
 import os, sys
@@ -24,6 +24,7 @@ import json
 from urlparse import urlparse
 
 DEFAULT_SERVICE_URL = "https://gracedb.ligo.org/api/"
+KNOWN_TEST_HOSTS = ['moe.phys.uwm.edu', 'embb-dev.ligo.caltech.ed', 'simdb.phys.uwm.edu',]
 
 #-----------------------------------------------------------------
 # Exception(s)
@@ -84,16 +85,21 @@ class ProxyHTTPSConnection(ProxyHTTPConnection):
 
     default_port = 443
 
-    def __init__(self, host, port = None, key_file = None, cert_file = None, strict = None):
+    def __init__(self, host, port = None, key_file = None, cert_file = None,
+        strict = None, context = None):
         ProxyHTTPConnection.__init__(self, host, port)
         self.key_file = key_file
         self.cert_file = cert_file
+        self.context = context
 
     def connect(self):
         ProxyHTTPConnection.connect(self)
         #make the sock ssl-aware
-        ssl = socket.ssl(self.sock, self.key_file, self.cert_file)
-        self.sock = httplib.FakeSocket(self.sock, ssl)
+        if sys.hexversion < 0x20709f0:
+            ssl = socket.ssl(self.sock, self.key_file, self.cert_file)
+            self.sock = httplib.FakeSocket(self.sock, ssl)
+        else:
+            self.sock = self.context.wrap_socket(self.sock)
 
 #-----------------------------------------------------------------
 # Generic GSI REST
@@ -113,16 +119,42 @@ class GsiRest(object):
             self.cert = self.key = cred
         self.connection = None
 
-        if proxy_host:
-            self.connector = lambda: ProxyHTTPSConnection(
-                    proxy_host, proxy_port, key_file=self.key, cert_file=self.cert)
+        o = urlparse(url)
+        port = o.port
+        host = o.hostname
+        port = port or 443
+
+        # Versions of Python earlier than 2.7.9 don't use SSL Context
+        # objects for this purpose, and do not do any server cert verification.
+        ssl_context = None
+        if sys.hexversion >= 0x20709f0:
+            # Use the new method with SSL Context
+            # Prepare SSL context
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+            ssl_context.load_cert_chain(self.cert, self.key)
+            # Generally speaking, test boxes use cheap/free certs from the LIGO CA.
+            # These cannot be verified by the client.
+            if host in KNOWN_TEST_HOSTS:
+                ssl_context.verify_mode = ssl.CERT_NONE
+            else:
+                ssl_context.verify_mode = ssl.CERT_REQUIRED
+                ssl_context.check_hostname = True
+                # Find the various CA cert bundles stored on the system
+                ssl_context.load_default_certs()        
+
+            if proxy_host:
+                self.connector = lambda: ProxyHTTPSConnection(proxy_host, proxy_port, context=ssl_context)
+            else:
+                self.connector = lambda: httplib.HTTPSConnection(host, port, context=ssl_context)            
         else:
-            o = urlparse(url)
-            port = o.port
-            host = o.hostname
-            port = port or 443
-            self.connector = lambda: httplib.HTTPSConnection(
-                    host, port, key_file=self.key, cert_file=self.cert)
+            # Using and older version of python. We'll pass in the cert and key files.
+            if proxy_host:
+                self.connector = lambda: ProxyHTTPSConnection(proxy_host, proxy_port, 
+                    key_file=self.key, cert_file=self.cert)
+            else:
+                self.connector = lambda: httplib.HTTPSConnection(host, port, 
+                    key_file=self.key, cert_file=self.cert)
+
 
     def getConnection(self):
         return self.connector()
@@ -503,6 +535,12 @@ class GraceDb(GsiRest):
         Required args: graceid, message
         Optional: filename, tagname
 
+        Note: The tagname argument accepts either a single string or a python
+        list of string.  For example, both of these are acceptable:
+
+        tagname = "sky_loc"
+        tagname = ["sky_loc", "my_lovely_skymap"]
+
         If only graceid and message are provided, a text comment will be created
         in the event log. If a filename is also specified, the file will be attached 
         to the log message and displayed along side the message text. If a tagname 
@@ -530,7 +568,13 @@ class GraceDb(GsiRest):
                 filecontents = filecontents.read()
             files = [('upload', os.path.basename(filename), filecontents)]
 
-        return self.post(uri, body={'message' : message, 'tagname': tagname, 
+        # Let's see if tagname is a string or a list 
+        if tagname and not isinstance(tagname, basestring):
+            tagnames = ','.join(tagname)
+        else:
+            tagnames = tagname if tagname else None
+
+        return self.post(uri, body={'message' : message, 'tagname': tagnames, 
             'displayName': displayName}, files=files)
 
     def eels(self, graceid):

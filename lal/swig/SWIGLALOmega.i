@@ -17,25 +17,35 @@
 // MA  02111-1307  USA
 //
 
-// Header containing SWIG code which must appear *after* the LAL headers.
-// Author: Karl Wette
+///
+/// \defgroup SWIGLALOmega_i Interface SWIGLALOmega.i
+/// \ingroup lal_swig
+/// \brief SWIG code which must appear \e after the LAL headers.
+/// \author Karl Wette
+///
 
-////////// Specialised wrapping of gsl_rng //////////
+///
+/// # Specialised wrapping of <tt>gsl_rng</tt>
+///
 
-// Wrap the gsl_rng class.
+///
+/// Wrap the \c gsl_rng class.
 typedef struct {
   %extend {
+    /// <ul><li>
 
-    // Constructor
+    /// Construct a new \c gsl_rng from another \c gsl_rng.
+    gsl_rng(const gsl_rng* rng) {
+      XLAL_CHECK_NULL(rng != NULL, XLAL_EFAULT);
+      return gsl_rng_clone(rng);
+    }
+
+    /// </li><li>
+
+    /// Construct a new \c gsl_rng from a generator name and random seed.
     gsl_rng(const char* name, unsigned long int seed) {
-
-      // Check input
       XLAL_CHECK_NULL(name != NULL, XLAL_EFAULT, "Generator name must be non-NULL");
-
-      // Read environment variables for default generators
       gsl_rng_env_setup();
-
-      // Find generator
       const gsl_rng_type* T = NULL;
       if (strcmp(name, "default") == 0) {
         T = gsl_rng_default;
@@ -49,42 +59,32 @@ typedef struct {
         }
       }
       XLAL_CHECK_NULL(T != NULL, XLAL_EINVAL, "Could not find generator named '%s'", name);
-
-      // Create generator and set seed
       gsl_rng* rng = gsl_rng_alloc(T);
       gsl_rng_set(rng, seed);
-
       return rng;
-
     }
 
-    // Copy constructor
-    gsl_rng(const gsl_rng* src) {
+    /// </li><li>
 
-      // Check input
-      XLAL_CHECK_NULL(src != NULL, XLAL_EFAULT, "Generator must be non-NULL");
-
-      // Clone generator
-      return gsl_rng_clone(src);
-
-    }
-
-    // Destructor
+    /// Destroy a \c gsl_rng.
     ~gsl_rng() {
       %swiglal_struct_call_dtor(gsl_rng_free, $self);
     }
 
-    // Properties and methods
+    /// </li><li>
+
+    /// Properties and methods of a \c gsl_rng, most of which map to \c
+    /// gsl_rng_...() functions.
+    const char* name();
+    double uniform();
+    double uniform_pos();
+    unsigned long int uniform_int(unsigned long int n);
     void set_seed(unsigned long int seed) {
       gsl_rng_set($self, seed);
     }
     unsigned long int get_value() {
       return gsl_rng_get($self);
     }
-    double uniform();
-    double uniform_pos();
-    unsigned long int uniform_int(unsigned long int n);
-    const char* name();
     unsigned long int max_value() {
       return gsl_rng_max($self);
     }
@@ -92,28 +92,40 @@ typedef struct {
       return gsl_rng_min($self);
     }
 
+    /// </li></ul>
   }
 } gsl_rng;
+///
 
-////////// Specialised wrapping of LIGOTimeGPS //////////
+///
+/// # Specialised wrapping of ::LIGOTimeGPS
+///
 
-// Allocate a new LIGOTimeGPS.
+///
+/// Allocate a new ::LIGOTimeGPS.
+///
 #define %swiglal_new_LIGOTimeGPS() (LIGOTimeGPS*)(XLALCalloc(1, sizeof(LIGOTimeGPS)))
 
-// Extend the LIGOTimeGPS class.
+///
+/// Extend the ::LIGOTimeGPS class.
 %extend tagLIGOTimeGPS {
+  /// <ul><li>
 
-  // Construct a new LIGOTimeGPS from another LIGOTimeGPS.
+  /// Construct a new ::LIGOTimeGPS from another ::LIGOTimeGPS.
   tagLIGOTimeGPS(const LIGOTimeGPS* gps) {
     return (LIGOTimeGPS*)memcpy(%swiglal_new_LIGOTimeGPS(), gps, sizeof(*gps));
   }
 
-  // Construct a new LIGOTimeGPS from a real number.
+  /// </li><li>
+
+  /// Construct a new ::LIGOTimeGPS from a real number.
   tagLIGOTimeGPS(REAL8 t) {
     return XLALGPSSetREAL8(%swiglal_new_LIGOTimeGPS(), t);
   }
 
-  // Construct a new LIGOTimeGPS from integer seconds and nanoseconds.
+  /// </li><li>
+
+  /// Construct a new ::LIGOTimeGPS from integer seconds and nanoseconds.
   tagLIGOTimeGPS(INT4 gpssec) {
     return XLALGPSSet(%swiglal_new_LIGOTimeGPS(), gpssec, 0);
   }
@@ -121,26 +133,31 @@ typedef struct {
     return XLALGPSSet(%swiglal_new_LIGOTimeGPS(), gpssec, gpsnan);
   }
 
-  // Construct a new LIGOTimeGPS from a string
+  /// </li><li>
+
+  /// Construct a new ::LIGOTimeGPS from a string
   tagLIGOTimeGPS(const char *str) {
     LIGOTimeGPS *gps = %swiglal_new_LIGOTimeGPS();
     char *end = NULL;
     if (XLALStrToGPS(gps, str, &end) < 0 || *end != '\0') {
       XLALFree(gps);
-      xlalErrno = XLAL_EFUNC;   // Silently signal an error to constructor
-      return NULL;
+      XLAL_ERROR_NULL(XLAL_EINVAL, "'%s' is not a valid LIGOTimeGPS", str);
     }
     return gps;
   }
 
-  // Operators are implemented by defining Python-style __operator__
-  // methods (since LAL is C99, we don't have C++ operators available).
-  // Many SWIG language modules will automatically map these functions
-  // to scripting-language operations in their runtime code. In some
-  // cases (ironically, Python itself when using -builtin!) additional
-  // directives are needed in the scripting-language-specific interface.
+  /// </li><li>
 
-  // Return new LIGOTimeGPSs which are the positive and negative values of $self.
+  /// Operators are implemented by defining Python-style <tt>__operator__</tt> methods (since LAL is
+  /// C99, we don't have C++ operators available).  Many SWIG language modules will automatically
+  /// map these functions to scripting-language operations in their runtime code. In some cases
+  /// (ironically, Python itself when using <tt>-builtin</tt>!) additional directives are needed in
+  /// the scripting-language-specific interface.
+
+  /// </li><li>
+
+  /// Return new ::LIGOTimeGPS which are the positive and negative values of
+  /// <tt>$self</tt>.
   LIGOTimeGPS* __pos__() {
     return XLALINT8NSToGPS(%swiglal_new_LIGOTimeGPS(), +XLALGPSToINT8NS($self));
   }
@@ -148,17 +165,23 @@ typedef struct {
     return XLALINT8NSToGPS(%swiglal_new_LIGOTimeGPS(), -XLALGPSToINT8NS($self));
   }
 
-  // Return a new LIGOTimeGPS which is the absolute value of $self.
+  /// </li><li>
+
+  /// Return a new ::LIGOTimeGPS which is the absolute value of <tt>$self</tt>.
   LIGOTimeGPS* __abs__() {
     return XLALINT8NSToGPS(%swiglal_new_LIGOTimeGPS(), llabs(XLALGPSToINT8NS($self)));
   }
 
-  // Return whether a LIGOTimeGPS is non-zero.
+  /// </li><li>
+
+  /// Return whether a ::LIGOTimeGPS is non-zero.
   bool __nonzero__() {
     return $self->gpsSeconds || $self->gpsNanoSeconds;
   }
 
-  // Return integer representations of the LIGOTimeGPS seconds.
+  /// </li><li>
+
+  /// Return integer representations of the ::LIGOTimeGPS seconds.
   int __int__() {
     return $self->gpsSeconds;
   }
@@ -166,16 +189,19 @@ typedef struct {
     return $self->gpsSeconds;
   }
 
-  // Return a floating-point representation of a LIGOTimeGPS.
+  /// </li><li>
+
+  /// Return a floating-point representation of a ::LIGOTimeGPS.
   double __float__() {
     return XLALGPSGetREAL8($self);
   }
 
-  // Return a string representation of a LIGOTimeGPS. Because
-  // XLALGPSToStr() allocates a new string using LAL memory,
-  // %newobject is used to make SWIG use a 'newfree' typemap,
-  // where the string is freed; SWIG will have already copied it
-  // to a native scripting-language string to return as output.
+  /// </li><li>
+
+  /// Return a string representation of a ::LIGOTimeGPS. Because XLALGPSToStr() allocates a new
+  /// string using LAL memory, %newobject is used to make SWIG use a 'newfree' typemap, where the
+  /// string is freed; SWIG will have already copied it to a native scripting-language string to
+  /// return as output.
   %newobject __str__;
   %typemap(newfree) char* __str__ "XLALFree($1);";
   char* __str__() {
@@ -187,17 +213,23 @@ typedef struct {
     return XLALGPSToStr(NULL, $self);
   }
 
-  // Return the hash value of a LIGOTimeGPS.
+  /// </li><li>
+
+  /// Return the hash value of a ::LIGOTimeGPS.
   long __hash__() {
     long hash = (long)$self->gpsSeconds ^ (long)$self->gpsNanoSeconds;
     return hash == -1 ? -2 : hash;
   }
 
-  // Binary operators need only be implemented for two LIGOTimeGPS
-  // arguments; the specialised input typemaps defined above will
-  // then allow other suitable types to be substituted as arguments.
+  /// </li><li>
 
-  // Return the addition of two LIGOTimeGPSs.
+  /// Binary operators need only be implemented for two ::LIGOTimeGPS arguments; the specialised
+  /// input typemaps defined above will then allow other suitable types to be substituted as
+  /// arguments.
+
+  /// </li><li>
+
+  /// Return the addition of two ::LIGOTimeGPS.
   LIGOTimeGPS* __add__(LIGOTimeGPS* gps) {
     LIGOTimeGPS* retn = %swiglal_new_LIGOTimeGPS();
     *retn = *$self;
@@ -209,7 +241,9 @@ typedef struct {
     return XLALGPSAddGPS(retn, $self);
   }
 
-  // Return the subtraction of two LIGOTimeGPSs.
+  /// </li><li>
+
+  /// Return the subtraction of two ::LIGOTimeGPS.
   LIGOTimeGPS* __sub__(LIGOTimeGPS* gps) {
     LIGOTimeGPS* retn = %swiglal_new_LIGOTimeGPS();
     *retn = *$self;
@@ -221,7 +255,9 @@ typedef struct {
     return XLALGPSSetREAL8(retn, XLALGPSDiff(retn, $self));
   }
 
-  // Return the multiplication of two LIGOTimeGPSs.
+  /// </li><li>
+
+  /// Return the multiplication of two ::LIGOTimeGPS.
   LIGOTimeGPS* __mul__(LIGOTimeGPS* gps) {
     LIGOTimeGPS* retn = %swiglal_new_LIGOTimeGPS();
     *retn = *$self;
@@ -233,7 +269,9 @@ typedef struct {
     return XLALGPSMultiply(retn, XLALGPSGetREAL8($self));
   }
 
-  // Return the floating-point division of two LIGOTimeGPSs.
+  /// </li><li>
+
+  /// Return the floating-point division of two ::LIGOTimeGPS.
   LIGOTimeGPS* __div__(LIGOTimeGPS* gps) {
     LIGOTimeGPS* retn = %swiglal_new_LIGOTimeGPS();
     *retn = *$self;
@@ -245,7 +283,9 @@ typedef struct {
     return XLALGPSDivide(retn, XLALGPSGetREAL8($self));
   }
 
-  // Return the integer division of two LIGOTimeGPSs.
+  /// </li><li>
+
+  /// Return the integer division of two ::LIGOTimeGPS.
   LIGOTimeGPS* __floordiv__(LIGOTimeGPS* gps) {
     LIGOTimeGPS* retn = %swiglal_new_LIGOTimeGPS();
     *retn = *$self;
@@ -257,7 +297,9 @@ typedef struct {
     return XLALGPSSetREAL8(retn, floor(XLALGPSGetREAL8(XLALGPSDivide(retn, XLALGPSGetREAL8($self)))));
   }
 
-  // Return the modulus of two LIGOTimeGPSs.
+  /// </li><li>
+
+  /// Return the modulus of two ::LIGOTimeGPS.
   LIGOTimeGPS* __mod__(LIGOTimeGPS* gps) {
     LIGOTimeGPS* retn = %swiglal_new_LIGOTimeGPS();
     *retn = *$self;
@@ -269,10 +311,11 @@ typedef struct {
     return XLALGPSSetREAL8(retn, fmod(XLALGPSGetREAL8(retn), XLALGPSGetREAL8($self)));
   }
 
-  // Comparison operators between two LIGOTimeGPSs are generated by
-  // the following SWIG macro. NAME is the name of the Python operator
-  // and OP is the C operator. The correct comparison NAME is obtained
-  // by comparing the result of XLALGPSCmp() against zero using OP.
+  /// </li><li>
+
+  /// Comparison operators between two ::LIGOTimeGPS are generated by the following SWIG macro. NAME
+  /// is the name of the Python operator and OP is the C operator. The correct comparison NAME is
+  /// obtained by comparing the result of XLALGPSCmp() against zero using OP.
   %define %swiglal_LIGOTimeGPS_comparison_operator(NAME, OP)
     bool __##NAME##__(LIGOTimeGPS *gps) {
       return XLALGPSCmp($self, gps) OP 0;
@@ -285,43 +328,59 @@ typedef struct {
   %swiglal_LIGOTimeGPS_comparison_operator(gt, > );
   %swiglal_LIGOTimeGPS_comparison_operator(ge, >=);
 
-  // Return the number of nanoseconds in a LIGOTimeGPS.
+  /// </li><li>
+
+  /// Return the number of nanoseconds in a ::LIGOTimeGPS.
   INT8 ns() {
     return XLALGPSToINT8NS($self);
   }
 
-} // %extend tagLIGOTimeGPS
+  /// </li></ul>
+}
+///
 
-////////// Specialised wrapping of LALUnit //////////
+///
+/// # Specialised wrapping of ::LALUnit
+///
 
-// Allocate a new LALUnit.
+///
+/// Allocate a new ::LALUnit.
+///
 #define %swiglal_new_LALUnit() (LALUnit*)(XLALCalloc(1, sizeof(LALUnit)))
 
-// Extend the LALUnit class.
+///
+/// Extend the ::LALUnit class.
 %extend tagLALUnit {
+  /// <ul><li>
 
-  // Construct a new LALUnit from another LALUnit.
+  /// Construct a new ::LALUnit from another ::LALUnit.
   tagLALUnit(const LALUnit* unit) {
     return (LALUnit*)memcpy(%swiglal_new_LALUnit(), unit, sizeof(*unit));
   }
 
-  // Construct a new LALUnit class from a string.
+  /// </li><li>
+
+  /// Construct a new ::LALUnit class from a string.
   tagLALUnit(const char* str) {
     LALUnit* unit = %swiglal_new_LALUnit();
     if (XLALParseUnitString(unit, str) == NULL) {
       XLALFree(unit);
-      xlalErrno = XLAL_EFUNC;   // Silently signal an error to constructor
+      xlalErrno = XLAL_EFUNC; /* Silently signal an error to constructor */
       return NULL;
     }
     return unit;
   }
 
-  // Return whether a LALUnit is non-zero, i.e. dimensionless.
+  /// </li><li>
+
+  /// Return whether a ::LALUnit is non-zero, i.e. dimensionless.
   bool __nonzero__() {
     return !XLALUnitIsDimensionless($self);
   }
 
-  // Return integer representations of a LALUnit.
+  /// </li><li>
+
+  /// Return integer representations of a ::LALUnit.
   int __int__() {
     return (int)XLALUnitPrefactor($self);
   }
@@ -329,16 +388,19 @@ typedef struct {
     return (long)XLALUnitPrefactor($self);
   }
 
-  // Return a floating-point representation of a LALUnit.
+  /// </li><li>
+
+  /// Return a floating-point representation of a ::LALUnit.
   double __float__() {
     return XLALUnitPrefactor($self);
   }
 
-  // Return a string representation of a LALUnit. Because
-  // XLALUnitToString() allocates a new string using LAL memory,
-  // %newobject is used to make SWIG use a 'newfree' typemap,
-  // where the string is freed; SWIG will have already copied it
-  // to a native scripting-language string to return as output.
+  /// </li><li>
+
+  /// Return a string representation of a ::LALUnit. Because XLALUnitToString() allocates a new
+  /// string using LAL memory, %newobject is used to make SWIG use a 'newfree' typemap, where the
+  /// string is freed; SWIG will have already copied it to a native scripting-language string to
+  /// return as output.
   %newobject __str__;
   %typemap(newfree) char* __str__ "XLALFree($1);";
   char* __str__() {
@@ -354,7 +416,9 @@ typedef struct {
     return XLALUnitToString(&norm);
   }
 
-  // Return the hash value of a LALUnit.
+  /// </li><li>
+
+  /// Return the hash value of a ::LALUnit.
   long __hash__() {
     long hash = (long)$self->powerOfTen;
     for (size_t i = 0; i < LALNumUnits; ++i) {
@@ -364,16 +428,20 @@ typedef struct {
     return hash == -1 ? -2 : hash;
   }
 
-  // Return the integer exponentiation of a LALUnit.
+  /// </li><li>
+
+  /// Return the integer exponentiation of a ::LALUnit.
   LALUnit* __pow__(INT2 n, void* SWIGLAL_OP_POW_3RDARG) {
     LALUnit* retn = %swiglal_new_LALUnit();
     return XLALUnitRaiseINT2(retn, $self, n);
   }
 
-  // Return the rational exponentiation of a LALUnit.
+  /// </li><li>
+
+  /// Return the rational exponentiation of a ::LALUnit.
   LALUnit* __pow__(INT2 r[2], void* SWIGLAL_OP_POW_3RDARG) {
     if (r[1] == 0) {
-      xlalErrno = XLAL_EDOM;   // Silently signal an error to caller
+      xlalErrno = XLAL_EDOM; /* Silently signal an error to caller */
       return NULL;
     }
     RAT4 rat;
@@ -383,7 +451,9 @@ typedef struct {
     return XLALUnitRaiseRAT4(retn, $self, &rat);
   }
 
-  // Return the multiplication of two LALUnits.
+  /// </li><li>
+
+  /// Return the multiplication of two ::LALUnit.
   LALUnit* __mul__(LALUnit* unit) {
     LALUnit* retn = %swiglal_new_LALUnit();
     return XLALUnitMultiply(retn, $self, unit);
@@ -393,7 +463,9 @@ typedef struct {
     return XLALUnitMultiply(retn, unit, $self);
   }
 
-  // Return the division of two LALUnits.
+  /// </li><li>
+
+  /// Return the division of two ::LALUnit.
   LALUnit* __div__(LALUnit* unit) {
     LALUnit* retn = %swiglal_new_LALUnit();
     return XLALUnitDivide(retn, $self, unit);
@@ -403,7 +475,9 @@ typedef struct {
     return XLALUnitDivide(retn, unit, $self);
   }
 
-  // Comparison operators between two LALUnits.
+  /// </li><li>
+
+  /// Comparison operators between two ::LALUnit.
   bool __eq__(LALUnit* unit) {
     return XLALUnitCompare($self, unit) == 0;
   }
@@ -411,7 +485,9 @@ typedef struct {
     return XLALUnitCompare($self, unit) != 0;
   }
 
-  // Return a normalised LALUnit.
+  /// </li><li>
+
+  /// Return a normalised ::LALUnit.
   %newobject norm;
   LALUnit* norm() {
     LALUnit* retn = %swiglal_new_LALUnit();
@@ -420,7 +496,9 @@ typedef struct {
     return retn;
   }
 
-} // %extend tagLALUnit
+  /// </li></ul>
+}
+///
 
 // Local Variables:
 // mode: c

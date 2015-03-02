@@ -56,14 +56,12 @@ void LogNSSampleAsMCMCSampleToFile(LALInferenceRunState *state, LALInferenceVari
 
 void LogNSSampleAsMCMCSampleToArray(LALInferenceRunState *state, LALInferenceVariables *vars)
 {
-  NSFillMCMCVariables(vars,state->priorArgs);
   LALInferenceLogSampleToArray(state, vars);
   return;
 }
 
 void LogNSSampleAsMCMCSampleToFile(LALInferenceRunState *state, LALInferenceVariables *vars)
 {
-  NSFillMCMCVariables(vars,state->priorArgs);
   LALInferenceLogSampleToFile(state, vars);
   return;
 }
@@ -94,7 +92,7 @@ Initialisation arguments:\n\
 	INT4 x=0;
 	ppt=LALInferenceGetProcParamVal(commandLine,"--verbose");
 	if(ppt) {
-	  if(ppt->value){
+	  if(ppt->value[0]){
 	    x=atoi(ppt->value);
 	    switch(x){
 	     case 0:
@@ -260,6 +258,7 @@ Nested sampling arguments:\n\
  --Nlive N\tNumber of live points to use\n\
 (--Nmcmc M)\tOver-ride auto chain length determination and use this number of MCMC samples.\n\
 (--maxmcmc M)\tUse at most this number of MCMC points when autodetermining the chain (5000).\n\
+(--Nmcmcinitial M)\tUse this number of MCMC points when initially resampling from the prior (otherwise default is to use maxmcmc).\n\
 (--sloppyratio S)\tNumber of sub-samples of the prior for every sample from the limited prior\n\
 (--Nruns R)\tNumber of parallel samples from logt to use(1)\n\
 (--tolerance dZ)\tTolerance of nested sampling algorithm (0.1)\n\
@@ -269,6 +268,8 @@ Nested sampling arguments:\n\
 ---------------------------------------------------------------------------------------------------\n\
 --- Noise Model -----------------------------------------------------------------------------------\n\
 ---------------------------------------------------------------------------------------------------\n\
+(--glitchFit)                    Run with glitch fitting\n\
+(--glitchNmax)                   Max number of glitches to fit\n\
 (--psdFit)                       Run with PSD fitting\n\
 (--psdNblock)                    Number of noise parameters per IFO channel (8)\n\
 (--psdFlatPrior)                 Use flat prior on psd parameters (Gaussian)\n\

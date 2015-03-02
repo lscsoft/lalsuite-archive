@@ -778,6 +778,28 @@ clear ans;
 LALCheckMemoryLeaks();
 disp("PASSED FFT functions with input views ...");
 
+# check aligned vector math
+disp("checking aligned vector math ...");
+theta = LAL_PI * [0; 1.0/6; 1.0/4; 1.0/2];
+sin_theta = [0.0; 0.5; 1.0/sqrt(2); 1.0];
+r4aout = XLALCreateREAL4VectorAligned(4, 32);
+r4ain = XLALCreateREAL4VectorAligned(4, 32);
+r4ain.data = theta;
+XLALVectorSinf(r4aout.cast2REAL4Vector(), r4ain.cast2REAL4Vector());
+assert(all(abs(r4aout.data - sin_theta) < 1e-3));
+r4out = r4aout.cast2REAL4Vector();
+r4in = r4ain.cast2REAL4Vector();
+clear r4aout;
+clear r4ain;
+clear ans;
+XLALVectorSinf(r4out, r4in);
+assert(all(abs(r4out.data - sin_theta) < 1e-3));
+clear r4out;
+clear r4in;
+clear ans;
+LALCheckMemoryLeaks();
+disp("PASSED aligned vector math");
+
 ## check dynamic array of pointers access
 disp("checking dynamic array of pointers access ...");
 ap = swig_lal_test_Create_arrayofptrs(3);
@@ -852,6 +874,7 @@ t4struct.t = 1234.5;
 assert(t4struct.t == 1234.5);
 t5 = LIGOTimeGPS("1000");
 assert(t5 == 1000);
+disp("*** below should be error messages from LIGOTimeGPS constructor ***");
 try
   t5 = LIGOTimeGPS("abc1000");
   expected_exception = 1;
@@ -862,6 +885,7 @@ try
   expected_exception = 1;
 end_try_catch
 assert(!expected_exception);
+disp("*** above should be error messages from LIGOTimeGPS constructor ***");
 assert(swig_lal_test_noptrgps(LIGOTimeGPS(1234.5)) == swig_lal_test_noptrgps(1234.5))
 clear t0;
 clear t1;

@@ -12,7 +12,7 @@ Source: %{name}-%{version}.tar.gz
 URL: https://www.lsc-group.phys.uwm.edu/daswg/projects/lalsuite.html
 Packager: Adam Mercer <adam.mercer@ligo.org>
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
-BuildRequires: python-devel octave-devel
+BuildRequires: swig python-devel octave-devel
 Requires: gsl libxml2 lal
 Prefix: %{_prefix}
 
@@ -55,7 +55,7 @@ This package provides the Octave bindings for LALXML.
 %{__make} V=1
 
 %install
-%makeinstall
+%make_install
 rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 
 %post
@@ -86,9 +86,7 @@ rm -Rf ${RPM_BUILD_DIR}/%{name}-%{version}
 %{_libdir}/python*/site-packages/lalxml/*.pyc
 %{_libdir}/python*/site-packages/lalxml/_lalxml.so*
 %exclude %{_libdir}/python*/site-packages/lalxml/*.pyo
-%exclude %{_libdir}/python*/site-packages/lalxml/*.la
 
 %files octave
 %defattr(-,root,root)
 %{_libexecdir}/octave/*/site/oct/*/lalxml.oct*
-%exclude %{_libexecdir}/octave/*/site/oct/*/lalxml.la

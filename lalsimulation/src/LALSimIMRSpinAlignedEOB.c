@@ -277,10 +277,24 @@ int XLALSimIMRSpinAlignedEOBWaveform(
 
   Approximant SpinAlignedEOBapproximant = (SpinAlignedEOBversion == 1) ? SEOBNRv1 : SEOBNRv2;
 
+  /* 
+   * Check spins
+   */
+  if ( spin1z < -1.0 || spin2z < -1.0 )
+  {
+    XLALPrintError( "XLAL Error - %s: Component spin less than -1!\n", __func__);
+    XLAL_ERROR( XLAL_EINVAL );
+  }
   /* If either spin > 0.6, model not available, exit */
   if ( SpinAlignedEOBversion == 1 && ( spin1z > 0.6 || spin2z > 0.6 ) )
   {
     XLALPrintError( "XLAL Error - %s: Component spin larger than 0.6!\nSEOBNRv1 is only available for spins in the range -1 < a/M < 0.6.\n", __func__);
+    XLAL_ERROR( XLAL_EINVAL );
+  }
+ /* For v2 the upper bound is 0.99 */
+  if ( SpinAlignedEOBversion == 2 && ( spin1z > 0.99 || spin2z > 0.99 )) 
+  {
+    XLALPrintError( "XLAL Error - %s: Component spin larger than 0.99!\nSEOBNRv2 is only available for spins in the range -1 < a/M < 0.99.\n", __func__);
     XLAL_ERROR( XLAL_EINVAL );
   }
 
@@ -356,7 +370,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   REAL8 y_1, y_2, z1, z2;
 
   /* Variables for the integrator */
-  ark4GSLIntegrator       *integrator = NULL;
+  LALAdaptiveRungeKutta4Integrator       *integrator = NULL;
   REAL8Array              *dynamics   = NULL;
   REAL8Array              *dynamicsHi = NULL;
   INT4                    retLen;
@@ -384,16 +398,19 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   mTotal = m1 + m2;
   mTScaled = mTotal * LAL_MTSUN_SI;
   eta    = m1 * m2 / (mTotal*mTotal);
+    
+    /* For v2 the upper bound is mass ratio 100 */
+    if ( SpinAlignedEOBversion == 2 && eta < 100./101./101.)
+    {
+        XLALPrintError( "XLAL Error - %s: Mass ratio larger than 100!\nSEOBNRv2 is only available for mass ratios up to 100.\n", __func__);
+        XLAL_ERROR( XLAL_EINVAL );
+    }
 
   amp0 = mTotal * LAL_MRSUN_SI / r;
 
   if (pow(LAL_PI*fMin*mTScaled,-2./3.) < 10.0)
   {
-    printf(" ==========\n");
-    printf("|| WARNING: Waveform generation may fail due to high starting frequency.\n");
-    printf("|| The starting frequency corresponds to a small initial radius of %.2fM.\n",pow(LAL_PI*fMin*mTScaled,-2./3.));
-    printf("|| We recommend a lower starting frequency that corresponds to an estimated starting radius > 10M.\n");
-    printf(" ==========\n");
+    XLAL_PRINT_WARNING("Waveform generation may fail due to high starting frequency. The starting frequency corresponds to a small initial radius of %.2fM. We recommend a lower starting frequency that corresponds to an estimated starting radius > 10M.", pow(LAL_PI*fMin*mTScaled,-2.0/3.0));
   }
  
   /* TODO: Insert potentially necessary checks on the arguments */
@@ -1352,7 +1369,7 @@ printf("in function 2\n");
   memset( &prefixes, 0, sizeof( prefixes ) );
 
   /* Variables for the integrator */
-  ark4GSLIntegrator UNUSED      *integrator = NULL;
+  LALAdaptiveRungeKutta4Integrator UNUSED      *integrator = NULL;
   REAL8Array UNUSED             *dynamics   = NULL;
   //REAL8Array              *dynamicsHi = NULL;
   INT4                    retLen;

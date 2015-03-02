@@ -267,6 +267,27 @@ XLALCreateTimestampVector ( UINT4 length )
 } /* XLALCreateTimestampVector() */
 
 
+/** Resize a LIGOTimeGPSVector */
+LIGOTimeGPSVector *
+XLALResizeTimestampVector ( LIGOTimeGPSVector *vector, UINT4 length )
+{
+  if ( ! vector ) { return XLALCreateTimestampVector( length ); }
+  if ( ! length ){
+    XLALDestroyTimestampVector( vector );
+    return NULL;
+  }
+
+  vector->data = XLALRealloc( vector->data, length * sizeof( LIGOTimeGPS ) );
+
+  if ( ! vector->data ) {
+    vector->length = 0;
+    XLAL_ERROR_NULL( XLAL_ENOMEM );
+  }
+  vector->length = length;
+  return vector;
+}
+
+
 /** De-allocate a LIGOTimeGPSVector */
 void
 XLALDestroyTimestampVector ( LIGOTimeGPSVector *vect)
@@ -469,7 +490,7 @@ XLALTimestampsFromSFTCatalog ( const SFTCatalog *catalog )		/**< [in] input SFT-
 
 /**
  * Extract timestamps-vector from a segment file, with functionality based on MakeSFTDAG
- * The filename should point to a file containing <GPSstart GPSend> of segments or <GPSstart GPSend segLength numSFTs> where segLength is in hours.
+ * The filename should point to a file containing \<GPSstart GPSend\> of segments or \<GPSstart GPSend segLength numSFTs\> where segLength is in hours.
  * adjustSegExtraTime is used in MakeSFTDAG to maximize the number of SFTs in each segement by placing the SFTs in the middle of the segment.
  * synchronize is used to force the start times of the SFTs to be integer multiples of Toverlap from the start time of the first SFT.
  * adjustSegExtraTime and synchronize cannot be used concurrently (synchronize will be preferred if both values are non-zero).
@@ -478,11 +499,12 @@ LIGOTimeGPSVector *
 XLALTimestampsFromSegmentFile ( const char *filename,    //!< filename: Input filename
                                 REAL8 Tsft,              //!< Tsft: SFT length of each timestamp, in seconds
                                 REAL8 Toverlap,          //!< Toverlap: time to overlap successive SFTs by, in seconds
-                                INT4 adjustSegExtraTime, //!< adjustSegExtraTime: (0 or 1) remove the unused time from beginning and end of the segments (see MakeSFTDAG)
-                                INT4 synchronize         //!< synchronize: (0 or 1) synchronize SFT start times according to the start time of the first SFT
+                                BOOLEAN adjustSegExtraTime, //!< adjustSegExtraTime: remove the unused time from beginning and end of the segments (see MakeSFTDAG)
+                                BOOLEAN synchronize         //!< synchronize: synchronize SFT start times according to the start time of the first SFT. Start time of first SFT is shifted to next higher integer value of Tsft
                                 )
 {
   XLAL_CHECK_NULL ( filename != NULL, XLAL_EINVAL );
+  XLAL_CHECK_NULL ( !(adjustSegExtraTime && synchronize), XLAL_EINVAL, "Must specify only one of adjustSegExtraTime or synchronize" );
 
   LALSegList *list = NULL;
   XLAL_CHECK_NULL ( ( list = XLALReadSegmentsFromFile ( filename )) != NULL, XLAL_EFUNC );
@@ -526,7 +548,7 @@ XLALTimestampsFromSegmentFile ( const char *filename,    //!< filename: Input fi
           REAL8 segStartTime = XLALGPSGetREAL8 ( &(list->segs[i].start) );
           REAL8 segEndTime = XLALGPSGetREAL8 ( &(list->segs[i].end) );
           if ( firstSFTstartTime==0.0 ) {
-            firstSFTstartTime = segStartTime;
+             firstSFTstartTime = ceil(segStartTime/Tsft)*Tsft;
           }
           analysisStartTime = round ( ceil ( (segStartTime - firstSFTstartTime)/((1.0 - overlapFraction)*Tsft))*(1.0 - overlapFraction)*Tsft) + firstSFTstartTime;
           if (analysisStartTime > segEndTime) {
@@ -602,7 +624,7 @@ XLALTimestampsFromSegmentFile ( const char *filename,    //!< filename: Input fi
           REAL8 segStartTime = XLALGPSGetREAL8 ( &(list->segs[i].start) );
           REAL8 segEndTime = XLALGPSGetREAL8 ( &(list->segs[i].end) );
           if ( firstSFTstartTime==0.0 ) {
-            firstSFTstartTime = segStartTime;
+             firstSFTstartTime = ceil(segStartTime/Tsft)*Tsft;
           }
           analysisStartTime = round ( ceil ( (segStartTime - firstSFTstartTime)/((1.0 - overlapFraction)*Tsft))*(1.0 - overlapFraction)*Tsft) + firstSFTstartTime;
           if (analysisStartTime > segEndTime) {
@@ -630,13 +652,15 @@ XLALTimestampsFromSegmentFile ( const char *filename,    //!< filename: Input fi
           }
           if ( endTime <= analysisEndTime ) {
             numThisSeg++;
+            LIGOTimeGPS sftStart;
+            XLALGPSSetREAL8( &sftStart, endTime-Tsft);
+            ret->data[j] = sftStart;
+            j++;
           }
-          LIGOTimeGPS sftStart;
-          XLALGPSSetREAL8( &sftStart, endTime-Tsft);
-          ret->data[j] = sftStart;
-          j++;
         } // while ( endTime < analysisEndTime )
     } // for i < length
+
+  XLALSegListFree(list);
 
   /* done: return Ts-vector */
   return ret;

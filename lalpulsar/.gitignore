@@ -10,9 +10,13 @@
 /_build/
 /_inst/
 /lalpulsar-*/
+AUTHORS
 Makefile
 Makefile.in
 config.lt
+doxygen/doxygen.cfg
+doxygen/filter
+doxygen/out/
 include/lal/*.h
 include/lal/*.i
 include/lal/header-link-stamp
@@ -39,8 +43,10 @@ src/stamp-h1
 src/stamp-h2
 swig/swiglal*
 test/BinarySSBTimesTest
+test/ComputeFstatBenchmark
 test/ComputeFstatTest
 test/ConstructPLUTTest
+test/DopplerScanTest
 test/DriveHoughTest
 test/DriveNDHoughTest
 test/ExtrapolatePulsarSpinsTest
@@ -74,6 +80,7 @@ test/OutHough.asc
 test/Peak2PHMDTest
 test/PtoleMeshTest
 test/PtoleMetricTest
+test/PulsarTOATest
 test/ReadTEMPOFileTest
 test/ResampleTest
 test/SFTCleanTest
@@ -82,6 +89,8 @@ test/SimulateTaylorCWTest
 test/SkyMetricTest
 test/StackMetricTest
 test/StatisticsTest
+test/SuperSkyMetricsTest
+test/TEMPOcomparison
 test/TwoDMeshTest
 test/UniversalDopplerMetricTest
 test/VelocityTest

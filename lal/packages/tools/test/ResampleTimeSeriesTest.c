@@ -48,26 +48,29 @@
  *
  * ### Sample Results ###
  *
- * \figref{resamp_figs1}--\figref{resamp_figs3} show the results of various
+ * \ref resamp_figs1 "this figure"--\ref resamp_figs3 "this figure" show the results of various
  * tests using this program.
  *
- * \figure{resamp_figs1,pdf,0.6,}
+ * \anchor resamp_figs1
+ * \image html resamp_figs1.png ""
  *
- * \figref{resamp_figs1}: The left figure shows a 10 Hz sine wave generated at 16384 Hz resampled to
+ * \ref resamp_figs1 "this figure": The left figure shows a 10 Hz sine wave generated at 16384 Hz resampled to
  * 4096 Hz. The right figure shows a 100Hz sine wave generated at 16384 Hz
  * resampled to 4096 Hz. Note that there is no attenuation, time delay or
  * phase shift of the output. FIXME the legend in the right figure is wrong.
  * It should say 100 Hz, not 10 Hz the output.
  *
- * \figure{resamp_figs2,pdf,0.6,}
+ * \anchor resamp_figs2
+ * \image html resamp_figs2.png ""
  *
- * \figref{resamp_figs2}: A 100Hz sine wave generated at 16384 Hz resampled to 8192 Hz. The left
+ * \ref resamp_figs2 "this figure": A 100Hz sine wave generated at 16384 Hz resampled to 8192 Hz. The left
  * plot shows the start of the time series and the right plot the end. Note
  * the corruption of points due to the time domain filtering.
  *
- * \figure{resamp_figs3,pdf,0.6,}
+ * \anchor resamp_figs3
+ * \image html resamp_figs3.png ""
  *
- * \figref{resamp_figs3}: The left figure shows a 1000 Hz sine wave generated at 16384 Hz resampled
+ * \ref resamp_figs3 "this figure": The left figure shows a 1000 Hz sine wave generated at 16384 Hz resampled
  * to 4096 Hz. The right figure shows a 1000Hz sine wave generated at 16384 Hz
  * resampled to 2048 Hz. Note that there is no attenuation, time delay or
  * phase shift of the output at 4096 Hz, however there is attenuation and
@@ -90,15 +93,7 @@
 #include <lal/LALFrStream.h>
 #include <lal/AVFactories.h>
 #include <lal/LALStdio.h>
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-#ifdef HAVE_GETOPT_H
-#include <getopt.h>
-#endif
-
-extern char *optarg;
-extern int   optind;
+#include <lal/LALgetopt.h>
 
 int     verbose = 0;
 UINT4   numPoints = 1048576;
@@ -244,7 +239,7 @@ ParseOptions (int argc, char *argv[])
   {
     int c = -1;
 
-    c = getopt (argc, argv, "hvd:n:i:o:f:r:");
+    c = LALgetopt (argc, argv, "hvd:n:i:o:f:r:");
     if (c == -1)
     {
       break;
@@ -264,27 +259,27 @@ ParseOptions (int argc, char *argv[])
         break;
 
       case 'n': /* sets number of points */
-        numPoints = (UINT4) atoi( optarg );
+        numPoints = (UINT4) atoi( LALoptarg );
         break;
 
       case 'i': /* sets number of points */
-        inRate = (UINT4) atoi( optarg );
+        inRate = (UINT4) atoi( LALoptarg );
         break;
 
       case 'o': /* sets number of points */
-        outRate = (UINT4) atoi( optarg );
+        outRate = (UINT4) atoi( LALoptarg );
         break;
 
       case 'f': /* sets number of points */
-        sineFreq = (REAL4) atof( optarg );
+        sineFreq = (REAL4) atof( LALoptarg );
         break;
 
       case 'r':
-        if ( ! strcmp( "ldas", optarg ) )
+        if ( ! strcmp( "ldas", LALoptarg ) )
         {
           filtType = LDASfirLP;
         }
-        else if ( ! strcmp( "butterworth", optarg ) )
+        else if ( ! strcmp( "butterworth", LALoptarg ) )
         {
           filtType = defaultButterworth;
         }
@@ -300,7 +295,7 @@ ParseOptions (int argc, char *argv[])
 
   }
 
-  if (optind < argc)
+  if (LALoptind < argc)
   {
     Usage (argv[0], 1);
   }

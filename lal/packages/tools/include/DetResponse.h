@@ -34,7 +34,8 @@ extern "C"
 #endif
 
 /**
- * \addtogroup DetResponse_h
+ * \defgroup DetResponse_h Header DetResponse.h
+ * \ingroup lal_tools
  * \author David Chin <dwchin@umich.edu>, Kipp Cannon <kipp@gravity.phys.uwm.edu>
  *
  * \brief Provides routines to compute gravitational wave detector response to
@@ -57,7 +58,7 @@ extern "C"
  * ### Algorithm ###
  *
  * This code is a translation of the algorithm in the Maple worksheet by
- * Anderson, <em>et al.</em> \cite ABCCRW_2001.  We compute the \f$h\f$-tensors for
+ * Anderson, <em>et al.</em> \cite ABCCRW_2001 .  We compute the \f$h\f$-tensors for
  * \f$+\f$- and \f$\times\f$-polarized in the Earth-fixed frame, and then contract
  * them (take the scalar product) with the detector response tensors as
  * described in the \ref LALDetectors_h section of the \c tools package.

@@ -39,6 +39,8 @@ bin_PROGRAMS = \
 	lalsim-bh-ringdown \
 	lalsim-bh-sphwf \
 	lalsim-detector-noise \
+	lalsim-detector-strain \
+	lalsim-inject \
 	lalsim-inspiral \
 	lalsim-ns-eos-table \
 	lalsim-ns-mass-radius \
@@ -99,6 +101,11 @@ liblalsimulation_la_SOURCES = \
 	LALSimBurstImg.c \
 	LALSimIMREOBNRv2.c \
 	LALSimIMRSpinAlignedEOB.c \
+	LALSimIMRSEOBNRv1ROMSingleSpin.c \
+	LALSimIMRSEOBNRv1ROMDoubleSpin.c \
+	LALSimIMRSEOBNRv2ROMSingleSpin.c \
+	LALSimIMRSEOBNRv2ROMDoubleSpin.c \
+	LALSimIMRSEOBNRv2ChirpTime.c \
 	LALSimIMRPhenom.c \
 	LALSimIMRPhenomC.c \
 	LALSimIMRPhenomP.c \
@@ -140,7 +147,9 @@ liblalsimulation_la_SOURCES = \
 	LALSimSGWBORF.c \
 	LALSimUnicorn.c \
 	check_series_macros.h \
-	unicorn.xpm
+	unicorn.xpm \
+	LALSimInspiralHGimri.c
+
 nodist_liblalsimulation_la_SOURCES = LALSimulationBuildInfo.c
 
 liblalsimulation_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(LIBVERSION)
@@ -154,7 +163,9 @@ lalsim_ns_params_SOURCES = ns-params.c
 lalsim_sgwb_SOURCES = sgwb.c
 lalsim_unicorn_SOURCES = unicorn.c
 lalsim_detector_noise_SOURCES = detector_noise.c
+lalsim_detector_strain_SOURCES = detector_strain.c
 lalsim_inspiral_SOURCES = inspiral.c
+lalsim_inject_SOURCES = inject.c
 
 pkgdata_DATA = \
 	$(NOISEPSDFILES) \

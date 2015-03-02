@@ -1,24 +1,26 @@
 AC_PREREQ([2.63])
-AC_INIT([LALSimulation],[1.2.2.1],[lal-discuss@ligo.org])
+AC_INIT([LALSimulation],[1.2.4.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h src/LALSimulationConfig.h])
 AC_CONFIG_SRCDIR([src/LALSimulation.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
-  lalsimulation.spec \
-  lalsimulation.pc \
   Makefile \
   debian/Makefile \
+  doxygen/Makefile \
+  doxygen/doxygen.cfg \
   include/Makefile \
   include/lal/Makefile \
-  src/LALSimulationVCSInfo.c \
-  src/LALSimulationVCSInfo.h \
-  src/Makefile \
+  lalsimulation.pc \
+  lalsimulation.spec \
   python/Makefile \
   python/lalsimulation/Makefile \
   python/lalsimulation/__init__.py \
+  src/LALSimulationVCSInfo.c \
+  src/LALSimulationVCSInfo.h \
+  src/Makefile \
   swig/Makefile \
-  test/Makefile
+  test/Makefile \
 ])
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
 
@@ -57,6 +59,9 @@ LALSUITE_ENABLE_GCC_FLAGS
 # enable SWIG wrapping modules
 LALSUITE_ENABLE_SWIG
 
+# enable Doxygen documentation
+LALSUITE_ENABLE_DOXYGEN
+
 # define version/configure info
 LALSUITE_VERSION_CONFIGURE_INFO
 
@@ -84,6 +89,7 @@ LALSUITE_USE_LIBTOOL
 
 # check for header files
 AC_HEADER_STDC
+AC_CHECK_HEADERS([unistd.h])
 
 # check for gethostname in unistd.h
 AC_MSG_CHECKING([for gethostname prototype in unistd.h])
@@ -115,6 +121,9 @@ LALSUITE_CHECK_LIB([LALMetaIO],[1.2.0],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRe
 
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG
+
+# configure Doxygen documentation
+LALSUITE_USE_DOXYGEN
 
 # Disable OpenMP by default.
 # FIXME: OpenMP should be on by default, but it breaks condor_compiling lalapps.
@@ -168,6 +177,7 @@ LALSimulation has now been successfully configured:
 * SWIG bindings for Octave are $SWIG_BUILD_OCTAVE_ENABLE_VAL
 * SWIG bindings for Python are $SWIG_BUILD_PYTHON_ENABLE_VAL
 * OpenMP acceleration is $OPENMP_ENABLE_VAL
+* Doxygen documentation is $DOXYGEN_ENABLE_VAL
 
 and will be installed under the directory:
 

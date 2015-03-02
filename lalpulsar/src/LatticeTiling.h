@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2007, 2008, 2012, 2014 Karl Wette
+// Copyright (C) 2007, 2008, 2012, 2014, 2015 Karl Wette
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,8 +17,8 @@
 // MA 02111-1307 USA
 //
 
-#ifndef _FLATLATTICETILING_H
-#define _FLATLATTICETILING_H
+#ifndef _LATTICETILING_H
+#define _LATTICETILING_H
 
 #include <stdbool.h>
 #include <gsl/gsl_vector.h>
@@ -31,244 +31,230 @@ extern "C" {
 #endif
 
 ///
-/// \file
+/// \defgroup LatticeTiling_h Header LatticeTiling.h
+/// \ingroup lalpulsar_templbank
 /// \author Karl Wette
-/// \brief Lattice-based template generation for flat metric parameter spaces
+/// \brief Lattice-based template generation for constant-metric parameter spaces, described in
+/// \cite Wette2009a and \cite Wette2014a .
+///
+/// @{
 ///
 
 ///
-/// Function which defines bounds on the lattice tiling parameter space
-///
-typedef void (*LatticeBoundFunction)(
-  const size_t dimension,			///< [in] Dimension on which bound applies
-  const gsl_vector* point,			///< [in] Point on which to find bound
-  const gsl_vector* bbox,			///< [in] Metric ellipse bounding box
-  const void* data,				///< [in] Arbitrary data describing parameter space bound
-  double* bound,				///< [out] Bound on point in dimension
-  double* padding				///< [out,optional] Padding on parameter space bound (ignored for non-tiled dimensions)
-  );
-
-///
-/// Type of lattice to generate flat tiling with
-///
-typedef enum tagLatticeType {
-  LATTICE_TYPE_CUBIC,				///< Cubic (\f$Z_n\f$) lattice
-  LATTICE_TYPE_ANSTAR,				///< An-star (\f$A_n^*\f$) lattice
-  LATTICE_TYPE_MAX
-} LatticeType;
-
-///
-/// Lattice tiling state structure
+/// Describes a lattice tiling parameter-space bounds and metric.
 ///
 typedef struct tagLatticeTiling LatticeTiling;
 
 ///
-/// Compute the extent of the bounding box of the mismatch ellipses of a metric
+/// Iterates over all points in a lattice tiling.
 ///
-gsl_vector* XLALMetricEllipseBoundingBox(
-  const gsl_matrix* metric,			///< [in] Metric to bound
-  const double max_mismatch			///< [in] Maximum mismatch with respect to metric
+typedef struct tagLatticeTilingIterator LatticeTilingIterator;
+
+///
+/// Locates the nearest point in a lattice tiling.
+///
+typedef struct tagLatticeTilingLocator LatticeTilingLocator;
+
+///
+/// Type of lattice to generate tiling with.
+///
+typedef enum tagTilingLattice {
+  TILING_LATTICE_CUBIC,			///< Cubic (\f$Z_n\f$) lattice
+  TILING_LATTICE_ANSTAR,		///< An-star (\f$A_n^*\f$) lattice
+  TILING_LATTICE_MAX
+} TilingLattice;
+
+///
+/// Function which returns a bound on a dimension of the lattice tiling.
+///
+typedef double( *LatticeTilingBound )(
+  const void *data,			///< [in] Arbitrary data describing parameter space bound
+  const size_t dim,			///< [in] Dimension on which bound applies
+  const gsl_vector *point		///< [in] Point at which to find bound
   );
 
 ///
-/// Compute a lower triangular basis matrix whose columns are orthonormal with respect to a given metric
+/// Compute the extent of the bounding box of the mismatch ellipse of a metric.
 ///
-gsl_matrix* XLALComputeMetricOrthoBasis(
-  const gsl_matrix* metric			///< [in] Metric to orthonormalise with respect to
+gsl_vector *XLALMetricEllipseBoundingBox(
+  const gsl_matrix *metric,		///< [in] Parameter-space metric
+  const double max_mismatch		///< [in] Maximum prescribed mismatch
   );
 
 ///
-/// Compute a lower triangular generator matrix for a given lattice type and mismatch
+/// Create a new lattice tiling.
 ///
-gsl_matrix* XLALComputeLatticeGenerator(
-  const size_t dimensions,			///< [in] Number of dimensions
-  const LatticeType lattice,			///< [in] Lattice type
-  const double max_mismatch			///< [in] Maximum prescribed mismatch
+LatticeTiling *XLALCreateLatticeTiling(
+  const size_t ndim			///< [in] Number of parameter-space dimensions
   );
 
 ///
-/// Create a new lattice tiling state structure
-///
-LatticeTiling* XLALCreateLatticeTiling(
-  const size_t dimensions			///< [in] Number of parameter-space dimensions
-  );
-
-///
-/// Destroy a lattice tiling state structure
+/// Destroy a lattice tiling.
 ///
 void XLALDestroyLatticeTiling(
-  LatticeTiling* tiling				///< [in] Tiling state
+  LatticeTiling *tiling			///< [in] Lattice tiling
   );
 
 ///
-/// Return the number of dimensions of the lattice tiling parameter space
+/// Set a parameter-space bound on a dimension of the lattice tiling.  The bound is described by a
+/// function \c func, and two data of length \c data_len, \c data_lower and \c data_upper,
+/// describing the lower and upper parameter space bounds respectively. If \c data_lower and \c
+/// data_upper are identical, this parameter-space dimension will be treated as a single point, and
+/// will not be tiled.
 ///
-size_t XLALLatticeDimensions(
-  const LatticeTiling* tiling			///< [in] Tiling state
+int XLALSetLatticeTilingBound(
+  LatticeTiling *tiling,		///< [in] Lattice tiling
+  const size_t dim,			///< [in] Dimension on which bound applies
+  const LatticeTilingBound func,	///< [in] Parameter space bound function
+  const size_t data_len,		///< [in] Length of arbitrary data describing parameter space bounds
+  void *data_lower,			///< [in] Arbitrary data describing lower parameter space bound
+  void *data_upper			///< [in] Arbitrary data describing upper parameter space bound
   );
 
 ///
-/// Return the dimensions of the lattice tiling parameter space which are
-/// tiled, i.e. exclusing dimensions containing only a single point.
-/// If no dimensions are tiled, NULL is returned.
+/// Set a constant lattice tiling parameter-space bound, given by the minimum and maximum of the two
+/// supplied bounds, on a dimension of the lattice tiling.
+///
+int XLALSetLatticeTilingConstantBound(
+  LatticeTiling *tiling,		///< [in] Lattice tiling
+  const size_t dim,			///< [in] Dimension on which bound applies
+  const double bound1,			///< [in] First bound on dimension
+  const double bound2			///< [in] Second bound on dimension
+  );
+
+///
+/// Set the tiling lattice, parameter-space metric, and maximum prescribed mismatch.  The lattice
+/// tiling \c tiling is now fully initialised, and can be used to create tiling iterators [via
+/// XLALCreateLatticeTilingIterator()] and locators [via XLALCreateLatticeTilingLocator()].
+///
+int XLALSetTilingLatticeAndMetric(
+  LatticeTiling *tiling,		///< [in] Lattice tiling
+  const TilingLattice lattice,		///< [in] Type of lattice to generate tiling with
+  const gsl_matrix *metric,		///< [in] Parameter-space metric
+  const double max_mismatch		///< [in] Maximum prescribed mismatch
+  );
+
+///
+/// Return the total number of dimensions of the lattice tiling.
+///
+size_t XLALNumberOfLatticeTilingDimensions(
+  const LatticeTiling *tiling		///< [in] Lattice tiling
+  );
+
+///
+/// Return the number of tiled dimensions of the lattice tiling.
+///
+size_t XLALNumberOfTiledLatticeDimensions(
+  const LatticeTiling *tiling		///< [in] Lattice tiling
+  );
+
+///
+/// Generate random points within the parameter space of the lattice tiling.  Points can be scaled
+/// to fill the parameter space exactly (<tt>scale == 0</tt>), fill a subset of the parameter space
+/// (<tt>-1 < scale < 0</tt>), or fill outside the parameter space (<tt>scale > 0</tt>).
+///
+int XLALRandomLatticeTilingPoints(
+  const LatticeTiling *tiling,		///< [in] Lattice tiling
+  const double scale,			///< [in] Scale of random points
+  RandomParams *rng,			///< [in] Random number generator
+  gsl_matrix *random_points		///< [out] Matrix whose columns are the random points
+  );
+
+///
+/// Create a new lattice tiling iterator.
+///
+LatticeTilingIterator *XLALCreateLatticeTilingIterator(
+  const LatticeTiling *tiling,		///< [in] Lattice tiling
+  const size_t itr_ndim			///< [in] Number of parameter-space dimensions to iterate over
+  );
+
+///
+/// Destroy a lattice tiling iterator.
+///
+void XLALDestroyLatticeTilingIterator(
+  LatticeTilingIterator *itr		///< [in] Lattice tiling iterator
+  );
+
+///
+/// Reset an iterator to the beginning of a lattice tiling.
+///
+int XLALResetLatticeTilingIterator(
+  LatticeTilingIterator *itr		///< [in] Lattice tiling iterator
+  );
+
+///
+/// Advance lattice tiling iterator, and optionally return the current point in \c point. Returns >0
+/// if there are points remaining, 0 if there are no more points, and XLAL_FAILURE on error.
+///
+int XLALNextLatticeTilingPoint(
+  LatticeTilingIterator *itr,		///< [in] Lattice tiling iterator
+  gsl_vector *point			///< [out] Current point
+  );
+
+///
+/// Return the total number of points in the lattice tiling.
+///
+UINT8 XLALNumberOfLatticeTilingPoints(
+  LatticeTilingIterator *itr		///< [in] Lattice tiling iterator
+  );
+
+///
+/// Return ranges of the number of lattice tiling points per dimension.
+///
+int XLALRangesOfLatticeTilingPoints(
+  LatticeTilingIterator *itr,		///< [in] Lattice tiling iterator
+  const size_t dim,			///< [in] Dimension in which to return ranges
+  long *min_points,			///< [out] Minimum number of points in this dimension
+  double *avg_points,			///< [out] Average number of points in this dimension
+  long *max_points			///< [out] Maximum number of points in this dimension
+  );
+
+///
+/// Create a new lattice tiling locator. If <tt>bound_ndim > 0</tt>, an index trie is internally built.
+///
+LatticeTilingLocator *XLALCreateLatticeTilingLocator(
+  const LatticeTiling *tiling,		///< [in] Lattice tiling
+  const size_t bound_ndim		///< [in] Number of parameter-space dimensions to enforce bounds over
+  );
+
+///
+/// Destroy a lattice tiling locator.
+///
+void XLALDestroyLatticeTilingLocator(
+  LatticeTilingLocator *loc		///< [in] Lattice tiling locator
+  );
+
+///
+/// Locate the nearest points in a the lattice tiling to a given a set of points. Return the nearest
+/// points in \c nearest_points, and optionally: their generating integers in \c nearest_ints, and
+/// their unique index <i>over the bound-enforced dimensions</i> in \c nearest_indexes (requires \c
+/// loc to have been created with an index trie).
 ///
 #ifdef SWIG // SWIG interface directives
-SWIGLAL(RETURNS_PROPERTY(gsl_vector_uint*, XLALLatticeTiledDimensions));
+SWIGLAL( INOUT_STRUCTS( gsl_matrix **, nearest_points ) );
+SWIGLAL( INOUT_STRUCTS( gsl_matrix_long **, nearest_ints ) );
+SWIGLAL( INOUT_STRUCTS( UINT8Vector **, nearest_indexes ) );
 #endif
-gsl_vector_uint* XLALLatticeTiledDimensions(
-  const LatticeTiling* tiling			///< [in] Tiling state
+int XLALNearestLatticeTilingPoints(
+  const LatticeTilingLocator *loc,	///< [in] Lattice tiling locator
+  const gsl_matrix *points,		///< [in] Columns are set of points for which to find nearest points
+  gsl_matrix **nearest_points,		///< [out] Columns are the corresponding nearest points
+  gsl_matrix_long **nearest_ints,	///< [out] Columns are the generating integers of the nearest points
+  UINT8Vector **nearest_indexes		///< [out] Unique tiling indexes of nearest points
   );
 
 ///
-/// Return the current number of lattice tiling parameter-space points
+/// Print the internal index trie of a lattice tiling locator to the given file pointer.
 ///
-UINT8 XLALLatticePointCount(
-  const LatticeTiling* tiling			///< [in] Tiling state
+int XLALPrintLatticeTilingIndexTrie(
+  const LatticeTilingLocator *loc,	///< [in] Lattice tiling locator
+  FILE *file				///< [in] File pointer to print trie to
   );
 
-///
-/// Calculate the total number of lattice tiling parameter-space points
-///
-UINT8 XLALCountLatticePoints(
-  LatticeTiling* tiling				///< [in] Tiling state
-  );
-
-///
-/// Return a matrix whose columns are the basis vectors of the lattice.
-/// If no dimensions are tiled, NULL is returned.
-///
-#ifdef SWIG // SWIG interface directives
-SWIGLAL(RETURNS_PROPERTY(gsl_matrix*, XLALLatticeBasisVectors));
-#endif
-gsl_matrix* XLALLatticeBasisVectors(
-  const LatticeTiling* tiling			///< [in] Tiling state
-  );
-
-///
-/// Set a parameter-space bound on a dimension of the lattice tiling.
-/// The bound is described by a function \c func, and two data of length
-/// \c data_len, \c data_lower and \c data_upper, describing the lower
-/// and upper parameter space bounds respectively. If \c data_lower and
-/// \c data_upper are identical, this parameter-space dimension will be
-/// treated as a single point, and will not be tiled.
-///
-int XLALSetLatticeBound(
-  LatticeTiling* tiling,			///< [in] Tiling state
-  const size_t dimension,			///< [in] Dimension on which bound applies
-  const LatticeBoundFunction func,		///< [in] Parameter space bound function
-  const size_t data_len,			///< [in] Length of arbitrary data describing parameter space bounds
-  void* data_lower,				///< [in] Arbitrary data describing lower parameter space bound
-  void* data_upper				///< [in] Arbitrary data describing upper parameter space bound
-  );
-
-///
-/// Set a constant parameter-space bound, given by the minimum and maximum
-/// of the two supplied bounds, on a dimension of the lattice tiling
-///
-int XLALSetLatticeConstantBound(
-  LatticeTiling* tiling,			///< [in] Tiling state
-  const size_t dimension,			///< [in] Dimension on which bound applies
-  const double bound1,				///< [in] First bound on dimension
-  const double bound2				///< [in] Second bound on dimension
-  );
-
-///
-/// Set the flat tiling lattice type, metric and maximum mismatch
-///
-int XLALSetLatticeTypeAndMetric(
-  LatticeTiling* tiling,			///< [in] Tiling state
-  const LatticeType lattice,			///< [in] Lattice type
-  const gsl_matrix* metric,			///< [in] parameter-space metric
-  const double max_mismatch			///< [in] Maximum prescribed mismatch
-  );
-
-///
-/// Move to the next point in the lattice tiling parameter space. Returns a
-/// positive number while the template bank is being generated, or -1 once the
-/// template bank is exhausted. Optionally, return the current lattice point.
-///
-int XLALNextLatticePoint(
-  LatticeTiling* tiling,			///< [in] Tiling state
-  gsl_vector* curr_point			///< [in/out] Current lattice point
-  );
-
-///
-/// Fast-forward the lattice tiling through the highest tiled dimension of
-/// the parameter space, so that then calling XLALNextLatticePoint() will
-/// advance the next highest tiled dimension. Optionally, return the count of,
-/// and spacing between, the points fast-forwarded over.
-///
-int XLALFastForwardLatticeTiling(
-  LatticeTiling* tiling,			///< [in] Tiling state
-  size_t *point_count,				///< [out] Count of points fast-forwarded over
-  double *point_spacing				///< [out] Spacing between points fast-forwarded over
-  );
-
-///
-/// Return to the beginning of a lattice tiling
-///
-int XLALRestartLatticeTiling(
-  LatticeTiling* tiling				///< [in] Tiling state
-  );
-
-///
-/// Return a subset of the lattice tiling, containing only up to the given
-/// dimension of each point, and only including unique points. If the given
-/// dimension is the total dimension, all points in the tiling are returned.
-///
-gsl_matrix* XLALLatticeTilingSubset(
-  LatticeTiling* tiling,			///< [in] Tiling state
-  size_t subset_dimension			///< [in] Number of dimensions of subset
-  );
-
-///
-/// Count the average number of points tiled in each parameter-space dimension
-///
-gsl_vector* XLALLatticeAveragePointCount(
-  LatticeTiling* tiling				///< [in] Tiling state
- );
-
-///
-/// Generate random points within the lattice tiling parameter space
-///
-int XLALRandomLatticePoints(
-  const LatticeTiling* tiling,			///< [in] Tiling state
-  RandomParams* rng,				///< [in] Random number generator
-  gsl_matrix* random_points			///< [in/out] Matrix whose columns are the random points
-  );
-
-///
-/// Build a lookup of the index to each point in the lattice tiling; required by
-/// XLALNearestLatticePoints() when finding the indices of nearest lattice points
-///
-int XLALBuildLatticeIndexLookup(
-  LatticeTiling* tiling				///< [in] Tiling state
-  );
-
-///
-/// Print the lookup generated by XLALBuildLatticeIndexLookup() to the given file pointer
-///
-int XLALPrintLatticeIndexLookup(
-  const LatticeTiling* tiling,			///< [in] Tiling state
-  FILE* file					///< [in] File pointer to print to
-  );
-
-///
-/// Find the nearest point in the lattice tiling, and/or its index, to each given point
-///
-#ifdef SWIG // SWIG interface directives
-SWIGLAL(INOUT_STRUCTS(gsl_matrix**, workspace));
-#endif
-int XLALNearestLatticePoints(
-  const LatticeTiling* tiling,			///< [in] Tiling state
-  const gsl_matrix* points,			///< [in] Matrix whose columns are the given points
-  gsl_matrix* nearest_points,			///< [in/out] Matrix whose columns are the nearest points
-  UINT8Vector* nearest_indices,			///< [in/out] Vector of indices of nearest points
-  gsl_matrix** workspace			///< [in/out] Pointer to a workspace matrix
-  );
+/// @}
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif
+#endif // _LATTICETILING_H

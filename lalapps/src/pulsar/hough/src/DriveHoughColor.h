@@ -19,6 +19,7 @@
 
 /**
  * \file DriveHoughColor.h
+ * \ingroup lalapps_pulsar_hough
  * \author Alicia Sintes, Badri Krishnan
  * \brief Header file for non-demodulated Hough search
  *
@@ -40,7 +41,6 @@
 #ifndef _DRIVEHOUGHCOLOR_H
 #define _DRIVEHOUGHCOLOR_H
 
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>

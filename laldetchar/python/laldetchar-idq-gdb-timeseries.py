@@ -29,8 +29,12 @@ from laldetchar.idq import idq
 from laldetchar.idq import event
 from laldetchar.idq import idq_gdb_utils
 from laldetchar.idq import idq_tables
+from glue.ligolw import ligolw
+from laldetchar.idq import idq_tables_dbutils
 from glue.ligolw import utils as ligolw_utils
 from glue.ligolw import lsctables
+from glue.ligolw import dbtables
+from glue.ligolw import table
 
 from optparse import OptionParser
 
@@ -42,9 +46,71 @@ __author__ = 'Reed Essick <reed.essick@ligo.org>'
 __version__ = git_version.id__date__ = git_version.date
 
 description = \
-    """ Program generates a summary of iDQ glitch-rank time-series during a short time period, generating figures and summary files"""
+    """ Program generates a summary of iDQ glitch-rank time-series during a short time period, \
+    generating figures and summary files"""
 
 #===================================================================================================
+
+def get_glitch_times(glitch_xmlfiles):
+    """
+    Returns list of (gps,gps_ns) tuples for all events contained in the glitch_xmlfiles.
+    """
+    # load files in database
+    connection, cursor = idq_tables_dbutils.load_xml_files_into_database(glitch_xmlfiles)
+
+    # get table names from the database
+    tablenames = dbtables.get_table_names(connection)
+    if not tablenames:
+        print "No tables were found in the database."
+        return []
+        
+    # check if glitch table is present
+    if not table.StripTableName(idq_tables.IDQGlitchTable.tableName) in tablenames:
+        print "No glitch table is found in database."
+        print "Can not perform requested query."
+        return []
+
+    data = cursor.execute('''SELECT gps, gps_ns FROM ''' + \
+        table.StripTableName(idq_tables.IDQGlitchTable.tableName)).fetchall()
+    # close database
+    connection.close()
+    return data 
+
+def get_glitch_ovl_snglburst_summary_info(glitch_xmlfiles, glitch_columns, ovl_columns, snglburst_columns):
+    """
+    Generates summary info table for glitch events stored in glitch_xmlfiles.
+    Returns list of (ifo, gps, gps_ns, rank, fap, ovl_channel, trig_type, trig_snr) tuples.
+    Each tuple in the list corresponds to a glitch event.
+    """
+    # load files in database
+    connection, cursor = idq_tables_dbutils.load_xml_files_into_database(glitch_xmlfiles)
+
+    # get glitch gps times and ovl channels
+    data = idq_tables_dbutils.get_get_glitch_ovl_sngburst_data(\
+        connection, cursor, glitch_columns, ovl_columns, snglburst_columns)
+
+    # close database
+    connection.close()
+    return data
+
+
+
+def get_glitch_ovl_channels(glitch_xmlfiles):
+    """
+    Gets ovl channels for glitch events from glitch_xmlfiles.
+    Returns list of (gps_seconds, gps_nanonsecons, ovl_channel) tuples.
+    Each tuple in the list corresponds to a glitch event.
+    """
+    # load files in database
+    connection, cursor = idq_tables_dbutils.load_xml_files_into_database(glitch_xmlfiles)
+    
+    # get glitch gps times and ovl channels
+    data = idq_tables_dbutils.get_glitch_ovl_data(connection, cursor, \
+        ['gps', 'gps_ns'], ['aux_channel'])
+    # close database
+    connection.close()
+    return data
+
 
 parser = OptionParser(version='Name: %%prog\n%s'% git_version.verbose_msg,
         usage='%prog [options]',
@@ -74,14 +140,14 @@ parser.add_option(
 parser.add_option('',
         '--plotting-gps-start',
         default=None,
-        type="float",
-        help="the gps start time of the plots. This may be before --gps-start, but cannot be after")
+        type='float',
+        help='the gps start time of the plots. This may be before --gps-start, but cannot be after')
 
 parser.add_option('',
         '--plotting-gps-end',
         default=None,
-        type="float",
-        help="the gps end time of the plots. This may be after --gps-end, but cannot be before")
+        type='float',
+        help='the gps end time of the plots. This may be after --gps-end, but cannot be before')
 
 parser.add_option('',
         '--gps',
@@ -89,9 +155,19 @@ parser.add_option('',
         type='float',
         help='the timestamp of interest within [start, end]. eg: coalescence time of CBC trigger')
 
-parser.add_option('', '--gch-xml', default=[], action="append", type="string", help="filename of a glitch xml file with which we'll annotate our plot")
+parser.add_option('',
+        '--gch-xml',
+        default=[],
+        action='append',
+        type='string',
+        help='filename of a glitch xml file with which we annotate our plot')
 
-parser.add_option('', '--cln-xml', default=[], action="append", type="string", help="filename of a clean xml file with which we'll annotate our plot")
+parser.add_option('',
+        '--cln-xml',
+        default=[],
+        action='append',
+        type='string',
+        help='filename of a clean xml file with which we annotate our plot')
 
 parser.add_option('-g',
         '--gracedb-id',
@@ -114,7 +190,8 @@ parser.add_option('-i',
         '--input-dir',
         default='./',
         type='string',
-        help='the directory which is searched for relevant timeseries files. Assumes directory structure generated by laldetchar-idq-realtime.py')
+        help='the directory which is searched for relevant timeseries files. \
+Assumes directory structure generated by laldetchar-idq-realtime.py')
 
 parser.add_option('-o',
         '--output-dir',
@@ -135,7 +212,10 @@ parser.add_option('',
         action='store_true',
         help='skip steps involving communication with GraceDB')
 
-parser.add_option("","--gdb-url", default=False, type="string")
+parser.add_option('',
+        '--gdb-url',
+        default=False,
+        type='string')
 
 (opts, args) = parser.parse_args()
 
@@ -164,13 +244,15 @@ if not opts.skip_gracedb_upload:
 
 #===================================================================================================
 
-### get all *.npy.gz files in range
+# get all *.npy.gz files in range
 
 if opts.verbose:
-    print 'Finding relevant *.npy.gz files'
+    print "Finding relevant *.npy.gz files"
 rank_filenames = []
 fap_filenames = []
-for filename in idq.get_all_files_in_range(opts.input_dir, opts.plotting_gps_start, opts.plotting_gps_end, pad=0, suffix='.npy.gz'):
+all_files = idq.get_all_files_in_range(opts.input_dir, opts.plotting_gps_start,
+    opts.plotting_gps_end, pad=0, suffix='.npy.gz')
+for filename in all_files:
     if opts.classifier in filename and opts.ifo in filename:
         if 'rank' in filename:
             rank_filenames.append(filename)
@@ -180,38 +262,43 @@ for filename in idq.get_all_files_in_range(opts.input_dir, opts.plotting_gps_sta
 rank_filenames.sort()
 fap_filenames.sort()
 
-if (not rank_filenames) or (not fap_filenames): ### we couldn't find either rank or fap files
-    ### exit gracefully
-    gracedb.writeLog(opts.gracedb_id, message="No iDQ timeseries for %s at %s"%(opts.classifier, opts.ifo))
+if (not rank_filenames) or (not fap_filenames): # we couldn't find either rank or fap files
+    # exit gracefully
+    if opts.verbose:
+        print "no iDQ timeseries for %s at %s"%(opts.classifier, opts.ifo)
+    if not opts.skip_gracedb_upload:
+        gracedb.writeLog(opts.gracedb_id, message="No iDQ timeseries for %s at %s"%(opts.classifier, opts.ifo))
     sys.exit(0)
 
 #=================================================
 
-### define plot
+# define plot
 fig = plt.figure()
 r_ax = plt.subplot(1, 1, 1)
 f_ax = r_ax.twinx()
-f_ax.set_yscale('log')
+f_ax.set_yscale('log') # this may be fragile if fap=0 for all points in the plot. That's super rare, so maybe we don't have to worry about it?
+
+r_ax.set_title(opts.ifo)
 
 #=================================================
 # RANK
 #=================================================
 if opts.verbose:
-    print 'reading rank timeseries from:'
+    print "reading rank timeseries from:"
     for filename in rank_filenames:
         print '\t' + filename
 
-### merge time-series
+# merge time-series
 if opts.verbose:
-    print 'merging rank timeseries'
+    print "merging rank timeseries"
 (r_times, r_timeseries) = idq_gdb_utils.combine_ts(rank_filenames)
 
-### for each bit of continuous data:
-###   add to plot
-###   write merged timeseries file
-###   generate and write summary statistics
+# for each bit of continuous data:
+#   add to plot
+#   write merged timeseries file
+#   generate and write summary statistics
 if opts.verbose:
-    print 'plotting and summarizing rank timeseries'
+    print "plotting and summarizing rank timeseries"
 
 merged_rank_filenames = []
 rank_summaries = []
@@ -222,7 +309,7 @@ end = opts.plotting_gps_start
 dur = 0.0
 for (t, ts) in zip(r_times, r_timeseries):
 
-    ### ensure time series only fall within desired range........
+    # ensure time series only fall within desired range........
     ts = ts[(opts.plotting_gps_start <= t) * (t <= opts.plotting_gps_end)]
     t = t[(opts.plotting_gps_start <= t) * (t <= opts.plotting_gps_end)]
 
@@ -231,10 +318,10 @@ for (t, ts) in zip(r_times, r_timeseries):
     _dur = _end - _start
     dur += _dur
 
-    ### add to plot
+    # add to plot
     r_ax.plot(t - opts.plotting_gps_start, ts, color='r', alpha=0.75)
 
-    ### WARNING: assumes rank segments are the same as FAP segments
+    # WARNING: assumes rank segments are the same as FAP segments
     if (end!=_start):  # shade areas where there is no data
         r_ax.fill_between(
             [end - opts.plotting_gps_start, _start - opts.plotting_gps_start],
@@ -246,7 +333,7 @@ for (t, ts) in zip(r_times, r_timeseries):
             )
     end = _end
 
-    ### write merged timeseries file
+    # write merged timeseries file
     merged_rank_filename = '%s/%s_idq_%s_rank_%s%d-%d.npy.gz' % (
         opts.output_dir,
         opts.ifo,
@@ -256,11 +343,11 @@ for (t, ts) in zip(r_times, r_timeseries):
         int(_dur))
 
     if opts.verbose:
-        print '\twriting ' + merged_rank_filename
+        print "\twriting " + merged_rank_filename
     np.save(event.gzopen(merged_rank_filename, 'w'), ts)
     merged_rank_filenames.append(merged_rank_filename)
 
-    ### generate and write summary statistics
+    # generate and write summary statistics
     (r_min, r_max, r_mean, r_stdv) = idq_gdb_utils.stats_ts(ts)
     if r_max > max_rank:
         max_rank = r_max
@@ -277,7 +364,7 @@ for (t, ts) in zip(r_times, r_timeseries):
 
     segNo += 1
 
-### shade any trailing time
+# shade any trailing time
 r_ax.fill_between( [end-opts.plotting_gps_start, opts.plotting_gps_end-opts.plotting_gps_start],
     np.zeros((2, )),
     np.ones((2, )),
@@ -286,32 +373,33 @@ r_ax.fill_between( [end-opts.plotting_gps_start, opts.plotting_gps_end-opts.plot
     alpha=0.2,
     )
 
-### upload rank timeseries to graceDB
+# upload rank timeseries to graceDB
 if not opts.skip_gracedb_upload:
-    ### write log messages to gracedb and upload rank files
+    # write log messages to gracedb and upload rank files
     for filename in merged_rank_filenames:
-        gracedb.writeLog(opts.gracedb_id, message="iDQ glitch-rank timeseries for"+opts.classifier+" at "+opts.ifo+":", filename=filename)
+        gracedb.writeLog(opts.gracedb_id, message="iDQ glitch-rank timeseries for " + opts.classifier +\
+                        " at "+opts.ifo+":", filename=filename)
 
 #=================================================
 # FAP
 #=================================================
-### Find relevant files
+# Find relevant files
 if opts.verbose:
-    print 'reading fap timeseries from:'
+    print "reading fap timeseries from:"
     for filename in fap_filenames:
         print '\t' + filename
 
-### merge time-series
+# merge time-series
 if opts.verbose:
-    print 'merging fap timeseries'
+    print "merging fap timeseries"
 (f_times, f_timeseries) = idq_gdb_utils.combine_ts(fap_filenames)
 
-### for each bit of continuous data:
-###   add to plot
-###   write merged timeseries file
-###   generate and write summary statistics
+# for each bit of continuous data:
+#   add to plot
+#   write merged timeseries file
+#   generate and write summary statistics
 if opts.verbose:
-    print 'plotting and summarizing fap timeseries'
+    print "plotting and summarizing fap timeseries"
 
 merged_fap_filenames = []
 fap_summaries = []
@@ -319,23 +407,23 @@ min_fap = np.infty
 min_fap_segNo = 0
 segNo = 0
 for (t, ts) in zip(f_times, f_timeseries):
-    ### ensure time series only fall within desired range
+    # ensure time series only fall within desired range
     ts = ts[(opts.plotting_gps_start <= t) * (t <= opts.plotting_gps_end)]
     t = t[(opts.plotting_gps_start <= t) * (t <= opts.plotting_gps_end)]
 
     _start = round(t[0])
     _end = round(t[-1])
 
-    ### add to plot...
+    # add to plot...
     if (ts > 0).any():
         f_ax.semilogy(t - opts.plotting_gps_start, ts, color='b', alpha=0.75)
     else:
         if opts.verbose:
-            print 'No non-zero FAP values between %d and %d' % (_start, _end)
+            print "No non-zero FAP values between %d and %d" % (_start, _end)
 
-    ### WARNING: assumes rank segments are the same as FAP segments (and therefore already plotted)
+    # WARNING: assumes rank segments are the same as FAP segments (and therefore already plotted)
 
-    ### write merged timeseries file
+    # write merged timeseries file
     merged_fap_filename = '%s/%s_idq_%s_fap_%s%d-%d.npy.gz' % (
         opts.output_dir,
         opts.ifo,
@@ -345,11 +433,11 @@ for (t, ts) in zip(f_times, f_timeseries):
         int(_end - _start))
 
     if opts.verbose:
-        print '\twriting ' + merged_fap_filename
+        print "\twriting " + merged_fap_filename
     np.save(event.gzopen(merged_fap_filename, 'w'), ts)
     merged_fap_filenames.append(merged_fap_filename)
 
-    ### generate and write summary statistics
+    # generate and write summary statistics
     (f_min, f_max, f_mean, f_stdv) = idq_gdb_utils.stats_ts(ts)
     if f_min < min_fap:
         min_fap = f_min
@@ -366,15 +454,16 @@ for (t, ts) in zip(f_times, f_timeseries):
 
     segNo += 1
 
-### upload to graceDB
+# upload to graceDB
 if not opts.skip_gracedb_upload:
     # write log messages to gracedb and upload fap files
     for filename in merged_fap_filenames:
-        gracedb.writeLog(opts.gracedb_id, message="iDQ fap timeseries for %s at %s:"%(opts.classifier, opts.ifo), filename=filename)
+        gracedb.writeLog(opts.gracedb_id, message="iDQ fap timeseries for %s at %s:"%(opts.classifier, opts.ifo),
+                        filename=filename)
 
 
 #=================================================
-### finish plot
+# finish plot
 
 r_ax.set_ylabel('%s rank' % opts.classifier, color='r')
 f_ax.set_ylabel('%s FAP' % opts.classifier, color='b')
@@ -395,25 +484,22 @@ f_ymin = max(1e-7, min(min_fap, 1e-2))
 f_ymax = 10 ** (1e-2 / 1.02 * np.log10(1. / f_ymin))
 f_ax.set_ylim(ymin=f_ymin, ymax=f_ymax)
 
-### annotate specified gps
+# annotate specified gps
 if opts.gps!=None:
     r_ax.plot((opts.gps - opts.plotting_gps_start) * np.ones((2, )),
           r_ax.get_ylim(), ':k', linewidth=2, alpha=0.5)
     r_ax.text(opts.gps - opts.plotting_gps_start, 0.8, str(opts.gps), ha='center',
           va='center')
 
-### annotate glitches
-for gch_xmlname in opts.gch_xml:
-    xmldoc = ligolw_utils.load_filename(gch_xmlname)
-    for row in lsctables.table.get_table(xmldoc, idq_tables.GlitchTable.tableName):
-        r_ax.plot(row.gps+1e-9*row.gps_ns - opts.plotting_gps_start, 0.1, marker="x", markercolor="g", linestyle="none")
+if opts.gch_xml:
+    ### annotate glitches
+    gps_times = [ gps + gps_ns * 1e-9 for (gps, gps_ns) in get_glitch_times(opts.gch_xml)]
+    gps_times = np.asarray(gps_times)
+    # channel annotation looks awfull on the static plot, must find a better way to visualize it
+    #r_ax.text(gps - opts.plotting_gps_start, 0.1, auxchannel, ha="left", va="bottom", rotation=45)
+    r_ax.plot(gps_times - opts.plotting_gps_start, 0.1*np.ones(len(gps_times)), marker="x", markerfacecolor="g", \
+        markeredgecolor = "g", linestyle="none")
 
-### annotate cleans
-for cln_xmlname in opts.cln_xml:
-    xmldoc = ligolw_utils.load_filename(cln_xmlname)
-    for row in lsctables.table.get_table(xmldoc, idq_tables.GlitchTable.tableName):
-        r_ax.plot(row.gps+1e-9*row.gps_ns - opts.plotting_gps_start, 0.9, marker="o", markeredgecolor="c", markerfacecolor="none", linestyle="none")
-    print cln_xmlname
 
 ### shade region outside of opts.start, opts.end
 if opts.start != opts.plotting_gps_start:
@@ -433,7 +519,7 @@ if opts.end != opts.plotting_gps_end:
         alpha=0.1,
         )
 
-### save plot
+# save plot
 plt.setp(fig, figwidth=10, figheight=4)
 
 figname = '%s/%s_idq_%s_rank_fap_%s%d-%d.png' % (
@@ -450,10 +536,11 @@ plt.close(fig)
 
 if not opts.skip_gracedb_upload:
     ### write log message to gracedb and upload file
-    gracedb.writeLog(opts.gracedb_id, message="iDQ fap and glitch-rank timeseries plot for "+opts.classifier+" at "+opts.ifo+":", filename=figname, tagname='data_quality')
+    gracedb.writeLog(opts.gracedb_id, message="iDQ fap and glitch-rank timeseries plot for " + opts.classifier +\
+                    " at "+opts.ifo+":", filename=figname, tagname='data_quality')
 
 #=================================================
-### write summary file
+# write summary file
 summary_filename = '%s/%s_idq_%s_summary_%s%d-%d.txt' % (
         opts.output_dir,
         opts.ifo,
@@ -462,10 +549,10 @@ summary_filename = '%s/%s_idq_%s_summary_%s%d-%d.txt' % (
         int(opts.plotting_gps_start),
         int(opts.plotting_gps_end - opts.plotting_gps_start))
 if opts.verbose:
-    print '\twriting ' + summary_filename
+    print "\twriting " + summary_filename
 summary_file = open(summary_filename, 'w')
 
-### WARNING: Summary file assumes fap segments are identical to rank segments!
+# WARNING: Summary file assumes fap segments are identical to rank segments!
 
 No_segs = len(merged_rank_filenames)
 print >> summary_file, 'coverage : %f' % (dur / (opts.plotting_gps_end - opts.plotting_gps_start))
@@ -511,33 +598,55 @@ for segNo in range(No_segs):
     print >> summary_file, '\tmean fap : %f' % f_mean
     print >> summary_file, '\tstdv fap : %f' % f_stdv
 
+    if opts.classifier == 'ovl' and opts.gch_xml:
+        # write summary info using glitch, ovl and snglburst tables 
+        glitch_columns = ['ifo','gps', 'gps_ns']
+        ovl_columns = ['aux_channel']
+        snglburst_columns = ['search', 'snr']
+        # get the data from xml tables
+        summary_data = get_glitch_ovl_snglburst_summary_info(opts.gch_xml, glitch_columns,\
+            ovl_columns, snglburst_columns)
+
+        print >> summary_file, '\n'
+        print >> summary_file, 'OVL Glitch Events Summary Table'
+        # write header
+        print >> summary_file, '| #  | ' + ' | '.join(glitch_columns) + ' | ' + ' | '.join(ovl_columns) + ' | ' + ' | '.join(snglburst_columns) + ' |'
+        # write data
+        for (i, row) in enumerate(summary_data):
+            print >> summary_file,  '| ' + str(i) + ' | ' + ' | '.join([str(v) for v in row])
+
+
 summary_file.close()
 
 if not opts.skip_gracedb_upload:
     ### write log message to gracedb and upload file
-    gracedb.writeLog(opts.gracedb_id, message="iDQ timeseries summary for "+opts.classifier+" at "+opts.ifo+":", filename=summary_filename)
+    gracedb.writeLog(opts.gracedb_id, message="iDQ timeseries summary for " + opts.classifier +\
+                    " at "+opts.ifo+":", filename=summary_filename)
 
     #===================================================================================================
-    ### compute statistics within specified window (opts.start, opts.end)
+    # compute statistics within specified window (opts.start, opts.end)
     min_fap = 1.0
     for (t, ts) in zip(f_times, f_timeseries):
-        ### ensure time series only fall within desired range
+        # ensure time series only fall within desired range
         ts = ts[(opts.start <= t) * (t <= opts.end)]
         t = t[(opts.start <= t) * (t <= opts.end)]
 
-        if len(t): ### some surviving data
-            ### generate and write summary statistics
+        if len(t): # some surviving data
+            # generate and write summary statistics
             (f_min, f_max, f_mean, f_stdv) = idq_gdb_utils.stats_ts(ts)
 
-            ### update min_fap
+            # update min_fap
             if min_fap > f_min:
                 min_fap = f_min
 
-    ### upload minimum fap observed within opts.start, opts.end
-    b = int(np.floor(np.log10(min_fap)))
-    a = min_fap*(10**-b)
+    # upload minimum fap observed within opts.start, opts.end
+    if min_fap > 0:
+        b = int(np.floor(np.log10(min_fap)))
+        a = min_fap*(10**-b)
+    else:
+        a = b = 0
     gracedb.writeLog(opts.gracedb_id, message="minimum glitch-FAP for "+opts.classifier+" at "+opts.ifo+" within [%.3f, %.3f] is %.3fe%d"%(opts.start, opts.end, a,b), tagname='data_quality')
 
 if opts.verbose:
-    print 'Done'
+    print "Done"
 

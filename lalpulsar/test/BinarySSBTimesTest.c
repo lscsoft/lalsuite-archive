@@ -21,15 +21,8 @@
 #include <math.h>
 #include <sys/times.h>
 
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-#ifdef HAVE_GETOPT_H
-#include <getopt.h>
-#endif
-
-
 #include <lal/ComputeFstat.h>
+#include <lal/LALgetopt.h>
 #include <lal/LALInitBarycenter.h>
 #include <lal/FindRoot.h>
 #include <lal/UserInput.h>
@@ -37,7 +30,7 @@
 /**
  * \author Reinhard Prix
  * \file
- * \ingroup ComputeFstat_OldDemodAPI_h
+ * \ingroup lalpulsar_coh
  * \brief Tests for XLALAdd[Multi]BinaryTimes()
  *
  * We simply compare the results to the old+obsolete LAL functions LALGet[Multi]Binarytimes(),

@@ -60,7 +60,7 @@ else
 fi
 
 OUTFILE=$(mktemp /tmp/tmp.XXXXXXXXX)
-${GRACEDB} Test MBTAOnline $TEST_DATA_DIR/cbc-mbta.gwf >$OUTFILE 2>&1
+${GRACEDB} Test MBTAOnline $TEST_DATA_DIR/cbc-mbta.xml >$OUTFILE 2>&1
 recordTest "create MBTA" "$?" "$(cat $OUTFILE)"
 rm $OUTFILE
 
@@ -91,7 +91,7 @@ ${GRACEDB} search "--columns=gpstime" $GRACEID > $OUTFILE 2>&1
 RETCODE=$?
 if [ $RETCODE == 0 ]
 then
-    if [ "$(grep -v '#' <$OUTFILE)" == 971609248 ]
+    if [ "$(grep -v '#' <$OUTFILE)" == 971609248.151741 ]
     then
         RETCODE=0
     else
@@ -118,7 +118,7 @@ ${GRACEDB} search "--columns=gpstime" $GRACEID > $OUTFILE 2>&1
 RETCODE=$?
 if [ $RETCODE == 0 ]
 then
-    if [ "$(grep -v '#' <$OUTFILE)" == 971609249 ]
+    if [ "$(grep -v '#' <$OUTFILE)" == 971609249.151741 ]
     then
         RETCODE=0
     else

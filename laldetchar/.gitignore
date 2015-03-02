@@ -10,9 +10,13 @@
 /_build/
 /_inst/
 /laldetchar-*/
+AUTHORS
 Makefile
 Makefile.in
 config.lt
+doxygen/doxygen.cfg
+doxygen/filter
+doxygen/out/
 include/lal/*.h
 include/lal/*.i
 include/lal/header-link-stamp

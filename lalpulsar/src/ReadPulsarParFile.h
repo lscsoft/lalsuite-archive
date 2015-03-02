@@ -21,7 +21,7 @@
  * \author Matt Pitkin
  * \date 2013
  * \file
- * \ingroup pulsarTODO
+ * \ingroup lalpulsar_UNCLASSIFIED
  * \brief Functions to read TEMPO pulsar parameter files
  *
  * Here we define a function to read in pulsar parameters from a standard <tt>TEMPO(2)</tt> parameter
@@ -37,7 +37,6 @@
 #define _READPULSARPARFILE_H
 
 #include <ctype.h>
-#include <unistd.h>
 
 #include <lal/LALStdlib.h>
 #include <lal/StringVector.h>
@@ -56,7 +55,6 @@ extern "C" {
 
 #define PULSAR_HASHTABLE_SIZE 512
 #define PULSAR_PARNAME_MAX 128
-#define DAYSTOSECS 86400.0 /* number of seconds in an SI day */
 
 #define GPS0MJD 44244.0 /* start of GPS time (MJD 44244) */
 /* the difference between TDT (or TT) and TAI (see e.g. Eqn 15 of T.-Y. Huang et
@@ -218,17 +216,31 @@ tagBinaryPulsarParams
 
   /* gravitational wave parameters */
   REAL8 h0;     /**< gravitational wave amplitude */
-  REAL8 cosiota;/**< cosine of the pulsars orientation angle */
+  REAL8 cosiota;/**< cosine of the pulsars inclination angle */
+  REAL8 iota;   /**< inclination angle */
   REAL8 psi;    /**< polarisation angle */
   REAL8 phi0;   /**< initial phase */
   REAL8 Aplus;  /**< 0.5*h0*(1+cos^2iota) */
   REAL8 Across; /**< h0*cosiota */
 
+  /* scalar-tensor-vector mode amplitude parameters */
+  REAL8 hPlus;       /**< amplitude for the tensor plus polarisation */
+  REAL8 hCross;      /**< amplitude for the tensor cross polarisation */
+  REAL8 phi0Tensor;  /**< initial phase for tensor modes (to be used instead of phi0 or phi22) */
+  REAL8 hScalarB;    /**< amplitude for scalar breathing polarisation mode */
+  REAL8 hScalarL;    /**< amplitude for scalar longitudinal polarisation mode */
+  REAL8 phi0Scalar;  /**< initial phase for the scalar modes */
+  REAL8 hVectorX;    /**< amplitude for vector "x" polarisation mode */
+  REAL8 hVectorY;    /**< amplitude for vector "y" polarisation mode */
+  REAL8 psiVector;   /**< phase polarisation angle for vector polarisation mode */
+  REAL8 phi0Vector;  /**< initial phase for vector modes */
+
   /* pinned superfluid gw parameters*/
   REAL8 I21;    /**< parameter for pinsf model.**/
   REAL8 I31;    /**< parameter for pinsf model.**/
   REAL8 lambda; /**< this is a longitude like angle between pinning axis and line of sight */
-  REAL8 costheta;  /**< angle between rotation axis and pinning axis */
+  REAL8 costheta;  /**< cosine of angle between rotation axis and pinning axis */
+  REAL8 theta;
 
   /* complex amplitude and phase parameters for l=2, m=1 and 2 harmonics */
   REAL8 C22;
@@ -306,6 +318,7 @@ tagBinaryPulsarParams
   /* gravitational wave parameters */
   REAL8 h0Err;
   REAL8 cosiotaErr;
+  REAL8 iotaErr;
   REAL8 psiErr;
   REAL8 phi0Err;
   REAL8 AplusErr;
@@ -314,10 +327,22 @@ tagBinaryPulsarParams
   REAL8 I31Err;
   REAL8 lambdaErr;
   REAL8 costhetaErr;
+  REAL8 thetaErr;
   REAL8 C22Err;
   REAL8 C21Err;
   REAL8 phi22Err;
   REAL8 phi21Err;
+
+  REAL8 hPlusErr;
+  REAL8 hCrossErr;
+  REAL8 phi0TensorErr;
+  REAL8 hScalarBErr;
+  REAL8 hScalarLErr;
+  REAL8 phi0ScalarErr;
+  REAL8 hVectorXErr;
+  REAL8 hVectorYErr;
+  REAL8 psiVectorErr;
+  REAL8 phi0VectorErr;
 
   /* timing noise fitting parameters */
   REAL8 wave_omErr;
@@ -456,6 +481,7 @@ void ParConvMasToRads( const CHAR *in, void *out );
 void ParConvInvArcsecsToInvRads( const CHAR *in, void *out );
 /** Convert the input string from days to seconds */
 void ParConvDaysToSecs( const CHAR *in, void *out );
+
 /** Convert the binary system parameter from a string to a double, but  make the check (as performed by TEMPO2)
  * that this is > 1e-7 then it's in units of 1e-12, so needs converting by that factor. It also checks if the
  * number is too large (> 10000) and if so sets to to zero.
@@ -523,38 +549,6 @@ LALStringVector *XLALReadTEMPOCorFile( REAL8Array *cormat, CHAR *corfile );
 /** function to print out all the pulsar parameters read in from a par file */
 void PrintPulsarParameters( BinaryPulsarParams params );
 
-/** \brief Convert a string containing an angle in "hours:minutes:seconds" format into radians
- *
- * This function will covert a string containing an angle given in "hours:minutes:seconds"
- * format (e.g. a right ascension) into radians. It requires that the hours value is positive
- * and the minutes and seconds values are between 0 to 60. Hours are limited to be between
- * 0 and 24 hours. An example would be:
- *
- * rads = XLALhmsToRads( "12:05:07.765" );
- */
-REAL8 XLALhmsToRads( const CHAR *hms );
-
-
-/** \brief Convert a string containing an angle in "degrees:minutes:seconds" format into radians
- *
- * This function will covert a string containing an angle given in "degrees:minutes:seconds"
- * format (e.g. a declination) into radians. It requires that the minutes and seconds values
- * are between 0 to 60. Degrees are allowed to be any positive of negative integer. An
- * example would be:
- *
- * rads = XLALdmsToRads( "-06:52:16.875" );
- */
-REAL8 XLALdmsToRads( const CHAR *dms );
-
-
-/** \deprecated Use XLALdmsToRads() or XLALhmsToRads() instead.
- *
- * A function to convert RA and Dec in format dd:mm:ss.ss or ddmmss.ss into the
- * number of degrees as a float degs is the string containing the
- * dd/hh:mm:ss.sss coords is either ra/RA or dec/DEC.
- */
-REAL8
-LALDegsToRads(CHAR *degs, const CHAR *coords);
 
 /** Functions for converting times given in Terrestrial time TT, TDB, or TCB in
  * MJD to times in GPS - this is important for epochs given in <tt>.par</tt>

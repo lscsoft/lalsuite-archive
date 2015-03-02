@@ -19,7 +19,7 @@
 
 /**
  * \file
- * \ingroup pulsarApps
+ * \ingroup lalapps_pulsar_PowerFlux
  * \author Vladimir Dergachev
  */
 

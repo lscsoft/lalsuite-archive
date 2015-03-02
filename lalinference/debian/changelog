@@ -1,3 +1,49 @@
+lalinference (1.4.4-1) unstable; urgency=low
+
+  * LALInference 1.4.4
+  * ensure ne_simplified_coastlines.json is packaged
+  * add cylon.csv to packaging
+  * packaging updates
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Tue, 18 Nov 2014 15:47:48 -0600
+
+lalinference (1.4.3-6) unstable; urgency=low
+
+  * fix lalframe install dependency
+
+ -- Steffen Grunewald <steffen.grunewald@ligo.org>  Fri, 14 Nov 2014 09:52:00 +0100
+
+lalinference (1.4.3-5) unstable; urgency=low
+
+  * fix -python install
+
+ -- Steffen Grunewald <steffen.grunewald@ligo.org>  Fri, 14 Nov 2014 09:19:00 +0100
+
+lalinference (1.4.3-4) unstable; urgency=low
+
+  * add scipy
+
+ -- Steffen Grunewald <steffen.grunewald@ligo.org>  Thu, 13 Nov 2014 16:40:00 +0100
+
+lalinference (1.4.3-3) unstable; urgency=low
+
+  * fix lalxml dependencies
+
+ -- Steffen Grunewald <steffen.grunewald@ligo.org>  Thu, 13 Nov 2014 08:45:00 +0100
+
+lalinference (1.4.3-2) unstable; urgency=low
+
+  * add lalxml dependencies
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Wed, 12 Nov 2014 09:34:41 -0600
+
+lalinference (1.4.3-1) unstable; urgency=low
+
+  * LALInference 1.4.3
+  * more SWIG binding packaging fixes
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Thu, 06 Nov 2014 15:41:49 -0600
+
 lalinference (1.4.2-1) unstable; urgency=low
 
   * LALInference 1.4.2

@@ -1,16 +1,18 @@
 AC_PREREQ([2.63])
-AC_INIT([LALMetaIO],[1.2.3.1],[lal-discuss@ligo.org])
+AC_INIT([LALMetaIO],[1.2.5.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h src/LALMetaIOConfig.h])
 AC_CONFIG_SRCDIR([src/LIGOLwXML.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
-  lalmetaio.spec \
-  lalmetaio.pc \
   Makefile \
   debian/Makefile \
+  doxygen/Makefile \
+  doxygen/doxygen.cfg \
   include/Makefile \
   include/lal/Makefile \
+  lalmetaio.pc \
+  lalmetaio.spec \
   python/Makefile \
   python/lalmetaio/Makefile \
   python/lalmetaio/__init__.py \
@@ -56,6 +58,9 @@ LALSUITE_ENABLE_GCC_FLAGS
 
 # enable SWIG wrapping modules
 LALSUITE_ENABLE_SWIG
+
+# enable Doxygen documentation
+LALSUITE_ENABLE_DOXYGEN
 
 # define version/configure info
 LALSUITE_VERSION_CONFIGURE_INFO
@@ -105,6 +110,9 @@ LALSUITE_CHECK_LIB([LALSupport],[6.13.0],[XLALCacheImport],[lal/LALCache.h])
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG
 
+# configure Doxygen documentation
+LALSUITE_USE_DOXYGEN
+
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
 
@@ -133,6 +141,7 @@ LALMetaIO has now been successfully configured:
 * SWIG binding generation is $SWIG_GENERATE_ENABLE_VAL
 * SWIG bindings for Octave are $SWIG_BUILD_OCTAVE_ENABLE_VAL
 * SWIG bindings for Python are $SWIG_BUILD_PYTHON_ENABLE_VAL
+* Doxygen documentation is $DOXYGEN_ENABLE_VAL
 
 and will be installed under the directory:
 

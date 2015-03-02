@@ -26,7 +26,7 @@ extern "C" {
 
 /**
  * \defgroup PulsarCrossCorr_v2_h Header PulsarCrossCorr_v2.h
- * \ingroup pkg_pulsarCrossCorr
+ * \ingroup lalpulsar_crosscorr
  * \author John Whelan, Yuanhao Zhang, Shane Larson, Badri Krishnan
  * \date 2012, 2013, 2014
  * \brief Header-file for XLAL routines for v2 CW cross-correlation searches
@@ -34,7 +34,6 @@ extern "C" {
  */
 /*@{*/
 
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -67,7 +66,7 @@ extern "C" {
 #include <gsl/gsl_sf_trig.h>
 #include <lal/FrequencySeries.h>
 #include <lal/Sequence.h>
-#include <lal/CWFastMath.h>
+#include <lal/SinCosLUT.h>
 #include <lal/LogPrintf.h>
 
 /* ******************************************************************

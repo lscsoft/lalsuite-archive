@@ -1,24 +1,26 @@
 AC_PREREQ([2.63])
-AC_INIT([LALPulsar],[1.10.2.1],[lal-discuss@ligo.org])
+AC_INIT([LALPulsar],[1.10.4.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h src/LALPulsarConfig.h])
 AC_CONFIG_SRCDIR([src/ComputeFstat.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
-  lalpulsar.spec \
-  lalpulsar.pc \
   Makefile \
   debian/Makefile \
+  doxygen/Makefile \
+  doxygen/doxygen.cfg \
   include/Makefile \
   include/lal/Makefile \
-  src/LALPulsarVCSInfo.c \
-  src/LALPulsarVCSInfo.h \
-  src/Makefile \
+  lalpulsar.pc \
+  lalpulsar.spec \
   python/Makefile \
   python/lalpulsar/Makefile \
   python/lalpulsar/__init__.py \
+  src/LALPulsarVCSInfo.c \
+  src/LALPulsarVCSInfo.h \
+  src/Makefile \
   swig/Makefile \
-  test/Makefile
+  test/Makefile \
 ])
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
 
@@ -63,6 +65,9 @@ LALSUITE_ENABLE_GCC_FLAGS
 # enable SWIG wrapping modules
 LALSUITE_ENABLE_SWIG
 
+# enable Doxygen documentation
+LALSUITE_ENABLE_DOXYGEN
+
 # define version/configure info
 LALSUITE_VERSION_CONFIGURE_INFO
 
@@ -76,7 +81,7 @@ AM_SILENT_RULES([yes])
 LALSUITE_PROG_COMPILERS
 
 # check for SIMD extensions
-LALPULSAR_WITH_SIMD
+LALSUITE_WITH_SIMD
 
 # checks for programs
 AC_PROG_INSTALL
@@ -93,6 +98,7 @@ LALSUITE_USE_LIBTOOL
 
 # check for header files
 AC_HEADER_STDC
+AC_CHECK_HEADERS([unistd.h])
 
 # check for required libraries
 AC_CHECK_LIB([m],[main],,[AC_MSG_ERROR([could not find the math library])])
@@ -140,6 +146,9 @@ fi
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG
 
+# configure Doxygen documentation
+LALSUITE_USE_DOXYGEN
+
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
 
@@ -171,6 +180,7 @@ LALPulsar has now been successfully configured:
 * SWIG binding generation is $SWIG_GENERATE_ENABLE_VAL
 * SWIG bindings for Octave are $SWIG_BUILD_OCTAVE_ENABLE_VAL
 * SWIG bindings for Python are $SWIG_BUILD_PYTHON_ENABLE_VAL
+* Doxygen documentation is $DOXYGEN_ENABLE_VAL
 
 and will be installed under the directory:
 

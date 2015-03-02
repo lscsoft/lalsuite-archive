@@ -88,15 +88,6 @@ def write_build_info():
 	if sed_retcode:
 		raise gvcsi.GitInvocationError
 
-class pylal_build(build.build):
-	def run(self):
-		# If we are building from a release tarball, do not distribute scripts.
-		# PKG-INFO is inserted into the tarball by the sdist target.
-		if os.path.exists("PKG-INFO"):
-			self.distribution.scripts = []
-
-		# resume normal build procedure
-		build.build.run(self)
 
 class pylal_build_py(build_py.build_py):
 	def run(self):
@@ -119,11 +110,6 @@ class pylal_install(install.install):
 	def run(self):
 		pylal_prefix = remove_root(self.prefix, self.root)
 
-		# Detect whether we are building from a tarball; we have decided
-		# that releases should not contain scripts.
-		# PKG-INFO is inserted into the tarball by the sdist target.
-		if os.path.exists("PKG-INFO"):
-			self.distribution.scripts = []
 		# Hardcode a check for system-wide installation;
 		# in this case, don't make the user-env scripts.
 		if pylal_prefix == sys.prefix:
@@ -192,7 +178,6 @@ class pylal_sdist(sdist.sdist):
 			for file in files:
 				self.distribution.data_files += [os.path.join(root,file)]
 		self.distribution.data_files += ["pylal.spec"]
-		self.distribution.scripts = []
 
 		# create the git_version module
 		try:
@@ -212,7 +197,7 @@ class pylal_sdist(sdist.sdist):
 
 setup(
 	name = "pylal",
-	version = "0.5.0",
+	version = "0.6.0",
 	author = "Kipp Cannon and Nickolas Fotopoulos",
 	author_email = "lal-discuss@ligo.org",
 	description = "Python LIGO Algorithm Library",
@@ -225,7 +210,6 @@ setup(
                 "pylal.dq"
 	],
 	cmdclass = {
-		"build": pylal_build,
 		"build_py": pylal_build_py,
 		"install": pylal_install,
 		"sdist": pylal_sdist
@@ -401,15 +385,6 @@ setup(
 			libraries = lal_pkg_config.libs + lalsimulation_pkg_config.libs + lalburst_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs + lalsimulation_pkg_config.libdirs + lalburst_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs + lalsimulation_pkg_config.libdirs + lalburst_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
-		),
-		Extension(
-			"pylal.xlal.noisemodels",
-			["src/xlal/noisemodels.c"],
-			include_dirs = lal_pkg_config.incdirs,
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(

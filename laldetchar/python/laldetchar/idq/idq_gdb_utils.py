@@ -13,7 +13,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-## addtogroup pkg_py_laldetchar_idq
+## \addtogroup laldetchar_py_idq
 ## Synopsis
 # ~~~
 # from laldetchar.idq import idq_gdb_utils
@@ -29,7 +29,7 @@ __author__ = 'Reed Essick <reed.essick@ligo.org>'
 __version__ = git_version.id
 __date__ = git_version.date
 
-## addtogroup pkg_py_laldetchar_idq_auxmvc
+## \addtogroup laldetchar_py_idq_auxmvc
 # @{
 
 # Utility functions used for generating iDQ input to GraceDB.
@@ -115,7 +115,9 @@ def execute_gdb_timeseries(
     exec_prog,
     usertag='',
     gch_xml=[],
-    cln_xml=[]):
+    cln_xml=[],
+    plotting_gps_start=None,
+    plotting_gps_end=None):
     """ Function that sets up and runs idq-gdb-timeseries script as one of the tasks of idq-gdb-processor."""
     # form the command line
     cmd_line = [exec_prog, '-s', gps_start, '-e', gps_end, '--gps', gps,\
@@ -125,6 +127,10 @@ def execute_gdb_timeseries(
     # add extra options from config file
     if cp.has_option("general","gdb_url"):
         cmd_line += ["--gdb-url", cp.get("general","gdb_url")]
+    if plotting_gps_start:
+        cmd_line += ["--plotting-gps-start", str(plotting_gps_start)]
+    if plotting_gps_end:
+        cmd_line += ["--plotting-gps-end", str(plotting_gps_end)]
     for gch in gch_xml:
         cmd_line += ["--gch-xml", gch]
     for cln in cln_xml:

@@ -1,3 +1,29 @@
+lalapps (6.15.2-1) unstable; urgency=low
+
+  * LALApps 6.15.2
+  * packaging updates
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Tue, 18 Nov 2014 15:59:28 -0600
+
+lalapps (6.15.1-3) unstable; urgency=low
+
+  * fix lalxml dependency
+
+ -- Steffen Grunewald <steffen.grunewald@ligo.org>  Thu, 13 Nov 2014 08:45:00 +0100
+
+lalapps (6.15.1-2) unstable; urgency=low
+
+  * add lalxml dependency
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Wed, 12 Nov 2014 09:38:11 -0600
+
+lalapps (6.15.1-1) unstable; urgency=low
+
+  * LALApps 6.15.1
+  * content handler updates for lalapps_trigger_hipe
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Thu, 06 Nov 2014 15:43:30 -0600
+
 lalapps (6.15.0-1) unstable; urgency=low
 
   * LALApps 6.15.0

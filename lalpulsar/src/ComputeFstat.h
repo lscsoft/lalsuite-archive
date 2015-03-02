@@ -1,4 +1,5 @@
 //
+// Copyright (C) 2014 Reinhard Prix
 // Copyright (C) 2012, 2013, 2014 David Keitel, Bernd Machenschalk, Reinhard Prix, Karl Wette
 //
 // This program is free software; you can redistribute it and/or modify
@@ -33,13 +34,13 @@ extern "C" {
 
 ///
 /// \defgroup ComputeFstat_h Header ComputeFstat.h
-/// \ingroup pkg_pulsarCoh
+/// \ingroup lalpulsar_coh
 /// \authors Badri Krishnan, Bernd Machenschalk, Chris Messenger, David Keitel, Holger Pletsch,
 ///          John T. Whelan, Karl Wette, Pinkesh Patel, Reinhard Prix, Xavier Siemens
 ///
 /// \brief The \f$\mathcal{F}\f$-statistic.
 ///
-/// This module provides a API for computing the \f$\mathcal{F}\f$-statistic \cite JKS98, using
+/// This module provides a API for computing the \f$\mathcal{F}\f$-statistic \cite JKS98 , using
 /// various different methods.  All data required to compute the \f$\mathcal{F}\f$-statistic are
 /// contained in the opaque structure \c FstatInput, which is shared by all methods. A function
 /// XLALCreateFstatInput() is provided for creating an \c FstatInput structure configured
@@ -255,7 +256,7 @@ typedef struct tagFstatResults {
   /// This array should not be accessed if #whatWasComputed & FSTATQ_PARTS_PER_DET is false.
 #ifdef SWIG // SWIG interface directives
   SWIGLAL(ARRAY_1D_PTR_1D(FstatResults, COMPLEX8, FaPerDet, UINT4, numDetectors, numFreqBins));
-  SWIGLAL(ARRAY_1D_PTR_1D(FstatResults, COMPLEX8, FaPerDet, UINT4, numDetectors, numFreqBins));
+  SWIGLAL(ARRAY_1D_PTR_1D(FstatResults, COMPLEX8, FbPerDet, UINT4, numDetectors, numFreqBins));
 #endif // SWIG
   COMPLEX8 *FaPerDet[PULSAR_MAX_DETECTORS];
   COMPLEX8 *FbPerDet[PULSAR_MAX_DETECTORS];
@@ -308,12 +309,6 @@ int XLALComputeFstat ( FstatResults **Fstats, FstatInput *input, const PulsarDop
 void XLALDestroyFstatInput ( FstatInput* input );
 void XLALDestroyFstatResults ( FstatResults* Fstats );
 int XLALAdd4ToFstatResults ( FstatResults* Fstats );
-
-int XLALEstimatePulsarAmplitudeParams ( PulsarCandidate *pulsarParams, const LIGOTimeGPS* FaFb_refTime,
-                                        const COMPLEX8 Fa, const COMPLEX8 Fb, const AntennaPatternMatrix *Mmunu );
-
-int XLALAmplitudeParams2Vect ( PulsarAmplitudeVect A_Mu, const PulsarAmplitudeParams Amp );
-int XLALAmplitudeVect2Params( PulsarAmplitudeParams *Amp, const PulsarAmplitudeVect A_Mu );
 
 REAL4 XLALComputeFstatFromAtoms ( const MultiFstatAtomVector *multiFstatAtoms, const INT4 X );
 REAL4 XLALComputeFstatFromFaFb ( COMPLEX8 Fa, COMPLEX8 Fb, REAL4 A, REAL4 B, REAL4 C, REAL4 E, REAL4 Dinv );

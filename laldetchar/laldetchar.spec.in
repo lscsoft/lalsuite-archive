@@ -12,7 +12,7 @@ Source: %{name}-%{version}.tar.gz
 URL: http://www.lsc-group.phys.uwm.edu/lal
 Packager: Adam Mercer <adam.mercer@ligo.org>
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
-BuildRequires: python-devel octave-devel
+BuildRequires: swig python-devel octave-devel
 Requires: gsl libframe libmetaio lal lalframe lalmetaio lalsimulation lalburst
 Prefix: %{_prefix}
 
@@ -57,7 +57,7 @@ This package provides the Octave bindings for LALDetChar.
 %{__make} V=1
 
 %install
-%makeinstall
+%make_install
 rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 
 %post
@@ -87,16 +87,17 @@ rm -Rf ${RPM_BUILD_DIR}/%{name}-%{version}
 %{_libdir}/python*/site-packages/laldetchar/*.py
 %{_libdir}/python*/site-packages/laldetchar/*.pyc
 %{_libdir}/python*/site-packages/laldetchar/_laldetchar.so*
+%{_libdir}/python*/site-packages/laldetchar/idq/*.py
+%{_libdir}/python*/site-packages/laldetchar/idq/*.pyc
 %{_libdir}/python*/site-packages/laldetchar/hveto/*.py
 %{_libdir}/python*/site-packages/laldetchar/hveto/*.pyc
 %{_libdir}/python*/site-packages/laldetchar/triggers/*.py
 %{_libdir}/python*/site-packages/laldetchar/triggers/*.pyc
 %exclude %{_libdir}/python*/site-packages/laldetchar/*.pyo
-%exclude %{_libdir}/python*/site-packages/laldetchar/*.la
+%exclude %{_libdir}/python*/site-packages/laldetchar/idq/*.pyo
 %exclude %{_libdir}/python*/site-packages/laldetchar/hveto/*.pyo
 %exclude %{_libdir}/python*/site-packages/laldetchar/triggers/*.pyo
 
 %files octave
 %defattr(-,root,root)
 %{_libexecdir}/octave/*/site/oct/*/laldetchar.oct*
-%exclude %{_libexecdir}/octave/*/site/oct/*/laldetchar.la

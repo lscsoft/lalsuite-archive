@@ -1,24 +1,26 @@
 AC_PREREQ([2.63])
-AC_INIT([LALBurst],[1.2.5.1],[lal-discuss@ligo.org])
+AC_INIT([LALBurst],[1.2.7.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h src/LALBurstConfig.h])
 AC_CONFIG_SRCDIR([src/EPSearch.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
-  lalburst.spec \
-  lalburst.pc \
   Makefile \
   debian/Makefile \
+  doxygen/Makefile \
+  doxygen/doxygen.cfg \
   include/Makefile \
   include/lal/Makefile \
-  src/LALBurstVCSInfo.c \
-  src/LALBurstVCSInfo.h \
-  src/Makefile \
+  lalburst.pc \
+  lalburst.spec \
   python/Makefile \
   python/lalburst/Makefile \
   python/lalburst/__init__.py \
+  src/LALBurstVCSInfo.c \
+  src/LALBurstVCSInfo.h \
+  src/Makefile \
   swig/Makefile \
-  test/Makefile
+  test/Makefile \
 ])
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
 
@@ -56,6 +58,9 @@ LALSUITE_ENABLE_GCC_FLAGS
 
 # enable SWIG wrapping modules
 LALSUITE_ENABLE_SWIG
+
+# enable Doxygen documentation
+LALSUITE_ENABLE_DOXYGEN
 
 # define version/configure info
 LALSUITE_VERSION_CONFIGURE_INFO
@@ -133,6 +138,9 @@ LALSUITE_CHECK_LIB([LALSimulation],[1.2.0],[XLALSimDetectorStrainREAL8TimeSeries
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG
 
+# configure Doxygen documentation
+LALSUITE_USE_DOXYGEN
+
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
 
@@ -161,6 +169,7 @@ LALBurst has now been successfully configured:
 * SWIG binding generation is $SWIG_GENERATE_ENABLE_VAL
 * SWIG bindings for Octave are $SWIG_BUILD_OCTAVE_ENABLE_VAL
 * SWIG bindings for Python are $SWIG_BUILD_PYTHON_ENABLE_VAL
+* Doxygen documentation is $DOXYGEN_ENABLE_VAL
 
 and will be installed under the directory:
 

@@ -1,27 +1,29 @@
 AC_PREREQ([2.63])
-AC_INIT([LALDetChar],[0.2.2.1],[lal-discuss@ligo.org])
+AC_INIT([LALDetChar],[0.2.4.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h src/LALDetCharConfig.h])
 AC_CONFIG_SRCDIR([src/LALDetChar.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
-  laldetchar.spec \
-  laldetchar.pc \
   Makefile \
   debian/Makefile \
+  doxygen/Makefile \
+  doxygen/doxygen.cfg \
   include/Makefile \
   include/lal/Makefile \
-  src/LALDetCharVCSInfo.c \
-  src/LALDetCharVCSInfo.h \
-  src/Makefile \
+  laldetchar.pc \
+  laldetchar.spec \
   python/Makefile \
   python/laldetchar/Makefile \
   python/laldetchar/__init__.py \
-  python/laldetchar/triggers/Makefile \
   python/laldetchar/hveto/Makefile \
   python/laldetchar/idq/Makefile \
+  python/laldetchar/triggers/Makefile \
+  src/LALDetCharVCSInfo.c \
+  src/LALDetCharVCSInfo.h \
+  src/Makefile \
   swig/Makefile \
-  test/Makefile
+  test/Makefile \
 ])
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
 
@@ -62,6 +64,9 @@ LALSUITE_ENABLE_SWIG
 
 # optional lal libraries
 LALSUITE_ENABLE_LALFRAME
+
+# enable Doxygen documentation
+LALSUITE_ENABLE_DOXYGEN
 
 # define version/configure info
 LALSUITE_VERSION_CONFIGURE_INFO
@@ -126,6 +131,9 @@ LALSUITE_CHECK_LIB([LALBurst],[1.2.0],[XLALEPSearch],[lal/EPSearch.h])
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG
 
+# configure Doxygen documentation
+LALSUITE_USE_DOXYGEN
+
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
 
@@ -154,6 +162,7 @@ LALDetChar has now been successfully configured:
 * SWIG binding generation is $SWIG_GENERATE_ENABLE_VAL
 * SWIG bindings for Octave are $SWIG_BUILD_OCTAVE_ENABLE_VAL
 * SWIG bindings for Python are $SWIG_BUILD_PYTHON_ENABLE_VAL
+* Doxygen documentation is $DOXYGEN_ENABLE_VAL
 
 and will be installed under the directory:
 

@@ -23,7 +23,7 @@ from ligo.gracedb.rest import GraceDb
 
 DEFAULT_SERVICE_URL = "https://gracedb.ligo.org/gracedb/api"
 
-GIT_TAG = 'gracedb-1.15-1'
+GIT_TAG = 'gracedb-1.16-1'
 
 DEFAULT_COLUMNS = "graceid,labels,group,pipeline,search,far,gpstime,created,dataurl"
  
@@ -240,6 +240,8 @@ Longer strings will be truncated.""" % {
         from glue.ligolw import lsctables
         from glue.ligolw import utils
         from glue.ligolw.utils import ligolw_add
+
+        lsctables.use_in(ligolw.LIGOLWContentHandler)
     except:
         if options.ligolw:
             error("ligolw modules not found")
@@ -281,13 +283,13 @@ Longer strings will be truncated.""" % {
             exit(0)
     elif args[0] == 'list':
         if args[1] == 'groups':
-            output(client.groups)
+            output(' '.join(client.groups))
             exit(0)
         elif args[1] == 'pipelines':
-            output(client.pipelines)
+            output(' '.join(client.pipelines))
             exit(0)
         elif args[1] == 'searches':
-            output(client.searches)
+            output(' '.join(client.searches))
             exit(0)
         else:
             output("Unknown list object. Please use 'groups', 'pipelines', or 'searches.'")
@@ -386,7 +388,7 @@ Longer strings will be truncated.""" % {
                 graceid = e['graceid']
                 try:
                     r = client.files(graceid, "coinc.xml")
-                    utils.load_fileobj(r, xmldoc = xmldoc)
+                    utils.load_fileobj(r, xmldoc = xmldoc, contenthandler = ligolw.LIGOLWContentHandler)
                 except:
                     error("Missing coinc.xml for %s. Cannot build ligolw output." % graceid)
                     exit(1)

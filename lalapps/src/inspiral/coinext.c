@@ -17,22 +17,105 @@
 *  MA  02111-1307  USA
 */
 
+/**
+ * \file
+ * \ingroup lalapps_inspiral
+ *
+ * <dl>
+ * <dt>Name</dt><dd>
+ * \c lalapps_coinext --- analyzing coincident external triggers online</dd>
+ * <dt>Synopsis</dt><dd>
+ * <tt>coinExt</tt>
+ * [<tt>--help</tt>]
+ * [<tt>--test</tt>]
+ * [<tt>--dirInspiral</tt> <i>dir_insp</i>]
+ * [<tt>--dirData</tt>     <i>dir_data</i>]
+ * [<tt>--refresh</tt>     <i>t_refresh</i>]
+ * [<tt>--timeWindow</tt>  <i>t_window</i>]
+ * [<tt>--snrCut</tt>      <i>snr</i>]
+ * [<tt>--ifo</tt>         <i>name_ifo</i>]
+ * [<tt>--trigger</tt>     <i>trigger_file</i>]
+ * [<tt>--restart</tt>]
+ * [<tt>--recalc</tt>] </dd>
+ *
+ * <dt>Description</dt><dd>
+ * This online looks for coincidences on external and inspiral triggers, creating and transfering a XML file containing both data.\\
+ *
+ * After a time <i>t_refresh</i> has elapsed the actual list of external triggers, placed on <tt>http://www.uoregon.edu/ ileonor/ligo/a4/grb/online/currentgrbs_html_A4.txt</tt>, is downloaded. This file is updated when ever an external trigger from the GCN (The GRB Coordinates Network, see <tt>http://gcn.gsfc.nasa.gov/</tt>) has been recieved. Since it takes some time from the observation of a Gamma-Ray Burst to the notification, about 10-20 minutes elapses until the trigger is placed into the downloaded file.\\
+ *
+ * \c coinext looks either for inspiral triggers specified in the directory <i>dir_insp</i> or it creates an own DAG for creating the inspiral triggers by itself (when setting the option <tt>--recalc</tt>). The DAG is run in the directory  <tt>OnlineAnalysis/Jobs</tt> and the final inspiral triggers are put into \c Trigger. \\
+ *
+ * All inspiral triggers within a time window of <i>t_window</i> and the information of the external trigger are stored into a XML file in the directory \c Data or <i>dir_data</i>. The XML file also is transfered to the machine <tt>adietz.phys.lsu.edu</tt> for further analysis.\\
+ *
+ * If the option <tt>--restart</tt> is specified, all intermediate daa files will be deleted, such as the local list of external triggers with the state of each trigger (<em>later more</em>).</dd>
+ *
+ * <dt>Options</dt><dd>
+ * <dl>
+ *
+ * <dt><tt>--dirData</tt> <i>dir_data</i></dt><dd>
+ * Optional argument, specifying the directory where the resulting XML files are written to. The default directory is <tt>CoinExt/Data</tt>.</dd>
+ *
+ * <dt><tt>--dirInspiral</tt> <i>dir_insp</i></dt><dd>
+ * Optional argument, specifying the directory searched for inspiral trigger XML-files. The default directory is <tt>Triggers/Inspiral/???</tt></dd>
+ *
+ * <dt><tt>--help</tt></dt><dd>
+ * Prints a help message and exits.</dd>
+ *
+ * <dt><tt>--refresh</tt> <i>t_refresh</i></dt><dd>
+ * Setting the refresh rate to <i>t_refresh</i> minutes. This is the time the program waits until it checks for new external triggers. The default value is 30 minutes.</dd>
+ *
+ * <dt><tt>--test</tt></dt><dd>
+ * With this option set the test mode is activated. The external triggers are read from a file <tt>CoinExt/ProgCoin/Test/triggers.xml???</tt> and the refresh rate is set to 60 seconds.</dd>
+ *
+ * <dt><tt>--timeWindow</tt> <i>t_window</i></dt><dd>
+ * Sets the coincident time window that is searched for coincidences.</dd>
+ *
+ * <dt><tt>--snrCut</tt> <i>cut</i></dt><dd>
+ * Sets a thresold for the selection of inspiral triggers. Only triggers with a SNR value greater than <i>cut</i> are considered.</dd>
+ *
+ * <dt><tt>--ifo</tt> <i>ifo_name</i></dt><dd>
+ * Specifies at which site the code it running. Possible parameters are \c LLO and \c LHO.</dd>
+ *
+ * <dt><tt>--trigger</tt> <i>trigger_file</i></dt><dd>
+ * When specifying this option coinExt used always the trigger file \c trigger_file instead downloading a new one.</dd>
+ *
+ * <dt><tt>--restart</tt></dt><dd>
+ * With this option the whole analysis on the triggers is restarted.</dd>
+ *
+ * <dt><tt>--recalc</tt></dt><dd>
+ * With this option set for each GRb trigger an inspiral DAG will be run on the cluster to calculate the inspiral triggers.
+ * </dd>
+ * </dl></dd>
+ *
+ * <dt>Example 1</dt><dd>
+ * <em>will follow soon</em></dd>
+ *
+ * <dt>Notes</dt><dd>
+ * This program requires \c tconvert to be installed.</dd>
+ *
+ * <dt>Author</dt><dd>
+ * Alexander Dietz</dd>
+ * </dl>
+ */
 
 /******************************
 include
 *******************************/
+#include <config.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <errno.h>
 #include <signal.h>
-#include <getopt.h>
 #include <time.h>
 #include <math.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <lal/LALStdio.h>
+#include <lal/LALgetopt.h>
 #include <lal/LALStdlib.h>
 #include <lal/LIGOLwXMLInspiralRead.h>
 #include <lal/LIGOLwXML.h>
@@ -1561,8 +1644,8 @@ int arg_parse_check( int argc, char *argv[])
 {
   int flagRun=0;
 
-  /* getopt arguments */
-  struct option long_options[] =
+  /* LALgetopt arguments */
+  struct LALoption long_options[] =
     {
       /* these options set a flag */
       {"restart",                 no_argument,       &flagRestart,  1 },
@@ -1595,11 +1678,11 @@ int arg_parse_check( int argc, char *argv[])
   
   
   while ( 1 ) {
-    /* getopt_long stores long option here */
+    /* LALgetopt_long stores long option here */
     int option_index = 0;
-    size_t optarg_len;
+    size_t LALoptarg_len;
     
-    c = getopt_long_only( argc, argv, 
+    c = LALgetopt_long_only( argc, argv,
                           "A:B:C:D:E:F:G:H:I:J:K:L:M:N:O:P:Q:R:S:T:U:V:W:X:Y:Z:"
                           "a:b:c:d:e:f:g:h:i:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:",
                           long_options, &option_index );
@@ -1616,7 +1699,7 @@ int arg_parse_check( int argc, char *argv[])
         break;
       } else {
         fprintf( stderr, "error parsing option %s with argument %s\n",
-                 long_options[option_index].name, optarg );
+                 long_options[option_index].name, LALoptarg );
         exit( 1 );
       }
       break;
@@ -1624,23 +1707,23 @@ int arg_parse_check( int argc, char *argv[])
     case 'a': 
       
       /* get name for inspiral data path */
-      optarg_len = strlen( optarg ) + 1;
-      memcpy( dirInspiral, optarg, optarg_len );
-      ADD_PROCESS_PARAM( "string" , "%s", optarg);              
+      LALoptarg_len = strlen( LALoptarg ) + 1;
+      memcpy( dirInspiral, LALoptarg, LALoptarg_len );
+      ADD_PROCESS_PARAM( "string" , "%s", LALoptarg);
       break;
       
     case 'A': { 
       
       /* get name for directory to put the data in */
-      optarg_len = strlen( optarg ) + 1;
-      memcpy( dirData, optarg, optarg_len );              
-      ADD_PROCESS_PARAM( "string" , "%s", optarg);
+      LALoptarg_len = strlen( LALoptarg ) + 1;
+      memcpy( dirData, LALoptarg, LALoptarg_len );
+      ADD_PROCESS_PARAM( "string" , "%s", LALoptarg);
       flagDirData=1;
       break;
     }
       
     case 'b': {
-      waitingTime = atol( optarg );
+      waitingTime = atol( LALoptarg );
       if ( waitingTime < 0 ) {
         fprintf( stderr, "invalid argument to --%s:\n"
                  "waiting time can'y be negative\n",
@@ -1652,60 +1735,60 @@ int arg_parse_check( int argc, char *argv[])
       break;
       
     case 'B': {
-      timeWindow = atoi( optarg );
+      timeWindow = atoi( LALoptarg );
       if ( timeWindow < 0 ) {
         fprintf( stderr, "invalid argument to --%s:\n"
                  "window time must be positive number\n",
                  long_options[option_index].name );
         exit( 1 );
       } 
-      ADD_PROCESS_PARAM( "float" , "%s", optarg);              
+      ADD_PROCESS_PARAM( "float" , "%s", LALoptarg);
     }
       break;
       
       
     case 'd': {
-      snrCut = atof( optarg );
+      snrCut = atof( LALoptarg );
       if ( snrCut < 0 ) {
         fprintf( stderr, "invalid argument to --%s:\n"
                  "snrCut must be a positive number\n",
                  long_options[option_index].name );
         exit( 1 );
       } 
-      ADD_PROCESS_PARAM( "float" , "%f", snrCut);              
+      ADD_PROCESS_PARAM( "float" , "%f", snrCut);
     }
       break;
       
     case 'i': {
       /* read IFO site */
-      optarg_len = strlen( optarg ) + 1;
-      memcpy( ifo, optarg, optarg_len );        
-      ADD_PROCESS_PARAM( "string" , "%s", optarg);                            
+      LALoptarg_len = strlen( LALoptarg ) + 1;
+      memcpy( ifo, LALoptarg, LALoptarg_len );
+      ADD_PROCESS_PARAM( "string" , "%s", LALoptarg);
       break;
     }
       
     case 't': {
       /* read triger file */
-      optarg_len = strlen( optarg ) + 1;
-      memcpy( nameInputList, optarg, optarg_len );        
-      ADD_PROCESS_PARAM( "string" , "%s", optarg);
-      flagTriggerFile=1;                            
+      LALoptarg_len = strlen( LALoptarg ) + 1;
+      memcpy( nameInputList, LALoptarg, LALoptarg_len );
+      ADD_PROCESS_PARAM( "string" , "%s", LALoptarg);
+      flagTriggerFile=1;
       break;
     }
 
     case 'c': {
       /* read calibration vesrion to use */
-      optarg_len = strlen( optarg ) + 1;
-      memcpy( calibrationVersion, optarg, optarg_len );        
-      ADD_PROCESS_PARAM( "string" , "%s", optarg);
+      LALoptarg_len = strlen( LALoptarg ) + 1;
+      memcpy( calibrationVersion, LALoptarg, LALoptarg_len );
+      ADD_PROCESS_PARAM( "string" , "%s", LALoptarg);
       break;
     }
 
     case 'r': {
       /* read run file */
-      optarg_len = strlen( optarg ) + 1;
-      memcpy( run, optarg, optarg_len );        
-      ADD_PROCESS_PARAM( "string" , "%s", optarg);
+      LALoptarg_len = strlen( LALoptarg ) + 1;
+      memcpy( run, LALoptarg, LALoptarg_len );
+      ADD_PROCESS_PARAM( "string" , "%s", LALoptarg);
       flagRun=1;
       break;
     }
@@ -1729,10 +1812,10 @@ int arg_parse_check( int argc, char *argv[])
     }
   }
   
-  if ( optind < argc ) {
+  if ( LALoptind < argc ) {
     fprintf( stderr, "extraneous command line arguments:\n" );
-    while ( optind < argc ) {
-      fprintf ( stderr, "%s\n", argv[optind++] );
+    while ( LALoptind < argc ) {
+      fprintf ( stderr, "%s\n", argv[LALoptind++] );
     }
     exit( 1 );
   }

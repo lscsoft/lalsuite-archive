@@ -73,9 +73,11 @@ class SnglInspiralID_old(object):
     return lsctables.SnglInspiralID(a * 1000000000 + row.get_id_parts()[1] * 100000 + b)
 
 
-def ReadSnglInspiralFromFiles(fileList, verbose=False):
+def ReadSnglInspiralFromFiles(fileList, verbose=False, filterFunc=None):
   """
-  Read the SnglInspiralTables from a list of files
+  Read the SnglInspiralTables from a list of files.
+  If filterFunc is not None, only keep triggers for which filterFunc
+  evaluates to True.  Ex.: filterFunc=lambda sng: sng.snr >= 6.0
 
   @param fileList: list of input files
   @param verbose: print progress
@@ -100,10 +102,11 @@ def ReadSnglInspiralFromFiles(fileList, verbose=False):
     xmldoc = utils.load_filename(file, verbose=verbose, contenthandler=ExtractSnglInspiralTableLIGOLWContentHandler)
     try:
       sngl_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+      if filterFunc is not None:
+        iterutils.inplace_filter(filterFunc, sngl_table)
     except ValueError: #some xml files have no sngl table, that's OK
       sngl_table = None
     if sngl_table: sngls.extend(sngl_table)
-
     xmldoc.unlink()    #free memory
 
   return sngls
@@ -242,7 +245,7 @@ def slideTriggersOnLines(triggerList, shifts):
   """
   for trigger in triggerList:
     end_time = trigger.get_end()
-    trigger.set_end( end_time + shifts[trigger.ifo] )  
+    trigger.set_end( end_time + shifts[trigger.ifo] )
 
 def slideTimeOnRing(time, shift, ring):
   """
@@ -311,7 +314,7 @@ def slideSegListDictOnRing(ring, seglistdict, shifts):
   """
   # don't do this in loops
   ring_duration = float(abs(ring))
- 
+
   # automate multi-list arithmetic
   ring = segments.segmentlistdict.fromkeys(seglistdict.keys(), segments.segmentlist([ring]))
 

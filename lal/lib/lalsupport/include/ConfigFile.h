@@ -22,6 +22,7 @@
 
 #include <lal/LALDatatypes.h>
 #include <lal/StringInput.h>
+#include <lal/ParseStringValue.h>
 
 /* C++ protection. */
 #ifdef  __cplusplus
@@ -29,7 +30,8 @@ extern "C" {
 #endif
 
 /**
- * \addtogroup ConfigFile_h
+ * \defgroup ConfigFile_h Header ConfigFile.h
+ * \ingroup lal_support
  * \author Reinhard Prix
  * \brief Module for general parsing of simple ASCII-based config-files.
  *
@@ -131,7 +133,7 @@ typedef struct tagLALConfigVar {
 
 
 /**
- * This structure is returned by LALParseDataFile() and holds the contents of an
+ * This structure is returned by XLALParseDataFile() and holds the contents of an
  * ASCII data-file in a pre-parsed form, namely stripped from all comments ('\#', '\%'),
  * spurious whitespaces, and separated into lines (taking into account line-continuation
  * by '\\' at the end of lines).
@@ -186,6 +188,28 @@ XLALReadConfigSTRINGNVariable (CHARVector *varp,
                               const CHAR *varName,
                               BOOLEAN *wasRead);
 
+
+int
+XLALReadConfigEPOCHVariable (LIGOTimeGPS *varp,
+                             const LALParsedDataFile *cfgdata,
+                             const CHAR *secName,
+                             const CHAR *varName,
+                             BOOLEAN *wasRead);
+
+int
+XLALReadConfigRAJVariable (REAL8 *varp,
+                                 const LALParsedDataFile *cfgdata,
+                                 const CHAR *secName,
+                                 const CHAR *varName,
+                                 BOOLEAN *wasRead);
+
+int
+XLALReadConfigDECJVariable (REAL8 *varp,
+                                const LALParsedDataFile *cfgdata,
+                                const CHAR *secName,
+                                const CHAR *varName,
+                                BOOLEAN *wasRead);
+
 int
 XLALReadConfigVariable (void *varp,
                        const LALParsedDataFile *cfgdata,
@@ -193,12 +217,6 @@ XLALReadConfigVariable (void *varp,
                        BOOLEAN *wasRead);
 
 int XLALCheckConfigReadComplete (const LALParsedDataFile *cfgdata, ConfigStrictness strict);
-
-int XLALParseStringValueToINT8 ( INT8 *valINT8, const char *valString );
-int XLALParseStringValueToINT4 ( INT4 *valINT4, const char *valString );
-int XLALParseStringValueToREAL8 ( REAL8 *valREAL8, const char *valString );
-int XLALParseStringValueToREAL4 ( REAL4 *valREAL4, const char *valString );
-int XLALParseStringValueToBOOLEAN ( BOOLEAN *valBOOLEAN, const char *valString );
 
 /* ========== DEPRECATED LAL INTERFACE FUNCTIONS, which have been replaced by XLAL functions,
  * These functions are just wrappers around the XLAL functions
@@ -239,9 +257,6 @@ int XLALParseStringValueToBOOLEAN ( BOOLEAN *valBOOLEAN, const char *valString )
  * These functions are deprecated, and you should user their XLAL-equivalents instead.
  */
 /*@{*/
-void LALParseDataFile (LALStatus *, LALParsedDataFile **cfgdata, const CHAR *fname);
-void LALDestroyParsedDataFile (LALStatus *, LALParsedDataFile **cfgdata);
-
 void LALReadConfigBOOLVariable (LALStatus *, BOOLEAN *varp, const LALParsedDataFile *cfgdata, const CHAR *varName, BOOLEAN *wasRead);
 void LALReadConfigINT4Variable (LALStatus *, INT4 *varp, const LALParsedDataFile *cfgdata, const CHAR *varName, BOOLEAN *wasRead);
 void LALReadConfigREAL8Variable (LALStatus *, REAL8 *varp, const LALParsedDataFile *cfgdata, const CHAR *varName, BOOLEAN *wasRead);

@@ -787,7 +787,6 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     enginenodes[0].finalize()
     enginenodes[0].set_psd_files()
     enginenodes[0].set_snr_file()
-
     if event.GID is not None:
       if self.config.has_option('analysis','upload-to-gracedb'):
         if self.config.getboolean('analysis','upload-to-gracedb'):
@@ -808,8 +807,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
           else:
             respagenode.set_injection(self.config.get('input','burst-injection-file'),event.event_id)
-        respagenode.set_psd_files(enginenodes[0].get_psd_files())
-        respagenode.set_snr_file(enginenodes[0].get_snr_file())
+
         mkdirs(os.path.join(self.basepath,'coherence_test'))
         par_mergenodes=[]
         for ifo in enginenodes[0].ifos:
@@ -1264,6 +1262,7 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
         self.set_executable_installed(False)
     # Set the options which are always used
     self.set_sub_file(os.path.abspath(submitFile))
+    self.add_condor_cmd('getenv','true')
     if self.engine=='lalinferencemcmc' or self.engine=='lalinferencebambimpi':
       #openmpipath=cp.get('condor','openmpi')
       if cp.has_section('mpi'):
@@ -1287,7 +1286,6 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
         self.add_condor_cmd('+RequiresMultipleCores','True')
       self.add_condor_cmd('request_cpus',self.machine_count)
       self.add_condor_cmd('request_memory',str(float(self.machine_count)*float(self.machine_memory)))
-      self.add_condor_cmd('getenv','true')
       if cp.has_option('condor','queue'):
         self.add_condor_cmd('+'+cp.get('condor','queue'),'True')
         self.add_condor_cmd('Requirements','(TARGET.'+cp.get('condor','queue')+' =?= True)')
@@ -1524,6 +1522,7 @@ class EngineNode(pipeline.CondorDAGNode):
             self.add_file_opt('%s-cache'%(ifo),self.cachefiles[ifo])
         self.add_var_opt('%s-channel'%(ifo),self.channels[ifo])
         if self.flows: self.add_var_opt('%s-flow'%(ifo),self.flows[ifo])
+        if self.fhighs: self.add_var_opt('%s-fhigh'%(ifo),self.fhighs[ifo])
         if self.psds: self.add_var_opt('%s-psd'%(ifo),self.psds[ifo])
         if any(self.timeslides): self.add_var_opt('%s-timeslide'%(ifo),self.timeslides[ifo])
       if self.mdcchannels!={} and self.mdccaches!={}:

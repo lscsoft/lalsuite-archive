@@ -1,6 +1,6 @@
 /**
  * \file
- * \ingroup pulsarApps
+ * \ingroup lalapps_pulsar_PowerFlux
  * \author Junyi Zhang, Keith Riles
  */
 

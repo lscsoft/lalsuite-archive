@@ -19,7 +19,7 @@
 
 /**
  * \file
- * \ingroup pulsarApps
+ * \ingroup lalapps_pulsar_hough
  * \author Badri Krishnan, Alicia Sintes
  *
  * History:   Created by Sintes June 16, 2003
@@ -30,7 +30,6 @@
  */
 
 
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>

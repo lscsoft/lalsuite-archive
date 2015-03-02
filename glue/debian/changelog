@@ -1,3 +1,22 @@
+glue (1.47-2) unstable; urgency=low
+
+  * added missing python modules to python-glue.install
+
+ -- Steffen Grunewald <steffen.grunewald@ligo.org>  Thu, 11 Dec 2014 11:30:00 +0100
+
+glue (1.47.1-1) unstable; urgency=low
+
+  * ER6 pre-release of glue, bug fix for dmt-files method of
+    ligolw_segment_query for Kipp API change.
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Wed, 19 Nov 2014 16:14:00 -0500
+
+glue (1.47-1) unstable; urgency=low
+
+  * ER6 pre-release of glue.
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Thu, 13 Nov 2014 16:14:00 -0500
+
 glue (1.46.2-1) unstable; urgency=low
 
   * Making new version to match tag number.

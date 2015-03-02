@@ -35,14 +35,21 @@
 #define CVS_DATE "$Date$"
 #define CVS_NAME_STRING "$Name$"
 
+#ifndef _OPENMP
+#define omp ignore
+#endif
+
+
 void ensemble_sampler(struct tagLALInferenceRunState *run_state) {
     INT4 mpi_rank, mpi_size;
     INT4 walker, nwalkers_per_thread;
-    INT4 nsteps, skip, update_interval, verbose;
+    INT4 nsteps, skip, tracking_interval, update_interval, verbose;
     INT4 *step, i;
     INT4 *acceptance_buffer;
     REAL8 *acceptance_rates;
+    REAL8 acceptance_rate, min_acceptance_rate, max_acceptance_rate;
     REAL8 *prop_priors, *prop_likelihoods, *prop_densities;
+    INT4 update = 0;
     FILE *output = NULL;
 
     /* Initialize LIGO status */
@@ -61,14 +68,19 @@ void ensemble_sampler(struct tagLALInferenceRunState *run_state) {
 
     step = (INT4*) LALInferenceGetVariable(algorithm_params, "step");
 
-    nwalkers_per_thread =
-        LALInferenceGetINT4Variable(algorithm_params, "nwalkers_per_thread");
-    update_interval =
-        LALInferenceGetINT4Variable(algorithm_params, "update_interval");
+    nwalkers_per_thread = LALInferenceGetINT4Variable(algorithm_params, "nwalkers_per_thread");
+    update_interval = LALInferenceGetINT4Variable(algorithm_params, "update_interval");
 
     /* Initialize walker acceptance rate tracking */
     acceptance_buffer = XLALCalloc(nwalkers_per_thread * update_interval, sizeof(INT4));
     acceptance_rates = XLALCalloc(nwalkers_per_thread, sizeof(REAL8));
+    acceptance_rate = 0.0;
+    min_acceptance_rate = 1.0;
+    max_acceptance_rate = 0.0;
+    if (update_interval > 10)
+        tracking_interval = (INT4) update_interval/10.;
+    else
+        tracking_interval = 1;
 
     /* Create arrays for storing proposal stats that are used to calculate evidence */
     prop_priors = XLALCalloc(nwalkers_per_thread, sizeof(REAL8));
@@ -88,8 +100,13 @@ void ensemble_sampler(struct tagLALInferenceRunState *run_state) {
         (*step)++;
 
         /* Update the proposal from the current state of the ensemble */
-        if ((*step % update_interval) == 0)
+        if (update && ((*step % update_interval) == 0)) {
             ensemble_update(run_state);
+
+            update = 0;
+            min_acceptance_rate = 1.0;
+            max_acceptance_rate = 0.0;
+        }
 
         /* Update all walkers on this MPI-thread */
         #pragma omp parallel for
@@ -109,11 +126,11 @@ void ensemble_sampler(struct tagLALInferenceRunState *run_state) {
                                     &(prop_densities[walker]));
 
             /* Track acceptance rates */
-            acceptance_buffer[walker + (*step % update_interval)] = accepted;
+            acceptance_buffer[walker + (*step % tracking_interval)] = accepted;
             acceptance_rates[walker] = 0.0;
-            for (i = 0; i < update_interval; i++)
+            for (i = 0; i < tracking_interval; i++)
                 acceptance_rates[walker] += acceptance_buffer[walker+i];
-            acceptance_rates[walker] /= update_interval;
+            acceptance_rates[walker] /= tracking_interval;
 
             if (verbose)
                 print_proposed_sample(run_state, proposed_params, walker, accepted);
@@ -121,6 +138,22 @@ void ensemble_sampler(struct tagLALInferenceRunState *run_state) {
             LALInferenceClearVariables(proposed_params);
             XLALFree(proposed_params);
         }
+
+        /* Update if acceptance rate has fallen by more than 10% */
+        if (!update && ((*step % tracking_interval) == 0)) {
+            acceptance_rate = get_acceptance_rate(run_state, acceptance_rates);
+
+            if (acceptance_rate < min_acceptance_rate)
+                min_acceptance_rate = acceptance_rate;
+
+            if (acceptance_rate > max_acceptance_rate)
+                max_acceptance_rate = acceptance_rate;
+
+            if (max_acceptance_rate - min_acceptance_rate > 0.1 ||
+                    acceptance_rate < 0.01)
+                update = 1;
+        }
+
 
         /* Output samples to file */
         if ((*step % skip) == 0)
@@ -163,7 +196,7 @@ INT4 walker_step(LALInferenceRunState *run_state,
 
     /* Only bother calculating likelihood if within prior boundaries */
     *proposed_prior = run_state->prior(run_state, proposed_params, model);
-    if (*proposed_prior > -INFINITY)
+    if (*proposed_prior > -DBL_MAX)
         *proposed_likelihood = run_state->likelihood(proposed_params, run_state->data, model);
 
     /* Find jump acceptance probability */
@@ -183,6 +216,37 @@ INT4 walker_step(LALInferenceRunState *run_state,
     }
 
     return accepted;
+}
+
+
+REAL8 get_acceptance_rate(LALInferenceRunState *run_state, REAL8 *local_acceptance_rates) {
+    INT4 nwalkers, nwalkers_per_thread;
+    INT4 mpi_rank;
+    REAL8 *acceptance_rates = NULL;
+    REAL8 acceptance_rate = 0;
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    LALInferenceVariables *algorithm_params = run_state->algorithmParams;
+    nwalkers = LALInferenceGetINT4Variable(algorithm_params, "nwalkers");
+    nwalkers_per_thread = LALInferenceGetINT4Variable(algorithm_params, "nwalkers_per_thread");
+
+    if (mpi_rank == 0)
+        acceptance_rates = XLALCalloc(nwalkers, sizeof(REAL8));
+
+    /* Send all walker locations to all MPI threads */
+    MPI_Gather(local_acceptance_rates, nwalkers_per_thread, MPI_DOUBLE,
+                acceptance_rates, nwalkers_per_thread, MPI_DOUBLE,
+                0, MPI_COMM_WORLD);
+
+    if (mpi_rank == 0) {
+        acceptance_rate = gsl_stats_mean(acceptance_rates, 1, nwalkers);
+
+        XLALFree(acceptance_rates);
+    }
+
+    MPI_Bcast(&acceptance_rate, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    return acceptance_rate;
 }
 
 
@@ -238,6 +302,11 @@ void parallel_incremental_kmeans(LALInferenceRunState *run_state,
 
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+
+    /* Try atleast as many clusterings as there are MPI threads,
+     * so everyone has something to do. */
+    if (mpi_size > kmax)
+        kmax = mpi_size;
 
     bics = XLALCalloc(mpi_size, sizeof(REAL8));
 
@@ -365,7 +434,8 @@ void print_samples(LALInferenceRunState *run_state,
                     REAL8* prop_densities,
                     REAL8* acceptance_rates,
                     INT4 rank) {
-    REAL8 null_likelihood, timestamp, timestamp_epoch;
+    REAL8 null_likelihood, timestamp_epoch;
+    REAL8 timestamp = 0.0;
     REAL8 *current_priors, *current_likelihoods;
     REAL8 evidence_ratio;
     LALInferenceVariables **current_params;
@@ -451,7 +521,7 @@ void print_proposed_sample(LALInferenceRunState *run_state,
 void print_evidence(LALInferenceRunState *run_state,
                             FILE *output,
                             REAL8* logprior,
-                            REAL8* logl,
+                            REAL8* loglike,
                             REAL8* prop_density) {
     INT4 walker, nwalkers_per_thread;
     REAL8 *ratios;
@@ -462,12 +532,12 @@ void print_evidence(LALInferenceRunState *run_state,
 
     ratios = XLALCalloc(nwalkers_per_thread, sizeof(REAL8));
     for (walker = 0; walker < nwalkers_per_thread; walker++)
-        ratios[walker] = logprior[walker] + logl[walker] - prop_density[walker];
+        ratios[walker] = logprior[walker] + loglike[walker] - prop_density[walker];
 
     evidence = log_add_exps(ratios, nwalkers_per_thread) - log((REAL8)nwalkers_per_thread);
 
     for (walker = 0; walker < nwalkers_per_thread; walker++)
-        std += pow(logprior[walker] + logl[walker] - prop_density[walker] - evidence, 2.0);
+        std += pow(logprior[walker] + loglike[walker] - prop_density[walker] - evidence, 2.0);
 
     std = sqrt(std)/nwalkers_per_thread;
 
@@ -541,7 +611,7 @@ FILE *print_ensemble_header(LALInferenceRunState *run_state, INT4 rank) {
 
     /* Integer (from an enum) identfying the waveform family used */
     if (LALInferenceCheckVariable(sample_params, "LAL_APPROXIMANT"))
-        waveform = LALInferenceGetINT4Variable(sample_params, "LAL_APPROXIMANT");
+        waveform = (INT4) LALInferenceGetUINT4Variable(sample_params, "LAL_APPROXIMANT");
 
     /* Determine post-Newtonian (pN) order (half of the integer stored in currentParams) */
     if (LALInferenceCheckVariable(sample_params, "LAL_PNORDER")) {

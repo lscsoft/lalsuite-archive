@@ -17,11 +17,14 @@
 *  MA  02111-1307  USA
 */
 
+#include <config.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <lal/LALStdlib.h>
 #include <lal/LALString.h>
 #include <lal/Date.h>
@@ -682,8 +685,7 @@ int XLALFrameUFrameHFrDetectorAdd_FrameL_(LALFrameUFrameH * frame, LALFrameUFrDe
             XLAL_ERROR(XLAL_ENOMEM);
         }
     }
-    if (detector->handle->prefix)
-        memcpy(copy->prefix, detector->handle->prefix, 2);
+    memcpy(copy->prefix, detector->handle->prefix, 2);
 
     copy->longitude = detector->handle->longitude;
     copy->latitude = detector->handle->latitude;

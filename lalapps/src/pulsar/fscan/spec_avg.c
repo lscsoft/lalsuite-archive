@@ -19,7 +19,7 @@
 
 /**
  * \file
- * \ingroup pulsarApps
+ * \ingroup lalapps_pulsar_fscan
  */
 
 
@@ -46,7 +46,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
 
 #include <lal/Date.h>/*cg; needed to use lal routine GPStoUTC, which is used to convert GPS seconds into UTC date*/
 

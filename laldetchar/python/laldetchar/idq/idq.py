@@ -13,7 +13,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-## addtogroup pkg_py_laldetchar_idq
+## \addtogroup laldetchar_py_idq
 ## Synopsis
 # ~~~
 # from laldetchar.idq import idq
@@ -45,6 +45,9 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils as ligolw_utils
 from glue.ligolw import ilwd
+from glue.ligolw import types as ligolwtypes
+from glue.ligolw.utils import process
+from glue.lal import LIGOTimeGPS
 
 from laldetchar import git_version
 
@@ -53,7 +56,7 @@ __author__ = \
 __version__ = git_version.id
 __date__ = git_version.date
 
-## addtogroup pkg_py_laldetchar_idq_idq
+## \addtogroup laldetchar_py_idq_idq
 # @{
 
 # common routines for idq codes
@@ -291,8 +294,8 @@ def most_recent_realtime_stride(file_obj):
 #            file_obj.seek(0,0) ### we're at the beginnig of the file
 
     else: ### reached beginning of file without finding realtime stride. We now look forward
-        stride_start = -np.infty ### we wait until we find a new stride or time out
-        stride_end = -np.infty
+        stride_start = -numpy.infty ### we wait until we find a new stride or time out
+        stride_end = -numpy.infty
 
     file_obj.seek(starting_tell, 0) ### go back to where we started
 
@@ -322,7 +325,7 @@ def block_until(t, file_obj, max_wait=600, timeout=600, wait=0.1):
 
         elif "Begin: stride " in line: ### FIXME? this is fragile and could break if we change the logger statements
             ### find the stride start
-            stride_start = float( line.split("Begin: stride ")[-1].split("-")[-1] )
+            stride_start = float( line.split("Begin: stride ")[-1].split("-")[-2] )
 
         waited = 0.0 ### we found a new line, so re-set this counter
 
@@ -394,7 +397,8 @@ def submit_command(
 ....@param command is a list, first element of which is interpretted as an executable
 ....and all others as options and values for that executable.
 ....@param process_name is the name identifying the submitted job.
-....@param dir is directory in which the job is to be executed. 
+....@param dir is directory in which the job is to be executed.
+....@param verbose UNDOCUMENTED.
 ...."""
 
     process = subprocess.Popen(command, stderr=subprocess.PIPE,
@@ -450,10 +454,11 @@ def extract_dq_segments(xmlfile, dq_name):
 ....dq_name is what was given as an --include-segments option to ligolw_segment_query that generated the xmlfileobj"
 ...."""
 
+    lsctables.use_in(ligolw.LIGOLWContentHandler)
     if type(xmlfile) == str:
-        xmldoc = ligolw_utils.load_filename(xmlfile)  # load as filename
+        xmldoc = ligolw_utils.load_filename(xmlfile, contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))  # load as filename
     else:
-        xmldoc = ligolw_utils.load_fileobj(xmlfile)[0]  # laod as file object
+        xmldoc = ligolw_utils.load_fileobj(xmlfile, contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))[0]  # laod as file object
 
     # get segment tables
 
@@ -491,9 +496,9 @@ def extract_lldq_segments(xmlfiles, lldq_name, hoft_name):
 
     good = []
     covered = []
+    lsctables.use_in(ligolw.LIGOLWContentHandler)
     for file in xmlfiles:
-        xmldoc = ligolw_utils.load_filename(file)  # load file
-
+        xmldoc = ligolw_utils.load_filename(file, contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))  # load file
         # get segment tables
 
         sdef = table.get_table(xmldoc,
@@ -533,9 +538,9 @@ def extract_dmt_segments(xmlfiles, dq_name):
 
     good = []
     covered = []
+    lsctables.use_in(ligolw.LIGOLWContentHandler)
     for file in xmlfiles:
-        xmldoc = ligolw_utils.load_filename(file)  # load file
-
+        xmldoc = ligolw_utils.load_filename(file, contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))  # load file
         # get segment tables
 
         sdef = table.get_table(xmldoc,
@@ -997,19 +1002,22 @@ def datfiles_to_roc(
 
         # find all appropriate subdirectories of source_dir and gather datfiles
 
-        datfiles = []
-        for dir in os.listdir(source_dir):
-            try:
-                d = dir.strip('/').split('-')
-                start = int(d[-1])  # last element of d must be castable as an integer
-                if start * 1e5 <= gpsstart < (start + 1) * 1e5 or start \
-                    * 1e5 < gpsstop <= (start + 1) * 1e5:
-                    if not basename or basename in dir:  # check basename
-                        datfiles += gather_datfiles(gpsstart, gpsstop,
-                                classifier=classifier,
-                                source_dir=source_dir + '/' + dir)
-            except:
-                pass
+        datfiles = get_all_files_in_range(source_dir, gpsstart, gpsstop, suffix=".dat")
+        if classifier:
+            datfiles = [datfile for datfile in datfiles if classifier in datfile]
+#        datfiles = []
+#        for dir in os.listdir(source_dir):
+#            try:
+#                d = dir.strip('/').split('-')
+#                start = int(d[-1])  # last element of d must be castable as an integer
+#                if start * 1e5 <= gpsstart < (start + 1) * 1e5 or start \
+#                    * 1e5 < gpsstop <= (start + 1) * 1e5:
+#                    if not basename or basename in dir:  # check basename
+#                        datfiles += gather_datfiles(gpsstart, gpsstop,
+#                                classifier=classifier,
+#                                source_dir=source_dir + '/' + dir)
+#            except:
+#                pass
 
         # gather roc information as tuples: (rank, i)
         # i=1 --> glitch
@@ -1102,18 +1110,22 @@ def datfilename_to_xmldocs(
     Lmap=False,
     Effmap=False,
     classifier=None,
+    gwchan = None,
+    gwtrigs=None,
+    prog = None,
+    options = None,
+    version = None
     ):
     """
-....reads in a datfile and generates a idq_tables.GlitchTable containing the equivalent information, but adds FAP and likelihood as computed by FAPmap and Lmap (expected to be callable)
+....reads in a datfile and generates xml tables containing the equivalent information, but adds FAP and likelihood as computed by FAPmap and Lmap (expected to be callable)
 ........if Lmap is not supplied, attempts to use L = Eff/FAP as estimate with Effmap
 ........==> must supply either Lmap or Effmap
 
-....return gchTable, clnTable
+....return gchxmldoc, clnxmldoc
 ...."""
 
     if not (Lmap or Effmap):
-        raise StandardError('must supply either Lmap or Effmap in idq.datfilename_to_xmldocs()'
-                            )
+        raise StandardError('must supply either Lmap or Effmap in idq.datfilename_to_xmldocs()')
 
     gchxml_doc = ligolw.Document()  # generate the xml document object
     gch_ligolw_element = ligolw.LIGO_LW()  # generate the table-tree element
@@ -1122,19 +1134,47 @@ def datfilename_to_xmldocs(
     clnxml_doc = ligolw.Document()  # repeat for clnTable
     cln_ligolw_element = ligolw.LIGO_LW()
     clnxml_doc.appendChild(cln_ligolw_element)
+	
+    # add process and process_params tables to xml docs
+    gchproc = process.register_to_xmldoc(gchxml_doc, prog, options, version = version)
+    clnproc = process.register_to_xmldoc(clnxml_doc, prog, options, version = version)
 
-    gchTable = lsctables.New(idq_tables.GlitchTable)  # instantiate table objects
-    clnTable = lsctables.New(idq_tables.GlitchTable)
+    gchTable = lsctables.New(idq_tables.IDQGlitchTable)  # instantiate glitch table objects
+    clnTable = lsctables.New(idq_tables.IDQGlitchTable)
+	
+    gchCoincDefTable = lsctables.New(lsctables.CoincDefTable) # instantiate coinc_def table objects
+    clnCoincDefTable = lsctables.New(lsctables.CoincDefTable)
+	
+    gchCoincTable = lsctables.New(lsctables.CoincTable) # instantiate coinc_event table objects
+    clnCoincTable = lsctables.New(lsctables.CoincTable)
+	
+    gchCoincMapTable = lsctables.New(lsctables.CoincMapTable) # instantiate coinc_event_map table objects
+    clnCoincMapTable = lsctables.New(lsctables.CoincMapTable)
+	
+    if gwtrigs:
+        gchSnglBurstTable = lsctables.New(lsctables.SnglBurstTable) # instantiate sngl_burst table for gw triggers
+
+	
 
     gch_ligolw_element.appendChild(gchTable)  # put gchTable into table-tree
     cln_ligolw_element.appendChild(clnTable)
 
+    gch_ligolw_element.appendChild(gchCoincDefTable)  # put coinc_def table into table-tree
+    cln_ligolw_element.appendChild(clnCoincDefTable)
+
+	
+    gch_ligolw_element.appendChild(gchCoincTable)  # put coinc_event table into table-tree
+    cln_ligolw_element.appendChild(clnCoincTable)
+
+    gch_ligolw_element.appendChild(gchCoincMapTable)  # put coinc_map table into table-tree
+    cln_ligolw_element.appendChild(clnCoincMapTable)
+
+    if gwtrigs:
+        gch_ligolw_element.appendChild(gchSnglBurstTable)  # put sngl_burst table into table-tree
+
     # iterate over dat and place info into appropriate tables
 
-    gch_event_id = ilwd.ilwdchar('glicth:event_id:0')
-    cln_event_id = ilwd.ilwdchar('glitch:event_id:0')
-
-        # load data and fill out xml tables
+    # load data and fill out xml tables
 
     if classifier == 'ovl':  # ovl records more info than the other classifiers
 
@@ -1144,8 +1184,6 @@ def datfilename_to_xmldocs(
         clnOVLTable = lsctables.New(idq_tables.OVLDataTable)
         gch_ligolw_element.appendChild(gchOVLTable)  # add tables to document tree
         cln_ligolw_element.appendChild(clnOVLTable)
-        gch_ovl_id = ilwd.ilwdchar('ovl_data:event_id:0')
-        cln_ovl_id = ilwd.ilwdchar('ovl_data:event_id:0')
 
         # read in data
 
@@ -1162,6 +1200,42 @@ def datfilename_to_xmldocs(
                                 columns=['GPS', 'i', 'rank'])  # read in relevant information from datfile
 
     no_events = len(dat['GPS'])
+    no_glitch_events = len([a for a in dat['i'] if float(a) == 1])
+    no_clean_events = len([a for a in dat['i'] if float(a) == 0])
+
+    #generate coinc_def tables
+    if no_glitch_events > 0:
+        if gwtrigs:
+            gchCoincDefTable.get_coinc_def_id(
+                search=idq_tables.IDQCoincDef['idq_glitch<-->sngl_burst'][0],
+                search_coinc_type=idq_tables.IDQCoincDef['idq_glitch<-->sngl_burst'][1],
+                create_new = True,
+                description = 'idq_glitch<-->sngl_burst')
+        if classifier == 'ovl':
+            gchCoincDefTable.get_coinc_def_id(
+                search=idq_tables.IDQCoincDef['idq_glitch<-->ovl_data'][0],\
+                search_coinc_type=idq_tables.IDQCoincDef['idq_glitch<-->ovl_data'][1],\
+                create_new = True,\
+                description = 'idq_glitch<-->ovl_data')
+
+    if no_clean_events > 0:
+        if classifier == 'ovl':
+            clnCoincDefTable.get_coinc_def_id(
+                search=idq_tables.IDQCoincDef['idq_glitch<-->ovl_data'][0],\
+                search_coinc_type=idq_tables.IDQCoincDef['idq_glitch<-->ovl_data'][1],\
+                create_new = True,\
+                description = 'idq_glitch<-->ovl_data')
+
+	
+    #WARNING: Below we associate glitches with GW triggers relying on the fact  that both lists are time ordered and one-to-one.
+    # It is OK as long as dat files are generated from the same GW triggers and order of elements was not changed.
+	
+    # check that the number of glitches in dat file is the same as number of gwtrigs
+    if gwtrigs:
+        if not len(gwtrigs) == no_glitch_events:
+            print "WARNING: Length of gwtrigs does not match number of glitch events in the dat file."
+            print "Glitch <-> GW trigger association will probably be incorrect"
+    glitch_index = 0
     for ind in range(no_events):
         GPS = float(dat['GPS'][ind])
         i = float(dat['i'][ind])
@@ -1169,51 +1243,162 @@ def datfilename_to_xmldocs(
 
         # ## add info to GlitchTable() objects. Commmon for all classifiers
 
-        row = idq_tables.Glitch()  # define row object
+        idq_glitch_row = lsctables.IDQGlitch()  # define row object
 
-        row.ifo = ifo
-        row.gps = int(GPS)  # fill in relevant data
-        row.gps_ns = (GPS - row.gps) * 1e9
-        row.rank = float(rank)
-        row.fap = FAPmap(row.rank)
+        idq_glitch_row.ifo = ifo
+        idq_glitch_row.gps = int(GPS)  # fill in relevant data
+        idq_glitch_row.gps_ns = int( round( GPS % 1.0, ndigits=9 ) * 10**9 )
+        idq_glitch_row.rank = float(rank)
+        idq_glitch_row.fap = FAPmap(idq_glitch_row.rank)
         if Lmap:
-            row.likelihood = Lmap(row.rank)
+            idq_glitch_row.likelihood = Lmap(idq_glitch_row.rank)
         else:
-            if row.fap == 0:
-                if Effmap(row.rank) == 0:
-                    row.likelihood = 0
+            if idq_glitch_row.fap == 0:
+                if Effmap(idq_glitch_row.rank) == 0:
+                    idq_glitch_row.likelihood = 0
                 else:
-                    row.likelihood = numpy.infty
+                    idq_glitch_row.likelihood = numpy.infty
             else:
-                row.likelihood = Effmap(row.rank) / row.fap
+                idq_glitch_row.likelihood = Effmap(idq_glitch_row.rank) / idq_glitch_row.fap
 
                 # ## add info to OVLDataTable() objects
 
         if classifier == 'ovl':
-            ovl_row = idq_tables.OVLData()  # define row object
+            ovl_row = lsctables.OVLData()  # define row object
             ovl_row.ifo = ifo
             ovl_row.aux_channel = dat['vchan'][ind]
             ovl_row.veto_thr = float(dat['vthr'][ind])
             ovl_row.veto_win = float(dat['vwin'][ind])
 
-        # ## update rows, etc. Do this all at once so the index counters don't get confused
+        # ## define coincs, update rows, etc. Do this all at once so the index counters don't get confused
 
-        if i:  # glitch sample
-            row.event_id = gch_event_id
-            gchTable.append(row)
+        if i == 1:  # glitch sample
+            idq_glitch_row.event_id = gchTable.get_next_id()
+            gchTable.append(idq_glitch_row)
+            if gwtrigs: # add gw trigger to sngl_burst table and add idq_glitch<-->sngl_burst coinc
+                sngl_burst_row = lsctables.SnglBurst()
+                sngl_burst_columns = lsctables.SnglBurstTable.validcolumns
+                gw_trig = gwtrigs[glitch_index] # columns for kw triggers are defined in event.py
+                sngl_burst_row.process_id = gchproc.process_id
+                sngl_burst_row.ifo = ifo
+                sngl_burst_row.search = "kleineWelle"
+                sngl_burst_row.channel = gwchan
+                sngl_burst_row.set_start(LIGOTimeGPS(gw_trig[0]))
+                #sngl_burst_row.start_time = int(gw_trig[0])
+                #sngl_burst_row.start_time_ns = int( round( gw_trig[0] % 1.0, ndigits=9 ) * 10**9 )
+                sngl_burst_row.set_peak(LIGOTimeGPS(gw_trig[2]))
+                #sngl_burst_row.peak_time = int(gw_trig[2])
+                #sngl_burst_row.peak_time_ns = int( round( gw_trig[2] % 1.0, ndigits=9 ) * 10**9 )
+                sngl_burst_row.set_stop(LIGOTimeGPS(gw_trig[1]))
+                sngl_burst_row.duration = (sngl_burst_row.stop_time - sngl_burst_row.start_time) + \
+                                          (sngl_burst_row.stop_time_ns - sngl_burst_row.start_time_ns)*10**(-9)
+                sngl_burst_row.central_freq = gw_trig[3]
+                sngl_burst_row.snr = math.sqrt(gw_trig[-3] - gw_trig[-2])
+                sngl_burst_row.confidence = gw_trig[7]
+                sngl_burst_row.event_id = gchSnglBurstTable.get_next_id()
+                # define list of columns which we filled in
+                used_valid_columns = ['process_id', 'ifo', 'search', 'channel', 'start_time', 'start_time_ns', 'stop_time', 'stop_time_ns',
+                                      'peak_time', 'peak_time_ns', 'duration', 'central_freq',
+                                      'snr', 'confidence', 'event_id']
+                # fill all other columns with None
+                for (column, type) in sngl_burst_columns.iteritems():
+                    if not column in used_valid_columns: setattr(sngl_burst_row, column, None)
+                gchSnglBurstTable.append(sngl_burst_row)
+				
+                # creat idq_glitch<-->sngl_burst coinc event
+                coinc_row = lsctables.Coinc()
+                coinc_row.process_id = gchproc.process_id
+                coinc_row.coinc_def_id = gchCoincDefTable.get_coinc_def_id(
+                    search=idq_tables.IDQCoincDef['idq_glitch<-->sngl_burst'][0],\
+                    search_coinc_type=idq_tables.IDQCoincDef['idq_glitch<-->sngl_burst'][1],\
+                    description = 'idq_glitch<-->sngl_burst'
+                    )
+                coinc_row.time_slide_id = lsctables.TimeSlideID(0)
+                coinc_row.instruments = ifo
+                coinc_row.nevents = 1
+                coinc_row.likelihood = idq_glitch_row.likelihood
+                coinc_row.coinc_event_id = gchCoincTable.get_next_id()
+                gchCoincTable.append(coinc_row)
+				
+                # add entries to coinc_map table
+                coinc_map_row = lsctables.CoincMap()
+                coinc_map_row.coinc_event_id = coinc_row.coinc_event_id
+                coinc_map_row.table_name = table.StripTableName(idq_tables.IDQGlitchTable.tableName)
+                coinc_map_row.event_id = idq_glitch_row.event_id
+                gchCoincMapTable.append(coinc_map_row)
+				
+                coinc_map_row = lsctables.CoincMap()
+                coinc_map_row.coinc_event_id = coinc_row.coinc_event_id
+                coinc_map_row.table_name = table.StripTableName(lsctables.SnglBurstTable.tableName)
+                coinc_map_row.event_id = sngl_burst_row.event_id
+                gchCoincMapTable.append(coinc_map_row)
+                
             if classifier == 'ovl':
-                ovl_row.event_id = gch_ovl_id
+                ovl_row.event_id = gchOVLTable.get_next_id()
                 gchOVLTable.append(ovl_row)
-                gch_ovl_id += 1
-            gch_event_id += 1
+				
+                # creat idq_glitch<-->ovl_data coinc event
+                coinc_row = lsctables.Coinc()
+                coinc_row.process_id = gchproc.process_id
+                coinc_row.coinc_def_id = gchCoincDefTable.get_coinc_def_id(
+                    search=idq_tables.IDQCoincDef['idq_glitch<-->ovl_data'][0],\
+                    search_coinc_type=idq_tables.IDQCoincDef['idq_glitch<-->ovl_data'][1],\
+                    description = 'idq_glitch<-->ovl_data'
+                    )
+                coinc_row.time_slide_id = lsctables.TimeSlideID(0)
+                coinc_row.instruments = ifo
+                coinc_row.nevents = 1
+                coinc_row.likelihood = idq_glitch_row.likelihood
+                coinc_row.coinc_event_id = gchCoincTable.get_next_id()
+                gchCoincTable.append(coinc_row)
+
+                # add entries to coinc_map table
+                coinc_map_row = lsctables.CoincMap()
+                coinc_map_row.coinc_event_id = coinc_row.coinc_event_id
+                coinc_map_row.table_name = table.StripTableName(idq_tables.IDQGlitchTable.tableName)
+                coinc_map_row.event_id = idq_glitch_row.event_id
+                gchCoincMapTable.append(coinc_map_row)
+				
+                coinc_map_row = lsctables.CoincMap()
+                coinc_map_row.coinc_event_id = coinc_row.coinc_event_id
+                coinc_map_row.table_name = table.StripTableName(idq_tables.OVLDataTable.tableName)
+                coinc_map_row.event_id = ovl_row.event_id
+                gchCoincMapTable.append(coinc_map_row)
+				
+            glitch_index += 1
         else:
-            row.event_id = cln_event_id
-            clnTable.append(row)
+            idq_glitch_row.event_id = clnTable.get_next_id()
+            clnTable.append(idq_glitch_row)
             if classifier == 'ovl':
-                ovl_row.event_id = cln_ovl_id
+                ovl_row.event_id = clnOVLTable.get_next_id()
                 clnOVLTable.append(ovl_row)
-                cln_ovl_id += 1
-            cln_event_id += 1
+                # creat idq_glitch<-->ovl_data coinc event
+                coinc_row = lsctables.Coinc()
+                coinc_row.process_id = clnproc.process_id
+                coinc_row.coinc_def_id = clnCoincDefTable.get_coinc_def_id(
+                    search=idq_tables.IDQCoincDef['idq_glitch<-->ovl_data'][0],\
+                    search_coinc_type=idq_tables.IDQCoincDef['idq_glitch<-->ovl_data'][1],\
+                    description = 'idq_glitch<-->ovl_data'
+                    )
+                coinc_row.time_slide_id = lsctables.TimeSlideID(0)
+                coinc_row.instruments = ifo
+                coinc_row.nevents = 1
+                coinc_row.likelihood = idq_glitch_row.likelihood
+                coinc_row.coinc_event_id = clnCoincTable.get_next_id()
+                clnCoincTable.append(coinc_row)
+
+                # add entries to coinc_map table
+                coinc_map_row = lsctables.CoincMap()
+                coinc_map_row.coinc_event_id = coinc_row.coinc_event_id
+                coinc_map_row.table_name = table.StripTableName(idq_tables.IDQGlitchTable.tableName)
+                coinc_map_row.event_id = idq_glitch_row.event_id
+                clnCoincMapTable.append(coinc_map_row)
+				
+                coinc_map_row = lsctables.CoincMap()
+                coinc_map_row.coinc_event_id = coinc_row.coinc_event_id
+                coinc_map_row.table_name = table.StripTableName(idq_tables.OVLDataTable.tableName)
+                coinc_map_row.event_id = ovl_row.event_id
+                clnCoincMapTable.append(coinc_map_row)
 
     return (gchxml_doc, clnxml_doc)
 
@@ -1256,20 +1441,20 @@ def datfiles_to_chanlist(
     # pick up each classifier separately
 
     for classifier in classifiers:
-        print classifier
-        datfiles = []
-        for dir in os.listdir(source_dir):
-            try:
-                d = dir.strip('/').split('-')
-                start = int(d[-1])  # expect a particular directory structure
-                if start * 1e5 <= gpsstart < (start + 1) * 1e5 or start \
-                    * 1e5 < gpsstop <= (start + 1) * 1e5:
-                    if not basename or basename in dir:
-                        datfiles += gather_datfiles(gpsstart, gpsstop,
-                                classifier=classifier,
-                                source_dir=source_dir + '/' + dir)
-            except:
-                pass
+        datfiles = [datfile for datfile in get_all_files_in_range(source_dir, gpsstart, gpsstop, suffix=".dat") if classifier in datfile]
+#        datfiles = []
+#        for dir in os.listdir(source_dir):
+#            try:
+#                d = dir.strip('/').split('-')
+#                start = int(d[-1])  # expect a particular directory structure
+#                if start * 1e5 <= gpsstart < (start + 1) * 1e5 or start \
+#                    * 1e5 < gpsstop <= (start + 1) * 1e5:
+#                    if not basename or basename in dir:
+#                        datfiles += gather_datfiles(gpsstart, gpsstop,
+#                                classifier=classifier,
+#                                source_dir=source_dir + '/' + dir)
+#            except:
+#                pass
 
         # gather chan performance measures
 
@@ -1462,20 +1647,20 @@ def datfiles_to_ranklist(
     # pick up each classifier separately
 
     for classifier in classifiers:
-        print classifier
-        datfiles = []
-        for dir in os.listdir(source_dir):
-            try:
-                d = dir.strip('/').split('-')
-                start = int(d[-1])  # expect a particular directory structure
-                if start * 1e5 <= gpsstart < (start + 1) * 1e5 or start \
-                    * 1e5 < gpsstop <= (start + 1) * 1e5:
-                    if not basename or basename in dir:
-                        datfiles += gather_datfiles(gpsstart, gpsstop,
-                                classifier=classifier,
-                                source_dir=source_dir + '/' + dir)
-            except:
-                pass
+        
+        datfiles = [datfile for datfile in get_all_files_in_range(source_dir, gpsstart, gpsstop, suffix=".dat") if classifier in datfile]
+#        for dir in os.listdir(source_dir):
+#            try:
+#                d = dir.strip('/').split('-')
+#                start = int(d[-1])  # expect a particular directory structure
+#                if start * 1e5 <= gpsstart < (start + 1) * 1e5 or start \
+#                    * 1e5 < gpsstop <= (start + 1) * 1e5:
+#                    if not basename or basename in dir:
+#                        datfiles += gather_datfiles(gpsstart, gpsstop,
+#                                classifier=classifier,
+#                                source_dir=source_dir + '/' + dir)
+#            except:
+#                pass
 
         # gather chan performance measures
 
@@ -1641,20 +1826,20 @@ def datfiles_to_configlist(
     # pick up each classifier separately
 
     for classifier in classifiers:
-        print classifier
-        datfiles = []
-        for dir in os.listdir(source_dir):
-            try:
-                d = dir.strip('/').split('-')
-                start = int(d[-1])  # expect a particular directory structure
-                if start * 1e5 <= gpsstart < (start + 1) * 1e5 or start \
-                    * 1e5 < gpsstop <= (start + 1) * 1e5:
-                    if not basename or basename in dir:
-                        datfiles += gather_datfiles(gpsstart, gpsstop,
-                                classifier=classifier,
-                                source_dir=source_dir + '/' + dir)
-            except:
-                pass
+        
+        datfiles = [datfile for datfile in get_all_files_in_range(source_dir, gpsstart, gpsstop, suffix=".dat") if classifier in datfile]
+#        for dir in os.listdir(source_dir):
+#            try:
+#                d = dir.strip('/').split('-')
+#                start = int(d[-1])  # expect a particular directory structure
+#                if start * 1e5 <= gpsstart < (start + 1) * 1e5 or start \
+#                    * 1e5 < gpsstop <= (start + 1) * 1e5:
+#                    if not basename or basename in dir:
+#                        datfiles += gather_datfiles(gpsstart, gpsstop,
+#                                classifier=classifier,
+#                                source_dir=source_dir + '/' + dir)
+#            except:
+#                pass
 
         # gather chan performance measures
 
@@ -2152,14 +2337,11 @@ def build_auxmvc_vectors(
         print 'Number of triggers in the main channel before thresholding:', \
             len(trigger_dict[main_channel])
     else:
-
         # empty trig-dictionary, raise an error
-
         raise StandardError('Empty trig-dictionary. Can not build auxmvc vectors.'
                             )
 
     # use only channels from the channels file, if provided
-
     if channels:
         selected_channels = event.read_channels_from_file(channels)
         trigger_dict.keep_channels(selected_channels)
@@ -2175,22 +2357,18 @@ def build_auxmvc_vectors(
 
     if unsafe_channels:
         unsafe_channels = event.read_channels_from_file(unsafe_channels)
-        trigger_dict.remove_channels(unsafe_channels)
+        trigger_dict.remove_channels([channel for channel in unsafe_channels if channel != main_channel]) ### never remove the main channel
 
     # keep only the triggers from the [gps_start_time, gps_end_time] segment
 
     # first keep all triggers from the segment expanded by the time concidence window, so that not to loose coincidences
-
     trigger_dict.include([[gps_start_time - time_window, gps_end_time
                          + time_window]])
 
     # then in the main channel keep triggers that fall within the segment.
-
-    trigger_dict.include([[gps_start_time, gps_end_time]],
-                         channels=[main_channel])
+    trigger_dict.include([[gps_start_time, gps_end_time]], channels=[main_channel])
 
     # keep only triggers from the science segments if given........
-
     if science_segments:
         science_segments = event.andsegments([[gps_start_time
                 - time_window, gps_end_time + time_window]],
@@ -2198,20 +2376,17 @@ def build_auxmvc_vectors(
         trigger_dict.include(science_segments)
 
     # apply significance threshold to the triggers from the main channel
-
     trigger_dict.apply_signif_threshold(channels=[main_channel],
             threshold=signif_threshold)
     print 'Number of triggers in the main channel after thresholding:', \
         len(trigger_dict[main_channel])
 
     # construct glitch auxmvc vectors
-
     aux_glitch_vecs = event.build_auxmvc_vectors(trigger_dict,
             main_channel=main_channel,
             coincidence_time_window=time_window)
 
     # apply upper limit on the number of glitch samples if given
-
     if max_glitch_samples:
         if len(aux_glitch_vecs) > max_glitch_samples:
             aux_glitch_vecs = aux_glitch_vecs[-max_glitch_samples:]
@@ -2220,7 +2395,6 @@ def build_auxmvc_vectors(
         if clean_samples_rate:
 
             # generate random times for clean samples
-
             if science_segments:
                 clean_times = event.randomrate(clean_samples_rate,
                         event.andsegments([[gps_start_time
@@ -2234,7 +2408,6 @@ def build_auxmvc_vectors(
             clean_times = []
 
     # construct clean auxmvc vectors
-
     aux_clean_vecs = event.build_auxmvc_vectors(
         trigger_dict,
         main_channel=main_channel,
@@ -2262,7 +2435,6 @@ def build_auxmvc_vectors(
             KWAuxCleanTriggers=aux_clean_vecs)
 
     # save MVSC evaluation set in file........
-
     auxmvc_utils.WriteMVSCTriggers(mvsc_evaluation_set,
                                    output_filename=output_file_name,
                                    Classified=False)
@@ -2308,7 +2480,7 @@ def build_auxmvc_vector_at_gps(
 
     if unsafe_channels:
         unsafe_channels = event.read_channels_from_file(unsafe_channels)
-        trigger_dict.remove_channels(unsafe_channels)
+        trigger_dict.remove_channels([channel for channel in unsafe_channels if channel != main_channel]) ### never remove the main channel
 
         # keep only the triggers from the [gps_start_time, gps_end_time] segment
 

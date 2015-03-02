@@ -2,19 +2,25 @@
  * (C) John Veitch, 2010
  */
 
-#include <lal/LALInferenceNestedSampler.h>
-#include <lal/LALInferencePrior.h>
-#include <lal/LALInferenceLikelihood.h>
-#include <lal/LALInferenceProposal.h>
+#include <config.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <float.h>
+#include <signal.h>
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
 #include <lal/TimeDelay.h>
 #include <lal/LALInferenceConfig.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALInferenceReadData.h>
 #include <signal.h>
-
+#include <lal/LALInferenceNestedSampler.h>
+#include <lal/LALInferencePrior.h>
+#include <lal/LALInferenceLikelihood.h>
+#include <lal/LALInferenceProposal.h>
 #ifdef HAVE_LIBLALXML
 #include <lal/LALInferenceXML.h>
 #endif
@@ -522,6 +528,9 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
       
   if(!LALInferenceCheckVariable(runState->algorithmParams,"Nmcmc")){
     INT4 tmp=MAX_MCMC;
+    if(LALInferenceGetProcParamVal(runState->commandLine,"--Nmcmcinitial")){
+      tmp=atoi(LALInferenceGetProcParamVal(runState->commandLine,"--Nmcmcinitial")->value);
+    }
     LALInferenceAddVariable(runState->algorithmParams,"Nmcmc",&tmp,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_OUTPUT);
   }
   s=initNSintegralState(Nruns,Nlive);
@@ -856,7 +865,7 @@ LALInferenceVariables *LALInferenceComputeAutoCorrelation(LALInferenceRunState *
   REAL8 **data_array=NULL;
   REAL8 **acf_array=NULL;
   LALInferenceVariableItem *this;
-  INT4 thinning=10;
+  INT4 thinning=1;
   max_iterations/=thinning;
   /* Find the number and names of variables */
   for(this=runState->currentParams->head;this;this=this->next) if(this->vary!=LALINFERENCE_PARAM_FIXED && this->vary!=LALINFERENCE_PARAM_OUTPUT && this->type==LALINFERENCE_REAL8_t) nPar++;
@@ -1487,7 +1496,6 @@ static void SetupEigenProposals(LALInferenceRunState *runState)
 
   /* Set up eigenvectors and eigenvalues. */
   gsl_matrix *covCopy = gsl_matrix_alloc(N,N);
-  eVectors = gsl_matrix_alloc(N,N);
   eValues = gsl_vector_alloc(N);
   gsl_eigen_symmv_workspace *ws = gsl_eigen_symmv_alloc(N);
   int gsl_status;
@@ -1502,8 +1510,10 @@ static void SetupEigenProposals(LALInferenceRunState *runState)
     eigenValues->data[i] = gsl_vector_get(eValues,i);
   }
   
-  LALInferenceAddVariable(runState->proposalArgs, "covarianceEigenvectors", &eVectors, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED);
-  LALInferenceAddVariable(runState->proposalArgs, "covarianceEigenvalues", &eigenValues, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED);
+  if(!LALInferenceCheckVariable(runState->proposalArgs,"covarianceEigenvectors"))
+    LALInferenceAddVariable(runState->proposalArgs, "covarianceEigenvectors", &eVectors, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED);
+  if(!LALInferenceCheckVariable(runState->proposalArgs,"covarianceEigenvalues"))
+    LALInferenceAddVariable(runState->proposalArgs, "covarianceEigenvalues", &eigenValues, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(runState->proposalArgs,"covarianceMatrix",cvm,LALINFERENCE_gslMatrix_t,LALINFERENCE_PARAM_OUTPUT);
   
   gsl_matrix_free(covCopy);

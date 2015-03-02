@@ -20,6 +20,7 @@
 
 /**
  * \file ninja.c
+ * \ingroup lalapps_inspiral
  * \author Badri Krishnan
  * \brief Code for parsing and selecting numerical relativity
  * waves in frame files
@@ -29,7 +30,6 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
 #include <string.h>
 
 #include <lalapps.h>

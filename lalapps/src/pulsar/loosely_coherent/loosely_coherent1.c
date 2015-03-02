@@ -1,6 +1,6 @@
 /**
  * \file
- * \ingroup pulsarApps
+ * \ingroup lalapps_pulsar_loosely_coherent
  * \author Vladimir Dergachev
  */
 

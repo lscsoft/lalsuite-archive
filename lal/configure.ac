@@ -1,93 +1,82 @@
 AC_PREREQ([2.63])
-AC_INIT([LAL],[6.13.2.1],[lal-discuss@ligo.org])
+AC_INIT([LAL],[6.13.4.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([include/config.h lib/lal/LALConfig.h])
 AC_CONFIG_SRCDIR([packages/std/include/LALStdio.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
-  lal.spec \
-  lal.pc \
-  lalsupport.pc \
   Makefile \
   debian/Makefile \
+  doxygen/Makefile \
+  doxygen/doxygen.cfg \
   include/Makefile \
   include/lal/Makefile \
+  lal.pc \
+  lal.spec \
+  lalsupport.pc \
   lib/Makefile \
   lib/lal/LALVCSInfo.c \
   lib/lal/LALVCSInfo.h \
   lib/lal/Makefile \
   lib/lalsupport/Makefile \
-  lib/lalsupport/doc/Makefile \
   lib/lalsupport/include/Makefile \
   lib/lalsupport/src/Makefile \
   lib/lalsupport/test/Makefile \
-  python/Makefile \
-  python/lal/Makefile \
-  python/lal/__init__.py \
-  python/lal/utils/Makefile \
-  python/lal/spectrum/Makefile \
-  swig/Makefile \
   packages/Makefile \
-  packages/std/Makefile \
-  packages/std/doc/Makefile \
-  packages/std/include/Makefile
-  packages/std/src/Makefile \
-  packages/std/test/Makefile \
-  packages/tools/Makefile \
-  packages/tools/doc/Makefile \
-  packages/tools/include/Makefile \
-  packages/tools/src/Makefile \
-  packages/tools/test/Makefile \
-  packages/factories/Makefile \
-  packages/factories/doc/Makefile \
-  packages/factories/include/Makefile \
-  packages/factories/src/Makefile \
-  packages/factories/test/Makefile \
-  packages/vectorops/Makefile \
-  packages/vectorops/doc/Makefile \
-  packages/vectorops/include/Makefile \
-  packages/vectorops/src/Makefile \
-  packages/vectorops/test/Makefile \
-  packages/utilities/Makefile \
-  packages/utilities/doc/Makefile \
-  packages/utilities/include/Makefile \
-  packages/utilities/src/Makefile \
-  packages/utilities/test/Makefile \
-  packages/stats/Makefile \
-  packages/stats/doc/Makefile \
-  packages/stats/include/Makefile \
-  packages/stats/src/Makefile \
-  packages/stats/test/Makefile \
-  packages/inject/Makefile \
-  packages/inject/doc/Makefile \
-  packages/inject/include/Makefile \
-  packages/inject/src/Makefile \
-  packages/inject/test/Makefile \
   packages/date/Makefile \
-  packages/date/doc/Makefile \
   packages/date/include/Makefile \
   packages/date/src/Makefile \
   packages/date/test/Makefile \
-  packages/tdfilter/Makefile \
-  packages/tdfilter/doc/Makefile \
-  packages/tdfilter/include/Makefile \
-  packages/tdfilter/src/Makefile \
-  packages/tdfilter/test/Makefile \
-  packages/window/Makefile \
-  packages/window/doc/Makefile \
-  packages/window/include/Makefile \
-  packages/window/src/Makefile \
-  packages/window/test/Makefile \
+  packages/factories/Makefile \
+  packages/factories/include/Makefile \
+  packages/factories/src/Makefile \
+  packages/factories/test/Makefile \
   packages/fft/Makefile \
-  packages/fft/doc/Makefile \
   packages/fft/include/Makefile \
   packages/fft/src/Makefile \
   packages/fft/test/Makefile \
+  packages/inject/Makefile \
+  packages/inject/include/Makefile \
+  packages/inject/src/Makefile \
+  packages/inject/test/Makefile \
   packages/noisemodels/Makefile \
-  packages/noisemodels/doc/Makefile \
   packages/noisemodels/include/Makefile \
   packages/noisemodels/src/Makefile \
-  packages/noisemodels/test/Makefile
+  packages/noisemodels/test/Makefile \
+  packages/stats/Makefile \
+  packages/stats/include/Makefile \
+  packages/stats/src/Makefile \
+  packages/stats/test/Makefile \
+  packages/std/Makefile \
+  packages/std/include/Makefile
+  packages/std/src/Makefile \
+  packages/std/test/Makefile \
+  packages/tdfilter/Makefile \
+  packages/tdfilter/include/Makefile \
+  packages/tdfilter/src/Makefile \
+  packages/tdfilter/test/Makefile \
+  packages/tools/Makefile \
+  packages/tools/include/Makefile \
+  packages/tools/src/Makefile \
+  packages/tools/test/Makefile \
+  packages/utilities/Makefile \
+  packages/utilities/include/Makefile \
+  packages/utilities/src/Makefile \
+  packages/utilities/test/Makefile \
+  packages/vectorops/Makefile \
+  packages/vectorops/include/Makefile \
+  packages/vectorops/src/Makefile \
+  packages/vectorops/test/Makefile \
+  packages/window/Makefile \
+  packages/window/include/Makefile \
+  packages/window/src/Makefile \
+  packages/window/test/Makefile \
+  python/Makefile \
+  python/lal/Makefile \
+  python/lal/__init__.py \
+  python/lal/spectrum/Makefile \
+  python/lal/utils/Makefile \
+  swig/Makefile \
 ])
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects color-tests parallel-tests])
 
@@ -151,6 +140,9 @@ LALSUITE_ENABLE_NIGHTLY
 # enable SWIG wrapping modules
 LALSUITE_ENABLE_SWIG
 
+# enable Doxygen documentation
+LALSUITE_ENABLE_DOXYGEN
+
 # define version/configure info
 LALSUITE_VERSION_CONFIGURE_INFO
 
@@ -162,6 +154,9 @@ AM_SILENT_RULES([yes])
 
 # check for required compilers
 LALSUITE_PROG_COMPILERS
+
+# check for SIMD extensions
+LALSUITE_WITH_SIMD
 
 # check for pthreads
 lal_pthread_available="yes"
@@ -206,7 +201,7 @@ esac
 
 # check for system headers files
 AC_HEADER_STDC
-AC_CHECK_HEADERS([sys/time.h sys/resource.h unistd.h getopt.h malloc.h regex.h glob.h])
+AC_CHECK_HEADERS([sys/time.h sys/resource.h unistd.h malloc.h regex.h glob.h])
 AC_CHECK_HEADERS([stdint.h],,[AC_MSG_ERROR([could not find stdint.h])])
 AC_CHECK_HEADERS([inttypes.h],,[AC_MSG_ERROR([could not find inttypes.h])])
 AC_MSG_CHECKING([for gethostname prototype in unistd.h])
@@ -322,6 +317,9 @@ fi
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG
 
+# configure Doxygen documentation
+LALSUITE_USE_DOXYGEN
+
 # checks for typedefs, structures, and compiler characteristics
 AC_C_BIGENDIAN
 AC_C_CONST
@@ -331,16 +329,7 @@ AC_TYPE_SSIZE_T
 AC_HEADER_TIME
 
 # checks for library functions
-AC_CHECK_FUNCS([gmtime_r localtime_r])
-AC_CHECK_FUNCS([stat],,[AC_MSG_ERROR([could not find the stat() function])])
-AC_CHECK_FUNCS([getopt],,[AC_MSG_ERROR([could not find the getopt() function])])
-AC_CHECK_FUNCS([getopt_long],,[AC_MSG_ERROR([could not find the getopt_long() function])])
-AC_CHECK_FUNCS([putenv])
-AC_CHECK_FUNCS([posix_memalign])
-
-# set package documentation install path
-pkgdocdir="\${prefix}/share/doc/${PACKAGE}-${VERSION}"
-AC_SUBST([pkgdocdir])
+AC_CHECK_FUNCS([gmtime_r localtime_r stat putenv posix_memalign])
 
 # set automake conditionals
 AM_CONDITIONAL([INTELFFT],[test x$intelfft = xtrue])
@@ -369,10 +358,12 @@ LAL has now been successfully configured:
 
 * Python support is $PYTHON_ENABLE_VAL
 * CUDA support is $CUDA_ENABLE_VAL
+* SIMD extensions are $SIMD_ENABLE_VAL
 * BOINC support is $BOINC_ENABLE_VAL
 * SWIG binding generation is $SWIG_GENERATE_ENABLE_VAL
 * SWIG bindings for Octave are $SWIG_BUILD_OCTAVE_ENABLE_VAL
 * SWIG bindings for Python are $SWIG_BUILD_PYTHON_ENABLE_VAL
+* Doxygen documentation is $DOXYGEN_ENABLE_VAL
 
 and will be installed under the directory:
 

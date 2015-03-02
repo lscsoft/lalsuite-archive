@@ -1,4 +1,5 @@
 //
+// Copyright (C) 2014 Reinhard Prix
 // Copyright (C) 2012, 2013, 2014 Karl Wette
 // Copyright (C) 2007 Chris Messenger
 // Copyright (C) 2006 John T. Whelan, Badri Krishnan
@@ -25,27 +26,15 @@
 #include <stdio.h>
 #include <math.h>
 
-#include <gsl/gsl_vector.h>
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_blas.h>
-#include <gsl/gsl_permutation.h>
-#include <gsl/gsl_linalg.h>
-
 #include <lal/ComputeFstat.h>
 #include <lal/Factorial.h>
-#include <lal/ComplexFFT.h>
 #include <lal/TimeSeries.h>
 #include <lal/LALComputeAM.h>
-#include <lal/ExtrapolatePulsarSpins.h>
 #include <lal/LFTandTSutils.h>
-#include <lal/CWFastMath.h>
+#include <lal/SinCosLUT.h>
 #include <lal/NormalizeSFTRngMed.h>
 
 // ----- macro definitions
-#define MYMAX(x,y) ( (x) > (y) ? (x) : (y) )
-#define MYMIN(x,y) ( (x) < (y) ? (x) : (y) )
-
-#define MYSIGN(x) ( ((x) < 0) ? (-1.0):(+1.0) )
 #define SQ(x) ( (x) * (x) )
 
 // ---------- Internal struct definitions ---------- //
@@ -53,9 +42,9 @@
 // Common input data for F-statistic methods
 typedef struct {
   MultiLALDetector detectors;                           // List of detectors
-  MultiLIGOTimeGPSVector *timestamps;                   // Multi-detector list of SFT timestamps
-  MultiNoiseWeights *noiseWeights;                      // Multi-detector noise weights
-  MultiDetectorStateSeries *detectorStates;             // Multi-detector state series
+  MultiLIGOTimeGPSVector *multiTimestamps;              // Multi-detector list of SFT timestamps
+  MultiNoiseWeights *multiNoiseWeights;                 // Multi-detector noise weights
+  MultiDetectorStateSeries *multiDetectorStates;        // Multi-detector state series
   const EphemerisData *ephemerides;                     // Ephemerides for the time-span of the SFTs
   SSBprecision SSBprec;                                 // Barycentric transformation precision
   FstatMethodType FstatMethod;                          // Method to use for computing the F-statistic
@@ -125,16 +114,14 @@ XLALCreateFstatInputVector ( const UINT4 length            ///< [in] Length of t
                              )
 {
   // Allocate and initialise vector container
-  FstatInputVector* inputs = XLALCalloc ( 1, sizeof(*inputs) );
-  XLAL_CHECK_NULL ( inputs != NULL, XLAL_ENOMEM);
+  FstatInputVector* inputs;
+  XLAL_CHECK_NULL ( (inputs = XLALCalloc ( 1, sizeof(*inputs))) != NULL, XLAL_ENOMEM );
   inputs->length = length;
 
   // Allocate and initialise vector data
-  if (inputs->length > 0)
-    {
-      inputs->data = XLALCalloc ( inputs->length, sizeof(inputs->data[0]) );
-      XLAL_CHECK_NULL(inputs->data != NULL, XLAL_ENOMEM);
-    }
+  if (inputs->length > 0) {
+    XLAL_CHECK_NULL ( (inputs->data = XLALCalloc ( inputs->length, sizeof(inputs->data[0]) )) != NULL, XLAL_ENOMEM );
+  }
 
   return inputs;
 
@@ -173,16 +160,14 @@ XLALCreateFstatAtomVector ( const UINT4 length ///< [in] Length of the #FstatAto
                             )
 {
   // Allocate and initialise vector container
-  FstatAtomVector* atoms = XLALCalloc ( 1, sizeof(*atoms) );
-  XLAL_CHECK_NULL ( atoms != NULL, XLAL_ENOMEM );
+  FstatAtomVector* atoms;
+  XLAL_CHECK_NULL ( (atoms = XLALCalloc ( 1, sizeof(*atoms) )) != NULL, XLAL_ENOMEM );
   atoms->length = length;
 
   // Allocate and initialise vector data
-  if (atoms->length > 0)
-    {
-      atoms->data = XLALCalloc (atoms->length, sizeof(atoms->data[0]) );
-      XLAL_CHECK_NULL ( atoms->data != NULL, XLAL_ENOMEM );
-    }
+  if (atoms->length > 0) {
+    XLAL_CHECK_NULL ( (atoms->data = XLALCalloc (atoms->length, sizeof(atoms->data[0]) )) != NULL, XLAL_ENOMEM );
+  }
 
   return atoms;
 
@@ -216,16 +201,14 @@ XLALCreateMultiFstatAtomVector ( const UINT4 length   ///< [in] Length of the #M
                                  )
 {
   // Allocate and initialise vector container
-  MultiFstatAtomVector* multiAtoms = XLALCalloc(1, sizeof(*multiAtoms));
-  XLAL_CHECK_NULL ( multiAtoms != NULL, XLAL_ENOMEM );
+  MultiFstatAtomVector* multiAtoms;
+  XLAL_CHECK_NULL ( (multiAtoms = XLALCalloc(1, sizeof(*multiAtoms))) != NULL, XLAL_ENOMEM );
   multiAtoms->length = length;
 
   // Allocate and initialise vector data
-  if ( multiAtoms->length > 0 )
-    {
-      multiAtoms->data = XLALCalloc ( multiAtoms->length, sizeof(multiAtoms->data[0]) );
-      XLAL_CHECK_NULL ( multiAtoms->data != NULL, XLAL_ENOMEM );
-    }
+  if ( multiAtoms->length > 0 ) {
+    XLAL_CHECK_NULL ( (multiAtoms->data = XLALCalloc ( multiAtoms->length, sizeof(multiAtoms->data[0]) )) != NULL, XLAL_ENOMEM );
+  }
 
   return multiAtoms;
 
@@ -280,23 +263,22 @@ XLALCreateFstatInput ( const SFTCatalog *SFTcatalog,		  ///< [in] Catalog of SFT
                        )
 {
   // Check catalog
-  XLAL_CHECK_NULL ( SFTcatalog != NULL, XLAL_EFAULT );
+  XLAL_CHECK_NULL ( SFTcatalog != NULL, XLAL_EINVAL );
   XLAL_CHECK_NULL ( SFTcatalog->length > 0, XLAL_EINVAL );
-  XLAL_CHECK_NULL ( SFTcatalog->data != NULL, XLAL_EFAULT );
-  for ( UINT4 i = 1; i < SFTcatalog->length; ++i )
-    {
-      XLAL_CHECK_NULL ( (SFTcatalog->data[0].locator == NULL) == (SFTcatalog->data[i].locator == NULL), XLAL_EINVAL,
-                  "All 'locator' fields of SFTDescriptors in 'SFTcatalog' must be either NULL or !NULL." );
-    }
+  XLAL_CHECK_NULL ( SFTcatalog->data != NULL, XLAL_EINVAL );
+  for ( UINT4 i = 1; i < SFTcatalog->length; ++i ) {
+    XLAL_CHECK_NULL ( (SFTcatalog->data[0].locator == NULL) == (SFTcatalog->data[i].locator == NULL), XLAL_EINVAL,
+                      "All 'locator' fields of SFTDescriptors in 'SFTcatalog' must be either NULL or !NULL." );
+  }
 
   // Check remaining parameters
   XLAL_CHECK_NULL ( isfinite(minCoverFreq) && minCoverFreq > 0, XLAL_EINVAL );
   XLAL_CHECK_NULL ( isfinite(maxCoverFreq) && maxCoverFreq > 0, XLAL_EINVAL );
   XLAL_CHECK_NULL ( maxCoverFreq > minCoverFreq, XLAL_EINVAL );
   XLAL_CHECK_NULL ( injectSources == NULL || injectSources->length > 0, XLAL_EINVAL );
-  XLAL_CHECK_NULL ( injectSources == NULL || injectSources->data != NULL, XLAL_EFAULT );
-  XLAL_CHECK_NULL ( ephemerides != NULL, XLAL_EFAULT );
-  XLAL_CHECK_NULL ( extraParams != NULL, XLAL_EFAULT );
+  XLAL_CHECK_NULL ( injectSources == NULL || injectSources->data != NULL, XLAL_EINVAL );
+  XLAL_CHECK_NULL ( ephemerides != NULL, XLAL_EINVAL );
+  XLAL_CHECK_NULL ( extraParams != NULL, XLAL_EINVAL );
   XLAL_CHECK_NULL ( extraParams->SSBprec < SSBPREC_LAST, XLAL_EINVAL );
 
   // Determine whether to load and/or generate SFTs
@@ -338,15 +320,20 @@ XLALCreateFstatInput ( const SFTCatalog *SFTcatalog,		  ///< [in] Catalog of SFT
   REAL8 minFreqMethod, maxFreqMethod;
   REAL8 minFreqFull, maxFreqFull;
   {
-    // Determine whether the method being used requires extra frequency bins
+    // Determine whether the method being used requires extra SFT frequency bins
     int extraBinsMethod = 0;
-    if ( input->demod != NULL ) {
-      extraBinsMethod = GetFstatExtraBins_Demod ( input->demod );
-    } else if ( input->resamp != NULL ) {
-      extraBinsMethod = GetFstatExtraBins_Resamp ( input->resamp );
-    } else {
-      XLAL_ERROR_NULL ( XLAL_EFAILED, "Invalid FstatInput struct passed to %s()", __func__);
-    }
+    if ( input->demod != NULL )
+      {
+        extraBinsMethod = GetFstatExtraBins_Demod ( input->demod );
+      }
+    else if ( input->resamp != NULL )
+      {
+        extraBinsMethod = GetFstatExtraBins_Resamp ( input->resamp );
+      }
+    else
+      {
+        XLAL_ERROR_NULL ( XLAL_EFAILED, "Invalid FstatInput struct passed to %s()", __func__);
+      }
     XLAL_CHECK_NULL ( extraBinsMethod >= 0, XLAL_EFAILED );
 
     // Add number of extra frequency bins required by running median
@@ -365,29 +352,29 @@ XLALCreateFstatInput ( const SFTCatalog *SFTcatalog,		  ///< [in] Catalog of SFT
 
   // Load SFTs, if required, and extract detectors and timestamps
   MultiSFTVector *multiSFTs = NULL;
-  if (loadSFTs) {
+  if (loadSFTs)
+    {
+      // Load all SFTs at once
+      XLAL_CHECK_NULL ( ( multiSFTs = XLALLoadMultiSFTs(SFTcatalog, minFreqFull, maxFreqFull) ) != NULL, XLAL_EFUNC );
 
-    // Load all SFTs at once
-    XLAL_CHECK_NULL ( ( multiSFTs = XLALLoadMultiSFTs(SFTcatalog, minFreqFull, maxFreqFull) ) != NULL, XLAL_EFUNC );
+      // Extract detectors and timestamps from SFTs
+      XLAL_CHECK_NULL ( XLALMultiLALDetectorFromMultiSFTs ( &common->detectors, multiSFTs ) == XLAL_SUCCESS, XLAL_EFUNC );
+      XLAL_CHECK_NULL ( ( common->multiTimestamps = XLALExtractMultiTimestampsFromSFTs ( multiSFTs ) ) != NULL,  XLAL_EFUNC );
 
-    // Extract detectors and timestamps from SFTs
-    XLAL_CHECK_NULL ( XLALMultiLALDetectorFromMultiSFTs ( &common->detectors, multiSFTs ) == XLAL_SUCCESS, XLAL_EFUNC );
-    XLAL_CHECK_NULL ( ( common->timestamps = XLALExtractMultiTimestampsFromSFTs ( multiSFTs ) ) != NULL,  XLAL_EFUNC );
+    }
+  else
+    {
+      // Create a multi-view of SFT catalog
+      MultiSFTCatalogView *multiSFTcatalog;
+      XLAL_CHECK_NULL ( (multiSFTcatalog = XLALGetMultiSFTCatalogView(SFTcatalog)) != NULL, XLAL_EFUNC );
 
-  } else {
+      // Extract detectors and timestamps from multi-view of SFT catalog
+      XLAL_CHECK_NULL ( XLALMultiLALDetectorFromMultiSFTCatalogView ( &common->detectors, multiSFTcatalog ) == XLAL_SUCCESS, XLAL_EFUNC );
+      XLAL_CHECK_NULL ( ( common->multiTimestamps = XLALTimestampsFromMultiSFTCatalogView ( multiSFTcatalog ) ) != NULL,  XLAL_EFUNC );
 
-    // Create a multi-view of SFT catalog
-    MultiSFTCatalogView *multiSFTcatalog = XLALGetMultiSFTCatalogView(SFTcatalog);
-    XLAL_CHECK_NULL ( multiSFTcatalog != NULL, XLAL_EFUNC );
-
-    // Extract detectors and timestamps from multi-view of SFT catalog
-    XLAL_CHECK_NULL ( XLALMultiLALDetectorFromMultiSFTCatalogView ( &common->detectors, multiSFTcatalog ) == XLAL_SUCCESS, XLAL_EFUNC );
-    XLAL_CHECK_NULL ( ( common->timestamps = XLALTimestampsFromMultiSFTCatalogView ( multiSFTcatalog ) ) != NULL,  XLAL_EFUNC );
-
-    // Cleanup
-    XLALDestroyMultiSFTCatalogView ( multiSFTcatalog );
-
-  }
+      // Cleanup
+      XLALDestroyMultiSFTCatalogView ( multiSFTcatalog );
+    } // end: if !loadSFTs
 
   // Check length of multi-noise floor arrays
   XLAL_CHECK_NULL ( injectSqrtSX == NULL || injectSqrtSX->length == common->detectors.length, XLAL_EINVAL );
@@ -401,7 +388,7 @@ XLALCreateFstatInput ( const SFTCatalog *SFTcatalog,		  ///< [in] Catalog of SFT
       MFDparams.fMin = minFreqFull;
       MFDparams.Band = maxFreqFull - minFreqFull;
       MFDparams.multiIFO = common->detectors;
-      MFDparams.multiTimestamps = *(common->timestamps);
+      MFDparams.multiTimestamps = *(common->multiTimestamps);
       MFDparams.randSeed = extraParams->randSeed;
 
       // Set noise floors if sqrtSX is given; otherwise noise floors are zero
@@ -431,12 +418,11 @@ XLALCreateFstatInput ( const SFTCatalog *SFTcatalog,		  ///< [in] Catalog of SFT
   }
 
   // Normalise SFTs using either running median or assumed PSDs
-  MultiPSDVector *runningMedian = XLALNormalizeMultiSFTVect ( multiSFTs, runningMedianWindow, assumeSqrtSX );
-  XLAL_CHECK_NULL ( runningMedian != NULL, XLAL_EFUNC );
+  MultiPSDVector *runningMedian;
+  XLAL_CHECK_NULL ( (runningMedian = XLALNormalizeMultiSFTVect ( multiSFTs, runningMedianWindow, assumeSqrtSX )) != NULL, XLAL_EFUNC );
 
   // Calculate SFT noise weights from PSD
-  common->noiseWeights = XLALComputeMultiNoiseWeights ( runningMedian, runningMedianWindow, 0 );
-  XLAL_CHECK_NULL ( common->noiseWeights != NULL, XLAL_EFUNC );
+  XLAL_CHECK_NULL ( (common->multiNoiseWeights = XLALComputeMultiNoiseWeights ( runningMedian, runningMedianWindow, 0 )) != NULL, XLAL_EFUNC );
 
   // at this point we're done with running-median noise estimation and can 'trim' the SFTs back to
   // the width actually required by the Fstat-methods *methods*.
@@ -446,8 +432,7 @@ XLALCreateFstatInput ( const SFTCatalog *SFTcatalog,		  ///< [in] Catalog of SFT
 
   // Get detector states, with a timestamp shift of Tsft/2
   const REAL8 tOffset = 0.5 * Tsft;
-  common->detectorStates = XLALGetMultiDetectorStates ( common->timestamps, &common->detectors, ephemerides, tOffset );
-  XLAL_CHECK_NULL ( common->detectorStates != NULL, XLAL_EFUNC );
+  XLAL_CHECK_NULL ( (common->multiDetectorStates = XLALGetMultiDetectorStates ( common->multiTimestamps, &common->detectors, ephemerides, tOffset )) != NULL, XLAL_EFUNC );
 
   // Save ephemerides and SSB precision
   common->ephemerides = ephemerides;
@@ -485,7 +470,7 @@ XLALGetFstatInputDetectors ( const FstatInput* input    ///< [in] \c FstatInput 
                              )
 {
   // Check input
-  XLAL_CHECK_NULL ( input != NULL, XLAL_EFAULT );
+  XLAL_CHECK_NULL ( input != NULL, XLAL_EINVAL );
   XLAL_CHECK_NULL ( input->common != NULL, XLAL_EINVAL, "'input' has not yet been set up" );
 
   return &input->common->detectors;
@@ -500,10 +485,10 @@ XLALGetFstatInputTimestamps ( const FstatInput* input	///< [in] \c FstatInput st
                               )
 {
   // Check input
-  XLAL_CHECK_NULL ( input != NULL, XLAL_EFAULT );
+  XLAL_CHECK_NULL ( input != NULL, XLAL_EINVAL );
   XLAL_CHECK_NULL ( input->common != NULL, XLAL_EINVAL, "'input' has not yet been set up" );
 
-  return input->common->timestamps;
+  return input->common->multiTimestamps;
 
 } // XLALGetFstatInputTimestamps()
 
@@ -515,10 +500,10 @@ XLALGetFstatInputNoiseWeights ( const FstatInput* input     ///< [in] \c FstatIn
                                 )
 {
   // Check input
-  XLAL_CHECK_NULL ( input != NULL, XLAL_EFAULT );
+  XLAL_CHECK_NULL ( input != NULL, XLAL_EINVAL );
   XLAL_CHECK_NULL ( input->common != NULL, XLAL_EINVAL, "'input' has not yet been set up" );
 
-  return input->common->noiseWeights;
+  return input->common->multiNoiseWeights;
 
 } // XLALGetFstatInputNoiseWeights()
 
@@ -530,10 +515,10 @@ XLALGetFstatInputDetectorStates ( const FstatInput* input	///< [in] \c FstatInpu
                                   )
 {
   // Check input
-  XLAL_CHECK_NULL ( input != NULL, XLAL_EFAULT );
+  XLAL_CHECK_NULL ( input != NULL, XLAL_EINVAL );
   XLAL_CHECK_NULL ( input->common != NULL, XLAL_EINVAL, "'input' has not yet been set up" );
 
-  return input->common->detectorStates;
+  return input->common->multiDetectorStates;
 
 } // XLALGetFstatInputDetectorStates()
 
@@ -550,21 +535,19 @@ XLALComputeFstat ( FstatResults **Fstats,	  	///< [in/out] Address of a pointer 
                    )
 {
   // Check input
-  XLAL_CHECK(Fstats != NULL, XLAL_EFAULT);
-  XLAL_CHECK(input != NULL, XLAL_EFAULT);
-  XLAL_CHECK(input->common != NULL, XLAL_EINVAL, "'input' has not yet been set up");
-  XLAL_CHECK(doppler != NULL, XLAL_EFAULT);
-  XLAL_CHECK(doppler->asini >= 0, XLAL_EINVAL);
-  XLAL_CHECK(dFreq > 0 || (numFreqBins == 1 && dFreq >= 0), XLAL_EINVAL);
-  XLAL_CHECK(numFreqBins > 0, XLAL_EINVAL);
-  XLAL_CHECK(0 < whatToCompute && whatToCompute < FSTATQ_LAST, XLAL_EINVAL);
+  XLAL_CHECK ( Fstats != NULL, XLAL_EINVAL);
+  XLAL_CHECK ( input != NULL, XLAL_EINVAL);
+  XLAL_CHECK ( input->common != NULL, XLAL_EINVAL, "'input' has not yet been set up");
+  XLAL_CHECK ( doppler != NULL, XLAL_EINVAL);
+  XLAL_CHECK ( doppler->asini >= 0, XLAL_EINVAL);
+  XLAL_CHECK ( dFreq > 0 || (numFreqBins == 1 && dFreq >= 0), XLAL_EINVAL);
+  XLAL_CHECK ( numFreqBins > 0, XLAL_EINVAL);
+  XLAL_CHECK ( 0 < whatToCompute && whatToCompute < FSTATQ_LAST, XLAL_EINVAL);
 
   // Allocate results struct, if needed
-  if ( (*Fstats) == NULL )
-    {
-      (*Fstats) = XLALCalloc ( 1, sizeof(**Fstats) );
-      XLAL_CHECK ( (*Fstats) != NULL, XLAL_ENOMEM );
-    }
+  if ( (*Fstats) == NULL ) {
+    XLAL_CHECK ( ((*Fstats) = XLALCalloc ( 1, sizeof(**Fstats) )) != NULL, XLAL_ENOMEM );
+  }
 
   // Get constant pointer to common input data
   const FstatInput_Common *common = input->common;
@@ -616,8 +599,6 @@ XLALComputeFstat ( FstatResults **Fstats,	  	///< [in/out] Address of a pointer 
       // Enlarge F-atoms per detector arrays, and initialise to NULL
       if ( (whatToCompute & FSTATQ_ATOMS_PER_DET) && (moreFreqBins || moreDetectors) )
         {
-          for ( UINT4 X = 0; X < numDetectors; ++X )
-            {
               (*Fstats)->multiFatoms = XLALRealloc ( (*Fstats)->multiFatoms, numFreqBins*sizeof((*Fstats)->multiFatoms[0]) );
               XLAL_CHECK ( (*Fstats)->multiFatoms != NULL, XLAL_EINVAL, "Failed to (re)allocate (*Fstats)->multiFatoms to length %u", numFreqBins );
 
@@ -636,7 +617,6 @@ XLALComputeFstat ( FstatResults **Fstats,	  	///< [in/out] Address of a pointer 
                     (*Fstats)->multiFatoms[k] = NULL;
                   }
                 }
-            } // for X < numDetectors
 
         } // if Atoms_per_det to enlarge
 
@@ -687,9 +667,9 @@ XLALDestroyFstatInput ( FstatInput* input	///< [in] \c FstatInput structure to b
 
   if (input->common != NULL)
     {
-      XLALDestroyMultiTimestamps ( input->common->timestamps );
-      XLALDestroyMultiNoiseWeights ( input->common->noiseWeights );
-      XLALDestroyMultiDetectorStateSeries ( input->common->detectorStates );
+      XLALDestroyMultiTimestamps ( input->common->multiTimestamps );
+      XLALDestroyMultiNoiseWeights ( input->common->multiNoiseWeights );
+      XLALDestroyMultiDetectorStateSeries ( input->common->multiDetectorStates );
       XLALFree ( input->common );
     }
   if (input->demod != NULL)
@@ -743,14 +723,14 @@ XLALDestroyFstatResults ( FstatResults* Fstats  ///< [in] #FstatResults structur
 ///
 /// Add +4 to any multi-detector or per-detector 2F values computed by XLALComputeFstat().
 /// This is for compatibility with programs which expect this normalisation if SFTs do not
-/// contain noise, e.g. \c lalapps_ComputeFStatistic with the \c --SignalOnly option.
+/// contain noise, e.g. \c lalapps_ComputeFstatistic with the \c --SignalOnly option.
 ///
 int
 XLALAdd4ToFstatResults ( FstatResults* Fstats    ///< [in/out] #FstatResults structure.
                          )
 {
   // Check input
-  XLAL_CHECK( Fstats != NULL, XLAL_EFAULT );
+  XLAL_CHECK( Fstats != NULL, XLAL_EINVAL );
 
   // Add +4 to multi-detector 2F array
   if ( Fstats->whatWasComputed & FSTATQ_2F )
@@ -775,365 +755,6 @@ XLALAdd4ToFstatResults ( FstatResults* Fstats    ///< [in/out] #FstatResults str
 } // XLALAdd4ToFstatResults()
 
 ///
-/// Estimate the amplitude parameters of a pulsar CW signal, given its phase parameters,
-/// constituent parts of the \f$\mathcal{F}\f$-statistic, and antenna pattern matrix.
-///
-/// \note Parameter-estimation based on large parts on Yousuke's notes and implemention (in CFSv1),
-/// extended for error-estimation.
-///
-int
-XLALEstimatePulsarAmplitudeParams ( PulsarCandidate *pulsarParams,	///< [in,out] Pulsar candidate parameters.
-                                    const LIGOTimeGPS* FaFb_refTime,	///< [in] Reference time of \f$F_a\f$ and \f$F_b\f$, may differ from pulsar candidate reference time.
-                                    const COMPLEX8 Fa,			///< [in] Complex \f$\mathcal{F}\f$-statistic amplitude \f$F_a\f$.
-                                    const COMPLEX8 Fb,			///< [in] Complex \f$\mathcal{F}\f$-statistic amplitude \f$F_b\f$.
-                                    const AntennaPatternMatrix *Mmunu	///< [in] Antenna pattern matrix \f$M_{\mu\nu}\f$.
-                                    )
-{
-
-  REAL8 A1h, A2h, A3h, A4h;
-  REAL8 Ad, Bd, Cd, Dd, Ed;
-  REAL8 normAmu;
-  REAL8 A1check, A2check, A3check, A4check;
-
-  REAL8 Asq, Da, disc;
-  REAL8 aPlus, aCross;
-  REAL8 Ap2, Ac2;
-  REAL8 beta;
-  REAL8 phi0, psi;
-  REAL8 b1, b2, b3;
-  REAL8 h0, cosi;
-
-  REAL8 cosphi0, sinphi0, cos2psi, sin2psi;
-
-  REAL8 tolerance = LAL_REAL4_EPS;
-
-  gsl_vector *x_mu, *A_Mu;
-  gsl_matrix *M_Mu_Nu;
-  gsl_matrix *Jh_Mu_nu;
-  gsl_permutation *permh;
-  gsl_matrix *tmp, *tmp2;
-  int signum;
-
-  XLAL_CHECK ( pulsarParams != NULL, XLAL_EFAULT );
-  XLAL_CHECK ( FaFb_refTime != NULL, XLAL_EFAULT );
-  XLAL_CHECK ( isfinite(creal(Fa)) && isfinite(cimag(Fb)), XLAL_EDOM,
-               "Fa = (%g, %g) is not finite", creal(Fa), cimag(Fa) );
-  XLAL_CHECK ( isfinite(creal(Fb)) && isfinite(cimag(Fb)), XLAL_EDOM,
-               "Fb = (%g, %g) is not finite", creal(Fb), cimag(Fb) );
-  XLAL_CHECK ( Mmunu != NULL, XLAL_EFAULT );
-
-  Ad = Mmunu->Ad;
-  Bd = Mmunu->Bd;
-  Cd = Mmunu->Cd;
-  Ed = Mmunu->Ed;
-  Dd = Ad * Bd - Cd * Cd - Ed * Ed;
-
-  normAmu = 2.0 / sqrt(2.0 * Mmunu->Sinv_Tsft); // generally *very* small!!
-
-  // ----- GSL memory allocation -----
-  XLAL_CHECK ( ( x_mu = gsl_vector_calloc (4) ) != NULL, XLAL_ENOMEM );
-  XLAL_CHECK ( ( A_Mu = gsl_vector_calloc (4) ) != NULL, XLAL_ENOMEM );
-  XLAL_CHECK ( ( M_Mu_Nu = gsl_matrix_calloc (4, 4) ) != NULL, XLAL_ENOMEM );
-  XLAL_CHECK ( ( Jh_Mu_nu = gsl_matrix_calloc (4, 4) ) != NULL, XLAL_ENOMEM );
-
-  XLAL_CHECK ( ( permh = gsl_permutation_calloc ( 4 ) ) != NULL, XLAL_ENOMEM );
-  XLAL_CHECK ( ( tmp = gsl_matrix_calloc (4, 4) ) != NULL, XLAL_ENOMEM );
-  XLAL_CHECK ( ( tmp2 = gsl_matrix_calloc (4, 4) ) != NULL, XLAL_ENOMEM );
-
-  // ----- fill vector x_mu
-  gsl_vector_set (x_mu, 0,   creal(Fa) );       // x_1
-  gsl_vector_set (x_mu, 1,   creal(Fb) );       // x_2
-  gsl_vector_set (x_mu, 2, - cimag(Fa) );       // x_3
-  gsl_vector_set (x_mu, 3, - cimag(Fb) );       // x_4
-
-  // ----- fill matrix M^{mu,nu} [symmetric: use UPPER HALF ONLY!!]
-  gsl_matrix_set (M_Mu_Nu, 0, 0,   Bd / Dd );
-  gsl_matrix_set (M_Mu_Nu, 1, 1,   Ad / Dd );
-  gsl_matrix_set (M_Mu_Nu, 0, 1, - Cd / Dd );
-
-  gsl_matrix_set (M_Mu_Nu, 0, 3, - Ed / Dd );
-  gsl_matrix_set (M_Mu_Nu, 1, 2,   Ed / Dd );
-
-  gsl_matrix_set (M_Mu_Nu, 2, 2,   Bd / Dd );
-  gsl_matrix_set (M_Mu_Nu, 3, 3,   Ad / Dd );
-  gsl_matrix_set (M_Mu_Nu, 2, 3, - Cd / Dd );
-
-  // get (un-normalized) MLE's for amplitudes A^mu  = M^{mu,nu} x_nu
-
-  /* GSL-doc: int gsl_blas_dsymv (CBLAS_UPLO_t Uplo, double alpha, const gsl_matrix * A,
-   *                              const gsl_vector * x, double beta, gsl_vector * y )
-   *
-   * compute the matrix-vector product and sum: y = alpha A x + beta y
-   * for the symmetric matrix A. Since the matrix A is symmetric only its
-   * upper half or lower half need to be stored. When Uplo is CblasUpper
-   * then the upper triangle and diagonal of A are used, and when Uplo
-   * is CblasLower then the lower triangle and diagonal of A are used.
-   */
-  XLAL_CHECK( gsl_blas_dsymv (CblasUpper, 1.0, M_Mu_Nu, x_mu, 0.0, A_Mu) == 0, XLAL_EERR );
-
-  A1h = gsl_vector_get ( A_Mu, 0 );
-  A2h = gsl_vector_get ( A_Mu, 1 );
-  A3h = gsl_vector_get ( A_Mu, 2 );
-  A4h = gsl_vector_get ( A_Mu, 3 );
-
-  Asq = SQ(A1h) + SQ(A2h) + SQ(A3h) + SQ(A4h);
-  Da = A1h * A4h - A2h * A3h;
-  disc = sqrt ( SQ(Asq) - 4.0 * SQ(Da) );
-
-  Ap2  = 0.5 * ( Asq + disc );
-  aPlus = sqrt(Ap2);            // not yet normalized
-
-  Ac2 = 0.5 * ( Asq - disc );
-  aCross = sqrt( Ac2 );
-  aCross *= MYSIGN ( Da );      // not yet normalized
-
-  beta = aCross / aPlus;
-
-  b1 =   A4h - beta * A1h;
-  b2 =   A3h + beta * A2h;
-  b3 = - A1h + beta * A4h ;
-
-  psi  = 0.5 * atan ( b1 /  b2 );       // in [-pi/4,pi/4] (gauge used also by TDS)
-  phi0 =       atan ( b2 / b3 );        // in [-pi/2,pi/2]
-
-  // Fix remaining sign-ambiguity by checking sign of reconstructed A1
-  A1check = aPlus * cos(phi0) * cos(2.0*psi) - aCross * sin(phi0) * sin(2*psi);
-  if ( A1check * A1h <  0 )
-    phi0 += LAL_PI;
-
-  cosphi0 = cos(phi0);
-  sinphi0 = sin(phi0);
-  cos2psi = cos(2*psi);
-  sin2psi = sin(2*psi);
-
-  // check numerical consistency of estimated Amu and reconstructed
-  A1check =   aPlus * cosphi0 * cos2psi - aCross * sinphi0 * sin2psi;
-  A2check =   aPlus * cosphi0 * sin2psi + aCross * sinphi0 * cos2psi;
-  A3check = - aPlus * sinphi0 * cos2psi - aCross * cosphi0 * sin2psi;
-  A4check = - aPlus * sinphi0 * sin2psi + aCross * cosphi0 * cos2psi;
-
-  if ( ( fabs( (A1check - A1h)/A1h ) > tolerance ) ||
-       ( fabs( (A2check - A2h)/A2h ) > tolerance ) ||
-       ( fabs( (A3check - A3h)/A3h ) > tolerance ) ||
-       ( fabs( (A4check - A4h)/A4h ) > tolerance ) )
-  {
-    if ( lalDebugLevel )
-      XLALPrintError ( "WARNING %s(): Difference between estimated and reconstructed Amu exceeds tolerance of %g\n",
-                       __func__, tolerance );
-  }
-
-  // translate A_{+,x} into {h_0, cosi}
-  h0 = aPlus + sqrt ( disc );  // not yet normalized !
-  cosi = aCross / h0;
-
-  // ========== Estimate the errors ==========
-
-  // ----- compute derivatives \partial A^\mu / \partial B^\nu, where
-  // we consider the output-variables B^\nu = (h0, cosi, phi0, psi)
-  // where aPlus = 0.5 * h0 * (1 + cosi^2)  and aCross = h0 * cosi
-  { // Ahat^mu is defined as A^mu with the replacements: A_+ --> A_x, and A_x --> h0
-    REAL8 A1hat =   aCross * cosphi0 * cos2psi - h0 * sinphi0 * sin2psi;
-    REAL8 A2hat =   aCross * cosphi0 * sin2psi + h0 * sinphi0 * cos2psi;
-    REAL8 A3hat = - aCross * sinphi0 * cos2psi - h0 * cosphi0 * sin2psi;
-    REAL8 A4hat = - aCross * sinphi0 * sin2psi + h0 * cosphi0 * cos2psi;
-
-    // ----- A1 =   aPlus * cosphi0 * cos2psi - aCross * sinphi0 * sin2psi; -----
-    gsl_matrix_set (Jh_Mu_nu, 0, 0,   A1h / h0 );       /* dA1/h0 */
-    gsl_matrix_set (Jh_Mu_nu, 0, 1,   A1hat );          /* dA1/dcosi */
-    gsl_matrix_set (Jh_Mu_nu, 0, 2,   A3h );            /* dA1/dphi0 */
-    gsl_matrix_set (Jh_Mu_nu, 0, 3, - 2.0 * A2h );      /* dA1/dpsi */
-
-    // ----- A2 =   aPlus * cosphi0 * sin2psi + aCross * sinphi0 * cos2psi; -----
-    gsl_matrix_set (Jh_Mu_nu, 1, 0,   A2h / h0 );       /* dA2/h0 */
-    gsl_matrix_set (Jh_Mu_nu, 1, 1,   A2hat );          /* dA2/dcosi */
-    gsl_matrix_set (Jh_Mu_nu, 1, 2,   A4h );            /* dA2/dphi0 */
-    gsl_matrix_set (Jh_Mu_nu, 1, 3,   2.0 * A1h );      /* dA2/dpsi */
-
-    // ----- A3 = - aPlus * sinphi0 * cos2psi - aCross * cosphi0 * sin2psi; -----
-    gsl_matrix_set (Jh_Mu_nu, 2, 0,   A3h / h0 );       /* dA3/h0 */
-    gsl_matrix_set (Jh_Mu_nu, 2, 1,   A3hat );          /* dA3/dcosi */
-    gsl_matrix_set (Jh_Mu_nu, 2, 2, - A1h );            /* dA3/dphi0 */
-    gsl_matrix_set (Jh_Mu_nu, 2, 3, - 2.0 * A4h );      /* dA3/dpsi */
-
-    // ----- A4 = - aPlus * sinphi0 * sin2psi + aCross * cosphi0 * cos2psi; -----
-    gsl_matrix_set (Jh_Mu_nu, 3, 0,   A4h / h0 );       /* dA4/h0 */
-    gsl_matrix_set (Jh_Mu_nu, 3, 1,   A4hat );          /* dA4/dcosi */
-    gsl_matrix_set (Jh_Mu_nu, 3, 2, - A2h );            /* dA4/dphi0 */
-    gsl_matrix_set (Jh_Mu_nu, 3, 3,   2.0 * A3h );      /* dA4/dpsi */
-  }
-
-  // ----- compute inverse matrices Jh^{-1} by LU-decomposition -----
-  XLAL_CHECK( gsl_linalg_LU_decomp (Jh_Mu_nu, permh, &signum ) == 0, XLAL_EERR );
-
-  // inverse matrix
-  XLAL_CHECK( gsl_linalg_LU_invert (Jh_Mu_nu, permh, tmp ) == 0, XLAL_EERR );
-  gsl_matrix_memcpy ( Jh_Mu_nu, tmp );
-
-  // ----- compute Jh^-1 . Minv . (Jh^-1)^T -----
-
-  /* GSL-doc: gsl_blas_dgemm (CBLAS_TRANSPOSE_t TransA, CBLAS_TRANSPOSE_t TransB, double alpha,
-   *                          const gsl_matrix *A, const gsl_matrix *B, double beta, gsl_matrix *C)
-   * These functions compute the matrix-matrix product and sum
-   * C = \alpha op(A) op(B) + \beta C
-   * where op(A) = A, A^T, A^H for TransA = CblasNoTrans, CblasTrans, CblasConjTrans
-   * and similarly for the parameter TransB.
-   */
-
-  // first tmp = Minv . (Jh^-1)^T
-  XLAL_CHECK( gsl_blas_dgemm (CblasNoTrans, CblasTrans, 1.0, M_Mu_Nu, Jh_Mu_nu, 0.0, tmp ) == 0, XLAL_EERR );
-  // then J^-1 . tmp , store result in tmp2
-  XLAL_CHECK( gsl_blas_dgemm (CblasNoTrans, CblasNoTrans, 1.0, Jh_Mu_nu, tmp, 0.0, tmp2 ) == 0, XLAL_EERR );
-  gsl_matrix_memcpy ( Jh_Mu_nu, tmp2 );
-
-  // ===== debug-output resulting matrices =====
-  // propagate initial-phase from Fstat-reference-time to refTime of Doppler-params
-  XLAL_CHECK( XLALExtrapolatePulsarPhase ( &phi0, pulsarParams->Doppler.fkdot, pulsarParams->Doppler.refTime, phi0, *FaFb_refTime )
-              == XLAL_SUCCESS, XLAL_EFUNC );
-
-  if ( phi0 < 0 )             /* make sure phi0 in [0, 2*pi] */
-    phi0 += LAL_TWOPI;
-  phi0 = fmod ( phi0, LAL_TWOPI );
-
-  // fill candidate-struct with the obtained signal-parameters and error-estimations
-  pulsarParams->Amp.h0     = normAmu * h0;
-  pulsarParams->Amp.cosi   = cosi;
-  pulsarParams->Amp.phi0   = phi0;
-  pulsarParams->Amp.psi    = psi;
-
-  // read out principal estimation-errors from diagonal elements of inverse Fisher-matrix
-  pulsarParams->dAmp.h0     = normAmu * sqrt( gsl_matrix_get (Jh_Mu_nu, 0, 0 ) );
-  pulsarParams->dAmp.cosi   = sqrt( gsl_matrix_get (Jh_Mu_nu, 1, 1 ) );
-  pulsarParams->dAmp.phi0   = sqrt( gsl_matrix_get (Jh_Mu_nu, 2, 2 ) );
-  pulsarParams->dAmp.psi    = sqrt( gsl_matrix_get (Jh_Mu_nu, 3, 3 ) );
-  // return also the full Amplitude-Fisher matrix: invert Jh_Mu_nu
-  XLAL_CHECK( gsl_linalg_LU_decomp (Jh_Mu_nu, permh, &signum ) == 0, XLAL_EERR );
-  XLAL_CHECK( gsl_linalg_LU_invert (Jh_Mu_nu, permh, tmp ) == 0, XLAL_EERR );
-  pulsarParams->AmpFisherMatrix = tmp;
-
-  // ----- free GSL memory -----
-  gsl_vector_free ( x_mu );
-  gsl_vector_free ( A_Mu );
-  gsl_matrix_free ( M_Mu_Nu );
-  gsl_matrix_free ( Jh_Mu_nu );
-  gsl_permutation_free ( permh );
-  gsl_matrix_free ( tmp2 );
-
-  return XLAL_SUCCESS;
-
-} // XLALEstimatePulsarAmplitudeParams()
-
-///
-/// Convert amplitude params from 'physical' coordinates \f$(h_0, \cos\iota, \psi, \phi_0)\f$ into
-/// 'canonical' coordinates \f$A^\mu = (A_1, A_2, A_3, A_4)\f$. The equations can be found in
-/// \cite JKS98 or \cite Prix07 Eq.(2).
-///
-int
-XLALAmplitudeParams2Vect ( PulsarAmplitudeVect A_Mu,		///< [out] Canonical amplitude coordinates \f$A^\mu = (A_1, A_2, A_3, A_4)\f$.
-                           const PulsarAmplitudeParams Amp	///< [in] Physical amplitude params \f$(h_0, \cos\iota, \psi, \phi_0)\f$.
-                           )
-{
-
-  REAL8 aPlus = 0.5 * Amp.h0 * ( 1.0 + SQ(Amp.cosi) );
-  REAL8 aCross = Amp.h0 * Amp.cosi;
-  REAL8 cos2psi = cos ( 2.0 * Amp.psi );
-  REAL8 sin2psi = sin ( 2.0 * Amp.psi );
-  REAL8 cosphi0 = cos ( Amp.phi0 );
-  REAL8 sinphi0 = sin ( Amp.phi0 );
-
-  XLAL_CHECK( A_Mu != NULL, XLAL_EFAULT );
-
-  A_Mu[0] =  aPlus * cos2psi * cosphi0 - aCross * sin2psi * sinphi0;
-  A_Mu[1] =  aPlus * sin2psi * cosphi0 + aCross * cos2psi * sinphi0;
-  A_Mu[2] = -aPlus * cos2psi * sinphi0 - aCross * sin2psi * cosphi0;
-  A_Mu[3] = -aPlus * sin2psi * sinphi0 + aCross * cos2psi * cosphi0;
-
-  return XLAL_SUCCESS;
-
-} // XLALAmplitudeParams2Vect()
-
-///
-/// Compute amplitude params \f$(h_0, \cos\iota, \psi, \phi_0)\f$ from amplitude-vector \f$A^\mu = (A_1, A_2, A_3, A_4)\f$.
-/// Adapted from algorithm in XLALEstimatePulsarAmplitudeParams().
-///
-int
-XLALAmplitudeVect2Params ( PulsarAmplitudeParams *Amp,		///< [out] Physical amplitude params \f$(h_0, \cos\iota, \psi, \phi_0)\f$.
-                           const PulsarAmplitudeVect A_Mu	///< [in] Canonical amplitude coordinates \f$A^\mu = (A_1, A_2, A_3, A_4)\f$.
-                           )
-{
-
-  REAL8 h0Ret, cosiRet, psiRet, phi0Ret;
-
-  REAL8 A1, A2, A3, A4, Asq, Da, disc;
-  REAL8 Ap2, Ac2, aPlus, aCross;
-  REAL8 beta, b1, b2, b3;
-
-  XLAL_CHECK( A_Mu != NULL, XLAL_EFAULT );
-  XLAL_CHECK( Amp != NULL, XLAL_EFAULT );
-
-  A1 = A_Mu[0];
-  A2 = A_Mu[1];
-  A3 = A_Mu[2];
-  A4 = A_Mu[3];
-
-  Asq = SQ(A1) + SQ(A2) + SQ(A3) + SQ(A4);
-  Da = A1 * A4 - A2 * A3;
-
-  disc = sqrt ( SQ(Asq) - 4.0 * SQ(Da) );
-
-  Ap2  = 0.5 * ( Asq + disc );
-  aPlus = sqrt(Ap2);
-
-  Ac2 = 0.5 * ( Asq - disc );
-  aCross = MYSIGN(Da) * sqrt( Ac2 );
-
-  beta = aCross / aPlus;
-
-  b1 =   A4 - beta * A1;
-  b2 =   A3 + beta * A2;
-  b3 = - A1 + beta * A4 ;
-
-  // amplitude params in LIGO conventions
-  psiRet  = 0.5 * atan2 ( b1,  b2 );  /* [-pi/2,pi/2] */
-  phi0Ret =       atan2 ( b2,  b3 );  /* [-pi, pi] */
-
-  // Fix remaining sign-ambiguity by checking sign of reconstructed A1
-  REAL8 A1check = aPlus * cos(phi0Ret) * cos(2.0*psiRet) - aCross * sin(phi0Ret) * sin(2*psiRet);
-  if ( A1check * A1 < 0 ) {
-    phi0Ret += LAL_PI;
-  }
-
-  h0Ret = aPlus + sqrt ( disc );
-  cosiRet = aCross / h0Ret;
-
-  // make unique by fixing the gauge to be psi in [-pi/4, pi/4], phi0 in [0, 2*pi]
-  while ( psiRet > LAL_PI_4 ) {
-    psiRet  -= LAL_PI_2;
-    phi0Ret -= LAL_PI;
-  }
-  while ( psiRet < - LAL_PI_4 ) {
-    psiRet  += LAL_PI_2;
-    phi0Ret += LAL_PI;
-  }
-  while ( phi0Ret < 0 ) {
-    phi0Ret += LAL_TWOPI;
-  }
-
-  while ( phi0Ret > LAL_TWOPI ) {
-    phi0Ret -= LAL_TWOPI;
-  }
-
-  // Return final answer
-  Amp->h0   = h0Ret;
-  Amp->cosi = cosiRet;
-  Amp->psi  = psiRet;
-  Amp->phi0 = phi0Ret;
-
-  return XLAL_SUCCESS;
-
-}
-
-
-///
 /// Compute single-or multi-IFO Fstat '2F' from multi-IFO 'atoms'
 ///
 REAL4
@@ -1142,7 +763,7 @@ XLALComputeFstatFromAtoms ( const MultiFstatAtomVector *multiFstatAtoms,   ///< 
                             )
 {
   // ----- check input parameters and report errors
-  XLAL_CHECK_REAL4 ( multiFstatAtoms && multiFstatAtoms->data && multiFstatAtoms->data[0]->data, XLAL_EFAULT, "Empty pointer as input parameter." );
+  XLAL_CHECK_REAL4 ( multiFstatAtoms && multiFstatAtoms->data && multiFstatAtoms->data[0]->data, XLAL_EINVAL, "Empty pointer as input parameter." );
   XLAL_CHECK_REAL4 ( multiFstatAtoms->length > 0, XLAL_EBADLEN, "Input MultiFstatAtomVector has zero length. (i.e., no detectors)" );
   XLAL_CHECK_REAL4 ( X >= -1, XLAL_EDOM, "Invalid detector number X=%d. Only nonnegative numbers, or -1 for multi-F, are allowed.", X );
   XLAL_CHECK_REAL4 ( ( X < 0 ) || ( (UINT4)(X) <= multiFstatAtoms->length-1 ), XLAL_EDOM, "Requested X=%d, but FstatAtoms only have length %d.", X, multiFstatAtoms->length );

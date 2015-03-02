@@ -51,25 +51,6 @@
  */
 
 
-static PyObject *pylal_XLALCOMPLEX16TimeFreqFFT(PyObject *self, PyObject *args)
-{
-	pylal_COMPLEX16FrequencySeries *fser;
-	pylal_COMPLEX16TimeSeries *tser;
-	pylal_COMPLEX16FFTPlan *plan;
-
-	if(!PyArg_ParseTuple(args, "O!O!O!", &pylal_COMPLEX16FrequencySeries_Type, &fser, &pylal_COMPLEX16TimeSeries_Type, &tser, &pylal_COMPLEX16FFTPlan_Type, &plan))
-		return NULL;
-
-	if(XLALCOMPLEX16TimeFreqFFT(fser->series, tser->series, plan->plan)) {
-		pylal_set_exception_from_xlalerrno();
-		return NULL;
-	}
-
-	Py_INCREF(Py_None);
-	return Py_None;
-}
-
-
 static PyObject *pylal_XLALCOMPLEX16FreqTimeFFT(PyObject *self, PyObject *args)
 {
 	pylal_COMPLEX16TimeSeries *tser;
@@ -155,7 +136,6 @@ static PyObject *pylal_XLALWhitenCOMPLEX16FrequencySeries(PyObject *self, PyObje
 
 
 static struct PyMethodDef module_methods[] = {
-	{"XLALCOMPLEX16TimeFreqFFT", pylal_XLALCOMPLEX16TimeFreqFFT, METH_VARARGS, NULL},
 	{"XLALCOMPLEX16FreqTimeFFT", pylal_XLALCOMPLEX16FreqTimeFFT, METH_VARARGS, NULL},
 	{"XLALREAL8TimeFreqFFT", pylal_XLALREAL8TimeFreqFFT, METH_VARARGS, NULL},
 	{"XLALREAL8FreqTimeFFT", pylal_XLALREAL8FreqTimeFFT, METH_VARARGS, NULL},

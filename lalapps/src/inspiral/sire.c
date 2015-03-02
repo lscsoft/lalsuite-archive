@@ -17,7 +17,7 @@
 *  MA  02111-1307  USA
 */
 
-/*----------------------------------------------------------------------- 
+/*-----------------------------------------------------------------------
  * 
  * File Name: sire.c
  *
@@ -27,17 +27,267 @@
  *-----------------------------------------------------------------------
  */
 
+/**
+ * \file
+ * \ingroup lalapps_inspiral
+ *
+ * <dl>
+ * <dt>Name</dt><dd>
+ * \c lalapps_sire --- single inspiral trigger reader and inspiral injections
+ * analysis</dd>
+ *
+ * <dt>Synopsis</dt><dd>
+ * <tt>lalapps_sire</tt>
+ * <tt>--all-data</tt>
+ * [<tt>--cluster-algorithm</tt> <i>choice</i>]
+ * [<tt>--cluster-time</tt> <i>t</i>]
+ * [<tt>--comment</tt> <i>string</i>]
+ * [<tt>--disable-trig-start-time</tt>]
+ * <tt>--exclude-playground</tt>
+ * <tt>--glob</tt> <i>globfiles</i>
+ * [<tt>--hardware-injections</tt> <i>\f$t_\mathrm{hardware}\f$</i>]
+ * [<tt>--help</tt>]
+ * [<tt>--injection-file</tt> <i>injfile</i>]
+ * [<tt>--injection-coincidence</tt> <i>\f$t_{inj}\f$</i>]
+ * <tt>--input</tt> <i>inputfiles</i>
+ * [<tt>--missed-injections</tt> <i>missedfile</i>]
+ * <tt>--output</tt> <i>outfile</i>
+ * <tt>--playground-only</tt>
+ * [<tt>--snr-treshold</tt> <i>rho</i>]
+ * [<tt>--summary-file</tt> <i>file</i>]
+ * [<tt>--tama-output</tt> <i>file</i>]
+ * [<tt>--user-tag</tt> <i>string</i>]
+ * [<tt>--verbose</tt>]
+ * <tt>--version</tt> </dd>
+ *
+ * <dt>Description</dt><dd>
+ * \c lalapps_sire processes the LIGO lightweight XML files produced by the
+ * standalone inspiral analysis code \c lalapps_inspiral or the inspiral
+ * coincidence analysis code \c lalapps_inca. It can be used to concatenate
+ * individual \c sngl_inspiral tables from multiple XML files which contain a
+ * \c search_summary table into a single XML file. This may be performed with
+ * or without clustering and signal-to-noise ratio cuts. It can also write a
+ * summary file containing the number of triggers and the total time analyzed,
+ * computed from the \c search_summary table.
+ *
+ * The list of input files may be specified by either of POSIX system glob,
+ * <i>globfiles</i>, or by giving the path to a text file, <i>inputfile</i>,
+ * that contains relative or absolute paths to the required input files.
+ *
+ * If the <tt>--injection-file</tt> option is specified, \c lalapps_sire also
+ * reads in a list of \c sim_inspiral rows from the file <i>injfile</i>.
+ * It determines how many of the injections have a trigger coincident to within
+ * <i>\f$t_\mathrm{inj}\f$</i> milliseconds. The output file, <i>outfile</i>, will contain
+ * \c sim_inspiral rows for all coincident (found) events. The summary file
+ * will contain numbers of missed and found events and the efficiency of
+ * detection of the injections.  Only injections that are within the input data
+ * times are processed, so the injection file can span a time larger than the
+ * input data and efficiencies will be correct. Missed injections can be written
+ * to the file <i>missedfile</i>, if desired.</dd>
+ *
+ * <dt>Options</dt><dd>
+ * <dl>
+ * <dt> <tt>--all-data</tt></dt><dd>
+ * Either this option or one of the optione <tt>--exclude-playground</tt> or <tt>--playground-only</tt> must be specified.
+ * Using this option \e all triggers (and injections) from the input files are analyzed.</dd>
+ *
+ * <dt><tt>--cluster-algorithm</tt> <i>choice</i></dt><dd>
+ *  Use the clustering algorithm \c choice to cluster the \c sngl_inspiral rows
+ * in the output file before writing them to disk. The options for
+ * \c choice are \c snr_and_chisq, \c snrsq_over_chisq or
+ * \c snr. The clustering is performed by the LAL function
+ * <tt>LALClusterSnglInspiralTable()</tt> and documentation for the clustering can
+ * be found in the \c tools package of the LAL Software Documentation.</dd>
+ *
+ * <dt> <tt>--cluster-time</tt> <i>t</i></dt><dd>
+ * Required if the <tt>--cluster-algorithm</tt> option is specified. Use the time window
+ * <i>t</i> for the clustering algorithm.</dd>
+ *
+ * <dt> <tt>--comment</tt> <i>string</i></dt><dd>
+ * Add the string <i>comment</i> to the \c process table in the output XML file.</dd>
+ *
+ * <dt><tt>--disable-trig-start-time</tt> </dt><dd>
+ * This option should only be used by
+ * maintainers. Disable checking of the <tt>--trig-start-time</tt> option in the
+ * input files. <em>Using this option may caused total analyzed times to be
+ * reported incorrectly.</em> See note in algorithm section below.</dd>
+ *
+ * <dt> <tt>--exclude-playground</tt></dt><dd>
+ * Either this option or one of the option <tt>--all-data</tt> or <tt>--playground-only</tt> must be specified.
+ * Using this option only triggers (and injections) that <em>are not</em> in playground times specified by the post-S1 playground algorithm are analyzed.</dd>
+ *
+ * <dt><tt>--glob</tt> <i>globfiles</i> </dt><dd>
+ * Must be given if the <tt>--input</tt> option is not used. Read the input triggers from the
+ * LIGO lightweight XML files that match the regular expression
+ * <i>globfiles</i>. The POSIX system call <tt>glob()</tt> is used to determine
+ * which files are read in. Mutually exclusive with the <tt>--input</tt> option.</dd>
+ *
+ * <dt><tt>--help</tt></dt><dd>
+ * Display a usage message and exit.</dd>
+ *
+ * <dt><tt>--injection-file</tt> <i>injfile name</i></dt><dd>
+ * Use <i>file name</i> as a LIGO lightweight XML file containing a list of
+ * injections to be made. The file should contain a \c sim_burst table
+ * which is used to set information about the types of injections to be made.
+ * This file may be constructed by hand, or one can use the
+ * \c lalapps_binj program described in \ref binj.c. </dd>
+ *
+ * <dt><tt>--input</tt> <i>inputfile</i> </dt><dd>
+ * Must be given if the <tt>--glob</tt> option is not used. Read the input triggers from the list of
+ * LIGO lightweight XML files in <i>inputfile</i> which must be a plain text
+ * file containing relative or absolute paths to the files.  Mutually exclusive
+ * with the <tt>--glob</tt> option.</dd>
+ *
+ * <dt><tt>--hardware-injections</tt> <i>\f$t_\mathrm{hardware}\f$</i></dt><dd>
+ * This option can only be specified if <tt>--injection-file</tt> has been specified.
+ * Increment the end times of the injections read from <i>injfile</i> by
+ * \f$t_\mathrm{hardware}\f$ seconds. Used for injection analysis of hardware
+ * injections where the input \c sim_inspiral rows contain the time offset of
+ * the injection from  \f$t_\mathrm{hardware}\f$.</dd>
+ *
+ * <dt><tt>--injection-file</tt> <i>injfile</i></dt><dd>
+ * If this option is given, \c lalapps_sire reads in \c sim_inspiral rows from the file
+ * <i>injfile</i> and performs an injection analysis of the triggers.</dd>
+ *
+ * <dt><tt>--injection-coincidence</tt> <i>\f$t_\mathrm{inj}\f$</i></dt><dd>
+ * This option is required if
+ * the <tt>--injection-file</tt> option is specified. Set the injection
+ * coincidence window to \f$\pm t_\mathrm{inj}\f$ milliseconds.</dd>
+ *
+ * <dt><tt>--missed-injections</tt> <i>file</i></dt><dd>
+ * This option can only be specified if <tt>--injection-file</tt> has been specified.
+ * If any injections are \e not found, write the \c sim_inspiral rows for these missed injections to the LIGO lightweight file <i>file</i>.</dd>
+ *
+ * <dt><tt>--output</tt> <i>outfile</i></dt><dd>
+ * Write the concatenated
+ * \c sngl_inspiral tables to the LIGO lightweight XML file <i>outfile</i>.
+ * If injection analysis is performed the \c sim_inspiral rows from the input
+ * injection file that are coincident with a trigger are also written to this
+ * file (i.e. the found injections).</dd>
+ *
+ * <dt> <tt>--playground-only</tt></dt><dd>
+ * Either this option or one of the option <tt>--exclude-playground</tt> or <tt>--all-data</tt> must be specified.
+ * Using this option only triggers (and injections) that \e are in playground times specified by the post-S1 playground algorithm are analyzed.</dd>
+ *
+ * <dt><tt>--snr-threshold</tt> <i>\f$\rho_\ast\f$</i></dt><dd>
+ * Discard all input triggers that have a signal-to-noise ratio \f$\rho < \rho_\ast\f$.</dd>
+ *
+ * <dt><tt>--summary-file</tt> <i>file</i></dt><dd>
+ * With this option a summary file <i>file</i> is created containing the number of triggers and the total time analyzed, computed from the  \c search_summary table.</dd>
+ *
+ * <dt><tt>--tama-output</tt> <i>file</i></dt><dd>
+ * If specified produces
+ * an output text file <i>file</i> for use in collaboration with TAMA, in
+ * addition to the usual LIGO lightweight XML file.  The following quantities are
+ * recorded for each trigger in the text file:
+ *
+ * <ul>
+ * <li> trigger time (as a double precision real)</li>
+ * <li> total mass, \f$M_{\mathrm{TOT}}\f$</li>
+ * <li> the mass ratio, \f$\eta\f$</li>
+ * <li> the signal to noise ratio, \f$\rho\f$</li>
+ * <li> the value of \f$\chi^2\f$</li>
+ * <li> the effective distance to the trigger, \f$d_{eff}\f$.</li>
+ * </ul></dd>
+ *
+ * <dt><tt>--user-tag</tt> <i>comment</i></dt><dd>
+ * Set the user tag to the string <i>comment</i>.  This string must not
+ * contain spaces or dashes ("-").  This string will appear in the name of
+ * the file to which output information is written, and is recorded in the
+ * various XML tables within the file.</dd>
+ *
+ * <dt><tt>--verbose</tt></dt><dd>
+ * Enable the output of informational messages.</dd>
+ *
+ * <dt><tt>--version</tt></dt><dd>
+ * Print the CVS id and exit.
+ *
+ * </dd>
+ * </dl></dd>
+ *
+ * <dt>Example 1</dt><dd> Read in all playground triggers files from the current
+ * directory that match the expression
+ * \code
+ * L1-INSPIRAL_INJ-7*
+ * \endcode
+ * Discard all triggers below signal-to-noise ratio \f$10\f$ and report the number of
+ * injections from file
+ * \code
+ * HL-INJECTIONS_45-729273613-5094000.xml
+ * \endcode
+ * that are coincident to within \f$20\f$ milliseconds with the remaining triggers.
+ * Write an XML file containing the coincident triggers and injections, an XML
+ * file containing the injections not coincident with a trigger and a text
+ * summary file of the analysis, which will contain the total time analyzed and
+ * the efficiency. Report the progress to the standard output and perform LAL
+ * memory checking:
+ * \code
+ * lalapps_sire \
+ * --glob "L1-INSPIRAL_INJ-7*"\
+ * --output out_10.xml\
+ * --summary-file summ_10.txt \
+ * --playground-only\
+ * --verbose\
+ * --snr-threshold 10.0 \
+ * --injection-file HL-INJECTIONS_45-729273613-5094000.xml \
+ * --injection-coincidence 20\
+ * --missed-injections missed_10.xml
+ * \endcode</dd>
+ *
+ * <dt>Example 2</dt><dd> Read in all the XML files from the list in the plain text
+ * file <tt>H1-INSPIRAL.txt</tt> and discard all the triggers that \e are in
+ * the playground. Write the remaining triggers to the XML file
+ * <tt>H1-INSPIRAL.xml</tt> and write a text summary file containing the time
+ * analyzed to <tt>H1-INSPIRAL_summary.txt</tt>:
+ * \code
+ * lalapps_sire \
+ * --input H1-INSPIRAL.txt\
+ * --exclude-playground \
+ * --output H1-INSPIRAL.xml\
+ * --summary-file H1-INSPIRAL_summary.txt
+ * \endcode</dd>
+ *
+ * <dt>Notes</dt><dd>
+ * <ol>
+ * <li> The post-S1 playground algorithm is defined to be
+ * \f{equation}{
+ * t \ \textrm{is playground} \iff t - 729273613 < 600 (\textrm{mod}\ 6370).
+ * \f}</li>
+ *
+ * <li> If a given trigger <tt>end_time,end_time_ns</tt>, \f$t_\mathrm{trig}\f$ is
+ * coincident to within \f$\pm t_\mathrm{inj}\f$ seconds of an injection \e site
+ * end time, given by <tt>h_end_time,h_end_time_ns</tt> or
+ * <tt>l_end_time,l_end_time_ns</tt> then the injection is considered to be found
+ * and the trigger coincident with an injection.</li>
+ *
+ * <li> Early versions of the inspiral code contained a bug that causes the
+ * \c out_start_time column of the \c search_summary table to be set
+ * incorrectly if a non-zero <tt>--trig-start-time</tt> option is specified.
+ * \c lalapps_sire corrects for this by checking for the value of
+ * <tt>--trig-start-time</tt> in the \c process_params table and using it to
+ * override the value of \c out_start_time in the \c search_summary
+ * table. To disable this behaviour, use the <tt>--disable-trig-start-time</tt>
+ * option. Note that specifying this option may cause some analyzed data times to
+ * be double counted and so the amount of analyzed data will be incorrectly
+ * reported.</li>
+ * </ol></dd>
+ *
+ * <dt>Author</dt><dd>
+ * Patrick Brady, Duncan Brown, Alexander Dietz and Steve Fairhurst</dd>
+ * </dl>
+ */
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <getopt.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <regex.h>
 #include <time.h>
 #include <lal/LALStdlib.h>
+#include <lal/LALgetopt.h>
 #include <lal/LALStdio.h>
 #include <lal/Date.h>
 #include <lal/LIGOLwXML.h>
@@ -122,7 +372,7 @@ static void print_usage(char *program)
       " [--sort-triggers]             time sort the inspiral triggers\n"\
       " [--cluster-time]   clust_time cluster triggers with clust_time ms window\n"\
       " [--cluster-algorithm] clust   use trigger clustering algorithm clust\n"\
-      "                               [ snrsq_over_chisq | snr ]\n"\
+      "                               [ snr_and_chisq | snrsq_over_chisq | new_snr | snr ]\n"\
       "\n"\
       "Injection analysis:\n"\
       " [--injection-file]   inj_file read injection parameters from inj_file\n"\
@@ -242,8 +492,8 @@ int main( int argc, char *argv[] )
 
   while (1)
   {
-    /* getopt arguments */
-    static struct option long_options[] = 
+    /* LALgetopt arguments */
+    static struct LALoption long_options[] = 
     {
       {"verbose",             no_argument,           &vrbflg,              1 },
       {"sort-triggers",       no_argument,     &sortTriggers,              1 },
@@ -276,11 +526,11 @@ int main( int argc, char *argv[] )
     };
     int c;
 
-    /* getopt_long stores the option index here. */
+    /* LALgetopt_long stores the option index here. */
     int option_index = 0;
-    size_t optarg_len;
+    size_t LALoptarg_len;
 
-    c = getopt_long_only ( argc, argv, 
+    c = LALgetopt_long_only ( argc, argv,
         "c:d:hj:k:m:o:q:r:s:t:v:u:C:D:HI:M:Q:R:S:T:U:VZ:", 
         long_options, &option_index );
 
@@ -299,7 +549,7 @@ int main( int argc, char *argv[] )
         else
         {
           fprintf( stderr, "error parsing option %s with argument %s\n",
-              long_options[option_index].name, optarg );
+              long_options[option_index].name, LALoptarg );
           exit( 1 );
         }
         break;
@@ -311,9 +561,9 @@ int main( int argc, char *argv[] )
 
       case 'Z':
         /* create storage for the usertag */
-        optarg_len = strlen( optarg ) + 1;
-        userTag = (CHAR *) calloc( optarg_len, sizeof(CHAR) );
-        memcpy( userTag, optarg, optarg_len );
+        LALoptarg_len = strlen( LALoptarg ) + 1;
+        userTag = (CHAR *) calloc( LALoptarg_len, sizeof(CHAR) );
+        memcpy( userTag, LALoptarg, LALoptarg_len );
 
         this_proc_param = this_proc_param->next = (ProcessParamsTable *)
           calloc( 1, sizeof(ProcessParamsTable) );
@@ -322,11 +572,11 @@ int main( int argc, char *argv[] )
         snprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, "-userTag" );
         snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
         snprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, "%s",
-            optarg );
+            LALoptarg );
         break;
 
       case 'c':
-        if ( strlen( optarg ) > LIGOMETA_COMMENT_MAX - 1 )
+        if ( strlen( LALoptarg ) > LIGOMETA_COMMENT_MAX - 1 )
         {
           fprintf( stderr, "invalid argument to --%s:\n"
               "comment must be less than %d characters\n",
@@ -335,7 +585,7 @@ int main( int argc, char *argv[] )
         }
         else
         {
-          snprintf( comment, LIGOMETA_COMMENT_MAX, "%s", optarg);
+          snprintf( comment, LIGOMETA_COMMENT_MAX, "%s", LALoptarg);
         }
         break;
 
@@ -348,31 +598,31 @@ int main( int argc, char *argv[] )
 
       case 'o':
         /* create storage for the output file name */
-        optarg_len = strlen( optarg ) + 1;
-        outputFileName = (CHAR *) calloc( optarg_len, sizeof(CHAR));
-        memcpy( outputFileName, optarg, optarg_len );
-        ADD_PROCESS_PARAM( "string", "%s", optarg );
+        LALoptarg_len = strlen( LALoptarg ) + 1;
+        outputFileName = (CHAR *) calloc( LALoptarg_len, sizeof(CHAR));
+        memcpy( outputFileName, LALoptarg, LALoptarg_len );
+        ADD_PROCESS_PARAM( "string", "%s", LALoptarg );
         break;
 
       case 'S':
         /* create storage for the summ file name */
-        optarg_len = strlen( optarg ) + 1;
-        summFileName = (CHAR *) calloc( optarg_len, sizeof(CHAR));
-        memcpy( summFileName, optarg, optarg_len );
-        ADD_PROCESS_PARAM( "string", "%s", optarg );
+        LALoptarg_len = strlen( LALoptarg ) + 1;
+        summFileName = (CHAR *) calloc( LALoptarg_len, sizeof(CHAR));
+        memcpy( summFileName, LALoptarg, LALoptarg_len );
+        ADD_PROCESS_PARAM( "string", "%s", LALoptarg );
         break;
 
       case 'k':
         /* type of data to analyze */
-        if ( ! strcmp( "playground_only", optarg ) )
+        if ( ! strcmp( "playground_only", LALoptarg ) )
         {
           dataType = playground_only;
         }
-        else if ( ! strcmp( "exclude_play", optarg ) )
+        else if ( ! strcmp( "exclude_play", LALoptarg ) )
         {
           dataType = exclude_play;
         }
-        else if ( ! strcmp( "all_data", optarg ) )
+        else if ( ! strcmp( "all_data", LALoptarg ) )
         {
           dataType = all_data;
         }
@@ -381,14 +631,14 @@ int main( int argc, char *argv[] )
           fprintf( stderr, "invalid argument to --%s:\n"
               "unknown data type, %s, specified: "
               "(must be playground_only, exclude_play or all_data)\n",
-              long_options[option_index].name, optarg );
+              long_options[option_index].name, LALoptarg );
           exit( 1 );
         }
-        ADD_PROCESS_PARAM( "string", "%s", optarg );
+        ADD_PROCESS_PARAM( "string", "%s", LALoptarg );
         break;
 
       case 's':
-        snrStar = (REAL4) atof( optarg );
+        snrStar = (REAL4) atof( LALoptarg );
         if ( snrStar < 0 )
         {
           fprintf( stdout, "invalid argument to --%s:\n"
@@ -401,7 +651,7 @@ int main( int argc, char *argv[] )
         break;
 
       case 'r':
-        rsqVetoThresh = (REAL4) atof( optarg );
+        rsqVetoThresh = (REAL4) atof( LALoptarg );
         if ( rsqVetoThresh < 0 )
         {
           fprintf( stdout, "invalid argument to --%s:\n"
@@ -414,7 +664,7 @@ int main( int argc, char *argv[] )
         break;
 
       case 'R':
-        rsqMaxSnr = (REAL4) atof( optarg );
+        rsqMaxSnr = (REAL4) atof( LALoptarg );
         if ( rsqMaxSnr < 0 )
         {
           fprintf( stdout, "invalid argument to --%s:\n"
@@ -427,7 +677,7 @@ int main( int argc, char *argv[] )
         break;
 
       case 'p':
-        rsqAboveSnrCoeff = (REAL4) atof( optarg );
+        rsqAboveSnrCoeff = (REAL4) atof( LALoptarg );
         if ( rsqAboveSnrCoeff < 0 )
         {
           fprintf( stdout, "invalid argument to --%s:\n"
@@ -440,7 +690,7 @@ int main( int argc, char *argv[] )
         break;
 
       case 'P':
-        rsqAboveSnrPow = (REAL4) atof( optarg );
+        rsqAboveSnrPow = (REAL4) atof( LALoptarg );
         if ( rsqAboveSnrPow < 0 )
         {
           fprintf( stdout, "invalid argument to --%s:\n"
@@ -454,39 +704,43 @@ int main( int argc, char *argv[] )
 
       case 'C':
         /* choose the clustering algorithm */
-        {        
-          if ( ! strcmp( "snr_and_chisq", optarg ) )
+        {
+          if ( ! strcmp( "snr_and_chisq", LALoptarg ) )
           {
             clusterchoice = snr_and_chisq;
           }
-          else if ( ! strcmp( "snrsq_over_chisq", optarg) )
+          else if ( ! strcmp( "snrsq_over_chisq", LALoptarg ) )
           {
             clusterchoice = snrsq_over_chisq;
           }
-          else if ( ! strcmp( "snr", optarg) )
+          else if ( ! strcmp( "snr", LALoptarg ) )
           {
             clusterchoice = snr;
-          }        
+          }
+          else if ( ! strcmp( "new_snr", LALoptarg ) )
+          {
+            clusterchoice = new_snr;
+          }
           else
           {
             fprintf( stderr, "invalid argument to  --%s:\n"
                 "unknown clustering specified:\n "
                 "%s (must be one of: snr_and_chisq, \n"
-                "   snrsq_over_chisq or snr)\n",
-                long_options[option_index].name, optarg);
+                "   snrsq_over_chisq, new_snr or snr)\n",
+                long_options[option_index].name, LALoptarg);
             exit( 1 );
           }
-          ADD_PROCESS_PARAM( "string", "%s", optarg );
+          ADD_PROCESS_PARAM( "string", "%s", LALoptarg );
         }
         break;
 
       case 't':
         /* cluster time is specified on command line in ms */
-        cluster_dt = (INT8) atoi( optarg );
+        cluster_dt = (INT8) atoi( LALoptarg );
         if ( cluster_dt <= 0 )
         {
           fprintf( stdout, "invalid argument to --%s:\n"
-              "custer window must be > 0: "
+              "cluster window must be > 0: "
               "(%" LAL_INT8_FORMAT " specified)\n",
               long_options[option_index].name, cluster_dt );
           exit( 1 );
@@ -498,30 +752,30 @@ int main( int argc, char *argv[] )
 
       case 'v':
         /* create storage for the injection file name */
-        optarg_len = strlen( optarg ) + 1;
-        vetoFileName = (CHAR *) calloc( optarg_len, sizeof(CHAR));
-        memcpy( vetoFileName, optarg, optarg_len );
-        ADD_PROCESS_PARAM( "string", "%s", optarg );
+        LALoptarg_len = strlen( LALoptarg ) + 1;
+        vetoFileName = (CHAR *) calloc( LALoptarg_len, sizeof(CHAR));
+        memcpy( vetoFileName, LALoptarg, LALoptarg_len );
+        ADD_PROCESS_PARAM( "string", "%s", LALoptarg );
         break;
 
       case 'I':
         /* create storage for the injection file name */
-        optarg_len = strlen( optarg ) + 1;
-        injectFileName = (CHAR *) calloc( optarg_len, sizeof(CHAR));
-        memcpy( injectFileName, optarg, optarg_len );
-        ADD_PROCESS_PARAM( "string", "%s", optarg );
+        LALoptarg_len = strlen( LALoptarg ) + 1;
+        injectFileName = (CHAR *) calloc( LALoptarg_len, sizeof(CHAR));
+        memcpy( injectFileName, LALoptarg, LALoptarg_len );
+        ADD_PROCESS_PARAM( "string", "%s", LALoptarg );
         break;
 
       case 'd':
-        optarg_len = strlen( optarg ) + 1;
-        ifoName = (CHAR *) calloc( optarg_len, sizeof(CHAR));
-        memcpy( ifoName, optarg, optarg_len );
-        ADD_PROCESS_PARAM( "string", "%s", optarg );
+        LALoptarg_len = strlen( LALoptarg ) + 1;
+        ifoName = (CHAR *) calloc( LALoptarg_len, sizeof(CHAR));
+        memcpy( ifoName, LALoptarg, LALoptarg_len );
+        ADD_PROCESS_PARAM( "string", "%s", LALoptarg );
         break;
 
       case 'T':
         /* injection coincidence time is specified on command line in ms */
-        injectWindowNS = (INT8) atoi( optarg );
+        injectWindowNS = (INT8) atoi( LALoptarg );
         if ( injectWindowNS < 0 )
         {
           fprintf( stdout, "invalid argument to --%s:\n"
@@ -537,38 +791,38 @@ int main( int argc, char *argv[] )
 
       case 'm':
         /* create storage for the missed injection file name */
-        optarg_len = strlen( optarg ) + 1;
-        missedFileName = (CHAR *) calloc( optarg_len, sizeof(CHAR));
-        memcpy( missedFileName, optarg, optarg_len );
-        ADD_PROCESS_PARAM( "string", "%s", optarg );
+        LALoptarg_len = strlen( LALoptarg ) + 1;
+        missedFileName = (CHAR *) calloc( LALoptarg_len, sizeof(CHAR));
+        memcpy( missedFileName, LALoptarg, LALoptarg_len );
+        ADD_PROCESS_PARAM( "string", "%s", LALoptarg );
         break;
 
       case 'M':
         /* create storage for the missed injection file name */
-        optarg_len = strlen( optarg ) + 1;
-        massCut = (CHAR *) calloc( optarg_len, sizeof(CHAR));
-        memcpy( massCut, optarg, optarg_len );
-        ADD_PROCESS_PARAM( "string", "%s", optarg );
+        LALoptarg_len = strlen( LALoptarg ) + 1;
+        massCut = (CHAR *) calloc( LALoptarg_len, sizeof(CHAR));
+        memcpy( massCut, LALoptarg, LALoptarg_len );
+        ADD_PROCESS_PARAM( "string", "%s", LALoptarg );
         break;
 
       case 'q':
-        massRangeLow = atof(optarg);
-        ADD_PROCESS_PARAM( "float", "%s", optarg);
+        massRangeLow = atof(LALoptarg);
+        ADD_PROCESS_PARAM( "float", "%s", LALoptarg);
         break;
 
       case 'Q':
-        massRangeHigh = atof(optarg);
-        ADD_PROCESS_PARAM( "float", "%s", optarg);
+        massRangeHigh = atof(LALoptarg);
+        ADD_PROCESS_PARAM( "float", "%s", LALoptarg);
         break;
 
       case 'u':
-        mass2RangeLow = atof(optarg);
-        ADD_PROCESS_PARAM( "float", "%s", optarg);
+        mass2RangeLow = atof(LALoptarg);
+        ADD_PROCESS_PARAM( "float", "%s", LALoptarg);
         break;
 
       case 'U':
-        mass2RangeHigh = atof(optarg);
-        ADD_PROCESS_PARAM( "float", "%s", optarg);
+        mass2RangeHigh = atof(LALoptarg);
+        ADD_PROCESS_PARAM( "float", "%s", LALoptarg);
         break;
 
       case '?':
@@ -578,7 +832,7 @@ int main( int argc, char *argv[] )
       default:
         fprintf( stderr, "unknown error while parsing options\n" );
         exit( 1 );
-    }   
+    }
   }
 
 
@@ -631,7 +885,7 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
 
-  /* check that if the rsq veto is being preformed,
+  /* check that if the rsq veto is being performed,
                          we have the required options */
   if ( ( (rsqVetoThresh > 0) || (rsqMaxSnr > 0) ) && ( (rsqVetoThresh < 0)
     || (rsqMaxSnr < 0) ) )
@@ -654,7 +908,7 @@ int main( int argc, char *argv[] )
       "must be specified if --rsq-power is given\n" );
     exit( 1 );
   }
-  
+
   /* check that we have all the options to do injections */
   if ( injectFileName && injectWindowNS < 0 )
   {
@@ -711,11 +965,11 @@ int main( int argc, char *argv[] )
   /* save the sort triggers flag */
   if ( sortTriggers )
   {
-    this_proc_param = this_proc_param->next = (ProcessParamsTable *) 
+    this_proc_param = this_proc_param->next = (ProcessParamsTable *)
       calloc( 1, sizeof(ProcessParamsTable) ); 
     snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, "%s",
         PROGRAM_NAME ); 
-    snprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, 
+    snprintf( this_proc_param->param, LIGOMETA_PARAM_MAX,
         "--sort-triggers" );
     snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" ); 
     snprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, " " );
@@ -726,7 +980,7 @@ int main( int argc, char *argv[] )
   if ( vetoFileName )
   {
     XLALSegListInit( &vetoSegs );
-    LAL_CALL( LALSegListRead( &status, &vetoSegs, vetoFileName, NULL ), 
+    LAL_CALL( LALSegListRead( &status, &vetoSegs, vetoFileName, NULL ),
         &status );
     XLALSegListCoalesce( &vetoSegs );
   }
@@ -740,15 +994,19 @@ int main( int argc, char *argv[] )
 
 
   /* if we have run out of arguments on the command line, throw an error */
-  if ( ! (optind < argc) )
+  if ( ! (LALoptind < argc) )
   {
     fprintf( stderr, "Error: No input trigger files specified.\n" );
     exit( 1 );
   }
 
   /* read in the triggers */
-  for( j = optind; j < argc; ++j )
+  for( j = LALoptind; j < argc; ++j )
   {
+    if ( vrbflg ) 
+    { 
+      fprintf( stdout, "Reading triggers from file %s\n", argv[j] );
+    }
     INT4 numFileTriggers = 0;
     SnglInspiralTable   *inspiralFileList = NULL;
     SnglInspiralTable   *thisFileTrigger  = NULL;
@@ -768,21 +1026,21 @@ int main( int argc, char *argv[] )
     {
       if ( vrbflg )
       {
-        fprintf(stdout, "Read %d reading triggers from file %s\n",
+        fprintf(stdout, "Read %d triggers from file %s\n",
             numFileTriggers, argv[j]);
       }
     }
 
     /* read the summ value table as well. */
     XLALReadSummValueFile(&summValueList, argv[j]);
-    
+
 
     /*
      *
      *  keep only relevant triggers
      *
      */
-    
+
 
     /* Do playground_only or exclude_play cut */
     if ( dataType != all_data )
@@ -799,7 +1057,7 @@ int main( int argc, char *argv[] )
     }
     numEventsKept += numFileTriggers;
 
-    
+
     /*  keep only events from requested ifo  */
     if ( ifoName )
     {
@@ -835,7 +1093,7 @@ int main( int argc, char *argv[] )
             massRangeLow, massRangeHigh );
       numEventsInMassRange += numFileTriggers;
     }
-    
+
     /*  Do snr cut */
     if ( snrStar > 0 )
     {
@@ -861,7 +1119,7 @@ int main( int argc, char *argv[] )
           numFileTriggers );
       numEventsBelowRsqThresh += numFileTriggers;
     }
-   
+
     /* veto events */
     if ( vetoFileName )
     {
@@ -873,8 +1131,7 @@ int main( int argc, char *argv[] )
       numEventsSurvivingVeto += numFileTriggers;
 
     }
-  
-      
+
     /* If there are any remaining triggers ... */
     if ( inspiralFileList )
     {
@@ -936,8 +1193,10 @@ int main( int argc, char *argv[] )
 
   if ( injectFileName || sortTriggers )
   {
+    if ( vrbflg ) { fprintf( stdout, "Sorting triggers... " ); }
     inspiralEventList = XLALSortSnglInspiral( inspiralEventList, 
         *LALCompareSnglInspiralByTime );
+    if ( vrbflg ) { fprintf( stdout, "done\n" ); }
   }
 
   /*
@@ -1202,7 +1461,7 @@ int main( int argc, char *argv[] )
       fprintf( fp, "the number of triggers below the R-squared veto are: %d \n",
           numEventsBelowRsqThresh);
     }
-   
+
     if ( vetoFileName )
     {
       fprintf( fp, "number of triggers not vetoed by %s: %d \n",
@@ -1300,13 +1559,13 @@ int main( int argc, char *argv[] )
     thisSummValue = summValueList;
     summValueList = summValueList->next;
     LALFree( thisSummValue );
-  } 
+  }
 
   if ( vetoFileName )
   {
     XLALSegListClear( &vetoSegs );
   }
-  
+
 
   if ( vrbflg ) fprintf( stdout, "checking memory leaks and exiting\n" );
   LALCheckMemoryLeaks();

@@ -10,6 +10,7 @@ liblalsupport_la_SOURCES = \
 	LALMath3DPlot.c \
 	LALMathNDPlot.c \
 	LogPrintf.c \
+	ParseStringValue.c \
 	PrintFrequencySeries.c \
 	PrintTimeSeries.c \
 	PrintVector.c \
@@ -25,10 +26,11 @@ liblalsupport_la_SOURCES = \
 	StreamGridOutput.c \
 	StreamVectorInput.c \
 	StreamVectorSequenceInput.c \
+	TranslateAngles.c \
+	TranslateMJD.c \
 	UserInput.c \
 	LALgetopt.c \
-	LALgetopt.h
-
+	$(END_OF_LIST)
 
 liblalsupport_la_LIBADD = $(top_builddir)/lib/lal/liblal.la $(ZLIB_LIBS)
 liblalsupport_la_CFLAGS = $(AM_CFLAGS) $(ZLIB_CFLAGS)
@@ -48,3 +50,7 @@ noinst_HEADERS = \
 	StreamSeriesOutput_source.c \
 	StreamVectorInput_source.c \
 	StreamVectorSequenceInput_source.c
+
+EXTRA_DIST = \
+	LALMathematicaHplot1.png \
+	$(END_OF_LIST)

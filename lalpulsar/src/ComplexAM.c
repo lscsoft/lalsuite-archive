@@ -19,7 +19,7 @@
 
 /**
  * \author J. T. Whelan, Reinhard Prix
- * \ingroup pulsarTODO
+ * \ingroup lalpulsar_UNCLASSIFIED
  * \file
  * \brief
  * Functions related to F-statistic calculation when the AM coefficients are complex.
@@ -43,7 +43,7 @@
 #include <lal/AVFactories.h>
 #include <lal/ComplexAM.h>
 #include <lal/LISAspecifics.h>
-#include <lal/CWFastMath.h>
+#include <lal/SinCosLUT.h>
 
 /*---------- local DEFINES ----------*/
 #define TRUE (1==1)

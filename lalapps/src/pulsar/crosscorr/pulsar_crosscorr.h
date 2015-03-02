@@ -21,6 +21,7 @@
  * \author Christine Chung, Badri Krishnan, John Whelan
  * \date 2008
  * \file
+ * \ingroup lalapps_pulsar_crosscorr
  * \brief Header for CW cross-correlation search
  *
  */
@@ -33,7 +34,6 @@
 #ifndef _PULSAR_CROSSCORR_H
 #define _PULSAR_CROSSCORR_H
 
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>

@@ -28,9 +28,13 @@
  * Look for unions "bad" and "wtf" for these hacks.
  */
 
+#include <config.h>
+
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
 #  define _(msgid)	(msgid)
 
@@ -49,7 +53,7 @@
    GNU application programs can use a third alternative mode in which
    they can distinguish the relative order of options and other arguments.  */
 
-#include "LALgetopt.h"
+#include <lal/LALgetopt.h>
 
 /* For communication from `getopt' to the caller.
    When `getopt' finds an option that takes an argument,
@@ -158,11 +162,35 @@ extern int __libc_argc;
 extern char **__libc_argv;
 #define SWAP_FLAGS(ch1, ch2)
 
+/* Internal only.  Users should not call this directly.  */
+static int _getopt_internal (int argc, char *const *argv,
+			     const char *shortopts,
+		             const struct LALoption *longopts, int *longind,
+			     int long_only);
+
+int
+LALgetopt (int argc, char *const *argv, const char *optstring)
+{
+  return _getopt_internal (argc, argv, optstring, (const struct LALoption *) 0, (int *) 0, 0);
+}
+
 int
 LALgetopt_long (int argc, char *const *argv, const char *options,
-             const struct option *long_options, int *opt_index)
+             const struct LALoption *long_options, int *opt_index)
 {
   return _getopt_internal (argc, argv, options, long_options, opt_index, 0);
+}
+
+/* Like getopt_long, but '-' as well as '--' can indicate a long option.
+   If an option that starts with '-' (not '--') doesn't match a long option,
+   but does match a short option, it is parsed as a short option
+   instead.  */
+
+int
+LALgetopt_long_only (int argc, char *const *argv, const char *options,
+                  const struct LALoption *long_options, int *opt_index)
+{
+  return _getopt_internal (argc, argv, options, long_options, opt_index, 1);
 }
 
 /* Exchange two adjacent subsequences of ARGV.
@@ -321,7 +349,7 @@ _getopt_initialize (int argc, char *const *argv, const char *optstring)
    But we pretend they're const in the prototype to be compatible
    with other systems.
 
-   LONGOPTS is a vector of `struct option' terminated by an
+   LONGOPTS is a vector of `struct LALoption' terminated by an
    element containing a name which is zero.
 
    LONGIND returns the index in LONGOPT of the long-named option found.
@@ -331,9 +359,9 @@ _getopt_initialize (int argc, char *const *argv, const char *optstring)
    If LONG_ONLY is nonzero, '-' as well as '--' can introduce
    long-named options.  */
 
-int
+static int
 _getopt_internal (int argc, char *const *argv, const char *optstring,
-                  const struct option *longopts, int *longind, int long_only)
+                  const struct LALoption *longopts, int *longind, int long_only)
 {
   int print_errors = LALopterr;
   if (optstring[0] == ':')
@@ -457,8 +485,8 @@ _getopt_internal (int argc, char *const *argv, const char *optstring,
 	  || (long_only && (argv[LALoptind][2] || !my_index (optstring, argv[LALoptind][1])))))
     {
       char *nameend;
-      const struct option *p;
-      const struct option *pfound = NULL;
+      const struct LALoption *p;
+      const struct LALoption *pfound = NULL;
       int exact = 0;
       int ambig = 0;
       int indfound = -1;
@@ -619,8 +647,8 @@ _getopt_internal (int argc, char *const *argv, const char *optstring,
     if (temp[0] == 'W' && temp[1] == ';')
       {
 	char *nameend;
-	const struct option *p;
-	const struct option *pfound = NULL;
+	const struct LALoption *p;
+	const struct LALoption *pfound = NULL;
 	int exact = 0;
 	int ambig = 0;
 	int indfound = 0;

@@ -37,6 +37,11 @@
 #include <lal/LALInference.h>
 #include <lal/LALInferenceKDE.h>
 
+#ifndef _OPENMP
+#define omp ignore
+#endif
+
+
 
 /**
  * Allocate, fill, and tune a Gaussian kernel density estimate from
@@ -149,7 +154,7 @@ LALInferenceKDE *LALInferenceNewKDEfromMat(gsl_matrix *data, INT4 *mask) {
  */
 LALInferenceKDE *LALInferenceInitKDE(INT4 npts, INT4 dim) {
     INT4 p;
-    LALInferenceKDE *kde = XLALMalloc(sizeof(LALInferenceKDE));
+    LALInferenceKDE *kde = XLALCalloc(1, sizeof(LALInferenceKDE));
     kde->dim = dim;
     kde->npts = npts;
     kde->mean = gsl_vector_calloc(dim);
@@ -178,7 +183,7 @@ LALInferenceKDE *LALInferenceInitKDE(INT4 npts, INT4 dim) {
  * Free an allocated KDE structure.
  *
  * Frees all memory allocated for a given KDE structure.
- * @param[in] KDE The KDE structure to be freed.
+ * @param[in] kde The KDE structure to be freed.
  * \sa LALInferenceKDE, LALInferenceInitKDE
  */
 void LALInferenceDestroyKDE(LALInferenceKDE *kde) {
@@ -206,7 +211,7 @@ void LALInferenceDestroyKDE(LALInferenceKDE *kde) {
  * A wrapper for gsl_linalg_cholesky_decomp() that avoids halting if the matrix
  * is found not to be positive-definite.  This often happens when decomposing a
  * covariance matrix that is poorly estimated due to low sample size.
- * @param matrix The matrix to decompose (in place).
+ * @param mat The matrix to decompose (in place).
  * @return Status of call to gsl_linalg_cholesky_decomp().
  */
 INT4 LALInferenceCholeskyDecompose(gsl_matrix *mat) {
@@ -237,7 +242,7 @@ INT4 LALInferenceCholeskyDecompose(gsl_matrix *mat) {
  *
  * Use Scott's rule to determine the bandwidth, and corresponding normalization
  *  factor, for a KDE.
- * @param[in] KDE The kernel density estimate to estimate the bandwidth of.
+ * @param[in] kde The kernel density estimate to estimate the bandwidth of.
  */
 void LALInferenceSetKDEBandwidth(LALInferenceKDE *kde) {
     /* Use Scott's Bandwidth method */
@@ -288,7 +293,7 @@ void LALInferenceSetKDEBandwidth(LALInferenceKDE *kde) {
  *
  * Calculate the (log) value of the probability density function estimate from
  * a kernel density estimate at a single point.
- * @param[in] KDE   The kernel density estimate to evaluate.
+ * @param[in] kde   The kernel density estimate to evaluate.
  * @param[in] point An array containing the point to evaluate the PDF at.
  * @return The value of the estimated probability density function at \a point.
  */
@@ -417,7 +422,7 @@ REAL8 LALInferenceKDEEvaluatePoint(LALInferenceKDE *kde, REAL8 *point) {
  * Draw a sample from a kernel density estimate.
  *
  * Draw a sample from a distribution, as estimated by a kernel density estimator.
- * @param[in] KDE The kernel density estimate to draw \a point from.
+ * @param[in] kde The kernel density estimate to draw \a point from.
  * @param[in] rng GSL random number generator to use.
  * @return The sample drawn from the distribution.
  */
@@ -517,7 +522,7 @@ REAL8 LALInferenceMatrixDet(gsl_matrix *mat) {
  *
  * Calculate the mean vector of a data set contained in the rows of a
  * GSL matrix.
- * @param[out] data GSL vector containing the mean.
+ * @param[out] mean GSL vector containing the mean.
  * @param[in]  data GSL matrix data set to compute the mean of.
  */
 void LALInferenceComputeMean(gsl_vector *mean, gsl_matrix *data) {
@@ -543,7 +548,7 @@ void LALInferenceComputeMean(gsl_vector *mean, gsl_matrix *data) {
  *
  * Calculate the covariance matrix of a data set contained in the rows of a
  * GSL matrix.
- * @param[out] data GSL matrix containing the covariance matrix of \a data.
+ * @param[out] cov  GSL matrix containing the covariance matrix of \a data.
  * @param[in]  data GSL matrix data set to compute the covariance matrix of.
  */
 void LALInferenceComputeCovariance(gsl_matrix *cov, gsl_matrix *data) {

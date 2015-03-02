@@ -22,7 +22,8 @@
 
 /**
  * \file
- * \brief Header file for DriveHoughFStat.c
+ * \ingroup lalapps_pulsar_hough
+ * \brief Header file for DriveHoughFstat.c
  * \author Badri Krishnan, Alicia Sintes
  *
  */
@@ -32,7 +33,6 @@
 #define _DRIVEHOUGHCOLOR_H
 
 /* standard includes */
-#include <unistd.h>
 #include <sys/types.h>
 #include <fcntl.h>
 #include <string.h>
@@ -68,7 +68,7 @@
 #include <lalapps.h>
 
 /* more efficient toplist using heaps */
-#include "HoughFStatToplist.h"
+#include "HoughFstatToplist.h"
 
 /******************************************************
  *   Protection against C++ name mangling

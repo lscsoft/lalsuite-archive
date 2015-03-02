@@ -18,12 +18,16 @@ import ConfigParser
 from optparse import *
 import sys
 import os
+import glob
 import time
 from laldetchar.idq import idq
-import numpy
 from laldetchar.idq import idq_summary_plots as idq_s_p
+from laldetchar.idq import event
+import numpy
 import traceback
 import logging
+
+from glue.ligolw import table, lsctables, utils, ligolw
 
 from laldetchar import git_version
 
@@ -43,6 +47,7 @@ def generate_html(
     path,
     gpsstart=False,
     gpsstop=False,
+    gwchannel=False,
     tot_livetime=False,
     tot_glitches=False,
     roc_url=False,
@@ -93,13 +98,15 @@ def generate_html(
             gpsstop_date.tm_year,
             gpsstop,
             )
+    if gwchannel:
+        print >> f, '<p>Target channel : %s</p>' % gwchannel
     if tot_livetime:
         print >> f, '<p>total Livetime = %f seconds</p>' % tot_livetime
     if tot_glitches:
         print >> f, '<p>total No.glitches = %d events</p>' \
             % int(tot_glitches)
     if roc_url:
-        print >> f, '<h2>Reciever Operating Characteristic Curve</h2>'
+        print >> f, '<h2>Receiver Operating Characteristic Curve</h2>'
         print >> f, \
             '<img src="%s" alt="ROC curve" title="ROC curve" />' \
             % roc_url
@@ -213,6 +220,12 @@ parser.add_option('-e', '--gps-stop', default=False, type='int',
                   help='a GPS stop time for the analysis. If default, gpsstop is calculated from the current time.')
 parser.add_option('-l', '--log-file', default='idq_summary.log', type='string', help='log file')
 
+parser.add_option("", "--ignore-science-segments", default=False, action="store_true")
+
+parser.add_option('-f','--force',default=False, action='store_true', help="forces *uroc cache file to be updated, even if we have no data. Use with caution.")
+
+parser.add_option("", "--no-robot-cert", default=False, action="store_true")
+
 (opts, args) = parser.parse_args()
 
 #===================================================================================================
@@ -254,6 +267,9 @@ cluster_win = float(myconf['cluster_win']) ### used to cluster glitches
 
 FAP = float(myconf['fap']) ### FAP at which we report segments, efficiency trends, etc
 
+min_num_cln = float(myconf['min_num_cln'])
+min_num_gch = float(myconf['min_num_gch'])
+
 ### THESE ARE NOT USED. CONSIDER REMOVING?
 #symlink_path = myconf['symlink']
 #url_base = myconf['url_base']
@@ -269,6 +285,10 @@ sumdir = config.get('general', 'summarydir')
 realtimedir = config.get('general', 'realtimedir')
 traindir = config.get('general', 'traindir')
 
+usertag = config.get('general', 'usertag')
+
+gwchannel = config.get('general', 'gwchannel')
+
 classifiers = config.get('general', 'classifiers').split()
 
 vetolist_cache = config.get('general', 'ovl_train_cache')
@@ -281,10 +301,32 @@ kwtrgdir = config.get('general', 'kwtrgdir')
 
 kde_num_samples = int(config.get('idq_summary', 'kde_num_samples'))
 
+### kleineWelle config
+kwconfig = idq.loadkwconfig(config.get('general', 'kwconfig'))
+kwbasename = kwconfig['basename']
+
 #=================================================
 ### set classifier colors and labels
 classifier_colors = [idq_s_p.classifier_colors(classifier) for classifier in classifiers]
 classifier_labels = [idq_s_p.classifier_labels(classifier) for classifier in classifiers]
+
+#=================================================
+### set up ROBOT certificates
+### IF ligolw_segement_query FAILS, THIS IS A LIKELY CAUSE
+if opts.no_robot_cert:
+    logger.info("Warning: running without a robot certificate. Your personal certificate may expire and this job may fail")
+else:
+    ### unset ligo-proxy just in case
+    if os.environ.has_key("X509_USER_PROXY"):
+        del os.environ['X509_USER_PROXY']
+
+    ### get cert and key from ini file
+    robot_cert = config.get('ldg_certificate', 'robot_certificate')
+    robot_key = config.get('ldg_certificate', 'robot_key')
+
+    ### set cert and key
+    os.environ['X509_USER_CERT'] = robot_cert
+    os.environ['X509_USER_KEY'] = robot_key
 
 #=================================================
 ### current time and boundaries
@@ -322,8 +364,96 @@ while gpsstart < gpsstop:
     if not os.path.exists(this_sumdir):
         os.makedirs(this_sumdir)
 
+    ### attempt to write an index.html
+    index_html = "%s/index.html"%(this_sumdir)
+    index_html_obj = open(index_html, "w")
+    print >> index_html_obj, "attempted to build this page at:"
+    c_time = time.localtime()
+    tzname = time.tzname[0]
+    print >> index_html_obj, '%d:%d:%d %s %2d/%2d/%4d' % (
+        c_time.tm_hour,
+        c_time.tm_min,
+        c_time.tm_sec,
+        tzname,
+        c_time.tm_mon,
+        c_time.tm_mday,
+        c_time.tm_year,
+        )
+    print >> index_html_obj, "Target Channel: %s"%gwchannel
+    index_html_obj.close()
+
     #=============================================
-    # generat *roc files
+    # sciseg query
+    #=============================================
+    if opts.ignore_science_segments:
+        logger.info("ignoring science segments")
+        scisegs = [[gpsstart, gpsstart+stride]]
+
+    else:
+        logger.info("generating science segments")
+        try:
+            seg_xml_file = idq.segment_query(config, gpsstart, gpsstart+stride, url=config.get("get_science_segments","segdb"))
+
+            lsctables.use_in(ligolw.LIGOLWContentHandler)
+            xmldoc = utils.load_fileobj(seg_xml_file, contenthandler=ligolw.LIGOLWContentHandler)[0]
+
+            seg_file = "%s/science_segements-%d-%d.xml.gz"%(this_sumdir, int(gpsstart), int(stride))
+            logger.info("writting science segments to file : %s"%seg_file)
+            utils.write_filename(xmldoc, seg_file, gz=seg_file.endswith(".gz"))
+
+            (scisegs, coveredseg) = idq.extract_dq_segments(seg_file, config.get('get_science_segments', 'include'))
+
+        except Exception as e:
+            traceback.print_exc()
+            logger.info("ERROR: segment generation failed. Skipping this summary period.")
+
+            gpsstart += stride
+            continue
+
+    #=============================================
+    # generating summary datfiles filtered by segments
+    #=============================================
+    ### get all relevant datfiles
+    datfiles = idq.get_all_files_in_range(realtimedir, gpsstart, gpsstart+stride, suffix=".dat")
+
+    for classifier in classifiers:
+        ### follow standard datfile naming conventions 
+        summary_dat = "%s/%s_%s_0-0_%sSummary-%d-%d.dat"%(this_sumdir, kwbasename, classifier, usertag, gpsstart, stride)
+
+        logger.info("generating summary dat file for %s : %s"%(classifier, summary_dat))
+
+        columns = ['GPS', 'i', 'rank', "signif", "SNR"]
+        if classifier == "ovl":
+            columns += ["vchan", "vthr", "vwin"]
+
+        ### write columns to summary dat
+        file_obj = open(summary_dat, "w")
+        print >> file_obj, " ".join(columns)
+
+        for datfile in datfiles:
+            if classifier not in datfile: ### downselect based on classifier
+                continue
+
+            ### load only the required columns from datfile 
+            output = idq.slim_load_datfile(datfile, skip_lines=0, columns=columns)
+
+            ### convert to list of triggers
+            triggers = [[output[c][i] for c in columns] for i in xrange(len(output["GPS"]))]
+            triggers = [[float(l[0])]+l[1:] for l in triggers]
+
+            ### window triggers with scisegs
+            triggers = event.include( triggers, scisegs, tcent=0 ) ### tcent hard coded according to columns
+
+            ### write surviving triggers to datfile
+            for trigger in triggers:
+                trigger = [str(trigger[0])] + trigger[1:]
+                print >> file_obj, " ".join(trigger)
+
+        file_obj.close()
+        logger.info("Done.")
+   
+    #=============================================
+    # generate *roc files
     #=============================================
     ### collect *dat files and merge into *roc files
     logger.info('generating *.roc files')
@@ -333,7 +463,8 @@ while gpsstart < gpsstop:
         columns=columns,
         classifiers=classifiers,
         basename=False,
-        source_dir=realtimedir,
+        source_dir=this_sumdir,
+#        source_dir=realtimedir,
         output_dir=this_sumdir,
         cluster_win=cluster_win,
         unsafe_win=unsafe_win,
@@ -348,23 +479,30 @@ while gpsstart < gpsstop:
     for (roc_path, classifier) in roc_paths:
         (uniform_ranks, uniform_ccln, uniform_cgch, tcln, tgch) = \
             idq_s_p.ROC_to_uniformROC(roc_path, num_samples=100)
+
         uniformROCfilename = roc_path[:-4] + '.uroc'  # suffix is for uniformly-sampled roc file
+
         uroc_paths.append((idq_s_p.rcg_to_ROC(
-            roc_path[:-4] + '.uroc',
+            uniformROCfilename,
             uniform_ranks,
             uniform_ccln,
             uniform_cgch,
             tcln,
             tgch,
-            ), classifier))
+            ), classifier, (tcln>=min_num_cln) and (tgch>=min_num_gch)))
 
     ### update uroc_cachefiles used in realtime job
     logger.info('updating *_uroc.cache files')
-    for (uroc_path, classifier) in uroc_paths:
-        uroc_cachefilename = sumdir + '/' + classifier + '_uroc.cache'
-        file = open(uroc_cachefilename, 'a')
-        print >> file, uroc_path
-        file.close()
+    for (uroc_path, classifier, include) in uroc_paths:
+        if include or opts.force:
+            logger.info('updating *_uroc.cache file for %s'%classifier)
+
+            uroc_cachefilename = sumdir + '/' + classifier + '_uroc.cache'
+            file = open(uroc_cachefilename, 'a')
+            print >> file, uroc_path
+            file.close()
+        else:
+           logger.info('not enough glitches or cleans were found to justify updating uroc.cache for %s'%classifier)
 
     #=============================================
     # generat ROC figures
@@ -528,7 +666,8 @@ while gpsstart < gpsstop:
                 columns=columns + ['vchan'],
                 classifiers=[classifier],
                 basename=False,
-                source_dir=realtimedir,
+                source_dir=this_sumdir,
+#                source_dir=realtimedir,
                 output_dir=this_sumdir,
                 cluster_win=cluster_win,
                 unsafe_win=unsafe_win,
@@ -543,31 +682,36 @@ while gpsstart < gpsstop:
                         + classifier)
     logger.info('Done')
 
-    ### generate channel trending plot
+    ### generate channel trending plots
     logger.info('generating channel performance trending plot')
     chanlist_trend = []
-    for classifier in classifiers:
-        if classifier not in ['ovl']:
-            logger.info('skipping ' + classifier)
-            continue
-        try:
-            figure_name = this_sumdir + '/' + classifier \
-                + '-%d-%d_channel_performance_trends.png' \
-                % (lookbacktime, gpsstart + stride)
-            chan_perform_png = idq_s_p.chanlist_trending(
-                lookbacktime,
-                gpsstart + stride,
-                sumdir,
-                classifier=classifier,
-                figure_name=figure_name,
-                annotated=True,
-                )
-            chanlist_trend.append((chan_perform_png, classifier))
-        except:
-            traceback.print_exc()
-            chanlist_trend.append(('', classifier))
-            logger.info('WARNING: FAILED to generated channel trending plot for '
-                         + classifier)
+    for yvalue in ["rank", "eff", "fap"]:
+        for classifier in classifiers:
+            logger.info('%s %s channel performance trending'%(classifier, yvalue))
+
+            if classifier not in ['ovl']:
+                logger.info('skipping ' + classifier)
+                continue
+
+            try:
+                figure_name = this_sumdir + '/' + classifier \
+                    + '-%d-%d_channel_performance_%s_trends.png' \
+                    % (lookbacktime, gpsstart + stride, yvalue)
+                chan_perform_png = idq_s_p.chanlist_trending(
+                    lookbacktime,
+                    gpsstart + stride,
+                    sumdir,
+                    classifier=classifier,
+                    figure_name=figure_name,
+                    annotated=False,
+                    yvalue=yvalue
+                    )
+                chanlist_trend.append((chan_perform_png, classifier))
+            except:
+                traceback.print_exc()
+                chanlist_trend.append(('', classifier))
+                logger.info('WARNING: FAILED to generated channel trending plot for '
+                             + classifier)
 
     logger.info('Done')
 
@@ -585,7 +729,8 @@ while gpsstart < gpsstop:
                 columns=columns + ['vchan', 'vthr', 'vwin'],
                 classifiers=[classifier],
                 basename=False,
-                source_dir=realtimedir,
+                source_dir=this_sumdir,
+#                source_dir=realtimedir,
                 output_dir=this_sumdir,
                 cluster_win=cluster_win,
                 unsafe_win=unsafe_win,
@@ -615,7 +760,8 @@ while gpsstart < gpsstop:
                 columns=columns,
                 classifiers=[classifier],
                 basename=False,
-                source_dir=realtimedir,
+                source_dir=this_sumdir,
+#                source_dir=realtimedir,
                 output_dir=this_sumdir,
                 cluster_win=cluster_win,
                 unsafe_win=unsafe_win,
@@ -703,6 +849,7 @@ while gpsstart < gpsstop:
         html_path,
         gpsstart=gpsstart,
         gpsstop=gpsstart + stride,
+        gwchannel=gwchannel,
         roc_url=roc_url,
         vetolist_url=vetolist_url,
         roc_urls=roc_urls,
@@ -719,6 +866,12 @@ while gpsstart < gpsstop:
 
     logger.info('Done')
 
+    ### soft link html page to index.html
+    index_html = "%s/index.html"%this_sumdir
+    logger.info("soft linking %s -> %s"%(html_path, index_html))
+    os.system("rm %s"%(index_html))
+    os.system("ln -s %s %s"%(html_path, index_html))
+
     # update symbolic link
 # ....iif os.path.lexists(symlink_path):
 # ........os.remove(symlink_path)
@@ -727,3 +880,41 @@ while gpsstart < gpsstop:
     ### continue onto the next stride
     gpsstart += stride
 
+#===================================================================================================
+### (re)write index.html for sumdir once all pages are built
+logger.info("writting top-level index.html page to point to individual directories")
+
+index_html = "%s/index.html"%(sumdir)
+
+file_obj = open(index_html, "w")
+print >> file_obj, "<body>"
+
+print >> file_obj, "<h1>iDQ summary pages Directory</h1>"
+
+sumdirs = [l.strip("index.html") for l in sorted(glob.glob("%s/*_*/index.html"%sumdir))]
+sumdirs.reverse()
+
+for this_sumdir in sumdirs:
+    this_sumdir = this_sumdir.strip("/").split("/")[-1]
+    print >> file_obj, "<p>information about iDQ between %s and %s : "%tuple(this_sumdir.split("_"))
+    print >> file_obj, "<a href=\"%s/\">here</a>"%(this_sumdir)
+    print >> file_obj, "</p>"
+
+print >> file_obj, "<hr />"
+
+### print timestamp
+c_time = time.localtime()
+tzname = time.tzname[0]
+print >> file_obj, '<p>last updated %d:%d:%d %s %2d/%2d/%4d </p>' % (
+    c_time.tm_hour,
+    c_time.tm_min,
+    c_time.tm_sec,
+    tzname,
+    c_time.tm_mon,
+    c_time.tm_mday,
+    c_time.tm_year,
+    )
+
+print >> file_obj, "</body>"
+
+file_obj.close()
