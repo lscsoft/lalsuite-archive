@@ -57,7 +57,9 @@ matplotlib.rcParams.update({
         "path.simplify": True
 })
 
+
 lsctables.LIGOTimeGPS = LIGOTimeGPS
+
 
 def chirp_mass(m1,m2):
   m1 = numpy.array(m1)
@@ -65,7 +67,6 @@ def chirp_mass(m1,m2):
   mu = (m1*m2)/(m1+m2)
   mtotal = m1+m2
   return mu**(3./5) *mtotal**(2./5)
-
 
 
 class upper_limit(object):
@@ -253,7 +254,6 @@ class upper_limit(object):
 
 
   def set_chirp_mass_bins(self):
-
     if self.opts.chirp_mass_bins is not None: # use user-specified bins if given
       binEdges = numpy.array([float(k) for k in self.opts.chirp_mass_bins.split(',')])
     else: # otherwise, make bins based on what we know about total mass ranges
@@ -653,7 +653,7 @@ will compute the search volume using all injections with at least one component 
   parser.add_option("--output-path", type = "string", default = "./", action = "store", help="Choose directory to save output files.")
   parser.add_option("--verbose", action = "store_true", help = "Be verbose.")
   parser.add_option("--plot-efficiency", action = "store_true", help = "Plot efficiency as a function of distance.")
-  parser.add_option("--plot-volume-vs-far", action = "store_true", help = "Compute and plot the volume as a function of FAR.")
+  parser.add_option("--plot-volume-vs-far", action = "store_true", help = "Compute and plot the 4-volume searched as a function of FAR.  Overridden by the --open-box option.")
   parser.add_option("--plot-lambda-fits", action = "store_true", help = "Plot the data points used to compute lambda, and the fit obtained from these points.")
   parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory used as work area for the database file.  The database file will be worked on in this directory then moved to the final location when complete.  Intended to improve performance in a networked environment: eg local disk with higher available bandwidth than the filesystem where the database lives.")
 
@@ -662,6 +662,10 @@ will compute the search volume using all injections with at least one component 
   if opts.livetime_program is None:
     print >>sys.stderr, "Error: no livetime-program option was given, exiting!"
     sys.exit(1)
+
+  if opts.open_box and opts.volume_vs_far:
+    print >>sys.stderr, "I will not plot V*T vs FAR if the --open-box option is given! Proceeding without V*T plots..."
+    opts.volume_vs_far = False
 
   if opts.instruments is not None:
     opts.instruments = frozenset(lsctables.instrument_set_from_ifos(opts.instruments))
@@ -746,6 +750,7 @@ if opts.plot_volume_vs_far:
 
         lt = UL.livetime[instr] #preferred unit is Mpc^3*yr
 
+        minvol = 1e20  # dummy initialization for minimum V*T plot boundary
         for bin_type in UL.mass_bins:
             vAs, vA2s = [], []
 
@@ -772,11 +777,12 @@ if opts.plot_volume_vs_far:
                 vols_errs = numpy.array([v2[mbin] for v2 in vA2s ])
 
                 pyplot.figure(1)
-                line, = pyplot.plot(fars, lt*vols, label=label)
-                pyplot.fill_between(fars, lt*vols - lt*vols_errs, lt*vols + lt*vols_errs, alpha=0.5, color=line.get_color())
+                line, = pyplot.plot(fars, lt * vols, label=label)
+                pyplot.fill_between(fars, lt * (vols - vols_errs), lt * (vols + vols_errs), alpha=0.5, color=line.get_color())
+                minvol = min(minvol, min(lt * (vols - vols_errs))) # update minimum plotted value
 
-                dists = (3*vols/(4*numpy.pi))**(1./3)
-                dists_errs = dists*vols_errs/(3*vols)
+                dists = (3 * vols / (4 * numpy.pi)) ** (1. / 3)
+                dists_errs = dists * vols_errs / (3 * vols)
 
                 pyplot.figure(2)
                 line, = pyplot.plot(fars, dists, label=label)
@@ -787,7 +793,12 @@ if opts.plot_volume_vs_far:
             tag = "%s-VOLUME_VS_FAR_BINNED_BY_%s_%s" % ("".join(sorted(list(instr))),bin_type.upper(),opts.user_tag)
             pyplot.xlabel("False Alarm Rate (yr$^{-1}$)")
             pyplot.ylabel("Mean Sensitive 4-Volume (Mpc$^3\,$yr)")
-            pyplot.semilogx()
+            # prefer log y axis for V*T plot but if one or more volumes is =0 then loglog() will fail
+            try:
+                pyplot.loglog()
+                pyplot.ylim(ymin=0.7 * minvol)
+            except:
+                pyplot.semilogx()
             pyplot.grid()
             pyplot.xlim(min(fars), max(fars))
             pyplot.ylim(ymin=0)
