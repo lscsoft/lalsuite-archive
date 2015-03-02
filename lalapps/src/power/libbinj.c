@@ -2184,8 +2184,8 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
         XLALGenerateSimBurst(&hplus,&hcross,inj,deltaT);
         memset(timeHplus->data->data, 0, sizeof (REAL8)*timeHplus->data->length);
         memset(timeHcross->data->data, 0, sizeof (REAL8)*timeHcross->data->length);
-        XLALGPSAddGPS(&hcross->epoch, &inj->time_geocent_gps);
-		    XLALGPSAddGPS(&hplus->epoch, &inj->time_geocent_gps);
+        XLALGPSSetREAL8(&hcross->epoch, XLALGPSGetREAL8(&inj->time_geocent_gps));
+		    XLALGPSSetREAL8(&hplus->epoch, XLALGPSGetREAL8(&inj->time_geocent_gps));
         XLALSimAddInjectionREAL8TimeSeries(timeHplus, hplus, NULL);
         XLALSimAddInjectionREAL8TimeSeries(timeHcross, hcross, NULL);
         
