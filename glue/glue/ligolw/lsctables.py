@@ -211,6 +211,8 @@ def instrument_set_from_ifos(ifos):
 
 	>>> print instrument_set_from_ifos(None)
 	None
+	>>> instrument_set_from_ifos(u"")
+	set([])
 	>>> instrument_set_from_ifos(u"H1")
 	set([u'H1'])
 	>>> instrument_set_from_ifos(u"SWIFT")
@@ -271,6 +273,12 @@ def ifos_from_instrument_set(instruments):
 
 	Example:
 
+	>>> print ifos_from_instrument_set(None)
+	None
+	>>> ifos_from_instrument_set(())
+	u''
+	>>> ifos_from_instrument_set((u"",))
+	u''
 	>>> ifos_from_instrument_set((u"H1",))
 	u'H1'
 	>>> ifos_from_instrument_set((u"H1",u"L1"))
@@ -447,12 +455,30 @@ class ProcessParams(object):
 	>>> x.type
 	u'lstring'
 	>>> x.value
-	u'"test"'
+	u'test'
+	>>> x.pyvalue
+	u'test'
 	>>> x.pyvalue = 6.
 	>>> x.type
 	u'real_8'
 	>>> x.value
 	u'6'
+	>>> x.pyvalue
+	6.0
+	>>> x.pyvalue = None
+	>>> print x.type
+	None
+	>>> print x.value
+	None
+	>>> print x.pyvalue
+	None
+	>>> x.pyvalue = True
+	>>> x.type
+	u'int_4s'
+	>>> x.value
+	u'1'
+	>>> x.pyvalue
+	1
 	"""
 	__slots__ = ProcessParamsTable.validcolumns.keys()
 
@@ -460,12 +486,22 @@ class ProcessParams(object):
 	def pyvalue(self):
 		if self.value is None:
 			return None
-		return ligolwtypes.ToPyType[self.type or "lstring"](self.value)
+		try:
+			parsefunc = ligolwtypes.ToPyType[self.type]
+		except KeyError:
+			raise ValueError("invalid type '%s'" % self.type)
+		return parsefunc(self.value)
 
 	@pyvalue.setter
 	def pyvalue(self, value):
-		self.type = ligolwtypes.FromPyType[type(value)]
-		self.value = ligolwtypes.FormatFunc[self.type](value)
+		if value is None:
+			self.type = self.value = None
+		else:
+			try:
+				self.type = ligolwtypes.FromPyType[type(value)]
+			except KeyError:
+				raise ValueError("type not supported: %s" % repr(type(value)))
+			self.value = value if self.type in ligolwtypes.StringTypes else ligolwtypes.FormatFunc[self.type](value)
 
 
 ProcessParamsTable.RowType = ProcessParams
