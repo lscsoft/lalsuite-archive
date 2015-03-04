@@ -37,7 +37,6 @@
 #include <lal/Sequence.h>
 #include <lal/TFTransform.h>
 #include <lal/TimeFreqFFT.h>
-#include <lal/Window.h>
 
 
 #include <misc.h>
