@@ -115,6 +115,7 @@ CalculateRotationMatrix(
  * 3. rotate about the former z-axis (now z') by an algle g, rotation matrix Rz(g);
  */
   /* populate the matrix */
+    /*
   gsl_matrix_set( rotMatrix, 0, 0, cosg*cosa - cosb*sina*sing );
   gsl_matrix_set( rotMatrix, 0, 1, cosg*sina + cosb*cosa*sing );
   gsl_matrix_set( rotMatrix, 0, 2, sing*sinb );
@@ -124,6 +125,18 @@ CalculateRotationMatrix(
   gsl_matrix_set( rotMatrix, 2, 0, sinb*sina );
   gsl_matrix_set( rotMatrix, 2, 1, -sinb*cosa );
   gsl_matrix_set( rotMatrix, 2, 2, cosb );
+     */
+    // Better to avoid angle singularity
+    gsl_matrix_set( rotMatrix, 0, 0, r[0] );
+    gsl_matrix_set( rotMatrix, 0, 1, r[1] );
+    gsl_matrix_set( rotMatrix, 0, 2, r[2] );
+    gsl_matrix_set( rotMatrix, 1, 0, v[0] );
+    gsl_matrix_set( rotMatrix, 1, 1, v[1] );
+    gsl_matrix_set( rotMatrix, 1, 2, v[2] );
+    gsl_matrix_set( rotMatrix, 2, 0, L[0] );
+    gsl_matrix_set( rotMatrix, 2, 1, L[1] );
+    gsl_matrix_set( rotMatrix, 2, 2, L[2] );
+
 
   /* Now populate the transpose (which should be the inverse) */
   gsl_matrix_transpose_memcpy( rotInverse, rotMatrix );
@@ -877,6 +890,14 @@ static int XLALSimIMRSpinEOBInitialConditions(
   ApplyRotationMatrix( rotMatrix2, tmpS2Norm );
   ApplyRotationMatrix( rotMatrix2, qCart );
   ApplyRotationMatrix( rotMatrix2, pCart );
+    
+    if (debugPK) {
+        printf("qCart after rotation2 %3.10f %3.10f %3.10f\n", qCart[0], qCart[1], qCart[2]);
+        printf("pCart after rotation2 %3.10f %3.10f %3.10f\n", pCart[0], pCart[1], pCart[2]);
+        printf("S1 after rotation2 %3.10f %3.10f %3.10f\n", tmpS1Norm[0], tmpS1Norm[1], tmpS1Norm[2]);
+        printf("S2 after rotation2 %3.10f %3.10f %3.10f\n", tmpS2Norm[0], tmpS2Norm[1], tmpS2Norm[2]);
+    }
+
 
   /* STEP 4) In the L0-N0 frame, we calculate (dE/dr)|sph using Eq. (4.14), then initial dr/dt using Eq. (4.10),
    *         and finally pr0 using Eq. (4.15).
@@ -1072,6 +1093,8 @@ static int XLALSimIMRSpinEOBInitialConditions(
     params->tortoise = tmpTortoise;
 
     if(debugPK)printf( "Applying the tortoise to p (csi = %.26e)\n", csi );
+      printf( "pCart = %3.10f %3.10f %3.10f\n", pCart[0], pCart[1], pCart[2] );
+
 
     for ( i = 0; i < 3; i++ )
     {
