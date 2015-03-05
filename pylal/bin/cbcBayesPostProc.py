@@ -595,13 +595,17 @@ def cbcBayesPostProc(
     tabid='onedconftable'
     html_ogci=html.add_collapse_section('1D confidence intervals (greedy binning)',legend=legend,innertable_id=tabid)
     html_ogci_write='<table id="%s" border="1"><tr><th/>'%tabid
-    
+    clasciiout="#parameter \t"
     confidence_levels.sort()
     for cl in confidence_levels:
         html_ogci_write+='<th>%f</th>'%cl
+        clasciiout+="%s\t"%('%.02f'%cl)
     if injection:
         html_ogci_write+='<th>Injection Confidence Level</th>'
         html_ogci_write+='<th>Injection Confidence Interval</th>'
+        clasciiout+="Injection_Confidence_Level\t"
+        clasciiout+="Injection_Confidence_Interval"
+    clasciiout+='\n'
     html_ogci_write+='</tr>'
 
     onepdfdir=os.path.join(outdir,'1Dpdf')
@@ -647,24 +651,28 @@ def cbcBayesPostProc(
 
         #Generate new BCI html table row
         BCItableline='<tr><td>%s</td>'%(par_name)
+        clasciiout+="%s\t"%par_name
         cls=reses.keys()
         cls.sort()
 
         for cl in cls:
             BCItableline+='<td>%f</td>'%reses[cl]
-
+            clasciiout+="%f\t"%reses[cl]
         if injection is not None:
             if injectionconfidence is not None and injection_area is not None:
 
                 BCItableline+='<td>%f</td>'%injectionconfidence
                 BCItableline+='<td>%f</td>'%injection_area
+                clasciiout+="%f\t"%injectionconfidence
+                clasciiout+="%f"%injection_area
 
             else:
                 BCItableline+='<td/>'
                 BCItableline+='<td/>'
-
+                clasciiout+="nan\t"
+                clasciiout+="nan"
         BCItableline+='</tr>'
-
+        clasciiout+="\n"
         #Append new table line to section html
         html_ogci_write+=BCItableline
 
@@ -835,6 +843,10 @@ def cbcBayesPostProc(
     if html_corner!='':
       html_co=html.add_collapse_section('Corner plots',legend=legend,innertable_id=tabid)
       html_co.write(html_corner)
+    if clasciiout:
+      fout=open(os.path.join(outdir,'confidence_levels.txt'),'w')
+      fout.write(clasciiout)
+      fout.close()
     #==================================================================#
     #2D posteriors
     #==================================================================#
