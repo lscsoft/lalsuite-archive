@@ -1315,7 +1315,6 @@ int XLALSimIMRSpinEOBWaveform(
         const REAL8     INspin2[]
      )
 {
-  
   int debugPK = 1;
   INT4 i=0;
   INT4 k=0;
@@ -1522,8 +1521,8 @@ int XLALSimIMRSpinEOBWaveform(
      printf("Inputs: spin2 = {%.16e, %.16e, %.16e}\n",  spin2[0], spin2[1], spin2[2]);
   }  
 
-#if 1 
-  
+#if 0
+  /*
   values->data[0] = 15.87;
   values->data[1] = 0.;
   values->data[2] = 0.;
@@ -1536,7 +1535,7 @@ int XLALSimIMRSpinEOBWaveform(
   values->data[9] = 0.;
   values->data[10] = 0.;
   values->data[11] = 0.;
-  /*
+  */
   values->data[0] = 2.5000000000000000e+01;
   values->data[1] = -2.7380429870100001e-23;
   values->data[2] = -2.8953132596299999e-19;
@@ -1549,7 +1548,7 @@ int XLALSimIMRSpinEOBWaveform(
   values->data[9] = 1.3483616572900000e-02 * (mTotal/m2) * (mTotal/m2);
   values->data[10] = 2.1175823681400000e-22 * (mTotal/m2) * (mTotal/m2);
   values->data[11] = 9.7964208715400000e-03 * (mTotal/m2) * (mTotal/m2);
-  */
+  
 
 
   for( i = 0; i < 3; i++ )
@@ -1715,11 +1714,9 @@ int XLALSimIMRSpinEOBWaveform(
   /*
    * STEP 1) Solve for initial conditions
    */
-   int NoComputeInitialConditions = 1;
-if( !NoComputeInitialConditions )
-{
-  REAL8 UNUSED  temp32;
-  temp32 = 17.23333034918909 + 0 * fMin / mTotal  / LAL_PI / LAL_MTSUN_SI;
+//   int NoComputeInitialConditions = 0;
+//if( !NoComputeInitialConditions )
+//{
   REAL8Vector* tmpValues2 = NULL;
   tmpValues2 = XLALCreateREAL8Vector( 14 );
   
@@ -1744,7 +1741,10 @@ if( !NoComputeInitialConditions )
 	  for( j=0; j < tmpValues2->length; j++)
 		printf("%.16le\n", tmpValues2->data[j]);
  }
-}
+//}
+    
+    for (j = 0; j < tmpValues2->length; j++)
+        values->data[j] = tmpValues2->data[j];
   
   /* Assume that initial conditions are available at this point, to
    * compute the chiS and chiA parameters.
@@ -1847,7 +1847,7 @@ if( !NoComputeInitialConditions )
   spinNQC = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
   switch ( SpinAlignedEOBversion )
   {
-	  case 1:         
+	  case 1:
 	    if(debugPK)printf("\t NQC: spin used = %.12e\n", spinNQC);
 	    XLALSimIMRGetEOBCalibratedSpinNQC( &nqcCoeffs, 2, 2, eta, spinNQC );
 	    break;
@@ -1861,13 +1861,13 @@ if( !NoComputeInitialConditions )
 	    break;
   }
   /* FIXME NOTE the lines below, NQC coeffs are put to zero for debugging */
-  if (debugPK){
-     nqcCoeffs.a1 = nqcCoeffs.a2 = nqcCoeffs.a3 = nqcCoeffs.a3S = nqcCoeffs.a4 = 
-     nqcCoeffs.a5 = nqcCoeffs.b1 = nqcCoeffs.b2 = nqcCoeffs.b3 = nqcCoeffs.b4 = 0;
- }
- nqcCoeffs.a1 = nqcCoeffs.a2 = nqcCoeffs.a3 = nqcCoeffs.a3S = nqcCoeffs.a4 = 
- nqcCoeffs.a5 = nqcCoeffs.b1 = nqcCoeffs.b2 = nqcCoeffs.b3 = nqcCoeffs.b4 = 0;
-  if(debugPK)printf("\tl = %d, m = %d, NQC: a1 = %.16e, a2 = %.16e, a3 = %.16e, a3S = %.16e, a4 = %.16e, a5 = %.16e\n\tb1 = %.16e, b2 = %.16e, b3 = %.16e, b4 = %.16e\n", 
+//  if (debugPK){
+//     nqcCoeffs.a1 = nqcCoeffs.a2 = nqcCoeffs.a3 = nqcCoeffs.a3S = nqcCoeffs.a4 = 
+//     nqcCoeffs.a5 = nqcCoeffs.b1 = nqcCoeffs.b2 = nqcCoeffs.b3 = nqcCoeffs.b4 = 0;
+// }
+// nqcCoeffs.a1 = nqcCoeffs.a2 = nqcCoeffs.a3 = nqcCoeffs.a3S = nqcCoeffs.a4 =
+// nqcCoeffs.a5 = nqcCoeffs.b1 = nqcCoeffs.b2 = nqcCoeffs.b3 = nqcCoeffs.b4 = 0;
+  if(debugPK)printf("\tl = %d, m = %d, NQC: a1 = %.16e, a2 = %.16e, a3 = %.16e, a3S = %.16e, a4 = %.16e, a5 = %.16e\n\tb1 = %.16e, b2 = %.16e, b3 = %.16e, b4 = %.16e\n",
                        2, 2, nqcCoeffs.a1, nqcCoeffs.a2, nqcCoeffs.a3, 
                        nqcCoeffs.a3S, nqcCoeffs.a4, nqcCoeffs.a5, 
                        nqcCoeffs.b1, nqcCoeffs.b2, nqcCoeffs.b3, nqcCoeffs.b4 );
@@ -2021,13 +2021,12 @@ if( !NoComputeInitialConditions )
 
   retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data, 
 									0., 20./mTScaled, deltaTHigh/mTScaled, &dynamicsHi );
+
   if ( retLen == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
   }
   retLenHi = retLen;
-
-  
   
   /* Set up pointers to the dynamics */
   timeHi.length = posVecxHi.length = posVecyHi.length = posVeczHi.length = 
@@ -2419,6 +2418,70 @@ if( !NoComputeInitialConditions )
     fprintf( out, "%.16e\t%.16e\n", timeHi.data[i], omegaHi->data[i]);
   }
   if(debugPK) fclose(out);
+    
+   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /*Search peak of Delta_t / r^2*/
+    REAL8 rad, rad2, m1PlusetaKK, bulk, logTerms, deltaU, u, u2, u3, u4, u5;
+    REAL8 listAOverr2[retLenHi];
+//    FILE *outa = fopen( "OutA.dat", "a" );
+    for ( i = 0; i < retLenHi; i++ )
+    {
+        for ( j = 0; j < values->length; j++ )
+        {
+            values->data[j] = *(dynamicsHi->data+(j+1)*retLen+i);
+        }
+
+        for( k = 0; k < 3; k++ )
+        {
+            s1DataNorm[k] = values->data[k+6];
+            s2DataNorm[k] = values->data[k+9];
+            s1Data[k] = s1DataNorm[k] * mTotal * mTotal;
+            s2Data[k] = s2DataNorm[k] * mTotal * mTotal;
+        }
+        s1Vec.data = s1Data;
+        s2Vec.data = s2Data;
+        
+        s1VecOverMtMt.data = s1DataNorm;
+        s2VecOverMtMt.data = s2DataNorm;
+        
+        seobParams.s1Vec = &s1VecOverMtMt;
+        seobParams.s2Vec = &s2VecOverMtMt;
+        
+        XLALSimIMRSpinEOBCalculateSigmaStar( sigmaStar, m1, m2, &s1Vec, &s2Vec );
+        XLALSimIMRSpinEOBCalculateSigmaKerr( sigmaKerr, m1, m2, &s1Vec, &s2Vec );
+        
+        seobParams.a = a = sqrt(inner_product(sigmaKerr->data, sigmaKerr->data));
+        m1PlusetaKK = -1. + eta * seobCoeffs.KK;
+        rad2 =  values->data[0]*values->data[0] + values->data[1]*values->data[1] + values->data[2]*values->data[2];
+        rad = sqrt(rad2);
+        u = 1./rad;
+        u2 = u*u;
+        u3 = u2*u;
+        u4 = u2*u2;
+        u5 = u4*u;
+        bulk = 1./(m1PlusetaKK*m1PlusetaKK) + (2.*u)/m1PlusetaKK + a*a*u2;
+        logTerms = 1. + eta*seobCoeffs.k0 + eta*log(1. + seobCoeffs.k1*u + seobCoeffs.k2*u2 + seobCoeffs.k3*u3 + seobCoeffs.k4*u4 + seobCoeffs.k5*u5 + seobCoeffs.k5l*u5*log(u));
+        deltaU = bulk*logTerms;
+        listAOverr2[i] = deltaU / rad2;
+//        fprintf(outa, "%3.10f %3.10f\n", timeHi.data[i], listAOverr2[i]);
+    }
+    REAL8 AOverr2;
+    AOverr2 = listAOverr2[0];
+    for ( i = 0, peakIdx = 0; i < retLenHi; i++ )
+    {
+        if ( listAOverr2[i] < AOverr2  && !peakIdx)
+        {
+            peakIdx = i;
+            tPeakOmega = timeHi.data[peakIdx];
+            if (debugPK) printf("AT: Peak of A/r^2 is at idx = %d and time = %f. \n", peakIdx, tPeakOmega);
+        }
+        else {
+            AOverr2 = listAOverr2[i];
+        }
+    }
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//    abort();
 
   /* Was the (crude) peak reached? */
   if ( i == retLen - 1 && !peakIdx)
@@ -2426,10 +2489,10 @@ if( !NoComputeInitialConditions )
     printf("YP: Error! Failed to find peak of omega!\n");
     abort();
   }
-  else
+  else if (peakIdx == retLenHi)
   {
 	  /* What is happening here? */
-           
+       if (debugPK) printf("AT: Peak of A/r^2 not found, search for peak of Omega");
       /* Stuff to find the actual peak time */
       REAL8 omegaDeriv1; //, omegaDeriv2;
       REAL8 time1, time2;
@@ -2485,7 +2548,6 @@ if( !NoComputeInitialConditions )
 		fflush(NULL);
 	}
   }
-
   /* WaveStep 1.2: calculate J at merger */
   
   spline = gsl_spline_alloc( gsl_interp_cspline, retLen );
