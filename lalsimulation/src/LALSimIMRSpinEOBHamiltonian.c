@@ -1538,7 +1538,7 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
   spin1.data = tmpVec+6;
   spin2.data = tmpVec+9;
   spin1norm.data = s1normData;
-  spin2norm.data = s1normData;
+  spin2norm.data = s2normData;
   sigmaKerr.data = sKerrData;
   sigmaStar.data = sStarData;
 
@@ -1568,7 +1568,7 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
   //printf( "aStar = %e\n", sqrt( sigmaStar.data[0]*sigmaStar.data[0] + sigmaStar.data[1]*sigmaStar.data[1] + sigmaStar.data[2]*sigmaStar.data[2]) );
   if ( isnan( a ) )
   {
-    printf( "a is nan!!\n");
+    printf( "a is nan here R!!\n");
   }
   //XLALSimIMRCalculateSpinEOBHCoeffs( dParams->params->seobCoeffs, eobParams->eta, a );
   /* If computing the derivative w.r.t. the position vector, we need to 
@@ -1744,7 +1744,8 @@ static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params )
   //printf( "aStar = %e\n", sqrt( sigmaStar.data[0]*sigmaStar.data[0] + sigmaStar.data[1]*sigmaStar.data[1] + sigmaStar.data[2]*sigmaStar.data[2]) );
   if ( isnan( a ) )
   {
-    printf( "a is nan!!\n");
+    printf( "a is nan here!!\n");
+      abort();
   }
   //XLALSimIMRCalculateSpinEOBHCoeffs( dParams->params->seobCoeffs, eobParams->eta, a );
   /* If computing the derivative w.r.t. the position vector, we need to 
