@@ -881,7 +881,7 @@ INT4 XLALSimIMREOBFinalMassSpin(
   REAL8 eta, eta2, eta3;
   REAL8 a1, a2, chiS, q;
   REAL8 z1, z2, rISCO, eISCO, atl, tmpVar;
-  REAL8 cosa, cosb, cosg, a1a2norm, a1a2L, lnorm;
+  REAL8 UNUSED cosa, cosb, cosg, a1a2norm, a1a2L, lnorm;
   REAL8 q2, chi1, chi2, theta1, theta2, phi1, phi2, swapvar;
  
   /* get a local copy of the intrinsic parameters */
@@ -961,6 +961,29 @@ INT4 XLALSimIMREOBFinalMassSpin(
         swapvar = phi1;   phi1   = phi2;   phi2   = swapvar;
       }
       q2 = q * q;
+      /* Stas: this is v2 appraoch applied to s1.J s2.J az z-components of spin1/2*/
+      q      = mass1 / mass2;
+      a1 = spin1[2];
+      a2 = spin2[2];
+      atl    = ( a1 + a2 /q/q) / (1.+1./q)/(1.+ 1./q);
+      tmpVar = ( a1 + a2 /q/q) / (1.+1./q/q);
+      z1 = 1. + pow( 1.-atl*atl, 1./3.) * ( pow( 1.+atl, 1./3. ) + pow( 1.-atl, 1./3. ) );
+      z2 = sqrt( 3.*atl*atl + z1*z1 );
+      rISCO = 3. + z2 - ( atl<0. ? -1. : 1. ) * sqrt( (3.-z1) * (3.+z1+2.*z2) );
+      eISCO = sqrt( 1. - 2./(3.*rISCO) );
+      *finalMass = 1. - ( (1.-eISCO)*eta
+                 + 16.*eta*eta*( 0.00258 - 0.0773/(1./((1.+1/q/q)/(1.+1/q)/(1.+1/q))*atl-1.6939) - 0.25*(1.-eISCO)) );
+      *finalSpin = tmpVar + tmpVar*eta*( s9*eta*tmpVar*tmpVar + s8*eta*eta*tmpVar + s7*eta*tmpVar
+                 + s6*tmpVar*tmpVar + s4v2*tmpVar + s5v2*eta + t0v2)
+                 + eta*( 2.*sqrt(3.) + t2v2*eta + t3v2 *eta*eta );
+      
+      
+      
+      /* Stas: Below is original Rez.-Bar. implementation, 
+      Above I use the aligned case fit because spin1 and spin2 
+      currently have only z-components equal to projection of the spins on 
+      J at light ring */
+      /* 
       cosa = sin(theta1)*cos(phi1)*sin(theta2)*cos(phi2)
            + sin(theta1)*sin(phi1)*sin(theta2)*sin(phi2)
            + cos(theta1)*cos(theta2);
@@ -972,7 +995,7 @@ INT4 XLALSimIMREOBFinalMassSpin(
                + (s5*eta+t0+2.)/(1.+q2) * a1a2L;
       *finalMass = 1. + (0.9515 - 1.0)*4.*eta - 0.013*16.*eta2*(chi1*cosb+chi2*cosg);
       *finalSpin = 1. / (1.+q) / (1.+q)
-               * sqrt(a1a2norm +2.*a1a2L*lnorm*q+lnorm*lnorm*q2);
+               * sqrt(a1a2norm +2.*a1a2L*lnorm*q+lnorm*lnorm*q2);*/
       if (debugout)
           printf("final spin variables: %e, %e, %e, %e, %e, %e\n",chi1,chi2,theta1,theta2,phi1,phi2);
     break;

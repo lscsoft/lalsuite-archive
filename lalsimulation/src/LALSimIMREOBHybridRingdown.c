@@ -494,7 +494,12 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
                 modefreqs->data[j] = conjl(-1.0*modefreqs->data[j]);
             }
          }
-      }
+         if (m==0){
+            for (j=5; j<nmodes; j++){ 
+                modefreqs->data[j] = conjl(-1.0*modefreqs->data[j-5]);            
+            }
+         }    
+      };
 
       /* Call XLALSimIMREOBFinalMassSpin() to get mass and spin of the final black hole */
       if ( XLALSimIMREOBFinalMassSpin(&finalMass, &finalSpin, mass1, mass2, spin1, spin2, approximant) == XLAL_FAILURE )
@@ -611,25 +616,47 @@ printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[5])*mTot, 1./cimag(modefreqs->
       }
       if (approximant == SEOBNRv3 )
       {    
+          chi1 = sqrt( spin1[0]*spin1[0] + spin1[1]*spin1[1] + spin1[2]*spin1[2] );
+          chi2 = sqrt( spin2[0]*spin2[0] + spin2[1]*spin2[1] + spin2[2]*spin2[2] );
+          if ( chi1 < 1.0e-15 )
+           { theta1 = 0.; }
+          else
+           { theta1 = acos( spin1[2] / chi1 ); }
+          if ( chi2 < 1.0e-15 )
+           { theta2 = 0.; }
+          else
+           { theta2 = acos( spin2[2] / chi2 ); }
+          chi1 = chi1 *cos(theta1);
+          chi2 = chi2 *cos(theta2);
+
+          a  = (chi1 + chi2) / 2. * (1.0 - 2.0 * eta) + (chi1 - chi2) / 2. * (mass1 - mass2) / (mass1 + mass2);
+          NRPeakOmega22 = GetNRSpinPeakOmega( l, m, eta, a ) / mTot;
+        
+          chi = (chi1 + chi2) / 2. + (chi1 - chi2) / 2. * ((mass1 - mass2)/(mass1+mass2)) / (1. - 2. * eta); 
+          
+          sh = 0.;          
+          if ( chi >= 0.7 && chi < 0.8 )
+          {
+              sh = -9. * (eta - 0.25);
+          }
+          if ( (eta > 30./31./31. && eta <= 10./121. && chi >= 0.8) || (eta <= 30./31./31. && chi >= 0.8 && chi < 0.9) )
+          {// This is case 4 in T1400476-v3
+              sh = -9. * (eta - 0.25) * (1.+2.*exp(-(chi-0.85)*(chi-0.85)/0.05/0.05)) * (1.+1./(1.+exp((eta-0.01)/0.001)));
+          }
+          if ( eta < 30./31./31. && chi >= 0.9 )
+          {// This is case 5 in T1400476-v3
+              sh = 0.55 - 9. * (eta - 0.25) * (1.+2.*exp(-(chi-0.85)*(chi-0.85)/0.05/0.05)) * (1.+1./(1.+exp((eta-0.01)/0.001)));
+          }
+          if ( eta > 10./121. && chi >= 0.8 )
+          {// This is case 6 in T1400476-v3
+              sh = 1. - 9. * (eta - 0.25) * (1.+2.*exp(-(chi-0.85)*(chi-0.85)/0.05/0.05)) * (1.+1./(1.+exp((eta-0.01)/0.001)));
+          }
+          
+          
+          
           if (fabs(m) == 2 && l ==2){ 
           /*if (m == 2 && l ==2){ */
-            chi1 = sqrt( spin1[0]*spin1[0] + spin1[1]*spin1[1] + spin1[2]*spin1[2] );
-            chi2 = sqrt( spin2[0]*spin2[0] + spin2[1]*spin2[1] + spin2[2]*spin2[2] );
-            if ( chi1 < 1.0e-15 )
-             { theta1 = 0.; }
-            else
-             { theta1 = acos( spin1[2] / chi1 ); }
-            if ( chi2 < 1.0e-15 )
-             { theta2 = 0.; }
-            else
-             { theta2 = acos( spin2[2] / chi2 ); }
-            chi1 = chi1 *cos(theta1);
-            chi2 = chi2 *cos(theta2);
-
-            a  = (chi1 + chi2) / 2. * (1.0 - 2.0 * eta) + (chi1 - chi2) / 2. * (mass1 - mass2) / (mass1 + mass2);
-            NRPeakOmega22 = GetNRSpinPeakOmega( l, m, eta, a ) / mTot;
-          
-            chi = (chi1 + chi2) / 2. + (chi1 - chi2) / 2. * sqrt(1. - 4. * eta) / (1. - 2. * eta);
+            
             /* For extreme chi (>= 0.8), there are scale factors in both complex
              * pseudo-QNM frequencies. kk, kt1, kt2 describe those factors. */
             /*printf("Stas: a, chi and NRomega in QNM freq: %.16e %.16e %.16e %.16e %.16e %.16e\n",
@@ -641,32 +668,71 @@ printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[5])*mTot, 1./cimag(modefreqs->
                kt1 = -0.125 + sqrt(1. + 200. * pow(eta,2) / 3.)/2.;
                kt2 = -0.2 + pow(1. + 200. * pow(eta, 3./2.) / 9., 2./3.)/2.;
             }
-            /* Here is RD_V2
-             if (m<0){
-                modefreqs->data[6] = kk * ((2./3. * NRPeakOmega22/finalMass) + (1./3. * creal(modefreqs->data[0])) );
-                modefreqs->data[7] = kk * ((3./4. * NRPeakOmega22/finalMass) + (1./4. * creal(modefreqs->data[0])) / 2.);
-            }else{
-                modefreqs->data[6] = kk * ((2./3. * NRPeakOmega22/finalMass) + (1./3. * creal(modefreqs->data[0])) );
-                modefreqs->data[7] = kk * ((3./4. * NRPeakOmega22/finalMass) + (1./4. * creal(modefreqs->data[0])) / 2.);
-            }
-            modefreqs->data[6] += I * 3.5/0.9 * cimag(modefreqs->data[0]) / kt1;
-            modefreqs->data[7] += I * 3.5 * cimag(modefreqs->data[0]) / kt2;
             
-            */
-            /*Stas: somehow it makes thinigs worse */
-            /*modefreqs->data[7] = (NRPeakOmega22/finalMass + creal(modefreqs->data[0])) / 2.;       
-            modefreqs->data[7] += I * 10./3. * cimag(modefreqs->data[0]); */
-            /* This is a version1 of RD attachment */
-            if (m<0){
-              modefreqs->data[7] = (-NRPeakOmega22/finalMass + creal(modefreqs->data[0])) / 2.;       
+            // Computing pQNMs
+            if(m<0){
+                modefreqs->data[6] = (-3./4. * NRPeakOmega22/finalMass) + (1./4. * creal(modefreqs->data[0]));
+                modefreqs->data[7] = (-2./3. * NRPeakOmega22/finalMass) + (1./3. * creal(modefreqs->data[0]));
+            }else{
+                modefreqs->data[6] = (3./4. * NRPeakOmega22/finalMass) + (1./4. * creal(modefreqs->data[0]));
+                modefreqs->data[7] = (2./3. * NRPeakOmega22/finalMass) + (1./3. * creal(modefreqs->data[0]));
             }
-            else {
-              modefreqs->data[7] = (NRPeakOmega22/finalMass + creal(modefreqs->data[0])) / 2.;
-            }
-            modefreqs->data[7] += I * 10./3. * cimag(modefreqs->data[0]); /**/
-          }
+            
+            modefreqs->data[7] += I * 3.5/0.9 * cimag(modefreqs->data[0]);
+            modefreqs->data[6] += I * 3.5 * cimag(modefreqs->data[0]);
+            
+            if ( (eta > 30./31./31. && eta <= 10./121. && chi >= 0.8) || (eta <= 30./31./31. && chi >= 0.8 && chi < 0.9) )
+            {// This is case 4 in T1400476-v3
+              sh = -9. * (eta - 0.25) * (1.+2.*exp(-(chi-0.85)*(chi-0.85)/0.05/0.05)) * (1.+1./(1.+exp((eta-0.01)/0.001)));
+              kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
+              kt1 = 0.5 * sqrt(1.+800.0*eta*eta/3.0) - 0.125;
+              kt2 = 0.5 * pow(1.+0.5*eta*sqrt(eta)/0.0225,2./3.) - 0.2;
+              
+              modefreqs->data[4] = 0.4*(1.+kk)*creal(modefreqs->data[6])
+                                   + I*cimag(modefreqs->data[6])/(2.5*kt2*exp(-(eta-0.005)/0.03));
+              modefreqs->data[5] = 0.4*(1.+kk)*creal(modefreqs->data[7])
+                                   + I*cimag(modefreqs->data[7])/(1.5*kt1*exp(-(eta-0.005)/0.03));
+              modefreqs->data[6] = kk*creal(modefreqs->data[6]) + I*cimag(modefreqs->data[6])/kt2;
+              modefreqs->data[7] = kk*creal(modefreqs->data[7]) + I*cimag(modefreqs->data[7])/kt1;
+  	        }
+            if ( eta < 30./31./31. && chi >= 0.9 )
+            {// This is case 5 in T1400476-v3
+              sh = 0.55 - 9. * (eta - 0.25) * (1.+2.*exp(-(chi-0.85)*(chi-0.85)/0.05/0.05)) * (1.+1./(1.+exp((eta-0.01)/0.001)));
+              kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
+              kt1 = 0.5 * sqrt(1.+800.0*eta*eta/3.0) - 0.125;
+              kt2 = 0.5 * pow(1.+0.5*eta*sqrt(eta)/0.0225,2./3.) - 0.2;
+              modefreqs->data[4] = 1.1*0.4*(1.+kk)*creal(modefreqs->data[6])
+                                   + I*cimag(modefreqs->data[6])/(1.05*2.5*kt2*exp(-(eta-0.005)/0.03));
+              modefreqs->data[5] = 0.4*(1.+kk)*creal(modefreqs->data[7])
+                                   + I*cimag(modefreqs->data[7])/(1.05*1.5*kt1*exp(-(eta-0.005)/0.03));
+              modefreqs->data[6] = kk*creal(modefreqs->data[6]) + I*cimag(modefreqs->data[6])/kt2;
+              modefreqs->data[7] = kk*creal(modefreqs->data[7]) + I*cimag(modefreqs->data[7])/kt1;
+  	        }
+            if ( eta > 10./121. && chi >= 0.8 )
+            {// This is case 6 in T1400476-v3
+              sh = 1. - 9. * (eta - 0.25) * (1.+2.*exp(-(chi-0.85)*(chi-0.85)/0.05/0.05)) * (1.+1./(1.+exp((eta-0.01)/0.001)));
+              kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
+              kt1 = 0.45 * sqrt(1.+200.0*eta*eta/3.0) - 0.125;
+              kt2 = 0.5 * pow(1.+0.5*eta*sqrt(eta)/0.0225,2./3.) - 0.2;
+              modefreqs->data[6] = kk*creal(modefreqs->data[6]) + I*cimag(modefreqs->data[6])/0.95/kt2;
+              modefreqs->data[7] = kk*creal(modefreqs->data[7]) + I*cimag(modefreqs->data[7])/kt1;
+  	        }
+            // The last line of T1400476-v3
+            matchrange->data[0] -= sh;
+            matchrange->data[1] -= sh;
+            
+        
+            /* This is a v1 of pQNM in RD attachment 
+             if (m<0){
+                modefreqs->data[7] = (-NRPeakOmega22/finalMass + creal(modefreqs->data[0])) / 2.;       
+             }
+             else {
+                modefreqs->data[7] = (NRPeakOmega22/finalMass + creal(modefreqs->data[0])) / 2.;
+             }
+             modefreqs->data[7] += I * 10./3. * cimag(modefreqs->data[0]); */
+          }// end if m=2, l=2
 
-      }
+      } // v3
       
       // Move ringdown comb boundaries to sampling points to avoid numerical artifacts. 
       matchrange->data[0] -= fmod( matchrange->data[0], dt/mTot);

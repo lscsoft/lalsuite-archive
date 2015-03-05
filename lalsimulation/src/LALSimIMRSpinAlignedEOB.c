@@ -1370,6 +1370,7 @@ int XLALSimIMRSpinEOBWaveform(
   REAL8Vector s1Vec, s1VecOverMtMt;
   REAL8Vector s2Vec, s2VecOverMtMt;
   REAL8       s1Data[3], s2Data[3], s1DataNorm[3], s2DataNorm[3];
+  
 
   /* Parameters of the system */
   REAL8 m1, m2, mTotal, eta, mTScaled;
@@ -1503,6 +1504,7 @@ int XLALSimIMRSpinEOBWaveform(
     XLALDestroyREAL8Vector( values );
     XLAL_ERROR( XLAL_ENOMEM );
   }
+  
 
   /* Initialize parameters */
   m1 = m1SI / LAL_MSUN_SI;
@@ -2525,44 +2527,31 @@ if( !NoComputeInitialConditions )
   /*chiJ = (chi1J+chi2J)/2. + (chi1J-chi2J)/2.*sqrt(1. - 4.*eta)/(1. - 2.*eta);*/
   chiJ = (chi1J+chi2J)/2. + (chi1J-chi2J)/2.*((m1-m2)/(m1+m2))/(1. - 2.*eta);
   kappaJL      = (Lx*Jx + Ly*Jy + Lz*Jz) / magL / magJ;
+  
+  
   sh = 0.0;
   switch ( SpinAlignedEOBversion )
   {
+                      
      case 1:
        combSize = 7.5;
-       if ( chiJ <= 0. ) {
-         deltaNQC = 2.5;
-       }
-       else {
-         deltaNQC = 2.5 + 1.77*(chiJ/0.43655)*(chiJ/0.43655)*(chiJ/0.43655)*(chiJ/0.43655);
-       }
+       deltaNQC = XLALSimIMREOBGetNRSpinPeakDeltaT(2, 2, eta,  chiJ);
        break;
      case 2:
        combSize = 12.;
-       /*if ( chiJ > 0.8 ) combSize = 13.5;*/
-       if (chiJ >= 0.7 && chiJ < 0.8) sh = -9.0*(eta - 0.25);
+       
        if ( chi1J == 0. && chi2J == 0. ) combSize = 11.;
        if (chiJ >= 0.8 && eta >30.0/(31.*31) && eta <10.0/121.){
            combSize = 13.5;
-           sh = -9.0*(eta - 0.25);       
        }
        if (chiJ >= 0.9 && eta < 30./(31.*31.)){
            combSize = 12.0;
-           sh = 0.55 -9.0*(eta-0.25);
        }
        if (chiJ >= 0.8 && eta > 10./121.){
            combSize = 8.5;
-           sh = 1.0 - 9.0*(eta - 0.25);
-       }
-       if ( chiJ <= 0. ) {
-         deltaNQC = 2.5 + (1. + chiJ)*(-2.5 + 2.5*sqrt(1.-4.*eta));
-       }
-       else if ( chiJ <= 0.8 ) {
-         deltaNQC = (0.75*eta*chiJ + sqrt(1. - 4.*eta)) * (2.5 + 10.*chiJ*chiJ + 24.*chiJ*chiJ*chiJ*chiJ);
-       }
-       else {
-         deltaNQC = (0.75*eta*chiJ + sqrt(1. - 4.*eta)) * (57.1755 - 48.0564*chiJ);
-       }
+       }      
+       deltaNQC = XLALSimIMREOBGetNRSpinPeakDeltaTv2(2, 2, m1, m2, chi1J, chi2J );
+       
        break;
      default:
        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
@@ -2576,9 +2565,11 @@ if( !NoComputeInitialConditions )
   //longCombSize = combSize;
   deltaNQC    += 10.0 * (1.0 - fabs(kappaJL));*/
   
-  tAttach = tPeakOmega - deltaNQC - sh;
+  // (Stas) !!! NOTE: tAttach is further modified by small shift "sh" computed and applied in XLALSimIMREOBHybridAttachRingdown !!!
+  tAttach = tPeakOmega - deltaNQC;
   if (debugPK){
-      printf("For RD: DeltaNQC = %e.16, comb = %e.16 \n", deltaNQC+sh, combSize);
+      printf("For RD: DeltaNQC = %e.16, comb = %e.16 \n", deltaNQC, combSize);
+      printf("NOTE! that additional shift (sh) is computed and added in XLALSimIMREOBHybridAttachRingdown\n");
 	  fflush(NULL);
   }
   /* WaveStep 1.4: calculate combsize and deltaNQC */
@@ -3329,7 +3320,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   }
   
   /*** Stas Let's try to attach RD to 2,2 mode: ***/
-
+  
 
   for ( k = 2; k > -3; k-- )
   {
@@ -3340,7 +3331,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
       sigImHi->data[i] = cimag(hJTSHi->data->data[i]);
     }
     if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, k,
-                deltaTHigh, m1, m2, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2],
+                deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
                 &timeHi, rdMatchPoint, spinEOBApproximant )
             == XLAL_FAILURE )
     {
