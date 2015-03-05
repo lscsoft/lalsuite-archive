@@ -2489,7 +2489,7 @@ int XLALSimIMRSpinEOBWaveform(
     printf("YP: Error! Failed to find peak of omega!\n");
     abort();
   }
-  else if (peakIdx == retLenHi)
+  else if ( peakIdx == (unsigned int) retLenHi)
   {
 	  /* What is happening here? */
        if (debugPK) printf("AT: Peak of A/r^2 not found, search for peak of Omega");
