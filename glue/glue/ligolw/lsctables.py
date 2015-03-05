@@ -1350,7 +1350,7 @@ class SnglBurstTable(table.Table):
 		"""@returns: those rows of the table that don't lie within a
 		given seglist
 		"""
-		keep = table.new_from_template(self)
+		keep = self.copy()
 		for row in self:
 			time = row.get_peak()
 			if time not in seglist:
@@ -1361,7 +1361,7 @@ class SnglBurstTable(table.Table):
 		"""@returns: those rows of the table that lie within a given
 		seglist
 		"""
-		vetoed = table.new_from_template(self)
+		vetoed = self.copy()
 		for row in self:
 			time = row.get_peak()
 			if time in seglist:
@@ -1369,7 +1369,7 @@ class SnglBurstTable(table.Table):
 		return vetoed
 
 	def veto_seglistdict(self, seglistdict):
-		keep = table.new_from_template(self)
+		keep = self.copy()
 		for row in self:
 			time = row.get_peak()
 			if time not in seglistdict[row.ifo]:
@@ -1377,7 +1377,7 @@ class SnglBurstTable(table.Table):
 		return keep
 
 	def vetoed_seglistdict(self, seglistdict):
-		vetoed = table.new_from_template(self)
+		vetoed = self.copy()
 		for row in self:
 			time = row.get_peak()
 			if time in seglistdict[row.ifo]:
@@ -1729,13 +1729,13 @@ class SnglInspiralTable(table.Table):
 			iterutils.inplace_filter(lambda row: row.ifo == ifo, self)
 			return self
 		else:
-			ifoTrigs = table.new_from_template(self)
+			ifoTrigs = self.copy()
 			ifoTrigs.extend([row for row in self if row.ifo == ifo])
 			return ifoTrigs
 
 	def veto(self,seglist):
-		vetoed = table.new_from_template(self)
-		keep = table.new_from_template(self)
+		vetoed = self.copy()
+		keep = self.copy()
 		for row in self:
 			time = row.get_end()
 			if time in seglist:
@@ -1749,8 +1749,8 @@ class SnglInspiralTable(table.Table):
 		Return the inverse of what veto returns, i.e., return the triggers
 		that lie within a given seglist.
 		"""
-		vetoed = table.new_from_template(self)
-		keep = table.new_from_template(self)
+		vetoed = self.copy()
+		keep = self.copy()
 		for row in self:
 			time = row.get_end()
 			if time in seglist:
@@ -1760,8 +1760,8 @@ class SnglInspiralTable(table.Table):
 		return vetoed
 	
 	def veto_seglistdict(self, seglistdict):
-		vetoed = table.new_from_template(self)
-		keep = table.new_from_template(self)
+		vetoed = self.copy()
+		keep = self.copy()
 		for row in self:
 			time = row.get_end()
 			if time in seglistdict[row.ifo]:
@@ -1771,8 +1771,8 @@ class SnglInspiralTable(table.Table):
 		return keep
 	
 	def vetoed_seglistdict(self, seglistdict):
-		vetoed = table.new_from_template(self)
-		keep = table.new_from_template(self)
+		vetoed = self.copy()
+		keep = self.copy()
 		for row in self:
 			time = row.get_end()
 			if time in seglistdict[row.ifo]:
@@ -1786,7 +1786,7 @@ class SnglInspiralTable(table.Table):
 		Return the triggers with a specific slide number.
 		@param slide_num: the slide number to recover (contained in the event_id)
 		"""
-		slideTrigs = table.new_from_template(self)
+		slideTrigs = self.copy()
 		slideTrigs.extend(row for row in self if row.get_slide_number() == slide_num)
 		return slideTrigs
 
@@ -2441,8 +2441,8 @@ class MultiInspiralTable(table.Table):
 		return self.get_column('snr')
 
 	def veto(self,seglist):
-		vetoed = table.new_from_template(self)
-		keep = table.new_from_template(self)
+		vetoed = self.copy()
+		keep = self.copy()
 		for row in self:
 			time = row.get_end()
 			if time in seglist:
@@ -2456,8 +2456,8 @@ class MultiInspiralTable(table.Table):
 		Return the inverse of what veto returns, i.e., return the triggers
 		that lie within a given seglist.
 		"""
-		vetoed = table.new_from_template(self)
-		keep = table.new_from_template(self)
+		vetoed = self.copy()
+		keep = self.copy()
 		for row in self:
 			time = row.get_end()
 			if time in seglist:
@@ -2471,7 +2471,7 @@ class MultiInspiralTable(table.Table):
 		Return the triggers with a specific slide number.
 		@param slide_num: the slide number to recover (contained in the event_id)
 		"""
-		slideTrigs = table.new_from_template(self)
+		slideTrigs = self.copy()
 		slideTrigs.extend(row for row in self if row.get_slide_number() == slide_num)
 		return slideTrigs
 
@@ -2824,13 +2824,13 @@ class SimInspiralTable(table.Table):
 		return (sx**2 + sy**2 + sz**2)**(0.5)
 
 	def veto(self,seglist,site=None):
-		keep = table.new_from_template(self)
+		keep = self.copy()
 		keep.extend(row for row in self if row.get_end(site) not in seglist)
 		return keep
 
 	def veto(self,seglist):
-		vetoed = table.new_from_template(self)
-		keep = table.new_from_template(self)
+		vetoed = self.copy()
+		keep = self.copy()
 		for row in self:
 			time = row.get_end()
 			if time in seglist:
@@ -2844,8 +2844,8 @@ class SimInspiralTable(table.Table):
 		Return the inverse of what veto returns, i.e., return the triggers
 		that lie within a given seglist.
 		"""
-		vetoed = table.new_from_template(self)
-		keep = table.new_from_template(self)
+		vetoed = self.copy()
+		keep = self.copy()
 		for row in self:
 			time = row.get_end()
 			if time in seglist:
