@@ -162,20 +162,6 @@ static PyObject *pylal_XLALUTCToGPS(PyObject *self, PyObject *args)
 }
 
 
-static PyObject *pylal_XLALGPSTimeNow(PyObject *self, PyObject *args)
-{
-	LIGOTimeGPS gps;
-
-	if(!XLALGPSTimeNow(&gps)) {
-		pylal_set_exception_from_xlalerrno();
-		return NULL;
-	}
-
-	/* LIGOTimeGPS */
-	return pylal_LIGOTimeGPS_new(gps);
-}
-
-
 /*
  * Sidereal time
  */
@@ -301,7 +287,6 @@ static struct PyMethodDef module_methods[] = {
 	{"XLALGPSToUTC", pylal_XLALGPSToUTC, METH_VARARGS, pylal_XLALGPSToUTC__doc__},
 	{"XLALGreenwichSiderealTime", pylal_XLALGreenwichSiderealTime, METH_VARARGS, pylal_XLALGreenwichSiderealTime__doc__},
 	{"XLALUTCToGPS", pylal_XLALUTCToGPS, METH_VARARGS, pylal_XLALUTCToGPS__doc__},
-	{"XLALGPSTimeNow", pylal_XLALGPSTimeNow, METH_NOARGS, "Use XLALUTCToGPS(time.gmtime()) instead."},
 	{NULL,}
 };
 
