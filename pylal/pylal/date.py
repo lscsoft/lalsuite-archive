@@ -56,6 +56,10 @@ __version__ = git_version.date
 #
 
 
+# deprecated compatibility stub
+XLALLeapSeconds = lal.LeapSeconds
+
+
 def XLALGreenwichMeanSiderealTime(gps):
 	return XLALGreenwichSiderealTime(gps, 0.0)
 

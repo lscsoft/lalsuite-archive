@@ -90,30 +90,6 @@ static struct tm *struct_tm_c_to_python(struct tm *tm)
 
 
 /*
- * Leap seconds.
- */
-
-PyDoc_STRVAR(pylal_XLALLeapSeconds__doc__,
-"Returns the leap seconds TAI-UTC at a given GPS second.\n"
-"Example:\n"
-"\n"
-">>> XLALLeapSeconds(969953934)\n"
-"34\n");
-
-static PyObject *pylal_XLALLeapSeconds(PyObject *self, PyObject *args)
-{
-	int gpssec;
-
-	/* int */
-	if(!PyArg_ParseTuple(args, "i:XLALLeapSeconds", &gpssec))
-		return NULL;
-
-	/* int */
-	return PyInt_FromLong(XLALLeapSeconds(gpssec));
-}
-
-
-/*
  * GPS to/from UTC
  */
 
@@ -324,7 +300,6 @@ static struct PyMethodDef module_methods[] = {
 	{"XLALArrivalTimeDiff", pylal_XLALArrivalTimeDiff, METH_VARARGS, pylal_XLALArrivalTimeDiff__doc__},
 	{"XLALGPSToUTC", pylal_XLALGPSToUTC, METH_VARARGS, pylal_XLALGPSToUTC__doc__},
 	{"XLALGreenwichSiderealTime", pylal_XLALGreenwichSiderealTime, METH_VARARGS, pylal_XLALGreenwichSiderealTime__doc__},
-	{"XLALLeapSeconds", pylal_XLALLeapSeconds, METH_VARARGS, pylal_XLALLeapSeconds__doc__},
 	{"XLALUTCToGPS", pylal_XLALUTCToGPS, METH_VARARGS, pylal_XLALUTCToGPS__doc__},
 	{"XLALGPSTimeNow", pylal_XLALGPSTimeNow, METH_NOARGS, "Use XLALUTCToGPS(time.gmtime()) instead."},
 	{NULL,}
