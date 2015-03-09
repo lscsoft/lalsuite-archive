@@ -2865,7 +2865,7 @@ def kdtree_bin(posterior,coord_names,confidence_levels,initial_boundingbox = Non
 
     samples,header=posterior.samples()
     header=header.split()
-    coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+    coordinatized_samples=[PosteriorSample(row, header, coord_names) for row in samples]
 
     #if initial bounding box is not provided, create it using max/min of sample coords.
     if initial_boundingbox is None:
@@ -2906,12 +2906,13 @@ def kdtree_bin(posterior,coord_names,confidence_levels,initial_boundingbox = Non
         injInfo = [injBound,injNum,injWeight]
         #calculate volume of injections bin
         inj_volume = 1.
-        low = injBound[1]
-        high = injBound[0]
+        low = injBound[0]
+        high = injBound[1]
         for aCoord,bCoord in zip(low,high):
             inj_volume = inj_volume*(bCoord - aCoord)
         inj_number_density=float(injNum)/float(inj_volume)
         inj_rho = inj_number_density / a.unrho
+        print injNum,inj_volume,inj_number_density,a.unrho,injBound
     else:
         injInfo = None
         inj_area = None
@@ -3034,7 +3035,7 @@ def kdtree_bin2Step(posterior,coord_names,confidence_levels,initial_boundingbox 
             level +=1
 
     if injCoords is not None:
-        injBound,injNum,injImportance = tree2fill.search(injCoords)                                                                                                              
+        injBound,injNum,injImportance = tree2fill.search(injCoords)
         injInfo = [injBound,injNum,injImportance]
     else:
         injInfo = None
@@ -3044,7 +3045,6 @@ def kdtree_bin2Step(posterior,coord_names,confidence_levels,initial_boundingbox 
     inj_confidence = None
     inj_confidence_area = None
     if injInfo is not None:
-        print 'calculating cl'
         acc_vol=0.
         acc_cl=0.
         for leaf in sortedLeavesList:

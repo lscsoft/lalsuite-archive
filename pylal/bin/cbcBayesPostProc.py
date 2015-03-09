@@ -199,6 +199,7 @@ def cbcBayesPostProc(
                         #header file
                         header=None,
                         psd_files=None,
+                        greedy=True ## If true will use greedy bin for 1-d credible regions. Otherwise use 2-steps KDE
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -628,7 +629,8 @@ def cbcBayesPostProc(
         cycles = sort(pos['cycle'].samples)
         Ncycles = cycles[-1]-cycles[0]
         Nskip = cycles[1]-cycles[0]
-
+    
+    printed=0
     for par_name in oneDMenu:
         par_name=par_name.lower()
         try:
@@ -644,9 +646,26 @@ def cbcBayesPostProc(
 
         #print "Binning %s to determine confidence levels ..."%par_name
         binParams={par_name:par_bin}
-
-        toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
-
+        injection_area=None
+        injection_area=None
+        if greedy:
+          if printed==0:
+            print "Using greedy 1-d binning credible regions\n"
+            printed=1
+          toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
+        else:
+          if printed==0:
+            print "Using 2-step KDE 1-d credible regions\n"
+            printed=1
+          if pos[par_name].injval is None:
+            injCoords=None
+          else:
+            injCoords=[pos[par_name].injval]
+          _,reses,injstats=bppu.kdtree_bin2Step(pos,[par_name],confidence_levels,injCoords=injCoords)
+          if injstats is not None:
+            injectionconfidence=injstats[3]
+            injection_area=injstats[4]
+             
         #oneDContCL,oneDContInj = bppu.contigious_interval_one_param(pos,binParams,confidence_levels)
 
         #Generate new BCI html table row
@@ -1207,6 +1226,7 @@ if __name__=='__main__':
     parser.add_option("--email",action="store",default=None,type="string",metavar="user@ligo.org",help="Send an e-mail to the given address with a link to the finished page.")
     parser.add_option("--archive",action="store",default=None,type="string",metavar="results.tar.gz",help="Create the given tarball with all results")
     parser.add_option("--psdfiles",action="store",default=None,type="string",metavar="H1,L1,V1",help="comma separater list of ASCII files with PSDs, one per IFO")
+    parser.add_option("--kdecredibleregions",action="store_true",default=False,help="If given, will use 2-step KDE trees to estimate 1-d credible regions [default false: use greedy binning]")
     (opts,args)=parser.parse_args()
 
     datafiles=[]
@@ -1352,7 +1372,8 @@ if __name__=='__main__':
                         #header file for parameter names in posterior samples
                         header=opts.header,
                         # ascii files (one per IFO) containing  freq - PSD columns
-                        psd_files=opts.psdfiles 
+                        psd_files=opts.psdfiles,
+                        greedy=not(opts.kdecredibleregions)
                     )
 
     if opts.archive is not None:
