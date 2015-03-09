@@ -16,227 +16,23 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 
-import httplib, socket, ssl
 import mimetypes
 import urllib
 import os, sys
 import json
 from urlparse import urlparse
+from ecp_client import EcpRest
 
 DEFAULT_SERVICE_URL = "https://gracedb.ligo.org/api/"
+DEFAULT_SP_SESSION_ENDPOINT = "https://gracedb.ligo.org/Shibboleth.sso/Session"
 KNOWN_TEST_HOSTS = ['moe.phys.uwm.edu', 'embb-dev.ligo.caltech.ed', 'simdb.phys.uwm.edu',]
-
-#-----------------------------------------------------------------
-# Exception(s)
-
-class HTTPError(Exception):
-    def __init__(self, status, reason, message):
-        self.status = status
-        self.reason = reason
-        self.message = message
-        Exception.__init__(self, (status, reason+" / "+message))
-
-#-----------------------------------------------------------------
-# HTTP/S Proxy classes
-# Taken from: http://code.activestate.com/recipes/456195/
-
-class ProxyHTTPConnection(httplib.HTTPConnection):
-
-    _ports = {'http' : 80, 'https' : 443}
-
-    def request(self, method, url, body=None, headers={}):
-        #request is called before connect, so can interpret url and get
-        #real host/port to be used to make CONNECT request to proxy
-        o = urlparse(url)
-        proto = o.scheme
-        port = o.port
-        host = o.hostname
-        if proto is None:
-            raise ValueError, "unknown URL type: %s" % url
-        if port is None:
-            try:
-                port = self._ports[proto]
-            except KeyError:
-                raise ValueError, "unknown protocol for: %s" % url
-        self._real_host = host
-        self._real_port = port
-        httplib.HTTPConnection.request(self, method, url, body, headers)
-
-
-    def connect(self):
-        httplib.HTTPConnection.connect(self)
-        #send proxy CONNECT request
-        self.send("CONNECT %s:%d HTTP/1.0\r\n\r\n" % (self._real_host, self._real_port))
-        #expect a HTTP/1.0 200 Connection established
-        response = self.response_class(self.sock, strict=self.strict, method=self._method)
-        (version, code, message) = response._read_status()
-        #probably here we can handle auth requests...
-        if code != 200:
-            #proxy returned and error, abort connection, and raise exception
-            self.close()
-            raise socket.error, "Proxy connection failed: %d %s" % (code, message.strip())
-        #eat up header block from proxy....
-        while True:
-            #should not use directly fp probably
-            line = response.fp.readline()
-            if line == '\r\n': break
-
-class ProxyHTTPSConnection(ProxyHTTPConnection):
-
-    default_port = 443
-
-    def __init__(self, host, port = None, key_file = None, cert_file = None,
-        strict = None, context = None):
-        ProxyHTTPConnection.__init__(self, host, port)
-        self.key_file = key_file
-        self.cert_file = cert_file
-        self.context = context
-
-    def connect(self):
-        ProxyHTTPConnection.connect(self)
-        #make the sock ssl-aware
-        if sys.hexversion < 0x20709f0:
-            ssl = socket.ssl(self.sock, self.key_file, self.cert_file)
-            self.sock = httplib.FakeSocket(self.sock, ssl)
-        else:
-            self.sock = self.context.wrap_socket(self.sock)
-
-#-----------------------------------------------------------------
-# Generic GSI REST
-
-class GsiRest(object):
-    """docstring for GracedbRest"""
-    def __init__(self, 
-            url=DEFAULT_SERVICE_URL, 
-            proxy_host=None, 
-            proxy_port=3128, 
-            cred=None):
-        if not cred:
-            cred = findUserCredentials()
-        if isinstance(cred, (list, tuple)):
-            self.cert, self.key = cred
-        elif cred:
-            self.cert = self.key = cred
-        self.connection = None
-
-        o = urlparse(url)
-        port = o.port
-        host = o.hostname
-        port = port or 443
-
-        # Versions of Python earlier than 2.7.9 don't use SSL Context
-        # objects for this purpose, and do not do any server cert verification.
-        ssl_context = None
-        if sys.hexversion >= 0x20709f0:
-            # Use the new method with SSL Context
-            # Prepare SSL context
-            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-            ssl_context.load_cert_chain(self.cert, self.key)
-            # Generally speaking, test boxes use cheap/free certs from the LIGO CA.
-            # These cannot be verified by the client.
-            if host in KNOWN_TEST_HOSTS:
-                ssl_context.verify_mode = ssl.CERT_NONE
-            else:
-                ssl_context.verify_mode = ssl.CERT_REQUIRED
-                ssl_context.check_hostname = True
-                # Find the various CA cert bundles stored on the system
-                ssl_context.load_default_certs()        
-
-            if proxy_host:
-                self.connector = lambda: ProxyHTTPSConnection(proxy_host, proxy_port, context=ssl_context)
-            else:
-                self.connector = lambda: httplib.HTTPSConnection(host, port, context=ssl_context)            
-        else:
-            # Using and older version of python. We'll pass in the cert and key files.
-            if proxy_host:
-                self.connector = lambda: ProxyHTTPSConnection(proxy_host, proxy_port, 
-                    key_file=self.key, cert_file=self.cert)
-            else:
-                self.connector = lambda: httplib.HTTPSConnection(host, port, 
-                    key_file=self.key, cert_file=self.cert)
-
-
-    def getConnection(self):
-        return self.connector()
-
-    def request(self, method, url, body=None, headers=None, priming_url=None):
-        # Bug in Python (versions < 2.7.1 (?))
-        # http://bugs.python.org/issue11898
-        # if the URL is unicode and the body of a request is binary,
-        # the POST/PUT action fails because it tries to concatenate
-        # the two which fails due to encoding problems.
-        # Workaround is to cast all URLs to str.
-        # This is probably bad in general,
-        # but for our purposes, today, this will do.
-        url = url and str(url)
-        priming_url = priming_url and str(priming_url)
-
-        conn = self.getConnection()
-        if priming_url:
-            conn.request("GET", priming_url, headers={'connection' : 'keep-alive'})
-            response = conn.getresponse()
-            if response.status != 200:
-                response = self.adjustResponse(response)
-            else:
-                # Throw away the response and make sure to read the body.
-                response = response.read()
-        conn.request(method, url, body, headers or {})
-        response = conn.getresponse()
-        return self.adjustResponse(response)
-
-    def adjustResponse(self, response):
-#       XXX WRONG.
-        if response.status >= 400:
-            raise HTTPError(response.status, response.reason, response.read())
-        response.json = lambda: json.loads(response.read())
-        return response
-
-    def get(self, url, headers=None):
-        return self.request("GET", url, headers=headers)
-
-    def head(self, url, headers=None):
-        return self.request("HEAD", url, headers=headers)
-
-    def delete(self, url, headers=None):
-        return self.request("DELETE", url, headers=headers)
-
-    def options(self, url, headers=None):
-        return self.request("OPTIONS", url, headers=headers)
-
-    def post(self, *args, **kwargs):
-        return self.post_or_put("POST", *args, **kwargs)
-
-    def put(self, *args, **kwargs):
-        return self.post_or_put("PUT", *args, **kwargs)
-
-    def post_or_put(self, method, url, body=None, headers=None, files=None):
-        headers = headers or {}
-        if not files:
-            # Simple urlencoded body
-            if isinstance(body, dict):
-#           XXX What about the headers in the params?
-                if 'content-type' not in headers:
-                    headers['content-type'] = "application/json"
-                body = json.dumps(body)
-        else:
-            body = body or {}
-            if isinstance(body, dict):
-                body = body.items()
-            content_type, body = encode_multipart_formdata(body, files)
-#           XXX What about the headers in the params?
-            headers = {
-                'content-type': content_type,
-                'content-length': str(len(body)),
-#               'connection': 'keep-alive',
-            }
-        return self.request(method, url, body, headers)
 
 #------------------------------------------------------------------
 # GraceDB
 #
 # Example Gracedb REST client.
 
-class GraceDb(GsiRest):
+class GraceDb(EcpRest):
     """Example GraceDb REST client
     
     The GraceDB service URL may be passed to the constructor
@@ -250,8 +46,18 @@ class GraceDb(GsiRest):
     consult the source code.
     """
     def __init__(self, service_url=DEFAULT_SERVICE_URL, 
-            proxy_host=None, proxy_port=3128, *args, **kwargs):
-        GsiRest.__init__(self, service_url, proxy_host, proxy_port, *args, **kwargs)
+            sp_session_endpoint=DEFAULT_SP_SESSION_ENDPOINT,
+            *args, **kwargs):
+
+        # Decide whether to verify the server's cert.
+        o = urlparse(service_url)
+        host = o.hostname
+        #verify_server_cert = host not in KNOWN_TEST_HOSTS
+        verify_server_cert = False
+
+        # The ECP client doesn't work behind a proxy at the moment.
+        EcpRest.__init__(self, service_url, sp_session_endpoint,
+            verify_server_cert)
 
         self.service_url = service_url
         self._service_info = None
@@ -301,7 +107,7 @@ class GraceDb(GsiRest):
     def request(self, method, *args, **kwargs):
         if method.lower() in ['post', 'put']:
             kwargs['priming_url'] = self.service_url
-        return GsiRest.request(self, method, *args, **kwargs)
+        return EcpRest.request(self, method, *args, **kwargs)
 
     def _getCode(self, input_value, code_dict):
         """Check if input is valid.
@@ -775,22 +581,6 @@ class GraceDb(GsiRest):
         return self.get(self.links['self'])
 
 #-----------------------------------------------------------------
-# TBD
-# Media Types
-
-# Root
-
-# Collection
-
-# Event
-
-# Log
-
-# File
-
-# Label
-
-#-----------------------------------------------------------------
 # HTTP upload encoding
 # Taken from http://code.activestate.com/recipes/146306/
 
@@ -827,33 +617,5 @@ def encode_multipart_formdata(fields, files):
 def get_content_type(filename):
     return mimetypes.guess_type(filename)[0] or 'application/octet-stream'
 
-#-----------------------------------------------------------------
-# X509 Credentials
-
-# XXX No longer checking whether this is a pre-RFC proxy.  Is this okay?
-def findUserCredentials(warnOnOldProxy=1):
-
-    proxyFile = os.environ.get('X509_USER_PROXY')
-    certFile = os.environ.get('X509_USER_CERT')
-    keyFile = os.environ.get('X509_USER_KEY')
-
-    if certFile and keyFile:
-        return certFile, keyFile
-
-    if proxyFile:
-        return proxyFile, proxyFile
-
-    # Try default proxy
-    proxyFile = os.path.join('/tmp', "x509up_u%d" % os.getuid())
-    if os.path.exists(proxyFile):
-        return proxyFile, proxyFile
-
-    # Try default cert/key
-    homeDir = os.environ.get('HOME')
-    certFile = os.path.join(homeDir, '.globus', 'usercert.pem')
-    keyFile = os.path.join(homeDir, '.globus', 'userkey.pem')
-
-    if os.path.exists(certFile) and os.path.exists(keyFile):
-        return certFile, keyFile
 
 

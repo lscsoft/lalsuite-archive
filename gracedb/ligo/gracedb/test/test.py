@@ -3,7 +3,8 @@ import unittest
 import random
 import os
 
-from ligo.gracedb.rest import GraceDb
+#from ligo.gracedb.rest import GraceDb
+from rest import GraceDb
 
 # Test the GraceDb REST API class.
 #
@@ -36,7 +37,8 @@ from ligo.gracedb.rest import GraceDb
 #     X509_USER_KEY
 
 
-TEST_SERVICE = "https://moe.phys.uwm.edu/branson/api/"
+TEST_SERVICE = "https://moe.phys.uwm.edu/branson/apiweb/"
+TEST_SP_SESSION_ENDPOINT = "https://moe.phys.uwm.edu/Shibboleth.sso/Session"
 
 class TestGracedb(unittest.TestCase):
     """
@@ -68,7 +70,7 @@ class TestGracedb(unittest.TestCase):
         message = "Message is {0}".format(random.random())
         resp = gracedb.writeLog(eventId, message)
         self.assertEqual(resp.status, 201)
-        new_log_uri = resp.getheader('Location')
+        new_log_uri = resp.info().getheader('Location')
         new_log = resp.json()
         self.assertEqual(new_log_uri, new_log['self'])
         check_new_log = gracedb.get(new_log_uri).json()
@@ -86,7 +88,7 @@ class TestGracedb(unittest.TestCase):
         resp = gracedb.writeEel(eventId, 'Test', 'em.gamma',
             'FO', 'TE', comment=comment, instrument='Test')
         self.assertEqual(resp.status, 201)
-        new_embb_log_uri = resp.getheader('Location')
+        new_embb_log_uri = resp.info().getheader('Location')
         new_embb_log = resp.json()
         self.assertEqual(new_embb_log_uri, new_embb_log['self'])
         check_new_embb_log = gracedb.get(new_embb_log_uri).json()
@@ -181,7 +183,7 @@ class TestGracedb(unittest.TestCase):
         cwb_event = r.json()
         self.assertEqual(cwb_event['group'], "Test")
         self.assertEqual(cwb_event['pipeline'], "CWB")
-        self.assertEqual(float(cwb_event['gpstime']), 1042312876.5090)
+        self.assertEqual(cwb_event['gpstime'], 1042312876)
 
     def test_create_lowmass(self):
         """Create a Low Mass event"""
@@ -197,7 +199,7 @@ class TestGracedb(unittest.TestCase):
                 "Test", "MBTAOnline", eventFile).json()
         self.assertEqual(mbta_event['group'], "Test")
         self.assertEqual(mbta_event['pipeline'], "MBTAOnline")
-        self.assertEqual(float(mbta_event['gpstime']), 1078903329.421037)
+        self.assertEqual(mbta_event['gpstime'], 1078903329)
         self.assertEqual(mbta_event['far'], 4.006953918826065e-7)
 
     def test_replace_event(self):
@@ -206,7 +208,7 @@ class TestGracedb(unittest.TestCase):
         old_event = gracedb.event(graceid).json()
         self.assertEqual(old_event['group'], "Test")
         self.assertEqual(old_event['search'], "LowMass")
-        self.assertEqual(float(old_event['gpstime']), 971609248.151741)
+        self.assertEqual(old_event['gpstime'], 971609248)
 
         replacementFile = os.path.join(testdatadir, "cbc-lm2.xml")
 
@@ -216,7 +218,7 @@ class TestGracedb(unittest.TestCase):
         new_event = gracedb.event(graceid).json()
         self.assertEqual(new_event['group'], "Test")
         self.assertEqual(new_event['search'], "LowMass")
-        self.assertEqual(float(new_event['gpstime']), 971609249.151741)
+        self.assertEqual(new_event['gpstime'], 971609249)
 
     def test_upload_binary(self):
         """
@@ -310,9 +312,12 @@ if __name__ == "__main__":
     testdatadir = os.path.join(os.path.dirname(__file__), "data")
 
     service = os.environ.get('TEST_SERVICE', TEST_SERVICE)
+    sp_session_endpoint = os.environ.get('TEST_SP_SESSION_ENDPOINT', TEST_SP_SESSION_ENDPOINT)
     testdatadir = os.environ.get('TEST_DATA_DIR', testdatadir)
 
-    gracedb = GraceDb(service)
+    gracedb = GraceDb(service, sp_session_endpoint)
+    #gracedb.initialize('branson.stephens')
+    gracedb.initialize()
     print "Using service", service
 
     eventFile = os.path.join(testdatadir, "cbc-lm.xml")
