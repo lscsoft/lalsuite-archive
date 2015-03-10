@@ -1778,8 +1778,16 @@ int XLALSimIMRSpinEOBWaveform(
   rcrossp[1] /= rcrosspMag;
   rcrossp[2] /= rcrosspMag;
 
-  s1dotL = spin1[0]*rcrossp[0] + spin1[1]*rcrossp[1] + spin1[2]*rcrossp[2];
-  s2dotL = spin2[0]*rcrossp[0] + spin2[1]*rcrossp[1] + spin2[2]*rcrossp[2];
+//  s1dotL = spin1[0]*rcrossp[0] + spin1[1]*rcrossp[1] + spin1[2]*rcrossp[2];
+//  s2dotL = spin2[0]*rcrossp[0] + spin2[1]*rcrossp[1] + spin2[2]*rcrossp[2];
+
+    s1dotL = spin1[0]*rcrossrdot[0] + spin1[1]*rcrossrdot[1] + spin1[2]*rcrossrdot[2];
+    s2dotL = spin2[0]*rcrossrdot[0] + spin2[1]*rcrossrdot[1] + spin2[2]*rcrossrdot[2];
+    
+    if(debugPK) {
+        printf("rXp = %3.10f %3.10f %3.10f\n", rcrossp[0], rcrossp[1], rcrossp[2]);
+        printf("rXrdot = %3.10f %3.10f %3.10f\n", rcrossrdot[0], rcrossrdot[1], rcrossrdot[2]);
+    }
 
   chiS = 0.5 * (s1dotLN + s2dotLN);
   chiA = 0.5 * (s1dotLN - s2dotLN);
@@ -2423,7 +2431,7 @@ int XLALSimIMRSpinEOBWaveform(
     /*Search peak of Delta_t / r^2*/
     REAL8 rad, rad2, m1PlusetaKK, bulk, logTerms, deltaU, u, u2, u3, u4, u5;
     REAL8 listAOverr2[retLenHi];
-//    FILE *outa = fopen( "OutA.dat", "a" );
+    if(debugPK) out = fopen( "OutA.dat", "w" );
     for ( i = 0; i < retLenHi; i++ )
     {
         for ( j = 0; j < values->length; j++ )
@@ -2463,8 +2471,9 @@ int XLALSimIMRSpinEOBWaveform(
         logTerms = 1. + eta*seobCoeffs.k0 + eta*log(1. + seobCoeffs.k1*u + seobCoeffs.k2*u2 + seobCoeffs.k3*u3 + seobCoeffs.k4*u4 + seobCoeffs.k5*u5 + seobCoeffs.k5l*u5*log(u));
         deltaU = bulk*logTerms;
         listAOverr2[i] = deltaU / rad2;
-//        fprintf(outa, "%3.10f %3.10f\n", timeHi.data[i], listAOverr2[i]);
+        if(debugPK) fprintf(out, "%3.10f %3.10f\n", timeHi.data[i], listAOverr2[i]);
     }
+    if(debugPK) fclose(out);
     REAL8 AOverr2;
     AOverr2 = listAOverr2[0];
     for ( i = 0, peakIdx = 0; i < retLenHi; i++ )
@@ -2489,7 +2498,7 @@ int XLALSimIMRSpinEOBWaveform(
     printf("YP: Error! Failed to find peak of omega!\n");
     abort();
   }
-  else if ( peakIdx == (unsigned int) retLenHi)
+  else if (peakIdx == (unsigned int) retLenHi)
   {
 	  /* What is happening here? */
        if (debugPK) printf("AT: Peak of A/r^2 not found, search for peak of Omega");
