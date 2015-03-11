@@ -1351,9 +1351,6 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 	/* create a view of the PSD between flow and fCut */
 	REAL8 df = Sh->deltaF;
 	size_t nBins = (f3 - fLow) / df;
-	size_t k = nBins;
-	REAL8Vector Shdata = {nBins, Sh->data->data + (size_t) (fLow / df)}; /* copy the Vector, including its pointer to the actual data */
-	Shdata.length = nBins;  /* drop high-frequency samples */
 	
 	/* compute the coefficients of the series expansion of the derivatives */
 	coef = XLALComputeIMRPhenomBDerivativeCoeffs(m1, m2, chi, params);
@@ -1384,9 +1381,9 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 
 	/* compute derivatives over a freq vector from fLow to fCut with frequency resolution df
 	 *  and use this to compute the Fisher matrix */
-	for (;k--;) {
-		
-		const REAL8 f = fLow + k * df;
+	REAL8 f = fLow;
+
+	for (size_t k=0; k<nBins; k++) {
 		
 		REAL8 v 		= cbrt(piM*f);
 		REAL8 v_p2 		= v*v; 
@@ -1440,7 +1437,7 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 		REAL8 ampSqr_x_dPsiM = amp_p2*dPsidM;
 		REAL8 ampSqr_x_dPsiEta = amp_p2*dPsidEta; 
 		REAL8 ampSqr_x_dPsidChi = amp_p2*dPsidChi;
-		REAL8 psd_pm1 = 1./Shdata.data[k];
+		REAL8 psd_pm1 = 1./Sh->data->data[k];
 		REAL8 ampSqr_by_Sh = amp_p2*psd_pm1;
 
 		gamma_MM		+= (ampSqr_x_dPsiM*dPsidM + dAdM*dAdM)*psd_pm1;
@@ -1459,6 +1456,7 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 		gamma_T0Phi0 	+= dPsidT0*ampSqr_by_Sh;
 		gamma_Phi0Phi0 	+= ampSqr_by_Sh;
 
+		f += df;
 	}
 	
 	/* this is actually twice the h-square 2*||h||^2 */
