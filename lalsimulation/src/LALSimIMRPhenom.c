@@ -1089,8 +1089,8 @@ IMRDerivCoeffs;
 * Fisher matrix of the IMRPhenomB waveform in the M-eta-chi-t0-phi0 coordinate system 
 */
 gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
-		const REAL8 m1,     /**< component mass 1 (kg) */
-		const REAL8 m2,     /**< component mass 2 (kg) */
+		const REAL8 m1,     /**< component mass 1 (M_sun) */
+		const REAL8 m2,     /**< component mass 2 (M_sun) */
 		const REAL8 chi,    /**< effective spin parameter of IMRPhenomB: chi = (m1 chi1 + m2 chi2)/(m1+m2)  */
 		const REAL8 fLow,   /**< low-frequency cutoff (Hz) */
 		const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
@@ -1101,9 +1101,9 @@ gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
 * the physical parameters 
 */
 IMRDerivCoeffs *XLALComputeIMRPhenomBDerivativeCoeffs(
-		const REAL8 m1,
-		const REAL8 m2,
-		const REAL8 chi,
+		const REAL8 m1,		/**< component mass 1 (M_sun) */
+		const REAL8 m2,		/**< component mass 2 (M_sun) */
+		const REAL8 chi,	/**< effective spin parameter of IMRPhenomB: chi = (m1 chi1 + m2 chi2)/(m1+m2)  */
 		BBHPhenomParams *params
 );
 
@@ -1119,9 +1119,9 @@ gsl_matrix *XLALSimIMRPhenomBProjectExtrinsicParam(
  * IMRPhenomB waveform with respect to parameters M, eta, chi
  */
 IMRDerivCoeffs *XLALComputeIMRPhenomBDerivativeCoeffs(
-		const REAL8 m1,
-		const REAL8 m2,
-		const REAL8 chi,
+		const REAL8 m1,		/**< component mass 1 (M_sun) */
+		const REAL8 m2,		/**< component mass 2 (M_sun) */
+		const REAL8 chi,	/**< effective spin parameter of IMRPhenomB: chi = (m1 chi1 + m2 chi2)/(m1+m2)  */
 		BBHPhenomParams *params
 ){
 	/* allocate memory for the structure IMRDerivCoeffs */
@@ -1316,8 +1316,8 @@ IMRDerivCoeffs *XLALComputeIMRPhenomBDerivativeCoeffs(
  */
 
 gsl_matrix *XLALSimIMRPhenomBFisherMatrix(
-		const REAL8 m1,     /**< component mass 1 (kg) */
-		const REAL8 m2,     /**< component mass 2 (kg) */
+		const REAL8 m1,     /**< component mass 1 (M_sun) */
+		const REAL8 m2,     /**< component mass 2 (M_sun) */
 		const REAL8 chi,    /**< effective spin parameter of IMRPhenomB: chi = (m1 chi1 + m2 chi2)/(m1+m2)  */
 		const REAL8 fLow,   /**< low-frequency cutoff (Hz) */
 		const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
@@ -1560,13 +1560,17 @@ int XLALSimIMRPhenomBMetricInMEtaChi(
 		REAL8 *gamma11,  /**< template metric coeff. 11 in PN Chirp Time */
 		REAL8 *gamma12,  /**< template metric coeff. 01/10 PN Chirp Time */
 		REAL8 *gamma22,  /**< template metric coeff. 01/10 PN Chirp Time */
-		const REAL8 m1,     /**< component mass 1 (kg) */
-		const REAL8 m2,     /**< component mass 2 (kg) */
+		const REAL8 m1_SI,     /**< component mass 1 (kg) */
+		const REAL8 m2_SI,     /**< component mass 2 (kg) */
 		const REAL8 chi,    /**< effective spin parameter of IMRPhenomB: chi = (m1 chi1 + m2 chi2)/(m1+m2)  */
 		const REAL8 fLow,   /**< low-frequency cutoff (Hz) */
 		const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
 ){
 	
+	/* external: SI; internal: solar masses */
+	const REAL8 m1 = m1_SI / LAL_MSUN_SI;
+	const REAL8 m2 = m2_SI / LAL_MSUN_SI;
+
 	/* compute the Fisher matrix in (M, eta, chi, t0, phi0) coords */
 	gsl_matrix * g = XLALSimIMRPhenomBFisherMatrix(m1, m2, chi, fLow, Sh);
 	
@@ -1596,37 +1600,42 @@ int XLALSimIMRPhenomBMetricInTheta0Theta3Theta3S(
 		REAL8 *gamma11,  /**< template metric coeff. 11 in PN Chirp Time */
 		REAL8 *gamma12,  /**< template metric coeff. 01/10 PN Chirp Time */
 		REAL8 *gamma22,  /**< template metric coeff. 01/10 PN Chirp Time */
-		const REAL8 m1,     /**< component mass 1 (kg) */
-		const REAL8 m2,     /**< component mass 2 (kg) */
+		const REAL8 m1_SI,     /**< component mass 1 (kg) */
+		const REAL8 m2_SI,     /**< component mass 2 (kg) */
 		const REAL8 chi,    /**< effective spin parameter of IMRPhenomB: chi = (m1 chi1 + m2 chi2)/(m1+m2)  */
 		const REAL8 fLow,   /**< low-frequency cutoff (Hz) */
 		const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
 ){
 	
+	
+	/* external: SI; internal: solar masses */
+	const REAL8 m1 = m1_SI / LAL_MSUN_SI;
+	const REAL8 m2 = m2_SI / LAL_MSUN_SI;
+
+	const REAL8 M = (m1+m2)*LAL_MTSUN_SI;
+	const REAL8 eta	= m1*m2/((m1+m2)*(m1+m2));
+	const REAL8 v0	= cbrt(LAL_PI*M*fLow);
+	
 	/* compute the Fisher matrix in (M, eta, chi, t0, phi0) coords */
 	gsl_matrix * gMass = XLALSimIMRPhenomBFisherMatrix(m1, m2, chi, fLow, Sh);
-	
-	REAL8 M		= (m1+m2)*LAL_MTSUN_SI;
-	REAL8 eta	= m1*m2/((m1+m2)*(m1+m2));
-	REAL8 v0	= cbrt(LAL_PI*M*fLow);
-	
-	REAL8 theta0 = 5.0/(128.0*eta*v0*v0*v0*v0*v0);
-	REAL8 theta3 = (LAL_PI/(4.0*eta*v0*v0));
-	REAL8 theta3S = (LAL_PI/(4.0*v0*v0))*(17022. - 9565.9*chi);
-	REAL8 theta3_p2 = theta3*theta3;
-	REAL8 theta0_p2 = theta0*theta0;
-	REAL8 theta0_p2by3 = cbrt(theta3_p2);
+
+	const REAL8 theta0 = 5.0/(128.0*eta*v0*v0*v0*v0*v0);
+	const REAL8 theta3 = (LAL_PI/(4.0*eta*v0*v0));
+	const REAL8 theta3S = (LAL_PI/(4.0*v0*v0))*(17022. - 9565.9*chi);
+	const REAL8 theta3_p2 = theta3*theta3;
+	const REAL8 theta0_p2 = theta0*theta0;
+	const REAL8 theta0_p2by3 = cbrt(theta3_p2);
 	
 	/* Co-ordinate Derivatives for Jacobian matrix */
-	REAL8 dMdTheta0 = (-0.015831434944115277*theta3)/(fLow*theta0_p2);
-	REAL8 dMdTheta3 = 0.015831434944115277/(fLow*theta0);
-	REAL8 dMdTheta3S = 0.;
-	REAL8 dEtadTheta0 = 3.8715528021485643/(cbrt(theta0)*theta3*theta0_p2by3);
-	REAL8 dEtadTheta3 = (-9.678882005371412*cbrt(theta0_p2))/(theta3_p2*theta0_p2by3);
-	REAL8 dEtadTheta3S = 0.;
-	REAL8 dChidTheta0 = (0.000012000696668619612*theta0_p2by3*theta3S)/(theta0*cbrt(theta0_p2));
-	REAL8 dChidTheta3 = (-0.000012000696668619612*theta3S)/(cbrt(theta0_p2)*cbrt(theta3));
-	REAL8 dChidTheta3S = (-0.00001800104500292942*theta0_p2by3)/cbrt(theta0_p2);
+	const REAL8 dMdTheta0 = (-0.015831434944115277*theta3)/(fLow*theta0_p2);
+	const REAL8 dMdTheta3 = 0.015831434944115277/(fLow*theta0);
+	const REAL8 dMdTheta3S = 0.;
+	const REAL8 dEtadTheta0 = 3.8715528021485643/(cbrt(theta0)*theta3*theta0_p2by3);
+	const REAL8 dEtadTheta3 = (-9.678882005371412*cbrt(theta0_p2))/(theta3_p2*theta0_p2by3);
+	const REAL8 dEtadTheta3S = 0.;
+	const REAL8 dChidTheta0 = (0.000012000696668619612*theta0_p2by3*theta3S)/(theta0*cbrt(theta0_p2));
+	const REAL8 dChidTheta3 = (-0.000012000696668619612*theta3S)/(cbrt(theta0_p2)*cbrt(theta3));
+	const REAL8 dChidTheta3S = (-0.00001800104500292942*theta0_p2by3)/cbrt(theta0_p2);
 	
 	/* Define the Jacobian transformation matrix which would give the Fisher Matrix in theta co-ordinates */
 	gsl_matrix * jaco = gsl_matrix_calloc (5, 5);
