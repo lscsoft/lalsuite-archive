@@ -506,7 +506,10 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
       {
         XLAL_ERROR( XLAL_EFUNC );
       }
-
+    if ( debugout ) {
+        printf("(Mf, af) = (%3.10f, %3.10f)\n", finalMass, finalSpin);
+    }
+        
       if ( approximant == SEOBNRv1 )
       {
           /* Replace the last QNM with pQNM */
@@ -630,7 +633,7 @@ printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[5])*mTot, 1./cimag(modefreqs->
           chi2 = chi2 *cos(theta2);
 
           a  = (chi1 + chi2) / 2. * (1.0 - 2.0 * eta) + (chi1 - chi2) / 2. * (mass1 - mass2) / (mass1 + mass2);
-          NRPeakOmega22 = GetNRSpinPeakOmega( l, m, eta, a ) / mTot;
+          NRPeakOmega22 = GetNRSpinPeakOmegav2( l, m, eta, a ) / mTot;
         
           chi = (chi1 + chi2) / 2. + (chi1 - chi2) / 2. * ((mass1 - mass2)/(mass1+mass2)) / (1. - 2. * eta); 
           
@@ -738,9 +741,10 @@ printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[5])*mTot, 1./cimag(modefreqs->
       matchrange->data[0] -= fmod( matchrange->data[0], dt/mTot);
       matchrange->data[1] -= fmod( matchrange->data[1], dt/mTot);
       if (debugout){
+          printf("NRPeakOmega22 = %3.10f\n", NRPeakOmega22*mTot);
          for (j = 0; j < nmodes; j++)
          {
-            printf("QNM frequencies: %d %d %d %f %f\n",l,m,j,creal(modefreqs->data[j])*mTot,1./cimag(modefreqs->data[j])/mTot);
+            printf("QNM frequencies: %d %d %d %3.10f %3.10f\n",l,m,j,creal(modefreqs->data[j])*mTot,1./cimag(modefreqs->data[j])/mTot);
          }
       }
 
