@@ -470,7 +470,7 @@ LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_bimod(LALInferenceRu
     LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
   }
   LALInferenceModel *model = XLALCalloc(1, sizeof(LALInferenceModel));
-  model->params = XLALCalloc(1i, sizeof(LALInferenceVariables));
+  model->params = XLALCalloc(1, sizeof(LALInferenceVariables));
   UINT4 nifo=0;
   LALInferenceIFOData *dataPtr = state->data;
   while (dataPtr != NULL)
