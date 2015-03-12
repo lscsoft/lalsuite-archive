@@ -952,7 +952,14 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
                 }
             }else{
                 fprintf(stderr,"Estimating PSD for %s using %i segments of %i samples (%lfs)\n",IFOnames[i],nSegs,(int)seglen,SegmentLength);
+                LIGOTimeGPS trueGPSstart=GPSstart;
+                if(Ntimeslides) {
+                  REAL4 deltaT=-atof(timeslides[i]);
+                  XLALGPSAdd(&GPSstart, deltaT);
+                  fprintf(stderr,"Slid PSD estimation of %s by %f s from %10.10lf to %10.10lf\n",IFOnames[i],deltaT,trueGPSstart.gpsSeconds+1e-9*trueGPSstart.gpsNanoSeconds,GPSstart.gpsSeconds+1e-9*GPSstart.gpsNanoSeconds);
+                }
                 PSDtimeSeries=readTseries(cache,channels[i],GPSstart,PSDdatalength);
+                GPSstart=trueGPSstart;
                 if(!PSDtimeSeries) {XLALPrintError("Error reading PSD data for %s\n",IFOnames[i]); XLAL_ERROR_NULL(XLAL_EFUNC);}
                 XLALResampleREAL8TimeSeries(PSDtimeSeries,1.0/SampleRate);
                 PSDtimeSeries=(REAL8TimeSeries *)XLALShrinkREAL8TimeSeries(PSDtimeSeries,(size_t) 0, (size_t) seglen*nSegs);
@@ -2933,7 +2940,7 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
         */
 
         /* set the whole seq to 0 */
-        for(j=0;j<injF->data->length;j++) injF->data->data[j]=0.0+1j*0.0;
+        for(j=0;j<injF->data->length;j++) injF->data->data[j]=0.0;
             
         /* FFT */
         XLALREAL8TimeFreqFFT(injF,windTimeData,IFOdata->timeToFreqFFTPlan);   
