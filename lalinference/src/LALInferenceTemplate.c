@@ -1281,7 +1281,9 @@ void LALInferenceTemplateXLALSimBurstSineGaussianF(LALInferenceModel *model)
   hrss=1.0, alpha=LAL_PI/2.; 
 
   freq=*(REAL8*) LALInferenceGetVariable(model->params, "frequency");
-  quality=*(REAL8*) LALInferenceGetVariable(model->params, "quality");
+  //quality=*(REAL8*) LALInferenceGetVariable(model->params, "quality");
+  REAL8  tau=*(REAL8*) LALInferenceGetVariable(model->params, "duration");
+  quality=tau*freq*LAL_SQRT2*LAL_PI;
   alpha=*(REAL8*) LALInferenceGetVariable(model->params, "alpha");
   
   if (model->timehCross==NULL) {
