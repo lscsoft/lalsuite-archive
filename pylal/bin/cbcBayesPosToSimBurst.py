@@ -169,7 +169,10 @@ if __name__ == "__main__":
       
     # Populate structured array
     injections['waveform'] = [opts.approx for i in xrange(N)]
-    injections['frequency'] = samples['frequency']
+    try:
+      injections['frequency'] = samples['frequency']
+    except:
+      injections['frequency']=[np.nan for i in samples['ra']]
     injections['duration'] = dur
     injections['q'] = q
     try:
