@@ -9,16 +9,19 @@ import StringIO
 # XXX Might be better to use option parsing for these things
 # No logging unless user specifies --log-file
 TEST_SERVICE = "https://moe.phys.uwm.edu/branson/api/"
+TEST_SP_SESSION_ENDPOINT = "https://moe.phys.uwm.edu/Shibboleth.sso/Session"
 DATAFILE = "cbc-lm.xml"
 LOGFILE = "/tmp/voevent_test.log"
 
 service = os.environ.get('TEST_SERVICE', TEST_SERVICE)
+sp_session_endpoint = os.environ.get('TEST_SP_SESSION_ENDPOINT', TEST_SP_SESSION_ENDPOINT)
 testdatadir = os.path.join(os.path.dirname(__file__), "data")
 testdatadir = os.environ.get('TEST_DATA_DIR', testdatadir)
 datafile = os.path.join(testdatadir, DATAFILE)
 
 # Module level global variables
-g = GraceDb(service)
+g = GraceDb(service, sp_session_endpoint)
+g.initialize()
 
 # Variables to which we will need access at the module level
 event = None
