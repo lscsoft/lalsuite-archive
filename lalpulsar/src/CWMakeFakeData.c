@@ -697,15 +697,14 @@ XLALReadPulsarParams ( PulsarParams *pulsarParams,	///< [out] pulsar parameters 
   // ---------- PulsarDopplerParams ----------
 
   // ----- refTime
-  REAL8 refTime_GPS = 0; BOOLEAN have_refTime;
-  XLAL_CHECK ( XLALReadConfigREAL8Variable ( &refTime_GPS, cfgdata, secName, "refTime", &have_refTime ) == XLAL_SUCCESS, XLAL_EFUNC );
+  LIGOTimeGPS refTime_GPS; BOOLEAN have_refTime;
+  XLAL_CHECK ( XLALReadConfigEPOCHVariable ( &refTime_GPS, cfgdata, secName, "refTime", &have_refTime ) == XLAL_SUCCESS, XLAL_EFUNC );
   XLAL_CHECK ( have_refTime, XLAL_EINVAL );
-
-  XLAL_CHECK ( XLALGPSSetREAL8 ( & pulsarParams->Doppler.refTime, refTime_GPS ) != NULL, XLAL_EFUNC );
+  pulsarParams->Doppler.refTime = refTime_GPS;
 
   // ----- Alpha
   REAL8 Alpha_Rad = 0; BOOLEAN have_Alpha;
-  XLAL_CHECK ( XLALReadConfigREAL8Variable ( &Alpha_Rad, cfgdata, secName, "Alpha", &have_Alpha ) == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK ( XLALReadConfigRAJVariable ( &Alpha_Rad, cfgdata, secName, "Alpha", &have_Alpha ) == XLAL_SUCCESS, XLAL_EFUNC );
   XLAL_CHECK ( have_Alpha, XLAL_EINVAL );
 
   XLAL_CHECK ( (Alpha_Rad >= 0) && (Alpha_Rad < LAL_TWOPI), XLAL_EDOM );
@@ -713,7 +712,7 @@ XLALReadPulsarParams ( PulsarParams *pulsarParams,	///< [out] pulsar parameters 
 
   // ----- Delta
   REAL8 Delta_Rad = 0; BOOLEAN have_Delta;
-  XLAL_CHECK ( XLALReadConfigREAL8Variable ( &Delta_Rad, cfgdata, secName, "Delta", &have_Delta ) == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK ( XLALReadConfigDECJVariable ( &Delta_Rad, cfgdata, secName, "Delta", &have_Delta ) == XLAL_SUCCESS, XLAL_EFUNC );
   XLAL_CHECK ( have_Delta, XLAL_EINVAL );
 
   XLAL_CHECK ( (Delta_Rad >= -LAL_PI_2) && (Delta_Rad <= LAL_PI_2), XLAL_EDOM );
@@ -754,8 +753,8 @@ XLALReadPulsarParams ( PulsarParams *pulsarParams,	///< [out] pulsar parameters 
   pulsarParams->Doppler.fkdot[6] = f6dot;
 
   // ----- orbit
-  REAL8 orbitTpSSB = 0;	BOOLEAN have_orbitTpSSB;
-  XLAL_CHECK ( XLALReadConfigREAL8Variable ( &orbitTpSSB, cfgdata, secName, "orbitTpSSB", &have_orbitTpSSB ) == XLAL_SUCCESS, XLAL_EFUNC );
+  LIGOTimeGPS orbitTp; BOOLEAN have_orbitTp;
+  XLAL_CHECK ( XLALReadConfigEPOCHVariable ( &orbitTp, cfgdata, secName, "orbitTp", &have_orbitTp ) == XLAL_SUCCESS, XLAL_EFUNC );
   REAL8 orbitArgp = 0; 	BOOLEAN have_orbitArgp;
   XLAL_CHECK ( XLALReadConfigREAL8Variable ( &orbitArgp, cfgdata, secName, "orbitArgp", &have_orbitArgp ) == XLAL_SUCCESS, XLAL_EFUNC );
   REAL8 orbitasini = 0 /* isolated pulsar */; BOOLEAN have_orbitasini;
@@ -765,14 +764,14 @@ XLALReadPulsarParams ( PulsarParams *pulsarParams,	///< [out] pulsar parameters 
   REAL8 orbitPeriod = 0;BOOLEAN have_orbitPeriod;
   XLAL_CHECK ( XLALReadConfigREAL8Variable ( &orbitPeriod, cfgdata, secName, "orbitPeriod", &have_orbitPeriod ) == XLAL_SUCCESS, XLAL_EFUNC );
 
-  if ( have_orbitasini || have_orbitEcc || have_orbitPeriod || have_orbitArgp || have_orbitTpSSB )
+  if ( have_orbitasini || have_orbitEcc || have_orbitPeriod || have_orbitArgp || have_orbitTp )
     {
       XLAL_CHECK ( orbitasini >= 0, XLAL_EDOM );
-      XLAL_CHECK ( (orbitasini == 0) || ( have_orbitEcc && have_orbitPeriod && have_orbitArgp && have_orbitTpSSB ), XLAL_EINVAL );
+      XLAL_CHECK ( (orbitasini == 0) || ( have_orbitEcc && have_orbitPeriod && have_orbitArgp && have_orbitTp ), XLAL_EINVAL );
       XLAL_CHECK ( (orbitEcc >= 0) && (orbitEcc <= 1), XLAL_EDOM );
 
       /* fill in orbital parameter structure */
-      XLAL_CHECK ( XLALGPSSetREAL8 ( &(pulsarParams->Doppler.tp), orbitTpSSB ) != NULL, XLAL_EFUNC );
+      pulsarParams->Doppler.tp 		= orbitTp;
       pulsarParams->Doppler.argp 	= orbitArgp;
       pulsarParams->Doppler.asini 	= orbitasini;
       pulsarParams->Doppler.ecc 	= orbitEcc;
@@ -806,7 +805,7 @@ XLALReadPulsarParams ( PulsarParams *pulsarParams,	///< [out] pulsar parameters 
       XLAL_CHECK ( transientTauDays > 0, XLAL_EDOM );
 
       pulsarParams->Transient.t0   = (UINT4) transientStartTime;
-      pulsarParams->Transient.tau  = (UINT4) ( transientTauDays * LAL_DAYSID_SI );
+      pulsarParams->Transient.tau  = (UINT4) ( transientTauDays * 86400 );
     } /* if transient window != none */
   else
     {
@@ -866,7 +865,7 @@ XLALPulsarParamsFromFile ( const char *fname 		///< [in] 'CWsources' config file
 /**
  * Function to determine the PulsarParamsVector input from a user-input defining CW sources.
  *
- * This option supports a dual-type feature: if the any string in the list is of the form '{...}', then
+ * This option supports a dual-type feature: if any string in the list is of the form '{...}', then
  * it determines the *contents* of a config-file, otherwise the name-pattern of config-files to be parsed by XLALFindFiles(),
  * NOTE: when specifying file-contents, options can be separated by ';' and/or newlines)
  */

@@ -35,6 +35,11 @@
 #include <lal/XLALError.h>
 #include "LALSimInspiralPNCoefficients.c"
 
+#ifndef _OPENMP
+#define omp ignore
+#endif
+
+
 /* This function allows SWIG to wrap the TaylorF2 phasing coefficients
  * for use in external Python code
  */
@@ -111,7 +116,7 @@ int XLALSimInspiralTaylorF2Core(
 	    if(iStart < 0) XLAL_ERROR(XLAL_EFAULT);
     }
     else { //otherwise allocate memory here
-	    htilde = XLALCreateCOMPLEX16FrequencySeries("htilde: FD waveform", &tC, freqs->data[0], NAN, &lalStrainUnit, freqs->length);
+	    htilde = XLALCreateCOMPLEX16FrequencySeries("htilde: FD waveform", &tC, freqs->data[0], 0., &lalStrainUnit, freqs->length);
 	    if (!htilde) XLAL_ERROR(XLAL_EFUNC);
 	    XLALUnitDivide(&htilde->sampleUnits, &htilde->sampleUnits, &lalSecondUnit);
     }

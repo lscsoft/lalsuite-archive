@@ -370,7 +370,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   REAL8 y_1, y_2, z1, z2;
 
   /* Variables for the integrator */
-  ark4GSLIntegrator       *integrator = NULL;
+  LALAdaptiveRungeKutta4Integrator       *integrator = NULL;
   REAL8Array              *dynamics   = NULL;
   REAL8Array              *dynamicsHi = NULL;
   INT4                    retLen;
@@ -398,6 +398,13 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   mTotal = m1 + m2;
   mTScaled = mTotal * LAL_MTSUN_SI;
   eta    = m1 * m2 / (mTotal*mTotal);
+    
+    /* For v2 the upper bound is mass ratio 100 */
+    if ( SpinAlignedEOBversion == 2 && eta < 100./101./101.)
+    {
+        XLALPrintError( "XLAL Error - %s: Mass ratio larger than 100!\nSEOBNRv2 is only available for mass ratios up to 100.\n", __func__);
+        XLAL_ERROR( XLAL_EINVAL );
+    }
 
   amp0 = mTotal * LAL_MRSUN_SI / r;
 
@@ -1362,7 +1369,7 @@ printf("in function 2\n");
   memset( &prefixes, 0, sizeof( prefixes ) );
 
   /* Variables for the integrator */
-  ark4GSLIntegrator UNUSED      *integrator = NULL;
+  LALAdaptiveRungeKutta4Integrator UNUSED      *integrator = NULL;
   REAL8Array UNUSED             *dynamics   = NULL;
   //REAL8Array              *dynamicsHi = NULL;
   INT4                    retLen;

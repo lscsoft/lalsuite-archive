@@ -171,6 +171,18 @@ XLALPrintError("XLAL Error - %s: Non-default LALSimInspiralModesChoice provided,
 XLAL_ERROR_NULL(XLAL_EINVAL);\
 } while (0)
 
+/**
+ * Macro procedure for aborting if non-zero spin2
+ * components given to central-spin-only approximant
+ */
+#define ABORT_NONZERO_SPIN2(waveFlags)\
+	do {\
+	XLALSimInspiralDestroyWaveformFlags(waveFlags);\
+	XLALPrintError("XLAL Error - %s: Non-zero CO spin given, but this approximant does not support this case.\n", __func__);\
+	XLAL_ERROR(XLAL_EINVAL);\
+	} while (0)
+
+
 /* Internal utility function to check all spin components are zero
  returns 1 if all spins zero, otherwise returns 0 */
 int checkSpinsZero(REAL8 s1x, REAL8 s1y, REAL8 s1z,
@@ -183,6 +195,10 @@ int checkTransverseSpinsZero(REAL8 s1x, REAL8 s1y, REAL8 s2x, REAL8 s2y);
 /* Internal utility function to check tidal parameters are zero
  returns 1 if both tidal parameters zero, otherwise returns 0 */
 int checkTidesZero(REAL8 lambda1, REAL8 lambda2);
+
+/* Internal utility function to check that the second body's spin components are zero.
+   Returns 1 if all components are zero, otherwise returns 0 */
+int checkCOSpinZero(REAL8 s2x, REAL8 s2y, REAL8 s2z);
 
 /**
  * Enum that specifies the PN approximant to be used in computing the waveform.
@@ -241,6 +257,7 @@ typedef enum {
    SEOBNRv1_ROM_DoubleSpin, /**< Double-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv1 See [Purrer:2014fza] */
    SEOBNRv2_ROM_SingleSpin, /**< Single-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv2 */
    SEOBNRv2_ROM_DoubleSpin, /**< Double-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv2 */
+   HGimri,		/**< Time domain inspiral-merger-ringdown waveform for quasi-circular intermediate mass-ratio inspirals [Huerta & Gair arXiv:1009.1985]*/
    IMRPhenomA,		/**< Time domain (non-spinning) inspiral-merger-ringdown waveforms generated from the inverse FFT of IMRPhenomFA  */
    IMRPhenomB,		/**< Time domain (non-precessing spins) inspiral-merger-ringdown waveforms generated from the inverse FFT of IMRPhenomFB */
    IMRPhenomFA,		/**< Frequency domain (non-spinning) inspiral-merger-ringdown templates of Ajith et al [Ajith_2007kx] with phenomenological coefficients defined in the Table I of [Ajith_2007xh]*/
@@ -301,6 +318,12 @@ typedef enum {
   LAL_SIM_DOMAIN_TIME,
   LAL_SIM_DOMAIN_FREQUENCY
  } LALSimulationDomain;
+
+
+REAL8 XLALSimInspiralChirpTimeBound(REAL8 fstart, REAL8 m1, REAL8 m2, REAL8 s1, REAL8 s2);
+REAL8 XLALSimInspiralMergeTimeBound(REAL8 m1, REAL8 m2);
+REAL8 XLALSimInspiralRingdownTimeBound(REAL8 M, REAL8 s);
+REAL8 XLALSimInspiralChirpStartFrequencyBound(REAL8 tchirp, REAL8 m1, REAL8 m2);
 
 /**
  * Tapers a REAL4 inspiral waveform in the time domain.
@@ -1311,15 +1334,13 @@ int XLALSimInspiralTD(
  * resulting waveform to be Fourier transformed into the time domain without wrapping
  * the end of the waveform to the beginning.
  *
- * This routine has a few parameters that differ from XLALSimInspiralChooseFDWaveform.
- * Rather than f_max, this routine takes deltaT, the sampling interval of the corresponding
- * time domain waveform.  The Nyquist frequency, 2/deltaT, thus determines the maximum
- * frequency for the FD waveform.  Also, this routine does not take a deltaF parameter,
- * and instead computes the necessary value of deltaF based on the duration of the
- * corresponding time domain waveform, deltaF <= 1/duration.  The total number of points
- * in the FD waveform is a power of two plus one (the Nyquist frequency).  Thus, the FD
- * waveform returned could be directly Fourier transformed to the time domain without
- * further manipulation.
+ * This routine assumes that f_max is the Nyquist frequency of a corresponding time-domain
+ * waveform, so that deltaT = 0.5 / f_max.  If deltaF is set to 0 then this routine computes
+ * a deltaF that is small enough to represent the Fourier transform of a time-domain waveform.
+ * If deltaF is specified but f_max / deltaF is not a power of 2, and the waveform approximant
+ * is a time-domain approximant, then f_max is increased so that f_max / deltaF is the next
+ * power of 2.  (If the user wishes to discard the extra high frequency content, this must
+ * be done separately.)
  *
  * This routine has one additional parameter relative to XLALSimInspiralChooseFDWaveform.
  * The additional parameter is the redshift, z, of the waveform.  This should be set to
@@ -1337,7 +1358,7 @@ int XLALSimInspiralFD(
     COMPLEX16FrequencySeries **hptilde,         /**< +-polarization waveform */
     COMPLEX16FrequencySeries **hcross,          /**< x-polarization waveform */
     REAL8 phiRef,                               /**< reference orbital phase (rad) */
-    REAL8 deltaT,                               /**< sampling interval (s) */
+    REAL8 deltaF,                               /**< frequency interval (Hz), or 0 to compute necessary interval */
     REAL8 m1,                                   /**< mass of companion 1 (kg) */
     REAL8 m2,                                   /**< mass of companion 2 (kg) */
     REAL8 S1x,                                  /**< x-component of the dimensionless spin of object 1 */
@@ -1347,6 +1368,7 @@ int XLALSimInspiralFD(
     REAL8 S2y,                                  /**< y-component of the dimensionless spin of object 2 */
     REAL8 S2z,                                  /**< z-component of the dimensionless spin of object 2 */
     REAL8 f_min,                                /**< starting GW frequency (Hz) */
+    REAL8 f_max,                                /**< ending GW frequency (Hz) */
     REAL8 f_ref,                                /**< reference GW frequency (Hz) */
     REAL8 r,                                    /**< distance of source (m) */
     REAL8 z,                                    /**< redshift of source frame relative to observer frame */
@@ -2010,6 +2032,18 @@ int XLALSimInspiralTaylorEtPNGenerator(
 	       	int phaseO                /**< twice post-Newtonian phase order */
 		);
 
+int XLALHGimri_generator(
+		REAL8TimeSeries **hplus,
+		REAL8TimeSeries **hcross,
+		REAL8 phiRef,
+		REAL8 deltaT,
+		REAL8 m1,
+		REAL8 m2,
+		REAL8 f_min,
+		REAL8 r,
+		REAL8 i,
+		REAL8 S1z);
+
 /**
  * Driver routine to compute the post-Newtonian inspiral waveform.
  *
@@ -2052,7 +2086,6 @@ int XLALSimInspiralTaylorEtPNRestricted(
 	       	REAL8 i,                  /**< inclination of source (rad) */
 	       	int O                     /**< twice post-Newtonian phase order */
 		);
-
 
 /**
  * Structure for passing around PN phasing coefficients.

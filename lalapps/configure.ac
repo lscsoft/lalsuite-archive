@@ -25,7 +25,6 @@ AC_CONFIG_FILES([\
   src/lalapps/Makefile \
   src/online/Makefile \
   src/power/Makefile \
-  src/pulsar/CombSearch/Makefile \
   src/pulsar/CreateEphemeris/Makefile \
   src/pulsar/Fstatistic/Makefile \
   src/pulsar/GCT/Makefile \
@@ -33,7 +32,7 @@ AC_CONFIG_FILES([\
   src/pulsar/MakeSFTs/Makefile \
   src/pulsar/Makefile \
   src/pulsar/SFTReferenceLibrary/Makefile \
-  src/pulsar/SideBand/Makefile \
+  src/pulsar/SidebandSearch/Makefile \
   src/pulsar/HeterodyneSearch/Makefile \
   src/pulsar/Tools/Makefile \
   src/pulsar/TwoSpect/Makefile \
@@ -42,7 +41,6 @@ AC_CONFIG_FILES([\
   src/pulsar/hough/Makefile \
   src/pulsar/hough/src/Makefile \
   src/pulsar/hough/src2/Makefile \
-  src/pulsar/templateBanks/Makefile \
   src/ring/Makefile \
   src/stochastic/Makefile \
   src/string/Makefile \
@@ -166,9 +164,7 @@ AC_CHECK_LIB([z],[compress],,[AC_MSG_ERROR([could not find the zlib library])])
 # check for system headers
 AC_HEADER_STDC
 AC_CHECK_HEADERS([zlib.h],,[AC_MSG_ERROR([could not find zlib.h])])
-AC_CHECK_HEADERS([glob.h])
-AC_CHECK_HEADERS([punistd.h])
-AC_CHECK_HEADERS([getopt.h])
+AC_CHECK_HEADERS([unistd.h glob.h])
 
 # check for gsl
 PKG_CHECK_MODULES([GSL],[gsl],[true],[false])

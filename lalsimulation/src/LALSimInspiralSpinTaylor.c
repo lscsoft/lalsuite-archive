@@ -27,6 +27,17 @@
 #include <lal/LALSimIMR.h>
 #include "check_series_macros.h"
 #include "LALSimInspiralPNCoefficients.c"
+#include <lal/XLALGSL.h>
+
+#define XLAL_BEGINGSL \
+        { \
+          gsl_error_handler_t *saveGSLErrorHandler_; \
+          saveGSLErrorHandler_ = gsl_set_error_handler_off();
+
+#define XLAL_ENDGSL \
+          gsl_set_error_handler( saveGSLErrorHandler_ ); \
+        }
+
 
 //#define UNUSED(expr) do { (void)(expr); } while (0)
 /*
@@ -748,7 +759,7 @@ int XLALSimInspiralSpinTaylorPNEvolveOrbit(
 {
     INT4 intreturn;
     void * params;
-    ark4GSLIntegrator *integrator = NULL;     /* GSL integrator object */
+    LALAdaptiveRungeKutta4Integrator *integrator = NULL;     /* GSL integrator object */
     REAL8 yinit[LAL_NUM_ST4_VARIABLES];       /* initial values of parameters */
     REAL8Array *yout;	 /* time series of variables returned from integrator */
     /* intermediate variables */
@@ -2111,7 +2122,7 @@ static int XLALSimInspiralSpinTaylorPNEvolveOrbitIrregularIntervals(
 {
     INT4 intreturn;
     void * params;
-    ark4GSLIntegrator *integrator = NULL;     /* GSL integrator object */
+    LALAdaptiveRungeKutta4Integrator *integrator = NULL;     /* GSL integrator object */
     REAL8 yinit[LAL_NUM_ST4_VARIABLES];       /* initial values of parameters */
     REAL8Array *y;    /* time series of variables returned from integrator */
     /* intermediate variables */

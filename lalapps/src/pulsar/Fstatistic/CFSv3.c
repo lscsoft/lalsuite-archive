@@ -21,7 +21,7 @@
 /**
  * \author R. Prix
  * \file
- * \ingroup lalapps_pulsar
+ * \ingroup lalapps_pulsar_Fstatistic
  * \brief Calculate the Fourier transform over the total timespan from a set of SFTs
  *
  */
@@ -29,10 +29,6 @@
 
 /* System includes */
 #include <stdio.h>
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-
 
 /* LAL-includes */
 #include <lal/AVFactories.h>

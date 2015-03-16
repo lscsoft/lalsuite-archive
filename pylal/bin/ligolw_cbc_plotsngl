@@ -24,6 +24,7 @@ from glue.ligolw import dbtables
 from pylal import InspiralUtils
 from pylal import ligolw_sqlutils as sqlutils
 from pylal import printutils
+from pylal.ligolw_dataUtils import get_row_stat
 
 __author__ = "Sarah Caudill <sarah.caudill@ligo.org>"
 __prog__ = "ligolw_cbc_plotsngl"
@@ -236,16 +237,6 @@ def parse_command_line():
 #
 # =============================================================================
 
-def get_row_stat(row, arg):
-    """
-    Wrapper method to evaluate the desired operation on columns from a row in the SelectedFound table.
-    The name space available to eval is limited to the columns in the row and functions in the math module.
-    """
-    row_dict = dict([ [name, getattr(row,name)] for name in dir(row) ])
-    safe_dict = dict([ [name,val] for name,val in row_dict.items() + math.__dict__.items() if not name.startswith('__') ])
-
-    return eval( arg, {"__builtins__":None}, safe_dict )
-
 def select_best_inj_match(found_table, selection_stat, select_by, use_match_rank = True):
     """
     If an injection is mapped to multiple events, picks out the best match via
@@ -303,8 +294,8 @@ opts, filenames, args = parse_command_line()
 # parse the variables
 x=opts.x_var
 y=opts.y_var
-x, xlabel = len(x.split(':')) == 2 and x.split(':') or [x.split(':')[0], x.split(':')[0].replace('_', ' ').title() ]
-y, ylabel = len(y.split(':')) == 2 and y.split(':') or [y.split(':')[0], y.split(':')[0].replace('_', ' ').title() ]
+x_var, xlabel = len(x.split(':')) == 2 and x.split(':') or [x.split(':')[0], x.split(':')[0].replace('_', ' ').title() ]
+y_var, ylabel = len(y.split(':')) == 2 and y.split(':') or [y.split(':')[0], y.split(':')[0].replace('_', ' ').title() ]
 xlabel, ylabel = xlabel.strip(), ylabel.strip()
 
 xifo = opts.x_ifo
@@ -372,6 +363,8 @@ for filename in filenames:
 
 # cycle over available instrument times
 fignum = 0
+fnameList = []
+tagList = []
 for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
     on_instr = r','.join(sorted(on_instruments))
     if opts.verbose:
@@ -404,6 +397,19 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
         class Storage(object):
             __slots__ = StorageTable.validcolumns.keys()
 
+            def get_effective_snr(self, fac=250.0):
+                snr = self.snr
+                rchisq = float(self.chisq) / (2.*self.chisq_dof - 2.)
+                return snr/ (1 + snr**2/fac)**(0.25) / rchisq**(0.25)
+
+            def get_new_snr(self,index=6.0):
+                rchisq = float(self.chisq) / (2.*self.chisq_dof - 2.)
+                nhigh = 2.
+                if rchisq > 1.:
+                    return self.snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
+                else:
+                    return self.snr
+
             def get_gps_time(self):
                 if 'start_time' in self.__slots__:
                     return self.start_time
@@ -411,6 +417,25 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                     return self.end_time
                 else:
                     raise AttributeError, "could not find a coinc table start_time or end_time"
+
+            @property
+            def new_snr(self):
+                return self.get_new_snr()
+
+            @new_snr.setter
+            def new_snr(self):
+                err_msg = "The new_snr property cannot be set directly."
+                raise ValueError(err_msg)
+
+            @property
+            def effective_snr(self):
+                return self.get_effective_snr()
+
+            @effective_snr.setter
+            def effective_snr(self):
+                err_msg = "The effective_snr property cannot be set directly."
+                raise ValueError(err_msg)
+
 
             def get_pyvalue(self):
                 if self.value is None:
@@ -430,12 +455,12 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                     if opts.verbose:
                         print >> sys.stderr, "\tgetting 'found' triggers from %s..." % filename
 
-                    found_table = [ row for row in
+                    found_table = \
                         printutils.printsims(connection, opts.simulation_table, opts.recovery_table, opts.map_label,
                         opts.ranking_stat, opts.rank_by,
                         "slide", param_name = None, param_ranges = None,
                         include_only_coincs = '[ALL in %s]' % on_instr,
-                        sim_tag = opts.sim_tag, verbose = False)]
+                        sim_tag = opts.sim_tag, verbose = False)
 
                     # select best matches using snr
                     select_best_inj_match(found_table, opts.ranking_stat, rank_by, use_match_rank = True)
@@ -446,8 +471,8 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                     for thisrow in found_table:
                         cprow = Storage()
                         [setattr(cprow, col_name, getattr(thisrow, 'sngl_'+col_name)) for col_name in sngl_table_cols]
-                        xval = get_row_stat(cprow, opts.x_var)
-                        yval = get_row_stat(cprow, opts.y_var)
+                        xval = get_row_stat(cprow, x_var)
+                        yval = get_row_stat(cprow, y_var)
                         if opts.param_name is not None:
                             pval = get_row_stat(cprow, opts.param_name)
                         else:
@@ -469,12 +494,12 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                         coinc_event_map.event_id == ''',sngl_table,'''.event_id)
                     WHERE
                         experiment.instruments == "''',on_instr,'''" AND
-                        experiment_summary.datatype == ''',datatype])
+                        experiment_summary.datatype == "''',datatype,'"'])
                 for data in connection.cursor().execute(sqlquery).fetchall():
                     this_row = Storage()
                     [setattr(this_row, col_name, x) for (col_name,x) in zip(sngl_table_cols,data)]
-                    xval = get_row_stat(this_row, opts.x_var)
-                    yval = get_row_stat(this_row, opts.y_var)
+                    xval = get_row_stat(this_row, x_var)
+                    yval = get_row_stat(this_row, y_var)
                     if opts.param_name is not None:
                         pval = get_row_stat(this_row, opts.param_name)
                     else:
@@ -537,13 +562,26 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                 c = 'lightcyan'
                 marker = 'x'
 
-            pylab.scatter( xval, yval, c, marker, s = 40, linewidth = .5, alpha = 1., label = '_nolegend_' )
-            xmax = max(xmax, max(xval))
-            xmin = min(xmin, min(xval))
-            ymax = max(ymax, max(yval))
-            ymin = min(ymin, min(yval))
-
-            fignum = fignum + 1
+            pylab.scatter( xval, yval, c=c, marker=marker, s = 40, linewidth = .5, alpha = 1., label = '_nolegend_' )
+            if opts.xmax is not None:
+                xmax = opts.xmax
+            else:
+                xmax = max(xval)
+            if opts.xmin is not None:
+                xmin = opts.xmin
+            else:
+                xmin = min(xval)
+            if opts.ymax is not None:
+                ymax = opts.ymax
+            else:
+                try:
+                    ymax = max(yval)
+                except:
+                    raise
+            if opts.ymin is not None:
+                ymin = opts.ymin
+            else: 
+                ymin = min(yval)
 
             # if nothing to plot, just plot a warning message
             if plotvals == []:
@@ -553,6 +591,13 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                 no_data = True
             else:
                 no_data = False
+
+            # FIXME
+            # In a bunch of places below two variables are used extensively,
+            # but are undefined. No idea what they are supposed to mean so
+            # setting these to False.
+            x_is_string = False
+            y_is_string = False
 
             # plot any x-functions
             if opts.plot_x_function != [] and not no_data:
@@ -611,7 +656,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
 
             # set x-axis parameters
             if is_time_x is not None:
-                lbl = '%s ($%i + %s$)' % (xval.replace('_', ' ').title(), gps_start_time-1, is_time_x.group(1))
+                lbl = '%s ($%i + %s$)' % (xlabel.replace('_', ' ').title(), gps_start_time-1, is_time_x.group(1))
             else:
                 lbl = xlabel
             pylab.xlabel(lbl)
@@ -621,7 +666,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
 
             # set y-axis parameters
             if is_time_y is not None:
-                lbl = '%s ($%i + %s$)' % (yval.replace('_', ' ').title(), gps_start_time-1, is_time_y.group(1))
+                lbl = '%s ($%i + %s$)' % (ylabel.replace('_', ' ').title(), gps_start_time-1, is_time_y.group(1))
             else:
                 lbl = ylabel
             pylab.ylabel(lbl)
@@ -670,7 +715,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                     param_tag = '_'.join([ re.sub(r'\W', '', param_tag),
                         str(param_parser.param_ranges[param_group][0][1]),
                         str(param_parser.param_ranges[param_group][1][1]), '' ])
-                plot_description = '%sF%i' % ( param_tag, fig_num )
+                plot_description = '%sF%i' % ( param_tag, fignum )
                 #plot_description = '_'.join([ param_tag, re.sub( r'\W', '', ystat ), 'v', re.sub( r'\W', '', xstat ) ])
                 name = InspiralUtils.set_figure_tag( plot_description,
                     datatype_plotted = opts.sim_tag, open_box = False)
@@ -678,6 +723,8 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                 fname_thumb = InspiralUtils.savefig_pylal( filename=fname, dpi=opts.dpi )
                 fnameList.append(fname)
                 tagList.append(name)
+
+            fignum = fignum + 1
 
     #
     #   Create the html page for this instrument time
@@ -688,6 +735,9 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
             print >> sys.stdout, "\twriting html file and cache."
 
         # create html of closed box plots
+        # FIXME: *Another* undefined variable, how did this code ever work?
+        #        Setting this to "FAR" as this is the case it is catching.
+        cbstat = 'FAR'
         comment_vals = (rank_by == "MAX" and "infinite" or "zero", cbstat.replace('_',' '))
         comment = "<b>Plot Key:</b> Stars are injections found with %s %s. " % comment_vals + \
             "Circles are injections found with non-%s %s. " % comment_vals + \
@@ -703,11 +753,19 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
     # Close the figures and clear memory for the next instrument time
     #
 
-    for number in figure_numbers:
-        pylab.close(number)
+    # Don't care if any of this fails
+    for number in range(fignum):
+        try:
+            pylab.close(number)
+        except:
+            pass
 
-    del found_table
-    del missed_table
+    try:
+        del found_table
+    except:
+        pass
+    # How can I delete a table that doesn't exist?
+    #del missed_table
 
     #
     #   Finished cycling over experiments; exit

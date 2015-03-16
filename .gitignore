@@ -8,8 +8,9 @@
 /Makefile.in
 /_build/
 /_inst/
-/gnuscripts/index.html
+/index.html
 /lalsuite-*/
+/lalsuiterc
 TAGS
 aclocal.m4
 auto/

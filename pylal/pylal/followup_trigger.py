@@ -1269,7 +1269,6 @@ class FollowupTrigger:
     # set the time
     self.followup_time = trigger_time
     self.injection_id = injection_id
-    self.flag_followup = False
 
     # do the followup
     return self.followup(page)

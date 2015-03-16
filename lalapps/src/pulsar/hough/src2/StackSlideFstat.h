@@ -22,7 +22,7 @@
 
 /**
  * \file StackSlideFstat.h
- * \ingroup lalapps_pulsar
+ * \ingroup lalapps_pulsar_hough
  * \brief Header file for StackSlideFstat.c
  * \author Gregory Mendell
  *
@@ -33,7 +33,6 @@
 #define _STACKSLIDEFSTAT_H
 
 /* standard includes */
-#include <unistd.h>
 #include <sys/types.h>
 #include <fcntl.h>
 #include <string.h>

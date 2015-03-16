@@ -13,7 +13,7 @@
 
 /**
  * \file
- * \ingroup lalapps_pulsar
+ * \ingroup lalapps_pulsar_HeterodyneSearch
  * \author Matthew Pitkin, John Veitch, Colin Gill
  *
  * \brief Header file for the parameter estimation code for known pulsar
@@ -27,14 +27,13 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-#include <getopt.h>
-#include <unistd.h>
 #include <complex.h>
 #include <time.h>
 #include <sys/time.h>
 
 /* LAL headers */
 #include <lal/LALStdlib.h>
+#include <lal/LALgetopt.h>
 #include <lal/LALAtomicDatatypes.h>
 #include <lal/LALDatatypes.h>
 #include <lal/AVFactories.h>
@@ -73,6 +72,11 @@
 #include <lal/LALInferenceXML.h>
 #endif
 
+/* check whether openmp is enabled and if so include omp.h */
+#ifdef HAVE_OPENMP
+#include <omp.h>
+#endif
+
 #include <gsl/gsl_sort_double.h>
 #include <gsl/gsl_statistics_double.h>
 #include <gsl/gsl_blas.h>
@@ -87,6 +91,9 @@ extern "C" {
 #else
 #define UNUSED
 #endif
+
+/** Macro defining the natural logarithm of pi \f$ \log{\pi}\f$ from http://math.stackexchange.com/questions/239438/natural-log-of-pi-to-sixty-digits-a-reference-needed */
+#define PPE_LNPI 1.1447298858494001741434273513530587
 
 /** Macro to round a value to the nearest integer. */
 #define ROUND(x) (floor(x+0.5))
@@ -136,7 +143,7 @@ extern "C" {
  *
  * Note: These should be increased if additional model parameters are added.
  */
-#define NUMAMPPARS 16
+#define NUMAMPPARS 22
 
 /**
  * The total number of frequency parameters that can defined a signal e.g.
@@ -196,6 +203,7 @@ extern "C" {
                      the 'triaxial' model for which you use 2 (the default\n\
                      value) or 1,2 for a model with emission at both the rotation\n\
                      frequency and twice the rotation frequency.\n"\
+" --biaxial           Set this if the waveform model parameters spcify a biaxial star\n"\
 " --gaussian-like     Set this if a Gaussian likelihood is to be used. If the input\n\
                      file contains a column specifying the noise standard deviation of\n\
                      the data then that will be used in the Gaussian likelihood function,\n\
@@ -207,6 +215,8 @@ extern "C" {
 " --Nlive             (INT4) no. of live points for nested sampling\n"\
 " --Nmcmc             (INT4) no. of for MCMC used to find new live points\n\
                      (if not specified an adaptive number of points is used)\n"\
+" --Nmcmcinitial      (INT4) no. of MCMC points to use in the initial resampling of\n\
+                     the prior (default is to use MAXMCMC).\n"\
 " --Nruns             (INT4) no. of parallel runs\n"\
 " --tolerance         (REAL8) tolerance of nested sampling integrator\n"\
 " --randomseed        seed for random number generator\n"\
@@ -315,6 +325,8 @@ extern "C" {
 " --time-it          Set if wanting to time the various parts of the code.\n\
                     A output file with the \"outfile\" filename appended with\n\
                     \"_timings\" will contain the timings.\n"\
+" --sampleprior      (UINT4) Set this to be a number of samples generated from\n\
+                    the prior. The nested sampling will not be performed.\n"\
 "\n"
 
 /**
@@ -323,7 +335,8 @@ extern "C" {
  */
 static const CHAR amppars[NUMAMPPARS][VARNAME_MAX] = { "H0", "PHI0", "PSI",
 "COSIOTA", "C22", "C21", "PHI22", "PHI21", "HSCALARB", "HSCALARL", "HVECTORX",
-"HVECTORY", "PSIVECTOR", "PHI0VECTOR", "PHI0SCALAR", "PHI0TENSOR" };
+"HVECTORY", "PSIVECTOR", "PHI0VECTOR", "PHI0SCALAR", "PHI0TENSOR", "I21", "I31",
+"LAMBDA", "COSTHETA", "IOTA", "THETA" };
 
 /**
  * A list of the frequency parameters. The names given here are those that are

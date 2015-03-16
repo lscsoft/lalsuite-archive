@@ -13,7 +13,7 @@
 
 /**
  * \file
- * \ingroup lalapps_pulsar
+ * \ingroup lalapps_pulsar_HeterodyneSearch
  * \author Matthew Pitkin, John Veitch, Colin Gill
  *
  * \brief Header file for the likelihood and prior functions used in parameter
@@ -40,8 +40,11 @@ REAL8 noise_only_likelihood( LALInferenceRunState *runState );
 
 /* prior function */
 REAL8 priorFunction( LALInferenceRunState *runState,
-		     LALInferenceVariables *params,
-		     LALInferenceModel *mode );
+                     LALInferenceVariables *params,
+                     LALInferenceModel *mode );
+
+/* prior for latitude-like angle parameters */
+REAL8 theta_prior( REAL8 theta );
 
 /* check params are within prior range */
 UINT4 in_range( LALInferenceVariables *priors, LALInferenceVariables *params );

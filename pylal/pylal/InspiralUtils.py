@@ -229,7 +229,7 @@ class InspiralPage(object):
 
     # Any infix to use?
     if infix:
-      html_filename = self.prefix + '_'+ infix +self.suffix
+      html_filename = self.prefix + '_' + infix + self.suffix
     else:
       html_filename = self.prefix + self.suffix
 
@@ -830,7 +830,7 @@ def readHorizonDistanceFromSummValueTable(fList, verbose=False, contenthandler=S
     try:
       summ_value_table = table.get_table(doc, lsctables.SummValueTable.tableName)
     except ValueError:
-      print "ValueError in readHorizonDistanceFromSummValueTable whiile reading summvalue table from file ", thisFile
+      print "ValueError in readHorizonDistanceFromSummValueTable while reading summvalue table from file ", thisFile
       return output,massOutput
 
     # if not summ_value table was filled , then simply returns
@@ -839,7 +839,7 @@ def readHorizonDistanceFromSummValueTable(fList, verbose=False, contenthandler=S
 
     # else
     for row in summ_value_table:
-      # we should fnd a name "inspiral_Effective_distance
+      # we should find a name "inspiral_effective_distance"
       if row.name == 'inspiral_effective_distance':
         # it may be that the file read is an inspiral file containing only the BNS infomration
         if (row.comment == '1.40_1.40_8.00') or (row.comment == '1.4_1.4_8'):

@@ -43,59 +43,6 @@
 /*
  * ============================================================================
  *
- *                       LIGOTimeGPS Function Wrappers
- *
- * ============================================================================
- */
-
-PyDoc_STRVAR(pylal_XLALGPSToINT8NS__doc__,
-"Converts a LIGOTimeGPS time to nanoseconds since the same epoch.\n"
-"Example:\n"
-"\n"
-">>> from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS\n"
-">>> gps = LIGOTimeGPS(969953934,756118000)\n"
-">>> print XLALGPSToINT8NS(gps)\n"
-"969953934756118000\n");
-
-static PyObject *pylal_XLALGPSToINT8NS(PyObject *self, PyObject *args)
-{
-	pylal_LIGOTimeGPS *s;
-
-	/* LIGOTimeGPS */
-	if(!PyArg_ParseTuple(args, "O!:XLALGPSToINT8NS", &pylal_LIGOTimeGPS_Type, &s))
-		return NULL;
-
-	/* long */
-	return PyLong_FromLongLong(XLALGPSToINT8NS(&s->gps));
-}
-
-PyDoc_STRVAR(pylal_XLALINT8NSToGPS__doc__,
-"Converts nanoseconds since the GPS epoch to a LIGOTimeGPS object\n"
-"Example:\n"
-"\n"
-">>> XLALINT8NSToGPS(969953934756118000)\n"
-"LIGOTimeGPS(969953934,756118000)\n");
-
-static PyObject *pylal_XLALINT8NSToGPS(PyObject *self, PyObject *args)
-{
-	long long ns;
-	pylal_LIGOTimeGPS *new;
-
-	/* long */
-	if(!PyArg_ParseTuple(args, "L:XLALINT8NSToGPS", &ns))
-		return NULL;
-
-	new = (pylal_LIGOTimeGPS *) _PyObject_New(&pylal_LIGOTimeGPS_Type);
-	XLALINT8NSToGPS(&new->gps, ns);
-
-	/* LIGOTimeGPS */
-	return (PyObject *) new;
-}
-
-
-/*
- * ============================================================================
- *
  *                              Time Conversion
  *
  * ============================================================================
@@ -139,51 +86,6 @@ static struct tm *struct_tm_c_to_python(struct tm *tm)
 	tm->tm_yday += 1;
 
 	return tm;
-}
-
-
-/*
- * Leap seconds.
- */
-
-PyDoc_STRVAR(pylal_XLALLeapSeconds__doc__,
-"Returns the leap seconds TAI-UTC at a given GPS second.\n"
-"Example:\n"
-"\n"
-">>> XLALLeapSeconds(969953934)\n"
-"34\n");
-
-static PyObject *pylal_XLALLeapSeconds(PyObject *self, PyObject *args)
-{
-	int gpssec;
-
-	/* int */
-	if(!PyArg_ParseTuple(args, "i:XLALLeapSeconds", &gpssec))
-		return NULL;
-
-	/* int */
-	return PyInt_FromLong(XLALLeapSeconds(gpssec));
-}
-
-PyDoc_STRVAR(pylal_XLALLeapSecondsUTC__doc__,
-"Returns the leap seconds TAI-UTC at a given UTC time structure.\n"
-"Example:\n"
-"\n"
-">>> import time\n"
-">>> tm = time.gmtime()\n"
-">>> XLALLeapSecondsUTC(tm)\n"
-"34\n");
-
-static PyObject *pylal_XLALLeapSecondsUTC(PyObject *self, PyObject *args)
-{
-	struct tm utc;
-
-	/* time.struct_time */
-	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALLeapSecondsUTC", &utc.tm_year, &utc.tm_mon, &utc.tm_mday, &utc.tm_hour, &utc.tm_min, &utc.tm_sec, &utc.tm_wday, &utc.tm_yday, &utc.tm_isdst))
-		return NULL;
-
-	/* int */
-	return PyInt_FromLong(XLALLeapSecondsUTC(struct_tm_python_to_c(&utc)));
 }
 
 
@@ -260,67 +162,6 @@ static PyObject *pylal_XLALUTCToGPS(PyObject *self, PyObject *args)
 }
 
 
-static PyObject *pylal_XLALGPSTimeNow(PyObject *self, PyObject *args)
-{
-	LIGOTimeGPS gps;
-
-	if(!XLALGPSTimeNow(&gps)) {
-		pylal_set_exception_from_xlalerrno();
-		return NULL;
-	}
-
-	/* LIGOTimeGPS */
-	return pylal_LIGOTimeGPS_new(gps);
-}
-
-
-/*
- * Julian day
- */
-
-PyDoc_STRVAR(pylal_XLALJulianDay__doc__,
-"Returns the Julian Day corresponding to the date given in a time structure.\n"
-"Example:\n"
-"\n"
-">>> import time\n"
-">>> tm = time.gmtime()\n"
-">>> XLALJulianDay(tm)\n"
-"2455470.942650463\n");
-
-static PyObject *pylal_XLALJulianDay(PyObject *self, PyObject *args)
-{
-	struct tm utc;
-
-	/* time.struct_time */
-	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALJulianDay", &utc.tm_year, &utc.tm_mon, &utc.tm_mday, &utc.tm_hour, &utc.tm_min, &utc.tm_sec, &utc.tm_wday, &utc.tm_yday, &utc.tm_isdst))
-		return NULL;
-
-	/* float */
-	return PyFloat_FromDouble(XLALJulianDay(struct_tm_python_to_c(&utc)));
-}
-
-PyDoc_STRVAR(pylal_XLALModifiedJulianDay__doc__,
-"Returns the Modified Julian Day corresponding to the date given in a time structure.\n"
-"Example:\n"
-"\n"
-">>> import time\n"
-">>> tm = time.gmtime()\n"
-">>> XLALModifiedJulianDay(tm)\n"
-"55470\n");
-
-static PyObject *pylal_XLALModifiedJulianDay(PyObject *self, PyObject *args)
-{
-	struct tm utc;
-
-	/* time.struct_time */
-	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALModifiedJulianDay", &utc.tm_year, &utc.tm_mon, &utc.tm_mday, &utc.tm_hour, &utc.tm_min, &utc.tm_sec, &utc.tm_wday, &utc.tm_yday, &utc.tm_isdst))
-		return NULL;
-
-	/* int */
-	return PyInt_FromLong(XLALModifiedJulianDay(struct_tm_python_to_c(&utc)));
-}
-
-
 /*
  * Sidereal time
  */
@@ -362,32 +203,6 @@ static PyObject *pylal_XLALGreenwichSiderealTime(PyObject *self, PyObject *args)
 
 	/* float */
 	return PyFloat_FromDouble(XLALGreenwichSiderealTime(&gps->gps, equation_of_equinoxes));
-}
-
-PyDoc_STRVAR(pylal_XLALGreenwichMeanSiderealTimeToGPS__doc__,
-"Returns the GPS time for the given Greenwich mean sidereal time (in radians)\n"
-"\n"
-"The input is sidereal time in radians since the Julian epoch (currently\n"
-"J2000 for LAL), and the output is the corresponding GPS time. The algorithm\n"
-"uses a naive iterative root-finder, so it's slow.\n"
-"Example:\n"
-"\n"
-">>> XLALGreenwichMeanSiderealTimeToGPS(24739.075161218461)\n"
-"LIGOTimeGPS(969953933,999996506)\n");
-
-static PyObject *pylal_XLALGreenwichMeanSiderealTimeToGPS(PyObject *self, PyObject *args)
-{
-	LIGOTimeGPS gps;
-	double gmst;
-
-	/* float */
-	if(!PyArg_ParseTuple(args, "d:XLALGreenwichMeanSiderealTimeToGPS", &gmst))
-		return NULL;
-
-	XLALGreenwichMeanSiderealTimeToGPS(gmst, &gps);
-
-	/* LIGOTimeGPS */
-	return pylal_LIGOTimeGPS_new(gps);
 }
 
 
@@ -469,17 +284,9 @@ static PyObject *pylal_XLALArrivalTimeDiff(PyObject *self, PyObject *args)
 
 static struct PyMethodDef module_methods[] = {
 	{"XLALArrivalTimeDiff", pylal_XLALArrivalTimeDiff, METH_VARARGS, pylal_XLALArrivalTimeDiff__doc__},
-	{"XLALGPSToINT8NS", pylal_XLALGPSToINT8NS, METH_VARARGS, pylal_XLALGPSToINT8NS__doc__},
 	{"XLALGPSToUTC", pylal_XLALGPSToUTC, METH_VARARGS, pylal_XLALGPSToUTC__doc__},
 	{"XLALGreenwichSiderealTime", pylal_XLALGreenwichSiderealTime, METH_VARARGS, pylal_XLALGreenwichSiderealTime__doc__},
-	{"XLALGreenwichMeanSiderealTimeToGPS", pylal_XLALGreenwichMeanSiderealTimeToGPS, METH_VARARGS, pylal_XLALGreenwichMeanSiderealTimeToGPS__doc__},
-	{"XLALINT8NSToGPS", pylal_XLALINT8NSToGPS, METH_VARARGS, pylal_XLALINT8NSToGPS__doc__},
-	{"XLALJulianDay", pylal_XLALJulianDay, METH_VARARGS, pylal_XLALJulianDay__doc__},
-	{"XLALLeapSeconds", pylal_XLALLeapSeconds, METH_VARARGS, pylal_XLALLeapSeconds__doc__},
-	{"XLALLeapSecondsUTC", pylal_XLALLeapSecondsUTC, METH_VARARGS, pylal_XLALLeapSecondsUTC__doc__},
-	{"XLALModifiedJulianDay", pylal_XLALModifiedJulianDay, METH_VARARGS, pylal_XLALModifiedJulianDay__doc__},
 	{"XLALUTCToGPS", pylal_XLALUTCToGPS, METH_VARARGS, pylal_XLALUTCToGPS__doc__},
-	{"XLALGPSTimeNow", pylal_XLALGPSTimeNow, METH_NOARGS, "Use XLALUTCToGPS(time.gmtime()) instead."},
 	{NULL,}
 };
 

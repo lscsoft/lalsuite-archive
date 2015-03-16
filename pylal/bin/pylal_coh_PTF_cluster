@@ -30,7 +30,7 @@ import warnings
 from os.path import basename
 
 from pylal import (git_version, MultiInspiralUtils, ligolw_tisi)
-from pylal.xlal.date import XLALGPSTimeNow
+from lal import GPSTimeNow
 
 from glue import (lal as cache, iterutils)
 from glue.segments import (segment as Segment, segmentlist as SegmentList,
@@ -47,7 +47,7 @@ __version__ = git_version.id
 __date__ = git_version.date
 
 # set up timer
-process_start = XLALGPSTimeNow().seconds
+process_start = int(GPSTimeNow())
 start = time.time()
 elapsed_time = lambda: time.time()-start
 
@@ -340,7 +340,7 @@ if __name__=='__main__':
             if row.comment == comment:
                 row.name = time_slide_id
     process.set_ifos(ifos)
-    process.end_time = XLALGPSTimeNow().seconds
+    process.end_time = int(GPSTimeNow())
     ligolw_utils.write_filename(outxml, outfile, gz=outfile.endswith(".gz"),
                                 verbose=opts.verbose)
     print_verbose("Done.\n")
