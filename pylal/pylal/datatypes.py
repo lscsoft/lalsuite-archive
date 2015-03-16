@@ -59,7 +59,6 @@ from xlal.datatypes.ligotimegps import *
 from xlal.datatypes.real8fftplan import *
 from xlal.datatypes.real8frequencyseries import *
 from xlal.datatypes.real8timeseries import *
-from xlal.datatypes.real8window import *
 from xlal.datatypes.simburst import SimBurst # don't import from_buffer() (yet?)
 from xlal.datatypes.siminspiraltable import SimInspiralTable # don't import from_buffer() (yet?)
 from xlal.datatypes.snglburst import SnglBurst # don't import from_buffer() (yet?)

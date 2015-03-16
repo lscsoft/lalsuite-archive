@@ -35,6 +35,9 @@ importing xlal.date directly.
 import math
 
 
+import lal
+
+
 from pylal import git_version
 from pylal.xlal.date import *
 
@@ -53,12 +56,12 @@ __version__ = git_version.date
 #
 
 
+# deprecated compatibility stub
+XLALLeapSeconds = lal.LeapSeconds
+
+
 def XLALGreenwichMeanSiderealTime(gps):
 	return XLALGreenwichSiderealTime(gps, 0.0)
-
-
-def XLALGreenwichSiderealTimeToGPS(gmst, equation_of_equinoxes):
-	return XLALGreenwichMeanSiderealTimeToGPS(gmst) - equation_of_equinoxes
 
 
 def XLALTimeDelayFromEarthCenter(pos, ra, dec, gps):
@@ -109,11 +112,11 @@ def gmst_0h(gps):
 	"""
 	Truncate a LIGOTimeGPS to Greenwich mean sidereal 0 rad.
 	"""
-	gmst = XLALGreenwichMeanSiderealTime(gps)
+	gmst = lal.GreenwichMeanSiderealTime(gps)
 	residual = gmst % (2.0 * math.pi)
 	if residual:
 		gmst -= residual
-	return XLALGreenwichMeanSiderealTimeToGPS(gmst)
+	return lal.GreenwichMeanSiderealTimeToGPS(gmst)
 
 
 def GMST_0hs(start, end):

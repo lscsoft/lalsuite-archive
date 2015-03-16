@@ -1,4 +1,4 @@
-# Copyright (C) 2012  Kipp Cannon
+# Copyright (C) 2012,2013,2015  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -60,12 +60,9 @@ def append_search_summary(xmldoc, process, shared_object = "standalone", lalwrap
 	row.lalwrapper_cvs_tag = lalwrapper_cvs_tag
 	row.lal_cvs_tag = lal_cvs_tag
 	row.comment = comment or process.comment
-	if ifos is not None:
-		row.set_ifos(ifos)
-	else:
-		row.set_ifos(process.get_ifos())
-	row.set_in(inseg)
-	row.set_out(outseg)
+	row.instruments = ifos if ifos is not None else process.instruments
+	row.in_segment = inseg
+	row.out_segment = outseg
 	row.nevents = nevents
 	row.nnodes = nnodes
 

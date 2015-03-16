@@ -133,12 +133,8 @@ class Element(object):
 	element is used to represent the structure of a document at a much
 	finer level of detail than here.  For example, in the case of the
 	standard DOM element, each XML attribute is its own element being a
-	child node of its tag, while here they are simply stored in a class
-	attribute of the tag element itself.  This simplification is
-	possible due to our knowledge of the DTD for the documents we will
-	be parsing.  The standard xml.dom package is designed to represent
-	any arbitrary XML document exactly, while we can only deal with
-	LIGO Light Weight XML documents.
+	child node of its tag, while here they are simply stored as
+	attributes of the tag element itself.
 
 	Despite the differences, the documentation for the xml.dom package,
 	particularly that of the Element class and it's parent, the Node
