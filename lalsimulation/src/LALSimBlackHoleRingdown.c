@@ -882,7 +882,7 @@ INT4 XLALSimIMREOBFinalMassSpin(
   REAL8 a1, a2, chiS, q;
   REAL8 z1, z2, rISCO, eISCO, atl, tmpVar;
   REAL8 UNUSED cosa, cosb, cosg, a1a2norm, a1a2L, lnorm;
-  REAL8 q2, chi1, chi2, theta1, theta2, phi1, phi2, swapvar;
+  REAL8 UNUSED q2, chi1, chi2, theta1, theta2, phi1, phi2, swapvar;
  
   /* get a local copy of the intrinsic parameters */
   totalMass = mass1 + mass2;

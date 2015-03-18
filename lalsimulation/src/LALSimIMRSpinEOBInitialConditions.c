@@ -1258,7 +1258,7 @@ static int XLALSimIMRSpinEOBInitialConditions(
   return XLAL_SUCCESS;
 }
 
-static int XLALSimIMRSpinEOBInitialConditionsV2(
+static int UNUSED XLALSimIMRSpinEOBInitialConditionsV2(
                                               REAL8Vector   *initConds, /**<< OUTPUT, Initial dynamical variables */
                                               const REAL8    mass1,     /**<< mass 1 */
                                               const REAL8    mass2,     /**<< mass 2 */

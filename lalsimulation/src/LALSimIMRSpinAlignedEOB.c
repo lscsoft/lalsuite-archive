@@ -1469,8 +1469,8 @@ int XLALSimIMRSpinEOBWaveform(
   FacWaveformCoeffs       hCoeffs;
   NewtonMultipolePrefixes prefixes;
   
-  REAL8 tPeakOmega, tAttach, combSize, /*longCombSize,*/ deltaNQC;
-  REAL8 sh = 0.0;
+  REAL8 tPeakOmega=-1., tAttach, combSize, /*longCombSize,*/ deltaNQC;
+  REAL8 UNUSED sh = 0.0;
   REAL8  vX, vY, vZ, rCrossV_x, rCrossV_y, rCrossV_z, vOmega, omegasav;
   REAL8 UNUSED  omegasav2;
    REAL8 magR, Lx, Ly, Lz, magL, LNhx, LNhy, LNhz, /*magLN,*/ Jx, Jy, Jz, magJ;
