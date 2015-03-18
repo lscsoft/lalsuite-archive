@@ -72,7 +72,7 @@
 #include "LALSimIMRSpinAlignedEOBHcapDerivative.c"
 #include "LALSimIMRSpinEOBInitialConditions.c"
 
-
+#define debugOutput 1
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -725,7 +725,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   /* We set inc zero here to make it easier to go from Cartesian to spherical coords */
   /* No problem setting inc to zero in solving spin-aligned initial conditions. */
   /* inc is not zero in generating the final h+ and hx */
-  if ( XLALSimIMRSpinEOBInitialConditions( tmpValues, m1, m2, fMin, 0, s1Data, s2Data, &seobParams ) == XLAL_FAILURE )
+  if ( XLALSimIMRSpinEOBInitialConditionsV2( tmpValues, m1, m2, fMin, 0, s1Data, s2Data, &seobParams ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( tmpValues );
     XLALDestroyREAL8Vector( sigmaKerr );
@@ -1325,13 +1325,35 @@ int XLALSimIMRSpinEOBWaveform(
   /* SEOBNRv3 model */
   Approximant spinEOBApproximant = SEOBNRv3;
   /* FIXME: it is harcoded here: the underlying aligned spin EOB model */
-  INT4 SpinAlignedEOBversion = 1;
+  INT4 SpinAlignedEOBversion =2;
 
   /* Vector to store the initial paramseters */
   REAL8 spin1[3], spin2[3];
   memcpy( spin1, INspin1, 3*sizeof(REAL8));
   memcpy( spin2, INspin2, 3*sizeof(REAL8));
-  
+    
+    double spin1Norm = sqrt( INspin1[0]*INspin1[0] + INspin1[1]*INspin1[1] + INspin1[2]*INspin1[2] );
+    double spin2Norm = sqrt( INspin2[0]*INspin2[0] + INspin2[1]*INspin2[1] + INspin2[2]*INspin2[2] );
+    double theta1Ini = acos( INspin1[2] / spin1Norm );
+    double theta2Ini = acos( INspin2[2] / spin2Norm );
+    if ( theta1Ini <= 1.0e-5) {
+        spin1[0] = 0.;
+        spin1[1] = 0.;
+        spin1[2] = spin1Norm;
+    }
+    if ( theta2Ini <= 1.0e-5) {
+        spin2[0] = 0.;
+        spin2[1] = 0.;
+        spin2[2] = spin2Norm;
+    }
+    if ( debugPK ) {
+        printf( "theta1Ini, theta2Ini =  %3.10f, %3.10f\n", theta1Ini, theta2Ini );
+        printf( "INspin1 = {%3.10f, %3.10f, %3.10f}\n", INspin1[0], INspin1[1], INspin1[2] );
+        printf( "INspin2 = {%3.10f, %3.10f, %3.10f}\n", INspin2[0], INspin2[1], INspin2[2] );
+        printf( "spin1 = {%3.10f, %3.10f, %3.10f}\n", spin1[0], spin1[1], spin1[2] );
+        printf( "spin2 = {%3.10f, %3.10f, %3.10f}\n", spin2[0], spin2[1], spin2[2] );
+    }
+
 
   REAL8Vector *values = NULL;
 
@@ -1536,18 +1558,45 @@ int XLALSimIMRSpinEOBWaveform(
   values->data[10] = 0.;
   values->data[11] = 0.;
   */
-  values->data[0] = 2.5000000000000000e+01;
-  values->data[1] = -2.7380429870100001e-23;
-  values->data[2] = -2.8953132596299999e-19;
-  values->data[3] = -1.1854855421800000e-04;
-  values->data[4] = 2.1180585973900001e-01;
-  values->data[5] = -4.0060159474199999e-05;
-  values->data[6] = -4.1225633554699997e-01 * (mTotal/m1) * (mTotal/m1);
-  values->data[7] = -3.3047541974700001e-01 * (mTotal/m1) * (mTotal/m1);
-  values->data[8] = 1.7167610798600000e-01 * (mTotal/m1) * (mTotal/m1);
-  values->data[9] = 1.3483616572900000e-02 * (mTotal/m2) * (mTotal/m2);
-  values->data[10] = 2.1175823681400000e-22 * (mTotal/m2) * (mTotal/m2);
-  values->data[11] = 9.7964208715400000e-03 * (mTotal/m2) * (mTotal/m2);
+    //v1 ICs
+//  values->data[0] = 2.5000000000000000e+01;
+//  values->data[1] = -2.7380429870100001e-23;
+//  values->data[2] = -2.8953132596299999e-19;
+//  values->data[3] = -1.1854855421800000e-04;
+//  values->data[4] = 2.1180585973900001e-01;
+//  values->data[5] = -4.0060159474199999e-05;
+//  values->data[6] = -4.1225633554699997e-01 * (mTotal/m1) * (mTotal/m1);
+//  values->data[7] = -3.3047541974700001e-01 * (mTotal/m1) * (mTotal/m1);
+//  values->data[8] = 1.7167610798600000e-01 * (mTotal/m1) * (mTotal/m1);
+//  values->data[9] = 1.3483616572900000e-02 * (mTotal/m2) * (mTotal/m2);
+//  values->data[10] = 2.1175823681400000e-22 * (mTotal/m2) * (mTotal/m2);
+//  values->data[11] = 9.7964208715400000e-03 * (mTotal/m2) * (mTotal/m2);
+//    
+//    values->data[0] = 24.91962910358779;
+//    values->data[1] = 0.6159341568141619;
+//    values->data[2] = 1.890234921859136;
+//    values->data[3] = -0.00477969155965003;
+//    values->data[4] = 0.211210685689873;
+//    values->data[5] = -0.01564606683244185;
+//    values->data[6] = -0.3524889960508803 * (mTotal/m1) * (mTotal/m1);
+//    values->data[7] = -0.3916750270285752 * (mTotal/m1) * (mTotal/m1);
+//    values->data[8] =  0.1760231686819375 * (mTotal/m1) * (mTotal/m1);
+//    values->data[9] = 0.01059031227454764 * (mTotal/m2) * (mTotal/m2);
+//    values->data[10] = 0.008630815592904181 * (mTotal/m2) * (mTotal/m2);
+//    values->data[11] = 0.009546312513857633 * (mTotal/m2) * (mTotal/m2);
+    
+//    values->data[0]=  2.4947503693442151e+01;
+//    values->data[1]= 0.0000000000000000e+00;
+//    values->data[2]= 0.0000000000000000e+00;
+//    values->data[3]= -1.1443986771509659e-04;
+//    values->data[4]= 2.0974358101454393e-01;
+//    values->data[5]= 0.0000000000000000e+00;
+//    values->data[6]= 0.0000000000000000e+00;
+//    values->data[7]=  0.0000000000000000e+00;
+//    values->data[8]= 5.5555555555555558e-01;
+//    values->data[9]= 0.0000000000000000e+00;
+//    values->data[10]= 0.0000000000000000e+00;
+//    values->data[11]= 1.6666666666666666e-02;
   
 
 
@@ -1729,13 +1778,131 @@ int XLALSimIMRSpinEOBWaveform(
     fflush(NULL);
   }
   
-  if ( XLALSimIMRSpinEOBInitialConditions( tmpValues2, m1, m2, fMin, inc,
+//    double mSpin1Norm = sqrt( mSpin1[0]*mSpin1[0] + mSpin1[1]*mSpin1[1] + mSpin1[2]*mSpin1[2] );
+//    double mSpin2Norm = sqrt( mSpin2[0]*mSpin2[0] + mSpin2[1]*mSpin2[1] + mSpin2[2]*mSpin2[2] );
+//    double theta1Ini = acos( mSpin1[2] / mSpin1Norm );
+//    double theta2Ini = acos( mSpin2[2] / mSpin2Norm );
+    if ( theta1Ini <= 1.0e-6 && theta2Ini <= 1.0e-6 ) {
+        //        mSpin1[0] = 0.;
+        //        mSpin1[1] = 0.;
+        //        mSpin1[2] = mSpin1Norm;
+        //        mSpin2[0] = 0.;
+        //        mSpin2[1] = 0.;
+        //        mSpin2[2] = mSpin2Norm;
+        if ( debugPK ) printf( "Using aligned-spin initial conditions\n");
+        seobParams.alignedSpins = 1;
+        if ( XLALSimIMRSpinEOBInitialConditionsV2( tmpValues2, m1, m2, fMin, inc,
+                                                  mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
+        {
+            XLAL_ERROR( XLAL_EFUNC );
+        }
+        seobParams.alignedSpins = 0;
+    }
+    else {
+        if ( XLALSimIMRSpinEOBInitialConditions( tmpValues2, m1, m2, fMin, inc,
                 	mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
-  {
-    XLAL_ERROR( XLAL_EFUNC );
-  }
+        {
+            XLAL_ERROR( XLAL_EFUNC );
+        }
+    }
+//    //v2 0.8 .06
+//    tmpValues2->data[0]=  2.4947503693442151e+01;
+//    tmpValues2->data[1]= 0.0000000000000000e+00;
+//    tmpValues2->data[2]= 0.0000000000000000e+00;
+//    tmpValues2->data[3]= -1.1443986771509659e-04;
+//    tmpValues2->data[4]= 2.0974358101454393e-01;
+//    tmpValues2->data[5]= 0.0000000000000000e+00;
+//    tmpValues2->data[6]= 0.0000000000000000e+00;
+//    tmpValues2->data[7]=  0.0000000000000000e+00;
+//    tmpValues2->data[8]= 5.5555555555555558e-01;
+//    tmpValues2->data[9]= 0.0000000000000000e+00;
+//    tmpValues2->data[10]= 0.0000000000000000e+00;
+//    tmpValues2->data[11]= 1.6666666666666666e-02;
+//
+//    //v1 0.5 0.5
+//    tmpValues2->data[0]=  2.4977926627506903e+01;
+//    tmpValues2->data[1]= 0.0000000000000000e+00;
+//    tmpValues2->data[2]= 0.0000000000000000e+00;
+//    tmpValues2->data[3]= -1.1624761163076212e-04;
+//    tmpValues2->data[4]= 2.1082424860474935e-01;
+//    tmpValues2->data[5]= 0.0000000000000000e+00;
+//    tmpValues2->data[6]= 0.0000000000000000e+00;
+//    tmpValues2->data[7]=  0.0000000000000000e+00;
+//    tmpValues2->data[8]= 3.4722222222222221e-01;
+//    tmpValues2->data[9]= 0.0000000000000000e+00;
+//    tmpValues2->data[10]= 0.0000000000000000e+00;
+//    tmpValues2->data[11]= 1.3888888888888888e-02;
   
-  if(debugPK)
+//    v2devel 0.8 0.6
+//    tmpValues2->data[0]=  2.4947499317612962e+01;
+//    tmpValues2->data[1]= 0.0000000000000000e+00;
+//    tmpValues2->data[2]= 0.0000000000000000e+00;
+//    tmpValues2->data[3]= -9.7392171179022500e-05;
+//    tmpValues2->data[4]= 2.0974360118734747e-01;
+//    tmpValues2->data[5]= 0.0000000000000000e+00;
+//    tmpValues2->data[6]= 0.0000000000000000e+00;
+//    tmpValues2->data[7]=  0.0000000000000000e+00;
+//    tmpValues2->data[8]= 5.5555555555555558e-01;
+//    tmpValues2->data[9]= 0.0000000000000000e+00;
+//    tmpValues2->data[10]= 0.0000000000000000e+00;
+//    tmpValues2->data[11]= 1.6666666666666666e-02;
+//  v1devel 0.5 0.5
+//    tmpValues2->data[0]=  2.4977922258283822e+01;
+//    tmpValues2->data[1]= 0.0000000000000000e+00;
+//    tmpValues2->data[2]= 0.0000000000000000e+00;
+//    tmpValues2->data[3]= -9.8650292751988489e-05;
+//    tmpValues2->data[4]= 2.1082427042465196e-01;
+//    tmpValues2->data[5]= 0.0000000000000000e+00;
+//    tmpValues2->data[6]= 0.0000000000000000e+00;
+//    tmpValues2->data[7]=  0.0000000000000000e+00;
+//    tmpValues2->data[8]= 3.4722222222222221e-01;
+//    tmpValues2->data[9]= 0.0000000000000000e+00;
+//    tmpValues2->data[10]= 0.0000000000000000e+00;
+//    tmpValues2->data[11]= 1.3888888888888888e-02;
+//
+//    //  v1devel 0.5 0.5 short
+//    tmpValues2->data[0]=  1.4210453570976361e+01;
+//    tmpValues2->data[1]= 0.0000000000000000e+00;
+//    tmpValues2->data[2]= 0.0000000000000000e+00;
+//    tmpValues2->data[3]= -4.9684240542886924e-04;
+//    tmpValues2->data[4]= 2.9021826002997486e-01;
+//    tmpValues2->data[5]= 0.0000000000000000e+00;
+//    tmpValues2->data[6]= 0.0000000000000000e+00;
+//    tmpValues2->data[7]=  0.0000000000000000e+00;
+//    tmpValues2->data[8]= 3.4722222222222221e-01;
+//    tmpValues2->data[9]= 0.0000000000000000e+00;
+//    tmpValues2->data[10]= 0.0000000000000000e+00;
+//    tmpValues2->data[11]= 1.3888888888888888e-02;
+ 
+    //  v1devel 0.5 0.5 long
+//    tmpValues2->data[0]=  3.5925771624136843e+01;
+//    tmpValues2->data[1]= 0.0000000000000000e+00;
+//    tmpValues2->data[2]= 0.0000000000000000e+00;
+//    tmpValues2->data[3]= -3.4725194158512486e-05;
+//    tmpValues2->data[4]= 1.7311431867161625e-01;
+//    tmpValues2->data[5]= 0.0000000000000000e+00;
+//    tmpValues2->data[6]= 0.0000000000000000e+00;
+//    tmpValues2->data[7]=  0.0000000000000000e+00;
+//    tmpValues2->data[8]= 3.4722222222222221e-01;
+//    tmpValues2->data[9]= 0.0000000000000000e+00;
+//    tmpValues2->data[10]= 0.0000000000000000e+00;
+//    tmpValues2->data[11]= 1.3888888888888888e-02;
+//
+//    //  v1devel 0.5 0.5 medium
+//    tmpValues2->data[0]=  2.2611498964597168e+01;
+//    tmpValues2->data[1]= 0.0000000000000000e+00;
+//    tmpValues2->data[2]= 0.0000000000000000e+00;
+//    tmpValues2->data[3]= -1.3187256837094701e-04;
+//    tmpValues2->data[4]= 2.2274218670264384e-01;
+//    tmpValues2->data[5]= 0.0000000000000000e+00;
+//    tmpValues2->data[6]= 0.0000000000000000e+00;
+//    tmpValues2->data[7]=  0.0000000000000000e+00;
+//    tmpValues2->data[8]= 3.4722222222222221e-01;
+//    tmpValues2->data[9]= 0.0000000000000000e+00;
+//    tmpValues2->data[10]= 0.0000000000000000e+00;
+//    tmpValues2->data[11]= 1.3888888888888888e-02;
+    
+    if(debugPK)
   {
 	  printf("Setting up initial conditions, returned values are:\n");
 	  for( j=0; j < tmpValues2->length; j++)
@@ -1852,6 +2019,7 @@ int XLALSimIMRSpinEOBWaveform(
   /* ************************************************* */
   /* Compute the coefficients for the NQC Corrections  */
   /* ************************************************* */
+   /* FIXME check NQC version used */
   spinNQC = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
   switch ( SpinAlignedEOBversion )
   {
@@ -1945,8 +2113,7 @@ int XLALSimIMRSpinEOBWaveform(
     XLAL_ERROR( XLAL_EFUNC );
   }
   retLenLow = retLen;
-  
-  
+
   
   tVec.length = posVecx.length = posVecy.length = posVecz.length = 
   momVecx.length = momVecy.length = momVecz.length = 
@@ -2429,7 +2596,7 @@ int XLALSimIMRSpinEOBWaveform(
     
    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /*Search peak of Delta_t / r^2*/
-    REAL8 rad, rad2, m1PlusetaKK, bulk, logTerms, deltaU, u, u2, u3, u4, u5;
+   /* REAL8 rad, rad2, m1PlusetaKK, bulk, logTerms, deltaU, u, u2, u3, u4, u5;
     REAL8 listAOverr2[retLenHi];
     if(debugPK) out = fopen( "OutA.dat", "w" );
     for ( i = 0; i < retLenHi; i++ )
@@ -2488,6 +2655,7 @@ int XLALSimIMRSpinEOBWaveform(
             AOverr2 = listAOverr2[i];
         }
     }
+    */
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //    abort();
@@ -2498,7 +2666,7 @@ int XLALSimIMRSpinEOBWaveform(
     printf("YP: Error! Failed to find peak of omega!\n");
     abort();
   }
-  else if (peakIdx == (unsigned int) retLenHi)
+  else //if (peakIdx == (unsigned int) retLenHi)
   {
 	  /* What is happening here? */
        if (debugPK) printf("AT: Peak of A/r^2 not found, search for peak of Omega");
@@ -2599,7 +2767,10 @@ int XLALSimIMRSpinEOBWaveform(
   chiJ = (chi1J+chi2J)/2. + (chi1J-chi2J)/2.*((m1-m2)/(m1+m2))/(1. - 2.*eta);
   kappaJL      = (Lx*Jx + Ly*Jy + Lz*Jz) / magL / magJ;
   
-  
+    if(debugPK){
+        printf("chiJ %3.10f\n", chiJ);
+    }
+
   sh = 0.0;
   switch ( SpinAlignedEOBversion )
   {
@@ -2607,6 +2778,9 @@ int XLALSimIMRSpinEOBWaveform(
      case 1:
        combSize = 7.5;
        deltaNQC = XLALSimIMREOBGetNRSpinPeakDeltaT(2, 2, eta,  chiJ);
+        if ( debugPK ) {
+              printf("v1 RD prescriptions are used! %3.10f %3.10f\n", combSize, deltaNQC);
+          }
        break;
      case 2:
        combSize = 12.;
@@ -2622,7 +2796,9 @@ int XLALSimIMRSpinEOBWaveform(
            combSize = 8.5;
        }      
        deltaNQC = XLALSimIMREOBGetNRSpinPeakDeltaTv2(2, 2, m1, m2, chi1J, chi2J );
-       
+          if ( debugPK ) {
+              printf("v2 RD prescriptions are used! %3.10f %3.10f\n", combSize, deltaNQC);
+          }
        break;
      default:
        XLALPrintError( "XLAL Error - %s: wrong SpinAlignedEOBversion value, must be 1 or 2!\n", __func__ );
@@ -2639,7 +2815,7 @@ int XLALSimIMRSpinEOBWaveform(
   // (Stas) !!! NOTE: tAttach is further modified by small shift "sh" computed and applied in XLALSimIMREOBHybridAttachRingdown !!!
   tAttach = tPeakOmega - deltaNQC;
   if (debugPK){
-      printf("For RD: DeltaNQC = %e.16, comb = %e.16 \n", deltaNQC, combSize);
+      printf("For RD: DeltaNQC = %3.10f, comb = %3.10f \n", deltaNQC, combSize);
       printf("NOTE! that additional shift (sh) is computed and added in XLALSimIMREOBHybridAttachRingdown\n");
 	  fflush(NULL);
   }
@@ -3451,18 +3627,23 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
      /* recycling h20PTS */
      hJTS = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, k );
      for (i = 0; i< retLenLow; i++){
+         if (i*deltaT/mTScaled > rdMatchPoint->data[1]+HiSRstart) break;//Andrea
          hIMRJTS->data->data[i] = hJTS->data->data[i];
      }
+      int idxRD = i; //Andrea
      spline = gsl_spline_alloc( gsl_interp_cspline, retLenHi + retLenRDPatch );
      acc    = gsl_interp_accel_alloc();     
      gsl_spline_init( spline, tlistRDPatchHi->data, sigReHi->data, retLenHi + retLenRDPatch );
-     for (i = retLenLow-4; i< retLenLow+retLenRDPatchLow; i++){
-        hIMRJTS->data->data[i] = gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
+//     for (i = retLenLow-4; i< retLenLow+retLenRDPatchLow; i++){
+//          hIMRJTS->data->data[i] = gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
+      //Andrea
+      for (i = idxRD; i< retLenLow+retLenRDPatchLow; i++){
+          hIMRJTS->data->data[i] = gsl_spline_eval( spline, i*deltaT/mTScaled, acc );
         /*if (i<retLenLow+6){
            printf("Stas interp. of %d Jw: t= %f, Re(w)= %f \n", k, tlistRDPatch->data[i], 
                    gsl_spline_eval( spline, tlistRDPatch->data[i], acc ));
         }*/
-     }
+      }
      gsl_spline_free(spline);
      gsl_interp_accel_free(acc);
 
