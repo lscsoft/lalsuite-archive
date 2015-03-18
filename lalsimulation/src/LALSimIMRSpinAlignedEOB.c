@@ -734,13 +734,13 @@ int XLALSimIMRSpinAlignedEOBWaveform(
     XLAL_ERROR( XLAL_EFUNC );
   }*/
 
-  fprintf( stderr, "ICs = %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", tmpValues->data[0], tmpValues->data[1], tmpValues->data[2],
+  /*fprintf( stderr, "ICs = %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", tmpValues->data[0], tmpValues->data[1], tmpValues->data[2],
       tmpValues->data[3], tmpValues->data[4], tmpValues->data[5], tmpValues->data[6], tmpValues->data[7], tmpValues->data[8],
-      tmpValues->data[9], tmpValues->data[10], tmpValues->data[11] );
+      tmpValues->data[9], tmpValues->data[10], tmpValues->data[11] );*/
 
   /* Taken from Andrea's code */
 /*  memset( tmpValues->data, 0, tmpValues->length*sizeof(tmpValues->data[0]));*/
-#if 1
+#if 0
   tmpValues->data[0] = 4.84796591370541;
   tmpValues->data[3] = -0.0186210227887131;
   tmpValues->data[4] = 0.5499544739926464;//tmpValues->data[0]; // q=1
