@@ -222,7 +222,8 @@ static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
           //debugPK: Replace rW with r
           vPhi  = r * cbrt(vPhi);
 
-          printf("In XLALSimIMRSpinEOBFluxCalculateNewtonianMultipole, getting rW = %.12e\n",
+          if(debugPK)
+            printf("In XLALSimIMRSpinEOBFluxCalculateNewtonianMultipole, getting rW = %.12e\n",
               vPhi);
           vPhi *= Omega;
           vPhi2 = vPhi*vPhi;
@@ -538,7 +539,7 @@ static INT4 XLALSimIMRSpinEOBFluxGetSpinFactorizedWaveform(
 
         if (r > 0.0 && debugPK)
 	{
-	  printf("YP::dynamics variables in waveform: %i, %i, r = %.12e, v = %.12e\n",l,m,r,v); 
+	  printf("YP::dynamics variables in waveform: %i, %i, r = %.12e, v = %.12e, %.12e\n",l,m,r,pp,v); 
 	  printf( "rholm^l = %.16e, Tlm = %.16e + i %.16e, \nSlm = %.16e, hNewton = %.16e + i %.16e, delta = %.16e\n", rholmPwrl, Tlm, 0.0, Slm, creal(hNewton), cimag(hNewton), 0.0 );}
  
         /* Put all factors in Eq. 17 together */

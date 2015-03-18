@@ -725,25 +725,29 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   /* We set inc zero here to make it easier to go from Cartesian to spherical coords */
   /* No problem setting inc to zero in solving spin-aligned initial conditions. */
   /* inc is not zero in generating the final h+ and hx */
-  if ( XLALSimIMRSpinEOBInitialConditionsV2( tmpValues, m1, m2, fMin, 0, s1Data, s2Data, &seobParams ) == XLAL_FAILURE )
+ /* if ( XLALSimIMRSpinEOBInitialConditionsV2( tmpValues, m1, m2, fMin, 0, s1Data, s2Data, &seobParams ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( tmpValues );
     XLALDestroyREAL8Vector( sigmaKerr );
     XLALDestroyREAL8Vector( sigmaStar );
     XLALDestroyREAL8Vector( values );
     XLAL_ERROR( XLAL_EFUNC );
-  }
+  }*/
 
-  /*fprintf( stderr, "ICs = %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", tmpValues->data[0], tmpValues->data[1], tmpValues->data[2],
+  fprintf( stderr, "ICs = %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", tmpValues->data[0], tmpValues->data[1], tmpValues->data[2],
       tmpValues->data[3], tmpValues->data[4], tmpValues->data[5], tmpValues->data[6], tmpValues->data[7], tmpValues->data[8],
-      tmpValues->data[9], tmpValues->data[10], tmpValues->data[11] );*/
+      tmpValues->data[9], tmpValues->data[10], tmpValues->data[11] );
 
   /* Taken from Andrea's code */
 /*  memset( tmpValues->data, 0, tmpValues->length*sizeof(tmpValues->data[0]));*/
-#if 0
-  tmpValues->data[0] = 19.9947984026;
-  tmpValues->data[3] = -0.000433854158413;
-  tmpValues->data[4] = 4.84217964546/tmpValues->data[0]; // q=1
+#if 1
+  tmpValues->data[0] = 4.84796591370541;
+  tmpValues->data[3] = -0.0186210227887131;
+  tmpValues->data[4] = 0.5499544739926464;//tmpValues->data[0]; // q=1
+  fprintf( stderr, "ICs = %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", tmpValues->data[0], tmpValues->data[1], tmpValues->data[2],
+      tmpValues->data[3], tmpValues->data[4], tmpValues->data[5], tmpValues->data[6], tmpValues->data[7], tmpValues->data[8],
+      tmpValues->data[9], tmpValues->data[10], tmpValues->data[11] );
+
 #endif
 #if 0
   tmpValues->data[0] = 19.9982539582;

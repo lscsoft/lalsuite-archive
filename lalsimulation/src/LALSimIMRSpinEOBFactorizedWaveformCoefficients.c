@@ -108,7 +108,7 @@ static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
     printf("PK:: chiS = %.12e, chiA = %.12e, a = %.12e (UNUSED), EOBVERSION = %d\n", 
 			chiS, chiA, tmpa, SpinAlignedEOBversion);
   }
-  REAL8 a = tmpa * 0;
+  REAL8 a = tmpa;
   REAL8 eta2 = eta*eta;
   REAL8 eta3 = eta2 * eta;
 

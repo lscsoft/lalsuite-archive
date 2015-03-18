@@ -190,6 +190,7 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
 	}
   }
 
+        COMPLEX16 UNUSED hNQC;
 
 //  printf( "v = %.16e\n", v );
   for ( l = 2; l <= lMax; l++ )
@@ -206,7 +207,7 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
       /* For the 2,2 mode, we apply NQC correction to the flux */
       if ( l == 2 && m == 2 )
       {
-        COMPLEX16 hNQC;
+        //COMPLEX16 hNQC;
         /*switch ( SpinAlignedEOBversion )
         {
           case 1:
@@ -225,6 +226,8 @@ static REAL8 XLALInspiralSpinFactorizedFlux(
         /* Eq. 16 */
         hLM *= hNQC;
       }
+      //printf( "l = %d, m = %d, hLM = %.17e + I%.17e, |hLM| = %.17e, hNQC = %.17e + I%.17e, omega = %.16e\n", l, m, creal(hLM), cimag(hLM), sqrt(creal(hLM)*creal(hLM)+cimag(hLM)*cimag(hLM)), creal(hNQC), cimag(hNQC), omega );
+
       //printf( "l = %d, m = %d, mag(hLM) = %.17e, omega = %.16e\n", l, m, sqrt(creal(hLM)*creal(hLM)+cimag(hLM)*cimag(hLM)), omega );
       /* Eq. 13 */
       flux += (REAL8)(m * m) * omegaSq * ( creal(hLM)*creal(hLM) + cimag(hLM)*cimag(hLM) );
