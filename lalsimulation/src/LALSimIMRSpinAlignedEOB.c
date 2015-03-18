@@ -725,14 +725,14 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   /* We set inc zero here to make it easier to go from Cartesian to spherical coords */
   /* No problem setting inc to zero in solving spin-aligned initial conditions. */
   /* inc is not zero in generating the final h+ and hx */
- /* if ( XLALSimIMRSpinEOBInitialConditionsV2( tmpValues, m1, m2, fMin, 0, s1Data, s2Data, &seobParams ) == XLAL_FAILURE )
+  if ( XLALSimIMRSpinEOBInitialConditionsV2( tmpValues, m1, m2, fMin, 0, s1Data, s2Data, &seobParams ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( tmpValues );
     XLALDestroyREAL8Vector( sigmaKerr );
     XLALDestroyREAL8Vector( sigmaStar );
     XLALDestroyREAL8Vector( values );
     XLAL_ERROR( XLAL_EFUNC );
-  }*/
+  }
 
   /*fprintf( stderr, "ICs = %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", tmpValues->data[0], tmpValues->data[1], tmpValues->data[2],
       tmpValues->data[3], tmpValues->data[4], tmpValues->data[5], tmpValues->data[6], tmpValues->data[7], tmpValues->data[8],
