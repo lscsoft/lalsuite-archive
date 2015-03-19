@@ -72,7 +72,7 @@
 #include "LALSimIMRSpinAlignedEOBHcapDerivative.c"
 #include "LALSimIMRSpinEOBInitialConditions.c"
 
-#define debugOutput 1
+#define debugOutput 0
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -1319,7 +1319,7 @@ int XLALSimIMRSpinEOBWaveform(
         const REAL8     INspin2[]
      )
 {
-  int debugPK = 1;
+  int debugPK = 0;
   INT4 i=0;
   INT4 k=0;
   UINT4 j=0;
@@ -3893,7 +3893,6 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     XLALDestroyREAL8Vector( tlistRDPatchHi );
      
     if(debugPK){ printf("Memory cleanup ALL done.\n"); fflush(NULL); }
-  
   return XLAL_SUCCESS;
 }
 
