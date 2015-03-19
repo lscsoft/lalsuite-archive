@@ -2296,8 +2296,12 @@ int XLALSimIMRSpinEOBWaveform(
 		LN_x->data[i] /= magLN; LN_y->data[i] /= magLN; LN_z->data[i] /= magLN;
 		
 		/* Unwrap the two angles */
-		Alpha->data[i] = atan2( LN_y->data[i], LN_x->data[i] ) + phaseCounterA * LAL_TWOPI;
-		if( i && Alpha->data[i] - Alpha->data[i-1] > 5. )
+      if (fabs(LN_x->data[i]) <= 1.e-7 && fabs(LN_y->data[i]) <=1.e-7){
+          Alpha->data[i] = 0.0;
+      }else{
+          Alpha->data[i] = atan2( LN_y->data[i], LN_x->data[i] ) + phaseCounterA * LAL_TWOPI;
+      }
+      if( i && Alpha->data[i] - Alpha->data[i-1] > 5. )
 		{
 			phaseCounterA--; 
 			Alpha->data[i] -= LAL_TWOPI;
@@ -2412,8 +2416,12 @@ int XLALSimIMRSpinEOBWaveform(
 		LN_xHi->data[i] /= magLN; LN_yHi->data[i] /= magLN; LN_zHi->data[i] /= magLN;
 		
 		/* Unwrap the two angles */
-		AlphaHi->data[i] = atan2( LN_yHi->data[i], LN_xHi->data[i] ) + phaseCounterA * LAL_TWOPI;
-		if( i && AlphaHi->data[i] - AlphaHi->data[i-1] > 5. )
+      if (fabs(LN_xHi->data[i]) <= 1.e-7 && fabs(LN_yHi->data[i]) <=1.e-7){
+          AlphaHi->data[i] = 0.0;
+      }else{
+          AlphaHi->data[i] = atan2( LN_yHi->data[i], LN_xHi->data[i] ) + phaseCounterA * LAL_TWOPI;
+      }
+      if( i && AlphaHi->data[i] - AlphaHi->data[i-1] > 5. )
 		{
 			phaseCounterA--; 
 			AlphaHi->data[i] -= LAL_TWOPI;
@@ -2831,21 +2839,25 @@ int XLALSimIMRSpinEOBWaveform(
   JframeEz[0] = Jx / magJ;
   JframeEz[1] = Jy / magJ;
   JframeEz[2] = Jz / magJ;
-  if ( 1.-JframeEz[2] < 1.0e-16 ) {
-    JframeEx[0] = 1.;
-    JframeEx[1] = 0.;
-    JframeEx[2] = 0.;
-  }
-  else {
-    JframeEx[0] = JframeEz[1];
-    JframeEx[1] = -JframeEz[0];
-    JframeEx[2] = 0.;
-  }
-  JframeEx[0] /= sqrt( JframeEz[0]*JframeEz[0] + JframeEz[1]*JframeEz[1] );
-  JframeEx[1] /= sqrt( JframeEz[0]*JframeEz[0] + JframeEz[1]*JframeEz[1] );
-  JframeEy[0] = JframeEz[1]*JframeEx[2] - JframeEz[2]*JframeEx[1];
-  JframeEy[1] = JframeEz[2]*JframeEx[0] - JframeEz[0]*JframeEx[2];
-  JframeEy[2] = JframeEz[0]*JframeEx[1] - JframeEz[1]*JframeEx[0];
+    if ( 1.-JframeEz[2] < 1.0e-13 ) {
+        JframeEx[0] = 1.;
+        JframeEx[1] = 0.;
+        JframeEx[2] = 0.;
+    }
+    else {
+        JframeEx[0] = JframeEz[1];
+        JframeEx[1] = -JframeEz[0];
+        JframeEx[2] = 0.;
+    }
+    double JExnorm = sqrt(JframeEx[0]*JframeEx[0] + JframeEx[1]*JframeEx[1]);
+    //JframeEx[0] /= sqrt( JframeEz[0]*JframeEz[0] + JframeEz[1]*JframeEz[1] );
+    //JframeEx[1] /= sqrt( JframeEz[0]*JframeEz[0] + JframeEz[1]*JframeEz[1] );
+    
+    JframeEx[0] /= JExnorm;
+    JframeEx[1] /= JExnorm;
+    JframeEy[0] = JframeEz[1]*JframeEx[2] - JframeEz[2]*JframeEx[1];
+    JframeEy[1] = JframeEz[2]*JframeEx[0] - JframeEz[0]*JframeEx[2];
+    JframeEy[2] = JframeEz[0]*JframeEx[1] - JframeEz[1]*JframeEx[0];
 
   if(debugPK)printf("J-frameEx = [%e\t%e\t%e]\n", JframeEx[0], JframeEx[1], JframeEx[2]);
   if(debugPK)printf("J-frameEy = [%e\t%e\t%e]\n", JframeEy[0], JframeEy[1], JframeEy[2]);
