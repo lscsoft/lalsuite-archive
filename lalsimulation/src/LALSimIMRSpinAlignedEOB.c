@@ -1319,6 +1319,7 @@ int XLALSimIMRSpinEOBWaveform(
         const REAL8     INspin2[]
      )
 {
+  int UNUSED ret;
   int debugPK = 0;
   INT4 i=0;
   INT4 k=0;
@@ -1349,6 +1350,11 @@ int XLALSimIMRSpinEOBWaveform(
         spin2[0] = 0.;
         spin2[1] = 0.;
         spin2[2] = spin2Norm;
+    }
+    if (theta1Ini < 1.0e-3 && theta2Ini < 1.0e-3) {
+        ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiC, deltaT, m1SI, m2SI, fMin, r, inc,
+                                         spin1Norm, spin2Norm, SpinAlignedEOBversion);
+        return ret;
     }
     if ( debugPK ) {
         printf( "theta1Ini, theta2Ini =  %3.10f, %3.10f\n", theta1Ini, theta2Ini );
@@ -2602,7 +2608,7 @@ int XLALSimIMRSpinEOBWaveform(
       omegasav2 = omegasav;
       omegasav  = omega;
     }
-    fprintf( out, "%.16e\t%.16e\n", timeHi.data[i], omegaHi->data[i]);
+    if(debugPK)fprintf( out, "%.16e\t%.16e\n", timeHi.data[i], omegaHi->data[i]);
   }
   if(debugPK) fclose(out);
     
