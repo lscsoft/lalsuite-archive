@@ -321,7 +321,7 @@ XLALFindSphericalOrbitV2( const gsl_vector *x, /**<< Parameters requested by gsl
     {
         XLAL_ERROR( XLAL_EFUNC );
     }
-    printf( "dHdx = %.16e\n", dHdx );
+    //printf( "dHdx = %.16e\n", dHdx );
     
     /* dHdPphi (I think we can use dHdPy in this coord system) */
     /* TODO: Check this is okay */
@@ -1232,8 +1232,8 @@ static int XLALSimIMRSpinEOBInitialConditions(
 
     params->tortoise = tmpTortoise;
 
-    if(debugPK)printf( "Applying the tortoise to p (csi = %.26e)\n", csi );
-      printf( "pCart = %3.10f %3.10f %3.10f\n", pCart[0], pCart[1], pCart[2] );
+      if(debugPK){printf( "Applying the tortoise to p (csi = %.26e)\n", csi );
+          printf( "pCart = %3.10f %3.10f %3.10f\n", pCart[0], pCart[1], pCart[2] );}
 
 
     for ( i = 0; i < 3; i++ )
