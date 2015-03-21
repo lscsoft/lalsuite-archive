@@ -7367,7 +7367,8 @@ def plot_burst_waveform(pos=None,simburst=None,event=0,path=None,ifos=['H1','L1'
         hrss=pos['hrss'].samples[which][0]
       except:
         hrss=exp(pos['loghrss'].samples[which][0])
-
+      if isnan(q) and not isnan(dur):
+        q=sqrt(2)*pi*dur
       alpha=None
       if 'alpha' in pos.names:
         alpha=pos['alpha'].samples[which][0]

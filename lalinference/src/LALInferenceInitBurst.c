@@ -265,7 +265,7 @@ LALInferenceModel * LALInferenceInitBurstModel(LALInferenceRunState *state)
     REAL8 psiMin=0.0,psiMax=LAL_PI; 
     REAL8 raMin=0.0,raMax=LAL_TWOPI; 
     REAL8 decMin=-LAL_PI/2.0,decMax=LAL_PI/2.0; 
-    REAL8 qMin=3., qMax=100.0;
+    //REAL8 qMin=3., qMax=100.0;
     REAL8 ffMin=40., ffMax=1024.0;
     REAL8 durMin=1.0e-4; // min and max value of duration for gaussian templates 
     REAL8 durMax=.5;
