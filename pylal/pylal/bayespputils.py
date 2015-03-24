@@ -65,7 +65,7 @@ fig_height = fig_width*golden_mean      # height in inches
 fig_size =  [fig_width,fig_height]
 matplotlib.rcParams.update(
         {'axes.labelsize': 16,
-        'text.fontsize':   16,
+        'font.size':       16,
         'legend.fontsize': 16,
         'xtick.labelsize': 16,
         'ytick.labelsize': 16,
@@ -103,7 +103,7 @@ from pylal import git_version
 #C extensions
 from _bayespputils import _skyhist_cart,_burnin
 
-__author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
+__author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>, Vivien Raymond <vivien.raymond@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
