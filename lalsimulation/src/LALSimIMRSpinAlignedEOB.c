@@ -124,7 +124,7 @@ XLALEOBSpinStopCondition(double UNUSED t,
 UNUSED static int
 XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
                            const double values[],
-                           double UNUSED dvalues[],
+                           double dvalues[],
                            void UNUSED *funcParams
                           )
 {
@@ -146,7 +146,9 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   r2 = inner_product(r,r);
   omega = sqrt( omega_x*omega_x + omega_y*omega_y + omega_z*omega_z )/r2;
   pDotr = inner_product( p, r ) / sqrt(r2);
-  
+    double rdot;
+    rdot = (dvalues[0]*r[0] + dvalues[1]*r[1] + dvalues[2]*r[2] ) / sqrt(r2);
+//    printf("r = %3.10f\n", sqrt(r2));
   /* Terminate when omega reaches peak, and separation is < 6M */
   //if ( omega < params->eobParams->omega )
   for( i = 0; i < 12; i++ )
@@ -157,10 +159,17 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
 		  return 1;
 	  }
   }
-  
-  if ( r2 < 16 && pDotr >= 0  )
+    
+    if ( r2 < 16 && pDotr >= 0  )
+    {
+        if(debugPK)printf("\n Integration stopping, p_r pointing outwards -- out-spiraling!\n");
+        return 1;
+    }
+
+    
+  if ( r2 < 16 && rdot >= 0  )
   {
-	if(debugPK)printf("\n Integration stopping, p_r pointing outwards -- out-spiraling!\n");
+	if(debugPK)printf("\n Integration stopping, dr/dt>0 -- out-spiraling!\n");
     return 1;
   }
   
