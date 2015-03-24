@@ -2114,10 +2114,10 @@ int XLALSimIMRSpinEOBWaveform(
 	     fflush(NULL);
   }
 
-  if(debugPK)printf("\n\n BEGINNING THE EVOLUTION\n\n");
+    if(debugPK){printf("\n\n BEGINNING THE EVOLUTION\n\n");fflush(NULL);}
   retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data,
 				0., 20./mTScaled, deltaT/mTScaled, &dynamics );
-  if(debugPK)printf("\n\n FINISHED THE EVOLUTION\n\n");
+    if(debugPK){printf("\n\n FINISHED THE EVOLUTION\n\n");fflush(NULL);}
  if ( retLen == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
@@ -2165,7 +2165,16 @@ int XLALSimIMRSpinEOBWaveform(
     }
   fclose( out );
   }
-  
+    if (debugPK) {
+        printf("AT We are here %d %d\n",retLen, nStepBack);
+        fflush(NULL);
+    }
+    if (tStepBack > retLen*deltaT)
+    {
+        tStepBack = 0.5*retLen*deltaT; //YPnote: if 100M of step back > actual time of evolution, step back 50% of the later
+        nStepBack = ceil( tStepBack / deltaT );
+    }
+
   /*
    * STEP 3) Step back in time by tStepBack and volve EOB trajectory again 
    *         using high sampling rate, stop at 0.3M out of the "EOB horizon".
@@ -2174,10 +2183,15 @@ int XLALSimIMRSpinEOBWaveform(
   hiSRndx = retLen - nStepBack;
   deltaTHigh = deltaT / (REAL8)resampFac;
   HiSRstart = tVec.data[hiSRndx];
-
+  
+  if (debugPK) {
+        printf("AT We are here %d\n",nStepBack);
+        fflush(NULL);
+    }
   if (debugPK){
      printf("Stas: start HighSR at %.16e \n", HiSRstart);
      printf( "Stepping back %d points - we expect %d points at high SR\n", nStepBack, nStepBack*resampFac );
+      fflush(NULL);
   }
 
   values->data[0] = posVecx.data[hiSRndx];
@@ -2197,6 +2211,7 @@ int XLALSimIMRSpinEOBWaveform(
 
   if (debugPK){
       fprintf( stderr, "Commencing high SR integration... \n" );
+      fflush(NULL);
       for( i=0; i<12; i++)fprintf(stderr, "%.16e\n", values->data[i]);
   }
   
