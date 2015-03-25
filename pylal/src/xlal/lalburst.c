@@ -33,9 +33,9 @@
 #include <numpy/arrayobject.h>
 
 
+#include <lal/EPSearch.h>
 #include <lal/LALDatatypes.h>
 #include <lal/Sequence.h>
-#include <lal/TFTransform.h>
 
 
 #include <misc.h>
