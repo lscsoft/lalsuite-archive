@@ -651,9 +651,9 @@ will compute the search volume using all injections with at least one component 
     print >>sys.stderr, "Error: no livetime-program option was given, exiting!"
     sys.exit(1)
 
-  if opts.open_box and opts.volume_vs_far:
+  if opts.open_box and opts.plot_volume_vs_far:
     print >>sys.stderr, "I will not plot V*T vs FAR if the --open-box option is given! Proceeding without V*T plots..."
-    opts.volume_vs_far = False
+    opts.plot_volume_vs_far = False
 
   if opts.instruments is not None:
     opts.instruments = frozenset(lsctables.instrument_set_from_ifos(opts.instruments))
