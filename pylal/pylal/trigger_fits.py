@@ -12,6 +12,38 @@ from __future__ import division
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
 # Public License for more details.
 
+"""
+For some set of values above a threshold, e.g. trigger SNRs, the functions
+in this module perform maximum likelihood fits with 1-sigma uncertainties
+to various simple functional forms of PDF, all normalized to 1.
+You can also obtain the fitted function and its (inverse) CDF and perform
+a Kolmogorov-Smirnov test.
+
+Usage:
+# call the fit function directly if the threshold is known
+alpha, sigma_alpha = fit_exponential(snrs, 5.5)
+
+# apply a threshold explicitly
+alpha, sigma_alpha = fit_above_thresh('exponential', snrs, thresh=6.25)
+
+# let the code work out the threshold from the smallest value via the default thresh=None
+alpha, sigma_alpha = fit_above_thresh('exponential', snrs)
+
+# or only fit the largest N values, i.e. tail fitting
+thresh = tail_threshold(snrs, N=500)
+alpha, sigma_alpha = fit_above_thresh('exponential', snrs, thresh)
+
+# obtain the fitted function directly
+xvals = numpy.xrange(5.5, 10.5, 20)
+exponential_fit = expfit(xvals, alpha, thresh)
+
+# or access function by name
+exponential_fit_1 = fit_fn('exponential', xvals, alpha, thresh)
+
+# get the KS test statistic and p-value - see scipy.stats.kstest
+ks_stat, ks_pval = KS_test('exponential', snrs, alpha, thresh)
+"""
+
 import numpy
 from scipy.stats import kstest
 
@@ -195,18 +227,15 @@ def fit_above_thresh(distr, vals, thresh=None):
         vals = vals[vals >= thresh]
     return fitdict[distr](vals, thresh)
 
-def fit_tail(distr, vals, N=1000):
+def tail_threshold(vals, N=1000):
     '''
-    Maximum likelihood fit for the coefficient alpha for a distribution of 
-    discrete values p(x) = alpha exp(-alpha*x) using only the largest N 
-    values.
+    Determine a threshold above which there are N louder values
     '''
     vals = numpy.array(vals)
     if len(vals) < N:
-        raise RuntimeError('Not enough input values to do fit!')
+        raise RuntimeError('Not enough input values to determine threshold')
     vals.sort()
-    vals = vals[-N:]
-    return fitdict[distr](vals, min(vals))
+    return min(vals[-N:])
 
 def fit_fn(distr, xvals, alpha, thresh):
     '''
@@ -223,11 +252,13 @@ def cum_fit(distr, xvals, alpha, thresh):
 
 def KS_test(distr, vals, alpha, thresh=None):
     '''
-    Perform KS test of the given set of discrete values above a given
-    threshold for the fitted distribution function
+    Perform Kolmogorov-Smirnov test of the given set of discrete values 
+    above a given threshold for the fitted distribution function
     ex.: KS_test('exponential', vals, alpha, thresh)
-
     If no threshold is specified, the minimum sample value will be used.
+
+    Returns the KS test statistic and its p-value: lower p means less
+    probable under the hypothesis of a perfect fit
     '''
     vals = numpy.array(vals)
     if thresh == None:
