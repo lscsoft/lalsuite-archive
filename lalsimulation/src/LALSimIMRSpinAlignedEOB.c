@@ -1189,33 +1189,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   REAL8TimeSeries *hPlusTS  = XLALCreateREAL8TimeSeries( "H_PLUS", &h_22->epoch, 0.0, deltaT, &lalStrainUnit, h_22->data->length );
   REAL8TimeSeries *hCrossTS = XLALCreateREAL8TimeSeries( "H_CROSS", &h_22->epoch, 0.0, deltaT, &lalStrainUnit, h_22->data->length );
 
-  /* TODO change to using XLALSimAddMode function to combine modes */
-  /* For now, calculate -2Y22 * h22 + -2Y2-2 * h2-2 directly (all terms complex) */
-  /* Compute spin-weighted spherical harmonics and generate waveform */
-  REAL8 coa_phase = 0.0;
-
-  /* Spin-weighted spherical harmonics */
-  COMPLEX16  MultSphHarmP;
-  COMPLEX16  MultSphHarmM;
-  MultSphHarmP = XLALSpinWeightedSphericalHarmonic( inc, coa_phase, -2, 2, 2 );
-  MultSphHarmM = XLALSpinWeightedSphericalHarmonic( inc, coa_phase, -2, 2, -2 );
-
-  /* (2,2) and (2,-2) spherical harmonics needed in (h+,hx) */
-  REAL8 y_1, y_2, z1, z2;
-  y_1 =   creal(MultSphHarmP) + creal(MultSphHarmM);
-  y_2 =   cimag(MultSphHarmM) - cimag(MultSphHarmP);
-  z1 = - cimag(MultSphHarmM) - cimag(MultSphHarmP);
-  z2 =   creal(MultSphHarmM) - creal(MultSphHarmP);
-
-  INT4 i;
-  for ( i = 0; i < (INT4)h_22->data->length; i++ )
-  {
-    REAL8 x1 = creal(h_22->data->data[i]);
-    REAL8 x2 = cimag(h_22->data->data[i]);
-
-    hPlusTS->data->data[i]  = (x1 * y_1) + (x2 * y_2);
-    hCrossTS->data->data[i] = (x1 * z1) + (x2 * z2);
-  }
+  XLALSimAddModeFromModes(hPlusTS, hCrossTS, hlm, inc, phiC);
 
   /* Point the output pointers to the relevant time series and return */
   (*hplus)  = hPlusTS;
