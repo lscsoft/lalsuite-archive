@@ -888,6 +888,7 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
                       SpinEOBParams         *funcParams /**<< EOB parameters */
                       )
 {
+    int debugPK = 0;
   static const REAL8 STEP_SIZE = 1.0e-4;
   REAL8 tmpvar = 0;
 
@@ -909,12 +910,13 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
   /* Calculate rDot = \f$\partial Hreal / \partial p_r\f$ */
   memset( dvalues, 0, 14 * sizeof(REAL8) );
   errcode = XLALSpinHcapRvecDerivative( 0, values, dvalues, (void*) funcParams);
-  
+    if (debugPK) printf("XLALSpinHcapRvecDerivative::dvalues = %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2]);
+    
   REAL8 rdotvec[3]; memcpy( rdotvec, dvalues, 3*sizeof(REAL8) );
 
-  REAL8 rvecprime[3], pvecprime[3], s1vecprime[3], s2vecprime[3];
-  REAL8 rvectmp[3], pvectmp[3], s1vectmp[3], s2vectmp[3];
-  REAL8 LNhatprime[3], LNhatTmp[3];
+    REAL8 rvecprime[3] = {0.,0.,0.}, pvecprime[3]= {0.,0.,0.}, s1vecprime[3]= {0.,0.,0.}, s2vecprime[3]= {0.,0.,0.};
+  REAL8 rvectmp[3]= {0.,0.,0.}, pvectmp[3]= {0.,0.,0.}, s1vectmp[3]= {0.,0.,0.}, s2vectmp[3]= {0.,0.,0.};
+  REAL8 LNhatprime[3]= {0.,0.,0.}, LNhatTmp[3]= {0.,0.,0.};
 
   /* Calculate r cross rDot */
   REAL8 rcrossrdot[3]; 
@@ -930,10 +932,10 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
   REAL8 LNhat[3]; memcpy( LNhat, rcrossrdot, 3 * sizeof(REAL8) );
 
   REAL8 Xhat[3] = {1, 0, 0};
-  REAL8 Yhat[3] = {0, 1, 0};
-  REAL8 Zhat[3] = {0, 0, 1};
+  UNUSED REAL8 Yhat[3] = {0, 1, 0};
+  UNUSED REAL8 Zhat[3] = {0, 0, 1};
 
-  REAL8 Xprime[3], Yprime[3], Zprime[3]; 
+  REAL8 Xprime[3]= {0.,0.,0.}, Yprime[3]= {0.,0.,0.}, Zprime[3]= {0.,0.,0.};
   
   // For Now , set first rotation matrix to identity
   // Check if LNhat and Xhat are too aligned, in which case rotate LNhat
@@ -960,6 +962,9 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
 	  Rot1[1][0] = 1./sqrt(2); Rot1[1][1] = 1./sqrt(2); Rot1[1][2] = 0;  
 	  Rot1[2][0] = 0.; Rot1[2][1] = 0; Rot1[2][2] = 1;  
 	  
+      LNhatTmp[0] = 0.;
+      LNhatTmp[1] = 0.;
+      LNhatTmp[2] = 0.;
 	  for(i=0; i<3; i++)
 		for(j=0; j<3; j++)
 			LNhatTmp[i] += Rot1[i][j]*LNhat[j];
@@ -968,20 +973,21 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
 	  tmpvar = sqrt(inner_product(Yprime, Yprime));
 	  for( i=0; i<3; i++)
 		Yprime[i] /= tmpvar;
+      cross_product(Xprime, Yprime, Zprime);
 	  tmpvar = sqrt(inner_product(Zprime, Zprime));
 	  for( i=0; i<3; i++)
 		Zprime[i] /= tmpvar;  
-  } 
-
-  Rot2[0][0] = inner_product( Xprime, Xhat );
-  Rot2[0][1] = inner_product( Xprime, Yhat );
-  Rot2[0][2] = inner_product( Xprime, Zhat );
-  Rot2[1][0] = inner_product( Yprime, Xhat );
-  Rot2[1][1] = inner_product( Yprime, Yhat );
-  Rot2[1][2] = inner_product( Yprime, Zhat );
-  Rot2[2][0] = inner_product( Zprime, Xhat );
-  Rot2[2][1] = inner_product( Zprime, Yhat );
-  Rot2[2][2] = inner_product( Zprime, Zhat );
+  }
+    
+    Rot2[0][0] = Xprime[0];
+    Rot2[0][1] = Xprime[1];
+    Rot2[0][2] = Xprime[2];
+    Rot2[1][0] = Yprime[0];
+    Rot2[1][1] = Yprime[1];
+    Rot2[1][2] = Yprime[2];
+    Rot2[2][0] = Zprime[0];
+    Rot2[2][1] = Zprime[1];
+    Rot2[2][2] = Zprime[2];
 
   memset( rvectmp, 0, 3 * sizeof(REAL8) );
   memset( pvectmp, 0, 3 * sizeof(REAL8) );
@@ -1043,6 +1049,14 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
   /* Set p_r = 0 */
   polarvalues[3] = 0;
   
+    if (debugPK)  {
+    for (int ii =0; ii<3; ii++)
+        for (int jj =0; jj<3; jj++)
+        printf("%3.10f %3.10f\n",Rot1[ii][jj], Rot2[ii][jj]);
+    
+    printf("XLALSpinHcapRvecDerivative::polarvalues = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", polarvalues[0], polarvalues[1], polarvalues[2], polarvalues[3], polarvalues[4], polarvalues[5]);
+    }
+    
   /* Differentiate Hamiltonian w.r.t. p_\phi, keeping p_r = 0 */
   gsl_function F;
   INT4         gslStatus;
@@ -1091,7 +1105,7 @@ UNUSED static int XLALSpinHcapRvecDerivative(
                  void             *funcParams /**<< EOB parameters */
                                )
 {
-  UNUSED int debugPK = 1;
+  UNUSED int debugPK = 0;
   static const REAL8 STEP_SIZE = 1.0e-4;
 
   UNUSED static const INT4 lMax = 8;
@@ -1353,7 +1367,8 @@ UNUSED static int XLALSpinHcapRvecDerivative(
 		+ rData[i]*rData[j]*rData[k]/rMag2/rMag*(-2./rMag*(csi - 1.) + dcsi);
 		}
 	
-	
+    if (debugPK)
+        printf("XLALSpinHcapRvecDerivative::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
   /* Now calculate derivatives w.r.t. each parameter */
   for ( i = 0; i < 6; i++ )
   {
@@ -1491,6 +1506,7 @@ UNUSED static int XLALSpinHcapRvecDerivative(
   for( i = 0; i < 3; i++ )
 	  for( j = 0, dvalues[i] = 0.; j < 3; j++ )
 		  dvalues[i] += tmpDValues[j+3]*Tmatrix[i][j];
+    if (debugPK) printf("XLALSpinHcapRvecDerivative::tmpDValues = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n",tmpDValues[0],tmpDValues[1],tmpDValues[2],tmpDValues[3],tmpDValues[4],tmpDValues[5]);
 
 
   return XLAL_SUCCESS;
@@ -1627,7 +1643,7 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
 	  memcpy( p.data, tmpP, sizeof(tmpP) );
   }
 #endif
-  //printf( "Hamiltonian = %e\n", XLALSimIMRSpinEOBHamiltonian( eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->seobCoeffs ) );
+//  printf( "Hamiltonian = %e\n", XLALSimIMRSpinEOBHamiltonian( eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->seobCoeffs ) );
   REAL8 SpinEOBH = XLALSimIMRSpinEOBHamiltonian( eobParams->eta, &r, &p, &spin1norm, &spin2norm, &sigmaKerr, &sigmaStar, dParams->params->tortoise, dParams->params->seobCoeffs ) / eobParams->eta;
   
   if ( dParams->varyParam < 3 )dParams->params->tortoise = oldTortoise;
@@ -1745,6 +1761,8 @@ static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params )
   if ( isnan( a ) )
   {
     printf( "a is nan here!!\n");
+      printf("rpolar, ppolar = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", rpolar[0], rpolar[1], rpolar[2], ppolar[0], ppolar[1], ppolar[2]);
+      printf("rcart, pcart = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", rcart[0], rcart[1], rcart[2], pcart[0], pcart[1], pcart[2]);
       abort();
   }
   //XLALSimIMRCalculateSpinEOBHCoeffs( dParams->params->seobCoeffs, eobParams->eta, a );
