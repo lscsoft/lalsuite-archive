@@ -278,7 +278,18 @@ def plot_label(param):
       'lambda1' : r'$\lambda_1$',
       'lambda2': r'$\lambda_2$',
       'lam_tilde' : r'$\tilde{\Lambda}$',
-      'dlam_tilde': r'$\delta \tilde{\Lambda}$'}
+      'dlam_tilde': r'$\delta \tilde{\Lambda}$',
+      'dchi0':r'$\delta\chi_0$',
+      'dchi1':r'$\delta\chi_1$',
+      'dchi2':r'$\delta\chi_2$',
+      'dchi3':r'$\delta\chi_3$',
+      'dchi4':r'$\delta\chi_4$',
+      'dchi5':r'$\delta\chi_5$',
+      'dchi5l':r'$\delta\chi_{5l}$',
+      'dchi6':r'$\delta\chi_6$',
+      'dchi6l':r'$\delta\chi_{6l}$',
+      'dchi7':r'$\delta\chi_7$'
+}
 
   # Handle cases where multiple names have been used
   if param in m1_names:
@@ -614,7 +625,17 @@ class Posterior(object):
                             'h1_end_time':lambda inj:float(inj.get_end('H')),
                             'l1_end_time':lambda inj:float(inj.get_end('L')),
                             'v1_end_time':lambda inj:float(inj.get_end('V')),
-                            'lal_amporder':lambda inj:inj.amp_order
+                            'lal_amporder':lambda inj:inj.amp_order,
+                            'dchi0':lambda inj:inj.dchi0,
+                            'dchi1':lambda inj:inj.dchi1,
+                            'dchi2':lambda inj:inj.dchi2,
+                            'dchi3':lambda inj:inj.dchi3,
+                            'dchi4':lambda inj:inj.dchi4,
+                            'dchi5':lambda inj:inj.dchi5,
+                            'dchi5l':lambda inj:inj.dchi5l,
+                            'dchi6':lambda inj:inj.dchi6,
+                            'dchi6l':lambda inj:inj.dchi6l,
+                            'dchi7':lambda inj:inj.dchi7
                            }
 
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
