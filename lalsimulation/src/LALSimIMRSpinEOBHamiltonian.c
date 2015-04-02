@@ -895,31 +895,31 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
   HcapDerivParams params;
 
   /* Cartesian values for calculating the Hamiltonian */
-  REAL8 cartValues[14], dvalues[14]; 
-  UNUSED REAL8 cartvalues[14], polarvalues[6]; /* The rotated cartesian/polar values */
-  REAL8 polarRPcartSvalues[14];
+    REAL8 cartValues[14] = {0.}, dvalues[14] = {0.};
+  REAL8 cartvalues[14] = {0.}, polarvalues[6] = {0.}; /* The rotated cartesian/polar values */
+  REAL8 polarRPcartSvalues[14] = {0.};
   memcpy( cartValues, values, 14 * sizeof(REAL8) );  
   
   UNUSED INT4 errcode, i, j;
   
-  REAL8 rvec[3];  memcpy( rvec, values, 3*sizeof(REAL8) );
-  REAL8 pvec[3];  memcpy( pvec, values+3, 3*sizeof(REAL8) );
-  REAL8 s1vec[3]; memcpy( s1vec, values+6, 3*sizeof(REAL8) );
-  REAL8 s2vec[3]; memcpy( s2vec, values+9, 3*sizeof(REAL8) );
+    REAL8 rvec[3] = {0.};  memcpy( rvec, values, 3*sizeof(REAL8) );
+  REAL8 pvec[3] = {0.};  memcpy( pvec, values+3, 3*sizeof(REAL8) );
+  REAL8 s1vec[3] = {0.}; memcpy( s1vec, values+6, 3*sizeof(REAL8) );
+  REAL8 s2vec[3] = {0.}; memcpy( s2vec, values+9, 3*sizeof(REAL8) );
 
   /* Calculate rDot = \f$\partial Hreal / \partial p_r\f$ */
   memset( dvalues, 0, 14 * sizeof(REAL8) );
   errcode = XLALSpinHcapRvecDerivative( 0, values, dvalues, (void*) funcParams);
     if (debugPK) printf("XLALSpinHcapRvecDerivative::dvalues = %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2]);
     
-  REAL8 rdotvec[3]; memcpy( rdotvec, dvalues, 3*sizeof(REAL8) );
+  REAL8 rdotvec[3] = {0.}; memcpy( rdotvec, dvalues, 3*sizeof(REAL8) );
 
-    REAL8 rvecprime[3] = {0.,0.,0.}, pvecprime[3]= {0.,0.,0.}, s1vecprime[3]= {0.,0.,0.}, s2vecprime[3]= {0.,0.,0.};
-  REAL8 rvectmp[3]= {0.,0.,0.}, pvectmp[3]= {0.,0.,0.}, s1vectmp[3]= {0.,0.,0.}, s2vectmp[3]= {0.,0.,0.};
-  REAL8 LNhatprime[3]= {0.,0.,0.}, LNhatTmp[3]= {0.,0.,0.};
+    REAL8 rvecprime[3] = {0.}, pvecprime[3]= {0.}, s1vecprime[3]= {0.}, s2vecprime[3]= {0.};
+  REAL8 rvectmp[3]= {0.}, pvectmp[3]= {0.}, s1vectmp[3]= {0.}, s2vectmp[3]= {0.};
+  REAL8 LNhatprime[3]= {0.}, LNhatTmp[3]= {0.};
 
   /* Calculate r cross rDot */
-  REAL8 rcrossrdot[3]; 
+  REAL8 rcrossrdot[3] = {0.};
   cross_product( rvec, rdotvec, rcrossrdot );
   REAL8 rcrossrdotNorm = sqrt(inner_product( rcrossrdot, rcrossrdot ));
   for( i = 0; i < 3; i++ )
@@ -927,15 +927,15 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
 
   //////////////////////////////////////////////////
   //
-  REAL8 Rot1[3][3]; // Rotation matrix for prevention of blowing up
-  REAL8 Rot2[3][3];
-  REAL8 LNhat[3]; memcpy( LNhat, rcrossrdot, 3 * sizeof(REAL8) );
+    REAL8 Rot1[3][3] ; // Rotation matrix for prevention of blowing up
+  REAL8 Rot2[3][3] ;
+  REAL8 LNhat[3] = {0.}; memcpy( LNhat, rcrossrdot, 3 * sizeof(REAL8) );
 
   REAL8 Xhat[3] = {1, 0, 0};
   UNUSED REAL8 Yhat[3] = {0, 1, 0};
   UNUSED REAL8 Zhat[3] = {0, 0, 1};
 
-  REAL8 Xprime[3]= {0.,0.,0.}, Yprime[3]= {0.,0.,0.}, Zprime[3]= {0.,0.,0.};
+  REAL8 Xprime[3] = {0.}, Yprime[3] = {0.}, Zprime[3] = {0.};
   
   // For Now , set first rotation matrix to identity
   // Check if LNhat and Xhat are too aligned, in which case rotate LNhat
@@ -1039,7 +1039,7 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
   polarvalues[2] = atan2(-rvecprime[1], rvecprime[2]);
   polarvalues[3] = inner_product(rvecprime, pvecprime) / polarvalues[0];
   
-  REAL8 rvecprime_x_xhat[3], rvecprime_x_xhat_x_rvecprime[3];
+  REAL8 rvecprime_x_xhat[3] = {0.}, rvecprime_x_xhat_x_rvecprime[3] = {0.};
   cross_product(rvecprime, Xhat, rvecprime_x_xhat);
   cross_product(rvecprime_x_xhat, rvecprime, rvecprime_x_xhat_x_rvecprime);
   polarvalues[4] = -inner_product(rvecprime_x_xhat_x_rvecprime, pvecprime)
@@ -1115,7 +1115,7 @@ UNUSED static int XLALSpinHcapRvecDerivative(
   /* Since we take numerical derivatives wrt dynamical variables */
   /* but we want them wrt time, we use this temporary vector in  */
   /* the conversion */
-  REAL8           tmpDValues[14];
+  REAL8           tmpDValues[14] = {0.};
 
   REAL8           H; //Hamiltonian
   //REAL8           flux;
@@ -1127,12 +1127,12 @@ UNUSED static int XLALSpinHcapRvecDerivative(
   UINT4 i, j, k;//, l;
   
   REAL8Vector rVec, pVec;
-  REAL8 rData[3], pData[3];
+  REAL8 rData[3] = {0.}, pData[3] = {0.};
 
   /* We need r, phi, pr, pPhi to calculate the flux */
   REAL8       UNUSED r;
   REAL8Vector UNUSED polarDynamics;
-  REAL8       polData[4];
+  REAL8       polData[4] = {0.};
 
   REAL8 mass1, mass2, eta;
   REAL8 UNUSED rrTerm2, pDotS1, pDotS2;
