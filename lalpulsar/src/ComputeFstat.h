@@ -320,7 +320,6 @@ SWIGLAL(INOUT_STRUCTS(FstatResults**, Fstats));
 int XLALComputeFstat ( FstatResults **Fstats, FstatInput *input, const PulsarDopplerParams *doppler,
                        const UINT4 numFreqBins, const FstatQuantities whatToCompute );
 
-
 FstatWorkspace *XLALGetSharedFstatWorkspace ( FstatInput *input );
 void XLALDestroyFstatWorkspace ( FstatWorkspace *ws );
 
@@ -329,7 +328,6 @@ void XLALDestroyFstatResults ( FstatResults* Fstats );
 int XLALAdd4ToFstatResults ( FstatResults* Fstats );
 
 REAL4 XLALComputeFstatFromAtoms ( const MultiFstatAtomVector *multiFstatAtoms, const INT4 X );
-REAL4 XLALComputeFstatFromFaFb ( COMPLEX8 Fa, COMPLEX8 Fb, REAL4 A, REAL4 B, REAL4 C, REAL4 E, REAL4 Dinv );
 
 // @}
 

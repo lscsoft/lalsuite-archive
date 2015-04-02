@@ -1,14 +1,12 @@
 # -*- mode: autoconf; -*-
 # lalsuite_build.m4 - top level build macros
 #
-# serial 109
+# serial 114
 
-# not present in older versions of pkg.m4
-m4_pattern_allow([^PKG_CONFIG(_(PATH|LIBDIR|SYSROOT_DIR|ALLOW_SYSTEM_(CFLAGS|LIBS)))?$])
-m4_pattern_allow([^PKG_CONFIG_(DISABLE_UNINSTALLED|TOP_BUILD_DIR|DEBUG_SPEW)$])
-
-# forbid LALSUITE_... from appearing in output (./configure)
-#m4_pattern_forbid([^_?LALSUITE_[A-Z_]+$])
+# restrict which LALSUITE_... patterns can appearing in output (./configure);
+# useful for debugging problems with unexpanded LALSUITE_... Autoconf macros
+m4_pattern_forbid([^_?LALSUITE_[A-Z_]+$])
+m4_pattern_allow([^LALSUITE_(BUILD)$])
 
 # list of user variables; see section 4.8.1 of the Autoconf manual
 m4_define([uvar_list],[CPPFLAGS CFLAGS CXXFLAGS FCFLAGS FFLAGS LDFLAGS])
@@ -78,28 +76,30 @@ AC_DEFUN([LALSUITE_POP_UVARS],[
   # end $0
 ])
 
-AC_DEFUN([_LALSUITE_CHECK_ERROR_FLAGS],[
-  # $0: check for flags required to trigger an error for unknown flags
-  #   gcc, clang: -Werror
-  #   icc: -we10006
-  error_flags=
-  for flag in -Werror -we10006; do
-    AX_CHECK_COMPILE_FLAG([${flag}],[error_flags="${error_flags} ${flag}"])
-  done
-  AS_IF([test x"${error_flags}" = x],[
-    AC_MSG_ERROR([could not determine error flags])
-  ])
-  # end $0
-])
-
 AC_DEFUN([LALSUITE_CHECK_COMPILE_FLAGS],[
   # $0: check multiple compile flags
   LALSUITE_PUSH_UVARS
   LALSUITE_CLEAR_UVARS
-  _LALSUITE_CHECK_ERROR_FLAGS
+  lalsuite_save_werror_flag=${ac_[]_AC_LANG_ABBREV[]_werror_flag}
+  ac_[]_AC_LANG_ABBREV[]_werror_flag=yes
   for flag in m4_normalize($1); do
-    AX_CHECK_COMPILE_FLAG([${flag}],[$2],[$3],[${error_flags}])
+    AS_VAR_PUSHDEF([CACHEVAR],[lalsuite_cv_check_compile_[]_AC_LANG_ABBREV[]_${flag}])
+    AC_CACHE_CHECK([whether ]_AC_LANG[ compiler accepts ${flag}],CACHEVAR,[
+      _AC_LANG_PREFIX[]FLAGS="${uvar_orig_prefix[]_AC_LANG_PREFIX[]FLAGS} ${flag}"
+      AC_COMPILE_IFELSE([AC_LANG_SOURCE([])],[
+        AS_VAR_SET(CACHEVAR,[yes])
+      ],[
+        AS_VAR_SET(CACHEVAR,[no])
+      ])
+    ])
+    AS_IF([test x"AS_VAR_GET(CACHEVAR)" = xyes],[
+      m4_default([$2], :)
+    ],[
+      m4_default([$3], :)
+    ])
+    AS_VAR_POPDEF([CACHEVAR])
   done
+  ac_[]_AC_LANG_ABBREV[]_werror_flag=${lalsuite_save_werror_flag}
   LALSUITE_POP_UVARS
   # end $0
 ])
@@ -108,24 +108,41 @@ AC_DEFUN([LALSUITE_CHECK_LINK_FLAGS],[
   # $0: check multiple link flags
   LALSUITE_PUSH_UVARS
   LALSUITE_CLEAR_UVARS
-  _LALSUITE_CHECK_ERROR_FLAGS
+  lalsuite_save_werror_flag=${ac_[]_AC_LANG_ABBREV[]_werror_flag}
+  ac_[]_AC_LANG_ABBREV[]_werror_flag=yes
   for flag in m4_normalize($1); do
-    AX_CHECK_LINK_FLAG([${flag}],[$2],[$3],[${error_flags}])
+    AS_VAR_PUSHDEF([CACHEVAR],[lalsuite_cv_check_link_[]_AC_LANG_ABBREV[]_${flag}])
+    AC_CACHE_CHECK([whether ]_AC_LANG[ linker accepts ${flag}],CACHEVAR,[
+      LDFLAGS="${uvar_orig_prefix[]LDFLAGS} ${flag}"
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([])],[
+        AS_VAR_SET(CACHEVAR,[yes])
+      ],[
+        AS_VAR_SET(CACHEVAR,[no])
+      ])
+    ])
+    AS_IF([test x"AS_VAR_GET(CACHEVAR)" = xyes],[
+      m4_default([$2],[:])
+    ],[
+      m4_default([$3],[:])
+    ])
+    AS_VAR_POPDEF([CACHEVAR])
   done
+  ac_[]_AC_LANG_ABBREV[]_werror_flag=${lalsuite_save_werror_flag}
   LALSUITE_POP_UVARS
   # end $0
 ])
 
 AC_DEFUN([LALSUITE_ADD_FLAGS],[
-  # $0: prepend flags to AM_CPPFLAGS/AM_$1FLAGS/AM_LDFLAGS/LIBS,
+  # $0: prepend/append flags to AM_CPPFLAGS/AM_$1FLAGS/AM_LDFLAGS/LIBS,
   # and update values of CPPFLAGS/$1FLAGS/LDFLAGS for Autoconf tests
   # - arg 1: prefix of the compiler flag variable, e.g. C for CFLAGS, CXX for CXXFLAGS
   # - arg 2: compiler flags
   # - arg 3: linker flags
   m4_ifval([$1],[m4_ifval([$2],[
     pre_AM_CPPFLAGS=
+    post_AM_CPPFLAGS=
     pre_sys_CPPFLAGS=
-    pre_AM_$1FLAGS=
+    post_AM_$1FLAGS=
     for flag in $2; do
       # AM_CPPFLAGS gets unique -I, -D and -U flags
       # sys_CPPFLAGS gets unique system -I flags
@@ -143,27 +160,32 @@ AC_DEFUN([LALSUITE_ADD_FLAGS],[
             [pre_AM_CPPFLAGS="${pre_AM_CPPFLAGS} ${flag}"]
           )
         ],
-        [-D*|-U*],[pre_AM_CPPFLAGS="${pre_AM_CPPFLAGS} ${flag}"],
-        [pre_AM_$1FLAGS="${pre_AM_$1FLAGS} ${flag}"]
+        [-D*|-U*],[post_AM_CPPFLAGS="${post_AM_CPPFLAGS} ${flag}"],
+        [post_AM_$1FLAGS="${post_AM_$1FLAGS} ${flag}"]
       )
     done
     AS_IF([test "x${pre_AM_CPPFLAGS}" != x],[
       AM_CPPFLAGS="${pre_AM_CPPFLAGS} ${AM_CPPFLAGS}"
       _AS_ECHO_LOG([prepended ${pre_AM_CPPFLAGS} to AM_CPPFLAGS])
     ])
+    AS_IF([test "x${post_AM_CPPFLAGS}" != x],[
+      AM_CPPFLAGS="${AM_CPPFLAGS} ${post_AM_CPPFLAGS}"
+      _AS_ECHO_LOG([appended ${post_AM_CPPFLAGS} to AM_CPPFLAGS])
+    ])
     AS_IF([test "x${pre_sys_CPPFLAGS}" != x],[
       sys_CPPFLAGS="${pre_sys_CPPFLAGS} ${sys_CPPFLAGS}"
       _AS_ECHO_LOG([prepended ${pre_sys_CPPFLAGS} to system AM_CPPFLAGS])
     ])
-    AS_IF([test "x${pre_AM_$1FLAGS}" != x],[
-      AM_$1FLAGS="${pre_AM_$1FLAGS} ${AM_$1FLAGS}"
-      _AS_ECHO_LOG([prepended ${pre_AM_$1FLAGS} to AM_$1FLAGS])
+    AS_IF([test "x${post_AM_$1FLAGS}" != x],[
+      AM_$1FLAGS="${AM_$1FLAGS} ${post_AM_$1FLAGS}"
+      _AS_ECHO_LOG([appended ${post_AM_$1FLAGS} to AM_$1FLAGS])
     ])
     CPPFLAGS="${AM_CPPFLAGS} ${sys_CPPFLAGS} ${uvar_orig_prefix[]CPPFLAGS}"
     $1FLAGS="${AM_$1FLAGS} ${uvar_orig_prefix[]$1FLAGS}"
   ])])
   m4_ifval([$3],[
     pre_AM_LDFLAGS=
+    post_AM_LDFLAGS=
     pre_sys_LDFLAGS=
     pre_LIBS=
     for flag in $3; do
@@ -184,12 +206,16 @@ AC_DEFUN([LALSUITE_ADD_FLAGS],[
           )
         ],
         [-l*|*.la],[pre_LIBS="${pre_LIBS} ${flag}"],
-        [pre_AM_LDFLAGS="${pre_AM_LDFLAGS} ${flag}"]
+        [post_AM_LDFLAGS="${post_AM_LDFLAGS} ${flag}"]
       )
     done
     AS_IF([test "x${pre_AM_LDFLAGS}" != x],[
       AM_LDFLAGS="${pre_AM_LDFLAGS} ${AM_LDFLAGS}"
       _AS_ECHO_LOG([prepended ${pre_AM_LDFLAGS} to AM_LDFLAGS])
+    ])
+    AS_IF([test "x${post_AM_LDFLAGS}" != x],[
+      AM_LDFLAGS="${AM_LDFLAGS} ${post_AM_LDFLAGS}"
+      _AS_ECHO_LOG([appended ${post_AM_LDFLAGS} to AM_LDFLAGS])
     ])
     AS_IF([test "x${pre_sys_LDFLAGS}" != x],[
       sys_LDFLAGS="${pre_sys_LDFLAGS} ${sys_LDFLAGS}"
@@ -308,59 +334,36 @@ m4_foreach([lang],[[C++],[Fortran 77],[Fortran]],[
   m4_defun([AC_LANG_PREPROC(]lang[)],[])
 ])
 
-AC_DEFUN([_LALSUITE_PRE_PROG_COMPILERS],[
-  # $0: just before LALSUITE_PROG_COMPILERS:
-  # save current values of user variables, then unset them
-  LALSUITE_PUSH_UVARS
-  LALSUITE_CLEAR_UVARS
-  # end $0
-])
-
-AC_DEFUN([_LALSUITE_POST_PROG_COMPILERS],[
-  # $0: just after LALSUITE_PROG_COMPILERS:
-  # save values of user variables set during compiler configuration,
-  # restore previous values of user variables, then add compiler values
-  # of user variables to then using LALSUITE_ADD_FLAGS
-  m4_foreach_w([uvar],uvar_list,[
-    lalsuite_compiler_[]uvar="${uvar}"
-  ])
-  LALSUITE_POP_UVARS
-  LALSUITE_ADD_FLAGS([C],[${lalsuite_compiler_CPPFLAGS} ${lalsuite_compiler_CFLAGS}],[${lalsuite_compiler_LDFLAGS}])
-  AS_IF([test "${lalsuite_require_cxx}" = true],[
-    LALSUITE_ADD_FLAGS([CXX],[${lalsuite_compiler_CXXFLAGS}],[])
-  ])
-  AS_IF([test "${lalsuite_require_f77}" = true],[
-    LALSUITE_ADD_FLAGS([FC],[${lalsuite_compiler_FCFLAGS}],[])
-    LALSUITE_ADD_FLAGS([F],[${lalsuite_compiler_FFLAGS}],[])
-  ])
-  # end $0
-])
-
 AC_DEFUN([LALSUITE_PROG_COMPILERS],[
   # $0: check for C/C++/Fortran compilers
-  AC_REQUIRE([_LALSUITE_PRE_PROG_COMPILERS])
 
   # check for C99 compiler
   AC_REQUIRE([AC_PROG_CC])
   AC_REQUIRE([AC_PROG_CC_C99])
   AC_REQUIRE([AC_PROG_CPP])
 
-  # check for clang
-  AS_IF([test "x$GCC" = xyes],
-    [AS_IF([test "`$CC -v 2>&1 | grep -c 'clang'`" != "0"],[CLANG_CC=1])],
-    [CLANG_CC=])
-  AC_SUBST(CLANG_CC)
+  # set default CFLAGS
+  CFLAGS=
+  AS_IF([test "x${GCC}" = xyes],[
+    CFLAGS="${CFLAGS} -O2"
+  ])
+  AS_IF([test "x${ac_cv_prog_cc_g}" = xyes],[
+    CFLAGS="${CFLAGS} -g"
+  ])
 
   # check for C++ compiler, if needed
   AS_IF([test "${lalsuite_require_cxx}" = true],[
     AC_PROG_CXX
     AC_PROG_CXXCPP
 
-    # check for clang++
-    AS_IF([test "x$GXX" = xyes],
-      [AS_IF([test "`$CXX -v 2>&1 | grep -c 'clang'`" != "0"],[CLANG_CXX=1])],
-      [CLANG_CXX=])
-    AC_SUBST(CLANG_CXX)
+    # set default CXXFLAGS
+    CXXFLAGS=
+    AS_IF([test "x${GXX}" = xyes],[
+      CXXFLAGS="${CXXFLAGS} -O2"
+    ])
+    AS_IF([test "x${ac_cv_prog_cxx_g}" = xyes],[
+      CXXFLAGS="${CXXFLAGS} -g"
+    ])
 
     # define C99 constant and limit macros for C++ sources
     CXXFLAGS="${CXXFLAGS} -D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS"
@@ -368,17 +371,33 @@ AC_DEFUN([LALSUITE_PROG_COMPILERS],[
   ],[
     CXX=
     CXXCPP=
+    CXXFLAGS=
     AM_CONDITIONAL([am__fastdepCXX],[false])
   ])
 
   # check for F77 compiler, if needed
   AS_IF([test "${lalsuite_require_f77}" = true],[
     AC_PROG_F77
+
+    # set default FFLAGS
+    FFLAGS=
+    AS_IF([test "x${ac_cv_f77_compiler_gnu}" = xyes],[
+      FFLAGS="${FFLAGS} -O2"
+    ])
+    AS_IF([test "x${ac_cv_prog_f77_g}" = xyes],[
+      FFLAGS="${FFLAGS} -g"
+    ])
+
   ],[
     F77=
+    FFLAGS=
   ])
 
-  _LALSUITE_POST_PROG_COMPILERS
+  # add flags
+  LALSUITE_ADD_FLAGS([C],[${CFLAGS}])
+  LALSUITE_ADD_FLAGS([CXX],[${CXXFLAGS}])
+  LALSUITE_ADD_FLAGS([F],[${FFLAGS}])
+
   # end $0
 ])
 

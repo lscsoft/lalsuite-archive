@@ -214,14 +214,14 @@ def factored_log_likelihood_time_marginalized(tvals, extr_params, rholms_intp, r
             # do not interpolate, just use nearest neighbors.
             for key, rhoTS in rholms[det].iteritems():
                 tfirst = float(t_det)+tvals[0]
-                ifirst = int(np.round(( tfirst - rho_epoch) / delta_t) + 0.5)
+                ifirst = int((tfirst - rho_epoch) / deltaT + 0.5)
                 ilast = ifirst + len(tvals)
                 det_rholms[key] = rhoTS[ifirst:ilast]
 
         lnL += single_detector_log_likelihood(det_rholms, CT, Ylms, F, dist)
 
     maxlnL = np.max(lnL)
-    return maxlnL + np.log(integrate.simps(np.exp(lnL - maxlnL), dx=tvals[1]-tvals[0]))
+    return maxlnL + np.log(np.sum(np.exp(lnL - maxlnL)) * (tvals[1]-tvals[0]))
 
 def single_detector_log_likelihood(rholm_vals, crossTerms, Ylms, F, dist):
     """
