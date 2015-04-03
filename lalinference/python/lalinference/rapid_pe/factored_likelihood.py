@@ -244,6 +244,7 @@ def single_detector_log_likelihood(rholm_vals, crossTerms, Ylms, F, dist):
     """
 
     invDistMpc = (lal.PC_SI*1e6*distMpcRef)/dist
+    print type(F), F
     Fstar = np.conj(F)
 
     # Eq. 35 of Richard's notes
@@ -252,18 +253,18 @@ def single_detector_log_likelihood(rholm_vals, crossTerms, Ylms, F, dist):
     term20 = 0.
     term21 = 0.
     # PRB: I think this loop can be vectorized with some work
-    for pair1, Ylm1 in rholm_vals.iteritems():
-        Ylm1 = Ylms[pair1]
+    for pair1, Ylm1 in Ylms.iteritems():
+        l1, m1 = pair1
+        n_one_l1 = (-1)**l1
+        print type(Ylm1), Ylm1
         Ylm1_conj = np.conj(Ylm1)
         term1 += Ylm1_conj * rholm_vals[pair1]
-        for pair2, Ylm2 in rholm_vals.iteritems():
+        for pair2, Ylm2 in Ylms.iteritems():
 	    # PRB: should also re-pack the crossterms into arrays
-            Ylm2 = Ylms[pair2]
-            l1, m1 = pair1
-            term20 += crossTerms[(pair1, pair2)] * Ylm1_conj * Ylm2
-            term21 += Ylm1 * Ylm2 * ((-1)**l1) * crossTerms[((l1, -m1), pair2)]
+            term20 += crossTerms[(pair1, pair2)] * Ylm2
+            term21 += Ylm2 * n_one_l1 * crossTerms[((l1, -m1), pair2)]
     term1 = np.real( Fstar * term1 ) * invDistMpc 
-    term1 += -0.25 * np.real( F * ( Fstar * term20 + F * term21 ) ) * invDistMpc * invDistMpc 
+    term1 += -0.25 * np.real( F * ( Fstar * term20 * Ylm1_conj + F * term21 * Ylm1 ) ) * invDistMpc * invDistMpc 
 
     return term1
 
