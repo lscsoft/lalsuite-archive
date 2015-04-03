@@ -104,6 +104,10 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
     runState->likelihood=&LALInferenceBimodalCorrelatedAnalyticLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--rosenbrockLikelihood")) {
     runState->likelihood=&LALInferenceRosenbrockLogLikelihood;
+    } else if (LALInferenceGetProcParamVal(commandLine, "--TIGERGaussianLikelihood")) {
+    runState->likelihood=&LALInferenceCorrelatedAnalyticLogLikelihood;
+   } else if (LALInferenceGetProcParamVal(commandLine, "--bimodalTIGERGaussianLikelihood")) {
+    runState->likelihood=&LALInferenceBimodalCorrelatedAnalyticLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--studentTLikelihood")) {
     fprintf(stderr, "Using Student's T Likelihood.\n");
     runState->likelihood=&LALInferenceFreqDomainStudentTLogLikelihood;
@@ -155,6 +159,24 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
     10.0/M_PI,
     10.0/M_PI};
 
+/*TIGER scaling */
+/* Scaling used for the analytic likelihood parameters */
+  static const REAL8 TIGERscaling[14] = {
+    1.0,
+    1.0,
+    20.0/M_PI,
+    10.0/M_PI,
+    20.0/M_PI,
+    10.0/M_PI,
+    10.0/M_PI,
+    1,
+    10.0,
+    21.0,
+    22.0,
+    18.0,
+    18.0,
+    18.0};
+
 /* Covariance matrix for use in analytic likelihoods */
   static const REAL8 CM[15][15] = {{0.045991865933182365, -0.005489748382557155, -0.01025067223674548, 0.0020087713726603213, -0.0032648855847982987, -0.0034218261781145264, -0.0037173401838545774, -0.007694897715679858, 0.005260905282822458, 0.0013607957548231718, 0.001970785895702776, 0.006708452591621081, -0.005107684668720825, 0.004402554308030673, -0.00334987648531921},
                               {-0.005489748382557152, 0.05478640427684032, -0.004786202916836846, -0.007930397407501268, -0.0005945107515129139, 0.004858466255616657, -0.011667819871670204, 0.003169780190169035, 0.006761345004654851, -0.0037599761532668475, 0.005571796842520162, -0.0071098291510566895, -0.004477773540640284, -0.011250694688474672, 0.007465228985669282},
@@ -172,6 +194,20 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
                               {0.004402554308030674, -0.011250694688474675, 0.004477221036185477, -0.003292722856107429, -0.006603857049454523, -0.006454778807421815, -0.0005191095254772072, -0.005321753837620446, 0.0003370445313891318, -0.014065326026662679, -0.0008193127407211239, -0.0007262691465810616, 0.0010194948614718226, 0.05244900188599414, -0.000256550861960499},
                               {-0.00334987648531921, 0.007465228985669282, -0.006204169580739178, -0.005873218251875899, -0.009241221870695395, 0.003330357760641278, -0.008466566781233205, 0.011126783289057604, -0.0031735521631824654, -0.005619012077114915, -0.007137012700864866, -0.006482422704208912, 0.0033872675386130632, -0.000256550861960499, 0.05380987317762257}};
 
+static const REAL8 tCM[14][14] = {{0.9514847267801023189548459,0.8811695081183504862920586,0.7342566907091205852253779,0.6082393077677981096940130,0.6757975188533189569994875,0.8016918916396388317124888,0.4808200211747432062381336,0.6560568489464324581916799,0.6303042297105293512160529,0.8125871843998415666732171,0.7630179343620439036399716,0.4865586298727260228247360,0.8381326469843488613520321,0.7425269621057292157573215},
+{0.8811695081183504862920586,1.1058800390251295464594250,0.9077333939215537217393148,0.8864650455292489850123161,0.7537500085956422291033618,0.8553780752906796625012475,0.6206219590839363586809441,0.7348921307635390975931955,0.7406746864201366742364030,0.9070529723783269382408889,0.8545890444325624502042160,0.5876102278459450767300609,0.8862708422813688757813111,0.6908727338954088192934933},
+{0.7342566907091205852253779,0.9077333939215537217393148,0.8951608968219068040994557,0.8005052062408373192425870,0.6728618534066721501574193,0.7829203641802473523370054,0.5866825371903094943348833,0.6338685567724288150159850,0.6556634526080993286001330,0.7482563951762204457196503,0.7132815272619201785175846,0.5771498533486225657185287,0.8380292815603900269394444,0.6099828156652575827934015},
+{0.6082393077677981096940130,0.8864650455292489850123161,0.8005052062408373192425870,0.9887771943036962607465057,0.5782122203544290961474417,0.6250395760180973425690354,0.5875792041116759678587300,0.6084900471963783363804623,0.6518922355167462434621939,0.7938712850231955941993078,0.6666632200957950393771512,0.5476082522517560224883937,0.6804937132683722689208139,0.5755125031793564271964669},
+{0.6757975188533189569994875,0.7537500085956422291033618,0.6728618534066721501574193,0.5782122203544290961474417,0.7298080665147285150951006,0.7296911399207395287902500,0.4935519359021914853613566,0.5562267207421083270446616,0.5245188792208257400062621,0.6091971490760275109721533,0.6010633479131914924664670,0.3927759619092885401414605,0.7142379329518487862671350,0.5498341891600326825084721},
+{0.8016918916396388317124888,0.8553780752906796625012475,0.7829203641802473523370054,0.6250395760180973425690354,0.7296911399207395287902500,0.9393715576662167165977735,0.4827662870976863196403883,0.6544499497848060842741802,0.5375621325036736841695983,0.7165132453068316920052894,0.7342110360782465594553514,0.4417022344118301524495962,0.8231616943723314427927562,0.6104062900468594232705755},
+{0.4808200211747432062381336,0.6206219590839363586809441,0.5866825371903094943348833,0.5875792041116759678587300,0.4935519359021914853613566,0.4827662870976863196403883,0.5627475761176151669573642,0.4243638146814442957399649,0.5118149226140756846703539,0.4633524476033509253980469,0.4134183289670855798725313,0.3946423316539099945821079,0.5748580709365856966641672,0.4307464747586643438737042},
+{0.6560568489464324581916799,0.7348921307635390975931955,0.6338685567724288150159850,0.6084900471963783363804623,0.5562267207421083270446616,0.6544499497848060842741802,0.4243638146814442957399649,0.6421226214156414702216580,0.4607274946006073568227634,0.6173320844614487157286931,0.5367407538735403660368206,0.3813215373915888051215006,0.6109648143472676817822276,0.4658477217311363660634527},
+{0.6303042297105293512160529,0.7406746864201366742364030,0.6556634526080993286001330,0.6518922355167462434621939,0.5245188792208257400062621,0.5375621325036736841695983,0.5118149226140756846703539,0.4607274946006073568227634,0.6375763382982235771834212,0.6446311400904036759129667,0.5645992321459581964049335,0.5197152676324761078063830,0.6412719137674353087064105,0.5981597387452306513466738},
+{0.8125871843998415666732171,0.9070529723783269382408889,0.7482563951762204457196503,0.7938712850231955941993078,0.6091971490760275109721533,0.7165132453068316920052894,0.4633524476033509253980469,0.6173320844614487157286931,0.6446311400904036759129667,0.9253503612916998966042570,0.7280356499828952721031783,0.4885287590023838499853071,0.7942269126465901774025724,0.7047701399366080865505069},
+{0.7630179343620439036399716,0.8545890444325624502042160,0.7132815272619201785175846,0.6666632200957950393771512,0.6010633479131914924664670,0.7342110360782465594553514,0.4134183289670855798725313,0.5367407538735403660368206,0.5645992321459581964049335,0.7280356499828952721031783,0.8150172317270297783764477,0.4627599628335860026950854,0.6986087355297014855892712,0.5988163531117309812401572},
+{0.4865586298727260228247360,0.5876102278459450767300609,0.5771498533486225657185287,0.5476082522517560224883937,0.3927759619092885401414605,0.4417022344118301524495962,0.3946423316539099945821079,0.3813215373915888051215006,0.5197152676324761078063830,0.4885287590023838499853071,0.4627599628335860026950854,0.5020370490494350246279964,0.5081867413108894782070024,0.4873149850491743095837194},
+{0.8381326469843488613520321,0.8862708422813688757813111,0.8380292815603900269394444,0.6804937132683722689208139,0.7142379329518487862671350,0.8231616943723314427927562,0.5748580709365856966641672,0.6109648143472676817822276,0.6412719137674353087064105,0.7942269126465901774025724,0.6986087355297014855892712,0.5081867413108894782070024,1.0145561195572303514467194,0.7406060867631822919321394},
+{0.7425269621057292157573215,0.6908727338954088192934933,0.6099828156652575827934015,0.5755125031793564271964669,0.5498341891600326825084721,0.6104062900468594232705755,0.4307464747586643438737042,0.4658477217311363660634527,0.5981597387452306513466738,0.7047701399366080865505069,0.5988163531117309812401572,0.4873149850491743095837194,0.7406060867631822919321394,0.7379952497867748872906191}};
 
 const char *non_intrinsic_params[] = {"rightascension", "declination", "polarisation", "time",
                                 "deltaLogL", "logL", "deltaloglH1", "deltaloglL1", "deltaloglV1",
@@ -1289,10 +1325,183 @@ static void extractDimensionlessVariableVector(LALInferenceVariables *currentPar
   x[14]= scaling[14] * (phi2   - mean[14]);
 }
 
+static void extractTIGERDimensionlessVariableVector(LALInferenceVariables *currentParams, REAL8 *x, INT4 mode) {
+  REAL8 m1, m2, d, iota=0., phi, psi, ra, dec, t, a1, a2, dchi1,dchi2,dchi3;
+  REAL8 mean[14];
+  REAL8 Mc;
+
+  memset(x, 0, 14*sizeof(REAL8));
+  memset(mean, 0, 14*sizeof(REAL8));
+
+  if (mode==0) {
+    mean[0] = 16.0;
+    mean[1] = 7.0;
+    mean[2] = M_PI/2.0;
+    mean[3] = M_PI;
+    mean[4] = M_PI/2.0;
+    mean[5] = M_PI;
+    mean[6] = 0.0;
+    mean[7] = 50.0;
+    mean[8] = 0.0;
+    mean[9] =0.5;
+    mean[10]=0.5;
+    mean[11]=0.20;//dchi1
+    mean[12]=-0.1;//dchi2
+    mean[13]=0.28;//dchi3
+  } else if (mode==1) {
+    mean[0] = 16.0;
+    mean[1] = 7.0;
+    mean[2] = 1.0*M_PI/4.0;
+    mean[3] = 1.0*M_PI/2.0;
+    mean[4] = 1.0*M_PI/4.0;
+    mean[5] = 1.0*M_PI/2.0;
+    mean[6] = -M_PI/4.0;
+    mean[7] = 25.0;
+    mean[8] = -0.03;
+    mean[9] =0.2;
+    mean[10]=0.2;
+    mean[11]=-0.25;
+    mean[12]=0.0;
+    mean[13]=0.11;
+  } else if (mode==2) {
+    /* set means of second mode to be 8 sigma from first mode */
+    mean[0] = 16.0 + 8./TIGERscaling[0]*sqrt(tCM[0][0]);
+    mean[1] = 7.0 + 8./TIGERscaling[1]*sqrt(tCM[1][1]);
+    mean[2] = 1.0*M_PI/4.0 + 8./TIGERscaling[2]*sqrt(tCM[2][2]);
+    mean[3] = 1.0*M_PI/2.0 + 8./TIGERscaling[3]*sqrt(tCM[3][3]);
+    mean[4] = 1.0*M_PI/4.0 + 8./TIGERscaling[4]*sqrt(tCM[4][4]);
+    mean[5] = 1.0*M_PI/2.0 + 8./TIGERscaling[5]*sqrt(tCM[5][5]);
+    mean[6] = -M_PI/4.0 + 8./TIGERscaling[6]*sqrt(tCM[6][6]);
+    mean[7] = 25.0 + 8./TIGERscaling[7]*sqrt(tCM[7][7]);
+    mean[8] = -0.03 + 8./TIGERscaling[8]*sqrt(tCM[8][8]);
+    mean[9] =0.2 + 8./TIGERscaling[9]*sqrt(tCM[9][9]);
+    mean[10]=0.2 + 8./TIGERscaling[10]*sqrt(tCM[10][10]);
+    mean[11]=-0.25 + 8./TIGERscaling[11]*sqrt(tCM[11][11]);
+    mean[12]= 0.0 + 8./TIGERscaling[12]*sqrt(tCM[12][12]);
+    mean[13]= 0.11 + 8./TIGERscaling[13]*sqrt(tCM[13][13]);
+  } else {
+    printf("Error!  Unrecognized mode in analytic likelihood!\n");
+    exit(1);
+  }
+
+
+  if (LALInferenceCheckVariable(currentParams,"m1")&&LALInferenceCheckVariable(currentParams,"m2"))
+  {
+    m1=*(REAL8 *)LALInferenceGetVariable(currentParams,"m1");
+    m2=*(REAL8 *)LALInferenceGetVariable(currentParams,"m2");
+  }
+  else
+  {
+    if (LALInferenceCheckVariable(currentParams, "chirpmass")) {
+      Mc = *(REAL8 *)LALInferenceGetVariable(currentParams, "chirpmass");
+    } else if (LALInferenceCheckVariable(currentParams, "logmc")) {
+      Mc = exp(*(REAL8 *)LALInferenceGetVariable(currentParams, "logmc"));
+    } else {
+      fprintf(stderr, "Could not find chirpmass or logmc in LALInferenceCorrelatedAnalyticLogLikelihood (in %s, line %d)\n", __FILE__, __LINE__);
+      exit(1);
+    }
+
+    if (LALInferenceCheckVariable(currentParams, "eta")) {
+      REAL8 eta = *(REAL8 *)LALInferenceGetVariable(currentParams, "eta");
+      LALInferenceMcEta2Masses(Mc, eta, &m1, &m2);
+    } else if (LALInferenceCheckVariable(currentParams, "q")) {
+      REAL8 q = *(REAL8 *)LALInferenceGetVariable(currentParams, "q");
+      LALInferenceMcQ2Masses(Mc, q, &m1, &m2);
+    } else {
+      fprintf(stderr, "Could not find eta or q in LALInferenceCorrelatedAnalyticLogLikelihood (in %s, line %d)\n",__FILE__, __LINE__);
+      exit(1);
+      }
+    }
+
+  if (LALInferenceCheckVariable(currentParams, "distance")) {
+    d = *(REAL8 *)LALInferenceGetVariable(currentParams, "distance");
+  } else if (LALInferenceCheckVariable(currentParams, "logdistance")) {
+    d = exp(*(REAL8 *)LALInferenceGetVariable(currentParams, "logdistance"));
+  } else {
+    fprintf(stderr, "Could not find distance or log(d) in LALInferenceCorrelatedAnalyticLogLikelihood (in %s, line %d)\n",__FILE__, __LINE__);
+    exit(1);
+  }
+
+  iota = *(REAL8 *)LALInferenceGetVariable(currentParams, "theta_jn");
+  psi = *(REAL8 *)LALInferenceGetVariable(currentParams, "polarisation");
+  phi = *(REAL8 *)LALInferenceGetVariable(currentParams, "phase");
+  ra = *(REAL8 *)LALInferenceGetVariable(currentParams, "rightascension");
+  dec = *(REAL8 *)LALInferenceGetVariable(currentParams, "declination");
+  t = *(REAL8 *)LALInferenceGetVariable(currentParams, "time");
+  
+  if (LALInferenceCheckVariable(currentParams, "spin1")) {
+    a1 = *(REAL8 *)LALInferenceGetVariable(currentParams, "spin1");
+  } else {
+    a1 = 0.0;
+  }
+
+  if (LALInferenceCheckVariable(currentParams, "spin2")) {
+    a2 = *(REAL8 *)LALInferenceGetVariable(currentParams, "spin2");
+  } else {
+    a2 = 0.0;
+  }
+
+  if (LALInferenceCheckVariable(currentParams, "dchi1")) {
+    dchi1 = *(REAL8 *)LALInferenceGetVariable(currentParams, "dchi1");
+  } else {
+    dchi1 = 0.0;
+  }
+  
+  if (LALInferenceCheckVariable(currentParams, "dchi2")) {
+    dchi2 = *(REAL8 *)LALInferenceGetVariable(currentParams, "dchi2");
+  } else {
+    dchi2 = 0.0;
+  }
+  
+  if (LALInferenceCheckVariable(currentParams, "dchi3")) {
+    dchi3 = *(REAL8 *)LALInferenceGetVariable(currentParams, "dchi3");
+  } else {
+    dchi3 = 0.0;
+  }
+
+  x[0] = TIGERscaling[0] * (m1    - mean[0]);
+  x[1] = TIGERscaling[1] * (m2    - mean[1]);
+  x[2] = TIGERscaling[2] * (iota  - mean[2]);
+  x[3] = TIGERscaling[3] * (phi   - mean[3]);
+  x[4] = TIGERscaling[4] * (psi   - mean[4]);
+  x[5] = TIGERscaling[5] * (ra    - mean[5]);
+  x[6] = TIGERscaling[6] * (dec   - mean[6]);
+  x[7] = TIGERscaling[7] * (d     - mean[7]);
+  x[8] = TIGERscaling[8] * (t     - mean[8]);
+  x[9] = TIGERscaling[9] * (a1     - mean[9]);
+  x[10]= TIGERscaling[10] * (a2     - mean[10]);
+  x[11]= TIGERscaling[11] * (dchi1 - mean[11]);
+  x[12]= TIGERscaling[12] * (dchi2 - mean[12]);
+  x[13]= TIGERscaling[13] * (dchi3  - mean[13]);
+}
+
+
+
 REAL8 LALInferenceCorrelatedAnalyticLogLikelihood(LALInferenceVariables *currentParams, 
-                                                  LALInferenceIFOData UNUSED *data, 
-                                                  LALInferenceModel UNUSED *model) {
-  const INT4 DIM = 15;
+                                                  LALInferenceIFOData  *data, 
+                                                  LALInferenceModel *model) {
+  INT4 tmpdim=0;
+  int cbc=1;
+  const REAL8 *cm=NULL;
+  int ifo=0;
+  while(data){
+    model->ifo_loglikelihoods[ifo]=0.0;
+    ifo++;
+    data=data->next;
+  }
+
+  if (LALInferenceCheckVariable(currentParams, "dchi1") ||LALInferenceCheckVariable(currentParams, "dchi3") ||LALInferenceCheckVariable(currentParams, "dchi2") ){
+    /* We are dealing with a TIGER aligned run Set dimensions and CVM accordingly*/
+    tmpdim = 14;
+    cm=&(tCM[0][0]);
+    cbc=0;
+  }
+  else{
+    /* We are dealing with a  spinning CBC. Set dimensions and CVM accordinly*/
+    tmpdim = 15;
+    cm=&(CM[0][0]);
+  }
+  const INT4 DIM = tmpdim;
   gsl_matrix *LUCM = NULL;
   gsl_permutation *LUCMPerm = NULL;
   INT4 mode = 0;
@@ -1301,13 +1510,15 @@ REAL8 LALInferenceCorrelatedAnalyticLogLikelihood(LALInferenceVariables *current
   REAL8 xOrig[DIM];
 
   gsl_vector_view xView = gsl_vector_view_array(x, DIM);
-
-  extractDimensionlessVariableVector(currentParams, x, mode);
+  if (cbc==1)
+    extractDimensionlessVariableVector(currentParams, x, mode);
+  else
+    extractTIGERDimensionlessVariableVector(currentParams, x, mode);
 
   memcpy(xOrig, x, DIM*sizeof(REAL8));
 
   if (LUCM==NULL) {
-    gsl_matrix_const_view CMView = gsl_matrix_const_view_array(&(CM[0][0]), DIM, DIM);
+    gsl_matrix_const_view CMView = gsl_matrix_const_view_array(cm, DIM, DIM);
     int signum;
 
     LUCM = gsl_matrix_alloc(DIM, DIM);
@@ -1325,14 +1536,38 @@ REAL8 LALInferenceCorrelatedAnalyticLogLikelihood(LALInferenceVariables *current
   for (i = 0; i < DIM; i++) {
     sum += xOrig[i]*x[i];
   }
+
+  if (LUCM) gsl_matrix_free(LUCM);
+  if (LUCMPerm) gsl_permutation_free(LUCMPerm);
+
   return -sum/2.0;
 }
 
 REAL8 LALInferenceBimodalCorrelatedAnalyticLogLikelihood(LALInferenceVariables *currentParams,
-                                                  LALInferenceIFOData UNUSED *data,
-                                                  LALInferenceModel UNUSED *model) {
-  const INT4 DIM = 15;
-  const INT4 MODES = 2;
+                                                  LALInferenceIFOData  *data,
+                                                  LALInferenceModel  *model) {
+  INT4 tmpdim=0;
+  int cbc=1;
+  const REAL8 *cm=NULL;
+  int ifo=0;
+  while(data){
+    model->ifo_loglikelihoods[ifo]=0.0;
+    ifo++;
+    data=data->next;
+  }
+
+  if (LALInferenceCheckVariable(currentParams, "dchi1") ||LALInferenceCheckVariable(currentParams, "dchi3") ||LALInferenceCheckVariable(currentParams, "dchi2") ){
+    /* We are dealing with a TIGER aligned run Set dimensions and CVM accordingly*/
+    tmpdim = 14;
+    cm=&(tCM[0][0]);
+    cbc=0;
+  }
+  else{
+    /* We are dealing with a  spinning CBC. Set dimensions and CVM accordinly*/
+    tmpdim = 15;
+    cm=&(CM[0][0]);
+  }
+  const INT4 DIM = tmpdim;  const INT4 MODES = 2;
   INT4 i, mode;
   REAL8 sum = 0.0;
   REAL8 a, b;
@@ -1345,7 +1580,7 @@ REAL8 LALInferenceBimodalCorrelatedAnalyticLogLikelihood(LALInferenceVariables *
   REAL8 exps[MODES];
 
   if (LUCM==NULL) {
-    gsl_matrix_const_view CMView = gsl_matrix_const_view_array(&(CM[0][0]), DIM, DIM);
+    gsl_matrix_const_view CMView = gsl_matrix_const_view_array(cm, DIM, DIM);
     int signum;
 
     LUCM = gsl_matrix_alloc(DIM, DIM);
@@ -1359,7 +1594,10 @@ REAL8 LALInferenceBimodalCorrelatedAnalyticLogLikelihood(LALInferenceVariables *
   for(mode = 1; mode < 3; mode++) {
     xView = gsl_vector_view_array(x, DIM);
 
-    extractDimensionlessVariableVector(currentParams, x, mode);
+    if (cbc==1)
+      extractDimensionlessVariableVector(currentParams, x, mode);
+    else
+      extractTIGERDimensionlessVariableVector(currentParams, x, mode);
 
     memcpy(xOrig, x, DIM*sizeof(REAL8));
 
@@ -1380,6 +1618,9 @@ REAL8 LALInferenceBimodalCorrelatedAnalyticLogLikelihood(LALInferenceVariables *
     a = exps[1];
     b = exps[0];
   }
+
+  if (LUCM) gsl_matrix_free(LUCM);
+  if (LUCMPerm) gsl_permutation_free(LUCMPerm);
 
   /* attempt to keep returned values finite */
   return a + log1p(exp(b-a));

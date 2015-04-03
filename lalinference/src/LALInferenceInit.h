@@ -76,6 +76,8 @@ LALInferenceModel *LALInferenceInitModelReviewEvidence(LALInferenceRunState *sta
 LALInferenceModel *LALInferenceInitModelReviewEvidence_bimod(LALInferenceRunState *state);
 LALInferenceModel *LALInferenceInitModelReviewEvidence_banana(LALInferenceRunState *state);
 
+LALInferenceModel *LALInferenceInitTIGERModelReviewEvidence(LALInferenceRunState *state);
+LALInferenceModel *LALInferenceInitTIGERModelReviewEvidence_bimod(LALInferenceRunState *state);
 /**
  * Check options consistency 
  **/

@@ -283,7 +283,14 @@ Nested sampling arguments:\n\
         if(LALInferenceGetProcParamVal(commandLine,"--rosenbrockLikelihood")){
                 runState->prior=LALInferenceAnalyticNullPrior;
         }
-    
+  if(LALInferenceGetProcParamVal(commandLine,"--TIGERGaussianLikelihood")){
+		runState->prior=LALInferenceAnalyticNullPrior;
+	}
+  if(LALInferenceGetProcParamVal(commandLine,"--bimodalTIGERGaussianLikelihood")){
+		runState->prior=LALInferenceAnalyticNullPrior;
+	}
+
+
 	#ifdef HAVE_LIBLALXML
 	runState->logsample=LogNSSampleAsMCMCSampleToArray;
 	#else
