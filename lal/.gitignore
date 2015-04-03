@@ -45,6 +45,7 @@ src/config.h
 src/config.h.in
 src/fft/CudaFFT.cpp
 src/git_version
+src/lal-simd-detect
 src/lal-version
 src/stamp-h1
 src/stamp-h2
@@ -83,6 +84,7 @@ test/stats/XLALChisqTest
 test/std/LALConstantsTest
 test/std/LALGSLTest
 test/std/LALMallocTest
+test/std/LALStringTest
 test/std/LALVersionTest
 test/std/StringConvertTest
 test/support/ConfigFileTest
