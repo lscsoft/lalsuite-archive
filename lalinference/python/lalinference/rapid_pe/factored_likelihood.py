@@ -244,7 +244,6 @@ def single_detector_log_likelihood(rholm_vals, crossTerms, Ylms, F, dist):
     """
 
     invDistMpc = (lal.PC_SI*1e6*distMpcRef)/dist
-    print type(F), F
     Fstar = np.conj(F)
 
     # Eq. 35 of Richard's notes
@@ -256,7 +255,6 @@ def single_detector_log_likelihood(rholm_vals, crossTerms, Ylms, F, dist):
     for pair1, Ylm1 in Ylms.iteritems():
         l1, m1 = pair1
         n_one_l1 = (-1)**l1
-        print type(Ylm1), Ylm1
         Ylm1_conj = np.conj(Ylm1)
         term1 += Ylm1_conj * rholm_vals[pair1]
         for pair2, Ylm2 in Ylms.iteritems():
