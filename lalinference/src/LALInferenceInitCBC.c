@@ -1280,7 +1280,7 @@ LALInferenceModel *LALInferenceInitTIGERModelReviewEvidence(LALInferenceRunState
 		{.name="m2", .val=7., .min=1.7419584468, .max=12.2580415532},
 		{.name="distance", .val=50., .min=45.9933722989, .max=54.0066277011},
 		{.name="theta_jn", .val=LAL_PI/2., .min=0.8277080108, .max=2.3138846428},
-		{.name="phase", .val=LAL_PI, .min=2.3138846428, .max=4.7035497392},
+		{.name="phase", .val=LAL_PI, .min=1.5796355680,.max=4.7035497392},
 		{.name="polarisation", .val=LAL_PI/2., .min=0.8998400640, .max=2.2417525896},
 		{.name="rightascension", .val=LAL_PI, .min=1.6191582823, .max=4.6640270249},
 		{.name="declination", .val=0., .min=-1.1783564777, .max=1.1783564777},
