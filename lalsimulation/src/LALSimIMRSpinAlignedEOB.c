@@ -1513,6 +1513,7 @@ int XLALSimIMRSpinEOBWaveform(
   memset( &eobParams, 0, sizeof(eobParams) );
   memset( &hCoeffs, 0, sizeof( hCoeffs ) );
   memset( &prefixes, 0, sizeof( prefixes ) );
+  memset( &nqcCoeffs, 0, sizeof( nqcCoeffs ) );
 
   /* Variables for the integrator */
   ark4GSLIntegrator       *integrator = NULL;
@@ -1824,6 +1825,9 @@ int XLALSimIMRSpinEOBWaveform(
             XLAL_ERROR( XLAL_EFUNC );
         }
     }
+    tmpValues2->data[12] = 0.;
+    tmpValues2->data[13] = 0.;
+    
 //    //v2 0.8 .06
 //    tmpValues2->data[0]=  2.4947503693442151e+01;
 //    tmpValues2->data[1]= 0.0000000000000000e+00;
