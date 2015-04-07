@@ -2978,7 +2978,8 @@ class SimBurst(TableRow):
 	def ra_dec(self, radec):
 		if radec is None:
 			self.ra = self.dec = None
-		self.ra, self.dec = radec
+		else:
+			self.ra, self.dec = radec
 
 	def get_time_geocent(self):
 		return self.time_geocent
