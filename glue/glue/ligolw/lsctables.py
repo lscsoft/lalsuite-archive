@@ -2941,6 +2941,9 @@ class SimBurst(TableRow):
 	>>> x.ra_dec = 0., 0.
 	>>> x.ra_dec
 	(0.0, 0.0)
+	>>> x.ra_dec = None
+	>>> print x.ra_dec
+	None
 	>>> x.time_geocent = None
 	>>> print x.time_geocent
 	None
