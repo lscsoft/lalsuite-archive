@@ -38,11 +38,11 @@ import sys
 
 from glue import git_version
 from glue.lal import CacheEntry
-from glue.ligolw.utils import ligolw_add
 from glue.ligolw import ligolw
-from glue.ligolw import array
+from glue.ligolw import array as ligolw_array
 from glue.ligolw import lsctables
-from glue.ligolw import utils
+from glue.ligolw import utils as ligolw_utils
+from glue.ligolw.utils import ligolw_add
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -175,7 +175,7 @@ options, urls = parse_command_line()
 class ContentHandler(ligolw.LIGOLWContentHandler):
 	pass
 
-array.use_in(ContentHandler)
+ligolw_array.use_in(ContentHandler)
 lsctables.use_in(ContentHandler)
 
 
@@ -201,7 +201,7 @@ if options.add_lfn_table:
 #
 
 
-utils.write_filename(xmldoc, options.output, verbose = options.verbose, gz = (options.output or "stdout").endswith(".gz"))
+ligolw_utils.write_filename(xmldoc, options.output, verbose = options.verbose, gz = (options.output or "stdout").endswith(".gz"))
 
 
 #
