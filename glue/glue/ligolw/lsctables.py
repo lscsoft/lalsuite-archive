@@ -150,13 +150,6 @@ def IsTableProperties(Type, tagname, attrs):
 	return table.CompareTableNames(attrs[u"Name"], Type.tableName) == 0
 
 
-def getTablesByType(elem, Type):
-	"""
-	Return a list of tables of type Type under elem.
-	"""
-	return table.getTablesByName(elem, Type.tableName)
-
-
 def HasNonLSCTables(elem):
 	"""
 	Return True if the document tree below elem contains non-LSC

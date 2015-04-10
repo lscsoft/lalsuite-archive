@@ -5057,9 +5057,9 @@ def readCoincXML(xml_file, trignum):
 
     from glue.ligolw import ligolw
     coincXML = utils.load_filename(xml_file, contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
-    coinc = lsctables.getTablesByType(coincXML, lsctables.CoincTable)[0]
-    coincMap = lsctables.getTablesByType(coincXML, lsctables.CoincMapTable)[0]
-    snglInsps = lsctables.getTablesByType(coincXML, lsctables.SnglInspiralTable)[0]
+    coinc = lsctables.CoincTable.get_table(coincXML)
+    coincMap = lsctables.CoincMapTable.get_table(coincXML)
+    snglInsps = lsctables.SnglInspiralTable.get_table(coincXML)
 
     if (trignum>len(coinc)):
         raise RuntimeError("Error: You asked for trigger %d, but %s contains only %d triggers" %(trignum,coincfile,len(tiggers)))
