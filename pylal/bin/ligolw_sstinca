@@ -141,6 +141,7 @@ def parse_command_line():
 	parser.add_option("--drop-veto-info", action = "store_true", help = "Remove the segment, segment_definer, veto_definer and segment_summary tables from the xmldoc as well as the associated rows in the process and process_params tables.")
 	parser.add_option("--make-expr-tables", action = "store_true", help = "Make and populate the set of experiment tables needed for the pipedown post-processing pipeline.")
 	parser.add_option("--likelihood-output-file", action="store", metavar="FILENAME", default=None, help="If provided, write the details of the single inspiral triggers into a gstlal-style likelihood output xml file. This can then be used in the gstlal post-processing code")
+	parser.add_option("--output-file", action="store", metavar="FILENAME", default=None, help="Name of the file to write output coincidences to. If not given the output file name is constructed from the input file name.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filename = parser.parse_args()
 
@@ -394,7 +395,10 @@ ligolw_process.set_process_end_time(process)
 #
 # Write back to disk, and clean up.
 #
-output_filename = re.sub('LLWADD','THINCA',filename[0])
+if options.output_file is not None:
+	output_filename = options.output_file
+else:
+	output_filename = re.sub('LLWADD','THINCA',filename[0])
 utils.write_filename(xmldoc, output_filename, verbose = options.verbose, gz = (output_filename or "stdout").endswith(".gz"))
 xmldoc.unlink()
 
