@@ -521,7 +521,7 @@ class TableStream(ligolw.Stream):
 		"""
 		self._tokenizer = None
 		self._rowbuilder = None
-		ligolw.Stream.unlink(self)
+		super(TableStream, self).unlink()
 
 	def endElement(self):
 		# stream tokenizer uses delimiter to identify end of each
@@ -774,7 +774,7 @@ class Table(ligolw.Table, list):
 		Used for validation during parsing, and additional
 		book-keeping.  For internal use only.
 		"""
-		ligolw.Table._verifyChildren(self, i)
+		super(Table, self)._verifyChildren(i)
 		child = self.childNodes[i]
 		if child.tagName == ligolw.Column.tagName:
 			self._update_column_info()
