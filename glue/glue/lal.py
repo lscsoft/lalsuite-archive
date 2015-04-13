@@ -98,6 +98,12 @@ class LIGOTimeGPS(object):
 		LIGOTimeGPS(100, 500000000)
 		>>> LIGOTimeGPS(100.2, 300000000)
 		LIGOTimeGPS(100, 500000000)
+		>>> LIGOTimeGPS("0.000000001")
+		LIGOTimeGPS(0, 1)
+		>>> LIGOTimeGPS("0.0000000012")
+		LIGOTimeGPS(0, 1)
+		>>> LIGOTimeGPS("0.0000000018")
+		LIGOTimeGPS(0, 2)
 		"""
 		if type(nanoseconds) not in (float, int, long):
 			try:
@@ -113,7 +119,7 @@ class LIGOTimeGPS(object):
 				try:
 					if "." in seconds:
 						seconds, ns = seconds.split(".")
-						ns = float("." + ns) * 1e9
+						ns = round(float("." + ns) * 1e9)
 					else:
 						ns = 0
 					seconds = int(seconds)
