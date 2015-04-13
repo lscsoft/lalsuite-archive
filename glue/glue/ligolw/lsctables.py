@@ -127,27 +127,14 @@ def New(Type, columns = None, **kwargs):
 	return new
 
 
-def IsTableElement(Type, elem):
-	"""
-	Convenience function to check that an element is a Table of type
-	Type.
-	"""
-	return elem.tagName == ligolw.Table.tagName and elem.Name == table.StripTableName(Type.tableName)
-
-
 def IsTableProperties(Type, tagname, attrs):
 	"""
-	Convenience function to check that the given tag name and
-	attributes match those of a Table of type Type.
-
-	Example:
-
-	>>> IsTableProperties(ProcessTable, u"Table", {u"Name": u"process:table"})
-	True
+	obsolete.  see .CheckProperties() method of glue.ligolw.table.Table
+	class.
 	"""
-	if tagname != ligolw.Table.tagName:
-		return False
-	return table.CompareTableNames(attrs[u"Name"], Type.tableName) == 0
+	import warnings
+	warings.warn("lsctables.IsTableProperties() is deprecated.  use glue.ligolw.table.Table.CheckProperties() instead", DeprecationWarning)
+	return Type.CheckProperties(tagname, attrs)
 
 
 def HasNonLSCTables(elem):
