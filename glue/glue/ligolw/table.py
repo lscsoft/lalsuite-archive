@@ -499,7 +499,7 @@ class TableStream(ligolw.Stream):
 			# FIXME:  convert loadcolumns attributes to sets to
 			# avoid the conversion.
 			loadcolumns &= set(parentNode.loadcolumns)
-		self._tokenizer.set_types([(colname in loadcolumns) and pytype or None for pytype, colname in zip(parentNode.columnpytypes, parentNode.columnnames)])
+		self._tokenizer.set_types([(pytype if colname in loadcolumns else None) for pytype, colname in zip(parentNode.columnpytypes, parentNode.columnnames)])
 		columnnames = [name for name in parentNode.columnnames if name in loadcolumns]
 		# FIXME:  convert interncolumns attributes to sets to
 		# simplify computing the intersection
