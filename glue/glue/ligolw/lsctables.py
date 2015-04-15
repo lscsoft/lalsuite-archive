@@ -133,7 +133,7 @@ def IsTableProperties(Type, tagname, attrs):
 	class.
 	"""
 	import warnings
-	warings.warn("lsctables.IsTableProperties() is deprecated.  use glue.ligolw.table.Table.CheckProperties() instead", DeprecationWarning)
+	warnings.warn("lsctables.IsTableProperties() is deprecated.  use glue.ligolw.table.Table.CheckProperties() instead", DeprecationWarning)
 	return Type.CheckProperties(tagname, attrs)
 
 
