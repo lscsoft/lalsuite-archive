@@ -620,7 +620,9 @@ class Time(Element):
 				from lal import LIGOTimeGPS
 			except ImportError:
 				from glue.lal import LIGOTimeGPS
-			self.pcdata = LIGOTimeGPS(self.pcdata)
+			# FIXME:  remove cast to string when lal swig
+			# can cast from unicode
+			self.pcdata = LIGOTimeGPS(str(self.pcdata))
 		elif self.Type == u"Unix":
 			self.pcdata = float(self.pcdata)
 		else:
