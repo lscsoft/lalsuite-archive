@@ -166,12 +166,19 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 
 	if(PyUnicode_Check(seconds)) {
 		/* convert to ascii string */
-		PyObject *str = PyUnicode_AsASCIIString(seconds);
-		if(!str)
+		PyObject *as_string = PyUnicode_AsASCIIString(seconds);
+		char *end, *str;
+		int result;
+		if(!as_string)
 			return -1;
-		seconds = str;
-	}
-	if(PyString_Check(seconds)) {
+		str = PyString_AsString(seconds);
+		result = XLALStrToGPS(gps, str, &end);
+		Py_DECREF(as_string);
+		if((result < 0) || (end == str)) {
+			PyErr_SetObject(PyExc_ValueError, seconds);
+			return -1;
+		}
+	} else if(PyString_Check(seconds)) {
 		char *end, *str = PyString_AsString(seconds);
 		int result = XLALStrToGPS(gps, str, &end);
 		if((result < 0) || (end == str)) {
