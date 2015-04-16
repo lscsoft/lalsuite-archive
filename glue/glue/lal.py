@@ -104,6 +104,10 @@ class LIGOTimeGPS(object):
 		LIGOTimeGPS(0, 1)
 		>>> LIGOTimeGPS("0.0000000018")
 		LIGOTimeGPS(0, 2)
+		>>> LIGOTimeGPS("-0.8")
+		LIGOTimeGPS(-1, 200000000)
+		>>> LIGOTimeGPS("-1.2")
+		LIGOTimeGPS(-2, 800000000)
 		"""
 		if type(nanoseconds) not in (float, int, long):
 			try:
@@ -111,23 +115,21 @@ class LIGOTimeGPS(object):
 			except:
 				raise TypeError(nanoseconds)
 		if type(seconds) is float:
-			seconds, ns = divmod(seconds, 1)
+			ns, seconds = math.modf(seconds)
 			seconds = int(seconds)
 			nanoseconds += ns * 1e9
 		elif type(seconds) not in (int, long):
 			if type(seconds) in (str, unicode):
+				sign = -1 if seconds.lstrip().startswith("-") else +1
 				try:
 					if "." in seconds:
 						seconds, ns = seconds.split(".")
-						ns = round(float("." + ns) * 1e9)
+						ns = round(sign * float("." + ns) * 1e9)
 					else:
 						ns = 0
 					seconds = int(seconds)
 				except:
 					raise TypeError("invalid literal for LIGOTimeGPS(): %s" % seconds)
-				if seconds < 0 and ns:
-					seconds -= 1
-					ns = 1e9 - ns
 				nanoseconds += ns
 			else:
 				try:
