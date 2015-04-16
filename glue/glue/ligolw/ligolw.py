@@ -614,10 +614,10 @@ class Time(Element):
 			import dateutil.parser
 			self.pcdata = dateutil.parser.parse(self.pcdata)
 		elif self.Type == u"GPS":
+			# FIXME:  remove try/except when we can rely on lal
+			# being installed
 			try:
-				# FIXME:  switch to lal.LIGOTimeGPS when it
-				# can type-cast strings
-				from pylal.xlal.datatypes import LIGOTimeGPS
+				from lal import LIGOTimeGPS
 			except ImportError:
 				from glue.lal import LIGOTimeGPS
 			self.pcdata = LIGOTimeGPS(self.pcdata)
@@ -649,6 +649,11 @@ class Time(Element):
 
 	@classmethod
 	def now(cls, Name = None):
+		"""
+		Instantiate a Time element initialized to the current UTC
+		time in the default format (ISO-8601).  The Name attribute
+		will be set to the value of the Name parameter if given.
+		"""
 		self = cls()
 		if Name is not None:
 			self.Name = Name
@@ -657,6 +662,11 @@ class Time(Element):
 
 	@classmethod
 	def from_gps(cls, gps, Name = None):
+		"""
+		Instantiate a Time element initialized to the value of the
+		given GPS time.  The Name attribute will be set to the
+		value of the Name parameter if given.
+		"""
 		self = cls(AttributesImpl({u"Type": u"GPS"}))
 		if Name is not None:
 			self.Name = Name
