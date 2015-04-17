@@ -1392,70 +1392,249 @@ class SnglBurst(object):
 	# Tile properties
 	#
 
-	def get_start(self):
+	@property
+	def start(self):
+		if self.start_time is None and self.start_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.start_time, self.start_time_ns)
 
-	def set_start(self, gps):
-		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+	@start.setter
+	def start(self, gps):
+		if gps is None:
+			self.start_time = self.start_time_ns = None
+		else:
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
-	def get_stop(self):
+	@property
+	def stop(self):
+		if self.stop_time is None and self.stop_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.stop_time, self.stop_time_ns)
 
-	def set_stop(self, gps):
-		self.stop_time, self.stop_time_ns = gps.seconds, gps.nanoseconds
+	@stop.setter
+	def stop(self, gps):
+		if gps is None:
+			self.stop_time = self.stop_time_ns = None
+		else:
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.stop_time, self.stop_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.stop_time, self.stop_time_ns = gps.seconds, gps.nanoseconds
 
-	def get_peak(self):
+	@property
+	def peak(self):
+		if self.peak_time is None and self.peak_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
 
-	def set_peak(self, gps):
-		self.peak_time, self.peak_time_ns = gps.seconds, gps.nanoseconds
+	@peak.setter
+	def peak(self, gps):
+		if gps is None:
+			self.peak_time = self.peak_time_ns = None
+		else:
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.peak_time, self.peak_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.peak_time, self.peak_time_ns = gps.seconds, gps.nanoseconds
 
-	def get_period(self):
-		start = self.get_start()
-		return segments.segment(start, start + self.duration)
+	@property
+	def period(self):
+		start = self.start
+		stop = self.stop
+		# special case:  use duration if stop is not recorded
+		if start is not None and stop is None and self.duration is not None:
+			stop = start + self.duration
+		if start is None and stop is None:
+			return None
+		return segments.segment(start, stop)
 
-	def set_period(self, period):
-		self.start_time, self.start_time_ns = period[0].seconds, period[0].nanoseconds
-		self.duration = float(abs(period))
+	@period.setter
+	def period(self, seg):
+		if seg is None:
+			self.start = self.stop = self.duration = None
+		else:
+			self.start, self.stop = seg
+			self.duration = float(abs(seg))
 
-	def get_band(self):
-		low = self.central_freq - self.bandwidth / 2
-		return segments.segment(low, low + self.bandwidth)
+	@property
+	def band(self):
+		if self.central_freq is None and self.bandwidth is None:
+			return None
+		return segments.segment(self.central_freq - self.bandwidth / 2., self.central_freq + self.bandwidth / 2.)
 
-	def set_band(self, band):
-		self.central_freq = (band[0] + band[1])/2.0
-		self.bandwidth = abs(band)
+	@band.setter
+	def band(self, seg):
+		if seg is None:
+			try:
+				self.flow = self.fhigh = None
+			except AttributeError:
+				# not in LAL C version
+				pass
+			self.central_freq = self.bandwidth = None
+		else:
+			try:
+				self.flow, self.fhigh = seg
+			except AttributeError:
+				# not in LAL C version
+				pass
+			self.central_freq = sum(seg) / 2.
+			self.bandwidth = abs(seg)
 
 	#
 	# "Most significant pixel" properties
 	#
 
-	def get_ms_start(self):
+	@property
+	def ms_start(self):
+		if self.ms_start_time is None and self.ms_start_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.ms_start_time, self.ms_start_time_ns)
 
-	def set_ms_start(self, gps):
-		self.ms_start_time, self.ms_start_time_ns = gps.seconds, gps.nanoseconds
+	@ms_start.setter
+	def ms_start(self, gps):
+		if gps is None:
+			self.ms_start_time = self.ms_start_time_ns = None
+		else:
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.ms_start_time, self.ms_start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.ms_start_time, self.ms_start_time_ns = gps.seconds, gps.nanoseconds
 
-	def get_ms_stop(self):
+	@property
+	def ms_stop(self):
+		if self.ms_stop_time is None and self.ms_stop_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.ms_stop_time, self.ms_stop_time_ns)
 
-	def set_ms_stop(self, gps):
-		self.ms_stop_time, self.ms_stop_time_ns = gps.seconds, gps.nanoseconds
+	@ms_stop.setter
+	def ms_stop(self, gps):
+		if gps is None:
+			self.ms_stop_time = self.ms_stop_time_ns = None
+		else:
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.ms_stop_time, self.ms_stop_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.ms_stop_time, self.ms_stop_time_ns = gps.seconds, gps.nanoseconds
 
-	def get_ms_period(self):
-		start = self.get_ms_start()
-		return segments.segment(start, start + self.ms_duration)
+	@property
+	def ms_peak(self):
+		if self.ms_peak_time is None and self.ms_peak_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.ms_peak_time, self.ms_peak_time_ns)
 
-	def set_ms_period(self, period):
-		self.ms_start_time, self.ms_start_time_ns = period[0].seconds, period[0].nanoseconds
-		self.ms_duration = float(abs(period))
+	@ms_peak.setter
+	def ms_peak(self, gps):
+		if gps is None:
+			self.ms_peak_time = self.ms_peak_time_ns = None
+		else:
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.ms_peak_time, self.ms_peak_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.ms_peak_time, self.ms_peak_time_ns = gps.seconds, gps.nanoseconds
 
-	def get_ms_band(self):
+	@property
+	def ms_period(self):
+		start = self.ms_start
+		stop = self.ms_stop
+		# special case:  use duration if stop is not recorded
+		if start is not None and stop is None and self.ms-duration is not None:
+			stop = start + self.ms_duration
+		if start is None and stop is None:
+			return None
+		return segments.segment(start, stop)
+
+	@ms_period.setter
+	def ms_period(self, seg):
+		if seg is None:
+			self.ms_start = self.ms_stop = self.ms_duration = None
+		else:
+			self.ms_start, self.ms_stop = seg
+			self.ms_duration = float(abs(seg))
+
+	@property
+	def ms_band(self):
+		if self.ms_flow is None and self.ms_bandwidth is None:
+			return None
 		return segments.segment(self.ms_flow, self.ms_flow + self.ms_bandwidth)
 
+	@ms_band.setter
+	def ms_band(self, seg):
+		if seg is None:
+			self.ms_bandwidth = self.ms_flow = self.ms_fhigh = None
+		else:
+			self.ms_flow, self.ms_fhigh = seg
+			self.ms_bandwidth = abs(seg)
+
+	# legacy compatibility.  DO NOT USE
+
+	def get_start(self):
+		return self.start
+
+	def set_start(self, gps):
+		self.start = gps
+
+	def get_stop(self):
+		return self.stop
+
+	def set_stop(self, gps):
+		self.stop = gps
+
+	def get_peak(self):
+		return self.peak
+
+	def set_peak(self, gps):
+		self.peak = gps
+
+	def get_period(self):
+		return self.period
+
+	def set_period(self, period):
+		self.period = period
+
+	def get_band(self):
+		return self.band
+
+	def set_band(self, band):
+		self.band = band
+
+	def get_ms_start(self):
+		return self.ms_start
+
+	def set_ms_start(self, gps):
+		self.ms_start = gps
+
+	def get_ms_stop(self):
+		return self.ms_stop
+
+	def set_ms_stop(self, gps):
+		self.ms_stop = gps
+
+	def get_ms_period(self):
+		return self.ms_period
+
+	def set_ms_period(self, period):
+		self.ms_period = period
+
+	def get_ms_band(self):
+		return self.ms_band
+
 	def set_ms_band(self, band):
-		self.ms_flow = band[0]
-		self.ms_bandwidth = abs(band)
+		self.ms_band = band
 
 	#
 	# Omega-Pipeline properties
