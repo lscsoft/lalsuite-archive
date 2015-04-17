@@ -141,6 +141,21 @@ class LigolwSegments(set):
 	This class is a subclass of the Python set builtin.  Each element
 	of the set is a LigolwSegmentList instance describing one of the
 	segment lists in the original XML document.
+
+	This class may be used as a context manager to automate the
+	replacement of segments back into the XML document, including in
+	the event of an untrapped exception.  When used as a context
+	manager, the process parameter of the .__init__() method is not
+	optional.
+
+	Example:
+
+	with LigolwSegments(xmldoc, process) as xmlsegments:
+		# ... do things ... all segments have been extracted from
+		# the xml document and are being held in xmlsegments, which
+		# you can manipulate if you wish
+		pass
+	# now all segments have bene put back into the xml document.
 	"""
 	def __init__(self, xmldoc, process = None):
 		#
