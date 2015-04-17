@@ -623,9 +623,9 @@ static INT4 XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 	    r   = values->data[0];
 	    pp	= values->data[3];
 
-        rcrossp_x = values->data[1] * values->data[5] - values->data[2] * values->data[4];
-        rcrossp_y = values->data[2] * values->data[3] - values->data[0] * values->data[5];
-        rcrossp_z = values->data[0] * values->data[4] - values->data[1] * values->data[3];
+        rcrossp_x = cartvalues->data[1] * cartvalues->data[5] - cartvalues->data[2] * cartvalues->data[4];
+        rcrossp_y = cartvalues->data[2] * cartvalues->data[3] - cartvalues->data[0] * cartvalues->data[5];
+        rcrossp_z = cartvalues->data[0] * cartvalues->data[4] - cartvalues->data[1] * cartvalues->data[3];
 
         //pp = sqrt( rcrossp_x*rcrossp_x + rcrossp_y*rcrossp_y + rcrossp_z*rcrossp_z );
     
@@ -1069,9 +1069,9 @@ static INT4 XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 	    r   = values->data[0];
 	    pp	= values->data[3];
 
-        rcrossp_x = values->data[1] * values->data[5] - values->data[2] * values->data[4];
-        rcrossp_y = values->data[2] * values->data[3] - values->data[0] * values->data[5];
-        rcrossp_z = values->data[0] * values->data[4] - values->data[1] * values->data[3];
+        rcrossp_x = cartvalues->data[1] * cartvalues->data[5] - cartvalues->data[2] * cartvalues->data[4];
+        rcrossp_y = cartvalues->data[2] * cartvalues->data[3] - cartvalues->data[0] * cartvalues->data[5];
+        rcrossp_z = cartvalues->data[0] * cartvalues->data[4] - cartvalues->data[1] * cartvalues->data[3];
 
         //pp = sqrt( rcrossp_x*rcrossp_x + rcrossp_y*rcrossp_y + rcrossp_z*rcrossp_z );
     
