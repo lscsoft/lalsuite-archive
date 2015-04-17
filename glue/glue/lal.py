@@ -143,8 +143,8 @@ class LIGOTimeGPS(object):
 		self.__seconds = seconds + int(nanoseconds // 1000000000)
 		self.__nanoseconds = int(nanoseconds % 1000000000)
 
-	seconds = property(lambda self: self.__seconds)
-	nanoseconds = property(lambda self: self.__nanoseconds)
+	seconds = gpsSeconds = property(lambda self: self.__seconds)
+	nanoseconds = gpsNanoSeconds = property(lambda self: self.__nanoseconds)
 
 	def __repr__(self):
 		return "LIGOTimeGPS(%d, %u)" % (self.__seconds, self.__nanoseconds)
