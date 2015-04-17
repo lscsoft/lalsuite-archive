@@ -216,7 +216,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   REAL8 sMultiplier1, sMultiplier2;
 
   /*Temporary p vector which we will make non-tortoise */
-  REAL8 tmpP[3];
+    REAL8 tmpP[3] = {0.};
 
   REAL8 csi;
 
@@ -735,7 +735,7 @@ XLALSimIMRSpinAlignedEOBCalcOmega(
   HcapDerivParams params;
 
   /* Cartesian values for calculating the Hamiltonian */
-  REAL8 cartValues[6];
+    REAL8 cartValues[6] = {0.};
 
   gsl_function F;
   INT4         gslStatus;
@@ -791,7 +791,7 @@ XLALSimIMRSpinAlignedEOBNonKeplerCoeff(
 
   REAL8 omegaCirc;
 
-  REAL8 tmpValues[4];
+  REAL8 tmpValues[4]= {0.};
 
   REAL8 r3;
 
@@ -817,7 +817,7 @@ static double GSLSpinAlignedHamiltonianWrapper( double x, void *params )
 
   EOBParams *eobParams = dParams->params->eobParams;
 
-  REAL8 tmpVec[6];
+  REAL8 tmpVec[6]= {0.};
 
   /* These are the vectors which will be used in the call to the Hamiltonian */
   REAL8Vector r, p;
@@ -927,8 +927,8 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
 
   //////////////////////////////////////////////////
   //
-    REAL8 Rot1[3][3] ; // Rotation matrix for prevention of blowing up
-  REAL8 Rot2[3][3] ;
+    REAL8 Rot1[3][3] ={{0.}}; // Rotation matrix for prevention of blowing up
+    REAL8 Rot2[3][3] ={{0.}} ;
   REAL8 LNhat[3] = {0.}; memcpy( LNhat, rcrossrdot, 3 * sizeof(REAL8) );
 
   REAL8 Xhat[3] = {1, 0, 0};
@@ -1137,11 +1137,11 @@ UNUSED static int XLALSpinHcapRvecDerivative(
   REAL8 mass1, mass2, eta;
   REAL8 UNUSED rrTerm2, pDotS1, pDotS2;
   REAL8Vector s1, s2, s1norm, s2norm, sKerr, sStar;
-  REAL8       s1Data[3], s2Data[3], s1DataNorm[3], s2DataNorm[3];
-  REAL8       sKerrData[3], sStarData[3];
+  REAL8       s1Data[3]= {0.}, s2Data[3]= {0.}, s1DataNorm[3]= {0.}, s2DataNorm[3]= {0.};
+  REAL8       sKerrData[3]= {0.}, sStarData[3]= {0.};
   REAL8 /*magS1, magS2,*/ chiS, chiA, a, tplspin;
   REAL8	UNUSED s1dotL, s2dotL;
-  REAL8	UNUSED	  rcrossrDot[3], rcrossrDotMag, s1dotLN, s2dotLN;
+  REAL8	UNUSED	  rcrossrDot[3]= {0.}, rcrossrDotMag, s1dotLN, s2dotLN;
 
 
   /* Orbital angular momentum */
@@ -1157,14 +1157,14 @@ UNUSED static int XLALSpinHcapRvecDerivative(
   /* The error in a derivative as measured by GSL */
   REAL8 absErr;
 
-	  REAL8 tmpP[3], rMag, rMag2, prT;
+    REAL8 tmpP[3]= {0.}, rMag, rMag2, prT;
 	  REAL8 u, u2, u3, u4, u5, w2, a2;
 	  REAL8 D, m1PlusetaKK, bulk, logTerms, deltaU, deltaT, deltaR;
 	  REAL8 UNUSED eobD_r, deltaU_u, deltaU_r, deltaT_r;
 	  REAL8 dcsi, csi;
 	  
-	REAL8 tmpValues[12];
-	REAL8 UNUSED Tmatrix[3][3], invTmatrix[3][3], dTijdXk[3][3][3];
+	REAL8 tmpValues[12]= {0.};
+    REAL8 UNUSED Tmatrix[3][3]= {{0.}}, invTmatrix[3][3]= {{0.}}, dTijdXk[3][3][3]= {{{0.}}};
 	//REAL8 tmpPdotT1[3], tmpPdotT2[3], tmpPdotT3[3]; // 3 terms of Eq. A5
 	
   /* Set up pointers for GSL */ 
@@ -1190,7 +1190,7 @@ UNUSED static int XLALSpinHcapRvecDerivative(
     /* Due to precession, these need to get calculated in every step */
     //memset( params.params->seobCoeffs, 0, sizeof(SpinEOBHCoeffs) );
     
-    REAL8 tmps1Data[3], tmps2Data[3]; REAL8Vector tmps1Vec, tmps2Vec;
+    REAL8 tmps1Data[3]= {0.}, tmps2Data[3]= {0.}; REAL8Vector tmps1Vec, tmps2Vec;
     memcpy( tmps1Data, values+6, 3*sizeof(REAL8) );
     memcpy( tmps2Data, values+9, 3*sizeof(REAL8) );
     tmps1Vec.data   = tmps1Data; tmps2Vec.data   = tmps2Data;
@@ -1524,8 +1524,8 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
   EOBParams *eobParams = (EOBParams*) dParams->params->eobParams;
   SpinEOBHCoeffs UNUSED *coeffs = (SpinEOBHCoeffs*) dParams->params->seobCoeffs;
   
-  REAL8 tmpVec[12];
-  REAL8 s1normData[3], s2normData[3], sKerrData[3], sStarData[3];
+  REAL8 tmpVec[12]= {0.};
+  REAL8 s1normData[3]= {0.}, s2normData[3]= {0.}, sKerrData[3]= {0.}, sStarData[3]= {0.};
 
   /* These are the vectors which will be used in the call to the Hamiltonian */
   REAL8Vector r, p, spin1, spin2, spin1norm, spin2norm;
@@ -1600,7 +1600,7 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
 	  dParams->params->tortoise = 2;
 	  
 	  /* Convert momenta to p */
-	  REAL8 tmpP[3];
+	  REAL8 tmpP[3]= {0.};
 	  REAL8 rMag = sqrt(r.data[0]*r.data[0] + r.data[1]*r.data[1] 
 					+ r.data[2]*r.data[2]);
 	  REAL8 prT = p.data[0]*(r.data[0]/rMag) + p.data[1]*(r.data[1]/rMag) 
@@ -1663,9 +1663,9 @@ static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params )
   EOBParams *eobParams = (EOBParams*) dParams->params->eobParams;
   SpinEOBHCoeffs UNUSED *coeffs = (SpinEOBHCoeffs*) dParams->params->seobCoeffs;
   
-  REAL8 tmpVec[12];
-  REAL8 rpolar[3], rcart[3], ppolar[3], pcart[3];
-  REAL8 s1normData[3], s2normData[3], sKerrData[3], sStarData[3];
+    REAL8 tmpVec[12] = {0.};
+  REAL8 rpolar[3] = {0.}, rcart[3] = {0.}, ppolar[3] = {0.}, pcart[3] = {0.};
+  REAL8 s1normData[3] = {0.}, s2normData[3] = {0.}, sKerrData[3] = {0.}, sStarData[3] = {0.};
 
   /* These are the vectors which will be used in the call to the Hamiltonian */
   REAL8Vector r, p, spin1, spin2, spin1norm, spin2norm;
@@ -1779,7 +1779,7 @@ static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params )
 	  dParams->params->tortoise = 2;
 	  
 	  /* Convert momenta to p */
-	  REAL8 tmpP[3];
+	  REAL8 tmpP[3]= {0.};
 	  REAL8 rMag = sqrt(r.data[0]*r.data[0] + r.data[1]*r.data[1] 
 					+ r.data[2]*r.data[2]);
 	  REAL8 prT = p.data[0]*(r.data[0]/rMag) + p.data[1]*(r.data[1]/rMag) 
@@ -1840,10 +1840,12 @@ XLALSimIMRSpinPrecEOBNonKeplerCoeff(
                       SpinEOBParams         *funcParams /**<< EOB parameters */
                       )
 {
-
+    int debugPK = 0;
+    if (debugPK) printf("XLALSimIMRSpinPrecEOBNonKeplerCoeff::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+    
   REAL8 omegaCirc;
 
-  REAL8 tmpValues[14];
+    REAL8 tmpValues[14]={0.};
 
   REAL8 r3;
 
@@ -1873,13 +1875,17 @@ XLALSimIMRSpinEOBNonKeplerCoeff(
                       SpinEOBParams         *funcParams /**<< EOB parameters */
                       )
 {
+    int debugPK = 0;
+    if (debugPK) printf("XLALSimIMRSpinEOBNonKeplerCoeff::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+
 
   REAL8 omegaCirc;
 
-  REAL8 tmpValues[14];
+  REAL8 tmpValues[14]= {0.};
 
   REAL8 r3;
 
+    
   /* We need to find the values of omega assuming pr = 0 */
   memcpy( tmpValues, values, sizeof(tmpValues) );
 
@@ -1904,7 +1910,7 @@ XLALSimIMRSpinEOBNonKeplerCoeff(
 
   REAL8 omegaCirc;
 
-  REAL8 tmpValues[4];
+  REAL8 tmpValues[4]= {0.};
 
   REAL8 r3;
 
