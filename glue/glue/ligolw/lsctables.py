@@ -1702,25 +1702,92 @@ class MultiBurstTable(table.Table):
 class MultiBurst(object):
 	__slots__ = MultiBurstTable.validcolumns.keys()
 
-	def get_ifos(self):
-		"""
-		Return a set of the instruments for this row.
-		"""
+	@property
+	def instruments(self):
 		return instrument_set_from_ifos(self.ifos)
 
-	def set_ifos(self, instruments):
-		"""
-		Serialize a sequence of instruments into the ifos
-		attribute.  The instrument names must not contain the ","
-		character.
-		"""
+	@instruments.setter
+	def instruments(self, instruments):
 		self.ifos = ifos_from_instrument_set(instruments)
 
-	def get_peak(self):
+	@property
+	def start(self):
+		if self.start_time is None and self.start_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+	@start.setter
+	def start(self, gps):
+		if gps is None:
+			self.start_time = self.start_time_ns = None
+		else:
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+
+	@property
+	def peak(self):
+		if self.peak_time is None and self.peak_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
 
+	@peak.setter
+	def peak(self, gps):
+		if gps is None:
+			self.peak_time = self.peak_time_ns = None
+		else:
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.peak_time, self.peak_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.peak_time, self.peak_time_ns = gps.seconds, gps.nanoseconds
+
+	@property
+	def period(self):
+		start = self.start
+		if start is None and self.duration is None:
+			return None
+		return segments.segment(start, start + self.duration)
+
+	@period.setter
+	def period(self, seg):
+		if seg is None:
+			self.start = self.duration = None
+		else:
+			self.start = seg[0]
+			self.duration = float(abs(seg))
+
+	@property
+	def band(self):
+		if self.central_freq is None and self.bandwidth is None:
+			return None
+		return segments.segment(self.central_freq - self.bandwidth / 2., self.central_freq + self.bandwidth / 2.)
+
+	@band.setter
+	def band(self, seg):
+		if seg is None:
+			self.central_freq = self.bandwidth = None
+		else:
+			self.central_freq = sum(seg) / 2.
+			self.bandwidth = abs(seg)
+
+	# legacy compatibility.  DO NOT USE
+
+	def get_ifos(self):
+		return self.instruments
+
+	def set_ifos(self, instruments):
+		self.instruments = instruments
+
+	def get_peak(self):
+		return self.peak
+
 	def set_peak(self, gps):
-		self.peak_time, self.peak_time_ns = gps.seconds, gps.nanoseconds
+		self.peak = gps
 
 
 MultiBurstTable.RowType = MultiBurst
