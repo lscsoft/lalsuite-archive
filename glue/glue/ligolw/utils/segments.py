@@ -155,7 +155,7 @@ class LigolwSegments(set):
 		# the xml document and are being held in xmlsegments, which
 		# you can manipulate if you wish
 		pass
-	# now all segments have bene put back into the xml document.
+	# now all segments have been put back into the xml document.
 	"""
 	def __init__(self, xmldoc, process = None):
 		#
