@@ -620,7 +620,12 @@ class SearchSummary(object):
 		if gps is None:
 			self.in_start_time = self.in_start_time_ns = None
 		else:
-			self.in_start_time, self.in_start_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.in_start_time, self.in_start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.in_start_time, self.in_start_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def in_end(self):
@@ -633,7 +638,12 @@ class SearchSummary(object):
 		if gps is None:
 			self.in_end_time = self.in_end_time_ns = None
 		else:
-			self.in_end_time, self.in_end_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.in_end_time, self.in_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.in_end_time, self.in_end_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def out_start(self):
@@ -646,7 +656,12 @@ class SearchSummary(object):
 		if gps is None:
 			self.out_start_time = self.out_start_time_ns = None
 		else:
-			self.out_start_time, self.out_start_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.out_start_time, self.out_start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.out_start_time, self.out_start_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def out_end(self):
@@ -659,7 +674,12 @@ class SearchSummary(object):
 		if gps is None:
 			self.out_end_time = self.out_end_time_ns = None
 		else:
-			self.out_end_time, self.out_end_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.out_end_time, self.out_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.out_end_time, self.out_end_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def in_segment(self):
@@ -1944,7 +1964,12 @@ class CoincInspiral(object):
 		if gps is None:
 			self.end_time = self.end_time_ns = None
 		else:
-			self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
 	def get_end(self):
 		return self.end
@@ -2946,7 +2971,12 @@ class SimBurst(TableRow):
 		if gps is None:
 			self.time_geocent_gps = self.time_geocent_gps_ns = self.time_geocent_gmst = None
 		else:
-			self.time_geocent_gps, self.time_geocent_gps_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.time_geocent_gps, self.time_geocent_gps_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.time_geocent_gps, self.time_geocent_gps_ns = gps.seconds, gps.nanoseconds
 			# FIXME:  also do this when we switch to swig
 			# binding version of LIGOTimeGPS
 			#self.time_geocent_gmst = lal.GreenwichMeanSiderealTime(gps)
@@ -3119,7 +3149,12 @@ class SummValue(object):
 		if gps is None:
 			self.start_time = self.start_time_ns = None
 		else:
-			self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def end(self):
@@ -3132,7 +3167,12 @@ class SummValue(object):
 		if gps is None:
 			self.end_time = self.end_time_ns = None
 		else:
-			self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def segment(self):
@@ -3408,7 +3448,12 @@ class Segment(object):
 		if gps is None:
 			self.start_time = self.start_time_ns = None
 		else:
-			self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def end(self):
@@ -3421,7 +3466,12 @@ class Segment(object):
 		if gps is None:
 			self.end_time = self.end_time_ns = None
 		else:
-			self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def segment(self):
@@ -3594,7 +3644,12 @@ class SegmentSum(object):
 		if gps is None:
 			self.start_time = self.start_time_ns = None
 		else:
-			self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def end(self):
@@ -3607,7 +3662,12 @@ class SegmentSum(object):
 		if gps is None:
 			self.end_time = self.end_time_ns = None
 		else:
-			self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def segment(self):
