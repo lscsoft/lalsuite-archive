@@ -484,7 +484,7 @@ static INT4 XLALSimIMREOBHybridAttachRingdown(
       }
       
       if ( approximant == SEOBNRv3 ){
-         if ( XLALSimIMREOBGenerateQNMFreqV2( modefreqs, mass1, mass2, spin1, spin2, l, fabs(m), nmodes, approximant ) == XLAL_FAILURE )
+         if ( XLALSimIMREOBGenerateQNMFreqV2( modefreqs, mass1, mass2, spin1, spin2, l, (int) fabs((REAL8) m), nmodes, approximant ) == XLAL_FAILURE )
          {
            XLALDestroyCOMPLEX16Vector( modefreqs );
            XLAL_ERROR( XLAL_EFUNC );
@@ -657,7 +657,7 @@ printf("w4 = %f, t4 = %f\n",creal(modefreqs->data[5])*mTot, 1./cimag(modefreqs->
           
           
           
-          if (fabs(m) == 2 && l ==2){ 
+          if ((int) fabs((REAL8) m) == 2 && l ==2){
           /*if (m == 2 && l ==2){ */
             
             /* For extreme chi (>= 0.8), there are scale factors in both complex
