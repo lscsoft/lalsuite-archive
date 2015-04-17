@@ -134,8 +134,8 @@ ORDER BY
 		match_ids.append(burst.event_id)
 
 		# Add time-frequency tile to collection
-		tmin = float(burst.get_start() - t_sim)
-		tmax = float(burst.get_start() + burst.duration - t_sim)
+		tmin = float(burst.start - t_sim)
+		tmax = float(burst.start + burst.duration - t_sim)
 		fmin = burst.central_freq - burst.bandwidth / 2 - sim.frequency
 		fmax = burst.central_freq + burst.bandwidth / 2 - sim.frequency
 		verts.append(((tmin, fmin), (tmax, fmin), (tmax, fmax), (tmin, fmax)))
@@ -143,8 +143,8 @@ ORDER BY
 
 		try:
 			# draw most significant tile if there is one
-			tmin = float(burst.get_ms_start() - t_sim)
-			tmax = float(burst.get_ms_start() + burst.ms_duration - t_sim)
+			tmin = float(burst.ms_start - t_sim)
+			tmax = float(burst.ms_start + burst.ms_duration - t_sim)
 			fmin = burst.ms_flow - sim.frequency
 			fmax = burst.ms_flow + burst.ms_bandwidth - sim.frequency
 			verts.append(((tmin, fmin), (tmax, fmin), (tmax, fmax), (tmin, fmax)))
@@ -152,7 +152,7 @@ ORDER BY
 		except AttributeError:
 			pass
 
-		peakx.append(float(burst.get_peak() - t_sim))
+		peakx.append(float(burst.peak - t_sim))
 		try:
 			# use peak_frequency col if it exists
 			peaky.append(burst.peak_frequency - sim.frequency)
@@ -160,8 +160,8 @@ ORDER BY
 			peaky.append(burst.central_freq - sim.frequency)
 
 		# update bounding box
-		tmin = float(burst.get_start() - t_sim)
-		tmax = float(burst.get_start() + burst.duration - t_sim)
+		tmin = float(burst.start - t_sim)
+		tmax = float(burst.start + burst.duration - t_sim)
 		fmin = burst.central_freq - burst.bandwidth / 2 - sim.frequency
 		fmax = burst.central_freq + burst.bandwidth / 2 - sim.frequency
 		xmin = min(xmin, tmin)
@@ -215,8 +215,8 @@ ORDER BY
 	sngl_burst.confidence ASC
 	""", (instrument, int(t_sim - 2), int(t_sim + 2), sim.frequency - 300, sim.frequency + 300))):
 		# Add time-frequency tile to collection
-		tmin = float(burst.get_start() - t_sim)
-		tmax = float(burst.get_start() + burst.duration - t_sim)
+		tmin = float(burst.start - t_sim)
+		tmax = float(burst.start + burst.duration - t_sim)
 		fmin = burst.central_freq - burst.bandwidth / 2 - sim.frequency
 		fmax = burst.central_freq + burst.bandwidth / 2 - sim.frequency
 		verts.append(((tmin, fmin), (tmax, fmin), (tmax, fmax), (tmin, fmax)))
@@ -226,7 +226,7 @@ ORDER BY
 		else:
 			edgecolours.append("k")
 
-		peakx.append(float(burst.get_peak() - t_sim))
+		peakx.append(float(burst.peak - t_sim))
 		try:
 			# use peak_frequency col if it exists
 			peaky.append(burst.peak_frequency - sim.frequency)

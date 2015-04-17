@@ -192,7 +192,7 @@ class StringCoincParamsDistributions(snglcoinc.CoincParamsDistributions):
 		# zero-instrument parameters
 		#
 
-		ignored, ignored, ignored, rss_timing_residual = triangulators[instruments](tuple(event.get_peak() + offsetvector[event.ifo] for event in events))
+		ignored, ignored, ignored, rss_timing_residual = triangulators[instruments](tuple(event.peak + offsetvector[event.ifo] for event in events))
 		# FIXME:  rss_timing_residual is forced to 0 to disable this
 		# feature.  all the code to compute it properly is still here and
 		# given suitable initializations, the distribution data is still
@@ -223,7 +223,7 @@ class StringCoincParamsDistributions(snglcoinc.CoincParamsDistributions):
 
 			prefix = "%s_%s_" % (event1.ifo, event2.ifo)
 
-			dt = float((event1.get_peak() + offsetvector[event1.ifo]) - (event2.get_peak() + offsetvector[event2.ifo]))
+			dt = float((event1.peak + offsetvector[event1.ifo]) - (event2.peak + offsetvector[event2.ifo]))
 			params["%sdt" % prefix] = (dt,)
 
 			dA = math.log10(abs(event1.amplitude / event2.amplitude))
@@ -254,12 +254,12 @@ class StringCoincParamsDistributions(snglcoinc.CoincParamsDistributions):
 		eventlists = {}
 		orig_peak_times = {}
 		for event in database.sngl_burst_table:
-			if event.get_peak() in seglists[event.ifo]:
+			if event.peak in seglists[event.ifo]:
 				try:
 					eventlists[event.ifo].append(event)
 				except KeyError:
 					eventlists[event.ifo] = [event]
-				orig_peak_times[event] = event.get_peak()
+				orig_peak_times[event] = event.peak
 
 		# parse the --thresholds H1,L1=... command-line options from burca
 		delta_t = [float(threshold.split("=")[-1]) for threshold in ligolw_process.get_process_params(database.xmldoc, "ligolw_burca", "--thresholds")]
@@ -300,13 +300,13 @@ class StringCoincParamsDistributions(snglcoinc.CoincParamsDistributions):
 			# assign fake peak times
 			toas = toa_generator[frozenset(event.ifo for event in events)].next()
 			for event in events:
-				event.set_peak(toas[event.ifo])
+				event.peak = toas[event.ifo]
 			# compute coincidence parameters
 			self.add_background(self.coinc_params(events, zero_lag_offset_vector, *param_func_args))
 
 		# restore original peak times
 		for event, peak_time in orig_peak_times.iteritems():
-			event.set_peak(peak_time)
+			event.peak = peak_time
 
 
 #

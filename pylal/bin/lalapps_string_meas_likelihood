@@ -212,7 +212,7 @@ for n, filename in enumerate(filenames):
 	if contents.sim_burst_table is None:
 		# iterate over burst<-->burst coincs
 		for is_background, events, offsetvector in ligolw_burca_tailor.get_noninjections(contents):
-			params = distributions.coinc_params([event for event in events if event.ifo not in contents.vetoseglists or event.get_peak() not in contents.vetoseglists[event.ifo]], offsetvector, triangulators)
+			params = distributions.coinc_params([event for event in events if event.ifo not in contents.vetoseglists or event.peak not in contents.vetoseglists[event.ifo]], offsetvector, triangulators)
 			if params is not None:
 				if is_background:
 					distributions.add_background(params)
@@ -223,7 +223,7 @@ for n, filename in enumerate(filenames):
 		# iterate over burst<-->burst coincs matching injections
 		# "exactly"
 		for sim, events, offsetvector in ligolw_burca_tailor.get_injections(contents):
-			params = distributions.coinc_params([event for event in events if event.ifo not in contents.vetoseglists or event.get_peak() not in contents.vetoseglists[event.ifo]], offsetvector, triangulators)
+			params = distributions.coinc_params([event for event in events if event.ifo not in contents.vetoseglists or event.peak not in contents.vetoseglists[event.ifo]], offsetvector, triangulators)
 			if params is not None:
 				distributions.add_injection(params, weight = weight_func(sim))
 

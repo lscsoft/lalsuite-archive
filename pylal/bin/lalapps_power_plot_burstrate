@@ -124,7 +124,7 @@ num_triggers = 0
 
 def snglburst_append(self, row, verbose = options.verbose):
 	global num_triggers, rate
-	t = row.get_peak()
+	t = row.peak
 	if t in options.read_segment:
 		trigger_rate[t,] += 1.0
 	num_triggers += 1
