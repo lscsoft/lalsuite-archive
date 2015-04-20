@@ -919,6 +919,7 @@ XLALSimIMRSpinEOBInitialConditions(
 	}
 	gsl_vector_set(initValues, 0, rootParams.values[0]);
 	gsl_vector_set(initValues, 1, rootParams.values[4]);
+    gsl_vector_set(initValues, 2, rootParams.values[5]);
 
 	rootFunction.f = XLALFindSphericalOrbit;
 	rootFunction.n = 3;
