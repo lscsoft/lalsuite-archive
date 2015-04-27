@@ -607,6 +607,10 @@ tagSimInspiralTable
   REAL4 ScalarCharge1;
   REAL4 ScalarCharge2;
   REAL4 omegaBD;
+  
+/* Parameters for the light scalar waveform */  
+  REAL4 mScalar ;
+  REAL4 LightScalarEOS ;
 
 /* Parameters for the PPE waveform */
 

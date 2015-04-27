@@ -230,6 +230,8 @@ REAL8 loglambdaG=28.0;
 REAL8 ScalarCharge1 = 0.0;
 REAL8 ScalarCharge2 = 0.0;
 REAL8 omegaBD = 100000.0;
+REAL8 LightScalarEOS = 0.0;
+REAL8 mScalar = 1.0e-20;
 REAL8 Gdot=0.0;
 REAL8 zetaQG=0.0;
 REAL8 aPPE = 0.0;
@@ -842,6 +844,10 @@ static void print_usage(char *program)
       " --scalar-charge-1 value   scalar charge for body 1\n"\
       " --scalar-charge-2 value   scalar charge for body 2\n"\
       " --omegaBD value           Brans-Dicke parameter Omega\n");
+  fprintf(stderr,
+      "Light scalar theory information (don't forget omegaBD above):\n"\
+      " --mScalar                 Scalar mass in eV\n"\
+      " --lightscalarEOS          EOS for light scalar theory. Choose either \"soft\" or \"stiff\"\n");  
   fprintf(stderr,
       "Variable G Information:\n"\
       " --enable-vg               enable variable G injections\n"\
@@ -1784,6 +1790,8 @@ int main( int argc, char *argv[] )
     {"scalar-charge-1",         required_argument, 0,                 1023},
     {"scalar-charge-2",         required_argument, 0,                 1024},
     {"omegaBD",                 required_argument, 0,                 1025},
+    {"mScalar",                 required_argument, 0,                 1038},
+    {"lightscalarEOS",          required_argument, 0,                 1039},
 	{"enable-vg",               no_argument,       0,                 1031},
     {"Gdot",					required_argument, 0,                 1032},
 	{"enable-qg",               no_argument,       0,                 1033},
@@ -3150,6 +3158,25 @@ int main( int argc, char *argv[] )
           "float", "%le", meanSpin2 );
         break;
 
+      case 1038:
+        mScalar = atof( optarg );
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name,
+                            "float", "%le", mScalar );
+        break;
+      case 1039:
+        //dchi1 = atof( optarg );
+        if (strcmp(optarg,"soft")==0) LightScalarEOS = 1.0 ;
+        else if (strcmp(optarg,"stiff")==0) LightScalarEOS = 2.0 ;
+        else {
+          fprintf( stderr, "ERROR: lightScalarEOS must be either \"soft\" or \"stiff\".\n" );
+          exit( 1 );
+        }
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name, "string",
+                            "%s", optarg );
+        break;        
+        
       default:
         fprintf( stderr, "unknown error while parsing options\n" );
         print_usage(argv[0]);
@@ -4427,6 +4454,11 @@ int main( int argc, char *argv[] )
     simTable->ScalarCharge1 = ScalarCharge1;
     simTable->ScalarCharge2 = ScalarCharge2;
     simTable->omegaBD = omegaBD;
+    
+  /* populate the light scalar parameters */
+    simTable->mScalar = mScalar;
+    simTable->LightScalarEOS = LightScalarEOS;
+    
     
 	/* populate the LALSimInspiralTestGRParams structure depending on the alternative gravity model requested for injection */
 	if (BDinjections) XLALSimInspiralComputePPEparametersForBransDicke(&nonGRparams,ScalarCharge1,ScalarCharge2,omegaBD,simTable->eta);

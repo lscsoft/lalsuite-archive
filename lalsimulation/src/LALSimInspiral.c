@@ -2355,6 +2355,73 @@ int XLALSimInspiralChooseTDWaveform(
                                               XLALSimInspiralGetTidalOrder(waveFlags),
                                               phaseO, amplitudeO, nonGRparams);
             break;
+        case SpinTaylorT4LightScalar:
+          /* Waveform-specific sanity checks */
+          /* Sanity check unused fields of waveFlags */
+          if( !XLALSimInspiralFrameAxisIsDefault(
+            XLALSimInspiralGetFrameAxis(waveFlags) ) )
+            ABORT_NONDEFAULT_FRAME_AXIS(waveFlags);
+          if( !XLALSimInspiralModesChoiceIsDefault(
+            XLALSimInspiralGetModesChoice(waveFlags) ) )
+            ABORT_NONDEFAULT_MODES_CHOICE(waveFlags);
+          LNhatx = sin(i);
+          LNhaty = 0.;
+          LNhatz = cos(i);
+          E1x = cos(i);
+          E1y = 0.;
+          E1z = - sin(i);
+          /* Maximum PN amplitude order for precessing waveforms is
+           * MAX_PRECESSING_AMP_PN_ORDER */
+          amplitudeO = amplitudeO <= MAX_PRECESSING_AMP_PN_ORDER ?
+          amplitudeO : MAX_PRECESSING_AMP_PN_ORDER;
+          /* Call the waveform driver routine */
+          
+          REAL8 omegaBD=40000.0 ; //Cassini bound
+          REAL8 mScalar=1.0e-20 ; 
+          REAL8 LSEOS=0.0 ;
+          LALEquationOfState eos_type = LAL_SIM_INSPIRAL_EOS_MS1 ;
+          
+          if (nonGRparams!=NULL)
+          {
+            if (XLALSimInspiralTestGRParamExists(nonGRparams,"omegaBD"))  omegaBD=XLALSimInspiralGetTestGRParam(nonGRparams,"omegaBD");
+            
+            if (XLALSimInspiralTestGRParamExists(nonGRparams,"mScalar"))  mScalar=XLALSimInspiralGetTestGRParam(nonGRparams,"mScalar");
+            
+            if (XLALSimInspiralTestGRParamExists(nonGRparams,"LightScalarEOS"))  LSEOS=XLALSimInspiralGetTestGRParam(nonGRparams,"LightScalarEOS");
+            
+            if (LSEOS==1.0) eos_type = LAL_SIM_INSPIRAL_EOS_MS1 ;
+            else if (LSEOS==2.0) eos_type = LAL_SIM_INSPIRAL_EOS_SQM3 ;
+            else {
+              fprintf(stdout,"For LightSalar either 1.0 (soft) or 2.0 (stiff) should be chosen.\nUsing soft EOS now.");
+              eos_type = LAL_SIM_INSPIRAL_EOS_MS1 ;
+              LSEOS=1.0;
+            }
+            
+            fprintf(stdout,"Injecting SpinTaylorT4LightScalar with the following settings:\n");
+            fprintf(stdout,"omegaBD = %.3e\n",omegaBD);
+            fprintf(stdout,"mScalar = %.3e\n",mScalar);
+            if (LSEOS==1.0) fprintf(stdout,"Light scalar EOS = soft\n");
+            if (LSEOS==2.0) fprintf(stdout,"Light scalar EOS = stiff\n");
+          } 
+          else{
+            fprintf(stdout,"WARNING: nonGRparams is NULL, this means that only default values for scalar parameters are used:\n");
+            fprintf(stdout,"Injecting SpinTaylorT4LightScalar with the following settings:\n");
+            fprintf(stdout,"omegaBD = %.3e\n",omegaBD);
+            fprintf(stdout,"mScalar = %.3e\n",mScalar);
+            if (LSEOS==1.0) fprintf(stdout,"Light scalar EOS = soft\n");
+            if (LSEOS==2.0) fprintf(stdout,"Light scalar EOS = stiff\n");            
+          }
+          
+          ret = XLALSimInspiralSpinTaylorT4LightScalar(hplus, hcross, phiRef, v0, deltaT,
+                                                m1, m2, f_min, f_ref, r, S1x, S1y, S1z, S2x, S2y, S2z,
+                                                LNhatx, LNhaty, LNhatz, E1x, E1y, E1z, 
+                                                eos_type,omegaBD,mScalar,
+                                                lambda1, lambda2,
+                                                quadparam1, quadparam2,
+                                                XLALSimInspiralGetSpinOrder(waveFlags),
+                                                XLALSimInspiralGetTidalOrder(waveFlags),
+                                                phaseO, amplitudeO, nonGRparams);
+          break;            
         case SpinDominatedWf:
                 // waveform specific sanity checks
                 if (S2x != 0. || S2y != 0. || S2z != 0.){
@@ -4304,6 +4371,9 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case SpinTaylorT4Test:
         testGR_accept=LAL_SIM_INSPIRAL_TESTGR_PARAMS;
         break;
+    case SpinTaylorT4LightScalar:
+      testGR_accept=LAL_SIM_INSPIRAL_TESTGR_PARAMS;
+      break;        
     case SpinTaylorT5:
     case SpinTaylorFrameless:
     case SpinTaylor:

@@ -1361,6 +1361,7 @@ int XLALSimInspiralSpinTaylorT4LightScalar(
   )
 {
     Approximant approx = SpinTaylorT4LightScalar;
+    
     int n = XLALSimInspiralSpinTaylorT4LightScalarDriver(hplus, hcross, phiRef, v0, deltaT,
             m1, m2, fStart, fRef, r, s1x, s1y, s1z, s2x, s2y, s2z,
             lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, eos_type, omegaBD, mScalar, lambda1, lambda2,

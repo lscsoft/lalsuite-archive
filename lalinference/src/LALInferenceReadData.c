@@ -1736,6 +1736,14 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
             fprintf(stdout,"adding dchi6=%1.3f in the injection\n",injEvent->dchi6);
             fprintf(stdout,"adding dchi6l=%1.3f in the injection\n",injEvent->dchi6l);
             fprintf(stdout,"adding dchi7=%1.3f in the injection\n",injEvent->dchi7);
+        } else if (strstr(injEvent->waveform,"SpinTaylorT4LightScalar")){
+          XLALSimInspiralAddTestGRParam(&nonGRparams,"LightScalarEOS",injEvent->LightScalarEOS);
+          XLALSimInspiralAddTestGRParam(&nonGRparams,"omegaBD",injEvent->omegaBD);
+          XLALSimInspiralAddTestGRParam(&nonGRparams,"mScalar",injEvent->mScalar);
+          fprintf(stdout,"Injecting %s in the time domain...\n",injEvent->waveform);
+          fprintf(stdout,"adding LightScalarEOS=%.1f in the injection\n",injEvent->LightScalarEOS);
+          fprintf(stdout,"adding omegaBD=%.3e in the injection\n",injEvent->omegaBD);
+          fprintf(stdout,"adding mScalar=%.3e in the injection\n",injEvent->mScalar);          
         }
 
       /* ChooseWaveform starts the (2,2) mode of the waveform at the given minimum frequency.  We want the highest order contribution to start at the f_lower of the injection file */
