@@ -112,6 +112,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralPPE.c \
 	LALSimInspiralSpinTaylor.c \
 	LALSimInspiralSpinTaylorTest.c \
+	LALSimInspiralSpinTaylorLightScalar.c \
 	LALSimInspiralSpinTaylorF2.c \
 	LALSimInspiralTaylorEt.c \
 	LALSimInspiralTaylorF2.c \

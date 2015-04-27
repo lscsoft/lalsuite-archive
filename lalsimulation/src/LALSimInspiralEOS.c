@@ -254,3 +254,38 @@ REAL8 XLALSimInspiralContactFrequency(REAL8 m1_intr, REAL8 barlambda1, REAL8 m2_
   return f_gw_contact;
 
 }
+
+/* Calculates the neutron star sensitivity given an EOS type
+ * and mass of the NS in solar masses.
+ * The fits could not be made for often used EOS like MS1 or SQM3, but
+ * choosing MS1 returns the sensitivity for a soft EOS and SQM3 for a stiff EOS.
+ */
+REAL8 XLALSimInspiralNSsensitivity(LALEquationOfState eos_type, REAL8 m){
+  
+  //mass is in solar masses
+  REAL8 s=0.5 ;
+  switch (eos_type)
+  {
+    case LAL_SIM_INSPIRAL_EOS_NONE:
+      s = 0.5;
+      break;
+      
+      // soft
+    case LAL_SIM_INSPIRAL_EOS_MS1:
+      s = -0.00518707*m*m*m - 0.001505*m*m + 0.16289853*m + 0.00933582;
+      break;
+      
+      // stiff
+    case LAL_SIM_INSPIRAL_EOS_SQM3:
+      s = -0.05723569*m*m*m + 0.28872241*m*m - 0.32704196*m + 0.17564315;
+      break;
+      
+    default:
+      printf("WARNING: Only MS1 or SQM3 can be used, setting s=0.2\n");
+      s = 0.2;
+      break;
+  }
+  //printf("calculated sensitvity: %e\n", s);
+  
+  return s ;
+}
