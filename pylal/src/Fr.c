@@ -169,7 +169,6 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
     fr_start = FrFileITStart(iFile);
     fr_end = FrFileITEnd(iFile);
     fr_span = fr_end - fr_start;
-		printf("%10.6f %10.6f %10.6f %f\n", fr_start, fr_end, start, span);
     /* Error checking */
     if (start != -1. && start < fr_start) {
         snprintf(msg, MAX_STR_LEN, "Requested start (%10.6f) is before frame start (%10.6f) in file %s", start, fr_start, filename);
@@ -193,7 +192,6 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
         span = fr_end - fr_start;
     }
 
-		printf("%10.6f %10.6f %10.6f %f\n", fr_start, fr_end, start, span);
     /*-------------- get vector --------------------------*/
     vect = FrFileIGetVect(iFile, channel, start, span);
 
