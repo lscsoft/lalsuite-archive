@@ -1442,6 +1442,8 @@ SimInspiralTableFromLIGOLw (
     {"ScalarCharge1",       -1,61},
     {"ScalarCharge2",       -1,62},
     {"omegaBD",              -1,63},
+    {"mScalar",              -1,79},
+    {"LightScalarEOS",       -1,80},
     {"aPPE",       -1,64},
     {"alphaPPE",       -1,65},
     {"bPPE",       -1,66},
@@ -1794,6 +1796,15 @@ SimInspiralTableFromLIGOLw (
         {
           thisSim->omegaBD= r4colData;
         }
+        else if ( tableDir[j].idx == 79 )
+        {
+          thisSim->mScalar = r4colData;
+        }
+        else if ( tableDir[j].idx == 80 )
+        {
+          thisSim->LightScalarEOS = r4colData;
+        }
+
         else if ( tableDir[j].idx == 64 )
         {
           thisSim->aPPE= r4colData;

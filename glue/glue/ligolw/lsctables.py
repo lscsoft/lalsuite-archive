@@ -2570,6 +2570,8 @@ class SimInspiralTable(table.Table):
     "ScalarCharge1": "real_4",
     "ScalarCharge2": "real_4",
     "omegaBD": "real_4",
+    "mScalar": "real_4",
+    "LightScalarEOS": "real_4",
     "aPPE": "real_4",
     "alphaPPE": "real_4",
     "bPPE": "real_4",

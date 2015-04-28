@@ -289,6 +289,19 @@ dic_inj.update({
 "min-distance":distrange[0], "max-distance":distrange[1],
 })
 
+mScalar = 1.0e-20
+LSEOS = 'soft'
+omegaBD = 40000.0
+if cp.has_option('tiger', 'mscalar'):
+    mScalar = cp.get('tiger', 'mscalar')
+    dic_inj["mScalar"] = mScalar
+if cp.has_option('tiger', 'omegabd'):
+    omegaBD = cp.get('tiger', 'omegabd')
+    dic_inj["omegaBD"] = omegaBD
+if cp.has_option('tiger', 'lightscalar-eos'):
+    LSEOS = cp.get('tiger', 'lightscalar-eos')
+    dic_inj["lightscalarEOS"] = LSEOS
+
 if cp.has_option('tiger', 'inj-spins'):
     inject_spins = cp.get('tiger', 'inj-spins')
     spin1range = ast.literal_eval(cp.get('tiger', 'inj-a1-range'))
