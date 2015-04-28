@@ -873,6 +873,10 @@ LALWriteLIGOLwXMLTable (
               tablePtr.simInspiralTable->ScalarCharge1,
               tablePtr.simInspiralTable->ScalarCharge2,
               tablePtr.simInspiralTable->omegaBD,
+              
+              /* Parameters for the light scalar waveform */  
+              tablePtr.simInspiralTable->mScalar,
+              tablePtr.simInspiralTable->LightScalarEOS,             
 
             /* Parameters for the PPE waveform */
 
