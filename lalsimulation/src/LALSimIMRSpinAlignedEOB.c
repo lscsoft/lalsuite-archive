@@ -188,9 +188,17 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   params->eobParams->omega = omega;
 
   if( r2>16 )params->eobParams->omegaPeaked = 0;
+    
+    if(r2 < 16. && omega < 0.01 ) {
+        if(debugPK)printf("\n Integration stopping, momentum growing too much\n");
+        return 1;
+    }
   
-  if(debugPK && r2 < 9.)printf("\n Integration continuing, r = %f, omega = %f\n", sqrt(r2), omega);
-  
+    if(debugPK && r2 < 9.) {
+        printf("\n Integration continuing, r = %f, omega = %f, rdot = %f, pr = %f\n", sqrt(r2), omega, rdot, pDotr);
+        printf("%f %f %f %f %f %f %f %f %f %f %f %f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+        printf("%f %f %f %f %f %f %f %f %f %f %f %f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
+    }
   return GSL_SUCCESS;
 }
 
@@ -1329,7 +1337,7 @@ int XLALSimIMRSpinEOBWaveform(
      )
 {
   int UNUSED ret;
-  int debugPK = 0;
+    int debugPK = 0;
   INT4 i=0;
   INT4 k=0;
   UINT4 j=0;
