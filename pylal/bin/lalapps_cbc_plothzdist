@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/python
 
 #
 # =============================================================================
@@ -345,9 +345,9 @@ fig = pyplot.figure()
 ax = fig.add_subplot(111)
 for waveform in waveforms:
     if opts.linear_y:
-        ax.plot(xvals[waveform], yvals[waveform], lw = 2, label = waveform)
+        ax.plot(xvals[waveform], yvals[waveform], lw = 2, label = waveform.replace('_','\\_'))
     else:
-        ax.semilogy(xvals[waveform], yvals[waveform], lw = 2, label = waveform)
+        ax.semilogy(xvals[waveform], yvals[waveform], lw = 2, label = waveform.replace('_','\\_'))
 ax.set_xlabel('%s total mass ($\mathrm{M}_\odot$)' %(opts.de_redshift and 'source rest-frame' or 'red-shifted'))
 if plot_distance:
     ax.set_ylabel('%s distance (Mpc)' %(opts.de_redshift and 'proper' or 'luminosity'))
