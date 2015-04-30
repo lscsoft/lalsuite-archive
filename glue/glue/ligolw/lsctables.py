@@ -149,9 +149,9 @@ def instrument_set_from_ifos(ifos):
 	"""
 	Parse the values stored in the "ifos" and "instruments" columns
 	found in many tables.  This function is mostly for internal use by
-	the .get_ifos() and .get_instruments() methods of the corresponding
-	row classes.  The mapping from input to output is as follows (rules
-	are applied in order):
+	the .instruments properties of the corresponding row classes.  The
+	mapping from input to output is as follows (rules are applied in
+	order):
 
 	input is None --> output is None
 
@@ -193,6 +193,8 @@ def instrument_set_from_ifos(ifos):
 	None
 	>>> instrument_set_from_ifos(u"")
 	set([])
+	>>> instrument_set_from_ifos(u"  ,  ,,")
+	set([])
 	>>> instrument_set_from_ifos(u"H1")
 	set([u'H1'])
 	>>> instrument_set_from_ifos(u"SWIFT")
@@ -232,14 +234,15 @@ def ifos_from_instrument_set(instruments):
 	"""
 	Convert an iterable of instrument names into a value suitable for
 	storage in the "ifos" column found in many tables.  This function
-	is mostly for internal use by the .set_ifos() methods of the
-	corresponding row classes.  The input can be None or an iterable
-	of zero or more instrument names, none of which may contain "," or
-	"+" characters.  The output is a single string containing the
-	instrument names concatenated using "," as a delimiter.
-	instruments will only be iterated over once and so can be a
-	generator expression.  Whitespace is allowed in instrument names
-	but might not be preserved.
+	is mostly for internal use by the .instruments properties of the
+	corresponding row classes.  The input can be None or an iterable of
+	zero or more instrument names, none of which may be zero-length,
+	consist exclusively of spaces, or contain "," or "+" characters.
+	The output is a single string containing the unique instrument
+	names concatenated using "," as a delimiter.  instruments will only
+	be iterated over once and so can be a generator expression.
+	Whitespace is allowed in instrument names but might not be
+	preserved.  Repeated names will not be preserved.
 
 	NOTE:  in the special case that there is 1 instrument name in the
 	iterable and it has an even number of characters > 2 in it, the
@@ -257,9 +260,9 @@ def ifos_from_instrument_set(instruments):
 	None
 	>>> ifos_from_instrument_set(())
 	u''
-	>>> ifos_from_instrument_set((u"",))
-	u''
 	>>> ifos_from_instrument_set((u"H1",))
+	u'H1'
+	>>> ifos_from_instrument_set((u"H1",u"H1",u"H1"))
 	u'H1'
 	>>> ifos_from_instrument_set((u"H1",u"L1"))
 	u'H1,L1'
@@ -270,14 +273,17 @@ def ifos_from_instrument_set(instruments):
 	"""
 	if instruments is None:
 		return None
-	instruments = sorted(instrument.strip() for instrument in instruments)
-	if any(u"," in instrument or u"+" in instrument for instrument in instruments):
+	_instruments = sorted(set(instrument.strip() for instrument in instruments))
+	# safety check:  refuse to accept blank names, or names with commas
+	# or pluses in them as they cannot survive the encode/decode
+	# process
+	if not all(_instruments) or any(u"," in instrument or u"+" in instrument for instrument in _instruments):
 		raise ValueError(instruments)
-	if len(instruments) == 1 and len(instruments[0]) > 2 and not len(instruments[0]) % 2:
+	if len(_instruments) == 1 and len(_instruments[0]) > 2 and not len(_instruments[0]) % 2:
 		# special case disambiguation.  FIXME:  remove when
 		# everything uses the comma-delimited encoding
-		return u"%s," % instruments[0]
-	return u",".join(instruments)
+		return u"%s," % _instruments[0]
+	return u",".join(_instruments)
 
 
 #
