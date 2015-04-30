@@ -167,17 +167,13 @@ class Element(object):
 		"""
 		Generate the string for the element's start tag.
 		"""
-		s = indent + u"<" + self.tagName
-		for keyvalue in self.attributes.items():
-			s += u" %s=\"%s\"" % keyvalue
-		s += u">"
-		return s
+		return u"%s<%s%s>" % (indent, self.tagName, u"".join(u" %s=\"%s\"" % keyvalue for keyvalue in self.attributes.items()))
 
 	def end_tag(self, indent):
 		"""
 		Generate the string for the element's end tag.
 		"""
-		return indent + u"</" + self.tagName + u">"
+		return u"%s</%s>" % (indent, self.tagName)
 
 	def appendChild(self, child):
 		"""
@@ -320,7 +316,8 @@ class Element(object):
 		"""
 		Recursively write an element and it's children to a file.
 		"""
-		fileobj.write(self.start_tag(indent) + u"\n")
+		fileobj.write(self.start_tag(indent))
+		fileobj.write(u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
 				raise ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
@@ -328,7 +325,8 @@ class Element(object):
 		if self.pcdata is not None:
 			fileobj.write(xmlescape(self.pcdata))
 			fileobj.write(u"\n")
-		fileobj.write(self.end_tag(indent) + u"\n")
+		fileobj.write(self.end_tag(indent))
+		fileobj.write(u"\n")
 
 
 def WalkChildren(elem):
@@ -376,7 +374,8 @@ class Comment(Element):
 		fileobj.write(self.start_tag(indent))
 		if self.pcdata is not None:
 			fileobj.write(xmlescape(self.pcdata))
-		fileobj.write(self.end_tag(u"") + u"\n")
+		fileobj.write(self.end_tag(u""))
+		fileobj.write(u"\n")
 
 
 class Param(Element):
@@ -442,11 +441,7 @@ class Column(Element):
 		"""
 		Generate the string for the element's start tag.
 		"""
-		s = indent + u"<" + self.tagName
-		for keyvalue in self.attributes.items():
-			s += u" %s=\"%s\"" % keyvalue
-		s += u"/>"
-		return s
+		return u"%s<%s%s/>" % (indent, self.tagName, u"".join(u" %s=\"%s\"" % keyvalue for keyvalue in self.attributes.items()))
 
 	def appendData(self, content):
 		if not content.isspace():
@@ -462,7 +457,8 @@ class Column(Element):
 		"""
 		Recursively write an element and it's children to a file.
 		"""
-		fileobj.write(self.start_tag(indent) + u"\n")
+		fileobj.write(self.start_tag(indent))
+		fileobj.write(u"\n")
 
 	Name = attributeproxy(u"Name")
 	Type = attributeproxy(u"Type")
@@ -508,7 +504,8 @@ class Dim(Element):
 		fileobj.write(self.start_tag(indent))
 		if self.pcdata is not None:
 			fileobj.write(xmlescape(self.pcdata))
-		fileobj.write(self.end_tag(u"") + u"\n")
+		fileobj.write(self.end_tag(u""))
+		fileobj.write(u"\n")
 
 	Name = attributeproxy(u"Name")
 	Scale = attributeproxy(u"Scale", enc = ligolwtypes.FormatFunc[u"real_8"], dec = ligolwtypes.ToPyType[u"real_8"])
@@ -647,7 +644,8 @@ class Time(Element):
 				# how to ensure that does the correct
 				# thing.
 				fileobj.write(xmlescape(unicode(self.pcdata)))
-		fileobj.write(self.end_tag(u"") + u"\n")
+		fileobj.write(self.end_tag(u""))
+		fileobj.write(u"\n")
 
 	@classmethod
 	def now(cls, Name = None):
@@ -694,7 +692,8 @@ class Document(Element):
 		"""
 		Write the document.
 		"""
-		fileobj.write(Header + u"\n")
+		fileobj.write(Header)
+		fileobj.write(u"\n")
 		if xsl_file is not None:
 			fileobj.write(u'<?xml-stylesheet type="text/xsl" href="%s" ?>\n' % xsl_file)
 		for c in self.childNodes:
