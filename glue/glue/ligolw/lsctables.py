@@ -3680,6 +3680,8 @@ class Segment(object):
 	>>> x.segment = None
 	>>> print x.segment
 	None
+	>>> print x.start
+	None
 	"""
 	__slots__ = SegmentTable.validcolumns.keys()
 
@@ -3875,6 +3877,8 @@ class SegmentSum(object):
 	segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))
 	>>> x.segment = None
 	>>> print x.segment
+	None
+	>>> print x.start
 	None
 	"""
 	__slots__ = SegmentSumTable.validcolumns.keys()
