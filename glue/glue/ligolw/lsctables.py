@@ -3736,7 +3736,7 @@ class Segment(object):
 			self.start, self.end = seg
 
 	def __cmp__(self, other):
-		return cmp(self.get(), other.get())
+		return cmp(self.segment, other.segment)
 
 	def get(self):
 		"""
