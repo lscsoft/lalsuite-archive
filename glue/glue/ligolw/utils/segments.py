@@ -406,10 +406,12 @@ class LigolwSegments(set):
 		then it might be discontinued without notice.  You've been
 		warned.
 		"""
-		if process_row is None:
-			process_row = self.process
-			if process_row is None:
-				raise ValueError("must supply a process row to .__init__()")
+		if process_row is not None:
+			process_id = process_row.process_id
+		elif self.process is not None:
+			process_id = self.process.process_id
+		else:
+			raise ValueError("must supply a process row to .__init__()")
 
 		#
 		# ensure ID generators are synchronized with table contents
@@ -431,14 +433,14 @@ class LigolwSegments(set):
 		# appended
 		#
 
-		def row_generator(segs, target_table, process_row, segment_def_row):
+		def row_generator(segs, target_table, process_id, segment_def_id):
 			id_column = target_table.next_id.column_name
 			for seg in segs:
 				row = target_table.RowType()
 				row.segment = seg
-				row.process_id = process_row.process_id
+				row.process_id = process_id
+				row.segment_def_id = segment_def_id
 				setattr(row, id_column, target_table.get_next_id())
-				row.segment_def_id = segment_def_row.segment_def_id
 				if hasattr(row, "comment"):
 					row.comment = None
 				yield row, target_table
@@ -454,7 +456,7 @@ class LigolwSegments(set):
 		while self:
 			ligolw_segment_list = self.pop()
 			segment_def_row = self.segment_def_table.RowType()
-			segment_def_row.process_id = process_row.process_id
+			segment_def_row.process_id = process_id
 			segment_def_row.segment_def_id = self.segment_def_table.get_next_id()
 			segment_def_row.instruments = ligolw_segment_list.instruments
 			segment_def_row.name = ligolw_segment_list.name
@@ -462,8 +464,8 @@ class LigolwSegments(set):
 			segment_def_row.comment = ligolw_segment_list.comment
 			self.segment_def_table.append(segment_def_row)
 
-			row_generators.append(row_generator(ligolw_segment_list.valid, self.segment_sum_table, process_row, segment_def_row))
-			row_generators.append(row_generator(ligolw_segment_list.active, self.segment_table, process_row, segment_def_row))
+			row_generators.append(row_generator(ligolw_segment_list.valid, self.segment_sum_table, process_id, segment_def_row.segment_def_id))
+			row_generators.append(row_generator(ligolw_segment_list.active, self.segment_table, process_id, segment_def_row.segment_def_id))
 
 		#
 		# populate segment and segment_summary tables by pulling
