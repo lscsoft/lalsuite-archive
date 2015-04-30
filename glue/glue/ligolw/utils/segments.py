@@ -276,16 +276,12 @@ class LigolwSegments(set):
 		self.update(segment_lists.values())
 
 		#
-		# Synchronize ID generators
+		# reset ID generators
 		#
 
-		# FIXME:  why am I doing this!?  I've just deleted all the
-		# rows.  the id generators should probably be 0'ed here,
-		# and these sync's moved to the .finalize() method to
-		# prevent collisions
-		self.segment_def_table.sync_next_id()
-		self.segment_table.sync_next_id()
-		self.segment_sum_table.sync_next_id()
+		self.segment_def_table.set_next_id(type(self.segment_def_table.next_id)(0))
+		self.segment_table.set_next_id(type(self.segment_table.next_id)(0))
+		self.segment_sum_table.set_next_id(type(self.segment_sum_table.next_id)(0))
 
 		#
 		# Save process row for later
@@ -414,6 +410,14 @@ class LigolwSegments(set):
 			process_row = self.process
 			if process_row is None:
 				raise ValueError("must supply a process row to .__init__()")
+
+		#
+		# ensure ID generators are synchronized with table contents
+		#
+
+		self.segment_def_table.sync_next_id()
+		self.segment_table.sync_next_id()
+		self.segment_sum_table.sync_next_id()
 
 		#
 		# put all segment lists in time order
