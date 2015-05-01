@@ -33,6 +33,7 @@ from glue import git_version
 from glue import iterutils
 from glue import segments
 from glue import segmentsUtils
+# FIXME:  switch to swig binding
 from glue.lal import LIGOTimeGPS
 from .. import lsctables
 
