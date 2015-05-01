@@ -31,7 +31,6 @@ LAL-derived code (eg. LALApps programs)
 
 import fnmatch
 import math
-import operator
 import os
 import re
 import sys
