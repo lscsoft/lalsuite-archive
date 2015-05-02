@@ -1724,7 +1724,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
             XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi5l",injEvent->dchi5l);
             XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi6",injEvent->dchi6);
             XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi6l",injEvent->dchi6l);
-            XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi7",injEvent->dchi0);
+            XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi7",injEvent->dchi7);
             fprintf(stdout,"Injecting %s in the time domain...\n",injEvent->waveform);
             fprintf(stdout,"adding dchi0=%1.3f in the injection\n",injEvent->dchi0);
             fprintf(stdout,"adding dchi1=%1.3f in the injection\n",injEvent->dchi1);

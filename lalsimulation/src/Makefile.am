@@ -58,6 +58,7 @@ pkginclude_HEADERS = \
 	LALSimInspiralSphHarmSeries.h \
 	LALSimInspiralWaveformCache.h \
         LALSimInspiralEOS.h \
+        LALSimInspiralTaylorF2LightScalar.h \
 	LALSimulation.h \
 	LALSimNeutronStar.h \
 	LALSimNoise.h \
@@ -107,10 +108,12 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralPrecess.c \
 	LALSimInspiral.c \
         LALSimInspiralEOS.c \
+        LALSimInspiralTaylorF2LightScalar.c \
 	LALSimInspiralSphHarmSeries.c \
 	LALSimInspiralPNMode.c \
 	LALSimInspiralPPE.c \
 	LALSimInspiralSpinTaylor.c \
+	LALSimInspiralSpinTaylorLightScalar.c \
 	LALSimInspiralSpinTaylorTest.c \
 	LALSimInspiralSpinTaylorF2.c \
 	LALSimInspiralTaylorEt.c \
