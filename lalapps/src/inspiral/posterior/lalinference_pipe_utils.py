@@ -814,7 +814,6 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             subresnode.set_bayes_coherent_noise(pmergenode.get_B_file())
             if self.config.has_option('input','injection-file') and event.event_id is not None:
                 subresnode.set_injection(self.config.get('input','injection-file'),event.event_id)
-                subresnode.set_snr_file(cotest_nodes[0].get_snr_path())
         coherence_node=CoherenceTestNode(self.coherence_test_job,outfile=os.path.join(self.basepath,'coherence_test','coherence_test_%s_%s.dat'%(myifos,evstring)))
         coherence_node.add_coherent_parent(mergenode)
         map(coherence_node.add_incoherent_parent, par_mergenodes)
@@ -830,7 +829,6 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         respagenode.set_psd_files(enginenodes[0].get_psd_files())
         respagenode.set_snr_file(enginenodes[0].get_snr_file())
     respagenode.set_bayes_coherent_noise(mergenode.get_B_file())
-    respagenode.set_snr_file(enginenodes[0].get_snr_path())
     if self.config.has_option('input','injection-file') and event.event_id is not None:
         respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
     if event.GID is not None:
@@ -976,7 +974,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       mkdirs(roqeventpath)
     node.set_trig_time(end_time)
     node.set_seed(random.randint(1,2**31))
-    node.set_priority(-20+int(round(40.*float(self.times.index(end_time))/float(len(self.times)-0.5))))
+    #node.set_priority(-20+int(round(40.*float(self.times.index(end_time))/float(len(self.times)-0.5))))
     prenode.set_trig_time(end_time)
     randomseed=random.randint(1,2**31)
     node.set_seed(randomseed)
@@ -1388,9 +1386,6 @@ class EngineNode(pipeline.CondorDAGNode):
   
   def get_snr_file(self):
     return self.snrfile
-
-  def get_snr_path(self):
-    return self.snrpath
 
   def set_trig_time(self,time):
     """

@@ -537,6 +537,14 @@ where the known names have been listed above\n\
   {
     return(LALInferenceInitModelReviewEvidence_banana(state));
   }
+  if (LALInferenceGetProcParamVal(commandLine, "--TIGERGaussianLikelihood"))
+  {
+    return(LALInferenceInitTIGERModelReviewEvidence(state));
+  }
+  else if (LALInferenceGetProcParamVal(commandLine, "--bimodalTIGERGaussianLikelihood"))
+  {
+    return(LALInferenceInitTIGERModelReviewEvidence_bimod(state));
+  }
 
   LALInferenceModel *model = XLALMalloc(sizeof(LALInferenceModel));
   model->params = XLALCalloc(1, sizeof(LALInferenceVariables));
@@ -1064,7 +1072,17 @@ LALInferenceModel *LALInferenceInitModelReviewEvidence(LALInferenceRunState *sta
     LALInferenceModel *model = XLALCalloc(1, sizeof(LALInferenceModel));
     model->params = XLALCalloc(1, sizeof(LALInferenceVariables));
 
-	i=0;
+
+    UINT4 nifo=0;
+    LALInferenceIFOData *dataPtr = state->data;
+    while (dataPtr != NULL)
+    {
+      dataPtr = dataPtr->next;
+      nifo++;
+    }
+
+    model->ifo_loglikelihoods = XLALCalloc(nifo, sizeof(REAL8));
+    i=0;
 
 	struct varSettings {const char *name; REAL8 val, min, max;};
 	
@@ -1117,7 +1135,15 @@ LALInferenceModel *LALInferenceInitModelReviewEvidence_bimod(LALInferenceRunStat
 
   LALInferenceModel *model = XLALCalloc(1, sizeof(LALInferenceModel));
   model->params = XLALCalloc(1, sizeof(LALInferenceVariables));
+  UINT4 nifo=0;
+  LALInferenceIFOData *dataPtr = state->data;
+  while (dataPtr != NULL)
+  {
+    dataPtr = dataPtr->next;
+    nifo++;
+  }
 
+  model->ifo_loglikelihoods = XLALCalloc(nifo, sizeof(REAL8));
   i=0;
   
   struct varSettings {const char *name; REAL8 val, min, max;};
@@ -1169,7 +1195,15 @@ LALInferenceModel *LALInferenceInitModelReviewEvidence_banana(LALInferenceRunSta
 
   LALInferenceModel *model = XLALCalloc(1, sizeof(LALInferenceModel));
   model->params = XLALCalloc(1, sizeof(LALInferenceVariables));
+  UINT4 nifo=0;
+  LALInferenceIFOData *dataPtr = state->data;
+  while (dataPtr != NULL)
+  {
+    dataPtr = dataPtr->next;
+    nifo++;
+  }
 
+  model->ifo_loglikelihoods = XLALCalloc(nifo, sizeof(REAL8));
   i=0;
   
   struct varSettings {const char *name; REAL8 val, min, max;};
@@ -1194,6 +1228,131 @@ LALInferenceModel *LALInferenceInitModelReviewEvidence_banana(LALInferenceRunSta
     {.name="END", .val=0., .min=0., .max=0.}
   };
   
+  while(strcmp("END",setup[i].name))
+  {
+    LALInferenceParamVaryType type=LALINFERENCE_PARAM_CIRCULAR;
+    /* Check if it is to be fixed */
+    for(j=0;j<N;j++) if(!strcmp(setup[i].name,strings[j])) {type=LALINFERENCE_PARAM_FIXED; printf("Fixing parameter %s\n",setup[i].name); break;}
+    LALInferenceRegisterUniformVariableREAL8(state, model->params, setup[i].name, setup[i].val, setup[i].min, setup[i].max, type);
+    i++;
+  }
+  return(model);
+}
+
+
+/* Setup the variable for the evidence calculation test for TIGER review */
+/* 5-sigma ranges for analytic likeliood function */
+/* https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/LALInferenceReviewAnalyticGaussianLikelihood */
+LALInferenceModel *LALInferenceInitTIGERModelReviewEvidence(LALInferenceRunState *state)
+{
+    ProcessParamsTable *commandLine=state->commandLine;
+    ProcessParamsTable *ppt=NULL;
+    char **strings=NULL;
+    char *pinned_params=NULL;
+    UINT4 N=0,i,j;
+    if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
+            pinned_params=ppt->value;
+            LALInferenceVariables tempParams;
+            memset(&tempParams,0,sizeof(tempParams));
+            LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
+    }
+
+    LALInferenceModel *model = XLALCalloc(1, sizeof(LALInferenceModel));
+    model->params = XLALCalloc(1, sizeof(LALInferenceVariables));
+
+    UINT4 nifo=0;
+    LALInferenceIFOData *dataPtr = state->data;
+    while (dataPtr != NULL)
+    {
+      dataPtr = dataPtr->next;
+      nifo++;
+    }
+
+    model->ifo_loglikelihoods = XLALCalloc(nifo, sizeof(REAL8));
+    i=0;
+
+    struct varSettings {const char *name; REAL8 val, min, max;};
+
+	struct varSettings setup[]=
+	{
+		{.name="time", .val=0.0, .min= -0.3992418873, .max=0.3992418873},
+		{.name="m1", .val=16., .min=11.1227960706, .max=20.8772039294},
+		{.name="m2", .val=7., .min=1.7419584468, .max=12.2580415532},
+		{.name="distance", .val=50., .min=45.9933722989, .max=54.0066277011},
+		{.name="theta_jn", .val=LAL_PI/2., .min=0.8277080108, .max=2.3138846428},
+		{.name="phase", .val=LAL_PI, .min=1.5796355680,.max=4.7035497392},
+		{.name="polarisation", .val=LAL_PI/2., .min=0.8998400640, .max=2.2417525896},
+		{.name="rightascension", .val=LAL_PI, .min=1.6191582823, .max=4.6640270249},
+		{.name="declination", .val=0., .min=-1.1783564777, .max=1.1783564777},
+		{.name="spin1", .val=0.5, .min=0.2709639690, .max=0.7290360310},
+		{.name="spin2", .val=0.5, .min=0.2948220345, .max=0.7051779655},
+		{.name="dchi1", .val=0.2, .min=0.0031817421, .max=0.3968182579},
+		{.name="dchi2", .val=-0.1, .min=-0.3797921571, .max=0.1797921571},
+		{.name="dchi3", .val=0.28, .min=0.0413704169, .max=0.5186295831},
+		{.name="END", .val=0., .min=0., .max=0.}
+	};
+
+	while(strcmp("END",setup[i].name))
+	{
+        LALInferenceParamVaryType type=LALINFERENCE_PARAM_CIRCULAR;
+        /* Check if it is to be fixed */
+        for(j=0;j<N;j++) if(!strcmp(setup[i].name,strings[j])) {type=LALINFERENCE_PARAM_FIXED; printf("Fixing parameter %s\n",setup[i].name); break;}
+		LALInferenceRegisterUniformVariableREAL8(state, model->params, setup[i].name, setup[i].val, setup[i].min, setup[i].max, type);
+		i++;
+	}
+
+	return(model);
+}
+
+
+LALInferenceModel *LALInferenceInitTIGERModelReviewEvidence_bimod(LALInferenceRunState *state)
+{
+  ProcessParamsTable *commandLine=state->commandLine;
+  ProcessParamsTable *ppt=NULL;
+  char **strings=NULL;
+  char *pinned_params=NULL;
+  UINT4 N=0,i,j;
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
+    pinned_params=ppt->value;
+    LALInferenceVariables tempParams;
+    memset(&tempParams,0,sizeof(tempParams));
+    LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
+  }
+
+  LALInferenceModel *model = XLALCalloc(1, sizeof(LALInferenceModel));
+  model->params = XLALCalloc(1, sizeof(LALInferenceVariables));
+  UINT4 nifo=0;
+  LALInferenceIFOData *dataPtr = state->data;
+  while (dataPtr != NULL)
+  {
+    dataPtr = dataPtr->next;
+    nifo++;
+  }
+
+  model->ifo_loglikelihoods = XLALCalloc(nifo, sizeof(REAL8));
+  i=0;
+
+  struct varSettings {const char *name; REAL8 val, min, max;};
+
+  struct varSettings setup[]=
+  {
+    {.name="time", .val=0.05589, .min=-0.429242, .max= 1.008029},
+    {.name="m1", .val=16.857828, .min=11.122796, .max=28.680730},
+    {.name="m2", .val=7.93626, .min=1.741958, .max=20.670908},
+    {.name="distance", .val=30.6112, .min=20.993372, .max=35.417232},
+    {.name="theta_jn", .val=0.9176809634, .min=0.042310, .max=2.717428},
+    {.name="phase", .val=1.7879487268, .min= 0.008839, .max=5.631885},
+    {.name="polarisation", .val=0.9311901634, .min=0.114442, .max=2.529884},
+    {.name="rightascension", .val=1.8336303268, .min=0.048362, .max=5.529126},
+    {.name="declination", .val=-0.5448389634, .min=-1.963755, .max=2.278329},
+    {.name="spin1", .val=0.2972348, .min=-0.029036, .max=0.795494},
+    {.name="spin2", .val=0.2625048, .min=-0.005178, .max=0.733463},
+    {.name="dchi1", .val=-0.2, .min=-0.446818, .max=0.261727},
+    {.name="dchi2", .val=-0., .min=-0.279792, .max=0.727460},
+    {.name="dchi3", .val=0.11, .min=-0.128630, .max=0.730437},
+    {.name="END", .val=0., .min=0., .max=0.}
+  };
+
   while(strcmp("END",setup[i].name))
   {
     LALInferenceParamVaryType type=LALINFERENCE_PARAM_CIRCULAR;

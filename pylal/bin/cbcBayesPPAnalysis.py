@@ -63,7 +63,17 @@ posterior_name_to_latex_name = {
     'phi_jl':r'$\phi_{jl}$',
     'theta_jn':r'$\theta_{jn}$',
     'tilt1':r'$\tau_1$',
-    'tilt2':r'$\tau_2$'
+    'tilt2':r'$\tau_2$',
+    'dchi0':r'$\delta\chi_0$',
+    'dchi1':r'$\delta\chi_1$',
+    'dchi2':r'$\delta\chi_2$',
+    'dchi3':r'$\delta\chi_3$',
+    'dchi4':r'$\delta\chi_4$',
+    'dchi5':r'$\delta\chi_5$',
+    'dchi5l':r'$\delta\chi_{5l}$',
+    'dchi6':r'$\delta\chi_6$',
+    'dchi6l':r'$\delta\chi_{6l}$',
+    'dchi7':r'$\delta\chi_7$'
 }
 
 def fractional_rank(x, xs):
@@ -211,7 +221,7 @@ if __name__ == '__main__':
     injs = table.get_table(utils.load_filename(options.injxml,contenthandler=ExtractSimInspiralTableLIGOLWContentHandler),lsctables.SimInspiralTable.tableName)
 
     if options.par == []:
-        parameters = ['m1', 'm2', 'mc', 'eta', 'q',  'theta_jn', 'a1', 'a2', 'tilt1', 'tilt2', 'phi12', 'phi_jl', 'ra', 'dec', 'dist', 'time', 'phi_orb', 'psi']
+        parameters = ['m1', 'm2', 'mc', 'eta', 'q',  'theta_jn', 'a1', 'a2', 'tilt1', 'tilt2', 'phi12', 'phi_jl', 'ra', 'dec', 'dist', 'time', 'phi_orb', 'psi', 'dchi1', 'dchi2', 'dchi3']
     else:
         parameters = options.par
 
