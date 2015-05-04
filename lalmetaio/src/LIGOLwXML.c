@@ -865,6 +865,12 @@ LALWriteLIGOLwXMLTable (
               tablePtr.simInspiralTable->dchi6,
               tablePtr.simInspiralTable->dchi6l,
               tablePtr.simInspiralTable->dchi7,
+              tablePtr.simInspiralTable->dxi1,
+              tablePtr.simInspiralTable->dxi2,
+              tablePtr.simInspiralTable->dxi3,
+              tablePtr.simInspiralTable->dxi4,
+              tablePtr.simInspiralTable->dxi5,
+              tablePtr.simInspiralTable->dxi6,
 
             /* Parameters for the massive graviton waveform */
               tablePtr.simInspiralTable->loglambdaG,

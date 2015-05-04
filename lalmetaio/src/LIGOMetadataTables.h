@@ -599,6 +599,12 @@ tagSimInspiralTable
   REAL4 dchi6;
   REAL4 dchi6l;
   REAL4 dchi7;
+  REAL4 dxi1;
+  REAL4 dxi2;
+  REAL4 dxi3;
+  REAL4 dxi4;
+  REAL4 dxi5;
+  REAL4 dxi6;
 
 /* Parameters for the massive graviton waveform */
   REAL4 loglambdaG;

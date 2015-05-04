@@ -226,6 +226,12 @@ REAL8 dchi5l=0.0;
 REAL8 dchi6=0.0;
 REAL8 dchi6l=0.0;
 REAL8 dchi7=0.0;
+REAL8 dxi1=0.0;
+REAL8 dxi2=0.0;
+REAL8 dxi3=0.0;
+REAL8 dxi4=0.0;
+REAL8 dxi5=0.0;
+REAL8 dxi6=0.0;
 REAL8 loglambdaG=28.0;
 REAL8 ScalarCharge1 = 0.0;
 REAL8 ScalarCharge2 = 0.0;
@@ -833,7 +839,14 @@ static void print_usage(char *program)
       " --dchi5l value            value of the dchi5l parameter\n"\
       " --dchi6 value             value of the dchi6 parameter\n"\
       " --dchi6l value            value of the dchi6l parameter\n"\
-      " --dchi7 value             value of the dchi7 parameter\n");
+      " --dchi7 value             value of the dchi7 parameter\n"\
+      " --enable-dxi              enable injections with shifts in pre-merger\n"\
+      " --dxi1 value              value of the dxi1 parameter\n"\
+      " --dxi2 value              value of the dxi2 parameter\n"\
+      " --dxi3 value              value of the dxi3 parameter\n"\
+      " --dxi4 value              value of the dxi4 parameter\n"\
+      " --dxi5 value              value of the dxi5 parameter\n"\
+      " --dxi6 value              value of the dxi6 parameter\n");
   fprintf(stderr,
         "Massive Graviton Information:\n"\
         " --enable-mg				  enable Massive Graviton injections\n"\
@@ -1784,6 +1797,12 @@ int main( int argc, char *argv[] )
     {"dchi6",                   required_argument, 0,                 1017},
     {"dchi6l",                  required_argument, 0,                 1018},
     {"dchi7",                   required_argument, 0,                 1019},
+    {"dxi1",                    required_argument, 0,                 1040},
+    {"dxi2",                    required_argument, 0,                 1041},
+    {"dxi3",                    required_argument, 0,                 1042},
+    {"dxi4",                    required_argument, 0,                 1043},
+    {"dxi5",                    required_argument, 0,                 1044},
+    {"dxi6",                    required_argument, 0,                 1045},
     {"enable-mg",               no_argument,       0,                 1020},   
     {"loglambdaG",              required_argument, 0,                 1021},
     {"enable-bd",               no_argument,       0,                 1022},
@@ -3005,6 +3024,42 @@ int main( int argc, char *argv[] )
             this_proc_param = this_proc_param->next =
             next_process_param( long_options[option_index].name,
               "float", "%le", dchi7 );
+          break;
+      case 1040:
+            dxi1 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dxi1 );
+          break;
+      case 1041:
+            dxi2 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dxi2 );
+          break;
+      case 1042:
+            dxi3 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dxi3 );
+          break;
+      case 1043:
+            dxi4 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dxi4 );
+          break;
+      case 1044:
+            dxi5 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dxi5 );
+          break;
+      case 1045:
+            dxi6 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dxi6 );
           break;
       case 1020:
               /* enable massive graviton injections */
@@ -4444,6 +4499,12 @@ int main( int argc, char *argv[] )
     simTable->dchi6=dchi6;
     simTable->dchi6l=dchi6l;
     simTable->dchi7=dchi7;
+    simTable->dxi1=dxi1;
+    simTable->dxi2=dxi2;
+    simTable->dxi3=dxi3;
+    simTable->dxi4=dxi4;
+    simTable->dxi5=dxi5;
+    simTable->dxi6=dxi6;
     
     /* populate the massive graviton parameter */
     

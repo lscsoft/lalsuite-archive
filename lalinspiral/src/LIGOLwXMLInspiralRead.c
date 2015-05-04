@@ -1438,6 +1438,12 @@ SimInspiralTableFromLIGOLw (
     {"dchi6",               -1, 57},
     {"dchi6l",               -1, 58},
     {"dchi7",               -1, 59},
+    {"dxi1",                -1, 81},
+    {"dxi2",                -1, 82},
+    {"dxi3",                -1, 83},
+    {"dxi4",                -1, 84},
+    {"dxi5",                -1, 85},
+    {"dxi6",                -1, 86},
     {"loglambdaG",           -1,60},
     {"ScalarCharge1",       -1,61},
     {"ScalarCharge2",       -1,62},
@@ -1779,6 +1785,30 @@ SimInspiralTableFromLIGOLw (
         else if ( tableDir[j].idx == 59 )
         {
           thisSim-> dchi7 = r4colData;
+        }
+        else if ( tableDir[j].idx == 81 )
+        {
+          thisSim-> dxi1 = r4colData;
+        }
+        else if ( tableDir[j].idx == 82 )
+        {
+          thisSim-> dxi2 = r4colData;
+        }
+        else if ( tableDir[j].idx == 83 )
+        {
+          thisSim-> dxi3 = r4colData;
+        }
+        else if ( tableDir[j].idx == 84 )
+        {
+          thisSim-> dxi4 = r4colData;
+        }
+        else if ( tableDir[j].idx == 85 )
+        {
+          thisSim-> dxi5 = r4colData;
+        }
+        else if ( tableDir[j].idx == 86 )
+        {
+          thisSim-> dxi6 = r4colData;
         }
         else if ( tableDir[j].idx == 60 )
         {

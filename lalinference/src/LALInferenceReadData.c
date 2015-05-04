@@ -1724,7 +1724,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
             XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi5l",injEvent->dchi5l);
             XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi6",injEvent->dchi6);
             XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi6l",injEvent->dchi6l);
-            XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi7",injEvent->dchi0);
+            XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi7",injEvent->dchi7);
             fprintf(stdout,"Injecting %s in the time domain...\n",injEvent->waveform);
             fprintf(stdout,"adding dchi0=%1.3f in the injection\n",injEvent->dchi0);
             fprintf(stdout,"adding dchi1=%1.3f in the injection\n",injEvent->dchi1);
@@ -2445,6 +2445,12 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
     XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi6",inj_table->dchi6);
     XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi6l",inj_table->dchi6l);
     XLALSimInspiralAddTestGRParam(&nonGRparams,"dchi7",inj_table->dchi7);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dxi1",inj_table->dxi1);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dxi2",inj_table->dxi2);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dxi3",inj_table->dxi3);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dxi4",inj_table->dxi4);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dxi5",inj_table->dxi5);
+    XLALSimInspiralAddTestGRParam(&nonGRparams,"dxi6",inj_table->dxi6);
     fprintf(stdout,"Injecting %s in the frequency domain...\n",inj_table->waveform);
     fprintf(stdout,"adding dchi0=%1.3f in the injection\n",inj_table->dchi0);
     fprintf(stdout,"adding dchi1=%1.3f in the injection\n",inj_table->dchi1);
@@ -2456,6 +2462,12 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
     fprintf(stdout,"adding dchi6=%1.3f in the injection\n",inj_table->dchi6);
     fprintf(stdout,"adding dchi6l=%1.3f in the injection\n",inj_table->dchi6l);
     fprintf(stdout,"adding dchi7=%1.3f in the injection\n",inj_table->dchi7);
+    fprintf(stdout,"adding dxi1=%1.3f in the injection\n",inj_table->dxi1);
+    fprintf(stdout,"adding dxi2=%1.3f in the injection\n",inj_table->dxi2);
+    fprintf(stdout,"adding dxi3=%1.3f in the injection\n",inj_table->dxi3);
+    fprintf(stdout,"adding dxi4=%1.3f in the injection\n",inj_table->dxi4);
+    fprintf(stdout,"adding dxi5=%1.3f in the injection\n",inj_table->dxi5);
+    fprintf(stdout,"adding dxi6=%1.3f in the injection\n",inj_table->dxi6);
     
   }
   if (strstr(inj_table->waveform,"TaylorF2Test")){

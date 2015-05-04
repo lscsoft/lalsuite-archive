@@ -912,7 +912,7 @@ REAL8 LALInferenceEnsembleStretchIntrinsic(LALInferenceRunState *runState, LALIn
   const char *propName = ensembleStretchIntrinsicName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
   const char *names[] = {"chirpmass", "q", "eta", "m1", "m2", "a_spin1", "a_spin2","spin1","spin2",
-    "tilt_spin1", "tilt_spin2", "phi12","dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep", NULL};
+    "tilt_spin1", "tilt_spin2", "phi12","dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","dxi1","dxi2","dxi3","dxi4","dxi5","dxi6","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep", NULL};
   REAL8 logPropRatio = LALInferenceEnsembleStretchNames(runState, cp, pp, names);
   return logPropRatio;
 }
@@ -1035,7 +1035,7 @@ REAL8 LALInferenceEnsembleWalkIntrinsic(LALInferenceRunState *runState, LALInfer
   const char *propName = ensembleWalkIntrinsicName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
   const char *names[] = {"chirpmass", "q", "eta", "m1", "m2", "a_spin1", "a_spin2","spin1","spin2",
-    "tilt_spin1", "tilt_spin2", "phi12","dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep", NULL};
+    "tilt_spin1", "tilt_spin2", "phi12","dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","dxi1","dxi2","dxi3","dxi4","dxi5","dxi6","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep", NULL};
   REAL8 logPropRatio = LALInferenceEnsembleWalkNames(runState, cp, pp, names);
   return logPropRatio;
 }
@@ -1236,7 +1236,7 @@ REAL8 LALInferenceDifferentialEvolutionIntrinsic(LALInferenceRunState *runState,
   const char *propName = differentialEvolutionIntrinsicName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
   const char *names[] = {"chirpmass", "q", "eta", "m1", "m2", "a_spin1", "a_spin2","spin1","spin2",
-    "tilt_spin1", "tilt_spin2", "phi12","dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep", NULL};
+    "tilt_spin1", "tilt_spin2", "phi12","dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","dxi1","dxi2","dxi3","dxi4","dxi5","dxi6","aPPE","alphaPPE","bPPE","betaPPE","betaStep","fStep", NULL};
   REAL8 logPropRatio = LALInferenceDifferentialEvolutionNames(runState, cp, pp, names);
   return logPropRatio;
 }

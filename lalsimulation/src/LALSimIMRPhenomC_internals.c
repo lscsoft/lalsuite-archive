@@ -332,6 +332,17 @@ static BBHPhenomCParams *ComputeIMRPhenomCParams(
   p->del1 = z801 * chi + z802 * chi2 + z811 * eta * chi + z810 * eta + z820 * eta2;
   p->del2 = z901 * chi + z902 * chi2 + z911 * eta * chi + z910 * eta + z920 * eta2;
 
+
+  if (extraParams!=NULL)
+  {
+    if (XLALSimInspiralTestGRParamExists(extraParams,"dxi1")) p->a1*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dxi1"));
+    if (XLALSimInspiralTestGRParamExists(extraParams,"dxi2")) p->a2*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dxi2"));
+    if (XLALSimInspiralTestGRParamExists(extraParams,"dxi3")) p->a3*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dxi3"));
+    if (XLALSimInspiralTestGRParamExists(extraParams,"dxi4")) p->a4*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dxi4"));
+    if (XLALSimInspiralTestGRParamExists(extraParams,"dxi5")) p->a5*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dxi5"));
+    if (XLALSimInspiralTestGRParamExists(extraParams,"dxi6")) p->a6*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dxi6"));
+  }
+
   /* Get the Spin of the final BH */
   REAL8 s4 = -0.129;
   REAL8 s5 = -0.384;
