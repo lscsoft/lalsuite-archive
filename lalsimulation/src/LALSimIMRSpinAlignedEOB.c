@@ -2703,7 +2703,10 @@ int XLALSimIMRSpinEOBWaveform(
     if ( omega < omegasav  && !peakIdx)
     { 
 	  peakIdx = i;
-	  if (debugPK) printf("PK: Crude peak of Omega is at idx = %d. OmegaPeak = %.16e\n", peakIdx, omega);
+	  if (debugPK){
+      printf("PK: Crude peak of Omega is at idx = %d. OmegaPeak = %.16e\n", peakIdx, omega);
+      fflush(NULL);
+    }
 	}
     else
     {
@@ -2789,7 +2792,10 @@ int XLALSimIMRSpinEOBWaveform(
   else //if (peakIdx == (unsigned int) retLenHi)
   {
 	  /* What is happening here? */
-       if (debugPK) printf("AT: Peak of A/r^2 not found, search for peak of Omega");
+       if (debugPK) {
+         printf("AT: Peak of A/r^2 not found, search for peak of Omega");
+         fflush(NULL);
+       }
       /* Stuff to find the actual peak time */
       REAL8 omegaDeriv1; //, omegaDeriv2;
       REAL8 time1, time2;
@@ -2802,7 +2808,7 @@ int XLALSimIMRSpinEOBWaveform(
       acc    = gsl_interp_accel_alloc();
       
       time1 = timeHi.data[peakIdx-2];
-      if(debugPK)printf("time of crude peak = %e\n", time1); fflush(NULL);
+      if(debugPK){ printf("time of crude peak = %e\n", time1); fflush(NULL); }
       
       gsl_spline_init( spline, timeHi.data, omegaHi->data, retLen );
       omegaDeriv1 = gsl_spline_eval_deriv( spline, time1, acc );
@@ -2850,6 +2856,7 @@ int XLALSimIMRSpinEOBWaveform(
   spline = gsl_spline_alloc( gsl_interp_cspline, retLen );
   acc    = gsl_interp_accel_alloc();
 
+  /* Obtain the dynamics at the time where Omega = d\phi/dt peaks */
   for ( j = 0; j < values->length; j++ )
   {
     gsl_spline_init( spline, dynamicsHi->data, dynamicsHi->data+(j+1)*retLen, retLen );
@@ -2860,7 +2867,7 @@ int XLALSimIMRSpinEOBWaveform(
   memset( dvalues->data, 0, 14*sizeof(dvalues->data[0]));
   status = XLALSpinHcapRvecDerivative( 0, values->data, dvalues->data, &seobParams);  
     
-  /* Calculare r x dr/dt */
+  /* Calculare Omega = r x dr/dt */
   vX = dvalues->data[0];  
   vY = dvalues->data[1];
   vZ = dvalues->data[2];
@@ -2887,9 +2894,7 @@ int XLALSimIMRSpinEOBWaveform(
   chiJ = (chi1J+chi2J)/2. + (chi1J-chi2J)/2.*((m1-m2)/(m1+m2))/(1. - 2.*eta);
   kappaJL      = (Lx*Jx + Ly*Jy + Lz*Jz) / magL / magJ;
   
-    if(debugPK){
-        printf("chiJ %3.10f\n", chiJ);
-    }
+  if(debugPK){ printf("chiJ %3.10f\n", chiJ); fflush(NULL); fflush(NULL); }
 
   sh = 0.0;
   switch ( SpinAlignedEOBversion )
@@ -2899,7 +2904,8 @@ int XLALSimIMRSpinEOBWaveform(
        combSize = 7.5;
        deltaNQC = XLALSimIMREOBGetNRSpinPeakDeltaT(2, 2, eta,  chiJ);
         if ( debugPK ) {
-              printf("v1 RD prescriptions are used! %3.10f %3.10f\n", combSize, deltaNQC);
+              printf("v1 RD prescriptions are used! %3.10f %3.10f\n", combSize, deltaNQC); 
+              fflush(NULL);
           }
        break;
      case 2:
@@ -2918,6 +2924,7 @@ int XLALSimIMRSpinEOBWaveform(
        deltaNQC = XLALSimIMREOBGetNRSpinPeakDeltaTv2(2, 2, m1, m2, chi1J, chi2J );
           if ( debugPK ) {
               printf("v2 RD prescriptions are used! %3.10f %3.10f\n", combSize, deltaNQC);
+              fflush(NULL);
           }
        break;
      default:
@@ -2967,10 +2974,9 @@ int XLALSimIMRSpinEOBWaveform(
     JframeEy[1] = JframeEz[2]*JframeEx[0] - JframeEz[0]*JframeEx[2];
     JframeEy[2] = JframeEz[0]*JframeEx[1] - JframeEz[1]*JframeEx[0];
 
-  if(debugPK)printf("J-frameEx = [%e\t%e\t%e]\n", JframeEx[0], JframeEx[1], JframeEx[2]);
-  if(debugPK)printf("J-frameEy = [%e\t%e\t%e]\n", JframeEy[0], JframeEy[1], JframeEy[2]);
-  if(debugPK)printf("J-frameEz = [%e\t%e\t%e]\n", JframeEz[0], JframeEz[1], JframeEz[2]);
-  if(debugPK)fflush(NULL);
+  if(debugPK) { printf("J-frameEx = [%e\t%e\t%e]\n", JframeEx[0], JframeEx[1], JframeEx[2]); fflush(NULL); }
+  if(debugPK) { printf("J-frameEy = [%e\t%e\t%e]\n", JframeEy[0], JframeEy[1], JframeEy[2]); fflush(NULL); }
+  if(debugPK) { printf("J-frameEz = [%e\t%e\t%e]\n", JframeEz[0], JframeEz[1], JframeEz[2]); fflush(NULL); }
 
   /* WaveStep 2
    * Calculate quasi-nonprecessing waveforms
@@ -3041,7 +3047,9 @@ int XLALSimIMRSpinEOBWaveform(
 
   /* WaveStep 2.3.1: main loop for quasi-nonprecessing waveform generation */
   // Generating modes for coarsely sampled portion 
-  if(debugPK) printf("Generating precessing-frame modes for coarse dynamics\n");
+  if(debugPK){
+    printf("Generating precessing-frame modes for coarse dynamics\n");
+    fflush(NULL); }
   if(debugPK) out = fopen( "rotDynamics.dat", "w" );
   for ( i = 0; i < retLen; i++ )
   {
@@ -3228,7 +3236,8 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
         //fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
         //     vX, vY, vZ, LNhx, LNhy, LNhz, creal(hLM), cimag(hLM) );
         fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
-               polData[0], polData[1], polData[2], polData[3], ham, v, creal(hLM), cimag(hLM) );     
+               polData[0], polData[1], polData[2], polData[3], ham, v, creal(hLM), cimag(hLM) );  
+        fflush(NULL);
     }
 
     if ( XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform( &hLM, &polarDynamics, values, v, ham, 2, 1, &seobParams )
@@ -3261,7 +3270,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   }
   if(debugPK) {
       fclose( out );
-      printf("YP: quasi-nonprecessing modes generated.\n");
+      printf("YP: quasi-nonprecessing modes generated.\n"); fflush(NULL);
   }
 
   /* WaveStep 2.4.1: add quasi-nonprecessing spherical harmonic modes to the SphHarmTimeSeries structure */
@@ -3278,7 +3287,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   h2m1PTS = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, -1);
   h2m2PTS = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, -2);
   if (debugPK){
-     printf("YP: SphHarmTS structures populated.\n");
+     printf("YP: SphHarmTS structures populated.\n"); fflush(NULL);
      out = fopen( "PWaves.dat", "w" );
      for ( i = 0; i < retLen; i++ )
      {
@@ -3291,6 +3300,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
      }
      fclose( out );
      printf("YP: P-frame waveforms written to file.\n");
+     fflush(NULL);
   }
 
 
@@ -3354,7 +3364,10 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
 
   
   // Generating modes for finely sampled portion 
-  if(debugPK)printf("Generating precessing-frame modes for fine dynamics\n");
+  if(debugPK) {
+    printf("Generating precessing-frame modes for fine dynamics\n");
+    fflush(NULL);
+  }
   if (debugPK) out = fopen( "rotDynamicsHi.dat", "w" );
   for ( i = 0; i < retLen; i++ )
   {
@@ -3581,7 +3594,8 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   h20PTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 0 );
   h2m1PTSHi = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, -1);
   h2m2PTSHi = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, -2);
-  if (debugPK) printf("YP: SphHarmTS structures populated for HIgh SR.\n");
+  if (debugPK){ 
+    printf("YP: SphHarmTS structures populated for HIgh SR.\n"); fflush(NULL); }
 
   if (debugPK) {
      out = fopen( "PWavesHi.dat", "w" );
@@ -3596,6 +3610,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
      }
      fclose( out );
      printf("YP: P-frame waveforms written to file for High SR.\n");
+     fflush(NULL);
   }
 
   retLen = retLenLow;
@@ -3613,7 +3628,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   h2m1JTS = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, -1);
   h2m2JTS = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, -2);
   if (debugPK){
-      printf("YP: PtoJ rotation done.\n");
+      printf("YP: PtoJ rotation done.\n"); fflush(NULL);
 
      out = fopen( "JWaves.dat", "w" );
      for ( i = 0; i < retLen; i++ )
@@ -3627,6 +3642,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
      }
      fclose( out );
      printf("YP: P-frame waveforms written to file.\n");
+     fflush(NULL);
   }
 
   /* Stas: Rotating the high sampling part */
@@ -3716,7 +3732,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     hIMRlmJTSHi = XLALSphHarmTimeSeriesAddMode( hIMRlmJTSHi, hIMRJTSHi, 2, k );
   }
   XLALSphHarmTimeSeriesSetTData( hIMRlmJTSHi, tlistRDPatchHi );
-  if (debugPK) printf("YP: J wave RD attachment done.\n");
+  if (debugPK){ printf("YP: J wave RD attachment done.\n"); fflush(NULL); }
 
   hIMR22JTSHi  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTSHi, 2, 2 );
   hIMR21JTSHi  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTSHi, 2, 1 );
@@ -3737,6 +3753,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
      fclose( out );
   
      printf("Stas: down sampling and make the complete waveform in J-frame\n");
+     fflush(NULL);
   }
 
   /*** attach hi sampling part and resample  */
@@ -3787,7 +3804,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
 
   }
   XLALSphHarmTimeSeriesSetTData( hIMRlmJTS, tlistRDPatch );
-  if (debugPK) printf("Stas: J-wave with RD  generated.\n");
+  if (debugPK){ printf("Stas: J-wave with RD  generated.\n"); fflush(NULL); }
 
   hIMR22JTS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 );
   hIMR21JTS  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 1 );
@@ -3809,6 +3826,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
      fclose( out );
      printf("YP: IMR J wave written to file.\n");
      printf("Stas: Should be ok now\n");
+     fflush(NULL);
   }
 
   /**** First atempt to compute Euler Angles and rotate to I frame */
@@ -3821,7 +3839,9 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   betJtoI = acos(JframeEz[2]);
   alJtoI = atan2(JframeEy[2], -JframeEx[2]);
 
-  if (debugPK) printf("Stas: J->I EA = %.16e, %.16e, %.16e \n", alJtoI, betJtoI, gamJtoI);
+  if (debugPK){
+    printf("Stas: J->I EA = %.16e, %.16e, %.16e \n", alJtoI, betJtoI, gamJtoI);
+    fflush(NULL); }
  
   /*COMPLEX16TimeSeries *hITS    = XLALCreateCOMPLEX16TimeSeries( "HJ",     &tc, 0.0, deltaT, &lalStrainUnit, retLen );*/
   COMPLEX16TimeSeries *hIMR22ITS  = XLALCreateCOMPLEX16TimeSeries( "HIMRI_22",  &tc, 0.0, deltaT, &lalStrainUnit,
@@ -3859,7 +3879,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   hIMRlmITS = XLALSphHarmTimeSeriesAddMode( hIMRlmITS, hIMR2m2JTS, 2, -2 );
   XLALSphHarmTimeSeriesSetTData( hIMRlmITS, tlistRDPatch );
 
-  if (debugPK) printf("Rotation to inertial I-frame\n");
+  if (debugPK){ printf("Rotation to inertial I-frame\n"); fflush(NULL); }
   if ( XLALSimInspiralPrecessionRotateModes( hIMRlmITS, alpI, betI, gamI ) == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
@@ -3908,7 +3928,8 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     (*hplus)  = hPlusTS;
     (*hcross) = hCrossTS;
      
-    if (debugPK) printf("plus and cross are computed, freeing the memory\n");
+    if (debugPK){
+      printf("plus and cross are computed, freeing the memory\n"); fflush(NULL); }
   /*hplus =  XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 );
   hcross =  XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 );*/
   
