@@ -133,7 +133,7 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   SpinEOBParams UNUSED *params = (SpinEOBParams *)funcParams;
   
   REAL8 r2, pDotr = 0;
-  REAL8 p[3], r[3];
+  REAL8 p[3], r[3], pdotVec[3], rdotVec[3];
   REAL8 omega_x, omega_y, omega_z, omega;
 
   omega_x = values[1]*dvalues[2] - values[2]*dvalues[1];
@@ -142,12 +142,16 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
 
   memcpy( r, values, 3*sizeof(REAL8));
   memcpy( p, values+3, 3*sizeof(REAL8));
+  memcpy( rdotVec, dvalues, 3*sizeof(REAL8));
+  memcpy( pdotVec, dvalues+3, 3*sizeof(REAL8));
 
   r2 = inner_product(r,r);
   omega = sqrt( omega_x*omega_x + omega_y*omega_y + omega_z*omega_z )/r2;
   pDotr = inner_product( p, r ) / sqrt(r2);
     double rdot;
     rdot = (dvalues[0]*r[0] + dvalues[1]*r[1] + dvalues[2]*r[2] ) / sqrt(r2);
+    double prDot = - inner_product( p, r )/r2*rdot + inner_product( pdotVec, r )/sqrt(r2) + inner_product( rdotVec, p )/sqrt(r2) ;
+
 //    printf("r = %3.10f\n", sqrt(r2));
   /* Terminate when omega reaches peak, and separation is < 6M */
   //if ( omega < params->eobParams->omega )
@@ -202,9 +206,28 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   params->eobParams->omega = omega;
 
   if( r2>16 )params->eobParams->omegaPeaked = 0;
-  
-  if(debugPK && r2 < 9.)printf("\n Integration continuing, r = %f, omega = %f\n", sqrt(r2), omega);
-  
+    
+    if(r2 < 16. && omega < 0.01 ) {
+        if(debugPK)printf("\n Integration stopping, omega<0.01\n");
+        return 1;
+    }
+//    if(r2 < 16. && ( dvalues[12] < 0. || dvalues[13] < 0.)  ) {
+//        if(debugPK)printf("\n Integration stopping, psiDot<0.01\n");
+//        return 1;
+//    }
+    if(r2 < 16. && prDot > 0. ) {
+        if(debugPK)printf("\n Integration stopping, prDot > 0\n");
+       return 1;
+    }
+//    if(r2 < 9.) {
+//        if(debugPK)printf("\n Integration stopping, r<3M\n");
+//        return 1;
+//    }
+    if(debugPK && r2 < 9.) {
+        printf("\n Integration continuing, r = %f, omega = %f, rdot = %f, pr = %f, prDot = %f\n", sqrt(r2), omega, rdot, pDotr, prDot);
+        printf("%f %f %f %f %f %f %f %f %f %f %f %f %f %f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11], values[12], values[13]);
+        printf("%f %f %f %f %f %f %f %f %f %f %f %f %f %f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6],  dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11] , dvalues[12], dvalues[13]);
+    }
   return GSL_SUCCESS;
 }
 
@@ -2447,7 +2470,7 @@ int XLALSimIMRSpinEOBWaveform(
 		   { Gamma->data[i] = 0.; }
 		 else
 		 {
-			 gsl_integration_qags (&precEulerF, tVec.data[i-1], tVec.data[i], 0, 1e-9, 1000, precEulerw, &precEulerresult, &precEulererror); 
+			 gsl_integration_qags (&precEulerF, tVec.data[i-1], tVec.data[i], 1e-9, 1e-9, 1000, precEulerw, &precEulerresult, &precEulererror);
 			 Gamma->data[i] = Gamma->data[i-1] + precEulerresult;
 		 }
 		 			
@@ -2571,7 +2594,7 @@ int XLALSimIMRSpinEOBWaveform(
 		   { GammaHi->data[i] = Gamma->data[hiSRndx]; }
 		 else
 		 {
-			 gsl_integration_qags (&precEulerF, timeHi.data[i-1], timeHi.data[i], 0, 1e-9, 1000, precEulerw, &precEulerresult, &precEulererror); 
+			 gsl_integration_qags (&precEulerF, timeHi.data[i-1], timeHi.data[i], 1e-9, 1e-9, 1000, precEulerw, &precEulerresult, &precEulererror);
 			 GammaHi->data[i] = GammaHi->data[i-1] + precEulerresult;
 		 }
 		 			
