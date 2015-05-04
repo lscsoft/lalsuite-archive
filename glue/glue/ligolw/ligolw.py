@@ -108,7 +108,7 @@ class attributeproxy(property):
 			if default is not None:
 				doc += "  Default is \"%s\" if not set." % str(default)
 		# initialize the property object
-		super(attributeproxy, self).__init__(getter, setter, deleter, doc)
+		super(attributeproxy, self).__init__(getter, (setter if enc is not None else None), (deleter if enc is not None else None), doc)
 		# documentation is not inherited, need to set it explicitly
 		self.__doc__ = doc
 		# record default attribute.  if no value is supplied,
