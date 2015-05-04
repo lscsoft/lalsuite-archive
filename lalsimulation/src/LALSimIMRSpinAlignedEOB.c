@@ -184,6 +184,20 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
 	 if(debugPK)printf("\n Integration stopping, omega reached second extremum\n");
     return 1;
   }
+  
+  /* If momentum derivatives are too large, break */
+  if ( r2 < 16. && dvalues[3] > 100 && dvalues[4] > 100 && dvalues[5] > 100 )
+  {
+    if(debugPK)printf("\n Integration stopping, dpdt > 100 -- too large!\n");
+    return 1;
+  }
+  
+  if( r2 < 16. && values[5] > 10 )
+    {
+      printf("Pphi > 10 now\n\n");
+      return 1;
+    }
+    
 
   params->eobParams->omega = omega;
 
@@ -1329,7 +1343,7 @@ int XLALSimIMRSpinEOBWaveform(
      )
 {
   int UNUSED ret;
-  int debugPK = 0;
+  int debugPK = 1;
   INT4 i=0;
   INT4 k=0;
   UINT4 j=0;
@@ -1630,7 +1644,7 @@ int XLALSimIMRSpinEOBWaveform(
     values->data[i+6] *= m1*m1/(mTotal*mTotal);
     values->data[i+9] *= m2*m2/(mTotal*mTotal);
   }
-  #endif
+#endif
 
   /* TODO: Insert potentially necessary checks on the arguments */
 
@@ -1924,7 +1938,41 @@ int XLALSimIMRSpinEOBWaveform(
 //    tmpValues2->data[9]= 0.0000000000000000e+00;
 //    tmpValues2->data[10]= 0.0000000000000000e+00;
 //    tmpValues2->data[11]= 1.3888888888888888e-02;
-    
+
+
+    tmpValues2->data[0]=  1.8656971023349701e+01;
+    tmpValues2->data[1]= 0;
+    tmpValues2->data[2]= 0;
+    tmpValues2->data[3]= -4.8895110550351657e-04;
+    tmpValues2->data[4]= 2.4619856470732523e-01;
+    tmpValues2->data[5]= -2.6870560011919208e-05;
+    tmpValues2->data[6]= 2.9451156124040437e-02;
+    tmpValues2->data[7]= -1.1434246556844330e-02;
+    tmpValues2->data[8]= 2.3068072871192638e-01;
+    tmpValues2->data[9]= 6.2954182743516019e-03;
+    tmpValues2->data[10]= 8.8246456372334629e-03;
+    tmpValues2->data[11]= 1.5200695012151960e-01;
+
+/*
+    tmpValues2->data[0]=  18.692546;
+    tmpValues2->data[1]= -3.081570006533801e-23;
+    tmpValues2->data[2]= -2.655985321845305e-19;
+    tmpValues2->data[3]= -0.0005055333254955916;
+    tmpValues2->data[4]= 0.247049159617696;
+    tmpValues2->data[5]= -5.732707053941175e-05;
+    tmpValues2->data[6]= -2.3036527238752252e-02;
+    tmpValues2->data[7]= -3.3429958143641740e-02;
+    tmpValues2->data[8]= 2.3933425361333752e-01;
+    tmpValues2->data[9]= 7.5408416145236912e-02;
+    tmpValues2->data[10]= 1.7433761720072755e-01;
+    tmpValues2->data[11]= -2.3113050136189490e-02;
+*/
+
+
+  //tmpValues2->data[3] *= 1.02;
+  //tmpValues2->data[4] *= 1.02;
+  //tmpValues2->data[5] *= -0.01;
+  
     if(debugPK)
   {
 	  printf("Setting up initial conditions, returned values are:\n");
@@ -2240,7 +2288,10 @@ int XLALSimIMRSpinEOBWaveform(
     XLAL_ERROR( XLAL_EFUNC );
   }
   retLenHi = retLen;
-  
+
+  if(debugPK)
+    fprintf( stderr, "Finished high SR integration... \n" );
+
   /* Set up pointers to the dynamics */
   timeHi.length = posVecxHi.length = posVecyHi.length = posVeczHi.length = 
   momVecxHi.length = momVecyHi.length = momVeczHi.length = 

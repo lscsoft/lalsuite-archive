@@ -257,7 +257,19 @@ XLALInspiralPrecSpinFactorizedFlux(
 )
 {
 	int		debugPK = 0;
-
+  int i = 0;
+  if (1){
+    for( i =0; i < 4; i++)
+      if( isnan(polvalues->data[i]) ) {
+        printf("XLALInspiralPrecSpinFactorizedFlux (from input)::polvalues %3.10f %3.10f %3.10f %3.10f\n", polvalues->data[0], polvalues->data[1], polvalues->data[2], polvalues->data[3]);
+      }
+    
+    for( i =0; i < 12; i++)
+      if( isnan(values->data[i]) ) {
+        printf("XLALInspiralPrecSpinFactorizedFlux (from input)::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values->data[0], values->data[1], values->data[2], values->data[3], values->data[4], values->data[5], values->data[6], values->data[7], values->data[8], values->data[9], values->data[10], values->data[11]);
+      }
+  }
+    
 	REAL8		flux = 0.0;
 	REAL8		v;
 	REAL8		omegaSq;
@@ -283,7 +295,7 @@ XLALInspiralPrecSpinFactorizedFlux(
 	/* Update the factorized multipole coefficients, w.r.t. new spins */
 	if (0) {		/* {{{ */
 		printf("\nValues inside Flux:\n");
-		for (int i = 0; i < 11; i++)
+		for (i = 0; i < 11; i++)
 			printf("values[%d] = %.12e\n", i, values->data[i]);
 		/*
 		 * Assume that initial conditions are available at this
@@ -395,16 +407,31 @@ XLALInspiralPrecSpinFactorizedFlux(
 				if (debugPK)
 					printf("\tl = %d, m = %d, hNQC = %.16e + i%.16e, |hNQC| = %.16e\n", l, m,
 					       creal(hNQC), cimag(hNQC), sqrt(creal(hNQC) * creal(hNQC) + cimag(hLM) * cimag(hLM)));
+
+      if((m * m) * omegaSq * (creal(hLM) * creal(hLM) + cimag(hLM) * cimag(hLM)) > 5.) {
+        
+        	printf("\tl = %d, m = %d, mag(hLM) = %.17e, mag(hNQC) = %.17e, omega = %.16e\n", 
+          l, m, sqrt(creal(hLM) * creal(hLM) + cimag(hLM) * cimag(hLM)), 
+          sqrt(creal(hNQC) * creal(hNQC) + cimag(hNQC) * cimag(hNQC)), omega);
+      
+      printf("XLALInspiralPrecSpinFactorizedFlux (from input)::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values->data[0], values->data[1], values->data[2], values->data[3], values->data[4], values->data[5], values->data[6], values->data[7], values->data[8], values->data[9], values->data[10], values->data[11]);
+    }
+    
 				/* Eq. 16 */
 				//FIXME
 					hLM *= hNQC;
 			}
 			if (debugPK)
 				printf("\tl = %d, m = %d, mag(hLM) = %.17e, omega = %.16e\n", l, m, sqrt(creal(hLM) * creal(hLM) + cimag(hLM) * cimag(hLM)), omega);
+      
 			/* Eq. 13 */
 			flux += (REAL8) (m * m) * omegaSq * (creal(hLM) * creal(hLM) + cimag(hLM) * cimag(hLM));
 		}
 	}
+  if( omegaSq > 1 || flux > 5 )
+    printf("In XLALInspiralPrecSpinFactorizedFlux: omegaSq = %3.12f, FLUX = %3.12f\n",
+    omegaSq, flux);
+    
 	if (debugPK)
 		printf("\tStas, FLUX = %.16e\n", flux * LAL_1_PI / 8.0);
 	return flux * LAL_1_PI / 8.0;

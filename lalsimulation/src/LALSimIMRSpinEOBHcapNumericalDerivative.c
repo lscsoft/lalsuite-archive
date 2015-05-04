@@ -716,7 +716,16 @@ XLALSpinHcapNumericalDerivative(
 		}
 		fflush(NULL);
 	}
-	return XLAL_SUCCESS;
+	
+  for(i=0; i<14; i++)
+    if(dvalues[i] > 1e3){
+      printf("Derivatives have blown up!\n");
+      for(j=0; j<14; printf("dvalues[%d] = %3.12f\n", j, dvalues[j]), j++);
+      printf("Flux = %3.12f\n\n", flux);
+    break;
+    }
+      
+  return XLAL_SUCCESS;
 }
 
 /**

@@ -529,6 +529,45 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   /* Real Hamiltonian given by Eq. 2, ignoring the constant -1. */
   Hreal = sqrt(1. + 2.*eta *(H - 1.));
   if(debugPK)printf( "Hreal = %.16e\n", Hreal );
+  
+  if(isnan(Hreal)) {
+    printf( "Hns = %.16e, Hs = %.16e, Hss = %.16e\n", Hns, Hs, Hss );
+	  printf( "H = %.16e\n", H );
+    printf( "deltaSigmaStar_x = %.16e, deltaSigmaStar_y = %.16e, deltaSigmaStar_z = %.16e\n", 
+     deltaSigmaStar_x, deltaSigmaStar_y, deltaSigmaStar_z );
+    printf( "pn2 = %.16e, pp = %.16e\n", pn2, pp );
+  printf( "sigmaKerr = %.16e, sigmaStar = %.16e\n", sKerr_z, sStar_z );
+  printf( "term 1 in Hns: %.16e\n",  prT*prT*prT*prT*qq*u2 );
+  printf( "term 2 in Hns: %.16e\n", ptheta2/rho2 );
+  printf( "term 3 in Hns = %.16e\n", pf*pf*rho2/(Lambda*xi2) );
+  printf( "term 4 in Hns = %.16e\n", pr*pr*deltaR/rho2 );
+  printf( "term 5 in Hns = %.16e\n", Lambda/(rho2*deltaT) );
+  printf( "term 6 in Hns = %.16e\n", pf*ww/Lambda );
+  printf( "pr = %.16e, prT = %.16e\n", pr, prT );
+
+  printf( " a = %.16e, r = %.16e\n", a, r );
+  printf( "D = %.16e, ww = %.16e, rho = %.16e, Lambda = %.16e, xi = %.16e\npr = %.16e, pf = %.16e, deltaR = %.16e, deltaT = %.16e\n", 
+      D, ww, sqrt(rho2), Lambda, sqrt(xi2), pr, pf, deltaR, deltaT );
+  printf( "pr = %.16e, prT = %.16e\n", pr, prT );
+
+  printf( " a = %.16e, r = %.16e\n", a, r );
+  printf( "D = %.16e, ww = %.16e, rho = %.16e, Lambda = %.16e, xi = %.16e\npr = %.16e, pf = %.16e, deltaR = %.16e, deltaT = %.16e\n", 
+      D, ww, sqrt(rho2), Lambda, sqrt(xi2), pr, pf, deltaR, deltaT );
+  printf("csi(miami) = %.16e\n", csi); 
+  
+  printf( "KK = %.16e\n", coeffs->KK );
+  printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );
+  
+  printf( "In Hamiltonian: tortoise flag = %d\n", (int) tortoise );
+  printf( "x = %.16e\t%.16e\t%.16e\n", x->data[0], x->data[1], x->data[2] );
+  printf( "p = %.16e\t%.16e\t%.16e\n", p->data[0], p->data[1], p->data[2] );
+  printf( "sStar = %.16e\t%.16e\t%.16e\n", sigmaStar->data[0], 
+		sigmaStar->data[1], sigmaStar->data[2] );
+  printf( "sKerr = %.16e\t%.16e\t%.16e\n", sigmaKerr->data[0], 
+		sigmaKerr->data[1], sigmaKerr->data[2] );
+    
+    printf("\n\n");
+  }
 
   return Hreal;
 }
@@ -888,14 +927,21 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
                       SpinEOBParams         *funcParams /**<< EOB parameters */
                       )
 {
-    int debugPK = 0;
+    int debugPK = 1;
+    if (debugPK){
+      for(int i =0; i < 12; i++)
+        if( isnan(values[i]) ) {
+          printf("XLALSimIMRSpinEOBCalcOmega::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+        }
+      }
+
   static const REAL8 STEP_SIZE = 1.0e-4;
   REAL8 tmpvar = 0;
 
   HcapDerivParams params;
 
   /* Cartesian values for calculating the Hamiltonian */
-    REAL8 cartValues[14] = {0.}, dvalues[14] = {0.};
+  REAL8 cartValues[14] = {0.}, dvalues[14] = {0.};
   REAL8 cartvalues[14] = {0.}, polarvalues[6] = {0.}; /* The rotated cartesian/polar values */
   REAL8 polarRPcartSvalues[14] = {0.};
   memcpy( cartValues, values, 14 * sizeof(REAL8) );  
@@ -910,7 +956,13 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
   /* Calculate rDot = \f$\partial Hreal / \partial p_r\f$ */
   memset( dvalues, 0, 14 * sizeof(REAL8) );
   errcode = XLALSpinHcapRvecDerivative( 0, values, dvalues, (void*) funcParams);
-    if (debugPK) printf("XLALSpinHcapRvecDerivative::dvalues = %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2]);
+  
+  if (debugPK){
+    for(int ii =0; ii < 12; ii++)
+      if( isnan(dvalues[ii]) ) {
+        printf("XLALSimIMRSpinEOBCalcOmega::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
+        }
+      }
     
   REAL8 rdotvec[3] = {0.}; memcpy( rdotvec, dvalues, 3*sizeof(REAL8) );
 
@@ -927,8 +979,8 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
 
   //////////////////////////////////////////////////
   //
-    REAL8 Rot1[3][3] ={{0.}}; // Rotation matrix for prevention of blowing up
-    REAL8 Rot2[3][3] ={{0.}} ;
+  REAL8 Rot1[3][3] ={{0.}}; // Rotation matrix for prevention of blowing up
+  REAL8 Rot2[3][3] ={{0.}} ;
   REAL8 LNhat[3] = {0.}; memcpy( LNhat, rcrossrdot, 3 * sizeof(REAL8) );
 
   REAL8 Xhat[3] = {1, 0, 0};
@@ -1050,11 +1102,11 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
   polarvalues[3] = 0;
   
     if (debugPK)  {
-    for (int ii =0; ii<3; ii++)
+    /*for (int ii =0; ii<3; ii++)
         for (int jj =0; jj<3; jj++)
-        printf("%3.10f %3.10f\n",Rot1[ii][jj], Rot2[ii][jj]);
+        printf("%3.10f %3.10f\n",Rot1[ii][jj], Rot2[ii][jj]);*/
     
-    printf("XLALSpinHcapRvecDerivative::polarvalues = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", polarvalues[0], polarvalues[1], polarvalues[2], polarvalues[3], polarvalues[4], polarvalues[5]);
+    //printf("XLALSimIMRSpinEOBCalcOmega::polarvalues = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", polarvalues[0], polarvalues[1], polarvalues[2], polarvalues[3], polarvalues[4], polarvalues[5]);
     }
     
   /* Differentiate Hamiltonian w.r.t. p_\phi, keeping p_r = 0 */
@@ -1105,7 +1157,19 @@ UNUSED static int XLALSpinHcapRvecDerivative(
                  void             *funcParams /**<< EOB parameters */
                                )
 {
-  UNUSED int debugPK = 0;
+  UNUSED int debugPK = 1;
+  if (debugPK){
+    for(int i =0; i < 12; i++){
+      if( isnan(values[i]) ) {
+        printf("XLALSpinHcapRvecDerivative::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+        }
+        
+      if( isnan(dvalues[i]) ) {
+        printf("XLALSpinHcapRvecDerivative::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
+        }
+      }
+  }
+
   static const REAL8 STEP_SIZE = 1.0e-4;
 
   UNUSED static const INT4 lMax = 8;
@@ -1284,6 +1348,9 @@ UNUSED static int XLALSpinHcapRvecDerivative(
   a = sqrt(sKerr.data[0]*sKerr.data[0] + sKerr.data[1]*sKerr.data[1] 
       + sKerr.data[2]*sKerr.data[2]);
  
+  if(debugPK && isnan(a))
+    printf("a is nan in XLALSpinHcapRvecDerivative \n");
+    
   ///* set the tortoise flag to 2 */
   //INT4 oldTortoise = params.params->tortoise;
   //params.params->tortoise = 2;
@@ -1367,8 +1434,18 @@ UNUSED static int XLALSpinHcapRvecDerivative(
 		+ rData[i]*rData[j]*rData[k]/rMag2/rMag*(-2./rMag*(csi - 1.) + dcsi);
 		}
 	
-    if (debugPK)
-        printf("XLALSpinHcapRvecDerivative::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+  if (debugPK){
+    for(i =0; i < 12; i++){
+      if( isnan(values[i]) ) {
+        printf("XLALSpinHcapRvecDerivative (just before diff)::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+        }
+        
+      if( isnan(dvalues[i]) ) {
+        printf("XLALSpinHcapRvecDerivative (just before diff)::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
+        }
+      }
+}
+
   /* Now calculate derivatives w.r.t. each parameter */
   for ( i = 0; i < 6; i++ )
   {
@@ -1411,6 +1488,12 @@ UNUSED static int XLALSpinHcapRvecDerivative(
       XLAL_ERROR( XLAL_EFUNC );
     }
   }
+  if (debugPK){
+    for( i =0; i < 12; i++)
+      if( isnan(tmpDValues[i]) ) {
+        printf("XLALSpinHcapRvecDerivative (just after diff)::tmpDValues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpDValues[0], tmpDValues[1], tmpDValues[2], tmpDValues[3], tmpDValues[4], tmpDValues[5], tmpDValues[6], tmpDValues[7], tmpDValues[8], tmpDValues[9], tmpDValues[10], tmpDValues[11]);
+        }
+    }
 
   /* Calculate the orbital angular momentum */
   Lx = values[1]*values[5] - values[2]*values[4];
@@ -1506,7 +1589,8 @@ UNUSED static int XLALSpinHcapRvecDerivative(
   for( i = 0; i < 3; i++ )
 	  for( j = 0, dvalues[i] = 0.; j < 3; j++ )
 		  dvalues[i] += tmpDValues[j+3]*Tmatrix[i][j];
-    if (debugPK) printf("XLALSpinHcapRvecDerivative::tmpDValues = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n",tmpDValues[0],tmpDValues[1],tmpDValues[2],tmpDValues[3],tmpDValues[4],tmpDValues[5]);
+    
+    //if (debugPK) printf("XLALSpinHcapRvecDerivative::tmpDValues = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n",tmpDValues[0],tmpDValues[1],tmpDValues[2],tmpDValues[3],tmpDValues[4],tmpDValues[5]);
 
 
   return XLAL_SUCCESS;
@@ -1519,6 +1603,7 @@ UNUSED static int XLALSpinHcapRvecDerivative(
  */
 static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
 {
+  int debugPK = 1;
   HcapDerivParams *dParams = (HcapDerivParams *)params;
 
   EOBParams *eobParams = (EOBParams*) dParams->params->eobParams;
@@ -1541,6 +1626,13 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
   INT4 oldTortoise = dParams->params->tortoise;
   /* Use a temporary vector to avoid corrupting the main function */
   memcpy( tmpVec, dParams->values, sizeof(tmpVec) );
+
+  if (debugPK){
+    for( i =0; i < 12; i++)
+      if( isnan(tmpVec[i]) ) {
+        printf("GSLSpinHamiltonianWrapperForRvecDerivs (from input)::tmpVec %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpVec[0], tmpVec[1], tmpVec[2], tmpVec[3], tmpVec[4], tmpVec[5], tmpVec[6], tmpVec[7], tmpVec[8], tmpVec[9], tmpVec[10], tmpVec[11]);
+        }
+    }
 
   /* Set the relevant entry in the vector to the correct value */
   tmpVec[dParams->varyParam] = x;
@@ -1584,7 +1676,7 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
   //printf( "aStar = %e\n", sqrt( sigmaStar.data[0]*sigmaStar.data[0] + sigmaStar.data[1]*sigmaStar.data[1] + sigmaStar.data[2]*sigmaStar.data[2]) );
   if ( isnan( a ) )
   {
-    printf( "a is nan here R!!\n");
+    printf( "a is nan in GSLSpinHamiltonianWrapperForRvecDerivs!!\n");
   }
   //XLALSimIMRCalculateSpinEOBHCoeffs( dParams->params->seobCoeffs, eobParams->eta, a );
   /* If computing the derivative w.r.t. the position vector, we need to 
@@ -1644,8 +1736,27 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
   }
 #endif
 //  printf( "Hamiltonian = %e\n", XLALSimIMRSpinEOBHamiltonian( eobParams->eta, &r, &p, &sigmaKerr, &sigmaStar, dParams->params->seobCoeffs ) );
+    double magR = r.data[0]*r.data[0] + r.data[1]*r.data[1] + r.data[2]*r.data[2];
+
+  if(debugPK) {
+    if(0 && magR < 1.96 * 1.96) {
+      printf("GSLSpinHamiltonianWrapperForRvecDerivs (JUST inputs)::tmpVec %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpVec[0], tmpVec[1], tmpVec[2], tmpVec[3], tmpVec[4], tmpVec[5], tmpVec[6], tmpVec[7], tmpVec[8], tmpVec[9], tmpVec[10], tmpVec[11]);
+      
+      printf(" R = %3.10f\n\n", sqrt(magR));
+    }
+  }
+  
   REAL8 SpinEOBH = XLALSimIMRSpinEOBHamiltonian( eobParams->eta, &r, &p, &spin1norm, &spin2norm, &sigmaKerr, &sigmaStar, dParams->params->tortoise, dParams->params->seobCoeffs ) / eobParams->eta;
   
+  if( isnan(SpinEOBH) )
+    {
+      printf("H is nan in GSLSpinHamiltonianWrapperForRvecDerivs. \n");
+    
+      printf("GSLSpinHamiltonianWrapperForRvecDerivs (JUST inputs)::tmpVec %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpVec[0], tmpVec[1], tmpVec[2], tmpVec[3], tmpVec[4], tmpVec[5], tmpVec[6], tmpVec[7], tmpVec[8], tmpVec[9], tmpVec[10], tmpVec[11]);
+      
+      printf(" R = %3.10f\n\n", sqrt(magR));
+    }
+    
   if ( dParams->varyParam < 3 )dParams->params->tortoise = oldTortoise;
   return SpinEOBH;
 }
@@ -1760,7 +1871,7 @@ static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params )
   //printf( "aStar = %e\n", sqrt( sigmaStar.data[0]*sigmaStar.data[0] + sigmaStar.data[1]*sigmaStar.data[1] + sigmaStar.data[2]*sigmaStar.data[2]) );
   if ( isnan( a ) )
   {
-    printf( "a is nan here!!\n");
+    printf( "a is nan in GSLSpinHamiltonianWrapperFordHdpphi !!\n");
       printf("rpolar, ppolar = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", rpolar[0], rpolar[1], rpolar[2], ppolar[0], ppolar[1], ppolar[2]);
       printf("rcart, pcart = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", rcart[0], rcart[1], rcart[2], pcart[0], pcart[1], pcart[2]);
       abort();
@@ -1840,8 +1951,13 @@ XLALSimIMRSpinPrecEOBNonKeplerCoeff(
                       SpinEOBParams         *funcParams /**<< EOB parameters */
                       )
 {
-    int debugPK = 0;
-    if (debugPK) printf("XLALSimIMRSpinPrecEOBNonKeplerCoeff::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+    int debugPK = 1;
+    if (debugPK){
+      for(int i =0; i < 12; i++)
+        if( isnan(values[i]) ) {
+          printf("XLALSimIMRSpinPrecEOBNonKeplerCoeff::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+        }
+      }
     
   REAL8 omegaCirc;
 
@@ -1875,8 +1991,13 @@ XLALSimIMRSpinEOBNonKeplerCoeff(
                       SpinEOBParams         *funcParams /**<< EOB parameters */
                       )
 {
-    int debugPK = 0;
-    if (debugPK) printf("XLALSimIMRSpinEOBNonKeplerCoeff::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+    int debugPK = 1;
+    if (debugPK){
+      for(int i =0; i < 12; i++)
+        if( isnan(values[i]) ) {
+          printf("XLALSimIMRSpinPrecEOBNonKeplerCoeff::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+        }
+      }
 
 
   REAL8 omegaCirc;
