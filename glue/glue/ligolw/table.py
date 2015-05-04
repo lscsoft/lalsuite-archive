@@ -324,6 +324,21 @@ class Column(ligolw.Column):
 	"""
 	High-level column element that provides list-like access to the
 	values in a column.
+
+	NOTE:  the .Name attribute returns the stripped "Name" attribute of
+	the element, e.g. as would be obtained with StripColumnName(), but
+	when assigning to the .Name attribute the value provided is stored
+	without modification, i.e. there is no attempt to reattach the
+	table's name to the string.  The calling code is responsible for
+	doing the correct manipulations.  Therefore,
+
+		>>> x = Column()
+		>>> x.Name = x.Name
+
+	does not preserve the value of the "Name" attribute.  This
+	asymmetry is necessary because the correct string to reattach to
+	the attribute's value cannot always be known, e.g., if the Column
+	element not have a parent node.
 	"""
 	Name = ligolw.attributeproxy(u"Name", dec = StripColumnName)
 
@@ -453,7 +468,7 @@ class InterningRowBuilder(tokenizer.RowBuilder):
 	>>> InterningRowBuilder.strings.clear()
 
 	to reset the dictionary at appropriate points in the application.
-	Typically this would be dome immediately after each document is
+	Typically this would be done immediately after each document is
 	loaded.
 	"""
 	strings = {}
@@ -871,6 +886,7 @@ class Table(ligolw.Table, list):
 		ValueError if the table does not have an ID generator
 		associated with it.
 		"""
+		# = None if no ID generator
 		id = cls.next_id
 		cls.next_id += 1
 		return id
