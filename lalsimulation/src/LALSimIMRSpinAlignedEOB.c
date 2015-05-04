@@ -2626,7 +2626,7 @@ int XLALSimIMRSpinEOBWaveform(
   /* Allocate the high sample rate vectors */
   /*sigReHi  = XLALCreateREAL8Vector( retLen + retLenRDPatch );
   sigImHi  = XLALCreateREAL8Vector( retLen + retLenRDPatch );*/
-  omegaHi  = XLALCreateREAL8Vector( retLen + retLenRDPatch);
+  omegaHi  = XLALCreateREAL8Vector( retLenHi + retLenRDPatch);
   
 
   /*if ( !sigReHi || !sigImHi || !omegaHi )*/
@@ -2672,11 +2672,11 @@ int XLALSimIMRSpinEOBWaveform(
   omegasav2 = -1.0;  omegasav  = -0.5;  omega     =  0.0;
   if (debugPK) out = fopen( "omegaHi.dat", "w" );
   if(debugPK) printf("length of values = %d, retLen = %d\n", values->length, retLen);
-  for ( i = 0, peakIdx = 0; i < retLen; i++ )
+  for ( i = 0, peakIdx = 0; i < retLenHi; i++ )
   {
     for ( j = 0; j < values->length; j++ )
     {
-      values->data[j] = *(dynamicsHi->data+(j+1)*retLen+i);
+      values->data[j] = *(dynamicsHi->data+(j+1)*retLenHi+i);
     }
     
     /* Calculate dr/dt */
@@ -2716,7 +2716,11 @@ int XLALSimIMRSpinEOBWaveform(
     if(debugPK)fprintf( out, "%.16e\t%.16e\n", timeHi.data[i], omegaHi->data[i]);
   }
   if(debugPK) fclose(out);
-    
+  
+  if(debugPK){ 
+    printf("PK: End of crude omega peak-finding. peakIdx = %d, retLen = %d, i at exit = %d\n", peakIdx, retLenHi, i);
+    fflush(NULL);
+  }
    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /*Search peak of Delta_t / r^2*/
    /* REAL8 rad, rad2, m1PlusetaKK, bulk, logTerms, deltaU, u, u2, u3, u4, u5;
@@ -2784,9 +2788,10 @@ int XLALSimIMRSpinEOBWaveform(
 //    abort();
 
   /* Was the (crude) peak reached? */
-  if ( i == retLen - 1 && !peakIdx)
+  if ( i == retLenHi && !peakIdx)
   {
     printf("YP: Error! Failed to find peak of omega!\n");
+    fflush(NULL);
     abort();
   }
   else //if (peakIdx == (unsigned int) retLenHi)
