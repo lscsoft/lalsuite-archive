@@ -473,10 +473,12 @@ class InterningRowBuilder(tokenizer.RowBuilder):
 	"""
 	strings = {}
 	def append(self, tokens):
+		interns = self.interns
+		setdefault = self.strings.setdefault
 		for row in super(InterningRowBuilder, self).append(tokens):
-			for col in self.interns:
+			for col in interns:
 				val = getattr(row, col)
-				setattr(row, col, self.strings.setdefault(val, val))
+				setattr(row, col, setdefault(val, val))
 			yield row
 
 
