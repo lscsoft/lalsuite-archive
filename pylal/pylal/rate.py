@@ -194,9 +194,9 @@ class Bins(object):
 		>>> # natural log of 1/10
 		>>> print "%.15g" % math.log(1./10)
 		-2.30258509299405
-		>>> # linear bins spanning [1, 10]
+		>>> # linear bins spanning [0, 10]
 		>>> x = LinearBins(0, 10, 5).randcoord().next
-		>>> # draw a random value, P(value) = 1/10
+		>>> # draw a random value, ln P(value) = ln 1/10
 		>>> x()	# doctest: +ELLIPSIS
 		(..., -2.3025850929940455)
 		>>> # binning with infinite boundaries
@@ -394,11 +394,11 @@ class LinearBins(Bins):
 
 class LinearPlusOverflowBins(Bins):
 	"""
-	Linearly-spaced bins with overflow at the edges.  There are n-2 bins of
-	equal size. The n+1 bin starts on the lower bound and the n-1 bin ends
-	on the upper bound inclusively.  The 0 and n bins are overflow going
-	from -infinity to the n+1 boundary and the n-1 boundary to +infinity
-	respectively.
+	Linearly-spaced bins with overflow at the edges.  There are n-2
+	bins of equal size.  The bin 1 starts on the lower bound and bin
+	n-2 ends on the upper bound.  Bins 0 and n-1 are overflow going
+	from -infinity to the lower bound and from the upper bound to
+	+infinity respectively.  Must have n >= 3.
 
 	Example:
 
@@ -502,12 +502,13 @@ class LogarithmicBins(Bins):
 
 class LogarithmicPlusOverflowBins(Bins):
 	"""
-	Logarithmically-spaced bins plus one bin at each end that goes to zero
-	and positive infinity respectively.  There are n bins, The [n+1,n-1]
-	bins have each of their upper and lower bounds differ by the same
-	factor.  The second bin starts on the lower bound, and the n-1 bin ends
-	on the upper bound inclusively.  The first bin goes to zero and the
-	last bin goes to infinity.  Must have n >= 3.
+	Logarithmically-spaced bins plus one bin at each end that goes to
+	zero and positive infinity respectively.  There are n-2 bins each
+	of whose upper and lower bounds differ by the same factor.  Bin 1
+	starts on the lower bound, and bin n-2 ends on the upper bound
+	inclusively.  Bins 0 and n-1 are overflow bins extending from 0 to
+	the lower bound and from the upper bound to +infinity respectively.
+	Must have n >= 3.
 
 	Example:
 
@@ -1159,7 +1160,8 @@ class BinnedArray(object):
 
 	def to_xml(self, name):
 		"""
-		Retrun an XML document tree describing a rate.BinnedArray object.
+		Retrun an XML document tree describing a rate.BinnedArray
+		object.
 		"""
 		xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_rate_binnedarray" % name})
 		xml.appendChild(self.bins.to_xml())
@@ -1169,10 +1171,14 @@ class BinnedArray(object):
 	@classmethod
 	def from_xml(cls, xml, name):
 		"""
-		Search for the description of a rate.BinnedArray object named
-		"name" in the XML document tree rooted at xml, and construct and
-		return a new rate.BinnedArray object from the data contained
-		therein.
+		Search for the description of a rate.BinnedArray object
+		named "name" in the XML document tree rooted at xml, and
+		construct and return a new rate.BinnedArray object from the
+		data contained therein.
+
+		NOTE:  the .array attribute is a reference to the .array
+		attribute of the XML element.  Changes to the contents of
+		the BinnedArray object affect the XML document tree.
 		"""
 		xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"%s:pylal_rate_binnedarray" % name]
 		try:
