@@ -3817,7 +3817,7 @@ int main( int argc, char *argv[] )
     {
       fprintf( stderr,
           "Spins can only take values between 0 and 1.\n" );
-      exit( 1 );
+//      exit( 1 );
     }
 
     /* check max and mins are the correct way around */
