@@ -369,7 +369,7 @@ class LinearBins(Bins):
 	slice(1, 3, None)
 	"""
 	def __init__(self, min, max, n):
-		Bins.__init__(self, min, max, n)
+		super(LinearBins, self).__init__(min, max, n)
 		self.delta = float(max - min) / n
 
 	def __getitem__(self, x):
@@ -433,7 +433,7 @@ class LinearPlusOverflowBins(Bins):
 	def __init__(self, min, max, n):
 		if n < 3:
 			raise ValueError("n must be >= 3")
-		Bins.__init__(self, min, max, n)
+		super(LinearPlusOverflowBins, self).__init__(min, max, n)
 		self.delta = float(max - min) / (n - 2)
 
 	def __getitem__(self, x):
@@ -477,7 +477,7 @@ class LogarithmicBins(Bins):
 	2
 	"""
 	def __init__(self, min, max, n):
-		Bins.__init__(self, min, max, n)
+		super(LogarithmicBins, self).__init__(min, max, n)
 		self.delta = (math.log(max) - math.log(min)) / n
 
 	def __getitem__(self, x):
@@ -535,7 +535,7 @@ class LogarithmicPlusOverflowBins(Bins):
 	def __init__(self, min, max, n):
 		if n < 3:
 			raise ValueError("n must be >= 3")
-		Bins.__init__(self, min, max, n)
+		super(LogarithmicPlusOverflowBins, self).__init__(min, max, n)
 		self.delta = (math.log(max) - math.log(min)) / (n - 2)
 
 	def __getitem__(self, x):
@@ -586,7 +586,7 @@ class ATanBins(Bins):
                 4.42778777])
 	"""
 	def __init__(self, min, max, n):
-		Bins.__init__(self, min, max, n)
+		super(ATanBins, self).__init__(min, max, n)
 		self.mid = (min + max) / 2.0
 		self.scale = math.pi / float(max - min)
 		self.delta = 1.0 / n
