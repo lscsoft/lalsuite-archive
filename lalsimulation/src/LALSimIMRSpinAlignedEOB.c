@@ -1,6 +1,6 @@
 /*
-*  Copyright (C) 2011 Craig Robinson, Enrico Barausse, Yi Pan, Prayush Kumar
-*  (minor changes)
+*  Copyright (C) 2011 Craig Robinson, Enrico Barausse, Yi Pan, 
+*                2014 Prayush Kumar (Precessing EOB)
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -128,7 +128,7 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
                            void UNUSED *funcParams
                           )
 {
-  int debugPK = 0;
+  int debugPK = 0; int debugPKverbose = 0;
   INT4 i;
   SpinEOBParams UNUSED *params = (SpinEOBParams *)funcParams;
   
@@ -148,9 +148,12 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   r2 = inner_product(r,r);
   omega = sqrt( omega_x*omega_x + omega_y*omega_y + omega_z*omega_z )/r2;
   pDotr = inner_product( p, r ) / sqrt(r2);
-    double rdot;
-    rdot = (dvalues[0]*r[0] + dvalues[1]*r[1] + dvalues[2]*r[2] ) / sqrt(r2);
-    double prDot = - inner_product( p, r )/r2*rdot + inner_product( pdotVec, r )/sqrt(r2) + inner_product( rdotVec, p )/sqrt(r2) ;
+  
+  double rdot;
+  rdot = (dvalues[0]*r[0] + dvalues[1]*r[1] + dvalues[2]*r[2] ) / sqrt(r2);
+  double prDot = - inner_product( p, r )*rdot/r2
+                + inner_product( pdotVec, r )/sqrt(r2)
+                + inner_product( rdotVec, p )/sqrt(r2);
 
 //    printf("r = %3.10f\n", sqrt(r2));
   /* Terminate when omega reaches peak, and separation is < 6M */
@@ -159,21 +162,24 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   {
 	  if( isnan(dvalues[i]) )
 	  {
-		  if(debugPK)printf("\n isnan reached. r2 = %f\n", r2);
+		  if(debugPK){printf("\n isnan reached. r2 = %f\n", r2); fflush(NULL); }
 		  return 1;
 	  }
   }
     
     if ( r2 < 16 && pDotr >= 0  )
     {
-        if(debugPK)printf("\n Integration stopping, p_r pointing outwards -- out-spiraling!\n");
+        if(debugPK){
+          printf("\n Integration stopping, p_r pointing outwards -- out-spiraling!\n");
+          fflush(NULL); }
         return 1;
     }
 
     
   if ( r2 < 16 && rdot >= 0  )
   {
-	if(debugPK)printf("\n Integration stopping, dr/dt>0 -- out-spiraling!\n");
+	if(debugPK){ 
+    printf("\n Integration stopping, dr/dt>0 -- out-spiraling!\n"); fflush(NULL);}
     return 1;
   }
   
@@ -185,20 +191,24 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   /* If omega has gone through a second extremum, break */
   if ( r2 < 16. && params->eobParams->omegaPeaked == 1 && omega > params->eobParams->omega )
   {
-	 if(debugPK)printf("\n Integration stopping, omega reached second extremum\n");
+	 if(debugPK){
+     printf("\n Integration stopping, omega reached second extremum\n");
+     fflush(NULL);}
     return 1;
   }
   
   /* If momentum derivatives are too large, break */
   if ( r2 < 16. && dvalues[3] > 100 && dvalues[4] > 100 && dvalues[5] > 100 )
   {
-    if(debugPK)printf("\n Integration stopping, dpdt > 100 -- too large!\n");
+    if(debugPK){
+      printf("\n Integration stopping, dpdt > 100 -- too large!\n");
+      fflush(NULL);}
     return 1;
   }
   
   if( r2 < 16. && values[5] > 10 )
     {
-      printf("Pphi > 10 now\n\n");
+      if(debugPK){ printf("Pphi > 10 now\n\n"); fflush(NULL); }
       return 1;
     }
     
@@ -208,7 +218,8 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   if( r2>16 )params->eobParams->omegaPeaked = 0;
     
     if(r2 < 16. && omega < 0.01 ) {
-        if(debugPK)printf("\n Integration stopping, omega<0.01\n");
+        if(debugPK){ 
+          printf("\n Integration stopping, omega<0.01\n"); fflush(NULL);}
         return 1;
     }
 //    if(r2 < 16. && ( dvalues[12] < 0. || dvalues[13] < 0.)  ) {
@@ -216,14 +227,17 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
 //        return 1;
 //    }
     if(r2 < 16. && prDot > 0. ) {
-        if(debugPK)printf("\n Integration stopping, prDot > 0\n");
+        if(debugPK){
+          printf("\n Integration stopping as prDot = %lf at r = %lf\n",
+            prDot, sqrt(r2));
+          fflush(NULL);}
        return 1;
     }
 //    if(r2 < 9.) {
 //        if(debugPK)printf("\n Integration stopping, r<3M\n");
 //        return 1;
 //    }
-    if(debugPK && r2 < 9.) {
+    if(debugPKverbose && r2 < 9.) {
         printf("\n Integration continuing, r = %f, omega = %f, rdot = %f, pr = %f, prDot = %f\n", sqrt(r2), omega, rdot, pDotr, prDot);
         printf("%f %f %f %f %f %f %f %f %f %f %f %f %f %f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11], values[12], values[13]);
         printf("%f %f %f %f %f %f %f %f %f %f %f %f %f %f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6],  dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11] , dvalues[12], dvalues[13]);
@@ -1346,8 +1360,33 @@ int XLALSimIMRSpinAlignedEOBWaveform(
  * */
 /**
  * This function generates precessing spinning SEOBNRv3 waveforms h+ and hx.
- *  
+ * Currently, only h2m harmonics will be generated. 
+ * 
+ * Input conventions:
+ * Cartesian coordinate system: initial \vec{L} is along the z-axis
+ * phiC       : in radians
+ * deltaT     : in SI units (Hz)
+ * m1SI, m2SI : in SI units (kg)
+ * fMin       : in SI units (Hz)
+ * r          : in SI units (m)
+ * inc        : in radians
+ * INspin{1,2}: in dimensionless units of m{1,2}^2
+ * 
  * STEP 0) Prepare parameters, including pre-computed coefficients
+ * for EOB Hamiltonian, flux and waveform
+ * STEP 1) Solve for initial conditions
+ * STEP 2) Evolve EOB trajectory until reaching the peak of orbital frequency
+ * STEP 3) Step back in time by tStepBack and volve EOB trajectory again
+ * using high sampling rate, stop at UNDECIDED.
+ * STEP 4) Locate the peak of orbital frequency for NQC and QNM calculations
+ * STEP 4.5) Rotation of waveform as per the alpha(t) and iota(t)
+ * 
+ * (Following under construction)
+ * STEP 5) Calculate NQC correction using hi-sampling data
+ * STEP 6) Calculate QNM excitation coefficients using hi-sampling data
+ * STEP 7) Generate full inspiral waveform using desired sampling frequency
+ * STEP 8) Generate full IMR modes -- attaching ringdown to inspiral
+ * STEP 9) Generate full IMR hp and hx waveforms
  */
 
 int XLALSimIMRSpinEOBWaveform(
@@ -1365,8 +1404,8 @@ int XLALSimIMRSpinEOBWaveform(
         const REAL8     INspin2[]
      )
 {
-  int UNUSED ret;
-  int debugPK = 1;
+  INT4 UNUSED ret;
+  INT4 debugPK = 1;
   INT4 i=0;
   INT4 k=0;
   UINT4 j=0;
@@ -1375,50 +1414,63 @@ int XLALSimIMRSpinEOBWaveform(
 
   /* SEOBNRv3 model */
   Approximant spinEOBApproximant = SEOBNRv3;
-  /* FIXME: it is harcoded here: the underlying aligned spin EOB model */
+  /* FIXME: The underlying aligned spin EOB model is hard-coded here. 
+   * This should be reflected in the name, e.g. SPEOBNRv2 ? */
   INT4 SpinAlignedEOBversion =2;
 
-  /* Vector to store the initial paramseters */
-  REAL8 spin1[3], spin2[3];
+  /* Vector to store the initial spins */
+  REAL8 spin1[3] = {0,0,0}, spin2[3] = {0,0,0};
   memcpy( spin1, INspin1, 3*sizeof(REAL8));
   memcpy( spin2, INspin2, 3*sizeof(REAL8));
-    
-    double spin1Norm = sqrt( INspin1[0]*INspin1[0] + INspin1[1]*INspin1[1] + INspin1[2]*INspin1[2] );
-    double spin2Norm = sqrt( INspin2[0]*INspin2[0] + INspin2[1]*INspin2[1] + INspin2[2]*INspin2[2] );
-    double theta1Ini = acos( INspin1[2] / spin1Norm );
-    double theta2Ini = acos( INspin2[2] / spin2Norm );
-    if ( theta1Ini <= 1.0e-5) {
-        spin1[0] = 0.;
-        spin1[1] = 0.;
-        spin1[2] = spin1Norm;
-    }
-    if ( theta2Ini <= 1.0e-5) {
-        spin2[0] = 0.;
-        spin2[1] = 0.;
-        spin2[2] = spin2Norm;
-    }
-    if (theta1Ini < 1.0e-3 && theta2Ini < 1.0e-3) {
-        ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phiC, deltaT, m1SI, m2SI, fMin, r, inc,
-                                         spin1Norm, spin2Norm, SpinAlignedEOBversion);
-        return ret;
-    }
-    if ( debugPK ) {
-        printf( "theta1Ini, theta2Ini =  %3.10f, %3.10f\n", theta1Ini, theta2Ini );
-        printf( "INspin1 = {%3.10f, %3.10f, %3.10f}\n", INspin1[0], INspin1[1], INspin1[2] );
-        printf( "INspin2 = {%3.10f, %3.10f, %3.10f}\n", INspin2[0], INspin2[1], INspin2[2] );
-        printf( "spin1 = {%3.10f, %3.10f, %3.10f}\n", spin1[0], spin1[1], spin1[2] );
-        printf( "spin2 = {%3.10f, %3.10f, %3.10f}\n", spin2[0], spin2[1], spin2[2] );
-    }
-
-
+  
+  /* Check the initial misalignment of component spins, w.r.t. the z-axis
+   * theta{1,2}Ini measure the angle w.r.t. the orbital ang. momentum
+   * If these angles are < 1.e-3 radians, call the aligned-spin model directly
+   * */ 
+  REAL8 spin1Norm = sqrt( INspin1[0]*INspin1[0] + INspin1[1]*INspin1[1] +                          INspin1[2]*INspin1[2] );
+  REAL8 spin2Norm = sqrt( INspin2[0]*INspin2[0] + INspin2[1]*INspin2[1] +                          INspin2[2]*INspin2[2] );
+  REAL8 theta1Ini = acos( INspin1[2] / spin1Norm );
+  REAL8 theta2Ini = acos( INspin2[2] / spin2Norm );
+  if ( theta1Ini <= 1.0e-5) {
+    spin1[0] = 0.;
+    spin1[1] = 0.;
+    spin1[2] = spin1Norm;
+  }
+  if ( theta2Ini <= 1.0e-5) {
+    spin2[0] = 0.;
+    spin2[1] = 0.;
+    spin2[2] = spin2Norm;
+  }
+  if (theta1Ini < 1.0e-3 && theta2Ini < 1.0e-3) {
+    ret = XLALSimIMRSpinAlignedEOBWaveform(
+          hplus, hcross, phiC, deltaT, m1SI, m2SI, fMin, r, inc,
+          spin1Norm, spin2Norm, SpinAlignedEOBversion);
+    return ret;
+  }
+  if ( debugPK ) {
+    printf( "theta1Ini, theta2Ini =  %3.10f, %3.10f\n", theta1Ini, theta2Ini );
+    printf( "INspin1 = {%3.10f, %3.10f, %3.10f}\n", 
+            INspin1[0], INspin1[1], INspin1[2] );
+    printf( "INspin2 = {%3.10f, %3.10f, %3.10f}\n", 
+            INspin2[0], INspin2[1], INspin2[2] );
+    printf( "spin1 = {%3.10f, %3.10f, %3.10f}\n", spin1[0], spin1[1], spin1[2] );
+    printf( "spin2 = {%3.10f, %3.10f, %3.10f}\n", spin2[0], spin2[1], spin2[2] );
+  }
+  
+  /* *******************************************************************/
+  /* ********************** Memory Allocation **************************/
+  /* *******************************************************************/
+  
+  /* Allocate the values vector to contain the ICs            */
+  /* Throughout the code, there are 12 dynamical variables:   */
+  /* values[0-2]  - x (Cartesian tortoise separation vector)  */
+  /* values[3-5]  - p (Cartesian momentum)                    */
+  /* values[6-8]  - spin of body 1                            */
+  /* values[9-11] - spin of body 2                            */
+  /* Two additional orbital quantities are evolved            */
+  /* values[12]   - orbital phase                             */
+  /* values[13]   - alpha dot cos(inclination)                */
   REAL8Vector *values = NULL;
-
-  /* Allocate the values vector to contain the ICs */
-  /* For this model, it contains 12 dynamical variables: */
-  /* values[0-2]  - x (Cartesian separation vector) */
-  /* values[3-5]  - p (Cartesian momentum) */
-  /* values[6-8]  - spin of body 1 */
-  /* values[9-11] - spin of body 2 */
   if ( !(values = XLALCreateREAL8Vector( 14 )) )
   {
     XLAL_ERROR(  XLAL_ENOMEM );
@@ -1431,55 +1483,54 @@ int XLALSimIMRSpinEOBWaveform(
   {
     XLAL_ERROR(  XLAL_ENOMEM );
   }
-  REAL8       rdotvec[3];
+  REAL8       rdotvec[3] = {0,0,0};
  
   /* EOB spin vectors used in the Hamiltonian */
   REAL8Vector *sigmaStar = NULL;
   REAL8Vector *sigmaKerr = NULL;
-  REAL8       a, tplspin;
-  REAL8       chiS, chiA;
-  REAL8       spinNQC;
+  REAL8       a = 0, tplspin = 0;
+  REAL8       chiS = 0, chiA = 0;
+  REAL8       spinNQC = 0;
 
   /* Spins not scaled by the mass */
-  REAL8 mSpin1[3], mSpin2[3];
+  REAL8 mSpin1[3] = {0,0,0}, mSpin2[3] = {0,0,0};
 
   /* Wrapper spin vectors used to calculate sigmas */
   REAL8Vector s1Vec, s1VecOverMtMt;
   REAL8Vector s2Vec, s2VecOverMtMt;
-  REAL8       s1Data[3], s2Data[3], s1DataNorm[3], s2DataNorm[3];
-  
+  REAL8       s1Data[3]     = {0,0,0}, s2Data[3]     = {0,0,0},
+              s1DataNorm[3] = {0,0,0}, s2DataNorm[3] = {0,0,0};
 
   /* Parameters of the system */
-  REAL8 m1, m2, mTotal, eta, mTScaled;
-  REAL8  amp0;
-  REAL8 UNUSED amp;
-  /*REAL8  sSub = 0.0;*/
+  REAL8 m1 = 0, m2 = 0, mTotal = 0, eta = 0, mTScaled = 0;
+  REAL8 amp0 = 0;
+  REAL8 UNUSED amp = 0;
 
   /* Dynamics of the system */
   REAL8Vector tVec, phiDMod, phiMod;
   REAL8Vector posVecx, posVecy, posVecz, momVecx, momVecy, momVecz;
   REAL8Vector s1Vecx, s1Vecy, s1Vecz, s2Vecx, s2Vecy, s2Vecz;
-   REAL8       omega, v, ham;
+  REAL8       omega = 0, v = 0, ham = 0;
 
   /* Cartesian vectors needed to calculate Hamiltonian */
-   REAL8Vector cartPosVec, cartMomVec;
-   REAL8       cartPosData[3], cartMomData[3];
-  REAL8 rcrossrdotNorm, rvec[3], rcrossrdot[3], s1dotLN, s2dotLN;; 
-  REAL8  rcrossp[3], rcrosspMag;
-  REAL8 UNUSED s1dotL, s2dotL;
+  REAL8Vector cartPosVec, cartMomVec;
+  REAL8 cartPosData[3] = {0,0,0}, cartMomData[3] = {0,0,0};
+  REAL8 rcrossrdotNorm = 0, rvec[3] = {0,0,0}, rcrossrdot[3] = {0,0,0};
+  REAL8 rcrossp[3] = {0,0,0}, rcrosspMag = 0;
+  REAL8 s1dotLN = 0, s2dotLN = 0;
+  REAL8 UNUSED s1dotL = 0, s2dotL = 0;
 
   /* Polar vectors needed for waveform modes calculation */
-   REAL8Vector UNUSED polarDynamics, cartDynamics;
-   REAL8 polData[4];
-  
+  REAL8Vector UNUSED polarDynamics, cartDynamics;
+  REAL8 polData[4] = {0,0,0,0};  
   
   /* Signal mode */
-   COMPLEX16   hLM;
-   /*  *sigReVec = NULL, *sigImVec = NULL;*/
+  COMPLEX16   hLM = 0 + 0j;
+  /* COMPLEX16 *sigReVec = NULL, *sigImVec = NULL;*/
 
   /* Non-quasicircular correction */
   EOBNonQCCoeffs nqcCoeffs;
-  COMPLEX16         hNQC;
+  COMPLEX16      hNQC = 0 + 0j;
 
   /* Ringdown freq used to check the sample rate */
   COMPLEX16Vector  modefreqVec;
@@ -2184,8 +2235,9 @@ int XLALSimIMRSpinEOBWaveform(
   }
   FILE *out = NULL;
   /* Initialize the GSL integrator */
-  if (!(integrator = XLALAdaptiveRungeKutta4Init(14, XLALSpinHcapNumericalDerivative,
-				XLALEOBSpinStopCondition, EPS_ABS, EPS_REL)))
+  if (!(integrator = XLALAdaptiveRungeKutta4Init(14, 
+          XLALSpinHcapNumericalDerivative, XLALEOBSpinStopCondition,
+          EPS_ABS, EPS_REL)))
   {
     XLALDestroyREAL8Vector( values );
     XLAL_ERROR( XLAL_EFUNC );
