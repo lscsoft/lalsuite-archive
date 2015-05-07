@@ -1663,7 +1663,13 @@ int XLALSimIMRSpinEOBWaveform(
   SphHarmTimeSeries *hIMRlmJTSHi = NULL;
   REAL8Sequence *tlistHi        = NULL;
   REAL8Sequence *tlistRDPatchHi = NULL;
-    
+  
+  /* Memory for ringdown attachment */
+  REAL8Vector *rdMatchPoint = XLALCreateREAL8Vector( 3 );  
+  REAL8 alJtoI = 0, betJtoI = 0, gamJtoI = 0;
+  SphHarmTimeSeries *hIMRlmITS = NULL;
+  COMPLEX16 x11 = 0 + 0j;
+
   /* *******************************************************************/
   /* ********************** Memory Initialization **********************/
   /* *******************************************************************/
@@ -3727,9 +3733,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
      }
      fclose( out );
   }
-  
-  REAL8Vector *rdMatchPoint = XLALCreateREAL8Vector( 3 );
-  
+
   sigReHi  = XLALCreateREAL8Vector( retLenHi + retLenRDPatch );
   sigImHi  = XLALCreateREAL8Vector( retLenHi + retLenRDPatch );
   if ( !sigReHi || !sigImHi || !rdMatchPoint )
@@ -3875,55 +3879,49 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
      out = fopen( "JIMRWaves.dat", "w" );
      for ( i = 0; i < retLenLow + retLenRDPatchLow; i++ )
      {
-        fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
-             i*deltaT/mTScaled, creal(hIMR22JTS->data->data[i]), cimag(hIMR22JTS->data->data[i]),
-                                creal(hIMR21JTS->data->data[i]), cimag(hIMR21JTS->data->data[i]),
-                                creal(hIMR20JTS->data->data[i]), cimag(hIMR20JTS->data->data[i]),
-                                creal(hIMR2m1JTS->data->data[i]), cimag(hIMR2m1JTS->data->data[i]),
-                                creal(hIMR2m2JTS->data->data[i]), cimag(hIMR2m2JTS->data->data[i]) );
+        fprintf( out, 
+          "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
+          i*deltaT/mTScaled, 
+          creal(hIMR22JTS->data->data[i]), cimag(hIMR22JTS->data->data[i]),
+          creal(hIMR21JTS->data->data[i]), cimag(hIMR21JTS->data->data[i]),
+          creal(hIMR20JTS->data->data[i]), cimag(hIMR20JTS->data->data[i]),
+          creal(hIMR2m1JTS->data->data[i]), cimag(hIMR2m1JTS->data->data[i]),
+          creal(hIMR2m2JTS->data->data[i]), cimag(hIMR2m2JTS->data->data[i]) );
      }
      fclose( out );
      printf("YP: IMR J wave written to file.\n");
-     printf("Stas: Should be ok now\n");
      fflush(NULL);
   }
 
-  /**** First atempt to compute Euler Angles and rotate to I frame */
-
-  REAL8 alJtoI;
-  REAL8 betJtoI;
-  REAL8 gamJtoI;
-    
+  /**** First atempt to compute Euler Angles and rotate to I frame */  
   gamJtoI = atan2(JframeEz[1], -JframeEz[0]);
   betJtoI = acos(JframeEz[2]);
   alJtoI = atan2(JframeEy[2], -JframeEx[2]);
 
   if (debugPK){
     printf("Stas: J->I EA = %.16e, %.16e, %.16e \n", alJtoI, betJtoI, gamJtoI);
-    fflush(NULL); }
+    fflush(NULL); 
+  }
  
   /*COMPLEX16TimeSeries *hITS    = XLALCreateCOMPLEX16TimeSeries( "HJ",     &tc, 0.0, deltaT, &lalStrainUnit, retLen );*/
-  COMPLEX16TimeSeries *hIMR22ITS  = XLALCreateCOMPLEX16TimeSeries( "HIMRI_22",  &tc, 0.0, deltaT, &lalStrainUnit,
-                                                                   retLenLow + retLenRDPatchLow );
-  COMPLEX16TimeSeries *hIMR21ITS  = XLALCreateCOMPLEX16TimeSeries( "HIMRI_21",  &tc, 0.0, deltaT, &lalStrainUnit,
-                                                                   retLenLow + retLenRDPatchLow );
-  COMPLEX16TimeSeries *hIMR20ITS  = XLALCreateCOMPLEX16TimeSeries( "HIMRI_20",  &tc, 0.0, deltaT, &lalStrainUnit,
-                                                                   retLenLow + retLenRDPatchLow );
-  COMPLEX16TimeSeries *hIMR2m1ITS = XLALCreateCOMPLEX16TimeSeries( "HIMRI_2m1", &tc, 0.0, deltaT, &lalStrainUnit,
-                                                                   retLenLow + retLenRDPatchLow );
-  COMPLEX16TimeSeries *hIMR2m2ITS = XLALCreateCOMPLEX16TimeSeries( "HIMRI_2m2", &tc, 0.0, deltaT, &lalStrainUnit,
-                                                                   retLenLow + retLenRDPatchLow );
-  /*COMPLEX16TimeSeries *hIMRITS    = XLALCreateCOMPLEX16TimeSeries( "HIMRI",     &tc, 0.0, deltaT, &lalStrainUnit,
-                                                                   retLenLow + retLenRDPatchLow );*/
-  SphHarmTimeSeries *hIMRlmITS = NULL;
-  REAL8TimeSeries *alpI        = XLALCreateREAL8TimeSeries( "alphaJ2I",     &tc, 0.0, deltaT, &lalStrainUnit,
-                                                                   retLenLow + retLenRDPatchLow );
-
-  REAL8TimeSeries *betI        = XLALCreateREAL8TimeSeries( "betaaJ2I",     &tc, 0.0, deltaT, &lalStrainUnit,
-                                                                   retLenLow + retLenRDPatchLow );
-
-  REAL8TimeSeries *gamI        = XLALCreateREAL8TimeSeries( "gammaJ2I",     &tc, 0.0, deltaT, &lalStrainUnit,
-                                                                   retLenLow + retLenRDPatchLow );
+  COMPLEX16TimeSeries *hIMR22ITS  = XLALCreateCOMPLEX16TimeSeries( "HIMRI_22",
+    &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
+  COMPLEX16TimeSeries *hIMR21ITS  = XLALCreateCOMPLEX16TimeSeries( "HIMRI_21",
+    &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
+  COMPLEX16TimeSeries *hIMR20ITS  = XLALCreateCOMPLEX16TimeSeries( "HIMRI_20",
+    &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
+  COMPLEX16TimeSeries *hIMR2m1ITS = XLALCreateCOMPLEX16TimeSeries( "HIMRI_2m1",
+    &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
+  COMPLEX16TimeSeries *hIMR2m2ITS = XLALCreateCOMPLEX16TimeSeries( "HIMRI_2m2",
+    &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
+  /*COMPLEX16TimeSeries *hIMRITS    = XLALCreateCOMPLEX16TimeSeries( "HIMRI",
+   * &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );*/
+  REAL8TimeSeries *alpI        = XLALCreateREAL8TimeSeries( "alphaJ2I",
+        &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
+  REAL8TimeSeries *betI        = XLALCreateREAL8TimeSeries( "betaaJ2I",
+        &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
+  REAL8TimeSeries *gamI        = XLALCreateREAL8TimeSeries( "gammaJ2I",
+        &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
 
   for (i=0; i< retLenLow + retLenRDPatchLow; i++){
       alpI->data->data[i] = -alJtoI;
@@ -3939,7 +3937,8 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   XLALSphHarmTimeSeriesSetTData( hIMRlmITS, tlistRDPatch );
 
   if (debugPK){ printf("Rotation to inertial I-frame\n"); fflush(NULL); }
-  if ( XLALSimInspiralPrecessionRotateModes( hIMRlmITS, alpI, betI, gamI ) == XLAL_FAILURE )
+  if ( XLALSimInspiralPrecessionRotateModes( hIMRlmITS, 
+                alpI, betI, gamI ) == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
   }
@@ -3953,13 +3952,15 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     out = fopen( "IWaves.dat", "w" );
     for ( i = 0; i < retLenLow + retLenRDPatchLow; i++ )
     {
-       fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
-             /*timeHi.data[i]+HiSRstart, creal(h22JTSHi->data->data[i]), cimag(h22JTSHi->data->data[i]),*/
-             tlistRDPatch->data[i], creal(hIMR22ITS->data->data[i]), cimag(hIMR22ITS->data->data[i]),
-                                creal(hIMR21ITS->data->data[i]), cimag(hIMR21ITS->data->data[i]),
-                                creal(hIMR20ITS->data->data[i]), cimag(hIMR20ITS->data->data[i]),
-                                creal(hIMR2m1ITS->data->data[i]), cimag(hIMR2m1ITS->data->data[i]),
-                                creal(hIMR2m2ITS->data->data[i]), cimag(hIMR2m2ITS->data->data[i]) );
+      fprintf( out, 
+        "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
+        /*timeHi.data[i]+HiSRstart, creal(h22JTSHi->data->data[i]), cimag(h22JTSHi->data->data[i]),*/
+        tlistRDPatch->data[i], 
+        creal(hIMR22ITS->data->data[i]), cimag(hIMR22ITS->data->data[i]),
+        creal(hIMR21ITS->data->data[i]), cimag(hIMR21ITS->data->data[i]),
+        creal(hIMR20ITS->data->data[i]), cimag(hIMR20ITS->data->data[i]),
+        creal(hIMR2m1ITS->data->data[i]), cimag(hIMR2m1ITS->data->data[i]),
+        creal(hIMR2m2ITS->data->data[i]), cimag(hIMR2m2ITS->data->data[i]) );
     }
     fclose( out );
   }
@@ -3970,117 +3971,113 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   Y21 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 1 );
   Y2m1 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, -1 );
   Y20 = XLALSpinWeightedSphericalHarmonic( inc, phiC, -2, 2, 0 );
-
  
-   COMPLEX16 x11;
-    for ( i = 0; i < (INT4)hIMR22ITS->data->length; i++ )
-    {
-          
-      x11 = Y22*hIMR22ITS->data->data[i] + Y21*hIMR21ITS->data->data[i] + 
-          Y20*hIMR20ITS->data->data[i] + Y2m1*hIMR2m1ITS->data->data[i] + Y2m2*hIMR2m2ITS->data->data[i];    
-      hPlusTS->data->data[i]  = creal(x11);
-      hCrossTS->data->data[i] = -cimag(x11);
-     
-    }
+  for ( i = 0; i < (INT4)hIMR22ITS->data->length; i++ )
+  {
+    x11 = Y22*hIMR22ITS->data->data[i] + Y21*hIMR21ITS->data->data[i] 
+          + Y20*hIMR20ITS->data->data[i] + Y2m1*hIMR2m1ITS->data->data[i] 
+          + Y2m2*hIMR2m2ITS->data->data[i];    
+    hPlusTS->data->data[i]  = creal(x11);
+    hCrossTS->data->data[i] = -cimag(x11);     
+  }
     
-    /* Point the output pointers to the relevant time series and return */
-    (*hplus)  = hPlusTS;
-    (*hcross) = hCrossTS;
+  /* Point the output pointers to the relevant time series and return */
+  (*hplus)  = hPlusTS;
+  (*hcross) = hCrossTS;
      
-    if (debugPK){
-      printf("plus and cross are computed, freeing the memory\n"); fflush(NULL); }
+  if (debugPK){
+    printf("plus and cross are computed, freeing the memory\n"); 
+    fflush(NULL); 
+  }
   /*hplus =  XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 );
   hcross =  XLALSphHarmTimeSeriesGetMode( hIMRlmJTS, 2, 2 );*/
   
-    // FIXME check that all created arrays are destroyed here
-  
-  
-    XLALDestroyREAL8TimeSeries(alphaI2PTS);
-    XLALDestroyREAL8TimeSeries(betaI2PTS);
-    XLALDestroyREAL8TimeSeries(gammaI2PTS);
-    XLALDestroyREAL8TimeSeries(alphaP2JTS);
-    XLALDestroyREAL8TimeSeries(betaP2JTS);
-    XLALDestroyREAL8TimeSeries(gammaP2JTS);
+  // FIXME check that all created arrays are destroyed here  
+  XLALDestroyREAL8TimeSeries(alphaI2PTS);
+  XLALDestroyREAL8TimeSeries(betaI2PTS);
+  XLALDestroyREAL8TimeSeries(gammaI2PTS);
+  XLALDestroyREAL8TimeSeries(alphaP2JTS);
+  XLALDestroyREAL8TimeSeries(betaP2JTS);
+  XLALDestroyREAL8TimeSeries(gammaP2JTS);
 
-    if(debugPK){ printf("Memory cleanup 1 done.\n"); fflush(NULL); }
-    XLALDestroyREAL8TimeSeries(alphaI2PTSHi);
-    XLALDestroyREAL8TimeSeries(betaI2PTSHi);
-    XLALDestroyREAL8TimeSeries(gammaI2PTSHi);
-    XLALDestroyREAL8TimeSeries(alphaP2JTSHi);
-    XLALDestroyREAL8TimeSeries(betaP2JTSHi);
-    XLALDestroyREAL8TimeSeries(gammaP2JTSHi);
-    
-    XLALDestroyCOMPLEX16TimeSeries(h22TS); 
-    XLALDestroyCOMPLEX16TimeSeries(h21TS); 
-    XLALDestroyCOMPLEX16TimeSeries(h20TS);  
-    XLALDestroyCOMPLEX16TimeSeries(h2m1TS); 
-    XLALDestroyCOMPLEX16TimeSeries(h2m2TS); 
-    XLALDestroyCOMPLEX16TimeSeries(h22PTS); 
-    XLALDestroyCOMPLEX16TimeSeries(h21PTS);
-    XLALDestroyCOMPLEX16TimeSeries(h20PTS);
-    XLALDestroyCOMPLEX16TimeSeries(h2m1PTS);
-    XLALDestroyCOMPLEX16TimeSeries(h2m2PTS);
+  if(debugPK){ printf("Memory cleanup 1 done.\n"); fflush(NULL); }
+  XLALDestroyREAL8TimeSeries(alphaI2PTSHi);
+  XLALDestroyREAL8TimeSeries(betaI2PTSHi);
+  XLALDestroyREAL8TimeSeries(gammaI2PTSHi);
+  XLALDestroyREAL8TimeSeries(alphaP2JTSHi);
+  XLALDestroyREAL8TimeSeries(betaP2JTSHi);
+  XLALDestroyREAL8TimeSeries(gammaP2JTSHi);
+  
+  XLALDestroyCOMPLEX16TimeSeries(h22TS); 
+  XLALDestroyCOMPLEX16TimeSeries(h21TS); 
+  XLALDestroyCOMPLEX16TimeSeries(h20TS);  
+  XLALDestroyCOMPLEX16TimeSeries(h2m1TS); 
+  XLALDestroyCOMPLEX16TimeSeries(h2m2TS); 
+  XLALDestroyCOMPLEX16TimeSeries(h22PTS); 
+  XLALDestroyCOMPLEX16TimeSeries(h21PTS);
+  XLALDestroyCOMPLEX16TimeSeries(h20PTS);
+  XLALDestroyCOMPLEX16TimeSeries(h2m1PTS);
+  XLALDestroyCOMPLEX16TimeSeries(h2m2PTS);
  
-    XLALDestroyCOMPLEX16TimeSeries(hIMR22JTS); 
-    XLALDestroyCOMPLEX16TimeSeries(hIMR21JTS); 
-    XLALDestroyCOMPLEX16TimeSeries(hIMR20JTS); 
-    XLALDestroyCOMPLEX16TimeSeries(hIMR2m1JTS); 
-    XLALDestroyCOMPLEX16TimeSeries(hIMR2m2JTS); 
-    XLALDestroyCOMPLEX16TimeSeries(hIMRJTS);
-    if(debugPK){ printf("Memory cleanup 2 done.\n"); fflush(NULL); }
+  XLALDestroyCOMPLEX16TimeSeries(hIMR22JTS); 
+  XLALDestroyCOMPLEX16TimeSeries(hIMR21JTS); 
+  XLALDestroyCOMPLEX16TimeSeries(hIMR20JTS); 
+  XLALDestroyCOMPLEX16TimeSeries(hIMR2m1JTS); 
+  XLALDestroyCOMPLEX16TimeSeries(hIMR2m2JTS); 
+  XLALDestroyCOMPLEX16TimeSeries(hIMRJTS);
+  if(debugPK){ printf("Memory cleanup 2 done.\n"); fflush(NULL); }
     
-    XLALDestroyCOMPLEX16TimeSeries(h22TSHi);  
-    XLALDestroyCOMPLEX16TimeSeries(h21TSHi); 
-    XLALDestroyCOMPLEX16TimeSeries(h20TSHi); 
-    XLALDestroyCOMPLEX16TimeSeries(h2m1TSHi); 
-    XLALDestroyCOMPLEX16TimeSeries(h2m2TSHi);
-    XLALDestroyCOMPLEX16TimeSeries(h22PTSHi); 
-    XLALDestroyCOMPLEX16TimeSeries(h21PTSHi);
-    XLALDestroyCOMPLEX16TimeSeries(h20PTSHi);
-    XLALDestroyCOMPLEX16TimeSeries(h2m1PTSHi);
-    XLALDestroyCOMPLEX16TimeSeries(h2m2PTSHi);
-    XLALDestroyCOMPLEX16TimeSeries(hIMR22JTSHi); 
-    XLALDestroyCOMPLEX16TimeSeries(hIMR21JTSHi); 
-    XLALDestroyCOMPLEX16TimeSeries(hIMR20JTSHi); 
-    XLALDestroyCOMPLEX16TimeSeries(hIMR2m1JTSHi); 
-    XLALDestroyCOMPLEX16TimeSeries(hIMR2m2JTSHi); 
-    //XLALDestroyCOMPLEX16TimeSeries(hIMRJTSHi);
-    
-
-    XLALDestroyREAL8Vector( values );
-    XLALDestroyREAL8Vector( dvalues );
-    XLALDestroyREAL8Vector( sigmaStar );
-    XLALDestroyREAL8Vector( sigmaKerr );
-    XLALDestroyREAL8Vector( sigReHi );
-    XLALDestroyREAL8Vector( sigImHi );
-    XLALDestroyREAL8Vector( omegaHi );
-    
-    if(debugPK){ printf("Memory cleanup 3 done.\n"); fflush(NULL); }
-    XLALAdaptiveRungeKutta4Free(integrator);
-    XLALDestroyREAL8Array( dynamics );
-    XLALDestroyREAL8Array( dynamicsHi );
+  XLALDestroyCOMPLEX16TimeSeries(h22TSHi);  
+  XLALDestroyCOMPLEX16TimeSeries(h21TSHi); 
+  XLALDestroyCOMPLEX16TimeSeries(h20TSHi); 
+  XLALDestroyCOMPLEX16TimeSeries(h2m1TSHi); 
+  XLALDestroyCOMPLEX16TimeSeries(h2m2TSHi);
+  XLALDestroyCOMPLEX16TimeSeries(h22PTSHi); 
+  XLALDestroyCOMPLEX16TimeSeries(h21PTSHi);
+  XLALDestroyCOMPLEX16TimeSeries(h20PTSHi);
+  XLALDestroyCOMPLEX16TimeSeries(h2m1PTSHi);
+  XLALDestroyCOMPLEX16TimeSeries(h2m2PTSHi);
+  XLALDestroyCOMPLEX16TimeSeries(hIMR22JTSHi); 
+  XLALDestroyCOMPLEX16TimeSeries(hIMR21JTSHi); 
+  XLALDestroyCOMPLEX16TimeSeries(hIMR20JTSHi); 
+  XLALDestroyCOMPLEX16TimeSeries(hIMR2m1JTSHi); 
+  XLALDestroyCOMPLEX16TimeSeries(hIMR2m2JTSHi); 
+  //XLALDestroyCOMPLEX16TimeSeries(hIMRJTSHi);
     
 
-    XLALDestroyREAL8Vector( LN_x );
-    XLALDestroyREAL8Vector( LN_y );
-    XLALDestroyREAL8Vector( LN_z );
-    XLALDestroyREAL8Vector( LN_xHi );
-    XLALDestroyREAL8Vector( LN_yHi );
-    XLALDestroyREAL8Vector( LN_zHi );
-    XLALDestroyREAL8Vector( Alpha );
-    XLALDestroyREAL8Vector( Beta );
-    XLALDestroyREAL8Vector( AlphaHi );
-    XLALDestroyREAL8Vector( BetaHi );
-    XLALDestroyREAL8Vector( Gamma );
-    XLALDestroyREAL8Vector( GammaHi );
+  XLALDestroyREAL8Vector( values );
+  XLALDestroyREAL8Vector( dvalues );
+  XLALDestroyREAL8Vector( sigmaStar );
+  XLALDestroyREAL8Vector( sigmaKerr );
+  XLALDestroyREAL8Vector( sigReHi );
+  XLALDestroyREAL8Vector( sigImHi );
+  XLALDestroyREAL8Vector( omegaHi );
+    
+  if(debugPK){ printf("Memory cleanup 3 done.\n"); fflush(NULL); }
+  XLALAdaptiveRungeKutta4Free(integrator);
+  XLALDestroyREAL8Array( dynamics );
+  XLALDestroyREAL8Array( dynamicsHi );
+    
+  XLALDestroyREAL8Vector( LN_x );
+  XLALDestroyREAL8Vector( LN_y );
+  XLALDestroyREAL8Vector( LN_z );
+  XLALDestroyREAL8Vector( LN_xHi );
+  XLALDestroyREAL8Vector( LN_yHi );
+  XLALDestroyREAL8Vector( LN_zHi );
+  XLALDestroyREAL8Vector( Alpha );
+  XLALDestroyREAL8Vector( Beta );
+  XLALDestroyREAL8Vector( AlphaHi );
+  XLALDestroyREAL8Vector( BetaHi );
+  XLALDestroyREAL8Vector( Gamma );
+  XLALDestroyREAL8Vector( GammaHi );
     
     
-    XLALDestroyREAL8Vector( tlist );
-    XLALDestroyREAL8Vector( tlistHi );
-    XLALDestroyREAL8Vector( tlistRDPatch );
-    XLALDestroyREAL8Vector( tlistRDPatchHi );
-     
-    if(debugPK){ printf("Memory cleanup ALL done.\n"); fflush(NULL); }
+  XLALDestroyREAL8Vector( tlist );
+  XLALDestroyREAL8Vector( tlistHi );
+  XLALDestroyREAL8Vector( tlistRDPatch );
+  XLALDestroyREAL8Vector( tlistRDPatchHi );
+   
+  if(debugPK){ printf("Memory cleanup ALL done.\n"); fflush(NULL); }
   return XLAL_SUCCESS;
 }
 
