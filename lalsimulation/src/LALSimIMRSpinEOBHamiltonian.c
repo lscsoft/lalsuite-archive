@@ -1166,10 +1166,13 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
 
 
 /**
- * Function to calculate the non-Keplerian coefficient for the PRECESSING EOB model.
- * radius \f$r\f$ times the cuberoot of the returned number is \f$r_\Omega\f$ defined in Eq. A2.
- * i.e. the function returns \f$(r_{\Omega} / r)^3\f$ 
- * = \f$1/(r^3 (\partial Hreal/\partial p_\phi |p_r=0)^2)\f$.
+ * Function to calculate the non-Keplerian coefficient for the PRECESSING EOB 
+ * model.
+ * 
+ * radius \f$r\f$ times the cuberoot of the returned number is \f$r_\Omega\f$
+ * defined in Eq. A2, i.e. the function returns 
+ * \f$(r_{\Omega} / r)^3\f$ 
+ *     = \f$1/(r^3 (\partial Hreal/\partial p_\phi |p_r=0)^2)\f$.
  */
 static REAL8 
 XLALSimIMRSpinEOBNonKeplerCoeff(
@@ -1177,33 +1180,30 @@ XLALSimIMRSpinEOBNonKeplerCoeff(
                       SpinEOBParams         *funcParams /**<< EOB parameters */
                       )
 {
-    int debugPK = 1;
-    if (debugPK){
-      for(int i =0; i < 12; i++)
-        if( isnan(values[i]) ) {
-          printf("XLALSimIMRSpinEOBNonKeplerCoeff::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
-        }
+  int debugPK = 1;
+  if (debugPK){
+    for(int i =0; i < 12; i++)
+      if( isnan(values[i]) ) {
+        printf("XLALSimIMRSpinEOBNonKeplerCoeff::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n",
+        values[0], values[1], values[2], values[3], values[4], values[5],
+        values[6], values[7], values[8], values[9], values[10], values[11]);
       }
+  }
 
-
-  REAL8 omegaCirc;
-
-  REAL8 tmpValues[14]= {0.};
-
+  REAL8 omegaCirc = 0;
+  REAL8 tmpValues[14]= {0.}; 
   REAL8 r3;
-
-    
+      
   /* We need to find the values of omega assuming pr = 0 */
   memcpy( tmpValues, values, sizeof(tmpValues) );
-
   omegaCirc = XLALSimIMRSpinEOBCalcOmega( tmpValues, funcParams );
+  
   if ( XLAL_IS_REAL8_FAIL_NAN( omegaCirc ) )
   {
     XLAL_ERROR_REAL8( XLAL_EFUNC );
   }
 
-  r3 = pow(values[0]*values[0] + values[1]*values[1] + values[2]*values[2], 3./2.);
-
+  r3 = pow(inner_product(values, values), 3./2.);
   return 1.0/(omegaCirc*omegaCirc*r3);
 }
 
