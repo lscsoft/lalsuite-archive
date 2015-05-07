@@ -95,7 +95,6 @@ for database in databases:
 	local_disk = opts.tmp_space
 	working_filename = dbtables.get_connection_filename(database, tmp_path = local_disk, verbose = True)
 	connection = sqlite3.connect(working_filename)
-	dbtables.DBTable_set_connection(connection)
 	xmldoc = dbtables.get_xml(connection)
 	cursor = connection.cursor()
 	num_sngl_cols = len(table.get_table(xmldoc, dbtables.lsctables.SnglInspiralTable.tableName).dbcolumnnames)
