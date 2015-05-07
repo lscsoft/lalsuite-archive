@@ -45,6 +45,7 @@ columns of the table.
 
 
 import copy
+import itertools
 import re
 import sys
 import warnings
@@ -338,20 +339,75 @@ class Column(ligolw.Column):
 	High-level column element that provides list-like access to the
 	values in a column.
 
+	Example:
+
+	>>> from xml.sax.xmlreader import AttributesImpl
+	>>> import sys
+	>>> tbl = Table(AttributesImpl({u"Name": u"test"}))
+	>>> col = tbl.appendChild(Column(AttributesImpl({u"Name": u"test:snr", u"Type": u"real_8"})))
+	>>> tbl.appendChild(TableStream(AttributesImpl({u"Name": u"test"})))	# doctest: +ELLIPSIS
+	<glue.ligolw.table.TableStream object at ...>
+	>>> tbl._update_column_info()
+	>>> col.Name
+	u'snr'
+	>>> col.Type
+	u'real_8'
+	>>> # append 3 rows (with nothing in them)
+	>>> tbl.append(tbl.RowType())
+	>>> tbl.append(tbl.RowType())
+	>>> tbl.append(tbl.RowType())
+	>>> # assign values to the rows, in order, in this column
+	>>> col[:] = [8.0, 10.0, 12.0]
+	>>> col[:]
+	[8.0, 10.0, 12.0]
+	>>> col.asarray()
+	array([  8.,  10.,  12.])
+	>>> tbl.write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	<Table Name="test">
+		<Column Type="real_8" Name="test:snr"/>
+		<Stream Name="test">
+			8,
+			10,
+			12
+		</Stream>
+	</Table>
+	>>> col.index(10)
+	1
+	>>> col[0] = 9.
+	>>> col[1] = 9.
+	>>> col[2] = 9.
+	>>> tbl.write(sys.stdout)		# doctest: +NORMALIZE_WHITESPACE
+	<Table Name="test">
+		<Column Type="real_8" Name="test:snr"/>
+		<Stream Name="test">
+			9,
+			9,
+			9
+		</Stream>
+	</Table>
+	>>> col.count(9)
+	3
+
 	NOTE:  the .Name attribute returns the stripped "Name" attribute of
 	the element, e.g. as would be obtained with StripColumnName(), but
 	when assigning to the .Name attribute the value provided is stored
 	without modification, i.e. there is no attempt to reattach the
 	table's name to the string.  The calling code is responsible for
-	doing the correct manipulations.  Therefore,
+	doing the correct manipulations.  Therefore, the assignment
+	operation below
 
-		>>> x = Column()
-		>>> x.Name = x.Name
+	>>> col.Name, col.getAttribute("Name")
+	(u'snr', u'test:snr')
+	>>> col.Name = col.Name
+	>>> col.Name, col.getAttribute("Name")
+	(u'snr', u'snr')
 
-	does not preserve the value of the "Name" attribute.  This
-	asymmetry is necessary because the correct string to reattach to
-	the attribute's value cannot always be known, e.g., if the Column
-	element not have a parent node.
+	does not preserve the value of the "Name" attribute (though it does
+	preserve the stripped form reported by the .Name property).  This
+	asymmetry is necessary because the correct table name string to
+	reattach to the attribute's value cannot always be known, e.g., if
+	the Column object is not part of an XML tree and does not have a
+	parent node.
 	"""
 	Name = ligolw.attributeproxy(u"Name", dec = StripColumnName)
 
@@ -372,12 +428,25 @@ class Column(ligolw.Column):
 
 	def __setitem__(self, i, value):
 		"""
-		Set the value in this column in row i.
+		Set the value in this column in row i.  i may be a slice.
+
+		NOTE:  Unlike normal Python lists, the length of the Column
+		cannot be changed as it is tied to the number of rows in
+		the Table.  Therefore, if i is a slice, value should be an
+		iterable with exactly the correct number of items.  No
+		check is performed to ensure that this is true:  if value
+		contains too many items the extras will be ignored, and if
+		value contains too few items only as many rows will be
+		updated as there are items.
 		"""
 		if isinstance(i, slice):
-			map(lambda r: setattr(r, self.Name, value), self.parentNode[i])
+			for r, val in itertools.izip(self.parentNode[i], value):
+				setattr(r, self.Name, val)
 		else:
 			setattr(self.parentNode[i], self.Name, value)
+
+	def __delitem__(self, *args):
+		raise NotImplementedError
 
 	def __iter__(self):
 		"""
