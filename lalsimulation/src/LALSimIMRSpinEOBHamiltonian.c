@@ -129,11 +129,6 @@ static REAL8 UNUSED XLALSimIMRSpinEOBNonKeplerCoeff(
                       SpinEOBParams         *funcParams /**<< EOB parameters */
                       );
 
-static UNUSED REAL8 XLALSimIMRSpinPrecEOBNonKeplerCoeff(
-                      const REAL8           values[],   /**<< Dynamical variables */
-                      SpinEOBParams         *funcParams /**<< EOB parameters */
-                      );
-
 
 /*------------------------------------------------------------------------------------------
  *
@@ -169,7 +164,8 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
                INT4                      tortoise,  /**<< flag to state whether the momentum is the tortoise co-ord */
 	       SpinEOBHCoeffs *coeffs               /**<< Structure containing various coefficients */
                )
-{ int debugPK = 0;
+{ 
+  int debugPK = 0;
   /* Update the Hamiltonian coefficients, if spins are evolving */
   int UsePrec = 1;
   if ( UsePrec && coeffs->updateHCoeffs )
@@ -880,15 +876,19 @@ static double GSLSpinAlignedHamiltonianWrapper( double x, void *params )
   return XLALSimIMRSpinEOBHamiltonian( eobParams->eta, &r, &p, s1Vec, s2Vec, sigmaKerr, sigmaStar, dParams->params->tortoise, dParams->params->seobCoeffs ) / eobParams->eta;
 }
 
-/* PRECESSING EOB Functions */
+
+/* ************************************************************************* */
+/* ************************************************************************* */
+/* ***************    PRECESSING EOB FUNCTIONS    ************************** */
+/* ************************************************************************* */
+/* ************************************************************************* */
 
 /**
  * Functions to compute the inner product and cross products 
  * between vectors
  * */
 UNUSED static REAL8 inner_product( const REAL8 values1[], 
-                             const REAL8 values2[]
-                             )
+                                   const REAL8 values2[] )
 {
   REAL8 result = 0;
   for( int i = 0; i < 3 ; i++ )
@@ -898,8 +898,8 @@ UNUSED static REAL8 inner_product( const REAL8 values1[],
 }
 
 UNUSED static REAL8* cross_product( const REAL8 values1[],
-                              const REAL8 values2[],
-                              REAL8 result[] )
+                                    const REAL8 values2[],
+                                    REAL8 result[] )
 {
   result[0] = values1[1]*values2[2] - values1[2]*values2[1];
   result[1] = values1[2]*values2[0] - values1[0]*values2[2];
@@ -1142,6 +1142,49 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
   }
   
   return omega;
+}
+
+
+/**
+ * Function to calculate the non-Keplerian coefficient for the PRECESSING EOB model.
+ * radius \f$r\f$ times the cuberoot of the returned number is \f$r_\Omega\f$ defined in Eq. A2.
+ * i.e. the function returns \f$(r_{\Omega} / r)^3\f$ 
+ * = \f$1/(r^3 (\partial Hreal/\partial p_\phi |p_r=0)^2)\f$.
+ */
+static REAL8 
+XLALSimIMRSpinEOBNonKeplerCoeff(
+                      const REAL8           values[],   /**<< Dynamical variables */
+                      SpinEOBParams         *funcParams /**<< EOB parameters */
+                      )
+{
+    int debugPK = 1;
+    if (debugPK){
+      for(int i =0; i < 12; i++)
+        if( isnan(values[i]) ) {
+          printf("XLALSimIMRSpinEOBNonKeplerCoeff::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+        }
+      }
+
+
+  REAL8 omegaCirc;
+
+  REAL8 tmpValues[14]= {0.};
+
+  REAL8 r3;
+
+    
+  /* We need to find the values of omega assuming pr = 0 */
+  memcpy( tmpValues, values, sizeof(tmpValues) );
+
+  omegaCirc = XLALSimIMRSpinEOBCalcOmega( tmpValues, funcParams );
+  if ( XLAL_IS_REAL8_FAIL_NAN( omegaCirc ) )
+  {
+    XLAL_ERROR_REAL8( XLAL_EFUNC );
+  }
+
+  r3 = pow(values[0]*values[0] + values[1]*values[1] + values[2]*values[2], 3./2.);
+
+  return 1.0/(omegaCirc*omegaCirc*r3);
 }
 
 /**
@@ -1938,125 +1981,5 @@ static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params )
   
   return SpinEOBH;
 }
-
-/**
- * Function to calculate the non-Keplerian coefficient for the PRECESSING EOB model.
- * radius \f$r\f$ times the cuberoot of the returned number is \f$r_\Omega\f$ defined in Eq. A2.
- * i.e. the function returns \f$(r_{\Omega} / r)^3\f$ 
- * = \f$1/(r^3 (\partial Hreal/\partial p_\phi |p_r=0)^2)\f$.
- */
-static REAL8 
-XLALSimIMRSpinPrecEOBNonKeplerCoeff(
-                      const REAL8           values[],   /**<< Dynamical variables */
-                      SpinEOBParams         *funcParams /**<< EOB parameters */
-                      )
-{
-    int debugPK = 1;
-    if (debugPK){
-      for(int i =0; i < 12; i++)
-        if( isnan(values[i]) ) {
-          printf("XLALSimIMRSpinPrecEOBNonKeplerCoeff::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
-        }
-      }
-    
-  REAL8 omegaCirc;
-
-    REAL8 tmpValues[14]={0.};
-
-  REAL8 r3;
-
-  /* We need to find the values of omega assuming pr = 0 */
-  memcpy( tmpValues, values, sizeof(tmpValues) );
-
-  omegaCirc = XLALSimIMRSpinEOBCalcOmega( tmpValues, funcParams );
-  if ( XLAL_IS_REAL8_FAIL_NAN( omegaCirc ) )
-  {
-    XLAL_ERROR_REAL8( XLAL_EFUNC );
-  }
-
-  r3 = pow(values[0]*values[0] + values[1]*values[1] + values[2]*values[2], 3./2.);
-
-  return 1.0/(omegaCirc*omegaCirc*r3);
-}
-
-/**
- * Function to calculate the non-Keplerian coefficient for the spin-aligned EOB model.
- * radius \f$r\f$ times the cuberoot of the returned number is \f$r_\Omega\f$ defined in Eq. A2.
- * i.e. the function returns \f$(r_{\Omega} / r)^3\f$.
- * This is the generic precessing version
- */
-static REAL8 
-XLALSimIMRSpinEOBNonKeplerCoeff(
-                      const REAL8           values[],   /**<< Dynamical variables */
-                      SpinEOBParams         *funcParams /**<< EOB parameters */
-                      )
-{
-    int debugPK = 1;
-    if (debugPK){
-      for(int i =0; i < 12; i++)
-        if( isnan(values[i]) ) {
-          printf("XLALSimIMRSpinPrecEOBNonKeplerCoeff::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
-        }
-      }
-
-
-  REAL8 omegaCirc;
-
-  REAL8 tmpValues[14]= {0.};
-
-  REAL8 r3;
-
-    
-  /* We need to find the values of omega assuming pr = 0 */
-  memcpy( tmpValues, values, sizeof(tmpValues) );
-
-  omegaCirc = XLALSimIMRSpinEOBCalcOmega( tmpValues, funcParams );
-  if ( XLAL_IS_REAL8_FAIL_NAN( omegaCirc ) )
-  {
-    XLAL_ERROR_REAL8( XLAL_EFUNC );
-  }
-
-  r3 = pow(values[0]*values[0] + values[1]*values[1] + values[2]*values[2], 3./2.);
-
-  return 1.0/(omegaCirc*omegaCirc*r3);
-}
-
-#if 0
-static REAL8 UNUSED
-XLALSimIMRSpinEOBNonKeplerCoeff(
-                      const REAL8           values[],   /**<< Dynamical variables */
-                      SpinEOBParams         *funcParams /**<< EOB parameters */
-                      )
-{
-
-  REAL8 omegaCirc;
-
-  REAL8 tmpValues[4]= {0.};
-
-  REAL8 r3;
-
-  /* We need to find the values of omega assuming pr = 0 */
-  memcpy( tmpValues, values, sizeof(tmpValues) );
-  tmpValues[0] = sqrt(values[0]*values[0]+values[1]*values[1]+values[2]*values[2]);
-  tmpValues[1] = 0.0;
-  tmpValues[2] = 0.0;
-  tmpValues[3] = sqrt( (values[0]*values[4] - values[1]*values[3])
-                      *(values[0]*values[4] - values[1]*values[3])
-                      +(values[2]*values[3] - values[0]*values[5])
-                      *(values[2]*values[3] - values[0]*values[5])
-                      +(values[1]*values[5] - values[2]*values[4])
-                      *(values[1]*values[5] - values[2]*values[4]) );
-
-  omegaCirc = XLALSimIMRSpinAlignedEOBCalcOmega( tmpValues, funcParams );
-  if ( XLAL_IS_REAL8_FAIL_NAN( omegaCirc ) )
-  {
-    XLAL_ERROR_REAL8( XLAL_EFUNC );
-  }
-
-  r3 = tmpValues[0]*tmpValues[0]*tmpValues[0];
-
-  return 1.0/(omegaCirc*omegaCirc*r3);
-}
-#endif
 
 #endif /*_LALSIMIMRSPINEOBHAMILTONIAN_C*/
