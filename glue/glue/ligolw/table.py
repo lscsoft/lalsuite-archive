@@ -81,15 +81,17 @@ __date__ = git_version.date
 #
 # but people are putting upper case letters in names!!!!!  Someone is going
 # to get the beats.  There is a reason for requiring names to be all lower
-# case:  SQL table and column names are case insensitive, therefore (i) in
-# general it is not possible to preserve case when documents are converted
-# into SQL databases and then converted back again, and (ii) when converted
-# to SQL the columns "Rho" and "rho" become indistinguishable and so it is
-# impossible to convert a document into an SQL database that has degenerate
-# names like this.  Requiring names to be all lower-case breaks the
-# degeneracy, helping to ensure that XML documents can be safely converted
-# to SQL databases (other rules can be imagined that would work as well,
-# this is the one that got chosen).
+# case:  SQL table and column names are case insensitive, therefore (i)
+# when converting a document to SQL the columns "Rho" and "rho" would
+# become indistinguishable and so it would be impossible to convert a
+# document with columns having names like this into an SQL database;  and
+# (ii) even if that degeneracy is not encountered the case cannot be
+# preserved and so when converting back to XML the correct capitalization
+# is lost.  Requiring names to be all lower-case creates the same
+# degeneracies in XML representations that exist in SQL representations
+# ensuring compatibility and defines the correct case to restore the names
+# to when converting to XML.  Other rules can be imagined that would work
+# as well, this is the one that got chosen.
 
 
 ColumnPattern = re.compile(r"(?:\A\w+:|\A)(?P<FullName>(?:(?P<Table>\w+):|\A)(?P<Name>\w+))\Z")
@@ -125,8 +127,10 @@ def CompareColumnNames(name1, name2):
 
 	Example:
 
+	>>> # compare as equal
 	>>> CompareColumnNames("process_params:program", "process:program")
 	0
+	>>> # not equal
 	>>> CompareColumnNames("program", "start_time")
 	-1
 
@@ -192,8 +196,10 @@ def CompareTableNames(name1, name2):
 
 	Example:
 
+	>>> # compare as equal
 	>>> CompareTableNames("sngl_inspiral:table", "sngl_inspiral")
 	0
+	>>> # not equal
 	>>> CompareTableNames("sngl_burst_group:sngl_burst:table", "sngl_inspiral")
 	-1
 	"""
@@ -231,11 +237,15 @@ def get_table(xmldoc, name):
 	"""
 	Scan xmldoc for a Table element named name.  The comparison is done
 	using CompareTableNames().  Raises ValueError if not exactly 1 such
-	table is found.  See the glue.ligolw.lsctables module for classes
-	whose .tableName class attributes provide the names of standard LSC
-	table definitions.  It is recommended to always use these to
-	retrieve standard tables instead of hard-coding table names as
-	inline strings.
+	table is found.
+
+	NOTE:  if a Table sub-class has its .tableName attribute set, then
+	its .get_table() class method can be used instead.  This is true
+	for all Table classes in the glue.ligolw.lsctables module, and it
+	is recommended to always use the .get_table() class method of those
+	classes to retrieve those standard tables instead of calling this
+	function and passing the .tableName attribute.  The example below
+	shows both techniques.
 
 	Example:
 
@@ -244,7 +254,10 @@ def get_table(xmldoc, name):
 	>>> xmldoc = ligolw.Document()
 	>>> xmldoc.appendChild(ligolw.LIGO_LW()).appendChild(lsctables.New(lsctables.SnglInspiralTable))
 	[]
+	>>> # find table with this function
 	>>> sngl_inspiral_table = get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	>>> # find table with .get_table() class method (preferred)
+	>>> sngl_inspiral_table = lsctables.SnglInspiralTable.get_table(xmldoc)
 
 	See also the .get_table() class method of the Table class.
 	"""
@@ -344,7 +357,7 @@ class Column(ligolw.Column):
 
 	def __len__(self):
 		"""
-		Return the number of values in this column.
+		The number of values in this column.
 		"""
 		return len(self.parentNode)
 
@@ -378,11 +391,7 @@ class Column(ligolw.Column):
 		"""
 		Return the number of rows with this column equal to value.
 		"""
-		n = 0
-		for row in self.parentNode:
-			if getattr(row, self.Name) == value:
-				n += 1
-		return n
+		return sum(getattr(row, self.Name) == value for row in self.parentNode)
 
 	def index(self, value):
 		"""
@@ -410,10 +419,15 @@ class Column(ligolw.Column):
 		creates a copy of the data, so modifications made to the
 		array will *not* be recorded in the original document.
 		"""
-		if self.Type not in ligolwtypes.NumericTypes:
-			raise TypeError("Column '%s' does not have numeric type" % self.getAttribute("Name"))
+		# most codes don't use this feature, this is the only place
+		# numpy is used here, and importing numpy can be
+		# time-consuming, so we derfer the import until needed.
 		import numpy
-		return numpy.fromiter(self, dtype = ligolwtypes.ToNumPyType[self.Type])
+		try:
+			dtype = ligolwtypes.ToNumPyType[self.Type]
+		except KeyError as e:
+			raise TypeError("cannot determine numpy dtype for Column '%s': %s" % (self.getAttribute("Name"), e))
+		return numpy.fromiter(self, dtype = dtype)
 
 
 #
