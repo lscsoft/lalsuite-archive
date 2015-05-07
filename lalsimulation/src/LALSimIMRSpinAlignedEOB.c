@@ -1628,6 +1628,22 @@ int XLALSimIMRSpinEOBWaveform(
   const REAL8 EPS_ABS = 1.0e-9;
   const REAL8 EPS_REL = 1.0e-8;
 
+  /* Memory for the calculation of the alpha(t) and beta(t) angles */
+  REAL8 tmpR[3], tmpRdot[3], magLN = 0;
+  INT4 phaseCounterA = 0, phaseCounterB = 0;
+  
+  REAL8Vector *LN_x = NULL;  REAL8Vector *LN_y = NULL; REAL8Vector *LN_z = NULL;
+  REAL8Vector *Alpha = NULL; REAL8Vector *Beta = NULL; REAL8Vector *Gamma = NULL;
+  REAL8Vector *LN_xHi = NULL; REAL8Vector *LN_yHi = NULL;
+  REAL8Vector *LN_zHi = NULL;
+  REAL8Vector *AlphaHi = NULL; REAL8Vector *BetaHi = NULL;
+  REAL8Vector *GammaHi = NULL;
+  
+  REAL8 precEulerresult = 0, precEulererror = 0;
+  gsl_integration_workspace * precEulerw = gsl_integration_workspace_alloc (1000);
+  gsl_function precEulerF;
+  PrecEulerAnglesIntegration precEulerparams;
+
 
   /* *******************************************************************/
   /* ********************** Memory Initialization **********************/
@@ -2361,25 +2377,21 @@ int XLALSimIMRSpinEOBWaveform(
     fclose( out );
   }
 
-  /* ***************************************************************** */
+  /* ************************************************************************ */
+  /* **************     Compute alpha (t) and beta (t).  ******************** */
+  /* ************************************************************************ */
+  
   /* Interpolate trajectories to compute L_N (t) in order to get alpha (t) and
    * beta (t). */
-  /* ***************************************************************** */
-  
   if(debugPK){
     fprintf( stderr, "Generating Alpha and Beta angle timeseries at low SR\n" );
     fflush(NULL);
   }
 
-  REAL8 tmpR[3], tmpRdot[3], magLN = 0;
-  INT4 phaseCounterA = 0, phaseCounterB = 0;
-  
-  REAL8Vector *LN_x = NULL; REAL8Vector *LN_y = NULL; REAL8Vector *LN_z = NULL;
   LN_x = XLALCreateREAL8Vector( retLenLow );
   LN_y = XLALCreateREAL8Vector( retLenLow );
   LN_z = XLALCreateREAL8Vector( retLenLow );
   
-  REAL8Vector *Alpha = NULL; REAL8Vector *Beta = NULL;
   Alpha = XLALCreateREAL8Vector( retLenLow );
   Beta   = XLALCreateREAL8Vector( retLenLow );
   
@@ -2396,12 +2408,13 @@ int XLALSimIMRSpinEOBWaveform(
   gsl_spline_init( z_spline, tVec.data, posVecz.data, retLenLow );
   
   if (debugPK){
-      fprintf( stderr, "WRiting Alpha and Beta angle timeseries at low SR to alphaANDbeta.dat\n" );
-      out = fopen( "alphaANDbeta.dat","w");
+    fprintf( stderr, "WRiting Alpha and Beta angle timeseries at low SR to alphaANDbeta.dat\n" );
+    fflush(NULL);
+    out = fopen( "alphaANDbeta.dat","w");
   }
   for( i=0; i < retLenLow; i++ )
   {
-		tmpR[0] = posVecx.data[i]; tmpR[1] = posVecy.data[i]; tmpR[2] = posVecz.data[i];
+    tmpR[0] = posVecx.data[i]; tmpR[1] = posVecy.data[i]; tmpR[2] = posVecz.data[i];
 		tmpRdot[0] = gsl_spline_eval_deriv( x_spline, tVec.data[i], x_acc );
 		tmpRdot[1] = gsl_spline_eval_deriv( y_spline, tVec.data[i], y_acc );
 		tmpRdot[2] = gsl_spline_eval_deriv( z_spline, tVec.data[i], z_acc );
@@ -2410,38 +2423,44 @@ int XLALSimIMRSpinEOBWaveform(
 		LN_y->data[i] = tmpR[2] * tmpRdot[0] - tmpR[0] * tmpRdot[2];
 		LN_z->data[i] = tmpR[0] * tmpRdot[1] - tmpR[1] * tmpRdot[0];
 		
-		magLN = sqrt(LN_x->data[i] * LN_x->data[i] + LN_y->data[i] * LN_y->data[i] + LN_z->data[i] * LN_z->data[i]);
+		magLN = sqrt(LN_x->data[i] * LN_x->data[i] + LN_y->data[i] * LN_y->data[i] 
+              + LN_z->data[i] * LN_z->data[i]);
 		LN_x->data[i] /= magLN; LN_y->data[i] /= magLN; LN_z->data[i] /= magLN;
 		
 		/* Unwrap the two angles */
-      if (fabs(LN_x->data[i]) <= 1.e-7 && fabs(LN_y->data[i]) <=1.e-7){
-          Alpha->data[i] = 0.0;
-      }else{
-          Alpha->data[i] = atan2( LN_y->data[i], LN_x->data[i] ) + phaseCounterA * LAL_TWOPI;
-      }
-      if( i && Alpha->data[i] - Alpha->data[i-1] > 5. )
+    if (fabs(LN_x->data[i]) <= 1.e-7 && fabs(LN_y->data[i]) <=1.e-7){
+      Alpha->data[i] = 0.0;
+    } else {
+      Alpha->data[i] = atan2( LN_y->data[i], LN_x->data[i] ) 
+                      + phaseCounterA * LAL_TWOPI;
+    }
+    
+    if( i && Alpha->data[i] - Alpha->data[i-1] > 5. )
 		{
 			phaseCounterA--; 
 			Alpha->data[i] -= LAL_TWOPI;
-		}
-		else if( i && Alpha->data[i] - Alpha->data[i-1] < -5. )
+		} else if ( i && Alpha->data[i] - Alpha->data[i-1] < -5. )
 		{
 			phaseCounterA++;
 			Alpha->data[i] += LAL_TWOPI;
 		}
-		
+    
+    /* FIXME: Why is there a "0" multiplying phaseCounterB ?? */
 		Beta->data[i] = acos( LN_z->data[i] ) + 0*phaseCounterB * LAL_TWOPI;
+    
 		if( i && Beta->data[i] > Beta->data[i-1] )
 		{
 			phaseCounterB--;
 			//Beta->data[i] -= LAL_TWOPI;
 		}
-        if(debugPK){
-		    fprintf( out, "%.16e %.16e %.16e %d %d %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", tVec.data[i], 
-		        Alpha->data[i], Beta->data[i], 
-				phaseCounterA, phaseCounterB, tmpR[0], tmpR[1], tmpR[2], tmpRdot[0], tmpRdot[1], tmpRdot[2],
-				LN_x->data[i], LN_y->data[i], LN_z->data[i] );
-        }
+    
+    if(debugPK) {
+      fprintf( out, "%.16e %.16e %.16e %d %d %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", 
+      tVec.data[i], Alpha->data[i], Beta->data[i], 
+      phaseCounterA, phaseCounterB, tmpR[0], tmpR[1], tmpR[2], 
+      tmpRdot[0], tmpRdot[1], tmpRdot[2],
+      LN_x->data[i], LN_y->data[i], LN_z->data[i] );
+    }
 	}
   if (debugPK) fclose(out);
 
@@ -2454,38 +2473,35 @@ int XLALSimIMRSpinEOBWaveform(
   y_acc = gsl_interp_accel_alloc();
   gsl_spline_init( y_spline, tVec.data, Beta->data, retLenLow );
   
-  REAL8Vector *Gamma = NULL;
   Gamma = XLALCreateREAL8Vector( retLenLow );
 
-  PrecEulerAnglesIntegration precEulerparams;
   precEulerparams.alpha_spline = x_spline;
-  precEulerparams.alpha_acc       = x_acc;
-  precEulerparams.beta_spline   = y_spline;
-  precEulerparams.beta_acc         = y_acc;
+  precEulerparams.alpha_acc    = x_acc;
+  precEulerparams.beta_spline  = y_spline;
+  precEulerparams.beta_acc     = y_acc;
    
-   gsl_integration_workspace * precEulerw = gsl_integration_workspace_alloc (1000);
-   REAL8 precEulerresult = 0, precEulererror = 0;
+  precEulerF.function = &f_alphadotcosi;
+  precEulerF.params   = &precEulerparams;
    
-   gsl_function precEulerF;
-   precEulerF.function = &f_alphadotcosi;
-   precEulerF.params = &precEulerparams;
-   
-   if (debugPK){
-       fprintf( stderr, "WRiting Gamma angle timeseries at low SR to gamma.dat\n" );
-       out = fopen( "gamma.dat","w");  
-   }
-   for( i = 0; i < retLenLow; i++ )
-   {
-		 if( i==0 )
-		   { Gamma->data[i] = 0.; }
-		 else
-		 {
-			 gsl_integration_qags (&precEulerF, tVec.data[i-1], tVec.data[i], 1e-9, 1e-9, 1000, precEulerw, &precEulerresult, &precEulererror);
-			 Gamma->data[i] = Gamma->data[i-1] + precEulerresult;
-		 }
+  if (debugPK) {
+    fprintf( stderr,"WRiting Gamma angle timeseries at low SR to gamma.dat\n");
+    fflush(NULL);
+    out = fopen( "gamma.dat","w");  
+  }
+  
+  for( i = 0; i < retLenLow; i++ )
+  {
+    if( i==0 ) { Gamma->data[i] = 0.; }
+    else
+		{
+      gsl_integration_qags (&precEulerF, tVec.data[i-1], tVec.data[i], 1e-9, 1e-9, 1000, precEulerw, &precEulerresult, &precEulererror);
+			Gamma->data[i] = Gamma->data[i-1] + precEulerresult;
+    }
 		 			
-			if (debugPK) fprintf( out, "%.16e %.16e %.16e %.16e\n", tVec.data[i], Gamma->data[i], precEulerresult, precEulererror);
-	}  
+		if (debugPK) 
+      fprintf( out, "%.16e %.16e %.16e %.16e\n", tVec.data[i], Gamma->data[i],
+                                              precEulerresult, precEulererror);
+  }  
   if (debugPK) fclose(out);
 
 /*
@@ -2494,12 +2510,10 @@ int XLALSimIMRSpinEOBWaveform(
  *fprintf( stderr, "Generating Alpha and Beta angle timeseries at high SR\n" );*/
 
 
-  REAL8Vector *LN_xHi = NULL; REAL8Vector *LN_yHi = NULL; REAL8Vector *LN_zHi = NULL;
   LN_xHi = XLALCreateREAL8Vector( retLenHi );
   LN_yHi = XLALCreateREAL8Vector( retLenHi );
   LN_zHi = XLALCreateREAL8Vector( retLenHi );
   
-  REAL8Vector *AlphaHi = NULL; REAL8Vector *BetaHi = NULL;
   AlphaHi = XLALCreateREAL8Vector( retLenHi );
   BetaHi   = XLALCreateREAL8Vector( retLenHi );
   
@@ -2516,8 +2530,9 @@ int XLALSimIMRSpinEOBWaveform(
   gsl_spline_init( z_spline, timeHi.data, posVeczHi.data, retLenHi );
  
   if (debugPK){
-          fprintf( stderr, "WRiting Alpha and Beta angle timeseries at High SR to alphaANDbetaHi.dat\n" );
-          out = fopen( "alphaANDbetaHi.dat","w");
+    fprintf( stderr, "WRiting Alpha and Beta angle timeseries at High SR to alphaANDbetaHi.dat\n" );
+    fflush(NULL);
+    out = fopen( "alphaANDbetaHi.dat","w");
   }
   for( i=0; i < retLenHi; i++ )
   {
@@ -2534,12 +2549,12 @@ int XLALSimIMRSpinEOBWaveform(
 		LN_xHi->data[i] /= magLN; LN_yHi->data[i] /= magLN; LN_zHi->data[i] /= magLN;
 		
 		/* Unwrap the two angles */
-      if (fabs(LN_xHi->data[i]) <= 1.e-7 && fabs(LN_yHi->data[i]) <=1.e-7){
-          AlphaHi->data[i] = 0.0;
-      }else{
-          AlphaHi->data[i] = atan2( LN_yHi->data[i], LN_xHi->data[i] ) + phaseCounterA * LAL_TWOPI;
-      }
-      if( i && AlphaHi->data[i] - AlphaHi->data[i-1] > 5. )
+    if (fabs(LN_xHi->data[i]) <= 1.e-7 && fabs(LN_yHi->data[i]) <=1.e-7){
+      AlphaHi->data[i] = 0.0;
+    } else {
+      AlphaHi->data[i] = atan2( LN_yHi->data[i], LN_xHi->data[i] ) + phaseCounterA * LAL_TWOPI;
+    }
+    if( i && AlphaHi->data[i] - AlphaHi->data[i-1] > 5. )
 		{
 			phaseCounterA--; 
 			AlphaHi->data[i] -= LAL_TWOPI;
@@ -2553,19 +2568,22 @@ int XLALSimIMRSpinEOBWaveform(
 		/* Make sure that Alpha agrees initially with the low SR value */
 		AlphaHi->data[i] -= (AlphaHi->data[0] - Alpha->data[hiSRndx]);
 		
+    /* FIXME: Why is phaseCounterB multiplied by 0?? */
 		BetaHi->data[i] = acos( LN_zHi->data[i] ) + 0*phaseCounterB * LAL_TWOPI;
 		if( i && BetaHi->data[i] > BetaHi->data[i-1] )
 		{
 			phaseCounterB--;
 			//Beta->data[i] -= LAL_TWOPI;
 		}
-
-	    if (debugPK){
-            fprintf( out, "%.16e %.16e %.16e %d %d %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", tVec.data[hiSRndx]+timeHi.data[i], 
-		    AlphaHi->data[i], BetaHi->data[i], 
-				phaseCounterA, phaseCounterB, tmpR[0], tmpR[1], tmpR[2], tmpRdot[0], tmpRdot[1], tmpRdot[2],
-				LN_xHi->data[i], LN_yHi->data[i], LN_zHi->data[i] );
-        }
+    
+    if (debugPK){
+      fprintf( out, "%.16e %.16e %.16e %d %d %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", 
+      tVec.data[hiSRndx]+timeHi.data[i], 
+		  AlphaHi->data[i], BetaHi->data[i], 
+      phaseCounterA, phaseCounterB, 
+      tmpR[0], tmpR[1], tmpR[2], tmpRdot[0], tmpRdot[1], tmpRdot[2],
+			LN_xHi->data[i], LN_yHi->data[i], LN_zHi->data[i] );
+    }
 	}
   if (debugPK) fclose(out);
 
@@ -2578,47 +2596,52 @@ int XLALSimIMRSpinEOBWaveform(
   y_acc = gsl_interp_accel_alloc();
   gsl_spline_init( y_spline, timeHi.data, BetaHi->data, retLenHi );
   
-  REAL8Vector *GammaHi = NULL;
   GammaHi = XLALCreateREAL8Vector( retLenHi );
 
   //PrecEulerAnglesIntegration precEulerparams;
   precEulerparams.alpha_spline = x_spline;
-  precEulerparams.alpha_acc       = x_acc;
-  precEulerparams.beta_spline   = y_spline;
-  precEulerparams.beta_acc         = y_acc;
+  precEulerparams.alpha_acc    = x_acc;
+  precEulerparams.beta_spline  = y_spline;
+  precEulerparams.beta_acc     = y_acc;
    
-   /*gsl_integration_workspace * */precEulerw = gsl_integration_workspace_alloc (1000);
-   precEulerresult = 0, precEulererror = 0;
+  /*gsl_integration_workspace * */
+  precEulerw = gsl_integration_workspace_alloc (1000);
+  precEulerresult = 0, precEulererror = 0;
    
-   //gsl_function precEulerF;
-   precEulerF.function = &f_alphadotcosi;
-   precEulerF.params = &precEulerparams;
+  //gsl_function precEulerF;
+  precEulerF.function = &f_alphadotcosi;
+  precEulerF.params = &precEulerparams;
    
-   if(debugPK){
-       fprintf( stderr, "WRiting Gamma angle timeseries at High SR to gammaHi.dat\n" );
-       out = fopen( "gammaHi.dat","w");  
-   }
-   for( i = 0; i < retLenHi; i++ )
-   {
-		 if( i==0 )
-		   { GammaHi->data[i] = Gamma->data[hiSRndx]; }
-		 else
-		 {
-			 gsl_integration_qags (&precEulerF, timeHi.data[i-1], timeHi.data[i], 1e-9, 1e-9, 1000, precEulerw, &precEulerresult, &precEulererror);
-			 GammaHi->data[i] = GammaHi->data[i-1] + precEulerresult;
-		 }
+  if(debugPK){
+    fprintf( stderr, 
+      "WRiting Gamma angle timeseries at High SR to gammaHi.dat\n" );
+    out = fopen( "gammaHi.dat","w");  
+  }
+  
+  for( i = 0; i < retLenHi; i++ )
+  {
+    if( i==0 ) { GammaHi->data[i] = Gamma->data[hiSRndx]; }
+    else
+		{
+		 gsl_integration_qags(&precEulerF, timeHi.data[i-1], timeHi.data[i],
+        1e-9, 1e-9, 1000, precEulerw, &precEulerresult, &precEulererror);
+		 GammaHi->data[i] = GammaHi->data[i-1] + precEulerresult;
+		}
 		 			
-		 if (debugPK) fprintf( out, "%.16e %.16e %.16e %.16e\n", tVec.data[hiSRndx]+timeHi.data[i], GammaHi->data[i], precEulerresult, precEulererror);
+		if (debugPK) 
+      fprintf( out, "%.16e %.16e %.16e %.16e\n", 
+        tVec.data[hiSRndx]+timeHi.data[i], GammaHi->data[i], 
+        precEulerresult, precEulererror);
 	}  
-   if (debugPK) fclose(out);
+  if (debugPK) fclose(out);
 
-   gsl_integration_workspace_free( precEulerw );
-   gsl_spline_free( x_spline );
-   gsl_spline_free( y_spline );
-   gsl_spline_free( z_spline );
-   gsl_interp_accel_free( x_acc );
-   gsl_interp_accel_free( y_acc );
-   gsl_interp_accel_free( z_acc );
+  gsl_integration_workspace_free( precEulerw );
+  gsl_spline_free( x_spline );
+  gsl_spline_free( y_spline );
+  gsl_spline_free( z_spline );
+  gsl_interp_accel_free( x_acc );
+  gsl_interp_accel_free( y_acc );
+  gsl_interp_accel_free( z_acc );
    
   /* WaveStep 1.5: moved to here  */
   modefreqVec.length = 1;
@@ -2629,18 +2652,14 @@ int XLALSimIMRSpinEOBWaveform(
     XLALDestroyREAL8Vector( values );
     XLAL_ERROR( XLAL_EFUNC );
   }
-  // PK: FIXME -- when QNM Freq function is written for SEOBNRv3 uncomment these lines */
+
   retLenRDPatch = (UINT4)ceil( 20 / ( cimag(modeFreq) * deltaTHigh ));
   retLenRDPatchLow = (UINT4)ceil( 20 / ( cimag(modeFreq) * deltaT ));
   
   /* Allocate the high sample rate vectors */
-  /*sigReHi  = XLALCreateREAL8Vector( retLen + retLenRDPatch );
-  sigImHi  = XLALCreateREAL8Vector( retLen + retLenRDPatch );*/
-  omegaHi  = XLALCreateREAL8Vector( retLenHi + retLenRDPatch);
-  
-
-  /*if ( !sigReHi || !sigImHi || !omegaHi )*/
-      
+  //sigReHi  = XLALCreateREAL8Vector( retLen + retLenRDPatch );
+  //sigImHi  = XLALCreateREAL8Vector( retLen + retLenRDPatch );
+  omegaHi  = XLALCreateREAL8Vector( retLenHi + retLenRDPatch);        
   if (!omegaHi )
   {
     XLAL_ERROR( XLAL_ENOMEM );
@@ -2649,39 +2668,22 @@ int XLALSimIMRSpinEOBWaveform(
   /*memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
   memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));*/
 
-   /*
-   * STEP 5) Calculate NQC correction using hi-sampling data
-   */
 
-  /*
-   * STEP 6) Calculate QNM excitation coefficients using hi-sampling data
-   */
-  
-  /*
-   * STEP 7) Generate full inspiral waveform using desired sampling frequency
-   */
 
-  /*
-   * STEP 8) Generate full IMR modes -- attaching ringdown to inspiral
-   */
-
-  /*
-   * STEP 9) Generate full IMR hp and hx waveforms
-   */
-  
-  /* ==============================
-   *   Waveform Generation
-   * ==============================
-   */
-
+  /* ************************************************************************ */
+  /* **************     Waveform Generation  ******************************** */
+  /* ************************************************************************ */
   
   /* WaveStep 1
    * Locate merger point (max omega), calculate J, chi and kappa at merger, and construct final J frame
    */
   /* WaveStep 1.1: locate merger point */
   omegasav2 = -1.0;  omegasav  = -0.5;  omega     =  0.0;
-  if (debugPK) out = fopen( "omegaHi.dat", "w" );
-  if(debugPK) printf("length of values = %d, retLen = %d\n", values->length, retLen);
+  if(debugPK) {
+    out = fopen( "omegaHi.dat", "w" );
+    printf("length of values = %d, retLen = %d\n", values->length, retLen);
+    fflush(NULL);
+  }
   for ( i = 0, peakIdx = 0; i < retLenHi; i++ )
   {
     for ( j = 0; j < values->length; j++ )
