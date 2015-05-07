@@ -37,7 +37,7 @@
  * 
  * \brief Functions for producing SEOBNRv3 waveforms for 
  * precessing binaries of spinning compact objects, as described
- * in Pan et al. ( arXiv 1307.6232 ).
+ * in Pan et al. ( arXiv 1307.6232 ) == YPP.
  */
 
 #include <math.h>
@@ -1372,6 +1372,12 @@ int XLALSimIMRSpinAlignedEOBWaveform(
  * inc        : in radians
  * INspin{1,2}: in dimensionless units of m{1,2}^2
  * 
+ * Evolution conventions:
+ * values[0-2]: r in units of total mass
+ * values[3-5]: dimensionless units
+ * values[6-8]: 
+ * values[9-11]:
+ * 
  * STEP 0) Prepare parameters, including pre-computed coefficients
  * for EOB Hamiltonian, flux and waveform
  * STEP 1) Solve for initial conditions
@@ -1404,8 +1410,11 @@ int XLALSimIMRSpinEOBWaveform(
         const REAL8     INspin2[]
      )
 {
+  /* TODO: Insert potentially necessary checks on the arguments */
+
   INT4 UNUSED ret;
-  INT4 debugPK = 1;
+  INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
+  FILE *out = NULL;
   INT4 i=0;
   INT4 k=0;
   UINT4 j=0;
@@ -1486,12 +1495,24 @@ int XLALSimIMRSpinEOBWaveform(
   REAL8       rdotvec[3] = {0,0,0};
  
   /* EOB spin vectors used in the Hamiltonian */
-  REAL8Vector *sigmaStar = NULL;
-  REAL8Vector *sigmaKerr = NULL;
   REAL8       a = 0, tplspin = 0;
   REAL8       chiS = 0, chiA = 0;
   REAL8       spinNQC = 0;
-
+  REAL8Vector *sigmaStar = NULL;
+  REAL8Vector *sigmaKerr = NULL;
+  if ( !(sigmaStar = XLALCreateREAL8Vector( 3 )) )
+  {
+    XLALDestroyREAL8Vector( sigmaStar );
+    XLALDestroyREAL8Vector( values );
+    XLAL_ERROR( XLAL_ENOMEM );
+  }
+  if ( !(sigmaKerr = XLALCreateREAL8Vector( 3 )) )
+  {
+    XLALDestroyREAL8Vector( sigmaStar );
+    XLALDestroyREAL8Vector( values );
+    XLAL_ERROR( XLAL_ENOMEM );
+  }
+  
   /* Spins not scaled by the mass */
   REAL8 mSpin1[3] = {0,0,0}, mSpin2[3] = {0,0,0};
 
@@ -1515,8 +1536,8 @@ int XLALSimIMRSpinEOBWaveform(
   /* Cartesian vectors needed to calculate Hamiltonian */
   REAL8Vector cartPosVec, cartMomVec;
   REAL8 cartPosData[3] = {0,0,0}, cartMomData[3] = {0,0,0};
-  REAL8 rcrossrdotNorm = 0, rvec[3] = {0,0,0}, rcrossrdot[3] = {0,0,0};
-  REAL8 rcrossp[3] = {0,0,0}, rcrosspMag = 0;
+  REAL8 rcrossrdotNorm = 0, rvec[3]    = {0,0,0}, rcrossrdot[3] = {0,0,0};
+  REAL8 pvec[3] = {0,0,0},  rcrossp[3] = {0,0,0}, rcrosspMag    = 0;
   REAL8 s1dotLN = 0, s2dotLN = 0;
   REAL8 UNUSED s1dotL = 0, s2dotL = 0;
 
@@ -1529,88 +1550,75 @@ int XLALSimIMRSpinEOBWaveform(
   /* COMPLEX16 *sigReVec = NULL, *sigImVec = NULL;*/
 
   /* Non-quasicircular correction */
-  EOBNonQCCoeffs nqcCoeffs;
   COMPLEX16      hNQC = 0 + 0j;
+  EOBNonQCCoeffs nqcCoeffs;
+  memset( &nqcCoeffs, 0, sizeof( nqcCoeffs ) );
 
   /* Ringdown freq used to check the sample rate */
   COMPLEX16Vector  modefreqVec;
   COMPLEX16        modeFreq;
 
   /* Spin-weighted spherical harmonics */
-  COMPLEX16  Y22;
-  COMPLEX16  Y2m2;
-  COMPLEX16  Y21;
-  COMPLEX16  Y2m1;
-  COMPLEX16  Y20;
-
-  /* We will have to switch to a high sample rate for ringdown attachment */
-  REAL8 deltaTHigh;
-  UINT4 resampFac;
-  UINT4 resampPwr;
-  REAL8 resampEstimate;
-
-  /* How far will we have to step back to attach the ringdown? */
-  REAL8 tStepBack;
-  INT4  nStepBack;
-  REAL8 HiSRstart;
-
-  /* Dynamics and details of the high sample rate part used to attach the ringdown */
-  UINT4 hiSRndx;
-  REAL8Vector timeHi, phiDModHi, phiModHi;
-  REAL8Vector posVecxHi, posVecyHi, posVeczHi, momVecxHi, momVecyHi, momVeczHi;
-  REAL8Vector s1VecxHi, s1VecyHi, s1VeczHi, s2VecxHi, s2VecyHi, s2VeczHi;
-  REAL8Vector *sigReHi = NULL, *sigImHi = NULL;
-  REAL8Vector *omegaHi = NULL;
-
-  /* Indices of peak frequency and final point */
-  /* Needed to attach ringdown at the appropriate point */
-  UINT4 UNUSED peakIdx = 0, finalIdx = 0;
-
+  COMPLEX16  Y22 = 0 + 0j, Y2m2 = 0 + 0j, Y21 = 0 + 0j, Y2m1 = 0 + 0j;
+  COMPLEX16  Y20 = 0 + 0j;
   /* (2,2) and (2,-2) spherical harmonics needed in (h+,hx) */
   /*REAL8  y_1, y_2, z1, z2;*/
 
-  /* Parameter structures containing important parameters for the model */
+  /*Parameters for the portion of the orbit we integrate at high sampling rate*/
+  REAL8 deltaTHigh = 0, resampEstimate = 0;
+  UINT4 resampFac  = 0, resampPwr      = 0;
+
+  /* How far will we have to step back to attach the ringdown? */
+  REAL8 tStepBack = 0, HiSRstart = 0;
+  INT4  nStepBack = 0;
+  UINT4 hiSRndx   = 0;
+
+  /* Dynamics and details of the high sample rate part used to attach the
+   * ringdown */
+  REAL8Vector timeHi,    phiDModHi, phiModHi;
+  REAL8Vector posVecxHi, posVecyHi, posVeczHi, momVecxHi, momVecyHi, momVeczHi;
+  REAL8Vector s1VecxHi,  s1VecyHi,  s1VeczHi,  s2VecxHi,  s2VecyHi,  s2VeczHi;
+  REAL8Vector *sigReHi = NULL, *sigImHi = NULL;
+  REAL8Vector *omegaHi = NULL;
+
+  /* Indices of peak frequency and final point           */
+  /* Needed to attach ringdown at the appropriate point  */
+  UINT4 UNUSED peakIdx = 0, finalIdx = 0;
+
+  /* Set up structures and calculate necessary PN parameters */
+  /* Due to precession, these need to get calculated in every step */
+  /* TODO: Only calculate non-spinning parts once */
   SpinEOBParams           seobParams;
   SpinEOBHCoeffs          seobCoeffs;
   EOBParams               eobParams;
   FacWaveformCoeffs       hCoeffs;
   NewtonMultipolePrefixes prefixes;
   
-  REAL8 tPeakOmega=-1., tAttach, combSize, /*longCombSize,*/ deltaNQC;
-  REAL8 UNUSED sh = 0.0;
-  REAL8  vX, vY, vZ, rCrossV_x, rCrossV_y, rCrossV_z, vOmega, omegasav;
-  REAL8 UNUSED  omegasav2;
-   REAL8 magR, Lx, Ly, Lz, magL, LNhx, LNhy, LNhz, /*magLN,*/ Jx, Jy, Jz, magJ;
-   REAL8 aI2P, bI2P, gI2P, aP2J, bP2J, gP2J;
-  REAL8 chi1J, chi2J, chiJ; 
-  REAL8 UNUSED kappaJL;
-  REAL8 JframeEx[3], JframeEy[3], JframeEz[3];
-  REAL8 LframeEx[3], LframeEy[3], LframeEz[3];
-  
-  for (i=0; i<3; i++){
-      LframeEx[i] = 0.0;
-      LframeEy[i] = 0.0;
-      LframeEz[i] = 0.0;
-  }
-
-  /* Set up structures and calculate necessary PN parameters */
-  /* Due to precession, these need to get calculated in every step */
-  /* TODO: Only calculate non-spinning parts once */
   memset( &seobParams, 0, sizeof(seobParams) );
   memset( &seobCoeffs, 0, sizeof(seobCoeffs) );
-  memset( &eobParams, 0, sizeof(eobParams) );
-  memset( &hCoeffs, 0, sizeof( hCoeffs ) );
-  memset( &prefixes, 0, sizeof( prefixes ) );
-  memset( &nqcCoeffs, 0, sizeof( nqcCoeffs ) );
+  memset( &eobParams,  0, sizeof(eobParams) );
+  memset( &hCoeffs,    0, sizeof( hCoeffs ) );
+  memset( &prefixes,   0, sizeof( prefixes ) );
 
+  /* Miscellaneous memory for Ringdown attachment        */
+  REAL8 tPeakOmega = 0, tAttach = 0, combSize = 0,/*longCombSize,*/ deltaNQC =0;
+  REAL8 UNUSED sh  = 0;
+  REAL8 vX = 0, vY = 0, vZ = 0, rCrossV_x = 0, rCrossV_y = 0, rCrossV_z = 0;
+  REAL8 UNUSED vOmega = 0, omegasav = 0, omegasav2 = 0;
+  REAL8 magR = 0, Lx   = 0, Ly   = 0, Lz = 0, magL = 0, magJ = 0, 
+        LNhx = 0, LNhy = 0, LNhz = 0,/*magLN,*/ Jx = 0, Jy   = 0, Jz = 0;
+  REAL8 aI2P = 0, bI2P = 0, gI2P = 0, aP2J = 0, bP2J = 0, gP2J = 0;
+  REAL8 chi1J= 0, chi2J= 0, chiJ = 0; 
+  REAL8 UNUSED kappaJL = 0;
+  REAL8 JframeEx[3] = {0,0,0}, JframeEy[3] = {0,0,0}, JframeEz[3] = {0,0,0};
+  REAL8 LframeEx[3] = {0,0,0}, LframeEy[3] = {0,0,0}, LframeEz[3] = {0,0,0};
+  
   /* Variables for the integrator */
   ark4GSLIntegrator       *integrator = NULL;
-  REAL8Array              *dynamics   = NULL;
-  REAL8Array              *dynamicsHi = NULL;
-  INT4            retLen, retLenLow, retLenHi;
-  INT4                    retLenRDPatch;
-  INT4                    retLenRDPatchLow;
-  //REAL8             tMax;
+  REAL8Array              *dynamics   = NULL, *dynamicsHi = NULL;
+  INT4                    retLen = 0, retLenLow = 0, retLenHi = 0;
+  INT4                    retLenRDPatch = 0, retLenRDPatchLow = 0;
+  //REAL8                   tMax;
   
   /* Interpolation spline */
   gsl_spline    *spline = NULL;
@@ -1620,38 +1628,36 @@ int XLALSimIMRSpinEOBWaveform(
   const REAL8 EPS_ABS = 1.0e-9;
   const REAL8 EPS_REL = 1.0e-8;
 
-  if ( !(sigmaStar = XLALCreateREAL8Vector( 3 )) )
-  {
-    XLALDestroyREAL8Vector( sigmaStar );
-    XLALDestroyREAL8Vector( values );
-    XLAL_ERROR( XLAL_ENOMEM );
-  }
 
-  if ( !(sigmaKerr = XLALCreateREAL8Vector( 3 )) )
-  {
-    XLALDestroyREAL8Vector( sigmaStar );
-    XLALDestroyREAL8Vector( values );
-    XLAL_ERROR( XLAL_ENOMEM );
-  }
+  /* *******************************************************************/
+  /* ********************** Memory Initialization **********************/
+  /* *******************************************************************/
   
-
-  /* Initialize parameters */
-  m1 = m1SI / LAL_MSUN_SI;
-  m2 = m2SI / LAL_MSUN_SI;
-  mTotal = m1 + m2;
+  /* Initialize mass parameters */
+  m1       = m1SI / LAL_MSUN_SI;
+  m2       = m2SI / LAL_MSUN_SI;
+  mTotal   = m1 + m2;
   mTScaled = mTotal * LAL_MTSUN_SI;
-  eta    = m1 * m2 / (mTotal*mTotal);
+  eta      = m1 * m2 / (mTotal*mTotal);
+  
+  /* Initialize amplitude scaling parameter */
   amp0 = mTotal * LAL_MRSUN_SI / r;
   //amp0 = 4. * mTotal * LAL_MRSUN_SI * eta / r;
-  if (debugPK){
-     printf("Stas, here is the passes functions\n");
-     printf("Inputs: m1 = %.16e, m2 = %.16e, fMin = %.16e, inclination = %.16e\n", m1, m2, (double) fMin, (double) inc );
-     printf("Mtotal = %.16e, eta = %.16e \n", mTotal, eta);
-     printf("Inputs: spin1 = {%.16e, %.16e, %.16e}\n",  spin1[0], spin1[1], spin1[2]);
-     printf("Inputs: spin2 = {%.16e, %.16e, %.16e}\n",  spin2[0], spin2[1], spin2[2]);
+  
+  if (debugPK) {
+    printf("Stas, here is the passes functions\n");
+   printf("Inputs: m1 = %.16e, m2 = %.16e, fMin = %.16e, inclination = %.16e\n", 
+          m1, m2, (double) fMin, (double) inc );
+    printf("Mtotal = %.16e, eta = %.16e \n", mTotal, eta);
+    printf("Inputs: spin1 = {%.16e, %.16e, %.16e}\n",  
+            spin1[0], spin1[1], spin1[2]);
+    printf("Inputs: spin2 = {%.16e, %.16e, %.16e}\n", 
+            spin2[0], spin2[1], spin2[2]);
   }  
 
 #if 0
+  /* Hard-coded initial conditions for debugging */
+  
   /*
   values->data[0] = 15.87;
   values->data[1] = 0.;
@@ -1705,8 +1711,6 @@ int XLALSimIMRSpinEOBWaveform(
 //    values->data[9]= 0.0000000000000000e+00;
 //    values->data[10]= 0.0000000000000000e+00;
 //    values->data[11]= 1.6666666666666666e-02;
-  
-
 
   for( i = 0; i < 3; i++ )
   {
@@ -1720,100 +1724,94 @@ int XLALSimIMRSpinEOBWaveform(
   }
 #endif
 
-  /* TODO: Insert potentially necessary checks on the arguments */
 
   /* Calculate the time we will need to step back for ringdown */
   tStepBack = 150. * mTScaled;
   nStepBack = ceil( tStepBack / deltaT );
 
-  /* Calculate the resample factor for attaching the ringdown */
-  /* We want it to be a power of 2 */
-  /* If deltaT > Mtot/50, reduce deltaT by the smallest power of two for which deltaT < Mtot/50 */
+  /* Calculate the resample factor for attaching the ringdown                 */
+  /* We want it to be a power of 2                                            */
+  /* If deltaT > Mtot/50, reduce deltaT by the smallest power of two for which*/
+  /* deltaT < Mtot/50                                                         */
   resampEstimate = 50. * deltaT / mTScaled;
   resampFac = 1;
-  //resampFac = 1 << (UINT4)ceil(log2(resampEstimate));
-  
-  if ( resampEstimate > 1. )
-  {
+  if ( resampEstimate > 1. ) {
     resampPwr = (UINT4)ceil( log2( resampEstimate ) );
-    while ( resampPwr-- )
-    {
-      resampFac *= 2u;
-    }
+    while( resampPwr-- ) { resampFac *= 2u; }
   }
 
-
-  /* Wrapper spin vectors used to calculate sigmas */
+  /* Wrapper spin vectors used to calculate sigmas                 */
+  /* Note: spin{1,2} have INspin{1,2} (\chi vectors) at this point */
+  s1Vec.length = s2Vec.length = 3;
+  s1Vec.data   = s1Data;
+  s2Vec.data   = s2Data;
+  
   s1VecOverMtMt.length = s2VecOverMtMt.length = 3;
   s1VecOverMtMt.data   = s1DataNorm;
   s2VecOverMtMt.data   = s2DataNorm;
 
-  s1Vec.length = s2Vec.length = 3;
-  s1Vec.data   = s1Data;
-  s2Vec.data   = s2Data;
-
-  memcpy( s1Data, spin1, sizeof(s1Data) );
-  memcpy( s2Data, spin2, sizeof(s2Data) );
-  memcpy( s1DataNorm, spin1, sizeof( s1DataNorm ) );
-  memcpy( s2DataNorm, spin2, sizeof( s2DataNorm ) );
-
   for( i = 0; i < 3; i++ )
   {
-    s1Data[i] *= m1*m1;
-    s2Data[i] *= m2*m2;
+    s1Data[i]     = mSpin1[i] = spin1[i] * m1 * m1;
+    s2Data[i]     = mSpin2[i] = spin2[i] * m2 * m2;
+    s1DataNorm[i] = s1Data[i] / mTotal / mTotal;
+    s2DataNorm[i] = s2Data[i] / mTotal / mTotal;
   }
-
-  for ( i = 0; i < 3; i++ )
-  {
-    s1DataNorm[i] = s1Data[i]/mTotal/mTotal;
-    s2DataNorm[i] = s2Data[i]/mTotal/mTotal;
-  }
+  
   if (debugPK){
-     printf("Stas, here is the passes functions\n");
-     printf("Inputs: m1 = %.16e, m2 = %.16e, fMin = %.16e, inclination = %.16e\n", m1, m2, (double) fMin, (double) inc );
-     printf("Inputs: spin1 = {%.16e, %.16e, %.16e}\n",  spin1[0], spin1[1], spin1[2]);
-     printf("Inputs: spin2 = {%.16e, %.16e, %.16e}\n",  spin2[0], spin2[1], spin2[2]);
-     printf("Inputs: s1V = {%.16e, %.16e, %.16e}\n",  s1Vec.data[0], s1Vec.data[1], s1Vec.data[2]);
-     printf("Inputs: s2V = {%.16e, %.16e, %.16e}\n",  s2Vec.data[0], s2Vec.data[1], s2Vec.data[2]);
+    printf("Stas, here is the passes functions\n");
+   printf("Inputs: m1 = %.16e, m2 = %.16e, fMin = %.16e, inclination = %.16e\n", 
+            m1, m2, (double) fMin, (double) inc );
+    printf("Inputs: spin1 = {%.16e, %.16e, %.16e}\n", 
+            spin1[0], spin1[1], spin1[2]);
+    printf("Inputs: spin2 = {%.16e, %.16e, %.16e}\n",
+            spin2[0], spin2[1], spin2[2]);
+    printf("Inputs: s1V = {%.16e, %.16e, %.16e}\n",
+            s1Vec.data[0], s1Vec.data[1], s1Vec.data[2]);
+    printf("Inputs: s2V = {%.16e, %.16e, %.16e}\n",
+            s2Vec.data[0], s2Vec.data[1], s2Vec.data[2]);
   }
 
-  /* Populate the initial structures */
-  if ( XLALSimIMRSpinEOBCalculateSigmaStar( sigmaStar, m1, m2,
-                              &s1Vec, &s2Vec ) == XLAL_FAILURE )
+  /* ************************************************* */
+  /* Populate the initial structures                   */
+  /* ************************************************* */
+  
+  /* ************************************************* */
+  /* Spin parameters                                   */
+  if ( XLALSimIMRSpinEOBCalculateSigmaStar( 
+          sigmaStar, m1, m2, &s1Vec, &s2Vec ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( sigmaKerr );
     XLALDestroyREAL8Vector( sigmaStar );
     XLALDestroyREAL8Vector( values );
     XLAL_ERROR( XLAL_EFUNC );
   }
-
-  if ( XLALSimIMRSpinEOBCalculateSigmaKerr( sigmaKerr, m1, m2,
-                              &s1Vec, &s2Vec ) == XLAL_FAILURE )
+  if ( XLALSimIMRSpinEOBCalculateSigmaKerr( 
+          sigmaKerr, m1, m2, &s1Vec, &s2Vec ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( sigmaKerr );
     XLALDestroyREAL8Vector( sigmaStar );
     XLALDestroyREAL8Vector( values );
     XLAL_ERROR( XLAL_EFUNC );
-  }
-  if (debugPK){
-      printf("Inputs: sigma = {%.16e, %.16e, %.16e}\n",  sigmaKerr->data[0], sigmaKerr->data[1], sigmaKerr->data[2]);
-      printf("Inputs: star = {%.16e, %.16e, %.16e}\n",  sigmaStar->data[0], sigmaStar->data[1], sigmaStar->data[2]);
-  }
-
-  memcpy( mSpin1, spin1, sizeof( mSpin1 ) );
-  memcpy( mSpin2, spin2, sizeof( mSpin2 ) );
-
-  for ( i = 0; i < 3; i++ )
-  {
-    mSpin1[i] *= m1*m1;
-    mSpin2[i] *= m2*m2;
   }
 
   /* Calculate the value of a */
-  seobParams.a = a = sqrt( inner_product(sigmaKerr->data,sigmaKerr->data) );
+  seobParams.a = a = sqrt( inner_product(sigmaKerr->data, sigmaKerr->data) );
   seobParams.s1Vec = &s1VecOverMtMt;
   seobParams.s2Vec = &s2VecOverMtMt;
 
+  if (debugPK){
+      printf("Inputs: sigma = {%.16e, %.16e, %.16e}\n", 
+        sigmaKerr->data[0], sigmaKerr->data[1], sigmaKerr->data[2]);
+      printf("Inputs: star = {%.16e, %.16e, %.16e}\n",  
+        sigmaStar->data[0], sigmaStar->data[1], sigmaStar->data[2]);
+      printf("Inputs: a = %.16e\n", a);
+      fflush(NULL);
+  }
+
+  /* ************************************************* */
+  /* Cartesian position and momentum vectors           */
+  
   /* Cartesian vectors needed to calculate Hamiltonian */
   cartPosVec.length = cartMomVec.length = 3;
   cartPosVec.data = cartPosData;
@@ -1821,8 +1819,11 @@ int XLALSimIMRSpinEOBWaveform(
   memset( cartPosData, 0, sizeof( cartPosData ) );
   memset( cartMomData, 0, sizeof( cartMomData ) );
  
-  /* TODO: Insert potentially necessary checks on the arguments */
 
+  /* ************************************************* */
+  /* Waveform parameter structures                     */
+  
+  /* Spin-EOB parameters */
   seobParams.alignedSpins = 0;
   seobParams.tortoise     = 1;
   seobParams.sigmaStar    = sigmaStar;
@@ -1830,6 +1831,7 @@ int XLALSimIMRSpinEOBWaveform(
   seobParams.seobCoeffs   = &seobCoeffs;
   seobParams.eobParams    = &eobParams;
   seobParams.nqcCoeffs    = &nqcCoeffs;
+  /* Non-Spin-EOB parameters */
   eobParams.hCoeffs       = &hCoeffs;
   eobParams.prefixes      = &prefixes;
   seobCoeffs.SpinAlignedEOBversion = SpinAlignedEOBversion;
@@ -1838,14 +1840,7 @@ int XLALSimIMRSpinEOBWaveform(
   eobParams.eta = eta;
 
   /* ************************************************* */
-  /* Populate the initial structures                   */
-  /* ************************************************* */
-  /* Pre-compute the Hamiltonian coefficients */
-  if( debugPK )
-  {
-    printf("Populating the Hamiltonian Coefficients. a = %.12e\n",a);
-    fflush(NULL);
-  }
+  /* Pre-compute the Hamiltonian coefficients          */
   if ( XLALSimIMRCalculateSpinEOBHCoeffs( &seobCoeffs, eta, a,
                           SpinAlignedEOBversion ) == XLAL_FAILURE )
   {
@@ -1866,16 +1861,8 @@ int XLALSimIMRSpinEOBWaveform(
   }
 
   /* ************************************************* */
-  /* ***** Set up the INITIAL CONDITIONS               */
+  /* ***** Get    the INITIAL CONDITIONS               */
   /* ************************************************* */
-  /*
-   * STEP 1) Solve for initial conditions
-   */
-//   int NoComputeInitialConditions = 0;
-//if( !NoComputeInitialConditions )
-//{
-  REAL8Vector* tmpValues2 = NULL;
-  tmpValues2 = XLALCreateREAL8Vector( 14 );
   
   if( debugPK )
   {
@@ -1885,37 +1872,21 @@ int XLALSimIMRSpinEOBWaveform(
     printf("Inputs: mSpin2 = {%.16e, %.16e, %.16e}\n",  mSpin2[0], mSpin2[1], mSpin2[2]);
     fflush(NULL);
   }
-  
-//    double mSpin1Norm = sqrt( mSpin1[0]*mSpin1[0] + mSpin1[1]*mSpin1[1] + mSpin1[2]*mSpin1[2] );
-//    double mSpin2Norm = sqrt( mSpin2[0]*mSpin2[0] + mSpin2[1]*mSpin2[1] + mSpin2[2]*mSpin2[2] );
-//    double theta1Ini = acos( mSpin1[2] / mSpin1Norm );
-//    double theta2Ini = acos( mSpin2[2] / mSpin2Norm );
-    if ( theta1Ini <= 1.0e-6 && theta2Ini <= 1.0e-6 ) {
-        //        mSpin1[0] = 0.;
-        //        mSpin1[1] = 0.;
-        //        mSpin1[2] = mSpin1Norm;
-        //        mSpin2[0] = 0.;
-        //        mSpin2[1] = 0.;
-        //        mSpin2[2] = mSpin2Norm;
-        if ( debugPK ) printf( "Using aligned-spin initial conditions\n");
-        seobParams.alignedSpins = 1;
-        if ( XLALSimIMRSpinEOBInitialConditionsV2( tmpValues2, m1, m2, fMin, inc,
-                                                  mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
-        {
-            XLAL_ERROR( XLAL_EFUNC );
-        }
-        seobParams.alignedSpins = 0;
-    }
-    else {
-        if ( XLALSimIMRSpinEOBInitialConditions( tmpValues2, m1, m2, fMin, inc,
-                	mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
-        {
-            XLAL_ERROR( XLAL_EFUNC );
-        }
-    }
-    tmpValues2->data[12] = 0.;
-    tmpValues2->data[13] = 0.;
-    
+
+//   int NoComputeInitialConditions = 0;
+
+  REAL8Vector* tmpValues2 = NULL;
+  tmpValues2 = XLALCreateREAL8Vector( 14 ); 
+
+  if ( XLALSimIMRSpinEOBInitialConditions( tmpValues2, m1, m2, fMin, inc,
+       	mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
+  {
+    XLAL_ERROR( XLAL_EFUNC );
+  }
+  tmpValues2->data[12] = 0.;
+  tmpValues2->data[13] = 0.;
+
+  if(debugCustomIC) {
 //    //v2 0.8 .06
 //    tmpValues2->data[0]=  2.4947503693442151e+01;
 //    tmpValues2->data[1]= 0.0000000000000000e+00;
@@ -2042,116 +2013,89 @@ int XLALSimIMRSpinEOBWaveform(
     tmpValues2->data[11]= -2.3113050136189490e-02;
 */
 
-
   //tmpValues2->data[3] *= 1.02;
   //tmpValues2->data[4] *= 1.02;
   //tmpValues2->data[5] *= -0.01;
+  }
   
-    if(debugPK)
+  if(debugPK)
   {
-	  printf("Setting up initial conditions, returned values are:\n");
+    printf("Setting up initial conditions, returned values are:\n");
 	  for( j=0; j < tmpValues2->length; j++)
-		printf("%.16le\n", tmpValues2->data[j]);
- }
-//}
-    
-    for (j = 0; j < tmpValues2->length; j++)
-        values->data[j] = tmpValues2->data[j];
+      printf("%.16le\n", tmpValues2->data[j]);
+  }
+
+  /* Copy over the IC to values */
+  for (j = 0; j < tmpValues2->length; j++)
+    values->data[j] = tmpValues2->data[j];
   
-  /* Assume that initial conditions are available at this point, to
-   * compute the chiS and chiA parameters.
-   * Calculate the values of chiS and chiA, as given in Eq.16 of
-   * Precessing EOB paper. Assuming \vec{L} to be pointing in the
-   * direction of \vec{r}\times\vec{p} */
+  /* ************************************************************************ */
+  /* Calculate the values of chiS and chiA, as given in Eq.16 in YPP
+   * Assuming \vec{L} to be pointing in the direction of \vec{r}\times\vec{p} */
+  
   if(debugPK)printf("\nReached the point where LN is to be calculated\n");
-  /* Calculate rDot = \f$\partial Hreal / \partial p_r\f$ */
+
   memset( dvalues->data, 0, 14 * sizeof(REAL8) );
-  status = XLALSpinHcapRvecDerivative( 0, values->data, dvalues->data, (void*) &seobParams);
+  if( XLALSpinHcapRvecDerivative( 0, values->data, dvalues->data,
+          (void*) &seobParams) == XLAL_FAILURE )
+  {
+    XLAL_ERROR( XLAL_EFUNC );
+  }
   if(debugPK)printf("\nCalculated Rdot\n");
-  memcpy( rdotvec, dvalues->data, 3*sizeof(REAL8) );
 
   /* Calculate r cross rDot */ 
-  memcpy( rvec, values->data, 3*sizeof(REAL8) );
+  memcpy( rdotvec, dvalues->data, 3*sizeof(REAL8) );
+  memcpy( rvec,    values->data,  3*sizeof(REAL8) );
+  memcpy( pvec,    values->data+3,3*sizeof(REAL8) );
+  
   cross_product( rvec, rdotvec, rcrossrdot );
   rcrossrdotNorm = sqrt(inner_product( rcrossrdot, rcrossrdot ));
-  for( i = 0; i < 3; i++ )
-    rcrossrdot[i] /= rcrossrdotNorm;
+  for( i = 0; i < 3; i++ ) { rcrossrdot[i] /= rcrossrdotNorm; }
    
   s1dotLN = inner_product( spin1, rcrossrdot );
   s2dotLN = inner_product( spin2, rcrossrdot );
+
+  /* Why are we calculating s{1,2} dot L ? */
+  cross_product( rvec, pvec, rcrossp );
+  rcrosspMag = sqrt(inner_product(rcrossp, rcrossp));
+  for( i = 0; i < 3; i++ ) { rcrossp[i] /= rcrosspMag; }
     
-  rcrossp[0] = values->data[1]*values->data[5] - values->data[2]*values->data[4];
-  rcrossp[1] = values->data[2]*values->data[3] - values->data[0]*values->data[5];
-  rcrossp[2] = values->data[0]*values->data[4] - values->data[1]*values->data[3];
-  rcrosspMag = sqrt(rcrossp[0]*rcrossp[0] + rcrossp[1]*rcrossp[1] +
-        rcrossp[2]*rcrossp[2]);
+  s1dotL = inner_product( spin1, rcrossrdot );
+  s2dotL = inner_product( spin2, rcrossrdot );
 
-  rcrossp[0] /= rcrosspMag;
-  rcrossp[1] /= rcrosspMag;
-  rcrossp[2] /= rcrosspMag;
-
-//  s1dotL = spin1[0]*rcrossp[0] + spin1[1]*rcrossp[1] + spin1[2]*rcrossp[2];
-//  s2dotL = spin2[0]*rcrossp[0] + spin2[1]*rcrossp[1] + spin2[2]*rcrossp[2];
-
-    s1dotL = spin1[0]*rcrossrdot[0] + spin1[1]*rcrossrdot[1] + spin1[2]*rcrossrdot[2];
-    s2dotL = spin2[0]*rcrossrdot[0] + spin2[1]*rcrossrdot[1] + spin2[2]*rcrossrdot[2];
-    
-    if(debugPK) {
-        printf("rXp = %3.10f %3.10f %3.10f\n", rcrossp[0], rcrossp[1], rcrossp[2]);
-        printf("rXrdot = %3.10f %3.10f %3.10f\n", rcrossrdot[0], rcrossrdot[1], rcrossrdot[2]);
-    }
+  if(debugPK) {
+    printf("rXp = %3.10f %3.10f %3.10f\n", rcrossp[0], rcrossp[1], rcrossp[2]);
+    printf("rXrdot = %3.10f %3.10f %3.10f\n", rcrossrdot[0], rcrossrdot[1], rcrossrdot[2]);
+    fflush(NULL);
+  }
 
   chiS = 0.5 * (s1dotLN + s2dotLN);
   chiA = 0.5 * (s1dotLN - s2dotLN);
 
   /* Compute the test-particle limit spin of the deformed-Kerr background */
-  /* TODO: Check this is actually the way it works in LAL */
   switch ( SpinAlignedEOBversion )
   {
-     case 1:
-       tplspin = 0.0;
-       break;
-     case 2:
-       tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
-       break;
-     default:
-       XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
-       XLAL_ERROR( XLAL_EINVAL );
-       break;
+    case 1:
+      tplspin = 0.0;
+      break;
+    case 2:
+      tplspin = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
+      break;
+    default:
+      XLALPrintError( "XLAL Error - %s: Unknown SEOBNR version!\nAt present only v1 and v2 are available.\n", __func__);
+      XLAL_ERROR( XLAL_EINVAL );
+      break;
   }
 
   /* ************************************************* */
   /* Populate the Waveform initial structures          */
   /* ************************************************* */
-#if 0
-  /* Pre-compute the non-spinning coefficients for hLM */
-  if ( XLALSimIMREOBCalcPrecNoSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta,
-        tplspin, chiS, chiA, SpinAlignedEOBversion ) == XLAL_FAILURE )
-  {
-    XLALDestroyREAL8Vector( sigmaKerr );
-    XLALDestroyREAL8Vector( sigmaStar );
-    XLALDestroyREAL8Vector( values );
-    XLAL_ERROR( XLAL_EFUNC );
-  }
-
-  /* Pre-compute the spinning coefficients for hLM */
-  if ( XLALSimIMREOBCalcPrecSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta,
-        tplspin, chiS, chiA, SpinAlignedEOBversion ) == XLAL_FAILURE )
-  {
-    XLALDestroyREAL8Vector( sigmaKerr );
-    XLALDestroyREAL8Vector( sigmaStar );
-    XLALDestroyREAL8Vector( values );
-    XLAL_ERROR( XLAL_EFUNC );
-  }
-#endif
-
   /* Pre-compute the non-spinning and spinning coefficients for hLM factors */
-  if( debugPK )
-  {
-    printf("Calling XLALSimIMREOBCalcSpinFacWaveformCoefficients for hlm Coefficients!\n");
+  if( debugPK ) {
     printf("tplspin = %.12e, chiS = %.12e, chiA = %.12e\n", tplspin, chiS, chiA);
     fflush(NULL);
   }
+  
   if ( XLALSimIMREOBCalcSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta,
         tplspin, chiS, chiA, SpinAlignedEOBversion ) == XLAL_FAILURE )
   {
@@ -2164,7 +2108,7 @@ int XLALSimIMRSpinEOBWaveform(
   /* ************************************************* */
   /* Compute the coefficients for the NQC Corrections  */
   /* ************************************************* */
-   /* FIXME check NQC version used */
+  /* FIXME check NQC version used */
   spinNQC = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
   switch ( SpinAlignedEOBversion )
   {
@@ -2181,20 +2125,22 @@ int XLALSimIMRSpinEOBWaveform(
 	    XLAL_ERROR( XLAL_EINVAL );
 	    break;
   }
+  
   /* FIXME NOTE the lines below, NQC coeffs are put to zero for debugging */
-//  if (debugPK){
-//     nqcCoeffs.a1 = nqcCoeffs.a2 = nqcCoeffs.a3 = nqcCoeffs.a3S = nqcCoeffs.a4 = 
-//     nqcCoeffs.a5 = nqcCoeffs.b1 = nqcCoeffs.b2 = nqcCoeffs.b3 = nqcCoeffs.b4 = 0;
-// }
-// nqcCoeffs.a1 = nqcCoeffs.a2 = nqcCoeffs.a3 = nqcCoeffs.a3S = nqcCoeffs.a4 =
-// nqcCoeffs.a5 = nqcCoeffs.b1 = nqcCoeffs.b2 = nqcCoeffs.b3 = nqcCoeffs.b4 = 0;
-  if(debugPK)printf("\tl = %d, m = %d, NQC: a1 = %.16e, a2 = %.16e, a3 = %.16e, a3S = %.16e, a4 = %.16e, a5 = %.16e\n\tb1 = %.16e, b2 = %.16e, b3 = %.16e, b4 = %.16e\n",
-                       2, 2, nqcCoeffs.a1, nqcCoeffs.a2, nqcCoeffs.a3, 
-                       nqcCoeffs.a3S, nqcCoeffs.a4, nqcCoeffs.a5, 
-                       nqcCoeffs.b1, nqcCoeffs.b2, nqcCoeffs.b3, nqcCoeffs.b4 );
+  if (debugNoNQC) {
+    nqcCoeffs.a1 = nqcCoeffs.a2 = nqcCoeffs.a3 = nqcCoeffs.a3S = nqcCoeffs.a4 = 
+      nqcCoeffs.a5 = nqcCoeffs.b1 = nqcCoeffs.b2 = nqcCoeffs.b3 = nqcCoeffs.b4 = 
+      0;
+  }
  
   if ( debugPK )
   {
+	  /* Print out all NQC coefficients */
+    printf(" NQC: a1 = %.16e, a2 = %.16e,\n a3 = %.16e, a3S = %.16e,\n a4 = %.16e, a5 = %.16e\n b1 = %.16e, b2 = %.16e,\n b3 = %.16e, b4 = %.16e\n",
+        nqcCoeffs.a1, nqcCoeffs.a2, nqcCoeffs.a3, 
+        nqcCoeffs.a3S, nqcCoeffs.a4, nqcCoeffs.a5, 
+        nqcCoeffs.b1, nqcCoeffs.b2, nqcCoeffs.b3, nqcCoeffs.b4 );
+
 	  /* Print out all mass parameters */
 	  printf("m1SI = %lf, m2SI = %lf, m1 = %lf, m2 = %lf\n",
 			(double) m1SI, (double) m2SI, (double) m1, (double) m2 );
@@ -2220,20 +2166,26 @@ int XLALSimIMRSpinEOBWaveform(
 			(double) seobParams.s2Vec->data[1], (double) seobParams.s2Vec->data[2]);
 	  printf("a is used to compute Hamiltonian coefficients,\n tplspin and chiS and chiA for the multipole coefficients\n");
 	  
-      printf("s1VecOverM = {%.12e,%.12e,%.12e}\n", (double) s1VecOverMtMt.data[0], 
+    printf("s1VecOverM = {%.12e,%.12e,%.12e}\n", (double) s1VecOverMtMt.data[0], 
 	  (double) s1VecOverMtMt.data[1], (double) s1VecOverMtMt.data[2]);
 	  printf("s2VecOverM = {%.12e,%.12e,%.12e}\n", (double) s2VecOverMtMt.data[0],
 	  (double) s2VecOverMtMt.data[1], (double) s2VecOverMtMt.data[2]);
       
-      double StasS1 = sqrt(spin1[0]*spin1[0] + spin1[1]*spin1[1] +spin1[2]*spin1[2]);
-      double StasS2 = sqrt(spin2[0]*spin2[0] + spin2[1]*spin2[1] +spin2[2]*spin2[2]);
-      printf("Stas: amplitude of spin1 = %.16e, amplitude of spin2 = %.16e, theta1 = %.16e , theta2 = %.16e, phi1 = %.16e, phi2 = %.16e  \n", 
-              StasS1, StasS2, acos(spin1[2]/StasS1), acos(spin2[2]/StasS2), 
-              atan2(spin1[1], spin1[0]), atan2(spin2[1], spin2[0]) );
-      fflush(NULL);
-
+    double StasS1 = sqrt(spin1[0]*spin1[0] + spin1[1]*spin1[1] +spin1[2]*spin1[2]);
+    double StasS2 = sqrt(spin2[0]*spin2[0] + spin2[1]*spin2[1] +spin2[2]*spin2[2]);
+    printf("Stas: amplitude of spin1 = %.16e, amplitude of spin2 = %.16e, theta1 = %.16e , theta2 = %.16e, phi1 = %.16e, phi2 = %.16e  \n", 
+            StasS1, StasS2, acos(spin1[2]/StasS1), acos(spin2[2]/StasS2), 
+            atan2(spin1[1], spin1[0]), atan2(spin2[1], spin2[0]) );
+    fflush(NULL);
   }
-  FILE *out = NULL;
+
+  /* ***************************************************************** */
+  /* ******** Integrate the Hamiltonian Equations ******************** */
+  /* ***************************************************************** */
+  
+  /* ************************************** */
+  /* Low Sampling-rate integration          */
+  
   /* Initialize the GSL integrator */
   if (!(integrator = XLALAdaptiveRungeKutta4Init(14, 
           XLALSpinHcapNumericalDerivative, XLALEOBSpinStopCondition,
@@ -2243,23 +2195,31 @@ int XLALSimIMRSpinEOBWaveform(
     XLAL_ERROR( XLAL_EFUNC );
   }
 
+  /* Ensure that integration stops ONLY when the stopping condition is True */
   integrator->stopontestonly = 1;
  
   if( debugPK ){
-         printf("\n r = {%f,%f,%f}\n", values->data[0], values->data[1], values->data[2]);
-	     fflush(NULL);
+    printf("\n r = {%f,%f,%f}\n",
+      values->data[0], values->data[1], values->data[2]);
+    fflush(NULL);
   }
 
-    if(debugPK){printf("\n\n BEGINNING THE EVOLUTION\n\n");fflush(NULL);}
+  if(debugPK) { printf("\n\n BEGINNING THE EVOLUTION\n\n"); fflush(NULL); }
+  
+  /* Call the integrator */
   retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data,
 				0., 20./mTScaled, deltaT/mTScaled, &dynamics );
-    if(debugPK){printf("\n\n FINISHED THE EVOLUTION\n\n");fflush(NULL);}
- if ( retLen == XLAL_FAILURE )
+  retLenLow = retLen;
+  
+  if ( retLen == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
   }
-  retLenLow = retLen;
-
+  
+  if(debugPK) { printf("\n\n FINISHED THE EVOLUTION\n\n"); fflush(NULL); }  
+  
+  /* ************************************** */
+  /* Store the dynamics in separate vectors */
   
   tVec.length = posVecx.length = posVecy.length = posVecz.length = 
   momVecx.length = momVecy.length = momVecz.length = 
@@ -2280,13 +2240,11 @@ int XLALSimIMRSpinEOBWaveform(
   s2Vecx.data = dynamics->data+10*retLen;
   s2Vecy.data = dynamics->data+11*retLen;
   s2Vecz.data = dynamics->data+12*retLen;
-  //YP: change variable names to match those used in the waveform section
-  //REAL8 *vphi   = dynamics->data+13*retLen;
-  //REAL8 *phpart2= dynamics->data+14*retLen;
   phiDMod.data= dynamics->data+13*retLen;
   phiMod.data = dynamics->data+14*retLen;
 
-  if (debugPK){
+  if (debugPK) {
+    /* Write the dynamics to file */
     out = fopen( "seobDynamics.dat", "w" );
     for ( i = 0; i < retLen; i++ )
     {
@@ -2299,37 +2257,36 @@ int XLALSimIMRSpinEOBWaveform(
        s2Vecx.data[i], s2Vecy.data[i], s2Vecz.data[i],
        phiDMod.data[i], phiMod.data[i] );
     }
-  fclose( out );
+    fclose( out );
+    
+    printf("AT We are here %d %d\n",retLen, nStepBack);
+    fflush(NULL);
   }
-    if (debugPK) {
-        printf("AT We are here %d %d\n",retLen, nStepBack);
-        fflush(NULL);
-    }
-    if (tStepBack > retLen*deltaT)
-    {
-        tStepBack = 0.5*retLen*deltaT; //YPnote: if 100M of step back > actual time of evolution, step back 50% of the later
-        nStepBack = ceil( tStepBack / deltaT );
-    }
+  
+  /* ************************************** */
+  /* High Sampling-rate integration         */
 
-  /*
-   * STEP 3) Step back in time by tStepBack and volve EOB trajectory again 
-   *         using high sampling rate, stop at 0.3M out of the "EOB horizon".
-   */
-  /* Set up the high sample rate integration */
-  hiSRndx = retLen - nStepBack;
+  /* If 150M of step back > actual time of evolution, step back 50% of that */
+  if (tStepBack > retLen*deltaT)
+  {
+    tStepBack = 0.5*retLen*deltaT; 
+    nStepBack = ceil( tStepBack / deltaT );
+  }
+
+  /* Step back in time by tStepBack and volve EOB trajectory again 
+   * using high sampling rate. */
+  hiSRndx    = retLen - nStepBack;
   deltaTHigh = deltaT / (REAL8)resampFac;
-  HiSRstart = tVec.data[hiSRndx];
+  HiSRstart  = tVec.data[hiSRndx];
   
   if (debugPK) {
-        printf("AT We are here %d\n",nStepBack);
-        fflush(NULL);
-    }
-  if (debugPK){
-     printf("Stas: start HighSR at %.16e \n", HiSRstart);
-     printf( "Stepping back %d points - we expect %d points at high SR\n", nStepBack, nStepBack*resampFac );
-      fflush(NULL);
+    printf("AT We are here %d\n",nStepBack);
+    printf("Stas: start HighSR at %.16e \n", HiSRstart);
+    printf( "Stepping back %d points - we expect %d points at high SR\n", nStepBack, nStepBack*resampFac );
+    fflush(NULL);
   }
-
+  
+  /* Copy over the dynamics at "hiSRndx" over as "initial values" */
   values->data[0] = posVecx.data[hiSRndx];
   values->data[1] = posVecy.data[hiSRndx];
   values->data[2] = posVecz.data[hiSRndx];
@@ -2346,26 +2303,25 @@ int XLALSimIMRSpinEOBWaveform(
   values->data[13]= phiMod.data[hiSRndx];
 
   if (debugPK){
-      fprintf( stderr, "Commencing high SR integration... \n" );
-      fflush(NULL);
-      for( i=0; i<12; i++)fprintf(stderr, "%.16e\n", values->data[i]);
+    fprintf( stderr, "Commencing high SR integration.. From: \n" );
+    for( i=0; i<12; i++)fprintf(stderr, "%.16e\n", values->data[i]);
+    fflush(NULL);
   }
   
-  /* For HiSR evolution, we stop at XXX, 
-   * or when any derivative of Hamiltonian becomes nan */
+  /* For HiSR evolution, we stop at FIXME */
   integrator->stop = XLALEOBSpinStopConditionBasedOnPR;
 
+  /* Call the integrator */
   retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data, 
 									0., 20./mTScaled, deltaTHigh/mTScaled, &dynamicsHi );
+  retLenHi = retLen;
 
   if ( retLen == XLAL_FAILURE )
   {
     XLAL_ERROR( XLAL_EFUNC );
   }
-  retLenHi = retLen;
 
-  if(debugPK)
-    fprintf( stderr, "Finished high SR integration... \n" );
+  if(debugPK) { printf( "Finished high SR integration... \n" ); fflush(NULL); }
 
   /* Set up pointers to the dynamics */
   timeHi.length = posVecxHi.length = posVecyHi.length = posVeczHi.length = 
@@ -2391,27 +2347,29 @@ int XLALSimIMRSpinEOBWaveform(
   phiModHi.data = dynamicsHi->data+14*retLen;
 
   if (debugPK){
-     out = fopen( "seobDynamicsHi.dat", "w" );
-     for ( i = 0; i < retLen; i++ )
-     {
-        //YP: output orbital phase and phase modulation separately, instead of their sum
-        fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", 
-        timeHi.data[i], 
-        posVecxHi.data[i], posVecyHi.data[i], posVeczHi.data[i], 
-        momVecxHi.data[i], momVecyHi.data[i], momVeczHi.data[i],
-        s1VecxHi.data[i], s1VecyHi.data[i], s1VeczHi.data[i], 
-        s2VecxHi.data[i], s2VecyHi.data[i], s2VeczHi.data[i],
-        phiDModHi.data[i], phiModHi.data[i] );
-     }
-     fclose( out );
+    out = fopen( "seobDynamicsHi.dat", "w" );
+    for ( i = 0; i < retLen; i++ )
+    {
+      fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", 
+      timeHi.data[i], 
+      posVecxHi.data[i], posVecyHi.data[i], posVeczHi.data[i], 
+      momVecxHi.data[i], momVecyHi.data[i], momVeczHi.data[i],
+      s1VecxHi.data[i], s1VecyHi.data[i], s1VeczHi.data[i], 
+      s2VecxHi.data[i], s2VecyHi.data[i], s2VeczHi.data[i],
+      phiDModHi.data[i], phiModHi.data[i] );
+    }
+    fclose( out );
   }
 
-  /*
-   * STEP 4.1) Interpolate trajectories to compute L_N (t) in order to get alpha (t) and beta (t)
-   *
-   *fprintf( stderr, "Generating Alpha and Beta angle timeseries at low SR\n" );
-   */
-
+  /* ***************************************************************** */
+  /* Interpolate trajectories to compute L_N (t) in order to get alpha (t) and
+   * beta (t). */
+  /* ***************************************************************** */
+  
+  if(debugPK){
+    fprintf( stderr, "Generating Alpha and Beta angle timeseries at low SR\n" );
+    fflush(NULL);
+  }
 
   REAL8 tmpR[3], tmpRdot[3], magLN = 0;
   INT4 phaseCounterA = 0, phaseCounterB = 0;
