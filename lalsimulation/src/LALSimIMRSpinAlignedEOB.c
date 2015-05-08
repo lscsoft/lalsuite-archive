@@ -128,7 +128,7 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
                            void UNUSED *funcParams
                           )
 {
-  int debugPK = 0; int debugPKverbose = 0;
+  int debugPK = 1; int debugPKverbose = 0;
   INT4 i;
   SpinEOBParams UNUSED *params = (SpinEOBParams *)funcParams;
   
@@ -230,7 +230,8 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
         if(debugPK){
           printf("\n Integration stopping as prDot = %lf at r = %lf\n",
             prDot, sqrt(r2));
-          fflush(NULL);}
+          fflush(NULL);
+        }
        return 1;
     }
 //    if(r2 < 9.) {
@@ -1908,13 +1909,15 @@ int XLALSimIMRSpinEOBWaveform(
   if( debugPK )
   {
     printf("Calling the XLALSimIMRSpinEOBInitialConditions function!\n");
-    printf("Inputs: m1 = %.16e, m2 = %.16e, fMin = %.16e, inclination = %.16e\n", m1, m2, (double) fMin, (double) inc );
-    printf("Inputs: mSpin1 = {%.16e, %.16e, %.16e}\n",  mSpin1[0], mSpin1[1], mSpin1[2]);
-    printf("Inputs: mSpin2 = {%.16e, %.16e, %.16e}\n",  mSpin2[0], mSpin2[1], mSpin2[2]);
+    printf(
+      "Inputs: m1 = %.16e, m2 = %.16e, fMin = %.16e, inclination = %.16e\n",
+                      m1, m2, (double) fMin, (double) inc );
+    printf("Inputs: mSpin1 = {%.16e, %.16e, %.16e}\n",  
+                      mSpin1[0], mSpin1[1], mSpin1[2]);
+    printf("Inputs: mSpin2 = {%.16e, %.16e, %.16e}\n",  
+                      mSpin2[0], mSpin2[1], mSpin2[2]);
     fflush(NULL);
   }
-
-//   int NoComputeInitialConditions = 0;
 
   REAL8Vector* tmpValues2 = NULL;
   tmpValues2 = XLALCreateREAL8Vector( 14 ); 
@@ -2344,8 +2347,8 @@ int XLALSimIMRSpinEOBWaveform(
   values->data[13]= phiMod.data[hiSRndx];
 
   if (debugPK){
-    fprintf( stderr, "Commencing high SR integration.. From: \n" );
-    for( i=0; i<12; i++)fprintf(stderr, "%.16e\n", values->data[i]);
+    printf( "Commencing high SR integration.. From: \n" );
+    for( i=0; i<12; i++)printf("%.16e\n", values->data[i]);
     fflush(NULL);
   }
   

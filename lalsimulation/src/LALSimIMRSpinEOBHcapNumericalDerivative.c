@@ -657,72 +657,51 @@ XLALSpinHcapNumericalDerivative(
 	dvalues[13] = alphadotcosi;
 
 	if (debugPK) {
-		printf(" r = %e %e %e (mag = %e)\n", values[0], values[1], values[2], sqrt(values[0] * values[0] + values[1] * values[1] + values[2] * values[2]));
-		printf(" p = %e %e %e (mag = %e)\n", values[3], values[4], values[5], sqrt(values[3] * values[3] + values[4] * values[4] + values[5] * values[5]));
-		printf("Derivatives:\n");
-		for (i = 0; i < 12; i++) {
-			printf("%.12e\n", dvalues[i]);
-		}
-		printf("\n");
-	}
-	if (debugPK) {
-#if 0
+    printf("\nIn XLALSpinHcapNumericalDerivative:\n");
 		/* Print out all mass parameters */
-		printf("\nIn XLALSpinHcapNumericalDerivative:\n");
-		printf("m1 = %12.12lf, m2 = %12.12lf, eta = %12.12lf\n", (double)mass1,
-		       (double)mass2, (double)eta);
+		printf("m1 = %12.12lf, m2 = %12.12lf, eta = %12.12lf\n", 
+          (double)mass1, (double)mass2, (double)eta);
 		/* Print out all spin parameters */
 		printf("spin1 = {%12.12lf,%12.12lf,%12.12lf}, spin2 = {%12.12lf,%12.12lf,%12.12lf}\n",
-		 (double)s1.data[0], (double)s1.data[1], (double)s1.data[2],
-		(double)s2.data[0], (double)s2.data[1], (double)s2.data[2]);
+            (double)s1.data[0], (double)s1.data[1], (double)s1.data[2],
+            (double)s2.data[0], (double)s2.data[1], (double)s2.data[2]);
 		printf("sigmaStar = {%12.12lf,%12.12lf,%12.12lf}, sigmaKerr = {%12.12lf,%12.12lf,%12.12lf}\n",
 		       (double)sStar.data[0], (double)sStar.data[1],
 		       (double)sStar.data[2], (double)sKerr.data[0],
 		       (double)sKerr.data[1], (double)sKerr.data[2]);
-		printf("L = {%12.12lf,%12.12lf,%12.12lf}, |L| = %12.12lf\n", (double)Lx, (double)Ly,
-		       (double)Lz, (double)magL);
-		printf("dLdt = {%12.12lf,%12.12lf,%12.12lf}, d|L|dt = %12.12lf\n", (double)dLx,
-		       (double)dLy, (double)dLz, (double)dMagL);
+		printf("L = {%12.12lf,%12.12lf,%12.12lf}, |L| = %12.12lf\n", 
+        (double)Lx, (double)Ly, (double)Lz, (double)magL);
+		printf("dLdt = {%12.12lf,%12.12lf,%12.12lf}, d|L|dt = %12.12lf\n", 
+        (double)dLx, (double)dLy, (double)dLz, (double)dMagL);
 		printf("Polar coordinates = {%12.12lf, %12.12lf, %12.12lf, %12.12lf}\n",
-		       (double)polData[0], (double)polData[1], (double)polData[2], (double)polData[3]);
+		       (double)polData[0], (double)polData[1], (double)polData[2],
+           (double)polData[3]);
 
 		printf("Cartesian coordinates: {%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf}\n",
-		       (double)values[0], (double)values[1], (double)values[2], (double)values[3],
-		       (double)values[4], (double)values[5], (double)values[6], (double)values[7],
-		       (double)values[8], (double)values[9], (double)values[10], (double)values[11],
+		       (double)values[0], (double)values[1], (double)values[2],
+           (double)values[3], (double)values[4], (double)values[5], 
+           (double)values[6], (double)values[7], (double)values[8], 
+           (double)values[9], (double)values[10], (double)values[11],
 		       (double)values[12], (double)values[13]);
 		printf("Cartesian derivatives: {%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf,%12.12lf}\n",
-		       (double)dvalues[0], (double)dvalues[1], (double)dvalues[2], (double)dvalues[3],
-		       (double)dvalues[4], (double)dvalues[5], (double)dvalues[6], (double)dvalues[7],
-		       (double)dvalues[8], (double)dvalues[9], (double)dvalues[10], (double)dvalues[11],
-		       (double)dvalues[12], (double)dvalues[13]);
+		       (double)dvalues[0], (double)dvalues[1], (double)dvalues[2],
+           (double)dvalues[3], (double)dvalues[4], (double)dvalues[5],
+           (double)dvalues[6], (double)dvalues[7], (double)dvalues[8],
+           (double)dvalues[9], (double)dvalues[10], (double)dvalues[11],
+           (double)dvalues[12], (double)dvalues[13]);
 
-		printf("Hamiltonian = %12.12lf, Flux = %12.12lf, Omega = %12.12lf\n", H, flux, omega);
-#endif
-		if (debugPK) {
-			printf("%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\t%.12e\n\n",
-			       (double)values[0], (double)values[1], (double)values[2],
-			       (double)values[3], (double)values[4], (double)values[5],
-			       (double)sscaling1 * values[6], (double)sscaling1 * values[7],
-			       (double)sscaling1 * values[8], (double)sscaling2 * values[9],
-			       (double)sscaling2 * values[10], (double)sscaling2 * values[11],
-			       (double)dvalues[0], (double)dvalues[1], (double)dvalues[2],
-			       (double)dvalues[3], (double)dvalues[4], (double)dvalues[5],
-			       (double)sscaling1 * dvalues[6], (double)sscaling1 * dvalues[7],
-			       (double)sscaling1 * dvalues[8], (double)sscaling2 * dvalues[9],
-			       (double)sscaling2 * dvalues[10], (double)sscaling2 * dvalues[11],
-			       (double)polData[0], (double)polData[1], (double)polData[2],
-			       (double)polData[3], H / (mass1 + mass2), flux * eta, omega);
-		}
+     printf("Hamiltonian = %12.12lf, Flux = %12.12lf, Omega = %12.12lf\n", 
+              H/ (mass1 + mass2), eta*flux, omega);
 		fflush(NULL);
 	}
 	
   for(i=0; i<14; i++)
     if(dvalues[i] > 1e3){
+      printf("\nIn XLALSpinHcapNumericalDerivative:\n");
       printf("Derivatives have blown up!\n");
       for(j=0; j<14; printf("dvalues[%d] = %3.12f\n", j, dvalues[j]), j++);
       printf("Flux = %3.12f\n\n", flux);
-    break;
+      break;
     }
       
   return XLAL_SUCCESS;

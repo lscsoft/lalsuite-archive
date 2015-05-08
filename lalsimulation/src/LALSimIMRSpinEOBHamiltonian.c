@@ -100,6 +100,7 @@ static REAL8 XLALSimIMRSpinAlignedEOBNonKeplerCoeff(
 
 static double GSLSpinAlignedHamiltonianWrapper( double x, void *params );
 
+/* Precessing EOB's function declarations below */
 UNUSED static REAL8 inner_product( const REAL8 values1[], 
                              const REAL8 values2[]
                              );
@@ -107,6 +108,11 @@ UNUSED static REAL8 inner_product( const REAL8 values1[],
 UNUSED static REAL8* cross_product( const REAL8 values1[],
                               const REAL8 values2[],
                               REAL8 result[] );
+
+static REAL8 UNUSED XLALSimIMRSpinEOBNonKeplerCoeff(
+                      const REAL8           values[],   /**<< Dynamical variables */
+                      SpinEOBParams         *funcParams /**<< EOB parameters */
+                      );
 
 static REAL8 XLALSimIMRSpinEOBCalcOmega(
                       const REAL8           values[],   /**<< Dynamical variables */
@@ -123,11 +129,6 @@ UNUSED static int XLALSpinHcapRvecDerivative(
 static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params );
 
 static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params );
-
-static REAL8 UNUSED XLALSimIMRSpinEOBNonKeplerCoeff(
-                      const REAL8           values[],   /**<< Dynamical variables */
-                      SpinEOBParams         *funcParams /**<< EOB parameters */
-                      );
 
 
 /*------------------------------------------------------------------------------------------
@@ -527,42 +528,44 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   if(debugPK)printf( "Hreal = %.16e\n", Hreal );
   
   if(isnan(Hreal)) {
-    printf( "Hns = %.16e, Hs = %.16e, Hss = %.16e\n", Hns, Hs, Hss );
-	  printf( "H = %.16e\n", H );
+    printf(
+    "\n\nInside Hamiltonian: Hreal is a NAN. Printing its components below:\n");
+    
+    printf( "In Hamiltonian: tortoise flag = %d\n", (int) tortoise );
+    printf( "x = %.16e\t%.16e\t%.16e\n", x->data[0], x->data[1], x->data[2] );
+    printf( "p = %.16e\t%.16e\t%.16e\n", p->data[0], p->data[1], p->data[2] );
+    printf( "sStar = %.16e\t%.16e\t%.16e\n", sigmaStar->data[0], 
+      sigmaStar->data[1], sigmaStar->data[2] );
+    printf( "sKerr = %.16e\t%.16e\t%.16e\n", sigmaKerr->data[0], 
+      sigmaKerr->data[1], sigmaKerr->data[2] );
+    
+    printf( "KK = %.16e\n", coeffs->KK );
+    printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );
+    printf("csi(miami) = %.16e\n", csi); 
+    printf( " a = %.16e, r = %.16e\n", a, r );
+    printf( "D = %.16e, ww = %.16e, rho = %.16e, Lambda = %.16e, xi = %.16e\npr = %.16e, pf = %.16e, deltaR = %.16e, deltaT = %.16e\n", 
+        D, ww, sqrt(rho2), Lambda, sqrt(xi2), pr, pf, deltaR, deltaT );
+    printf( "pr = %.16e, prT = %.16e\n", pr, prT );
+    
+    printf( " a = %.16e, r = %.16e\n", a, r );
+    printf( "D = %.16e, ww = %.16e, rho = %.16e, Lambda = %.16e, xi = %.16e\npr = %.16e, pf = %.16e, deltaR = %.16e, deltaT = %.16e\n", 
+        D, ww, sqrt(rho2), Lambda, sqrt(xi2), pr, pf, deltaR, deltaT );
+    printf( "pr = %.16e, prT = %.16e\n", pr, prT );
+    printf( "pn2 = %.16e, pp = %.16e\n", pn2, pp );
     printf( "deltaSigmaStar_x = %.16e, deltaSigmaStar_y = %.16e, deltaSigmaStar_z = %.16e\n", 
      deltaSigmaStar_x, deltaSigmaStar_y, deltaSigmaStar_z );
-    printf( "pn2 = %.16e, pp = %.16e\n", pn2, pp );
-  printf( "sigmaKerr = %.16e, sigmaStar = %.16e\n", sKerr_z, sStar_z );
-  printf( "term 1 in Hns: %.16e\n",  prT*prT*prT*prT*qq*u2 );
-  printf( "term 2 in Hns: %.16e\n", ptheta2/rho2 );
-  printf( "term 3 in Hns = %.16e\n", pf*pf*rho2/(Lambda*xi2) );
-  printf( "term 4 in Hns = %.16e\n", pr*pr*deltaR/rho2 );
-  printf( "term 5 in Hns = %.16e\n", Lambda/(rho2*deltaT) );
-  printf( "term 6 in Hns = %.16e\n", pf*ww/Lambda );
-  printf( "pr = %.16e, prT = %.16e\n", pr, prT );
 
-  printf( " a = %.16e, r = %.16e\n", a, r );
-  printf( "D = %.16e, ww = %.16e, rho = %.16e, Lambda = %.16e, xi = %.16e\npr = %.16e, pf = %.16e, deltaR = %.16e, deltaT = %.16e\n", 
-      D, ww, sqrt(rho2), Lambda, sqrt(xi2), pr, pf, deltaR, deltaT );
-  printf( "pr = %.16e, prT = %.16e\n", pr, prT );
+    printf( "term 1 in Hns: %.16e\n",  prT*prT*prT*prT*qq*u2 );
+    printf( "term 2 in Hns: %.16e\n", ptheta2/rho2 );
+    printf( "term 3 in Hns = %.16e\n", pf*pf*rho2/(Lambda*xi2) );
+    printf( "term 4 in Hns = %.16e\n", pr*pr*deltaR/rho2 );
+    printf( "term 5 in Hns = %.16e\n", Lambda/(rho2*deltaT) );
+    printf( "term 6 in Hns = %.16e\n", pf*ww/Lambda );
 
-  printf( " a = %.16e, r = %.16e\n", a, r );
-  printf( "D = %.16e, ww = %.16e, rho = %.16e, Lambda = %.16e, xi = %.16e\npr = %.16e, pf = %.16e, deltaR = %.16e, deltaT = %.16e\n", 
-      D, ww, sqrt(rho2), Lambda, sqrt(xi2), pr, pf, deltaR, deltaT );
-  printf("csi(miami) = %.16e\n", csi); 
-  
-  printf( "KK = %.16e\n", coeffs->KK );
-  printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );
-  
-  printf( "In Hamiltonian: tortoise flag = %d\n", (int) tortoise );
-  printf( "x = %.16e\t%.16e\t%.16e\n", x->data[0], x->data[1], x->data[2] );
-  printf( "p = %.16e\t%.16e\t%.16e\n", p->data[0], p->data[1], p->data[2] );
-  printf( "sStar = %.16e\t%.16e\t%.16e\n", sigmaStar->data[0], 
-		sigmaStar->data[1], sigmaStar->data[2] );
-  printf( "sKerr = %.16e\t%.16e\t%.16e\n", sigmaKerr->data[0], 
-		sigmaKerr->data[1], sigmaKerr->data[2] );
-    
-    printf("\n\n");
+    printf( "Hns = %.16e, Hs = %.16e, Hss = %.16e\n", Hns, Hs, Hss );
+	  printf( "H = %.16e\n", H );
+
+    printf("Done printing components.\n\n");
   }
 
   return Hreal;
