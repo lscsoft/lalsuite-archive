@@ -101,6 +101,8 @@ class Bins(object):
 		# input checking
 		if not isinstance(n, int):
 			raise TypeError(n)
+		if n < 1:
+			raise ValueError(n)
 		if max <= min:
 			raise ValueError((min, max))
 		self.min = min
@@ -651,6 +653,12 @@ class ATanLogarithmicBins(IrregularBins):
 	how large an array the binning corresponds to.
 	"""
 	def __init__(self, min, max, n):
+		if not isinstance(n, int):
+			raise TypeError(n)
+		if n < 1:
+			raise ValueError(n)
+		if max <= min:
+			raise ValueError((min, max))
 		self.mid = (math.log(min) + math.log(max)) / 2.0
 		self.scale = math.pi / (math.log(max) - math.log(min))
 		self.delta = 1.0 / n
