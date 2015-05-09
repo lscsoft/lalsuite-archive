@@ -1043,7 +1043,7 @@ XLALSimIMRSpinEOBInitialConditions(
 		}
     
     /* different ways to test convergence of the method */
-		XLAL_CALLGSL(gslStatus = gsl_multiroot_test_residual(rootSolver->f, 1.0e-10));
+		XLAL_CALLGSL(gslStatus = gsl_multiroot_test_residual(rootSolver->f, 1.0e-8));
     /*XLAL_CALLGSL(gslStatus= gsl_multiroot_test_delta(
           gsl_multiroot_fsolver_dx(rootSolver),
           gsl_multiroot_fsolver_root(rootSolver),
