@@ -209,7 +209,7 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   /*                         Omega related                            */
   /* **************************************************************** */
   
-  /* Terminate when omega reaches peak, and separation is < 6M */
+  /* Terminate when omega reaches peak, and separation is < 4M */
   if ( r2 < 16. && omega < params->eobParams->omega )
     params->eobParams->omegaPeaked = 1;
 
@@ -234,6 +234,8 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
     return 1;
   }
 
+  params->eobParams->omega = omega;
+  
   /* **************************************************************** */
   /*              related to Numerical values of x/p/derivatives      */
   /* **************************************************************** */
@@ -261,10 +263,13 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   /*              Last resort conditions                              */
   /* **************************************************************** */
   
-//    if(r2 < 9.) {
-//        if(debugPK)printf("\n Integration stopping, r<3M\n");
-//        return 1;
-//    }
+  if(r2 < 4.) {
+    if(debugPK) {
+      printf("\n Integration stopping, r<2M\n");
+      fflush(NULL);
+    }
+    return 1;
+  }
   
   /* Very verbose output */
   if(debugPKverbose && r2 < 9.) {
