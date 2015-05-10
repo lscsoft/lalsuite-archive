@@ -131,7 +131,7 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   
   REAL8 r2, pDotr = 0;
   REAL8 p[3], r[3], pdotVec[3], rdotVec[3];
-  REAL8 omega, omega_xyz[3];
+  REAL8 omega, omega_xyz[3], L[3], dLdt1[3], dLdt2[3], dLdt[3];
 
   memcpy( r, values, 3*sizeof(REAL8));
   memcpy( p, values+3, 3*sizeof(REAL8));
@@ -148,6 +148,15 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   double prDot = - inner_product( p, r )*rdot/r2
                 + inner_product( pdotVec, r )/sqrt(r2)
                 + inner_product( rdotVec, p )/sqrt(r2);
+
+  cross_product( r, pdotVec, dLdt1 );
+  cross_product( rdotVec, p, dLdt2 );
+  cross_product( r, p, L );
+  for ( i = 0; i < 3; i++ ) {
+        dLdt[i] = dLdt1[i] + dLdt2[i];
+  }
+  double LMag = sqrt( inner_product( L, L ) );
+  double LMagdot = inner_product( L, dLdt )/LMag;
 
 //    printf("r = %3.10f\n", sqrt(r2));
 
@@ -196,6 +205,17 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
       printf("\n Integration stopping as prDot = %lf at r = %lf\n",
             prDot, sqrt(r2));
       fflush(NULL);
+    }
+    return 1;
+  }
+    
+  /* Terminate if dL/dt > 0, i.e. angular momentum is increasing */
+  if(r2 < 16. && LMagdot > 0. )
+  {
+    if(debugPK){
+        printf("\n Integration stopping as d|L|/dt = %lf at r = %lf\n",
+                LMagdot, sqrt(r2));
+        fflush(NULL);
     }
     return 1;
   }
@@ -263,13 +283,13 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   /*              Last resort conditions                              */
   /* **************************************************************** */
   
-  if(r2 < 4.) {
-    if(debugPK) {
-      printf("\n Integration stopping, r<2M\n");
-      fflush(NULL);
-    }
-    return 1;
-  }
+//  if(r2 < 4.) {
+//    if(debugPK) {
+//      printf("\n Integration stopping, r<2M\n");
+//      fflush(NULL);
+//    }
+//    return 1;
+//  }
   
   /* Very verbose output */
   if(debugPKverbose && r2 < 9.) {
