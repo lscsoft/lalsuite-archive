@@ -2224,7 +2224,7 @@ int XLALSimIMRSpinEOBWaveform(
   
   /* Initialize the GSL integrator */
   if (!(integrator = XLALAdaptiveRungeKutta4Init(14, 
-          XLALSpinHcapNumericalDerivative, XLALEOBSpinStopCondition,
+          XLALSpinHcapNumericalDerivative, XLALEOBSpinStopConditionBasedOnPR,
           EPS_ABS, EPS_REL)))
   {
     XLALDestroyREAL8Vector( values );
