@@ -215,7 +215,6 @@ int main(int argc, char **argv)
     
     double xml_gps_start;
     double xml_gps_end;
-    double dt=0;
     UINT4 lost_before=0;
         
 	double mdc_gps_start=0;
@@ -248,7 +247,6 @@ int main(int argc, char **argv)
         events++;
         inj=inj->next;
     }
-    dt=(xml_gps_end-xml_gps_start)/(events-1.0);
     
     if (options.mdc_gps_start==-1)
         mdc_gps_start=floor(xml_gps_start-pad);
@@ -278,7 +276,6 @@ int main(int argc, char **argv)
     /* Now loop over the table, and only keep times smaller than mdc_max_time */
     while(inj){
         trigtime=inj->time_geocent_gps.gpsSeconds+1.0e-9 * inj->time_geocent_gps.gpsNanoSeconds;
-        
         if (trigtime < mdc_min_time){
             /* This event is happening before the start of the frame, or is too close to the beginning of the frame. Skip it moving the start of injs by 1 */
             cutinjs=inj->next;
@@ -294,10 +291,12 @@ int main(int argc, char **argv)
 
         i++;
 
-        if (trigtime+dt<=mdc_max_time){
+        if (inj->next){
+            if( inj->next->time_geocent_gps.gpsSeconds+1.0e-9 * inj->next->time_geocent_gps.gpsNanoSeconds<=mdc_max_time){
             /* Next event is still going to be in range, so continue*/
             inj=inj->next;
             continue;
+            }
         }
         
         /* Next event is going to be out of range. Set next to NULL*/
