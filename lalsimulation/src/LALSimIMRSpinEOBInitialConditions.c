@@ -802,7 +802,9 @@ XLALSimIMRSpinEOBInitialConditions(
 	gsl_multiroot_function rootFunction;
 	gsl_vector     *initValues = NULL;
 	gsl_vector     *finalValues = NULL;
-	int		gslStatus;
+	INT4 gslStatus;
+  INT4 cntGslNoProgress = 0, MAXcntGslNoProgress = 10;
+  REAL8 multFacGslNoProgress = 3;  
 	const int	maxIter = 100;
 
 	memset(&rootParams, 0, sizeof(rootParams));
@@ -914,6 +916,25 @@ XLALSimIMRSpinEOBInitialConditions(
 	 * gsl_multiroot_fsolver). At this step, we find initial conditions
 	 * for a spherical orbit without radiation reaction.
 	 */
+	
+  /* Initialise the gsl stuff */
+	XLAL_CALLGSL(rootSolver = gsl_multiroot_fsolver_alloc(T, 3));
+	if (!rootSolver) {
+		gsl_matrix_free(rotMatrix);
+		gsl_matrix_free(invMatrix);
+		XLAL_ERROR(XLAL_ENOMEM);
+	}
+	XLAL_CALLGSL(initValues = gsl_vector_calloc(3));
+	if (!initValues) {
+		gsl_multiroot_fsolver_free(rootSolver);
+		gsl_matrix_free(rotMatrix);
+		gsl_matrix_free(invMatrix);
+		XLAL_ERROR(XLAL_ENOMEM);
+	}
+
+	rootFunction.f = XLALFindSphericalOrbit;
+	rootFunction.n = 3;
+	rootFunction.params = &rootParams;
 
 	/* Calculate the initial velocity from the given initial frequency */
 	omega = LAL_PI * mTotal * LAL_MTSUN_SI * fMin;
@@ -939,27 +960,9 @@ XLALSimIMRSpinEOBInitialConditions(
     fflush(NULL);
   }
 
-	/* Initialise the gsl stuff */
-	XLAL_CALLGSL(rootSolver = gsl_multiroot_fsolver_alloc(T, 3));
-	if (!rootSolver) {
-		gsl_matrix_free(rotMatrix);
-		gsl_matrix_free(invMatrix);
-		XLAL_ERROR(XLAL_ENOMEM);
-	}
-	XLAL_CALLGSL(initValues = gsl_vector_calloc(3));
-	if (!initValues) {
-		gsl_multiroot_fsolver_free(rootSolver);
-		gsl_matrix_free(rotMatrix);
-		gsl_matrix_free(invMatrix);
-		XLAL_ERROR(XLAL_ENOMEM);
-	}
 	gsl_vector_set(initValues, 0, rootParams.values[0]);
 	gsl_vector_set(initValues, 1, rootParams.values[4]);
   gsl_vector_set(initValues, 2, rootParams.values[5]);
-
-	rootFunction.f = XLALFindSphericalOrbit;
-	rootFunction.n = 3;
-	rootFunction.params = &rootParams;
 
 	gsl_multiroot_fsolver_set(rootSolver, &rootFunction, initValues);
 
@@ -996,18 +999,19 @@ XLALSimIMRSpinEOBInitialConditions(
         gsl_vector_get(finalValues, 2)/scale3,
         gslStatus );        
 		}
+
     if (gslStatus == GSL_ENOPROG) {
       printf(
-        "\nNO PROGRESS being made by Spherical orbit root solver\n");
+        "\n NO PROGRESS being made by Spherical orbit root solver\n");
       
-      /* Residual Function values whose roots we are trying to find */
+      /* Print Residual Function values whose roots we are trying to find */
       finalValues = gsl_multiroot_fsolver_f(rootSolver);
       printf("Function value here given by the following:\n");
       printf(" F1 = %.16e, F2 = %.16e, F3 = %.16e\n", 
           gsl_vector_get(finalValues, 0),
 		       gsl_vector_get(finalValues, 1), gsl_vector_get(finalValues, 2));
       
-      /* Step sizes in each of function variables */
+      /* Print Step sizes in each of function variables */
       finalValues = gsl_multiroot_fsolver_dx(rootSolver);
       printf("Stepsizes in each dimension:\n");
       printf(" x = %.16e, py = %.16e, pz = %.16e\n", 
@@ -1015,14 +1019,41 @@ XLALSimIMRSpinEOBInitialConditions(
 		       gsl_vector_get(finalValues, 1)/scale2,
             gsl_vector_get(finalValues, 2)/scale3);
       
-      //break;
-      XLALPrintError(
+      /* Only allow this flag to be caught MAXcntGslNoProgress no. of times */
+      cntGslNoProgress += 1;
+      if (cntGslNoProgress >= MAXcntGslNoProgress) {
+        XLALPrintError(
       "\nNO PROGRESS being made by Spherical orbit root solver\n");
-			gsl_multiroot_fsolver_free(rootSolver);
-			gsl_vector_free(initValues);
-			gsl_matrix_free(rotMatrix);
-			gsl_matrix_free(invMatrix);
-			XLAL_ERROR(XLAL_EFUNC);
+        gsl_multiroot_fsolver_free(rootSolver);
+        gsl_vector_free(initValues);
+        gsl_matrix_free(rotMatrix);
+        gsl_matrix_free(invMatrix);
+        XLAL_ERROR(XLAL_EFUNC);
+      }
+      
+      /* Now that no progress is being made, we need to reset the initial guess
+       * for the (r,pPhi, pTheta) and reset the integrator */
+      rootParams.values[0] = scale1 * 1. / (v0 * v0);	/* Initial r */
+      rootParams.values[4] = scale2 * v0;	            /* Initial p */      
+      if( cntGslNoProgress % 2 )
+        rootParams.values[5] = scale3 * 1e-3 / multFacGslNoProgress;
+      else 
+        rootParams.values[5] = scale3 * 1e-3 * multFacGslNoProgress;        
+      //PK
+      memcpy(rootParams.values + 6, tmpS1, sizeof(tmpS1));
+      memcpy(rootParams.values + 9, tmpS2, sizeof(tmpS2));
+      
+      if (printPK) {
+        printf("New ICs guess: x = %.16e, py = %.16e, pz = %.16e\n", 
+                rootParams.values[0]/scale1, rootParams.values[4]/scale2,
+                rootParams.values[5]/scale3);
+        fflush(NULL);
+      }
+      
+      gsl_vector_set(initValues, 0, rootParams.values[0]);
+      gsl_vector_set(initValues, 1, rootParams.values[4]);
+      gsl_vector_set(initValues, 2, rootParams.values[5]);
+      gsl_multiroot_fsolver_set(rootSolver, &rootFunction, initValues);
     }
     else if (gslStatus == GSL_EBADFUNC) {
       XLALPrintError(
