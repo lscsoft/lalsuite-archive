@@ -2224,7 +2224,7 @@ int XLALSimIMRSpinEOBWaveform(
   
   /* Initialize the GSL integrator */
   if (!(integrator = XLALAdaptiveRungeKutta4Init(14, 
-          XLALSpinHcapNumericalDerivative, XLALEOBSpinStopCondition,
+          XLALSpinHcapNumericalDerivative, XLALEOBSpinStopConditionBasedOnPR,
           EPS_ABS, EPS_REL)))
   {
     XLALDestroyREAL8Vector( values );
@@ -2753,7 +2753,8 @@ int XLALSimIMRSpinEOBWaveform(
   }
 
 //////////////////////////////////////////////////////////////////////////////
-#if 0
+    if ( i == retLenHi && !peakIdx)
+    {
     /*Search peak of Delta_t / r^2*/
     REAL8 rad, rad2, m1PlusetaKK, bulk, logTerms, deltaU, u, u2, u3, u4, u5;
     REAL8 listAOverr2[retLenHi];
@@ -2814,8 +2815,8 @@ int XLALSimIMRSpinEOBWaveform(
             AOverr2 = listAOverr2[i];
         }
     }
-   abort();
-#endif
+  // abort();
+}
 ///////////////////////////////////////////////////////////////////////
 
   /* Was the (crude) peak reached? */
@@ -3838,11 +3839,12 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
 //          hIMRJTS->data->data[i] = gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
       //Andrea
       for (i = idxRD; i< retLenLow+retLenRDPatchLow; i++){
-          hIMRJTS->data->data[i] = gsl_spline_eval( spline, i*deltaT/mTScaled, acc );
-        /*if (i<retLenLow+6){
-           printf("Stas interp. of %d Jw: t= %f, Re(w)= %f \n", k, tlistRDPatch->data[i], 
-                   gsl_spline_eval( spline, tlistRDPatch->data[i], acc ));
-        }*/
+          if( i*deltaT/mTScaled <= tlistRDPatch->data[ retLenHi + retLenRDPatch - 1]) {
+              hIMRJTS->data->data[i] = gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
+          }
+          else {
+              hIMRJTS->data->data[i] = 0.;
+          }
       }
      gsl_spline_free(spline);
      gsl_interp_accel_free(acc);
@@ -3851,8 +3853,13 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
      acc    = gsl_interp_accel_alloc();     
      gsl_spline_init( spline, 
               tlistRDPatchHi->data, sigImHi->data, retLenHi + retLenRDPatch );
-     for (i = retLenLow-4; i< retLenLow+retLenRDPatchLow; i++){
-        hIMRJTS->data->data[i] += I * gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
+     for (i = idxRD; i< retLenLow+retLenRDPatchLow; i++){
+         if( i*deltaT/mTScaled <= tlistRDPatch->data[ retLenHi + retLenRDPatch - 1]) {
+             hIMRJTS->data->data[i] += I * gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
+         }
+         else {
+             hIMRJTS->data->data[i] += I*0.;
+         }
      }
 
      gsl_spline_free(spline);
