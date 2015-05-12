@@ -234,15 +234,15 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
     params->eobParams->omegaPeaked = 1;
 
   /* If omega has gone through a second extremum, break */
-  if ( r2 < 16. && params->eobParams->omegaPeaked == 1 
-                && omega > params->eobParams->omega ) 
-  {
-    if(debugPK) {
-      printf("\n Integration stopping, omega reached second extremum\n");
-      fflush(NULL);
-    }
-    return 1;
-  }
+//  if ( r2 < 16. && params->eobParams->omegaPeaked == 1 
+//                && omega > params->eobParams->omega ) 
+//  {
+//    if(debugPK) {
+//      printf("\n Integration stopping, omega reached second extremum\n");
+//      fflush(NULL);
+//    }
+//    return 1;
+//  }
   
   /* If Momega did not evolve above 0.01 even though r < 4, break */
   if(r2 < 16. && omega < 0.01 ) 
