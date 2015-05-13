@@ -203,17 +203,17 @@ if __name__ == "__main__":
         s2z = np.zeros_like(m2)
 
     system_frame_params = set([ \
-            'theta_jn', \
+            'costheta_jn', \
             'phi_jl', \
             'tilt1', 'tilt2', \
             'phi12', \
             'a1','a2', \
             'f_ref' \
     ])
-
+    theta_jn=np.array([np.arccos(i) for i in samples['costheta_jn']])
     if set(params).intersection(system_frame_params) == system_frame_params:
         inclination, theta1, phi1, theta2, phi2, _ = bppu.physical2radiationFrame(
-                samples['theta_jn'],
+                theta_jn,
                 samples['phi_jl'],
                 samples['tilt1'],
                 samples['tilt2'],
@@ -230,7 +230,7 @@ if __name__ == "__main__":
         s1x, s1y, s1z = bppu.sph2cart(samples['a1'], theta1, phi1)
         s2x, s2y, s2z = bppu.sph2cart(samples['a2'], theta2, phi2)
     else:
-        inclination = samples['theta_jn']
+        inclination = theta_jn
 
     print s1x.shape
     # Check if f_low is a parameter, if not take from command line options
