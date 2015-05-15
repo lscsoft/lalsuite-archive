@@ -54,17 +54,25 @@ def get_row_stat(row, arg):
     Syntax for the arg is python.  The name space available to eval is limited
     to the columns in the row and functions in the math module.
     """
-    # for speed: if the arg exists in the row, just return it
-    if arg in dir(row):
+    # speed up: if the arg exists in the row, just return it
+    try:
+        val = getattr(row, arg)
         try:
-            return getattr( row, arg )()
+            # we'll try returning val as a function
+            return val()
         except TypeError:
-            return getattr( row, arg )
-    # otherwise, evaluate explicitly
-    row_dict = dict([ [name, getattr(row,name)] for name in dir(row) ])
-    safe_dict = dict([ [name,val] for name,val in row_dict.items() + math.__dict__.items() if not name.startswith('__') ])
-    
-    return eval( arg, {"__builtins__":None}, safe_dict )
+            # that failed, so val must not be a function; just return it
+            return val
+    except AttributeError:
+        # arg isn't a simple argument of row, so we'll have to eval it
+        try:
+            row_dict = row.__dict__
+        except AttributeError:
+            row_dict = dict([ [name, getattr(row,name)] for name in dir(row) ])
+        safe_dict = {}
+        safe_dict.update(row_dict)
+        safe_dict.update(math.__dict__)
+        return eval(arg, {"__builtins__": None}, safe_dict)
 
 def get_needed_columns(column_list, function):
     """
