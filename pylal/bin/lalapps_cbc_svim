@@ -85,7 +85,7 @@ class upper_limit(object):
     self.get_distance_bins()
 
     # done with db, close connection
-    connection.close()
+    connection.commit()
     dbtables.discard_connection_filename(database, working_filename, verbose=opts.verbose)
 
     # Set up mass bins
