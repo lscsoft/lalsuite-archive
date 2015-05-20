@@ -56,6 +56,7 @@
 #include "LALSimIMRSpinEOB.h"
 #include "LALSimInspiralPrecess.h"
 #include "LALSimBlackHoleRingdown.h"
+#include "LALSimFindAttachTime.h"
 
 /* Include all the static function files we need */
 #include "LALSimIMREOBNQCCorrection.c"
@@ -71,6 +72,7 @@
 #include "LALSimIMRSpinEOBHcapNumericalDerivative.c"
 #include "LALSimIMRSpinAlignedEOBHcapDerivative.c"
 #include "LALSimIMRSpinEOBInitialConditions.c"
+
 
 #define debugOutput 0
 
@@ -1642,7 +1644,7 @@ int XLALSimIMRSpinEOBWaveform(
   REAL8Vector posVecxHi, posVecyHi, posVeczHi, momVecxHi, momVecyHi, momVeczHi;
   REAL8Vector s1VecxHi,  s1VecyHi,  s1VeczHi,  s2VecxHi,  s2VecyHi,  s2VeczHi;
   REAL8Vector *sigReHi = NULL, *sigImHi = NULL;
-  REAL8Vector *omegaHi = NULL;
+  //REAL8Vector * = NULL;
 
   /* Indices of peak frequency and final point           */
   /* Needed to attach ringdown at the appropriate point  */
@@ -1709,9 +1711,9 @@ int XLALSimIMRSpinEOBWaveform(
 
     
   /* Stuff to find the actual peak time */
-  REAL8 omegaDeriv1 = 0, time1 = 0, time2 = 0;
+  //REAL8 omegaDeriv = 0, time1 = 0, time2 = 0;
   UNUSED REAL8  timewavePeak = 0.;
-  REAL8  omegaDerivMid=0.0;
+  //REAL8  omegaDerivMid=0.0;
   REAL8 UNUSED sigAmpSqHi = 0., oldsigAmpSqHi = 0.;
   /*INT4   peakCount = 0;*/
 
@@ -2679,11 +2681,11 @@ int XLALSimIMRSpinEOBWaveform(
   /* Allocate the high sample rate vectors */
   //sigReHi  = XLALCreateREAL8Vector( retLen + retLenRDPatch );
   //sigImHi  = XLALCreateREAL8Vector( retLen + retLenRDPatch );
-  omegaHi  = XLALCreateREAL8Vector( retLenHi + retLenRDPatch);        
-  if (!omegaHi )
-  {
-    XLAL_ERROR( XLAL_ENOMEM );
-  }
+  //omegaHi  = XLALCreateREAL8Vector( retLenHi + retLenRDPatch);        
+  //if (!omegaHi )
+  //{
+    //XLAL_ERROR( XLAL_ENOMEM );
+  //}
 
   /*memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
   memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));*/
@@ -2698,179 +2700,28 @@ int XLALSimIMRSpinEOBWaveform(
    * Locate merger point (max omega), calculate J, chi and kappa at merger, and construct final J frame
    */
   /* WaveStep 1.1: locate merger point */
-  omegasav2 = -1.0;  omegasav  = -0.5;  omega     =  0.0;
-  if(debugPK) {
-    out = fopen( "omegaHi.dat", "w" );
-    printf("length of values = %d, retLen = %d\n", values->length, retLen);
-    fflush(NULL);
-  }
-  
-  for ( i = 0, peakIdx = 0; i < retLenHi; i++ )
-  {
-    for ( j = 0; j < values->length; j++ )
-    { values->data[j] = *(dynamicsHi->data+(j+1)*retLenHi+i); }
-    
-    /* Calculate dr/dt */
-    memset( dvalues->data, 0, 14*sizeof(dvalues->data[0]));
-    if( XLALSpinHcapRvecDerivative( 0, values->data, dvalues->data, 
-        &seobParams) != XLAL_SUCCESS )
-    {
-      printf(
-        " Calculation of dr/dt failed while computing omegaHi time series\n");
-      XLAL_ERROR( XLAL_EFUNC );
-    }
-    
-    /* Calculare r x dr/dt */
-    memcpy(rdotvec, dvalues->data, 3*sizeof(REAL8));
-    rvec[0] = posVecxHi.data[i]; rvec[1] = posVecyHi.data[i]; 
-    rvec[2] = posVeczHi.data[i];
-    cross_product( rvec, rdotvec, rcrossrdot );    
-   
-    /* Calculate omega = |r x dr/dt| / r*r */
-    magR = sqrt(inner_product(rvec, rvec));
-    omegaHi->data[i] = omega = 
-        sqrt(inner_product(rcrossrdot, rcrossrdot)) / (magR*magR);
-    
-    if ( omega < omegasav  && !peakIdx)
-    { 
-      peakIdx = i;
-      if (debugPK){
-        printf("PK: Crude peak of Omega is at idx = %d. OmegaPeak = %.16e\n", peakIdx, omega);
-        fflush(NULL);
-      }
-    } else {
-      omegasav2 = omegasav;
-      omegasav  = omega;
-    }
-    if(debugPK)
-      fprintf( out, "%.16e\t%.16e\n", timeHi.data[i], omegaHi->data[i]);
-  }
-  
-  if(debugPK) {
-    fclose(out);
-    printf("PK: End of crude omega peak-finding. peakIdx = %d, retLen = %d, i at exit = %d\n", peakIdx, retLenHi, i);
-    fflush(NULL);
-  }
 
-//////////////////////////////////////////////////////////////////////////////
-    if ( i == retLenHi && !peakIdx)
-    {
-    /*Search peak of Delta_t / r^2*/
-    REAL8 rad, rad2, m1PlusetaKK, bulk, logTerms, deltaU, u, u2, u3, u4, u5;
-    REAL8 listAOverr2[retLenHi];
-    if(debugPK) out = fopen( "OutA.dat", "w" );
-    for ( i = 0; i < retLenHi; i++ )
-    {
-        for ( j = 0; j < values->length; j++ )
-        {
-            values->data[j] = *(dynamicsHi->data+(j+1)*retLen+i);
-        }
+    int found = 0;
+    printf("Stas searching for maxima in omega .... \n");
+    tPeakOmega = XLALSimLocateOmegaTime(dynamicsHi, values->length, retLenHi, seobParams, seobCoeffs, m1, m2, &found);
 
-        for( k = 0; k < 3; k++ )
-        {
-            s1DataNorm[k] = values->data[k+6];
-            s2DataNorm[k] = values->data[k+9];
-            s1Data[k] = s1DataNorm[k] * mTotal * mTotal;
-            s2Data[k] = s2DataNorm[k] * mTotal * mTotal;
-        }
-        s1Vec.data = s1Data;
-        s2Vec.data = s2Data;
-        
-        s1VecOverMtMt.data = s1DataNorm;
-        s2VecOverMtMt.data = s2DataNorm;
-        
-        seobParams.s1Vec = &s1VecOverMtMt;
-        seobParams.s2Vec = &s2VecOverMtMt;
-        
-        XLALSimIMRSpinEOBCalculateSigmaStar( sigmaStar, m1, m2, &s1Vec, &s2Vec );
-        XLALSimIMRSpinEOBCalculateSigmaKerr( sigmaKerr, m1, m2, &s1Vec, &s2Vec );
-        
-        seobParams.a = a = sqrt(inner_product(sigmaKerr->data, sigmaKerr->data));
-        m1PlusetaKK = -1. + eta * seobCoeffs.KK;
-        rad2 =  values->data[0]*values->data[0] + values->data[1]*values->data[1] + values->data[2]*values->data[2];
-        rad = sqrt(rad2);
-        u = 1./rad;
-        u2 = u*u;
-        u3 = u2*u;
-        u4 = u2*u2;
-        u5 = u4*u;
-        bulk = 1./(m1PlusetaKK*m1PlusetaKK) + (2.*u)/m1PlusetaKK + a*a*u2;
-        logTerms = 1. + eta*seobCoeffs.k0 + eta*log(1. + seobCoeffs.k1*u + seobCoeffs.k2*u2 + seobCoeffs.k3*u3 + seobCoeffs.k4*u4 + seobCoeffs.k5*u5 + seobCoeffs.k5l*u5*log(u));
-        deltaU = bulk*logTerms;
-        listAOverr2[i] = deltaU / rad2;
-        if(debugPK) fprintf(out, "%3.10f %3.10f\n", timeHi.data[i], listAOverr2[i]);
-    }
-    if(debugPK) fclose(out);
-    REAL8 AOverr2;
-    AOverr2 = listAOverr2[0];
-    for ( i = 0, peakIdx = 0; i < retLenHi; i++ )
-    {
-        if ( listAOverr2[i] < AOverr2  && !peakIdx)
-        {
-            peakIdx = i;
-            tPeakOmega = timeHi.data[peakIdx];
-            if (debugPK) printf("AT: Peak of A/r^2 is at idx = %d and time = %f. \n", peakIdx, tPeakOmega);
-        }
-        else {
-            AOverr2 = listAOverr2[i];
+    if(tPeakOmega == 0.0 || found==0){
+        if (debugPK){
+            printf("maximum of omega and A(r) is not found, looking for amplitude maximum\n");
         }
     }
-  // abort();
-}
-///////////////////////////////////////////////////////////////////////
-
-  /* Was the (crude) peak reached? */
-  if ( i == retLenHi && !peakIdx)
-  {
-    printf("YP: Error! Failed to find peak of omega!\n");
-    fflush(NULL);
-    abort();
-  }
-  else //if (peakIdx == (unsigned int) retLenHi)
-  {
-	  /* What is happening here? */
-    if (debugPK) {
-      printf("AT: Peak of A/r^2 not found, search for peak of Omega");
-      fflush(NULL);
+    else{
+        if (debugPK){
+            printf("The omega-related time is found and it's %f \n", tPeakOmega);
+        }
     }
-      
-    spline = gsl_spline_alloc( gsl_interp_cspline, retLen );
-    acc    = gsl_interp_accel_alloc();
-      
-    time1 = timeHi.data[peakIdx-2];
-    if(debugPK){ printf("time of crude peak = %e\n", time1); fflush(NULL); }
-      
-    gsl_spline_init( spline, timeHi.data, omegaHi->data, retLen );
-    omegaDeriv1 = gsl_spline_eval_deriv( spline, time1, acc );
-     
-    if ( omegaDeriv1 > 0. ) { time2 = dynamicsHi->data[peakIdx+1]; }
-	  else
-	  {
-		  time2 = time1;
-		  time1 = dynamicsHi->data[peakIdx-2];
-		  peakIdx = peakIdx-2;
-		  omegaDeriv1 = gsl_spline_eval_deriv( spline, time1, acc );
-	  }
-	   
-	  do
-	  {
-      tPeakOmega = ( time1 + time2 ) / 2.;
-		  omegaDerivMid = gsl_spline_eval_deriv( spline, tPeakOmega, acc );
-		   
-		  if ( omegaDerivMid * omegaDeriv1 < 0.0 ) { time2 = tPeakOmega; }
-		  else
-		  {
-			  omegaDeriv1 = omegaDerivMid;
-			  time1 = tPeakOmega;
-			}
-    } while ( time2 - time1 > 1.0e-5 );
-      
     if(debugPK) {
       printf( "Estimation of the peak is now at time %.16e, %.16e \n", 
             tPeakOmega, tPeakOmega+HiSRstart);
       fflush(NULL);
     }
-  }
+  
+    //exit(0);
   
   /* WaveStep 1.2: calculate J at merger */
   spline = gsl_spline_alloc( gsl_interp_cspline, retLen );
@@ -3664,6 +3515,43 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
      printf("YP: P-frame waveforms written to file for High SR.\n");
      fflush(NULL);
   }
+  
+  // Find tAmpMax to determin the tAttachment
+  int foundAmp = 0; 
+  double tAmpMax =  XLALSimLocateAmplTime(&timeHi, h22PTSHi->data, &foundAmp);
+  
+  if(foundAmp==0){
+      if (debugPK){
+          printf("maximum of Amplitude or dot{Ampl} are not found \n");
+      }
+  }
+  else{
+      if (debugPK){
+          printf("The Amplitude-related time is found and it's %f \n", tAmpMax);
+      }
+  }
+  if( foundAmp==0 && found == 0){
+      printf("Houston, we've got a problem SOS, SOS, SOS, cannot find the RD attachment point...\n");
+      abort();
+  }
+  
+  
+  if (tAmpMax < tAttach){
+      if (debugPK){
+          printf("Stas the attachment time will be modified from %f to %f \n", tAttach, tAmpMax);
+      }      
+      tAttach = tAmpMax;
+  }
+  if (debugPK){
+      printf("Stas: the final decision on the attachment time is %f \n", tAttach);
+  }
+  //exit(0);
+  
+  /*if(debugPK) {
+    printf( "Estimation of the peak is now at time %.16e, %.16e \n", 
+          tPeakOmega, tPeakOmega+HiSRstart);
+    fflush(NULL);
+  }*/
 
   /* Changing retLen back to the Low SR value */
   retLen = retLenLow;
@@ -3839,7 +3727,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
 //          hIMRJTS->data->data[i] = gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
       //Andrea
       for (i = idxRD; i< retLenLow+retLenRDPatchLow; i++){
-          if( i*deltaT/mTScaled <= tlistRDPatch->data[ retLenHi + retLenRDPatch - 1]) {
+          if( i*deltaT/mTScaled <= tlistRDPatchHi->data[ retLenHi + retLenRDPatch - 1]) {
               hIMRJTS->data->data[i] = gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
           }
           else {
@@ -3854,7 +3742,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
      gsl_spline_init( spline, 
               tlistRDPatchHi->data, sigImHi->data, retLenHi + retLenRDPatch );
      for (i = idxRD; i< retLenLow+retLenRDPatchLow; i++){
-         if( i*deltaT/mTScaled <= tlistRDPatch->data[ retLenHi + retLenRDPatch - 1]) {
+         if( i*deltaT/mTScaled <= tlistRDPatchHi->data[ retLenHi + retLenRDPatch - 1]) {
              hIMRJTS->data->data[i] += I * gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
          }
          else {
@@ -4053,7 +3941,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   XLALDestroyREAL8Vector( sigmaKerr );
   XLALDestroyREAL8Vector( sigReHi );
   XLALDestroyREAL8Vector( sigImHi );
-  XLALDestroyREAL8Vector( omegaHi );
+  //XLALDestroyREAL8Vector( omegaHi );
     
   if(debugPK){ printf("Memory cleanup 3 done.\n"); fflush(NULL); }
   XLALAdaptiveRungeKutta4Free(integrator);
