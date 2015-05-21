@@ -730,7 +730,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaT(
  * This function calculates the function \f$\Delta_r(r)\f$ which appears in the spinning EOB
  * potential function. Eqs. 10a and 10b
  */
-static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaR(
+UNUSED static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaR(
         SpinEOBHCoeffs *coeffs, /**<< Pre-computed coefficients which appear in the function */
         const REAL8    r,       /**<< Current orbital radius (in units of total mass) */
         const REAL8    eta,     /**<< Symmetric mass ratio */
@@ -820,7 +820,7 @@ XLALSimIMRSpinAlignedEOBCalcOmega(
  * radius \f$r\f$ times the cuberoot of the returned number is \f$r_\Omega\f$ defined in Eq. A2.
  * i.e. the function returns \f$(r_{\Omega} / r)^3\f$.
  */
-static REAL8
+UNUSED static REAL8
 XLALSimIMRSpinAlignedEOBNonKeplerCoeff(
                       const REAL8           values[],   /**<< Dynamical variables */
                       SpinEOBParams         *funcParams /**<< EOB parameters */
