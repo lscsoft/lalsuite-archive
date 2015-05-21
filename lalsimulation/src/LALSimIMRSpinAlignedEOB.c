@@ -245,7 +245,7 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
 //  }
   
   /* If Momega did not evolve above 0.01 even though r < 4, break */
-  if(r2 < 16. && omega < 0.01 ) 
+  if(r2 < 16. && omega < 0.01 )
   {
     if(debugPK){ 
       printf("\n Integration stopping, omega<0.01 at r = %f\n", sqrt(r2));
@@ -261,7 +261,7 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   /* **************************************************************** */
 
   /* If momentum derivatives are too large numerically, break */
-  if ( r2 < 16. && dvalues[3] > 100 && dvalues[4] > 100 && dvalues[5] > 100 )
+  if ( r2 < 16. && (dvalues[3] > 100 || dvalues[4] > 100 || dvalues[5] > 100) )
   {
     if(debugPK){
       printf("\n Integration stopping, dpdt > 100 -- too large!\n");
