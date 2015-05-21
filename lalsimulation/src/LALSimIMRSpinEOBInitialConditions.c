@@ -721,7 +721,7 @@ XLALSimIMRSpinEOBInitialConditions(
 	}
 #endif
 
-	int	debugPK = 1; int printPK = 0;
+	int	debugPK = 0; int printPK = 0;
   FILE* UNUSED out = NULL;
 
 	if (printPK) {

@@ -127,7 +127,7 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
                            void UNUSED *funcParams
                           )
 {
-  int debugPK = 1; int debugPKverbose = 0;
+  int debugPK = 0; int debugPKverbose = 0;
   INT4 i;
   SpinEOBParams UNUSED *params = (SpinEOBParams *)funcParams;
   
@@ -1478,7 +1478,7 @@ int XLALSimIMRSpinEOBWaveform(
   /* TODO: Insert potentially necessary checks on the arguments */
 
   INT4 UNUSED ret;
-  INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugPK = 0, debugCustomIC = 0, debugNoNQC = 0;
   FILE *out = NULL;
   INT4 i=0;
   INT4 k=0;
@@ -2702,7 +2702,9 @@ int XLALSimIMRSpinEOBWaveform(
   /* WaveStep 1.1: locate merger point */
 
     int found = 0;
-    printf("Stas searching for maxima in omega .... \n");
+    if (debugPK) {
+        printf("Stas searching for maxima in omega .... \n");
+    }
     tPeakOmega = XLALSimLocateOmegaTime(dynamicsHi, values->length, retLenHi, seobParams, seobCoeffs, m1, m2, &found);
 
     if(tPeakOmega == 0.0 || found==0){
