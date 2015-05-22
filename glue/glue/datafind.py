@@ -63,6 +63,7 @@ import httplib
 import M2Crypto
 import re
 import unittest
+import json
 
 from cjson import decode
 from glue import (lal, git_version, segments)
@@ -390,6 +391,63 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
                     return out
                 else:
                     raise RuntimeError(msg)
+
+    def summary(self, site=None, gpsstart=None, gpsend=None, full_summ=False):
+        """Produce a summary of the frame types available along
+        with a short description and time span.
+
+        Use gpsstart and gpsend to restrict the returned times to
+        this semiopen interval.
+
+        Set full_summ to True to enable summaries of all frame
+        types, regardless of if they have an entry in the frame
+        summary information table.
+
+        @returns: a string summary
+
+        @param site:
+            single-character name of site to match
+        @param frametype:
+            name of frametype to match
+        @param gpsstart:
+            integer GPS start time of query
+        @param gpsend:
+            integer GPS end time of query
+        @param full_summ:
+            print summaries for frame types without descriptions
+
+        @type       site: L{str}
+        @type   gpsstart: L{int}
+        @type     gpsend: L{int}
+        @type   full_sum: L{int}
+        """
+        # FIXME: Replace with request to http connection
+        with open("/home/pankow/frtypes.json") as fin:
+            frtable = json.load(fin)
+        frtypes = self.find_types(site, None)
+
+        summ_str = ""
+        for frtype in frtypes:
+            if frtable.has_key(frtype):
+                entry = frtable[frtype]
+                desc = entry["description"] + "\n"
+                ifos = map(unicode.strip, entry["ifos"].split(","))
+            else:
+                desc = "No description available\n"
+                ifos = (site,) if site else tuple()
+                if not full_summ:
+                    continue
+
+            summ_str += frtype + "\n"
+            for ifo in ifos:
+                span = self.find_times(ifo[0], frtype, gpsstart, gpsend)
+                if not span:
+                    summ_str += "\t%s: No span available\n\t%s\n" % (ifo, desc)
+                else:
+                    summ_str += "\t%s %d %d\n" % (ifo, span[0][0], span[-1][1])
+            summ_str += "\t" + desc + "\n"
+
+        return summ_str
 
 class GWDataFindHTTPSConnection(httplib.HTTPSConnection, GWDataFindHTTPConnection):
     """Secured connection to LIGO data replicator service using HTTPS.
