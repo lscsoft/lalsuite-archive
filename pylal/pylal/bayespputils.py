@@ -527,7 +527,6 @@ class PosteriorOneDPDF(object):
 
         return list_of_ci
 
-
 class Posterior(object):
     """
     Data structure for a table of posterior samples .
@@ -1795,7 +1794,118 @@ class Posterior(object):
             # f_ref is probably None
             return None
 
+class BurstPosterior(Posterior):
+    """
+    Data structure for a table of posterior samples .
+    """
+    def __init__(self,commonResultsFormatData,SimBurstTableEntry=None,injFref=None,SnglBurstList=None,name=None,description=None,votfile=None):
+        """
+        Constructor.
 
+        @param commonResultsFormatData: A 2D array containing the posterior
+            samples and related data. The samples chains form the columns.
+        @type commonResultsFormatData: custom type
+        @param SimInspiralTableEntry: A SimInspiralTable row containing the injected values.
+        @type SimInspiralTableEntry: glue.ligolw.lsctables.SimInspiral
+        @param SnglInspiralList: A list of SnglInspiral objects containing the triggers.
+        @type SnglInspiralList: list
+        """
+        common_output_table_header,common_output_table_raw =commonResultsFormatData
+        self._posterior={}
+        self._injFref=injFref
+        self._injection=SimBurstTableEntry
+        self._triggers=SnglBurstList
+        self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
+        self._logpaliases=['logp', 'logP','prior','Prior']
+        self._votfile=votfile
+
+        common_output_table_header=[i.lower() for i in common_output_table_header]
+
+        # Define XML mapping
+        self._injXMLFuncMap={
+                            'f0':lambda inj:inj.frequency,
+                            'frequency':lambda inj:inj.frequency,
+                            'centre_frequency':lambda inj:inj.frequency,
+                            'quality':lambda inj:inj.q,
+                            'hrss':lambda inj:inj.hrss,
+                            'loghrss':lambda inj:log(inj.hrss),
+                            'polar_angle':lambda inj:inj.pol_ellipse_angle,
+                            'pol_ellipse_angle':lambda inj:inj.pol_ellipse_angle,
+                            'pol_ellipse_e':lambda inj:inj.pol_ellipse_e,
+                            'eccentricity':lambda inj:inj.pol_ellipse_e,
+                            'time': lambda inj:float(inj.get_end()),
+                            'end_time': lambda inj:float(inj.get_end()),
+                            'ra':self._inj_longitude,
+                            'rightascension':self._inj_longitude,
+                            'long':self._inj_longitude,
+                            'longitude':self._inj_longitude,
+                            'dec':lambda inj:inj.dec,
+                            'declination':lambda inj:inj.dec,
+                            'lat':lambda inj:inj.dec,
+                            'latitude':lambda inj:inj.dec,
+                            'psi': lambda inj: np.mod(inj.psi, np.pi),
+                            'f_ref': lambda inj: self._injFref,
+                            'polarisation':lambda inj:inj.psi,
+                            'polarization':lambda inj:inj.psi,
+                            'duration':lambda inj:inj.duration,
+                            'h1_end_time':lambda inj:float(inj.get_end('H')),
+                            'l1_end_time':lambda inj:float(inj.get_end('L')),
+                            'v1_end_time':lambda inj:float(inj.get_end('V')),
+                           }
+
+        for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
+
+            self._posterior[param_name]=PosteriorOneDPDF(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name),injFref=self._injFref,trigger_values=self._gettrigpar(param_name))
+
+        logLFound=False
+
+        for loglalias in self._loglaliases:
+            if loglalias in common_output_table_header:
+                try:
+                    self._logL=self._posterior[loglalias].samples
+                except KeyError:
+                    print "No '%s' column in input table!"%loglalias
+                    continue
+                logLFound=True
+
+        if not logLFound:
+            raise RuntimeError("No likelihood/posterior values found!")
+
+        self._logP=None
+        for logpalias in self._logpaliases:
+            if logpalias in common_output_table_header:
+                try:
+                    self._logP=self._posterior[logpalias].samples
+                except KeyError:
+                    print "No '%s' column in input table!"%logpalias
+                    continue
+                if not 'log' in logpalias:
+                  self._logP=[np.log(i) for i in self._logP]
+        if name is not None:
+            self.__name=name
+
+        if description is not None:
+            self.__description=description
+
+        return
+    #===============================================================================
+    # Functions used to parse injection structure.
+    #===============================================================================
+
+    def _inj_longitude(self,inj):
+        """
+        Return the mapping of longitude found in inj to the interval [0,2*pi).
+
+        @type inj: glue.ligolw.lsctables.SimInspiral
+        @param inj: a custom type with the attribute 'longitude'.
+        @rtype: number
+        """
+        if inj.ra>2*pi_constant or inj.ra<0.0:
+            maplong=2*pi_constant*(((float(inj.ra)/(2*pi_constant)) - floor(((float(inj.ra))/(2*pi_constant)))))
+            print "Warning: Injected longitude/ra (%s) is not within [0,2\pi)! Angles are assumed to be in radians so this will be mapped to [0,2\pi). Mapped value is: %s."%(str(inj.ra),str(maplong))
+            return maplong
+        else:
+            return inj.ra
 
 class KDTree(object):
     """
@@ -3892,7 +4002,7 @@ def getRAString(radians,accuracy='auto'):
 def getDecString(radians,accuracy='auto'):
     # LaTeX doesn't like unicode degree symbols etc
     if matplotlib.rcParams['text.usetex']:
-        degsymb='^\circ'
+        degsymb='$^\circ$'
         minsymb="'"
         secsymb="''"
     else:
