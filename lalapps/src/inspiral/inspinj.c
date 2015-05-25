@@ -840,7 +840,6 @@ static void print_usage(char *program)
       " --dchi6 value             value of the dchi6 parameter\n"\
       " --dchi6l value            value of the dchi6l parameter\n"\
       " --dchi7 value             value of the dchi7 parameter\n"\
-      " --enable-dxi              enable injections with shifts in pre-merger\n"\
       " --dxi1 value              value of the dxi1 parameter\n"\
       " --dxi2 value              value of the dxi2 parameter\n"\
       " --dxi3 value              value of the dxi3 parameter\n"\

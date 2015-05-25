@@ -2572,8 +2572,6 @@ class SimInspiralTable(table.Table):
     "dxi4": "real_4",
     "dxi5": "real_4",
     "dxi6": "real_4",
-    "dzeta1": "real_4",
-    "dzeta2": "real_4",
     "loglambdaG": "real_4",
     "ScalarCharge1": "real_4",
     "ScalarCharge2": "real_4",
