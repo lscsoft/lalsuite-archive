@@ -173,10 +173,9 @@ class LigolwSegments(set):
 	<glue.ligolw.ligolw.LIGO_LW object at ...>
 	>>> process = lsctables.Process()
 	>>> process.process_id = lsctables.ProcessTable.get_next_id()
-	>>> h1segs = segmentlist([segment(LIGOTimeGPS(0), LIGOTimeGPS(10))])
-	>>> l1segs = segmentlist([segment(LIGOTimeGPS(5), LIGOTimeGPS(15))])
 	>>> with LigolwSegments(xmldoc, process) as xmlsegments:
-	...	xmlsegments.insert_from_segmentlistdict({"H1": h1segs, "L1": l1segs}, "test")
+	...	h1segs = segmentlist([segment(LIGOTimeGPS(0), LIGOTimeGPS(10))])
+	...	xmlsegments.insert_from_segmentlistdict({"H1": h1segs}, "test")
 	>>> xmldoc.write(sys.stdout)		# doctest: +NORMALIZE_WHITESPACE
 	<?xml version='1.0' encoding='utf-8'?>
 	<!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">
@@ -189,8 +188,7 @@ class LigolwSegments(set):
 			<Column Type="int_4s" Name="segment_definer:version"/>
 			<Column Type="lstring" Name="segment_definer:comment"/>
 			<Stream Delimiter="," Type="Local" Name="segment_definer:table">
-				"process:process_id:0","segment_definer:segment_def_id:0","L1","test",,,
-				"process:process_id:0","segment_definer:segment_def_id:1","H1","test",,,
+				"process:process_id:0","segment_definer:segment_def_id:0","H1","test",,,
 			</Stream>
 		</Table>
 		<Table Name="segment_summary:table">
@@ -214,8 +212,7 @@ class LigolwSegments(set):
 			<Column Type="int_4s" Name="segment:end_time_ns"/>
 			<Column Type="ilwd:char" Name="segment:segment_def_id"/>
 			<Stream Delimiter="," Type="Local" Name="segment:table">
-				"process:process_id:0","segment:segment_id:1",0,0,10,0,"segment_definer:segment_def_id:1",
-				"process:process_id:0","segment:segment_id:0",5,0,15,0,"segment_definer:segment_def_id:0"
+				"process:process_id:0","segment:segment_id:0",0,0,10,0,"segment_definer:segment_def_id:0"
 			</Stream>
 		</Table>
 	</LIGO_LW>
