@@ -219,6 +219,12 @@ class LigolwSegments(set):
 	>>> xmlsegments = LigolwSegments(xmldoc)
 	>>> xmlsegments.get_by_name("test")
 	{u'H1': [segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))]}
+
+	NOTE:  the process of extracting and re-inserting the contents of
+	the segment tables will, in general, randomize the IDs assigned to
+	the rows of these tables.  If there are references to segment,
+	segment_summary, or segment_definer row IDs in other tables in the
+	document, those references will be broken by this process.
 	"""
 	def __init__(self, xmldoc, process = None):
 		#
