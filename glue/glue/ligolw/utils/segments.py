@@ -216,6 +216,9 @@ class LigolwSegments(set):
 			</Stream>
 		</Table>
 	</LIGO_LW>
+	>>> xmlsegments = LigolwSegments(xmldoc)
+	>>> xmlsegments.get_by_name("test")
+	{u'H1': [segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))]}
 	"""
 	def __init__(self, xmldoc, process = None):
 		#
@@ -387,7 +390,7 @@ class LigolwSegments(set):
 			for instrument in seglist.instruments:
 				if instrument in result:
 					raise ValueError("multiple '%s' segmentlists for instrument '%s'" % (name, instrument))
-				result[instrument] = segs.copy()
+				result[instrument] = segments.segmentlist(segs)
 		return result
 
 
