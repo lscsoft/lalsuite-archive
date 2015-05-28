@@ -135,10 +135,39 @@ static int unpack(PyObject *seg, PyObject **lo, PyObject **hi)
 {
 	if(!seg)
 		return -1;
+
 	if(!PyTuple_Check(seg)) {
-		/* FIXME:  should this raise NotImplemented? */
-		PyErr_SetObject(PyExc_TypeError, seg);
-		return -1;
+		/* slow path */
+		Py_ssize_t n = PySequence_Length(seg);
+
+		if(n != 2) {
+			/* if n < 0 the exception has already been set */
+			if(n >= 0)
+				PyErr_SetObject(PyExc_ValueError, seg);
+			return -1;
+		}
+
+		if(lo) {
+			*lo = PySequence_GetItem(seg, 0);
+			if(!*lo) {
+				if(hi)
+					*hi = NULL;
+				return -1;
+			}
+		}
+
+		if(hi) {
+			*hi = PySequence_GetItem(seg, 1);
+			if(!*hi) {
+				if(lo) {
+					Py_XDECREF(*lo);
+					*lo = NULL;
+				}
+				return -1;
+			}
+		}
+
+		return 0;
 	}
 
 	if(lo) {
