@@ -3745,6 +3745,36 @@ class Segment(object):
 	>>> x.segment = (20, 30.125)
 	>>> x.end
 	LIGOTimeGPS(30,125000000)
+	>>> # initialization from a tuple or with arguments
+	>>> Segment((20, 30)).segment
+	segment(LIGOTimeGPS(20,0), LIGOTimeGPS(30,0))
+	>>> Segment(20, 30).segment
+	segment(LIGOTimeGPS(20,0), LIGOTimeGPS(30,0))
+	>>> # use as a segment object in segmentlist operations
+	>>> from glue import segments
+	>>> x = segments.segmentlist([Segment(0, 10), Segment(20, 30)])
+	>>> abs(x)
+	LIGOTimeGPS(20,0)
+	>>> y = segments.segmentlist([Segment(5, 15), Segment(25, 35)])
+	>>> abs(x & y)
+	LIGOTimeGPS(10,0)
+	>>> abs(x | y)
+	LIGOTimeGPS(30,0)
+	>>> 8.0 in x
+	True
+	>>> 12 in x
+	False
+	>>> Segment(2, 3) in x
+	True
+	>>> Segment(2, 12) in x
+	False
+	>>> segments.segment(2, 3) in x
+	True
+	>>> segments.segment(2, 12) in x
+	False
+	>>> # make sure results are segment table row objects
+	>>> segments.segmentlist(map(Segment, x & y))	# doctest: +ELLIPSIS
+	[<glue.ligolw.lsctables.Segment object at 0x...>, <glue.ligolw.lsctables.Segment object at 0x...>]
 	"""
 	__slots__ = SegmentTable.validcolumns.keys()
 
@@ -3806,9 +3836,6 @@ class Segment(object):
 		else:
 			self.start, self.end = seg
 
-	def __cmp__(self, other):
-		return cmp(self.segment, other.segment)
-
 	def get(self):
 		"""
 		Return the segment described by this row.
@@ -3820,6 +3847,36 @@ class Segment(object):
 		Set the segment described by this row.
 		"""
 		self.segment = segment
+
+	# emulate a glue.segments.segment object
+
+	def __abs__(self):
+		return abs(self.segment)
+
+	def __cmp__(self, other):
+		return cmp(self.segment, other)
+
+	def __contains__(self, other):
+		return other in self.segment
+
+	def __getitem__(self, i):
+		return self.segment[i]
+
+	def __init__(self, *args):
+		if args:
+			try:
+				# first try unpacking arguments
+				self.segment = args
+			except ValueError:
+				# didn't work, try unpacking 0th argument
+				args, = args
+				self.segment = args
+
+	def __len__(self):
+		return len(self.segment)
+
+	def __nonzero__(self):
+		return bool(self.segment)
 
 
 SegmentTable.RowType = Segment
