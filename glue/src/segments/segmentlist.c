@@ -32,14 +32,6 @@
 
 #include <segments.h>
 
-/* Gain access to 64-bit addressing where possible
- * http://www.python.org/dev/peps/pep-0353/#conversion-guidelines */
-#if PY_VERSION_HEX < 0x02050000 && !defined(PY_SSIZE_T_MIN)
-typedef int Py_ssize_t;
-#define PY_SSIZE_T_MAX INT_MAX
-#define PY_SSIZE_T_MIN INT_MIN
-#endif
-
 
 /*
  * ============================================================================
@@ -221,15 +213,11 @@ static PyObject *make_segment(PyObject *lo, PyObject *hi)
 
 static int pylist_extend(PyListObject *l, PyObject *v)
 {
-#if (PY_MAJOR_VERSION >= 2) && (PY_MINOR_VERSION >= 4)
 	if(!PyList_Check(l)) {
 		PyErr_SetObject(PyExc_TypeError, (PyObject *) l);
 		return -1;
 	}
 	PyObject *result = _PyList_Extend(l, v);
-#else
-	PyObject *result = PyObject_CallMethod((PyObject *) l, "extend", "O", v);
-#endif
 	if(!result)
 		return -1;
 	Py_DECREF(result);
