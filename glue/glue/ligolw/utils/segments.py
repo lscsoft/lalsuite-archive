@@ -219,6 +219,10 @@ class LigolwSegments(set):
 	>>> xmlsegments = LigolwSegments(xmldoc)
 	>>> xmlsegments.get_by_name("test")
 	{u'H1': [segment(LIGOTimeGPS(0,0), LIGOTimeGPS(10,0))]}
+	>>> xmlsegments.get_by_name("wrong name")
+	Traceback (most recent call last):
+		...
+	KeyError: "no segmentlists named 'wrong name'"
 
 	NOTE:  the process of extracting and re-inserting the contents of
 	the segment tables will, in general, randomize the IDs assigned to
@@ -397,6 +401,8 @@ class LigolwSegments(set):
 				if instrument in result:
 					raise ValueError("multiple '%s' segmentlists for instrument '%s'" % (name, instrument))
 				result[instrument] = segments.segmentlist(segs)
+		if not result:
+			raise KeyError("no segmentlists named '%s'" % name)
 		return result
 
 
