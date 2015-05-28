@@ -3688,6 +3688,10 @@ class Segment(object):
 	None
 	>>> print x.start
 	None
+	>>> # non-LIGOTimeGPS times are converted to LIGOTimeGPS
+	>>> x.segment = (20, 30.125)
+	>>> x.end
+	LIGOTimeGPS(30,125000000)
 	"""
 	__slots__ = SegmentTable.validcolumns.keys()
 
@@ -3702,12 +3706,16 @@ class Segment(object):
 		if gps is None:
 			self.start_time = self.start_time_ns = None
 		else:
-			# FIXME:  remove try/except when we can be certain
-			# we're using the swig version
+			# FIXME:  remove outer try/except when we can be
+			# certain we're using the swig version
 			try:
 				self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
 			except AttributeError:
-				self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+				try:
+					self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+				except AttributeError:
+					# try converting and going again
+					self.start = LIGOTimeGPS(gps)
 
 	@property
 	def end(self):
@@ -3720,12 +3728,16 @@ class Segment(object):
 		if gps is None:
 			self.end_time = self.end_time_ns = None
 		else:
-			# FIXME:  remove try/except when we can be certain
-			# we're using the swig version
+			# FIXME:  remove outer try/except when we can be
+			# certain we're using the swig version
 			try:
 				self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
 			except AttributeError:
-				self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+				try:
+					self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+				except AttributeError:
+					# try converting and going again
+					self.end = LIGOTimeGPS(gps)
 
 	@property
 	def segment(self):
