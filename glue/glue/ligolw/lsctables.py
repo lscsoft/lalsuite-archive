@@ -3166,6 +3166,7 @@ class SimBurstTable(table.Table):
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"waveform": "lstring",
+		"numrel_data": "lstring",
 		"ra": "real_8",
 		"dec": "real_8",
 		"psi": "real_8",
