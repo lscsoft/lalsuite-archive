@@ -1536,6 +1536,7 @@ int XLALWriteLIGOLwXMLSimBurstTable(
 	fputs("\t<Table Name=\"sim_burst:table\">\n", xml->fp);
 	fputs("\t\t<Column Name=\"sim_burst:process_id\" Type=\"ilwd:char\"/>\n", xml->fp);
 	fputs("\t\t<Column Name=\"sim_burst:waveform\" Type=\"lstring\"/>\n", xml->fp);
+	fputs("\t\t<Column Name=\"sim_burst:numrel_data\" Type=\"lstring\"/>\n", xml->fp);
 	fputs("\t\t<Column Name=\"sim_burst:ra\" Type=\"real_8\"/>\n", xml->fp);
 	fputs("\t\t<Column Name=\"sim_burst:dec\" Type=\"real_8\"/>\n", xml->fp);
 	fputs("\t\t<Column Name=\"sim_burst:psi\" Type=\"real_8\"/>\n", xml->fp);
@@ -1565,6 +1566,7 @@ int XLALWriteLIGOLwXMLSimBurstTable(
 			row_head,
 			sim_burst->process_id,
 			sim_burst->waveform,
+            sim_burst->numrel_data,
 			sim_burst->ra,
 			sim_burst->dec,
 			sim_burst->psi,

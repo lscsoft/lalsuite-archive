@@ -638,6 +638,7 @@ tagSimBurst
 	struct tagSimBurst *next;
 	long process_id;
 	char waveform[LIGOMETA_WAVEFORM_MAX];
+    char numrel_data[LIGOMETA_STRING_MAX];
 	REAL8 ra;
 	REAL8 dec;
 	REAL8 psi;
