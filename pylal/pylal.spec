@@ -1,6 +1,6 @@
 Name: 		python-pylal
 Summary:	Python LSC Algorithm Library
-Version:	0.7.1
+Version:	0.7.2
 Release:	1.lscsoft
 License:	See file LICENSE
 Group:		Development/Libraries
