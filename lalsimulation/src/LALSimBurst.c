@@ -30,7 +30,11 @@
 #include <math.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
+#include <lal/FileIO.h>
+#include <lal/LALSimInspiral.h>
+#include <lal/LALSimInspiralSphHarmSeries.h>
 #include <lal/LALSimBurst.h>
+#include <lal/LALSimReadData.h>
 #include <lal/LALConstants.h>
 #include <lal/FrequencySeries.h>
 #include <lal/Sequence.h>
@@ -322,6 +326,177 @@ int XLALGenerateImpulseBurst(
 	return 0;
 }
 
+/*
+ * ============================================================================
+ *
+ *            Construct a Burst From a File
+ *
+ * ============================================================================
+ */
+
+int XLALGenerateBurstFromFile(
+	REAL8TimeSeries **hplus,
+	REAL8TimeSeries **hcross,
+	const char* file,
+    REAL8 incl,
+    REAL8 psi,
+	REAL8 delta_t
+) {
+
+    LALFILE *fp;
+    double *hplusdat;
+    double *hcrossdat;
+    double **data;
+    size_t ndat, ncol;
+    LIGOTimeGPS epoch;
+    char labelplus[FILENAME_MAX+1];
+    char labelcross[FILENAME_MAX+1];
+    char **labels;
+    char *header, *pnt;
+    char buffer[1024];
+    unsigned int i;
+
+    fp = XLALFileOpenRead(file);
+    if (!fp)
+        XLAL_ERROR(XLAL_EINVAL, "Could not open burst injection file for reading.");
+
+    /*
+     * Get the header information
+     * Spec: First column *must* be time -- required to set epoch correctly
+     * Additional columns are either:
+     * 1. the plus and cross modes: In this case, we read them and return,
+     * since we have little else to do
+     * 2. the spherical harmonic modes: In this case, we read them and sum
+     * them to get the plus and cross modes. These are returned
+     * However, in both cases, the polarizations are adjusted for viewing angle
+     * and polarization angle
+     */
+    i = 0;
+    while (1) {
+        if (XLALFileGets(buffer, 1024, fp) == NULL) {
+            XLAL_ERROR(XLAL_EBADLEN, "End of file reached without header information parsed");
+        }
+
+        if ((pnt = strchr(buffer, '\n'))) {
+            i += (pnt - buffer) / sizeof(char);
+        } else {
+            i += 1024;
+        }
+    }
+
+    /* Copy the header into a buffer for processing */
+    XLALFileRewind(fp);
+    header = XLALMalloc((i+1)*sizeof(header));
+    XLALFileRead(header, sizeof(char), i, fp);
+    XLALFileRewind(fp);
+    header[i] = '\0';
+
+    int pol_2 = 0;
+    if (strstr(buffer, "hplus") && strstr(buffer, "hcross")) {
+        ndat = XLALSimReadDataFile2Col(&hplusdat, &hcrossdat, fp);
+        pol_2 = 1;
+    } else {
+        char* tok = strtok(header, "# \t");
+        i = 0;
+
+        if (!strstr(tok, "time")) {
+            XLAL_ERROR(XLAL_EINVAL, "First column must be time");
+        }
+        
+        while ((tok = strtok(NULL, "# \t"))) {
+            labels = XLALRealloc(labels, (i+1)*sizeof(*labels));
+            labels[i] = tok;
+            i++;
+        }
+
+        /* Time and two columns (real, imag) per mode */
+        ncol = 2 * i - 1;
+        for (i=0; i<ncol; i++) {
+            data = XLALMalloc(ncol * sizeof(*data));
+        }
+        ndat = XLALSimReadDataFileNCol(data, &ncol, fp);
+    }
+
+    XLALFileClose(fp);
+    if (ndat == (size_t) (-1) || ncol != 2 * i - 1) {
+        XLAL_ERROR(XLAL_EFUNC, "Column formatting error.");
+    }
+
+    /* These are the output polarizations */
+    *hplus = XLALCreateREAL8TimeSeries(labelplus, &epoch, 0.0, delta_t, &lalStrainUnit, (int) ndat);
+    *hcross = XLALCreateREAL8TimeSeries(labelcross, &epoch, 0.0, delta_t, &lalStrainUnit, (int) ndat);
+
+    if(!*hplus || !*hcross) {
+        XLALDestroyREAL8TimeSeries(*hplus);
+        XLALDestroyREAL8TimeSeries(*hcross);
+        XLALFree(header);
+        for(i=0; i<ncol/2+1; i++) {
+            XLALFree(labels[i]);
+        }
+        for(i=0; i<ncol; i++) {
+            XLALFree(data[i]);
+            XLALFree(data[i]);
+        }
+        *hplus = *hcross = NULL;
+        XLAL_ERROR(XLAL_EFUNC);
+    }
+
+    /* define metadata */
+    snprintf(labelplus, sizeof(labelplus), "%s plus pol", file);
+    snprintf(labelcross, sizeof(labelcross), "%s cross pol", file);
+
+    XLALGPSSetREAL8(&epoch, data[0][0]);
+
+    if (pol_2 == 0) {
+
+        SphHarmTimeSeries* ts = NULL;
+        int l = 0, m = 0;
+        COMPLEX16TimeSeries* tmp = XLALCreateCOMPLEX16TimeSeries(labelplus, &epoch, 0.0, delta_t, &lalStrainUnit, (int) ndat);
+
+        for (i=0; i<ncol; i*=2) {
+            ndat = tmp->data->length;
+            while(!(ndat--)) {
+                tmp->data->data[ndat] = (COMPLEX16)data[i][ndat];
+                tmp->data->data[ndat] += I * data[i][ndat];
+            }
+
+            /* Parse mode label */
+            if (sscanf(labels[i/2], "(%d,%d)", &l, &m) != 2) {
+                XLAL_ERROR(XLAL_EDATA, "Could not parse mode label in file header,");
+            }
+            ts = XLALSphHarmTimeSeriesAddMode(ts, tmp, l, m);
+        }
+
+        /* Sum the modes to hp, hx */
+        XLALSimInspiralPolarizationsFromSphHarmTimeSeries(hplus, hcross, ts, incl, psi);
+        XLALDestroyCOMPLEX16TimeSeries(tmp);
+        XLALDestroySphHarmTimeSeries(ts);
+
+    } else {
+        /* populate */
+        for(i = 0; i < (*hplus)->data->length; i++) {
+            /* Mix with inclination */
+            hplusdat[i] *= 0.5 * (1 + cos(incl)*cos(incl) );
+            hcrossdat[i] *= cos(incl);
+
+            /* ... and polarization */
+            (*hplus)->data->data[i] = hplusdat[i] * cos(psi) + hcrossdat[i] * sin(psi);
+            (*hcross)->data->data[i] = -hplusdat[i] * sin(psi) + hcrossdat[i] * cos(psi);
+        }
+        
+    }
+
+    XLALFree(header);
+    for(i=0; i<ncol/2+1; i++) {
+        XLALFree(labels[i]);
+    }
+    for(i=0; i<ncol; i++) {
+        XLALFree(data[i]);
+        XLALFree(data[i]);
+    }
+
+    return 0;
+}
 
 /*
  * ============================================================================

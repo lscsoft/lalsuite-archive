@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 J. Creighton, K. Cannon
+ * Copyright (C) 2008 J. Creighton, K. Cannon, C. Pankow
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -49,6 +49,16 @@ int XLALGenerateImpulseBurst(
 	REAL8TimeSeries **hplus,
 	REAL8TimeSeries **hcross,
 	REAL8 hpeak,
+	REAL8 delta_t
+);
+
+
+int XLALGenerateBurstFromFile(
+	REAL8TimeSeries **hplus,
+	REAL8TimeSeries **hcross,
+	const char* file,
+    REAL8 incl,
+    REAL8 psi,
 	REAL8 delta_t
 );
 
