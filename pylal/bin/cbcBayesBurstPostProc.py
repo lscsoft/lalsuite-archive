@@ -639,7 +639,8 @@ def cbcBayesBurstPostProc(
         os.makedirs(wfdir)
     try:
         wfpointer= bppu.plot_burst_waveform(pos=pos,simburst=injfile,event=eventnum,path=wfdir)
-    except:
+    except Exception,e:
+        print "Failed to plot waveform. Error was\n%s\n\n"%(str(e))
         wfpointer = None
     wftd=html_wf.insert_td(row,'',label='Waveform',legend=legend)
     wfsection=html.add_section_to_element('Waveforms',wftd)

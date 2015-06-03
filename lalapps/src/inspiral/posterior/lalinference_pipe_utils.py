@@ -787,10 +787,6 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     enginenodes[0].finalize()
     enginenodes[0].set_psd_files()
     enginenodes[0].set_snr_file()
-    if event.GID is not None:
-      if self.config.has_option('analysis','upload-to-gracedb'):
-        if self.config.getboolean('analysis','upload-to-gracedb'):
-          self.add_gracedb_log_node(respagenode,event.GID)
     if self.config.getboolean('analysis','coherence-test') and len(enginenodes[0].ifos)>1:
         if self.site!='local':
           if self.config.has_option('resultspage','archive'):
@@ -868,8 +864,15 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
     if self.config.has_option('input','burst-injection-file') and event.event_id is not None:
         respagenode.set_injection(self.config.get('input','burst-injection-file'),event.event_id)
-    if event.GID is not None:
+    if self.config.has_option('analysis','upload-to-gracedb'):
+      if self.config.getboolean('analysis','upload-to-gracedb') and event.GID is not None:
         self.add_gracedb_log_node(respagenode,event.GID)
+      elif self.config.getboolean('analysis','upload-to-gracedb') and self.config.has_option('analysis','ugid'):
+        ugid=self.config.get('analysis','ugid')
+        self.add_gracedb_log_node(respagenode,ugid)
+        self.add_gracedb_log_node(respagenode,ugid,upload_skymap=1)
+
+
     return True
 	
   def add_full_analysis_lalinferencemcmc(self,event):
@@ -1191,8 +1194,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     self.add_node(node)
     return node
 
-  def add_gracedb_log_node(self,respagenode,gid):
-    node=GraceDBNode(self.gracedbjob,parent=respagenode,gid=gid)
+  def add_gracedb_log_node(self,respagenode,gid,upload_skymap=0):
+    node=GraceDBNode(self.gracedbjob,parent=respagenode,gid=gid,upload_skymap=upload_skymap)
     node.add_parent(respagenode)
     self.add_node(node)
     return node
@@ -1853,13 +1856,14 @@ class GraceDBNode(pipeline.CondorDAGNode):
     """
     Run the gracedb executable to report the results
     """
-    def __init__(self,gracedb_job,gid=None,parent=None):
+    def __init__(self,gracedb_job,gid=None,parent=None,upload_skymap=0):
         pipeline.CondorDAGNode.__init__(self,gracedb_job)
         self.resultsurl=""
         if gid: self.set_gid(gid)
         if parent: self.set_parent_resultspage(parent,gid)
         self.__finalized=False
-        
+        self.upload_skymap=upload_skymap
+
     def set_page_path(self,path):
         """
         Set the path to the results page, after self.baseurl.
@@ -1887,7 +1891,10 @@ class GraceDBNode(pipeline.CondorDAGNode):
         self.add_var_arg('upload')
         self.add_var_arg(str(self.gid))
         #self.add_var_arg('"Parameter estimation finished. <a href=\"'+self.resultsurl+'/posplots.html\">'+self.resultsurl+'/posplots.html</a>"')
-        self.add_var_arg(self.webpath+'/posterior_samples.dat Parameter estimation finished. '+self.resultsurl+'/posplots.html')
+        if not self.upload_skymap:
+          self.add_var_arg(self.webpath+'/posterior_samples.dat LIB Parameter estimation finished. '+self.resultsurl+'/posplots.html')
+        else:
+          self.add_var_arg(self.webpath+'/skymap.png --tag-name sky_loc LIB SkyMap')
         self.__finalized=True
 
 class ROMJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
