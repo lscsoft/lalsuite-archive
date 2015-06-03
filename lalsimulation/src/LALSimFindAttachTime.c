@@ -305,6 +305,7 @@ double XLALSimLocateAmplTime(
     double tMin = timeHi->data[Nps-1] - maxoff;
     double AmplN, AmplO;
     double tAmpMax, AmpMax, tAmp;
+    tAmpMax = 0.;
     REAL8 Ampl[Nps];
     
     if(debugPK) {
