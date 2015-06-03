@@ -48,4 +48,4 @@ for fname in filenames:
 
     SimBurstUtils.add_numrel_data(xmldoc)
     utils.write_filename(xmldoc, fname, gz = filename.endswith(".gz"), verbose = options.verbose)
-	xmldoc.unlink()
+    xmldoc.unlink()
