@@ -290,6 +290,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   if(debugPK)printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );
   /* Eq. 5.73 of BB1 */
   deltaU = bulk*logTerms;
+    deltaU = fabs(deltaU);
   /* Eq. 5.71 of BB1 */
   deltaT = r2*deltaU;
   /* ddeltaU/du */
@@ -299,7 +300,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   /* ddeltaT/dr */
   deltaT_r = 2.*r*deltaU - deltaU_u;
   /* Eq. 5.39 of BB1 */
-  Lambda = w2*w2 - a2*deltaT*xi2;
+  Lambda = fabs(w2*w2 - a2*deltaT*xi2);
   /* Eq. 5.83 of BB1, inverse */
   D = 1. + log(1. + 6.*eta*u2 + 2.*(26. - 3.*eta)*eta*u3);
   /* Eq. 5.38 of BB1 */
@@ -386,7 +387,9 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   /* Eq. 5.52 of BB1, (YP) simplified */
   //Q = 1. + pvr*pvr/(exp(2.*MU)*xi2) + exp(2.*nu)*pxir*pxir/(B*B*xi2) + pn*pn*deltaR/exp(2.*MU);
   Q = 1. + pvr*pvr/(rho2*xi2) + deltaT*rho2/Lambda*pxir*pxir/(B*B*xi2) + pn*pn*deltaR/rho2;
-      
+   if(debugPK){
+       printf( "Q = %.16e, pvr = %.16e, xi2 = %.16e , deltaT = %.16e, rho2 = %.16e, Lambda = %.16e, pxir = %.16e, B = %.16e\n", Q, pvr, xi2, deltaT, rho2, Lambda, pxir, B );
+   }
   pn2 = pr * pr * deltaR / rho2;
   pp  = Q - 1.;
 
@@ -524,13 +527,14 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
 	  printf( "Hns = %.16e, Hs = %.16e, Hss = %.16e\n", Hns, Hs, Hss );
 	  printf( "H = %.16e\n", H );}
   /* Real Hamiltonian given by Eq. 2, ignoring the constant -1. */
-  Hreal = sqrt(1. + 2.*eta *(H - 1.));
+  Hreal = sqrt(1. + 2.*eta *(fabs(H) - 1.));
   if(debugPK)printf( "Hreal = %.16e\n", Hreal );
   
   if(isnan(Hreal)) {
     printf(
     "\n\nInside Hamiltonian: Hreal is a NAN. Printing its components below:\n");
-    
+      printf( "(deltaU, bulk, logTerms) = (%.16e, %.16e, %.16e)\n", deltaU, bulk, logTerms);
+
     printf( "In Hamiltonian: tortoise flag = %d\n", (int) tortoise );
     printf( "x = %.16e\t%.16e\t%.16e\n", x->data[0], x->data[1], x->data[2] );
     printf( "p = %.16e\t%.16e\t%.16e\n", p->data[0], p->data[1], p->data[2] );
@@ -538,7 +542,8 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
       sigmaStar->data[1], sigmaStar->data[2] );
     printf( "sKerr = %.16e\t%.16e\t%.16e\n", sigmaKerr->data[0], 
       sigmaKerr->data[1], sigmaKerr->data[2] );
-    
+      printf( "Q = %.16e, pvr = %.16e, xi2 = %.16e , deltaT = %.16e, rho2 = %.16e, Lambda = %.16e, pxir = %.16e, B = %.16e\n", Q, pvr, xi2, deltaT, rho2, Lambda, pxir, B );
+
     printf( "KK = %.16e\n", coeffs->KK );
     printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );
     printf("csi(miami) = %.16e\n", csi); 
@@ -719,7 +724,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaT(
          coeffs->k1,coeffs->k2,coeffs->k3,coeffs->k4,coeffs->k5,coeffs->k5l);
   printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );*/
   deltaU = bulk*logTerms;
-
+  deltaU = fabs(deltaU);
   deltaT = r*r*deltaU;
 
   return deltaT;
@@ -1447,6 +1452,8 @@ UNUSED static int XLALSpinHcapRvecDerivative(
 		+ coeffs->k5*u5 + coeffs->k5l*u5*log(u));
 	  /* Eq. 5.73 of BB1 */
       deltaU = bulk*logTerms;
+    deltaU = fabs(deltaU);
+
       /* Eq. 5.71 of BB1 */
       deltaT = rMag2*deltaU;
       /* ddeltaU/du */
@@ -1785,6 +1792,7 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
 		+ coeffs->k5*u5 + coeffs->k5l*u5*log(u));
 	  /* Eq. 5.73 of BB1 */
       REAL8 deltaU = bulk*logTerms;
+      deltaU=fabs(deltaU);
       /* Eq. 5.71 of BB1 */
       REAL8 deltaT = rMag*rMag*deltaU;
       /* Eq. 5.38 of BB1 */
@@ -1983,6 +1991,7 @@ static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params )
 		+ coeffs->k5*u5 + coeffs->k5l*u5*log(u));
 	  /* Eq. 5.73 of BB1 */
       REAL8 deltaU = bulk*logTerms;
+      deltaU = fabs(deltaU);
       /* Eq. 5.71 of BB1 */
       REAL8 deltaT = rMag*rMag*deltaU;
       /* Eq. 5.38 of BB1 */
