@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Jolien Creighton, Patrick Brady, Saikat Ray-Majumder,
- * Xavier Siemens, Teviet Creighton, Kipp Cannon
+ * Xavier Siemens, Teviet Creighton, Kipp Cannon, Chris Pankow
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -71,7 +71,14 @@ int XLALGenerateSimBurst(
 	double delta_t
 )
 {
-	if(!strcmp(sim_burst->waveform, "BTLWNB")) {
+	if(!strcmp(sim_burst->numrel_data, "")) {
+		/* Assume we have some data to read. */
+
+		if(XLALGenerateBurstFromFile(hplus, hcross, sim_burst->numrel_data, 0, sim_burst->psi, delta_t)) {
+			XLAL_ERROR(XLAL_EFUNC);
+		}
+
+	} else if(!strcmp(sim_burst->waveform, "BTLWNB")) {
 		/* E_{GW}/r^{2} is in M_{sun} / pc^{2}, so we multiply by
 		 * (M_{sun} c^2) to convert to energy/pc^{2}, and divide by
 		 * (distance/pc)^{2} to convert to energy/distance^{2},
