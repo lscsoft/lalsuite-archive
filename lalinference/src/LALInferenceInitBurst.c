@@ -265,7 +265,7 @@ LALInferenceModel * LALInferenceInitBurstModel(LALInferenceRunState *state)
     REAL8 psiMin=0.0,psiMax=LAL_PI; 
     REAL8 raMin=0.0,raMax=LAL_TWOPI; 
     REAL8 decMin=-LAL_PI/2.0,decMax=LAL_PI/2.0; 
-    //REAL8 qMin=3., qMax=100.0;
+    REAL8 qMin=3., qMax=100.0;
     REAL8 ffMin=40., ffMax=1024.0;
     REAL8 durMin=1.0e-4; // min and max value of duration for gaussian templates 
     REAL8 durMax=.5;
@@ -302,11 +302,11 @@ LALInferenceModel * LALInferenceInitBurstModel(LALInferenceRunState *state)
     if (!strcmp("SineGaussian",ppt->value) || !strcmp("SineGaussianF",ppt->value)|| !strcmp("SineGaussianFFast",ppt->value)|| !strcmp("DampedSinusoid",ppt->value) || !strcmp("DampedSinusoidF",ppt->value)){
      
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "frequency",  zero, ffMin, ffMax,   LALINFERENCE_PARAM_LINEAR);
-      //LALInferenceRegisterUniformVariableREAL8(state, model->params, "quality",  zero,qMin, qMax,   LALINFERENCE_PARAM_LINEAR);
+     LALInferenceRegisterUniformVariableREAL8(state, model->params, "quality",  zero,qMin, qMax,   LALINFERENCE_PARAM_LINEAR);
     }
-    //else if (!strcmp("Gaussian",ppt->value) || !strcmp("GaussianF",ppt->value)){
+    else if (!strcmp("Gaussian",ppt->value) || !strcmp("GaussianF",ppt->value)){
       LALInferenceRegisterUniformVariableREAL8(state, model->params,"duration", zero, durMin,durMax, LALINFERENCE_PARAM_LINEAR);
-    //}
+    }
     
     if (LALInferenceGetProcParamVal(commandLine,"--use-hrss")){
       LALInferenceRegisterUniformVariableREAL8(state, model->params, "hrss",  zero,hrssMin, hrssMax,   LALINFERENCE_PARAM_LINEAR);
