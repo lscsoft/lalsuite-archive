@@ -3116,20 +3116,73 @@ class SimInspiralTable(table.Table):
 
 
 class SimInspiral(object):
+	"""
+	Example:
+
+	>>> x = SimInspiral()
+	>>> x.ra_dec = 0., 0.
+	>>> x.ra_dec
+	(0.0, 0.0)
+	>>> x.ra_dec = None
+	>>> print x.ra_dec
+	None
+	>>> x.time_geocent = None
+	>>> print x.time_geocent
+	None
+	>>> print x.end_time_gmst
+	None
+	>>> x.time_geocent = LIGOTimeGPS(6e8)
+	>>> print x.time_geocent
+	600000000
+	"""
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
-	def get_time_geocent(self):
+	@property
+	def time_geocent(self):
+		if self.geocent_end_time is None and self.geocent_end_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
 
+	@time_geocent.setter
+	def time_geocent(self, gps):
+		if gps is None:
+			self.geocent_end_time = self.geocent_end_time_ns = self.end_time_gmst = None
+		else:
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.geocent_end_time, self.geocent_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.geocent_end_time, self.geocent_end_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  also do this when we switch to swig
+			# binding version of LIGOTimeGPS
+			#self.end_time_gmst = lal.GreenwichMeanSiderealTime(gps)
+
+	@property
+	def ra_dec(self):
+		if self.longitude is None and self.latitude is None:
+			return None
+		return self.longitude, self.latitude
+
+	@ra_dec.setter
+	def ra_dec(self, radec):
+		if radec is None:
+			self.longitude = self.latitude = None
+		else:
+			self.longitude, self.latitude = radec
+
+	def get_time_geocent(self):
+		return self.time_geocent
+
 	def set_time_geocent(self, gps):
-		self.geocent_end_time, self.geocent_end_time_ns = gps.seconds, gps.nanoseconds
+		self.time_geocent = gps
 
 	def get_ra_dec(self):
-		return self.longitude, self.latitude
+		return self.ra_dec
 
 	def get_end(self, site = None):
 		if site is None:
-			return self.get_time_geocent()
+			return self.time_geocent
 		else:
 			return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%s_end_time_ns" % site.lower()))
 
