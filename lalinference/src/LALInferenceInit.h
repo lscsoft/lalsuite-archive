@@ -89,6 +89,6 @@ LALInferenceModel *LALInferenceInitModelReviewBurstEvidence_unimod(LALInferenceR
  * Check options consistency 
  **/
 void LALInferenceCheckOptionsConsistency(ProcessParamsTable *commandLine);
-
+void LALInferenceInitCalibrationVariables(LALInferenceRunState *runState, LALInferenceVariables *currentParams);
 
 #endif

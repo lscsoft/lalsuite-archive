@@ -39,6 +39,7 @@
 #include <lal/LIGOLwXMLBurstRead.h>
 #include <lal/GenerateBurst.h>
 #include <lal/LALSimBurst.h>
+#include <lal/LALInferenceCalibrationErrors.h>
 
 LALInferenceTemplateFunction LALInferenceInitBurstTemplate(LALInferenceRunState *runState)
 {
@@ -275,6 +276,9 @@ LALInferenceModel * LALInferenceInitBurstModel(LALInferenceRunState *state)
     REAL8 timeMin=endtime-0.5*dt; 
     REAL8 timeMax=endtime+0.5*dt;
     REAL8 zero=0.0;
+
+    /* Handle, if present, requests for calibration parameters. */
+    LALInferenceInitCalibrationVariables(state, model->params);
 
     ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
     if (ppt) dt=atof(ppt->value);
