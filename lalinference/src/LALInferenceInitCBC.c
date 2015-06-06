@@ -184,7 +184,7 @@ void LALInferenceInitGlitchVariables(LALInferenceRunState *runState, LALInferenc
 
 }
 
-static void LALInferenceInitCalibrationVariables(LALInferenceRunState *runState, LALInferenceVariables *currentParams) {
+void LALInferenceInitCalibrationVariables(LALInferenceRunState *runState, LALInferenceVariables *currentParams) {
   ProcessParamsTable *ppt = NULL;
   LALInferenceIFOData *ifo = NULL;
   LALInferenceIFOData *dataPtr=NULL;
