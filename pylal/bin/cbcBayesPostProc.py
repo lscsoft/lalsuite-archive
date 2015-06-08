@@ -678,7 +678,11 @@ def cbcBayesPostProc(
             cdf = analyticLikelihood.cdf(par_name)
 
         oneDPDFParams={par_name:50}
-        rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams,pdf,cdf,plotkde=False)
+        try:
+            rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams,pdf,cdf,plotkde=False)
+        except:
+            print "Failed to produce plot for %s."%par_name
+            continue
 
         figname=par_name+'.png'
         oneDplotPath=os.path.join(onepdfdir,figname)
@@ -1094,24 +1098,28 @@ def cbcBayesPostProc(
     pos_samples,table_header_string=pos.samples()
 
     #calculate cov matrix
-    cov_matrix=cov(pos_samples,rowvar=0,bias=1)
+    try:
+        cov_matrix=cov(pos_samples,rowvar=0,bias=1)
 
     #Create html table
-    table_header_list=table_header_string.split()
-    cov_table_string='<table border="1" id="%s"><tr><th/>'%tabid
-    for header in table_header_list:
-        cov_table_string+='<th>%s</th>'%header
-    cov_table_string+='</tr>'
-
-    cov_column_list=hsplit(cov_matrix,cov_matrix.shape[1])
-
-    for cov_column,cov_column_name in zip(cov_column_list,table_header_list):
-        cov_table_string+='<tr><th>%s</th>'%cov_column_name
-        for cov_column_element in cov_column:
-            cov_table_string+='<td>%.3e</td>'%(cov_column_element[0])
+        table_header_list=table_header_string.split()
+        cov_table_string='<table border="1" id="%s"><tr><th/>'%tabid
+        for header in table_header_list:
+            cov_table_string+='<th>%s</th>'%header
         cov_table_string+='</tr>'
-    cov_table_string+='</table>'
-    html_stats_cov.write(cov_table_string)
+
+        cov_column_list=hsplit(cov_matrix,cov_matrix.shape[1])
+
+        for cov_column,cov_column_name in zip(cov_column_list,table_header_list):
+            cov_table_string+='<tr><th>%s</th>'%cov_column_name
+            for cov_column_element in cov_column:
+                cov_table_string+='<td>%.3e</td>'%(cov_column_element[0])
+            cov_table_string+='</tr>'
+        cov_table_string+='</table>'
+        html_stats_cov.write(cov_table_string)
+
+    except:
+        print 'Unable to compute the covariance matrix.'
 
     #Create a section for run configuration information if it exists
     if pos._votfile is not None:
