@@ -524,6 +524,8 @@ class Overlap(InnerProduct):
         """
         Compute norm of a COMPLEX16Frequency Series
         """
+        if h.data.length != self.len1side:
+            print "Bad data length, needed %d, got %d" % (self.len1side, h.data.length)
         assert h.data.length == self.len1side
         assert abs(h.deltaF-self.deltaF) <= TOL_DF
         val = 0.
@@ -646,6 +648,46 @@ class ComplexOverlap(InnerProduct):
             tShift[i] -= self.len2side * self.deltaT
         return tShift
 
+def overlap(t1, t2, ovrlp, delta_f, f_low, approx1, approx2, t1_norm=None, t2_norm=None):
+    """
+    Calculate the overlap of template 1 using approx1 with template 2 using approx2 with frequency binning given by delta_f and beginning the integration at f_low. If t1_norm or t2_norm is given, it is not calculated, it is simply used and returned.
+    """
+
+    if isinstance(t1, lsctables.SnglInspiral):
+        h1 = generate_waveform_from_tmplt(t1, approx1, delta_f, f_low)
+    else:
+        h1 = t1
+
+    if isinstance(t2, lsctables.SnglInspiral):
+        h2 = generate_waveform_from_tmplt(t2, approx2, delta_f, f_low)
+    else:
+        h2 = t2
+
+    if t1_norm is None:
+        t1_norm = ovrlp.norm(h1)
+    if t2_norm is None:
+        t2_norm = ovrlp.norm(h2)
+
+    o12 = ovrlp.ip(h1, h2) / t1_norm / t2_norm
+
+    return o12, t1_norm, t2_norm
+
+
+# Adapted from similar code in gstlal.cbc_template_fir
+def generate_waveform_from_tmplt(tmplt, approximant, delta_f=0.125, f_low=40, amporder=-1, phaseorder=7):
+
+    params = ChooseWaveformParams(
+        deltaF = delta_f,
+        m1 = lal.MSUN_SI * tmplt.mass1, m2 = lal.MSUN_SI * tmplt.mass2,
+        s1x = tmplt.spin1x, s1y = tmplt.spin1y, s1z = tmplt.spin1z,
+        s2x = tmplt.spin2x, s2y = tmplt.spin2y, s2z = tmplt.spin2z,
+        fmin = f_low, fref = 0,
+        dist = 1.e6 * lal.PC_SI, # distance
+        ampO = amporder, phaseO = phaseorder,
+        approx = lalsim.GetApproximantFromString(str(approximant)),
+        taper = lalsim.SIM_INSPIRAL_TAPER_START # FIXME: don't hardcode
+    )
+    return hoff(params, Fp=1, Fc=1)
 
 #
 # Antenna pattern functions
@@ -669,13 +711,20 @@ def Fcross(theta, phi, psi):
 #
 # Mass parameter conversion functions - note they assume m1 >= m2
 #
+def norm_sym_ratio(eta):
+    # FIXME: Replace with isclose when available
+    if eta > 0.25:
+        np.testing.assert_almost_equal(0.25, eta)
+        eta = 0.25
+    return sqrt(1 - 4.*eta)
+
 def mass1(Mc, eta):
     """Compute larger component mass from Mc, eta"""
-    return 0.5*Mc*eta**(-3./5.)*(1. + sqrt(1 - 4.*eta))
+    return 0.5*Mc*eta**(-3./5.)*(1. + norm_sym_ratio(eta))
 
 def mass2(Mc, eta):
     """Compute smaller component mass from Mc, eta"""
-    return 0.5*Mc*eta**(-3./5.)*(1. - sqrt(1 - 4.*eta))
+    return 0.5*Mc*eta**(-3./5.)*(1. - norm_sym_ratio(eta))
 
 def mchirp(m1, m2):
     """Compute chirp mass from component masses"""
@@ -687,8 +736,8 @@ def symRatio(m1, m2):
 
 def m1m2(Mc, eta):
     """Compute component masses from Mc, eta. Returns m1 >= m2"""
-    m1 = 0.5*Mc*eta**(-3./5.)*(1. + sqrt(1 - 4.*eta))
-    m2 = 0.5*Mc*eta**(-3./5.)*(1. - sqrt(1 - 4.*eta))
+    m1 = 0.5*Mc*eta**(-3./5.)*(1. + norm_sym_ratio(eta))
+    m2 = 0.5*Mc*eta**(-3./5.)*(1. - norm_sym_ratio(eta))
     return m1, m2
 
 def Mceta(m1, m2):
@@ -696,6 +745,44 @@ def Mceta(m1, m2):
     Mc = (m1*m2)**(3./5.)*(m1+m2)**(-1./5.)
     eta = m1*m2/(m1+m2)/(m1+m2)
     return Mc, eta
+
+#
+# Tidal parameter conversion functions
+#
+def tidal_lambda_tilde(mass1, mass2, lambda1, lambda2):
+    """
+    'Effective' lambda parameters.
+    """
+    mt = mass1 + mass2
+    eta = mass1 * mass2 / mt**2
+    q = sqrt(1 - 4*eta)
+    lt1, lt2 = lambda1 / mass1**5, lambda2 / mass2**5
+    lt_sym = lt1 + lt2
+    lt_asym = lt1 - lt2
+
+    lam_til = (1 + 7*eta - 31*eta**2) * lt_sym - q * (1 + 9*eta - 11*eta**2) * lt_asym
+    dlam_til = q * (1 - 13272*eta/1319 + 8944*eta**2/1319) * lt_sym + (1 - 15910*eta/1319 + 32850*eta**2/1319 + 3380*eta**3/1319) * lt_asym
+    dlam_til *= 0.5
+    lam_til *= 8. / 13
+    return lam_til, dlam_til
+
+def tidal_lambda_from_tilde(mass1, mass2, lam_til, dlam_til):
+    """
+    Determine physical lambda parameters from effective parameters.
+    """
+    mt = mass1 + mass2
+    eta = mass1 * mass2 / mt**2
+    q = sqrt(1 - 4*eta)
+
+    a = (8./13) * (1 + 7*eta - 31*eta**2)
+    b = (8./13) * q * (1 + 9*eta - 11*eta**2)
+    c = 0.5 * q * (1 - 13272*eta/1319 + 8944*eta**2/1319)
+    d = 0.5 * (1 - 15910*eta/1319 + 32850*eta**2/1319 + 3380*eta**3/1319)
+
+    lambda1 = 0.5 * ((c - d) * lam_til - (a - b) * dlam_til)/(b*c - a*d)
+    lambda2 = 0.5 * ((c + d) * lam_til - (a + b) * dlam_til)/(a*d - b*c)
+
+    return lambda1, lambda2
 
 #
 # Other utility functions
@@ -827,6 +914,9 @@ def hoft(P, Fp=None, Fc=None):
         lalsim.SimInspiralREAL8WaveTaper(ht.data, P.taper)
     if P.deltaF is not None:
         TDlen = int(1./P.deltaF * 1./P.deltaT)
+        if TDlen < ht.data.length:
+            print "TD length requirement not met: Needed at most %d (%f s), got %d (%f s)" % (TDlen, TDlen*P.deltaT, ht.data.length, ht.data.length*ht.deltaT)
+            P.print_params()
         assert TDlen >= ht.data.length
         ht = lal.ResizeREAL8TimeSeries(ht, 0, TDlen)
     return ht
@@ -1397,11 +1487,11 @@ def resample_psd_series(psd, df=None, fmin=None, fmax=None):
     df = df or psd_df
 
     f = np.arange(psd_fmin, psd_fmax, psd_df)
-    ifunc = interpolate.interp1d(f, data)
-    def intp_psd(freq):
-        return float("inf") if freq >= psd_fmax-psd_df or ifunc(freq) == 0.0 else ifunc(freq)
-    intp_psd = np.vectorize(intp_psd)
-    psd_intp = intp_psd(np.arange(fmin, fmax, df))
+    ifunc = interpolate.interp1d(f, data, fill_value=float("inf"), bounds_error=False)
+    psd_intp = np.zeros(np.ceil((fmax - fmin) / df))
+    newf = np.arange(fmin, psd_fmax, df)
+    psd_intp = ifunc(newf)
+    psd_intp[psd_intp == 0.0] = float("inf")
 
     tmpepoch = lal.LIGOTimeGPS(float(psd.epoch))
     # FIXME: Reenable when we figure out generic error

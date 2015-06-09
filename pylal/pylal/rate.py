@@ -101,6 +101,8 @@ class Bins(object):
 		# input checking
 		if not isinstance(n, int):
 			raise TypeError(n)
+		if n < 1:
+			raise ValueError(n)
 		if max <= min:
 			raise ValueError((min, max))
 		self.min = min
@@ -194,9 +196,9 @@ class Bins(object):
 		>>> # natural log of 1/10
 		>>> print "%.15g" % math.log(1./10)
 		-2.30258509299405
-		>>> # linear bins spanning [1, 10]
+		>>> # linear bins spanning [0, 10]
 		>>> x = LinearBins(0, 10, 5).randcoord().next
-		>>> # draw a random value, P(value) = 1/10
+		>>> # draw a random value, ln P(value) = ln 1/10
 		>>> x()	# doctest: +ELLIPSIS
 		(..., -2.3025850929940455)
 		>>> # binning with infinite boundaries
@@ -369,7 +371,7 @@ class LinearBins(Bins):
 	slice(1, 3, None)
 	"""
 	def __init__(self, min, max, n):
-		Bins.__init__(self, min, max, n)
+		super(LinearBins, self).__init__(min, max, n)
 		self.delta = float(max - min) / n
 
 	def __getitem__(self, x):
@@ -394,11 +396,11 @@ class LinearBins(Bins):
 
 class LinearPlusOverflowBins(Bins):
 	"""
-	Linearly-spaced bins with overflow at the edges.  There are n-2 bins of
-	equal size. The n+1 bin starts on the lower bound and the n-1 bin ends
-	on the upper bound inclusively.  The 0 and n bins are overflow going
-	from -infinity to the n+1 boundary and the n-1 boundary to +infinity
-	respectively.
+	Linearly-spaced bins with overflow at the edges.  There are n-2
+	bins of equal size.  The bin 1 starts on the lower bound and bin
+	n-2 ends on the upper bound.  Bins 0 and n-1 are overflow going
+	from -infinity to the lower bound and from the upper bound to
+	+infinity respectively.  Must have n >= 3.
 
 	Example:
 
@@ -433,7 +435,7 @@ class LinearPlusOverflowBins(Bins):
 	def __init__(self, min, max, n):
 		if n < 3:
 			raise ValueError("n must be >= 3")
-		Bins.__init__(self, min, max, n)
+		super(LinearPlusOverflowBins, self).__init__(min, max, n)
 		self.delta = float(max - min) / (n - 2)
 
 	def __getitem__(self, x):
@@ -477,7 +479,7 @@ class LogarithmicBins(Bins):
 	2
 	"""
 	def __init__(self, min, max, n):
-		Bins.__init__(self, min, max, n)
+		super(LogarithmicBins, self).__init__(min, max, n)
 		self.delta = (math.log(max) - math.log(min)) / n
 
 	def __getitem__(self, x):
@@ -502,12 +504,13 @@ class LogarithmicBins(Bins):
 
 class LogarithmicPlusOverflowBins(Bins):
 	"""
-	Logarithmically-spaced bins plus one bin at each end that goes to zero
-	and positive infinity respectively.  There are n bins, The [n+1,n-1]
-	bins have each of their upper and lower bounds differ by the same
-	factor.  The second bin starts on the lower bound, and the n-1 bin ends
-	on the upper bound inclusively.  The first bin goes to zero and the
-	last bin goes to infinity.  Must have n >= 3.
+	Logarithmically-spaced bins plus one bin at each end that goes to
+	zero and positive infinity respectively.  There are n-2 bins each
+	of whose upper and lower bounds differ by the same factor.  Bin 1
+	starts on the lower bound, and bin n-2 ends on the upper bound
+	inclusively.  Bins 0 and n-1 are overflow bins extending from 0 to
+	the lower bound and from the upper bound to +infinity respectively.
+	Must have n >= 3.
 
 	Example:
 
@@ -534,7 +537,7 @@ class LogarithmicPlusOverflowBins(Bins):
 	def __init__(self, min, max, n):
 		if n < 3:
 			raise ValueError("n must be >= 3")
-		Bins.__init__(self, min, max, n)
+		super(LogarithmicPlusOverflowBins, self).__init__(min, max, n)
 		self.delta = (math.log(max) - math.log(min)) / (n - 2)
 
 	def __getitem__(self, x):
@@ -585,7 +588,7 @@ class ATanBins(Bins):
                 4.42778777])
 	"""
 	def __init__(self, min, max, n):
-		Bins.__init__(self, min, max, n)
+		super(ATanBins, self).__init__(min, max, n)
 		self.mid = (min + max) / 2.0
 		self.scale = math.pi / float(max - min)
 		self.delta = 1.0 / n
@@ -650,6 +653,12 @@ class ATanLogarithmicBins(IrregularBins):
 	how large an array the binning corresponds to.
 	"""
 	def __init__(self, min, max, n):
+		if not isinstance(n, int):
+			raise TypeError(n)
+		if n < 1:
+			raise ValueError(n)
+		if max <= min:
+			raise ValueError((min, max))
 		self.mid = (math.log(min) + math.log(max)) / 2.0
 		self.scale = math.pi / (math.log(max) - math.log(min))
 		self.delta = 1.0 / n
@@ -1159,7 +1168,8 @@ class BinnedArray(object):
 
 	def to_xml(self, name):
 		"""
-		Retrun an XML document tree describing a rate.BinnedArray object.
+		Retrun an XML document tree describing a rate.BinnedArray
+		object.
 		"""
 		xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_rate_binnedarray" % name})
 		xml.appendChild(self.bins.to_xml())
@@ -1169,10 +1179,14 @@ class BinnedArray(object):
 	@classmethod
 	def from_xml(cls, xml, name):
 		"""
-		Search for the description of a rate.BinnedArray object named
-		"name" in the XML document tree rooted at xml, and construct and
-		return a new rate.BinnedArray object from the data contained
-		therein.
+		Search for the description of a rate.BinnedArray object
+		named "name" in the XML document tree rooted at xml, and
+		construct and return a new rate.BinnedArray object from the
+		data contained therein.
+
+		NOTE:  the .array attribute is a reference to the .array
+		attribute of the XML element.  Changes to the contents of
+		the BinnedArray object affect the XML document tree.
 		"""
 		xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.Name == u"%s:pylal_rate_binnedarray" % name]
 		try:

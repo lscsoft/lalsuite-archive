@@ -34,6 +34,7 @@ parser.add_option("--gid",action="store",type="string",default=None,help="GraceD
 parser.add_option("-I","--injections",action="store",type="string",default=None,help="List of injections to perform and analyse",metavar="INJFILE.xml")
 parser.add_option("-P","--pipedown-db",action="store",type="string",default=None,help="Pipedown database to read and analyse",metavar="pipedown.sqlite")
 parser.add_option("--condor-submit",action="store_true",default=False,help="Automatically submit the condor dag")
+parser.add_option("--pegasus-submit",action="store_true",default=False,help="Automatically submit the pegasus dax")
 parser.add_option("-x", "--dax",action="store_true",default=False, help="Delete the ligo_data_find jobs and populate frame LFNs in the DAX")
 parser.add_option("-G", "--grid-site",action="store",type="string",metavar="SITE", help="Specify remote site in conjunction with --dax option. e.g. --grid-site=creamce for Bologna cluster.\
 Supported options are: creamce and local",default=None)
@@ -91,7 +92,7 @@ if opts.pipedown_db is not None:
 
 # Create the DAG from the configparser object
 dag=pipe_utils.LALInferencePipelineDAG(cp,dax=opts.dax,site=opts.grid_site)
-if(opts.dax):
+if((opts.dax) and not cp.has_option('lalinference','fake-cache')):
 # Create a text file with the frames listed
   pfnfile = dag.create_frame_pfn_file()
   peg_frame_cache = inspiralutils.create_pegasus_cache_file(pfnfile)
@@ -117,12 +118,13 @@ os.chdir(olddir)
 # End of program
 print 'Successfully created DAG file.'
 fulldagpath=os.path.join(cp.get('paths','basedir'),dag.get_dag_file())
-print 'Now run condor_submit_dag %s\n'%(fulldagpath)
+if not opts.dax:
+    print 'Now run condor_submit_dag %s\n'%(fulldagpath)
 
 if opts.condor_submit:
     import subprocess
     from subprocess import Popen
-           
+
     x = subprocess.Popen(['condor_submit_dag',fulldagpath])
     x.wait()
     if x.returncode==0:
@@ -130,3 +132,14 @@ if opts.condor_submit:
     else:
       print 'Unable to submit DAG file'
 
+if opts.pegasus_submit:
+    import subprocess
+    from subprocess import Popen
+
+    os.chdir(os.path.abspath(cp.get('paths','basedir')))
+    x = subprocess.Popen('./pegasus_submit_dax')
+    x.wait()
+    if x.returncode==0:
+      print 'Submitted DAX file'
+    else:
+      print 'Unable to submit DAX file'

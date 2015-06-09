@@ -31,7 +31,6 @@ LAL-derived code (eg. LALApps programs)
 
 import fnmatch
 import math
-import operator
 import os
 import re
 import sys
@@ -98,6 +97,16 @@ class LIGOTimeGPS(object):
 		LIGOTimeGPS(100, 500000000)
 		>>> LIGOTimeGPS(100.2, 300000000)
 		LIGOTimeGPS(100, 500000000)
+		>>> LIGOTimeGPS("0.000000001")
+		LIGOTimeGPS(0, 1)
+		>>> LIGOTimeGPS("0.0000000012")
+		LIGOTimeGPS(0, 1)
+		>>> LIGOTimeGPS("0.0000000018")
+		LIGOTimeGPS(0, 2)
+		>>> LIGOTimeGPS("-0.8")
+		LIGOTimeGPS(-1, 200000000)
+		>>> LIGOTimeGPS("-1.2")
+		LIGOTimeGPS(-2, 800000000)
 		"""
 		if type(nanoseconds) not in (float, int, long):
 			try:
@@ -105,23 +114,21 @@ class LIGOTimeGPS(object):
 			except:
 				raise TypeError(nanoseconds)
 		if type(seconds) is float:
-			seconds, ns = divmod(seconds, 1)
+			ns, seconds = math.modf(seconds)
 			seconds = int(seconds)
 			nanoseconds += ns * 1e9
 		elif type(seconds) not in (int, long):
 			if type(seconds) in (str, unicode):
+				sign = -1 if seconds.lstrip().startswith("-") else +1
 				try:
 					if "." in seconds:
 						seconds, ns = seconds.split(".")
-						ns = float("." + ns) * 1e9
+						ns = round(sign * float("." + ns) * 1e9)
 					else:
 						ns = 0
 					seconds = int(seconds)
 				except:
 					raise TypeError("invalid literal for LIGOTimeGPS(): %s" % seconds)
-				if seconds < 0 and ns:
-					seconds -= 1
-					ns = 1e9 - ns
 				nanoseconds += ns
 			else:
 				try:
@@ -135,8 +142,8 @@ class LIGOTimeGPS(object):
 		self.__seconds = seconds + int(nanoseconds // 1000000000)
 		self.__nanoseconds = int(nanoseconds % 1000000000)
 
-	seconds = property(lambda self: self.__seconds)
-	nanoseconds = property(lambda self: self.__nanoseconds)
+	seconds = gpsSeconds = property(lambda self: self.__seconds)
+	nanoseconds = gpsNanoSeconds = property(lambda self: self.__nanoseconds)
 
 	def __repr__(self):
 		return "LIGOTimeGPS(%d, %u)" % (self.__seconds, self.__nanoseconds)
@@ -297,45 +304,29 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.5) * 2
 		LIGOTimeGPS(201, 0)
 		"""
-		nlo = self.__nanoseconds % 2**15
-		nhi = self.__nanoseconds - nlo
-		slo = self.__seconds % 2**26
-		shi = self.__seconds - slo
+		seconds = self.__seconds
+		nanoseconds = self.__nanoseconds
+
+		if seconds < 0 and nanoseconds > 0:
+			seconds += 1
+			nanoseconds -= 1000000000
+		elif seconds > 0 and nanoseconds < 0:
+			seconds -=1
+			nanoseconds += 1000000000
+
+		slo = seconds % 131072
+		shi = seconds - slo
 		olo = other % 2**(int(math.log(other, 2)) - 26) if other else 0
 		ohi = other - olo
-		product = LIGOTimeGPS(0)
 
-		addend = nlo * olo * 1e-9
-		gps_addend = LIGOTimeGPS(addend)
-		addend -= float(gps_addend)
-		product += gps_addend
+		nanoseconds *= float(other)
+		seconds = 0.
+		for addend in (slo * olo, shi * olo, slo * ohi, shi * ohi):
+			n, s = math.modf(addend)
+			seconds += s
+			nanoseconds += n * 1e9
 
-		addend += (nlo * ohi + nhi * olo) * 1e-9
-		gps_addend = LIGOTimeGPS(addend)
-		addend -= float(gps_addend)
-		product += gps_addend
-
-		addend += nhi * ohi * 1e-9
-		gps_addend = LIGOTimeGPS(addend)
-		addend -= float(gps_addend)
-		product += gps_addend
-
-		addend += slo * olo
-		gps_addend = LIGOTimeGPS(addend)
-		addend -= float(gps_addend)
-		product += gps_addend
-
-		addend += slo * ohi + shi * olo
-		gps_addend = LIGOTimeGPS(addend)
-		addend -= float(gps_addend)
-		product += gps_addend
-
-		addend += shi * ohi
-		gps_addend = LIGOTimeGPS(addend)
-		addend -= float(gps_addend)
-		product += gps_addend
-
-		return product
+		return LIGOTimeGPS(seconds, round(nanoseconds))
 
 	# multiplication is commutative
 	__rmul__ = __mul__
@@ -349,14 +340,12 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.5) / 2
 		LIGOTimeGPS(50, 250000000)
 		"""
-		quotient = LIGOTimeGPS(float(self) / other)
-		n = 0
-		while n < 100:
-			residual = float(self - quotient * other) / other
+		quotient = LIGOTimeGPS(float(self) / float(other))
+		for n in xrange(100):
+			residual = float(self - quotient * other) / float(other)
 			quotient += residual
 			if abs(residual) <= 0.5e-9:
 				break
-			n += 1
 		return quotient
 
 	def __mod__(self, other):

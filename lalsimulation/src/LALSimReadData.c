@@ -19,6 +19,10 @@
 
 #include <config.h>
 
+#define _BSD_SOURCE   /* for realpath() */
+#include <stdlib.h>
+#undef _BSD_SOURCE
+
 #include <limits.h>
 #include <string.h>
 #ifdef HAVE_UNISTD_H
@@ -68,7 +72,7 @@ LALFILE *XLALSimReadDataFileOpen(const char *fname)
         char *str;
         char *dir;
         env = str = XLALStringDuplicate(env ? env : ":");
-        while ((dir = strsep(&str, ":"))) {
+        while ((dir = XLALStringToken(&str, ":", 1))) {
             if (strlen(dir))
                 snprintf(path, sizeof(path), "%s/%s", dir, fname);
             else        /* use default path */

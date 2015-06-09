@@ -1,4 +1,5 @@
 /*
+*  Copyright (C) 2015 Karl Wette
 *  Copyright (C) 2007 Jolien Creighton
 *
 *  This program is free software; you can redistribute it and/or modify
@@ -17,6 +18,7 @@
 *  MA  02111-1307  USA
 */
 
+#include <stdint.h>
 #include <string.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALString.h>
@@ -100,12 +102,10 @@ size_t XLALStringConcatenate(char *dst, const char *src, size_t size)
 
 
 /**
- * Helper function:  turn a string in-place into lowercase without
- * using locale-dependent functions.
+ * Turn a string in-place into lowercase without using locale-dependent functions.
  */
-int XLALStringToLowerCase(CHAR * string)
+int XLALStringToLowerCase(char * string)
 {
-/**< [in/out] string to convert */
     XLAL_CHECK(string != NULL, XLAL_EINVAL);
 
     /* ctype replacements w/o locale */
@@ -131,12 +131,10 @@ int XLALStringToLowerCase(CHAR * string)
 
 
 /**
- * Helper function:  turn a string in-place into uppercase without
- * using locale-dependent functions.
+ * Turn a string in-place into uppercase without using locale-dependent functions.
  */
-int XLALStringToUpperCase(CHAR * string)
+int XLALStringToUpperCase(char * string)
 {
-/**< [in/out] string to convert */
     XLAL_CHECK(string != NULL, XLAL_EINVAL);
 
     /* ctype replacements w/o locale */
@@ -159,3 +157,116 @@ int XLALStringToUpperCase(CHAR * string)
     return XLAL_SUCCESS;
 
 }       /* XLALStringToUpperCase() */
+
+/**
+ * Compare two strings, ignoring case and without using locale-dependent functions.
+ */
+int XLALStringCaseCompare(const char *s1, const char *s2)
+{
+    size_t n = ( (s1 == NULL) ? 0 : strlen(s1) ) + ( (s2 == NULL) ? 0 : strlen(s2) );
+    return XLALStringNCaseCompare(s1, s2, n);
+}
+
+/**
+ * Compare the first N characters of two strings, ignoring case and without using locale-dependent functions.
+ */
+int XLALStringNCaseCompare(const char *s1, const char *s2, size_t n)
+{
+
+    /* ctype replacements w/o locale */
+    const char upper_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const char lower_chars[] = "abcdefghijklmnopqrstuvwxyz";
+
+    int c1 = 0, c2 = 0;
+
+    /* based on implementation of strncmp() in glibc */
+    while (n-- > 0) {
+
+        c1 = (s1 == NULL) ? 0 : *s1++;
+        c2 = (s2 == NULL) ? 0 : *s2++;
+
+        /* convert c1 to lower case */
+        if (c1) {
+            char *p = strchr(upper_chars, c1);
+            if (p) {
+                int offset = p - upper_chars;
+                c1 = lower_chars[offset];
+            }
+        }
+
+        /* convert c2 to lower case */
+        if (c2) {
+            char *p = strchr(upper_chars, c2);
+            if (p) {
+                int offset = p - upper_chars;
+                c2 = lower_chars[offset];
+            }
+        }
+
+        /* compare characters */
+        if (c1 == '\0' || c1 != c2) {
+            return c1 - c2;
+        }
+
+    }
+
+    return c1 - c2;
+
+}
+
+/**
+ * Locates substring needle in string haystack, ignoring case and without
+ * using locale-dependent functions.
+ */
+char * XLALStringCaseSubstring(const char *haystack, const char *needle)
+{
+    size_t haystack_length;
+    size_t needle_length = strlen(needle);
+
+    /* return haystack if needle is empty */
+    if (needle_length == 0)
+        return (char *)(intptr_t)(haystack);
+
+    haystack_length = strlen(haystack);
+    while (needle_length <= haystack_length) {
+        if (XLALStringNCaseCompare(haystack, needle, needle_length) == 0)
+            return (char *)(intptr_t)(haystack);
+        --haystack_length;
+        ++haystack;
+    }
+
+    /* needle not found in haystack */
+    return NULL;
+}
+
+/**
+ * Return the next token delimited by any character in 'delim' from the string 's', which is updated
+ * to point just pass the returned token. If 'empty' is true, empty tokens are accepted.
+ */
+char *XLALStringToken(char **s, const char *delim, int empty)
+{
+
+    if (*s == NULL) {
+        return NULL;
+    }
+
+    /* based on implementations of strtok_r() and strsep() in glibc */
+    char *begin = *s;
+    if (!empty) {
+        begin += strspn(begin, delim);
+        if (*begin == '\0') {
+            *s = NULL;
+            return NULL;
+        }
+    }
+    char *end = strpbrk(begin, delim);
+    if (end != NULL) {
+        *end++ = '\0';
+        *s = end;
+    } else {
+        *s = NULL;
+    }
+
+    return begin;
+
+}

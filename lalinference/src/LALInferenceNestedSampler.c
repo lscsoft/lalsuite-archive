@@ -805,21 +805,22 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
 
     #ifdef HAVE_LIBLALXML
     /* Write out the XML if requested */
-    LALInferenceVariables *output_array=NULL;
+    LALInferenceVariables **output_array=NULL;
+    
     UINT4 N_output_array=0;
     if(LALInferenceCheckVariable(runState->algorithmParams,"outputarray")
       &&LALInferenceCheckVariable(runState->algorithmParams,"N_outputarray") )
     {
-      output_array=*(LALInferenceVariables **)LALInferenceGetVariable(runState->algorithmParams,"outputarray");
+      output_array=*(LALInferenceVariables ***)LALInferenceGetVariable(runState->algorithmParams,"outputarray");
       N_output_array=*(UINT4 *)LALInferenceGetVariable(runState->algorithmParams,"N_outputarray");
     }
     if(output_array && outVOTable && N_output_array>0){
       xmlNodePtr votable=XLALInferenceVariablesArray2VOTTable(output_array, N_output_array, "Nested Samples");
-      xmlNewProp(votable, CAST_CONST_XMLCHAR("utype"), CAST_CONST_XMLCHAR("lalinference:results:nestedsamples"));
+      xmlNewProp(votable, CAST_CONST_XMLCHAR("utype"), CAST_CONST_XMLCHAR("lalinference:nestedsampling:samples"));
 
     xmlNodePtr stateResource=XLALInferenceStateVariables2VOTResource(runState, "Run State Configuration");
 
-    xmlNodePtr nestResource=XLALCreateVOTResourceNode("lalinference:results","Nested sampling run",votable);
+    xmlNodePtr nestResource=XLALCreateVOTResourceNode("lalinference:nestedsampling","Nested sampling run",votable);
 
       if(stateResource)
 	xmlAddChild(nestResource,stateResource);
@@ -833,6 +834,10 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
       fclose(fpout);
 
 
+    }
+    for(i=0;i<N_output_array;i++){
+        LALInferenceClearVariables(output_array[i]);
+        XLALFree(output_array[i]);
     }
     if(output_array) XLALFree(output_array);
     #endif
@@ -933,7 +938,7 @@ LALInferenceVariables *LALInferenceComputeAutoCorrelation(LALInferenceRunState *
   }
 
   /* Get the location of the sample array */
-  LALInferenceVariables *variables_array=*(LALInferenceVariables **)LALInferenceGetVariable(runState->algorithmParams,"outputarray");
+  LALInferenceVariables **variables_array=*(LALInferenceVariables ***)LALInferenceGetVariable(runState->algorithmParams,"outputarray");
 
   /* Convert to a 2D array for ACF calculation */
   data_array=XLALCalloc(nPar,sizeof(REAL8 *));
@@ -945,7 +950,7 @@ LALInferenceVariables *LALInferenceComputeAutoCorrelation(LALInferenceRunState *
   /* Measure autocorrelation in each dimension */
   /* Not ideal, should be measuring something like the det(autocorrelation-crosscorrelation matrix) */
   for (i=0;i<max_iterations;i++){
-    for(j=0;j<nPar;j++) data_array[j][i]=*(REAL8 *)LALInferenceGetVariable(&variables_array[i],param_names[j]);
+    for(j=0;j<nPar;j++) data_array[j][i]=*(REAL8 *)LALInferenceGetVariable(variables_array[i],param_names[j]);
   }
   this=myCurrentParams.head;
   for(i=0;i<(UINT4)nPar;i++){
@@ -996,12 +1001,12 @@ LALInferenceVariables *LALInferenceComputeAutoCorrelation(LALInferenceRunState *
     REAL8 oldLogL=-DBL_MAX;
     for(i=stride,j=*Ncache;j<Nnew+*Ncache&&i<max_iterations;i+=stride,j++)
     {
-      REAL8 newlogL=*(REAL8 *)LALInferenceGetVariable(&(variables_array[i]),"logL");
+      REAL8 newlogL=*(REAL8 *)LALInferenceGetVariable(variables_array[i],"logL");
       if(newlogL==oldLogL) {j--; continue;}
       cache=XLALRealloc(cache,(j+1)*sizeof(LALInferenceVariables) );
       if(!cache) fprintf(stderr,"ERROR!!! Could not resize cache to %i!\n",j+1);
       memset(&(cache[j]),0,sizeof(LALInferenceVariables));
-      LALInferenceCopyVariables(&(variables_array[i]),&(cache[j]));
+      LALInferenceCopyVariables(variables_array[i],&(cache[j]));
       oldLogL=newlogL;
     }
 
@@ -1013,7 +1018,8 @@ LALInferenceVariables *LALInferenceComputeAutoCorrelation(LALInferenceRunState *
   /* Clean up */
   for(i=0;i<(UINT4)nPar;i++) {XLALFree(data_array[i]); XLALFree(acf_array[i]);}
   for (i=0;i<max_iterations;i++){
-    LALInferenceClearVariables(&variables_array[i]);
+    LALInferenceClearVariables(variables_array[i]);
+    XLALFree(variables_array[i]);
   }
   XLALFree(variables_array);
   XLALFree(data_array); XLALFree(acf_array);
@@ -1565,6 +1571,16 @@ static int WriteNSCheckPoint(CHAR *filename, LALInferenceRunState *runState, NSi
         return 1;
     }
     LALInferenceWriteVariablesArrayBinary(progfile,runState->livePoints, Nlive);
+    INT4 N_output_array=0;
+    if(LALInferenceCheckVariable(runState->algorithmParams,"N_outputarray")) N_output_array=LALInferenceGetINT4Variable(runState->algorithmParams,"N_outputarray");
+      fwrite(&N_output_array,sizeof(INT4),1,progfile);
+    if(N_output_array!=0 )
+    {
+      LALInferenceVariables **output_array=NULL;
+      output_array=*(LALInferenceVariables ***)LALInferenceGetVariable(runState->algorithmParams,"outputarray");
+      LALInferenceWriteVariablesArrayBinary(progfile,output_array, N_output_array);
+      fprintf(stderr,"Resume --> wrote %d past chain samples\n\n",N_output_array);
+    }
     fclose(progfile);
     return 0;
   }
@@ -1589,6 +1605,18 @@ static int ReadNSCheckPoint(CHAR *filename, LALInferenceRunState *runState, NSin
     }
     //if(retcode) return 1;
     LALInferenceReadVariablesArrayBinary(progfile,runState->livePoints,Nlive);
+      INT4 N_output_array;
+      fread(&N_output_array,sizeof(INT4),1,progfile);
+      LALInferenceVariables **output_array=NULL;
+      if(N_output_array!=0){
+          output_array=XLALCalloc(N_output_array,sizeof(LALInferenceVariables *));
+          fprintf(stderr,"Resume --> read %d past chain samples\n",N_output_array);
+          LALInferenceReadVariablesArrayBinary(progfile,output_array,N_output_array);
+          if(LALInferenceCheckVariable(runState->algorithmParams,"N_outputarray")) LALInferenceRemoveVariable(runState->algorithmParams,"N_outputarray");
+          if(LALInferenceCheckVariable(runState->algorithmParams,"outputarray")) LALInferenceRemoveVariable(runState->algorithmParams,"outputarray");
+          LALInferenceAddVariable(runState->algorithmParams,"N_outputarray",&N_output_array,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_OUTPUT);
+          LALInferenceAddVariable(runState->algorithmParams,"outputarray",&output_array,LALINFERENCE_void_ptr_t,LALINFERENCE_PARAM_OUTPUT);
+    }
     fclose(progfile);
     return 0;
   }

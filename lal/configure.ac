@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([LAL],[6.13.4.1],[lal-discuss@ligo.org])
+AC_INIT([LAL],[6.14.0.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h src/LALConfig.h])
 AC_CONFIG_SRCDIR([src/std/LALStdio.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -72,7 +72,7 @@ LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[9])
+AC_SUBST([LIBCURRENT],[10])
 AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
@@ -91,9 +91,9 @@ AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT_SUPPORT],[5])
+AC_SUBST([LIBCURRENT_SUPPORT],[6])
 AC_SUBST([LIBREVISION_SUPPORT],[0])
-AC_SUBST([LIBAGE_SUPPORT],[1])
+AC_SUBST([LIBAGE_SUPPORT],[0])
 AC_SUBST([LIBVERSION_SUPPORT],[${LIBCURRENT_SUPPORT}:${LIBREVISION_SUPPORT}:${LIBAGE_SUPPORT}])
 
 LAL_ENABLE_INTELFFT
@@ -129,19 +129,7 @@ AM_SILENT_RULES([yes])
 LALSUITE_PROG_COMPILERS
 
 # check for SIMD extensions
-LALSUITE_WITH_SIMD
-
-# check for pthreads
-lal_pthread_available="yes"
-AX_PTHREAD(,[lal_pthread_available="no"])
-if test "$lal_pthread_lock" = "true" ; then
-  if test "$lal_pthread_available" = "yes" ; then
-    LALSUITE_ADD_FLAGS([C],[${PTHREAD_CFLAGS}],[${PTHREAD_LIBS}])
-    CC="$PTHREAD_CC"
-  else
-    AC_MSG_ERROR([do not know how to compile posix threads])
-  fi
-fi
+LALSUITE_CHECK_SIMD
 
 # check for programs
 AC_PROG_INSTALL
@@ -174,7 +162,7 @@ esac
 
 # check for system headers files
 AC_HEADER_STDC
-AC_CHECK_HEADERS([sys/time.h sys/resource.h unistd.h malloc.h regex.h glob.h])
+AC_CHECK_HEADERS([sys/time.h sys/resource.h unistd.h malloc.h regex.h glob.h execinfo.h])
 AC_CHECK_HEADERS([stdint.h],,[AC_MSG_ERROR([could not find stdint.h])])
 AC_CHECK_HEADERS([inttypes.h],,[AC_MSG_ERROR([could not find inttypes.h])])
 AC_MSG_CHECKING([for gethostname prototype in unistd.h])
@@ -302,7 +290,7 @@ AC_TYPE_SSIZE_T
 AC_HEADER_TIME
 
 # checks for library functions
-AC_CHECK_FUNCS([gmtime_r localtime_r stat putenv posix_memalign])
+AC_CHECK_FUNCS([gmtime_r localtime_r stat putenv posix_memalign backtrace clock_gettime])
 
 # set automake conditionals
 AM_CONDITIONAL([INTELFFT],[test x$intelfft = xtrue])
@@ -316,7 +304,7 @@ AC_SUBST([LDADD], ["\$(top_builddir)/src/liblal.la \$(top_builddir)/src/support/
 
 # add extra preprocessor flags
 AM_CPPFLAGS="-DPKG_DATA_DIR='\"\$(pkgdatadir)/\"' ${AM_CPPFLAGS}"
-AM_CPPFLAGS="-I\$(top_builddir)/include ${AM_CPPFLAGS}"
+AM_CPPFLAGS="-I\$(top_builddir)/include -I\$(top_srcdir)/src ${AM_CPPFLAGS}"
 
 # force all python modules into the exec dir to prevent mixed C and
 # pure-python library code from being split across lib and lib64 on
@@ -331,9 +319,7 @@ LAL has now been successfully configured:
 
 * Python support is $PYTHON_ENABLE_VAL
 * CUDA support is $CUDA_ENABLE_VAL
-* SIMD extensions are $SIMD_ENABLE_VAL
 * BOINC support is $BOINC_ENABLE_VAL
-* SWIG binding generation is $SWIG_GENERATE_ENABLE_VAL
 * SWIG bindings for Octave are $SWIG_BUILD_OCTAVE_ENABLE_VAL
 * SWIG bindings for Python are $SWIG_BUILD_PYTHON_ENABLE_VAL
 * Doxygen documentation is $DOXYGEN_ENABLE_VAL

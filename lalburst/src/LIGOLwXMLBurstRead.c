@@ -20,12 +20,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
+
 #include <metaio.h>
 
-#include <lal/LIGOMetadataTables.h>
-#include <lal/LIGOMetadataBurstUtils.h>
-#include <lal/LIGOLwXMLBurstRead.h>
+
 #include <lal/Date.h>
+#include <lal/LIGOMetadataTables.h>
+#include <lal/LIGOLwXMLBurstRead.h>
+#include <lal/LIGOLwXMLRead.h>
+#include <lal/SnglBurstUtils.h>
 
 /**
  * Read the sngl_burst table from a LIGO Light Weight XML file into a

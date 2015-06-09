@@ -65,7 +65,6 @@
 #include <lal/GenerateInspiral.h>
 #include <lal/NRWaveInject.h>
 #include <lal/GenerateInspRing.h>
-#include <lal/LALErrno.h>
 #include <math.h>
 #include <lal/LALInspiral.h>
 #include <lal/LALSimulation.h>
@@ -201,7 +200,7 @@ static LALCache *GlobFramesPWD(char *ifo)
     LALCache *frInCache=NULL;
     /* sieve out the requested data type */
         snprintf( ifoRegExPattern,
-                sizeof(ifoRegExPattern) / sizeof(*ifoRegExPattern), ".*%c.*",
+                XLAL_NUM_ELEM(ifoRegExPattern), ".*%c.*",
                 ifo[0] );
     {
         fprintf(stderr,"GlobFramesPWD : Found unseived src files:\n");
@@ -1952,7 +1951,7 @@ LALInferenceLALFindChirpInjectSignals (
           );
     }
 
-    snprintf( warnMsg, sizeof(warnMsg)/sizeof(*warnMsg),
+    snprintf( warnMsg, XLAL_NUM_ELEM(warnMsg),
         "Injected waveform timing:\n"
         "thisEvent->geocent_end_time.gpsSeconds = %d\n"
         "thisEvent->geocent_end_time.gpsNanoSeconds = %d\n"
@@ -2254,13 +2253,11 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
   char SNRpath[FILENAME_MAX];
   ProcessParamsTable *ppt=NULL;
 
-  ppt=LALInferenceGetProcParamVal(commandLine,"--outfile");
-  if(!ppt){
-    fprintf(stderr,"Must specify --outfile <filename.dat>\n");
-    exit(1);
-  }
-  char *outfile=ppt->value;
-  sprintf(SNRpath,"%s_snr.txt",outfile);
+  ppt = LALInferenceGetProcParamVal(commandLine,"--outfile");
+  if (ppt)
+    sprintf(SNRpath, "%s_snr.txt", ppt->value);
+  else
+    sprintf(SNRpath, "snr.txt");
 
   Approximant approximant = XLALGetApproximantFromString(inj_table->waveform);
   if( (int) approximant == XLAL_FAILURE)
@@ -2824,7 +2821,13 @@ void LALInferenceSetupROQ(LALInferenceIFOData *IFOdata, LALInferenceModel *model
 
   if(LALInferenceGetProcParamVal(commandLine,"--roqnodes")){
     ppt=LALInferenceGetProcParamVal(commandLine,"--roqnodes");
+
+    // open file containing the set of frequency points associated
+    // with the given weights
     tempfp = fopen(ppt->value, "rb");
+    if (!tempfp) {
+        fprintf(stderr,"Error: cannot find file %s \n", ppt->value);
+        exit(1);} // check file exists
     gsl_vector_fread(tempfp, model->roq->frequencyNodes);
 
     thisData=IFOdata;

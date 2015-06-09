@@ -127,34 +127,14 @@ def New(Type, columns = None, **kwargs):
 	return new
 
 
-def IsTableElement(Type, elem):
-	"""
-	Convenience function to check that an element is a Table of type
-	Type.
-	"""
-	return elem.tagName == ligolw.Table.tagName and elem.Name == table.StripTableName(Type.tableName)
-
-
 def IsTableProperties(Type, tagname, attrs):
 	"""
-	Convenience function to check that the given tag name and
-	attributes match those of a Table of type Type.
-
-	Example:
-
-	>>> IsTableProperties(ProcessTable, u"Table", {u"Name": u"process:table"})
-	True
+	obsolete.  see .CheckProperties() method of glue.ligolw.table.Table
+	class.
 	"""
-	if tagname != ligolw.Table.tagName:
-		return False
-	return table.CompareTableNames(attrs[u"Name"], Type.tableName) == 0
-
-
-def getTablesByType(elem, Type):
-	"""
-	Return a list of tables of type Type under elem.
-	"""
-	return table.getTablesByName(elem, Type.tableName)
+	import warnings
+	warnings.warn("lsctables.IsTableProperties() is deprecated.  use glue.ligolw.table.Table.CheckProperties() instead", DeprecationWarning)
+	return Type.CheckProperties(tagname, attrs)
 
 
 def HasNonLSCTables(elem):
@@ -169,9 +149,9 @@ def instrument_set_from_ifos(ifos):
 	"""
 	Parse the values stored in the "ifos" and "instruments" columns
 	found in many tables.  This function is mostly for internal use by
-	the .get_ifos() and .get_instruments() methods of the corresponding
-	row classes.  The mapping from input to output is as follows (rules
-	are applied in order):
+	the .instruments properties of the corresponding row classes.  The
+	mapping from input to output is as follows (rules are applied in
+	order):
 
 	input is None --> output is None
 
@@ -213,6 +193,8 @@ def instrument_set_from_ifos(ifos):
 	None
 	>>> instrument_set_from_ifos(u"")
 	set([])
+	>>> instrument_set_from_ifos(u"  ,  ,,")
+	set([])
 	>>> instrument_set_from_ifos(u"H1")
 	set([u'H1'])
 	>>> instrument_set_from_ifos(u"SWIFT")
@@ -252,14 +234,15 @@ def ifos_from_instrument_set(instruments):
 	"""
 	Convert an iterable of instrument names into a value suitable for
 	storage in the "ifos" column found in many tables.  This function
-	is mostly for internal use by the .set_ifos() methods of the
-	corresponding row classes.  The input can be None or an iterable
-	of zero or more instrument names, none of which may contain "," or
-	"+" characters.  The output is a single string containing the
-	instrument names concatenated using "," as a delimiter.
-	instruments will only be iterated over once and so can be a
-	generator expression.  Whitespace is allowed in instrument names
-	but might not be preserved.
+	is mostly for internal use by the .instruments properties of the
+	corresponding row classes.  The input can be None or an iterable of
+	zero or more instrument names, none of which may be zero-length,
+	consist exclusively of spaces, or contain "," or "+" characters.
+	The output is a single string containing the unique instrument
+	names concatenated using "," as a delimiter.  instruments will only
+	be iterated over once and so can be a generator expression.
+	Whitespace is allowed in instrument names but might not be
+	preserved.  Repeated names will not be preserved.
 
 	NOTE:  in the special case that there is 1 instrument name in the
 	iterable and it has an even number of characters > 2 in it, the
@@ -277,9 +260,9 @@ def ifos_from_instrument_set(instruments):
 	None
 	>>> ifos_from_instrument_set(())
 	u''
-	>>> ifos_from_instrument_set((u"",))
-	u''
 	>>> ifos_from_instrument_set((u"H1",))
+	u'H1'
+	>>> ifos_from_instrument_set((u"H1",u"H1",u"H1"))
 	u'H1'
 	>>> ifos_from_instrument_set((u"H1",u"L1"))
 	u'H1,L1'
@@ -290,14 +273,17 @@ def ifos_from_instrument_set(instruments):
 	"""
 	if instruments is None:
 		return None
-	instruments = sorted(instrument.strip() for instrument in instruments)
-	if any(u"," in instrument or u"+" in instrument for instrument in instruments):
+	_instruments = sorted(set(instrument.strip() for instrument in instruments))
+	# safety check:  refuse to accept blank names, or names with commas
+	# or pluses in them as they cannot survive the encode/decode
+	# process
+	if not all(_instruments) or any(u"," in instrument or u"+" in instrument for instrument in _instruments):
 		raise ValueError(instruments)
-	if len(instruments) == 1 and len(instruments[0]) > 2 and not len(instruments[0]) % 2:
+	if len(_instruments) == 1 and len(_instruments[0]) > 2 and not len(_instruments[0]) % 2:
 		# special case disambiguation.  FIXME:  remove when
 		# everything uses the comma-delimited encoding
-		return u"%s," % instruments[0]
-	return u",".join(instruments)
+		return u"%s," % _instruments[0]
+	return u",".join(_instruments)
 
 
 #
@@ -640,7 +626,12 @@ class SearchSummary(object):
 		if gps is None:
 			self.in_start_time = self.in_start_time_ns = None
 		else:
-			self.in_start_time, self.in_start_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.in_start_time, self.in_start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.in_start_time, self.in_start_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def in_end(self):
@@ -653,7 +644,12 @@ class SearchSummary(object):
 		if gps is None:
 			self.in_end_time = self.in_end_time_ns = None
 		else:
-			self.in_end_time, self.in_end_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.in_end_time, self.in_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.in_end_time, self.in_end_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def out_start(self):
@@ -666,7 +662,12 @@ class SearchSummary(object):
 		if gps is None:
 			self.out_start_time = self.out_start_time_ns = None
 		else:
-			self.out_start_time, self.out_start_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.out_start_time, self.out_start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.out_start_time, self.out_start_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def out_end(self):
@@ -679,7 +680,12 @@ class SearchSummary(object):
 		if gps is None:
 			self.out_end_time = self.out_end_time_ns = None
 		else:
-			self.out_end_time, self.out_end_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.out_end_time, self.out_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.out_end_time, self.out_end_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def in_segment(self):
@@ -1392,70 +1398,249 @@ class SnglBurst(object):
 	# Tile properties
 	#
 
-	def get_start(self):
+	@property
+	def start(self):
+		if self.start_time is None and self.start_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.start_time, self.start_time_ns)
 
-	def set_start(self, gps):
-		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+	@start.setter
+	def start(self, gps):
+		if gps is None:
+			self.start_time = self.start_time_ns = None
+		else:
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
-	def get_stop(self):
+	@property
+	def stop(self):
+		if self.stop_time is None and self.stop_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.stop_time, self.stop_time_ns)
 
-	def set_stop(self, gps):
-		self.stop_time, self.stop_time_ns = gps.seconds, gps.nanoseconds
+	@stop.setter
+	def stop(self, gps):
+		if gps is None:
+			self.stop_time = self.stop_time_ns = None
+		else:
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.stop_time, self.stop_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.stop_time, self.stop_time_ns = gps.seconds, gps.nanoseconds
 
-	def get_peak(self):
+	@property
+	def peak(self):
+		if self.peak_time is None and self.peak_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
 
-	def set_peak(self, gps):
-		self.peak_time, self.peak_time_ns = gps.seconds, gps.nanoseconds
+	@peak.setter
+	def peak(self, gps):
+		if gps is None:
+			self.peak_time = self.peak_time_ns = None
+		else:
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.peak_time, self.peak_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.peak_time, self.peak_time_ns = gps.seconds, gps.nanoseconds
 
-	def get_period(self):
-		start = self.get_start()
-		return segments.segment(start, start + self.duration)
+	@property
+	def period(self):
+		start = self.start
+		stop = self.stop
+		# special case:  use duration if stop is not recorded
+		if start is not None and stop is None and self.duration is not None:
+			stop = start + self.duration
+		if start is None and stop is None:
+			return None
+		return segments.segment(start, stop)
 
-	def set_period(self, period):
-		self.start_time, self.start_time_ns = period[0].seconds, period[0].nanoseconds
-		self.duration = float(abs(period))
+	@period.setter
+	def period(self, seg):
+		if seg is None:
+			self.start = self.stop = self.duration = None
+		else:
+			self.start, self.stop = seg
+			self.duration = float(abs(seg))
 
-	def get_band(self):
-		low = self.central_freq - self.bandwidth / 2
-		return segments.segment(low, low + self.bandwidth)
+	@property
+	def band(self):
+		if self.central_freq is None and self.bandwidth is None:
+			return None
+		return segments.segment(self.central_freq - self.bandwidth / 2., self.central_freq + self.bandwidth / 2.)
 
-	def set_band(self, band):
-		self.central_freq = (band[0] + band[1])/2.0
-		self.bandwidth = abs(band)
+	@band.setter
+	def band(self, seg):
+		if seg is None:
+			try:
+				self.flow = self.fhigh = None
+			except AttributeError:
+				# not in LAL C version
+				pass
+			self.central_freq = self.bandwidth = None
+		else:
+			try:
+				self.flow, self.fhigh = seg
+			except AttributeError:
+				# not in LAL C version
+				pass
+			self.central_freq = sum(seg) / 2.
+			self.bandwidth = abs(seg)
 
 	#
 	# "Most significant pixel" properties
 	#
 
-	def get_ms_start(self):
+	@property
+	def ms_start(self):
+		if self.ms_start_time is None and self.ms_start_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.ms_start_time, self.ms_start_time_ns)
 
-	def set_ms_start(self, gps):
-		self.ms_start_time, self.ms_start_time_ns = gps.seconds, gps.nanoseconds
+	@ms_start.setter
+	def ms_start(self, gps):
+		if gps is None:
+			self.ms_start_time = self.ms_start_time_ns = None
+		else:
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.ms_start_time, self.ms_start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.ms_start_time, self.ms_start_time_ns = gps.seconds, gps.nanoseconds
 
-	def get_ms_stop(self):
+	@property
+	def ms_stop(self):
+		if self.ms_stop_time is None and self.ms_stop_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.ms_stop_time, self.ms_stop_time_ns)
 
-	def set_ms_stop(self, gps):
-		self.ms_stop_time, self.ms_stop_time_ns = gps.seconds, gps.nanoseconds
+	@ms_stop.setter
+	def ms_stop(self, gps):
+		if gps is None:
+			self.ms_stop_time = self.ms_stop_time_ns = None
+		else:
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.ms_stop_time, self.ms_stop_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.ms_stop_time, self.ms_stop_time_ns = gps.seconds, gps.nanoseconds
 
-	def get_ms_period(self):
-		start = self.get_ms_start()
-		return segments.segment(start, start + self.ms_duration)
+	@property
+	def ms_peak(self):
+		if self.ms_peak_time is None and self.ms_peak_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.ms_peak_time, self.ms_peak_time_ns)
 
-	def set_ms_period(self, period):
-		self.ms_start_time, self.ms_start_time_ns = period[0].seconds, period[0].nanoseconds
-		self.ms_duration = float(abs(period))
+	@ms_peak.setter
+	def ms_peak(self, gps):
+		if gps is None:
+			self.ms_peak_time = self.ms_peak_time_ns = None
+		else:
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.ms_peak_time, self.ms_peak_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.ms_peak_time, self.ms_peak_time_ns = gps.seconds, gps.nanoseconds
 
-	def get_ms_band(self):
+	@property
+	def ms_period(self):
+		start = self.ms_start
+		stop = self.ms_stop
+		# special case:  use duration if stop is not recorded
+		if start is not None and stop is None and self.ms-duration is not None:
+			stop = start + self.ms_duration
+		if start is None and stop is None:
+			return None
+		return segments.segment(start, stop)
+
+	@ms_period.setter
+	def ms_period(self, seg):
+		if seg is None:
+			self.ms_start = self.ms_stop = self.ms_duration = None
+		else:
+			self.ms_start, self.ms_stop = seg
+			self.ms_duration = float(abs(seg))
+
+	@property
+	def ms_band(self):
+		if self.ms_flow is None and self.ms_bandwidth is None:
+			return None
 		return segments.segment(self.ms_flow, self.ms_flow + self.ms_bandwidth)
 
+	@ms_band.setter
+	def ms_band(self, seg):
+		if seg is None:
+			self.ms_bandwidth = self.ms_flow = self.ms_fhigh = None
+		else:
+			self.ms_flow, self.ms_fhigh = seg
+			self.ms_bandwidth = abs(seg)
+
+	# legacy compatibility.  DO NOT USE
+
+	def get_start(self):
+		return self.start
+
+	def set_start(self, gps):
+		self.start = gps
+
+	def get_stop(self):
+		return self.stop
+
+	def set_stop(self, gps):
+		self.stop = gps
+
+	def get_peak(self):
+		return self.peak
+
+	def set_peak(self, gps):
+		self.peak = gps
+
+	def get_period(self):
+		return self.period
+
+	def set_period(self, period):
+		self.period = period
+
+	def get_band(self):
+		return self.band
+
+	def set_band(self, band):
+		self.band = band
+
+	def get_ms_start(self):
+		return self.ms_start
+
+	def set_ms_start(self, gps):
+		self.ms_start = gps
+
+	def get_ms_stop(self):
+		return self.ms_stop
+
+	def set_ms_stop(self, gps):
+		self.ms_stop = gps
+
+	def get_ms_period(self):
+		return self.ms_period
+
+	def set_ms_period(self, period):
+		self.ms_period = period
+
+	def get_ms_band(self):
+		return self.ms_band
+
 	def set_ms_band(self, band):
-		self.ms_flow = band[0]
-		self.ms_bandwidth = abs(band)
+		self.ms_band = band
 
 	#
 	# Omega-Pipeline properties
@@ -1523,25 +1708,92 @@ class MultiBurstTable(table.Table):
 class MultiBurst(object):
 	__slots__ = MultiBurstTable.validcolumns.keys()
 
-	def get_ifos(self):
-		"""
-		Return a set of the instruments for this row.
-		"""
+	@property
+	def instruments(self):
 		return instrument_set_from_ifos(self.ifos)
 
-	def set_ifos(self, instruments):
-		"""
-		Serialize a sequence of instruments into the ifos
-		attribute.  The instrument names must not contain the ","
-		character.
-		"""
+	@instruments.setter
+	def instruments(self, instruments):
 		self.ifos = ifos_from_instrument_set(instruments)
 
-	def get_peak(self):
+	@property
+	def start(self):
+		if self.start_time is None and self.start_time_ns is None:
+			return None
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+	@start.setter
+	def start(self, gps):
+		if gps is None:
+			self.start_time = self.start_time_ns = None
+		else:
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+
+	@property
+	def peak(self):
+		if self.peak_time is None and self.peak_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
 
+	@peak.setter
+	def peak(self, gps):
+		if gps is None:
+			self.peak_time = self.peak_time_ns = None
+		else:
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.peak_time, self.peak_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.peak_time, self.peak_time_ns = gps.seconds, gps.nanoseconds
+
+	@property
+	def period(self):
+		start = self.start
+		if start is None and self.duration is None:
+			return None
+		return segments.segment(start, start + self.duration)
+
+	@period.setter
+	def period(self, seg):
+		if seg is None:
+			self.start = self.duration = None
+		else:
+			self.start = seg[0]
+			self.duration = float(abs(seg))
+
+	@property
+	def band(self):
+		if self.central_freq is None and self.bandwidth is None:
+			return None
+		return segments.segment(self.central_freq - self.bandwidth / 2., self.central_freq + self.bandwidth / 2.)
+
+	@band.setter
+	def band(self, seg):
+		if seg is None:
+			self.central_freq = self.bandwidth = None
+		else:
+			self.central_freq = sum(seg) / 2.
+			self.bandwidth = abs(seg)
+
+	# legacy compatibility.  DO NOT USE
+
+	def get_ifos(self):
+		return self.instruments
+
+	def set_ifos(self, instruments):
+		self.instruments = instruments
+
+	def get_peak(self):
+		return self.peak
+
 	def set_peak(self, gps):
-		self.peak_time, self.peak_time_ns = gps.seconds, gps.nanoseconds
+		self.peak = gps
 
 
 MultiBurstTable.RowType = MultiBurst
@@ -1964,7 +2216,12 @@ class CoincInspiral(object):
 		if gps is None:
 			self.end_time = self.end_time_ns = None
 		else:
-			self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
 	def get_end(self):
 		return self.end
@@ -2859,20 +3116,73 @@ class SimInspiralTable(table.Table):
 
 
 class SimInspiral(object):
+	"""
+	Example:
+
+	>>> x = SimInspiral()
+	>>> x.ra_dec = 0., 0.
+	>>> x.ra_dec
+	(0.0, 0.0)
+	>>> x.ra_dec = None
+	>>> print x.ra_dec
+	None
+	>>> x.time_geocent = None
+	>>> print x.time_geocent
+	None
+	>>> print x.end_time_gmst
+	None
+	>>> x.time_geocent = LIGOTimeGPS(6e8)
+	>>> print x.time_geocent
+	600000000
+	"""
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
-	def get_time_geocent(self):
+	@property
+	def time_geocent(self):
+		if self.geocent_end_time is None and self.geocent_end_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
 
+	@time_geocent.setter
+	def time_geocent(self, gps):
+		if gps is None:
+			self.geocent_end_time = self.geocent_end_time_ns = self.end_time_gmst = None
+		else:
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.geocent_end_time, self.geocent_end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.geocent_end_time, self.geocent_end_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  also do this when we switch to swig
+			# binding version of LIGOTimeGPS
+			#self.end_time_gmst = lal.GreenwichMeanSiderealTime(gps)
+
+	@property
+	def ra_dec(self):
+		if self.longitude is None and self.latitude is None:
+			return None
+		return self.longitude, self.latitude
+
+	@ra_dec.setter
+	def ra_dec(self, radec):
+		if radec is None:
+			self.longitude = self.latitude = None
+		else:
+			self.longitude, self.latitude = radec
+
+	def get_time_geocent(self):
+		return self.time_geocent
+
 	def set_time_geocent(self, gps):
-		self.geocent_end_time, self.geocent_end_time_ns = gps.seconds, gps.nanoseconds
+		self.time_geocent = gps
 
 	def get_ra_dec(self):
-		return self.longitude, self.latitude
+		return self.ra_dec
 
 	def get_end(self, site = None):
 		if site is None:
-			return self.get_time_geocent()
+			return self.time_geocent
 		else:
 			return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%s_end_time_ns" % site.lower()))
 
@@ -2941,6 +3251,9 @@ class SimBurst(TableRow):
 	>>> x.ra_dec = 0., 0.
 	>>> x.ra_dec
 	(0.0, 0.0)
+	>>> x.ra_dec = None
+	>>> print x.ra_dec
+	None
 	>>> x.time_geocent = None
 	>>> print x.time_geocent
 	None
@@ -2963,7 +3276,12 @@ class SimBurst(TableRow):
 		if gps is None:
 			self.time_geocent_gps = self.time_geocent_gps_ns = self.time_geocent_gmst = None
 		else:
-			self.time_geocent_gps, self.time_geocent_gps_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.time_geocent_gps, self.time_geocent_gps_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.time_geocent_gps, self.time_geocent_gps_ns = gps.seconds, gps.nanoseconds
 			# FIXME:  also do this when we switch to swig
 			# binding version of LIGOTimeGPS
 			#self.time_geocent_gmst = lal.GreenwichMeanSiderealTime(gps)
@@ -2978,7 +3296,8 @@ class SimBurst(TableRow):
 	def ra_dec(self, radec):
 		if radec is None:
 			self.ra = self.dec = None
-		self.ra, self.dec = radec
+		else:
+			self.ra, self.dec = radec
 
 	def get_time_geocent(self):
 		return self.time_geocent
@@ -3135,7 +3454,12 @@ class SummValue(object):
 		if gps is None:
 			self.start_time = self.start_time_ns = None
 		else:
-			self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def end(self):
@@ -3148,7 +3472,12 @@ class SummValue(object):
 		if gps is None:
 			self.end_time = self.end_time_ns = None
 		else:
-			self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def segment(self):
@@ -3410,6 +3739,12 @@ class Segment(object):
 	>>> x.segment = None
 	>>> print x.segment
 	None
+	>>> print x.start
+	None
+	>>> # non-LIGOTimeGPS times are converted to LIGOTimeGPS
+	>>> x.segment = (20, 30.125)
+	>>> x.end
+	LIGOTimeGPS(30,125000000)
 	"""
 	__slots__ = SegmentTable.validcolumns.keys()
 
@@ -3424,7 +3759,16 @@ class Segment(object):
 		if gps is None:
 			self.start_time = self.start_time_ns = None
 		else:
-			self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove outer try/except when we can be
+			# certain we're using the swig version
+			try:
+				self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				try:
+					self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+				except AttributeError:
+					# try converting and going again
+					self.start = LIGOTimeGPS(gps)
 
 	@property
 	def end(self):
@@ -3437,7 +3781,16 @@ class Segment(object):
 		if gps is None:
 			self.end_time = self.end_time_ns = None
 		else:
-			self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove outer try/except when we can be
+			# certain we're using the swig version
+			try:
+				self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				try:
+					self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+				except AttributeError:
+					# try converting and going again
+					self.end = LIGOTimeGPS(gps)
 
 	@property
 	def segment(self):
@@ -3454,7 +3807,7 @@ class Segment(object):
 			self.start, self.end = seg
 
 	def __cmp__(self, other):
-		return cmp(self.get(), other.get())
+		return cmp(self.segment, other.segment)
 
 	def get(self):
 		"""
@@ -3596,6 +3949,8 @@ class SegmentSum(object):
 	>>> x.segment = None
 	>>> print x.segment
 	None
+	>>> print x.start
+	None
 	"""
 	__slots__ = SegmentSumTable.validcolumns.keys()
 
@@ -3610,7 +3965,12 @@ class SegmentSum(object):
 		if gps is None:
 			self.start_time = self.start_time_ns = None
 		else:
-			self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.start_time, self.start_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def end(self):
@@ -3623,7 +3983,12 @@ class SegmentSum(object):
 		if gps is None:
 			self.end_time = self.end_time_ns = None
 		else:
-			self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+			# FIXME:  remove try/except when we can be certain
+			# we're using the swig version
+			try:
+				self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+			except AttributeError:
+				self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
 	@property
 	def segment(self):

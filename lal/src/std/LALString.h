@@ -40,8 +40,12 @@ char *XLALStringAppend(char *s, const char *append);
 char *XLALStringDuplicate(const char *s);
 size_t XLALStringCopy(char *dst, const char *src, size_t size);
 size_t XLALStringConcatenate(char *dst, const char *src, size_t size);
-int XLALStringToLowerCase(CHAR * string);
-int XLALStringToUpperCase(CHAR * string);
+int XLALStringToLowerCase(char * string);
+int XLALStringToUpperCase(char * string);
+int XLALStringCaseCompare(const char *s1, const char *s2);
+int XLALStringNCaseCompare(const char *s1, const char *s2, size_t n);
+char *XLALStringCaseSubstring(const char *haystack, const char *needle);
+char *XLALStringToken(char **s, const char *delim, int empty);
 
 /*@}*/
 

@@ -150,12 +150,10 @@ typedef struct {
   UINT4 nf3dot;			/**< number of 3rd spindown Fstat bins */
   SSBprecision SSBprec;            /**< SSB transform precision */
   FstatMethodType Fmethod;         //!< which Fstat-method/algorithm to use
-  BOOLEAN useResamp;               /**< user-input switch whether to use resampling */
   REAL8 mismatch1;                 /**< 'mismatch1' user-input needed here internally ... */
   UINT4 nSFTs;                     /**< total number of SFTs */
   LALStringVector *detectorIDs;    /**< vector of detector IDs */
   REAL4 NSegmentsInvX[PULSAR_MAX_DETECTORS]; /**< effective inverse number of segments per detector (needed for correct averaging in single-IFO F calculation) */
-  FstatWorkspace *sharedWorkspace; /**< resampling Fstat workspace shared across segments */
 } UsefulStageVariables;
 
 
@@ -207,7 +205,7 @@ int XLALExtrapolateToplistPulsarSpins ( toplist_t *list,
 					const LIGOTimeGPS usefulParamsRefTime,
 					const LIGOTimeGPS finegridRefTime);
 
-static int write_TimingInfo ( const CHAR *fname, const timingInfo_t *ti );
+static int write_TimingInfo ( const CHAR *fname, const timingInfo_t *ti, const FstatInputVector* Fstat_in_vec );
 
 /* ---------- Global variables -------------------- */
 LALStatus *global_status; /* a global pointer to MAIN()s head of the LALStatus structure */
@@ -749,8 +747,6 @@ int MAIN( int argc, char *argv[]) {
     XLALPrintError ("XLALParseFstatMethodString() failed.\n");
     return( HIERARCHICALSEARCH_EBAD );
   }
-  LogPrintf (LOG_NORMAL, "FstatMethod used: '%s'\n", XLALGetFstatMethodName( usefulParams.Fmethod ) );
-  usefulParams.useResamp = XLALFstatMethodClassIsResamp ( usefulParams.Fmethod );
 
   usefulParams.mismatch1 = uvar_mismatch1;
 
@@ -1703,7 +1699,7 @@ int MAIN( int argc, char *argv[]) {
       timing.FstatMethod = usefulParams.Fmethod;
 
       if ( uvar_outputTiming ) {
-        XLAL_CHECK ( write_TimingInfo ( uvar_outputTiming, &timing ) == XLAL_SUCCESS, XLAL_EFUNC );
+        XLAL_CHECK ( write_TimingInfo ( uvar_outputTiming, &timing, Fstat_in_vec ) == XLAL_SUCCESS, XLAL_EFUNC );
       }
     } // if uvar_outputTiming
 
@@ -1743,7 +1739,6 @@ int MAIN( int argc, char *argv[]) {
     LALFree( fnameFstatVec1 );
   }
 
-  XLALDestroyFstatWorkspace ( usefulParams.sharedWorkspace );
   XLALDestroyFstatInputVector(Fstat_in_vec);
 
   XLALDestroyFstatResults(Fstat_res);
@@ -2061,9 +2056,12 @@ void SetUpSFTs( LALStatus *status,			/**< pointer to LALStatus structure */
       XLALPrintError("%s: XLALCreateFstatInput() failed with errno=%d", __func__, xlalErrno);
       ABORT ( status, HIERARCHICALSEARCH_EXLAL, HIERARCHICALSEARCH_MSGEXLAL );
     }
-    // re-use shared Resampling workspace from first segment for all segments
+    // re-use shared workspace from first segment for all segments
     if ( k == 0 ) {
-      in->sharedWorkspace = optionalArgs.sharedWorkspace = XLALGetSharedFstatWorkspace ( (*p_Fstat_in_vec)->data[0] );
+      optionalArgs.prevInput = (*p_Fstat_in_vec)->data[0];
+    }
+    if ( k == 0 ) {
+      LogPrintf (LOG_NORMAL, "FstatMethod used: '%s'\n", XLALGetFstatInputMethodName( (*p_Fstat_in_vec)->data[k] ) );
     }
 
     /* get SFT detectors and timestamps */
@@ -2773,7 +2771,7 @@ int XLALExtrapolateToplistPulsarSpins ( toplist_t *list,              /**< [out/
  *
  */
 static int
-write_TimingInfo ( const CHAR *fname, const timingInfo_t *ti )
+write_TimingInfo ( const CHAR *fname, const timingInfo_t *ti, const FstatInputVector* Fstat_in_vec )
 {
   /* input sanity */
   if ( !fname || !ti ) {
@@ -2795,7 +2793,7 @@ write_TimingInfo ( const CHAR *fname, const timingInfo_t *ti )
     }
 
   fprintf ( fp, "%8d %6d %10d %6d %10d %10d %10d %10.1e %10.1e %10.1e %15s\n",
-            ti->Nseg, ti->Ndet, ti->Tcoh, ti->Nsft, ti->NFreqCo, ti->Nco, ti->Nic, ti->c0ic, ti->c1co, ti->c0Demod, XLALGetFstatMethodName(ti->FstatMethod) );
+            ti->Nseg, ti->Ndet, ti->Tcoh, ti->Nsft, ti->NFreqCo, ti->Nco, ti->Nic, ti->c0ic, ti->c1co, ti->c0Demod, XLALGetFstatInputMethodName( Fstat_in_vec->data[0] ) );
 
   fclose ( fp );
   return XLAL_SUCCESS;

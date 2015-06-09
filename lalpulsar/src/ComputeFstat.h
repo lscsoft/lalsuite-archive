@@ -1,6 +1,5 @@
 //
-// Copyright (C) 2014 Reinhard Prix
-// Copyright (C) 2012, 2013, 2014 David Keitel, Bernd Machenschalk, Reinhard Prix, Karl Wette
+// Copyright (C) 2012--2014 David Keitel, Bernd Machenschalk, Reinhard Prix, Karl Wette
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -68,11 +67,6 @@ extern "C" {
 typedef struct tagFstatInput FstatInput;
 
 ///
-/// pre-allocated 'workspace' memory for Resampling Fstat computation; can be shared over segments via XLALTakeOverFstatWorkspace()
-///
-typedef struct tagFstatWorkspace FstatWorkspace;
-
-///
 /// A vector of XLALComputeFstat() input data structures, for e.g. computing the
 /// \f$\mathcal{F}\f$-statistic for multiple segments.
 ///
@@ -106,48 +100,23 @@ typedef enum tagFstatQuantities {
 typedef enum tagFstatMethodType {
 
   /// \cond DONT_DOXYGEN
-  // Overall/demod start marker; set to 1 to allow range-check without warnings
-  FMETHOD_START = 1, FMETHOD_DEMOD_START = FMETHOD_START,
+  FMETHOD_START = 1,
   /// \endcond
 
   FMETHOD_DEMOD_GENERIC,	///< \a Demod: generic C hotloop, works for any number of Dirichlet kernel terms \f$\text{Dterms}\f$
   FMETHOD_DEMOD_OPTC,		///< \a Demod: gptimized C hotloop using Akos' algorithm, only works for \f$\text{Dterms} \lesssim 20\f$
-  FMETHOD_DEMOD_SSE,		///< \a Demod: SSE hotloop with precalc divisors, uses fixed \f$\text{Dterms} = 8\f$
   FMETHOD_DEMOD_ALTIVEC,	///< \a Demod: Altivec hotloop variant, uses fixed \f$\text{Dterms} = 8\f$
-
-  /// \cond DONT_DOXYGEN
-  // Demod end marker, resamp start marker
-  FMETHOD_DEMOD_END, FMETHOD_RESAMP_START = FMETHOD_DEMOD_END,
-  /// \endcond
+  FMETHOD_DEMOD_SSE,		///< \a Demod: SSE hotloop with precalc divisors, uses fixed \f$\text{Dterms} = 8\f$
+  FMETHOD_DEMOD_BEST,		///< \a Demod: best guess of the fastest available hotloop
 
   FMETHOD_RESAMP_GENERIC,	///< \a Resamp: generic implementation
+  FMETHOD_RESAMP_BEST,		///< \a Resamp: best guess of the fastest available implementation
 
   /// \cond DONT_DOXYGEN
-  // Resamp/overall end marker
-  FMETHOD_RESAMP_END, FMETHOD_END = FMETHOD_RESAMP_END
+  FMETHOD_END
   /// \endcond
 
 } FstatMethodType;
-
-///
-/// Determine if #FstatMethodType value \c x belongs to the \a Demod class
-///
-#define XLALFstatMethodClassIsDemod(x)  ( ((x) > FMETHOD_DEMOD_START )  && ((x) < FMETHOD_DEMOD_END ) )
-
-///
-/// Determine if #FstatMethodType value \c x belongs to the \a Resamp class
-///
-#define XLALFstatMethodClassIsResamp(x) ( ((x) > FMETHOD_RESAMP_START ) && ((x) < FMETHOD_RESAMP_END ) )
-
-///
-/// Provide a 'best guess' of the fastest available \a Demod method variant. Useful as a user default value.
-///
-extern const int FMETHOD_DEMOD_BEST;
-
-///
-/// Provide a 'best guess' of the fastest available \a Resamp method variant. Useful as a user default value.
-///
-extern const int FMETHOD_RESAMP_BEST;
 
 ///
 /// Struct of optional 'advanced level' and (potentially method-specific) arguments to be passed to the
@@ -162,13 +131,16 @@ typedef struct tagFstatOptionalArgs {
   PulsarParamsVector *injectSources;	///< Vector of parameters of CW signals to simulate and inject.
   MultiNoiseFloor *injectSqrtSX;  	///< Single-sided PSD values for fake Gaussian noise to be added to SFT data.
   MultiNoiseFloor *assumeSqrtSX;  	///< Single-sided PSD values to be used for computing SFT noise weights instead of from a running median of the SFTs themselves.
-  FstatWorkspace *sharedWorkspace;	///< use this shared workspace instead of creating our own one
+  FstatInput *prevInput;		///< An \c FstatInput structure from a previous call to XLALCreateFstatInput(); may contain common workspace data than can be re-used to save memory.
+  FILE *timingLogFile;			///< Pointer to a file which might be used to log timing information by some \f$\mathcal{F}\f$-statistic methods.
 } FstatOptionalArgs;
 #ifdef SWIG // SWIG interface directives
 SWIGLAL(COPY_CONSTRUCTOR(tagFstatOptionalArgs));
 #endif // SWIG
 
-/// global initializer for setting FstatOptionalArgs to default values
+///
+/// Global initializer for setting #FstatOptionalArgs to default values
+///
 extern const FstatOptionalArgs FstatOptionalArgsDefaults;
 
 ///
@@ -221,6 +193,11 @@ typedef struct tagFstatResults {
   /// computed.
   PulsarDopplerParams doppler;
 
+  /// For performance reasons the global phase of all returned 'Fa' and 'Fb' quantities (#Fa,#Fb,#FaPerDet,#FbPerDet, #multiFatoms),
+  /// refers to this 'phase reference time' instead of the (#doppler).refTime.
+  /// Use this to compute initial phase of signals at doppler.refTime, or if you need the correct global Fa,Fb-phase!
+  LIGOTimeGPS refTimePhase;
+
   /// Spacing in frequency between each computed \f$\mathcal{F}\f$-statistic.
   REAL8 dFreq;
 
@@ -252,6 +229,7 @@ typedef struct tagFstatResults {
   /// If #whatWasComputed & FSTATQ_PARTS is true, the multi-detector \f$F_a\f$ and \f$F_b\f$
   /// computed at #numFreqBins frequencies spaced #dFreq apart.  This array should not be accessed
   /// if #whatWasComputed & FSTATQ_PARTS is false.
+  /// \note global phase refers to #refTimePhase, not (#doppler).refTime
 #ifdef SWIG // SWIG interface directives
   SWIGLAL(ARRAY_1D(FstatResults, COMPLEX8, Fa, UINT4, numFreqBins));
   SWIGLAL(ARRAY_1D(FstatResults, COMPLEX8, Fb, UINT4, numFreqBins));
@@ -271,6 +249,7 @@ typedef struct tagFstatResults {
   /// If #whatWasComputed & FSTATQ_PARTS_PER_DET is true, the \f$F_a\f$ and \f$F_b\f$ values
   /// computed at #numFreqBins frequencies spaced #dFreq apart, and for #numDetectors detectors.
   /// This array should not be accessed if #whatWasComputed & FSTATQ_PARTS_PER_DET is false.
+  /// \note global phase refers to #refTimePhase, not (#doppler).refTime
 #ifdef SWIG // SWIG interface directives
   SWIGLAL(ARRAY_1D_PTR_1D(FstatResults, COMPLEX8, FaPerDet, UINT4, numDetectors, numFreqBins));
   SWIGLAL(ARRAY_1D_PTR_1D(FstatResults, COMPLEX8, FbPerDet, UINT4, numDetectors, numFreqBins));
@@ -281,6 +260,7 @@ typedef struct tagFstatResults {
   /// If #whatWasComputed & FSTATQ_ATOMS_PER_DET is true, the per-SFT \f$\mathcal{F}\f$-statistic
   /// multi-atoms computed at #numFreqBins frequencies spaced #dFreq apart.  This array should not
   /// be accessed if #whatWasComputed & FSTATQ_ATOMS_PER_DET is false.
+  /// \note global phase of atoms refers to #refTimePhase, not (#doppler).refTime
 #ifdef SWIG // SWIG interface directives
   SWIGLAL(ARRAY_1D(FstatResults, MultiFstatAtomVector*, multiFatoms, UINT4, numFreqBins));
 #endif // SWIG
@@ -293,7 +273,6 @@ typedef struct tagFstatResults {
 } FstatResults;
 
 // ---------- API function prototypes ----------
-const CHAR *XLALGetFstatMethodName ( FstatMethodType i);
 int XLALFstatMethodIsAvailable ( FstatMethodType i );
 const CHAR *XLALFstatMethodHelpString ( void );
 int XLALParseFstatMethodString ( FstatMethodType *Fmethod, const char *s );
@@ -309,6 +288,7 @@ FstatInput *
 XLALCreateFstatInput ( const SFTCatalog *SFTcatalog, const REAL8 minCoverFreq, const REAL8 maxCoverFreq, const REAL8 dFreq,
                        const EphemerisData *ephemerides, const FstatOptionalArgs *optionalArgs );
 
+const CHAR *XLALGetFstatInputMethodName ( const FstatInput* input );
 const MultiLALDetector* XLALGetFstatInputDetectors ( const FstatInput* input );
 const MultiLIGOTimeGPSVector* XLALGetFstatInputTimestamps ( const FstatInput* input );
 const MultiNoiseWeights* XLALGetFstatInputNoiseWeights ( const FstatInput* input );
@@ -320,16 +300,11 @@ SWIGLAL(INOUT_STRUCTS(FstatResults**, Fstats));
 int XLALComputeFstat ( FstatResults **Fstats, FstatInput *input, const PulsarDopplerParams *doppler,
                        const UINT4 numFreqBins, const FstatQuantities whatToCompute );
 
-
-FstatWorkspace *XLALGetSharedFstatWorkspace ( FstatInput *input );
-void XLALDestroyFstatWorkspace ( FstatWorkspace *ws );
-
 void XLALDestroyFstatInput ( FstatInput* input );
 void XLALDestroyFstatResults ( FstatResults* Fstats );
 int XLALAdd4ToFstatResults ( FstatResults* Fstats );
 
 REAL4 XLALComputeFstatFromAtoms ( const MultiFstatAtomVector *multiFstatAtoms, const INT4 X );
-REAL4 XLALComputeFstatFromFaFb ( COMPLEX8 Fa, COMPLEX8 Fb, REAL4 A, REAL4 B, REAL4 C, REAL4 E, REAL4 Dinv );
 
 // @}
 

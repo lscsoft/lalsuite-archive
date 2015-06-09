@@ -54,6 +54,7 @@
 #include <lal/StringVector.h>
 #include <lal/Sequence.h>
 #include <lal/ConfigFile.h>
+#include <lal/UserInputParse.h>
 #include <lal/LogPrintf.h>
 #include <lal/SFTutils.h>
 
@@ -1099,7 +1100,7 @@ XLALReadTimestampsFile ( const CHAR *fname )
         } // end: if old-style format 'sec ns' is found
       else
         {
-          if ( XLALParseStringValueToEPOCH ( &gps, flines->lines->tokens[iTS] ) == NULL )
+          if ( XLALParseStringValueAsEPOCH ( &gps, flines->lines->tokens[iTS] ) != XLAL_SUCCESS )
             {
               XLALDestroyTimestampVector ( timestamps );
               XLALDestroyParsedDataFile ( flines );
@@ -1483,7 +1484,7 @@ XLALshowSFTLocator ( const struct tagSFTLocator *locator )
     return NULL;
 
   snprintf ( ret, sizeof(ret), "%s : %ld", locator->fname, locator->offset );
-  ret[ sizeof(ret) - 1 ] = 0;
+  XLAL_LAST_ELEM(ret) = 0;
 
   return ret;
 

@@ -35,8 +35,6 @@
  *   Mtot >= 12Msun
  */
 
-#define _XOPEN_SOURCE 500
-
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
 #else
@@ -52,10 +50,6 @@
 #include <alloca.h>
 #include <string.h>
 #include <libgen.h>
-
-#ifdef LAL_PTHREAD_LOCK
-#include <pthread.h>
-#endif
 
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_bspline.h>
@@ -75,6 +69,12 @@
 
 #include <lal/LALSimInspiral.h>
 #include <lal/LALSimIMR.h>
+#include "LALSimIMRSEOBNRROMUtilities.c"
+
+#include <lal/LALConfig.h>
+#ifdef LAL_PTHREAD_LOCK
+#include <pthread.h>
+#endif
 
 
 /********* Input data for spline basis points **************/
@@ -215,6 +215,7 @@ int SEOBNRv1ROMDoubleSpinCore(
    * Then we will use deltaF = 0 to create the frequency series we return. */
 );
 
+
 /********************* Definitions begin here ********************/
 
 
@@ -242,42 +243,6 @@ bool SEOBNRv1ROMDoubleSpin_IsSetup(void) {
     return true;
   else
     return false;
-}
-
-
-// Helper functions to read gsl_vector and gsl_matrix data with error checking
-static int read_vector(const char dir[], const char fname[], gsl_vector *v) {
-  char *path=alloca(strlen(dir)+32);
-
-  sprintf(path,"%s/%s", dir, fname);
-  FILE *f = fopen(path, "rb");
-  if (!f) {
-    return(XLAL_FAILURE);
-  }
-  int ret = gsl_vector_fread(f, v);
-  if (ret != 0) {
-    fprintf(stderr, "Error reading data from %s.\n",path);
-    return(XLAL_FAILURE);
-  }
-  fclose(f);
-  return(XLAL_SUCCESS);
-}
-
-static int read_matrix(const char dir[], const char fname[], gsl_matrix *m) {
-  char *path=alloca(strlen(dir)+32);
-
-  sprintf(path,"%s/%s", dir, fname);
-  FILE *f = fopen(path, "rb");
-  if (!f) {
-    return(XLAL_FAILURE);
-  }
-  int ret = gsl_matrix_fread(f, m);
-  if (ret != 0) {
-    fprintf(stderr, "Error reading data from %s.\n",path);
-    return(XLAL_FAILURE);
-  }
-  fclose(f);
-  return(XLAL_SUCCESS);
 }
 
 // Read binary ROM data for basis functions and coefficients
@@ -358,59 +323,6 @@ static void SplineData_Destroy(SplineData *splinedata)
   XLALFree(splinedata);
 }
 
-// Helper function to perform tensor product spline interpolation with gsl
-// The gsl_vector v contains the ncx x ncy x ncz dimensional coefficient tensor in vector form
-// that should be interpolated and evaluated at position (q,chi1,chi2).
-static REAL8 Interpolate_Coefficent_Tensor(
-  gsl_vector *v,
-  REAL8 q,
-  REAL8 chi1,
-  REAL8 chi2,
-  int ncy,
-  int ncz,
-  gsl_bspline_workspace *bwx,
-  gsl_bspline_workspace *bwy,
-  gsl_bspline_workspace *bwz
-) {
-  // Store nonzero cubic (order k=4) B-spline basis functions in the q and chi directions.
-  gsl_vector *Bx4 = gsl_vector_alloc(4);
-  gsl_vector *By4 = gsl_vector_alloc(4);
-  gsl_vector *Bz4 = gsl_vector_alloc(4);
-
-  size_t isx, isy, isz; // first non-zero spline
-  size_t iex, iey, iez; // last non-zero spline
-  // Evaluate all potentially nonzero cubic B-spline basis functions for positions (q,chi) and store them in the vectors Bx4, By4, Bz4.
-  // Since the B-splines are of compact support we only need to store a small number of basis functions
-  // to avoid computing terms that would be zero anyway.
-  // https://www.gnu.org/software/gsl/manual/html_node/Overview-of-B_002dsplines.html#Overview-of-B_002dsplines
-  gsl_bspline_eval_nonzero(q,    Bx4, &isx, &iex, bwx);
-  gsl_bspline_eval_nonzero(chi1, By4, &isy, &iey, bwy);
-  gsl_bspline_eval_nonzero(chi2, Bz4, &isz, &iez, bwz);
-
-  // Now compute coefficient at desired parameters (q,chi1,chi2)
-  // from C(q,chi1,chi2) = c_ijk * Bq_i * Bchi1_j * Bchi2_k
-  // while summing over indices i,j,k where the B-splines are nonzero.
-  // Note: in the 2D case we were able to use gsl_matrix c = gsl_matrix_view_vector(&v, ncx, ncy).matrix
-  // to convert vector view of the coefficient matrix to a matrix view.
-  // However, since tensors are not supported in gsl, we have to do the indexing explicitly.
-  double sum = 0;
-  for (int i=0; i<4; i++)
-    for (int j=0; j<4; j++)
-      for (int k=0; k<4; k++) {
-        int ii = isx + i;
-        int jj = isy + j;
-        int kk = isz + k;
-        double cijk = gsl_vector_get(v, (ii*ncy + jj)*ncz + kk);
-        sum += cijk * gsl_vector_get(Bx4, i) * gsl_vector_get(By4, j) * gsl_vector_get(Bz4, k);
-      }
-
-  gsl_vector_free(Bx4);
-  gsl_vector_free(By4);
-  gsl_vector_free(Bz4);
-
-  return sum;
-}
-
 // Interpolate projection coefficients for amplitude and phase over the parameter space (q, chi).
 // The multi-dimensional interpolation is carried out via a tensor product decomposition.
 static int TP_Spline_interpolation_3d(
@@ -457,12 +369,6 @@ static int TP_Spline_interpolation_3d(
 
   return(0);
 }
-
-
-static void err_handler(const char *reason, const char *file, int line, int gsl_errno) {
-  XLALPrintError("gsl: %s:%d: %s - %d\n", file, line, reason, gsl_errno);
-}
-
 
 /* Set up a new ROM model, using data contained in dir */
 int SEOBNRROMdataDS_Init(SEOBNRROMdataDS *romdata, const char dir[]) {
@@ -582,10 +488,8 @@ int SEOBNRv1ROMDoubleSpinCore(
   double deltaF_geom = deltaF * Mtot_sec;
 
   // Enforce allowed geometric frequency range
-  if (fLow_geom < Mf_ROM_min) {
-    XLALPrintWarning("Starting frequency Mflow=%g is smaller than lowest frequency in ROM Mf=%g. Starting at lowest frequency in ROM.\n", fLow_geom, Mf_ROM_min);
-    fLow_geom = Mf_ROM_min;
-  }
+  if (fLow_geom < Mf_ROM_min)
+    XLAL_ERROR(XLAL_EDOM, "Starting frequency Mflow=%g is smaller than lowest frequency in ROM Mf=%g. Starting at lowest frequency in ROM.\n", fLow_geom, Mf_ROM_min);
   if (fHigh_geom == 0 || fHigh_geom > Mf_ROM_max)
     fHigh_geom = Mf_ROM_max;
   else if (fHigh_geom < Mf_ROM_min)
@@ -691,7 +595,7 @@ int SEOBNRv1ROMDoubleSpinCore(
   double amp0 = Mtot * amp_pre * Mtot_sec * LAL_MRSUN_SI / (distance); // Correct overall amplitude to undo mass-dependent scaling used in ROM
 
   // Evaluate reference phase for setting phiRef correctly
-  double phase_change = gsl_spline_eval(spline_phi, fRef_geom, acc_phi) - phiRef;
+  double phase_change = gsl_spline_eval(spline_phi, fRef_geom, acc_phi) - 2*phiRef;
 
   // Assemble waveform from aplitude and phase
   for (UINT4 i=0; i<freqs->length; i++) { // loop over frequency points in sequence
@@ -754,7 +658,7 @@ int XLALSimIMRSEOBNRv1ROMDoubleSpinFrequencySequence(
   struct tagCOMPLEX16FrequencySeries **hptilde, /**< Output: Frequency-domain waveform h+ */
   struct tagCOMPLEX16FrequencySeries **hctilde, /**< Output: Frequency-domain waveform hx */
   const REAL8Sequence *freqs,                   /**< Frequency points at which to evaluate the waveform (Hz) */
-  REAL8 phiRef,                                 /**< Phase at reference time */
+  REAL8 phiRef,                                 /**< Orbital phase at reference time */
   REAL8 fRef,                                   /**< Reference frequency (Hz); 0 defaults to fLow */
   REAL8 distance,                               /**< Distance of source (m) */
   REAL8 inclination,                            /**< Inclination of source (rad) */
@@ -893,7 +797,7 @@ void SEOBNRv1ROMDoubleSpin_Init_LALDATA(void)
   // then we expect the remaining datafiles to also be there.
   char datafile[] = "SEOBNRv1ROM_DS_Phase_ciall.dat";
 
-  char *path = XLALFileResolvePath(datafile);
+  char *path = XLALFileResolvePathLong(datafile, PKG_DATA_DIR);
   if (path==NULL)
     XLAL_ERROR_VOID(XLAL_EIO, "Unable to resolve data file %s in $LAL_DATA_PATH\n", datafile);
   char *dir = dirname(path);

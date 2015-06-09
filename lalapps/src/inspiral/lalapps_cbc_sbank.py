@@ -19,7 +19,7 @@ from __future__ import division
 from time import strftime
 from collections import deque
 import numpy as np
-import sys
+import sys, os
 
 from scipy.interpolate import UnivariateSpline
 from glue.ligolw import ligolw
@@ -107,6 +107,26 @@ SBank will fill in whichever gaps remain. See also lalapps_cbc_sbank_pipe.
 """ % '\n\t'.join(sorted(waveforms.keys()))
 
 
+#
+# callback function for periodic checkpointing
+#
+def checkpoint_save(xmldoc, fout, process):
+
+    print >>sys.stderr, "\t[Checkpointing ...]"
+
+    # save rng state
+    rng_state = np.random.get_state()
+    np.savez(fout + "_checkpoint.rng.npz",
+             state1=rng_state[1],
+             state2=np.array(rng_state[2]),
+             state3=np.array(rng_state[3]),
+             state4=np.array(rng_state[4]))
+
+    # write out the document
+    ligolw_process.set_process_end_time(process)
+    utils.write_filename(xmldoc, fout + "_checkpoint.gz",  gz=True)
+
+
 def parse_command_line():
 
     parser = OptionParser(usage = usage)
@@ -156,7 +176,14 @@ def parse_command_line():
     parser.add_option("--flow", type="float", help="Required. Set the low-frequency cutoff to use for the match caluclation.")
     parser.add_option("--match-min",help="Set minimum match of the bank. Note that since this is a stochastic process, the requested minimal match may not be strictly guaranteed but should be fulfilled on a statistical basis. Default: 0.95.", type="float", default=0.95)
     parser.add_option("--convergence-threshold", metavar="N", help="Set the criterion for convergence of the stochastic bank. The code terminates when there are N rejected proposals for each accepted proposal, averaged over the last ten acceptances. Default 1000.", type="int", default=1000)
+    parser.add_option("--templates-max", metavar="N", help="Use this option to force the code to exit after generating a specified number N of templates. Note that the code may exit with fewer than N templates if the convergence criterion is met first.", type="int", default=float('inf'))
     parser.add_option("--cache-waveforms", default = False, action="store_true", help="A given waveform in the template bank will be used many times throughout the bank generation process. You can save a considerable amount of CPU by caching the waveform from the first time it is generated; however, do so only if you are sure that storing the waveforms in memory will not overload the system memory.")
+    parser.add_option("--coarse-match-df", type="float", default=None, help="If given, use this value of df to quickly test if the mismatch is less than 4 times the minimal mismatch. This can quickly reject points at high values of df, that will not have high overlaps at smaller df values. This can be used to speed up the sbank process.")
+    parser.add_option("--iterative-match-df-max", type="float", default=None, help="If this option is given it will enable sbank using larger df values than 1 / data length when computing overlaps. Sbank will then compute a match at this value, and at half this value, if the two values agree to 0.1% the value obtained will be taken as the actual value. If the values disagree the match will be computed again using a df another factor of 2 smaller until convergence or a df of 1/ data_length, is reached.")
+    parser.add_option("--neighborhood-size", metavar="N", default = 0.25, type="float", help="Specify the window size in seconds to define \"nearby\" templates used to compute the match against each proposed template. The neighborhood is chosen symmetric about the proposed template; \"nearby\" is defined using the option --neighborhood-type. The default value of 0.25 is *not a guarantee of performance*. Choosing the neighborhood too small will lead to larger banks (but also higher bank coverage).")
+    parser.add_option("--neighborhood-param", default="tau0", choices=["tau0","dur"], help="Choose how the neighborhood is sorted for match calculations.")
+    parser.add_option("--checkpoint", default=0, metavar="N", help="Periodically save the bank to disk every N templates (set to 0 to disable).", type="int", action="store")
+
 
     #
     # output options
@@ -220,26 +247,28 @@ def parse_command_line():
 
     return opts, args
 
+
+#
+# begin main
+#
 opts, args = parse_command_line()
-np.random.mtrand.seed(opts.seed)
 
-# prepare a new XML document
-xmldoc = ligolw.Document()
-xmldoc.appendChild(ligolw.LIGO_LW())
+#
+# determine output bank filename
+#
+if opts.user_tag:
+    fout = "%s-SBANK_%s-%d-%d.xml.gz" % (opts.instrument, opts.user_tag, opts.gps_start_time, opts.gps_end_time-opts.gps_start_time)
+else:
+    fout = "%s-SBANK-%d-%d.xml.gz" % (opts.instrument, opts.gps_start_time, opts.gps_end_time-opts.gps_start_time)
 
-# Prepare process table with information about the current program
-opts_dict = dict((k, v) for k, v in opts.__dict__.iteritems() if v is not False and v is not None)
-#process = ligolw_process.register_to_xmldoc(xmldoc, "lalapps_cbc_sbank", FIXME
-#    opts_dict, version=git_version.tag or git_version.id, FIXME
-#    cvs_repository="sbank", cvs_entry_time=git_version.date) FIXME
-process = ligolw_process.register_to_xmldoc(xmldoc, "lalapps_cbc_sbank",
-    opts_dict, version="no version",
-    cvs_repository="sbank", cvs_entry_time=strftime('%Y/%m/%d %H:%M:%S'))
-
-# Choose waveform approximant
+#
+# choose waveform approximant
+#
 waveform = waveforms[opts.approximant]
 
-# Choose noise model
+#
+# choose noise model
+#
 if opts.reference_psd is not None:
     psd = read_psd(opts.reference_psd)[opts.instrument]
     f_orig = psd.f0 + np.arange(len(psd.data)) * psd.deltaF
@@ -248,11 +277,18 @@ if opts.reference_psd is not None:
 else:
     noise_model = noise_models[opts.noise_model]
 
-# Seed the bank
+# Set up PSD for metric computation
+# calling into pylal, so need pylal types
+psd = REAL8FrequencySeries(name="psd", f0=0., deltaF=1., data=get_PSD(1., opts.flow, 1570., noise_model))
+
+
+#
+# seed the bank, if applicable
+#
 if opts.bank_seed is None:
     # seed the process with an empty bank
     # the first proposal will always be accepted
-    bank = Bank(waveform, noise_model, opts.flow, opts.use_metric, opts.cache_waveforms)
+    bank = Bank(waveform, noise_model, opts.flow, opts.use_metric, opts.cache_waveforms, opts.neighborhood_size, opts.neighborhood_param, coarse_match_df=opts.coarse_match_df, iterative_match_df_max=opts.iterative_match_df_max)
 else:
     # seed bank with input bank. we do not prune the bank
     # for overcoverage, but take it as is
@@ -260,17 +296,61 @@ else:
         print>>sys.stdout,"Seeding the template bank..."
     tmpdoc = utils.load_filename(opts.bank_seed, contenthandler=ContentHandler)
     sngl_inspiral = table.get_table(tmpdoc, lsctables.SnglInspiralTable.tableName)
-    bank = Bank.from_sngls(sngl_inspiral, waveform, noise_model, opts.flow, opts.use_metric, opts.cache_waveforms)
+    bank = Bank.from_sngls(sngl_inspiral, waveform, noise_model, opts.flow, opts.use_metric, opts.cache_waveforms, opts.neighborhood_size, opts.neighborhood_param, coarse_match_df=opts.coarse_match_df, iterative_match_df_max=opts.iterative_match_df_max)
 
     tmpdoc.unlink()
     del sngl_inspiral, tmpdoc
     if opts.verbose:
-        print>>sys.stdout,"\tinitial bank size: %d"%len(bank)
+        print>>sys.stdout,"\tseed bank size: %d"%len(bank)
         print>>sys.stdout,"Filling regions of parameter space not covered by bank seed..."
 
-# Choose proposal function
-# TODO: Implement more of these
+
+#
+# check for saved work
+#
+if opts.checkpoint and os.path.exists( fout + "_checkpoint.gz" ):
+
+    xmldoc = utils.load_filename(fout + "_checkpoint.gz", contenthandler=ContentHandler)
+    tbl = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+    [bank.insort(t) for t in Bank.from_sngls(tbl, waveform, noise_model, opts.flow, opts.use_metric, opts.cache_waveforms, opts.neighborhood_size, opts.neighborhood_param)]
+
+    if opts.verbose:
+        print >>sys.stdout,"Found checkpoint file with %d precomputed templates." % len(tbl)
+        print >>sys.stdout, "Resuming from checkpoint with %d total templates..." % len(bank)
+
+    # reset rng state
+    rng_state = np.load(fout + "_checkpoint.rng.npz")
+    rng1 = rng_state["state1"]
+    rng2 = rng_state["state2"]
+    rng3 = rng_state["state3"]
+    rng4 = rng_state["state4"]
+    np.random.mtrand.set_state( ("MT19937", rng1, rng2, rng3, rng4) )
+
+else:
+
+    # prepare a new XML document
+    xmldoc = ligolw.Document()
+    xmldoc.appendChild(ligolw.LIGO_LW())
+    lsctables.SnglInspiralTable.RowType = SnglInspiralTable
+    tbl = lsctables.New(lsctables.SnglInspiralTable)
+    xmldoc.childNodes[-1].appendChild(tbl)
+
+    # initialize random seed
+    np.random.mtrand.seed(opts.seed)
+
+
+#
+# prepare process table with information about the current program
+#
+opts_dict = dict((k, v) for k, v in opts.__dict__.iteritems() if v is not False and v is not None)
+process = ligolw_process.register_to_xmldoc(xmldoc, "lalapps_cbc_sbank",
+    opts_dict, version="no version",
+    cvs_repository="sbank", cvs_entry_time=strftime('%Y/%m/%d %H:%M:%S'))
+
+
+#
 # populate params dictionary to be passed to the generators
+#
 params = {'mass1': (opts.mass1_min, opts.mass1_max),
           'mass2': (opts.mass2_min, opts.mass2_max),
           'mtotal': (opts.mtotal_min, opts.mtotal_max),
@@ -280,17 +360,17 @@ params = {'mass1': (opts.mass1_min, opts.mass1_max),
 	  'spin2': (opts.spin2_min, opts.spin2_max)
 	  }
 
-# get the correct generator
+# get the correct generator for the chosen approximant
 proposal = proposals[opts.approximant](opts.flow, **params)
+
 
 # For robust convergence, ensure that an average of kmax/len(ks) of
 # the last len(ks) proposals have been rejected by SBank.
 ks = deque(10*[0], maxlen=10)
-
 k = 0 # k is nprop per iteration
 nprop = 1  # count total number of proposed templates
 status_format = "bank size: %d\tproposed: %d\t" + "\t".join("%s: %s" % name_format for name_format in zip(waveform.param_names, waveform.param_formats))
-while (k + float(sum(ks)))/len(ks) < opts.convergence_threshold:
+while ((k + float(sum(ks)))/len(ks) < opts.convergence_threshold) and len(bank) < opts.templates_max:
     tmplt = waveform(*proposal.next(), bank=bank)
     k += 1
     nprop += 1
@@ -300,6 +380,22 @@ while (k + float(sum(ks)))/len(ks) < opts.convergence_threshold:
             print >>sys.stdout, status_format % ((len(bank), k) + tmplt.params)
         ks.append(k)
         k = 0
+
+        # Add to single inspiral table. Do not store templates that
+        # were in the original bank, only store the additions.
+        if not hasattr(tmplt, 'is_seed_point'):
+            row = tmplt.to_sngl()
+            # Event ids must be unique, or the table isn't valid, SQL needs this
+            row.event_id = ilwd.ilwdchar('sngl_inspiral:event_id:%d' %(len(bank),))
+            row.ifo = opts.instrument
+            row.process_id = process.process_id
+            row.Gamma0, row.Gamma1, row.Gamma2, row.Gamma3, row.Gamma4, row.Gamma5,\
+                row.Gamma6, row.Gamma7, row.Gamma8, row.Gamma9 = \
+                compute_metric(opts.flow, 1570., 4, row.tau0, row.tau3, psd)
+            tbl.append(row)
+
+        if opts.checkpoint and not len(bank) % opts.checkpoint:
+            checkpoint_save(xmldoc, fout, process)
 
     # clear the proposal template if caching is not enabled
     if not opts.cache_waveforms:
@@ -312,36 +408,6 @@ print "final bank size: %d" % len(bank)
 
 bank.clear()  # clear caches
 
-# Set up PSD for metric computation; calling into pylal, so need pylal types
-psd = REAL8FrequencySeries(name="psd", f0=0., deltaF=1., data=get_PSD(1., opts.flow, 1570., noise_model))
-
-# insert our rows
-# Replace row with C datatype; nice side effect: initializes elements to 0 or ""
-lsctables.SnglInspiralTable.RowType = SnglInspiralTable
-tbl = lsctables.New(lsctables.SnglInspiralTable)
-xmldoc.childNodes[-1].appendChild(tbl)
-for idx, template in enumerate(bank):
-    # Do not store templates that were in the original bank, only store the
-    # additions.
-    if hasattr(template, 'is_seed_point'):
-        continue
-    row = template.to_sngl()
-    # Event ids must be unique, or the table isn't valid, SQL needs this
-    row.event_id = ilwd.ilwdchar('sngl_inspiral:event_id:%d' %(idx,))
-    row.ifo = opts.instrument
-    row.process_id = process.process_id
-    row.Gamma0, row.Gamma1, row.Gamma2, row.Gamma3, row.Gamma4, row.Gamma5,\
-        row.Gamma6, row.Gamma7, row.Gamma8, row.Gamma9 = \
-        compute_metric(opts.flow, 1570., 4, row.tau0, row.tau3, psd)
-    tbl.append(row)
-
 # write out the document
 ligolw_process.set_process_end_time(process)
-
-# FIXME output naming conventions to match IHOPE/tmpltbank break sbank_pipe
-if opts.user_tag:
-    fout = "%s-SBANK_%s-%d-%d.xml.gz" % (opts.instrument, opts.user_tag, opts.gps_start_time, opts.gps_end_time-opts.gps_start_time)
-else:
-    fout = "%s-SBANK-%d-%d.xml.gz" % (opts.instrument, opts.gps_start_time, opts.gps_end_time-opts.gps_start_time)
-
 utils.write_filename(xmldoc, fout,  gz=fout.endswith("gz"))

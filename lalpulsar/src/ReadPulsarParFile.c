@@ -575,7 +575,7 @@ typedef struct tagParConversion{
 }ParConversion;
 
 
-#define NUM_PARS 106 /* number of allowed parameters */
+#define NUM_PARS 108 /* number of allowed parameters */
 
 /** Initialise conversion structure with most allowed TEMPO2 parameter names and conversion functions
  * (convert all read in parameters to SI units where necessary). See http://arxiv.org/abs/astro-ph/0603381 and
@@ -705,9 +705,11 @@ ParConversion pc[NUM_PARS] = {
   /* GW non-GR polarisation mode amplitude parameters */
   { .name = "HPLUS", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* GW tensor plus polarisation amplitude */
   { .name = "HCROSS", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* GW tensor cross polarisation amplitude */
+  { .name = "PSITENSOR", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* GW tensor angle polarisation */
   { .name = "PHI0TENSOR", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* initial phase for tensor modes */
   { .name = "HSCALARB", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* GW scalar breathing mode polarisation amplitude */
   { .name = "HSCALARL", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* GW scalar longitudinal polarisation amplitude */
+  { .name = "PSISCALAR", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* GW scalar angle polarisation */
   { .name = "PHI0SCALAR", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* initial phase for scalar modes */
   { .name = "HVECTORX", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* GW vector x-mode amplitude */
   { .name = "HVECTORY", .convfunc = ParConvToFloat, .converrfunc = ParConvToFloat, .ptype = PULSARTYPE_REAL8_t }, /* GW vector y-mode amplitude */
@@ -1164,9 +1166,11 @@ XLALReadTEMPOParFile( BinaryPulsarParams *output,
 
   output->hPlus=0.;
   output->hCross=0.;
+  output->psiTensor=0.;
   output->phi0Tensor=0.;
   output->hScalarB=0.;
   output->hScalarL=0.;
+  output->psiScalar=0.;
   output->phi0Scalar=0.;
   output->hVectorX=0.;
   output->hVectorY=0.;
@@ -1191,9 +1195,11 @@ XLALReadTEMPOParFile( BinaryPulsarParams *output,
   output->phi21Err=0.;
   output->hPlusErr=0.;
   output->hCrossErr=0.;
+  output->psiTensorErr=0.;
   output->phi0TensorErr=0.;
   output->hScalarBErr=0.;
   output->hScalarLErr=0.;
+  output->psiScalarErr=0.;
   output->phi0ScalarErr=0.;
   output->hVectorXErr=0.;
   output->hVectorYErr=0.;
@@ -2177,6 +2183,15 @@ XLALReadTEMPOParFile( BinaryPulsarParams *output,
         j+=2;
       }
     }
+    else if( !strcmp(val[i],"psitensor") || !strcmp(val[i],"PSITENSOR") ) {
+      output->psiTensor = atof(val[i+1]);
+      j++;
+
+      if(atoi(val[i+2])==1 && i+2<k){
+        output->psiTensorErr = atof(val[i+3]);
+        j+=2;
+      }
+    }
     else if( !strcmp(val[i],"phi0tensor") || !strcmp(val[i],"PHI0TENSOR") ) {
       output->phi0Tensor = atof(val[i+1]);
       j++;
@@ -2201,6 +2216,15 @@ XLALReadTEMPOParFile( BinaryPulsarParams *output,
 
       if(atoi(val[i+2])==1 && i+2<k){
         output->hScalarLErr = atof(val[i+3]);
+        j+=2;
+      }
+    }
+    else if( !strcmp(val[i],"psiscalar") || !strcmp(val[i],"PSISCALAR") ) {
+      output->psiScalar = atof(val[i+1]);
+      j++;
+
+      if(atoi(val[i+2])==1 && i+2<k){
+        output->psiScalarErr = atof(val[i+3]);
         j+=2;
       }
     }
@@ -2400,10 +2424,10 @@ LALStringVector *XLALReadTEMPOCorFile( REAL8Array *cormat, CHAR *corfile ){
     tmpparams = XLALAppendString2Vector( tmpparams, tmpStr );
 
     /* convert some parameter names to a more common convention */
-    if ( !strcasecmp(tmpStr, "RAJ") ) /* convert RAJ to ra */
-      params = XLALAppendString2Vector( params, "ra" );
-    else if ( !strcasecmp(tmpStr, "DECJ") ) /* convert DECJ to dec */
-      params = XLALAppendString2Vector( params, "dec" );
+    if ( !XLALStringCaseCompare(tmpStr, "RAJ") ) /* convert RAJ to ra */
+      params = XLALAppendString2Vector( params, "RA" );
+    else if ( !XLALStringCaseCompare(tmpStr, "DECJ") ) /* convert DECJ to dec */
+      params = XLALAppendString2Vector( params, "DEC" );
     else
       params = XLALAppendString2Vector( params, tmpStr );
   }
@@ -2453,6 +2477,8 @@ Parameters not in consistent order!\n");
 
   return params;
 }
+
+
 /* functions for converting times given in Terrestrial time TT or TDB in MJD to
 times in GPS - this is important for epochs given in .par files which are in
 TDB. TT and GPS are different by a factor of 51.184 secs, this is just the

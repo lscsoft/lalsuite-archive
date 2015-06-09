@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Reinhard Prix
+ * Copyright (C) 2015 Reinhard Prix, Karl Wette
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,94 +41,56 @@ extern "C" {
  */
 /** @{ */
 
-/* ---------- Macros ---------- */
-#define isMemAligned(x,align)  (((size_t)(x) % (align)) == 0)
+/* -------------------- our own failsafe aligned memory handling -------------------- */
 
-/* ---------- exported Types ---------- */
-/** enumerate all supported vector 'devices' (SSE, AVX, ...) that can be chosen from at runtime
- */
-typedef enum tagVectorDevice_type
-{
-  /* \cond DONT_DOXYGEN */
-  VECTORDEVICE_START,	/**< start marker for range checking */
-  /* \endcond */
-  VECTORDEVICE_FPU,	/**< not really a vector device, but added here as failsafe fallback option */
-  VECTORDEVICE_SSE,	/**< SSE extension */
-  VECTORDEVICE_AVX,	/**< AVX extension */
-  /* \cond DONT_DOXYGEN */
-  VECTORDEVICE_END	/**< end marker for range checking */
-  /* \endcond */
-}
-VectorDevice_type;
-
-/** We provide our own local aligned-memory handling functions, until this
- * may later be merged upstream into the LALMalloc module
- */
-#ifdef SWIG /* SWIG interface directives */
-SWIGLAL(IGNORE_MEMBERS(tagREAL4VectorAligned, data0));
-#endif /* SWIG */
+/** A special REAL4 Vector with n-byte aligned memory \c data array */
 typedef struct tagREAL4VectorAligned
 {
-#ifdef SWIG /* SWIG interface directives */
-  SWIGLAL(CAST_STRUCT_TO(REAL4Vector));
-  SWIGLAL(ARRAY_1D(REAL4VectorAligned, REAL4, data, UINT4, length));
-#endif /* SWIG */
   UINT4 length;		/**< number of 'usable' array entries (fully aligned) */
   REAL4 *data;		/**< start of aligned memory block */
   REAL4 *data0;		/**< actual physical start of memory block, possibly not aligned */
 } REAL4VectorAligned;
 
-/* ---------- Prototypes ---------- */
-
-/* ----- runtime handling of vector device switching */
-int XLALVectorDeviceSet ( VectorDevice_type device );
-VectorDevice_type XLALVectorDeviceGet ( void );
-int XLALVectorDeviceIsAvailable ( VectorDevice_type device );
-const CHAR *XLALVectorDeviceName ( VectorDevice_type device );
-CHAR *XLALVectorDeviceHelpString ( void );
-int XLALVectorDeviceParseString ( VectorDevice_type *device, const char *s );
-
-/* ----- aligned-memory handling */
-REAL4VectorAligned *XLALCreateREAL4VectorAligned ( UINT4 length, UINT4 align );
+REAL4VectorAligned *XLALCreateREAL4VectorAligned ( const UINT4 length, const UINT4 align );
 void XLALDestroyREAL4VectorAligned ( REAL4VectorAligned *in );
 
-/* ----- exported vector math functions */
-int XLALVectorSinf     ( REAL4Vector *out, const REAL4Vector *in );
-int XLALVectorCosf     ( REAL4Vector *out, const REAL4Vector *in );
-int XLALVectorExpf     ( REAL4Vector *out, const REAL4Vector *in );
-int XLALVectorLogf     ( REAL4Vector *out, const REAL4Vector *in );
-int XLALVectorSinCosf  ( REAL4Vector *sinx,    REAL4Vector *cosx,    const REAL4Vector *x );
-int XLALVectorSinCosf2PI(REAL4Vector *sin2pix, REAL4Vector *cos2pix, const REAL4Vector *x );
+/* -------------------- exported vector math functions -------------------- */
 
-/* ---------- module internal prototypes ---------- */
-/* these should not be used except within this module, that's why the
- * exported API only declared the device-generic XLALVector<Funcf>() functions
- */
-#ifdef IN_VECTORMATH
-int XLALVectorSinf_FPU ( REAL4Vector *out, const REAL4Vector *in );
-int XLALVectorSinf_SSE ( REAL4Vector *out, const REAL4Vector *in );
-int XLALVectorSinf_AVX ( REAL4Vector *out, const REAL4Vector *in );
+/** Compute \f$y = \sin(in)\f$ over REAL4 vectors \c out, \c in with \c len elements */
+int XLALVectorSinREAL4 ( REAL4 *out, const REAL4 *in, const UINT4 len );
 
-int XLALVectorCosf_FPU ( REAL4Vector *out, const REAL4Vector *in );
-int XLALVectorCosf_SSE ( REAL4Vector *out, const REAL4Vector *in );
-int XLALVectorCosf_AVX ( REAL4Vector *out, const REAL4Vector *in );
+/** Compute \f$y = \cos(in)\f$ over REAL4 vectors \c out, \c in with \c len elements */
+int XLALVectorCosREAL4 ( REAL4 *out, const REAL4 *in, const UINT4 len );
 
-int XLALVectorExpf_FPU ( REAL4Vector *out, const REAL4Vector *in );
-int XLALVectorExpf_SSE ( REAL4Vector *out, const REAL4Vector *in );
-int XLALVectorExpf_AVX ( REAL4Vector *out, const REAL4Vector *in );
+/** Compute \f$y = \exp(in)\f$ over REAL4 vectors \c out, \c in with \c len elements */
+int XLALVectorExpREAL4 ( REAL4 *out, const REAL4 *in, const UINT4 len );
 
-int XLALVectorLogf_FPU ( REAL4Vector *out, const REAL4Vector *in );
-int XLALVectorLogf_SSE ( REAL4Vector *out, const REAL4Vector *in );
-int XLALVectorLogf_AVX ( REAL4Vector *out, const REAL4Vector *in );
+/** Compute \f$y = \log(in)\f$ over REAL4 vectors \c out, \c in with \c len elements */
+int XLALVectorLogREAL4 ( REAL4 *out, const REAL4 *in, const UINT4 len );
 
-int XLALVectorSinCosf_FPU ( REAL4Vector *sinx, REAL4Vector *cosx, const REAL4Vector *x );
-int XLALVectorSinCosf_SSE ( REAL4Vector *sinx, REAL4Vector *cosx, const REAL4Vector *x );
-int XLALVectorSinCosf_AVX ( REAL4Vector *sinx, REAL4Vector *cosx, const REAL4Vector *x );
+/** Compute \f$y_1 = \sin(in), out_2 = \cos(in)\f$ over REAL4 vectors \c out1, \c out2, \c in with \c len elements */
+int XLALVectorSinCosREAL4 ( REAL4 *out1, REAL4 *out2, const REAL4 *in, const UINT4 len );
 
-int XLALVectorSinCosf2PI_FPU ( REAL4Vector *sin2pix, REAL4Vector *cos2pix, const REAL4Vector *x );
-int XLALVectorSinCosf2PI_SSE ( REAL4Vector *sin2pix, REAL4Vector *cos2pix, const REAL4Vector *x );
-int XLALVectorSinCosf2PI_AVX ( REAL4Vector *sin2pix, REAL4Vector *cos2pix, const REAL4Vector *x );
-#endif
+/** Compute \f$y_1 = \sin(2\pi in), out_2 = \cos(2\pi in)\f$ over REAL4 vectors \c out1, \c out2, \c in with \c len elements */
+int XLALVectorSinCos2PiREAL4 ( REAL4 *out1, REAL4 *out2, const REAL4 *in, const UINT4 len );
+
+/* -------------------- exported vector by vector operations -------------------- */
+
+/** Compute \f$y = in1 + in2\f$ over REAL4 vectors \c in1 and \c in2 with \c len elements */
+int XLALVectorAddREAL4 ( REAL4 *out, const REAL4 *in1, const REAL4 *in2, const UINT4 len);
+
+/** Compute \f$y = in1 * in2\f$ over REAL4 vectors \c in1 and \c in2 with \c len elements */
+int XLALVectorMultiplyREAL4 ( REAL4 *out, const REAL4 *in1, const REAL4 *in2, const UINT4 len);
+
+
+/* -------------------- exported vector by scalar operations -------------------- */
+
+/** Compute \f$y = scalar + in\f$ over REAL4 vector \c in with \c len elements */
+int XLALVectorShiftREAL4 ( REAL4 *out, REAL4 scalar, const REAL4 *in, const UINT4 len);
+
+/** Compute \f$y = scalar * in\f$ over REAL4 vector \c in with \c len elements */
+int XLALVectorScaleREAL4 ( REAL4 *out, REAL4 scalar, const REAL4 *in, const UINT4 len);
+
 
 /** @} */
 

@@ -92,9 +92,6 @@ extern "C" {
 #define UNUSED
 #endif
 
-/** Macro defining the natural logarithm of pi \f$ \log{\pi}\f$ from http://math.stackexchange.com/questions/239438/natural-log-of-pi-to-sixty-digits-a-reference-needed */
-#define PPE_LNPI 1.1447298858494001741434273513530587
-
 /** Macro to round a value to the nearest integer. */
 #define ROUND(x) (floor(x+0.5))
 
@@ -143,7 +140,7 @@ extern "C" {
  *
  * Note: These should be increased if additional model parameters are added.
  */
-#define NUMAMPPARS 22
+#define NUMAMPPARS 24
 
 /**
  * The total number of frequency parameters that can defined a signal e.g.
@@ -335,8 +332,8 @@ extern "C" {
  */
 static const CHAR amppars[NUMAMPPARS][VARNAME_MAX] = { "H0", "PHI0", "PSI",
 "COSIOTA", "C22", "C21", "PHI22", "PHI21", "HSCALARB", "HSCALARL", "HVECTORX",
-"HVECTORY", "PSIVECTOR", "PHI0VECTOR", "PHI0SCALAR", "PHI0TENSOR", "I21", "I31",
-"LAMBDA", "COSTHETA", "IOTA", "THETA" };
+"HVECTORY", "PSIVECTOR", "PHI0VECTOR", "PSISCALAR", "PHI0SCALAR", "PSITENSOR",
+"PHI0TENSOR", "I21", "I31", "LAMBDA", "COSTHETA", "IOTA", "THETA" };
 
 /**
  * A list of the frequency parameters. The names given here are those that are

@@ -87,7 +87,8 @@ noinst_HEADERS = \
 	LALSimNeutronStarEOSPiecewisePolytrope.c \
 	LALSimNeutronStarEOSTabular.c \
 	LALSimIMRPhenomC_internals.c \
-	LALSimIMRPhenomP.c
+	LALSimIMRPhenomP.c \
+	LALSimIMRSEOBNRROMUtilities.c
 
 lib_LTLIBRARIES = liblalsimulation.la
 liblalsimulation_la_SOURCES = \
@@ -96,9 +97,9 @@ liblalsimulation_la_SOURCES = \
 	LALSimBurstImg.c \
 	LALSimIMREOBNRv2.c \
 	LALSimIMRSpinAlignedEOB.c \
-	LALSimIMRSEOBNRv1ROMSingleSpin.c \
+	LALSimIMRSEOBNRv1ROMEqualSpin.c \
 	LALSimIMRSEOBNRv1ROMDoubleSpin.c \
-	LALSimIMRSEOBNRv2ROMSingleSpin.c \
+	LALSimIMRSEOBNRv2ROMEqualSpin.c \
 	LALSimIMRSEOBNRv2ROMDoubleSpin.c \
 	LALSimIMRSEOBNRv2ChirpTime.c \
 	LALSimIMRPhenom.c \

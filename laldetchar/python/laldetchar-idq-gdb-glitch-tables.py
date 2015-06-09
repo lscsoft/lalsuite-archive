@@ -20,6 +20,7 @@ description = \
 
 from ligo.gracedb.rest import GraceDb
 from laldetchar.idq import idq
+#from laldetchar.idq import reed as idq
 from laldetchar.idq import idq_tables
 from laldetchar.idq import idq_tables_dbutils
 
@@ -123,8 +124,8 @@ parser.add_option('',
 if not opts.ifo:
     opts.ifo = raw_input('ifo = ')
 
-if opts.tag != '':
-    opts.tag = opts.tag + '-'
+if opts.tag:
+    opts.tag = "_%s"%opts.tag
 
 if not opts.skip_gracedb_upload:
     # initialize instance of gracedb interface
@@ -145,11 +146,10 @@ if not opts.skip_gracedb_upload:
 
 if opts.verbose:
     print 'Finding relevant *glitch*.xml files'
-gchxml_filenames = sorted([filename for filename in
-                          idq.get_all_files_in_range(opts.input_dir,
-                          opts.start, opts.end, pad=0, suffix='.xml.gz'
-                          ) if opts.classifier in filename.split('/'
-                          )[-1] and 'glitch' in filename
+gchxml_filenames = sorted([filename for filename in 
+                          idq.get_all_files_in_range(opts.input_dir, opts.start, opts.end, pad=0, suffix='.xml.gz') 
+                          if opts.classifier == idq.extract_xml_name(filename) 
+                          and 'glitch' in filename
                           and opts.ifo in filename])
                         
 if not gchxml_filenames:
@@ -192,14 +192,16 @@ idq_tables_dbutils.delete_glitch_events_in_segmentlist(connection, cursor, segli
 ###############################################################################
 # ## save merged xmldoc
 ###############################################################################
-merged_xmldoc_filename = '%s/%s_idq_%s_glitch_%s%d-%d.xml' % (
-    opts.output_dir,
-    opts.ifo,
-    opts.classifier,
-    opts.tag,
-    int(opts.start),
-    int(opts.end - opts.start)
-    )
+#merged_xmldoc_filename = '%s/%s_idq_%s_glitch_%s%d-%d.xml' % (
+#    opts.output_dir,
+#    opts.ifo,
+#    opts.classifier,
+#    opts.tag,
+#    int(opts.start),
+#    int(opts.end - opts.start)
+#    )
+merged_xmldoc_filename = idq.gdb_xml(opts.output_dir, opts.classifier, opts.ifo, opts.tag, int(opts.start), int(opts.end-opts.start))
+
 if opts.verbose:
     print 'saving ' + merged_xmldoc_filename
 # exctract data base into xml file and write it to disk

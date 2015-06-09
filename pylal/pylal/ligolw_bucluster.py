@@ -102,8 +102,8 @@ def add_ms_columns_to_table(sngl_burst_table):
 	# at least one column was added, intialize them all
 	for row in sngl_burst_table:
 		row.peak_frequency = row.central_freq
-		row.set_ms_period(row.get_period())
-		row.set_ms_band(row.get_band())
+		row.ms_period = row.period
+		row.ms_band = row.band
 		row.ms_hrss = row.amplitude
 		row.ms_snr = row.snr
 		row.ms_confidence = row.confidence
@@ -129,9 +129,9 @@ def ExcessPowerPreFunc(sngl_burst_table):
 	"""
 	if not len(sngl_burst_table):
 		return
-	offset = sngl_burst_table[0].get_peak()
+	offset = sngl_burst_table[0].peak
 	for row in sngl_burst_table:
-		row.peak_time = float(row.get_peak() - offset)
+		row.peak_time = float(row.peak - offset)
 	return offset
 
 
@@ -141,7 +141,7 @@ def ExcessPowerPostFunc(sngl_burst_table, offset):
 	Restore peak times to absolute LIGOTimeGPS values.
 	"""
 	for row in sngl_burst_table:
-		row.set_peak(offset + row.peak_time)
+		row.peak = offset + row.peak_time
 
 
 def ExcessPowerSortFunc(a, b):
@@ -149,7 +149,7 @@ def ExcessPowerSortFunc(a, b):
 	Orders a and b by ifo, then by channel, then by search, then by
 	start time.
 	"""
-	return cmp(a.ifo, b.ifo) or cmp(a.channel, b.channel) or cmp(a.search, b.search) or cmp(a.get_start(), b.get_start())
+	return cmp(a.ifo, b.ifo) or cmp(a.channel, b.channel) or cmp(a.search, b.search) or cmp(a.start, b.start)
 
 
 def ExcessPowerBailoutFunc(a, b):
@@ -158,7 +158,7 @@ def ExcessPowerBailoutFunc(a, b):
 	time interval.  Returns 0 if a and b are from the same channel of
 	the same instrument and their time intervals are not disjoint.
 	"""
-	return cmp(a.ifo, b.ifo) or cmp(a.channel, b.channel) or cmp(a.search, b.search) or a.get_period().disjoint(b.get_period())
+	return cmp(a.ifo, b.ifo) or cmp(a.channel, b.channel) or cmp(a.search, b.search) or a.period.disjoint(b.period)
 
 
 def ExcessPowerTestFunc(a, b):
@@ -168,7 +168,7 @@ def ExcessPowerTestFunc(a, b):
 	the same channel of the same instrument, and their time-frequency
 	tiles are not disjoint.
 	"""
-	return cmp(a.ifo, b.ifo) or cmp(a.channel, b.channel) or cmp(a.search, b.search) or a.get_period().disjoint(b.get_period()) or a.get_band().disjoint(b.get_band())
+	return cmp(a.ifo, b.ifo) or cmp(a.channel, b.channel) or cmp(a.search, b.search) or a.period.disjoint(b.period) or a.band.disjoint(b.band)
 
 
 def ExcessPowerClusterFunc(a, b):
@@ -188,7 +188,7 @@ def ExcessPowerClusterFunc(a, b):
 	# confidence and discard the other.
 	#
 
-	if a.get_period() == b.get_period() and a.get_band() == b.get_band():
+	if a.period == b.period and a.band == b.band:
 		if b.ms_confidence > a.ms_confidence:
 			return b
 		return a
@@ -201,8 +201,8 @@ def ExcessPowerClusterFunc(a, b):
 		a.ms_hrss = b.ms_hrss
 		a.ms_snr = b.ms_snr
 		a.ms_confidence = b.ms_confidence
-	a.set_ms_period(snglcluster.weighted_average_seg(a.get_ms_period(), a.snr**2.0, b.get_ms_period(), b.snr**2.0))
-	a.set_ms_band(snglcluster.weighted_average_seg(a.get_ms_band(), a.snr**2.0, b.get_ms_band(), b.snr**2.0))
+	a.ms_period = snglcluster.weighted_average_seg(a.ms_period, a.snr**2.0, b.ms_period, b.snr**2.0)
+	a.ms_band = snglcluster.weighted_average_seg(a.ms_band, a.snr**2.0, b.ms_band, b.snr**2.0)
 
 	#
 	# Compute the SNR squared weighted peak time and frequency (recall
@@ -236,14 +236,14 @@ def ExcessPowerClusterFunc(a, b):
 	# bands of the two original events
 	#
 
-	a.set_band(snglcluster.smallest_enclosing_seg(a.get_band(), b.get_band()))
+	a.band = snglcluster.smallest_enclosing_seg(a.band, b.band)
 
 	#
 	# The cluster's time interval is the smallest interval containing
 	# the intervals of the two original events
 	#
 
-	a.set_period(snglcluster.smallest_enclosing_seg(a.get_period(), b.get_period()))
+	a.period = snglcluster.smallest_enclosing_seg(a.period, b.period)
 
 	#
 	# Success
@@ -269,7 +269,7 @@ def OmegaClusterFunc(a, b):
 	# confidence and discard the other.
 	#
 
-	if a.get_period() == b.get_period() and a.get_band() == b.get_band():
+	if a.period == b.period and a.band == b.band:
 		if b.snr > a.snr:
 			return b
 		return a
@@ -280,8 +280,8 @@ def OmegaClusterFunc(a, b):
 
 	if b.ms_snr > a.ms_snr:
 		a.ms_snr = b.ms_snr
-	a.set_ms_period(snglcluster.weighted_average_seg(a.get_ms_period(), a.snr**2.0, b.get_ms_period(), b.snr**2.0))
-	a.set_ms_band(snglcluster.weighted_average_seg(a.get_ms_band(), a.snr**2.0, b.get_ms_band(), b.snr**2.0))
+	a.ms_period = snglcluster.weighted_average_seg(a.ms_period, a.snr**2.0, b.ms_period, b.snr**2.0)
+	a.ms_band = snglcluster.weighted_average_seg(a.ms_band, a.snr**2.0, b.ms_band, b.snr**2.0)
 
 	#
 	# Compute the SNR squared weighted peak time and frequency (recall
@@ -309,14 +309,14 @@ def OmegaClusterFunc(a, b):
 	# bands of the two original events
 	#
 
-	a.set_band(snglcluster.smallest_enclosing_seg(a.get_band(), b.get_band()))
+	a.band = snglcluster.smallest_enclosing_seg(a.band, b.band)
 
 	#
 	# The cluster's time interval is the smallest interval containing
 	# the intervals of the two original events
 	#
 
-	a.set_period(snglcluster.smallest_enclosing_seg(a.get_period(), b.get_period()))
+	a.period = snglcluster.smallest_enclosing_seg(a.period, b.period)
 
 	#
 	# Success
@@ -380,7 +380,7 @@ def ligolw_bucluster(
 	#bad_band = segments.segment(1138.586956521739, 1216.0326086956522)
 	#for i in xrange(len(sngl_burst_table) - 1, -1, -1):
 	#	a = sngl_burst_table[i]
-	#	if a.ifo == "H2" and a.get_band().intersects(bad_band):
+	#	if a.ifo == "H2" and a.band.intersects(bad_band):
 	#		del sngl_burst_table[i]
 
 	#
@@ -410,7 +410,7 @@ def ligolw_bucluster(
 	# information
 	#
 
-	process.set_ifos(seglists.keys())
+	process.instruments = seglists.keys()
 	ligolw_search_summary.append_search_summary(xmldoc, process, inseg = seglists.extent_all(), outseg = seglists.extent_all(), nevents = len(sngl_burst_table))
 
 	#

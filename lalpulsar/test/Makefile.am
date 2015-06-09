@@ -21,6 +21,7 @@ test_programs += LALBarycenterTest
 test_programs += LFTandTSutilsTest
 test_programs += LatticeTilingTest
 test_programs += LineRobustStatsTest
+test_programs += MetricUtilsTest
 test_programs += NDConstructPLUTTest
 test_programs += NDHoughMapTest
 test_programs += NDPeak2PHMDTest
@@ -41,15 +42,13 @@ test_programs += UniversalDopplerMetricTest
 test_programs += VelocityTest
 test_programs += XLALComputeAMTest
 test_programs += XLALMultiNoiseWeightsTest
+test_programs += ComputeFstatBenchmark
 
 #test_programs += XLALLoadSFTsTest
 #test_programs += SFTCleanTest
 if LALXML
 test_programs += LALPulsarXMLTest
 endif
-
-## special benchmark program for CFS, not run as part of tests
-bin_PROGRAMS = ComputeFstatBenchmark
 
 # Add shell, Python, etc. test scripts to this variable
 test_scripts += pulsar_toa_test.sh

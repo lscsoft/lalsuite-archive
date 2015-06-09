@@ -801,26 +801,6 @@ del plan
 lal.CheckMemoryLeaks()
 print("PASSED FFT functions with input views ...")
 
-# check aligned vector math
-print("checking aligned vector math ...")
-theta = lal.PI * numpy.array([0, 1.0/6, 1.0/4, 1.0/2])
-sin_theta = numpy.array([0.0, 0.5, 1.0/numpy.sqrt(2), 1.0])
-r4aout = lal.CreateREAL4VectorAligned(4, 32)
-r4ain = lal.CreateREAL4VectorAligned(4, 32)
-r4ain.data = theta
-lal.VectorSinf(r4aout.cast2REAL4Vector(), r4ain.cast2REAL4Vector())
-assert((abs(r4aout.data - sin_theta) < 1e-3).all())
-r4out = r4aout.cast2REAL4Vector()
-r4in = r4ain.cast2REAL4Vector()
-del r4aout
-del r4ain
-lal.VectorSinf(r4out, r4in)
-assert((abs(r4out.data - sin_theta) < 1e-3).all())
-del r4out
-del r4in
-lal.CheckMemoryLeaks()
-print("PASSED aligned vector math")
-
 # check dynamic array of pointers access
 print("checking dynamic array of pointers access ...")
 ap = lal.swig_lal_test_Create_arrayofptrs(3)
@@ -835,21 +815,22 @@ print("PASSED dynamic array of pointers access")
 
 # check 'tm' struct conversions
 print("checking 'tm' struct conversions ...")
-gps = 989168284
-utc = [2011, 5, 11, 16, 57, 49, 2, 131, 0]
-assert(lal.GPSToUTC(gps) == utc)
-assert(lal.UTCToGPS(utc) == gps)
-assert(lal.UTCToGPS(utc[0:6]) == gps)
-utc[6] = utc[7] = 0
-for i in [-1, 0, 1]:
-    utc[8] = i
-    assert(lal.UTCToGPS(utc) == gps)
-utcd = utc
+gps0 = 989168284
+utc0 = [2011, 5, 11, 16, 57, 49, 2, 131, 0]
+assert(lal.GPSToUTC(gps0) == tuple(utc0))
+assert(lal.UTCToGPS(utc0) == gps0)
 for i in range(0, 10):
-    utcd[2] = utc[2] + i
-    utcd = lal.GPSToUTC(lal.UTCToGPS(utcd))
-    dt = datetime.datetime(*utcd[0:6])
-    assert(utcd[6] == dt.weekday())
+    gps = gps0 + i * 86400
+    utc = list(utc0)
+    utc[2] = utc[2] + i
+    utc[6] = (utc[6] + i) % 7
+    utc[7] = utc[7] + i
+    utc[8] = -1 + (i % 3)
+    assert(lal.GPSToUTC(gps)[0:8] == tuple(utc[0:8]))
+    assert(lal.UTCToGPS(utc) == gps)
+    utc = lal.GPSToUTC(lal.UTCToGPS(utc))
+    dt = datetime.datetime(*utc[0:6])
+    assert(utc[6] == dt.weekday())
 lal.CheckMemoryLeaks()
 print("PASSED 'tm' struct conversions")
 
@@ -888,6 +869,10 @@ assert(t1 % t2 == 0.5 and isinstance(t1 % t2, LIGOTimeGPS))
 assert(t1 > t2 and t2 < t1 and t1 >= t2 and t2 <= t1)
 assert(LIGOTimeGPS(333333333,333333333) == LIGOTimeGPS(1000000000) / 3)
 assert(LIGOTimeGPS(666666666,666666667) == LIGOTimeGPS(2000000000) / 3)
+assert(LIGOTimeGPS("-62997760.825036067") == LIGOTimeGPS("-47044285.062262587") - LIGOTimeGPS("15953475.76277348"))
+assert(LIGOTimeGPS("-6542354.389038577") == LIGOTimeGPS("-914984.929117316") * 7.1502318572066237)
+assert(LIGOTimeGPS("-6542354.389038577") == 7.1502318572066237 * LIGOTimeGPS("-914984.929117316"))
+assert(LIGOTimeGPS("-127965.770535834") == LIGOTimeGPS("-914984.929117316") / 7.1502318572066237)
 t1 += 812345667.75
 assert(str(t1) == "812345678.250000000")
 assert(LIGOTimeGPS(repr(t1)) == t1)

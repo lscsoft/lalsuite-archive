@@ -50,18 +50,10 @@ SUBDIRS += inspiral
 endif
 endif
 
-if LALFRAME
-if LALBURST
-SUBDIRS += tracksearch
-endif
-endif
-
 if FRAME
 if LALFRAME
 SUBDIRS += online
 endif
 endif
 
-if LALFRAME
 SUBDIRS += hwinjection
-endif

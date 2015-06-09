@@ -376,7 +376,7 @@ int XLALSimIMRSpinEOBWaveform(
  * See CQG 31 195010, 2014, arXiv:1402.4146 for details.
  */
 
-int XLALSimIMRSEOBNRv1ROMSingleSpin(
+int XLALSimIMRSEOBNRv1ROMEqualSpin(
     struct tagCOMPLEX16FrequencySeries **hptilde, /**< Output: Frequency-domain waveform h+ */
     struct tagCOMPLEX16FrequencySeries **hctilde, /**< Output: Frequency-domain waveform hx */
     REAL8 phiRef,                                 /**< Phase at reference frequency */
@@ -392,7 +392,7 @@ int XLALSimIMRSEOBNRv1ROMSingleSpin(
 );
 
 /** Compute waveform in LAL format at specified frequencies */
-int XLALSimIMRSEOBNRv1ROMSingleSpinFrequencySequence(
+int XLALSimIMRSEOBNRv1ROMEqualSpinFrequencySequence(
     struct tagCOMPLEX16FrequencySeries **hptilde, /**< Output: Frequency-domain waveform h+ */
     struct tagCOMPLEX16FrequencySeries **hctilde, /**< Output: Frequency-domain waveform hx */
     const REAL8Sequence *freqs,                   /**< Frequency points at which to evaluate the waveform (Hz) */
@@ -442,7 +442,7 @@ int XLALSimIMRSEOBNRv1ROMDoubleSpinFrequencySequence(
  * See CQG 31 195010, 2014, arXiv:1402.4146 for details.
  */
 
-int XLALSimIMRSEOBNRv2ROMSingleSpin(
+int XLALSimIMRSEOBNRv2ROMEqualSpin(
     struct tagCOMPLEX16FrequencySeries **hptilde, /**< Output: Frequency-domain waveform h+ */
     struct tagCOMPLEX16FrequencySeries **hctilde, /**< Output: Frequency-domain waveform hx */
     REAL8 phiRef,                                 /**< Phase at reference frequency */
@@ -458,7 +458,7 @@ int XLALSimIMRSEOBNRv2ROMSingleSpin(
 );
 
 /** Compute waveform in LAL format at specified frequencies */
-int XLALSimIMRSEOBNRv2ROMSingleSpinFrequencySequence(
+int XLALSimIMRSEOBNRv2ROMEqualSpinFrequencySequence(
   struct tagCOMPLEX16FrequencySeries **hptilde, /**< Output: Frequency-domain waveform h+ */
   struct tagCOMPLEX16FrequencySeries **hctilde, /**< Output: Frequency-domain waveform hx */
   const REAL8Sequence *freqs,                   /**< Frequency points at which to evaluate the waveform (Hz) */
@@ -473,9 +473,9 @@ int XLALSimIMRSEOBNRv2ROMSingleSpinFrequencySequence(
 
 /**
  * Compute the time at a given frequency. The origin of time is at the merger.
- * The allowed frequency range for the input is Mf \in [0.0001, 0.3].
+ * The allowed frequency range for the input is Mf in [0.0001, 0.3].
  */
-int XLALSimIMRSEOBNRv2ROMSingleSpinTimeOfFrequency(
+int XLALSimIMRSEOBNRv2ROMEqualSpinTimeOfFrequency(
   REAL8 *t,         /**< Output: time (s) at frequency */
   REAL8 frequency,  /**< Frequency (Hz) */
   REAL8 m1SI,       /**< Mass of companion 1 (kg) */
@@ -485,9 +485,9 @@ int XLALSimIMRSEOBNRv2ROMSingleSpinTimeOfFrequency(
 
 /**
  * Compute the frequency at a given time. The origin of time is at the merger.
- * The frequency range for the output is Mf \in [0.0001, 0.3].
+ * The frequency range for the output is Mf in [0.0001, 0.3].
  */
-int XLALSimIMRSEOBNRv2ROMSingleSpinFrequencyOfTime(
+int XLALSimIMRSEOBNRv2ROMEqualSpinFrequencyOfTime(
   REAL8 *frequency,   /**< Output: Frequency (Hz) */
   REAL8 t,            /**< Time (s) at frequency */
   REAL8 m1SI,         /**< Mass of companion 1 (kg) */
@@ -627,6 +627,45 @@ int XLALSimIMRPhenSpinInspiralRDGenerator(
     LALSimInspiralWaveformFlags *waveFlag,/**< Choice of axis for input spin params */
     LALSimInspiralTestGRParam *testGRparam  /**< Choice of axis for input spin params */
 					  );
+
+/**
+ * Compute the template-space metric of the IMRPhenomB templates in
+ * M-eta-chi parameter space.
+ * Ref. http://xxx.lanl.gov/abs/1501.04418
+ */
+int XLALSimIMRPhenomBMetricInMEtaChi(
+    REAL8 *gamma00,  /**< template metric coeff. 00 in PN Chirp Time */
+    REAL8 *gamma01,  /**< template metric coeff. 01/10 PN Chirp Time */
+    REAL8 *gamma02,  /**< template metric coeff. 01/10 PN Chirp Time */
+    REAL8 *gamma11,  /**< template metric coeff. 11 in PN Chirp Time */
+    REAL8 *gamma12,  /**< template metric coeff. 01/10 PN Chirp Time */
+    REAL8 *gamma22,  /**< template metric coeff. 01/10 PN Chirp Time */
+    const REAL8 m1,     /**< component mass 1 (kg) */
+    const REAL8 m2,     /**< component mass 2 (kg) */
+    const REAL8 chi,    /**< effective spin parameter of IMRPhenomB: chi = (m1 chi1 + m2 chi2)/(m1+m2)  */
+    const REAL8 fLow,   /**< low-frequency cutoff (Hz) */
+    const REAL8FrequencySeries *Sh
+);
+
+/**
+ * Compute the template-space metric of the IMRPhenomB templates in
+ * the modified chirp time parameter space.
+ * Ref. http://xxx.lanl.gov/abs/1501.04418
+ */
+int XLALSimIMRPhenomBMetricInTheta0Theta3Theta3S(
+    REAL8 *gamma00,  /**< template metric coeff. 00 in PN Chirp Time */
+    REAL8 *gamma01,  /**< template metric coeff. 01/10 PN Chirp Time */
+    REAL8 *gamma02,  /**< template metric coeff. 01/10 PN Chirp Time */
+    REAL8 *gamma11,  /**< template metric coeff. 11 in PN Chirp Time */
+    REAL8 *gamma12,  /**< template metric coeff. 01/10 PN Chirp Time */
+    REAL8 *gamma22,  /**< template metric coeff. 01/10 PN Chirp Time */
+    const REAL8 m1,     /**< component mass 1 (kg) */
+    const REAL8 m2,     /**< component mass 2 (kg) */
+    const REAL8 chi,    /**< effective spin parameter of IMRPhenomB: chi = (m1 chi1 + m2 chi2)/(m1+m2)  */
+    const REAL8 fLow,   /**< low-frequency cutoff (Hz) */
+    const REAL8FrequencySeries *Sh  /**< PSD in strain per root Hertz */
+);
+
 
 #if 0
 { /* so that editors will match succeeding brace */

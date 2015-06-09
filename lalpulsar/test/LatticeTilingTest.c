@@ -97,39 +97,43 @@ static int BasicTest(
     GFMAT( metric );
   }
 
-  // Check number of generated points is expected
   for( size_t i = 0; i < n; ++i ) {
 
-    // Create lattice tiling iterator and locator over 'i+1' dimensions
-    LatticeTilingIterator *itr = XLALCreateLatticeTilingIterator( tiling, i+1 );
+    // Create lattice tiling iterator (using positive order) and locator over 'i+1' dimensions
+    LatticeTilingIterator *itr = XLALCreateLatticeTilingIterator( tiling, i+1, TILING_ORDER_POSITIVE );
     XLAL_CHECK( itr != NULL, XLAL_EFUNC );
     LatticeTilingLocator *loc = XLALCreateLatticeTilingLocator( tiling, i+1 );
     XLAL_CHECK( loc != NULL, XLAL_EFUNC );
 
     // Count number of points
-    const UINT8 total = XLALNumberOfLatticeTilingPoints( itr );
+    const UINT8 total = XLALTotalLatticeTilingPoints( itr );
     printf( "Number of lattice points in %zu dimensions: %" LAL_UINT8_FORMAT "\n", i+1, total );
     XLAL_CHECK( total == total_ref[i], XLAL_EFUNC, "ERROR: total = %" LAL_UINT8_FORMAT " != %" LAL_UINT8_FORMAT " = total_ref", total, total_ref[i] );
-    printf( "Minimum/average/maximum number of points per dimension:\n" );
+    printf( "Minimum/average/maximum number of points per pass:\n" );
     for( size_t j = 0; j < n; ++j ) {
-      long min_dim = 0, max_dim = 0;
-      double avg_dim = 0;
-      XLAL_CHECK( XLALRangesOfLatticeTilingPoints( itr, j, &min_dim, &avg_dim, &max_dim ) == XLAL_SUCCESS, XLAL_EFUNC );
-      XLAL_CHECK( min_dim <= avg_dim && avg_dim <= max_dim, XLAL_EFAILED );
-      printf( "   %li <= %0.3g <= %li\n", min_dim, avg_dim, max_dim );
+      UINT8 total_j = 0;
+      long min_pass = 0, max_pass = 0;
+      double avg_pass = 0;
+      XLAL_CHECK( XLALLatticeTilingStatistics( itr, j, &total_j, &min_pass, &avg_pass, &max_pass ) == XLAL_SUCCESS, XLAL_EFUNC );
+      printf( "   %li <= %0.3g <= %li (total=%" LAL_UINT8_FORMAT ")\n", min_pass, avg_pass, max_pass, total_j );
+      if( j <= i ) {
+        XLAL_CHECK( total_j == total_ref[j], XLAL_EFUNC, "ERROR: total = %" LAL_UINT8_FORMAT " != %" LAL_UINT8_FORMAT " = total_ref", total_j, total_ref[j] );
+      } else {
+        XLAL_CHECK( total_j == total_ref[i], XLAL_EFUNC, "ERROR: total = %" LAL_UINT8_FORMAT " != %" LAL_UINT8_FORMAT " = total_ref", total_j, total_ref[i] );
+        XLAL_CHECK( min_pass == 1 && max_pass == 1, XLAL_EFAILED );
+      }
+      XLAL_CHECK( min_pass <= avg_pass && avg_pass <= max_pass, XLAL_EFAILED );
     }
 
     // Get all points
     gsl_matrix *GAMAT( points, n, total );
-    for( size_t j = 0; j < total; ++j ) {
-      gsl_vector_view points_col = gsl_matrix_column( points, j );
-      XLAL_CHECK( XLALNextLatticeTilingPoint( itr, &points_col.vector ) > 0, XLAL_EFUNC );
-    }
+    XLAL_CHECK( XLALNextLatticeTilingPoints( itr, &points ) == (int)total, XLAL_EFUNC );
     XLAL_CHECK( XLALNextLatticeTilingPoint( itr, NULL ) == 0, XLAL_EFUNC );
 
     // Get nearest point to each template; should be template itself
-    gsl_matrix *nearest = NULL;
-    UINT8Vector *indexes = NULL;
+    gsl_matrix *GAMAT( nearest, n, total );
+    UINT8Vector *indexes = XLALCreateUINT8Vector( total );
+    XLAL_CHECK( indexes != NULL, XLAL_ENOMEM );
     XLAL_CHECK( XLALNearestLatticeTilingPoints( loc, points, &nearest, NULL, &indexes ) == XLAL_SUCCESS, XLAL_EFUNC );
     UINT8 failed = 0;
     for( UINT8 j = 0; j < total; ++j ) {
@@ -142,15 +146,32 @@ static int BasicTest(
       XLAL_ERROR( XLAL_EFAILED, "ERROR: number of failed index lookups = %" LAL_UINT8_FORMAT " > 0", failed );
     }
 
-    // Print index trie
-    printf( "Index trie in %zu dimensions:\n", i+1 );
-    XLAL_CHECK( XLALPrintLatticeTilingIndexTrie( loc, stdout ) == XLAL_SUCCESS, XLAL_EFUNC );
+    if ( lalDebugLevel & LALINFOBIT ) {
+      // Print index trie
+      printf( "Index trie in %zu dimensions:\n", i+1 );
+      XLAL_CHECK( XLALPrintLatticeTilingIndexTrie( loc, stdout ) == XLAL_SUCCESS, XLAL_EFUNC );
+    }
 
     // Cleanup
     XLALDestroyLatticeTilingIterator( itr );
     XLALDestroyLatticeTilingLocator( loc );
     XLALDestroyUINT8Vector( indexes );
     GFMAT( points, nearest );
+
+  }
+
+  for( size_t i = 0; i < n; ++i ) {
+
+    // Create lattice tiling iterator (using alternating order) over 'i+1' dimensions
+    LatticeTilingIterator *itr = XLALCreateLatticeTilingIterator( tiling, i+1, TILING_ORDER_ALTERNATING );
+    XLAL_CHECK( itr != NULL, XLAL_EFUNC );
+
+    // Count number of points
+    const UINT8 total = XLALTotalLatticeTilingPoints( itr );
+    XLAL_CHECK( total == total_ref[i], XLAL_EFUNC, "ERROR: total = %" LAL_UINT8_FORMAT " != %" LAL_UINT8_FORMAT " = total_ref (alternating order)", total, total_ref[i] );
+
+    // Cleanup
+    XLALDestroyLatticeTilingIterator( itr );
 
   }
 
@@ -172,25 +193,22 @@ static int MismatchTest(
   )
 {
 
-  const size_t n = XLALNumberOfLatticeTilingDimensions( tiling );
+  const size_t n = XLALTotalLatticeTilingDimensions( tiling );
 
-  // Create lattice tiling iterator and locator
-  LatticeTilingIterator *itr = XLALCreateLatticeTilingIterator( tiling, n );
+  // Create lattice tiling iterator (using alternating order) and locator
+  LatticeTilingIterator *itr = XLALCreateLatticeTilingIterator( tiling, n, TILING_ORDER_ALTERNATING );
   XLAL_CHECK( itr != NULL, XLAL_EFUNC );
   LatticeTilingLocator *loc = XLALCreateLatticeTilingLocator( tiling, n );
   XLAL_CHECK( loc != NULL, XLAL_EFUNC );
 
   // Count number of points
-  const UINT8 total = XLALNumberOfLatticeTilingPoints( itr );
+  const UINT8 total = XLALTotalLatticeTilingPoints( itr );
   printf( "Number of lattice points: %" LAL_UINT8_FORMAT "\n", total );
   XLAL_CHECK( total == total_ref, XLAL_EFUNC, "ERROR: total = %" LAL_UINT8_FORMAT " != %" LAL_UINT8_FORMAT " = total_ref", total, total_ref );
 
   // Get all points
   gsl_matrix *GAMAT( points, n, total );
-  for( size_t j = 0; j < total; ++j ) {
-    gsl_vector_view points_col = gsl_matrix_column( points, j );
-    XLAL_CHECK( XLALNextLatticeTilingPoint( itr, &points_col.vector ) > 0, XLAL_EFUNC );
-  }
+  XLAL_CHECK( XLALNextLatticeTilingPoints( itr, &points ) == (int)total, XLAL_EFUNC );
   XLAL_CHECK( XLALNextLatticeTilingPoint( itr, NULL ) == 0, XLAL_EFUNC );
 
   // Initialise mismatch histogram counts
@@ -274,8 +292,9 @@ static int MismatchTest(
   // Perform 10 injections outside parameter space
   {
     gsl_matrix *GAMAT( injections, 3, 10 );
-    gsl_matrix *nearest = NULL;
-    UINT8Vector *indexes = NULL;
+    gsl_matrix *GAMAT( nearest, n, total );
+    UINT8Vector *indexes = XLALCreateUINT8Vector( total );
+    XLAL_CHECK( indexes != NULL, XLAL_ENOMEM );
     RandomParams *rng = XLALCreateRandomParams( total );
     XLAL_CHECK( rng != NULL, XLAL_EFUNC );
 
@@ -426,13 +445,13 @@ static int SuperskyTest(
                                              TEST_DATA_DIR "sun00-19-DE405.dat.gz" );
   XLAL_CHECK( edat != NULL, XLAL_EFUNC );
   gsl_matrix *rssky_metric = NULL, *rssky_transf = NULL;
-  XLAL_CHECK( XLALComputeSuperskyMetrics( &rssky_metric, &rssky_transf, NULL, NULL, NULL, NULL, 0, &ref_time, &segments, freq, &detectors, NULL, DETMOTION_SPIN | DETMOTION_PTOLEORBIT, edat ) == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK( XLALComputeSuperskyMetrics( &rssky_metric, &rssky_transf, NULL, 0, &ref_time, &segments, freq, &detectors, NULL, DETMOTION_SPIN | DETMOTION_PTOLEORBIT, edat ) == XLAL_SUCCESS, XLAL_EFUNC );
   XLALSegListClear( &segments );
   XLALDestroyEphemerisData( edat );
 
   // Add bounds
   printf( "Bounds: supersky, freq=%0.3g, freqband=%0.3g\n", freq, freqband );
-  XLAL_CHECK( XLALSetSuperskyLatticeTilingAllSkyBounds( tiling ) == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK( XLALSetSuperskyLatticeTilingAllSkyBounds( tiling, 2.0, 1, 0 ) == XLAL_SUCCESS, XLAL_EFUNC );
   XLAL_CHECK( XLALSetSuperskyLatticeTilingPhysicalSpinBound( tiling, rssky_transf, 0, freq, freq + freqband ) == XLAL_SUCCESS, XLAL_EFUNC );
   GFMAT( rssky_transf );
 

@@ -164,7 +164,7 @@ WHERE
 
 def sngl_burst_veto_func(event, vetoseglists):
 	# return True if event should be *retained*
-	return event.ifo not in vetoseglists or event.get_peak() not in vetoseglists[event.ifo]
+	return event.ifo not in vetoseglists or event.peak not in vetoseglists[event.ifo]
 
 
 def ligolw_burca2(database, ln_likelihood_ratio, params_func, verbose = False, params_func_extra_args = ()):

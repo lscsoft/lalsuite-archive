@@ -67,13 +67,12 @@
 #include <lal/LIGOLwXMLBurstRead.h>
 #include <lal/LIGOLwXMLInspiralRead.h>
 #include <lal/LIGOMetadataTables.h>
-#include <lal/LIGOMetadataBurstUtils.h>
 #include <lal/Random.h>
 #include <lal/RealFFT.h>
 #include <lal/ResampleTimeSeries.h>
 #include <lal/SeqFactories.h>
 #include <lal/SimulateCoherentGW.h>
-#include <lal/TFTransform.h>
+#include <lal/SnglBurstUtils.h>
 #include <lal/TimeFreqFFT.h>
 #include <lal/TimeSeries.h>
 #include <lal/Units.h>
@@ -242,8 +241,7 @@ struct options {
 	 * diagnostics support
 	 */
 
-	/* diagnostics call back for passing to LAL (NULL = disable) */
-	struct XLALEPSearchDiagnostics *diagnostics;
+	LIGOLwXMLStream *diagnostics;
 };
 
 
@@ -636,11 +634,7 @@ static struct options *parse_command_line(int argc, char *argv[], const ProcessT
 
 	case 'X':
 #if 0
-		options->diagnostics = malloc(sizeof(*options->diagnostics));
-		options->diagnostics->LIGOLwXMLStream = XLALOpenLIGOLwXMLFile(LALoptarg);
-		options->diagnostics->XLALWriteLIGOLwXMLArrayREAL8FrequencySeries = XLALWriteLIGOLwXMLArrayREAL8FrequencySeries;
-		options->diagnostics->XLALWriteLIGOLwXMLArrayREAL8TimeSeries = XLALWriteLIGOLwXMLArrayREAL8TimeSeries;
-		options->diagnostics->XLALWriteLIGOLwXMLArrayCOMPLEX16FrequencySeries = XLALWriteLIGOLwXMLArrayCOMPLEX16FrequencySeries;
+		options->diagnostics = XLALOpenLIGOLwXMLFile(LALoptarg);
 #else
 		sprintf(msg, "--dump-diagnostics given but diagnostic code not included at compile time");
 		args_are_bad = 1;
@@ -1149,23 +1143,13 @@ static void destroy_injection_document(struct injection_document *doc)
 }
 
 
-static struct injection_document *load_injection_document(const char *filename, LIGOTimeGPS start, LIGOTimeGPS end)
+static struct injection_document *load_injection_document(const char *filename)
 {
 	struct injection_document *new;
-	/* hard-coded speed hack.  only injections whose "times" are within
-	 * this many seconds of the requested interval will be loaded */
-	const double longest_injection = 600.0;
 
 	new = malloc(sizeof(*new));
 	if(!new)
 		XLAL_ERROR_NULL(XLAL_ENOMEM);
-
-	/*
-	 * adjust start and end times
-	 */
-
-	XLALGPSAdd(&start, -longest_injection);
-	XLALGPSAdd(&end, longest_injection);
 
 	/*
 	 * load required tables
@@ -1182,7 +1166,7 @@ static struct injection_document *load_injection_document(const char *filename, 
 
 	new->has_sim_burst_table = XLALLIGOLwHasTable(filename, "sim_burst");
 	if(new->has_sim_burst_table) {
-		new->sim_burst_table_head = XLALSimBurstTableFromLIGOLw(filename, &start, &end);
+		new->sim_burst_table_head = XLALSimBurstTableFromLIGOLw(filename, NULL, NULL);
 	} else
 		new->sim_burst_table_head = NULL;
 
@@ -1192,7 +1176,9 @@ static struct injection_document *load_injection_document(const char *filename, 
 
 	new->has_sim_inspiral_table = XLALLIGOLwHasTable(filename, "sim_inspiral");
 	if(new->has_sim_inspiral_table) {
-		if(SimInspiralTableFromLIGOLw(&new->sim_inspiral_table_head, filename, start.gpsSeconds - 1, end.gpsSeconds + 1) < 0)
+		/* FIXME:  find way to ask for "everything" (see
+		 * XLALSimBurstTableFromLIGOLw for example) */
+		if(SimInspiralTableFromLIGOLw(&new->sim_inspiral_table_head, filename, 0, 2147483647) < 0)
 			new->sim_inspiral_table_head = NULL;
 	} else
 		new->sim_inspiral_table_head = NULL;
@@ -1516,7 +1502,7 @@ int main(int argc, char *argv[])
 	 */
 
 	if(options->injection_filename) {
-		injection_document = load_injection_document(options->injection_filename, options->gps_start, options->gps_end);
+		injection_document = load_injection_document(options->injection_filename);
 		if(!injection_document) {
 			XLALPrintError("%s: error: failure reading injections file \"%s\"\n", argv[0], options->injection_filename);
 			exit(1);
@@ -1682,7 +1668,7 @@ int main(int argc, char *argv[])
 	 * Sort the events, and assign IDs.
 	 */
 
-	XLALSortSnglBurst(&_sngl_burst_table, XLALCompareSnglBurstByStartTimeAndLowFreq);
+	XLALSortSnglBurst(&_sngl_burst_table, XLALCompareSnglBurstByPeakTimeAndSNR);
 	XLALSnglBurstAssignIDs(_sngl_burst_table, _process_table->process_id, 0);
 
 	/*
@@ -1716,7 +1702,7 @@ int main(int argc, char *argv[])
 	destroy_injection_document(injection_document);
 
 	if(options->diagnostics)
-		XLALCloseLIGOLwXMLFile(options->diagnostics->LIGOLwXMLStream);
+		XLALCloseLIGOLwXMLFile(options->diagnostics);
 	options_free(options);
 
 	LALCheckMemoryLeaks();

@@ -5,7 +5,6 @@ include $(top_srcdir)/gnuscripts/lalsuite_python.am
 include $(top_srcdir)/gnuscripts/lalapps.am
 
 SUBDIRS = \
-	SPINspiral \
 	mpi
 
 if LALPULSAR
@@ -26,6 +25,9 @@ endif # lalpulsar
 
 #bayesline_SOURCES = \
 #	BayesLine.c
+
+dist_bin_SCRIPTS = \
+	lalinference_mpi_wrapper
 
 bin_PROGRAMS = \
 	$(metaio_progs) \

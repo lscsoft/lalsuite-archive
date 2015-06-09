@@ -40,7 +40,7 @@ void get_pulsar_model( LALInferenceModel *model ){
   pars.psi = rescale_parameter( model, model->ifo, "PSI" );
   pars.cgw = 1.; /* need to set this to one otherwise it defaults to zero with the initialisation */
 
-  if( LALInferenceCheckVariableNonFixed( model->params, "H0" ) || LALInferenceCheckVariable( model->ifo->params, "jones-model" ) ){
+  if( ( LALInferenceCheckVariableNonFixed( model->params, "H0" ) || LALInferenceCheckVariable( model->ifo->params, "jones-model" ) ) && !LALInferenceCheckVariable( model->ifo->params, "nonGR" ) ){
     pars.h0 = rescale_parameter( model, model->ifo, "H0" );
 
     /* use parameterisation from Ian Jones's original model */
@@ -66,7 +66,7 @@ void get_pulsar_model( LALInferenceModel *model ){
   else if ( LALInferenceCheckVariable( model->ifo->params, "nonGR" ) ){
     /* speed of GWs as (1 - fraction of speed of light LAL_C_SI) */
     pars.cgw = rescale_parameter( model, model->ifo, "CGW" );
-
+ 
     /* amplitudes for use with non-GR searches */
     /* tensor modes */
     pars.hPlus = rescale_parameter( model, model->ifo, "HPLUS" );
@@ -79,11 +79,25 @@ void get_pulsar_model( LALInferenceModel *model ){
     pars.hVectorY = rescale_parameter( model, model->ifo, "HVECTORY" );
 
     pars.phi0Scalar = rescale_parameter( model, model->ifo, "PHI0SCALAR" );
+    pars.psiScalar = rescale_parameter( model, model->ifo, "PSISCALAR" );
     pars.phi0Vector = rescale_parameter( model, model->ifo, "PHI0VECTOR" );
     pars.psiVector = rescale_parameter( model, model->ifo, "PSIVECTOR" );
     pars.phi0Tensor = rescale_parameter( model, model->ifo, "PHI0TENSOR" );
+    pars.psiTensor = rescale_parameter( model, model->ifo, "PSITENSOR" );
+    
+    /* parameters that might be needed for particular models */
+    pars.h0 = rescale_parameter( model, model->ifo, "H0" );
+    pars.iota = rescale_parameter( model, model->ifo, "IOTA" );
+
+    /* check whether a specific nonGR model was requested */
+    if ( LALInferenceCheckVariable( model->ifo->params, "nonGRmodel" ) ){
+      char* nonGRmodel;
+      nonGRmodel = *(char**)LALInferenceGetVariable( model->ifo->params, "nonGRmodel" );
+      set_nonGR_model_parameters( &pars, nonGRmodel ); 
+    }
   }
   else{
+    /* amplitude for usual GR search */
     pars.C21 = rescale_parameter( model, model->ifo, "C21" );
     pars.C22 = rescale_parameter( model, model->ifo, "C22" );
     pars.phi21 = rescale_parameter( model, model->ifo, "PHI21" );
@@ -168,6 +182,39 @@ void get_pulsar_model( LALInferenceModel *model ){
   pulsar_model( pars, model->ifo );
 }
 
+/**
+ * \brief Set amplitude parameters for specific non-GR models.
+ *
+ * Turns physical parameters from a particular nonGR model into the corresponding antenna pattern amplitudes and phases. All nonGR models must be included here.
+ * \param pars [in] parameter structure
+ * \param nonGRmodel [in] name of model requested
+ */
+void set_nonGR_model_parameters( BinaryPulsarParams *pars, char* nonGRmodel ){
+  /* determine what model was requested */
+  int isG4v = strcmp(nonGRmodel, "G4v") * strcmp(nonGRmodel, "g4v") * strcmp(nonGRmodel, "G4V");
+  int isST = strcmp(nonGRmodel, "scalar-tensor") * strcmp(nonGRmodel, "ST");
+
+  if( isG4v==0 ){
+    /* \f$ h_{\rm x} = h_0 \sin \iota~,~\phi_{\rm x} = -\pi/2 \f$ */
+    /* \f$ h_{\rm y} = h_0 \sin \iota \cos \iota~,~\phi_{\rm y} = 0 */
+    REAL8 cosiota = cos(pars->iota);
+    REAL8 siniota = sin(pars->iota);
+
+    pars->hVectorX = pars->h0 * siniota;
+    pars->hVectorY = pars->h0 * siniota * cosiota;
+    pars->psiVector = LAL_PI_2;
+  }
+  else if( isST==0) {
+    /* GR plus an unconstrained breathing mode */
+    /* TO DO: are there specific functional relations linking the HSCALARB to pulsar parameters like COSIOTA, etc.? */
+    pars->hPlus = 0.5 * pars->h0 * (1 + pars->cosiota * pars->cosiota);
+    pars->hCross = pars->h0 * pars->cosiota;
+    pars->psiTensor = - LAL_PI_2;
+  } else {
+    XLALPrintError ("%s: unrecognized non-GR model. Currently supported: scalar-tensor (ST), G4v, or no argument for full search.\n", __func__ );
+    XLAL_ERROR_VOID( XLAL_EINVAL );
+  }
+}
 
 /**
  * \brief Rescale parameter back to its true value
@@ -400,7 +447,7 @@ REAL8Vector *get_ssb_delay( BinaryPulsarParams pars, LIGOTimeGPSVector *datatime
   INT4 i = 0, length = 0;
   REAL8 T0 = 0.;
 
-  BarycenterInput *bary = NULL;
+  BarycenterInput bary;
   UINT4 baryfail = 0;
 
   REAL8Vector *dts = NULL;
@@ -409,15 +456,9 @@ REAL8Vector *get_ssb_delay( BinaryPulsarParams pars, LIGOTimeGPSVector *datatime
   if( ephem == NULL ) { return NULL; }
 
   /* copy barycenter and ephemeris data */
-  bary = (BarycenterInput*)XLALCalloc( 1, sizeof(BarycenterInput) );
-  memcpy( &bary->site, detector, sizeof(LALDetector) );
-
-  bary->site.location[0] /= LAL_C_SI;
-  bary->site.location[1] /= LAL_C_SI;
-  bary->site.location[2] /= LAL_C_SI;
-
-  bary->alpha = pars.ra;
-  bary->delta = pars.dec;
+  bary.site.location[0] = detector->location[0]/LAL_C_SI;
+  bary.site.location[1] = detector->location[1]/LAL_C_SI;
+  bary.site.location[2] = detector->location[2]/LAL_C_SI;
 
    /* set the position and frequency epochs if not already set */
   if( pars.pepoch == 0. && pars.posepoch != 0.) { pars.pepoch = pars.posepoch; }
@@ -429,13 +470,13 @@ REAL8Vector *get_ssb_delay( BinaryPulsarParams pars, LIGOTimeGPSVector *datatime
   dts = XLALCreateREAL8Vector( length );
 
   /* set 1/distance if parallax or distance value is given (1/sec) */
-  if( pars.px != 0. ) { bary->dInv = pars.px*1e-3*LAL_C_SI/LAL_PC_SI; }
-  else if( pars.dist != 0. ) { bary->dInv = LAL_C_SI/(pars.dist*1e3*LAL_PC_SI); }
-  else { bary->dInv = 0.; }
+  if( pars.px != 0. ) { bary.dInv = pars.px*1e-3*LAL_C_SI/LAL_PC_SI; }
+  else if( pars.dist != 0. ) { bary.dInv = LAL_C_SI/(pars.dist*1e3*LAL_PC_SI); }
+  else { bary.dInv = 0.; }
 
   T0 = pars.pepoch;
 
-  #pragma omp parallel for shared(baryfail)
+  #pragma omp parallel for shared(baryfail) private(bary)
   for( i=0; i<length; i++){
     if ( !baryfail ){ /* need this to quickly exit loop while using openmp (as can't use break statements) */
       EarthState earth, earth2;
@@ -448,23 +489,23 @@ REAL8Vector *get_ssb_delay( BinaryPulsarParams pars, LIGOTimeGPSVector *datatime
       /* only do call to the barycentring routines once every interptime (unless
          interptime == 0), otherwise just linearly interpolate between them */
       if( i == 0 || DT > DTplus || interptime == 0 ){
-        bary->tgps = datatimes->data[i];
+        bary.tgps = datatimes->data[i];
 
-        bary->delta = pars.dec + ( realT - pars.posepoch ) * pars.pmdec;
-        bary->alpha = pars.ra + ( realT - pars.posepoch ) * pars.pmra / cos( bary->delta );
+        bary.delta = pars.dec + ( realT - pars.posepoch ) * pars.pmdec;
+        bary.alpha = pars.ra + ( realT - pars.posepoch ) * pars.pmra / cos( bary.delta );
 
         /* call barycentring routines */
-        if ( XLALBarycenterEarthNew( &earth, &bary->tgps, ephem, tdat, ttype ) != XLAL_SUCCESS ){ baryfail = 1; continue; }
-        if ( XLALBarycenter( &emit, bary, &earth ) != XLAL_SUCCESS ){ baryfail = 1; continue; }
+        if ( XLALBarycenterEarthNew( &earth, &bary.tgps, ephem, tdat, ttype ) != XLAL_SUCCESS ){ baryfail = 1; continue; }
+        if ( XLALBarycenter( &emit, &bary, &earth ) != XLAL_SUCCESS ){ baryfail = 1; continue; }
 
         /* add interptime to the time */
         if ( interptime > 0 ){
           DTplus = DT + interptime;
-          XLALGPSAdd( &bary->tgps, interptime );
+          XLALGPSAdd( &bary.tgps, interptime );
 
           /* No point in updating the positions as difference will be tiny */
-          if( XLALBarycenterEarthNew( &earth2, &bary->tgps, ephem,tdat, ttype ) != XLAL_SUCCESS ){ baryfail = 1; continue; }
-          if( XLALBarycenter( &emit2, bary, &earth2 ) != XLAL_SUCCESS){ baryfail = 1; continue; }
+          if( XLALBarycenterEarthNew( &earth2, &bary.tgps, ephem, tdat, ttype ) != XLAL_SUCCESS ){ baryfail = 1; continue; }
+          if( XLALBarycenter( &emit2, &bary, &earth2 ) != XLAL_SUCCESS){ baryfail = 1; continue; }
         }
       }
 
@@ -478,8 +519,6 @@ REAL8Vector *get_ssb_delay( BinaryPulsarParams pars, LIGOTimeGPSVector *datatime
 
   /* check that for loop didn't fail early */
   XLAL_CHECK_NULL( !baryfail, XLAL_EFUNC );
-
-  XLALFree( bary );
 
   return dts;
 }
@@ -860,19 +899,21 @@ void get_amplitude_model( BinaryPulsarParams pars, LALInferenceIFOModel *ifo ){
       else if( freqFactors->data[j] == 2. ){
         /* the l=2, m=2 harmonic at twice the rotation frequency */
         if ( nonGR ){ /* amplitude if nonGR is specifiec */
-          COMPLEX16 expPhiTensor, expPhiScalar, expPhiVector, expPsiVector;
+          COMPLEX16 expPhiTensor, expPsiTensor, expPhiScalar, expPsiScalar, expPhiVector, expPsiVector;
 
           expPhiTensor = cexp( I * pars.phi0Tensor );
+          expPsiTensor = cexp( I * pars.psiTensor );
           expPhiScalar = cexp( I * pars.phi0Scalar );
+          expPsiScalar = cexp( I * pars.psiScalar );
           expPhiVector = cexp( I * pars.phi0Vector );
           expPsiVector = cexp( I * pars.psiVector );
 
-          Cplus = 0.5 * pars.hPlus * expPhiTensor;
-          Ccross = -0.5 * I * pars.hCross * expPhiTensor;
-          Cx = -0.5 * I * expPhiVector * pars.hVectorX;
-          Cy = -0.5 * I * expPhiVector * pars.hVectorY * expPsiVector;
-          Cb = -0.5 * I * expPhiScalar * pars.hScalarB;
-          Cl = -0.5 * I * expPhiScalar * pars.hScalarL;
+          Cplus = 0.5 * expPhiTensor * pars.hPlus;
+          Ccross = 0.5 * expPhiTensor * pars.hCross * expPsiTensor;
+          Cx = 0.5 * expPhiVector * pars.hVectorX;
+          Cy = 0.5 * expPhiVector * pars.hVectorY * expPsiVector;
+          Cb = 0.5 * expPhiScalar * pars.hScalarB;
+          Cl = 0.5 * expPhiScalar * pars.hScalarL * expPsiScalar;
         }
         else{ /* just GR tensor mode amplitudes */
           expPhi = cexp( I * pars.phi22 );
@@ -910,7 +951,7 @@ void get_amplitude_model( BinaryPulsarParams pars, LALInferenceIFOModel *ifo ){
 
         length = ifo->times->length;
 
-        #pragma omp parallel for
+        #pragma omp parallel for private(T)
         for( i=0; i<length; i++ ){
           REAL8 plus00, plus01, cross00, cross01, plus = 0., cross = 0.;
           REAL8 x00, x01, y00, y01, b00, b01, l00, l01;

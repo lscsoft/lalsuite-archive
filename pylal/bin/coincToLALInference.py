@@ -131,9 +131,9 @@ coinc_events = []
 
 for arg in args:
 	xmldoc = utils.load_filename(arg)
-	coinctable = lsctables.getTablesByType(xmldoc, lsctables.CoincInspiralTable)[0]
-	sngltable = lsctables.getTablesByType(xmldoc, lsctables.SnglInspiralTable)[0]
-	coincmap = lsctables.getTablesByType( xmldoc, lsctables.CoincMapTable )[0]
+	coinctable = lsctables.CoincInspiralTable.get_table(xmldoc)
+	sngltable = lsctables.SnglInspiralTable.get_table(xmldoc)
+	coincmap = lsctables.CoincMapTable.get_table(xmldoc)
 
 	coinc_events += [event.coinc_event_id for event in coinctable]
 	if verb: print "Found %d coinc events in table." % len(coinc_events)

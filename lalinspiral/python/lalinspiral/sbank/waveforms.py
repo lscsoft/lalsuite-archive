@@ -110,6 +110,9 @@ def compute_chirptimes(mchirp, eta, chi, flow):
     theta3s = 113. / (48 * PI) * chi * theta3
     return theta0, theta3, theta3s
 
+def compute_tau0(mc, flow):
+    return 5. * mc * MTSUN_SI / (256 * (PI * flow * mc * MTSUN_SI)**(8./3))
+
 
 class Template(object):
     """
@@ -132,12 +135,14 @@ class Template(object):
     * Provide a classmethod from_sim, which creates an instance based on
       a sim_inspiral object.
     """
-    __slots__ = ("_wf", "_metric", "sigmasq", "is_seed_point")
+    __slots__ = ("m1", "m2", "bank", "_mchirp", "_tau0", "_wf", "_metric", "sigmasq", "is_seed_point")
 
-    def __init__(self):
-        self._wf = None
+    def __init__(self, m1, m2, bank):
+        self._wf = {}
         self._metric = None
         self.sigmasq = 0.
+        self._mchirp = compute_mchirp(m1, m2)
+        self._tau0 = compute_tau0( self._mchirp, bank.flow)
 
     def __repr__(self):
         return "(%s)" % ", ".join(self.param_formats) % self.params
@@ -157,7 +162,7 @@ class Template(object):
         match the length of the ASD, so its normalization depends on
         its own length.
         """
-        if self._wf is None or self._wf.deltaF != df:  # need to generate a new wf
+        if not self._wf.has_key(df):
             wf = self._compute_waveform(df, self._f_final)
             if ASD is None:
                 ASD = PSD**0.5
@@ -174,9 +179,9 @@ class Template(object):
             self.sigmasq = compute_sigmasq(arr_view, df)
             arr_view[:] /= self.sigmasq**0.5
 
-            # down-convert to singla precision
-            self._wf = FrequencySeries_to_COMPLEX8FrequencySeries(wf)
-        return self._wf
+            # down-convert to single precision
+            self._wf[df] = FrequencySeries_to_COMPLEX8FrequencySeries(wf)
+        return self._wf[df]
 
     def metric_match(self, other, df, **kwargs):
         raise NotImplementedError
@@ -185,17 +190,17 @@ class Template(object):
         return InspiralSBankComputeMatch(self.get_whitened_normalized(df, **kwargs), other.get_whitened_normalized(df, **kwargs), workspace_cache)
 
     def clear(self):
-        self._wf = None
+        self._wf = {}
         self._metric = None
 
 class TaylorF2RedSpinTemplate(Template):
     param_names = ("m1", "m2", "chi")
     param_formats = ("%.5f", "%.5f", "%+.4f")
 
-    __slots__ = ("m1", "m2", "spin1z", "spin2z", "bank", "chi", "_f_final", "_dur", "_mchirp", "_eta", "_theta0", "_theta3", "_theta3s")
+    __slots__ = ("m1", "m2", "spin1z", "spin2z", "bank", "chi", "_f_final", "_dur", "_mchirp", "_tau0", "_eta", "_theta0", "_theta3", "_theta3s")
 
     def __init__(self, m1, m2, spin1z, spin2z, bank):
-        Template.__init__(self)
+        Template.__init__(self, m1, m2, bank)
         # don't want numpy scalars; arithmetic with them costs a whole lot of overhead
         m1 = float(m1)
         m2 = float(m2)
@@ -291,10 +296,10 @@ class IMRPhenomBTemplate(Template):
     param_names = ("m1", "m2", "chi")
     param_formats = ("%.2f", "%.2f", "%+.2f")
 
-    __slots__ = ("m1", "m2", "spin1z", "spin2z", "bank", "chi", "_f_final", "_dur", "_mchirp")
+    __slots__ = ("m1", "m2", "spin1z", "spin2z", "bank", "chi", "_f_final", "_dur", "_mchirp", "_tau0")
 
     def __init__(self, m1, m2, spin1z, spin2z, bank):
-        Template.__init__(self)
+        Template.__init__(self, m1, m2, bank)
         self.m1 = m1
         self.m2 = m2
         self.spin1z = spin1z
@@ -369,11 +374,11 @@ class PrecessingTemplate(Template):
     """
     param_names = ("m1", "m2", "spin1x", "spin1y", "spin1z", "spin2x", "spin2y", "spin2z", "theta", "phi", "iota", "psi")
     param_formats = ("%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f")
-    __slots__ = param_names + ("bank","_f_final","_dur","_mchirp")
+    __slots__ = param_names + ("bank","_f_final","_dur","_mchirp","_tau0")
 
     def __init__(self, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, theta, phi, iota, psi, bank):
 
-        Template.__init__(self)
+        Template.__init__(self, m1, m2, bank)
         self.m1 = m1
         self.m2 = m2
         self.spin1x = spin1x
@@ -407,7 +412,7 @@ class IMRPhenomPTemplate(PrecessingTemplate):
     IMRPhenomP precessing IMR model.
     """
 
-    __slots__ = PrecessingTemplate.param_names + ("bank", "chieff", "chipre", "_f_final", "_dur", "_mchirp")
+    __slots__ = PrecessingTemplate.param_names + ("bank", "chieff", "chipre", "_f_final", "_dur", "_mchirp", "_tau0")
     param_names = ("m1", "m2", "chieff", "chipre")
     param_formats = ("%.2f", "%.2f", "%.2f", "%.2f")
 
@@ -459,10 +464,10 @@ class SEOBNRv2Template(Template):
     param_names = ("m1", "m2", "spin1z", "spin2z")
     param_formats = ("%.2f", "%.2f", "%.2f", "%.2f")
 
-    __slots__ = ("m1", "m2", "spin1z", "spin2z", "bank", "_f_final", "_dur", "_mchirp", "_chi")
+    __slots__ = ("m1", "m2", "spin1z", "spin2z", "bank", "_f_final", "_dur", "_mchirp", "_tau0", "_chi")
 
     def __init__(self, m1, m2, spin1z, spin2z, bank):
-        Template.__init__(self)
+        Template.__init__(self, m1, m2, bank)
         self.m1 = float(m1)
         self.m2 = float(m2)
         self.spin1z = float(spin1z)
@@ -566,10 +571,10 @@ class EOBNRv2Template(Template):
     param_names = ("m1", "m2")
     param_formats = ("%.2f", "%.2f")
 
-    __slots__ = ("m1", "m2", "bank", "_f_final", "_dur", "_mchirp")
+    __slots__ = ("m1", "m2", "bank", "_f_final", "_dur", "_mchirp", "_tau0")
 
     def __init__(self, m1, m2, bank):
-        Template.__init__(self)
+        Template.__init__(self, m1, m2, bank)
         self.m1 = float(m1)
         self.m2 = float(m2)
         self.bank = bank
@@ -648,10 +653,10 @@ class SpinTaylorT4Template(Template):
     param_names = ("m1","m2","s1x","s1y","s1z","s2x","s2y","s2z","inclination","theta","phi","psi")
     param_formats = ("%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f")
 
-    __slots__ = ("m1","m2","s1x","s1y","s1z","s2x","s2y","s2z","inclination","theta","phi","psi","bank","_f_final","_dur","_mchirp")
+    __slots__ = ("m1","m2","s1x","s1y","s1z","s2x","s2y","s2z","inclination","theta","phi","psi","bank","_f_final","_dur","_mchirp", "_tau0")
 
     def __init__(self,m1,m2,s1x,s1y,s1z,s2x,s2y,s2z,inclination,theta,phi,psi,bank):
-        Template.__init__(self)
+        Template.__init__(self, m1, m2, bank)
         self.m1 = float(m1)
         self.m2 = float(m2)
         self.s1x = float(s1x)
@@ -743,10 +748,10 @@ class SpinTaylorT5Template(Template):
     param_names = ("m1","m2","s1x","s1y","s1z","s2x","s2y","s2z","inclination","theta","phi","psi")
     param_formats = ("%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f")
 
-    __slots__ = ("m1","m2","s1x","s1y","s1z","s2x","s2y","s2z","inclination","theta","phi","psi","bank","_f_final","_dur","_mchirp")
+    __slots__ = ("m1","m2","s1x","s1y","s1z","s2x","s2y","s2z","inclination","theta","phi","psi","bank","_f_final","_dur","_mchirp", "_tau0")
 
     def __init__(self,m1,m2,s1x,s1y,s1z,s2x,s2y,s2z,inclination,theta,phi,psi,bank):
-        Template.__init__(self)
+        Template.__init__(self, m1, m2, bank)
         self.m1 = float(m1)
         self.m2 = float(m2)
         self.s1x = float(s1x)

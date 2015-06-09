@@ -192,6 +192,10 @@ int checkSpinsZero(REAL8 s1x, REAL8 s1y, REAL8 s1z,
  returns 1 if x and y components of spins are zero, otherwise returns 0 */
 int checkTransverseSpinsZero(REAL8 s1x, REAL8 s1y, REAL8 s2x, REAL8 s2y);
 
+/* Internal utility function to check aligned spins very close to equal
+   returns 1 if z components of spins are very close to equal, otherwise returns 0 */
+int checkAlignedSpinsEqual(REAL8 s1z, REAL8 s2z);
+
 /* Internal utility function to check tidal parameters are zero
  returns 1 if both tidal parameters zero, otherwise returns 0 */
 int checkTidesZero(REAL8 lambda1, REAL8 lambda2);
@@ -253,9 +257,9 @@ typedef enum {
    SEOBNRv1,		/**< Spin-aligned EOBNR model */
    SEOBNRv2,		/**< Spin-aligned EOBNR model v2 */
    SEOBNRv3,		/**< Spin precessing EOBNR model v3 */
-   SEOBNRv1_ROM_SingleSpin, /**< Single-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv1 See [Purrer:2014fza] */
+   SEOBNRv1_ROM_EqualSpin, /**< Single-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv1 See [Purrer:2014fza] */
    SEOBNRv1_ROM_DoubleSpin, /**< Double-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv1 See [Purrer:2014fza] */
-   SEOBNRv2_ROM_SingleSpin, /**< Single-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv2 */
+   SEOBNRv2_ROM_EqualSpin, /**< Single-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv2 */
    SEOBNRv2_ROM_DoubleSpin, /**< Double-spin frequency domain reduced order model of spin-aligned EOBNR model SEOBNRv2 */
    HGimri,		/**< Time domain inspiral-merger-ringdown waveform for quasi-circular intermediate mass-ratio inspirals [Huerta & Gair arXiv:1009.1985]*/
    IMRPhenomA,		/**< Time domain (non-spinning) inspiral-merger-ringdown waveforms generated from the inverse FFT of IMRPhenomFA  */
@@ -323,6 +327,7 @@ typedef enum {
 REAL8 XLALSimInspiralChirpTimeBound(REAL8 fstart, REAL8 m1, REAL8 m2, REAL8 s1, REAL8 s2);
 REAL8 XLALSimInspiralMergeTimeBound(REAL8 m1, REAL8 m2);
 REAL8 XLALSimInspiralRingdownTimeBound(REAL8 M, REAL8 s);
+REAL8 XLALSimInspiralFinalBlackHoleSpinBound(REAL8 S1z, REAL8 S2z);
 REAL8 XLALSimInspiralChirpStartFrequencyBound(REAL8 tchirp, REAL8 m1, REAL8 m2);
 
 /**
@@ -890,6 +895,41 @@ int XLALSimAddMode(
 		);
 
 /**
+ * For all valid TimeSeries contained within hmode structure,
+ * multiplies a mode h(l,m) by a spin-2 weighted spherical harmonic
+ * to obtain hplus - i hcross, which is added to the time series.
+ *
+ * Implements the sum of Eq. (11) of:
+ * Lawrence E. Kidder, \"Using Full Information When Computing Modes of
+ * Post-Newtonian Waveforms From Inspiralling Compact Binaries in Circular
+ * Orbit\", Physical Review D 77, 044016 (2008), arXiv:0710.0614v1 [gr-qc].
+ *
+ */
+int XLALSimAddModeFromModes(
+		    REAL8TimeSeries *hplus,      /**< +-polarization waveform */
+	       	REAL8TimeSeries *hcross,     /**< x-polarization waveform */
+	       	SphHarmTimeSeries *hmode,    /**< complex modes h(l,m) */
+	       	REAL8 theta,                 /**< polar angle (rad) */
+	       	REAL8 phi                    /**< azimuthal angle (rad) */
+		);
+
+
+/**
+ * Returns the h+, hx waveforms constructed from all valid TimeSeries 
+ * contained within hmode structure. 
+ *
+ * See XLALSimAddModeFromModes and XLALSimAddMode
+ *
+ */
+int XLALSimNewTimeSeriesFromModes(
+		    REAL8TimeSeries **hplus,     /**< +-polarization waveform */
+	       	REAL8TimeSeries **hcross,    /**< x-polarization waveform */
+	       	SphHarmTimeSeries *hmode,    /**< complex modes h(l,m) */
+	       	REAL8 theta,                 /**< polar angle (rad) */
+	       	REAL8 phi                    /**< azimuthal angle (rad) */
+		);
+
+/**
  * Computes h(l,m) mode timeseries of spherical harmonic decomposition of
  * the post-Newtonian inspiral waveform.
  *
@@ -1134,38 +1174,47 @@ int XLALSimInspiralImplementedFDApproximants(
     Approximant approximant /**< post-Newtonian approximant for use in waveform production */
     );
 
-/**
- * XLAL function to determine approximant from a string.  The string need not
- * match exactly, only contain a member of the Approximant enum.
- */
-int XLALGetApproximantFromString(const CHAR *inString);
 
-/**
- * XLAL function to determine string from approximant enum.
- * This function needs to be updated when new approximants are added.
- */
-char* XLALGetStringFromApproximant(Approximant approximant);
+int XLALSimInspiralDecomposeWaveformString(int *approximant, int *order, int *axis, const char *waveform);
 
-/**
- * XLAL function to determine PN order from a string.  The string need not
- * match exactly, only contain a member of the LALPNOrder enum.
- */
-int XLALGetOrderFromString(const CHAR *inString);
+int XLALSimInspiralGetApproximantFromString(const char *waveform);
 
-/**
- * XLAL function to determine tapering flag from a string.  The string must
- * match exactly with a member of the LALSimInspiralApplyTaper enum.
- */
-int XLALGetTaperFromString(const CHAR *inString);
+/* DEPRECATED */
+int XLALGetApproximantFromString(const char *waveform);
 
-/** XLAL function to determine axis choice flag from a string */
-int XLALGetFrameAxisFromString(const CHAR *inString);
+int XLALSimInspiralGetPNOrderFromString(const char *waveform);
 
-/**
- * XLAL function to determine mode flag from a string.
- * Returns one of enum values as name matches case of enum.
- */
-int XLALGetHigherModesFromString(const CHAR *inString);
+/* DEPRECATED */
+int XLALGetOrderFromString(const char *waveform);
+
+int XLALSimInspiralGetFrameAxisFromString(const char *waveform);
+
+/* DEPRECATED */
+int XLALGetFrameAxisFromString(const char *waveform);
+
+int XLALSimInspiralGetTaperFromString(const char *string);
+
+/* DEPRECATED */
+int XLALGetTaperFromString(const char *string);
+
+int XLALSimInspiralGetHigherModesFromString(const char *string);
+
+/* DEPRECATED */
+int XLALGetHigherModesFromString(const char *string);
+
+const char * XLALSimInspiralGetStringFromApproximant(Approximant approximant);
+
+/* DEPRECATED */
+const char * XLALGetStringFromApproximant(Approximant approximant);
+
+const char * XLALSimInspiralGetStringFromPNOrder(LALPNOrder order);
+
+const char * XLALSimInspiralGetStringFromTaper(LALSimInspiralApplyTaper taper);
+
+const char * XLALSimInspiralGetStringFromFrameAxis(LALSimInspiralFrameAxis axis);
+
+const char * XLALSimInspiralGetStringFromModesChoice(LALSimInspiralModesChoice modes);
+
 
 /**
  * DEPRECATED: USE XLALSimInspiralChooseTDWaveform() INSTEAD
@@ -1267,6 +1316,9 @@ int XLALSimInspiralChooseFDWaveform(
     int phaseO,                                 /**< twice post-Newtonian order */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
     );
+
+int XLALSimInspiralTDConditionStage1(REAL8TimeSeries *hplus, REAL8TimeSeries *hcross, REAL8 textra, REAL8 f_min);
+int XLALSimInspiralTDConditionStage2(REAL8TimeSeries *hplus, REAL8TimeSeries *hcross, REAL8 f_min, REAL8 f_max);
 
 /**
  * @brief Generates an time domain inspiral waveform using the specified approximant; the
@@ -1404,6 +1456,8 @@ SphHarmTimeSeries *XLALSimInspiralChooseTDModes(
     int lmax,                                   /**< generate all modes with l <= lmax */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
     );
+
+SphHarmTimeSeries *XLALSimInspiralModesTD(REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 f_min, REAL8 f_ref, REAL8 r, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, int lmax, Approximant approximant);
 
 /**
  * Interface to compute a single -2 spin-weighted spherical harmonic mode
@@ -2283,6 +2337,39 @@ int XLALSimInspiralSpinTaylorPNEvolveOrbit(
  * 4) fRef < 0 or fRef >= Schwarz. ISCO are forbidden and the code will abort.
  */
 int XLALSimInspiralSpinTaylorT4(
+	REAL8TimeSeries **hplus,        /**< +-polarization waveform */
+	REAL8TimeSeries **hcross,       /**< x-polarization waveform */
+	REAL8 phiRef,                   /**< orbital phase at reference pt. */
+	REAL8 v0,                       /**< tail gauge term (default = 1) */
+	REAL8 deltaT,                   /**< sampling interval (s) */
+	REAL8 m1,                       /**< mass of companion 1 (kg) */
+	REAL8 m2,                       /**< mass of companion 2 (kg) */
+	REAL8 fStart,                   /**< start GW frequency (Hz) */
+	REAL8 fRef,                     /**< reference GW frequency (Hz) */
+	REAL8 r,                        /**< distance of source (m) */
+	REAL8 s1x,                      /**< initial value of S1x */
+	REAL8 s1y,                      /**< initial value of S1y */
+	REAL8 s1z,                      /**< initial value of S1z */
+	REAL8 s2x,                      /**< initial value of S2x */
+	REAL8 s2y,                      /**< initial value of S2y */
+	REAL8 s2z,                      /**< initial value of S2z */
+	REAL8 lnhatx,                   /**< initial value of LNhatx */
+	REAL8 lnhaty,                   /**< initial value of LNhaty */
+	REAL8 lnhatz,                   /**< initial value of LNhatz */
+	REAL8 e1x,                      /**< initial value of E1x */
+	REAL8 e1y,                      /**< initial value of E1y */
+	REAL8 e1z,                      /**< initial value of E1z */
+	REAL8 lambda1,                  /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
+	REAL8 lambda2,                  /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+	REAL8 quadparam1,               /**< phenom. parameter describing induced quad. moment of body 1 (=1 for BHs, ~2-12 for NSs) */
+	REAL8 quadparam2,               /**< phenom. parameter describing induced quad. moment of body 2 (=1 for BHs, ~2-12 for NSs) */
+	LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
+	LALSimInspiralTidalOrder tideO, /**< twice PN order of tidal effects */
+	int phaseO,                     /**< twice PN phase order */
+	int amplitudeO                  /**< twice PN amplitude order */
+	);
+
+int XLALSimInspiralSpinTaylorT1(
 	REAL8TimeSeries **hplus,        /**< +-polarization waveform */
 	REAL8TimeSeries **hcross,       /**< x-polarization waveform */
 	REAL8 phiRef,                   /**< orbital phase at reference pt. */

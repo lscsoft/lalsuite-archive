@@ -6,10 +6,10 @@ pkginclude_HEADERS = \
 	LALConstants.h \
 	LALDatatypes.h \
 	LALDebugLevel.h \
-	LALErrno.h \
 	LALError.h \
 	LALGSL.h \
 	LALMalloc.h \
+	LALSIMD.h \
 	LALStatusMacros.h \
 	LALStddef.h \
 	LALStdio.h \
@@ -30,6 +30,7 @@ libstd_la_SOURCES = \
 	LALError.c \
 	LALGSL.c \
 	LALMalloc.c \
+	LALSIMD.c \
 	LALString.c \
 	LALVCSInfoType.c \
 	LALVersion.c \

@@ -17,9 +17,12 @@
 *  MA  02111-1307  USA
 */
 
+#define _BSD_SOURCE   /* for realpath() */
+#include <stdlib.h>
+#undef _BSD_SOURCE
+
 #include <limits.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include <config.h>
@@ -332,7 +335,7 @@ LALCache *XLALCacheGlob(const char *dirstr, const char *fnptrn)
         char dirname[PATH_MAX];
         char *nextdir;
         strncpy(dirname, dirstr, sizeof(dirname) - 1);
-        dirname[sizeof(dirname) - 1] = 0;
+        XLAL_LAST_ELEM(dirname) = 0;
         do {
             if ((nextdir = strchr(dirname, ':')))
                 *nextdir++ = 0;

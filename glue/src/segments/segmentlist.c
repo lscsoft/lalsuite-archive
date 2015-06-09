@@ -32,14 +32,6 @@
 
 #include <segments.h>
 
-/* Gain access to 64-bit addressing where possible
- * http://www.python.org/dev/peps/pep-0353/#conversion-guidelines */
-#if PY_VERSION_HEX < 0x02050000 && !defined(PY_SSIZE_T_MIN)
-typedef int Py_ssize_t;
-#define PY_SSIZE_T_MAX INT_MAX
-#define PY_SSIZE_T_MIN INT_MIN
-#endif
-
 
 /*
  * ============================================================================
@@ -143,10 +135,39 @@ static int unpack(PyObject *seg, PyObject **lo, PyObject **hi)
 {
 	if(!seg)
 		return -1;
+
 	if(!PyTuple_Check(seg)) {
-		/* FIXME:  should this raise NotImplemented? */
-		PyErr_SetObject(PyExc_TypeError, seg);
-		return -1;
+		/* slow path */
+		Py_ssize_t n = PySequence_Length(seg);
+
+		if(n != 2) {
+			/* if n < 0 the exception has already been set */
+			if(n >= 0)
+				PyErr_SetObject(PyExc_ValueError, seg);
+			return -1;
+		}
+
+		if(lo) {
+			*lo = PySequence_GetItem(seg, 0);
+			if(!*lo) {
+				if(hi)
+					*hi = NULL;
+				return -1;
+			}
+		}
+
+		if(hi) {
+			*hi = PySequence_GetItem(seg, 1);
+			if(!*hi) {
+				if(lo) {
+					Py_XDECREF(*lo);
+					*lo = NULL;
+				}
+				return -1;
+			}
+		}
+
+		return 0;
 	}
 
 	if(lo) {
@@ -221,15 +242,11 @@ static PyObject *make_segment(PyObject *lo, PyObject *hi)
 
 static int pylist_extend(PyListObject *l, PyObject *v)
 {
-#if (PY_MAJOR_VERSION >= 2) && (PY_MINOR_VERSION >= 4)
 	if(!PyList_Check(l)) {
 		PyErr_SetObject(PyExc_TypeError, (PyObject *) l);
 		return -1;
 	}
 	PyObject *result = _PyList_Extend(l, v);
-#else
-	PyObject *result = PyObject_CallMethod((PyObject *) l, "extend", "O", v);
-#endif
 	if(!result)
 		return -1;
 	Py_DECREF(result);

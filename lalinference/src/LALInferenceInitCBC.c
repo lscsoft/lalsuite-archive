@@ -195,15 +195,15 @@ static void LALInferenceInitCalibrationVariables(LALInferenceRunState *runState,
 		between fmin and fmax. */
     REAL8 ampUncertaintyPrior = 0.1; /* 10% amplitude */
     REAL8 phaseUncertaintyPrior = 5*M_PI/180.0; /* 5 degrees phase */
-    if ((ppt = LALInferenceGetProcParamVal(runState->commandLine, "--spline-calibration-nodes"))) {
+    if ((ppt = LALInferenceGetProcParamVal(runState->commandLine, "--spcal-nodes"))) {
       ncal = atoi(ppt->value);
     }
 
-    if ((ppt = LALInferenceGetProcParamVal(runState->commandLine, "--spline-calibration-amp-uncertainty"))) {
+    if ((ppt = LALInferenceGetProcParamVal(runState->commandLine, "--spcal-amp-uncertainty"))) {
       ampUncertaintyPrior = atof(ppt->value);
     }
 
-    if ((ppt = LALInferenceGetProcParamVal(runState->commandLine, "--spline-calibration-phase-uncertainty"))) {
+    if ((ppt = LALInferenceGetProcParamVal(runState->commandLine, "--spcal-phase-uncertainty"))) {
       phaseUncertaintyPrior = M_PI/180.0*atof(ppt->value); /* CL arg in degrees, variable in radians */
     }
 
@@ -1290,7 +1290,12 @@ void LALInferenceCheckOptionsConsistency(ProcessParamsTable *commandLine)
 
   // Check PSDlength > 0
   ppt=LALInferenceGetProcParamVal(commandLine,"--psdlength");
-  if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--PSDlength");
+  if (!ppt)
+      ppt=LALInferenceGetProcParamVal(commandLine,"--PSDlength");
+  if (!ppt) {
+      printf("ERROR: PSD length not specified. Exiting...\n");
+      exit(1);
+  }
   tmp=atof(ppt->value);
   if (tmp<0.0){
     fprintf(stderr,"ERROR: PSD length must be positive. Exiting...\n");

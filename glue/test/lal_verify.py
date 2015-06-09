@@ -92,44 +92,45 @@ class test_LIGOTimeGPS(unittest.TestCase):
 	def test__mod__(self):
 		self.assertEqual(lal.LIGOTimeGPS(3), lal.LIGOTimeGPS(13) % 5.0)
 
-	def test_pylal_comparison(self):
+	def test_swig_comparison(self):
 		try:
-			from pylal.datatypes import LIGOTimeGPS as pylalLIGOTimeGPS
+			from lal import LIGOTimeGPS as swigLIGOTimeGPS
 		except ImportError:
-			print >>sys.stderr, "pylal not available:  skipping test"
+			print >>sys.stderr, "lal swig bindings not available:  skipping test"
 			return
 
+		toswig = lambda x: swigLIGOTimeGPS(str(x))
+		fromswig = lambda x: lal.LIGOTimeGPS(str(x))
+
 		operators = {
-			"add": (lal.LIGOTimeGPS.__add__, pylalLIGOTimeGPS.__add__),
-			"sub": (lal.LIGOTimeGPS.__sub__, pylalLIGOTimeGPS.__sub__)
+			"add": (lal.LIGOTimeGPS.__add__, swigLIGOTimeGPS.__add__),
+			"sub": (lal.LIGOTimeGPS.__sub__, swigLIGOTimeGPS.__sub__)
 		}
 
-		for i in xrange(1000000):
-			key, (op, pylalop) = random.choice(operators.items())
+		for i in xrange(100000):
+			key, (op, swigop) = random.choice(operators.items())
 			arg1 = randomLIGOTimeGPS() / 2
 			arg2 = randomLIGOTimeGPS() / 2
 			try:
-				self.assertEqual(op(arg1, arg2), pylalop(pylalLIGOTimeGPS(arg1), pylalLIGOTimeGPS(arg2)))
+				self.assertEqual(op(arg1, arg2), fromswig(swigop(toswig(arg1), toswig(arg2))))
 			except AssertionError as s:
 				raise AssertionError("%s(%s, %s) comparison failed: %s" % (key, str(arg1), str(arg2), str(s)))
 
-		# FIXME:  div and mod tests fail, fix then enable
+		# FIXME:  mod tests fail, fix then enable
 		operators = {
-			"mul": (lal.LIGOTimeGPS.__mul__, pylalLIGOTimeGPS.__mul__),
-			#"div": (lal.LIGOTimeGPS.__div__, pylalLIGOTimeGPS.__div__)#,
-			#"mod": (lal.LIGOTimeGPS.__mod__, pylalLIGOTimeGPS.__mod__)
+			"mul": (lal.LIGOTimeGPS.__mul__, swigLIGOTimeGPS.__mul__),
+			"div": (lal.LIGOTimeGPS.__div__, swigLIGOTimeGPS.__div__)#,
+			#"mod": (lal.LIGOTimeGPS.__mod__, swigLIGOTimeGPS.__mod__)
 		}
 
-		for i in xrange(10000):
-			key, (op, pylalop) = random.choice(operators.items())
+		for i in xrange(100000):
+			key, (op, swigop) = random.choice(operators.items())
 			arg1 = randomLIGOTimeGPS() / 100
 			arg2 = 100**(random.random() * 2 - 1)
 			try:
-				# FIXME:  max allowed discrepancy should be
-				# smaller
-				self.assertEqual(abs(op(arg1, arg2) - pylalop(pylalLIGOTimeGPS(arg1), arg2)) < 3e-8, True)
+				self.assertEqual(abs(op(arg1, arg2) - fromswig(swigop(toswig(arg1), arg2))) <= 1e-9, True)
 			except AssertionError as s:
-				raise AssertionError("%s(%s, %s) comparison failed: %s != %s" % (key, str(arg1), "%.17g" % arg2, str(op(arg1, arg2)), str(pylalop(pylalLIGOTimeGPS(arg1), arg2))))
+				raise AssertionError("%s(%s, %s) comparison failed: %s != %s" % (key, str(arg1), "%.17g" % arg2, str(op(arg1, arg2)), str(swigop(toswig(arg1), arg2))))
 
 
 #

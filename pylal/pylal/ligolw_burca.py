@@ -123,8 +123,8 @@ def make_multi_burst(process_id, coinc_event_id, events, offset_vector):
 	# don't like being multiplied by things, so the first event's peak
 	# time is used as a reference epoch.
 
-	t = events[0].get_peak() + offset_vector[events[0].ifo]
-	multiburst.set_peak(t + sum(event.ms_snr**2.0 * float(event.get_peak() + offset_vector[event.ifo] - t) for event in events) / multiburst.snr**2.0)
+	t = events[0].peak + offset_vector[events[0].ifo]
+	multiburst.peak = t + sum(event.ms_snr**2.0 * float(event.peak + offset_vector[event.ifo] - t) for event in events) / multiburst.snr**2.0
 
 	# duration = ms_snr squared weighted average of durations
 
@@ -221,17 +221,17 @@ class ExcessPowerEventList(snglcoinc.EventList):
 		# difference between an event's peak time and either its
 		# start or stop times
 		if self:
-			self.max_edge_peak_delta = max([max(float(event.get_peak() - event.get_start()), float(event.get_start() + event.duration - event.get_peak())) for event in self])
+			self.max_edge_peak_delta = max([max(float(event.peak - event.start), float(event.start + event.duration - event.peak)) for event in self])
 		else:
 			# max() doesn't like empty lists
 			self.max_edge_peak_delta = 0
 
 	def get_coincs(self, event_a, offset_a, light_travel_time, ignored, comparefunc):
 		# event_a's peak time
-		peak = event_a.get_peak()
+		peak = event_a.peak
 
 		# difference between event_a's peak and start times
-		dt = float(peak - event_a.get_start())
+		dt = float(peak - event_a.start)
 
 		# largest difference between event_a's peak time and either
 		# its start or stop times
@@ -275,7 +275,7 @@ class StringEventList(snglcoinc.EventList):
 		self.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
 
 	def get_coincs(self, event_a, offset_a, light_travel_time, threshold, comparefunc):
-		min_peak = max_peak = event_a.get_peak() + offset_a - self.offset
+		min_peak = max_peak = event_a.peak + offset_a - self.offset
 		min_peak -= threshold[0] + light_travel_time
 		max_peak += threshold[0] + light_travel_time
 		return [event_b for event_b in self[bisect.bisect_left(self, min_peak) : bisect.bisect_right(self, max_peak)] if not comparefunc(event_a, offset_a, event_b, self.offset, light_travel_time, threshold)]
@@ -294,8 +294,8 @@ def ExcessPowerCoincCompare(a, offseta, b, offsetb, light_travel_time, threshold
 	if abs(a.central_freq - b.central_freq) > (a.bandwidth + b.bandwidth) / 2:
 		return True
 
-	astart = a.get_start() + offseta
-	bstart = b.get_start() + offsetb
+	astart = a.start + offseta
+	bstart = b.start + offsetb
 	if astart > bstart + b.duration + light_travel_time:
 		# a starts after the end of b
 		return True
@@ -318,7 +318,7 @@ def StringCoincCompare(a, offseta, b, offsetb, light_travel_time, thresholds):
 	dt, = thresholds
 
 	# test for time coincidence
-	coincident = abs(float(a.get_peak() + offseta - b.get_peak() - offsetb)) <= (dt + light_travel_time)
+	coincident = abs(float(a.peak + offseta - b.peak - offsetb)) <= (dt + light_travel_time)
 
 	# return result
 	return not coincident

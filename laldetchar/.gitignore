@@ -14,6 +14,7 @@ AUTHORS
 Makefile
 Makefile.in
 config.lt
+doxygen/autogen.dox
 doxygen/doxygen.cfg
 doxygen/filter
 doxygen/out/
@@ -31,6 +32,7 @@ python/laldetchar-hveto
 python/laldetchar-hveto-summary-page
 python/laldetchar-idq-add-excluded-vars
 python/laldetchar-idq-build-auxmvc-vectors
+python/laldetchar-idq-calibration
 python/laldetchar-idq-convertkwtosb
 python/laldetchar-idq-evaluate-times
 python/laldetchar-idq-fap-calibration

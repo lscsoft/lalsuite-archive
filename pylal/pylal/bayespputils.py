@@ -65,7 +65,7 @@ fig_height = fig_width*golden_mean      # height in inches
 fig_size =  [fig_width,fig_height]
 matplotlib.rcParams.update(
         {'axes.labelsize': 16,
-        'text.fontsize':   16,
+        'font.size':       16,
         'legend.fontsize': 16,
         'xtick.labelsize': 16,
         'ytick.labelsize': 16,
@@ -103,7 +103,7 @@ from pylal import git_version
 #C extensions
 from _bayespputils import _skyhist_cart,_burnin
 
-__author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
+__author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>, Vivien Raymond <vivien.raymond@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
@@ -2154,7 +2154,7 @@ class KDSkeleton(object):
         to a box with less than 'boxing' objects in it and returns the box bounds,
         number of objects in the box, and the weighting.
         """
-        if self._left == None:
+        if self._left is None:
             return self._bounds, self._samples, self._importance
         elif coordinates[self._splitDim] < self._splitValue:
             return self._left.search(coordinates)
@@ -2654,7 +2654,7 @@ def random_split(items, fraction):
     return items[:size], items[size:]
 
 def addSample(tree,coordinates):
-    if tree._left == None:
+    if tree._left is None:
         tree.addSample()
     elif coordinates[tree._splitDim] < tree._splitValue:
         addSample(tree._left,coordinates)
@@ -2865,7 +2865,7 @@ def kdtree_bin(posterior,coord_names,confidence_levels,initial_boundingbox = Non
 
     samples,header=posterior.samples()
     header=header.split()
-    coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+    coordinatized_samples=[PosteriorSample(row, header, coord_names) for row in samples]
 
     #if initial bounding box is not provided, create it using max/min of sample coords.
     if initial_boundingbox is None:
@@ -2906,12 +2906,13 @@ def kdtree_bin(posterior,coord_names,confidence_levels,initial_boundingbox = Non
         injInfo = [injBound,injNum,injWeight]
         #calculate volume of injections bin
         inj_volume = 1.
-        low = injBound[1]
-        high = injBound[0]
+        low = injBound[0]
+        high = injBound[1]
         for aCoord,bCoord in zip(low,high):
             inj_volume = inj_volume*(bCoord - aCoord)
         inj_number_density=float(injNum)/float(inj_volume)
         inj_rho = inj_number_density / a.unrho
+        print injNum,inj_volume,inj_number_density,a.unrho,injBound
     else:
         injInfo = None
         inj_area = None
@@ -2995,7 +2996,7 @@ def kdtree_bin2Step(posterior,coord_names,confidence_levels,initial_boundingbox 
         addSample(tree2fill,tempSample)
 
     def getValues(tree,listing):
-        if tree._left == None:
+        if tree._left is None:
             listing.append([tree.bounds(),tree._importance,tree._samples,tree._volume])
         else:
             getValues(tree._left,listing)
@@ -3034,7 +3035,7 @@ def kdtree_bin2Step(posterior,coord_names,confidence_levels,initial_boundingbox 
             level +=1
 
     if injCoords is not None:
-        injBound,injNum,injImportance = tree2fill.search(injCoords)                                                                                                              
+        injBound,injNum,injImportance = tree2fill.search(injCoords)
         injInfo = [injBound,injNum,injImportance]
     else:
         injInfo = None
@@ -3044,7 +3045,6 @@ def kdtree_bin2Step(posterior,coord_names,confidence_levels,initial_boundingbox 
     inj_confidence = None
     inj_confidence_area = None
     if injInfo is not None:
-        print 'calculating cl'
         acc_vol=0.
         acc_cl=0.
         for leaf in sortedLeavesList:
@@ -5055,10 +5055,11 @@ def effectiveSampleSize(samples, Nskip=1):
 def readCoincXML(xml_file, trignum):
     triggers=None
 
-    coincXML = utils.load_filename(xml_file)
-    coinc = lsctables.getTablesByType(coincXML, lsctables.CoincTable)[0]
-    coincMap = lsctables.getTablesByType(coincXML, lsctables.CoincMapTable)[0]
-    snglInsps = lsctables.getTablesByType(coincXML, lsctables.SnglInspiralTable)[0]
+    from glue.ligolw import ligolw
+    coincXML = utils.load_filename(xml_file, contenthandler = lsctables.use_in(ligolw.LIGOLWContentHandler))
+    coinc = lsctables.CoincTable.get_table(coincXML)
+    coincMap = lsctables.CoincMapTable.get_table(coincXML)
+    snglInsps = lsctables.SnglInspiralTable.get_table(coincXML)
 
     if (trignum>len(coinc)):
         raise RuntimeError("Error: You asked for trigger %d, but %s contains only %d triggers" %(trignum,coincfile,len(tiggers)))

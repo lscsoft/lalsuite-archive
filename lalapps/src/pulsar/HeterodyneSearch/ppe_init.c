@@ -228,15 +228,12 @@ void initialise_algorithm( LALInferenceRunState *runState )
 
   gsl_rng_set( runState->GSLrandom, randomseed );
 
-  /* check whether to output all values or just the non-fixed values */
-  if ( LALInferenceGetProcParamVal( commandLine, "--non-fixed-only" ) ){
-    #ifdef HAVE_LIBLALXML
-    runState->logsample = LogNonFixedSampleToArray;
-    #else
-    runState->logsample = LogNonFixedSampleToFile;
-    #endif
-  }
-  else{ runState->logsample = LALInferenceLogSampleToFile; }
+  /* log samples */
+#ifdef HAVE_LIBLALXML
+  runState->logsample = LogSampleToArray;
+#else
+  runState->logsample = LogSampleToFile;
+#endif
 
   return;
 }
@@ -383,9 +380,11 @@ void add_initial_variables( LALInferenceVariables *ini,  LALInferenceVariables *
   add_variable_scale( ini, scaleFac, "CGW", pars.cgw );
   add_variable_scale( ini, scaleFac, "HPLUS", pars.hPlus );
   add_variable_scale( ini, scaleFac, "HCROSS", pars.hCross );
+  add_variable_scale( ini, scaleFac, "PSITENSOR", pars.psiTensor );
   add_variable_scale( ini, scaleFac, "PHI0TENSOR", pars.phi0Tensor );
   add_variable_scale( ini, scaleFac, "HSCALARB", pars.hScalarB );
   add_variable_scale( ini, scaleFac, "HSCALARL", pars.hScalarL );
+  add_variable_scale( ini, scaleFac, "PSISCALAR", pars.psiScalar );
   add_variable_scale( ini, scaleFac, "PHI0SCALAR", pars.phi0Scalar );
   add_variable_scale( ini, scaleFac, "HVECTORX", pars.hVectorX );
   add_variable_scale( ini, scaleFac, "HVECTORY", pars.hVectorY );
@@ -858,7 +857,7 @@ void add_correlation_matrix( LALInferenceVariables *ini, LALInferenceVariables *
     for( ; checkPrior ; checkPrior = checkPrior->next ){
       if( LALInferenceCheckGaussianPrior(priors, checkPrior->name) ){
         /* ignore parameter name case */
-        if( !strcasecmp(parMat->data[i], checkPrior->name) ){
+        if( !XLALStringCaseCompare(parMat->data[i], checkPrior->name) ){
           incor = 1;
 
           /* add parameter to new parameter string vector */
@@ -907,7 +906,7 @@ void add_correlation_matrix( LALInferenceVariables *ini, LALInferenceVariables *
 
     for( ; checkPrior ; checkPrior = checkPrior->next ){
       if( LALInferenceCheckGaussianPrior(priors, checkPrior->name) ){
-        if( !strcasecmp(parMat->data[i], checkPrior->name) ){
+        if( !XLALStringCaseCompare(parMat->data[i], checkPrior->name) ){
           /* remove the Gaussian prior */
           LALInferenceRemoveGaussianPrior( priors, checkPrior->name );
 
@@ -1080,6 +1079,7 @@ void sum_data( LALInferenceRunState *runState ){
     }
 
     REAL8 tsv = LAL_DAYSID_SI / tsteps, T = 0., timeMin = 0., timeMax = 0.;
+    REAL8 logGaussianNorm = 0.; /* normalisation constant for Gaussian distribution */
 
     for( i = 0, count = 0 ; i < length ; i+= chunkLength, count++ ){
       chunkLength = chunkLengths->data[count];
@@ -1152,7 +1152,10 @@ void sum_data( LALInferenceRunState *runState ){
         B = data->compTimeData->data->data[j];
 
         /* if using a Gaussian likelihood divide all these values by the variance */
-        if ( gaussianLike ) { vari = data->varTimeData->data->data[j]; }
+        if ( gaussianLike ) {
+          vari = data->varTimeData->data->data[j];
+          logGaussianNorm -= log(LAL_TWOPI*vari);
+        }
 
         /* sum up the data */
         sumdat->data[count] += (creal(B)*creal(B) + cimag(B)*cimag(B))/vari;
@@ -1328,6 +1331,8 @@ void sum_data( LALInferenceRunState *runState ){
       LALInferenceAddVariable( ifomodel->params, "roq", &roq, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED );
     }
 
+    LALInferenceAddVariable( ifomodel->params, "logGaussianNorm", &logGaussianNorm, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );
+
     data = data->next;
     ifomodel = ifomodel->next;
   }
@@ -1394,10 +1399,10 @@ static void PrintNonFixedSample(FILE *fp, LALInferenceVariables *sample){
  * \brief Print out only the variable (i.e. non-fixed) parameters to the file
  *
  * If the command line argument --non-fixed-only is given then this function
- * will be used to output the nested samples to a file. Otherwise all parameters
- * will be output.
+ * will only output variables to the nested samples to a file, otherwise all parameters
+ * will be output. The parameters will also be rescaled to their original ranges.
  */
-void LogNonFixedSampleToFile(LALInferenceRunState *state, LALInferenceVariables *vars)
+void LogSampleToFile(LALInferenceRunState *state, LALInferenceVariables *vars)
 {
   FILE *outfile=NULL;
   if(LALInferenceCheckVariable(state->algorithmParams,"outfile"))
@@ -1405,9 +1410,49 @@ void LogNonFixedSampleToFile(LALInferenceRunState *state, LALInferenceVariables 
   /* Write out old sample */
   if(outfile==NULL) return;
   LALInferenceSortVariablesByName(vars);
-  /* only write out non-fixed samples */
-  PrintNonFixedSample(outfile, vars);
+
+  /* rescale the parameters here */
+  LALInferenceVariables *varscopy = XLALCalloc( 1, sizeof(LALInferenceVariables) );
+  LALInferenceCopyVariables(vars, varscopy);
+  LALInferenceVariableItem *scaleitem = NULL;
+  scaleitem = varscopy->head;
+
+  for( ; scaleitem; scaleitem = scaleitem->next ){
+    CHAR scalename[VARNAME_MAX] = "";
+    CHAR scaleminname[VARNAME_MAX] = "";
+    REAL8 scalefac = 1., scalemin = 0., value = 0;
+
+    sprintf(scalename, "%s_scale", scaleitem->name);
+    sprintf(scaleminname, "%s_scale_min", scaleitem->name);
+
+    /* check if scale values are present */
+    if ( LALInferenceCheckVariable( state->model->ifo->params, scalename ) &&
+      LALInferenceCheckVariable( state->model->ifo->params, scaleminname ) ){
+      scalefac = *(REAL8 *)LALInferenceGetVariable( state->model->ifo->params, scalename );
+      scalemin = *(REAL8 *)LALInferenceGetVariable( state->model->ifo->params, scaleminname );
+
+      /* get the value and scale it */
+      value = *(REAL8 *)LALInferenceGetVariable( varscopy, scaleitem->name );
+      value = value*scalefac + scalemin;
+
+      /* reset the value */
+      LALInferenceSetVariable( varscopy, scaleitem->name, &value );
+
+      /* change type to be REAL8 */
+      scaleitem->type = LALINFERENCE_REAL8_t;
+    }
+  }
+
+  /* only write out non-fixed samples if required */
+  if ( LALInferenceGetProcParamVal( state->commandLine, "--non-fixed-only" ) ){
+    PrintNonFixedSample(outfile, varscopy);
+  }
+  else{ LALInferencePrintSample(outfile, varscopy); }
   fprintf(outfile,"\n");
+
+  LALInferenceClearVariables( varscopy );
+  XLALFree( varscopy );
+
   return;
 }
 
@@ -1418,18 +1463,52 @@ void LogNonFixedSampleToFile(LALInferenceRunState *state, LALInferenceVariables 
  *
  * If the command line argument --non-fixed-only is given (and the XML library
  * is present) then this function will be used to output the nested samples to a file.
- * Otherwise all parameters will be output.
+ * Otherwise all parameters will be output. The parameters will also be rescaled to their
+ * original ranges.
  */
-void LogNonFixedSampleToArray(LALInferenceRunState *state, LALInferenceVariables *vars)
+void LogSampleToArray(LALInferenceRunState *state, LALInferenceVariables *vars)
 {
-  LALInferenceVariables *output_array=NULL;
+  LALInferenceVariables **output_array=NULL;
   UINT4 N_output_array=0;
   LALInferenceSortVariablesByName(vars);
-  LogNonFixedSampleToFile(state, vars);
+
+  LogSampleToFile(state, vars);
+
+  /* rescale the parameters here */
+  LALInferenceVariables *varscopy = XLALCalloc( 1, sizeof(LALInferenceVariables) );
+  LALInferenceCopyVariables(vars, varscopy);
+  LALInferenceVariableItem *scaleitem = NULL;
+  scaleitem = varscopy->head;
+
+  for( ; scaleitem; scaleitem = scaleitem->next ){
+    CHAR scalename[VARNAME_MAX] = "";
+    CHAR scaleminname[VARNAME_MAX] = "";
+    REAL8 scalefac = 1., scalemin = 0., value = 0;
+
+    sprintf(scalename, "%s_scale", scaleitem->name);
+    sprintf(scaleminname, "%s_scale_min", scaleitem->name);
+
+    /* check if scale values are present */
+    if ( LALInferenceCheckVariable( state->model->ifo->params, scalename ) &&
+      LALInferenceCheckVariable( state->model->ifo->params, scaleminname ) ){
+      scalefac = *(REAL8 *)LALInferenceGetVariable( state->model->ifo->params, scalename );
+      scalemin = *(REAL8 *)LALInferenceGetVariable( state->model->ifo->params, scaleminname );
+
+      /* get the value and scale it */
+      value = *(REAL8 *)LALInferenceGetVariable( varscopy, scaleitem->name );
+      value = value*scalefac + scalemin;
+
+      /* reset the value */
+      LALInferenceSetVariable( varscopy, scaleitem->name, &value );
+
+      /* change type to be REAL8 */
+      scaleitem->type = LALINFERENCE_REAL8_t;
+    }
+  }
 
   /* Set up the array if it is not already allocated */
   if(LALInferenceCheckVariable(state->algorithmParams,"outputarray"))
-    output_array=*(LALInferenceVariables **)LALInferenceGetVariable(state->algorithmParams,"outputarray");
+    output_array=*(LALInferenceVariables ***)LALInferenceGetVariable(state->algorithmParams,"outputarray");
   else
     LALInferenceAddVariable(state->algorithmParams,"outputarray",&output_array,LALINFERENCE_void_ptr_t,LALINFERENCE_PARAM_OUTPUT);
 
@@ -1439,19 +1518,24 @@ void LogNonFixedSampleToArray(LALInferenceRunState *state, LALInferenceVariables
     LALInferenceAddVariable(state->algorithmParams,"N_outputarray",&N_output_array,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_OUTPUT);
 
   /* Expand the array for new sample */
-  output_array=XLALRealloc(output_array, (N_output_array+1) *sizeof(LALInferenceVariables));
+  output_array=XLALRealloc(output_array, (N_output_array+1) *sizeof(LALInferenceVariables *));
   if(!output_array){
     XLAL_ERROR_VOID(XLAL_EFAULT, "Unable to allocate array for samples.");
   }
   else
   {
     /* Save sample and update */
-    memset(&(output_array[N_output_array]),0,sizeof(LALInferenceVariables));
-    LALInferenceCopyVariables(vars,&output_array[N_output_array]);
+    output_array[N_output_array]=XLALCalloc(1,sizeof(LALInferenceVariables));
+    LALInferenceCopyVariables(varscopy, output_array[N_output_array]);
     N_output_array++;
 
     LALInferenceSetVariable(state->algorithmParams,"outputarray",&output_array);
     LALInferenceSetVariable(state->algorithmParams,"N_outputarray",&N_output_array);
   }
+
+  LALInferenceClearVariables( varscopy );
+  XLALFree( varscopy );
+
   return;
 }
+

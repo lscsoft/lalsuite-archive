@@ -193,8 +193,8 @@ class EPAllSkyCoincParamsDistributions(BurcaCoincParamsDistributions):
 		# multi_burst table, and it should be retrieved from that
 		# table instead of being recomputed
 		events = tuple(events)
-		t = events[0].get_peak()
-		t += sum(float(event.get_peak() - t) * event.ms_snr**2.0 for event in events) / sum(event.ms_snr**2.0 for event in events)
+		t = events[0].peak
+		t += sum(float(event.peak - t) * event.ms_snr**2.0 for event in events) / sum(event.ms_snr**2.0 for event in events)
 		gmst = date.XLALGreenwichMeanSiderealTime(t) % (2 * math.pi)
 
 		for event1, event2 in iterutils.choices(sorted(events, lambda a, b: cmp(a.ifo, b.ifo)), 2):
@@ -209,7 +209,7 @@ class EPAllSkyCoincParamsDistributions(BurcaCoincParamsDistributions):
 			# more than one event from a given instrument, the smallest
 			# deltas are recorded
 
-			dt = float(event1.get_peak() + offsetvector[event1.ifo] - event2.get_peak() - offsetvector[event2.ifo])
+			dt = float(event1.peak + offsetvector[event1.ifo] - event2.peak - offsetvector[event2.ifo])
 			name = "%sdt" % prefix
 			if name not in params or abs(params[name][0]) > abs(dt):
 				#params[name] = (dt,)
@@ -254,11 +254,10 @@ def delay_and_amplitude_correct(event, ra, dec):
 
 	# delay-correct the event to the geocentre
 
-	peak = event.get_peak()
-	delay = date.XLALTimeDelayFromEarthCenter(detector.location, ra, dec, peak)
-	event.set_peak(peak - delay)
-	event.set_start(event.get_start() - delay)
-	event.set_ms_start(event.get_ms_start() - delay)
+	delay = date.XLALTimeDelayFromEarthCenter(detector.location, ra, dec, event.peak)
+	event.peak -= delay
+	event.start -= delay
+	event.ms_start -= delay
 
 	# amplitude-correct the event using the polarization-averaged
 	# antenna response

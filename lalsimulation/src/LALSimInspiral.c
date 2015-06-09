@@ -27,8 +27,10 @@
 
 #include <lal/LALSimInspiral.h>
 #include <lal/LALSimIMR.h>
+#include <lal/LALSimInspiralWaveformFlags.h>
 #include <lal/LALConstants.h>
 #include <lal/LALStdlib.h>
+#include <lal/LALString.h>
 #include <lal/Sequence.h>
 #include <lal/TimeSeries.h>
 #include <lal/FrequencySeries.h>
@@ -100,6 +102,17 @@ int checkCOSpinZero(REAL8 s2x, REAL8 s2y, REAL8 s2z)
 int checkTransverseSpinsZero(REAL8 s1x, REAL8 s1y, REAL8 s2x, REAL8 s2y)
 {
     if( s1x != 0. || s1y != 0. || s2x != 0. || s2y != 0. )
+        return 0;
+    else
+        return 1;
+}
+
+/* Internal utility function to check aligned spins very close to equal
+   returns 1 if z components of spins are very close to equal, otherwise returns 0 */
+int checkAlignedSpinsEqual(REAL8 s1z, REAL8 s2z)
+{
+    const REAL8 eps = 1e-6;
+    if( fabs(s1z - s2z) > eps)
         return 0;
     else
         return 1;
@@ -214,6 +227,45 @@ REAL8 XLALSimInspiralRingdownTimeBound(REAL8 M, REAL8 s)
 }
 
 /**
+ * @brief Routine to compute an overestimate of a final black hole dimensionless spin.
+ * @details
+ * This routine provides an upper bound on the dimensionless spin of a black
+ * hole produced in a compact binary merger.  Uses the formula in Tichy and
+ * Marronetti, Physical Review D 78 081501 (2008), Eq. (1) and Table 1, for
+ * equal mass black holes, or the larger of the two spins (which covers the
+ * extreme mass case).  If the result is larger than a maximum realistic
+ * black hole spin, truncate at this maximum value.
+ * @param S1z The z-component of the dimensionless spin of body 1.
+ * @param S2z The z-component of the dimensionless spin of body 2.
+ * @return Upper bound on final black hole dimensionless spin.
+ * @see Tichy and Marronetti, Physical Review D 78 081501 (2008).
+ * @todo It has been suggested that Barausse, Rezzolla (arXiv: 0904.2577) is
+ * more accurate
+ */
+REAL8 XLALSimInspiralFinalBlackHoleSpinBound(REAL8 S1z, REAL8 S2z)
+{
+    const double maximum_black_hole_spin = 0.998;
+    double s;
+    /* lower bound on the final plunge, merger, and ringdown time here the
+     * final black hole spin is overestimated by using the formula in Tichy and
+     * Marronetti, Physical Review D 78 081501 (2008), Eq. (1) and Table 1, for
+     * equal mass black holes, or the larger of the two spins (which covers the
+     * extreme mass case) */
+    /* TODO: it has been suggested that Barausse, Rezzolla (arXiv: 0904.2577)
+     * is more accurate */
+    s = 0.686 + 0.15 * (S1z + S2z);
+    if (s < fabs(S1z))
+        s = fabs(S1z);
+    if (s < fabs(S2z))
+        s = fabs(S2z);
+    /* it is possible that |S1z| or |S2z| >= 1, but s must be less than 1
+     * (0th law of thermodynamics) so provide a maximum value for s */
+    if (s > maximum_black_hole_spin)
+        s = maximum_black_hole_spin;
+    return s;
+}
+
+/**
  * @brief Routine to compute an underestimate of the starting frequency for a given chirp time.
  * @details
  * This routine estimates a start frequency for a binary inspiral from which the
@@ -222,7 +274,7 @@ REAL8 XLALSimInspiralRingdownTimeBound(REAL8 M, REAL8 s)
  * The frequency returned by this routine is guaranteed to be less than the frequency
  * passed to XLALSimInspiralChirpTimeBound() if the returned value of that routine
  * is passed to this routine as tchirp.
- * @param fstart The chirp time of post-Newtonian inspiral s.
+ * @param tchirp The chirp time of post-Newtonian inspiral s.
  * @param m1 The mass of the first component in kg.
  * @param m2 The mass of the second component in kg.
  * @return Lower bound on the starting frequency of a post-Newtonian inspiral in Hz.
@@ -473,7 +525,8 @@ double XLALSimInspiralGetFinalFreq(
         /* Spinning inspiral-only time domain */
         case SpinTaylorT2:
         case SpinTaylorT4:
-        case PhenSpinTaylor:
+        case SpinTaylorT1:
+	case PhenSpinTaylor:
         /* Spinning with ringdown attachment */
         case PhenSpinTaylorRD:
         /* Spinning inspiral-only frequency domain */
@@ -582,6 +635,78 @@ int XLALSimAddMode(
 			hcross->data->data[j] += -cimag(hpc);
 		}
 	}
+	return 0;
+}
+
+/**
+ * For all valid TimeSeries contained within hmode structure,
+ * multiplies a mode h(l,m) by a spin-2 weighted spherical harmonic
+ * to obtain hplus - i hcross, which is added to the time series.
+ *
+ * Implements the sum of Eq. (11) of:
+ * Lawrence E. Kidder, \"Using Full Information When Computing Modes of
+ * Post-Newtonian Waveforms From Inspiralling Compact Binaries in Circular
+ * Orbit\", Physical Review D 77, 044016 (2008), arXiv:0710.0614v1 [gr-qc].
+ *
+ */
+int XLALSimAddModeFromModes(
+		    REAL8TimeSeries *hplus,      /**< +-polarization waveform */
+	       	REAL8TimeSeries *hcross,     /**< x-polarization waveform */
+	       	SphHarmTimeSeries *hmode,    /**< complex modes h(l,m) */
+	       	REAL8 theta,                 /**< polar angle (rad) */
+	       	REAL8 phi                    /**< azimuthal angle (rad) */
+		)
+{
+    SphHarmTimeSeries* this = hmode;
+
+    while ( this ) {
+        if ( !this->tdata ) {
+            this = this->next;
+            continue;
+        }
+
+        XLALSimAddMode(hplus, hcross, hmode->mode, theta, phi, this->l, this->m, 1);
+        this = this->next;
+    }
+	return 0;
+}
+
+/**
+ * Returns the h+, hx waveforms constructed from all valid TimeSeries 
+ * contained within hmode structure. 
+ *
+ * See XLALSimAddModeFromModes and XLALSimAddMode
+ *
+ */
+int XLALSimNewTimeSeriesFromModes(
+		    REAL8TimeSeries **hplus,     /**< +-polarization waveform */
+	       	REAL8TimeSeries **hcross,    /**< x-polarization waveform */
+	       	SphHarmTimeSeries *hmode,    /**< complex modes h(l,m) */
+	       	REAL8 theta,                 /**< polar angle (rad) */
+	       	REAL8 phi                    /**< azimuthal angle (rad) */
+		)
+{
+
+    if (!hmode) {
+        XLALPrintError("NULL mode structure passed.\n");
+        XLAL_ERROR(XLAL_EINVAL);
+    }
+    if (*hplus || *hcross) {
+        XLALPrintError("hplus and hcross time series must be NULL.\n");
+        XLAL_ERROR(XLAL_EINVAL);
+    }
+
+    *hplus = XLALCreateREAL8TimeSeries("hplus", &(hmode->mode->epoch),
+                hmode->mode->f0, hmode->mode->deltaT, &lalStrainUnit,
+                hmode->mode->data->length);
+    *hcross = XLALCreateREAL8TimeSeries("hplus", &(hmode->mode->epoch),
+                hmode->mode->f0, hmode->mode->deltaT, &lalStrainUnit,
+                hmode->mode->data->length);
+    memset((*hplus)->data->data, 0, (*hplus)->data->length*sizeof(REAL8));
+    memset((*hcross)->data->data, 0, (*hcross)->data->length*sizeof(REAL8));
+
+    XLALSimAddModeFromModes(*hplus, *hcross, hmode, theta, phi);
+
 	return 0;
 }
 
@@ -2319,6 +2444,36 @@ int XLALSimInspiralChooseTDWaveform(
                     XLALSimInspiralGetTidalOrder(waveFlags),
                     phaseO, amplitudeO);
             break;
+
+	 case SpinTaylorT1:
+            /* Waveform-specific sanity checks */
+            /* Sanity check unused fields of waveFlags */
+            if( !XLALSimInspiralFrameAxisIsDefault(
+                    XLALSimInspiralGetFrameAxis(waveFlags) ) )
+                ABORT_NONDEFAULT_FRAME_AXIS(waveFlags);
+            if( !XLALSimInspiralModesChoiceIsDefault(
+                    XLALSimInspiralGetModesChoice(waveFlags) ) )
+                ABORT_NONDEFAULT_MODES_CHOICE(waveFlags);
+            LNhatx = sin(i);
+            LNhaty = 0.;
+            LNhatz = cos(i);
+            E1x = cos(i);
+            E1y = 0.;
+            E1z = - sin(i);
+            /* Maximum PN amplitude order for precessing waveforms is
+             * MAX_PRECESSING_AMP_PN_ORDER */
+            amplitudeO = amplitudeO <= MAX_PRECESSING_AMP_PN_ORDER ?
+                    amplitudeO : MAX_PRECESSING_AMP_PN_ORDER;
+            /* Call the waveform driver routine */
+            ret = XLALSimInspiralSpinTaylorT1(hplus, hcross, phiRef, v0, deltaT,
+                    m1, m2, f_min, f_ref, r, S1x, S1y, S1z, S2x, S2y, S2z,
+                    LNhatx, LNhaty, LNhatz, E1x, E1y, E1z, lambda1, lambda2,
+                    quadparam1, quadparam2,
+                    XLALSimInspiralGetSpinOrder(waveFlags),
+                    XLALSimInspiralGetTidalOrder(waveFlags),
+                    phaseO, amplitudeO);
+            break;
+
         case SpinDominatedWf:
                 // waveform specific sanity checks
                 if (S2x != 0. || S2y != 0. || S2z != 0.){
@@ -2736,7 +2891,7 @@ int XLALSimInspiralChooseFDWaveform(
             }
             break;
 
-        case SEOBNRv1_ROM_SingleSpin:
+        case SEOBNRv1_ROM_EqualSpin:
             /* Waveform-specific sanity checks */
             if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
                 ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
@@ -2746,8 +2901,12 @@ int XLALSimInspiralChooseFDWaveform(
                 ABORT_NONZERO_TIDES(waveFlags);
             if( f_ref != 0.)
                 XLALPrintWarning("XLAL Warning - %s: This approximant does not use f_ref. The reference phase will be defined at coalescence.\n", __func__);
+            if (!checkAlignedSpinsEqual(S1z, S2z)) {
+              XLALPrintError("XLAL Error - %s: Equal-spin model called with unequal aligned spins.\n", __func__);
+              XLAL_ERROR(XLAL_EINVAL);
+            }
 
-            ret = XLALSimIMRSEOBNRv1ROMSingleSpin(hptilde, hctilde,
+            ret = XLALSimIMRSEOBNRv1ROMEqualSpin(hptilde, hctilde,
                     phiRef, deltaF, f_min, f_max, f_ref, r, i, m1, m2, XLALSimIMRPhenomBComputeChi(m1, m2, S1z, S2z));
             break;
 
@@ -2766,7 +2925,7 @@ int XLALSimInspiralChooseFDWaveform(
                     phiRef, deltaF, f_min, f_max, f_ref, r, i, m1, m2, S1z, S2z);
             break;
 
-        case SEOBNRv2_ROM_SingleSpin:
+        case SEOBNRv2_ROM_EqualSpin:
             /* Waveform-specific sanity checks */
             if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
                 ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
@@ -2776,8 +2935,12 @@ int XLALSimInspiralChooseFDWaveform(
                 ABORT_NONZERO_TIDES(waveFlags);
             if( f_ref != 0.)
                 XLALPrintWarning("XLAL Warning - %s: This approximant does not use f_ref. The reference phase will be defined at coalescence.\n", __func__);
+            if (!checkAlignedSpinsEqual(S1z, S2z)) {
+              XLALPrintError("XLAL Error - %s: Equal-spin model called with unequal aligned spins.\n", __func__);
+              XLAL_ERROR(XLAL_EINVAL);
+            }
 
-            ret = XLALSimIMRSEOBNRv2ROMSingleSpin(hptilde, hctilde,
+            ret = XLALSimIMRSEOBNRv2ROMEqualSpin(hptilde, hctilde,
                     phiRef, deltaF, f_min, f_max, f_ref, r, i, m1, m2, XLALSimIMRPhenomBComputeChi(m1, m2, S1z, S2z));
             break;
 
@@ -2911,6 +3074,140 @@ int XLALSimInspiralChooseFDWaveform(
 }
 
 /**
+ * @brief First stage of conditioning of time-domain waveforms.
+ * @details
+ * The conditioning of time-domain waveforms is done in two stages:
+ *
+ * 1. Take a waveform that is generated so that begins a time at least textra
+ * before it reaches f_min and apply a taper over this duration textra; follow
+ * this up by high-pass filtering the data at frequency f_min; finally, if the
+ * original waveform was zero-padded, strip off this padding.
+ * 
+ * 2. The high-pass filtered waveform might have transients remaining at the
+ * beginning and at the end; furthermore, the waveform might end at a non-zero
+ * value (especially for non-IMR waveforms).  The second stage tapers one
+ * cycle at f_min from the beginning of the waveform and one cycle at f_max
+ * from the end of the waveform.  There is a minimum number of samples that
+ * will be used in the tapering and if the waveform is shorter than twice
+ * this minimum number then no Stage 2 conditioning is done.
+ *
+ * This routine performs Stage 1 conditioning.  This stage is only performed
+ * for waveforms originally produced in the time domain.  (Frequency domain
+ * waveforms that have been transformed into the time domain have a different
+ * Stage 1 conditioning.)
+ *
+ * @param hplus  Pointer to the plus-polarization timeseries.
+ * @param hcross Pointer to the cross-polarization timeseries.
+ * @param textra Extra time at beginning of waveform to taper (s).
+ * @param f_min  Minimum frequency for high-pass filtering (Hz).
+ * @retval  0 Success.
+ * @retval <0 Failure.
+ */
+int XLALSimInspiralTDConditionStage1(REAL8TimeSeries *hplus, REAL8TimeSeries *hcross, REAL8 textra, REAL8 f_min)
+{
+    size_t nzeros;
+    size_t ntaper;
+    size_t j;
+
+    /* some generators zero-pad the end of the waveform: will remove this */
+    nzeros = 0;
+    while (hplus->data->data[hplus->data->length - nzeros - 1] == 0.0 && hcross->data->data[hcross->data->length - nzeros - 1] == 0.0)
+        ++nzeros;
+
+    /* apply tapers over the extra duration at the beginning */
+    ntaper = round(textra / hplus->deltaT);
+    for (j = 0; j < ntaper; ++j) {
+        double w = 0.5 - 0.5 * cos(j * LAL_PI / ntaper);
+        hplus->data->data[j] *= w;
+        hcross->data->data[j] *= w;
+    }
+
+    /* apply time domain filter at f_min */
+    XLALHighPassREAL8TimeSeries(hplus, f_min, 0.99, 8);
+    XLALHighPassREAL8TimeSeries(hcross, f_min, 0.99, 8);
+
+    /* now take off the zero padded end */
+    if (nzeros) {
+        XLALShrinkREAL8TimeSeries(hplus, 0, hplus->data->length - nzeros);
+        XLALShrinkREAL8TimeSeries(hcross, 0, hcross->data->length - nzeros);
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Second stage of conditioning of time-domain waveforms.
+ * @details
+ * The conditioning of time-domain waveforms is done in two stages:
+ *
+ * 1. Take a waveform that is generated so that begins a time at least textra
+ * before it reaches f_min and apply a taper over this duration textra; follow
+ * this up by high-pass filtering the data at frequency f_min; finally, if the
+ * original waveform was zero-padded, strip off this padding.
+ * 
+ * 2. The high-pass filtered waveform might have transients remaining at the
+ * beginning and at the end; furthermore, the waveform might end at a non-zero
+ * value (especially for non-IMR waveforms).  The second stage tapers one
+ * cycle at f_min from the beginning of the waveform and one cycle at f_max
+ * from the end of the waveform.  There is a minimum number of samples that
+ * will be used in the tapering and if the waveform is shorter than twice
+ * this minimum number then no Stage 2 conditioning is done.
+ *
+ * This routine performs Stage 2 conditioning.  This stage is performed both
+ * for waveforms originally produced in the time domain, and for waveforms that
+ * were originally produced in the frequency domain and then transformed to
+ * the time domain. This stage follows some form of Stage 1 conditioning,
+ * which is different depending on whether the original waveform was generated
+ * in the time domain or in the frequency domain.
+ *
+ * @param hplus  Pointer to the plus-polarization timeseries.
+ * @param hcross Pointer to the cross-polarization timeseries.
+ * @param f_min  Minimum frequency for tapering at the start (Hz).
+ * @param f_max  Minimum frequency for tapering at the end (Hz).
+ * @retval  0 Success.
+ * @retval <0 Failure.
+ */
+int XLALSimInspiralTDConditionStage2(REAL8TimeSeries *hplus, REAL8TimeSeries *hcross, REAL8 f_min, REAL8 f_max)
+{
+    const size_t min_taper_samples = 4;
+    size_t ntaper;
+    size_t j;
+
+    /* final tapering at the beginning and at the end */
+    /* if this waveform is shorter than 2*min_taper_samples, do nothing */
+    if (hplus->data->length < 2 * min_taper_samples) {
+        XLAL_PRINT_WARNING("waveform is too shorter than %zu samples: no final tapering applied", 2 * min_taper_samples);
+        return 0;
+    }
+
+    /* taper end of waveform: 1 cycle at f_max; at least min_taper_samples
+     * note: this tapering is done so the waveform goes to zero at the next
+     * point beyond the end of the data */
+    ntaper = round(1.0 / (f_max * hplus->deltaT));
+    if (ntaper < min_taper_samples)
+        ntaper = min_taper_samples;
+    for (j = 1; j < ntaper; ++j) {
+        double w = 0.5 - 0.5 * cos(j * LAL_PI / ntaper);
+        hplus->data->data[hplus->data->length - j] *= w;
+        hcross->data->data[hcross->data->length - j] *= w;
+    }
+
+    /* there could be a filter transient at the beginning too: we should have
+     * some safety there owing to the fact that we are starting at a lower
+     * frequency than is needed, so taper off one cycle at the low frequency */
+    ntaper = round(1.0 / (f_min * hplus->deltaT));
+    if (ntaper < min_taper_samples)
+        ntaper = min_taper_samples;
+    for (j = 0; j < ntaper; ++j) {
+        double w = 0.5 - 0.5 * cos(j * LAL_PI / ntaper);
+        hplus->data->data[j] *= w;
+        hcross->data->data[j] *= w;
+    }
+
+    return 0;
+}
+
+/**
  * @brief Generates an time domain inspiral waveform using the specified approximant; the
  * resulting waveform is appropriately conditioned and suitable for injection into data.
  *
@@ -2960,14 +3257,12 @@ int XLALSimInspiralTD(
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
     )
 {
-    const double maximum_black_hole_spin = 0.998;
     const double extra_time_fraction = 0.1; /* fraction of waveform duration to add as extra time for tapering */
     const double extra_cycles = 3.0; /* more extra time measured in cycles at the starting frequency */
     double original_f_min = f_min; /* f_min might be overwritten below, so keep original value */
     double tchirp, tmerge, textra;
     double fisco, fstart;
     double s;
-    size_t j, ntaper;
     int retval;
 
     /* apply redshift correction to dimensionful source-frame quantities */
@@ -2985,25 +3280,13 @@ int XLALSimInspiralTD(
     if (f_min > fisco)
         f_min = fisco;
 
-    /* lower bound on the chirp time starting at f_min */
+    /* upper bound on the chirp time starting at f_min */
     tchirp = XLALSimInspiralChirpTimeBound(f_min, m1, m2, S1z, S2z);
 
-    /* lower bound on the final plunge, merger, and ringdown time here
-     * the final black hole spin is overestimated by using the formula
-     * in Tichy and Marronetti, Physical Review D 78 081501 (2008),
-     * Eq. (1) and Table 1, for equal mass black holes, or the larger
-     * of the two spins (which covers the extreme mass case) */
-    /* TODO: it has been suggested that Barausse, Rezzolla (arXiv: 0904.2577)
-     * is more accurate */
-    s = 0.686 + 0.15 * (S1z + S2z);
-    if (s < fabs(S1z))
-        s = fabs(S1z);
-    if (s < fabs(S2z))
-        s = fabs(S2z);
-    /* it is possible that |S1z| or |S2z| >= 1, but s must be less than 1
-     * (0th law of thermodynamics) so provide a maximum value for s */
-    if (s > maximum_black_hole_spin)
-        s = maximum_black_hole_spin;
+    /* upper bound on the final black hole spin */
+    s = XLALSimInspiralFinalBlackHoleSpinBound(S1z, S2z);
+
+    /* upper bound on the final plunge, merger, and ringdown time */
     tmerge = XLALSimInspiralMergeTimeBound(m1, m2) + XLALSimInspiralRingdownTimeBound(m1 + m2, s);
 
     /* extra time to include for all waveforms to take care of situations
@@ -3014,8 +3297,6 @@ int XLALSimInspiralTD(
     /* decide if this is a TD or an FD approximant */
 
     if (XLALSimInspiralImplementedTDApproximants(approximant)) {
-
-        size_t nzeros = 0;
 
         /* time domain approximant: condition by generating a waveform
          * with a lower starting frequency and apply tapers in the
@@ -3028,26 +3309,9 @@ int XLALSimInspiralTD(
         if (retval < 0)
             XLAL_ERROR(XLAL_EFUNC);
 
-        /* some generators zero-pad the end of the waveform: remove this */
-        nzeros = 0;
-        while ((*hplus)->data->data[(*hplus)->data->length - nzeros - 1] == 0.0 && (*hcross)->data->data[(*hcross)->data->length - nzeros - 1] == 0.0)
-            ++nzeros;
-        if (nzeros) {
-            XLALShrinkREAL8TimeSeries(*hplus, 0, (*hplus)->data->length - nzeros);
-            XLALShrinkREAL8TimeSeries(*hcross, 0, (*hcross)->data->length - nzeros);
-        }
-        
-        /* apply tapers over the extra duration at the beginning */
-        ntaper = round((extra_time_fraction * tchirp + textra) / deltaT);
-        for (j = 0; j < ntaper; ++j) {
-            double w = 0.5 - 0.5 * cos(j * LAL_PI / ntaper);
-            (*hplus)->data->data[j] *= w;
-            (*hcross)->data->data[j] *= w;
-        }
-
-        /* apply time domain filter at original f_min */
-        XLALHighPassREAL8TimeSeries(*hplus, original_f_min, 0.99, 8);
-        XLALHighPassREAL8TimeSeries(*hcross, original_f_min, 0.99, 8);
+        /* condition the time domain waveform by tapering in the extra time
+         * at the beginning and high-pass filtering above original f_min */
+        XLALSimInspiralTDConditionStage1(*hplus, *hcross, extra_time_fraction * tchirp + textra, original_f_min);
 
         /* remaining conditioning is the same as with the frequency domain case */
 
@@ -3129,33 +3393,13 @@ int XLALSimInspiralTD(
     } else
         XLAL_ERROR(XLAL_EINVAL, "Invalid approximant");
 
-    /* final tapering at the beginning and at the end */
+    /* final tapering at the beginning and at the end to remove filter transients */
 
     /* waveform should terminate at a frequency >= Schwarzschild ISCO
      * so taper one cycle at this frequency at the end; should not make
      * any difference to IMR waveforms */
-    /* note: this tapering is done so the waveform goes to zero at the
-     * next point beyond the end of the data */
     fisco = 1.0 / (pow(6.0, 1.5) * LAL_PI * (m1 + m2) * LAL_MTSUN_SI / LAL_MSUN_SI);
-    ntaper = round(1.0 / (fisco * deltaT));
-    if (ntaper < 4)
-        ntaper = 4;
-    for (j = 1; j < ntaper; ++j) {
-        double w = 0.5 - 0.5 * cos(j * LAL_PI / ntaper);
-        (*hplus)->data->data[(*hplus)->data->length - j] *= w;
-        (*hcross)->data->data[(*hcross)->data->length - j] *= w;
-    }
-
-    /* there could be a filter transient at the beginning too:
-     * we should have some safety there owing to the fact that
-     * we are starting at a lower frequency than is needed, so
-     * taper off one cycle at the low frequency */
-    ntaper = round(1.0 / (f_min * deltaT));
-    for (j = 0; j < ntaper; ++j) {
-        double w = 0.5 - 0.5 * cos(j * LAL_PI / ntaper);
-        (*hplus)->data->data[j] *= w;
-        (*hcross)->data->data[j] *= w;
-    }
+    XLALSimInspiralTDConditionStage2(*hplus, *hcross, f_min, fisco);
 
     return 0;
 }
@@ -3224,7 +3468,6 @@ int XLALSimInspiralFD(
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
     )
 {
-    const double maximum_black_hole_spin = 0.998;
     const double extra_time_fraction = 0.1; /* fraction of waveform duration to add as extra time for tapering */
     const double extra_cycles = 3.0; /* more extra time measured in cycles at the starting frequency */
     double chirplen, deltaT;
@@ -3262,16 +3505,10 @@ int XLALSimInspiralFD(
         if (f_min > fisco)
             f_min = fisco;
     
-        /* lower bound on the chirp time starting at f_min */
+        /* upper bound on the chirp time starting at f_min */
         tchirp = XLALSimInspiralChirpTimeBound(f_min, m1, m2, S1z, S2z);
 
-        /* lower bound on the final plunge, merger, and ringdown time here
-         * the final black hole spin is overestimated by using the formula
-         * in Tichy and Marronetti, Physical Review D 78 081501 (2008),
-         * Eq. (1) and Table 1, for equal mass black holes, or the larger
-         * of the two spins (which covers the extreme mass case) */
-        /* TODO: it has been suggested that Barausse, Rezzolla (arXiv: 0904.2577)
-         * is more accurate */
+        /* upper bound on the final plunge, merger, and ringdown time */
         switch (approximant) {
         case TaylorF2:
         case SpinTaylorF2:
@@ -3287,15 +3524,7 @@ int XLALSimInspiralFD(
              * cause them to wrap-around an amount equal to
              * the merger-ringodwn time, so we will undo
              * that here */
-            s = 0.686 + 0.15 * (S1z + S2z);
-            if (s < fabs(S1z))
-                s = fabs(S1z);
-            if (s < fabs(S2z))
-                s = fabs(S2z);
-            /* it is possible that |S1z| or |S2z| >= 1, but s must be less than 1
-             * (0th law of thermodynamics) so provide a maximum value for s */
-            if (s > maximum_black_hole_spin)
-                s = maximum_black_hole_spin;
+            s = XLALSimInspiralFinalBlackHoleSpinBound(S1z, S2z);
             tmerge = XLALSimInspiralMergeTimeBound(m1, m2) + XLALSimInspiralRingdownTimeBound(m1 + m2, s);
             break;
         }
@@ -3578,6 +3807,152 @@ SphHarmTimeSeries *XLALSimInspiralChooseTDModes(
 }
 
 /**
+ * @brief Interface to compute a conditioned set of -2 spin-weighted spherical
+ * harmonic modes for a binary inspiral
+ * @details
+ * This routine is a wrapper for XLALSimInspiralChooseTDModes which applies
+ * waveform conditioning to the modes generated by that routine.  The conditioning
+ * algorithm is analogous to that performed in XLALSimInspiralTD.  Note that
+ * the modes are high-pass filtered at frequency f_min, which is specified for
+ * the m=2 mode, which means that the low-frequency part of the m=1 mode is
+ * removed by the filtering.  The phasing is computed with any of the TaylorT1,
+ * T2, T3, T4 methods.  It can also return the (2,2), (2,1), (3,3), (4,4),
+ * (5,5) modes of the EOBNRv2 model. Note that EOBNRv2 will ignore ampO,
+ * phaseO, lmax and f_ref arguments.
+ * @param phiRef      Reference orbital phase (rad)
+ * @param deltaT      Sampling interval (s)
+ * @param m1          Mass of companion 1 (kg)
+ * @param m2          Mass of companion 2 (kg)
+ * @param f_min       Starting GW frequency (Hz)
+ * @param f_ref       Reference GW frequency (Hz)
+ * @param r           Distance of source (m)
+ * @param lambda1     (tidal deformability of mass 1) / m1^5 (dimensionless)
+ * @param lambda2     (tidal deformability of mass 2) / m2^5 (dimensionless)
+ * @param waveFlags   Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags
+ * @param nonGRparams Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms
+ * @param amplitudeO  Twice post-Newtonian amplitude order
+ * @param phaseO      Twice post-Newtonian order
+ * @param lmax        Generate all modes with l <= lmax
+ * @param approximant Post-Newtonian approximant to use for waveform production
+ * @return Linked list of SphHarmTimeSeries modes.
+ */
+SphHarmTimeSeries *XLALSimInspiralModesTD(REAL8 phiRef, REAL8 deltaT, REAL8 m1, REAL8 m2, REAL8 f_min, REAL8 f_ref, REAL8 r, REAL8 lambda1, REAL8 lambda2, LALSimInspiralWaveformFlags *waveFlags, LALSimInspiralTestGRParam *nonGRparams, int amplitudeO, int phaseO, int lmax, Approximant approximant)
+{
+    const size_t min_taper_samples = 4;
+    const double extra_time_fraction = 0.1; /* fraction of waveform duration to add as extra time for tapering */
+    const double extra_cycles = 3.0; /* more extra time measured in cycles at the starting frequency */
+    double original_f_min = f_min; /* f_min might be overwritten below, so keep original value */
+    //double tchirp, tmerge, textra;
+    //double fisco, fstart;
+    double tchirp, textra;
+    double fisco;
+    //double s;
+    size_t length, nzeros, ntaper;
+    size_t j;
+    SphHarmTimeSeries *modes, *hlm;
+
+    /* if the requested low frequency is below the lowest Kerr ISCO frequency
+     * then change it to that frequency */
+    fisco = 1.0 / (pow(9.0, 1.5) * LAL_PI * (m1 + m2) * LAL_MTSUN_SI / LAL_MSUN_SI);
+    if (f_min > fisco)
+        f_min = fisco;
+
+    /* upper bound on the chirp time starting at f_min */
+    tchirp = XLALSimInspiralChirpTimeBound(f_min, m1, m2, 0.0, 0.0);
+
+    /* upper bound on the final black hole spin */
+    //s = XLALSimInspiralFinalBlackHoleSpinBound(0.0, 0.0);
+
+    /* upper bound on the final plunge, merger, and ringdown time */
+    //tmerge = XLALSimInspiralMergeTimeBound(m1, m2) + XLALSimInspiralRingdownTimeBound(m1 + m2, s);
+
+    /* extra time to include for all waveforms to take care of situations
+     * where the frequency is close to merger (and is sweeping rapidly):
+     * this is a few cycles at the low frequency */
+    textra = extra_cycles / f_min;
+
+    /* condition by generating a waveform with a lower starting frequency and
+     * apply tapers in the region between that lower frequency and the
+     * requested frequency f_min; here compute a new lower frequency */
+    // fstart = XLALSimInspiralChirpStartFrequencyBound((1.0 + extra_time_fraction) * tchirp + tmerge + textra, m1, m2);
+
+    modes = XLALSimInspiralChooseTDModes(phiRef, deltaT, m1, m2, f_min, f_ref, r, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, lmax, approximant);
+    if (!modes)
+        XLAL_ERROR_NULL(XLAL_EFUNC);
+
+    /* Note: fstart and f_min are frequencies for a m=2 mode, while the
+     * frequencies of the mth mode are f_m = m * f / 2; this means that if we
+     * generate a waveform that starts at fstart in the m=2 mode then the m=1
+     * mode starts at fstart/2 while the m=3 mode starts at 3*fstart/2, and so
+     * on.  However, the time it takes the m=2 mode to go from fstart to f_min
+     * is the same as the time that a m=1 mode to go from fstart/2 to f_min/2,
+     * etc., so we apply tapers over this time.  The upshot is that the
+     * resulting modes will be valid for frequencies above m * f_min / 2.
+     * evolve from fstart to f_min is the same as the time to evolve from
+     * 2*f_start/m to 2*f_min/m for the mth mode, so taper all modes over
+     * taper this duration. */
+    length = nzeros = modes->mode->data->length;
+    for (hlm = modes; hlm; hlm = hlm->next) {
+        /* some waveform generators zero-pad the end of the waveform, and we
+         * want to remove this; however, we want all modes to have the same
+         * length timeseries, so find the minimum number of zeros to excise */
+        if (nzeros) {
+            j = 0;
+            while (hlm->mode->data->data[hlm->mode->data->length - j - 1] == 0.0)
+                ++j;
+            if (j < nzeros)
+                nzeros = j;
+        }
+
+        /* here is where we taper the beginning of the waveform below f_min */
+        ntaper = round((extra_time_fraction * tchirp + textra) / deltaT);
+        for (j = 0; j < ntaper; ++j)
+             hlm->mode->data->data[j] *= 0.5 - 0.5 * cos(j * LAL_PI / ntaper);
+    
+        /* now high-pass filter the data at the original f_min value so that
+         * the modes have negligible frequency content below that frequency;
+         * note: this will cut off the low-frequency content of the m=1 mode */
+        XLALHighPassCOMPLEX16TimeSeries(hlm->mode, original_f_min, 0.99, 8);
+    }
+
+    /* new length after clipping zeros from end */
+    length -= nzeros;
+    if (nzeros)
+        XLALResizeSphHarmTimeSeries(modes, 0, length);
+
+    /* stage 2 conditioning: final tapering at beginning and end */
+    /* final tapering at the beginning and at the end */
+    /* if this waveform is shorter than 2*min_taper_samples, do nothing */
+    if (length < 2 * min_taper_samples) {
+        XLAL_PRINT_WARNING("waveform is too shorter than %zu samples: no final tapering applied", 2 * min_taper_samples);
+        return modes;
+    }
+
+    /* waveform should terminate at a frequency >= Schwarzschild ISCO
+     * so taper one cycle at this frequency at the end; should not make
+     * any difference to IMR waveforms */
+    fisco = 1.0 / (pow(6.0, 1.5) * LAL_PI * (m1 + m2) * LAL_MTSUN_SI / LAL_MSUN_SI);
+    ntaper = round(1.0 / (fisco * deltaT));
+    if (ntaper < min_taper_samples)
+        ntaper = min_taper_samples;
+    for (hlm = modes; hlm; hlm = hlm->next)
+        for (j = 1; j < ntaper; ++j)
+             hlm->mode->data->data[length - j] *= 0.5 - 0.5 * cos(j * LAL_PI / ntaper);
+
+    /* there could be a filter transient at the beginning too: we should have
+     * some safety there owing to the fact that we are starting at a lower
+     * frequency than is needed, so taper off one cycle at the low frequency */
+    ntaper = round(1.0 / (f_min * deltaT));
+    if (ntaper < min_taper_samples)
+        ntaper = min_taper_samples;
+    for (hlm = modes; hlm; hlm = hlm->next)
+        for (j = 1; j < ntaper; ++j)
+             hlm->mode->data->data[j] *= 0.5 - 0.5 * cos(j * LAL_PI / ntaper);
+
+    return modes;
+}
+
+/**
  * Interface to compute a single -2 spin-weighted spherical harmonic mode
  * for a binary inspiral of any available amplitude and phase PN order.
  * The phasing is computed with any of the TaylorT1, T2, T3, T4 methods.
@@ -3705,6 +4080,527 @@ COMPLEX16TimeSeries *XLALSimInspiralChooseTDMode(
 }
 
 
+
+#define INITIALIZE_NAME(a) [a] = #a
+/* TODO: UPDATE ME WHENEVER A NEW APPROXIMANT IS ADDED */
+static const char *lalSimulationApproximantNames[] = {
+    INITIALIZE_NAME(TaylorT1),
+    INITIALIZE_NAME(TaylorT2),
+    INITIALIZE_NAME(TaylorT3),
+    INITIALIZE_NAME(TaylorF1),
+    INITIALIZE_NAME(TaylorF2),
+    INITIALIZE_NAME(TaylorR2F4),
+    INITIALIZE_NAME(TaylorF2RedSpin),
+    INITIALIZE_NAME(TaylorF2RedSpinTidal),
+    INITIALIZE_NAME(PadeT1),
+    INITIALIZE_NAME(PadeF1),
+    INITIALIZE_NAME(EOB),
+    INITIALIZE_NAME(BCV),
+    INITIALIZE_NAME(BCVSpin),
+    INITIALIZE_NAME(SpinTaylorT1),
+    INITIALIZE_NAME(SpinTaylorT2),
+    INITIALIZE_NAME(SpinTaylorT3),
+    INITIALIZE_NAME(SpinTaylorT4),
+    INITIALIZE_NAME(SpinTaylorT5),
+    INITIALIZE_NAME(SpinTaylorF2),
+    INITIALIZE_NAME(SpinTaylorFrameless),
+    INITIALIZE_NAME(SpinTaylor),
+    INITIALIZE_NAME(PhenSpinTaylor),
+    INITIALIZE_NAME(PhenSpinTaylorRD),
+    INITIALIZE_NAME(SpinQuadTaylor),
+    INITIALIZE_NAME(FindChirpSP),
+    INITIALIZE_NAME(FindChirpPTF),
+    INITIALIZE_NAME(GeneratePPN),
+    INITIALIZE_NAME(BCVC),
+    INITIALIZE_NAME(FrameFile),
+    INITIALIZE_NAME(AmpCorPPN),
+    INITIALIZE_NAME(NumRel),
+    INITIALIZE_NAME(NumRelNinja2),
+    INITIALIZE_NAME(Eccentricity),
+    INITIALIZE_NAME(EOBNR),
+    INITIALIZE_NAME(EOBNRv2),
+    INITIALIZE_NAME(EOBNRv2HM),
+    INITIALIZE_NAME(SEOBNRv1),
+    INITIALIZE_NAME(SEOBNRv2),
+    INITIALIZE_NAME(SEOBNRv3),
+    INITIALIZE_NAME(SEOBNRv1_ROM_EqualSpin),
+    INITIALIZE_NAME(SEOBNRv1_ROM_DoubleSpin),
+    INITIALIZE_NAME(SEOBNRv2_ROM_EqualSpin),
+    INITIALIZE_NAME(SEOBNRv2_ROM_DoubleSpin),
+    INITIALIZE_NAME(HGimri),
+    INITIALIZE_NAME(IMRPhenomA),
+    INITIALIZE_NAME(IMRPhenomB),
+    INITIALIZE_NAME(IMRPhenomFA),
+    INITIALIZE_NAME(IMRPhenomFB),
+    INITIALIZE_NAME(IMRPhenomC),
+    INITIALIZE_NAME(IMRPhenomP),
+    INITIALIZE_NAME(IMRPhenomFC),
+    INITIALIZE_NAME(TaylorEt),
+    INITIALIZE_NAME(TaylorT4),
+    INITIALIZE_NAME(TaylorN),
+    INITIALIZE_NAME(SpinTaylorT4Fourier),
+    INITIALIZE_NAME(SpinTaylorT2Fourier),
+    INITIALIZE_NAME(SpinDominatedWf),
+};
+#undef INITIALIZE_NAME
+
+/* TODO: UPDATE ME WHENEVER A NEW PN ORDER IS ADDED */
+static const char *lalSimulationPNOrderNames[] = {
+    [LAL_PNORDER_NEWTONIAN]         = "newtonian",
+    [LAL_PNORDER_HALF]              = "oneHalfPN",
+    [LAL_PNORDER_ONE]               = "onePN",
+    [LAL_PNORDER_ONE_POINT_FIVE]    = "onePointFivePN",
+    [LAL_PNORDER_TWO]               = "twoPN",
+    [LAL_PNORDER_TWO_POINT_FIVE]    = "twoPointFivePN",
+    [LAL_PNORDER_THREE]             = "threePN",
+    [LAL_PNORDER_THREE_POINT_FIVE]  = "threePointFivePN",
+    [LAL_PNORDER_PSEUDO_FOUR]       = "pseudoFourPN",
+};
+
+/* TODO: UPDATE ME WHENEVER A NEW TAPER IS ADDED */
+static const char *lalSimulationTaperNames[] = {
+    [LAL_SIM_INSPIRAL_TAPER_NONE]       = "TAPER_NONE",
+    [LAL_SIM_INSPIRAL_TAPER_START]      = "TAPER_START",
+    [LAL_SIM_INSPIRAL_TAPER_END]        = "TAPER_END",
+    [LAL_SIM_INSPIRAL_TAPER_STARTEND]   = "TAPER_STARTEND",
+};
+
+/* TODO: UPDATE ME WHENEVER A NEW FRAME AXIS IS ADDED */
+static const char *lalSimulationFrameAxisNames[] = {
+    [LAL_SIM_INSPIRAL_FRAME_AXIS_TOTAL_J]   = "TotalJ",
+    [LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L] = "OrbitalL",
+    [LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW]      = "View",
+};
+
+/* TODO: UPDATE ME WHENEVER A NEW MODES CHOICE IS ADDED */
+static const char *lalSimulationModesChoiceNames[] = {
+    [LAL_SIM_INSPIRAL_MODES_CHOICE_2AND3AND4AND5L] = "L2345",
+    [LAL_SIM_INSPIRAL_MODES_CHOICE_2AND3AND4L] = "L234",
+    [LAL_SIM_INSPIRAL_MODES_CHOICE_2AND3AND5L] = "L235",
+    [LAL_SIM_INSPIRAL_MODES_CHOICE_2AND4AND5L] = "L245",
+    [LAL_SIM_INSPIRAL_MODES_CHOICE_3AND4AND5L] = "L345",
+    [LAL_SIM_INSPIRAL_MODES_CHOICE_2AND3L] = "L23",
+    [LAL_SIM_INSPIRAL_MODES_CHOICE_2AND4L] = "L24",
+    [LAL_SIM_INSPIRAL_MODES_CHOICE_3AND4L] = "L34",
+    [LAL_SIM_INSPIRAL_MODES_CHOICE_2AND5L] = "L25",
+    [LAL_SIM_INSPIRAL_MODES_CHOICE_3AND5L] = "L35",
+    [LAL_SIM_INSPIRAL_MODES_CHOICE_4AND5L] = "L45",
+    [LAL_SIM_INSPIRAL_MODES_CHOICE_RESTRICTED] = "L2",
+    [LAL_SIM_INSPIRAL_MODES_CHOICE_3L] = "L3",
+    [LAL_SIM_INSPIRAL_MODES_CHOICE_4L] = "L4",
+    [LAL_SIM_INSPIRAL_MODES_CHOICE_5L] = "L5",
+    /* NOTE: cannot do the "ALL" case since its value is -1 */
+    // [LAL_SIM_INSPIRAL_MODES_CHOICE_ALL] = "ALL",
+};
+
+/* locates and deletes a substring in a list of substrings from a string, ignoring case;
+ * if multiple substrings in the string match, delete the longest one; here, deletion
+ * means replacing the substring with BEL characters */
+static int delete_substring_in_list_from_string(char *string, const char *list[], size_t size)
+{
+    int longest_position = -1;
+    int longest_offset = -1;
+    int longest_length = -1;
+    size_t i;
+
+    if (string == NULL || strlen(string) == 0) // no string to search
+        return -1;
+
+    for (i = 0; i < size; ++i) {
+        char *match;
+        if (list[i] == NULL) // no such element in list
+            continue;
+        if ((match = XLALStringCaseSubstring(string, list[i]))) {
+            int length = strlen(list[i]);
+            if (length > longest_length) {
+                longest_position = i;
+                longest_offset = match - string;
+                longest_length = length;
+            }
+        }
+    }
+
+    if (longest_position < 0) // failed to find a word
+        return -1;
+
+    /* delete word from string by replacing with BEL */
+    for (i = 0; i < (size_t)longest_length; ++i)
+        string[longest_offset + i] = '\b';
+
+    return longest_position;
+}
+
+/**
+ * @brief Parses a waveform string to determine approximant, PN order, and axis choice.
+ * @details
+ * A waveform string can contain substrings specifying the approximant,
+ * the PN order, and the frame axis.  This routine decomposes the waveform
+ * string to extract this information.  Here we assume that there are no
+ * extraneous characters in the waveform string that do not encode this
+ * information.  If extra characters are detected then this routine returns
+ * a failure code.
+ *
+ * If one of the output parameters is set to NULL, this routine does not
+ * return the value for that parameter, and does not fail if that parameter
+ * cannot be determined from the waveform string; however, the full waveform
+ * string must be valid.  If the axis parameter is not NULL but information
+ * about the frame axis is not found in the string then the default value
+ * axis is set to the default value LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW.
+ * However, if the approximant or order parameters are not NULL and
+ * the approximant and order cannot be determined from the waveform string,
+ * then this routine produces an error.
+ *
+ * Parsing is not case sensitive (using the "C" locale).
+ *
+ * @param[out] approximant The approximate value from Approximate enum.
+ * @param[out] order The PN order value from LALPNOrder enum.
+ * @param[out] axis The frame axis value from LALPNOrder enum.
+ * @param[in] waveform The waveform string.
+ * @retval 0 Success.
+ * @retval <0 Failure.
+ *
+ * @note
+ * Users of the SWIG-Python interface probably want to use the routines
+ * XLALSimInspiralGetApproximantFromString(),
+ * XLALSimInspiralGetPNOrderFromString(), and
+ * XLALSimInspiralGetFrameAxisFromString()
+ * since there is no way to disable required matching of the PN order
+ * with the SWIG-wrapped version of this routine.
+ *
+ * @bug
+ * The default frame axis should be LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L
+ * rather than LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW.
+ */
+int XLALSimInspiralDecomposeWaveformString(int *approximant, int *order, int *axis, const char *waveform)
+{
+    char *string;
+    int found_approximant, found_order, found_axis;
+    int failed = 0;
+
+    if (!waveform)
+        XLAL_ERROR(XLAL_EFAULT);
+
+    string = XLALStringDuplicate(waveform);
+
+#define DELETE_SUBSTRING_IN_LIST_FROM_STRING(string, list) delete_substring_in_list_from_string(string, list, sizeof(list)/sizeof(*list))
+    found_approximant = DELETE_SUBSTRING_IN_LIST_FROM_STRING(string, lalSimulationApproximantNames);
+    found_order       = DELETE_SUBSTRING_IN_LIST_FROM_STRING(string, lalSimulationPNOrderNames);
+    found_axis        = DELETE_SUBSTRING_IN_LIST_FROM_STRING(string, lalSimulationFrameAxisNames);
+#undef DELETE_SUBSTRING_IN_LIST_FROM_STRING
+
+    /* assign values to output parameters */
+    if (approximant) {
+        *approximant = found_approximant;
+        /* fail if couldn't find approximant */
+        if (found_approximant < 0)
+            failed = 1;
+    }
+    if (order) {
+        *order = found_order;
+        /* fail if couldn't find order */
+        if (found_order < 0)
+            failed = 1;
+    }
+    if (axis) {
+        *axis = found_axis;
+        /* set frame axis to view if couldn't find, but don't fail */
+        if (found_axis < 0)
+            *axis = LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW;
+    }
+
+    /* check to see if there are extra characters */
+    if (strspn(string, "\b") != strlen(string))
+        failed = 1;
+
+    XLALFree(string);
+
+    if (failed)
+        XLAL_ERROR(XLAL_EINVAL, "Invalid waveform string `%s'.", waveform);
+    return 0;
+}
+
+/**
+ * @brief Parses a waveform string to determine approximant.
+ * @details
+ * This routine uses XLALSimInspiralDecomposeWaveformString() to
+ * determine the approximant from the waveform string.
+ * @param[in] waveform The waveform string.
+ * @return The Approximant enum value, or -1 on error.
+ */
+int XLALSimInspiralGetApproximantFromString(const char *waveform)
+{
+    int approximant = -1;
+    if (XLALSimInspiralDecomposeWaveformString(&approximant, NULL, NULL, waveform) < 0)
+        XLAL_ERROR(XLAL_EFUNC);
+    return approximant;
+}
+
+/**
+ * @deprecated
+ * Like XLALSimInspiralGetApproximantFromString() but doesn't demand that the
+ * remainder of the waveform string be valid.
+ */
+int XLALGetApproximantFromString(const char *waveform)
+{
+    int approximant = -1;
+    int errnum = 0;
+    XLAL_PRINT_DEPRECATION_WARNING("XLALSimInspiralGetApproximantFromString");
+    XLAL_TRY(XLALSimInspiralDecomposeWaveformString(&approximant, NULL, NULL, waveform), errnum);
+    if (errnum && errnum != XLAL_EINVAL) // pass any error other than XLAL_EINVAL
+        XLAL_ERROR(errnum);
+    /* fail if approximant wasn't found */
+    if (approximant < 0)
+        XLAL_ERROR(XLAL_EINVAL, "Cannot parse approximant from string `%s'.", waveform);
+    return approximant;
+}
+
+/**
+ * @brief Parses a waveform string to determine PN order.
+ * @details
+ * This routine uses XLALSimInspiralDecomposeWaveformString() to
+ * determine the PN order from the waveform string.
+ * @param[in] waveform The waveform string.
+ * @return The LALPNOrder enum value, or -1 on error.
+ */
+int XLALSimInspiralGetPNOrderFromString(const char *waveform)
+{
+    int order = -1;
+    if (XLALSimInspiralDecomposeWaveformString(NULL, &order, NULL, waveform) < 0)
+        XLAL_ERROR(XLAL_EFUNC);
+    return order;
+}
+
+/**
+ * @deprecated
+ * Like XLALSimInspiralGetPNOrderFromString() but doesn't demand that the
+ * remainder of the waveform string be valid.
+ */
+int XLALGetOrderFromString(const char *waveform)
+{
+    int order = -1;
+    int errnum = 0;
+    XLAL_PRINT_DEPRECATION_WARNING("XLALSimInspiralGetPNOrderFromString");
+    XLAL_TRY(XLALSimInspiralDecomposeWaveformString(NULL, &order, NULL, waveform), errnum);
+    if (errnum && errnum != XLAL_EINVAL) // pass any error other than XLAL_EINVAL
+        XLAL_ERROR(errnum);
+    /* fail if order wasn't found */
+    if (order < 0)
+        XLAL_ERROR(XLAL_EINVAL, "Cannot parse approximant from string `%s'.", waveform);
+    return order;
+}
+
+/**
+ * @brief Parses a waveform string to determine frame axis.
+ * @details
+ * This routine uses XLALSimInspiralDecomposeWaveformString() to
+ * determine the frame axis from the waveform string.  If the
+ * frame axis cannot be determined, the value
+ * LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW is returned.
+ * @param[in] waveform The waveform string.
+ * @return The LALPNOrder enum value, or -1 on error.
+ * @bug
+ * The default should be LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L
+ * rather than LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW.
+ */
+int XLALSimInspiralGetFrameAxisFromString(const char *waveform)
+{
+    int axis = -1;
+    if (XLALSimInspiralDecomposeWaveformString(NULL, NULL, &axis, waveform) < 0)
+        XLAL_ERROR(XLAL_EFUNC);
+    return axis;
+}
+
+/**
+ * @deprecated
+ * Like XLALSimInspiralGetFrameAxisFromString() but doesn't demand that the
+ * remainder of the waveform string be valid.
+ * @bug
+ * The default should be LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L
+ * rather than LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW.
+ */
+int XLALGetFrameAxisFromString(const char *waveform)
+{
+    int axis = -1;
+    int errnum = 0;
+    XLAL_PRINT_DEPRECATION_WARNING("XLALSimInspiralGetFrameAxisFromString");
+    XLAL_TRY(XLALSimInspiralDecomposeWaveformString(NULL, NULL, &axis, waveform), errnum);
+    if (errnum && errnum != XLAL_EINVAL) // pass any error other than XLAL_EINVAL
+        XLAL_ERROR(errnum);
+    /* if axis wasn't found, use view */
+    if (axis < 0)
+        axis = LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW;
+    return axis;
+}
+
+/**
+ * @brief Parses a string to determine the LALSimInspiralApplyTaper enum value.
+ * @details
+ * Parses a string to determine the LALSimInspiralApplyTaper enum value.
+ * Parsing is not case sensitive (using the "C" locale).
+ * @param[in] string The string to be parsed.
+ * @return The LALSimInspiralApplyTaper enum value, or -1 on error.
+ */
+int XLALSimInspiralGetTaperFromString(const char *string)
+{
+    const char **list = lalSimulationTaperNames;
+    size_t size = sizeof(lalSimulationTaperNames)/sizeof(*lalSimulationTaperNames);
+    size_t i;
+
+    if (!string)
+        XLAL_ERROR(XLAL_EFAULT);
+
+    for (i = 0; i < size; ++i)
+        if (list[i])
+            if (XLALStringCaseCompare(string, list[i]) == 0) // found it
+                return i;
+
+    XLAL_ERROR(XLAL_EINVAL, "Invalid injection tapering string `%s'.", string);
+}
+
+/**
+ * @deprecated
+ * Use XLALSimInspiralGetTaperFromString() instead.
+ */
+int XLALGetTaperFromString(const char *string)
+{
+    XLAL_PRINT_DEPRECATION_WARNING("XLALSimInspiralGetTaperFromString");
+    return XLALSimInspiralGetTaperFromString(string);
+}
+
+/**
+ * @brief Parses a string to determine the LALSimInspiralModesChoice enum value.
+ * @details
+ * Parses a string to determine the LALSimInspiralModesChoice enum value.
+ * Parsing is not case sensitive (using the "C" locale).
+ * @param[in] string The string to be parsed.
+ * @return The LALSimInspiralModesChoice enum value, or 0 on error.
+ * @note The normal error code -1 is actually a valid mode choice
+ * so this routine returns 0 (which is not a valid modes choice)
+ * on error rather than -1.
+ */
+int XLALSimInspiralGetHigherModesFromString(const char *string)
+{
+    const char **list = lalSimulationModesChoiceNames;
+    size_t size = sizeof(lalSimulationModesChoiceNames)/sizeof(*lalSimulationModesChoiceNames);
+    size_t i;
+
+    if (!string)
+        XLAL_ERROR(XLAL_EFAULT);
+
+    /* the "ALL" case is a special case */
+    if (XLALStringCaseCompare(string, "ALL") == 0)
+        return LAL_SIM_INSPIRAL_MODES_CHOICE_ALL;
+
+    for (i = 0; i < size; ++i)
+        if (list[i])
+            if (XLALStringCaseCompare(string, list[i]) == 0) // found it
+                return i;
+
+    XLAL_ERROR_VAL(0, XLAL_EINVAL, "Invalid injection modes choice string `%s'.", string);
+}
+
+/**
+ * @deprecated
+ * Use XLALSimInspiralHigherModesFromString() instead.
+ */
+int XLALGetHigherModesFromString(const char *string)
+{
+    XLAL_PRINT_DEPRECATION_WARNING("XLALSimInspiralGetHigherModesFromString");
+    return XLALSimInspiralGetHigherModesFromString(string);
+}
+
+/**
+ * @brief Returns a string associated with an Approximant enum value.
+ * @param[in] approximant The Approximant enum value.
+ * @returns A constant string or NULL if there is an error.
+ */
+const char * XLALSimInspiralGetStringFromApproximant(Approximant approximant)
+{
+    const char *s;
+    if ((int)(approximant) < 0 || (int)(approximant) >= NumApproximants)
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    s = lalSimulationApproximantNames[approximant];
+    if (!s)
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    return s;
+}
+
+/**
+ * @deprecated
+ * Use XLALSimInspiralHigherModesFromString() instead.
+ */
+const char * XLALGetStringFromApproximant(Approximant approximant)
+{
+    XLAL_PRINT_DEPRECATION_WARNING("XLALSimInspiralGetStringFromApproximant");
+    return XLALSimInspiralGetStringFromApproximant(approximant);
+}
+
+/**
+ * @brief Returns a string associated with a LALPNOrder enum value.
+ * @param[in] order The LALPNOrder enum value.
+ * @returns A constant string or NULL if there is an error.
+ */
+const char * XLALSimInspiralGetStringFromPNOrder(LALPNOrder order)
+{
+    const char *s;
+    if ((int)(order) < 0 || (int)(order) >= LAL_PNORDER_NUM_ORDER)
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    s = lalSimulationPNOrderNames[order];
+    if (!s)
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    return s;
+}
+
+/**
+ * @brief Returns a string associated with a LALSimInspiralApplyTaper enum value.
+ * @param[in] taper The LALSimInspiralApplyTaper enum value.
+ * @returns A constant string or NULL if there is an error.
+ */
+const char * XLALSimInspiralGetStringFromTaper(LALSimInspiralApplyTaper taper)
+{
+    const char *s;
+    if ((int)(taper) < 0 || (int)(taper) >= LAL_SIM_INSPIRAL_TAPER_NUM_OPTS)
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    s = lalSimulationTaperNames[taper];
+    if (!s)
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    return s;
+}
+
+/**
+ * @brief Returns a string associated with a LALSimInspiralFrameAxis enum value.
+ * @param[in] axis The LALSimInspiralFrameAxis enum value.
+ * @returns A constant string or NULL if there is an error.
+ */
+const char * XLALSimInspiralGetStringFromFrameAxis(LALSimInspiralFrameAxis axis)
+{
+    const char *s;
+    if ((int)(axis) < 0 || (size_t)(axis) >= sizeof(lalSimulationFrameAxisNames)/sizeof(*lalSimulationFrameAxisNames))
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    s = lalSimulationFrameAxisNames[axis];
+    if (!s)
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    return s;
+}
+
+/**
+ * @brief Returns a string associated with a LALSimInspiralModesChoice enum value.
+ * @param[in] modes The LALSimInspiralModesChoice enum value.
+ * @returns A constant string or NULL if there is an error.
+ */
+const char * XLALSimInspiralGetStringFromModesChoice(LALSimInspiralModesChoice modes)
+{
+    const char *s;
+    if (modes == LAL_SIM_INSPIRAL_MODES_CHOICE_ALL) // handle this case separately
+        return "ALL";
+    if ((int)(modes) < 0 || (size_t)(modes) >= sizeof(lalSimulationModesChoiceNames)/sizeof(*lalSimulationModesChoiceNames))
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    s = lalSimulationModesChoiceNames[modes];
+    if (!s)
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    return s;
+}
+
 /**
  * Checks whether the given approximant is implemented in lalsimulation's XLALSimInspiralChooseTDWaveform().
  *
@@ -3726,7 +4622,8 @@ int XLALSimInspiralImplementedTDApproximants(
         case EOBNRv2HM:
         case SpinTaylorT2:
         case SpinTaylorT4:
-        case IMRPhenomB:
+        case SpinTaylorT1:
+	case IMRPhenomB:
         case PhenSpinTaylor:
         case IMRPhenomC:
         case PhenSpinTaylorRD:
@@ -3756,9 +4653,9 @@ int XLALSimInspiralImplementedFDApproximants(
         case IMRPhenomB:
         case IMRPhenomC:
         case IMRPhenomP:
-        case SEOBNRv1_ROM_SingleSpin:
+        case SEOBNRv1_ROM_EqualSpin:
         case SEOBNRv1_ROM_DoubleSpin:
-        case SEOBNRv2_ROM_SingleSpin:
+        case SEOBNRv2_ROM_EqualSpin:
         case SEOBNRv2_ROM_DoubleSpin:
         //case TaylorR2F4:
         case TaylorF2:
@@ -3772,513 +4669,6 @@ int XLALSimInspiralImplementedFDApproximants(
         default:
             return 0;
     }
-}
-
-/**
- * XLAL function to determine approximant from a string.  The string need not
- * match exactly, only contain a member of the Approximant enum.
- */
-int XLALGetApproximantFromString(const CHAR *inString)
-{
-#ifndef LAL_NDEBUG
-  if ( !inString )
-    XLAL_ERROR( XLAL_EFAULT );
-#endif
-
-  if ( strstr(inString, "TaylorF2RedSpinTidal" ) )
-  {
-    return TaylorF2RedSpinTidal;
-  }
-  else if ( strstr(inString, "TaylorF2RedSpin" ) )
-  {
-    return TaylorF2RedSpin;
-  }
-  else if ( strstr(inString, "SpinTaylorF2" ) )
-  {
-    return SpinTaylorF2;
-  }
-  else if ( strstr(inString, "TaylorF2" ) )
-  {
-    return TaylorF2;
-  }
-  else if ( strstr(inString, "TaylorR2F4" ) )
-  {
-    return TaylorR2F4;
-  }
-  else if ( strstr(inString, "PhenSpinTaylorRD" ) )
-  {
-    return PhenSpinTaylorRD;
-  }
-  else if ( strstr(inString, "PhenSpinTaylor" ) )
-  {
-    return PhenSpinTaylor;
-  }
-  else if ( strstr(inString, "SpinTaylorT2Fourier" ) )
-  {
-    return SpinTaylorT2Fourier;
-  }
-  else if ( strstr(inString, "SpinTaylorT4Fourier" ) )
-  {
-    return SpinTaylorT4Fourier;
-  }
-  else if ( strstr(inString, "SpinTaylorT2" ) )
-  {
-    return SpinTaylorT2;
-  }
-  else if ( strstr(inString, "SpinTaylorT4" ) )
-  {
-    return SpinTaylorT4;
-  }
-  else if ( strstr(inString, "SpinTaylorFrameless" ) )
-  {
-    return SpinTaylorFrameless;
-  }
-  else if ( strstr(inString, "SpinTaylorT3" ) )
-  {
-    return SpinTaylorT3;
-  }
-  else if ( strstr(inString, "SpinTaylor" ) )
-  {
-    return SpinTaylor;
-  }
-  else if ( strstr(inString, "SpinQuadTaylor" ) )
-  {
-    return SpinQuadTaylor;
-  }
-  else if ( strstr(inString, "TaylorT1" ) )
-  {
-    return TaylorT1;
-  }
-  else if ( strstr(inString, "TaylorT2" ) )
-  {
-    return TaylorT2;
-  }
-  else if ( strstr(inString, "TaylorT3" ) )
-  {
-    return TaylorT3;
-  }
-  else if ( strstr(inString, "TaylorT4" ) )
-  {
-    return TaylorT4;
-  }
-  else if ( strstr(inString, "IMRPhenomA" ) )
-  {
-    return IMRPhenomA;
-  }
-  else if ( strstr(inString, "IMRPhenomB" ) )
-  {
-    return IMRPhenomB;
-  }
-  else if ( strstr(inString, "IMRPhenomC" ) )
-  {
-    return IMRPhenomC;
-  }
-  else if ( strstr(inString, "IMRPhenomP" ) )
-  {
-    return IMRPhenomP;
-  }
-  else if ( strstr(inString, "SEOBNRv1_ROM_SingleSpin" ) )
-  {
-    return SEOBNRv1_ROM_SingleSpin;
-  }
-  else if ( strstr(inString, "SEOBNRv1_ROM_DoubleSpin" ) )
-  {
-    return SEOBNRv1_ROM_DoubleSpin;
-  }
-  else if ( strstr(inString, "SEOBNRv2_ROM_SingleSpin" ) )
-  {
-    return SEOBNRv2_ROM_SingleSpin;
-  }
-  else if ( strstr(inString, "SEOBNRv2_ROM_DoubleSpin" ) )
-  {
-    return SEOBNRv2_ROM_DoubleSpin;
-  }
-  else if ( strstr(inString, "IMRPhenomFA" ) )
-  {
-    return IMRPhenomFA;
-  }
-  else if ( strstr(inString, "IMRPhenomFB" ) )
-  {
-    return IMRPhenomFB;
-  }
-  else if ( strstr(inString, "IMRPhenomFC" ) )
-  {
-    return IMRPhenomFC;
-  }
-  else if ( strstr(inString, "SEOBNRv1" ) )
-  {
-    return SEOBNRv1;
-  }
-  else if ( strstr(inString, "SEOBNRv2" ) )
-  {
-    return SEOBNRv2;
-  }
-  else if ( strstr(inString, "SEOBNRv3" ) )
-  {
-    return SEOBNRv3;
-  }
-  else if ( strstr(inString, "HGimri" ) )
-  {
-    return HGimri;
-  }
-  else if ( strstr(inString, "EOBNRv2HM" ) )
-  {
-    return EOBNRv2HM;
-  }
-  else if ( strstr(inString, "EOBNRv2" ) )
-  {
-    return EOBNRv2;
-  }
-  else if ( strstr(inString, "EOBNR" ) )
-  {
-    return EOBNR;
-  }
-  else if ( strstr(inString, "EOB" ) )
-  {
-    return EOB;
-  }
-  else if ( strstr(inString, "AmpCorPPN" ) )
-  {
-    return AmpCorPPN;
-  }
-  else if ( strstr(inString, "GeneratePPN" ) )
-  {
-    return GeneratePPN;
-  }
-  else if ( strstr(inString, "NumRelNinja2" ) )
-  {
-    return NumRelNinja2;
-  }
-  else if ( strstr(inString, "NumRel" ) )
-  {
-    return NumRel;
-  }
-  else if ( strstr(inString, "Ninja2" ) )
-  {
-    return NumRelNinja2;
-  }
-  else if ( strstr(inString, "FindChirpSP" ) )
-  {
-    return FindChirpSP;
-  }
-  else if ( strstr(inString, "FindChirpPTF" ) )
-  {
-    return FindChirpPTF;
-  }
-  else if ( strstr(inString, "TaylorEt" ) )
-  {
-    return TaylorEt;
-  }
-  else if ( strstr(inString, "TaylorN" ) )
-  {
-    return TaylorN;
-  }
-  else if ( strstr(inString, "TaylorF1" ) )
-  {
-    return TaylorF1;
-  }
-  else if ( strstr(inString, "PadeT1" ) )
-  {
-    return PadeT1;
-  }
-  else if ( strstr(inString, "PadeF1" ) )
-  {
-    return PadeF1;
-  }
-  else if ( strstr(inString, "BCVSpin" ) )
-  {
-    return BCVSpin;
-  }
-  else if ( strstr(inString, "BCVC" ) )
-  {
-    return BCVC;
-  }
-  else if ( strstr(inString, "BCV" ) )
-  {
-    return BCV;
-  }
-  else if ( strstr(inString, "FrameFile" ) )
-  {
-    return FrameFile;
-  }
-  else if ( strstr(inString, "Eccentricity" ) )
-  {
-    return Eccentricity;
-  }
-  else if ( strstr(inString, "SpinDominatedWf" ) )
-  {
-    return SpinDominatedWf;
-  }
-  else
-  {
-    XLALPrintError( "Cannot parse approximant from string: %s \n", inString );
-    XLAL_ERROR( XLAL_EINVAL );
-  }
-}
-
-/**
- * XLAL function to determine string from approximant enum.
- * This function needs to be updated when new approximants are added.
- */
-char* XLALGetStringFromApproximant(Approximant approximant)
-{
-  switch (approximant)
-  {
-    case TaylorF2RedSpinTidal:
-      return strdup("TaylorF2RedSpinTidal");
-    case TaylorF2RedSpin:
-      return strdup("TaylorF2RedSpin");
-    case TaylorF2:
-      return strdup("TaylorF2");
-    case PhenSpinTaylor:
-      return strdup("PhenSpinTaylor");
-    case TaylorR2F4:
-      return strdup("TaylorR2F4");
-    case PhenSpinTaylorRD:
-      return strdup("PhenSpinTaylorRD");
-    case SpinTaylorF2:
-      return strdup("SpinTaylorF2");
-    case SpinTaylorT2:
-      return strdup("SpinTaylorT2");
-    case SpinTaylorT4:
-      return strdup("SpinTaylorT4");
-    case SpinTaylorFrameless:
-      return strdup("SpinTaylorFrameless");
-    case SpinTaylorT3:
-      return strdup("SpinTaylorT3");
-    case SpinTaylor:
-      return strdup("SpinTaylor");
-    case SpinQuadTaylor:
-      return strdup("SpinQuadTaylor");
-    case TaylorT1:
-      return strdup("TaylorT1");
-    case TaylorT2:
-      return strdup("TaylorT2");
-    case TaylorT3:
-      return strdup("TaylorT3");
-    case TaylorT4:
-      return strdup("TaylorT4");
-    case IMRPhenomA:
-      return strdup("IMRPhenomA");
-    case IMRPhenomB:
-      return strdup("IMRPhenomB");
-    case IMRPhenomC:
-      return strdup("IMRPhenomC");
-    case IMRPhenomP:
-      return strdup("IMRPhenomP");
-    case SEOBNRv1_ROM_SingleSpin:
-      return strdup("SEOBNRv1_ROM_SingleSpin");
-    case SEOBNRv1_ROM_DoubleSpin:
-      return strdup("SEOBNRv1_ROM_DoubleSpin");
-    case SEOBNRv2_ROM_SingleSpin:
-      return strdup("SEOBNRv2_ROM_SingleSpin");
-    case SEOBNRv2_ROM_DoubleSpin:
-      return strdup("SEOBNRv2_ROM_DoubleSpin");
-    case IMRPhenomFA:
-      return strdup("IMRPhenomFA");
-    case IMRPhenomFB:
-      return strdup("IMRPhenomFB");
-    case IMRPhenomFC:
-      return strdup("IMRPhenomFC");
-    case SEOBNRv1:
-      return strdup("SEOBNRv1");
-    case SEOBNRv2:
-      return strdup("SEOBNRv2");
-    case SEOBNRv3:
-      return strdup("SEOBNRv3");
-    case EOBNRv2HM:
-      return strdup("EOBNRv2HM");
-    case EOBNRv2:
-      return strdup("EOBNRv2");
-    case EOBNR:
-      return strdup("EOBNR");
-    case EOB:
-      return strdup("EOB");
-    case AmpCorPPN:
-      return strdup("AmpCorPPN");
-    case GeneratePPN:
-      return strdup("GeneratePPN");
-    case NumRelNinja2:
-      return strdup("NumRelNinja2");
-    case NumRel:
-      return strdup("NumRel");
-    case FindChirpSP:
-      return strdup("FindChirpSP");
-    case FindChirpPTF:  
-      return strdup("FindChirpPTF");
-    case TaylorEt:
-      return strdup("TaylorET");
-    case TaylorN:  
-      return strdup("TaylorN");
-    case TaylorF1:
-      return strdup("TaylorF1");
-    case PadeT1:
-      return strdup("PadeT1");
-    case PadeF1:
-      return strdup("PadeF1");
-    case BCVSpin:
-      return strdup("BCVSpin");
-    case BCVC:
-      return strdup("BCVC");
-    case BCV:
-      return strdup("BCV");
-    case FrameFile:
-      return strdup("FrameFile");
-    case Eccentricity:
-      return strdup("Eccentricity");
-    case SpinTaylorT2Fourier:
-      return strdup("SpinTaylorT2Fourier");
-    case SpinTaylorT4Fourier:
-      return strdup("SpinTaylorT4Fourier");
-    case SpinDominatedWf:
-      return strdup("SpinDominatedWf");
-    default:
-        XLALPrintError("Not a valid approximant\n");
-        XLAL_ERROR_NULL(XLAL_EINVAL);
-    }
-}
-
-/**
- * XLAL function to determine PN order from a string.  The string need not
- * match exactly, only contain a member of the LALPNOrder enum.
- */
-int XLALGetOrderFromString(const CHAR *inString)
-{
-
-#ifndef LAL_NDEBUG
-  if ( !inString )
-    XLAL_ERROR( XLAL_EFAULT );
-#endif
-
-  if ( strstr(inString, "newtonian") )
-  {
-    return LAL_PNORDER_NEWTONIAN;
-  }
-  else if ( strstr(inString, "oneHalfPN") )
-  {
-    return LAL_PNORDER_HALF;
-  }
-  else if ( strstr(inString, "onePN") )
-  {
-    return LAL_PNORDER_ONE;
-  }
-  else if ( strstr(inString, "onePointFivePN") )
-  {
-    return LAL_PNORDER_ONE_POINT_FIVE;
-  }
-  else if ( strstr(inString, "twoPN") )
-  {
-    return LAL_PNORDER_TWO;
-  }
-  else if ( strstr(inString, "twoPointFivePN") )
-  {
-    return LAL_PNORDER_TWO_POINT_FIVE;
-  }
-  else if (strstr(inString, "threePN") )
-  {
-    return LAL_PNORDER_THREE;
-  }
-  else if ( strstr(inString, "threePointFivePN") )
-  {
-    return LAL_PNORDER_THREE_POINT_FIVE;
-  }
-  else if ( strstr(inString, "pseudoFourPN") )
-  {
-    return LAL_PNORDER_PSEUDO_FOUR;
-  }
-  else
-  {
-    XLALPrintError( "Cannot parse order from string: %s\n", inString );
-    XLAL_ERROR( XLAL_EINVAL );
-  }
-}
-
-/**
- * XLAL function to determine tapering flag from a string.  The string must
- * match exactly with a member of the LALSimInspiralApplyTaper enum.
- */
-int XLALGetTaperFromString(const CHAR *inString)
-{
-  if ( ! strcmp( "TAPER_NONE", inString ) )
-  {
-    return LAL_SIM_INSPIRAL_TAPER_NONE;
-  }
-  else if ( ! strcmp( "TAPER_START", inString ) )
-  {
-    return LAL_SIM_INSPIRAL_TAPER_START;
-  }
-  else if ( ! strcmp( "TAPER_END", inString ) )
-  {
-    return LAL_SIM_INSPIRAL_TAPER_END;
-  }
-  else if ( ! strcmp( "TAPER_STARTEND", inString ) )
-  {
-    return LAL_SIM_INSPIRAL_TAPER_STARTEND;
-  }
-  else
-  {
-    XLALPrintError( "Invalid injection tapering option specified: %s\n", inString );
-    XLAL_ERROR( XLAL_EINVAL );
-  }
-}
-
-/**
- * XLAL function to determine axis choice flag from a string.
- * The string need not match exactly, only contain a member
- * of the LALSimInspiralFrameAxis enum.  Will return default case
- * 'View' (line of sight) if the string contains no match.
- */
-int XLALGetFrameAxisFromString(const CHAR *inString) 
-{
-  if (strstr(inString, "TotalJ"))
-    return LAL_SIM_INSPIRAL_FRAME_AXIS_TOTAL_J;
-  else if (strstr(inString, "OrbitalL"))
-    return LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L;
-  else
-    return LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW;
-}
-
-/**
- * XLAL function to determine modes choice from a string.
- */
-int XLALGetHigherModesFromString(const CHAR *inString)
-{
-  if (strstr(inString, "L2345"))
-    return  LAL_SIM_INSPIRAL_MODES_CHOICE_2AND3AND4AND5L;
-  else if (strstr(inString, "L234"))
-    return  LAL_SIM_INSPIRAL_MODES_CHOICE_2AND3AND4L;
-  else if (strstr(inString, "L235"))
-    return  LAL_SIM_INSPIRAL_MODES_CHOICE_2AND3AND5L;
-  else if (strstr(inString, "L245"))
-    return  LAL_SIM_INSPIRAL_MODES_CHOICE_2AND4AND5L;
-  else if (strstr(inString, "L345"))
-    return  LAL_SIM_INSPIRAL_MODES_CHOICE_3AND4AND5L;
-  else if (strstr(inString, "L23"))
-    return  LAL_SIM_INSPIRAL_MODES_CHOICE_2AND3L;
-  else if (strstr(inString, "L24"))
-    return  LAL_SIM_INSPIRAL_MODES_CHOICE_2AND4L;
-  else if (strstr(inString, "L34"))
-    return  LAL_SIM_INSPIRAL_MODES_CHOICE_3AND4L;
-  else if (strstr(inString, "L25"))
-    return  LAL_SIM_INSPIRAL_MODES_CHOICE_2AND5L;
-  else if (strstr(inString, "L35"))
-    return  LAL_SIM_INSPIRAL_MODES_CHOICE_3AND5L;
-  else if (strstr(inString, "L45"))
-    return  LAL_SIM_INSPIRAL_MODES_CHOICE_4AND5L;
-  else if (strstr(inString, "L2"))
-    return LAL_SIM_INSPIRAL_MODES_CHOICE_RESTRICTED;
-  else if (strstr(inString, "L3"))
-    return  LAL_SIM_INSPIRAL_MODES_CHOICE_3L;
-  else if (strstr(inString, "L4"))
-    return  LAL_SIM_INSPIRAL_MODES_CHOICE_4L;
-  else if (strstr(inString, "L5"))
-    return  LAL_SIM_INSPIRAL_MODES_CHOICE_5L;
-  else if (strstr(inString, "ALL"))
-    return  LAL_SIM_INSPIRAL_MODES_CHOICE_ALL;
-  else {
-    XLALPrintError(" Error: invalid value %s for mode choice\n",inString);
-    return 0;
-  }
 }
 
 int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
@@ -4311,9 +4701,9 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case SEOBNRv1:
     case SEOBNRv2:
     case SEOBNRv3:
-    case SEOBNRv1_ROM_SingleSpin:
+    case SEOBNRv1_ROM_EqualSpin:
     case SEOBNRv1_ROM_DoubleSpin:
-    case SEOBNRv2_ROM_SingleSpin:
+    case SEOBNRv2_ROM_EqualSpin:
     case SEOBNRv2_ROM_DoubleSpin:
     case TaylorR2F4:
     case IMRPhenomFB:
@@ -4383,9 +4773,9 @@ int XLALSimInspiralApproximantAcceptTestGRParams(Approximant approx){
     case SEOBNRv1:
     case SEOBNRv2:
     case SEOBNRv3:
-    case SEOBNRv1_ROM_SingleSpin:
+    case SEOBNRv1_ROM_EqualSpin:
     case SEOBNRv1_ROM_DoubleSpin:
-    case SEOBNRv2_ROM_SingleSpin:
+    case SEOBNRv2_ROM_EqualSpin:
     case SEOBNRv2_ROM_DoubleSpin:
     case IMRPhenomA:
     case IMRPhenomB:

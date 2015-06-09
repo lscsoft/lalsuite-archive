@@ -31,6 +31,7 @@ import numpy
 # LAL analysis stuff
 import lal
 from glue.ligolw import utils, lsctables, table, ligolw
+lsctables.use_in(ligolw.LIGOLWContentHandler)
 from glue.ligolw.utils import process
 import glue.lal
 import pylal
@@ -101,7 +102,7 @@ if opts.seed is not None:
 # Gather information about a injection put in the data
 #
 if opts.pin_to_sim is not None:
-    xmldoc = utils.load_filename(opts.pin_to_sim)
+    xmldoc = utils.load_filename(opts.pin_to_sim, contenthandler=ligolw.LIGOLWContentHandler)
     sim_table = lsctables.SimInspiralTable.get_table(xmldoc)
     assert len(sim_table) == 1
     sim_row = sim_table[0]
@@ -110,7 +111,7 @@ if opts.pin_to_sim is not None:
 # Gather information from the detection pipeline
 #
 if opts.coinc_xml is not None:
-    xmldoc = utils.load_filename(opts.coinc_xml)
+    xmldoc = utils.load_filename(opts.coinc_xml, contenthandler=ligolw.LIGOLWContentHandler)
     coinc_table = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
     assert len(coinc_table) == 1
     coinc_row = coinc_table[0]
@@ -137,7 +138,12 @@ elif opts.coinc_xml is not None:
         m1, m2 = sngl_row.mass1, sngl_row.mass2
 else:
     raise ValueError("Need either --mass1 --mass2 or --coinc-xml to retrieve masses.")
-print "Performing integration for intrinsic parameters mass 1: %f, mass 2 %f" % (m1, m2)
+
+lambda1, lambda2 = 0, 0
+if opts.eff_lambda is not None:
+    lambda1, lambda2 = lalsimutils.tidal_lambda_from_tilde(opts.mass1, opts.mass2, opts.eff_lambda, opts.deff_lambda or 0)
+
+print "Performing integration for intrinsic parameters mass 1: %f, mass 2 %f, lambda1: %f, lambda2: %f" % (m1, m2, lambda1, lambda2)
 
 #
 # Template descriptors
@@ -148,20 +154,24 @@ fiducial_epoch = lal.LIGOTimeGPS(event_time.seconds, event_time.nanoseconds)
 # Struct to hold template parameters
 P = lalsimutils.ChooseWaveformParams(
 	approx = lalsimutils.lalsim.GetApproximantFromString(opts.approximant),
-    fmin = opts.fmin_template, # minimum frequency of template
     radec = False,
+    fmin = opts.fmin_template, # minimum frequency of template
+    fref = opts.reference_freq,
+    ampO = opts.amp_order,
+    tref = fiducial_epoch,
+
+    dist = common_cl.distRef,
     incl = 0.0,
     phiref = 0.0,
     theta = 0.0,
     phi = 0.0,
     psi = 0.0,
+
     m1 = m1 * lal.MSUN_SI,
     m2 = m2 * lal.MSUN_SI,
-    ampO = opts.amp_order,
-    fref = opts.reference_freq,
-    tref = fiducial_epoch,
-    dist = factored_likelihood.distMpcRef * 1.e6 * lal.PC_SI
-    )
+    lambda1 = lambda1,
+    lambda2 = lambda2
+)
 
 # User requested bounds for data segment
 if opts.data_start_time is not None and opts.data_end_time is not None:
@@ -465,12 +475,33 @@ if not opts.time_marginalization:
     res, var, neff, dict_return = sampler.integrate(likelihood_function, *unpinned_params, **pinned_params)
 
 else: # Sum over time for every point in other extrinsic params
+
+    # Un-LALify the rholms, we don't need the extra information and we end up
+    # invoking lots of data copies in slicing later on.
+    det_epochs = {}
+    for det, rho_ts in rholms.iteritems():
+        ts_epoch = None
+        for mode, mode_ts in rho_ts.iteritems():
+            if ts_epoch:
+                # Be super careful that we're looking at the *same* start times
+                assert ts_epoch == mode_ts.epoch
+            else:
+                ts_epoch = mode_ts.epoch
+            rholms[det][mode] = mode_ts.data.data
+
+        det_epochs[det] = ts_epoch
+
+    # Construct the time grid and advance it to the epoch of the mode SNR
+    # time series
+    tvals = numpy.linspace(-t_ref_wind, t_ref_wind, int(t_ref_wind * 2 / P.deltaT))
+
     def likelihood_function(right_ascension, declination, phi_orb, inclination,
             psi, distance):
         # use EXTREMELY many bits
         lnL = numpy.zeros(right_ascension.shape,dtype=numpy.float128)
+	# PRB: can we move this loop inside the factored_likelihood? It might help.
         i = 0
-        tvals = numpy.linspace(-t_ref_wind,t_ref_wind,int((t_ref_wind)*2/P.deltaT))  # choose an array at the target sampling rate. P is inherited globally
+        # choose an array at the target sampling rate. P is inherited globally
         for ph, th, phr, ic, ps, di in zip(right_ascension, declination,
                 phi_orb, inclination, psi, distance):
             P.phi = ph # right ascension
@@ -481,7 +512,7 @@ else: # Sum over time for every point in other extrinsic params
             P.psi = ps # polarization angle
             P.dist = di* 1.e6 * lal.PC_SI # luminosity distance
 
-            lnL[i] = factored_likelihood.factored_log_likelihood_time_marginalized(tvals, P, rholms_intp, rholms, cross_terms, opts.l_max,interpolate=opts.interpolate_time)
+            lnL[i] = factored_likelihood.factored_log_likelihood_time_marginalized(tvals, P, rholms_intp, rholms, cross_terms, det_epochs, opts.l_max,interpolate=opts.interpolate_time)
             i+=1
     
         return numpy.exp(lnL)
@@ -513,6 +544,11 @@ if opts.output_file:
         samples["loglikelihood"] = numpy.log(samples["integrand"])
         samples["mass1"] = numpy.ones(samples["psi"].shape)*opts.mass1
         samples["mass2"] = numpy.ones(samples["psi"].shape)*opts.mass2
+        if opts.eff_lambda is not None or opts.deff_lambda is not None:
+            # FIXME: the column mapping isn't working right, we need to fix that
+            # rather than give these weird names
+            samples["psi0"] = numpy.ones(samples["psi"].shape)*opts.eff_lambda
+            samples["psi3"] = numpy.ones(samples["psi"].shape)*(opts.deff_lambda or 0)
         xmlutils.append_samples_to_xmldoc(xmldoc, samples)
     # FIXME: likelihood or loglikehood
     # FIXME: How to encode variance?

@@ -1097,7 +1097,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
 
   memset( sigReVec->data, 0, sigReVec->length * sizeof( REAL8 ) );
   memset( sigImVec->data, 0, sigImVec->length * sizeof( REAL8 ) );
- 
+
   /* Generate full inspiral waveform using desired sampling frequency */
   /* TODO - Check vectors were allocated */
   for ( i = 0; i < (INT4)rVec.length; i++ )

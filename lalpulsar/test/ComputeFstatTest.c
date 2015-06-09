@@ -181,6 +181,9 @@ main ( int argc, char *argv[] )
                   if ( firstMethod == FMETHOD_START ) {	// keep track of first available method found
                     firstMethod = iMethod;
                   }
+                  if ( (iMethod == FMETHOD_DEMOD_BEST) || (iMethod == FMETHOD_RESAMP_BEST) ) {
+                    continue;	// avoid re-running comparisons for same method because labelled 'best'
+                  }
 
                   XLAL_CHECK ( XLALComputeFstat ( &results[iMethod], input[iMethod], &Doppler, numFreqBins, whatToCompute ) == XLAL_SUCCESS, XLAL_EFUNC );
 
@@ -188,7 +191,7 @@ main ( int argc, char *argv[] )
                     {
                       FILE *fp;
                       char fname[1024]; XLAL_INIT_MEM ( fname );
-                      snprintf ( fname, sizeof(fname)-1, "twoF%s-iSky%02d-if1dot%02d-iPeriod%02d.dat", XLALGetFstatMethodName(iMethod), iSky, if1dot, iPeriod );
+                      snprintf ( fname, sizeof(fname)-1, "twoF%s-iSky%02d-if1dot%02d-iPeriod%02d.dat", XLALGetFstatInputMethodName(input[iMethod]), iSky, if1dot, iPeriod );
                       XLAL_CHECK ( (fp = fopen ( fname, "wb" )) != NULL, XLAL_EFUNC );
                       for ( UINT4 k = 0; k < results[iMethod]->numFreqBins; k ++ )
                         {
@@ -211,10 +214,10 @@ main ( int argc, char *argv[] )
                   // compare to first result
                   if ( iMethod != firstMethod )
                     {
-                      XLALPrintInfo ("Comparing results between method '%s' and '%s'\n", XLALGetFstatMethodName(firstMethod), XLALGetFstatMethodName(iMethod) );
+                      XLALPrintInfo ("Comparing results between method '%s' and '%s'\n", XLALGetFstatInputMethodName(input[firstMethod]), XLALGetFstatInputMethodName(input[iMethod]) );
                       if ( compareFstatResults ( results[firstMethod], results[iMethod] ) != XLAL_SUCCESS )
                         {
-                          XLALPrintError ("Comparison between method '%s' and '%s' failed\n", XLALGetFstatMethodName(firstMethod), XLALGetFstatMethodName(iMethod) );
+                          XLALPrintError ("Comparison between method '%s' and '%s' failed\n", XLALGetFstatInputMethodName(input[firstMethod]), XLALGetFstatInputMethodName(input[iMethod]) );
                           XLAL_ERROR ( XLAL_EFUNC );
                         }
                     }
@@ -270,8 +273,8 @@ compareFstatResults ( const FstatResults *result1, const FstatResults *result2 )
   tol.relErr_L1 	= 2e-2;
   tol.relErr_L2		= 2e-2;
   tol.angleV 		= 0.02;  // rad
-  tol.relErr_atMaxAbsx	= 2e-2;
-  tol.relErr_atMaxAbsy  = 2e-2;
+  tol.relErr_atMaxAbsx	= 2.1e-2;
+  tol.relErr_atMaxAbsy  = 2.1e-2;
 
   UINT4 numFreqBins = result1->numFreqBins;
   VectorComparison XLAL_INIT_DECL(cmp);

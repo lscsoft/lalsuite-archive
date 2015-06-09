@@ -185,6 +185,15 @@ int main(int argc, char *argv[]){
   deltaF = config.catalog->data[0].header.deltaF;
   REAL8 Tsft = 1.0 / deltaF;
 
+  if (XLALUserVarWasSet(&uvar.spacingF) && XLALUserVarWasSet(&uvar.mismatchF))
+    LogPrintf (LOG_CRITICAL, "spacingF and mismatchF are both set, use spacingF %.9g by default\n\n", uvar.spacingF);
+  if (XLALUserVarWasSet(&uvar.spacingA) && XLALUserVarWasSet(&uvar.mismatchA))
+    LogPrintf (LOG_CRITICAL, "spacingA and mismatchA are both set, use spacingA %.9g by default\n\n", uvar.spacingA);
+  if (XLALUserVarWasSet(&uvar.spacingT) && XLALUserVarWasSet(&uvar.mismatchT))
+    LogPrintf (LOG_CRITICAL, "spacingT and mismatchT are both set, use spacingT %.9g by default\n\n", uvar.spacingT);
+  if (XLALUserVarWasSet(&uvar.spacingP) && XLALUserVarWasSet(&uvar.mismatchP))
+    LogPrintf (LOG_CRITICAL, "spacingP and mismatchP are both set, use spacingP %.9g by default\n\n", uvar.spacingP);
+
   /* create the toplist */
   create_crossCorrBinary_toplist( &ccToplist, uvar.numCand);
   /* now read the data */
@@ -633,6 +642,9 @@ int main(int argc, char *argv[]){
     fprintf(fp, "startTime = %" LAL_INT4_FORMAT "\n", computingStartGPSTime.gpsSeconds );/*start time in GPS-time*/
     fprintf(fp, "endTime = %" LAL_INT4_FORMAT "\n", computingEndGPSTime.gpsSeconds );/*end time in GPS-time*/
     fprintf(fp, "computingTime = %" LAL_UINT4_FORMAT "\n", computingTime );/*total time in sec*/
+    fprintf(fp, "SFTnum = %" LAL_UINT4_FORMAT "\n", sftIndices->length);/*total number of SFT*/
+    fprintf(fp, "pairnum = %" LAL_UINT4_FORMAT "\n", sftPairs->length);/*total number of pair of SFT*/
+    fprintf(fp, "Tsft = %.6g\n", Tsft);/*SFT duration*/
     fprintf(fp, "\n[Version]\n\n");
     fprintf(fp, "%s",  VCSInfoString);
     fclose(fp);

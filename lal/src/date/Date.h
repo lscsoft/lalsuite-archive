@@ -1,5 +1,4 @@
 /*
-*  Copyright (C) 2012 Karl Wette
 *  Copyright (C) 2007 Duncan Brown, David Chin, Jolien Creighton, Kipp Cannon, Reinhard Prix, Stephen Fairhurst
 *
 *  This program is free software; you can redistribute it and/or modify
@@ -142,7 +141,10 @@ LIGOTimeGPS * XLALGPSAdd( LIGOTimeGPS *epoch, REAL8 dt );
 /* Adds two GPS times. */
 LIGOTimeGPS * XLALGPSAddGPS( LIGOTimeGPS *epoch, const LIGOTimeGPS *dt );
 
-/* Difference between two GPS times. */
+/* Subtract a GPS time from a GPS time.  Computes t1 - t0. */
+LIGOTimeGPS * XLALGPSSubGPS( LIGOTimeGPS *t1, const LIGOTimeGPS *t0 );
+
+/* Difference between two GPS times as a double.  Returns t1 - t0. */
 REAL8 XLALGPSDiff( const LIGOTimeGPS *t1, const LIGOTimeGPS *t0 );
 
   /* Compares two GPS times. */
@@ -208,9 +210,6 @@ INT4 XLALModifiedJulianDayUTC( const struct tm *utc );
 INT4 XLALModifiedJulianDay( const struct tm *utc );
 /* deprecated wrapper to XLALJulianDayUTC() for pylal backwards compatibility (see #1856) */
 REAL8 XLALJulianDay( const struct tm *utc );
-
-/* Fill in missing fields of a C 'tm' broken-down time struct. */
-int XLALFillBrokenDownTime( struct tm *tm );
 
 /* Returns the Greenwich mean or aparent sideral time in radians. */
 REAL8 XLALGreenwichSiderealTime(

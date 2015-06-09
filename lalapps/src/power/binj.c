@@ -51,7 +51,7 @@
 #include <lal/LIGOLwXMLBurstRead.h>
 #include <lal/LIGOMetadataTables.h>
 #include <lal/LIGOMetadataUtils.h>
-#include <lal/LIGOMetadataBurstUtils.h>
+#include <lal/SnglBurstUtils.h>
 #include <lal/TimeDelay.h>
 #include <lal/TimeSeries.h>
 #include <lal/XLALError.h>
@@ -741,7 +741,7 @@ static double sequence_preset_next(gsl_rng *rng)
 		1e-20
 	};
 
-	return presets[gsl_rng_uniform_int(rng, sizeof(presets)/sizeof(*presets))];
+	return presets[gsl_rng_uniform_int(rng, XLAL_NUM_ELEM(presets))];
 }
 #endif
 

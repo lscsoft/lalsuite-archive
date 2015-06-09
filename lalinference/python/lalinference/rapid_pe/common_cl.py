@@ -22,6 +22,8 @@ from optparse import OptionParser, OptionGroup
 
 import numpy
 
+import lal
+
 #
 # Command line parsing utilities
 #
@@ -111,7 +113,7 @@ def add_integration_params(optp):
     integration_params = OptionGroup(optp, "Integration Parameters", "Control the integration with these options.")
     integration_params.add_option("-m", "--time-marginalization", action="store_true", help="Perform marginalization over time via direct numerical integration. Default is false.")
     # Default is actually None, but that tells the integrator to go forever or until n_eff is hit.
-    integration_params.add_option("--n-max", type=int, help="Total number of samples points to draw. If this number is hit before n_eff, then the integration will terminate. Default is 'infinite'.",default=1e7)
+    integration_params.add_option("--n-max", type=int, help="Total number of samples points to draw. If this number is hit before n_eff, then the integration will terminate. Default is 'infinite'.",default=None)
     integration_params.add_option("--n-eff", type=int, default=100, help="Total number of effective samples points to calculate before the integration will terminate. Default is 100")
     integration_params.add_option("--n-chunk", type=int, help="Chunk'.",default=100)
     integration_params.add_option("--convergence-tests-on",default=False,action='store_true')
@@ -132,6 +134,8 @@ def add_intrinsic_params(optp):
     intrinsic_params.add_option("--pin-to-sim", help="Pin values to sim_inspiral table entry.")
     intrinsic_params.add_option("--mass1", type=float, help="Value of first component mass, in solar masses. Required if not providing coinc tables.")
     intrinsic_params.add_option("--mass2", type=float, help="Value of second component mass, in solar masses. Required if not providing coinc tables.")
+    intrinsic_params.add_option("--eff-lambda", type=float, help="Value of effective tidal parameter. Optional, ignored if not given.")
+    intrinsic_params.add_option("--deff-lambda", type=float, help="Value of second effective tidal parameter. Optional, ignored if not given.")
     optp.add_option_group(intrinsic_params)
     return optp
 
@@ -175,6 +179,7 @@ MAXJOBS = {
 t_ref_wind = 50e-3 # Interpolate in a window +/- this width about event time. 
 dmin = 1.    # min distance
 dmax = 300.  # max distance FOR ANY SOURCE EVER. EUCLIDEAN
+distRef = 100*1e6*lal.PC_SI # a fiducial distance for the template source.
 
 param_limits = { "psi": (0, 2*numpy.pi),
     "phi_orb": (0, 2*numpy.pi),
@@ -182,6 +187,8 @@ param_limits = { "psi": (0, 2*numpy.pi),
     "right_ascension": (0, 2*numpy.pi),
     "declination": (-numpy.pi/2, numpy.pi/2),
     "t_ref": (-t_ref_wind, t_ref_wind),
-    "inclination": (0, numpy.pi)
+    "inclination": (0, numpy.pi),
+    "lam_tilde": (0, 5000), # FIXME: Needs reference
+    "dlam_tilde": (-500, 500)
 }
 

@@ -52,11 +52,7 @@ except:
 	pass
 import numpy
 from optparse import OptionParser
-try:
-	import sqlite3
-except ImportError:
-	# pre 2.5.x
-	from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 import sys, re
 
 from glue import lal
@@ -129,7 +125,6 @@ class CoincDatabase(object):
 
 		self.connection = connection
 		xmldoc = dbtables.get_xml(connection)
-
 		cursor = connection.cursor()
 
 		# find the tables
@@ -195,8 +190,11 @@ class CoincDatabase(object):
 # =============================================================================
 #
 
+def power(x, y):
+	"""convenience function to compute powers within sqlite query"""
+	return x ** y
 
-def create_plot(x_label = None, y_label = None, title = None, width = 165.0, aspect = (1 + math.sqrt(5)) / 2):
+def create_plot(x_label=None, y_label=None, title=None, width=165.0, aspect=(1 + math.sqrt(5)) / 2):
 	fig = figure.Figure()
 	FigureCanvas(fig)
 	fig.set_size_inches(width / 25.4, width / 25.4 / aspect)
@@ -210,8 +208,6 @@ def create_plot(x_label = None, y_label = None, title = None, width = 165.0, asp
 		axes.set_title(re.sub(r'_', r'\_', title))
 	return fig, axes
 
-
-
 #
 # =============================================================================
 #
@@ -224,16 +220,21 @@ class ROCPlots(object):
 	def __init__(self):
 		self.stats = {}
 
-	def add_contents(self, label, contents, map_label, far_column = 'combined_far', filter = '', debug = False):
+	def add_contents(self, label, contents, map_label, far_column='combined_far', filter='', debug=False):
 		if contents.sim_inspiral_table:
 			all_coincs = {}
 			sqlquery = ''.join([ """
 SELECT
 	MIN(coinc_inspiral.""", far_column, """),
-	-- Work out the correction factor for injection population distances
-	CASE (SELECT value FROM process_params WHERE program =="inspinj" AND param =="--d-distr" AND process_id == sim_inspiral.process_id)
-		WHEN "log10" THEN  sim_inspiral.distance * sim_inspiral.distance * sim_inspiral.distance
-		WHEN "uniform" THEN  sim_inspiral.distance * sim_inspiral.distance
+	-- Work out the correction factor for injection population distances: handles '--d-distr' and '--dchirp-distr'
+	CASE (SELECT param || value FROM process_params WHERE program = "inspinj" AND (param = "--d-distr" OR param = "--dchirp-distr") AND process_id == sim_inspiral.process_id)
+		WHEN "--d-distrlog10" THEN power(sim_inspiral.distance, 3)
+		WHEN "--dchirp-distrlog10" THEN power(sim_inspiral.distance, 3)
+		WHEN "--d-distruniform" THEN power(sim_inspiral.distance, 2)
+		WHEN "--dchirp-distruniform" THEN power(sim_inspiral.distance, 2) * power(sim_inspiral.mchirp, 5./6.)
+		WHEN "--d-distrdistancesquared" THEN sim_inspiral.distance
+		WHEN "--dchirp-distrdistancesquared" THEN sim_inspiral.distance * power(sim_inspiral.mchirp, 5./3.)
+		WHEN "--dchirp-distvolume" THEN power(sim_inspiral.mchirp, 5./2.)
 		ELSE 1.0 END
 FROM
 	coinc_inspiral
@@ -241,7 +242,7 @@ FROM
 	JOIN coinc_event_map AS mapA ON (mapA.event_id == coinc_inspiral.coinc_event_id AND mapA.table_name == "coinc_event")
 	JOIN coinc_event_map AS mapB ON (mapB.coinc_event_id == mapA.coinc_event_id AND mapB.table_name == "sim_inspiral")
 	JOIN sim_inspiral ON (mapB.event_id == sim_inspiral.simulation_id)
-    JOIN coinc_event, coinc_definer ON (coinc_event.coinc_event_id == mapB.coinc_event_id AND coinc_definer.coinc_def_id == coinc_event.coinc_def_id)
+	JOIN coinc_event, coinc_definer ON (coinc_event.coinc_event_id == mapB.coinc_event_id AND coinc_definer.coinc_def_id == coinc_event.coinc_def_id)
 WHERE
 	experiment_summary.datatype != "slide" AND
 	coinc_definer.description == '""", map_label, """'
@@ -251,7 +252,7 @@ GROUP BY
 			if debug:
 				print >> sys.stderr, "SQLite query used to retrieve triggers:"
 				print >> sys.stderr, sqlquery
-			for far, distance in contents.connection.cursor().execute( sqlquery):#, (map_label,) ):
+			for far, distance in contents.connection.cursor().execute(sqlquery):
 				self.stats.setdefault(label,[]).append((far, distance))
 
 	def finish(self, title):
@@ -260,7 +261,7 @@ GROUP BY
 			norm = max(sum([x[1] for x in self.stats[label]]), norm)
 		for label in self.stats.keys():
 			#norm = sum([x[1] for x in self.stats[label]])
-			self.stats[label] = [(x[0],x[1]/norm) for x in self.stats[label]]
+			self.stats[label] = [(x[0], x[1]/norm) for x in self.stats[label]]
 			self.stats[label].sort()
 		fig, axes = create_plot(r"False Alarm Rate", r"Relative $V \times T$", title = title, aspect = 1.0, width=100)
 		axes.hold(1)
@@ -275,7 +276,7 @@ GROUP BY
 			axes.plot(plotpoints[0][0], plotpoints[0][1], 'x', color=plotcolors[i])
 			minfars.append(plotpoints[0][0])
 			maxfars.append(plotpoints[-1][0])
-		axes.set_xlim(0.5*min(minfars),max(maxfars))
+		axes.set_xlim(0.5*min(minfars), max(maxfars))
 		axes.set_ylim(0,1)
 		axes.legend(loc='lower right')
 		axes.hold(0)
@@ -329,7 +330,8 @@ for m, filename in enumerate(labels.keys()):
 		print >>sys.stderr, "%d/%d: %s" % (m + 1, len(filenames), filename)
 	working_filename = dbtables.get_connection_filename(filename, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
-	contents = CoincDatabase(connection, verbose = options.verbose)
+	connection.create_function("power", 2, power)
+	contents = CoincDatabase(connection, verbose=options.verbose)
 	if not contents.sim_inspiral_table:
 		if options.verbose:
 			"No sim_inspiral table found in database %s; skipping..." % (filename)
@@ -356,11 +358,9 @@ for m, filename in enumerate(labels.keys()):
 	connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
-
 #
 # Finish and write plots, deleting them as we go to save memory
 #
-
 
 filename_template = "%s/%s_%s.%s"
 fig, filename_fragment = plot.finish( title = options.title )
