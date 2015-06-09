@@ -5447,9 +5447,9 @@ class PEOutputParser(object):
 
         inarrays=map(np.loadtxt,files)
         if Npost is None:
-            pos=draw_posterior_many(inarrays,[Nlive for f in files],logLcol=logLcol)
+            pos=draw_posterior_many(inarrays,[Nlive for f in files],logLcols=[logLcol for f in files])
         else:
-            pos=draw_N_posterior_many(inarrays,[Nlive for f in files],Npost,logLcol=logLcol)
+            pos=draw_N_posterior_many(inarrays,[Nlive for f in files],Npost,logLcols=[logLcol for f in files])
 
         with open(posfilename,'w') as posfile:
             
