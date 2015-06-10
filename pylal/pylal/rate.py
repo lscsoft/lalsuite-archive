@@ -1077,6 +1077,16 @@ class BinnedArray(object):
 	(0.0, 0.0)
 	>>> x.argmax()
 	(1.0, 1.0)
+
+	A BinnedArray can be initialized from an existing array if the
+	array's shape is the same as the binning's.
+
+	>>> import numpy
+	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)), array = numpy.zeros((5,)))
+	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)), array = numpy.zeros((5,1)))
+	Traceback (most recent call last):
+		...
+	ValueError: input array and input bins must have the same shape:  (5, 1) != (5,)
 	"""
 	def __init__(self, bins, array = None, dtype = "double"):
 		self.bins = bins
@@ -1084,7 +1094,7 @@ class BinnedArray(object):
 			self.array = numpy.zeros(bins.shape, dtype = dtype)
 		else:
 			if array.shape != bins.shape:
-				raise ValueError("input array and input bins must have the same shape")
+				raise ValueError("input array and input bins must have the same shape:  %s != %s" % (str(array.shape), str(bins.shape)))
 			self.array = array
 
 	def __getitem__(self, coords):
