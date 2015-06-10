@@ -784,6 +784,15 @@ class NDBins(tuple):
 	(0, slice(0, 2, None))
 	>>> x.centres()
 	(array([  5.,  13.,  21.]), array([  1.70997595,   5.        ,  14.62008869]))
+	>>> y = NDBins((LinearBins(1, 25, 3), LogarithmicBins(1, 25, 3)))
+	>>> x == y
+	True
+	>>> y = NDBins((LinearBins(1, 25, 4), LogarithmicBins(1, 25, 3)))
+	>>> x == y
+	False
+	>>> y = NDBins((LogarithmicBins(1, 25, 3), LogarithmicBins(1, 25, 3)))
+	>>> x == y
+	False
 
 	Note that the co-ordinates to be converted must be a tuple, even if
 	it is only a 1-dimensional co-ordinate.
