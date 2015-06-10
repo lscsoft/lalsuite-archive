@@ -1109,20 +1109,21 @@ class BinnedArray(object):
 	def __iadd__(self, other):
 		"""
 		Add the contents of another BinnedArray object to this one.
-		It is not necessary for the binnings to be identical, but
-		an integer number of the bins in other must fit into each
-		bin in self.
+		Both must have identical binnings.
 		"""
-		# identical binning? (fast path)
-		if not cmp(self.bins, other.bins):
-			self.array += other.array
-			return self
-		# can other's bins be put into ours?
-		if self.bins.min != other.bins.min or self.bins.max != other.bins.max or False in map(lambda a, b: (b % a) == 0, self.bins.shape, other.bins.shape):
+		if self.bins != other.bins:
 			raise TypeError("incompatible binning: %s" % repr(other))
-		for coords in iterutils.MultiIter(*other.bins.centres()):
-			self[coords] += other[coords]
+		self.array += other.array
 		return self
+		# here's an implementation that allows the binnings to
+		# differ.  each bin in other is added to whichever bin in
+		# self its centre is found in.  this behaviour probably
+		# leads to undesirable results if other's binning is less
+		# dense than self's.  would need to spread other's bins'
+		# contents out somehow.  probably there's no behaviour that
+		# is correct for all use cases.
+		#for coords in iterutils.MultiIter(*other.bins.centres()):
+		#	self[coords] += other[coords]
 
 	def copy(self):
 		"""
