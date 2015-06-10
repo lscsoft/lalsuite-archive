@@ -299,9 +299,6 @@ class IrregularBins(Bins):
 			raise ValueError("non-monotonic boundaries provided")
 
 		self.boundaries = boundaries
-		self.n = len(boundaries) - 1
-		self.min = boundaries[0]
-		self.max = boundaries[-1]
 
 	def __cmp__(self, other):
 		"""
@@ -312,13 +309,16 @@ class IrregularBins(Bins):
 			return -1
 		return cmp(self.boundaries, other.boundaries)
 
+	def __len__(self):
+		return len(self.boundaries) - 1
+
 	def __getitem__(self, x):
 		if isinstance(x, slice):
 			return super(IrregularBins, self).__getitem__(x)
-		if self.min <= x < self.max:
+		if self.boundaries[0] <= x < self.boundaries[-1]:
 			return bisect_right(self.boundaries, x) - 1
 		# special measure-zero edge case
-		if x == self.max:
+		if x == self.boundaries[-1]:
 			return len(self.boundaries) - 2
 		raise IndexError(x)
 
@@ -729,12 +729,9 @@ class Categories(Bins):
 		integer index of the container that contains them.
 		"""
 		self.containers = tuple(categories)  # need to set an order and len
-		self.n = len(self.containers)
 
-		# enable NDBins to read range, but do not enable treatment
-		# as numbers
-		self.min = None
-		self.max = None
+	def __len__(self):
+		return len(self.containers)
 
 	def __getitem__(self, value):
 		"""
@@ -797,13 +794,6 @@ class NDBins(tuple):
 	Note that the co-ordinates to be converted must be a tuple, even if
 	it is only a 1-dimensional co-ordinate.
 	"""
-	def __new__(cls, *args):
-		new = tuple.__new__(cls, *args)
-		new.min = tuple(b.min for b in new)
-		new.max = tuple(b.max for b in new)
-		new.shape = tuple(len(b) for b in new)
-		return new
-
 	def __getitem__(self, coords):
 		"""
 		When coords is a tuple, it is interpreted as an
@@ -832,6 +822,10 @@ class NDBins(tuple):
 			return tuple(map(lambda b, c: b[c], self, coords))
 		else:
 			return tuple.__getitem__(self, coords)
+
+	@property
+	def shape(self):
+		return tuple(len(b) for b in self)
 
 	def lower(self):
 		"""
