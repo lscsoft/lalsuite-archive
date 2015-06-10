@@ -259,6 +259,8 @@ class segment(tuple):
 	True
 	>>> y is x
 	False
+	>>> x in y
+	True
 	>>> z = {x: ["/path/to/file1", "/path/to/file2"]}
 	>>> y in z
 	True
@@ -408,10 +410,12 @@ class segment(tuple):
 		otherwise other is compared to the bounds of self as a
 		scalar.
 		"""
-		if isinstance(other, self.__class__):
-			return (self[0] <= other[0]) and (self[1] >= other[1])
-		else:
+		try:
+			a, b = other
+		except ValueError:
 			return self[0] <= other < self[1]
+		else:
+			return (self[0] <= a) and (self[1] >= b)
 
 	# protraction and contraction and shifting
 
