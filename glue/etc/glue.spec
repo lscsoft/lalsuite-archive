@@ -60,8 +60,6 @@ rm -rf $RPM_BUILD_ROOT
 %exclude %{_glue_prefix}/etc/
 %exclude %{_glue_prefix}/var/
 %exclude %{_glue_prefix}/share/nmi/lalsuite-build*
-%exclude %{glue_python_sitearch}/glue/cbcwebpage.pyc
-%exclude %{glue_python_sitearch}/glue/cbcwebpage.py
 %exclude %{glue_python_sitearch}/glue/__init__.py
 %exclude %{glue_python_sitearch}/glue/__init__.pyc
 %exclude %{glue_python_sitearch}/glue/segments.py
