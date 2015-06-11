@@ -71,9 +71,10 @@ int XLALGenerateSimBurst(
 	double delta_t
 )
 {
-	if(!strcmp(sim_burst->numrel_data, "")) {
+	if(strcmp(sim_burst->numrel_data, "") != 0) {
 		/* Assume we have some data to read. */
 
+		XLALPrintInfo("%s(): ad hoc @ %9d.%09u s (GPS): from file %s\n", __func__, sim_burst->time_geocent_gps.gpsSeconds, sim_burst->time_geocent_gps.gpsNanoSeconds, sim_burst->numrel_data);
 		if(XLALGenerateBurstFromFile(hplus, hcross, sim_burst->numrel_data, 0, sim_burst->psi, delta_t)) {
 			XLAL_ERROR(XLAL_EFUNC);
 		}
