@@ -36,6 +36,7 @@
 #include <lal/LALSimBurst.h>
 #include <lal/LALSimReadData.h>
 #include <lal/LALConstants.h>
+#include <lal/LALString.h>
 #include <lal/FrequencySeries.h>
 #include <lal/Sequence.h>
 #include <lal/TimeFreqFFT.h>
@@ -346,13 +347,13 @@ int XLALGenerateBurstFromFile(
     LALFILE *fp;
     double *hplusdat;
     double *hcrossdat;
-    double **data;
+    double *data;
     size_t ndat, ncol;
     LIGOTimeGPS epoch;
     char labelplus[FILENAME_MAX+1];
     char labelcross[FILENAME_MAX+1];
     char **labels;
-    char *header, *pnt;
+    char *header;
     char buffer[1024];
     unsigned int i;
 
@@ -373,14 +374,16 @@ int XLALGenerateBurstFromFile(
      */
     i = 0;
     while (1) {
-        if (XLALFileGets(buffer, 1024, fp) == NULL) {
-            XLAL_ERROR(XLAL_EBADLEN, "End of file reached without header information parsed");
-        }
+        XLALFileGets(buffer, 1024, fp);
 
-        if ((pnt = strchr(buffer, '\n'))) {
-            i += (pnt - buffer) / sizeof(char);
-        } else {
+        if (strchr(buffer, '\n') == NULL) {
             i += 1024;
+        } else {
+            i = strlen(buffer);
+            break;
+        }
+        if (XLALFileEOF(fp)) {
+            XLAL_ERROR(XLAL_EBADLEN, "End of file reached without header information parsed");
         }
     }
 
@@ -388,64 +391,45 @@ int XLALGenerateBurstFromFile(
     XLALFileRewind(fp);
     header = XLALMalloc((i+1)*sizeof(header));
     XLALFileRead(header, sizeof(char), i, fp);
-    XLALFileRewind(fp);
     header[i] = '\0';
+    char *tmpbuf = strdup(header);
+    XLALFileRewind(fp);
 
     int pol_2 = 0;
-    if (strstr(buffer, "hplus") && strstr(buffer, "hcross")) {
+    if (strstr(header, "hplus") && strstr(header, "hcross")) {
         ndat = XLALSimReadDataFile2Col(&hplusdat, &hcrossdat, fp);
         pol_2 = 1;
     } else {
-        char* tok = strtok(header, "# \t");
+        char* tok = strtok(tmpbuf, "# \t");
         i = 0;
 
         if (!strstr(tok, "time")) {
             XLAL_ERROR(XLAL_EINVAL, "First column must be time");
         }
         
-        while ((tok = strtok(NULL, "# \t"))) {
+        //labels = XLALMalloc(sizeof(*labels));
+        labels = NULL;
+        while ((tok = strtok(NULL, " "))) {
             labels = XLALRealloc(labels, (i+1)*sizeof(*labels));
-            labels[i] = tok;
+            labels[i] = XLALStringDuplicate(tok);
             i++;
         }
 
         /* Time and two columns (real, imag) per mode */
-        ncol = 2 * i - 1;
-        for (i=0; i<ncol; i++) {
-            data = XLALMalloc(ncol * sizeof(*data));
-        }
-        ndat = XLALSimReadDataFileNCol(data, &ncol, fp);
+        ncol = 2 * i + 1;
+        ndat = XLALSimReadDataFileNCol(&data, &ncol, fp);
     }
+    free(tmpbuf);
+
 
     XLALFileClose(fp);
-    if (ndat == (size_t) (-1) || ncol != 2 * i - 1) {
+    if (ndat == (size_t) (-1) || ncol != 2 * i + 1) {
         XLAL_ERROR(XLAL_EFUNC, "Column formatting error.");
     }
 
-    /* These are the output polarizations */
-    *hplus = XLALCreateREAL8TimeSeries(labelplus, &epoch, 0.0, delta_t, &lalStrainUnit, (int) ndat);
-    *hcross = XLALCreateREAL8TimeSeries(labelcross, &epoch, 0.0, delta_t, &lalStrainUnit, (int) ndat);
+    XLALFree(header);
 
-    if(!*hplus || !*hcross) {
-        XLALDestroyREAL8TimeSeries(*hplus);
-        XLALDestroyREAL8TimeSeries(*hcross);
-        XLALFree(header);
-        for(i=0; i<ncol/2+1; i++) {
-            XLALFree(labels[i]);
-        }
-        for(i=0; i<ncol; i++) {
-            XLALFree(data[i]);
-            XLALFree(data[i]);
-        }
-        *hplus = *hcross = NULL;
-        XLAL_ERROR(XLAL_EFUNC);
-    }
-
-    /* define metadata */
-    snprintf(labelplus, sizeof(labelplus), "%s plus pol", file);
-    snprintf(labelcross, sizeof(labelcross), "%s cross pol", file);
-
-    XLALGPSSetREAL8(&epoch, data[0][0]);
+    XLALGPSSetREAL8(&epoch, data[0]);
 
     if (pol_2 == 0) {
 
@@ -453,11 +437,11 @@ int XLALGenerateBurstFromFile(
         int l = 0, m = 0;
         COMPLEX16TimeSeries* tmp = XLALCreateCOMPLEX16TimeSeries(labelplus, &epoch, 0.0, delta_t, &lalStrainUnit, (int) ndat);
 
-        for (i=0; i<ncol; i*=2) {
+        for (i=1; i<ncol; i+=2) {
             ndat = tmp->data->length;
-            while(!(ndat--)) {
-                tmp->data->data[ndat] = (COMPLEX16)data[i][ndat];
-                tmp->data->data[ndat] += I * data[i][ndat];
+            while(ndat--) {
+                tmp->data->data[ndat] = (COMPLEX16)data[ndat * ncol + i];
+                tmp->data->data[ndat] += I * data[ndat * ncol + (i + 1)];
             }
 
             /* Parse mode label */
@@ -465,14 +449,35 @@ int XLALGenerateBurstFromFile(
                 XLAL_ERROR(XLAL_EDATA, "Could not parse mode label in file header,");
             }
             ts = XLALSphHarmTimeSeriesAddMode(ts, tmp, l, m);
+            XLALFree(labels[i/2]);
         }
+        XLALFree(labels);
 
         /* Sum the modes to hp, hx */
-        XLALSimInspiralPolarizationsFromSphHarmTimeSeries(hplus, hcross, ts, incl, psi);
+        //XLALSimInspiralPolarizationsFromSphHarmTimeSeries(hplus, hcross, ts, incl, psi);
+        XLALSimInspiralPolarizationsFromSphHarmTimeSeries(hplus, hcross, ts, 1.5707963267948966, 0);
         XLALDestroyCOMPLEX16TimeSeries(tmp);
         XLALDestroySphHarmTimeSeries(ts);
 
     } else {
+
+        /* define metadata */
+        snprintf(labelplus, sizeof(labelplus), "%s plus pol", file);
+        snprintf(labelcross, sizeof(labelcross), "%s cross pol", file);
+
+        /* These are the output polarizations */
+        REAL8TimeSeries *hptmp, *hxtmp;
+        hptmp = XLALCreateREAL8TimeSeries(labelplus, &epoch, 0.0, delta_t, &lalStrainUnit, (int) ndat);
+        hxtmp = XLALCreateREAL8TimeSeries(labelcross, &epoch, 0.0, delta_t, &lalStrainUnit, (int) ndat);
+
+        if(!hptmp || !hxtmp) {
+            XLALDestroyREAL8TimeSeries(hptmp);
+            XLALDestroyREAL8TimeSeries(hxtmp);
+            XLALFree(data);
+            hptmp = hxtmp = NULL;
+            XLAL_ERROR(XLAL_EFUNC);
+        }
+
         /* populate */
         for(i = 0; i < (*hplus)->data->length; i++) {
             /* Mix with inclination */
@@ -480,20 +485,14 @@ int XLALGenerateBurstFromFile(
             hcrossdat[i] *= cos(incl);
 
             /* ... and polarization */
-            (*hplus)->data->data[i] = hplusdat[i] * cos(psi) + hcrossdat[i] * sin(psi);
-            (*hcross)->data->data[i] = -hplusdat[i] * sin(psi) + hcrossdat[i] * cos(psi);
+            hptmp->data->data[i] = hplusdat[i] * cos(psi) + hcrossdat[i] * sin(psi);
+            hxtmp->data->data[i] = -hplusdat[i] * sin(psi) + hcrossdat[i] * cos(psi);
         }
+        hplus = &hptmp;
+        hcross = &hxtmp;
         
     }
-
-    XLALFree(header);
-    for(i=0; i<ncol/2+1; i++) {
-        XLALFree(labels[i]);
-    }
-    for(i=0; i<ncol; i++) {
-        XLALFree(data[i]);
-        XLALFree(data[i]);
-    }
+    XLALFree(data);
 
     return 0;
 }
