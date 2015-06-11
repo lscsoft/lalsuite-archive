@@ -1633,8 +1633,8 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
     fprintf(stdout,"Network SNR of event %d = %g\n",event,NetworkSNR);
     if(NetworkSNR<8) { fprintf(stderr,"Network SNR < 8; exiting.\n");
                          exit(EXIT_SUCCESS); }
-    if(NetworkSNR>30) { fprintf(stderr,"NetworkSNR > 30; exiting.\n");
-            exit(EXIT_SUCCESS); }
+    //if(NetworkSNR>30) { fprintf(stderr,"NetworkSNR > 30; exiting.\n");
+    //        exit(EXIT_SUCCESS); }
     if(NlowSNR>1) { fprintf(stderr,"At least two individual detectors have SNR < 5.5; exiting.\n");
             exit(EXIT_SUCCESS); }
 
@@ -2435,8 +2435,8 @@ a2")) + (LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT") || LALInferenc
     XLALDestroyCOMPLEX16FrequencySeries(freqModelhPlus);
     if(NetworkSNR<8) { fprintf(stderr,"Network SNR < 8; exiting.\n");
                          exit(EXIT_SUCCESS); }
-    if(NetworkSNR>30) { fprintf(stderr,"NetworkSNR > 30; exiting.\n");
-            exit(EXIT_SUCCESS); }
+    //if(NetworkSNR>30) { fprintf(stderr,"NetworkSNR > 30; exiting.\n");
+    //        exit(EXIT_SUCCESS); }
     if(NlowSNR>1) { fprintf(stderr,"At least two individual detectors have SNR < 5.5; exiting.\n");
             exit(EXIT_SUCCESS); }
 }
