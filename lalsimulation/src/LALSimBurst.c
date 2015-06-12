@@ -455,6 +455,8 @@ int XLALGenerateBurstFromFile(
 
         /* Sum the modes to hp, hx */
         //XLALSimInspiralPolarizationsFromSphHarmTimeSeries(hplus, hcross, ts, incl, psi);
+        *hplus = NULL;
+        *hcross = NULL;
         XLALSimInspiralPolarizationsFromSphHarmTimeSeries(hplus, hcross, ts, 1.5707963267948966, 0);
         XLALDestroyCOMPLEX16TimeSeries(tmp);
         XLALDestroySphHarmTimeSeries(ts);
@@ -479,7 +481,7 @@ int XLALGenerateBurstFromFile(
         }
 
         /* populate */
-        for(i = 0; i < (*hplus)->data->length; i++) {
+        for(i = 0; i < hptmp->data->length; i++) {
             /* Mix with inclination */
             hplusdat[i] *= 0.5 * (1 + cos(incl)*cos(incl) );
             hcrossdat[i] *= cos(incl);
