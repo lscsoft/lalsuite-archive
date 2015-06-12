@@ -263,7 +263,7 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   /* **************************************************************** */
 
   /* If momentum derivatives are too large numerically, break */
-  if ( r2 < 16. && (dvalues[3] > 10 || dvalues[4] > 10 || dvalues[5] > 10) )
+  if ( r2 < 16. && (fabs(dvalues[3]) > 10 || fabs(dvalues[4]) > 10 || fabs(dvalues[5]) > 10) )
   {
     if(debugPK){
       printf("\n Integration stopping, dpdt > 100 -- too large!\n");
