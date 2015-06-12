@@ -1452,6 +1452,8 @@ static int XLALSimInspiralSpinTaylorT4Derivatives(
     XLALSimInspiralSpinTaylorTxCoeffs *params 
             = (XLALSimInspiralSpinTaylorTxCoeffs*) mparams;
 
+    REAL8 q;
+
     /* copy variables */
     // UNUSED!!: s    = values[0] ;
     omega   	= values[1] ;
@@ -1459,6 +1461,9 @@ static int XLALSimInspiralSpinTaylorT4Derivatives(
     S1x  = values[5] ; S1y     	= values[6] ; S1z 	= values[7] ;
     S2x  = values[8] ; S2y     	= values[9] ; S2z 	= values[10];
     E1x  = values[11]; E1y    	= values[12]; E1z 	= values[13];
+
+    q = params->m2M/params->m1M;
+
 
     if (omega <= 0.0) /* orbital frequency must be positive! */
     {
@@ -1556,15 +1561,16 @@ static int XLALSimInspiralSpinTaylorT4Derivatives(
      * 
      * \f$d \hat{L_N}/d \hat{t} = M * d\hat{L_N} / dt = \Omega_L x \hat{L_N}\f$
      * This is Eq. (10) of gr-qc/0405090 ( times M b/c we use \f$\hat{t}\f$)
+     * Modified to use Racine 2008 quadrupole-monopole correction (explicit 'q' terms)
      */
     omega2 = omega * omega;
     /* \Omega_L vector */
     OmegaLx = omega2 * (params->LNhatSO15s1 * S1x + params->LNhatSO15s2 * S2x)
-            + v7 * params->LNhatSS2 * (LNdotS2 * S1x + LNdotS1 * S2x);
+           + v7 * params->LNhatSS2 * (LNdotS2 * S1x + LNdotS1 * S2x + q*LNdotS1*S1x+LNdotS2*S2x/q);
     OmegaLy = omega2 * (params->LNhatSO15s1 * S1y + params->LNhatSO15s2 * S2y)
-            + v7 * params->LNhatSS2 * (LNdotS2 * S1y + LNdotS1 * S2y);
+            + v7 * params->LNhatSS2 * (LNdotS2 * S1y + LNdotS1 * S2y + q*LNdotS1*S1y+LNdotS2*S2y/q);
     OmegaLz = omega2 * (params->LNhatSO15s1 * S1z + params->LNhatSO15s2 * S2z)
-            + v7 * params->LNhatSS2 * (LNdotS2 * S1z + LNdotS1 * S2z);
+            + v7 * params->LNhatSS2 * (LNdotS2 * S1z + LNdotS1 * S2z + q*LNdotS1*S1z+LNdotS2*S2z/q);
 
     /* Take cross product of \Omega_L with \hat{L_N} */
     dLNhx = (-OmegaLz*LNhy + OmegaLy*LNhz);
@@ -1590,21 +1596,24 @@ static int XLALSimInspiralSpinTaylorT4Derivatives(
 
     /*
      * dS1
-     * 
+     *
      * d S_1 / d \hat{t} = M * d S_1 / dt = \Omega_{S1} x S_1
      * This is Eq. (8) of gr-qc/0405090.
      * However, that paper uses spin variables which are M^2 times our spins
+     *
+     * Modified to use Racine 2008 quadrupole-monopole correction; see Gerosa et al 2013 PRD 87 Eqs. 14-15
      */
     /* \Omega_{S1} vector */
     omega2by2 = omega2 * 0.5;
     threeLNdotS2 = 3. * LNdotS2;
+    threeLNdotS1 = 3. * LNdotS1;
     v5etaLNhatSO15s1 = v5 * params->eta * params->LNhatSO15s1;
     OmegaSx = v5etaLNhatSO15s1 * LNhx
-            + omega2by2 * (S2x - threeLNdotS2 * LNhx);
+            + omega2by2 * (S2x - threeLNdotS2 * LNhx - threeLNdotS1*LNhx*q);
     OmegaSy = v5etaLNhatSO15s1 * LNhy
-            + omega2by2 * (S2y - threeLNdotS2 * LNhy);
+            + omega2by2 * (S2y - threeLNdotS2 * LNhy - threeLNdotS1*LNhy*q);
     OmegaSz = v5etaLNhatSO15s1 * LNhz
-            + omega2by2 * (S2z - threeLNdotS2 * LNhz);
+            + omega2by2 * (S2z - threeLNdotS2 * LNhz  - threeLNdotS1*LNhz*q);
 
     /* Take cross product of \Omega_{S1} with S_1 */
     dS1x = (-OmegaSz*S1y + OmegaSy*S1z);
@@ -1613,20 +1622,22 @@ static int XLALSimInspiralSpinTaylorT4Derivatives(
 
     /*
      * dS2
-     * 
+     *
      * d S_2 / d \hat{t} = M * d S_2 / dt = \Omega_{S2} x S_2
      * This is Eq. (9) of gr-qc/0405090.
      * However, that paper uses spin variables which are M^2 times our spins
+     *
+     * Modified to use Racine 2008 quadrupole-monopole correction; see Gerosa et al 2013 PRD 87 Eqs. 14-15
+     *
      */
     /* \Omega_{S2} vector */
-    threeLNdotS1 = 3. * LNdotS1;
     v5etaLNhatSO15s2 = v5 * params->eta * params->LNhatSO15s2;
     OmegaSx = v5etaLNhatSO15s2 * LNhx
-            + omega2by2 * (S1x - threeLNdotS1 * LNhx);
+            + omega2by2 * (S1x - threeLNdotS1 * LNhx - threeLNdotS1*LNhx/q);
     OmegaSy = v5etaLNhatSO15s2 * LNhy
-            + omega2by2 * (S1y - threeLNdotS1 * LNhy);
+            + omega2by2 * (S1y - threeLNdotS1 * LNhy - threeLNdotS1*LNhy/q);
     OmegaSz = v5etaLNhatSO15s2 * LNhz
-            + omega2by2 * (S1z - threeLNdotS1 * LNhz);
+            + omega2by2 * (S1z - threeLNdotS1 * LNhz - threeLNdotS1*LNhz/q);
 
     /* Take cross product of \Omega_{S2} with S_2 */
     dS2x = (-OmegaSz*S2y + OmegaSy*S2z);
@@ -1924,6 +1935,8 @@ static int XLALSimInspiralSpinTaylorT2Derivatives(
     XLALSimInspiralSpinTaylorTxCoeffs *params
             = (XLALSimInspiralSpinTaylorTxCoeffs*) mparams;
 
+    REAL8 q;
+
     /* copy variables */
     // UNUSED!!: s    = values[0] ;
     omega   	= values[1] ;
@@ -1931,6 +1944,9 @@ static int XLALSimInspiralSpinTaylorT2Derivatives(
     S1x  = values[5] ; S1y     	= values[6] ; S1z 	= values[7] ;
     S2x  = values[8] ; S2y     	= values[9] ; S2z 	= values[10];
     E1x  = values[11]; E1y    	= values[12]; E1z 	= values[13];
+
+    q = params->m2M/params->m1M;
+
 
     if (omega <= 0.0) /* orbital frequency must be positive! */
     {
@@ -2029,15 +2045,18 @@ static int XLALSimInspiralSpinTaylorT2Derivatives(
      *
      * \f$d \hat{L_N}/d \hat{t} = M * d\hat{L_N} / dt = \Omega_L x \hat{L_N}\f$
      * This is Eq. (10) of gr-qc/0405090 ( times M b/c we use \f$\hat{t}\f$)
+     *
+     * Modified to use Racine 2008 quadrupole-monopole correction (explicit 'q' terms)
+     * 
      */
     omega2 = omega * omega;
     /* \Omega_L vector */
     OmegaLx = omega2 * (params->LNhatSO15s1 * S1x + params->LNhatSO15s2 * S2x)
-            + v7 * params->LNhatSS2 * (LNdotS2 * S1x + LNdotS1 * S2x);
+           + v7 * params->LNhatSS2 * (LNdotS2 * S1x + LNdotS1 * S2x + q*LNdotS1*S1x+LNdotS2*S2x/q);
     OmegaLy = omega2 * (params->LNhatSO15s1 * S1y + params->LNhatSO15s2 * S2y)
-            + v7 * params->LNhatSS2 * (LNdotS2 * S1y + LNdotS1 * S2y);
+            + v7 * params->LNhatSS2 * (LNdotS2 * S1y + LNdotS1 * S2y + q*LNdotS1*S1y+LNdotS2*S2y/q);
     OmegaLz = omega2 * (params->LNhatSO15s1 * S1z + params->LNhatSO15s2 * S2z)
-            + v7 * params->LNhatSS2 * (LNdotS2 * S1z + LNdotS1 * S2z);
+            + v7 * params->LNhatSS2 * (LNdotS2 * S1z + LNdotS1 * S2z + q*LNdotS1*S1z+LNdotS2*S2z/q);
 
     /* Take cross product of \Omega_L with \hat{L_N} */
     dLNhx = (-OmegaLz*LNhy + OmegaLy*LNhz);
@@ -2067,17 +2086,20 @@ static int XLALSimInspiralSpinTaylorT2Derivatives(
      * d S_1 / d \hat{t} = M * d S_1 / dt = \Omega_{S1} x S_1
      * This is Eq. (8) of gr-qc/0405090.
      * However, that paper uses spin variables which are M^2 times our spins
+     *
+     * Modified to use Racine 2008 quadrupole-monopole correction; see Gerosa et al 2013 PRD 87 Eqs. 14-15
      */
     /* \Omega_{S1} vector */
     omega2by2 = omega2 * 0.5;
     threeLNdotS2 = 3. * LNdotS2;
+    threeLNdotS1 = 3. * LNdotS1;
     v5etaLNhatSO15s1 = v5 * params->eta * params->LNhatSO15s1;
     OmegaSx = v5etaLNhatSO15s1 * LNhx
-            + omega2by2 * (S2x - threeLNdotS2 * LNhx);
+            + omega2by2 * (S2x - threeLNdotS2 * LNhx - threeLNdotS1*LNhx*q);
     OmegaSy = v5etaLNhatSO15s1 * LNhy
-            + omega2by2 * (S2y - threeLNdotS2 * LNhy);
+            + omega2by2 * (S2y - threeLNdotS2 * LNhy - threeLNdotS1*LNhy*q);
     OmegaSz = v5etaLNhatSO15s1 * LNhz
-            + omega2by2 * (S2z - threeLNdotS2 * LNhz);
+            + omega2by2 * (S2z - threeLNdotS2 * LNhz  - threeLNdotS1*LNhz*q);
 
     /* Take cross product of \Omega_{S1} with S_1 */
     dS1x = (-OmegaSz*S1y + OmegaSy*S1z);
@@ -2090,16 +2112,18 @@ static int XLALSimInspiralSpinTaylorT2Derivatives(
      * d S_2 / d \hat{t} = M * d S_2 / dt = \Omega_{S2} x S_2
      * This is Eq. (9) of gr-qc/0405090.
      * However, that paper uses spin variables which are M^2 times our spins
+     *
+     * Modified to use Racine 2008 quadrupole-monopole correction; see Gerosa et al 2013 PRD 87 Eqs. 14-15
+     *
      */
     /* \Omega_{S2} vector */
-    threeLNdotS1 = 3. * LNdotS1;
     v5etaLNhatSO15s2 = v5 * params->eta * params->LNhatSO15s2;
     OmegaSx = v5etaLNhatSO15s2 * LNhx
-            + omega2by2 * (S1x - threeLNdotS1 * LNhx);
+            + omega2by2 * (S1x - threeLNdotS1 * LNhx - threeLNdotS1*LNhx/q);
     OmegaSy = v5etaLNhatSO15s2 * LNhy
-            + omega2by2 * (S1y - threeLNdotS1 * LNhy);
+            + omega2by2 * (S1y - threeLNdotS1 * LNhy - threeLNdotS1*LNhy/q);
     OmegaSz = v5etaLNhatSO15s2 * LNhz
-            + omega2by2 * (S1z - threeLNdotS1 * LNhz);
+            + omega2by2 * (S1z - threeLNdotS1 * LNhz - threeLNdotS1*LNhz/q);
 
     /* Take cross product of \Omega_{S2} with S_2 */
     dS2x = (-OmegaSz*S2y + OmegaSy*S2z);
