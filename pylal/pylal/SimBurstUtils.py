@@ -56,11 +56,11 @@ def add_numrel_data(xmldoc):
 
 def add_numrel_data_to_table(sim_burst_table):
 	added = False
-    try:
-        sim_burst_table.getColumnByName("numrel_data")
-    except KeyError:
-        sim_burst_table.appendColumn("numrel_data")
-        added = True
+	try:
+		sim_burst_table.getColumnByName("numrel_data")
+	except KeyError:
+		sim_burst_table.appendColumn("numrel_data")
+		added = True
 
 	if not added:
 		# didn't add any columns, so don't muck their contents
