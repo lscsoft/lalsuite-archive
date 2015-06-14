@@ -57,9 +57,9 @@ def add_numrel_data(xmldoc):
 def add_numrel_data_to_table(sim_burst_table):
 	added = False
     try:
-        sngl_burst_table.getColumnByName("numrel_data")
+        sim_burst_table.getColumnByName("numrel_data")
     except KeyError:
-        sngl_burst_table.appendColumn("numrel_data")
+        sim_burst_table.appendColumn("numrel_data")
         added = True
 
 	if not added:
@@ -67,7 +67,7 @@ def add_numrel_data_to_table(sim_burst_table):
 		return
 
 	# column was added, initialize
-	for row in sngl_burst_table:
+	for row in sim_burst_table:
 		row.numrel_data = ""
 
 
