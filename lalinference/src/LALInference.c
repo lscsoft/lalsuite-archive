@@ -390,15 +390,13 @@ void LALInferenceCopyVariables(LALInferenceVariables *origin, LALInferenceVariab
 
   /* Make sure the structure is initialised */
   if(!target) XLAL_ERROR_VOID(XLAL_EFAULT, "Unable to copy to uninitialised LALInferenceVariables structure.");
-  /* first dispose contents of "target" (if any): */
+
+  /* First clear the target */
   LALInferenceClearVariables(target);
 
-  /* get the number of elements in origin */
+  /* Now add the variables in reverse order, to preserve the
+   * ordering */
   dims = LALInferenceGetVariableDimension( origin );
-
-  if ( !dims ){
-    XLAL_ERROR_VOID(XLAL_EFAULT, "Origin variables has zero dimensions!");
-  }
 
   /* then copy over elements of "origin" - due to how elements are added by
      LALInferenceAddVariable this has to be done in reverse order to preserve
