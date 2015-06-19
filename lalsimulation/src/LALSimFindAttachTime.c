@@ -40,10 +40,12 @@ double  XLALSimLocateOmegaTime(
     * Locate merger point (max omega), 
     * WaveStep 1.1: locate merger point */
     int debugPK = 0;
+    int debugRD = 1;
     FILE *out = NULL; 
     gsl_spline    *spline = NULL;
     gsl_interp_accel *acc = NULL;
     
+    if (debugPK) {debugRD = 0;}
   
     unsigned int peakIdx, i, j;
     REAL8Vector *values = NULL;
@@ -79,6 +81,9 @@ double  XLALSimLocateOmegaTime(
         printf("length of values = %d, retLenHi = %d\n", values->length, retLenHi);
         fflush(NULL);
     }
+    if(debugRD) {
+        out = fopen( "omegaHi.dat", "w" );
+    }
   
     for ( i = 0; i < retLenHi; i++ )
     {
@@ -110,7 +115,7 @@ double  XLALSimLocateOmegaTime(
         magR = sqrt(inner_product(rvec, rvec));
         omegaHi->data[i] = sqrt(inner_product(rcrossrdot, rcrossrdot)) / (magR*magR); 
    
-        if(debugPK){
+        if(debugPK || debugRD){
             fprintf( out, "%.16e\t%.16e\n", timeHi.data[i], omegaHi->data[i]);
         }
     }
@@ -137,6 +142,9 @@ double  XLALSimLocateOmegaTime(
             printf("Stas: peak of orbital frequency was not found. peakIdx = %d, retLenHi = %d, i at exit = %d\n", peakIdx, retLenHi, i);
             fflush(NULL);
         }
+    }
+    if(debugRD) {
+        fclose(out);
     }
   
     // refining the omega_max search (if it is found)
@@ -177,7 +185,7 @@ double  XLALSimLocateOmegaTime(
         }
     }
   
-    if(*found == 0){
+    if(*found == 0 || debugRD){
         if(debugPK){
             printf("Stas: We couldn't find the maximum of orbital frequency, search for maximum of A(r)/r^2 \n");
         }   
@@ -203,7 +211,7 @@ double  XLALSimLocateOmegaTime(
         REAL8 a;
         REAL8 eta = m1*m2/(mTotal*mTotal);
         
-        if(debugPK){ 
+        if(debugPK || debugRD){ 
             out = fopen( "OutAofR.dat", "w" );
         }
         for ( i = 0; i < retLenHi; i++ )
@@ -237,27 +245,29 @@ double  XLALSimLocateOmegaTime(
             logTerms = 1. + eta*seobCoeffs.k0 + eta*log(1. + seobCoeffs.k1*u + seobCoeffs.k2*u2 + seobCoeffs.k3*u3 + seobCoeffs.k4*u4 + seobCoeffs.k5*u5 + seobCoeffs.k5l*u5*log(u));
             deltaU = bulk*logTerms;
             listAOverr2[i] = deltaU / rad2;
-            if(debugPK){
+            if(debugPK || debugRD){
                 fprintf(out, "%3.10f %3.10f\n", timeHi.data[i], listAOverr2[i]);
             }
             
         }
-        if(debugPK) fclose(out);
-        // searching formaximum of A(r)/r^2
-        peakIdx = 0;
-        *found = 0;
-        for ( i = 1, peakIdx = 0; i < retLenHi-1; i++ ){
-            Aoverr2 = listAOverr2[i];
-            if (Aoverr2 >= listAOverr2[i-1] && Aoverr2 > listAOverr2[i+1]){
-                peakIdx = i;
-                tPeakOmega = timeHi.data[i];
-                *found = 1;
-                if (debugPK){
-                    printf("PK: Peak of A(r)/r^2 is at idx = %d. t = %f, Peak ampl. = %.16e\n", 
-                        peakIdx, timeHi.data[peakIdx], Aoverr2);
-                    fflush(NULL);
-                }
-            }  
+        if(debugPK || debugRD) fclose(out);
+        if (*found == 0){
+            // searching formaximum of A(r)/r^2
+            peakIdx = 0;
+            *found = 0;
+            for ( i = 1, peakIdx = 0; i < retLenHi-1; i++ ){
+                Aoverr2 = listAOverr2[i];
+                if (Aoverr2 >= listAOverr2[i-1] && Aoverr2 > listAOverr2[i+1]){
+                    peakIdx = i;
+                    tPeakOmega = timeHi.data[i];
+                    *found = 1;
+                    if (debugPK){
+                        printf("PK: Peak of A(r)/r^2 is at idx = %d. t = %f, Peak ampl. = %.16e\n", 
+                            peakIdx, timeHi.data[peakIdx], Aoverr2);
+                        fflush(NULL);
+                    }
+                }  
+            }
         }
     
         if(debugPK) {
@@ -291,9 +301,11 @@ double XLALSimLocateAmplTime(
     int *found)
 {
     int debugPK = 0;
+    int debugRD = 1;
     FILE *out = NULL; 
     gsl_spline    *spline = NULL;
     gsl_interp_accel *acc = NULL;
+    if (debugPK) {debugRD = 0;}
     
     // First we search for the maximum (extremum) of amplitude
     unsigned int i, peakIdx; 
@@ -308,7 +320,7 @@ double XLALSimLocateAmplTime(
     tAmpMax = 0.;
     REAL8 Ampl[Nps];
     
-    if(debugPK) {
+    if(debugPK || debugRD) {
             out = fopen( "AmpPHi.dat", "w" );
     }
     AmplO = sqrt(creal(hP22->data[0])*creal(hP22->data[0]) + cimag(hP22->data[0])*cimag(hP22->data[0]));
@@ -317,7 +329,7 @@ double XLALSimLocateAmplTime(
     for (i=0; i<Nps-1; i++){
         AmplN = sqrt(creal(hP22->data[i+1])*creal(hP22->data[i+1]) + cimag(hP22->data[i+1])*cimag(hP22->data[i+1]));
         //Ampl = sqrt(hreP22->data[i]*hreP22->data[i] + himP22->data[i]*himP22->data[i]);
-        if(debugPK){
+        if(debugPK || debugRD){
             fprintf(out, "%3.10f %3.10f\n", timeHi->data[i], Ampl[i]);
         }
         if (Ampl[i] >= AmplO && Ampl[i] >AmplN){
@@ -348,8 +360,12 @@ double XLALSimLocateAmplTime(
             printf("Stas: we have found maximum of amplitude %3.10f at t = %3.10f \n", AmpMax, tAmpMax);
         }
     }
-    
-    if (*found ==0){
+    if (debugRD) 
+    {
+        fclose(out);
+    }
+
+    if (*found ==0 || debugRD){
         // we haven't found the maximum of amplitude -> search for minimum of derivative (extremum)
         spline = gsl_spline_alloc( gsl_interp_cspline, Nps );
         acc    = gsl_interp_accel_alloc();
@@ -358,28 +374,31 @@ double XLALSimLocateAmplTime(
         double AmplDerivO = gsl_spline_eval_deriv(spline, timeHi->data[1], acc);
         double AmplDeriv = AmplDerivO;
         double AmplDerivN;
-        if(debugPK) {
+        if(debugPK || debugRD) {
                 out = fopen( "DotAmpPHi.dat", "w" );
         }
+        printf("stas wrinting the file\n");
         for (i=1; i<Nps-2; i++){
-            if(debugPK){
+            if(debugPK || debugRD){
                 fprintf(out, "%3.10f %3.10f\n", timeHi->data[i], AmplDeriv);
             }
             AmplDerivN = gsl_spline_eval_deriv( spline, timeHi->data[i+1], acc );
-            if (AmplDeriv <= AmplDerivO && AmplDeriv < AmplDerivN){
-                tAmp = timeHi->data[i];
-                if (tAmp >=tMin && tAmp <= tMax  && *found==0){
-                    *found = 1;
-                    tAmpMax = tAmp;
-                    AmpMax = AmplDeriv;
-                    peakIdx = i;
-                    //break;
-                }else{
-                    if (debugPK){
-                        printf("Stas dismissing time %3.10f outside limits %3.10f, %3.10f \n", 
-                            tAmp, tMin, tMax);
-                    }
-                }                              
+            if (*found == 0){
+                if (AmplDeriv <= AmplDerivO && AmplDeriv < AmplDerivN){
+                    tAmp = timeHi->data[i];
+                    if (tAmp >=tMin && tAmp <= tMax  && *found==0){
+                        *found = 1;
+                        tAmpMax = tAmp;
+                        AmpMax = AmplDeriv;
+                        peakIdx = i;
+                        //break;
+                    }else{
+                        if (debugPK){
+                            printf("Stas dismissing time %3.10f outside limits %3.10f, %3.10f \n", 
+                                tAmp, tMin, tMax);
+                        }
+                    }                              
+                }
             }
             AmplDerivO = AmplDeriv;
             AmplDeriv = AmplDerivN;
@@ -395,6 +414,11 @@ double XLALSimLocateAmplTime(
                 printf("Stas: we have found maximum of amplitude %3.10f at t = %3.10f \n", AmpMax, tAmpMax);
             }
         }
+         if (debugRD) 
+        {
+            fclose(out);
+        }
+
         
     }
     if (spline != NULL)

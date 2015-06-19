@@ -1478,7 +1478,8 @@ int XLALSimIMRSpinEOBWaveform(
   /* TODO: Insert potentially necessary checks on the arguments */
 
   INT4 UNUSED ret;
-  INT4 debugPK = 0, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugRD = 1;
   FILE *out = NULL;
   INT4 i=0;
   INT4 k=0;
@@ -3536,7 +3537,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
       printf("Houston, we've got a problem SOS, SOS, SOS, cannot find the RD attachment point...\n");
       abort();
   }
-  
+   
   
   if (tAmpMax < tAttach){
       if (debugPK){
@@ -3544,6 +3545,13 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
       }      
       tAttach = tAmpMax;
   }
+  if (debugRD){
+     out = fopen( "tAttach.dat", "w" );
+     fprintf( out, "%.16e    %.16e    %.16e   %.16e \n", tPeakOmega, deltaNQC, tAmpMax, tAttach); 
+     fclose(out);
+ 
+  }
+
   if (debugPK){
       printf("Stas: the final decision on the attachment time is %f \n", tAttach);
   }
