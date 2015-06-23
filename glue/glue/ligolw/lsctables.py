@@ -3774,8 +3774,7 @@ class Segment(object):
 				self.segment = args
 			except ValueError:
 				# didn't work, try unpacking 0th argument
-				args, = args
-				self.segment = args
+				self.segment, = args
 
 	def __len__(self):
 		return len(self.segment)
