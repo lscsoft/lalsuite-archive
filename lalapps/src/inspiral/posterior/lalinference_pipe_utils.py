@@ -835,8 +835,9 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             for co in cotest_nodes:
               co.set_psdstart(enginenodes[0].GPSstart)
               co.set_psdlength(enginenodes[0].psdlength)
-              if self.config.getboolean('analysis','fix-single-ifo-sky'):
-                co.make_fix_sky()
+              if self.config.has_option('analysis','fix-single-ifo-sky'):
+                if self.config.getboolean('analysis','fix-single-ifo-sky'):
+                  co.make_fix_sky()
 
               if co!=cotest_nodes[0]:
                 co.add_var_arg('--dont-dump-extras')
