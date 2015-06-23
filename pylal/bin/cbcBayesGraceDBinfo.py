@@ -29,6 +29,8 @@
 import sys
 import os
 import numpy as np
+import matplotlib
+matplotlib.use("Agg")
 
 from pylal import bayespputils as bppu
 from pylal import git_version
@@ -58,38 +60,39 @@ def cbcBayesGraceDBinfo(gid=None,samples=None,analysis='LALInference', bcifile=N
   try:
     pos = bppu.BurstPosterior(commonResultsObj)
     pars=['frequency','quality','hrss']
+    units={'frequency':'[Hz]','quality':'','hrss':'','loghrss':''}
   except:
     pos = bppu.Posterior(commonResultsObj)
     pars=['mchirp','q','distance']
   strs=[]
+  outstr='<table><tr><th colspan=2 align=center>%s PE summary</th></tr>'%analysis
+
   for i in pars:
     if i in pos.names:
       _,which=pos._posMap()
-      str="%s parameter estimation: "%analysis
       if i=='hrss':
-        str+='%s -- maxP %.3e stdev %.3e'%(i,pos[i].samples[which][0],pos[i].stdev)
+        outstr+='<tr><td align=left>%s %s</td>'%(i,units[i])
+        outstr+='<td align=left>%.3e &plusmn; %.3e</td></tr>'%(pos[i].samples[which][0],pos[i].stdev)
       else:
-        str+='%s -- maxP %.3f stdev %.3f'%(i,pos[i].samples[which][0],pos[i].stdev)
-      strs.append(str)
-  if os.path.isfile(bcifile):
+        outstr+='<tr><td align=left>%s %s</td>'%(i,units[i])
+        outstr+='<td align=left>%.3f &plusmn; %.3f</td></tr>'%(pos[i].samples[which][0],pos[i].stdev)
+  if bcifile is not None and os.path.isfile(bcifile):
     bci=np.loadtxt(bcifile)
   else: bci=None
   if bci is not None:
-    str="%s parameter estimation: "%analysis
-    str+='logBayes Coherent/Incoherent %.3f'%(bci)
-    strs.append(str)
+    outstr+='<tr><td align=left>logBCI</td>'
+    outstr+='<td align=center>%.2f</td></tr>'%(bci)
 
-  if os.path.isfile(bsnfile):
+  if bsnfile is not None and os.path.isfile(bsnfile):
     bsn=np.loadtxt(bsnfile)
   else: bsn=None
   if bsn is not None:
-    str="%s parameter estimation: "%analysis
-    str+='logBayes Signal/Noise %.3f'%(bsn[0])
-    strs.append(str)
+    outstr+='<tr><td align=left>logBSN</td>'
+    outstr+='<td align=center>%.2f</td></tr>'%(bsn[0])
+  outstr+='</table>'
 
-
-  for str in strs:
-    g.writeLog(gid,str,filename=None,tagname='pe')
+  print outstr
+  g.writeLog(gid,outstr,filename=None,tagname='pe')
 
 
 if __name__=='__main__':

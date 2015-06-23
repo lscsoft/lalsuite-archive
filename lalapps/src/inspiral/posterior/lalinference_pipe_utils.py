@@ -445,6 +445,9 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     self.prenodes={}
     self.datafind_job = pipeline.LSCDataFindJob(self.cachepath,self.logpath,self.config,dax=self.is_dax())
     self.datafind_job.add_opt('url-type','file')
+    self.datafind_job.add_opt('server','10.14.20.73:80')
+    if cp.has_option('analysis','accounting_group'):
+      self.datafind_job.add_condor_cmd('accounting_group',cp.get('analysis','accounting_group'))
     self.datafind_job.set_sub_file(os.path.abspath(os.path.join(self.basepath,'datafind.sub')))
     self.preengine_job = EngineJob(self.config, os.path.join(self.basepath,'prelalinference.sub'),self.logpath,ispreengine=True,dax=self.is_dax())
     self.preengine_job.set_grid_site('local')
@@ -1183,7 +1186,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     out_dir=os.path.join(self.basepath,'engine')
     mkdirs(out_dir)
     node.set_output_file(os.path.join(out_dir,node.engine+'-'+str(event.event_id)+'-'+node.get_ifos()+'-'+str(node.get_trig_time())+'-'+str(node.id)))
-    node.set_snr_path(os.path.join(self.basepath, 'SNR','snr_'+node.get_ifos()+'_'+str(node.get_trig_time())+".dat"))
+    #Fixme node.set_snr_path(os.path.join(self.basepath, 'SNR','snr_'+node.get_ifos()+'_'+str(node.get_trig_time())+".dat"))
     if self.config.has_option('lalinference','roq'):
       for ifo in ifos:
         node.add_var_arg('--'+ifo+'-roqweights '+os.path.join(roqeventpath,'weights_'+ifo+'.dat'))
@@ -1224,9 +1227,9 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
 
   def add_gracedb_start_node(self,gid):
 
-    node=GraceDBNode(self.gracedbjob,parent=None,gid=gid,action='log')
+    node=GraceDBNode(self.gracedbjob,parent=None,gid=gid,action='log',tag='pe')
     node.set_filename('')
-    node.set_message('--tag-name pe LIB Parameter estimation started.')
+    node.set_message('LIB Parameter estimation started.')
     self.add_node(node)
     return node
 
@@ -1250,10 +1253,10 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     return node
 
   def add_gracedb_log_node(self,respagenode,gid):
-    node=GraceDBNode(self.gracedbjob,parent=respagenode,gid=gid)
+    node=GraceDBNode(self.gracedbjob,parent=respagenode,gid=gid,tag='pe')
     node.set_filename(respagenode.webpath+'/posterior_samples.dat')
     resurl=respagenode.webpath.replace(self.gracedbjob.basepath,self.gracedbjob.baseurl)
-    node.set_message("--tag-name pe \\\"\\\"LIB Parameter estimation finished. <a href="+resurl+"/posplots.html>Link to postprocessing page</a>\\\"\\\" ")
+    node.set_message("LIB Parameter estimation finished. <a href="+resurl+"/posplots.html>Link to postprocessing page</a>")
     self.add_node(node)
     return node
 
@@ -1273,12 +1276,12 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       nodes=[]
       for sk in skynodes:
         if len(sk.ifos)>1:
-          node=GraceDBNode(self.gracedbjob,parent=sk,gid=gid)
+          node=GraceDBNode(self.gracedbjob,parent=sk,gid=gid,tag='sky_loc')
           #for p in sk.__parents:
           #  if isinstance(p,ResultPageNode):
           #    resultpagenode=p
           node.set_filename(sk.outdir+'/%s_skymap.fits.gz'%prefix)
-          node.set_message('--tag-name sky_loc %s FITS sky map'%prefix)
+          node.set_message(' %s FITS sky map'%prefix)
           self.add_node(node)
           nodes.append(node)
     return nodes
@@ -1341,6 +1344,8 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
 
     pipeline.CondorDAGJob.__init__(self,universe,exe)
     pipeline.AnalysisJob.__init__(self,cp,dax=dax)
+    if cp.has_option('analysis','accounting_group'):
+      self.add_condor_cmd('accounting_group',cp.get('analysis','accounting_group'))
     # Set grid site if needed
     if site:
       self.set_grid_site(site)
@@ -1697,8 +1702,8 @@ class LALInferenceNestNode(EngineNode):
     self.add_output_file(self.Bfilename)
     self.headerfile=self.nsfile+'_params.txt'
     self.add_output_file(self.headerfile)
-  def set_snr_path(self,snrpath):
-      self.snrpath=snrpath
+  #def set_snr_path(self,snrpath):
+  #    self.snrpath=snrpath
 
   def get_B_file(self):
     return self.Bfilename
@@ -1708,8 +1713,8 @@ class LALInferenceNestNode(EngineNode):
 
   def get_header_file(self):
     return self.headerfile
-  def get_snr_file(self):
-      return self.snrpath
+  #def get_snr_file(self):
+  #    return self.snrpath
       
       
       
@@ -1787,6 +1792,7 @@ class ResultsPageNode(pipeline.CondorDAGNode):
         #self.add_file_opt('archive','results.tar.gz',file_is_output_file=True)
         mkdirs(path)
         self.posfile=os.path.join(path,'posterior_samples.dat')
+        print "----",self.posfile
         self.add_output_file(self.posfile)
     def get_output_path(self):
         return self.webpath
@@ -1969,7 +1975,7 @@ class GraceDBNode(pipeline.CondorDAGNode):
     """
     Run the gracedb executable to report the results
     """
-    def __init__(self,gracedb_job,gid=None,action='upload',parent=None,message=None,upfile=None):
+    def __init__(self,gracedb_job,gid=None,action='upload',parent=None,message=None,upfile=None,tag=None):
         # Message need to be a string
         # Upfile is the full path of the file to be uploaded
         pipeline.CondorDAGNode.__init__(self,gracedb_job)
@@ -1978,7 +1984,7 @@ class GraceDBNode(pipeline.CondorDAGNode):
         self.message=message
         self.filename=upfile
         self.action=action
-
+        self.tag=tag
         self.__finalized=False
 
     def set_gid(self,gid):
@@ -1998,8 +2004,10 @@ class GraceDBNode(pipeline.CondorDAGNode):
             return
         self.add_var_arg(self.action)
         self.add_var_arg(str(self.gid))
+        if self.tag:
+          self.add_var_arg('--tag-name=%s '%self.tag)
         self.add_var_arg(self.filename+' ')
-        self.add_var_arg(self.message)
+        self.add_var_arg(self.message,quote=True)
         self.__finalized=True
 
 class ROMJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
@@ -2069,7 +2077,7 @@ class SkyAreaNode(pipeline.CondorDAGNode):
     name='skymap.fits.gz'
     if self.prefix is not None:
       name=self.prefix+name
-    self.add_var_opt('fitsoutname',name)
+    self.add_file_opt('fitsoutname',name,file_is_output_file=True)
 
   def set_injection(self,injfile,eventnum):
       if injfile is not None:
@@ -2140,13 +2148,13 @@ class PostRunInfoNode(pipeline.CondorDAGNode):
     def set_parent(self,parentnode):
       self.add_parent(parentnode)
     def set_samples(self,samples):
-      self.add_var_opt('samples',samples)
+      self.add_file_opt('samples',samples)
     def set_gid(self,gid):
       self.add_var_opt('gid',gid)
     def set_bci(self,bci):
-      self.add_var_opt('bci',bci)
+      self.add_file_opt('bci',bci)
     def set_bsn(self,bsn):
-      self.add_var_opt('bsn',bsn)
+      self.add_file_opt('bsn',bsn)
     def set_analysis(self,analysis):
       self.analysis=analysis
         

@@ -857,7 +857,7 @@ class CondorDAGJob(CondorJob):
         macro = self.__bad_macro_chars.sub( r'', command )
         self.add_condor_cmd(command, '$(macro' + macro + ')')
 
-  def add_var_arg(self,arg_index):
+  def add_var_arg(self,arg_index,quote=False):
     """
     Add a command to the submit file to allow variable (macro) arguments
     to be passed to the executable.
@@ -867,7 +867,11 @@ class CondorDAGJob(CondorJob):
     except IndexError:
       if arg_index != self.__arg_index:
         raise CondorDAGJobError, "mismatch between job and node var_arg index"
-      self.__var_args.append('$(macroargument%s)' % str(arg_index))
+      if quote:
+        self.__var_args.append("'$(macroargument%s)'" % str(arg_index))
+      else:
+        self.__var_args.append("$(macroargument%s)" % str(arg_index))
+
       self.add_arg(self.__var_args[self.__arg_index])
       self.__arg_index += 1
 
@@ -1297,7 +1301,7 @@ class CondorDAGNode:
     if file_is_output_file: self.add_output_file(filename)
     else: self.add_input_file(filename)
 
-  def add_var_arg(self, arg):
+  def add_var_arg(self, arg,quote=False):
     """
     Add a variable (or macro) argument to the condor job. The argument is
     added to the submit file and a different value of the argument can be set
@@ -1305,7 +1309,7 @@ class CondorDAGNode:
     @param arg: name of option to add.
     """
     self.__args.append(arg)
-    self.__job.add_var_arg(self.__arg_index)
+    self.__job.add_var_arg(self.__arg_index,quote=quote)
     self.__arg_index += 1
 
   def add_file_arg(self, filename):
@@ -1498,7 +1502,7 @@ class CondorDAGNode:
     macros = self.get_args()
 
     for a in args:
-      m = pat.match(a)
+      m = pat.search(a)
       if m:
         arg_index = int(argpat.findall(a)[0])
         try:

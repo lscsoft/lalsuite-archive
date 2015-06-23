@@ -290,7 +290,12 @@ def plot_label(param):
       'lambda1' : r'$\lambda_1$',
       'lambda2': r'$\lambda_2$',
       'lam_tilde' : r'$\tilde{\Lambda}$',
-      'dlam_tilde': r'$\delta \tilde{\Lambda}$'}
+      'dlam_tilde': r'$\delta \tilde{\Lambda}$',
+      'calamp_h1' : r'$\delta A_{H1}$',
+      'calamp_l1' : r'$\delta A_{L1}$',
+      'calpha_h1' : r'$\delta \phi_{H1}$',
+      'calpha_l1' : r'$\delta \phi_{L1}$'
+}
 
   # Handle cases where multiple names have been used
   if param in m1_names:
