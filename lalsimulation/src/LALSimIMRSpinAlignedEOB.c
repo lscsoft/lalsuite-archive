@@ -1502,19 +1502,27 @@ int XLALSimIMRSpinEOBWaveform(
    * theta{1,2}Ini measure the angle w.r.t. the orbital ang. momentum
    * If these angles are < 1.e-3 radians, call the aligned-spin model directly
    * */ 
-  REAL8 spin1Norm = sqrt( INspin1[0]*INspin1[0] + INspin1[1]*INspin1[1] +                          INspin1[2]*INspin1[2] );
-  REAL8 spin2Norm = sqrt( INspin2[0]*INspin2[0] + INspin2[1]*INspin2[1] +                          INspin2[2]*INspin2[2] );
-  REAL8 theta1Ini = acos( INspin1[2] / spin1Norm );
-  REAL8 theta2Ini = acos( INspin2[2] / spin2Norm );
-  if ( theta1Ini <= 1.0e-5) {
-    spin1[0] = 0.;
-    spin1[1] = 0.;
-    spin1[2] = spin1Norm;
+  REAL8 theta1Ini = 0, theta2Ini = 0;
+  REAL8 spin1Norm = -1, spin2Norm = -1;
+  if( INspin1[0] != 0 || INspin1[1] != 0 ) {
+    spin1Norm = sqrt( INspin1[0]*INspin1[0] + INspin1[1]*INspin1[1] +                          INspin1[2]*INspin1[2] );
+    theta1Ini = acos( INspin1[2] / spin1Norm );
+  
+    if ( theta1Ini <= 1.0e-5) {
+      spin1[0] = 0.;
+      spin1[1] = 0.;
+      spin1[2] = spin1Norm * INspin1[2] / abs(INspin1[2]);
+    }
   }
-  if ( theta2Ini <= 1.0e-5) {
-    spin2[0] = 0.;
-    spin2[1] = 0.;
-    spin2[2] = spin2Norm;
+  if( INspin2[0] != 0 || INspin2[1] != 0 ) {
+    spin2Norm = sqrt( INspin2[0]*INspin2[0] + INspin2[1]*INspin2[1] +                          INspin2[2]*INspin2[2] );
+    theta2Ini = acos( INspin2[2] / spin2Norm );
+  
+    if ( theta2Ini <= 1.0e-5) {
+      spin2[0] = 0.;
+      spin2[1] = 0.;
+      spin2[2] = spin2Norm * INspin2[2] / abs(INspin2[2]);
+    }
   }
   if (theta1Ini < 1.0e-3 && theta2Ini < 1.0e-3) {
     ret = XLALSimIMRSpinAlignedEOBWaveform(
