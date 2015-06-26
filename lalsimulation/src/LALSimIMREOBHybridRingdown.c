@@ -432,7 +432,8 @@ XLALSimIMREOBHybridAttachRingdown(
 				  const REAL8 spin2z,	/**<<The spin of the second object; only needed for spin waveforms */
 				  REAL8Vector * timeVec,	/**<< Vector containing the time values */
 				  REAL8Vector * matchrange,	/**<< Time values chosen as points for performing comb matching */
-				  Approximant approximant	/**<<The waveform approximant being used */
+				  Approximant approximant,	/**<<The waveform approximant being used */
+                  const REAL8 JLN           /**<< cosine of the angle between J and LN at the light ring */
 )
 {
 	INT4		debugout = 0;
@@ -458,8 +459,9 @@ XLALSimIMREOBHybridAttachRingdown(
 	REAL8		spin2    [3] = {spin2x, spin2y, spin2z};
 	REAL8		finalMass, finalSpin;
 	REAL8		chi1    , chi2, theta1, theta2;
-
-	mTot = (mass1 + mass2) * LAL_MTSUN_SI;
+    INT4 mHere = 0;
+    
+    mTot = (mass1 + mass2) * LAL_MTSUN_SI;
 	eta = mass1 * mass2 / ((mass1 + mass2) * (mass1 + mass2));
 
 	/*
@@ -478,11 +480,23 @@ XLALSimIMREOBHybridAttachRingdown(
 		XLAL_ERROR(XLAL_EFUNC);
 	}
 	if (approximant == SEOBNRv3) {
-		if (XLALSimIMREOBGenerateQNMFreqV2(modefreqs, mass1, mass2, spin1, spin2, l, (int)fabs((REAL8) m), nmodes, approximant) == XLAL_FAILURE) {
+
+        if (JLN > 0){
+            mHere = (int)fabs((REAL8) m);
+        }else{
+            mHere = -(int)fabs((REAL8) m);
+        }
+
+
+		if (XLALSimIMREOBGenerateQNMFreqV2(modefreqs, mass1, mass2, spin1, spin2, l, mHere, nmodes, approximant) == XLAL_FAILURE) {
+		//if (XLALSimIMREOBGenerateQNMFreqV2(modefreqs, mass1, mass2, spin1, spin2, l, -(int)fabs((REAL8) m), nmodes, approximant) == XLAL_FAILURE) {
+		//if (XLALSimIMREOBGenerateQNMFreqV2(modefreqs, mass1, mass2, spin1, spin2, l, m, nmodes, approximant) == XLAL_FAILURE) {
 			XLALDestroyCOMPLEX16Vector(modefreqs);
 			XLAL_ERROR(XLAL_EFUNC);
 		}
-		if (m < 0) {
+		// FIXME
+        if (m < 0) {
+        //if (m > 0) {
 			for (j = 0; j < nmodes; j++) {
 				modefreqs->data[j] = conjl(-1.0 * modefreqs->data[j]);
 			}
@@ -492,7 +506,7 @@ XLALSimIMREOBHybridAttachRingdown(
 				modefreqs->data[j] = conjl(-1.0 * modefreqs->data[j - 5]);
 			}
 		}
-	};
+	}
 
 	/*
 	 * Call XLALSimIMREOBFinalMassSpin() to get mass and spin of the
@@ -530,7 +544,7 @@ XLALSimIMREOBHybridAttachRingdown(
 			 */
 			a = (spin1[2] + spin2[2]) / 2. * (1.0 - 2.0 * eta) + (spin1[2] - spin2[2]) / 2. * (mass1 - mass2) / (mass1 + mass2);
 			NRPeakOmega22 = GetNRSpinPeakOmegav2(l, m, eta, a) / mTot;
-
+            
 			/* Define chi */
 			chi = (spin1[2] + spin2[2]) / 2. + (spin1[2] - spin2[2]) / 2. * ((mass1 - mass2) / (mass1 + mass2)) / (1. - 2. * eta);
 
@@ -653,6 +667,9 @@ XLALSimIMREOBHybridAttachRingdown(
 
 		a = (chi1 + chi2) / 2. * (1.0 - 2.0 * eta) + (chi1 - chi2) / 2. * (mass1 - mass2) / (mass1 + mass2);
 		NRPeakOmega22 = GetNRSpinPeakOmegav2(l, m, eta, a) / mTot;
+        // FIXME remove the line below!
+        if (debugout) printf("in RD attachmnet: a = %.16e \n", a);
+        //NRPeakOmega22 = 0.22/mTot; 
 
 		chi = (chi1 + chi2) / 2. + (chi1 - chi2) / 2. * ((mass1 - mass2) / (mass1 + mass2)) / (1. - 2. * eta);
 
@@ -693,12 +710,16 @@ XLALSimIMREOBHybridAttachRingdown(
 				kt2 = -0.2 + pow(1. + 200. * pow(eta, 3. / 2.) / 9., 2. / 3.) / 2.;
 			}
 			//Computing pQNMs
-				if (m < 0) {
+            // FIXME
+			//if (m < 0) {
+			//if (m > 0) {
+            if (JLN*m < 0.0){
 				modefreqs->data[6] = (-3. / 4. * NRPeakOmega22 / finalMass) + (1. / 4. * creal(modefreqs->data[0]));
 				modefreqs->data[7] = (-2. / 3. * NRPeakOmega22 / finalMass) + (1. / 3. * creal(modefreqs->data[0]));
 			} else {
 				modefreqs->data[6] = (3. / 4. * NRPeakOmega22 / finalMass) + (1. / 4. * creal(modefreqs->data[0]));
 				modefreqs->data[7] = (2. / 3. * NRPeakOmega22 / finalMass) + (1. / 3. * creal(modefreqs->data[0]));
+                //printf("Stas , here m = %d modes: 0 = %4.10f, 6 = %4.10f, 7 = %4.10f \n", m, creal(modefreqs->data[0])*mTot, creal(modefreqs->data[6])*mTot, creal(modefreqs->data[7])*mTot);   
 			}
 
 			modefreqs->data[7] += I * 3.5 / 0.9 * cimag(modefreqs->data[0]);
@@ -757,6 +778,15 @@ XLALSimIMREOBHybridAttachRingdown(
 		} //end if m= 2, l = 2
 
 			} //v3
+
+        // FIXME !!!!
+        //for (j =0; j<nmodes; j++){
+        //if (m > 0) {
+		//	for (j = 0; j < nmodes; j++) {
+		//		modefreqs->data[j] = conjl(-1.0 * modefreqs->data[j]);
+		//	}
+		//}
+
 
 				// Move ringdown comb boundaries to sampling points to avoid numerical artifacts.
 				matchrange->data[0] -= fmod(matchrange->data[0], dt / mTot);

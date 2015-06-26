@@ -827,19 +827,34 @@ XLALSimIMREOBGetNRSpinPeakDeltaTv2(
 				   REAL8 chi1,	/**<< Dimensionless spin1 */
 				   REAL8 chi2	/**<< Dimensionless spin2 */
 )
-{
+{   
+    int debugSB = 0;
 	REAL8		chi     , chichi;
 	REAL8		eta = m1 * m2 / ((m1 + m2) * (m1 + m2));
 	chi = (chi1 + chi2) / 2. + (chi1 - chi2) / 2. * ((m1 - m2) / (m1 + m2)) / (1 - 2. * eta);
 
 	chichi = chi * chi;
+    if (debugSB){
+        printf("input info: chi = %.16e, eta = %.16e\n", chi, eta);
+    }
 	if (chi > 0.8) {
+        if (debugSB){
+            printf("the first option, value = %.16e\n", (0.75 * eta * chi + sqrt(1. - 4. * eta)) * (57.1755 - 48.0564 * chi));
+        }
 		return (0.75 * eta * chi + sqrt(1. - 4. * eta)) * (57.1755 - 48.0564 * chi);
+
 	} else if (chi > 0.0) {
+        if (debugSB){
+            printf("the second option, value = %.16e\n", (0.75 * eta * chi + sqrt(1. - 4. * eta)) * (2.5 + 10. * chichi + 24. * chichi * chichi));
+        }
 		return (0.75 * eta * chi + sqrt(1. - 4. * eta)) * (2.5 + 10. * chichi + 24. * chichi * chichi);
 	} else {
+        if (debugSB){
+            printf("the third option, value = %.16e\n", 2.5 + (1. + 2.5 * chi) * (-2.5 + 2.5 * sqrt(1. - 4. * eta)));
+        }
 		return 2.5 + (1. + 2.5 * chi) * (-2.5 + 2.5 * sqrt(1. - 4. * eta));
 	}
+    
 }
 
 /**

@@ -1293,7 +1293,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], deltaTHigh/mTScaled );
   if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, 2,
               deltaTHigh, m1, m2, spin1[0], spin1[1], spin1[2], spin2[0], spin2[1], spin2[2],
-              &timeHi, rdMatchPoint, SpinAlignedEOBapproximant )
+              &timeHi, rdMatchPoint, SpinAlignedEOBapproximant, 1.0 )
           == XLAL_FAILURE ) 
   {
     XLAL_ERROR( XLAL_EFUNC );
@@ -1478,8 +1478,8 @@ int XLALSimIMRSpinEOBWaveform(
   /* TODO: Insert potentially necessary checks on the arguments */
 
   INT4 UNUSED ret;
-  INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
-  INT4 debugRD = 1;
+  INT4 debugPK = 0, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugRD = 0;
   FILE *out = NULL;
   INT4 i=0;
   INT4 k=0;
@@ -1672,10 +1672,11 @@ int XLALSimIMRSpinEOBWaveform(
   REAL8 vX = 0, vY = 0, vZ = 0;//, rCrossV_x = 0, rCrossV_y = 0, rCrossV_z = 0;
   REAL8 UNUSED vOmega = 0, omegasav = 0, omegasav2 = 0;
   REAL8 magR = 0, Lx   = 0, Ly   = 0, Lz = 0, magL = 0, magJ = 0, 
-        LNhx = 0, LNhy = 0, LNhz = 0,/*magLN,*/ Jx = 0, Jy   = 0, Jz = 0;
+        LNhx = 0, LNhy = 0, LNhz = 0, magLN =0, Jx = 0, Jy   = 0, Jz = 0;
   REAL8 aI2P = 0, bI2P = 0, gI2P = 0, aP2J = 0, bP2J = 0, gP2J = 0;
   REAL8 chi1J= 0, chi2J= 0, chiJ = 0; 
   REAL8 UNUSED kappaJL = 0;
+  REAL8 JLN = 0.0;
   REAL8 JframeEx[3] = {0,0,0}, JframeEy[3] = {0,0,0}, JframeEz[3] = {0,0,0};
   REAL8 LframeEx[3] = {0,0,0}, LframeEy[3] = {0,0,0}, LframeEz[3] = {0,0,0};
   
@@ -1695,7 +1696,7 @@ int XLALSimIMRSpinEOBWaveform(
   const REAL8 EPS_REL = 1.0e-8;
 
   /* Memory for the calculation of the alpha(t) and beta(t) angles */
-  REAL8 tmpR[3], tmpRdot[3], magLN = 0;
+  REAL8 tmpR[3], tmpRdot[3];
   INT4 phaseCounterA = 0, phaseCounterB = 0;
   
   REAL8Vector *LN_x = NULL;  REAL8Vector *LN_y = NULL; REAL8Vector *LN_z = NULL;
@@ -2775,8 +2776,17 @@ int XLALSimIMRSpinEOBWaveform(
   /*chiJ = (chi1J+chi2J)/2. + (chi1J-chi2J)/2.*sqrt(1. - 4.*eta)/(1. - 2.*eta);*/
   chiJ = (chi1J+chi2J)/2. + (chi1J-chi2J)/2.*((m1-m2)/(m1+m2))/(1. - 2.*eta);
   kappaJL = (Lx*Jx + Ly*Jy + Lz*Jz) / magL / magJ;
+
+  magLN = sqrt(inner_product(rcrossrdot, rcrossrdot));
+  JLN =  (Jx*rcrossrdot[0] + Jy*rcrossrdot[1] + Jz*rcrossrdot[2])/magLN/magJ;
+
   
-  if(debugPK) { printf("chiJ %3.10f\n", chiJ); fflush(NULL); fflush(NULL); }
+  if(debugPK) { 
+      printf("chiJ = %3.10f\n", chiJ); fflush(NULL); fflush(NULL); 
+      printf("J.L = %4.11f \n", kappaJL); fflush(NULL); 
+      printf("J.LN = %4.11f \n", JLN);
+  }
+
 
   sh = 0.0;
   /* WaveStep 1.4: calculate combsize and deltaNQC */
@@ -2798,10 +2808,14 @@ int XLALSimIMRSpinEOBWaveform(
       if (chiJ >= 0.9 && eta < 30./(31.*31.)) combSize = 12.0;
       if (chiJ >= 0.8 && eta > 10./121.) combSize = 8.5;       
       deltaNQC = XLALSimIMREOBGetNRSpinPeakDeltaTv2(2, 2, m1, m2, chi1J, chi2J );
-      
-      if ( debugPK ) {
+      // FIXME !!!!! 
+      if ( debugPK ) {       
         printf("v2 RD prescriptions are used! %3.10f %3.10f\n", 
                 combSize, deltaNQC);
+        //if (deltaNQC > 2.5) {
+        //    deltaNQC = 1.0;
+        //    printf("WARNING!!!!!!! ----->> DELTANQC WAS SET TO 2.5 !!!!!\n");
+        //}
         fflush(NULL);
       }
       break;
@@ -2819,6 +2833,10 @@ int XLALSimIMRSpinEOBWaveform(
   
   // (Stas) !!! NOTE: tAttach is further modified by small shift "sh" computed and applied in XLALSimIMREOBHybridAttachRingdown !!!
   tAttach = tPeakOmega - deltaNQC;
+  if (! found){
+     tAttach = tPeakOmega;
+  }
+
   if (debugPK){
     printf("For RD: DeltaNQC = %3.10f, comb = %3.10f \n", deltaNQC, combSize);
     printf("NOTE! that additional shift (sh) is computed and added in XLALSimIMREOBHybridAttachRingdown\n");
@@ -2837,6 +2855,11 @@ int XLALSimIMRSpinEOBWaveform(
     JframeEx[1] = -JframeEz[0];
     JframeEx[2] = 0.;
   }
+  // FIXME try to change the sign of x:
+  //if (JframeEx[0] < 0.0){
+  //  JframeEx[0] = -JframeEz[1];
+  //  JframeEx[1] = JframeEz[0];
+  //}
   
   JExnorm = sqrt(JframeEx[0]*JframeEx[0] + JframeEx[1]*JframeEx[1]);
   //JframeEx[0] /= sqrt( JframeEz[0]*JframeEz[0] + JframeEz[1]*JframeEz[1] );
@@ -2847,6 +2870,12 @@ int XLALSimIMRSpinEOBWaveform(
   JframeEy[0] = JframeEz[1]*JframeEx[2] - JframeEz[2]*JframeEx[1];
   JframeEy[1] = JframeEz[2]*JframeEx[0] - JframeEz[0]*JframeEx[2];
   JframeEy[2] = JframeEz[0]*JframeEx[1] - JframeEz[1]*JframeEx[0];
+  
+
+  // FIXME try to change the sign of x:
+  //JframeEy[0] = - JframeEy[0]; 
+  //JframeEy[1] = - JframeEy[1]; 
+  //JframeEy[2] = - JframeEy[2]; 
 
   if(debugPK) { 
     printf("J-frameEx = [%e\t%e\t%e]\n", JframeEx[0], JframeEx[1], JframeEx[2]);printf("J-frameEy = [%e\t%e\t%e]\n", JframeEy[0], JframeEy[1], JframeEy[2]);
@@ -3338,6 +3367,11 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     LframeEz[0] =  LNhx;
     LframeEz[1] =  LNhy;
     LframeEz[2] =  LNhz;
+    //if(debugPK) { 
+    //   printf("L-frameEx = [%e\t%e\t%e]\n", LframeEx[0], LframeEx[1], LframeEx[2]);printf("L-frameEy = [%e\t%e\t%e]\n", LframeEy[0], LframeEy[1], LframeEy[2]);
+    //   printf("L-frameEz = [%e\t%e\t%e]\n", LframeEz[0], LframeEz[1], LframeEz[2]);fflush(NULL);
+    //}
+
     aP2J = atan2(JframeEz[0]*LframeEy[0]+JframeEz[1]*LframeEy[1]+JframeEz[2]*LframeEy[2],
                  JframeEz[0]*LframeEx[0]+JframeEz[1]*LframeEx[1]+JframeEz[2]*LframeEx[2]);
     bP2J = acos( JframeEz[0]*LframeEz[0]+JframeEz[1]*LframeEz[1]+JframeEz[2]*LframeEz[2]);
@@ -3674,7 +3708,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     }
     if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, k,
                 deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
-                &timeHi, rdMatchPoint, spinEOBApproximant )
+                &timeHi, rdMatchPoint, spinEOBApproximant, JLN )
             == XLAL_FAILURE )
     {
       XLAL_ERROR( XLAL_EFUNC );

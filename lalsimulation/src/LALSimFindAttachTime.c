@@ -40,7 +40,7 @@ double  XLALSimLocateOmegaTime(
     * Locate merger point (max omega), 
     * WaveStep 1.1: locate merger point */
     int debugPK = 0;
-    int debugRD = 1;
+    int debugRD = 0;
     FILE *out = NULL; 
     gsl_spline    *spline = NULL;
     gsl_interp_accel *acc = NULL;
@@ -133,6 +133,7 @@ double  XLALSimLocateOmegaTime(
                     peakIdx, timeHi.data[peakIdx], omega);
                 fflush(NULL);
             }
+            break;
         }  
     }
     
@@ -185,7 +186,7 @@ double  XLALSimLocateOmegaTime(
         }
     }
   
-    if(*found == 0 || debugRD){
+    if(*found == 0 || debugRD || debugPK){
         if(debugPK){
             printf("Stas: We couldn't find the maximum of orbital frequency, search for maximum of A(r)/r^2 \n");
         }   
@@ -250,11 +251,11 @@ double  XLALSimLocateOmegaTime(
             }
             
         }
-        if(debugPK || debugRD) fclose(out);
+        if(debugPK || debugRD ) fclose(out);
         if (*found == 0){
             // searching formaximum of A(r)/r^2
             peakIdx = 0;
-            *found = 0;
+            //*found = 0;
             for ( i = 1, peakIdx = 0; i < retLenHi-1; i++ ){
                 Aoverr2 = listAOverr2[i];
                 if (Aoverr2 >= listAOverr2[i-1] && Aoverr2 > listAOverr2[i+1]){
@@ -266,6 +267,7 @@ double  XLALSimLocateOmegaTime(
                             peakIdx, timeHi.data[peakIdx], Aoverr2);
                         fflush(NULL);
                     }
+                    break;
                 }  
             }
         }
@@ -301,7 +303,7 @@ double XLALSimLocateAmplTime(
     int *found)
 {
     int debugPK = 0;
-    int debugRD = 1;
+    int debugRD = 0;
     FILE *out = NULL; 
     gsl_spline    *spline = NULL;
     gsl_interp_accel *acc = NULL;
@@ -309,8 +311,8 @@ double XLALSimLocateAmplTime(
     
     // First we search for the maximum (extremum) of amplitude
     unsigned int i, peakIdx; 
-    double minoff = 0.0;
-    double maxoff = 30.0;
+    double minoff = 0.5;
+    double maxoff = 20.0;
     unsigned int Nps = timeHi->length; 
     // this definesthe search interval for maximum (we might use min0ff= 0.051 instead)
     double tMax = timeHi->data[Nps-1] - minoff;
@@ -333,16 +335,18 @@ double XLALSimLocateAmplTime(
             fprintf(out, "%3.10f %3.10f\n", timeHi->data[i], Ampl[i]);
         }
         if (Ampl[i] >= AmplO && Ampl[i] >AmplN){
-            tAmp = timeHi->data[i]; 
-            if (tAmp >=tMin && tAmp <= tMax ){
-                *found = 1;
-                tAmpMax = tAmp;
-                AmpMax = Ampl[i];
-                peakIdx = i;
-            }else{
-                if (debugPK){
-                    printf("Stas dismissing time %3.10f outside limits %3.10f, %3.10f \n", 
-                        tAmp, tMin, tMax);
+            if (*found !=1){
+                tAmp = timeHi->data[i]; 
+                if (tAmp >=tMin && tAmp <= tMax ){
+                    *found = 1;
+                    tAmpMax = tAmp;
+                    AmpMax = Ampl[i];
+                    peakIdx = i;
+                }else{
+                    if (debugPK){
+                        printf("Stas dismissing time %3.10f outside limits %3.10f, %3.10f \n", 
+                            tAmp, tMin, tMax);
+                    }
                 }
             }        
         }
@@ -365,26 +369,81 @@ double XLALSimLocateAmplTime(
         fclose(out);
     }
 
-    if (*found ==0 || debugRD){
+    if (*found ==0 || debugRD || debugPK){
         // we haven't found the maximum of amplitude -> search for minimum of derivative (extremum)
         spline = gsl_spline_alloc( gsl_interp_cspline, Nps );
         acc    = gsl_interp_accel_alloc();
         gsl_spline_init( spline, timeHi->data, Ampl, Nps );
         
-        double AmplDerivO = gsl_spline_eval_deriv(spline, timeHi->data[1], acc);
-        double AmplDeriv = AmplDerivO;
-        double AmplDerivN;
-        if(debugPK || debugRD) {
-                out = fopen( "DotAmpPHi.dat", "w" );
+        REAL8 AmpDot[Nps];
+        
+        for (i=1; i<Nps-1; i++){
+            AmpDot[i] = gsl_spline_eval_deriv(spline, timeHi->data[i], acc);
         }
-        printf("stas wrinting the file\n");
-        for (i=1; i<Nps-2; i++){
+        AmpDot[0] = AmpDot[1]; 
+        AmpDot[Nps-1] = AmpDot[Nps-2];
+
+        REAL8 AmpDotSmooth[Nps];
+        // Compute moving average over 7 points
+        unsigned int win = 3;
+        //int j;
+        double norm = 1.0/(2.0*win+1.0);
+
+        AmpDotSmooth[win] = 0;
+        for (i=0; i<(2*win +1); i++){
+            AmpDotSmooth[win] += AmpDot[i];
+        }
+        AmpDotSmooth[win] *= norm;
+        for (i=0; i<win; i++){
+            AmpDotSmooth[i] = AmpDotSmooth[win];
+        }
+
+        for (i=win+1; i<Nps-win; i++){
+            AmpDotSmooth[i] = AmpDotSmooth[i-1] + norm*(AmpDot[i+win] - AmpDot[i-win-1]);             
+        }
+        for (i=0; i<win; i++){
+            AmpDotSmooth[Nps-win-1+i] = AmpDotSmooth[Nps-win-1];
+        }
+
+        
+        if(debugPK || debugRD) {
+            out = fopen( "DotAmpPHi.dat", "w" );
+            for (i=0; i<Nps; i++){
+                fprintf(out, "%3.10f %3.10f %3.10f\n", timeHi->data[i], AmpDot[i], AmpDotSmooth[i]);
+            } 
+
+        }
+        if (*found ==0){
+            for (i=win; i<Nps-win; i++){
+                   if (AmpDotSmooth[i] < AmpDotSmooth[i-1] && AmpDotSmooth[i] < AmpDotSmooth[i+1]){
+                        tAmp = timeHi->data[i];
+                        if (tAmp >=tMin && tAmp <= tMax  && *found==0){
+                            *found = 1;
+                            tAmpMax = tAmp;
+                            AmpMax = AmpDotSmooth[i];
+                            peakIdx = i;
+                            //break;
+                        }else{
+                            if (debugPK){
+                                printf("Stas, AmplDot - dismissing time %3.10f outside limits %3.10f, %3.10f \n", 
+                                    tAmp, tMin, tMax);
+                            }
+                        }                              
+                   
+                   }  
+            }
+        }
+
+        /*
+        for (i=1; i<Nps-3; i++){
+            AmplDerivN2 = gsl_spline_eval_deriv(spline, timeHi->data[i+2], acc);
             if(debugPK || debugRD){
                 fprintf(out, "%3.10f %3.10f\n", timeHi->data[i], AmplDeriv);
             }
-            AmplDerivN = gsl_spline_eval_deriv( spline, timeHi->data[i+1], acc );
+
             if (*found == 0){
-                if (AmplDeriv <= AmplDerivO && AmplDeriv < AmplDerivN){
+                if ((AmplDeriv  <= AmplDerivO1 && AmplDeriv < AmplDerivN1) && (AmplDerivO2 > AmplDerivO1 && AmplDerivN2>=AmplDerivN1) ){
+                    printf("check %.16e, %.16e, %.16e, %.16e, %.16e \n", AmplDerivO2, AmplDerivO1, AmplDeriv, AmplDerivN1, AmplDerivN2);
                     tAmp = timeHi->data[i];
                     if (tAmp >=tMin && tAmp <= tMax  && *found==0){
                         *found = 1;
@@ -400,8 +459,10 @@ double XLALSimLocateAmplTime(
                     }                              
                 }
             }
-            AmplDerivO = AmplDeriv;
-            AmplDeriv = AmplDerivN;
+            AmplDerivO2 = AmplDerivO1;
+            AmplDerivO1 = AmplDeriv;
+            AmplDeriv = AmplDerivN1;
+            AmplDerivN1 = AmplDerivN2;
         }
         
         if (debugPK) 
@@ -418,7 +479,7 @@ double XLALSimLocateAmplTime(
         {
             fclose(out);
         }
-
+        */
         
     }
     if (spline != NULL)
