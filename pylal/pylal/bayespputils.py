@@ -6041,6 +6041,8 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
               for name in ['flow','f_lower']:
                       if name in pos.names:
                               f_min=pos[name].samples[which][0]
+      except:
+              pass
 
       try:
         for name in ['fref','f_ref','f_Ref','fRef']:
