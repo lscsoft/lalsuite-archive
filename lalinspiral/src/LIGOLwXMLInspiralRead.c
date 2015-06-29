@@ -1433,6 +1433,8 @@ SimInspiralTableFromLIGOLw (
     {"amp_order",           -1, 53},
     {"taper",               -1, 54},
     {"bandpass",            -1, 55},
+    {"eccentricity",        -1, 56},
+    {"f_ecc",               -1, 57},
     {NULL,                   0, 0}
   };
 
