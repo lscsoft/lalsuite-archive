@@ -1312,6 +1312,8 @@ int XLALSimInspiralChooseFDWaveform(
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
     LALSimInspiralWaveformFlags *waveFlags,     /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
+    REAL8 ecc,                                  /**< eccentricity effect control < 0 : no eccentricity effect */
+    REAL8 f_ecc,                                /**< eccentricity effect reference frequency */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
@@ -2167,24 +2169,26 @@ int XLALSimInspiralTaylorF2AlignedPhasing(
 
 int XLALSimInspiralTaylorF2Core(
         COMPLEX16FrequencySeries **htilde,    /**< FD waveform */
-	const REAL8Sequence *freqs,            /**< frequency points at which to evaluate the waveform (Hz) */
-//	const INT4 iStart,		       /**< start index for filling waveform data */
-        const REAL8 phi_ref,                   /**< reference orbital phase (rad) */
-        const REAL8 m1_SI,                     /**< mass of companion 1 (kg) */
-        const REAL8 m2_SI,                     /**< mass of companion 2 (kg) */
-        const REAL8 S1z,                       /**<  z component of the spin of companion 1 */
-        const REAL8 S2z,                       /**<  z component of the spin of companion 2  */
-        const REAL8 f_ref,                     /**< Reference GW frequency (Hz) - if 0 reference point is coalescence */
-	const REAL8 shft,		       /**< time shift to be applied to frequency-domain phase (sec)*/
-        const REAL8 r,                         /**< distance of source (m) */
-        const REAL8 quadparam1,                /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
-        const REAL8 quadparam2,                /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
-        const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
-        const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
+	const REAL8Sequence *freqs,           /**< frequency points at which to evaluate the waveform (Hz) */
+//	const INT4 iStart,		      /**< start index for filling waveform data */
+        const REAL8 phi_ref,                  /**< reference orbital phase (rad) */
+        const REAL8 m1_SI,                    /**< mass of companion 1 (kg) */
+        const REAL8 m2_SI,                    /**< mass of companion 2 (kg) */
+        const REAL8 S1z,                      /**<  z component of the spin of companion 1 */
+        const REAL8 S2z,                      /**<  z component of the spin of companion 2  */
+        const REAL8 f_ref,                    /**< Reference GW frequency (Hz) - if 0 reference point is coalescence */
+	const REAL8 shft,		      /**< time shift to be applied to frequency-domain phase (sec)*/
+        const REAL8 r,                        /**< distance of source (m) */
+        const REAL8 quadparam1,               /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
+        const REAL8 quadparam2,               /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
+        const REAL8 lambda1,                  /**< (tidal deformation of body 1)/(mass of body 1)^5 */
+        const REAL8 lambda2,                  /**< (tidal deformation of body 2)/(mass of body 2)^5 */
+        const REAL8 ecc,                      /**< eccentricity effect control < 0 : no eccentricity effect */
+        const REAL8 f_ecc,                    /**< eccentricity effect reference frequency */
         const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
-        const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
-        const INT4 phaseO,                     /**< twice PN phase order */
-        const INT4 amplitudeO                  /**< twice PN amplitude order */
+        const LALSimInspiralTidalOrder tideO, /**< flag to control tidal effects */
+        const INT4 phaseO,                    /**< twice PN phase order */
+        const INT4 amplitudeO                 /**< twice PN amplitude order */
         );
 
 /**
@@ -2194,26 +2198,28 @@ int XLALSimInspiralTaylorF2Core(
  * set to -1, then the highest implemented order is used.
  */
 int XLALSimInspiralTaylorF2(
-		COMPLEX16FrequencySeries **htilde, /**< FD waveform */
-		const REAL8 phi_ref,            /**< orbital reference phase (rad) */
-		const REAL8 deltaF,             /**< frequency resolution */
-		const REAL8 m1_SI,              /**< mass of companion 1 (kg) */
-		const REAL8 m2_SI,              /**< mass of companion 2 (kg) */
-		const REAL8 S1z,                /**<   z component of the spin of companion 1 */
-		const REAL8 S2z,                /**<   z component of the spin of companion 2  */
-		const REAL8 fStart,             /**< start GW frequency (Hz) */
-		const REAL8 fEnd,               /**< highest GW frequency (Hz) of waveform generation - if 0, end at Schwarzschild ISCO */
-        const REAL8 f_ref,              /**< Reference GW frequency at which phi_ref is defined */
-		const REAL8 r,                  /**< distance of source (m) */
-        const REAL8 quadparam1,                /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
-        const REAL8 quadparam2,                /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
-		const REAL8 lambda1,            /**< (tidal deformation of body 1)/(mass of body 1)^5 */
-		const REAL8 lambda2,            /**< (tidal deformation of body 2)/(mass of body 2)^5 */
-		const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
-		LALSimInspiralTidalOrder tideO, /**< twice PN order of tidal effects */
-		const INT4 phaseO,              /**< twice PN phase order */
-		const INT4 amplitudeO           /**< twice PN amplitude order */
-		);
+	COMPLEX16FrequencySeries **htilde,   /**< FD waveform */
+	const REAL8 phi_ref,                 /**< orbital reference phase (rad) */
+	const REAL8 deltaF,                  /**< frequency resolution */
+	const REAL8 m1_SI,                   /**< mass of companion 1 (kg) */
+	const REAL8 m2_SI,                   /**< mass of companion 2 (kg) */
+	const REAL8 S1z,                     /**<   z component of the spin of companion 1 */
+	const REAL8 S2z,                     /**<   z component of the spin of companion 2  */
+	const REAL8 fStart,                  /**< start GW frequency (Hz) */
+	const REAL8 fEnd,                    /**< highest GW frequency (Hz) of waveform generation - if 0, end at Schwarzschild ISCO */
+        const REAL8 f_ref,                   /**< Reference GW frequency at which phi_ref is defined */
+	const REAL8 r,                       /**< distance of source (m) */
+        const REAL8 quadparam1,              /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
+        const REAL8 quadparam2,              /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
+	const REAL8 lambda1,                 /**< (tidal deformation of body 1)/(mass of body 1)^5 */
+	const REAL8 lambda2,                 /**< (tidal deformation of body 2)/(mass of body 2)^5 */
+        const REAL8 ecc,                     /**< eccentricity effect control < 0 : no eccentricity effect */
+        const REAL8 f_ecc,                   /**< eccentricity effect reference frequency */
+	const LALSimInspiralSpinOrder spinO, /**< twice PN order of spin effects */
+	LALSimInspiralTidalOrder tideO,      /**< twice PN order of tidal effects */
+	const INT4 phaseO,                   /**< twice PN phase order */
+	const INT4 amplitudeO                /**< twice PN amplitude order */
+	);
 
 
 

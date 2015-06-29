@@ -2652,6 +2652,8 @@ int XLALSimInspiralChooseFDWaveform(
     REAL8 lambda2,                          /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
     LALSimInspiralWaveformFlags *waveFlags, /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
     LALSimInspiralTestGRParam *nonGRparams, /**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
+    REAL8 ecc,                              /**< eccentricity effect control < 0 : no eccentricity effect */
+    REAL8 f_ecc,                            /**< eccentricity effect reference frequency */
     int amplitudeO,                         /**< twice post-Newtonian amplitude order */
     int phaseO,                             /**< twice post-Newtonian order */
     Approximant approximant                 /**< post-Newtonian approximant to use for waveform production */
