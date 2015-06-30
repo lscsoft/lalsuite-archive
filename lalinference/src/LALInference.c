@@ -450,23 +450,13 @@ void LALInferenceCopyVariables(LALInferenceVariables *origin, LALInferenceVariab
 
   /* Make sure the structure is initialised */
   if(!target) XLAL_ERROR_VOID(XLAL_EFAULT, "Unable to copy to uninitialised LALInferenceVariables structure.");
-  /* first dispose contents of "target" (if any): */
-  //LALInferenceClearVariables(target);
-  if(target->dimension==0) LALInferenceClearVariables(target);
-  LALInferenceVariableItem *this,*next;
-  for(this=target->head;this;this=next){
-    next=this->next;
-    if(!LALInferenceCheckVariable(origin,this->name)) {
-      LALInferenceRemoveVariable(target,this->name);
-    }
-  }
-  /* get the number of elements in origin */
+
+  /* First clear the target */
+  LALInferenceClearVariables(target);
+
+  /* Now add the variables in reverse order, to preserve the
+   * ordering */
   dims = LALInferenceGetVariableDimension( origin );
-  if(target->dimension==0) LALInferenceClearVariables(target);
-  
-  if ( !dims ){
-    XLAL_ERROR_VOID(XLAL_EFAULT, "Origin variables has zero dimensions!");
-  }
 
   /* then copy over elements of "origin" - due to how elements are added by
      LALInferenceAddVariable this has to be done in reverse order to preserve
@@ -3770,12 +3760,12 @@ void LALInferenceFprintSplineCalibrationHeader(FILE *output, LALInferenceRunStat
     UINT4 ncal = *(UINT4 *)LALInferenceGetVariable(runState->currentParams, "spcal_npts");
 
     for (i = 0; i < ncal; i++) {
-      snprintf(parname, VARNAME_MAX, "%sspcalamp%02ld", ifo->name, i);
+      snprintf(parname, VARNAME_MAX, "%sspcalamp%02zu", ifo->name, i);
       fprintf(output, "%s\t", parname);
     }
 
     for (i = 0; i < ncal; i++) {
-      snprintf(parname, VARNAME_MAX, "%sspcalphase%02ld", ifo->name, i);
+      snprintf(parname, VARNAME_MAX, "%sspcalphase%02zu", ifo->name, i);
       fprintf(output, "%s\t", parname);
     }
 
