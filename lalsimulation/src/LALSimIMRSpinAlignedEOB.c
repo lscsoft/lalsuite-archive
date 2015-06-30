@@ -1487,6 +1487,8 @@ int XLALSimIMRSpinEOBWaveform(
   INT4 UNUSED status;
   LIGOTimeGPS tc = LIGOTIMEGPSZERO;
 
+  
+  
   /* SEOBNRv3 model */
   Approximant spinEOBApproximant = SEOBNRv3;
   /* FIXME: The underlying aligned spin EOB model is hard-coded here. 
@@ -1759,6 +1761,7 @@ int XLALSimIMRSpinEOBWaveform(
   /* Initialize amplitude scaling parameter */
   amp0 = mTotal * LAL_MRSUN_SI / r;
   //amp0 = 4. * mTotal * LAL_MRSUN_SI * eta / r;
+  
   
   if (debugPK) {
     printf("Stas, here is the passes functions\n");
@@ -2158,6 +2161,46 @@ int XLALSimIMRSpinEOBWaveform(
   /* ************************************************* */
   /* FIXME check NQC version used */
   spinNQC = (1.-2.*eta) * chiS + (m1 - m2)/(m1 + m2) * chiA;
+
+  //Stas: Check if initial frequency is too high
+  //
+  REAL8 NRPeakOmega22 = GetNRSpinPeakOmegav2(2, 2, eta, spinNQC) / mTScaled;
+  REAL8 freqMinRad = pow(10.0, -1.5)/(LAL_PI*mTScaled);
+  REAL8 signOfa = spinNQC/fabs(spinNQC);
+  REAL8 spn2 = spinNQC*spinNQC;
+  REAL8 Z1 = 1.0 + pow(1.0 - spn2, 1./3.)*(pow(1.0+spinNQC, 1./3.) + pow(1.0-spinNQC, 1./3.) );
+  REAL8 Z2 = sqrt(3.0*spn2 + Z1*Z1);
+  REAL8 rISCO = 3.0 + Z2 - signOfa*sqrt( (3.-Z1)*(3.+Z1 + 2.*Z2));
+  REAL8 fISCO = pow(rISCO, -1.5)/(LAL_PI*mTScaled);
+
+  REAL8 f_star =  freqMinRad;
+
+
+  if (debugPK){
+      printf("Stas - spin = %4.10f \n", spinNQC);
+      printf("Stas - NRPeakOmega22 =  %4.10f,   %4.10f \n",  GetNRSpinPeakOmegav2(2, 2, eta, spinNQC) / mTotal,  GetNRSpinPeakOmegav2(2, 2, eta, spinNQC));
+      printf("Stas ---- check for fmin NRPeakOmega22 = %4.10f, freqMinRad = %4.10f \n", NRPeakOmega22, freqMinRad);
+      printf("Stas -- minf freq is min( %4.10f, %4.10f )\n", NRPeakOmega22*0.1, freqMinRad);
+      printf("Stas -- initial radius (apr) %4.10f \n", pow(LAL_PI*fMin*mTScaled,-2./3.) );
+      printf("Stas -- omega_orb_0 = %4.10f \n",  rcrossrdotNorm/inner_product( rvec, rvec )/mTScaled);
+      printf("Stas -- rISCO  = %4.10f , freq_ISCO = %4.10f \n", rISCO, fISCO);
+
+  }
+
+  if (pow(LAL_PI*fMin*mTScaled,-2./3.) < 10.0)
+  {
+      XLAL_PRINT_WARNING("Waveform generation may fail due to high starting frequency. The starting frequency corresponds to a small initial radius of %.2fM. We recommend a lower starting frequency that corresponds to an estimated starting radius > 10M.", pow(LAL_PI*fMin*mTScaled,-2.0/3.0));
+  }
+  if (fMin > f_star){
+      XLALPrintError("XLAL Error - %s: Intitial frequency is too high, the limit is %4.10f \n", __func__, f_star);
+      XLALDestroyREAL8Vector( sigmaKerr );
+      XLALDestroyREAL8Vector( sigmaStar );
+      XLALDestroyREAL8Vector( values );
+      XLALDestroyREAL8Vector( rdMatchPoint );
+
+      XLAL_ERROR (XLAL_EINVAL );
+  } 
+
   switch ( SpinAlignedEOBversion )
   {
 	  case 1:
