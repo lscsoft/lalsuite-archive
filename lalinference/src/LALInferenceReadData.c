@@ -2339,7 +2339,7 @@ void InjectFD(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, Process
                                   inj_table->spin1y, inj_table->spin1z, inj_table->spin2x, inj_table->spin2y,
                                   inj_table->spin2z, f_min, f_max, fref, inj_table->distance*LAL_PC_SI * 1.0e6,
                                   inj_table->inclination, lambda1, lambda2, waveFlags,
-                                  nonGRparams, amp_order, phase_order, approximant);
+                                  nonGRparams, inj_table->ecc, inj_table->f_ecc, amp_order, phase_order, approximant);
 
   /* Fail if injection waveform generation was not successful */
   errnum = *XLALGetErrnoPtr();
