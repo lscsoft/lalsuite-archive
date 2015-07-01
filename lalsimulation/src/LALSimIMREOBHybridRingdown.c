@@ -665,12 +665,101 @@ XLALSimIMREOBHybridAttachRingdown(
 		chi1 = chi1 * cos(theta1);
 		chi2 = chi2 * cos(theta2);
 
+        /*Compute wf freq at matching point*/
+        double *y;
+        double ry, dy;
+        gsl_interp_accel *acc;
+        gsl_spline     *spline;
+        UINT4 vecLength = ((mass1 + mass2) * LAL_MTSUN_SI * matchrange->data[2] / dt) + 1;
+        y = (double *)LALMalloc(vecLength * sizeof(double));
+        double hRe, dhRe, hIm, dhIm;
+
+        if (!y) {
+            XLAL_ERROR(XLAL_ENOMEM);
+        }
+//        FILE *out1 = fopen( "Andrea1.dat","w");
+        for (j = 0; j < vecLength; ++j) {
+            y[j] = signal1->data[j];
+//            fprintf(out1, "%.16e %.16e\n", timeVec->data[j], y[j]);
+        }
+//        fclose(out1);
+
+        XLAL_CALLGSL(acc = (gsl_interp_accel *) gsl_interp_accel_alloc());
+        XLAL_CALLGSL(spline = (gsl_spline *) gsl_spline_alloc(gsl_interp_cspline, vecLength));
+        if (!acc || !spline) {
+            if (acc)
+                gsl_interp_accel_free(acc);
+            if (spline)
+                gsl_spline_free(spline);
+            LALFree(y);
+            XLAL_ERROR(XLAL_ENOMEM);
+        }
+        INT4 gslStatus = gsl_spline_init(spline, timeVec->data, y, vecLength);
+        if (gslStatus != GSL_SUCCESS) {
+            gsl_spline_free(spline);
+            gsl_interp_accel_free(acc);
+            LALFree(y);
+            XLAL_ERROR(XLAL_EFUNC);
+        }
+        gslStatus = gsl_spline_eval_e(spline, matchrange->data[1], acc, &ry);
+        if (gslStatus == GSL_SUCCESS) {
+            gslStatus = gsl_spline_eval_deriv_e(spline, matchrange->data[1], acc, &dy);
+        }
+        if (gslStatus != GSL_SUCCESS) {
+            gsl_spline_free(spline);
+            gsl_interp_accel_free(acc);
+            LALFree(y);
+            XLAL_ERROR(XLAL_EFUNC);
+        }
+        hRe = (REAL8) (ry);
+        dhRe = (REAL8) (dy);
+        
+//        FILE *out2 = fopen( "Andrea2.dat","w");
+        for (j = 0; j < vecLength; ++j) {
+            y[j] = signal2->data[j];
+//            fprintf(out2, "%.16e %.16e\n", timeVec->data[j], y[j]);
+        }
+//        fclose(out2);
+        XLAL_CALLGSL(acc = (gsl_interp_accel *) gsl_interp_accel_alloc());
+        XLAL_CALLGSL(spline = (gsl_spline *) gsl_spline_alloc(gsl_interp_cspline, vecLength));
+        if (!acc || !spline) {
+            if (acc)
+                gsl_interp_accel_free(acc);
+            if (spline)
+                gsl_spline_free(spline);
+            LALFree(y);
+            XLAL_ERROR(XLAL_ENOMEM);
+        }
+        gslStatus = gsl_spline_init(spline, timeVec->data, y, vecLength);
+        if (gslStatus != GSL_SUCCESS) {
+            gsl_spline_free(spline);
+            gsl_interp_accel_free(acc);
+            LALFree(y);
+            XLAL_ERROR(XLAL_EFUNC);
+        }
+        gslStatus = gsl_spline_eval_e(spline, matchrange->data[1], acc, &ry);
+        if (gslStatus == GSL_SUCCESS) {
+            gslStatus = gsl_spline_eval_deriv_e(spline, matchrange->data[1], acc, &dy);
+        }
+        if (gslStatus != GSL_SUCCESS) {
+            gsl_spline_free(spline);
+            gsl_interp_accel_free(acc);
+            LALFree(y);
+            XLAL_ERROR(XLAL_EFUNC);
+        }
+        hIm = (REAL8) (ry);
+        dhIm = (REAL8) (dy);
+        
+        double hNorm2 = hRe*hRe + hIm*hIm;
+        double omegaWavePeak = ((-dhRe*hIm + dhIm*hRe)/hNorm2) / mTot;
+        
 		a = (chi1 + chi2) / 2. * (1.0 - 2.0 * eta) + (chi1 - chi2) / 2. * (mass1 - mass2) / (mass1 + mass2);
 		NRPeakOmega22 = GetNRSpinPeakOmegav2(l, m, eta, a) / mTot;
-        // FIXME remove the line below!
-        if (debugout) printf("in RD attachmnet: a = %.16e \n", a);
-        //NRPeakOmega22 = 0.22/mTot; 
-
+        NRPeakOmega22 = omegaWavePeak;
+//        NRPeakOmega22 = omegaWavePeak/mTot;
+//        printf("(hRe, hIm, dhRe, dhIm)=(%.16e, %.16e, %.16e, %.16e)\n", hRe, hIm, dhRe, dhIm);
+//        printf("hNorm %.16e, tmatch %.16e\n",sqrt(hNorm2), matchrange->data[1]);
+//        printf("NRPeakOmega22 %.16e, omegaWavePeak %.16e\n",NRPeakOmega22,omegaWavePeak);
 		chi = (chi1 + chi2) / 2. + (chi1 - chi2) / 2. * ((mass1 - mass2) / (mass1 + mass2)) / (1. - 2. * eta);
 
 		sh = 0.;
