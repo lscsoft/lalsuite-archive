@@ -1000,7 +1000,7 @@ XLALSimIMRSpinEOBInitialConditions(
         gslStatus );        
 		}
 
-    if (gslStatus == GSL_ENOPROG) {
+    if (gslStatus == GSL_ENOPROG || gslStatus == GSL_ENOPROGJ) {
       printf(
         "\n NO PROGRESS being made by Spherical orbit root solver\n");
       
