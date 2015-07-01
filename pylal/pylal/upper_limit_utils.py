@@ -320,20 +320,20 @@ def volume_montecarlo(found, missed, distribution_param, distribution, limits_pa
         max_distance = max_param
     else: raise NotImplementedError("%s is not a recognized parameter" % limits_param)
 
-    # if no max distance param given use maximum distance actually injected
+    # if no max distance given, use maximum distance actually injected
     if max_param == None:
         max_distance = max(numpy.max(found_d), numpy.max(missed_d))
 
-    # Volume of sphere out to max_distance
+    # volume of sphere
     montecarlo_vtot = (4. / 3.) * numpy.pi * max_distance ** 3.
 
-    # set up arrays of weights for the MC average of efficiency
+    # arrays of weights for the MC integral
     if distribution_param == 'distance':
         found_weights = found_d ** d_power
         missed_weights = missed_d ** d_power
     elif distribution_param == 'chirp_distance':
-        # for a distribution over dchirp, weight by a power of mchirp to rescale
-        # injection density to the target mass distribution
+        # weight by a power of mchirp to rescale injection density to the
+        # target mass distribution
         found_weights = found_d ** d_power * \
                         found_mchirp ** mchirp_power
         missed_weights = missed_d ** d_power * \
@@ -343,42 +343,44 @@ def volume_montecarlo(found, missed, distribution_param, distribution, limits_pa
     all_weights = numpy.concatenate((found_weights, missed_weights))
 
     # MC integral is volume of sphere * (sum of found weights)/(sum of all weights)
+    # over injections covering the sphere
     mc_weight_samples = numpy.concatenate((found_weights, 0 * missed_weights))
     mc_sum = sum(mc_weight_samples)
-    # find sum of all weights
+
     if limits_param == 'distance':
         mc_norm = sum(all_weights)
     elif limits_param == 'chirp_distance':
-        # if injections are made up to a maximum chirp distance, account for the extra
-        # injections that would be made when injecting up to maximum physical distance
-        # - sum over weights then obtains a 'chirp volume' factor
+        # if injections are made up to a maximum chirp distance, account for
+        # extra missed injections that would occur when injecting up to
+        # maximum physical distance : this works out to a 'chirp volume' factor
         mc_norm = sum(all_weights * (max_mchirp / all_mchirp) ** (5. / 2.))
 
-    # find constant prefactor (sphere volume / sum of weights)
+    # take out a constant factor
     mc_prefactor = montecarlo_vtot / mc_norm
 
-    # Count the number of samples
+    # count the samples
     if limits_param == 'distance':
         Ninj = len(mc_weight_samples)
     elif limits_param == 'chirp_distance':
-        # considering injections up to the maximum physical distance we effectively
-        # have a larger number of injections : find the total expected number after
-        # extending the given distribution
+        # find the total expected number after extending from maximum chirp
+        # dist up to maximum physical distance
         if distribution == 'log':
+            # need minimum distance only in this case
+            if min_param is not None:
+                min_distance = min_param * (numpy.min(all_mchirp) / mchirp_standard_bns) ** (5. / 6.)
+            else:
+                min_distance = min(numpy.min(found_d), numpy.min(missed_d))
             logrange = numpy.log(max_distance / min_distance)
             Ninj = len(mc_weight_samples) + (5. / 6.) * sum(numpy.log(max_mchirp / all_mchirp) / logrange)
         else:
             Ninj = sum((max_mchirp / all_mchirp) ** mchirp_power)
-        #print 'rescaling injection count from %i to %.1f' % (len(mc_weight_samples), Ninj)
 
-    # Sample variance of injection efficiency: mean of the square - square of the mean
-    # NB: missed injections do not contribute to the sums, only to Ninj
+    # sample variance of injection efficiency: mean of the square - square of the mean
     mc_sample_variance = sum(mc_weight_samples ** 2.) / Ninj - (mc_sum / Ninj) ** 2.
-    # Variance of mc_sum scales with Ninj (Bienayme' rule)
-    mc_sum_variance = Ninj * mc_sample_variance
 
-    # return MC integral and its standard deviation
-    return mc_prefactor * mc_sum, mc_prefactor * mc_sum_variance ** 0.5
+    # return MC integral and its standard deviation; variance of mc_sum scales
+    # relative to sample variance by Ninj (Bienayme' rule)
+    return mc_prefactor * mc_sum, mc_prefactor * (Ninj * mc_sample_variance) ** 0.5
 
 
 def filter_injections_by_mass(injs, mbins, bin_num , bin_type, bin_num2=None):
