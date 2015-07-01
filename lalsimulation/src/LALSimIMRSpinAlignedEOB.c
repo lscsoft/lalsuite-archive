@@ -1513,7 +1513,7 @@ int XLALSimIMRSpinEOBWaveform(
     if ( theta1Ini <= 1.0e-5) {
       spin1[0] = 0.;
       spin1[1] = 0.;
-      spin1[2] = spin1Norm * INspin1[2] / abs(INspin1[2]);
+      spin1[2] = spin1Norm * INspin1[2] / fabs(INspin1[2]);
     }
   }
   if( INspin2[0] != 0 || INspin2[1] != 0 ) {
@@ -1523,7 +1523,7 @@ int XLALSimIMRSpinEOBWaveform(
     if ( theta2Ini <= 1.0e-5) {
       spin2[0] = 0.;
       spin2[1] = 0.;
-      spin2[2] = spin2Norm * INspin2[2] / abs(INspin2[2]);
+      spin2[2] = spin2Norm * INspin2[2] / fabs(INspin2[2]);
     }
   }
   if (theta1Ini < 1.0e-3 && theta2Ini < 1.0e-3) {
