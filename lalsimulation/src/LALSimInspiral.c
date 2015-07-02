@@ -63,16 +63,16 @@
 
 /* Macro functions to rotate the components of a vector about an axis */
 #define ROTATEZ(angle, vx, vy, vz)\
-	tmp1 = vx*cos(angle) - vy*sin(angle);\
-	tmp2 = vx*sin(angle) + vy*cos(angle);\
-	vx = tmp1;\
-	vy = tmp2
+    tmp1 = vx*cos(angle) - vy*sin(angle);\
+    tmp2 = vx*sin(angle) + vy*cos(angle);\
+    vx = tmp1;\
+    vy = tmp2
 
 #define ROTATEY(angle, vx, vy, vz)\
-	tmp1 = vx*cos(angle) + vz*sin(angle);\
-	tmp2 = - vx*sin(angle) + vz*cos(angle);\
-	vx = tmp1;\
-	vz = tmp2
+    tmp1 = vx*cos(angle) + vz*sin(angle);\
+    tmp2 = - vx*sin(angle) + vz*cos(angle);\
+    vx = tmp1;\
+    vz = tmp2
 
 
 /* Internal utility function to check all spin components are zero
@@ -598,44 +598,44 @@ int XLALSimInspiralPolarizationsFromSphHarmTimeSeries(
  * that \f$h(l,-m) = (-1)^l h(l,m)*\f$; see Eq. (78) ibid.
  */
 int XLALSimAddMode(
-		REAL8TimeSeries *hplus,      /**< +-polarization waveform */
-	       	REAL8TimeSeries *hcross,     /**< x-polarization waveform */
-	       	COMPLEX16TimeSeries *hmode,  /**< complex mode h(l,m) */
-	       	REAL8 theta,                 /**< polar angle (rad) */
-	       	REAL8 phi,                   /**< azimuthal angle (rad) */
-	       	int l,                       /**< mode number l */
-	       	int m,                       /**< mode number m */
-	       	int sym                      /**< flag to add -m mode too */
-		)
+        REAL8TimeSeries *hplus,      /**< +-polarization waveform */
+               REAL8TimeSeries *hcross,     /**< x-polarization waveform */
+               COMPLEX16TimeSeries *hmode,  /**< complex mode h(l,m) */
+               REAL8 theta,                 /**< polar angle (rad) */
+               REAL8 phi,                   /**< azimuthal angle (rad) */
+               int l,                       /**< mode number l */
+               int m,                       /**< mode number m */
+               int sym                      /**< flag to add -m mode too */
+        )
 {
-	COMPLEX16 Y;
-	UINT4 j;
+    COMPLEX16 Y;
+    UINT4 j;
 
-	LAL_CHECK_VALID_SERIES(hmode, XLAL_FAILURE);
-	LAL_CHECK_VALID_SERIES(hplus, XLAL_FAILURE);
-	LAL_CHECK_VALID_SERIES(hcross, XLAL_FAILURE);
-	LAL_CHECK_CONSISTENT_TIME_SERIES(hplus, hmode, XLAL_FAILURE);
-	LAL_CHECK_CONSISTENT_TIME_SERIES(hcross, hmode, XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(hmode, XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(hplus, XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(hcross, XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(hplus, hmode, XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(hcross, hmode, XLAL_FAILURE);
 
-	Y = XLALSpinWeightedSphericalHarmonic(theta, phi, -2, l, m);
-	for ( j = 0; j < hmode->data->length; ++j ) {
-		COMPLEX16 hpc;
-		hpc = Y * hmode->data->data[j];
-		hplus->data->data[j] += creal(hpc);
-		hcross->data->data[j] += -cimag(hpc);
-	}
-	if ( sym ) { /* equatorial symmetry: add in -m mode */
-		Y = XLALSpinWeightedSphericalHarmonic(theta, phi, -2, l, -m);
-		if ( l % 2 ) /* l is odd */
-			Y = -Y;
-		for ( j = 0; j < hmode->data->length; ++j ) {
-			COMPLEX16 hpc;
-			hpc = Y * conj(hmode->data->data[j]);
-			hplus->data->data[j] += creal(hpc);
-			hcross->data->data[j] += -cimag(hpc);
-		}
-	}
-	return 0;
+    Y = XLALSpinWeightedSphericalHarmonic(theta, phi, -2, l, m);
+    for ( j = 0; j < hmode->data->length; ++j ) {
+        COMPLEX16 hpc;
+        hpc = Y * hmode->data->data[j];
+        hplus->data->data[j] += creal(hpc);
+        hcross->data->data[j] += -cimag(hpc);
+    }
+    if ( sym ) { /* equatorial symmetry: add in -m mode */
+        Y = XLALSpinWeightedSphericalHarmonic(theta, phi, -2, l, -m);
+        if ( l % 2 ) /* l is odd */
+            Y = -Y;
+        for ( j = 0; j < hmode->data->length; ++j ) {
+            COMPLEX16 hpc;
+            hpc = Y * conj(hmode->data->data[j]);
+            hplus->data->data[j] += creal(hpc);
+            hcross->data->data[j] += -cimag(hpc);
+        }
+    }
+    return 0;
 }
 
 /**
@@ -721,84 +721,84 @@ int XLALSimNewTimeSeriesFromModes(
  * Orbit\", Physical Review D 77, 044016 (2008), arXiv:0710.0614v1 [gr-qc].
  */
 COMPLEX16TimeSeries *XLALCreateSimInspiralPNModeCOMPLEX16TimeSeries(
-		REAL8TimeSeries *v,   /**< post-Newtonian parameter */
-	       	REAL8TimeSeries *phi, /**< orbital phase */
-	       	REAL8 v0,             /**< tail gauge parameter (default = 1) */
-	       	REAL8 m1,             /**< mass of companion 1 (kg) */
-	       	REAL8 m2,             /**< mass of companion 2 (kg) */
-	       	REAL8 r,              /**< distance of source (m) */
-	       	int O,                /**< twice post-Newtonain order */
-	       	int l,                /**< mode number l */
-	       	int m                 /**< mode number m */
-		)
+        REAL8TimeSeries *v,   /**< post-Newtonian parameter */
+               REAL8TimeSeries *phi, /**< orbital phase */
+               REAL8 v0,             /**< tail gauge parameter (default = 1) */
+               REAL8 m1,             /**< mass of companion 1 (kg) */
+               REAL8 m2,             /**< mass of companion 2 (kg) */
+               REAL8 r,              /**< distance of source (m) */
+               int O,                /**< twice post-Newtonain order */
+               int l,                /**< mode number l */
+               int m                 /**< mode number m */
+        )
 {
-	LAL_CHECK_VALID_SERIES(v, NULL);
-	LAL_CHECK_VALID_SERIES(phi, NULL);
-	LAL_CHECK_CONSISTENT_TIME_SERIES(v, phi, NULL);
-	COMPLEX16TimeSeries *hlm;
-	UINT4 j;
-	if ( l == 2 && abs(m) == 2 )
-		hlm = XLALSimInspiralPNMode22(v, phi, v0, m1, m2, r, O);
-	else if ( l == 2 && abs(m) == 1 )
-		hlm = XLALSimInspiralPNMode21(v, phi, v0, m1, m2, r, O);
-	else if ( l == 2 && m == 0 )
-		hlm = XLALSimInspiralPNMode20(v, phi, v0, m1, m2, r, O);
-	else if ( l == 3 && abs(m) == 3 )
-		hlm = XLALSimInspiralPNMode33(v, phi, v0, m1, m2, r, O);
-	else if ( l == 3 && abs(m) == 2 )
-		hlm = XLALSimInspiralPNMode32(v, phi, v0, m1, m2, r, O);
-	else if ( l == 3 && abs(m) == 1 )
-		hlm = XLALSimInspiralPNMode31(v, phi, v0, m1, m2, r, O);
-	else if ( l == 3 && m == 0 )
-		hlm = XLALSimInspiralPNMode30(v, phi, v0, m1, m2, r, O);
-	else if ( l == 4 && abs(m) == 4 )
-		hlm = XLALSimInspiralPNMode44(v, phi, v0, m1, m2, r, O);
-	else if ( l == 4 && abs(m) == 3 )
-		hlm = XLALSimInspiralPNMode43(v, phi, v0, m1, m2, r, O);
-	else if ( l == 4 && abs(m) == 2 )
-		hlm = XLALSimInspiralPNMode42(v, phi, v0, m1, m2, r, O);
-	else if ( l == 4 && abs(m) == 1 )
-		hlm = XLALSimInspiralPNMode41(v, phi, v0, m1, m2, r, O);
-	else if ( l == 4 && m == 0 )
-		hlm = XLALSimInspiralPNMode40(v, phi, v0, m1, m2, r, O);
-	else if ( l == 5 && abs(m) == 5 )
-		hlm = XLALSimInspiralPNMode55(v, phi, v0, m1, m2, r, O);
-	else if ( l == 5 && abs(m) == 4 )
-		hlm = XLALSimInspiralPNMode54(v, phi, v0, m1, m2, r, O);
-	else if ( l == 5 && abs(m) == 3 )
-		hlm = XLALSimInspiralPNMode53(v, phi, v0, m1, m2, r, O);
-	else if ( l == 5 && abs(m) == 2 )
-		hlm = XLALSimInspiralPNMode52(v, phi, v0, m1, m2, r, O);
-	else if ( l == 5 && abs(m) == 1 )
-		hlm = XLALSimInspiralPNMode51(v, phi, v0, m1, m2, r, O);
-	else if ( l == 5 && m == 0 )
-		hlm = XLALSimInspiralPNMode50(v, phi, v0, m1, m2, r, O);
-	else if ( l == 6 && abs(m) == 6 )
-		hlm = XLALSimInspiralPNMode66(v, phi, v0, m1, m2, r, O);
-	else if ( l == 6 && abs(m) == 5 )
-		hlm = XLALSimInspiralPNMode65(v, phi, v0, m1, m2, r, O);
-	else if ( l == 6 && abs(m) == 4 )
-		hlm = XLALSimInspiralPNMode64(v, phi, v0, m1, m2, r, O);
-	else if ( l == 6 && abs(m) == 3 )
-		hlm = XLALSimInspiralPNMode63(v, phi, v0, m1, m2, r, O);
-	else if ( l == 6 && abs(m) == 2 )
-		hlm = XLALSimInspiralPNMode62(v, phi, v0, m1, m2, r, O);
-	else if ( l == 6 && abs(m) == 1 )
-		hlm = XLALSimInspiralPNMode61(v, phi, v0, m1, m2, r, O);
-	else if ( l == 6 && m == 0 )
-		hlm = XLALSimInspiralPNMode60(v, phi, v0, m1, m2, r, O);
-	else {
-		XLALPrintError("XLAL Error - %s: Unsupported mode l=%d, m=%d\n", __func__, l, m );
-		XLAL_ERROR_NULL(XLAL_EINVAL);
-	}
-	if ( !hlm )
-		XLAL_ERROR_NULL(XLAL_EFUNC);
-	if ( m < 0 ) {
-		REAL8 sign = l % 2 ? -1.0 : 1.0;
-		for ( j = 0; j < hlm->data->length; ++j )
-			hlm->data->data[j] = sign * conj(hlm->data->data[j]);
-	}
-	return hlm;
+    LAL_CHECK_VALID_SERIES(v, NULL);
+    LAL_CHECK_VALID_SERIES(phi, NULL);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(v, phi, NULL);
+    COMPLEX16TimeSeries *hlm;
+    UINT4 j;
+    if ( l == 2 && abs(m) == 2 )
+        hlm = XLALSimInspiralPNMode22(v, phi, v0, m1, m2, r, O);
+    else if ( l == 2 && abs(m) == 1 )
+        hlm = XLALSimInspiralPNMode21(v, phi, v0, m1, m2, r, O);
+    else if ( l == 2 && m == 0 )
+        hlm = XLALSimInspiralPNMode20(v, phi, v0, m1, m2, r, O);
+    else if ( l == 3 && abs(m) == 3 )
+        hlm = XLALSimInspiralPNMode33(v, phi, v0, m1, m2, r, O);
+    else if ( l == 3 && abs(m) == 2 )
+        hlm = XLALSimInspiralPNMode32(v, phi, v0, m1, m2, r, O);
+    else if ( l == 3 && abs(m) == 1 )
+        hlm = XLALSimInspiralPNMode31(v, phi, v0, m1, m2, r, O);
+    else if ( l == 3 && m == 0 )
+        hlm = XLALSimInspiralPNMode30(v, phi, v0, m1, m2, r, O);
+    else if ( l == 4 && abs(m) == 4 )
+        hlm = XLALSimInspiralPNMode44(v, phi, v0, m1, m2, r, O);
+    else if ( l == 4 && abs(m) == 3 )
+        hlm = XLALSimInspiralPNMode43(v, phi, v0, m1, m2, r, O);
+    else if ( l == 4 && abs(m) == 2 )
+        hlm = XLALSimInspiralPNMode42(v, phi, v0, m1, m2, r, O);
+    else if ( l == 4 && abs(m) == 1 )
+        hlm = XLALSimInspiralPNMode41(v, phi, v0, m1, m2, r, O);
+    else if ( l == 4 && m == 0 )
+        hlm = XLALSimInspiralPNMode40(v, phi, v0, m1, m2, r, O);
+    else if ( l == 5 && abs(m) == 5 )
+        hlm = XLALSimInspiralPNMode55(v, phi, v0, m1, m2, r, O);
+    else if ( l == 5 && abs(m) == 4 )
+        hlm = XLALSimInspiralPNMode54(v, phi, v0, m1, m2, r, O);
+    else if ( l == 5 && abs(m) == 3 )
+        hlm = XLALSimInspiralPNMode53(v, phi, v0, m1, m2, r, O);
+    else if ( l == 5 && abs(m) == 2 )
+        hlm = XLALSimInspiralPNMode52(v, phi, v0, m1, m2, r, O);
+    else if ( l == 5 && abs(m) == 1 )
+        hlm = XLALSimInspiralPNMode51(v, phi, v0, m1, m2, r, O);
+    else if ( l == 5 && m == 0 )
+        hlm = XLALSimInspiralPNMode50(v, phi, v0, m1, m2, r, O);
+    else if ( l == 6 && abs(m) == 6 )
+        hlm = XLALSimInspiralPNMode66(v, phi, v0, m1, m2, r, O);
+    else if ( l == 6 && abs(m) == 5 )
+        hlm = XLALSimInspiralPNMode65(v, phi, v0, m1, m2, r, O);
+    else if ( l == 6 && abs(m) == 4 )
+        hlm = XLALSimInspiralPNMode64(v, phi, v0, m1, m2, r, O);
+    else if ( l == 6 && abs(m) == 3 )
+        hlm = XLALSimInspiralPNMode63(v, phi, v0, m1, m2, r, O);
+    else if ( l == 6 && abs(m) == 2 )
+        hlm = XLALSimInspiralPNMode62(v, phi, v0, m1, m2, r, O);
+    else if ( l == 6 && abs(m) == 1 )
+        hlm = XLALSimInspiralPNMode61(v, phi, v0, m1, m2, r, O);
+    else if ( l == 6 && m == 0 )
+        hlm = XLALSimInspiralPNMode60(v, phi, v0, m1, m2, r, O);
+    else {
+        XLALPrintError("XLAL Error - %s: Unsupported mode l=%d, m=%d\n", __func__, l, m );
+        XLAL_ERROR_NULL(XLAL_EINVAL);
+    }
+    if ( !hlm )
+        XLAL_ERROR_NULL(XLAL_EFUNC);
+    if ( m < 0 ) {
+        REAL8 sign = l % 2 ? -1.0 : 1.0;
+        for ( j = 0; j < hlm->data->length; ++j )
+            hlm->data->data[j] = sign * conj(hlm->data->data[j]);
+    }
+    return hlm;
 }
 
 
@@ -814,40 +814,40 @@ COMPLEX16TimeSeries *XLALCreateSimInspiralPNModeCOMPLEX16TimeSeries(
  * Orbit\", Physical Review D 77, 044016 (2008), arXiv:0710.0614v1 [gr-qc].
  */
 int XLALSimInspiralPNPolarizationWaveformsFromModes(
-		REAL8TimeSeries **hplus,  /**< +-polarization waveform [returned] */
-	       	REAL8TimeSeries **hcross, /**< x-polarization waveform [returned] */
-	       	REAL8TimeSeries *v,       /**< post-Newtonian parameter */
-	       	REAL8TimeSeries *phi,     /**< orbital phase */
-	       	REAL8 v0,                 /**< tail-term gauge choice (default = 1) */
-	       	REAL8 m1,                 /**< mass of companion 1 */
-	       	REAL8 m2,                 /**< mass of companion 2 */
-	       	REAL8 r,                  /**< distance of source */
-	       	REAL8 i,                  /**< inclination of source (rad) */
-	       	int O                     /**< twice post-Newtonian order */
-		)
+        REAL8TimeSeries **hplus,  /**< +-polarization waveform [returned] */
+               REAL8TimeSeries **hcross, /**< x-polarization waveform [returned] */
+               REAL8TimeSeries *v,       /**< post-Newtonian parameter */
+               REAL8TimeSeries *phi,     /**< orbital phase */
+               REAL8 v0,                 /**< tail-term gauge choice (default = 1) */
+               REAL8 m1,                 /**< mass of companion 1 */
+               REAL8 m2,                 /**< mass of companion 2 */
+               REAL8 r,                  /**< distance of source */
+               REAL8 i,                  /**< inclination of source (rad) */
+               int O                     /**< twice post-Newtonian order */
+        )
 {
-	int l, m;
-	LAL_CHECK_VALID_SERIES(v, XLAL_FAILURE);
-	LAL_CHECK_VALID_SERIES(phi, XLAL_FAILURE);
-	LAL_CHECK_CONSISTENT_TIME_SERIES(v, phi, XLAL_FAILURE);
-	*hplus = XLALCreateREAL8TimeSeries( "H_PLUS", &v->epoch, 0.0, v->deltaT, &lalStrainUnit, v->data->length );
-	*hcross = XLALCreateREAL8TimeSeries( "H_CROSS", &v->epoch, 0.0, v->deltaT, &lalStrainUnit, v->data->length );
-	if ( ! hplus || ! hcross )
-		XLAL_ERROR(XLAL_EFUNC);
-	memset((*hplus)->data->data, 0, (*hplus)->data->length*sizeof(*(*hplus)->data->data));
-	memset((*hcross)->data->data, 0, (*hcross)->data->length*sizeof(*(*hcross)->data->data));
-	for ( l = 2; l <= LAL_PN_MODE_L_MAX; ++l ) {
-		for ( m = 1; m <= l; ++m ) {
-			COMPLEX16TimeSeries *hmode;
-			hmode = XLALCreateSimInspiralPNModeCOMPLEX16TimeSeries(v, phi, v0, m1, m2, r, O, l, m);
-			if ( ! hmode )
-				XLAL_ERROR(XLAL_EFUNC);
-			if ( XLALSimAddMode(*hplus, *hcross, hmode, i, 0.0, l, m, 1) < 0 )
-				XLAL_ERROR(XLAL_EFUNC);
-			XLALDestroyCOMPLEX16TimeSeries(hmode);
-		}
-	}
-	return 0;
+    int l, m;
+    LAL_CHECK_VALID_SERIES(v, XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(phi, XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(v, phi, XLAL_FAILURE);
+    *hplus = XLALCreateREAL8TimeSeries( "H_PLUS", &v->epoch, 0.0, v->deltaT, &lalStrainUnit, v->data->length );
+    *hcross = XLALCreateREAL8TimeSeries( "H_CROSS", &v->epoch, 0.0, v->deltaT, &lalStrainUnit, v->data->length );
+    if ( ! hplus || ! hcross )
+        XLAL_ERROR(XLAL_EFUNC);
+    memset((*hplus)->data->data, 0, (*hplus)->data->length*sizeof(*(*hplus)->data->data));
+    memset((*hcross)->data->data, 0, (*hcross)->data->length*sizeof(*(*hcross)->data->data));
+    for ( l = 2; l <= LAL_PN_MODE_L_MAX; ++l ) {
+        for ( m = 1; m <= l; ++m ) {
+            COMPLEX16TimeSeries *hmode;
+            hmode = XLALCreateSimInspiralPNModeCOMPLEX16TimeSeries(v, phi, v0, m1, m2, r, O, l, m);
+            if ( ! hmode )
+                XLAL_ERROR(XLAL_EFUNC);
+            if ( XLALSimAddMode(*hplus, *hcross, hmode, i, 0.0, l, m, 1) < 0 )
+                XLAL_ERROR(XLAL_EFUNC);
+            XLALDestroyCOMPLEX16TimeSeries(hmode);
+        }
+    }
+    return 0;
 }
 
 /**
@@ -866,17 +866,17 @@ int XLALSimInspiralPNPolarizationWaveformsFromModes(
  * Note however, that we do not include the constant \"memory\" terms
  */
 int XLALSimInspiralPNPolarizationWaveforms(
-	REAL8TimeSeries **hplus,  /**< +-polarization waveform [returned] */
-	REAL8TimeSeries **hcross, /**< x-polarization waveform [returned] */
-	REAL8TimeSeries *V,       /**< post-Newtonian (PN) parameter */
-	REAL8TimeSeries *Phi,     /**< orbital phase */
-	REAL8 v0,                 /**< tail-term gauge choice (default = 1) */
-	REAL8 m1,                 /**< mass of companion 1 (kg) */
-	REAL8 m2,                 /**< mass of companion 2 (kg) */
-	REAL8 r,                  /**< distance of source (m) */
-	REAL8 i,                  /**< inclination of source (rad) */
-	int ampO                  /**< twice PN order of the amplitude */
-	)
+    REAL8TimeSeries **hplus,  /**< +-polarization waveform [returned] */
+    REAL8TimeSeries **hcross, /**< x-polarization waveform [returned] */
+    REAL8TimeSeries *V,       /**< post-Newtonian (PN) parameter */
+    REAL8TimeSeries *Phi,     /**< orbital phase */
+    REAL8 v0,                 /**< tail-term gauge choice (default = 1) */
+    REAL8 m1,                 /**< mass of companion 1 (kg) */
+    REAL8 m2,                 /**< mass of companion 2 (kg) */
+    REAL8 r,                  /**< distance of source (m) */
+    REAL8 i,                  /**< inclination of source (rad) */
+    int ampO                  /**< twice PN order of the amplitude */
+    )
 {
     REAL8 M, eta, eta2, eta3, dm, dist, ampfac, phi, phiShift, v, v2, v3;
     REAL8 hp0, hp05, hp1, hp15, hp2, hp25, hp3;
@@ -903,7 +903,7 @@ int XLALSimInspiralPNPolarizationWaveforms(
 
     M = m1 + m2;
     eta = m1 * m2 / M / M; // symmetric mass ratio - '\nu' in the paper
-    eta2 = eta*eta;	eta3 = eta2*eta;
+    eta2 = eta*eta;    eta3 = eta2*eta;
     dm = (m1 - m2) / M; // frac. mass difference - \delta m/m in the paper
     dist = r / LAL_C_SI;   // r (m) / c (m/s) --> dist in units of seconds
     /* convert mass from kg to s, so ampfac ~ M/dist is dimensionless */
@@ -913,7 +913,7 @@ int XLALSimInspiralPNPolarizationWaveforms(
      * cosines and sines of inclination between 
      * line of sight (N) and binary orbital angular momentum (L_N)
      */
-    ci = cos(i);  	si = sin(i);
+    ci = cos(i);      si = sin(i);
     ci2 = ci*ci;  ci4 = ci2*ci2;  ci6 = ci2*ci4;  ci8 = ci6*ci2;
     si2 = si*si;  si3 = si2*si;  si4 = si2*si2;  si5 = si*si4; si6 = si4*si2;
 
@@ -922,8 +922,8 @@ int XLALSimInspiralPNPolarizationWaveforms(
     for(idx = 0; idx < len; idx++)
     {
         /* Abbreviated names in lower case for time series at this sample */
-        phi = Phi->data->data[idx]; 	v = V->data->data[idx];   
-        v2 = v * v; 	v3 = v * v2;
+        phi = Phi->data->data[idx];     v = V->data->data[idx];   
+        v2 = v * v;     v3 = v * v2;
 
         /* 
          * As explained in Blanchet et al, a phase shift can be applied 
@@ -959,8 +959,8 @@ int XLALSimInspiralPNPolarizationWaveforms(
             case -1: // Highest known PN order - move if higher terms added!
             /* case LAL_PNORDER_THREE: */
             case 6:
-		/* The reference had a typo in the 3PN terms and needed an errata.
-		 * These should match arXiv:0802.1249v3, which has the fix. */
+        /* The reference had a typo in the 3PN terms and needed an errata.
+         * These should match arXiv:0802.1249v3, which has the fix. */
                 hp3 = LAL_PI*dm*si*cos(phi)*(19./64. + ci2*5./16. - ci4/192.
                         + eta*(-19./96. + ci2*3./16. + ci4/96.)) + cos(2.*phi)
                         * (-465497./11025. + (LAL_GAMMA*856./105. 
@@ -1185,28 +1185,28 @@ int XLALSimInspiralPNPolarizationWaveforms(
  * momentum, useful for GRB and comparison to NR, see XLALSimSpinInspiralGenerator())
  */
 int XLALSimInspiralPrecessingPolarizationWaveforms(
-	REAL8TimeSeries **hplus,  /**< +-polarization waveform [returned] */
-	REAL8TimeSeries **hcross, /**< x-polarization waveform [returned] */
-	REAL8TimeSeries *V,       /**< post-Newtonian parameter */
-	REAL8TimeSeries *Phi,     /**< orbital phase */
-	REAL8TimeSeries *S1x,	  /**< Spin1 vector x component */
-	REAL8TimeSeries *S1y,	  /**< Spin1 vector y component */
-	REAL8TimeSeries *S1z,	  /**< Spin1 vector z component */
-	REAL8TimeSeries *S2x,	  /**< Spin2 vector x component */
-	REAL8TimeSeries *S2y,	  /**< Spin2 vector y component */
-	REAL8TimeSeries *S2z,	  /**< Spin2 vector z component */
-	REAL8TimeSeries *LNhatx,  /**< unit orbital ang. mom. x comp. */
-	REAL8TimeSeries *LNhaty,  /**< unit orbital ang. mom. y comp. */
-	REAL8TimeSeries *LNhatz,  /**< unit orbital ang. mom. z comp. */
-	REAL8TimeSeries *E1x,	  /**< orbital plane basis vector x comp. */
-	REAL8TimeSeries *E1y,	  /**< orbital plane basis vector y comp. */
-	REAL8TimeSeries *E1z,	  /**< orbital plane basis vector z comp. */
-	REAL8 m1,                 /**< mass of companion 1 (kg) */
-	REAL8 m2,                 /**< mass of companion 2 (kg) */
-	REAL8 r,                  /**< distance of source (m) */
-	REAL8 v0,                 /**< tail-term gauge choice (default = 1) */
-	INT4 ampO	 	  /**< twice amp. post-Newtonian order */
-	)
+    REAL8TimeSeries **hplus,  /**< +-polarization waveform [returned] */
+    REAL8TimeSeries **hcross, /**< x-polarization waveform [returned] */
+    REAL8TimeSeries *V,       /**< post-Newtonian parameter */
+    REAL8TimeSeries *Phi,     /**< orbital phase */
+    REAL8TimeSeries *S1x,      /**< Spin1 vector x component */
+    REAL8TimeSeries *S1y,      /**< Spin1 vector y component */
+    REAL8TimeSeries *S1z,      /**< Spin1 vector z component */
+    REAL8TimeSeries *S2x,      /**< Spin2 vector x component */
+    REAL8TimeSeries *S2y,      /**< Spin2 vector y component */
+    REAL8TimeSeries *S2z,      /**< Spin2 vector z component */
+    REAL8TimeSeries *LNhatx,  /**< unit orbital ang. mom. x comp. */
+    REAL8TimeSeries *LNhaty,  /**< unit orbital ang. mom. y comp. */
+    REAL8TimeSeries *LNhatz,  /**< unit orbital ang. mom. z comp. */
+    REAL8TimeSeries *E1x,      /**< orbital plane basis vector x comp. */
+    REAL8TimeSeries *E1y,      /**< orbital plane basis vector y comp. */
+    REAL8TimeSeries *E1z,      /**< orbital plane basis vector z comp. */
+    REAL8 m1,                 /**< mass of companion 1 (kg) */
+    REAL8 m2,                 /**< mass of companion 2 (kg) */
+    REAL8 r,                  /**< distance of source (m) */
+    REAL8 v0,                 /**< tail-term gauge choice (default = 1) */
+    INT4 ampO           /**< twice amp. post-Newtonian order */
+    )
 {
     REAL8 s1x, s1y, s1z, s2x, s2y, s2z, lnhx, lnhy, lnhz;
     REAL8 e1x, e1y, e1z, e2x, e2y, e2z, nx, ny, nz, lx, ly, lz;
@@ -1218,33 +1218,33 @@ int XLALSimInspiralPrecessingPolarizationWaveforms(
     INT4 idx, len;
 
     /* Macros to check time series vectors */
-    LAL_CHECK_VALID_SERIES(V, 			XLAL_FAILURE);
-    LAL_CHECK_VALID_SERIES(Phi, 		XLAL_FAILURE);
-    LAL_CHECK_VALID_SERIES(S1x, 		XLAL_FAILURE);
-    LAL_CHECK_VALID_SERIES(S1y, 		XLAL_FAILURE);
-    LAL_CHECK_VALID_SERIES(S1z, 		XLAL_FAILURE);
-    LAL_CHECK_VALID_SERIES(S2x, 		XLAL_FAILURE);
-    LAL_CHECK_VALID_SERIES(S2y, 		XLAL_FAILURE);
-    LAL_CHECK_VALID_SERIES(S2z, 		XLAL_FAILURE);
-    LAL_CHECK_VALID_SERIES(LNhatx, 		XLAL_FAILURE);
-    LAL_CHECK_VALID_SERIES(LNhaty, 		XLAL_FAILURE);
-    LAL_CHECK_VALID_SERIES(LNhatz, 		XLAL_FAILURE);
-    LAL_CHECK_VALID_SERIES(E1x, 		XLAL_FAILURE);
-    LAL_CHECK_VALID_SERIES(E1y, 		XLAL_FAILURE);
-    LAL_CHECK_VALID_SERIES(E1z, 		XLAL_FAILURE);
-    LAL_CHECK_CONSISTENT_TIME_SERIES(V, Phi, 	XLAL_FAILURE);
-    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S1x, 	XLAL_FAILURE);
-    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S1y, 	XLAL_FAILURE);
-    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S1z, 	XLAL_FAILURE);
-    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S2x, 	XLAL_FAILURE);
-    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S2y, 	XLAL_FAILURE);
-    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S2z, 	XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(V,             XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(Phi,         XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(S1x,         XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(S1y,         XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(S1z,         XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(S2x,         XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(S2y,         XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(S2z,         XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(LNhatx,         XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(LNhaty,         XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(LNhatz,         XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(E1x,         XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(E1y,         XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(E1z,         XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, Phi,     XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S1x,     XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S1y,     XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S1z,     XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S2x,     XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S2y,     XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S2z,     XLAL_FAILURE);
     LAL_CHECK_CONSISTENT_TIME_SERIES(V, LNhatx, XLAL_FAILURE);
     LAL_CHECK_CONSISTENT_TIME_SERIES(V, LNhaty, XLAL_FAILURE);
     LAL_CHECK_CONSISTENT_TIME_SERIES(V, LNhatz, XLAL_FAILURE);
-    LAL_CHECK_CONSISTENT_TIME_SERIES(V, E1x, 	XLAL_FAILURE);
-    LAL_CHECK_CONSISTENT_TIME_SERIES(V, E1y, 	XLAL_FAILURE);
-    LAL_CHECK_CONSISTENT_TIME_SERIES(V, E1z, 	XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, E1x,     XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, E1y,     XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, E1z,     XLAL_FAILURE);
 
     /* Allocate polarization vectors and set to 0 */
     *hplus = XLALCreateREAL8TimeSeries( "H_PLUS", &V->epoch, 
@@ -1270,13 +1270,13 @@ int XLALSimInspiralPrecessingPolarizationWaveforms(
     for(idx = 0; idx < len; idx++)
     {
         /* Abbreviated names in lower case for time series at this sample */
-        phi  = Phi->data->data[idx]; 	v = V->data->data[idx];     v2 = v * v;
+        phi  = Phi->data->data[idx];     v = V->data->data[idx];     v2 = v * v;
         lnhx = LNhatx->data->data[idx]; e1x = E1x->data->data[idx];
-        lnhy = LNhaty->data->data[idx];	e1y = E1y->data->data[idx];
-        lnhz = LNhatz->data->data[idx];	e1z = E1z->data->data[idx];
-        s1x  = S1x->data->data[idx];	s2x = S2x->data->data[idx];
-        s1y  = S1y->data->data[idx];	s2y = S2y->data->data[idx];
-        s1z  = S1z->data->data[idx];	s2z = S2z->data->data[idx];
+        lnhy = LNhaty->data->data[idx];    e1y = E1y->data->data[idx];
+        lnhz = LNhatz->data->data[idx];    e1z = E1z->data->data[idx];
+        s1x  = S1x->data->data[idx];    s2x = S2x->data->data[idx];
+        s1y  = S1y->data->data[idx];    s2y = S2y->data->data[idx];
+        s1z  = S1z->data->data[idx];    s2z = S2z->data->data[idx];
 
         /* E2 = LNhat x E1 */
         e2x = lnhy*e1z - lnhz*e1y;
@@ -1294,8 +1294,8 @@ int XLALSimInspiralPrecessingPolarizationWaveforms(
         lz = e2z*cos(phi) - e1z*sin(phi);
 
         /* Powers of vector components */
-        nx2 = nx*nx;	ny2 = ny*ny;	nz2 = nz*nz;	nz3 = nz*nz2;
-        lx2 = lx*lx;	ly2 = ly*ly;	lz2 = lz*lz;	lz3 = lz*lz2;
+        nx2 = nx*nx;    ny2 = ny*ny;    nz2 = nz*nz;    nz3 = nz*nz2;
+        lx2 = lx*lx;    ly2 = ly*ly;    lz2 = lz*lz;    lz3 = lz*lz2;
 
         /* 
          * First set all h+/x coefficients to 0. Then use a switch to
@@ -1413,7 +1413,7 @@ int XLALSimInspiralPrecessingPolarizationWaveforms(
                 hplus05 = (dm*(-2*lx2*lz + 2*ly2*lz + lz*(nx2 - ny2) 
                         + 6*lx*nx*nz - 6*ly*ny*nz))/2.;
                 hcross05 = dm*(-2*lx*ly*lz + lz*nx*ny 
-					+ 3*ly*nx*nz + 3*lx*ny*nz);
+                    + 3*ly*nx*nz + 3*lx*ny*nz);
 
             /*case LAL_PNORDER_NEWTONIAN:*/
             case 0:
@@ -1990,143 +1990,143 @@ int XLALSimInspiralPrecessingPTFQWaveforms(
  * https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/Waveforms/TransformPrecessingInitialConditions
  */
 int XLALSimInspiralTransformPrecessingInitialConditions(
-		REAL8 *incl,	/**< Inclination angle of L_N (returned) */
-		REAL8 *S1x,	/**< S1 x component (returned) */
-		REAL8 *S1y,	/**< S1 y component (returned) */
-		REAL8 *S1z,	/**< S1 z component (returned) */
-		REAL8 *S2x,	/**< S2 x component (returned) */
-		REAL8 *S2y,	/**< S2 y component (returned) */
-		REAL8 *S2z,	/**< S2 z component (returned) */
-		REAL8 thetaJN, 	/**< zenith angle between J and N (rad) */
-		REAL8 phiJL,  	/**< azimuthal angle of L_N on its cone about J (rad) */
-		REAL8 theta1,  	/**< zenith angle between S1 and LNhat (rad) */
-		REAL8 theta2,  	/**< zenith angle between S2 and LNhat (rad) */
-		REAL8 phi12,  	/**< difference in azimuthal angle btwn S1, S2 (rad) */
-		REAL8 chi1,	/**< dimensionless spin of body 1 */
-		REAL8 chi2,	/**< dimensionless spin of body 2 */
-		REAL8 m1,	/**< mass of body 1 (kg) */
-		REAL8 m2,	/**< mass of body 2 (kg) */
-		REAL8 fRef	/**< reference GW frequency (Hz) */
-		)
+        REAL8 *incl,    /**< Inclination angle of L_N (returned) */
+        REAL8 *S1x,    /**< S1 x component (returned) */
+        REAL8 *S1y,    /**< S1 y component (returned) */
+        REAL8 *S1z,    /**< S1 z component (returned) */
+        REAL8 *S2x,    /**< S2 x component (returned) */
+        REAL8 *S2y,    /**< S2 y component (returned) */
+        REAL8 *S2z,    /**< S2 z component (returned) */
+        REAL8 thetaJN,     /**< zenith angle between J and N (rad) */
+        REAL8 phiJL,      /**< azimuthal angle of L_N on its cone about J (rad) */
+        REAL8 theta1,      /**< zenith angle between S1 and LNhat (rad) */
+        REAL8 theta2,      /**< zenith angle between S2 and LNhat (rad) */
+        REAL8 phi12,      /**< difference in azimuthal angle btwn S1, S2 (rad) */
+        REAL8 chi1,    /**< dimensionless spin of body 1 */
+        REAL8 chi2,    /**< dimensionless spin of body 2 */
+        REAL8 m1,    /**< mass of body 1 (kg) */
+        REAL8 m2,    /**< mass of body 2 (kg) */
+        REAL8 fRef    /**< reference GW frequency (Hz) */
+        )
 {
-	/* Check that fRef is sane */
-	if( fRef == 0. )
-	{
-		XLALPrintError("XLAL Error - %s: fRef=0 is invalid. Please pass in the starting GW frequency instead.\n", __func__);
-		XLAL_ERROR(XLAL_EINVAL);
-	}
+    /* Check that fRef is sane */
+    if( fRef == 0. )
+    {
+        XLALPrintError("XLAL Error - %s: fRef=0 is invalid. Please pass in the starting GW frequency instead.\n", __func__);
+        XLAL_ERROR(XLAL_EINVAL);
+    }
 
-	REAL8 omega0, M, eta, theta0, phi0, Jnorm, tmp1, tmp2;
-	REAL8 Jhatx, Jhaty, Jhatz, LNhx, LNhy, LNhz, Jx, Jy, Jz, LNmag;
-	REAL8 s1hatx, s1haty, s1hatz, s2hatx, s2haty, s2hatz;
-	REAL8 s1x, s1y, s1z, s2x, s2y, s2z;
+    REAL8 omega0, M, eta, theta0, phi0, Jnorm, tmp1, tmp2;
+    REAL8 Jhatx, Jhaty, Jhatz, LNhx, LNhy, LNhz, Jx, Jy, Jz, LNmag;
+    REAL8 s1hatx, s1haty, s1hatz, s2hatx, s2haty, s2hatz;
+    REAL8 s1x, s1y, s1z, s2x, s2y, s2z;
 
-	/* Starting frame: LNhat is along the z-axis and the unit
-	 * spin vectors are defined from the angles relative to LNhat.
-	 * Note that we put s1hat in the x-z plane, and phi12
-	 * sets the azimuthal angle of s2hat measured from the x-axis.
-	 */
-	LNhx = 0.;
-	LNhy = 0.;
-	LNhz = 1.;
-	s1hatx = sin(theta1);
-	s1haty = 0.;
-	s1hatz = cos(theta1);
-	s2hatx = sin(theta2) * cos(phi12);
-	s2haty = sin(theta2) * sin(phi12);
-	s2hatz = cos(theta2);
+    /* Starting frame: LNhat is along the z-axis and the unit
+     * spin vectors are defined from the angles relative to LNhat.
+     * Note that we put s1hat in the x-z plane, and phi12
+     * sets the azimuthal angle of s2hat measured from the x-axis.
+     */
+    LNhx = 0.;
+    LNhy = 0.;
+    LNhz = 1.;
+    s1hatx = sin(theta1);
+    s1haty = 0.;
+    s1hatz = cos(theta1);
+    s2hatx = sin(theta2) * cos(phi12);
+    s2haty = sin(theta2) * sin(phi12);
+    s2hatz = cos(theta2);
 
-	/* Define several internal variables needed for magnitudes */
-	omega0 = LAL_PI * fRef; // orbital angular frequency at reference point
-	m1 *= LAL_G_SI / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-	m2 *= LAL_G_SI / LAL_C_SI / LAL_C_SI / LAL_C_SI;
-	M = m1 + m2;
-	eta = m1 * m2 / M / M;
-	
-	/* Define S1, S2, J with proper magnitudes */
-	LNmag = pow(M, 5./3.) * eta * pow(omega0, -1./3.);
-	s1x = m1 * m1 * chi1 * s1hatx;
-	s1y = m1 * m1 * chi1 * s1haty;
-	s1z = m1 * m1 * chi1 * s1hatz;
-	s2x = m2 * m2 * chi2 * s2hatx;
-	s2y = m2 * m2 * chi2 * s2haty;
-	s2z = m2 * m2 * chi2 * s2hatz;
-	Jx = s1x + s2x;
-	Jy = s1y + s2y;
-	Jz = LNmag * LNhz + s1z + s2z;
+    /* Define several internal variables needed for magnitudes */
+    omega0 = LAL_PI * fRef; // orbital angular frequency at reference point
+    m1 *= LAL_G_SI / LAL_C_SI / LAL_C_SI / LAL_C_SI;
+    m2 *= LAL_G_SI / LAL_C_SI / LAL_C_SI / LAL_C_SI;
+    M = m1 + m2;
+    eta = m1 * m2 / M / M;
+    
+    /* Define S1, S2, J with proper magnitudes */
+    LNmag = pow(M, 5./3.) * eta * pow(omega0, -1./3.);
+    s1x = m1 * m1 * chi1 * s1hatx;
+    s1y = m1 * m1 * chi1 * s1haty;
+    s1z = m1 * m1 * chi1 * s1hatz;
+    s2x = m2 * m2 * chi2 * s2hatx;
+    s2y = m2 * m2 * chi2 * s2haty;
+    s2z = m2 * m2 * chi2 * s2hatz;
+    Jx = s1x + s2x;
+    Jy = s1y + s2y;
+    Jz = LNmag * LNhz + s1z + s2z;
 
-	/* Normalize J to Jhat, find it's angles in starting frame */
-	Jnorm = sqrt( Jx*Jx + Jy*Jy + Jz*Jz);
-	Jhatx = Jx / Jnorm;
-	Jhaty = Jy / Jnorm;
-	Jhatz = Jz / Jnorm;
-	theta0 = acos(Jhatz);
-	phi0 = atan2(Jhaty, Jhatx);
+    /* Normalize J to Jhat, find it's angles in starting frame */
+    Jnorm = sqrt( Jx*Jx + Jy*Jy + Jz*Jz);
+    Jhatx = Jx / Jnorm;
+    Jhaty = Jy / Jnorm;
+    Jhatz = Jz / Jnorm;
+    theta0 = acos(Jhatz);
+    phi0 = atan2(Jhaty, Jhatx);
 
-	/* Rotation 1: Rotate about z-axis by -phi0 to put Jhat in x-z plane */
-	ROTATEZ(-phi0, LNhx, LNhy, LNhz);
-	ROTATEZ(-phi0, s1hatx, s1haty, s1hatz);
-	ROTATEZ(-phi0, s2hatx, s2haty, s2hatz);
-	ROTATEZ(-phi0, Jhatx, Jhaty, Jhatz);
+    /* Rotation 1: Rotate about z-axis by -phi0 to put Jhat in x-z plane */
+    ROTATEZ(-phi0, LNhx, LNhy, LNhz);
+    ROTATEZ(-phi0, s1hatx, s1haty, s1hatz);
+    ROTATEZ(-phi0, s2hatx, s2haty, s2hatz);
+    ROTATEZ(-phi0, Jhatx, Jhaty, Jhatz);
 
-	/* Rotation 2: Rotate about new y-axis by -theta0
-	 * to put Jhat along z-axis
-	 */
-	ROTATEY(-theta0, LNhx, LNhy, LNhz);
-	ROTATEY(-theta0, s1hatx, s1haty, s1hatz);
-	ROTATEY(-theta0, s2hatx, s2haty, s2hatz);
-	ROTATEY(-theta0, Jhatx, Jhaty, Jhatz);
+    /* Rotation 2: Rotate about new y-axis by -theta0
+     * to put Jhat along z-axis
+     */
+    ROTATEY(-theta0, LNhx, LNhy, LNhz);
+    ROTATEY(-theta0, s1hatx, s1haty, s1hatz);
+    ROTATEY(-theta0, s2hatx, s2haty, s2hatz);
+    ROTATEY(-theta0, Jhatx, Jhaty, Jhatz);
 
-	/* Rotation 3: Rotate about new z-axis by phiJL to put L at desired
-	 * azimuth about J. Note that is currently in x-z plane towards -x
-	 * (i.e. azimuth=pi). Hence we rotate about z by phiJL - LAL_PI
-	 */
-	ROTATEZ(phiJL - LAL_PI, LNhx, LNhy, LNhz);
-	ROTATEZ(phiJL - LAL_PI, s1hatx, s1haty, s1hatz);
-	ROTATEZ(phiJL - LAL_PI, s2hatx, s2haty, s2hatz);
-	ROTATEZ(phiJL - LAL_PI, Jhatx, Jhaty, Jhatz);
+    /* Rotation 3: Rotate about new z-axis by phiJL to put L at desired
+     * azimuth about J. Note that is currently in x-z plane towards -x
+     * (i.e. azimuth=pi). Hence we rotate about z by phiJL - LAL_PI
+     */
+    ROTATEZ(phiJL - LAL_PI, LNhx, LNhy, LNhz);
+    ROTATEZ(phiJL - LAL_PI, s1hatx, s1haty, s1hatz);
+    ROTATEZ(phiJL - LAL_PI, s2hatx, s2haty, s2hatz);
+    ROTATEZ(phiJL - LAL_PI, Jhatx, Jhaty, Jhatz);
 
-	/* Rotation 4: Let N be in x-z plane, inclined from J by thetaJN.
-	 * We don't need to explicitly construct it, but rotating the system
-	 * about the y-axis by - thetaJN will bring N onto the z-axis.
-	 */
-	ROTATEY(-thetaJN, LNhx, LNhy, LNhz);
-	ROTATEY(-thetaJN, s1hatx, s1haty, s1hatz);
-	ROTATEY(-thetaJN, s2hatx, s2haty, s2hatz);
-	ROTATEY(-thetaJN, Jhatx, Jhaty, Jhatz);
+    /* Rotation 4: Let N be in x-z plane, inclined from J by thetaJN.
+     * We don't need to explicitly construct it, but rotating the system
+     * about the y-axis by - thetaJN will bring N onto the z-axis.
+     */
+    ROTATEY(-thetaJN, LNhx, LNhy, LNhz);
+    ROTATEY(-thetaJN, s1hatx, s1haty, s1hatz);
+    ROTATEY(-thetaJN, s2hatx, s2haty, s2hatz);
+    ROTATEY(-thetaJN, Jhatx, Jhaty, Jhatz);
 
-	/* Rotation 5: We already have N along z. To complete the
-	 * transformation into the radiation frame we rotate s.t.
-	 * LNhat is in the x-z plane. Thus, if LNhat has azimuth phi0,
-	 * we rotate about the z-axis by -phi0.
-	 */
-	phi0 = atan2(LNhy, LNhx);
-	ROTATEZ(-phi0, LNhx, LNhy, LNhz);
-	ROTATEZ(-phi0, s1hatx, s1haty, s1hatz);
-	ROTATEZ(-phi0, s2hatx, s2haty, s2hatz);
-	ROTATEZ(-phi0, Jhatx, Jhaty, Jhatz);
+    /* Rotation 5: We already have N along z. To complete the
+     * transformation into the radiation frame we rotate s.t.
+     * LNhat is in the x-z plane. Thus, if LNhat has azimuth phi0,
+     * we rotate about the z-axis by -phi0.
+     */
+    phi0 = atan2(LNhy, LNhx);
+    ROTATEZ(-phi0, LNhx, LNhy, LNhz);
+    ROTATEZ(-phi0, s1hatx, s1haty, s1hatz);
+    ROTATEZ(-phi0, s2hatx, s2haty, s2hatz);
+    ROTATEZ(-phi0, Jhatx, Jhaty, Jhatz);
 
-	/* We have completed the transformation. Now find the inclination
-	 * of LN relative to N (the final z-axis). */
-	*incl = acos(LNhz);
-	
-	/* Multiply spin unit vectors by chi magnitude (but NOT m_i^2) */
-	s1hatx *= chi1;
-	s1haty *= chi1;
-	s1hatz *= chi1;
-	s2hatx *= chi2;
-	s2haty *= chi2;
-	s2hatz *= chi2;
+    /* We have completed the transformation. Now find the inclination
+     * of LN relative to N (the final z-axis). */
+    *incl = acos(LNhz);
+    
+    /* Multiply spin unit vectors by chi magnitude (but NOT m_i^2) */
+    s1hatx *= chi1;
+    s1haty *= chi1;
+    s1hatz *= chi1;
+    s2hatx *= chi2;
+    s2haty *= chi2;
+    s2hatz *= chi2;
 
-	/* Set pointers to rotated spin vectors */
-	*S1x = s1hatx;
-	*S1y = s1haty;
-	*S1z = s1hatz;
-	*S2x = s2hatx;
-	*S2y = s2haty;
-	*S2z = s2hatz;
+    /* Set pointers to rotated spin vectors */
+    *S1x = s1hatx;
+    *S1y = s1haty;
+    *S1z = s1hatz;
+    *S2x = s2hatx;
+    *S2y = s2haty;
+    *S2z = s2hatz;
 
-	return XLAL_SUCCESS;
+    return XLAL_SUCCESS;
 }
 
 /**
@@ -2157,7 +2157,7 @@ int XLALSimInspiralChooseWaveform(
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
     LALSimInspiralWaveformFlags *waveFlags,     /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
-    LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
+    LALSimInspiralTestGRParam *nonGRparams,     /**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
@@ -2197,7 +2197,7 @@ int XLALSimInspiralChooseTDWaveform(
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
     LALSimInspiralWaveformFlags *waveFlags,     /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
-    LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
+    LALSimInspiralTestGRParam *nonGRparams,     /**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
@@ -2520,25 +2520,8 @@ int XLALSimInspiralChooseTDWaveform(
                 ABORT_NONZERO_TIDES(waveFlags);
             /* Call the waveform driver routine */
             ret = XLALSimSpinInspiralGenerator(hplus, hcross, phiRef,
-					       deltaT, m1, m2, f_min, f_ref, r, i, S1x, S1y, S1z, S2x, S2y, S2z,
-					       phaseO, amplitudeO, waveFlags, nonGRparams);
-	    break;
-
-        case IMRPhenomC:
-            /* Waveform-specific sanity checks */
-            if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
-                ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
-            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
-                ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
-            if( !checkTidesZero(lambda1, lambda2) )
-                ABORT_NONZERO_TIDES(waveFlags);
-            if( f_ref != 0.)
-                XLALPrintWarning("XLAL Warning - %s: This approximant does use f_ref. The reference phase will be defined at coalescence.\n", __func__);
-            /* Call the waveform driver routine */
-            // NB: f_max = 0 will generate up to the ringdown cut-off frequency
-            ret = XLALSimIMRPhenomCGenerateTD(hplus, hcross, phiRef, deltaT,
-                    m1, m2, XLALSimIMRPhenomBComputeChi(m1, m2, S1z, S2z),
-                    f_min, 0., r, i);
+                           deltaT, m1, m2, f_min, f_ref, r, i, S1x, S1y, S1z, S2x, S2y, S2z,
+                           phaseO, amplitudeO, waveFlags, nonGRparams);
             break;
 
         case PhenSpinTaylorRD:
@@ -2549,8 +2532,8 @@ int XLALSimInspiralChooseTDWaveform(
                 XLALPrintWarning("XLAL Warning - %s: This approximant does use f_ref. The reference phase will be defined at the start.\n", __func__);
             /* Call the waveform driver routine */
             ret = XLALSimIMRPhenSpinInspiralRDGenerator(hplus, hcross, phiRef,
-							deltaT, m1, m2, f_min, f_ref, r, i, S1x, S1y, S1z, S2x, S2y, S2z,
-							phaseO, amplitudeO,  waveFlags, nonGRparams);
+                            deltaT, m1, m2, f_min, f_ref, r, i, S1x, S1y, S1z, S2x, S2y, S2z,
+                            phaseO, amplitudeO,  waveFlags, nonGRparams);
             break;
 
         case SEOBNRv1:
@@ -2720,21 +2703,81 @@ int XLALSimInspiralChooseFDWaveform(
             if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
                 ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
 
-            /* Call the waveform driver routine */
-            ret = XLALSimInspiralTaylorF2(hptilde, phiRef, deltaF, m1, m2,
+            if(amplitudeO == 0) // Newtonian amplitude, so use old implementation
+            {
+              /* Call the waveform driver routine */
+              ret = XLALSimInspiralTaylorF2(hptilde, phiRef, deltaF, m1, m2,
                     S1z, S2z, f_min, f_max, f_ref, r,
                     quadparam1, quadparam2, lambda1, lambda2,
                     XLALSimInspiralGetSpinOrder(waveFlags),
                     XLALSimInspiralGetTidalOrder(waveFlags),
                     phaseO, amplitudeO);
-            if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
-            /* Produce both polarizations */
-            *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",
+              if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
+              /* Produce both polarizations */
+              *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",
                     &((*hptilde)->epoch), (*hptilde)->f0, (*hptilde)->deltaF,
                     &((*hptilde)->sampleUnits), (*hptilde)->data->length);
-            for(j = 0; j < (*hptilde)->data->length; j++) {
+              for(j = 0; j < (*hptilde)->data->length; j++) {
                 (*hctilde)->data->data[j] = -I*cfac * (*hptilde)->data->data[j];
                 (*hptilde)->data->data[j] *= pfac;
+              }
+            }
+            else // for amplitude corrected waveform, use new code developed by Chunglee Kim and Jeongcho Kim
+            {
+              printf("==== DBUG calling TaylorF2Amp phase order = %d, amplitude Order = %d\n", phaseO, amplitudeO);
+              /* Call the waveform driver routine 
+                 for amplitude corrected waveform, there are separated function for each h_plus and h_cross
+              */
+              LNhatx = sin(i);
+              LNhaty = 0.;
+              LNhatz = cos(i);
+              ret = XLALSimInspiralTaylorF2AmpPlus(
+                    hptilde, /**< frequency-domain waveform */
+                    phiRef,                     /**< orbital coalescence phase (rad) */
+                    deltaF,                   /**< sampling frequency (Hz) */
+                    i,                        /**< inclination of source (rad), corresponds to theta of N_hat */
+                    m1,                    /**< mass of companion 1 (kg) */
+                    m2,                    /**< mass of companion 2 (kg) */
+                    S1x,                      /**< initial value of S1x */
+                    S1y,                      /**< initial value of S1y */
+                    S1z,                      /**< initial value of S1z */
+                    S2x,                        /**< initial value of S2x */
+                    S2y,                        /**< initial value of S2y */    
+                    S2z,                        /**< initial value of S2z */
+                    LNhatx,                   /**< initial value of LNhatx */
+                    LNhaty,                   /**< initial value of LNhaty */
+                    LNhatz,                   /**< initial value of LNhatz */
+                    f_min,                   /**< start GW frequency (Hz) */
+                    f_max,                    /**< ending GW frequency (Hz) */
+                    r,                        /**< distance of source (m) */
+                    phaseO,                     /**< twice PN phase order */
+                    amplitudeO                  /**< twice PN amplitude order */
+              );
+              if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
+
+              ret = XLALSimInspiralTaylorF2AmpCross(
+                    hctilde, /**< frequency-domain waveform */
+                    phiRef,                     /**< orbital coalescence phase (rad) */
+                    deltaF,                   /**< sampling frequency (Hz) */
+                    i,                        /**< inclination of source (rad), corresponds to theta of N_hat */
+                    m1,                    /**< mass of companion 1 (kg) */
+                    m2,                    /**< mass of companion 2 (kg) */
+                    S1x,                      /**< initial value of S1x */
+                    S1y,                      /**< initial value of S1y */
+                    S1z,                      /**< initial value of S1z */
+                    S2x,                        /**< initial value of S2x */
+                    S2y,                        /**< initial value of S2y */    
+                    S2z,                        /**< initial value of S2z */
+                    LNhatx,                   /**< initial value of LNhatx */
+                    LNhaty,                   /**< initial value of LNhaty */
+                    LNhatz,                   /**< initial value of LNhatz */
+                    f_min,                   /**< start GW frequency (Hz) */
+                    f_max,                    /**< ending GW frequency (Hz) */
+                    r,                        /**< distance of source (m) */
+                    phaseO,                     /**< twice PN phase order */
+                    amplitudeO                  /**< twice PN amplitude order */
+              );
+              if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             }
             break;
 
@@ -2991,13 +3034,6 @@ int XLALSimInspiralChooseFDWaveform(
             break;
 
         case SpinTaylorT4Fourier:
-            /* Waveform-specific sanity checks */
-            if( !XLALSimInspiralFrameAxisIsDefault(
-                    XLALSimInspiralGetFrameAxis(waveFlags) ) )
-                ABORT_NONDEFAULT_FRAME_AXIS(waveFlags);
-            if( !XLALSimInspiralModesChoiceIsDefault(
-                    XLALSimInspiralGetModesChoice(waveFlags) ) )
-                ABORT_NONDEFAULT_MODES_CHOICE(waveFlags);
             LNhatx = sin(i);
             LNhaty = 0.;
             LNhatz = cos(i);
@@ -3061,7 +3097,6 @@ int XLALSimInspiralChooseFDWaveform(
               f_min, f_max, deltaF, kMax, phiRef, v0, m1, m2, fStart, f_ref, r, S1x, S1y, S1z, S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, E1x, E1y, E1z, lambda1, lambda2, quadparam1, quadparam2, XLALSimInspiralGetSpinOrder(waveFlags), XLALSimInspiralGetTidalOrder(waveFlags), phaseO, amplitudeO, phiRefAtEnd);
             if (ret == XLAL_FAILURE) XLAL_ERROR(XLAL_EFUNC);
             break;
-
 
         default:
             XLALPrintError("FD version of approximant not implemented in lalsimulation\n");
@@ -3670,7 +3705,7 @@ SphHarmTimeSeries *XLALSimInspiralChooseTDModes(
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
     LALSimInspiralWaveformFlags *waveFlags,     /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
-    LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
+    LALSimInspiralTestGRParam *nonGRparams,     /**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
     int lmax,                                   /**< generate all modes with l <= lmax */
@@ -3968,7 +4003,7 @@ COMPLEX16TimeSeries *XLALSimInspiralChooseTDMode(
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
     LALSimInspiralWaveformFlags *waveFlags,     /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
-    LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
+    LALSimInspiralTestGRParam *nonGRparams,     /**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
     int l,                                      /**< l index of mode */
@@ -4696,6 +4731,8 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case TaylorF2:
     case TaylorF2RedSpin:
     case TaylorF2RedSpinTidal:
+      spin_support=LAL_SIM_INSPIRAL_ALIGNEDSPIN;
+      break;
     case IMRPhenomB:
     case IMRPhenomC:
     case SEOBNRv1:
