@@ -258,6 +258,10 @@ XLALInspiralPrecSpinFactorizedFlux(
 {
 	int		debugPK = 0;
   int i = 0;
+    double radius = sqrt(values->data[0]*values->data[0] + values->data[1] *values->data[1]  + values->data[2] *values->data[2]  );
+    if (radius < 1.) {
+        return 0.;
+    }
   if (1){
     for( i =0; i < 4; i++)
       if( isnan(polvalues->data[i]) ) {
@@ -429,8 +433,8 @@ XLALInspiralPrecSpinFactorizedFlux(
 		}
 	}
   if( omegaSq > 1 || flux > 5 )
-    printf("In XLALInspiralPrecSpinFactorizedFlux: omegaSq = %3.12f, FLUX = %3.12f\n",
-    omegaSq, flux);
+    printf("In XLALInspiralPrecSpinFactorizedFlux: omegaSq = %3.12f, FLUX = %3.12f, r = %3.12f\n",
+    omegaSq, flux,radius);
     
 	if (debugPK)
 		printf("\tStas, FLUX = %.16e\n", flux * LAL_1_PI / 8.0);
