@@ -39,8 +39,8 @@ double  XLALSimLocateOmegaTime(
     /* 
     * Locate merger point (max omega), 
     * WaveStep 1.1: locate merger point */
-    int debugPK = 1;
-    int debugRD = 1;
+    int debugPK = 0;
+    int debugRD = 0;
     FILE *out = NULL; 
     gsl_spline    *spline = NULL;
     gsl_interp_accel *acc = NULL;
@@ -302,8 +302,8 @@ double XLALSimLocateAmplTime(
     COMPLEX16Vector *hP22,
     int *found)
 {
-    int debugPK = 1;
-    int debugRD = 1;
+    int debugPK = 0;
+    int debugRD = 0;
     FILE *out = NULL; 
     gsl_spline    *spline = NULL;
     gsl_interp_accel *acc = NULL;

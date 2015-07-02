@@ -1478,8 +1478,8 @@ int XLALSimIMRSpinEOBWaveform(
   /* TODO: Insert potentially necessary checks on the arguments */
 
   INT4 UNUSED ret;
-  INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
-  INT4 debugRD = 1;
+  INT4 debugPK = 0, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugRD = 0;
   FILE *out = NULL;
   INT4 i=0;
   INT4 k=0;
@@ -2836,6 +2836,7 @@ int XLALSimIMRSpinEOBWaveform(
       printf("chiJ = %3.10f\n", chiJ); fflush(NULL); fflush(NULL); 
       printf("J.L = %4.11f \n", kappaJL); fflush(NULL); 
       printf("J.LN = %4.11f \n", JLN);
+      printf("L.LN = %4.11f \n", (Lx*rcrossrdot[0] + Ly*rcrossrdot[1] + Lz*rcrossrdot[2])/magL/magLN);
   }
 
 
@@ -3759,7 +3760,8 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     }
     if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, k,
                 deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
-                &timeHi, rdMatchPoint, spinEOBApproximant, JLN )
+                &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL )
+                //&timeHi, rdMatchPoint, spinEOBApproximant, JLN )
             == XLAL_FAILURE )
     {
       XLAL_ERROR( XLAL_EFUNC );

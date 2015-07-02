@@ -80,7 +80,7 @@ XLALSimIMREOBHybridRingdownWave(
 )
 {
 
-	INT4		debugout = 1;
+	INT4		debugout = 0;
 	/* XLAL error handling */
 	INT4		errcode = XLAL_SUCCESS;
 
@@ -295,7 +295,7 @@ XLALGenerateHybridWaveDerivatives(
 )
 {
 
-	INT4		debugout = 1;
+	INT4		debugout = 0;
 	/* XLAL error handling */
 	INT4		errcode = XLAL_SUCCESS;
 
@@ -436,7 +436,7 @@ XLALSimIMREOBHybridAttachRingdown(
                   const REAL8 JLN           /**<< cosine of the angle between J and LN at the light ring */
 )
 {
-	INT4		debugout = 1;
+	INT4		debugout = 0;
 
 	COMPLEX16Vector *modefreqs;
 	//COMPLEX16 freq7sav;
@@ -754,8 +754,8 @@ XLALSimIMREOBHybridAttachRingdown(
         double omegaWavePeak = ((-dhRe*hIm + dhIm*hRe)/hNorm2) / mTot;
         
 		a = (chi1 + chi2) / 2. * (1.0 - 2.0 * eta) + (chi1 - chi2) / 2. * (mass1 - mass2) / (mass1 + mass2);
-		NRPeakOmega22 = GetNRSpinPeakOmegav2(l, m, eta, a) / mTot;
-        NRPeakOmega22 = omegaWavePeak;
+        NRPeakOmega22 = fabs(omegaWavePeak);
+		//NRPeakOmega22 = GetNRSpinPeakOmegav2(l, m, eta, a) / mTot;
 //        NRPeakOmega22 = omegaWavePeak/mTot;
 //        printf("(hRe, hIm, dhRe, dhIm)=(%.16e, %.16e, %.16e, %.16e)\n", hRe, hIm, dhRe, dhIm);
 //        printf("hNorm %.16e, tmatch %.16e\n",sqrt(hNorm2), matchrange->data[1]);
