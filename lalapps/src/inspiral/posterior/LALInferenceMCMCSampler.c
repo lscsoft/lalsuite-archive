@@ -58,7 +58,7 @@
 #define CVS_NAME_STRING "$Name$"
 
 const char *const parallelSwapProposalName = "ParallelSwap";
-const char *const clusteredKDEProposalName = "ClusteredKDEProposal";
+//const char *const clusteredKDEProposalName = "ClusteredKDEProposal";
 
 typedef enum {
   USES_DISTANCE_VARIABLE,
