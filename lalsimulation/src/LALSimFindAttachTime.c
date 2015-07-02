@@ -300,6 +300,7 @@ double  XLALSimLocateOmegaTime(
 double XLALSimLocateAmplTime(
     REAL8Vector *timeHi, 
     COMPLEX16Vector *hP22,
+    REAL8 *radiusVec,
     int *found)
 {
     int debugPK = 0;
@@ -309,9 +310,22 @@ double XLALSimLocateAmplTime(
     gsl_interp_accel *acc = NULL;
     if (debugPK) {debugRD = 0;}
     
+    double dt = timeHi->data[1] - timeHi->data[0];
+    double ddradiusVec[timeHi->length - 2];
+    unsigned int k;
+    for (k = 1; k < timeHi->length-1; k++) {
+        ddradiusVec[k] = (radiusVec[k+1] - 2.*radiusVec[k] + radiusVec[k-1])/dt/dt;
+//        printf("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
+    }
+    for (k = timeHi->length-3; k>=1; k--) {
+        if (ddradiusVec[k] < 0) {
+            break;
+        }
+    }
+    double minoff = dt*( timeHi->length-2 - k) > 0.2 ? dt*( timeHi->length-2 - k) : 0.2;
+//    printf("Change of sign in ddr %3.10f M before the end\n", minoff );
     // First we search for the maximum (extremum) of amplitude
     unsigned int i, peakIdx; 
-    double minoff = 0.2;
     double maxoff = 20.0;
     unsigned int Nps = timeHi->length; 
     // this definesthe search interval for maximum (we might use min0ff= 0.051 instead)

@@ -72,6 +72,7 @@ double  XLALSimLocateOmegaTime(
 double XLALSimLocateAmplTime(
     REAL8Vector *timeHi, 
     COMPLEX16Vector *hP22,
+    REAL8 *radiusVec,
     int *found
 );
     

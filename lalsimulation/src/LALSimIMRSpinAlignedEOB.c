@@ -157,8 +157,8 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   for ( i = 0; i < 3; i++ ) {
         dLdt[i] = dLdt1[i] + dLdt2[i];
   }
-  double LMag = sqrt( inner_product( L, L ) );
-  double LMagdot = inner_product( L, dLdt )/LMag;
+//  double LMag = sqrt( inner_product( L, L ) );
+//  double LMagdot = inner_product( L, dLdt )/LMag;
 
 //    printf("r = %3.10f\n", sqrt(r2));
 
@@ -211,16 +211,16 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
     return 1;
   }
     
-  /* Terminate if dL/dt > 0, i.e. angular momentum is increasing */
-  if(r2 < 16. && LMagdot > 0. )
-  {
-    if(debugPK){
-        printf("\n Integration stopping as d|L|/dt = %lf at r = %lf\n",
-                LMagdot, sqrt(r2));
-        fflush(NULL);
-    }
-    return 1;
-  }
+//  /* Terminate if dL/dt > 0, i.e. angular momentum is increasing */
+//  if(r2 < 16. && LMagdot > 0. )
+//  {
+//    if(debugPK){
+//        printf("\n Integration stopping as d|L|/dt = %lf at r = %lf\n",
+//                LMagdot, sqrt(r2));
+//        fflush(NULL);
+//    }
+//    return 1;
+//  }
     
 //    if(r2 < 16. && ( dvalues[12] < 0. || dvalues[13] < 0.)  ) {
 //        if(debugPK)printf("\n Integration stopping, psiDot<0.01\n");
@@ -3213,9 +3213,9 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
              i*deltaT/mTScaled, aI2P, bI2P, gI2P, aP2J, bP2J, gP2J );
       //fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
       //     vX, vY, vZ, LNhx, LNhy, LNhz, creal(hLM), cimag(hLM) );
-      fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
+      fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
                       polData[0], polData[1], polData[2], polData[3], ham, v, 
-                      creal(hLM), cimag(hLM) );  
+                      creal(hLM), cimag(hLM), creal(hLM/hNQC), cimag(hLM/hNQC) );
       fflush(NULL);
     }
 
@@ -3543,8 +3543,8 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     if (debugPK){
        fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e ",
              i*deltaTHigh/mTScaled + HiSRstart, aI2P, bI2P, gI2P, aP2J, bP2J, gP2J );
-       fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
-             vX, vY, vZ, LNhx, LNhy, LNhz, creal(hLM), cimag(hLM) );
+       fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e, %.16e\n",
+             vX, vY, vZ, LNhx, LNhy, LNhz, creal(hLM), cimag(hLM), polData[0]);
     }
 
     if ( XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform( &hLM, &polarDynamics, values, v, ham, 2, 1, &seobParams )
@@ -3614,8 +3614,22 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   }
   
   // Find tAmpMax to determin the tAttachment
-  int foundAmp = 0; 
-  double tAmpMax =  XLALSimLocateAmplTime(&timeHi, h22PTSHi->data, &foundAmp);
+    REAL8 *radiusVec;
+    REAL8 radiusData[retLen];
+    radiusVec = &radiusData[0];
+    for ( i = 0; i < retLen; i++ )
+    {
+        for ( j = 0; j < 3; j++ )
+        {
+            values->data[j] = dynamicsHi->data[(j+1)*retLen + i];
+        }
+        radiusData[i] = sqrt(values->data[0]*values->data[0] + values->data[1]*values->data[1] + values->data[2]*values->data[2]);
+    }
+    if (debugPK){
+        printf("Andrea the attachment time based on Omega is %f \n", tAttach);
+    }
+  int foundAmp = 0;
+  double tAmpMax =  XLALSimLocateAmplTime(&timeHi, h22PTSHi->data, radiusVec, &foundAmp);
   
   if(foundAmp==0){
       if (debugPK){
