@@ -632,7 +632,7 @@ int sf2_psi_SPA_coeffs_PN_order(
     const REAL8 eta /** Evans Eq (4.12) */
     )
 {
-    REAL8 euler_number = 0.5772156649015328606065120900824024310421;
+    REAL8 euler_number = LAL_GAMMA; //0.5772156649015328606065120900824024310421;
     PN_coeffs[0] = 1.0; /** 0th oprder newtonian */
     PN_coeffs[1] = 0.0; /** 0.5 PN order v^1*/
     PN_coeffs[2] = 3715.0/756.0 + 55.0*eta/9.0; /** 1.0 PN order v^2*/
