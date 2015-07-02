@@ -2724,6 +2724,8 @@ int XLALSimInspiralChooseFDWaveform(
             }
             else // for amplitude corrected waveform, use new code developed by Chunglee Kim and Jeongcho Kim
             {
+              if( f_ref != 0.)
+                XLALPrintWarning("XLAL Warning - %s with amplitude correction: This approximant does not use f_ref. The reference phase will be defined at coalescence.\n", __func__);
               printf("==== DBUG calling TaylorF2Amp phase order = %d, amplitude Order = %d\n", phaseO, amplitudeO);
               /* Call the waveform driver routine 
                  for amplitude corrected waveform, there are separated function for each h_plus and h_cross
