@@ -2263,9 +2263,16 @@ int XLALSimInspiralTaylorF2AmpPlus(
     REAL8 lnhatx,                   /* initial value of LNhatx */
     REAL8 lnhaty,                   /* initial value of LNhaty */
     REAL8 lnhatz,                   /* initial value of LNhatz */
+    const REAL8 f_ref,              /**< Reference GW frequency (Hz) - if 0 reference point is coalescence */
     REAL8 fStart,                   /* start GW frequency (Hz) */
     REAL8 f_max0,                   /* ending GW frequency (Hz) */
     REAL8 r,                        /* distance of source (m) */
+    const REAL8 quadparam1,                /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
+    const REAL8 quadparam2,                /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
+    const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
+    const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
+    const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
+    const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
     int phaseO,                     /* twice PN phase order */
     int amplitudeO                  /* twice PN amplitude order */
    );
@@ -2292,9 +2299,16 @@ int XLALSimInspiralTaylorF2AmpCross(
     REAL8 lnhatx,                          /** initial value of LNhatx */
     REAL8 lnhaty,                          /** initial value of LNhaty */
     REAL8 lnhatz,                          /** initial value of LNhatz */
+    const REAL8 f_ref,              /**< Reference GW frequency (Hz) - if 0 reference point is coalescence */
     REAL8 fStart,                          /** start GW frequency (Hz) */
     REAL8 f_max0,                          /** ending GW frequency (Hz) */
     REAL8 r,                               /** distance of source (m) */
+    const REAL8 quadparam1,                /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
+    const REAL8 quadparam2,                /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
+    const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
+    const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
+    const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
+    const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
     int phaseO,                            /** twice PN phase order */
     int amplitudeO                         /** twice PN amplitude order */
    );

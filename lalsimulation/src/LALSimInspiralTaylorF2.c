@@ -623,30 +623,62 @@ int sf2_psi_SPA_coeffs_PN_order(
     );
 /**
  calculate coefficients for each SPA phase PN order
- assume the maximum twice PN order to be 9
+ assume the maximum twice PN order to be PN_PHASING_SERIES_MAX_ORDER
+ PN coefficients are different, since ammplitude correction requires 
+ higher harmonics not only second harmonic.
 */
 int sf2_psi_SPA_coeffs_PN_order(
     REAL8 *PN_coeffs, /** coeffs for each PN order*/
-    const int phaseO,         /**< twice PN phase order */
     const sf2_spin_corr_amp *spin_corrections, /** spin correction coeffs. Eqs. (4.82,83,84)*/
     const REAL8 eta /** Evans Eq (4.12) */
+    const REAL8 m1, /**< Mass of body 1, in Msol */
+    const REAL8 m2, /**< Mass of body 2, in Msol */
+    const REAL8 chi1L, /**< Component of dimensionless spin 1 along Lhat */
+    const REAL8 chi2L, /**< Component of dimensionless spin 2 along Lhat */
+    const REAL8 chi1sq, /**< Magnitude of dimensionless spin 1 */
+    const REAL8 chi2sq, /**< Magnitude of dimensionless spin 2 */
+    const REAL8 chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
+    const REAL8 qm_def1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
+    const REAL8 qm_def2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
+    const LALSimInspiralSpinOrder spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
     )
 {
     REAL8 euler_number = LAL_GAMMA; //0.5772156649015328606065120900824024310421;
-    PN_coeffs[0] = 1.0; /** 0th oprder newtonian */
-    PN_coeffs[1] = 0.0; /** 0.5 PN order v^1*/
-    PN_coeffs[2] = 3715.0/756.0 + 55.0*eta/9.0; /** 1.0 PN order v^2*/
-    PN_coeffs[3] = 4.0*spin_corrections->beta - 16.0*LAL_PI ; /** 1.5 PN order v^3*/
-    PN_coeffs[4] = 15293365.0/508032.0 + 27145.0*eta/504.0 + 3085.0*eta*eta/72.0 
-                    - 10.0*spin_corrections->sigma; /** 2.0 PN order v^4*/
-    PN_coeffs[5] = 38645.0*LAL_PI/756.0 - 65.0*LAL_PI*eta/9.0 - spin_corrections->gamma; /** 2.5 PN order v^5*/
-    PN_coeffs[6] = 11583231236531.0/4694215680.0 - 6848.0*euler_number/21.0 - 640.0*LAL_PI*LAL_PI/3.0
-                    + (2255.0*LAL_PI*LAL_PI/12.0 - 15737765635.0/3048192.0)*eta 
-                    + 76055.0*eta*eta/1728.0 - 127825.0*eta*eta*eta/1296.0; /** 3.0 PN order v^6 from Evans nb file*/
-    PN_coeffs[7] = LAL_PI*(77096675.0/254016.0 + 378515.0*eta/1512.0 
-                    - 74045.0*eta*eta/756.0); /** 3.5 PN order v^7 from Evans nb file*/
-    PN_coeffs[8] = 0.0; /** 4.0 PN order v^8*/
-    PN_coeffs[9] = 0.0; /** 4.5 PN order v^9*/
+    PNPhasingSeries pfa;
+    memset(&pfa, sizeof(pfa));
+    XLALSimInspiralPNPhasing_F2(
+        &pfa, /**< \todo UNDOCUMENTED */
+        m1, /**< Mass of body 1, in Msol */
+        m2, /**< Mass of body 2, in Msol */
+        chi1L, /**< Component of dimensionless spin 1 along Lhat */
+        chi2L, /**< Component of dimensionless spin 2 along Lhat */
+        chi1sq, /**< Magnitude of dimensionless spin 1 */
+        chi2sq, /**< Magnitude of dimensionless spin 2 */
+        chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
+        qm_def1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
+        qm_def2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
+        spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
+        );
+    REAL8 eta = m1*m2/(m1+m2)/(m1+m2);
+    // recover PN coeffs without prefactor for higher harminics 
+    for(int i=0; i<PN_PHASING_SERIES_MAX_ORDER; i++)
+    {
+      PN_coeffs[i] = 128.0*eta/3.0*pfa.v[i];
+    }
+    //PN_coeffs[0] = 1.0; /** 0th oprder newtonian */
+    //PN_coeffs[1] = 0.0; /** 0.5 PN order v^1*/
+    //PN_coeffs[2] = 3715.0/756.0 + 55.0*eta/9.0; /** 1.0 PN order v^2*/
+    //PN_coeffs[3] = 4.0*spin_corrections->beta - 16.0*LAL_PI ; /** 1.5 PN order v^3*/
+    //PN_coeffs[4] = 15293365.0/508032.0 + 27145.0*eta/504.0 + 3085.0*eta*eta/72.0 
+    //                - 10.0*spin_corrections->sigma; /** 2.0 PN order v^4*/
+    //PN_coeffs[5] = 38645.0*LAL_PI/756.0 - 65.0*LAL_PI*eta/9.0 - spin_corrections->gamma; /** 2.5 PN order v^5*/
+    //PN_coeffs[6] = 11583231236531.0/4694215680.0 - 6848.0*euler_number/21.0 - 640.0*LAL_PI*LAL_PI/3.0
+    //                + (2255.0*LAL_PI*LAL_PI/12.0 - 15737765635.0/3048192.0)*eta 
+    //                + 76055.0*eta*eta/1728.0 - 127825.0*eta*eta*eta/1296.0; /** 3.0 PN order v^6 from Evans nb file*/
+    //PN_coeffs[7] = LAL_PI*(77096675.0/254016.0 + 378515.0*eta/1512.0 
+    //                - 74045.0*eta*eta/756.0); /** 3.5 PN order v^7 from Evans nb file*/
+    //PN_coeffs[8] = 0.0; /** 4.0 PN order v^8*/
+    //PN_coeffs[9] = 0.0; /** 4.5 PN order v^9*/
     return 0;
 }
 
@@ -1194,9 +1226,16 @@ int XLALSimInspiralTaylorF2AmpPlus(
     REAL8 lnhatx,                   /* initial value of LNhatx */
     REAL8 lnhaty,                   /* initial value of LNhaty */
     REAL8 lnhatz,                   /* initial value of LNhatz */
+    const REAL8 f_ref,              /**< Reference GW frequency (Hz) - if 0 reference point is coalescence */
     REAL8 fStart,                   /* start GW frequency (Hz) */
     REAL8 f_max0,                   /* ending GW frequency (Hz) */
     REAL8 r,                        /* distance of source (m) */
+    const REAL8 quadparam1,                /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
+    const REAL8 quadparam2,                /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
+    const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
+    const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
+    const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
+    const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
     int phaseO,                     /* twice PN phase order */
     int amplitudeO                  /* twice PN amplitude order */
    )
@@ -1223,7 +1262,7 @@ int XLALSimInspiralTaylorF2AmpPlus(
     COMPLEX16FrequencySeries *htilde; /** waveform data */
     LIGOTimeGPS tC = {0, 0}; 
     REAL8 overall_factor; 
-    REAL8 PN_coeffs_SPA[10]; /** PN order coefficients for SPA phase calculation*/
+    REAL8 PN_coeffs_SPA[PN_PHASING_SERIES_MAX_ORDER+1]; /** PN order phasing calculation coefficient series*/
     sf2_spin_corr_amp spin_corrections_SPA; /** spin correction coeffs beta, sigma, gamma Eqs. (4.82,83,84)*/
     REAL8 f_plus, f_cross, costh, sinth;
     COMPLEX16 amp;
@@ -1390,9 +1429,16 @@ int XLALSimInspiralTaylorF2AmpCross(
     REAL8 lnhatx,                          /** initial value of LNhatx */
     REAL8 lnhaty,                          /** initial value of LNhaty */
     REAL8 lnhatz,                          /** initial value of LNhatz */
+    const REAL8 f_ref,                     /**< Reference GW frequency (Hz) - if 0 reference point is coalescence */
     REAL8 fStart,                          /** start GW frequency (Hz) */
     REAL8 f_max0,                          /** ending GW frequency (Hz) */
     REAL8 r,                               /** distance of source (m) */
+    const REAL8 quadparam1,                /**< quadrupole deformation parameter of body 1 (dimensionless, 1 for BH) */
+    const REAL8 quadparam2,                /**< quadrupole deformation parameter of body 2 (dimensionless, 1 for BH) */
+    const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
+    const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
+    const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
+    const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
     int phaseO,                            /** twice PN phase order */
     int amplitudeO                         /** twice PN amplitude order */
    )
@@ -1419,7 +1465,7 @@ int XLALSimInspiralTaylorF2AmpCross(
     COMPLEX16FrequencySeries *htilde; /** waveform data */
     LIGOTimeGPS tC = {0, 0}; 
     REAL8 overall_factor; 
-    REAL8 PN_coeffs_SPA[10]; /** PN order coefficients for SPA phase calculation*/
+    REAL8 PN_coeffs_SPA[PN_PHASING_SERIES_MAX_ORDER+1]; /** PN order phasing calculation coefficient series*/
     sf2_spin_corr_amp spin_corrections_SPA; /** spin correction coeffs beta, sigma, gamma Eqs. (4.82,83,84)*/
     REAL8 f_plus, f_cross, costh, sinth;
     COMPLEX16 amp;
