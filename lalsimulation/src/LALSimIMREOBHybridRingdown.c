@@ -881,7 +881,7 @@ XLALSimIMREOBHybridAttachRingdown(
 				matchrange->data[0] -= fmod(matchrange->data[0], dt / mTot);
 		matchrange->data[1] -= fmod(matchrange->data[1], dt / mTot);
 		if (debugout) {
-			printf("NRPeakOmega22 = %3.10f\n", NRPeakOmega22 * mTot);
+			printf("NRPeakOmega22 = %3.10f,  %3.10f,  %3.10f,  %3.10f\n", NRPeakOmega22 * mTot /finalMass, NRPeakOmega22 / finalMass,  finalMass,  mTot);
 			for (j = 0; j < nmodes; j++) {
 				printf("QNM frequencies: %d %d %d %3.10f %3.10f\n", l, m, j, creal(modefreqs->data[j]) * mTot, 1. / cimag(modefreqs->data[j]) / mTot);
 			}

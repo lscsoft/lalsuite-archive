@@ -265,12 +265,16 @@ XLALInspiralPrecSpinFactorizedFlux(
   if (1){
     for( i =0; i < 4; i++)
       if( isnan(polvalues->data[i]) ) {
-        printf("XLALInspiralPrecSpinFactorizedFlux (from input)::polvalues %3.10f %3.10f %3.10f %3.10f\n", polvalues->data[0], polvalues->data[1], polvalues->data[2], polvalues->data[3]);
+          printf("XLALInspiralPrecSpinFactorizedFlux (from input)::polvalues %3.10f %3.10f %3.10f %3.10f\n", polvalues->data[0], polvalues->data[1], polvalues->data[2], polvalues->data[3]);
+          XLALPrintError( "XLAL Error - %s: nan polvalues:  %3.10f %3.10f %3.10f %3.10f  \n", __func__, polvalues->data[0], polvalues->data[1], polvalues->data[2], polvalues->data[3] );
+          XLAL_ERROR( XLAL_EINVAL );
       }
     
     for( i =0; i < 12; i++)
       if( isnan(values->data[i]) ) {
         printf("XLALInspiralPrecSpinFactorizedFlux (from input)::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values->data[0], values->data[1], values->data[2], values->data[3], values->data[4], values->data[5], values->data[6], values->data[7], values->data[8], values->data[9], values->data[10], values->data[11]);
+          XLALPrintError( "XLAL Error - %s: nan  in input values:  %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f  \n", __func__,  values->data[0], values->data[1], values->data[2], values->data[3], values->data[4], values->data[5], values->data[6], values->data[7], values->data[8], values->data[9], values->data[10], values->data[11] );
+          XLAL_ERROR( XLAL_EINVAL );
       }
   }
     

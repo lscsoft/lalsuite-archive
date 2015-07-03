@@ -571,6 +571,8 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
 	  printf( "H = %.16e\n", H );
 
     printf("Done printing components.\n\n");
+    XLALPrintError( "XLAL Error - %s: Hreal = nan in Hamiltonian \n", __func__);
+    XLAL_ERROR( XLAL_EINVAL );
   }
 
   return Hreal;
@@ -946,6 +948,8 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
     for(int i =0; i < 12; i++)
       if( isnan(values[i]) ) {
         printf("XLALSimIMRSpinEOBCalcOmega::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+          XLALPrintError( "XLAL Error - %s: nan in input values  \n", __func__);
+          XLAL_ERROR( XLAL_EINVAL );
       }
   }
   
@@ -1017,6 +1021,8 @@ static REAL8 XLALSimIMRSpinEOBCalcOmega(
     for(int ii =0; ii < 12; ii++)
       if( isnan(dvalues[ii]) ) {
         printf("XLALSimIMRSpinEOBCalcOmega::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
+          XLALPrintError( "XLAL Error - %s: nan in dvalues \n", __func__);
+          XLAL_ERROR( XLAL_EINVAL );
       }
   }
     
@@ -1195,6 +1201,8 @@ XLALSimIMRSpinEOBNonKeplerCoeff(
         printf("XLALSimIMRSpinEOBNonKeplerCoeff::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n",
         values[0], values[1], values[2], values[3], values[4], values[5],
         values[6], values[7], values[8], values[9], values[10], values[11]);
+          XLALPrintError( "XLAL Error - %s: nan in values  \n", __func__);
+          XLAL_ERROR( XLAL_EINVAL );
       }
   }
 
@@ -1229,17 +1237,21 @@ UNUSED static int XLALSpinHcapRvecDerivative(
                                )
 {
   UNUSED int debugPK = 1;
-  if (debugPK){
+  //if (debugPK){
     for(int i =0; i < 12; i++){
       if( isnan(values[i]) ) {
         printf("XLALSpinHcapRvecDerivative::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+          XLALPrintError( "XLAL Error - %s: nan in input values \n", __func__);
+          XLAL_ERROR( XLAL_EINVAL );
         }
         
       if( isnan(dvalues[i]) ) {
         printf("XLALSpinHcapRvecDerivative::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
+          XLALPrintError( "XLAL Error - %s: nan in the input dvalues \n", __func__);
+          XLAL_ERROR( XLAL_EINVAL );
         }
-      }
-  }
+    }
+  //}
 
   static const REAL8 STEP_SIZE = 1.0e-4;
 
@@ -1418,7 +1430,11 @@ UNUSED static int XLALSpinHcapRvecDerivative(
 
   a = sqrt(sKerr.data[0]*sKerr.data[0] + sKerr.data[1]*sKerr.data[1] 
       + sKerr.data[2]*sKerr.data[2]);
- 
+
+  if (isnan(a)){
+      XLALPrintError( "XLAL Error - %s: a = nan   \n", __func__);
+      XLAL_ERROR( XLAL_EINVAL );
+  } 
   if(debugPK && isnan(a))
     printf("a is nan in XLALSpinHcapRvecDerivative \n");
     
@@ -1507,17 +1523,21 @@ UNUSED static int XLALSpinHcapRvecDerivative(
 		+ rData[i]*rData[j]*rData[k]/rMag2/rMag*(-2./rMag*(csi - 1.) + dcsi);
 		}
 	
-  if (debugPK){
+  //if (debugPK){
     for(i =0; i < 12; i++){
       if( isnan(values[i]) ) {
         printf("XLALSpinHcapRvecDerivative (just before diff)::values %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11]);
+          XLALPrintError( "XLAL Error - %s: values = nan   \n", __func__);
+          XLAL_ERROR( XLAL_EINVAL );
         }
         
       if( isnan(dvalues[i]) ) {
         printf("XLALSpinHcapRvecDerivative (just before diff)::dvalues %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5], dvalues[6], dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11]);
+          XLALPrintError( "XLAL Error - %s: dvalues = nan   \n", __func__);
+          XLAL_ERROR( XLAL_EINVAL );
         }
       }
-}
+//}
 
   /* Now calculate derivatives w.r.t. each parameter */
   for ( i = 0; i < 6; i++ )
@@ -1749,7 +1769,9 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
   //printf( "aStar = %e\n", sqrt( sigmaStar.data[0]*sigmaStar.data[0] + sigmaStar.data[1]*sigmaStar.data[1] + sigmaStar.data[2]*sigmaStar.data[2]) );
   if ( isnan( a ) )
   {
-    printf( "a is nan in GSLSpinHamiltonianWrapperForRvecDerivs!!\n");
+      printf( "a is nan in GSLSpinHamiltonianWrapperForRvecDerivs!!\n");
+      XLALPrintError( "XLAL Error - %s: a = nan   \n", __func__);
+      XLAL_ERROR( XLAL_EINVAL );
   }
   //XLALSimIMRCalculateSpinEOBHCoeffs( dParams->params->seobCoeffs, eobParams->eta, a );
   /* If computing the derivative w.r.t. the position vector, we need to 
@@ -1829,6 +1851,8 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
       printf("GSLSpinHamiltonianWrapperForRvecDerivs (JUST inputs)::tmpVec %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", tmpVec[0], tmpVec[1], tmpVec[2], tmpVec[3], tmpVec[4], tmpVec[5], tmpVec[6], tmpVec[7], tmpVec[8], tmpVec[9], tmpVec[10], tmpVec[11]);
       
       printf(" R = %3.10f\n\n", sqrt(magR));
+      XLALPrintError( "XLAL Error - %s: H = nan   \n", __func__);
+      XLAL_ERROR( XLAL_EINVAL );
     }
     
   if ( dParams->varyParam < 3 )dParams->params->tortoise = oldTortoise;
@@ -1948,7 +1972,8 @@ static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params )
     printf( "a is nan in GSLSpinHamiltonianWrapperFordHdpphi !!\n");
       printf("rpolar, ppolar = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", rpolar[0], rpolar[1], rpolar[2], ppolar[0], ppolar[1], ppolar[2]);
       printf("rcart, pcart = %3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", rcart[0], rcart[1], rcart[2], pcart[0], pcart[1], pcart[2]);
-      abort();
+      XLALPrintError( "XLAL Error - %s: a = nan   \n", __func__);
+      XLAL_ERROR( XLAL_EINVAL );
   }
   //XLALSimIMRCalculateSpinEOBHCoeffs( dParams->params->seobCoeffs, eobParams->eta, a );
   /* If computing the derivative w.r.t. the position vector, we need to 

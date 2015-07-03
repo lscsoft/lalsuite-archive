@@ -1465,6 +1465,10 @@ GSLSpinHamiltonianWrapper(double x, void *params)
 		 + sigmaKerr.data[2] * sigmaKerr.data[2]);
 	//printf("a = %e\n", a);
 	//printf("aStar = %e\n", sqrt(sigmaStar.data[0] * sigmaStar.data[0] + sigmaStar.data[1] * sigmaStar.data[1] + sigmaStar.data[2] * sigmaStar.data[2]));
+	if (isnan(a) ) {
+          XLALPrintError( "XLAL Error - %s: a = nan  \n", __func__);
+          XLAL_ERROR( XLAL_EINVAL );
+	}
 	if (isnan(a) && debugPK) {
 		printf("a is nan!!\n");
 	}
@@ -1598,7 +1602,9 @@ GSLSpinHamiltonianWrapperV2(double x, void *params)
 	//printf("a = %e\n", a);
 	//printf("aStar = %e\n", sqrt(sigmaStar.data[0] * sigmaStar.data[0] + sigmaStar.data[1] * sigmaStar.data[1] + sigmaStar.data[2] * sigmaStar.data[2]));
 	if (isnan(a)) {
-		printf("a is nan!!\n");
+		  printf("a is nan!!\n");
+          XLALPrintError( "XLAL Error - %s: a = nan  \n", __func__);
+          XLAL_ERROR( XLAL_EINVAL );
 	}
 	//XLALSimIMRCalculateSpinEOBHCoeffs(dParams->params->seobCoeffs, eobParams->eta, a);
 	if (UsePrec) {

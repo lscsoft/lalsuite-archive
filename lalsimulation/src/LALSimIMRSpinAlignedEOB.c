@@ -19,7 +19,7 @@
 */
 
 /**
- * \author Craig Robinson, Yi Pan, Prayush Kumar, Stas Babak
+ * \author Craig Robinson, Yi Pan, Prayush Kumar, Stas Babak, Andrea Taracchini
  *
  * \file
  *
@@ -170,9 +170,12 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   for( i = 0; i < 12; i++ )
   {
 	  if( isnan(dvalues[i]) || isnan(values[i]) )
-	  {
-		  if(debugPK){printf("\n isnan reached. r2 = %f\n", r2); fflush(NULL); }
-		  return 1;
+	  {          
+		  if(debugPK){printf("\n  isnan reached. r2 = %f\n", r2); fflush(NULL); }
+          XLALPrintError( "XLAL Error - %s: nan reached at r2 = %f \n", __func__, r2);
+          XLAL_ERROR( XLAL_EINVAL );
+
+		  //return 1;
 	  }
   }
   
@@ -367,7 +370,9 @@ XLALSpinAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
 {
   if ( dvalues[2] >= 0. || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
   {
-    return 1;
+      XLALPrintError( "XLAL Error - %s: nan in dvalues \n", __func__);
+      XLAL_ERROR( XLAL_EINVAL );
+      //return 1;
   }
   return GSL_SUCCESS;
 }
@@ -2893,6 +2898,9 @@ int XLALSimIMRSpinEOBWaveform(
   
   // (Stas) !!! NOTE: tAttach is further modified by small shift "sh" computed and applied in XLALSimIMREOBHybridAttachRingdown !!!
   tAttach = tPeakOmega - deltaNQC;
+  // FIXME
+  //tAttach = 144.0;
+  
   if (! found){
      tAttach = tPeakOmega;
   }
