@@ -317,8 +317,15 @@ double XLALSimLocateAmplTime(
         ddradiusVec[k] = (radiusVec[k+1] - 2.*radiusVec[k] + radiusVec[k-1])/dt/dt;
 //        printf("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
     }
-    for (k = timeHi->length-3; k>=1; k--) {
-        if (ddradiusVec[k] < 0) {
+//    for (k = timeHi->length-3; k>=1; k--) {
+//        printf("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
+//        if (ddradiusVec[k] < 0) {
+//            break;
+//        }
+//    }
+    for (k = 0; k < timeHi->length-2; k++) {
+//        printf("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
+        if (dt*k > 0.1*dt*( timeHi->length-2) && ddradiusVec[k] > 0) {
             break;
         }
     }
