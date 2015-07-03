@@ -463,6 +463,8 @@ int XLALSimInspiralChooseFDWaveformFromCache(
         REAL8 lambda2,                          /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
         LALSimInspiralWaveformFlags *waveFlags, /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
         LALSimInspiralTestGRParam *nonGRparams, /**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
+        REAL8 ecc,                              /**< eccentricity effect control < 0 : no eccentricity effect */
+        REAL8 f_ecc,                            /**< eccentricity effect reference frequency */
         int amplitudeO,                         /**< twice post-Newtonian amplitude order */
         int phaseO,                             /**< twice post-Newtonian order */
         Approximant approximant,                /**< post-Newtonian approximant to use for waveform production */
@@ -484,7 +486,7 @@ int XLALSimInspiralChooseFDWaveformFromCache(
     if ( nonGRparams != NULL || (!cache) )
         return XLALSimInspiralChooseFDWaveform(hptilde, hctilde, phiRef, deltaF,
                 m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_max, f_ref, r, i,
-                lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO,
+                lambda1, lambda2, waveFlags, nonGRparams, ecc, f_ecc, amplitudeO, phaseO,
                 approximant);
 
     // Check which parameters have changed
@@ -514,20 +516,20 @@ int XLALSimInspiralChooseFDWaveformFromCache(
         if ( frequencies != NULL ){
             status =  XLALSimInspiralChooseFDWaveformSequence(hptilde, hctilde, phiRef,
                 m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_ref,
-                r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO,
+                r, i, lambda1, lambda2, waveFlags, nonGRparams, ecc, f_ecc, amplitudeO,
                 phaseO, approximant,frequencies);
         }
         else {
             status = XLALSimInspiralChooseFDWaveform(hptilde, hctilde, phiRef,
                 deltaF, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_max, f_ref,
-                r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO,
+                r, i, lambda1, lambda2, waveFlags, nonGRparams, ecc, f_ecc, amplitudeO,
                 phaseO, approximant);
         }
         if (status == XLAL_FAILURE) return status;
 
         return StoreFDHCache(cache, *hptilde, *hctilde, phiRef, deltaF, m1, m2,
             S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, f_max, r, i, lambda1, lambda2,
-            waveFlags, nonGRparams, amplitudeO, phaseO, approximant, frequencies);
+            waveFlags, nonGRparams, ecc, f_ecc, amplitudeO, phaseO, approximant, frequencies);
     }
 
     // case 1: Non-precessing, 2nd harmonic only
@@ -541,13 +543,13 @@ int XLALSimInspiralChooseFDWaveformFromCache(
             if ( frequencies != NULL ){
                 status =  XLALSimInspiralChooseFDWaveformSequence(hptilde, hctilde, phiRef,
                     m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_ref,
-                    r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO,
+                    r, i, lambda1, lambda2, waveFlags, nonGRparams, ecc, f_ecc, amplitudeO,
                     phaseO, approximant,frequencies);
             }
             else {
                 status = XLALSimInspiralChooseFDWaveform(hptilde, hctilde, phiRef,
                     deltaF, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_max, f_ref,
-                    r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO,
+                    r, i, lambda1, lambda2, waveFlags, nonGRparams, ecc, f_ecc, amplitudeO,
                     phaseO, approximant);
             }
             if (status == XLAL_FAILURE) return status;
