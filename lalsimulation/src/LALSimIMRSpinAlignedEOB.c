@@ -3650,8 +3650,9 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
       }
   }
   if( foundAmp==0 && found == 0){
-      printf("Houston, we've got a problem SOS, SOS, SOS, cannot find the RD attachment point...\n");
-      abort();
+      XLALPrintError("Houston, we've got a problem SOS, SOS, SOS, cannot find the RD attachment point...\n");
+      XLAL_ERROR( XLAL_EINVAL );
+      
   }
    
   
@@ -3755,7 +3756,8 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
 
   if ( combSize > tAttach )
   {
-    XLALPrintError( "The comb size looks to be too big!!!\n" );
+      XLALPrintError( "Function: %s, The comb size looks to be too big!!!\n", __func__ );
+      XLAL_ERROR( XLAL_EINVAL );
   }
   rdMatchPoint->data[0] = combSize < tAttach ? tAttach - combSize : 0;
   rdMatchPoint->data[1] = tAttach;
