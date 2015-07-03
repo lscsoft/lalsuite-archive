@@ -2727,11 +2727,11 @@ int XLALSimInspiralChooseFDWaveform(
               printf("==== DBUG calling TaylorF2Amp phase order = %d, amplitude Order = %d\n", phaseO, amplitudeO);
               /* Call the waveform driver routine 
                  for amplitude corrected waveform, there are separated function for each h_plus and h_cross
-                 Standard TaylorF2 waveform ignore inclination angle i (is this correct?)
+                 only valid for spin-aligned case
               */
-              LNhatx = sin(i);
-              LNhaty = 0.;
-              LNhatz = cos(i);
+              LNhatx = 0.0;
+              LNhaty = 0.0;
+              LNhatz = 1.0
               ret = XLALSimInspiralTaylorF2AmpPlus(
                     hptilde, /**< frequency-domain waveform */
                     phiRef,                     /**< orbital coalescence phase (rad) */

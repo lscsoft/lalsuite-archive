@@ -194,7 +194,7 @@ int XLALSimInspiralTaylorF2Core(
     REAL8 pft12 = 0.;
     switch( tideO )
     {
-	    case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
+	case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
 	    pft12 = pfaN * (lambda1*XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m1OverM) + lambda2*XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m2OverM) );
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_5PN:
@@ -626,6 +626,7 @@ int sf2_psi_SPA_coeffs_PN_order(
     const REAL8 chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
     const REAL8 qm_def1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
     const REAL8 qm_def2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
+    const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
     const LALSimInspiralSpinOrder spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
     );
 /**
@@ -645,6 +646,7 @@ int sf2_psi_SPA_coeffs_PN_order(
     const REAL8 chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
     const REAL8 qm_def1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
     const REAL8 qm_def2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
+    const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
     const LALSimInspiralSpinOrder spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
     )
 {
@@ -665,7 +667,7 @@ int sf2_psi_SPA_coeffs_PN_order(
         );
     REAL8 eta = m1*m2/(m1+m2)/(m1+m2);
     // recover PN coeffs without prefactor for higher harminics 
-    for(int i=0; i<PN_PHASING_SERIES_MAX_ORDER; i++)
+    for(int i=0; i<=PN_PHASING_SERIES_MAX_ORDER; i++)
     {
       PN_coeffs[i] = 128.0*eta/3.0*pfa.v[i];
     }
@@ -683,6 +685,25 @@ int sf2_psi_SPA_coeffs_PN_order(
     //                - 74045.0*eta*eta/756.0); /** 3.5 PN order v^7 from Evans nb file*/
     //PN_coeffs[8] = 0.0; /** 4.0 PN order v^8*/
     //PN_coeffs[9] = 0.0; /** 4.5 PN order v^9*/
+    /* Generate tidal terms separately.
+     * Enums specifying tidal order are in LALSimInspiralWaveformFlags.h
+     */
+    REAL8 pft10 = 0.;
+    REAL8 pft12 = 0.;
+    switch( tideO )
+    {
+	case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
+	    pft12 = (lambda1*XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m1OverM) + lambda2*XLALSimInspiralTaylorF2Phasing_12PNTidalCoeff(m2OverM) );
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_5PN:
+            pft10 = ( lambda1*XLALSimInspiralTaylorF2Phasing_10PNTidalCoeff(m1OverM) + lambda2*XLALSimInspiralTaylorF2Phasing_10PNTidalCoeff(m2OverM) );
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
+            break;
+        default:
+            XLAL_ERROR(XLAL_EINVAL, "Invalid tidal PN order %d", tideO);
+    }
+    PN_coeffs[12] += pft12;
+    PN_coeffs[10] += pft10;
     return 0;
 }
 
@@ -692,6 +713,7 @@ REAL8 sf2_psi_SPA(
     const int k,            /** harmonics number  */
     const REAL8 shft,       /** shift factor 2*Pi*t_c */
     const REAL8 phic,       /** orbital coalescence phase (rad) */
+    const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
     const int phaseOrder,   /** twice PN phase order */
     const REAL8 *PN_coeffs, /** coeffs for each PN order*/
     const REAL8 m,          /** total mass */
@@ -703,6 +725,7 @@ REAL8 sf2_psi_SPA(
     const int k,            /** harmonics number  */
     const REAL8 shft,       /** shift factor 2*Pi*t_c */
     const REAL8 phic,       /** orbital coalescence phase (rad) */
+    const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
     const int phaseOrder,   /** twice PN phase order */
     const REAL8 *PN_coeffs, /** coeffs for each PN order this should be calculated before calling this function*/
     const REAL8 m,          /** total mass */
@@ -714,13 +737,14 @@ REAL8 sf2_psi_SPA(
     const REAL8 m_sec = m * LAL_MTSUN_SI;  /* total mass in seconds */
     const REAL8 two_piM = LAL_TWOPI * m_sec;
     const REAL8 v = cbrt(two_piM*f_k);
-    REAL8 vs[9]={0};
+    REAL8 vs[PN_PHASING_SERIES_MAX_ORDER+1]={0};
     REAL8 pre_factor;
     int i;
     // set values for power of v
     vs[0] = 1.0;
     vs[5] = v*v*v*v*v;
-    for(i=1; i<=phaseOrder; i++)  
+    //for(i=1; i<=phaseOrder; i++)  
+    for(i=1; i<=PN_PHASING_SERIES_MAX_ORDER; i++)  
     {
         vs[i] = vs[i-1]*v;
     }
@@ -741,6 +765,18 @@ REAL8 sf2_psi_SPA(
         {
             psi += PN_coeffs[i]*vs[i];
         }
+    }
+    switch( tideO )
+    {
+	case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
+            psi += PN_coeffs[12] * vs[12];
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_5PN:
+            psi += PN_coeffs[10] * vs[10];
+        case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
+            break;
+        default:
+            XLAL_ERROR(XLAL_EINVAL, "Invalid tidal PN order %d", tideO);
     }
     return shft*f_k - phic + pre_factor*psi;
 }
@@ -1271,6 +1307,8 @@ int XLALSimInspiralTaylorF2AmpPlus(
     REAL8 f_plus, f_cross, costh, sinth;
     COMPLEX16 amp;
     sf2_amp_corr_param amp_corr_param;
+    const REAL8 m1OverM = m1 / m;
+    const REAL8 m2OverM = m2 / m;
 
     REAL8 alpha, alpha_ref, zeta, zeta_ref, beta, phasing;
     COMPLEX16 prec_fac;
@@ -1285,8 +1323,8 @@ int XLALSimInspiralTaylorF2AmpPlus(
     /** calculate frequency independent coeffcients */
     overall_factor = m*m/r*LAL_MTSUN_SI*LAL_MRSUN_SI*sqrt(5.0*LAL_PI*eta/48.0); /** overall factor of Eq. (4.72) */
     // calculate spin correction coeffs
-    spin_corrections_SPA = 
-        sf2_spin_corrections_amp(m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, LNhatx, LNhaty, LNhatz);
+    //spin_corrections_SPA = 
+    //    sf2_spin_corrections_amp(m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, LNhatx, LNhaty, LNhatz);
     // calculate PN_coeffs_SPA 
     REAL8 chi1L = S1x*LNhatz + S1y*LNhaty + S1z*LNhatz;
     REAL8 chi2L = S2x*LNhatz + S2y*LNhaty + S2z*LNhatz;
@@ -1303,6 +1341,7 @@ int XLALSimInspiralTaylorF2AmpPlus(
         chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
         quadparam1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
         quadparam2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
+        tideO,  /**< flag to control tidal effects */
         spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
         );
 
@@ -1390,13 +1429,14 @@ int XLALSimInspiralTaylorF2AmpPlus(
     iEnd = n;
     //iEnd = (size_t) (f_max / deltaF);
     //iEnd = (iEnd < n) ? iEnd : n;  /* overflow protection; should we warn? */
+
     // add f_ref effect
     REAL8 phasing_ref[MAX_HARMONICS+1]={0};
     if(f_ref > 0.0)
     {
       for(k=1; k<=MAX_HARMONICS; k++)
       {
-        phasing_ref[k] = sf2_psi_SPA(f_ref, k, shft, phic, phaseO, PN_coeffs_SPA, m, eta)
+        phasing_ref[k] = sf2_psi_SPA(f_ref, k, shft, phic, tideO, phaseO, PN_coeffs_SPA, m, eta)
                          - shft*f_ref/k + phic; // we need this since we want only Psi_SPA^(k)(f_ref/k)
       }
     }
@@ -1407,7 +1447,7 @@ int XLALSimInspiralTaylorF2AmpPlus(
       data[i] = 0.0 + 0.0j;
       for (k = 1; k <= MAX_HARMONICS; k++) // up to 7th harmonics
       {            
-        phasing = sf2_psi_SPA(f, k, shft, phic, phaseO, PN_coeffs_SPA, m, eta)-phasing_ref[k];
+        phasing = sf2_psi_SPA(f, k, shft, phic, tideO, phaseO, PN_coeffs_SPA, m, eta) - phasing_ref[k];
         for (n = 0; n <= amplitudeO; n++)
         {
           amp = sf2_amp_SPA_plus(f, n, k, fStart, fISCO, &amp_corr_param);
@@ -1483,6 +1523,8 @@ int XLALSimInspiralTaylorF2AmpCross(
     REAL8 f_plus, f_cross, costh, sinth;
     COMPLEX16 amp;
     sf2_amp_corr_param amp_corr_param;
+    const REAL8 m1OverM = m1 / m;
+    const REAL8 m2OverM = m2 / m;
 
     REAL8 alpha, alpha_ref, zeta, zeta_ref, beta, phasing;
     COMPLEX16 prec_fac;
@@ -1497,8 +1539,8 @@ int XLALSimInspiralTaylorF2AmpCross(
     /** calculate frequency independent coeffcients */
     overall_factor = m*m/r*LAL_MTSUN_SI*LAL_MRSUN_SI*sqrt(5.0*LAL_PI*eta/48.0); /** overall factor of Eq. (4.72) */
     // calculate spin correction coeffs
-    spin_corrections_SPA = 
-        sf2_spin_corrections_amp(m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, LNhatx, LNhaty, LNhatz);
+    //spin_corrections_SPA = 
+    //    sf2_spin_corrections_amp(m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, LNhatx, LNhaty, LNhatz);
     // calculate PN_coeffs_SPA 
     REAL8 chi1L = S1x*LNhatz + S1y*LNhaty + S1z*LNhatz;
     REAL8 chi2L = S2x*LNhatz + S2y*LNhaty + S2z*LNhatz;
@@ -1515,6 +1557,7 @@ int XLALSimInspiralTaylorF2AmpCross(
         chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
         quadparam1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
         quadparam2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
+        tideO,  /**< flag to control tidal effects */
         spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
         );
 
@@ -1603,7 +1646,7 @@ int XLALSimInspiralTaylorF2AmpCross(
     {
       for(k=1; k<=MAX_HARMONICS; k++)
       {
-        phasing_ref[k] = sf2_psi_SPA(f_ref, k, shft, phic, phaseO, PN_coeffs_SPA, m, eta)
+        phasing_ref[k] = sf2_psi_SPA(f_ref, k, shft, phic, tideO, phaseO, PN_coeffs_SPA, m, eta)
                          - shft*f_ref/k + phic; // we need this since we want only Psi_SPA^(k)(f_ref/k)
       }
     }
@@ -1614,7 +1657,7 @@ int XLALSimInspiralTaylorF2AmpCross(
     data[i] = 0.0 + 0.0j;
     for (k = 1; k <= MAX_HARMONICS; k++) // up to 7th harmonics
     {
-        phasing = sf2_psi_SPA(f, k, shft, phic, phaseO, PN_coeffs_SPA, m, eta)-phasing_ref[k];
+        phasing = sf2_psi_SPA(f, k, shft, phic, tideO, phaseO, PN_coeffs_SPA, m, eta)-phasing_ref[k];
         for (n = 0; n <= amplitudeO; n++)
         {
             amp = sf2_amp_SPA_cross(f, n, k, fStart, fISCO, &amp_corr_param);
