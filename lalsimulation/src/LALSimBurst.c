@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 J. Creighton, K. Cannon
+ * Copyright (C) 2007--2015 J. Creighton, K. Cannon, K. Wette, R. Prix, A. Mercer
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -41,21 +41,43 @@
 #include <lal/Date.h>
 #include "check_series_macros.h"
 
+
 /*
  * ============================================================================
  *
- *          Fill a time series with stationary white Gaussian noise
+ *                              Static Functions
  *
  * ============================================================================
  */
 
 
-static void gaussian_noise(REAL8TimeSeries * series, REAL8 rms, gsl_rng * rng)
+/*
+ * Fill a time series with stationary white Gaussian noise
+ */
+
+
+static void gaussian_noise(REAL8TimeSeries * series, double rms, gsl_rng * rng)
 {
 	unsigned i;
 
 	for(i = 0; i < series->data->length; i++)
 		series->data->data[i] = gsl_ran_gaussian(rng, rms);
+}
+
+
+/*
+ * compute semimajor and semiminor axes lengths from eccentricity assuming
+ * that a^2 + b^2 = 1.  eccentricity is e = \sqrt{1 - (b / a)^2}.  from
+ * those two constraints the following expressions are obtained.
+ */
+
+
+static void semi_major_minor_from_e(double e, double *a, double *b)
+{
+	double e2 = e * e;
+
+	*a = 1.0 / sqrt(2.0 - e2);
+	*b = *a * sqrt(1.0 - e2);
 }
 
 
@@ -288,10 +310,11 @@ int XLALGenerateImpulseBurst(
 	int length;
 	LIGOTimeGPS epoch;
 
-	/* length is 1353 samples, because it's 13:53 right now and it's an
-	 * odd integer */
+	/* length is 39 samples which is odd and one more than twice the
+	 * length of the interpolation kernel in
+	 * XLALSimDetectorStrainREAL8TimeSeries() at the time of writing */
 
-	length = 1353;
+	length = 39;
 
 	/* the middle sample is t = 0 */
 
@@ -342,6 +365,10 @@ int XLALGenerateImpulseBurst(
  * bandwidth
  * frequency domain Gaussian envelope is \f$\propto \exp ( -\frac{1}{2} (f - f_{0})^{2} / bandwidth^{2} )\f$
  * where f and bandwidth are in Hertz.
+ * eccentricity
+ * controls the relative amplitudes of the \f$h_{+}\f$ and \f$h_{\times}\f$
+ * components.  eccentricity=0 --> equal amplitudes, eccentricity=1 -->
+ * \f$h_{\times}=0\f$ (linearly polarized \f$h_{+}\f$).
  * int_hdot_squared
  * waveform is normalized so that \f$\int (\stackrel{.}{h}_{+}^{2} + \stackrel{.}{h}_{\times}^{2}) d t\f$
  * equals this
@@ -374,12 +401,14 @@ int XLALGenerateBandAndTimeLimitedWhiteNoiseBurst(
 	REAL8 duration,
 	REAL8 frequency,
 	REAL8 bandwidth,
+	REAL8 eccentricity,
 	REAL8 int_hdot_squared,
 	REAL8 delta_t,
 	gsl_rng *rng
 )
 {
 	int length;
+	double a, b;
 	LIGOTimeGPS epoch;
 	COMPLEX16FrequencySeries *tilde_hplus, *tilde_hcross;
 	REAL8Window *window;
@@ -394,7 +423,7 @@ int XLALGenerateBandAndTimeLimitedWhiteNoiseBurst(
 	/* check input.  checking if sigma_t_squared < 0 is equivalent to
 	 * checking if duration * bandwidth < LAL_2_PI */
 
-	if(duration < 0 || bandwidth < 0 || sigma_t_squared < 0 || int_hdot_squared < 0 || delta_t <= 0) {
+	if(duration < 0 || bandwidth < 0 || eccentricity < 0 || eccentricity > 1 || sigma_t_squared < 0 || int_hdot_squared < 0 || delta_t <= 0) {
 		XLALPrintError("%s(): invalid input parameters\n", __func__);
 		*hplus = *hcross = NULL;
 		XLAL_ERROR(XLAL_EINVAL);
@@ -476,7 +505,9 @@ int XLALGenerateBandAndTimeLimitedWhiteNoiseBurst(
 	 * time-domain window, with \sigma_{f} = \Delta f / 2.  the window
 	 * is created with its peak on the middle sample, which we need to
 	 * shift to the sample corresponding to the injection's centre
-	 * frequency. */
+	 * frequency.  we also apply the eccentricity amplitude adjustments
+	 * at this stage (last chance before the overall normalization is
+	 * computed). */
 
 	window = XLALCreateGaussREAL8Window(2 * tilde_hplus->data->length + 1, (tilde_hplus->data->length * tilde_hplus->deltaF) / (bandwidth / 2.0));
 	if(!window) {
@@ -488,9 +519,10 @@ int XLALGenerateBandAndTimeLimitedWhiteNoiseBurst(
 		XLAL_ERROR(XLAL_EFUNC);
 	}
 	XLALResizeREAL8Sequence(window->data, tilde_hplus->data->length - (unsigned) floor(frequency / tilde_hplus->deltaF + 0.5), tilde_hplus->data->length);
+	semi_major_minor_from_e(eccentricity, &a, &b);
 	for(i = 0; i < window->data->length; i++) {
-		tilde_hplus->data->data[i] *= window->data->data[i];
-		tilde_hcross->data->data[i] *= window->data->data[i];
+		tilde_hplus->data->data[i] *= a * window->data->data[i];
+		tilde_hcross->data->data[i] *= b * window->data->data[i];
 	}
 	XLALDestroyREAL8Window(window);
 
@@ -571,6 +603,51 @@ int XLALGenerateBandAndTimeLimitedWhiteNoiseBurst(
 
 
 /**
+ * The Q of a sine-Gaussian waveform from the duration and centre
+ * frequency.  The relationship is
+ *
+ * \f$Q = 2 \pi f_{0} \Delta t\f$
+ *
+ * The result becomes independent of duration at 0 Hz.
+ *
+ * See also:  XLALSimBurstSineGaussianDuration()
+ */
+
+
+double XLALSimBurstSineGaussianQ(
+	double duration,
+	double centre_frequency
+)
+{
+	return LAL_TWOPI * duration * centre_frequency;
+}
+
+
+/**
+ * The duration of a sine-Gaussian waveform from the Q and centre
+ * frequency.  The relationship is
+ *
+ * \f$Q = 2 \pi f_{0} \Delta t\f$
+ *
+ * The relationship is undefined at 0 Hz.
+ *
+ * See also:  XLALSimBurstSineGaussianQ()
+ */
+
+
+double XLALSimBurstSineGaussianDuration(
+	double Q,
+	double centre_frequency
+)
+{
+	double duration = Q / (LAL_TWOPI * centre_frequency);
+	if(!isfinite(duration))
+		XLAL_ERROR_REAL8(XLAL_EDOM);
+	return duration;
+}
+
+
+/**
  * Input:
  *
  * Q:  the "Q" of the waveform.  The Gaussian envelope is \f$exp(-1/2 t^{2} /
@@ -613,9 +690,9 @@ int XLALSimBurstSineGaussian(
 )
 {
 	REAL8Window *window;
-	/* semimajor and semiminor axes of waveform ellipsoid */
-	const double a = 1.0 / sqrt(2.0 - eccentricity * eccentricity);
-	const double b = a * sqrt(1.0 - eccentricity * eccentricity);
+	/* semimajor and semiminor axes of waveform ellipsoid. */
+	double a, b;
+	semi_major_minor_from_e(eccentricity, &a, &b);
 	/* rss of plus and cross polarizations */
 	const double hplusrss  = hrss * (a * cos(polarization) - b * sin(polarization));
 	const double hcrossrss = hrss * (b * cos(polarization) + a * sin(polarization));
@@ -629,6 +706,14 @@ int XLALSimBurstSineGaussian(
 	LIGOTimeGPS epoch;
 	int length;
 	unsigned i;
+
+	/* check input. */
+
+	if(Q < 0 || centre_frequency < 0 || hrss < 0 || eccentricity < 0 || eccentricity > 1 || delta_t <= 0) {
+		XLALPrintError("%s(): invalid input parameters\n", __func__);
+		*hplus = *hcross = NULL;
+		XLAL_ERROR(XLAL_EINVAL);
+	}
 
 	/* length of the injection time series is 30 * the width of the
 	 * Gaussian envelope (sigma_t in the comments above), rounded to
@@ -719,6 +804,7 @@ int XLALGenerateStringCusp(
 {
 	COMPLEX16FrequencySeries *tilde_h;
 	REAL8FFTPlan *plan;
+	REAL8Window *window;
 	LIGOTimeGPS epoch;
 	int length;
 	int i;
@@ -733,10 +819,10 @@ int XLALGenerateStringCusp(
 		XLAL_ERROR(XLAL_EINVAL);
 	}
 
-	/* length of the injection time series is 15 / f_low, rounded to
+	/* length of the injection time series is 20 / f_low, rounded to
 	 * the nearest odd integer */
 
-	length = (int) (15 / f_low / delta_t / 2.0);
+	length = (int) (20.0 / f_low / delta_t / 2.0);
 	length = 2 * length + 1;
 
 	/* the middle sample is t = 0 */
@@ -797,11 +883,20 @@ int XLALGenerateStringCusp(
 
 	(*hplus)->deltaT = (*hcross)->deltaT = delta_t;
 
-	/* apodize the time series */
-	/* FIXME:  use a Tukey window? */
+	/* apply a Tukey window for continuity at the start and end of the
+	 * injection.  the window's shape parameter sets what fraction of
+	 * the window is used by the tapers */
 
-	for(i = (*hplus)->data->length - 1; i >= 0; i--)
-		(*hplus)->data->data[i] -= (*hplus)->data->data[0];
+	window = XLALCreateTukeyREAL8Window((*hplus)->data->length, 0.5);
+	if(!window) {
+		XLALDestroyREAL8TimeSeries(*hplus);
+		XLALDestroyREAL8TimeSeries(*hcross);
+		*hplus = *hcross = NULL;
+		XLAL_ERROR(XLAL_EFUNC);
+	}
+	for(i = 0; i < (int) window->data->length; i++)
+		(*hplus)->data->data[i] *= window->data->data[i];
+	XLALDestroyREAL8Window(window);
 
 	/* done */
 

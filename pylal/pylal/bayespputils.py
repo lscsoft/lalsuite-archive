@@ -6036,7 +6036,14 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       else:
         print 'WARNING: phi_orb not found in posterior files. Defaulting to 0.0 which is probably *not* what you want\n'
         phiRef=0.0
-  
+ 
+      try:
+              for name in ['flow','f_lower']:
+                      if name in pos.names:
+                              f_min=pos[name].samples[which][0]
+      except:
+              pass
+
       try:
         for name in ['fref','f_ref','f_Ref','fRef']:
           if name in pos.names:
