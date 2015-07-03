@@ -56,6 +56,8 @@ tagLALSimInspiralWaveformCache {
     REAL8 i;
     REAL8 lambda1;
     REAL8 lambda2;
+    REAL8 ecc,
+    REAL8 f_ecc,
     LALSimInspiralWaveformFlags *waveFlags;
     LALSimInspiralTestGRParam *nonGRparams; /* Non-NULL pointers here are not allowed b/c it's impossible to know which fields are present */
     int amplitudeO;
@@ -116,6 +118,8 @@ int XLALSimInspiralChooseFDWaveformFromCache(
     REAL8 i,                                    /**< inclination of source (rad) */
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
+    REAL8 ecc,                       /**< eccentricity effect control < 0 : no eccentricity effect */
+    REAL8 f_ecc,                     /**< eccentricity effect reference frequency */
     LALSimInspiralWaveformFlags *waveFlags,     /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
@@ -147,6 +151,8 @@ int  XLALSimInspiralChooseFDWaveformSequence(
                                              REAL8 i,                                /**< inclination of source (rad) */
                                              REAL8 lambda1,                          /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
                                              REAL8 lambda2,                          /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
+    REAL8 ecc,                       /**< eccentricity effect control < 0 : no eccentricity effect */
+    REAL8 f_ecc,                     /**< eccentricity effect reference frequency */
                                              LALSimInspiralWaveformFlags *waveFlags, /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
                                              LALSimInspiralTestGRParam *nonGRparams, /**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
                                              int amplitudeO,                         /**< twice post-Newtonian amplitude order */
