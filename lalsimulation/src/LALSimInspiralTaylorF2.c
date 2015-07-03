@@ -652,7 +652,6 @@ int sf2_psi_SPA_coeffs_PN_order(
     const LALSimInspiralSpinOrder spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
     )
 {
-    REAL8 euler_number = LAL_GAMMA; //0.5772156649015328606065120900824024310421;
     PNPhasingSeries pfa;
     memset(&pfa, sizeof(pfa));
     XLALSimInspiralPNPhasing_F2(
@@ -1395,21 +1394,31 @@ int XLALSimInspiralTaylorF2AmpPlus(
     iEnd = n;
     //iEnd = (size_t) (f_max / deltaF);
     //iEnd = (iEnd < n) ? iEnd : n;  /* overflow protection; should we warn? */
+    // add f_ref effect
+    REAL8 phasing_ref[MAX_HARMONICS+1]={0};
+    if(f_ref > 0.0)
+    {
+      for(k=1; k<=MAX_HARMONICS; k++)
+      {
+        phasing_ref[k] = sf2_psi_SPA(f_ref, k, shft, phic, phaseO, PN_coeffs_SPA, m, eta)
+                         - shft*f_ref/k + phic; // we need this since we want only Psi_SPA^(k)(f_ref/k)
+      }
+    }
 
     data = htilde->data->data;
     for (i = iStart; i < iEnd; i++) {
-        f = i * deltaF;
-    data[i] = 0.0 + 0.0j;
-    for (k = 1; k <= MAX_HARMONICS; k++) // up to 7th harmonics
-    {            
-        phasing = sf2_psi_SPA(f, k, shft, phic, phaseO, PN_coeffs_SPA, m, eta);
+      f = i * deltaF;
+      data[i] = 0.0 + 0.0j;
+      for (k = 1; k <= MAX_HARMONICS; k++) // up to 7th harmonics
+      {            
+        phasing = sf2_psi_SPA(f, k, shft, phic, phaseO, PN_coeffs_SPA, m, eta)-phasing_ref[k];
         for (n = 0; n <= amplitudeO; n++)
         {
-            amp = sf2_amp_SPA_plus(f, n, k, fStart, fISCO, &amp_corr_param);
-            data[i] += amp*(cos(k*phasing - LAL_PI_4) - sin(k*phasing - LAL_PI_4)*1.0j); 
+          amp = sf2_amp_SPA_plus(f, n, k, fStart, fISCO, &amp_corr_param);
+          data[i] += amp*(cos(k*phasing - LAL_PI_4) - sin(k*phasing - LAL_PI_4)*1.0j); 
         }
-    }
-    data[i] = overall_factor*data[i];
+      }
+      data[i] = overall_factor*data[i];
     }
 
     *htilde_out = htilde;
@@ -1592,6 +1601,16 @@ int XLALSimInspiralTaylorF2AmpCross(
 
     iStart = (size_t) ceil(fStart / deltaF);
     iEnd = n;
+    // add f_ref effect
+    REAL8 phasing_ref[MAX_HARMONICS+1]={0};
+    if(f_ref > 0.0)
+    {
+      for(k=1; k<=MAX_HARMONICS; k++)
+      {
+        phasing_ref[k] = sf2_psi_SPA(f_ref, k, shft, phic, phaseO, PN_coeffs_SPA, m, eta)
+                         - shft*f_ref/k + phic; // we need this since we want only Psi_SPA^(k)(f_ref/k)
+      }
+    }
 
     data = htilde->data->data;
     for (i = iStart; i < iEnd; i++) {
@@ -1599,7 +1618,7 @@ int XLALSimInspiralTaylorF2AmpCross(
     data[i] = 0.0 + 0.0j;
     for (k = 1; k <= MAX_HARMONICS; k++) // up to 7th harmonics
     {
-        phasing = sf2_psi_SPA(f, k, shft, phic, phaseO, PN_coeffs_SPA, m, eta);
+        phasing = sf2_psi_SPA(f, k, shft, phic, phaseO, PN_coeffs_SPA, m, eta)-phasing_ref[k];
         for (n = 0; n <= amplitudeO; n++)
         {
             amp = sf2_amp_SPA_cross(f, n, k, fStart, fISCO, &amp_corr_param);
