@@ -617,8 +617,6 @@ sf2_spin_corr_amp sf2_spin_corrections_amp(
 */
 int sf2_psi_SPA_coeffs_PN_order(
     REAL8 *PN_coeffs, /** coeffs for each PN order*/
-    const sf2_spin_corr_amp *spin_corrections, /** spin correction coeffs. Eqs. (4.82,83,84)*/
-    const REAL8 eta /** Evans Eq (4.12) */
     const REAL8 m1, /**< Mass of body 1, in Msol */
     const REAL8 m2, /**< Mass of body 2, in Msol */
     const REAL8 chi1L, /**< Component of dimensionless spin 1 along Lhat */
@@ -638,8 +636,6 @@ int sf2_psi_SPA_coeffs_PN_order(
 */
 int sf2_psi_SPA_coeffs_PN_order(
     REAL8 *PN_coeffs, /** coeffs for each PN order*/
-    const sf2_spin_corr_amp *spin_corrections, /** spin correction coeffs. Eqs. (4.82,83,84)*/
-    const REAL8 eta /** Evans Eq (4.12) */
     const REAL8 m1, /**< Mass of body 1, in Msol */
     const REAL8 m2, /**< Mass of body 2, in Msol */
     const REAL8 chi1L, /**< Component of dimensionless spin 1 along Lhat */
@@ -653,7 +649,7 @@ int sf2_psi_SPA_coeffs_PN_order(
     )
 {
     PNPhasingSeries pfa;
-    memset(&pfa, sizeof(pfa));
+    memset(&pfa, 0x00, sizeof(pfa));
     XLALSimInspiralPNPhasing_F2(
         &pfa, /**< \todo UNDOCUMENTED */
         m1, /**< Mass of body 1, in Msol */
@@ -1231,9 +1227,9 @@ int XLALSimInspiralTaylorF2AmpPlus(
     REAL8 S2x,                      /* initial value of S2x */
     REAL8 S2y,                      /* initial value of S2y */    
     REAL8 S2z,                      /* initial value of S2z */
-    REAL8 lnhatx,                   /* initial value of LNhatx */
-    REAL8 lnhaty,                   /* initial value of LNhaty */
-    REAL8 lnhatz,                   /* initial value of LNhatz */
+    REAL8 LNhatx,                   /* initial value of LNhatx */
+    REAL8 LNhaty,                   /* initial value of LNhaty */
+    REAL8 LNhatz,                   /* initial value of LNhatz */
     const REAL8 f_ref,              /**< Reference GW frequency (Hz) - if 0 reference point is coalescence */
     REAL8 fStart,                   /* start GW frequency (Hz) */
     REAL8 f_max0,                   /* ending GW frequency (Hz) */
@@ -1290,7 +1286,7 @@ int XLALSimInspiralTaylorF2AmpPlus(
     overall_factor = m*m/r*LAL_MTSUN_SI*LAL_MRSUN_SI*sqrt(5.0*LAL_PI*eta/48.0); /** overall factor of Eq. (4.72) */
     // calculate spin correction coeffs
     spin_corrections_SPA = 
-        sf2_spin_corrections_amp(m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, lnhatx, lnhaty, lnhatz);
+        sf2_spin_corrections_amp(m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, LNhatx, LNhaty, LNhatz);
     // calculate PN_coeffs_SPA 
     REAL8 chi1L = S1x*LNhatz + S1y*LNhaty + S1z*LNhatz;
     REAL8 chi2L = S2x*LNhatz + S2y*LNhaty + S2z*LNhatz;
@@ -1334,9 +1330,9 @@ int XLALSimInspiralTaylorF2AmpPlus(
     amp_corr_param.s2x = S2x;
     amp_corr_param.s2y = S2y;
     amp_corr_param.s2z = S2z;
-    amp_corr_param.LNhatx = lnhatx;
-    amp_corr_param.LNhaty = lnhaty;
-    amp_corr_param.LNhatz = lnhatz;
+    amp_corr_param.LNhatx = LNhatx;
+    amp_corr_param.LNhaty = LNhaty;
+    amp_corr_param.LNhatz = LNhatz;
     amp_corr_param.Xs_x = 0.5*(amp_corr_param.s1x + amp_corr_param.s2x);
     amp_corr_param.Xs_y = 0.5*(amp_corr_param.s1y + amp_corr_param.s2y);
     amp_corr_param.Xs_z = 0.5*(amp_corr_param.s1z + amp_corr_param.s2z);
@@ -1443,9 +1439,9 @@ int XLALSimInspiralTaylorF2AmpCross(
     REAL8 S2x,                             /** initial value of S2x */
     REAL8 S2y,                             /** initial value of S2y */    
     REAL8 S2z,                             /** initial value of S2z */
-    REAL8 lnhatx,                          /** initial value of LNhatx */
-    REAL8 lnhaty,                          /** initial value of LNhaty */
-    REAL8 lnhatz,                          /** initial value of LNhatz */
+    REAL8 LNhatx,                          /** initial value of LNhatx */
+    REAL8 LNhaty,                          /** initial value of LNhaty */
+    REAL8 LNhatz,                          /** initial value of LNhatz */
     const REAL8 f_ref,                     /**< Reference GW frequency (Hz) - if 0 reference point is coalescence */
     REAL8 fStart,                          /** start GW frequency (Hz) */
     REAL8 f_max0,                          /** ending GW frequency (Hz) */
@@ -1502,7 +1498,7 @@ int XLALSimInspiralTaylorF2AmpCross(
     overall_factor = m*m/r*LAL_MTSUN_SI*LAL_MRSUN_SI*sqrt(5.0*LAL_PI*eta/48.0); /** overall factor of Eq. (4.72) */
     // calculate spin correction coeffs
     spin_corrections_SPA = 
-        sf2_spin_corrections_amp(m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, lnhatx, lnhaty, lnhatz);
+        sf2_spin_corrections_amp(m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, LNhatx, LNhaty, LNhatz);
     // calculate PN_coeffs_SPA 
     REAL8 chi1L = S1x*LNhatz + S1y*LNhaty + S1z*LNhatz;
     REAL8 chi2L = S2x*LNhatz + S2y*LNhaty + S2z*LNhatz;
@@ -1546,9 +1542,9 @@ int XLALSimInspiralTaylorF2AmpCross(
     amp_corr_param.s2x = S2x;
     amp_corr_param.s2y = S2y;
     amp_corr_param.s2z = S2z;
-    amp_corr_param.LNhatx = lnhatx;
-    amp_corr_param.LNhaty = lnhaty;
-    amp_corr_param.LNhatz = lnhatz;
+    amp_corr_param.LNhatx = LNhatx;
+    amp_corr_param.LNhaty = LNhaty;
+    amp_corr_param.LNhatz = LNhatz;
     amp_corr_param.Xs_x = 0.5*(amp_corr_param.s1x + amp_corr_param.s2x);
     amp_corr_param.Xs_y = 0.5*(amp_corr_param.s1y + amp_corr_param.s2y);
     amp_corr_param.Xs_z = 0.5*(amp_corr_param.s1z + amp_corr_param.s2z);
