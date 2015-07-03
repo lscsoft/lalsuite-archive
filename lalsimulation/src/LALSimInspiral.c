@@ -2729,6 +2729,7 @@ int XLALSimInspiralChooseFDWaveform(
               printf("==== DBUG calling TaylorF2Amp phase order = %d, amplitude Order = %d\n", phaseO, amplitudeO);
               /* Call the waveform driver routine 
                  for amplitude corrected waveform, there are separated function for each h_plus and h_cross
+                 Standard TaylorF2 waveform ignore inclination angle i (is this correct?)
               */
               LNhatx = sin(i);
               LNhaty = 0.;
@@ -2749,9 +2750,13 @@ int XLALSimInspiralChooseFDWaveform(
                     LNhatx,                   /**< initial value of LNhatx */
                     LNhaty,                   /**< initial value of LNhaty */
                     LNhatz,                   /**< initial value of LNhatz */
+                    f_ref,                   /**< reference frequecny(Hz) */
                     f_min,                   /**< start GW frequency (Hz) */
                     f_max,                    /**< ending GW frequency (Hz) */
                     r,                        /**< distance of source (m) */
+                    quadparam1, quadparam2, lambda1, lambda2,
+                    XLALSimInspiralGetSpinOrder(waveFlags),
+                    XLALSimInspiralGetTidalOrder(waveFlags),
                     phaseO,                     /**< twice PN phase order */
                     amplitudeO                  /**< twice PN amplitude order */
               );
@@ -2773,9 +2778,13 @@ int XLALSimInspiralChooseFDWaveform(
                     LNhatx,                   /**< initial value of LNhatx */
                     LNhaty,                   /**< initial value of LNhaty */
                     LNhatz,                   /**< initial value of LNhatz */
+                    f_ref,                   /**< reference frequency(Hz) */
                     f_min,                   /**< start GW frequency (Hz) */
                     f_max,                    /**< ending GW frequency (Hz) */
                     r,                        /**< distance of source (m) */
+                    quadparam1, quadparam2, lambda1, lambda2,
+                    XLALSimInspiralGetSpinOrder(waveFlags),
+                    XLALSimInspiralGetTidalOrder(waveFlags),
                     phaseO,                     /**< twice PN phase order */
                     amplitudeO                  /**< twice PN amplitude order */
               );

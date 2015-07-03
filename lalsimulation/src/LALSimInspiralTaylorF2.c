@@ -617,9 +617,18 @@ sf2_spin_corr_amp sf2_spin_corrections_amp(
 */
 int sf2_psi_SPA_coeffs_PN_order(
     REAL8 *PN_coeffs, /** coeffs for each PN order*/
-    const int phaseO,         /**< twice PN phase order */
     const sf2_spin_corr_amp *spin_corrections, /** spin correction coeffs. Eqs. (4.82,83,84)*/
-    const REAL8 eta /** Evans Eq. (4.12) */
+    const REAL8 eta /** Evans Eq (4.12) */
+    const REAL8 m1, /**< Mass of body 1, in Msol */
+    const REAL8 m2, /**< Mass of body 2, in Msol */
+    const REAL8 chi1L, /**< Component of dimensionless spin 1 along Lhat */
+    const REAL8 chi2L, /**< Component of dimensionless spin 2 along Lhat */
+    const REAL8 chi1sq, /**< Magnitude of dimensionless spin 1 */
+    const REAL8 chi2sq, /**< Magnitude of dimensionless spin 2 */
+    const REAL8 chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
+    const REAL8 qm_def1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
+    const REAL8 qm_def2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
+    const LALSimInspiralSpinOrder spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
     );
 /**
  calculate coefficients for each SPA phase PN order
@@ -1284,25 +1293,24 @@ int XLALSimInspiralTaylorF2AmpPlus(
     spin_corrections_SPA = 
         sf2_spin_corrections_amp(m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, lnhatx, lnhaty, lnhatz);
     // calculate PN_coeffs_SPA 
-    sf2_psi_SPA_coeffs_PN_order(PN_coeffs_SPA, phaseO, &spin_corrections_SPA, eta);
-    PNPhasingSeries pfa;
-    XLALSimInspiralPNPhasing_F2(
-        &pfa, /**< \todo UNDOCUMENTED */
+    REAL8 chi1L = S1x*LNhatz + S1y*LNhaty + S1z*LNhatz;
+    REAL8 chi2L = S2x*LNhatz + S2y*LNhaty + S2z*LNhatz;
+    REAL8 chi1sq = S1x*S1x + S1y*S1y + S1z*S1z;
+    REAL8 chi2sq = S2x*S2x + S2y*S2y + S2z*S2z;
+    REAL8 chi1dotchi2 = S1x*S2x + S1y*S2y + S1z*S2z;
+    sf2_psi_SPA_coeffs_PN_order(PN_coeffs_SPA, 
         m1, /**< Mass of body 1, in Msol */
         m2, /**< Mass of body 2, in Msol */
-        const REAL8 chi1L, /**< Component of dimensionless spin 1 along Lhat */
-        const REAL8 chi2L, /**< Component of dimensionless spin 2 along Lhat */
-        const REAL8 chi1sq, /**< Magnitude of dimensionless spin 1 */
-        const REAL8 chi2sq, /**< Magnitude of dimensionless spin 2 */
-        const REAL8 chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
-        const REAL8 qm_def1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
-        const REAL8 qm_def2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
+        chi1L, /**< Component of dimensionless spin 1 along Lhat */
+        chi2L, /**< Component of dimensionless spin 2 along Lhat */
+        chi1sq, /**< Magnitude of dimensionless spin 1 */
+        chi2sq, /**< Magnitude of dimensionless spin 2 */
+        chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
+        quadparam1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
+        quadparam2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
         spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
         );
 
-
-    //costh = cos(dec);
-    //sinth = sin(dec);
     f_cross = 1.0; //0.5*(1+costh*costh)*cos(2*ra)*sin(2*psi) + costh*sin(2*ra)*cos(2*psi);
     f_plus  = 1.0; //0.5*(1+costh*costh)*cos(2*ra)*cos(2*psi) - costh*sin(2*ra)*sin(2*psi);
     amp_corr_param.costh = cos(inclination); // cosine of inclination of the source
@@ -1487,9 +1495,24 @@ int XLALSimInspiralTaylorF2AmpCross(
     spin_corrections_SPA = 
         sf2_spin_corrections_amp(m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, lnhatx, lnhaty, lnhatz);
     // calculate PN_coeffs_SPA 
-    sf2_psi_SPA_coeffs_PN_order(PN_coeffs_SPA, phaseO, &spin_corrections_SPA, eta);
-    //costh = cos(dec);
-    //sinth = sin(dec);
+    REAL8 chi1L = S1x*LNhatz + S1y*LNhaty + S1z*LNhatz;
+    REAL8 chi2L = S2x*LNhatz + S2y*LNhaty + S2z*LNhatz;
+    REAL8 chi1sq = S1x*S1x + S1y*S1y + S1z*S1z;
+    REAL8 chi2sq = S2x*S2x + S2y*S2y + S2z*S2z;
+    REAL8 chi1dotchi2 = S1x*S2x + S1y*S2y + S1z*S2z;
+    sf2_psi_SPA_coeffs_PN_order(PN_coeffs_SPA, 
+        m1, /**< Mass of body 1, in Msol */
+        m2, /**< Mass of body 2, in Msol */
+        chi1L, /**< Component of dimensionless spin 1 along Lhat */
+        chi2L, /**< Component of dimensionless spin 2 along Lhat */
+        chi1sq, /**< Magnitude of dimensionless spin 1 */
+        chi2sq, /**< Magnitude of dimensionless spin 2 */
+        chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
+        quadparam1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
+        quadparam2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
+        spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
+        );
+
     f_cross = 1.0; //0.5*(1+costh*costh)*cos(2*ra)*sin(2*psi) + costh*sin(2*ra)*cos(2*psi);
     f_plus  = 1.0; //0.5*(1+costh*costh)*cos(2*ra)*cos(2*psi) - costh*sin(2*ra)*sin(2*psi);
     amp_corr_param.costh = cos(inclination); // cosine of inclination of the source
