@@ -2523,6 +2523,7 @@ int XLALSimInspiralChooseTDWaveform(
                            deltaT, m1, m2, f_min, f_ref, r, i, S1x, S1y, S1z, S2x, S2y, S2z,
                            phaseO, amplitudeO, waveFlags, nonGRparams);
             break;
+
         case IMRPhenomC:
             /* Waveform-specific sanity checks */
             if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
