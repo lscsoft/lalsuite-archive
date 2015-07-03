@@ -1246,6 +1246,22 @@ int XLALSimInspiralTaylorF2AmpPlus(
         sf2_spin_corrections_amp(m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, lnhatx, lnhaty, lnhatz);
     // calculate PN_coeffs_SPA 
     sf2_psi_SPA_coeffs_PN_order(PN_coeffs_SPA, phaseO, &spin_corrections_SPA, eta);
+    PNPhasingSeries pfa;
+    XLALSimInspiralPNPhasing_F2(
+        &pfa, /**< \todo UNDOCUMENTED */
+        m1, /**< Mass of body 1, in Msol */
+        m2, /**< Mass of body 2, in Msol */
+        const REAL8 chi1L, /**< Component of dimensionless spin 1 along Lhat */
+        const REAL8 chi2L, /**< Component of dimensionless spin 2 along Lhat */
+        const REAL8 chi1sq, /**< Magnitude of dimensionless spin 1 */
+        const REAL8 chi2sq, /**< Magnitude of dimensionless spin 2 */
+        const REAL8 chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
+        const REAL8 qm_def1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
+        const REAL8 qm_def2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
+        spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
+        );
+
+
     //costh = cos(dec);
     //sinth = sin(dec);
     f_cross = 1.0; //0.5*(1+costh*costh)*cos(2*ra)*sin(2*psi) + costh*sin(2*ra)*cos(2*psi);

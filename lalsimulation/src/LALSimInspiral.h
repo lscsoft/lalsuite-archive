@@ -2241,6 +2241,65 @@ int XLALSimInspiralSpinTaylorF2(
 	);
 
 /**
+ * Computing the stationary phase approximation to the Fourier transform of
+ * a chirp waveform with phase given by Eq.(4.82)
+ * and amplitude given by Eq. (4.72) with C_k^(n) given in Appendix D
+ * PN order is the highest order being used to calculate Eq. (4.72)
+ * TODO : implement f_ref effect
+ */
+int XLALSimInspiralTaylorF2AmpPlus(
+    COMPLEX16FrequencySeries **htilde_out, /* frequency-domain waveform */
+    REAL8 phic,                     /* orbital coalescence phase (rad) */
+    REAL8 deltaF,                   /* sampling frequency (Hz) */
+    REAL8 inclination,              /* inclination of source (rad), corresponds to theta of N_hat */
+    REAL8 m1_SI,                    /* mass1 (kg) */
+    REAL8 m2_SI,                    /* mass2 (kg) */
+    REAL8 S1x,                      /* initial value of S1x */
+    REAL8 S1y,                      /* initial value of S1y */
+    REAL8 S1z,                      /* initial value of S1z */
+    REAL8 S2x,                      /* initial value of S2x */
+    REAL8 S2y,                      /* initial value of S2y */
+    REAL8 S2z,                      /* initial value of S2z */
+    REAL8 lnhatx,                   /* initial value of LNhatx */
+    REAL8 lnhaty,                   /* initial value of LNhaty */
+    REAL8 lnhatz,                   /* initial value of LNhatz */
+    REAL8 fStart,                   /* start GW frequency (Hz) */
+    REAL8 f_max0,                   /* ending GW frequency (Hz) */
+    REAL8 r,                        /* distance of source (m) */
+    int phaseO,                     /* twice PN phase order */
+    int amplitudeO                  /* twice PN amplitude order */
+   );
+/**
+ * Computes the stationary phase approximation to the Fourier transform of
+ * a chirp waveform with phase given by Eq.(4.82)
+ * and amplitude given by Eq. (4.72) with C_k^(n) given in Appendix D.
+ * PN order is the highest order being used by Eq (4.72)
+ * TODO : implement f_ref effect
+ */
+int XLALSimInspiralTaylorF2AmpCross(
+    COMPLEX16FrequencySeries **htilde_out, /** frequency-domain waveform */
+    REAL8 phic,                            /** orbital coalescence phase (rad) */
+    REAL8 deltaF,                          /** sampling frequency (Hz) */
+    REAL8 inclination,                     /** inclination of source (rad), corresponds to theta of N_hat */
+    REAL8 m1_SI,                           /** mass 1 (kg) */
+    REAL8 m2_SI,                           /** mass 2 (kg) */
+    REAL8 S1x,                             /** initial value of S1x */
+    REAL8 S1y,                             /** initial value of S1y */
+    REAL8 S1z,                             /** initial value of S1z */
+    REAL8 S2x,                             /** initial value of S2x */
+    REAL8 S2y,                             /** initial value of S2y */
+    REAL8 S2z,                             /** initial value of S2z */
+    REAL8 lnhatx,                          /** initial value of LNhatx */
+    REAL8 lnhaty,                          /** initial value of LNhaty */
+    REAL8 lnhatz,                          /** initial value of LNhatz */
+    REAL8 fStart,                          /** start GW frequency (Hz) */
+    REAL8 f_max0,                          /** ending GW frequency (Hz) */
+    REAL8 r,                               /** distance of source (m) */
+    int phaseO,                            /** twice PN phase order */
+    int amplitudeO                         /** twice PN amplitude order */
+   );
+
+/**
  * Functions for generic spinning waveforms.
  * Reproduce and extend old SpinTaylor(Frameless) and SQTPN waveforms
  */
