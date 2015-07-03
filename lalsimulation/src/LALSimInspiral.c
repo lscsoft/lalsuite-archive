@@ -2731,7 +2731,7 @@ int XLALSimInspiralChooseFDWaveform(
               */
               LNhatx = 0.0;
               LNhaty = 0.0;
-              LNhatz = 1.0
+              LNhatz = 1.0;
               ret = XLALSimInspiralTaylorF2AmpPlus(
                     hptilde, /**< frequency-domain waveform */
                     phiRef,                     /**< orbital coalescence phase (rad) */

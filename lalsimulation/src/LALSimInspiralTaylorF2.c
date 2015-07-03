@@ -626,6 +626,8 @@ int sf2_psi_SPA_coeffs_PN_order(
     const REAL8 chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
     const REAL8 qm_def1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
     const REAL8 qm_def2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
+    const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
+    const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
     const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
     const LALSimInspiralSpinOrder spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
     );
@@ -646,6 +648,8 @@ int sf2_psi_SPA_coeffs_PN_order(
     const REAL8 chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
     const REAL8 qm_def1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
     const REAL8 qm_def2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
+    const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
+    const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
     const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
     const LALSimInspiralSpinOrder spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
     )
@@ -666,6 +670,8 @@ int sf2_psi_SPA_coeffs_PN_order(
         spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
         );
     REAL8 eta = m1*m2/(m1+m2)/(m1+m2);
+    REAL8 m1OverM = m1/(m1+m2);
+    REAL8 m2OverM = m2/(m1+m2);
     // recover PN coeffs without prefactor for higher harminics 
     for(int i=0; i<=PN_PHASING_SERIES_MAX_ORDER; i++)
     {
@@ -1341,6 +1347,8 @@ int XLALSimInspiralTaylorF2AmpPlus(
         chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
         quadparam1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
         quadparam2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
+        lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
+        lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
         tideO,  /**< flag to control tidal effects */
         spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
         );
@@ -1557,6 +1565,8 @@ int XLALSimInspiralTaylorF2AmpCross(
         chi1dotchi2, /**< Dot product of dimensionles spin 1 and spin 2 */
         quadparam1, /**< Quadrupole deformation parameter of body 1 (dimensionless) */
         quadparam2, /**< Quadrupole deformation parameter of body 2 (dimensionless) */
+        lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
+        lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
         tideO,  /**< flag to control tidal effects */
         spinO /**< Enums specifying spin order are in LALSimInspiralWaveformFlags.h */
         );
@@ -1653,18 +1663,18 @@ int XLALSimInspiralTaylorF2AmpCross(
 
     data = htilde->data->data;
     for (i = iStart; i < iEnd; i++) {
-        f = i * deltaF;
-    data[i] = 0.0 + 0.0j;
-    for (k = 1; k <= MAX_HARMONICS; k++) // up to 7th harmonics
-    {
-        phasing = sf2_psi_SPA(f, k, shft, phic, tideO, phaseO, PN_coeffs_SPA, m, eta)-phasing_ref[k];
+      f = i * deltaF;
+      data[i] = 0.0 + 0.0j;
+      for (k = 1; k <= MAX_HARMONICS; k++) // up to 7th harmonics
+      {
+        phasing = sf2_psi_SPA(f, k, shft, phic, tideO, phaseO, PN_coeffs_SPA, m, eta) - phasing_ref[k];
         for (n = 0; n <= amplitudeO; n++)
         {
             amp = sf2_amp_SPA_cross(f, n, k, fStart, fISCO, &amp_corr_param);
             data[i] += amp*(cos(k*phasing - LAL_PI_4) - sin(k*phasing - LAL_PI_4)*1.0j); // changed sign for time reversal
         }
-    }
-    data[i] = overall_factor*data[i];
+      }
+      data[i] = overall_factor*data[i];
     }
 
     *htilde_out = htilde;
