@@ -2523,6 +2523,22 @@ int XLALSimInspiralChooseTDWaveform(
                            deltaT, m1, m2, f_min, f_ref, r, i, S1x, S1y, S1z, S2x, S2y, S2z,
                            phaseO, amplitudeO, waveFlags, nonGRparams);
             break;
+        case IMRPhenomC:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
+                ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+                ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
+            if( !checkTidesZero(lambda1, lambda2) )
+                ABORT_NONZERO_TIDES(waveFlags);
+            if( f_ref != 0.)
+                XLALPrintWarning("XLAL Warning - %s: This approximant does use f_ref. The reference phase will be defined at coalescence.\n", __func__);
+            /* Call the waveform driver routine */
+            // NB: f_max = 0 will generate up to the ringdown cut-off frequency
+            ret = XLALSimIMRPhenomCGenerateTD(hplus, hcross, phiRef, deltaT,
+                    m1, m2, XLALSimIMRPhenomBComputeChi(m1, m2, S1z, S2z),
+                    f_min, 0., r, i);
+            break;
 
         case PhenSpinTaylorRD:
             /* Waveform-specific sanity checks */
@@ -3043,6 +3059,13 @@ int XLALSimInspiralChooseFDWaveform(
             break;
 
         case SpinTaylorT4Fourier:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralFrameAxisIsDefault(
+                    XLALSimInspiralGetFrameAxis(waveFlags) ) )
+                ABORT_NONDEFAULT_FRAME_AXIS(waveFlags);
+            if( !XLALSimInspiralModesChoiceIsDefault(
+                    XLALSimInspiralGetModesChoice(waveFlags) ) )
+                ABORT_NONDEFAULT_MODES_CHOICE(waveFlags);
             LNhatx = sin(i);
             LNhaty = 0.;
             LNhatz = cos(i);
@@ -4740,8 +4763,6 @@ int XLALSimInspiralGetSpinSupportFromApproximant(Approximant approx){
     case TaylorF2:
     case TaylorF2RedSpin:
     case TaylorF2RedSpinTidal:
-      spin_support=LAL_SIM_INSPIRAL_ALIGNEDSPIN;
-      break;
     case IMRPhenomB:
     case IMRPhenomC:
     case SEOBNRv1:
