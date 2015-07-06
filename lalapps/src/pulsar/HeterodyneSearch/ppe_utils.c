@@ -650,8 +650,8 @@ void gzip_output( LALInferenceRunState *runState ){
         }
       }
       else{
-        /* re-output everything but the "model" value to a temporary file */
-        if( strcmp(v, "model") ) { fprintf(fpparstmp, "%s\t", v); }
+        /* re-output everything to a temporary file */
+        fprintf(fpparstmp, "%s\t", v);
       }
     }
 

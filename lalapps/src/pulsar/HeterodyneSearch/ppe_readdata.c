@@ -573,7 +573,7 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
 
         // Note: j-1 because we added to j above (553)
         temptimes->data[j-1] = times;
-        
+
         /* reheterodyne data if required */
         if ( rehetfreq != 0 ) {
           /* create template */
@@ -603,6 +603,8 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
       ifomodel->times = NULL;
       ifomodel->times = XLALCreateTimestampVector( datalength );
 
+      UINT4 epochint = 0; /* index of the earliest time in the data */
+
       /* fill in time stamps as LIGO Time GPS Vector */
       REAL8 sampledt = INFINITY; /* sample interval */
       for ( k = 0; k < datalength; k++ ) {
@@ -614,11 +616,19 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
             sampledt = temptimes->data[k] - temptimes->data[k-1];
           }
         }
+
+        if ( temptimes->data[k] < temptimes->data[epochint] ){ epochint = k; }
       }
 
-      ifodata->compTimeData->epoch = ifomodel->times->data[0];
-      ifomodel->compTimeSignal->epoch = ifomodel->times->data[0];
-      ifodata->varTimeData->epoch = ifomodel->times->data[0];
+      ifodata->compTimeData->epoch = ifomodel->times->data[epochint];
+      ifomodel->compTimeSignal->epoch = ifomodel->times->data[epochint];
+      ifodata->varTimeData->epoch = ifomodel->times->data[epochint];
+
+      /* check whether to randomise the data by shuffling the time stamps (this will preserve the order of
+       * the data for working out stationary chunk, but randomise the signal) */
+      if ( LALInferenceGetProcParamVal( commandLine, "--randomise" ) ){
+        gsl_ran_shuffle( runState->GSLrandom, &ifomodel->times->data[0], (size_t)datalength, sizeof(LIGOTimeGPS) );
+      }
 
       /* add data sample interval */
       ppt = LALInferenceGetProcParamVal( commandLine, "--sample-interval" );
@@ -772,7 +782,14 @@ detectors specified (no. dets =%d)\n", ml, ml, numDets);
       else{ chunkLength = get_chunk_lengths( modeltmp, chunkMax ); }
     }
     /* use new change points analysis to get chunks */
-    else { chunkLength = chop_n_merge( datatmp, chunkMin, chunkMax ); }
+    else {
+      /* if sigma's have been input then there is just one chunk with a length of the full dataset */
+      if ( inputsigma ){
+        chunkLength = XLALCreateUINT4Vector( 1 );
+        chunkLength->data[0] = datatmp->varTimeData->data->length;
+      }
+      else{ chunkLength = chop_n_merge( datatmp, chunkMin, chunkMax ); }
+    }
 
     LALInferenceAddVariable( modeltmp->params, "chunkLength", &chunkLength, LALINFERENCE_UINT4Vector_t,
                              LALINFERENCE_PARAM_FIXED );
@@ -883,6 +900,7 @@ void setup_from_par_file( LALInferenceRunState *runState )
   /* get the pulsar parameters */
   XLALReadTEMPOParFile( &pulsar, parFile );
   psr.equatorialCoords.longitude = pulsar.ra;
+
   psr.equatorialCoords.latitude = pulsar.dec;
   psr.equatorialCoords.system = COORDINATESYSTEM_EQUATORIAL;
 
@@ -898,6 +916,15 @@ void setup_from_par_file( LALInferenceRunState *runState )
 
   /* Add initial (unchanging) variables for the model, initial (unity) scale factors, from the par file */
   add_initial_variables( runState->currentParams, scaletemp, pulsar );
+
+  /* check for binary model */
+  CHAR *binarymodel = NULL;
+  if ( LALInferenceCheckVariable( runState->currentParams, "model") ){
+    binarymodel = XLALStringDuplicate(*(CHAR**)LALInferenceGetVariable( runState->currentParams, "model" ));
+
+    /* now remove from runState->params (as it conflict with calls to LALInferenceCompareVariablesin the proposal) */
+    LALInferenceRemoveVariable( runState->currentParams, "model" );
+  }
 
   /* Setup initial phase, and barycentring delays */
   LALInferenceIFOModel *ifo_model = runState->model->ifo;
@@ -925,6 +952,11 @@ void setup_from_par_file( LALInferenceRunState *runState )
         else if ( LALInferenceGetProcParamVal( runState->commandLine, "--biaxial" ) ){
           LALInferenceAddVariable( ifo_model->params, "biaxial", &dummyvar, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED );
         }
+      }
+
+      /* add binary model to the general parameters */
+      if ( binarymodel != NULL ){
+        LALInferenceAddVariable( ifo_model->params, "model", &binarymodel, LALINFERENCE_string_t, LALINFERENCE_PARAM_FIXED );
       }
 
       dts = get_ssb_delay( pulsar, ifo_model->times, ifo_model->ephem, ifo_model->tdat, ifo_model->ttype, data->detector, 0. );

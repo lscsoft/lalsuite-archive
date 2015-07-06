@@ -510,6 +510,7 @@ setup(
 		os.path.join("bin", "WOD_Bologna.py"),
 		os.path.join("bin", "lalapps_likeliness"),
 		os.path.join("bin", "lalapps_newcorse"),
+		os.path.join("bin", "lalapps_cbc_volmc"),
 		os.path.join("bin", "lalapps_cbc_svim"),
 		os.path.join("bin", "lalapps_cbc_sink"),
 		os.path.join("bin", "lalapps_plot_tisi"),

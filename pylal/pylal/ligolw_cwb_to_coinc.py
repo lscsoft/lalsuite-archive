@@ -39,6 +39,7 @@ from glue.ligolw import table
 from glue.ligolw import types
 from glue.ligolw import utils
 from glue.ligolw import ilwd
+from glue.ligolw.utils import time_slide
 
 from glue.lal import LIGOTimeGPS
 from glue.lal import CacheEntry
@@ -226,7 +227,7 @@ class CWB2Coinc(object):
       coinc_event.coinc_def_id = coinc_def_id
       coinc_event.nevents = sim_tree.ndim
       coinc_event.instruments = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
-      coinc_event.time_slide_id = ligolw_tisi.get_time_slide_id(xmldoc, offset_vector, process_index[sim_tree.run])
+      coinc_event.time_slide_id = time_slide.get_time_slide_id(xmldoc, offset_vector, process_index[sim_tree.run])
       coinc_event.likelihood = sim_tree.likelihood
       coinc_event_table.append(coinc_event)
   
@@ -335,10 +336,14 @@ class CWB2Coinc(object):
     # Frequency
     # Central frequency in the detector -> frequency
     row.peak_frequency = sim_tree.frequency[d]
-    # Low frequency of the event in the detector -> flow
-    row.flow = sim_tree.low[d]
-    # High frequency of the event in the detector ->  fhigh
-    row.fhigh = sim_tree.high[d]
+    try:
+        # Low frequency of the event in the detector -> flow
+        row.flow = sim_tree.low[d]
+        # High frequency of the event in the detector ->  fhigh
+        row.fhigh = sim_tree.high[d]
+    except TypeError:
+        row.flow = sim_tree.low
+        row.fhigh = sim_tree.high
     # Bandwidth
     row.bandwidth = sim_tree.bandwidth[d]
     # Shape
@@ -379,10 +384,13 @@ class CWB2Coinc(object):
       "version", "cvs_repository", "cvs_entry_time", "is_online", "node",
       "username", "unix_procid", "domain"])
       xmldoc.childNodes[0].appendChild(process_table)
+
   
     # get run IDs
     if(jobid < 0):
       N = sim_tree.GetEntries()
+      if N == 0:
+        exit("There is no information available to parse from the ROOT file, and no external information was provided.")
       runs = set()
       for i in xrange(N):
         sim_tree.GetEntry(i)
@@ -730,7 +738,7 @@ class CWBTextConverter(object):
 	Class to transparently emit data as if the input were a ROOT file. The input is an unstructured text file made by cWB at runtime.
 	"""
 
-	CWB_SEARCH_TYPES = { 'r': "unmodelled", 'i': "elliptical", 's': "linear", 'g': "circular" }
+	CWB_SEARCH_TYPES = { 'r': "unmodelled", 'i': "elliptical", 's': "linear", 'g': "circular", 'R': "unmodelled", 'I': "elliptical", 'S': "linear", 'G': "circular" }
 
 	def __init__(self):
 		self.data = []
@@ -881,7 +889,12 @@ class CWBTextConverter(object):
 				sid, theta, dec, step, phi, ra, step2, prob, cum = line.split()
 				row["skymap"][(float(ra), float(dec))] = float(prob)
 			elif mode == "far":
-				rank, rate, segstart, segend, segdur = line.split()
+				try:
+					rank, rate, segstart, segend, segdur = line.split()
+				except ValueError:
+					# There is now two lines at the end of the file which
+					# contain extraneous paths and URLs
+					continue
 				far_seg = segments.segment( float(segstart), float(segend) )
 				row["far_data"][far_seg] = float(rate)
 

@@ -129,7 +129,7 @@ for filename in filenames:
 				# already there --> no op
 				continue
 			# fill
-			col[:] = (value,) * len(table)
+			col[:] = (val,) * len(table)
 
 	for table_type, columns in columns_to_remove.items():
 		try:

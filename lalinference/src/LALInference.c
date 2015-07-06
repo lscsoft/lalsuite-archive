@@ -450,23 +450,13 @@ void LALInferenceCopyVariables(LALInferenceVariables *origin, LALInferenceVariab
 
   /* Make sure the structure is initialised */
   if(!target) XLAL_ERROR_VOID(XLAL_EFAULT, "Unable to copy to uninitialised LALInferenceVariables structure.");
-  /* first dispose contents of "target" (if any): */
-  //LALInferenceClearVariables(target);
-  if(target->dimension==0) LALInferenceClearVariables(target);
-  LALInferenceVariableItem *this,*next;
-  for(this=target->head;this;this=next){
-    next=this->next;
-    if(!LALInferenceCheckVariable(origin,this->name)) {
-      LALInferenceRemoveVariable(target,this->name);
-    }
-  }
-  /* get the number of elements in origin */
+
+  /* First clear the target */
+  LALInferenceClearVariables(target);
+
+  /* Now add the variables in reverse order, to preserve the
+   * ordering */
   dims = LALInferenceGetVariableDimension( origin );
-  if(target->dimension==0) LALInferenceClearVariables(target);
-  
-  if ( !dims ){
-    XLAL_ERROR_VOID(XLAL_EFAULT, "Origin variables has zero dimensions!");
-  }
 
   /* then copy over elements of "origin" - due to how elements are added by
      LALInferenceAddVariable this has to be done in reverse order to preserve
@@ -1194,21 +1184,22 @@ void LALInferenceTranslateExternalToInternalParamName(char *outName, const char 
 
 int LALInferenceFprintParameterHeaders(FILE *out, LALInferenceVariables *params) {
   LALInferenceVariableItem *head = params->head;
-  int i,j;
-  gsl_matrix *matrix = NULL;
+  int i;
   UINT4Vector *vector = NULL;
 
   while (head != NULL) {
       if(head->type==LALINFERENCE_gslMatrix_t)
       {
-          matrix = *((gsl_matrix **)head->value);
-          for(i=0; i<(int)matrix->size1; i++)
-          {
-              for(j=0; j<(int)matrix->size2; j++)
-              {
-                  fprintf(out, "%s%i%i\t", LALInferenceTranslateInternalToExternalParamName(head->name),i,j);
-              }
-          }
+	//Commented out since for now gsl matrices are used as nuisance parameters and not printed to the output files.
+	//We may implement a LALINFERENCE_PARAM_NUISANCE type
+	//matrix = *((gsl_matrix **)head->value);
+	//for(i=0; i<(int)matrix->size1; i++)
+	//{
+	//    for(j=0; j<(int)matrix->size2; j++)
+	//    {
+	//        fprintf(out, "%s%i%i\t", LALInferenceTranslateInternalToExternalParamName(head->name),i,j);
+	//    }
+	//}
       }
       else if(head->type==LALINFERENCE_UINT4Vector_t)
       {
@@ -3769,12 +3760,12 @@ void LALInferenceFprintSplineCalibrationHeader(FILE *output, LALInferenceRunStat
     UINT4 ncal = *(UINT4 *)LALInferenceGetVariable(runState->currentParams, "spcal_npts");
 
     for (i = 0; i < ncal; i++) {
-      snprintf(parname, VARNAME_MAX, "%sspcalamp%02ld", ifo->name, i);
+      snprintf(parname, VARNAME_MAX, "%sspcalamp%02zu", ifo->name, i);
       fprintf(output, "%s\t", parname);
     }
 
     for (i = 0; i < ncal; i++) {
-      snprintf(parname, VARNAME_MAX, "%sspcalphase%02ld", ifo->name, i);
+      snprintf(parname, VARNAME_MAX, "%sspcalphase%02zu", ifo->name, i);
       fprintf(output, "%s\t", parname);
     }
 

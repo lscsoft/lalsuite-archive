@@ -31,12 +31,14 @@ import math
 import datetime
 import shelve
 import struct
+import gzip
 from optparse import OptionParser
 import subprocess as sp
 
 #related third party imports
 import numpy as np
 
+# need to set Agg here for use of stuff in pulsarpputils
 import matplotlib
 matplotlib.use("Agg")
 
@@ -522,10 +524,6 @@ sampling code and pre-converted into posterior samples through lalapps_nest2pos.
                     action="append", help="If using nested sampling inputs \
 include one posterior sample file for each IFO.")
 
-  parser.add_option("-l", "--Nlive", dest="nlive",
-                    type="int", help="If using nested sampling inputs \
-supply the number of live points used in their generation.")
-
   # get pulsar .par file
   parser.add_option("-p", "--parfile", dest="parfile", help="An "
                     "individual, TEMPO-style pulsar parameter file, used in "
@@ -608,13 +606,6 @@ supply the number of live points used in their generation.")
       sys.exit(0)
     else:
       nestedfiles = opts.nestedfiles
-
-    if not opts.__dict__['nlive']:
-      print >> sys.stderr, "Must specify number of live points."
-      parser.print_help()
-      sys.exit(0)
-    else:
-      nlive = opts.nlive
   else:
     print >> sys.stderr, "Must specify using either the MCMC or nested sampling inputs."
     parser.print_help()
@@ -724,7 +715,7 @@ supply the number of live points used in their generation.")
     Bkdata.append(os.path.join(Bkfiles[i], 'finehet_' + pname + '_' + ifo))
 
     # check files exist if not then skip the pulsar
-    if not os.path.isfile(Bkdata[i]):
+    if not os.path.isfile(Bkdata[i]) and not os.path.isfile(Bkdata[i]+'.gz'):
       print >> sys.stderr, "No heterodyne file %s" % Bkdata[i]
       sys.exit(0)
 
@@ -757,8 +748,8 @@ supply the number of live points used in their generation.")
 
   f1 = par['F1']
   if not f1:
-    print >> sys.stderr, "No F1 value in par file %s" % parfile
-    sys.exit(0)
+    print >> sys.stderr, "No F1 value in par file %s, setting to zero" % parfile
+    f1 = 0.
 
   print 'Results for pulsar ' + pname
 
@@ -980,6 +971,12 @@ function toggle(id) {
 
   for i, ifo in enumerate(ifos):
     Bkdata.append(Bkfiles[i] + '/finehet_' + pname + '_' + ifo)
+    # check file exists
+    if not os.path.isfile(Bkdata[i]):
+      Bkdata[i] = Bkdata[i]+'.gz' # try gzipped file
+      if not os.path.isfile(Bkdata[i]):
+        print >> sys.stderr, "Error... could not find Bk data file %s" % Bkdata[i]
+
   asdtime = 14400 # set time over which to produce the asds
 
   Bkfigs, psdfigs, fscanfigs, asdlist = pppu.plot_Bks_ASDs( Bkdata, ifos, \
@@ -1268,7 +1265,7 @@ asdtime, plotpsds=plotpsds, plotfscan=plotfscan, removeoutlier=50 )
     psrshelf['confidenceregion'] = dict(zip(ifosNew, confidenceregion))
 
   # phi0
-  bounds = [0, 2*math.pi]
+  bounds = [0, math.pi]
   phi0Fig, ulvals = pppu.plot_posterior_hist( poslist, 'phi0', ifosNew, \
                                         bounds, histbins, \
                                         0, overplot=True, parfile=parinj )
@@ -1282,7 +1279,7 @@ asdtime, plotpsds=plotpsds, plotfscan=plotfscan, removeoutlier=50 )
   cifigname = output_fig(ciFig[0], puldir, 'cipost', ftypes)
 
   # psi
-  bounds = [-math.pi/4, math.pi/4]
+  bounds = [0., math.pi/2.]
   psiFig, ulvals = pppu.plot_posterior_hist( poslist, 'psi', ifosNew, \
                                        bounds, histbins, \
                                        0, overplot=True, parfile=parinj )
@@ -1392,9 +1389,15 @@ priorh0cifigname['png'], priorcifigname['png'], priorcifigname['png']))
   for i, ifo in enumerate(ifos):
     # get the start time, end time and length from the heterodyned data file
     st = et = None
-    st = (sp.Popen(['head', '-1', Bkdata[i]], stdout=sp.PIPE).communicate()[0]).split()[0]
-    et = (sp.Popen(['tail', '-1', Bkdata[i]], stdout=sp.PIPE).communicate()[0]).split()[0]
-    lt.append(float((sp.Popen(['wc', '-l', Bkdata[i]], stdout=sp.PIPE).communicate()[0]).split()[0])*60)
+    if '.gz' not in Bkdata[i]: # just use Popen to get data from heterodyne file
+      st = (sp.Popen(['head', '-1', Bkdata[i]], stdout=sp.PIPE).communicate()[0]).split()[0]
+      et = (sp.Popen(['tail', '-1', Bkdata[i]], stdout=sp.PIPE).communicate()[0]).split()[0]
+      lt.append(float((sp.Popen(['wc', '-l', Bkdata[i]], stdout=sp.PIPE).communicate()[0]).split()[0])*60)
+    else: # otherwise if gzipped we'll have to open the file
+      bkd = np.loadtxt(Bkdata[i])
+      st = bkd[0,0]
+      et = bkd[-1,0]
+      lt.append(float(len(bkd))*60.)
 
     # duty cycle
     dc = 100.*lt[i]/(float(et)-float(st))
@@ -1583,8 +1586,11 @@ pdisp) )
       dispfunc = paramdisp2.__dict__['DEFAULT']
 
     if (swinj or hwinj) and parinj:
-      poststatstext.append('<td rowspan="%d">%s</td>' % (len(ifosNew), \
+      try:
+        poststatstext.append('<td rowspan="%d">%s</td>' % (len(ifosNew), \
  dispfunc(str(par[param.upper()]))))
+      except:
+        poststatstext.append('<td rowspan="%d">*</td>' % len(ifosNew))    
 
     for i, ifo in enumerate(ifosNew):
       poststatstext.append('<td class="%s">%s</td>' % (ifo, ifo) )

@@ -34,12 +34,6 @@ import numpy as np
 import struct
 import re
 
-import matplotlib
-#matplotlib.use("Agg")
-
-from matplotlib import pyplot as plt
-from matplotlib import colors
-from matplotlib.mlab import specgram, find, psd
 from scipy.integrate import cumtrapz
 from scipy.interpolate import interp1d
 from scipy.stats import hmean
@@ -520,6 +514,9 @@ def plot_posterior_hist(poslist, param, ifos,
                         parambounds=[float("-inf"), float("inf")],
                         nbins=50, upperlimit=0, overplot=False,
                         parfile=None, mplparams=False):
+  import matplotlib
+  from matplotlib import pyplot as plt
+  
   # create list of figures
   myfigs = []
 
@@ -613,9 +610,9 @@ def plot_posterior_hist(poslist, param, ifos,
   if parval:
     if not overplot:
       plt.hold(True)
-      plt.plot([parval, parval], [0, n.max()+0.1*n.max()], 'k--', linewidth=1.5)
+      plt.axvline(parval, color='k', ls='--', linewidth=1.5)
     else:
-      plt.plot([parval, parval], [0, max(ymax)], 'k--', linewidth=1.5)
+      plt.axvline(parval, color='k', ls='--', linewidth=1.5)
 
   if overplot:
     plt.ylim(0, max(ymax))
@@ -659,6 +656,9 @@ def upper_limit(pos, upperlimit=0.95, parambounds=[float("-inf"), float("inf")],
 # of bins
 def plot_posterior_chain(poslist, param, ifos, grr=None, withhist=0, \
                          mplparams=False):
+  import matplotlib
+  from matplotlib import pyplot as plt
+  
   try:
     from matplotlib import gridspec
   except:
@@ -834,6 +834,9 @@ def read_hist_from_file(histfile):
 # also be returned.
 def plot_2Dhist_from_file(histfile, ndimlabel, mdimlabel, margpars=True, \
                           mplparams=False):
+  import matplotlib
+  from matplotlib import pyplot as plt
+  
   # read in 2D h0 vs cos(iota) binary prior file
   xbins, ybins, histarr = read_hist_from_file(histfile)
 
@@ -966,6 +969,9 @@ def h0ul_from_prior_file(priorfile, ulval=0.95):
 # function to create a histogram plot of the 2D posterior
 def plot_posterior_hist2D(poslist, params, ifos, bounds=None, nbins=[50,50], \
                           parfile=None, overplot=False, mplparams=False):
+  import matplotlib
+  from matplotlib import pyplot as plt
+  
   if len(params) != 2:
     print >> sys.stderr, "Require 2 parameters"
     sys.exit(1)
@@ -1183,8 +1189,13 @@ def tukey_window(N, alpha=0.5):
 # create a function for plotting the absolute value of Bk data (read in from
 # data files) and an averaged 1 day "two-sided" amplitude spectral density
 # spectrogram for each IFO
-def plot_Bks_ASDs( Bkdata, ifos, delt=86400, plotpsds=True,
+def plot_Bks_ASDs( Bkdata, ifos, delt=86400, sampledt=60., plotpsds=True,
                    plotfscan=False, removeoutlier=None, mplparams=False ):
+  import matplotlib
+  from matplotlib.mlab import specgram
+  from matplotlib import colors
+  from matplotlib import pyplot as plt
+  
   # create list of figures
   Bkfigs = []
   psdfigs = []
@@ -1278,18 +1289,18 @@ Bk[:,2])))), 50)
       count = 0
 
       # zero pad the data and bin each point in the nearest 60s bin
-      datazeropad = np.zeros(math.ceil(totlen/60.)+1, dtype=complex)
+      datazeropad = np.zeros(int(math.ceil(totlen/sampledt))+1, dtype=complex)
 
-      idx = map(lambda x: math.floor((x/60.)+0.5), tms)
+      idx = map(lambda x: int(math.floor((x/sampledt)+0.5)), tms)
       for i in range(0, len(idx)):
         datazeropad[idx[i]] = complex(Bk[i,1], Bk[i,2])
 
-      win = tukey_window(math.floor(delt/60), alpha=0.1)
+      win = tukey_window(math.floor(delt/sampledt), alpha=0.1)
 
-      Fs = 1./60. # sample rate in Hz
+      Fs = 1./sampledt # sample rate in Hz
 
-      fscan, freqs, t = specgram(datazeropad, NFFT=int(math.floor(delt/60)), \
-Fs=Fs, window=win)
+      fscan, freqs, t = specgram(datazeropad, NFFT=int(math.floor(delt/sampledt)), \
+Fs=Fs, window=win, noverlap=int(math.floor(delt/(2.*sampledt))))
 
       if plotpsds:
         fshape = fscan.shape
@@ -1372,6 +1383,9 @@ Fs=Fs, window=win)
 # (if a list with previous value is given they will be plotted as well)
 #  - lims is a dictionary of lists for each IFO
 def plot_limits_hist(lims, param, ifos, prevlims=None, bins=20, overplot=False, mplparams=False):
+  import matplotlib
+  from matplotlib import pyplot as plt
+  
   if not mplparams:
     mplparams = { \
       'backend': 'Agg',
@@ -1528,6 +1542,9 @@ def plot_limits_hist(lims, param, ifos, prevlims=None, bins=20, overplot=False, 
 # overplot - set to true to plot different IFOs on same plot
 def plot_h0_lims(h0lims, f0gw, ifos, xlims=[10, 1500], ulesttop=None,
                  ulestbot=None, prevlim=None, prevlimf0gw=None, overplot=False, mplparams=False):
+  import matplotlib
+  from matplotlib import pyplot as plt
+  
   if not mplparams:
     mplparams = { \
       'backend': 'Agg',
@@ -2245,7 +2262,11 @@ def pulsar_nest_to_posterior(nestfile):
   # combine multiple nested sample files for an IFO into a single posterior (copied from lalapps_nest2pos)
   peparser = bppu.PEOutputParser('common')
 
-  nsResultsObject = peparser.parse(nestfile)
+  if '.gz' in nestfile:
+    import gzip
+    nsResultsObject = peparser.parse(gzip.open(nestfile, 'r'))
+  else:
+    nsResultsObject = peparser.parse(open(nestfile, 'r'))
 
   pos = bppu.Posterior( nsResultsObject, SimInspiralTableEntry=None, votfile=None )
 

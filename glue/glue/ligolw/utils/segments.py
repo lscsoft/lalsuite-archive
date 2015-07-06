@@ -314,9 +314,12 @@ class LigolwSegments(set):
 		table for the segment list, and instruments, name and
 		comment are used to populate the entry's metadata.  Note
 		that the "valid" segments are left empty, nominally
-		indicating that there are no periods of validity.
+		indicating that there are no periods of validity.  Returns
+		the newly created LigolwSegmentList object.
 		"""
-		self.add(LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, version = version, comment = comment))
+		ligolw_segment_list = LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, version = version, comment = comment)
+		self.add(ligolw_segment_list)
+		return ligolw_segment_list
 
 
 	def insert_from_segmentlistdict(self, seglists, name, version = None, comment = None):
