@@ -2578,6 +2578,11 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
         LALInferenceAddVariable(vars, "phi_spin2", &phi_spin2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
       }
   }
+  /* add ecc and f_ecc parameters */
+  REAL8 ecc=theEventTable->ecc;
+  REAL8 f_ecc=theEventTable->f_ecc;
+  LALInferenceAddVariable(vars, "ecc", &ecc, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(vars, "f_ecc", &f_ecc, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
 }
 
