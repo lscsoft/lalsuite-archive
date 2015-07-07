@@ -2898,8 +2898,6 @@ int XLALSimIMRSpinEOBWaveform(
   
   // (Stas) !!! NOTE: tAttach is further modified by small shift "sh" computed and applied in XLALSimIMREOBHybridAttachRingdown !!!
   tAttach = tPeakOmega - deltaNQC;
-  // FIXME
-  //tAttach = 144.0;
   
   if (! found){
      tAttach = tPeakOmega;
@@ -2909,7 +2907,10 @@ int XLALSimIMRSpinEOBWaveform(
     printf("For RD: DeltaNQC = %3.10f, comb = %3.10f \n", deltaNQC, combSize);
     printf("NOTE! that additional shift (sh) is computed and added in XLALSimIMREOBHybridAttachRingdown\n");
 	  fflush(NULL);
-  }  
+  } 
+
+  // FIXME
+  //combSize = 50.0; 
 
   /* WaveStep 1.5: get  */
   /* WaveStep 1.6: construct J-frame */
@@ -3662,6 +3663,8 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
       }      
       tAttach = tAmpMax;
   }
+  // FIXME 
+  //tAttach = 138.0;
   if (debugRD){
      out = fopen( "tAttach.dat", "w" );
      fprintf( out, "%.16e    %.16e    %.16e   %.16e \n", tPeakOmega, deltaNQC, tAmpMax, tAttach); 
