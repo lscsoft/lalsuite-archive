@@ -114,12 +114,12 @@ double  XLALSimLocateOmegaTime(
         /* Calculate omega = |r x dr/dt| / r*r */
         magR = sqrt(inner_product(rvec, rvec));
         omegaHi->data[i] = sqrt(inner_product(rcrossrdot, rcrossrdot)) / (magR*magR); 
-   
         if(debugPK || debugRD){
             fprintf( out, "%.16e\t%.16e\n", timeHi.data[i], omegaHi->data[i]);
         }
     }
-  
+
+
     // Searching for crude omega_max (extremum)
     peakIdx = 0;
     *found = 0;
@@ -325,7 +325,7 @@ double XLALSimLocateAmplTime(
 //    }
     for (k = 0; k < timeHi->length-2; k++) {
 //        printf("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
-        if (dt*k > 0.1*dt*( timeHi->length-2) && ddradiusVec[k] > 0) {
+        if (dt*k > dt*( timeHi->length-2)-20 && ddradiusVec[k] > 0) {
             break;
         }
     }

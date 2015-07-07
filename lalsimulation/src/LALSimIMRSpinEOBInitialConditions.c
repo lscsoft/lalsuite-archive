@@ -803,9 +803,9 @@ XLALSimIMRSpinEOBInitialConditions(
 	gsl_vector     *initValues = NULL;
 	gsl_vector     *finalValues = NULL;
 	INT4 gslStatus;
-  INT4 cntGslNoProgress = 0, MAXcntGslNoProgress = 10;
-  REAL8 multFacGslNoProgress = 3;  
-	const int	maxIter = 100;
+        INT4 cntGslNoProgress = 0, MAXcntGslNoProgress = 50;
+        REAL8 multFacGslNoProgress = 3./5.;
+	const int	maxIter = 1000;
 
 	memset(&rootParams, 0, sizeof(rootParams));
 
@@ -1023,7 +1023,7 @@ XLALSimIMRSpinEOBInitialConditions(
       cntGslNoProgress += 1;
       if (cntGslNoProgress >= MAXcntGslNoProgress) {
         XLALPrintError(
-      "\nNO PROGRESS being made by Spherical orbit root solver\n");
+      "\nINCREASE the max allowed number of trials for NO_PROGRESS flag being made by Spherical orbit root solver\n");
         gsl_multiroot_fsolver_free(rootSolver);
         gsl_vector_free(initValues);
         gsl_matrix_free(rotMatrix);
