@@ -264,6 +264,8 @@ int XLALSimInspiralTaylorF2Core(
         ref_phasing += pft12 * v12ref;
         ref_phasing += pft10 * v10ref;
 
+        /* Eccentricity terms in phasing */
+
         ref_phasing /= v5ref;
     } /* End of if(f_ref != 0) block */
 
