@@ -2760,12 +2760,28 @@ int XLALSimIMRSpinEOBWaveform(
    * Locate merger point (max omega), calculate J, chi and kappa at merger, and construct final J frame
    */
   /* WaveStep 1.1: locate merger point */
+    // Find tAmpMax to determin the tAttachment
+    REAL8 *radiusVec;
+    REAL8 radiusData[retLen];
+    radiusVec = &radiusData[0];
+    for ( i = 0; i < retLen; i++ )
+    {
+        for ( j = 0; j < 3; j++ )
+        {
+            values->data[j] = dynamicsHi->data[(j+1)*retLen + i];
+        }
+        radiusData[i] = sqrt(values->data[0]*values->data[0] + values->data[1]*values->data[1] + values->data[2]*values->data[2]);
+    }
+    if (debugPK){
+        printf("Andrea the attachment time based on Omega is %f \n", tAttach);
+    }
 
+    
     int found = 0;
     if (debugPK) {
         printf("Stas searching for maxima in omega .... \n");
     }
-    tPeakOmega = XLALSimLocateOmegaTime(dynamicsHi, values->length, retLenHi, seobParams, seobCoeffs, m1, m2, &found);
+    tPeakOmega = XLALSimLocateOmegaTime(dynamicsHi, values->length, retLenHi, seobParams, seobCoeffs, m1, m2, radiusVec, &found);
 
     if(tPeakOmega == 0.0 || found==0){
         if (debugPK){
@@ -3616,21 +3632,21 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
      fflush(NULL);
   }
   
-  // Find tAmpMax to determin the tAttachment
-    REAL8 *radiusVec;
-    REAL8 radiusData[retLen];
-    radiusVec = &radiusData[0];
-    for ( i = 0; i < retLen; i++ )
-    {
-        for ( j = 0; j < 3; j++ )
-        {
-            values->data[j] = dynamicsHi->data[(j+1)*retLen + i];
-        }
-        radiusData[i] = sqrt(values->data[0]*values->data[0] + values->data[1]*values->data[1] + values->data[2]*values->data[2]);
-    }
-    if (debugPK){
-        printf("Andrea the attachment time based on Omega is %f \n", tAttach);
-    }
+//  // Find tAmpMax to determin the tAttachment
+//    REAL8 *radiusVec;
+//    REAL8 radiusData[retLen];
+//    radiusVec = &radiusData[0];
+//    for ( i = 0; i < retLen; i++ )
+//    {
+//        for ( j = 0; j < 3; j++ )
+//        {
+//            values->data[j] = dynamicsHi->data[(j+1)*retLen + i];
+//        }
+//        radiusData[i] = sqrt(values->data[0]*values->data[0] + values->data[1]*values->data[1] + values->data[2]*values->data[2]);
+//    }
+//    if (debugPK){
+//        printf("Andrea the attachment time based on Omega is %f \n", tAttach);
+//    }
   int foundAmp = 0;
   double tAmpMax =  XLALSimLocateAmplTime(&timeHi, h22PTSHi->data, radiusVec, &foundAmp);
   

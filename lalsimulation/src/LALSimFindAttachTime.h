@@ -65,6 +65,7 @@ double  XLALSimLocateOmegaTime(
     SpinEOBHCoeffs  seobCoeffs,
     REAL8 m1,
     REAL8 m2,
+    REAL8 *radiusVec,
     int *found
 );
 
