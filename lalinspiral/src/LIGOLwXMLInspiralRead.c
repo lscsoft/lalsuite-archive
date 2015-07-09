@@ -1434,7 +1434,8 @@ SimInspiralTableFromLIGOLw (
     {"taper",               -1, 54},
     {"bandpass",            -1, 55},
     {"ecc",                 -1, 56},
-    {"f_ecc",               -1, 57},
+    {"eccOrder",            -1, 57},
+    {"f_ecc",               -1, 58},
     {NULL,                   0, 0}
   };
 
