@@ -51,6 +51,7 @@ double  XLALSimLocateOmegaTime(
     REAL8Vector *values = NULL;
     REAL8Vector *dvalues = NULL;
     REAL8Vector *omegaHi = NULL;
+
     
     if ( !(values = XLALCreateREAL8Vector( numdynvars )) )
     {
@@ -71,6 +72,11 @@ double  XLALSimLocateOmegaTime(
   
     timeHi.length = retLenHi;
     timeHi.data = dynamicsHi->data;
+    
+    double maxoff = 20.0;
+    unsigned int Nps = retLenHi; 
+    // this definesthe search interval for maximum (we might use min0ff= 0.051 instead)
+    double tMin = timeHi.data[Nps-1] - maxoff;
      
     double omega  = 0.0;  
     double magR;
@@ -126,14 +132,17 @@ double  XLALSimLocateOmegaTime(
     for ( i = 1, peakIdx = 0; i < retLenHi-1; i++ ){
         omega = omegaHi->data[i];
         if (omega >= omegaHi->data[i-1] && omega > omegaHi->data[i+1]){
-            peakIdx = i;
-            *found = 1;
-            if (debugPK){
-                printf("PK: Crude peak of Omega is at idx = %d. t = %f,  OmegaPeak = %.16e\n", 
-                    peakIdx, timeHi.data[peakIdx], omega);
-                fflush(NULL);
+            if (timeHi.data[i] >= tMin){
+                peakIdx = i;
+                *found = 1;
+            
+                if (debugPK){
+                    printf("PK: Crude peak of Omega is at idx = %d. t = %f,  OmegaPeak = %.16e\n", 
+                        peakIdx, timeHi.data[peakIdx], omega);
+                    fflush(NULL);
+                }
+                break;
             }
-            break;
         }  
     }
     
@@ -259,15 +268,17 @@ double  XLALSimLocateOmegaTime(
             for ( i = 1, peakIdx = 0; i < retLenHi-1; i++ ){
                 Aoverr2 = listAOverr2[i];
                 if (Aoverr2 >= listAOverr2[i-1] && Aoverr2 > listAOverr2[i+1]){
-                    peakIdx = i;
-                    tPeakOmega = timeHi.data[i];
-                    *found = 1;
-                    if (debugPK){
-                        printf("PK: Peak of A(r)/r^2 is at idx = %d. t = %f, Peak ampl. = %.16e\n", 
-                            peakIdx, timeHi.data[peakIdx], Aoverr2);
-                        fflush(NULL);
+                    if (timeHi.data[i] > tMin){
+                        peakIdx = i;
+                        tPeakOmega = timeHi.data[i];
+                        *found = 1;
+                        if (debugPK){
+                            printf("PK: Peak of A(r)/r^2 is at idx = %d. t = %f, Peak ampl. = %.16e\n", 
+                                peakIdx, timeHi.data[peakIdx], Aoverr2);
+                            fflush(NULL);
+                        }
+                        break;
                     }
-                    break;
                 }  
             }
         }

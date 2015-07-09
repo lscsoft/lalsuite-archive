@@ -2734,8 +2734,9 @@ int XLALSimIMRSpinEOBWaveform(
     XLAL_ERROR( XLAL_EFUNC );
   }
 
-  retLenRDPatch = (UINT4)ceil( 20 / ( cimag(modeFreq) * deltaTHigh ));
-  retLenRDPatchLow = (UINT4)ceil( 20 / ( cimag(modeFreq) * deltaT ));
+  retLenRDPatch = (UINT4)ceil( 40 / ( cimag(modeFreq) * deltaTHigh ));
+  retLenRDPatchLow = (UINT4)ceil( 40 / ( cimag(modeFreq) * deltaT ));
+  //printf("Stas modeFreq = %f, retLenRDPatch = %d EOB_RD_EFOLDS = %f \n", cimag(modeFreq)*deltaTHigh, retLenRDPatch, EOB_RD_EFOLDS);
   
   /* Allocate the high sample rate vectors */
   //sigReHi  = XLALCreateREAL8Vector( retLen + retLenRDPatch );
@@ -2903,7 +2904,7 @@ int XLALSimIMRSpinEOBWaveform(
   } 
 
   // FIXME
-  //combSize = 50.0; 
+  //combSize = 40.0; 
 
   /* WaveStep 1.5: get  */
   /* WaveStep 1.6: construct J-frame */
@@ -3657,7 +3658,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
       tAttach = tAmpMax;
   }
   // FIXME 
-  //tAttach = 138.0;
+  //tAttach = 130.0;
   if (debugRD){
      out = fopen( "tAttach.dat", "w" );
      fprintf( out, "%.16e    %.16e    %.16e   %.16e \n", tPeakOmega, deltaNQC, tAmpMax, tAttach); 
