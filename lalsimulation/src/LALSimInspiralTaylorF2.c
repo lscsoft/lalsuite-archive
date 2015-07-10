@@ -232,11 +232,13 @@ int XLALSimInspiralTaylorF2Core(
 
     data = htilde->data->data;
 
+    /* folloeing code is not efficient in memiry usage, need to be improved later */
+    static REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1]; // we want to calculate just one time
+    REAL8 ecc_phasing = 0.0;
     REAL8 v_ecc_ref = 0.0;
     if( ecc > 0 && f_ecc > 0) {
         v_ecc_ref = cbrt(piM*f_ecc);
     }
-    REAL8 ecc_phasing = 0.0;
 
     /* Compute the SPA phase at the reference point
      * N.B. f_ref == 0 means we define the reference time/phase at "coalescence"
@@ -272,7 +274,9 @@ int XLALSimInspiralTaylorF2Core(
         ref_phasing += pft10 * v10ref;
 
         /* Eccentricity terms in phasing */
-        reaf_phasing += ecc_phasing;
+        if( ecc > 0 && f_ecc > 0) {
+          ref_phasing += ecentricityPhasing_F2(vref, v_ecc_ref, ecc, eta, eccOrder, eccPNCoeffs);
+        }
 
         ref_phasing /= v5ref;
     } /* End of if(f_ref != 0) block */

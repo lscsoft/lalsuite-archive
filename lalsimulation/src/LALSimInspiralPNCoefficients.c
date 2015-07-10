@@ -1342,9 +1342,15 @@ eccentricyPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder, REA
     v_power[i] = v_power[i-1]*v;
   }
   global_factor = -2.355/1.462*ecc*ecc*pow(v1/v, 19.0/3.0);
+  global_factor *= (3.0/128.0/eta);  // overall factor except v^-5 in phase term
   for(int i=0; i<=eccOrder; i++)
   {
-    //phasing += 
+    INT4 k = 0;
+    for(j=i; j>=0; j--)
+    {
+      k = i - j;
+      phasing += eccPNCoeffs[i][j][k]*v_power[j]*v0_power[k];
+    }
   }
   return phasing;
 }
