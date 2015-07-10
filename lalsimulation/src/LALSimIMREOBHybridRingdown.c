@@ -80,7 +80,7 @@ XLALSimIMREOBHybridRingdownWave(
 )
 {
 
-	INT4		debugout = 0;
+	INT4		debugout = 1;
 	/* XLAL error handling */
 	INT4		errcode = XLAL_SUCCESS;
 
@@ -297,7 +297,7 @@ XLALGenerateHybridWaveDerivatives(
 )
 {
 
-	INT4		debugout = 0;
+	INT4		debugout = 1;
 	/* XLAL error handling */
 	INT4		errcode = XLAL_SUCCESS;
 
@@ -438,7 +438,7 @@ XLALSimIMREOBHybridAttachRingdown(
                   const REAL8 JLN           /**<< cosine of the angle between J and LN at the light ring */
 )
 {
-	INT4		debugout = 0;
+	INT4		debugout = 1;
 
 	COMPLEX16Vector *modefreqs;
 	//COMPLEX16 freq7sav;
