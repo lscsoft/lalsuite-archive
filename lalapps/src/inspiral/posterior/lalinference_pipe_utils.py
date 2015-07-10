@@ -976,7 +976,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       mkdirs(roqeventpath)
     node.set_trig_time(end_time)
     node.set_seed(random.randint(1,2**31))
-    #node.set_priority(-20+int(round(40.*float(self.times.index(end_time))/float(len(self.times)-0.5))))
+    node.set_priority(-20+int(round(40.*float(self.times.index(end_time))/float(len(self.times)-0.5))))
     prenode.set_trig_time(end_time)
     randomseed=random.randint(1,2**31)
     node.set_seed(randomseed)
