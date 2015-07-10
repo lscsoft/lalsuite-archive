@@ -274,7 +274,7 @@ int XLALSimInspiralTaylorF2Core(
 
         /* Eccentricity terms in phasing */
         if( ecc > 0 && f_ecc > 0) {
-          ref_phasing += ecentricityPhasing_F2(vref, v_ecc_ref, ecc, eta, eccOrder);
+          ref_phasing += eccentricityPhasing_F2(vref, v_ecc_ref, ecc, eta, eccOrder);
         }
 
         ref_phasing /= v5ref;
@@ -315,7 +315,7 @@ int XLALSimInspiralTaylorF2Core(
 
         /* Eccentricity terms in phasing */
         if( ecc > 0 && f_ecc > 0) {
-          phasing += ecentricityPhasing_F2(v, v_ecc_ref, ecc, eta, eccOrder);
+          phasing += eccentricityPhasing_F2(v, v_ecc_ref, ecc, eta, eccOrder);
         }
 
     /* WARNING! Amplitude orders beyond 0 have NOT been reviewed!

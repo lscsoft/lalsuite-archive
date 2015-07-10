@@ -56,9 +56,9 @@ tagLALSimInspiralWaveformCache {
     REAL8 i;
     REAL8 lambda1;
     REAL8 lambda2;
-    REAL8 ecc,
-    INT4 eccOrder,
-    REAL8 f_ecc,
+    REAL8 ecc;
+    INT4 eccOrder;
+    REAL8 f_ecc;
     LALSimInspiralWaveformFlags *waveFlags;
     LALSimInspiralTestGRParam *nonGRparams; /* Non-NULL pointers here are not allowed b/c it's impossible to know which fields are present */
     int amplitudeO;

@@ -1300,7 +1300,7 @@ XLALSimInspiralTaylorEtZeta_7PNCoeff(
 // added for eccentricity corrections
 // the code is not approved, hence I will use function name as I want
 static INT4 UNUSED
-eccentricyPNCoeffs_F2(REAL8 eta, REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1])
+eccentricityPNCoeffs_F2(REAL8 eta, REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1])
 {
   static INT4 called = 0;
   INT4 ret = 0;
@@ -1342,12 +1342,13 @@ eccentricyPNCoeffs_F2(REAL8 eta, REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL_M
   return ret;
 }
 static REAL8 UNUSED
-eccentricyPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder)
+eccentricityPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder)
 {
   static INT4 called = 0;
   static REAL8 v0_power[LAL_MAX_ECC_PN_ORDER+1];
   /* folloeing code is not efficient in memory usage, need to be improved later */
   static REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1]; // we want to calculate just one time
+  REAL8 v_power[LAL_MAX_ECC_PN_ORDER+1];
   REAL8 phasing = 0.0;
   REAL8 global_factor;
   if(called == 0) // call just once globally
@@ -1358,7 +1359,7 @@ eccentricyPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder)
     {
       v0_power[i] = v0_power[i-1]*v0;
     }
-    int ret = eccentricyPNCoeffs_F2(eta, eccPNCoeffs);
+    int ret = eccentricityPNCoeffs_F2(eta, eccPNCoeffs);
   }
   v_power[0] = 1.0;
   for(int i=1; i<=LAL_MAX_ECC_PN_ORDER; i++)
@@ -1371,7 +1372,7 @@ eccentricyPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder)
   for(int i=0; i<=eccOrder; i++)
   {
     INT4 k = 0;
-    for(j=i; j>=0; j--)
+    for(int j=i; j>=0; j--)
     {
       k = i - j;
       if( j==6 )

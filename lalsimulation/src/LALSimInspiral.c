@@ -3325,7 +3325,8 @@ int XLALSimInspiralTD(
         /* generate the conditioned waveform in the frequency domain */
         /* note: redshift factor has already been applied above */
         /* set deltaF = 0 to get a small enough resolution */
-        retval = XLALSimInspiralFD(&hptilde, &hctilde, phiRef, 0.0, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, 0.5/deltaT, f_ref, r, 0.0, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
+        /* all eccentricity parameters, ecc, eccOrder, f_ecc set to zero, need to be check in future */
+        retval = XLALSimInspiralFD(&hptilde, &hctilde, phiRef, 0.0, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, 0.5/deltaT, f_ref, r, 0.0, i, lambda1, lambda2, 0, 0, 0, waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
         if (retval < 0)
             XLAL_ERROR(XLAL_EFUNC);
 
