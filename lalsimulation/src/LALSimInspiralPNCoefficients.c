@@ -1320,10 +1320,12 @@ eccentricyPNCoeffs_F2(REAL8 eta, REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL_M
   return ret;
 }
 static REAL8 UNUSED
-eccentricyPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder, REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1])
+eccentricyPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder)
 {
   static INT4 called = 0;
   static REAL8 v0_power[LAL+MAX_ECC_PN_ORDER+1];
+  /* folloeing code is not efficient in memory usage, need to be improved later */
+  static REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1]; // we want to calculate just one time
   REAL8 v_power[LAL+MAX_ECC_PN_ORDER+1];
   REAL8 phasing = 0.0;
   REAL8 global_factor;
@@ -1335,6 +1337,7 @@ eccentricyPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder, REA
     {
       v0_power[i] = v0_power[i-1]*v0;
     }
+    int ret = eccentricyPNCoeffs_F2(eta, eccPNCoeffs);
   }
   v_power[0] = 1.0; // this might be duplicated calculations, need to improve in the future
   for(int i=1; i<=LAL_MAX_ECC_PN_ORDER; i++)

@@ -232,8 +232,6 @@ int XLALSimInspiralTaylorF2Core(
 
     data = htilde->data->data;
 
-    /* folloeing code is not efficient in memiry usage, need to be improved later */
-    static REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1]; // we want to calculate just one time
     REAL8 ecc_phasing = 0.0;
     REAL8 v_ecc_ref = 0.0;
     if( ecc > 0 && f_ecc > 0) {
@@ -275,7 +273,7 @@ int XLALSimInspiralTaylorF2Core(
 
         /* Eccentricity terms in phasing */
         if( ecc > 0 && f_ecc > 0) {
-          ref_phasing += ecentricityPhasing_F2(vref, v_ecc_ref, ecc, eta, eccOrder, eccPNCoeffs);
+          ref_phasing += ecentricityPhasing_F2(vref, v_ecc_ref, ecc, eta, eccOrder);
         }
 
         ref_phasing /= v5ref;
@@ -315,6 +313,9 @@ int XLALSimInspiralTaylorF2Core(
         phasing += pft10 * v10;
 
         /* Eccentricity terms in phasing */
+        if( ecc > 0 && f_ecc > 0) {
+          phasing += ecentricityPhasing_F2(v, v_ecc_ref, ecc, eta, eccOrder);
+        }
 
     /* WARNING! Amplitude orders beyond 0 have NOT been reviewed!
      * Use at your own risk. The default is to turn them off.
