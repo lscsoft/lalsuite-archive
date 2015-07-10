@@ -1345,7 +1345,7 @@ static REAL8 UNUSED
 eccentricyPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder)
 {
   static INT4 called = 0;
-  static REAL8 v0_power[LAL+MAX_ECC_PN_ORDER+1];
+  static REAL8 v0_power[LAL_MAX_ECC_PN_ORDER+1];
   /* folloeing code is not efficient in memory usage, need to be improved later */
   static REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1]; // we want to calculate just one time
   REAL8 phasing = 0.0;
