@@ -41,6 +41,7 @@ extern "C" {
 #define LAL_PN_MODE_L_MAX 3
 /* (2x) Highest available PN order - UPDATE IF NEW ORDERS ADDED!!*/
 #define LAL_MAX_PN_ORDER 8
+#define LAL_MAX_ECC_PN_ORDER 6
 
 /**
  * Macro procedure for aborting if non-default LALSimInspiralWaveformFlags
@@ -1311,6 +1312,7 @@ int XLALSimInspiralChooseFDWaveform(
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
     REAL8 ecc,                                  /**< eccentricity effect control < 0 : no eccentricity effect */
+    INT4  eccOrder,                         /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
     REAL8 f_ecc,                                /**< eccentricity effect reference frequency */
     LALSimInspiralWaveformFlags *waveFlags,     /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
@@ -1430,6 +1432,7 @@ int XLALSimInspiralFD(
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
     REAL8 ecc,                                  /**< eccentricity effect control < 0 : no eccentricity effect */
+    INT4  eccOrder,                         /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
     REAL8 f_ecc,                                /**< eccentricity effect reference frequency */
     LALSimInspiralWaveformFlags *waveFlags,     /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
@@ -2186,6 +2189,7 @@ int XLALSimInspiralTaylorF2Core(
         const REAL8 lambda1,                  /**< (tidal deformation of body 1)/(mass of body 1)^5 */
         const REAL8 lambda2,                  /**< (tidal deformation of body 2)/(mass of body 2)^5 */
         const REAL8 ecc,                      /**< eccentricity effect control < 0 : no eccentricity effect */
+        const INT4  eccOrder,                 /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
         const REAL8 f_ecc,                    /**< eccentricity effect reference frequency */
         const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
         const LALSimInspiralTidalOrder tideO, /**< flag to control tidal effects */
@@ -2210,6 +2214,7 @@ int XLALSimInspiralTaylorF2(
 	const REAL8 lambda1,                 /**< (tidal deformation of body 1)/(mass of body 1)^5 */
 	const REAL8 lambda2,                 /**< (tidal deformation of body 2)/(mass of body 2)^5 */
         const REAL8 ecc,                     /**< eccentricity effect control < 0 : no eccentricity effect */
+        const INT4  eccOrder,                 /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
         const REAL8 f_ecc,                   /**< eccentricity effect reference frequency */
 	const LALSimInspiralSpinOrder spinO, /**< twice PN order of spin effects */
 	LALSimInspiralTidalOrder tideO,      /**< twice PN order of tidal effects */

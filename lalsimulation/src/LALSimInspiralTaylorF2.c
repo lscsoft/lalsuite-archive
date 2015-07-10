@@ -85,6 +85,7 @@ int XLALSimInspiralTaylorF2Core(
         const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
         const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
         const REAL8 ecc,                       /**< eccentricity effect control < 0 : no eccentricity effect */
+        const INT4  eccOrder,                 /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
         const REAL8 f_ecc,                     /**< eccentricity effect reference frequency */
         const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
         const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
@@ -231,6 +232,12 @@ int XLALSimInspiralTaylorF2Core(
 
     data = htilde->data->data;
 
+    REAL8 v_ecc_ref = 0.0;
+    if( ecc > 0 && f_ecc > 0) {
+        v_ecc_ref = cbrt(piM*f_ecc);
+    }
+    REAL8 ecc_phasing = 0.0;
+
     /* Compute the SPA phase at the reference point
      * N.B. f_ref == 0 means we define the reference time/phase at "coalescence"
      * when the frequency approaches infinity. In that case,
@@ -265,14 +272,11 @@ int XLALSimInspiralTaylorF2Core(
         ref_phasing += pft10 * v10ref;
 
         /* Eccentricity terms in phasing */
+        reaf_phasing += ecc_phasing;
 
         ref_phasing /= v5ref;
     } /* End of if(f_ref != 0) block */
 
-    REAL8 v_ecc_ref = 0.0;
-    if( ecc > 0 && f_ecc > 0) {
-        v_ecc_ref = cbrt(piM*f_ecc);
-    }
     #pragma omp parallel for
     for (i = 0; i < freqs->length; i++) {
         const REAL8 f = freqs->data[i];
@@ -386,6 +390,7 @@ int XLALSimInspiralTaylorF2(
         const REAL8 lambda1,                   /**< (tidal deformation of body 1)/(mass of body 1)^5 */
         const REAL8 lambda2,                   /**< (tidal deformation of body 2)/(mass of body 2)^5 */
         const REAL8 ecc,                       /**< eccentricity effect control < 0 : no eccentricity effect */
+        const INT4  eccOrder,                 /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
         const REAL8 f_ecc,                     /**< eccentricity effect reference frequency */
         const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
         const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
@@ -451,7 +456,7 @@ int XLALSimInspiralTaylorF2(
     }
     ret = XLALSimInspiralTaylorF2Core(&htilde, freqs, phi_ref, m1_SI, m2_SI,
                                       S1z, S2z, f_ref, shft, r, quadparam1, quadparam2,
-                                      lambda1, lambda2, ecc, f_ecc, spinO, tideO, phaseO, amplitudeO);
+                                      lambda1, lambda2, ecc, eccOrder, f_ecc, spinO, tideO, phaseO, amplitudeO);
 
     XLALDestroyREAL8Sequence(freqs);
 

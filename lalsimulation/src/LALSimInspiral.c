@@ -2651,6 +2651,7 @@ int XLALSimInspiralChooseFDWaveform(
     REAL8 lambda1,                          /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2,                          /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
     REAL8 ecc,                              /**< eccentricity effect control < 0 : no eccentricity effect */
+    INT4  eccOrder,                         /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
     REAL8 f_ecc,                            /**< eccentricity effect reference frequency */
     LALSimInspiralWaveformFlags *waveFlags, /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
     LALSimInspiralTestGRParam *nonGRparams, /**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
@@ -2726,7 +2727,7 @@ int XLALSimInspiralChooseFDWaveform(
             ret = XLALSimInspiralTaylorF2(hptilde, phiRef, deltaF, m1, m2,
                     S1z, S2z, f_min, f_max, f_ref, r,
                     quadparam1, quadparam2, lambda1, lambda2,
-                    ecc, f_ecc,
+                    ecc, eccOrder, f_ecc,
                     XLALSimInspiralGetSpinOrder(waveFlags),
                     XLALSimInspiralGetTidalOrder(waveFlags),
                     phaseO, amplitudeO);
@@ -3457,6 +3458,7 @@ int XLALSimInspiralFD(
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / m1^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / m2^5 (dimensionless) */
     REAL8 ecc,                              /**< eccentricity effect control < 0 : no eccentricity effect */
+    INT4  eccOrder,                         /**< twice eccentricity effect PN order < 0 : maximum order 3PN */
     REAL8 f_ecc,                            /**< eccentricity effect reference frequency */
     LALSimInspiralWaveformFlags *waveFlags,     /**< Set of flags to control special behavior of some waveform families. Pass in NULL (or None in python) for default flags */
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
@@ -3550,7 +3552,7 @@ int XLALSimInspiralFD(
             XLAL_PRINT_WARNING("Specified frequency interval of %g Hz is too large for a chirp of duration %g s", deltaF, chirplen * deltaT);
         
         /* generate the waveform in the frequency domain starting at fstart */
-        retval = XLALSimInspiralChooseFDWaveform(hptilde, hctilde, phiRef, deltaF, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, fstart, f_max, f_ref, r, i, lambda1, lambda2, ecc, f_ecc, waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
+        retval = XLALSimInspiralChooseFDWaveform(hptilde, hctilde, phiRef, deltaF, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, fstart, f_max, f_ref, r, i, lambda1, lambda2, ecc, eccOrder, f_ecc, waveFlags, nonGRparams, amplitudeO, phaseO, approximant);
         if (retval < 0)
             XLAL_ERROR(XLAL_EFUNC);
 
