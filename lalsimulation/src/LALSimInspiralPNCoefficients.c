@@ -1296,3 +1296,55 @@ XLALSimInspiralTaylorEtZeta_7PNCoeff(
 {
 	return (129.817/2.304 - 320.7739/4.8384 * eta + 61.3373/1.2096 * eta*eta) * LAL_PI;
 }
+
+// added for eccentricity corrections
+// the code is not approved, hence I will use function name as I want
+static INT4 UNUSED
+eccentricyPNCoeffs_F2(REAL8 eta, REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1])
+{
+  static INT4 called = 0;
+  INT4 ret = 0;
+  if(called == 0) // call just one time globally
+  {
+    called = 1;
+    memset(eccPNCoeffs, 0x00, (LAL_MAX_ECC_PN_ORDER+1)*(LAL_MAX_ECC_PN_ORDER+1)*(LAL_MAX_ECC_PN_ORDER+1)*sizeof(REAL8));
+    eccPNCoeffs[0][0][0] = 1.0; // lowest order constant term
+
+    eccPNCoeffs[2][2][0] = 29.9076223/8.1976608 + 18.766963/2.927736*eta; //v^2 term
+    eccPNCoeffs[2][1][1] = 0.0; //v*v0 term
+    eccPNCoeffs[2][0][2] = 2.833/1.008 - 19.7/3.6*eta; //v0^2 term
+
+    eccPNCoeffs[3][3][0] = -28.19123/2.82600*LAL_PI; //v^3 term
+    eccPNCoeffs[3][0][3] = 37.7/7.2*LAL_PI; //v0^3 term
+  }
+  return ret;
+}
+static REAL8 UNUSED
+eccentricyPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder, REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1])
+{
+  static INT4 called = 0;
+  static REAL8 v0_power[LAL+MAX_ECC_PN_ORDER+1];
+  REAL8 v_power[LAL+MAX_ECC_PN_ORDER+1];
+  REAL8 phasing = 0.0;
+  REAL8 global_factor;
+  if(called == 0) // call just once globally
+  {
+    called = 1;
+    v0_power[0] = 1.0;
+    for(int i=1; i<=LAL_MAX_ECC_PN_ORDER; i++)
+    {
+      v0_power[i] = v0_power[i-1]*v0;
+    }
+  }
+  v_power[0] = 1.0; // this might be duplicated calculations, need to improve in the future
+  for(int i=1; i<=LAL_MAX_ECC_PN_ORDER; i++)
+  {
+    v_power[i] = v_power[i-1]*v;
+  }
+  global_factor = -2.355/1.462*ecc*ecc*pow(v1/v, 19.0/3.0);
+  for(int i=0; i<=eccOrder; i++)
+  {
+    //phasing += 
+  }
+  return phasing;
+}
