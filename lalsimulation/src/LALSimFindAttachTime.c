@@ -33,6 +33,7 @@ double  XLALSimLocateOmegaTime(
     SpinEOBHCoeffs  seobCoeffs,
     REAL8 m1,
     REAL8 m2,
+    REAL8 *radiusVec,
     int *found
         )
 {        
@@ -46,7 +47,7 @@ double  XLALSimLocateOmegaTime(
     gsl_interp_accel *acc = NULL;
     
     if (debugPK) {debugRD = 0;}
-  
+    
     unsigned int peakIdx, i, j;
     REAL8Vector *values = NULL;
     REAL8Vector *dvalues = NULL;
@@ -73,12 +74,42 @@ double  XLALSimLocateOmegaTime(
     timeHi.length = retLenHi;
     timeHi.data = dynamicsHi->data;
     
+    double dt = timeHi.data[1] - timeHi.data[0];
+    double ddradiusVec[timeHi.length - 2];
+    unsigned int k;
+    for (k = 1; k < timeHi.length-1; k++) {
+        ddradiusVec[k] = (radiusVec[k+1] - 2.*radiusVec[k] + radiusVec[k-1])/dt/dt;
+        //        printf("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
+    }
+    //    for (k = timeHi->length-3; k>=1; k--) {
+    //        printf("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
+    //        if (ddradiusVec[k] < 0) {
+    //            break;
+    //        }
+    //    }
+    for (k = 0; k < timeHi.length-2; k++) {
+        //        printf("%3.10f %3.10f\n", timeHi->data[k], ddradiusVec[k]);
+        if (dt*k > dt*( timeHi.length-2)-20 && ddradiusVec[k] > 0) {
+            break;
+        }
+    }
+    double minoff = dt*( timeHi.length-2 - k) > 0.2 ? dt*( timeHi.length-2 - k) : 0.2;
+    if (debugPK) {
+        printf("Change of sign in ddr %3.10f M before the end\n", minoff );
+    }
+    // First we search for the maximum (extremum) of amplitude
     double maxoff = 20.0;
-    unsigned int Nps = retLenHi; 
+    unsigned int Nps = timeHi.length;
     // this definesthe search interval for maximum (we might use min0ff= 0.051 instead)
-    double tMin = timeHi.data[Nps-1] - maxoff;
-     
-    double omega  = 0.0;  
+    double tMin  = timeHi.data[Nps-1] - maxoff;
+    double tMax = timeHi.data[Nps-1] - minoff;
+    tMin = tMax - 20.;
+    if ( debugPK ) {
+        printf("tMin, tMax = %3.10f %3.10f\n", tMin, tMax);
+    }
+    
+    double omega  = 0.0;
+
     double magR;
     double time1, time2, omegaDeriv, omegaDerivMid, tPeakOmega;
   
@@ -131,17 +162,15 @@ double  XLALSimLocateOmegaTime(
     *found = 0;
     for ( i = 1, peakIdx = 0; i < retLenHi-1; i++ ){
         omega = omegaHi->data[i];
-        if (omega >= omegaHi->data[i-1] && omega > omegaHi->data[i+1]){
-            if (timeHi.data[i] >= tMin){
-                peakIdx = i;
-                *found = 1;
-            
-                if (debugPK){
-                    printf("PK: Crude peak of Omega is at idx = %d. t = %f,  OmegaPeak = %.16e\n", 
-                        peakIdx, timeHi.data[peakIdx], omega);
-                    fflush(NULL);
-                }
-                break;
+
+        if (omega >= omegaHi->data[i-1] && omega > omegaHi->data[i+1] && tMin>=timeHi.data[i] && timeHi.data[i]<=tMin){
+            peakIdx = i;
+            *found = 1;
+            if (debugPK){
+                printf("PK: Crude peak of Omega is at idx = %d. t = %f,  OmegaPeak = %.16e\n", 
+                    peakIdx, timeHi.data[peakIdx], omega);
+                fflush(NULL);
+
             }
         }  
     }
@@ -341,39 +370,50 @@ double XLALSimLocateAmplTime(
         }
     }
     double minoff = dt*( timeHi->length-2 - k) > 0.2 ? dt*( timeHi->length-2 - k) : 0.2;
-//    printf("Change of sign in ddr %3.10f M before the end\n", minoff );
+    if (debugPK) {
+        printf("Change of sign in ddr %3.10f M before the end\n", minoff );
+    }
     // First we search for the maximum (extremum) of amplitude
     unsigned int i, peakIdx; 
     double maxoff = 20.0;
     unsigned int Nps = timeHi->length; 
     // this definesthe search interval for maximum (we might use min0ff= 0.051 instead)
+    double tMin  = timeHi->data[Nps-1] - maxoff;
     double tMax = timeHi->data[Nps-1] - minoff;
-    double tMin = timeHi->data[Nps-1] - maxoff;
+    tMin = tMax - 20.;
+    if ( debugPK ) {
+        printf("tMin, tMax = %3.10f %3.10f\n", tMin, tMax);
+    }
+    unsigned int iMin = ceil(tMin/dt);
+    unsigned int iMax = floor(tMax/dt);
+    unsigned int NpsSmall = iMax - iMin + 1;
+
     double AmplN, AmplO;
     double tAmpMax, AmpMax, tAmp;
     tAmpMax = 0.;
-    REAL8 Ampl[Nps];
+    REAL8 tSeries[NpsSmall], Ampl[NpsSmall];
     
     if(debugPK || debugRD) {
             out = fopen( "AmpPHi.dat", "w" );
     }
-    AmplO = sqrt(creal(hP22->data[0])*creal(hP22->data[0]) + cimag(hP22->data[0])*cimag(hP22->data[0]));
+    AmplO = sqrt(creal(hP22->data[iMin + 0])*creal(hP22->data[iMin + 0]) + cimag(hP22->data[iMin + 0])*cimag(hP22->data[iMin + 0]));
     Ampl[0] = AmplO;
     peakIdx = 0;
-    for (i=0; i<Nps-1; i++){
-        AmplN = sqrt(creal(hP22->data[i+1])*creal(hP22->data[i+1]) + cimag(hP22->data[i+1])*cimag(hP22->data[i+1]));
+    for (i=0; i<NpsSmall-1; i++){
+        tSeries[i] = timeHi->data[iMin + i];
+        AmplN = sqrt(creal(hP22->data[iMin + i+1])*creal(hP22->data[iMin + i+1]) + cimag(hP22->data[iMin + i+1])*cimag(hP22->data[iMin + i+1]));
         //Ampl = sqrt(hreP22->data[i]*hreP22->data[i] + himP22->data[i]*himP22->data[i]);
         if(debugPK || debugRD){
-            fprintf(out, "%3.10f %3.10f\n", timeHi->data[i], Ampl[i]);
+            fprintf(out, "%3.10f %3.10f\n", tSeries[i], Ampl[i]);
         }
         if (Ampl[i] >= AmplO && Ampl[i] >AmplN){
             if (*found !=1){
-                tAmp = timeHi->data[i]; 
+                tAmp = timeHi->data[iMin + i];
                 if (tAmp >=tMin && tAmp <= tMax ){
                     *found = 1;
                     tAmpMax = tAmp;
                     AmpMax = Ampl[i];
-                    peakIdx = i;
+                    peakIdx = iMin + i;
                 }else{
                     if (debugPK){
                         printf("Stas dismissing time %3.10f outside limits %3.10f, %3.10f \n", 
@@ -403,19 +443,23 @@ double XLALSimLocateAmplTime(
 
     if (*found ==0 || debugRD || debugPK){
         // we haven't found the maximum of amplitude -> search for minimum of derivative (extremum)
-        spline = gsl_spline_alloc( gsl_interp_cspline, Nps );
-        acc    = gsl_interp_accel_alloc();
-        gsl_spline_init( spline, timeHi->data, Ampl, Nps );
+//        spline = gsl_spline_alloc( gsl_interp_cspline, NpsSmall );
+//        acc    = gsl_interp_accel_alloc();
+//        gsl_spline_init( spline, tSeries, Ampl, NpsSmall );
         
-        REAL8 AmpDot[Nps];
+        REAL8 AmpDot[NpsSmall];
         
-        for (i=1; i<Nps-1; i++){
-            AmpDot[i] = gsl_spline_eval_deriv(spline, timeHi->data[i], acc);
+        for (i=1; i<NpsSmall-2; i++){
+//            AmpDot[i] = gsl_spline_eval_deriv(spline, tSeries[i] , acc);
+            AmpDot[i] = (Ampl[i+1] - Ampl[i-1])/2./dt;
         }
         AmpDot[0] = AmpDot[1]; 
-        AmpDot[Nps-1] = AmpDot[Nps-2];
+        AmpDot[NpsSmall -2] = AmpDot[NpsSmall-3];
+        AmpDot[NpsSmall -1] = AmpDot[NpsSmall-2];
 
-        REAL8 AmpDotSmooth[Nps];
+
+
+        REAL8 AmpDotSmooth[NpsSmall];
         // Compute moving average over 7 points
         unsigned int win = 3;
         //int j;
@@ -430,29 +474,29 @@ double XLALSimLocateAmplTime(
             AmpDotSmooth[i] = AmpDotSmooth[win];
         }
 
-        for (i=win+1; i<Nps-win; i++){
+        for (i=win+1; i<NpsSmall-1 -win; i++){
             AmpDotSmooth[i] = AmpDotSmooth[i-1] + norm*(AmpDot[i+win] - AmpDot[i-win-1]);             
         }
         for (i=0; i<win; i++){
-            AmpDotSmooth[Nps-win-1+i] = AmpDotSmooth[Nps-win-1];
+            AmpDotSmooth[NpsSmall-win-1+i] = AmpDotSmooth[NpsSmall-win-1];
         }
 
         
         if(debugPK || debugRD) {
             out = fopen( "DotAmpPHi.dat", "w" );
-            for (i=0; i<Nps; i++){
-                fprintf(out, "%3.10f %3.10f %3.10f\n", timeHi->data[i], AmpDot[i], AmpDotSmooth[i]);
+            for (i=0; i<NpsSmall - 1; i++){
+                fprintf(out, "%3.10f %3.10f %3.10f\n", tSeries[i], AmpDot[i], AmpDotSmooth[i]);
             } 
 
         }
         if (*found ==0){
-            for (i=win; i<Nps-win; i++){
-                   if (AmpDotSmooth[i] < AmpDotSmooth[i-1] && AmpDotSmooth[i] < AmpDotSmooth[i+1]){
-                        tAmp = timeHi->data[i];
+            for (i=1 + iMin; i<Nps-1-win; i++){
+                   if (AmpDotSmooth[i-iMin] < AmpDotSmooth[i-1-iMin] && AmpDotSmooth[i-iMin] < AmpDotSmooth[i+1-iMin]){
+                        tAmp = tSeries[i-iMin];
                         if (tAmp >=tMin && tAmp <= tMax  && *found==0){
                             *found = 1;
                             tAmpMax = tAmp;
-                            AmpMax = AmpDotSmooth[i];
+                            AmpMax = AmpDotSmooth[i-iMin];
                             peakIdx = i;
                             //break;
                         }else{
@@ -465,7 +509,46 @@ double XLALSimLocateAmplTime(
                    }  
             }
         }
-
+        
+//        if(*found==0){
+//            REAL8 hRe[NpsSmall], hIm[NpsSmall];
+//            REAL8 dhRe[NpsSmall], dhIm[NpsSmall];
+//            for (i=0; i<NpsSmall - 1; i++) {
+//                hRe[i] = creal(hP22->data[iMin + i]);
+//                hIm[i] = cimag(hP22->data[iMin + i]);
+//            }
+//            for (i=1; i<NpsSmall - 2; i++) {
+//                dhRe[i] = (hRe[i+1] - hRe[i-1])/2./dt;
+//                dhIm[i] = (hIm[i+1] - hIm[i-1])/2./dt;
+//            }
+//            dhRe[0]=dhRe[1];
+//            dhIm[0]=dhIm[1];
+//            dhRe[NpsSmall-1]=dhRe[NpsSmall-2];
+//            dhIm[NpsSmall-1]=dhIm[NpsSmall-2];
+//            
+//            REAL8 OmegaWave[NpsSmall], dOmegaWave[NpsSmall];
+//            double hNorm2;
+//            for (i=0; i<NpsSmall - 1; i++) {
+//                hNorm2 = hRe[i]*hRe[i] + hIm[i]*hIm[i];
+//                OmegaWave[i] = (-hRe[i]*dhIm[i] + hIm[i]*dhRe[i])/hNorm2;
+//            }
+//            for (i=1; i<NpsSmall - 2; i++) {
+//                hNorm2 = hRe[i]*hRe[i] + hIm[i]*hIm[i];
+//                dOmegaWave[i] = (OmegaWave[i+1] - OmegaWave[i-1])/2./dt;
+//            }
+//            dOmegaWave[0]=dOmegaWave[1];
+//            dOmegaWave[NpsSmall-1]=dOmegaWave[NpsSmall-2];
+//            
+//            if(debugPK || debugRD) {
+//                out = fopen( "OmegaW.dat", "w" );
+//                for (i=0; i<NpsSmall - 1; i++){
+//                    fprintf(out, "%3.10f %3.10f %3.10f\n", tSeries[i], OmegaWave[i], dOmegaWave[i]);
+//                }
+//            }
+//            fclose(out);
+//
+//        }
+        
         /*
         for (i=1; i<Nps-3; i++){
             AmplDerivN2 = gsl_spline_eval_deriv(spline, timeHi->data[i+2], acc);
@@ -514,6 +597,7 @@ double XLALSimLocateAmplTime(
         */
         
     }
+    
     if (spline != NULL)
         gsl_spline_free(spline);
     if (acc != NULL)
