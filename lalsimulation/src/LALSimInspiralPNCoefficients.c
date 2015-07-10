@@ -1316,6 +1316,28 @@ eccentricyPNCoeffs_F2(REAL8 eta, REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL_M
 
     eccPNCoeffs[3][3][0] = -28.19123/2.82600*LAL_PI; //v^3 term
     eccPNCoeffs[3][0][3] = 37.7/7.2*LAL_PI; //v0^3 term
+
+    eccPNCoeffs[4][4][0] = 16.237683263/3.330429696 + 241.33060753/9.71375328*eta+156.2608261/6.9383952*eta*eta; //v^4 term
+    eccPNCoeffs[4][2][2] = 84.7282939759/8.2632420864-7.18901219/3.68894736*eta-36.97091711/1.05398496*eta*eta; //v^2*v0^2 term
+    eccPNCoeffs[4][0][4] = -1.193251/3.048192 - 66.317/9.072*eta +18.155/1.296*eta*eta;  //v0^4 term
+
+    eccPNCoeffs[5][5][0] = -28.31492681/1.18395270*LAL_PI - 115.52066831/2.70617760*LAL_PI*eta; //v^5 term
+    eccPNCoeffs[5][3][2] = -79.86575459/2.84860800*LAL_PI + 55.5367231/1.0173600*LAL_PI*eta; //v^3*v0^2 term
+    eccPNCoeffs[5][2][3] = 112.751736071/5.902315776*LAL_PI + 70.75145051/2.10796992*LAL_PI*eta; //v^2*v0^3 term
+    eccPNCoeffs[5][0][5] = 76.4881/9.0720*LAL_PI - 94.9457/2.2680*LAL_PI*eta;  //v0^5 term
+
+    eccPNCoeffs[6][6][0] = 436.03153867072577087/1.32658535116800000 + 53.6803271/1.9782000*LAL_GAMMA + 157.22503703/3.25555200*LAL_PI*LAL_PI
+                           +(2991.72861614477/6.89135247360 - 15.075413/1.446912*LAL_PI*LAL_PI)*eta
+                           +345.5209264991/4.1019955200*eta*eta + 506.12671711/8.78999040*eta*eta*eta
+                           + 384.3505163/5.9346000*log(2.0) - 112.1397129/1.7584000*log(3.0); //v^6 term except log(16*v^2) term
+    eccPNCoeffs[6][4][2] = 46.001356684079/3.357073133568 + 253.471410141755/5.874877983744*eta
+                           - 169.3852244423/2.3313007872*eta*eta - 307.833827417/2.497822272*eta*eta*eta; //v^4*v0^2 term
+    eccPNCoeffs[6][3][3] = -106.2809371*LAL_PI*LAL_PI; //v^3*v0^3 term
+    eccPNCoeffs[6][2][4] = -3.56873002170973/2.49880440692736 - 260.399751935005/8.924301453312*eta
+                           + 15.0484695827/3.5413894656*eta*eta + 340.714213265/3.794345856*eta*eta*eta; //v^2*v0^4 term
+    eccPNCoeffs[6][0][6] = 265.31900578691/1.68991764480 - 33.17/1.26*LAL_GAMMA + 12.2833/1.0368*LAL_PI*LAL_PI 
+                           + (91.55185261/5.48674560 - 3.977/1.152*LAL_PI*LAL_PI)*eta - 5.732473/1.306368*eta*eta
+                           - 30.90307/1.39968*eta*eta*eta + 87.419/1.890*log(2.0) - 260.01/5.60*log(3.0);  //v0^6 term except log(16*v0^2) term
   }
   return ret;
 }
@@ -1326,7 +1348,6 @@ eccentricyPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder)
   static REAL8 v0_power[LAL+MAX_ECC_PN_ORDER+1];
   /* folloeing code is not efficient in memory usage, need to be improved later */
   static REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1]; // we want to calculate just one time
-  REAL8 v_power[LAL+MAX_ECC_PN_ORDER+1];
   REAL8 phasing = 0.0;
   REAL8 global_factor;
   if(called == 0) // call just once globally
@@ -1339,12 +1360,13 @@ eccentricyPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder)
     }
     int ret = eccentricyPNCoeffs_F2(eta, eccPNCoeffs);
   }
-  v_power[0] = 1.0; // this might be duplicated calculations, need to improve in the future
+  v_power[0] = 1.0;
   for(int i=1; i<=LAL_MAX_ECC_PN_ORDER; i++)
   {
     v_power[i] = v_power[i-1]*v;
   }
-  global_factor = -2.355/1.462*ecc*ecc*pow(v1/v, 19.0/3.0);
+
+  global_factor = -2.355/1.462*ecc*ecc*pow(v0/v, 19.0/3.0);
   global_factor *= (3.0/128.0/eta);  // overall factor except v^-5 in phase term
   for(int i=0; i<=eccOrder; i++)
   {
@@ -1352,7 +1374,18 @@ eccentricyPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder)
     for(j=i; j>=0; j--)
     {
       k = i - j;
-      phasing += eccPNCoeffs[i][j][k]*v_power[j]*v0_power[k];
+      if( j==6 )
+      {
+        phasing += (eccPNCoeffs[i][j][k]+53.6803271/3.9564000*log(16.0*v_power[2]))*v_power[j]*v0_power[k];
+      }
+      else if( k == 6 )
+      {
+        phasing += (eccPNCoeffs[i][j][k] - 33.17/2.52*log(16.0*v0_power[2]))*v_power[j]*v0_power[k];
+      }
+      else
+      {
+        phasing += eccPNCoeffs[i][j][k]*v_power[j]*v0_power[k];
+      }
     }
   }
   return phasing;
