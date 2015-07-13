@@ -80,7 +80,7 @@ XLALSimIMREOBHybridRingdownWave(
 )
 {
 
-	INT4		debugout = 1;
+	INT4		debugout = 0;
 	/* XLAL error handling */
 	INT4		errcode = XLAL_SUCCESS;
 
@@ -297,7 +297,7 @@ XLALGenerateHybridWaveDerivatives(
 )
 {
 
-	INT4		debugout = 1;
+	INT4		debugout = 0;
 	/* XLAL error handling */
 	INT4		errcode = XLAL_SUCCESS;
 
@@ -438,7 +438,7 @@ XLALSimIMREOBHybridAttachRingdown(
                   const REAL8 JLN           /**<< cosine of the angle between J and LN at the light ring */
 )
 {
-	INT4		debugout = 1;
+	INT4		debugout = 0;
 
 	COMPLEX16Vector *modefreqs;
 	//COMPLEX16 freq7sav;
@@ -653,7 +653,8 @@ XLALSimIMREOBHybridAttachRingdown(
 		}
 	if (approximant == SEOBNRv3) {
         REAL8 kappa_thr = 0.175;
-        REAL8 eJL_thr = 7.5e-3;
+        //REAL8 eJL_thr = 7.5e-3;
+        REAL8 eJL_thr = 5.0e-2;
 		chi1 = sqrt(spin1[0] * spin1[0] + spin1[1] * spin1[1] + spin1[2] * spin1[2]);
 		chi2 = sqrt(spin2[0] * spin2[0] + spin2[1] * spin2[1] + spin2[2] * spin2[2]);
 		if (chi1 < 1.0e-15) {
@@ -873,6 +874,7 @@ XLALSimIMREOBHybridAttachRingdown(
              // FIXME 
              // {{{
             if (debugout) {
+                printf("Stas: JLN*eta = %f, \n", JLN*eta);
                 printf("NRPeakOmega22 = %3.10f,  %3.10f,  %3.10f,  %3.10f\n", NRPeakOmega22 * mTot /finalMass, NRPeakOmega22 / finalMass,  finalMass,  mTot);
                 for (j = 0; j < nmodes; j++) {
                     printf("QNM frequencies: %d %d %d %3.10f %3.10f\n", l, m, j, creal(modefreqs->data[j]) * mTot, 1. / cimag(modefreqs->data[j]) / mTot);
@@ -908,7 +910,6 @@ XLALSimIMREOBHybridAttachRingdown(
              XLALSimIMREOBGenerateQNMFreqV2(modefreqs_xtr, mass1, mass2, spin1, spin2, l, -2, nmodes, approximant);
              //XLALSimIMREOBGenerateQNMFreqV2(modefreqs_xtr, mass1, mass2, spin1, spin2, l, -1, nmodes, approximant);
              if (JLN > 0.0){
-                 printf("Stas: JLN*eta = %f, \n", JLN*eta);
                  modefreqs->data[5] =  modefreqs_xtr->data[0];
                  //modefreqs->data[7] =  modefreqs_xtr->data[1];
                  //modefreqs->data[5] =  modefreqs_xtr->data[2];

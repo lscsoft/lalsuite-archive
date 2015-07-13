@@ -344,6 +344,29 @@ int XLALSimIMRSpinEOBWaveform(
         const REAL8     spin2[]
      );
 
+int XLALSimIMRSpinEOBWaveformAll(
+        REAL8TimeSeries **hplus,
+        REAL8TimeSeries **hcross,
+        REAL8Array      **dynamicsHi, /**<< Here we store and return the seob dynamics for high sampling (end of inspiral) */
+        SphHarmTimeSeries **hlmPTSout, /**<< Here we store and return the PWave (high sampling) */
+        SphHarmTimeSeries **hlmPTSHi, /**<< Here we store and return the JWave (high sampling) */
+        SphHarmTimeSeries **hIMRlmJTSHi, /**<< Here we store and return the JWaveIMR (high sampling) */
+        REAL8Vector     **AttachParams,   /**<< Parameters of RD attachment: */ 
+        //LIGOTimeGPS     *tc,
+        const REAL8      phiC,
+        const REAL8     deltaT,
+        const REAL8     m1SI,
+        const REAL8     m2SI,
+        const REAL8     fMin,
+        const REAL8     r,
+        const REAL8     inc,
+        const REAL8     INspin1[],
+        const REAL8     INspin2[]
+     );
+
+
+
+
 /*
  * SEOBNRv1 reduced order models
  * See CQG 31 195010, 2014, arXiv:1402.4146 for details.

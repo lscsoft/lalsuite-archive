@@ -1,4 +1,4 @@
-/*
+    /*
 *  Copyright (C) 2011 Craig Robinson, Enrico Barausse, Yi Pan, 
 *                2014 Prayush Kumar (Precessing EOB)
 *
@@ -1480,12 +1480,96 @@ int XLALSimIMRSpinEOBWaveform(
         const REAL8     INspin1[],
         const REAL8     INspin2[]
      )
+
+{
+    REAL8Array   *dynamicsHi = NULL;
+    REAL8Vector  *AttachPars = NULL; 
+    SphHarmTimeSeries *hlmPTSHi = NULL;
+    SphHarmTimeSeries *hlmPTSout = NULL;
+    SphHarmTimeSeries *hIMRlmJTSHi = NULL;
+
+    XLALSimIMRSpinEOBWaveformAll(hplus, hcross, &dynamicsHi, &hlmPTSout, &hlmPTSHi, &hIMRlmJTSHi, &AttachPars, 
+                        phiC, deltaT, m1SI, m2SI, fMin, r, inc, INspin1, INspin2);
+ 
+    //int i;
+    
+    //printf("Stas: checking \n");
+    //for (i=0; i<5; i++){
+    //    printf("AttachPars: %d, %f \n", i, AttachPars->data[i]);
+    //    printf("dyn: %d, %f \n", i, dynamicsHi->data[i]);
+    //}
+    
+    //COMPLEX16TimeSeries* modeP = XLALSphHarmTimeSeriesGetMode(hlmPTSout, 2, 2);
+    //COMPLEX16TimeSeries* modeJ = XLALSphHarmTimeSeriesGetMode(hlmPTSHi, 2, 2);
+    //COMPLEX16TimeSeries* modeJimr = XLALSphHarmTimeSeriesGetMode(hIMRlmJTSHi, 2, 2);
+    //REAL8Sequence* tP = XLALSphHarmTimeSeriesGetTData( hlmPTSHi);
+    //REAL8Sequence* tJ = XLALSphHarmTimeSeriesGetTData( hIMRlmJTSHi);
+
+    //printf("outputing the modes...\n");   
+        
+    //for (i=0; i<5; i++){
+    //    printf("Insp: %d, t=%f,  P mode: %f + i %f, J mode: %f + i %f \n", i, tP->data[i], creal(modeP->data->data[i]), cimag(modeP->data->data[i]), 
+    //                            creal(modeJ->data->data[i]), cimag(modeJ->data->data[i]));
+    //     printf("IMR: %d, t = %f, JIMR mode: %f + i %f \n", i, tJ->data[i], creal(modeJimr->data->data[i]), cimag(modeJimr->data->data[i]));
+    //}
+
+
+    //printf("cleaning memory... \n");
+    if (dynamicsHi == NULL){
+        printf("dy is already null\n");
+    }else{
+        XLALDestroyREAL8Array( dynamicsHi );
+    //    printf("Stas: dynamics is cleaned \n");
+    }
+    if (AttachPars == NULL){
+        printf("att pars is already null\n");
+    }else{
+        XLALDestroyREAL8Vector( AttachPars );
+    //    printf("Stas: attach pars is cleaned \n");
+    }
+    
+    XLALDestroySphHarmTimeSeries(hlmPTSout);
+    //printf("Stas: Pwave is cleaned \n");
+
+   
+    XLALDestroySphHarmTimeSeries(hlmPTSHi);
+    //printf("Stas:  J wave is cleaned \n");
+
+    XLALDestroySphHarmTimeSeries(hIMRlmJTSHi);
+    //printf("Stas: J wave IMR is cleaned \n");
+   
+    //FIXME I am destroying the tlist...Hi inside the function above. Not sure if this is correct. Maybe I need to destro it here.
+
+    return XLAL_SUCCESS;
+
+}
+
+int XLALSimIMRSpinEOBWaveformAll(
+        REAL8TimeSeries **hplus,
+        REAL8TimeSeries **hcross,
+        REAL8Array      **dynHi, /**<< Here we store and return the seob dynamics for high sampling (end of inspiral) */
+        SphHarmTimeSeries **hlmPTSoutput, /**<< Here we store and return the PWave (high sampling) */
+        SphHarmTimeSeries **hlmPTSHiOutput, /**<< Here we store and return the JWave (high sampling) */
+        SphHarmTimeSeries **hIMRlmJTSHiOutput, /**<< Here we store and return the JWaveIMR (high sampling) */
+        REAL8Vector     **AttachPars,   /**<< Parameters of RD attachment: */ 
+        //LIGOTimeGPS     *tc,
+        const REAL8      phiC,
+        const REAL8     deltaT,
+        const REAL8     m1SI,
+        const REAL8     m2SI,
+        const REAL8     fMin,
+        const REAL8     r,
+        const REAL8     inc,
+        const REAL8     INspin1[],
+        const REAL8     INspin2[]
+     )
+
 {
   /* TODO: Insert potentially necessary checks on the arguments */
 
   INT4 UNUSED ret;
-  INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
-  INT4 debugRD = 1;
+  INT4 debugPK = 0, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugRD = 0;
   FILE *out = NULL;
   INT4 i=0;
   INT4 k=0;
@@ -1493,7 +1577,8 @@ int XLALSimIMRSpinEOBWaveform(
   INT4 UNUSED status;
   LIGOTimeGPS tc = LIGOTIMEGPSZERO;
 
-  
+  REAL8Vector *AttachParams;
+  REAL8Array  *dynamicsHi;
   
   /* SEOBNRv3 model */
   Approximant spinEOBApproximant = SEOBNRv3;
@@ -1698,7 +1783,7 @@ int XLALSimIMRSpinEOBWaveform(
   
   /* Variables for the integrator */
   ark4GSLIntegrator       *integrator = NULL;
-  REAL8Array              *dynamics   = NULL, *dynamicsHi = NULL;
+  REAL8Array              *dynamics   = NULL;//, *dynamicsHi = NULL;
   INT4                    retLen = 0, retLenLow = 0, retLenHi = 0;
   INT4                    retLenRDPatch = 0, retLenRDPatchLow = 0;
   //REAL8                   tMax;
@@ -1743,7 +1828,9 @@ int XLALSimIMRSpinEOBWaveform(
   REAL8Sequence *tlistRDPatch = NULL;
 
   SphHarmTimeSeries *hlmPTSHi = NULL;
+  SphHarmTimeSeries *hlmPTSout = NULL;
   SphHarmTimeSeries *hIMRlmJTSHi = NULL;
+  
   REAL8Sequence *tlistHi        = NULL;
   REAL8Sequence *tlistRDPatchHi = NULL;
   
@@ -1864,6 +1951,14 @@ int XLALSimIMRSpinEOBWaveform(
       fflush(NULL);
   }
 
+  if ( !(AttachParams = XLALCreateREAL8Vector( 5 )) )
+  {
+    XLALDestroyREAL8Vector( sigmaKerr );
+    XLALDestroyREAL8Vector( sigmaStar );
+    XLALDestroyREAL8Vector( values );
+    XLAL_ERROR( XLAL_ENOMEM );
+  }
+  *AttachPars = AttachParams;
   /* ************************************************* */
   /* Cartesian position and momentum vectors           */
   
@@ -2412,6 +2507,7 @@ int XLALSimIMRSpinEOBWaveform(
   retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data, 
 									0., 20./mTScaled, deltaTHigh/mTScaled, &dynamicsHi );
   retLenHi = retLen;
+  *dynHi = dynamicsHi; 
 
   if ( retLen == XLAL_FAILURE )
   {
@@ -3606,6 +3702,14 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   hlmPTSHi = XLALSphHarmTimeSeriesAddMode( hlmPTSHi, h2m1TSHi, 2, -1 );
   hlmPTSHi = XLALSphHarmTimeSeriesAddMode( hlmPTSHi, h2m2TSHi, 2, -2 );
   XLALSphHarmTimeSeriesSetTData( hlmPTSHi, tlistHi );
+  
+  hlmPTSout = XLALSphHarmTimeSeriesAddMode( hlmPTSout, h22TSHi, 2, 2 );
+  hlmPTSout = XLALSphHarmTimeSeriesAddMode( hlmPTSout, h21TSHi, 2, 1 );
+  hlmPTSout = XLALSphHarmTimeSeriesAddMode( hlmPTSout, h20TSHi, 2, 0 );
+  hlmPTSout = XLALSphHarmTimeSeriesAddMode( hlmPTSout, h2m1TSHi, 2, -1 );
+  hlmPTSout = XLALSphHarmTimeSeriesAddMode( hlmPTSout, h2m2TSHi, 2, -2 );
+  //XLALSphHarmTimeSeriesSetTData( hlmPTSout, tlistHi );
+  *hlmPTSoutput = hlmPTSout;
 
   h22PTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 2 );
   h21PTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 1 );
@@ -3681,6 +3785,16 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
      fclose(out);
  
   }
+  AttachParams->data[0] = tPeakOmega; 
+  AttachParams->data[1] = deltaNQC; 
+  AttachParams->data[2] = tAmpMax;
+  AttachParams->data[3] = tAttach;
+  AttachParams->data[4] = HiSRstart;
+
+    //for (i=0; i<5; i++){
+    //    printf("AttachPars stas: %d, %f \n", i, AttachParams->data[i]);
+    //}
+   
 
   if (debugPK){
       printf("Stas: the final decision on the attachment time is %f \n", tAttach);
@@ -3708,6 +3822,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   h20JTS  = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, 0 );
   h2m1JTS = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, -1);
   h2m2JTS = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, -2);
+
   
   if (debugPK){
     printf("YP: PtoJ rotation done.\n");
@@ -3740,6 +3855,8 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   h20JTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 0 );
   h2m1JTSHi = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, -1);
   h2m2JTSHi = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, -2);
+
+  *hlmPTSHiOutput = hlmPTSHi;
 
   if (debugPK) {
     out = fopen( "JWavesHi.dat", "w" );
@@ -3826,7 +3943,8 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   hIMR20JTSHi  = XLALSphHarmTimeSeriesGetMode( hIMRlmJTSHi, 2, 0 );
   hIMR2m1JTSHi = XLALSphHarmTimeSeriesGetMode( hIMRlmJTSHi, 2, -1);
   hIMR2m2JTSHi = XLALSphHarmTimeSeriesGetMode( hIMRlmJTSHi, 2, -2);
-  
+ 
+  *hIMRlmJTSHiOutput = hIMRlmJTSHi;
   if (debugPK){
     out = fopen( "JIMRWavesHi.dat", "w" );
     for ( i = 0; i < retLenHi + retLenRDPatch; i++ )
@@ -4064,16 +4182,18 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   XLALDestroyCOMPLEX16TimeSeries(h20TSHi); 
   XLALDestroyCOMPLEX16TimeSeries(h2m1TSHi); 
   XLALDestroyCOMPLEX16TimeSeries(h2m2TSHi);
-  XLALDestroyCOMPLEX16TimeSeries(h22PTSHi); 
-  XLALDestroyCOMPLEX16TimeSeries(h21PTSHi);
-  XLALDestroyCOMPLEX16TimeSeries(h20PTSHi);
-  XLALDestroyCOMPLEX16TimeSeries(h2m1PTSHi);
-  XLALDestroyCOMPLEX16TimeSeries(h2m2PTSHi);
-  XLALDestroyCOMPLEX16TimeSeries(hIMR22JTSHi); 
-  XLALDestroyCOMPLEX16TimeSeries(hIMR21JTSHi); 
-  XLALDestroyCOMPLEX16TimeSeries(hIMR20JTSHi); 
-  XLALDestroyCOMPLEX16TimeSeries(hIMR2m1JTSHi); 
-  XLALDestroyCOMPLEX16TimeSeries(hIMR2m2JTSHi); 
+  
+  //XLALDestroyCOMPLEX16TimeSeries(h22PTSHi); 
+  //XLALDestroyCOMPLEX16TimeSeries(h21PTSHi);
+  //XLALDestroyCOMPLEX16TimeSeries(h20PTSHi);
+  //XLALDestroyCOMPLEX16TimeSeries(h2m1PTSHi);
+  //XLALDestroyCOMPLEX16TimeSeries(h2m2PTSHi);
+  //XLALDestroyCOMPLEX16TimeSeries(hIMR22JTSHi); 
+  //XLALDestroyCOMPLEX16TimeSeries(hIMR21JTSHi); 
+  //XLALDestroyCOMPLEX16TimeSeries(hIMR20JTSHi); 
+  //XLALDestroyCOMPLEX16TimeSeries(hIMR2m1JTSHi); 
+  //XLALDestroyCOMPLEX16TimeSeries(hIMR2m2JTSHi); 
+  
   //XLALDestroyCOMPLEX16TimeSeries(hIMRJTSHi);
     
 
@@ -4088,7 +4208,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   if(debugPK){ printf("Memory cleanup 3 done.\n"); fflush(NULL); }
   XLALAdaptiveRungeKutta4Free(integrator);
   XLALDestroyREAL8Array( dynamics );
-  XLALDestroyREAL8Array( dynamicsHi );
+  //XLALDestroyREAL8Array( dynamicsHi );
     
   XLALDestroyREAL8Vector( LN_x );
   XLALDestroyREAL8Vector( LN_y );
@@ -4105,9 +4225,9 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     
     
   XLALDestroyREAL8Vector( tlist );
-  XLALDestroyREAL8Vector( tlistHi );
+  //XLALDestroyREAL8Vector( tlistHi );
   XLALDestroyREAL8Vector( tlistRDPatch );
-  XLALDestroyREAL8Vector( tlistRDPatchHi );
+  //XLALDestroyREAL8Vector( tlistRDPatchHi );
    
   if(debugPK){ printf("Memory cleanup ALL done.\n"); fflush(NULL); }
   return XLAL_SUCCESS;
