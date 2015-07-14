@@ -1,4 +1,4 @@
-# Copyright (C) 2008--2013  Kipp Cannon, Drew G. Keppel
+# Copyright (C) 2008--2015  Kipp Cannon, Drew G. Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -79,9 +79,6 @@ class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 
 	def set_end(self, gps):
 		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
-
-	def get_effective_snr(self, fac):
-		return self.snr/ (1 + self.snr**2/fac)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25)
 
 	def __eq__(self, other):
 		return not (
@@ -190,11 +187,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
 		coinc_inspiral.mass = sum(event.mass1 + event.mass2 for event in events) / len(events)
 		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
-		if all(event.chisq for event in events):
-			coinc_inspiral.snr = math.sqrt(sum(event.get_effective_snr(fac = effective_snr_factor)**2 for event in events))
-		else:
-			# would get divide-by-zero without a \chi^{2} value
-			coinc_inspiral.snr = None
+		coinc_inspiral.snr = math.sqrt(sum(event.snr**2 for event in events))
 		coinc_inspiral.false_alarm_rate = None
 		coinc_inspiral.combined_far = None
 		coinc_inspiral.minimum_duration = None
