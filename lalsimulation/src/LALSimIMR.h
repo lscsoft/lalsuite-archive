@@ -344,6 +344,11 @@ int XLALSimIMRSpinEOBWaveform(
         const REAL8     spin2[]
      );
 
+/* DO NOT PUSH THIS TO MASTER, FOR DEBUGGING ONLY!!! */
+int XLALSimIMREOBDebugTestSWIGRoutine(
+        REAL8Vector **retval,
+        REAL8Array *dynHi);
+
 int XLALSimIMRSpinEOBWaveformAll(
         REAL8TimeSeries **hplus,
         REAL8TimeSeries **hcross,
@@ -360,8 +365,12 @@ int XLALSimIMRSpinEOBWaveformAll(
         const REAL8     fMin,
         const REAL8     r,
         const REAL8     inc,
-        const REAL8     INspin1[],
-        const REAL8     INspin2[]
+        const REAL8     INspin1x,
+        const REAL8     INspin1y,
+        const REAL8     INspin1z,
+        const REAL8     INspin2x,
+        const REAL8     INspin2y,
+        const REAL8     INspin2z
      );
 
 
