@@ -831,13 +831,13 @@ class ATanLogarithmicBins(LoHiCountToFromXMLMixin, IrregularBins):
 		keepers = boundaries[:-1] != boundaries[1:]
 		super(ATanLogarithmicBins, self).__init__(boundaries[keepers])
 		self.keepers = keepers[:-1]
-		self._real_min = min
-		self._real_max = max
-		self._real_n = n
+		self.min = min
+		self.max = max
+		self.n = n
 
 	def centres(self):
 		offset = 0.5 * math.pi * self.delta
-		centres = numpy.tan(numpy.linspace(-math.pi / 2. + offset, +math.pi / 2. + offset, self._real_n, endpoint = False)) / self.scale + self.mid
+		centres = numpy.tan(numpy.linspace(-math.pi / 2. + offset, +math.pi / 2. + offset, self.n, endpoint = False)) / self.scale + self.mid
 		with numpy.errstate(over = "ignore"):
 			return numpy.exp(centres)[self.keepers]
 
@@ -846,13 +846,6 @@ class ATanLogarithmicBins(LoHiCountToFromXMLMixin, IrregularBins):
 	#
 
 	xml_bins_name = u"atanlogbins"
-
-	def to_xml(self):
-		"""
-		Construct a LIGO Light Weight XML representation of the
-		Bins instance.
-		"""
-		return ligolw_param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), u"%s,%s,%s" % (ligolw_types.FormatFunc[u"real_8"](self._real_min), ligolw_types.FormatFunc[u"real_8"](self._real_max), ligolw_types.FormatFunc[u"int_8s"](self._real_n)))
 
 
 class Categories(Bins):
