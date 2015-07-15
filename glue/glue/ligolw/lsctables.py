@@ -2064,26 +2064,6 @@ class SnglInspiral(object):
 	def get_lvS5stat(self):
 		return self.beta
 
-	def get_id_parts(self):
-		"""
-		Return the three pieces of the int_8s-style sngl_inspiral
-		event_id.
-		"""
-		int_event_id = int(self.event_id)
-		a = int_event_id // 1000000000
-		slidenum = (int_event_id % 1000000000) // 100000
-		b = int_event_id % 100000
-		return int(a), int(slidenum), int(b)
-
-	def get_slide_number(self):
-		"""
-		Return the slide-number for this trigger
-		"""
-		a, slide_number, b = self.get_id_parts()
-		if slide_number > 5000:
-			slide_number = 5000 - slide_number
-		return slide_number
-
 	# FIXME: how are two inspiral events defined to be the same?
 	def __eq__(self, other):
 		return not (
