@@ -29,6 +29,7 @@
 #include <Python.h>
 #include <structmember.h>
 #include <lal/LIGOMetadataTables.h>
+#include <ligotimegps.h>
 #include <misc.h>
 #include <snglinspiraltable.h>
 
@@ -123,10 +124,46 @@ static struct PyMemberDef members[] = {
 };
 
 
+static PyObject *end_get(PyObject *obj, void *data)
+{
+	return pylal_LIGOTimeGPS_new(((pylal_SnglInspiralTable*)obj)->sngl_inspiral.end_time);
+}
+
+
+static int end_set(PyObject *obj, PyObject *val, void *data)
+{
+	int seconds = 0;
+	int nanoseconds = 0;
+
+	if(val != Py_None) {
+		PyObject *attr = PyObject_GetAttrString(val, "gpsSeconds");
+		if(!attr)
+			return -1;
+		seconds = PyInt_AsLong(attr);
+		Py_DECREF(attr);
+		if(PyErr_Occurred())
+			return -1;
+		attr = PyObject_GetAttrString(val, "gpsNanoSeconds");
+		if(!attr)
+			return -1;
+		nanoseconds = PyInt_AsLong(attr);
+		Py_DECREF(attr);
+		if(PyErr_Occurred())
+			return -1;
+	}
+
+	((pylal_SnglInspiralTable*)obj)->sngl_inspiral.end_time.gpsSeconds = seconds;
+	((pylal_SnglInspiralTable*)obj)->sngl_inspiral.end_time.gpsNanoSeconds = nanoseconds;
+
+	return 0;
+}
+
+
 static struct PyGetSetDef getset[] = {
 	{"ifo", pylal_inline_string_get, pylal_inline_string_set, "ifo", &(struct pylal_inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.ifo), LIGOMETA_IFO_MAX}},
 	{"search", pylal_inline_string_get, pylal_inline_string_set, "search", &(struct pylal_inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.search), LIGOMETA_SEARCH_MAX}},
 	{"channel", pylal_inline_string_get, pylal_inline_string_set, "channel", &(struct pylal_inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.channel), LIGOMETA_CHANNEL_MAX}},
+	{"end", end_get, end_set, "end", NULL},
 	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SnglInspiralTable, process_id_i), &process_id_type}},
 	{"event_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "event_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SnglInspiralTable, event_id.id), &sngl_inspiral_event_id_type}},
 	{NULL,}
@@ -265,6 +302,8 @@ static struct PyMethodDef functions[] = {
 PyMODINIT_FUNC initsnglinspiraltable(void)
 {
 	PyObject *module = Py_InitModule3(MODULE_NAME, functions, "Wrapper for LAL's SnglInspiralTable type.");
+
+	pylal_ligotimegps_import();
 
 	/* Cached ID types */
 	process_id_type = pylal_get_ilwdchar_class("process", "process_id");

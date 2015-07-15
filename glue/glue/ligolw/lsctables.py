@@ -1986,11 +1986,30 @@ class SnglInspiralTable(table.Table):
 class SnglInspiral(object):
 	__slots__ = SnglInspiralTable.validcolumns.keys()
 
-	def get_end(self):
+	@staticmethod
+	def chirp_distance(dist, mchirp, ref_mass=1.4):
+		return dist * (2.**(-1./5) * ref_mass / mchirp)**(5./6)
+
+	#
+	# Properties
+	#
+
+	@property
+	def end(self):
+		if self.end_time is None and self.end_time_ns is None:
+			return None
 		return LIGOTimeGPS(self.end_time, self.end_time_ns)
 
-	def set_end(self, gps):
-		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+	@end.setter
+	def end(self, gps):
+		if gps is None:
+			self.end_time = self.end_time_ns = None
+		else:
+			self.end_time, self.end_time_ns = gps.gpsSeconds, gps.gpsNanoSeconds
+
+	#
+	# Methods
+	#
 
 	def get_reduced_chisq(self):
 		return float(self.chisq)/ (2*self.chisq_dof - 2)
@@ -2069,16 +2088,21 @@ class SnglInspiral(object):
 	def __eq__(self, other):
 		return not (
 			cmp(self.ifo, other.ifo) or
-			cmp(self.end_time, other.end_time) or
-			cmp(self.end_time_ns, other.end_time_ns) or
+			cmp(self.end, other.end) or
 			cmp(self.mass1, other.mass1) or
 			cmp(self.mass2, other.mass2) or
 			cmp(self.search, other.search)
 		)
 
-	@staticmethod
-	def chirp_distance(dist, mchirp, ref_mass=1.4):
-		return dist * (2.**(-1./5) * ref_mass / mchirp)**(5./6)
+	#
+	# Legacy
+	#
+
+	def get_end(self):
+		return self.end
+
+	def set_end(self, gps):
+		self.end = gps
 
 
 SnglInspiralTable.RowType = SnglInspiral

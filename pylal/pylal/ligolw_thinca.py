@@ -74,17 +74,10 @@ lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
 class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 	__slots__ = ()
 
-	def get_end(self):
-		return LIGOTimeGPS(self.end_time, self.end_time_ns)
-
-	def set_end(self, gps):
-		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
-
 	def __eq__(self, other):
 		return not (
 			cmp(self.ifo, other.ifo) or
-			cmp(self.end_time, other.end_time) or
-			cmp(self.end_time_ns, other.end_time_ns) or
+			cmp(self.end, other.end) or
 			cmp(self.mass1, other.mass1) or
 			cmp(self.mass2, other.mass2) or
 			cmp(self.search, other.search)
@@ -94,7 +87,7 @@ class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 		# compare self's end time to the LIGOTimeGPS instance
 		# other.  allows bisection searches by GPS time to find
 		# ranges of triggers quickly
-		return cmp(self.end_time, other.seconds) or cmp(self.end_time_ns, other.nanoseconds)
+		return cmp(self.end, other)
 
 
 #
@@ -241,7 +234,7 @@ def coinc_inspiral_end_time(events, offset_vector):
 	detectors keyed by detector name
 	"""
 	event = min(events, key = lambda event: event.ifo)
-	return event.get_end() + offset_vector[event.ifo]
+	return event.end + offset_vector[event.ifo]
 
 
 #
@@ -266,7 +259,7 @@ class InspiralEventList(snglcoinc.EventList):
 		previously been set to compare the event's end time to a
 		LIGOTimeGPS.
 		"""
-		self.sort(lambda a, b: cmp(a.end_time, b.end_time) or cmp(a.end_time_ns, b.end_time_ns))
+		self.sort(key = lambda event: event.end)
 
 	def set_dt(self, dt):
 		"""
@@ -283,7 +276,7 @@ class InspiralEventList(snglcoinc.EventList):
 		# event_a's end time, with time shift applied
 		#
 
-		end = event_a.get_end() + offset_a - self.offset
+		end = event_a.end + offset_a - self.offset
 
 		#
 		# extract the subset of events from this list that pass
@@ -321,8 +314,8 @@ def inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_p
 	Returns False (a & b are coincident) if they pass the ellipsoidal
 	thinca test.
 	"""
-	if offseta: a.set_end(a.get_end() + offseta)
-	if offsetb: b.set_end(b.get_end() + offsetb)
+	if offseta: a.end += offseta
+	if offsetb: b.end += offsetb
 	try:
 		# FIXME:  should it be "<" or "<="?
 		coincident = xlaltools.XLALCalculateEThincaParameter(a, b) <= e_thinca_parameter
@@ -330,8 +323,8 @@ def inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_p
 		# ethinca test failed to converge == events are not
 		# coincident
 		coincident = False
-	if offseta: a.set_end(a.get_end() - offseta)
-	if offsetb: b.set_end(b.get_end() - offsetb)
+	if offseta: a.end -= offseta
+	if offsetb: b.end -= offsetb
 	return not coincident
 
 
@@ -420,7 +413,7 @@ def ligolw_thinca(
 	eventlists = snglcoinc.make_eventlists(xmldoc, InspiralEventList, lsctables.SnglInspiralTable.tableName)
 	if veto_segments is not None:
 		for eventlist in eventlists.values():
-			iterutils.inplace_filter((lambda event: event.ifo not in veto_segments or event.get_end() not in veto_segments[event.ifo]), eventlist)
+			iterutils.inplace_filter((lambda event: event.ifo not in veto_segments or event.end not in veto_segments[event.ifo]), eventlist)
 
 	#
 	# set the \Delta t parameter on all the event lists
