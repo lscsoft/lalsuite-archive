@@ -992,11 +992,14 @@ class NDBins(tuple):
 	False
 	>>> from glue.ligolw.ligolw import LIGO_LW
 	>>> import sys
-	>>> x.to_xml(LIGO_LW()).write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	>>> elem = x.to_xml(LIGO_LW())
+	>>> elem.write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
 	<LIGO_LW>
 		<Param Type="lstring" Name="linbins:pylal_rate_bins:param">1,25,3</Param>
 		<Param Type="lstring" Name="logbins:pylal_rate_bins:param">1,25,3</Param>
 	</LIGO_LW>
+	>>> NDBins.from_xml(elem) == x
+	True
 
 	Note that the co-ordinates to be converted must be a tuple, even if
 	it is only a 1-dimensional co-ordinate.
@@ -1281,6 +1284,30 @@ class BinnedArray(object):
 	Traceback (most recent call last):
 		...
 	ValueError: input array and input bins must have the same shape:  (5, 1) != (5,)
+
+	A BinnedArray can be serialized to LIGO Light Weight XML.
+
+	>>> import sys
+	>>> x = BinnedArray(NDBins((LinearBins(-0.5, 1.5, 2), LinearBins(-0.5, 1.5, 2))))
+	>>> elem = x.to_xml(u"test")
+	>>> elem.write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	<LIGO_LW Name="test:pylal_rate_binnedarray">
+		<Param Type="lstring" Name="linbins:pylal_rate_bins:param">-0.5,1.5,2</Param>
+		<Param Type="lstring" Name="linbins:pylal_rate_bins:param">-0.5,1.5,2</Param>
+		<Array Type="real_8" Name="array:array">
+			<Dim>2</Dim>
+			<Dim>2</Dim>
+			<Stream Delimiter=" " Type="Local">
+				0 0
+				0 0
+			</Stream>
+		</Array>
+	</LIGO_LW>
+	>>> y = BinnedArray.from_xml(elem, u"test")
+	>>> y.bins == x.bins
+	True
+	>>> (y.array == x.array).all()
+	True
 	"""
 	def __init__(self, bins, array = None, dtype = "double"):
 		self.bins = bins
