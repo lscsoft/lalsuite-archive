@@ -282,7 +282,7 @@ class Bins(object):
 		return name[0]
 
 	@classmethod
-	def xml_bins_check(cls, elem, name, suffix = u"pylal_rate_bins"):
+	def xml_bins_check(cls, elem, name):
 		"""
 		For internal use by XML I/O code.
 		"""
@@ -1134,10 +1134,12 @@ class NDBins(tuple):
 
 		NOTE:  The decoding process will require a specific parent
 		element to be provided, and all Param elements that are
-		immediate children of that element will be used to
-		reconstruct the NDBins, so it is essential that the Param
-		elements not be inserted into an element that might contain
-		other, unrelated, Params among its immediate children.
+		immediate children of that element and contain the correct
+		suffix will be used to reconstruct the NDBins.  At this
+		time the suffix is undocumented, so to guarantee
+		compatibility the Param elements should not be inserted
+		into an element that might contain other, unrelated, Params
+		among its immediate children.
 		"""
 		for binning in self:
 			elem.appendChild(binning.to_xml())
@@ -1151,7 +1153,15 @@ class NDBins(tuple):
 		therein.  Note, the XML element must be the immediate
 		parent of the Param elements describing the NDBins.
 		"""
-		params = [elem for elem in xml.childNodes if elem.tagName == ligolw.Param.tagName]
+		params = []
+		for elem in xml.childNodes:
+			if elem.tagName != ligolw.Param.tagName:
+				continue
+			try:
+				Bins.xml_bins_name_dec(elem.Name)
+			except ValueError:
+				continue
+			params.append(elem)
 		if not params:
 			raise ValueError("no Param elements found at '%s'" % repr(xml))
 		return cls([cls.xml_bins_name_mapping[Bins.xml_bins_name_dec(elem.Name)].from_xml(elem) for elem in params])
