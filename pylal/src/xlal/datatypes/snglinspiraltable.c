@@ -133,23 +133,21 @@ static struct PyGetSetDef getset[] = {
 };
 
 
-#if PY_VERSION_HEX < 0x02050000
-static int getreadbuffer(PyObject *self, int segment, void **ptrptr)
-#else
 static Py_ssize_t getreadbuffer(PyObject *self, Py_ssize_t segment, void **ptrptr)
-#endif
 {
+	if(segment) {
+		PyErr_SetString(PyExc_SystemError, "bad segment");
+		return -1;
+	}
 	*ptrptr = &((pylal_SnglInspiralTable*)self)->sngl_inspiral;
 	return sizeof(((pylal_SnglInspiralTable*)self)->sngl_inspiral);
 }
 
 
-#if PY_VERSION_HEX < 0x02050000
-static int getsegcount(PyObject *self, int *lenp)
-#else
 static Py_ssize_t getsegcount(PyObject *self, Py_ssize_t *lenp)
-#endif
 {
+	if(lenp)
+		*lenp = sizeof(((pylal_SnglInspiralTable*)self)->sngl_inspiral);
 	return 1;
 }
 
