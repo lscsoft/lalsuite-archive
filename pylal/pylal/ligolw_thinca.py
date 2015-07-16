@@ -233,7 +233,7 @@ def coinc_inspiral_end_time(events, offset_vector):
 	@offset_vector: a dictionary of offsets to apply to different
 	detectors keyed by detector name
 	"""
-	event = min(events, key = lambda event: event.ifo)
+	event = max(events, key = lambda event: event.snr)
 	return event.end + offset_vector[event.ifo]
 
 
