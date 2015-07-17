@@ -1489,7 +1489,9 @@ int XLALSimIMRSpinEOBWaveform(
     SphHarmTimeSeries *hIMRlmJTSHi = NULL;
 
     XLALSimIMRSpinEOBWaveformAll(hplus, hcross, &dynamicsHi, &hlmPTSout, &hlmPTSHi, &hIMRlmJTSHi, &AttachPars, 
-                        phiC, deltaT, m1SI, m2SI, fMin, r, inc, INspin1, INspin2);
+                        phiC, deltaT, m1SI, m2SI, fMin, r, inc, INspin1[0],
+                        INspin1[1], INspin1[2], INspin2[0], INspin2[1],
+                        INspin2[2]);
  
     //int i;
     
@@ -1544,6 +1546,22 @@ int XLALSimIMRSpinEOBWaveform(
 
 }
 
+/* DO NOT PUSH THIS TO MASTER, FOR DEBUGGING ONLY!!! */
+int XLALSimIMREOBDebugTestSWIGRoutine(
+        REAL8Vector **retval,
+        REAL8Array *dynHi)
+    {
+        REAL8Vector *tmp_vec;
+        tmp_vec = XLALCreateREAL8Vector(dynHi->dimLength->data[0] * dynHi->dimLength->data[1]);
+        UINT4 i;
+        for (i=0; i < tmp_vec->length; i++)
+        {
+            tmp_vec->data[i] = dynHi->data[i];
+        }
+        *retval = tmp_vec;
+        return 0;
+    }
+
 int XLALSimIMRSpinEOBWaveformAll(
         REAL8TimeSeries **hplus,
         REAL8TimeSeries **hcross,
@@ -1560,12 +1578,25 @@ int XLALSimIMRSpinEOBWaveformAll(
         const REAL8     fMin,
         const REAL8     r,
         const REAL8     inc,
-        const REAL8     INspin1[],
-        const REAL8     INspin2[]
+        const REAL8     INspin1x,
+        const REAL8     INspin1y,
+        const REAL8     INspin1z,
+        const REAL8     INspin2x,
+        const REAL8     INspin2y,
+        const REAL8     INspin2z
      )
 
 {
   /* TODO: Insert potentially necessary checks on the arguments */
+
+  /* FIXME: Moved this definition out of prototype to allow SWIG interaction*/
+  REAL8 INspin1[3], INspin2[3];
+  INspin1[0] = INspin1x;
+  INspin1[1] = INspin1y;
+  INspin1[2] = INspin1z;
+  INspin2[0] = INspin2x;
+  INspin2[1] = INspin2y;
+  INspin2[2] = INspin2z;
 
   INT4 UNUSED ret;
   INT4 debugPK = 0, debugCustomIC = 0, debugNoNQC = 0;
