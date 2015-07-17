@@ -102,6 +102,8 @@ double  XLALSimLocateOmegaTime(
     unsigned int Nps = timeHi.length;
     // this definesthe search interval for maximum (we might use min0ff= 0.051 instead)
     double tMin  = timeHi.data[Nps-1] - maxoff;
+    // FIXME
+    //minoff = 0.0;
     double tMax = timeHi.data[Nps-1] - minoff;
     tMin = tMax - 20.;
     if ( debugPK ) {
@@ -163,7 +165,7 @@ double  XLALSimLocateOmegaTime(
     for ( i = 1, peakIdx = 0; i < retLenHi-1; i++ ){
         omega = omegaHi->data[i];
 
-        if (omega >= omegaHi->data[i-1] && omega > omegaHi->data[i+1] && tMin>=timeHi.data[i] && timeHi.data[i]<=tMin){
+        if (omega >= omegaHi->data[i-1] && omega > omegaHi->data[i+1] && tMax>=timeHi.data[i] && timeHi.data[i]>=tMin){
             peakIdx = i;
             *found = 1;
             if (debugPK){
@@ -378,6 +380,9 @@ double XLALSimLocateAmplTime(
     double maxoff = 20.0;
     unsigned int Nps = timeHi->length; 
     // this definesthe search interval for maximum (we might use min0ff= 0.051 instead)
+    
+    //FIXME
+    //minoff = 0.0; 
     double tMin  = timeHi->data[Nps-1] - maxoff;
     double tMax = timeHi->data[Nps-1] - minoff;
     tMin = tMax - 20.;
@@ -387,6 +392,7 @@ double XLALSimLocateAmplTime(
     unsigned int iMin = ceil(tMin/dt);
     unsigned int iMax = floor(tMax/dt);
     unsigned int NpsSmall = iMax - iMin + 1;
+
 
     double AmplN, AmplO;
     double tAmpMax, AmpMax, tAmp;
