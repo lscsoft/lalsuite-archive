@@ -72,8 +72,8 @@ static PyObject *process_id_type = NULL;
 
 
 static struct PyMemberDef members[] = {
-	{"end_time", T_INT, offsetof(pylal_SnglInspiralTable, sngl_inspiral.end_time.gpsSeconds), 0, "end_time"},
-	{"end_time_ns", T_INT, offsetof(pylal_SnglInspiralTable, sngl_inspiral.end_time.gpsNanoSeconds), 0, "end_time_ns"},
+	{"end_time", T_INT, offsetof(pylal_SnglInspiralTable, sngl_inspiral.end.gpsSeconds), 0, "end_time"},
+	{"end_time_ns", T_INT, offsetof(pylal_SnglInspiralTable, sngl_inspiral.end.gpsNanoSeconds), 0, "end_time_ns"},
 	{"end_time_gmst", T_DOUBLE, offsetof(pylal_SnglInspiralTable, sngl_inspiral.end_time_gmst), 0, "end_time_gmst"},
 	{"impulse_time", T_INT, offsetof(pylal_SnglInspiralTable, sngl_inspiral.impulse_time.gpsSeconds), 0, "impulse_time"},
 	{"impulse_time_ns", T_INT, offsetof(pylal_SnglInspiralTable, sngl_inspiral.impulse_time.gpsNanoSeconds), 0, "impulse_time_ns"},
@@ -137,7 +137,7 @@ static struct PyMemberDef members[] = {
 
 static PyObject *end_get(PyObject *obj, void *data)
 {
-	return pylal_LIGOTimeGPS_new(((pylal_SnglInspiralTable*)obj)->sngl_inspiral.end_time);
+	return pylal_LIGOTimeGPS_new(((pylal_SnglInspiralTable*)obj)->sngl_inspiral.end);
 }
 
 
@@ -163,8 +163,8 @@ static int end_set(PyObject *obj, PyObject *val, void *data)
 			return -1;
 	}
 
-	((pylal_SnglInspiralTable*)obj)->sngl_inspiral.end_time.gpsSeconds = seconds;
-	((pylal_SnglInspiralTable*)obj)->sngl_inspiral.end_time.gpsNanoSeconds = nanoseconds;
+	((pylal_SnglInspiralTable*)obj)->sngl_inspiral.end.gpsSeconds = seconds;
+	((pylal_SnglInspiralTable*)obj)->sngl_inspiral.end.gpsNanoSeconds = nanoseconds;
 
 	return 0;
 }
