@@ -657,6 +657,10 @@ be present when searching for groups of files
     # decode the JSON
     urlList = cjson.decode(body)
 
+    # if searching for SFTs replace '.gwf' file suffix with '.sft'
+    if 'SFT' in frameType:
+        urlList = [re.sub('.gwf', '.sft', urlv) for urlv in urlList]
+
     # special branch to check for gaps
     if checkGaps:
         searchSegment = glue.segments.segment(int(gpsStart), int(gpsEnd))

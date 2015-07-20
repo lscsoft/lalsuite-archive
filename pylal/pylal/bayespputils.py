@@ -711,6 +711,8 @@ class Posterior(object):
       if ('spin1' in pos.names and 'm1' in pos.names) and \
        ('spin2' in pos.names and 'm2' in pos.names):
          pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','spin1','m2','spin2'))
+      elif ('a1' in pos.names and 'm1' in pos.names) and ('a2' in pos.names and 'm2' in pos.names):
+         pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','a1','m2','a2'))
 
       if('a_spin1' in pos.names): pos.append_mapping('a1',lambda a:a,'a_spin1')
       if('a_spin2' in pos.names): pos.append_mapping('a2',lambda a:a,'a_spin2')
@@ -5529,7 +5531,7 @@ class PEOutputParser(object):
         it = iter(files)
         
         # check if there's a file containing the parameter names
-        parsfilename = it.next()+'_params.txt'
+        parsfilename = (it.next()).strip('.gz')+'_params.txt'
         
         if os.path.isfile(parsfilename):
             print 'Looking for '+parsfilename
@@ -5557,9 +5559,9 @@ class PEOutputParser(object):
 
         inarrays=map(np.loadtxt,files)
         if Npost is None:
-            pos=draw_posterior_many(inarrays,[Nlive for f in files],logLcol=logLcol)
+            pos=draw_posterior_many(inarrays,[Nlive for f in files],logLcols=[logLcol for f in files])
         else:
-            pos=draw_N_posterior_many(inarrays,[Nlive for f in files],Npost,logLcol=logLcol)
+            pos=draw_N_posterior_many(inarrays,[Nlive for f in files],Npost,logLcols=[logLcol for f in files])
 
         with open(posfilename,'w') as posfile:
             
@@ -6146,7 +6148,14 @@ def plot_waveform(pos=None,siminspiral=None,event=0,path=None,ifos=['H1','L1','V
       else:
         print 'WARNING: phi_orb not found in posterior files. Defaulting to 0.0 which is probably *not* what you want\n'
         phiRef=0.0
-  
+ 
+      try:
+              for name in ['flow','f_lower']:
+                      if name in pos.names:
+                              f_min=pos[name].samples[which][0]
+      except:
+              pass
+
       try:
         for name in ['fref','f_ref','f_Ref','fRef']:
           if name in pos.names:

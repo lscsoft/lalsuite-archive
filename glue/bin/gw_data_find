@@ -49,7 +49,7 @@ For example,
 # Preamble
 # =============================================================================
 
-import os,sys,optparse
+import os,sys,optparse,re
 from glue import datafind
 from glue import segments,segmentsUtils,git_version
 
@@ -342,6 +342,11 @@ if __name__ == "__main__":
 
     # close connection
     connection.close()
+
+    # if searching for SFTs replace '.gwf' file suffix with '.sft'
+    if 'SFT' in opts.type:
+        for idx in range(len(cache)):
+            cache[idx].path = re.sub('.gwf', '.sft', cache[idx].path)
 
     if opts.lal_cache:
         cache.tofile(out)

@@ -721,7 +721,7 @@ will compute the search volume using all injections with at least one component 
   if opts.total_mass_bins:
     opts.bin_by_total_mass = True
 
-  if (not opts.bin_by_chirp_mass) and (not opts.bin_by_component_mass) and (not opts.bin_by_bns_bbh) and (not opts.bin_by_mass1_mass2):
+  if (not opts.bin_by_total_mass) and (not opts.bin_by_chirp_mass) and (not opts.bin_by_component_mass) and (not opts.bin_by_bns_bbh) and (not opts.bin_by_mass1_mass2):
     raise RuntimeError("Must specify at least one mass binning method!")
 
   if opts.min_mass_ratio < 1:

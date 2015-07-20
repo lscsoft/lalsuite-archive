@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#! /usr/bin/python
 """ This program calculates an extended background
 estimate from ihope results where chisq is calculated at the first stage.
 Results are output in the current directory
@@ -17,15 +17,18 @@ from glue import segments
 from pylal import gatherloudtrigs
 from pylal import extended_background_utils as loud_event_coincs
 
+class DefaultContentHandler(lsctables.ligolw.LIGOLWContentHandler):
+    pass
+lsctables.use_in(DefaultContentHandler)
 
 name_from_cat = {2:'CAT_2', 3:'CAT_3', 4:'CAT_4'}
 
 def get_cat_from_name(fname):
-    if fname.find("CAT_4") != -1 or fname.find("CATEGORY_4") != -1:
+    if fname.find("CAT4") != -1 or fname.find("CAT_4") != -1 or fname.find("CATEGORY_4") != -1:
         return 4
-    elif fname.find("CAT_3") != -1 or fname.find("CATEGORY_3") != -1:
+    elif fname.find("CAT3") != -1 or fname.find("CAT_3") != -1 or fname.find("CATEGORY_3") != -1:
         return 3
-    elif fname.find("CAT_2") != -1 or fname.find("CATEGORY_2") != -1:
+    elif fname.find("CAT2") != -1 or fname.find("CAT_2") != -1 or fname.find("CATEGORY_2") != -1:
         return 2
     else:
         return None
@@ -57,7 +60,7 @@ def gather_zerofar(file_glob):
     for fname in input_files:
         cat_level = get_cat_from_name(fname)
 
-        xmldoc = utils.load_filename(fname, gz=fname.endswith("gz") )
+        xmldoc = utils.load_filename(fname, contenthandler=DefaultContentHandler, gz=fname.endswith("gz") )
         loudest = lsctables.table.get_table(xmldoc, "loudest_events")
 
         # hack to create an empty table of this custom table type
@@ -103,8 +106,8 @@ def create_combined_trig_files(base, ifos, cats=[], new_snr_cut=0.):
     trig_data = {}
     for ifo in ifos:
         trig_data[ifo] = {}
-        fnames =  glob.glob(base + "/full_data/" + str(ifo) + "-INSPIRAL_FIRST_FULL_DATA*.xml.gz")
-        veto_files = glob.glob(base + "/segments/" + str(ifo) + "-COMBINED_CAT_*_VETO_SEGS-*.txt")
+        fnames =  glob.glob(base + "/full_data/" + str(ifo) + "-INSPIRAL_FULL_DATA*.xml.gz")
+        veto_files = glob.glob(base + "/segments/" + str(ifo) + "-LIGOLW_COMBINE_SEGMENTS_VETO_CAT*_CUMULATIVE-*-*.xml")
         trigs, livetime = gatherloudtrigs.get_loud_trigs(fnames, veto_files, new_snr_cut)
         for trig, lv, vf in zip(trigs, livetime, veto_files):
             cat_level = get_cat_from_name(vf)
@@ -335,7 +338,7 @@ def main():
                            opts.coinc_threshold)
 
     print "Making the result pages"
-    results_glob = opts.ihope_base_dir + "/pipedown/*FULL_DATA*CLUSTERED_CBC_RESULTS*sqlite"
+    results_glob = opts.ihope_base_dir + "/workflow_postproc/*PYCBCCFAR_CUMULATIVE_CAT_*sqlite"
     make_result_pages(opts, results_glob, zerofar_trigs, cats,
                       bgtrigs, vbgtrigs)
 

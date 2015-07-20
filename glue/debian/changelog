@@ -1,3 +1,9 @@
+glue (1.48-1) unstable; urgency=low
+
+  * ER7 release of glue.
+
+ -- Ryan Fisher <ryan.fisher@ligo.org>  Fri, 22 May 2015 12:37:00 -0900
+
 glue (1.47-2) unstable; urgency=low
 
   * added missing python modules to python-glue.install
