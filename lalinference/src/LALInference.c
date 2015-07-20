@@ -1776,7 +1776,7 @@ once on a given timeModel!
 
   for(i=0;i<model->freqhPlus->data->length;i++){
     model->freqhPlus->data->data[i] *= ((REAL8) norm);
-    model->freqhCross->data->data[i] *= ((REAL8) norm);
+    model->freqhCross->data->data[i] *=((REAL8) norm);
   }
 }
 

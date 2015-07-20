@@ -1105,7 +1105,7 @@ REAL8 LALInferenceEnsembleWalkExtrinsic(LALInferenceRunState *runState, LALInfer
 REAL8 LALInferenceBurstEnsembleWalkIntrinsic(LALInferenceRunState *runState, LALInferenceVariables *cp, LALInferenceVariables *pp) {
   const char *propName = BurstEnsembleWalkIntrinsicName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
-  const char *names[] = {"frequency", "quality", "duration","alpha",  "phase",NULL};
+  const char *names[] = {"frequency", "quality", "duration","alpha",  "phase","polar_eccentricity",NULL};
   REAL8 logPropRatio = LALInferenceEnsembleWalkNames(runState, cp, pp, names);
   return logPropRatio;
 }
@@ -4263,7 +4263,7 @@ REAL8 LALInferenceHrssQJump(LALInferenceRunState *runState,LALInferenceVariables
 REAL8 LALInferenceDifferentialEvolutionSineGaussIntrinsic(LALInferenceRunState *runState, LALInferenceVariables *cp, LALInferenceVariables *pp) {
   const char *propName = differentialEvolutionSineGaussIntrinsicName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
-  const char *names[] = {"frequency", "quality", "alpha",NULL}; 
+  const char *names[] = {"frequency", "quality", "alpha","polar_eccentricity",NULL}; 
   REAL8 logPropRatio =LALInferenceDifferentialEvolutionNames(runState,cp, pp, names);
   return logPropRatio;
 }

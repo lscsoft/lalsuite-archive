@@ -1035,14 +1035,8 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
   if(LALInferenceCheckVariable(model->params,"polar_eccentricity"))
     polar_ecc=*(REAL8*) LALInferenceGetVariable(model->params, "polar_eccentricity");
 
-  /* Check if fLow is a model parameter, otherwise use data structure definition */
-  if(LALInferenceCheckVariable(model->params, "fLow"))
-    f_low = *(REAL8*) LALInferenceGetVariable(model->params, "fLow");
-  else
-    f_low = model->fLow /** 0.9 */;
-
-  f_max = 0.0; /* for freq domain waveforms this will stop at Nyquist of lower, if the WF allows.*/
-
+  f_low=0.0;
+  f_max = 0.0;
 
   if (model->timehCross==NULL) {
     XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'timeData'.\n");
@@ -1060,9 +1054,8 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
     
 	/*Create BurstExtra params here and set depending on approx or let chooseFD do that*/ 
   
-  
-  XLAL_TRY(ret=XLALSimBurstChooseFDWaveformFromCache(&hptilde, &hctilde, deltaF,deltaT,freq,quality,duration,f_low,f_max,hrss,polar_angle,polar_ecc,extraParams,approximant,model->burstWaveformCache), errnum);
-  //XLAL_TRY(ret=XLALSimBurstChooseFDWaveform(&hptilde, &hctilde, deltaF,deltaT,freq,quality,duration,f_low,f_max,hrss,polar_angle,polar_ecc,extraParams,approximant), errnum);
+//  XLAL_TRY(ret=XLALSimBurstChooseFDWaveformFromCache(&hptilde, &hctilde, deltaF,deltaT,freq,quality,duration,f_low,f_max,hrss,polar_angle,polar_ecc,extraParams,approximant,model->burstWaveformCache), errnum);
+  XLAL_TRY(ret=XLALSimBurstChooseFDWaveform(&hptilde, &hctilde, deltaF,deltaT,freq,quality,duration,f_low,f_max,hrss,polar_angle,polar_ecc,extraParams,approximant), errnum);
   if (ret == XLAL_FAILURE)
       {
         XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBurstChooseWaveform(). errnum=%d\n",errnum );
@@ -1101,11 +1094,12 @@ void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model)
     
     instant= (model->timehCross->epoch.gpsSeconds + 1e-9*model->timehCross->epoch.gpsNanoSeconds);
     LALInferenceSetVariable(model->params, "time", &instant);    
+
   }
  else {
     /*Time domain WF*/
-
-    XLAL_TRY(ret=XLALSimBurstChooseTDWaveformFromCache(&hplus, &hcross,deltaT,freq,quality,duration,f_low,f_max,hrss,polar_angle,polar_ecc,extraParams,approximant,model->burstWaveformCache), errnum);
+XLAL_TRY(ret=XLALSimBurstChooseTDWaveform(&hplus, &hcross,deltaT,freq,quality,duration,f_low,f_max,hrss,polar_angle,polar_ecc,extraParams,approximant), errnum);
+   // XLAL_TRY(ret=XLALSimBurstChooseTDWaveformFromCache(&hplus, &hcross,deltaT,freq,quality,duration,f_low,f_max,hrss,polar_angle,polar_ecc,extraParams,approximant,model->burstWaveformCache), errnum);
     XLALSimBurstDestroyExtraParam(extraParams);
     if (ret == XLAL_FAILURE || hplus == NULL || hcross == NULL)
       {
@@ -1288,7 +1282,10 @@ void LALInferenceTemplateXLALSimBurstSineGaussianF(LALInferenceModel *model)
     quality=tau*freq*LAL_SQRT2*LAL_PI;
   }
   alpha=*(REAL8*) LALInferenceGetVariable(model->params, "alpha");
-  
+   /* If someone wants to use old parametrization, allow for */
+  REAL8 polar_ecc=*(REAL8*) LALInferenceGetVariable(model->params, "polar_eccentricity");
+
+ 
   if (model->timehCross==NULL) {
     XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'timeData'.\n");
     XLAL_ERROR_VOID(XLAL_EFAULT);
@@ -1300,8 +1297,9 @@ void LALInferenceTemplateXLALSimBurstSineGaussianF(LALInferenceModel *model)
       XLAL_ERROR_VOID(XLAL_EFAULT);
   }
 
+
   deltaF = model->deltaF;
-  XLAL_TRY(ret=XLALSimBurstSineGaussianFFast(&hptilde, &hctilde, quality,freq,hrss, alpha,deltaF,deltaT), errnum);
+  XLAL_TRY(ret=XLALSimBurstSineGaussianFFast(&hptilde, &hctilde, quality,freq,hrss,polar_ecc, alpha,deltaF,deltaT), errnum);
   if (ret == XLAL_FAILURE)
       {
         XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBurstChooseWaveform(). errnum=%d\n",errnum );
@@ -1339,7 +1337,6 @@ void LALInferenceTemplateXLALSimBurstSineGaussianF(LALInferenceModel *model)
   
   instant= (model->timehCross->epoch.gpsSeconds + 1e-9*model->timehCross->epoch.gpsNanoSeconds);
   LALInferenceSetVariable(model->params, "time", &instant);    
-
 
   if ( hplus ) XLALDestroyREAL8TimeSeries(hplus);
   if ( hcross ) XLALDestroyREAL8TimeSeries(hcross);

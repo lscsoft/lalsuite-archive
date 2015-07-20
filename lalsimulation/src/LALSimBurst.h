@@ -129,7 +129,8 @@ int XLALSimBurstSineGaussianF(
 	REAL8 Q,
 	REAL8 centre_frequency,
 	REAL8 hrss,
-  REAL8 alpha,
+        REAL8 polar_ecc,
+        REAL8 alpha,
 	REAL8 deltaF,
     REAL8 deltaT
 );
@@ -150,6 +151,7 @@ int XLALSimBurstSineGaussianFFast(
 	REAL8 Q,
 	REAL8 centre_frequency,
 	REAL8 hrss,
+        REAL8 polar_ecc,
 	REAL8 alpha,
 	REAL8 deltaF,
   REAL8 deltaT
@@ -237,6 +239,8 @@ int XLALSimBurstChooseTDWaveform(
     LALSimBurstExtraParam *extraParams, /**< Linked list of non-GR parameters. Pass in NULL (or None in python) to neglect these */
     BurstApproximant approximant                 /**< Burst approximant  */
     );
+
+
 /** 
  * XLAL function to determine burst approximant from a string.  The string need not 
  * match exactly, only contain a member of the BurstApproximant enum.

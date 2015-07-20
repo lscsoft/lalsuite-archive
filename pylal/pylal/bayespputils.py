@@ -294,7 +294,8 @@ def plot_label(param):
       'calamp_h1' : r'$\delta A_{H1}$',
       'calamp_l1' : r'$\delta A_{L1}$',
       'calpha_h1' : r'$\delta \phi_{H1}$',
-      'calpha_l1' : r'$\delta \phi_{L1}$'
+      'calpha_l1' : r'$\delta \phi_{L1}$',
+      'polar_eccentricity':r'$\epsilon$'
 }
 
   # Handle cases where multiple names have been used

@@ -827,7 +827,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
         else
           timeshift =  (GPSdouble - (*(REAL8*) LALInferenceGetVariable(model->params, "time"))) + timedelay;
         twopit    = LAL_TWOPI * timeshift;
-
         /* For burst the effect of windowing in amplitude is important. Add it here. */
         Fplus*=amp_prefactor;
         Fcross*=amp_prefactor;
@@ -881,7 +880,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     COMPLEX16 diff=0.0;
     COMPLEX16 template=0.0;
     REAL8 templatesq=0.0;
-
     for (i=lower,chisq=0.0,re = cos(twopit*deltaF*i),im = -sin(twopit*deltaF*i);
          i<=upper;
          i++, psd++, hptilde++, hctilde++, dtilde++,
@@ -1107,7 +1105,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     }
     default:
       break;
-
   }
   return(loglikelihood);
 }
@@ -2010,6 +2007,5 @@ REAL8 LALInferenceFastSineGaussianLogLikelihood(LALInferenceVariables *currentPa
     loglikelihood += model->ifo_loglikelihoods[ifo];
 
   } /* end loop over detectors */
-  //printf("%10.10e\n",loglikelihood);
   return(loglikelihood);
 }

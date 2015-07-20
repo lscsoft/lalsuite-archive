@@ -333,7 +333,7 @@ Nested sampling arguments:\n\
   /* Overwrite prior choice if Burst templates are used */
   ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
   if(ppt) {
-    if(!strcmp("SineGaussianF",ppt->value) || !strcmp("SineGaussian",ppt->value)|| !strcmp("Gaussian",ppt->value)|| !strcmp("GaussianF",ppt->value) || !strcmp("DampedSinusoid",ppt->value)|| !strcmp("DampedSinusoidF",ppt->value)){
+    if(!strcmp("SineGaussianFFast",ppt->value) || !strcmp("SineGaussianF",ppt->value) || !strcmp("SineGaussian",ppt->value)|| !strcmp("Gaussian",ppt->value)|| !strcmp("GaussianF",ppt->value) || !strcmp("DampedSinusoid",ppt->value)|| !strcmp("DampedSinusoidF",ppt->value)){
     runState->prior = &LALInferenceSineGaussianPrior;
     XLALPrintInfo("Using (Sine)Gaussian(F) prior\n");
     }
