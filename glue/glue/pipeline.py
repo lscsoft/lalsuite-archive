@@ -2095,6 +2095,10 @@ class CondorDAG:
         else:
           workflow_job.addProfile(Pegasus.DAX3.Profile("condor","universe",node.job().get_universe()))
 
+        # Add condor commands to sub files
+        for ccmd_key, ccmd_val in node.job().get_condor_cmds().items():
+            workflow_job.addProfile(Pegasus.DAX3.Profile("condor", ccmd_key, ccmd_val))
+
         # add any other user specified condor commands or classads
         for p in node.get_pegasus_profile():
             workflow_job.addProfile(Pegasus.DAX3.Profile(p[0],p[1],p[2]))

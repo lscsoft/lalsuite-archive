@@ -282,7 +282,7 @@ class Bins(object):
 		return name[0]
 
 	@classmethod
-	def xml_bins_check(cls, elem, name, suffix = u"pylal_rate_bins"):
+	def xml_bins_check(cls, elem, name):
 		"""
 		For internal use by XML I/O code.
 		"""
@@ -831,13 +831,13 @@ class ATanLogarithmicBins(LoHiCountToFromXMLMixin, IrregularBins):
 		keepers = boundaries[:-1] != boundaries[1:]
 		super(ATanLogarithmicBins, self).__init__(boundaries[keepers])
 		self.keepers = keepers[:-1]
-		self._real_min = min
-		self._real_max = max
-		self._real_n = n
+		self.min = min
+		self.max = max
+		self.n = n
 
 	def centres(self):
 		offset = 0.5 * math.pi * self.delta
-		centres = numpy.tan(numpy.linspace(-math.pi / 2. + offset, +math.pi / 2. + offset, self._real_n, endpoint = False)) / self.scale + self.mid
+		centres = numpy.tan(numpy.linspace(-math.pi / 2. + offset, +math.pi / 2. + offset, self.n, endpoint = False)) / self.scale + self.mid
 		with numpy.errstate(over = "ignore"):
 			return numpy.exp(centres)[self.keepers]
 
@@ -846,13 +846,6 @@ class ATanLogarithmicBins(LoHiCountToFromXMLMixin, IrregularBins):
 	#
 
 	xml_bins_name = u"atanlogbins"
-
-	def to_xml(self):
-		"""
-		Construct a LIGO Light Weight XML representation of the
-		Bins instance.
-		"""
-		return ligolw_param.from_pyvalue(self.xml_bins_name_enc(self.xml_bins_name), u"%s,%s,%s" % (ligolw_types.FormatFunc[u"real_8"](self._real_min), ligolw_types.FormatFunc[u"real_8"](self._real_max), ligolw_types.FormatFunc[u"int_8s"](self._real_n)))
 
 
 class Categories(Bins):
@@ -992,11 +985,14 @@ class NDBins(tuple):
 	False
 	>>> from glue.ligolw.ligolw import LIGO_LW
 	>>> import sys
-	>>> x.to_xml(LIGO_LW()).write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	>>> elem = x.to_xml(LIGO_LW())
+	>>> elem.write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
 	<LIGO_LW>
 		<Param Type="lstring" Name="linbins:pylal_rate_bins:param">1,25,3</Param>
 		<Param Type="lstring" Name="logbins:pylal_rate_bins:param">1,25,3</Param>
 	</LIGO_LW>
+	>>> NDBins.from_xml(elem) == x
+	True
 
 	Note that the co-ordinates to be converted must be a tuple, even if
 	it is only a 1-dimensional co-ordinate.
@@ -1134,10 +1130,12 @@ class NDBins(tuple):
 
 		NOTE:  The decoding process will require a specific parent
 		element to be provided, and all Param elements that are
-		immediate children of that element will be used to
-		reconstruct the NDBins, so it is essential that the Param
-		elements not be inserted into an element that might contain
-		other, unrelated, Params among its immediate children.
+		immediate children of that element and contain the correct
+		suffix will be used to reconstruct the NDBins.  At this
+		time the suffix is undocumented, so to guarantee
+		compatibility the Param elements should not be inserted
+		into an element that might contain other, unrelated, Params
+		among its immediate children.
 		"""
 		for binning in self:
 			elem.appendChild(binning.to_xml())
@@ -1151,7 +1149,15 @@ class NDBins(tuple):
 		therein.  Note, the XML element must be the immediate
 		parent of the Param elements describing the NDBins.
 		"""
-		params = [elem for elem in xml.childNodes if elem.tagName == ligolw.Param.tagName]
+		params = []
+		for elem in xml.childNodes:
+			if elem.tagName != ligolw.Param.tagName:
+				continue
+			try:
+				Bins.xml_bins_name_dec(elem.Name)
+			except ValueError:
+				continue
+			params.append(elem)
 		if not params:
 			raise ValueError("no Param elements found at '%s'" % repr(xml))
 		return cls([cls.xml_bins_name_mapping[Bins.xml_bins_name_dec(elem.Name)].from_xml(elem) for elem in params])
@@ -1271,6 +1277,30 @@ class BinnedArray(object):
 	Traceback (most recent call last):
 		...
 	ValueError: input array and input bins must have the same shape:  (5, 1) != (5,)
+
+	A BinnedArray can be serialized to LIGO Light Weight XML.
+
+	>>> import sys
+	>>> x = BinnedArray(NDBins((LinearBins(-0.5, 1.5, 2), LinearBins(-0.5, 1.5, 2))))
+	>>> elem = x.to_xml(u"test")
+	>>> elem.write(sys.stdout)	# doctest: +NORMALIZE_WHITESPACE
+	<LIGO_LW Name="test:pylal_rate_binnedarray">
+		<Param Type="lstring" Name="linbins:pylal_rate_bins:param">-0.5,1.5,2</Param>
+		<Param Type="lstring" Name="linbins:pylal_rate_bins:param">-0.5,1.5,2</Param>
+		<Array Type="real_8" Name="array:array">
+			<Dim>2</Dim>
+			<Dim>2</Dim>
+			<Stream Delimiter=" " Type="Local">
+				0 0
+				0 0
+			</Stream>
+		</Array>
+	</LIGO_LW>
+	>>> y = BinnedArray.from_xml(elem, u"test")
+	>>> y.bins == x.bins
+	True
+	>>> (y.array == x.array).all()
+	True
 	"""
 	def __init__(self, bins, array = None, dtype = "double"):
 		self.bins = bins

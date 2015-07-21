@@ -86,6 +86,33 @@ static struct PyGetSetDef getset[] = {
 };
 
 
+static Py_ssize_t getreadbuffer(PyObject *self, Py_ssize_t segment, void **ptrptr)
+{
+	if(segment) {
+		PyErr_SetString(PyExc_SystemError, "bad segment");
+		return -1;
+	}
+	*ptrptr = &((pylal_SnglBurst*)self)->sngl_burst;
+	return sizeof(((pylal_SnglBurst*)self)->sngl_burst);
+}
+
+
+static Py_ssize_t getsegcount(PyObject *self, Py_ssize_t *lenp)
+{
+	if(lenp)
+		*lenp = sizeof(((pylal_SnglBurst*)self)->sngl_burst);
+	return 1;
+}
+
+
+static PyBufferProcs as_buffer = {
+	.bf_getreadbuffer = getreadbuffer,
+	.bf_getsegcount = getsegcount,
+	.bf_getwritebuffer = NULL,
+	.bf_getcharbuffer = NULL
+};
+
+
 /*
  * Methods
  */
@@ -116,6 +143,7 @@ PyTypeObject pylal_snglburst_type = {
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
 	.tp_members = members,
 	.tp_getset = getset,
+	.tp_as_buffer = &as_buffer,
 	.tp_name = MODULE_NAME ".SnglBurst",
 	.tp_new = __new__,
 };
