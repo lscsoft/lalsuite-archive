@@ -111,7 +111,7 @@ __date__= git_version.date
 # Constants
 #===============================================================================
 #Parameters which are not to be exponentiated when found
-logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw']
+logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior']
 #Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
