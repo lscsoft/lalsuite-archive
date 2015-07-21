@@ -111,7 +111,7 @@ __date__= git_version.date
 # Constants
 #===============================================================================
 #Parameters which are not to be exponentiated when found
-logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw']
+logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior']
 #Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
@@ -712,6 +712,8 @@ class Posterior(object):
       if ('spin1' in pos.names and 'm1' in pos.names) and \
        ('spin2' in pos.names and 'm2' in pos.names):
          pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','spin1','m2','spin2'))
+      elif ('a1' in pos.names and 'm1' in pos.names) and ('a2' in pos.names and 'm2' in pos.names):
+         pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','a1','m2','a2'))
 
       if('a_spin1' in pos.names): pos.append_mapping('a1',lambda a:a,'a_spin1')
       if('a_spin2' in pos.names): pos.append_mapping('a2',lambda a:a,'a_spin2')
