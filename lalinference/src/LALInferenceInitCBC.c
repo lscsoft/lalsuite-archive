@@ -256,6 +256,7 @@ void LALInferenceInitCalibrationVariables(LALInferenceRunState *runState, LALInf
     } while (ifo);
   }
   else if(LALInferenceGetProcParamVal(runState->commandLine, "--MarginalizeConstantCalAmp") ||LALInferenceGetProcParamVal(runState->commandLine, "--MarginalizeConstantCalPha")){
+
     /* Use constant (in frequency) approximation for the errors */
     if (LALInferenceGetProcParamVal(runState->commandLine, "--MarginalizeConstantCalAmp")){
       /*For the moment the prior ranges are the same for the three IFOs */
@@ -270,6 +271,15 @@ void LALInferenceInitCalibrationVariables(LALInferenceRunState *runState, LALInf
         dataPtr = dataPtr->next;
       }
       LALInferenceAddVariable(currentParams, "constantcal_active", &calOn, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+
+      /*If user specifies a width for the error prior, a gaussian prior will be used, otherwise a flat prior will be used*/
+      REAL8 ampUncertaintyPrior=-1.0;
+      ppt = LALInferenceGetProcParamVal(runState->commandLine, "--constcal_ampsigma");
+      if (ppt) {
+        ampUncertaintyPrior = atof(ppt->value);
+      }
+      LALInferenceAddVariable(runState->priorArgs, "constcal_amp_uncertainty", &ampUncertaintyPrior, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+
     }
     if (LALInferenceGetProcParamVal(runState->commandLine, "--MarginalizeConstantCalPha")){
       /* Add linear calibration phase errors to the measurement. For the moment the prior ranges are the same for the three IFOs */
@@ -285,6 +295,14 @@ void LALInferenceInitCalibrationVariables(LALInferenceRunState *runState, LALInf
         dataPtr = dataPtr->next;
       }
       LALInferenceAddVariable(currentParams, "constantcal_active", &calOn, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+      /*If user specifies a width for the error prior, a gaussian prior will be used, otherwise a flat prior will be used*/
+      REAL8 phaseUncertaintyPrior=-1.0;
+      ppt = LALInferenceGetProcParamVal(runState->commandLine, "--constcal_phasigma");
+      if (ppt) {
+        phaseUncertaintyPrior = M_PI/180.0*atof(ppt->value); /* CL arg in degrees, variable in radians */
+      }
+      LALInferenceAddVariable(runState->priorArgs, "constcal_phase_uncertainty", &phaseUncertaintyPrior, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+ 
     }
   }
   else{
