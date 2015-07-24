@@ -1735,10 +1735,15 @@ SimInspiralTableFromLIGOLw (
             thisSim->bandpass = i4colData;
         }
         else if ( tableDir[j].idx == 56 ) {
-        	thisSim->qmParameter1 = r4colData;
+        	//thisSim->qmParameter1 = r4colData; // qmParameter1 is not implemented in MetaTableDirectory
+        	thisSim->ecc = r8colData;
         }
         else if ( tableDir[j].idx == 57 ) {
-        	thisSim->qmParameter2 = r4colData;
+        	//thisSim->qmParameter2 = r4colData; // qmParameter2 is not implemented in MetaTableDirectory
+        	thisSim->eccOrder = i4colData;
+        }
+        else if ( tableDir[j].idx == 58 ) {
+        	thisSim->f_ecc = r8colData;
         }
         else
         {
