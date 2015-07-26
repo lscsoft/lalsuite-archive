@@ -287,7 +287,7 @@ int XLALSimInspiralTaylorF2Core(
     FILE *outPhase = NULL;
     if(called == 0) {
       outPhase = fopen(PhasePath, "w");
-      fprintf(outPhase, "#  (i+iStart)*deltaF, f, amp, phasing, phaseTotal, phase3p5, phaseEcc, ref_phasing, phi_ref\n");
+      fprintf(outPhase, "#  (i+iStart)*deltaF, f, amp, phasing, phaseTotal, phase3p5, phaseEcc, ref_phasing, phi_ref, reduced phase total, reduced phase3p5, reduced phaseEcc\n");
     }
     #pragma omp parallel for
     for (i = 0; i < freqs->length; i++) {
@@ -374,7 +374,15 @@ int XLALSimInspiralTaylorF2Core(
         data[i+iStart] = amp * cos(phasing - LAL_PI_4)
                 - amp * sin(phasing - LAL_PI_4) * 1.0j;
         if(called == 0) {
-          fprintf(outPhase, "%10.6f %10.6f %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e\n", (i+iStart)*(freqs->data[2]-freqs->data[1]), f, amp, phasing, phaseTotal, phase3p5, phaseEcc, ref_phasing, phi_ref);
+          INT4 factor;
+          REAL8 redTotal, red3p5, redEcc;
+          factor = (int)(phaseTotal/LAL_TWOPI);
+          redTotal = phaseTotal - factor*LAL_TWOPI;
+          factor = (int)(phase3p5/LAL_TWOPI);
+          red3p5 = phase3p5 - factor*LAL_TWOPI;
+          factor = (int)(phaseEcc/LAL_TWOPI);
+          redEcc = phaseEcc - factor*LAL_TWOPI;
+          fprintf(outPhase, "%10.6f %10.6f %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e\n", (i+iStart)*(freqs->data[2]-freqs->data[1]), f, amp, phasing, phaseTotal, phase3p5, phaseEcc, ref_phasing, phi_ref, redTotal, red3p5, redEcc);
         }
     }
 
