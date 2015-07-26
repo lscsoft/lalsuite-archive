@@ -1297,6 +1297,22 @@ XLALSimInspiralTaylorEtZeta_7PNCoeff(
 	return (129.817/2.304 - 320.7739/4.8384 * eta + 61.3373/1.2096 * eta*eta) * LAL_PI;
 }
 
+static void UNUSED
+printPNCoeffs_F2(REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1][LAL_MAX_ECC_PN_ORDER+1])
+{
+  int i, j, k;
+  fprintf(stdout,"============== DEBUG eccentricity PNCoeffs =================\n");
+  for(i=0; i<=LAL_MAX_ECC_PN_ORDER; i++) {
+    printf("ecc order = %d\n", i);
+    for(j=0; j<=i; j++) {
+      fprintf(stdout,"     ");
+      for(k=0; k<=i; k++) {
+        fprintf(stdout, "%16.8e ", eccPNCoeffs[i][j][k]);
+      }
+      fprintf(stdout,"\n");
+    }
+  }
+}
 // added for eccentricity corrections
 // the code is not approved, hence I will use function name as I want
 static INT4 UNUSED
@@ -1339,6 +1355,7 @@ eccentricityPNCoeffs_F2(REAL8 eta, REAL8 eccPNCoeffs[LAL_MAX_ECC_PN_ORDER+1][LAL
                            + (91.55185261/5.48674560 - 3.977/1.152*LAL_PI*LAL_PI)*eta - 5.732473/1.306368*eta*eta
                            - 30.90307/1.39968*eta*eta*eta + 87.419/1.890*log(2.0) - 260.01/5.60*log(3.0);  //v0^6 term except log(16*v0^2) term
   }
+  //printPNCoeffs_F2(eccPNCoeffs);
   return ret;
 }
 static REAL8 UNUSED
@@ -1360,6 +1377,7 @@ eccentricityPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder)
       v0_power[i] = v0_power[i-1]*v0;
     }
     int ret = eccentricityPNCoeffs_F2(eta, eccPNCoeffs);
+    //printPNCoeffs_F2(eccPNCoeffs);
   }
   v_power[0] = 1.0;
   for(int i=1; i<=LAL_MAX_ECC_PN_ORDER; i++)
@@ -1369,6 +1387,9 @@ eccentricityPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder)
 
   global_factor = -2.355/1.462*ecc*ecc*pow(v0/v, 19.0/3.0);
   global_factor *= (3.0/128.0/eta);  // overall factor except v^-5 in phase term
+  if(eccOrder == -1) {
+    eccOrder = LAL_MAX_ECC_PN_ORDER;
+  }
   for(int i=0; i<=eccOrder; i++)
   {
     INT4 k = 0;
@@ -1389,5 +1410,7 @@ eccentricityPhasing_F2(REAL8 v, REAL8 v0, REAL8 ecc, REAL8 eta, INT4 eccOrder)
       }
     }
   }
+  //fprintf(stdout, "======== DEBUG for eccentricity ================\n");
+  //fprintf(stdout, "eccentricityPhasing_F2 phasing = %g, global_factor = %g, eccOrder = %d, ecc = %g\n", phasing, global_factor, eccOrder, ecc);
   return phasing;
 }

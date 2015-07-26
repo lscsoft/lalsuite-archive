@@ -110,6 +110,7 @@ int XLALSimInspiralTaylorF2Core(
     COMPLEX16 *data = NULL;
     LIGOTimeGPS tC = {0, 0};
     INT4 iStart = 0;
+    static int called = 0;
 
     COMPLEX16FrequencySeries *htilde = NULL;
 
@@ -280,6 +281,14 @@ int XLALSimInspiralTaylorF2Core(
         ref_phasing /= v5ref;
     } /* End of if(f_ref != 0) block */
 
+    /* debug file output for eccentricity phase calculation bu hwlee */
+    char PhasePath[FILENAME_MAX];
+    sprintf(PhasePath, "phase_%06.5f_%04d_%06.1f.dat", ecc, eccOrder, f_ecc);
+    FILE *outPhase = NULL;
+    if(called == 0) {
+      outPhase = fopen(PhasePath, "w");
+      fprintf(outPhase, "#  (i+iStart)*deltaF, f, amp, phasing, phaseTotal, phase3p5, phaseEcc, ref_phasing, phi_ref\n");
+    }
     #pragma omp parallel for
     for (i = 0; i < freqs->length; i++) {
         const REAL8 f = freqs->data[i];
@@ -300,6 +309,7 @@ int XLALSimInspiralTaylorF2Core(
         REAL8 flux = 0.;
         REAL8 amp;
         REAL8 v_ecc_ref_over_v = v_ecc_ref/v;
+        REAL8 phase3p5, phaseEcc, phaseTotal;
 
         phasing += pfa7 * v7;
         phasing += (pfa6 + pfl6 * logv) * v6;
@@ -313,9 +323,14 @@ int XLALSimInspiralTaylorF2Core(
         phasing += pft12 * v12;
         phasing += pft10 * v10;
 
+        phase3p5 = phasing/v5;
+
         /* Eccentricity terms in phasing */
         if( ecc > 0 && f_ecc > 0) {
-          phasing += eccentricityPhasing_F2(v, v_ecc_ref, ecc, eta, eccOrder);
+          phaseEcc = eccentricityPhasing_F2(v, v_ecc_ref, ecc, eta, eccOrder);
+          phasing += phaseEcc;
+          phaseEcc /=v5;
+          //phasing += eccentricityPhasing_F2(v, v_ecc_ref, ecc, eta, eccOrder);
         }
 
     /* WARNING! Amplitude orders beyond 0 have NOT been reviewed!
@@ -350,6 +365,7 @@ int XLALSimInspiralTaylorF2Core(
         }
 
         phasing /= v5;
+        phaseTotal = phasing;
         flux *= FTaN * v10;
         dEnergy *= dETaN * v;
         // Note the factor of 2 b/c phi_ref is orbital phase
@@ -357,8 +373,15 @@ int XLALSimInspiralTaylorF2Core(
         amp = amp0 * sqrt(-dEnergy/flux) * v;
         data[i+iStart] = amp * cos(phasing - LAL_PI_4)
                 - amp * sin(phasing - LAL_PI_4) * 1.0j;
+        if(called == 0) {
+          fprintf(outPhase, "%10.6f %10.6f %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e\n", (i+iStart)*(freqs->data[2]-freqs->data[1]), f, amp, phasing, phaseTotal, phase3p5, phaseEcc, ref_phasing, phi_ref);
+        }
     }
 
+    if(called == 0) {
+      fclose(outPhase);
+      called = 1;
+    }
     *htilde_out = htilde;
     return XLAL_SUCCESS;
 }
