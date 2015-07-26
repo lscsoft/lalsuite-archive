@@ -378,10 +378,13 @@ int XLALSimInspiralTaylorF2Core(
           REAL8 redTotal, red3p5, redEcc;
           factor = (int)(phaseTotal/LAL_TWOPI);
           redTotal = phaseTotal - factor*LAL_TWOPI;
+          if(redTotal < 0.0) redTotal += LAL_TWOPI;
           factor = (int)(phase3p5/LAL_TWOPI);
           red3p5 = phase3p5 - factor*LAL_TWOPI;
+          if(red3p5 < 0.0) red3p5 += LAL_TWOPI;
           factor = (int)(phaseEcc/LAL_TWOPI);
           redEcc = phaseEcc - factor*LAL_TWOPI;
+          if(redEcc < 0.0) redEcc += LAL_TWOPI;
           fprintf(outPhase, "%10.6f %10.6f %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e\n", (i+iStart)*(freqs->data[2]-freqs->data[1]), f, amp, phasing, phaseTotal, phase3p5, phaseEcc, ref_phasing, phi_ref, redTotal, red3p5, redEcc);
         }
     }
