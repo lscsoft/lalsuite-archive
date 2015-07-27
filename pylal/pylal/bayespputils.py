@@ -111,7 +111,7 @@ __date__= git_version.date
 # Constants
 #===============================================================================
 #Parameters which are not to be exponentiated when found
-logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw']
+logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw','logprior']
 #Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
@@ -551,7 +551,7 @@ class Posterior(object):
         self._injection=SimInspiralTableEntry
         self._triggers=SnglInpiralList
         self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
-        self._logpaliases=['logp', 'logP','prior','Prior']
+        self._logpaliases=['logp', 'logP','prior','logprior','Prior','prior']
         self._votfile=votfile
         
         common_output_table_header=[i.lower() for i in common_output_table_header]

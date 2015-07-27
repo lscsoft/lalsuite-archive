@@ -131,41 +131,10 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 
-/*
- * Type
- */
-
-
-PyTypeObject pylal_snglburst_type = {
-	PyObject_HEAD_INIT(NULL)
-	.tp_basicsize = sizeof(pylal_SnglBurst),
-	.tp_doc = "LAL's SnglBurst structure",
-	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
-	.tp_members = members,
-	.tp_getset = getset,
-	.tp_as_buffer = &as_buffer,
-	.tp_name = MODULE_NAME ".SnglBurst",
-	.tp_new = __new__,
-};
-
-
-/*
- * ============================================================================
- *
- *                                 Functions
- *
- * ============================================================================
- */
-
-
-static PyObject *from_buffer(PyObject *self, PyObject *args)
+static PyObject *from_buffer(PyObject *cls, PyObject *args)
 {
 	const SnglBurst *data;
-#if PY_VERSION_HEX < 0x02050000
-	int length;
-#else
 	Py_ssize_t length;
-#endif
 	unsigned i;
 	PyObject *result;
 
@@ -182,16 +151,44 @@ static PyObject *from_buffer(PyObject *self, PyObject *args)
 	if(!result)
 		return NULL;
 	for(i = 0; i < length; i++) {
-		PyObject *item = pylal_SnglBurst_new(data++);
+		PyObject *item = PyType_GenericNew((PyTypeObject *) cls, NULL, NULL);
 		if(!item) {
 			Py_DECREF(result);
 			return NULL;
 		}
+		/* memcpy sngl_burst row */
+		((pylal_SnglBurst*)item)->sngl_burst = *data++;
+
 		PyTuple_SET_ITEM(result, i, item);
 	}
 
 	return result;
 }
+
+
+static struct PyMethodDef methods[] = {
+	{"from_buffer", from_buffer, METH_VARARGS | METH_CLASS, "Construct a tuple of SnglBurst objects from a buffer object.  The buffer is interpreted as a C array of SnglBurst structures."},
+	{NULL, }
+};
+
+
+/*
+ * Type
+ */
+
+
+PyTypeObject pylal_snglburst_type = {
+	PyObject_HEAD_INIT(NULL)
+	.tp_basicsize = sizeof(pylal_SnglBurst),
+	.tp_doc = "LAL's SnglBurst structure",
+	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
+	.tp_members = members,
+	.tp_methods = methods,
+	.tp_getset = getset,
+	.tp_as_buffer = &as_buffer,
+	.tp_name = MODULE_NAME ".SnglBurst",
+	.tp_new = __new__,
+};
 
 
 /*
@@ -203,15 +200,9 @@ static PyObject *from_buffer(PyObject *self, PyObject *args)
  */
 
 
-static struct PyMethodDef functions[] = {
-	{"from_buffer", from_buffer, METH_VARARGS, "Construct a tuple of SnglBurst objects from a buffer object.  The buffer is interpreted as a C array of SnglBurst structures."},
-	{NULL, }
-};
-
-
 PyMODINIT_FUNC initsnglburst(void)
 {
-	PyObject *module = Py_InitModule3(MODULE_NAME, functions, "Wrapper for LAL's SnglBurst type.");
+	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's SnglBurst type.");
 
 	/* Cached ID types */
 	sngl_burst_event_id_type = pylal_get_ilwdchar_class("sngl_burst", "event_id");
