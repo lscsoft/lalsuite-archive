@@ -51,12 +51,12 @@ import random
 import scipy
 __numpy__version__ = tuple(map(int, numpy.__version__.strip().split(".")))
 __scipy__version__ = tuple(map(int, scipy.__version__.strip().split(".")))
-if __scipy__version__ >= (0, 9) and __numpy__version__ >= (1, 7):
-	from scipy.interpolate import interp1d, interp2d, LinearNDInterpolator
-else:
+#if __scipy__version__ >= (0, 9) and __numpy__version__ >= (1, 7):
+#	from scipy.interpolate import interp1d, interp2d, LinearNDInterpolator
+#else:
 	# pre scipy/numpy 0.9/1.7 had busted/missing interpolation code.
 	# replacements are provided below
-	pass
+#	pass
 from scipy.signal import signaltools
 
 
@@ -1379,6 +1379,8 @@ class BinnedArray(object):
 		"""
 		Convert into a probability density.
 		"""
+		if abs(self.array.sum()) < 2**-1074:
+		  return
 		self.array /= self.array.sum()  # make sum = 1
 		self.to_density()	# make integral = 1
 
