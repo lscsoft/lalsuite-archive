@@ -534,9 +534,6 @@ class Posterior(object):
         self._injFref=injFref
         self._injection=SimInspiralTableEntry
 
-        if self._injection:
-            self.inj_spins = 
-
         self._triggers=SnglInpiralList
         self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
         self._logpaliases=['logp', 'logP','prior','logprior','Prior','prior']
@@ -1551,7 +1548,7 @@ class Posterior(object):
             mc, eta = inj.mchirp, inj.eta
 
             # Convert to radiation frame
-            iota, s1x, s1y, s1z, s2x, s2y, s2z =
+            iota, s1x, s1y, s1z, s2x, s2y, s2z = \
                 lalsim.SimInspiralInitialConditionsPrecessingApproxs(inj.inclination,
                                                                      inj.spin1x, inj.spin1y, inj.spin1z,
                                                                      inj.spin2x, inj.spin2y, inj.spin2z,
@@ -1567,7 +1564,7 @@ class Posterior(object):
             zhat = np.array([0., 0., 1.])
             aligned_comp_spin1 = array_dot(S1, zhat)
             aligned_comp_spin2 = array_dot(S2, zhat)
-            chi = aligned_comp_spin1 + aligned_comp_spin2 +
+            chi = aligned_comp_spin1 + aligned_comp_spin2 + \
                   np.sqrt(1. - 4.*eta) * (aligned_comp_spin1 - aligned_comp_spin2)
 
             S1 *= m1**2
