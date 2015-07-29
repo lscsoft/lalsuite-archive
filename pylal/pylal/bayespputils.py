@@ -581,7 +581,7 @@ class Posterior(object):
                             'lal_amporder':lambda inj:inj.amp_order}
 
         # Add on all spin parameterizations
-        for key, val in self._inj_spins(self._injection, inj_spin_frame).items():
+        for key, val in self._inj_spins(self._injection, frame=inj_spin_frame).items():
             self._injXMLFuncMap[key] = val
 
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
@@ -936,7 +936,10 @@ class Posterior(object):
         if self._injection is not None:
             for key,value in self._injXMLFuncMap.items():
                 if paramname.lower().strip() == key.lower().strip():
-                    return self._injXMLFuncMap[key](self._injection)
+                    try:
+                        return self._injXMLFuncMap[key](self._injection)
+                    except TypeError:
+                        return self._injXMLFuncMap[key]
         return None
 
     def _gettrigpar(self,paramname):
@@ -949,8 +952,8 @@ class Posterior(object):
                 if paramname.lower().strip() == key.lower().strip():
                     try:
                         vals = dict([(trig.ifo,self._injXMLFuncMap[key](trig)) for trig in self._triggers])
-                    except AttributeError:
-                        break
+                    except TypeError:
+                        return self._injXMLFuncMap[key]
         return vals
 
     def __getitem__(self,key):
@@ -1528,6 +1531,7 @@ class Posterior(object):
             return inj.longitude
 
     def _inj_spins(self, inj, frame='orbital'):
+        spins = {}
         f_ref = self._injFref
 
         if not inj:
@@ -1540,11 +1544,13 @@ class Posterior(object):
             elif frame == 'orbital':
                 axis = lalsim.SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L
             elif frame == 'view':
-                axis = lalsim.SIM_INSPIRAL_FRAME_AXIS_ORBITAL_VIEW
+                axis = lalsim.SIM_INSPIRAL_FRAME_AXIS_VIEW
             else:
                 raise ValueError("Unexpected spin-frame type.")
 
             m1, m2 = inj.mass1, inj.mass2
+            m1 *= lal.MSUN_SI
+            m2 *= lal.MSUN_SI
             mc, eta = inj.mchirp, inj.eta
 
             # Convert to radiation frame
@@ -1557,6 +1563,10 @@ class Posterior(object):
             a1, theta1, phi1 = cart2sph(s1x, s1y, s1z)
             a2, theta2, phi2 = cart2sph(s2x, s2y, s2z)
 
+            spins = {'a1':a1, 'theta1':theta1, 'phi1':phi1,
+                     'a2':a2, 'theta2':theta2, 'phi2':phi2,
+                     'iota':iota}
+
             L  = orbital_momentum(f_ref, mc, iota)
             S1 = np.hstack((s1x, s1y, s1z))
             S2 = np.hstack((s2x, s2y, s2z))
@@ -1567,6 +1577,8 @@ class Posterior(object):
             chi = aligned_comp_spin1 + aligned_comp_spin2 + \
                   np.sqrt(1. - 4.*eta) * (aligned_comp_spin1 - aligned_comp_spin2)
 
+            spins['spinchi'] = chi
+
             S1 *= m1**2
             S2 *= m2**2
             J = L + S1 + S2
@@ -1574,6 +1586,10 @@ class Posterior(object):
             tilt1 = array_ang_sep(L, S1)
             tilt2 = array_ang_sep(L, S2)
             beta  = array_ang_sep(J, L)
+
+            spins['tilt1'] = tilt1
+            spins['tilt2'] = tilt2
+            spins['beta'] = beta
 
             # Need to do rotations of XLALSimInspiralTransformPrecessingInitialConditioin inverse order to go in the L frame
             # first rotation: bring J in the N-x plane, with negative x component
@@ -1587,6 +1603,8 @@ class Posterior(object):
 
             # now J in in the N-x plane and form an angle theta_jn with N, rotate by -theta_jn around y to have J along z
             theta_jn = array_polar_ang(J)
+            spins['theta_jn'] = theta_jn
+
             J = ROTATEY(theta_jn, J[0], J[1], J[2])
             L = ROTATEY(theta_jn, L[0], L[1], L[2])
             S1 = ROTATEY(theta_jn, S1[0], S1[1], S1[2])
@@ -1595,6 +1613,7 @@ class Posterior(object):
             # J should now be || z and L should have a azimuthal angle phi_jl
             phi_jl = np.arctan2(L[1], L[0])
             phi_jl = np.pi - phi_jl
+            spins['phi_jl'] = phi_jl
 
             # bring L in the Z-X plane, with negative x
             J = ROTATEZ(phi_jl, J[0], J[1], J[2])
@@ -1616,12 +1635,7 @@ class Posterior(object):
             else:
                 phi12 = phi2 - phi1
 
-            spins = {'a1':a1, 'theta1':theta1, 'phi1':phi1,
-                     'a2':a2, 'theta1':theta2, 'phi1':phi2,
-                     'theta_jn':theta_jn, 'iota':iota,
-                     'tilt1':tilt1, 'tilt2':tilt2,
-                     'phi_jl':phi_jl, 'phi12':phi12,
-                     'spinchi':chi, 'beta':beta}
+            spins['phi12'] = phi12
 
         return spins
 
