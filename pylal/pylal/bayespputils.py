@@ -283,7 +283,9 @@ def plot_label(param):
       'calamp_l1' : r'$\delta A_{L1}$',
       'calpha_h1' : r'$\delta \phi_{H1}$',
       'calpha_l1' : r'$\delta \phi_{L1}$',
-      'polar_eccentricity':r'$\epsilon$'
+      'polar_eccentricity':r'$\epsilon_{polar}$',
+      'polar_angle':r'$\alpha_{polar}$',
+      'alpha':r'$\alpha_{polar}$'
     }
 
   # Handle cases where multiple names have been used
@@ -1840,6 +1842,8 @@ class BurstPosterior(Posterior):
                             'polar_angle':lambda inj:inj.pol_ellipse_angle,
                             'pol_ellipse_angle':lambda inj:inj.pol_ellipse_angle,
                             'pol_ellipse_e':lambda inj:inj.pol_ellipse_e,
+                            'alpha':lambda inj:inj.pol_ellipse_angle,
+                            'polar_eccentricity':lambda inj:inj.pol_ellipse_e,
                             'eccentricity':lambda inj:inj.pol_ellipse_e,
                             'time': lambda inj:float(inj.get_end()),
                             'end_time': lambda inj:float(inj.get_end()),
