@@ -278,7 +278,13 @@ def plot_label(param):
       'lambda1' : r'$\lambda_1$',
       'lambda2': r'$\lambda_2$',
       'lam_tilde' : r'$\tilde{\Lambda}$',
-      'dlam_tilde': r'$\delta \tilde{\Lambda}$'}
+      'dlam_tilde': r'$\delta \tilde{\Lambda}$',
+      'calamp_h1' : r'$\delta A_{H1}$',
+      'calamp_l1' : r'$\delta A_{L1}$',
+      'calpha_h1' : r'$\delta \phi_{H1}$',
+      'calpha_l1' : r'$\delta \phi_{L1}$',
+      'polar_eccentricity':r'$\epsilon$'
+    }
 
   # Handle cases where multiple names have been used
   if param in m1_names:
@@ -550,7 +556,7 @@ class Posterior(object):
         self._injection=SimInspiralTableEntry
         self._triggers=SnglInpiralList
         self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
-        self._logpaliases=['logp', 'logP','prior','logprior','Prior','prior']
+        self._logpaliases=['logp', 'logP','prior','logprior','Prior','logPrior']
         self._votfile=votfile
         
         common_output_table_header=[i.lower() for i in common_output_table_header]
@@ -648,7 +654,6 @@ class Posterior(object):
         self._logP=None
         
         for logpalias in self._logpaliases:
-        
             if logpalias in common_output_table_header:
                 try:
                     self._logP=self._posterior[logpalias].samples
@@ -1818,7 +1823,8 @@ class BurstPosterior(Posterior):
         self._injection=SimBurstTableEntry
         self._triggers=SnglBurstList
         self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
-        self._logpaliases=['logp', 'logP','prior','Prior']
+        self._logpaliases=['logp', 'logP','prior','logprior','Prior','logPrior']
+
         self._votfile=votfile
 
         common_output_table_header=[i.lower() for i in common_output_table_header]
@@ -5569,7 +5575,7 @@ class PEOutputParser(object):
         
             for row in pos:
                 for i in row:
-                    posfile.write('%.12g\t' %(i))
+                  posfile.write('%10.12e\t' %(i))
                 posfile.write('\n')
         
         with open(posfilename,'r') as posfile:
