@@ -49,7 +49,7 @@ posterior_name_to_sim_burst_extractor = {
     'ra' : lambda sb: sb.ra,
     'dec' : lambda sb: sb.dec,
     'polar_angle':lambda sb:sb.pol_ellipse_angle,
-    'eccentricity':lambda sb:sb.pol_ellipse_e,
+    'polar_eccentricity':lambda sb:sb.pol_ellipse_e,
     'alpha':lambda sb:sb.pol_ellipse_angle
 }
 
@@ -64,7 +64,7 @@ posterior_name_to_latex_name = {
     'dec' : r'$\delta$',
     'psi' : r'$\psi$',
     'polar_angle' : r'$\xi_a$',
-    'eccentricity' : r'$\xi_e$',
+    'polar_eccentricity' : r'$\xi_e$',
     'alpha' : r'$\zeta_{orb}$',
 
 
@@ -218,7 +218,7 @@ if __name__ == '__main__':
                            lsctables.SimBurstTable.tableName)
 
     if options.par == []:
-        parameters = ['frequency', 'quality', 'hrss', 'ra', 'dec', 'psi', 'time', 'alpha']
+        parameters = ['frequency', 'quality', 'hrss', 'ra', 'dec', 'psi', 'time', 'alpha','polar_eccentricity']
     else:
         parameters = options.par
 
