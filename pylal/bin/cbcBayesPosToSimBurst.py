@@ -78,9 +78,8 @@ def standardize_param_names(params):
     standardize_param_name(params, ['duration', 'tau'], 'duration')
     standardize_param_name(params, ['ra','longitude','rightascension'],'ra')
     standardize_param_name(params, ['dec','latitude','declination'],'dec')
-    standardize_param_name(params, ['polar_angle','pol_ellipse_angle'], 'pol_ellipse_angle')
-    standardize_param_name(params, ['eccentricity','pol_ellipse_e'], 'pol_ellipse_e')
-    #standardize_param_name(params, ['phi', 'phase', 'phi0'], 'phi_orb')
+    standardize_param_name(params, ['alpha','polar_angle','pol_ellipse_angle'], 'pol_ellipse_angle')
+    standardize_param_name(params, ['polar_eccentricity','eccentricity','pol_ellipse_e'], 'pol_ellipse_e')
     standardize_param_name(params, ['psi', 'polarisation','polarization'],'psi')
     
 
@@ -148,13 +147,23 @@ if __name__ == "__main__":
     ids = range(N)
 
     # Compute polar parameters from alpha if given
-    if 'alpha' in params and not 'pol_ellipse_angle' in params and not 'pol_ellipse_e' in params:
-        # here I use the convention that pol_ellipse_angle=alpha and pol_ellipse_e=1 if alpha is used (alpha is a single parameter that can reproduced all values of polarizations created by polar_ellipse_angle and eccentricity).
+    if 'alpha' in params:
+      # LIB may use use the convention that pol_ellipse_angle=alpha).
         injections['pol_ellipse_angle'] = samples['alpha']
-        injections['pol_ellipse_e']=1.0
-    else:
+    elif 'pol_ellipse_angle' in params:
         injections['pol_ellipse_angle'] = samples['pol_ellipse_angle']
+    else:
+        injections['pol_ellipse_angle'] = None
+
+    if 'polar_eccentricity' in params:
+        injections['pol_ellipse_e']= samples['polar_eccentricity']
+    elif 'pol_ellipse_e' in params:
         injections['pol_ellipse_e']= samples['pol_ellipse_e']
+    else:
+        injections['pol_ellipse_e']=None
+    print params
+    print samples['pol_ellipse_e']
+    print injections['pol_ellipse_e']
     if 'bandwidth' in params:
       injections['bandwidth'] = samples['bandwidth']
     else:
@@ -181,7 +190,6 @@ if __name__ == "__main__":
       injections['hrss'] = np.exp(samples['loghrss'])
     injections['ra'] = samples['ra']
     injections['dec'] = samples['dec']
-    #injections['coa_phase'] = samples['phi_orb']
     injections['psi'] = samples['psi']
 
     # Create a new XML document
