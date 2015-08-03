@@ -1599,8 +1599,8 @@ int XLALSimIMRSpinEOBWaveformAll(
   INspin2[2] = INspin2z;
 
   INT4 UNUSED ret;
-  INT4 debugPK = 0, debugCustomIC = 0, debugNoNQC = 0;
-  INT4 debugRD = 0;
+  INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugRD = 1;
   FILE *out = NULL;
   INT4 i=0;
   INT4 k=0;
@@ -2397,8 +2397,8 @@ int XLALSimIMRSpinEOBWaveformAll(
     double StasS1 = sqrt(spin1[0]*spin1[0] + spin1[1]*spin1[1] +spin1[2]*spin1[2]);
     double StasS2 = sqrt(spin2[0]*spin2[0] + spin2[1]*spin2[1] +spin2[2]*spin2[2]);
     printf("Stas: amplitude of spin1 = %.16e, amplitude of spin2 = %.16e, theta1 = %.16e , theta2 = %.16e, phi1 = %.16e, phi2 = %.16e  \n", 
-            StasS1, StasS2, acos(spin1[2]/StasS1), acos(spin2[2]/StasS2), 
-            atan2(spin1[1], spin1[0]), atan2(spin2[1], spin2[0]) );
+            StasS1, StasS2, acos(spin1[2]/StasS1)/LAL_PI, acos(spin2[2]/StasS2)/LAL_PI, 
+            atan2(spin1[1], spin1[0])/LAL_PI, atan2(spin2[1], spin2[0])/LAL_PI );
     fflush(NULL);
   }
 

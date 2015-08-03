@@ -80,7 +80,7 @@ XLALSimIMREOBHybridRingdownWave(
 )
 {
 
-	INT4		debugout = 0;
+	INT4		debugout = 1;
 	/* XLAL error handling */
 	INT4		errcode = XLAL_SUCCESS;
 
@@ -297,7 +297,7 @@ XLALGenerateHybridWaveDerivatives(
 )
 {
 
-	INT4		debugout = 0;
+	INT4		debugout = 1;
 	/* XLAL error handling */
 	INT4		errcode = XLAL_SUCCESS;
 
@@ -438,7 +438,7 @@ XLALSimIMREOBHybridAttachRingdown(
                   const REAL8 JLN           /**<< cosine of the angle between J and LN at the light ring */
 )
 {
-	INT4		debugout = 0;
+	INT4		debugout = 1;
 
 	COMPLEX16Vector *modefreqs;
 	//COMPLEX16 freq7sav;
@@ -655,6 +655,7 @@ XLALSimIMREOBHybridAttachRingdown(
         REAL8 kappa_thr = 0.175;
         //REAL8 eJL_thr = 7.5e-3;
         REAL8 eJL_thr = 5.0e-2;
+        //REAL8 eJL_thr = 1.0e-2;
 		chi1 = sqrt(spin1[0] * spin1[0] + spin1[1] * spin1[1] + spin1[2] * spin1[2]);
 		chi2 = sqrt(spin2[0] * spin2[0] + spin2[1] * spin2[1] + spin2[2] * spin2[2]);
 		if (chi1 < 1.0e-15) {
@@ -823,6 +824,8 @@ XLALSimIMREOBHybridAttachRingdown(
 
 			if ((eta > 30. / 31. / 31. && eta <= 10. / 121. && chi >= 0.8) || (eta <= 30. / 31. / 31. && chi >= 0.8 && chi < 0.9)) {
 				//This is case 4 in T1400476 - v3
+                if (debugout)
+                    printf("Stas, this is case4 for pQNM eta = %f, chi = %f \n", eta, chi);
 					sh = -9. * (eta - 0.25) * (1. + 2. * exp(-(chi - 0.85) * (chi - 0.85) / 0.05 / 0.05)) * (1. + 1. / (1. + exp((eta - 0.01) / 0.001)));
 				kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
 				kt1 = 0.5 * sqrt(1. + 800.0 * eta * eta / 3.0) - 0.125;
@@ -837,6 +840,8 @@ XLALSimIMREOBHybridAttachRingdown(
 			}
 			if (eta < 30. / 31. / 31. && chi >= 0.9) {
 				//This is case 5 in T1400476 - v3
+                if (debugout)
+                    printf("Stas, this is case5 for pQNM eta = %f, chi = %f \n", eta, chi);
 					sh = 0.55 - 9. * (eta - 0.25) * (1. + 2. * exp(-(chi - 0.85) * (chi - 0.85) / 0.05 / 0.05)) * (1. + 1. / (1. + exp((eta - 0.01) / 0.001)));
 				kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
 				kt1 = 0.5 * sqrt(1. + 800.0 * eta * eta / 3.0) - 0.125;
@@ -850,6 +855,8 @@ XLALSimIMREOBHybridAttachRingdown(
 			}
 			if (eta > 10. / 121. && chi >= 0.8) {
 				//This is case 6 in T1400476 - v3
+                if (debugout)
+                    printf("Stas, this is case6 for pQNM eta = %f, chi = %f \n", eta, chi);
 					sh = 1. - 9. * (eta - 0.25) * (1. + 2. * exp(-(chi - 0.85) * (chi - 0.85) / 0.05 / 0.05)) * (1. + 1. / (1. + exp((eta - 0.01) / 0.001)));
 				kk = 0.7 + 0.3 * exp(100. * (eta - 0.25));
 				kt1 = 0.45 * sqrt(1. + 200.0 * eta * eta / 3.0) - 0.125;
@@ -857,6 +864,10 @@ XLALSimIMREOBHybridAttachRingdown(
 				modefreqs->data[6] = kk * creal(modefreqs->data[6]) + I * cimag(modefreqs->data[6]) / 0.95 / kt2;
 				modefreqs->data[7] = kk * creal(modefreqs->data[7]) + I * cimag(modefreqs->data[7]) / kt1;
 			}
+            // FIXME It is not compatible with v2!!!!
+            if (chi >= 0.96  && eta < 30.0/31./31.){
+                modefreqs->data[7] += I * 3.5 / 0.9 * cimag(modefreqs->data[0]) - I * cimag(modefreqs->data[7]);
+            }
 			//The last line of T1400476 - v3
 				matchrange->data[0] -= sh;
 			matchrange->data[1] -= sh;

@@ -40,8 +40,8 @@ double  XLALSimLocateOmegaTime(
     /* 
     * Locate merger point (max omega), 
     * WaveStep 1.1: locate merger point */
-    int debugPK = 0;
-    int debugRD = 0;
+    int debugPK = 1;
+    int debugRD = 1;
     FILE *out = NULL; 
     gsl_spline    *spline = NULL;
     gsl_interp_accel *acc = NULL;
@@ -103,7 +103,7 @@ double  XLALSimLocateOmegaTime(
     // this definesthe search interval for maximum (we might use min0ff= 0.051 instead)
     double tMin  = timeHi.data[Nps-1] - maxoff;
     // FIXME
-    //minoff = 0.0;
+    // minoff = 0.0;
     double tMax = timeHi.data[Nps-1] - minoff;
     tMin = tMax - 20.;
     if ( debugPK ) {
@@ -345,8 +345,8 @@ double XLALSimLocateAmplTime(
     REAL8 *radiusVec,
     int *found)
 {
-    int debugPK = 0;
-    int debugRD = 0;
+    int debugPK = 1;
+    int debugRD = 1;
     FILE *out = NULL; 
     gsl_spline    *spline = NULL;
     gsl_interp_accel *acc = NULL;
