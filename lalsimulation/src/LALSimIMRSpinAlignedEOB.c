@@ -127,7 +127,7 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
                            void UNUSED *funcParams
                           )
 {
-  int debugPK = 0; int debugPKverbose = 0;
+  int debugPK = 1; int debugPKverbose = 0;
   INT4 i;
   SpinEOBParams UNUSED *params = (SpinEOBParams *)funcParams;
   
@@ -197,15 +197,15 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   }
   
   /* Terminate if dp_R/dt > 0, i.e. radial momentum is increasing */
-  if(r2 < 16. && prDot > 0. ) 
-  {
-    if(debugPK){
-      printf("\n Integration stopping as prDot = %lf at r = %lf\n",
-            prDot, sqrt(r2));
-      fflush(NULL);
-    }
-    return 1;
-  }
+//  if(r2 < 16. && prDot > 0. ) 
+//  {
+//    if(debugPK){
+//      printf("\n Integration stopping as prDot = %lf at r = %lf\n",
+//            prDot, sqrt(r2));
+//      fflush(NULL);
+//    }
+//    return 1;
+//  }
     
 //  /* Terminate if dL/dt > 0, i.e. angular momentum is increasing */
 //  if(r2 < 16. && LMagdot > 0. )
