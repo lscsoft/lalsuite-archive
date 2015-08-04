@@ -2891,11 +2891,9 @@ int XLALSimIMRSpinEOBWaveformAll(
     REAL8 *radiusVec;
     REAL8 radiusData[retLenHi];
     radiusVec = &radiusData[0];
-    REAL8Vector timeHiV;
-    
-    timeHiV.length = retLenHi;
-    timeHiV.data = dynamicsHi->data;
-
+//    REAL8Vector timeHiV;
+//    timeHiV.length = retLenHi;
+//    timeHiV.data = dynamicsHi->data;
 //    printf("(retLen, retLenHi, dt, tTot, tTotHi)=(%d,%d,%f,%f,%f) \n", retLen, retLenHi, timeHiV.data[1]-timeHiV.data[0], ( timeHiV.data[1]-timeHiV.data[0])*retLen,( timeHiV.data[1]-timeHiV.data[0])*retLenHi);
 
     for ( i = 0; i < retLenHi; i++ )
