@@ -127,7 +127,7 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
                            void UNUSED *funcParams
                           )
 {
-  int debugPK = 1; int debugPKverbose = 0;
+  int debugPK = 0; int debugPKverbose = 0;
   INT4 i;
   SpinEOBParams UNUSED *params = (SpinEOBParams *)funcParams;
   
@@ -232,21 +232,21 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
     params->eobParams->omegaPeaked = 1;
 
   /* If omega has gone through a second extremum, break */
-//  if ( r2 < 16. && params->eobParams->omegaPeaked == 1 
-//                && omega > params->eobParams->omega ) 
-//  {
-//    if(debugPK) {
-//      printf("\n Integration stopping, omega reached second extremum\n");
-//      fflush(NULL);
-//    }
-//    return 1;
-//  }
+  if ( r2 < 16. && params->eobParams->omegaPeaked == 1 
+                && omega > params->eobParams->omega ) 
+  {
+    if(debugPK) {
+      printf("\n Integration stopping, omega reached second extremum\n");
+      fflush(NULL);
+    }
+    return 1;
+  }
   
-  /* If Momega did not evolve above 0.01 even though r < 4, break */
-  if(r2 < 16. && omega < 0.04 )
+  /* If Momega did not evolve above 0.01 even though r < 4 or omega<0.14 for r<2, break */
+  if((r2 < 16. && omega < 0.04) || (r2 < 4. && omega < 0.14 && params->eobParams->omegaPeaked == 1  ) )
   {
     if(debugPK){ 
-      printf("\n Integration stopping, omega<0.01 at r = %f\n", sqrt(r2));
+      printf("\n Integration stopping for omega below threshold, omega=%f at r = %f\n", omega, sqrt(r2));
       fflush(NULL);
     }
     return 1;
@@ -289,26 +289,26 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   /*              Last resort conditions                              */
   /* **************************************************************** */
   
-//  if(r2 < 4.) {
+//  if(r2 < 1.747*1.747) {
 //    if(debugPK) {
 //      printf("\n Integration stopping, r<2M\n");
 //      fflush(NULL);
 //    }
 //    return 1;
 //  }
-  
+//  
   /* Very verbose output */
-  if(debugPKverbose && r2 < 9.) {
-    printf("\n Integration continuing, r = %f, omega = %f, rdot = %f, pr = %f, prDot = %f\n", 
-      sqrt(r2), omega, rdot, pDotr, prDot);
-    printf("%f %f %f %f %f %f %f %f %f %f %f %f %f %f\n", 
-      values[0], values[1], values[2], values[3], values[4], values[5], 
+  if(debugPKverbose && r2 < 16.) {
+//    printf("\n Integration continuing, r = %f, omega = %f, rdot = %f, pr = %f, prDot = %f\n", 
+//      sqrt(r2), omega, rdot, pDotr, prDot);
+    printf("%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f\n",
+      t, values[0], values[1], values[2], values[3], values[4], values[5],
       values[6], values[7], values[8], values[9], values[10], values[11], 
-      values[12], values[13]);
-    printf("%f %f %f %f %f %f %f %f %f %f %f %f %f %f\n", 
-    dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5],
-    dvalues[6],  dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11],
-    dvalues[12], dvalues[13]);
+      values[12], values[13], omega);
+//    printf("%f %f %f %f %f %f %f %f %f %f %f %f %f %f\n", 
+//    dvalues[0], dvalues[1], dvalues[2], dvalues[3], dvalues[4], dvalues[5],
+//    dvalues[6],  dvalues[7], dvalues[8], dvalues[9], dvalues[10], dvalues[11],
+//    dvalues[12], dvalues[13]);
   }
   
   return GSL_SUCCESS;
