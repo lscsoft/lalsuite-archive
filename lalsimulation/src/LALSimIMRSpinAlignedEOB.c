@@ -232,9 +232,7 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
     params->eobParams->omegaPeaked = 1;
 
   /* If omega has gone through a second extremum, break */
-  //if ( r2 < 16. && params->eobParams->omegaPeaked == 1 
-  //              && omega > params->eobParams->omega ) 
-  if ( r2 < 4. && params->eobParams->omegaPeaked == 1 
+  if ( r2 < 4. && params->eobParams->omegaPeaked == 1
                 && omega > params->eobParams->omega ) 
   {
     if(debugPK) {
@@ -2891,13 +2889,18 @@ int XLALSimIMRSpinEOBWaveformAll(
   /* WaveStep 1.1: locate merger point */
     // Find tAmpMax to determin the tAttachment
     REAL8 *radiusVec;
-    REAL8 radiusData[retLen];
+    REAL8 radiusData[retLenHi];
     radiusVec = &radiusData[0];
-    for ( i = 0; i < retLen; i++ )
+//    REAL8Vector timeHiV;
+//    timeHiV.length = retLenHi;
+//    timeHiV.data = dynamicsHi->data;
+//    printf("(retLen, retLenHi, dt, tTot, tTotHi)=(%d,%d,%f,%f,%f) \n", retLen, retLenHi, timeHiV.data[1]-timeHiV.data[0], ( timeHiV.data[1]-timeHiV.data[0])*retLen,( timeHiV.data[1]-timeHiV.data[0])*retLenHi);
+
+    for ( i = 0; i < retLenHi; i++ )
     {
         for ( j = 0; j < 3; j++ )
         {
-            values->data[j] = dynamicsHi->data[(j+1)*retLen + i];
+            values->data[j] = dynamicsHi->data[(j+1)*retLenHi + i];
         }
         radiusData[i] = sqrt(values->data[0]*values->data[0] + values->data[1]*values->data[1] + values->data[2]*values->data[2]);
     }
