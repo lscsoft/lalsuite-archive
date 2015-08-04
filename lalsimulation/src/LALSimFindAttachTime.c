@@ -40,8 +40,8 @@ double  XLALSimLocateOmegaTime(
     /* 
     * Locate merger point (max omega), 
     * WaveStep 1.1: locate merger point */
-    int debugPK = 1;
-    int debugRD = 1;
+    int debugPK = 0;
+    int debugRD = 0;
     FILE *out = NULL; 
     gsl_spline    *spline = NULL;
     gsl_interp_accel *acc = NULL;
@@ -345,8 +345,8 @@ double XLALSimLocateAmplTime(
     REAL8 *radiusVec,
     int *found)
 {
-    int debugPK = 1;
-    int debugRD = 1;
+    int debugPK = 0;
+    int debugRD = 0;
     FILE *out = NULL; 
     gsl_spline    *spline = NULL;
     gsl_interp_accel *acc = NULL;
@@ -385,9 +385,9 @@ double XLALSimLocateAmplTime(
     //minoff = 0.0; 
     double tMin  = timeHi->data[Nps-1] - maxoff;
     double tMax = timeHi->data[Nps-1] - minoff;
-    tMin = tMax - 20.;
+    tMin = tMax - maxoff;
     if ( debugPK ) {
-        printf("tMin, tMax = %3.10f %3.10f\n", tMin, tMax);
+        printf("tMin, tMax = %3.10f %3.10f \n", tMin, tMax);
     }
     unsigned int iMin = ceil(tMin/dt);
     unsigned int iMax = floor(tMax/dt);
@@ -454,20 +454,28 @@ double XLALSimLocateAmplTime(
 //        gsl_spline_init( spline, tSeries, Ampl, NpsSmall );
         
         REAL8 AmpDot[NpsSmall];
+        REAL8 AmpDDot[NpsSmall];
         
         for (i=1; i<NpsSmall-2; i++){
 //            AmpDot[i] = gsl_spline_eval_deriv(spline, tSeries[i] , acc);
             AmpDot[i] = (Ampl[i+1] - Ampl[i-1])/2./dt;
+            AmpDDot[i] = (Ampl[i+1] - 2.0*Ampl[i] + Ampl[i-1])/(dt*dt);
         }
         AmpDot[0] = AmpDot[1]; 
         AmpDot[NpsSmall -2] = AmpDot[NpsSmall-3];
         AmpDot[NpsSmall -1] = AmpDot[NpsSmall-2];
+        AmpDDot[0] = AmpDDot[1]; 
+        AmpDDot[NpsSmall -2] = AmpDDot[NpsSmall-3];
+        AmpDDot[NpsSmall -1] = AmpDDot[NpsSmall-2];
+        //printf("Stas, check AmDot %f, %f, %f \n", AmpDot[NpsSmall -3],  AmpDot[NpsSmall -2],  AmpDot[NpsSmall -1]);
+        //printf("Stas, check AmDDot %f, %f, %f \n", AmpDDot[NpsSmall -3],  AmpDDot[NpsSmall -2],  AmpDDot[NpsSmall -1]);
 
 
 
         REAL8 AmpDotSmooth[NpsSmall];
         // Compute moving average over 7 points
         unsigned int win = 3;
+       // unsigned int win = 5;
         //int j;
         double norm = 1.0/(2.0*win+1.0);
 
@@ -484,30 +492,84 @@ double XLALSimLocateAmplTime(
             AmpDotSmooth[i] = AmpDotSmooth[i-1] + norm*(AmpDot[i+win] - AmpDot[i-win-1]);             
         }
         for (i=0; i<win; i++){
-            AmpDotSmooth[NpsSmall-win-1+i] = AmpDotSmooth[NpsSmall-win-1];
+            AmpDotSmooth[NpsSmall-win-1+i] = AmpDotSmooth[NpsSmall-win-2];
+        }
+        
+        // second deriv (in case)
+        REAL8 AmpDDotSmooth[NpsSmall];
+        unsigned int win2 = 100;
+        // unsigned int win = 5;
+        //int j;
+        norm = 1.0/(2.0*win2+1.0);
+
+        AmpDDotSmooth[win2] = 0;
+        for (i=0; i<(2*win2 +1); i++){
+            AmpDDotSmooth[win2] += AmpDDot[i];
+        }
+        AmpDDotSmooth[win2] *= norm;
+        for (i=0; i<win2; i++){
+            AmpDDotSmooth[i] = AmpDDotSmooth[win2];
+        }
+
+        for (i=win2+1; i<NpsSmall-1 -win2; i++){
+            AmpDDotSmooth[i] = AmpDDotSmooth[i-1] + norm*(AmpDDot[i+win2] - AmpDDot[i-win2-1]);             
+        }
+        for (i=0; i<win2; i++){
+            AmpDDotSmooth[NpsSmall-win2-1+i] = AmpDDotSmooth[NpsSmall-win2-2];
         }
 
         
         if(debugPK || debugRD) {
             out = fopen( "DotAmpPHi.dat", "w" );
             for (i=0; i<NpsSmall - 1; i++){
-                fprintf(out, "%3.10f %3.10f %3.10f\n", tSeries[i], AmpDot[i], AmpDotSmooth[i]);
+                fprintf(out, "%3.10f %3.10f %3.10f %3.10f %3.10f\n", tSeries[i], AmpDot[i], AmpDotSmooth[i], AmpDDot[i], AmpDDotSmooth[i]);
             } 
 
         }
         if (*found ==0){
-            for (i=1 + iMin; i<Nps-1-win; i++){
-                   if (AmpDotSmooth[i-iMin] < AmpDotSmooth[i-1-iMin] && AmpDotSmooth[i-iMin] < AmpDotSmooth[i+1-iMin]){
-                        tAmp = tSeries[i-iMin];
+            if (debugPK || debugRD)
+                //printf("Max of Amplitude is not found, looking for min of dot{Ampl} %d \n", iMin);
+            //for (i=1 + iMin; i<NpSmall-1-win; i++){
+            for (i=1; i<NpsSmall-1-win; i++){
+                   //if (AmpDotSmooth[i-iMin] < AmpDotSmooth[i-1-iMin] && AmpDotSmooth[i-iMin] < AmpDotSmooth[i+1-iMin]){
+                   if (AmpDotSmooth[i] < AmpDotSmooth[i-1] && AmpDotSmooth[i] < AmpDotSmooth[i+1]){
+                        tAmp = tSeries[i];
+                        //tAmp = tSeries[i-iMin];
+                        //printf("Stas check i = %d, tSeries = %3.10f, tAmp = %3.10f \n", i, tSeries[i], tAmp);
                         if (tAmp >=tMin && tAmp <= tMax  && *found==0){
                             *found = 1;
                             tAmpMax = tAmp;
-                            AmpMax = AmpDotSmooth[i-iMin];
+                            AmpMax = AmpDotSmooth[i];
+                            //AmpMax = AmpDotSmooth[i-iMin];
                             peakIdx = i;
                             //break;
                         }else{
                             if (debugPK){
                                 printf("Stas, AmplDot - dismissing time %3.10f outside limits %3.10f, %3.10f \n", 
+                                    tAmp, tMin, tMax);
+                            }
+                        }                              
+                   
+                   }  
+            }
+        }
+        if (*found ==0){
+            if (debugPK || debugRD)
+                printf("Min of Adot is not found, looking for min of ddot{Ampl} \n");
+            for (i=win2*2; i<NpsSmall-1-win2; i++){
+                   if (AmpDDotSmooth[i] < AmpDDotSmooth[i-1] && AmpDDotSmooth[i] < AmpDDotSmooth[i+1]){
+                        tAmp = tSeries[i];
+                        //printf("Stas check i = %d, tSeries = %3.10f, tAmp = %3.10f,  %3.10f, %3.10f, %3.10f \n", i, tSeries[i], tAmp,  AmpDDotSmooth[i-1], AmpDDotSmooth[i], AmpDDotSmooth[i+1]);
+                        //if (tAmp >=tMin && tAmp <= tMax  && *found==0){
+                        if (tAmp >=tMin && tAmp <= tMax){
+                            *found = 1;
+                            tAmpMax = tAmp;
+                            AmpMax = AmpDDotSmooth[i];
+                            peakIdx = i;
+                            //break;
+                        }else{
+                            if (debugPK){
+                                printf("Stas, AmplDDot - dismissing time %3.10f outside limits %3.10f, %3.10f \n", 
                                     tAmp, tMin, tMax);
                             }
                         }                              
@@ -603,6 +665,8 @@ double XLALSimLocateAmplTime(
         */
         
     }
+    
+
     
     if (spline != NULL)
         gsl_spline_free(spline);

@@ -80,7 +80,7 @@ XLALSimIMREOBHybridRingdownWave(
 )
 {
 
-	INT4		debugout = 1;
+	INT4		debugout = 0;
 	/* XLAL error handling */
 	INT4		errcode = XLAL_SUCCESS;
 
@@ -297,7 +297,7 @@ XLALGenerateHybridWaveDerivatives(
 )
 {
 
-	INT4		debugout = 1;
+	INT4		debugout = 0;
 	/* XLAL error handling */
 	INT4		errcode = XLAL_SUCCESS;
 
@@ -438,7 +438,7 @@ XLALSimIMREOBHybridAttachRingdown(
                   const REAL8 JLN           /**<< cosine of the angle between J and LN at the light ring */
 )
 {
-	INT4		debugout = 1;
+	INT4		debugout = 0;
 
 	COMPLEX16Vector *modefreqs;
 	//COMPLEX16 freq7sav;
@@ -864,10 +864,13 @@ XLALSimIMREOBHybridAttachRingdown(
 				modefreqs->data[6] = kk * creal(modefreqs->data[6]) + I * cimag(modefreqs->data[6]) / 0.95 / kt2;
 				modefreqs->data[7] = kk * creal(modefreqs->data[7]) + I * cimag(modefreqs->data[7]) / kt1;
 			}
+            if (debugout)
+                printf("Stas, default (if nothing specified above) for pQNM eta = %f, chi = %f \n", eta, chi);
+
             // FIXME It is not compatible with v2!!!!
-            if (chi >= 0.96  && eta < 30.0/31./31.){
-                modefreqs->data[7] += I * 3.5 / 0.9 * cimag(modefreqs->data[0]) - I * cimag(modefreqs->data[7]);
-            }
+            //if (chi >= 0.96  && eta < 30.0/31./31.){
+            //    modefreqs->data[7] += I * 3.5 / 0.9 * cimag(modefreqs->data[0]) - I * cimag(modefreqs->data[7]);
+            //}
 			//The last line of T1400476 - v3
 				matchrange->data[0] -= sh;
 			matchrange->data[1] -= sh;

@@ -204,7 +204,7 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
             prDot, sqrt(r2));
       fflush(NULL);
     }
-    return 1;
+    //return 1;
   }
     
 //  /* Terminate if dL/dt > 0, i.e. angular momentum is increasing */
@@ -232,7 +232,9 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
     params->eobParams->omegaPeaked = 1;
 
   /* If omega has gone through a second extremum, break */
-  if ( r2 < 16. && params->eobParams->omegaPeaked == 1 
+  //if ( r2 < 16. && params->eobParams->omegaPeaked == 1 
+  //              && omega > params->eobParams->omega ) 
+  if ( r2 < 4. && params->eobParams->omegaPeaked == 1 
                 && omega > params->eobParams->omega ) 
   {
     if(debugPK) {
@@ -1599,8 +1601,8 @@ int XLALSimIMRSpinEOBWaveformAll(
   INspin2[2] = INspin2z;
 
   INT4 UNUSED ret;
-  INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
-  INT4 debugRD = 1;
+  INT4 debugPK = 0, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugRD = 0;
   FILE *out = NULL;
   INT4 i=0;
   INT4 k=0;
@@ -3034,7 +3036,8 @@ int XLALSimIMRSpinEOBWaveformAll(
   deltaNQC    += 10.0 * (1.0 - fabs(kappaJL));*/
   
   // (Stas) !!! NOTE: tAttach is further modified by small shift "sh" computed and applied in XLALSimIMREOBHybridAttachRingdown !!!
-  tAttach = tPeakOmega - deltaNQC;
+  // FIXME
+  tAttach = tPeakOmega - deltaNQC; //- 1.0;
   
   if (! found){
      tAttach = tPeakOmega;
@@ -3809,7 +3812,8 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
       tAttach = tAmpMax;
   }
   // FIXME 
-  //tAttach = 130.0;
+  //tAttach = 141.;
+  //tAttach  = tAttach-3.0;
   if (debugRD){
      out = fopen( "tAttach.dat", "w" );
      fprintf( out, "%.16e    %.16e    %.16e   %.16e \n", tPeakOmega, deltaNQC, tAmpMax, tAttach); 
