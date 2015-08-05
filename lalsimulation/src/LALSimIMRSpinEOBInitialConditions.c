@@ -386,6 +386,15 @@ XLALFindSphericalOrbit(
 	rootParams->values[4] = py = gsl_vector_get(x, 1)/scale2;
 	rootParams->values[5] = pz = gsl_vector_get(x, 2)/scale3;
 
+    if(isnan(rootParams->values[0])) {
+        rootParams->values[0] = 100.;
+    }
+    if(isnan(rootParams->values[4])) {
+        rootParams->values[4] = 0.1;
+    }
+    if(isnan(rootParams->values[5])) {
+        rootParams->values[5] = 0.01;
+    }
 	if (debugPK) {
     printf("%3.10f %3.10f %3.10f %3.10f %3.10f %3.10f\n", 
       rootParams->values[0], rootParams->values[1], rootParams->values[2],
