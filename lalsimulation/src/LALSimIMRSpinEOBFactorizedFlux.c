@@ -436,9 +436,11 @@ XLALInspiralPrecSpinFactorizedFlux(
 			flux += (REAL8) (m * m) * omegaSq * (creal(hLM) * creal(hLM) + cimag(hLM) * cimag(hLM));
 		}
 	}
-    if( debugPK && (omegaSq > 1 || flux > 5) ) {
-    printf("In XLALInspiralPrecSpinFactorizedFlux: omegaSq = %3.12f, FLUX = %3.12f, r = %3.12f\n",
-    omegaSq, flux,radius);
+    if( (omegaSq > 1 || flux > 5) ) {
+        if(debugPK) {
+            printf("In XLALInspiralPrecSpinFactorizedFlux: omegaSq = %3.12f, FLUX = %3.12f, r = %3.12f\n",
+                   omegaSq, flux,radius);
+        }
         flux = 0.;
     }
     
