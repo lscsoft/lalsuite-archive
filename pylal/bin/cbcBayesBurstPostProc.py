@@ -956,8 +956,12 @@ def cbcBayesBurstPostProc(
         greedy2Params={par1_name:par1_bin,par2_name:par2_bin}
 
         #Greedy bin the posterior samples
-        toppoints,injection_cl,reses,injection_area=\
-        bppu.greedy_bin_two_param(pos,greedy2Params,confidence_levels)
+        try:
+          toppoints,injection_cl,reses,injection_area=\
+          bppu.greedy_bin_two_param(pos,greedy2Params,confidence_levels)
+        except:
+          # Failures may happen since some simburst set injval to nan
+          continue
 
         print "BCI %s-%s:"%(par1_name,par2_name)
         print reses
