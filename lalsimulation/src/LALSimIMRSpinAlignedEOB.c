@@ -168,7 +168,7 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
           XLALPrintError( "XLAL Error - %s: nan reached at r2 = %f \n", __func__, r2);
           XLAL_ERROR( XLAL_EINVAL );
 
-		  //return 1;
+		  return 1;
 	  }
   }
   
@@ -197,14 +197,14 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   }
   
   /* Terminate if dp_R/dt > 0, i.e. radial momentum is increasing */
-  if(r2 < 16. && prDot > 0. ) 
+  if(r2 < 4. && prDot > 0. )
   {
     if(debugPK){
       printf("\n Integration stopping as prDot = %lf at r = %lf\n",
             prDot, sqrt(r2));
       fflush(NULL);
     }
-    //return 1;
+    return 1;
   }
     
 //  /* Terminate if dL/dt > 0, i.e. angular momentum is increasing */

@@ -695,6 +695,14 @@ XLALSpinHcapNumericalDerivative(
 		fflush(NULL);
 	}
 	
+    for(i=0; i<14; i++){
+        if(isnan(dvalues[i])){
+            dvalues[i] = 1.;
+          }
+    }
+
+
+
   for(i=0; i<14; i++)
     if(dvalues[i] > 1e3){
       printf("\nIn XLALSpinHcapNumericalDerivative:\n");

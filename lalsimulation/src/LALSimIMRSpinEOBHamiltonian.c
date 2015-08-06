@@ -165,7 +165,9 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
                INT4                      tortoise,  /**<< flag to state whether the momentum is the tortoise co-ord */
 	       SpinEOBHCoeffs *coeffs               /**<< Structure containing various coefficients */
                )
-{ 
+{
+//    if(isnan(x->data[0]) || isnan(x->data[1]) || isnan(x->data[2])) {x->data[0] = 0.1;x->data[1] = 0.1;x->data[2] = 0.1;}
+//    if(isnan(p->data[0]) || isnan(p->data[1]) || isnan(p->data[2])) {p->data[0] = 0.1;p->data[1] = 0.1;p->data[2] = 0.1;}
   int debugPK = 0;
   /* Update the Hamiltonian coefficients, if spins are evolving */
   int UsePrec = 1;
@@ -285,8 +287,8 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   /* Eq. 5.75 of BB1 */
   bulk = 1./(m1PlusetaKK*m1PlusetaKK) + (2.*u)/m1PlusetaKK + a2*u2;
   /* Eq. 5.73 of BB1 */
-  logTerms = 1. + eta*coeffs->k0 + eta*log(1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
-                                              + coeffs->k5*u5 + coeffs->k5l*u5*log(u));
+  logTerms = 1. + eta*coeffs->k0 + eta*log(fabs(1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
+                                              + coeffs->k5*u5 + coeffs->k5l*u5*log(u)));
   if(debugPK)printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );
   /* Eq. 5.73 of BB1 */
   deltaU = bulk*logTerms;
@@ -313,7 +315,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   /* We need to transform the momentum to get the tortoise co-ord */
   if ( tortoise )
   {
-    csi = sqrt( deltaT * deltaR )/ w2; /* Eq. 28 of Pan et al. PRD 81, 084041 (2010) */
+    csi = sqrt( fabs(deltaT * deltaR) )/ w2; /* Eq. 28 of Pan et al. PRD 81, 084041 (2010) */
   }
   else
   {
@@ -533,7 +535,8 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   if(isnan(Hreal)) {
     printf(
     "\n\nInside Hamiltonian: Hreal is a NAN. Printing its components below:\n");
-      printf( "(deltaU, bulk, logTerms) = (%.16e, %.16e, %.16e)\n", deltaU, bulk, logTerms);
+      printf( "(deltaU, bulk, logTerms, log arg) = (%.16e, %.16e, %.16e, %.16e)\n", deltaU, bulk, logTerms, 1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
+             + coeffs->k5*u5 + coeffs->k5l*u5*log(u));
 
     printf( "In Hamiltonian: tortoise flag = %d\n", (int) tortoise );
     printf( "x = %.16e\t%.16e\t%.16e\n", x->data[0], x->data[1], x->data[2] );
@@ -542,7 +545,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
       sigmaStar->data[1], sigmaStar->data[2] );
     printf( "sKerr = %.16e\t%.16e\t%.16e\n", sigmaKerr->data[0], 
       sigmaKerr->data[1], sigmaKerr->data[2] );
-      printf( "Q = %.16e, pvr = %.16e, xi2 = %.16e , deltaT = %.16e, rho2 = %.16e, Lambda = %.16e, pxir = %.16e, B = %.16e\n", Q, pvr, xi2, deltaT, rho2, Lambda, pxir, B );
+      printf("csi = %.16e, Q = %.16e, pvr = %.16e, xi2 = %.16e , deltaT = %.16e, rho2 = %.16e, Lambda = %.16e, pxir = %.16e, B = %.16e\n", csi,Q, pvr, xi2, deltaT, rho2, Lambda, pxir, B );
 
     printf( "KK = %.16e\n", coeffs->KK );
     printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );
@@ -719,8 +722,8 @@ static REAL8 XLALSimIMRSpinEOBHamiltonianDeltaT(
 
   bulk = 1./(m1PlusetaKK*m1PlusetaKK) + (2.*u)/m1PlusetaKK + a2*u2;
 
-  logTerms = 1. + eta*coeffs->k0 + eta*log(1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
-                                              + coeffs->k5*u5 + coeffs->k5l*u5*log(u));
+  logTerms = 1. + eta*coeffs->k0 + eta*log(fabs(1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
+                                              + coeffs->k5*u5 + coeffs->k5l*u5*log(u)));
   /*printf(" a = %.16e, u = %.16e\n",a,u);
   printf( "k0 = %.16e, k1 = %.16e, k2 = %.16e, k3 = %.16e , k4 = %.16e, k5 = %.16e, k5l = %.16e\n",coeffs->k0,
          coeffs->k1,coeffs->k2,coeffs->k3,coeffs->k4,coeffs->k5,coeffs->k5l);
@@ -1463,9 +1466,9 @@ UNUSED static int XLALSpinHcapRvecDerivative(
 	  /* Eq. 5.75 of BB1 */
       bulk = 1./(m1PlusetaKK*m1PlusetaKK) + (2.*u)/m1PlusetaKK + a2*u2;
 	  /* Eq. 5.73 of BB1 */
-	  logTerms = 1. + eta*coeffs->k0 + eta*log(1. + coeffs->k1*u 
+	  logTerms = 1. + eta*coeffs->k0 + eta*log(fabs(1. + coeffs->k1*u
 		+ coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
-		+ coeffs->k5*u5 + coeffs->k5l*u5*log(u));
+		+ coeffs->k5*u5 + coeffs->k5l*u5*log(u)));
 	  /* Eq. 5.73 of BB1 */
       deltaU = bulk*logTerms;
     deltaU = fabs(deltaU);
@@ -1482,7 +1485,7 @@ UNUSED static int XLALSpinHcapRvecDerivative(
       /* Eq. 5.38 of BB1 */
       deltaR = deltaT*D;	   
 	  if ( params.params->tortoise )
-		  csi = sqrt( deltaT * deltaR )/ w2; /* Eq. 28 of Pan et al. PRD 81, 084041 (2010) */
+		  csi = sqrt( fabs(deltaT * deltaR) )/ w2; /* Eq. 28 of Pan et al. PRD 81, 084041 (2010) */
 	  else
 	      csi = 1.0;
 
@@ -1809,9 +1812,9 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
 	  /* Eq. 5.75 of BB1 */
       REAL8 bulk = 1./(m1PlusetaKK*m1PlusetaKK) + (2.*u)/m1PlusetaKK + a2*u2;
 	  /* Eq. 5.73 of BB1 */
-	  REAL8 logTerms = 1. + eta*coeffs->k0 + eta*log(1. + coeffs->k1*u 
+	  REAL8 logTerms = 1. + eta*coeffs->k0 + eta*log(fabs(1. + coeffs->k1*u
 		+ coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
-		+ coeffs->k5*u5 + coeffs->k5l*u5*log(u));
+		+ coeffs->k5*u5 + coeffs->k5l*u5*log(u)));
 	  /* Eq. 5.73 of BB1 */
       REAL8 deltaU = bulk*logTerms;
       deltaU=fabs(deltaU);
@@ -1820,7 +1823,7 @@ static double GSLSpinHamiltonianWrapperForRvecDerivs( double x, void *params )
       /* Eq. 5.38 of BB1 */
       REAL8 deltaR = deltaT*D;	   
 	  if ( oldTortoise )
-		  csi = sqrt( deltaT * deltaR )/ w2; /* Eq. 28 of Pan et al. PRD 81, 084041 (2010) */
+		  csi = sqrt( fabs(deltaT * deltaR) )/ w2; /* Eq. 28 of Pan et al. PRD 81, 084041 (2010) */
 	  else
 	      csi = 1.0;
 
@@ -2011,9 +2014,9 @@ static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params )
 	  /* Eq. 5.75 of BB1 */
       REAL8 bulk = 1./(m1PlusetaKK*m1PlusetaKK) + (2.*u)/m1PlusetaKK + a2*u2;
 	  /* Eq. 5.73 of BB1 */
-	  REAL8 logTerms = 1. + eta*coeffs->k0 + eta*log(1. + coeffs->k1*u 
+	  REAL8 logTerms = 1. + eta*coeffs->k0 + eta*log(fabs(1. + coeffs->k1*u
 		+ coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
-		+ coeffs->k5*u5 + coeffs->k5l*u5*log(u));
+		+ coeffs->k5*u5 + coeffs->k5l*u5*log(u)));
 	  /* Eq. 5.73 of BB1 */
       REAL8 deltaU = bulk*logTerms;
       deltaU = fabs(deltaU);
@@ -2022,7 +2025,7 @@ static double GSLSpinHamiltonianWrapperFordHdpphi( double x, void *params )
       /* Eq. 5.38 of BB1 */
       REAL8 deltaR = deltaT*D;	   
 	  if ( oldTortoise )
-		  csi = sqrt( deltaT * deltaR )/ w2; /* Eq. 28 of Pan et al. PRD 81, 084041 (2010) */
+		  csi = sqrt( fabs(deltaT * deltaR) )/ w2; /* Eq. 28 of Pan et al. PRD 81, 084041 (2010) */
 	  else
 	      csi = 1.0;
 
