@@ -3815,8 +3815,9 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
       tAttach = tAmpMax;
   }
   // FIXME 
-  //tAttach = 141.;
-  //tAttach  = tAttach-3.0;
+  //tAttach = 136.3;
+  //tAttach  = tAttach + 6.0;
+
   if (debugRD){
      out = fopen( "tAttach.dat", "w" );
      fprintf( out, "%.16e    %.16e    %.16e   %.16e \n", tPeakOmega, deltaNQC, tAmpMax, tAttach); 
@@ -3948,6 +3949,22 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
       rdMatchPoint->data[0]+HiSRstart,rdMatchPoint->data[1]+HiSRstart);
     fflush(NULL);
   }
+
+
+  // FIXME Here I'll try to make a loop to check if tAttach is good or not
+  //
+  /*if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, 2,
+                deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
+                &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL )
+                //&timeHi, rdMatchPoint, spinEOBApproximant, JLN )
+            == XLAL_FAILURE )
+    {
+      XLAL_ERROR( XLAL_EFUNC );
+    }*/
+
+
+
+
   
   /*** Stas Let's try to attach RD to 2,2 mode: ***/
   for ( k = 2; k > -3; k-- )

@@ -865,12 +865,13 @@ XLALSimIMREOBHybridAttachRingdown(
 				modefreqs->data[7] = kk * creal(modefreqs->data[7]) + I * cimag(modefreqs->data[7]) / kt1;
 			}
             if (debugout)
-                printf("Stas, default (if nothing specified above) for pQNM eta = %f, chi = %f \n", eta, chi);
+                printf("Stas, default (if nothing specified above) for pQNM eta = %f, chi = %f chi1 = %f \n", eta, chi,  chi1);
 
             // FIXME It is not compatible with v2!!!!
-            //if (chi >= 0.96  && eta < 30.0/31./31.){
+            if (chi1 >= 0.96){//  && eta < 10.0/11./11.){
             //    modefreqs->data[7] += I * 3.5 / 0.9 * cimag(modefreqs->data[0]) - I * cimag(modefreqs->data[7]);
-            //}
+                  modefreqs->data[7] += I * 5.0 * cimag(modefreqs->data[0]) - I * cimag(modefreqs->data[7]);
+            }
 			//The last line of T1400476 - v3
 				matchrange->data[0] -= sh;
 			matchrange->data[1] -= sh;
