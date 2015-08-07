@@ -3816,7 +3816,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   }
   // FIXME 
   //tAttach = 136.3;
-  //tAttach  = tAttach + 6.0;
+  //tAttach  = tAttach - 4.0;
 
   if (debugRD){
      out = fopen( "tAttach.dat", "w" );

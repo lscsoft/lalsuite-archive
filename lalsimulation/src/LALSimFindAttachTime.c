@@ -527,8 +527,9 @@ double XLALSimLocateAmplTime(
 
         }
         if (*found ==0){
-            if (debugPK || debugRD)
-                //printf("Max of Amplitude is not found, looking for min of dot{Ampl} %d \n", iMin);
+            if (debugPK || debugRD){
+                printf("Max of Amplitude is not found, looking for min of dot{Ampl} %d \n", iMin);
+            }
             //for (i=1 + iMin; i<NpSmall-1-win; i++){
             for (i=1; i<NpsSmall-1-win; i++){
                    //if (AmpDotSmooth[i-iMin] < AmpDotSmooth[i-1-iMin] && AmpDotSmooth[i-iMin] < AmpDotSmooth[i+1-iMin]){
@@ -542,6 +543,9 @@ double XLALSimLocateAmplTime(
                             AmpMax = AmpDotSmooth[i];
                             //AmpMax = AmpDotSmooth[i-iMin];
                             peakIdx = i;
+                            if (debugPK || debugRD){
+                                printf("we have found min of Adot at t= %f\n", tAmpMax);
+                            }
                             //break;
                         }else{
                             if (debugPK){

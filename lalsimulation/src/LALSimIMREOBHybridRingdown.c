@@ -870,6 +870,9 @@ XLALSimIMREOBHybridAttachRingdown(
             // FIXME It is not compatible with v2!!!!
             if (chi1 >= 0.96){//  && eta < 10.0/11./11.){
             //    modefreqs->data[7] += I * 3.5 / 0.9 * cimag(modefreqs->data[0]) - I * cimag(modefreqs->data[7]);
+                if (debugout){
+                    printf("Stas, the decay time will be modified for pQNM  chi1 = %f, from %f to %f \n", chi1, 1.0/cimag(modefreqs->data[7])/mTot,   1.0/(5.0 * cimag(modefreqs->data[0]))/mTot );
+                }
                   modefreqs->data[7] += I * 5.0 * cimag(modefreqs->data[0]) - I * cimag(modefreqs->data[7]);
             }
 			//The last line of T1400476 - v3
