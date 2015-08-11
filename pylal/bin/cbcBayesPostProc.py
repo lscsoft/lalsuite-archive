@@ -207,7 +207,7 @@ def cbcBayesPostProc(
                         #followupMCMC options
                         fm_flag=False,
                         #spin frame for the injection
-                        inj_spin_frame='orbital',
+                        inj_spin_frame='OrbitalL',
                         # on ACF?
                         noacf=False,
                         #Turn on 2D kdes
@@ -1240,7 +1240,7 @@ if __name__=='__main__':
     parser.add_option("--spin",action="store_true",default=False,help="(SPINspiral) Specify spin run (15 parameters). ")
     #LALInf
     parser.add_option("--lalinfmcmc",action="store_true",default=False,help="(LALInferenceMCMC) Parse input from LALInferenceMCMC.")
-    parser.add_option("--inj-spin-frame",default='orbital', help="The reference frame used for the injection (default: orbital)")
+    parser.add_option("--inj-spin-frame",default='OrbitalL', help="The reference frame used for the injection (default: OrbitalL)")
     parser.add_option("--downsample",action="store",default=None,help="(LALInferenceMCMC) approximate number of samples to record in the posterior",type="int")
     parser.add_option("--deltaLogL",action="store",default=None,help="(LALInferenceMCMC) Difference in logL to use for convergence test.",type="float")
     parser.add_option("--fixedBurnin",dest="fixedBurnin",action="callback",callback=multipleFileCB,help="(LALInferenceMCMC) Fixed number of iteration for burnin.")

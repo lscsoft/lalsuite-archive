@@ -516,7 +516,7 @@ class Posterior(object):
     """
     Data structure for a table of posterior samples .
     """
-    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None,inj_spin_frame='orbital', injFref=100,SnglInpiralList=None,name=None,description=None,votfile=None):
+    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None,inj_spin_frame='OrbitalL', injFref=100,SnglInpiralList=None,name=None,description=None,votfile=None):
         """
         Constructor.
 
@@ -1530,7 +1530,7 @@ class Posterior(object):
         else:
             return inj.longitude
 
-    def _inj_spins(self, inj, frame='orbital'):
+    def _inj_spins(self, inj, frame='OrbitalL'):
         spins = {}
         f_ref = self._injFref
 
@@ -1538,15 +1538,7 @@ class Posterior(object):
             spins = {}
 
         else:
-            flags = lalsim.SimInspiralCreateWaveformFlags()
-            if frame == 'total':
-                axis = lalsim.SIM_INSPIRAL_FRAME_AXIS_TOTAL_J
-            elif frame == 'orbital':
-                axis = lalsim.SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L
-            elif frame == 'view':
-                axis = lalsim.SIM_INSPIRAL_FRAME_AXIS_VIEW
-            else:
-                raise ValueError("Unexpected spin-frame type.")
+            axis = lalsim.SimInspiralGetFrameAxisFromString(frame)
 
             m1, m2 = inj.mass1, inj.mass2
             m1 *= lal.MSUN_SI
