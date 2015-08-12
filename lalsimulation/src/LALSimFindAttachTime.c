@@ -530,9 +530,7 @@ double XLALSimLocateAmplTime(
             if (debugPK || debugRD){
                 printf("Max of Amplitude is not found, looking for min of dot{Ampl} %d \n", iMin);
             }
-            //for (i=1 + iMin; i<NpSmall-1-win; i++){
             for (i=1; i<NpsSmall-1-win; i++){
-                   //if (AmpDotSmooth[i-iMin] < AmpDotSmooth[i-1-iMin] && AmpDotSmooth[i-iMin] < AmpDotSmooth[i+1-iMin]){
                    if (AmpDotSmooth[i] < AmpDotSmooth[i-1] && AmpDotSmooth[i] < AmpDotSmooth[i+1]){
                         tAmp = tSeries[i];
                         //tAmp = tSeries[i-iMin];
@@ -564,7 +562,7 @@ double XLALSimLocateAmplTime(
                    if (AmpDDotSmooth[i] < AmpDDotSmooth[i-1] && AmpDDotSmooth[i] < AmpDDotSmooth[i+1]){
                         tAmp = tSeries[i];
                         //printf("Stas check i = %d, tSeries = %3.10f, tAmp = %3.10f,  %3.10f, %3.10f, %3.10f \n", i, tSeries[i], tAmp,  AmpDDotSmooth[i-1], AmpDDotSmooth[i], AmpDDotSmooth[i+1]);
-                        //if (tAmp >=tMin && tAmp <= tMax  && *found==0){
+                        //if (tAmp >=tMin && tAmp <= tMax  && *found==0)
                         if (tAmp >=tMin && tAmp <= tMax){
                             *found = 1;
                             tAmpMax = tAmp;
@@ -577,7 +575,6 @@ double XLALSimLocateAmplTime(
                                     tAmp, tMin, tMax);
                             }
                         }                              
-                   
                    }  
             }
         }
@@ -682,9 +679,273 @@ double XLALSimLocateAmplTime(
     else{
         return(tAmpMax);
     }
+     
+}   
+
+
+INT4 XLALSimCheckRDattachment(
+    REAL8Vector * signal1,	/**<< Real of inspiral waveform to which we attach ringdown */
+    REAL8Vector * signal2,	/**<< Imag of inspiral waveform to which we attach ringdown */
+    REAL8* ratio,           /**<< output ratio  */
+    const REAL8 tAtt,       /**<< time of RD attachment */
+    const INT4 l,	/**<< Current mode l */
+    const INT4 m,	/**<< Current mode m */
+    const REAL8 dt,	/**<< Sample time step (in seconds) */
+    const REAL8 mass1,	/**<< First component mass (in Solar masses) */
+    const REAL8 mass2,	/**<< Second component mass (in Solar masses) */
+    const REAL8 spin1x,	/**<<The spin of the first object; only needed for spin waveforms */
+    const REAL8 spin1y,	/**<<The spin of the first object; only needed for spin waveforms */
+    const REAL8 spin1z,	/**<<The spin of the first object; only needed for spin waveforms */
+    const REAL8 spin2x,	/**<<The spin of the second object; only needed for spin waveforms */
+    const REAL8 spin2y,	/**<<The spin of the second object; only needed for spin waveforms */
+    const REAL8 spin2z,	/**<<The spin of the second object; only needed for spin waveforms */
+    REAL8Vector * timeVec,	/**<< Vector containing the time values */
+    REAL8Vector * matchrange,	/**<< Time values chosen as points for performing comb matching */
+    Approximant approximant,	/**<<The waveform approximant being used */
+    const REAL8 JLN           /**<< cosine of the angle between J and LN at the light ring */
+    )
+{
+    int debugPK = 0;
+    unsigned int i;
+    unsigned int i_att = 0;
+    REAL8 Amp[signal1->length];
     
-    
-    
+    if ( XLALSimIMREOBHybridAttachRingdown( signal1, signal2, l, m,
+                dt, mass1, mass2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
+                timeVec, matchrange, approximant, JLN )
+            == XLAL_FAILURE )
+    {
+        XLAL_ERROR( XLAL_EFUNC );
+    }
    
+    Amp[0] = sqrt(signal1->data[0]*signal1->data[0] + signal2->data[0]*signal2->data[0]);
+    for (i=1; i<signal1->length; i++){
+        Amp[i] = sqrt(signal1->data[i]*signal1->data[i] + signal2->data[i]*signal2->data[i]);
+        if (timeVec->data[i-1] <= tAtt && timeVec->data[i] > tAtt){
+            i_att = i;
+            //if (debugPK){
+            //    printf(" the attachment index = %d, time = %f, %f \n", i_att, timeVec->data[i_att], tAtt);
+            //}
+        } 
+    }
+
+    REAL8 maxL = Amp[0]; 
+    for (i=0; i<i_att; i++){
+        if (Amp[i] >= maxL){
+           maxL = Amp[i];
+        } 
+    }  
+    REAL8 maxR = Amp[i_att];
+    for (i=i_att; i<signal1->length; i++){
+        if (Amp[i] >= maxR){
+           maxR = Amp[i];
+        } 
+    }  
+     
+    if (debugPK){
+        printf(" the ratio of amplitudes = %f  \n", maxR/maxL);
+    }
+
+    *ratio = maxR/maxL;
+
+    return XLAL_SUCCESS;
+   
+}
+
+
+int XLALSimAdjustRDattachmentTime( 
+    REAL8Vector * signal1,	/**<< Output Real of inspiral waveform to which we attach ringdown */
+    REAL8Vector * signal2,	/**<< Output Imag of inspiral waveform to which we attach ringdown */
+    COMPLEX16TimeSeries* h22,   /**<< input time series (inspiral) */
+    COMPLEX16TimeSeries* h2m2,  /**<< input time series (inspiral) */
+    REAL8* ratio22,      /**<< output ratio for 2,2 mode */
+    REAL8* ratio2m2,     /**<< output ratio  for 2,-2 mode*/
+    REAL8* tAttach,       /**<< output/input time of RD attachment */
+    const REAL8 thr,        /**<< threshold on the ratio */
+    const REAL8 dt,	/**<< Sample time step (in seconds) */
+    const REAL8 m1,	/**<< First component mass (in Solar masses) */
+    const REAL8 m2,	/**<< Second component mass (in Solar masses) */
+    const REAL8 spin1x,	/**<<The spin of the first object; only needed for spin waveforms */
+    const REAL8 spin1y,	/**<<The spin of the first object; only needed for spin waveforms */
+    const REAL8 spin1z,	/**<<The spin of the first object; only needed for spin waveforms */
+    const REAL8 spin2x,	/**<<The spin of the second object; only needed for spin waveforms */
+    const REAL8 spin2y,	/**<<The spin of the second object; only needed for spin waveforms */
+    const REAL8 spin2z,	/**<<The spin of the second object; only needed for spin waveforms */
+    REAL8Vector * timeVec,	/**<< Vector containing the time values */
+    REAL8Vector * matchrange,	/**<< Time values chosen as points for performing comb matching */
+    Approximant approximant,	/**<<The waveform approximant being used */
+    const REAL8 JLN,            /**<< cosine of the angle between J and LN at the light ring */
+    const REAL8 combSize        /**<< combsize for RD attachment */
+    )
+{
     
-}    
+    int debugPK = 0;
+    unsigned int retLenHi = h22->data->length;
+    unsigned int i;
+    int pass = 0; 
+    REAL8 tAtt;
+    tAtt = *tAttach; // replace with the loop
+    REAL8 maxDeltaT = 6.0;
+
+    REAL8 mTScaled = (retLenHi-1)*dt/matchrange->data[2];
+
+    while(pass == 0 && (tAtt >= *tAttach - maxDeltaT)){
+        tAtt = tAtt - 1.0;
+        memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
+        memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
+        for ( i = 0; i < retLenHi; i++ )
+        {
+            signal1->data[i] = creal(h22->data->data[i]);
+            signal2->data[i] = cimag(h22->data->data[i]);
+        }
+       
+        matchrange->data[0] = combSize < tAtt ? tAtt - combSize : 0;
+        matchrange->data[1] = tAtt;
+        matchrange->data[0] -= fmod( matchrange->data[0], dt/mTScaled );
+        matchrange->data[1] -= fmod( matchrange->data[1], dt/mTScaled );
+        if (debugPK) printf("left 2,2 mode tAtt = %f     ", tAtt); 
+        if( XLALSimCheckRDattachment(signal1, signal2, ratio22, tAtt, 2, 2,
+                        dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
+                        timeVec, matchrange, approximant, JLN ) == XLAL_FAILURE )
+        {
+              XLAL_ERROR( XLAL_EFUNC );
+        }
+     
+        memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
+        memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
+        for ( i = 0; i < retLenHi; i++ )
+        {
+            signal1->data[i] = creal(h2m2->data->data[i]);
+            signal2->data[i] = cimag(h2m2->data->data[i]);
+        }
+       
+        if (debugPK) printf("left 2,-2 mode tAtt = %f     ", tAtt); 
+        if( XLALSimCheckRDattachment(signal1, signal2, ratio2m2, tAtt, 2, -2,
+                        dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
+                        timeVec, matchrange, approximant, JLN ) == XLAL_FAILURE )
+        {
+              XLAL_ERROR( XLAL_EFUNC );
+        }
+
+        if (*ratio22 <= thr && *ratio2m2 <= thr){
+            pass = 1;
+        }
+
+
+    }
+    memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
+    memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
+    if(debugPK){
+        if (pass == 1){
+            printf("Going left, we have found better attachment point: new tAtt = %f, old = %f, ratios = %f, %f \n", tAtt, *tAttach, *ratio22, *ratio2m2);
+        }else{
+            printf("Going left did nto find the best attachment point\n");
+        }
+                
+    }
+    REAL8 left_r22 = *ratio22;
+    REAL8 left_r2m2 = *ratio2m2;
+    REAL8 left_tAtt = tAtt;
+    int pass_left = pass;
+
+    pass = 0;
+    tAtt = *tAttach;
+    while(pass == 0 && (tAtt <= *tAttach + maxDeltaT)){
+        tAtt = tAtt + 1.0;
+        memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
+        memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
+        matchrange->data[0] = combSize < tAtt ? tAtt - combSize : 0;
+        matchrange->data[1] = tAtt;
+        matchrange->data[0] -= fmod( matchrange->data[0], dt/mTScaled );
+        matchrange->data[1] -= fmod( matchrange->data[1], dt/mTScaled );
+        for ( i = 0; i < retLenHi; i++ )
+        {
+            signal1->data[i] = creal(h22->data->data[i]);
+            signal2->data[i] = cimag(h22->data->data[i]);
+        }
+        if (debugPK) printf("right 2,2 mode tAtt = %f     ", tAtt); 
+        if( XLALSimCheckRDattachment(signal1, signal2, ratio22, tAtt, 2, 2,
+                        dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
+                        timeVec, matchrange, approximant, JLN ) == XLAL_FAILURE )
+        {
+              XLAL_ERROR( XLAL_EFUNC );
+        }
+     
+        memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
+        memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
+        for ( i = 0; i < retLenHi; i++ )
+        {
+            signal1->data[i] = creal(h2m2->data->data[i]);
+            signal2->data[i] = cimag(h2m2->data->data[i]);
+        }
+       
+        if (debugPK) printf("right 2,-2 mode tAtt = %f     ", tAtt); 
+        if( XLALSimCheckRDattachment(signal1, signal2, ratio2m2, tAtt, 2, -2,
+                        dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
+                        timeVec, matchrange, approximant, JLN ) == XLAL_FAILURE )
+        {
+              XLAL_ERROR( XLAL_EFUNC );
+        }
+        if (*ratio22 <= thr && *ratio2m2 <= thr){
+            pass = 1;
+        }
+
+    }
+    if(debugPK){
+        if (pass == 1){
+            printf("Going right, we have found better attachment point: new tAtt = %f, old = %f, ratios = %f, %f \n", tAtt, *tAttach, *ratio22, *ratio2m2);
+        }else{
+            printf("Going right did nto find the best attachment point\n");
+        }
+                
+    }
+    int pass_right = pass;
+
+    if( pass_right == 1 && pass_left == 0){
+        *tAttach = tAtt;
+        return(1);
+    }
+    if( pass_left == 1 && pass_right == 0){
+       *tAttach =left_tAtt;
+       *ratio22 = left_r22;
+       *ratio2m2 = left_r2m2;
+       return(1);
+    }
+    if (pass_left == 1 && pass_right == 1){
+   
+        // hard choice
+        if (left_r22 <= 1.0 || left_r2m2 <= 1.0){
+            if (*ratio22 <= 1.0 || *ratio2m2 <= 1.0){
+                *tAttach =left_tAtt;
+                *ratio22 = left_r22;
+                *ratio2m2 = left_r2m2;
+                return(1); // choose left
+            }else{
+                *tAttach = tAtt;
+                return(1); // choose right
+            }
+        }else{
+            if (*ratio22 <= 1.0 || *ratio2m2 <= 1.0){
+                *tAttach =left_tAtt;
+                *ratio22 = left_r22;
+                *ratio2m2 = left_r2m2;
+                return(1); // choose left
+            }else{ // booth looks ok so far
+                if (left_r22*left_r2m2 < (*ratio22)*(*ratio2m2)){
+                    *tAttach =left_tAtt;
+                    *ratio22 = left_r22;
+                    *ratio2m2 = left_r2m2;
+                    return(1); // choose left
+                }else{
+                    *tAttach = tAtt;
+                    return(1); // choose right
+                }
+
+            }
+        }
+    }
+    return(0);
+
+} 
+
+

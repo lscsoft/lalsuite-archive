@@ -3816,19 +3816,8 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   }
   // FIXME 
   //tAttach = 136.3;
-  //tAttach  = tAttach - 4.0;
+  //tAttach  = tAttach - 2.0;
 
-  if (debugRD){
-     out = fopen( "tAttach.dat", "w" );
-     fprintf( out, "%.16e    %.16e    %.16e   %.16e \n", tPeakOmega, deltaNQC, tAmpMax, tAttach); 
-     fclose(out);
- 
-  }
-  AttachParams->data[0] = tPeakOmega; 
-  AttachParams->data[1] = deltaNQC; 
-  AttachParams->data[2] = tAmpMax;
-  AttachParams->data[3] = tAttach;
-  AttachParams->data[4] = HiSRstart;
 
     //for (i=0; i<5; i++){
     //    printf("AttachPars stas: %d, %f \n", i, AttachParams->data[i]);
@@ -3944,7 +3933,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], deltaTHigh/mTScaled );
 
   if (debugPK){
-    printf("Stas: matching points (again) %f, %f or %f, %f \n", 
+      printf("Stas: matching points (again) %f, %f or %f, %f \n", 
       rdMatchPoint->data[0],rdMatchPoint->data[1],
       rdMatchPoint->data[0]+HiSRstart,rdMatchPoint->data[1]+HiSRstart);
     fflush(NULL);
@@ -3953,17 +3942,105 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
 
   // FIXME Here I'll try to make a loop to check if tAttach is good or not
   //
-  /*if ( XLALSimIMREOBHybridAttachRingdown( sigReHi, sigImHi, 2, 2,
-                deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
-                &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL )
-                //&timeHi, rdMatchPoint, spinEOBApproximant, JLN )
-            == XLAL_FAILURE )
-    {
-      XLAL_ERROR( XLAL_EFUNC );
-    }*/
+  int CheckRDAttachment = 0;
+  double S1amp = sqrt(spin1[0]*spin1[0] + spin1[1]*spin1[1] +spin1[2]*spin1[2]);
 
 
+  if (CheckRDAttachment || S1amp >= 0.96){
 
+      if (debugPK) printf("Stas: checking the RD attachment point....\n");
+
+      int pass = 0;
+      rdMatchPoint->data[0] = combSize < tAttach ? tAttach - combSize : 0;
+      rdMatchPoint->data[1] = tAttach;
+      rdMatchPoint->data[2] = (retLenHi-1)*deltaTHigh/mTScaled;
+      rdMatchPoint->data[0] -= fmod( rdMatchPoint->data[0], deltaTHigh/mTScaled );
+      rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], deltaTHigh/mTScaled );
+
+      REAL8 thr = 1.5;
+      REAL8 ratio22 = 1.0;
+      REAL8 ratio2m2 = 1.0;
+      
+      hJTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 2 );
+
+      for ( i = 0; i < retLenHi; i++ )
+        {
+          sigReHi->data[i] = creal(hJTSHi->data->data[i]);
+          sigImHi->data[i] = cimag(hJTSHi->data->data[i]);
+        }
+      if( XLALSimCheckRDattachment(sigReHi, sigImHi, &ratio22, tAttach, 2, 2,
+                    deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
+                    &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL ) == XLAL_FAILURE )
+      {
+          XLAL_ERROR( XLAL_EFUNC );
+      }
+      
+      memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
+      memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));
+      
+      hJTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, -2 );
+
+      for ( i = 0; i < retLenHi; i++ )
+        {
+          sigReHi->data[i] = creal(hJTSHi->data->data[i]);
+          sigImHi->data[i] = cimag(hJTSHi->data->data[i]);
+        }
+      if( XLALSimCheckRDattachment(sigReHi, sigImHi, &ratio2m2, tAttach, 2, -2,
+                    deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
+                    &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL ) == XLAL_FAILURE )
+      {
+          XLAL_ERROR( XLAL_EFUNC );
+      }
+
+      if(ratio22 <= thr && ratio2m2 <=thr){
+          pass = 1;
+      }
+
+      if (pass == 0){
+
+           if (debugPK) printf("Adjusting RD attachment point... \n");
+           memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
+           memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));
+            
+           int found_att = XLALSimAdjustRDattachmentTime( sigReHi, sigImHi, h22JTSHi, h2m2JTSHi,  
+                    &ratio22, &ratio2m2, &tAttach, thr,
+                    deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
+                    &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL, combSize);
+             
+           if (debugPK){
+             if (found_att == 1){
+                 printf("we have found new attachment point tAtt = %f, with ratios %f, %f \n",
+                       tAttach, ratio22, ratio2m2);
+             }else{
+                 printf("we haven't found proper attachment point, best ratios are %f, %f at tAtt = %f \n",
+                       ratio22, ratio2m2, tAttach);
+             }
+           }
+
+      }    
+      memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
+      memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));
+
+     
+  } //end of RD attachment if 
+
+  if (debugRD){
+     out = fopen( "tAttach.dat", "w" );
+     fprintf( out, "%.16e    %.16e    %.16e   %.16e \n", tPeakOmega, deltaNQC, tAmpMax, tAttach); 
+     fclose(out);
+ 
+  }
+  AttachParams->data[0] = tPeakOmega; 
+  AttachParams->data[1] = deltaNQC; 
+  AttachParams->data[2] = tAmpMax;
+  AttachParams->data[3] = tAttach;
+  AttachParams->data[4] = HiSRstart;
+
+  rdMatchPoint->data[0] = combSize < tAttach ? tAttach - combSize : 0;
+  rdMatchPoint->data[1] = tAttach;
+  rdMatchPoint->data[2] = (retLenHi-1)*deltaTHigh/mTScaled;
+  rdMatchPoint->data[0] -= fmod( rdMatchPoint->data[0], deltaTHigh/mTScaled );
+  rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], deltaTHigh/mTScaled );
 
   
   /*** Stas Let's try to attach RD to 2,2 mode: ***/
