@@ -25,6 +25,8 @@
 #include <lal/Sequence.h>
 #include <lal/LALConstants.h>
 
+#include "check_waveform_macros.h"
+
 /**
  * Bitmask enumerating which parameters have changed, to determine
  * if the requested waveform can be transformed from a cached waveform
@@ -103,6 +105,12 @@ static int StoreFDHCache(LALSimInspiralWaveformCache *cache,
         int phaseO,
         Approximant approximant,
         REAL8Sequence *frequencies);
+
+
+/**
+ * @addtogroup LALSimInspiralWaveformCache_h
+ * @{
+ */
 
 /**
  * Chooses between different approximants when requesting a waveform to be generated
@@ -679,6 +687,8 @@ void XLALDestroySimInspiralWaveformCache(LALSimInspiralWaveformCache *cache)
         XLALFree(cache);
     }
 }
+
+/** @} */
 
 /**
  * Function to compare the requested arguments to those stored in the cache,
