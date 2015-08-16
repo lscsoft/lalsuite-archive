@@ -51,19 +51,19 @@ bin_PROGRAMS = \
 pkginclude_HEADERS = \
 	LALSimBlackHoleRingdown.h \
 	LALSimBurst.h \
+	LALSimIMR.h \
+	LALSimInspiral.h \
 	LALSimInspiralPrecess.h \
 	LALSimInspiralWaveformFlags.h \
 	LALSimInspiralTestGRParams.h \
-	LALSimIMR.h \
-	LALSimInspiral.h \
-	LALSimInspiralSphHarmSeries.h \
 	LALSimInspiralWaveformCache.h \
 	LALSimulation.h \
 	LALSimNeutronStar.h \
 	LALSimNoise.h \
 	LALSimReadData.h \
 	LALSimSGWB.h \
-	LALSimIMRPhenomD.h \
+	LALSimSphHarmMode.h \
+	LALSimSphHarmSeries.h \
 	LALSimulationConfig.h \
 	LALSimulationVCSInfo.h \
 	LALSimulationVCSInfoHeader.h
@@ -89,6 +89,7 @@ noinst_HEADERS = \
 	LALSimNeutronStarEOSTabular.c \
 	LALSimIMRPhenomC_internals.c \
 	LALSimIMRPhenomD_internals.c \
+	LALSimIMRPhenomD.h \
 	LALSimIMRPhenomP.c \
 	LALSimIMRSEOBNRROMUtilities.c
 
@@ -114,10 +115,11 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralTestGRParams.c \
 	LALSimInspiralPrecess.c \
 	LALSimInspiral.c \
-	LALSimInspiralSphHarmSeries.c \
 	LALSimInspiralPNMode.c \
 	LALSimInspiralSpinTaylor.c \
 	LALSimInspiralSpinTaylorF2.c \
+	LALSimInspiralEccentricityFD.c \
+	LALSimInspiralOptimizedCoefficientsEccentricityFD.c \
 	LALSimInspiralTaylorEt.c \
 	LALSimInspiralTaylorF2.c \
 	LALSimInspiralTaylorF2ReducedSpin.c \
@@ -127,6 +129,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralTaylorT2.c \
 	LALSimInspiralTaylorT3.c \
 	LALSimInspiralTaylorT4.c \
+	LALSimInspiralEccentricTD.c \
 	LALSimInspiralSpinTaylorT5.c \
 	LALSimInspiralSpinDominatedWaveform.c \
 	LALSimInspiralTaylorLength.c \
@@ -142,8 +145,11 @@ liblalsimulation_la_SOURCES = \
 	LALSimReadData.c \
 	LALSimSGWB.c \
 	LALSimSGWBORF.c \
+	LALSimSphHarmMode.c \
+	LALSimSphHarmSeries.c \
 	LALSimUnicorn.c \
 	check_series_macros.h \
+	check_waveform_macros.h \
 	unicorn.xpm \
 	LALSimInspiralHGimri.c
 

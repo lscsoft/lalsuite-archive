@@ -2,6 +2,7 @@
 *.swp
 *.trs
 *~
+*.dSYM
 .DS_Store
 .dirstamp
 /Makefile
@@ -19,5 +20,6 @@ config.cache
 config.log
 config.status
 configure
+cscope.*
 lalsuite-*.tar.gz
 tags

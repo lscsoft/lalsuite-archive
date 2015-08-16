@@ -47,6 +47,28 @@ import matplotlib
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 
+# Default font properties
+fig_width_pt = 246  # Get this from LaTeX using \showthe\columnwidth
+inches_per_pt = 1.0/72.27               # Convert pt to inch
+golden_mean = (2.236-1.0)/2.0         # Aesthetic ratio
+fig_width = fig_width_pt*inches_per_pt  # width in inches
+fig_height = fig_width*golden_mean      # height in inches
+fig_size =  [fig_width,fig_height]
+matplotlib.rcParams.update(
+        {'axes.labelsize': 16,
+        'font.size':       16,
+        'legend.fontsize': 16,
+        'xtick.labelsize': 16,
+        'ytick.labelsize': 16,
+        'text.usetex': False,
+        'figure.figsize': fig_size,
+        'font.family': "serif",
+        'font.serif': ['Times','Palatino','New Century Schoolbook','Bookman','Computer Modern Roman','Times New Roman','Liberation Serif'],
+        'font.weight':'normal',
+        'font.size':16,
+        'savefig.dpi': 120
+        })
+
 #local application/library specific imports
 from pylal import SimInspiralUtils
 from pylal import bayespputils as bppu
@@ -184,6 +206,8 @@ def cbcBayesPostProc(
                         li_flag=False,deltaLogL=None,fixedBurnins=None,nDownsample=None,oldMassConvention=False,
                         #followupMCMC options
                         fm_flag=False,
+                        #spin frame for the injection
+                        inj_spin_frame='OrbitalL',
                         # on ACF?
                         noacf=False,
                         #Turn on 2D kdes
@@ -319,7 +343,7 @@ def cbcBayesPostProc(
 
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
-    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,injFref=injFref,SnglInpiralList=triggers,votfile=votfile)
+    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,inj_spin_frame=inj_spin_frame, injFref=injFref,SnglInpiralList=triggers,votfile=votfile)
   
     #Create analytic likelihood functions if covariance matrices and mean vectors were given
     analyticLikelihood = None
@@ -1216,6 +1240,7 @@ if __name__=='__main__':
     parser.add_option("--spin",action="store_true",default=False,help="(SPINspiral) Specify spin run (15 parameters). ")
     #LALInf
     parser.add_option("--lalinfmcmc",action="store_true",default=False,help="(LALInferenceMCMC) Parse input from LALInferenceMCMC.")
+    parser.add_option("--inj-spin-frame",default='OrbitalL', help="The reference frame used for the injection (default: OrbitalL)")
     parser.add_option("--downsample",action="store",default=None,help="(LALInferenceMCMC) approximate number of samples to record in the posterior",type="int")
     parser.add_option("--deltaLogL",action="store",default=None,help="(LALInferenceMCMC) Difference in logL to use for convergence test.",type="float")
     parser.add_option("--fixedBurnin",dest="fixedBurnin",action="callback",callback=multipleFileCB,help="(LALInferenceMCMC) Fixed number of iteration for burnin.")
@@ -1365,6 +1390,8 @@ if __name__=='__main__':
                         li_flag=opts.lalinfmcmc,deltaLogL=opts.deltaLogL,fixedBurnins=fixedBurnins,nDownsample=opts.downsample,oldMassConvention=opts.oldMassConvention,
                         #followupMCMC options
                         fm_flag=opts.fm,
+                        #injected spin frame
+                        inj_spin_frame=opts.inj_spin_frame,
                         # Turn of ACF?
                         noacf=opts.noacf,
                         #Turn on 2D kdes
