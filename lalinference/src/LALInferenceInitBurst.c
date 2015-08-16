@@ -333,6 +333,19 @@ LALInferenceModel * LALInferenceInitBurstModel(LALInferenceRunState *state)
     }
 
     LALInferenceAddVariable(model->params, "LAL_APPROXIMANT", &approx,        LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+
+    INT4 h1_sign=1,l1_sign=1;
+    if (LALInferenceGetProcParamVal(commandLine,"--flip_h1_sign"))
+      h1_sign=-1;
+    if (LALInferenceGetProcParamVal(commandLine,"--flip_l1_sign"))
+      l1_sign=-1;
+
+      LALInferenceAddVariable(model->params, "H1_SIGN", &h1_sign,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+      LALInferenceAddVariable(model->params, "L1_SIGN", &l1_sign,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+
+
+
+
     /* Needs two condition: must be a burst template and the burst injection must have been provided to do those checks
     if (BinjTable && burst_inj){
         

@@ -827,9 +827,15 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
         else
           timeshift =  (GPSdouble - (*(REAL8*) LALInferenceGetVariable(model->params, "time"))) + timedelay;
         twopit    = LAL_TWOPI * timeshift;
+        
+        char signst[8]="";
+        sprintf(signst,"%s_%s",dataPtr->name,"SIGN");
+  
+        INT4 sign=(*(INT4*) LALInferenceGetVariable(model->params,signst));
+
         /* For burst the effect of windowing in amplitude is important. Add it here. */
-        Fplus*=amp_prefactor;
-        Fcross*=amp_prefactor;
+        Fplus*=amp_prefactor*((REAL8) sign);
+        Fcross*=amp_prefactor*((REAL8) sign);
 
         dataPtr->fPlus = Fplus;
         dataPtr->fCross = Fcross;
