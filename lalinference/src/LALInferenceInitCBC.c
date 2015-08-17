@@ -269,7 +269,15 @@ static void LALInferenceInitCalibrationVariables(LALInferenceRunState *runState,
         LALInferenceRegisterUniformVariableREAL8(runState, currentParams, CA_A, zero, camp_min_A, camp_max_A, LALINFERENCE_PARAM_LINEAR);
         dataPtr = dataPtr->next;
       }
+
       LALInferenceAddVariable(currentParams, "constantcal_active", &calOn, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+      /*If user specifies a width for the error prior, a gaussian prior will be used, otherwise a flat prior will be used*/
+      REAL8 ampUncertaintyPrior=-1.0;
+      ppt = LALInferenceGetProcParamVal(runState->commandLine, "--constcal_ampsigma");
+      if (ppt) {
+        ampUncertaintyPrior = atof(ppt->value);
+      }
+      LALInferenceAddVariable(runState->priorArgs, "constcal_amp_uncertainty", &ampUncertaintyPrior, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     }
     if (LALInferenceGetProcParamVal(runState->commandLine, "--MarginalizeConstantCalPha")){
       /* Add linear calibration phase errors to the measurement. For the moment the prior ranges are the same for the three IFOs */
@@ -285,6 +293,15 @@ static void LALInferenceInitCalibrationVariables(LALInferenceRunState *runState,
         dataPtr = dataPtr->next;
       }
       LALInferenceAddVariable(currentParams, "constantcal_active", &calOn, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+
+     /*If user specifies a width for the error prior, a gaussian prior will be used, otherwise a flat prior will be used*/
+      REAL8 phaseUncertaintyPrior=-1.0;
+      ppt = LALInferenceGetProcParamVal(runState->commandLine, "--constcal_phasigma");
+      if (ppt) {
+        phaseUncertaintyPrior = M_PI/180.0*atof(ppt->value); /* CL arg in degrees, variable in radians */
+      }
+      LALInferenceAddVariable(runState->priorArgs, "constcal_phase_uncertainty", &phaseUncertaintyPrior, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+
     }
   }
   else{
@@ -958,9 +975,16 @@ where the known names have been listed above\n\
         LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   }
 
+  LALSimInspiralFrameAxis frameAxis = LAL_SIM_INSPIRAL_FRAME_AXIS_DEFAULT;
+  if((ppt=LALInferenceGetProcParamVal(commandLine,"--inj-frame-axis"))) {
+    frameAxis = XLALSimInspiralGetFrameAxisFromString(ppt->value);
+  }
+
   model->waveFlags = XLALSimInspiralCreateWaveformFlags();
   XLALSimInspiralSetSpinOrder(model->waveFlags,  spinO);
   XLALSimInspiralSetTidalOrder(model->waveFlags, tideO);
+  XLALSimInspiralSetFrameAxis(model->waveFlags,frameAxis);
+
 
   fprintf(stdout,"\n\n---\t\t ---\n");
   LALInferenceInitSpinVariables(state, model);
@@ -971,7 +995,7 @@ where the known names have been listed above\n\
 
      /* Print info about orders and waveflags used for templates */
 
-     fprintf(stdout,"Templates will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i tidal order %i, in the %s domain.\n",approx,XLALGetStringFromApproximant(approx),PhaseOrder,AmpOrder,(int) spinO, (int) tideO, model->domain==LAL_SIM_DOMAIN_TIME?"time":"frequency");
+     fprintf(stdout,"Templates will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i tidal order %i, frame axis %i in the %s domain.\n",approx,XLALGetStringFromApproximant(approx),PhaseOrder,AmpOrder,(int) spinO, (int) tideO, (int) frameAxis, model->domain==LAL_SIM_DOMAIN_TIME?"time":"frequency");
      fprintf(stdout,"---\t\t ---\n\n");
   }//end of signal only flag
   else
@@ -1457,7 +1481,6 @@ void LALInferenceInitSpinVariables(LALInferenceRunState *state, LALInferenceMode
   }
 
   SpinSupport spin_support=XLALSimInspiralGetSpinSupportFromApproximant(approx);
-  LALSimInspiralFrameAxis frame_axis=LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW;
 
   /* Now check what the approx can do and eventually change user's choices to comply.
    * Also change the reference frame -- For the moment use default as the corresponding patch to LALSimulation has not been finished yet */
@@ -1467,13 +1490,7 @@ void LALInferenceInitSpinVariables(LALInferenceRunState *state, LALInferenceMode
     singleSpin=1;
   else if (spin_support==LAL_SIM_INSPIRAL_ALIGNEDSPIN){
     spinAligned=1;
-    /* Restore this line when LALSim has routine to convert frames:
-     * frame_axis= LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L;
-     */
   }
-
-  /* Add the frame to waveFlagas */
-  XLALSimInspiralSetFrameAxis(model->waveFlags,frame_axis);
 
   if (spinAligned){
   /* If spin aligned the magnitude is in the range [-1,1] */
