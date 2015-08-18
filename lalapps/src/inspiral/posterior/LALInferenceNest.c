@@ -335,7 +335,7 @@ Nested sampling arguments:\n\
   if(ppt) {
     if(!strcmp("SineGaussianFFast",ppt->value) || !strcmp("SineGaussianF",ppt->value) || !strcmp("SineGaussian",ppt->value)|| !strcmp("Gaussian",ppt->value)|| !strcmp("GaussianF",ppt->value) || !strcmp("DampedSinusoid",ppt->value)|| !strcmp("DampedSinusoidF",ppt->value)){
     runState->prior = &LALInferenceSineGaussianPrior;
-    XLALPrintInfo("Using (Sine)Gaussian(F) prior\n");
+    fprintf(stderr,"Using (Sine)Gaussian(F) prior\n");
     }
   }
 
