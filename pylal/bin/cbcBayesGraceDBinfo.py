@@ -46,13 +46,14 @@ For the moment this is maximum a posteriori and stdev for the parameters in the 
 
 '''
 
-def cbcBayesGraceDBinfo(gid=None,samples=None,analysis='LALInference', bcifile=None,bsnfile=None):
+def cbcBayesGraceDBinfo(gid=None,samples=None,analysis='LALInference', bcifile=None,bsnfile=None,email=None):
 
   if gid is None or samples is None:
     print "Must provide both a graceDB id and a posterior samples file\n"
     sys.exit(1)
 
   import ligo.gracedb.rest 
+  import os
   g=ligo.gracedb.rest.GraceDb()
   samples=os.path.realpath(samples)
   peparser=bppu.PEOutputParser('common')
@@ -91,7 +92,32 @@ def cbcBayesGraceDBinfo(gid=None,samples=None,analysis='LALInference', bcifile=N
     outstr+='<td align=center>%.2f</td></tr>'%(bsn[0])
   outstr+='</table>'
 
-  print outstr
+  if email is not None and bci is not None:
+    import os
+    import smtplib
+    import subprocess
+    address=email.split(',')
+    SERVER="localhost"
+    USER=os.environ['USER']
+    import socket
+    HOST=socket.gethostbyaddr(socket.gethostname())[0]
+    pref=""
+    if bci>3 and bci<6:
+      pref="A promising"
+    elif bci>6 and bci<10:
+      pref="A very interesting"
+    elif bci>10:
+      pref="A SPECTACULAR"
+    FROM="LIB"+'@'+HOST
+    SUBJECT="%s LIB result page is ready at "%pref+HOST+" for graceID %s!"%(gid)
+    TEXT="LIB run for graceID %s is done on "%gid+HOST+".\nThe BCI is %lf\n"%bci
+    if bci>10:
+      TEXT+="RUN!!!!!!!!!!\n"
+    message="From: %s\nTo: %s\nSubject: %s\n\n%s"%(FROM,', '.join(address),SUBJECT,TEXT)
+    server=smtplib.SMTP(SERVER)
+    server.sendmail(FROM,address,message)
+    server.quit()
+
   g.writeLog(gid,outstr,filename=None,tagname='pe')
 
 
@@ -104,6 +130,7 @@ if __name__=='__main__':
     parser.add_option("--analysis",help="Prefix to use for the graceDB entries. Should be the name of the analysis (default LALInference)",default='LALInference')
     parser.add_option("--bci",dest="bci",help="coherence test file: bci.dat",default=None)
     parser.add_option("--bsn",dest="bsn",help="evidence file: bsn.dat",default=None)
+    parser.add_option('--email',dest='email',help="Will email when run is done.",default=None)
     (opts,args)=parser.parse_args()
     if opts.gid is None:
       print "Must provide a graceDB id with --gid/-g "
@@ -111,4 +138,4 @@ if __name__=='__main__':
     if opts.samples is None:
       print "Must provide lalinference posterior samples with --samples/-s "
       sys.exit(1)
-    cbcBayesGraceDBinfo(opts.gid, opts.samples,analysis=opts.analysis,bcifile=opts.bci,bsnfile=opts.bsn)
+    cbcBayesGraceDBinfo(opts.gid, opts.samples,analysis=opts.analysis,bcifile=opts.bci,bsnfile=opts.bsn,email=opts.email)
