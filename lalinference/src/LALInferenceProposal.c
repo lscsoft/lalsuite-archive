@@ -1133,17 +1133,16 @@ REAL8 LALInferenceEnsembleWalkNames(LALInferenceRunState *runState,
                                             LALInferenceVariables *proposedParams,
                                             const char **names) {
   size_t i;
-  REAL8 logPropRatio;
-
+  LALInferenceVariableItem *item;
+  REAL8 logPropRatio = 0.0;
   LALInferenceCopyVariables(currentParams, proposedParams);
+
+  size_t N = LALInferenceGetVariableDimension(currentParams) + 1; /* More names than we need. */
+  const char* local_names[N];
   if (names == NULL) {
+    names = local_names;
 
-    size_t N = LALInferenceGetVariableDimension(currentParams) + 1; /* More names than we need. */
-    names = alloca(N*sizeof(char *)); /* Hope we have alloca---saves
-                                         having to deallocate after
-                                         proposal. */
-
-    LALInferenceVariableItem *item = currentParams->head;
+    item = currentParams->head;
     i = 0;
     while (item != NULL) {
       if (item->vary != LALINFERENCE_PARAM_FIXED && item->vary != LALINFERENCE_PARAM_OUTPUT && item->type==LALINFERENCE_REAL8_t ) {
@@ -1162,10 +1161,9 @@ REAL8 LALInferenceEnsembleWalkNames(LALInferenceRunState *runState,
     if(LALInferenceCheckVariableNonFixed(proposedParams,names[i]))
       Ndim++;
   }
- 
+
   LALInferenceVariables **pointsPool = runState->differentialPoints;
   size_t k=0;
-  size_t D = Ndim;
   size_t sample_size=3;
 
   LALInferenceVariables **dePts = runState->differentialPoints;
@@ -1176,43 +1174,33 @@ REAL8 LALInferenceEnsembleWalkNames(LALInferenceRunState *runState,
     return logPropRatio; /* Quit now, since we don't have any points to use. */
   }
 
-  UINT4 *indeces=alloca(sample_size*sizeof(int));
-  UINT4 *all_indeces=alloca(nPts*sizeof(int));
+  UINT4 indices[sample_size];
+  UINT4 all_indices[nPts];
 
-  for (i=0;i<nPts;i++) all_indeces[i]=i;
-  gsl_ran_choose(runState->GSLrandom,indeces, sample_size, all_indeces, nPts, sizeof(UINT4));
+  for (i=0;i<nPts;i++) all_indices[i]=i;
+  gsl_ran_choose(runState->GSLrandom,indices, sample_size, all_indices, nPts, sizeof(UINT4));
 
-  REAL8 *center_of_mass=alloca(sizeof(REAL8)*Ndim);
-  double *w=alloca(sizeof(REAL8)*Ndim);
-  for(k=0;k<Ndim;k++) {center_of_mass[k]=0.0;w[k]=0.0;}
-  for (i=0;i<sample_size;i++)
-  {
-		  for(k=0;names[k]!=NULL;k++)
-		  {
-				if (LALInferenceCheckVariableNonFixed(proposedParams, names[k])) {
-				  center_of_mass[k]+= LALInferenceGetREAL8Variable(pointsPool[indeces[i]],names[k])/((REAL8)sample_size);
-				}
-		  }
-  }
-
-  double *univariate_normals=alloca(D*sizeof(double));
+  double w=0.0;
+  double univariate_normals[sample_size];
   for(i=0;i<sample_size;i++) univariate_normals[i] = gsl_ran_ugaussian(runState->GSLrandom);
-
-  for (i=0;i<sample_size;i++)
-  {
-		  for(k=0;names[k]!=NULL;k++)
-		  {
-				if (LALInferenceCheckVariableNonFixed(proposedParams, names[k]) ) {
-				  w[k]+= (LALInferenceGetREAL8Variable(pointsPool[indeces[i]],names[k])-center_of_mass[k])*univariate_normals[i];
-				}
-		  }
-  }
+  
+  /* Note: Simplified this loop on master 2015-08-12, take this version when rebasing */
   for(k=0;names[k]!=NULL;k++)
   {
-		  if (LALInferenceCheckVariableNonFixed(proposedParams, names[k]) ) {
-				  REAL8 tmp = LALInferenceGetREAL8Variable(proposedParams,names[k])+w[k];
-				  LALInferenceSetVariable(proposedParams, names[k], &tmp);
-		  }
+    if(!LALInferenceCheckVariableNonFixed(proposedParams,names[k]) || LALInferenceGetVariableType(proposedParams,names[k])!=LALINFERENCE_REAL8_t) continue;
+    REAL8 centre_of_mass=0.0;
+    /* Compute centre of mass */
+    for(i=0;i<sample_size;i++)
+    {
+      centre_of_mass+=LALInferenceGetREAL8Variable(pointsPool[indices[i]],names[k])/((REAL8)sample_size);
+    }
+    /* Compute offset */
+    for(i=0,w=0.0;i<sample_size;i++)
+    {
+      w+= univariate_normals[i] * (LALInferenceGetREAL8Variable(pointsPool[indices[i]],names[k]) - centre_of_mass);
+    }
+    REAL8 tmp = LALInferenceGetREAL8Variable(proposedParams,names[k]) + w;
+    LALInferenceSetVariable(proposedParams,names[k],&tmp);
   }
 
   logPropRatio = 0.0;
