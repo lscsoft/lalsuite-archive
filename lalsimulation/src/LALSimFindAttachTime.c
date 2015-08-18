@@ -785,12 +785,12 @@ int XLALSimAdjustRDattachmentTime(
     int pass = 0; 
     REAL8 tAtt;
     tAtt = *tAttach; // replace with the loop
-    REAL8 maxDeltaT = 6.0;
+    REAL8 maxDeltaT = 20.0;
 
     REAL8 mTScaled = (retLenHi-1)*dt/matchrange->data[2];
 
     while(pass == 0 && (tAtt >= *tAttach - maxDeltaT)){
-        tAtt = tAtt - 1.0;
+        tAtt = tAtt - 0.50;
         memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
         memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
         for ( i = 0; i < retLenHi; i++ )
@@ -848,10 +848,11 @@ int XLALSimAdjustRDattachmentTime(
     REAL8 left_tAtt = tAtt;
     int pass_left = pass;
 
+    maxDeltaT=2.;
     pass = 0;
     tAtt = *tAttach;
     while(pass == 0 && (tAtt <= *tAttach + maxDeltaT)){
-        tAtt = tAtt + 1.0;
+        tAtt = tAtt + 0.5;
         memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
         memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
         matchrange->data[0] = combSize < tAtt ? tAtt - combSize : 0;

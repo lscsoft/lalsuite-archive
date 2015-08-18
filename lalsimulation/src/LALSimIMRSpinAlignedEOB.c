@@ -3816,7 +3816,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   }
   // FIXME 
   //tAttach = 136.3;
-  //tAttach  = tAttach - 2.0;
+//  tAttach  = tAttach - 6.0;
 
 
     //for (i=0; i<5; i++){
@@ -3946,7 +3946,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   double S1amp = sqrt(spin1[0]*spin1[0] + spin1[1]*spin1[1] +spin1[2]*spin1[2]);
 
 
-  if (CheckRDAttachment || S1amp >= 0.96){
+  if (CheckRDAttachment || S1amp >= 0.0){
 
       if (debugPK) printf("Stas: checking the RD attachment point....\n");
 
@@ -3957,7 +3957,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
       rdMatchPoint->data[0] -= fmod( rdMatchPoint->data[0], deltaTHigh/mTScaled );
       rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], deltaTHigh/mTScaled );
 
-      REAL8 thr = 1.5;
+      REAL8 thr = 1.2;
       REAL8 ratio22 = 1.0;
       REAL8 ratio2m2 = 1.0;
       
