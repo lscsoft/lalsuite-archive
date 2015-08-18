@@ -701,17 +701,12 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
               if len(times)!=len(data[:,0]):
                   print 'ERROR: ascii timeslide must contain a row for each trigtime. Exiting...\n'
                   exit(1)
-                  
               timeslides={}
-              this_time=0
-              for time in times:
-                  timeslides[time]={}
-                  this_ifo=0
-                  for ifo in self.ifos:
-                      timeslides[time][ifo]=data[this_time,this_ifo]
-                      this_ifo+=1
-                  this_time+=1
-          events=[Event(trig_time=time,timeslide_dict=timeslides[time]) for time in times]
+              for this_time,time in enumerate(times):
+                timeslides[this_time]={}
+                for this_ifo,ifo in enumerate(self.ifos):
+                  timeslides[this_time][ifo]=data[this_time,this_ifo]        
+          events=[Event(trig_time=time,timeslide_dict=timeslides[i_time]) for i_time,time in enumerate(times)]
       else:
           events=[Event(trig_time=time) for time in times]
     # Siminspiral Table
