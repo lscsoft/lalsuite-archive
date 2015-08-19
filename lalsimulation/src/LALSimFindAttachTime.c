@@ -834,6 +834,7 @@ int XLALSimAdjustRDattachmentTime(
                 thrStore22L = *ratio22;
                 thrStore2m2L = *ratio2m2;
                 tLBest = tAtt;
+                printf("tLBest is not %f\n", tLBest);
             }
         }
         else {
@@ -909,6 +910,7 @@ int XLALSimAdjustRDattachmentTime(
                 thrStore22R = *ratio22;
                 thrStore2m2R = *ratio2m2;
                 tRBest = tAtt;
+                printf("tRBest is not %f\n", tRBest);
             }
         }
         else {
@@ -938,7 +940,7 @@ int XLALSimAdjustRDattachmentTime(
         if ( debugPK ) {
             printf("Cannot go below required threshold on RD/insp amplitude\n");
         }
-        if ( thrStore22L*thrStore22L + thrStore2m2L*thrStore2m2L < thrStore22R*thrStore22R + thrStore2m2R*thrStore2m2R) {
+        if ( (thrStore22L - thr)*(thrStore22L - thr) + (thrStore2m2L - thr)*(thrStore2m2L - thr) < (thrStore22R - thr)*(thrStore22R - thr) + (thrStore2m2R - thr)*(thrStore2m2R - thr)) {
             *tAttach = tLBest;
             if ( debugPK ) {
                 printf("tLBest %f\n", tLBest);
