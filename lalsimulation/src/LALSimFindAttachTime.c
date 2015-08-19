@@ -934,7 +934,7 @@ int XLALSimAdjustRDattachmentTime(
     }
     int pass_right = pass;
     
-    if ( pass_right == 0 && pass_left == 0 ) {
+    if (1==1 || (pass_right == 0 && pass_left == 0) ) {
         if ( debugPK ) {
             printf("Cannot go below required threshold on RD/insp amplitude\n");
         }
