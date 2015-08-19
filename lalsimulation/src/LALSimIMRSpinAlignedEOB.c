@@ -3957,7 +3957,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
       rdMatchPoint->data[0] -= fmod( rdMatchPoint->data[0], deltaTHigh/mTScaled );
       rdMatchPoint->data[1] -= fmod( rdMatchPoint->data[1], deltaTHigh/mTScaled );
 
-      REAL8 thr = 1.2;
+      REAL8 thr = 1.;
       REAL8 ratio22 = 1.0;
       REAL8 ratio2m2 = 1.0;
       
@@ -4011,7 +4011,13 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
              if (found_att == 1){
                  printf("we have found new attachment point tAtt = %f, with ratios %f, %f \n",
                        tAttach, ratio22, ratio2m2);
-             }else{
+             }
+               else if (found_att == 2) {
+                   printf("we haven't found proper attachment point, we picked the best point at tAtt = %f\n",
+                          tAttach);
+
+               }
+               else{
                  printf("we haven't found proper attachment point, best ratios are %f, %f at tAtt = %f \n",
                        ratio22, ratio2m2, tAttach);
              }

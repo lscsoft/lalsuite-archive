@@ -786,11 +786,13 @@ int XLALSimAdjustRDattachmentTime(
     REAL8 tAtt;
     tAtt = *tAttach; // replace with the loop
     REAL8 maxDeltaT = 20.0;
+    REAL8 thrStore22L = 0., thrStore2m2L = 0., thrStore22R = 0., thrStore2m2R = 0., shift = 0., tLBest = *tAttach, tRBest = *tAttach;
 
     REAL8 mTScaled = (retLenHi-1)*dt/matchrange->data[2];
 
     while(pass == 0 && (tAtt >= *tAttach - maxDeltaT)){
-        tAtt = tAtt - 0.50;
+        shift += - 0.05;
+        tAtt = tAtt + shift;
         memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
         memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
         for ( i = 0; i < retLenHi; i++ )
@@ -826,6 +828,19 @@ int XLALSimAdjustRDattachmentTime(
         {
               XLAL_ERROR( XLAL_EFUNC );
         }
+        
+        if ( thrStore22L != 0. && thrStore2m2L != 0. ) {
+            if ( (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr) < (thrStore22L - thr)*(thrStore22L - thr) + (thrStore2m2L - thr)*(thrStore2m2L - thr)  ) {
+                thrStore22L = *ratio22;
+                thrStore2m2L = *ratio2m2;
+                tLBest = tAtt;
+            }
+        }
+        else {
+            thrStore22L = *ratio22;
+            thrStore2m2L = *ratio2m2;
+        }
+        if (debugPK) printf("LEFT SHIFT %f %f\n",shift, (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
 
         if (*ratio22 <= thr && *ratio2m2 <= thr){
             pass = 1;
@@ -848,11 +863,13 @@ int XLALSimAdjustRDattachmentTime(
     REAL8 left_tAtt = tAtt;
     int pass_left = pass;
 
-    maxDeltaT=2.;
+    shift = 0.;
+    maxDeltaT=3.;
     pass = 0;
     tAtt = *tAttach;
     while(pass == 0 && (tAtt <= *tAttach + maxDeltaT)){
-        tAtt = tAtt + 0.5;
+        shift += 0.01;
+        tAtt = tAtt +shift;
         memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
         memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
         matchrange->data[0] = combSize < tAtt ? tAtt - combSize : 0;
@@ -871,6 +888,7 @@ int XLALSimAdjustRDattachmentTime(
         {
               XLAL_ERROR( XLAL_EFUNC );
         }
+
      
         memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
         memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
@@ -887,6 +905,21 @@ int XLALSimAdjustRDattachmentTime(
         {
               XLAL_ERROR( XLAL_EFUNC );
         }
+        
+        if ( thrStore22R != 0. && thrStore2m2R != 0. ) {
+            if ( (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr) < (thrStore22R - thr)*(thrStore22R - thr) + (thrStore2m2R - thr)*(thrStore2m2R - thr)  ) {
+                thrStore22R = *ratio22;
+                thrStore2m2R = *ratio2m2;
+                tRBest = tAtt;
+            }
+        }
+        else {
+            thrStore22R = *ratio22;
+            thrStore2m2R = *ratio2m2;
+        }
+        
+        if (debugPK) printf("RIGHT SHIFT %f %f\n",shift, (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
+        
         if (*ratio22 <= thr && *ratio2m2 <= thr){
             pass = 1;
         }
@@ -901,6 +934,26 @@ int XLALSimAdjustRDattachmentTime(
                 
     }
     int pass_right = pass;
+    
+    if ( pass_right == 0 && pass_left == 0 ) {
+        if ( debugPK ) {
+            printf("Cannot go below required threshold on RD/insp amplitude\n");
+        }
+        if ( thrStore22L*thrStore22L + thrStore2m2L*thrStore2m2L < thrStore22R*thrStore22R + thrStore2m2R*thrStore2m2R) {
+            *tAttach = tLBest;
+            if ( debugPK ) {
+                printf("tLBest %f\n", tLBest);
+            }
+        }
+        else {
+            *tAttach = tRBest;
+            if ( debugPK ) {
+                printf("tRBest %f\n", tRBest);
+            }
+
+        }
+            return(2);
+    }
 
     if( pass_right == 1 && pass_left == 0){
         *tAttach = tAtt;
