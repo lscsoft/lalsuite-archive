@@ -789,7 +789,7 @@ int XLALSimAdjustRDattachmentTime(
     REAL8 thrStore22L = 0., thrStore2m2L = 0., thrStore22R = 0., thrStore2m2R = 0., tLBest = *tAttach, tRBest = *tAttach;
 
     REAL8 mTScaled = (retLenHi-1)*dt/matchrange->data[2];
-    REAL8 tMax = timeVec->data[retLenHi - 2];
+    REAL8 tMax = timeVec->data[retLenHi - 2] - 0.5 ;
 //    printf("tAtt, tMax = %f %f\n", tAtt, tMax);
     while(pass == 0 && (tAtt >= *tAttach - maxDeltaT)){
         tAtt = tAtt - 0.5;
@@ -843,9 +843,9 @@ int XLALSimAdjustRDattachmentTime(
         }
         if (debugPK) printf("LEFT SHIFT %f %f %f\n", *ratio22 ,*ratio2m2, (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
 
-        if (*ratio22 <= thr && *ratio2m2 <= thr){
-            pass = 1;
-        }
+//        if (*ratio22 <= thr && *ratio2m2 <= thr){
+//            pass = 1;
+//        }
 
 
     }
@@ -866,7 +866,7 @@ int XLALSimAdjustRDattachmentTime(
 
     pass = 0;
     tAtt = *tAttach;
-    while(pass == 0 && (tAtt <= tMax - 0.5)){
+    while(pass == 0 && (tAtt <= tMax)){
         tAtt = tAtt + 0.5;
         memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
         memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
@@ -919,9 +919,9 @@ int XLALSimAdjustRDattachmentTime(
         
         if (debugPK) printf("RIGHT SHIFT %f %f %f\n", *ratio22 , *ratio2m2, (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
         
-        if (*ratio22 <= thr && *ratio2m2 <= thr){
-            pass = 1;
-        }
+//        if (*ratio22 <= thr && *ratio2m2 <= thr){
+//            pass = 1;
+//        }
 
     }
     if(debugPK){
