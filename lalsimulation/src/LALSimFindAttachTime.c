@@ -34,7 +34,8 @@ double  XLALSimLocateOmegaTime(
     REAL8 m1,
     REAL8 m2,
     REAL8 *radiusVec,
-    int *found
+    int *found,
+    REAL8* tMaxOmega
         )
 {        
     /* 
@@ -105,6 +106,7 @@ double  XLALSimLocateOmegaTime(
     // FIXME
     // minoff = 0.0;
     double tMax = timeHi.data[Nps-1] - minoff;
+    *tMaxOmega = tMax;
     tMin = tMax - 20.;
     if ( debugPK ) {
         printf("tMin, tMax = %3.10f %3.10f\n", tMin, tMax);
@@ -343,7 +345,8 @@ double XLALSimLocateAmplTime(
     REAL8Vector *timeHi, 
     COMPLEX16Vector *hP22,
     REAL8 *radiusVec,
-    int *found)
+    int *found,
+    REAL8* tMaxAmp)
 {
     int debugPK = 0;
     int debugRD = 0;
@@ -385,6 +388,7 @@ double XLALSimLocateAmplTime(
     //minoff = 0.0; 
     double tMin  = timeHi->data[Nps-1] - maxoff;
     double tMax = timeHi->data[Nps-1] - minoff;
+    *tMaxAmp = tMax;
     tMin = tMax - maxoff;
     if ( debugPK ) {
         printf("tMin, tMax = %3.10f %3.10f \n", tMin, tMax);
@@ -775,10 +779,11 @@ int XLALSimAdjustRDattachmentTime(
     REAL8Vector * matchrange,	/**<< Time values chosen as points for performing comb matching */
     Approximant approximant,	/**<<The waveform approximant being used */
     const REAL8 JLN,            /**<< cosine of the angle between J and LN at the light ring */
-    const REAL8 combSize        /**<< combsize for RD attachment */
+    const REAL8 combSize,        /**<< combsize for RD attachment */
+    const REAL8 tMaxOmega,
+    const REAL8 tMaxAmp
     )
 {
-    
     int debugPK = 0;
     unsigned int retLenHi = h22->data->length;
     unsigned int i;
@@ -790,6 +795,14 @@ int XLALSimAdjustRDattachmentTime(
 
     REAL8 mTScaled = (retLenHi-1)*dt/matchrange->data[2];
     REAL8 tMax = timeVec->data[retLenHi - 2] - 0.5 ;
+//    printf("tMaxOmega, tMaxAmp %f %f %f\n", tMaxOmega, tMaxAmp, tMax);
+
+    if ( tMaxAmp < tMax) {
+        tMax = tMaxAmp;
+    }
+    if ( tMaxOmega < tMax) {
+        tMax = tMaxOmega;
+    }
 //    printf("tAtt, tMax = %f %f\n", tAtt, tMax);
     while(pass == 0 && (tAtt >= *tAttach - maxDeltaT)){
         tAtt = tAtt - 0.5;
@@ -834,7 +847,7 @@ int XLALSimAdjustRDattachmentTime(
                 thrStore22L = *ratio22;
                 thrStore2m2L = *ratio2m2;
                 tLBest = tAtt;
-                printf("tLBest is not %f\n", tLBest);
+                printf("tLBest is now %f %f %f %f\n", tLBest, *ratio22 ,*ratio2m2, (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
             }
         }
         else {
@@ -842,7 +855,6 @@ int XLALSimAdjustRDattachmentTime(
             thrStore2m2L = *ratio2m2;
             tLBest = tAtt;
         }
-        if (debugPK) printf("LEFT SHIFT %f %f %f\n", *ratio22 ,*ratio2m2, (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
 
 //        if (*ratio22 <= thr && *ratio2m2 <= thr){
 //            pass = 1;
@@ -867,7 +879,8 @@ int XLALSimAdjustRDattachmentTime(
 
     pass = 0;
     tAtt = *tAttach;
-    while(pass == 0 && (tAtt <= tMax)){
+    while(pass == 0 && (tAtt < tMax-0.5)){
+//        printf("tAtt tMax %f %f\n", tAtt, tMax);
         tAtt = tAtt + 0.5;
         memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
         memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
@@ -910,7 +923,7 @@ int XLALSimAdjustRDattachmentTime(
                 thrStore22R = *ratio22;
                 thrStore2m2R = *ratio2m2;
                 tRBest = tAtt;
-                printf("tRBest is not %f\n", tRBest);
+                printf("tRBest is now %f %f %f %f\n", tRBest, *ratio22 , *ratio2m2, (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
             }
         }
         else {
@@ -919,7 +932,6 @@ int XLALSimAdjustRDattachmentTime(
             tRBest = tAtt;
         }
         
-        if (debugPK) printf("RIGHT SHIFT %f %f %f\n", *ratio22 , *ratio2m2, (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
         
 //        if (*ratio22 <= thr && *ratio2m2 <= thr){
 //            pass = 1;

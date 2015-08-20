@@ -2913,7 +2913,8 @@ int XLALSimIMRSpinEOBWaveformAll(
     if (debugPK) {
         printf("Stas searching for maxima in omega .... \n");
     }
-    tPeakOmega = XLALSimLocateOmegaTime(dynamicsHi, values->length, retLenHi, seobParams, seobCoeffs, m1, m2, radiusVec, &found);
+    REAL8 tMaxOmega;
+    tPeakOmega = XLALSimLocateOmegaTime(dynamicsHi, values->length, retLenHi, seobParams, seobCoeffs, m1, m2, radiusVec, &found, &tMaxOmega);
 
     if(tPeakOmega == 0.0 || found==0){
         if (debugPK){
@@ -3789,7 +3790,8 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
 //        printf("Andrea the attachment time based on Omega is %f \n", tAttach);
 //    }
   int foundAmp = 0;
-  double tAmpMax =  XLALSimLocateAmplTime(&timeHi, h22PTSHi->data, radiusVec, &foundAmp);
+    REAL8 tMaxAmp;
+  double tAmpMax =  XLALSimLocateAmplTime(&timeHi, h22PTSHi->data, radiusVec, &foundAmp, &tMaxAmp);
   
   if(foundAmp==0){
       if (debugPK){
@@ -4005,7 +4007,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
            int found_att = XLALSimAdjustRDattachmentTime( sigReHi, sigImHi, h22JTSHi, h2m2JTSHi,  
                     &ratio22, &ratio2m2, &tAttach, thr,
                     deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
-                    &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL, combSize);
+                    &timeHi, rdMatchPoint, spinEOBApproximant, kappaJL, combSize, tMaxOmega, tMaxAmp);
              
            if (debugPK){
              if (found_att == 1){

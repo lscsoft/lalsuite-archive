@@ -67,7 +67,8 @@ double  XLALSimLocateOmegaTime(
     REAL8 m1,
     REAL8 m2,
     REAL8 *radiusVec,
-    int *found
+    int *found,
+    REAL8* tMaxOmega
 );
 
 
@@ -75,7 +76,8 @@ double XLALSimLocateAmplTime(
     REAL8Vector *timeHi, 
     COMPLEX16Vector *hP22,
     REAL8 *radiusVec,
-    int *found
+    int *found,
+    REAL8* tMaxAmp
 );
    
 INT4 XLALSimCheckRDattachment(
@@ -122,7 +124,9 @@ int XLALSimAdjustRDattachmentTime(
     REAL8Vector * matchrange,	/**<< Time values chosen as points for performing comb matching */
     Approximant approximant,	/**<<The waveform approximant being used */
     const REAL8 JLN,           /**<< cosine of the angle between J and LN at the light ring */
-    const REAL8 combsize        /**<< combsize for RD attachment */
+    const REAL8 combsize,        /**<< combsize for RD attachment */
+    const REAL8 tMaxOmega,
+    const REAL8 tMaxAmp
 );
  
 
