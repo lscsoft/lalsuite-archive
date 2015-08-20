@@ -847,7 +847,7 @@ int XLALSimAdjustRDattachmentTime(
                 thrStore22L = *ratio22;
                 thrStore2m2L = *ratio2m2;
                 tLBest = tAtt;
-                printf("tLBest is now %f %f %f %f\n", tLBest, *ratio22 ,*ratio2m2, (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
+                if(debugPK)printf("tLBest is now %f %f %f %f\n", tLBest, *ratio22 ,*ratio2m2, (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
             }
         }
         else {
@@ -923,7 +923,7 @@ int XLALSimAdjustRDattachmentTime(
                 thrStore22R = *ratio22;
                 thrStore2m2R = *ratio2m2;
                 tRBest = tAtt;
-                printf("tRBest is now %f %f %f %f\n", tRBest, *ratio22 , *ratio2m2, (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
+                if(debugPK)printf("tRBest is now %f %f %f %f\n", tRBest, *ratio22 , *ratio2m2, (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
             }
         }
         else {
