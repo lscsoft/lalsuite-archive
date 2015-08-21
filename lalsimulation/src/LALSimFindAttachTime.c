@@ -907,6 +907,7 @@ int XLALSimAdjustRDattachmentTime(
         {
             if (omegaVec[i]*omegaVec[i+1] < 0) {
                 iBad = i;
+                break;
             }
         }
         for ( i = iBad; i < retLenHi; i++ )
@@ -947,7 +948,7 @@ int XLALSimAdjustRDattachmentTime(
         }
         
         if ( thrStore22R != 0. && thrStore2m2R != 0. ) {
-            if ( (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr) < (thrStore22R - thr)*(thrStore22R - thr) + (thrStore2m2R - thr)*(thrStore2m2R - thr)  ) {
+            if ( tRBest < timeVec->data[iBad] && (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr) < (thrStore22R - thr)*(thrStore22R - thr) + (thrStore2m2R - thr)*(thrStore2m2R - thr)  ) {
                 thrStore22R = *ratio22;
                 thrStore2m2R = *ratio2m2;
                 tRBest = tAtt;
