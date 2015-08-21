@@ -878,7 +878,7 @@ int XLALSimAdjustRDattachmentTime(
     REAL8 left_r2m2 = *ratio2m2;
     REAL8 left_tAtt = tAtt;
     int pass_left = pass;
-    int iBad = 0;
+    int iBad = retLenHi - 1;
 
     pass = 0;
     tAtt = *tAttach;
