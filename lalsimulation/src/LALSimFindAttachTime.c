@@ -795,6 +795,8 @@ int XLALSimAdjustRDattachmentTime(
 
     REAL8 mTScaled = (retLenHi-1)*dt/matchrange->data[2];
     REAL8 tMax = timeVec->data[retLenHi - 2] - 0.5 ;
+    double hNorm2, dsignal1, dsignal2;    double omegaVec[retLenHi - 1];
+
 //    printf("tMaxOmega, tMaxAmp %f %f %f\n", tMaxOmega, tMaxAmp, tMax);
 
     if ( tMaxAmp < tMax) {
@@ -876,6 +878,7 @@ int XLALSimAdjustRDattachmentTime(
     REAL8 left_r2m2 = *ratio2m2;
     REAL8 left_tAtt = tAtt;
     int pass_left = pass;
+    int iBad = 0;
 
     pass = 0;
     tAtt = *tAttach;
@@ -893,7 +896,27 @@ int XLALSimAdjustRDattachmentTime(
             signal1->data[i] = creal(h22->data->data[i]);
             signal2->data[i] = cimag(h22->data->data[i]);
         }
-        if (debugPK) printf("right 2,2 mode tAtt = %f     ", tAtt); 
+        for ( i = 0; i < retLenHi-1; i++ )
+        {
+            dsignal1 = (signal1->data[i+1] - signal1->data[i]);
+            dsignal2 = (signal2->data[i+1] - signal2->data[i]);
+            hNorm2 = signal1->data[i]*signal1->data[i] + signal2->data[i]*signal2->data[i];
+            omegaVec[i] = (-dsignal1*signal2->data[i] + dsignal2*signal1->data[i])/hNorm2;
+        }
+        for ( i = 0; i < retLenHi-2; i++ )
+        {
+            if (omegaVec[i]*omegaVec[i+1] < 0) {
+                iBad = i;
+            }
+        }
+        for ( i = iBad; i < retLenHi; i++ )
+        {
+            signal1->data[i] = 0.;
+            signal2->data[i] = 0.;
+        }
+
+        
+        if (debugPK) printf("right 2,2 mode tAtt = %f     ", tAtt);
         if( XLALSimCheckRDattachment(signal1, signal2, ratio22, tAtt, 2, 2,
                         dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
                         timeVec, matchrange, approximant, JLN ) == XLAL_FAILURE )
@@ -908,6 +931,11 @@ int XLALSimAdjustRDattachmentTime(
         {
             signal1->data[i] = creal(h2m2->data->data[i]);
             signal2->data[i] = cimag(h2m2->data->data[i]);
+        }
+        for ( i = iBad; i < retLenHi; i++ )
+        {
+            signal1->data[i] = 0.;
+            signal2->data[i] = 0.;
         }
        
         if (debugPK) printf("right 2,-2 mode tAtt = %f     ", tAtt); 
