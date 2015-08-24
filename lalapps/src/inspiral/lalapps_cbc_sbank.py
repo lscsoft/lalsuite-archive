@@ -293,8 +293,6 @@ if opts.bank_seed is None:
 else:
     # seed bank with input bank. we do not prune the bank
     # for overcoverage, but take it as is
-    if opts.verbose:
-        print>>sys.stdout,"Seeding the template bank..."
     tmpdoc = utils.load_filename(opts.bank_seed, contenthandler=ContentHandler)
     sngl_inspiral = table.get_table(tmpdoc, lsctables.SnglInspiralTable.tableName)
     bank = Bank.from_sngls(sngl_inspiral, waveform, noise_model, opts.flow, opts.use_metric, opts.cache_waveforms, opts.neighborhood_size, opts.neighborhood_param, coarse_match_df=opts.coarse_match_df, iterative_match_df_max=opts.iterative_match_df_max, fhigh_max=opts.fhigh_max)
@@ -302,8 +300,7 @@ else:
     tmpdoc.unlink()
     del sngl_inspiral, tmpdoc
     if opts.verbose:
-        print>>sys.stdout,"\tseed bank size: %d"%len(bank)
-        print>>sys.stdout,"Filling regions of parameter space not covered by bank seed..."
+        print>>sys.stdout,"Initialized the template bank to seed file %s with %d precomputed templates." % (opts.bank_seed, len(bank))
 
 
 #
@@ -313,10 +310,10 @@ if opts.checkpoint and os.path.exists( fout + "_checkpoint.gz" ):
 
     xmldoc = utils.load_filename(fout + "_checkpoint.gz", contenthandler=ContentHandler)
     tbl = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-    [bank.insort(t) for t in Bank.from_sngls(tbl, waveform, noise_model, opts.flow, opts.use_metric, opts.cache_waveforms, opts.neighborhood_size, opts.neighborhood_param)]
+    [bank.insort(t) for t in Bank.from_sngls(tbl, waveform, noise_model, opts.flow, opts.use_metric, opts.cache_waveforms, opts.neighborhood_size, opts.neighborhood_param, coarse_match_df=opts.coarse_match_df, iterative_match_df_max=opts.iterative_match_df_max, fhigh_max=opts.fhigh_max)]
 
     if opts.verbose:
-        print >>sys.stdout,"Found checkpoint file with %d precomputed templates." % len(tbl)
+        print >>sys.stdout,"Found checkpoint file %s with %d precomputed templates." % (fout + "_checkpoint.gz", len(tbl))
         print >>sys.stdout, "Resuming from checkpoint with %d total templates..." % len(bank)
 
     # reset rng state
@@ -367,19 +364,23 @@ proposal = proposals[opts.approximant](opts.flow, **params)
 
 # For robust convergence, ensure that an average of kmax/len(ks) of
 # the last len(ks) proposals have been rejected by SBank.
-ks = deque(10*[0], maxlen=10)
+ks = deque(10*[1], maxlen=10)
 k = 0 # k is nprop per iteration
 nprop = 1  # count total number of proposed templates
-status_format = "bank size: %d\tproposed: %d\t" + "\t".join("%s: %s" % name_format for name_format in zip(waveform.param_names, waveform.param_formats))
+status_format = "\t".join("%s: %s" % name_format for name_format in zip(waveform.param_names, waveform.param_formats))
 while ((k + float(sum(ks)))/len(ks) < opts.convergence_threshold) and len(bank) < opts.templates_max:
     tmplt = waveform(*proposal.next(), bank=bank)
     k += 1
     nprop += 1
-    if not bank.covers(tmplt, opts.match_min):
+    match, matcher = bank.covers(tmplt, opts.match_min)
+    if match < opts.match_min:
         bank.insort(tmplt)
-        if opts.verbose:
-            print >>sys.stdout, status_format % ((len(bank), k) + tmplt.params)
         ks.append(k)
+        if opts.verbose:
+            print "\nbank size: %d\t\tproposed: %d\trejection rate: %.6f / (%.6f)" % (len(bank), k, 1 - float(len(ks))/float(sum(ks)), 1 - 1./opts.convergence_threshold )
+            print >>sys.stdout, "accepted:\t\t", status_format % tmplt.params
+            if matcher is not None:
+                print >>sys.stdout, "max match (%.4f):\t" % match, status_format % matcher.params
         k = 0
 
         # Add to single inspiral table. Do not store templates that
@@ -403,9 +404,10 @@ while ((k + float(sum(ks)))/len(ks) < opts.convergence_threshold) and len(bank) 
         tmplt.clear()
 
 
-print "total number of proposed templates: %d" % nprop
-print "total number of match calculations: %d" % bank._nmatch
-print "final bank size: %d" % len(bank)
+if opts.verbose:
+    print "\ntotal number of proposed templates: %d" % nprop
+    print "total number of match calculations: %d" % bank._nmatch
+    print "final bank size: %d" % len(bank)
 
 bank.clear()  # clear caches
 

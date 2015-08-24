@@ -181,8 +181,8 @@ if __name__ == "__main__":
     # Compute cartesian spins
     if 'a1' in params and 'theta1' in params and 'phi1' in params:
         s1x, s1y, s1z = bppu.sph2cart(samples['a1'], samples['theta1'], samples['phi1'])
-    elif 'spin1' in params:
-        s1z = samples['spin1']
+    elif 'a1' in params:
+        s1z = samples['a1']
         s1x = np.zeros_like(s1z)
         s1y = np.zeros_like(s1z)
     else:
@@ -193,8 +193,8 @@ if __name__ == "__main__":
 
     if 'a2' in params and 'theta2' in params and 'phi2' in params:
         s2x, s2y, s2z = bppu.sph2cart(samples['a2'], samples['theta2'], samples['phi2'])
-    elif 'spin2' in params:
-        s2z = samples['spin2']
+    elif 'a2' in params:
+        s2z = samples['a2']
         s2x = np.zeros_like(s2z)
         s2y = np.zeros_like(s2z)
     else:
