@@ -805,6 +805,7 @@ int XLALSimAdjustRDattachmentTime(
     if ( tMaxOmega < tMax) {
         tMax = tMaxOmega;
     }
+    tMax = tMax - 1.0;
 //    printf("tAtt, tMax = %f %f\n", tAtt, tMax);
     while(pass == 0 && (tAtt >= *tAttach - maxDeltaT)){
         tAtt = tAtt - 0.5;
