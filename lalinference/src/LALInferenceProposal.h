@@ -125,7 +125,6 @@ extern const char *const polarizationCorrPhaseJumpName;
 extern const char *const extrinsicParamProposalName;
 extern const char *const KDNeighborhoodProposalName;
 extern const char *const HrssQJumpName;
-extern const char *const differentialEvolutionSineGaussName;
 extern const char *const frequencyBinJumpName;
 extern const char *const GlitchMorletJumpName;
 extern const char *const GlitchMorletReverseJumpName;
