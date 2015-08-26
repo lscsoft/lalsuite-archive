@@ -676,22 +676,26 @@ XLALSimIMREOBHybridAttachRingdown(
         double ry, dy;
         gsl_interp_accel *acc;
         gsl_spline     *spline;
-        UINT4 vecLength = ((mass1 + mass2) * LAL_MTSUN_SI * matchrange->data[2] / dt) + 1;
-        y = (double *)LALMalloc(vecLength * sizeof(double));
+        //UINT4 vecLength = ((mass1 + mass2) * LAL_MTSUN_SI * matchrange->data[2] / dt) + 1;
+        //y = (double *)LALMalloc(vecLength * sizeof(double));
+        y = (double *)LALMalloc(timeVec->length * sizeof(double));
         double hRe, dhRe, hIm, dhIm;
 
         if (!y) {
             XLAL_ERROR(XLAL_ENOMEM);
         }
-//        FILE *out1 = fopen( "Andrea1.dat","w");
-        for (j = 0; j < vecLength; ++j) {
+        //FILE *out1 = fopen( "Andrea1.dat","w");
+        for (j = 0; j < timeVec->length; ++j) {
             y[j] = signal1->data[j];
-//            fprintf(out1, "%.16e %.16e\n", timeVec->data[j], y[j]);
+            //fprintf(out1, "%.16e %.16e\n", timeVec->data[j], y[j]);
+            //printf("%.16e %.16e\n", timeVec->data[j], y[j]);
         }
-//        fclose(out1);
+        //fclose(out1);
+        //exit(0);
 
         XLAL_CALLGSL(acc = (gsl_interp_accel *) gsl_interp_accel_alloc());
-        XLAL_CALLGSL(spline = (gsl_spline *) gsl_spline_alloc(gsl_interp_cspline, vecLength));
+        //XLAL_CALLGSL(spline = (gsl_spline *) gsl_spline_alloc(gsl_interp_cspline, vecLength));
+        XLAL_CALLGSL(spline = (gsl_spline *) gsl_spline_alloc(gsl_interp_cspline, timeVec->length));
         if (!acc || !spline) {
             if (acc)
                 gsl_interp_accel_free(acc);
@@ -700,7 +704,10 @@ XLALSimIMREOBHybridAttachRingdown(
             LALFree(y);
             XLAL_ERROR(XLAL_ENOMEM);
         }
-        INT4 gslStatus = gsl_spline_init(spline, timeVec->data, y, vecLength);
+        
+        //printf("here1....  last point %f, match_t %f \n", timeVec->data[timeVec->length-1], matchrange->data[1]);
+        //INT4 gslStatus = gsl_spline_init(spline, timeVec->data, y, vecLength);
+        INT4 gslStatus = gsl_spline_init(spline, timeVec->data, y, timeVec->length);
         if (gslStatus != GSL_SUCCESS) {
             gsl_spline_free(spline);
             gsl_interp_accel_free(acc);
@@ -708,8 +715,11 @@ XLALSimIMREOBHybridAttachRingdown(
             XLAL_ERROR(XLAL_EFUNC);
         }
         gslStatus = gsl_spline_eval_e(spline, matchrange->data[1], acc, &ry);
+        //int ind_stas = (int) matchrange->data[1]*(((mass1 + mass2) * LAL_MTSUN_SI / dt)); 
+        //printf("here2.... %f,  %f,  %f, %f \n", ry, timeVec->data[ind_stas], matchrange->data[1], y[ind_stas]);
         if (gslStatus == GSL_SUCCESS) {
             gslStatus = gsl_spline_eval_deriv_e(spline, matchrange->data[1], acc, &dy);
+            //printf("here2.... ");
         }
         if (gslStatus != GSL_SUCCESS) {
             gsl_spline_free(spline);
@@ -719,15 +729,19 @@ XLALSimIMREOBHybridAttachRingdown(
         }
         hRe = (REAL8) (ry);
         dhRe = (REAL8) (dy);
+
+        //printf("here hRe = %f, dhRe = %f \n", hRe, dhRe);
         
-//        FILE *out2 = fopen( "Andrea2.dat","w");
-        for (j = 0; j < vecLength; ++j) {
+        //FILE *out2 = fopen( "Andrea2.dat","w");
+        //for (j = 0; j < vecLength; ++j) {
+        for (j = 0; j < timeVec->length; ++j) {
             y[j] = signal2->data[j];
-//            fprintf(out2, "%.16e %.16e\n", timeVec->data[j], y[j]);
+            //fprintf(out2, "%.16e %.16e\n", timeVec->data[j], y[j]);
         }
-//        fclose(out2);
-        XLAL_CALLGSL(acc = (gsl_interp_accel *) gsl_interp_accel_alloc());
-        XLAL_CALLGSL(spline = (gsl_spline *) gsl_spline_alloc(gsl_interp_cspline, vecLength));
+        //fclose(out2);
+        //XLAL_CALLGSL(acc = (gsl_interp_accel *) gsl_interp_accel_alloc());
+        //XLAL_CALLGSL(spline = (gsl_spline *) gsl_spline_alloc(gsl_interp_cspline, vecLength));
+        //XLAL_CALLGSL(spline = (gsl_spline *) gsl_spline_alloc(gsl_interp_cspline, signal2->length));
         if (!acc || !spline) {
             if (acc)
                 gsl_interp_accel_free(acc);
@@ -736,7 +750,8 @@ XLALSimIMREOBHybridAttachRingdown(
             LALFree(y);
             XLAL_ERROR(XLAL_ENOMEM);
         }
-        gslStatus = gsl_spline_init(spline, timeVec->data, y, vecLength);
+        //gslStatus = gsl_spline_init(spline, timeVec->data, y, vecLength);
+        gslStatus = gsl_spline_init(spline, timeVec->data, y, timeVec->length);
         if (gslStatus != GSL_SUCCESS) {
             gsl_spline_free(spline);
             gsl_interp_accel_free(acc);
@@ -756,11 +771,23 @@ XLALSimIMREOBHybridAttachRingdown(
         hIm = (REAL8) (ry);
         dhIm = (REAL8) (dy);
         
+        //printf("Stas, check hRe = %f, dhRe = %f, hIm = %f, dhIm = %f \n", hRe, dhRe, hIm, dhIm);
         double hNorm2 = hRe*hRe + hIm*hIm;
-        double omegaWavePeak = ((-dhRe*hIm + dhIm*hRe)/hNorm2) / mTot;
-        
+        double omegaWavePeak = creal(modefreqs->data[0]);
+        if (hNorm2 != 0.0){
+            omegaWavePeak = ((-dhRe*hIm + dhIm*hRe)/hNorm2) / mTot;
+        }
+        else{
+            printf("PROBLEM!!!!! hNOrm=0.0\n");
+            XLAL_ERROR(XLAL_EFAILED);
+        }
+
+         
 		a = (chi1 + chi2) / 2. * (1.0 - 2.0 * eta) + (chi1 - chi2) / 2. * (mass1 - mass2) / (mass1 + mass2);
         NRPeakOmega22 = fabs(omegaWavePeak);
+        gsl_spline_free(spline);
+        gsl_interp_accel_free(acc);
+        LALFree(y);
         // FIXME
         //NRPeakOmega22 = 0.3;
 		//NRPeakOmega22 = GetNRSpinPeakOmegav2(l, m, eta, a) / mTot;

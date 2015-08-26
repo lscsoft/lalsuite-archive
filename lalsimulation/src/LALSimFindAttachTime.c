@@ -713,6 +713,25 @@ INT4 XLALSimCheckRDattachment(
     unsigned int i;
     unsigned int i_att = 0;
     REAL8 Amp[signal1->length];
+    // sanity check 
+    int ind_att = (int) matchrange->data[1]*(((mass1 + mass2) * LAL_MTSUN_SI / dt)) + 1;
+    if (debugPK){
+        printf("attach_ind = %d, t =%f, %f \n", ind_att, matchrange->data[1], timeVec->data[ind_att]); 
+    } 
+    if (signal1->data[ind_att] == 0.0 && signal2->data[ind_att] == 0.0){
+        printf("Opyat' signal = 0 \n");
+        //FILE *out1 = fopen( "Andrea1.dat","w");
+        //for (i = 0; i < timeVec->length; i++) {
+        //    fprintf(out1, "%.16e   %.16e   %.16e\n", timeVec->data[i], signal1->data[i], signal2->data[i]);
+            //printf("%.16e %.16e\n", timeVec->data[j], y[j]);
+        //}
+        //fclose(out1);
+        //exit(0);
+        XLAL_ERROR(XLAL_EFAILED);
+
+
+    }
+ 
     
     if ( XLALSimIMREOBHybridAttachRingdown( signal1, signal2, l, m,
                 dt, mass1, mass2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
@@ -747,10 +766,15 @@ INT4 XLALSimCheckRDattachment(
     }  
      
     if (debugPK){
-        printf(" the ratio of amplitudes = %f  \n", maxR/maxL);
+        printf(" the ratio of amplitudes = %f  , ampls = %f, %f \n", maxR/maxL, maxR, maxL);
     }
 
     *ratio = maxR/maxL;
+    if (maxR/maxL != maxR/maxL){
+        //this is nan
+        *ratio = 1000.0;
+    }
+
 
     return XLAL_SUCCESS;
    
@@ -787,7 +811,7 @@ int XLALSimAdjustRDattachmentTime(
     int debugPK = 0;
     unsigned int retLenHi = h22->data->length;
     unsigned int i;
-    int pass = 0; 
+    int pass = 0;
     REAL8 tAtt;
     tAtt = *tAttach; // replace with the loop
     REAL8 maxDeltaT = 10.0;
@@ -911,55 +935,52 @@ int XLALSimAdjustRDattachmentTime(
                 break;
             }
         }
-        for ( i = iBad; i < retLenHi; i++ )
-        {
-            signal1->data[i] = 0.;
-            signal2->data[i] = 0.;
-        }
+        //for ( i = iBad; i < retLenHi; i++ )
+        //{
+        //    signal1->data[i] = 0.;
+        //    signal2->data[i] = 0.;
+        //}
 
         
         if (debugPK) printf("right 2,2 mode tAtt = %f     ", tAtt);
-        if( XLALSimCheckRDattachment(signal1, signal2, ratio22, tAtt, 2, 2,
-                        dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
-                        timeVec, matchrange, approximant, JLN ) == XLAL_FAILURE )
-        {
-              XLAL_ERROR( XLAL_EFUNC );
-        }
+        if (matchrange->data[1] < iBad){
+            if( XLALSimCheckRDattachment(signal1, signal2, ratio22, tAtt, 2, 2,
+                            dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
+                            timeVec, matchrange, approximant, JLN ) == XLAL_FAILURE )
+            {
+                  XLAL_ERROR( XLAL_EFUNC );
+            }
 
      
-        memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
-        memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
-        for ( i = 0; i < retLenHi; i++ )
-        {
-            signal1->data[i] = creal(h2m2->data->data[i]);
-            signal2->data[i] = cimag(h2m2->data->data[i]);
-        }
-        for ( i = iBad; i < retLenHi; i++ )
-        {
-            signal1->data[i] = 0.;
-            signal2->data[i] = 0.;
-        }
+            memset( signal1->data, 0, signal1->length * sizeof( signal1->data[0] ));
+            memset( signal2->data, 0, signal2->length * sizeof( signal2->data[0] ));
+            for ( i = 0; i < retLenHi; i++ )
+            {
+                signal1->data[i] = creal(h2m2->data->data[i]);
+                signal2->data[i] = cimag(h2m2->data->data[i]);
+            }
        
-        if (debugPK) printf("right 2,-2 mode tAtt = %f     ", tAtt); 
-        if( XLALSimCheckRDattachment(signal1, signal2, ratio2m2, tAtt, 2, -2,
-                        dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
-                        timeVec, matchrange, approximant, JLN ) == XLAL_FAILURE )
-        {
-              XLAL_ERROR( XLAL_EFUNC );
-        }
+            if (debugPK) printf("right 2,-2 mode tAtt = %f     ", tAtt); 
+            if( XLALSimCheckRDattachment(signal1, signal2, ratio2m2, tAtt, 2, -2,
+                            dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
+                            timeVec, matchrange, approximant, JLN ) == XLAL_FAILURE )
+            {
+                  XLAL_ERROR( XLAL_EFUNC );
+            }
         
-        if ( thrStore22R != 0. && thrStore2m2R != 0. ) {
-            if ( tRBest < timeVec->data[iBad] && (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr) < (thrStore22R - thr)*(thrStore22R - thr) + (thrStore2m2R - thr)*(thrStore2m2R - thr)  ) {
+            if ( thrStore22R != 0. && thrStore2m2R != 0. ) {
+                if ( tRBest < timeVec->data[iBad] && (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr) < (thrStore22R - thr)*(thrStore22R - thr) + (thrStore2m2R - thr)*(thrStore2m2R - thr)  ) {
+                    thrStore22R = *ratio22;
+                    thrStore2m2R = *ratio2m2;
+                    tRBest = tAtt;
+                    if(debugPK)printf("tRBest is now %f %f %f %f\n", tRBest, *ratio22 , *ratio2m2, (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
+                }
+            }
+            else {
                 thrStore22R = *ratio22;
                 thrStore2m2R = *ratio2m2;
                 tRBest = tAtt;
-                if(debugPK)printf("tRBest is now %f %f %f %f\n", tRBest, *ratio22 , *ratio2m2, (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
             }
-        }
-        else {
-            thrStore22R = *ratio22;
-            thrStore2m2R = *ratio2m2;
-            tRBest = tAtt;
         }
         
         

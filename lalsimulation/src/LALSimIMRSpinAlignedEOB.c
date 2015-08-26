@@ -3962,13 +3962,14 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
       REAL8 thr = 1.;
       REAL8 ratio22 = 1.0;
       REAL8 ratio2m2 = 1.0;
-      
-      hJTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 2 );
+ 
+      //hJTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, 2 );
 
+      //printf("Stas check tmieHi-> %d, sigReHi -> %d \n", timeHi.length, sigReHi->length);
       for ( i = 0; i < retLenHi; i++ )
         {
-          sigReHi->data[i] = creal(hJTSHi->data->data[i]);
-          sigImHi->data[i] = cimag(hJTSHi->data->data[i]);
+          sigReHi->data[i] = creal(h22JTSHi->data->data[i]);
+          sigImHi->data[i] = cimag(h22JTSHi->data->data[i]);
         }
       if( XLALSimCheckRDattachment(sigReHi, sigImHi, &ratio22, tAttach, 2, 2,
                     deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
@@ -3980,12 +3981,12 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
       memset( sigReHi->data, 0, sigReHi->length * sizeof( sigReHi->data[0] ));
       memset( sigImHi->data, 0, sigImHi->length * sizeof( sigImHi->data[0] ));
       
-      hJTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, -2 );
+      //hJTSHi  = XLALSphHarmTimeSeriesGetMode( hlmPTSHi, 2, -2 );
 
       for ( i = 0; i < retLenHi; i++ )
         {
-          sigReHi->data[i] = creal(hJTSHi->data->data[i]);
-          sigImHi->data[i] = cimag(hJTSHi->data->data[i]);
+          sigReHi->data[i] = creal(h2m2JTSHi->data->data[i]);
+          sigImHi->data[i] = cimag(h2m2JTSHi->data->data[i]);
         }
       if( XLALSimCheckRDattachment(sigReHi, sigImHi, &ratio2m2, tAttach, 2, -2,
                     deltaTHigh, m1, m2, 0.0, 0.0, chi1J, 0.0, 0.0, chi2J,
