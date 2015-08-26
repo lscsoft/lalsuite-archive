@@ -65,8 +65,6 @@ LALInferenceTemplateFunction LALInferenceInitBurstTemplate(LALInferenceRunState 
 
 LALInferenceModel *LALInferenceInitBurstModel(LALInferenceRunState *state);
 
-LALInferenceModel *LALInferenceInitRDVariables(LALInferenceRunState *state);
-LALInferenceModel *LALInferenceInitPowerBurst(LALInferenceRunState *state);
 
 /**
  Initialise the glitch fitting parameters

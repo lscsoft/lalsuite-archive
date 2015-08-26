@@ -228,10 +228,6 @@ REAL8 LALInferenceDifferentialEvolutionIntrinsic(LALInferenceRunState *state, LA
  */
 REAL8 LALInferenceDifferentialEvolutionExtrinsic(LALInferenceRunState *state, LALInferenceVariables *currentParams, LALInferenceVariables *proposedParams);
 
-/** Perform a differential evolution step on only the spin variables. */
-void LALInferenceDifferentialEvolutionSpins(LALInferenceRunState *state, LALInferenceVariables *proposedParams);
-void LALInferenceDifferentialEvolutionPhysicalSpins(LALInferenceRunState *state, LALInferenceVariables *proposedParams);
-
 /**
  * Draws from an approximation to the true prior.  Flat in all
  * variables except for: Mc^(-11/6), flat in cos(co-latitudes), flat
@@ -342,7 +338,6 @@ INT4 LALInferenceComputeEffectiveSampleSize(LALInferenceRunState *runState);
 
 /** Helper function to setup the adaptive step proposals before the run */
 void LALInferenceSetupAdaptiveProposals(LALInferenceRunState *state);
-void LALInferenceTimeFrequencySinGaussian(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
 void LALInferenceSetupDefaultNSProposal(LALInferenceRunState *runState, LALInferenceVariables *currentParams, LALInferenceVariables *proposedParams);
 

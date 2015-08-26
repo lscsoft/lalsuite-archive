@@ -127,7 +127,6 @@ void LALInferenceTemplateNullTimedomain(LALInferenceModel *model);
  * - \c "phase"      (REAL8, phase \f$ \phi \f$ (at time \f$ \mu \f$), radians)
  * - \c "amplitude"  (REAL8, amplitude \f$ a \f$)
  */
-void LALInferenceTemplateSineGaussian(LALInferenceModel *model);
 
 void LALInferenceTemplateROQ(LALInferenceModel *model);
 
@@ -202,8 +201,6 @@ void LALInferenceTemplateASinOmegaT(LALInferenceModel *model);
  */
 void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model);
 void LALInferenceTemplateXLALSimBurstChooseWaveform(LALInferenceModel *model);
-void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata);
-void LALInferenceTemplateDampedSinusoidF(LALInferenceIFOData *IFOdata);
 
 void LALInferenceTemplateXLALSimBurstSineGaussianF(LALInferenceModel *model);
 /*@}*/
