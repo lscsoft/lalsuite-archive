@@ -829,7 +829,13 @@ int XLALSimAdjustRDattachmentTime(
     if ( tMaxOmega < tMax) {
         tMax = tMaxOmega;
     }
-    tMax = tMax - 3.0;
+    tMax = tMax - 3.;
+    if(tMax > tAtt + 5.0){
+        tMax = tAtt + 5.0;
+    }
+    if (debugPK){
+        printf("tmax = %f, tAtt = %f, tmaxAmp = %f, tmaxOm = %f\n", tMax, tAtt, tMaxAmp, tMaxOmega);
+    }  
 //    printf("tAtt, tMax = %f %f\n", tAtt, tMax);
     while(pass == 0 && (tAtt >= *tAttach - maxDeltaT)){
         tAtt = tAtt - 0.5;
@@ -899,9 +905,9 @@ int XLALSimAdjustRDattachmentTime(
         }
                 
     }
-    REAL8 left_r22 = *ratio22;
-    REAL8 left_r2m2 = *ratio2m2;
-    REAL8 left_tAtt = tAtt;
+    //REAL8 left_r22 = *ratio22;
+    //REAL8 left_r2m2 = *ratio2m2;
+    //REAL8 left_tAtt = tLBest;
     int pass_left = pass;
     int iBad = retLenHi - 1;
 
@@ -1019,7 +1025,7 @@ int XLALSimAdjustRDattachmentTime(
             return(2);
     }
 
-    if( pass_right == 1 && pass_left == 0){
+    /*if( pass_right == 1 && pass_left == 0){
         *tAttach = tAtt;
         return(1);
     }
@@ -1061,7 +1067,7 @@ int XLALSimAdjustRDattachmentTime(
 
             }
         }
-    }
+    }*/
     return(0);
 
 } 
