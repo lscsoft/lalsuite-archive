@@ -1492,7 +1492,11 @@ int XLALSimIMRSpinEOBWaveform(
                         phiC, deltaT, m1SI, m2SI, fMin, r, inc, INspin1[0],
                         INspin1[1], INspin1[2], INspin2[0], INspin2[1],
                         INspin2[2]);
- 
+
+    //printf("Stas: address of dynamicsHi = %p, AttachPars = %p \n", dynamicsHi, AttachPars);
+   
+    //printf("Stas: addresses of hlmPTSHi = %p, hlmPTSout = %p, hIMRlmJTSHi = %p \n",  hlmPTSHi, hlmPTSout, hIMRlmJTSHi); 
+
     //int i;
     
     //printf("Stas: checking \n");
@@ -1517,18 +1521,18 @@ int XLALSimIMRSpinEOBWaveform(
 
 
     //printf("cleaning memory... \n");
-    if (dynamicsHi == NULL){
-        printf("dy is already null\n");
-    }else{
-        XLALDestroyREAL8Array( dynamicsHi );
+    //if (dynamicsHi == NULL){
+    //    printf("dy is already null\n");
+    //}else{
     //    printf("Stas: dynamics is cleaned \n");
-    }
-    if (AttachPars == NULL){
-        printf("att pars is already null\n");
-    }else{
-        XLALDestroyREAL8Vector( AttachPars );
+    //}
+    //if (AttachPars == NULL){
+    //    printf("att pars is already null\n");
+    //}else{
     //    printf("Stas: attach pars is cleaned \n");
-    }
+    //}
+    XLALDestroyREAL8Array( dynamicsHi );
+    XLALDestroyREAL8Vector( AttachPars );
     
     XLALDestroySphHarmTimeSeries(hlmPTSout);
     //printf("Stas: Pwave is cleaned \n");
@@ -2673,12 +2677,14 @@ int XLALSimIMRSpinEOBWaveformAll(
   if (debugPK) fclose(out);
 
   /* Integrate \dot{\alpha} \cos{\beta} to get the final Euler angle*/
-  x_spline = gsl_spline_alloc( gsl_interp_cspline, retLenLow );
-  x_acc = gsl_interp_accel_alloc();  
+  //gsl_spline_free(x_spline);
+  //gsl_interp_accel_free(x_acc);
+  //x_spline = gsl_spline_alloc( gsl_interp_cspline, retLenLow );
+  //x_acc = gsl_interp_accel_alloc();  
   gsl_spline_init( x_spline, tVec.data, Alpha->data, retLenLow );
   
-  y_spline = gsl_spline_alloc( gsl_interp_cspline, retLenLow );
-  y_acc = gsl_interp_accel_alloc();
+  //y_spline = gsl_spline_alloc( gsl_interp_cspline, retLenLow );
+  //y_acc = gsl_interp_accel_alloc();
   gsl_spline_init( y_spline, tVec.data, Beta->data, retLenLow );
   
   Gamma = XLALCreateREAL8Vector( retLenLow );
@@ -2724,6 +2730,13 @@ int XLALSimIMRSpinEOBWaveformAll(
   
   AlphaHi = XLALCreateREAL8Vector( retLenHi );
   BetaHi   = XLALCreateREAL8Vector( retLenHi );
+  
+  gsl_spline_free(x_spline);
+  gsl_interp_accel_free(x_acc);
+  gsl_spline_free(y_spline);
+  gsl_interp_accel_free(y_acc);
+  gsl_spline_free(z_spline);
+  gsl_interp_accel_free(z_acc);
   
   x_spline = gsl_spline_alloc( gsl_interp_cspline, retLenHi );
   y_spline = gsl_spline_alloc( gsl_interp_cspline, retLenHi );
@@ -2796,12 +2809,12 @@ int XLALSimIMRSpinEOBWaveformAll(
   if (debugPK) fclose(out);
 
   /* Integrate \dot{\alpha} \cos{\beta} to get the final Euler angle*/
-  x_spline = gsl_spline_alloc( gsl_interp_cspline, retLenHi );
-  x_acc = gsl_interp_accel_alloc();  
+  //x_spline = gsl_spline_alloc( gsl_interp_cspline, retLenHi );
+  //x_acc = gsl_interp_accel_alloc();  
   gsl_spline_init( x_spline, timeHi.data, AlphaHi->data, retLenHi );
   
-  y_spline = gsl_spline_alloc( gsl_interp_cspline, retLenHi );
-  y_acc = gsl_interp_accel_alloc();
+  //y_spline = gsl_spline_alloc( gsl_interp_cspline, retLenHi );
+  //y_acc = gsl_interp_accel_alloc();
   gsl_spline_init( y_spline, timeHi.data, BetaHi->data, retLenHi );
   
   GammaHi = XLALCreateREAL8Vector( retLenHi );
@@ -2813,6 +2826,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   precEulerparams.beta_acc     = y_acc;
    
   /*gsl_integration_workspace * */
+  gsl_integration_workspace_free( precEulerw );
   precEulerw = gsl_integration_workspace_alloc (1000);
   precEulerresult = 0, precEulererror = 0;
    
@@ -3124,40 +3138,70 @@ int XLALSimIMRSpinEOBWaveformAll(
                                   &tc, 0.0, deltaT, &lalStrainUnit, retLen );
   COMPLEX16TimeSeries *h2m2TS  = XLALCreateCOMPLEX16TimeSeries( "H_2m2",  
                                   &tc, 0.0, deltaT, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h22PTS  = XLALCreateCOMPLEX16TimeSeries( "HP_22",  
-                                  &tc, 0.0, deltaT, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h21PTS  = XLALCreateCOMPLEX16TimeSeries( "HP_21",  
-                                  &tc, 0.0, deltaT, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h20PTS  = XLALCreateCOMPLEX16TimeSeries( "HP_20",  
-                                  &tc, 0.0, deltaT, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h2m1PTS = XLALCreateCOMPLEX16TimeSeries( "HP_2m1", 
-                                  &tc, 0.0, deltaT, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h2m2PTS = XLALCreateCOMPLEX16TimeSeries( "HP_2m2", 
-                                  &tc, 0.0, deltaT, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h22JTS  = XLALCreateCOMPLEX16TimeSeries( "HJ_22",  
-                                  &tc, 0.0, deltaT, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h21JTS  = XLALCreateCOMPLEX16TimeSeries( "HJ_21",  
-                                  &tc, 0.0, deltaT, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h20JTS  = XLALCreateCOMPLEX16TimeSeries( "HJ_20", 
-                                  &tc, 0.0, deltaT, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h2m1JTS = XLALCreateCOMPLEX16TimeSeries( "HJ_2m1", 
-                                  &tc, 0.0, deltaT, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h2m2JTS = XLALCreateCOMPLEX16TimeSeries( "HJ_2m2", 
-                                  &tc, 0.0, deltaT, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *hJTS    = XLALCreateCOMPLEX16TimeSeries( "HJ",     
-                                  &tc, 0.0, deltaT, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *hIMR22JTS  = XLALCreateCOMPLEX16TimeSeries( "HIMRJ_22",
-              &tc, 0.0, deltaT, &lalStrainUnit, retLen + retLenRDPatchLow );
-  COMPLEX16TimeSeries *hIMR21JTS  = XLALCreateCOMPLEX16TimeSeries( "HIMRJ_21",
-              &tc, 0.0, deltaT, &lalStrainUnit, retLen + retLenRDPatchLow );
-  COMPLEX16TimeSeries *hIMR20JTS  = XLALCreateCOMPLEX16TimeSeries( "HIMRJ_20",
-              &tc, 0.0, deltaT, &lalStrainUnit, retLen + retLenRDPatchLow );
-  COMPLEX16TimeSeries *hIMR2m1JTS = XLALCreateCOMPLEX16TimeSeries( "HIMRJ_2m1",
-              &tc, 0.0, deltaT, &lalStrainUnit, retLen + retLenRDPatchLow );
-  COMPLEX16TimeSeries *hIMR2m2JTS = XLALCreateCOMPLEX16TimeSeries( "HIMRJ_2m2",
-              &tc, 0.0, deltaT, &lalStrainUnit, retLen + retLenRDPatchLow );
+
+  //printf("Stas: here are the adresses to h2mTS: %p, %p, %p, %p, %p \n", h22TS, h21TS, h20TS, h2m1TS, h2m2TS);
+
+  COMPLEX16TimeSeries *h22PTS  = NULL;  
+  COMPLEX16TimeSeries *h21PTS  = NULL;
+  COMPLEX16TimeSeries *h20PTS  = NULL;
+  COMPLEX16TimeSeries *h2m1PTS = NULL;
+  COMPLEX16TimeSeries *h2m2PTS = NULL;
+  
+  COMPLEX16TimeSeries *h22JTS  = NULL; 
+  COMPLEX16TimeSeries *h21JTS  = NULL;
+  COMPLEX16TimeSeries *h20JTS  = NULL;
+  COMPLEX16TimeSeries *h2m1JTS = NULL;
+  COMPLEX16TimeSeries *h2m2JTS = NULL;
+  
+  COMPLEX16TimeSeries *hJTS    = NULL;
+  
+  COMPLEX16TimeSeries *hIMR22JTS  = NULL;
+  COMPLEX16TimeSeries *hIMR21JTS  = NULL;
+  COMPLEX16TimeSeries *hIMR20JTS  = NULL;
+  COMPLEX16TimeSeries *hIMR2m1JTS = NULL;
+  COMPLEX16TimeSeries *hIMR2m2JTS = NULL;
+  
+  //COMPLEX16TimeSeries *h22PTS  = XLALCreateCOMPLEX16TimeSeries( "HP_22",  
+  //                                &tc, 0.0, deltaT, &lalStrainUnit, retLen );
+  //COMPLEX16TimeSeries *h21PTS  = XLALCreateCOMPLEX16TimeSeries( "HP_21",  
+  //                                &tc, 0.0, deltaT, &lalStrainUnit, retLen );
+  //COMPLEX16TimeSeries *h20PTS  = XLALCreateCOMPLEX16TimeSeries( "HP_20",  
+  //                                &tc, 0.0, deltaT, &lalStrainUnit, retLen );
+  //COMPLEX16TimeSeries *h2m1PTS = XLALCreateCOMPLEX16TimeSeries( "HP_2m1", 
+  //                                &tc, 0.0, deltaT, &lalStrainUnit, retLen );
+  //COMPLEX16TimeSeries *h2m2PTS = XLALCreateCOMPLEX16TimeSeries( "HP_2m2", 
+  //                                &tc, 0.0, deltaT, &lalStrainUnit, retLen );
+
+  //COMPLEX16TimeSeries *h22JTS  = XLALCreateCOMPLEX16TimeSeries( "HJ_22",  
+  //                                &tc, 0.0, deltaT, &lalStrainUnit, retLen );
+  //COMPLEX16TimeSeries *h21JTS  = XLALCreateCOMPLEX16TimeSeries( "HJ_21",  
+  //                                &tc, 0.0, deltaT, &lalStrainUnit, retLen );
+  //COMPLEX16TimeSeries *h20JTS  = XLALCreateCOMPLEX16TimeSeries( "HJ_20", 
+  //                                &tc, 0.0, deltaT, &lalStrainUnit, retLen );
+  //COMPLEX16TimeSeries *h2m1JTS = XLALCreateCOMPLEX16TimeSeries( "HJ_2m1", 
+  //                                &tc, 0.0, deltaT, &lalStrainUnit, retLen );
+  //COMPLEX16TimeSeries *h2m2JTS = XLALCreateCOMPLEX16TimeSeries( "HJ_2m2", 
+  //                                &tc, 0.0, deltaT, &lalStrainUnit, retLen );
+  
+  //COMPLEX16TimeSeries *hJTS    = XLALCreateCOMPLEX16TimeSeries( "HJ",     
+  //                                &tc, 0.0, deltaT, &lalStrainUnit, retLen );
+
+  //COMPLEX16TimeSeries *hIMR22JTS  = XLALCreateCOMPLEX16TimeSeries( "HIMRJ_22",
+  //            &tc, 0.0, deltaT, &lalStrainUnit, retLen + retLenRDPatchLow );
+  //COMPLEX16TimeSeries *hIMR21JTS  = XLALCreateCOMPLEX16TimeSeries( "HIMRJ_21",
+  //            &tc, 0.0, deltaT, &lalStrainUnit, retLen + retLenRDPatchLow );
+  //COMPLEX16TimeSeries *hIMR20JTS  = XLALCreateCOMPLEX16TimeSeries( "HIMRJ_20",
+  //            &tc, 0.0, deltaT, &lalStrainUnit, retLen + retLenRDPatchLow );
+  //COMPLEX16TimeSeries *hIMR2m1JTS = XLALCreateCOMPLEX16TimeSeries( "HIMRJ_2m1",
+  //            &tc, 0.0, deltaT, &lalStrainUnit, retLen + retLenRDPatchLow );
+  //COMPLEX16TimeSeries *hIMR2m2JTS = XLALCreateCOMPLEX16TimeSeries( "HIMRJ_2m2",
+  //            &tc, 0.0, deltaT, &lalStrainUnit, retLen + retLenRDPatchLow );
+  
   COMPLEX16TimeSeries *hIMRJTS    = XLALCreateCOMPLEX16TimeSeries( "HIMRJ", 
               &tc, 0.0, deltaT, &lalStrainUnit, retLen + retLenRDPatchLow );
+
+  //printf("Here is address of hIMRJTS %p\n", hIMRJTS);
+  
   REAL8TimeSeries  *hPlusTS  = XLALCreateREAL8TimeSeries( "H_PLUS",
               &tc, 0.0, deltaT, &lalStrainUnit, retLen + retLenRDPatchLow );
   REAL8TimeSeries  *hCrossTS = XLALCreateREAL8TimeSeries( "H_CROSS", 
@@ -3466,40 +3510,68 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
                                 &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
   COMPLEX16TimeSeries *h2m2TSHi  = XLALCreateCOMPLEX16TimeSeries( "H_2m2",  
                                 &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h22PTSHi  = XLALCreateCOMPLEX16TimeSeries( "HP_22",  
-                                &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h21PTSHi  = XLALCreateCOMPLEX16TimeSeries( "HP_21",  
-                                &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h20PTSHi  = XLALCreateCOMPLEX16TimeSeries( "HP_20",  
-                                &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h2m1PTSHi = XLALCreateCOMPLEX16TimeSeries( "HP_2m1", 
-                                &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h2m2PTSHi = XLALCreateCOMPLEX16TimeSeries( "HP_2m2",
-                                &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h22JTSHi  = XLALCreateCOMPLEX16TimeSeries( "HJ_22",  
-                                &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h21JTSHi  = XLALCreateCOMPLEX16TimeSeries( "HJ_21",  
-                                &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h20JTSHi  = XLALCreateCOMPLEX16TimeSeries( "HJ_20", 
-                                &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h2m1JTSHi = XLALCreateCOMPLEX16TimeSeries( "HJ_2m1",
-                                &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *h2m2JTSHi = XLALCreateCOMPLEX16TimeSeries( "HJ_2m2",
-                                &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *hJTSHi    = XLALCreateCOMPLEX16TimeSeries( "HJ",     
-                                &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
-  COMPLEX16TimeSeries *hIMR22JTSHi  = XLALCreateCOMPLEX16TimeSeries(
-   "HIMRJ_22Hi",  &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen + retLenRDPatch);
-  COMPLEX16TimeSeries *hIMR21JTSHi  = XLALCreateCOMPLEX16TimeSeries(
-   "HIMRJ_21Hi",  &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen + retLenRDPatch);
-  COMPLEX16TimeSeries *hIMR20JTSHi  = XLALCreateCOMPLEX16TimeSeries(
-   "HIMRJ_20Hi",  &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen + retLenRDPatch);
-  COMPLEX16TimeSeries *hIMR2m1JTSHi = XLALCreateCOMPLEX16TimeSeries(
-   "HIMRJ_2m1Hi", &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen + retLenRDPatch);
-  COMPLEX16TimeSeries *hIMR2m2JTSHi = XLALCreateCOMPLEX16TimeSeries(
-   "HIMRJ_2m2Hi", &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen + retLenRDPatch);
+  
+  //printf("Stas: here are the adresses to h2mTSHi: %p, %p, %p, %p, %p \n", h22TSHi, h21TSHi, h20TSHi, h2m1TSHi, h2m2TSHi);
+  
+  COMPLEX16TimeSeries *h22PTSHi  = NULL; 
+  COMPLEX16TimeSeries *h21PTSHi  = NULL;
+  COMPLEX16TimeSeries *h20PTSHi  = NULL;
+  COMPLEX16TimeSeries *h2m1PTSHi = NULL;
+  COMPLEX16TimeSeries *h2m2PTSHi = NULL;
+  
+  COMPLEX16TimeSeries *h22JTSHi  = NULL;
+  COMPLEX16TimeSeries *h21JTSHi  = NULL;
+  COMPLEX16TimeSeries *h20JTSHi  = NULL;
+  COMPLEX16TimeSeries *h2m1JTSHi = NULL;
+  COMPLEX16TimeSeries *h2m2JTSHi = NULL;
+  COMPLEX16TimeSeries *hJTSHi    = NULL;
+  
+  COMPLEX16TimeSeries *hIMR22JTSHi  = NULL;
+  COMPLEX16TimeSeries *hIMR21JTSHi  = NULL;
+  COMPLEX16TimeSeries *hIMR20JTSHi  = NULL;
+  COMPLEX16TimeSeries *hIMR2m1JTSHi = NULL;
+  COMPLEX16TimeSeries *hIMR2m2JTSHi = NULL;
+  
+  //COMPLEX16TimeSeries *h22PTSHi  = XLALCreateCOMPLEX16TimeSeries( "HP_22",  
+  //                              &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
+  //COMPLEX16TimeSeries *h21PTSHi  = XLALCreateCOMPLEX16TimeSeries( "HP_21",  
+  //                              &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
+  //COMPLEX16TimeSeries *h20PTSHi  = XLALCreateCOMPLEX16TimeSeries( "HP_20",  
+  //                              &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
+  //COMPLEX16TimeSeries *h2m1PTSHi = XLALCreateCOMPLEX16TimeSeries( "HP_2m1", 
+  //                              &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
+  //COMPLEX16TimeSeries *h2m2PTSHi = XLALCreateCOMPLEX16TimeSeries( "HP_2m2",
+  //                              &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
+  
+  //COMPLEX16TimeSeries *h22JTSHi  = XLALCreateCOMPLEX16TimeSeries( "HJ_22",  
+  //                              &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
+  //COMPLEX16TimeSeries *h21JTSHi  = XLALCreateCOMPLEX16TimeSeries( "HJ_21",  
+  //                              &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
+  //COMPLEX16TimeSeries *h20JTSHi  = XLALCreateCOMPLEX16TimeSeries( "HJ_20", 
+  //                              &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
+  //COMPLEX16TimeSeries *h2m1JTSHi = XLALCreateCOMPLEX16TimeSeries( "HJ_2m1",
+  //                              &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
+  //COMPLEX16TimeSeries *h2m2JTSHi = XLALCreateCOMPLEX16TimeSeries( "HJ_2m2",
+  //                              &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
+  //COMPLEX16TimeSeries *hJTSHi    = XLALCreateCOMPLEX16TimeSeries( "HJ",     
+  //                              &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen );
+
+  //COMPLEX16TimeSeries *hIMR22JTSHi  = XLALCreateCOMPLEX16TimeSeries(
+  // "HIMRJ_22Hi",  &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen + retLenRDPatch);
+  //COMPLEX16TimeSeries *hIMR21JTSHi  = XLALCreateCOMPLEX16TimeSeries(
+  // "HIMRJ_21Hi",  &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen + retLenRDPatch);
+  //COMPLEX16TimeSeries *hIMR20JTSHi  = XLALCreateCOMPLEX16TimeSeries(
+  // "HIMRJ_20Hi",  &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen + retLenRDPatch);
+  //COMPLEX16TimeSeries *hIMR2m1JTSHi = XLALCreateCOMPLEX16TimeSeries(
+  // "HIMRJ_2m1Hi", &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen + retLenRDPatch);
+  //COMPLEX16TimeSeries *hIMR2m2JTSHi = XLALCreateCOMPLEX16TimeSeries(
+  // "HIMRJ_2m2Hi", &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen + retLenRDPatch);
+
   COMPLEX16TimeSeries *hIMRJTSHi    = XLALCreateCOMPLEX16TimeSeries(
    "HIMRJHi",     &tc, 0.0, deltaTHigh, &lalStrainUnit, retLen + retLenRDPatch);
+
+
+  //printf("Stas: here are the adresses to hIMRJTSHi: %p \n", hIMRJTSHi);
    
   if ( !(tlistHi = XLALCreateREAL8Vector( retLen )) || !(tlistRDPatchHi = XLALCreateREAL8Vector( retLen + retLenRDPatch )) )
   {
@@ -4105,6 +4177,8 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
      fflush(NULL);
   }
 
+  gsl_spline_free(spline);
+  gsl_interp_accel_free(acc);
   /*** attach hi sampling part and resample  */
   for ( k = 2; k > -3; k-- )
   {
@@ -4122,7 +4196,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
      }
       int idxRD = i; //Andrea
      spline = gsl_spline_alloc( gsl_interp_cspline, retLenHi + retLenRDPatch );
-     acc    = gsl_interp_accel_alloc();     
+     acc    = gsl_interp_accel_alloc();   
      gsl_spline_init( spline, tlistRDPatchHi->data, sigReHi->data, retLenHi + retLenRDPatch );
 //     for (i = retLenLow-4; i< retLenLow+retLenRDPatchLow; i++){
 //          hIMRJTS->data->data[i] = gsl_spline_eval( spline, tlistRDPatch->data[i], acc );
@@ -4195,16 +4269,23 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   }
  
   /*COMPLEX16TimeSeries *hITS    = XLALCreateCOMPLEX16TimeSeries( "HJ",     &tc, 0.0, deltaT, &lalStrainUnit, retLen );*/
-  COMPLEX16TimeSeries *hIMR22ITS  = XLALCreateCOMPLEX16TimeSeries( "HIMRI_22",
-    &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
-  COMPLEX16TimeSeries *hIMR21ITS  = XLALCreateCOMPLEX16TimeSeries( "HIMRI_21",
-    &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
-  COMPLEX16TimeSeries *hIMR20ITS  = XLALCreateCOMPLEX16TimeSeries( "HIMRI_20",
-    &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
-  COMPLEX16TimeSeries *hIMR2m1ITS = XLALCreateCOMPLEX16TimeSeries( "HIMRI_2m1",
-    &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
-  COMPLEX16TimeSeries *hIMR2m2ITS = XLALCreateCOMPLEX16TimeSeries( "HIMRI_2m2",
-    &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
+  COMPLEX16TimeSeries *hIMR22ITS  = NULL;
+  COMPLEX16TimeSeries *hIMR21ITS  = NULL;
+  COMPLEX16TimeSeries *hIMR20ITS  = NULL;
+  COMPLEX16TimeSeries *hIMR2m1ITS = NULL;
+  COMPLEX16TimeSeries *hIMR2m2ITS = NULL;
+
+
+  //COMPLEX16TimeSeries *hIMR22ITS  = XLALCreateCOMPLEX16TimeSeries( "HIMRI_22",
+  //  &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
+  //COMPLEX16TimeSeries *hIMR21ITS  = XLALCreateCOMPLEX16TimeSeries( "HIMRI_21",
+  //  &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
+  //COMPLEX16TimeSeries *hIMR20ITS  = XLALCreateCOMPLEX16TimeSeries( "HIMRI_20",
+  //  &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
+  //COMPLEX16TimeSeries *hIMR2m1ITS = XLALCreateCOMPLEX16TimeSeries( "HIMRI_2m1",
+  //  &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
+  //COMPLEX16TimeSeries *hIMR2m2ITS = XLALCreateCOMPLEX16TimeSeries( "HIMRI_2m2",
+  //  &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );
   /*COMPLEX16TimeSeries *hIMRITS    = XLALCreateCOMPLEX16TimeSeries( "HIMRI",
    * &tc, 0.0, deltaT, &lalStrainUnit, retLenLow + retLenRDPatchLow );*/
   REAL8TimeSeries *alpI        = XLALCreateREAL8TimeSeries( "alphaJ2I",
@@ -4298,26 +4379,55 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   XLALDestroyREAL8TimeSeries(alphaP2JTSHi);
   XLALDestroyREAL8TimeSeries(betaP2JTSHi);
   XLALDestroyREAL8TimeSeries(gammaP2JTSHi);
-  
+ 
+
+  ////////////////////////////////////////
+
+
   XLALDestroyCOMPLEX16TimeSeries(h22TS); 
   XLALDestroyCOMPLEX16TimeSeries(h21TS); 
   XLALDestroyCOMPLEX16TimeSeries(h20TS);  
   XLALDestroyCOMPLEX16TimeSeries(h2m1TS); 
   XLALDestroyCOMPLEX16TimeSeries(h2m2TS); 
-  XLALDestroyCOMPLEX16TimeSeries(h22PTS); 
-  XLALDestroyCOMPLEX16TimeSeries(h21PTS);
-  XLALDestroyCOMPLEX16TimeSeries(h20PTS);
-  XLALDestroyCOMPLEX16TimeSeries(h2m1PTS);
-  XLALDestroyCOMPLEX16TimeSeries(h2m2PTS);
+  
+  //XLALDestroyCOMPLEX16TimeSeries(h22PTS); 
+  //XLALDestroyCOMPLEX16TimeSeries(h21PTS);
+  //XLALDestroyCOMPLEX16TimeSeries(h20PTS);
+  //XLALDestroyCOMPLEX16TimeSeries(h2m1PTS);
+  //XLALDestroyCOMPLEX16TimeSeries(h2m2PTS);
+  
+  //printf("Memory cleanup 2 done.\n"); fflush(NULL); 
+  XLALDestroySphHarmTimeSeries(hlmPTS);
+  // printf("Memory cleanup 2.5 done.\n"); fflush(NULL); 
+  XLALDestroySphHarmTimeSeries(hIMRlmJTS);
+  //printf("Memory cleanup 2.6 done.\n"); fflush(NULL); 
+  //XLALDestroySphHarmTimeSeries(hIMRlmJTS);
+  //XLALDestroySphHarmTimeSeries(hIMRlmITS);
+  //XLALDestroyCOMPLEX16TimeSeries(hIMR22ITS); 
+  //XLALDestroyCOMPLEX16TimeSeries(hIMR21ITS); 
+  //XLALDestroyCOMPLEX16TimeSeries(hIMR20ITS); 
+  //XLALDestroyCOMPLEX16TimeSeries(hIMR2m1ITS); 
+  //XLALDestroyCOMPLEX16TimeSeries(hIMR2m2ITS); 
+  
+  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, 2 ));
+  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, 1 ));
+  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, 0 ));
+  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, -1 ));
+  XLALDestroyCOMPLEX16TimeSeries(XLALSphHarmTimeSeriesGetMode( hIMRlmITS, 2, -2 ));
+  //printf("Memory cleanup 2.7 done.\n"); fflush(NULL); 
  
-  XLALDestroyCOMPLEX16TimeSeries(hIMR22JTS); 
-  XLALDestroyCOMPLEX16TimeSeries(hIMR21JTS); 
-  XLALDestroyCOMPLEX16TimeSeries(hIMR20JTS); 
-  XLALDestroyCOMPLEX16TimeSeries(hIMR2m1JTS); 
-  XLALDestroyCOMPLEX16TimeSeries(hIMR2m2JTS); 
+  //XLALDestroyCOMPLEX16TimeSeries(hIMR22JTS); 
+  //XLALDestroyCOMPLEX16TimeSeries(hIMR21JTS); 
+  //XLALDestroyCOMPLEX16TimeSeries(hIMR20JTS); 
+  //XLALDestroyCOMPLEX16TimeSeries(hIMR2m1JTS); 
+  //XLALDestroyCOMPLEX16TimeSeries(hIMR2m2JTS); 
+  
   XLALDestroyCOMPLEX16TimeSeries(hIMRJTS);
   if(debugPK){ printf("Memory cleanup 2 done.\n"); fflush(NULL); }
-    
+  //printf("Memory cleanup 2.8 done.\n"); fflush(NULL); 
+  
+
+
   XLALDestroyCOMPLEX16TimeSeries(h22TSHi);  
   XLALDestroyCOMPLEX16TimeSeries(h21TSHi); 
   XLALDestroyCOMPLEX16TimeSeries(h20TSHi); 
@@ -4347,6 +4457,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   //XLALDestroyREAL8Vector( omegaHi );
     
   if(debugPK){ printf("Memory cleanup 3 done.\n"); fflush(NULL); }
+  //printf("Memory cleanup 3 done.\n"); fflush(NULL); 
   XLALAdaptiveRungeKutta4Free(integrator);
   XLALDestroyREAL8Array( dynamics );
   //XLALDestroyREAL8Array( dynamicsHi );
@@ -4363,13 +4474,20 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   XLALDestroyREAL8Vector( BetaHi );
   XLALDestroyREAL8Vector( Gamma );
   XLALDestroyREAL8Vector( GammaHi );
+
+
+  XLALDestroyREAL8Vector( rdMatchPoint );
+  //XLALDestroyREAL8Vector( AttachParams );
+  XLALDestroyREAL8Vector( tmpValues2 );
+  //printf("Memory cleanup 4 done.\n"); fflush(NULL); 
     
     
-  XLALDestroyREAL8Vector( tlist );
+  //XLALDestroyREAL8Vector( tlist );
   //XLALDestroyREAL8Vector( tlistHi );
-  XLALDestroyREAL8Vector( tlistRDPatch );
+  //XLALDestroyREAL8Vector( tlistRDPatch );
   //XLALDestroyREAL8Vector( tlistRDPatchHi );
    
+  //printf("Memory cleanup ALL done.\n"); fflush(NULL); 
   if(debugPK){ printf("Memory cleanup ALL done.\n"); fflush(NULL); }
   return XLAL_SUCCESS;
 }
