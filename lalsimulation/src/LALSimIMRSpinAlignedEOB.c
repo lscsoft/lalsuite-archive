@@ -4180,13 +4180,14 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   gsl_spline_free(spline);
   gsl_interp_accel_free(acc);
   /*** attach hi sampling part and resample  */
+  COMPLEX16TimeSeries *hIMRJTS2mHi    = NULL;
   for ( k = 2; k > -3; k-- )
   {
-     hIMRJTSHi = XLALSphHarmTimeSeriesGetMode( hIMRlmJTSHi, 2, k );
+     hIMRJTS2mHi = XLALSphHarmTimeSeriesGetMode( hIMRlmJTSHi, 2, k );
      for ( i = 0; i < (int)sigReHi->length; i++ )
      {
-      sigReHi->data[i] = creal(hIMRJTSHi->data->data[i]);
-      sigImHi->data[i] = cimag(hIMRJTSHi->data->data[i]);
+      sigReHi->data[i] = creal(hIMRJTS2mHi->data->data[i]);
+      sigImHi->data[i] = cimag(hIMRJTS2mHi->data->data[i]);
      }
      /* recycling h20PTS */
      hJTS = XLALSphHarmTimeSeriesGetMode( hlmPTS, 2, k );
@@ -4445,7 +4446,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   //XLALDestroyCOMPLEX16TimeSeries(hIMR2m1JTSHi); 
   //XLALDestroyCOMPLEX16TimeSeries(hIMR2m2JTSHi); 
   
-  //XLALDestroyCOMPLEX16TimeSeries(hIMRJTSHi);
+  XLALDestroyCOMPLEX16TimeSeries(hIMRJTSHi);
     
 
   XLALDestroyREAL8Vector( values );
@@ -4474,6 +4475,9 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
   XLALDestroyREAL8Vector( BetaHi );
   XLALDestroyREAL8Vector( Gamma );
   XLALDestroyREAL8Vector( GammaHi );
+  XLALDestroyREAL8TimeSeries( alpI);
+  XLALDestroyREAL8TimeSeries( betI);
+  XLALDestroyREAL8TimeSeries( gamI);
 
 
   XLALDestroyREAL8Vector( rdMatchPoint );

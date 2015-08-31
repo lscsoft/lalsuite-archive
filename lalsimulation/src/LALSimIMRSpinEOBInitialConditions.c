@@ -1159,7 +1159,10 @@ XLALSimIMRSpinEOBInitialConditions(
 	ApplyRotationMatrix(rotMatrix2, qCart);
 	ApplyRotationMatrix(rotMatrix2, pCart);
 
-	if (printPK) {
+        gsl_matrix_free(rotMatrix);
+        gsl_matrix_free(rotMatrix2);
+	
+        if (printPK) {
 		printf("qCart after rotation2 %3.10f %3.10f %3.10f\n", qCart[0], qCart[1], qCart[2]);
 		printf("pCart after rotation2 %3.10f %3.10f %3.10f\n", pCart[0], pCart[1], pCart[2]);
 		printf("S1 after rotation2 %3.10f %3.10f %3.10f\n", tmpS1Norm[0], tmpS1Norm[1], tmpS1Norm[2]);
@@ -1358,7 +1361,10 @@ XLALSimIMRSpinEOBInitialConditions(
 	ApplyRotationMatrix(invMatrix, qCart);
 	ApplyRotationMatrix(invMatrix, pCart);
 
-	/* If required, apply the tortoise transform */
+        gsl_matrix_free(invMatrix);
+        gsl_matrix_free(invMatrix2);
+	
+        /* If required, apply the tortoise transform */
 	if (tmpTortoise) {
 		REAL8		r = sqrt(qCart[0] * qCart[0] + qCart[1] * qCart[1] + qCart[2] * qCart[2]);
 		REAL8		deltaR = XLALSimIMRSpinEOBHamiltonianDeltaR(params->seobCoeffs, r, eta, a);
@@ -1696,7 +1702,9 @@ XLALSimIMRSpinEOBInitialConditionsV2(
 
 	if (CalculateRotationMatrix(rotMatrix2, invMatrix2, qHat, pHat, Lhat) == XLAL_FAILURE) {
 		gsl_matrix_free(rotMatrix);
+		gsl_matrix_free(rotMatrix2);
 		gsl_matrix_free(invMatrix);
+		gsl_matrix_free(invMatrix2);
 		XLAL_ERROR(XLAL_ENOMEM);
 	}
 	ApplyRotationMatrix(rotMatrix2, rHat);
@@ -1708,6 +1716,9 @@ XLALSimIMRSpinEOBInitialConditionsV2(
 	ApplyRotationMatrix(rotMatrix2, tmpS2Norm);
 	ApplyRotationMatrix(rotMatrix2, qCart);
 	ApplyRotationMatrix(rotMatrix2, pCart);
+        
+        gsl_matrix_free(rotMatrix);
+        gsl_matrix_free(rotMatrix2);
 
 	/*
 	 * STEP 4) In the L0-N0 frame, we calculate (dE/dr)|sph using Eq.
@@ -1852,6 +1863,9 @@ XLALSimIMRSpinEOBInitialConditionsV2(
 	ApplyRotationMatrix(invMatrix, tmpS2Norm);
 	ApplyRotationMatrix(invMatrix, qCart);
 	ApplyRotationMatrix(invMatrix, pCart);
+        
+        gsl_matrix_free(invMatrix);
+        gsl_matrix_free(invMatrix2);
 
 	/* If required, apply the tortoise transform */
 	if (tmpTortoise) {
@@ -1876,6 +1890,7 @@ XLALSimIMRSpinEOBInitialConditionsV2(
 	memcpy(initConds->data + 6, tmpS1Norm, sizeof(tmpS1Norm));
 	memcpy(initConds->data + 9, tmpS2Norm, sizeof(tmpS2Norm));
 
+        gsl_multiroot_fsolver_free(rootSolver);
 	//printf("THE FINAL INITIAL CONDITIONS:\n");
 	/*
 	 * printf( " %.16e %.16e %.16e\n%.16e %.16e %.16e\n%.16e %.16e
