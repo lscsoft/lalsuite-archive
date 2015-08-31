@@ -352,7 +352,7 @@ int XLALSimIMREOBDebugTestSWIGRoutine(
 int XLALSimIMRSpinEOBWaveformAll(
         REAL8TimeSeries **hplus,
         REAL8TimeSeries **hcross,
-        REAL8Array      **dynamicsHi, /**<< Here we store and return the seob dynamics for high sampling (end of inspiral) */
+        REAL8Vector     **dynamicsHi, /**<< Here we store and return the seob dynamics for high sampling (end of inspiral) */
         SphHarmTimeSeries **hlmPTSout, /**<< Here we store and return the PWave (high sampling) */
         SphHarmTimeSeries **hlmPTSHi, /**<< Here we store and return the JWave (high sampling) */
         SphHarmTimeSeries **hIMRlmJTSHi, /**<< Here we store and return the JWaveIMR (high sampling) */

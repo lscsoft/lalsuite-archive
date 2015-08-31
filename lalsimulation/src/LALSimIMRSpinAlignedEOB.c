@@ -1482,7 +1482,7 @@ int XLALSimIMRSpinEOBWaveform(
      )
 
 {
-    REAL8Array   *dynamicsHi = NULL;
+    REAL8Vector   *dynamicsHi = NULL;
     REAL8Vector  *AttachPars = NULL; 
     SphHarmTimeSeries *hlmPTSHi = NULL;
     SphHarmTimeSeries *hlmPTSout = NULL;
@@ -1531,7 +1531,7 @@ int XLALSimIMRSpinEOBWaveform(
     //}else{
     //    printf("Stas: attach pars is cleaned \n");
     //}
-    XLALDestroyREAL8Array( dynamicsHi );
+    XLALDestroyREAL8Vector( dynamicsHi );
     XLALDestroyREAL8Vector( AttachPars );
     
     XLALDestroySphHarmTimeSeries(hlmPTSout);
@@ -1569,7 +1569,7 @@ int XLALSimIMREOBDebugTestSWIGRoutine(
 int XLALSimIMRSpinEOBWaveformAll(
         REAL8TimeSeries **hplus,
         REAL8TimeSeries **hcross,
-        REAL8Array      **dynHi, /**<< Here we store and return the seob dynamics for high sampling (end of inspiral) */
+        REAL8Vector      **dynHi, /**<< Here we store and return the seob dynamics for high sampling (end of inspiral) */
         SphHarmTimeSeries **hlmPTSoutput, /**<< Here we store and return the PWave (high sampling) */
         SphHarmTimeSeries **hlmPTSHiOutput, /**<< Here we store and return the JWave (high sampling) */
         SphHarmTimeSeries **hIMRlmJTSHiOutput, /**<< Here we store and return the JWaveIMR (high sampling) */
@@ -2542,7 +2542,6 @@ int XLALSimIMRSpinEOBWaveformAll(
   retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data, 
 									0., 20./mTScaled, deltaTHigh/mTScaled, &dynamicsHi );
   retLenHi = retLen;
-  *dynHi = dynamicsHi; 
 
   if ( retLen == XLAL_FAILURE )
   {
@@ -4493,6 +4492,19 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
    
   //printf("Memory cleanup ALL done.\n"); fflush(NULL); 
   if(debugPK){ printf("Memory cleanup ALL done.\n"); fflush(NULL); }
+
+  /* FIXME: Temporary code to convert REAL8Array to REAL8Vector because SWIG
+   *        doesn't seem to like REAL8Array */
+  REAL8Vector *tmp_vec;
+  tmp_vec = XLALCreateREAL8Vector(dynamicsHi->dimLength->data[0] * dynamicsHi->dimLength->data[1]);
+  UINT4 tmp_idx_ii;
+  for (tmp_idx_ii=0; tmp_idx_ii < tmp_vec->length; tmp_idx_ii++)
+  {
+      tmp_vec->data[tmp_idx_ii] = dynamicsHi->data[tmp_idx_ii];
+  }
+  *dynHi = tmp_vec;
+  XLALDestroyREAL8Array( dynamicsHi );
+
   return XLAL_SUCCESS;
 }
 
