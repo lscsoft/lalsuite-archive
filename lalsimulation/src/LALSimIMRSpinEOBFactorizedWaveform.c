@@ -569,7 +569,8 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 					     SpinEOBParams * restrict params	/**< Spin EOB parameters */
 )
 {
-	int		debugPK = 0;
+    int		debugPK = 0;   
+
 	/* Status of function calls */
 	INT4		status;
 	INT4		i;
@@ -662,9 +663,9 @@ XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(
 	 */
 	//debugPK
 		if (debugPK) {
-		printf("\nValues inside XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform:\n");
-		for (i = 0; i < 14; i++)
-			printf("values[%d] = %.12e\n", i, values->data[i]);
+//		printf("\nValues inside XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform:\n");
+//		for (i = 0; i < 14; i++)
+//			printf("values[%d] = %.12e\n", i, values->data[i]);
 
 		printf("Calculating hNewton, with v = %.12e, vPhi = %.12e, r = %.12e, Phi = %.12e, l = %d, m = %d\n",
 		       v, vPhi, r, values->data[1], (UINT4) l, (UINT4) m);
@@ -1205,7 +1206,7 @@ XLALSimIMRSpinEOBGetPrecSpinFactorizedWaveform(
 																	+ v * (hCoeffs->rho21v7 + hCoeffs->rho21v7l * eulerlogxabs
 																	       + v * (hCoeffs->rho21v8 + hCoeffs->rho21v8l * eulerlogxabs
 																		      + (hCoeffs->rho21v10 + hCoeffs->rho21v10l * eulerlogxabs) * v2))))))));
-				auxflm = v * hCoeffs->f21v1;
+				auxflm = v * hCoeffs->f21v1  + v2 * v * hCoeffs->f21v3;
 			}
 			break;
 		default:
