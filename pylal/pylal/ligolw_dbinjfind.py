@@ -88,12 +88,15 @@ def dbinjfind( connection, simulation_table, recovery_table, match_criteria, rou
         for n,(thisFunc, window) in enumerate(rejection_criteria):
             compF = dataUtils.CompareDataRows(RecDataRow, RecDataRow)
             funcName = 'matches_all_data%i' % n
+            # Note: setting the match criteria also sets the needed columns
+            compF.set_matchCriteriaA(thisFunc)
+            compF.set_matchCriteriaB(thisFunc)
+            # need different diff function if using eThinca
             if thisFunc == 'eThinca':
-                compF.create_dbCompF( connection, compF.eThincaSngl, funcName, window, recColumns, recColumns )
+                diffFunc = compF.eThincaSngl
             else:
-                compF.set_matchCriteriaA( thisFunc )
-                compF.set_matchCriteriaB( thisFunc )
-                compF.create_dbCompF( connection, compF.diffRowARowB, funcName, window, recColumns, recColumns )
+                diffFunc = compF.diffRowARowB
+            compF.create_dbCompF(connection, diffFunc, funcName, window)
             simSnglCols = ','.join(['rec_sngls.%s' %(col) for col in compF.neededColumnsA])
             allSnglCols = ','.join(['all_data_sngls.%s' %(col) for col in compF.neededColumnsB])
             rejection_tests.append( '%s(%s, %s)' %(funcName, simSnglCols, allSnglCols) ) 
@@ -124,14 +127,14 @@ def dbinjfind( connection, simulation_table, recovery_table, match_criteria, rou
         compF = dataUtils.CompareDataRows(SimDataRow, RecDataRow)
         # set the name of the compare function to use in the database
         funcName = 'are_match%i' % n
-        # set the functions that get the match criteria from the tables
-        # and create the compare function in the database
+        compF.set_matchCriteriaA(simFunc)
+        compF.set_matchCriteriaB(snglFunc)
+        # need different diff function if using eThinca
         if simFunc == 'eThinca':
-            compF.create_dbCompF( connection, compF.eThincaSim, funcName, window, simColumns, recColumns )
+            diffFunc = compF.eThincaSim
         else:
-            compF.set_matchCriteriaA( simFunc )
-            compF.set_matchCriteriaB( snglFunc )
-            compF.create_dbCompF( connection, compF.diffSimSngl, funcName, window, simColumns, recColumns )
+            diffFunc = compF.diffSimSngl
+        compF.create_dbCompF(connection, diffFunc, funcName, window)
         simCols = ','.join(['sim.%s'%(col) for col in compF.neededColumnsA])
         snglCols = ','.join(['rec_sngls.%s'%(col) for col in compF.neededColumnsB])
         match_tests.append( '%s(%s, %s)' %(funcName, simCols, snglCols) )

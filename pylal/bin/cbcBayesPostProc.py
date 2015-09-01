@@ -47,6 +47,28 @@ import matplotlib
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 
+# Default font properties
+fig_width_pt = 246  # Get this from LaTeX using \showthe\columnwidth
+inches_per_pt = 1.0/72.27               # Convert pt to inch
+golden_mean = (2.236-1.0)/2.0         # Aesthetic ratio
+fig_width = fig_width_pt*inches_per_pt  # width in inches
+fig_height = fig_width*golden_mean      # height in inches
+fig_size =  [fig_width,fig_height]
+matplotlib.rcParams.update(
+        {'axes.labelsize': 16,
+        'font.size':       16,
+        'legend.fontsize': 16,
+        'xtick.labelsize': 16,
+        'ytick.labelsize': 16,
+        'text.usetex': False,
+        'figure.figsize': fig_size,
+        'font.family': "serif",
+        'font.serif': ['Times','Palatino','New Century Schoolbook','Bookman','Computer Modern Roman','Times New Roman','Liberation Serif'],
+        'font.weight':'normal',
+        'font.size':16,
+        'savefig.dpi': 120
+        })
+
 #local application/library specific imports
 from pylal import SimInspiralUtils
 from pylal import bayespputils as bppu
@@ -184,6 +206,8 @@ def cbcBayesPostProc(
                         li_flag=False,deltaLogL=None,fixedBurnins=None,nDownsample=None,oldMassConvention=False,
                         #followupMCMC options
                         fm_flag=False,
+                        #spin frame for the injection
+                        inj_spin_frame='OrbitalL',
                         # on ACF?
                         noacf=False,
                         #Turn on 2D kdes
@@ -319,7 +343,7 @@ def cbcBayesPostProc(
 
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
-    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,injFref=injFref,SnglInpiralList=triggers,votfile=votfile)
+    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,inj_spin_frame=inj_spin_frame, injFref=injFref,SnglInpiralList=triggers,votfile=votfile)
   
     #Create analytic likelihood functions if covariance matrices and mean vectors were given
     analyticLikelihood = None
@@ -1216,6 +1240,7 @@ if __name__=='__main__':
     parser.add_option("--spin",action="store_true",default=False,help="(SPINspiral) Specify spin run (15 parameters). ")
     #LALInf
     parser.add_option("--lalinfmcmc",action="store_true",default=False,help="(LALInferenceMCMC) Parse input from LALInferenceMCMC.")
+    parser.add_option("--inj-spin-frame",default='OrbitalL', help="The reference frame used for the injection (default: OrbitalL)")
     parser.add_option("--downsample",action="store",default=None,help="(LALInferenceMCMC) approximate number of samples to record in the posterior",type="int")
     parser.add_option("--deltaLogL",action="store",default=None,help="(LALInferenceMCMC) Difference in logL to use for convergence test.",type="float")
     parser.add_option("--fixedBurnin",dest="fixedBurnin",action="callback",callback=multipleFileCB,help="(LALInferenceMCMC) Fixed number of iteration for burnin.")
@@ -1264,7 +1289,8 @@ if __name__=='__main__':
     massiveGravitonParams=['lambdaG']
     tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
     statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1','flow']
-    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams
+    snrParams=['optimal_snr','matched_filter_snr']
+    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams + snrParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
     from itertools import combinations
@@ -1281,6 +1307,9 @@ if __name__=='__main__':
         for mp in massParams:
             for sp in spinParams:
                 twoDGreedyMenu.append([mp,sp])
+        for dp in distParams:
+            for sp in snrParams:
+                twoDGreedyMenu.append([dp,sp])
         for dp in distParams:
             for ip in incParams:
                 twoDGreedyMenu.append([dp,ip])
@@ -1313,6 +1342,7 @@ if __name__=='__main__':
         twoDGreedyMenu.append(['lambda1','lambda2'])
         twoDGreedyMenu.append(['lam_tilde','dlam_tilde'])
         twoDGreedyMenu.append(['lambdat','dlambdat'])
+        twoDGreedyMenu.append(['optimal_snr','matched_filter_snr'])
         for psip in polParams:
             for phip in phaseParams:
                 twoDGreedyMenu.append([psip,phip])
@@ -1323,7 +1353,7 @@ if __name__=='__main__':
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'time_mean':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0,'phase_maxl':0.05}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'time_mean':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0,'phase_maxl':0.05,'optimal_snr':0.05,'matched_filter_snr':0.05}
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
     if not opts.no2D:
@@ -1365,6 +1395,8 @@ if __name__=='__main__':
                         li_flag=opts.lalinfmcmc,deltaLogL=opts.deltaLogL,fixedBurnins=fixedBurnins,nDownsample=opts.downsample,oldMassConvention=opts.oldMassConvention,
                         #followupMCMC options
                         fm_flag=opts.fm,
+                        #injected spin frame
+                        inj_spin_frame=opts.inj_spin_frame,
                         # Turn of ACF?
                         noacf=opts.noacf,
                         #Turn on 2D kdes
