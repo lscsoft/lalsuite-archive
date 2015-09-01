@@ -178,11 +178,18 @@ class ArrayStream(ligolw.Stream):
 	array attribute, and knows how to turn the parent's array attribute
 	back into a character stream.
 	"""
-	def __init__(self, *args):
-		super(ArrayStream, self).__init__(*args)
-		self._tokenizer = tokenizer.Tokenizer(self.Delimiter)
 
 	Delimiter = ligolw.attributeproxy(u"Delimiter", default = u" ")
+
+	def __init__(self, *args):
+		super(ArrayStream, self).__init__(*args)
+		try:
+			self.Encoding
+		except AttributeError:
+			pass
+		else:
+			raise ligolw.ElementError("non-default encoding '%s' not supported.  if this is critical, please report." % self.Encoding)
+		self._tokenizer = tokenizer.Tokenizer(self.Delimiter)
 
 	def config(self, parentNode):
 		# some initialization that can only be done once parentNode
