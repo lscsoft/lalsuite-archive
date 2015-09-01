@@ -1550,21 +1550,6 @@ int XLALSimIMRSpinEOBWaveform(
 
 }
 
-/* DO NOT PUSH THIS TO MASTER, FOR DEBUGGING ONLY!!! */
-int XLALSimIMREOBDebugTestSWIGRoutine(
-        REAL8Vector **retval,
-        REAL8Array *dynHi)
-    {
-        REAL8Vector *tmp_vec;
-        tmp_vec = XLALCreateREAL8Vector(dynHi->dimLength->data[0] * dynHi->dimLength->data[1]);
-        UINT4 i;
-        for (i=0; i < tmp_vec->length; i++)
-        {
-            tmp_vec->data[i] = dynHi->data[i];
-        }
-        *retval = tmp_vec;
-        return 0;
-    }
 
 int XLALSimIMRSpinEOBWaveformAll(
         REAL8TimeSeries **hplus,
