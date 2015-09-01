@@ -5232,7 +5232,7 @@ class PEOutputParser(object):
                 ntots.append(ntot)
                 if nDownsample is None:
                     try:
-                        nonParams = ["logpost", "cycle", "logprior", "logl", "loglh1", "logll1", "loglv1", "timestamp", "snrh1", "snrl1", "snrv1", "snr", "time_mean", "time_maxl"]
+                        nonParams = ["logpost", "cycle", "timestamp", "snrh1", "snrl1", "snrv1", "snr", "time_mean", "time_maxl"] + logParams
                         nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
                         paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
                         samps = np.array(lines).astype(float)
