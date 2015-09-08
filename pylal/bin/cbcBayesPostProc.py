@@ -750,7 +750,7 @@ def cbcBayesPostProc(
         if not ("chain" in pos.names):
             # If there is not a parameter named "chain" in the
             # posterior, then just produce a plot of the samples.
-            plt.plot(pos_samps,'k.', markersize=5, alpha=0.1, linewidth=0.0, figure=myfig)
+            plt.plot(pos_samps,'k.', markersize=5, alpha=0.5, linewidth=0.0, figure=myfig)
             maxLen=len(pos_samps)
         else:
             # If there is a parameter named "chain", then produce a
@@ -764,7 +764,7 @@ def cbcBayesPostProc(
             chainDataRanges=[range(len(cd)) for cd in chainData]
             maxLen=max([len(cd) for cd in chainData])
             for rng, data in zip(chainDataRanges, chainData):
-                plt.plot(rng, data, marker='.', markersize=5, alpha=0.1, linewidth=0.0,figure=myfig)
+                plt.plot(rng, data, marker='.', markersize=1, alpha=0.5, linewidth=0.0,figure=myfig)
             plt.title("Gelman-Rubin R = %g"%(pos.gelman_rubin(par_name)))
 
             #dataPairs=[ [rng, data] for (rng,data) in zip(chainDataRanges, chainData)]
@@ -791,7 +791,7 @@ def cbcBayesPostProc(
                 data=pos_samps[:,0]
                 try:
                     (Neff, acl, acf) = bppu.effectiveSampleSize(data, Nskip)
-                    lines=plt.plot(acf, 'k.', marker='.', markersize=5, alpha=0.1, linewidth=0.0, figure=acffig)
+                    lines=plt.plot(acf, 'k.', marker='.', markersize=1, alpha=0.5, linewidth=0.0, figure=acffig)
                     # Give ACL info if not already downsampled according to it
                     if nDownsample is None:
                         plt.title('Autocorrelation Function')
@@ -811,7 +811,7 @@ def cbcBayesPostProc(
                         (Neff, acl, acf) = bppu.effectiveSampleSize(data, Nskip)
                         acls.append(acl)
                         Nsamps += Neff
-                        lines=plt.plot(acf,'k.', marker='.', markersize=5, alpha=0.1, linewidth=0.0, figure=acffig)
+                        lines=plt.plot(acf,'k.', marker='.', markersize=1, alpha=0.5, linewidth=0.0, figure=acffig)
                         # Give ACL info if not already downsampled according to it
                         if nDownsample is not None:
                             last_color = lines[-1].get_color()
