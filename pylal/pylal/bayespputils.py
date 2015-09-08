@@ -5216,6 +5216,7 @@ class PEOutputParser(object):
                 iterindex = header.index("cycle")
                 deltaLburnedIn = False
                 fixedBurnedIn  = False
+                adapting = True
                 lines=[]
                 ntot=0
                 for line in infile:
@@ -5226,7 +5227,9 @@ class PEOutputParser(object):
                         fixedBurnedIn = True
                     if logL > logLthreshold:
                         deltaLburnedIn = True
-                    if fixedBurnedIn and deltaLburnedIn:
+                    if iter > 0:
+                        adapting = False
+                    if fixedBurnedIn and deltaLburnedIn and not adapting:
                         ntot += 1
                         lines.append(line)
                 ntots.append(ntot)
