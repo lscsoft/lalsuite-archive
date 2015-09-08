@@ -960,6 +960,13 @@ where the known names have been listed above\n\
 
   }
 
+  ppt=LALInferenceGetProcParamVal(commandLine, "--f_cutoff");
+  if(ppt)
+  {
+      fprintf(stderr,"Initialising f_cutoff prior\n");
+      LALInferenceRegisterUniformVariableREAL8(state, model->params, "f_cutoff",zero, 10.0 , 2000.0 , LALINFERENCE_PARAM_LINEAR);
+  }
+
   LALSimInspiralSpinOrder spinO = LAL_SIM_INSPIRAL_SPIN_ORDER_ALL;
   ppt=LALInferenceGetProcParamVal(commandLine, "--spinOrder");
   if(ppt) {

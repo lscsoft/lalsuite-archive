@@ -676,12 +676,16 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceModel *model)
     LALInferenceLambdaTsEta2Lambdas(lambdaT,dLambdaT,sym_mass_ratio_eta,&lambda1,&lambda2);
   }
 
-
-  /* Only use GR templates */
-  LALSimInspiralTestGRParam *nonGRparams = NULL;
-  
-  
-
+    /* Only use GR templates */
+    LALSimInspiralTestGRParam *nonGRparams = NULL;
+  /* Cutoff frequency */
+    if(LALInferenceCheckVariable(model->params, "f_cutoff"))
+    {
+        REAL8 f_cutoff = *(REAL8*) LALInferenceGetVariable(model->params, "f_cutoff");
+        XLALSimInspiralAddTestGRParam(nonGRparams,"f_cutoff",f_cutoff);
+    }
+    
+    
   /* ==== Call the waveform generator ==== */
   if(model->domain == LAL_SIM_DOMAIN_FREQUENCY) {
     deltaF = model->deltaF;
