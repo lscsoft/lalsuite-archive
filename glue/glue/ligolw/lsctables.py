@@ -1305,7 +1305,7 @@ class SnglBurstTable(table.Table):
 		table
 		@returntype: numpy.ndarray
 		"""
-		return numy.asarray([row.get_z() for row in self])
+		return numpy.asarray([row.get_z() for row in self])
 
 	def get_period(self):
 		"""@returns: the period segment of each row in the table
