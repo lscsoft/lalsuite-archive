@@ -1890,7 +1890,7 @@ XLALSimIMRSpinEOBInitialConditionsV2(
 	memcpy(initConds->data + 6, tmpS1Norm, sizeof(tmpS1Norm));
 	memcpy(initConds->data + 9, tmpS2Norm, sizeof(tmpS2Norm));
 
-        gsl_multiroot_fsolver_free(rootSolver);
+        //gsl_multiroot_fsolver_free(rootSolver);
 	//printf("THE FINAL INITIAL CONDITIONS:\n");
 	/*
 	 * printf( " %.16e %.16e %.16e\n%.16e %.16e %.16e\n%.16e %.16e
