@@ -19,22 +19,29 @@
 */
 
 /**
- * \author Craig Robinson, Yi Pan, Prayush Kumar, Stas Babak, Andrea Taracchini
+ * @addtogroup LALSimIMRSpinAlignedEOB_c
  *
- * \file
+ * @author Craig Robinson, Yi Pan, Prayush Kumar, Stas Babak, Andrea Taracchini
  *
- * \brief Functions for producing SEOBNRv1 waveforms for
+ * @brief Functions for producing SEOBNRv1 waveforms for
  * spinning binaries, as described in
  * Taracchini et al. ( PRD 86, 024011 (2012), arXiv 1202.0790 ).
  * All equation numbers in this file refer to equations of this paper,
  * unless otherwise specified.
- *
+ * 
+ * @review SEOBNRv1 has been reviewd by Riccardo Sturani, B. Sathyaprakash and
+ * Prayush Kumar.
+ * The review concluded in fall 2012.  
  *
  * \brief Functions for producing SEOBNRv2 waveforms for
  * spinning binaries, as described in
  * Taracchini et al. ( arXiv 1311.2544 ).
  * 
- * 
+ * @review SEOBNRv2 has been reviewed by Riccardo Sturani, Prayush Kumar and
+ * Stas Babak.
+ * The review concluded with git hash 
+ * 5bc6bb861de2eb72ca403b9e0f529d83080490fe (August 2014).
+ *
  * \brief Functions for producing SEOBNRv3 waveforms for 
  * precessing binaries of spinning compact objects, as described
  * in Pan et al. ( arXiv 1307.6232 ) == YPP.
