@@ -352,6 +352,7 @@ int XLALSimIMRPhenomP(
   f_max_prime = (f_max_prime > PCparams->fCut) ? PCparams->fCut : f_max_prime;
   if (f_max_prime <= f_min) {
       XLALPrintError("f_max <= f_min\n");
+      XLALFree(PCparams);
       XLAL_ERROR(XLAL_EDOM);
   }
   XLALPrintInfo("f_max_prime = %g\tfcut = %g\tv = %g\n", f_max_prime, PCparams->fCut, cbrt(piM * f_max_prime));
@@ -370,7 +371,10 @@ int XLALSimIMRPhenomP(
   XLALUnitMultiply(&((*hptilde)->sampleUnits), &((*hptilde)->sampleUnits), &lalSecondUnit);
   XLALUnitMultiply(&((*hctilde)->sampleUnits), &((*hctilde)->sampleUnits), &lalSecondUnit);
   if (!(*hptilde) || !(*hctilde))
-    XLAL_ERROR(XLAL_EFUNC);
+    {
+        XLALFree(PCparams);
+        XLAL_ERROR(XLAL_EFUNC);
+    }
 
   /* Test output */
   XLALPrintInfo("eta: %g\n", eta);
@@ -418,7 +422,7 @@ int XLALSimIMRPhenomP(
 
     skip: /* this statement intentionally left blank */;
   }
-
+  XLALFree(PCparams);
   if( errcode != XLAL_SUCCESS )
     XLAL_ERROR(errcode);
   else
