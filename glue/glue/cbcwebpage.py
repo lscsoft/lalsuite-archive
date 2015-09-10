@@ -337,7 +337,7 @@ class _section(markup.page):
 # MAIN CBC WEB PAGE CLASS 
 class cbcpage(markup.page):
 
-	def __init__(self, title="cbc web page", path='./', css="//www.lsc-group.phys.uwm.edu/cgit/lalsuite/plain/glue/etc/cbcwebpage.css", script=None, pagenum=1, verbose=False):
+	def __init__(self, title="cbc web page", path='./', css="//versions.ligo.org/cgit/lalsuite/plain/glue/etc/cbcwebpage.css", script=None, pagenum=1, verbose=False):
 		"""
 		"""
 		scdict = script_dict(fname='%s/%s' % (path,"toggle.js"))
