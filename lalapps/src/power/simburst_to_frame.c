@@ -332,7 +332,7 @@ int main(int argc, char **argv)
          i++;
     }
     
-    snprintf( fname, FILENAME_MAX, "%s-%s-%d-%d.gwf", IFOs,frameType, (int) mdc_gps_start, mdc_duration );
+    snprintf( fname, 256, "%s-%s-%d-%d.gwf", IFOs,frameType, (int) mdc_gps_start, mdc_duration );
     
     /* set detector flags */
 	detectorFlags = LAL_GEO_600_DETECTOR_BIT | LAL_LHO_4K_DETECTOR_BIT |
@@ -417,7 +417,7 @@ static void write_log(SimBurst **injs, TimeSlide * time_slide_table_head,struct 
     
     LALEquatorialToGeographic(&status, &currentGeo, &currentEqu, &injtime);
     
-    char wf[2];
+    char wf[4];
     if (!strcmp("SineGaussian",inj->waveform))
         strcpy(wf,"SG");
     else if (!strcmp("SineGaussianF",inj->waveform))
