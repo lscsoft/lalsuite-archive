@@ -370,9 +370,9 @@ XLALSpinAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
 {
   if ( dvalues[2] >= 0. || isnan( dvalues[3] ) || isnan (dvalues[2]) || isnan (dvalues[1]) || isnan (dvalues[0]) )
   {
-      XLALPrintError( "XLAL Error - %s: nan in dvalues \n", __func__);
-      XLAL_ERROR( XLAL_EINVAL );
-      //return 1;
+      //XLALPrintError( "XLAL Error - %s: nan in dvalues \n", __func__);
+      //XLAL_ERROR( XLAL_EINVAL );
+      return 1;
   }
   return GSL_SUCCESS;
 }
