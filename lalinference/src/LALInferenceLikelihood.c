@@ -817,6 +817,14 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
        recurrance relation has the advantage that the error growth is
        O(sqrt(N)) for N repetitions. */
 
+    /* See, for example, 
+
+       Press, Teukolsky, Vetteling & Flannery, 2007.  Numerical
+       Recipes, Third Edition, Chapter 5.4.  
+
+       Singleton, 1967. On computing the fast Fourier
+       transform. Comm. ACM, vol. 10, 647–654. */
+    
     /* Incremental values, using cos(theta) - 1 = -2*sin(theta/2)^2 */
     dim = -sin(twopit*deltaF);
     dre = -2.0*sin(0.5*twopit*deltaF)*sin(0.5*twopit*deltaF);
@@ -1042,6 +1050,10 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       REAL8 t0 = XLALGPSGetREAL8(&(data->freqData->epoch));
       int istart = (UINT4)round((time_low - t0)/deltaT);
       int iend = (UINT4)round((time_high - t0)/deltaT);
+      if(iend > (int) dh_S->length || istart < 0 ) {
+              fprintf(stderr,"ERROR: integration over time extends past end of buffer! Is your time prior too wide?\n");
+              exit(1);
+      }
       UINT4 n = iend - istart;
       REAL8 xMax = -1.0;
       REAL8 angMax = 0.0;

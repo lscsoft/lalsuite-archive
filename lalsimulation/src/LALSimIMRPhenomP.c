@@ -304,7 +304,7 @@ int XLALSimIMRPhenomP(
 
   int retcode = PhenomPCore(hptilde, hctilde,
       chi_eff, chip, eta, thetaJ, Mtot_SI, distance, alpha0, phic, f_ref, freqs, deltaF);
-
+  XLALDestroyREAL8Sequence(freqs);
   return (retcode);
 }
 
@@ -576,8 +576,15 @@ static int PhenomPCore(
     if (f_final > freqs->data[L_fCut-1])
       f_final = freqs->data[L_fCut-1];
     if (f_final < freqs->data[0])
+    {
+      gsl_spline_free(phiI);
+      gsl_interp_accel_free(acc);
+      XLALFree(phis);
+      XLALFree(PCparams);
+      XLALDestroyREAL8Sequence(freqs);
       XLAL_ERROR(XLAL_EDOM, "f_ringdown < f_min\n");
-
+    }
+      
     /* Time correction is t(f_final) = 1/(2pi) dphi/df (f_final) */
     REAL8 t_corr = gsl_spline_eval_deriv(phiI, f_final, acc) / (2*LAL_PI);
     XLAL_PRINT_INFO("t_corr = %g\n", t_corr);
