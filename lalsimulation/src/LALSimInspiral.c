@@ -3647,10 +3647,6 @@ int XLALSimInspiralImplementedFDApproximants(
  * XLALSimInspiralGetFrameAxisFromString()
  * since there is no way to disable required matching of the PN order
  * with the SWIG-wrapped version of this routine.
- *
- * @bug
- * The default frame axis should be LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L
- * rather than LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW.
  */
 int XLALSimInspiralDecomposeWaveformString(int *approximant, int *order, int *axis, const char *waveform)
 {
@@ -3686,7 +3682,7 @@ int XLALSimInspiralDecomposeWaveformString(int *approximant, int *order, int *ax
         *axis = found_axis;
         /* set frame axis to view if couldn't find, but don't fail */
         if (found_axis < 0)
-            *axis = LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW;
+            *axis = LAL_SIM_INSPIRAL_FRAME_AXIS_DEFAULT;
     }
 
     /* check to see if there are extra characters */
@@ -3779,9 +3775,6 @@ int XLALGetOrderFromString(const char *waveform)
  * LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW is returned.
  * @param[in] waveform The waveform string.
  * @return The LALPNOrder enum value, or -1 on error.
- * @bug
- * The default should be LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L
- * rather than LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW.
  */
 int XLALSimInspiralGetFrameAxisFromString(const char *waveform)
 {
@@ -3795,9 +3788,6 @@ int XLALSimInspiralGetFrameAxisFromString(const char *waveform)
  * @deprecated
  * Like XLALSimInspiralGetFrameAxisFromString() but doesn't demand that the
  * remainder of the waveform string be valid.
- * @bug
- * The default should be LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L
- * rather than LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW.
  */
 int XLALGetFrameAxisFromString(const char *waveform)
 {
@@ -3809,7 +3799,7 @@ int XLALGetFrameAxisFromString(const char *waveform)
         XLAL_ERROR(errnum);
     /* if axis wasn't found, use view */
     if (axis < 0)
-        axis = LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW;
+        axis = LAL_SIM_INSPIRAL_FRAME_AXIS_DEFAULT;
     return axis;
 }
 

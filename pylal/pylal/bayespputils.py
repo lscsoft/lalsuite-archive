@@ -954,6 +954,8 @@ class Posterior(object):
                         vals = dict([(trig.ifo,self._injXMLFuncMap[key](trig)) for trig in self._triggers])
                     except TypeError:
                         return self._injXMLFuncMap[key]
+                    except AttributeError:
+                        return None
         return vals
 
     def __getitem__(self,key):

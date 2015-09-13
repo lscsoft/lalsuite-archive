@@ -159,7 +159,7 @@ class Element(object):
 		elif set(attrs.keys()) <= self.validattributes:
 			self.attributes = attrs
 		else:
-			raise ElementError("%s element does not have attribute(s) %s" % (self.tagName, ", ".join("'%s'" % key for key in set(attrs.keys()) - self.validattributes)))
+			raise ElementError("%s element: invalid attribute(s) %s" % (self.tagName, ", ".join("'%s'" % key for key in set(attrs.keys()) - self.validattributes)))
 		self.childNodes = []
 		self.pcdata = None
 
