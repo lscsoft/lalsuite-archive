@@ -9,9 +9,7 @@
 #include <gsl/gsl_deriv.h>
 
 #include "LALSimIMRSpinEOB.h"
-//
 #include "LALSimIMRSpinEOBHcapNumericalDerivative.c"
-#include "LALSimIMRSpinEOBHcapNumericalDerivative.h"
 #include "LALSimIMRSpinEOBHamiltonian.c"
 #include "LALSimIMREOBFactorizedWaveform.c"
 
