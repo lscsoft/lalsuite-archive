@@ -90,7 +90,7 @@ cp.optionxform = str
 first_dag=True
 common_path=opts.run_path
 
-for inifile in inits:
+for (inifile,hyp) in zip(inits,fnames):
   cp.readfp(open(inifile))
   if opts.run_path is not None:
     cp.set('paths','basedir',opts.run_path)
@@ -117,12 +117,15 @@ for inifile in inits:
     cp.set('paths','basedir',os.path.join(str(common_path),str(fnames_dic[inits.index(inifile)])))
     # Create the DAG from the configparser object
   if first_dag:
-    dag=pipe_utils.LALInferencePipelineDAG(cp,site=opts.grid_site)
+    dag=pipe_utils.LALInferencePipelineDAG(cp,site=opts.grid_site,tiger_label=hyp)
     first_dag=False
     dag.write_sub_files()
     dag2=dag
   else:
-    dag2=pipe_utils.LALInferencePipelineDAG(cp,first_dag=False,previous_dag=dag,site=opts.grid_site)
+    lastdag=False
+    if inifile==inits[-1]:
+      lastdag=True
+    dag2=pipe_utils.LALInferencePipelineDAG(cp,first_dag=False,previous_dag=dag,site=opts.grid_site,lastdag=lastdag,tiger_label=hyp)
     dag2.write_sub_files()    
     dag=dag2
 

@@ -89,7 +89,8 @@ def readLValert(SNRthreshold=0,gid=None,flow=40.0,gracedb="gracedb"):
   import subprocess
   from subprocess import Popen, PIPE
   print "gracedb download %s coinc.xml" % gid
-  subprocess.call([gracedb,"download", gid ,"coinc.xml"])
+  if not os.path.isfile("coinc.xml"):
+    subprocess.call([gracedb,"download", gid ,"coinc.xml"])
   xmldoc=utils.load_filename("coinc.xml",contenthandler = LIGOLWContentHandler)
   coinctable = lsctables.getTablesByType(xmldoc, lsctables.CoincInspiralTable)[0]
   coinc_events = [event for event in coinctable]
@@ -104,7 +105,8 @@ def readLValert(SNRthreshold=0,gid=None,flow=40.0,gracedb="gracedb"):
   # Parse PSD
   srate_psdfile=16384
   print "gracedb download %s psd.xml.gz" % gid
-  subprocess.call([gracedb,"download", gid ,"psd.xml.gz"])
+  if not os.path.isfile("psd.xml.gz"):
+    subprocess.call([gracedb,"download", gid ,"psd.xml.gz"])
   psdasciidic=None
   fhigh=None
   if os.path.exists("psd.xml.gz"):
@@ -411,12 +413,13 @@ def create_pfn_tuple(filename,protocol='file://',site='local'):
     return( (os.path.basename(filename),protocol+os.path.abspath(filename),site) )
 
 class LALInferencePipelineDAG(pipeline.CondorDAG):
-  def __init__(self,cp,dax=False,first_dag=True,previous_dag=None,site='local'):
+  def __init__(self,cp,dax=False,first_dag=True,previous_dag=None,site='local',lastdag=False,tiger_label=None):
     self.subfiles=[]
     self.config=cp
     self.engine=cp.get('analysis','engine')
     self.EngineNode=chooseEngineNode(self.engine)
     self.site=site
+    self.tiger_label=tiger_label
     if cp.has_option('paths','basedir'):
       self.basepath=cp.get('paths','basedir')
     else:
@@ -502,6 +505,10 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     self.coherence_test_job.set_grid_site('local')
     self.gracedbjob = GraceDBJob(self.config,os.path.join(self.basepath,'gracedb.sub'),self.logpath,dax=self.is_dax())
     self.gracedbjob.set_grid_site('local')
+    self.grodds_job= GRoddsJob(self.config,os.path.join(self.basepath,'grodds.sub'),self.logpath,dax=self.is_dax())
+    self.grodds_job.set_grid_site('local')
+    self.postruninfojob=PostRunInfoJob(self.config,os.path.join(self.basepath,'postrungdbinfo.sub'),self.logpath,dax=self.is_dax())
+    self.gracedbjob.set_grid_site('local')
     # Process the input to build list of analyses to do
     self.events=self.setup_from_inputs()
 
@@ -509,7 +516,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     if len(self.events)==0:
       print 'No input events found, please check your config if you expect some events'
     self.times=[e.trig_time for e in self.events]
-
+    print self.times
     # Set up the segments
     if not (self.config.has_option('input','gps-start-time') and self.config.has_option('input','gps-end-time')) and len(self.times)>0:
       (mintime,maxtime)=self.get_required_data(self.times)
@@ -526,11 +533,106 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
 
     # Generate the DAG according to the config given
     for event in self.events: self.add_full_analysis(event)
-
+    if lastdag:
+      self.add_grodds_followup()
+      if self.config.getboolean('analysis','tiger-upload-to-gracedb') and self.config.has_option('analysis','ugid'):
+        ugid=self.config.get('analysis','ugid')
+        self.add_tiger_gdb(ugid)
     self.dagfilename="lalinference_%s-%s"%(self.config.get('input','gps-start-time'),self.config.get('input','gps-end-time'))
     self.set_dag_file(self.dagfilename)
     if self.is_dax():
       self.set_dax_file(self.dagfilename)
+
+  def add_tiger_gdb(self,ugid):
+    parent=None
+    for i in self.get_nodes():
+      if isinstance(i,GRoddsNode):
+        parent=i
+
+    if self.postruninfojob.isdefined is False:
+      return None
+    node=PostRunInfoNode(self.postruninfojob,parent=parent,gid=ugid,samples=None)
+    node.set_logodds(i.get_outfile())
+    node.set_analysis('TIGER')
+    node.finalize()
+    self.add_node(node)
+
+    return node
+
+  def add_grodds_followup(self):
+    # calculate the odds ratio GR/modGR and store it into a file
+    #first check if we are using nparallel, which would imply we want the B file as written by the nest2pos run
+    cp=self.config
+    Npar=self.config.getint('analysis','nparallel')
+    if Npar>1:
+      type='merge'
+    else:
+      type='engine'
+    tmp={}
+    thise=0
+    parents={}
+    for i in self.get_nodes():
+      if type=='merge':
+        if isinstance(i,MergeNSNode):
+           print i.get_parents()[0].id,i.get_parents()[0].get_tiger_label()
+           event=i.get_parents()[0].id-Npar*thise
+           trigtime=i.get_parents()[0].get_trig_time()
+           bsnfile=i.get_B_file()
+           posfile=i.get_pos_file()
+           hyp=i.get_parents()[0].get_tiger_label()
+           thise+=1
+           if tmp=={}:
+             tmp[event]={}
+           if parents=={}:
+             parents[event]=[]
+           tmp[event][hyp]={'trigtime':trigtime,'bsnfile':bsnfile,'posfile':posfile}
+           parents[event].append(i)
+      elif type=='engine':
+        thise=0
+        if isinstance(i,LALInferenceNestNode):
+           event=0#i.id-thise
+           trigtime=i.get_trig_time()
+           bsnfile=i.get_B_file()
+           posfile=i.get_ns_file()
+           hyp=i.get_tiger_label()
+           print event, trigtime,hyp
+           thise+=1
+           if tmp=={}:
+             tmp[event]={}
+           if parents=={}:
+             parents[event]=[]
+           tmp[event][hyp]={'trigtime':trigtime,'bsnfile':bsnfile,'posfile':posfile}
+           parents[event].append(i)
+    print tmp
+    for ev in tmp.keys():
+      #loop over events
+      #create a node
+      node=GRoddsNode(self.grodds_job)
+      for p in parents[ev]:
+        print "adding parent ",p
+        node.add_tiger_parent(p)
+      Nhypstr=""
+      Ninput=""
+      for h in tmp[ev].keys():
+        Nhypstr+=h+ ' '
+        Ninput+=tmp[ev][h]['bsnfile']+' '
+      Nhypstr=Nhypstr[:-1]
+      Ninput=Ninput[:-1]
+      node.set_hyps(Nhypstr)
+      node.set_infiles(Ninput)
+      # now h can be whatever, since all hypothesis will have the same trigime and root dir (the one that contains a dir for each hyp)
+      trigtime=tmp[ev][h]['trigtime']
+      #node.set_trigtime(tmp[ev][h]['trigtime'])
+      import os
+      # create logsdds folder by going one level up WRT the engine or posterior folder (i.e. goes to rundir)
+      outdir=os.path.realpath(os.path.join(tmp[ev][h]['posfile'],'../../..'))
+      outdir=os.path.join(outdir,'tiger_odds')
+      if not os.path.isdir(outdir):
+        os.makedirs(outdir)
+      #filename is 'tiger_odds_event_trigtime.txt'
+      node.set_outfile(os.path.join(outdir,'tiger_odds_%d_%.6f.txt'%(ev,trigtime)))
+      node.finalize()
+      self.add_node(node)
 
   def add_full_analysis(self,event):
     if self.engine=='lalinferencenest':
@@ -710,7 +812,9 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       flow=40.0
       if self.config.has_option('lalinference','flow'):
         flow=min(ast.literal_eval(self.config.get('lalinference','flow')).values())
+      os.chdir(os.path.join(self.basepath,'..'))
       events = readLValert(gid=gid,flow=flow,gracedb=self.config.get('condor','gracedb'))
+      print events
     # pipedown-database
     else: gid=None
     if self.config.has_option('input','pipedown-db'):
@@ -775,13 +879,10 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         else:
           enginenodes[i].set_snr_path('/dev/null')
     # Call finalize to build final list of available data
+    enginenodes[0].set_tiger_label(self.tiger_label)
     enginenodes[0].finalize()
     enginenodes[0].set_psd_files()
     enginenodes[0].set_snr_file()
-    if event.GID is not None:
-      if self.config.has_option('analysis','upload-to-gracedb'):
-        if self.config.getboolean('analysis','upload-to-gracedb'):
-          self.add_gracedb_log_node(respagenode,event.GID)
     if self.config.getboolean('analysis','coherence-test') and len(enginenodes[0].ifos)>1:
         if self.site!='local':
           zipfilename='postproc_'+evstring+'.tar.gz'
@@ -836,8 +937,16 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     respagenode.set_bayes_coherent_noise(mergenode.get_B_file())
     if self.config.has_option('input','injection-file') and event.event_id is not None:
         respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
-    if event.GID is not None:
+    if self.config.has_option('analysis','upload-to-gracedb'):
+      if self.config.getboolean('analysis','upload-to-gracedb') and event.GID is not None:
+        self.add_gracedb_start_node(event.GID)
         self.add_gracedb_log_node(respagenode,event.GID)
+      elif self.config.getboolean('analysis','upload-to-gracedb') and self.config.has_option('analysis','ugid'):
+        ugid=self.config.get('analysis','ugid')
+        event.GID=ugid
+        self.add_gracedb_start_node(event.GID)
+        self.add_gracedb_log_node(respagenode,ugid)
+        self.add_gracedb_info_node(respagenode,ugid,analysis='TIGER')
     return True
 
   def add_full_analysis_lalinferencemcmc(self,event):
@@ -1030,10 +1139,16 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         prenode.ifos=ifos
       gotdata=1
     if self.config.has_option('input','gid'):
+      # for TIGER the psd is stored in the common dir, which is one level above basepath
+      tigerdir=os.path.realpath(os.path.join(self.basepath,'..'))
       if os.path.isfile(os.path.join(self.basepath,'psd.xml.gz')):
         psdpath=os.path.join(self.basepath,'psd.xml.gz')
         node.psds=get_xml_psds(psdpath,ifos,os.path.join(self.basepath,'PSDs'),end_time=None)
         prenode.psds=get_xml_psds(psdpath,ifos,os.path.join(self.basepath,'PSDs'),end_time=None)
+      elif os.path.isfile(os.path.join(tigerdir,'psd.xml.gz')):
+        psdpath=os.path.join(tigerdir,'psd.xml.gz')
+        node.psds=get_xml_psds(psdpath,ifos,os.path.join(tigerdir,'PSDs'),end_time=None)
+        prenode.psds=get_xml_psds(psdpath,ifos,os.path.join(tigerdir,'PSDs'),end_time=None)
     if self.config.has_option('lalinference','flow'):
       node.flows=ast.literal_eval(self.config.get('lalinference','flow'))
       prenode.flows=ast.literal_eval(self.config.get('lalinference','flow'))
@@ -1356,7 +1471,10 @@ class EngineNode(pipeline.CondorDAGNode):
 
   def get_ifos(self):
     return ''.join(map(str,self.ifos))
-
+  def set_tiger_label(self,label):
+    self.tiger_label=label
+  def get_tiger_label(self):
+    return self.tiger_label
   def set_psd_files(self):
     #if node.psdspath is not None:
     try:
@@ -1755,6 +1873,7 @@ class MergeNSNode(pipeline.CondorDAGNode):
     """
     def __init__(self,merge_job,parents=None):
         pipeline.CondorDAGNode.__init__(self,merge_job)
+        self.parents=[]
         if parents is not None:
           for parent in parents:
             self.add_engine_parent(parent)
@@ -1764,6 +1883,7 @@ class MergeNSNode(pipeline.CondorDAGNode):
         self.add_file_arg(parent.get_ns_file())
         self.add_file_opt('headers',parent.get_header_file())
         self.add_input_file(parent.get_B_file())
+        self.parents.append(parent)
 
     def set_pos_output_file(self,file):
         self.add_file_opt('pos',file,file_is_output_file=True)
@@ -1773,6 +1893,7 @@ class MergeNSNode(pipeline.CondorDAGNode):
 
     def get_pos_file(self): return self.posfile
     def get_B_file(self): return self.Bfilename
+    def get_parents(self): return self.parents
 
 class GraceDBJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     """
@@ -1788,6 +1909,21 @@ class GraceDBJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
       self.set_sub_file(os.path.abspath(submitFile))
       self.set_stdout_file(os.path.join(logdir,'gracedb-$(cluster)-$(process).out'))
       self.set_stderr_file(os.path.join(logdir,'gracedb-$(cluster)-$(process).err'))
+      if cp.has_section('certificates'):
+        key=None
+        cert=None
+        if cp.has_option('certificates','X509_USER_KEY'):
+          key=cp.get('certificates','X509_USER_KEY')
+          if not os.path.isfile(key):
+            print "Could not find X509_USER_KEY file %s\n"%key
+            sys.exit(1)
+        if cp.has_option('certificates','X509_USER_KEY'):
+          cert=cp.get('certificates','X509_USER_CERT')
+          if not os.path.isfile(cert):
+            print "Could not find X509_USER_CERT file %s\n"%cert
+            sys.exit(1)
+        if key is not None and cert is not None:
+          self.add_condor_cmd('environment','X509_USER_CERT=%s;X509_USER_KEY=%s'%(cert,key))
       self.add_condor_cmd('getenv','True')
       self.baseurl=cp.get('paths','baseurl')
       self.basepath=cp.get('paths','webdir')
@@ -1873,3 +2009,117 @@ class ROMNode(pipeline.CondorDAGNode):
     if self.__finalized:
       return
     self.__finalized=True
+
+
+class GRoddsJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
+    """
+    Class for a GRoods job: calculate a odds ratio GR/nonGR and store it to file
+    """
+    def __init__(self,cp,submitFile,logdir,dax=False):
+      exe=cp.get('condor','grodds')
+      pipeline.CondorDAGJob.__init__(self,"scheduler",exe)
+      pipeline.AnalysisJob.__init__(self,cp,dax=dax)
+      if cp.has_option('analysis','accounting_group'):
+        self.add_condor_cmd('accounting_group',cp.get('analysis','accounting_group'))
+      self.set_sub_file(os.path.abspath(submitFile))
+      self.set_stdout_file(os.path.join(logdir,'grodds-$(cluster)-$(process).out'))
+      self.set_stderr_file(os.path.join(logdir,'grodds-$(cluster)-$(process).err'))
+      self.add_condor_cmd('getenv','True')
+      self.baseurl=cp.get('paths','baseurl')
+      self.basepath=cp.get('paths','webdir')
+
+class GRoddsNode(pipeline.CondorDAGNode):
+
+  def __init__(self,grodds_job):
+    pipeline.CondorDAGNode.__init__(self,grodds_job)
+    self.outfile=None
+    self.hyps=None
+    self.infiles=None
+    self.trigtime=None
+    self.finalized=False
+  def add_tiger_parent(self,parent):
+    self.add_parent(parent)
+
+  def set_outfile(self,outfile):
+    self.outfile=outfile
+    self.add_file_opt('out',outfile,file_is_output_file=True)
+  def get_outfile(self):
+    return self.outfile
+  def set_hyps(self,csv_hyps):
+    self.hyps=csv_hyps
+    self.add_var_opt('hyps',self.hyps)
+  def set_infiles(self,csv_infiles):
+    self.infiles=csv_infiles
+    self.add_var_opt('infiles',self.infiles)
+
+  def set_trigtime(self,trigtime):
+    self.trigtime=trigtime
+  def finalize(self):
+    self.finalized=True
+
+class PostRunInfoJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
+  def __init__(self,cp,submitFile,logdir,dax=False):
+
+    self.isdefined=True
+    if not cp.has_option('condor','gdbinfo'):
+      print "Condor section doesn't have gdbinfo exectutable. Skipping...\n"
+      self.isdefined=False
+      return
+    exe=cp.get('condor','gdbinfo')
+    pipeline.CondorDAGJob.__init__(self,"vanilla",exe)
+    pipeline.AnalysisJob.__init__(self,cp,dax=dax) # Job always runs locally
+    if cp.has_option('analysis','accounting_group'):
+      self.add_condor_cmd('accounting_group',cp.get('analysis','accounting_group'))
+    self.set_sub_file(os.path.abspath(submitFile))
+    self.set_stdout_file(os.path.join(logdir,'gdbinfo-$(cluster)-$(process).out'))
+    self.set_stderr_file(os.path.join(logdir,'gdbinfo-$(cluster)-$(process).err'))
+    if cp.has_section('certificates'):
+      key=None
+      cert=None
+      if cp.has_option('certificates','X509_USER_KEY'):
+        key=cp.get('certificates','X509_USER_KEY')
+        if not os.path.isfile(key):
+          print "Could not find X509_USER_KEY file %s\n"%key
+          sys.exit(1)
+      if cp.has_option('certificates','X509_USER_KEY'):
+        cert=cp.get('certificates','X509_USER_CERT')
+        if not os.path.isfile(cert):
+          print "Could not find X509_USER_CERT file %s\n"%cert
+          sys.exit(1)
+      if key is not None and cert is not None:
+        self.add_condor_cmd('environment','X509_USER_CERT=%s;X509_USER_KEY=%s'%(cert,key))
+    self.add_condor_cmd('notify_user','salvatore.vitale@LIGO.ORG')
+    self.set_notification('Complete')
+    self.add_condor_cmd('getenv','True')
+    self.add_condor_cmd('RequestMemory','1000')
+
+class PostRunInfoNode(pipeline.CondorDAGNode):
+    def __init__(self,post_run_info_job,gid=None,parent=None,samples=None):
+        pipeline.CondorDAGNode.__init__(self,post_run_info_job)
+        self.bci=None
+        self.bsn=None
+        self.logodds=None
+        self.analysis='TIGER'
+        self.__finalized=False
+        self.set_samples(samples)
+        self.set_parent(parent)
+        self.set_gid(gid)
+        self.add_var_opt('email','salvatore.vitale@ligo.mit.edu')
+    def finalize(self):
+        self.add_var_opt('analysis',self.analysis)
+        self.__finalized=True
+    def set_parent(self,parentnode):
+      self.add_parent(parentnode)
+    def set_samples(self,samples):
+      self.add_file_opt('samples',samples)
+    def set_gid(self,gid):
+      self.add_var_opt('gid',gid)
+    def set_bci(self,bci):
+      self.add_file_opt('bci',bci)
+    def set_bsn(self,bsn):
+      self.add_file_opt('bsn',bsn)
+    def set_analysis(self,analysis):
+      self.analysis=analysis
+    def set_logodds(self,oddsfile):
+      self.logodds=oddsfile
+      self.add_file_opt('tiger_odds',self.logodds)
