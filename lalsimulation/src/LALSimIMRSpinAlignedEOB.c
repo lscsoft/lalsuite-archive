@@ -4258,8 +4258,8 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
     x11 = Y22*hIMR22ITS->data->data[i] + Y21*hIMR21ITS->data->data[i] 
           + Y20*hIMR20ITS->data->data[i] + Y2m1*hIMR2m1ITS->data->data[i] 
           + Y2m2*hIMR2m2ITS->data->data[i];    
-    hPlusTS->data->data[i]  = creal(x11);
-    hCrossTS->data->data[i] = -cimag(x11);     
+    hPlusTS->data->data[i]  = amp0*creal(x11);
+    hCrossTS->data->data[i] = -amp0*cimag(x11);
   }
     
   /* Point the output pointers to the relevant time series and return */
