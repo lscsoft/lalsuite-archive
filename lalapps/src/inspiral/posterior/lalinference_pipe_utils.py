@@ -281,9 +281,9 @@ def scan_timefile(timefile):
     for time in timefilehandle:
       if not p.match(time):
 	continue
-      if float(time) in times:
-	print 'Skipping duplicate time %s'%(time)
-	continue
+      #if float(time) in times:
+      #	print 'Skipping duplicate time %s'%(time)
+      #	continue
       print 'Read time %s'%(time)
       times.append(float(time))
     timefilehandle.close()

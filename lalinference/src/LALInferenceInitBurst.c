@@ -273,8 +273,6 @@ LALInferenceModel * LALInferenceInitBurstModel(LALInferenceRunState *state)
     REAL8 hrssMin=1.e-23, hrssMax=1.0e-15;
     REAL8 loghrssMin=log(hrssMin),loghrssMax=log(hrssMax);
     REAL8 dt=0.1;
-    REAL8 timeMin=endtime-0.5*dt; 
-    REAL8 timeMax=endtime+0.5*dt;
     REAL8 zero=0.0;
 
     /* Handle, if present, requests for calibration parameters. */
@@ -282,7 +280,9 @@ LALInferenceModel * LALInferenceInitBurstModel(LALInferenceRunState *state)
 
     ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
     if (ppt) dt=atof(ppt->value);
-    
+    REAL8 timeMin=endtime-0.5*dt;
+    REAL8 timeMax=endtime+0.5*dt;
+ 
     LALInferenceRegisterUniformVariableREAL8(state, model->params, "time", zero, timeMin, timeMax, LALINFERENCE_PARAM_LINEAR);
     
     /* If we are marginalising over the time, remove that variable from the model (having set the prior above) */
