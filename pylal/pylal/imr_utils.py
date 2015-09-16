@@ -272,8 +272,8 @@ def compute_search_efficiency_in_bins(found, total, ndbins, sim_to_bins_function
 	# pull out the efficiency array, it is the ratio
 	eff = rate.BinnedArray(rate.NDBins(ndbins), array = input.ratio())
 
-        # compute binomial uncertainties in each bin
-        err_arr = numpy.sqrt(eff.array * (1-eff.array)/input.denominator.array)
+	# compute binomial uncertainties in each bin
+	err_arr = numpy.sqrt(eff.array * (1-eff.array)/input.denominator.array)
 	err = rate.BinnedArray(rate.NDBins(ndbins), array = err_arr)
 
 	return eff, err
