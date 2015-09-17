@@ -490,6 +490,10 @@ def cbcBayesPostProc(
         html_snr=html.add_section('Signal to noise ratio(s)',legend=legend)
         html_snr.p('%s'%snrstring)
 
+    # Create a section for the DIC
+    html_dic = html.add_section('Deviance Information Criterion', legend=legend)
+    html_dic.p('DIC = %.1f'%pos.DIC)
+
     #Create a section for summary statistics
     # By default collapse section are collapsed when the page is opened or reloaded. Use start_closed=False option as here below to change this
     tabid='statstable'
