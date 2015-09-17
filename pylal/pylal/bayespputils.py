@@ -848,6 +848,16 @@ class Posterior(object):
         return
 
     @property
+    def DIC(self):
+        """Returns the Deviance Information Criterion estimated from the
+        posterior samples.  The DIC is defined as -2*(<log(L)> -
+        Var(log(L))); smaller values are "better."
+
+        """
+
+        return -2.0*(np.mean(self._logL) - np.var(self._logL))
+
+    @property
     def injection(self):
         """
         Return the injected values.
