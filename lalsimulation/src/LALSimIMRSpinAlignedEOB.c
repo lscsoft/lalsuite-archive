@@ -1541,27 +1541,27 @@ int XLALSimIMRSpinEOBWaveform(
 
 
 int XLALSimIMRSpinEOBWaveformAll(
-        REAL8TimeSeries **hplus,
-        REAL8TimeSeries **hcross,
+        REAL8TimeSeries **hplus,  /**<< output: hplus GW polarization */
+        REAL8TimeSeries **hcross, /**<< output: hcross GW polarization */
         REAL8Vector      **dynHi, /**<< Here we store and return the seob dynamics for high sampling (end of inspiral) */
         SphHarmTimeSeries **hlmPTSoutput, /**<< Here we store and return the PWave (high sampling) */
         SphHarmTimeSeries **hlmPTSHiOutput, /**<< Here we store and return the JWave (high sampling) */
         SphHarmTimeSeries **hIMRlmJTSHiOutput, /**<< Here we store and return the JWaveIMR (high sampling) */
         REAL8Vector     **AttachPars,   /**<< Parameters of RD attachment: */ 
         //LIGOTimeGPS     *tc,
-        const REAL8      phiC,
-        const REAL8     deltaT,
-        const REAL8     m1SI,
-        const REAL8     m2SI,
-        const REAL8     fMin,
-        const REAL8     r,
-        const REAL8     inc,
-        const REAL8     INspin1x,
-        const REAL8     INspin1y,
-        const REAL8     INspin1z,
-        const REAL8     INspin2x,
-        const REAL8     INspin2y,
-        const REAL8     INspin2z
+        const REAL8      phiC,      /**<< intitial orbital phase */
+        const REAL8     deltaT,     /**<< sampling time step */
+        const REAL8     m1SI,       /**<< mass of first object in SI */
+        const REAL8     m2SI,       /**<< mass of second object in SI */
+        const REAL8     fMin,       /**<< fMin */
+        const REAL8     r,          /**<< initial separation */
+        const REAL8     inc,        /**<< inclination */
+        const REAL8     INspin1x,   /**<< spin1 x-component */
+        const REAL8     INspin1y,   /**<< spin1 y-component */
+        const REAL8     INspin1z,   /**<< spin1 z-component */
+        const REAL8     INspin2x,   /**<< spin2 x-component */
+        const REAL8     INspin2y,   /**<< spin2 y-component */
+        const REAL8     INspin2z    /**<< spin2 z-component */
      )
 
 {
@@ -1606,31 +1606,25 @@ int XLALSimIMRSpinEOBWaveformAll(
    * */ 
   REAL8 theta1Ini = 0, theta2Ini = 0;
   REAL8 spin1Norm = -1, spin2Norm = -1;
-  if( INspin1[0] != 0 || INspin1[1] != 0 ) {
+  if( INspin1[0] != 0 || INspin1[1] != 0 || INspin1[2] != 0 ) {
     spin1Norm = sqrt( INspin1[0]*INspin1[0] + INspin1[1]*INspin1[1] +                          INspin1[2]*INspin1[2] );
     theta1Ini = acos( INspin1[2] / spin1Norm );
   
-    if ( theta1Ini <= 1.0e-5) {
+    if ( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) {
       spin1[0] = 0.;
       spin1[1] = 0.;
       spin1[2] = spin1Norm * INspin1[2] / fabs(INspin1[2]);
     }
   }
-  if( INspin2[0] != 0 || INspin2[1] != 0 ) {
+  if( INspin2[0] != 0 || INspin2[1] != 0 || INspin2[2] != 0 ) {
     spin2Norm = sqrt( INspin2[0]*INspin2[0] + INspin2[1]*INspin2[1] +                          INspin2[2]*INspin2[2] );
     theta2Ini = acos( INspin2[2] / spin2Norm );
   
-    if ( theta2Ini <= 1.0e-5) {
+    if ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) {
       spin2[0] = 0.;
       spin2[1] = 0.;
       spin2[2] = spin2Norm * INspin2[2] / fabs(INspin2[2]);
     }
-  }
-  if (theta1Ini < 1.0e-3 && theta2Ini < 1.0e-3) {
-    ret = XLALSimIMRSpinAlignedEOBWaveform(
-          hplus, hcross, phiC, deltaT, m1SI, m2SI, fMin, r, inc,
-          spin1Norm, spin2Norm, SpinAlignedEOBversion);
-    return ret;
   }
   if ( debugPK ) {
     printf( "theta1Ini, theta2Ini =  %3.10f, %3.10f\n", theta1Ini, theta2Ini );
@@ -1640,6 +1634,12 @@ int XLALSimIMRSpinEOBWaveformAll(
             INspin2[0], INspin2[1], INspin2[2] );
     printf( "spin1 = {%3.10f, %3.10f, %3.10f}\n", spin1[0], spin1[1], spin1[2] );
     printf( "spin2 = {%3.10f, %3.10f, %3.10f}\n", spin2[0], spin2[1], spin2[2] );
+  }
+  if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) &&  ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
+    ret = XLALSimIMRSpinAlignedEOBWaveform(
+          hplus, hcross, phiC, deltaT, m1SI, m2SI, fMin, r, inc,
+          spin1Norm*cos(theta1Ini), spin2Norm*cos(theta2Ini), SpinAlignedEOBversion);
+    return ret;
   }
   
   /* *******************************************************************/
