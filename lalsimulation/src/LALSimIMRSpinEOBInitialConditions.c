@@ -1808,8 +1808,9 @@ XLALSimIMRSpinEOBInitialConditionsV2(
 		 * to a pr of 1.0e-3
 		 */
 		cartValues[3] = 1.0e-3;
-		dHdpr = XLALSpinHcapNumDerivWRTParam(3, cartValues, params);
+        REAL8		csi = sqrt(XLALSimIMRSpinEOBHamiltonianDeltaT(params->seobCoeffs, qSph[0], eta, a)*XLALSimIMRSpinEOBHamiltonianDeltaR(params->seobCoeffs, qSph[0], eta, a)) / (qSph[0] * qSph[0] + a * a);
 
+        dHdpr = csi*csi*XLALSpinHcapNumDerivWRTParam(3, cartValues, params);
 
 		/*
 		 * printf( "Ingredients going into prDot:\n" ); printf( "flux
