@@ -1288,7 +1288,7 @@ if __name__=='__main__':
     phaseParams=['phase', 'phi0','phase_maxl']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
     ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
-    tigerParams=['dphi%i'%(i) for i in range(7)] + ['dphi%il'%(i) for i in [5,6] ]
+    tigerParams=['dchi%i'%(i) for i in range(7)] + ['dchi%il'%(i) for i in [5,6] ]+['dxi%d'%(i+1) for i in range(6)]
     bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
     massiveGravitonParams=['lambdaG']
     tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
@@ -1311,6 +1311,9 @@ if __name__=='__main__':
         for mp in massParams:
             for sp in spinParams:
                 twoDGreedyMenu.append([mp,sp])
+        for mp in massParams:
+            for dchi in tigerParams:
+                twoDGreedyMenu.append([mp,dchi])
         for dp in distParams:
             for sp in snrParams:
                 twoDGreedyMenu.append([dp,sp])
@@ -1339,6 +1342,8 @@ if __name__=='__main__':
                     twoDGreedyMenu.append([sp1, sp2])
         for sp1,sp2 in combinations(spinParams,2):
           twoDGreedyMenu.append([sp1, sp2])
+          for dchi in tigerParams:
+            twoDGreedyMenu.append([mp,dchi])
         for mp in massParams:
              for tp in tidalParams:
                  if not (mp == tp):
