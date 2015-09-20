@@ -1722,11 +1722,11 @@ int XLALSimIMRSpinEOBWaveformAll(
   REAL8 polData[4] = {0,0,0,0};  
   
   /* Signal mode */
-  COMPLEX16   hLM = 0 + 0j;
+  COMPLEX16   hLM = 0.0 + 0.0*j;
   /* COMPLEX16 *sigReVec = NULL, *sigImVec = NULL;*/
 
   /* Non-quasicircular correction */
-  COMPLEX16      hNQC = 0 + 0j;
+  COMPLEX16      hNQC = 0.0 + 0.0*j;
   EOBNonQCCoeffs nqcCoeffs;
   memset( &nqcCoeffs, 0, sizeof( nqcCoeffs ) );
 
@@ -1735,8 +1735,8 @@ int XLALSimIMRSpinEOBWaveformAll(
   COMPLEX16        modeFreq;
 
   /* Spin-weighted spherical harmonics */
-  COMPLEX16  Y22 = 0 + 0j, Y2m2 = 0 + 0j, Y21 = 0 + 0j, Y2m1 = 0 + 0j;
-  COMPLEX16  Y20 = 0 + 0j;
+  COMPLEX16  Y22 = 0.0 + 0.0j, Y2m2 = 0.0 + 0.0j, Y21 = 0.0 + 0.0j, Y2m1 = 0.0 + 0.0j;
+  COMPLEX16  Y20 = 0.0 + 0.0j;
   /* (2,2) and (2,-2) spherical harmonics needed in (h+,hx) */
   /*REAL8  y_1, y_2, z1, z2;*/
 
@@ -1847,7 +1847,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   REAL8Vector *rdMatchPoint = XLALCreateREAL8Vector( 3 );  
   REAL8 alJtoI = 0, betJtoI = 0, gamJtoI = 0;
   SphHarmTimeSeries *hIMRlmITS = NULL;
-  COMPLEX16 x11 = 0 + 0j;
+  COMPLEX16 x11 = 0.0 + 0.0j;
 
   /* *******************************************************************/
   /* ********************** Memory Initialization **********************/
