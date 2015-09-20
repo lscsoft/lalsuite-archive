@@ -171,9 +171,9 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   int debugPK = 0;
   /* Update the Hamiltonian coefficients, if spins are evolving */
   int UsePrec = 1;
+  SpinEOBHCoeffs tmpCoeffs; 
   if ( UsePrec && coeffs->updateHCoeffs )
   {
-    SpinEOBHCoeffs tmpCoeffs; 
     REAL8 tmpa;
     
     tmpa = sqrt(sigmaKerr->data[0]*sigmaKerr->data[0]
