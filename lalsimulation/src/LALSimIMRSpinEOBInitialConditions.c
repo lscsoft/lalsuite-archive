@@ -1307,7 +1307,9 @@ XLALSimIMRSpinEOBInitialConditions(
 			cartValues[i + 6] *= mTotal * mTotal;
 			cartValues[i + 9] *= mTotal * mTotal;
 		}
-		dHdpr = tmpDValues[0];
+        REAL8		csi = sqrt(XLALSimIMRSpinEOBHamiltonianDeltaT(params->seobCoeffs, qSph[0], eta, a)*XLALSimIMRSpinEOBHamiltonianDeltaR(params->seobCoeffs, qSph[0], eta, a)) / (qSph[0] * qSph[0] + a * a);
+
+		dHdpr = csi*tmpDValues[0];
 		//XLALSpinHcapNumDerivWRTParam(3, cartValues, params);
 
 		if (debugPK) {
@@ -1812,11 +1814,9 @@ XLALSimIMRSpinEOBInitialConditionsV2(
 
         dHdpr = csi*csi*XLALSpinHcapNumDerivWRTParam(3, cartValues, params);
 
-		/*
-		 * printf( "Ingredients going into prDot:\n" ); printf( "flux
-		 * = %.16e, dEdr = %.16e, dHdpr = %.16e\n", flux, dEdr, dHdpr
-		 * );
-		 */
+		
+//		  printf( "Ingredients going into prDot:\n" ); printf( "flux= %.16e, dEdr = %.16e, dHdpr = %.16e\n", flux, dEdr, dHdpr);
+		 
 
 		/*
 		 * We can now calculate what pr should be taking into account
@@ -1891,14 +1891,9 @@ XLALSimIMRSpinEOBInitialConditionsV2(
 
         //gsl_multiroot_fsolver_free(rootSolver);
 	//printf("THE FINAL INITIAL CONDITIONS:\n");
-	/*
-	 * printf( " %.16e %.16e %.16e\n%.16e %.16e %.16e\n%.16e %.16e
-	 * %.16e\n%.16e %.16e %.16e\n", initConds->data[0],
-	 * initConds->data[1], initConds->data[2], initConds->data[3],
-	 * initConds->data[4], initConds->data[5], initConds->data[6],
-	 * initConds->data[7], initConds->data[8], initConds->data[9],
-	 * initConds->data[10], initConds->data[11] );
-	 */
+	
+//printf( " %.16e %.16e %.16e\n%.16e %.16e %.16e\n%.16e %.16e %.16e\n%.16e %.16e %.16e\n", initConds->data[0],initConds->data[1], initConds->data[2], initConds->data[3],initConds->data[4], initConds->data[5], initConds->data[6],initConds->data[7], initConds->data[8], initConds->data[9],initConds->data[10], initConds->data[11] );
+	 
 
 	return XLAL_SUCCESS;
 }
