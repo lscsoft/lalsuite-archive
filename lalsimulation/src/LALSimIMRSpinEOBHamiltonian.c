@@ -257,10 +257,10 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   else 
   {
     e3_x = 0.;
-    e3_y = 0.;
-    e3_z = 1.;	  
+    e3_y = 1.;
+    e3_z = 0.;
   }
-    if (e3_x*nx + e3_y*ny + e3_z*nz == 1.) {
+    if (e3_x*nx + e3_y*ny + e3_z*nz == 1. || e3_x*nx + e3_y*ny + e3_z*nz == -1.) {
 //        printf("BEFORE e3_x*nx + e3_y*ny + e3_z*nz, e3_x, e3_y, e3_z  = %.16e %.16e %.16e %.16e\n", e3_x*nx + e3_y*ny + e3_z*nz, e3_x, e3_y, e3_z );
         e3_x = e3_x+0.000001;
         e3_y = e3_y+0.000001;

@@ -488,6 +488,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
         UINT4           SpinAlignedEOBversion /**<< 1 for SEOBNRv1, 2 for SEOBNRv2 */
      )
 {
+//    printf("spin1z, spin2z = %e %e\n", spin1z, spin2z);
   /* If the EOB version flag is neither 1 nor 2, exit */
   if (SpinAlignedEOBversion != 1 && SpinAlignedEOBversion != 2)
   {
@@ -1626,7 +1627,12 @@ int XLALSimIMRSpinEOBWaveformAll(
       spin2[2] = spin2Norm * INspin2[2] / fabs(INspin2[2]);
     }
   }
-  if ( debugPK ) {
+    if ( INspin1[0] == 0. && INspin1[1] == 0. && INspin1[2] == 0. ) {
+        spin1Norm = 0.;
+    }
+    if ( INspin2[0] == 0. && INspin2[1] == 0. && INspin2[2] == 0. ) {
+        spin2Norm = 0.;
+    }  if ( debugPK ) {
     printf( "theta1Ini, theta2Ini =  %3.10f, %3.10f\n", theta1Ini, theta2Ini );
     printf( "INspin1 = {%3.10f, %3.10f, %3.10f}\n", 
             INspin1[0], INspin1[1], INspin1[2] );
@@ -1635,13 +1641,18 @@ int XLALSimIMRSpinEOBWaveformAll(
     printf( "spin1 = {%3.10f, %3.10f, %3.10f}\n", spin1[0], spin1[1], spin1[2] );
     printf( "spin2 = {%3.10f, %3.10f, %3.10f}\n", spin2[0], spin2[1], spin2[2] );
   }
-  if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) &&  ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
+  if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) && ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
     ret = XLALSimIMRSpinAlignedEOBWaveform(
           hplus, hcross, phiC, deltaT, m1SI, m2SI, fMin, r, inc,
           spin1Norm*cos(theta1Ini), spin2Norm*cos(theta2Ini), SpinAlignedEOBversion);
     return ret;
   }
-  
+  if ( INspin1[0] == 0. && INspin1[1] == 0. && INspin1[2] == 0. && INspin2[0] == 0. && INspin2[1] == 0. && INspin2[2] == 0. ) {
+        ret = XLALSimIMRSpinAlignedEOBWaveform(
+                                               hplus, hcross, phiC, deltaT, m1SI, m2SI, fMin, r, inc,
+                                               0., 0., SpinAlignedEOBversion);
+        return ret;
+    }
   /* *******************************************************************/
   /* ********************** Memory Allocation **************************/
   /* *******************************************************************/
