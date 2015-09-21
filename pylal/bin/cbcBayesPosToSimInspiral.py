@@ -58,7 +58,8 @@ sim_inspiral_dt = [
         ('spin2x', 'f8'),
         ('spin2y', 'f8'),
         ('spin2z', 'f8'),
-        ('amp_order', 'i4')
+        ('amp_order', 'i4'),
+        ('numrel_data','|S64')
 ]
 
 def get_input_filename(parser, args):
