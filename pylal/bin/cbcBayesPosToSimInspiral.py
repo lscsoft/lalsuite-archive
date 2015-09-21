@@ -265,6 +265,7 @@ if __name__ == "__main__":
     injections['spin2y'] = s2y
     injections['spin2z'] = s2z
     injections['amp_order'] = [opts.amporder for i in xrange(N)]
+    injections['numrel_data'] = [ "" for _ in xrange(N)]
 
     # Create a new XML document
     xmldoc = ligolw.Document()
