@@ -526,7 +526,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     # Generate the DAG according to the config given
     for event in self.events: self.add_full_analysis(event)
     self.add_skyarea_followup()
-    self.add_gracedb_FITSskymap_upload(self.events[0],engine=self.engine)
+    #self.add_gracedb_FITSskymap_upload(self.events[0],engine=self.engine)
+    self.add_gracedb_info_node(None,event.GID,analysis='LIB',issky=True)
 
     self.dagfilename="lalinference_%s-%s"%(self.config.get('input','gps-start-time'),self.config.get('input','gps-end-time'))
     self.set_dag_file(self.dagfilename)
@@ -894,6 +895,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         self.add_gracedb_start_node(event.GID)
         self.add_gracedb_log_node(respagenode,ugid)
         self.add_gracedb_info_node(respagenode,ugid,analysis='LIB')
+
     return True
 	
   def add_full_analysis_lalinferencemcmc(self,event):
@@ -1229,12 +1231,34 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     self.add_node(node)
     return node
 
-  def add_gracedb_info_node(self,respagenode,gid,analysis='LALInference'):
+  def add_gracedb_info_node(self,respagenode,gid,analysis='LALInference',issky=False,prefix="LIB"):
 
-    samples=respagenode.posfile
+    # if issky=True, this node will upload the FITS file into GDB. BCI and BSN will be used to decide which tags to use
+    # Otherwise, this node will upload information about parameters and bayes factors
+
+    if respagenode is not None:
+      samples=respagenode.posfile
+    else:
+      # Try to find it
+      resnodes=filter(lambda x: isinstance(x,ResultsPageNode) ,self.get_nodes())
+      for rs in resnodes:
+        if len(rs.ifos)>1:
+          respagenode=rs
+
     if self.postruninfojob.isdefined is False:
       return None
-    node=PostRunInfoNode(self.postruninfojob,parent=respagenode,gid=gid,samples=samples)
+    if issky is False:
+      node=PostRunInfoNode(self.postruninfojob,parent=respagenode,gid=gid,samples=samples)
+    else:
+      skynodes=filter(lambda x: isinstance(x,SkyAreaNode) ,self.get_nodes())
+      for sk in skynodes:
+        if len(sk.ifos)>1:
+          skymap=sk.outdir+'/%s_skymap.fits.gz'%prefix
+          message=' %s FITS sky map'%prefix
+          node=PostRunInfoNode(self.postruninfojob,parent=sk,gid=gid,samples=None)
+          print skymap,message
+          node.set_skymap(skymap)
+          node.set_message(message)
 
     bci=respagenode.get_bcifile()
     if bci is not None:
@@ -1273,9 +1297,6 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       for sk in skynodes:
         if len(sk.ifos)>1:
           node=GraceDBNode(self.gracedbjob,parent=sk,gid=gid,tag='sky_loc,lvem')
-          #for p in sk.__parents:
-          #  if isinstance(p,ResultPageNode):
-          #    resultpagenode=p
           node.set_filename(sk.outdir+'/%s_skymap.fits.gz'%prefix)
           node.set_message(' %s FITS sky map'%prefix)
           self.add_node(node)
@@ -2144,7 +2165,12 @@ class PostRunInfoNode(pipeline.CondorDAGNode):
     def set_parent(self,parentnode):
       self.add_parent(parentnode)
     def set_samples(self,samples):
-      self.add_file_opt('samples',samples)
+      if samples is not None:
+        self.add_var_arg('--samples %s'%samples)
+    def set_skymap(self,skymap):
+        self.add_var_arg('--skymap %s'%skymap)
+    def set_message(self,message):
+        self.add_var_arg('--message %s'%message)
     def set_gid(self,gid):
       self.add_var_opt('gid',gid)
     def set_bci(self,bci):
