@@ -512,7 +512,6 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         timeslidedtimes=self.times
   
       (mintime,maxtime)=self.get_required_data(timeslidedtimes)
-
     if not self.config.has_option('input','gps-start-time'):
       self.config.set('input','gps-start-time',str(int(floor(mintime))))
     if not self.config.has_option('input','gps-end-time'):
@@ -595,7 +594,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     # Assume that the data interval is (end_time - seglen -padding , end_time + psdlength +padding )
     # -> change to (trig_time - seglen - padding - psdlength + 2 , trig_time + padding + 2) to estimate the psd before the trigger for online follow-up.
     # Also require padding before start time
-    return (min(times)-padding-seglen-psdlength+2,max(times)+padding+2)
+    return (min(times)-padding-seglen-psdlength+2,max(times)+padding+2+psdlength)
 
   def setup_from_times(self,times):
     """
@@ -1256,7 +1255,6 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
           skymap=sk.outdir+'/%s_skymap.fits.gz'%prefix
           message=' %s FITS sky map'%prefix
           node=PostRunInfoNode(self.postruninfojob,parent=sk,gid=gid,samples=None)
-          print skymap,message
           node.set_skymap(skymap)
           node.set_message(message)
 
@@ -1809,7 +1807,6 @@ class ResultsPageNode(pipeline.CondorDAGNode):
         #self.add_file_opt('archive','results.tar.gz',file_is_output_file=True)
         mkdirs(path)
         self.posfile=os.path.join(path,'posterior_samples.dat')
-        print "----",self.posfile
         self.add_output_file(self.posfile)
     def get_output_path(self):
         return self.webpath
