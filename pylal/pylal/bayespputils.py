@@ -50,6 +50,7 @@ from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
 from scipy import stats
 from scipy import special
 from scipy import signal
+from scipy.optimize import newton
 from numpy import linspace
 import random
 import socket
@@ -222,6 +223,11 @@ def plot_label(param):
       'eta':r'$\eta$',
       'q':r'$q$',
       'mtotal':r'$M_\mathrm{total}\,(\mathrm{M}_\odot)$',
+      'm1_source':r'$m_{1}^\mathrm{source}\,(\mathrm{M}_\odot)$',
+      'm2_source':r'$m_{2}^\mathrm{source}\,(\mathrm{M}_\odot)$',
+      'mtotal_source':r'$M_\mathrm{total}^\mathrm{source}\,(\mathrm{M}_\odot)$',
+      'mc_source':r'$\mathcal{M}^\mathrm{source}\,(\mathrm{M}_\odot)$',
+      'redshift':r'$z$',
       'spin1':r'$S_1$',
       'spin2':r'$S_2$',
       'a1':r'$a_1$',
@@ -231,6 +237,7 @@ def plot_label(param):
       'phi1':r'$\phi_1\,(\mathrm{rad})$',
       'phi2':r'$\phi_2\,(\mathrm{rad})$',
       'chi':r'$\chi$',
+      'chi_p':r'$\chi_P$',
       'tilt1':r'$t_1\,(\mathrm{rad})$',
       'tilt2':r'$t_2\,(\mathrm{rad})$',
       'costilt1':r'$\mathrm{cos}(t_1)$',
@@ -681,6 +688,7 @@ class Posterior(object):
          pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','spin1','m2','spin2'))
       elif ('a1' in pos.names and 'm1' in pos.names) and ('a2' in pos.names and 'm2' in pos.names):
          pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','a1','m2','a2'))
+        
 
       if('a_spin1' in pos.names): pos.append_mapping('a1',lambda a:a,'a_spin1')
       if('a_spin2' in pos.names): pos.append_mapping('a2',lambda a:a,'a_spin2')
@@ -750,6 +758,28 @@ class Posterior(object):
               pos.append_mapping(new_spin_params, spin_angles, old_params)
           except KeyError:
               print "Warning: Cannot find spin parameters.  Skipping spin angle calculations."
+                
+      #Calculate effective precessing spin magnitude
+      if ('a1' in pos.names and 'tilt1' in pos.names and 'm1' in pos.names ) and ('a2' in pos.names and 'tilt2' in pos.names and 'm2' in pos.names):
+          pos.append_mapping('chi_p', chi_precessing, ['a1', 'tilt1', 'm1', 'a2', 'tilt2', 'm2'])
+
+
+      # Calculate redshift from luminosity distance measurements
+      if('distance' in pos.names):
+          pos.append_mapping('redshift', calculate_redshift, 'distance')
+     
+      # Calculate source mass parameters
+      if ('m1' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('m1_source', source_mass, ['m1', 'redshift'])
+
+      if ('m2' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('m2_source', source_mass, ['m2', 'redshift'])
+        
+      if ('mtotal' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('mtotal_source', source_mass, ['mtotal', 'redshift'])
+
+      if ('mc' in pos.names) and ('redshift' in pos.names):
+          pos.append_mapping('mc_source', source_mass, ['mc', 'redshift'])
 
       #Calculate new tidal parameters
       new_tidal_params = ['lam_tilde','dlam_tilde']
@@ -3362,7 +3392,43 @@ def spin_angles(fref,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
     beta  = array_ang_sep(J,L)
     return tilt1, tilt2, theta_jn, beta
 #
-#
+def chi_precessing(a1, tilt1, m1, a2, tilt2, m2):
+	"""
+	Calculate the magnitude of the effective precessing spin
+	following convention from Phys. Rev. D 91, 024043   --   arXiv:1408.1810
+	note: the paper uses naming convention where m1 < m2 
+	(and similar for associated spin parameters) and q > 1
+	"""
+	q_inv = m1/m2
+	A1 = 2. + (3.*q_inv/2.)
+	A2 = 2. + 3./(2.*q_inv)
+	S1_perp = a1*np.sin(tilt1)*m1*m1
+	S2_perp = a2*np.sin(tilt2)*m2*m2
+	Sp = np.maximum(A1*S2_perp, A2*S1_perp)
+	chi_p = Sp/(A2*m1*m1)
+	return chi_p
+
+def calculate_redshift(distance,h=0.7,om=0.3,ol=0.7,w0=-1.0):
+    """
+    Calculate the redshift from the luminosity distance measurement using the
+    Cosmology Calculator provided in LAL.
+    Currently assumes Omega_M = 0.3, Omega_Lambda = 0.7, H_0 = 70 km s^-1 Mpc^-1
+    Returns an array of redshifts
+    """
+    def find_z_root(z,dl,omega):
+        return dl - lal.LuminosityDistance(omega,z)    
+
+    omega = lal.CreateCosmologicalParameters(h,om,ol,w0,0.0,0.0)
+    z = np.array([newton(find_z_root,np.random.uniform(0.0,2.0),args = (d,omega)) for d in distance[:,0]])
+    return z.reshape(z.shape[0],1)
+
+def source_mass(mass, redshift):
+    """
+    Calculate source mass parameter for mass m as:
+    m_source = m / (1.0 + z)
+    For a parameter m.
+    """
+    return mass / (1.0 + redshift)
 
 def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref):
     """
@@ -6120,4 +6186,3 @@ def plot_psd(psd_files,outpath=None):
   myfig2.clf()
 
   return 1
-
