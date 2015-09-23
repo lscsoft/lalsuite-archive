@@ -304,33 +304,21 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   ww=2.*a*r + coeffs->b3*eta*a2*a*u + coeffs->bb3*eta*a*u;
 
   /* We need to transform the momentum to get the tortoise co-ord */
-  if ( tortoise )
-  {
-    csi = sqrt( fabs(deltaT * deltaR) )/ w2; /* Eq. 28 of Pan et al. PRD 81, 084041 (2010) */
-  }
-  else
-  {
-    csi = 1.0;
-  }
-  if(debugPK)printf( "csi(miami) = %.16e\n", csi );
+  /* Eq. 28 of Pan et al. PRD 81, 084041 (2010) */
+  // RH: this assumes that tortoise can be 0 or 1 or 2.
+  csi = sqrt( deltaT * deltaR )/ w2;
+  // non-unity only for tortoise==1
+  const REAL8 csi1 = 1.0 + (1.-fabs(1.-tortoise)) * (csi - 1.0);
+  // non-unity only for tortoise==2
+  const REAL8 csi2 = 1.0 + (0.5-copysign(0.5, 1.5-tortoise)) * (csi - 1.0);
+  if(debugPK)printf( "csi1(miami) = %.16e\n", csi1 );
+  if(debugPK)printf( "csi2(miami) = %.16e\n", csi2 );
 
-
-  if ( tortoise != 2 )
-  {
-	  prT = p->data[0]*nx + p->data[1]*ny + p->data[2]*nz;
-      /* p->data is BL momentum vector; tmpP is tortoise momentum vector */ 
-      tmpP[0] = p->data[0] - nx * prT * (csi - 1.)/csi;
-      tmpP[1] = p->data[1] - ny * prT * (csi - 1.)/csi;
-      tmpP[2] = p->data[2] - nz * prT * (csi - 1.)/csi;
-  }
-  else
-  {
-	  prT = (p->data[0]*nx + p->data[1]*ny + p->data[2]*nz)*csi;
-      /* p->data is BL momentum vector; tmpP is tortoise momentum vector */ 
-      tmpP[0] = p->data[0];
-      tmpP[1] = p->data[1];
-      tmpP[2] = p->data[2];
-  }
+  prT = (p->data[0]*nx + p->data[1]*ny + p->data[2]*nz)*csi2;
+  /* p->data is BL momentum vector; tmpP is tortoise momentum vector */
+  tmpP[0] = p->data[0] - nx * prT * ((csi1 - 1.)/csi1);
+  tmpP[1] = p->data[1] - ny * prT * ((csi1 - 1.)/csi1);
+  tmpP[2] = p->data[2] - nz * prT * ((csi1 - 1.)/csi1);
   
   pxir = (tmpP[0]*xi_x + tmpP[1]*xi_y + tmpP[2]*xi_z) * r;
   pvr  = (tmpP[0]*vx + tmpP[1]*vy + tmpP[2]*vz) * r;
