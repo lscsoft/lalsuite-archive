@@ -364,13 +364,22 @@ XLALInspiralPrecSpinFactorizedFlux(
 		chiA = -0.2959424290852973;
 		printf("Changed them to the correct values = %e, %e!\n", chiS, chiA);
 
-
+        if (ak->alignedSpins==1) {
 		if (XLALSimIMREOBCalcSpinFacWaveformCoefficients(ak->eobParams->hCoeffs,
 		   ak->eobParams->m1, ak->eobParams->m2, ak->eobParams->eta,
 								 tplspin, chiS, chiA, SpinAlignedEOBversion) == XLAL_FAILURE) {
 			XLALDestroyREAL8Vector(values);
 			XLAL_ERROR(XLAL_EFUNC);
 		}
+        }
+        else {
+            if (XLALSimIMREOBCalcSpinFacWaveformCoefficients(ak->eobParams->hCoeffs,
+                                                             ak->eobParams->m1, ak->eobParams->m2, ak->eobParams->eta,
+                                                             tplspin, chiS, chiA, 3) == XLAL_FAILURE) {
+                XLALDestroyREAL8Vector(values);
+                XLAL_ERROR(XLAL_EFUNC);
+            }
+        }
 	}			/* }}} */
 	//printf("v = %.16e\n", v);
 	for (l = 2; l <= lMax; l++) {

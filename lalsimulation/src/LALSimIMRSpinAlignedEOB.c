@@ -151,7 +151,7 @@ XLALEOBSpinStopConditionBasedOnPR(double UNUSED t,
   cross_product( values, dvalues, omega_xyz );
   omega = sqrt(inner_product( omega_xyz, omega_xyz )) / r2;
   pDotr = inner_product( p, r ) / sqrt(r2);
-  
+    if (debugPK){  printf("XLALEOBSpinStopConditionBasedOnPR:: r = %e\n", sqrt(r2));}
   REAL8 rdot;
   rdot = inner_product(rdotVec, r) / sqrt(r2);
   double prDot = - inner_product( p, r )*rdot/r2
@@ -1611,7 +1611,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     spin1Norm = sqrt( INspin1[0]*INspin1[0] + INspin1[1]*INspin1[1] +                          INspin1[2]*INspin1[2] );
     theta1Ini = acos( INspin1[2] / spin1Norm );
   
-    if ( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) {
+    if ( fabs(theta1Ini) <= 1.0e-4  || fabs(theta1Ini) >= LAL_PI - 1.0e-4) {
       spin1[0] = 0.;
       spin1[1] = 0.;
       spin1[2] = spin1Norm * INspin1[2] / fabs(INspin1[2]);
@@ -1621,7 +1621,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     spin2Norm = sqrt( INspin2[0]*INspin2[0] + INspin2[1]*INspin2[1] +                          INspin2[2]*INspin2[2] );
     theta2Ini = acos( INspin2[2] / spin2Norm );
   
-    if ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) {
+    if ( fabs(theta2Ini) <= 1.0e-4 || fabs(theta2Ini) >= LAL_PI - 1.0e-4) {
       spin2[0] = 0.;
       spin2[1] = 0.;
       spin2[2] = spin2Norm * INspin2[2] / fabs(INspin2[2]);
@@ -1632,7 +1632,8 @@ int XLALSimIMRSpinEOBWaveformAll(
     }
     if ( INspin2[0] == 0. && INspin2[1] == 0. && INspin2[2] == 0. ) {
         spin2Norm = 0.;
-    }  if ( debugPK ) {
+    }
+    if ( debugPK ) {
     printf( "theta1Ini, theta2Ini =  %3.10f, %3.10f\n", theta1Ini, theta2Ini );
     printf( "INspin1 = {%3.10f, %3.10f, %3.10f}\n", 
             INspin1[0], INspin1[1], INspin1[2] );
@@ -1641,12 +1642,12 @@ int XLALSimIMRSpinEOBWaveformAll(
     printf( "spin1 = {%3.10f, %3.10f, %3.10f}\n", spin1[0], spin1[1], spin1[2] );
     printf( "spin2 = {%3.10f, %3.10f, %3.10f}\n", spin2[0], spin2[1], spin2[2] );
   }
-  if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) && ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
-    ret = XLALSimIMRSpinAlignedEOBWaveform(
-          hplus, hcross, phiC, deltaT, m1SI, m2SI, fMin, r, inc,
-          spin1Norm*cos(theta1Ini), spin2Norm*cos(theta2Ini), SpinAlignedEOBversion);
-    return ret;
-  }
+//  if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) && ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
+//    ret = XLALSimIMRSpinAlignedEOBWaveform(
+//          hplus, hcross, phiC, deltaT, m1SI, m2SI, fMin, r, inc,
+//          spin1Norm*cos(theta1Ini), spin2Norm*cos(theta2Ini), SpinAlignedEOBversion);
+//    return ret;
+//  }
   if ( INspin1[0] == 0. && INspin1[1] == 0. && INspin1[2] == 0. && INspin2[0] == 0. && INspin2[1] == 0. && INspin2[2] == 0. ) {
         ret = XLALSimIMRSpinAlignedEOBWaveform(
                                                hplus, hcross, phiC, deltaT, m1SI, m2SI, fMin, r, inc,
@@ -1813,7 +1814,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   gsl_interp_accel *acc = NULL;
 
   /* Accuracies of adaptive Runge-Kutta integrator */
-  const REAL8 EPS_ABS = 1.0e-9;
+  const REAL8 EPS_ABS = 1.0e-8;
   const REAL8 EPS_REL = 1.0e-8;
 
   /* Memory for the calculation of the alpha(t) and beta(t) angles */
@@ -2049,11 +2050,23 @@ int XLALSimIMRSpinEOBWaveformAll(
 
   REAL8Vector* tmpValues2 = NULL;
   tmpValues2 = XLALCreateREAL8Vector( 14 ); 
-
-  if ( XLALSimIMRSpinEOBInitialConditions( tmpValues2, m1, m2, fMin, inc,
+    if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) && ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
+        seobParams.alignedSpins = 1;
+        seobParams.chi1 = spin1[2];
+        seobParams.chi2 = spin2[2];
+        if ( XLALSimIMRSpinEOBInitialConditionsV2( tmpValues2, m1, m2, fMin, inc,
+                                                mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
+        {
+            XLAL_ERROR( XLAL_EFUNC );
+        }
+        seobParams.alignedSpins = 0;
+    }
+    else {
+    if ( XLALSimIMRSpinEOBInitialConditions( tmpValues2, m1, m2, fMin, inc,
        	mSpin1, mSpin2, &seobParams ) == XLAL_FAILURE )
-  {
-    XLAL_ERROR( XLAL_EFUNC );
+        {
+            XLAL_ERROR( XLAL_EFUNC );
+        }
   }
   tmpValues2->data[12] = 0.;
   tmpValues2->data[13] = 0.;
@@ -2157,34 +2170,46 @@ int XLALSimIMRSpinEOBWaveformAll(
 //    tmpValues2->data[11]= 1.3888888888888888e-02;
 
 
-    tmpValues2->data[0]=  1.8656971023349701e+01;
-    tmpValues2->data[1]= 0;
-    tmpValues2->data[2]= 0;
-    tmpValues2->data[3]= -4.8895110550351657e-04;
-    tmpValues2->data[4]= 2.4619856470732523e-01;
-    tmpValues2->data[5]= -2.6870560011919208e-05;
-    tmpValues2->data[6]= 2.9451156124040437e-02;
-    tmpValues2->data[7]= -1.1434246556844330e-02;
-    tmpValues2->data[8]= 2.3068072871192638e-01;
-    tmpValues2->data[9]= 6.2954182743516019e-03;
-    tmpValues2->data[10]= 8.8246456372334629e-03;
-    tmpValues2->data[11]= 1.5200695012151960e-01;
+//    tmpValues2->data[0]=  1.8656971023349701e+01;
+//    tmpValues2->data[1]= 0;
+//    tmpValues2->data[2]= 0;
+//    tmpValues2->data[3]= -4.8895110550351657e-04;
+//    tmpValues2->data[4]= 2.4619856470732523e-01;
+//    tmpValues2->data[5]= -2.6870560011919208e-05;
+//    tmpValues2->data[6]= 2.9451156124040437e-02;
+//    tmpValues2->data[7]= -1.1434246556844330e-02;
+//    tmpValues2->data[8]= 2.3068072871192638e-01;
+//    tmpValues2->data[9]= 6.2954182743516019e-03;
+//    tmpValues2->data[10]= 8.8246456372334629e-03;
+//    tmpValues2->data[11]= 1.5200695012151960e-01;
 
-/*
-    tmpValues2->data[0]=  18.692546;
-    tmpValues2->data[1]= -3.081570006533801e-23;
-    tmpValues2->data[2]= -2.655985321845305e-19;
-    tmpValues2->data[3]= -0.0005055333254955916;
-    tmpValues2->data[4]= 0.247049159617696;
-    tmpValues2->data[5]= -5.732707053941175e-05;
-    tmpValues2->data[6]= -2.3036527238752252e-02;
-    tmpValues2->data[7]= -3.3429958143641740e-02;
-    tmpValues2->data[8]= 2.3933425361333752e-01;
-    tmpValues2->data[9]= 7.5408416145236912e-02;
-    tmpValues2->data[10]= 1.7433761720072755e-01;
-    tmpValues2->data[11]= -2.3113050136189490e-02;
-*/
 
+//      tmpValues2->data[0]=  1.2791153581349091e+01;
+//    tmpValues2->data[1]= 0.;
+//    tmpValues2->data[2]= 0.;
+//    tmpValues2->data[3]= -1.4835177245908124e-03;
+//    tmpValues2->data[4]= 3.8696129848416980e+00/1.2791153581349091e+01;
+//    tmpValues2->data[5]= 0;
+//    tmpValues2->data[6]= 0;
+//    tmpValues2->data[7]= 0;
+//    tmpValues2->data[8]= 2.9387755102040819e-01;
+//    tmpValues2->data[9]= 0;
+//    tmpValues2->data[10]= 0;
+//    tmpValues2->data[11]= 1.6530612244897960e-01;
+
+      tmpValues2->data[0]=  2.0388097469001991e+01;
+      tmpValues2->data[1]= 0.;
+      tmpValues2->data[2]= 0.;
+      tmpValues2->data[3]= -3.6459245552132851e-04;
+      tmpValues2->data[4]= 4.7623374020896696e+00/2.0388097469001991e+01;
+      tmpValues2->data[5]= 0;
+//      tmpValues2->data[6]= 0;
+//      tmpValues2->data[7]= 0.;
+//      tmpValues2->data[8]= 2.9387755102040819e-01;
+//      tmpValues2->data[9]= 0;
+//      tmpValues2->data[10]= 0.;
+//      tmpValues2->data[11]= 1.6530612244897960e-01;
+      
   //tmpValues2->data[3] *= 1.02;
   //tmpValues2->data[4] *= 1.02;
   //tmpValues2->data[5] *= -0.01;
@@ -2269,7 +2294,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   }
   
   if ( XLALSimIMREOBCalcSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta,
-        tplspin, chiS, chiA, SpinAlignedEOBversion ) == XLAL_FAILURE )
+        tplspin, chiS, chiA, 3 ) == XLAL_FAILURE )
   {
     XLALDestroyREAL8Vector( sigmaKerr );
     XLALDestroyREAL8Vector( sigmaStar );
@@ -3328,7 +3353,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
 
     /* Update hlm coefficients */
     if ( XLALSimIMREOBCalcSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta, 
-        tplspin, chiS, chiA, SpinAlignedEOBversion ) == XLAL_FAILURE )
+        tplspin, chiS, chiA, 3 ) == XLAL_FAILURE )
       printf("\nSomething went wrong evaluating XLALSimIMRCalculateSpinEOBHCoeffs in step %d of coarse dynamics\n", 
 			i );
     
@@ -3661,7 +3686,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
 
     /* Update hlm coefficients */
     if ( XLALSimIMREOBCalcSpinFacWaveformCoefficients( &hCoeffs, m1, m2, eta, 
-        tplspin, chiS, chiA, SpinAlignedEOBversion ) == XLAL_FAILURE )
+        tplspin, chiS, chiA, 3 ) == XLAL_FAILURE )
       printf("\nSomething went wrong evaluating XLALSimIMRCalculateSpinEOBHCoeffs in step %d of coarse dynamics\n", 
 			i );
     

@@ -171,9 +171,9 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   int debugPK = 0;
   /* Update the Hamiltonian coefficients, if spins are evolving */
   int UsePrec = 1;
+  SpinEOBHCoeffs tmpCoeffs; 
   if ( UsePrec && coeffs->updateHCoeffs )
   {
-    SpinEOBHCoeffs tmpCoeffs; 
     REAL8 tmpa;
     
     tmpa = sqrt(sigmaKerr->data[0]*sigmaKerr->data[0]
@@ -1680,10 +1680,18 @@ UNUSED static int XLALSpinHcapRvecDerivative(
   //params.params->sigmaKerr = &sKerr;
   params.params->a         = a;
  
-  XLALSimIMREOBCalcSpinFacWaveformCoefficients( 
-		params.params->eobParams->hCoeffs, mass1, mass2, eta, tplspin, 
-		chiS, chiA, SpinAlignedEOBversion );
-  XLALSimIMRCalculateSpinEOBHCoeffs( params.params->seobCoeffs, eta, a, 
+    if (params.params->alignedSpins==1) {
+        XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+                                                     params.params->eobParams->hCoeffs, mass1, mass2, eta, tplspin,
+                                                     chiS, chiA, SpinAlignedEOBversion);
+    }
+    else {
+        XLALSimIMREOBCalcSpinFacWaveformCoefficients(
+                                                     params.params->eobParams->hCoeffs, mass1, mass2, eta, tplspin,
+                                                     chiS, chiA, 3);
+    }
+
+    XLALSimIMRCalculateSpinEOBHCoeffs( params.params->seobCoeffs, eta, a, 
       SpinAlignedEOBversion );
 
   H = XLALSimIMRSpinEOBHamiltonian( eta, &rVec, &pVec, &s1norm, &s2norm, 
