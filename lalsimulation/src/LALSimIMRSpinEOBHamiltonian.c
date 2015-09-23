@@ -163,7 +163,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
                REAL8Vector    * restrict sigmaKerr, /**<< Spin vector sigma_kerr */
                REAL8Vector    * restrict sigmaStar, /**<< Spin vector sigma_star */
                INT4                      tortoise,  /**<< flag to state whether the momentum is the tortoise co-ord */
-	       SpinEOBHCoeffs *coeffs               /**<< Structure containing various coefficients */
+	       SpinEOBHCoeffs * restrict coeffs     /**<< Structure containing various coefficients */
                )
 {
 //    if(isnan(x->data[0]) || isnan(x->data[1]) || isnan(x->data[2])) {x->data[0] = 0.1;x->data[1] = 0.1;x->data[2] = 0.1;}
