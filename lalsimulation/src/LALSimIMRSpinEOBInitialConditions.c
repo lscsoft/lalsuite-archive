@@ -182,21 +182,15 @@ ApplyRotationMatrix(
 )
 {
 
-	gsl_vector     *tmpVec1 = gsl_vector_alloc(3);
-	gsl_vector     *tmpVec2 = gsl_vector_calloc(3);
-
-	gsl_vector_set(tmpVec1, 0, a[0]);
-	gsl_vector_set(tmpVec1, 1, a[1]);
-	gsl_vector_set(tmpVec1, 2, a[2]);
+        double b[3];
+        gsl_vector_view tmpView1 = gsl_vector_view_array(a, 3);
+        gsl_vector_view tmpView2 = gsl_vector_view_array(b, 3);
+	gsl_vector     *tmpVec1 = &tmpView1.vector;
+	gsl_vector     *tmpVec2 = &tmpView2.vector;
 
 	gsl_blas_dgemv(CblasNoTrans, 1.0, rotMatrix, tmpVec1, 0.0, tmpVec2);
 
-	a[0] = gsl_vector_get(tmpVec2, 0);
-	a[1] = gsl_vector_get(tmpVec2, 1);
-	a[2] = gsl_vector_get(tmpVec2, 2);
-
-	gsl_vector_free(tmpVec1);
-	gsl_vector_free(tmpVec2);
+        gsl_vector_memcpy(tmpVec1, tmpVec2);
 
 	return XLAL_SUCCESS;
 }
