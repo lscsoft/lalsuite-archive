@@ -778,8 +778,8 @@ XLALSimIMREOBHybridAttachRingdown(
             omegaWavePeak = ((-dhRe*hIm + dhIm*hRe)/hNorm2) / mTot;
         }
         else{
-            printf("PROBLEM!!!!! hNOrm=0.0\n");
-            XLAL_ERROR(XLAL_EFAILED);
+            printf("hNorm=0.0 for (l,m)=(%d,%d)\n",l,m);
+//            XLAL_ERROR(XLAL_EFAILED);
         }
 
          
