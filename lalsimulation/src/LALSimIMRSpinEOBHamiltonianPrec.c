@@ -172,7 +172,7 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   REAL8 w2, rho2;
   REAL8 u, u2, u3, u4, u5;
   REAL8 bulk, deltaT, deltaR, Lambda;
-  REAL8 D, qq, ww, B, w, MU, nu, BR, wr, nur, mur;
+  REAL8 D, qq, ww, B, w, expMU, expnu, BR, wr, nur, mur;
   REAL8 wcos, nucos, mucos, ww_r, Lambda_r;
   REAL8 logTerms, deltaU, deltaU_u, Q, deltaT_r, pn2, pp;
   REAL8 deltaSigmaStar_x, deltaSigmaStar_y, deltaSigmaStar_z;
@@ -189,6 +189,8 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
 
   REAL8 csi;
 
+  REAL8 logu;
+
   /* Spin gauge parameters. (YP) simplified, since both are zero. */
   // static const double aa=0., bb=0.;
   if(debugPK){
@@ -203,9 +205,15 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
 
   r2 = x->data[0]*x->data[0] + x->data[1]*x->data[1] + x->data[2]*x->data[2];
   r  = sqrt(r2);
-  nx = x->data[0] / r;
-  ny = x->data[1] / r;
-  nz = x->data[2] / r;   
+  u  = 1./r;
+  u2 = u*u;
+  u3 = u2*u;
+  u4 = u2*u2;
+  u5 = u4*u;
+
+  nx = x->data[0] *u;
+  ny = x->data[1] *u;
+  nz = x->data[2] *u;
      
   sKerr_x = sigmaKerr->data[0];
   sKerr_y = sigmaKerr->data[1];
@@ -268,22 +276,22 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   /* Eq. 5.75 of BB1 */
   bulk = 1./(m1PlusetaKK*m1PlusetaKK) + (2.*u)/m1PlusetaKK + a2*u2;
   /* Eq. 5.73 of BB1 */
-  logTerms = 1. + eta*coeffs->k0 + eta*log(fabs(1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
-                                              + coeffs->k5*u5 + coeffs->k5l*u5*log(u)));
+  logu = log(u);
+  logTerms = 1. + eta*coeffs->k0 + eta*log(1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
+                                              + coeffs->k5*u5 + coeffs->k5l*u5*logu);
   if(debugPK)printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );
   /* Eq. 5.73 of BB1 */
   deltaU = bulk*logTerms;
-    deltaU = fabs(deltaU);
   /* Eq. 5.71 of BB1 */
   deltaT = r2*deltaU;
   /* ddeltaU/du */
   deltaU_u = 2.*(1./m1PlusetaKK + a2*u)*logTerms + 
-	  bulk * (eta*(coeffs->k1 + u*(2.*coeffs->k2 + u*(3.*coeffs->k3 + u*(4.*coeffs->k4 + 5.*(coeffs->k5+coeffs->k5l*log(u))*u)))))
-          / (1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4 + (coeffs->k5+coeffs->k5l*log(u))*u5);
+	  bulk * (eta*(coeffs->k1 + u*(2.*coeffs->k2 + u*(3.*coeffs->k3 + u*(4.*coeffs->k4 + 5.*(coeffs->k5+coeffs->k5l*logu)*u)))))
+          / (1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4 + (coeffs->k5+coeffs->k5l*logu)*u5);
   /* ddeltaT/dr */
   deltaT_r = 2.*r*deltaU - deltaU_u;
   /* Eq. 5.39 of BB1 */
-  Lambda = fabs(w2*w2 - a2*deltaT*xi2);
+  Lambda = w2*w2 - a2*deltaT*xi2;
   /* Eq. 5.83 of BB1, inverse */
   D = 1. + log(1. + 6.*eta*u2 + 2.*(26. - 3.*eta)*eta*u3);
   /* Eq. 5.38 of BB1 */
@@ -352,8 +360,10 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   /* Eqs. 5.30 - 5.33 of BB1 */
   B = sqrt(deltaT);
   w = ww/Lambda;
-  nu = 0.5 * log(deltaT*rho2/Lambda);
-  MU = 0.5 * log(rho2);  
+  //nu = 0.5 * log(deltaT*rho2/Lambda);
+  //MU = 0.5 * log(rho2);
+  expnu = sqrt(deltaT*rho2/Lambda);
+  expMU = sqrt(rho2);
   /* dLambda/dr */
   Lambda_r = 4.*r*w2 - a2*deltaT_r*xi2;
      
@@ -478,16 +488,16 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
      
   s3 = sx*e3_x + sy*e3_y + sz*e3_z;  
   /* Eq. 3.45 of BB1, second term */        
-  Hwr = (exp(-3.*MU - nu)*sqrt(deltaR)*(exp(2.*(MU + nu))*pxir*pxir*sv - B*exp(MU + nu)*pvr*pxir*sxi + 
-        B*B*xi2*(exp(2.*MU)*(sqrt(Q) + Q)*sv + pn*pvr*sn*sqrt(deltaR) - pn*pn*sv*deltaR)))/(2.*B*(1. + sqrt(Q))*sqrt(Q)*xi2);
+  Hwr = ((1.0/(expMU*expMU*expMU*expnu))*sqrt(deltaR)*((expMU*expMU*expnu*expnu)*pxir*pxir*sv - B*(expMU*expnu)*pvr*pxir*sxi +
+                                                       B*B*xi2*((expMU*expMU)*(sqrt(Q) + Q)*sv + pn*pvr*sn*sqrt(deltaR) - pn*pn*sv*deltaR)))/(2.*B*(1. + sqrt(Q))*sqrt(Q)*xi2);
   /* Eq. 3.45 of BB1, third term */     
-  Hwcos = (exp(-3.*MU - nu)*(sn*(-(exp(2.*(MU + nu))*pxir*pxir) + B*B*(pvr*pvr - exp(2.*MU)*(sqrt(Q) + Q)*xi2)) - 
-        B*pn*(B*pvr*sv - exp(MU + nu)*pxir*sxi)*sqrt(deltaR)))/(2.*B*(1. + sqrt(Q))*sqrt(Q));
+  Hwcos = ((1.0/(expMU*expMU*expMU*expnu))*(sn*(-(expMU*expMU*expnu*expnu*pxir*pxir) + B*B*(pvr*pvr - (expMU*expMU)*(sqrt(Q) + Q)*xi2)) -
+                                            B*pn*(B*pvr*sv - (expMU*expnu)*pxir*sxi)*sqrt(deltaR)))/(2.*B*(1. + sqrt(Q))*sqrt(Q));
   /* Eq. 3.44 of BB1, leading term */     
-  HSOL = (exp(-MU + 2.*nu)*(-B + exp(MU + nu))*pxir*s3)/(B*B*sqrt(Q)*xi2);
+  HSOL = ((expnu*expnu/expMU)*(-B + (expMU*expnu))*pxir*s3)/(B*B*sqrt(Q)*xi2);
   /* Eq. 3.44 of BB1, next-to-leading term */
-  HSONL = (exp(-2.*MU + nu)*(-(B*exp(MU + nu)*nucos*pxir*(1. + 2.*sqrt(Q))*sn*xi2) + 
-        (-(BR*exp(MU + nu)*pxir*(1. + sqrt(Q))*sv) + B*(exp(MU + nu)*nur*pxir*(1. + 2.*sqrt(Q))*sv + B*mur*pvr*sxi + 
+  HSONL = ((expnu/(expMU*expMU))*(-(B*(expMU*expnu)*nucos*pxir*(1. + 2.*sqrt(Q))*sn*xi2) +
+        (-(BR*(expMU*expnu)*pxir*(1. + sqrt(Q))*sv) + B*((expMU*expnu)*nur*pxir*(1. + 2.*sqrt(Q))*sv + B*mur*pvr*sxi +
         B*sxi*(-(mucos*pn*xi2) + sqrt(Q)*(mur*pvr - nur*pvr + (-mucos + nucos)*pn*xi2))))*sqrt(deltaR)))/(B*B*(sqrt(Q) + Q)*xi2);   
   /* Eq. 3.43 and 3.45 of BB1 */
   Hs = w*s3 + Hwr*wr + Hwcos*wcos + HSOL + HSONL;
@@ -510,14 +520,14 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
 	  printf( "Hns = %.16e, Hs = %.16e, Hss = %.16e\n", Hns, Hs, Hss );
 	  printf( "H = %.16e\n", H );}
   /* Real Hamiltonian given by Eq. 2, ignoring the constant -1. */
-  Hreal = sqrt(1. + 2.*eta *(fabs(H) - 1.));
+  Hreal = sqrt(1. + 2.*eta *(H - 1.));
   if(debugPK)printf( "Hreal = %.16e\n", Hreal );
   
   if(isnan(Hreal)) {
     printf(
     "\n\nInside Hamiltonian: Hreal is a NAN. Printing its components below:\n");
       printf( "(deltaU, bulk, logTerms, log arg) = (%.16e, %.16e, %.16e, %.16e)\n", deltaU, bulk, logTerms, 1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
-             + coeffs->k5*u5 + coeffs->k5l*u5*log(u));
+             + coeffs->k5*u5 + coeffs->k5l*u5*logu);
 
     printf( "In Hamiltonian: tortoise flag = %d\n", (int) tortoise );
     printf( "x = %.16e\t%.16e\t%.16e\n", x->data[0], x->data[1], x->data[2] );
