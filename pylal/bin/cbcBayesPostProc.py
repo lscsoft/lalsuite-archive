@@ -1293,7 +1293,7 @@ if __name__=='__main__':
     massiveGravitonParams=['lambdaG']
     tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
     statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1','flow']
-    snrParams=['optimal_snr','matched_filter_snr']
+    snrParams=bppu.snrParams
     oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams + snrParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
@@ -1343,10 +1343,11 @@ if __name__=='__main__':
              for tp in tidalParams:
                  if not (mp == tp):
                      twoDGreedyMenu.append([mp, tp])
+        for sp1,sp2 in combinations(snrParams,2):
+                twoDGreedyMenu.append([sp1,sp2])
         twoDGreedyMenu.append(['lambda1','lambda2'])
         twoDGreedyMenu.append(['lam_tilde','dlam_tilde'])
         twoDGreedyMenu.append(['lambdat','dlambdat'])
-        twoDGreedyMenu.append(['optimal_snr','matched_filter_snr'])
         for psip in polParams:
             for phip in phaseParams:
                 twoDGreedyMenu.append([psip,phip])
@@ -1357,7 +1358,9 @@ if __name__=='__main__':
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'mc_source':0.025,'m1_source':0.1,'m2_source':0.1,'mtotal_source':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'time_mean':1e-4,'distance':1.0,'dist':1.0,'redshift':0.01,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'chi_eff':0.05,'chi_tot':0.05,'chi_p':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0,'phase_maxl':0.05,'optimal_snr':0.05,'matched_filter_snr':0.05}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'mc_source':0.025,'m1_source':0.1,'m2_source':0.1,'mtotal_source':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'time_mean':1e-4,'distance':1.0,'dist':1.0,'redshift':0.01,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'chi_eff':0.05,'chi_tot':0.05,'chi_p':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05,'flow':1.0,'phase_maxl':0.05}
+    for s in snrParams:
+            greedyBinSizes[s]=0.05
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
     if not opts.no2D:
