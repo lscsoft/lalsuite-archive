@@ -936,6 +936,9 @@ int MAIN( int argc, char *argv[]) {
   if ( uvar_outputTiming )
     timeStart = XLALGetTimeOfDay();
 
+  /***** open file for mapping diagnostics *****/
+  FILE *fmap = fopen("MAPPING.txt", "w");
+
  /* ################## loop over SKY coarse-grid points ################## */
   while(thisScan.state != STATE_FINISHED)
   {
@@ -1334,6 +1337,15 @@ int MAIN( int argc, char *argv[]) {
             /* compute the global-correlation coordinate indices */
             U1idx = ComputeU1idx ( freq_tmp, f1dot_eventB1, A1, u1start, u1winInv );
 
+            /***** write mapping diagnostics *****/
+            fprintf(fmap, " %i", U1idx);
+            fprintf(fmap, " %0.15g", timeDiffSeg);
+            fprintf(fmap, " %0.15g", A1);
+            fprintf(fmap, " %0.15g", B1);
+            fprintf(fmap, " %0.15g", finegrid.freqmin_fg - thisPoint.fkdot[0]);
+            fprintf(fmap, " %0.15g", f1dot_tmp - thisPoint.fkdot[1]);
+            fprintf(fmap, "\n");
+
             if (U1idx < 0) {
               fprintf(stderr,"ERROR: Stepped outside the coarse grid (%d)! \n", U1idx);
               return(HIERARCHICALSEARCH_ECG);
@@ -1423,6 +1435,9 @@ int MAIN( int argc, char *argv[]) {
 
   } /* ######## End of while loop over 1st stage SKY coarse-grid points ############ */
   /*---------------------------------------------------------------------------------*/
+
+  /***** close mapping diagnostics file *****/
+  fclose(fmap);
 
   /* timing */
   if ( uvar_outputTiming )
