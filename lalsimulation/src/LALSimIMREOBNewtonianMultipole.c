@@ -37,6 +37,7 @@
 
 #include <complex.h>
 
+#include <gsl/gsl_math.h>
 #include <gsl/gsl_sf_gamma.h>
 
 #include "LALSimIMREOBNRv2.h"
@@ -587,8 +588,21 @@ CalculateThisMultipolePrefix(
    if ( epsilon == 0 )
    {
   
-     n = I * m;
-     n = cpow( n, (REAL8)l );
+     switch(l&3)
+     {
+       case 0:
+         n = gsl_pow_int(m, l);
+       break;
+       case 1:
+         n = I*gsl_pow_int(m, l);
+       break;
+       case 2:
+         n = -gsl_pow_int(m, l);
+       break;
+       case 3:
+         n = -I*gsl_pow_int(m, l);
+       break;
+     }
   
      mult1 = 8.0 * LAL_PI / gsl_sf_doublefact(2u*l + 1u);
      mult2 = (REAL8)((l+1) * (l+2)) / (REAL8)(l * ((INT4)l - 1));
@@ -600,8 +614,21 @@ CalculateThisMultipolePrefix(
   else if ( epsilon == 1 )
   {
   
-     n = I * m;
-     n = cpow( n, (REAL8)l );
+     switch(l&3)
+     {
+       case 0:
+         n = gsl_pow_int(m, l);
+       break;
+       case 1:
+         n = I*gsl_pow_int(m, l);
+       break;
+       case 2:
+         n = -gsl_pow_int(m, l);
+       break;
+       case 3:
+         n = -I*gsl_pow_int(m, l);
+       break;
+     }
      n = -n;
 
      mult1 = 16.*LAL_PI / gsl_sf_doublefact( 2u*l + 1u );
