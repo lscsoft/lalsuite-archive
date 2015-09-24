@@ -304,7 +304,7 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   if(debugPK)printf( "KK = %.16e\n", coeffs->KK );
   invm1PlusetaKK = 1./(-1. + eta * coeffs->KK);
   /* Eq. 5.75 of BB1 */
-  bulk = invm1PlusetaKK*invm1PlusetaKK + (2.*u)*invm1PlusetaKK + a2*u2;
+  bulk = invm1PlusetaKK*(invm1PlusetaKK + (2.*u)) + a2*u2;
   /* Eq. 5.73 of BB1 */
   // use ln(u) = log_2(u)/log_2(e) and the fact that log2 is faster than ln
   // this relies on the compiler evaluating the expression at compile time.
@@ -312,8 +312,8 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   // result returned by Maple.
   const REAL8 invlog_2e = 0.69314718055994530941723212145817656807550013436026;
   logu = log2(u)*invlog_2e;
-  logTerms = 1. + eta*coeffs->k0 + eta*log1p(1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
-                                               + coeffs->k5*u5 + coeffs->k5l*u5*logu);
+  logTerms = 1. + eta*coeffs->k0 + eta*log1p(coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
+                                             + coeffs->k5*u5 + coeffs->k5l*u5*logu);
   if(debugPK)printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );
   /* Eq. 5.73 of BB1 */
   deltaU = bulk*logTerms;
@@ -398,14 +398,14 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
      
   ww_r=2.*a - (a2*a*coeffs->b3*eta)*u2 - coeffs->bb3*eta*a*u2;
   /* Eqs. 5.47a - 5.47d of BB1 */
-  BR = -deltaT*invsqrtdeltaR*invsqrtdeltaT + deltaT_r*0.5*invsqrtdeltaT;
+  BR = (-deltaT*invsqrtdeltaR + deltaT_r*0.5)*invsqrtdeltaT;
   wr = (-Lambda_r*ww + Lambda*ww_r)*(invLambda*invLambda);
   nur = (r*invrho2 + (w2 * (-4.*r*deltaT + w2*deltaT_r) ) * 0.5*invdeltaT*invLambda );
   mur = (r*invrho2 - invsqrtdeltaR);
   /* Eqs. 5.47f - 5.47h of BB1 */
-  wcos  = -2.*a2*costheta*deltaT*ww*invLambda*invLambda;  
-  nucos = a2*costheta*w2*(w2-deltaT)*invrho2*invLambda;
-  mucos = a2*costheta*invrho2;
+  wcos  = -2.*(a2*costheta)*deltaT*ww*(invLambda*invLambda);
+  nucos = (a2*costheta)*w2*(w2-deltaT)*(invrho2*invLambda);
+  mucos = (a2*costheta)*invrho2;
   /* Eq. 5.52 of BB1, (YP) simplified */
   //Q = 1. + pvr*pvr/(exp(2.*MU)*xi2) + exp(2.*nu)*pxir*pxir/(B*B*xi2) + pn*pn*deltaR/exp(2.*MU);
   Q = 1. + pvr*pvr*invrho2*invxi2 + deltaT*rho2*invLambda*pxir*pxir*invdeltaT*invxi2 + pn*pn*deltaR*invrho2;
@@ -428,11 +428,11 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   deltaSigmaStar_z=(-8.*aa*(1. + 3.*pn2*r - pp*r)*sKerr_z - 8.*bb*(1. + 3.*pn2*r - pp*r)*sStar_z + 
 	eta*(-8.*sKerr_z - 36.*pn2*r*sKerr_z + 3.*pp*r*sKerr_z + 14.*sStar_z - 30.*pn2*r*sStar_z + 4.*pp*r*sStar_z))/(12.*r);
   */
-  deltaSigmaStar_x=eta*(-8.*sKerr_x - 36.*pn2*r*sKerr_x + 3.*pp*r*sKerr_x + 14.*sStar_x - 30.*pn2*r*sStar_x + 4.*pp*r*sStar_x)*(1./12.)*u;
+  deltaSigmaStar_x=eta*((-8.*sKerr_x - 36.*pn2*r*sKerr_x) + (3.*pp*r*sKerr_x + 14.*sStar_x) + (- 30.*pn2*r*sStar_x + 4.*pp*r*sStar_x))*(1./12.)*u;
 
-  deltaSigmaStar_y=eta*(-8.*sKerr_y - 36.*pn2*r*sKerr_y + 3.*pp*r*sKerr_y + 14.*sStar_y - 30.*pn2*r*sStar_y + 4.*pp*r*sStar_y)*(1./12.)*u;
+  deltaSigmaStar_y=eta*((-8.*sKerr_y - 36.*pn2*r*sKerr_y) + (3.*pp*r*sKerr_y + 14.*sStar_y) + (- 30.*pn2*r*sStar_y + 4.*pp*r*sStar_y))*(1./12.)*u;
 
-  deltaSigmaStar_z=eta*(-8.*sKerr_z - 36.*pn2*r*sKerr_z + 3.*pp*r*sKerr_z + 14.*sStar_z - 30.*pn2*r*sStar_z + 4.*pp*r*sStar_z)*(1./12.)*u;
+  deltaSigmaStar_z=eta*((-8.*sKerr_z - 36.*pn2*r*sKerr_z) + (3.*pp*r*sKerr_z + 14.*sStar_z) + (- 30.*pn2*r*sStar_z + 4.*pp*r*sStar_z))*(1./12.)*u;
 
 
   /* Now compute the additional 3.5PN terms. */
@@ -473,8 +473,8 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   */
   const REAL8 invr2 = u*u;
   sMultiplier1 = -(2.*eta*(-353. + 27.*eta) + 2.*(103.*eta - 60.*eta*eta)*pp*r 
-               + 120.*(-3.*eta*eta)*pn2*pn2*r*r + (eta*(23. + 3.*eta))*pp*pp*r*r 
-               + 6.*pn2*r*(- 47.*eta + 54.*eta*eta + (- 16.*eta + 21.*eta*eta)*pp*r))
+               + (120.*(-3.))*(eta*eta)*(pn2*pn2)*(r*r) + (eta*(23. + 3.*eta))*(pp*pp)*(r*r )
+               + 6.*pn2*r*(- 47.*eta + 54.*(eta*eta) + (- 16.*eta + 21.*(eta*eta))*pp*r))
                * (1./72.) * invr2;                        
   /* Eq. 52 of BB2, (YP) simplified for zero gauge parameters */       
   /*
@@ -487,8 +487,8 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
       aaa*(-4. + 60.*eta))*pp*r))/(144.*r*r);
   */
   sMultiplier2 = (-16.*(7.*eta*(8. + 3.*eta)) + 4.*(- 109.*eta + 51.*eta*eta)*pp*r 
-               + 810.*eta*eta*pn2*pn2*r*r - 45.*eta*pp*pp*r*r 
-               - 6.*pn2*r*(16.*eta + 147.*eta*eta + (- 6.*eta + 39.*eta*eta)*pp*r))
+               + 810.*(eta*eta)*(pn2*pn2)*(r*r) - 45.*eta*(pp*pp)*(r*r)
+               - 6.*pn2*r*(16.*eta + 147.*eta*eta + (- 6.*eta + 39.*(eta*eta))*pp*r))
                * (1./144.) * invr2;
   /* Eq. 52 of BB2 */                     
   deltaSigmaStar_x += sMultiplier1*sigmaStar->data[0] + sMultiplier2*sigmaKerr->data[0];
