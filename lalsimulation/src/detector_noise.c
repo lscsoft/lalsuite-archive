@@ -42,6 +42,8 @@
  * <DL>
  * <DT>`-h`, `--help`</DT>
  * <DD>print this message and exit</DD>
+ * <DT>`--verbose`</DT>
+ * <DD>verbose output</DD>
  * <DT>`-0`, `--0noise`</DT>
  * <DD>no noise (generates zeros)</DD>
  * <DT>`-A`, `--aligo-nosrm`</DT>
@@ -74,6 +76,8 @@
  * <DD>use official data files</DD>
  * <DT>`-P`, `--psd-only`</DT>
  * <DD>output PSD only</DD>
+ * <DT>`-a`, `--asd-file` ASDFILE</DT>
+ * <DD>read amplitude spectrum density file</DD>
  * <DT>`-s`, `--start-time` GPSSTART</DT>
  * <DD>GPS start time (s)</DD>
  * <DT>`-t`, `--duration` DURATION</DT>
@@ -139,6 +143,9 @@
 #include <lal/FrequencySeries.h>
 #include <lal/TimeSeries.h>
 #include <lal/LALSimNoise.h>
+#include <lal/LALSimUtils.h>
+
+static LALUnit strainSquaredPerHertzUnit = { 0, { 0, 0, 1, 0, 0, 2, 0}, { 0, 0, 0, 0, 0, 0, 0} };
 
 double (*psdfunc)(double);
 int (*opsdfunc)(REAL8FrequencySeries *, double);
@@ -151,7 +158,8 @@ double flow;
 int official;
 int psdonly;
 const char *detector;
-const char *prefix;
+char *asdfile;
+int verbose = 0;
 
 int usage(const char *program);
 int parseargs(int argc, char **argv);
@@ -199,11 +207,24 @@ int main(int argc, char *argv[])
 
 	gsl_rng_env_setup();
 	rng = gsl_rng_alloc(gsl_rng_default);
-	psd = XLALCreateREAL8FrequencySeries(detector, &tstart, 0.0, srate/length, &lalSecondUnit, length/2 + 1);
-	if (official && opsdfunc)
+	psd = XLALCreateREAL8FrequencySeries(detector, &tstart, 0.0, srate/length, &strainSquaredPerHertzUnit, length/2 + 1);
+	if (asdfile)
+		XLALSimNoisePSDFromFile(psd, flow, asdfile);
+	else if (official && opsdfunc)
 		opsdfunc(psd, flow);
 	else
 		XLALSimNoisePSD(psd, flow, psdfunc);
+	if (verbose) {
+		double Mpc = 1e6 * LAL_PC_SI;
+		double horizon_distance;
+		fprintf(stderr, "%-39s %s\n", "detector: ", detector);
+		fprintf(stderr, "%-39s %g Hz\n", "low-frequency cutoff: ", flow);
+		horizon_distance = XLALMeasureStandardSirenHorizonDistance(psd, flow, -1.0);
+		fprintf(stderr, "%-39s %g Mpc\n", "standard siren horizon distance: ", horizon_distance / Mpc);
+		fprintf(stderr, "%-39s %g Mpc\n", "sense-monitor range: ", horizon_distance / Mpc / LAL_HORIZON_DISTANCE_OVER_SENSEMON_RANGE);
+		fprintf(stderr, "%-39s GSL_RNG_TYPE=%s\n", "GSL random number generator:", gsl_rng_name(rng));
+		fprintf(stderr, "%-39s GSL_RNG_SEED=%lu\n", "GSL random number seed:", gsl_rng_default_seed);
+	}
 	if (psdonly) { // output PSD and exit
 		size_t klow = flow / psd->deltaF;
 		size_t k;
@@ -240,6 +261,7 @@ int parseargs( int argc, char **argv )
 {
 	struct LALoption long_options[] = {
 			{ "help", no_argument, 0, 'h' },
+			{ "verbose", no_argument, 0, 1 },
 			{ "0noise", no_argument, 0, '0' },
 			{ "aligo-nosrm", no_argument, 0, 'A' },
 			{ "aligo-zerodet-lowpower", no_argument, 0, 'B' },
@@ -256,6 +278,7 @@ int parseargs( int argc, char **argv )
 			{ "kagra", no_argument, 0, 'K' },
 			{ "official", no_argument, 0, 'O' },
 			{ "psd-only", no_argument, 0, 'P' },
+			{ "psd-file", no_argument, 0, 'p' },
 			{ "start-time", required_argument, 0, 's' },
 			{ "duration", required_argument, 0, 't' },
 			{ "sample-rate", required_argument, 0, 'r' },
@@ -263,7 +286,7 @@ int parseargs( int argc, char **argv )
 			{ "low-frequency", required_argument, 0, 'f' },
 			{ 0, 0, 0, 0 }
 		};
-	char args[] = "hI0ABCDEFOPvVgGTKs:t:r:d:f:";
+	char args[] = "h\1I0ABCDEFOPvVgGTKa:s:t:r:d:f:";
 	while (1) {
 		int option_index = 0;
 		int c;
@@ -283,6 +306,9 @@ int parseargs( int argc, char **argv )
 			case 'h': /* help */
 				usage(argv[0]);
 				exit(0);
+			case 1: /* verbose */
+				verbose = 1;
+				break;
 			case '0': /* 0noise */
 				/* psdfunc and opsdfunc are ignored so just choose anything */
 				psdfunc = XLALSimNoisePSDaLIGONoSRMLowPower;
@@ -294,42 +320,42 @@ int parseargs( int argc, char **argv )
 				psdfunc = XLALSimNoisePSDaLIGONoSRMLowPower;
 				opsdfunc = XLALSimNoisePSDaLIGONoSRMLowPowerGWINC;
 				flow = 9.0;
-				detector = "aLIGO";
+				detector = "aLIGO_NoSRM";
 				break;
 			case 'B': /* aligo-zerodet-lowpower */
 				psdfunc = XLALSimNoisePSDaLIGOZeroDetLowPower;
 				opsdfunc = XLALSimNoisePSDaLIGOZeroDetLowPowerGWINC;
 				flow = 9.0;
-				detector = "aLIGO";
+				detector = "aLIGO_ZeroDet_LowPower";
 				break;
 			case 'C': /* aligo-zerodet-highpower */
 				psdfunc = XLALSimNoisePSDaLIGOZeroDetHighPower;
 				opsdfunc = XLALSimNoisePSDaLIGOZeroDetHighPowerGWINC;
 				flow = 9.0;
-				detector = "aLIGO";
+				detector = "aLIGO_ZeroDet_HighPower";
 				break;
 			case 'D': /* aligo-nsnsopt */
 				psdfunc = XLALSimNoisePSDaLIGONSNSOpt;
 				opsdfunc = XLALSimNoisePSDaLIGONSNSOptGWINC;
 				flow = 9.0;
-				detector = "aLIGO";
+				detector = "aLIGO_NSNSopt";
 				break;
 			case 'E': /* aligo-bhbh20deg */
 				psdfunc = XLALSimNoisePSDaLIGOBHBH20Deg;
 				opsdfunc = XLALSimNoisePSDaLIGOBHBH20DegGWINC;
 				flow = 9.0;
-				detector = "aLIGO";
+				detector = "aLIGO_BHBH20deg";
 				break;
 			case 'F': /* aligo-highfreq */
 				psdfunc = XLALSimNoisePSDaLIGOHighFrequency;
 				opsdfunc = XLALSimNoisePSDaLIGOHighFrequencyGWINC;
 				flow = 9.0;
-				detector = "aLIGO";
+				detector = "aLIGO_HighFreq";
 				break;
 			case 'I': /* iligo-srd */
 				psdfunc = XLALSimNoisePSDiLIGOSRD;
 				flow = 30.0;
-				detector = "LIGO SRD";
+				detector = "LIGO_SRD";
 				break;
 			case 'v': /* initial Virgo */
 				psdfunc = XLALSimNoisePSDVirgo;
@@ -367,6 +393,11 @@ int parseargs( int argc, char **argv )
 			case 'P': /* start-time */
 				psdonly = 1;
 				break;
+			case 'a': /* asd-file */
+				flow = 0.0;
+				asdfile = LALoptarg;
+				detector = LALoptarg;
+				break;
 			case 's': /* start-time */
 				{
 					char *endp = NULL;
@@ -402,7 +433,7 @@ int parseargs( int argc, char **argv )
 		exit(1);
 	}
 
-	if (! psdfunc || (!psdonly && duration == 0.0)) {
+	if ((!psdfunc && !asdfile) || (!psdonly && duration == 0.0)) {
 		fprintf(stderr, "must select a noise model and a duration\n");
 		usage(argv[0]);
 		exit(1);
@@ -432,6 +463,7 @@ int usage( const char *program )
 	fprintf(stderr, "\t-K, --kagra                  \tKAGRA noise power\n");
 	fprintf(stderr, "\t-O, --official               \tuse official data files\n");
 	fprintf(stderr, "\t-P, --psd-only               \toutput PSD only\n");
+	fprintf(stderr, "\t-a, --asd-file ASDFILE       \tread an ASD file\n");
 	fprintf(stderr, "\t-s, --start-time GPSSTART    \tGPS start time (s)\n");
 	fprintf(stderr, "\t-t, --duration DURATION      \t(required) duration of data to produce (s)\n");
 	fprintf(stderr, "\t-r, --sample-rate SRATE      \tsample rate (Hz) [16384]\n");

@@ -153,9 +153,15 @@ XLALSpinAlignedHiSRStopCondition(double UNUSED t,  /**< UNUSED */
  * All equation numbers in this file refer to equations of this paper,
  * unless otherwise specified.
  *
+ * @review SEOBNRv1 has been reviewd by Riccardo Sturani, B. Sathyaprakash and Prayush Kumar.
+ * The review concluded in fall 2012.
+ *
  * Functions for producing SEOBNRv2 waveforms for
  * spinning binaries, as described in
  * Taracchini et al. ( arXiv 1311.2544 ).
+ *
+ * @review SEOBNRv2 has been reviewed by Riccardo Sturani, Prayush Kumar and Stas Babak.
+ * The review concluded with git hash 5bc6bb861de2eb72ca403b9e0f529d83080490fe (August 2014).
  *
  * @{
  */
@@ -715,7 +721,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   integrator->retries = 1;
 
   retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data, 0., 20./mTScaled, deltaT/mTScaled, &dynamics );
-  if ( retLen == XLAL_FAILURE )
+  if ( retLen == XLAL_FAILURE || dynamics == NULL )
   {
     XLAL_ERROR( XLAL_EFUNC );
   }
@@ -769,7 +775,7 @@ int XLALSimIMRSpinAlignedEOBWaveform(
   integrator->stop = XLALSpinAlignedHiSRStopCondition;
 
   retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data, 0., 20./mTScaled, deltaTHigh/mTScaled, &dynamicsHi );
-  if ( retLen == XLAL_FAILURE )
+  if ( retLen == XLAL_FAILURE || dynamicsHi == NULL )
   {
     XLAL_ERROR( XLAL_EFUNC );
   }

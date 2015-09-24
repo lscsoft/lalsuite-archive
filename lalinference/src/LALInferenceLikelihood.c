@@ -817,6 +817,14 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
        recurrance relation has the advantage that the error growth is
        O(sqrt(N)) for N repetitions. */
 
+    /* See, for example, 
+
+       Press, Teukolsky, Vetteling & Flannery, 2007.  Numerical
+       Recipes, Third Edition, Chapter 5.4.  
+
+       Singleton, 1967. On computing the fast Fourier
+       transform. Comm. ACM, vol. 10, 647–654. */
+    
     /* Incremental values, using cos(theta) - 1 = -2*sin(theta/2)^2 */
     dim = -sin(twopit*deltaF);
     dre = -2.0*sin(0.5*twopit*deltaF)*sin(0.5*twopit*deltaF);
@@ -915,6 +923,13 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
       }//end glitch subtraction
 
+      templatesq=creal(template)*creal(template) + cimag(template)*cimag(template);
+      REAL8 datasq = creal(d)*creal(d)+cimag(d)*cimag(d);
+      D+=TwoDeltaToverN*datasq/sigmasq;
+      S+=TwoDeltaToverN*templatesq/sigmasq;
+      COMPLEX16 dhstar = TwoDeltaToverN*d*conj(template)/sigmasq;
+      Rcplx+=dhstar;
+      
       switch(marginalisationflags)
       {
         case GAUSSIAN:
@@ -938,8 +953,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
         case MARGTIME:
         case MARGTIMEPHI:
         {
-          templatesq=creal(template)*creal(template) + cimag(template)*cimag(template);
-          REAL8 datasq = creal(d)*creal(d)+cimag(d)*cimag(d);
           loglikelihood+=-TwoDeltaToverN*(templatesq+datasq)/sigmasq;
 
           /* Note: No Factor of 2 here, since we are using the 2-sided
@@ -948,21 +961,15 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 	     time-series of likelihoods. */
           dh_S_tilde->data[i] += TwoDeltaToverN * d * conj(template) / sigmasq;
 
-	  if (margphi) {
-	    /* This is the other phase quadrature */
-	    dh_S_phase_tilde->data[i] += TwoDeltaToverN * d * conj(I*template) / sigmasq;
-	  }
+          if (margphi) {
+            /* This is the other phase quadrature */
+            dh_S_phase_tilde->data[i] += TwoDeltaToverN * d * conj(I*template) / sigmasq;
+          }
 
           break;
         }
         case MARGPHI:
         {
-          templatesq=creal(template)*creal(template) + cimag(template)*cimag(template);
-          REAL8 datasq = creal(d)*creal(d)+cimag(d)*cimag(d);
-          D+=TwoDeltaToverN*datasq/sigmasq;
-          S+=TwoDeltaToverN*templatesq/sigmasq;
-          COMPLEX16 dhstar = TwoDeltaToverN*d*conj(template)/sigmasq;
-          Rcplx+=dhstar;
           break;
         }
         default:
@@ -972,7 +979,6 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
 
     } /* End loop over freq bins */
-
     switch(marginalisationflags)
     {
     case GAUSSIAN:
@@ -995,9 +1001,9 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       XLALDestroyCOMPLEX16FrequencySeries(calFactor);
       calFactor = NULL;
     }
-
   } /* end loop over detectors */
 
+  REAL8 d_inner_h=0.0;
   // for models which are non-factorising
   switch(marginalisationflags)
   {
@@ -1017,6 +1023,12 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       else printf("ERROR: Cannot calculate I0(%lf)\n",R);
       /* This is marginalised over phase only for now */
       loglikelihood += -(S+D) + log(I0x) + R ;
+      d_inner_h= 0.5*R;
+      break;
+    }
+    case GAUSSIAN:
+    {
+      d_inner_h = creal(Rcplx);
       break;
     }
     case MARGTIMEPHI:
@@ -1037,6 +1049,10 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       REAL8 t0 = XLALGPSGetREAL8(&(data->freqData->epoch));
       int istart = (UINT4)round((time_low - t0)/deltaT);
       int iend = (UINT4)round((time_high - t0)/deltaT);
+      if(iend > (int) dh_S->length || istart < 0 ) {
+              fprintf(stderr,"ERROR: integration over time extends past end of buffer! Is your time prior too wide?\n");
+              exit(1);
+      }
       UINT4 n = iend - istart;
       REAL8 xMax = -1.0;
       REAL8 angMax = 0.0;
@@ -1059,19 +1075,25 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
       REAL8 max_time=t0+((REAL8) imax + istart)*deltaT;
       REAL8 mean_time=t0+(imean+(double)istart)*deltaT;
+      
       if(margphi){
         REAL8 phase_maxL=angMax;
         if(phase_maxL<0.0) phase_maxL=LAL_TWOPI+phase_maxL;
         LALInferenceAddVariable(currentParams,"phase_maxl",&phase_maxL,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
 	    if(LALInferenceCheckVariable(currentParams,"phase")) LALInferenceRemoveVariable(currentParams,"phase");
+        d_inner_h= 0.5*xMax;
+      }
+      else
+      {
+        d_inner_h=0.5*dh_S->data[imax+istart];
       }
       LALInferenceAddVariable(currentParams,"time_maxl",&max_time,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
       LALInferenceAddVariable(currentParams,"time_mean",&mean_time,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
       XLALDestroyCOMPLEX16Vector(dh_S_tilde);
       XLALDestroyREAL8Vector(dh_S);
       if (margphi) {
-	XLALDestroyCOMPLEX16Vector(dh_S_phase_tilde);
-	XLALDestroyREAL8Vector(dh_S_phase);
+        XLALDestroyCOMPLEX16Vector(dh_S_phase_tilde);
+        XLALDestroyREAL8Vector(dh_S_phase);
       }
       break;
     }
@@ -1079,6 +1101,11 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       break;
 
   }
+  /* SNR variables */
+  REAL8 OptimalSNR=sqrt(2.0*S);
+  REAL8 MatchedFilterSNR = 2.0*d_inner_h/OptimalSNR;
+  LALInferenceAddVariable(currentParams,"optimal_snr",&OptimalSNR,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
+  LALInferenceAddVariable(currentParams,"matched_filter_snr",&MatchedFilterSNR,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
 
   //loglikelihood = -1.0 * chisquared; // note (again): the log-likelihood is unnormalised!
 
@@ -1370,6 +1397,9 @@ REAL8 LALInferenceCorrelatedAnalyticLogLikelihood(LALInferenceVariables *current
   for (i = 0; i < DIM; i++) {
     sum += xOrig[i]*x[i];
   }
+  gsl_matrix_free(LUCM);
+  gsl_permutation_free(LUCMPerm);
+  
   return -sum/2.0;
 }
 
@@ -1425,6 +1455,8 @@ REAL8 LALInferenceBimodalCorrelatedAnalyticLogLikelihood(LALInferenceVariables *
     a = exps[1];
     b = exps[0];
   }
+  gsl_matrix_free(LUCM);
+  gsl_permutation_free(LUCMPerm);
 
   /* attempt to keep returned values finite */
   return a + log1p(exp(b-a));

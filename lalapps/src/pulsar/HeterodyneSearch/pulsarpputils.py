@@ -38,9 +38,6 @@ from scipy.integrate import cumtrapz
 from scipy.interpolate import interp1d
 from scipy.stats import hmean
 
-#from pylal import date
-from pylal import bayespputils as bppu
-
 from types import StringType, FloatType
 
 # some common constants taken from psr_constants.py in PRESTO
@@ -648,6 +645,25 @@ def upper_limit(pos, upperlimit=0.95, parambounds=[float("-inf"), float("inf")],
   return ulval
 
 
+def upper_limit_greedy(pos, upperlimit=0.95, nbins=100):
+  n, binedges = np.histogram(pos, bins=nbins)
+  dbins = binedges[1]-binedges[0] # width of a histogram bin
+
+  frac = 0.0
+  j = 0
+  for nv in n:
+    prevfrac = frac
+    frac += float(nv)/len(pos)
+    j += 1
+    if frac > upperlimit:
+      break
+
+  # linearly interpolate to get upper limit
+  ul = binedges[j-1] + (upperlimit-prevfrac)*(dbins/(frac-prevfrac))
+
+  return ul
+
+
 # function to plot a posterior chain (be it MCMC chains or nested samples)
 # the input should be a list of posteriors for each IFO, and the parameter
 # required, the list of IFO. grr is a list of dictionaries giving
@@ -1232,7 +1248,7 @@ def plot_Bks_ASDs( Bkdata, ifos, delt=86400, sampledt=60., plotpsds=True,
       Bk = np.loadtxt(Bkdata[i])
     except:
       print "Could not open file ", Bkdata[i]
-      exit(-1)
+      sys.exit(-1)
 
     # should be three lines in file
     gpstime = []
@@ -1284,7 +1300,7 @@ Bk[:,2])))), 50)
       # check mindt is an integer and greater than 1
       if math.fmod(mindt, 1) != 0. or mindt < 1:
         print "Error time steps between data points must be integers"
-        exit(-1)
+        sys.exit(-1)
 
       count = 0
 
@@ -2098,6 +2114,8 @@ def gelman_rubins(chains):
 #  - the original length of each chain
 # Th input is a list of MCMC chain files
 def pulsar_mcmc_to_posterior(chainfiles):
+  from pylal import bayespputils as bppu
+
   cl = []
   neffs = []
   grr = {}
@@ -2278,6 +2296,8 @@ def read_pulsar_mcmc_file(cf):
 # back into cos(iota), and if only C22 is varying then it is converted back into h0, and phi22
 # is converted back into phi0.
 def pulsar_nest_to_posterior(nestfile):
+  from pylal import bayespputils as bppu
+
   # combine multiple nested sample files for an IFO into a single posterior (copied from lalapps_nest2pos)
   peparser = bppu.PEOutputParser('common')
 

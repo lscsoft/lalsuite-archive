@@ -38,6 +38,7 @@ bin_PROGRAMS = \
 	lalsim-bh-qnmode \
 	lalsim-bh-ringdown \
 	lalsim-bh-sphwf \
+	lalsim-burst \
 	lalsim-detector-noise \
 	lalsim-detector-strain \
 	lalsim-inject \
@@ -64,6 +65,7 @@ pkginclude_HEADERS = \
 	LALSimSGWB.h \
 	LALSimSphHarmMode.h \
 	LALSimSphHarmSeries.h \
+	LALSimUtils.h \
 	LALSimulationConfig.h \
 	LALSimulationVCSInfo.h \
 	LALSimulationVCSInfoHeader.h
@@ -104,6 +106,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimIMRSEOBNRv1ROMDoubleSpin.c \
 	LALSimIMRSEOBNRv2ROMEffectiveSpin.c \
 	LALSimIMRSEOBNRv2ROMDoubleSpin.c \
+	LALSimIMRSEOBNRv2ROMDoubleSpinHI.c \
 	LALSimIMRSEOBNRv2ChirpTime.c \
 	LALSimIMRPhenom.c \
 	LALSimIMRPhenomC.c \
@@ -148,6 +151,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimSphHarmMode.c \
 	LALSimSphHarmSeries.c \
 	LALSimUnicorn.c \
+	LALSimUtils.c \
 	check_series_macros.h \
 	check_waveform_macros.h \
 	unicorn.xpm \
@@ -160,6 +164,7 @@ liblalsimulation_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(LIBVERSION)
 lalsim_bh_qnmode_SOURCES = bh_qnmode.c
 lalsim_bh_sphwf_SOURCES = bh_sphwf.c
 lalsim_bh_ringdown_SOURCES = bh_ringdown.c
+lalsim_burst_SOURCES = burst.c
 lalsim_ns_eos_table_SOURCES = ns-eos-table.c
 lalsim_ns_mass_radius_SOURCES = ns-mass-radius.c
 lalsim_ns_params_SOURCES = ns-params.c
@@ -180,6 +185,8 @@ EXTRA_DIST = \
 	lalsimburst_btlwnbexamples.svg \
 	lalsimburst_sinegaussianexamples.svg \
 	lalsimburst_stringcuspexamples.svg \
+	lalsiminspiral_orbitelements.svg \
+	lalsimulation_inject.svg \
 	$(NOISEPSDFILES) \
 	$(EOSDATAFILES)
 

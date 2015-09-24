@@ -24,8 +24,12 @@
 #include <lal/LALStdlib.h>
 #include <lal/LALString.h>
 #include <lal/FrequencySeries.h>
+#include <lal/Units.h>
 #include <lal/LALSimReadData.h>
 #include <lal/LALSimNoise.h>
+
+// PSD units
+static LALUnit strainSquaredPerHertzUnit = { 0, { 0, 0, 1, 0, 0, 2, 0}, { 0, 0, 0, 0, 0, 0, 0} };
 
 // Values for iLIGO
 
@@ -990,19 +994,24 @@ int XLALSimNoisePSD(
 	size_t kmin;
 	size_t k;
 
-	/* set DC and Nyquist to zero */
-	/* note: assumes last element is Nyquist */
-	psd->data->data[0] = psd->data->data[psd->data->length - 1] = 0.0;
+	/* set sample units */
+	psd->sampleUnits = strainSquaredPerHertzUnit;
 
 	/* determine low frequency cutoff */
-	kmin = flow / psd->deltaF;
+	if (flow < psd->f0) 
+		flow = psd->f0;
+	if (psd->f0 == 0.0)
+		kmin = 1; /* will set DC to zero */
+	else
+		kmin = (flow - psd->f0) / psd->deltaF;
 
-	psd->data->data[0] = 0.0; /* set DC to zero */
-	for (k = 1; k < kmin; ++k) /* set low frequency components to zero */
+	for (k = 0; k < kmin; ++k) /* set low frequency components to zero */
 		psd->data->data[k] = 0.0;
-	for (; k < psd->data->length - 1; ++k) /* evaluate psdfn for frequencies in requested band */
-		psd->data->data[k] = (*psdfunc)(k * psd->deltaF);
-	psd->data->data[psd->data->length - 1] = 0.0; /* set Nyquist to zero (presume this is Nyquist!) */
+	for (; k < psd->data->length - 1; ++k) /* evaluate psdfunc for frequencies in requested band */
+		psd->data->data[k] = (*psdfunc)(psd->f0 + k * psd->deltaF);
+
+	/* set Nyquist to zero (assumes last element is Nyquist!) */
+	psd->data->data[psd->data->length - 1] = 0.0;
 
 	return 0;
 }
@@ -1011,7 +1020,9 @@ int XLALSimNoisePSD(
 /**
  * Reads file fname containing two-column amplitude spectral density data file
  * and interpolates at the frequencies required to populate the frequency
- * series psd, with a low frequency cutoff flow.
+ * series psd, with a low frequency cutoff @p flow.  If @p flow is zero or
+ * negative, the low frequency cutoff is the first frequency with non-zero
+ * amplitude spectral density in the file.
  */
 int XLALSimNoisePSDFromFile(
 	REAL8FrequencySeries *psd,	/**< frequency series to be computed */
@@ -1023,6 +1034,7 @@ int XLALSimNoisePSDFromFile(
 	double *h;
 	size_t  n;
 	size_t  i;
+	size_t  imin = 0;
 	size_t  kmin;
 	size_t  k;
 	LALFILE *fp;
@@ -1035,23 +1047,36 @@ int XLALSimNoisePSDFromFile(
 	XLALFileClose(fp);
 	if (n == (size_t)(-1))
 		XLAL_ERROR(XLAL_EFUNC);
-	/* take the log of the amplitude spectral density data */
-	for (i = 0; i < n; ++i)
-		h[i] = log(h[i]);
 
-	/* set DC and Nyquist to zero */
-	/* note: assumes last element is Nyquist */
-	psd->data->data[0] = psd->data->data[psd->data->length - 1] = 0.0;
+	/* take the log of the amplitude spectral density data 
+	 * and record the first valid index of h */
+	for (i = 0; i < n; ++i)
+		if (h[i] > 0.0) {
+			h[i] = log(h[i]);
+			if (imin == 0)
+				imin = i;
+		}
+		else
+			h[i] = 0.0;
+
+	/* set sample units */
+	psd->sampleUnits = strainSquaredPerHertzUnit;
 
 	/* determine low frequency cutoff */
-	kmin = flow / psd->deltaF;
+	if (flow <= 0.0) /* use lowest non-zero value in data */
+		flow = f[imin];
+	if (flow < psd->f0) 
+		flow = psd->f0;
 
-	i = 1;
-	psd->data->data[0] = 0.0; /* set DC to zero */
-	for (k = 1; k < kmin; ++k) /* set low frequency components to zero */
+	kmin = (flow - psd->f0) / psd->deltaF;
+	if (kmin == 0 && psd->f0 == 0.0)
+		kmin = 1; /* will set DC to zero */
+
+	i = imin + 1;
+	for (k = 0; k < kmin; ++k) /* set low frequency components to zero */
 		psd->data->data[k] = 0.0;
 	for (; k < psd->data->length - 1; ++k) {
-		double fk = k * psd->deltaF; /* target frequency */
+		double fk = psd->f0 + k * psd->deltaF; /* target frequency */
 		double hk;
 		double x;
 		/* interpolate data for this frequency value */
@@ -1062,7 +1087,8 @@ int XLALSimNoisePSDFromFile(
 		/* power spectrum is exp( 2 * log(amplitude spectrum) ) */
 		psd->data->data[k] = exp(2.0 * hk);
 	}
-	psd->data->data[psd->data->length - 1] = 0.0; /* set Nyquist to zero (presume this is Nyquist!) */
+	/* set Nyquist to zero (assumes last element is Nyquist!) */
+	psd->data->data[psd->data->length - 1] = 0.0;
 
 	XLALFree(h);
 	XLALFree(f);
