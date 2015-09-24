@@ -308,7 +308,9 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   /* Eq. 5.73 of BB1 */
   // use ln(u) = log_2(u)/log_2(e) and the fact that log2 is faster than ln
   // this relies on the compiler evaluating the expression at compile time.
-  const REAL8 invlog_2e = 1./log2(exp(1.));
+  // which apparently not all do so in stead of 1./log2(exp(1.)) I use the
+  // result returned by Maple.
+  const REAL8 invlog_2e = 0.69314718055994530941723212145817656807550013436026;
   logu = log2(u)*invlog_2e;
   logTerms = 1. + eta*coeffs->k0 + eta*log2(1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
                                                + coeffs->k5*u5 + coeffs->k5l*u5*logu)*invlog_2e;
