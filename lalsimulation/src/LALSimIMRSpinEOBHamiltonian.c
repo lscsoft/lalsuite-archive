@@ -1566,7 +1566,7 @@ UNUSED static int XLALSpinHcapRvecDerivative(
 //}
 
   /* Now calculate derivatives w.r.t. each parameter */
-  for ( i = 0; i < 6; i++ )
+  for ( i = 3; i < 6; i++ )
   {
     params.varyParam = i;
     if ( i >=6 && i < 9 )
