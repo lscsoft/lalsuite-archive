@@ -312,8 +312,8 @@ static REAL8 XLALSimIMRSpinEOBHamiltonian(
   // result returned by Maple.
   const REAL8 invlog_2e = 0.69314718055994530941723212145817656807550013436026;
   logu = log2(u)*invlog_2e;
-  logTerms = 1. + eta*coeffs->k0 + eta*log2(1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
-                                               + coeffs->k5*u5 + coeffs->k5l*u5*logu)*invlog_2e;
+  logTerms = 1. + eta*coeffs->k0 + eta*log1p(1. + coeffs->k1*u + coeffs->k2*u2 + coeffs->k3*u3 + coeffs->k4*u4
+                                               + coeffs->k5*u5 + coeffs->k5l*u5*logu);
   if(debugPK)printf( "bulk = %.16e, logTerms = %.16e\n", bulk, logTerms );
   /* Eq. 5.73 of BB1 */
   deltaU = bulk*logTerms;
