@@ -186,6 +186,11 @@ XLALInspiralPrecSpinFactorizedFlux(
         }
 	}			/* }}} */
 	//printf("v = %.16e\n", v);
+	COMPLEX16 hLMTab[lMax+1][lMax+1];
+	if (XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(&hLMTab[0][0], polvalues, values, v, H,
+				lMax, ak) == XLAL_FAILURE) {
+		XLAL_ERROR_REAL8(XLAL_EFUNC);
+	}
 	for (l = 2; l <= lMax; l++) {
 
 		for (m = 1; m <= l; m++) {
@@ -193,10 +198,7 @@ XLALInspiralPrecSpinFactorizedFlux(
 			if (debugPK)
 				printf("\nGetting (%d, %d) mode for flux!\n", l, m);
 			//printf("Stas, computing the waveform l = %d, m =%d\n", l, m);
-			if (XLALSimIMRSpinEOBFluxGetPrecSpinFactorizedWaveform(&hLM, polvalues, values, v, H,
-						l, m, ak) == XLAL_FAILURE) {
-				XLAL_ERROR_REAL8(XLAL_EFUNC);
-			}
+			hLM = hLMTab[l][m];
 			//printf("Stas: done\n");
 			/*
 			 * For the 2,2 mode, we apply NQC correction to the
