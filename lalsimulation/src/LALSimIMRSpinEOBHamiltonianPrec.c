@@ -253,7 +253,6 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   costheta = e3_x*nx + e3_y*ny + e3_z*nz; 
     
   xi2=1. - costheta*costheta;
-  const REAL8 invxi2 = 1./xi2;
 
   xi_x = -e3_z*ny + e3_y*nz;
   xi_y =  e3_z*nx - e3_x*nz;
@@ -265,7 +264,6 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
 
   w2 = r2 + a2;
   rho2 = r2 + a2*costheta*costheta;
-  const REAL8 invrho2 = 1./rho2;
 
   if(debugPK)printf( "KK = %.16e\n", coeffs->KK );
   const REAL8 invm1PlusetaKK = 1./(-1. + eta * coeffs->KK);
@@ -293,7 +291,11 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   deltaT_r = 2.*r*deltaU - deltaU_u;
   /* Eq. 5.39 of BB1 */
   Lambda = w2*w2 - a2*deltaT*xi2;
-  const REAL8 invLambda = 1./Lambda;
+  // RH: this is horrible, but faster than 3 divisions
+  const REAL8 invrho2xi2Lambda = 1./(rho2*xi2*Lambda);
+  const REAL8 invrho2 = xi2 * (Lambda*invrho2xi2Lambda);
+  const REAL8 invxi2 = rho2 * (Lambda*invrho2xi2Lambda);
+  const REAL8 invLambda = xi2*rho2*invrho2xi2Lambda;
   /* Eq. 5.83 of BB1, inverse */
   D = 1. + log1p(6.*eta*u2 + 2.*(26. - 3.*eta)*eta*u3);
   /* Eq. 5.38 of BB1 */
@@ -349,16 +351,22 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
   printf( "term 6 in Hns = %.16e\n", pf*ww/Lambda );}
   /* Eqs. 5.30 - 5.33 of BB1 */
   B = sqrt(deltaT);
-  const REAL8 invdeltaT = 1./deltaT;
-  const REAL8 invsqrtdeltaT = sqrt(invdeltaT);
-  const REAL8 invsqrtdeltaR = 1./sqrt(deltaR);
+  // RH: this is horrible but faster than 3 divisions
+  const REAL8 sqrtdeltaT = sqrt(deltaT);
+  const REAL8 sqrtdeltaR = sqrt(deltaR);
+  const REAL8 invdeltaTsqrtdeltaTsqrtdeltaR = 1./(sqrtdeltaT*deltaT*sqrtdeltaR);
+  const REAL8 invdeltaT = sqrtdeltaT*(sqrtdeltaR*invdeltaTsqrtdeltaTsqrtdeltaR);
+  const REAL8 invsqrtdeltaT = deltaT*(sqrtdeltaR*invdeltaTsqrtdeltaTsqrtdeltaR);
+  const REAL8 invsqrtdeltaR = deltaT*sqrtdeltaT*invdeltaTsqrtdeltaTsqrtdeltaR;
   w = ww*invLambda;
   //nu = 0.5 * log(deltaT*rho2/Lambda);
   //MU = 0.5 * log(rho2);
-  const expnu = sqrt(deltaT*rho2*invLambda);
-  const expMU = sqrt(rho2);
-  const REAL8 invexpnu = 1./expnu;
-  const REAL8 invexpMU = 1./expMU;
+  const REAL8 expnu = sqrt(deltaT*rho2*invLambda);
+  const REAL8 expMU = sqrt(rho2);
+  // RH: this is horrible but faster than 2 divisions
+  const REAL8 invexpnuexpMU = 1./(expnu*expMU);
+  const REAL8 invexpnu = expMU*invexpnuexpMU;
+  const REAL8 invexpMU = expnu*invexpnuexpMU;
   /* dLambda/dr */
   Lambda_r = 4.*r*w2 - a2*deltaT_r*xi2;
      
@@ -485,7 +493,6 @@ static REAL8 XLALSimIMRSpinPrecEOBHamiltonian(
      
   s3 = sx*e3_x + sy*e3_y + sz*e3_z;  
   /* Eq. 3.45 of BB1, second term */        
-  const REAL8 sqrtdeltaR = sqrt(deltaR);
   const REAL8 sqrtQ = sqrt(Q);
   const REAL8 inv2B1psqrtQsqrtQ = 1./(2.*B*(1. + sqrtQ)*sqrtQ);
   Hwr = ((invexpMU*invexpMU*invexpMU*invexpnu)*sqrtdeltaR*((expMU*expMU)*(expnu*expnu)*(pxir*pxir)*sv - B*(expMU*expnu)*pvr*pxir*sxi +
