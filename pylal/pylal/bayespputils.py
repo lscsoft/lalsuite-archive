@@ -236,8 +236,9 @@ def plot_label(param):
       'theta2':r'$\theta_2\,(\mathrm{rad})$',
       'phi1':r'$\phi_1\,(\mathrm{rad})$',
       'phi2':r'$\phi_2\,(\mathrm{rad})$',
-      'chi':r'$\chi$',
-      'chi_p':r'$\chi_P$',
+      'chi_eff':r'$\chi_\mathrm{eff}$',
+      'chi_tot':r'$\chi_\mathrm{total}$',
+      'chi_p':r'$\chi_\mathrm{P}$',
       'tilt1':r'$t_1\,(\mathrm{rad})$',
       'tilt2':r'$t_2\,(\mathrm{rad})$',
       'costilt1':r'$\mathrm{cos}(t_1)$',
@@ -689,13 +690,6 @@ class Posterior(object):
       if ('m1' in pos.names and 'm2' in pos.names and not 'mtotal' in pos.names ):
           pos.append_mapping('mtotal', lambda m1,m2: m1+m2, ('m1','m2') )
 
-      if ('spin1' in pos.names and 'm1' in pos.names) and \
-       ('spin2' in pos.names and 'm2' in pos.names):
-         pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','spin1','m2','spin2'))
-      elif ('a1' in pos.names and 'm1' in pos.names) and ('a2' in pos.names and 'm2' in pos.names):
-         pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','a1','m2','a2'))
-        
-
       if('a_spin1' in pos.names): pos.append_mapping('a1',lambda a:a,'a_spin1')
       if('a_spin2' in pos.names): pos.append_mapping('a2',lambda a:a,'a_spin2')
       if('phi_spin1' in pos.names): pos.append_mapping('phi1',lambda a:a,'phi_spin1')
@@ -764,16 +758,27 @@ class Posterior(object):
               pos.append_mapping(new_spin_params, spin_angles, old_params)
           except KeyError:
               print "Warning: Cannot find spin parameters.  Skipping spin angle calculations."
-                
+      
+      #If aligned spins, calculate effective spin parallel to L
+      if ('m1' in pos.names and 'spin1' in pos.names and not 'tilt1' in pos.names) and ('m2' in pos.names and 'spin2' in pos.names and not 'tilt2' in pos.names):
+         pos.append_mapping('chi_eff', lambda m1,spin1,m2,spin2: (m1*spin1 + m2*spin2) / (m1 + m2), ('m1','spin1','m2','spin2'))
+      elif ('m1' in pos.names and 'a1' in pos.names and not 'tilt1' in pos.names) and ('m2' in pos.names and 'a2' in pos.names and not 'tilt2' in pos.names):
+         pos.append_mapping('chi_eff', lambda m1,a1,m2,a2: (m1*a1 + m2*a2) / (m1 + m2), ('m1','a1','m2','a2'))
+      
+      #If precessing spins calculate effective spin parallel to L
+      # and total effective spin
+      if ('m1' in pos.names and 'a1' in pos.names and 'tilt1' in pos.names) and ('m2' in pos.names and 'a2' in pos.names and 'tilt2' in pos.names):
+         pos.append_mapping('chi_eff', lambda m1,a1,tilt1,m2,a2,tilt2: (m1*a1*np.cos(tilt1) + m2*a2*np.cos(tilt2)) / (m1 + m2), ('m1','a1','tilt1','m2','a2','tilt2'))
+         pos.append_mapping('chi_tot', lambda m1,a1,m2,a2: (m1*a1 + m2*a2) / (m1 + m2), ('m1','a1','m2','a2'))
+      
       #Calculate effective precessing spin magnitude
-      if ('a1' in pos.names and 'tilt1' in pos.names and 'm1' in pos.names ) and ('a2' in pos.names and 'tilt2' in pos.names and 'm2' in pos.names):
-          pos.append_mapping('chi_p', chi_precessing, ['a1', 'tilt1', 'm1', 'a2', 'tilt2', 'm2'])
-
-
+      if ('m1' in pos.names and 'a1' in pos.names and 'tilt1' in pos.names) and ('m2' in pos.names and 'a2' in pos.names and 'tilt2' in pos.names):
+          pos.append_mapping('chi_p', chi_precessing, ['m1', 'a1', 'tilt1', 'm2', 'a2', 'tilt2'])
+      
       # Calculate redshift from luminosity distance measurements
       if('distance' in pos.names):
           pos.append_mapping('redshift', calculate_redshift, 'distance')
-     
+
       # Calculate source mass parameters
       if ('m1' in pos.names) and ('redshift' in pos.names):
           pos.append_mapping('m1_source', source_mass, ['m1', 'redshift'])
@@ -3513,7 +3518,7 @@ def spin_angles(fref,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
     beta  = array_ang_sep(J,L)
     return tilt1, tilt2, theta_jn, beta
 #
-def chi_precessing(a1, tilt1, m1, a2, tilt2, m2):
+def chi_precessing(m1, a1, tilt1, m2, a2, tilt2):
 	"""
 	Calculate the magnitude of the effective precessing spin
 	following convention from Phys. Rev. D 91, 024043   --   arXiv:1408.1810
