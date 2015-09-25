@@ -301,7 +301,7 @@ int XLALSimInspiralTaylorF2Core(
 
     /* debug file output for eccentricity phase calculation bu hwlee */
     char PhasePath[FILENAME_MAX];
-    sprintf(PhasePath, "phase_%06.5f_%04d_%06.1f.dat", ecc, eccOrder, f_ecc);
+    sprintf(PhasePath, "phase_%06.5f_%04d_%06.1f(%.3fM_%.3fM).dat", ecc, eccOrder, f_ecc, m1, m2);
     FILE *outPhase = NULL;
     if(called == 0) {
       outPhase = fopen(PhasePath, "w");
