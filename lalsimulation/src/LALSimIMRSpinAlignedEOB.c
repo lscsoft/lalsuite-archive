@@ -1578,7 +1578,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   INspin2[2] = INspin2z;
 
   INT4 UNUSED ret;
-  INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugPK = 0, debugCustomIC = 0, debugNoNQC = 0;
   INT4 debugRD = 0;
   FILE *out = NULL;
   INT4 i=0;
@@ -2436,7 +2436,7 @@ int XLALSimIMRSpinEOBWaveformAll(
         valuesV2->data[1] = 0.;
         valuesV2->data[2] = tmpValues2->data[3];
         valuesV2->data[3] = tmpValues2->data[0] * tmpValues2->data[4];
-        printf("valuesV2->data[0], valuesV2->data[1], valuesV2->data[2], valuesV2->data[3] %e %e %e %e\n", valuesV2->data[0], valuesV2->data[1], valuesV2->data[2], valuesV2->data[3] );
+//        printf("valuesV2->data[0], valuesV2->data[1], valuesV2->data[2], valuesV2->data[3] %e %e %e %e\n", valuesV2->data[0], valuesV2->data[1], valuesV2->data[2], valuesV2->data[3] );
 
         seobParams.alignedSpins = 1;
         seobParams.chi1 = spin1[2];
@@ -2542,10 +2542,10 @@ int XLALSimIMRSpinEOBWaveformAll(
             momVeczData[i] = 0.;
             s1VecxData[i] = 0.;
             s1VecyData[i] = 0.;
-            s1VeczData[i] = spin1[2];
+            s1VeczData[i] = spin1[2]*(m1*m1/mTotal/mTotal);
             s2VecxData[i] = 0.;
             s2VecyData[i] = 0.;
-            s2VeczData[i] = spin2[2];
+            s2VeczData[i] = spin2[2]*(m2*m2/mTotal/mTotal);
             phiDModData[i]= phiVec.data[i];
             phiModData[i] = phiVec.data[i];
         }
@@ -2757,10 +2757,10 @@ int XLALSimIMRSpinEOBWaveformAll(
             momVeczDataHi[i] = 0.;
             s1VecxDataHi[i] = 0.;
             s1VecyDataHi[i] = 0.;
-            s1VeczDataHi[i] = spin1[2];
+            s1VeczDataHi[i] = spin1[2]*(m1*m1/mTotal/mTotal);
             s2VecxDataHi[i] = 0.;
             s2VecyDataHi[i] = 0.;
-            s2VeczDataHi[i] = spin2[2];
+            s2VeczDataHi[i] = spin2[2]*(m2*m2/mTotal/mTotal);
             phiDModDataHi[i]= phiVecHi.data[i];
             phiModDataHi[i] = phiVecHi.data[i];
         }
@@ -3270,20 +3270,27 @@ int XLALSimIMRSpinEOBWaveformAll(
   }
 
   /* WaveStep 1.3: calculate chi and kappa at merger */
-  chi1J = values->data[6]*Jx + values->data[7] *Jy + values->data[8] *Jz;
-  chi2J = values->data[9]*Jx + values->data[10]*Jy + values->data[11]*Jz;
+//    if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) && ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
+//        chi1J = values->data[8];
+//        chi2J = values->data[11];
+//     }
+//    else{
+        chi1J = values->data[6]*Jx + values->data[7] *Jy + values->data[8] *Jz;
+        chi2J = values->data[9]*Jx + values->data[10]*Jy + values->data[11]*Jz;
+//    }
   chi1J/= magJ*m1*m1/mTotal/mTotal;
   chi2J/= magJ*m2*m2/mTotal/mTotal;
   /*chiJ = (chi1J+chi2J)/2. + (chi1J-chi2J)/2.*sqrt(1. - 4.*eta)/(1. - 2.*eta);*/
-  chiJ = (chi1J+chi2J)/2. + (chi1J-chi2J)/2.*((m1-m2)/(m1+m2))/(1. - 2.*eta);
-  kappaJL = (Lx*Jx + Ly*Jy + Lz*Jz) / magL / magJ;
+
+    chiJ = (chi1J+chi2J)/2. + (chi1J-chi2J)/2.*((m1-m2)/(m1+m2))/(1. - 2.*eta);
+    kappaJL = (Lx*Jx + Ly*Jy + Lz*Jz) / magL / magJ;
 
   magLN = sqrt(inner_product(rcrossrdot, rcrossrdot));
   JLN =  (Jx*rcrossrdot[0] + Jy*rcrossrdot[1] + Jz*rcrossrdot[2])/magLN/magJ;
 
   
   if(debugPK) { 
-      printf("chiJ = %3.10f\n", chiJ); fflush(NULL); fflush(NULL); 
+      printf("chi1J,chi2J,chiJ = %3.10f %3.10f %3.10f\n", chi1J,chi2J,chiJ); fflush(NULL); fflush(NULL);
       printf("J.L = %4.11f \n", kappaJL); fflush(NULL); 
       printf("J.LN = %4.11f \n", JLN);
       printf("L.LN = %4.11f \n", (Lx*rcrossrdot[0] + Ly*rcrossrdot[1] + Lz*rcrossrdot[2])/magL/magLN);
