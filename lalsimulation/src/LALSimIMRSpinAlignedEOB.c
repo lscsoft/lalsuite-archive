@@ -81,7 +81,7 @@
 #include "LALSimIMRSpinEOBInitialConditions.c"
 
 
-#define debugOutput 0
+#define debugOutput 1
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -1578,7 +1578,7 @@ int XLALSimIMRSpinEOBWaveformAll(
   INspin2[2] = INspin2z;
 
   INT4 UNUSED ret;
-  INT4 debugPK = 0, debugCustomIC = 0, debugNoNQC = 0;
+  INT4 debugPK = 1, debugCustomIC = 0, debugNoNQC = 0;
   INT4 debugRD = 0;
   FILE *out = NULL;
   INT4 i=0;
@@ -2424,13 +2424,41 @@ int XLALSimIMRSpinEOBWaveformAll(
   /* Low Sampling-rate integration          */
   
   /* Initialize the GSL integrator */
-  if (!(integrator = XLALAdaptiveRungeKutta4Init(14, 
-          XLALSpinHcapNumericalDerivative, XLALEOBSpinStopConditionBasedOnPR,
-          EPS_ABS, EPS_REL)))
-  {
-    XLALDestroyREAL8Vector( values );
-    XLAL_ERROR( XLAL_EFUNC );
-  }
+    REAL8Vector *valuesV2 = NULL;
+    if ( !(valuesV2 = XLALCreateREAL8Vector( 4 )) )
+    {
+        XLAL_ERROR(  XLAL_ENOMEM );
+    }
+    memset( valuesV2->data, 0, valuesV2->length * sizeof( REAL8 ));
+
+    if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) && ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
+        valuesV2->data[0] = tmpValues2->data[0];
+        valuesV2->data[1] = 0.;
+        valuesV2->data[2] = tmpValues2->data[3];
+        valuesV2->data[3] = tmpValues2->data[0] * tmpValues2->data[4];
+        printf("valuesV2->data[0], valuesV2->data[1], valuesV2->data[2], valuesV2->data[3] %e %e %e %e\n", valuesV2->data[0], valuesV2->data[1], valuesV2->data[2], valuesV2->data[3] );
+
+        seobParams.alignedSpins = 1;
+        seobParams.chi1 = spin1[2];
+        seobParams.chi2 = spin2[2];
+        if (!(integrator = XLALAdaptiveRungeKutta4Init(4, XLALSpinAlignedHcapDerivative, XLALEOBSpinAlignedStopCondition, EPS_ABS, EPS_REL)))
+        {
+            XLALDestroyREAL8Vector( valuesV2 );
+            XLAL_ERROR( XLAL_EFUNC );
+        }
+        seobParams.alignedSpins = 0;
+    }
+    else {
+        if (!(integrator = XLALAdaptiveRungeKutta4Init(14,
+                                                       XLALSpinHcapNumericalDerivative, XLALEOBSpinStopConditionBasedOnPR,
+                                                       EPS_ABS, EPS_REL)))
+        {
+            XLALDestroyREAL8Vector( values );
+            XLAL_ERROR( XLAL_EFUNC );
+        }
+    }
+    
+
 
   /* Ensure that integration stops ONLY when the stopping condition is True */
   integrator->stopontestonly = 1;
@@ -2442,43 +2470,143 @@ int XLALSimIMRSpinEOBWaveformAll(
   }
 
   if(debugPK) { printf("\n\n BEGINNING THE EVOLUTION\n\n"); fflush(NULL); }
-  
+
+    REAL8Vector rVec, phiVec, prVec, pPhiVec;
   /* Call the integrator */
-  retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data,
-				0., 20./mTScaled, deltaT/mTScaled, &dynamics );
-  retLenLow = retLen;
+    if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) && ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
+        REAL8Array              *dynamicsV2   = NULL;
+        seobParams.alignedSpins = 1;
+        seobParams.chi1 = spin1[2];
+        seobParams.chi2 = spin2[2];
+        retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, valuesV2->data,
+                                         0., 20./mTScaled, deltaT/mTScaled, &dynamicsV2 );
+        seobParams.alignedSpins = 0;
+        retLenLow = retLen;
+        if ( retLen == XLAL_FAILURE )
+        {
+            XLAL_ERROR( XLAL_EFUNC );
+        }
+        tVec.length=rVec.length = phiVec.length = prVec.length = pPhiVec.length = retLen;
+        tVec.data   = dynamicsV2->data;
+        rVec.data    = dynamicsV2->data+retLen;
+        phiVec.data  = dynamicsV2->data+2*retLen;
+        prVec.data   = dynamicsV2->data+3*retLen;
+        pPhiVec.data = dynamicsV2->data+4*retLen;
+    }
+    else {
+        retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data,
+                                         0., 20./mTScaled, deltaT/mTScaled, &dynamics );
+        retLenLow = retLen;
+        if ( retLen == XLAL_FAILURE )
+        {
+            XLAL_ERROR( XLAL_EFUNC );
+        }
+        tVec.length = retLen;
+        tVec.data   = dynamics->data;
+    }
+    
+    posVecx.length = posVecy.length = posVecz.length =
+    momVecx.length = momVecy.length = momVecz.length =
+    s1Vecx.length = s1Vecy.length = s1Vecz.length =
+    s2Vecx.length = s2Vecy.length = s2Vecz.length =
+    phiDMod.length = phiMod.length = retLen;
+    
+    REAL8 posVecxData[retLen], posVecyData[retLen], posVeczData[retLen];
+    REAL8 momVecxData[retLen], momVecyData[retLen], momVeczData[retLen];
+    REAL8 s1VecxData[retLen], s1VecyData[retLen], s1VeczData[retLen];
+    REAL8 s2VecxData[retLen], s2VecyData[retLen], s2VeczData[retLen];
+    REAL8 phiDModData[retLen], phiModData[retLen];
+
+    
+    if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) && ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
+        posVecx.data = posVecxData;
+        posVecy.data = posVecyData;
+        posVecz.data = posVeczData;
+        momVecx.data =  momVecxData;
+        momVecy.data =  momVecyData;
+        momVecz.data = momVeczData;
+        s1Vecx.data = s1VecxData;
+        s1Vecy.data = s1VecyData;
+        s1Vecz.data = s1VeczData;
+        s2Vecx.data = s2VecxData;
+        s2Vecy.data = s2VecyData;
+        s2Vecz.data = s2VeczData;
+        phiDMod.data = phiDModData;
+        phiMod.data = phiModData;
+        for (i = 0; i < retLen; i++) {
+            posVecxData[i] = rVec.data[i]*cos(phiVec.data[i]);
+            posVecyData[i] = rVec.data[i]*sin(phiVec.data[i]);
+            posVeczData[i] = 0.;
+            momVecxData[i] = prVec.data[i]*cos(phiVec.data[i]) - pPhiVec.data[i]/rVec.data[i]*sin(phiVec.data[i]);
+            momVecyData[i] = prVec.data[i]*sin(phiVec.data[i]) + pPhiVec.data[i]/rVec.data[i]*cos(phiVec.data[i]);
+            momVeczData[i] = 0.;
+            s1VecxData[i] = 0.;
+            s1VecyData[i] = 0.;
+            s1VeczData[i] = spin1[2];
+            s2VecxData[i] = 0.;
+            s2VecyData[i] = 0.;
+            s2VeczData[i] = spin2[2];
+            phiDModData[i]= phiVec.data[i];
+            phiModData[i] = phiVec.data[i];
+        }
+        dynamics = XLALCreateREAL8ArrayL( 2, 15, (UINT4)retLenLow );
+        for ( i = 0; i < retLen; i++ )
+        {
+            dynamics->data[i] = tVec.data[i];
+            dynamics->data[retLen + i] = posVecxData[i];
+            dynamics->data[2*retLen + i] = posVecyData[i];
+            dynamics->data[3*retLen + i] = posVeczData[i];
+            dynamics->data[4*retLen + i] = momVecxData[i];
+            dynamics->data[5*retLen + i] = momVecyData[i];
+            dynamics->data[6*retLen + i] = momVeczData[i];
+            dynamics->data[7*retLen + i] = s1VecxData[i];
+            dynamics->data[8*retLen + i] = s1VecyData[i];
+            dynamics->data[9*retLen + i] = s1VeczData[i];
+            dynamics->data[10*retLen + i] = s2VecxData[i];
+            dynamics->data[11*retLen + i] = s2VecyData[i];
+            dynamics->data[12*retLen + i] = s2VeczData[i];
+            dynamics->data[13*retLen + i] = phiDModData[i];
+            dynamics->data[14*retLen + i] = phiModData[i];
+        }
+       
+//            dynamics = XLALCreateREAL8ArrayL( 15, (UINT4)retLenLow );
+//            dynamics->data[0] = *tVec.data;
+//            dynamics->data[1] = *posVecxData;
+//            dynamics->data[2] = *posVecyData;
+//            dynamics->data[3] = *posVeczData;
+//            dynamics->data[4] = *momVecxData;
+//            dynamics->data[5] = *momVecyData;
+//            dynamics->data[6] = *momVeczData;
+//            dynamics->data[7] = *s1VecxData;
+//            dynamics->data[8] = *s1VecyData;
+//            dynamics->data[9] = *s1VeczData;
+//            dynamics->data[10] = *s2VecxData;
+//            dynamics->data[11] = *s2VecyData;
+//            dynamics->data[12] = *s2VeczData;
+//            dynamics->data[13] = *phiDModData;
+//            dynamics->data[14] = *phiModData;
+    }
+    else {
+        posVecx.data = dynamics->data+retLen;
+        posVecy.data = dynamics->data+2*retLen;
+        posVecz.data = dynamics->data+3*retLen;
+        momVecx.data = dynamics->data+4*retLen;
+        momVecy.data = dynamics->data+5*retLen;
+        momVecz.data = dynamics->data+6*retLen;
+        s1Vecx.data = dynamics->data+7*retLen;
+        s1Vecy.data = dynamics->data+8*retLen;
+        s1Vecz.data = dynamics->data+9*retLen;
+        s2Vecx.data = dynamics->data+10*retLen;
+        s2Vecy.data = dynamics->data+11*retLen;
+        s2Vecz.data = dynamics->data+12*retLen;
+        phiDMod.data= dynamics->data+13*retLen;
+        phiMod.data = dynamics->data+14*retLen;
+    }
   
-  if ( retLen == XLAL_FAILURE )
-  {
-    XLAL_ERROR( XLAL_EFUNC );
-  }
   
-  if(debugPK) { printf("\n\n FINISHED THE EVOLUTION\n\n"); fflush(NULL); }  
-  
-  /* ************************************** */
-  /* Store the dynamics in separate vectors */
-  
-  tVec.length = posVecx.length = posVecy.length = posVecz.length = 
-  momVecx.length = momVecy.length = momVecz.length = 
-  s1Vecx.length = s1Vecy.length = s1Vecz.length = 
-  s2Vecx.length = s2Vecy.length = s2Vecz.length = 
-  phiDMod.length = phiMod.length = retLen;
-  
-  tVec.data   = dynamics->data;
-  posVecx.data = dynamics->data+retLen;
-  posVecy.data = dynamics->data+2*retLen;
-  posVecz.data = dynamics->data+3*retLen;
-  momVecx.data = dynamics->data+4*retLen;
-  momVecy.data = dynamics->data+5*retLen;
-  momVecz.data = dynamics->data+6*retLen;
-  s1Vecx.data = dynamics->data+7*retLen;
-  s1Vecy.data = dynamics->data+8*retLen;
-  s1Vecz.data = dynamics->data+9*retLen;
-  s2Vecx.data = dynamics->data+10*retLen;
-  s2Vecy.data = dynamics->data+11*retLen;
-  s2Vecz.data = dynamics->data+12*retLen;
-  phiDMod.data= dynamics->data+13*retLen;
-  phiMod.data = dynamics->data+14*retLen;
+    
+     if(debugPK) { printf("\n\n FINISHED THE EVOLUTION\n\n"); fflush(NULL);  }
+
 
   if (debugPK) {
     /* Write the dynamics to file */
@@ -2488,7 +2616,7 @@ int XLALSimIMRSpinEOBWaveformAll(
        //YP: output orbital phase and phase modulation separately, instead of their sum
        fprintf( out, "%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n", 
        tVec.data[i], 
-       posVecx.data[i], posVecy.data[i], posVecz.data[i], 
+       posVecx.data[i], posVecy.data[i], posVecz.data[i],
        momVecx.data[i], momVecy.data[i], momVecz.data[i],
        s1Vecx.data[i], s1Vecy.data[i], s1Vecz.data[i], 
        s2Vecx.data[i], s2Vecy.data[i], s2Vecz.data[i],
@@ -2548,40 +2676,183 @@ int XLALSimIMRSpinEOBWaveformAll(
   /* For HiSR evolution, we stop at FIXME */
   integrator->stop = XLALEOBSpinStopConditionBasedOnPR;
 
-  /* Call the integrator */
-  retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data, 
-									0., 20./mTScaled, deltaTHigh/mTScaled, &dynamicsHi );
-  retLenHi = retLen;
+    REAL8Vector rVecHi, phiVecHi, prVecHi, pPhiVecHi;
+    REAL8Array              *dynamicsV2Hi   = NULL;
 
-  if ( retLen == XLAL_FAILURE )
-  {
-    XLAL_ERROR( XLAL_EFUNC );
-  }
+    if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) && ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
+        seobParams.alignedSpins = 1;
+        seobParams.chi1 = spin1[2];
+        seobParams.chi2 = spin2[2];
+
+        valuesV2->data[0] = rVec.data[hiSRndx];
+        valuesV2->data[1] = phiVec.data[hiSRndx];
+        valuesV2->data[2] = prVec.data[hiSRndx];
+        valuesV2->data[3] = pPhiVec.data[hiSRndx];
+        if (!(integrator = XLALAdaptiveRungeKutta4Init(4, XLALSpinAlignedHcapDerivative, XLALSpinAlignedHiSRStopCondition, EPS_ABS, EPS_REL)))
+        {
+            XLALDestroyREAL8Vector( values );
+            XLAL_ERROR( XLAL_EFUNC );
+        }
+        
+        retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, valuesV2->data, 0., 20./mTScaled, deltaTHigh/mTScaled, &dynamicsV2Hi );
+
+        seobParams.alignedSpins = 0;
+        retLenHi = retLen;
+        if ( retLen == XLAL_FAILURE )
+        {
+            XLAL_ERROR( XLAL_EFUNC );
+        }
+        timeHi.length = phiVecHi.length = prVecHi.length = pPhiVecHi.length = retLen;
+        timeHi.data   = dynamicsV2Hi->data;
+        rVecHi.data    = dynamicsV2Hi->data+retLen;
+        phiVecHi.data  = dynamicsV2Hi->data+2*retLen;
+        prVecHi.data   = dynamicsV2Hi->data+3*retLen;
+        pPhiVecHi.data = dynamicsV2Hi->data+4*retLen;
+     }
+    else {
+        retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data,
+                                         0., 20./mTScaled, deltaTHigh/mTScaled, &dynamicsHi );
+        retLenHi = retLen;
+        if ( retLen == XLAL_FAILURE )
+        {
+            XLAL_ERROR( XLAL_EFUNC );
+        }
+        timeHi.length = retLen;
+        timeHi.data   = dynamicsHi->data;
+    }
+     posVecxHi.length = posVecyHi.length = posVeczHi.length =
+    momVecxHi.length = momVecyHi.length = momVeczHi.length =
+    s1VecxHi.length = s1VecyHi.length = s1VeczHi.length =
+    s2VecxHi.length = s2VecyHi.length = s2VeczHi.length =
+    phiDModHi.length = phiModHi.length = retLen;
+    
+    REAL8 posVecxDataHi[retLen], posVecyDataHi[retLen], posVeczDataHi[retLen];
+    REAL8 momVecxDataHi[retLen], momVecyDataHi[retLen], momVeczDataHi[retLen];
+    REAL8 s1VecxDataHi[retLen], s1VecyDataHi[retLen], s1VeczDataHi[retLen];
+    REAL8 s2VecxDataHi[retLen], s2VecyDataHi[retLen], s2VeczDataHi[retLen];
+    REAL8 phiDModDataHi[retLen], phiModDataHi[retLen];
+    
+    
+    if (( fabs(theta1Ini) <= 1.0e-5  || fabs(theta1Ini) >= LAL_PI - 1.0e-5) && ( fabs(theta2Ini) <= 1.0e-5 || fabs(theta2Ini) >= LAL_PI - 1.0e-5) ) {
+        posVecxHi.data = posVecxDataHi;
+        posVecyHi.data = posVecyDataHi;
+        posVeczHi.data = posVeczDataHi;
+        momVecxHi.data =  momVecxDataHi;
+        momVecyHi.data =  momVecyDataHi;
+        momVeczHi.data = momVeczDataHi;
+        s1VecxHi.data = s1VecxDataHi;
+        s1VecyHi.data = s1VecyDataHi;
+        s1VeczHi.data = s1VeczDataHi;
+        s2VecxHi.data = s2VecxDataHi;
+        s2VecyHi.data = s2VecyDataHi;
+        s2VeczHi.data = s2VeczDataHi;
+        phiDModHi.data = phiDModDataHi;
+        phiModHi.data = phiModDataHi;
+        for (i = 0; i < retLen; i++) {
+            posVecxDataHi[i] = rVecHi.data[i]*cos(phiVecHi.data[i]);
+            posVecyDataHi[i] = rVecHi.data[i]*sin(phiVecHi.data[i]);
+            posVeczDataHi[i] = 0.;
+            momVecxDataHi[i] = prVecHi.data[i]*cos(phiVecHi.data[i]) - pPhiVecHi.data[i]/rVecHi.data[i]*sin(phiVecHi.data[i]);
+            momVecyDataHi[i] = prVecHi.data[i]*sin(phiVecHi.data[i]) + pPhiVecHi.data[i]/rVecHi.data[i]*cos(phiVecHi.data[i]);
+            momVeczDataHi[i] = 0.;
+            s1VecxDataHi[i] = 0.;
+            s1VecyDataHi[i] = 0.;
+            s1VeczDataHi[i] = spin1[2];
+            s2VecxDataHi[i] = 0.;
+            s2VecyDataHi[i] = 0.;
+            s2VeczDataHi[i] = spin2[2];
+            phiDModDataHi[i]= phiVecHi.data[i];
+            phiModDataHi[i] = phiVecHi.data[i];
+        }
+        dynamicsHi = XLALCreateREAL8ArrayL( 2, 15, (UINT4)retLenHi );
+        for ( i = 0; i < retLenHi; i++ )
+        {
+            dynamicsHi->data[i] = timeHi.data[i];
+            dynamicsHi->data[retLen + i] = posVecxDataHi[i];
+            dynamicsHi->data[2*retLen + i] = posVecyDataHi[i];
+            dynamicsHi->data[3*retLen + i] = posVeczDataHi[i];
+            dynamicsHi->data[4*retLen + i] = momVecxDataHi[i];
+            dynamicsHi->data[5*retLen + i] = momVecyDataHi[i];
+            dynamicsHi->data[6*retLen + i] = momVeczDataHi[i];
+            dynamicsHi->data[7*retLen + i] = s1VecxDataHi[i];
+            dynamicsHi->data[8*retLen + i] = s1VecyDataHi[i];
+            dynamicsHi->data[9*retLen + i] = s1VeczDataHi[i];
+            dynamicsHi->data[10*retLen + i] = s2VecxDataHi[i];
+            dynamicsHi->data[11*retLen + i] = s2VecyDataHi[i];
+            dynamicsHi->data[12*retLen + i] = s2VeczDataHi[i];
+            dynamicsHi->data[13*retLen + i] = phiDModDataHi[i];
+            dynamicsHi->data[14*retLen + i] = phiModDataHi[i];
+        }
+//        dynamicsHi = XLALCreateREAL8ArrayL( 15, retLen );
+//        
+//        dynamicsHi->data[0] = *timeHi.data;
+//        dynamicsHi->data[1] = *posVecxDataHi;
+//        dynamicsHi->data[2] = *posVecyDataHi;
+//        dynamicsHi->data[3] = *posVeczDataHi;
+//        dynamicsHi->data[4] = *momVecxDataHi;
+//        dynamicsHi->data[5] = *momVecyDataHi;
+//        dynamicsHi->data[6] = *momVeczDataHi;
+//        dynamicsHi->data[7] = *s1VecxDataHi;
+//        dynamicsHi->data[8] = *s1VecyDataHi;
+//        dynamicsHi->data[9] = *s1VeczDataHi;
+//        dynamicsHi->data[10] = *s2VecxDataHi;
+//        dynamicsHi->data[11] = *s2VecyDataHi;
+//        dynamicsHi->data[12] = *s2VeczDataHi;
+//        dynamicsHi->data[13] = *phiDModDataHi;
+//        dynamicsHi->data[14] = *phiModDataHi;
+    }
+    else {
+        posVecxHi.data = dynamicsHi->data+retLen;
+        posVecyHi.data = dynamicsHi->data+2*retLen;
+        posVeczHi.data = dynamicsHi->data+3*retLen;
+        momVecxHi.data = dynamicsHi->data+4*retLen;
+        momVecyHi.data = dynamicsHi->data+5*retLen;
+        momVeczHi.data = dynamicsHi->data+6*retLen;
+        s1VecxHi.data = dynamicsHi->data+7*retLen;
+        s1VecyHi.data = dynamicsHi->data+8*retLen;
+        s1VeczHi.data = dynamicsHi->data+9*retLen;
+        s2VecxHi.data = dynamicsHi->data+10*retLen;
+        s2VecyHi.data = dynamicsHi->data+11*retLen;
+        s2VeczHi.data = dynamicsHi->data+12*retLen;
+        phiDModHi.data= dynamicsHi->data+13*retLen;
+        phiModHi.data = dynamicsHi->data+14*retLen;
+    }
+
+    
+//  /* Call the integrator */
+//  retLen = XLALAdaptiveRungeKutta4( integrator, &seobParams, values->data,
+//									0., 20./mTScaled, deltaTHigh/mTScaled, &dynamicsHi );
+//  retLenHi = retLen;
+
+//  if ( retLen == XLAL_FAILURE )
+//  {
+//    XLAL_ERROR( XLAL_EFUNC );
+//  }
 
   if(debugPK) { printf( "Finished high SR integration... \n" ); fflush(NULL); }
 
   /* Set up pointers to the dynamics */
-  timeHi.length = posVecxHi.length = posVecyHi.length = posVeczHi.length = 
-  momVecxHi.length = momVecyHi.length = momVeczHi.length = 
-  s1VecxHi.length = s1VecyHi.length = s1VeczHi.length = 
-  s2VecxHi.length = s2VecyHi.length = s2VeczHi.length = 
-  phiDModHi.length = phiModHi.length = retLen;
-
-  timeHi.data   = dynamicsHi->data;
-  posVecxHi.data = dynamicsHi->data+retLen;
-  posVecyHi.data = dynamicsHi->data+2*retLen;
-  posVeczHi.data = dynamicsHi->data+3*retLen;
-  momVecxHi.data = dynamicsHi->data+4*retLen;
-  momVecyHi.data = dynamicsHi->data+5*retLen;
-  momVeczHi.data = dynamicsHi->data+6*retLen;
-  s1VecxHi.data = dynamicsHi->data+7*retLen;
-  s1VecyHi.data = dynamicsHi->data+8*retLen;
-  s1VeczHi.data = dynamicsHi->data+9*retLen;
-  s2VecxHi.data = dynamicsHi->data+10*retLen;
-  s2VecyHi.data = dynamicsHi->data+11*retLen;
-  s2VeczHi.data = dynamicsHi->data+12*retLen;
-  phiDModHi.data= dynamicsHi->data+13*retLen;
-  phiModHi.data = dynamicsHi->data+14*retLen;
+//  timeHi.length = posVecxHi.length = posVecyHi.length = posVeczHi.length = 
+//  momVecxHi.length = momVecyHi.length = momVeczHi.length = 
+//  s1VecxHi.length = s1VecyHi.length = s1VeczHi.length = 
+//  s2VecxHi.length = s2VecyHi.length = s2VeczHi.length = 
+//  phiDModHi.length = phiModHi.length = retLen;
+//
+//  timeHi.data   = dynamicsHi->data;
+//  posVecxHi.data = dynamicsHi->data+retLen;
+//  posVecyHi.data = dynamicsHi->data+2*retLen;
+//  posVeczHi.data = dynamicsHi->data+3*retLen;
+//  momVecxHi.data = dynamicsHi->data+4*retLen;
+//  momVecyHi.data = dynamicsHi->data+5*retLen;
+//  momVeczHi.data = dynamicsHi->data+6*retLen;
+//  s1VecxHi.data = dynamicsHi->data+7*retLen;
+//  s1VecyHi.data = dynamicsHi->data+8*retLen;
+//  s1VeczHi.data = dynamicsHi->data+9*retLen;
+//  s2VecxHi.data = dynamicsHi->data+10*retLen;
+//  s2VecyHi.data = dynamicsHi->data+11*retLen;
+//  s2VeczHi.data = dynamicsHi->data+12*retLen;
+//  phiDModHi.data= dynamicsHi->data+13*retLen;
+//  phiModHi.data = dynamicsHi->data+14*retLen;
 
   if (debugPK){
     out = fopen( "seobDynamicsHi.dat", "w" );
@@ -3844,7 +4115,7 @@ if (i==1900) printf("YP: gamma: %f, %f, %f, %f\n", JframeEy[0]*LframeEz[0]+Jfram
       tAttach = tAmpMax;
   }
   // FIXME 
-  //tAttach = 136.3;
+//  tAttach = 142.;
 //  tAttach  = tAttach - 6.0;
 
 
