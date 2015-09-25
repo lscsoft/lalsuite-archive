@@ -272,36 +272,34 @@ def compute_search_efficiency_in_bins(found, total, ndbins, sim_to_bins_function
 	# pull out the efficiency array, it is the ratio
 	eff = rate.BinnedArray(rate.NDBins(ndbins), array = input.ratio())
 
-        # compute binomial uncertainties in each bin
-        err_arr = numpy.sqrt(eff.array * (1-eff.array)/input.denominator.array)
-	err = rate.BinnedArray(rate.NDBins(ndbins), array = err_arr)
+	# compute binomial uncertainties in each bin
+	k = input.numerator.array
+	N = input.denominator.array
+	eff_lo_arr = ( N*(2*k + 1) - numpy.sqrt(4*N*k*(N - k) + N**2) ) / (2*N*(N + 1))
+	eff_hi_arr = ( N*(2*k + 1) + numpy.sqrt(4*N*k*(N - k) + N**2) ) / (2*N*(N + 1))
 
-	return eff, err
+	eff_lo = rate.BinnedArray(rate.NDBins(ndbins), array = eff_lo_arr)
+	eff_hi = rate.BinnedArray(rate.NDBins(ndbins), array = eff_hi_arr)
+
+	return eff_lo, eff, eff_hi
 
 
-def compute_search_volume_in_bins(found, total, ndbins, sim_to_bins_function):
+def compute_search_volume(eff):
 	"""
-	This program creates the search volume in the provided ndbins.  The
-	first dimension of ndbins must be the distance over which to integrate.  You
-	also must provide a function that maps a sim inspiral row to the correct tuple
-	to index the ndbins.
+	Integrate efficiency to get search volume.
 	"""
-
-	eff, err = compute_search_efficiency_in_bins(found, total, ndbins, sim_to_bins_function)
+	# get distance bins
+	ndbins = eff.bins
 	dx = ndbins[0].upper() - ndbins[0].lower()
 	r = ndbins[0].centres()
 
 	# we have one less dimension on the output
 	vol = rate.BinnedArray(rate.NDBins(ndbins[1:]))
-	errors = rate.BinnedArray(rate.NDBins(ndbins[1:]))
 
 	# integrate efficiency to obtain volume
 	vol.array = numpy.trapz(eff.array.T * 4. * numpy.pi * r**2, r, dx)
 
-	# propagate errors in eff to errors in V
-        errors.array = numpy.sqrt(( (4*numpy.pi *r**2 *err.array.T *dx)**2 ).sum(-1))
-
-	return vol, errors
+	return vol
 
 
 def guess_nd_bins(sims, bin_dict = {"distance": (200, rate.LinearBins)}):
