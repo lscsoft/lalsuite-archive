@@ -197,7 +197,7 @@ class pylal_sdist(sdist.sdist):
 
 setup(
 	name = "pylal",
-	version = "0.7.2",
+	version = "0.8.1",
 	author = "Kipp Cannon and Nickolas Fotopoulos",
 	author_email = "lal-discuss@ligo.org",
 	description = "Python LIGO Algorithm Library",
@@ -510,6 +510,7 @@ setup(
 		os.path.join("bin", "WOD_Bologna.py"),
 		os.path.join("bin", "lalapps_likeliness"),
 		os.path.join("bin", "lalapps_newcorse"),
+		os.path.join("bin", "lalapps_cbc_volmc"),
 		os.path.join("bin", "lalapps_cbc_svim"),
 		os.path.join("bin", "lalapps_cbc_sink"),
 		os.path.join("bin", "lalapps_plot_tisi"),
@@ -543,7 +544,6 @@ setup(
 		os.path.join("bin", "ligolw_tisi"),
 		os.path.join("bin", "ligolw_thinca"),
 		os.path.join("bin", "ligolw_sstinca"),
-		os.path.join("bin", "ligolw_thinca_to_coinc"),
 		os.path.join("bin", "ligolw_veto"),
 		os.path.join("bin", "ligolw_cbc_hardware_inj_page"),
 		os.path.join("bin", "ligolw_fr_to_science"),

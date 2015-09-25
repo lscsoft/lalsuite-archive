@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy
 import bisect
 import sys
@@ -59,8 +60,8 @@ def margLikelihood(VTs, lambs, mu, calerr=0, mcerrs=None):
 def integral_element(mu, pdf):
     '''
     Returns an array of elements of the integrand dP = p(mu) dmu
-    for a density p(mu) defined at sample values mu ; samples need 
-    not be equally spaced.  Uses a simple trapezium rule.  
+    for a density p(mu) defined at sample values mu ; samples need
+    not be equally spaced.  Uses a simple trapezium rule.
     Number of dP elements is 1 - (number of mu samples).
     '''
     dmu = mu[1:] - mu[:-1]
@@ -70,9 +71,9 @@ def integral_element(mu, pdf):
 
 def normalize_pdf(mu, pofmu):
     """
-    Takes a function pofmu defined at rate sample values mu and 
+    Takes a function pofmu defined at rate sample values mu and
     normalizes it to be a suitable pdf. Both mu and pofmu must be
-    arrays or lists of the same length. 
+    arrays or lists of the same length.
     """
     if min(pofmu) < 0:
         raise ValueError, "Probabilities cannot be negative, don't \
@@ -155,10 +156,10 @@ def confidence_interval_min_width( mu, post, alpha = 0.9 ):
 
 def hpd_coverage(mu, pdf, thresh):
     '''
-    Integrates a pdf over mu taking only bins where 
+    Integrates a pdf over mu taking only bins where
     the mean over the bin is above a given threshold
-    This gives the coverage of the HPD interval for 
-    the given threshold.  
+    This gives the coverage of the HPD interval for
+    the given threshold.
     '''
     dp = integral_element(mu, pdf)
     bin_mean = (pdf[1:] + pdf[:-1]) /2
@@ -168,8 +169,8 @@ def hpd_coverage(mu, pdf, thresh):
 
 def hpd_threshold(mu_in, post, alpha, tol):
     '''
-    For a PDF post over samples mu_in, find a density 
-    threshold such that the region having higher density 
+    For a PDF post over samples mu_in, find a density
+    threshold such that the region having higher density
     has coverage of at least alpha, and less than alpha
     plus a given tolerance.
     '''
@@ -183,9 +184,9 @@ def hpd_threshold(mu_in, post, alpha, tol):
             p_minus = p_test
         else:                                        # test value was too high
             p_plus = p_test
-    # p_minus never goes above the required threshold and p_plus never goes below 
-    # thus on exiting p_minus is at or below the required threshold and the 
-    # difference in coverage is within tolerance 
+    # p_minus never goes above the required threshold and p_plus never goes below
+    # thus on exiting p_minus is at or below the required threshold and the
+    # difference in coverage is within tolerance
 
     return p_minus
 
@@ -198,8 +199,8 @@ def hpd_credible_interval(mu_in, post, alpha = 0.9, tolerance = 1e-3):
     uniformly spaced and posterior need not be normalized.
 
     Will not return a correct credible interval if the posterior
-    is multimodal and the correct interval is not contiguous; 
-    in this case will over-cover by including the whole range from 
+    is multimodal and the correct interval is not contiguous;
+    in this case will over-cover by including the whole range from
     minimum to maximum mu.
     '''
     if alpha == 1:
@@ -207,7 +208,7 @@ def hpd_credible_interval(mu_in, post, alpha = 0.9, tolerance = 1e-3):
         mu_low = numpy.min(nonzero_samples)
         mu_high = numpy.max(nonzero_samples)
     elif 0 < alpha < 1:
-        # determine the highest PDF for which the region with 
+        # determine the highest PDF for which the region with
         # higher density has sufficient coverage
         pthresh = hpd_threshold(mu_in, post, alpha, tol = tolerance)
         samples_over_threshold = mu_in[post > pthresh]
@@ -218,37 +219,37 @@ def hpd_credible_interval(mu_in, post, alpha = 0.9, tolerance = 1e-3):
 
 
 def integrate_efficiency(dbins, eff, err=0, logbins=False):
-
+    # NB logbins is only called in the unit tests
     if logbins:
         logd = numpy.log(dbins)
-        dlogd = logd[1:]-logd[:-1]
-        dreps = numpy.exp( (numpy.log(dbins[1:])+numpy.log(dbins[:-1]))/2) # log midpoint
-        vol = numpy.sum( 4*numpy.pi *dreps**3 *eff *dlogd )
-        verr = numpy.sqrt(numpy.sum( (4*numpy.pi *dreps**3 *err *dlogd)**2 )) #propagate errors in eff to errors in v
+        dlogd = logd[1:] - logd[:-1]
+        dreps = numpy.exp( (numpy.log(dbins[1:]) + numpy.log(dbins[:-1])) / 2. ) # log midpoint
+        vol = numpy.sum(4. * numpy.pi * (dreps ** 3.) * eff * dlogd)
+        verr = numpy.sqrt( numpy.sum((4. * numpy.pi * (dreps ** 3.) * err * dlogd) ** 2.) ) #propagate errors in eff to errors in v
     else:
-        dd = dbins[1:]-dbins[:-1]
-        dreps = (dbins[1:]+dbins[:-1])/2 #midpoint
-        vol = numpy.sum( 4*numpy.pi *dreps**2 *eff *dd )
-        verr = numpy.sqrt(numpy.sum( (4*numpy.pi *dreps**2 *err *dd)**2 )) #propagate errors in eff to errors in v
+        dd = dbins[1:] - dbins[:-1]
+        dreps = (dbins[1:] + dbins[:-1]) / 2. # midpoint
+        vol = numpy.sum(4. * numpy.pi * (dreps ** 2.) * eff * dd )
+        verr = numpy.sqrt( numpy.sum((4. * numpy.pi * (dreps ** 2.) * err * dd) ** 2.) ) #propagate errors in eff to errors in v
 
     return vol, verr
 
 
-def compute_efficiency(f_dist,m_dist,dbins):
+def compute_efficiency(f_dist, m_dist, dbins):
     '''
     Compute the efficiency as a function of distance for the given sets of found
     and missed injection distances.
     Note that injections that do not fit into any dbin get lost :(.
     '''
-    efficiency = numpy.zeros( len(dbins)-1 )
-    error = numpy.zeros( len(dbins)-1 )
+    efficiency = numpy.zeros(len(dbins) - 1)
+    error = numpy.zeros(len(dbins) - 1)
     for j, dlow in enumerate(dbins[:-1]):
-        dhigh = dbins[j+1]
-        found = numpy.sum( (dlow <= f_dist)*(f_dist < dhigh) )
-        missed = numpy.sum( (dlow <= m_dist)*(m_dist < dhigh) )
-        if found+missed == 0: missed = 1.0 #avoid divide by 0 in empty bins
-        efficiency[j] = 1.0*found /(found + missed)
-        error[j] = numpy.sqrt(efficiency[j]*(1-efficiency[j])/(found+missed))
+        dhigh = dbins[j + 1]
+        found = numpy.sum( (dlow <= f_dist) * (f_dist < dhigh) )
+        missed = numpy.sum( (dlow <= m_dist) * (m_dist < dhigh) )
+        if found + missed == 0: missed = 1.0     # avoid divide by 0 in empty bins
+        efficiency[j] = found / (found + missed) # NB division is imported from __future__ !
+        error[j] = numpy.sqrt( efficiency[j] * (1 - efficiency[j]) / (found + missed) )
 
     return efficiency, error
 
@@ -256,17 +257,130 @@ def compute_efficiency(f_dist,m_dist,dbins):
 def mean_efficiency_volume(found, missed, dbins):
 
     if len(found) == 0: # no efficiency here
-        return numpy.zeros(len(dbins)-1),numpy.zeros(len(dbins)-1), 0, 0
+        return numpy.zeros(len(dbins)-1), numpy.zeros(len(dbins)-1), 0, 0
 
     # only need distances
     f_dist = numpy.array([l.distance for l in found])
     m_dist = numpy.array([l.distance for l in missed])
 
     # compute the efficiency and its variance
-    eff, err = compute_efficiency(f_dist,m_dist,dbins)
+    eff, err = compute_efficiency(f_dist, m_dist, dbins)
     vol, verr = integrate_efficiency(dbins, eff, err)
 
     return eff, err, vol, verr
+
+
+def volume_montecarlo(found, missed, distribution_param, distribution, limits_param, max_param=None, min_param=None):
+    '''
+    Compute the sensitive volume and standard error using a direct Monte Carlo integral
+
+    * distribution_param, D: parameter of the injections used to generate a distribution over distance
+      - may be 'distance', 'chirp_distance"
+    * distribution: form of the distribution over the parameter
+      - 'log' (uniform in log D), 'uniform' (uniform in D), 'distancesquared' (uniform in D**2),
+        'volume' (uniform in D***3)
+      - It is assumed that injections were carried out over a range of D such that sensitive
+        volume due to signals at distances < D_min is negligible and efficiency at distances
+        > D_max is negligibly small
+    * limits_param, Dlim: parameter specifying limits in which injections were made
+      - may be 'distance', 'chirp_distance'
+    * max_param: maximum value of Dlim out to which injections were made, if None the maximum 
+      value among all found and missed injections will be used
+    * min_param: minimum value of Dlim at which injections were made - needed to normalize
+      the log distance integral correctly.  If None, for the log distribution the minimum
+      value among all found and missed injections will be used
+    '''
+    d_power = {
+        'log'             : 3.,
+        'uniform'         : 2.,
+        'distancesquared' : 1.,
+        'volume'          : 0.
+    }[distribution]
+    mchirp_power = {
+        'log'             : 0.,
+        'uniform'         : 5. / 6.,
+        'distancesquared' : 5. / 3.,
+        'volume'          : 5. / 2.
+    }[distribution]
+
+    found_d = numpy.array([inj.distance for inj in found])
+    missed_d = numpy.array([inj.distance for inj in missed])
+
+    # establish maximum physical distance: first in case of chirp distance distribution
+    if limits_param == 'chirp_distance':
+        mchirp_standard_bns = 1.4 * (2. ** (-1. / 5.))
+        found_mchirp = numpy.array([inj.mchirp for inj in found])
+        missed_mchirp = numpy.array([inj.mchirp for inj in missed])
+        all_mchirp = numpy.concatenate((found_mchirp, missed_mchirp))
+        max_mchirp = numpy.max(all_mchirp)
+        if max_param is not None:
+            # use largest actually injected mchirp for conversion
+            max_distance = max_param * (max_mchirp / mchirp_standard_bns) ** (5. / 6.)
+    elif limits_param == 'distance':
+        max_distance = max_param
+    else: raise NotImplementedError("%s is not a recognized parameter" % limits_param)
+
+    # if no max distance given, use maximum distance actually injected
+    if max_param == None:
+        max_distance = max(numpy.max(found_d), numpy.max(missed_d))
+
+    # volume of sphere
+    montecarlo_vtot = (4. / 3.) * numpy.pi * max_distance ** 3.
+
+    # arrays of weights for the MC integral
+    if distribution_param == 'distance':
+        found_weights = found_d ** d_power
+        missed_weights = missed_d ** d_power
+    elif distribution_param == 'chirp_distance':
+        # weight by a power of mchirp to rescale injection density to the
+        # target mass distribution
+        found_weights = found_d ** d_power * \
+                        found_mchirp ** mchirp_power
+        missed_weights = missed_d ** d_power * \
+                         missed_mchirp ** mchirp_power
+    else: raise NotImplementedError("%s is not a recognized distance parameter" % distance_param)
+
+    all_weights = numpy.concatenate((found_weights, missed_weights))
+
+    # MC integral is volume of sphere * (sum of found weights)/(sum of all weights)
+    # over injections covering the sphere
+    mc_weight_samples = numpy.concatenate((found_weights, 0 * missed_weights))
+    mc_sum = sum(mc_weight_samples)
+
+    if limits_param == 'distance':
+        mc_norm = sum(all_weights)
+    elif limits_param == 'chirp_distance':
+        # if injections are made up to a maximum chirp distance, account for
+        # extra missed injections that would occur when injecting up to
+        # maximum physical distance : this works out to a 'chirp volume' factor
+        mc_norm = sum(all_weights * (max_mchirp / all_mchirp) ** (5. / 2.))
+
+    # take out a constant factor
+    mc_prefactor = montecarlo_vtot / mc_norm
+
+    # count the samples
+    if limits_param == 'distance':
+        Ninj = len(mc_weight_samples)
+    elif limits_param == 'chirp_distance':
+        # find the total expected number after extending from maximum chirp
+        # dist up to maximum physical distance
+        if distribution == 'log':
+            # need minimum distance only in this case
+            if min_param is not None:
+                min_distance = min_param * (numpy.min(all_mchirp) / mchirp_standard_bns) ** (5. / 6.)
+            else:
+                min_distance = min(numpy.min(found_d), numpy.min(missed_d))
+            logrange = numpy.log(max_distance / min_distance)
+            Ninj = len(mc_weight_samples) + (5. / 6.) * sum(numpy.log(max_mchirp / all_mchirp) / logrange)
+        else:
+            Ninj = sum((max_mchirp / all_mchirp) ** mchirp_power)
+
+    # sample variance of injection efficiency: mean of the square - square of the mean
+    mc_sample_variance = sum(mc_weight_samples ** 2.) / Ninj - (mc_sum / Ninj) ** 2.
+
+    # return MC integral and its standard deviation; variance of mc_sum scales
+    # relative to sample variance by Ninj (Bienayme' rule)
+    return mc_prefactor * mc_sum, mc_prefactor * (Ninj * mc_sample_variance) ** 0.5
 
 
 def filter_injections_by_mass(injs, mbins, bin_num , bin_type, bin_num2=None):
@@ -274,7 +388,6 @@ def filter_injections_by_mass(injs, mbins, bin_num , bin_type, bin_num2=None):
     For a given set of injections (sim_inspiral rows), return the subset
     of injections that fall within the given mass range.
     '''
-
     if bin_type == "Mass1_Mass2":
         m1bins = numpy.concatenate((mbins.lower()[0],numpy.array([mbins.upper()[0][-1]])))
         m1lo = m1bins[bin_num]
@@ -304,13 +417,27 @@ def filter_injections_by_mass(injs, mbins, bin_num , bin_type, bin_num2=None):
     return newinjs
 
 
-def compute_volume_vs_mass(found, missed, mass_bins, bin_type, dbins=None, ploteff=False):
+def compute_volume_vs_mass(found, missed, mass_bins, bin_type, dbins=None,
+                           distribution_param=None, distribution=None, limits_param=None,
+                           max_param=None, min_param=None):
     """
     Compute the average luminosity an experiment was sensitive to given the sets
-    of found and missed injections and assuming luminosity is unformly distributed
+    of found and missed injections and assuming luminosity is uniformly distributed
     in space.
+
+    If distance_param and distance_distribution are not None, use an unbinned
+    Monte Carlo integral (which optionally takes max_distance and min_distance
+    parameters) for the volume and error
+    Otherwise use a simple efficiency * distance**2 binned integral
+    In either case use distance bins to return the efficiency in each bin
     """
-    # mean and std estimate for luminosity (in L10s)
+    # initialize MC volume integral method: binned or unbinned
+    if distribution_param is not None and distribution is not None and limits_param is not None:
+        mc_unbinned = True
+    else:
+        mc_unbinned = False
+
+    # mean and std estimate for sensitive volume averaged over search time
     volArray = rate.BinnedArray(mass_bins)
     vol2Array = rate.BinnedArray(mass_bins)
 
@@ -318,17 +445,17 @@ def compute_volume_vs_mass(found, missed, mass_bins, bin_type, dbins=None, plote
     foundArray = rate.BinnedArray(mass_bins)
     missedArray = rate.BinnedArray(mass_bins)
 
-    #
-    # compute the mean luminosity in each mass bin
-    #
+    # efficiency over distance and its standard (binomial) error
     effvmass = []
     errvmass = []
 
     if bin_type == "Mass1_Mass2": # two-d case first
         for j,mc1 in enumerate(mass_bins.centres()[0]):
             for k,mc2 in enumerate(mass_bins.centres()[1]):
-                newfound = filter_injections_by_mass( found, mass_bins, j, bin_type, k)
-                newmissed = filter_injections_by_mass( missed, mass_bins, j, bin_type, k)
+
+                # filter out injections not in this mass bin
+                newfound = filter_injections_by_mass(found, mass_bins, j, bin_type, k)
+                newmissed = filter_injections_by_mass(missed, mass_bins, j, bin_type, k)
 
                 foundArray[(mc1,mc2)] = len(newfound)
                 missedArray[(mc1,mc2)] = len(newmissed)
@@ -337,6 +464,9 @@ def compute_volume_vs_mass(found, missed, mass_bins, bin_type, dbins=None, plote
                 meaneff, efferr, meanvol, volerr = mean_efficiency_volume(newfound, newmissed, dbins)
                 effvmass.append(meaneff)
                 errvmass.append(efferr)
+                if mc_unbinned:
+                    meanvol, volerr = volume_montecarlo(newfound, newmissed, distribution_param,
+                                            distribution, limits_param, max_param, min_param)
                 volArray[(mc1,mc2)] = meanvol
                 vol2Array[(mc1,mc2)] = volerr
 
@@ -346,8 +476,8 @@ def compute_volume_vs_mass(found, missed, mass_bins, bin_type, dbins=None, plote
     for j,mc in enumerate(mass_bins.centres()[0]):
 
         # filter out injections not in this mass bin
-        newfound = filter_injections_by_mass( found, mass_bins, j, bin_type)
-        newmissed = filter_injections_by_mass( missed, mass_bins, j, bin_type)
+        newfound = filter_injections_by_mass(found, mass_bins, j, bin_type)
+        newmissed = filter_injections_by_mass(missed, mass_bins, j, bin_type)
 
         foundArray[(mc,)] = len(newfound)
         missedArray[(mc,)] = len(newmissed)
@@ -356,6 +486,10 @@ def compute_volume_vs_mass(found, missed, mass_bins, bin_type, dbins=None, plote
         meaneff, efferr, meanvol, volerr = mean_efficiency_volume(newfound, newmissed, dbins)
         effvmass.append(meaneff)
         errvmass.append(efferr)
+        # if the unbinned MC calculation is available, do it
+        if mc_unbinned:
+            meanvol, volerr = volume_montecarlo(newfound, newmissed, distribution_param,
+                                    distribution, limits_param, max_param, min_param)
         volArray[(mc,)] = meanvol
         vol2Array[(mc,)] = volerr
 
