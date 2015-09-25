@@ -1020,11 +1020,11 @@ XLALSimIMRSpinEOBInitialConditions(
       
       /* Print Step sizes in each of function variables */
       finalValues = gsl_multiroot_fsolver_dx(rootSolver);
-      printf("Stepsizes in each dimension:\n");
-      printf(" x = %.16e, py = %.16e, pz = %.16e\n", 
-          gsl_vector_get(finalValues, 0)/scale1,
-		       gsl_vector_get(finalValues, 1)/scale2,
-            gsl_vector_get(finalValues, 2)/scale3);
+//      printf("Stepsizes in each dimension:\n");
+//      printf(" x = %.16e, py = %.16e, pz = %.16e\n", 
+//          gsl_vector_get(finalValues, 0)/scale1,
+//		       gsl_vector_get(finalValues, 1)/scale2,
+//            gsl_vector_get(finalValues, 2)/scale3);
       
       /* Only allow this flag to be caught MAXcntGslNoProgress no. of times */
       cntGslNoProgress += 1;

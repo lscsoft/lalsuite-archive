@@ -867,13 +867,14 @@ int XLALSimAdjustRDattachmentTime(
             signal2->data[i] = cimag(h2m2->data->data[i]);
         }
        
-        if (debugPK) printf("left 2,-2 mode tAtt = %f     ", tAtt); 
+        if (debugPK) printf("left 2,-2 mode tAtt = %f     ", tAtt);
         if( XLALSimCheckRDattachment(signal1, signal2, ratio2m2, tAtt, 2, -2,
                         dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
                         timeVec, matchrange, approximant, JLN ) == XLAL_FAILURE )
         {
               XLAL_ERROR( XLAL_EFUNC );
         }
+        if (debugPK) printf("Quality  %f\n", (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
         
         if ( thrStore22L != 0. && thrStore2m2L != 0. ) {
             if ( (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr) < (thrStore22L - thr)*(thrStore22L - thr) + (thrStore2m2L - thr)*(thrStore2m2L - thr)  ) {
@@ -966,14 +967,15 @@ int XLALSimAdjustRDattachmentTime(
                 signal2->data[i] = cimag(h2m2->data->data[i]);
             }
        
-            if (debugPK) printf("right 2,-2 mode tAtt = %f     ", tAtt); 
+            if (debugPK) printf("right 2,-2 mode tAtt = %f     ", tAtt);
             if( XLALSimCheckRDattachment(signal1, signal2, ratio2m2, tAtt, 2, -2,
                             dt, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z,
                             timeVec, matchrange, approximant, JLN ) == XLAL_FAILURE )
             {
                   XLAL_ERROR( XLAL_EFUNC );
             }
-        
+            if (debugPK) printf("Quality  %f\n", (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr));
+
             if ( thrStore22R != 0. && thrStore2m2R != 0. ) {
                 if ( tRBest < timeVec->data[iBad] && (*ratio22 - thr)*(*ratio22 - thr) + (*ratio2m2 - thr)*(*ratio2m2 - thr) < (thrStore22R - thr)*(thrStore22R - thr) + (thrStore2m2R - thr)*(thrStore2m2R - thr)  ) {
                     thrStore22R = *ratio22;
