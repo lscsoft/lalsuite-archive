@@ -2547,7 +2547,7 @@ int XLALSimIMRSpinEOBWaveformAll(
             s2VecyData[i] = 0.;
             s2VeczData[i] = spin2[2]*(m2*m2/mTotal/mTotal);
             phiDModData[i]= phiVec.data[i];
-            phiModData[i] = phiVec.data[i];
+            phiModData[i] = 0.;
         }
         dynamics = XLALCreateREAL8ArrayL( 2, 15, (UINT4)retLenLow );
         for ( i = 0; i < retLen; i++ )
@@ -2781,7 +2781,7 @@ int XLALSimIMRSpinEOBWaveformAll(
             dynamicsHi->data[11*retLen + i] = s2VecyDataHi[i];
             dynamicsHi->data[12*retLen + i] = s2VeczDataHi[i];
             dynamicsHi->data[13*retLen + i] = phiDModDataHi[i];
-            dynamicsHi->data[14*retLen + i] = phiModDataHi[i];
+            dynamicsHi->data[14*retLen + i] = 0.;
         }
 //        dynamicsHi = XLALCreateREAL8ArrayL( 15, retLen );
 //        
@@ -3262,6 +3262,9 @@ int XLALSimIMRSpinEOBWaveformAll(
   Jx = eta*Lx + values->data[6] + values->data[9];
   Jy = eta*Ly + values->data[7] + values->data[10];
   Jz = eta*Lz + values->data[8] + values->data[11];
+    Jx = eta*Lx ;
+    Jy = eta*Ly ;
+    Jz = eta*Lz ;
   magJ = sqrt( Jx*Jx + Jy*Jy + Jz*Jz );
   
   if(debugPK){ 
@@ -3553,7 +3556,7 @@ int XLALSimIMRSpinEOBWaveformAll(
     aP2J = atan2(JframeEz[0]*LframeEy[0]+JframeEz[1]*LframeEy[1]+JframeEz[2]*LframeEy[2],
                  JframeEz[0]*LframeEx[0]+JframeEz[1]*LframeEx[1]+JframeEz[2]*LframeEx[2]);
     bP2J = acos( JframeEz[0]*LframeEz[0]+JframeEz[1]*LframeEz[1]+JframeEz[2]*LframeEz[2]);
-    gP2J = atan2(  JframeEy[0]*LframeEz[0]+JframeEy[1]*LframeEz[1]+JframeEy[2]*LframeEz[2],
+          gP2J = atan2(  JframeEy[0]*LframeEz[0]+JframeEy[1]*LframeEz[1]+JframeEy[2]*LframeEz[2],
                  -(JframeEx[0]*LframeEz[0]+JframeEx[1]*LframeEz[1]+JframeEx[2]*LframeEz[2]));
 
 /*if (i==0||i==1900) printf("{{%f,%f,%f},{%f,%f,%f},{%f,%f,%f}}\n",JframeEx[0],JframeEx[1],JframeEx[2],JframeEy[0],JframeEy[1],JframeEy[2],JframeEz[0],JframeEz[1],JframeEz[2]);
