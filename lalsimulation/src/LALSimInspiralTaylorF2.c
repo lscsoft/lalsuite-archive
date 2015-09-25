@@ -265,6 +265,7 @@ int XLALSimInspiralTaylorF2Core(
      * evaluated at f_ref, store it as ref_phasing and subtract it off.
      */
     REAL8 ref_phasing = 0.;
+    double ecc_phase_order[LAL_MAX_ECC_PN_ORDER+1]; // save ecc phase terms for each PN orders
     if( f_ref != 0. ) {
         const REAL8 vref = cbrt(piM*f_ref);
         const REAL8 logvref = log(vref);
@@ -292,7 +293,7 @@ int XLALSimInspiralTaylorF2Core(
 
         /* Eccentricity terms in phasing */
         if( ecc > 0 && f_ecc > 0) {
-          ref_phasing += eccentricityPhasing_F2(vref, v_ecc_ref, ecc, eta, eccOrder);
+          ref_phasing += eccentricityPhasing_F2(vref, v_ecc_ref, ecc, eta, eccOrder, ecc_phase_order);
         }
 
         ref_phasing /= v5ref;
@@ -304,7 +305,11 @@ int XLALSimInspiralTaylorF2Core(
     FILE *outPhase = NULL;
     if(called == 0) {
       outPhase = fopen(PhasePath, "w");
-      fprintf(outPhase, "#  (i+iStart)*deltaF, f, amp, phasing, phaseTotal, phase3p5, phaseEcc, ref_phasing, phi_ref, reduced phase total, reduced phase3p5, reduced phaseEcc\n");
+      fprintf(outPhase, "#  (i+iStart)*deltaF, f, amp, phasing, phaseTotal, phase3p5, phaseEcc, ref_phasing, phi_ref, red_phaseTotal, red_phase3p5, red_phaseEcc");
+      for(int j =0; j<=LAL_MAX_ECC_PN_ORDER; j++) {
+        fprintf(outPhase, ", eccPhase%d", j); 
+      }
+      fprintf(outPhase, "\n");
     }
     #pragma omp parallel for
     for (i = 0; i < freqs->length; i++) {
@@ -344,9 +349,13 @@ int XLALSimInspiralTaylorF2Core(
 
         /* Eccentricity terms in phasing */
         if( ecc > 0 && f_ecc > 0) {
-          phaseEcc = eccentricityPhasing_F2(v, v_ecc_ref, ecc, eta, eccOrder);
+          memset(ecc_phase_order, 0x00, (LAL_MAX_ECC_PN_ORDER+1)*sizeof(double));
+          phaseEcc = eccentricityPhasing_F2(v, v_ecc_ref, ecc, eta, eccOrder, ecc_phase_order);
           phasing += phaseEcc;
           phaseEcc /=v5;
+          for(int j =0; j <= LAL_MAX_ECC_PN_ORDER; j++) {
+            ecc_phase_order[j] /= v5;
+          }
           //phasing += eccentricityPhasing_F2(v, v_ecc_ref, ecc, eta, eccOrder);
         }
 
@@ -403,6 +412,10 @@ int XLALSimInspiralTaylorF2Core(
           redEcc = phaseEcc - factor*LAL_TWOPI;
           if(redEcc < 0.0) redEcc += LAL_TWOPI;
           fprintf(outPhase, "%10.6f %10.6f %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e\n", (i+iStart)*(freqs->data[2]-freqs->data[1]), f, amp, phasing, phaseTotal, phase3p5, phaseEcc, ref_phasing, phi_ref, redTotal, red3p5, redEcc);
+          for(int j =0; j<=LAL_MAX_ECC_PN_ORDER; j++) {
+            fprintf(outPhase, " %16.8e", ecc_phase_order[j]); 
+          }
+          fprintf(outPhase, "\n");
         }
     }
 
