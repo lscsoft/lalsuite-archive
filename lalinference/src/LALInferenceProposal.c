@@ -4002,13 +4002,7 @@ void LALInferenceComputeMaxAutoCorrLenFromDE(LALInferenceRunState *runState, INT
 REAL8 LALInferenceComputeMaxAutoCorrLen(REAL8 *array, INT4 nPoints, INT4 nPar) {
   INT4 M=5, K=2;
 
-  /* REAL8 mean, ACL, ACF, maxACL=0; */
-  /* In some cases, the following code do not set the value maxACL then return the 
-     initial value zero, which generate error of integer divide-by-zero in function
-     LALInferenceComputeEffectiveSampleSize(). Then stop the code abruptly.
-     Since the default value should be INFINITY, I set its initial value as INFINITY.
-     modified at 25 September 2015 by KGWG PE team */
-  REAL8 mean, ACL, ACF, maxACL=INFINITY;
+  REAL8 mean, ACL, ACF, maxACL=0;
   INT4 par=0, lag=0, i=0, imax;
   REAL8 cumACF, s;
 
@@ -4041,6 +4035,13 @@ REAL8 LALInferenceComputeMaxAutoCorrLen(REAL8 *array, INT4 nPoints, INT4 nPar) {
       for (i=0; i<nPoints; i++)
         array[i*nPar + par] += mean;
     }
+    /* In some cases, the value maxACL is zero at this point then return the 
+       value zero, which generate error of integer divide-by-zero in function
+       LALInferenceComputeEffectiveSampleSize(). Then stop the code abruptly.
+       Hence I have put 1.0 if its integer truncation is equal or less than zero.
+       Since the default value should be INFINITY, I set its value as INFINITY.
+       modified at 25 September 2015 by KGWG PE team */
+    if((INT4)maxACL <= 0) maxACL = 1;
   } else {
     maxACL = INFINITY;
   }
